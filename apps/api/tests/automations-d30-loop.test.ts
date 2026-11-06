@@ -9,7 +9,7 @@
 // 覆盖:门控关闭零定时器零网络 / 三源扫描请求 shape / 认领去重 / PR 创建与回帖 /
 //       PAT 脱敏 / agent 执行器通道契约。
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -456,5 +456,27 @@ describe('D30 agent 执行器', () => {
     })
     expect(bad.ok).toBe(false)
     expect(bad.error).toContain('500')
+  })
+})
+
+describe('认领账本读不到不覆盖', () => {
+  it('账本路径是目录时不把认领写成空文件', () => {
+    const root = mkdtempSync(join(tmpdir(), 'd30-ledger-'))
+    const ledgerPath = join(root, 'ledger.json')
+    mkdirSync(ledgerPath)
+    const ledger = createFileLedger(ledgerPath)
+    expect(() => ledger.claim('issue:1')).toThrow(/读不到/)
+    expect(statSync(ledgerPath).isDirectory()).toBe(true)
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('账本内容坏掉时不覆盖原字节', () => {
+    const root = mkdtempSync(join(tmpdir(), 'd30-ledger-'))
+    const ledgerPath = join(root, 'ledger.json')
+    writeFileSync(ledgerPath, '{', 'utf8')
+    const ledger = createFileLedger(ledgerPath)
+    expect(() => ledger.claim('issue:1')).toThrow(/读不到/)
+    expect(readFileSync(ledgerPath, 'utf8')).toBe('{')
+    rmSync(root, { recursive: true, force: true })
   })
 })

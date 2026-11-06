@@ -1329,4 +1329,312 @@ class TestSingleton:
         assert hasattr(koubo_workflow_service, "_graph")
         # _graph 要么是编译对象(available) 要么是 None
         assert koubo_workflow_service._graph is None or hasattr(koubo_workflow_service._graph, "ainvoke")
+
+
+def test_unreadable_directory_is_not_a_clean_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """子目录列不出来时,边界扫描不能报两棵树干净。"""
+    import os
+
+    from app.skills.koubo_workflow import scan_boundary as sb
+
+    root = tmp_path / "tree"
+    root.mkdir()
+    (root / "ok.md").write_text("fine\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.txt"
+    hidden.write_text("koubo\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    sb.issues.clear()
+    unread = sb.scan_tree(str(root), "wechat")
+    assert unread >= 1
+    assert sb.issues == []
+    assert sb.scan_status(unread) == "incomplete"
+    assert hidden.read_text(encoding="utf-8") == "koubo\n"
+
+
+def test_unreadable_directory_is_not_a_clean_wechat_audit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """公众号审计列不到子目录时,不能写成目录清洁。"""
+    import os
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    from app.skills.content_engine.full_audit import _scan_koubo_pollution
+
+    root = tmp_path / "wechat"
+    root.mkdir()
+    (root / "article.md").write_text("普通文章\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.txt"
+    hidden.write_text("口播稿\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    hits, unread = _scan_koubo_pollution(str(root))
+    assert hits == []
+    assert unread >= 1
+    missing_hits, missing_unread = _scan_koubo_pollution(str(tmp_path / "absent"))
+    assert missing_hits == []
+    assert missing_unread == 0
+    assert hidden.read_text(encoding="utf-8") == "口播稿\n"
+
+
+def test_unreadable_directory_is_not_a_clean_preflight(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """写作前扫描列不到子目录时,不能报无越界。"""
+    import argparse
+    import os
+
+    from app.skills.koubo_workflow.tools import project_preflight as preflight
+
+    koubo = tmp_path / "koubo"
+    gzh = tmp_path / "gzh"
+    koubo.mkdir()
+    gzh.mkdir()
+    (koubo / "ok.txt").write_text("a\n", encoding="utf-8")
+    blocked = koubo / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.html"
+    hidden.write_text("<p>x</p>\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    code = preflight.cmd_scan(
+        argparse.Namespace(),
+        koubo_dir=str(koubo),
+        gzh_dir=str(gzh),
+    )
+    assert code == 2
+    assert hidden.read_text(encoding="utf-8") == "<p>x</p>\n"
+
+
+def test_unreadable_directory_is_not_a_passed_hygiene_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """卫生检查列不到子目录时,项目边界不能判通过。"""
+    import os
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "koubo")
+    from app.skills.koubo_workflow.tools.project_hygiene import HygieneChecker
+
+    was = tmp_path / "wechat"
+    koubo = tmp_path / "koubo"
+    was.mkdir()
+    koubo.mkdir()
+    (was / "article.md").write_text("普通文章\n", encoding="utf-8")
+    blocked = was / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "leak.txt"
+    hidden.write_text("口播稿\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    checker = HygieneChecker()
+    checker.check_cross_project_boundary(was_dir=str(was), koubo_dir=str(koubo))
+    by_name = {name: (ok, detail) for name, ok, detail in checker.results}
+    ok, detail = by_name["项目边界·公众号目录无 .txt/MMDD.txt (零容忍)"]
+    assert ok is False
+    assert "不能把边界说成通过" in detail
+    assert hidden.read_text(encoding="utf-8") == "口播稿\n"
+
+
+def test_unreadable_directory_is_not_a_clean_pycache_scan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """列不到子目录时,不能说没有 __pycache__ 残留。"""
+    import os
+
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    from app.skills.content_engine.full_audit import _list_pycache
+
+    root = tmp_path / "proj"
+    root.mkdir()
+    blocked = root / "blocked"
+    blocked.mkdir()
+    cache = blocked / "__pycache__"
+    cache.mkdir()
+    leftover = cache / "mod.pyc"
+    leftover.write_bytes(b"x")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    found, unread = _list_pycache(str(root))
+    assert found == []
+    assert unread >= 1
+    missing, missing_unread = _list_pycache(str(tmp_path / "absent"))
+    assert missing == []
+    assert missing_unread == 0
+    assert leftover.read_bytes() == b"x"
+
+
+def test_unreadable_root_is_not_a_clean_boundary(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """项目根读不到时,边界扫描不能报两棵树干净。"""
+    import os
+
+    from app.skills.koubo_workflow import scan_boundary as sb
+
+    blocked = tmp_path / "root"
+    blocked.mkdir()
+    hidden = blocked / "leak.txt"
+    hidden.write_text("koubo\n", encoding="utf-8")
+    real_stat = os.stat
+
+    def deny(path: str, *args: object, **kwargs: object) -> object:
+        if Path(path) == blocked:
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(sb.os, "stat", deny)
+    sb.issues.clear()
+    unread = sb.scan_tree(str(blocked), "wechat")
+    assert unread >= 1
+    assert sb.scan_status(unread) == "incomplete"
+    assert hidden.read_text(encoding="utf-8") == "koubo\n"
+    assert sb.scan_tree(str(tmp_path / "absent"), "wechat") == 0
+
+
+def test_article_directory_is_not_written_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """文章路径是目录时,不能按空正文写回去。"""
+    monkeypatch.setenv("IHUI_SESSION_DOMAIN", "wechat")
+    import app.skills.content_engine.build_gpt56_sol as builder
+
+    blocked = tmp_path / "article.md"
+    blocked.mkdir()
+    monkeypatch.setattr(builder, "OUTPUT_DIR", str(tmp_path))
+    monkeypatch.setattr(builder, "MD_PATH", str(blocked))
+    with pytest.raises(OSError, match="读不到"):
+        builder.write_md()
+    assert blocked.is_dir()
+
+
+def test_coverage_log_unreadable_is_not_replaced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """核查记录读不到时,不能按空列表盖掉旧记录。"""
+    from app.skills.content_engine.lib import x_sources as xs
+
+    day = datetime.now().strftime("%Y-%m-%d")
+    target = tmp_path / f"{day}.json"
+    original = '[{"topic":"keep"}]'
+    target.write_text(original, encoding="utf-8")
+    real_stat = xs.os.stat
+
+    def deny(path: str, *args: object, **kwargs: object) -> object:
+        if str(path).endswith(".json"):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(xs.os, "stat", deny)
+    monkeypatch.setattr(xs, "coverage_dir", lambda: str(tmp_path))
+    with pytest.raises(OSError, match="读不到"):
+        xs.log_coverage("topic", ["next"])
+    assert target.read_text(encoding="utf-8") == original
+
+
+def test_koubo_root_unreadable_is_not_called_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """口播稿根是文件或读不到时,不能说成目录不存在。"""
+    monkeypatch.setenv('IHUI_SESSION_DOMAIN', 'koubo')
+    from app.skills.koubo_workflow.tools import project_hygiene as hy
+
+    blocked = tmp_path / '口播稿' / 'koubo'
+    blocked.parent.mkdir(parents=True)
+    blocked.write_text('keep', encoding='utf-8')
+    monkeypatch.setattr(hy, 'MEDIA_ROOT', str(tmp_path))
+    checker = hy.HygieneChecker()
+    checker.check_koubo()
+    detail = checker.results[0][2]
+    assert detail.startswith('目录读不到')
+    assert blocked.read_text(encoding='utf-8') == 'keep'
+
+
+def test_wechat_root_unreadable_is_not_called_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """公众号根是文件时,不能说成目录不存在。"""
+    monkeypatch.setenv('IHUI_SESSION_DOMAIN', 'koubo')
+    from app.skills.koubo_workflow.tools import project_hygiene as hy
+
+    blocked = tmp_path / '公众号'
+    blocked.write_text('keep', encoding='utf-8')
+    monkeypatch.setattr(hy, 'MEDIA_ROOT', str(tmp_path))
+    checker = hy.HygieneChecker()
+    checker.check_wechat()
+    detail = checker.results[0][2]
+    assert detail.startswith('目录读不到')
+    assert blocked.read_text(encoding='utf-8') == 'keep'
+
+
+def test_wechat_subtree_file_is_not_called_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """公众号子目录是文件时,不能整段跳过并说成没有。"""
+    monkeypatch.setenv('IHUI_SESSION_DOMAIN', 'koubo')
+    from app.skills.koubo_workflow.tools import project_hygiene as hy
+
+    root = tmp_path / '公众号'
+    root.mkdir()
+    blocked = root / 'wechat-article-system'
+    blocked.write_text('keep', encoding='utf-8')
+    monkeypatch.setattr(hy, 'MEDIA_ROOT', str(tmp_path))
+    checker = hy.HygieneChecker()
+    checker.check_wechat()
+    details = [row[2] for row in checker.results]
+    assert any(item.startswith('目录读不到') for item in details)
+    assert blocked.read_text(encoding='utf-8') == 'keep'
+
+
+def test_wechat_lib_unreadable_is_not_a_clean_whitelist(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """lib 不是目录时,白名单不能静默跳过并记成通过。"""
+    monkeypatch.setenv('IHUI_SESSION_DOMAIN', 'koubo')
+    from app.skills.koubo_workflow.tools import project_hygiene as hy
+
+    root = tmp_path / '公众号' / 'wechat-article-system'
+    root.mkdir(parents=True)
+    (root / 'lib').write_text('keep', encoding='utf-8')
+    monkeypatch.setattr(hy, 'MEDIA_ROOT', str(tmp_path))
+    checker = hy.HygieneChecker()
+    checker.check_wechat()
+    failed = [row for row in checker.results if row[1] is False and 'lib' in row[0]]
+    assert failed
+    assert (root / 'lib').read_text(encoding='utf-8') == 'keep'
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

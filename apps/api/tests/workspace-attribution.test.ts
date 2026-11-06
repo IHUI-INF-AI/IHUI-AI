@@ -165,5 +165,31 @@ describe('workspace attribution 路由', () => {
     const res = await app.inject({ method: 'GET', url: '/api/workspace/attribution' })
     expect(res.statusCode).toBe(400)
   })
+
+  it('坏 JSON 不能当成空归属再覆盖', async () => {
+    const first = await app.inject({
+      method: 'PUT',
+      url: '/api/workspace/attribution',
+      payload: {
+        workspacePath: WORKSPACE,
+        filePath: 'a.ts',
+        records: [record('a.ts', 1, 2)],
+      },
+    })
+    expect(first.statusCode).toBe(200)
+    expect(state.rows).toHaveLength(1)
+    state.rows[0]!.value = '{'
+    const second = await app.inject({
+      method: 'PUT',
+      url: '/api/workspace/attribution',
+      payload: {
+        workspacePath: WORKSPACE,
+        filePath: 'b.ts',
+        records: [record('b.ts', 1, 1)],
+      },
+    })
+    expect(second.statusCode).toBe(409)
+    expect(state.rows[0]!.value).toBe('{')
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

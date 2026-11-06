@@ -570,6 +570,17 @@ async def test_embed_different_model_different_cache(
 # =============================================================================
 
 
+async def test_hydrate_unreadable_is_not_empty(tmp_path):
+    """同名目录是读失败。不能标成已加载,否则下一次写会盖掉存档。"""
+    path = tmp_path / "mem.json"
+    path.mkdir()
+    store = VectorMemoryStore(persist_path=str(path))
+    count = await store.hydrate()
+    assert count == 0
+    assert store._hydrated is False
+    assert path.is_dir()
+
+
 async def test_hydrate_no_file(store: VectorMemoryStore):
     """持久化文件不存在时 hydrate 返回 0。"""
     count = await store.hydrate()
@@ -735,6 +746,26 @@ def test_persist_sync_resets_dirty(store: VectorMemoryStore):
 
     store._persist_sync({"entries": {"e1": {"content": "a"}}, "vectors": {"e1": [0.1]}})
     assert store._dirty is False
+
+
+def test_unreadable_archive_is_not_overwritten(tmp_path, monkeypatch: pytest.MonkeyPatch):
+    path = tmp_path / "memory.json"
+    path.write_bytes(b'{"entries":{"keep":1}}\n')
+    original = path.read_bytes()
+    store = VectorMemoryStore(persist_path=str(path))
+    assert store._hydrated is False
+    store._dirty = True
+    real_stat = os.stat
+
+    def fake_stat(target, *args, **kwargs):
+        if os.path.abspath(target) == os.path.abspath(path):
+            raise PermissionError(13, "denied", target)
+        return real_stat(target, *args, **kwargs)
+
+    monkeypatch.setattr(vm_mod.os, "stat", fake_stat)
+    store._persist_sync({"entries": {}, "vectors": {}})
+    assert path.read_bytes() == original
+    assert store._dirty is True
 
 
 def test_persist_sync_creates_parent_dir(tmp_path):
