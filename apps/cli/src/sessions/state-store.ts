@@ -21,6 +21,8 @@ import type { SessionState, SessionSummary } from './types.js';
 import { hydrateToolStateMap } from './tool-part-hydration.js';
 // 会话 id 路径穿越修复:会话 id 来自 `--resume`/ACP,不可信 —— 目录段收敛复用产物层唯一实现。
 import { sanitizeSessionSegment } from '../tools/result-envelope/artifact-store.js';
+// BUG-0010:会话状态落盘统一走唯一原子写出口(tmp+fsync+rename;Windows EPERM 有界重试)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -118,7 +120,7 @@ export function saveSession(state: SessionState): void {
     ...state,
     updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),
   };
-  fs.writeFileSync(p, JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(p, JSON.stringify(next, null, 2));
 }
 
 /**
@@ -154,7 +156,7 @@ export function patchSession(
     id: current.id,
     updatedAt: monotonicUpdatedAt(current.updatedAt, new Date().toISOString()),
   };
-  fs.writeFileSync(getSessionStatePath(id), JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(getSessionStatePath(id), JSON.stringify(next, null, 2));
   return next;
 }
 
