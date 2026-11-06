@@ -3370,6 +3370,11 @@ mod startup_health_gate_tests {
     /// (热刷新/离线兜底页/错误页自愈)都无条件 `show()`,用户手动隐藏后一刷新就被
     /// 重新弹出来。标记同样用 concat! 拆开,避免本模块自身命中。
     const M_SHOW_ONCE: &str = concat!("MAIN_SHOWN_", "ONCE.swap(true");
+    /// 2026-11-07 缺陷挖掘:release 档 `panic = "abort"` + 无 console ⇒ panic 后进程
+    /// 静默消失、无落盘诊断。钩子必须装在 Builder 之前,且崩溃日志根与 identifier 同源。
+    const M_PANIC_HOOK: &str = concat!("install_panic_", "log_hook(&app_identifier)");
+    const M_BUILDER: &str = concat!("tauri::Builder::", "default()");
+    const M_LEGACY_ID: &str = concat!("\"com.ihui.", "ai\"");
 
     /// 从 `marker` 之后第一个 `{` 起做**括号配平**,返回该块(含首尾括号)的字节区间。
     ///
@@ -3412,6 +3417,7 @@ mod startup_health_gate_tests {
             M_GATE_SPAWN,
             M_LOOP_START,
             M_SHOW_ONCE,
+            M_PANIC_HOOK,
         ] {
             let hits = SRC.matches(marker).count();
             assert_eq!(
@@ -3467,6 +3473,22 @@ mod startup_health_gate_tests {
         assert!(
             once_at < show_at,
             "闩锁取用排在 show() 之后 ⇒ 判据失效,窗口每次 Finished 仍会被点亮"
+        );
+    }
+
+    #[test]
+    fn panic钩子先于Builder安装且日志根与identifier一致() {
+        let hook = SRC
+            .find(M_PANIC_HOOK)
+            .expect("未安装 panic 日志钩子 ⇒ release abort 后进程静默消失,无任何落盘诊断");
+        let builder = SRC.find(M_BUILDER).expect("tauri::Builder 调用点不见了");
+        assert!(
+            hook < builder,
+            "panic 钩子装在 Builder 之后 ⇒ setup 期(建窗/插件初始化)的 panic 抓不到"
+        );
+        assert!(
+            !SRC.contains(M_LEGACY_ID),
+            "崩溃日志仍写死 com.ihui.ai ⇒ 与 tauri 日志根(identifier)分居两个目录,排障时找不到"
         );
     }
 
@@ -3545,6 +3567,59 @@ mod startup_health_gate_tests {
     }
 }
 
+/// 崩溃/panic 日志根(与 tauri_plugin_log 的 `app_log_dir` 同根):
+/// Windows `%LOCALAPPDATA%\<identifier>\logs`,identifier 一律取运行期配置(G-921)。
+fn crash_log_dir(identifier: &str) -> Option<std::path::PathBuf> {
+    let base = std::env::var_os("LOCALAPPDATA")
+        .or_else(|| std::env::var_os("APPDATA"))
+        .or_else(|| std::env::var_os("XDG_DATA_HOME"))
+        .or_else(|| std::env::var_os("HOME"))?;
+    Some(std::path::Path::new(&base).join(identifier).join("logs"))
+}
+
+/// panic 兜底落盘(2026-11-07 缺陷挖掘):release 档 `panic = "abort"` 且
+/// `windows_subsystem = "windows"` ⇒ 没有控制台,默认 hook 的输出无人可见,panic 后
+/// 进程直接消失(用户只看到白屏/闪退,无任何可回收的诊断)。这里在默认 hook 之外把
+/// 「消息 + 位置 + 线程」写进 `crash_log_dir(identifier)/panic-<ts>-<pid>.log`;
+/// 顺带把崩溃日志根从写死的 `com.ihui.ai` 对齐到 identifier,与 tauri 日志同目录。
+fn install_panic_log_hook(identifier: &str) {
+    let identifier = identifier.to_owned();
+    let default_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        let payload = info.payload();
+        let msg = payload
+            .downcast_ref::<&str>()
+            .map(|s| (*s).to_owned())
+            .or_else(|| payload.downcast_ref::<String>().cloned())
+            .unwrap_or_else(|| "<non-string panic payload>".to_owned());
+        let location = info
+            .location()
+            .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+            .unwrap_or_else(|| "<unknown>".to_owned());
+        let thread = std::thread::current()
+            .name()
+            .map(|n| n.to_owned())
+            .unwrap_or_else(|| "<unnamed>".to_owned());
+        let body = format!(
+            "IHUI Desktop panic\nTimestamp: {ts}\nThread: {thread}\nLocation: {location}\nMessage: {msg}\n"
+        );
+        if let Some(dir) = crash_log_dir(&identifier) {
+            if std::fs::create_dir_all(&dir).is_ok() {
+                let _ = std::fs::write(
+                    dir.join(format!("panic-{ts}-{}.log", std::process::id())),
+                    &body,
+                );
+            }
+        }
+        // 保留默认行为(stderr / backtrace 提示),控制台缺失时由上面的文件兜底。
+        default_hook(info);
+    }));
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // G-921(2026-10-19 立):identifier 一律取运行期配置,不得再写死任何一份。
@@ -3556,6 +3631,9 @@ pub fn run() {
     // 劈叉成两把锁(模块头注警告的"守护整体失效")。
     let context = tauri::generate_context!();
     let app_identifier = context.config().identifier.clone();
+    // 2026-11-07 缺陷挖掘:必须在 Builder 之前装,才能覆盖 setup 期(建窗/插件初始化)
+    // 的 panic;release `panic = "abort"` 下 hook 仍会先跑,是唯一可落盘的时机。
+    install_panic_log_hook(&app_identifier);
     // 2026-09-02 修复:显式固定进程级 AppUserModelID,使 Windows 通知区(系统托盘)
     // 图标的"显示/隐藏"记忆在 dev 重编译 / 发布更新 / 安装版之间保持一致。
     // 根因:Tauri 2.11 不会为进程设置 AppUserModelID,Windows 改用 exe 路径自动派生,
@@ -3682,8 +3760,9 @@ pub fn run() {
         // 即 §15b 批准的 DevEnv 缓存根(2026-09-30 由 G:\DevEnv 同卷搬入仓内 .DevEnv,
         // G-50/G-158;.gitignore:593 已整根忽略),不新增项目外落点。
         // 插件 2.9.0 源码考据详见 log_retention.rs 头注。2026-10-07 勘误:旧注
-        // "与崩溃现场 crash-*.log 同根(com.ihui.ai/logs)"是误读 —— crash handler 落
-        // %APPDATA%\com.ihui.ai\logs,与本日志根分属两个 hive + 两个 identifier,不同根。
+        // "与崩溃现场 crash-*.log 同根"曾是误读(crash handler 落 %APPDATA%\com.ihui.ai\logs,
+        // 与本日志根分属两个 hive + 两个 identifier)。2026-11-07 已收口:crash/panic 统一走
+        // `crash_log_dir(identifier)` = `%LOCALAPPDATA%\<identifier>\logs`,与本日志同根。
         .plugin(
             tauri_plugin_log::Builder::new()
                 .level(log::LevelFilter::Info)
@@ -4303,12 +4382,10 @@ pub fn run() {
                 "IHUI Desktop crash report\nTimestamp: {}\nError: {}\n\n{:?}",
                 ts, e, e
             );
-            // 尝试写 crash log(Windows: %APPDATA%,macOS/Linux: $HOME)
+            // 尝试写 crash log 到 crash_log_dir(Windows %LOCALAPPDATA%\<identifier>\logs,
+            // 其它平台 XDG_DATA_HOME/HOME;2026-11-07 起与 tauri 日志同根)
             let written = (|| {
-                let base = std::env::var_os("APPDATA")
-                    .or_else(|| std::env::var_os("XDG_DATA_HOME"))
-                    .or_else(|| std::env::var_os("HOME"))?;
-                let log_dir = std::path::Path::new(&base).join("com.ihui.ai").join("logs");
+                let log_dir = crash_log_dir(&app_identifier)?;
                 std::fs::create_dir_all(&log_dir).ok()?;
                 let log_path = log_dir.join(format!("crash-{}.log", ts));
                 std::fs::write(&log_path, &log_content).ok()?;
