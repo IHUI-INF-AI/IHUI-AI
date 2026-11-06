@@ -131,9 +131,20 @@ const bash = (script, cwd = REPO) => {
 // CI/worktree 无副本,直接 read 会 ENOENT 硬红。那红是"未判定"而不是"副本分叉":
 // skip 必须点名原因("把没判写成判过"是本仓最高频失效型,静默跳过与判过在账面上不可分),
 // 在部署机(目录在位)上逐字节校验自动恢复执行。
-const BUNDLE_ROOT = join(REPO, 'deploy', 'prod-bundle')
+//
+// 判据必须钉**具体产物文件**,不能钉目录存在性:deploy/prod-bundle/cloudflared/config.yml 是入库文件,
+// 目录在干净 checkout 里恒存在 ⇒ 目录判据恒真 ⇒ skip 闸失效 ⇒ 7 条用例在无副本环境恒红
+// (2026-11-07 实测:node --test 该文件 rc=1,T2/T3/T4/T6/T7/T8/T11 全红,根因 ENOENT)。
+const BUNDLE_REQUIRED = [
+  BUNDLE_LIB,
+  BUNDLE_MJS,
+  BUNDLE_DEPLOY,
+  BUNDLE_HEALTH,
+  BUNDLE_PSLIB,
+  BUNDLE_PS_DEPLOY,
+]
 function needBundle(t) {
-  if (existsSync(BUNDLE_ROOT)) return false
+  if (BUNDLE_REQUIRED.every((rel) => existsSync(join(REPO, rel)))) return false
   t.skip(
     'deploy/prod-bundle/ 为部署机产物(被 .gitignore 忽略),本环境无副本 ⇒ 未判定(非分叉/非缺陷);' +
       '在部署机上本用例自动恢复逐字节校验',
