@@ -18,9 +18,10 @@
  * 46 对词条,而真正的新漂移混在里面分不出来(账面看不出错,人也不敢下手)。本尺把这格变成机读:
  * 每条漂移必须在台账里有一条**带类别、带理由、带存活期**的裁定,否则点名。
  *
- * 档位:只读对账尺,**不进提交链、不进 CI**(§12e —— 判的是文案裁定面,存量未清时挂成提交门就是
- * 恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门)。唯一调度器 = git-guardian 巡检轮,
- * 人主动复跑走 `pnpm check:i18n-cross-end`。
+ * 档位:只读对账尺,原**不进提交链、不进 CI**(§12e —— 判的是文案裁定面,存量未清时挂成提交门就是
+ * 恒红门,唯一结局是逼人 `--no-verify` 连带废掉全部守门)。2026-11-06 起以**回归制**进提交链:
+ * 存量写进 `scripts/data/i18n-cross-end-wording-baseline.json`,commit 面只 advisory、
+ * push 面只对"比基线更坏"blocking —— 不造恒红,也不再把"攒新漂移"放成无人区。
  *
  * 判据要点(方向都是"宁可多喊,不可静放"):
  *  - 漂移按 **zh-CN 面**取键集与值(基准语言),五语言里任一条目只要"键在两端都存在且值不等"即算漂移;
@@ -33,23 +34,36 @@
  *   node scripts/check-i18n-cross-end-wording.mjs              # 人读报表
  *   node scripts/check-i18n-cross-end-wording.mjs --json        # 机读(供守护轮/看板)
  *   node scripts/check-i18n-cross-end-wording.mjs --all         # 全列漂移(缺省只点名前 20 条)
+ *   node scripts/check-i18n-cross-end-wording.mjs --gate        # 回归制:比仓内基线(commit advisory)
+ *   node scripts/check-i18n-cross-end-wording.mjs --gate --push # 回归制 push 面(恶化即失败)
  *   node scripts/check-i18n-cross-end-wording.mjs --self-test   # 判据自检(不碰真仓)
  *
  * 退出码:0 = 漂移全部有在册裁定且清单不腐烂;1 = 有未裁定/过期/腐烂/非法类别;2 = 未判定。
+ * --gate 档:0 = 未比基线更坏;1 = 相对基线恶化;2 = 未判定(基线或词包读不到)。
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { describeRegressions, judgeBaseline, readBaseline } from './lib/cross-end-baseline-gate.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const WAIVER_REL = 'scripts/data/i18n-cross-end-waivers.jsonl'
-const LANGS = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
+const GATE_BASELINE_PATH = join(ROOT, 'scripts', 'data', 'i18n-cross-end-wording-baseline.json')
 // 对账的两个端:小程序端 ↔ RN 端(用户口径"小程序端对齐 RN 端",这两端是同一批屏)
 const END_A = 'miniapp-taro'
 const END_B = 'mobile-rn'
 const MIN_REASON = 20
+/** 变坏方向表(判据原文):漂移/未裁/形态坏/过期/腐烂净增都算恶化;已裁净减也算恶化 */
+export const WORDING_GATE_DIRECTIONS = [
+  ['driftTotal', 'up', '同名键漂移总数'],
+  ['cleared', 'down', '已裁定漂移数'],
+  ['uncleared', 'up', '未裁定漂移数'],
+  ['invalid', 'up', '裁定形态坏'],
+  ['expired', 'up', '裁定已过期'],
+  ['rot', 'up', '清单腐烂'],
+]
 
 /** 允许作为裁定的类别。刻意不含"同屏两套字"——那是待修项,不是可豁免项。 */
 export const LEGAL_KINDS = new Set([
@@ -224,6 +238,36 @@ export function run(argv = [], io = console) {
   }
   const bad = m.uncleared.length + m.invalid.length + m.expired.length + m.rot.length
   const state = bad === 0 ? 'clean' : 'drift-uncleared'
+  /**
+   * 回归制(2026-11-06):--gate 只比仓内基线,不看绝对存量(uncleared=1 是既有存量)。
+   * 基线读不到 / 任一词包维取不到 ⇒ exit 2 未判定,绝不折成"没恶化"(§0.3)。
+   */
+  if (argv.includes('--gate')) {
+    const read = readBaseline(GATE_BASELINE_PATH)
+    const values = {
+      driftTotal: m.driftTotal,
+      cleared: m.cleared,
+      uncleared: m.uncleared.length,
+      invalid: m.invalid.length,
+      expired: m.expired.length,
+      rot: m.rot.length,
+    }
+    const judged = read.ok
+      ? judgeBaseline({ values, baseline: read.baseline, directions: WORDING_GATE_DIRECTIONS })
+      : { state: 'undetermined', regressions: [], missing: [], why: read.why }
+    const gate = { ...judged, face: argv.includes('--push') ? 'push' : 'commit-advisory', baseline: read.ok ? GATE_BASELINE_PATH.replace(/\\/g, '/').replace(`${ROOT.replace(/\\/g, '/')}/`, '') : null, values }
+    if (argv.includes('--json')) {
+      io.log(JSON.stringify({ face: m.face, ends: m.ends, gate }, null, 2))
+    } else {
+      io.log(
+        `CROSS-END-WORDING face=${m.face} ${m.ends[0]}↔${m.ends[1]} 同名键 ${m.sharedKeys} · 漂移 ${m.driftTotal} · 已裁 ${m.cleared} · 未裁 ${m.uncleared.length} · 形态坏 ${m.invalid.length} · 过期 ${m.expired.length} · 腐烂 ${m.rot.length}`,
+      )
+      io.log(`GATE(${gate.face} · 基线 ${gate.baseline ?? '缺失'}) STATE=${gate.state} —— ${describeRegressions(gate)}`)
+      for (const r of gate.regressions || []) io.log(`  ✗ ${r.dim}(${r.label}) 基线 ${r.baseline} → 现读 ${r.current}`)
+      for (const d of m.uncleared) io.log(`  · 存量未裁定 ${d.key}(只报数,不阻断)`)
+    }
+    return gate.state === 'regressed' ? 1 : gate.state === 'undetermined' ? 2 : 0
+  }
   if (argv.includes('--json')) {
     io.log(
       JSON.stringify(
