@@ -84,7 +84,7 @@ export function LiveDetailScreen({
   onSend,
   onSubscribe,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: LiveDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -316,7 +316,11 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: rnSpacing.sm,
     },
-    introText: { fontSize: rnType.body.size, color: tk.text.secondary, lineHeight: 20 },
+    introText: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.body.lineHeight,
+    },
     chatSection: { flex: 1, paddingHorizontal: rnSpacing['sm-loose'], marginTop: rnSpacing.sm },
     chatStatusRow: {
       flexDirection: 'row',

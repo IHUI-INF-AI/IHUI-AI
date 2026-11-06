@@ -148,7 +148,11 @@ export function createSupportStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     secondaryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.lg,
@@ -177,7 +181,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     descLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
-    descText: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
+    descText: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
     commentsBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,

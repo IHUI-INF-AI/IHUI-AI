@@ -299,7 +299,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     paragraph: {
       fontSize: rnType.body.size,
-      lineHeight: 24,
+      lineHeight: rnType.title.lineHeight,
       color: tk.text.primary,
     },
     contentEmpty: {

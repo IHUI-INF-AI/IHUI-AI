@@ -151,7 +151,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.tertiary,
       textAlign: 'center',
-      lineHeight: 16,
+      lineHeight: rnType.label.lineHeight,
     } as TextStyle,
     // 同上:alignSelf/width/height/marginTop 是外层占槽位的布局档;钮面档在 detailsButton,
     // 内层按 100% 撑满那个固定尺寸盒 ⇒ 胶囊尺寸、居中与投影范围不变。数值逐字搬移未新增。

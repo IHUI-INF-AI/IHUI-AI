@@ -376,7 +376,7 @@ function createStyles(tk: AppThemeTokens) {
     cardDesc: {
       marginTop: rnSpacing.xs,
       fontSize: rnType.label.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     metaRow: {

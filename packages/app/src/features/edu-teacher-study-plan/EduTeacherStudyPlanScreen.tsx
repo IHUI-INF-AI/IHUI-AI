@@ -842,7 +842,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     headerTitle: { fontSize: rnType.title.size, fontWeight: '500', color: tk.text.primary },
     headerSpacer: { width: 32 },
-    subtitle: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.tertiary },
+    subtitle: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.tertiary,
+    },
     notice: {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing.md,
@@ -1031,7 +1035,7 @@ function createStyles(tk: AppThemeTokens) {
     detailDesc: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.label.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     progress: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.secondary },
@@ -1090,7 +1094,11 @@ function createStyles(tk: AppThemeTokens) {
     itemText: { fontSize: rnType.body.size, color: tk.text.primary },
     itemTextSm: { fontSize: rnType.label.size, color: tk.text.primary },
     itemTextDone: { color: tk.text.tertiary, textDecorationLine: 'line-through' },
-    itemMeta: { marginTop: rnSpacing['2xs'], fontSize: rnType.caption.size, color: tk.text.tertiary },
+    itemMeta: {
+      marginTop: rnSpacing['2xs'],
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
+    },
     /* 弹层 */
     modalRoot: { flex: 1, justifyContent: 'flex-end' },
     modalScrim: {

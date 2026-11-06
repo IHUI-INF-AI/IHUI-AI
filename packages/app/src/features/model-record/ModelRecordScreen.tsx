@@ -754,7 +754,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     imageWrap: { marginBottom: rnSpacing.md },
-    imageWrapLast: { marginBottom: 0 },
+    imageWrapLast: { marginBottom: rnSpacing.none },
     imageBase: { width: '100%', borderRadius: rnRadius.sm, backgroundColor: tk.surface.muted },
     // 取不到自然尺寸时(小程序侧无 onLoad)按 0.62 竖屏比例占位,避免高度塌成 0
     imageFallback: { aspectRatio: 0.62 },
