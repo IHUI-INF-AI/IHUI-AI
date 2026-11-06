@@ -792,7 +792,9 @@ test('BUG-0030 红臂:图标回注旧字形/删除具名豁免 ⇒ 判据重新�
       `${p} 回注 × 后仍不判红 ⇒ GA1 判据失明`,
     )
   }
-  const learn = showHead(BACK_WEB_FILE).replace(/back-label-exempt:[^\n]*\n/g, '')
+  // 剥掉整段 JSX 注释(只删标记文本会留下 `{/* `,把后续按钮整个吞成注释 ⇒ 假绿)
+  const learn = showHead(BACK_WEB_FILE).replace(/\{\/\*[^\n]*back-label-exempt:[^\n]*\*\/\}/g, '')
+  assert.notEqual(learn, showHead(BACK_WEB_FILE), '已找不到 back-label-exempt 注释锚点 ⇒ 红臂换锚点,别删')
   const r = scanText(BACK_WEB_FILE, learn).violations.ga4
   assert.ok(r.length >= 2, `删掉具名豁免后「返回」未重新判红(实得 ${r.length}) ⇒ 豁免没有被门显式记账`)
 })
