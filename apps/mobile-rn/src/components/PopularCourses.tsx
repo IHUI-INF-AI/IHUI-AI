@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   },
   info: {
     paddingTop: rnSpacing.sm,
-    paddingHorizontal: 0,
+    paddingHorizontal: rnSpacing.none,
   },
   title: {
     fontSize: rnType.body.size,

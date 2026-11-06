@@ -12,7 +12,7 @@
 import { Platform, StyleSheet } from 'react-native'
 import type { ViewStyle, TextStyle, ImageStyle } from 'react-native'
 import { tokens as tk } from '../theme/active-tokens'
-import { rnRadius, withAlpha } from '@ihui/design-tokens'
+import { rnRadius, withAlpha, rnSpacing } from '@ihui/design-tokens'
 import {
   TAB_BAR_FONT_SIZE_ACTIVE_PX,
   TAB_BAR_FONT_SIZE_PX,
@@ -161,7 +161,7 @@ export const tabBarStyles = {
     alignItems: 'center',
     justifyContent: 'center',
     height: TAB_BAR_HEIGHT,
-    paddingVertical: 4,
+    paddingVertical: rnSpacing.xs,
   } satisfies ViewStyle,
 
   icon: {
@@ -194,7 +194,7 @@ export const tabBarStyles = {
 
   label: {
     fontSize: TAB_BAR_FONT_SIZE,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
     lineHeight: TAB_BAR_FONT_SIZE + 2,
   } satisfies TextStyle,
 

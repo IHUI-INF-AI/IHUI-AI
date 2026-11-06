@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
   } as TextStyle,
   table: {
-    gap: 0,
+    gap: rnSpacing.none,
   } as ViewStyle,
   tableRow: {
     flexDirection: 'row',
