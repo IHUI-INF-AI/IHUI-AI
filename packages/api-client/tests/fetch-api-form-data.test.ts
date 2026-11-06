@@ -14,12 +14,14 @@ describe('fetchApi FormData', () => {
   it('原样透传 FormData 且不覆盖 multipart Content-Type', async () => {
     const formData = new FormData()
     formData.append('file', new Blob(['ihui']), 'test.txt')
+    const body = { code: 0, message: 'ok', data: { id: 'file-1' } }
     const transport = vi.fn(async () => ({
       ok: true,
       status: 200,
       headers: { get: () => null },
-      text: async () => '',
-      json: async () => ({ code: 0, message: 'ok', data: { id: 'file-1' } }),
+      // BUG-13:fetchApi 对 2xx 走 response.text(),mock 的 text 必须与 json 同源。
+      text: async () => JSON.stringify(body),
+      json: async () => body,
     })) as unknown as Transport
     setTransport(transport)
 
