@@ -17,6 +17,7 @@ import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { todayString, shiftDate } from '../utils/checkin-helpers.js'
+import { bizDayStartUtcForKey } from '../utils/biz-day.js'
 import {
   findTodaySignIn,
   findRecentSignInRecords,
@@ -160,10 +161,10 @@ function weekStartOf(dateStr: string): string {
 }
 
 /** 今天 0 点 / 明天 0 点(Date,用于 timestamp 区间比较) */
-function dayBounds(today: string): { from: Date; to: Date } {
+export function dayBounds(today: string): { from: Date; to: Date } {
   return {
-    from: new Date(today + 'T00:00:00Z'),
-    to: new Date(shiftDate(today, 1) + 'T00:00:00Z'),
+    from: bizDayStartUtcForKey(today),
+    to: bizDayStartUtcForKey(shiftDate(today, 1)),
   }
 }
 
