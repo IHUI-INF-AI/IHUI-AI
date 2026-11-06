@@ -38,10 +38,9 @@ vi.mock('next-intl', async () => {
 
 const { chatStoreSetState } = vi.hoisted(() => ({ chatStoreSetState: vi.fn() }))
 vi.mock('@/stores/chat', () => ({
-  useChatStore: Object.assign(
-    (selector: (s: Record<string, unknown>) => unknown) => selector({}),
-    { setState: chatStoreSetState },
-  ),
+  useChatStore: Object.assign((selector: (s: Record<string, unknown>) => unknown) => selector({}), {
+    setState: chatStoreSetState,
+  }),
 }))
 
 import { ImportSourceBanner } from '../import-source-banner'
@@ -130,8 +129,11 @@ describe('ImportSourceBanner', () => {
 describe('ImportAnalysisDialog', () => {
   it('未选场景时"发起分析"按钮禁用(不许发一条没有要求的指令)', async () => {
     render(<ImportAnalysisDialog open onOpenChange={() => {}} source="wechat" />)
-    await waitFor(() =>
-      expect(screen.getAllByTestId('import-analysis-recommended').length).toBeGreaterThan(0),
+    // 本套首例承担场景库冷加载:全量串跑(串行 + 机器有其他并发)时默认 1s 等待会被挤爆,
+    // 单跑实测 336ms。只放宽"等到出现"的上限,断言本身不变(出现 + 按钮 disabled 都要真。
+    await waitFor(
+      () => expect(screen.getAllByTestId('import-analysis-recommended').length).toBeGreaterThan(0),
+      { timeout: 5000 },
     )
     expect((screen.getByTestId('import-analysis-submit') as HTMLButtonElement).disabled).toBe(true)
   })

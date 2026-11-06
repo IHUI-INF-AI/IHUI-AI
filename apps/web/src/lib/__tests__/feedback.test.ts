@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest'
 import { TYPE_ICON, TYPE_BADGE, STATUS_BADGE, PRIORITY_BADGE, api } from '../feedback'
 import { Bug, Lightbulb, Wrench, HelpCircle } from 'lucide-react'
+import { fakeResponse } from '../../../tests/helpers/fake-response'
 
 describe('feedback constants', () => {
   it('TYPE_ICON 映射正确', () => {
@@ -37,10 +38,9 @@ describe('api helper', () => {
   it('成功时返回 data', async () => {
     const originalFetch = global.fetch
     global.fetch = (() =>
-      Promise.resolve({
-        ok: true,
-        json: async () => ({ code: 0, message: 'ok', data: { v: 1 } }),
-      } as unknown as Response)) as unknown as typeof fetch
+      Promise.resolve(
+        fakeResponse({ code: 0, message: 'ok', data: { v: 1 } }),
+      )) as unknown as typeof fetch
     try {
       const data = await api('/test')
       expect(data).toEqual({ v: 1 })
@@ -52,10 +52,9 @@ describe('api helper', () => {
   it('失败时抛错', async () => {
     const originalFetch = global.fetch
     global.fetch = (() =>
-      Promise.resolve({
-        ok: true,
-        json: async () => ({ code: 1, message: '失败', data: null }),
-      } as unknown as Response)) as unknown as typeof fetch
+      Promise.resolve(
+        fakeResponse({ code: 1, message: '失败', data: null }),
+      )) as unknown as typeof fetch
     try {
       await expect(api('/test')).rejects.toThrow('失败')
     } finally {

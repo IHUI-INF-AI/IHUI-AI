@@ -6,6 +6,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { fetchApi, getLastRefreshFailure } from '../api'
 import { useAuthStore } from '@/stores/auth'
 import { clearSessionLoggedOutMarker } from '@/lib/session-marker'
+import { fakeResponse } from '../../../tests/helpers/fake-response'
 
 /**
  * 登录弹窗 store 的**忠实**替身(2026-09-25 加,配 401 接线票)。
@@ -52,14 +53,12 @@ vi.mock('@/stores/login-dialog', () => ({
 }))
 
 const unauthorizedResponses = () =>
-  vi.fn().mockImplementation(async () => ({
-    // 业务请求与静默续期都回 401 ⇒ refreshAccessToken 拿不到 token ⇒ 属"确实无有效凭据"
-    ok: false,
-    status: 401,
-    headers: new Headers(),
-    text: async () => JSON.stringify({ code: 40101, message: '登录已过期' }),
-    json: async () => ({ code: 40101, message: '登录已过期' }),
-  }))
+  // 业务请求与静默续期都回 401 ⇒ refreshAccessToken 拿不到 token ⇒ 属"确实无有效凭据"
+  vi
+    .fn()
+    .mockImplementation(async () =>
+      fakeResponse({ code: 40101, message: '登录已过期' }, { ok: false, status: 401 }),
+    )
 
 describe('fetchApi', () => {
   const originalFetch = global.fetch
@@ -79,10 +78,11 @@ describe('fetchApi', () => {
   })
 
   it('成功请求返回 { success: true, data }', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ code: 0, message: 'ok', data: { id: 1 } }),
-    }) as unknown as typeof fetch
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        fakeResponse({ code: 0, message: 'ok', data: { id: 1 } }),
+      ) as unknown as typeof fetch
 
     const r = await fetchApi('/api/test')
     expect(r.success).toBe(true)
@@ -90,10 +90,11 @@ describe('fetchApi', () => {
   })
 
   it('code !== 0 返回失败', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ code: 1001, message: '参数错误', data: null }),
-    }) as unknown as typeof fetch
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        fakeResponse({ code: 1001, message: '参数错误', data: null }),
+      ) as unknown as typeof fetch
 
     const r = await fetchApi('/api/test')
     expect(r.success).toBe(false)
@@ -101,12 +102,11 @@ describe('fetchApi', () => {
   })
 
   it('HTTP 非 2xx 返回失败', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 500,
-      headers: new Headers(),
-      text: async () => '服务器错误',
-    }) as unknown as typeof fetch
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        fakeResponse('服务器错误', { ok: false, status: 500 }),
+      ) as unknown as typeof fetch
 
     const r = await fetchApi('/api/test')
     expect(r.success).toBe(false)
@@ -114,14 +114,11 @@ describe('fetchApi', () => {
   })
 
   it('HTTP 非 2xx 且 text 失败时回退状态码', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: false,
-      status: 404,
-      headers: new Headers(),
-      text: async () => {
-        throw new Error('read fail')
-      },
-    }) as unknown as typeof fetch
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(
+        fakeResponse('', { ok: false, status: 404, textThrows: true }),
+      ) as unknown as typeof fetch
 
     const r = await fetchApi('/api/test')
     expect(r.success).toBe(false)
@@ -146,10 +143,9 @@ describe('fetchApi', () => {
 
   it('携带 token 时添加 Authorization header', async () => {
     useAuthStore.getState().setToken('mytoken')
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ code: 0, message: 'ok', data: null }),
-    })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeResponse({ code: 0, message: 'ok', data: null }))
     global.fetch = fetchMock as unknown as typeof fetch
 
     await fetchApi('/api/test')
@@ -159,10 +155,9 @@ describe('fetchApi', () => {
   })
 
   it('无 token 时不添加 Authorization header', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ code: 0, message: 'ok', data: null }),
-    })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeResponse({ code: 0, message: 'ok', data: null }))
     global.fetch = fetchMock as unknown as typeof fetch
 
     await fetchApi('/api/test')
@@ -172,10 +167,9 @@ describe('fetchApi', () => {
   })
 
   it('默认 Content-Type 为 application/json', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ code: 0, message: 'ok', data: null }),
-    })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeResponse({ code: 0, message: 'ok', data: null }))
     global.fetch = fetchMock as unknown as typeof fetch
 
     await fetchApi('/api/test', { method: 'POST', body: '{}' })
@@ -185,10 +179,9 @@ describe('fetchApi', () => {
   })
 
   it('FormData 不设置 Content-Type(浏览器自动 multipart)', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ code: 0, message: 'ok', data: null }),
-    })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(fakeResponse({ code: 0, message: 'ok', data: null }))
     global.fetch = fetchMock as unknown as typeof fetch
 
     const form = new FormData()
@@ -227,10 +220,7 @@ describe('fetchApi', () => {
     const fetchMock = vi
       .fn()
       .mockRejectedValueOnce(new Error('network down'))
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ code: 0, message: 'ok', data: { v: 1 } }),
-      })
+      .mockResolvedValueOnce(fakeResponse({ code: 0, message: 'ok', data: { v: 1 } }))
     global.fetch = fetchMock as unknown as typeof fetch
 
     const r = await fetchApi('/api/test')
@@ -260,7 +250,8 @@ describe('fetchApi', () => {
  * - 经包装层的非 GET 401 **仍**弹窗,且"共享包处理器 + 包装层"两条路径同 tick 命中时
  *   只开**一个**弹窗(接线最容易糊过去的那一点)
  * - 经端点函数(不经过本包装层)的非 GET 401 现在也弹窗 —— 这就是本票要补的能力
- * - GET 401 与"刷新中(isAuthenticated 但 token 为空)"仍不弹,懒触发策略原样保住
+ * - GET 401 仍不弹(懒触发策略不因接线而放宽);续期失败出口的「刷新期间态」
+ *   (isAuthenticated=true 且 token=null)改为"先清会话、再按非 GET 弹窗"(BUG-69)
  */
 describe('401 → 登录弹窗接线', () => {
   const originalFetchForWiring = global.fetch
@@ -309,13 +300,20 @@ describe('401 → 登录弹窗接线', () => {
     expect(dialogMock.state.openCount).toBe(0)
   })
 
-  it('刷新中(isAuthenticated=true 且 token=null)不弹窗', async () => {
+  it('续期失败出口:刷新期间态(isAuthenticated=true 且 token=null)也清会话并弹窗(BUG-69)', async () => {
+    // BUG-69(2026-11-06)三端 401 语义收敛后,本回调只会被 api-client 在
+    // 「续期一次已失败」的分支里调用(见 shared client.ts 不变量:续期成功路径绝不可达),
+    // 因此这里的 "isAuthenticated=true 且 token=null" 已不再是"刷新正在进行",而是
+    // "续期已失败、store 尚未清" —— 必须先清本地凭据(被动失效),再按非 GET 弹窗。
+    // 2026-08-14「刷新中不弹」要保护的是续期仍在飞的场景,那由共享包不变量保证。
     global.fetch = unauthorizedResponses() as unknown as typeof fetch
     useAuthStore.setState({ isAuthenticated: true, token: null })
 
     await fetchApi('/api/test', { method: 'POST', body: '{}' })
 
-    expect(dialogMock.state.openCount).toBe(0)
+    expect(dialogMock.state.openCount).toBe(1)
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(useAuthStore.getState().token).toBeNull()
     useAuthStore.setState({ isAuthenticated: false })
   })
 })
@@ -377,9 +375,7 @@ describe('auth/refresh 超时与瞬时失败分型(2026-10-12)', () => {
             reject(new DOMException('aborted', 'AbortError'))
             return
           }
-          signal?.addEventListener('abort', () =>
-            reject(new DOMException('aborted', 'AbortError')),
-          )
+          signal?.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
         })
       }
       return Promise.resolve({

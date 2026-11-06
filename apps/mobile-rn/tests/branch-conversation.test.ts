@@ -23,6 +23,7 @@ import { branchConversation } from '@ihui/api-client'
 import type { ApiResult } from '@ihui/types'
 import { translate } from '@ihui/i18n/loader'
 import { messages } from '../src/i18n'
+import { fakeResponse } from './helpers/fake-response'
 // 被测模块(真身,非 mock)
 import {
   branchConversationFromMessage,
@@ -133,11 +134,11 @@ describe('isBranchableTarget', () => {
 describe('接线:真 api-client 的 branchConversation 跑通一次', () => {
   it('假 transport 下真模块真调用,且返回信封与实现契约一致', async () => {
     // 只替全局 fetch(传输层),@ihui/api-client 与 src/i18n 都是真身。
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ code: 0, message: 'ok', data: { conversation: { id: 'srv-1' } } }),
-    })
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        fakeResponse({ code: 0, message: 'ok', data: { conversation: { id: 'srv-1' } } }),
+      )
     vi.stubGlobal('fetch', fetchMock)
 
     const res = await branchConversation('conv-src', 'msg-anchor')

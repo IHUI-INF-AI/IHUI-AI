@@ -101,10 +101,21 @@ describe('三处迁移的装车断言(端内一律经出口)', () => {
     expect(body).not.toMatch(/\.list/)
   })
 
-  it('401 弹窗通路在位:web 端把包装层同一个函数注册给共享包', () => {
+  it('401 弹窗通路在位:web 端把包装层同一个函数注册给共享包(BUG-69 先清会话再弹窗)', () => {
     const web = readFileSync(webApiFile, 'utf8')
-    expect(web).toMatch(
-      /setUnauthorizedHandler\(\(ctx\)\s*=>\s*requestLoginDialogForUnauthorized\(ctx\.method\)\)/,
+    // 按当前真形状取"注册块":块体(不是单表达式)。旧形状 `=> requestLoginDialogForUnauthorized(...)`
+    // 取不到块 ⇒ 本断言直接红,即反向验证"改回只弹窗不清会话"必然失败。
+    const block = web.match(/setUnauthorizedHandler\(\(ctx\)\s*=>\s*\{[\s\S]*?\n\}\)/)
+    if (!block)
+      throw new Error('未找到 setUnauthorizedHandler 注册块(块体形状)—— 接线被改?先修本测试')
+    const body = block[0]
+    // BUG-69 语义:三端 401 的唯一出口先清被动失效的本地凭据,再交给弹窗判定(非 GET 才弹)
+    expect(body).toMatch(/useAuthStore\.getState\(\)\.expireSession\(\)/)
+    expect(body).toMatch(/requestLoginDialogForUnauthorized\(ctx\.method\)/)
+    // 顺序即语义:先清再判定 —— 反过来(判定在前)会被"刷新期间态"的懒触发守卫整段吞掉,
+    // 该出口就变成静默(用户点了没反应),正是 BUG-69 要堵的那一格
+    expect(body.indexOf('expireSession()')).toBeLessThan(
+      body.indexOf('requestLoginDialogForUnauthorized(ctx.method)'),
     )
     // 包装层与钩子共用一份实现(不得复制第二份判断)
     expect(web.match(/requestLoginDialogForUnauthorized/g)!.length).toBeGreaterThanOrEqual(3)
