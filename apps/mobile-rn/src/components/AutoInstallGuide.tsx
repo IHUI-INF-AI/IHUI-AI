@@ -41,8 +41,10 @@ export function AutoInstallGuide(): React.JSX.Element | null {
     }
   }, [])
 
-  if (!visible) return null
-
+  // ⚠️ 两个 useCallback 必须声明在 `if (!visible) return null` **之前**(2026-11-06 真机实测):
+  // 早退在前时,首帧(false)只跑 2 个 hook、可见帧(true)跑 4 个,React 直接抛
+  // "Rendered more hooks than during the previous render" 并整屏崩溃(
+  // expo-updates 会把它记成启动崩溃并回滚本次 OTA)。
   const handleOpen = React.useCallback(() => {
     setVisible(false)
     void ackAutoInstallGuide()
@@ -53,6 +55,8 @@ export function AutoInstallGuide(): React.JSX.Element | null {
     setVisible(false)
     void ackAutoInstallGuide()
   }, [])
+
+  if (!visible) return null
 
   return (
     <View style={styles.card} accessibilityRole="alert" accessibilityLabel="开启全自动更新">
