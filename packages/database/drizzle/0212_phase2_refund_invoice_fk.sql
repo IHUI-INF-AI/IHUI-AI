@@ -17,11 +17,13 @@ DO $ot_conv$ BEGIN
       AND data_type IN ('character varying', 'character', 'text')
   ) THEN
     ALTER TABLE "edu_refunds" ALTER COLUMN "order_type" SET DATA TYPE integer USING
-      CASE "order_type"
-        WHEN 'course' THEN 7
-        WHEN 'card' THEN 8
+      CASE
+        WHEN "order_type" = 'course' THEN 7
+        WHEN "order_type" = 'card' THEN 8
         -- BUG-86: 只有纯数字串能安全转 integer；空串/非数字枚举(gift、recharge 等)会让
         -- CAST 直接抛 22P02，COALESCE 捕获不到异常，整段迁移中断。先用正则判形再转换。
+        -- 2026-11-06 修:简单 CASE(CASE "order_type")里混入搜索型 WHEN 会编译成
+        -- `varchar = boolean`(42883),整段中断。改搜索型 CASE,每个 WHEN 自带完整条件。
         WHEN "order_type" ~ '^[0-9]+$' THEN "order_type"::integer
         ELSE 0
       END;
