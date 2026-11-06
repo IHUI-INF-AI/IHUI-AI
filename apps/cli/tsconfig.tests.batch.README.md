@@ -1,0 +1,8 @@
+# tsconfig.tests.batch.json
+
+**只用于「单批读数可复现」，禁止当全仓配置用。**
+
+- `include` 只列当前批次的文件；全量口径是 `apps/cli/tsconfig.tests.json`（`typecheck:tests`）。
+- 它显式钉 `noUncheckedIndexedAccess: true`，**不是 false**，也不继承工作树里可能被改成 `false` 的设置。
+- 复跑：`pnpm --filter ihui-cli exec tsc -p tsconfig.tests.batch.json --noEmit`
+- 历史批次版本：`git show <该批 SHA>:apps/cli/tsconfig.tests.batch.json`
