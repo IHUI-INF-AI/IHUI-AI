@@ -433,7 +433,7 @@ node scripts/release-mobile-rn.mjs --leg ota-preview --execute -m "<本次说明
 | ApkPure | **无官方开发者平台/API 可核实** | 不适用 | 不适用 | ❌ | 流传的"开发者入口/审核 1~5 工作日/VirusTotal"全部出自博客,按本仓纪律不当官方出处 | **不接入自动链路**(登记为 unverified);要接需先拿到官方正文 |
 | 魅族 / 中兴·努比亚 / 应用汇 | 仅网页后台(`open.flyme.cn`、`developer.nubia.com`、`dev.appchina.com`) | ✅ 同上 APK | ✅ | ❌ 各家开发者账号未在册 | 无公开 API;魅族《更换签名如何更新版本》要求**邮件申请**换签名 | 人工渠道:材料由 `prepare-store-bundle.mjs` 产出后后台提交 |
 | 百度手机助手 / 91 助手 | — | — | — | — | 91 助手 2025-09-27 停服、安卓市场早已下线 | **不列**(S4 锁住不得回流) |
-| 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS) | ❌ 无产物 | — | ❌ | 全仓零 `.ets` / `oh-package.json5` / `react-native-harmony` | 能力缺口:先做产物 |
+| 鸿蒙 HarmonyOS NEXT | AGC(HarmonyOS);`scripts/harmony-build.mjs` 判据/构建器已落地 | 五格现读(见证据列) | — | ❌ | `node scripts/harmony-build.mjs --json` 现读 `status=blocked`,五格(产物工程配置 / RN 鸿蒙运行时依赖 / 构建工具链 / 签名材料与商店凭据 / 商店端点形态)逐条 `missing` | 已落地的是逐格可复现的缺件清单,不是「无产物能力」;本机零 SDK ⇒ 构建腿结构上跑不起来 |
 
 **上架的法律级前置(2026-11-03 查得,优先级高于一切通道工作)**:工信部信管〔2023〕105 号第九条 ——
 **分发平台不得为未备案 App 提供分发**,省级通管局约 20 个工作日发备案号,且第八条要求 App 内标注备案号。
