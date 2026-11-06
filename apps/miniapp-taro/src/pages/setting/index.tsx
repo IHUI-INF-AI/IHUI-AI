@@ -237,7 +237,6 @@ export default function SettingIndexPage() {
         menuItems={menuItems}
         onMenuPress={onMenuPress}
         appVersion={appVersion}
-        onBack={() => void Taro.navigateBack()}
         colorScheme={resolvedTheme}
       />
     </ThemeRoot>

@@ -22,6 +22,11 @@ type NewsExt = News & {
 
 type CategoryKey = 'all' | 'announce' | 'activity' | 'info' | 'tutorial'
 
+/** 共享屏 FlatList 句柄的最小面(只取本页用到的命令式方法) */
+interface ListHandle {
+  scrollToOffset: (params: { offset: number; animated?: boolean }) => void
+}
+
 const READ_KEY = 'news_read_ids'
 const PAGE_SIZE = 10
 
@@ -103,6 +108,13 @@ export default function NewsListPage() {
   const loadingRef = useRef(false)
   const hasMoreRef = useRef(true)
   const pageRef = useRef(1)
+  /** 资讯列表 ref(共享屏 onListRef 暴露,用于返回顶部 scrollToOffset) */
+  const listRef = useRef<ListHandle | null>(null)
+
+  /** 返回顶部:与 RN NewsScreen 同形(列表 ref.scrollToOffset({ offset: 0, animated: true })) */
+  const handleBackToTop = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: true })
+  }, [])
 
   const categories: Array<{ key: CategoryKey; label: string }> = [
     { key: 'all', label: tt('news.cat.all', '全部') },
@@ -216,6 +228,11 @@ export default function NewsListPage() {
         pinnedItem={pinnedVisible && pinned ? toArticleItem(pinned) : null}
         readIds={[...readIds]}
         onToast={(msg) => onToast(msg, { kind: 'error' })}
+        showBackTop
+        onBackToTop={handleBackToTop}
+        onListRef={(ref) => {
+          listRef.current = ref as ListHandle | null
+        }}
       />
 
       {/* 状态与列表由共享屏承载 */}

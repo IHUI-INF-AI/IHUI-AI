@@ -563,7 +563,6 @@ export function LoginScreen() {
 
   // ===== 协议同意 state =====
   const [agreed, setAgreed] = useState(false)
-  const [agreementError, setAgreementError] = useState('')
   // 协议二次确认弹窗(对齐历史 login-app/login.vue showAgreementModal):
   // 未勾选协议点登录 → 记录待执行登录方式并弹窗,点「同意」自动勾选并继续登录
   const [agreementModalVisible, setAgreementModalVisible] = useState(false)
@@ -596,7 +595,6 @@ export function LoginScreen() {
   const checkAgreement = useCallback(
     (action: PendingLoginAction): boolean => {
       if (!agreed) {
-        setAgreementError('')
         setPendingLoginAction(action)
         setAgreementModalVisible(true)
         return false
@@ -1088,7 +1086,6 @@ export function LoginScreen() {
   // 再走一次 handleThirdPartyLogin 会被同一闸拦下。
   const confirmAgreement = useCallback(() => {
     setAgreed(true)
-    setAgreementError('')
     setAgreementModalVisible(false)
     const action = pendingLoginAction
     setPendingLoginAction(null)
@@ -1109,7 +1106,6 @@ export function LoginScreen() {
   // ===== 协议同意回调 =====
   const handleAgreedChange = useCallback((next: boolean) => {
     setAgreed(next)
-    if (next) setAgreementError('')
   }, [])
 
   const handleOpenTerms = useCallback(() => {
@@ -1220,7 +1216,6 @@ export function LoginScreen() {
           onAgreedChange={handleAgreedChange}
           onOpenTerms={handleOpenTerms}
           onOpenPrivacy={handleOpenPrivacy}
-          agreementError={agreementError}
           // 忘记密码 + 注册
           onForgotPassword={handleForgotPassword}
           onRegister={handleRegister}

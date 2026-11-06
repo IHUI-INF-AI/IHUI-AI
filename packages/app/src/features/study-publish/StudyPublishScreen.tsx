@@ -490,7 +490,6 @@ function VideoForm({
  * 页头(标题 + 返回)由宿主 NavBar 提供 —— RN 端生产页(apps/mobile-rn/src/screens/StudyPublishScreen.tsx)
  * 渲染 NavBar(标题按 mode 取「发布课程合集/发布视频」,比组件内写死一档更准)。此前组件自带
  * BackChevron + 标题,与宿主 NavBar 同屏两条返回键两个标题(守门 145 DH2 判定型)。
- * onBack 仍留在 props 契约中(可选成员),运行时不再消费。
  */
 export function StudyPublishScreen({
   colorScheme = 'light',

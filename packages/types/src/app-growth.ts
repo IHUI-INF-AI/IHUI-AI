@@ -1052,7 +1052,6 @@ export interface TeamDetailScreenProps {
  */
 export interface RankingDetailScreenProps {
   t: TFunction
-  onBack: () => void
   detail: {
     avatar: string | null
     title: string
@@ -1061,19 +1060,6 @@ export interface RankingDetailScreenProps {
     studyHours: number
     level: number
   }
-  history: Array<{ id: string; title: string; createdAt: number }>
-  drawerVisible: boolean
-  onDrawerVisibleChange: (v: boolean) => void
-  onNavigate: (tab: string) => void
-  onNavigateCompany: () => void
-  onClaimFree: () => void
-  onCreateNewChat: () => void
-  onNavigateExtra: (menu: string) => void
-  onSelectConversation: (id: string) => void
-  onDeleteConversation: (id: string) => void
-  onOpenSettings: () => void
-  onOpenMessages: () => void
-  onGoHome: () => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -1094,7 +1080,6 @@ export interface DistributionOrderListScreenProps {
   activeTab: string
   loading: boolean
   loadingMore: boolean
-  hasMore: boolean
   onSearch: () => void
   onKeywordChange: (keyword: string) => void
   onTabChange: (tab: string) => void
