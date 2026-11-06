@@ -24,19 +24,19 @@ export function success<T>(data: T): ApiSuccess<T> {
 }
 
 export interface PaginatedData<T> {
-  items: T[]
+  list: T[]
   total: number
   page?: number
   pageSize?: number
 }
 
 export function paginatedSuccess<T>(
-  items: T[],
+  list: T[],
   total: number,
   meta?: { page?: number; pageSize?: number },
 ): ApiSuccess<PaginatedData<T>> {
   return success<PaginatedData<T>>({
-    items,
+    list,
     total,
     page: meta?.page,
     pageSize: meta?.pageSize,

@@ -911,7 +911,24 @@ async function fetchOnce<T>(
   // b76-01 票1:入站 strict 校验 + 读前 scrub(判据见 validateEnvelopeInbound 上方注)。
   // 裸 JSON(ai-service 直返体,无 {code,message,data} 包装)不归包络管,维持原语义:
   // 整个响应视作 data 返回;包络载荷则严格按白面裁决,未知字段整包判失败。
-  const rawJson: unknown = await response.json()
+  // BUG-13:2xx 一律禁止直接 response.json() —— 204/空体会抛 SyntaxError,被外层
+  // normalizeErrorToResult 归一成「无 status 的网络异常」⇒ 命中网络重试 ⇒ 非幂等写
+  // (POST/PUT)被重放。改走 text():「真空体」= 成功且 data=null;「有体但解析失败」=
+  // 带 status 的业务失败(不是网络抖动,不重试、不重放),两者不再混为一谈。
+  const text = await response.text().catch(() => '')
+  if (text.trim() === '') {
+    return { success: true, data: null as T, status: response.status }
+  }
+  let rawJson: unknown
+  try {
+    rawJson = JSON.parse(text) as unknown
+  } catch {
+    return {
+      success: false,
+      error: '响应体不是合法 JSON',
+      status: response.status,
+    }
+  }
   const inbound = validateEnvelopeInbound(rawJson)
   if (!inbound.matched) {
     // 2026-09-09 0-5 迁移:成功分支携带 HTTP status(upsert 场景需区分 200/201)
@@ -982,7 +999,20 @@ function normalizeErrorToResult(err: unknown): ApiFailure {
  */
 export async function apiOrThrow<T>(url: string, options: FetchApiOptions = {}): Promise<T> {
   const r = await fetchApi<T>(url, options)
-  if (!r.success) throw new Error(r.error)
+  if (!r.success) {
+    // BUG-30③:失败分支的 status / errorCode / retryAfter 必须随 Error 一起抛出去,
+    // 否则 237 个 RSC 页面只拿到一句 message,分不清 404(该 notFound())与
+    // 500(该 error boundary),也拿不到 429 的 retryAfter。
+    const err = new Error(r.error) as Error & {
+      status?: number
+      errorCode?: string
+      retryAfter?: number
+    }
+    if (r.status !== undefined) err.status = r.status
+    if (r.errorCode !== undefined) err.errorCode = r.errorCode
+    if (r.retryAfter !== undefined) err.retryAfter = r.retryAfter
+    throw err
+  }
   return r.data
 }
 

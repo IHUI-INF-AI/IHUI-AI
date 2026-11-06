@@ -1490,16 +1490,60 @@ fn ensure_in_app_data(
                 )));
             }
         }
+    } else {
+        // 目标不存在(创建场景):词法前缀挡不住"父目录是符号链接/junction 指向
+        // app_data 之外" —— write_text_file 正走这一支。上溯到最近的已存在祖先,
+        // canonicalize 解析其真实位置后拼回剩余分量,再比同一份 base 前缀。
+        let mut ancestor = p_norm.as_path();
+        let mut suffix: Vec<std::ffi::OsString> = Vec::new();
+        loop {
+            if ancestor.exists() {
+                break;
+            }
+            match ancestor.file_name() {
+                Some(name) => suffix.push(name.to_os_string()),
+                None => break,
+            }
+            match ancestor.parent() {
+                Some(parent) => ancestor = parent,
+                None => break,
+            }
+        }
+        if let Ok(real_ancestor) = std::fs::canonicalize(ancestor) {
+            let mut real = strip_extended_prefix(real_ancestor);
+            for part in suffix.iter().rev() {
+                real.push(part);
+            }
+            let base = match std::fs::canonicalize(&app_data_norm) {
+                Ok(b) => strip_extended_prefix(b),
+                Err(_) => app_data_norm.clone(),
+            };
+            if !real.starts_with(&base) {
+                return Err(IpcError::permission(format!(
+                    "路径(父目录经符号链接解析)不在应用数据目录内(拒绝): {}",
+                    path
+                )));
+            }
+        }
     }
     Ok(p_norm)
 }
 
 /// 读取文本文件(UTF-8)。路径仅允许 app_data_dir 内。
+/// 2026-11-06 加固:与 read_binary_file 对齐补大小上限,防无界 read_to_string 打爆内存。
+const MAX_TEXT_FILE_SIZE: u64 = 50 * 1024 * 1024;
+
 #[tauri::command]
 async fn read_text_file(app: tauri::AppHandle, path: String) -> Result<ReadTextResult, IpcError> {
     let path = ensure_in_app_data(&app, &path)?;
     let metadata = std::fs::metadata(&path).map_err(|e| IpcError::from_io("metadata", &path, e))?;
     let size = metadata.len();
+    if size > MAX_TEXT_FILE_SIZE {
+        return Err(IpcError::permission(format!(
+            "file too large: max {}MB ({} bytes), got {} bytes",
+            MAX_TEXT_FILE_SIZE / 1024 / 1024, MAX_TEXT_FILE_SIZE, size
+        )));
+    }
     let content =
         std::fs::read_to_string(&path).map_err(|e| IpcError::from_io("read_to_string", &path, e))?;
     Ok(ReadTextResult { content, size })

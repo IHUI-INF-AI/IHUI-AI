@@ -98,8 +98,12 @@ export function pushGateCacheEarlyExit({ pushGate, cliArgs, C, checks }) {
 }
 
 /** push-gate 全部通过 → 写缓存(内容指纹键控,同内容短窗口内重复 push 复用)。写失败不影响放行。 */
-export function writePushGateCache({ C, failed, pushGate, checks }) {
-  if (pushGate && failed === 0) {
+export function writePushGateCache({ C, failed, skipped = 0, undetermined = 0, infoDegraded = 0, pushGate, checks }) {
+  // BUG-19④:只看 failed===0 会把"跳过的批次"(HUSKY_SKIP_* 自跳 / 快档延后 /
+  // 未判定 / info 失败)缓存成 passed,下一轮 pushGateCacheEarlyExit 命中即 exit(0) 连门都不跑。
+  // 只有**全部档位都为零**的批次才是"真·全部通过",才配写 passed:true。
+  const allPassed = failed === 0 && skipped === 0 && undetermined === 0 && infoDegraded === 0
+  if (pushGate && allPassed) {
     try {
       mkdirSync(resolve(process.cwd(), '.ihui-agent', 'state'), { recursive: true })
       writeFileSync(

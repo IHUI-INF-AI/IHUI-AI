@@ -80,7 +80,8 @@ export interface UseMessageSendResult {
   handleDrop: (e: React.DragEvent<HTMLDivElement>) => void
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  submit: (overrideValue?: string) => Promise<void>
+  /** confirmed 为「仍要发送」一次性放行令牌,仅由 submit 内部确认分支递归传入 */
+  submit: (overrideValue?: string, confirmed?: boolean) => Promise<void>
   /** W27 输入队列(2026-09-14 立,对标 Codex/Cursor 多条排队):流式期间输入的预备消息 FIFO 队列,
    *  流式结束后自动发送队首,剩余条目随下一次流式结束继续出队 */
   pendingMessages: Array<{ text: string; refs: ReferenceItem[] }>
@@ -468,8 +469,11 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
 
   /** overrideValue:外部预填后立即发送场景(如 draftAutoSend)使用,绕开 value state 异步更新
    * 导致的闭包旧值问题(.setValue 后同帧调用 submit 仍读到旧 value) */
+  /** BUG-10:confirmed=true 是「仍要发送」的一次性放行令牌 —— 用户点确认后跳过
+   *  危险命令重判闸门;否则 onClick 重新 submit 同一段文本必然再次命中并再弹同一条
+   *  toast,命令永远发不出去。仅本函数内部确认分支递归传入,外部调用恒走闸门。 */
   const submit = React.useCallback(
-    async (overrideValue?: string) => {
+    async (overrideValue?: string, confirmed = false) => {
       const text = (overrideValue ?? value).trim()
       if (!text) return
       // D28 /side 输入层统一拦截(2026-09-20 立):置于危险命令检测之前短路处理,
@@ -518,7 +522,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
       // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
       // - medium → 普通 toast 警告(不阻断,只提醒)
-      if (isHighRisk) {
+      if (isHighRisk && !confirmed) {
         // 语义判定优先(2026-11-04):旧实现逐条正则扫原文 —— `echo <b64> | base64 -d | bash`
         // 与 `bash -c "$(curl ...)"` 这类组合会漏,而引号内的 `curl x | sh` 又会误杀。
         // 新判定先还原管道/子 shell/命令替换结构,只在可执行位置命中并给出稳定 code。
@@ -540,7 +544,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
                   action: {
                     label: t('permission.dangerousCommandProceed'),
                     onClick: () => {
-                      void submit()
+                      void submit(text, true)
                     },
                   },
                 }
@@ -577,7 +581,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
               action: {
                 label: t('permission.dangerousCommandProceed'),
                 onClick: () => {
-                  void submit()
+                  void submit(text, true)
                 },
               },
               cancel: {

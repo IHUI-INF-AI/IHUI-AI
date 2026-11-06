@@ -17,7 +17,7 @@
 
 import { env } from 'node:process'
 import { randomBytes } from 'node:crypto'
-import { isProxiedUrl, proxiedFetch } from '../utils/proxy-dispatcher'
+import { isProxiedUrl, proxiedFetch, directEgressFetch } from '../utils/proxy-dispatcher'
 
 // ============================================================================
 // Google OAuth
@@ -38,26 +38,42 @@ export function isGoogleConfigured(): boolean {
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo'
 
+/** OAuth 上游统一超时(毫秒):上游挂起不得占线程 300s(BUG-25)。 */
+const OAUTH_UPSTREAM_TIMEOUT_MS = 10_000
+
 /**
- * Google OAuth 出站（2026-10-26）：本机直连 oauth2.googleapis.com 会超时，
- * 命中 PROXY_DOMAINS 白名单时改走 proxiedFetch（PROXY_URL 出口）；未配代理时保持直连。
+ * OAuth 上游统一出站封装(BUG-25):本文件所有出站请求共用一份超时预算,
+ * 不再各处裸 fetch / 各自 AbortSignal.timeout 撞运气。
+ * 命中 PROXY_DOMAINS 白名单时走 proxiedFetch,否则 directEgressFetch —— 两侧都经
+ * boundedEgressFetch(有界重定向 / 跨 origin 剥头 / 响应字节上限),与 AI 厂商出口同源。
  */
-async function googleOAuthFetch(url: string, init?: RequestInit): Promise<Response> {
-  if (!isProxiedUrl(url)) return fetch(url, init)
-  const headers: Record<string, string> = {}
-  new Headers(init?.headers).forEach((value, key) => {
-    headers[key] = value
-  })
-  return proxiedFetch(url, {
-    method: init?.method,
-    headers,
-    body: typeof init?.body === 'string' ? init.body : undefined,
-  })
+async function oauthFetch(url: string, init: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), OAUTH_UPSTREAM_TIMEOUT_MS)
+  try {
+    const headers: Record<string, string> = {}
+    if (init.headers)
+      new Headers(init.headers).forEach((value, key) => {
+        headers[key] = value
+      })
+    const body = init.body === null || init.body === undefined ? undefined : String(init.body)
+    const common = {
+      method: init.method,
+      headers,
+      body,
+      signal: controller.signal,
+    }
+    return isProxiedUrl(url)
+      ? await proxiedFetch(url, common)
+      : await directEgressFetch(url, common)
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 /** 用 code 换 id_token → 校验 aud → 返回用户信息 */
 export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> {
-  const tokenResp = await googleOAuthFetch(GOOGLE_TOKEN_URL, {
+  const tokenResp = await oauthFetch(GOOGLE_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -76,7 +92,7 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> 
 
 /** 校验 id_token → 返回用户信息 */
 export async function verifyGoogleIdToken(idToken: string): Promise<GoogleUserInfo> {
-  const resp = await googleOAuthFetch(
+  const resp = await oauthFetch(
     `${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`,
   )
   if (!resp.ok) throw new Error(`Google tokeninfo failed: ${resp.status}`)
@@ -151,7 +167,7 @@ export function isWechatMiniConfigured(): boolean {
 /** jscode2session */
 export async function jscode2session(code: string): Promise<WechatMiniSession> {
   const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${env.WX_MINI_APPID}&secret=${env.WX_MINI_SECRET}&js_code=${code}&grant_type=authorization_code`
-  const resp = await fetch(url)
+  const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`Wechat jscode2session failed: ${resp.status}`)
   const data = (await resp.json()) as Record<string, unknown>
   return {
@@ -164,7 +180,7 @@ export async function jscode2session(code: string): Promise<WechatMiniSession> {
 /** 获取手机号（getuserphonenumber） */
 export async function getPhoneNumber(code: string): Promise<string> {
   const accessToken = await getAccessToken()
-  const resp = await fetch(
+  const resp = await oauthFetch(
     `https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=${accessToken}`,
     {
       method: 'POST',
@@ -209,9 +225,8 @@ export async function wechatAppCode2session(code: string): Promise<WechatAppSess
   if (!env.WECHAT_MOBILE_APP_ID || !env.WECHAT_MOBILE_SECRET) {
     throw new Error('微信移动应用未配置 WECHAT_MOBILE_APP_ID / WECHAT_MOBILE_SECRET')
   }
-  const tokenRes = await fetch(
+  const tokenRes = await oauthFetch(
     `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${env.WECHAT_MOBILE_APP_ID}&secret=${env.WECHAT_MOBILE_SECRET}&code=${code}&grant_type=authorization_code`,
-    { signal: AbortSignal.timeout(10_000) },
   )
   if (!tokenRes.ok) throw new Error(`wechat app token failed: ${tokenRes.status}`)
   const tokenData = (await tokenRes.json()) as {
@@ -225,9 +240,8 @@ export async function wechatAppCode2session(code: string): Promise<WechatAppSess
   if (!tokenData.access_token || !tokenData.openid) {
     throw new Error(`微信移动应用授权码无效: ${tokenData.errmsg ?? tokenData.errcode ?? ''}`)
   }
-  const userRes = await fetch(
+  const userRes = await oauthFetch(
     `https://api.weixin.qq.com/sns/userinfo?access_token=${tokenData.access_token}&openid=${tokenData.openid}`,
-    { signal: AbortSignal.timeout(10_000) },
   )
   const wxUser = (await userRes.json()) as {
     openid?: string
@@ -258,7 +272,7 @@ export async function getAccessToken(): Promise<string> {
     return cachedAccessToken.token
   }
   const url = `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=${env.WX_MINI_APPID}&secret=${env.WX_MINI_SECRET}`
-  const resp = await fetch(url)
+  const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`Wechat gettoken failed: ${resp.status}`)
   const data = (await resp.json()) as Record<string, unknown>
   const token = requireWechatField('cgi-bin/token', data, 'access_token')
@@ -272,7 +286,7 @@ export async function getAccessToken(): Promise<string> {
 /** 生成小程序无限码 */
 export async function generateQrcode(scene: string, page: string): Promise<Buffer> {
   const accessToken = await getAccessToken()
-  const resp = await fetch(
+  const resp = await oauthFetch(
     `https://api.weixin.qq.com/wxa/getwxacodeunlimit?access_token=${accessToken}`,
     {
       method: 'POST',
@@ -322,7 +336,7 @@ async function getWecomAccessToken(): Promise<string> {
     return cachedWecomAccessToken.token
   }
   const url = `https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=${env.WECOM_CORP_ID}&corpsecret=${env.WECOM_SECRET}`
-  const resp = await fetch(url)
+  const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`WeCom gettoken failed: ${resp.status}`)
   const data = (await resp.json()) as {
     access_token?: string
@@ -348,7 +362,7 @@ async function getWecomAccessToken(): Promise<string> {
 export async function wecomPcCode2session(code: string): Promise<WecomSession> {
   const accessToken = await getWecomAccessToken()
   const url = `https://qyapi.weixin.qq.com/cgi-bin/auth/getuserinfo?access_token=${accessToken}&code=${code}`
-  const resp = await fetch(url)
+  const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`WeCom getuserinfo failed: ${resp.status}`)
   const data = (await resp.json()) as {
     userid?: string
@@ -374,7 +388,7 @@ export async function wecomPcCode2session(code: string): Promise<WecomSession> {
 /** suite 模式:获取 suite_access_token(仅第三方应用服务商场景) */
 export async function getSuiteAccessToken(): Promise<string> {
   const suiteTicket = env.WECOM_SUITE_TICKET ?? ''
-  const resp = await fetch('https://qyapi.weixin.qq.com/cgi-bin/service/get_suite_token', {
+  const resp = await oauthFetch('https://qyapi.weixin.qq.com/cgi-bin/service/get_suite_token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -392,7 +406,7 @@ export async function getSuiteAccessToken(): Promise<string> {
 export async function wecomCode2session(code: string): Promise<WecomSession> {
   const token = await getSuiteAccessToken()
   const url = `https://qyapi.weixin.qq.com/cgi-bin/service/miniprogram/jscode2session?suite_access_token=${token}&js_code=${code}&grant_type=authorization_code`
-  const resp = await fetch(url)
+  const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`WeCom code2session failed: ${resp.status}`)
   const data = (await resp.json()) as {
     userid: string
@@ -438,7 +452,7 @@ export function buildDingtalkAuthUrl(state: string): string {
 
 /** 用授权码换取 userAccessToken（钉钉 OAuth2 回调处理） */
 export async function exchangeDingtalkCode(code: string): Promise<string> {
-  const resp = await fetch('https://api.dingtalk.com/v1.0/oauth2/userAccessToken', {
+  const resp = await oauthFetch('https://api.dingtalk.com/v1.0/oauth2/userAccessToken', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -457,7 +471,7 @@ export async function exchangeDingtalkCode(code: string): Promise<string> {
 
 /** 用 userAccessToken 获取钉钉用户信息 */
 export async function getDingtalkUserInfo(accessToken: string): Promise<DingtalkUserInfo> {
-  const resp = await fetch('https://api.dingtalk.com/v1.0/contact/users/me', {
+  const resp = await oauthFetch('https://api.dingtalk.com/v1.0/contact/users/me', {
     headers: { 'x-acs-dingtalk-access-token': accessToken },
   })
   if (!resp.ok) throw new Error(`DingTalk userinfo failed: ${resp.status}`)
@@ -537,7 +551,7 @@ export async function exchangeAlipayCode(authCode: string): Promise<{
     )
     .sign(getPrivateKey(), 'base64')
   const url = `${env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do'}?${new URLSearchParams(params).toString()}`
-  const resp = await fetch(url)
+  const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`Alipay oauth.token failed: ${resp.status}`)
   const data = (await resp.json()) as {
     alipay_system_oauth_token_response?: {
@@ -584,7 +598,7 @@ export async function getAlipayUserInfo(accessToken: string): Promise<AlipayUser
     )
     .sign(getPrivateKey(), 'base64')
   const url = `${env.ALIPAY_GATEWAY ?? 'https://openapi.alipay.com/gateway.do'}?${new URLSearchParams(params).toString()}`
-  const resp = await fetch(url)
+  const resp = await oauthFetch(url)
   if (!resp.ok) throw new Error(`Alipay user.info.share failed: ${resp.status}`)
   const data = (await resp.json()) as {
     alipay_user_info_share_response?: {
@@ -641,7 +655,7 @@ export async function getFeishuAccessToken(code: string): Promise<{
   refreshToken?: string
   expiresIn?: number
 }> {
-  const resp = await fetch(FEISHU_OAUTH_URL, {
+  const resp = await oauthFetch(FEISHU_OAUTH_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
     body: JSON.stringify({
@@ -671,7 +685,7 @@ export async function getFeishuAccessToken(code: string): Promise<{
 
 /** 用 user_access_token 拉飞书用户信息 */
 export async function getFeishuUserInfo(accessToken: string): Promise<FeishuUserInfo> {
-  const resp = await fetch(FEISHU_USER_INFO_URL, {
+  const resp = await oauthFetch(FEISHU_USER_INFO_URL, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json; charset=utf-8',

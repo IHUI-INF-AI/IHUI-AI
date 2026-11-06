@@ -17,6 +17,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
+import { requireAdmin } from '../../plugins/require-permission.js'
 import {
   findOrderByOrderNo,
   findPaymentByOrderId,
@@ -152,13 +153,12 @@ const paymentRoutes: FastifyPluginAsync = async (server) => {
   // POST /payment/refund/:refundNo/audit - 审核退款(仅管理员)
   server.post(
     '/payment/refund/:refundNo/audit',
-    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    {
+      // 统一走 requireAdmin:内联 roleId 判定会绕过 checkAdminTotpGate 与 requireActiveUser。
+      preHandler: requireAdmin,
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
-      // P0 越权修复:审核退款仅限管理员,用户无权自行审核自己的退款
-      const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < ADMIN_ROLE_ID) {
-        return reply.status(403).send(error(403, '需要管理员权限'))
-      }
       const refundNo = refundNoParam.parse(request.params).refundNo
       if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
       const body =
@@ -172,13 +172,12 @@ const paymentRoutes: FastifyPluginAsync = async (server) => {
   // POST /payment/refund/:refundNo/process - 处理退款(仅管理员)
   server.post(
     '/payment/refund/:refundNo/process',
-    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    {
+      // 统一走 requireAdmin:内联 roleId 判定会绕过 checkAdminTotpGate 与 requireActiveUser。
+      preHandler: requireAdmin,
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (request, reply) => {
-      // P0 越权修复:处理退款仅限管理员,用户无权自行完成退款
-      const roleId = request.jwtPayload?.roleId ?? 0
-      if (roleId < ADMIN_ROLE_ID) {
-        return reply.status(403).send(error(403, '需要管理员权限'))
-      }
       const refundNo = refundNoParam.parse(request.params).refundNo
       if (!refundNo) return reply.status(400).send(error(400, '参数错误'))
       const body =
@@ -205,6 +204,8 @@ const paymentRoutes: FastifyPluginAsync = async (server) => {
         reason: body.reason,
         refundType: body.refundType,
       })
+      if (result.reason === 'refund_already_exists')
+        return reply.status(409).send(error(409, '该订单已有退款申请'))
       if (result.reason)
         return reply
           .status(400)

@@ -127,6 +127,16 @@ export function isChatMessage(
 /** D195 通知的两个分区:active = 动态流(未归档),archived = 已归档(可逐条恢复)。跨端唯一声明。 */
 export type NotificationPartition = 'active' | 'archived'
 
+/**
+ * 通知列表查询过滤(前后端唯一真相源):键名 `unread` 与后端 listNotificationsQuery 的
+ * zod 字段一致 —— 此前 api-client 用 `isRead`,后端只解析 `unread`,导致"只看未读"失效(BUG-80)。
+ */
+export interface NotificationListFilters {
+  type?: string
+  unread?: boolean
+  partition?: NotificationPartition
+}
+
 /** 通知列表项 */
 export interface NotificationItem {
   id: string
@@ -155,16 +165,36 @@ export interface MessageItem {
   [key: string]: unknown
 }
 
-/** 未读统计 */
+/**
+ * 未读统计 —— 后端 `/notifications/unread-count` 与 `/badge` 的响应形状,跨端唯一真相源。
+ * `count` 与 `notification` 同值:保留前者以兼容 /badge 历史语义与 web 角标消费点,
+ * 后者与 message/customerService/total 一起供 use-global-notification / extension 读取。
+ * 索引签名刻意移除:契约必须精确,不得让消费方误信还有其它未声明字段。
+ */
 export interface UnreadCount {
+  count: number
   message: number
   notification: number
   customerService: number
   total: number
-  [key: string]: number
 }
 
 // ===================== 客服类型 =====================
+
+/**
+ * 客服工单/会话状态枚举(唯一真相源):与后端工单 z.enum 及 DB 状态转换表一致。
+ * `active` 后端永不产出(用 `open`),`open/resolved/rejected` 此前在消费侧失去类型保障(BUG-81)。
+ * 后端应从本数组派生 z.enum,不得再抄字面量。
+ */
+export const CUSTOMER_SERVICE_STATUSES = [
+  'pending',
+  'open',
+  'resolved',
+  'closed',
+  'rejected',
+] as const
+
+export type CustomerServiceStatus = (typeof CUSTOMER_SERVICE_STATUSES)[number]
 
 /** 客服会话 */
 export interface CustomerServiceSession {
@@ -174,7 +204,7 @@ export interface CustomerServiceSession {
   userAvatar?: string
   agentId?: string
   agentName?: string
-  status: 'pending' | 'active' | 'closed'
+  status: CustomerServiceStatus
   lastMessage?: string
   lastMessageAt?: string
   createdAt: string

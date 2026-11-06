@@ -92,6 +92,9 @@ export function useAgentSSE(source: AgentSSEUrlSource): UseAgentSSEReturn {
     es.onopen = () => {
       if (!mountedRef.current) return
       retryCountRef.current = 0
+      // BUG-11:真正连上 ⇒ 重新发放「一次续期」预算。旧实现 authRetriedRef 只置位
+      // 永不清零,同一 agentId 第二次 token 过期后流永久死透。
+      authRetriedRef.current = false
       setConnected(true)
       setError(null)
     }

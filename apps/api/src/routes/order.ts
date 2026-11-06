@@ -243,6 +243,7 @@ const okResponse = {
   401: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   403: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
   404: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
+  409: { type: 'object', properties: { code: { type: 'number' }, message: { type: 'string' } } },
 }
 
 const createdResponse = {
@@ -539,6 +540,8 @@ export const orderRoutes: FastifyPluginAsync = async (server) => {
       if (res.reason === 'order_not_found') return reply.status(404).send(error(404, '订单不存在'))
       if (res.reason === 'order_not_paid')
         return reply.status(400).send(error(400, '订单未支付, 无法退款'))
+      if (res.reason === 'refund_already_exists')
+        return reply.status(409).send(error(409, '该订单已有退款申请'))
       return reply.send(success({ refund: res.refund }))
     },
   )

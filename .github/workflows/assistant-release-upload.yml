@@ -63,13 +63,18 @@ jobs:
           echo "3ffe488de7e34bd7a618e0f622a18d82eb3cc48036ef3412bd203612b5fde59f  out/ihui-assistant_0.1.0_x64-setup.exe" | sha256sum -c -
 
       - name: Upload to release
+        env:
+          # BUG-56④:dispatch 输入不得内插进 shell —— 双引号内 $(...) 仍会被 bash 求值,
+          # 而本 job 持 contents: write。一律经 env 传入,shell 只引用 "$RELEASE_TAG"/"$REPO"。
+          RELEASE_TAG: ${{ github.event.inputs.release_tag }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release upload "${{ github.event.inputs.release_tag }}" \
+          gh release upload "$RELEASE_TAG" \
             out/ihui-assistant_0.1.0_x64_zh-CN.msi \
             out/ihui-assistant_0.1.0_x64-setup.exe \
-            --repo "${{ github.repository }}" --clobber
-          gh release view "${{ github.event.inputs.release_tag }}" --repo "${{ github.repository }}" \
+            --repo "$REPO" --clobber
+          gh release view "$RELEASE_TAG" --repo "$REPO" \
             --json assets --jq '.assets[] | [.name, .size, .state] | @tsv'
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -74,6 +74,22 @@ export function makeRegistrar() {
     let pass = 0
     let fail = 0
     const rows = []
+    // §0.3 零用例 = 一条判据都没登记 ⇒ 「判不出」,绝不记绿。消费方一律 `return r.fail ? 1 : 0`,
+    // 所以这里必须自己把 fail 顶起来,并留一行能被打印出来的诊断(空台账不许静默通过)。
+    // 返回形状与 T4 的 pass+fail === cases.length 对账不变量保持一致。
+    if (cases.length === 0) {
+      return {
+        pass: 0,
+        fail: 1,
+        cases: [
+          {
+            name: '零用例守卫',
+            pass: false,
+            got: '自检一条用例都没登记(§0.3 取不到结论 ⇒ 判死不记绿)',
+          },
+        ],
+      }
+    }
     for (const c of cases) {
       let value
       try {

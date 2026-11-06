@@ -32,10 +32,15 @@ param(
     [switch]$AllowPlain
 )
 
+$ErrorActionPreference = 'Stop'
+
 # ── 安全闸:只删净面专用根下的东西 ──
 # 调用方(ihui-deploy.ps1)传进来的路径必须严格落在净面授权根之下,且不是根本身。
 # 这里不依赖调用方守约 —— 误传参把别处删了是不可逆的,所以自己再判一遍。
-$Root0 = 'D:\DevEnv\ihui-deploy-build'
+# 与 ihui-deploy.ps1 的 $CleanBuildRootDefault 同源:都按脚本所在盘现读推导 DevEnv 根,
+# 不写死盘符(IHUI_DEVENV_ROOT 可覆盖)。两侧不同源会让安全闸把主脚本传来的路径一律拒绝。
+$DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $PSScriptRoot) + '\DevEnv' }
+$Root0 = Join-Path $DevEnvRoot 'ihui-deploy-build'
 $norm = $Path.Replace('/', '\').TrimEnd('\')
 if ($norm -notlike ($Root0 + '\*')) { exit 3 }
 if ($norm -eq $Root0) { exit 3 }

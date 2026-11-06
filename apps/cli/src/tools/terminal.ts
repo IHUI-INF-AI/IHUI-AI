@@ -252,8 +252,9 @@ export const terminal_open: Tool = {
 
     // 沙箱预检(sandbox.enabled=true 时生效;默认关闭,完全向后兼容)
     if (isSandboxEnabled()) {
-      const sandboxCwd = (args.cwd as string) || ctx.workspacePath;
-      const decision = precheckSandboxedCommand(buildSandboxPolicy(sandboxCwd), command);
+      // 授权根只认服务端可信的工作区,绝不取自工具入参 args.cwd ——
+      // 否则传一个 cwd 就能把 allowRead/allowWrite 的默认边界挪出工作区。
+      const decision = precheckSandboxedCommand(buildSandboxPolicy(ctx.workspacePath), command);
       if (!decision.allowed) {
         return {
           success: false,
@@ -328,7 +329,7 @@ export const terminal_send: Tool = {
     pressEnter: { type: 'boolean', description: '是否在输入末尾追加回车(\\r,默认 false)' },
   },
   required: ['sessionId', 'input'],
-  async execute(args, _ctx): Promise<ToolResult> {
+  async execute(args, ctx): Promise<ToolResult> {
     const sessionId = args.sessionId as string;
     const input = args.input as string;
     const pressEnter = args.pressEnter === true;
@@ -339,6 +340,33 @@ export const terminal_send: Tool = {
     if (!session) return { success: false, output: '', error: `会话 ${sessionId} 不存在` };
     if (session.exited) return { success: false, output: '', error: `会话 ${sessionId} 已退出(exitCode=${session.exitCode ?? '-'})` };
     if (!session.proc) return { success: false, output: '', error: `会话 ${sessionId} 无进程句柄` };
+
+    // 每一次 send 都是一条新的、会被 shell 执行的命令行。open 只判首条命令时,
+    // 先 open 一条免确认命令、再 send 任意危险命令即可完全绕过闸门 ⇒ 每次输入
+    // 都复用 terminal_open 的同一条判定出口(gate + describe + 唯一确认出口)。
+    const gate = gateCommandExecution(input);
+    const blockMessage = describeCommandBlock(gate, !!process.env.IHUI_YOLO);
+    if (blockMessage) return { success: false, output: blockMessage };
+    if (!gate.autoApprovable) {
+      const confirmation = await resolveDangerousConfirmation(ctx, terminal_send, args);
+      if (confirmation.kind !== 'approved') {
+        return { success: false, output: '', error: `危险操作被拒绝(需用户确认): ${terminal_send.name}` };
+      }
+    }
+    const preResult = await runPreToolCall('terminal', { command: input, cwd: ctx.workspacePath }, ctx.signal);
+    if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
+
+    // 沙箱预检同样逐次执行,授权根只认可信工作区。
+    if (isSandboxEnabled()) {
+      const decision = precheckSandboxedCommand(buildSandboxPolicy(ctx.workspacePath), input);
+      if (!decision.allowed) {
+        return {
+          success: false,
+          output: '',
+          error: `沙箱策略拒绝该输入: ${decision.violations.map((v) => `[${v.kind}] ${v.message}`).join('; ')}`,
+        };
+      }
+    }
 
     try {
       session.proc.write(input + (pressEnter ? '\r' : ''));
@@ -474,7 +502,8 @@ export const terminal_exec_sandboxed: Tool = {
       };
     }
     const cwd = (args.cwd as string) || ctx.workspacePath;
-    const policy = buildSandboxPolicy(cwd);
+    // 授权根只认可信工作区;args.cwd 仅作为执行目录,不参与授权边界计算。
+    const policy = buildSandboxPolicy(ctx.workspacePath);
     try {
       const result = await execSandboxed(policy, command, { cwd });
       const meta = `backend=${result.backend} exitCode=${result.exitCode ?? '-'}${result.timedOut ? ' (超时强杀)' : ''}${result.truncated ? ' (输出已截断)' : ''}`;

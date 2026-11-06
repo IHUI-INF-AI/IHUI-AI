@@ -10,7 +10,6 @@
  * 现按 apps/api 的依赖根解析;环境变量不再拉 dotenv,改为手读 .env
  * (同款先例:scripts/fetch-wechat-platform-cert.mjs:51)。
  */
-import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -26,26 +25,13 @@ try {
   process.exit(1)
 }
 
-/**
- * 环境变量:优先 process.env,缺项再由 apps/api/.env 补(不覆盖已有值)。
- * 不用 dotenv —— 见上方依赖解析说明,根 scripts/ 解析不到该包。
- * 同款手解析先例:scripts/fetch-wechat-platform-cert.mjs:51。
- */
-function loadEnvFile(filePath) {
-  const out = {}
-  if (!existsSync(filePath)) return out
-  for (const line of readFileSync(filePath, 'utf8').split(/\r?\n/)) {
-    const trimmed = line.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const m = trimmed.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
-    if (!m) continue
-    out[m[1]] = m[2].replace(/^["']|["']$/g, '')
-  }
-  return out
+// DATABASE_URL 只认进程环境变量:不再从 .env 旁路读取、也不内置明文兜底 DSN
+// (BUG-98:三处 postgres:postgres 明文兜底同源缺陷 + .env 旁路)。缺失即 fail-closed 退出。
+const url = process.env.DATABASE_URL
+if (!url) {
+  console.error('[FATAL] DATABASE_URL 未设置(拒绝使用内置默认连接串)')
+  process.exit(2)
 }
-
-const envFile = loadEnvFile(join(ROOT, 'apps/api/.env'))
-const url = process.env.DATABASE_URL || envFile.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/ihui'
 const sql = postgres(url, { max: 1 })
 try {
   const cols = await sql`
