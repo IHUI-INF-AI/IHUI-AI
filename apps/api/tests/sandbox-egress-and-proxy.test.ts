@@ -20,16 +20,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../src/utils/ssrf-guard.js', () => ({
   // 纯字面判据的同形替身:本文件测的是"主机怎么定",不是 DNS 解析本身
   isPrivateOrReservedIp: (h: string) =>
-    /^(10\.|127\.|169\.254\.|192\.168\.|0\.)/.test(h) ||
-    /^172\.(1[6-9]|2\d|3[01])\./.test(h),
+    /^(10\.|127\.|169\.254\.|192\.168\.|0\.)/.test(h) || /^172\.(1[6-9]|2\d|3[01])\./.test(h),
 }))
 
-const { findGitEgressToken, clampSandboxTimeout } = await import(
-  '../src/services/workspace-ai-service.js'
-)
-const { IntegrationManager, isBlockedIntegrationHost } = await import(
-  '../src/services/clawdbot/integrations.js'
-)
+const { findGitEgressToken, clampSandboxTimeout, settleSandboxJob } =
+  await import('../src/services/workspace-ai-service.js')
+const { IntegrationManager, isBlockedIntegrationHost } =
+  await import('../src/services/clawdbot/integrations.js')
 
 describe('git 出网判据(网络闸的输入)', () => {
   it('逐 token 判据:藏在旗标值后面的外连形态同样被拦(本轮用例实测出的绕过)', () => {
@@ -85,6 +82,37 @@ describe('沙箱执行超时归一', () => {
     [99_999_999, 120000],
   ])('timeoutMs=%s ⇒ %s', (raw, expected) => {
     expect(clampSandboxTimeout(raw)).toBe(expected)
+  })
+
+  it('截止先到时不保留退出码，没有数字退出码时也不编成 1', () => {
+    const timedOut = settleSandboxJob({
+      timeoutMs: 60000,
+      killed: true,
+      code: 1,
+      stdout: '',
+      stderr: 'killed',
+    })
+    expect(timedOut.reason).toBe('deadline-exceeded')
+    expect(timedOut.exitCode).toBeNull()
+
+    const failed = settleSandboxJob({
+      timeoutMs: 60000,
+      killed: false,
+      code: 2,
+      stdout: '',
+      stderr: 'no',
+    })
+    expect(failed).toMatchObject({ disposition: 'failed', reason: 'exit-nonzero', exitCode: 2 })
+
+    const missing = settleSandboxJob({
+      timeoutMs: 60000,
+      killed: false,
+      code: 'ENOENT',
+      stdout: '',
+      stderr: 'spawn',
+    })
+    expect(missing.reason).toBe('exit-unmeasured')
+    expect(missing.exitCode).toBeNull()
   })
 })
 
@@ -165,7 +193,9 @@ describe('集成代理不得让 path 改写落点主机(凭据随行外泄面)',
       'file:///etc/passwd',
       'http://metadata.google.internal/x',
     ]) {
-      await expect(m.call({ integrationId: 'acme', method: 'GET', path } as never)).rejects.toThrow()
+      await expect(
+        m.call({ integrationId: 'acme', method: 'GET', path } as never),
+      ).rejects.toThrow()
     }
     expect(fetchSpy).not.toHaveBeenCalled()
   })

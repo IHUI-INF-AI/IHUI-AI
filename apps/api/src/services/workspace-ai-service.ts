@@ -12,6 +12,7 @@
 import { exec, execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+import { judgeBoundedSystemJob, type BoundedJobVerdict } from '../utils/process-probe.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
 import {
@@ -853,6 +854,42 @@ export function clampSandboxTimeout(raw: unknown, fallbackMs = 60000): number {
   return Math.min(Math.max(Math.trunc(n), 1000), 120000)
 }
 
+/**
+ * 把一次沙箱子进程收成判定。
+ * 截止先到时不保留子进程退出码；没有数字退出码时也不编成 1。
+ */
+export function settleSandboxJob(input: {
+  timeoutMs: unknown
+  killed: unknown
+  code: unknown
+  stdout: unknown
+  stderr: unknown
+}): BoundedJobVerdict {
+  const deadlineSec =
+    typeof input.timeoutMs === 'number' && Number.isFinite(input.timeoutMs)
+      ? Math.floor(input.timeoutMs / 1000)
+      : input.timeoutMs
+  const sawLog = typeof input.stdout === 'string' || typeof input.stderr === 'string'
+  let finished: unknown
+  let exitCode: unknown
+  if (input.killed === true) {
+    finished = false
+    exitCode = null
+  } else if (typeof input.code === 'number' && Number.isInteger(input.code)) {
+    finished = true
+    exitCode = input.code
+  } else {
+    finished = input.killed === false ? true : input.killed
+    exitCode = input.code
+  }
+  return judgeBoundedSystemJob({
+    deadlineSec,
+    finished,
+    exitCode,
+    log: sawLog ? 'primary' : null,
+  })
+}
+
 const NETWORK_COMMANDS = [
   'curl',
   'wget',
@@ -1093,7 +1130,7 @@ class SandboxExecutor {
     timeoutMs?: number
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin(路由层经 resolveAdminRoleId 判) */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number; mode: SandboxMode }> {
+  }): Promise<{ stdout: string; stderr: string; exitCode: number | null; mode: SandboxMode }> {
     const mode = params.mode ?? 'workspace-write'
     // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
     // 字符串,不设闸则传 workspacePath="C:/" 让白名单内的 cat/cp/tee 直接指到服务器
@@ -1243,18 +1280,38 @@ class SandboxExecutor {
           )
         },
       )
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: false,
+        code: 0,
+        stdout,
+        stderr,
+      })
       return {
         stdout: stdout.slice(0, MAX_STDOUT),
         stderr: stderr.slice(0, MAX_STDERR),
-        exitCode: 0,
+        exitCode: verdict.exitCode,
         mode,
       }
     } catch (e) {
-      const err = e as Error & { stdout?: string; stderr?: string; code?: number }
+      const err = e as Error & {
+        stdout?: string
+        stderr?: string
+        code?: unknown
+        killed?: unknown
+      }
+      const stderrText = err.stderr ?? err.message
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: err.killed,
+        code: err.code,
+        stdout: err.stdout,
+        stderr: stderrText,
+      })
       return {
         stdout: (err.stdout ?? '').slice(0, MAX_STDOUT),
-        stderr: (err.stderr ?? err.message).slice(0, MAX_STDERR),
-        exitCode: err.code ?? 1,
+        stderr: String(stderrText ?? '').slice(0, MAX_STDERR),
+        exitCode: verdict.exitCode,
         mode,
       }
     }
@@ -3567,7 +3624,7 @@ class FSBridge {
     mode?: SandboxMode
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin,由路由层透传 */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  }): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
     return sandboxExecutor.execute({
       command: params.command,
       workspacePath: params.workspacePath,
