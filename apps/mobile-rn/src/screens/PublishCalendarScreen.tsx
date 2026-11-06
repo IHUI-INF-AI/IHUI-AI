@@ -13,6 +13,8 @@
  * 移动端不做拖拽改期:按日期分组展示,详情弹层里用「本地时间文本 + 快捷档」改期。
  * taskId 必须是字符串 pub-xxx(列表里的 taskId),数字 id 传给改期接口会 404。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useState } from 'react'
 import {
   ActivityIndicator,
@@ -99,6 +101,7 @@ function parseLocalInput(text: string): Date | null {
 }
 
 export default function PublishCalendarScreen() {
+  const dialogMaxHeightStyle = useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.extraTall)
   const { t, locale } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -302,7 +305,7 @@ export default function PublishCalendarScreen() {
       >
         <View style={styles.overlay}>
           <Tappable style={styles.mask} onPress={() => setPanel(null)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, dialogMaxHeightStyle]}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.title}
@@ -435,7 +438,7 @@ function makeStyles() {
       backgroundColor: tokens.overlay.modal,
     },
     sheet: {
-      maxHeight: '85%',
+      maxHeight: undefined,
       padding: rnSpacing.lg,
       gap: rnSpacing.sm,
       borderTopLeftRadius: rnRadius.xl,
