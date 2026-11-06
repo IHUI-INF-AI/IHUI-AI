@@ -555,7 +555,7 @@ function readPrev() {
 
 function selfTestMain() {
   const cases = []
-  const mk = (mirrored, reds, rot, aligned = 150, unmapped = 270) => ({
+  const mk = (mirrored, reds, rot, aligned = 150, unmapped = 270, alignedUnique = aligned) => ({
     ok: true,
     json: {
       stats: { mirroredShared: mirrored, registryEntries: 90, sharedTotal: 218 },
@@ -563,6 +563,9 @@ function selfTestMain() {
       rot: new Array(rot).fill({ line: 1, why: 'x' }),
       aligned,
       unmapped,
+      // 判据比的是去重承载面(尺子算的 alignedUnique),不是台账行数 aligned;
+      // 夹具缺这一维时该维静默成"未判定"(只出 stale 档),T15 就永远见不到 web-aligned-decrease。
+      alignedUnique,
     },
   })
   /** 还原度尺的结论夹具(字段名与 check-miniapp-mirror-fidelity --json 逐字同形) */
@@ -575,6 +578,14 @@ function selfTestMain() {
     rows = [],
     packAbsentRows = 0,
     packUndetermined = false,
+    // 键级撤除台账四维(judge 自 2026-10-30 起要求这四项;夹具缺一即整轮 undetermined,
+    // 而 §0.3 的未判定会把**每一条**用例拖红 —— 实测自检 19/24 就是缺在这里)。
+    // 默认「零撤除 / 台账可读 / 无失效行 / 无腐烂行」,与真实仓的现读形态同形。
+    totalRetracted = 0,
+    retractionTotal = 0,
+    retractionRefused = [],
+    retractionBad = [],
+    retractionRot = [],
   } = {}) => ({
     ok: true,
     json: {
@@ -586,6 +597,11 @@ function selfTestMain() {
       rows,
       packAbsentRows,
       packUndetermined,
+      totalRetracted,
+      retractionTotal,
+      retractionRefused,
+      retractionBad,
+      retractionRot,
     },
   })
   /** 转换机会预演夹具(与 upgrade-miniapp-shell-pages 的机读档同形;默认"没机会"= 现读真实状态) */
@@ -993,7 +1009,7 @@ function selfTestMain() {
         coverage: mk(91, 0, 0),
         webParity: mk(91, 0, 0, 150, 270),
         doc: '',
-        prev: { mirrored: 91, aligned: 160, unmapped: 270 },
+        prev: { mirrored: 91, aligned: 160, alignedUnique: 160, unmapped: 270 },
       })
       return (
         j.state === 'regressed' &&
