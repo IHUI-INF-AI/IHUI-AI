@@ -33,6 +33,22 @@
       "tool": "scripts/object-space-land.mjs",
       "env": "LAND_ALLOW_STALE=1",
       "why": "显式重建屏级契约基线(模型修正剔除假阳性);stale 保护只允许在显式重建时越过"
+    },
+    "modelFrozen": {
+      "at": "2026-11-07",
+      "statement": "从本轮起判据模型冻结:不再扩「什么算载体」,不再剔假阳性,不再重建基线。三次数值下修(2403→573→339)均有逐条审计与归档;第四次开始若再动判据/基线,就是让门适应现状,不予接受。后续 K 的变化只允许来自业务代码改动(页面迁净、两端补齐、契约声明修正)。",
+      "readings": {
+        "singleEndK": 257,
+        "baselineEntries": 339,
+        "carrierPages": 174,
+        "carrierExempt": 2065,
+        "byBucket": {
+          "single-end": 257,
+          "dead": 1,
+          "shadow": 10,
+          "unresolved": 71
+        }
+      }
     }
   },
   "entries": [
