@@ -484,6 +484,9 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
           continue
         }
         const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
+        // 刻意落运营池(2026-11-06 注明,不是漏网):minimax 一族是槽位形态的共享 key 池
+        // (name 形如 `minimax:region`,不是本人手机号),没有「跟着某个用户走」的语义 ⇒ 不接
+        // relay-session-autoimport-owner。本机会话自动入池的归属单源只管 trae/qoder 两条本人号腿。
         const res = await importAccounts('minimax', [autoInput], null)
         const item = res.items[0]
         if (item && (item.status === 'imported' || item.status === 'updated')) {

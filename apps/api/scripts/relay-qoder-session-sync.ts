@@ -30,6 +30,12 @@
  */
 import { dirname, resolve as resolvePath } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+// 自动入池的归属默认值(单源出口,内部委托工具层 scripts/lib/pool-owner.mjs;§0.6)
+import {
+  describeAutoImportOwner,
+  resolveAutoImportOwner,
+  type AutoImportOwnerDecision,
+} from './relay-session-autoimport-owner.js'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const API_DIR = resolvePath(SCRIPT_DIR, '..')
@@ -203,9 +209,12 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
         // 缺行 ⇒ 自动入池(2026-10-30 根治):此前新登录的 Qoder 号只报「池内无此 uid」
         // 且无人接 —— 保活/自动签到永远不覆盖它,静默漏到人工发现。现把本机会话交给
         // 手动导入同一套构造(buildQoderImportAccount 判据单源,§0.6)与同一落库出口
-        // (importAccounts:运营池行 ownerUserId=null,部分唯一索引只圈运营池,
-        // 结构上碰不到个人池同 uid 行;凭证写入自带 credVersion 原子 +1,O64 推签到池)。
+        // (importAccounts;凭证写入自带 credVersion 原子 +1,O64 推签到池)。
         // 并发撞唯一索引(他席先建了行)按 failed 点名,绝不冒绿;下一轮回灌即命中现有行。
+        // 归属 2026-11-06 收口:原先这里硬写 null ⇒ 自动入池恒落运营池,于是机主随后手动
+        // 带 --owner 导入同一枚号时,两条 partial unique 各自成立 ⇒ 同 uid 双行,而
+        // chooseSyncTargetRow 运营池优先 ⇒ 个人池那行永远拿不到客户端新票(保活/签到落在
+        // 别处)。这一半尺子由 resolveAutoImportOwner 接 pool-owner 单源,判据不在此复算。
         const { buildQoderImportAccount } = await import('./relay-import-qoder.js')
         const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
         // QoderSyncCandidate 的可选键允许 null,QoderSession 用 undefined —— 归一后交构造
@@ -235,12 +244,31 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Qod
           })
           continue
         }
-        if (dryRun) {
-          summary.imported++
-          summary.rows.push({ uid, decision: 'auto-import', applied: false, error: 'dry-run 未写' })
+        let autoOwner: AutoImportOwnerDecision
+        try {
+          autoOwner = resolveAutoImportOwner()
+        } catch (e) {
+          // 装载失败 = 未判定,不猜归属、更不许悄悄落运营池冒充"这号本来就该进运营池"
+          summary.failed++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: `归属判据装载失败(未判定): ${(e instanceof Error ? e.message : String(e)).slice(0, 160)}`,
+          })
           continue
         }
-        const res = await importAccounts('qoder', [autoInput], null)
+        if (dryRun) {
+          summary.imported++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: `dry-run 未写(将落:${describeAutoImportOwner(autoOwner)})`,
+          })
+          continue
+        }
+        const res = await importAccounts('qoder', [autoInput], autoOwner.ownerUserId)
         const item = res.items[0]
         if (item && (item.status === 'imported' || item.status === 'updated')) {
           summary.imported++
