@@ -30,7 +30,7 @@ export function MessageDetailScreen({
   onReply,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: MessageDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -103,7 +103,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing['2xl'],
       fontSize: rnType.title.size,
       color: tk.text.medium,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
   })
 }

@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { rnSpacing, rnType } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import { FileText, Plus } from 'lucide-react-native'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
@@ -64,7 +65,7 @@ export function PlanProgressBlock({
   styles: ReturnType<typeof createPlanStyles>
 }) {
   return (
-    <View style={{ gap: 8 }}>
+    <View style={{ gap: rnSpacing.sm }}>
       <View style={styles.progressRow}>
         <View style={styles.progressTrack}>
           <View
@@ -147,14 +148,19 @@ export function PlanListScreen({
       <Text style={styles.headerTitle}>{t('planPage.title')}</Text>
       <View style={styles.headerSpacer} />
       <TouchableOpacity
-        style={[styles.primaryBtn, { paddingVertical: 6, paddingHorizontal: 12 }]}
+        style={[
+          styles.primaryBtn,
+          { paddingVertical: rnSpacing['xs-loose'], paddingHorizontal: rnSpacing.md },
+        ]}
         activeOpacity={0.85}
         accessibilityRole="button"
         accessibilityLabel={t('planPage.create')}
         onPress={onCreate}
       >
         <Plus size={14} color={tk.brand.ctaForeground} strokeWidth={2.4} />
-        <Text style={[styles.primaryBtnText, { fontSize: 13 }]}>{t('planPage.create')}</Text>
+        <Text style={[styles.primaryBtnText, { fontSize: rnType.bodySm.size }]}>
+          {t('planPage.create')}
+        </Text>
       </TouchableOpacity>
     </View>
   )
@@ -205,7 +211,7 @@ export function PlanListScreen({
                   style={[
                     styles.filterChipText,
                     active && styles.filterChipActiveText,
-                    { fontSize: 11 },
+                    { fontSize: rnType.caption.size },
                   ]}
                 >
                   {count}

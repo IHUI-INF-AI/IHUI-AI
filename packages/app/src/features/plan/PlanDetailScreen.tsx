@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { rnSpacing } from '@ihui/design-tokens'
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react-native'
 import { ScrollView, Text, TouchableOpacity, View } from 'react-native'
@@ -300,19 +301,19 @@ export function PlanDetailScreen({
               {t('planPage.updatedLabel')} {formatDate(plan.updatedAt)}
             </Text>
           </View>
-          <View style={{ gap: 10 }}>
-            <View style={{ gap: 2 }}>
+          <View style={{ gap: rnSpacing['sm-loose'] }}>
+            <View style={{ gap: rnSpacing['2xs'] }}>
               <Text style={styles.fieldLabel}>{t('planPage.fieldGoal')}</Text>
               <Text style={styles.fieldContent}>{plan.goal}</Text>
             </View>
             {plan.scope.length > 0 ? (
-              <View style={{ gap: 2 }}>
+              <View style={{ gap: rnSpacing['2xs'] }}>
                 <Text style={styles.fieldLabel}>{t('planPage.fieldScope')}</Text>
                 <Text style={styles.fieldContent}>{plan.scope}</Text>
               </View>
             ) : null}
             {plan.constraints.length > 0 ? (
-              <View style={{ gap: 2 }}>
+              <View style={{ gap: rnSpacing['2xs'] }}>
                 <Text style={styles.fieldLabel}>{t('planPage.fieldConstraints')}</Text>
                 <Text style={styles.fieldContent}>{plan.constraints}</Text>
               </View>
@@ -350,7 +351,7 @@ export function PlanDetailScreen({
           </View>
 
           {versions.length === 0 ? (
-            <View style={{ gap: 2 }}>
+            <View style={{ gap: rnSpacing['2xs'] }}>
               <Text style={styles.emptyTitle}>{t('planPage.versionsEmpty')}</Text>
               <Text style={styles.emptyDesc}>{t('planPage.versionsEmptyHint')}</Text>
             </View>
@@ -406,7 +407,7 @@ export function PlanDetailScreen({
           ) : null}
 
           {diffOpen && diff !== null ? (
-            <View style={{ gap: 8 }}>
+            <View style={{ gap: rnSpacing.sm }}>
               <Text style={styles.cardTitle}>{t('planPage.compareHeading')}</Text>
               <View style={styles.diffSummaryRow}>
                 {(

@@ -225,7 +225,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.medium,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     sectionTitle: {
       fontSize: rnType.body.size,
@@ -263,7 +263,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.md,
       fontSize: rnType.label.size,
       color: tk.text.tertiary,
-      lineHeight: 16,
+      lineHeight: rnType.label.lineHeight,
     },
     feedbackBtn: {
       marginTop: rnSpacing.md,

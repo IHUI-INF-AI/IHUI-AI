@@ -157,7 +157,7 @@ export function ModelIncomeScreen({
       <FlatList
         data={filteredItems}
         keyExtractor={(i) => i.id}
-        contentContainerStyle={{ padding: 10 }}
+        contentContainerStyle={{ padding: rnSpacing['sm-loose'] }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={<EmptyState title={t('modelIncome.empty')} colorScheme={colorScheme} />}

@@ -318,7 +318,7 @@ function createStyles(tk: AppThemeTokens) {
     summary: {
       marginTop: rnSpacing['2xs'],
       fontSize: rnType.caption.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       color: tk.text.secondary,
     },
     metaRow: {
