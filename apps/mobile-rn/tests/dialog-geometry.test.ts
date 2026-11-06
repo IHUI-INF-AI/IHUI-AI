@@ -6,8 +6,9 @@
  * 弹层高度单一真相源 + 全量弹层接线回归。
  *
  * 四条腿:① 纯函数行为(六档比例 / 两种产物);② 每个弹层消费点都带上统一 style;
- * ③ 消费清单与源码面一致(新增弹层若没登记进清单必须红);④ 全 RN src 百分比高度
- * 零容忍扫描(把百分比上限抄回样式表、或另起一屏写新比例,都必须红)。
+ * ③ 消费清单与源码面一致(新增弹层若没登记进清单必须红);④ 百分比高度判据的
+ * 接线完整性 —— 判据只在 scripts/lib/rn-percent-height-policy.mjs 一份,由门 217
+ * 的 R3 在提交链上执行,本测试只钉「门确实 import 并调用了它」(§22c 禁止复制判据)。
  *
  * 第一版只锁 ChatScreen 单文件 ⇒ 抽出的 4 个弹层与另起一屏全漏带;第二版补到 6 个
  * 消费者,但把 14 处不同比例 / 不同形态面板代裁结案;这一版按「全源码扫描 + 清单」双证
@@ -143,6 +144,31 @@ const PANELS = [
   },
 ] as const
 
+/**
+ * 第四轮纳入:通用承载件与旁路高度口径。
+ * 前三轮收干净了 12 屏限高面板,却漏了「承载所有弹层的那一个」BottomPops 与
+ * 另写一份 0.8 的 PrivacyPolicyModal。
+ */
+const CARRIERS = [
+  {
+    rel: 'components/BottomPops.tsx',
+    hook: 'useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.tall)',
+    required: [
+      'useWindowDimensions()',
+      'hiddenOffsetRef.current',
+      'sheetMaxHeight',
+      'useDialogMaxHeightStyle',
+    ],
+    forbidden: ['Dimensions.get', 'SHEET_HIDDEN_OFFSET', 'type DimensionValue'],
+  },
+  {
+    rel: 'components/PrivacyPolicyModal.tsx',
+    hook: 'useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)',
+    required: ['cardHeightStyle', 'useDialogHeightStyle'],
+    forbidden: ['Math.round(windowHeight', 'CARD_HEIGHT', 'useWindowDimensions'],
+  },
+] as const
+
 const readSrc = (rel: string) => readFileSync(join(SRC_DIR, rel), 'utf8')
 
 function walk(dir: string, base = ''): string[] {
@@ -175,7 +201,32 @@ function countOf(src: string, needle: string): number {
   return src.split(needle).length - 1
 }
 
-const ALL_CONSUMERS = [...CONSUMERS.map((c) => c.rel), ...PANELS.map((p) => p.rel)].sort()
+const ALL_CONSUMERS = [
+  ...CONSUMERS.map((c) => c.rel),
+  ...PANELS.map((p) => p.rel),
+  ...CARRIERS.map((c) => c.rel),
+].sort()
+describe('第四轮:承载件 / 旁路高度 / 视频比例收口', () => {
+  for (const c of CARRIERS) {
+    describe(c.rel, () => {
+      const src = readSrc(c.rel)
+      it('接入统一高度真相源,不再写第七份比例 / 模块级屏高', () => {
+        expect(src).toContain(c.hook)
+        expect(HOOK_RE.test(src)).toBe(true)
+        for (const t of c.required) expect(src).toContain(t)
+        for (const f of c.forbidden) expect(src).not.toContain(f)
+      })
+    })
+  }
+
+  it('视频封面与播放器共用同一个 16:9 函数', () => {
+    const src = readSrc('screens/ProfileScreen.tsx')
+    expect(src).toContain('function videoHeightFor(')
+    expect(countOf(src, 'videoHeightFor(')).toBeGreaterThanOrEqual(3)
+    expect(src).not.toContain('const posterHeight = 200')
+    expect(src).not.toContain('Math.round((videoWidth * 9) / 16)')
+  })
+})
 
 describe('dialogContentHeight(纯函数)', () => {
   it('六档比例是唯一真相源且互不相同', () => {
@@ -221,29 +272,27 @@ describe('dialogContentHeight(纯函数)', () => {
   })
 })
 
-describe('全 RN src 百分比高度零容忍(防再漏)', () => {
-  it('任何文件都不再写百分比 maxHeight / minHeight', () => {
-    const hits: string[] = []
-    for (const rel of walk(SRC_DIR)) {
-      const src = readSrc(rel)
-      for (const m of src.matchAll(/\b(?:maxHeight|minHeight)\s*:\s*'(\d+)%'/g)) {
-        hits.push(`${rel} ${m[0]}`)
-      }
-    }
-    expect(hits).toEqual([])
+describe('百分比高度判据接线完整性(§22c 判据只许一份)', () => {
+  // 与文件头 SRC_DIR 同口径:vitest 的 cwd 恒为包根,不用 import.meta.url
+  // (jsdom 下它可能不是 file: 方案,fileURLToPath 会直接抛)。
+  const REPO_SCRIPTS = join(process.cwd(), '../../scripts')
+  const POLICY = join(REPO_SCRIPTS, 'lib/rn-percent-height-policy.mjs')
+  const GATE = join(REPO_SCRIPTS, 'check-sheet-flex-contract.mjs')
+  const SELF = join(process.cwd(), 'tests/dialog-geometry.test.ts')
+
+  it('门 217 的 R3 必须 import 并调用同一份判据', () => {
+    const policy = readFileSync(POLICY, 'utf8')
+    const gate = readFileSync(GATE, 'utf8')
+    expect(policy).toContain('export function findPercentHeightViolations')
+    expect(policy).toContain("'packages/app/src'")
+    expect(gate).toContain("from './lib/rn-percent-height-policy.mjs'")
+    expect(gate).toContain('findPercentHeightViolations(')
+    expect(gate).toContain('exemptionRotCheck(')
   })
-  it('非 100% 的 height 百分比只剩两处图片内容比例豁免', () => {
-    // 豁免依据:两处父容器均有确定高度(imagePreviewOverlay flex:1 / previewItem 取 screenHeight),
-    // 内部无滚动列表,是图片本身的显示比例,不是弹层限高,不属于 Fabric 测量缺陷。
-    const hits: string[] = []
-    for (const rel of walk(SRC_DIR)) {
-      const src = readSrc(rel)
-      for (const m of src.matchAll(/\bheight\s*:\s*'(\d+)%'/g)) {
-        if (m[1] === '100') continue
-        hits.push(`${rel}:${m[1]}`)
-      }
-    }
-    expect(hits.sort()).toEqual(['screens/ChatScreen.tsx:80', 'screens/ProfileScreen.tsx:80'])
+
+  it('本测试不再自带第二份百分比正则', () => {
+    const self = readFileSync(SELF, 'utf8')
+    expect(self).not.toContain('match' + 'All(')
   })
 })
 

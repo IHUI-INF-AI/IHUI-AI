@@ -101,7 +101,7 @@ function createStyles(tk: AppThemeTokens) {
     card: {
       gap: rnSpacing.sm,
       padding: rnSpacing['sm-loose'],
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
       backgroundColor: tk.surface.light,
