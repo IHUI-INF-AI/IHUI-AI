@@ -50,7 +50,8 @@ const RUN_ID = `${Date.now()}-${process.pid}`
 
 // ─── 并发度(2026-11-07 实测后定档,不动 300s 看门狗)─────────────────────────
 // 串行实测(21 包,冷 .tsbuildinfo,@ihui/api 134.9s / @ihui/web 113.7s):
-//   串行相加 444.7s / 墙钟 444.8s —— 300s 单门看门狗每轮必红(实测 346s 那次同源)。
+//   串行相加 444.7s / 墙钟 444.8s —— 300s 单门看门狗每轮必红。
+//   同结构另有两次采样,只差采样时点:398s(guardian 早期读数)/ 346s(apps/web 未 Done 时被杀)。
 // 受限并发实测(同机、同冷启动口径、21 包全 Done):
 //   c=2 → 墙钟 284.4s,node 进程工作集峰值 12.60GB(空载基线 3.52GB)
 //   c=4 → 墙钟 179.7s,node 进程工作集峰值 12.83GB(空载基线 3.52GB)
@@ -62,6 +63,9 @@ const RUN_ID = `${Date.now()}-${process.pid}`
 // 让 CPU 排队,不缩短关键路径。低内存机器(空闲 < 10GB)用 IHUI_TYPECHECK_CONCURRENCY=2 退回,
 // 那条路径实测 284.4s 仍在 300s 内。
 // **300s 阈值一行未改**:并发生效后门槛从未满足变为可满足,不需要靠调大消红。
+// 2026-11-07 合并 @ihui/api 两条 typecheck 腿后复测(见 apps/api/tsconfig.scripts.json 头注):
+//   单跑 node scripts/check-typecheck.mjs 193.3s(包墙钟 170.5s,@ihui/api 123.6s→68.5s,@ihui/web 112.7s);
+//   push 门内 T1 174.15s(批量 336.2s)—— 与 300s 阈值之间无任何调参,改的是结构。
 // 语义不变:任一包失败 ⇒ 非零退出;超时仍由外层归 undetermined,绝不折成 pass。
 const TYPECHECK_CONCURRENCY = (() => {
   const raw = Number(process.env.IHUI_TYPECHECK_CONCURRENCY ?? 4)
