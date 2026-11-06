@@ -16,8 +16,12 @@
  *   # 模式 C:已解密的本机会话 JSON(ps1 产物;无 pwsh 环境的降级通道)
  *   pnpm qoder:import -- --session-file session.json
  *
- *   # 干跑(只解析不落库)
+ *   # 干跑(只解析归属与账号形状,不落库;回显"将落哪一格")
  *   pnpm qoder:import -- --dry-run
+ *
+ *   # 归属:显式指定个人池 / 显式落运营池(两枚互斥,同给 = 未判定 exit 2)
+ *   pnpm qoder:import -- --owner <users.id>
+ *   pnpm qoder:import -- --ops-pool
  *
  *   # 跳过导入后的即时体检(默认会跑,与 relay-account-import.ts 同口径)
  *   pnpm qoder:import -- --no-health
@@ -25,9 +29,17 @@
  * 行为要点:
  * - 幂等:同 (providerCode, uid) 再导入 = 覆盖凭证 + 重置健康状态(号池续命,
  *   重复导入安全;这也是"重复性导入"的复用入口)
- * - 安全:输出永不回显 token/refreshToken 明文(只给 uid/到期/问题码);
- *   账号 JSON 与 session 文件含明文凭证,用完即删、勿入仓(见导入格式文档 §7)
- * - 退出码:0 全部成功 / 1 有失败或缺可导账号 / 2 参数或输入读取失败(未判定)
+ * - **归属优先级(2026-11-06 立,缺陷根治)**:显式 `--owner` > 本机 pool-owner 默认
+ *   (`resolveAutoImportOwner` 单源出口,内部委托 `scripts/lib/pool-owner.mjs`) > 运营池。
+ *   此前本脚本调 `importAccounts(provider, accounts)` 只传两参 ⇒ ownerUserId 走服务层默认
+ *   null ⇒ **恒把机主本人的号打成运营池**;再由带 owner 的通道导入同一枚时,表上两条
+ *   partial unique 各自成立 ⇒ 同 uid 双行,而 `chooseSyncTargetRow` 运营池优先 ⇒ 个人池
+ *   那行永远拿不到客户端新票,保活/签到落在别处(2026-11-06 机主亲踩)。
+ *   落运营池必须回显"为什么"(§0.3 不静默);默认归属**装载失败**按未判定 exit 2 且不写库,
+ *   绝不 catch 成 null 把"判据坏了"洗成"这号本来就该进运营池"(§0.10)。
+ * - 安全:输出永不回显 token/refreshToken 明文(只给 uid/到期/问题码);个人池归属只露
+ *   users.id 前 8 位;账号 JSON 与 session 文件含明文凭证,用完即删、勿入仓(见导入格式文档 §7)
+ * - 退出码:0 全部成功 / 1 有失败或缺可导账号 / 2 参数·输入读取·归属判据装载失败(未判定)
  */
 import 'dotenv/config'
 import { spawnSync } from 'node:child_process'
@@ -40,6 +52,14 @@ import {
   type ImportAccountInput,
 } from '../src/services/relay-account-pool-service.js'
 import { RELAY_PROVIDERS, type RelayProviderCode } from '../src/services/relay-account-format.js'
+// 归属单源出口(§0.6):默认档读本机 ~/.wb-switch/pool-owner,判据住在工具层
+// scripts/lib/pool-owner.mjs,由 relay-session-autoimport-owner.ts 统一装载与措辞。
+// 与 relay-qoder-session-sync.ts / relay-trae-session-sync.ts 的 auto-import 支路同一把尺子。
+import {
+  describeAutoImportOwner,
+  resolveAutoImportOwner,
+  type AutoImportOwnerDecision,
+} from './relay-session-autoimport-owner.js'
 // 带值旗标取值口径(G-322):紧邻 token 必须非空且不以 `-` 开头。本地副本与
 // scripts/lib/flag-value.mjs 的 isFlagValueToken 逐字同源 —— apps/api→repo-tooling 被
 // config/architecture-policy.yaml 禁止(D1/D2/D3),消依赖优先;语义变更须两处同改。
@@ -158,6 +178,56 @@ export function extractAccountsFromJson(raw: unknown): unknown[] {
 }
 
 // =============================================================================
+// 归属裁决(纯函数,单测覆盖)
+// =============================================================================
+
+/** resolveImportOwner 的输入面(CliArgs 的归属两枚旗标;测试可直接传字面量)。 */
+export interface ImportOwnerFlags {
+  /** 显式 `--owner <users.id>`;空/缺省 = 未给 */
+  owner?: string
+  /** 显式 `--ops-pool` */
+  opsPool?: boolean
+}
+
+/**
+ * 归属裁决:显式 `--owner` > 显式 `--ops-pool` > 本机 pool-owner 默认 > 运营池。
+ * 优先级与仓内既有规矩逐字一致(工具层 `scripts/relay-account-pool.mjs` 的
+ * `resolveOwnerDecision`、导入面 `relay-account-import.ts` 的 `--owner-source` 词汇
+ * 同族),source/reason 复用 `scripts/lib/pool-owner.mjs` 的 OWNER_SOURCES 单一词汇表,
+ * 本层不另立第二套口径(§0.6)。
+ *
+ * 默认档整条委托 `resolveAutoImportOwner`(它装载工具层单源)。它**抛错**时本函数照样抛:
+ * 装载失败 = 未判定,由调用方 exit 2 并点名 ⇒ 结构上不可能被洗成 null 落运营池(§0.3/§0.10)。
+ *
+ * @param deps.resolveDefaultOwner 注入替身(测试用;绝不读真机文件、绝不写库)
+ */
+export function resolveImportOwner(
+  flags: ImportOwnerFlags,
+  deps: { resolveDefaultOwner?: () => AutoImportOwnerDecision } = {},
+): AutoImportOwnerDecision {
+  if (flags.owner) {
+    return { ownerUserId: flags.owner, source: 'explicit-flag', reason: 'ok', file: '' }
+  }
+  if (flags.opsPool) {
+    return { ownerUserId: null, source: 'none', reason: 'ops-pool-flag', file: '' }
+  }
+  const resolveDefault = deps.resolveDefaultOwner ?? resolveAutoImportOwner
+  return resolveDefault()
+}
+
+/**
+ * 归属回显措辞:个人池一律走 `describeAutoImportOwner`(只露 users.id 前 8 位 + 来源),
+ * 本层不复制那半句。唯一自写的是"人显式要运营池"那一档 —— 它不是"默认归属取不到",
+ * 说成取不到就是假话;原因照样要点名(§0.3 不静默)。
+ */
+export function describeImportOwner(d: AutoImportOwnerDecision): string {
+  if (!d.ownerUserId && d.reason === 'ops-pool-flag') {
+    return '运营池(--ops-pool 显式指定,压过本机默认归属)'
+  }
+  return describeAutoImportOwner(d)
+}
+
+// =============================================================================
 // CLI
 // =============================================================================
 
@@ -168,10 +238,20 @@ interface CliArgs {
   dryRun: boolean
   /** 导入后是否立刻做上游体检(默认 true;与 relay-account-import.ts 同口径) */
   health: boolean
+  /** 显式个人池归属(`--owner`);空串 = 未给,走本机默认 */
+  owner: string
+  /** 显式落运营池(`--ops-pool`),压过本机默认归属;与 owner 互斥 */
+  opsPool: boolean
 }
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { provider: 'qoder', dryRun: false, health: true }
+  const args: CliArgs = {
+    provider: 'qoder',
+    dryRun: false,
+    health: true,
+    owner: '',
+    opsPool: false,
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i] ?? ''
     // G-322:带值旗标的值被紧邻旗标顶掉(`--file --dry-run`)或结尾无值时,旧写法
@@ -190,7 +270,14 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === '--session-file') args.sessionFile = takeValue(argv[i + 1])
     else if (a === '--dry-run') args.dryRun = true
     else if (a === '--no-health') args.health = false
-    else if (a === '--provider') {
+    else if (a === '--ops-pool') args.opsPool = true
+    else if (a === '--owner') {
+      const v = takeValue(argv[i + 1]).trim()
+      if (!v) {
+        throw new Error('--owner 需要 users.id(不给 = 按本机 pool-owner 默认归属,不猜)')
+      }
+      args.owner = v
+    } else if (a === '--provider') {
       const v = takeValue(argv[i + 1])
       if (!(RELAY_PROVIDERS as readonly string[]).includes(v)) {
         throw new Error(`不支持的 provider: ${v}(可选 ${RELAY_PROVIDERS.join('|')})`)
@@ -198,7 +285,10 @@ function parseArgs(argv: string[]): CliArgs {
       args.provider = v as RelayProviderCode
     } else if (a === '--help' || a === '-h') {
       console.log(
-        '用法: pnpm qoder:import [-- --file x.json | --session-file x.json | --provider <code> | --dry-run | --no-health]',
+        '用法: pnpm qoder:import [-- --file x.json | --session-file x.json | --provider <code> | ' +
+          '--owner <users.id> | --ops-pool | --dry-run | --no-health]' +
+          '\n归属: --owner(最高优先) > 本机 ~/.wb-switch/pool-owner 默认 > --ops-pool(显式要运营池);' +
+          '默认取不到 ⇒ 落运营池并回显原因,绝不静默。--owner 与 --ops-pool 同给 = 未判定(exit 2)。',
       )
       process.exit(0)
     } else if (a === '--') {
@@ -206,6 +296,13 @@ function parseArgs(argv: string[]): CliArgs {
     } else {
       throw new Error(`未知参数: ${a}(--help 看用法)`)
     }
+  }
+  // 互斥闸排在解析末尾:两枚旗标同给时"落哪一格"根本没有答案,猜哪一侧都是假话 ⇒
+  // 抛错由 main 的解析 catch 落 exit 2(未判定),不写库(§0.3)。
+  if (args.owner && args.opsPool) {
+    throw new Error(
+      '--owner 与 --ops-pool 只能二选一(个人池归属与运营池不得同时指定)⇒ 未判定,不落库',
+    )
   }
   return args
 }
@@ -247,7 +344,21 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  // 1. 取账号条目(三种来源)
+  // 1. 归属裁决(排在取号之前:判据本身坏了就没必要再动本机 pwsh / 读文件)
+  let owner: AutoImportOwnerDecision
+  try {
+    owner = resolveImportOwner(args)
+  } catch (e) {
+    // 默认归属读不出 = 装载失败 = 未判定:非零退出、一个字节都不写库。
+    // 这一档绝不能 catch 成 null —— 那等于把"判据坏了"洗成"这号本来就该进运营池"。
+    console.error(
+      `❌ 归属判据装载失败(未判定): ${e instanceof Error ? e.message : String(e)}\n` +
+        '   本次不导入。个人池请加 --owner <users.id>,确需运营池请加 --ops-pool。',
+    )
+    process.exit(2)
+  }
+
+  // 2. 取账号条目(三种来源)
   let accounts: ImportAccountInput[]
   let source: string
   try {
@@ -285,7 +396,10 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // 2. 预检摘要(不回显 token 明文)
+  // 3. 预检摘要(不回显 token 明文;归属落点必须回显,含来源与"为什么")
+  console.log(
+    `归属: ${describeImportOwner(owner)}` + (owner.file ? ` | 归属配置=${owner.file}` : ''),
+  )
   console.log(`来源: ${source} | provider: ${args.provider} | 待导入: ${accounts.length} 条`)
   for (const [i, a] of accounts.entries()) {
     const rec = a as Record<string, unknown>
@@ -295,14 +409,15 @@ async function main(): Promise<void> {
     )
   }
   if (args.dryRun) {
-    console.log('dry-run:未落库')
+    console.log(`dry-run:未落库(将落:${describeImportOwner(owner)})`)
     // 显式退出:服务模块加载时建立的 DB 连接池会让事件循环保持存活,
     // 不 exit 会挂起直到被外部信号杀掉(表现为空输出 + SIGTERM)。
     process.exit(0)
   }
 
-  // 3. 落库(幂等:同 uid 覆盖凭证 + 重置健康状态)
-  const result = await importAccounts(args.provider, accounts)
+  // 4. 落库(幂等:同 uid 覆盖凭证 + 重置健康状态)
+  // 第三参 ownerUserId 是本次缺陷的根治点:此前只传两参 ⇒ 走服务层默认 null ⇒ 恒落运营池。
+  const result = await importAccounts(args.provider, accounts, owner.ownerUserId)
   console.log(
     `结果: imported=${result.imported} updated=${result.updated} ` +
       `skipped=${result.skipped} failed=${result.failed}`,
@@ -315,7 +430,7 @@ async function main(): Promise<void> {
     }
   }
 
-  // 4. 即时体检(2026-10-29 补):导入本身只做本地解析,但「导入后立刻看到 unknown」
+  // 5. 即时体检(2026-10-29 补):导入本身只做本地解析,但「导入后立刻看到 unknown」
   // 与另一入口 relay-account-import.ts(导入即体检)口径不一致 —— 同一次导入在两套工具下
   // 给出不同状态就是 bug。这里直接复用它的 runHealth 实现,不写第二份判据。
   // 体检不打对话配额(Qoder 走 /api/v2/quota/usage),不影响退出码(导入成败只看落库)。
@@ -355,3 +470,7 @@ if (invokedDirectly) {
     process.exit(1)
   })
 }
+
+/** 可测面(§22c):镜像测试直接用生产判据,禁止在测试里复制第二份归属规则。 */
+export const __test__ = { parseArgs, resolveImportOwner, describeImportOwner }
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
