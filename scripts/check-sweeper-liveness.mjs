@@ -18,6 +18,10 @@
  * 判什么(每族三读):派发节流台账 attemptAt(派发在不在动) / 摘除留痕台账最后一条 at(干没干成活)/
  * HEAD 面上**可清存量**(该不该有活)。三读齐了才有背离;缺任何一读 ⇒ 未判定(§0.3)。
  *
+ * 族三 dispatch-parity(票 RP-74,2026-11-05 立)判的不是一族的空转,而是**两条执行体链是否对等**:
+ *   键表(腿→tickFile→intervalMs)一律**从 scripts/git-guardian.mjs 源码现解析**(§0.6 单一真相源,
+ *   本文件不写第二份清单);解析到 0 条 / 取不到源码 / 判不出两条链 ⇒ 显式未判定并点名(§0.3)。
+ *
  * 为什么不进提交链:本格判的是"守护自己的巡检层空转",与提交内容无关 ⇒ 按 §12e 恒红门禁令,
  * 只作 git-guardian 巡检轮里的只读探针(与 auditPublicPathProbe 同型),不改守护退出码。
  *
@@ -66,8 +70,6 @@ const DISPATCH_FRESH_MIN = 30
 const SILENT_HOURS = 2
 
 const STATE_DIR = path.join(ROOT, '.ihui-agent', 'state')
-
-const g = (a) => gitRaw(a, ROOT)
 
 /**
  * closed-stock 族存量:门 229 的跨枚滞留集,过清扫器的 H4 分档后取**可摘集**。
@@ -141,10 +143,464 @@ function claimStockOf(headText, nowMs, root = ROOT) {
   }
 }
 
-/** 两族配置:tick/ledger 文件名与 git-guardian 派发点、清扫器留痕点逐字一致(形状锁见测试)。
+/* ── 第三族 dispatch-parity(票 RP-74,2026-11-05 立)─────────────────────────────
+ *
+ * 判什么:守护两条执行体链(一次性 main 单轮链 / daemon 常驻 tick 链)的**派发面是否对等**,
+ *   以及挂在 tick 上的腿它自己的节流戳是否真在被更新。2026-11-03 事故的原形就是"腿只写在
+ *   main() 上,计划任务档 00:28 被禁用后 daemon 成唯一执行体 ⇒ 该面永久不跑";11-04 把剩下的
+ *   搬进 tick 之后,新的静默形态变成"挂在 tick 上、常驻进程却是旧代码 ⇒ 戳从此不动"。
+ *   两型都靠人翻台账才发现不了,所以量在提交链之外的只读探针里(§12e 恒红门禁令)。
+ *
+ * 键表口径(§0.6 单一真相源):**从 scripts/git-guardian.mjs 源码现解析** 腿→tickFile→intervalMs,
+ *   本文件不写第二份清单(写死就会与源码漂移,正是 11-03 那一病)。"B 档刻意不搬"同样不另立
+ *   清单 —— 理由钉在 main 链挂点旁的 `dispatch-parity-exempt: <理由>` 标记行上,由本族现解析;
+ *   标记所指的腿若已双挂,按 §0.7"豁免不再命中 ⇒ 清单腐烂"计入背离。
+ *
+ * 三态(与另两族同形,守护只读一个 JSON):
+ *   stalled      有背离:某腿 main-only 且无标记 / tick 腿节流戳冻结 > 声明节律×PARITY_FREEZE_FACTOR
+ *                / 豁免标记腐烂
+ *   live         键表解析到 ≥1 条且零背离零未判定
+ *   undetermined 取不到源码 / 判不出两条链 / 解析到 0 条键表(§0.3 枚举到 0 个候选不记绿),
+ *                或有腿的戳形状读不出、intervalMs 解不出 ⇒ 逐条点名,不折成 0
+ *
+ * 取材面:工作树副本(= 守护下次加载的那一面;与同族形状锁
+ *   scripts/tests/cross-end-landing-dispatch.test.mjs 头注同口径)。取不到**不回落 HEAD 面**(§0.4)。
+ */
+const GUARDIAN_REL = 'scripts/git-guardian.mjs'
+/** 派发行的形状判据(不是腿清单):只认这些动词前缀,避开 log/status/beatRoundLock 等辅助调用。 */
+const PARITY_LEG_PREFIX_RE =
+  /^(audit|sweep|heal|watch|dispatch|report|rotate|refresh|scrub|reap|archive|ensure|converge|autoRegister|gc|check)[A-Z]/
+const PARITY_EXEMPT_MARK = 'dispatch-parity-exempt:'
+/** 冻结倍率:腿自己声明的节律 ×3 还看不到新戳 ⇒ 承载面根本没跑到它(与 SILENT_HOURS 同族参数)。 */
+const PARITY_FREEZE_FACTOR = 3
+/** 承载面心跳多新才算"执行体在动":轮级锁每轮 beat 一次,30 分钟 = 连丢一整段节拍(与 DISPATCH_FRESH_MIN 同档)。 */
+const CARRIER_FRESH_MIN = 30
+
+function isCommentLine(t) {
+  return t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')
+}
+
+/** 取两条执行体链的行区间;判不出 ⇒ null(由上层落未判定,绝不默认已对齐)。 */
+function facesOf(src) {
+  const lines = src.split(/\r?\n/)
+  const mainStart = lines.findIndex((l) => l.startsWith('async function main()'))
+  const daemonStart = lines.findIndex((l) => l.startsWith('function startDaemon'))
+  if (mainStart < 0 || daemonStart < 0 || daemonStart <= mainStart) return null
+  const tickStart = lines.findIndex((l, i) => i > daemonStart && l.includes('const tick = () => {'))
+  if (tickStart < 0) return null
+  const tick = []
+  for (let i = tickStart + 1; i < lines.length; i++) {
+    const l = lines[i]
+    // 收口规则与镜像测试一致:列 0 的非空行即视为 startDaemon 结束(提前收口 ⇒ 少判 ⇒ 点名)
+    if (l.trim() !== '' && !/^\s/.test(l)) break
+    tick.push({ text: l, no: i + 1 })
+  }
+  const main = lines
+    .slice(mainStart, daemonStart)
+    .map((l, i) => ({ text: l, no: mainStart + i + 1 }))
+  if (tick.length < 20 || main.length < 20) return null
+  return { lines, main, tick }
+}
+
+/** 挂点旁最近一条豁免标记(往前最多 10 行;碰到另一条派发行就停,防把上层理由算到这条腿)。 */
+function exemptOf(rows, idx) {
+  for (let k = idx - 1; k >= Math.max(0, idx - 10); k--) {
+    const t = rows[k].text.trim()
+    const m = t.match(/dispatch-parity-exempt:\s*(.+)/)
+    if (m) return m[1].trim()
+    if (isCommentLine(t) || t === '') continue
+    const d = t.replace(/^if \(!CHECK_ONLY\)\s*/, '').match(/^([A-Za-z_]\w*)\(/)
+    if (d && PARITY_LEG_PREFIX_RE.test(d[1])) return null
+  }
+  return null
+}
+
+/** 一条链的派发面:直接形(`X()` / `if (!CHECK_ONLY) X()`)与 legThrottle 守卫形都收。
+ *  同名腿可能有多个派发点(如 ensureS4u 既在 --install 分支又在巡检链),全部记入 at[],
+ *  豁免判定按"任一挂点旁有标记"算 —— 只看第一处会把另一处的具名理由读成"无人裁决"。 */
+function dispatchFaceOf(rows) {
+  const out = new Map()
+  const put = (name, no, exempt) => {
+    const prev = out.get(name)
+    if (!prev) out.set(name, { no, at: [no], exempt: !!exempt })
+    else {
+      prev.at.push(no)
+      if (exempt) prev.exempt = true
+    }
+  }
+  for (let i = 0; i < rows.length; i++) {
+    const t = rows[i].text.trim()
+    if (isCommentLine(t)) continue
+    const direct = t.replace(/^if \(!CHECK_ONLY\)\s*/, '').match(/^([A-Za-z_]\w*)\(/)
+    if (direct && PARITY_LEG_PREFIX_RE.test(direct[1])) {
+      put(direct[1], rows[i].no, exemptOf(rows, i))
+      continue
+    }
+    if (/^if \($/.test(t)) {
+      for (let k = i + 1; k < Math.min(i + 14, rows.length); k++) {
+        const g = rows[k].text.trim().match(/^([A-Za-z_]\w*)\(\)$/)
+        if (g && PARITY_LEG_PREFIX_RE.test(g[1])) {
+          put(g[1], rows[k].no, exemptOf(rows, k))
+          break
+        }
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * 承载面心跳:`.ihui-agent/state/git-guardian.lock` 的 `at=` 键值对(lib/guardian-lock.mjs 的
+ * DEFAULT_LOCK_PATH,每轮 beat 一次)。它证明"执行体本身在动"。
+ * 取不到 ⇒ 'missing';解析不出 ⇒ null。两种都由上层落未判定,不折成"承载面停了"。
+ */
+export function readCarrierAt(file) {
+  let raw
+  try {
+    raw = readFileSync(file, 'utf8')
+  } catch {
+    return 'missing'
+  }
+  const m = raw.match(/^at=(.+)$/m)
+  if (!m) return null
+  const t = Date.parse(m[1].trim())
+  return Number.isFinite(t) ? t : null
+}
+
+/** 顶层 `const IDENT = …`(可跨行,含 `export const` 形)的初始化式;取不到 ⇒ null。 */
+function constExprOf(lines, name) {
+  const re = new RegExp(`^(?:export )?const ${name} =`)
+  const i = lines.findIndex((l) => re.test(l))
+  if (i < 0) return null
+  let acc = lines[i].replace(re, '').trim()
+  for (let k = i; k < Math.min(i + 10, lines.length - 1); k++) {
+    const opens = (acc.match(/\(/g) || []).length
+    const closes = (acc.match(/\)/g) || []).length
+    if (opens <= closes) break
+    acc += ' ' + lines[k + 1].trim()
+  }
+  return acc
+}
+
+/** intervalMs 表达式 → 毫秒;解不出 ⇒ null(上层落未判定,不自造默认节律)。 */
+function resolveIntervalMs(expr, lines, depth = 0) {
+  if (expr === null || expr === undefined || depth > 8) return null
+  // 多行 Number( 换行形态会被拼成 "...,\n)" ⇒ 先摘掉括号尾部的悬挂逗号
+  let e = String(expr)
+    .trim()
+    .replace(/,(\s*\))/g, '$1')
+    .replace(/,$/, '')
+  const coalesce = e.match(/\?\?\s*(.+)$/)
+  if (coalesce) e = coalesce[1].trim()
+  const env = e.match(/^Number\(\s*process\.env\.['\w]+\s*\|\|\s*(.+?)\s*\)$/)
+  if (env) return resolveIntervalMs(env[1], lines, depth + 1)
+  // 纯乘式(不 eval):5 * 60 * 1000 / 6 * 60 * 60 * 1000 / 30_000 之类
+  const product = e.match(/^(\d+(?:_\d+)*)(?:\s*\*\s*\d+(?:_\d+)*)+$/)
+  if (product)
+    return e
+      .split('*')
+      .map((p) => Number(p.replace(/_/g, '').trim()))
+      .reduce((a, b) => a * b, 1)
+  if (/^\d+(?:_\d+)*$/.test(e)) return Number(e.replace(/_/g, ''))
+  const id = e.match(/^([A-Z][A-Z0-9_]*)$/)
+  if (id) return resolveIntervalMs(constExprOf(lines, id[1]), lines, depth + 1)
+  return null
+}
+
+/** tickFile 表达式 → {file};模板名(逐族展开)⇒ {dynamic:true},该腿计入"无从量"而非"没跑"。 */
+function resolveTickFile(expr, lines, depth = 0) {
+  if (expr === null || expr === undefined || depth > 8) return null
+  const e = String(expr).trim().replace(/,$/, '')
+  if (/\$\{/.test(e)) return { dynamic: true }
+  const id = e.match(/^([A-Z][A-Z0-9_]*)$/)
+  if (id) return resolveTickFile(constExprOf(lines, id[1]), lines, depth + 1)
+  const lits = [...e.matchAll(/'([^']+)'/g)].map((m) => m[1])
+  if (!lits.length) return null
+  const file = lits[lits.length - 1]
+  return /\./.test(file) ? { file } : null
+}
+
+/** 键表:每条被派发的腿 → {tickFile, intervalMs}(函数默认值区现取,`tickFile: X` 传参形也算)。 */
+function keyTableOf(lines, legNames) {
+  const table = new Map()
+  for (const name of legNames) {
+    const i = lines.findIndex((l) => new RegExp(`^(?:export )?function ${name}\\(`).test(l))
+    if (i < 0) {
+      table.set(name, { tickFile: null, intervalMs: null, hasFn: false, rawInterval: null })
+      continue
+    }
+    let intv = null
+    let tick = null
+    for (let k = i + 1; k < Math.min(i + 60, lines.length); k++) {
+      const l = lines[k]
+      if (/^(?:export )?function |^export const |^\/\*\*|^const __test__/.test(l)) break
+      if (/^\}/.test(l)) break
+      const s = l.trim()
+      let m = s.match(/^tickFile\s*[:=]\s*(.+?),?$/)
+      if (m && tick === null) tick = m[1]
+      m = s.match(/^intervalMs\s*[:=]\s*(.+?),?$/)
+      if (m && intv === null) intv = m[1]
+      if (tick !== null && intv !== null) break
+    }
+    const f = resolveTickFile(tick, lines)
+    table.set(name, {
+      tickFile: f && f.file ? f.file : null,
+      dynamic: !!(f && f.dynamic),
+      intervalMs: resolveIntervalMs(intv, lines),
+      rawInterval: intv,
+      hasFn: true,
+      no: i + 1,
+    })
+  }
+  return table
+}
+
+/**
+ * 节流戳读数,三种真实形态都吃过(ISO 文本 / epoch 毫秒 / JSON {attemptAt|at|…})。
+ * 文件不在 ⇒ 'missing';形状读不出 ⇒ null。两者都由上层落未判定,**一律不折成 0**。
+ */
+export function readStampMs(file) {
+  let raw
+  try {
+    raw = readFileSync(file, 'utf8').trim()
+  } catch {
+    return 'missing'
+  }
+  if (raw === '') return null
+  if (/^\d{13}$/.test(raw)) return Number(raw)
+  if (/^\d{10}$/.test(raw)) return Number(raw) * 1000
+  const direct = Date.parse(raw)
+  if (Number.isFinite(direct)) return direct
+  let j
+  try {
+    j = JSON.parse(raw)
+  } catch {
+    return null
+  }
+  for (const k of [
+    'attemptAt',
+    'tickAt',
+    'stampedAt',
+    'at',
+    'updatedAt',
+    'lastRunAt',
+    'lastTickAt',
+    'finishedAt',
+  ]) {
+    // 实测本机两种形态并存:{"attemptAt":"2026-...Z"} 与 {"attemptAt":1793898937284}
+    const v = j?.[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return v >= 1e12 ? v : v * 1000
+    const t = Date.parse(String(v ?? ''))
+    if (Number.isFinite(t)) return t
+  }
+  const n = Number(j?.atMs ?? j?.ms ?? NaN)
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * dispatch-parity 族判定(键表与读数全部现取;`root` 只为镜像测试可注入夹具)。
+ * @returns {{state:string,why:string,detail:string,stock:number,stockNote:string,bits:string[],
+ *            legsParsed:number,mainFace:number,tickFace:number,items:object[]}}
+ */
+export function dispatchParityVerdict({ nowMs = Date.now(), root = ROOT } = {}) {
+  let src = null
+  try {
+    src = readFileSync(path.join(root, 'scripts', 'git-guardian.mjs'), 'utf8')
+  } catch {
+    src = null
+  }
+  if (typeof src !== 'string' || src === '')
+    return {
+      state: 'undetermined',
+      why: 'guardian-source-unreadable',
+      stock: 0,
+      legsParsed: 0,
+      mainFace: 0,
+      tickFace: 0,
+      bits: ['state=undetermined', `键表=取不到 ${GUARDIAN_REL}`],
+      detail: `dispatch-parity 未判定:取不到 ${GUARDIAN_REL}(取不到不回落另一个面,§0.4)` +
+        ' ⇒ 两条执行体链是否对等无从量,不得读成"都对齐了"',
+      stockNote: '源码一条也没读到',
+      items: [],
+    }
+  const faces = facesOf(src)
+  if (!faces)
+    return {
+      state: 'undetermined',
+      why: 'dispatch-faces-unparsed',
+      stock: 0,
+      legsParsed: 0,
+      mainFace: 0,
+      tickFace: 0,
+      bits: ['state=undetermined', '键表=判不出两条链'],
+      detail:
+        'dispatch-parity 未判定:判不出 main() 单轮链 / daemon tick 链区段' +
+        '(async function main / function startDaemon / const tick 三处形态之一变了)⇒ 不得默认已接线',
+      stockNote: '两条执行体链切片失败',
+      items: [],
+    }
+  const main = dispatchFaceOf(faces.main)
+  const tick = dispatchFaceOf(faces.tick)
+  const legs = [...new Set([...main.keys(), ...tick.keys()])]
+  const table = keyTableOf(faces.lines, legs)
+  const pinned = legs.filter((n) => {
+    const r = table.get(n)
+    return r && (r.tickFile || r.dynamic || r.intervalMs !== null)
+  })
+  if (!legs.length || !pinned.length)
+    return {
+      state: 'undetermined',
+      why: 'dispatch-key-table-empty',
+      stock: 0,
+      legsParsed: legs.length,
+      mainFace: main.size,
+      tickFace: tick.size,
+      bits: ['state=undetermined', `键表=0 条(派发面 main=${main.size} tick=${tick.size})`],
+      detail:
+        `dispatch-parity 未判定:从 ${GUARDIAN_REL} 源码解析到 0 条「腿→tickFile→intervalMs」键表` +
+        '(§0.3:枚举到 0 个候选判死,不记绿也不冒红)',
+      stockNote: `派发面 main=${main.size} / tick=${tick.size},键表 0 条`,
+      items: [],
+    }
+  const stateDir = path.join(root, '.ihui-agent', 'state')
+  // 承载面心跳:整条执行体都不在动的时候,不许把 24 枚冻结戳逐枚算到腿头上
+  // (与 verdictFor 的 'dispatch-not-moving' 同一纪律:派发层停摆另属一族,不冒名 stalled)。
+  const carrierAt = readCarrierAt(path.join(stateDir, 'git-guardian.lock'))
+  const carrierAgeMin = Number.isFinite(carrierAt)
+    ? Math.max(0, Math.round((nowMs - carrierAt) / MIN_MS))
+    : null
+  const carrierMoving = carrierAgeMin !== null && carrierAgeMin <= CARRIER_FRESH_MIN
+  const breaches = []
+  const unjudged = []
+  let deferred = 0
+  let tickOnly = 0
+  let maxFreshAgeMin = null
+  for (const name of legs) {
+    const onMain = main.has(name)
+    const onTick = tick.has(name)
+    const entry = table.get(name) ?? { tickFile: null, intervalMs: null, hasFn: false }
+    if (onMain && !onTick) {
+      if (main.get(name).exempt) deferred++
+      else
+        breaches.push({
+          leg: name,
+          kind: 'main-only',
+          detail: `只挂一次性 main 链 @L${main.get(name).no},且挂点旁没有 ${PARITY_EXEMPT_MARK} 理由` +
+            ' ⇒ 计划任务档一旦停用,这一面永久不跑(2026-11-03 事故原形)',
+        })
+      continue
+    }
+    if (onMain && onTick && main.get(name).exempt)
+      breaches.push({
+        leg: name,
+        kind: 'exempt-stale',
+        detail: `豁免标记已腐烂:该腿其实双挂,标记却还写着不搬(§0.7)—— ${main.get(name).exempt.slice(0, 70)}`,
+      })
+    if (!onMain && onTick) {
+      // 只在 tick 上(事件驱动修复动作等)不是本次事故那一型,只报数不判背离
+      tickOnly++
+      continue
+    }
+    if (!entry.hasFn) {
+      unjudged.push({ leg: name, kind: 'no-fn-body', detail: '源码里找不到该腿的函数定义 ⇒ 节律无从解析' })
+      continue
+    }
+    if (!entry.tickFile) {
+      unjudged.push({
+        leg: name,
+        kind: entry.dynamic ? 'tickfile-dynamic' : 'tickfile-unresolved',
+        detail: entry.dynamic
+          ? 'tickFile 是模板名(逐族展开),本族不按名量'
+          : '函数默认值区解析不出 tickFile ⇒ 该腿无被量到的心跳凭据',
+      })
+      continue
+    }
+    if (entry.intervalMs === null) {
+      unjudged.push({
+        leg: name,
+        kind: 'interval-unresolved',
+        detail: `intervalMs 解析不出:${String(entry.rawInterval ?? '(缺省)').slice(0, 70)}`,
+      })
+      continue
+    }
+    const at = readStampMs(path.join(stateDir, entry.tickFile))
+    if (at === 'missing') {
+      unjudged.push({ leg: name, kind: 'stamp-missing', detail: `节流戳文件不在:${entry.tickFile}` })
+      continue
+    }
+    if (!Number.isFinite(at)) {
+      unjudged.push({ leg: name, kind: 'stamp-unparsed', detail: `节流戳形状读不出:${entry.tickFile}` })
+      continue
+    }
+    const ageMin = Math.max(0, Math.round((nowMs - at) / MIN_MS))
+    if (nowMs - at > entry.intervalMs * PARITY_FREEZE_FACTOR) {
+      const freezeNote =
+        `挂在 tick 上,但自己的节流戳 ${ageMin} 分钟没更新(声明节律 ${Math.round(entry.intervalMs / MIN_MS)} 分钟` +
+        `×${PARITY_FREEZE_FACTOR} 预算)`
+      if (!carrierMoving)
+        // 承载面自己没在动 ⇒ 这一枚不算"腿背离",算"派发层停摆"(另属一族,不冒名 stalled)
+        unjudged.push({
+          leg: name,
+          kind: 'carrier-not-moving',
+          detail:
+            `${freezeNote},且轮级锁心跳 ${carrierAgeMin === null ? '取不到' : `${carrierAgeMin} 分钟前`} 也未更新` +
+            ' ⇒ 分不清是这一腿没被跑到还是整条执行体停了,按未判定逐条点名(§0.3)',
+        })
+      else
+        breaches.push({
+          leg: name,
+          kind: 'stamp-frozen',
+          detail:
+            `${freezeNote} ⇒ 承载面没走到这一腿。核验两步:① 该腿在写戳之前有没有自己的挡板` +
+            `(器物不在位 / disabled 档早退);② 常驻进程启动时刻是否早于该腿上 tick 的时刻`,
+        })
+    } else if (maxFreshAgeMin === null || ageMin > maxFreshAgeMin) maxFreshAgeMin = ageMin
+  }
+  const kindOf = (arr, k) => arr.filter((x) => x.kind === k).length
+  const namesOf = (arr) => arr.slice(0, 6).map((x) => `${x.leg}[${x.kind}]`).join(' ')
+  const state = breaches.length ? 'stalled' : unjudged.length ? 'undetermined' : 'live'
+  return {
+    state,
+    why: breaches.length ? 'dispatch-face-diverged' : unjudged.length ? 'legs-unjudged' : 'ok',
+    stock: breaches.length,
+    legsParsed: legs.length,
+    mainFace: main.size,
+    tickFace: tick.size,
+    maxFreshAgeMin,
+    deferred,
+    tickOnly,
+    bits: [
+      `state=${state}`,
+      `键表=${legs.length} 条`,
+      `main=${main.size} tick=${tick.size}`,
+      `B档已具名豁免=${deferred}`,
+      carrierAgeMin === null ? '承载面心跳=取不到' : `承载面心跳=${carrierAgeMin} 分钟前`,
+      maxFreshAgeMin === null ? '最老新鲜戳=—' : `最老新鲜戳=${maxFreshAgeMin} 分钟前`,
+    ],
+    detail:
+      `腿→tickFile→intervalMs 键表 ${legs.length} 条,全部从 ${GUARDIAN_REL} 源码现解析(本文件零清单)` +
+      `;背离 ${breaches.length}(main-only ${kindOf(breaches, 'main-only')}、戳冻结 ${kindOf(breaches, 'stamp-frozen')}、` +
+      `豁免腐烂 ${kindOf(breaches, 'exempt-stale')});未判定 ${unjudged.length}(戳不在 ${kindOf(unjudged, 'stamp-missing')}、` +
+      `形状读不出 ${kindOf(unjudged, 'stamp-unparsed')}、节律解不出 ${kindOf(unjudged, 'interval-unresolved')}、` +
+      `动态戳名 ${kindOf(unjudged, 'tickfile-dynamic')}、承载面未动 ${kindOf(unjudged, 'carrier-not-moving')})` +
+      `;只挂 tick ${tickOnly}` +
+      (breaches.length
+        ? `;出路=main-only 那族逐条补进常驻 tick(或就地写 dispatch-parity-exempt 理由),戳冻结那一族要落到` +
+          `该腿自己的调用点为何到不了(本探针只量,不重启任何服务)⇒ ${namesOf(breaches)}`
+        : unjudged.length
+          ? `;未判定逐条 ⇒ ${namesOf(unjudged)}`
+          : ''),
+    stockNote: `背离 ${breaches.length} / 未判定 ${unjudged.length} / 豁免 ${deferred} / 仅 tick ${tickOnly}`,
+    items: [...breaches, ...unjudged],
+  }
+}
+
+/** 三族配置:前两族 tick/ledger 文件名与 git-guardian 派发点、清扫器留痕点逐字一致(形状锁见测试)。
  *  stockOf 一律收**一个 ctx 对象**(不按位置传参)—— 两族签名本就不同(closed 要基线面、
  *  claim 要 nowMs/root),按位置统一传参踩过错位(实测把 4.2MB 基线面当成 nowMs 传进
- *  claimStockOf,C3 守恒不过整族报未判定);对象传参让错位在结构上不可能发生。 */
+ *  claimStockOf,C3 守恒不过整族报未判定);对象传参让错位在结构上不可能发生。
+ *  第三族 dispatch-parity 走 `selfVerdict`(它自己不读节流台账/留痕台账,而是现解析守护源码),
+ *  所以它**没有** tick/ledger 字段 —— measure() 见到 selfVerdict 就跳过那两读,不假装有值。 */
 export const FAMILIES = [
   {
     id: 'closed-stock',
@@ -163,6 +619,16 @@ export const FAMILIES = [
     ledgerKind: null,
     needsBase: false,
     stockOf: ({ headText, nowMs, root }) => claimStockOf(headText, nowMs, root),
+  },
+  {
+    // 票 RP-74 第三族:键表不在本文件,现解析 git-guardian.mjs(§0.6),故无 tick/ledger 字段。
+    id: 'dispatch-parity',
+    label: '派发面双链对等',
+    tick: null,
+    ledger: null,
+    ledgerKind: null,
+    needsBase: false,
+    selfVerdict: ({ nowMs, root }) => dispatchParityVerdict({ nowMs, root }),
   },
 ]
 
@@ -272,8 +738,11 @@ export function verdictFor({
 }
 
 /**
- * 全量测量:HEAD/HEAD^ 面一次取回(两族共用),逐族读 tick/ledger/存量后过 verdictFor。
+ * 全量测量:HEAD/HEAD^ 面一次取回(前两族共用),逐族读 tick/ledger/存量后过 verdictFor。
  * 面取不到 ⇒ 该族存量 undetermined(§0.4:不回落另一个面),由 verdictFor 折成未判定。
+ * 第三族 dispatch-parity 走 selfVerdict:它不读这两份台账,而是现解析守护源码的派发面与键表
+ * (§0.6 单一真相源),因此它这一行的 tick/ledger/tickAt/ledgerAt 恒为 null —— 是"本族没有这两个
+ * 输入",不是"读到了空"。
  * @returns {{overall:string, families:Array<object>}}
  */
 export function measure({ nowMs = Date.now(), root = ROOT } = {}) {
@@ -291,6 +760,30 @@ export function measure({ nowMs = Date.now(), root = ROOT } = {}) {
   }
   const stateDir = path.join(root, '.ihui-agent', 'state')
   const families = FAMILIES.map((fam) => {
+    if (typeof fam.selfVerdict === 'function') {
+      const v = fam.selfVerdict({ nowMs, root })
+      return {
+        id: fam.id,
+        label: fam.label,
+        tick: fam.tick ?? null,
+        ledger: fam.ledger ?? null,
+        tickAt: null,
+        ledgerAt: null,
+        stock: v.stock,
+        stockNote: v.stockNote ?? '',
+        state: v.state,
+        why: v.why,
+        detail: v.detail,
+        bits: v.bits,
+        legsParsed: v.legsParsed ?? null,
+        mainFace: v.mainFace ?? null,
+        tickFace: v.tickFace ?? null,
+        deferred: v.deferred ?? null,
+        items: v.items ?? [],
+        tickAgeMin: null,
+        ledgerSilentMin: null,
+      }
+    }
     const tickAt = readTickAt(path.join(stateDir, fam.tick))
     const ledgerAt = readLedgerAt(path.join(stateDir, fam.ledger), fam.ledgerKind)
     let s
@@ -336,16 +829,25 @@ function emitResult(overall, families) {
 const ICON = { live: '✅', 'idle-clean': '✅', stalled: '⚠️', undetermined: '⚠️' }
 
 function humanReport({ overall, families }) {
-  console.log('📡 清扫背离巡检(判据:派发节流在动 ∧ 留痕静默 > 2h ∧ 可清存量 > 0 ⇒ stalled)')
+  console.log(
+    '📡 清扫背离巡检(族一二判据:派发节流在动 ∧ 留痕静默 > 2h ∧ 可清存量 > 0 ⇒ stalled;' +
+      '族三 dispatch-parity 判据:守护源码现解析的双链派发面 + 腿自己声明的节律)',
+  )
   for (const f of families) {
-    const bits = [
+    // 族三没有"节流台账/留痕台账"这两个输入,自带六段读数(键表条数 / 两面派发面 / 豁免数 /
+    // 承载面心跳 / 最老新鲜戳)—— 缺 bits 才回落默认四段,不许给族三假装有节流心跳。
+    const bits = f.bits ?? [
       `state=${f.state}`,
       `存量=${f.stock ?? '未判定'}`,
       f.tickAgeMin === null ? '节流=取不到' : `节流=${f.tickAgeMin} 分钟前刚醒`,
       f.ledgerSilentMin === null ? '留痕=从未写过' : `留痕=${f.ledgerSilentMin} 分钟前刚写`,
     ]
+    if (f.bits) bits.splice(1, 0, `背离=${f.stock ?? '未判定'}`)
     console.log(`  ${ICON[f.state] ?? '·'} ${f.id} ${f.label}: ${bits.join(' · ')}`)
     console.log(`     └ ${f.detail}${f.stockNote ? ` ｜ ${f.stockNote}` : ''}`)
+    if (f.id === 'dispatch-parity')
+      for (const it of (f.items ?? []).slice(0, 8))
+        console.log(`        · ${it.leg} [${it.kind}] ${it.detail}`)
   }
   emitResult(overall, families)
 }
@@ -496,15 +998,21 @@ function selfTest() {
     rmScratch(dir, { bestEffort: true })
   }
 
-  // 形状锁:两族配置与守护派发点/清扫器留痕点同款(防别席删掉一格)
+  // 形状锁:三族配置与前两族在生产端的 tick/ledger 文件名同款(防别席删掉一格);
+  // 第三族 dispatch-parity 刻意**不带** tick/ledger(键表从 git-guardian.mjs 源码现解析,§0.6)。
   t(
-    '⑲ FAMILIES 恰有两族且文件名与生产端一致',
-    FAMILIES.length === 2 &&
+    '⑲ FAMILIES 恰有三族且前两族文件名与生产端一致、第三族走 selfVerdict',
+    FAMILIES.length === 3 &&
       FAMILIES[0].tick === 'plan-closed-sweep-last.json' &&
       FAMILIES[0].ledger === 'plan-row-drop.jsonl' &&
       FAMILIES[0].ledgerKind === 'stale-closed-sweep' &&
       FAMILIES[1].tick === 'stale-claim-strip-last.json' &&
-      FAMILIES[1].ledger === 'stale-claim-strip.jsonl',
+      FAMILIES[1].ledger === 'stale-claim-strip.jsonl' &&
+      FAMILIES[2].id === 'dispatch-parity' &&
+      FAMILIES[2].tick === null &&
+      FAMILIES[2].ledger === null &&
+      typeof FAMILIES[2].selfVerdict === 'function' &&
+      FAMILIES[2].stockOf === undefined,
   )
   const src = readFileSync(path.join(ROOT, 'scripts', 'check-sweeper-liveness.mjs'), 'utf8')
   t(
@@ -514,6 +1022,186 @@ function selfTest() {
       /claimMarks\.planSweep\(/.test(src) &&
       /claimMarks\.planFaceBlockedBy\(/.test(src),
   )
+
+  // ── 第三族 dispatch-parity:键表一律现解析,夹具自证(§0.6 不许有第二份清单) ──
+  const pad = (n, ind = '    ') => Array.from({ length: n }, (_, i) => `${ind}// pad ${i}`)
+  const fixtureSrc = [
+    'async function main() {',
+    ...pad(22),
+    '  if (!CHECK_ONLY) auditAlpha()',
+    '  // dispatch-parity-exempt: B档夹具理由-真换口令族',
+    '  if (!CHECK_ONLY) auditBeta()',
+    '  if (!CHECK_ONLY) auditGamma()',
+    '  return 0',
+    '}',
+    'function startDaemon() {',
+    '  const tick = () => {',
+    ...pad(24, '    '),
+    '    auditAlpha()',
+    '  }',
+    '}',
+    'const ALPHA_INTERVAL_MS = 30 * 60 * 1000',
+    'export function auditAlpha(opts = {}) {',
+    '  const {',
+    '    now = Date.now(),',
+    '    intervalMs = ALPHA_INTERVAL_MS,',
+    "    tickFile = join(dirname(LOG), 'alpha-tick.json'),",
+    '  } = opts',
+    '}',
+    'export function auditBeta(opts = {}) {',
+    '  const {',
+    '    intervalMs = Number(process.env.IHUI_BETA_MS || 6 * 60 * 60 * 1000),',
+    "    tickFile = join(WORKTREE, '.ihui-agent', 'state', 'beta-tick.ts'),",
+    '  } = opts',
+    '}',
+    'export function auditGamma(opts = {}) {',
+    '  const {',
+    '    intervalMs = 5 * 60 * 1000,',
+    '  } = opts',
+    '}',
+  ].join('\n')
+  const pdir = mkScratch('sweeper-liveness-parity-')
+  try {
+    mkdirSync(path.join(pdir, 'scripts'), { recursive: true })
+    mkdirSync(path.join(pdir, '.ihui-agent', 'state'), { recursive: true })
+    const writeGuardian = (text) =>
+      writeFileSync(path.join(pdir, 'scripts', 'git-guardian.mjs'), text, 'utf8')
+    const stamp = (name, ms) =>
+      writeFileSync(
+        path.join(pdir, '.ihui-agent', 'state', name),
+        JSON.stringify({ attemptAt: new Date(ms).toISOString() }),
+        'utf8',
+      )
+    writeGuardian(fixtureSrc)
+    stamp('alpha-tick.json', NOW - 4 * MIN_MS)
+    // ㉒ main-only 且无标记 ⇒ 背离点名(2026-11-03 事故原形)
+    let v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉒ main-only 无标记 ⇒ stalled 并点名该腿',
+      v.state === 'stalled' &&
+        v.items.some((x) => x.leg === 'auditGamma' && x.kind === 'main-only') &&
+        v.stock === 1,
+      JSON.stringify({ state: v.state, stock: v.stock, items: v.items.map((x) => `${x.leg}:${x.kind}`) }),
+    )
+    // ㉓ 挂点旁带 dispatch-parity-exempt ⇒ 计入"B档已具名豁免",不判背离(§0.7 验过才免)
+    t(
+      '㉓ 带 exempt 标记的 main-only ⇒ deferred=1 且不进背离',
+      v.deferred === 1 && !v.items.some((x) => x.leg === 'auditBeta' && x.kind === 'main-only'),
+    )
+    // ㉔ 键表三形都解析得出:CONST / Number(env||式) / 直接乘式
+    const faces = facesOf(fixtureSrc)
+    const table = keyTableOf(faces.lines, ['auditAlpha', 'auditBeta', 'auditGamma'])
+    t(
+      '㉔ 键表(腿→tickFile→intervalMs)现解析:CONST 展开 / env 兜底 / 乘式',
+      table.get('auditAlpha').tickFile === 'alpha-tick.json' &&
+        table.get('auditAlpha').intervalMs === 1800000 &&
+        table.get('auditBeta').tickFile === 'beta-tick.ts' &&
+        table.get('auditBeta').intervalMs === 21600000 &&
+        table.get('auditGamma').tickFile === null &&
+        table.get('auditGamma').intervalMs === 300000,
+      JSON.stringify([...table.entries()]),
+    )
+    // ㉕ 节流戳冻结 > 声明节律×3 ⇒ stamp-frozen;刚写过 ⇒ 不点名
+    //     (前提:承载面心跳在动 —— 轮级锁 1 分钟前刚 beat,否则算"整条执行体停了",另属一族)
+    writeFileSync(
+      path.join(pdir, '.ihui-agent', 'state', 'git-guardian.lock'),
+      `pid=9999\nat=${new Date(NOW - MIN_MS).toISOString()}\nrole=git-guardian:daemon\n`,
+      'utf8',
+    )
+    stamp('alpha-tick.json', NOW - 4 * 60 * MIN_MS)
+    v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉕a 承载面在动 + 戳冻结 4 小时(节律 30 分钟×3)⇒ stamp-frozen',
+      v.items.some((x) => x.leg === 'auditAlpha' && x.kind === 'stamp-frozen'),
+    )
+    stamp('alpha-tick.json', NOW - 80 * MIN_MS)
+    v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉕b 戳 80 分钟前(预算 90 分钟内)⇒ 不点名该腿',
+      !v.items.some((x) => x.leg === 'auditAlpha' && x.kind === 'stamp-frozen'),
+    )
+    // ㉛ 承载面心跳也停 ⇒ 冻结戳降级成"未判定(carrier-not-moving)",不冒名 stalled
+    //     (与 verdictFor 的 dispatch-not-moving 同一纪律:派发层停摆是另一族问题)
+    writeFileSync(
+      path.join(pdir, '.ihui-agent', 'state', 'git-guardian.lock'),
+      `pid=9999\nat=${new Date(NOW - 4 * HOUR_MS).toISOString()}\nrole=git-guardian:round\n`,
+      'utf8',
+    )
+    stamp('alpha-tick.json', NOW - 4 * 60 * MIN_MS)
+    v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉛ 承载面停 4 小时 ⇒ 该腿落未判定 carrier-not-moving,不记 stalled',
+      v.items.some((x) => x.leg === 'auditAlpha' && x.kind === 'carrier-not-moving') &&
+        !v.items.some((x) => x.kind === 'stamp-frozen'),
+      JSON.stringify(v.items.map((x) => `${x.leg}:${x.kind}`)),
+    )
+    writeFileSync(
+      path.join(pdir, '.ihui-agent', 'state', 'git-guardian.lock'),
+      `pid=9999\nat=${new Date(NOW - MIN_MS).toISOString()}\nrole=git-guardian:daemon\n`,
+      'utf8',
+    )
+    // ㉖ 戳文件不在 ⇒ 未判定逐条(§0.3:绝不折成"没跑过所以没事")
+    writeFileSync(path.join(pdir, '.ihui-agent', 'state', 'alpha-tick.json'), '{畸形', 'utf8')
+    v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉖ 戳形状读不出 ⇒ 该腿未判定并点名',
+      v.items.some((x) => x.leg === 'auditAlpha' && x.kind === 'stamp-unparsed'),
+    )
+    // ㉗ 取不到源码 ⇒ 未判定并点名文件(不回落另一个面)
+    const emptyDir = mkScratch('sweeper-liveness-noguard-')
+    try {
+      const nv = dispatchParityVerdict({ nowMs: NOW, root: emptyDir })
+      t(
+        '㉗ 取不到 git-guardian.mjs ⇒ undetermined 且点名文件',
+        nv.state === 'undetermined' &&
+          nv.why === 'guardian-source-unreadable' &&
+          nv.detail.includes('scripts/git-guardian.mjs'),
+      )
+    } finally {
+      rmScratch(emptyDir, { bestEffort: true })
+    }
+    // ㉘ 解析到 0 条键表 ⇒ 未判定(§0.3:枚举到 0 个候选判死不记绿)
+    writeGuardian(['async function main() {', ...pad(24), '  return 0', '}', 'function startDaemon() {', ...pad(24, '  '), '}'].join('\n'))
+    v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉘ 判不出两条链 ⇒ undetermined(dispatch-faces-unparsed)',
+      v.state === 'undetermined' && v.why === 'dispatch-faces-unparsed',
+      JSON.stringify({ state: v.state, why: v.why }),
+    )
+    writeGuardian(
+      [
+        'async function main() {',
+        ...pad(22),
+        '  if (!CHECK_ONLY) auditDelta()',
+        '  return 0',
+        '}',
+        'function startDaemon() {',
+        '  const tick = () => {',
+        ...pad(24, '    '),
+        '    auditDelta()',
+        '  }',
+        '}',
+        'export function auditDelta(opts = {}) {',
+        '  const { logger = log } = opts',
+        '}',
+      ].join('\n'),
+    )
+    v = dispatchParityVerdict({ nowMs: NOW, root: pdir })
+    t(
+      '㉙ 有派发但键表 0 条 ⇒ undetermined(dispatch-key-table-empty),不记绿',
+      v.state === 'undetermined' && v.why === 'dispatch-key-table-empty',
+      JSON.stringify({ state: v.state, why: v.why }),
+    )
+    // ㉚ 真源码读数:本仓必须解析出 >0 条键表(否则上面的自证全是夹具自证)
+    const real = dispatchParityVerdict({ nowMs: Date.now(), root: ROOT })
+    t(
+      '㉚ 真源码现解析:键表 >0 条且 main/tick 两面都非空',
+      real.legsParsed > 0 && real.mainFace > 0 && real.tickFace > 0 && real.items.length >= 0,
+      JSON.stringify({ legs: real.legsParsed, main: real.mainFace, tick: real.tickFace }),
+    )
+  } finally {
+    rmScratch(pdir, { bestEffort: true })
+  }
 
   console.log(`自检 ${total - fails}/${total}`)
   return fails ? 1 : 0
@@ -553,5 +1241,20 @@ export const __test__ = {
   FILE,
   ROOT,
   STATE_DIR,
+  // 第三族 dispatch-parity(票 RP-74):键表解析与判定一律走这里,测试不得另写一份(§22c)
+  dispatchParityVerdict,
+  facesOf,
+  dispatchFaceOf,
+  keyTableOf,
+  constExprOf,
+  resolveIntervalMs,
+  resolveTickFile,
+  readStampMs,
+  readCarrierAt,
+  PARITY_FREEZE_FACTOR,
+  CARRIER_FRESH_MIN,
+  PARITY_EXEMPT_MARK,
+  PARITY_LEG_PREFIX_RE,
+  GUARDIAN_REL,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

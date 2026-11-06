@@ -6693,11 +6693,14 @@ export function auditSweeperLiveness(opts = {}) {
   const und = fams.filter((f) => f && f.state === 'undetermined')
   if (stalled.length > 0) {
     for (const f of stalled) {
-      logger(
-        `⚠️ 清扫背离:${f.id}(${f.label})派发在动(节流 ${f.tickAgeMin ?? '?'} 分钟前刚醒)` +
+      // dispatch-parity 族(票 RP-74)没有"节流台账/留痕台账"这两个输入,它报的是现解析的
+      // 键表读数 ⇒ 有 bits 就按 bits 说,不许给它套一句"派发在动但留痕静默"的假凭据。
+      const head = Array.isArray(f.bits) && f.bits.length
+        ? `⚠️ 清扫背离:${f.id}(${f.label})${f.bits.join(' · ')},背离 ${f.stock} 条`
+        : `⚠️ 清扫背离:${f.id}(${f.label})派发在动(节流 ${f.tickAgeMin ?? '?'} 分钟前刚醒)` +
           `但留痕${f.ledgerSilentMin === null ? '从未写过' : `已静默 ${f.ledgerSilentMin} 分钟`},` +
-          `可清存量 ${f.stock} ⇒ 器物空转 ｜ ${f.detail} ｜ ${f.stockNote ?? ''}`,
-      )
+          `可清存量 ${f.stock} ⇒ 器物空转`
+      logger(`${head} ｜ ${f.detail} ｜ ${f.stockNote ?? ''}`)
     }
   } else if (und.length > 0) {
     for (const f of und) {
@@ -6706,7 +6709,9 @@ export function auditSweeperLiveness(opts = {}) {
   } else {
     // 探针自己的心跳证据:全绿也写行(与 reportBaselineFreshness 的"安静"刻意不同 ——
     // 这一格判的是别的层空转,它自己哑了同样没人知道,参考 watchPatrolHeartbeat)。
-    logger(`✅ 清扫背离巡检:两族均无背离(${v.parsed.overall ?? '?'})`)
+    logger(
+      `✅ 清扫背离巡检:${fams.length} 族均无背离(${v.parsed.overall ?? '?'})`,
+    )
   }
   return {
     ran: true,
@@ -13433,6 +13438,10 @@ async function main() {
     // daemon 档存活兜底(2026-10-29 立):跑在**计划任务/手工单轮**这一侧 —— 只有执行体外的
     // 腿才拉得动服务自己(daemon 里调 = 自杀,函数内有挡板)。daemon 的 exit 0 不触发 SCM
     // 恢复动作,此前停了无人管;它无监听面故不探端口,判据全走 SCM 现值。
+    // 【dispatch-parity 裁决·B 档留 main 链(票 RP-74 逐条理由,勿删本行 ——
+    //  `scripts/check-sweeper-liveness.mjs` 的 dispatch-parity 族从源码现解析这一行,删了它就等于
+    //  把这条腿重新变成"无人裁决的 main-only";要搬必须先删本标记并给出新证据)】
+    // dispatch-parity-exempt: B档-重启服务族:执行体正是 daemon 自己,挂进常驻 tick 属自指(函数内有挡板);单轮派生 schtasks/net start 且会打断在途会话与部署环,只留一次性 main 链
     if (!CHECK_ONLY) ensureGuardDaemonAlive()
     // 公网路径与换流窗口的常驻探测(票 G-301):两条序列互不顶账,节流 30 分钟,
     // 判"未判定"只写日志不喊人;它不改本守护退出码 —— 探测失败不等于 .git 失败。
@@ -13597,6 +13606,9 @@ async function main() {
     if (!CHECK_ONLY) healStaleMiniappDist()
     if (!CHECK_ONLY) healUiRoutesLeg()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
+    // 【dispatch-parity 裁决·B 档留 main 链(票 RP-74;与上一层同一族,标记行由
+    //  `scripts/check-sweeper-liveness.mjs` 的 dispatch-parity 族现解析)】
+    // dispatch-parity-exempt: B档-真换账户/口令族:改计划任务登录身份(InteractiveToken→S4U)要重建任务并换令牌面,单轮 ≥5 分钟且非幂等抖动不可承受,只留一次性 main 链
     if (!CHECK_ONLY) ensureS4u()
     // 轮末自陈述版本(2026-11-04 立):让「代码比进程新」自己喊出来。--check 已由函数内部跳过。
     if (!CHECK_ONLY) auditGuardianCodeFreshness()
@@ -13857,6 +13869,11 @@ function startDaemon(bootGuard = null) {
         // ensureS4u / refreshRecoverySource / reportBaselineFreshness / rotateRunLogs)尚无节流戳,
         // 每 10s 真跑一次是不可接受的;其中 ensureGuardDaemonAlive 是"重启 daemon"本身,
         // 挂进 daemon 里属自指,必须留在一次性面。逐条裁决见 A9 的 next 文案。
+        // 【RP-74 现读收口 2026-11-05】上面这串"7 条"里,auditMergeAdditionLoss / refreshRecoverySource /
+        // rotateRunLogs / reportBaselineFreshness 四条已由下一批(带 legThrottle 的第二批)搬进 tick;
+        // 真正刻意不搬的只剩 2 条 —— ensureGuardDaemonAlive + ensureS4u(B 档:重启服务 / 真换账户),
+        // 逐条理由钉在 main 链那两个挂点旁的 `dispatch-parity-exempt:` 标记行上,由
+        // `scripts/check-sweeper-liveness.mjs` 的 dispatch-parity 族从源码现解析(不另立清单,§0.6)。
         auditCrossEndParityDrift()
         auditI18nCrossEndWording()
         auditLandedReverts()
