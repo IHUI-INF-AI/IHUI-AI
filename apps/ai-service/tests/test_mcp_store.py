@@ -421,6 +421,15 @@ def test_non_list_json_returns_empty(store_path):
     assert mcp_store.list_installed() == []
 
 
+def test_corrupt_json_is_not_overwritten(store_path):
+    """损坏名单可以被读成空,但保存不得把它换成只剩新的一条。"""
+    body = "{not valid json"
+    store_path.write_text(body, encoding="utf-8")
+    with pytest.raises(mcp_store.McpStoreUnread, match="corrupt"):
+        mcp_store.save_installed({"name": "new", "key": "new"})
+    assert store_path.read_text(encoding="utf-8") == body
+
+
 def test_unreadable_store_is_not_overwritten(store_path, monkeypatch):
     original = json.dumps([{"name": "keep", "key": "keep"}], ensure_ascii=False)
     store_path.write_text(original, encoding="utf-8")
