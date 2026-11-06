@@ -4770,6 +4770,8 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MIGRATION_IMMUTABLE',
+    exemptionNote:
+      'scripts/data/migration-rewrite-ledger.jsonl —— 修已入库正文的正规流程 = 登记(附从零 370/370 验证与夹具断言),不是 skipEnv;登记与正文不符/证据缺/过期一律 exit 2',
     stagedTriggers: ['packages/database/', 'apps/api/src/'],
     onFailHint: [
       '',
