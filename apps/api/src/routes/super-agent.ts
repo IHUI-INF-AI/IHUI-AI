@@ -18,20 +18,21 @@
  *   POST /super-agent/tickets/:id/attach
  *   POST /super-agent/tickets/:id/context
  *   POST /super-agent/tickets/:id/handback
+ *   POST /super-agent/tickets/:id/heartbeat
+ *   GET  /super-agent/tickets/:id/lease
  *   POST /super-agent/tickets/:id/delivery-failed
  *   POST /super-agent/policy
  *   POST /super-agent/recorded/:id/accept
  *
  * 接单后占上执行槽的工人，交给既有 subagent dispatch。会话 id 只有是 uuid 才写入。
+ * 工人租约：report 即心跳；另有 POST /tickets/:id/heartbeat 纯续租通道。
  */
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
-import { SuperAgentHost, workerAssignment } from '@ihui/shared/super-agent'
+import { workerAssignment } from '@ihui/shared/super-agent'
 import { authenticate } from '../plugins/auth.js'
-import { subagentDispatchService } from '../services/subagent-dispatch-service.js'
+import { dispatchStartedWork, superAgentHost } from '../services/super-agent-pump-service.js'
 import { error, success } from '../utils/response.js'
-
-const host = new SuperAgentHost()
 
 const triggerSchema = z.object({
   id: z.string().min(1).max(200),
@@ -70,44 +71,11 @@ async function requireUser(request: FastifyRequest, reply: FastifyReply): Promis
   return userId
 }
 
-function conversationIdOf(threadId: string | undefined): string | undefined {
-  if (!threadId) return undefined
-  const parsed = z.string().uuid().safeParse(threadId)
-  return parsed.success ? parsed.data : undefined
-}
-
 async function dispatchStarted(
-  userId: string,
+  _userId: string,
   threadId: string | undefined,
 ): Promise<{ sessionId: string; dispatchId?: string; error?: string }[]> {
-  const started = host.takeStarted()
-  const conversationId = conversationIdOf(threadId)
-  const dispatched: { sessionId: string; dispatchId?: string; error?: string }[] = []
-  for (const work of started) {
-    try {
-      const result = await subagentDispatchService.dispatch({
-        goal: work.goal,
-        affectedFiles: [],
-        verifyCommands: [],
-        constraints: work.constraints,
-        deliverables: work.deliverables,
-        agentRole: 'coder',
-        ownerUserId: userId,
-        ...(conversationId ? { conversationId } : {}),
-      })
-      dispatched.push({
-        sessionId: work.sessionId,
-        dispatchId: result.dispatch?.id,
-        error: result.outcome === 'ok' ? undefined : (result.error ?? result.outcome),
-      })
-    } catch (e) {
-      dispatched.push({
-        sessionId: work.sessionId,
-        error: e instanceof Error ? e.message : 'dispatch_failed',
-      })
-    }
-  }
-  return dispatched
+  return dispatchStartedWork(threadId)
 }
 
 const policySchema = z.object({
@@ -115,6 +83,7 @@ const policySchema = z.object({
   paused: z.boolean(),
   acceptMode: z.enum(['record', 'auto']),
   maxWorkers: z.number().int().min(1).max(20),
+  workerLeaseMs: z.number().int().min(0).max(3_600_000).optional(),
   sessionIsAllowlist: z.boolean(),
 })
 
@@ -126,7 +95,7 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const result = host.receive(parsed.data, userId)
+    const result = superAgentHost.receive(parsed.data, userId)
     const dispatched = await dispatchStarted(userId, parsed.data.threadId)
     return success({ ...result, dispatched })
   })
@@ -134,7 +103,7 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
   server.get('/super-agent/panel', async (request, reply) => {
     const userId = await requireUser(request, reply)
     if (!userId) return
-    return success(host.panel(userId))
+    return success(superAgentHost.panel(userId))
   })
 
   server.post('/super-agent/tickets/:id/report', async (request, reply) => {
@@ -145,8 +114,8 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
     if (!params.success || !parsed.success) {
       return reply.status(400).send(error(400, '参数错误'))
     }
-    const result = host.report(params.data.id, userId, parsed.data)
-    const threadId = host.getTicket(params.data.id, userId)?.threadId
+    const result = superAgentHost.report(params.data.id, userId, parsed.data)
+    const threadId = superAgentHost.getTicket(params.data.id, userId)?.threadId
     const dispatched = await dispatchStarted(userId, threadId)
     return success({ ...result, dispatched })
   })
@@ -159,8 +128,8 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
     if (!params.success || !parsed.success) {
       return reply.status(400).send(error(400, '参数错误'))
     }
-    const threadId = host.getTicket(params.data.id, userId)?.threadId
-    const result = host.stop(params.data.id, userId, parsed.data.reason ?? 'stopped')
+    const threadId = superAgentHost.getTicket(params.data.id, userId)?.threadId
+    const result = superAgentHost.stop(params.data.id, userId, parsed.data.reason ?? 'stopped')
     const dispatched = await dispatchStarted(userId, threadId)
     return success({ ...result, dispatched })
   })
@@ -172,7 +141,7 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
       .object({ sourceId: z.string().min(1), threadId: z.string().min(1) })
       .safeParse(request.query)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    return success(host.replies(userId, parsed.data.sourceId, parsed.data.threadId))
+    return success(superAgentHost.replies(userId, parsed.data.sourceId, parsed.data.threadId))
   })
 
   server.get('/super-agent/tickets/:id/assignment', async (request, reply) => {
@@ -180,9 +149,31 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     if (!params.success) return reply.status(400).send(error(400, '参数错误'))
-    const ticket = host.getTicket(params.data.id, userId)
+    const ticket = superAgentHost.getTicket(params.data.id, userId)
     if (!ticket) return reply.status(404).send(error(404, '工单不存在'))
     return success(workerAssignment(ticket))
+  })
+
+  server.post('/super-agent/tickets/:id/heartbeat', async (request, reply) => {
+    const userId = await requireUser(request, reply)
+    if (!userId) return
+    const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
+    if (!params.success) return reply.status(400).send(error(400, '参数错误'))
+    return success(superAgentHost.renewLease(userId, params.data.id))
+  })
+
+  server.get('/super-agent/tickets/:id/lease', async (request, reply) => {
+    const userId = await requireUser(request, reply)
+    if (!userId) return
+    const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
+    if (!params.success) return reply.status(400).send(error(400, '参数错误'))
+    const ticket = superAgentHost.getTicket(params.data.id, userId)
+    if (!ticket) return reply.status(404).send(error(404, '工单不存在'))
+    return success({
+      remainingMs: superAgentHost.leaseRemaining(params.data.id, userId),
+      lostLeaseCount: ticket.lostLeaseCount,
+      leaseLostAt: ticket.leaseLostAt,
+    })
   })
 
   server.post('/super-agent/tickets/:id/attach', async (request, reply) => {
@@ -191,7 +182,7 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     const parsed = triggerSchema.safeParse(request.body)
     if (!params.success || !parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    const result = host.attach(userId, params.data.id, parsed.data)
+    const result = superAgentHost.attach(userId, params.data.id, parsed.data)
     const dispatched = await dispatchStarted(userId, parsed.data.threadId)
     return success({ ...result, dispatched })
   })
@@ -205,7 +196,12 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body)
     if (!params.success || !parsed.success) return reply.status(400).send(error(400, '参数错误'))
     return success(
-      host.followForContext(userId, params.data.id, parsed.data.sourceId, parsed.data.threadId),
+      superAgentHost.followForContext(
+        userId,
+        params.data.id,
+        parsed.data.sourceId,
+        parsed.data.threadId,
+      ),
     )
   })
 
@@ -217,7 +213,9 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
       .object({ triggerId: z.string().min(1), reason: z.string().min(1).max(500) })
       .safeParse(request.body)
     if (!params.success || !parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    return success(host.handback(userId, params.data.id, parsed.data.triggerId, parsed.data.reason))
+    return success(
+      superAgentHost.handback(userId, params.data.id, parsed.data.triggerId, parsed.data.reason),
+    )
   })
 
   server.post('/super-agent/tickets/:id/delivery-failed', async (request, reply) => {
@@ -226,7 +224,7 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
     const params = z.object({ id: z.string().min(1) }).safeParse(request.params)
     const parsed = z.object({ error: z.string().min(1).max(500) }).safeParse(request.body)
     if (!params.success || !parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    return success(host.deliveryFailed(userId, params.data.id, parsed.data.error))
+    return success(superAgentHost.deliveryFailed(userId, params.data.id, parsed.data.error))
   })
 
   server.post('/super-agent/policy', async (request, reply) => {
@@ -234,7 +232,7 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) return
     const parsed = policySchema.safeParse(request.body)
     if (!parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    return success({ notified: host.applyPolicy(userId, parsed.data) })
+    return success({ notified: superAgentHost.applyPolicy(userId, parsed.data) })
   })
 
   server.post('/super-agent/recorded/:id/accept', async (request, reply) => {
@@ -248,13 +246,15 @@ export const superAgentRoutes: FastifyPluginAsync = async (server) => {
       })
       .safeParse(request.body)
     if (!params.success || !parsed.success) return reply.status(400).send(error(400, '参数错误'))
-    const result = host.acceptRecorded(
+    const result = superAgentHost.acceptRecorded(
       userId,
       params.data.id,
       parsed.data.ruleId,
       parsed.data.routerNotes ?? '',
     )
-    const threadId = result.ticketId ? host.getTicket(result.ticketId, userId)?.threadId : undefined
+    const threadId = result.ticketId
+      ? superAgentHost.getTicket(result.ticketId, userId)?.threadId
+      : undefined
     const dispatched = await dispatchStarted(userId, threadId)
     return success({ ...result, dispatched })
   })
