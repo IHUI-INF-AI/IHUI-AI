@@ -159,6 +159,27 @@ runLogged(
     .join(' ')}`,
 )
 
+// ─── 1.5 推送门凭据:提交侧求值(2026-11-08 立) ───────────────
+// 把 13 门 + 文档数字门 + i18n 审计挪到提交侧后台求值,签发绑定 commit/tree/远端基线的
+// 签名凭据;之后推送侧只做内容寻址校验。detached 派生:不占用户 git commit 的返回路径,
+// 也不参与本钩子后续的 push guard / tag sync。worker 失败或凭据不合格时,pre-push 会
+// 原样回落真跑门(fail-closed),不会出现"没跑门就放行"。
+try {
+  const receiptWorker = spawn(process.execPath, ['scripts/lib/push-receipt-worker.mjs'], {
+    cwd: ROOT,
+    detached: true,
+    windowsHide: true,
+    stdio: 'ignore',
+    env: process.env,
+  })
+  receiptWorker.unref()
+  console.info('ℹ️  推送门凭据 worker 已在后台启动(对完整 HEAD 树求值)')
+} catch (error) {
+  console.error(
+    `⚠️  推送门凭据 worker 启动失败(推送时将回落真跑门): ${String(error?.message || error)}`,
+  )
+}
+
 // ─── 2. 自动归档已完成任务 —— 已退役(2026-10-16 机主令:完成即删,不存档) ──────
 // 原第 2 段(ledger-strip 排空 + archive-completed-tasks --auto-commit)整体摘除。
 // 台账新语义 = 活队列:`- [x]` 翻勾后即可删行,守门 71 判据已同步改为"已勾行不进保护集"
