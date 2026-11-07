@@ -47,6 +47,7 @@ import { Button, Card, CardContent } from '@ihui/ui-react'
 import {
   addConversationToKnowledge,
   commitConversationImport,
+  commitRuntimeImport,
   getConversationImportHistory,
   parseConversationImport,
   type ConversationImportCommitPayload,
@@ -320,6 +321,22 @@ export function ConversationImportPanel() {
         }
         done += 1
         setProgress({ done, total: convs.length })
+      }
+      const runtime = preview?.runtime
+      if (runtime) {
+        try {
+          const runtimeResult = await commitRuntimeImport({
+            conversationId: committedList[0]?.conversationId,
+            runtime,
+          })
+          if (!runtimeResult.success) {
+            failed += 1
+            failureReasons.push(runtimeResult.error)
+          }
+        } catch (e) {
+          failed += 1
+          failureReasons.push(e instanceof Error ? e.message : String(e))
+        }
       }
       return { imported, failed, committedList, failureReasons }
     },
@@ -638,7 +655,7 @@ export function ConversationImportPanel() {
                   size="sm"
                   data-testid="import-commit-btn"
                   onClick={() => commitMut.mutate()}
-                  disabled={selected.size === 0 || commitMut.isPending}
+                  disabled={(selected.size === 0 && !preview.runtime) || commitMut.isPending}
                 >
                   {commitMut.isPending ? (
                     <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />

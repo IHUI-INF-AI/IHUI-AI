@@ -23,6 +23,7 @@
 
 import type { Command } from 'commander';
 import chalk from 'chalk';
+import { loadSettings } from './settings.js';
 import {
   createApiRequest,
   extractData,
@@ -36,6 +37,44 @@ const API_PREFIX = '/api/ai-code-attribution';
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 const apiRequest = createApiRequest(API_PREFIX, DEFAULT_TIMEOUT_MS);
+
+type AttributionRequest = (
+  baseUrl: string,
+  path: string,
+  options?: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; timeoutMs?: number; apiKey?: string },
+) => Promise<unknown>;
+
+/** 提交成功后通知归属账。没登录或服务没起来都不影响提交本身。 */
+export async function rememberCommittedFiles(sha: string, files: string[]): Promise<void> {
+  if (process.env.VITEST) return;
+  try {
+    await postAttributionBackfill(sha, files);
+  } catch {
+    // 提交已经完成。回填失败留在下一轮,不改这次提交的结果。
+  }
+}
+
+export async function postAttributionBackfill(
+  sha: string,
+  files: string[],
+  request: AttributionRequest = apiRequest,
+): Promise<{ updated: number; refused: string }> {
+  const apiKey = loadSettings().apiKey;
+  if (typeof apiKey !== 'string' || apiKey.length === 0) return { updated: 0, refused: '未登录' };
+  const payload = await request(resolveBaseUrl(undefined), '/backfill', {
+    method: 'POST',
+    body: { commit_sha: sha, files },
+    apiKey,
+    timeoutMs: 2000,
+  });
+  const data = extractData(payload);
+  if (!data || typeof data !== 'object') return { updated: 0, refused: '回填响应不是对象' };
+  const row = data as { updated?: unknown; refused?: unknown };
+  return {
+    updated: typeof row.updated === 'number' ? row.updated : 0,
+    refused: typeof row.refused === 'string' ? row.refused : '',
+  };
+}
 
 /** 服务端 `/stats` 回送体(两个占比口径都给:含 unknown 的 ai_ratio + 只算已判出的 known_ratio)。 */
 export interface AttributionStatsPayload {
