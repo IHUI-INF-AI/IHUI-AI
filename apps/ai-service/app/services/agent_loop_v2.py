@@ -5892,7 +5892,7 @@ class AgentLoopV2:
         checkpoint: AgentLoopCheckpoint,
         messages: list[dict[str, Any]],
         resume_round: dict[str, Any],
-        confirmations: dict[str, str] | None,
+        confirmations: Mapping[str, str] | None,
     ) -> int:
         """接管"工具执行中崩溃/中断"的那一轮:整轮预检 → 必要时拦确认 → 重建 tool 块。
 
@@ -6088,7 +6088,7 @@ class AgentLoopV2:
     async def resume_from_checkpoint(
         self,
         checkpoint_id: str,
-        resume_confirmations: dict[str, str] | None = None,
+        resume_confirmations: Mapping[str, str] | None = None,
     ) -> AgentLoopResult:
         """从 checkpoint 恢复并继续执行下一轮 iteration。
 
