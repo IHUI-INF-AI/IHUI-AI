@@ -127,7 +127,11 @@ import { resolveInterjectionSupport } from '@/hooks/use-chat/runtime-capabilitie
 // G-171a:审批待决事实源(turn-status-line 的 waitingConfirm 同一位,不另取数)
 import { useToolApprovalPending } from '@/components/ai/tool-approval-dialog'
 import { refillDraftAfterWithdraw } from '@ihui/shared/chat/steer-admission'
-import { QUEUE_OPS_NAMESPACE, type FollowUpMode } from '@ihui/shared/chat/queue-interactions'
+import {
+  followUpAutoFlushAllowed,
+  QUEUE_OPS_NAMESPACE,
+  type FollowUpMode,
+} from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@ihui/shared/plugins-data'
@@ -566,6 +570,12 @@ export function MessageInput({
   const sideQueue = chatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
   )
+  const queuePaused = chatStore((s) => {
+    if (!conversationId) return null
+    const pauseMap = s.capacityQueuePausedByConversation
+    if (pauseMap === null || pauseMap === undefined) return null
+    return pauseMap[conversationId] === true
+  })
   // D75 侧任务生命周期最小真实腿(2026-11-01):补答入口不再 shift 摘条,
   // 改由 chatStore.getState().peekPendingSideQuestion 取待答首条(见下方 answerCurrentSideQuestion)。
   // D75 装腿后队列分两格:交互条仍列**整桶**(重排下标与桶一一对应,零改动),
@@ -664,14 +674,23 @@ export function MessageInput({
     // isStreaming 从 true 变为 false:流式结束,发送队首预备消息
     if (wasStreamingRef.current && !isStreaming) {
       wasStreamingRef.current = false
-      if (pendingMessages.length > 0) {
-        void sendPendingMessage()
-      } else if (sideQueue && sideQueue.length > 0) {
-        answerCurrentSideQuestion()
+      if (followUpAutoFlushAllowed(queuePaused)) {
+        if (pendingMessages.length > 0) {
+          void sendPendingMessage()
+        } else if (sideQueue && sideQueue.length > 0) {
+          answerCurrentSideQuestion()
+        }
       }
     }
     wasStreamingRef.current = isStreaming
-  }, [isStreaming, pendingMessages, sendPendingMessage, sideQueue, answerCurrentSideQuestion])
+  }, [
+    isStreaming,
+    pendingMessages,
+    sendPendingMessage,
+    sideQueue,
+    answerCurrentSideQuestion,
+    queuePaused,
+  ])
   // W27(2026-09-14)→ D36(2026-09-28):草稿持久化收编进 usePromptDrafts hook ——
   // 防抖写入、会话切换回写/载入、超长截断、桶配额淘汰都在 hook + shared 纯逻辑里,
   // 本组件只保留 draftKey 计算(与 useMessageSend 清稿同源)与 resize 回调接线。
