@@ -44,7 +44,13 @@ from typing import Any, Literal
 
 from .agent_orchestrator import agent_orchestrator
 from .dag_scheduler import KANBAN_TASK_STATUSES
-from .ttl_json_store import iso_now, load_ttl_records, resolve_retention_days, write_json_atomic
+from .ttl_json_store import (
+    iso_now,
+    json_archive_blocks_replace,
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -600,7 +606,7 @@ class TeamTaskBoard:
 
     def _persist(self) -> None:
         """全量写回(原子写,失败只告警:内存副本仍在,下次变更再试)。"""
-        if not self._loaded:
+        if not self._loaded or json_archive_blocks_replace(self._file, expect="object"):
             logger.warning("[agent_teams] 团队任务板读不到,不能把它覆盖成新任务")
             return
         write_json_atomic(self._file, self._records, indent=2)

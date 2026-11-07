@@ -10,7 +10,7 @@
  * 默认 enabled=false(执行器只认 enabled ⇒ 结构性断开),用户显式
  * `ihui hooks-auto trust` 后才生效;~/.ihui/hooks 全局目录免信任。
  */
-import { mkdtempSync, mkdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -93,6 +93,23 @@ describe('工作区 hook 信任门', () => {
     expect(hooks).toEqual([])
     expect(discovery.unreadScanCount()).toBe(1)
     expect(statSync(join(hookDir, 'pre_tool_demo.sh')).isFile()).toBe(true)
+  })
+
+  it('信任名单根是数组时不收成只剩这一处', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ihui-hooks-trust-'))
+    const file = join(dir, 'hooks-trust.json')
+    const body = '[]'
+    writeFileSync(file, body, 'utf-8')
+    const prev = process.env.IHUI_HOOKS_TRUST_FILE
+    process.env.IHUI_HOOKS_TRUST_FILE = file
+    try {
+      expect(() => addTrustedWorkspace(dir)).toThrow(/格式非法/)
+      expect(readFileSync(file, 'utf-8')).toBe(body)
+    } finally {
+      if (prev === undefined) delete process.env.IHUI_HOOKS_TRUST_FILE
+      else process.env.IHUI_HOOKS_TRUST_FILE = prev
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 
   it('信任文件损坏 ⇒ 视为空集(fail-closed,不抛错)', () => {
