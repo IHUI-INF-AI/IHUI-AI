@@ -7981,7 +7981,8 @@
             "completed": "Completed",
             "failed": "Failed",
             "cancelled": "Cancelled",
-            "timeout": "Timed out"
+            "timeout": "Timed out",
+            "stub": "Simulated, not finished"
           },
           "hint": {
             "stopping": "Stop request sent, waiting for the subtask to exit…",
@@ -8584,6 +8585,7 @@
         "statusFailed": "Failed",
         "statusRunning": "Running",
         "statusSpawned": "Dispatched",
+        "statusStub": "Simulated, not finished",
         "title": "Subagent Dispatch",
         "toolCallsCount": "{n}",
         "toolCallsTitle": "{n} tool calls",
