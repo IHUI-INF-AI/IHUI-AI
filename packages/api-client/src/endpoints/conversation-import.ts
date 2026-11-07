@@ -67,11 +67,34 @@ export interface ParsedImportConversation {
   }>
 }
 
+/** 解析器已经归一化的运行时分维。缺席表示这份导出只有会话。 */
+export interface ConversationImportRuntime {
+  skills?: Array<Record<string, unknown>>
+  automations?: Array<Record<string, unknown>>
+  memory?: Array<Record<string, unknown>>
+  capabilities?: Array<Record<string, unknown>>
+}
+
 /** POST /parse 响应 data(ai-service 原样透传的裸 JSON) */
 export interface ConversationImportParseResult {
   conversations: ParsedImportConversation[]
   truncated: boolean
   warnings: string[]
+  runtime?: ConversationImportRuntime
+}
+
+/** POST /commit-runtime 请求体。会话 id 用来挂记忆；没有会话时技能仍可单独落库。 */
+export interface ConversationImportRuntimeCommitPayload {
+  conversationId?: string
+  runtime: ConversationImportRuntime
+}
+
+/** POST /commit-runtime 201 响应 data */
+export interface ConversationImportRuntimeCommitResult {
+  skills: number
+  automations: number
+  memory: number
+  skipped: Array<{ dimension: string; index: number | null; reason: string }>
 }
 
 /** GET /history 单条批次记录 */
@@ -148,6 +171,19 @@ export async function commitConversationImport(
     method: 'POST',
     body: JSON.stringify(payload),
   })
+}
+
+/** 把解析结果里的技能、暂停自动化和情景记忆落库。能力声明只会出现在 skipped。 */
+export async function commitRuntimeImport(
+  payload: ConversationImportRuntimeCommitPayload,
+): Promise<ApiResult<ConversationImportRuntimeCommitResult>> {
+  return fetchApi<ConversationImportRuntimeCommitResult>(
+    '/api/user/conversation-import/commit-runtime',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+  )
 }
 
 /** 获取当前用户导入历史(服务端固定 limit 50,按导入时间倒序) */

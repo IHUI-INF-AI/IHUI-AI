@@ -7,6 +7,8 @@ from app.core.token_budget_config import (
     TOKEN_BUDGET_REMINDER_MESSAGE_TEMPLATE_MAX_BYTES,
     TokenBudgetConfig,
     TokenBudgetConfigError,
+    classify_usage_pressure,
+    compact_decision,
     has_explicit_settings,
     resolve_token_budget,
 )
@@ -158,3 +160,64 @@ def test_resolve_empty_template_invalid_falls_back() -> None:
     cfg = _valid()
     merged = resolve_token_budget(cfg, True, {"reminder_message_template": "   "})
     assert merged is cfg
+
+
+def test_usage_pressure_model_override_and_invalid_level() -> None:
+    table = {"compact": {"emergency": 0.8, "modelOverrides": {"deepseek": 0.4}}}
+    hit = classify_usage_pressure(table, "compact", used=50, capacity=100, model="deepseek-v3")
+    assert hit == {"disposition": "emergency", "reason": "measured"}
+    below = classify_usage_pressure(table, "compact", used=30, capacity=100, model="other")
+    assert below["disposition"] == "clear"
+    invalid = classify_usage_pressure(
+        {"compact": {"emergency": 0.95, "modelOverrides": {"deepseek": True}}},
+        "compact",
+        used=99,
+        capacity=100,
+        model="deepseek",
+    )
+    assert invalid == {"disposition": "unjudged", "reason": "override-invalid"}
+    assert classify_usage_pressure(None, "compact", used=1, capacity=1)["reason"] == "table-absent"
+    assert (
+        classify_usage_pressure(
+            {"inputTokens": {"warning": 0.6, "emergency": True}},
+            "inputTokens",
+            used=1,
+            capacity=2,
+        )["reason"]
+        == "level-invalid"
+    )
+    assert classify_usage_pressure(table, "compact", used=True, capacity=100)["reason"] == "used-invalid"
+
+
+def test_compact_decision_keeps_absolute_line_without_a_table() -> None:
+    plain = compact_decision(120, 100, None)
+    assert plain == {"compact": True, "pressure": None}
+    under = compact_decision(80, 100, None)
+    assert under["compact"] is False
+
+
+def test_compact_decision_emergency_ratio_compacts_before_the_absolute_line() -> None:
+    table = {"compact": {"emergency": 0.5}}
+    early = compact_decision(60, 100, table, capacity=100)
+    assert early["compact"] is True
+    assert early["pressure"]["disposition"] == "emergency"
+    unknown = compact_decision(40, 100, {"compact": {"emergency": True}}, capacity=100)
+    assert unknown["compact"] is False
+    assert unknown["pressure"]["reason"] == "level-invalid"
+
+
+def test_pre_message_line_compacts_before_send_and_refuses_a_crossed_order() -> None:
+    from app.core.token_budget_config import apply_pre_message_compact_pct
+
+    original = {"inputTokens": {"warning": 0.6, "critical": 0.7, "emergency": 0.9}}
+    applied = apply_pre_message_compact_pct(original, 0.5)
+    assert applied["ok"] is True
+    assert original["inputTokens"] == {"warning": 0.6, "critical": 0.7, "emergency": 0.9}
+    decision = compact_decision(50, 10_000, applied["table"], capacity=100)
+    assert decision["compact"] is True
+    assert decision["preMessage"]["disposition"] == "preMessage"
+    crossed = apply_pre_message_compact_pct(original, 0.6)
+    assert crossed["ok"] is False
+    assert crossed["reason"] == "order-invalid"
+    assert "preMessage" not in original["inputTokens"]
+    assert apply_pre_message_compact_pct(original, True)["reason"] == "pct-invalid"
