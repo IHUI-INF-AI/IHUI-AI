@@ -56,11 +56,7 @@ export type DispatchAttention = 'awaiting_answer' | 'awaiting_review'
  * 槽位释放后按「优先级 + 先来后到」出队执行。它不是活跃态(不占槽位),但仍是未终态。
  */
 export type ExtendedDispatchStatus =
-  | DispatchStatus
-  | 'preempted'
-  | 'quota_exceeded'
-  | 'interrupted'
-  | 'queued'
+  DispatchStatus | 'preempted' | 'quota_exceeded' | 'interrupted' | 'queued'
 
 /** DAG 节点定义 */
 export interface DagNode {
@@ -377,4 +373,11 @@ export {
   settleSubagentOnParentTurnEnd,
   subagentGroupStillActive,
 } from './parent-turn-settle'
+export {
+  readChildSurface,
+  type ChildRead,
+  type ChildRecord,
+  type ChildRequest,
+  type ChildTool,
+} from './child-read'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
