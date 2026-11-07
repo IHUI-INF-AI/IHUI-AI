@@ -225,14 +225,25 @@
 - 已按此记：`ab50d8d70b`（原提交 `b5e968842a`，withdraw 修复 + 同枚 pin）、`52ff17b485`（原提交 `2a52ad3a87`，6 处 colorScheme + 同枚 pin）。
 - 推送说明必须注明：**生成物指纹不可跨分支搬运，生成物交给目标分支重算**。
 
-## 11. 待办票：staged typecheck 缺依赖 dist 的前置构建
+## 11. staged typecheck 缺依赖产物：已修闸门（exit 2）
 
 - **取证（2026-11-08，移走 `packages/api-client/dist` 后）**：
   `node scripts/check-staged-typecheck.mjs --files "apps/web/app/(pilot)/shared-pilot/page.tsx" "apps/web/app/h5/share/[code]/PageClient.tsx" "apps/web/app/(main)/exam/[id]/ExamIntro.tsx"`
   → **不通过**：`app/h5/share/[code]/PageClient.tsx(14,54): error TS2307: Cannot find module '@ihui/api-client' or its corresponding type declarations.` 该 import 是存量代码，不是本轮新增；闸门按「错误文件 ∈ 声明集」归因，所以记在声明文件上。
 - 把 dist 放回后同命令通过——但**本地 junction 不构成结论前提**，已移除，不再作为修复手段。
 - **CI 有前置构建，不是 CI 缺口**：`.github/workflows/ci.yml` 在 `pnpm turbo run typecheck` 之前有 `pnpm --filter "@ihui/api-client..." run build`（L159；lint-typecheck-test job L563 同款）；`scripts/typecheck-full.mjs` 另带 `staleDistPreflight()`，可用 `--preflight-only` 单独补产物。
-- **缺口只在本地闸门**：`check-staged-typecheck.mjs` 按包直接跑 `tsc`，不跑 `staleDistPreflight()`，缺 dist 就以声明文件 TS2307 假红。**列票，本轮不改闸门**；修法候选：闸门内先跑 `node scripts/typecheck-full.mjs --preflight-only`，或把该前置并进各包 `typecheck` 的 pre 脚本。
-- 以后本仓任何 staged typecheck 结论都必须带前提：**是否预先产出 `packages/*/dist`（真实构建 / 无）、有无 junction**；junction 一律不算通过。
+- **缺口只在本地闸门**：`check-staged-typecheck.mjs` 按包直接跑 `tsc`，不跑 `staleDistPreflight()`，缺 dist 就以声明文件 TS2307 假红。**已修闸门（`7f4f5b01c9`，原提交 `6e4291a20d`）**：判据三分——`0` 通过 / `1` 声明集真错误 / `2` 用法或脚本异常、**依赖产物取不到**。开跑前只做确定性检查（依赖包 `package.json` 的 `types`/`typings`/`exports['.'].types`，无类型入口才退到 `main`/`exports` 运行时入口），缺失即 exit 2，打印缺哪些包、期望入口、`pnpm --filter "<pkg>..." run build` 与 `node scripts/typecheck-full.mjs --preflight-only`；不跑 tsc、不把 TS2307 归到改动文件。头注写明理由：本地裸跑 tsc 产生假红，假红逼人跳门，比假绿更坏。
+- **夹具**（`scripts/tests/check-staged-typecheck.test.mjs`）：有 dist → 干净文件 exit 0 / 写坏文件 exit 1；无 dist → exit 2 且带缺失包与补齐命令。`node --test scripts/tests/check-staged-typecheck.test.mjs` = 47/47 通过。
+- **脱链复验（无 junction；`packages/api-client`、`@ihui/i18n` 等 dist 由 `node scripts/typecheck-full.mjs --preflight-only` 真实构建产出；`packages/app/node_modules` 由 `pnpm install --frozen-lockfile` 恢复的 pnpm 正常链接，非手工 junction）**：
+
+  | 声明集 | 取数方式 | exit | 归因 |
+  | --- | --- | --- | --- |
+  | `52ff17b485`（原提交 `2a52ad3a87`，3 个 web 文件） | `--files` 三文件 | 0 | 声明文件全绿；`apps/web` 同包另有非声明文件错误被过滤 |
+  | `8947e198c8`（原提交 `0eee6ac784`，3 个小程序生成物 + 共享屏历史内容） | `git restore --source=8947e198c8`（原提交 `0eee6ac784`）临时换入该版 `IcpRecordScreen.tsx`，跑完恢复 HEAD | 0 | `packages/app`、`apps/miniapp-taro` 均通过；taro 另有非声明文件错误被过滤 |
+  | `a611c577d1`（原提交 `d06e4b4404`，共享屏 HEAD） | `--files` 一文件 | 0 | `packages/app` 通过 |
+
+  **绿来自真实构建产物与真实安装，不是软链**；本轮已无任何手工 junction。
+- **残存同类缺口（未并入判据，报机主决定）**：首次脱链复验在 `packages/app/node_modules` 缺失时，声明文件出现 `shared-pilot/page.tsx(141,13) TS2322: Property 't' does not exist`——`@ihui/rn-app` 以源码入口被消费，它自己的 `@ihui/types`/`react` 解析不到，基类退化造成假红；`pnpm install` 恢复后消失。新前置检查只看被审 package 的**直接** workspace 依赖入口，不覆盖「源码消费包」的传递解析。
+- 以后本仓任何 staged typecheck 结论都必须带前提：**`packages/*/dist` 是否为真实构建产物、有无 junction、依赖安装是否完整**；junction 与手工补产物一律不算通过。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
