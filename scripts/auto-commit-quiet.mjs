@@ -338,10 +338,15 @@ export function partitionStaleCopies(paths, probes) {
 }
 
 /** git 探针(取不到一律返回 null ⇒ fail-open,保持原收编行为)。 */
-function staleCopyProbes(p) {
+function staleCopyProbes(p, root = ROOT) {
+  // 2026-11-07:探针必须跟着调用方注入的 root 走。此前固定查全局 ROOT(主仓),而
+  // runLedgerFamily 注入的是 `root: <临时仓>` ⇒ 残渣闸拿主仓的 HEAD/工作树 blob 判临时仓
+  // 的路径,主仓活文档一被别席大改就把夹具里的 README 误剔(T5/T26 稳红)。与既有
+  // worktreeBlobOid(path, root) 同一范式:gitRaw(args, root),不在本层裸钉全局 ROOT。
+  const gitAt = (args) => gitRaw(args, root)
   const oid = (ref) => {
     try {
-      return git(['rev-parse', ref]).trim()
+      return gitAt(['rev-parse', ref]).trim()
     } catch {
       return null
     }
@@ -351,7 +356,7 @@ function staleCopyProbes(p) {
       try {
         // 逐字节:不关 autocrlf 会把 CRLF 归一成 LF 形态的 oid,把"盘上旧档"误判成 HEAD/祖先
         // 等值(反方向则漏判)。与门 298 的工作树臂同一把尺(2026-11-05)。
-        return git(['-c', 'core.autocrlf=false', 'hash-object', '--', p]).trim()
+        return gitAt(['-c', 'core.autocrlf=false', 'hash-object', '--', p]).trim()
       } catch {
         return null
       }
@@ -360,7 +365,7 @@ function staleCopyProbes(p) {
     everExisted: () => {
       // 曾入库过 = 历史上有 A(add)记录;删除档死件判据的事实腿(不是猜测)。
       try {
-        return git(['log', '--diff-filter=A', '-n', '1', '--format=%H', '--', p]).trim().length > 0
+        return gitAt(['log', '--diff-filter=A', '-n', '1', '--format=%H', '--', p]).trim().length > 0
       } catch {
         return false
       }
@@ -374,12 +379,12 @@ function staleCopyProbes(p) {
       let headText = null
       let wtText = null
       try {
-        headText = git(['show', `HEAD:${p}`])
+        headText = gitAt(['show', `HEAD:${p}`])
       } catch {
         return null
       }
       try {
-        wtText = readFileSync(join(ROOT, p), 'utf8')
+        wtText = readFileSync(join(root, p), 'utf8')
       } catch {
         return null
       }
@@ -400,12 +405,12 @@ function staleCopyProbes(p) {
       let headText = null
       let wtText = null
       try {
-        headText = git(['show', `HEAD:${p}`])
+        headText = gitAt(['show', `HEAD:${p}`])
       } catch {
         return null
       }
       try {
-        wtText = readFileSync(join(ROOT, p), 'utf8')
+        wtText = readFileSync(join(root, p), 'utf8')
       } catch {
         return null
       }
@@ -422,7 +427,7 @@ function staleCopyProbes(p) {
       if (added.length === 0) return { added: 0, newLines: 0 } // 纯删除:归部分回退臂,本臂不判
       let commits = []
       try {
-        commits = git(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
+        commits = gitAt(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
           .trim()
           .split('\n')
           .filter(Boolean)
@@ -434,7 +439,7 @@ function staleCopyProbes(p) {
         if (remaining.size === 0) break
         let text = null
         try {
-          text = git(['show', `${c}:${p}`])
+          text = gitAt(['show', `${c}:${p}`])
         } catch {
           continue
         }
@@ -448,7 +453,7 @@ function staleCopyProbes(p) {
       try {
         // 窗口 6→40(2026-10-31):回潮-删除轮次多的路径(aboutPageSections 三删四回)在 6 枚
         // 窗口里可能只见删除不见旧 blob,滞后判定漏网;40 覆盖同一路径的现实轮次。
-        commits = git(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
+        commits = gitAt(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
           .trim()
           .split('\n')
           .filter(Boolean)
@@ -477,20 +482,22 @@ function staleCopyProbes(p) {
  * `changes` 参数保留(调用方仍在传,且它是本器其它判据的输入),但不再参与豁免决策。
  * 失效方向仍是"少收编一次":判成滞后就跳过并逐条点名,人想显式提交随时可以(§0.10)。
  */
-function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes) {
+function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes, root = ROOT) {
   if (!stale.length) return { kept: stale, skipped: [], why: new Map() }
+  // 生产探针接 root;镜像测试注入的探针忽略多余实参(JS 语义),零改动。
+  const probe = (p) => probeFactory(p, root)
   // 探针必须**逐臂全递**:上一版这里漏递 `everExisted`,导致「删除档死件回潮」那一臂
   // 在真实调用路径上永远是 `probes.everExisted?.()` ⇒ undefined ⇒ 按真新文件放行 ——
   // 镜像测试直接构造 probes 传进 partitionStaleCopies,所以测试全绿而生产臂空转(§0.9:
   // 判据必须在真跑它的那一刻才成立;2026-10-31 补的那一臂等于没补)。同批补递 lineDelta。
   const { skipped, why } = partitionStaleCopies([...stale], {
-    worktree: (p) => probeFactory(p).worktree(),
-    head: (p) => probeFactory(p).head(),
-    everExisted: (p) => probeFactory(p).everExisted?.(),
-    lineDelta: (p) => probeFactory(p).lineDelta?.(),
+    worktree: (p) => probe(p).worktree(),
+    head: (p) => probe(p).head(),
+    everExisted: (p) => probe(p).everExisted?.(),
+    lineDelta: (p) => probe(p).lineDelta?.(),
     // 行级祖先命中臂(2026-11-05):同上一批哑臂教训,必须从生产包装器真递进去。
-    lineAncestry: (p) => probeFactory(p).lineAncestry?.(),
-    ancestors: (p) => probeFactory(p).ancestors(),
+    lineAncestry: (p) => probe(p).lineAncestry?.(),
+    ancestors: (p) => probe(p).ancestors(),
   })
   return { kept: stale.filter((p) => !skipped.includes(p)), skipped, why }
 }
@@ -1473,7 +1480,7 @@ export function runLedgerFamily(opts = {}) {
   // partitionStaleCopies:盘逐字节 == 某祖先 blob / 部分回退 / 删除档死件回潮),不另写第二支。
   // 失效方向仍是"少收编一次":只跳过**证实**的残渣并逐条点名,正常新改动照收(不阻断别人)。
   if (paths.length > 0) {
-    const { kept, skipped, why } = dropStaleCopies(paths, [])
+    const { kept, skipped, why } = dropStaleCopies(paths, [], staleCopyProbes, root)
     if (skipped.length) {
       logLine(
         `账本族跳过滞后副本(${skipped.length} 枚,留在工作树交删除意图账/归属席位显式处置):${skipped
