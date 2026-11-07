@@ -7610,7 +7610,27 @@
       "eraseCard": "데이터 삭제"
     },
     "groups": {
-      "title": "내 그룹"
+      "addMember": "멤버 추가",
+      "allGroups": "전체 그룹",
+      "confirmDelete": "이 그룹을 삭제할까요?",
+      "createGroup": "그룹 만들기",
+      "createdAt": "생성 시간",
+      "custom": "사용자 지정",
+      "delete": "삭제",
+      "deleteTitle": "그룹 삭제",
+      "description": "설명",
+      "edit": "편집",
+      "empty": "아직 그룹이 없습니다",
+      "error": "실패",
+      "groupName": "그룹 이름",
+      "groupNameRequired": "그룹 이름은 필수입니다",
+      "memberList": "멤버 관리",
+      "members": "멤버 수",
+      "membersUnavailable": "백엔드에 멤버 목록 API가 없어 멤버 수만 표시합니다",
+      "owner": "소유자",
+      "save": "저장",
+      "title": "내 그룹",
+      "userId": "사용자 ID"
     },
     "stt": {
       "error": "변환 실패"
