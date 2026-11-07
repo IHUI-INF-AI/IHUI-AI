@@ -140,7 +140,7 @@
       "tag": "20261018160000_agent_state_tables_runtime_reality",
       "state": "compensated",
       "compensation": "20261107006000_rewrite_default_cleanup.sql",
-      "note": "旧版空表分支给 agent_working_memory_compression 两列留默认;06000 撤默认"
+      "note": "应用版本已定位:账本 hash = blob ec5800e895(2026-10-18 16:35);此后两次改写(8362ac24fa 21:05 批、b300206291)均有独立提交与理由;hash 不等的成因是账本记录的是应用时刻字节,不是文件被偷偷改过。不选全量回退:回到账本字节须连带撤掉 21:05 批的 BUG-90 row_count 守卫、三处 DROP DEFAULT、nullif 转换修正;不用 hash 相等换静默清列防护。内容差异(两列 DEFAULT 0)由 06000 撤默认补偿。"
     },
     {
       "tag": "20261023180000_relay_account_pool_owner",
