@@ -239,6 +239,7 @@ test('D15 改前实现（3b8531d83d 的 lib）跑同一夹具必须判红：unde
       ['-C', repoRoot, 'show', '3b8531d83d:scripts/lib/immutable-guard.mjs'],
       {
         encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
       },
     )
   } catch {
