@@ -39,9 +39,11 @@ from app.core.ai_code_attribution import (
     resolve_anchor,
 )
 from app.services.ai_code_attribution_git import (
+    attach_checkpoint_note,
     judge_notes_refs,
     list_notes_refs,
     notes_ref_for_namespace,
+    read_commit_notes,
 )
 from app.services.ai_code_attribution_store import (
     AiCodeAttributionStore,
@@ -776,4 +778,101 @@ async def test_prompt_route_names_a_missing_prompt(tmp_store):
     body = await show_attribution_prompt("missing", user_id="u")
     assert body["data"]["text"] is None
     assert body["data"]["refused"] == "提示词没量到"
+
+
+def _second_commit(path: Path) -> str:
+    (path / "b.py").write_text("y = 1\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(path), "add", "b.py"], check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "-C", str(path), "commit", "-m", "second"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return proc.stdout.strip()
+
+
+def test_commit_notes_distinguish_missing_ref_empty_note_and_corrupt_body(tmp_path):
+    repo = tmp_path / "repo"
+    first = _repo_with_one_commit(repo)
+    unread = read_commit_notes(repo, "abc")
+    assert unread["status"] == "refused"
+    assert unread["message"] == "提交号不是 40 位"
+    absent = read_commit_notes(repo, first)
+    assert absent["status"] == "absent"
+    assert absent["message"] == "Expected notes ref is present"
+    assert absent["checkpoints"] == []
+    attached, note = attach_checkpoint_note(
+        repo,
+        first,
+        {"dedupe_key": "k-1", "hook_event_name": "after_edit", "tool": "file_edit"},
+    )
+    assert attached == "appended"
+    assert note == ""
+    second = _second_commit(repo)
+    empty = read_commit_notes(repo, second)
+    assert empty["status"] == "empty"
+    assert empty["message"] == "这个提交上没有检查点"
+    assert empty["checkpoints"] == []
+    present = read_commit_notes(repo, first)
+    assert present["status"] == "present"
+    rows = present["checkpoints"]
+    assert isinstance(rows, list) and rows[0]["dedupe_key"] == "k-1"
+    subprocess.run(
+        ["git", "-C", str(repo), "notes", "--ref", "refs/notes/ai", "add", "-f", "-m", "{not json", second],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    corrupt = read_commit_notes(repo, second)
+    assert corrupt["status"] == "refused"
+    assert corrupt["message"] == "notes 读不到,不能把它说成没有检查点"
+    assert corrupt["checkpoints"] == []
+    still = read_commit_notes(repo, first)
+    assert still["status"] == "present"
+
+
+def test_multiple_note_namespaces_are_not_collapsed(tmp_path):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    assert attach_checkpoint_note(repo, sha, {"dedupe_key": "def", "tool": "file_edit"})[0] == "appended"
+    assert (
+        attach_checkpoint_note(
+            repo,
+            sha,
+            {"dedupe_key": "team-key", "tool": "file_edit"},
+            namespace="team",
+        )[0]
+        == "appended"
+    )
+    mixed = read_commit_notes(repo, sha)
+    assert mixed["status"] == "multiple"
+    assert mixed["checkpoints"] == []
+    assert mixed["refs"] == ["refs/notes/ai", "refs/notes/ai-team"]
+    team = read_commit_notes(repo, sha, namespace="team")
+    assert team["status"] == "present"
+    rows = team["checkpoints"]
+    assert isinstance(rows, list) and rows[0]["dedupe_key"] == "team-key"
+    missing = read_commit_notes(repo, sha, namespace="other")
+    assert missing["status"] == "absent"
+    assert missing["message"] == "这个命名空间的 notes 引用不在"
+
+
+@pytest.mark.asyncio
+async def test_notes_show_route_stays_unjudged_without_a_repo(monkeypatch):
+    from app.routers import ai_code_attribution as route_mod
+
+    monkeypatch.setattr(route_mod, "detect_repo_root", lambda: None)
+    body = await route_mod.show_attribution_commit_notes("a" * 40, user_id="u")
+    assert body["data"]["status"] == "unjudged"
+    assert body["data"]["checkpoints"] == []
+    assert body["data"]["message"] == "取不到 git 仓库根"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

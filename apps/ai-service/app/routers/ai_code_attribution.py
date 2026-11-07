@@ -15,6 +15,7 @@ tags=["ai-code-attribution"])` 方式挂载,最终端点路径:
   GET  /api/ai-code-attribution/notes-health        → git notes 引用在不在(没量到不说成没有)
   GET  /api/ai-code-attribution/prompts/{prompt_id} → 按宿主注入的编号取提示词正文
   POST /api/ai-code-attribution/notes               → 把对得上的检查点写进该仓库的 notes
+  GET  /api/ai-code-attribution/notes/{commit_sha}  → 按提交读 notes(引用不在和没记过分开)
 
 存储:复用 app/services/ai_code_attribution_store(进程内 list + data/ai_code_attribution.json)。
 判据:app/core/ai_code_attribution(仓内只此一份);本路由只做读数与序列化,不判归属。
@@ -31,7 +32,12 @@ from fastapi import APIRouter, Depends
 
 from ..core.ai_code_attribution import AttributionRecord, AttributionStats
 from ..core.jwt_auth import get_current_user_id
-from ..services.ai_code_attribution_git import detect_repo_root, judge_notes_refs, list_notes_refs
+from ..services.ai_code_attribution_git import (
+    detect_repo_root,
+    judge_notes_refs,
+    list_notes_refs,
+    read_commit_notes,
+)
 from ..services.ai_code_attribution_store import (
     backfill_commit_sha,
     list_checkpoint_log,
@@ -247,6 +253,31 @@ async def mirror_attribution_notes(
         refused or "-",
     )
     return {"code": 0, "message": refused or "ok", "data": {"updated": updated, "refused": refused}}
+
+
+@router.get("/notes/{commit_sha}")
+async def show_attribution_commit_notes(
+    commit_sha: str,
+    namespace: str = "",
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按提交读 notes。仓库根没量到时不把空列表说成这个提交没有检查点。"""
+    root = detect_repo_root()
+    if root is None:
+        data: dict[str, Any] = {
+            "status": "unjudged",
+            "message": "取不到 git 仓库根",
+            "checkpoints": [],
+            "refs": [],
+        }
+    else:
+        data = read_commit_notes(root, commit_sha, namespace=namespace)
+    logger.info(
+        "ai-code-attribution notes-show user=%s status=%s",
+        user_id,
+        data.get("status"),
+    )
+    return {"code": 0, "message": str(data.get("message") or ""), "data": data}
 
 
 @router.get("/prompts/{prompt_id}")
