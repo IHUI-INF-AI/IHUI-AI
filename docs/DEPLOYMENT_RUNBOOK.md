@@ -208,9 +208,31 @@ Agnes 图像通道(2026-10-30 同票接入公开计费面 `POST /v1/images/gener
 
 生产 db / redis 由 `IHUI-PG` / `IHUI-REDIS` 服务(nssm)常驻,无需容器编排:
 
+> **账本水位前置(硬性,2026-11-07 起)**:任何部署/发布窗口在跑 `db:migrate` 之前,先跑
+> `node scripts/check-db-migration-gaps.mjs --json`。**`pending != 0` 就停**,不得继续部署。
+> 下一个部署窗口的第一次 `db:migrate` 必须是**空应用**(日志中无 `CREATE TABLE`/`ALTER TABLE`);
+> 若出现真实建表/改表,说明账本与 DDL 水位不一致,先按 `docs/DB-SCHEMA-GAP-01.md` §8.7 修账本。
+> (`lateGap=7`、`hashDrift=18` 是既有债,不作为停部署条件;只卡 `pending`。)
+> **`pending != 0` 不是「等下一次 migrate 自己补」,而是先停部署**:禁止「先 migrate 看看能不能
+> 自己修好」——本轮所有账本/水位错位正是从这一步开始的;`pending` 归零前不许部署,也不许把
+> `pending` 洗成 `applied`。
+
+> **迁移前置(硬性,不满足不许开始)**:目标库必须已安装 pgvector(`vector`),并记录版本。
+> 新库不继承 extension;若目标库未预装、当前角色又非 superuser,迁移会在 `CREATE EXTENSION vector`
+> 处硬失败,并留下"部分迁移已应用、剩余缺失"的半成品库(2026-11-07 实测:8 条失败 = 4 条硬
+> `CREATE EXTENSION` 权限 + 4 条连带缺表)。`check-migration-from-zero.mjs` 已内置同一前置检查:
+> 不满足立即 exit 1、清掉临时库,不进入任何重放。
+> 排除做法:不给应用角色授 `CREATE EXTENSION` 权限;`template1` 预装只能覆盖新建库,对已存在库无效。
+
 ```powershell
+# 0. 确认目标库已装 vector(含版本);空结果 = 前置不满足,禁止继续
+psql "$env:DATABASE_URL" -Atc "select extversion from pg_extension where extname='vector'"
+
 # 1. 确认数据服务在跑
 sc query IHUI-PG | findstr STATE ; sc query IHUI-REDIS | findstr STATE
+
+# 1.5 账本水位前置：pending 必须为 0，否则停部署
+node scripts/check-db-migration-gaps.mjs --json   # pending != 0 ⇒ stop
 
 # 2. 应用迁移(在生产 checkout D:\IHUI-AI 下,Node/pnpm 走 D:\DevEnv 注入的 PATH)
 pnpm install
