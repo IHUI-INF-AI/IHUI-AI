@@ -2492,7 +2492,11 @@
     "copySecret": "복사",
     "secretCopied": "키를 클립보드에 복사했습니다",
     "rateLimit": "속도 제한",
-    "rateLimitUnit": "회/분"
+    "rateLimitUnit": "회/분",
+    "subtitle": "서드파티 앱 연동을 위한 개발자 API 키를 관리합니다",
+    "permissionsRequired": "권한을 하나 이상 선택하세요",
+    "rateLimitPerMinute": "속도 {rateLimit}/분",
+    "callsTotal": "누적 {times}회 호출"
   },
   "devices": {
     "title": "기기 관리",

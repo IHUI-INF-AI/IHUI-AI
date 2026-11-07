@@ -2492,7 +2492,11 @@
     "copySecret": "Copy",
     "secretCopied": "Secret copied to clipboard",
     "rateLimit": "Rate limit",
-    "rateLimitUnit": "req/min"
+    "rateLimitUnit": "req/min",
+    "subtitle": "Manage your developer API keys for third-party app access",
+    "permissionsRequired": "Select at least one permission",
+    "rateLimitPerMinute": "Rate {rateLimit}/min",
+    "callsTotal": "{times} calls in total"
   },
   "devices": {
     "title": "Devices",

@@ -2492,7 +2492,11 @@
     "copySecret": "コピー",
     "secretCopied": "キーをクリップボードにコピーしました",
     "rateLimit": "レート制限",
-    "rateLimitUnit": "回/分"
+    "rateLimitUnit": "回/分",
+    "subtitle": "サードパーティ製アプリ連携用の開発者 API キーを管理します",
+    "permissionsRequired": "権限を1つ以上選択してください",
+    "rateLimitPerMinute": "レート {rateLimit}/分",
+    "callsTotal": "累計 {times} 回呼び出し"
   },
   "devices": {
     "title": "デバイス管理",
