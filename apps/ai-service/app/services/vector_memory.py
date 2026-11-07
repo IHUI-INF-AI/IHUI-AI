@@ -27,6 +27,7 @@ from .ttl_json_store import (
     file_mtime,
     is_expired,
     iso_now,
+    json_archive_blocks_replace,
     read_json_file,
     resolve_retention_days,
     write_json_atomic,
@@ -289,6 +290,9 @@ class VectorMemoryStore:
         # 临时文件 + os.replace,避免写一半崩溃留下半截 JSON)
         if not self._hydrated and _persist_archive_blocks_write(self._persist_path):
             logger.warning("向量记忆还没读到存档,不能覆盖")
+            return
+        if json_archive_blocks_replace(self._persist_path, expect="object"):
+            logger.warning("向量记忆存档损坏,不能把它覆盖成新快照")
             return
         if write_json_atomic(self._persist_path, snapshot):
             self._dirty = False

@@ -48,6 +48,7 @@ import {
   historyAnchorCandidates,
   resolveVisibleWindow,
   shouldWindow,
+  windowRangeCenteredOn,
 } from '../windowing'
 
 // #7 虚拟滚动配置(2026-07-25 立):消息数超过阈值时启用窗口化渲染。
@@ -140,6 +141,11 @@ export interface MessageListScrollResult {
    */
   handleScroll: (source?: ScrollEventSource) => void
   scrollToBottom: () => void
+  /**
+   * 把指定下标收进挂载窗口中部。窗口未启用时是空操作(行本来就全挂着)。
+   * 深链锚点落在窗口外时,先挂上这一行,下一帧才能 scrollIntoView。
+   */
+  pinWindowToIndex: (index: number) => void
   userScrolledUp: boolean
   focusedIndex: number
   isFarFromTop: boolean
@@ -253,6 +259,7 @@ export function useMessageListScroll({
   // 落账身份是**窗格 + 会话**二元:两窗格承载同一会话时各自的落点不得互相顶。
   const paneId = useOptionalPaneId()
   const conversationId = chatStore((s) => s.conversationId)
+  const messagesTurnWindowed = chatStore((s) => s.messagesTurnWindowed)
   const sessionKey = conversationId === null ? null : buildScrollSessionKey(paneId, conversationId)
   const restoreFlightRef = React.useRef<SessionRestoreFlight>({
     pending: null,
@@ -567,6 +574,37 @@ export function useMessageListScroll({
       pinScrollTop,
       stickToBottomNow,
     ],
+  )
+
+  // 深链 around 窗口:不要先贴底再滚到锚点(那一跳就是定位跳动)。
+  // 窗口在时解除跟随;窗口撤掉(回到无锚的最新页)恢复会话起始的跟随,最新页仍贴底。
+  const wasTurnWindowedRef = React.useRef(false)
+  React.useEffect(() => {
+    if (messagesTurnWindowed) {
+      wasTurnWindowedRef.current = true
+      if (authorityRef.current.following) applyAuthority({ following: false })
+      return
+    }
+    if (wasTurnWindowedRef.current) {
+      wasTurnWindowedRef.current = false
+      applyAuthority(followingAtSessionStart())
+    }
+  }, [messagesTurnWindowed, applyAuthority])
+
+  const pinWindowToIndex = React.useCallback(
+    (index: number) => {
+      if (!shouldWindow(messages.length)) return
+      const range = windowRangeCenteredOn({ count: messages.length, index })
+      if (
+        visibleRangeRef.current.start === range.start &&
+        visibleRangeRef.current.end === range.end
+      ) {
+        return
+      }
+      visibleRangeRef.current = range
+      setVisibleRange(range)
+    },
+    [messages],
   )
 
   // 自动滚动到底部(流式 token 到达 + 新消息)。
@@ -1107,6 +1145,7 @@ export function useMessageListScroll({
     measureItem,
     handleScroll,
     scrollToBottom,
+    pinWindowToIndex,
     userScrolledUp,
     focusedIndex,
     isFarFromTop,

@@ -183,12 +183,14 @@ def _record_attribution(
     hunk: str,
     line_start: int,
     line_end: int,
+    session_id: str = "",
 ) -> None:
     try:
         record_attribution(
             tool,
             file_path,
             hunk,
+            session_id=session_id if isinstance(session_id, str) else "",
             line_start=line_start,
             line_end=line_end,
         )
@@ -218,6 +220,7 @@ def edit_file(
     new_string: str,
     replace_all: bool = False,
     create_if_missing: bool = False,
+    session_id: str = "",
 ) -> dict[str, Any]:
     """精细编辑文件:基于 old_string/new_string 模式。
 
@@ -283,6 +286,7 @@ def edit_file(
                 hunk=new_string,
                 line_start=1,
                 line_end=max(1, new_string.count("\n") + 1),
+                session_id=session_id,
             )
             return {
                 "ok": True,
@@ -402,6 +406,7 @@ def edit_file(
         hunk=diff,
         line_start=_line_start,
         line_end=_line_end,
+        session_id=session_id,
     )
 
     # 14. 返回结果

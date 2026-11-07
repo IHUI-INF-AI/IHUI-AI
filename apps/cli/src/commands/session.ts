@@ -54,13 +54,17 @@ export function createSession(workspacePath: string, modelId: string): Session {
 
 export function saveSession(session: Session): void {
   const filePath = path.join(getSessionsDir(), `${session.id}.json`);
+  let raw: string | null = null;
   try {
-    fs.readFileSync(filePath, 'utf-8');
+    raw = fs.readFileSync(filePath, 'utf-8');
   } catch (error) {
     const code = sessionReadCode(error);
     if (code !== 'ENOENT' && code !== 'ENOTDIR') {
       throw new Error(`会话读不到,不能把它覆盖成新会话 (${code})`);
     }
+  }
+  if (raw !== null && raw.trim() !== '' && !isRecord(tryParseJson(raw))) {
+    throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
   }
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();

@@ -63,7 +63,7 @@ import { SessionBudgetStopNotice } from '../budget-stop-notice'
 import { CompactionBoundaryReview } from '../compaction-boundary-review'
 // G-828(2026-10-04):窗口化的纯判据(区间 + 窗口外占位高度)单点住在 ../windowing,
 // 本组件不再手算 `offsets[len] - offsets[end+1]`。
-import { windowPaddings } from '../windowing'
+import { listItemEntranceMotion, windowPaddings } from '../windowing'
 import { useMessageListScroll } from './use-message-list-scroll'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
@@ -91,6 +91,8 @@ interface MessageListProps {
   isLoading?: boolean
   emptyTitle: string
   emptyHint: string
+  /** 深链锚点失败时用 anchor-unresolved:空态不渲染「开始新任务」模板。 */
+  emptyKind?: 'welcome' | 'anchor-unresolved'
   assistantLabel: string
   loadingLabel?: string
   onTemplateSelect?: (content: string) => void
@@ -136,6 +138,7 @@ export function MessageList({
   isLoading,
   emptyTitle,
   emptyHint,
+  emptyKind = 'welcome',
   assistantLabel,
   loadingLabel,
   onTemplateSelect,
@@ -237,6 +240,7 @@ export function MessageList({
     measureItem,
     handleScroll,
     scrollToBottom,
+    pinWindowToIndex,
     userScrolledUp,
     focusedIndex,
     isFarFromTop,
@@ -364,15 +368,27 @@ export function MessageList({
 
   // 监听 pendingJump:滚动到目标消息 + flashHighlight
   // PlanStepItem 点击 → ProgressJumpStore.requestJumpToMessage(id) → 此 effect 响应
+  // 深链锚点:行不在挂载窗口里时先 pin 到中部,下一帧再定位;around 窗口用 auto,
+  // 避免先贴底再平滑滚过去的那一跳。装饰入场(listItemEntranceMotion)恒为 none,不接动画。
   React.useEffect(() => {
     if (!pendingJump) return
     if (handledJumpNonceRef.current === pendingJump.nonce) return
-    handledJumpNonceRef.current = pendingJump.nonce
     const el = containerRef.current?.querySelector(
       `[data-message-id="${pendingJump.messageId}"]`,
     ) as HTMLElement | null
+    if (!el) {
+      const idx = visibleMessages.findIndex((m) => m.id === pendingJump.messageId)
+      if (idx >= 0 && (idx < visibleRange.start || idx > visibleRange.end)) {
+        pinWindowToIndex(idx)
+        return
+      }
+    }
+    handledJumpNonceRef.current = pendingJump.nonce
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.scrollIntoView({
+        behavior: messagesTurnWindowed ? 'auto' : 'smooth',
+        block: 'center',
+      })
     }
     // 即便目标暂未渲染也调用 flashHighlight(目标出现时会读到高亮状态)
     flashHighlight(pendingJump.messageId)
@@ -381,7 +397,17 @@ export function MessageList({
       clearPendingJump()
     }, 600)
     return () => window.clearTimeout(timer)
-  }, [pendingJump, flashHighlight, clearPendingJump, containerRef])
+  }, [
+    pendingJump,
+    flashHighlight,
+    clearPendingJump,
+    containerRef,
+    visibleMessages,
+    visibleRange.start,
+    visibleRange.end,
+    pinWindowToIndex,
+    messagesTurnWindowed,
+  ])
 
   // 监听自定义事件 'ihui:scroll-to-message' (agent-task-progress-pane 兼容路径)
   React.useEffect(() => {
@@ -648,6 +674,7 @@ export function MessageList({
         loadingLabel={loadingLabel}
         emptyTitle={emptyTitle}
         emptyHint={emptyHint}
+        showTemplates={emptyKind !== 'anchor-unresolved'}
         onTemplateSelect={onTemplateSelect}
         t={t}
       />
@@ -670,6 +697,7 @@ export function MessageList({
       className="hover-scroll min-h-0 flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
       data-window-active={enableVirtual ? 'true' : 'false'}
+      data-list-entrance={listItemEntranceMotion()}
       // 投影结构版本号(生产可观测面):投影结果(行集合与行引用)真的变了才 +1。
       // 流式中只改最后一条消息内容时,若段内该条被重算,版本会前进;整表原样重投影则不动。
       // e2e/单测据此判"投影层在跑且缓存生效",不必读内部实现。

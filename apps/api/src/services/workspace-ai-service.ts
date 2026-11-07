@@ -99,11 +99,14 @@ function readJsonForUpdate<T>(file: string, fallback: T, unread: string): T {
     if (code === 'ENOENT' || code === 'ENOTDIR') return fallback
     throw new Error(`${unread} (${code ?? 'unknown'})`)
   }
+  let parsed: unknown
   try {
-    return JSON.parse(text) as T
+    parsed = JSON.parse(text)
   } catch {
     throw new Error(`${unread} (parse)`)
   }
+  if (parsed === null) throw new Error(`${unread} (parse)`)
+  return parsed as T
 }
 
 function writeJson(file: string, data: unknown): void {
@@ -1533,6 +1536,12 @@ function extToLang(ext: string): string | null {
 
 class CodebaseIndexer {
   index(workspacePath: string): CodebaseIndex {
+    try {
+      readdirSync(workspacePath)
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引读不到目录,不能把它覆盖成空索引 (${code ?? 'unknown'})`)
+    }
     const files: FileIndex[] = []
     this.walk(workspacePath, workspacePath, files)
     const totalLines = files.reduce((s, f) => s + f.lines, 0)
@@ -1578,8 +1587,9 @@ class CodebaseIndexer {
     let entries: string[]
     try {
       entries = readdirSync(dir)
-    } catch {
-      return
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引有目录读不到,不能把它覆盖成不完整索引 (${code ?? 'unknown'})`)
     }
     for (const name of entries) {
       if (IGNORE_DIRS.has(name)) continue
@@ -3096,7 +3106,8 @@ class PersonaRegistry {
         null,
         '人格档案读不到,不能按内置名单覆盖',
       )
-      if (saved) for (const p of saved) this.personas.set(p.id, p)
+      if (Array.isArray(saved)) for (const p of saved) this.personas.set(p.id, p)
+      else if (saved !== null) this.blockedWrite = '人格档案读不到,不能按内置名单覆盖 (corrupt)'
     } catch (error) {
       this.blockedWrite = error instanceof Error ? error.message : String(error)
     }
@@ -3206,7 +3217,8 @@ class RoutineManager {
         null,
         '例行程序读不到,不能按空名单覆盖',
       )
-      if (saved) for (const r of saved) this.routines.set(r.id, r)
+      if (Array.isArray(saved)) for (const r of saved) this.routines.set(r.id, r)
+      else if (saved !== null) this.blockedWrite = '例行程序读不到,不能按空名单覆盖 (corrupt)'
     } catch (error) {
       this.blockedWrite = error instanceof Error ? error.message : String(error)
     }

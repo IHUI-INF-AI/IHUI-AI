@@ -110,6 +110,7 @@ describe('窗口化坐标系 · 投影接入后不自相矛盾', () => {
     const panel = container.querySelector('[data-testid="message-list-inline-panel"]')
 
     expect(panel?.getAttribute('data-window-active')).toBe('false')
+    expect(panel?.getAttribute('data-list-entrance')).toBe('none')
     expect(panel?.getAttribute('data-window-total')).toBe('40')
     // 10 轮 × 3 条助手 ⇒ 10 个容器
     expect(container.querySelectorAll('[data-presentation-row-type="thinkingAgent"]')).toHaveLength(

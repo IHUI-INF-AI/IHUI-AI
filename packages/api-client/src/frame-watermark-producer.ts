@@ -55,6 +55,14 @@
  * 本来就是传输层自己的字段 —— 派生的合法性正来自这一点。
  */
 
+import type { FrameGapKind, FrameWatermark, FrameWatermarkCursor } from './frame-watermark.js'
+
+/**
+ * snapshot 的 fromSeq。与 `sse_contract.WATERMARK_SNAPSHOT_SEQ` 同一约定：
+ * 0 是整段基线，不是要靠序号补上的洞。
+ */
+const SNAPSHOT_FROM_SEQ = 0
+
 /** 单帧的 seq 判读结论。`undetermined` 是**一等结论**,不是"没问题"。 */
 export type FrameSeqVerdict =
   /** 本帧没带 `id:` 行(命名帧之外的行、旧生产端、非主聊天链路) ⇒ 未判定 */
@@ -206,13 +214,103 @@ export interface FrameSeqGapFact {
  * - `payloadWatermarkSeen` —— 载荷级四字段到底有没有到场。false 意味着
  *   `generation-change` / `epoch-change` 两维**从未被判定过**,上层不得把
  *   "没报那两维"读成"那两维没问题";
- * - `cursor` —— seq 腿当下的游标;null = 一次可用的 `id:` 行都没见过。
+ * - `cursor` —— 有载荷游标时用它的已应用序号，否则用 seq 腿游标；
+ *   null = 两腿都还没立过基线。0 是合法序号，不得拿来填这个空；
+ * - `held` —— 断线前手上的水位游标（订阅 + 纪元 + 已应用序号）。
+ *   缺席 = 这一维未判定，不得写成空串；
+ * - `frame` —— 触发本次事实的那一帧自己声明的水位（含 fromSeq/toSeq 这一段）。
+ *   缺席 = 没有可点名的帧（纯 seq 腿、终态兜底、或字段读不出来）。
+ *   失败时只许整段替换（`fromSeq === 0` 的 snapshot）或整帧丢弃，
+ *   不得用序号把缺口补进旧段。
+ * - `disposition` —— 这次失败怎么处置。`replace-segment` = 整段换成 fromSeq=0 的基线；
+ *   `drop` = 整帧丢弃且游标不推进。缺席 = 这次事实不是失败处置（例如终态兜底）。
  */
 export interface FrameWatermarkFacts {
   readonly kind: string
   readonly dropped: number
   readonly cursor: number | null
   readonly payloadWatermarkSeen: boolean
+  readonly held?: FrameWatermarkCursor
+  readonly frame?: FrameWatermark
+  readonly disposition?: 'drop' | 'replace-segment'
+}
+
+export interface FrameWatermarkFactInput {
+  readonly kind: string
+  readonly dropped: number
+  readonly seqCursor: number | null
+  readonly payloadWatermarkSeen: boolean
+  readonly held: FrameWatermarkCursor | null
+  readonly frame: FrameWatermark | null
+  readonly disposition?: 'drop' | 'replace-segment' | null
+}
+
+/**
+ * 把读环上已经读到的水位收成一份事实。
+ *
+ * `held` / `frame` 只在调用方真的读到时带上。null 是缺席，不补订阅、不补纪元、不补 0。
+ * 有 held 时 `cursor` 用已应用序号：seq 腿在载荷水位接管后不再推进，再报它就是把没判的序号写成游标。
+ */
+export function assembleFrameWatermarkFacts(input: FrameWatermarkFactInput): FrameWatermarkFacts {
+  const held = input.held ?? undefined
+  const frame = input.frame ?? undefined
+  const disposition = input.disposition ?? undefined
+  return {
+    kind: input.kind,
+    dropped: input.dropped,
+    cursor: held !== undefined ? held.seq : input.seqCursor,
+    payloadWatermarkSeen: input.payloadWatermarkSeen,
+    ...(held !== undefined ? { held } : {}),
+    ...(frame !== undefined ? { frame } : {}),
+    ...(disposition !== undefined ? { disposition } : {}),
+  }
+}
+
+/**
+ * 断档之后怎么处置这一段。
+ *
+ * `fromSeq === 0` 是既有 snapshot 约定：这帧是整段基线，替换手上的订阅/纪元。
+ * 其余断档整帧丢弃，游标不推进 —— 用 expected 去补 actual 就是猜。
+ */
+export function frameWatermarkGapAction(
+  kind: FrameGapKind,
+  frame: FrameWatermark,
+): 'drop' | 'replace-segment' {
+  if (frame.fromSeq !== SNAPSHOT_FROM_SEQ) return 'drop'
+  if (kind === 'generation-change' || kind === 'epoch-change' || kind === 'seq-discontinuity') {
+    return 'replace-segment'
+  }
+  return 'drop'
+}
+
+const GAP_KINDS: readonly FrameGapKind[] = [
+  'generation-change',
+  'epoch-change',
+  'seq-discontinuity',
+]
+
+function isGapKind(kind: string): kind is FrameGapKind {
+  return GAP_KINDS.some((name) => name === kind)
+}
+
+/**
+ * 写进事实的处置。有帧且是断档 ⇒ 问 `frameWatermarkGapAction`（snapshot 才整段替换）。
+ * 没有可点名的帧但这次是丢弃 ⇒ `drop`。终态兜底 ⇒ null（缺席，不是“没丢”）。
+ */
+export function watermarkFactDisposition(
+  kind: string,
+  frame: FrameWatermark | null,
+): 'drop' | 'replace-segment' | null {
+  if (frame !== null && isGapKind(kind)) return frameWatermarkGapAction(kind, frame)
+  if (
+    isGapKind(kind) ||
+    kind === 'payload-invalid' ||
+    kind === 'seq-invalid' ||
+    kind === 'authority-closed'
+  ) {
+    return 'drop'
+  }
+  return null
 }
 
 export const __test__ = { parseSeq }

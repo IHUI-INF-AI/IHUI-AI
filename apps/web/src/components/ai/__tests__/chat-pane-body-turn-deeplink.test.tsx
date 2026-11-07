@@ -11,7 +11,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import * as React from 'react'
-import { render, waitFor, act } from '@testing-library/react'
+import { render, waitFor, act, cleanup } from '@testing-library/react'
 
 const { getConversationMock, getMessagesMock, getConversationHistoryMock } = vi.hoisted(() => ({
   getConversationMock: vi.fn(),
@@ -111,6 +111,9 @@ describe('ChatPaneBody 窗格化 ?turn= 深链', () => {
   })
 
   afterEach(() => {
+    // 先卸掉本测的窗格,再清深链。清链会广播;组件还挂着就会改走最新页,
+    // 那一记 getMessages 会漏进下一条用例。
+    cleanup()
     clearTurnDeepLink()
   })
 
@@ -137,6 +140,74 @@ describe('ChatPaneBody 窗格化 ?turn= 深链', () => {
       expect.objectContaining({ messageId: 'm-7' }),
     )
     expect(useProgressJumpStore.getState().pendingJumpToMessage).toBeNull()
+    expect(
+      getConversationHistoryMock.mock.calls.some(
+        ([, opts]) => (opts as { direction?: string } | undefined)?.direction === 'newest',
+      ),
+    ).toBe(false)
+  })
+
+  it('around 失败 ⇒ 空态错误,不拉最新页,也不并入最新轮', async () => {
+    getConversationHistoryMock.mockImplementation(
+      async (_id: string, opts: { aroundTurnId?: string; direction?: string }) => {
+        if (opts.direction === 'newest') {
+          return {
+            success: true,
+            data: {
+              turns: [
+                {
+                  turnOrdinal: 1,
+                  messages: [{ id: 'latest', role: 'user', content: '最新', createdAt: iso }],
+                },
+              ],
+              hasMore: false,
+              nextCursor: null,
+            },
+          }
+        }
+        return { success: false, error: 'turn 不存在', status: 404 }
+      },
+    )
+    setTurnDeepLink('conv-miss', 99, 'pane-a')
+    render(
+      <ChatPaneProvider paneId="pane-a">
+        <ChatPaneBody paneId="pane-a" conversationId="conv-miss" />
+      </ChatPaneProvider>,
+    )
+    const paneStore = getChatStoreForPane('pane-a')
+    await waitFor(() => expect(paneStore.getState().error).toBe('turn-anchor-unresolved'))
+    expect(paneStore.getState().messages).toEqual([])
+    expect(paneStore.getState().messagesTurnWindowed).toBe(false)
+    expect(getMessagesMock).not.toHaveBeenCalled()
+    expect(
+      getConversationHistoryMock.mock.calls.some(
+        ([, opts]) => (opts as { direction?: string } | undefined)?.direction === 'newest',
+      ),
+    ).toBe(false)
+  })
+
+  it('around 成功但窗口没有请求的那一轮 ⇒ 空态,不留下旁边的轮次', async () => {
+    getConversationHistoryMock.mockResolvedValue({
+      success: true,
+      data: {
+        turns: [
+          {
+            turnOrdinal: 3,
+            messages: [{ id: 'm-3', role: 'user', content: '旁', createdAt: iso }],
+          },
+        ],
+      },
+    })
+    setTurnDeepLink('conv-gap', 8, 'pane-a')
+    render(
+      <ChatPaneProvider paneId="pane-a">
+        <ChatPaneBody paneId="pane-a" conversationId="conv-gap" />
+      </ChatPaneProvider>,
+    )
+    const paneStore = getChatStoreForPane('pane-a')
+    await waitFor(() => expect(paneStore.getState().error).toBe('turn-anchor-unresolved'))
+    expect(paneStore.getState().messages).toEqual([])
+    expect(getMessagesMock).not.toHaveBeenCalled()
   })
 
   it('边界1 同窗格换 turn ⇒ 版本号订阅驱动重锚(无需卸载重挂)', async () => {

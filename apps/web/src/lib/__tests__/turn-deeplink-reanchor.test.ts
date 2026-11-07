@@ -11,11 +11,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   clearTurnDeepLink,
+  TURN_ANCHOR_UNRESOLVED_ERROR,
   consumeTurnDeepLink,
+  decideAroundLoad,
   getTurnDeepLinkVersionForPane,
   peekTurnDeepLink,
   setTurnDeepLink,
+  shouldSkipLatestHistoryFill,
   subscribeTurnDeepLink,
+  unresolvedTurnAnchorState,
 } from '@/lib/turn-deeplink'
 
 describe('turn 深链目标广播(换 turn 重锚的触发判据)', () => {
@@ -58,7 +62,7 @@ describe('turn 深链目标广播(换 turn 重锚的触发判据)', () => {
     unsubscribe()
   })
 
-  it('consumeTurnDeepLink 静默消费(404 降级就地落常规路径,不多放一枪 effect 重放)', () => {
+  it('consumeTurnDeepLink 静默清目标(不广播);加载器不得借它改拉最新页', () => {
     setTurnDeepLink('conv-1', 7)
     const listener = vi.fn()
     const unsubscribe = subscribeTurnDeepLink(listener)
@@ -74,6 +78,68 @@ describe('turn 深链目标广播(换 turn 重锚的触发判据)', () => {
     unsubscribe()
     setTurnDeepLink('conv-1', 3)
     expect(listener).not.toHaveBeenCalled()
+  })
+})
+
+describe('decideAroundLoad(锚点失败不得猜一段历史)', () => {
+  const turns = [
+    { turnOrdinal: 4, messages: [{ id: 'm-4' }] },
+    { turnOrdinal: 5, messages: [{ id: 'm-5' }] },
+  ]
+
+  it('窗口里有请求的那一轮 ⇒ 只采用该窗口,并给出锚点消息', () => {
+    expect(decideAroundLoad({ ok: true, turns, turnOrdinal: 5 })).toEqual({
+      action: 'apply-window',
+      anchorMessageId: 'm-5',
+    })
+  })
+
+  it('响应失败 ⇒ 空态,不保留任何轮次', () => {
+    expect(decideAroundLoad({ ok: false, turns, turnOrdinal: 5 })).toEqual({
+      action: 'unresolved-empty',
+    })
+  })
+
+  it('响应成功但没有请求的那一轮 ⇒ 空态,不把旁边的轮次当成结果', () => {
+    expect(decideAroundLoad({ ok: true, turns, turnOrdinal: 9 })).toEqual({
+      action: 'unresolved-empty',
+    })
+    expect(unresolvedTurnAnchorState()).toEqual({
+      messages: [],
+      messagesTurnWindowed: false,
+      error: TURN_ANCHOR_UNRESOLVED_ERROR,
+    })
+  })
+
+  it('深链还在、窗口已就位、或已经失败 ⇒ 不再拉最新一轮填屏', () => {
+    expect(
+      shouldSkipLatestHistoryFill({
+        deepLinkActive: true,
+        messagesTurnWindowed: false,
+        error: null,
+      }),
+    ).toBe(true)
+    expect(
+      shouldSkipLatestHistoryFill({
+        deepLinkActive: false,
+        messagesTurnWindowed: true,
+        error: null,
+      }),
+    ).toBe(true)
+    expect(
+      shouldSkipLatestHistoryFill({
+        deepLinkActive: false,
+        messagesTurnWindowed: false,
+        error: TURN_ANCHOR_UNRESOLVED_ERROR,
+      }),
+    ).toBe(true)
+    expect(
+      shouldSkipLatestHistoryFill({
+        deepLinkActive: false,
+        messagesTurnWindowed: false,
+        error: null,
+      }),
+    ).toBe(false)
   })
 })
 

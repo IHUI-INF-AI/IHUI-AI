@@ -162,6 +162,14 @@ describe('家目录 mcp.json 读不到', () => {
     expect(fs.statSync(blocked).isDirectory()).toBe(true)
   })
 
+  it('损坏内容不收成只剩新加的一项', () => {
+    const file = getMcpConfigPath()
+    const body = '{not json'
+    fs.writeFileSync(file, body, 'utf-8')
+    expect(() => addMcpServer('demo', 'node')).toThrow(/不能把它覆盖成新配置 \(corrupt\)/)
+    expect(fs.readFileSync(file, 'utf-8')).toBe(body)
+  })
+
   it('文件不存在时仍可以新建', () => {
     const created = addMcpServer('demo', 'node')
     expect(created.name).toBe('demo')

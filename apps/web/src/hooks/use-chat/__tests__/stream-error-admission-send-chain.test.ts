@@ -15,9 +15,10 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { mockStreamChat, mockToast } = vi.hoisted(() => ({
+const { mockStreamChat, mockToast, mockPersistMessage } = vi.hoisted(() => ({
   mockStreamChat: vi.fn(async (_opts: unknown) => {}),
   mockToast: { error: vi.fn(), warning: vi.fn(), success: vi.fn(), info: vi.fn() },
+  mockPersistMessage: vi.fn(async () => ({ success: true })),
 }))
 
 vi.mock('@ihui/api-client', async (importOriginal) => {
@@ -26,7 +27,7 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
     ...orig,
     streamChat: mockStreamChat,
     regenerateConversation: vi.fn(async () => ({ success: false, status: 599 })),
-    sendMessage: vi.fn(async () => ({ success: true })),
+    sendMessage: mockPersistMessage,
     persistQuestion: vi.fn(async () => ({ success: true })),
     createConversation: vi.fn(async () => ({ success: false, status: 599 })),
     getMessages: vi.fn(async () => ({ success: false })),
@@ -207,7 +208,7 @@ describe('任务 1:主链 onError(SSE 支)stream-error-view 双轨', () => {
     expect(payload.action?.label).toBe('retry')
   })
 
-  it('BUDGET_EXHAUSTED 硬中断档保持不动:即便词表在场,呈现与控制流都走原支', async () => {
+  it('BUDGET_EXHAUSTED 与续答链同一出口:目录标题,不可重试,不走硬编码第二套文案', async () => {
     const pane = makePane('sse-budget')
     const send = createSendMessage(makeCtx(), pane)
     mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
@@ -217,11 +218,14 @@ describe('任务 1:主链 onError(SSE 支)stream-error-view 双轨', () => {
 
     await expect(send(TEXT)).resolves.toBe(true)
 
-    const call = mockToast.error.mock.calls.at(-1)
-    expect(call?.[0]).toBe('今日 AI 用量已达上限')
-    expect((call?.[1] as { description: string }).description).toBe(
-      '今日 token 预算已用尽,明日 0 点重置后可继续对话',
+    const call = mockToast.warning.mock.calls.at(-1)
+    expect(call?.[0]).toBe('CAT:BUDGET_EXHAUSTED.title')
+    expect((call?.[1] as { description: string }).description).toContain(
+      'CAT:BUDGET_EXHAUSTED.action',
     )
+    expect((call?.[1] as { action?: unknown }).action).toBeUndefined()
+    const msgs = pane.getState().messages
+    expect(msgs[msgs.length - 1]?.content).toBe('CAT:BUDGET_EXHAUSTED.title')
   })
 
   it('词表缺省(streamErrorLabels 未注入)⇒ 已收录码也走旧轨,零行为变化', async () => {
@@ -307,6 +311,23 @@ describe('任务 2:主链准入跟踪器接线(inputId 上行 / 回执配对 / �
     expect(admissionOf(pane)?.disposition).toBe('accepted')
   })
 
+  it('rejected 回执是终态:随后的 done 也不能洗成已发送,气泡撤回且输入侧得到 false', async () => {
+    const pane = makePane('adm-receipt-rejected')
+    const send = createSendMessage(makeCtx(), pane)
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      o.onSendAdmissionReceipt?.({ inputId: o.inputId, disposition: 'rejected' })
+      expect(admissionOf(pane)?.phase).toBe('rejected')
+      o.onDone?.()
+      expect(admissionOf(pane)?.phase).toBe('rejected')
+    })
+
+    await expect(send(TEXT)).resolves.toBe(false)
+    expect(pane.getState().messages).toHaveLength(0)
+    expect(mockToast.warning.mock.calls.some((c) => c[0] === 'P:rejected')).toBe(true)
+    expect(mockPersistMessage).not.toHaveBeenCalled()
+  })
+
   it('错配回执(别人的 inputId)⇒ 丢弃,本条保持 tentative', async () => {
     const pane = makePane('adm-receipt-mismatch')
     const send = createSendMessage(makeCtx(), pane)
@@ -320,17 +341,19 @@ describe('任务 2:主链准入跟踪器接线(inputId 上行 / 回执配对 / �
     await expect(send(TEXT)).resolves.toBe(true)
   })
 
-  it('隐式证据:onResponse(流已开)⇒ admitted,无需回执帧', async () => {
+  it('仅响应头不算已发送:不抬成 admitted,气泡撤回,输入侧得到 false', async () => {
     const pane = makePane('adm-evidence-open')
     const send = createSendMessage(makeCtx(), pane)
     mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
       const o = opts as StreamOptsProbe
       o.onResponse?.()
-      expect(admissionOf(pane)?.phase).toBe('admitted')
-      o.onDone?.()
+      expect(admissionOf(pane)?.phase).toBe('tentative')
     })
 
-    await expect(send(TEXT)).resolves.toBe(true)
+    await expect(send(TEXT)).resolves.toBe(false)
+    expect(pane.getState().messages).toHaveLength(0)
+    expect(mockToast.warning.mock.calls.some((c) => c[0] === 'P:unconfirmed')).toBe(true)
+    expect(mockPersistMessage).not.toHaveBeenCalled()
   })
 
   it('queued 回执 ⇒ phase 迁移 queued 且 meta 落盘 queuedTurnId;开始执行帧(accepted)抬升 admitted', async () => {
@@ -362,11 +385,10 @@ describe('任务 2:主链准入跟踪器接线(inputId 上行 / 回执配对 / �
     expect(admissionOf(pane)?.queuedTurnId).toBe('qt-77')
   })
 
-  it('有正文正常走完 ⇒ admitted;零证据收场 ⇒ unconfirmed(绝不冒充 admitted)', async () => {
+  it('有正文正常走完 ⇒ admitted 并落库;零证据收场 ⇒ 撤回气泡且不返回已发送', async () => {
     const pane = makePane('adm-settle')
     const send = createSendMessage(makeCtx(), pane)
 
-    // 第一路:有 delta ⇒ admitted
     mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
       const o = opts as StreamOptsProbe
       o.onDelta?.('你好')
@@ -374,15 +396,63 @@ describe('任务 2:主链准入跟踪器接线(inputId 上行 / 回执配对 / �
     })
     await expect(send(TEXT)).resolves.toBe(true)
     expect(admissionOf(pane)?.phase).toBe('admitted')
+    expect(mockPersistMessage).toHaveBeenCalled()
+    const kept = pane.getState().messages.length
 
-    // 第二路:一个回调都没有(请求发出去了但毫无回音)⇒ unconfirmed
+    mockPersistMessage.mockClear()
     mockStreamChat.mockImplementationOnce(async () => {})
-    await expect(send(TEXT)).resolves.toBe(true)
-    const msgs = pane.getState().messages
-    const lastAssistant = msgs.filter((m) => m.role === 'assistant').at(-1)
-    const adm = (lastAssistant?.meta as { admission?: Record<string, unknown> } | undefined)
-      ?.admission
-    expect(adm?.phase).toBe('unconfirmed')
+    await expect(send(TEXT)).resolves.toBe(false)
+    expect(pane.getState().messages).toHaveLength(kept)
+    expect(mockPersistMessage).not.toHaveBeenCalled()
+    expect(mockToast.warning.mock.calls.some((c) => c[0] === 'P:unconfirmed')).toBe(true)
+  })
+
+  it('未确认撤回后同一段文字可以立刻再发,不会被待发送账本拦住', async () => {
+    const pane = makePane('adm-resend-unconfirmed')
+    const send = createSendMessage(makeCtx(), pane)
+    const text = '弱网这一轮没有任何回执'
+
+    mockStreamChat.mockImplementationOnce(async () => {})
+    await expect(send(text)).resolves.toBe(false)
+    expect(pane.getState().messages).toHaveLength(0)
+
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      o.onDelta?.('第二轮真的发出去了')
+      o.onDone?.()
+    })
+    await expect(send(text)).resolves.toBe(true)
+    expect(mockStreamChat).toHaveBeenCalledTimes(2)
+    expect(mockToast.warning.mock.calls.some((c) => c[0] === 'duplicatePendingTitle')).toBe(false)
+    expect(pane.getState().messages.some((m) => m.role === 'user' && m.content === text)).toBe(true)
+  })
+
+  it('用户停止的静默撤回清掉待发送账本,同一段文字可以立刻再发', async () => {
+    const pane = makePane('adm-resend-user-stop')
+    const ctx = makeCtx()
+    const send = createSendMessage(ctx, pane)
+    const text = '用户自己停掉的这一轮'
+
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe & { signal?: AbortSignal }
+      o.signal?.addEventListener('abort', () => {
+        o.onDone?.()
+      })
+      const assistantId = pane.getState().messages.find((m) => m.role === 'assistant')?.id
+      if (assistantId) pane.getState().setInterruptedMessage(assistantId)
+      ctx.abortRef.current?.abort()
+    })
+    await expect(send(text)).resolves.toBe(false)
+    expect(pane.getState().messages).toHaveLength(0)
+    expect(mockToast.warning.mock.calls.some((c) => c[0] === 'duplicatePendingTitle')).toBe(false)
+
+    mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
+      const o = opts as StreamOptsProbe
+      o.onDelta?.('停过之后再发')
+      o.onDone?.()
+    })
+    await expect(send(text)).resolves.toBe(true)
+    expect(mockStreamChat).toHaveBeenCalledTimes(2)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

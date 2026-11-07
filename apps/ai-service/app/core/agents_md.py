@@ -41,6 +41,7 @@ class LoadedAgentsMd:
     content: str = ""
     files: list[str] = field(default_factory=list)
     truncated: bool = False
+    unread_files: list[str] = field(default_factory=list)
 
     def is_empty(self) -> bool:
         return not self.content.strip()
@@ -142,7 +143,10 @@ def load_project_instructions(
             break
         try:
             raw = path.read_bytes()
+        except FileNotFoundError:
+            continue
         except OSError:
+            loaded.unread_files.append(str(path))
             continue
         take = raw[:remaining]
         text = take.decode("utf-8", errors="replace")

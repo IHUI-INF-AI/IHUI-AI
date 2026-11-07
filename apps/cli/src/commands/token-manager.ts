@@ -79,6 +79,7 @@ function persistTokens(accessToken: string, refreshToken: string): boolean {
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const read = readSettingsObjectForUpdate(settingsPath);
+  if (read.state === 'corrupt') return false;
   const existing: Settings = read.state === 'ok' ? read.settings : {};
   if (classifyCredential(existing.apiKey) === 'api_key') {
     return false;
