@@ -6282,7 +6282,7 @@ const checks = [
   },
   // --- 工作流/部署脚本引用不存在的脚本(只读门,298)---
   {
-    id: '298',
+    id: '309',
     label: '🔗 工作流/部署脚本引用不存在的脚本(死引用)',
     script: 'check-dead-script-refs.mjs',
     args: [],
@@ -6308,7 +6308,7 @@ const checks = [
     ].join('\n'),
   },
   {
-    id: '299',
+    id: '310',
     label: '🧬 自主环判据不变量守卫(并发旧基线整片回写即红)',
     script: 'check-autonomy-invariants.mjs',
     args: [],
@@ -6338,7 +6338,7 @@ const checks = [
     ].join('\n'),
   },
   {
-    id: '300',
+    id: '311',
     label: '🚦 e2e skip 制度化 + 固定等待条件化(无理由/无编号 skip 即红)',
     script: 'check-e2e-skip-wait-policy.mjs',
     args: [],
