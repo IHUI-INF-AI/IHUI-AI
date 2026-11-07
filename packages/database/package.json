@@ -29,7 +29,7 @@
     "clean": "rimraf dist .turbo node_modules"
   },
   "dependencies": {
-    "drizzle-orm": "^0.45.2",
+    "drizzle-orm": "^0.45.4",
     "postgres": "^3.4.9"
   },
   "devDependencies": {
