@@ -647,7 +647,8 @@ export function decide({
           sha,
           hits: judged.hits,
           commitDate,
-          key,
+          ackKey,
+          submitKey: key,
         })
       : { state: 'none', why: '' }
   const ackOr = (substitutedFor, redCode) => {
@@ -660,6 +661,16 @@ export function decide({
       }
     if (ack.state === 'valid')
       return { ...out, exit: 0, code: 'retro-declared', ack: { ...ack, substitutedFor } }
+    // 独立追认钥取不到 ⇒ 本档**判未判定**（exit 2）：既不冒充"验过"，也不静默放行。
+    // 若同枚另有验得过的 ack（另一条独立通道），上面的 valid 分支已经放行，不受此影响。
+    if (attest.state === 'unavailable')
+      return {
+        ...out,
+        exit: 2,
+        code: 'attest-undetermined',
+        attest: { ...attest, substitutedFor },
+        ack: ack.state === 'invalid' ? ack : null,
+      }
     return {
       ...out,
       exit: 1,
@@ -1168,14 +1179,24 @@ export function parseAttestLedger(text) {
 }
 
 /**
- * 取该 sha 的追认并验签。四档：
+ * 取该 sha 的追认并验签。五档：
  *  - `none`     台账里没有这一枚（判定不变）；
  *  - `valid`    路径集逐元素相等、签名验过、理由/署名/日期达标 ⇒ `declared-attested`；
  *  - `invalid`  有这一枚但任一红线不满足 ⇒ 保持红，并把成因带出去点名；
+ *  - `unavailable` 独立追认钥取不到 ⇒ 本档判**未判定**（exit 2），不静默放行；
  *  - 重复行     同 sha ≥2 行 ⇒ 直接 invalid（不取"最后一行"，见台账红线 4）。
+ * 验签**只用独立追认钥**（`ackKey`）：`submitKey` 只参与"两把是不是同一把"的拒签检查，
+ * 不做双钥同时接受（2026-11-07 钥分离）。
  * `hits` 传该枚**实际触发路径**（判定输出的 `hits[].path`）；`commitDate` 是该枚提交日期（YYYY-MM-DD）。
  */
-export function lookupAttestation({ rows, sha, hits = [], commitDate = null, key = null }) {
+export function lookupAttestation({
+  rows,
+  sha,
+  hits = [],
+  commitDate = null,
+  ackKey = null,
+  submitKey = null,
+}) {
   const target = String(sha ?? '').toLowerCase()
   if (!target) return { state: 'none', why: '无 sha 可查' }
   const mine = (Array.isArray(rows) ? rows : []).filter((r) => r.sha === target)
@@ -1234,31 +1255,30 @@ export function lookupAttestation({ rows, sha, hits = [], commitDate = null, key
       row,
       why: `追认日期 ${row.attestedAt} 早于该枚提交日期 ${commitDate}`,
     }
-  const k = String(key ?? '')
+  const k = String(ackKey ?? '')
   if (k.length < MIN_KEY_CHARS)
     return {
-      state: 'invalid',
+      state: 'unavailable',
       code: 'attest-key-unavailable',
       row,
-      why: '密钥不可得 ⇒ 无法验签（fail-closed）',
+      why: '独立追认钥不可得 ⇒ 无法验签（fail-closed：判未判定，不放行）',
     }
-  const expected = createHmac('sha256', k)
-    .update(
-      attestPayload({
-        sha: row.sha,
-        paths: row.paths,
-        reason: row.reason,
-        reviewer: row.reviewer,
-        attestedAt: row.attestedAt,
-      }),
-    )
-    .digest('hex')
+  // 钥分离（2026-11-07）：追认台账只认独立追认钥。两把钥同一把 = 又退回"自己签、自己追认"，
+  // 与 ack 的 ack-self-key 同档直接拒；**不做双钥同时接受**（那等于两套判据并存）。
+  if (submitKey && k === String(submitKey))
+    return {
+      state: 'invalid',
+      code: 'attest-self-key',
+      row,
+      why: '独立追认钥与提交签名钥是同一把 ⇒ 追认退化为作者自认，拒',
+    }
+  const expected = createHmac('sha256', k).update(attestPayload({ sha: row.sha, paths: row.paths, reason: row.reason, reviewer: row.reviewer, attestedAt: row.attestedAt })).digest('hex')
   if (!hmacEqual(expected, String(row.sig)))
     return {
       state: 'invalid',
       code: 'attest-sig-invalid',
       row,
-      why: '追认签名验不过（内容被改 / 抄自别处 / 路径集不符）',
+      why: '追认签名验不过（内容被改 / 抄自别处 / 路径集不符 / 不是这把追认钥签的）',
     }
   return { state: 'valid', code: 'attest-verified', row, why: '' }
 }
