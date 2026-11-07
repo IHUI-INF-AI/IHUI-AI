@@ -74,6 +74,15 @@ unset IHUI_GATE_INSTALL_LOCK
 >
 > 默认关闭是有意的：现在没有并发安装事故在跑，默认加上只会多一道与 typecheck 无关的等待。等并发安装问题再爆一次，一句 `export IHUI_GATE_INSTALL_LOCK=1` 即可启用；排查完 `unset` 回到原行为。
 
+### 2.2 默认关闭期间谁负责打开（以及什么时候不再默认关）
+
+- **谁**：本机同时跑多个 worktree 的机主；CI 的 install / typecheck job 由值班人负责。
+- **何时（现在）**：同一台机器上可能出现「install 与另一路 install/typecheck 时间重叠」时才需要打开。单 worktree、单任务顺序执行不必开。
+- **升级门槛（写死，不再逐次讨论）**：**同一台机器第二次出现 ENOENT 类安装互踩**（含 typecheck 报 `Cannot find module` / 文件半拆半建）⇒ 立即把默认改为开（`IHUI_GATE_INSTALL_LOCK` 从 opt-in 改为默认 1），并接进 CI 的 typecheck job，同时写进发布前检查单。
+- **默认关闭的代价**：默认配置下这张票只是「可接入」，不是「已防护」——没 export 的人照旧裸跑。要真正挡事故，必须先把上一条门槛触发后的默认值改掉。
+
+> 与 api 席的 `scripts/lib/typecheck-lock.mjs`：两套同为机器级互斥 + 陈旧判定 + 进程身份，**不得再出现第三套**。等 api 席给出「typecheck 能否看见 install 正在进行」的结论后，合并为同一锁文件族；陈旧判定的阈值与口径必须统一——同一个 pid 在两套工具里得出不同答案，比没锁更危险。
+
 ## 3. 判活与失效方向
 
 锁是**原子 mkdir** 的目录锁，`owner.json` 记录 `pid / host / bootEpochSec / startedAt / heartbeatAt / token / cmd / cwd`。陈旧判定（任一"正向"证据成立才判陈旧）：
