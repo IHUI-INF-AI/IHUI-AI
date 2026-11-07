@@ -15,7 +15,7 @@
  * 本脚本做四件事:
  *   1. 只读巡检:列出每个 .env 键 -> 源文件 -> 候选数量 -> 将选用的 token(脱敏)
  *   2. 消歧(可选):同一源文件里有多把 key 时,逐把发一次最小鉴权请求,选**真能用**的那把
- *   3. 精确回填:只写「值为空」的键,已有值一律跳过,**绝不覆盖**
+ *   3. 精确回填:只写空值;目标面缺行且源侧已选出 token 时补一行;已有值一律跳过,**绝不覆盖**
  *   4. 自动备份:apply 前把 .env 整体复制到备份目录,失败可一键还原
  *
  * 受管面 ≠ 本机生效面(2026-10-28 实测钉清,别再按"填了根 .env 就算配好"办事):
@@ -26,10 +26,23 @@
  *   `apps/api/.env` 与 `apps/ai-service/.env`,web 端另有 `.env.local`。
  *   所以"往根 .env 填完就以为服务能用"是错的:那 7 枚已填值的键在本机服务面上同样不生效。
  *   要填本机生效面必须显式带面:`--env apps/api/.env`(本器已支持,无需改代码)。
- *   另:巡检档 `--verify` 只报**源侧**候选,不判目标面有没有这一行;"(.env 无此键,如需新增请手动
- *   添加)"这条跳过只出现在 apply 档 —— 即目标面缺键时 verify 读数看起来一切正常、apply 却一枚不填。
- *   本仓台账里那张"归机主凭据交付面"的票写的是**按需**填写(原文「只在做对应功能时才需填」),
- *   所以批量把几十枚键一次填满并不符合票面意图,补哪一枚由对应功能开工时决定。
+ *   巡检档 `--verify` 只报源侧候选,不判目标面有没有这一行。apply 档分三支:
+ *   行已在且值为空 → fillEmptyKeyLine 填入;行不在且源侧已选出 token →
+ *   appendMissingKeyLine 补一行;源文件不存在或选不出 token → 不新建空行
+ *   (不把「未配置」写成空键)。已有值一律不覆盖。
+ *
+ * 面归属(2026-11-07 立,台账票「12 个模型密钥没有对应的映射行」):
+ *   同一份 MAP 同时服务两类目标面,但不是每个键在两面都有消费者:
+ *   - ai-service 面(LLM 网关 VENDOR_ENV_KEYS / free_provider_registry):只消费对话、
+ *     embedding、rerank 类 provider 的键。
+ *   - api 面(`apps/api/src/routes/ai-vendors/_shared.ts` 的 VENDORS):除对话 provider 外,
+ *     还直连图像/视频/语音类专有 REST 厂商(stability / flux / runway / luma / elevenlabs /
+ *     ideogram / vidu / fishaudio / deepgram / cartesia / assemblyai / replicate)。这 12 家没有
+ *     chat 模型,ai-service 的 free_provider_registry 已在「Node 代理直连」注释里明确剔除,
+ *     ai-service 代码里也搜不到对这些环境变量的任何读取 ⇒ 它们**不属于 ai-service 面**。
+ *   条目因此可声明 faces;巡检/回填按 --env 指向的面过滤,"缺行"只在**本面应有该键**时成立。
+ *   把 12 枚媒体键补进 ai-service 面属于"为凑数而补未消费的模型"(§5d 以消费侧为准),
+ *   本表选择不补进该面,只登记面归属;根 .env(部署面)与镜像夹具不判面 = 全部键。
  *
  * 安全约定(硬性):
  *   - 任何输出都不打印完整 key,只打印 `前6位***后2位 (len=N)` 用于人工核对
@@ -140,9 +153,15 @@ const MAP = [
     base: 'https://api.360.cn/v1',
     probe: 'bearer',
   },
+  // ─── 以下 12 枚为媒体/语音类专有 REST 键:faces 只含 api ────────────────
+  // ASSEMBLYAI / CARTESIA / DEEPGRAM / ELEVENLABS / FISHAUDIO / FLUX / IDEOGRAM /
+  // LUMA / REPLICATE / RUNWAY / STABILITY / VIDU。依据:apps/api VENDORS 直连,
+  // ai-service 的 free_provider_registry 明确剔除这 12 家(无 chat 模型、Node 代理直连),
+  // 且 ai-service 代码无任何 env 读取 ⇒ 不要求 ai-service 面有行(补进该面即凑数)。
   {
     key: 'ASSEMBLYAI_API_KEY',
     vendor: 'AssemblyAI',
+    faces: ['api'],
     file: 'AssemblyAI api key.txt',
     expect: /^[A-Za-z0-9]{20,}$/,
     baseEnv: 'ASSEMBLYAI_API_BASE',
@@ -152,6 +171,7 @@ const MAP = [
   {
     key: 'CARTESIA_API_KEY',
     vendor: 'Cartesia',
+    faces: ['api'],
     file: 'Cartesia api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'CARTESIA_API_BASE',
@@ -170,6 +190,7 @@ const MAP = [
   {
     key: 'DEEPGRAM_API_KEY',
     vendor: 'Deepgram',
+    faces: ['api'],
     file: 'Deepgram api key.txt',
     expect: /^[A-Za-z0-9_]{20,}$/,
     baseEnv: 'DEEPGRAM_API_BASE',
@@ -188,6 +209,7 @@ const MAP = [
   {
     key: 'ELEVENLABS_API_KEY',
     vendor: 'ElevenLabs',
+    faces: ['api'],
     file: 'ElevenLabs api key.txt',
     expect: /^[A-Za-z0-9_]{20,}$/,
     baseEnv: 'ELEVENLABS_API_BASE',
@@ -197,6 +219,7 @@ const MAP = [
   {
     key: 'FISHAUDIO_API_KEY',
     vendor: 'Fish Audio',
+    faces: ['api'],
     file: 'FishAudio api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'FISHAUDIO_API_BASE',
@@ -206,6 +229,7 @@ const MAP = [
   {
     key: 'FLUX_API_KEY',
     vendor: 'FLUX(BFL)',
+    faces: ['api'],
     file: 'Flux BFL api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'FLUX_API_BASE',
@@ -224,6 +248,7 @@ const MAP = [
   {
     key: 'IDEOGRAM_API_KEY',
     vendor: 'Ideogram',
+    faces: ['api'],
     file: 'Ideogram api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'IDEOGRAM_API_BASE',
@@ -242,6 +267,7 @@ const MAP = [
   {
     key: 'LUMA_API_KEY',
     vendor: 'Luma',
+    faces: ['api'],
     file: 'Luma api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'LUMA_API_BASE',
@@ -290,6 +316,7 @@ const MAP = [
     // 运行时消费侧(_shared.ts VENDORS.replicate)读的是 REPLICATE_API_TOKEN,回填按消费侧。
     key: 'REPLICATE_API_TOKEN',
     vendor: 'Replicate',
+    faces: ['api'],
     file: 'Replicate api key.txt',
     expect: /^r8_[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'REPLICATE_API_BASE',
@@ -299,6 +326,7 @@ const MAP = [
   {
     key: 'RUNWAY_API_KEY',
     vendor: 'Runway',
+    faces: ['api'],
     file: 'Runway api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'RUNWAY_API_BASE',
@@ -326,6 +354,7 @@ const MAP = [
   {
     key: 'STABILITY_API_KEY',
     vendor: 'Stability AI',
+    faces: ['api'],
     file: 'Stability ai api key.txt',
     expect: /^sk-[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'STABILITY_API_BASE',
@@ -335,6 +364,7 @@ const MAP = [
   {
     key: 'VIDU_API_KEY',
     vendor: 'Vidu(生数科技)',
+    faces: ['api'],
     file: 'Vidu api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'VIDU_API_BASE',
@@ -491,6 +521,70 @@ function readEnvValue(envText, key) {
   return m ? m[1].trim() : ''
 }
 
+/**
+ * --env 指向的服务面。根 .env(部署面)与镜像测试夹具不属单一面 ⇒ null(=全部键)。
+ * 只认**目录形态**、不猜文件名:本机两服务各自 dotenv 只读 cwd 下的 .env(见头注),
+ * 所以面由路径决定,与键内容无关。
+ */
+function faceOfEnvPath(envPath) {
+  const p = String(envPath || '').replace(/\\/g, '/')
+  if (/\/apps\/ai-service\/\.env$/.test(p)) return 'ai-service'
+  if (/\/apps\/api\/\.env$/.test(p)) return 'api'
+  return null
+}
+
+/** 条目所属面;未声明 faces 的键按"两面都该有"处理(现有对话 provider 均属此类) */
+function facesOf(entry) {
+  return entry.faces || ['api', 'ai-service']
+}
+
+/** 本面应覆盖的条目;face=null 不筛 ⇒ 根 .env 与夹具保持旧口径,行为零变化 */
+function expectedEntriesForFace(face) {
+  return MAP.filter((entry) => (face === null ? true : facesOf(entry).includes(face)))
+}
+
+/**
+ * 读回覆盖统计:只按键名判 set / empty / missing,值既不参与判断也不输出(§5d)。
+ * 旧巡检只报"源侧候选",不判目标面有没有这一行 —— 12 枚媒体键因此长期被读成
+ * "缺映射",实为"不属本面"(判定依据见头注「面归属」)。
+ */
+function coverageOfEnv(envText, entries) {
+  const rows = new Map()
+  for (const line of envText.split(/\r?\n/)) {
+    const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
+    if (m) rows.set(m[1], m[2].trim() === '' ? 'empty' : 'set')
+  }
+  const out = { expected: entries.length, set: 0, empty: 0, missing: 0 }
+  for (const entry of entries) {
+    const st = rows.get(entry.key)
+    if (st === 'set') out.set += 1
+    else if (st === 'empty') out.empty += 1
+    else out.missing += 1
+  }
+  return out
+}
+
+/**
+ * 打印本面覆盖行。区分两种"没有值":缺行(本面应有却没登记)与空值(行在、等用户填)。
+ * 两者都属运行态没配值,不是映射定义缺失;脚本不新建空键,值只由用户写进 .env。
+ */
+function logCoverage(face, cov, outOfFace) {
+  const parts = [
+    `面=${face ?? 'all'}`,
+    `应覆盖=${cov.expected}`,
+    `已有值=${cov.set}`,
+    `空值=${cov.empty}`,
+    `缺行=${cov.missing}`,
+  ]
+  if (outOfFace > 0) parts.push(`不属本面=${outOfFace}`)
+  console.log(`覆盖: ${parts.join(' · ')}`)
+  if (cov.missing === 0 && cov.empty === 0) {
+    console.log('✅ 本面无缺失映射:应覆盖键全部已有值(值内容不打印)')
+  } else {
+    console.log('⚠ 本面待填值:缺行/空值属运行态没配值,映射定义本身不缺;本脚本不新建空键')
+  }
+}
+
 /** 从单个源文件读候选 token(先严格筛,严格为空则退回全部裸 token) */
 function candidatesOf(keyDir, entry) {
   const raw = readFileSync(resolve(keyDir, entry.file), 'utf8')
@@ -626,7 +720,7 @@ async function main() {
         '  --backup-dir <path>  .env 备份目录,默认 <仓库根>/.ihui-agent/env-backup',
         '',
         '环境变量: IHUI_MODEL_KEY_DIR 可替代 --key-dir',
-        '注: 只回填空值键,已有值一律跳过,绝不覆盖;始终不打印完整 key。',
+        '注: 只回填空值;目标面缺行且源侧已选出 token 时补一行;无来源不新建空行;已有值一律跳过,绝不覆盖;始终不打印完整 key。',
       ].join('\n'),
     )
     process.exit(0)
@@ -638,6 +732,11 @@ async function main() {
   // 否则会污染项目父目录 —— 违反 AGENTS.md §15,并触发门禁 #26 父目录污染巡查。
   const BACKUP_DIR =
     toAbs(args['backup-dir']) || `${ROOT.replace(/\\/g, '/')}/.ihui-agent/env-backup`
+  // 面过滤(2026-11-07):把"缺行"的口径收到本面应有的键上。根 .env/夹具不判面,
+  // 与旧行为逐字一致;只有 --env 指向 apps/ai-service 或 apps/api 时才筛。
+  const FACE = faceOfEnvPath(ENV)
+  const EXPECTED = expectedEntriesForFace(FACE)
+  const OUT_OF_FACE = MAP.length - EXPECTED.length
 
   if (!existsSync(KEY_DIR)) {
     console.error(`❌ 密钥目录不存在: ${KEY_DIR}`)
@@ -656,11 +755,19 @@ async function main() {
   console.log(`目标 .env: ${ENV}`)
   console.log(`模式: ${args.apply ? 'APPLY(实际写入,自动备份)' : 'DRY-RUN(只巡检,不写入)'}`)
   console.log(`验活: ${args.verify ? 'ON(联网探测各厂商 /models)' : 'OFF'}`)
+  console.log(`面: ${FACE ?? 'all(根/夹具)'} · 本面应覆盖 ${EXPECTED.length}/${MAP.length} 项`)
   console.log('')
 
   // ─── 一、巡检 + 消歧 ───────────────────────────────────────────
   const plan = []
   for (const entry of MAP) {
+    if (FACE !== null && !facesOf(entry).includes(FACE)) {
+      // 不属本面:连源文件都不该看。若在这里按源侧补行,就会把 api 专用媒体键塞进
+      // ai-service 面 —— 正是本票要避免的"为凑数而补未消费的模型"。
+      console.log(`${entry.key.padEnd(22)} ⏭ 不属本面(${facesOf(entry).join('/')})`)
+      plan.push({ entry, pick: null, reason: '不属本面' })
+      continue
+    }
     if (!existsSync(resolve(KEY_DIR, entry.file))) {
       console.log(`${entry.key.padEnd(22)} 源=${entry.file}  ⏭ 源文件不存在`)
       plan.push({ entry, pick: null, reason: '源文件不存在' })
@@ -681,6 +788,8 @@ async function main() {
   }
 
   console.log('')
+  logCoverage(FACE, coverageOfEnv(envText, EXPECTED), OUT_OF_FACE)
+  console.log('')
   if (!args.apply) {
     console.log('✅ 巡检完成(未写入任何文件)。确认无误后加 --apply 实际回填。')
     process.exit(0)
@@ -700,16 +809,23 @@ async function main() {
       continue
     }
     const r = fillEmptyKeyLine({ out, key: entry.key, value: pick })
-    if (!r.ok) {
-      report.push(
-        r.why === 'no-such-key'
-          ? `${entry.key}: 跳过(.env 无此键,如需新增请手动添加)`
-          : `${entry.key}: 跳过(已有值,不覆盖)`,
-      )
+    if (r.ok) {
+      out = r.out
+      report.push(`${entry.key}: 已回填 ${describe(pick)}`)
       continue
     }
-    out = r.out
-    report.push(`${entry.key}: 已回填 ${describe(pick)}`)
+    if (r.why === 'no-such-key') {
+      // 缺行且已经选出 token 才补。pick 为空的键在上面已经跳过,到不了这里。
+      const added = appendMissingKeyLine({ out, key: entry.key, value: pick })
+      if (!added.ok) {
+        report.push(`${entry.key}: 跳过(缺行但值不可写入,不新建空行)`)
+        continue
+      }
+      out = added.out
+      report.push(`${entry.key}: 已补行 ${describe(pick)}`)
+      continue
+    }
+    report.push(`${entry.key}: 跳过(已有值,不覆盖)`)
   }
 
   // 写盘 + 读回确认(2026-09-26):旧写法 `if (out !== envText) writeFileSync(ENV, out)` 后
@@ -732,6 +848,12 @@ async function main() {
   } else {
     console.log(wb.attempted ? '✅ 回填完成(读回比对一致)' : '⏭ 无键需要回填')
   }
+  // 回填后按"盘上已确认的内容"再读一次覆盖,给收口方一个不依赖内存串的终态。
+  logCoverage(
+    FACE,
+    coverageOfEnv(wb.attempted && !wb.writeErr && !wb.mismatch ? out : envText, EXPECTED),
+    OUT_OF_FACE,
+  )
   console.log(
     '注: .env 改动须重启对应服务(ai-service 等)才生效 —— 进程在启动时把它读进内存,改文件不动运行中的进程(AGENTS §5e)。',
   )
@@ -764,5 +886,40 @@ export function fillEmptyKeyLine({ out, key, value }) {
   return { ok: true, why: '', out: out.replace(re, () => `${key}=${value}`) }
 }
 
-export const __test__ = { writeEnvWithReadBack, parseArgs, describe, tokens, fillEmptyKeyLine }
+/**
+ * 目标面没有 `KEY=` 这一行时补一行。
+ *
+ * fillEmptyKeyLine 对缺行必须保持「不新增」(镜像测试已钉死),补行是另一条出口。
+ * 只接受非空、且不含空白/换行的值 —— 与 tokens() 能选出的候选同形;空值不落盘,
+ * 避免把「没配」写成空键。已有该行时一个字节都不改(填空与不覆盖仍走 fillEmptyKeyLine)。
+ * 用拼接而不是 String.replace,值里的 `$` 不会被当成替换模式。
+ * 换行跟目标文本:含 CRLF 就补 CRLF,否则补 LF。
+ */
+export function appendMissingKeyLine({ out, key, value }) {
+  if (typeof key !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+    return { ok: false, why: 'bad-key', out }
+  }
+  if (typeof value !== 'string' || value.trim() === '' || /\s/.test(value)) {
+    return { ok: false, why: 'empty-value', out }
+  }
+  const re = new RegExp(`^${key}=(.*)$`, 'm')
+  if (re.test(out)) return { ok: false, why: 'already-present', out }
+  const nl = out.includes('\r\n') ? '\r\n' : '\n'
+  const sep = out.length === 0 || out.endsWith('\n') ? '' : nl
+  return { ok: true, why: '', out: `${out}${sep}${key}=${value}${nl}` }
+}
+
+export const __test__ = {
+  writeEnvWithReadBack,
+  parseArgs,
+  describe,
+  tokens,
+  fillEmptyKeyLine,
+  appendMissingKeyLine,
+  faceOfEnvPath,
+  facesOf,
+  expectedEntriesForFace,
+  coverageOfEnv,
+  MAP,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
