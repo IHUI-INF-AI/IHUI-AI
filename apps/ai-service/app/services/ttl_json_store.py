@@ -332,6 +332,8 @@ def sweep_mapping(
         over_naive = max(0, naive_unknown - quota)
         if over_naive:
             # 配额超出:先淘汰最旧的未知行自己,而不是让它们继续占正常容量。
+            # 注意:这里只能按**插入顺序**淘汰 —— 未知行的真实年龄不可知,
+            # 插入顺序是唯一可用的排序,不等于正确的时间顺序。
             for key in naive_keys[:over_naive]:
                 kept.pop(key, None)
             naive_keys = naive_keys[over_naive:]
@@ -397,6 +399,7 @@ def sweep_sequence(
         normal_idx = [i for i, (_, protected) in enumerate(entries) if not protected]
         over_naive = max(0, len(naive_idx) - quota)
         over_normal = max(0, len(normal_idx) - max_items)
+        # 同样只能按插入顺序淘汰:未知行真实年龄不可知,这不是「正确年龄」排序。
         remove = set(naive_idx[:over_naive]) | set(normal_idx[:over_normal])
         if remove:
             entries = [entry for i, entry in enumerate(entries) if i not in remove]

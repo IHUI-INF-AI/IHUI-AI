@@ -120,6 +120,9 @@ naive 的语义必须显式：**UTC**（机内自产）、**北京时间**（第
 先淘汰未知行自己并打 `ttl.naive_unknown_origin_overflow=N`，正常数据不会被它们挤掉。
 正常行超出环上限时，仍按原顺序淘汰最旧的正常行。
 
+**排序诚实**：未知行按**插入顺序**淘汰。它们的「真实年龄」不可知，插入顺序是唯一可用的
+排序，**不等于正确的时间顺序**——别把这里理解成「按时间淘汰」。
+
 **计数出口**：`ttl.naive_unknown_origin{store,shape}` gauge 注册在
 `telemetry_service._init_metrics`，由 `/orchestration/telemetry/metrics?format=prometheus`
 导出。运维告警规则：该值 > 0 ⇒ 有一批语义不明的数据被保留未清，需人工判定来源；
