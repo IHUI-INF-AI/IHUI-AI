@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -211,6 +212,56 @@ def test_sweep_non_mapping_input_returns_empty():
     """结构不符按空处理,不做"尽力而为的部分解析"。"""
     assert tjs.sweep_sequence({"not": "a list"}, retention_days=30) == ([], 0)
     assert tjs.sweep_mapping(["not", "a", "dict"], retention_days=30) == ({}, 0)
+
+
+def test_sweep_naive_unknown_origin_kept_and_counted(caplog: pytest.LogCaptureFixture):
+    """破坏性路径遇无偏移且来源不明的记录 ⇒ **保留 + 计数**,不按任何时区猜着删。
+
+    代价不对称:按 UTC 猜错会提前删除且不可恢复;留着最多多占空间,随时能补删。
+    """
+    caplog.set_level(logging.WARNING, logger="app.services.ttl_json_store")
+    now = datetime(2026, 1, 1, tzinfo=UTC).timestamp()
+    mapping = {
+        "naive-old": {"updated_at": "2020-01-01T00:00:00"},  # 无偏移 ⇒ 来源不明
+        "naive-fresh": {"updated_at": "2025-12-30T00:00:00"},  # 无偏移但未到期
+    }
+    kept, dropped = tjs.sweep_mapping(mapping, retention_days=30, now=now)
+    assert set(kept) == {"naive-old", "naive-fresh"}, "未知来源的过期行不能被静默删掉"
+    assert dropped == 0
+    assert "ttl.naive_unknown_origin=1" in caplog.text
+
+    seq = [
+        {"at": "2020-01-01T00:00:00"},
+        {"at": "2025-12-30T00:00:00"},
+    ]
+    kept_seq, dropped_seq = tjs.sweep_sequence(seq, retention_days=30, now=now)
+    assert len(kept_seq) == 2, "序列形态同样不许猜着删"
+    assert dropped_seq == 0
+    assert "ttl.naive_unknown_origin=1" in caplog.text
+
+
+def test_sweep_aware_offsets_expire_normally(caplog: pytest.LogCaptureFixture):
+    """带明确偏移(``Z`` / ``+08:00``)的过期行照旧正常删除,不得误进「未知」桶。"""
+    caplog.set_level(logging.WARNING, logger="app.services.ttl_json_store")
+    now = datetime(2026, 1, 1, tzinfo=UTC).timestamp()
+    mapping = {
+        "z-old": {"updated_at": "2020-01-01T00:00:00Z"},
+        "offset-old": {"updated_at": "2020-01-01T00:00:00+08:00"},
+        "fresh": {"updated_at": "2025-12-30T00:00:00Z"},
+    }
+    kept, dropped = tjs.sweep_mapping(mapping, retention_days=30, now=now)
+    assert set(kept) == {"fresh"}
+    assert dropped == 2
+
+    seq = [
+        {"at": "2020-01-01T00:00:00Z"},
+        {"at": "2020-01-01T00:00:00+08:00"},
+        {"at": "2025-12-30T00:00:00Z"},
+    ]
+    kept_seq, dropped_seq = tjs.sweep_sequence(seq, retention_days=30, now=now)
+    assert len(kept_seq) == 1
+    assert dropped_seq == 2
+    assert "ttl.naive_unknown_origin" not in caplog.text, "aware 行不能被算作未知来源"
 
 
 # ---------------- 原子写 / fail-closed 读 ----------------

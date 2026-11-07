@@ -105,31 +105,25 @@ def resolve_retention_days(env_name: str, default_days: int) -> int:
     return int(raw)
 
 
-def parse_timestamp(value: Any) -> float | None:
-    """把记录里的时间字段解析成 epoch 秒;解析不出返回 None(不抛)。
+def _parse_timestamp_parts(value: Any) -> tuple[float | None, str]:
+    """解析时间字段并给出**来源语义**:``aware`` / ``naive`` / ``epoch`` / ``invalid``。
 
-    接受:
-      · ISO8601 字符串(``2026-10-03T01:25:00Z`` / 带 ``+08:00`` 偏移 / 空格分隔)
-      · epoch 秒的 int/float
-    不接受:空串、None、布尔(``True`` 是 int 的子类,显式排除 —— 时间戳没有真假语义)。
-
-    时区口径:无偏移的兜底格式一律按 **UTC** 解释,不按宿主本地。依据是本模块的写侧
-    :func:`iso_now` 用 ``time.gmtime()`` 产出 UTC 串;若读侧按宿主本地解释,宿主从东八区
-    切到 UTC 时,同一份记录的保留期会整体漂 8 小时(见
-    ``docs/engineering/timezone-naive-parse-audit-2026-11-07.md``)。
+    ``naive`` 表示串里既无偏移也无 ``Z`` —— 单看值无法区分"UTC 墙钟"还是"东八区
+    墙钟"。破坏性路径(:func:`sweep_mapping` / :func:`sweep_sequence`)遇到它必须保留,
+    不能猜着删(见 ``docs/engineering/timezone-naive-parse-audit-2026-11-07.md``)。
     """
     if value is None or isinstance(value, bool):
-        return None
+        return None, "invalid"
     if isinstance(value, (int, float)):
         # 明显不是 epoch 秒的量级(负数 / 1e18 以上)当作解析失败,不猜。
         if value <= 0 or value > 1e11:
-            return None
-        return float(value)
+            return None, "invalid"
+        return float(value), "epoch"
     if not isinstance(value, str):
-        return None
+        return None, "invalid"
     text = value.strip()
     if not text:
-        return None
+        return None, "invalid"
     # 本仓运行时是 3.12/3.13(fromisoformat 原生认 "Z"),后面几层手写格式只是
     # 兜底:宁可多认几种写法,也不要因为格式没覆盖到就把一条合法记录判成"无时间戳"
     # —— 那会让它直接落进 fail-closed 分支被当成过期项删掉。
@@ -137,38 +131,61 @@ def parse_timestamp(value: Any) -> float | None:
 
     try:
         dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        origin = "aware" if dt.tzinfo is not None else "naive"
         # fromisoformat 对无偏移串会成功返回 naive;必须在 .timestamp() 之前补 UTC,
-        # 否则仍按宿主本地解释(兜底循环根本走不到)。
+        # 否则仍按宿主本地解释。非破坏性口径按 UTC;破坏性路径由 origin 拦下。
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
-        return dt.timestamp()
+        return dt.timestamp(), origin
     except (ValueError, OSError, OverflowError):
         pass
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
         try:
-            return datetime.strptime(text, fmt).replace(tzinfo=UTC).timestamp()
+            dt = datetime.strptime(text, fmt)
+            origin = "aware" if fmt.endswith("Z") else "naive"
+            return dt.replace(tzinfo=UTC).timestamp(), origin
         except ValueError:
             continue
-    return None
+    return None, "invalid"
+
+
+def parse_timestamp(value: Any) -> float | None:
+    """把记录里的时间字段解析成 epoch 秒;解析不出返回 None(不抛)。
+
+    非破坏性调用方(展示 / 报表 / 排序)用这个:无偏移串按 **UTC** 解释,依据是本模块
+    的写侧 :func:`iso_now` 用 ``time.gmtime()`` 产出 UTC 串。**会删数据的路径不要用
+    本函数的返回值直接判定过期** —— 用 :func:`record_timestamp_origin` 拿到 origin,
+    对 ``naive`` 一律保留并计数。
+    """
+    return _parse_timestamp_parts(value)[0]
+
+
+def record_timestamp_origin(
+    record: Any,
+    fields: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
+) -> tuple[float | None, str]:
+    """取记录时间戳及其来源语义 ``aware`` / ``naive`` / ``epoch``。
+
+    字段按 ``fields`` 的优先级顺序探,第一个能解析出合法时间的胜出。破坏性路径必须用
+    本函数:``naive`` 是"来源不明的无偏移串",不能静默过期。
+    """
+    if not isinstance(record, Mapping):
+        return None, "invalid"
+    for key in fields:
+        if key not in record:
+            continue
+        parsed, origin = _parse_timestamp_parts(record[key])
+        if parsed is not None:
+            return parsed, origin
+    return None, "missing"
 
 
 def record_timestamp(
     record: Any,
     fields: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
 ) -> float | None:
-    """从一条记录里取"最近一次更新时间"(epoch 秒);取不到返回 None。
-
-    字段按 ``fields`` 给的优先级顺序探,第一个能解析出合法时间的胜出。
-    """
-    if not isinstance(record, Mapping):
-        return None
-    for key in fields:
-        if key not in record:
-            continue
-        parsed = parse_timestamp(record[key])
-        if parsed is not None:
-            return parsed
-    return None
+    """从一条记录里取"最近一次更新时间"(epoch 秒);取不到返回 None。"""
+    return record_timestamp_origin(record, fields)[0]
 
 
 def file_mtime(path: str | os.PathLike[str]) -> float | None:
@@ -177,6 +194,26 @@ def file_mtime(path: str | os.PathLike[str]) -> float | None:
         return os.path.getmtime(path)
     except OSError:
         return None
+
+
+def _expiry_state(
+    record: Any,
+    *,
+    retention_days: int,
+    mtime: float | None,
+    now: float,
+    fields: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
+) -> tuple[bool, str]:
+    """(是否过期, 来源语义)。``naive`` 在破坏性路径上必须保留并计数。"""
+    if retention_days <= 0:
+        return False, "disabled"
+    stamp, origin = record_timestamp_origin(record, fields)
+    if stamp is None:
+        stamp = mtime
+        origin = "mtime" if mtime is not None else "missing"
+    if stamp is None:
+        return True, origin
+    return (now - stamp) > retention_days * _SECONDS_PER_DAY, origin
 
 
 def is_expired(
@@ -191,16 +228,18 @@ def is_expired(
 
     判据优先级:记录内时间戳 → 文件 mtime → **判过期**(fail-closed)。
     ``retention_days <= 0`` 表示显式关闭 TTL,永不过期。
+
+    注意:本函数只看"是否超期",不区分 naive 来源。**删除路径不要直接用它** —— 走
+    :func:`sweep_mapping` / :func:`sweep_sequence`,它们会把 naive 未知来源保留下来。
     """
-    if retention_days <= 0:
-        return False
     current = time.time() if now is None else now
-    stamp = record_timestamp(record, fields)
-    if stamp is None:
-        stamp = mtime
-    if stamp is None:
-        return True
-    return (current - stamp) > retention_days * _SECONDS_PER_DAY
+    return _expiry_state(
+        record,
+        retention_days=retention_days,
+        mtime=mtime,
+        now=current,
+        fields=fields,
+    )[0]
 
 
 def sweep_mapping(
@@ -224,23 +263,35 @@ def sweep_mapping(
 
     Returns:
         (清理后的 dict, 被丢弃条数)。**原 dict 不被修改**。
+
+    破坏性口径:无偏移且来源不明的记录(``origin == "naive"``)**不按任何时区解释
+    过期** —— 保留、计数,并打一条可聚合日志 ``ttl.naive_unknown_origin=N``。代价不对称:
+    按 UTC 猜错会提前删除且不可恢复;留着最多多占空间,随时能补删。
     """
     if not isinstance(data, Mapping):
         return {}, 0
     current = time.time() if now is None else now
     kept: dict[Any, Any] = {}
     dropped = 0
+    naive_unknown = 0
     for key, record in data.items():
-        if is_expired(
+        expired, origin = _expiry_state(
             record,
             retention_days=retention_days,
             mtime=mtime,
             now=current,
             fields=fields,
-        ):
+        )
+        if expired:
+            if origin == "naive":
+                naive_unknown += 1
+                kept[key] = record
+                continue
             dropped += 1
             continue
         kept[key] = record
+    if naive_unknown:
+        logger.warning("ttl.naive_unknown_origin=%d", naive_unknown)
     if max_items is not None and max_items >= 0 and len(kept) > max_items:
         overflow = len(kept) - max_items
         for key in list(kept.keys())[:overflow]:
@@ -262,23 +313,32 @@ def sweep_sequence(
 
     环形上限按"尾部最新"处理(与各模块 append-only 的写入顺序一致)。
     **原 list 不被修改**;非 list 输入(如损坏后读出 dict)按空处理。
+    破坏性口径同 :func:`sweep_mapping`:``naive`` 未知来源的记录保留并计数。
     """
     if not isinstance(data, list):
         return [], 0
     current = time.time() if now is None else now
     kept: list[Any] = []
     dropped = 0
+    naive_unknown = 0
     for record in data:
-        if is_expired(
+        expired, origin = _expiry_state(
             record,
             retention_days=retention_days,
             mtime=mtime,
             now=current,
             fields=fields,
-        ):
+        )
+        if expired:
+            if origin == "naive":
+                naive_unknown += 1
+                kept.append(record)
+                continue
             dropped += 1
             continue
         kept.append(record)
+    if naive_unknown:
+        logger.warning("ttl.naive_unknown_origin=%d", naive_unknown)
     if max_items is not None and max_items >= 0 and len(kept) > max_items:
         overflow = len(kept) - max_items
         del kept[:overflow]
