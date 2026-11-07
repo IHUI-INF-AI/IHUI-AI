@@ -26,12 +26,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import time
 from collections import OrderedDict, deque
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, TypedDict, cast
 
 from fastapi import APIRouter, Depends
@@ -391,6 +393,7 @@ class ContextEngine:
         include_codebase: bool = True,
         user_id: str | None = None,
         editor_state: EditorState | None = None,
+        workspace_path: str | None = None,
     ) -> list[RetrievedContext]:
         """RAG 检索:基于 query 从历史消息 + 代码库检索相关上下文。
 
@@ -408,6 +411,8 @@ class ContextEngine:
             editor_state: 编辑器状态(2026-10-31 新增,可选)。ENGINE_EDITOR_STATE_ENABLED
                 =on 时透传给 _search_codebase,用于"正在编辑的文件邻域优先";
                 默认关时该入参被完全忽略(行为与新增前逐字节等价)。
+            workspace_path: 工作区根(2026-11-06 新增,可选)。给了则 codebase 检索额外跑
+                本地文件/符号目录腿(零远端);不给则行为与旧版逐字节等价。
         """
         if not query.strip():
             return []
@@ -451,7 +456,11 @@ class ContextEngine:
         if include_codebase:
             try:
                 codebase_results = await self._search_codebase(
-                    query, top_k=3, user_id=user_id, editor_state=editor_state
+                    query,
+                    top_k=3,
+                    user_id=user_id,
+                    editor_state=editor_state,
+                    workspace_path=workspace_path,
                 )
                 history_results.extend(codebase_results)
             except Exception as e:
@@ -465,6 +474,7 @@ class ContextEngine:
         top_k: int = 3,
         user_id: str | None = None,
         editor_state: EditorState | None = None,
+        workspace_path: str | None = None,
     ) -> list[RetrievedContext]:
         """跨会话 RAG:从 codebase_indexer 检索代码 chunk。
 
@@ -512,6 +522,58 @@ class ContextEngine:
                         },
                     )
                 )
+            if workspace_path:
+                # 本地文件/符号目录腿(2026-11-06):零远端,与语义腿合并去重。
+                # 单独 try:本地腿失败绝不能连带丢掉已经拿到的语义腿结果。
+                try:
+                    from .codebase_index_status import resolve_repo_id
+                    from .codebase_symbol_catalog import search_local_catalog
+
+                    root = Path(workspace_path).resolve()
+                    repo_id = resolve_repo_id(root, codebase_indexer)
+                    catalog = codebase_indexer.load_catalog(repo_id, root)
+                    if catalog is not None:
+                        local_chunks = await asyncio.to_thread(
+                            search_local_catalog, root, catalog, query, top_k=top_k
+                        )
+                        seen = {
+                            (str(r.metadata.get("file_path", "")), r.metadata.get("line_start"))
+                            for r in results
+                        }
+                        for chunk in local_chunks:
+                            content = str(chunk.get("content", ""))
+                            if not content:
+                                continue
+                            key = (
+                                str(chunk.get("file_path", "")),
+                                chunk.get("line_start"),
+                            )
+                            if key in seen:
+                                continue
+                            seen.add(key)
+                            raw_score = chunk.get("score", 0.0)
+                            results.append(
+                                RetrievedContext(
+                                    content=content,
+                                    score=(
+                                        float(raw_score)
+                                        if isinstance(raw_score, (int, float))
+                                        else 0.0
+                                    ),
+                                    source="codebase:local",
+                                    metadata={
+                                        "file_path": key[0],
+                                        "line_start": chunk.get("line_start"),
+                                        "line_end": chunk.get("line_end"),
+                                        "symbol_name": chunk.get("symbol_name"),
+                                        "symbol_type": chunk.get("symbol_type"),
+                                        "language": chunk.get("language"),
+                                        "retrieval_leg": "local-catalog",
+                                    },
+                                )
+                            )
+                except Exception as e:
+                    logger.info("codebase local catalog leg degrade: %s", e)
             if editor_state is not None and _editor_state_enabled_from_env():
                 for item in results:
                     boost, proximity = editor_proximity_boost(
@@ -674,6 +736,7 @@ class ContextEngine:
         total_budget: int = DEFAULT_CONTEXT_BUDGET,
         user_id: str = "",
         editor_state: EditorState | None = None,
+        workspace_path: str | None = None,
     ) -> dict[str, Any]:
         """两层集成入口:合并 @ 提及 + RAG 检索结果(2026-07-22 立,2026-07-22 深化)。
 
@@ -772,13 +835,20 @@ class ContextEngine:
         # 2. RAG 检索(history + codebase)
         if query.strip():
             try:
+                rag_kwargs: dict[str, Any] = {
+                    "top_k": 5,
+                    "include_codebase": True,
+                    "user_id": user_id,
+                    "editor_state": editor_state,
+                }
+                if workspace_path is not None:
+                    # 只在真给了工作区时才多传这一腿:老调用方(含既有测试替身)的
+                    # 调用形状保持逐字节不变。
+                    rag_kwargs["workspace_path"] = workspace_path
                 rag_results = await self.retrieve_and_enrich(
                     messages or [],
                     query,
-                    top_k=5,
-                    include_codebase=True,
-                    user_id=user_id,
-                    editor_state=editor_state,
+                    **rag_kwargs,
                 )
                 for r in rag_results:
                     source_str = r.source or "unknown"
