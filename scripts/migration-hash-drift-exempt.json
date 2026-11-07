@@ -1,7 +1,8 @@
 {
   "//": "T9 hashDrift 存量豁免清单(棘轮)。只豁免 capturedAt 时点的 25 条存量;任何新 tag 出现 hashDrift => 直接红。每条必须有 state 与对应证据路径,CI 会校验 compensation 文件存在。",
   "capturedAt": "2026-11-07",
-  "baselineTags": 25,
+  "baselineTags": 18,
+  "lateGapMoved": "2026-11-07 生产归档 + 方案 A 重绑后,原 compensated 4 / pending 3 共 7 条不再以 hashDrift 出现,已转 lateGap(账本无自证行);7 条已从本清单移除,见 DB-LEDGER-SHIFT-01。",
   "method": "账本旧 hash 与 git 历史 blob 逐一比对:sha256(blob)==ledger hash,再比对去水印后的可见正文(canonical-equal)",
   "states": {
     "compensated": "内容确有变化,已有/本次新增补偿迁移把存量库追平",
@@ -17,18 +18,6 @@
       "note": "唯一索引改写为幂等守卫,语义等价;b300206291 逐件体检结论"
     },
     {
-      "tag": "0108_r83_supplement_27_tables",
-      "state": "compensated",
-      "compensation": "20261107006000_rewrite_default_cleanup.sql",
-      "note": "旧版给 oauth_private_keys.ai_world_* 留了 DEFAULT '';06000 撤默认"
-    },
-    {
-      "tag": "0110_skills_tombstone",
-      "state": "pending",
-      "ticket": "DB-DRIFT-01",
-      "note": "账本旧 blob 不在 git 历史;需拿 B11 修订证明或人工核对旧字节来源"
-    },
-    {
       "tag": "0115_r82_seed_unique_indexes",
       "state": "rewrite-verified",
       "evidence": "8362ac24fa",
@@ -41,40 +30,14 @@
       "note": "2 处建表/索引加 IF NOT EXISTS,语义等价"
     },
     {
-      "tag": "0126_ai-world-sync",
-      "state": "compensated",
-      "compensation": "20261107006000_rewrite_default_cleanup.sql",
-      "note": "旧版给 ai_world_categories/items 留了 DEFAULT '';06000 撤默认"
-    },
-    {
-      "tag": "0212_phase2_refund_invoice_fk",
-      "state": "compensated",
-      "compensation": "20261107001000_drop_stale_refund_order_fk.sql",
-      "note": "旧版遗留退款单旧外键;01000 仅在新旧 FK 共存时删旧;0212 的 CASE 语法由 b300206291 修复"
-    },
-    {
-      "tag": "20260913000000_llm_call_logs_config_id_bigint",
-      "state": "pending",
-      "ticket": "DB-DRIFT-02",
-      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
-    },
-    {
-      "tag": "20260913160000_multimodal_billing",
-      "state": "pending",
-      "ticket": "DB-DRIFT-03",
-      "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
-    },
-    {
       "tag": "20260913170000_cost_cents_numeric",
       "state": "pending",
       "ticket": "DB-DRIFT-04",
+      "dueAt": "2026-12-07",
+      "missingEvidence": "应用时刻的迁移文件字节(账本 hash 对应正文);现有 git 历史只有改写后的 blob",
+      "owner": "该迁移作者(2026-09-13 提交人) + 发布负责人",
+      "exit": "取到应用时刻字节并与账本 hash 逐字比对即定性;取不到则到期转为 unexplained(红)",
       "note": "账本旧 blob 不在 git 历史;同样需修证明/人工核对"
-    },
-    {
-      "tag": "20260916170000_api_subscription_windows_and_peak_pricing",
-      "state": "compensated",
-      "compensation": "20261107000000_repair_api_subscription_drift.sql",
-      "note": "plans 8 列 + 3 表 + 7 索引由 00000 追平"
     },
     {
       "tag": "20260917100000_admin_console_modules",
@@ -122,6 +85,10 @@
       "tag": "20260930120000_edu_study_loops",
       "state": "pending",
       "ticket": "DB-DRIFT-05",
+      "dueAt": "2026-12-07",
+      "missingEvidence": "2026-09-30 12:00 应用时刻的工作树快照(首次提交 36529fc3f6 在 14:28:59,快照早 2h29m);现有部署备份最早 2026-10-26,覆盖不到",
+      "owner": "提交 36529fc3f6 的作者 + DB 负责人",
+      "exit": "从 IDE local history / 机器快照取回应用时刻字节;取不到则到期转红,保留「无法归因」结论",
       "note": "缺证据:账本应用时刻 2026-09-30 12:00 早于该文件首次提交 36529fc3f6(14:28:59) 2h29m ⇒ 是从未提交的工作树应用的;缺应用时刻工作树快照 / IDE local history,现有部署备份最早 2026-10-26 覆盖不到,DB 只存 hash"
     },
     {
@@ -134,6 +101,10 @@
       "tag": "20261003020000_codebase_chunks_tenant_ttl",
       "state": "pending",
       "ticket": "DB-DRIFT-06",
+      "dueAt": "2026-12-07",
+      "missingEvidence": "2026-10-03 12:00 应用时刻的工作树快照(首次提交 96df1af7c7 在 16:32:52,快照早 4h33m);现有部署备份最早 2026-10-26,覆盖不到",
+      "owner": "提交 96df1af7c7 的作者 + DB 负责人",
+      "exit": "从 IDE local history / 机器快照取回应用时刻字节;取不到则到期转红,保留「无法归因」结论",
       "note": "缺证据:账本应用时刻 2026-10-03 12:00 早于该文件首次提交 96df1af7c7(16:32:52) 4h33m ⇒ 是从未提交的工作树应用的;缺应用时刻工作树快照 / IDE local history,现有部署备份最早 2026-10-26 覆盖不到,DB 只存 hash"
     },
     {
@@ -152,6 +123,10 @@
       "tag": "20261027090000_default_user_avatar",
       "state": "pending",
       "ticket": "DB-DRIFT-07",
+      "dueAt": "2026-12-07",
+      "missingEvidence": "该迁移应用时刻账本行 hash 对应的历史 blob(账本 hash 现在可现场取,缺的是同字节版本的来源)",
+      "owner": "DB 负责人 + 该迁移作者",
+      "exit": "定位到 sha256(blob)==账本 hash 的历史版本即转 watermark-verified/rewrite-verified;到期未定位转红",
       "note": "该迁移在快照之后应用,无旧 ledger hash 可比;需现场取账本 hash 后回溯"
     },
     {

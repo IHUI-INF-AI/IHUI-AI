@@ -45,7 +45,7 @@
  */
 import { spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -588,6 +588,76 @@ function preflightVector(url, password, dbName) {
   return { ok: true }
 }
 
+/**
+ * 落盘取证(2026-11-07):376/376 那次"数字对不上却查不回去",根因是运行时的 DSN、角色、
+ * 扩展与 superuser 状态没有任何留存。每次 from-zero 都在临时库清理前把这几格写到
+ * .ihui-agent/state/migration-from-zero-evidence/,DSN 只留脱敏形态(密码恒为 ***)。
+ * 落盘失败不得影响主判定(§12e 取证不改变结论)。
+ */
+const EVIDENCE_DIR = join(ROOT, '.ihui-agent/state/migration-from-zero-evidence')
+
+function collectMigrationEvidence(url, password, dbName, source) {
+  const res = runPsql(
+    url,
+    password,
+    dbName,
+    [
+      '-At',
+      '-F',
+      '\u0001',
+      '-c',
+      "select current_user, (select rolsuper from pg_roles where rolname=current_user), coalesce((select extversion from pg_extension where extname='vector'),''), coalesce((select version from pg_available_extensions where name='vector'),''), coalesce((select string_agg(extname||'@'||extversion, ',' order by extname) from pg_extension),'')",
+    ],
+    60_000,
+  )
+  const redacted = new URL(url.href)
+  redacted.password = redacted.password ? '***' : ''
+  const base = {
+    dsn: redacted.toString(),
+    dsnSource: source,
+    database: dbName,
+  }
+  if (res.status !== 0) return { ...base, ok: false, detail: errorFrom(res, password) }
+  const [role, superuser, vectorInstalled, vectorAvailable, extensions] = String(res.stdout)
+    .trim()
+    .split('\u0001')
+  return {
+    ...base,
+    ok: true,
+    role,
+    rolsuper: superuser === 't',
+    vectorInstalled: vectorInstalled || null,
+    vectorAvailable: vectorAvailable || null,
+    pgExtension: extensions ? extensions.split(',') : [],
+  }
+}
+
+function writeEvidenceArchive({ evidence, exitCode, preflightFailed, entries, timestamp }) {
+  if (!evidence) return
+  try {
+    mkdirSync(EVIDENCE_DIR, { recursive: true })
+    const file = join(EVIDENCE_DIR, `${timestamp.replace(/[:.]/g, '-')}.json`)
+    writeFileSync(
+      file,
+      JSON.stringify(
+        {
+          timestamp,
+          exitCode,
+          preflightFailed,
+          journalEntries: entries.length,
+          ...evidence,
+        },
+        null,
+        2,
+      ),
+      'utf8',
+    )
+    console.log(`  ${C.dim}取证已落盘:${file}${C.reset}`)
+  } catch (error) {
+    console.log(`  ${C.yellow}⚠ 取证落盘失败(不影响判定):${error?.message ?? error}${C.reset}`)
+  }
+}
+
 function dropTempDatabase(url, password, maintenanceDb, dbName) {
   const res = runMaintenance(
     url,
@@ -902,10 +972,13 @@ async function main() {
 
   let exitCode = 0
   let preflightFailed = false
+  let evidence = null
+  const runStartedAt = new Date().toISOString()
   const created = []
   try {
     createTempDatabase(url, password, maintenanceDb, replayDb)
     created.push(replayDb)
+    evidence = collectMigrationEvidence(url, password, replayDb, source)
     const pre = preflightVector(url, password, replayDb)
     if (!pre.ok) {
       preflightFailed = true
@@ -991,6 +1064,7 @@ async function main() {
     }
     exitCode = 1
   } finally {
+    writeEvidenceArchive({ evidence, exitCode, preflightFailed, entries, timestamp: runStartedAt })
     if (keep && !preflightFailed) {
       console.log(
         `\n${C.yellow}--keep:保留临时库${C.reset} ${created.join(', ')}(排障完请手工 DROP)`,

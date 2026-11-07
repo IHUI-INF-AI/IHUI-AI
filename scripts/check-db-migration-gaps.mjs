@@ -158,6 +158,8 @@ export function loadHashDriftExempt(raw, fileExists = () => true) {
       else if (!fileExists(e.compensation)) problems.push(`${tag}:compensation 文件不存在(${e.compensation})`)
     } else if (e.state === 'pending') {
       if (!e.ticket) problems.push(`${tag}:pending 缺 ticket`)
+      if (!e.dueAt) problems.push(`${tag}:pending 缺 dueAt(到期未补证据即转红)`)
+      else if (!Number.isFinite(Date.parse(e.dueAt))) problems.push(`${tag}:pending dueAt 非法(${e.dueAt})`)
     } else if (!e.evidence) {
       problems.push(`${tag}:${e.state} 缺 evidence`)
     }
@@ -169,12 +171,24 @@ export function loadHashDriftExempt(raw, fileExists = () => true) {
 /**
  * 把 hashDrift 分成「已豁免(存量)」与「未豁免(新增)」。
  * 只有未豁免的 tag 在 --fail-on-hash-drift 档下判红;pending 计入存量但单独报数。
+ * pending 必须有 dueAt:到期仍未补齐证据的,自动从豁免里退场,计入未豁免(红)。
  */
-export function partitionHashDrift(driftTags, exempt) {
+function exemptExpired(e, today) {
+  if (e?.state !== 'pending' || !e?.dueAt) return false
+  const due = Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(e.dueAt) ? `${e.dueAt}T23:59:59` : e.dueAt)
+  return Number.isFinite(due) && due < today.getTime()
+}
+
+export function partitionHashDrift(driftTags, exempt, today = new Date()) {
   const known = exempt?.byTag ?? new Map()
-  const out = { exempted: [], unexplained: [], counts: {} }
+  const out = { exempted: [], unexplained: [], expired: [], counts: {} }
   for (const tag of driftTags ?? []) {
     const e = known.get(tag)
+    if (e && exemptExpired(e, today)) {
+      out.expired.push({ tag, dueAt: e.dueAt })
+      out.unexplained.push(tag)
+      continue
+    }
     if (e) {
       out.exempted.push({ tag, state: e.state })
       out.counts[e.state] = (out.counts[e.state] ?? 0) + 1
@@ -424,6 +438,7 @@ function main() {
         suspectedShift: g.suspectedShift,
         hashDriftExempted: part.exempted,
         hashDriftUnexplained: part.unexplained,
+        hashDriftExpired: part.expired,
         maxApplied: g.maxApplied,
       }),
     )
@@ -439,6 +454,11 @@ function main() {
         `  ℹ️ 账本 hash 与现文件不同但 when 已在账:共 ${g.hashDrift.length} 条,` +
           `其中疑似位移 ${g.suspectedShift.length} 条,` +
           `存量豁免 ${part.exempted.length}(${driftCounts}),未豁免 ${part.unexplained.length}`,
+      )
+    if (part.expired.length)
+      console.log(
+        `  ⏰ pending 豁免已到期(按未豁免处理):` +
+          `${part.expired.map((x) => `${x.tag}@${x.dueAt}`).join(', ')}`,
       )
     if (part.unexplained.length)
       console.log(

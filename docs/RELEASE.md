@@ -141,6 +141,18 @@ CLI 侧发布走 token:本地 `ihui-cli-publish`;CI 由 `release-cli.yml` 先试
 
 ## 发布前检查
 
+### 数据库前置(硬性,先于 11 项)
+
+目标库必须已安装 pgvector(`vector`),且 `extversion` 非空;否则迁移不许开始。空库不继承扩展,
+当前角色非 superuser 时 `CREATE EXTENSION vector` 会硬失败并留下半成品库(2026-11-07 实测 8 条失败:
+4 条硬权限 + 4 条连带缺表)。`check-migration-from-zero.mjs` 已内置该前置检查并在不满足时 exit 1。
+每次 from-zero 跑完会把脱敏 DSN、角色、`pg_extension`、`rolsuper` 落盘到
+`.ihui-agent/state/migration-from-zero-evidence/`,用于复盘"数字对不上"。
+
+```bash
+psql "$DATABASE_URL" -Atc "select extversion from pg_extension where extname='vector'"   # 必须非空
+```
+
 ### pre-deploy.mjs 11 项门禁
 
 `scripts/pre-deploy.mjs` 在发布前执行 11 项检查,任一失败则中止发布:
