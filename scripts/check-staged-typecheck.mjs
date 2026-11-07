@@ -53,7 +53,20 @@
  *   0  通过 (staged 档无 .ts/.tsx / 本轮声明集全绿)
  *   1  失败 (任一 package typecheck 不通过, 打印错误文件路径)
  *   2  用法错误或脚本异常 —— 未声明旗标 / --files 没给路径或路径不存在 / --files 的
- *      声明集里没有一个可审文件 / 声明文件所在 package 不支持 typecheck / 脚本自身异常
+ *      声明集里没有一个可审文件 / 声明文件所在 package 不支持 typecheck / 脚本自身异常 /
+ *      opt-in 的并发安装检测等不到 install 结束(「未判定(并发安装)」, 不是失败) /
+ *      typecheck 串行锁等不到(「未判定(并发占用)」, 不是失败)
+ *
+ * 机器级 typecheck 串行锁(2026-11-07, 默认开): 跑 tsc 前取与全量 typecheck 同一把锁
+ *   (scripts/lib/typecheck-lock.mjs, 同一锁文件路径/同一陈旧判定), 被占则有界等待,
+ *   上限 IHUI_STAGED_TYPECHECK_LOCK_WAIT_MS(默认 120000ms), 超时 exit 2
+ *   「未判定(并发占用)」。语义是"别和全量抢机器", 不是"暂存集待定": 绝不跳过当通过。
+ *
+ * 并发安装检测(默认关闭, 显式 opt-in):
+ *   IHUI_TYPECHECK_CHECK_INSTALL=1 时, 跑 tsc 前先查 scripts/lib/pnpm-install-lock.mjs check;
+ *   rc=4(安装进行中) 则有界等待, 上限 IHUI_TYPECHECK_INSTALL_WAIT_MS(默认 60000ms),
+ *   等不到 exit 2 并打印「未判定(并发安装)」。
+ *   方向单向: 只允许 typecheck 查 install, 不允许 install 等 typecheck(双向互等会堵死安装)。
  *
  * 跳过(平台特性, 仅 staged 档 —— --files 档一律 exit 2 点名, 不把"审不到"报成"审过"):
  *   - apps/ai-service (Python, 用 mypy 而非 tsc, 不在 packages 列表)
@@ -67,10 +80,15 @@
  *   详见 AGENTS.md §20 守门脚本速查 + 本任务交付报告 "集成规划" 段。
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync, writeFileSync, unlinkSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, writeFileSync, unlinkSync, readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve, isAbsolute } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { gitRaw } from './lib/face-reader.mjs'
+import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import {
+  acquireTypecheckLock,
+  describeLockHolder,
+  DEFAULT_WAIT_MS as DEFAULT_TYPECHECK_LOCK_WAIT_MS,
+} from './lib/typecheck-lock.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -297,9 +315,13 @@ function discoverPackages() {
       if (!st.isDirectory()) continue
       const pkgJsonPath = join(subDir, 'package.json')
       if (!existsSync(pkgJsonPath)) continue
+      // 内容读盘收口到 face-reader(门 118 判据:引了取材层就必须用它读内容)。
+      // 取不到会抛 Undetermined → main 折成 exit 2,不在此处静默跳过。
+      const text = readWorktreeFile(AUDIT_ROOT, `${root}/${sub}/package.json`)
+      if (text === null) continue
       let pkg
       try {
-        pkg = JSON.parse(readFileSync(pkgJsonPath, 'utf8'))
+        pkg = JSON.parse(text)
       } catch {
         continue
       }
@@ -311,6 +333,7 @@ function discoverPackages() {
         name: pkg.name,
         dir: subDir,
         tsconfigPath,
+        tsconfigRel: `${root}/${sub}/tsconfig.json`,
         hasTypecheck: hasTypecheckScript,
         hasTsconfig,
       })
@@ -344,14 +367,19 @@ function groupByPackage(files, pkgs) {
  * 同一目录, 因此可直接沿用; 若无 include (纯 extends) 则回退到默认全量。
  * @returns {string[]}
  */
-function getOriginalInclude(pkg) {
-  try {
-    const raw = JSON.parse(readFileSync(pkg.tsconfigPath, 'utf8'))
-    if (Array.isArray(raw.include) && raw.include.length > 0) {
-      return raw.include.map((p) => (p.startsWith('.') ? p : `./${p.replace(/\\/g, '/')}`))
+function getOriginalInclude(pkg, root = AUDIT_ROOT) {
+  // readWorktreeFile 的取不到(编码/权限)会抛 Undetermined,直接上抛 → main 折成 exit 2;
+  // 这里只吞 JSON 解析失败(格式坏)走默认回退,不吞"取不到"。
+  const text = readWorktreeFile(root, pkg.tsconfigRel)
+  if (text !== null) {
+    try {
+      const raw = JSON.parse(text)
+      if (Array.isArray(raw.include) && raw.include.length > 0) {
+        return raw.include.map((p) => (p.startsWith('.') ? p : `./${p.replace(/\\/g, '/')}`))
+      }
+    } catch {
+      /* JSON 坏则走默认回退 */
     }
-  } catch {
-    /* 读取失败则走默认回退 */
   }
   return ['./src/**/*.ts', './src/**/*.tsx', './**/*.d.ts']
 }
@@ -489,7 +517,7 @@ function runPackageTypecheck(pkg, files) {
   }
 }
 
-function main() {
+async function main() {
   if (isHelp) {
     log.info(HELP_TEXT)
     process.exit(0)
@@ -511,13 +539,13 @@ function main() {
   }
 
   if (isFiles) {
-    runFilesMode()
+    await runFilesMode()
     return
   }
-  runStagedMode()
+  await runStagedMode()
 }
 
-function runStagedMode() {
+async function runStagedMode() {
   log.info(`${C.cyan}${C.bold}[staged-typecheck] 扫描 staged .ts/.tsx 文件...${C.reset}`)
   log.info(
     `${C.dim}模式: ${isDryRun ? 'dry-run (不实际跑 typecheck)' : 'staged (实际 typecheck)'}${C.reset}`,
@@ -580,11 +608,11 @@ function runStagedMode() {
   if (isDryRun) printDryRunTail(groups, STAGED_SCOPE.auditLabel)
 
   // ─── 实际 typecheck ─────────────────────────────────────
-  runGroupsAndReport(groups, stagedTs.length, STAGED_SCOPE)
+  await runGroupsAndReport(groups, stagedTs.length, STAGED_SCOPE)
 }
 
 // ─── --files 档(G-831): 只审命令行声明的清单, 完全不读共享索引 ───
-function runFilesMode() {
+async function runFilesMode() {
   const rel = []
   const outside = []
   for (const p of CLI.files) {
@@ -656,7 +684,7 @@ function runFilesMode() {
   printGroups(groups)
   if (isDryRun) printDryRunTail(groups, scope.auditLabel)
 
-  runGroupsAndReport(groups, audited.length, scope)
+  await runGroupsAndReport(groups, audited.length, scope)
 }
 
 // ─── 两档的口径标签 ───────────────────────────────────────
@@ -708,6 +736,100 @@ function exitUndetermined(lines, guidance) {
   process.exit(2)
 }
 
+// ─── 并发安装检测(opt-in) ─────────────────────────────────
+// 为什么接 install 而不接全量 typecheck 锁: staged 只有 1 package / 1 文件量级,
+// 排全量 tsc 的队收益≈0; 真正的假红来源是 pnpm install 重写 node_modules 时的
+// MODULE_NOT_FOUND。故只查「安装是否进行中」, 且必须显式 opt-in。
+const INSTALL_LOCK_SCRIPT = join(ROOT, 'scripts', 'lib', 'pnpm-install-lock.mjs')
+const INSTALL_CHECK_ENV = 'IHUI_TYPECHECK_CHECK_INSTALL'
+const INSTALL_WAIT_ENV = 'IHUI_TYPECHECK_INSTALL_WAIT_MS'
+const INSTALL_POLL_MS = 2_000
+const INSTALL_PROBE_TIMEOUT_MS = 30_000
+
+function sleepSync(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+function probeInstallLock() {
+  const r = spawnSync(process.execPath, [INSTALL_LOCK_SCRIPT, 'check'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: INSTALL_PROBE_TIMEOUT_MS,
+    env: { ...process.env, IHUI_PNPM_INSTALL_LOCK: '1' },
+  })
+  const output = `${r.stdout || ''}${r.stderr || ''}`.trim()
+  return { status: typeof r.status === 'number' ? r.status : null, output }
+}
+
+/** 未判定(并发安装) ⇒ exit 2; 与「并发 typecheck 占用」分开点名, 不混成失败。 */
+function assertNoConcurrentInstall() {
+  if (process.env[INSTALL_CHECK_ENV] !== '1') return
+  const waitMs = Number(process.env[INSTALL_WAIT_ENV] || '') || 60_000
+  const deadline = Date.now() + waitMs
+  let probed = probeInstallLock()
+  while (true) {
+    if (probed.status === 0) return
+    if (probed.status !== 4) {
+      log.error(
+        `${C.red}${C.bold}❓ 未判定(安装锁检查失败): exit ${probed.status ?? 'signal'}, 本次不下结论${C.reset}`,
+      )
+      if (probed.output) log.error(`${C.dim}${probed.output}${C.reset}`)
+      log.error(`${C.dim}   等安装锁现场可读后原样重跑本次提交${C.reset}`)
+      process.exit(2)
+    }
+    if (Date.now() >= deadline) {
+      log.error(
+        `${C.red}${C.bold}❓ 未判定(并发安装): pnpm install 正在重写 node_modules, 本次无法判定${C.reset}`,
+      )
+      if (probed.output) log.error(`${C.dim}${probed.output}${C.reset}`)
+      log.error(`${C.dim}   tsc 此时可能因 MODULE_NOT_FOUND 假红; 等安装结束后原样重跑本次提交${C.reset}`)
+      process.exit(2)
+    }
+    log.warn(
+      `${C.yellow}⏳ 检测到 pnpm install 正在进行, 等待其结束(最多 ${waitMs}ms)...${C.reset}`,
+    )
+    sleepSync(Math.min(INSTALL_POLL_MS, Math.max(0, deadline - Date.now())))
+    probed = probeInstallLock()
+  }
+}
+
+// ─── 机器级 typecheck 串行锁(与全量 typecheck 同一把,2026-11-07)─────────
+// 方向单向:typecheck 查 install(见上),install 永不查 typecheck —— 双向互等会把安装也堵死。
+// 锁被占只做两件事:有界等待 / 超时 exit 2「未判定(并发占用)」;**不许跳过当通过**。
+const STAGED_LOCK_WAIT_ENV = 'IHUI_STAGED_TYPECHECK_LOCK_WAIT_MS'
+let releaseTypecheckLock = null
+
+async function acquireStagedTypecheckLock() {
+  const waitMs = Number(process.env[STAGED_LOCK_WAIT_ENV] || '') || DEFAULT_TYPECHECK_LOCK_WAIT_MS
+  const acquired = await acquireTypecheckLock({
+    role: 'typecheck-staged',
+    waitMs,
+    log: (line) => log.warn(`${C.yellow}${line}${C.reset}`),
+  })
+  if (!acquired.ok) {
+    const why =
+      acquired.kind === 'busy-timeout'
+        ? `全量 typecheck 持锁未释放(${describeLockHolder(acquired.holder)})`
+        : `锁创建失败(${acquired.error?.message ?? acquired.state ?? 'unknown'})`
+    log.error(`${C.red}${C.bold}❓ 未判定(并发占用): ${why}${C.reset}`)
+    log.error(
+      `${C.dim}   staged typecheck 本次没有下结论(不是通过、也不是失败);占用结束后原样重跑本次提交${C.reset}`,
+    )
+    process.exit(2)
+  }
+  releaseTypecheckLock = acquired.release
+  log.info(
+    `${C.dim}🔒 typecheck 串行锁已取得(role=typecheck-staged, 等 ${acquired.waitedMs}ms)${C.reset}`,
+  )
+}
+
+function releaseStagedTypecheckLock() {
+  if (!releaseTypecheckLock) return
+  releaseTypecheckLock()
+  releaseTypecheckLock = null
+}
+
 // ─── 两档共用的打印与判定出口 ─────────────────────────────
 function printGroups(groups) {
   log.info(`${C.bold}按 package 分组:${C.reset}`)
@@ -732,7 +854,9 @@ function printDryRunTail(groups, auditLabel) {
   process.exit(0)
 }
 
-function runGroupsAndReport(groups, totalFiles, scope) {
+async function runGroupsAndReport(groups, totalFiles, scope) {
+  assertNoConcurrentInstall() // opt-in: 安装进行中 ⇒ 有界等待, 等不到 exit 2(未判定)
+  await acquireStagedTypecheckLock() // 同一把 typecheck 锁: 被占则有界等待, 超时 exit 2(未判定)
   let failedCount = 0
   const failedPkgs = []
   for (const [pkg, files] of groups) {
@@ -766,6 +890,7 @@ function runGroupsAndReport(groups, totalFiles, scope) {
     }
   }
 
+  releaseStagedTypecheckLock() // 跑完立刻放开,不等进程退出
   log.info('')
   if (failedCount === 0) {
     log.info(

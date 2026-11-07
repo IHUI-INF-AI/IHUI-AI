@@ -27,6 +27,7 @@ import assert from 'node:assert/strict'
 import { spawnSync, execSync } from 'node:child_process'
 import { writeFileSync, mkdirSync, existsSync, chmodSync } from 'node:fs'
 import { join, resolve, delimiter } from 'node:path'
+import { hostname } from 'node:os'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { fileURLToPath } from 'node:url'
 
@@ -49,6 +50,8 @@ function makePkg(dir) {
     hasTypecheck: true,
     hasTsconfig: true,
     tsconfigPath: join(dir, 'tsconfig.json'),
+    // 门 118:内容读盘走 face-reader,取相对 root 的路径
+    tsconfigRel: 'tsconfig.json',
   }
 }
 
@@ -265,7 +268,7 @@ test('getOriginalInclude: 正常 include 数组 → 前缀补 ./ 并 \\ → /', 
     include: ['src/**/*.ts', 'src/**/*.tsx'],
   })
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx'])
   } finally {
     cleanup()
@@ -277,7 +280,7 @@ test('getOriginalInclude: 已有 ./ 前缀 → 不重复补', () => {
     include: ['./src/**/*.ts', './src/**/*.tsx'],
   })
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx'])
   } finally {
     cleanup()
@@ -289,7 +292,7 @@ test('getOriginalInclude: 含反斜杠 → 替换为 /', () => {
     include: ['src\\**\\*.ts', 'src\\**\\*.tsx'],
   })
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx'])
   } finally {
     cleanup()
@@ -301,7 +304,7 @@ test('getOriginalInclude: 已有 ./ 前缀 + 反斜杠 → 不重复补 + 仍转
     include: ['.\\src\\**\\*.ts'],
   })
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['.\\src\\**\\*.ts'])
   } finally {
     cleanup()
@@ -311,7 +314,7 @@ test('getOriginalInclude: 已有 ./ 前缀 + 反斜杠 → 不重复补 + 仍转
 test('getOriginalInclude: 空 include 数组 → 走回退默认', () => {
   const { pkg, cleanup } = makeGetOriginalIncludePkg({ include: [] })
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx', './**/*.d.ts'])
   } finally {
     cleanup()
@@ -323,7 +326,7 @@ test('getOriginalInclude: 缺失 include 字段 → 走回退默认', () => {
     compilerOptions: { strict: true },
   })
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx', './**/*.d.ts'])
   } finally {
     cleanup()
@@ -333,7 +336,7 @@ test('getOriginalInclude: 缺失 include 字段 → 走回退默认', () => {
 test('getOriginalInclude: include 非数组 (string) → 走回退默认', () => {
   const { pkg, cleanup } = makeGetOriginalIncludePkg({ include: 'src/**/*.ts' })
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx', './**/*.d.ts'])
   } finally {
     cleanup()
@@ -343,7 +346,7 @@ test('getOriginalInclude: include 非数组 (string) → 走回退默认', () =>
 test('getOriginalInclude: tsconfig.json 不存在 (读取失败) → 走回退默认', () => {
   const { pkg, cleanup } = makeGetOriginalIncludePkg(null)
   try {
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx', './**/*.d.ts'])
   } finally {
     cleanup()
@@ -355,7 +358,7 @@ test('getOriginalInclude: tsconfig.json 是非法 JSON → 走回退默认', () 
   try {
     writeFileSync(join(dir, 'tsconfig.json'), '{ invalid json', 'utf8')
     const pkg = makePkg(dir)
-    const result = sourceFns.getOriginalInclude(pkg)
+    const result = sourceFns.getOriginalInclude(pkg, pkg.dir)
     assert.deepEqual(result, ['./src/**/*.ts', './src/**/*.tsx', './**/*.d.ts'])
   } finally {
     rmScratch(dir)
@@ -639,6 +642,47 @@ test('--files 干净文件 → exit 0, 且被审清单点名该文件(不是只�
     rmScratch(fx.dir)
   }
 })
+
+test(
+  '并发安装(opt-in,单独可跑): 安装锁被活进程持有 ⇒ exit 2 且点名「未判定(并发安装)」',
+  () => {
+    const fx = makeFilesFixture()
+    const installLockDir = join(fx.dir, 'fake-install-lock')
+    mkdirSync(installLockDir, { recursive: true })
+    // 活持有者:测试进程自身(pidAlive 会真判);心跳新鲜 ⇒ classify 不得判陈旧
+    writeFileSync(
+      join(installLockDir, 'owner.json'),
+      JSON.stringify({
+        v: 1,
+        pid: process.pid,
+        host: hostname(),
+        startedAt: new Date().toISOString(),
+        heartbeatAt: new Date().toISOString(),
+        token: 'test-token',
+        cmd: 'pnpm install',
+        cwd: fx.dir,
+      }),
+      'utf8',
+    )
+    try {
+      const r = runTool(['--files', 'apps/probe/src/clean.ts', '--root', fx.dir], {
+        env: {
+          ...fx.env,
+          IHUI_TYPECHECK_CHECK_INSTALL: '1',
+          IHUI_PNPM_INSTALL_LOCK_DIR: installLockDir,
+          // 有界等待缩短到 2s,保证这条断言单独跑也快
+          IHUI_TYPECHECK_INSTALL_WAIT_MS: '2000',
+        },
+      })
+      const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+      assert.equal(r.status, 2, `并发安装必须 exit 2(未判定), 实际 ${r.status}\n${out}`)
+      assert.match(out, /未判定\(并发安装\)/, `必须点名"并发安装"而不是笼统失败:\n${out}`)
+      assert.match(out, /原样重跑/, `必须给出可重试出路(未判定 ≠ 失败 ≠ 通过):\n${out}`)
+    } finally {
+      rmScratch(fx.dir)
+    }
+  },
+)
 
 test(
   '--files 故意写坏的文件 → exit 1 并报出真 tsc 错误(阳性对照:审到了)',
