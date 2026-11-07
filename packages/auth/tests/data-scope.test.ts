@@ -62,6 +62,22 @@ describe('data-scope', () => {
     it('NONE: 始终拒绝', () => {
       expect(canAccess(DataScope.NONE, 'u1', 'u1')).toBe(false)
     })
+
+    // 2026-11-07 DBG-25 回归锁: FAMILY 分支原实现两分支同值、currentFamilyId 形参被忽略,
+    // family 级隔离从未生效。现两侧 familyId 齐备时做真判定,缺资源侧退化为本人兜底。
+    it('FAMILY: 两侧 familyId 齐备时做真隔离判定', () => {
+      // 同 family 的他人资源: family 成员可见
+      expect(canAccess(DataScope.FAMILY, 'owner2', 'u1', 'fam-1', 'fam-1')).toBe(true)
+      // 跨 family 资源: 拒绝(旧行为在此会错误放行 owner2==owner2? 否——旧行为按 ownerId 比,
+      // u1≠owner2 拒绝;真正的缺陷是同 family 他人资源也被拒。此行锁新语义防回归。)
+      expect(canAccess(DataScope.FAMILY, 'owner2', 'u1', 'fam-1', 'fam-2')).toBe(false)
+    })
+
+    it('FAMILY: 缺资源侧 familyId 时退化为本人兜底(保守不放行他人)', () => {
+      expect(canAccess(DataScope.FAMILY, 'u1', 'u1', 'fam-1')).toBe(true)
+      expect(canAccess(DataScope.FAMILY, 'owner2', 'u1', 'fam-1')).toBe(false)
+      expect(canAccess(DataScope.FAMILY, 'u1', 'u1')).toBe(true)
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
