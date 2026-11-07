@@ -33,6 +33,10 @@ const { isPlainString, ticketShape, workerShape, ownerSliceShape } = __shape__
 
 export type AcceptMode = 'record' | 'auto'
 export type Strength = 'explicit' | 'inferred'
+/** 观察档位：off＝暂停、observe＝只记录不自动开工、auto＝推断规则命中可开工。 */
+export type ObservationTier = 'off' | 'observe' | 'auto'
+/** 授权经过的路：显式点名 / 准入矩阵（非慢路径规则）/ follow-up 推断 / bot。 */
+export type MandateRoute = 'explicit' | 'admission' | 'follow-up' | 'bot'
 export type ReportState = 'progress' | 'waiting' | 'ready' | 'blocked' | 'failed' | 'dropped'
 export type AssignmentState = 'pending' | 'running' | 'ended'
 export type SpeakPurpose = 'acknowledgement' | 'result' | 'attention'
@@ -42,6 +46,14 @@ export type TicketStage =
   | { stage: 'working'; action?: 'queued' }
   | { stage: 'idle' }
   | { stage: 'ended' }
+
+/** 准入规则台账的一格。规则被禁用或 revision 变化都会触发在跑工单重验。 */
+export interface SuperAgentRule {
+  id: string
+  enabled: boolean
+  /** 规则定义的版本/指纹；缺省时只判启用状态，不做改写判定。 */
+  revision?: string
+}
 
 export interface SuperAgentPolicy {
   version: string
@@ -53,6 +65,40 @@ export interface SuperAgentPolicy {
   sessionIsAllowlist: boolean
   /** 工人心跳租约（毫秒）。0＝不设租约（默认，保持既有行为）；>0＝到点未心跳由 tickLeases 回收重派。 */
   workerLeaseMs?: number
+  /** 显式授权来源的允许名单（actorId）。缺省＝沿用 sessionIsAllowlist 语义。 */
+  allowedActors?: string[]
+  /** 准入规则台账。缺省＝旧策略没有台账，规则变更不参与重验。 */
+  rules?: SuperAgentRule[]
+}
+
+/** 当时的观察档位。old acceptMode='record' 对应 observe，paused 对应 off。 */
+export function observationTier(policy: SuperAgentPolicy): ObservationTier {
+  if (policy.paused) return 'off'
+  return policy.acceptMode === 'auto' ? 'auto' : 'observe'
+}
+
+/** 一张工单被授权时的依据。缺字段的旧快照按「当时未知」处理。 */
+export interface MandateBasis {
+  actorId: string
+  sourceId: string
+  scope: string
+  strength: Strength
+  route: MandateRoute
+  /** 推断路径命中的规则 id；显式/机器人路径为 null。 */
+  ruleId: string | null
+  /** 命中规则的定义指纹；旧快照或未带 revision 的规则为 null。 */
+  ruleRevision: string | null
+  tier: ObservationTier
+  policyVersion: string
+}
+
+export type PolicyEventKind = 'policyRevoked' | 'policyDowngraded' | 'policy-changed'
+
+export interface PolicyEvent {
+  at: number
+  kind: PolicyEventKind
+  policyVersion: string
+  detail: string
 }
 
 export const DEFAULT_SUPER_AGENT_POLICY: SuperAgentPolicy = {
@@ -91,12 +137,16 @@ export interface SuperTicket {
   strength: Strength
   policyVersion: string
   mandateWithdrawn: boolean
+  /** 授权依据。undefined＝旧快照未记录（当时未知），不得按未授权处理。 */
+  mandate?: MandateBasis
+  /** 策略重验留痕。undefined＝旧快照未记录。 */
+  policyEvents?: PolicyEvent[]
   /** 占槽时的租约截止（epoch ms）。仅租约档（workerLeaseMs>0）的 running 写入；到期由 tickLeases 回收。 */
   assignment: { id: string; state: AssignmentState; leaseExpiresAt?: number } | null
   report: { state: ReportState; text: string } | null
   attention: string | null
   deliveryError: string | null
-  ended: { by: 'person' | 'executor'; outcome: string } | null
+  ended: { by: 'person' | 'executor' | 'policy'; outcome: string } | null
   acked: boolean
   spokenResult: boolean
   spokenAttention: string | null
@@ -135,6 +185,14 @@ export interface PanelView {
     text: string
     reason: string
     decision?: SlowDecision
+  }[]
+  /** 命中规则被禁用/改写的工单，面板据此标出 policy-changed。 */
+  policyChanged: {
+    ticketId: string
+    scope: string
+    at: number
+    policyVersion: string
+    detail: string
   }[]
 }
 
@@ -246,7 +304,7 @@ export class SuperAgentHost {
       return { disposition: 'recorded', reason, speech: null }
     }
 
-    return this.accept(trigger, ownerUserId, 'explicit')
+    return this.accept(trigger, ownerUserId, 'explicit', 'explicit', null)
   }
 
   report(
@@ -336,7 +394,9 @@ export class SuperAgentHost {
     }
     this.recordedTriggers.delete(triggerId)
     const trigger = { ...saved.trigger, text: scopeFromRequest(saved.trigger.text, routerNotes) }
-    return this.accept(trigger, ownerUserId, 'inferred')
+    // 慢路径规则＝follow-up 推断；其余规则命中＝准入矩阵。
+    const route: MandateRoute = ruleId.trim() === 'model-slow-path' ? 'follow-up' : 'admission'
+    return this.accept(trigger, ownerUserId, 'inferred', route, ruleId.trim())
   }
 
   /** 记模型判定注记（record 档与 auto 档都能记）；已不在簿的条目不落（幂等）。 */
@@ -512,21 +572,138 @@ export class SuperAgentHost {
     return { disposition: 'accepted', ticketId: ticket.id, speech, stage: ticketStage(ticket) }
   }
 
-  /** 策略变了只通知在做的工单，不收回已经发出的授权。 */
+  /**
+   * 策略变更逐张重验在跑工单的授权依据（不再只通知）：
+   * - 显式来源被移出 allowed ⇒ 结束工单、记 policyRevoked 并出声告知；
+   * - 推断授权且档位由 auto 降 observe/off ⇒ 停新活、退回 recorded；
+   * - 命中规则被禁用/改写 ⇒ 停新活并记 policy-changed，面板可见。
+   * 撤权只停新动作：已完成报告与产出不回滚，已失效授权不再沿用。
+   * 旧快照缺 mandate 的工单按「当时未知」处理，不按未授权砍单。
+   */
   applyPolicy(ownerUserId: string, next: SuperAgentPolicy): string[] {
     this.ownerPolicy.set(ownerUserId, next)
-    this.markDirty()
     const notified: string[] = []
     for (const ticket of this.tickets.values()) {
       if (ticket.ownerUserId !== ownerUserId || ticket.ended || ticket.mandateWithdrawn) continue
-      ticket.inputs.push({
-        triggerId: `policy-${next.version}`,
-        text: `策略变为 ${next.version}`,
-        fromPerson: false,
-      })
       notified.push(ticket.id)
+      const basis = ticket.mandate
+      if (!basis) {
+        // 当时未知：只补版本通知，不把缺字段当成未授权。
+        if (ticket.policyVersion !== next.version) this.notePolicyVersion(ticket, next)
+        continue
+      }
+      const outcome = this.revalidateTicket(ticket, basis, next)
+      if (outcome === 'revoked' || outcome === 'downgraded' || outcome === 'rule-changed') continue
+      if (ticket.policyVersion !== next.version) this.notePolicyVersion(ticket, next)
     }
+    this.markDirty()
     return notified
+  }
+
+  /** 重验一张工单；返回处置结果。旧依据缺失时由调用方先行跳过。 */
+  private revalidateTicket(
+    ticket: SuperTicket,
+    basis: MandateBasis,
+    next: SuperAgentPolicy,
+  ): 'ok' | 'revoked' | 'downgraded' | 'rule-changed' {
+    // 1) 显式授权来源必须仍在 allowed 里。
+    if (basis.route === 'explicit' && !this.actorAllowed(next, ticket.ownerUserId, basis.actorId)) {
+      this.withdrawMandate(ticket)
+      ticket.ended = { by: 'policy', outcome: 'policyRevoked' }
+      this.recordPolicyEvent(
+        ticket,
+        'policyRevoked',
+        next.version,
+        `显式来源 ${basis.actorId} 已不在允许名单`,
+      )
+      this.speak(
+        ticket,
+        'attention',
+        `策略 ${next.version} 撤回了这张工单的授权：来源 ${basis.actorId} 已不在允许名单。已完成的部分保留，新的动作不会开始。`,
+      )
+      return 'revoked'
+    }
+
+    // 2) 推断授权在 auto 档降级时停止接新活，原触发退回记录簿。
+    if (basis.strength === 'inferred') {
+      const nextTier = observationTier(next)
+      if (basis.tier === 'auto' && nextTier !== 'auto') {
+        this.withdrawMandate(ticket)
+        this.returnToRecorded(ticket, `policy_downgraded:${next.version}`)
+        ticket.ended = { by: 'policy', outcome: 'policyDowngraded' }
+        this.recordPolicyEvent(
+          ticket,
+          'policyDowngraded',
+          next.version,
+          `观察档位 ${basis.tier} → ${nextTier}`,
+        )
+        return 'downgraded'
+      }
+      // 3) 命中的规则被禁用或改写。
+      const issue = this.ruleIssue(basis, next)
+      if (issue) {
+        this.withdrawMandate(ticket)
+        ticket.ended = { by: 'policy', outcome: 'policy-changed' }
+        this.recordPolicyEvent(ticket, 'policy-changed', next.version, issue)
+        return 'rule-changed'
+      }
+    }
+    return 'ok'
+  }
+
+  /** 撤权只停新动作：结束执行槽，并清掉尚未派出的那一格。 */
+  private withdrawMandate(ticket: SuperTicket): void {
+    ticket.mandateWithdrawn = true
+    this.endAssignment(ticket)
+    this.pendingStart = this.pendingStart.filter((w) => w.sessionId !== ticket.execution.sessionId)
+  }
+
+  /** 推断授权降级：原触发回到 recorded 簿，供以后重新评估，不静默开工。 */
+  private returnToRecorded(ticket: SuperTicket, reason: string): void {
+    const triggerId = ticket.inputs[0]?.triggerId
+    if (!triggerId || this.recordedTriggers.has(triggerId)) return
+    const trigger = this.triggers.get(triggerId)
+    if (!trigger) return
+    this.bumpRecorded(ticket.ownerUserId)
+    this.recordedTriggers.set(triggerId, { trigger, reason })
+  }
+
+  /** 命中规则的失效判据：移除、禁用或 revision 改写。旧策略无台账时不下判定。 */
+  private ruleIssue(basis: MandateBasis, next: SuperAgentPolicy): string | null {
+    if (basis.route !== 'admission' && basis.route !== 'follow-up') return null
+    if (basis.ruleId === null || !next.rules) return null
+    const rule = next.rules.find((row) => row.id === basis.ruleId)
+    if (!rule) return `规则 ${basis.ruleId} 已从策略中移除`
+    if (!rule.enabled) return `规则 ${basis.ruleId} 已禁用`
+    if (basis.ruleRevision && rule.revision && rule.revision !== basis.ruleRevision) {
+      return `规则 ${basis.ruleId} 已改写（${basis.ruleRevision} → ${rule.revision}）`
+    }
+    return null
+  }
+
+  /** 显式来源判定：有名单读名单；否则沿用「登录主体即允许名单」的既有语义。 */
+  private actorAllowed(policy: SuperAgentPolicy, ownerUserId: string, actorId: string): boolean {
+    if (policy.allowedActors) return policy.allowedActors.includes(actorId)
+    if (policy.sessionIsAllowlist) return actorId === ownerUserId
+    return true
+  }
+
+  private recordPolicyEvent(
+    ticket: SuperTicket,
+    kind: PolicyEventKind,
+    policyVersion: string,
+    detail: string,
+  ): void {
+    const events = ticket.policyEvents ?? []
+    events.push({ at: this.clock.now(), kind, policyVersion, detail })
+    ticket.policyEvents = events
+  }
+
+  /** 同一版本不重复刷通知；版本变了才记一笔给人看的输入。 */
+  private notePolicyVersion(ticket: SuperTicket, next: SuperAgentPolicy): void {
+    const triggerId = `policy-${next.version}`
+    if (ticket.inputs.some((row) => row.triggerId === triggerId)) return
+    ticket.inputs.push({ triggerId, text: `策略变为 ${next.version}`, fromPerson: false })
   }
 
   /** 扩大范围必须新开一张工单。旧授权的原文不动。 */
@@ -561,7 +738,26 @@ export class SuperAgentHost {
         reason: row.reason,
         ...(row.decision ? { decision: row.decision } : {}),
       }))
-    return { needsPerson, quietDrops: this.quietDrops, recorded: this.recorded, pendingRecords }
+    const policyChanged = [...this.tickets.values()]
+      .filter((ticket) => ticket.ownerUserId === ownerUserId)
+      .flatMap((ticket) =>
+        (ticket.policyEvents ?? [])
+          .filter((event) => event.kind === 'policy-changed')
+          .map((event) => ({
+            ticketId: ticket.id,
+            scope: ticket.scope,
+            at: event.at,
+            policyVersion: event.policyVersion,
+            detail: event.detail,
+          })),
+      )
+    return {
+      needsPerson,
+      quietDrops: this.quietDrops,
+      recorded: this.recorded,
+      pendingRecords,
+      policyChanged,
+    }
   }
 
   getTicket(ticketId: string, ownerUserId: string): SuperTicket | null {
@@ -627,8 +823,28 @@ export class SuperAgentHost {
     ticket.assignment = { ...ticket.assignment, ...this.leaseStamp(ticket, 'running') }
   }
 
-  private accept(trigger: IncomingTrigger, ownerUserId: string, strength: Strength): ReceiveResult {
+  private accept(
+    trigger: IncomingTrigger,
+    ownerUserId: string,
+    strength: Strength,
+    route: MandateRoute,
+    ruleId: string | null,
+  ): ReceiveResult {
     const id = this.clock.id('ticket')
+    const policy = this.policyFor(ownerUserId)
+    const basis: MandateBasis = {
+      actorId: trigger.actorId,
+      sourceId: trigger.sourceId,
+      scope: trigger.text,
+      strength,
+      route,
+      ruleId,
+      ruleRevision: ruleId
+        ? (policy.rules?.find((row) => row.id === ruleId)?.revision ?? null)
+        : null,
+      tier: observationTier(policy),
+      policyVersion: policy.version,
+    }
     const ticket: SuperTicket = {
       id,
       ownerUserId,
@@ -636,8 +852,10 @@ export class SuperAgentHost {
       threadId: trigger.threadId,
       scope: trigger.text,
       strength,
-      policyVersion: this.policyFor(ownerUserId).version,
+      policyVersion: policy.version,
       mandateWithdrawn: false,
+      mandate: basis,
+      policyEvents: [],
       assignment: null,
       report: null,
       attention: null,
