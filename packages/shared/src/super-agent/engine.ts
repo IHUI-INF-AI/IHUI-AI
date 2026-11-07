@@ -35,6 +35,8 @@ export interface SuperAgentPolicy {
   maxWorkers: number
   /** 登录主体就是该来源的允许名单，不把别的来源账号映射过来。 */
   sessionIsAllowlist: boolean
+  /** 工人心跳租约（毫秒）。0＝不设租约（默认，保持既有行为）；>0＝到点未心跳由 tickLeases 回收重派。 */
+  workerLeaseMs?: number
 }
 
 export const DEFAULT_SUPER_AGENT_POLICY: SuperAgentPolicy = {
@@ -73,7 +75,8 @@ export interface SuperTicket {
   strength: Strength
   policyVersion: string
   mandateWithdrawn: boolean
-  assignment: { id: string; state: AssignmentState } | null
+  /** 占槽时的租约截止（epoch ms）。仅租约档（workerLeaseMs>0）的 running 写入；到期由 tickLeases 回收。 */
+  assignment: { id: string; state: AssignmentState; leaseExpiresAt?: number } | null
   report: { state: ReportState; text: string } | null
   attention: string | null
   deliveryError: string | null
@@ -85,6 +88,10 @@ export interface SuperTicket {
   humanAt: number
   inputs: { triggerId: string; text: string; fromPerson: boolean }[]
   execution: { sessionId: string; directory: string }
+  /** 上一次租约到点被回收的时刻（epoch ms）；null＝没丢过或已续上。 */
+  leaseLostAt: number | null
+  /** 累计被看门狗回收几次（告警读数用，非身份键）。 */
+  lostLeaseCount: number
 }
 
 export interface ReceiveResult {
@@ -221,6 +228,7 @@ export class SuperAgentHost {
     ticket.report = { state: body.state, text: body.text }
     ticket.reportAt = now
     ticket.deliveryError = null
+    this.touchLease(ticket)
     if (body.question && body.question.trim().length > 0) {
       ticket.attention = body.question.trim()
     }
@@ -412,6 +420,61 @@ export class SuperAgentHost {
     return this.owned(ticketId, ownerUserId)
   }
 
+  /** 工人活着就出声：report 之外的心跳通道。只在 running 且租约档才续。 */
+  renewLease(ownerUserId: string, ticketId: string): { ok: boolean; reason?: string } {
+    const ticket = this.owned(ticketId, ownerUserId)
+    if (!ticket || ticket.ended || ticket.mandateWithdrawn) {
+      return { ok: false, reason: 'no_ticket' }
+    }
+    if (ticket.assignment?.state !== 'running') return { ok: false, reason: 'not_running' }
+    const leaseMs = this.policyFor(ownerUserId).workerLeaseMs ?? 0
+    if (leaseMs <= 0) return { ok: false, reason: 'no_lease' }
+    if (ticket.leaseLostAt !== null) {
+      // 回收后补到心跳：恢复租约重派（幂等——重复心跳只刷新截止时间）。
+      ticket.leaseLostAt = null
+    }
+    ticket.assignment = { ...ticket.assignment, ...this.leaseStamp(ticket, 'running') }
+    return { ok: true }
+  }
+
+  /** 剩余租约（毫秒）；未设租约或不在 running 返回 null。 */
+  leaseRemaining(ticketId: string, ownerUserId: string): number | null {
+    const ticket = this.owned(ticketId, ownerUserId)
+    if (ticket?.assignment?.state !== 'running' || ticket.assignment.leaseExpiresAt === undefined) {
+      return null
+    }
+    return ticket.assignment.leaseExpiresAt - this.clock.now()
+  }
+
+  /**
+   * Watchdog 巡检：到点未心跳的 running（本主体）→ 交还执行槽重新排队，
+   * 并记 lostLeases 供告警读数。只碰本主体的单；不撤授权、不改工单状态机其它面。
+   */
+  tickLeases(ownerUserId: string): { reclaimed: string[] } {
+    const reclaimed: string[] = []
+    for (const ticket of this.tickets.values()) {
+      if (ticket.ownerUserId !== ownerUserId) continue
+      if (ticket.ended || ticket.mandateWithdrawn) continue
+      const assignment = ticket.assignment
+      if (assignment?.state !== 'running' || assignment.leaseExpiresAt === undefined) continue
+      if (assignment.leaseExpiresAt > this.clock.now()) continue
+      ticket.leaseLostAt = this.clock.now()
+      ticket.lostLeaseCount += 1
+      ticket.assignment = { ...assignment, state: 'pending' }
+      reclaimed.push(ticket.id)
+    }
+    if (reclaimed.length > 0) this.promote(ownerUserId)
+    return { reclaimed }
+  }
+
+  private touchLease(ticket: SuperTicket): void {
+    if (ticket.assignment?.state !== 'running') return
+    const leaseMs = this.policyFor(ticket.ownerUserId).workerLeaseMs ?? 0
+    if (leaseMs <= 0) return
+    ticket.leaseLostAt = null
+    ticket.assignment = { ...ticket.assignment, ...this.leaseStamp(ticket, 'running') }
+  }
+
   private accept(trigger: IncomingTrigger, ownerUserId: string, strength: Strength): ReceiveResult {
     const id = this.clock.id('ticket')
     const ticket: SuperTicket = {
@@ -435,6 +498,8 @@ export class SuperAgentHost {
       humanAt: 0,
       inputs: [{ triggerId: trigger.id, text: trigger.text, fromPerson: true }],
       execution: executionFor(id, ownerUserId),
+      leaseLostAt: null,
+      lostLeaseCount: 0,
     }
     this.tickets.set(ticket.id, ticket)
     this.bind(ticket)
@@ -497,8 +562,15 @@ export class SuperAgentHost {
     const running = this.runningCount(ticket.ownerUserId)
     const limit = this.policyFor(ticket.ownerUserId).maxWorkers + (humanWake ? 1 : 0)
     const state: AssignmentState = running < limit ? 'running' : 'pending'
-    ticket.assignment = { id: this.clock.id('asg'), state }
+    ticket.assignment = { id: this.clock.id('asg'), state, ...this.leaseStamp(ticket, state) }
     if (state === 'running') this.pendingStart.push(workerAssignment(ticket))
+  }
+
+  /** 租约只随 running 写；pending 不占时钟。返回空对象让调用处展开即"不写该键"。 */
+  private leaseStamp(ticket: SuperTicket, state: AssignmentState): { leaseExpiresAt?: number } {
+    const leaseMs = this.policyFor(ticket.ownerUserId).workerLeaseMs ?? 0
+    if (state !== 'running' || leaseMs <= 0) return {}
+    return { leaseExpiresAt: this.clock.now() + leaseMs }
   }
 
   private endAssignment(ticket: SuperTicket): void {
@@ -517,7 +589,11 @@ export class SuperAgentHost {
       }
       if (candidate.assignment?.state !== 'pending') continue
       if (ticketStage(candidate).stage === 'person') continue
-      candidate.assignment = { id: candidate.assignment.id, state: 'running' }
+      candidate.assignment = {
+        id: candidate.assignment.id,
+        state: 'running',
+        ...this.leaseStamp(candidate, 'running'),
+      }
       this.pendingStart.push(workerAssignment(candidate))
     }
   }
