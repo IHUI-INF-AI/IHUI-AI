@@ -7156,5 +7156,36 @@
     "submitSuccess": "投稿タスクを作成しました",
     "submitFailed": "送信に失敗しました",
     "taskCreated": "タスク ID：{taskId}"
+  },
+  "eduAi": {
+    "groups": {
+      "addMember": "メンバー追加",
+      "allGroups": "すべてのグループ",
+      "confirmDelete": "このグループを削除しますか？",
+      "createGroup": "グループ作成",
+      "createdAt": "作成日時",
+      "custom": "カスタム",
+      "delete": "削除",
+      "deleteTitle": "グループを削除",
+      "description": "説明",
+      "edit": "編集",
+      "empty": "グループはまだありません",
+      "error": "失敗",
+      "groupName": "グループ名",
+      "groupNameRequired": "グループ名は必須です",
+      "memberList": "メンバー管理",
+      "members": "メンバー数",
+      "membersUnavailable": "バックエンドにメンバー一覧 API がないため、メンバー数のみ表示します",
+      "owner": "オーナー",
+      "save": "保存",
+      "title": "マイグループ",
+      "userId": "ユーザーID"
+    }
+  },
+  "groups": {
+    "title": "マイグループ",
+    "loadFailed": "グループの読み込みに失敗しました",
+    "addMember": "メンバーを追加",
+    "memberAdded": "メンバーを追加しました"
   }
 }

@@ -7156,5 +7156,36 @@
     "submitSuccess": "發佈任務已建立",
     "submitFailed": "提交失敗",
     "taskCreated": "任務 ID：{taskId}"
+  },
+  "eduAi": {
+    "groups": {
+      "addMember": "添加成員",
+      "allGroups": "全部群組",
+      "confirmDelete": "確定刪除該群組？",
+      "createGroup": "創建群組",
+      "createdAt": "創建時間",
+      "custom": "自定義",
+      "delete": "刪除",
+      "deleteTitle": "刪除群組",
+      "description": "群組描述",
+      "edit": "編輯",
+      "empty": "暫無群組，點擊右上角創建",
+      "error": "操作失敗",
+      "groupName": "群組名稱",
+      "groupNameRequired": "群組名稱不能為空",
+      "memberList": "成員管理",
+      "members": "成員數",
+      "membersUnavailable": "後端未提供成員清單介面,此處僅顯示成員數",
+      "owner": "群主",
+      "save": "保存",
+      "title": "我的群組",
+      "userId": "用戶 ID"
+    }
+  },
+  "groups": {
+    "title": "我的群組",
+    "loadFailed": "群組載入失敗",
+    "addMember": "新增成員",
+    "memberAdded": "成員已新增"
   }
 }
