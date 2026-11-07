@@ -93,6 +93,13 @@ import {
   decodeTaroBundle,
 } from './check-tool-display-resolvable.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+// 合并提交的“本次新增”判据(唯一一份):父集 = HEAD ∪ MERGE_HEAD;非合并时父集只有 HEAD。
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LANGS = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
@@ -1132,6 +1139,30 @@ export function splitScatteredRatchet(pendingByFile, headCountOf) {
   return { fresh, tolerated }
 }
 
+/**
+ * 合并档的逐文件棘轮:锚点 = `结果面读数 − newOccurrences(...)`。
+ * 判据本身一个字不动(`list.length > tol`);只是把 tol 从「HEAD 自身存量」换成
+ * 「HEAD ∪ MERGE_HEAD 各父自身存量在多重集意义下的有效锚点」。非合并一律走
+ * `splitScatteredRatchet`(父集只有 HEAD),两者逐字等价。
+ */
+export function splitScatteredRatchetWithParents(pendingByFile, parentKeyListsOf) {
+  const fresh = []
+  let tolerated = 0
+  const anchors = new Map()
+  for (const [file, list] of pendingByFile) {
+    const resultKeys = list.map((v) => `${v.field}:${v.key}`)
+    const parentKeys = parentKeyListsOf(file) || []
+    const tol = effectiveAnchorCount(
+      resultKeys.length,
+      newOccurrences(resultKeys, parentKeys).length,
+    )
+    anchors.set(file, tol)
+    if (list.length > tol) fresh.push({ file, list, tol })
+    else tolerated += list.length
+  }
+  return { fresh, tolerated, anchors }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1269,15 +1300,55 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
     if (text === null) return 0
     return evaluateScatteredKeys({ file, text, universe: headUniverse }).length
   }
-  const { fresh: scatteredFresh, tolerated: scatteredTolerated } = splitScatteredRatchet(
-    pendingByFile,
-    headCountOf,
-  )
+  // 合并未收口时,索引面里由上游带进来的既有违规不该记本次新增:锚点面改为 HEAD ∪ MERGE_HEAD。
+  let mergeDelta = null
+  try {
+    const d = deltaParents({ root: ROOT, face })
+    if (d.applicable && d.merge) mergeDelta = d
+  } catch (e) {
+    throw new UndeterminedError(`合并父集取不到:${e?.message ?? e}`)
+  }
+  let scatteredFresh
+  let scatteredTolerated
+  let scatteredAnchors = null
+  if (mergeDelta && pendingByFile.size > 0) {
+    const parentTexts = readParentTexts({
+      root: ROOT,
+      rels: [...pendingByFile.keys(), ...corpusRelPaths()],
+      parents: mergeDelta.parents,
+    })
+    const parentUniverses = new Map()
+    for (const p of mergeDelta.parents) {
+      const map = parentTexts.get(p.label)
+      parentUniverses.set(
+        p.label,
+        buildKeyUniverse({ label: `${p.label} 语料`, read: (rel) => map.get(rel) ?? null }),
+      )
+    }
+    const parentKeyListsOf = (file) =>
+      mergeDelta.parents.map((p) => {
+        const text = parentTexts.get(p.label).get(file)
+        if (typeof text !== 'string') return []
+        return evaluateScatteredKeys({ file, text, universe: parentUniverses.get(p.label) }).map(
+          (v) => `${v.field}:${v.key}`,
+        )
+      })
+    const r = splitScatteredRatchetWithParents(pendingByFile, parentKeyListsOf)
+    scatteredFresh = r.fresh
+    scatteredTolerated = r.tolerated
+    scatteredAnchors = r.anchors
+  } else {
+    ;({ fresh: scatteredFresh, tolerated: scatteredTolerated } = splitScatteredRatchet(
+      pendingByFile,
+      headCountOf,
+    ))
+  }
+  const anchorFace = scatteredAnchors ? 'HEAD ∪ MERGE_HEAD' : 'HEAD'
   for (const { file, list, tol } of scatteredFresh) {
     for (const v of list)
       failures.push({
         ...v,
-        why: `${v.why}(该文件 HEAD 自身已有 ${tol} 处,本次 ${list.length} 处 —— 本门只拦超出的那部分)`,
+        why: `${v.why}(该文件${anchorFace} 自身已有 ${tol} 处,本次 ${list.length} 处 —— 本门只拦超出的那部分)`,
         table: { file, line: v.line, name: '散落取词(W6)' },
       })
   }
@@ -1311,7 +1382,7 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
         .map(([file, list]) => ({
           file,
           count: list.length,
-          headCount: headCountOf(file),
+          headCount: scatteredAnchors ? (scatteredAnchors.get(file) ?? 0) : headCountOf(file),
           keys: list.map((v) => `${v.key}@${v.line}`),
         }))
         .sort((a, b) => b.count - a.count || a.file.localeCompare(b.file)),
