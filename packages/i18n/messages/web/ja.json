@@ -23738,6 +23738,7 @@
     "icpRecordDesc": "プラットフォームのICP届出情報を表示",
     "icpRecordEntity": "備案主体",
     "icpRecordEntityType": "主体タイプ",
+    "icpRecordFooter": "MIIT登録システムより",
     "icpRecordNotice": "当プラットフォームは法に基づきICP届出登録を完了しております。届出情報は上記の公示に準じます。ご不明な点がございましたらカスタマーサポートにお問い合わせください。",
     "icpRecordNumber": "備案番号",
     "icpRecordScope": "備案範囲",
