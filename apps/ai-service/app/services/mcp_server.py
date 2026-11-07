@@ -13634,6 +13634,8 @@ _TOOLS: list[MCPTool] = [
         description=(
             "向点名的同伴代理投递一条消息(单播,绝不广播);仅可投给当前身份在同一会话内"
             "已绑定的同伴,未注册/未绑定一律拒绝并入队失败。sender 只认承载层注入身份,不接受自报顶替。"
+            "triggers_agent=true 时会在入队后尝试把收件方**正在跑**的回合叫醒,结果见响应的 wakeUp"
+            "(woken/not_running/unknown_session/not_steerable/forbidden);唤醒失败不影响已入队事实。"
         ),
         input_schema={
             "type": "object",
@@ -13668,7 +13670,9 @@ _TOOLS: list[MCPTool] = [
         name="read_team_inbox",
         description=(
             "读本席(当前代理)的收件箱;按会话 ∧ 属主两维过滤,拒读时不消费任何(零 receive)。"
-            "只读已投递给本代理且属主一致的消息。"
+            "只读已投递给本代理且属主一致的消息。按 priority 从高到低投递(同优先级保持到达序);"
+            "entersContext=false 的消息仍会被消费,但正文不返回(contentOmitted=true,"
+            "只留 contentLength 与来源供核对)。"
         ),
         input_schema={
             "type": "object",
