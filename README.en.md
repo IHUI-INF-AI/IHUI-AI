@@ -59,7 +59,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **624 tables · 4706 API routes ·
+Headline claims (same source as the table below, all live-computed): **624 tables · 4719 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · test file counts in the generated table below ·
 336 engineering gates · 54 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
@@ -69,26 +69,26 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | ---- | ---- | ------ |
 | 数据库表 | 624 | `dbTables` |
 | schema 文件 | 241 | `dbSchemaFiles` |
-| API 路由 | 4706 | `apiRoutes` |
-| 路由文件 | 666 | `apiRouteFiles` |
-| AI 服务路由 | 631 | `aiServiceRoutes` |
+| API 路由 | 4719 | `apiRoutes` |
+| 路由文件 | 667 | `apiRouteFiles` |
+| AI 服务路由 | 646 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
 | CLI 命令文件 | 75 | `cliCommandFiles` |
-| CLI 工具文件 | 92 | `cliToolFiles` |
+| CLI 工具文件 | 94 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4261 | `testFiles` |
+| 测试文件 | 4287 | `testFiles` |
 | CI 工作流 | 54 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 348 | `guardianGates` |
 | — blocking | 319 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19621 | `trackedFiles` |
+| 跟踪文件 | 19735 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
