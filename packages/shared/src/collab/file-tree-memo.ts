@@ -29,8 +29,11 @@ function nonEmpty(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== ''
 }
 
+/** 'unjudged' 档可用的 reason 子集(不能取 FileTreeVerdict['reason'],那会并入 projected/refused 的 reason) */
+type UnjudgedReason = Extract<FileTreeVerdict, { disposition: 'unjudged' }>['reason']
+
 export function projectFileTree(input: unknown): FileTreeVerdict {
-  const unread = (reason: FileTreeVerdict['reason']): FileTreeVerdict => ({
+  const unread = (reason: UnjudgedReason): FileTreeVerdict => ({
     disposition: 'unjudged',
     reason,
     entries: null,
