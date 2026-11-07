@@ -16,6 +16,7 @@ import {
   type SlowDecision,
   type SlowJudgeCall,
   type SlowJudgeInput,
+  type SuperAgentSnapshot,
   type TriggerSourcePort,
   type WorkerAssignment,
 } from '@ihui/shared/super-agent'
@@ -25,7 +26,11 @@ import {
   upsertUserPreference,
 } from '../db/user-preferences-queries.js'
 import { logger } from '../utils/logger.js'
-import { subagentDispatchService } from './subagent-dispatch-service.js'
+import {
+  setTenantConcurrencyLimitResolver,
+  subagentDispatchService,
+} from './subagent-dispatch-service.js'
+import { materializeWorkerDirectory } from './worker-workspace.js'
 
 const SUPER_AGENT_SNAPSHOT_KEY = 'state'
 /** 快照归属的保留主体 uuid；机主供值前持久腿如实降级（不谎称已持久）。 */
@@ -47,9 +52,20 @@ function markSuperAgentDirty(): void {
   dirty = true
 }
 
-export const superAgentHost = new SuperAgentHost(undefined, undefined, {
+export let superAgentHost = new SuperAgentHost(undefined, undefined, {
   onDirty: markSuperAgentDirty,
 })
+
+/**
+ * 并发闸单一真相源(2026-11-07 收敛):
+ * 下游 subagentDispatchService 的「单租户在跑上限」不再用自己那份默认值,改为读宿主当前
+ * policyFor(owner).maxWorkers —— 与接收/开工判据同一字段。改 maxWorkers 不会再出现
+ * 「引擎认为还有槽、下游却判超限」的两套账。未归属租户(owner 为空)不参与宿主策略,
+ * 返回 undefined 让下游回落到通用默认值。
+ */
+setTenantConcurrencyLimitResolver((ownerUserId) =>
+  ownerUserId ? superAgentHost.maxWorkersFor(ownerUserId) : undefined,
+)
 
 async function doSave(): Promise<void> {
   const provider = snapshotProvider()
@@ -76,10 +92,9 @@ function saveIfDirty(): void {
     .catch((e: unknown) => {
       lastPersistError = e instanceof Error ? e.message : String(e)
       persistStatus = 'degraded'
-      logger.warn(
-        { err: lastPersistError },
-        'super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入',
-      )
+      logger.warn('super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入', {
+        err: lastPersistError,
+      })
     })
 }
 
@@ -107,7 +122,7 @@ export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> 
     const { list } = await findUserPreferences(provider, USER_PREFERENCE_GROUPS.superAgent)
     const row = list.find((r) => r.key === SUPER_AGENT_SNAPSHOT_KEY)
     if (!row?.value) return { loaded: false, status: 'ok', rejectedReasons: [] }
-    const parsed = JSON.parse(row.value) as Parameters<typeof superAgentHost.restore>[0]
+    const parsed = JSON.parse(row.value) as SuperAgentSnapshot
     const report = superAgentHost.restore(parsed)
     if (!report.ok) {
       persistStatus = 'degraded'
@@ -187,6 +202,9 @@ export async function dispatchWorkerWork(work: WorkerAssignment): Promise<{
   const threadId = ticket?.threadId
   const conversationId = threadId ? conversationIdSchema.safeParse(threadId) : null
   try {
+    // 逻辑目录 → 服务端绝对目录,派发前落地。执行器拿到的是可写真实路径,
+    // 而不是只写在 prompt 里的一句话;两个工人各写同名文件因此不会互相覆盖。
+    const workerDirectory = materializeWorkerDirectory(work.directory)
     const result = await subagentDispatchService.dispatch({
       goal: work.goal,
       affectedFiles: [],
@@ -195,6 +213,11 @@ export async function dispatchWorkerWork(work: WorkerAssignment): Promise<{
       deliverables: work.deliverables,
       agentRole: 'coder',
       ownerUserId,
+      // 隔离身份随派单全链下传:sessionId 落到下游执行会话,directory 落到派单记录 + prompt。
+      sessionId: work.sessionId,
+      directory: workerDirectory,
+      // 宿主已按 maxWorkers 给该工人占槽;下游不得再用优先级档二次拦它(租户/全局闸仍生效)。
+      capacityReserved: true,
       ...(conversationId?.success ? { conversationId: conversationId.data } : {}),
     })
     const outcome = (result as { outcome?: string }).outcome ?? 'ok'
@@ -292,19 +315,30 @@ export function readSuperAgentPumpLog(limit = 50) {
   return pumpLog.slice(-Math.max(1, Math.min(limit, PUMP_LOG_CAP)))
 }
 
-export const superAgentPump = new SuperAgentPump(
-  superAgentHost,
-  () => [...ports.values()],
-  dispatchWorkerWork,
-  {
+function createSuperAgentPump(): SuperAgentPump {
+  return new SuperAgentPump(superAgentHost, () => [...ports.values()], dispatchWorkerWork, {
     onLog: logPumpRow,
     onCycle: () => saveIfDirty(),
     // 慢路径 env 门控:未开启 = 泵完全不碰推断积压（与持久腿同型"未开启零动作"）。
     ...(process.env.IHUI_SUPER_AGENT_SLOW_PATH === 'true'
       ? { slowJudge: createSlowJudgeCall() }
       : {}),
-  },
-)
+  })
+}
+
+export let superAgentPump = createSuperAgentPump()
+
+/**
+ * 测试专用:替换宿主单例。
+ *
+ * 路由层用例需要一个确定性时钟(租约剩余/回收判据不依赖真实时间),而生产路径的宿主是
+ * 模块加载时创建的。这里把 host 与泵一并换掉,保证「路由 → 派发出口 → 泵」读到同一个实例;
+ * **生产代码不得调用**。
+ */
+export function __installSuperAgentHostForTests(next: SuperAgentHost): void {
+  superAgentHost = next
+  superAgentPump = createSuperAgentPump()
+}
 
 let interval: ReturnType<typeof setInterval> | null = null
 
