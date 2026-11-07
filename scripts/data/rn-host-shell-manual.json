@@ -59,6 +59,14 @@
       "evidence": "apps/mobile-rn/src/navigation/RootNavigator.tsx:432 记「Following 收敛:功能为 Follow 子集,路由删除,菜单入口并入 Follow」、:445 与 :1336;承接点 apps/mobile-rn/src/screens/FollowScreen.tsx:10 值导入共享 FollowScreen;features/following/FollowingScreen.tsx 硬 props items/loading/loadingMore/onLoadMore/onRefresh/onUnfollow/refreshing 无 RN 宿主。"
     },
     {
+      "shared": "SquareScreen",
+      "verdict": "not-applicable",
+      "owner": "square-content",
+      "expires": "2027-03-31",
+      "reason": "2026-11-07 复核:广场/资讯流三端均不再消费共享 square/SquareScreen —— RN NewsScreen 与小程序 pkg-user/square 实际渲染的是共享 article-list/ArticleListScreen(小程序经 @rn-shells/NewsScreen 直接承载 RN 屏);SquareScreen 仅剩 packages/app/src/index.ts 导出,功能已被 ArticleListScreen 承接,不建薄壳、也不登记为待手写。",
+      "evidence": "apps/mobile-rn/src/screens/NewsScreen.tsx:45 值导入 ArticleListScreen as SharedArticleListScreen、:503 渲染,全文件无 SquareScreen 导入(头注 :9 仍写「委托给 SquareScreen」与实现不符);apps/miniapp-taro/src/pkg-user/square/index.tsx:15 导入 @rn-shells/NewsScreen、:20 渲染(别名见 apps/miniapp-taro/tsconfig.json:29 → apps/mobile-rn/src/screens/*);共享屏 packages/app/src/features/square/SquareScreen.tsx:56 定义、:30 硬 props categories/items/onItemClick 等,消费点仅 packages/app/src/index.ts:414 导出;cross-end-screen-registry.json:1055 配对 RN 为 NewsScreen.tsx。"
+    },
+    {
       "shared": "HelpDetailScreen",
       "verdict": "not-applicable",
       "owner": "help-support",
