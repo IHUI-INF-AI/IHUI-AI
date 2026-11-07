@@ -1792,8 +1792,8 @@ IHUI-AI/
 ├── monitoring/              # Grafana(3 仪表盘)+ Loki + Prometheus + Promtail + otel-collector + Alertmanager
 ├── scripts/                 # 87 守门 + 19 i18n + drizzle-kit push 模式 + 9 PowerShell 启动 + locustfile.py 压测 + 运维工具
 ├── server-docs/             # 多租户设计文档(MULTI_TENANT.md)
-├── .github/workflows/       # 54 个 CI workflows
-├── .github/workflows/       # 54 个 CI workflows
+├── .github/workflows/       # 55 个 CI workflows
+├── .github/workflows/       # 55 个 CI workflows
 ├── .github/loop-runtime/    # loop-daily-triage CI 运行状态(STATE.md + loop-run-log.md)
 ├── .husky/                  # Git hooks (commit-msg + post-commit + pre-commit + pre-push + post-checkout + post-merge)
 ├── docker-compose.yml       # 14 服务编排(7 业务 + 7 监控)
