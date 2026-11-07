@@ -13,6 +13,8 @@
  * 并累计被压掉的进度出声（quietDrops），健康工单不进面板。
  */
 
+import { executionFor, scopeFromRequest, workerAssignment, type WorkerAssignment } from './roles'
+
 export type AcceptMode = 'record' | 'auto'
 export type Strength = 'explicit' | 'inferred'
 export type ReportState = 'progress' | 'waiting' | 'ready' | 'blocked' | 'failed' | 'dropped'
@@ -60,7 +62,7 @@ export interface Speech {
 }
 
 export type Disposition =
-  'duplicate' | 'paused' | 'filtered' | 'fanout' | 'accepted' | 'recorded' | 'ignored'
+  'duplicate' | 'paused' | 'filtered' | 'fanout' | 'accepted' | 'recorded' | 'ignored' | 'context'
 
 export interface SuperTicket {
   id: string
@@ -82,6 +84,7 @@ export interface SuperTicket {
   reportAt: number
   humanAt: number
   inputs: { triggerId: string; text: string; fromPerson: boolean }[]
+  execution: { sessionId: string; directory: string }
 }
 
 export interface ReceiveResult {
@@ -90,12 +93,21 @@ export interface ReceiveResult {
   ticketId?: string
   speech: Speech | null
   stage?: TicketStage
+  work?: WorkerAssignment
 }
 
 export interface PanelView {
-  needsPerson: { ticketId: string; stage: TicketStage; attention: string | null; scope: string }[]
+  needsPerson: {
+    ticketId: string
+    stage: TicketStage
+    attention: string | null
+    scope: string
+    sessionId: string
+    directory: string
+  }[]
   quietDrops: number
   recorded: number
+  pendingRecords: { id: string; text: string; reason: string }[]
 }
 
 interface Clock {
@@ -146,11 +158,20 @@ function threadKey(ownerUserId: string, sourceId: string, threadId: string): str
 }
 
 export class SuperAgentHost {
-  private readonly triggers = new Set<string>()
+  private readonly triggers = new Map<string, IncomingTrigger>()
+  private readonly recordedTriggers = new Map<
+    string,
+    { trigger: IncomingTrigger; reason: string }
+  >()
   private readonly tickets = new Map<string, SuperTicket>()
   private readonly byThread = new Map<string, string[]>()
+  private readonly contextOf = new Map<string, Set<string>>()
+  private readonly outbox = new Map<string, Speech[]>()
+  private readonly correlations = new Map<string, string[]>()
   private quietDrops = 0
   private recorded = 0
+  private pendingStart: WorkerAssignment[] = []
+  private readonly ownerPolicy = new Map<string, SuperAgentPolicy>()
 
   constructor(
     private policy: SuperAgentPolicy = DEFAULT_SUPER_AGENT_POLICY,
@@ -161,27 +182,30 @@ export class SuperAgentHost {
     if (this.triggers.has(trigger.id)) {
       return { disposition: 'duplicate', speech: null }
     }
-    this.triggers.add(trigger.id)
+    this.triggers.set(trigger.id, trigger)
 
-    if (this.policy.paused) {
+    if (this.policyFor(ownerUserId).paused) {
       return { disposition: 'paused', speech: null }
     }
-    if (this.policy.sessionIsAllowlist && trigger.actorId !== ownerUserId) {
+    if (this.policyFor(ownerUserId).sessionIsAllowlist && trigger.actorId !== ownerUserId) {
       return { disposition: 'filtered', reason: 'actor_mismatch', speech: null }
     }
 
     const subscribed = this.subscribed(ownerUserId, trigger.sourceId, trigger.threadId)
     const fromPerson = !trigger.fromBot
-    if (fromPerson && subscribed.length > 0) {
-      return this.fanOut(trigger, subscribed)
-    }
+    if (subscribed.length > 0 && fromPerson) return this.fanOut(trigger, subscribed)
+    if (subscribed.length > 0) return this.deliverQuiet(trigger, subscribed)
+    const contextHits = this.contextTickets(ownerUserId, trigger.sourceId, trigger.threadId)
+    if (contextHits.length > 0) return this.deliverQuiet(trigger, contextHits)
 
     if (trigger.fromBot || !trigger.addressed) {
+      const reason = trigger.fromBot ? 'bot' : 'inferred'
       this.recorded += 1
-      return { disposition: 'recorded', reason: trigger.fromBot ? 'bot' : 'inferred', speech: null }
+      this.recordedTriggers.set(trigger.id, { trigger, reason })
+      return { disposition: 'recorded', reason, speech: null }
     }
 
-    return this.accept(trigger, ownerUserId)
+    return this.accept(trigger, ownerUserId, 'explicit')
   }
 
   report(
@@ -245,6 +269,126 @@ export class SuperAgentHost {
     return { disposition: 'ignored', ticketId: ticket.id, speech: null, stage: ticketStage(ticket) }
   }
 
+  /** 推断请求只有在 auto 档且点名了一条规则时才开工。范围仍是原始请求。 */
+  acceptRecorded(
+    ownerUserId: string,
+    triggerId: string,
+    ruleId: string,
+    routerNotes = '',
+  ): ReceiveResult {
+    const saved = this.recordedTriggers.get(triggerId)
+    if (!saved || saved.trigger.actorId !== ownerUserId) {
+      return { disposition: 'filtered', reason: 'no_trigger', speech: null }
+    }
+    if (this.policyFor(ownerUserId).acceptMode !== 'auto' || ruleId.trim().length === 0) {
+      return { disposition: 'recorded', reason: 'record_only', speech: null }
+    }
+    this.recordedTriggers.delete(triggerId)
+    const trigger = { ...saved.trigger, text: scopeFromRequest(saved.trigger.text, routerNotes) }
+    return this.accept(trigger, ownerUserId, 'inferred')
+  }
+
+  /** 把一条新触发并到已有工单。不新开授权。 */
+  attach(ownerUserId: string, ticketId: string, trigger: IncomingTrigger): ReceiveResult {
+    const ticket = this.owned(ticketId, ownerUserId)
+    if (!ticket || ticket.mandateWithdrawn || ticket.ended?.by === 'person') {
+      return { disposition: 'filtered', reason: 'no_ticket', speech: null }
+    }
+    if (this.triggers.has(trigger.id)) return { disposition: 'duplicate', speech: null }
+    this.triggers.set(trigger.id, trigger)
+    this.bindThread(ticket, trigger.sourceId, trigger.threadId)
+    return this.fanOut(trigger, [ticket.id])
+  }
+
+  /** 相关线程只提供上下文，不恢复工单，也不给新的授权。 */
+  followForContext(
+    ownerUserId: string,
+    ticketId: string,
+    sourceId: string,
+    threadId: string,
+  ): ReceiveResult {
+    const ticket = this.owned(ticketId, ownerUserId)
+    if (!ticket || ticket.ended?.by === 'person') {
+      return { disposition: 'filtered', reason: 'no_ticket', speech: null }
+    }
+    if (ticket.sourceId === sourceId && ticket.threadId === threadId) {
+      return { disposition: 'filtered', reason: 'own_thread', speech: null }
+    }
+    const set = this.contextOf.get(ticket.id) ?? new Set<string>()
+    set.add(threadKey(ownerUserId, sourceId, threadId))
+    this.contextOf.set(ticket.id, set)
+    return { disposition: 'context', ticketId: ticket.id, speech: null, stage: ticketStage(ticket) }
+  }
+
+  /** 关联只记上下文，不能拿来路由。 */
+  correlate(triggerId: string, threadIds: string[]): void {
+    this.correlations.set(triggerId, [...threadIds])
+  }
+
+  routeByCorrelation(triggerId: string): null {
+    void this.correlations.get(triggerId)
+    return null
+  }
+
+  /** 工人把触发交还。订阅还在，授权不变，触发重新进入记账。 */
+  handback(
+    ownerUserId: string,
+    ticketId: string,
+    triggerId: string,
+    reason: string,
+  ): ReceiveResult {
+    const ticket = this.owned(ticketId, ownerUserId)
+    const trigger = this.triggers.get(triggerId)
+    if (!ticket || !trigger) return { disposition: 'filtered', reason: 'no_ticket', speech: null }
+    this.triggers.delete(triggerId)
+    this.recorded += 1
+    this.recordedTriggers.set(triggerId, { trigger, reason })
+    return {
+      disposition: 'recorded',
+      ticketId: ticket.id,
+      reason,
+      speech: null,
+      stage: ticketStage(ticket),
+    }
+  }
+
+  deliveryFailed(ownerUserId: string, ticketId: string, error: string): ReceiveResult {
+    const ticket = this.owned(ticketId, ownerUserId)
+    if (!ticket || ticket.ended) {
+      return { disposition: 'filtered', reason: 'no_ticket', speech: null }
+    }
+    ticket.deliveryError = error
+    const speech = this.speak(ticket, 'attention', error)
+    return { disposition: 'accepted', ticketId: ticket.id, speech, stage: ticketStage(ticket) }
+  }
+
+  /** 策略变了只通知在做的工单，不收回已经发出的授权。 */
+  applyPolicy(ownerUserId: string, next: SuperAgentPolicy): string[] {
+    this.ownerPolicy.set(ownerUserId, next)
+    const notified: string[] = []
+    for (const ticket of this.tickets.values()) {
+      if (ticket.ownerUserId !== ownerUserId || ticket.ended || ticket.mandateWithdrawn) continue
+      ticket.inputs.push({
+        triggerId: `policy-${next.version}`,
+        text: `策略变为 ${next.version}`,
+        fromPerson: false,
+      })
+      notified.push(ticket.id)
+    }
+    return notified
+  }
+
+  /** 扩大范围必须新开一张工单。旧授权的原文不动。 */
+  widenScope(ownerUserId: string, ticketId: string): ReceiveResult {
+    const ticket = this.owned(ticketId, ownerUserId)
+    if (!ticket) return { disposition: 'filtered', reason: 'no_ticket', speech: null }
+    return { disposition: 'recorded', ticketId: ticket.id, reason: 'new_ticket', speech: null }
+  }
+
+  replies(ownerUserId: string, sourceId: string, threadId: string): Speech[] {
+    return [...(this.outbox.get(threadKey(ownerUserId, sourceId, threadId)) ?? [])]
+  }
+
   panel(ownerUserId: string): PanelView {
     const needsPerson = [...this.tickets.values()]
       .filter((ticket) => ticket.ownerUserId === ownerUserId)
@@ -255,23 +399,29 @@ export class SuperAgentHost {
         stage: row.stage,
         attention: row.ticket.attention,
         scope: row.ticket.scope,
+        sessionId: row.ticket.execution.sessionId,
+        directory: row.ticket.execution.directory,
       }))
-    return { needsPerson, quietDrops: this.quietDrops, recorded: this.recorded }
+    const pendingRecords = [...this.recordedTriggers.values()]
+      .filter((row) => row.trigger.actorId === ownerUserId)
+      .map((row) => ({ id: row.trigger.id, text: row.trigger.text, reason: row.reason }))
+    return { needsPerson, quietDrops: this.quietDrops, recorded: this.recorded, pendingRecords }
   }
 
   getTicket(ticketId: string, ownerUserId: string): SuperTicket | null {
     return this.owned(ticketId, ownerUserId)
   }
 
-  private accept(trigger: IncomingTrigger, ownerUserId: string): ReceiveResult {
+  private accept(trigger: IncomingTrigger, ownerUserId: string, strength: Strength): ReceiveResult {
+    const id = this.clock.id('ticket')
     const ticket: SuperTicket = {
-      id: this.clock.id('ticket'),
+      id,
       ownerUserId,
       sourceId: trigger.sourceId,
       threadId: trigger.threadId,
       scope: trigger.text,
-      strength: 'explicit',
-      policyVersion: this.policy.version,
+      strength,
+      policyVersion: this.policyFor(ownerUserId).version,
       mandateWithdrawn: false,
       assignment: null,
       report: null,
@@ -284,12 +434,19 @@ export class SuperAgentHost {
       reportAt: 0,
       humanAt: 0,
       inputs: [{ triggerId: trigger.id, text: trigger.text, fromPerson: true }],
+      execution: executionFor(id, ownerUserId),
     }
     this.tickets.set(ticket.id, ticket)
     this.bind(ticket)
     this.launch(ticket, false)
     const speech = this.speak(ticket, 'acknowledgement', trigger.text)
-    return { disposition: 'accepted', ticketId: ticket.id, speech, stage: ticketStage(ticket) }
+    return {
+      disposition: 'accepted',
+      ticketId: ticket.id,
+      speech,
+      stage: ticketStage(ticket),
+      work: workerAssignment(ticket),
+    }
   }
 
   private fanOut(trigger: IncomingTrigger, ticketIds: string[]): ReceiveResult {
@@ -309,7 +466,7 @@ export class SuperAgentHost {
     }
     const now = this.clock.now()
     let extraUsed = false
-    let last = live[live.length - 1]!
+    let last: SuperTicket | undefined
     for (const ticket of live) {
       if (ticket.ended && ticket.ended.by !== 'person') {
         ticket.ended = null
@@ -324,7 +481,7 @@ export class SuperAgentHost {
         this.launch(ticket, !extraUsed)
         if (
           !extraUsed &&
-          running >= this.policy.maxWorkers &&
+          running >= this.policyFor(ticket.ownerUserId).maxWorkers &&
           ticket.assignment?.state === 'running'
         ) {
           extraUsed = true
@@ -332,14 +489,16 @@ export class SuperAgentHost {
       }
       last = ticket
     }
+    if (!last) return { disposition: 'filtered', reason: 'no_ticket', speech: null }
     return { disposition: 'fanout', ticketId: last.id, speech: null, stage: ticketStage(last) }
   }
 
   private launch(ticket: SuperTicket, humanWake: boolean): void {
     const running = this.runningCount(ticket.ownerUserId)
-    const limit = this.policy.maxWorkers + (humanWake ? 1 : 0)
+    const limit = this.policyFor(ticket.ownerUserId).maxWorkers + (humanWake ? 1 : 0)
     const state: AssignmentState = running < limit ? 'running' : 'pending'
     ticket.assignment = { id: this.clock.id('asg'), state }
+    if (state === 'running') this.pendingStart.push(workerAssignment(ticket))
   }
 
   private endAssignment(ticket: SuperTicket): void {
@@ -352,14 +511,22 @@ export class SuperAgentHost {
   /** 槽位空出来时，把本主体最早排队的工单拉起来。人的额外那一槽不给自动拉起用。 */
   private promote(ownerUserId: string): void {
     for (const candidate of this.tickets.values()) {
-      if (this.runningCount(ownerUserId) >= this.policy.maxWorkers) return
+      if (this.runningCount(ownerUserId) >= this.policyFor(ownerUserId).maxWorkers) return
       if (candidate.ownerUserId !== ownerUserId || candidate.ended || candidate.mandateWithdrawn) {
         continue
       }
       if (candidate.assignment?.state !== 'pending') continue
       if (ticketStage(candidate).stage === 'person') continue
       candidate.assignment = { id: candidate.assignment.id, state: 'running' }
+      this.pendingStart.push(workerAssignment(candidate))
     }
+  }
+
+  /** 本轮新占上执行槽的工人。路由读完即清，避免下一轮重复派发。 */
+  takeStarted(): WorkerAssignment[] {
+    const rows = this.pendingStart
+    this.pendingStart = []
+    return rows
   }
 
   private runningCount(ownerUserId: string): number {
@@ -380,20 +547,32 @@ export class SuperAgentHost {
     if (purpose === 'acknowledgement') {
       if (ticket.acked) return null
       ticket.acked = true
-      return { purpose, ticketId: ticket.id, text }
+      return this.remember(ticket, { purpose, ticketId: ticket.id, text })
     }
     if (purpose === 'result') {
       if (ticket.spokenResult) return null
       ticket.spokenResult = true
-      return { purpose, ticketId: ticket.id, text }
+      return this.remember(ticket, { purpose, ticketId: ticket.id, text })
     }
     if (ticket.spokenAttention === text) return null
     ticket.spokenAttention = text
-    return { purpose, ticketId: ticket.id, text }
+    return this.remember(ticket, { purpose, ticketId: ticket.id, text })
+  }
+
+  private remember(ticket: SuperTicket, speech: Speech): Speech {
+    const key = threadKey(ticket.ownerUserId, ticket.sourceId, ticket.threadId)
+    const list = this.outbox.get(key) ?? []
+    list.push(speech)
+    this.outbox.set(key, list)
+    return speech
   }
 
   private quiet(ticket: SuperTicket): ReceiveResult {
     return { disposition: 'fanout', ticketId: ticket.id, speech: null, stage: ticketStage(ticket) }
+  }
+
+  private policyFor(ownerUserId: string): SuperAgentPolicy {
+    return this.ownerPolicy.get(ownerUserId) ?? this.policy
   }
 
   private owned(ticketId: string, ownerUserId: string): SuperTicket | null {
@@ -404,6 +583,36 @@ export class SuperAgentHost {
 
   private subscribed(ownerUserId: string, sourceId: string, threadId: string): string[] {
     return this.byThread.get(threadKey(ownerUserId, sourceId, threadId)) ?? []
+  }
+
+  private deliverQuiet(trigger: IncomingTrigger, ticketIds: string[]): ReceiveResult {
+    const live = ticketIds
+      .map((id) => this.tickets.get(id))
+      .filter((ticket): ticket is SuperTicket => ticket !== undefined)
+      .filter((ticket) => ticket.ended?.by !== 'person' && !ticket.mandateWithdrawn)
+    if (live.length === 0) return { disposition: 'filtered', reason: 'stopped', speech: null }
+    for (const ticket of live) {
+      ticket.inputs.push({ triggerId: trigger.id, text: trigger.text, fromPerson: false })
+    }
+    const last = live.at(-1)
+    if (!last) return { disposition: 'filtered', reason: 'stopped', speech: null }
+    return { disposition: 'context', ticketId: last.id, speech: null, stage: ticketStage(last) }
+  }
+
+  private contextTickets(ownerUserId: string, sourceId: string, threadId: string): string[] {
+    const key = threadKey(ownerUserId, sourceId, threadId)
+    const hits: string[] = []
+    for (const [ticketId, threads] of this.contextOf) {
+      if (threads.has(key)) hits.push(ticketId)
+    }
+    return hits
+  }
+
+  private bindThread(ticket: SuperTicket, sourceId: string, threadId: string): void {
+    const key = threadKey(ticket.ownerUserId, sourceId, threadId)
+    const list = this.byThread.get(key) ?? []
+    if (!list.includes(ticket.id)) list.push(ticket.id)
+    this.byThread.set(key, list)
   }
 
   private bind(ticket: SuperTicket): void {
