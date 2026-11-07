@@ -15,7 +15,7 @@ import json
 import logging
 import os
 import re
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -2030,7 +2030,7 @@ async def _resume_run_from_checkpoint(
     permission_mode: str | None = None,
     axis_resolution: "_AxisResolution | None" = None,
     durable_horizon_seconds: int | None = None,
-    resume_confirmations: dict[str, str] | None = None,
+    resume_confirmations: "Mapping[str, str] | None" = None,
 ) -> "AgentLoopResult":
     """构造与 execute/stream 同参的 AgentLoopV2 并从 checkpoint 续跑(**全仓唯一实现**)。
 
