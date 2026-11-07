@@ -545,7 +545,15 @@ export default defineContentScript({
           req.action as BrowserControlActionType,
           req.params,
           req.timeout ?? 30000,
-        ).then((result) => sendResponse(result))
+        )
+          .then((result) => sendResponse(result))
+          .catch((err) => {
+            // 2026-11-07 DBG-64 收口: 原实现无 .catch —— AI 下发非法 selector 时
+            // document.querySelector 抛 SyntaxError ⇒ promise reject 无人接, sendResponse
+            // 永不调用, background 只能等满 30s 报 TIMEOUT。此处回执错误, 让 background 立即收尾。
+            console.warn('[IHUI AI] content: dom action 执行失败:', err)
+            sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) })
+          })
         return true
       }
       if (m.type === 'highlight.applied' && m.payload?.word) {
