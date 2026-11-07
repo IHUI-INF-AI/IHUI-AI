@@ -104,6 +104,16 @@ export const CODE_LABEL = Object.freeze({
     '通过（事后追认）：提交当时**没有**声明，由持钥方在台账里逐枚具名补了签名说明 ⇒ 读数必须打「追认@ackedBy」，不得当"当时就声明了"',
   'declared-attested':
     '通过（事后具名追认）：提交当时没有有效声明，持钥方在 attestations 台账里逐枚按实际触发路径签了说明 ⇒ 读数必须打「已追认@reviewer」，不得读成当时就合规',
+  'detached-valid':
+    '通过（分离签名台账）：该枚在 immutable-guard-detached-signatures.jsonl 里按「40 位 sha + 该枚实际路径全集 + 理由 + signedAt」签过且验签通过 ⇒ 读数必须打「分离签名@signedAt」，不得读成提交当时就签了',
+  'detached-paths-mismatch':
+    '判红：分离签名台账里这一枚的 paths 与该枚实际路径全集不逐条精确相等（多一条 / 少一条 / 改写一条都算）',
+  'detached-sig-invalid':
+    '判红：分离签名台账里这一枚的 sig 验不过（内容被改 / 抄自别处 / 不是那把追认钥签的）',
+  'detached-duplicate':
+    '判红：分离签名台账里同一 sha 出现两条及以上（不许重复签发、也不取"最后一行覆盖"）',
+  'detached-key-unavailable':
+    '未判定：分离签名台账里有这一枚，但独立追认钥取不到 ⇒ 无法验签（fail-closed：exit 2，不放行）',
   'undeclared-unsigned':
     '判红：触及受保护面且有文字理由，但缺少/验不过 immutable-exempt-sig（签名豁免未生效）',
   expired: '判红：受保护面清单里有 reviewBy 已到期的条目（清单腐烂，§0.7）',
@@ -564,6 +574,7 @@ export function judgeChanges({ changes, entries, message = '', today = todayStr(
  * 三态判定（0 通过 / 1 判红 / 2 未判定）。顺序即语义：
  *   清单坏 ⇒ 2；清单空 ⇒ 2；清单到期 ⇒ 1（确定的腐烂，不依赖本次改动）；
  *   未触及 ⇒ 0；触及但拿不到消息 ⇒ 2；触及无理由 ⇒ 1；
+ *   触及有理由 ∧ **分离签名台账命中且有效** ⇒ 0（detached-valid，先于 trailer 判；见下）；
  *   触及有理由 ∧ 签名验过 ⇒ 0（declared）；
  *   触及有理由 ∧ **有签名行但验不过** ⇒ 1（undeclared-unsigned，无窗口例外：声称签过却验不过 =
  *     篡改/钥匙不对，绝不降级成"没签名"再借窗口放行）；
@@ -576,6 +587,15 @@ export function judgeChanges({ changes, entries, message = '', today = todayStr(
  *   而"密钥不存在"永远按 `key-unavailable` fail-closed，与开关有无无关。
  * `key === null`（密钥不存在）⇒ 需要验签时按 `key-unavailable` 处理，绝不默认放行。
  * `message === null` 表示"结构上拿不到消息"（pre-commit 阶段的索引面），与"消息为空"不同。
+ *
+ * 分离签名台账（`detachedRows`，2026-11-07 立）在找提交信息里的 `sig` trailer **之前**先查：
+ *   提交信息是 sha 的一部分、已发布历史改不动 ⇒ 已落库的"只有文字理由"的枚结构上补不了签名。
+ *   该通道把签名放到**仓外控制点能改的台账**里，但按「40 位 sha + 该枚 rev^..rev 差异集的
+ *   全路径集（去重升序）+ 理由 + signedAt」绑定，并以独立追认钥验签：
+ *     · 命中且验过、paths 逐条精确相等 ⇒ `detached-valid`（exit 0，**不并进 declared**）；
+ *     · 命中但重复 / paths 不一致 / 验不过 ⇒ 各自成因码判红（exit 1）；
+ *     · 命中但钥取不到 ⇒ `detached-key-unavailable`（exit 2 未判定）；
+ *     · **没命中 ⇒ 回落原判序**（绝不静默放行：无签名 + 窗口已过仍是判红）。
  */
 export function decide({
   listProblems = [],
@@ -592,6 +612,7 @@ export function decide({
   ackKey = null,
   legacyA1 = false,
   attestRows = [],
+  detachedRows = [],
   commitDate = null,
 }) {
   const envelope = {
@@ -631,6 +652,27 @@ export function decide({
   if (judged.expired.length) return { ...out, exit: 1, code: 'expired' }
   if (!judged.hits.length) return { ...out, exit: 0, code: 'pass' }
   if (message === null) return { ...out, exit: 2, code: 'message-missing' }
+  // ── 分离签名台账（2026-11-07）：**在找提交信息的 sig trailer 之前**先查它。
+  // 路径取该枚 `rev^..rev` 差异集的**全路径集**（rename 的旧+新都算），去重升序；
+  // 台账里这一枚的 paths 必须与它逐条精确相等（多一条/少一条/改写都判红），不做"包含即可"。
+  // 命中即按台账定档，绝不静默并进 declared；没命中才回落下面的 trailer/窗口/追认原判序。
+  const detachedRowList = Array.isArray(detachedRows) ? detachedRows : []
+  const changePaths = [
+    ...new Set(
+      (Array.isArray(changes) ? changes : [])
+        .flatMap((c) => [c?.path, c?.oldPath])
+        .map((p) => normalizeRel(p ?? ''))
+        .filter(Boolean),
+    ),
+  ].sort()
+  const detached =
+    sha && detachedRowList.length > 0
+      ? lookupDetached({ rows: detachedRowList, sha, paths: changePaths, ackKey })
+      : { state: 'none', why: '' }
+  if (detached.state === 'valid') return { ...out, exit: 0, code: 'detached-valid', detached }
+  if (detached.state === 'invalid') return { ...out, exit: 1, code: detached.code, detached }
+  if (detached.state === 'unavailable')
+    return { ...out, exit: 2, code: 'detached-key-unavailable', detached }
   // 追认台账只在"这一枚当下被判红"时才问;命中面交给 lookupAck,paths 未覆盖即不算点名到位。
   const rows = Array.isArray(ackRows) ? ackRows : []
   const ack =
@@ -1083,7 +1125,9 @@ export function attestPayload({ sha, paths, reason, reviewer, attestedAt }) {
     .filter(Boolean)
     .sort()
   return JSON.stringify({
-    sha: String(sha ?? '').trim().toLowerCase(),
+    sha: String(sha ?? '')
+      .trim()
+      .toLowerCase(),
     paths: uniq,
     reason: String(reason ?? ''),
     reviewer: String(reviewer ?? ''),
@@ -1096,7 +1140,13 @@ export function signAttestation({ sha, paths, reason, reviewer, attestedAt, key 
   const k = String(key ?? '')
   if (k.length < MIN_KEY_CHARS)
     throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
-  if (!FULL_SHA_RE.test(String(sha ?? '').trim().toLowerCase()))
+  if (
+    !FULL_SHA_RE.test(
+      String(sha ?? '')
+        .trim()
+        .toLowerCase(),
+    )
+  )
     throw new Error(`sha 必须 40 位全量（收到 ${String(sha ?? '').slice(0, 20)}）`)
   const list = Array.isArray(paths) ? paths.filter((p) => String(p ?? '').trim()) : []
   if (!list.length) throw new Error('paths 必须逐条列出该枚实际触发的受保护路径（空数组不算说明）')
@@ -1215,7 +1265,9 @@ export function lookupAttestation({
   ]
     .filter(Boolean)
     .sort()
-  const rowPaths = [...new Set((row.paths || []).map((p) => normalizeRel(p)))].filter(Boolean).sort()
+  const rowPaths = [...new Set((row.paths || []).map((p) => normalizeRel(p)))]
+    .filter(Boolean)
+    .sort()
   const extra = rowPaths.filter((p) => !hitPaths.includes(p))
   const missing = hitPaths.filter((p) => !rowPaths.includes(p))
   if (extra.length || missing.length)
@@ -1272,7 +1324,17 @@ export function lookupAttestation({
       row,
       why: '独立追认钥与提交签名钥是同一把 ⇒ 追认退化为作者自认，拒',
     }
-  const expected = createHmac('sha256', k).update(attestPayload({ sha: row.sha, paths: row.paths, reason: row.reason, reviewer: row.reviewer, attestedAt: row.attestedAt })).digest('hex')
+  const expected = createHmac('sha256', k)
+    .update(
+      attestPayload({
+        sha: row.sha,
+        paths: row.paths,
+        reason: row.reason,
+        reviewer: row.reviewer,
+        attestedAt: row.attestedAt,
+      }),
+    )
+    .digest('hex')
   if (!hmacEqual(expected, String(row.sig)))
     return {
       state: 'invalid',
@@ -1281,6 +1343,213 @@ export function lookupAttestation({
       why: '追认签名验不过（内容被改 / 抄自别处 / 路径集不符 / 不是这把追认钥签的）',
     }
   return { state: 'valid', code: 'attest-verified', row, why: '' }
+}
+
+/**
+ * ── 分离签名台账（detached-signatures，2026-11-07 立）────────────────────────
+ *
+ * 要解决的问题：签名槽位只存在于**提交信息**里，而提交信息是 sha 的一部分、已落库的历史改不动
+ * （本仓 `.husky/pre-rebase` 硬拦 rebase）⇒ 已发布、提交时只写了文字理由的那批枚，结构上永远
+ * 补不了 `immutable-exempt-sig`。到 `signatureRequiredFrom` 那天它们会集体从「窗口内放行」翻成判红，
+ * 而它们自己没有任何合规出路。
+ *
+ * 通道形态（**不是豁免名单**，是逐枚、具名、可验、删一条就回到红的声明）：
+ *   - 一行一条 JSON，键固定为 `sha/paths/reason/signedAt/sig`；
+ *   - `sha` 40 位全量（短 sha 在本仓腐烂率实测 30.2%，证据指针禁用缩写）；
+ *   - `paths` 必须列出该枚 `rev^..rev` 差异集的**全路径集**（含 rename 的旧+新），去重升序；
+ *     判定侧逐条**精确相等**地比，多一条 / 少一条 / 改写一条都判红（不做"包含即可"）；
+ *   - `reason` 与提交信息里 `immutable-exempt:` 同量纲（≥ `MIN_REASON_CHARS`）；
+ *   - `signedAt` 是签发日（YYYY-MM-DD，形状校验；不含"续期"语义）；
+ *   - `sig` 由**独立追认钥**签发（`ihui.immutableGuardAckKeyPath`，与提交签名钥不是同一把）。
+ *
+ * 为什么它不是豁免：
+ *   ① 它绑死 40 位 sha —— 换一枚就查不到，抄给别枚必判红；
+ *   ② 它绑死该枚实际路径全集 —— 多/少/改写一条都判红；
+ *   ③ 它绑死理由与 `signedAt` —— 改一个字节就验不过；
+ *   ④ 钥取不到 ⇒ exit 2 未判定，绝不静默放行；同一 sha 重复 ⇒ 判红。
+ * 台账被删一条 ⇒ 那一枚立刻回到「无签名 + 窗口已过 ⇒ 判红」——这就是通道的自证。
+ *
+ * 签名算法（与 `scripts/sign-immutable-guard-detached.mjs` 逐字一致，改动即两边同时改）：
+ *   payload = JSON.stringify({sha, paths, reason, signedAt})
+ *   键序固定 sha → paths → reason → signedAt；paths 去重后字典序升序；
+ *   sig = HMAC-SHA256(key, payload) 的 64 位小写 hex（裸 hex，不带版本前缀）。
+ */
+export const DETACHED_LEDGER_REL = 'scripts/data/immutable-guard-detached-signatures.jsonl'
+
+/** 分离签名形状：裸 64 hex（与 attestations 同形；载荷键集不同 ⇒ 两通道互不可挪用）。 */
+export const DETACHED_SIG_RE = /^[0-9a-f]{64}$/
+
+/** 分离签名载荷。键序与 paths 排序是签名的一部分：任一处变化都让已签行验不过。 */
+export function detachedPayload({ sha, paths, reason, signedAt }) {
+  const uniq = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))]
+    .filter(Boolean)
+    .sort()
+  return JSON.stringify({
+    sha: String(sha ?? '')
+      .trim()
+      .toLowerCase(),
+    paths: uniq,
+    reason: String(reason ?? ''),
+    signedAt: String(signedAt ?? ''),
+  })
+}
+
+/** 签发一条分离签名（只有持钥方能算出来）。形状/理由/日期不达标 ⇒ 抛，绝不产出"看起来能用"的假签名。 */
+export function signDetached({ sha, paths, reason, signedAt, key }) {
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS)
+    throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  if (
+    !FULL_SHA_RE.test(
+      String(sha ?? '')
+        .trim()
+        .toLowerCase(),
+    )
+  )
+    throw new Error(`sha 必须 40 位全量（收到 ${String(sha ?? '').slice(0, 20)}）`)
+  const list = Array.isArray(paths) ? paths.filter((p) => String(p ?? '').trim()) : []
+  if (!list.length) throw new Error('paths 必须逐条列出该枚实际路径全集（空数组不算说明）')
+  if ([...String(reason ?? '')].length < MIN_REASON_CHARS)
+    throw new Error(`reason 不足 ${MIN_REASON_CHARS} 字（与提交内 immutable-exempt 同量纲）`)
+  if (!isValidDateStr(String(signedAt ?? '')))
+    throw new Error(`signedAt 必须是 YYYY-MM-DD：${String(signedAt ?? '').slice(0, 20)}`)
+  return createHmac('sha256', k)
+    .update(detachedPayload({ sha, paths, reason, signedAt }))
+    .digest('hex')
+}
+
+/**
+ * 逐行解析分离签名台账。返回 `{rows, problems}`：
+ *  - 形状坏（非 JSON / 非对象 / 缺键 / sha 非 40 位 / paths 非非空字符串数组 / 理由过短 /
+ *    signedAt 非法 / sig 非 64hex）⇒ 进 `problems` 并带行号点名，**不进 rows**；
+ *  - 语义问题（paths 不齐 / 签名不对 / 同 sha 重复）**保留在 rows**，由 `lookupDetached`
+ *    判 invalid 并点名成因 —— 不能让它们静默变成"没有这条"（那就等于静默放行）。
+ */
+export function parseDetachedLedger(text) {
+  const rows = []
+  const problems = []
+  const lines = String(text ?? '').split(/\r?\n/)
+  lines.forEach((line, i) => {
+    if (!line.trim()) return
+    let o
+    try {
+      o = JSON.parse(line)
+    } catch (e) {
+      problems.push({ line: i + 1, why: `不是合法 JSON：${e.message}` })
+      return
+    }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      problems.push({ line: i + 1, why: '一行必须是对象' })
+      return
+    }
+    const missing = ['sha', 'paths', 'reason', 'signedAt', 'sig'].filter(
+      (k) => o[k] === undefined || o[k] === null || o[k] === '',
+    )
+    if (missing.length) {
+      problems.push({ line: i + 1, why: `缺必填键：${missing.join(',')}` })
+      return
+    }
+    if (!FULL_SHA_RE.test(String(o.sha))) {
+      problems.push({
+        line: i + 1,
+        why: `sha 必须 40 位全量（证据指针禁短写）：${String(o.sha).slice(0, 20)}`,
+      })
+      return
+    }
+    if (
+      !Array.isArray(o.paths) ||
+      o.paths.length === 0 ||
+      o.paths.some((p) => typeof p !== 'string' || !p.trim())
+    ) {
+      problems.push({ line: i + 1, why: 'paths 必须是非空的路径字符串数组（空数组=模糊范围）' })
+      return
+    }
+    if ([...String(o.reason).trim()].length < MIN_REASON_CHARS) {
+      problems.push({ line: i + 1, why: `理由不足 ${MIN_REASON_CHARS} 字` })
+      return
+    }
+    if (!isValidDateStr(String(o.signedAt))) {
+      problems.push({
+        line: i + 1,
+        why: `signedAt 必须是 YYYY-MM-DD：${String(o.signedAt).slice(0, 20)}`,
+      })
+      return
+    }
+    if (!DETACHED_SIG_RE.test(String(o.sig))) {
+      problems.push({
+        line: i + 1,
+        why: `sig 形状坏（应为 64 位小写 hex）：${String(o.sig).slice(0, 8)}`,
+      })
+      return
+    }
+    rows.push({ ...o, sha: String(o.sha).toLowerCase(), line: i + 1 })
+  })
+  return { rows, problems }
+}
+
+/**
+ * 取该 sha 的分离签名并验签。四档（绝不并桶）：
+ *  - `none`        台账里没有这一枚 ⇒ 判定**回落原判序**（不是"放行"，也不是"没这回事"）；
+ *  - `valid`       paths 逐条精确相等 + 签名验过 ⇒ `detached-valid`；
+ *  - `invalid`     重复 / paths 不齐 / 验不过 ⇒ 各自成因码判红；
+ *  - `unavailable` 独立追认钥取不到 ⇒ `detached-key-unavailable`（exit 2 未判定）。
+ * `paths` 传该枚 `rev^..rev` 差异集的**全路径集**（不是清单匹配模式，也不是只算受保护命中）。
+ */
+export function lookupDetached({ rows, sha, paths = [], ackKey = null }) {
+  const target = String(sha ?? '').toLowerCase()
+  if (!target) return { state: 'none', why: '无 sha 可查' }
+  const mine = (Array.isArray(rows) ? rows : []).filter((r) => r.sha === target)
+  if (mine.length === 0) return { state: 'none', why: '' }
+  if (mine.length > 1)
+    return {
+      state: 'invalid',
+      code: 'detached-duplicate',
+      row: mine[mine.length - 1],
+      count: mine.length,
+      why: `同一 sha 有 ${mine.length} 条分离签名台账记录（不许重复签发/覆盖）`,
+    }
+  const row = mine[0]
+  const actual = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))]
+    .filter(Boolean)
+    .sort()
+  const rowPaths = [...new Set((row.paths || []).map((p) => normalizeRel(p)))]
+    .filter(Boolean)
+    .sort()
+  const extra = rowPaths.filter((p) => !actual.includes(p))
+  const missing = actual.filter((p) => !rowPaths.includes(p))
+  if (extra.length || missing.length || rowPaths.length !== actual.length)
+    return {
+      state: 'invalid',
+      code: 'detached-paths-mismatch',
+      row,
+      why: `paths 与该枚实际路径全集不一致（多出：${extra.join('、') || '无'}；缺少：${missing.join('、') || '无'}）`,
+    }
+  const k = String(ackKey ?? '')
+  if (k.length < MIN_KEY_CHARS)
+    return {
+      state: 'unavailable',
+      code: 'detached-key-unavailable',
+      row,
+      why: '独立追认钥不可得 ⇒ 无法验证分离签名（fail-closed：判未判定，不放行）',
+    }
+  const expected = createHmac('sha256', k)
+    .update(
+      detachedPayload({
+        sha: row.sha,
+        paths: row.paths,
+        reason: row.reason,
+        signedAt: row.signedAt,
+      }),
+    )
+    .digest('hex')
+  if (!hmacEqual(expected, String(row.sig)))
+    return {
+      state: 'invalid',
+      code: 'detached-sig-invalid',
+      row,
+      why: '分离签名验不过（内容被改 / 抄自别处 / 路径集不符 / 不是那把追认钥签的）',
+    }
+  return { state: 'valid', code: 'detached-verified', row, why: '' }
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
