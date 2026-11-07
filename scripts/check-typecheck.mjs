@@ -59,7 +59,7 @@ import {
   TEMPFAIL_EXIT_CODE,
 } from './lib/signal-exit.mjs'
 // 未判定判据的唯一实现住 gate-failure-kind(exit 2 + 未判定标记),本文件只消费。
-// 机器级锁等不到时 typecheck-full 以 exit 2 交付「未判定(并发占用)」,必须原样透传:
+// 锁目录不可用时 typecheck-full 以 exit 2 交付「未判定」,必须原样透传:
 // 下方的 staged-scope 降级与「退出码非 0 但没解析到报错文件 ⇒ 按失败处理」都会把它折成红。
 import { detectUndetermined, UNDETERMINED_EXIT_CODE } from './lib/gate-failure-kind.mjs'
 import { formatDuration, formatSummaryLine, readTimings, summarizeTimings } from './lib/typecheck-timing.mjs'
@@ -74,6 +74,11 @@ const ROOT = resolve(__dirname, '..')
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const SELF_TEST = process.argv.includes('--self-test')
+
+// 锁被占用是**另一档**(临时失败/可重试),以 exit 75 交付,stderr 带这个固定标记。
+// 它必须先于 classifySpawnOutcome 的 interrupt 分支被认出来:75 会被统一归 interrupt,
+// 而"被占用"与"被信号杀死"的出路不同(前者等一会儿再跑,后者要看是谁杀的)。
+const TYPE_LOCK_BUSY_MARKER_RE = /\[IHUI-TYPE-LOCK-BUSY\]/
 
 /**
  * 无文件面档判据(2026-11-04 立)。env 契约的唯一产出方是 `.husky/pre-push`:
@@ -732,6 +737,15 @@ child.on('close', (code, signal) => {
     console.log('[check-typecheck] ✅ 全量 typecheck 验证通过')
     process.exit(0)
   }
+  // 锁被占用(exit 75 + 固定标记):这是"稍后重试",不是"被信号杀死",也不是类型结论。
+  // 必须先于 interrupt 分支判;原样 75 透传,push 侧的有界重试(一次)接手。
+  if (code === TEMPFAIL_EXIT_CODE && TYPE_LOCK_BUSY_MARKER_RE.test(err)) {
+    console.error('[check-typecheck] ⏳ 机器级 typecheck 锁被占用(临时失败,可重试 exit 75)')
+    console.error(
+      '[check-typecheck]    这不是类型检查结论;push 侧最多再带 hook 重试一次,仍占用则以失败收口。',
+    )
+    process.exit(TEMPFAIL_EXIT_CODE)
+  }
   if (outcome.kind === 'interrupt') {
     console.error(`[check-typecheck] ⚠️ typecheck 进程被中断(${outcome.reason}),非类型检查结论`)
     console.error(
@@ -739,7 +753,7 @@ child.on('close', (code, signal) => {
     )
     process.exit(TEMPFAIL_EXIT_CODE)
   }
-  // 机器级 typecheck 锁等不到 ⇒ 子进程 exit 2 + stderr「未判定(并发占用)」。
+  // 锁目录不可用 ⇒ 子进程 exit 2 + stderr「未判定」。
   // 这一格**不是结论**:不许洗成 pass,也不许被下方降级/「未解析到报错文件 ⇒ 按失败处理」
   // 折成红。按门体系同码透传 undetermined(guardian 逐道点名,不记绿也不判红)。
   const undetermined = detectUndetermined({

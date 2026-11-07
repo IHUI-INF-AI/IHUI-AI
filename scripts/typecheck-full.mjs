@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url'
 // 装之前,POSIX 信号杀走默认动作(无码),消费侧集合判据对它结构上失明;装之后,
 // 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
-import { installSignalExit } from './lib/signal-exit.mjs'
+import { installSignalExit, TEMPFAIL_EXIT_CODE } from './lib/signal-exit.mjs'
 import { formatDuration, readTimings } from './lib/typecheck-timing.mjs'
 import {
   acquireTypecheckLock,
@@ -263,20 +263,34 @@ if (!_SELF_TEST) {
     role: 'typecheck-full',
   })
   if (!lock.ok) {
-    // 机器级互斥拿不到 ⇒ **未判定**:不是通过、不是失败、不静默跳过(「未判定 ≠ 通过」)。
-    // 出口必须是 exit 2 + 「未判定」:exit 75 会被 guardian 当 interrupt 立即传播并触发
-    // pre-push「带 hook 重试」,等于把一次并发占用变成两轮空转。
-    const reason =
-      lock.kind === 'io-error'
-        ? `锁目录不可用:${lock.error?.message ?? 'unknown'}`
-        : `等待 ${(lock.waitedMs / 1000).toFixed(1)}s 仍未取得机器级 typecheck 锁`
-    console.error(`[typecheck:full] [UNDETERMINED] 未判定(并发占用):${reason}`)
+    // 两种拿不到锁的原因**必须分成两个退出码**:
+    //   ① 被占用(busy-timeout)⇒ exit 75「临时失败/可重试」。它是有结论的"稍后重试",
+    //      不是"我不知道对不对"。pre-push 见 75 会给 push guard 一个可重试标记,
+    //      push 侧**只重试一次**(每次都是独立的锁等待 deadline),不会无界传播:
+    //      guardian-runner 对 75 是"立即上抛"而非循环重跑(见 2026-11-07 的交接说明,
+    //      该文件属守护那条线,本线不改它)。
+    //   ② 锁目录不可用(io-error)⇒ exit 2「未判定」,这不是并发占用、也不可自愈重试。
+    if (lock.kind === 'io-error') {
+      console.error(
+        `[typecheck:full] [UNDETERMINED] 未判定(锁目录不可用):${lock.error?.message ?? 'unknown'}`,
+      )
+      console.error('  这不是类型检查结论:既不是通过,也不是失败。锁目录本身不可用,')
+      console.error('  重试不会改变结果 —— 先检查 IHUI_TYPECHECK_LOCK_PATH / os.tmpdir() 权限。')
+      process.exit(UNDETERMINED_EXIT_CODE)
+    }
+    console.error(
+      `[typecheck:full] [IHUI-TYPE-LOCK-BUSY] 锁被占用(可重试):等待 ${(lock.waitedMs / 1000).toFixed(1)}s 仍未取得机器级 typecheck 锁`,
+    )
     console.error(`[typecheck:full]   持锁者: ${describeLockHolder(lock.holder)}`)
+    if (lock.queuePosition) {
+      console.error(`[typecheck:full]   排队位置: 第 ${lock.queuePosition}/${lock.queueLength} 位(FIFO)`)
+    }
     console.error('')
     console.error('  这不是类型检查结论:既不是通过,也不是失败。同一台机器上另一场全量')
     console.error('  typecheck 仍在运行,此刻的耗时读数混进了对方的 CPU,不可解释。')
-    console.error('  等对方结束后重跑,或调大 IHUI_TYPECHECK_LOCK_WAIT_MS 再试。')
-    process.exit(UNDETERMINED_EXIT_CODE)
+    console.error('  本进程到此为止,不会原地再等第二轮;等对方结束后重跑,或调大')
+    console.error('  IHUI_TYPECHECK_LOCK_WAIT_MS 再试(exit 75 = 临时失败,可重试)。')
+    process.exit(TEMPFAIL_EXIT_CODE)
   }
   if (lock.waitedMs >= 1_000) {
     console.log(

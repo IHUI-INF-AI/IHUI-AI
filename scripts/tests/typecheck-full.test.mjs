@@ -135,24 +135,45 @@ test('T5 自检不得建 os.tmpdir 锁(自检不派生 tsc,并发自检不该在
   assert.ok(iGuard < iLock, '取锁必须在自检闸门之下,否则自检又去 os.tmpdir 落锁')
 })
 
-test('T10 机器级锁等不到必须交付「未判定(并发占用)」:exit 2 + 持锁者点名,不得折成通过/失败', () => {
-  // 出口语义:exit 75 会被 guardian 当 interrupt 传播并触发 pre-push 带 hook 重试;
-  // exit 2 + 「未判定」才会被 gate-failure-kind 认成 undetermined(不记绿也不判红)。
-  assert.match(SRC, /未判定\(并发占用\)/, '子进程必须自称未判定,否则消费侧 detectUndetermined 读不到')
+test('T10 机器级锁等不到必须分档交付:被占用 exit 75(可重试,带固定标记);锁不可用 exit 2(未判定)', () => {
+  // 2026-11-07 口径变更:两件事必须分开,不许互相折叠。
+  //   被占用(busy-timeout)⇒ 75「临时失败/可重试」,push 侧有界重试一次(每次独立 deadline);
+  //   锁目录不可用(io-error)⇒ 2「未判定」,重试不会改变结果,不可自动重试。
+  assert.match(SRC, /\[IHUI-TYPE-LOCK-BUSY\]/, '被占用必须带固定标记,消费侧据此与"被信号杀"分开')
+  assert.match(SRC, /锁被占用\(可重试\)/, '被占用必须明确写"可重试"')
   assert.match(SRC, /describeLockHolder\(lock\.holder\)/, '拿不到锁必须点名持锁者(pid/启动时刻/仓库/已持有时长)')
   assert.match(
     SRC,
-    /if \(!lock\.ok\) \{[\s\S]{0,900}process\.exit\(UNDETERMINED_EXIT_CODE\)/,
-    '锁失败分支必须 exit UNDETERMINED_EXIT_CODE(2),不得 exit 0/75',
+    /if \(lock\.kind === 'io-error'\) \{[\s\S]{0,600}process\.exit\(UNDETERMINED_EXIT_CODE\)/,
+    '锁目录不可用必须仍走 exit 2(未判定);它不可自愈重试',
   )
+  assert.match(
+    SRC,
+    /\[IHUI-TYPE-LOCK-BUSY\][\s\S]{0,900}process\.exit\(TEMPFAIL_EXIT_CODE\)/,
+    '被占用必须 exit 75(临时失败),不得 exit 0/2',
+  )
+  assert.match(SRC, /未判定\(锁目录不可用\)/, 'io-error 的 stderr 必须仍自称未判定(detectUndetermined 只认这个标记)')
   assert.match(SRC, /IHUI_TYPECHECK_LOCK_WAIT_MS/, '等待上限必须可覆盖(夹具/低配机器)')
 
   const WRAP = readFileSync(join(ROOT, 'scripts', 'check-typecheck.mjs'), 'utf8')
   assert.match(WRAP, /detectUndetermined\(\{/, '消费侧必须用 gate-failure-kind 的同一判据,不得另写一份')
   assert.match(
     WRAP,
+    /TYPE_LOCK_BUSY_MARKER_RE[\s\S]{0,300}process\.exit\(TEMPFAIL_EXIT_CODE\)/,
+    '消费侧必须把"锁占用 75"原样透传为 75,不得洗成"被中断"以外的结论',
+  )
+  assert.match(
+    WRAP,
     /if \(undetermined\) \{[\s\S]{0,400}process\.exit\(UNDETERMINED_EXIT_CODE\)/,
     '未判定必须在 staged-scope 降级之前原样透传(否则被折成红)',
+  )
+  assert.ok(
+    WRAP.indexOf('TYPE_LOCK_BUSY_MARKER_RE.test') < WRAP.indexOf('outcome.kind === \'interrupt\''),
+    '锁占用必须先于 interrupt 分类被认出(75 会被统一归 interrupt,但出路不同)',
+  )
+  assert.ok(
+    WRAP.indexOf('TYPE_LOCK_BUSY_MARKER_RE.test') < WRAP.indexOf('detectUndetermined({'),
+    '锁占用分支必须早于未判定分支(两者是不同档)',
   )
   assert.ok(
     WRAP.indexOf('detectUndetermined({') < WRAP.indexOf('const errorFiles = extractErrorFiles'),
