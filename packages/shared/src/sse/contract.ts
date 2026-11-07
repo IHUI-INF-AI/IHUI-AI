@@ -141,6 +141,13 @@ export const SSE_EVENTS = {
   // 的 `SSE_ADMISSION_EVENT` 同值,由 `__tests__/contract.test.ts` 对账。
   // 必须与 apps/ai-service/app/core/sse_contract.py 同步。
   ADMISSION: 'admission',
+  // AskUserQuestion 闭环(2026-11-08 立):问题结局帧。生产点 = ai-service 主对话流
+  // 工具循环与工作台 agent_loop_v2 的 ask_user_question 拦截位;每个出口(answered /
+  // timeout / withdrawn / interrupted)发一帧,answered 帧即"答复作为一个 part 回到同一
+  // 会话"的流内表现。上行答复是 REST `question-response`,不是 SSE 事件,不进本集合。
+  // 载荷必需键 questionId/status,可再带 selectedOptionIds/customText。
+  // 必须与 apps/ai-service/app/core/sse_contract.py 同步。
+  QUESTION_RESOLVED: 'question-resolved',
 } as const
 
 /**
@@ -1071,6 +1078,20 @@ export type SSEEventPayload =
   // accepted/queued/rejected/duplicate);可选 `messageId`/`queuedTurnId`/`reason`
   // 缺席读作"服务端没说明",不得据此编造。解析纪律见该文件头注三条。
   | SSEEventWithMeta<{ type: 'admission' } & SendAdmissionReceipt>
+  // AskUserQuestion 闭环(2026-11-08 立):问题结局帧。字段与 ai-service
+  // `services/ask_user_question.py::AskUserQuestionItem.resolved_payload` 逐字一致:
+  // questionId/status 恒在,selectedOptionIds/customText 为空时是 []/''(不是缺席)。
+  | SSEEventWithMeta<{
+      type: 'question-resolved'
+      /** 对应的 question 帧里的 questionId */
+      questionId: string
+      /** 结局四档:answered / timeout / withdrawn / interrupted */
+      status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
+      /** 用户选中的选项 id(未答时为空数组) */
+      selectedOptionIds: string[]
+      /** 用户自由文本答复(未填/不被允许时为空串) */
+      customText: string
+    }>
 
 /** 事件名数组(去重,用于契约对账/测试)。 */
 export const SSE_EVENT_NAMES: readonly SSEEventName[] = Object.values(SSE_EVENTS)

@@ -144,6 +144,11 @@ from .agent_checkpoint import (
     get_agent_checkpoint_manager,
 )
 from .agent_deliverables import DeliverablesCollector, save_deliverables
+from .ask_user_question import (
+    cancel_session_questions,
+    create_question,
+    wait_for_answer,
+)
 from .approval_generation_cas import (
     REASON_SNAPSHOT_MISMATCH,
     STATE_RESOLVED,
@@ -1713,6 +1718,37 @@ class AgentEventStream:
         if prompt_options is not None:
             payload[_APPROVAL_PROMPT_OPTIONS_KEY] = prompt_options
         await self.emit("tool.approval", payload)
+
+    async def question(
+        self,
+        *,
+        question: dict[str, Any],
+        session_id: str,
+        message_id: str | None = None,
+    ) -> None:
+        """question:AskUserQuestion 下行帧(形状同 question_parser.Question.to_dict())。"""
+        payload: dict[str, Any] = {"question": question, "session_id": session_id}
+        if message_id:
+            payload["message_id"] = message_id
+        await self.emit("question", payload)
+
+    async def question_resolved(
+        self,
+        *,
+        question_id: str,
+        status: str,
+        selected_option_ids: list[str],
+        custom_text: str,
+        session_id: str,
+    ) -> None:
+        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。"""
+        await self.emit("question-resolved", {
+            "questionId": question_id,
+            "status": status,
+            "selectedOptionIds": selected_option_ids,
+            "customText": custom_text,
+            "session_id": session_id,
+        })
 
     async def permission_mode(
         self, *, mode: str, tool_name: str, decision: str, session_id: str
@@ -6789,6 +6825,126 @@ class AgentLoopV2:
             return executor(args, cancel=cancel_event)
         return executor(args)
 
+    async def _handle_ask_user_question(self, tc: ToolCall) -> ToolResult:
+        """AskUserQuestion 特例拦截(2026-11-08 立):发帧 → 阻塞 → 结局回填。
+
+        与 `_request_approval` 同型:登记问题 + 阻塞等待 + 结局分支;区别是不需要审批门
+        (提问无副作用),且等待期间自行轮询 cancel/pause 标志 —— 本方法在审批门之前
+        直接返回,不经过 `_wait_interruptible` 包裹,取消标志必须在这里读。
+        """
+        start = time.time()
+        session_id = self._session_id or str(uuid.uuid4())
+        args = tc.args if isinstance(tc.args, dict) else {}
+        item = create_question(
+            session_id=session_id,
+            user_id=self._user_id,
+            prompt=args.get("question", ""),
+            header=args.get("header"),
+            options=args.get("options"),
+            allow_custom=bool(args.get("allowCustom", True)),
+            allow_multiple=bool(args.get("multiSelect", False)),
+        )
+        if isinstance(item, dict):
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={**item, "status": "invalid"},
+                error=str(item.get("error") or "提问参数非法"),
+                duration_ms=(time.time() - start) * 1000,
+                error_type="question_invalid",
+            )
+
+        await self._events.question(
+            question=item.to_dict(), session_id=session_id
+        )
+        status = "timeout"
+        try:
+            while True:
+                if self._cancel_requested or self._pause_requested:
+                    # 会话取消/暂停:该会话所有 pending 一律 interrupted,等待方一起醒。
+                    cancel_session_questions(session_id, reason="session_interrupted")
+                    status = "interrupted"
+                    break
+                remaining = (item.expires_at - datetime.now(UTC)).total_seconds()
+                if remaining <= 0:
+                    status = await wait_for_answer(item, timeout_s=0.0)
+                    break
+                try:
+                    await asyncio.wait_for(
+                        item.event.wait(), timeout=min(1.0, remaining)
+                    )
+                except TimeoutError:
+                    continue
+                status = item.status
+                break
+            await self._events.question_resolved(
+                question_id=item.question_id,
+                status=status,
+                selected_option_ids=list(item.selected_ids),
+                custom_text=item.custom_text,
+                session_id=session_id,
+            )
+        except (asyncio.CancelledError, GeneratorExit):
+            cancel_session_questions(session_id, reason="session_interrupted")
+            with contextlib.suppress(Exception):
+                await self._events.question_resolved(
+                    question_id=item.question_id,
+                    status="interrupted",
+                    selected_option_ids=[],
+                    custom_text="",
+                    session_id=session_id,
+                )
+            raise
+
+        labels = [
+            opt["label"] for opt in item.options if opt["id"] in item.selected_ids
+        ]
+        if status == "answered":
+            result: dict[str, Any] = {
+                "ok": True,
+                "status": "answered",
+                "selectedOptionIds": list(item.selected_ids),
+                "labels": labels,
+                "customText": item.custom_text,
+            }
+            error: str | None = None
+            error_type: str | None = None
+        elif status == "withdrawn":
+            result = {
+                "ok": False,
+                "status": "withdrawn",
+                "errorCode": "question_withdrawn",
+                "error": "问题已被撤回,未得到用户答复",
+            }
+            error = "question_withdrawn"
+            error_type = "question_withdrawn"
+        elif status == "interrupted":
+            result = {
+                "ok": False,
+                "status": "interrupted",
+                "errorCode": "question_interrupted",
+                "error": "会话中断,问题未得到用户答复",
+            }
+            error = "question_interrupted"
+            error_type = "question_interrupted"
+        else:
+            result = {
+                "ok": False,
+                "status": "timeout",
+                "errorCode": "question_timeout",
+                "error": "用户未在时限内答复",
+            }
+            error = "question_timeout"
+            error_type = "question_timeout"
+        return ToolResult(
+            tool_call_id=tc.id,
+            name=tc.name,
+            result=result,
+            error=error,
+            duration_ms=(time.time() - start) * 1000,
+            error_type=error_type,
+        )
+
     async def _execute_single(self, tc: ToolCall) -> ToolResult:
         """执行单个工具调用(含超时 + 错误处理 + L5-2 瞬时失败自动重试)。
 
@@ -6870,6 +7026,11 @@ class AgentLoopV2:
                 duration_ms=0,
                 error_type="permission_denied",
             )
+
+        # 2026-11-08:AskUserQuestion 特例拦截(在角色矩阵/审批门之前 —— 提问无副作用,
+        # 任何 role 都可问;等待与结局由 `_handle_ask_user_question` 承办)。
+        if tc.name == "ask_user_question":
+            return await self._handle_ask_user_question(tc)
 
         # 角色矩阵(2026-09-26 V3 #47 第二格,立在审批门**之前**):
         # admin 专属能力对普通用户根本不该进审批弹窗 —— 审批是"用户可否批准自己无权

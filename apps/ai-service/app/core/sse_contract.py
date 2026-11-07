@@ -24,6 +24,10 @@ apps/ai-service/tests/test_sse_contract_self_description.py 现读核(声明数 
 import time
 from dataclasses import dataclass, field
 
+#: AskUserQuestion 闭环结局帧(2026-11-08 立)。载荷必需键 questionId/status,
+#: 可再带 selectedOptionIds/customText;同一 questionId 至多产生一次 answered。
+SSE_QUESTION_RESOLVED: str = "question-resolved"
+
 # SSE 事件名集合(单一事实源)。值即实际 wire 上的事件判别名。
 # 顺序无关,frozenset 用于不可变 + 集合运算。
 SSE_EVENTS: frozenset[str] = frozenset(
@@ -159,6 +163,12 @@ SSE_EVENTS: frozenset[str] = frozenset(
         # 消费:apps/web 的 store 落 `meta.hookFailures` → HookFailureCard 六态卡。
         # **刻意不并进 `error` 帧**:那是"这条回答失败",本帧是"某个 hook 动作失败"。
         "hook-failed",
+        # AskUserQuestion 闭环(2026-11-08 立):问题结局帧。模型侧 `ask_user_question`
+        # 阻塞等待的每个出口都发一帧:answered/timeout/withdrawn/interrupted;
+        # answered 帧即"答复作为一个 part 回到同一会话"的流内表现。
+        # 上行答复是 POST /llm/complete/stream/{session_id}/question-response(REST,
+        # 不是 SSE 事件,**不进**本集合)。必须与 packages/shared/src/sse/contract.ts 同步。
+        "question-resolved",
     }
 )
 
@@ -316,6 +326,12 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     ),
     SSEEventContract("citations", ("citations",)),
     SSEEventContract("question", ("question",)),
+    # AskUserQuestion 闭环结局帧(2026-11-08 立):questionId/status 恒在,
+    # selectedOptionIds/customText 记录答复内容(非 answered 时为空/空串)。
+    SSEEventContract(
+        "question-resolved",
+        ("questionId", "status", "selectedOptionIds", "customText"),
+    ),
     # 2026-11-04:子 agent 三帧真实发射为平铺键(llm.py:5421/6284/3012),
     # 原 ("payload",) 是声明漂移;这里登记前端实际消费的核心键。
     SSEEventContract("subagent_spawn", ("id", "role", "task", "timestamp")),

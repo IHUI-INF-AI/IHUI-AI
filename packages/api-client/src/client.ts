@@ -2077,9 +2077,26 @@ export interface StreamChatOptions {
   onQuestion?: (question: {
     questionId: string
     prompt: string
-    options: Array<{ id: string; label: string }>
+    options: Array<{ id: string; label: string; description?: string }>
     allowCustom: boolean
     allowMultiple: boolean
+    /** 卡片小标题(新帧可选;旧帧没有) */
+    header?: string
+    /** 答复截止时间(ISO 字符串或毫秒时间戳,新帧可选) */
+    expiresAt?: string | number
+    /** 2026-11-08 立:阻塞式提问所属的 ai-service 流会话 ID(旧帧没有)。
+     *  前端据此把答复投到 `/llm/complete/stream/:sessionId/question-response`。 */
+    sessionId?: string
+  }) => void
+  /** 2026-11-08 立:提问结算帧 —— 一个 questionId 只结算一次。
+   *  answered / timeout / withdrawn / interrupted 四种结局都从这里回到流里;
+   *  未注册回调时不解析(旧端零行为变化)。 */
+  onQuestionResolved?: (event: {
+    type: 'question-resolved'
+    questionId: string
+    status: 'answered' | 'timeout' | 'withdrawn' | 'interrupted'
+    selectedOptionIds: string[]
+    customText?: string
   }) => void
   /** P4-2: 后端 fallback 触发回调(主模型失败 + 切换到备用模型时触发,前端展示横幅提示) */
   onFallback?: (event: FallbackEvent) => void
@@ -4430,6 +4447,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     const hasReasoning = typeof opts.onReasoning === 'function'
     const hasCompaction = typeof opts.onCompaction === 'function'
     const hasQuestion = typeof opts.onQuestion === 'function'
+    // 2026-11-08 立:提问结算帧解析开关(未注册回调时不解析,零开销)
+    const hasQuestionResolved = typeof opts.onQuestionResolved === 'function'
     const hasAgentDelta = typeof opts.onAgentDelta === 'function'
     const hasToolCall = typeof opts.onToolCall === 'function'
     // P4-2: fallback 事件回调存在时启用解析
@@ -4619,17 +4638,67 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             options: Array.isArray(q.options)
               ? q.options
                   .filter((o: unknown) => o && typeof o === 'object' && 'id' in o && 'label' in o)
-                  .map((o: { id: unknown; label: unknown }) => ({
+                  .map((o: { id: unknown; label: unknown; description?: unknown }) => ({
                     id: String(o.id),
                     label: String(o.label),
+                    ...(typeof o.description === 'string' && o.description
+                      ? { description: o.description }
+                      : {}),
                   }))
               : [],
             allowCustom: q.allowCustom !== false,
             allowMultiple: q.allowMultiple === true,
+            ...(typeof q.header === 'string' && q.header ? { header: q.header } : {}),
+            ...(typeof q.expiresAt === 'string' || typeof q.expiresAt === 'number'
+              ? { expiresAt: q.expiresAt }
+              : {}),
+            ...(typeof q.sessionId === 'string' && q.sessionId ? { sessionId: q.sessionId } : {}),
           })
         }
       } catch {
         /* 非 JSON 或非 question 事件忽略 */
+      }
+    }
+
+    /**
+     * 2026-11-08 立:提问结算帧解析。
+     * 形状:{"type":"question-resolved","questionId":"q_x","status":"answered|timeout|withdrawn|interrupted",
+     *       "selectedOptionIds":[],"customText":""}
+     * 只做结构校验,不猜状态值域 —— 未知 status 一律忽略(旧/坏帧不能伪造终态)。
+     */
+    const QUESTION_RESOLVED_STATUSES = new Set(['answered', 'timeout', 'withdrawn', 'interrupted'])
+    const tryParseQuestionResolved = (line: string): void => {
+      if (!hasQuestionResolved) return
+      if (!line || line.startsWith(':')) return
+      let data = line
+      if (line.startsWith('data:')) {
+        data = line.slice(5).replace(/^\s/, '')
+      } else if (line.startsWith('event:') || line.startsWith('id:') || line.startsWith('retry:')) {
+        return
+      }
+      if (!data || data === '[DONE]') return
+      try {
+        const json = JSON.parse(data)
+        if (
+          json?.type !== 'question-resolved' ||
+          typeof json?.questionId !== 'string' ||
+          !json.questionId ||
+          typeof json?.status !== 'string' ||
+          !QUESTION_RESOLVED_STATUSES.has(json.status)
+        ) {
+          return
+        }
+        opts.onQuestionResolved!({
+          type: 'question-resolved',
+          questionId: json.questionId,
+          status: json.status,
+          selectedOptionIds: Array.isArray(json.selectedOptionIds)
+            ? json.selectedOptionIds.filter((id: unknown) => typeof id === 'string')
+            : [],
+          ...(typeof json.customText === 'string' ? { customText: json.customText } : {}),
+        })
+      } catch {
+        /* 非 JSON 或非 question-resolved 事件忽略 */
       }
     }
 
@@ -4791,8 +4860,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         } else if (json?.type === 'subagent_end' && json?.id) {
           opts.onSubagentEnd!({
             id: String(json.id),
-            status:
-              json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
+            status: json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
             failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
             timestamp:
               typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
@@ -5944,6 +6012,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         switch (t) {
           case 'question':
             return 'question'
+          case 'question-resolved':
+            return 'question_resolved'
           case 'tool_result':
           case 'tool-result':
           case 'tool-call-start':
@@ -6034,6 +6104,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         tryParseCompaction(line)
       } else if (route === 'question') {
         tryParseQuestion(line)
+      } else if (route === 'question_resolved') {
+        tryParseQuestionResolved(line)
       } else if (route === 'tool_call') {
         tryParseToolCall(line)
       } else if (route === 'subagent') {
@@ -6103,6 +6175,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         // 对 token 行(非 JSON)无 JSON.parse 开销,保持原有行为
         tryParseCompaction(line)
         tryParseQuestion(line)
+        tryParseQuestionResolved(line)
         tryParseToolCall(line)
         tryParseSubagent(line)
         tryParseToolSummary(line)
