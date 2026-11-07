@@ -38,6 +38,7 @@ import subprocess
 import sys
 import tempfile
 from ctypes import wintypes
+from pathlib import Path
 from typing import Any, Final
 
 import websockets
@@ -324,8 +325,11 @@ async def extract_workbuddy_cookie(
         while asyncio.get_running_loop().time() < deadline:
             if os.path.isfile(port_file):
                 try:
-                    with open(port_file, encoding="utf-8") as fh:
-                        lines = fh.read().splitlines()
+                    lines = (
+                        await asyncio.to_thread(
+                            Path(port_file).read_text, encoding="utf-8"
+                        )
+                    ).splitlines()
                     port = int(lines[0].strip()) if lines else 0
                     ws_path = lines[1].strip() if len(lines) > 1 else ""
                 except (OSError, ValueError):

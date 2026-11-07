@@ -215,11 +215,16 @@ export const GUARDIAN_REL = path.join('scripts', 'git-guardian.mjs')
 
 /** 取 startDaemon 里 `const tick = () => {` 之后的正文(判不出 ⇒ 空串,由调用方判未判定)。
  *  边界按缩进收口:配平花括号会被模板字符串/注释里的 `{` 带偏;列 0 非空行即视为 startDaemon 结束。
- *  失效方向是"提前收口 ⇒ 判不出 ⇒ 未判定",绝不会把 main() 的调用读成 tick 接线。 */
+ *  失效方向是"提前收口 ⇒ 判不出 ⇒ 未判定",绝不会把 main() 的调用读成 tick 接线。
+ *  2026-11-07:四条长腿(派生件自愈族)改 spawn+await 后 tick 变成 `const tick = async () => {`。
+ *  判据只认死字面量 ⇒ 整段切不出(tickBodyOf 返回空串),T1/T3/T4/T7/T8 集体从"锁住"退化成
+ *  "判不出"。故 `async` 修饰必须与无修饰等价:**认得形态,不放过删腿**(T5 反证仍由 tick 体内
+ *  有无该名决定,与是否 async 无关)。 */
 export function tickBodyOf(source) {
   const i = source.indexOf('function startDaemon')
   if (i < 0) return ''
-  const j = source.indexOf('const tick = () => {', i)
+  const m = /const\s+tick\s*=\s*(?:async\s+)?\(\)\s*=>\s*\{/.exec(source.slice(i))
+  const j = m === null ? -1 : i + m.index
   if (j < 0) return ''
   const lines = source.slice(j).split(/\r?\n/)
   const out = []
@@ -1015,6 +1020,35 @@ function selfTest() {
     readStampAt(path.join(parDir, 'aasa-health-tick.ts')) === NOW - 30 * 60 * 1000 &&
       readStampAt(path.join(parDir, 'frozen-last.json')) === NOW - 10 * 24 * HOUR_MS &&
       readStampAt(path.join(parDir, 'nope.json')) === null,
+  )
+
+  // ㉜ 切片形态(2026-11-07 立):四条长腿(派生件自愈族)改 spawn + await 后,tick 从
+  // `const tick = () => {` 变成 `const tick = async () => {`。判据只认死字面量时整段切不出
+  // (返回空串)⇒ T1/T3/T4/T7/T8 集体从"锁住"退化成"判不出",而这一族的失效形态恰好是安静。
+  // 两种形态必须切出**同一段正文**;切不出时仍必须是空串(失效方向不许变成"拿 main 段充数")。
+  const tickSync = [
+    'function startDaemon() {',
+    '  const tick = () => {',
+    '    coveredLeg()',
+    '  }',
+    '}',
+  ].join('\n')
+  const tickAsync = tickSync.replace('const tick = () => {', 'const tick = async () => {')
+  t(
+    '㉜a 切片:async tick 与同步 tick 切出同一段正文(改 await 不等于"判不出")',
+    tickBodyOf(tickSync).includes('coveredLeg()') && tickBodyOf(tickSync) === tickBodyOf(tickAsync),
+  )
+  t(
+    '㉜b 切片:startDaemon 里没有 tick 定义 ⇒ 空串(不拿 main 段充数,失效方向仍是未判定)',
+    tickBodyOf(
+      ['async function main() {', '  coveredLeg()', '}', 'function startDaemon() {', '  const t = () => {', '  }', '}'].join(
+        '\n',
+      ),
+    ) === '',
+  )
+  t(
+    '㉜c 变异自证:判据源码里那半句 `(?:async\\s+)?` 必须在(删掉即 ㉜a 红,提醒别把形态写死)',
+    src.includes('(?:async\\s+)?'),
   )
 
   console.log(`自检 ${total - fails}/${total}`)

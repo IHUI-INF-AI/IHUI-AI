@@ -542,8 +542,71 @@ fn env_proxy_present() -> bool {
         .any(|k| std::env::var_os(k).map(|v| !v.is_empty()).unwrap_or(false))
 }
 
+/// 探活 Client 构建失败(BUG-0041,2026-11-06)。
+///
+/// `reqwest::ClientBuilder::build()` **不是**不会失败的调用:reqwest 0.12.28 的
+/// `ClientBuilder::build` 的 `#Errors` 明确写着「TLS 后端无法初始化 / 解析器无法
+/// 加载系统配置」都会返回 `Err`,实现里另有 `empty supported tls versions` 与
+/// `config.error` 两条早退。原实现两处 `.expect("auto-refresh: build reqwest client")`
+/// 把这个可恢复错误升级成 panic,而 release 档 `[profile.release] panic = "abort"`
+/// ⇒ 本地网络后端初始化失败会被放大成「启动即闪退」(整个进程被 abort,不是单任务)。
+///
+/// 代理/直连两档分开,是为了日志能直接指出坏的是哪一条探活路(两者参数不同,
+/// 处置也不同)。
+#[derive(Debug)]
+enum ProbeClientError {
+    /// 走 env/系统代理的探活 Client 构建失败
+    Proxy(reqwest::Error),
+    /// 命中回环/内网 bypass 判据的直连 Client 构建失败
+    Direct(reqwest::Error),
+}
+
+impl ProbeClientError {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Proxy(_) => "代理探活 Client",
+            Self::Direct(_) => "直连探活 Client",
+        }
+    }
+}
+
+impl std::fmt::Display for ProbeClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // reqwest::Error 的 Display 只印 `builder error`,真正原因
+        // (`empty supported tls versions` 等)住在 source 链里 —— 不补这一层,
+        // 日志里就只剩一句无信息量的 "builder error"。
+        write!(f, "{} 构建失败", self.label())?;
+        let mut source = std::error::Error::source(self);
+        while let Some(err) = source {
+            write!(f, ": {err}")?;
+            source = err.source();
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for ProbeClientError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Proxy(e) | Self::Direct(e) => Some(e),
+        }
+    }
+}
+
+/// 探活 Client 的公共收尾:把 `build()` 的 `Result` 原样上抛,由调用方决定降级。
+///
+/// 单独成函数是为了让这条失败路径可被测试钉住:测试用「TLS 版本区间取反」构造
+/// 确定性的 `Err`,断言这里返回错误而不是 panic(见
+/// `probe_client_build_failure_is_returned_not_panicked`)。
+fn build_client(
+    builder: reqwest::ClientBuilder,
+    wrap: fn(reqwest::Error) -> ProbeClientError,
+) -> Result<reqwest::Client, ProbeClientError> {
+    builder.build().map_err(wrap)
+}
+
 /// 探活 Client 构建:env 代理缺席时叠读 Windows 系统代理(见 system_proxy_url)。
-fn build_probe_client() -> reqwest::Client {
+fn build_probe_client() -> Result<reqwest::Client, ProbeClientError> {
     let mut builder = reqwest::Client::builder()
         .timeout(Duration::from_secs(12))
         .user_agent("ihui-desktop-auto-refresh");
@@ -562,9 +625,7 @@ fn build_probe_client() -> reqwest::Client {
             }
         }
     }
-    builder
-        .build()
-        .expect("auto-refresh: build reqwest client")
+    build_client(builder, ProbeClientError::Proxy)
 }
 
 /// 直连 Client:目标 host 命中 `should_bypass_proxy` 时使用(见该函数头注)。
@@ -572,13 +633,14 @@ fn build_probe_client() -> reqwest::Client {
 /// 与 `build_probe_client` 同参数(timeout/user_agent),唯一差别是 `.no_proxy()`
 /// —— reqwest 的 `Proxy::all` 没有 bypass 列表,禁不掉已挂的 env 代理,
 /// 所以这里整建一个不走任何代理的 Client,按目标 host 分流选用。
-fn build_direct_probe_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(12))
-        .user_agent("ihui-desktop-auto-refresh")
-        .no_proxy()
-        .build()
-        .expect("auto-refresh: build reqwest client")
+fn build_direct_probe_client() -> Result<reqwest::Client, ProbeClientError> {
+    build_client(
+        reqwest::Client::builder()
+            .timeout(Duration::from_secs(12))
+            .user_agent("ihui-desktop-auto-refresh")
+            .no_proxy(),
+        ProbeClientError::Direct,
+    )
 }
 
 /// 探活/指纹目标是否应**绕过**系统/env 代理直连。
@@ -621,7 +683,7 @@ pub(crate) fn should_bypass_proxy(host: &str) -> bool {
 /// 放在 `start()` 里二选一(而不是给 Client 挂 per-request bypass)——
 /// reqwest 没有 per-request no_proxy,且一个 base 只有一个 origin,
 /// 整生命周期只需判一次。
-fn select_probe_client(base: &BackendBase) -> reqwest::Client {
+fn select_probe_client(base: &BackendBase) -> Result<reqwest::Client, ProbeClientError> {
     let host = tauri::Url::parse(&base.frontend_url)
         .ok()
         .and_then(|u| u.host_str().map(str::to_string));
@@ -664,7 +726,29 @@ pub fn start(app: tauri::AppHandle, reveal_on_probe: bool) {
         // 2026-10-15:回环/内网基址(localhost:8801 开发联调等)必须直连 ——
         // 系统代理(Clash)对 localhost 不保证 DIRECT,`Proxy::all` 无 bypass 列表,
         // 会把本机探活导去节点造成假离线(详见 select_probe_client 头注)。
-        let client = select_probe_client(&base);
+        //
+        // 2026-11-06(BUG-0041):该调用的失败面必须收在这里。reqwest 的
+        // `ClientBuilder::build()` 会在 TLS 后端初始化 / 系统证书·DNS 配置加载失败时
+        // 返回 Err,原实现在 `build_probe_client` 里 `.expect(...)` ⇒ release 档
+        // `panic = "abort"` 直接把整个桌面进程打死(启动即闪退)。现在显式处理:
+        // ① 记 error 级日志(含 source 链,见 ProbeClientError 的 Display);
+        // ② **不伪造在线/离线结论** —— 探活客户端都建不出来,healthy 是"未判定"
+        //   而不是"判定为离线",所以不切离线兜底页(WebView2 的网络栈与 reqwest
+        //   独立,页面本身此刻可能完全正常),也不发"网络不可用"通知;
+        // ③ 不进常驻探活循环(没有 client 的循环只会每轮空转),直接返回。
+        // 窗口点亮不依赖本模块:远程页加载完成由 lib.rs 的 on_page_load 点亮。
+        let client = match select_probe_client(&base) {
+            Ok(client) => client,
+            Err(err) => {
+                log::error!(
+                    "[auto-refresh] 探活 Client 构建失败 → 后台自动刷新/断网守卫本次不启动: {err}"
+                );
+                log::error!(
+                    "[auto-refresh] 探活 Client 构建失败 → 本次不判在线/离线(未判定),主窗口仍由 page_load_finished 点亮"
+                );
+                return;
+            }
+        };
 
         // ── 启动序列:探活决定首屏,永不白屏 ──
         // 启动期用「同轮重试」而非 ON/OFF 阈值滞回:此刻只有"在线/离线"二选一,
@@ -1051,7 +1135,13 @@ mod tests {
         // 直连 Client 可构建(reqwest no_proxy 分支不 panic),bypass 判据对
         // 开发后端基址的 host 命中 —— 两者合起来保证 select_probe_client
         // 在 localhost 联调态走直连分支。
-        let _ = build_direct_probe_client();
+        //
+        // BUG-0041 起该函数返回 Result:正常参数必须成功(失败面由下方
+        // `probe_client_build_failure_is_returned_not_panicked` 单独钉住)。
+        assert!(
+            build_direct_probe_client().is_ok(),
+            "正常参数下直连探活 Client 必须可构建"
+        );
         let base = resolve_backend_base(Some(&tauri::Url::parse("http://localhost:8801/").unwrap()));
         let host = tauri::Url::parse(&base.frontend_url)
             .ok()
@@ -1059,6 +1149,42 @@ mod tests {
             .expect("frontend_url 必须可解析出 host");
         assert_eq!(host, "localhost");
         assert!(should_bypass_proxy(&host));
+    }
+
+    // ── BUG-0041:探活 Client 构建失败必须可返回,不得 panic ──
+
+    #[test]
+    fn probe_client_build_failure_is_returned_not_panicked() {
+        // 人为制造确定性故障:reqwest 的 TLS 版本区间取反(min=1.3 / max=1.2)。
+        // reqwest-0.12.28 `src/async_impl/client.rs` 先按 min 过滤 ALL_VERSIONS、
+        // 再按 max 过滤,两侧都留空集时走 `empty supported tls versions` 分支返回
+        // `Err(builder error)` —— 正是原先 `.expect(...)` 会 panic 的那条路径。
+        let faulty = reqwest::Client::builder()
+            .min_tls_version(reqwest::tls::Version::TLS_1_3)
+            .max_tls_version(reqwest::tls::Version::TLS_1_2);
+        // 若有人把 map_err 改回 expect,本用例会以 "test panicked" 直接红 ——
+        // 这正是要钉住的行为(不再是进程 abort 才能发现)。
+        let err = build_client(faulty, ProbeClientError::Direct)
+            .expect_err("TLS 版本区间取反必须返回 Err,不得 panic");
+        let text = err.to_string();
+        assert!(
+            text.contains("直连探活 Client 构建失败"),
+            "日志必须指出坏的是哪条探活路: {text}"
+        );
+        assert!(
+            text.contains("empty supported tls versions"),
+            "reqwest::Error 的 Display 只有 'builder error',根因必须由 source 链补上: {text}"
+        );
+        assert!(
+            std::error::Error::source(&err).is_some(),
+            "source 链不得为空(否则打印出来只有无信息量的 builder error)"
+        );
+
+        // 正向对照:同一构造入口给正常参数必须成功,不允许"为了让失败用例变绿而放宽断言"。
+        assert!(
+            build_client(reqwest::Client::builder(), ProbeClientError::Proxy).is_ok(),
+            "正常参数不得被误判失败"
+        );
     }
 
     #[test]

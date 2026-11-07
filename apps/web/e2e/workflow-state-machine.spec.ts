@@ -34,7 +34,7 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     await adminPage.goto(DEMAND_AUDIT_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
-      setupTest.skip(true, 'admin demand-audit 页面被 middleware 拦截')
+      setupTest.skip(true, 'admin demand-audit 页面被 middleware 拦截 [SKIP:SKIP-0195]')
     }
     expect(filterRealErrors(serverErrors)).toHaveLength(0)
     const real = consoleErrors.filter(
@@ -50,10 +50,10 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     await adminPage.goto(DEMAND_AUDIT_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
+      setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0196]')
     }
 
-    await adminPage.waitForTimeout(1500)
+    await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
     // 2026-08-26 修复:getByRole('button') 全局匹配会命中侧边栏"内容审核"按钮
     // (含"审核"二字),点击它不会打开 dialog。需限定到主区域 + 操作列。
     const approveRowBtn = adminPage
@@ -62,7 +62,7 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
       .filter({ hasText: /审核|通过|审批|Approve|Review/i })
       .first()
     if (!(await approveRowBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
-      setupTest.skip(true, '列表无数据,无法打开审批对话框')
+      setupTest.skip(true, '列表无数据,无法打开审批对话框 [SKIP:SKIP-0197]')
     }
     await approveRowBtn.click()
     const dialog = adminPage.getByRole('dialog').first()
@@ -85,10 +85,10 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
       await adminPage.goto(DEMAND_AUDIT_PATH)
       await adminPage.waitForLoadState('domcontentloaded')
       if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
-        setupTest.skip(true, 'admin 页面不可访问')
+        setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0198]')
       }
 
-      await adminPage.waitForTimeout(1500)
+      await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
       // 2026-08-26 修复:同 45 行 —— 限定 main 区域,避免误中侧边栏"内容审核"
       const approveRowBtn = adminPage
         .locator('main')
@@ -96,7 +96,7 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
         .filter({ hasText: /审核|通过|审批|Approve|Review/i })
         .first()
       if (!(await approveRowBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
-        setupTest.skip(true, '列表无数据')
+        setupTest.skip(true, '工作流列表没有可验证的数据行 [SKIP:SKIP-0199]')
       }
       await approveRowBtn.click()
       const dialog = adminPage.getByRole('dialog').first()
@@ -121,10 +121,10 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     await adminPage.goto(DEMAND_AUDIT_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
+      setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0200]')
     }
 
-    await adminPage.waitForTimeout(1500)
+    await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
     // 2026-08-26 修复:同 45 行 —— 限定 main 区域,避免误中侧边栏"内容审核"
     const approveRowBtn = adminPage
       .locator('main')
@@ -132,7 +132,7 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
       .filter({ hasText: /审核|通过|审批|Approve|Review/i })
       .first()
     if (!(await approveRowBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
-      setupTest.skip(true, '列表无数据')
+      setupTest.skip(true, '工作流列表没有可验证的数据行 [SKIP:SKIP-0201]')
     }
     await approveRowBtn.click()
     const dialog = adminPage.getByRole('dialog').first()
@@ -160,6 +160,7 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     }
     // 即使后端失败,前端 dispatchApproval({type:APPROVE, approverId:'admin'}) 已触发
     // → 状态机进入 approved。验证 state 文案。
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await adminPage.waitForTimeout(1000)
     const approvedBadge = dialog.locator('text=/state:\\s*approved/i')
     const stillDraft = dialog.locator('text=/state:\\s*draft/i')
@@ -173,10 +174,10 @@ setupTest.describe('8 端关键路径 · 审批状态机 4 状态切换', () => 
     await adminPage.goto(DEMAND_AUDIT_PATH)
     await adminPage.waitForLoadState('domcontentloaded')
     if (!adminPage.url().includes(DEMAND_AUDIT_PATH)) {
-      setupTest.skip(true, 'admin 页面不可访问')
+      setupTest.skip(true, 'admin 页面不可访问 [SKIP:SKIP-0202]')
     }
 
-    await adminPage.waitForTimeout(1500)
+    await adminPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
     // 抽取页面内所有 "state: xxx" 文案,验证只可能是 5 个合法状态之一
     const stateValues = await adminPage.evaluate(() => {
       const re = /state:\s*(draft|submitted|approved|rejected|cancelled)/gi

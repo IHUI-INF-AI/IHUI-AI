@@ -7,6 +7,7 @@ import type { ChatStore } from '@/stores/chat-pane-context'
 import { useWorkPanelStore } from '@/stores/work-panel'
 import { emitAgentHook } from '@/stores/agent-hooks'
 import type {
+  OpenAiToolCallDelta,
   ReviewFindingEvent,
   ToolDeltaEvent,
   ToolSummaryEvent,
@@ -169,6 +170,10 @@ export function createToolCallHandler(
       // D113:tool-result 到达即清流中预览(最终 diff 以 result 的 diffInfo 为准)
       updates.partialDiff = undefined
       updates.partialSeq = undefined
+      // 2026-11-05:Vercel tool-result 到达即收口入参预览(与 partialDiff 同一纪律),
+      // 最终 args 以 tool-result 的 `event.args` 为准,不残留流式态。
+      updates.partialArgs = undefined
+      updates.argsStreaming = undefined
       chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, updates)
 
       // tool-result 含 URL:延迟打开(仅当之前 args 没 url 时,result 含 url 的场景)
@@ -198,6 +203,59 @@ export function createToolDeltaHandler(
     chatStore.getState().updateToolCall(assistantMessageId, event.toolCallId, {
       partialDiff: (tc.partialDiff ?? '') + event.partialText,
       partialSeq: event.seq,
+    })
+  }
+}
+
+/**
+ * 2026-11-05 立:工具入参逐分片渐进渲染(订阅 api-client 的 onOpenAiToolCall)。
+ *
+ * 上游每片 `function.arguments` 到达即产一条 `OpenAiToolCallDelta`,按 call `index`
+ * 关联同一工具调用。首片建 running 卡;partial 态**只**写 partialArgs,绝不覆盖正式
+ * args / status / result;complete 态写正式 args 并清预览;Vercel tool-result 到达
+ * 也会清预览(createToolCallHandler 同律)。
+ *
+ * 与 openAiCompat 独立:那条开关只管 OpenAI 原生 SSE 行,本 handler 吃的是
+ * ai-service 的 tool-call-args-delta 自定义帧;旧服务端不发该帧 ⇒ 零行为变化。
+ */
+export function createOpenAiToolCallHandler(
+  assistantMessageId: string,
+  chatStore: ChatStore = useChatStore,
+) {
+  // index → toolCallId:OpenAI 只在首片带 id,后续片靠 index 归位;后端 id 为空时
+  // 用稳定合成 id,保证同一 index 的多片始终落在同一张卡上。
+  const idByIndex = new Map<number, string>()
+  return (delta: OpenAiToolCallDelta) => {
+    const toolCallId =
+      delta.id || idByIndex.get(delta.index) || `openai-${delta.index}`
+    idByIndex.set(delta.index, toolCallId)
+    const store = chatStore.getState()
+    const message = store.messages.find((m) => m.id === assistantMessageId)
+    const existing = message?.toolCalls?.find((t) => t.id === toolCallId)
+
+    if (!existing) {
+      store.addToolCall(assistantMessageId, {
+        id: toolCallId,
+        toolName: delta.name ?? '',
+        args: delta.argsComplete && delta.args ? delta.args : {},
+        status: 'running',
+        partialArgs: delta.argsComplete ? undefined : delta.args,
+        argsStreaming: !delta.argsComplete,
+      })
+      return
+    }
+    if (delta.argsComplete) {
+      store.updateToolCall(assistantMessageId, toolCallId, {
+        args: delta.args ?? existing.args ?? {},
+        partialArgs: undefined,
+        argsStreaming: undefined,
+      })
+      return
+    }
+    // 无法修复的片 args 为 undefined:保留上一次的部分对象,绝不把预览清成空白。
+    store.updateToolCall(assistantMessageId, toolCallId, {
+      argsStreaming: true,
+      ...(delta.args !== undefined ? { partialArgs: delta.args } : {}),
     })
   }
 }

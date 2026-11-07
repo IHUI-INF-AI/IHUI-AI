@@ -381,15 +381,21 @@ test('force 自测**成功时清 UNDELIVERED 标记**(2026-10-03 补:否则唯�
 
 // ── ⑤ 装车证明:判红点真的接线(防"判据存在但永不被调用",守门 70/76 教训) ────
 
-/** 取函数体(按大括号配平,与 git-guardian-drift-align.test.mjs 同一手法) */
+/** 取函数体(先配平参数括号再找函数体大括号;参数解构 `{tickFile=…}` 不会被误当函数体) */
 function funcBody(src, name) {
   const start = src.indexOf(`function ${name}(`)
   assert.ok(start >= 0, `源文件里找不到 ${name}()`)
-  const open = src.indexOf('{', start)
+  let pd = 0
+  let i = src.indexOf('(', start)
+  for (; i < src.length; i++) {
+    if (src[i] === '(') pd++
+    else if (src[i] === ')' && --pd === 0) break
+  }
+  const open = src.indexOf('{', i)
   let depth = 0
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === '{') depth++
-    else if (src[i] === '}' && --depth === 0) return src.slice(open, i + 1)
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === '{') depth++
+    else if (src[j] === '}' && --depth === 0) return src.slice(open, j + 1)
   }
   assert.fail(`${name}() 花括号未配平`)
 }

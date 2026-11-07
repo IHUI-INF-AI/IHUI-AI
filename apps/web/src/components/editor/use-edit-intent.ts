@@ -11,6 +11,7 @@ import {
   usePredictiveEditMetricSettlement,
   type PredictiveEditAction,
 } from '@/lib/predictive-edit-api'
+import { usePredictiveEditPrefsStore } from '@/stores/predictive-edit'
 
 /**
  * 编辑器内的预测式编辑(编辑意图预测)状态钩子 —— Trae CUE 的「编辑器内嵌
@@ -63,6 +64,9 @@ export function useEditorEditIntent({
   enabled,
 }: UseEditorEditIntentOptions): UseEditorEditIntentResult {
   const [prediction, setPrediction] = React.useState<EditorEditIntentPrediction | null>(null)
+  // V3 #82 两把钥匙之一(用户意志):设置页总开关关闭 ⇒ 编辑器链路零请求。
+  // `enabled` 是宿主能力面(readOnly/非受控),两者不互相替代;关 ≠ no_action。
+  const predictiveEditEnabled = usePredictiveEditPrefsStore((s) => s.enabled)
   // 实时读取面(光标)跨渲染稳定:effect 闭包只依赖 text/enabled,光标经 ref 取。
   const getCursorOffsetRef = React.useRef(getCursorOffset)
   getCursorOffsetRef.current = getCursorOffset
@@ -70,7 +74,7 @@ export function useEditorEditIntent({
   languageRef.current = language
 
   React.useEffect(() => {
-    if (!enabled || !text) {
+    if (!enabled || !predictiveEditEnabled || !text) {
       setPrediction(null)
       return
     }
@@ -97,7 +101,7 @@ export function useEditorEditIntent({
       clearTimeout(timer)
       controller.abort()
     }
-  }, [text, enabled])
+  }, [text, enabled, predictiveEditEnabled])
 
   const predictionVisible = prediction !== null && prediction.document === text
   const settleAccepted = usePredictiveEditMetricSettlement(prediction, predictionVisible)

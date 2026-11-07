@@ -53,8 +53,8 @@ describe('checkpoint 会话级闭环', () => {
     const cp = mgr.snapshotSync([filePath], 'auto_pre_edit')
 
     // 2. 会话落盘,模拟进程退出
-    session.history.push({ role: 'user', content: '给 feature.ts 改成 v=2' })
-    session.history.push({ role: 'assistant', content: '已修改' })
+    session.history.push({ id: 'm-1', role: 'user', content: '给 feature.ts 改成 v=2' })
+    session.history.push({ id: 'm-2', role: 'assistant', content: '已修改' })
     saveSession(session)
 
     // 3. 模拟后续编辑破坏现场

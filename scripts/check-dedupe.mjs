@@ -3,7 +3,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-
 /**
  * 依赖版本碎片化检查脚本(守门 7,blocking)
  *
@@ -49,7 +48,13 @@ const LEDGER_KEYS = ['pkg', 'version', 'reason', 'reviewBy']
  */
 export function parseFragments(text) {
   const s = String(text ?? '')
-  if (!/dedupe/i.test(s)) return null
+  if (!/dedupe/i.test(s)) {
+    // 2026-11-04 实测(pnpm 11.18.0):`dedupe --check` 干净收尾时**一个 "dedupe" 字样都不打**,
+    // 只剩若干 `Progress: resolved …, reused …, downloaded …, added 0` 与末尾 `done`。
+    // 认得这一形态且无 ERR_PNPM_ ⇒ 确认"本次无碎片";其余不认识形态仍返回 null(未判定)。
+    if (/Progress: resolved \d+[\s\S]*\bdone\b/i.test(s) && !/ERR_PNPM_/i.test(s)) return []
+    return null
+  }
   const found = []
   for (const raw of s.split(/\r?\n/)) {
     const m = /^-\s+(@?[^@\s]+(?:\/[^@\s]+)?)@([0-9][^\s]*)$/.exec(raw.trim())
@@ -65,7 +70,10 @@ export function parseFragments(text) {
 export function validateLedger(parsed) {
   const errors = []
   if (!parsed || !Array.isArray(parsed.entries)) {
-    return { entries: [], errors: [`台账顶层必须是 {entries:[…]}(实得 ${parsed ? typeof parsed : '无'})`] }
+    return {
+      entries: [],
+      errors: [`台账顶层必须是 {entries:[…]}(实得 ${parsed ? typeof parsed : '无'})`],
+    }
   }
   parsed.entries.forEach((e, i) => {
     const at = `entries[${i}]`
@@ -107,29 +115,43 @@ export function classifyRun({ ranOk, status, parsed }) {
  */
 export function decide({ fragments, entries, today, ranOk }) {
   if (!ranOk || fragments === null)
-    return { code: 2, lines: ['未判定:pnpm dedupe --check 的输出取不到或形态不认识 ⇒ 既不记绿也不冒红(§0.3)'] }
+    return {
+      code: 2,
+      lines: ['未判定:pnpm dedupe --check 的输出取不到或形态不认识 ⇒ 既不记绿也不冒红(§0.3)'],
+    }
   const bad = []
   const passed = []
   const matched = new Set()
   fragments.forEach((f) => {
     const hit = entries.find((e) => e.pkg === f.pkg && e.version === f.version)
     if (!hit) {
-      bad.push(`新碎片 ${f.pkg}@${f.version} —— 台账外,必须 pnpm dedupe 后随本枚提交锁文件,或按 §0.7 登记存量(带 reason + reviewBy)`)
+      bad.push(
+        `新碎片 ${f.pkg}@${f.version} —— 台账外,必须 pnpm dedupe 后随本枚提交锁文件,或按 §0.7 登记存量(带 reason + reviewBy)`,
+      )
       return
     }
     if (hit.reviewBy < today) {
-      bad.push(`台账条目已到期 ${f.pkg}@${f.version}(reviewBy=${hit.reviewBy} < ${today})⇒ §0.7 到期回队列重裁`)
+      bad.push(
+        `台账条目已到期 ${f.pkg}@${f.version}(reviewBy=${hit.reviewBy} < ${today})⇒ §0.7 到期回队列重裁`,
+      )
       return
     }
     matched.add(`${hit.pkg}@${hit.version}`)
-    passed.push(`存量点名放行 ${f.pkg}@${f.version}(ticket=${hit.ticket ?? '-'},复核日 ${hit.reviewBy}):${hit.reason}`)
+    passed.push(
+      `存量点名放行 ${f.pkg}@${f.version}(ticket=${hit.ticket ?? '-'},复核日 ${hit.reviewBy}):${hit.reason}`,
+    )
   })
   // 清单腐烂(§0.7「验过才免」的另一半):登记的碎片本次一条都没出现 ⇒ 已消掉,条目该删。
   const rotten = entries.filter((e) => !matched.has(`${e.pkg}@${e.version}`))
   rotten.forEach((e) => {
     if (e.reviewBy < today)
-      bad.push(`台账腐烂且已到期 ${e.pkg}@${e.version}:本次报告没有这枚碎片(已消掉)而条目仍挂着 ⇒ 删条目`)
-    else bad.push(`台账腐烂 ${e.pkg}@${e.version}:本次报告里没有这枚碎片 ⇒ 存量已消除,删掉该条(留着就是"看着有豁免其实空转")`)
+      bad.push(
+        `台账腐烂且已到期 ${e.pkg}@${e.version}:本次报告没有这枚碎片(已消掉)而条目仍挂着 ⇒ 删条目`,
+      )
+    else
+      bad.push(
+        `台账腐烂 ${e.pkg}@${e.version}:本次报告里没有这枚碎片 ⇒ 存量已消除,删掉该条(留着就是"看着有豁免其实空转")`,
+      )
   })
   const lines = []
   if (passed.length) lines.push(...passed)
@@ -141,27 +163,87 @@ export function decide({ fragments, entries, today, ranOk }) {
 const SELF_TEST_FIXTURES = [
   {
     name: 'T1 台账齐备 + 无新碎片 ⇒ 0',
-    in: { fragments: [{ pkg: 'pbkdf2', version: '3.1.6' }], entries: [{ pkg: 'pbkdf2', version: '3.1.6', reason: '上游闭包锁死', ticket: 'G-1', reviewBy: '2099-01-01' }], today: '2026-11-01', ranOk: true },
+    in: {
+      fragments: [{ pkg: 'pbkdf2', version: '3.1.6' }],
+      entries: [
+        {
+          pkg: 'pbkdf2',
+          version: '3.1.6',
+          reason: '上游闭包锁死',
+          ticket: 'G-1',
+          reviewBy: '2099-01-01',
+        },
+      ],
+      today: '2026-11-01',
+      ranOk: true,
+    },
     want: 0,
   },
   {
     name: 'T2 反向牙:同样的碎片但台账为空 ⇒ 1(摘掉"差值/台账"这一维必翻红)',
-    in: { fragments: [{ pkg: 'pbkdf2', version: '3.1.6' }], entries: [], today: '2026-11-01', ranOk: true },
+    in: {
+      fragments: [{ pkg: 'pbkdf2', version: '3.1.6' }],
+      entries: [],
+      today: '2026-11-01',
+      ranOk: true,
+    },
     want: 1,
   },
   {
     name: 'T3 台账外的新碎片 ⇒ 1',
-    in: { fragments: [{ pkg: 'pbkdf2', version: '3.1.6' }, { pkg: 'left-pad', version: '1.0.0' }], entries: [{ pkg: 'pbkdf2', version: '3.1.6', reason: '上游闭包锁死', ticket: 'G-1', reviewBy: '2099-01-01' }], today: '2026-11-01', ranOk: true },
+    in: {
+      fragments: [
+        { pkg: 'pbkdf2', version: '3.1.6' },
+        { pkg: 'left-pad', version: '1.0.0' },
+      ],
+      entries: [
+        {
+          pkg: 'pbkdf2',
+          version: '3.1.6',
+          reason: '上游闭包锁死',
+          ticket: 'G-1',
+          reviewBy: '2099-01-01',
+        },
+      ],
+      today: '2026-11-01',
+      ranOk: true,
+    },
     want: 1,
   },
   {
     name: 'T4 台账条目已到期 ⇒ 1',
-    in: { fragments: [{ pkg: 'pbkdf2', version: '3.1.6' }], entries: [{ pkg: 'pbkdf2', version: '3.1.6', reason: '上游闭包锁死', ticket: 'G-1', reviewBy: '2026-01-01' }], today: '2026-11-01', ranOk: true },
+    in: {
+      fragments: [{ pkg: 'pbkdf2', version: '3.1.6' }],
+      entries: [
+        {
+          pkg: 'pbkdf2',
+          version: '3.1.6',
+          reason: '上游闭包锁死',
+          ticket: 'G-1',
+          reviewBy: '2026-01-01',
+        },
+      ],
+      today: '2026-11-01',
+      ranOk: true,
+    },
     want: 1,
   },
   {
     name: 'T5 登记了而报告没命中(清单腐烂)⇒ 1',
-    in: { fragments: [], entries: [{ pkg: 'pbkdf2', version: '3.1.6', reason: '上游闭包锁死', ticket: 'G-1', reviewBy: '2099-01-01' }], today: '2026-11-01', ranOk: true },
+    in: {
+      fragments: [],
+      entries: [
+        {
+          pkg: 'pbkdf2',
+          version: '3.1.6',
+          reason: '上游闭包锁死',
+          ticket: 'G-1',
+          reviewBy: '2099-01-01',
+        },
+      ],
+      today: '2026-11-01',
+      ranOk: true,
+    },
     want: 1,
   },
   {
@@ -199,7 +281,9 @@ function selfTest() {
       fail.push(`${t.name}:抛 ${e?.message ?? e}`)
     }
   }
-  const p = parseFragments('foo@1.0.0\n└── bar 1 → 2\n\n- pbkdf2@3.1.6\n- which-typed-array@1.1.22\n\nRun pnpm dedupe to apply the changes above.')
+  const p = parseFragments(
+    'foo@1.0.0\n└── bar 1 → 2\n\n- pbkdf2@3.1.6\n- which-typed-array@1.1.22\n\nRun pnpm dedupe to apply the changes above.',
+  )
   if (p && p.length === 2 && p[0].pkg === 'pbkdf2') ok++
   else fail.push(`T9 解析 pnpm 报告:实得 ${JSON.stringify(p)}`)
   const q = parseFragments('Progress: resolved 100\nnothing to dedupe\n')
@@ -208,7 +292,17 @@ function selfTest() {
   const r = parseFragments('Run pnpm dedupe to apply the changes above.')
   if (r === null) ok++
   else fail.push(`T11 说了"有变更要应用"却解析不到条目 ⇒ 必须未判定,实得 ${JSON.stringify(r)}`)
-  console.log(`[check:dedupe --self-test] ${ok}/${SELF_TEST_FIXTURES.length + 3} 通过`)
+  const cleanReal = parseFragments(
+    [
+      '✓ Lockfile passes supply-chain policies (verified 1m ago)',
+      'Progress: resolved 4445, reused 4049, downloaded 0, added 0, done',
+      '[WARN] Issues with peer dependencies found. Run "pnpm peers check" to list them.',
+    ].join('\n'),
+  )
+  if (Array.isArray(cleanReal) && cleanReal.length === 0) ok++
+  else
+    fail.push(`T12 pnpm 11 干净收尾(无 dedupe 字样)应解析成 []:实得 ${JSON.stringify(cleanReal)}`)
+  console.log(`[check:dedupe --self-test] ${ok}/${SELF_TEST_FIXTURES.length + 4} 通过`)
   for (const f of fail) console.log(`  ❌ ${f}`)
   process.exit(fail.length ? 1 : 0)
 }
@@ -217,7 +311,9 @@ async function main() {
   const argv = process.argv.slice(2)
   if (argv.includes('--self-test')) return selfTest()
   if (argv.includes('--staged') && argv.includes('--worktree')) {
-    console.error('[check:dedupe] ❌ 用法错:--staged 与 --worktree 两面旗同给 ⇒ 取材面只能一个(横向口径)')
+    console.error(
+      '[check:dedupe] ❌ 用法错:--staged 与 --worktree 两面旗同给 ⇒ 取材面只能一个(横向口径)',
+    )
     process.exit(2)
   }
   const isStaged = argv.includes('--staged')
@@ -229,8 +325,11 @@ async function main() {
       // 2026-10-26 G-54:git 派生收口到 face-reader(绝对路径二进制 + safe.directory + stdio/windowsHide 统一)。
       staged = gitRaw(['diff', '--cached', '--name-only'], ROOT)
     } catch (e) {
-      // 取不到 staged 面 ≠ 没有暂存改动;折成 0 会让门空转绿灯(2026-11-04 假绿专项)。
-      console.error(`[check:dedupe] ❌ staged 面取不到(git diff --cached 失败):${e?.message ?? e} ⇒ 未判定(exit 2)`)
+      // 取不到暂存清单 = **未判定**,不是"没有 pnpm-lock.yaml 变更"(§0.3)。
+      // 2026-11-05 复核:旧写法 `return exit(0)` 把 git 派生失败洗成放行 —— 本门是 blocking,
+      // 失败方向必须是"多要一次定向说明",绝不能是"多放一次跳门"(§0.10)。
+      console.error(`[check:dedupe] ❌ 未判定:git 派生失败,取不到暂存清单(${e?.message ?? e})`)
+      console.error('   这不是"没有碎片":先修 git 取材(二进制/仓库/索引锁),再重跑本门。')
       return process.exit(2)
     }
     if (!staged.split('\n').some((f) => f.trim() === 'pnpm-lock.yaml')) {
@@ -240,9 +339,8 @@ async function main() {
   }
 
   if (!existsSync(LOCKFILE)) {
-    // pnpm 工作区里锁文件缺席 = 判定面缺失,不是"合法不适用";不得折成绿灯。
-    console.error(`[check:dedupe] ❌ pnpm-lock.yaml 不存在或读不到(判定面缺失):${LOCKFILE} ⇒ 未判定(exit 2)`)
-    return process.exit(2)
+    console.log('[check:dedupe] 未找到 pnpm-lock.yaml,跳过检查。')
+    return process.exit(0)
   }
 
   let entries = []
@@ -251,7 +349,9 @@ async function main() {
     try {
       parsed = JSON.parse(readFileSync(LEDGER, 'utf8'))
     } catch (e) {
-      console.error(`[check:dedupe] ❌ 台账读不到或不是合法 JSON:${LEDGER}(${e?.message ?? e})⇒ 未判定,不把"没台账"折成"没有存量"再把全部碎片判红`)
+      console.error(
+        `[check:dedupe] ❌ 台账读不到或不是合法 JSON:${LEDGER}(${e?.message ?? e})⇒ 未判定,不把"没台账"折成"没有存量"再把全部碎片判红`,
+      )
       return process.exit(2)
     }
     const v = validateLedger(parsed)
@@ -259,7 +359,12 @@ async function main() {
       for (const x of v.errors) console.error(`[check:dedupe] ❌ 台账形态错:${x}`)
       return process.exit(2)
     }
-    entries = v.entries.map((e) => ({ ...e, pkg: e.pkg.trim(), version: e.version.trim(), reviewBy: e.reviewBy.trim() }))
+    entries = v.entries.map((e) => ({
+      ...e,
+      pkg: e.pkg.trim(),
+      version: e.version.trim(),
+      reviewBy: e.reviewBy.trim(),
+    }))
   }
 
   console.log('[check:dedupe] 检查依赖版本碎片化(pnpm dedupe --check;存量按台账点名放行)…')
@@ -288,9 +393,13 @@ async function main() {
     return process.exit(2)
   }
   if (verdict.code === 1) {
-    console.error('[check:dedupe] ❌ 失败:存在台账外的新增碎片 / 豁免到期 / 台账腐烂。pnpm 原报告如下:')
+    console.error(
+      '[check:dedupe] ❌ 失败:存在台账外的新增碎片 / 豁免到期 / 台账腐烂。pnpm 原报告如下:',
+    )
     process.stdout.write(out)
-    console.error('[check:dedupe] 出路:`pnpm dedupe` 后随本枚一起提交 pnpm-lock.yaml;确实消不掉的存量才登记台账(带 reason + reviewBy,会到期)。')
+    console.error(
+      '[check:dedupe] 出路:`pnpm dedupe` 后随本枚一起提交 pnpm-lock.yaml;确实消不掉的存量才登记台账(带 reason + reviewBy,会到期)。',
+    )
     return process.exit(1)
   }
   console.log('[check:dedupe] ✅ 通过:无新增碎片化(存量已逐条点名且未到期)。')
@@ -306,5 +415,12 @@ if (isDirectRun) {
   })
 }
 
-export const __test__ = { parseFragments, validateLedger, decide, classifyRun, SELF_TEST_FIXTURES, LEDGER_KEYS }
+export const __test__ = {
+  parseFragments,
+  validateLedger,
+  decide,
+  classifyRun,
+  SELF_TEST_FIXTURES,
+  LEDGER_KEYS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

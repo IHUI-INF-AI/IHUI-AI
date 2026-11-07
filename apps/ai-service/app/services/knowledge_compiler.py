@@ -29,6 +29,7 @@ long_term_memory.recall_cross_session;注入时形态同
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
@@ -36,6 +37,8 @@ import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from app.utils.atomic_io import write_text_atomic
 
 # kind 枚举:procedure 为 schema 预留档,当前确定性映射只产 fact/convention。
 CARD_KINDS = frozenset({"convention", "fact", "procedure"})
@@ -269,19 +272,6 @@ def _render_wiki(
 # =============================================================================
 
 
-class KnowledgeCardsUnread(OSError):
-    """已有卡片或 wiki 读不到。不得当成没有再覆盖。"""
-
-
-def _refuse_unreadable(path: Path) -> None:
-    try:
-        path.stat()
-    except FileNotFoundError:
-        return
-    except OSError as exc:
-        raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译") from exc
-
-
 async def compile_project(
     project_id: str,
     workspace_root: str | Path,
@@ -315,30 +305,16 @@ async def compile_project(
     wiki_path = wiki_dir / f"{slug}.md"
 
     # 幂等盖章:既有卡库源指纹相同 ⇒ 沿用旧 compiled_at(重编译逐字节不变)。
-    # 读不到必须在写之前停住:Path.exists 对权限错误会把异常抛出来,这里改成显式拒绝覆盖。
     compiled_at = ""
-    if not dry_run:
-        _refuse_unreadable(cards_path)
-        _refuse_unreadable(wiki_path)
-    try:
-        prev = json.loads(cards_path.read_text(encoding="utf-8"))
-        if not isinstance(prev, list):
-            if not dry_run:
-                raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译 (corrupt)")
-        elif prev and str(prev[0].get("source_hash") or "") == source_hash:
-            compiled_at = str(prev[0].get("compiled_at") or "")
-    except FileNotFoundError:
-        compiled_at = ""
-    except KnowledgeCardsUnread:
-        raise
-    except OSError as exc:
-        if not dry_run:
-            raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译") from exc
-        compiled_at = ""
-    except ValueError as exc:
-        if not dry_run:
-            raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译 (corrupt)") from exc
-        compiled_at = ""
+    if cards_path.exists():
+        try:
+            prev = json.loads(
+                await asyncio.to_thread(cards_path.read_text, encoding="utf-8")
+            )
+            if isinstance(prev, list) and prev and str(prev[0].get("source_hash") or "") == source_hash:
+                compiled_at = str(prev[0].get("compiled_at") or "")
+        except (OSError, ValueError):
+            compiled_at = ""
     if not compiled_at:
         compiled_at = datetime.now(UTC).isoformat()
     for c in cards:
@@ -348,15 +324,13 @@ async def compile_project(
     wiki_files = 0
     if not dry_run:
         cards_dir.mkdir(parents=True, exist_ok=True)
-        cards_path.write_text(
-            json.dumps(cards, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
+        cards_payload = json.dumps(cards, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+        await asyncio.to_thread(write_text_atomic, cards_path, cards_payload)
         wiki_dir.mkdir(parents=True, exist_ok=True)
-        wiki_path.write_text(
-            _render_wiki(slug, project_id, cards, len(rejected), workspace_root=workspace_root, wiki_dir=wiki_dir),
-            encoding="utf-8",
+        wiki_payload = _render_wiki(
+            slug, project_id, cards, len(rejected), workspace_root=workspace_root, wiki_dir=wiki_dir
         )
+        await asyncio.to_thread(write_text_atomic, wiki_path, wiki_payload)
         wiki_files = 1
 
     return {

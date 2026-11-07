@@ -16,6 +16,7 @@ import {
   type PredictiveEditAction,
 } from '@/lib/predictive-edit-api'
 import { useTextareaAutoHeight } from '@/hooks/use-textarea-auto-height'
+import { usePredictiveEditPrefsStore } from '@/stores/predictive-edit'
 import { Tooltip } from '@/components/feedback'
 import { shouldSubmitOnEnter } from './enter-submit-policy'
 import {
@@ -116,6 +117,9 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
     // 装配期取的是本次 keydown 之前的闩锁快照;消费(清闩锁)发生在判据之后,
     // 顺序与共享层用例「收尾闩锁消费过一次之后 ⇒ 恢复提交」一致。
     const isComposing = latch.active
+    // V3 #82 两把钥匙之一(用户意志):设置页总开关关闭 ⇒ 本组件零请求、零建议。
+    // 与「门槛位」(由后端 insufficient_context 判定)独立 —— 关 ≠ no_action,不折叠三态。
+    const predictiveEditEnabled = usePredictiveEditPrefsStore((s) => s.enabled)
     const { resize } = useTextareaAutoHeight<HTMLTextAreaElement>(text, {
       threeLinePx: MIN_HEIGHT_PX,
       maxHeightPx: MAX_HEIGHT_PX,
@@ -141,7 +145,7 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
       latencyMs?: number
     } | null>(null)
     React.useEffect(() => {
-      if (isStreaming || text.trim().length === 0) return
+      if (!predictiveEditEnabled || isStreaming || text.trim().length === 0) return
       const snapshot = text
       const controller = new AbortController()
       const timer = setTimeout(() => {
@@ -169,14 +173,15 @@ export const WebInputCore = React.forwardRef<WebInputCoreHandle, WebInputCorePro
         clearTimeout(timer)
         controller.abort()
       }
-    }, [text, isStreaming])
+    }, [text, isStreaming, predictiveEditEnabled])
     // 接受率埋点(B01 票挖出的缺口,2026-10-27 接线):看板的 edit_intent 桶此前**没有生产者**
     // (全仓唯一上报点 CodeEditor.tsx:256 不带 scene ⇒ 全落缺省 completion 桶),
     // 因后端 `rate = accepted/suggestions` 且 suggestions 恒 0 ⇒ 预测器接受率恒空。
     // 终点结算(2026-10-31 抽共享):每条展示过的建议恰好终结于「应用」或「忽略」,
     // 两个终点各上报一次;判据唯一实现在 lib/predictive-edit-api 的结算器,
     // 编辑器内建议条(CUE 对齐)复用同一份,两处不许各写一套。
-    const predictionVisible = prediction !== null && prediction.document === text && !isStreaming
+    const predictionVisible =
+      prediction !== null && prediction.document === text && !isStreaming && predictiveEditEnabled
     const settleAccepted = usePredictiveEditMetricSettlement(prediction, predictionVisible)
     const applyPrediction = () => {
       if (!prediction || prediction.document !== text) return

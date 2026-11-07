@@ -30,7 +30,11 @@ function nonEmpty(value: unknown): value is string {
 }
 
 export function projectFileTree(input: unknown): FileTreeVerdict {
-  const unread = (reason: FileTreeVerdict['reason']): FileTreeVerdict => ({
+  // FileTreeVerdict['reason'] 是三成员并集(paths-only/body-inlined/四个未判定值),
+  // 直接拿去构造 unjudged 会因收窄失败炸冷构建;这里只取 unjudged 分支自己的原因集。
+  const unread = (
+    reason: Extract<FileTreeVerdict, { disposition: 'unjudged' }>['reason'],
+  ): FileTreeVerdict => ({
     disposition: 'unjudged',
     reason,
     entries: null,

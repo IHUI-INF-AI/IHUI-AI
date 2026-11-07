@@ -187,21 +187,6 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "path": "apps/web/app/(main)/plugins/plugins-data.ts",
-      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins.ts",
-      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
-      "reviewBy": "2027-06-30"
-    },
-    {
-      "path": "apps/web/app/(main)/plugins/plugins-data/types.ts",
-      "reason": "本侧已由提交 7a7751be446 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0719fccaad2 的短暂复活未留下任何残留,故可接受。",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "path": "deploy/observability/grafana/dashboards/agent-runtime.json",
       "reason": "本侧已由提交 a7ced7411ca 有意删除;该路径在当前 HEAD 面已不存在(后续删除已生效),合并 0932d2e0aff 的短暂复活未留下任何残留,故可接受。",
       "reviewBy": "2027-06-30"

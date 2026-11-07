@@ -35,6 +35,8 @@ from typing import Any
 
 import httpx
 
+from app.core.internal_ticket import INTERNAL_SERVICE_PRINCIPAL_AI, mint_internal_service_ticket
+
 logger = logging.getLogger(__name__)
 
 _CARD_KINDS = ("experience", "fact", "practice", "pitfall")
@@ -63,11 +65,19 @@ class KnowledgeWriter:
     def __init__(self) -> None:
         self._api_base_url = os.environ.get("API_SERVICE_URL", "http://localhost:8801").rstrip("/")
 
-    def _internal_headers(self, user_id: str | None) -> dict[str, str]:
+    async def _internal_headers(self, user_id: str | None) -> dict[str, str]:
         secret = (os.environ.get("AI_CALLBACK_SECRET") or "").strip()
         # 调用序契约:身份闸(_identity_problem)先行,此处 user_id 已非 None;
-        # 类型层无法表达「闸后必非空」,空值时塞空串让 api 侧 401 兜底(fail-closed)。
-        return {"X-Internal-Secret": secret, "X-User-Id": user_id or ""}
+        # 类型层无法表达「闸后必非空」,空值时退回服务主体签票(不冒充真人)。
+        # 2026-11-06 票据化:scope=knowledge-card,票面主体=userId;
+        # 票签不出来时仍只发旧头 —— 默认 ticket 档会拒(fail-closed),dual 档可用。
+        ticket = mint_internal_service_ticket(
+            user_id or INTERNAL_SERVICE_PRINCIPAL_AI, "knowledge-card"
+        )
+        headers = {"X-Internal-Secret": secret, "X-User-Id": user_id or ""}
+        if ticket:
+            headers["X-Internal-Service-Ticket"] = ticket
+        return headers
 
     def _bearer_headers(self, api_token: str | None) -> dict[str, str]:
         return {"Authorization": f"Bearer {api_token}"}
@@ -118,7 +128,7 @@ class KnowledgeWriter:
         code, payload = await self._request(
             "POST",
             "/api/knowledge-cards",
-            headers=self._internal_headers(user_id),
+            headers=await self._internal_headers(user_id),
             json_body={
                 "userId": user_id,
                 "repoName": repo_name,

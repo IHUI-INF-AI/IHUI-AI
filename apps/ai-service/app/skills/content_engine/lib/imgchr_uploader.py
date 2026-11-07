@@ -14,9 +14,6 @@ import os
 from typing import cast
 
 import requests
-import urllib3
-
-urllib3.disable_warnings()
 
 API_URL = 'https://imgchr.com/api/upload'
 

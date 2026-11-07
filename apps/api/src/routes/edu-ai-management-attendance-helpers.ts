@@ -398,3 +398,111 @@ export function studentCheckInFailureReply(
   if (reason === 'duplicate') return reply.status(409).send(error(409, '今日已有考勤记录'))
   return reply.status(500).send(error(500, '签到失败'))
 }
+
+// -----------------------------------------------------------------------------
+// 学生本人签退(票 B72 ①,2026-11-06)
+//   此前全仓只有教师侧 `PUT /attendance/check-out`(requireEduManage),学生本人签退无处可落:
+//   三端「我的考勤」页只能进不能出,而教师不可能逐班逐人为每个学生点签退 —— 早退档
+//   (judgeStatus 的 earlyBefore)因此只在"教师代签"这一条路径上写得进库。
+//   本函数与 checkInByStudent 同一纪律:主体/班级由承载层显式入参给,状态判据零内联。
+// -----------------------------------------------------------------------------
+
+/** 学生侧签退的三类失败(no_record 当日无签到行 / already 已签退 / failed 落库失败)。 */
+export type StudentCheckOutFailure = 'no_record' | 'already' | 'failed'
+
+/**
+ * 学生本人签退的共用落库出口(与教师代签 PUT /attendance/check-out 同一把尺):
+ *   ① 只动"登录态本人 + 服务端现取班级 + 该业务日"这一行:归属主体 studentId 由承载层
+ *      入参给(AGENTS §5),既不从被操作记录反推,也不信客户端自报;UPDATE 的 WHERE 里
+ *      再钉一次 `eq(studentId)` —— 即便前置读行被并发换脸,写面也越不到他人行上。
+ *   ② 无签到行 ⇒ no_record(404)。**不补写只有 checkOutTime 的行**:那等于凭"签退"这个
+ *      动作凭空造出一条在场记录,而考勤是要落到免责链条上的;教师代签那两条端点同为此口径。
+ *   ③ 已有 checkOutTime ⇒ already(409),**不覆盖**首次签退时刻(幂等:重复点击只成功一次)。
+ *   ④ 幂等靠 CAS 而非 insert 冲突档:本端点没有插入路径,onConflictDoNothing 无处可用,
+ *      真正的竞争窗口是"两人(或连点)同时签退同一行",故 UPDATE 谓词带 `isNull(checkOutTime)`,
+ *      并用 `.returning()` 回库确认**实际被改写的行集**;空集即判 already(第二次落空),
+ *      绝不把请求侧的影响行数当 affected(门 134 计数诚实性同一条纪律)。
+ *   ⑤ status 重判一律走 `statusPreservedOnCheckOut` + `loadEnabledAttendanceRule` +
+ *      `judgeStatus`(§0.6 判据单源,与教师代签共用同一三枚出口,本函数体内零阈值比较)。
+ *   ⑥ operatedBy **与 remark 都不动**:operatedBy 记的是"这一行是谁建立的"(教师代签时为教师),
+ *      remark 是签到侧/审批侧写进去的说辞;学生签退若改写它们就会抹掉已有留痕 ——
+ *      教师代签 PUT /attendance/check-out 同样只写签退三件套(checkOutTime/Method/status)。
+ *      谁做的签退由 `checkOutMethod='self'` 与「写面谓词钉死 studentId=登录态本人」两格共同证明,
+ *      故本函数的入参里只有一个主体(studentId = 承载层注入的 request.userId),
+ *      没有第二个"操作人"字段可被客户端自报。
+ */
+export async function checkOutByStudent(params: {
+  studentId: string
+  classId: string
+  date: string
+}): Promise<{ ok: true; record: AttendanceRow } | { ok: false; reason: StudentCheckOutFailure }> {
+  const { studentId, classId, date } = params
+
+  try {
+    const txResult = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(eduAttendanceRecord)
+        .where(
+          and(
+            eq(eduAttendanceRecord.studentId, studentId),
+            eq(eduAttendanceRecord.classId, classId),
+            eq(eduAttendanceRecord.date, date),
+            isNull(eduAttendanceRecord.deletedAt),
+          ),
+        )
+        .limit(1)
+      if (!existing) return { state: 'no_record' as const }
+      if (existing.checkOutTime) return { state: 'already' as const }
+
+      // 重判阈值口径与教师代签完全一致:leave/absent 是高优先态,不被签退重判洗掉。
+      const checkOutTime = new Date()
+      let nextStatus = existing.status
+      if (!statusPreservedOnCheckOut(existing.status)) {
+        const rule = await loadEnabledAttendanceRule(classId)
+        nextStatus = judgeStatus({
+          lateAfter: rule?.lateAfter ?? null,
+          earlyBefore: rule?.earlyBefore ?? null,
+          checkInTime: existing.checkInTime,
+          checkOutTime,
+        })
+      }
+
+      const updated = await tx
+        .update(eduAttendanceRecord)
+        .set({
+          checkOutTime,
+          checkOutMethod: 'self',
+          status: nextStatus,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(eduAttendanceRecord.id, existing.id),
+            // 写面再钉一次归属与"尚未签退":并发第二笔在此处落空,而非覆盖第一笔
+            eq(eduAttendanceRecord.studentId, studentId),
+            isNull(eduAttendanceRecord.checkOutTime),
+          ),
+        )
+        .returning()
+      const record = updated[0]
+      if (!record) return { state: 'already' as const }
+      return { state: 'updated' as const, record }
+    })
+    if (txResult.state === 'no_record') return { ok: false, reason: 'no_record' }
+    if (txResult.state === 'already') return { ok: false, reason: 'already' }
+    return { ok: true, record: txResult.record }
+  } catch (_err) {
+    return { ok: false, reason: 'failed' }
+  }
+}
+
+/** 学生侧签退失败 → HTTP 三态(404 无签到行 / 409 已签退 / 500 落库失败)。 */
+export function studentCheckOutFailureReply(
+  reply: FastifyReply,
+  reason: StudentCheckOutFailure,
+): FastifyReply {
+  if (reason === 'no_record') return reply.status(404).send(error(404, '未找到今日签到记录'))
+  if (reason === 'already') return reply.status(409).send(error(409, '今日已签退'))
+  return reply.status(500).send(error(500, '签退失败'))
+}

@@ -36,6 +36,13 @@ import {
 import { createApiRequest } from '../src/commands/http-utils.js';
 import { getCloudRunDegradeFacts, resetCloudRunDegradeFacts, startCloudRun } from '../src/cloud-run.js';
 
+/** 索引访问 + 运行时越界检查(noUncheckedIndexedAccess 下数组元素天然是 T | undefined) */
+function at<T>(items: readonly T[], index: number): T {
+  const item = items[index];
+  if (item === undefined) throw new Error(`数组索引越界: ${index}`);
+  return item;
+}
+
 const APP_CLI_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function makeJwt(expSeconds: number): string {
@@ -199,9 +206,9 @@ describe('CLI 凭据续期单点', () => {
     expect(out).toEqual({ code: 0, data: { ok: true } });
     const legCalls = calls.filter((c) => c.url.endsWith('/api/things'));
     expect(legCalls).toHaveLength(2);
-    expect(legCalls[0].authorization).toBe(`Bearer ${stale}`);
+    expect(at(legCalls, 0).authorization).toBe(`Bearer ${stale}`);
     // 重放用的是续期回来的那一枚,不是调用方带来的旧值
-    expect(legCalls[1].authorization).toBe(`Bearer ${next}`);
+    expect(at(legCalls, 1).authorization).toBe(`Bearer ${next}`);
     expect(calls.filter((c) => isRefreshUrl(c.url))).toHaveLength(1);
   });
 
@@ -225,7 +232,7 @@ describe('CLI 凭据续期单点', () => {
     expect(getCloudRunDegradeFacts().start.failures).toBe(0);
     const legCalls = calls.filter((c) => c.url.includes('/api/cloud-runs/run'));
     expect(legCalls).toHaveLength(2);
-    expect(legCalls[1].authorization).toBe(`Bearer ${next}`);
+    expect(at(legCalls, 1).authorization).toBe(`Bearer ${next}`);
   });
 
   it('重放恰好一次:续期后仍被 401 ⇒ 不再续期、不再重放(绝不循环)', async () => {
@@ -256,7 +263,7 @@ describe('CLI 凭据续期单点', () => {
   it('无 token ⇒ 一个 Authorization 头都不加(不塞空 Bearer)', async () => {
     const calls = stubFetch([{ match: () => true, respond: () => json({ code: 0, data: 1 }) }]);
     await fetchWithCliAuthRefresh(`${API}/api/things`, {}, { accessToken: null });
-    expect(calls[0].authorization).toBeUndefined();
+    expect(at(calls, 0).authorization).toBeUndefined();
   });
 
   // ==================== ④ 判据只有一份:六个注册点都走同一枚工厂 ====================

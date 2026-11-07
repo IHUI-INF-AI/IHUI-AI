@@ -49,6 +49,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { git, isAncestor, LEDGER_DOC } from './lib/bypass-git.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { rowFormOf, recordFlipDrops, DROP_LEDGER_REL } from './lib/plan-drop-record.mjs'
+import { compositeKeyOf } from './lib/plan-task-index.mjs'
 
 const ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), '..')
 export const RESULT_PREFIX = 'CLOSURE-DROP'
@@ -101,10 +102,15 @@ export function judgeBatchLimit({ candidates, max = MAX_AUTO_CATCH } = {}) {
 export function droppedOpenRowsOf({ parentText, headText } = {}) {
   if (typeof parentText !== 'string' || typeof headText !== 'string') return null
   const headCount = new Map()
+  const headOpenKeys = new Map()
   for (const line of headText.split('\n')) {
     headCount.set(line, (headCount.get(line) ?? 0) + 1)
+    if (rowFormOf(line) !== 'open') continue
+    const k = compositeKeyOf(line)
+    if (k) headOpenKeys.set(k, (headOpenKeys.get(k) ?? 0) + 1)
   }
   const parentCount = new Map()
+  const parentOpenKeys = new Map()
   const order = []
   for (const line of parentText.split('\n')) {
     if (!parentCount.has(line)) {
@@ -112,12 +118,31 @@ export function droppedOpenRowsOf({ parentText, headText } = {}) {
       order.push(line)
     }
     parentCount.set(line, parentCount.get(line) + 1)
+    if (rowFormOf(line) !== 'open') continue
+    const k = compositeKeyOf(line)
+    if (k) parentOpenKeys.set(k, (parentOpenKeys.get(k) ?? 0) + 1)
   }
   const rows = []
+  // 每个主键只认"条数真的少了"那么多(不是"旧逐字原文不见了"就算删除)。
+  // §1 明令整行改写必须保持复合主键守恒 ⇒ 改写后旧逐字原文**恒**消失而条数不变;
+  // 早先按逐字差补凭据,会把一次合法改写记成"已正当摘除",下游 head-recall 照这条假凭据
+  // 把活票真删(2026-11-05 实测:B71 整行改写 5 分钟后被兜底清扫摘除)。
+  // 而按"条数差"判仍保得住两型:①孪生副本少一份(测试 ⑥)⇒ 差 1 照记;②真整行删除 ⇒ 差满照记。
+  const keyDeficit = new Map()
+  for (const [k, pc] of parentOpenKeys) {
+    const d = pc - (headOpenKeys.get(k) ?? 0)
+    if (d > 0) keyDeficit.set(k, d)
+  }
   for (const line of order) {
     if (rowFormOf(line) !== 'open') continue
     const gone = parentCount.get(line) - (headCount.get(line) ?? 0)
-    for (let i = 0; i < gone; i++) rows.push(line)
+    if (gone <= 0) continue
+    const k = compositeKeyOf(line)
+    // 无主键的行(非登记行形态已被 rowFormOf 挡在外)兜底按逐字差入账,不静默丢。
+    const allow = k ? (keyDeficit.get(k) ?? 0) : gone
+    const take = Math.min(gone, allow)
+    for (let i = 0; i < take; i++) rows.push(line)
+    if (k && keyDeficit.has(k)) keyDeficit.set(k, allow - take)
   }
   return rows
 }

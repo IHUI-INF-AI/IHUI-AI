@@ -94,9 +94,9 @@ def _auth_headers(secret: str, user_id: str) -> dict[str, str]:
     这条**只有真实聊天 round-trip 才能暴露**(直打 /execute 用用户 JWT 会顺带带
     auth_token cookie 而绕过),2026-09-21 端到端实证时就是被它挡住的。
 
-    常驻密钥头的直拼路径已收进 internal_ticket 唯一出口:dual 兼容窗内旧头照发
-    (legacy_token = 本桥原有那把密钥,不改变 Bearer 语义),x-internal-service-ticket
-    短期票同带(主体 = user_id,scope='api-tools' 通用工具面)。
+    常驻密钥头的直拼路径已收进 internal_ticket 唯一出口:默认 ticket 档发票;
+    显式 dual/legacy 档才同时发旧头(legacy_token = 本桥原有那把密钥,不改变
+    Bearer 语义),短期票主体 = user_id,scope='api-tools' 通用工具面。
     """
     headers = internal_service_headers(user_id, "api-tools", legacy_token=secret)
     headers["Authorization"] = f"Bearer {secret}"

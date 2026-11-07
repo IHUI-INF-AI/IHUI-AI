@@ -36,7 +36,9 @@
 // CLI 解析与 help。执行语义逐字未动,镜像测试同票改取材面(见该 lib 头注)。
 // 2026-10-25(GOAL-合入票):第 5 轮合并 c8fee04806ea 的「人工归并回灌」把本文件的门注册段截断 —— checks 数组里 240-249 十门注册整体消失、bare-decode-uri/token-literal-debt/rn-readout-cell 三条只剩尾巴、pushGateChecks 追加 68 行缺头缺尾的残骸 ⇒ 本文件语法错误 ⇒ push 门编排器(.husky/pre-push → guardian-runner --push-gate)整个跑不起来,本地 ahead 的提交一律推不动。
 // 本次以 origin/main 当前面为基线逐字复原(§0.6 单一真相源下对侧的完整形态);判据面一字未改,只复原被截断的注册段。
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 // BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
@@ -5252,11 +5254,26 @@ const checks = [
     id: '220',
     label:
       '监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
-    script: 'check-grafana-metric-exists.mjs',
+    // 2026-11-04 改道:旧 `scripts/check-grafana-metric-exists.mjs` 读的是已退役的
+    // `<root>/grafana/dashboards` 三棵树与旧台账,现读实测三树全空 ⇒ 每次跑都是 exit 2
+    // 「枚举到 0 个大屏」,门在扫一个不存在的目录、实际永不判定。判据本体在改名契约
+    // (a7ced7411c)下早已落在 `check-panel-metric-exists.mjs` + `panel-defs/` 真值面,
+    // 本门改指那一份;触发器同步收到真值面,不再靠宽前缀 `monitoring`/`deploy` 兜。
+    script: 'check-panel-metric-exists.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS',
-    stagedTriggers: ['monitoring', 'deploy', 'apps/ai-service/app', 'apps/api/src', 'packages', 'scripts/'],
+    skipEnv: 'HUSKY_SKIP_PANEL_METRIC_EXISTS',
+    stagedTriggers: [
+      'monitoring/panel-defs/',
+      'deploy/observability/panel-defs/',
+      'deploy/saas/panel-defs/',
+      'apps/ai-service/app/',
+      'apps/api/src/',
+      'packages/',
+      'monitoring/alertbridge/',
+      'scripts/check-panel-metric-exists.mjs',
+      'scripts/data/panel-external-metrics.json',
+    ],
     onFailHint: [
       '',
       '',
@@ -5268,15 +5285,27 @@ const checks = [
     id: '222',
     label:
       '监控大屏 ↔ 数据源 接线对账(面板引用的 uid 必须在 provisioning 里;声明了却零面板使用的源只报数不判红——未部署的基建是合法状态)',
-    script: 'check-grafana-datasource-wiring.mjs',
+    // 2026-11-04 改道:旧 `scripts/check-grafana-datasource-wiring.mjs` 的三棵树
+    // `monitoring/grafana/dashboards` / `deploy/{observability,saas}/grafana/dashboards`
+    // 已按改名契约退役(3778408c 删 38 枚、a7ced7411c 搬进 panel-defs),旧门现读实测
+    // 三棵树全部「取不到 provisioning ⇒ 未判定」⇒ 一道只报未判定、从不判红的空门。
+    // 真值面消费方 = `sync-panel-live-provisioning.mjs` 的 splitBlocks,判据本体在
+    // `check-panel-datasource-wiring.mjs`;触发器按三棵 panel-defs 树逐棵登记。
+    script: 'check-panel-datasource-wiring.mjs',
     args: [],
     mode: 'blocking',
-    skipEnv: 'HUSKY_SKIP_GRAFANA_DATASOURCE_WIRING',
-    stagedTriggers: ['monitoring', 'scripts/sync-grafana-live-provisioning.mjs'],
+    skipEnv: 'HUSKY_SKIP_PANEL_DATASOURCE_WIRING',
+    stagedTriggers: [
+      'monitoring/panel-defs/',
+      'deploy/observability/panel-defs/',
+      'deploy/saas/panel-defs/',
+      'scripts/check-panel-datasource-wiring.mjs',
+      'scripts/sync-panel-live-provisioning.mjs',
+    ],
     onFailHint: [
       '面板引用的数据源 uid 不在 monitoring/panel-defs/provisioning/datasources/datasources.yml 里 ——',
       '这样的面板只会静静显示 "Datasource not found",和"这业务本来没流量"长得一模一样。',
-      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-grafana-live-provisioning.mjs 派生到线上副本)。',
+      '要么把 uid 改成已声明的源,要么先在 provisioning 里声明这个源(并跑 sync-panel-live-provisioning.mjs 派生到线上副本)。',
     ].join('\n'),
   },
 
@@ -6301,6 +6330,92 @@ const checks = [
       '     取证:node scripts/check-staged-downgrade.mjs --self-test(17 例:四档判据、工作树正反例、诚实边界、空口声明)',
       '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
       '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
+  ].join('\n'),
+  },
+  // --- 工作流/部署脚本引用不存在的脚本(只读门,298)---
+  {
+    id: '309',
+    label: '🔗 工作流/部署脚本引用不存在的脚本(死引用)',
+    script: 'check-dead-script-refs.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_DEAD_SCRIPT_REFS',
+    stagedTriggers: [
+      'deploy/',
+      '.github/workflows/',
+      'scripts/data/',
+      'scripts/check-dead-script-refs.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 deploy/** 与 .github/workflows/** 里 `scripts/*.{ts,mjs}` 的引用必须能解析到真实文件。',
+      '     cwd 语义已内置:GitHub Actions working-directory(步骤级 > job 级 defaults)、',
+      '     pnpm --filter <pkg> exec、shell 的 cd、Dockerfile WORKDIR、相对路径。',
+      '     解析不出来时:能定 cwd 的判真死(exit 1);定不了 cwd 的记未判定(exit 2,不折绿)。',
+      '     回滚态(HEAD 有、工作树缺)只报数,不算真死引用。',
+      '     复验:node scripts/check-dead-script-refs.mjs --staged',
+      '     自检:node scripts/check-dead-script-refs.mjs --self-test',
+      '     跳过:HUSKY_SKIP_DEAD_SCRIPT_REFS=1',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '310',
+    label: '🧬 自主环判据不变量守卫(并发旧基线整片回写即红)',
+    script: 'check-autonomy-invariants.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AUTONOMY_INVARIANTS',
+    stagedTriggers: [
+      'scripts/auto-evolve.mjs',
+      'scripts/lib/autonomy-nonprogress.mjs',
+      'scripts/check-autonomy-leg-health.mjs',
+      'scripts/data/autonomy-invariants.json',
+      'scripts/check-autonomy-invariants.mjs',
+    ],
+    onFailHint: [
+      '',
+      '  💡 立因(2026-11-05 实测):多会话共树下,一席的在飞副本可能从**旧基线**长出来,',
+      '     它提交时是整文件回写 —— 当天刚落进 HEAD 的判据会被静默抹掉,',
+      '     而门 84 R1 要"暂存 blob == 某祖先"、immutable-guard 不管非受保护面、',
+      '     分档对账测试住在 CI/nightly 层 ⇒ 提交链上原本没人抓得住这一型。',
+      '     判据绝对要求(非差值棘轮):清单里每条锚点都必须在被审面逐字实有;',
+      '     这里失效型就是"悄悄少一条",拿该文件自己的历史违规数当锚点会自我豁免。',
+      '     出路只有把消失的判据带回来(通常是先合并今天的改动再提交),不许跳门。',
+      '     真要解禁某条锚点(判据被合法改名/迁户)⇒ 改清单并在同一枚提交里带上改名后的新锚点。',
+      '     复验:node scripts/check-autonomy-invariants.mjs --staged',
+      '     自检:node scripts/check-autonomy-invariants.mjs --self-test',
+      '     跳过:HUSKY_SKIP_AUTONOMY_INVARIANTS=1(须人工确认并附定向说明)',
+      '',
+    ].join('\n'),
+  },
+  {
+    id: '311',
+    label: '🚦 e2e skip 制度化 + 固定等待条件化(无理由/无编号 skip 即红)',
+    script: 'check-e2e-skip-wait-policy.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_E2E_SKIP_WAIT_POLICY',
+    stagedTriggers: [
+      'apps/web/e2e/',
+      'apps/web/tests/visual/',
+      'scripts/lib/e2e-skip-wait-policy.mjs',
+      'scripts/check-e2e-skip-wait-policy.mjs',
+      'apps/web/e2e/skip-register.json',
+      'apps/web/e2e/SKIP-WAIT-POLICY.md',
+    ],
+    onFailHint: [
+      '',
+      '  💡 允许 skip 的条件写在 apps/web/e2e/SKIP-WAIT-POLICY.md,台账是 apps/web/e2e/skip-register.json。',
+      '     skip 必须同时带 ≥8 字理由 + [SKIP:<id>];编号要在台账里,ENV 引用要在 envRefs,',
+      '     BUG 引用要指向 status=open 的缺陷;裸 skip / 元素缺失即 skip 一律红。',
+      '     固定等待只能用于不可观察的计时窗口,且紧邻 // WAIT-POLICY:TIMING-id 理由;',
+      '     等加载/等登录/等接口/等元素一律改 expect.poll / locator.waitFor / 自动重试断言。',
+      '     台账 reviewBy 过期或出现孤儿条目同样红。',
+      '     复验:node scripts/check-e2e-skip-wait-policy.mjs --staged',
+      '     自检:node scripts/check-e2e-skip-wait-policy.mjs --self-test',
+      '     跳过:HUSKY_SKIP_E2E_SKIP_WAIT_POLICY=1(须人工确认并附定向说明)',
+      '',
     ].join('\n'),
   },
   // --- info (1 项) ---
@@ -7565,10 +7680,186 @@ const pushGateChecks = [
 // === CLI 解析 ===
 
 const cliArgs = process.argv.slice(2)
+
+// ── 未知参数必须当场失败(2026-11-04 立) ────────────────────────────────────
+// 旧实现只认 --staged/--timing/--push-gate/--help,其余参数原样透传后被忽略:
+// `--self-test` 被静默当成"没写" ⇒ 实际跑全量 332 门(实测 41.2 分钟),调用者却以为在跑门自检。
+// 失效方向只能是"当场报错",不能是"照默认跑一遍还让人觉得跑的是别的东西"。
+const KNOWN_CLI_FLAGS = new Set([
+  '--staged',
+  '--timing',
+  '--push-gate',
+  '--no-cache',
+  '--self-test',
+  '--help',
+  '-h',
+])
+const unknownCliArgs = cliArgs.filter((a) => !KNOWN_CLI_FLAGS.has(a))
+if (unknownCliArgs.length) {
+  console.error(`❌ 未知参数:${unknownCliArgs.join(' ')}`)
+  console.error('   本器只认:--staged / --timing / --push-gate / --no-cache / --self-test / --help / -h')
+  console.error('   未知参数不再被忽略,也不会跑任何门(exit 2)。')
+  process.exit(2)
+}
+
 const passStaged = cliArgs.includes('--staged')
 const showTiming = cliArgs.includes('--timing')
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
+const selfTest = cliArgs.includes('--self-test')
+if (selfTest && (passStaged || pushGate)) {
+  console.error('❌ --self-test 不能与 --staged / --push-gate 组合(自检不读暂存面、不跑判据)')
+  process.exit(2)
+}
+
+// ── --self-test:只跑每门脚本自带的自检入口,不跑任何门的判据 ─────────────────
+// 没有自检入口的门逐条标"无自检档",绝不记成通过(§0.3:没判绝不写成判过)。
+// 覆盖率分母 = 注册条目;执行单位 = 去重后的脚本;超时/非零退出都记失败。
+const SELF_TEST_ARG = '--self-test'
+const SELF_TEST_ENTRY_RE =
+  /includes\('--self-test'\)|has\('--self-test'\)|=={1,2}\s*'--self-test'|'--self-test'\s*=={1,2}|case\s+'--self-test'|selfTest\s*[:=][^\n]*'--self-test'/
+const selfTestSourceCache = new Map()
+
+function scriptPathOf(script) {
+  return fileURLToPath(new URL(`./${script}`, import.meta.url))
+}
+
+/** 只认代码里的参数分支;注释与用法文案里的字样不算"有自检入口"。 */
+function declaresSelfTestEntry(script) {
+  if (selfTestSourceCache.has(script)) return selfTestSourceCache.get(script)
+  let ok = false
+  try {
+    ok = readFileSync(scriptPathOf(script), 'utf8')
+      .split(/\r?\n/)
+      .some((line) => {
+        const t = line.trim()
+        if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return false
+        return line.includes("'--self-test'") && SELF_TEST_ENTRY_RE.test(line)
+      })
+  } catch {
+    ok = false
+  }
+  selfTestSourceCache.set(script, ok)
+  return ok
+}
+
+function groupChecksByScript(checkList) {
+  const byScript = new Map()
+  for (const c of checkList) {
+    if (!c?.script) continue
+    if (!byScript.has(c.script)) byScript.set(c.script, { script: c.script, ids: [] })
+    byScript.get(c.script).ids.push(c.id)
+  }
+  return [...byScript.values()]
+}
+
+function runOneSelfTest(group, timeoutMs) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now()
+    let stdout = ''
+    let stderr = ''
+    let timedOut = false
+    let settled = false
+    const child = spawn(process.execPath, [scriptPathOf(group.script), SELF_TEST_ARG], {
+      cwd: process.cwd(),
+      env: process.env,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill()
+    }, timeoutMs)
+    const finish = (extra) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      resolve({ ...group, elapsedMs: Date.now() - startedAt, ...extra })
+    }
+    child.stdout?.on('data', (d) => {
+      stdout = (stdout + d).slice(-4000)
+    })
+    child.stderr?.on('data', (d) => {
+      stderr = (stderr + d).slice(-4000)
+    })
+    child.on('error', (e) => finish({ kind: 'fail', reason: `spawn 失败:${e.message}` }))
+    child.on('close', (code, signal) => {
+      if (timedOut) return finish({ kind: 'timeout', reason: `超时 ${timeoutMs}ms(已杀)` })
+      if (signal) return finish({ kind: 'fail', reason: `被信号 ${signal} 终止` })
+      if (code === 0) return finish({ kind: 'pass' })
+      const tail = (stderr.trim() || stdout.trim()).replace(/\s+/g, ' ').slice(0, 200)
+      finish({ kind: 'fail', reason: `exit ${code}${tail ? ` — ${tail}` : ''}` })
+    })
+  })
+}
+
+async function runGateSelfTests(checkList) {
+  const onlyRaw = String(process.env.GUARDIAN_SELFTEST_ONLY || '').trim()
+  const only = onlyRaw
+    ? new Set(
+        onlyRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      )
+    : null
+  const selected = only ? checkList.filter((c) => only.has(String(c.id)) || only.has(c.script)) : checkList
+  if (!selected.length) {
+    console.error(`❌ --self-test:GUARDIAN_SELFTEST_ONLY=${onlyRaw} 没有命中任何已注册门(未判定,exit 2)`)
+    return 2
+  }
+
+  const groups = groupChecksByScript(selected)
+  const runnable = groups.filter((g) => declaresSelfTestEntry(g.script))
+  const missing = groups.filter((g) => !declaresSelfTestEntry(g.script))
+  const entryTotal = selected.length
+  const entryCovered = runnable.reduce((n, g) => n + g.ids.length, 0)
+  const entryMissing = entryTotal - entryCovered
+
+  console.log('🧪 门自检档 --self-test:只跑各门脚本自带的自检入口,不跑任何门的判据')
+  console.log(
+    `   覆盖:${entryCovered}/${entryTotal} 条注册有自检入口;${entryMissing} 条无自检档` +
+      `(不同脚本:${runnable.length} 有自检 / ${missing.length} 无自检)`,
+  )
+
+  if (!runnable.length) {
+    for (const m of missing) console.log(`⚪ [${m.ids.join(',')}] ${m.script}  无自检档`)
+    console.log('⚠️ 0 门有自检入口 ⇒ 本轮未判定(exit 2;"没有自检"不等于"通过",§0.3)')
+    return 2
+  }
+
+  const rawConcurrency = Number(process.env.GUARDIAN_SELFTEST_CONCURRENCY)
+  const concurrency = Number.isFinite(rawConcurrency) && rawConcurrency > 0 ? Math.floor(rawConcurrency) : 6
+  const rawTimeout = Number(process.env.GUARDIAN_SELFTEST_TIMEOUT_MS)
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? Math.floor(rawTimeout) : 300_000
+  console.log(`   并发:${concurrency} 单门超时:${timeoutMs}ms`)
+
+  const startedAt = Date.now()
+  const results = new Array(runnable.length)
+  let cursor = 0
+  const worker = async () => {
+    while (cursor < runnable.length) {
+      const i = cursor++
+      results[i] = await runOneSelfTest(runnable[i], timeoutMs)
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, runnable.length) }, worker))
+
+  for (const r of results) {
+    const icon = r.kind === 'pass' ? '✅' : r.kind === 'timeout' ? '⏱ ' : '❌'
+    console.log(`${icon} [${r.ids.join(',')}] ${r.script}  ${(r.elapsedMs / 1000).toFixed(1)}s${r.reason ? ` — ${r.reason}` : ''}`)
+  }
+  for (const m of missing) console.log(`⚪ [${m.ids.join(',')}] ${m.script}  无自检档`)
+
+  const passed = results.filter((r) => r.kind === 'pass').length
+  const failed = results.filter((r) => r.kind !== 'pass').length
+  const totalSec = ((Date.now() - startedAt) / 1000).toFixed(1)
+  console.log('\n🧪 自检档汇总')
+  console.log(`   通过: ${passed} / 失败: ${failed} / 无自检档: ${entryMissing} 条(${missing.length} 个脚本)`)
+  console.log(`   覆盖: ${entryCovered}/${entryTotal} 条注册有自检入口;其余未判定,不计通过(§0.3)`)
+  console.log(`   自检墙钟: ${totalSec}s`)
+  return failed ? 1 : 0
+}
 
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
@@ -7637,13 +7928,28 @@ if (showHelp) {
 guardian-runner.mjs — 守门脚本批量执行器
 
 用法:
-  node scripts/guardian-runner.mjs [--staged] [--timing] [--push-gate] [--help]
+  node scripts/guardian-runner.mjs [模式] [选项]
+
+模式(不带模式 = 全量档,跑全部 ${checks.length} 门):
+  --staged      传 --staged 给所有门(按暂存面判定,pre-commit 用)
+  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
+  --self-test   只跑各门脚本自带的自检入口(--self-test),不跑任何判据;
+                无自检入口的门逐条标"无自检档",不计通过(§0.3)
+                (不可与 --staged / --push-gate 组合)
 
 选项:
-  --staged      传递 --staged 给所有脚本(pre-commit 模式)
   --timing      打印每个检查的耗时
-  --push-gate   仅执行 push 门检查集(T1 全量 typecheck,staged-scope 降级)
-  --help        打印此帮助
+  --no-cache    仅 --push-gate:跳过 push 门结果缓存
+  --help, -h    打印此帮助(不跑任何门)
+  未知参数      当场 exit 2,不跑任何门(不再静默忽略)
+
+--self-test 专用环境变量:
+  GUARDIAN_SELFTEST_ONLY=<id或脚本名,逗号分隔>  只跑指定门(调试/抽样;不改变其余门的"无自检档"口径)
+  GUARDIAN_SELFTEST_CONCURRENCY=<n>             并发数,默认 6
+  GUARDIAN_SELFTEST_TIMEOUT_MS=<ms>             单门自检超时,默认 300000(与串行门 300s 兜底同口径)
+
+退出码:
+  0 全绿 / 1 有门失败 / 2 用法错误(未知参数等)或 --self-test 0 门可跑(未判定)
 
 检查清单(${effectiveChecks.length} 项):
   blocking (${blocking.length} 项): ${blocking.map((c) => c.id).join(', ')}
@@ -7660,6 +7966,10 @@ guardian-runner.mjs — 守门脚本批量执行器
   process.exit(0)
 }
 
+// --self-test:只跑门脚本自带的自检入口,绝不落到 runGuardianBatch(不跑任何判据)。
+if (selfTest) {
+  process.exit(await runGateSelfTests(checks))
+}
 
 await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
