@@ -13,6 +13,7 @@ import { FILE_WRITE_TOOLS, fileBasename, fileChangeForCall } from './task-status
  */
 const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   read_file: 'toolReadFile',
+  read_tool_output: 'toolReadToolOutput',
   edit_file: 'toolEditFile',
   file_edit: 'toolEditFile',
   apply_diff: 'toolEditFile',
@@ -28,6 +29,7 @@ const TOOL_DISPLAY_KEYS: Readonly<Record<string, string>> = {
   analyze_code: 'toolAnalyzeCode',
   generate_test: 'toolGenerateTest',
   run_command: 'toolRunCommand',
+  sandbox_session: 'toolSandboxSession',
   run_in_background: 'toolRunCommand',
   git_operations: 'toolGitOperations',
   web_search: 'toolWebSearch',
@@ -291,6 +293,7 @@ const TOOL_SUBJECT_KINDS: Readonly<Record<string, Exclude<ToolSubjectKind, 'none
   screenshot_url: 'url',
   web_ui_navigate: 'url',
   run_command: 'command',
+  sandbox_session: 'command',
   run_in_background: 'command',
   git_operations: 'command',
   dispatch_subagent: 'name',
