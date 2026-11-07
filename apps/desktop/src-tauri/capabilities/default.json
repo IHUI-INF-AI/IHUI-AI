@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)。2026-09-16 桌面端薄壳化:窗口加载 https://aizhs.top 线上前端,remote 授权使线上页面获得 IPC(托盘/更新器/深链等)。. 2026-10-31 安全强化第 10 批 R6:checkin/qoder/workbuddy 全族 33 项凭据采集与设备重置命令移出 remote 授权面 —— web 面零消费方(tauri-bridge 桥函数亦零引用),此前线上页面(含任意 XSS)可直调扫描其他 IDE 应用 leveldb/DPAPI 提取 JWT 与重置设备指纹;Rust 命令本体保留(本地通道仍可用),仅移除远程 webview 授权。键鼠/截屏/剪贴板为 agent-control 在用功能保留,其滥用面由服务端审批门缓解。",
+  "description": "IHUI AI 默认能力(main + admin 窗口共用,admin 为 lazy create)。2026-09-16 桌面端薄壳化:窗口加载 https://aizhs.top 线上前端,remote 授权使线上页面获得 IPC(托盘/更新器/深链等)。. 2026-10-31 安全强化第 10 批 R6:checkin/qoder/workbuddy 全族 33 项凭据采集与设备重置命令移出 remote 授权面 —— web 面零消费方(tauri-bridge 桥函数亦零引用),此前线上页面(含任意 XSS)可直调扫描其他 IDE 应用 leveldb/DPAPI 提取 JWT 与重置设备指纹;Rust 命令本体保留(本地通道仍可用),仅移除远程 webview 授权。键鼠/截屏/剪贴板为 agent-control 在用功能保留,其滥用面由服务端审批门缓解。 2026-11-07 DBG-38 P0 收口:read-text-file/read-binary-file/write-text-file/list-dir/stat-file/clipboard-get 六条无路径 scope 的裸文件 I/O 权限已从 remote 授权面收回,改由 local-fs-io.json 仅授予本地 webview(见该文件说明);apps/desktop/src 全仓 grep 确认零消费方,属纯 RCE 面,线上 XSS 不再持有本机任意文件读写/剪贴板抓取能力。",
   "windows": ["main", "admin"],
   "remote": {
     "urls": ["https://aizhs.top/*", "https://www.aizhs.top/*"]
@@ -71,13 +71,7 @@
     "allow-keyboard-press",
     "allow-keyboard-hotkey",
     "allow-active-window",
-    "allow-clipboard-get",
     "allow-clipboard-set",
-    "allow-read-text-file",
-    "allow-read-binary-file",
-    "allow-write-text-file",
-    "allow-list-dir",
-    "allow-stat-file",
     "allow-save-window-state",
     "allow-restore-window-state",
     "allow-reset-window-state",
