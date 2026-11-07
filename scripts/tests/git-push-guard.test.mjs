@@ -1231,6 +1231,34 @@ test('worker 被强杀后残留 running ⇒ 判中止,死因写进异步日志',
   }
 })
 
+test('过期 running(心跳断供)⇒ 同样自愈 failed,不把死档留在途', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'stale-running.txt', 'x\n', 'feat: stale running fixture')
+    const head = sh('git rev-parse HEAD', work).trim()
+    mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
+    // 07:48 现场复盘:状态早已过 5 分钟心跳窗,pid 也已死 —— 只"不 active"不够,
+    // 状态文件必须翻成终态,否则它永远在说 running。
+    writeFileSync(
+      join(work, '.ihui-agent', 'state', 'push-state.json'),
+      JSON.stringify({
+        status: 'running',
+        headSha: head,
+        ts: Date.now() - 6 * 60 * 1000,
+        pid: 999999999,
+      }),
+    )
+    const r = runScript([], { cwd: work, env: { HUSKY_SKIP_PUSH: '1' } })
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'failed', `过期 running 必须翻成 failed,实际 ${st.status}`)
+    assert.match(st.reason, /判据=stale/, `终态要写清判据:${st.reason}`)
+    assert.doesNotMatch(r.stdout, /已有后台推送进行中/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
 test('pid 被复用(启动时刻不符)⇒ 不判在途,不许直接返回', () => {
   const { work, origin } = createSyncedRepoWithOrigin()
   try {
