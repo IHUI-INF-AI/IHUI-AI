@@ -27019,9 +27019,7 @@
     "loadFailed": "載入考試結果失敗",
     "passed": "已通過",
     "failed": "未通過",
-    "correct": "答對 {count}/{total}",
     "duration": "用時 {min} 分鐘",
-    "wrongQuestions": "錯題",
     "yourAnswer": "你的答案",
     "correctAnswer": "正確答案"
   },
