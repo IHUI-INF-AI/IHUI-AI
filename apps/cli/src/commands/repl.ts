@@ -13,7 +13,7 @@ import { randomUUID } from 'node:crypto';
 import chalk from 'chalk';
 import { readCliPackage } from '../util/pkg-version.js';
 import inquirer from 'inquirer';
-import { createSession, saveSession, repairSessionHistory, type Session, type ChatMessage } from './session.js';
+import { createSession, loadSession, saveSession, repairSessionHistory, type Session, type ChatMessage } from './session.js';
 import { loadMcpConfig } from './mcp-config.js';
 import { agentsMdExists, writeAgentsMd } from './template.js';
 import { cmdRead, cmdLs, cmdGrep, cmdGlob, cmdBash } from './file-ops.js';
@@ -86,6 +86,13 @@ import {
 import type { PluginRegistry } from '../plugins/index.js';
 import { clearTodoFile, readTodoList } from '../tools/todo-write.js';
 import { createToolDeltaPreviewStore, pickToolDeltaPreviewText } from '../tools/file-edit-preview.js';
+import { buildEditPreview, renderEditPreview } from '../tools/diff-preview.js';
+import {
+  createRunJournal,
+  loadRunJournal,
+  planResume,
+  recoverInterruptedJournal,
+} from '../sessions/run-journal.js';
 // G-701:/tool 回看记录的入参必须走键名档出口 —— 值形状档对「键名是凭据而值不像」的入参整类失明
 import { redactObjectDeepKeyed } from '../redact.js';
 // G-729:截断口径只认码点出口(UTF-16 码元 slice 会切出半个代理对,而切坏的串可能恰好躲过脱敏正则)
@@ -740,6 +747,21 @@ export async function startREPL(opts: ReplOptions): Promise<void> {
     } else if (opts.sessionId) {
       console.info(chalk.yellow(`  session not found: ${opts.sessionId},启动新会话`));
     }
+  }
+  // --resume / --continue:此前这里把 session 置空,结果是恢复进来的会话**不再落盘**
+  // (所有 saveSession 都被 `if (state.session)` 跳过),再中断一次就真丢了。
+  // 现在把老 session 文件读回来;读不到(旧 sessions 模块写的新格式)则用同 id 重建壳,
+  // 至少保证后续历史继续写回原会话、检查点也挂在这个 id 上。
+  if (!state.session && opts.sessionId) {
+    const legacy = loadSession(opts.sessionId);
+    state.session = legacy ?? {
+      id: opts.sessionId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      workspacePath: opts.workspacePath,
+      modelId: opts.modelId,
+      history: state.history,
+    };
   }
   if (state.session) {
     state.checkpoints = new CheckpointManager({
@@ -2720,11 +2742,40 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       // 策略收口到唯一出口(五处手写之一,人机确认这条通路保留 inquirer 原文案):
       // flag 自动放行时原有的中文「自动允许危险操作」提示逐字保留,经 onDecision 挂回
       // 86H:这一站是终端里真人批准的主通路,决策经包装器落审计链(入参原文不上线)。
+      // 仅 acceptEdits 档需要这条门:该档跳过危险确认弹窗,写类工具会直接执行,
+      // 因此由工具层在执行前补一次"看 diff 再确认";默认/manual 档已在 confirmDangerous
+      // 弹窗里展示过 diff 并问过人,这里直接放行,避免同一次写入问两遍。
+      diffPreviewGate: async (preview) => {
+        if ((state.opts.permissionMode ?? 'default') !== 'acceptEdits') return true;
+        console.info(renderEditPreview(preview, { color: true }));
+        const { confirm } = await inquirer.prompt([{
+          type: 'confirm',
+          name: 'confirm',
+          message: `是否应用上述改动到 ${preview.filePath}?`,
+          default: false,
+        }]);
+        return confirm === true;
+      },
       confirmDangerous: createAuditedDangerGate({
         allowDangerous: state.opts.allowDangerous === true,
         silent: true,
         auditSessionId: state.opts.sessionId,
         prompt: async (tool, args) => {
+          // 终端 diff 预览:写类工具在弹确认框之前先把 unified diff 打到屏上,让人看见
+          // "将要落盘什么"再决定;拒绝 ⇒ 工具根本不会 execute ⇒ 零写入(不是先写后撤)。
+          // 预览派生是只读的,失败不影响原确认流程。
+          if (tool.name === 'write_file' || tool.name === 'edit_file') {
+            try {
+              const preview = buildEditPreview({
+                toolName: tool.name,
+                args,
+                workspacePath: state.opts.workspacePath,
+              });
+              if (preview && preview.diff) console.info(renderEditPreview(preview, { color: true }));
+            } catch {
+              // 派生失败按无预览继续,不阻断确认
+            }
+          }
           // G-729:这一行也是"上屏"—— 确认框把入参摘要打给真人看,曾走裸 JSON.stringify(args)
           // + UTF-16 slice,与工具卡片同型泄漏;现与卡片同源(先脱敏、再按码点截断)。
           const argSummary = projectToolArgsForScreen(args).display;
@@ -2828,6 +2879,21 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
     /** 最近一次 onToolCall 的工具名 —— 帧与它同一次派发内同步到达,故即本批帧的主人 */
     let lastToolCallName = '';
 
+    // 断点续跑:每次发车前按会话 ID 取执行日志。interrupted 才当"接着中断点续",
+    // completed 的正常结束日志一律覆盖重建 —— 否则下一次提问会把上一轮的调用误判成待跳过步骤。
+    const journalSessionId = state.session?.id ?? state.opts.sessionId;
+    let runJournal: ReturnType<typeof createRunJournal> | undefined;
+    let resumePlan: ReturnType<typeof planResume> | undefined;
+    if (journalSessionId) {
+      const existing = loadRunJournal(journalSessionId);
+      if (existing && existing.status === 'interrupted') {
+        runJournal = recoverInterruptedJournal(existing);
+        resumePlan = planResume(runJournal);
+        state.statusLine.noteLine(`↻ 断点续跑:${resumePlan.summaryLines.join(' | ')}`);
+      } else {
+        runJournal = createRunJournal(journalSessionId, state.opts.workspacePath);
+      }
+    }
     // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
     state.statusLine.beginTurn();
     const result = await runToolLoop({
@@ -2836,6 +2902,8 @@ async function sendToAgent(prompt: string, state: ReplState, depth = 0): Promise
       ctx: state.ctx!,
       maxIterations: state.opts.maxIterations,
       sessionId: state.session?.id ?? state.opts.sessionId,
+      runJournal,
+      resumePlan,
       signal: controller.signal,  // P2-2 传 signal,SIGINT 触发后 runToolLoop 内部响应 abort
       // plan_updated 快照 → 实时任务状态行(agent.ts 已透传,见 RunToolLoopOptions.onPlanUpdate)
       onPlanUpdate: asPlanUpdateSink(state.statusLine),

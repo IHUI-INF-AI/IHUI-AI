@@ -93,19 +93,19 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
 | CLI 命令文件 | 75 | `cliCommandFiles` |
-| CLI 工具文件 | 92 | `cliToolFiles` |
+| CLI 工具文件 | 93 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4250 | `testFiles` |
+| 测试文件 | 4254 | `testFiles` |
 | CI 工作流 | 53 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 336 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19550 | `trackedFiles` |
+| 跟踪文件 | 19556 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->

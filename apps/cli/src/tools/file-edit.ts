@@ -43,6 +43,11 @@ import {
 } from '../util/atomic-write.js';
 import { withMissingFileSuggestion } from '../util/file-suggest.js';
 import {
+  buildEditPreview,
+  summarizeEditPreview,
+  type EditPreview,
+} from './diff-preview.js';
+import {
   createReadFileStateKey,
   getReadFileStateMap,
   isCachedReadFresh,
@@ -72,6 +77,44 @@ export interface EditToolContext extends ToolContext {
   hunkTracker?: HunkTracker;
   /** 发起改动的 agent 标识(默认 'main',subagent 传入 subagentId) */
   agentId?: string;
+  /**
+   * 执行前 diff 预览确认口(可选)。
+   *
+   * 设计理由:写类工具在"捕获基线 / 打快照 / 原子写"之前先问一次,返回 false 时
+   * 直接短路 —— 快照与 hooks 都不跑,保证"放弃=零写入",而不是先落盘再撤回。
+   * 只对可预览且确有变更的 edit_file/write_file 生效;预览不可用(如 search 未命中)
+   * 一律放行给原工具体验,不在预览层伪造一条成功/失败。
+   */
+  diffPreviewGate?: (preview: EditPreview) => boolean | Promise<boolean>;
+}
+
+/**
+ * 写类工具执行前的 diff 预览门(唯一出口)。
+ * 返回 null 表示"预览不适用/无变更/已批准,继续原流程";返回 ToolResult 表示用户放弃。
+ * 刻意只做只读计算:buildEditPreview 不得写盘,所以放弃路径天然零写入。
+ */
+async function gateDiffPreview(
+  ctx: EditToolContext,
+  toolName: 'write_file' | 'edit_file',
+  args: Record<string, unknown>,
+): Promise<ToolResult | null> {
+  if (!ctx.diffPreviewGate) return null;
+  let preview: EditPreview | null;
+  try {
+    preview = buildEditPreview({ toolName, args, workspacePath: ctx.workspacePath });
+  } catch {
+    // 预览是增强能力:派生失败不得阻断真实工具,按"无预览"继续
+    return null;
+  }
+  if (!preview || !preview.applicable || preview.kind === 'unchanged') return null;
+  const approved = await ctx.diffPreviewGate(preview);
+  if (approved) return null;
+  return {
+    success: false,
+    output: '',
+    error: `用户放弃写入:${summarizeEditPreview(preview)}(未产生任何落盘)`,
+    errorType: 'diff_preview_rejected',
+  };
 }
 
 /** 计算改动行范围(1-based, inclusive),用于 hunkTracker 记录与冲突检测 */
@@ -252,6 +295,9 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
       if (readGuard) {
         return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
       }
+
+      const previewRejected = await gateDiffPreview(ctx, 'write_file', args);
+      if (previewRejected) return previewRejected;
 
       const preResult = await runPreToolCall('write_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
@@ -451,6 +497,9 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
       if (readGuard) {
         return { success: false, output: '', error: readGuard.error, errorType: readGuard.errorType };
       }
+
+      const previewRejected = await gateDiffPreview(ctx, 'edit_file', args);
+      if (previewRejected) return previewRejected;
 
       const preResult = await runPreToolCall('edit_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };

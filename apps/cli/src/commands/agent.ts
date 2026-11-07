@@ -54,6 +54,25 @@ import {
 } from '../tools/index.js';
 import { BUILTIN_TOOLS } from '../tools/builtins.js';
 import { createFileEditTools } from '../tools/file-edit.js';
+import type { EditPreview } from '../tools/diff-preview.js';
+import {
+  beginTurn,
+  completeTurn,
+  computeToolFingerprint,
+  createRunJournal,
+  loadRunJournal,
+  markJournalCompleted,
+  markJournalInterrupted,
+  planResume,
+  recoverInterruptedJournal,
+  recordPlanned,
+  recordSettled,
+  recordStarted,
+  saveRunJournal,
+  type JournalCall,
+  type ResumePlan,
+  type RunJournal,
+} from '../sessions/run-journal.js';
 import {
   buildFileEditPreviewEvents,
   createToolDeltaPreviewStore,
@@ -396,6 +415,12 @@ export interface SetupAgentToolsOptions {
   /** 当前 agent 标识(用于 hunkTracker 归属记录,默认 'main') */
   agentId?: string;
   /**
+   * 写类工具执行前 diff 预览确认口(见 EditToolContext.diffPreviewGate)。
+   * 仅由交互宿主注入:REPL 在 acceptEdits 档用它补一次"看 diff 再确认"的机会,
+   * 默认/manual 档的确认已由 confirmDangerous 弹窗承担,避免同一次写入问两遍。
+   */
+  diffPreviewGate?: (preview: EditPreview) => boolean | Promise<boolean>;
+  /**
    * 外部注入的 PluginRegistry(可选,优先于 settings.plugins 自动加载)。
    * 提供时 setupAgentTools 不再自动 loadPlugins,直接使用此 registry。
    */
@@ -482,6 +507,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     checkpoints: opts.checkpoints,
     hunkTracker: opts.hunkTracker,
     agentId: opts.agentId,
+    diffPreviewGate: opts.diffPreviewGate,
   }));
   const settings = loadSettings();
   // 会话级 worktree 隔离(enter_worktree / exit_worktree):与子代理隔离腿同一套创建/回收实现。
@@ -668,6 +694,18 @@ export interface RunToolLoopOptions {
   signal?: AbortSignal;
   /** 关联会话 ID(用于 hook 埋点传递) */
   sessionId?: string;
+  /**
+   * 断点续跑日志。宿主(REPL / runAgent)按会话 ID 加载或新建后传入;
+   * 缺省 = 不记录(零行为差异)。日志在每次 dispatch/settle 后原子落盘,
+   * 保证进程崩溃时也能知道"哪一步已结算、哪一步副作用未知"。
+   */
+  runJournal?: RunJournal;
+  /**
+   * 中断恢复判据(仅 --resume 且日志处于 interrupted 时传入)。
+   * 非空时:① 首轮前把"从第几轮第几步续跑 + 已完成/未知步骤"作为恢复上下文喂给模型;
+   * ② 本轮之前的已结算调用按指纹去重,绝不重复执行;③ started→unknown 的调用直接拒绝重放。
+   */
+  resumePlan?: ResumePlan;
   onDelta?: (delta: string) => void | Promise<void>;
   onToolCall?: (name: string, args: Record<string, unknown>) => void | Promise<void>;
   /**
@@ -1869,6 +1907,10 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    * 已知取舍:第 4 条让带插件的会话拿不到提前执行收益,这是有意的保守。
    */
   const mayDispatchEarly = (toolName: string): boolean => {
+    // 恢复后的第一轮关掉提前执行:去重判据在主路径上,流内提前跑会绕过日志,
+    // 让"中断前已结算"的只读调用再执行一次 —— 虽无副作用,但会让"不重复已完成步骤"
+    // 的判据在账面上失真(同一调用两条落地记录)。
+    if (journalResuming) return false;
     if (opts.signal?.aborted) return false;
     if (opts.planFirst && !opts.planApproved) return false;
     if (opts.planMachine?.isWriteBlocked()) return false;
@@ -1965,9 +2007,88 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   let pendingOutputContinuationPrompt: { role: 'user'; content: string } | null = null;
   let lastFinishReason: string | undefined;
 
+  // ── 断点续跑日志(见 ../sessions/run-journal.ts)──────────────────────
+  // 只在宿主传入 runJournal 时启用,未传 = 旧行为逐零差异。
+  // turn 编号以日志里已有的最大轮次为基线,恢复运行时续接而不是从 1 重数 ——
+  // 否则新旧两段会共用同一个 turn 号,去重与"从第几轮续"都会指错位置。
+  const journal = opts.runJournal;
+  const journalResuming =
+    journal !== undefined && opts.resumePlan !== undefined && opts.resumePlan.journalStatus === 'interrupted';
+  const journalTurnBase = journal
+    ? journal.turns.reduce((max, turn) => Math.max(max, turn.turn), 0)
+    : 0;
+  // 仅在"显式恢复"时启用旧调用去重;同一会话的普通新一轮不得把历史调用当已结算而跳过。
+  const journalPriorLimit = journalResuming ? journalTurnBase : 0;
+  const journalSettledIndex = new Map<string, JournalCall>();
+  const journalUnknownIndex = new Map<string, JournalCall>();
+  if (journal && journalPriorLimit > 0) {
+    const settledCount = new Map<string, number>();
+    const unknownCount = new Map<string, number>();
+    for (const turn of [...journal.turns].sort((a, b) => a.turn - b.turn)) {
+      if (turn.turn > journalPriorLimit) continue;
+      for (const call of [...turn.calls].sort((a, b) => a.seq - b.seq)) {
+        const fp = call.fingerprint;
+        if (call.status === 'settled') {
+          const n = settledCount.get(fp) ?? 0;
+          journalSettledIndex.set(`${fp}#${n}`, call);
+          settledCount.set(fp, n + 1);
+        } else if (call.status === 'unknown' || call.status === 'started') {
+          const n = unknownCount.get(fp) ?? 0;
+          journalUnknownIndex.set(`${fp}#${n}`, call);
+          unknownCount.set(fp, n + 1);
+        }
+      }
+    }
+  }
+  let journalSaveFailureReported = false;
+  /** 日志落盘不得拖垮主流程:失败只报一次,继续按内存态运行。 */
+  const persistJournal = (): void => {
+    if (!journal) return;
+    try {
+      saveRunJournal(journal);
+    } catch (e) {
+      if (!journalSaveFailureReported) {
+        journalSaveFailureReported = true;
+        process.stderr.write(
+          chalk.yellow(`[run-journal] 续跑日志落盘失败(本次运行继续,恢复判据可能不完整): ${String(e)}\n`),
+        );
+      }
+    }
+  };
+  // 恢复上下文:把"已完成 / 副作用未知 / 从哪一步续"作为一条用户消息喂给模型。
+  // 不给这行,模型只看到中断前的历史,要么重跑已完成步骤(重复副作用),要么凭空猜测进度。
+  if (journal && journalResuming && opts.resumePlan) {
+    const plan = opts.resumePlan;
+    const completedPreview = plan.completed
+      .slice(-5)
+      .map((c) => `第 ${c.turn} 轮 ${c.toolName}#${c.seq}`);
+    const unknownPreview = plan.unknown
+      .map((c) => `第 ${c.turn} 轮 ${c.toolName}#${c.seq}`);
+    const lines = [
+      '[resume] 上一次运行被中断,以下状态由续跑日志对账得出,请据此继续:',
+      ...plan.summaryLines,
+      `已完成 ${plan.completedCount} 步${completedPreview.length > 0 ? `(最近: ${completedPreview.join('、')})` : ''} —— 这些步骤不会重复执行。`,
+      plan.unknownCount > 0
+        ? `注意:${plan.unknownCount} 步的副作用状态未知(${unknownPreview.join('、')})。禁止自动重放这些调用;先核实目标状态,再决定后续动作。`
+        : '没有副作用状态未知的步骤。',
+      `从第 ${plan.resumeFrom.turn} 轮第 ${plan.resumeFrom.callSeq} 步续跑。`,
+    ];
+    opts.messages.push({ role: 'user', content: lines.join('\n') });
+  }
+
   try {
     for (let i = 0; i < opts.maxIterations; i++) {
       iterations = i + 1;
+      // 续跑日志的轮号接在历史最大轮之后;每轮开场即建记录,崩溃时至少知道"这一轮开始过"。
+      const journalTurn = journal ? journalTurnBase + iterations : 0;
+      if (journal) {
+        beginTurn(journal, journalTurn);
+        persistJournal();
+      }
+      // 去重只作用于恢复后的第一轮:这一轮是"接着中断点继续"的语义,模型重发的
+      // 已结算调用必须被拦住;之后的轮次允许正常重复执行(例如改完再跑一次测试)。
+      const journalDedupActive = journalResuming && iterations === 1;
+      const journalRunOccurrence = new Map<string, number>();
       // G-633 回合起点预留号:先 reserve 再落盘 —— 本轮的账本登记/快照/审计上报
       // 都归属这个进程级唯一号;换流(supersede/超限重读)沿用同一号(粒度是回合)。
       reservedTurnNumber = reserveTurnNumber();
@@ -2462,6 +2583,11 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             }
           }
         }
+        // 本轮正常收口:在日志里给轮次盖完成章,恢复判据据此把"下一轮"当作续跑点。
+        if (journal) {
+          completeTurn(journal, journalTurn);
+          persistJournal();
+        }
         // P0-3 end_turn(LLM 主动结束)时重置连续签名检测器,表示对话正常推进
         signatureDetector.reset();
         // P2-4 agent-lifecycle:turnEnd hook(本轮成功结束 - end_turn)
@@ -2600,9 +2726,19 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       }
 
       const resultParts: string[] = [];
+      // 续跑日志:执行前先把本轮每个调用登记为 planned(=从未开始,可安全重放)。
+      // planned 是"副作用尚未可能落地"的唯一判据,所以必须早于任何权限确认/hook/执行。
+      const journalPlannedByIndex: Array<JournalCall | undefined> = [];
       // P0-1 Tool parallelism:先按顺序触发 onToolCall,再用 Promise.all 并行执行,最后按顺序处理结果
       // 单工具时 Promise.all 退化为串行,无额外开销,UI 体验与原串行实现一致
-      for (const call of toolCalls) {
+      for (const [callIndex, call] of toolCalls.entries()) {
+        if (journal) {
+          journalPlannedByIndex[callIndex] = recordPlanned(journal, journalTurn, {
+            toolCallId: `t${journalTurn}-${callIndex + 1}`,
+            toolName: call.name,
+            args: call.arguments,
+          });
+        }
         await opts.onToolCall?.(call.name, call.arguments);
         // D113(2026-09-27):文件写类工具在**执行之前**把"将要写入的内容"按服务端的
         // tool-delta 帧契约发一遍(派生唯一出口 tools/file-edit-preview.ts,算法与服务端
@@ -2633,10 +2769,65 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           args: call.arguments,
         });
       }
+      if (journal) persistJournal();
       const mode = opts.ctx.permissionMode ?? 'default';
       const parallelResults = await Promise.all(
-        toolCalls.map(async (call) => {
+        toolCalls.map(async (call, callIndex) => {
           const startTime = Date.now();
+          const planned = journalPlannedByIndex[callIndex];
+          // 恢复第一轮:模型重发"中断前已结算"的调用时按指纹跳过执行,直接回灌落盘结果。
+          // 匹配口径是 (工具名+参数指纹, 同指纹第 n 次出现) —— 不用下标:上游解析器丢条目
+          // 会让下标整体错位,而指纹错位不了。
+          if (journal && planned && journalDedupActive) {
+            const fp = computeToolFingerprint(call.name, call.arguments);
+            const occurrence = journalRunOccurrence.get(fp) ?? 0;
+            journalRunOccurrence.set(fp, occurrence + 1);
+            const settled = journalSettledIndex.get(`${fp}#${occurrence}`);
+            if (settled) {
+              const replayedOk = settled.ok !== false;
+              const excerpt = settled.outputExcerpt ?? '';
+              recordSettled(journal, journalTurn, planned.seq, {
+                ok: replayedOk,
+                output: `[resume] 该步骤在中断前已结算,未重复执行。\n${excerpt}`,
+                errorType: settled.errorType,
+              });
+              persistJournal();
+              return {
+                call,
+                result: replayedOk
+                  ? {
+                      success: true,
+                      output: `[resume] 该步骤在中断前已结算,未重复执行。\n${excerpt}`,
+                    }
+                  : {
+                      success: false,
+                      output: '',
+                      error: `[resume] 该步骤在中断前已结算为失败,未重复执行。请先核实目标状态再决定是否换方案。${settled.errorType ? `(errorType=${settled.errorType})` : ''}`,
+                      errorType: settled.errorType ?? 'resume_replayed_failure',
+                    },
+                durationMs: Date.now() - startTime,
+              };
+            }
+            const unknown = journalUnknownIndex.get(`${fp}#${occurrence}`);
+            if (unknown) {
+              recordSettled(journal, journalTurn, planned.seq, {
+                ok: false,
+                output: '',
+                errorType: 'resume_unknown_effect',
+              });
+              persistJournal();
+              return {
+                call,
+                result: {
+                  success: false,
+                  output: '',
+                  error: `[resume] 该步骤在中断时已开始但未结算,副作用是否落地未知,禁止自动重放。请先核实目标状态(文件内容/进程结果)再继续。`,
+                  errorType: 'resume_unknown_effect',
+                },
+                durationMs: Date.now() - startTime,
+              };
+            }
+          }
           const tool = getTool(call.name);
           // G-401 拍板②:remote(MCP 适配层)工具没有本地 Tool 对象,此前在这里只能拿到
           // `undefined ⇒ 'read'` 缺省,整族 remote 工具在 mode 矩阵里被当只读放行(default
@@ -2679,12 +2870,26 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
               };
             }
           }
+          // 副作用从这里开始可能落地:先落 started 再执行,崩溃后由 recoverInterruptedJournal
+          // 统一收敛成 unknown(而不是被误判成"没跑过"而重放)。
+          if (journal && planned) {
+            recordStarted(journal, journalTurn, planned.seq);
+            persistJournal();
+          }
           // 经账本发起执行:流式期已提前跑起来的,这里复用同一个 promise(绝不重复执行);
           // 匹配按 (工具名+参数指纹) 而非下标 —— 上游解析器丢条目时下标会整体错位一格。
           const ledgerEntry = ledger.matchForCall(call.name, call.arguments);
           const result = ledgerEntry
             ? (await ledger.runOnce(ledgerEntry, () => executeToolCall(call, toolCtx))).value
             : await executeToolCall(call, toolCtx);
+          if (journal && planned) {
+            recordSettled(journal, journalTurn, planned.seq, {
+              ok: result.success,
+              output: result.output,
+              errorType: result.errorType,
+            });
+            persistJournal();
+          }
           if (call.name === 'dispatch_subagent') {
             const subId = String(call.arguments.subagentId ?? call.arguments.task ?? '').slice(0, 80);
             await runHook('subagentStop', {
@@ -2947,6 +3152,14 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
   }
   await runHook('stop', hookCtx, { signal: opts.signal });
 
+  // 终局落账:end_turn 记 completed(下次普通运行不会再当断点恢复);
+  // 其余停止原因(报错/取消/预算/最大轮数)记 interrupted,保留"从哪一步续"的判据。
+  if (journal) {
+    if (stopReason === 'end_turn') markJournalCompleted(journal);
+    else markJournalInterrupted(journal);
+    persistJournal();
+  }
+
   // P2-4 agent-lifecycle:turnComplete hook(agent 完成所有轮次,与 stop 配对,携带最终 stopReason)
   await runHook('turnComplete', {
     ...hookCtx,
@@ -3196,6 +3409,24 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
   // 派生算法仍在唯一出口 tools/file-edit-preview.ts)。
   const d113Bridge = createToolDeltaBridge();
 
+  // 断点续跑:有会话 ID 才能把执行状态落到 `<sessionId>.run-journal.json`。
+  // 只有日志处于 interrupted 才算"接着上次中断点续";completed 的日志按新运行覆盖重建,
+  // 避免把上一次正常结束的调用误当成本次要跳过的已完成步骤。
+  let runJournal: RunJournal | undefined;
+  let resumePlan: ResumePlan | undefined;
+  if (opts.session?.id) {
+    const existing = loadRunJournal(opts.session.id);
+    if (existing && existing.status !== 'completed') {
+      runJournal = recoverInterruptedJournal(existing);
+      resumePlan = planResume(runJournal);
+    } else {
+      runJournal = createRunJournal(opts.session.id, opts.workspacePath);
+    }
+  }
+  if (resumePlan && !silent) {
+    console.info(chalk.dim(`  ↻ ${resumePlan.summaryLines.join(' | ')}`));
+  }
+
   try {
     const result = await runToolLoop({
       modelId: opts.modelId,
@@ -3204,6 +3435,8 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
       maxIterations: opts.maxIterations,
       signal: opts.signal,
       sessionId: opts.session?.id,
+      runJournal,
+      resumePlan,
       planFirst: opts.planFirst,
       // P0-C:plan 审批门 — 透传显式 auto 标志(headless 非交互无回调时由 runToolLoop fail-fast)
       autoApprovePlan: opts.autoApprovePlan,
