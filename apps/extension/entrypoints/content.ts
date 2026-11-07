@@ -80,8 +80,13 @@ function t(key: string): string {
 }
 
 let hideTimer: ReturnType<typeof setTimeout> | null = null
+// 2026-11-07 DBG-68: 右键弹层 TTL 定时器句柄 —— 新弹层创建时必须清掉旧定时器,
+// 否则旧定时器到期会按 id 删掉"当前"弹层(查词失败 6s 内点重试即复现)。
+let ctxPopupTimer: ReturnType<typeof setTimeout> | null = null
 let highlightEnabled = false
 const translationCache = new Map<string, string>()
+// 2026-11-07 DBG-67: 缓存键从 text.slice(0,32) 改为全文后,加上限防无界增长(FIFO 驱逐)。
+const TRANSLATION_CACHE_MAX = 100
 let toolbar: ContentToolbar | null = null
 let lastSelectionRect: RectLike | null = null
 
@@ -141,7 +146,10 @@ function getActiveSelectionText(): string {
 async function handleTranslate() {
   const text = getActiveSelectionText()
   if (!text) return
-  const key = text.slice(0, 32)
+  // 2026-11-07 DBG-67 收口: 原 key = text.slice(0,32) —— 两段前 32 字符相同的不同选区
+  // 命中同一条缓存,而 insertTranslation 先 range.deleteContents() 删原文再插缓存译文,
+  // ⇒ 第二段被替换成第一段的译文且原文不可撤销。改为全文作键(精确命中)。
+  const key = text
   let translated = translationCache.get(key)
   if (translated) {
     insertTranslation(text, translated)
@@ -156,6 +164,11 @@ async function handleTranslate() {
     translated = res?.translation || ''
     if (translated) {
       translationCache.set(key, translated)
+      // 2026-11-07 DBG-67: Map 迭代按插入序,超限驱逐最旧一条,防长会话无界增长。
+      if (translationCache.size > TRANSLATION_CACHE_MAX) {
+        const oldest = translationCache.keys().next().value
+        if (oldest !== undefined) translationCache.delete(oldest)
+      }
       insertTranslation(text, translated)
       return
     }
@@ -281,15 +294,17 @@ async function handleSendToAI() {
   } catch {
     // ignore
   }
+  // 2026-11-07 DBG-62 收口: 原实现直接调 chrome.tabs.query / chrome.sidePanel.open ——
+  // 二者不在内容脚本可用面内(运行时 undefined),TypeError 被本函数 try/catch 吞成一条
+  // console.warn ⇒ 点「发送到 AI」侧栏不打开、无任何用户可见反馈。
+  // background 已有 sidePanel.open 消息通道(background.ts:341 handleSidePanelOpen,
+  // 由后台查询活动标签页并打开),内容脚本只需发消息走既有通道。
   try {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
-    const tabId = tabs[0]?.id
-    const winId = tabs[0]?.windowId
-    if (typeof tabId === 'number') {
-      await chrome.sidePanel.open({ tabId })
-    } else if (typeof winId === 'number') {
-      await chrome.sidePanel.open({ windowId: winId })
-    }
+    await sendMessage({
+      type: 'sidePanel.open',
+      payload: {},
+      requestId: `sp-${Date.now()}`,
+    })
   } catch (err) {
     console.warn('[IHUI AI] open side panel failed:', err)
   }
@@ -454,9 +469,16 @@ function showContextResultPopup(payload: CtxVocabResult, rect: RectLike | null) 
   popup.style.left = `${placement.left}px`
 
   // 自动消失(可被 close 按钮提前关掉)
-  setTimeout(() => {
-    const current = document.getElementById(CTX_POPUP_ID)
-    if (current) current.remove()
+  // 2026-11-07 DBG-68 收口: 原回调用 getElementById(CTX_POPUP_ID) 取"当前"节点 ——
+  // 旧定时器到期删的是新弹层,且多次重试叠加多个未清理定时器。改为闭包捕获本弹层
+  // 节点 + 新弹层创建时清掉旧定时器(模块级 ctxPopupTimer)。
+  if (ctxPopupTimer) {
+    clearTimeout(ctxPopupTimer)
+    ctxPopupTimer = null
+  }
+  ctxPopupTimer = setTimeout(() => {
+    ctxPopupTimer = null
+    popup.remove()
   }, CTX_POPUP_TTL_MS)
 }
 
