@@ -119,18 +119,21 @@ if [ "$REPLAY_TREE" != "$NEW_TREE" ]; then
   exit 1
 fi
 echo "判定面已重建并与本次提交树逐字节等价: $REPLAY_TREE"
-node scripts/guardian-runner.mjs --staged > /tmp/batch.out 2>&1
+# 2026-11-07 DBG-98 收口:/tmp/batch.out 是共享路径,多会话并行提交(本仓常态)会互相覆盖
+# 批处理结果 ⇒ 误判/漏判。改为每调用用 mktemp 取唯一临时文件(PID 兜底)。
+BATCH_OUT=$(mktemp /tmp/ihui-git-priv-commit.XXXXXX.out 2>/dev/null || echo "/tmp/ihui-git-priv-commit.$$.out")
+node scripts/guardian-runner.mjs --staged > "$BATCH_OUT" 2>&1
 BATCH_RC=$?
-grep -E "总检查数|blocking 失败|失败门清单" /tmp/batch.out | tail -4
+grep -E "总检查数|blocking 失败|失败门清单" "$BATCH_OUT" | tail -4
 # 从批输出的**❌ 行**里抓真实被点名的路径,再与本次声明集求交集。
 # ⚠️ 只抓 ❌ 行,不能抓全文: mypy 那类门会把"判定面内的文件清单"整份打印出来,
 #    抓全文会把清单里本次的文件误判成"被点名"(实测 15/17 假阳性)。
-BATCH_PATHS=$(grep -a "❌" /tmp/batch.out | grep -aoE '(apps|packages|monitoring|scripts|docs|deploy)/[A-Za-z0-9_./-]+' | sort -u)
+BATCH_PATHS=$(grep -a "❌" "$BATCH_OUT" | grep -aoE '(apps|packages|monitoring|scripts|docs|deploy)/[A-Za-z0-9_./-]+' | sort -u)
 MINE=$(printf '%s\n' "${PATHS[@]}" | sort -u)
 HIT=$(comm -12 <(echo "$BATCH_PATHS") <(echo "$MINE"))
 if [ "$BATCH_RC" != "0" ]; then
-  echo "⚠️ 守门批非零(详见 /tmp/batch.out)。逐道复跑,点名本次文件的必须自己修:"
-  grep -E "❌" /tmp/batch.out | tail -8
+  echo "⚠️ 守门批非零(详见 $BATCH_OUT)。逐道复跑,点名本次文件的必须自己修:"
+  grep -E "❌" "$BATCH_OUT" | tail -8
   if [ -n "$HIT" ]; then
     echo "❌ 批内结论点名了本次声明的文件 ⇒ 这是本任务自己的红:"
     echo "$HIT" | sed 's/^/    /'
