@@ -33,6 +33,11 @@ import { collectLayerContributions, deepMergeAll, type ConfigSourceEntry } from 
 import { parseEnvOverrides } from './env.js'
 import { parseCliOverrides } from './cli.js'
 import { filterProjectLayerSettings } from './layer-policy.js'
+import {
+  applyStoredMainCredentials,
+  migratePlaintextCredentials,
+  withoutMainCredentialFields,
+} from '../lib/main-credential-store.js'
 
 export interface LoadConfigOptions {
   /** 工作目录(默认 process.cwd()),用于定位 project 级配置 */
@@ -125,7 +130,12 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
   // Layer 1: defaults(内置默认值,最低优先级)
   const defaults = DEFAULT_SETTINGS
   // Layer 2: global(~/.ihui/settings.json)
-  const globalConfig = loadSettingsFile(globalPath, opts.stat)
+  // 2026-11-06 安全债:主凭据只从安全存储回填到 **global 层**(这样 env/cli 仍可覆盖),
+  // 且回填前先剥离文件里的明文;迁移在读之前完成,旧明文不会被合进内存。
+  migratePlaintextCredentials([globalPath])
+  const globalConfig = applyStoredMainCredentials(
+    withoutMainCredentialFields(loadSettingsFile(globalPath, opts.stat)),
+  )
   // Layer 3: project(<cwd>/.ihui/settings.json)—— G-408①:这一层是**仓库内容**,必须过
   // 可写键封闭表(config/layer-policy.ts):安全敏感键/未知键/非法枚举一律拒绝并点名。
   // 此前它零键过滤,防线只剩 .gitignore 的 `.ihui/*` 一行 —— ignore 不是判据。

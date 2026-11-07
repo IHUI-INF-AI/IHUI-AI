@@ -15,6 +15,7 @@
  *   - 不允许通过 /config 修改审计相关字段(auditEnabled 等)以防逃避审计
  *   - 不允许修改 folderTrust / sandbox 等 P0 安全字段(需手动编辑文件)
  *   - 允许修改的 key 白名单:apiUrl/apiKey/defaultModel/locale/permissionMode/maxIterations/enableMcp/planFirst/allowDangerous/sampler.*
+ *     (apiKey 现在写入安全存储,不再明文落 settings.json)
  */
 
 import * as fs from 'node:fs';
@@ -29,6 +30,10 @@ import {
   type SamplerSettings,
 } from './settings.js';
 import { writePrivateFile } from '../lib/private-file.js';
+import {
+  withoutMainCredentialFields,
+  writeMainCredentials,
+} from '../lib/main-credential-store.js';
 
 // === 允许通过 /config 修改的 key 白名单 ===
 
@@ -189,11 +194,24 @@ function parseValue(raw: string, type: ConfigValueType, enumValues?: readonly st
   }
 }
 
-/** 把当前 settings 写回 ~/.ihui/settings.json */
+/**
+ * 把当前 settings 写回 ~/.ihui/settings.json。
+ *
+ * 2026-11-06 安全债:`/config set apiKey` 以前会把主凭据明文写进 settings.json。
+ * 现在凭据字段先写安全存储(与 MCP 同一套机制),落盘对象统一剥离三个凭据字段;
+ * 安全存储不可用时这里直接抛错,不会静默退化成明文。
+ */
 function saveSettings(settings: Settings): void {
+  const patch: { apiKey?: string; refreshToken?: string; apiSecret?: string } = {};
+  if (settings.apiKey !== undefined) patch.apiKey = settings.apiKey;
+  if (settings.refreshToken !== undefined) patch.refreshToken = settings.refreshToken;
+  if (settings.apiSecret !== undefined) patch.apiSecret = settings.apiSecret;
+  if (Object.keys(patch).length > 0) {
+    writeMainCredentials(patch, { recoverCorrupt: true });
+  }
   const p = getSettingsPath();
   fs.mkdirSync(path.dirname(p), { recursive: true });
-  writePrivateFile(p, JSON.stringify(settings, null, 2) + '\n');
+  writePrivateFile(p, JSON.stringify(withoutMainCredentialFields(settings), null, 2) + '\n');
 }
 
 // === 渲染 ===
