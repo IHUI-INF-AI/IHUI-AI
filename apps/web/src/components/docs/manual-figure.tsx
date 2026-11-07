@@ -47,7 +47,7 @@ export function ManualFigure({
           className="block h-auto w-full"
         />
       </div>
-      <figcaption className="text-xs text-muted-foreground">{caption}</figcaption>
+      <figcaption className="font-[weight:inherit] text-label text-muted-foreground">{caption}</figcaption>
     </figure>
   )
 }
