@@ -17,19 +17,67 @@
  * 用法：pnpm typecheck:full
  */
 
-import { readdirSync, statSync, rmSync, existsSync, readFileSync } from 'node:fs'
-import { join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
-import { spawnSync } from 'node:child_process'
+import {
+  readdirSync,
+  statSync,
+  rmSync,
+  existsSync,
+  readFileSync,
+  mkdirSync,
+  writeFileSync,
+  appendFileSync,
+} from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 // G-611 产出侧:本脚本正是 check-typecheck:454 那套"族码 ⇒ 临时失败"集合的**被派生方**。
 // 装之前,POSIX 信号杀走默认动作(无码),消费侧集合判据对它结构上失明;装之后,
 // 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
 import { installSignalExit } from './lib/signal-exit.mjs'
+import { formatDuration, readTimings } from './lib/typecheck-timing.mjs'
+import {
+  acquireTypecheckLock,
+  describeLockHolder,
+  DEFAULT_POLL_MS,
+  DEFAULT_WAIT_MS,
+} from './lib/typecheck-lock.mjs'
+import { UNDETERMINED_EXIT_CODE } from './lib/gate-failure-kind.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
+
+// 分包读数落盘位置:node_modules/.cache 已被 git 忽略,不会污染工作树。
+// 超时/被杀时 check-typecheck 与 guardian 都从这里读「哪些包已完成、哪个卡住」。
+const TIMINGS_FILE =
+  process.env.IHUI_TYPECHECK_TIMINGS_FILE ||
+  join(ROOT, 'node_modules', '.cache', 'ihui', 'typecheck-timings.jsonl')
+const RUN_ID = `${Date.now()}-${process.pid}`
+
+// ─── 并发度(2026-11-07 实测后定档,不动 300s 看门狗)─────────────────────────
+// 串行实测(21 包,冷 .tsbuildinfo,@ihui/api 134.9s / @ihui/web 113.7s):
+//   串行相加 444.7s / 墙钟 444.8s —— 300s 单门看门狗每轮必红。
+//   同结构另有两次采样,只差采样时点:398s(guardian 早期读数)/ 346s(apps/web 未 Done 时被杀)。
+// 受限并发实测(同机、同冷启动口径、21 包全 Done):
+//   c=2 → 墙钟 284.4s,node 进程工作集峰值 12.60GB(空载基线 3.52GB)
+//   c=4 → 墙钟 179.7s,node 进程工作集峰值 12.83GB(空载基线 3.52GB)
+//   c=4 + LPT 派发(按上一轮耗时降序) → 墙钟 145.5s(串行相加 510.8s)
+//   对照:同 c=4 但按目录字典序派发 → 246.6s(api 43.7s 才开跑 / web 86.1s 才开跑,长尾拖死)
+// 机器假设:20 逻辑核 / 31.8GB 物理内存(起跑时空闲 16.3GB)。
+// 取 4 + LPT 的理由:300/145.5 = 2.06x 余量;c=4 的峰值与 c=2 几乎持平 —— 内存大头是
+// @ihui/api 与 @ihui/web 同时在场的两块全局类型表,不是并发路数本身;再往上加只是
+// 让 CPU 排队,不缩短关键路径。低内存机器(空闲 < 10GB)用 IHUI_TYPECHECK_CONCURRENCY=2 退回,
+// 那条路径实测 284.4s 仍在 300s 内。
+// **300s 阈值一行未改**:并发生效后门槛从未满足变为可满足,不需要靠调大消红。
+// 2026-11-07 合并 @ihui/api 两条 typecheck 腿后复测(见 apps/api/tsconfig.scripts.json 头注):
+//   单跑 node scripts/check-typecheck.mjs 193.3s(包墙钟 170.5s,@ihui/api 123.6s→68.5s,@ihui/web 112.7s);
+//   push 门内 T1 174.15s(批量 336.2s)—— 与 300s 阈值之间无任何调参,改的是结构。
+// 语义不变:任一包失败 ⇒ 非零退出;超时仍由外层归 undetermined,绝不折成 pass。
+const TYPECHECK_CONCURRENCY = (() => {
+  const raw = Number(process.env.IHUI_TYPECHECK_CONCURRENCY ?? 4)
+  if (!Number.isFinite(raw) || raw < 1) return 4
+  return Math.min(Math.floor(raw), 8)
+})()
 
 const EXCLUDE_DIRS = new Set([
   '.git',
@@ -177,27 +225,12 @@ function cleanTsbuildinfo(dir, removed = []) {
   return removed
 }
 
-// ─── 全局串行锁(2026-09-18 晚根治):杜绝多会话并行全量 typecheck ──
-// 事故实证(WMI 取证):20:58/20:59 两棵 pnpm -r typecheck 树并行,CPU 打满且
-// 各拉 ~30 个 cmd.exe 子进程。mkdir 原子锁 + 持有者 pid 存活检测(死进程残留锁
-// 立即接管,stale 20min 兜底),与 git 写锁同款模式。
-import {
-  mkdirSync as _mkLock,
-  readFileSync as _rdLock,
-  writeFileSync as _wrLock,
-  rmSync as _rmLock,
-} from 'node:fs'
-// 进程锁放系统临时目录(2026-10-04 迁出仓内):
-//   原锁目录在仓内(ROOT 下)⇒ 清 stale 锁的 rmSync(recursive,force)
-//   触发 WorkBuddy safe-delete shim 的批量守卫(SAFE_DELETE_BULK_GUARD_ERROR),
-//   tsc 根本没起来,守门报「退出码非 0 但未解析到任何报错文件路径」——
-//   属自锁式死锁:重试无用,只能靠 HUSKY_SKIP_TYPECHECK 绕过。
-//   shim 的 shouldBypassSafeDelete 对 os.tmpdir() 放行(见 node-safe-delete-shim.cjs
-//   的 OS_TMP_DIRS),且进程锁本就不该进仓库目录。_lockDir 是单一常量,
-//   下方建/读/清 stale/exit 清 五处使用全部由它派生,改这一处即全覆盖。
-const _lockDir = join(tmpdir(), 'ihui-typecheck-full.lock')
-const _lockMeta = join(_lockDir, 'meta.json')
-const _LOCK_STALE_MS = 20 * 60 * 1000
+// ─── 机器级串行锁(2026-11-07 重构:身份判活 + 等待上限 + 显式未判定出口)──────
+// 旧内联锁(2026-09-18)只有 pid+时间戳,三处病灶:pid 被复用时判活恒真(锁永不清理)、
+// 等不到锁时无限等待(一次并发占用拖成 20min 挂死)、清理路径没有身份复核(可删掉新锁)。
+// 现实现住 scripts/lib/typecheck-lock.mjs(原子创建/陈旧认领/身份核对各只有一份实现);
+// 本文件只保留入口与出口语义。**300s 阈值、LPT 派发、分包计时一律不动**。
+// 进程锁仍落 os.tmpdir():进程锁不该进仓库目录,且 safe-delete shim 对 os.tmpdir() 放行。
 
 // ─── 再入守卫(2026-09-18 深夜根治递归进程树洪水) ─────────────────────
 // 根包 package.json "typecheck" = 本脚本(供 `pnpm typecheck` 直跑全量门)。
@@ -216,51 +249,40 @@ process.env.IHUI_TYPECHECK_FULL_CHILD = '1' // 传给 pnpm -r 子进程链
 // 不可捕获的强杀(TerminateProcess/taskkill /F)任何进程都产不出码 —— 与装本模块前一致,
 // 增益在于"可捕获的那一半现在必有码",而锁清理仍由既有 process.on('exit') 兜住。
 installSignalExit({ label: 'typecheck:full' })
-function _pidAlive(pid) {
-  if (!pid) return true
-  try {
-    process.kill(Number(pid), 0)
-    return true
-  } catch (e) {
-    return e.code === 'EPERM'
-  }
-}
 // `--self-test` 只证 pickStalePackages 这一维纯函数判据,不起 tsc、不需要串行化。
-// 锁落 os.tmpdir(),若自检也建锁,并发跑自检会在同一把锁上互等(累计 5s 轮询),
+// 锁落 os.tmpdir(),若自检也建锁,并发跑自检会在同一把锁上互等,
 // 而自检本身零派生 ⇒ 自检路径整段跳过锁(真实全量跑仍照旧独占)。
 const _SELF_TEST = process.argv.includes('--self-test')
 if (!_SELF_TEST) {
-  for (;;) {
-    try {
-      _mkLock(_lockDir, { recursive: false })
-      _wrLock(_lockMeta, JSON.stringify({ pid: process.pid, ts: Date.now() }))
-      break
-    } catch {
-      let meta = null
-      try {
-        meta = JSON.parse(_rdLock(_lockMeta, 'utf8'))
-      } catch {
-        /* meta 缺失按未知处理 */
-      }
-      const stale = !meta || Date.now() - (meta.ts ?? 0) > _LOCK_STALE_MS || !_pidAlive(meta.pid)
-      if (stale) {
-        _rmLock(_lockDir, { recursive: true, force: true })
-        continue
-      }
-      console.log(`[typecheck:full] 另一全量 typecheck 进行中(pid ${meta.pid}),串行等待...`)
-      spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},5000)'], {
-        stdio: 'ignore',
-        windowsHide: true,
-      })
-    }
-  }
-  process.on('exit', () => {
-    try {
-      _rmLock(_lockDir, { recursive: true, force: true })
-    } catch {
-      /* 忽略 */
-    }
+  const waitMs = Number(process.env.IHUI_TYPECHECK_LOCK_WAIT_MS || DEFAULT_WAIT_MS)
+  const lock = await acquireTypecheckLock({
+    path: process.env.IHUI_TYPECHECK_LOCK_PATH || undefined,
+    waitMs: Number.isFinite(waitMs) ? waitMs : DEFAULT_WAIT_MS,
+    pollMs: Number(process.env.IHUI_TYPECHECK_LOCK_POLL_MS || DEFAULT_POLL_MS),
+    repo: ROOT,
+    role: 'typecheck-full',
   })
+  if (!lock.ok) {
+    // 机器级互斥拿不到 ⇒ **未判定**:不是通过、不是失败、不静默跳过(「未判定 ≠ 通过」)。
+    // 出口必须是 exit 2 + 「未判定」:exit 75 会被 guardian 当 interrupt 立即传播并触发
+    // pre-push「带 hook 重试」,等于把一次并发占用变成两轮空转。
+    const reason =
+      lock.kind === 'io-error'
+        ? `锁目录不可用:${lock.error?.message ?? 'unknown'}`
+        : `等待 ${(lock.waitedMs / 1000).toFixed(1)}s 仍未取得机器级 typecheck 锁`
+    console.error(`[typecheck:full] [UNDETERMINED] 未判定(并发占用):${reason}`)
+    console.error(`[typecheck:full]   持锁者: ${describeLockHolder(lock.holder)}`)
+    console.error('')
+    console.error('  这不是类型检查结论:既不是通过,也不是失败。同一台机器上另一场全量')
+    console.error('  typecheck 仍在运行,此刻的耗时读数混进了对方的 CPU,不可解释。')
+    console.error('  等对方结束后重跑,或调大 IHUI_TYPECHECK_LOCK_WAIT_MS 再试。')
+    process.exit(UNDETERMINED_EXIT_CODE)
+  }
+  if (lock.waitedMs >= 1_000) {
+    console.log(
+      `[typecheck:full] 已串行等待 ${(lock.waitedMs / 1000).toFixed(1)}s 后取得机器级锁(前持有者已退出)`,
+    )
+  }
 }
 
 /**
@@ -346,6 +368,220 @@ if (removed.length === 0) {
   }
 }
 
+// ─── 分包计时(2026-11-07 立)─────────────────────────────────────────────
+// 背景:全量 typecheck 实测 346s,300s 看门狗在 apps/web 未 Done 时杀掉整条门。
+// 单次 `pnpm -r` 不吐每包耗时,超时后只能看到「整条门挂了」,分不清谁卡住。
+// 改为逐包跑 + 每包跑完立即落盘读数:即使外层被杀,读数文件仍保留已完成包与在飞包。
+// 语义不变:任一个包失败 ⇒ 非零退出;超时仍由外层归 undetermined,绝不折成 pass。
+// **不调看门狗阈值** —— 阈值只是把 380s/420s 的包继续往后推,解决不了串行结构。
+function resetTimings() {
+  try {
+    mkdirSync(dirname(TIMINGS_FILE), { recursive: true })
+    writeFileSync(TIMINGS_FILE, '')
+  } catch (e) {
+    console.warn(`[typecheck:full] ⚠️ 分包读数文件初始化失败(不影响检查): ${e.message}`)
+  }
+}
+
+function appendTiming(record) {
+  try {
+    appendFileSync(TIMINGS_FILE, `${JSON.stringify({ runId: RUN_ID, ...record })}\n`)
+  } catch (e) {
+    // 读数只是可观测性,写失败不得改变 typecheck 结论
+    console.warn(`[typecheck:full] ⚠️ 分包读数写入失败(不影响检查): ${e.message}`)
+  }
+}
+
+/** 枚举有 typecheck 脚本的 workspace 包:先 packages/ 后被依赖的 apps/,与 pnpm -r 拓扑序同向。 */
+function listTypecheckPackages() {
+  const out = []
+  for (const group of ['packages', 'apps']) {
+    const groupDir = join(ROOT, group)
+    let entries = []
+    try {
+      entries = readdirSync(groupDir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    const dirs = entries
+      .filter((e) => e.isDirectory())
+      .sort((a, b) => a.name.localeCompare(b.name))
+    for (const ent of dirs) {
+      const pkgFile = join(groupDir, ent.name, 'package.json')
+      if (!existsSync(pkgFile)) continue
+      try {
+        const pkg = JSON.parse(readFileSync(pkgFile, 'utf8'))
+        if (pkg?.name && pkg?.scripts?.typecheck) out.push({ name: pkg.name, dir: ent.name })
+      } catch {
+        /* 坏 package.json 交给后续 pnpm 报错,不在枚举期吞掉 */
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * 单包执行:异步 spawn(不阻塞事件循环,这是能并发的前提)。每包结束立即落盘。
+ * 输出先缓冲、结束后按包名整体回放:4 路 tsc 同时写终端会让错误行互相插队、失去归属。
+ */
+function runOnePackage(pkg) {
+  return new Promise((resolve) => {
+    appendTiming({ event: 'start', package: pkg.name, at: Date.now() })
+    // 走 stderr:guardian 超时落盘时能看见「最后开始的是哪个包」= 卡住候选
+    console.error(`[typecheck:full] ▶ ${pkg.name}`)
+    const startedAt = Date.now()
+    let out = ''
+    let err = ''
+    let settled = false
+    const finish = (status, extra) => {
+      if (settled) return
+      settled = true
+      const elapsedMs = Date.now() - startedAt
+      const done = status === 0
+      appendTiming({
+        event: 'finish',
+        package: pkg.name,
+        elapsedMs,
+        status,
+        done,
+        at: Date.now(),
+      })
+      if (!done) {
+        const text = `${out}${err}`.trim()
+        if (text) console.error(`[typecheck:full] ❌ ${pkg.name} 编译输出:\n${text}`)
+        if (extra) console.error(`[typecheck:full] ❌ ${pkg.name} ${extra}`)
+      }
+      resolve({ name: pkg.name, elapsedMs, status, done })
+    }
+    let child
+    try {
+      child = spawn(`pnpm --filter "${pkg.name}" run typecheck`, {
+        cwd: ROOT,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true,
+        windowsHide: true,
+        env: { ...process.env, IHUI_TYPECHECK_FULL_CHILD: '1' },
+      })
+    } catch (e) {
+      finish(1, `派生失败: ${e instanceof Error ? e.message : String(e)}`)
+      return
+    }
+    child.stdout.on('data', (d) => {
+      out += d
+    })
+    child.stderr.on('data', (d) => {
+      err += d
+    })
+    child.on('error', (e) => finish(1, `派生失败: ${e.message}`))
+    child.on('close', (code) => finish(code ?? 1))
+  })
+}
+
+/**
+ * 受限并发执行 typecheck,每包结束立即落盘。返回 {ok, status}。
+ * 失败即停:不再派发新包;已派发的包跑完并留下读数(与原 `pnpm -r` bail 同语义)。
+ * 超时不在这里判 —— 超时由外层(check-typecheck / guardian)归 undetermined,绝不折成 pass。
+ */
+async function runTypecheckPerPackage() {
+  // LPT 派发:按**上一轮**实测耗时降序,让最重的包先开跑。
+  // 不这么做的话(按目录字典序),@ihui/api 在 43.7s 才开跑、@ihui/web 86.1s 才开跑,
+  // 墙钟被拖到 246.6s(2026-11-07 实测);重排后两个重包的起点都在 0s。
+  // 上一轮读数不存在(首次跑)时,未知包并列排在已知包之后,保持原字典序。
+  const previous = new Map()
+  for (const rec of readTimings(TIMINGS_FILE)) {
+    if (rec.event === 'finish' && rec.package && typeof rec.elapsedMs === 'number') {
+      previous.set(rec.package, rec.elapsedMs)
+    }
+  }
+  const packages = listTypecheckPackages().sort(
+    (a, b) => (previous.get(b.name) ?? -1) - (previous.get(a.name) ?? -1),
+  )
+  resetTimings()
+  appendTiming({
+    event: 'run-start',
+    at: Date.now(),
+    packages: packages.map((p) => p.name),
+    concurrency: TYPECHECK_CONCURRENCY,
+  })
+
+  const totalStart = Date.now()
+  const timings = []
+  let cursor = 0
+  let failure = null
+  const workers = Math.max(1, Math.min(TYPECHECK_CONCURRENCY, packages.length))
+
+  console.log(
+    `\n[typecheck:full] 运行分包 typecheck（${packages.length} 个包，并发 ${TYPECHECK_CONCURRENCY}，逐包计时）...`,
+  )
+  console.log(`[typecheck:full] 分包读数: ${TIMINGS_FILE}`)
+  console.log(
+    `[typecheck:full] 派发顺序(LPT,上一轮耗时降序),首发: ${packages
+      .slice(0, workers)
+      .map((p) => p.name)
+      .join(', ')}`,
+  )
+
+  async function worker() {
+    for (;;) {
+      if (failure) return // 失败即停:不再派发新包
+      const idx = cursor++
+      if (idx >= packages.length) return
+      const rec = await runOnePackage(packages[idx])
+      timings.push(rec)
+      if (!rec.done && !failure) failure = rec
+      const slowest = timings.reduce((a, b) => (b.elapsedMs > a.elapsedMs ? b : a), timings[0])
+      // stderr:guardian 超时会把 stderr 缓冲一并落日志,这行让「谁最慢」在超时现场也可见
+      console.error(
+        `[typecheck:full] ⏱ ${rec.name} ${formatDuration(rec.elapsedMs)} ${rec.done ? 'Done' : 'FAIL'} (slowest so far: ${slowest.name} ${formatDuration(slowest.elapsedMs)})`,
+      )
+    }
+  }
+
+  await Promise.all(Array.from({ length: workers }, () => worker()))
+
+  const sorted = [...timings].sort((a, b) => b.elapsedMs - a.elapsedMs)
+  const totalMs = timings.reduce((s, t) => s + t.elapsedMs, 0)
+  const wallMs = Date.now() - totalStart
+  const notRun = packages.map((p) => p.name).filter((n) => !timings.some((t) => t.name === n))
+
+  console.log('\n[typecheck:full] 📊 分包耗时汇总(降序):')
+  for (const t of sorted) {
+    console.log(`  - ${t.name}: ${formatDuration(t.elapsedMs)} ${t.done ? 'Done' : 'FAIL'}`)
+  }
+  if (sorted[0]) {
+    console.log(
+      `[typecheck:full] 🐢 最慢包: ${sorted[0].name} ${formatDuration(sorted[0].elapsedMs)}(串行相加 ${formatDuration(totalMs)},墙钟 ${formatDuration(wallMs)},并发 ${TYPECHECK_CONCURRENCY})`,
+    )
+  }
+
+  if (failure) {
+    appendTiming({
+      event: 'run-end',
+      at: Date.now(),
+      totalMs,
+      wallMs,
+      ok: false,
+      failed: failure.name,
+      notRun,
+    })
+    console.error(
+      `\n[typecheck:full] 失败:${failure.name} exit ${failure.status ?? '?'};未派发的包:${notRun.length ? notRun.join(', ') : '无'}`,
+    )
+    return { ok: false, status: failure.status ?? 1 }
+  }
+
+  appendTiming({
+    event: 'run-end',
+    at: Date.now(),
+    totalMs,
+    wallMs,
+    ok: true,
+    slowest: sorted[0]?.name ?? null,
+    concurrency: TYPECHECK_CONCURRENCY,
+  })
+  return { ok: true, status: 0 }
+}
+
 /**
  * 前置:把陈旧的 packages 各包 dist 重建掉,再开始类型检查。
  * 重建失败 ⇒ 直接非零退出:此时任何"类型通过"的结论都不可信(要么拿着旧产物,要么产物残缺),
@@ -387,18 +623,14 @@ function staleDistPreflight() {
 
 staleDistPreflight()
 
-console.log('\n[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...')
-// 使用 pnpm -r 递归串行运行，避免 turbo 并行/串行时的 .tsbuildinfo 与内存竞态
-const result = spawnSync('pnpm -r run typecheck', {
-  cwd: ROOT,
-  stdio: 'inherit',
-  shell: true,
-  windowsHide: true, // 根治:pnpm -r 给每个子包拉 cmd.exe,无此参数时控制台链断裂即弹可见窗口(实测一次 typecheck ~30 次闪窗)
-})
+// 受限并发 + 逐包计时:并发度定档 4(实测依据见 TYPECHECK_CONCURRENCY 注释),
+// 不引入 turbo 的多进程缓存语义,只是把「一锅端」拆成可读数、可并行的包。
+// windowsHide:每个包都会拉 cmd.exe,无此参数时控制台链断裂即弹可见窗口。
+const perPackage = await runTypecheckPerPackage()
 
-if (result.status !== 0) {
-  console.error(`\n[typecheck:full] 失败，退出码 ${result.status}`)
-  process.exit(result.status ?? 1)
+if (!perPackage.ok) {
+  console.error(`\n[typecheck:full] 失败，退出码 ${perPackage.status}`)
+  process.exit(perPackage.status ?? 1)
 }
 
 // ─── Phase 1.5:e2e typecheck 阻断门(2026-07-26 立) ──
@@ -417,12 +649,23 @@ if (existsSync(webE2eTsconfig)) {
     )
   } else {
     console.log('\n[typecheck:full] 运行 apps/web/e2e typecheck (blocking)...')
+    const e2eStartedAt = Date.now()
     const e2eResult = spawnSync('pnpm', ['--filter', '@ihui/web', 'typecheck:e2e'], {
       cwd: ROOT,
       stdio: 'inherit',
       shell: true,
       windowsHide: true,
     })
+    const e2eElapsedMs = Date.now() - e2eStartedAt
+    appendTiming({
+      event: 'phase',
+      phase: 'e2e',
+      elapsedMs: e2eElapsedMs,
+      status: e2eResult.status,
+      done: e2eResult.status === 0,
+      at: Date.now(),
+    })
+    console.error(`[typecheck:full] ⏱ phase:e2e ${formatDuration(e2eElapsedMs)}`)
 
     if (e2eResult.status !== 0) {
       console.error(
@@ -495,12 +738,23 @@ if (existsSync(aiServiceDir)) {
       )
     } else {
       console.log(`\n[typecheck:full] 运行 apps/ai-service mypy (blocking) [${mypyExecutable}]...`)
+      const mypyStartedAt = Date.now()
       const mypyResult = spawnSync(mypyExecutable, ['app/'], {
         cwd: aiServiceDir,
         stdio: 'inherit',
         shell: true,
         windowsHide: true,
       })
+      const mypyElapsedMs = Date.now() - mypyStartedAt
+      appendTiming({
+        event: 'phase',
+        phase: 'mypy',
+        elapsedMs: mypyElapsedMs,
+        status: mypyResult.status,
+        done: mypyResult.status === 0,
+        at: Date.now(),
+      })
+      console.error(`[typecheck:full] ⏱ phase:mypy ${formatDuration(mypyElapsedMs)}`)
 
       if (mypyResult.status !== 0) {
         console.error(
