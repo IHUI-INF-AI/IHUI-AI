@@ -1587,8 +1587,9 @@ class CodebaseIndexer {
     let entries: string[]
     try {
       entries = readdirSync(dir)
-    } catch {
-      return
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引有目录读不到,不能把它覆盖成不完整索引 (${code ?? 'unknown'})`)
     }
     for (const name of entries) {
       if (IGNORE_DIRS.has(name)) continue
@@ -3105,7 +3106,8 @@ class PersonaRegistry {
         null,
         '人格档案读不到,不能按内置名单覆盖',
       )
-      if (saved) for (const p of saved) this.personas.set(p.id, p)
+      if (Array.isArray(saved)) for (const p of saved) this.personas.set(p.id, p)
+      else if (saved !== null) this.blockedWrite = '人格档案读不到,不能按内置名单覆盖 (corrupt)'
     } catch (error) {
       this.blockedWrite = error instanceof Error ? error.message : String(error)
     }
@@ -3215,7 +3217,8 @@ class RoutineManager {
         null,
         '例行程序读不到,不能按空名单覆盖',
       )
-      if (saved) for (const r of saved) this.routines.set(r.id, r)
+      if (Array.isArray(saved)) for (const r of saved) this.routines.set(r.id, r)
+      else if (saved !== null) this.blockedWrite = '例行程序读不到,不能按空名单覆盖 (corrupt)'
     } catch (error) {
       this.blockedWrite = error instanceof Error ? error.message : String(error)
     }

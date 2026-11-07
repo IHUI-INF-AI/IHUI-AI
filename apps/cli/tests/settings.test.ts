@@ -6,9 +6,11 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { handleConfigCommand } from '../src/commands/config-cmd.js'
 import {
   getSettingsPath,
   loadSettings,
+  readSettingsObjectForUpdate,
   saveSettingsTemplate,
   resolveEffectiveConfig,
 } from '../src/commands/settings.js'
@@ -63,6 +65,17 @@ describe('settings 加载/保存/合并', () => {
     const body = '{not json'
     fs.writeFileSync(p, body)
     expect(() => saveSettingsTemplate(true)).toThrow(/不能把它覆盖成新内容/)
+    expect(fs.readFileSync(p, 'utf-8')).toBe(body)
+  })
+
+  it('空白设置当成没有,损坏内容不能被 /config set 收掉', () => {
+    const p = getSettingsPath()
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    fs.writeFileSync(p, '  \n')
+    expect(readSettingsObjectForUpdate(p)).toEqual({ state: 'missing' })
+    const body = '{not json'
+    fs.writeFileSync(p, body)
+    expect(() => handleConfigCommand('set locale zh-CN')).toThrow(/不能把它覆盖成新内容 \(corrupt\)/)
     expect(fs.readFileSync(p, 'utf-8')).toBe(body)
   })
 

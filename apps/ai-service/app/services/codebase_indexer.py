@@ -1181,6 +1181,32 @@ class CodebaseIndexer:
             prev_dirs,
         )
 
+    def _snapshot_blocks_replace(self, path: Path) -> bool:
+        """空快照可以换成新的。非空损坏、解不开或根不是对象时不能覆盖。"""
+        if not path.is_file():
+            return False
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return True
+        if raw.strip() == b"":
+            return False
+        if raw[:2] == b"\x1f\x8b":
+            try:
+                text = gzip.decompress(raw).decode("utf-8")
+            except (OSError, UnicodeDecodeError, EOFError):
+                return True
+        else:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                return True
+        try:
+            parsed = json.loads(text)
+        except ValueError:
+            return True
+        return not isinstance(parsed, dict)
+
     def _save_snapshot(
         self,
         repo_id: str,
@@ -1202,6 +1228,9 @@ class CodebaseIndexer:
         try:
             _MERKLE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
             path = self._snapshot_path(repo_id, root)
+            if self._snapshot_blocks_replace(path):
+                logger.warning("Merkle 快照损坏,不能把它覆盖成新快照: %s", path)
+                return
             tmp = path.with_name(f"{path.name}.{os.getpid()}-{uuid.uuid4().hex[:8]}.tmp")
             payload: dict[str, Any] = {
                 "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
