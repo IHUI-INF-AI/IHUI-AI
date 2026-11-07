@@ -205,15 +205,15 @@
 
 判据：web 宿主把共享屏当子组件调用时，`colorScheme` 传的是字面量还是主题值。
 
-| 文件:行 | 现状 | 处理 |
-| --- | --- | --- |
-| `apps/web/app/(main)/wallet/withdraw/page.tsx:136` | `"light"` 字面量（暗色用户看到亮色页，已上线退化） | **本轮修**：改从 `apps/web/src/hooks/use-theme.ts` 的 `resolvedTheme` 注入，单独一枚提交 |
-| `apps/web/app/(pilot)/shared-pilot/page.tsx:120/128/131/159` | `"light"` 字面量 4 处 | 只报，不批量改 |
-| `apps/web/app/h5/share/[code]/PageClient.tsx:168` | `"light"` 字面量 | 只报，不批量改 |
-| `apps/web/app/(main)/exam/[id]/ExamIntro.tsx:49` | `"light"` 字面量 | 只报，不批量改 |
-| `apps/web/app/(main)/agents/categories/[id]/PageClient.tsx:136/165` | `resolvedTheme` 派生 | 合规，不改 |
-| `apps/web/app/(main)/live/page.tsx:152` | `resolvedTheme` 派生 | 合规，不改 |
-| `apps/web/app/layout.tsx:258` | 文档级 `style.colorScheme` | 不是组件 prop，不计 |
+| 文件:行 | 改前 | 改后 | 提交 |
+| --- | --- | --- | --- |
+| `apps/web/app/(main)/wallet/withdraw/page.tsx`（原 :136，现 :138） | `colorScheme="light"` | `colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}` | `ab50d8d70b`（原提交 `b5e968842a`，单独一枚） |
+| `apps/web/app/(pilot)/shared-pilot/page.tsx` :120 / :128 / :131 / :159 | 4 处 `colorScheme="light"` | 4 处 `colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}` | `52ff17b485`（原提交 `2a52ad3a87`，本轮 `fix(web)` 批量提交） |
+| `apps/web/app/h5/share/[code]/PageClient.tsx`（原 :168，现 :170） | `colorScheme="light"` | `colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}` | 同上 |
+| `apps/web/app/(main)/exam/[id]/ExamIntro.tsx`（原 :49，现 :52） | `colorScheme="light"` | `colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}` | 同上 |
+| `apps/web/app/(main)/agents/categories/[id]/PageClient.tsx` :136 / :165 | `theme`（已派生） | 不变 | — |
+| `apps/web/app/(main)/live/page.tsx` :152 | `resolvedTheme` 派生 | 不变 | — |
+| `apps/web/app/layout.tsx` :258 | 文档级 `style.colorScheme` | 不算组件 prop，不计 | — |
 
-合计字面量 **7 处**（withdraw 1 + 其余 6）。超过 5 处，按约束只修 withdraw、其余只报数。
+合计字面量 **7 处**（withdraw 1 + 其余 6），**现已全部改为 `resolvedTheme` 注入，剩余字面量 0 处**。6 处各自独立可回滚（互不共享重构），批量修改单独一枚提交，与 label 修复、icp-record 分开。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
