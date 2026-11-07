@@ -169,6 +169,7 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   remove_file: 'file_delete',
   // 命令
   run_command: 'command',
+  sandbox_session: 'command',
   execute_command: 'command',
   shell: 'command',
   bash: 'command',

@@ -89,6 +89,8 @@
     "toolWorkbookClose": "ワークブックを閉じる",
     "toolGenerateTest": "テストコードを生成",
     "toolRunCommand": "コマンドを実行",
+    "toolSandboxSession": "サンドボックスセッション",
+    "toolReadToolOutput": "ツール出力を読む",
     "toolGitOperations": "Git 操作を実行",
     "toolFetchUrl": "Web ページを取得",
     "toolCrawlSite": "サイトをクロール",
