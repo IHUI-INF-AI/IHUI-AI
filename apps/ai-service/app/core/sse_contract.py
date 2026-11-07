@@ -562,6 +562,13 @@ class WatermarkDecision:
     log_epoch: int | None
     last_seq: int | None
     post_recovery_gap_pending: bool = False
+    #: 判定前手上的订阅。None = 还没有订阅基线，不得写成空串。
+    held_subscription_id: str | None = None
+    #: 这帧自己声明的四维。失败时用来点名哪一段、哪一次订阅，不从 last_seq 猜下一段。
+    frame_subscription_id: str | None = None
+    frame_log_epoch: int | None = None
+    frame_from_seq: int | None = None
+    frame_to_seq: int | None = None
 
 
 def mark_admission_acked(state: StreamWatermark) -> None:
@@ -711,6 +718,51 @@ def close_recovery_window(subscription_id: str | None) -> None:
         RECOVERY_WINDOWS.pop(subscription_id, None)
 
 
+def _watermark_decision(
+    *,
+    action: str,
+    applied: bool,
+    reason: str,
+    state: StreamWatermark,
+    held_subscription_id: str | None,
+    frame_log_epoch: int,
+    frame_from_seq: int,
+    frame_to_seq: int,
+    frame_subscription_id: str | None,
+    post_recovery_gap_pending: bool = False,
+) -> WatermarkDecision:
+    """组装一帧的处置。帧上的四维原样带上；手上的订阅用判定前的值，不在失败后回写。"""
+    return WatermarkDecision(
+        action=action,
+        applied=applied,
+        reason=reason,
+        has_applied_base=state.has_applied_base,
+        log_epoch=state.log_epoch,
+        last_seq=state.last_seq,
+        post_recovery_gap_pending=post_recovery_gap_pending,
+        held_subscription_id=held_subscription_id,
+        frame_subscription_id=frame_subscription_id,
+        frame_log_epoch=frame_log_epoch,
+        frame_from_seq=frame_from_seq,
+        frame_to_seq=frame_to_seq,
+    )
+
+
+def failure_replaces_segment(action: str) -> bool:
+    """这段不能续进旧水位。
+
+    resync / force-snapshot / resubscribe / 畸形帧 / 无基线：整段替换或整帧拒绝。
+    恢复期 defer 不在此列 —— 那是“不计水位”，不是把这段换成新基线。
+    """
+    return action in {
+        ACTION_RESYNC,
+        ACTION_FORCE_SNAPSHOT,
+        ACTION_RESUBSCRIBE,
+        ACTION_REJECT_INVALID_FRAME,
+        ACTION_REJECT_NO_BASE,
+    }
+
+
 def apply_frame(
     state: StreamWatermark,
     *,
@@ -732,29 +784,45 @@ def apply_frame(
       ⑥ `cursor.seq !== frame.from_seq` ⇒ resync(同代重同步,该帧不落水位);
       ⑦ 其余 ⇒ apply,水位推进到 `to_seq`。
     """
+    held_subscription_id = state.subscription_id
+
+    def decide(
+        action: str,
+        *,
+        applied: bool,
+        reason: str,
+        post_recovery_gap_pending: bool = False,
+    ) -> WatermarkDecision:
+        return _watermark_decision(
+            action=action,
+            applied=applied,
+            reason=reason,
+            state=state,
+            held_subscription_id=held_subscription_id,
+            frame_log_epoch=log_epoch,
+            frame_from_seq=from_seq,
+            frame_to_seq=to_seq,
+            frame_subscription_id=subscription_id,
+            post_recovery_gap_pending=post_recovery_gap_pending,
+        )
+
     if state.recovering and frame_kind == FRAME_KIND_DELTA:
         # 记 pending 必须落在状态上(不是只在结论里带过):恢复结束后要凭这一位
         # 知道"flight 期间漏了哪些增量",只写在结论里等于没记。
         state.post_recovery_gap_pending = True
-        return WatermarkDecision(
-            action=ACTION_DEFER_RECOVERY,
+        return decide(
+            ACTION_DEFER_RECOVERY,
             applied=False,
             reason="恢复 flight 期间的 online delta 不计水位,只记 postRecoveryGapPending",
-            has_applied_base=state.has_applied_base,
-            log_epoch=state.log_epoch,
-            last_seq=state.last_seq,
             post_recovery_gap_pending=True,
         )
 
     if frame_kind == FRAME_KIND_SNAPSHOT:
         if from_seq != WATERMARK_SNAPSHOT_SEQ:
-            return WatermarkDecision(
-                action=ACTION_REJECT_INVALID_FRAME,
+            return decide(
+                ACTION_REJECT_INVALID_FRAME,
                 applied=False,
                 reason="snapshot 帧 fromSeq 恒 0,非 0 即畸形帧,不得当基线",
-                has_applied_base=state.has_applied_base,
-                log_epoch=state.log_epoch,
-                last_seq=state.last_seq,
             )
         # 原子 apply:base、纪元、水位一次写入
         state.has_applied_base = True
@@ -763,66 +831,48 @@ def apply_frame(
         if subscription_id is not None:
             state.subscription_id = subscription_id
         state.recovering = False
-        return WatermarkDecision(
-            action=ACTION_APPLY,
+        return decide(
+            ACTION_APPLY,
             applied=True,
             reason="owned snapshot 原子 apply,成为 resume base",
-            has_applied_base=True,
-            log_epoch=state.log_epoch,
-            last_seq=state.last_seq,
         )
 
     # delta 路径
     if not state.has_applied_base:
-        return WatermarkDecision(
-            action=ACTION_REJECT_NO_BASE,
+        return decide(
+            ACTION_REJECT_NO_BASE,
             applied=False,
             reason="ACK≠base:首个 logical frame 尚未原子 apply,delta 不得建立 cold baseline",
-            has_applied_base=False,
-            log_epoch=state.log_epoch,
-            last_seq=state.last_seq,
         )
     if state.log_epoch != log_epoch:
-        return WatermarkDecision(
-            action=ACTION_FORCE_SNAPSHOT,
+        return decide(
+            ACTION_FORCE_SNAPSHOT,
             applied=False,
             reason="纪元变:旧纪元 delta 不得续写,升级 forceSnapshot",
-            has_applied_base=state.has_applied_base,
-            log_epoch=state.log_epoch,
-            last_seq=state.last_seq,
         )
     if (
         subscription_id is not None
         and state.subscription_id is not None
         and subscription_id != state.subscription_id
     ):
-        return WatermarkDecision(
-            action=ACTION_RESUBSCRIBE,
+        return decide(
+            ACTION_RESUBSCRIBE,
             applied=False,
             reason="订阅代际变:当前订阅作废,按新代重新订阅",
-            has_applied_base=state.has_applied_base,
-            log_epoch=state.log_epoch,
-            last_seq=state.last_seq,
         )
     if state.last_seq != from_seq:
-        return WatermarkDecision(
-            action=ACTION_RESYNC,
+        return decide(
+            ACTION_RESYNC,
             applied=False,
             reason="连续性证明断(cursor.seq != frame.fromSeq),该 delta 不写入 summaries/水位",
-            has_applied_base=state.has_applied_base,
-            log_epoch=state.log_epoch,
-            last_seq=state.last_seq,
         )
     state.last_seq = to_seq
     if subscription_id is not None:
         state.subscription_id = subscription_id
-    return WatermarkDecision(
-        action=ACTION_APPLY,
+    return decide(
+        ACTION_APPLY,
         applied=True,
         reason="连续帧,水位推进到 toSeq",
-        has_applied_base=state.has_applied_base,
-        log_epoch=state.log_epoch,
-        last_seq=state.last_seq,
     )
 
 
