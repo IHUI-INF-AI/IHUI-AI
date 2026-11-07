@@ -14,7 +14,7 @@ import {
   updatePatrolTask,
   type PatrolTask,
 } from '@ihui/api-client'
-import { PatrolScreen as SharedPatrolScreen } from '@ihui/rn-app/features/patrol/PatrolScreen'
+import { PatrolScreen as SharedPatrolScreen } from '@ihui/rn-app'
 import type { PatrolFormValues, PatrolStatus } from '@ihui/rn-app/features/patrol/PatrolScreen'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'

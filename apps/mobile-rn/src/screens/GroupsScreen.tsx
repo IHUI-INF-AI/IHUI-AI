@@ -7,11 +7,8 @@ import { StyleSheet, View } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi } from '@ihui/api-client'
-import {
-  GroupsScreen as SharedGroupsScreen,
-  type GroupFormValues,
-  type GroupView,
-} from '@ihui/rn-app/features/groups/GroupsScreen'
+import { GroupsScreen as SharedGroupsScreen } from '@ihui/rn-app'
+import type { GroupFormValues, GroupView } from '@ihui/rn-app/features/groups/GroupsScreen'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'
