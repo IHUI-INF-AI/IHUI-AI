@@ -192,7 +192,7 @@ def _estimate_text_with_image_placeholders(text: str) -> int:
         enc = None
     for m in matches:
         if m.start() > cursor:
-            seg = text[cursor:m.start()]
+            seg = text[cursor : m.start()]
             if enc is not None:
                 total += len(enc.encode(seg))
             else:
@@ -261,7 +261,11 @@ def estimate_messages_tokens(messages: list[dict[str, Any]]) -> int:
             for tc in tool_calls:
                 total += _estimate_tool_call_tokens(tc)
         # tool 消息的 tool_call_id(与 TS 一致)
-        if msg.get("role") == "tool" and isinstance(msg.get("tool_call_id"), str) and msg.get("tool_call_id"):
+        if (
+            msg.get("role") == "tool"
+            and isinstance(msg.get("tool_call_id"), str)
+            and msg.get("tool_call_id")
+        ):
             total += TOOL_CALL_OVERHEAD_TOKENS
     return total
 
@@ -471,6 +475,88 @@ def _split_pair_groups(
     return groups
 
 
+# ==================== 保留锚点(压缩原文保留策略,2026-11-06 立) ====================
+# 对标 rea:compaction 的 preserved_segment 不应当只是"边界描述",还要有**真的不被
+# 摘要化的原文**。此前本模块只保留 system + 尾部 keep_recent,head 一律摘要化 ——
+# 原始任务陈述、用户硬约束、显式 pin 的消息在第一次压缩后就被摘要吞掉,长会话因此
+# 出现目标漂移。本段补一层确定性保留策略(不引 LLM、未命中的消息零差异):
+#   - task_anchor:head 的第一个 user 组(会话最早的任务陈述,是"这条会话在干什么"
+#     的唯一直接证据);组内 token 超过 ANCHOR_MAX_TASK_TOKENS 时不保留(超长粘贴
+#     交给摘要,避免锚点把压缩收益吃掉);
+#   - pinned:组内任一消息带 pinned=true(或 metadata.pinned=true)的**整组**;
+#     按组保留是为了不拆散 assistant(tool_calls) 与 tool 结果的配对(拆开会 400)。
+# 保留锚点原文放在 system 之后、摘要之前(时序正确:它们都早于被摘要区间),并且从
+# 摘要输入里剔除 —— 既不重复计 token,也不会被摘要二次吞掉。
+ANCHOR_REASON_TASK = "task_anchor"
+ANCHOR_REASON_PINNED = "pinned"
+ANCHOR_MAX_TASK_TOKENS = 2000
+# 任务锚还必须 ≤ 窗口的 10%:在 1000 token 级的极小窗口里,一条 600 token 的
+# 任务陈述原样保留会让压缩永远达不到目标(退化成截断降级),这类窗口宁可不锚。
+ANCHOR_MAX_CONTEXT_RATIO = 0.10
+
+
+def _task_anchor_budget(context_limit: int) -> int:
+    """任务锚 token 上限:绝对上限与窗口比例上限取小。"""
+    absolute = ANCHOR_MAX_TASK_TOKENS
+    if context_limit <= 0:
+        return absolute
+    return min(absolute, max(1, int(context_limit * ANCHOR_MAX_CONTEXT_RATIO)))
+
+
+def _message_is_pinned(msg: dict[str, Any]) -> bool:
+    """pinned 判定:顶层 pinned 优先,其次 metadata.pinned(两种书写都算)。"""
+    if msg.get("pinned") is True:
+        return True
+    meta = msg.get("metadata")
+    return isinstance(meta, dict) and meta.get("pinned") is True
+
+
+def _group_is_previous_summary(group: list[dict[str, Any]]) -> bool:
+    """组内首条已是历史摘要 → 不能再当锚点原文保留(否则摘要套摘要)。"""
+    if not group:
+        return False
+    content = group[0].get("content")
+    return isinstance(content, str) and content.startswith(SUMMARY_MARKER)
+
+
+def _split_anchor_groups(
+    head_groups: list[list[dict[str, Any]]],
+    *,
+    context_limit: int = 0,
+) -> tuple[
+    list[tuple[list[dict[str, Any]], str, int]],
+    list[list[dict[str, Any]]],
+]:
+    """把待压缩组分成 (保留锚点组, 摘要组)。
+
+    锚点按原始顺序返回 [(group, reason, head 内消息偏移)];task_anchor 只认 head 的
+    第一个 user 组,且组 token 必须落在 _task_anchor_budget(context_limit) 内。
+    偏移用于 boundary 回填**压缩前**下标(与 PreservedSegmentAnchor.index 的语义一致)。
+    """
+    task_budget = _task_anchor_budget(context_limit)
+    anchors: list[tuple[list[dict[str, Any]], str, int]] = []
+    rest: list[list[dict[str, Any]]] = []
+    offset = 0
+    for idx, group in enumerate(head_groups):
+        start = offset
+        offset += len(group)
+        if not group or _group_is_previous_summary(group):
+            rest.append(group)
+            continue
+        if any(_message_is_pinned(m) for m in group):
+            anchors.append((group, ANCHOR_REASON_PINNED, start))
+            continue
+        if (
+            idx == 0
+            and group[0].get("role") == "user"
+            and estimate_messages_tokens(group) <= task_budget
+        ):
+            anchors.append((group, ANCHOR_REASON_TASK, start))
+            continue
+        rest.append(group)
+    return anchors, rest
+
+
 # ==================== 上下文压力五判据(只读,2026-10-31 立) ====================
 # 对标外部 agent 运行时的 token budget 判据:percent_left + 四道阈值线。本段是
 # **唯一阈值阶梯**,不参与压缩决策(压缩触发仍走 compress_messages_if_needed 的
@@ -530,8 +616,7 @@ def assess_context_pressure(
         "is_above_warning": used * 100 > warning_used_ceiling,
         "is_above_error": used * 100 > error_used_ceiling,
         "is_above_auto_compact": used / limit > trigger_ratio,
-        "is_at_blocking": used * 100
-        >= limit * int(100 - CONTEXT_BLOCKING_PERCENT_LEFT),
+        "is_at_blocking": used * 100 >= limit * int(100 - CONTEXT_BLOCKING_PERCENT_LEFT),
     }
 
 
@@ -573,9 +658,7 @@ def _boundary_segment(msg: dict[str, Any] | None, index: int) -> dict[str, Any] 
         "messageId": raw_id if isinstance(raw_id, str) and raw_id else None,
         "excerpt": text[:_BOUNDARY_EXCERPT_MAX],
         # 摘要用全文摘要(不是截断后的 excerpt),前端拿它做"同一条消息"的去重键。
-        "digest": hashlib.sha256(text.encode("utf-8")).hexdigest()[
-            :_BOUNDARY_DIGEST_HEX_LEN
-        ],
+        "digest": hashlib.sha256(text.encode("utf-8")).hexdigest()[:_BOUNDARY_DIGEST_HEX_LEN],
     }
 
 
@@ -589,6 +672,8 @@ def _build_compaction_boundary(
     original_tokens: int,
     compressed_tokens: int,
     duration_ms: int,
+    preserved_groups: list[tuple[list[dict[str, Any]], str, int]] | None = None,
+    removed_span: int | None = None,
 ) -> dict[str, Any]:
     """构造 compaction.boundary(只在真正压缩成功时产出)。
 
@@ -600,11 +685,16 @@ def _build_compaction_boundary(
         compressed_tail: 压缩后 anchor 之后保留的消息(用于取 head)
         original_tokens / compressed_tokens: 压缩前后 token 估算
         duration_ms: 本次压缩耗时(调用方用 perf_counter 计时)
+        preserved_groups: 未被摘要化的锚点组 [(group, reason, head 内消息偏移)],按原文顺序;
+            它们会让摘要消息在压缩后列表里后移(下标 = system_count + 锚点消息数)
+        removed_span: 压缩前 head 区间的消息条数(含锚点;缺省 = 被摘要条数)
     """
     start_index = int(system_count)
-    end_index = start_index + len(removed_messages) - 1
-    anchor_index = int(system_count)
-    return {
+    span = len(removed_messages) if removed_span is None else int(removed_span)
+    end_index = start_index + span - 1
+    anchor_messages = [msg for group, _reason, _offset in (preserved_groups or []) for msg in group]
+    anchor_index = int(system_count) + len(anchor_messages)
+    boundary: dict[str, Any] = {
         "trigger": trigger,
         "tokensBefore": int(original_tokens),
         "tokensAfter": int(compressed_tokens),
@@ -624,6 +714,18 @@ def _build_compaction_boundary(
             "endIndex": end_index,
         },
     }
+    if preserved_groups:
+        anchor_entries: list[dict[str, Any]] = []
+        for group, reason, offset in preserved_groups:
+            for j, msg in enumerate(group):
+                # 压缩前下标(与 PreservedSegmentAnchor.index 的既有语义一致)
+                segment = _boundary_segment(msg, int(system_count) + offset + j)
+                if segment is None:
+                    continue
+                anchor_entries.append({**segment, "reason": reason})
+        boundary["preservedSegment"]["anchors"] = anchor_entries
+        boundary["anchorsCount"] = len(anchor_entries)
+    return boundary
 
 
 def _truncate_fallback(
@@ -692,7 +794,9 @@ def _truncate_fallback(
         # 每 char 的 token 数(BPE 密度),据此估算需裁剪的字符数,1.2 倍安全余量
         density = estimate_tokens(keep_content) / max(1, len(keep_content))
         cut_chars = math.ceil((excess_tokens / max(density, 0.01)) * 1.2)
-        keep_content = keep_content[: max(MIN_TRUNCATE_CHARS, len(keep_content) - cut_chars)] + TRUNCATE_MARKER
+        keep_content = (
+            keep_content[: max(MIN_TRUNCATE_CHARS, len(keep_content) - cut_chars)] + TRUNCATE_MARKER
+        )
 
     if tokens >= trigger_threshold:
         # 截断到最小长度仍超触发阈值 → 第二级 incompressible
@@ -767,9 +871,7 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
-            **assess_context_pressure(
-                original_tokens, context_limit, trigger_ratio=trigger_ratio
-            ),
+            **assess_context_pressure(original_tokens, context_limit, trigger_ratio=trigger_ratio),
         }
 
     # 消息数过少不压缩(minMessages = 2,与 TS 共享包一致)
@@ -781,9 +883,7 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
-            **assess_context_pressure(
-                original_tokens, context_limit, trigger_ratio=trigger_ratio
-            ),
+            **assess_context_pressure(original_tokens, context_limit, trigger_ratio=trigger_ratio),
         }
 
     # 分割:首条 system + head(压缩) + tail(保留 keepRecent 条)
@@ -799,9 +899,7 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
-            **assess_context_pressure(
-                original_tokens, context_limit, trigger_ratio=trigger_ratio
-            ),
+            **assess_context_pressure(original_tokens, context_limit, trigger_ratio=trigger_ratio),
         }
 
     # 配对组保护:kr 切分点对齐组边界(不拆散 assistant(tool_calls) 与其 tool 结果)
@@ -825,23 +923,30 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "none",
-            **assess_context_pressure(
-                original_tokens, context_limit, trigger_ratio=trigger_ratio
-            ),
+            **assess_context_pressure(original_tokens, context_limit, trigger_ratio=trigger_ratio),
         }
 
     tail = [msg for group in tail_groups for msg in group]
+    # 保留锚点:任务陈述 / pinned 组原样留在 system 之后,并从摘要输入中剔除
+    preserved_groups, head_groups = _split_anchor_groups(head_groups, context_limit=context_limit)
+    head_span_count = sum(len(group) for group in head_groups) + sum(
+        len(group) for group, _reason, _offset in preserved_groups
+    )
     head = [msg for group in head_groups for msg in group]
+    anchor_msgs = [msg for group, _reason, _offset in preserved_groups for msg in group]
 
-    # 生成结构化摘要(custom_summary 非空时整段替代,不做分层)
+    # 生成结构化摘要(custom_summary 非空时整段替代,不做分层)。
+    # head 为空(待压缩区全被锚点保留)时仍走到下面的防循环判据:
+    #   候选 = system + 锚点 + 尾部,必然 >= 原 token >= 触发阈值 → 走截断降级/不可压缩,
+    #   与"锚点没有腾出空间"的事实一致;不会伪装成一次成功压缩。
     summary_text = _build_structured_summary(head, custom_summary=custom_summary)
     summary_msg: dict[str, Any] = {
         "role": "user",
         "content": summary_text,
     }
 
-    # 合并:system + summary + tail
-    compressed = system_msgs + [summary_msg] + tail
+    # 合并:system + 保留锚点原文 + summary + tail
+    compressed = system_msgs + anchor_msgs + [summary_msg] + tail
     compressed_tokens = estimate_messages_tokens(compressed)
     removed_count = len(head)
 
@@ -870,7 +975,7 @@ def compress_messages_if_needed(
             )
             # 批次 3:截断降级同样要给边界 —— 它也是"一次真实压缩",只是摘要+截断
             # 而不是纯摘要。被摘要的消息 = 最后一组之前的所有 non-system 消息。
-            _fb_tail = fallback_messages[len(system_msgs) + 1:]
+            _fb_tail = fallback_messages[len(system_msgs) + 1 :]
             _fb_removed = non_system[: max(0, len(non_system) - len(_fb_tail))]
             fallback_info["boundary"] = _build_compaction_boundary(
                 trigger="truncated",
@@ -899,9 +1004,7 @@ def compress_messages_if_needed(
             "removed_count": 0,
             "usage_ratio": original_tokens / context_limit,
             "trigger": "incompressible",
-            **assess_context_pressure(
-                original_tokens, context_limit, trigger_ratio=trigger_ratio
-            ),
+            **assess_context_pressure(original_tokens, context_limit, trigger_ratio=trigger_ratio),
         }
 
     logger.info(
@@ -918,9 +1021,12 @@ def compress_messages_if_needed(
         "original_tokens": original_tokens,
         "compressed_tokens": compressed_tokens,
         "removed_count": removed_count,
+        # 未被摘要化、原样保留的任务锚/pinned 消息条数(removed_count 只统计真被摘要的)
+        "anchored_count": len(anchor_msgs),
         "usage_ratio": original_tokens / context_limit,
         "trigger": "ratio",
         # 批次 3:边界信息(压缩前后范围 + 摘要锚点 + 首条保留 + 最后一条被压缩原文)
+        # 2026-11-06:preservedSegment.anchors 记录被原样保留的锚点(含 reason)
         "boundary": _build_compaction_boundary(
             trigger="ratio",
             system_count=len(system_msgs),
@@ -930,10 +1036,10 @@ def compress_messages_if_needed(
             original_tokens=original_tokens,
             compressed_tokens=compressed_tokens,
             duration_ms=int((time.perf_counter() - _started_at) * 1000),
+            preserved_groups=preserved_groups,
+            removed_span=head_span_count,
         ),
-        **assess_context_pressure(
-            compressed_tokens, context_limit, trigger_ratio=trigger_ratio
-        ),
+        **assess_context_pressure(compressed_tokens, context_limit, trigger_ratio=trigger_ratio),
     }
 
 
@@ -1022,9 +1128,9 @@ def micro_compact_messages(
         "llm_summary": False,
     }
     info.update(
-        assess_context_pressure(
-            compressed_tokens, context_limit, trigger_ratio=trigger_ratio
-        )
+        assess_context_pressure(compressed_tokens, context_limit, trigger_ratio=trigger_ratio)
     )
     return compacted, info
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
