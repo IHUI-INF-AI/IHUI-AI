@@ -145,6 +145,11 @@ from .agent_checkpoint import (
 )
 from .agent_deliverables import DeliverablesCollector, save_deliverables
 from .agent_resume_semantics import (
+    ACCEPT_RESULT_TEXT,
+    CONFIRM_ABORT,
+    CONFIRM_ACCEPT,
+    CONFIRM_RETRY,
+    CONFIRM_SKIP,
     RECEIPT_STATE_ATTEMPTING,
     RECEIPT_STATE_SETTLED_ERROR,
     RECEIPT_STATE_SETTLED_OK,
@@ -152,9 +157,14 @@ from .agent_resume_semantics import (
     RESUME_ROUND_PHASE_ROUND_DONE,
     RESUME_ROUND_PHASE_TOOLS_INFLIGHT,
     RESUME_ROUND_PHASE_TOOLS_INTERRUPTED,
+    SKIP_RESULT_TEXT,
+    ResumeBlockedError,
     ToolReceipt,
     args_digest,
+    build_confirmation_payload,
     describe_tool_scope,
+    plan_round_resume,
+    resolve_confirmations,
     result_digest,
 )
 from .approval_generation_cas import (
@@ -5837,18 +5847,265 @@ class AgentLoopV2:
             error=f"达到最大迭代数 {self.max_iterations}",
         )
 
-    async def resume_from_checkpoint(self, checkpoint_id: str) -> AgentLoopResult:
+    def _resume_legacy_mark(self) -> None:
+        """旧 checkpoint(无 resume_round 元数据)标记为 legacy_unverified。
+
+        只是证据面标记:老路径行为不变,不据此声称任何步骤"已完成"。
+        """
+        receipts = self._tool_state.get("resume_receipts")
+        if isinstance(receipts, dict):
+            receipts["legacy_unverified"] = True
+        elif self._resume_receipts_enabled:
+            self._tool_state["resume_receipts"] = {"v": 1, "rev": 0, "calls": {},
+                                                   "legacy_unverified": True}
+
+    async def _resume_record_resolution(
+        self, tc: ToolCall, text: str, resolution: str
+    ) -> None:
+        """把用户处置(skip/accept)写成**真实**回执,不伪造成功结果。"""
+        message = {
+            "role": "tool",
+            "tool_call_id": tc.id,
+            "name": tc.name,
+            "content": text,
+        }
+        scope = describe_tool_scope(tc.name)
+        record = ToolReceipt(
+            state=RECEIPT_STATE_SETTLED_ERROR,
+            scope=scope.scope,
+            mutating=scope.mutating,
+            args_digest=args_digest(tc.args),
+            attempt_seq=self._current_tool_attempt(tc.id),
+            result_message=message,
+            result_digest=result_digest(message),
+            resolution=resolution,
+            settled_at=time.time(),
+        ).to_dict()
+        if not await self._write_resume_receipt(tc.id, record):
+            logger.warning(
+                "续跑:处置回执未能耐久落盘(tool_call=%s, resolution=%s)",
+                tc.id,
+                resolution,
+            )
+
+    async def _resume_inflight_round(
+        self,
+        checkpoint: AgentLoopCheckpoint,
+        messages: list[dict[str, Any]],
+        resume_round: dict[str, Any],
+        confirmations: dict[str, str] | None,
+    ) -> int:
+        """接管"工具执行中崩溃/中断"的那一轮:整轮预检 → 必要时拦确认 → 重建 tool 块。
+
+        预检阶段**零执行**。只有三类调用会真正动:
+        - 回执 settled 且载荷可读 → replay 原结果;
+        - 回执 not_attempted / 只读面不确定 → 继续执行;
+        - 用户显式 retry/skip/accept → 按处置执行或写真实标记。
+        其余有副作用且无法判定的调用 → `ResumeBlockedError`(HTTP 409)。
+
+        Returns: 应从哪个 iteration 继续(即崩溃轮的下一个 iteration)。
+        """
+        iteration = int(resume_round.get("iteration", checkpoint.iteration))
+        assistant_index = int(resume_round.get("assistant_index", -1))
+        if assistant_index < 0 or assistant_index >= len(messages):
+            logger.warning(
+                "续跑:checkpoint %s 的 assistant_index=%d 越界,回退旧路径",
+                checkpoint.checkpoint_id,
+                assistant_index,
+            )
+            self._resume_legacy_mark()
+            return checkpoint.iteration + 1
+        assistant_message = messages[assistant_index]
+        raw_calls = assistant_message.get("tool_calls") or []
+        if not isinstance(raw_calls, list) or not raw_calls:
+            logger.warning(
+                "续跑:checkpoint %s 的工具轮没有 tool_calls,回退旧路径",
+                checkpoint.checkpoint_id,
+            )
+            self._resume_legacy_mark()
+            return checkpoint.iteration + 1
+
+        receipts_root = self._tool_state.get("resume_receipts")
+        receipts: dict[str, Any] = {}
+        if isinstance(receipts_root, dict):
+            raw_receipts = receipts_root.get("calls")
+            if isinstance(raw_receipts, dict):
+                receipts = raw_receipts
+
+        history_results: dict[str, bool] = {}
+        for message in messages[assistant_index + 1 :]:
+            if message.get("role") == "tool" and isinstance(
+                message.get("tool_call_id"), str
+            ):
+                history_results[str(message["tool_call_id"])] = True
+
+        plan = plan_round_resume(
+            tool_calls=raw_calls,
+            receipts=receipts,
+            history_results=history_results,
+        )
+        resolved = resolve_confirmations(
+            blocked=plan.blocked, confirmations=confirmations
+        )
+        if any(action == CONFIRM_ABORT for action in resolved.values()):
+            payload = build_confirmation_payload(
+                checkpoint_id=checkpoint.checkpoint_id,
+                iteration=iteration,
+                blocked=plan.blocked,
+                args_by_call={
+                    str(raw.get("id") or ""): raw.get("args") for raw in raw_calls
+                },
+            )
+            payload["aborted"] = True
+            raise ResumeBlockedError(payload)
+        pending = [d for d in plan.blocked if d.tool_call_id not in resolved]
+        if pending:
+            raise ResumeBlockedError(
+                build_confirmation_payload(
+                    checkpoint_id=checkpoint.checkpoint_id,
+                    iteration=iteration,
+                    blocked=pending,
+                    args_by_call={
+                        str(raw.get("id") or ""): raw.get("args") for raw in raw_calls
+                    },
+                )
+            )
+
+        # 接管这一轮:后续 intent/settle 都写回**同一个** checkpoint(rev 续上)。
+        receipts_rev = 0
+        if isinstance(receipts_root, dict):
+            raw_rev = receipts_root.get("rev", 0)
+            receipts_rev = raw_rev if isinstance(raw_rev, int) and raw_rev >= 0 else 0
+        self._resume_round = {
+            "checkpoint_id": checkpoint.checkpoint_id,
+            "iteration": iteration,
+            "assistant_index": assistant_index,
+            "tool_call_ids": [str(raw.get("id") or "") for raw in raw_calls],
+        }
+        self._resume_receipt_rev = receipts_rev
+        self._resume_receipts_active = self._resume_receipts_enabled
+
+        decisions = {d.tool_call_id: d for d in plan.decisions}
+        round_ids = set(self._resume_round["tool_call_ids"])
+        rebuilt: list[dict[str, Any]] = []
+        for raw in raw_calls:
+            call_id = str(raw.get("id") or "")
+            if not call_id:
+                call_id = f"call_{uuid.uuid4().hex[:8]}"
+            name = str(raw.get("name") or "")
+            args = raw.get("args") or {}
+            decision = decisions.get(call_id)
+            resolution = resolved.get(call_id)
+            receipt = receipts.get(call_id) or {}
+            # 有副作用调用的尝试序号从回继续到 N(重试才会变成 N+1,不从 1 重来)。
+            prior_attempt = receipt.get("attempt_seq")
+            if isinstance(prior_attempt, int) and prior_attempt >= 0:
+                self._tool_attempts[call_id] = prior_attempt
+
+            if resolution == CONFIRM_SKIP:
+                tc = ToolCall(id=call_id, name=name, args=args)
+                rebuilt.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "name": name,
+                        "content": SKIP_RESULT_TEXT,
+                    }
+                )
+                await self._resume_record_resolution(tc, SKIP_RESULT_TEXT, "skip")
+                continue
+            if resolution == CONFIRM_ACCEPT:
+                tc = ToolCall(id=call_id, name=name, args=args)
+                rebuilt.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "name": name,
+                        "content": ACCEPT_RESULT_TEXT,
+                    }
+                )
+                await self._resume_record_resolution(tc, ACCEPT_RESULT_TEXT, "accept")
+                continue
+
+            if decision is None:
+                # 没有判定 = 不该发生;按有副作用拦确认,绝不静默执行。
+                raise ResumeBlockedError(
+                    build_confirmation_payload(
+                        checkpoint_id=checkpoint.checkpoint_id,
+                        iteration=iteration,
+                        blocked=[],
+                        args_by_call={call_id: args},
+                    )
+                )
+
+            if decision.action == "replay" and resolution != CONFIRM_RETRY:
+                receipt = receipts.get(call_id) or {}
+                stored = receipt.get("result_message")
+                if isinstance(stored, dict) and stored.get("role") == "tool":
+                    rebuilt.append(stored)
+                    continue
+                # 回执声称可读但载荷结构不对:只读重跑,副作用面之前已拦下。
+                if decision.mutating:
+                    raise ResumeBlockedError(
+                        build_confirmation_payload(
+                            checkpoint_id=checkpoint.checkpoint_id,
+                            iteration=iteration,
+                            blocked=[decision],
+                            args_by_call={call_id: args},
+                        )
+                    )
+
+            # execute / retry:有副作用调用把 attempt 续到 N+1(不是从 1 重来)。
+            tc = ToolCall(id=call_id, name=name, args=args)
+            result = await self._execute_single(tc)
+            self._attach_tool_output_artifact(tc, result)
+            self._maybe_record_step(tc, result)
+            self._record_deliverable_step(tc, result)
+            # 结算先于入史:执行结果先落耐久回执,再进 messages。
+            await self._resume_settle_round([tc], [result])
+            rebuilt.append(self._tool_message_for_result(result))
+
+        # 重建 tool 块:保留 assistant 之前的内容;去掉崩溃轮已有的 tool 消息,
+        # 按原始调用顺序放入新块;其余非 tool 尾部消息保留。
+        tail = messages[assistant_index + 1 :]
+        kept_tail = [
+            m
+            for m in tail
+            if not (m.get("role") == "tool" and m.get("tool_call_id") in round_ids)
+        ]
+        messages[assistant_index + 1 :] = rebuilt + kept_tail
+        self._messages = messages
+
+        # 这一轮已收口,落 round_done;之后从 iteration+1 继续正常循环。
+        await self._save_checkpoint_safe(
+            iteration=iteration,
+            messages=messages,
+            status="running",
+            metadata=self._resume_round_done_metadata(iteration),
+        )
+        self._resume_round = None
+        return iteration + 1
+
+    async def resume_from_checkpoint(
+        self,
+        checkpoint_id: str,
+        resume_confirmations: dict[str, str] | None = None,
+    ) -> AgentLoopResult:
         """从 checkpoint 恢复并继续执行下一轮 iteration。
 
         Args:
             checkpoint_id: checkpoint id(由 pause/cancel/异常时返回,或通过
                           checkpoint_manager.list_checkpoints 查询)
+            resume_confirmations: 仅"工具执行中崩溃"那一轮需要:按 tool_call_id
+                          给出 retry/skip/accept/abort 处置。缺省时该轮若存在
+                          无法判定的副作用调用,抛 ResumeBlockedError(HTTP 409)。
 
         Returns:
             AgentLoopResult:从 checkpoint.iteration+1 继续执行的循环结果
 
         Raises:
             ValueError: checkpoint 不存在或已过期
+            ResumeBlockedError: 崩溃那轮有副作用调用无法判定,或用户选择 abort
         """
         checkpoint: AgentLoopCheckpoint | None = await self._checkpoint_manager.load_checkpoint(
             checkpoint_id
@@ -5893,6 +6150,31 @@ class AgentLoopV2:
         # (与 run() 入口同一个出口,不在此重复判据)。
         await self._ensure_step_recorder()
 
+        # 跨进程续跑:崩溃落在"assistant 已入史、工具尚未全部收口"的那一轮时,
+        # 先整轮零执行预检,按单 tool_call 判定 replay/execute,必要时拦确认;
+        # 其余(round_done / 旧 checkpoint)保持原有 start_iteration 语义。
+        resume_round = (
+            checkpoint.metadata.get("resume_round")
+            if isinstance(checkpoint.metadata, dict)
+            else None
+        )
+        start_iteration = checkpoint.iteration + 1
+        if (
+            self._resume_receipts_enabled
+            and isinstance(resume_round, dict)
+            and resume_round.get("phase")
+            in (
+                RESUME_ROUND_PHASE_TOOLS_INFLIGHT,
+                RESUME_ROUND_PHASE_TOOLS_INTERRUPTED,
+            )
+            and resume_round.get("epoch") == RECEIPTS_EPOCH
+        ):
+            start_iteration = await self._resume_inflight_round(
+                checkpoint, messages, resume_round, resume_confirmations
+            )
+        elif self._resume_receipts_enabled:
+            self._resume_legacy_mark()
+
         # 批 40 接线:TurnAborted 中断指导(对标 codex context/turn_aborted.rs)。
         # 被取消/暂停后显式 resume 时,把持久化中断片段追加进历史尾部——LLM 感知
         # 「用户故意中断了上一轮,后台进程可能仍在跑,被中止的命令可能已部分执行」,
@@ -5909,7 +6191,6 @@ class AgentLoopV2:
             except Exception as e:  # noqa: BLE001 - 注入失败隔离,不阻塞续跑
                 logger.warning("turn_aborted 指导注入失败(降级续跑): %s", e)
 
-        start_iteration = checkpoint.iteration + 1
         if start_iteration > self.max_iterations:
             return AgentLoopResult(
                 compaction_events=self._compaction_events,
