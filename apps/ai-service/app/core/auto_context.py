@@ -12,10 +12,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -78,7 +80,27 @@ def _normalize_chunk(raw: dict[str, Any]) -> dict[str, Any] | None:
         "line_end": int(line_end) if isinstance(line_end, (int, float)) else None,
         "content": snippet,
         "score": float(score) if isinstance(score, (int, float)) else None,
+        "retrieval_leg": str(raw.get("retrieval_leg") or "semantic"),
     }
+
+
+def _local_catalog_hits(workspace_path: str, query: str, top_k: int) -> list[dict[str, Any]]:
+    """本地目录腿:按文件/符号名从**快照内的目录**取片段(零远端)。
+
+    只在调用方给了 `workspace_path` 时启用。目录缺席/旧档 ⇒ 返回空列表并记日志,
+    由语义腿兜底;这里绝不去建索引、不去联网(自动注入路径不允许有写入副作用)。
+    """
+    from ..services.codebase_index_status import resolve_repo_id
+    from ..services.codebase_indexer import codebase_indexer
+    from ..services.codebase_symbol_catalog import search_local_catalog
+
+    root = Path(workspace_path).resolve()
+    repo_id = resolve_repo_id(root, codebase_indexer)
+    catalog = codebase_indexer.load_catalog(repo_id, root)
+    if catalog is None:
+        logger.info("auto_context local leg skipped: 目录缺席(repo_id=%s)", repo_id)
+        return []
+    return search_local_catalog(root, catalog, query, top_k=top_k)
 
 
 async def auto_retrieve(
@@ -91,12 +113,14 @@ async def auto_retrieve(
 
     Args:
         query: 用户最后一条消息文本(调用方负责提取)。
-        workspace_path: 工作区路径(仅用于日志定位;检索走中心索引 API)。
+        workspace_path: 工作区路径。给了就**并行**跑本地目录腿(文件/符号级,零远端),
+            并与远端语义腿合并;不给则只跑语义腿(行为与旧版一致)。
         session_id: 会话 id(60s 防重复键的一部分;为空则不判重)。
-        top_k: 检索条数上限。
+        top_k: 每条腿的检索条数上限(合并后最多 2×top_k)。
 
     Returns:
-        归一化 chunk 列表:[{file_path, line_start, line_end, content, score}]。
+        归一化 chunk 列表:[{file_path, line_start, line_end, content, score, retrieval_leg}]。
+        `retrieval_leg` = `semantic` | `local-catalog`(消费方可据此区分命中来源)。
     """
     if _is_globally_disabled():
         return []
@@ -105,24 +129,48 @@ async def auto_retrieve(
         return []  # 过短查询(问候/单字)不做检索注入
     if _should_skip_dedup(session_id, query):
         return []
+    raw_chunks: list[dict[str, Any]] = []
+    local_raw: list[dict[str, Any]] = []
     try:
         from ..services.codebase_indexer import codebase_indexer
 
-        raw_chunks = await codebase_indexer.search(query, top_k=top_k)
+        if workspace_path:
+            semantic_result: Any
+            local_result: Any
+            semantic_result, local_result = await asyncio.gather(
+                codebase_indexer.search(query, top_k=top_k),
+                asyncio.to_thread(_local_catalog_hits, workspace_path, query, top_k),
+                return_exceptions=True,
+            )
+            if isinstance(semantic_result, BaseException):
+                logger.warning("auto_context semantic leg failed: %s", semantic_result)
+            else:
+                raw_chunks = list(semantic_result or [])
+            if isinstance(local_result, BaseException):
+                logger.warning("auto_context local leg failed: %s", local_result)
+            else:
+                local_raw = list(local_result or [])
+        else:
+            raw_chunks = await codebase_indexer.search(query, top_k=top_k)
     except Exception as e:  # 检索失败静默降级,绝不阻塞主聊天
         logger.warning("auto_context retrieve failed: %s", e)
         return []
     normalized: list[dict[str, Any]] = []
     used_chars = 0
-    for raw in raw_chunks or []:
+    seen: set[tuple[str, int | None]] = set()
+    for raw in [*(raw_chunks or []), *local_raw]:
         if not isinstance(raw, dict):
             continue
         chunk = _normalize_chunk(raw)
         if chunk is None:
             continue
+        key = (str(chunk["file_path"]), chunk["line_start"])
+        if key in seen:
+            continue
+        seen.add(key)
         used_chars += len(chunk["content"])
         normalized.append(chunk)
-        if used_chars >= _MAX_BLOCK_CHARS:
+        if used_chars >= _MAX_BLOCK_CHARS or len(normalized) >= top_k * 2:
             break
     return normalized
 
