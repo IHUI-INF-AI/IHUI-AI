@@ -17,7 +17,7 @@
  * 用法：pnpm typecheck:full
  */
 
-import { readdirSync, statSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import { readdirSync, statSync, rmSync, existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
@@ -27,6 +27,15 @@ import { fileURLToPath } from 'node:url'
 // 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
 import { installSignalExit } from './lib/signal-exit.mjs'
+// 陈旧 dist 判据/复核(逐产物对账)。本文件顶层是 CLI,夹具无法 import 它 ⇒ 判据必须住 lib,
+// 否则"判据有牙"这件事只能靠 spawn 脚本间接验,而构造面(单产物陈旧/整包 mtime 被拉新)验不了。
+import {
+  collectPackageStates,
+  pickStalePackages,
+  rebuildStalePackages,
+  formatRebuildSummary,
+  fmtMtime,
+} from './lib/stale-dist.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -63,104 +72,22 @@ if (_PREFLIGHT_ONLY) {
   process.exit(0)
 }
 
-/**
- * 陈旧 dist 前置重建(2026-09-27 立)。
- *
- * 为什么需要它:本脚本刻意用 `pnpm -r run typecheck` 而**不走 turbo**,因为 turbo 的
- * 并行/串行会把 `.tsbuildinfo` 与内存搅出竞态 —— 但 `turbo.json` 里 `typecheck` 的
- * `dependsOn: ["^build"]` 也跟着一起被绕开了。后果是:**依赖包的 `dist/` 永远不会被重建**,
- * 而 `dist/` 被 `.gitignore` 忽略、包清单的 `exports.types` 又指向 `dist/index.d.ts`,
- * 于是"类型检查通过/失败"这个结论可能来自一份**本机陈旧的产物快照**,而不是 HEAD 的源码。
- * 实测代价(2026-09-27):一个会话按 `tokens.brand.ctaForeground` 取配对前景被报
- * `TS2339: Property 'ctaForeground' does not exist`,而源码侧 `rn-tokens.ts` 的 brand 键集
- * 早就含 `cta/ctaForeground` —— 那是旧提交留下的 dist。守门 4(`check-stale-dist.mjs`)比的是
- * 顶层 export **名字集合**,嵌套键的形状变化(加一档 brand)它结构上看不见。
- *
- * 判据(只看 packages/ 下自建包,不碰 apps/):`src/` 里任一文件的 mtime 晚于 `dist/` 里
- * 最新文件 ⇒ 该包 dist 陈旧;`dist/` 整个不存在 ⇒ 同样陈旧(消费者按 types 字段解析会失败)。
- * dist 是本机构建物、仓库里没有对应 blob,所以这一维只能按磁盘判 —— 与本仓"dist 口径明写本机"
- * 的既有道理一致(守门 4 头注同条),不假装审过被审面。
- *
- * 失效方向:宁可多跑一次 build(秒级到十几秒),不可让一次类型检查拿着旧产物下结论。
- */
-export function pickStalePackages(entries) {
-  return entries
-    .filter((e) => e.hasBuildScript && (e.distMissing || e.srcNewestMtimeMs > e.distNewestMtimeMs))
-    .map((e) => e.name)
-    .sort()
-}
-
-/** 递归取目录内文件的最新 mtime(跳过依赖与缓存目录);目录不存在返回 -1。 */
-function newestMtimeMs(dir) {
-  let out = -1
-  const stack = [dir] // stack 只 push/pop 不重赋值 —— prefer-const(eslint --fix 同形)
-  while (stack.length) {
-    const cur = stack.pop()
-    let entries = []
-    try {
-      entries = readdirSync(cur, { withFileTypes: true })
-    } catch {
-      continue
-    }
-    for (const ent of entries) {
-      const full = join(cur, ent.name)
-      if (ent.isDirectory()) {
-        if (!EXCLUDE_DIRS.has(ent.name)) stack.push(full)
-        continue
-      }
-      try {
-        const ms = statSync(full).mtimeMs
-        if (ms > out) out = ms
-      } catch {
-        /* 竞态删除:跳过 */
-      }
-    }
-  }
-  return out
-}
-
-/** 扫 packages/ 构造判据输入(纯 IO,判定逻辑在 pickStalePackages 里,便于用构造面证明)。 */
-function collectPackageStates(packagesDir) {
-  const out = []
-  let dirs = []
-  try {
-    dirs = readdirSync(packagesDir, { withFileTypes: true })
-      .filter((d) => d.isDirectory())
-      .map((d) => d.name)
-  } catch {
-    return out
-  }
-  for (const name of dirs) {
-    const pkgDir = join(packagesDir, name)
-    let manifest
-    try {
-      manifest = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'))
-    } catch {
-      continue
-    }
-    const srcDir = join(pkgDir, 'src')
-    const distDir = join(pkgDir, 'dist')
-    if (!existsSync(srcDir) || !existsSync(distDir)) {
-      if (manifest.scripts?.build && existsSync(srcDir))
-        out.push({
-          name: manifest.name || name,
-          hasBuildScript: true,
-          distMissing: !existsSync(distDir),
-          srcNewestMtimeMs: newestMtimeMs(srcDir),
-          distNewestMtimeMs: -1,
-        })
-      continue
-    }
-    out.push({
-      name: manifest.name || name,
-      hasBuildScript: !!manifest.scripts?.build,
-      distMissing: false,
-      srcNewestMtimeMs: newestMtimeMs(srcDir),
-      distNewestMtimeMs: newestMtimeMs(distDir),
-    })
-  }
-  return out
-}
+// ─── 陈旧 dist 判定与复核(2026-11-07 原根因修法)─────────────────────────────
+// 判据/复核实现已整体搬到 scripts/lib/stale-dist.mjs,本文件只保留装配与退出语义。
+// 拆出的唯一目的:让夹具能直接 import 判据(本文件顶层就是 CLI,import 会清 .tsbuildinfo 并真跑 tsc)。
+//
+// 为什么需要前置:本脚本刻意用 `pnpm -r run typecheck` 而**不走 turbo**,`turbo.json` 里
+// `typecheck` 的 `dependsOn: ["^build"]` 也跟着被绕开 ⇒ 依赖包 `dist/` 不会因 typecheck 而重建,
+// 而消费方按包清单 `exports.types` 读 `packages/*/dist` ⇒ 类型结论可能来自本机旧产物快照。
+// 实测代价(2026-09-27):按 `tokens.brand.ctaForeground` 取配对前景被报 TS2339,源码侧早有该键。
+//
+// 2026-11-07 病根(实测):旧判据 `srcNewest > distNewest` 只看**整包最新**的 dist 文件。
+// `tsconfig.base.json` 开 incremental+composite,增量构建只重写内容变了的产物;只要 dist 里
+// 有一个新文件(embed-types 重写的 `ihui-types.d.ts`、或另一个刚重建的产物),整包 mtime
+// 就被拉新 ⇒ 真正陈旧的 `notification.d.ts` 永远不会被重建。本仓实测跨度:
+// `@ihui/shared` dist 最早 11-06 02:33、最新 11-07 20:30(42 小时)。
+// 现判据:逐产物对账(`src/foo.ts` ↔ `dist/foo.js` / `dist/foo.d.ts`),一个产物新不得替
+// 另一个产物担保;重建后逐产物复核 mtime/内容,没变 ⇒ **未判定 exit 2**(不静音、不放宽)。
 
 /**
  * 递归查找并删除所有 .tsbuildinfo 文件（排除依赖与构建缓存目录）。
@@ -318,8 +245,8 @@ if (!_SELF_TEST) {
 /**
  * `--self-test`:只证 `pickStalePackages` 这一维判定,**必须跑在清 .tsbuildinfo 之前**
  * (那是破坏性动作;把自检挂在它后面等于每跑一次自检就清一次全量缓存)。
- * 本文件顶层就是 CLI 且无 §22d `isDirectRun` 守卫,所以镜像测试只能把脚本 spawn 起来验,
- * 不能 import 判据函数(§22c 记过这一型)。
+ * 本文件顶层就是 CLI 且无 §22d `isDirectRun` 守卫,所以镜像测试只能把脚本 spawn 起来验;
+ * 逐产物夹具另住 scripts/tests/typecheck-stale-dist.test.mjs(那边直接 import lib,构造面齐全)。
  */
 if (_SELF_TEST) {
   let ok = 0
@@ -335,35 +262,47 @@ if (_SELF_TEST) {
     name: '@ihui/x',
     hasBuildScript: true,
     distMissing: false,
+    distFileCount: 10,
     srcNewestMtimeMs: 100,
     distNewestMtimeMs: 200,
+    staleArtifacts: [],
     ...over,
   })
   t(
-    'S1 src 比 dist 旧 ⇒ 不判陈旧(反向对照,证明不是"有 dist 就重建")',
+    'S1 整包最新 mtime 被拉新(源比 dist 最新文件旧)且无单产物陈旧 ⇒ 不判陈旧(反向对照)',
     pickStalePackages([e({})]).length === 0,
   )
   t(
-    'S2 src 比 dist 新 ⇒ 判陈旧(本维要抓的那一型)',
-    pickStalePackages([e({ srcNewestMtimeMs: 300 })]).join() === '@ihui/x',
+    'S2 单产物陈旧 ⇒ 判陈旧(病根那一型:整包最新 mtime 不得替单产物担保)',
+    pickStalePackages([
+      e({
+        srcNewestMtimeMs: 100,
+        distNewestMtimeMs: 300,
+        staleArtifacts: [{ artifact: 'notification.d.ts', src: 'notification.ts' }],
+      }),
+    ]).join() === '@ihui/x',
   )
   t(
     'S3 dist 整个不存在 ⇒ 判陈旧(消费者按 exports.types 解析 dist,缺就是不可信)',
-    pickStalePackages([e({ distMissing: true, srcNewestMtimeMs: 100 })]).length === 1,
+    pickStalePackages([e({ distMissing: true, distFileCount: 0 })]).length === 1,
+  )
+  t(
+    'S3b dist 存在但 0 个文件 ⇒ 同样判陈旧(空目录不是"已构建")',
+    pickStalePackages([e({ distFileCount: 0 })]).length === 1,
   )
   t(
     'S4 没有 build 脚本的包不吃这条前置(纯类型包无产物)',
-    pickStalePackages([e({ hasBuildScript: false, srcNewestMtimeMs: 999 })]).length === 0,
+    pickStalePackages([e({ hasBuildScript: false, staleArtifacts: [{}] })]).length === 0,
   )
   t(
-    'S5 同刻平手(mtime 相等)不判陈旧 —— 判据不得靠 >= 制造伪重建',
-    pickStalePackages([e({ srcNewestMtimeMs: 200 })]).length === 0,
+    'S5 同刻平手不判陈旧 —— 判据不得靠 >= 制造伪重建',
+    pickStalePackages([e({ staleArtifacts: [] })]).length === 0,
   )
   t(
     'S6 多包时输出稳定有序(报告要能逐条核)',
     pickStalePackages([
-      e({ name: '@ihui/z', srcNewestMtimeMs: 300 }),
-      e({ name: '@ihui/a', srcNewestMtimeMs: 300 }),
+      e({ name: '@ihui/z', staleArtifacts: [{}] }),
+      e({ name: '@ihui/a', staleArtifacts: [{}] }),
     ]).join() === '@ihui/a,@ihui/z',
   )
   console.log(`--self-test:${ok} 通过 / ${bad} 失败`)
@@ -402,6 +341,10 @@ if (removed.length === 0) {
  * 前置:把陈旧的 packages 各包 dist 重建掉,再开始类型检查。
  * 重建失败 ⇒ 直接非零退出:此时任何"类型通过"的结论都不可信(要么拿着旧产物,要么产物残缺),
  * 而"安静地跳过重建"正是本格缺陷的表现形态。
+ *
+ * 2026-11-07 可观测性(不再只报"命中几个包"):逐包打印**包名 + rc + 重建前后整包最新 mtime
+ * + 每个陈旧产物的 mtime 对比**;失败时原样打出逐包汇总,让日志能直接指认是哪个包/哪个产物
+ * 没重建。复核不过 ⇒ exit 2 未判定(不许静音、不许放宽阈值)。
  */
 function staleDistPreflight() {
   if (process.env.IHUI_SKIP_STALE_DIST_PREFLIGHT === '1') {
@@ -411,40 +354,87 @@ function staleDistPreflight() {
     console.log('[typecheck:full]    跳过后,下面这些类型结论可能来自本机旧产物(见文件头注)。')
     return
   }
-  const stale = pickStalePackages(collectPackageStates(join(ROOT, 'packages')))
+  const entries = collectPackageStates(join(ROOT, 'packages'))
+  const stale = pickStalePackages(entries)
   if (stale.length === 0) {
     console.log('[typecheck:full] 陈旧 dist 前置:packages 全部与源码同新,无需重建。')
     return
   }
   console.log(
-    `[typecheck:full] 检测到 ${stale.length} 个包的 dist 比 src 旧(或整个不存在),先重建再 typecheck:`,
+    `[typecheck:full] 检测到 ${stale.length} 个包的 dist 有**单产物**落后于源码(逐产物判据),先重建再 typecheck:`,
   )
-  for (const n of stale) console.log(`  - ${n}`)
   for (const n of stale) {
-    const r = spawnSync(`pnpm --filter ${n} build`, {
-      cwd: ROOT,
-      stdio: 'inherit',
-      shell: true,
-      windowsHide: true,
-    })
-    if (r.status !== 0) {
-      if (_PREFLIGHT_ONLY) {
-        // 前置档的铁律(AGENTS §0.3):产物面**取不到** ⇒ `未判定` exit 2,不给结论。
-        // 为什么不能沿用 build 的退出码(通常是 1):上层会把 exit 1 读成"类型检查有结论的失败"
-        // (=已入库红),把一次 **build 失败**冒充成类型缺陷,归因就指错人;
-        // 为什么更不能继续跑:旧 .d.ts 还在,结论来自旧产物 = 绿得没有依据。
-        // 两条都被禁 ⇒ 唯一正确出口是 2,并点名包名与 build 退出码,便于一键复现。
-        console.error(
-          `\n[typecheck:full] ❓ 未判定(exit 2):重建 ${n} 失败(build exit ${r.status ?? '?'})—— 产物面取不到,不给类型结论。`,
-        )
-        console.error(`[typecheck:full]    复现: pnpm --filter ${n} build`)
-        process.exit(2)
-      }
-      console.error(
-        `\n[typecheck:full] 重建 ${n} 失败(exit ${r.status ?? '?'})—— 不带着旧产物继续跑类型检查。`,
+    const st = entries.find((e) => e.name === n)
+    console.log(
+      `  - ${n}: 陈旧产物 ${st.staleArtifacts.length}/${st.artifactCount} 个,` +
+        ` 整包最新 mtime ${fmtMtime(st.distNewestMtimeMs)}(该包 src 最新 ${fmtMtime(st.srcNewestMtimeMs)})`,
+    )
+    for (const a of st.staleArtifacts.slice(0, 10)) {
+      console.log(
+        `      · ${a.artifact} ${fmtMtime(a.artifactMtimeMs)} < src/${a.src} ${fmtMtime(a.srcMtimeMs)}`,
       )
-      process.exit(r.status ?? 1)
     }
+    if (st.staleArtifacts.length > 10) {
+      console.log(`      … 另有 ${st.staleArtifacts.length - 10} 个陈旧产物`)
+    }
+  }
+  const out = rebuildStalePackages({
+    entries,
+    staleNames: stale,
+    // 生产侧仍是同一条命令(stdio:inherit 保留构建日志),只是把 rc 交回判据面做复核。
+    buildPackage: (n) =>
+      spawnSync(`pnpm --filter ${n} build`, {
+        cwd: ROOT,
+        stdio: 'inherit',
+        shell: true,
+        windowsHide: true,
+      }),
+  })
+  if (out.failure === 'build') {
+    const failed = out.results[out.results.length - 1]
+    const n = failed?.name ?? '(未知包)'
+    const rc = failed?.status ?? '?'
+    console.error('\n[typecheck:full] 逐包重建汇总:')
+    console.error(formatRebuildSummary(out.results))
+    if (_PREFLIGHT_ONLY) {
+      // 前置档的铁律(AGENTS §0.3):产物面**取不到** ⇒ `未判定` exit 2,不给结论。
+      // 为什么不能沿用 build 的退出码(通常是 1):上层会把 exit 1 读成"类型检查有结论的失败"
+      // (=已入库红),把一次 **build 失败**冒充成类型缺陷,归因就指错人;
+      // 为什么更不能继续跑:旧 .d.ts 还在,结论来自旧产物 = 绿得没有依据。
+      // 两条都被禁 ⇒ 唯一正确出口是 2,并点名包名与 build 退出码,便于一键复现。
+      console.error(
+        `\n[typecheck:full] ❓ 未判定(exit 2):重建 ${n} 失败(build rc=${rc})—— 产物面取不到,不给类型结论。`,
+      )
+      console.error(`[typecheck:full]    复现: pnpm --filter ${n} build`)
+      process.exit(2)
+    }
+    console.error(`\n[typecheck:full] 重建 ${n} 失败(rc=${rc})—— 不带着旧产物继续跑类型检查。`)
+    process.exit(failed?.status ?? 1)
+  }
+  if (out.failure === 'unverified') {
+    // 复核不过 = 产物没被真正刷新(rc=0 也不够)。这不是 build 失败、更不是类型红,
+    // 而是**未判定**:取不到可信产物面就不得给类型结论。两种通道统一 exit 2。
+    const bad = out.results.filter((r) => !r.ok)
+    console.error('\n[typecheck:full] 逐包重建汇总:')
+    console.error(formatRebuildSummary(out.results))
+    for (const r of bad) {
+      console.error(
+        `[typecheck:full]    ${r.name}: rc=${r.status ?? '?'}, 未刷新产物 ${r.unverified.length} 个` +
+          `, 复扫仍有 ${r.postStale} 个陈旧产物`,
+      )
+      for (const v of r.unverified) {
+        console.error(
+          `[typecheck:full]      · ${v.artifact}: mtime ${fmtMtime(v.beforeMtimeMs)} → ${fmtMtime(v.afterMtimeMs)} 且内容未变`,
+        )
+      }
+    }
+    console.error(
+      `\n[typecheck:full] ❓ 未判定(exit 2):${bad.map((r) => r.name).join(', ')} 重建后目标产物未刷新(mtime/内容都没变)—— 产物面不可信,不给类型结论。`,
+    )
+    console.error(
+      '[typecheck:full]    复现:删掉该包 dist 后重跑同一命令,或 pnpm --filter <包名> build 后人工核对产物 mtime',
+    )
+    process.exit(2)
   }
   console.log('[typecheck:full] 前置重建完成,继续全量 typecheck。')
 }
