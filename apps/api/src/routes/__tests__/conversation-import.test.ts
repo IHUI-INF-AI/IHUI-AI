@@ -94,6 +94,9 @@ vi.mock('@ihui/database', () => ({
     tokens: 'tokens',
     createdAt: 'created_at',
   },
+  userChatSkills: { id: 'id' },
+  userAutomations: { id: 'id' },
+  agentMemoryEpisodic: { id: 'id' },
   conversationImports: {
     id: 'id',
     ownerUuid: 'owner_uuid',
@@ -564,6 +567,69 @@ describe('外部会话导入路由(D28)', () => {
       })
       expect(res.statusCode).toBe(201)
       expect(res.json().data.conversationId).toBe(CONV_ID)
+    })
+  })
+
+  describe('POST /api/conversation-import/commit-runtime', () => {
+    it('技能、暂停的自动化和记忆写入当前用户，cron 与凭据不进插入值', async () => {
+      store.pushSelect([{ id: CONV_ID }])
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/conversation-import/commit-runtime',
+        payload: {
+          conversationId: CONV_ID,
+          runtime: {
+            skills: [{ name: '审查', prompt: '按清单审查', apiKey: 'SUPERSECRETVALUE99' }],
+            automations: [{ name: '夜跑', trigger: '0 2 * * *', prompt: '汇总昨日' }],
+            memory: [{ text: '用户偏好中文' }],
+            capabilities: [{ name: 'repo-read', env: { TOKEN: 'SUPERSECRETVALUE99' } }],
+          },
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json()
+      expect(body.data.skills).toBe(1)
+      expect(body.data.automations).toBe(1)
+      expect(body.data.memory).toBe(1)
+      expect(body.data.skipped).toContainEqual({
+        dimension: 'capabilities',
+        index: 0,
+        reason: 'declaration_only',
+      })
+      const dumped = JSON.stringify(store.insertValues)
+      expect(dumped).not.toContain('SUPERSECRETVALUE99')
+      expect(dumped).not.toContain('0 2 * * *')
+      const [skills, automations, memory] = store.insertValues as Array<
+        Array<Record<string, unknown>>
+      >
+      expect(skills[0]).toMatchObject({ userId: 'user-1', name: '审查', enabled: true })
+      expect(automations[0]).toMatchObject({
+        userId: 'user-1',
+        status: 'paused',
+        terminalReason: 'manual_pause',
+        nextRunAt: null,
+        rrule: null,
+        prompt: '汇总昨日',
+      })
+      expect(memory[0]).toMatchObject({
+        userId: 'user-1',
+        sessionId: CONV_ID,
+        content: '用户偏好中文',
+      })
+    })
+
+    it('会话不属于当前用户时不写任何行', async () => {
+      store.pushSelect([])
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/conversation-import/commit-runtime',
+        payload: {
+          conversationId: CONV_ID,
+          runtime: { skills: [{ name: '审查', prompt: '按清单审查' }] },
+        },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(store.insertValues).toEqual([])
     })
   })
 

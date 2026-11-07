@@ -159,3 +159,15 @@ export * from './stream-error-disposition'
 // 会话历史日期分桶(自然日/自然周(周一起)/自然月(1 号起)/更早 + 时间锚点回退链)的
 // 唯一实现:web 侧栏与小程序历史页共用。此前两端各写一套,web 改好后小程序仍是滚动 7 天。
 export * from './conversation-date-group'
+// 持久会话回放：存储投影，不重放工具。游标、插话归属、回退边界与用量帧的唯一实现。
+export * from './durable-session-replay'
+// 流式工具参数：半截 JSON 先交出已闭合字段。空增量与非对象终帧的判据只在这一处。
+export * from './tool-input-stream'
+// 驱逐警告与恢复成对：只有警告不得渲染成完成，没有警告的恢复是未判定。
+export * from './eviction-pair'
+// 外部事件至少一次投递：同一 deliveryId 在途不重复处理，失败不记 ack。
+export * from './delivery-ack'
+// 输出风格只接纳已注册五档，未注册与空值都不回落默认档。
+export * from './output-style'
+// 冷启动分两半：列表没量到不显示成空，深链时刻没量到不恢复路径。
+export * from './cold-start'

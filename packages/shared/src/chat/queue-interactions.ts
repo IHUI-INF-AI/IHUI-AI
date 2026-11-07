@@ -306,4 +306,98 @@ export function effectiveMode(
   }
   return { mode: preference, degraded: false, degradedKey: null }
 }
+
+/** 流结束时能不能自动把队首发出去。暂停,或暂停态没量到,都不发。 */
+export function followUpAutoFlushAllowed(paused: boolean | null): boolean {
+  return paused === false
+}
+
+export const CAPACITY_QUEUE_OPS = ['pause', 'resume', 'delete', 'move', 'sendNow'] as const
+export type CapacityQueueOp = (typeof CAPACITY_QUEUE_OPS)[number]
+
+export type CapacityQueuePlan = {
+  readonly disposition: 'admitted' | 'refused' | 'unjudged'
+  readonly reason:
+    | 'paused'
+    | 'resumed'
+    | 'already-paused'
+    | 'not-paused'
+    | 'deleted'
+    | 'moved'
+    | 'sent-now'
+    | 'already-front'
+    | 'op-unrecognized'
+    | 'queue-unmeasured'
+    | 'queue-invalid'
+    | 'pause-unmeasured'
+    | 'item-absent'
+    | 'index-invalid'
+  readonly order: readonly string[]
+}
+
+function capacityItemIdOk(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !/[\s\0]/.test(value)
+}
+
+/**
+ * 限流队列的五个用户动词。
+ * 队列名单没量到时不改顺序,也不把「没量到」说成空队列。
+ * 要删、要挪、要立即发的那一条必须在量到的名单里。
+ */
+export function admitCapacityQueueOp(input: {
+  op: unknown
+  queueIds: readonly string[] | null
+  paused: boolean | null
+  itemId?: unknown
+  toIndex?: unknown
+}): CapacityQueuePlan {
+  const plan = (
+    disposition: CapacityQueuePlan['disposition'],
+    reason: CapacityQueuePlan['reason'],
+    order: readonly string[],
+  ): CapacityQueuePlan => ({ disposition, reason, order })
+  if (
+    typeof input.op !== 'string' ||
+    !(CAPACITY_QUEUE_OPS as readonly string[]).includes(input.op)
+  ) {
+    return plan('unjudged', 'op-unrecognized', [])
+  }
+  if (input.queueIds === null) return plan('unjudged', 'queue-unmeasured', [])
+  const ids = input.queueIds
+  if (ids.some((id) => !capacityItemIdOk(id)) || new Set(ids).size !== ids.length) {
+    return plan('unjudged', 'queue-invalid', [])
+  }
+  const op = input.op as CapacityQueueOp
+  if (op === 'pause' || op === 'resume') {
+    if (typeof input.paused !== 'boolean') return plan('unjudged', 'pause-unmeasured', ids)
+    if (op === 'pause' && input.paused) return plan('refused', 'already-paused', ids)
+    if (op === 'resume' && !input.paused) return plan('refused', 'not-paused', ids)
+    return plan('admitted', op === 'pause' ? 'paused' : 'resumed', ids)
+  }
+  if (!capacityItemIdOk(input.itemId) || !ids.includes(input.itemId)) {
+    return plan('unjudged', 'item-absent', ids)
+  }
+  const itemId = input.itemId
+  if (op === 'delete')
+    return plan(
+      'admitted',
+      'deleted',
+      ids.filter((id) => id !== itemId),
+    )
+  if (op === 'sendNow') {
+    if (ids[0] === itemId) return plan('admitted', 'already-front', ids)
+    return plan('admitted', 'sent-now', [itemId, ...ids.filter((id) => id !== itemId)])
+  }
+  if (
+    typeof input.toIndex !== 'number' ||
+    !Number.isInteger(input.toIndex) ||
+    input.toIndex < 0 ||
+    input.toIndex >= ids.length
+  ) {
+    return plan('unjudged', 'index-invalid', ids)
+  }
+  const next = ids.filter((id) => id !== itemId)
+  next.splice(input.toIndex, 0, itemId)
+  return plan('admitted', 'moved', next)
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { softwareNoticesHtml } from '../renderers/shared/software-notices.mjs';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { isExplainerHtml } from '../explainer/check.mjs';
 import { EXPLAINER_VIEWPORTS, inspectExplainerBrowser, explainerObservation, explainerObservationDiagnostics } from '../explainer/browser-check.mjs';
 import { createOwnedTempDirectory } from '../renderers/shared/owned-temp-directory.mjs';
@@ -1577,6 +1577,30 @@ function browserEnvironment(env, platform) {
       && /^\s*DetectorsAppHealth\s*$/i.test(String(value)))));
 }
 
+function windowsProfileHolderPids(profilePath) {
+  const listed = spawnSync('pwsh', [
+    '-NoProfile',
+    '-Command',
+    "$needle = $env:ARCHIFY_PROFILE_PATH; if ([string]::IsNullOrEmpty($needle)) { exit 0 }; Get-CimInstance Win32_Process -Filter \"Name = 'chrome.exe'\" | Where-Object { $_.CommandLine -and $_.CommandLine.Contains($needle) } | ForEach-Object { $_.ProcessId }",
+  ], {
+    windowsHide: true,
+    encoding: 'utf8',
+    timeout: 20000,
+    env: { ...process.env, ARCHIFY_PROFILE_PATH: profilePath },
+  });
+  if (listed.status !== 0 || typeof listed.stdout !== 'string') return [];
+  return listed.stdout.split(/\s+/).map((item) => Number(item)).filter((pid) => Number.isInteger(pid) && pid > 0);
+}
+
+function releaseWindowsProfileHolders(profilePath) {
+  for (const pid of windowsProfileHolderPids(profilePath)) {
+    spawnSync('C:\\Windows\\System32\\taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+      windowsHide: true,
+      stdio: 'ignore',
+    });
+  }
+}
+
 export class ChromeVisualBrowser {
   #profile;
   constructor(chromePath, {
@@ -1924,11 +1948,43 @@ export class ChromeVisualBrowser {
             reject(error);
           }
         });
+        const waitExit = (timeoutMs) => new Promise((resolve) => {
+          if (exited()) {
+            resolve(true);
+            return;
+          }
+          let timer;
+          const finish = () => {
+            clearTimeout(timer);
+            this.child.removeListener('exit', finish);
+            resolve(true);
+          };
+          this.child.once('exit', finish);
+          timer = setTimeout(() => {
+            this.child.removeListener('exit', finish);
+            resolve(exited());
+          }, timeoutMs);
+        });
+        const releasePipes = () => {
+          for (const stream of [this.child.stderr, this.child.stdio[3], this.child.stdio[4]]) {
+            if (stream && !stream.destroyed) stream.destroy();
+          }
+        };
         if (!await signalAndWait('SIGTERM') && !await signalAndWait('SIGKILL')) {
-          const error = new Error(`Chrome did not exit; retained temporary profile "${this.#profile.path}".`);
-          error.code = 'ARCHIFY_TEMP_CLEANUP';
-          error.directory = this.#profile.path;
-          throw error;
+          if (process.platform !== 'win32') {
+            const error = new Error(`Chrome did not exit; retained temporary profile "${this.#profile.path}".`);
+            error.code = 'ARCHIFY_TEMP_CLEANUP';
+            error.directory = this.#profile.path;
+            throw error;
+          }
+          if (Number.isInteger(this.child.pid)) {
+            spawnSync('C:\\Windows\\System32\\taskkill.exe', ['/PID', String(this.child.pid), '/T', '/F'], {
+              windowsHide: true,
+              stdio: 'ignore',
+            });
+          }
+          releasePipes();
+          await waitExit(2000);
         }
       }
     } finally {
@@ -1939,7 +1995,12 @@ export class ChromeVisualBrowser {
         if (stream && !stream.destroyed) stream.destroy();
       }
     }
-    await this.#profile.cleanup();
+    const profilePath = this.#profile.path;
+    if (process.platform === 'win32') releaseWindowsProfileHolders(profilePath);
+    await this.#profile.cleanup(process.platform === 'win32' ? {
+      retries: 20,
+      delayMs: (attempt) => Math.min(500, 200 * (attempt + 1)),
+    } : undefined);
   }
 }
 
