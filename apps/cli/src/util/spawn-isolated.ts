@@ -24,7 +24,7 @@
  *   - 新实现:超时后必 reap(同步 wait 最多 2s),再 reject
  */
 
-import { execFile, spawn, type ChildProcess, type StdioOptions } from 'node:child_process'
+import { execFile, spawn, spawnSync, type ChildProcess, type StdioOptions } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as os from 'node:os'
@@ -167,6 +167,29 @@ export function killProcessTree(child: ChildProcess): void {
       if (snapshot) signalDetachedGroupMembers(snapshot)
     }
   }
+}
+
+/**
+ * BUG-0043:`killProcessTree` 的**同步版**,只给 `process.on('exit')` 这一帧用。
+ *
+ * 为什么必须是同步的:退出回调里事件循环已经停了,异步 `spawn('taskkill')` 连进程都
+ * 起不来 —— 钩子挂上了等于没挂(实测:正常 `process.exit(0)` 后会话子进程仍存活)。
+ * 判据与异步版同源:先看 child 是否已被观察到退出(PID 复用护栏),Windows 走
+ * `taskkill /T /F` 团灭,失败再补单进程 SIGKILL;POSIX 直接 SIGKILL。
+ */
+export function killProcessTreeSync(child: ChildProcess): void {
+  if (child.exitCode !== null || child.signalCode !== null) return
+  if (!child.pid) return
+  if (os.platform() === 'win32') {
+    try {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' })
+    } catch {
+      // taskkill 不可用不是致命:下面还有单进程补刀
+    }
+    try { child.kill('SIGKILL') } catch {}
+    return
+  }
+  try { child.kill('SIGKILL') } catch {}
 }
 
 /**
