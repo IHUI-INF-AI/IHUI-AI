@@ -11256,6 +11256,7 @@
     "invalidPassword": "密码至少 6 位",
     "invalidPhone": "请输入正确的手机号",
     "invalidUsername": "使用者名至少 3 位",
+    "linuxdoLogin": "LinuxDo",
     "loginBtn": "登录",
     "loggedInContinue": "您已登录,点击下方按钮继续",
     "continueToSite": "进入网站",
