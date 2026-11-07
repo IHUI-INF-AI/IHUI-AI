@@ -2,20 +2,5 @@
   "$comment": "守门 7(check-dedupe)的存量碎片点名台账。判据:本次 `pnpm dedupe --check` 报告的每一项(- pkg@version)按 pkg+version 命中本表且 reviewBy 未过期 ⇒ 点名放行;命中不了的新碎片 ⇒ 红;本表条目在本次报告里一条没命中 ⇒ 清单腐烂红(必须删条目);到期 ⇒ 红(回队列重裁)。登记门槛:必须是**pnpm dedupe 自己也消不掉**的存量,新引入的碎片一律不许进这里。",
   "version": 1,
   "issuesAt": "2026-11-01",
-  "entries": [
-    {
-      "pkg": "pbkdf2",
-      "version": "3.1.6",
-      "reason": "存量非本次引入:HEAD 面 pnpm-lock.yaml 里 pbkdf2@3.1.6 与 3.1.7 已并存(同锁同行号段可复算),`pnpm dedupe` 跑完 rc=0 而锁文件逐字不变、再查仍报同一项 ⇒ 不是「忘了去重」,是解析图里消不掉的一档;本门改差值口径后先点名放行,到期前由依赖治理票统一收敛。",
-      "ticket": "G-dedupe-stock",
-      "reviewBy": "2027-01-31"
-    },
-    {
-      "pkg": "which-typed-array",
-      "version": "1.1.22",
-      "reason": "存量非本次引入:HEAD 面锁里 which-typed-array@1.1.22 与 1.1.24 并存,上游闭包(es-abstract / is-typed-array / util / which-builtin-type)各自钉住不同区间,`pnpm dedupe` rc=0 后仍在报告里 ⇒ 消不掉;依赖治理票统一处理前按存量点名放行。",
-      "ticket": "G-dedupe-stock",
-      "reviewBy": "2027-01-31"
-    }
-  ]
+  "entries": []
 }
