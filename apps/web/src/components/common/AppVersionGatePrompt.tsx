@@ -15,6 +15,7 @@ import {
   type AppVersionGateUiState,
 } from '@/lib/app-version-gate'
 import { UpdateNoticeCard } from './UpdateNoticeCard'
+import { useFocusTrap } from '@/components/feedback/Drawer'
 
 /**
  * app-version 闸门的**渲染端**(2026-10-27 立)。
@@ -57,6 +58,14 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
 
   const required = decision?.required === true
   const hasUpdate = decision !== null && decision.latestVersion !== null
+  // 强更闸门是阻塞 alertdialog:焦点必须留在弹层内;Esc 不关闭(没有可用的关闭侧门)
+  const gateRef = React.useRef<HTMLDivElement>(null)
+  useFocusTrap({
+    open: !!decision && (required || hasUpdate) && (required || !dismissed),
+    panelRef: gateRef,
+    onEscape: () => {},
+    stackId: 'app-version-gate',
+  })
 
   const handleUpdate = React.useCallback(() => {
     if (!decision) return
@@ -124,6 +133,7 @@ export function AppVersionGatePrompt(): React.JSX.Element | null {
 
   return (
     <div
+      ref={gateRef}
       className="fixed inset-0 z-modal flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
       role="alertdialog"
       aria-modal="true"

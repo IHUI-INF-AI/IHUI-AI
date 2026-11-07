@@ -294,7 +294,6 @@ export function AutoTopupSettings({
       {state.dialogOpen ? (
         <div
           role="dialog"
-          aria-modal="true"
           aria-label={t('dialog.title')}
           data-dialog={state.dialogContext ?? 'enable'}
           className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-background p-3"

@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl'
 import { Button, Card, CloseButton, Input, Switch } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { Empty } from '@/components/common/Empty'
+import { useFocusTrap } from '@/components/feedback/Drawer'
 import { formatDate } from '@/lib/date-utils'
 import { useHooks, useHookLogs } from '@/hooks/use-hooks'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -393,9 +394,17 @@ function HookEditor({
   )
   const isEdit = mode === 'edit'
   const editorTitle = isEdit ? t('editorTitleEdit') : t('editorTitleCreate')
+  const dialogRef = React.useRef<HTMLDivElement>(null)
+  useFocusTrap({
+    open: true,
+    panelRef: dialogRef,
+    onEscape: onClose,
+    stackId: 'hooks-manager:editor',
+  })
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={editorTitle}
@@ -676,9 +685,17 @@ function HookLogsDialog({ hookId, onClose }: { hookId: string; onClose: () => vo
   const { logs, isLoading } = useHookLogs(hookId)
   const t = useTranslations('hooks')
   const tc = useTranslations('common')
+  const dialogRef = React.useRef<HTMLDivElement>(null)
+  useFocusTrap({
+    open: true,
+    panelRef: dialogRef,
+    onEscape: onClose,
+    stackId: 'hooks-manager:logs',
+  })
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label={t('logsAria')}

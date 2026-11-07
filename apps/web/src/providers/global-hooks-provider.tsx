@@ -31,7 +31,7 @@ import { toast } from '@/components/common'
 import { useModeStore } from '@/stores/mode'
 import { useChatStore } from '@/stores/chat'
 import { useNotificationStore } from '@/stores/notification'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { useFocusTrap } from '@/components/feedback/Drawer'
 import { appVersionGateCheck } from '@/lib/app-version-gate'
 
 /** 设置页路由。桌面端托盘「打开设置」与 Ctrl+Shift+, 快捷键共用同一入口。 */
@@ -131,22 +131,14 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
   // 1-6:帮助面板 Esc 关闭(原先只能点击外部关闭)
   // 2026-09-22:接入浮层层栈 —— Ctrl+/ 面板是全页最上层,打开时下层的弹层(权限弹层/
   // context ring 等)不得一起被一次 Esc 关掉。
-  React.useEffect(() => {
-    if (!showHelpPanel) return
-    pushOverlay(SHORTCUT_HELP_OVERLAY_ID)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (!isTopOverlay(SHORTCUT_HELP_OVERLAY_ID)) return
-        e.preventDefault()
-        toggleHelpPanel()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => {
-      popOverlay(SHORTCUT_HELP_OVERLAY_ID)
-      window.removeEventListener('keydown', onKey)
-    }
-  }, [showHelpPanel, toggleHelpPanel])
+  // 2026-11-07:层栈 + Esc + focus trap + 焦点还原统一走 Drawer 抽出的 useFocusTrap
+  const helpPanelRef = React.useRef<HTMLDivElement>(null)
+  useFocusTrap({
+    open: showHelpPanel,
+    panelRef: helpPanelRef,
+    onEscape: toggleHelpPanel,
+    stackId: SHORTCUT_HELP_OVERLAY_ID,
+  })
   // 激活全局通知 WS 连接 + 通知 store(未登录时自动 no-op,登录后自动连接)
   useGlobalNotification()
   // 应用启动时从 Cookie 恢复登录态(modal 模式 + mock cookie + 真后端 token 三种路径)
@@ -324,10 +316,6 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
           onClick={(e) => {
             if (e.target === e.currentTarget) toggleHelpPanel()
           }}
-          onKeyDown={(e) => {
-            // 与上方 window 监听同一守卫:非栈顶时不得关闭(focus 落在容器时的兜底路径)
-            if (e.key === 'Escape' && isTopOverlay(SHORTCUT_HELP_OVERLAY_ID)) toggleHelpPanel()
-          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -339,6 +327,7 @@ export function GlobalHooksProvider({ children }: { children: React.ReactNode })
           }}
         >
           <div
+            ref={helpPanelRef}
             role="dialog"
             aria-modal="true"
             aria-label={tHelp('title')}

@@ -14,7 +14,7 @@
 //   ③ 无更新 / fail-open ⇒ 什么都不渲染(不许无中生有地拦住用户)。
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import React from 'react'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, params?: Record<string, string>) =>
@@ -34,6 +34,11 @@ vi.mock('@ihui/ui-react', async () => {
         { type: 'button', onClick: props.onClick, 'aria-label': props['aria-label'] },
         '×',
       ),
+    // @/lib/overlay-stack 是 @ihui/ui-react 的 re-export;闸门现在经 useFocusTrap
+    // 依赖层栈,barrel mock 必须补齐这三枚,否则 pushOverlay 为 undefined。
+    pushOverlay: () => {},
+    popOverlay: () => {},
+    isTopOverlay: () => true,
   }
 })
 
@@ -72,6 +77,17 @@ describe('AppVersionGatePrompt:强更决策必须真的渲染出阻塞弹窗', (
       .map((b) => b.textContent)
       .sort()
     expect(labels).toEqual(['gateQuit', 'gateUpdateNow'])
+
+    // 模态契约:焦点落在弹层内、末元素 Tab 回首元素、Esc 不关闭(强更没有侧门)
+    const dialog = screen.getByRole('alertdialog')
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true))
+    const buttons = screen.getAllByRole('button')
+    const last = buttons[buttons.length - 1]!
+    last.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(document.activeElement).toBe(buttons[0])
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
   })
 
   it('普通更新 ⇒ 渲染成卡片,关闭后消失', async () => {

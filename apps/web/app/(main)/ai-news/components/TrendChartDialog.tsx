@@ -10,7 +10,7 @@ import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fetchAiTrendChart, type TrendChartData } from '@/lib/ai-news-api'
 import { CloseButton } from '@ihui/ui-react'
 import { formatCompact, getLocale } from '@/lib/number-format'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { useFocusTrap } from '@/components/feedback/Drawer'
 
 interface Props {
   itemId: string
@@ -37,7 +37,6 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
   const [window, setWindow] = React.useState(14)
 
   const dialogRef = React.useRef<HTMLDivElement>(null)
-  const closeButtonRef = React.useRef<HTMLButtonElement>(null)
   const titleId = React.useId()
 
   React.useEffect(() => {
@@ -48,43 +47,13 @@ export function TrendChartDialog({ itemId, title, open, onClose }: Props) {
       .finally(() => setLoading(false))
   }, [open, itemId, window])
 
-  // 无障碍:ESC 关闭 + focus trap + 焦点还原
-  React.useEffect(() => {
-    if (!open) return
-    // 层栈:本弹窗打开即入栈为栈顶;Esc 只由栈顶消费(多层同时打开时不再一起关)
-    pushOverlay(TREND_CHART_OVERLAY_ID)
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    closeButtonRef.current?.focus()
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        if (!isTopOverlay(TREND_CHART_OVERLAY_ID)) return
-        e.stopPropagation()
-        onClose()
-        return
-      }
-      if (e.key === 'Tab' && dialogRef.current) {
-        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        )
-        if (focusable.length === 0) return
-        const first = focusable[0]!
-        const last = focusable[focusable.length - 1]!
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault()
-          last.focus()
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault()
-          first.focus()
-        }
-      }
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      popOverlay(TREND_CHART_OVERLAY_ID)
-      document.removeEventListener('keydown', handleKeyDown)
-      previouslyFocused?.focus()
-    }
-  }, [open, onClose])
+  // 无障碍:ESC 关闭 + focus trap + 焦点还原(复用 Drawer 抽出的 useFocusTrap,勿另写一套)
+  useFocusTrap({
+    open,
+    panelRef: dialogRef,
+    onEscape: onClose,
+    stackId: TREND_CHART_OVERLAY_ID,
+  })
 
   if (!open) return null
 

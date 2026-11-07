@@ -46,6 +46,7 @@ import type { SkillMarketEntry } from '@ihui/shared/skills/market'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { Badge } from '@/components/data'
 import { Button, Input } from '@ihui/ui-react'
+import { useFocusTrap } from '@/components/feedback/Drawer'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 
 /**
@@ -472,6 +473,13 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
   const [score, setScore] = React.useState(5)
   const [comment, setComment] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
+  const dialogRef = React.useRef<HTMLDivElement>(null)
+  useFocusTrap({
+    open: true,
+    panelRef: dialogRef,
+    onEscape: onClose,
+    stackId: 'skills-market:detail-dialog',
+  })
 
   const {
     data: ratings,
@@ -559,6 +567,7 @@ function SkillDetailDialog({ entry, onClose }: { entry: SkillMarketEntry; onClos
 
   return (
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-modal flex items-center justify-center bg-black/50 p-4"
       role="dialog"
       aria-modal="true"

@@ -11,7 +11,7 @@ import { useTranslations } from 'next-intl'
 import { Smartphone, MessageSquare, GraduationCap } from 'lucide-react'
 import { Button, CloseButton } from '@ihui/ui-react'
 import { useMounted } from '@/hooks/use-mounted'
-import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
+import { useFocusTrap } from '@/components/feedback/Drawer'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { useChatStore } from '@/stores/chat'
 
@@ -131,33 +131,30 @@ function TypewriterHero() {
 /** 小程序二维码弹窗(ESC 关闭 + 背景滚动锁定) */
 function MiniAppQrModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useTranslations('marketing.miniappModal')
+  const dialogRef = React.useRef<HTMLDivElement>(null)
+  // 层栈 + Esc + focus trap + 焦点还原统一走 Drawer 抽出的 useFocusTrap
+  useFocusTrap({
+    open,
+    panelRef: dialogRef,
+    onEscape: onClose,
+    stackId: MINIAPP_QR_OVERLAY_ID,
+  })
 
   React.useEffect(() => {
     if (!open) return
-    // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
-    pushOverlay(MINIAPP_QR_OVERLAY_ID)
-    const onKeydown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
-        if (!isTopOverlay(MINIAPP_QR_OVERLAY_ID)) return
-        onClose()
-      }
-    }
-    document.addEventListener('keydown', onKeydown)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
-      document.removeEventListener('keydown', onKeydown)
       document.body.style.overflow = prevOverflow
-      popOverlay(MINIAPP_QR_OVERLAY_ID)
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-noninteractive-element-interactions -- 模态遮罩点击外部关闭;键盘用户通过关闭按钮(X)提供等价交互
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-modal flex items-center justify-center bg-white/50 p-3 dark:bg-black/50"
       role="dialog"
       aria-modal="true"

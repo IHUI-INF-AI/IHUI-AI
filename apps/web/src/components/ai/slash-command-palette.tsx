@@ -279,10 +279,10 @@ export function SlashCommandPalette({
 
   let runningIdx = -1 // 扁平索引累加器(跨分组连续编号)
 
-  // role="dialog" 与 aria-modal 需在同一元素(e2e keyboard-navigation.spec 以
-  // [role="dialog"][aria-modal="true"] 统计),PortalPanel 不透传 aria-modal → 保留在此
+  // 2026-11-07:命令面板是锚定浮层(无遮罩、点外部关闭、输入框内键盘导航),
+  // 不是模态对话框 → 去掉 aria-modal,避免读屏把背景当成不可交互
   const content = (
-    <div className="flex flex-col" role="dialog" aria-modal="true">
+    <div className="flex flex-col" role="dialog">
       {/* 顶部搜索框(2026-07-29 二次深化:参数补全模式前置返回按钮 + 标题)
        *  - 普通模式:Search 图标 + 搜索框 + clear
        *  - 参数补全模式:返回按钮 + 标题 + 搜索框 + clear(键盘导航仍可用) */}
