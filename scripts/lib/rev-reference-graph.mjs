@@ -21,7 +21,7 @@
  * 失效方向:取不到(rev 不存在 / grep 失败 / blob 读不到)⇒ 该维记 `undetermined`,
  * **不得读成"零引用"**。调用方必须把未判定当"没有证明",不能当通过。
  */
-import { gitRaw } from './face-reader.mjs'
+import { catBatch, gitRaw } from './face-reader.mjs'
 import { collectHits } from '../check-staged-deletions.mjs'
 
 const DEFAULT_TIMEOUT_MS = 90_000
@@ -67,13 +67,21 @@ export function grepInRev({ root, rev, stems, timeout = DEFAULT_TIMEOUT_MS }) {
 /**
  * 在 `rev` 的**树内**找引用者(判据 = 守门 99 的 collectHits,零复算)。
  *
+ * 取数方式(2026-11-07 换,性能票):候选正文**一条 `cat-file --batch` 读完**,不再逐文件
+ * `git show`。旧写法在真实仓库上是 2467 个候选 × 1.87s ≈ 77 分钟/轮,而守护每 2 分钟一轮 ——
+ * 这一层实际上从未跑完过,判据在、读数恒缺。判据本身(collectHits)一个字节没动:
+ * 本层只保证喂给它的 `readFile` 仍是 `string | null`,取不到仍是 null、绝不抛。
+ *
+ * 降级:整批取不到(超时 / 单块超 maxBuffer / 管道截断)时回落逐条,但返回值必须带
+ * `degraded: true` + 原因 —— 静默降级的代价是下一轮又慢回小时级而账面看不出任何区别。
+ *
  * @param {{root:string, rev:string, paths:string[], timeout?:number}} a
- * @returns {{hits: Map<string, Array<{file:string,line:number,form:string,spec:string}>>, undetermined:string[], candidates:number, files:string[]}}
+ * @returns {{hits: Map<string, Array<{file:string,line:number,form:string,spec:string}>>, undetermined:string[], candidates:number, files:string[], degraded:boolean, degradedReason?:string}}
  */
 export function findReferencersInRev({ root, rev, paths, timeout = DEFAULT_TIMEOUT_MS }) {
   const list = [...new Set((paths ?? []).filter(Boolean))]
   const undetermined = []
-  if (!list.length) return { hits: new Map(), undetermined, candidates: 0, files: [] }
+  if (!list.length) return { hits: new Map(), undetermined, candidates: 0, files: [], degraded: false }
   const stems = [...new Set(list.map((p) => p.split('/').pop().replace(/\.[^.]*$/, '')))].filter(Boolean)
   let files
   try {
@@ -84,6 +92,7 @@ export function findReferencersInRev({ root, rev, paths, timeout = DEFAULT_TIMEO
       undetermined: [`${rev} 的文件清单取不到:${firstLine(e)}`],
       candidates: 0,
       files: [],
+      degraded: false,
     }
   }
   const live = new Set(files)
@@ -91,16 +100,38 @@ export function findReferencersInRev({ root, rev, paths, timeout = DEFAULT_TIMEO
   if (grep.error) undetermined.push(`git grep ${rev} 失败:${grep.error}`)
   const deleted = new Set(list)
   const candidates = (grep.files ?? []).filter((f) => SCAN_EXT.test(f) && !deleted.has(f) && live.has(f))
-  if (!candidates.length) return { hits: new Map(), undetermined, candidates: 0, files }
-  const readFile = (f) => {
-    try {
-      return gitRaw(['show', `${rev}:${f}`], root, { timeout })
-    } catch {
-      // 单个引用方读不到 ⇒ 该文件不计入结论(宁漏不误报),但 candidates 数看得出少了谁
-      return null
-    }
+  if (!candidates.length) return { hits: new Map(), undetermined, candidates: 0, files, degraded: false }
+  // 批量取正文:catBatch 自带"规格先折 oid(一次 ls-tree)+ 按字节分块 + maxBuffer 兜底"。
+  // 规格数 < FASTPATH_MIN_SPECS 时它内部仍是一条 cat-file --batch —— 对几十个候选也是净赚。
+  const specs = candidates.map((f) => `${rev}:${f}`)
+  let batch = null
+  let batchError = ''
+  try {
+    batch = catBatch(root, specs, { timeout })
+  } catch (e) {
+    // 整批失败 ⇒ 降级逐条(保留旧路径),但必须留名:静默降级 = 下一轮再慢回小时级而账面无事。
+    batchError = firstLine(e)
   }
-  return { hits: collectHits(list, candidates, readFile, live), undetermined, candidates: candidates.length, files }
+  // 返回契约与旧实现逐字一致:`string | null`(取不到给 null,不抛)。空串仍按"无内容"处理
+  // ——collectHits 那一侧本来就 `if (!text) continue`,与改造前同判。
+  const readFile = batch
+    ? (f) => batch.get(`${rev}:${f}`) ?? null
+    : (f) => {
+        try {
+          return gitRaw(['show', `${rev}:${f}`], root, { timeout })
+        } catch {
+          // 单个引用方读不到 ⇒ 该文件不计入结论(宁漏不误报),但 candidates 数看得出少了谁
+          return null
+        }
+      }
+  return {
+    hits: collectHits(list, candidates, readFile, live),
+    undetermined,
+    candidates: candidates.length,
+    files,
+    degraded: !batch,
+    ...(batchError ? { degradedReason: `批量读取失败,已降级逐条:${batchError}` } : {}),
+  }
 }
 
 /** 便捷判据:某路径在 rev 里是否仍有引用。未判定时不冒充 `false`。 */

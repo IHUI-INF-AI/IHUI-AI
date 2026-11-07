@@ -99,4 +99,51 @@ def test_online_delta_during_recovery_is_deferred():
     sc.apply_frame(st, frame_kind=sc.FRAME_KIND_SNAPSHOT, log_epoch=1, from_seq=0, to_seq=7)
     assert st.recovering is False
     assert st.last_seq == 7
+
+
+def test_failure_names_held_subscription_and_frame_segment_without_advancing():
+    """断档结论必须能点名手上的订阅和这帧的段，并且不把这段写进水位。"""
+    st = sc.StreamWatermark(subscription_id="sub-1")
+    sc.apply_frame(st, frame_kind=sc.FRAME_KIND_SNAPSHOT, log_epoch=1, from_seq=0, to_seq=5)
+    d = sc.apply_frame(
+        st,
+        frame_kind=sc.FRAME_KIND_DELTA,
+        log_epoch=1,
+        from_seq=9,
+        to_seq=10,
+        subscription_id="sub-1",
+    )
+    assert d.action == sc.ACTION_RESYNC
+    assert sc.failure_replaces_segment(d.action) is True
+    assert d.held_subscription_id == "sub-1"
+    assert d.frame_subscription_id == "sub-1"
+    assert d.frame_log_epoch == 1
+    assert (d.frame_from_seq, d.frame_to_seq) == (9, 10)
+    assert st.last_seq == 5
+
+
+def test_subscription_change_names_both_sides():
+    st = sc.StreamWatermark(subscription_id="sub-1")
+    sc.apply_frame(
+        st,
+        frame_kind=sc.FRAME_KIND_SNAPSHOT,
+        log_epoch=1,
+        from_seq=0,
+        to_seq=5,
+        subscription_id="sub-1",
+    )
+    d = sc.apply_frame(
+        st,
+        frame_kind=sc.FRAME_KIND_DELTA,
+        log_epoch=1,
+        from_seq=5,
+        to_seq=6,
+        subscription_id="sub-2",
+    )
+    assert d.action == sc.ACTION_RESUBSCRIBE
+    assert d.held_subscription_id == "sub-1"
+    assert d.frame_subscription_id == "sub-2"
+    assert st.subscription_id == "sub-1"
+    assert sc.failure_replaces_segment(sc.ACTION_DEFER_RECOVERY) is False
+    assert sc.failure_replaces_segment(sc.ACTION_APPLY) is False
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

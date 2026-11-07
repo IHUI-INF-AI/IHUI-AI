@@ -39,9 +39,20 @@ import { getStreamTransport } from './stream-transport.js'
 import { recordStreamFrame } from './stream-frame-log.js'
 // b76-13 票1:帧水位与纪元读环判据(唯一语义出口在 @ihui/shared 的 agent-events,
 // 本包零依赖不得反向 import,此为逐字同形移植,漂移由 frame-watermark-parity 测试钉住)
-import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './frame-watermark.js'
+import {
+  isFrameGap,
+  readFrameWatermark,
+  type FrameWatermark,
+  type FrameWatermarkCursor,
+} from './frame-watermark.js'
 // b76-15(2026-10-29 立):seq 维水位生产点(从网关 `id: <seq>` 行派生连续性事实)
-import { carriesPayloadWatermark, createFrameSeqTracker } from './frame-watermark-producer.js'
+import {
+  assembleFrameWatermarkFacts,
+  carriesPayloadWatermark,
+  createFrameSeqTracker,
+  frameWatermarkGapAction,
+  watermarkFactDisposition,
+} from './frame-watermark-producer.js'
 import type { FrameWatermarkFacts } from './frame-watermark-producer.js'
 // G-816030:帧归属屏障 —— 本包零依赖边界下的同形移植(判据源在 shared,对账测试钉住);
 // 溢出错误(FrameBarrierOverflowError)由屏障 activate 命中溢出记录时构造抛出,
@@ -2312,7 +2323,7 @@ export interface SubagentSpawnEvent {
 /** Subagent 派发结束事件(dispatch_subagent 工具执行后发出) */
 export interface SubagentEndEvent {
   id: string
-  status: 'done' | 'failed'
+  status: 'done' | 'failed' | 'stub'
   failureReason?: string
   timestamp: string
   /** 关联到触发该 subagent 的 assistant 消息 ID(2026-07-31 Phase 2) */
@@ -4172,14 +4183,20 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
    * 不解析);这不算"造了没人读的出口",因为注册方就是本仓的 web 端(见
    * `apps/web/src/hooks/use-chat/stream-error-report.ts`)。
    */
-  const emitFrameWatermarkFacts = (kind: string): void => {
+  const emitFrameWatermarkFacts = (kind: string, frame: FrameWatermark | null = null): void => {
     if (!opts.onFrameWatermarkFacts) return
-    opts.onFrameWatermarkFacts({
-      kind,
-      dropped: watermarkDroppedFrames,
-      cursor: frameSeqTracker.cursor(),
-      payloadWatermarkSeen: payloadWatermarkSeen,
-    })
+    // 必须在改 frameWatermarkRef 之前调用：held 是断线前手上的那一段。
+    opts.onFrameWatermarkFacts(
+      assembleFrameWatermarkFacts({
+        kind,
+        dropped: watermarkDroppedFrames,
+        seqCursor: frameSeqTracker.cursor(),
+        payloadWatermarkSeen,
+        held: frameWatermarkRef.current,
+        frame,
+        disposition: watermarkFactDisposition(kind, frame),
+      }),
+    )
   }
   // G-816030:帧归属屏障 —— ACK(本 attempt 首个 ok 水位帧)之前,undetermined 帧
   // 有界暂存不投递(上游 ackActivationBarrier:通知先于 RPC 响应抵达时,半截批次
@@ -4290,13 +4307,26 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     }
     const gap = isFrameGap(cursor, read.watermark)
     if (gap !== null) {
+      const action = frameWatermarkGapAction(gap, read.watermark)
+      if (action === 'replace-segment') {
+        // fromSeq=0 的 snapshot：旧订阅/旧纪元整段作废，本帧成为新基线。
+        // 不把这段补进旧游标，也不把序号对不上的 delta 当成新段。
+        emitFrameWatermarkFacts(gap, read.watermark)
+        frameWatermarkRef.current = {
+          subscriptionId: read.watermark.subscriptionId,
+          logEpoch: read.watermark.logEpoch,
+          seq: read.watermark.toSeq,
+        }
+        ackFrameBarrier(read.watermark.subscriptionId)
+        return false
+      }
       // G-816030:所有权未确立(本 attempt 未 ACK)时,gap 说明暂存帧可能属于
       // 旧代际 —— 与被丢的 gap 帧同批清空,不得投递("整批清空"防半截批次投影)。
       if (!frameBarrierAckedThisAttempt) frameBarrier.reset()
       // G-816031:gap 即权威断档 ⇒ 关闸,直到 recovery 信封重新授予权威。
       streamAuthority.observeGap(gap)
       watermarkDroppedFrames++
-      emitFrameWatermarkFacts(gap)
+      emitFrameWatermarkFacts(gap, read.watermark)
       return true
     }
     frameWatermarkRef.current = { ...cursor, seq: read.watermark.toSeq }
@@ -4714,6 +4744,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             task: typeof json.task === 'string' ? json.task : '',
             timestamp:
               typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
           })
         } else if (json?.type === 'subagent_progress' && json?.id) {
           const phase = json.phase
@@ -4734,15 +4765,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               outputPreview:
                 typeof json.output_preview === 'string' ? json.output_preview : undefined,
               agentName: typeof json.agentName === 'string' ? json.agentName : undefined,
+              messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
             })
           }
         } else if (json?.type === 'subagent_end' && json?.id) {
           opts.onSubagentEnd!({
             id: String(json.id),
-            status: json.status === 'failed' ? 'failed' : 'done',
+            status:
+              json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
             failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
             timestamp:
               typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
           })
         }
       } catch {
