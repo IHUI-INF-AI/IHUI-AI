@@ -31778,6 +31778,5 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 
 - [ ] RP-40 **超工事件源真实适配器接入（泵已装车，缺可运行的 Port）**:现状=TriggerSourcePort + SuperAgentPump + 60s env 门控循环（IHUI_SUPER_AGENT_PUMP）已落地并测试钉住,但全仓无任何 Port 实现往 host 喂事件;出路=webhook 回调落账重放 / 已授权 GitHub 源轮询器（凭据属机主面,供值后即插即活）（登记@2026-11-07）
 
-- [ ] RP-42 **超工慢路径判断（inferred 该不该动手交给模型）**:现状=receive 只有确定性快筛（addressed/fromBot/白名单）,recorded 需人带 ruleId 手点 acceptRecorded;出路=泵收单后对 inferred 批量跑判定（复用 ai-service 现成模型通道）,判定结果进 pendingRecords 注记（登记@2026-11-07）
 - [ ] RP-43 **超工工作台面板（web 端消费 /api/super-agent/*）**:现状=全仓无任何端 HTTP 调用面板/工单/replies 端点,RN 的 toggle-super-agent 仅按钮事件无 API 线;出路=web 对话工作台列"要人处理"工单+验收入口,端内 i18n 五语言同批,跨端同步按 §9 显式豁免或跟进（登记@2026-11-07）
 
