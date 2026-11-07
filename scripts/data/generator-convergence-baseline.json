@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "owner": "cross-end-parity",
+  "expires": "2027-06-30",
+  "generatedAt": "2026-11-06",
+  "face": "HEAD",
+  "why": "8 个主链 0 调用点生成器的收敛分档:实跑与仓库现状一致 ⇒ 接 --check/预演硬门;不一致或无安全无写入检查面 ⇒ 只登记未收敛清单+advisory 基线,禁止当场重生成覆盖仓内文件(会产生大量无关 diff),也禁止为过门放松既有判据",
+  "evidence": [
+    "scripts/guardian-runner.mjs:7290-7338(306/307/308 commit 门)",
+    "scripts/guardian-runner.mjs:7510-7560(302p/303p/304p/306p/307p/308p push 门)",
+    "scripts/gen-knip-taro-entries.mjs:1(--check 实跑 exit 0)",
+    "scripts/gen-tool-name-sets.mjs:1(--check 实跑 exit 0)",
+    "scripts/gen-rn-shell-scaffold.mjs:8-34(--all 默认 dry-run,实跑 候选=0)"
+  ],
+  "generators": [
+    {
+      "generator": "gen-knip-taro-entries",
+      "status": "converged",
+      "checkCommand": "node scripts/gen-knip-taro-entries.mjs --check",
+      "firstReading": "exit 0 · 页面 329 + alias 23 + custom-tab-bar → entry 472;受管块与源同步",
+      "wired": ["306", "306p"],
+      "evidence": ["scripts/gen-knip-taro-entries.mjs:1", "knip.jsonc:1(受管块产物)"]
+    },
+    {
+      "generator": "gen-tool-name-sets",
+      "status": "converged",
+      "checkCommand": "node scripts/gen-tool-name-sets.mjs --check",
+      "firstReading": "exit 0 · 生成物与 TS 真相源同步",
+      "wired": ["307", "307p"],
+      "evidence": [
+        "scripts/gen-tool-name-sets.mjs:1",
+        "apps/ai-service/app/data/tool_name_sets.json:1"
+      ]
+    },
+    {
+      "generator": "gen-rn-shell-scaffold",
+      "status": "converged",
+      "checkCommand": "node scripts/gen-rn-shell-scaffold.mjs --all",
+      "firstReading": "exit 0 · 候选 0 / 拒绝 0 / 写出 0(已有壳 272 枚、台账已判决 3 枚)",
+      "wired": ["308", "308p"],
+      "evidence": [
+        "scripts/gen-rn-shell-scaffold.mjs:8-34",
+        "scripts/lib/cross-end-screen-props.mjs:23(props 单源,依赖 typescript)"
+      ],
+      "note": "默认 dry-run;无 node_modules 时 exit 1(ERR_MODULE_NOT_FOUND typescript),属环境未判定、不是漂移"
+    },
+    {
+      "generator": "gen-rn-shell-page",
+      "status": "per-screen-tool",
+      "checkCommand": "node scripts/gen-rn-shell-page.mjs(无参)",
+      "firstReading": "exit 2 · 逐屏生成器,必须给 --screen/--route/--title,没有全仓对账面",
+      "wired": [],
+      "evidence": [
+        "scripts/gen-rn-shell-page.mjs:31-33(用法)",
+        "scripts/gen-rn-shell-page.mjs:171(无参报错)"
+      ],
+      "why": "逐屏工具(非同步生成器):无全仓可比对输出面,接 check 只会产生恒绿假门,把'门绿'误读成'真同步'。裁定 2026-11-06:写死 per-screen-tool,不接线"
+    },
+    {
+      "generator": "gen-miniapp-code",
+      "status": "undetermined",
+      "checkCommand": "node scripts/gen-miniapp-code.mjs --check-only",
+      "firstReading": "exit 2 · credentials-missing(appid=缺失 secret=缺失 读过=none)",
+      "wired": [],
+      "evidence": [
+        "scripts/gen-miniapp-code.mjs:110(凭据读取)",
+        "scripts/gen-miniapp-code.mjs:162(凭据缺失退出)"
+      ],
+      "why": "依赖外部接口与密钥;无可离线复算的判定面,接成门会长期'未判定'稀释 signal。裁定 2026-11-06:永久记 undetermined,不接线;若将来补凭据面,需先有可离线复算的产物比对口径,否则不接"
+    },
+    {
+      "generator": "gen-mobile-tabbar-icon-data",
+      "status": "no-check-surface",
+      "checkCommand": "(不运行;脚本无任何检查旗标,main 无条件写入)",
+      "firstReading": "静态:10/10 data URI,产物 apps/mobile-rn/src/components/tabbarIconData.ts 在跟踪",
+      "wired": [],
+      "evidence": [
+        "scripts/gen-mobile-tabbar-icon-data.mjs:74(无条件 writeFileSync)",
+        "scripts/gen-mobile-tabbar-icon-data.mjs:28(输出路径)"
+      ],
+      "why": "无 dry-run/--check;要接门必须先给它补只读检查模式(本次禁止新写业务生成器行为)。裁定 2026-11-06:另开单补 --check,本轮不动生成器、不接门"
+    },
+    {
+      "generator": "generate-stub-routes",
+      "status": "retired",
+      "checkCommand": "(不可运行;输入与产物均缺)",
+      "firstReading": "输入 api-routes-missing.json 缺失,4 个 frontend-stub 产物全部缺失",
+      "wired": [],
+      "evidence": [
+        "scripts/generate-stub-routes.mjs:15(读 api-routes-missing.json)",
+        "scripts/generate-stub-routes.mjs:130(写 frontend-stub-*.ts)"
+      ],
+      "why": "输入面已不存在(该桩生成链路疑似退役)。裁定 2026-11-06:走退休归档,不接门、不重生成覆盖"
+    },
+    {
+      "generator": "sync-readme-numbers",
+      "status": "covered-by-173",
+      "checkCommand": "node scripts/gen-doc-numbers.mjs --markdown(只读比对)",
+      "firstReading": "exit 0 · README.md / README.en.md 生成块与生成器输出逐字节相同",
+      "wired": [],
+      "evidence": [
+        "scripts/lib/pre-commit-hook.js:923(主链调用)",
+        "scripts/lib/post-commit-hook.js:295(主链调用)",
+        "scripts/safe-commit.mjs:1015(主链调用)",
+        "scripts/close-merge-reconcile.mjs:864(收口调用)"
+      ],
+      "why": "它不是空转生成器(有真实调用点),且必写盘;只读等价判据已由门 173(README 数字校验)承担,重复接门=造重复门"
+    }
+  ],
+  "unconverged": [
+    {
+      "generator": "generate-stub-routes",
+      "command": "node scripts/generate-stub-routes.mjs",
+      "delta": "缺输入 api-routes-missing.json ⇒ JSON.parse 抛错;4 个产物 apps/api/src/routes/frontend-stub-{admin,ai,edu,other}-routes.ts 均不存在",
+      "evidence": ["scripts/generate-stub-routes.mjs:15", "scripts/generate-stub-routes.mjs:130"],
+      "action": "已裁定 2026-11-06:退休归档(不接门,不重生成覆盖)"
+    },
+    {
+      "generator": "gen-mobile-tabbar-icon-data",
+      "command": "(不运行,会覆盖产物)",
+      "delta": "无 --check/--dry-run;产物 tabbarIconData.ts 为 10 个 data URI(内容未能在本树复算,缺 sharp)",
+      "evidence": [
+        "scripts/gen-mobile-tabbar-icon-data.mjs:24(sharp 依赖)",
+        "scripts/gen-mobile-tabbar-icon-data.mjs:74(无条件写)"
+      ],
+      "action": "已裁定 2026-11-06:另开单补 --check(只读比对 OUT 内容);本轮不动生成器"
+    },
+    {
+      "generator": "gen-miniapp-code",
+      "command": "node scripts/gen-miniapp-code.mjs --check-only",
+      "delta": "exit 2 credentials-missing(需外部 appid/secret),无法离线判定",
+      "evidence": ["scripts/gen-miniapp-code.mjs:110", "scripts/gen-miniapp-code.mjs:162"],
+      "action": "已裁定 2026-11-06:永久保持 undetermined,不接硬门;若要改判,须先有离线可复算的产物比对口径"
+    }
+  ]
+}

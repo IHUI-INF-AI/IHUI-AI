@@ -956,17 +956,18 @@ iframe::-webkit-scrollbar {
  * 根因:旧方案用 useIsMobile + setCollapsed effect,SSR/CSR 不一致导致 hydration mismatch
  * + 闪烁(首帧展开 → effect 跑 setCollapsed(true) → 重渲染折叠)。
  * 新方案:纯 CSS 媒体查询,不改 JS state,无 hydration 问题,无闪烁。
- * - aside[data-viewport-collapsed] 在 640-1023px 平板区间强制 60px 宽(覆盖 collapsed prop + inline width);
+ * - aside[data-viewport-collapsed] 在 640-1023px 平板区间强制折叠宽(取 --sidebar-collapsed-width,
+ *   即几何档 sidebarCollapsedWidth;覆盖 collapsed prop + inline width);
  *   <640px 时桌面 aside 为 display:none(见下方 2026-09-05 分段规则),故本行不覆盖手机
  * - 导航项文字 span 在 <1024px 隐藏,只显示图标(折叠视觉态)
  * - 导航项本身用 NAV_ITEM_COLLAPSED_CLASS 的 w-9 36×36 正方形布局(已由 collapsed prop 控制
  *   或 CSS 强制居中),此处只补文字隐藏
  * ============================================================
- * 2026-09-05 移动端根治:分段处理,手机(<640px)完全隐藏桌面侧栏,平板(640-1023px)保留 60px 图标条。
- * - 手机视口 <640px:桌面 aside 整体 display:none(logo 竖排文字重叠、60px 图标列挤占内容区的根因);
+ * 2026-09-05 移动端根治:分段处理,手机(<640px)完全隐藏桌面侧栏,平板(640-1023px)保留图标条(折叠宽)。
+ * - 手机视口 <640px:桌面 aside 整体 display:none(logo 竖排文字重叠、折叠图标列挤占内容区的根因);
  *   移动端抽屉是桌面 aside 的兄弟节点(fixed z-modal),不受影响,仍由 GlobalTopBar 菜单按钮唤起。
  *   GlobalShell 的 Sidebar Suspense fallback 占位同样带 data-viewport-collapsed,同步隐藏,几何一致。
- * - 640px-1023px 平板区间:维持原 60px 折叠态(有足够横向空间)。
+ * - 640px-1023px 平板区间:维持折叠图标条(折叠宽取 --sidebar-collapsed-width,有足够横向空间)。
  * - 桌面端(≥1024px)此规则不生效,完全由 collapsed prop + localStorage 偏好控制
  * ============================================================ */
 @media (max-width: 639px) {
@@ -976,9 +977,12 @@ iframe::-webkit-scrollbar {
 }
 @media (min-width: 640px) and (max-width: 1023px) {
   aside[data-viewport-collapsed='true'] {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
+    /* 折叠宽度取 tokens.css 的 --sidebar-collapsed-width(= 几何档 sidebarCollapsedWidth),
+       不再写死 60px —— 这一族曾三处各写一遍并实测漂成 54(2026-09-09 守门记录)。
+       改档只动 packages/design-tokens/src/geometry.js 一处。 */
+    width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+    max-width: var(--sidebar-collapsed-width);
   }
   /* 2026-09-09 修复(收回态按钮重叠/闪烁):
      SSR 输出展开态 HTML(footer 横排 + 展开 header),hydration 后 React 才切折叠态。

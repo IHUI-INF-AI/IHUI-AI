@@ -2,6 +2,24 @@
   "signatureRequiredFrom": "2026-11-11",
   "entries": [
     {
+      "path": "scripts/auto-evolve.mjs",
+      "kind": "autonomy-executor",
+      "why": "自主环执行体自身:实测两枚残骸均由环自己派出的会话留下(11-04 18:59Z 一份、11-05 03:52Z 一份 1661 行未提交改动),改坏它 ⇒ A14 停派、整环自我钉瘫;列入后落地腿对这类产物整批拒收(artifact-protected-face)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/cost-breaker.mjs",
+      "kind": "autonomy-cost",
+      "why": "成本熔断判据本体:它决定环当天还能不能派发;被静默放宽=熔断失效(§0.7 没验过就免那一型),收紧同样要留痕。本枚之前它连一次写盘夹具都没有(真跑第一次就崩在两处自伤)",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/cost-caps.json",
+      "kind": "autonomy-cost",
+      "why": "熔断上限闭集:文件自述上调属人工阀、须人拍板,过去这条只靠散文约束;列入受保护面后,改它必须带理由与签名,散文承诺变成机器判据",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": "scripts/guardian-runner.mjs",
       "kind": "gate-registry",
       "why": "全部守门的注册表：改一行就能把任何一道门降档/换脚本/放宽 skipEnv/整条抹掉，而没有任何一道门读自己（2026-10-21 core.hooksPath 指向不存在目录、静默跑 0 个钩子两天即此型）",
@@ -42,6 +60,12 @@
       "kind": "gate-registry",
       "why": "事后追认台账：往里加一行就等于给一枚已入库的未声明提交补发豁免。它必须与清单同档受保护——否则「悄悄补一行洗白历史」比「悄悄删一条清单」更省力，也更难被发现（逐枚具名、会到期、要签名，三条都在行内，不在文件外）",
       "reviewBy": "2027-01-31"
+    },
+    {
+      "path": "scripts/data/immutable-guard-attestations.jsonl",
+      "kind": "gate-registry",
+      "why": "具名追认台账（2026-11-07 立）：一行 = 给一枚未声明提交补发豁免。paths 必须与该枚实际触发路径逐元素相等、sig 必须验得过、reviewer 与 attestedAt 都在行内；它本身若不受保护，就有人可以「往台账里补一行」直接洗白任意历史提交，护栏形同虚设",
+      "reviewBy": "2027-06-30"
     },
     {
       "path": "scripts/git-guardian.mjs",

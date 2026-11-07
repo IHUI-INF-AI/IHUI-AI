@@ -56,6 +56,7 @@ test.describe('Admin 字典类型管理', () => {
       .first()
     if (await createBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
       await createBtn.click()
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1000)
       const dialog = page.getByRole('dialog').first()
       if (await dialog.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -74,7 +75,7 @@ test.describe('Admin 字典数据管理', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/admin/dict')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 字典数据通常有 label/value 字段,检查是否有 table 或 list
     const table = page.locator('table, [role="table"]').first()
     const list = page.locator('[role="list"], ul').first()

@@ -72,7 +72,11 @@ export function createCloudRunsStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.md,
       padding: rnSpacing['sm-loose'],
     },
-    outputText: { fontSize: 12, lineHeight: 18, color: tk.text.secondary },
+    outputText: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.secondary,
+    },
 
     // —— 分页条(与 ListPager 的四个键同名同档;该组件的样式面已收为最小结构类型)——
     pagerRow: {

@@ -63,11 +63,11 @@ function runnerReturning(status, stdout = 'ROTATE 假输出') {
   return { runner, calls }
 }
 
-test('D1 活服务在场 ⇒ 整轮让路、零派生,结论行不得出现"已轮换/无需轮换/结清"', () => {
+test('D1 活服务在场 ⇒ 整轮让路、零派生,结论行不得出现"已轮换/无需轮换/结清"', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
   const { runner, calls } = runnerReturning(0)
-  const r = sweepLocalDevDbRotation({
+  const r = await sweepLocalDevDbRotation({
     ...f,
     now: T0,
     logger,
@@ -87,12 +87,12 @@ test('D1 活服务在场 ⇒ 整轮让路、零派生,结论行不得出现"已�
   }
 })
 
-test('D2 登记面无条目 ⇒ 零派生零探测;成对正向对照:有条目且窗口空闲 ⇒ 恰好派生一次', () => {
+test('D2 登记面无条目 ⇒ 零派生零探测;成对正向对照:有条目且窗口空闲 ⇒ 恰好派生一次', async () => {
   const f = fixture({ pending: null })
   const { logs, logger } = logsOf()
   const { runner, calls } = runnerReturning(0)
   let probes = 0
-  const r = sweepLocalDevDbRotation({
+  const r = await sweepLocalDevDbRotation({
     ...f,
     now: T0,
     logger,
@@ -110,7 +110,7 @@ test('D2 登记面无条目 ⇒ 零派生零探测;成对正向对照:有条目�
 
   // 正向对照:同一个夹具补上登记条目 ⇒ 必须真派生一次(否则本腿等于没接线)
   writeFileSync(f.pendingFile, JSON.stringify({ reason: 'O68' }), 'utf8')
-  const ok = sweepLocalDevDbRotation({
+  const ok = await sweepLocalDevDbRotation({
     ...f,
     now: T0 + MIN,
     logger,
@@ -121,13 +121,13 @@ test('D2 登记面无条目 ⇒ 零派生零探测;成对正向对照:有条目�
   assert.equal(calls.length, 1, '有条目却不派生 ⇒ 这条线是死的')
 })
 
-test('D3 登记面读不动/空 ⇒ pending-unreadable 未判定并点名,不猜成"无条目"、零派生', () => {
+test('D3 登记面读不动/空 ⇒ pending-unreadable 未判定并点名,不猜成"无条目"、零派生', async () => {
   for (const body of ['', '   ', '{坏 JSON', 'null', '{}', '[]']) {
     const f = fixture({ pending: null })
     writeFileSync(f.pendingFile, body, 'utf8')
     const { logs, logger } = logsOf()
     const { runner, calls } = runnerReturning(0)
-    const r = sweepLocalDevDbRotation({
+    const r = await sweepLocalDevDbRotation({
       ...f,
       now: T0,
       logger,
@@ -141,11 +141,11 @@ test('D3 登记面读不动/空 ⇒ pending-unreadable 未判定并点名,不猜
   }
 })
 
-test('D4 器物不在位 ⇒ 未判定并点名原因,不写节流戳(补回器物后下一轮立刻能动)', () => {
+test('D4 器物不在位 ⇒ 未判定并点名原因,不写节流戳(补回器物后下一轮立刻能动)', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
   const { runner, calls } = runnerReturning(0)
-  const r = sweepLocalDevDbRotation({
+  const r = await sweepLocalDevDbRotation({
     ...f,
     now: T0,
     root: join(mkScratch('dev-db-rotation-no-script-'), 'nope'),
@@ -162,11 +162,11 @@ test('D4 器物不在位 ⇒ 未判定并点名原因,不写节流戳(补回器�
   assert.equal(existsSync(f.tickFile), false, '没跑过就写戳 = 把"没跑"记成"刚跑过"')
 })
 
-test('D5 --apply 失败(rc=1) ⇒ 不记绿、落冷却锚;冷却内不再派生,过 1 小时重试', () => {
+test('D5 --apply 失败(rc=1) ⇒ 不记绿、落冷却锚;冷却内不再派生,过 1 小时重试', async () => {
   const f = fixture()
   const { logger } = logsOf()
   const { runner, calls } = runnerReturning(1, '❌ 验证不过(旧拒=false 新通=true)已回滚')
-  const first = sweepLocalDevDbRotation({
+  const first = await sweepLocalDevDbRotation({
     ...f,
     now: T0,
     logger,
@@ -182,7 +182,7 @@ test('D5 --apply 失败(rc=1) ⇒ 不记绿、落冷却锚;冷却内不再派生
   const tick = JSON.parse(readFileSync(f.tickFile, 'utf8'))
   assert.equal(Date.parse(tick.attemptAt), T0, '失败必须落冷却锚')
 
-  const within = sweepLocalDevDbRotation({
+  const within = await sweepLocalDevDbRotation({
     ...f,
     now: T0 + 59 * MIN,
     logger,
@@ -192,7 +192,7 @@ test('D5 --apply 失败(rc=1) ⇒ 不记绿、落冷却锚;冷却内不再派生
   assert.equal(within.state, 'throttled')
   assert.equal(calls.length, 1, '1 小时冷却内再派生 = 硬试')
 
-  const after = sweepLocalDevDbRotation({
+  const after = await sweepLocalDevDbRotation({
     ...f,
     now: T0 + 61 * MIN,
     logger,
@@ -203,11 +203,11 @@ test('D5 --apply 失败(rc=1) ⇒ 不记绿、落冷却锚;冷却内不再派生
   assert.equal(calls.length, 2, '过冷却必须重试,否则欠账永远挂在第一次失败上')
 })
 
-test('D6 --apply 返回 rc=2(器物 fail-closed)⇒ 未判定,且绝不占冷却锚', () => {
+test('D6 --apply 返回 rc=2(器物 fail-closed)⇒ 未判定,且绝不占冷却锚', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
   const { runner, calls } = runnerReturning(2, '⏳ 窗口未到:8801 有活服务在听')
-  const r = sweepLocalDevDbRotation({
+  const r = await sweepLocalDevDbRotation({
     ...f,
     now: T0,
     logger,
@@ -223,7 +223,7 @@ test('D6 --apply 返回 rc=2(器物 fail-closed)⇒ 未判定,且绝不占冷却
   assert.equal(existsSync(f.pendingFile), true)
 
   // 下一轮窗口真空闲:必须立刻派生(不被上一轮的 rc=2 拖住)
-  const next = sweepLocalDevDbRotation({
+  const next = await sweepLocalDevDbRotation({
     ...f,
     now: T0 + 6 * MIN,
     logger,
@@ -234,7 +234,7 @@ test('D6 --apply 返回 rc=2(器物 fail-closed)⇒ 未判定,且绝不占冷却
   assert.equal(calls.length, 2)
 })
 
-test('D7 节流戳只在有结论时写;让路只落探测节律,节律窗口内连窗口都不再探', () => {
+test('D7 节流戳只在有结论时写;让路只落探测节律,节律窗口内连窗口都不再探', async () => {
   const f = fixture()
   const { logger } = logsOf()
   const { runner, calls } = runnerReturning(0)
@@ -243,14 +243,14 @@ test('D7 节流戳只在有结论时写;让路只落探测节律,节律窗口内
     probes += 1
     return [8803]
   }
-  const first = sweepLocalDevDbRotation({ ...f, now: T0, logger, runner, livePortsProbe: probe })
+  const first = await sweepLocalDevDbRotation({ ...f, now: T0, logger, runner, livePortsProbe: probe })
   assert.equal(first.state, 'window-busy')
   assert.equal(probes, 1)
   let tick = JSON.parse(readFileSync(f.tickFile, 'utf8'))
   assert.ok(tick.probeAt, '让路要留探测节律,否则每 2 分钟点一次 netstat')
   assert.ok(!tick.attemptAt, '让路写 attemptAt = 把没做的事记成做过')
 
-  const second = sweepLocalDevDbRotation({
+  const second = await sweepLocalDevDbRotation({
     ...f,
     now: T0 + 4 * MIN,
     logger,
@@ -261,7 +261,7 @@ test('D7 节流戳只在有结论时写;让路只落探测节律,节律窗口内
   assert.equal(probes, 1, '未到探测节律还点 netstat = 巡检腿自己变成子进程风暴')
   assert.equal(calls.length, 0)
 
-  const third = sweepLocalDevDbRotation({
+  const third = await sweepLocalDevDbRotation({
     ...f,
     now: T0 + 6 * MIN,
     logger,
@@ -274,11 +274,11 @@ test('D7 节流戳只在有结论时写;让路只落探测节律,节律窗口内
   assert.ok(!tick.attemptAt)
 })
 
-test('D8 rc=0 ⇒ 结清:标记删除、attemptAt 落戳;器物没删成时本腿代删', () => {
+test('D8 rc=0 ⇒ 结清:标记删除、attemptAt 落戳;器物没删成时本腿代删', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
   const { runner, calls } = runnerReturning(0, '✅ 轮换完成:旧值拒收=true 新值通过=true')
-  const r = sweepLocalDevDbRotation({
+  const r = await sweepLocalDevDbRotation({
     ...f,
     now: T0,
     logger,
@@ -297,10 +297,11 @@ test('D8 rc=0 ⇒ 结清:标记删除、attemptAt 落戳;器物没删成时本�
   assert.match(logs.join('\n'), /rc=0/)
 })
 
-test('D9 装车锁:挂点在健康轮次且与同族腿同格、已登记进 __test__、派生只走 runLegChild', () => {
+test('D9 装车锁:挂点在健康轮次且与同族腿同格、已登记进 __test__、派生只走 runLegChild', async () => {
   const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
-  const call = 'if (!CHECK_ONLY) sweepLocalDevDbRotation()'
-  const at = src.indexOf(call)
+  // 2026-11-07:派生族腿改 spawn+await,挂点带 `await`。只放宽修饰词 —— 整行没了照样判红。
+  const callRe = /if \(!CHECK_ONLY\) (?:await )?sweepLocalDevDbRotation\(\)/
+  const at = src.search(callRe)
   assert.ok(at > 0, '巡检腿没挂进健康轮次 ⇒ 等于没接线(§0.9)')
   const exposedAt = src.indexOf('if (!CHECK_ONLY) sweepExposedCredentialRotation()')
   assert.ok(exposedAt > 0 && Math.abs(exposedAt - at) < 400, '与凭据轮换腿必须同格,否则挂在长任务串之后永不执行')
@@ -309,20 +310,20 @@ test('D9 装车锁:挂点在健康轮次且与同族腿同格、已登记进 __t
   assert.match(exported, /sweepLocalDevDbRotation,/, '未进 __test__ 出口 ⇒ 镜像只能读源码字符串,钉不住行为')
   assert.equal(G.sweepLocalDevDbRotation, sweepLocalDevDbRotation, '__test__ 出口与本函数必须是同一个实现')
   // 函数体内只许经 runLegChild 派生(§12g:显式 stdio + windowsHide 一把尺管住)
-  const body = src.slice(src.indexOf('export function sweepLocalDevDbRotation'))
+  const body = src.slice(src.search(/export (?:async )?function sweepLocalDevDbRotation/))
   const end = body.indexOf('\n}\n')
   const fnBody = body.slice(0, end < 0 ? body.length : end)
   assert.ok(!/execFileSync|spawnSync|\bspawn\(/.test(fnBody), '本腿内自写第二把派生尺 ⇒ stdio 纪律迟早漂移(§12g)')
-  assert.match(fnBody, /runLegChild\(script, \['--apply'\]/, '派生动作必须经 runLegChild')
+  assert.match(fnBody, /runLegChild(?:Async)?\(script, \['--apply'\]/, '派生动作必须经 runLegChild 同一把尺(2026-11-07 起是 async 版)')
   assert.match(fnBody, /liveServicePorts\(\)/, '窗口判据必须吃器物自己的探测函数(§0.6 单一真相源)')
 })
 
-test('D10 决定器判据不在本层复算:三态输入直接来自生产层策略', () => {
+test('D10 决定器判据不在本层复算:三态输入直接来自生产层策略', async () => {
   // 反向锁:镜像件只 import 生产本体,不在这里复制第二份判定(§22c);
   // 这一条同时钉住"窗口取不到 ⇒ null"的取材形状(器物 netstat 失败时返回 {ok:false,live:[]},
   // 若按 live 直取会读成"空闲"——正是 §0.3 禁的那一型)。
   const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
-  const body = src.slice(src.indexOf('export function sweepLocalDevDbRotation'))
+  const body = src.slice(src.search(/export (?:async )?function sweepLocalDevDbRotation/))
   assert.match(
     body,
     /probe\?\.ok === true && Array\.isArray\(probe\.live\) \? probe\.live : null/,

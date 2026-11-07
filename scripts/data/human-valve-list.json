@@ -1,7 +1,7 @@
 {
   "$comment": "人工阀清单(自进化 P0,2026-10-25 立)。bucket=self-serve 表示 AI 可自决;bucket=stop-for-human 表示进入受控停机态并通知人工(不是硬失败、不重试、不绕行)。判据唯一实现 = scripts/lib/human-valve.mjs 的 classifyAction:未知动作 / 数据坏 / 自决类 reviewBy 到期 一律落 stop-for-human(fail-closed)。本文件只做「自由文本 → 桶」的分类语料,id 闭集查询仍由 scripts/data/human-gates.json 承担,两边不互相复制判据。",
   "version": 1,
-  "updatedAt": "2026-10-25",
+  "updatedAt": "2026-11-04",
   "reviewPolicy": "每条 reviewBy 必填 YYYY-MM-DD;到期后该类不再享有 self-serve(自动降为 stop-for-human),停机等人重新定档。",
   "rules": [
     {
@@ -152,6 +152,19 @@
         "向 GitHub 仓库提交 PR 并请求评审"
       ],
       "why": "写出去就收不回,且对方系统的鉴权身份与配额属机主资产;停机等人才能确定该用哪个身份、写什么口径。",
+      "reviewBy": "2027-01-31"
+    },
+    {
+      "id": "judgement-surface-work",
+      "title": "改判据面本身(守门门体 / 归并器 / 落地闸 / 豁免与追认台账 / 受保护面清单)",
+      "bucket": "stop-for-human",
+      "examples": [
+        "门 173 × 门 89 R4 × 门 207 三门互锁 ⇒ README 实际不可改,改判据面解耦",
+        "活文档行 union 会把本侧已让号删掉的旧形态从对侧补回来 ⇒ 改 union-converge 的期望集",
+        "把落地闸 F5 的并集少带行判据放宽一档",
+        "受保护面清单 immutable-guard.json 增删条目"
+      ],
+      "why": "这一族的产物必落 scripts/check-*.mjs、scripts/lib/**、guardian-runner、豁免/追认台账等受保护面(清单现读 scripts/data/immutable-guard.json)。自治会话手里没有豁免签名密钥:派出去要么被落账腿按 artifact-protected-face 整批拒收(白烧一个班次),要么落成一枚未声明提交逼人事后追认。归人不是保守,是把要不要动尺子这件事留在能签名的那一方;判据本身错了照样该改,只是由持钥方改并附反证用例。",
       "reviewBy": "2027-01-31"
     }
   ]

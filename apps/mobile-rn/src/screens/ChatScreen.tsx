@@ -3886,7 +3886,7 @@ const styles = StyleSheet.create({
   },
   msgText: {
     fontSize: rnType.strong.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
   },
   msgTextUser: {
     color: tokens.brand.ctaForeground,

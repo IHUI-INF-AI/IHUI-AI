@@ -25,17 +25,18 @@ function dirnameOf(url) {
 const src = readFileSync(join(HERE, '..', 'git-sync-converge.mjs'), 'utf8')
 const guard = readFileSync(join(HERE, '..', 'check-commit-loss-guard.mjs'), 'utf8')
 
-test('T1 装车锁:CAS 落空那一支必须**真的调用**备份,而不是只把函数写好(本仓最高频失效型=函数在、调度点没有)', () => {
+test('T1 装车锁:中间轮次只记台账、循环耗尽的末枚才真的打 tag(2026-11-04 第五单口径)', () => {
   assert.match(src, /function backupOrphanMerge\(/, '备份函数不见了')
-  // 取 CAS 判空那一段的函数体(到本轮 continue 为止),调用必须在**分支内部**
+  // 取 CAS 判空那一段的函数体(到本轮 continue 为止)
   const i = src.search(/if \(cas === null\) \{/)
   assert.ok(i > 0, 'CAS 判空分支不见了 —— 它一消失本锁就无条件通过,所以这条先判')
   const branch = src.slice(i, src.indexOf('}', src.indexOf('continue', i)))
-  assert.match(
-    branch,
-    /backupOrphanMerge\(mergeSha/,
-    'CAS 失败只打印"本轮作废"就 continue ⇒ 悬空对象无人备份 = 守门 30a 恒红',
-  )
+  assert.match(branch, /noteSupersededMerge\(mergeSha/, 'CAS 失败轮必须把中间 sha 记进台账(不许一枚都不留痕)')
+  assert.doesNotMatch(branch, /backupOrphanMerge\(mergeSha/, '中间轮次不得逐轮打 tag —— 那正是本单要收口的增长源')
+  // 末枚:循环耗尽出口必须照打(否则"只记台账"会变成"最后一枚也没人保")
+  const tail = src.slice(src.indexOf('if (lastSupersededMerge)'))
+  assert.ok(tail, '循环耗尽处的末枚兜底不见了')
+  assert.match(tail.slice(0, 200), /backupOrphanMerge\(lastSupersededMerge/, '循环耗尽处必须兜底备份末枚')
 })
 
 test('T2 备份名必须落在守门 30a 认账的那一族(名字不对 = 备份了但门照样红)', () => {

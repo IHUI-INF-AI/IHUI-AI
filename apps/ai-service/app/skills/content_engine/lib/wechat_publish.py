@@ -111,6 +111,27 @@ def _multipart_upload(url: str, filepath: str, field: str = 'media', content_typ
 
 # ===== Token管理 =====
 
+def _token_cache_blocks_replace() -> bool:
+    """空文件可以换成新 token。非空损坏或读不到时不能截断。"""
+    state = _regular_file_state(TOKEN_CACHE)
+    if state == "unread":
+        return True
+    if state != "present":
+        return False
+    try:
+        with open(TOKEN_CACHE, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return True
+    if text.strip() == "":
+        return False
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return True
+    return not isinstance(data, dict)
+
+
 def _regular_file_state(path: str) -> str:
     """absent 才是真的没有。读不到或不是普通文件时不能截断重写。"""
     try:
@@ -129,18 +150,18 @@ def get_access_token(force_refresh: bool = False) -> str | None:
         print('❌ 未配置WECHAT_APP_ID或WECHAT_APP_SECRET，请在.env文件中设置')
         return None
 
-    cache_state = _regular_file_state(TOKEN_CACHE)
-    if cache_state == "unread":
+    if _token_cache_blocks_replace():
         print('❌ token 缓存读不到,不能把它截断重写')
         return None
-    if not force_refresh and cache_state == "present":
+    if not force_refresh and _regular_file_state(TOKEN_CACHE) == "present":
         try:
-            with open(TOKEN_CACHE) as f:
+            with open(TOKEN_CACHE, encoding="utf-8") as f:
                 cache = cast(dict[str, Any], json.load(f))
-            if cache.get('expires_at', 0) > time.time() + 300:  # 提前5分钟刷新
+            if isinstance(cache, dict) and cache.get('expires_at', 0) > time.time() + 300:
                 return cast(str, cache['access_token'])
-        except (json.JSONDecodeError, KeyError):
-            pass
+        except (json.JSONDecodeError, KeyError, AttributeError):
+            print('❌ token 缓存读不到,不能把它截断重写')
+            return None
         except OSError:
             print('❌ token 缓存读不到,不能把它截断重写')
             return None

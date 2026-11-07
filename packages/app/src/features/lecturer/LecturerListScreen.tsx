@@ -60,7 +60,7 @@ export function LiveLecturerListScreen({
   onSelect,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: LiveLecturerListScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -238,7 +238,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     searchInput: {
       flex: 1,
-      padding: 0,
+      padding: rnSpacing.none,
       fontSize: rnType.body.size,
       color: tk.text.primary,
     },

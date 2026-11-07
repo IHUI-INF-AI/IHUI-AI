@@ -26,7 +26,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.core.internal_ticket import internal_service_headers
+from app.core.internal_ticket import INTERNAL_SERVICE_PRINCIPAL_AI, internal_service_headers
 from app.core.logging import get_logger
 from app.services.api_tools_bridge import api_base_url
 from app.services.checkin_store import _pool_cred_version_of
@@ -40,10 +40,9 @@ _PENDING_KEY = "pool_pending_cred"
 
 _WRITEBACK_TIMEOUT = 10.0
 
-# 回写票的用途档:封闭枚举(app.core.internal_ticket.INTERNAL_TICKET_SCOPES)里
-# 没有"号池凭证"专用档,沿用本桥既有契约档 ai-callback。专用档须发票侧与
-# apps/api 验票侧同一笔加枚举值(本席未做,见交付报告的未收格)。
-_WRITEBACK_SCOPE = "ai-callback"
+# 回写票的用途档:2026-11-06 起与 apps/api 验票侧同笔新增专用档
+# ``relay-account-pool-credential``(不再借用 ai-callback,跨用途票不可复用)。
+_WRITEBACK_SCOPE = "relay-account-pool-credential"
 
 
 def ticket_subject_of(owner_user_id: Any) -> str:
@@ -93,13 +92,13 @@ def _auth_headers(secret: str, owner_user_id: Any = None) -> dict[str, str]:
     机机凭据,与内部票是两回事,经 extra 原样带上。
 
     ``owner_user_id`` 由调用方按自己手上真实存在的值传入(checkin_scheduler 的
-    run_checkin_now 已把它的入参 owner 带进 account 往下传)。拿不到时传 None:
-    internal_service_headers 按其自身口径不签票、只发旧头 —— 不伪造主体
-    (验票侧会对主体做存在+活跃校验)。批量调度路径的 account 行不含 owner
-    (checkin_store.list_enabled_accounts 不 SELECT 该列)⇒ 同样落在只发旧头这一档。
+    run_checkin_now 已把它的入参 owner 带进 account 往下传)。拿不到时用服务主体
+    (``service:ai-service``)签票:批量调度路径的 account 行不含 owner
+    (checkin_store.list_enabled_accounts 不 SELECT 该列),但请求本身仍是"ai-service
+    这个服务在回写",不是伪造某个真人 —— 端点也不按 owner 绑定归属。
     """
     return internal_service_headers(
-        ticket_subject_of(owner_user_id),
+        ticket_subject_of(owner_user_id) or INTERNAL_SERVICE_PRINCIPAL_AI,
         _WRITEBACK_SCOPE,
         legacy_token=secret,
         extra={"Content-Type": "application/json", "X-Internal-Secret": secret},

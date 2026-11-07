@@ -60,7 +60,7 @@ def _parse_sse_events(raw: str) -> list[dict[str, Any]]:
 async def _fake_gateway(monkeypatch):
     from app.routers import llm as llm_router
 
-    async def fake_astream(messages, model=None, owner_uuid=None):
+    async def fake_astream(messages, model=None, owner_uuid=None, **kwargs):
         yield {"type": "chunk", "content": "好的"}
         yield {"type": "done", "model": "test-model", "usage": {"total_tokens": 7}, "stub": True}
 
@@ -170,6 +170,32 @@ class TestSSEUnitInjection:
         try:
             frame = json.loads(_sse(evt, {"type": evt}).split("data: ", 1)[1])
             assert not (_WM_KEYS & set(frame)), "Anthropic 兼容 wire 不注入我方自定键"
+        finally:
+            end_stream_watermark()
+
+    def test_rejected_delta_keeps_segment_identity_and_does_not_burn_seq(self):
+        """失败帧仍带自己的四维，序号回滚。下一帧接着上次落地的水位，不跳号。"""
+        from app.core import sse_frames
+        from app.core.sse_frames import begin_stream_watermark, end_stream_watermark
+        from app.routers.llm import _sse
+
+        begin_stream_watermark("s-unit")
+        try:
+            first = json.loads(_sse("chunk", {"content": "a"}).split("data: ", 1)[1])
+            assert (first["fromSeq"], first["toSeq"]) == (0, 1)
+            holder = sse_frames._stream_frame_seq.get()
+            assert holder is not None
+            holder.watermark.last_seq = 99
+            rejected = json.loads(_sse("chunk", {"content": "b"}).split("data: ", 1)[1])
+            assert rejected["subscriptionId"] == "s-unit"
+            assert rejected["logEpoch"] == PROCESS_LOG_EPOCH
+            assert (rejected["fromSeq"], rejected["toSeq"]) == (1, 2)
+            assert holder.seq == 1
+            assert holder.watermark.last_seq == 99
+            holder.watermark.last_seq = 1
+            nxt = json.loads(_sse("chunk", {"content": "c"}).split("data: ", 1)[1])
+            assert (nxt["fromSeq"], nxt["toSeq"]) == (1, 2)
+            assert holder.watermark.last_seq == 2
         finally:
             end_stream_watermark()
 

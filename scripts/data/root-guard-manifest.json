@@ -1,34 +1,34 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-06T07:15:28.196Z",
+  "sealedAt": "2026-11-07T11:00:39.193Z",
   "sealedBy": "root-guard --seal",
-  "reason": "上一枚给 git-guardian 加 auditCrossEndDebtLedger 调度腿(规则文件被改),清单必须按 HEAD 面重封才能同源;否则 root-guard --check 在所有签出 fail-closed",
+  "reason": "两刀制第一刀:门 267 复核对账前重封一次(被审面=HEAD),确认清单与 git-guardian.mjs 现读一致",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "49d1d2326e6b6df7af6a2c975fe02f430def0aa904735f59cc4c0b371cbf5ec5"
+      "sha256": "fafd5b95a8e266467c19049e7e8ba4c954044ec8c372e6c6758d90649525577d"
     },
     {
       "id": "judgement-libs",
       "path": "scripts/lib/judgement-libs.json",
       "mode": "file",
-      "sha256": "619674c0ebb424165919bedee340ef0229e3d2067e12516ea61e04c3fb478a3c"
+      "sha256": "3c0c9911433d755ed746336a32c264b7bb62a86b3e20dc53d8b3be3f5668d0f2"
     },
     {
       "id": "agents-ironlaw",
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "933d5d3802d50f6388daebfd02c5db0b5bb5e7199cc38f8d5ace32340624177e"
+      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
     },
     {
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "2650a91a4da2509a8e9906a6bb7c3f02306deb6e97c565618cfa9cd8385af773"
+      "sha256": "e38c1d2974b2e370b2426ac2e3f05f8f090a0ad072506c91ca5182c51d12c79d"
     }
   ]
 }

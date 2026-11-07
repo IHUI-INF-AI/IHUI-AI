@@ -96,6 +96,37 @@ llm_cost_usd_total = Counter(
     ['provider', 'model'],
 )
 
+# tool-call-args-delta 逐分片直推可观测性(2026-11-05 立)。
+# 该事件在 LLM 流式吐 arguments 分片时逐片下发,前端据此渐进渲染工具入参;
+# 两个指标让生产可见"渐进渲染是否真在发生":分片计数 + 首片时延(从流开启到首片)。
+tool_call_args_delta_frames_total = Counter(
+    'ihui_tool_call_args_delta_frames_total',
+    'tool-call-args-delta fragments pushed to the wire (progressive tool-arg rendering signal)',
+    ['provider', 'model'],
+)
+
+tool_call_args_delta_first_byte_seconds = Histogram(
+    'ihui_tool_call_args_delta_first_byte_seconds',
+    'Latency from astream start to the first tool-call-args-delta fragment',
+    ['provider', 'model'],
+    buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0),
+)
+
+
+def record_tool_call_args_delta(
+    *, provider: str, model: str, frame_count: int, first_byte_seconds: float
+) -> None:
+    """上报一轮 astream 调用里的 tool-call-args-delta 埋点(分片数 + 首片时延)。
+
+    frame_count<=0 时静默跳过(没发帧就没渐进渲染,无需记零——与 ihui_llm_* 同纪律:
+    宁缺毋假,不把"没发生"记成 0)。
+    """
+    if frame_count <= 0:
+        return
+    labels = (provider or 'unknown', model or 'unknown')
+    tool_call_args_delta_frames_total.labels(*labels).inc(frame_count)
+    tool_call_args_delta_first_byte_seconds.labels(*labels).observe(first_byte_seconds)
+
 
 def record_llm_call(
     provider: str,

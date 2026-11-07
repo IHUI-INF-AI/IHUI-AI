@@ -122,7 +122,9 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
   const settingsPath = getSettingsPath();
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  // 老版本可能把明文留在盘上:登录成功后立刻剥掉;本次失败只告警,下次加载会再迁移
+  // 老版本可能把明文留在盘上:登录成功后立刻剥掉;本次失败只告警,下次加载会再迁移。
+  // main 侧"坏配置不得覆盖"的护栏由剥离函数本体保证:JSON 解析失败/非对象一律不动文件,
+  // 所以这里不会把 corrupt settings 覆盖成新内容(语义等价,且不再往 settings 写令牌)。
   const stripped = stripPlaintextCredentialFile(settingsPath);
   if (!stripped.ok) {
     console.warn(`[credentials] settings 明文清理失败(${stripped.reason ?? 'unknown'});下次加载会重试`);

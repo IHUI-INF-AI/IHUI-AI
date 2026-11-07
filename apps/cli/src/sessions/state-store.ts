@@ -19,6 +19,10 @@ import { randomUUID } from 'node:crypto';
 import type { SessionState, SessionSummary } from './types.js';
 // G-719(2026-10-03):会话水合读侧唯一入口(落库工具结果元数据的版本分账/剥后校验)。
 import { hydrateToolStateMap } from './tool-part-hydration.js';
+// 会话 id 路径穿越修复:会话 id 来自 `--resume`/ACP,不可信 —— 目录段收敛复用产物层唯一实现。
+import { sanitizeSessionSegment } from '../tools/result-envelope/artifact-store.js';
+// BUG-0010:会话状态落盘统一走唯一原子写出口(tmp+fsync+rename;Windows EPERM 有界重试)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -35,7 +39,9 @@ export function getSessionStateDir(): string {
 }
 
 export function getSessionStatePath(id: string): string {
-  return path.join(getSessionStateDir(), `${id}.json`);
+  // id 一律先收敛成单段文件名:含 `../`、绝对路径、盘符的 id 不得改变落点。
+  // 合法 UUID/短 id 不受影响(sanitizeSessionSegment 对白名单字符原样返回)。
+  return path.join(getSessionStateDir(), `${sanitizeSessionSegment(id)}.json`);
 }
 
 function ensureStateDir(): void {
@@ -95,6 +101,25 @@ function sessionReadCode(error: unknown): string {
   return 'unknown';
 }
 
+function sessionFileBlocksReplace(id: string): boolean {
+  const target = getSessionStatePath(id);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(target, 'utf-8');
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+    throw new Error(`会话读不到,不能把它覆盖成新会话 (${code})`);
+  }
+  if (raw.trim() === '') return false;
+  try {
+    const parsed = JSON.parse(raw) as { id?: unknown } | null;
+    return !parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof parsed.id !== 'string';
+  } catch {
+    return true;
+  }
+}
+
 function readStateFile(id: string): SessionState | null {
   const p = getSessionStatePath(id);
   let raw: string;
@@ -137,11 +162,14 @@ export function saveSession(state: SessionState): void {
   // 以调用方为准(58 个既有调用点的全快照语义不变),唯独 updatedAt 取
   // max(文件现值, 来值)—— 旧快照不得把并发已推进的活动钟压回过去。
   const current = readStateFile(state.id);
+  if (current === null && sessionFileBlocksReplace(state.id)) {
+    throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
+  }
   const next: SessionState = {
     ...state,
     updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),
   };
-  fs.writeFileSync(p, JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(p, JSON.stringify(next, null, 2));
 }
 
 /**
@@ -177,7 +205,7 @@ export function patchSession(
     id: current.id,
     updatedAt: monotonicUpdatedAt(current.updatedAt, new Date().toISOString()),
   };
-  fs.writeFileSync(getSessionStatePath(id), JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(getSessionStatePath(id), JSON.stringify(next, null, 2));
   return next;
 }
 

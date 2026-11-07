@@ -41,10 +41,10 @@ ALTER TABLE "agent_team_members"
   ADD CONSTRAINT "agent_team_members_team_id_agent_teams_id_fk"
   FOREIGN KEY ("team_id") REFERENCES "public"."agent_teams"("id") ON DELETE cascade ON UPDATE no action;
 
-CREATE UNIQUE INDEX IF NOT EXISTS "agent_team_members_team_member_uq"
+CREATE UNIQUE INDEX "agent_team_members_team_member_uq"
   ON "agent_team_members" USING btree ("team_id", "member_kind", "member_id");
 -- 成员单活跃归属的硬约束:数据库层直接拒绝第二行,应用层事务只负责给同族操作排序。
-CREATE UNIQUE INDEX IF NOT EXISTS "agent_team_members_active_uq"
+CREATE UNIQUE INDEX "agent_team_members_active_uq"
   ON "agent_team_members" USING btree ("member_kind", "member_id")
   WHERE "left_at" IS NULL;
 CREATE INDEX "agent_team_members_team_idx" ON "agent_team_members" USING btree ("team_id");
@@ -69,7 +69,7 @@ ALTER TABLE "agent_team_inbox"
   FOREIGN KEY ("team_id") REFERENCES "public"."agent_teams"("id") ON DELETE cascade ON UPDATE no action;
 
 -- 幂等锚点:同一发送重试只会命中这一条唯一键,不会落第二行。
-CREATE UNIQUE INDEX IF NOT EXISTS "agent_team_inbox_team_idem_uq"
+CREATE UNIQUE INDEX "agent_team_inbox_team_idem_uq"
   ON "agent_team_inbox" USING btree ("team_id", "idempotency_key");
 CREATE INDEX "agent_team_inbox_to_idx"
   ON "agent_team_inbox" USING btree ("team_id", "to_member_kind", "to_member_id", "created_at");

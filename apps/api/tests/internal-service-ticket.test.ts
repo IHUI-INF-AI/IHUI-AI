@@ -17,6 +17,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createHmac } from 'node:crypto'
 import { SignJWT } from 'jose'
 import Fastify, { type FastifyInstance } from 'fastify'
 
@@ -69,6 +70,7 @@ const {
   createRedisReplayStore,
   mintInternalServiceTicket,
   verifyInternalServiceTicket,
+  verifyInternalServiceTicketSignature,
   fingerprintTicketId,
   JTI_KEY_PREFIX,
 } = await import('../src/plugins/internal-service-ticket')
@@ -143,6 +145,16 @@ async function run(input: {
   if (input.ticket) headers[INTERNAL_TICKET_HEADER] = input.ticket
   if (input.legacy) headers['x-internal-service-token'] = input.legacy
   if (input.userId !== null) headers['x-user-id'] = input.userId ?? USER_ID
+  if (input.legacy) {
+    // 老通道身份头从 2026-11-05 起必须与全局密钥同时通过签名校验;
+    // 夹具按新契约签名,好让"坏票不回落"这类断言测的仍是回落判据,而不是缺签名。
+    const userId = input.userId ?? USER_ID
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    headers['x-internal-service-timestamp'] = timestamp
+    headers['x-internal-service-signature'] = createHmac('sha256', input.legacy)
+      .update(`legacy-v1\n${userId}\n${timestamp}`, 'utf8')
+      .digest('hex')
+  }
   const res = await instance.inject({ method: 'POST', url: '/probe', headers })
   const out = { ok: res.statusCode === 200, status: res.statusCode, body: res.body }
   await instance.close()
@@ -218,7 +230,121 @@ describe('正向通道', () => {
   })
 })
 
-// ── 2. 重放:同一张票第二次必须拒(本票的核心命题)───────────────────────
+// ── 1b. 非消耗式验签(CSRF 前哨专用):只判票面,绝不登记 jti ─────────────
+describe('非消耗式验签 (CSRF 前哨)', () => {
+  it('有效票 ⇒ ok 且 consumed=false(判据位明确区分两条路径)', async () => {
+    const t = await mintInternalServiceTicket({
+      userId: USER_ID,
+      scope: 'ai-callback',
+      jti: 'jti-signal-ok',
+    })
+    const r = await verifyInternalServiceTicketSignature(t, { expectedScope: 'ai-callback' })
+    expect(r.ok).toBe(true)
+    if (r.ok) {
+      expect(r.consumed).toBe(false)
+      expect(r.userId).toBe(USER_ID)
+      expect(r.scope).toBe('ai-callback')
+      expect(r.jti).toBe('jti-signal-ok')
+      expect(r.remainingSeconds).toBeGreaterThan(0)
+    }
+  })
+
+  it('同一张票连验 5 次都不消耗:登记表一次都没被调用(否则 CSRF 会吃掉路由的票)', async () => {
+    const s = memoryStore()
+    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback' })
+    for (let i = 0; i < 5; i += 1) {
+      const r = await verifyInternalServiceTicketSignature(t)
+      expect(r.ok).toBe(true)
+    }
+    expect(s.log).toHaveLength(0)
+    // 反证:同票仍能被鉴权路径正常消费一次(两条路径互不串扰)
+    const consumed = await verifyInternalServiceTicket(t, { store: s.store })
+    expect(consumed.ok).toBe(true)
+    if (consumed.ok) expect(consumed.consumed).toBe(true)
+    expect(s.log).toHaveLength(1)
+  })
+
+  it('scope 不符 ⇒ scope_mismatch 且不消耗(配置错误不得把票烧成重放)', async () => {
+    const s = memoryStore()
+    const t = await mintInternalServiceTicket({ userId: USER_ID, scope: 'memory' })
+    const r = await verifyInternalServiceTicketSignature(t, { expectedScope: 'codebase-index' })
+    expect(r).toEqual({ ok: false, reason: 'scope_mismatch' })
+    expect(s.log).toHaveLength(0)
+  })
+
+  it('过期 / 伪造签名 / 用户 token / 用途超长 ⇒ 各按各的原因拒', async () => {
+    const valid = await mintInternalServiceTicket({ userId: USER_ID, scope: 'ai-callback' })
+    // 过期:jose 会先拦;这里再补一臂"票面仍有效但调用方时钟已越过 exp"
+    const { payload } = await (
+      await import('jose')
+    ).jwtVerify(valid, new TextEncoder().encode(TEST_JWT_SECRET))
+    const afterExp = (payload.exp as number) + 1
+    await expect(
+      verifyInternalServiceTicketSignature(valid, { nowSeconds: afterExp }),
+    ).resolves.toEqual({ ok: false, reason: 'expired' })
+
+    // 伪造签名
+    const forged = await new SignJWT({ type: INTERNAL_TICKET_TYPE, scope: 'ai-callback', jti: 'f' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject(USER_ID)
+      .setAudience(INTERNAL_TICKET_AUDIENCE)
+      .setIssuedAt()
+      .setExpirationTime('60s')
+      .sign(new TextEncoder().encode(TEST_JWT_SECRET.replace(/abcdef$/, 'zzzzzz')))
+    await expect(verifyInternalServiceTicketSignature(forged)).resolves.toEqual({
+      ok: false,
+      reason: 'malformed',
+    })
+
+    // 用户 access token(同密钥、aud 不同)
+    const userJwt = await new SignJWT({ phone: '', familyId: 'f1', roleId: 0 })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject(USER_ID)
+      .setIssuer('ihui-ai')
+      .setAudience('ihui-ai-users')
+      .setIssuedAt()
+      .setExpirationTime('15m')
+      .sign(new TextEncoder().encode(TEST_JWT_SECRET))
+    await expect(verifyInternalServiceTicketSignature(userJwt)).resolves.toEqual({
+      ok: false,
+      reason: 'wrong_audience',
+    })
+
+    // 签发方误签 600s:验票侧 maxTtl 封顶必须拒(Java/Python 侧封顶是另一道)
+    const longLived = await new SignJWT({
+      type: INTERNAL_TICKET_TYPE,
+      scope: 'ai-callback',
+      jti: 'long',
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject(USER_ID)
+      .setAudience(INTERNAL_TICKET_AUDIENCE)
+      .setIssuedAt()
+      .setExpirationTime('600s')
+      .sign(new TextEncoder().encode(TEST_JWT_SECRET))
+    await expect(
+      verifyInternalServiceTicketSignature(longLived, { maxTtlSeconds: 300 }),
+    ).resolves.toEqual({ ok: false, reason: 'too_long_lived' })
+  })
+
+  it('源码形状锁:非消耗式函数体内不得出现 store / consume(防止 CSRF 路径偷偷消费)', () => {
+    const src = readFileSync(
+      resolve(__dirname, '../src/plugins/internal-service-ticket.ts'),
+      'utf8',
+    )
+    const start = src.indexOf('export async function verifyInternalServiceTicketSignature')
+    expect(start).toBeGreaterThan(-1)
+    // 截到函数体自己的收尾 `\n}\n`(内层花括号都有缩进,不会以列 0 的 `}` 结尾),
+    // 不把后面那个消费函数的 @param store 文档(它当然会提 store)算进来。
+    const body = src
+      .slice(start)
+      .match(/^export async function verifyInternalServiceTicketSignature[\s\S]*?\n}\n/)?.[0]
+    expect(body).toBeDefined()
+    expect(body).not.toMatch(/\bstore\b/)
+    expect(body).not.toContain('.consume(')
+  })
+})
+
 describe('一次性', () => {
   it('同一 jti 连用两次 ⇒ 第二次 replayed', async () => {
     const s = memoryStore()
@@ -448,10 +574,18 @@ describe('兼容窗口', () => {
       if (ok) void reply.send({ ok: true })
       return reply
     })
+    const timestamp = String(Math.floor(Date.now() / 1000))
     const res = await app.inject({
       method: 'POST',
       url: '/probe',
-      headers: { 'x-internal-service-token': TEST_AI_CALLBACK_SECRET, 'x-user-id': USER_ID },
+      headers: {
+        'x-internal-service-token': TEST_AI_CALLBACK_SECRET,
+        'x-user-id': USER_ID,
+        'x-internal-service-timestamp': timestamp,
+        'x-internal-service-signature': createHmac('sha256', TEST_AI_CALLBACK_SECRET)
+          .update(`legacy-v1\n${USER_ID}\n${timestamp}`, 'utf8')
+          .digest('hex'),
+      },
     })
     expect(res.statusCode).toBe(401)
     await app.close()

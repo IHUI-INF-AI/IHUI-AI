@@ -117,6 +117,7 @@ test.describe('下载功能验证', () => {
     await page.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
     await page.screenshot({ path: 'e2e/screenshots/download-popover-dark.png', fullPage: false })
 

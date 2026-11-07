@@ -1753,7 +1753,7 @@ test('T14b 装饰括注行必须顶起号段基准(本票病根);行文引用不
 // 那层自愈对本器从来不会触发;而本器改的正是登记行。三条用例与 object-space-land 同构:
 //  H1 正向(真门,不是桩):整行改写把编号从行上摘掉 ⇒ 同一轮里点名 + 前向恢复提交;
 //  H2 反向对照:同样的调用形态但 LIVE_DOC 不是台账 ⇒ 不得多派生那一个进程(哨兵可证);
-//  H3 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来。
+//  H3 方向锁 + 失败臂:补跑没跑成 ⇒ 落地不回滚、不判红,以 exit 2 记未判定、拒绝报绿,且必须喊出来。
 // 夹具一律 `git init -b main`:门 71 的恢复提交写 refs/heads/main(既有实现),分支名不对就只剩
 // "跑而未成"那一档可测;桩只仿"有没有被派生 / 退出码 / stderr"三格传输,不仿判据(与门体桩同规)。
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1778,6 +1778,16 @@ function makeLedgerDocRepo(t) {
   runGit(dir, ['config', 'user.email', 'heal@e2e.local'])
   runGit(dir, ['config', 'user.name', 'heal-e2e'])
   runGit(dir, ['config', 'commit.gpgsign', 'false'])
+  // RP-71/H1 夹具前置件(2026-11-06):真门 check-plan-line-loss.mjs 的 declaredLedgerGate()
+  // 要求两本摘除台账**在位**,否则 filesSeen===0 ⇒ 判「未判定」并 rc=2;落地器按 RP-71 契约把
+  // 这次补跑如实折成 exit 2。根因是夹具缺前置件,不是 accounted<expected 的语义边界,更不是
+  // 判据过宽 ⇒ 不得削判据求绿(§12e)。造空账(0 行)即可:filesSeen>0 / set.size=0 /
+  // malformed=0 ⇒ 判「在位、无声明」,真门照常点名被摘编号的行并建前向恢复提交。
+  // 与 object-space-land --self-test 的 SELFTEST_GUARD_JSON 同族(夹具补齐,不是放宽)。
+  // 两本账只在工作树存在、不进 git 索引(真实仓 .ihui-agent/state 亦是运行时状态面,非跟踪件)。
+  mkdirSync(join(dir, '.ihui-agent', 'state'), { recursive: true })
+  writeFileSync(join(dir, '.ihui-agent', 'state', 'plan-row-drop.jsonl'), '', 'utf8')
+  writeFileSync(join(dir, '.ihui-agent', 'state', 'stale-claim-strip.jsonl'), '', 'utf8')
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), LD_PLAN)
   runGit(dir, ['add', '--', 'PROJECT_PLAN.md'])
   runGit(dir, ['commit', '-q', '-m', 'plan: 甲乙入库'])
@@ -1858,11 +1868,12 @@ test('H2 G-816708 反向对照:同样的落地形态但 LIVE_DOC 不是台账 �
   assert.doesNotMatch(out, /\[G-816708\]/, '没跑就不许喊"补跑过"(凭空声称一个没发生的动作)')
 })
 
-test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来', (t) => {
+test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地报 2(未判定),但必须喊出来', (t) => {
   const { dir, inputs } = makeLedgerDocRepo(t)
   installHealStub(dir, { rc: 1, stderr: 'boom: 门体未能判定\n' })
   const rep = join(inputs, 'replace.json')
   writeFileSync(rep, JSON.stringify([{ before: LD_B, after: LD_B_DONE }]), 'utf8')
+  const before = git(['rev-parse', 'HEAD'], { root: dir })
   const r = runLive(dir, { doc: 'PROJECT_PLAN.md', replaceFile: rep })
   const out = `${r.stdout}\n${r.stderr}`
   assert.ok(existsSync(healSentinel(dir)), '摘掉补跑调用 ⇒ 这一条先红(没人写哨兵)')
@@ -1871,7 +1882,12 @@ test('H3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但�
     '--heal --commit',
     '补跑必须是提交档(与 post-commit 第 6 节同形)',
   )
-  assert.equal(r.status, 0, `替身没跑成不该把已入库的落地判红,实得 ${r.status}:\n${out}`)
+  assert.equal(r.status, 2, 'RP-71:自愈跑而未成 ⇒ exit 2 未判定,不得报绿')
+  assert.notEqual(
+    git(['rev-parse', 'HEAD'], { root: dir }),
+    before,
+    'RP-71:报 2 只是"未判定",不得回滚 —— 改写那一枚提交必须仍在 HEAD 上',
+  )
   assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
   assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
 })
@@ -3297,7 +3313,21 @@ test('T-DROP3 留痕:删除档只入未勾一形态(drops 桶),门 71 的 declar
   const { flips, drops } = flipPairsOf([{ before: '- [ ] G-9 甲', after: null, drop: true }])
   assert.equal(flips.length, 0, '删除档不进 flips(面上不会有已勾形态)')
   assert.equal(drops.length, 1)
-  assert.deepEqual(rowsToRecordOf(flips, drops), [{ rowBefore: '- [ ] G-9 甲', form: 'open' }])
+  // 2026-11-06 夹具跟上 966504445b:删除档的终态是**具名** form='dropped',不是与翻勾前像同值的
+  // 'open'。旧期望把「删除」与「待变已勾」混成同一账面形态,而生产侧、lib 自检(D11)、
+  // scrub-declared-removals 复洁器维三、留痕镜像早已统一按 'dropped' 认账 ⇒ 这条是存量恒红,
+  // 根因在夹具滞后,不在判据过宽。按 §12e 只让断言跟上语义,不动任何生产判据求绿。
+  // 关键不变:入账 rowBefore 仍是**未勾逐字原文**(门 71 declaredExempt 按整行逐字认它)。
+  assert.deepEqual(rowsToRecordOf(flips, drops), [{ rowBefore: '- [ ] G-9 甲', form: 'dropped' }])
+  // 成对形状锁:写口与读口必须同尺,防语义再次单边漂移(改形态须同时改两处 + 本夹具)。
+  const writer = readFileSync(join(HERE, '..', 'lib', 'plan-drop-record.mjs'), 'utf8')
+  assert.match(
+    writer,
+    /rows\.push\(\{ rowBefore: d\.before, form: 'dropped' \}\)/,
+    '写口:删除档留痕必须具名 dropped(与翻勾前像的 open 分开)',
+  )
+  const reader = readFileSync(join(HERE, '..', 'scrub-declared-removals.mjs'), 'utf8')
+  assert.match(reader, /form === 'dropped'/, '读口:复洁器维三必须仍按 dropped 认声明为删除的形态')
 })
 
 test('T-DROP-E2E 默认结清即删(2026-10-28):open→done 落地后该行整行消失、其余逐字原位、留痕只入未勾形态', (t) => {

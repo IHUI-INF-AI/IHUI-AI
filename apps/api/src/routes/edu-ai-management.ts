@@ -231,6 +231,8 @@ import {
   ATT_QR_FAILURE_MESSAGES,
   checkInByStudent,
   studentCheckInFailureReply,
+  checkOutByStudent,
+  studentCheckOutFailureReply,
 } from './edu-ai-management-attendance-helpers.js'
 
 // 2026-08-30 教师角色 RBAC 接入:教务管理统一权限点(preHandler 工厂,模块级复用)
@@ -357,6 +359,20 @@ const batchCheckInSchema = z.object({
 const selfCheckInSchema = z.object({
   date: attendanceDateSchema,
   remark: z.string().max(500).optional(),
+})
+
+/**
+ * 学生本人签退入参(票 B72 ①):与 selfCheckInSchema 同一条纪律 ——
+ * **没有 studentId、也没有 classId**,主体只从登录态 request.userId 取,班级由服务端按
+ * 在册关系现取(AGENTS §5)。**也没有 checkOutMethod**:教师代签那档的方法字段由入参给
+ * ('manual' 等),而学生自签退的方法在服务端恒等于 'self',给客户端留一个可整写的口子
+ * 等于让端上自己宣称"我是怎么签退的"(这一列进统计与免责链,不能自报)。
+ * checkOutTime 同理不接受自报:签退时刻一律服务器 now(签退是"此刻离开"的陈述)。
+ * remark 刻意不收:那一列是签到侧/请假审批侧已经写好的说辞,签退改写它等于抹掉既有留痕
+ * (教师代签 PUT /attendance/check-out 同样不动 remark);学生要留言走自签那一条或请假流程。
+ */
+const selfCheckOutSchema = z.object({
+  date: attendanceDateSchema,
 })
 
 /**
@@ -2025,6 +2041,54 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // -------------------------------------------------------------------------
+  // 8d-2. 学生本人签退(2026-11-06,票 B72 ①)
+  //     此前全仓只有教师侧 `PUT /attendance/check-out`(requireEduManage):学生"只进不出",
+  //     三端「我的考勤」页的签退无处可落,早退档(earlyBefore)也只在教师代签路径上写得进。
+  //     身份纪律与自签完全一致(AGENTS §5):鉴权先于判据、主体 = 承载层注入的 request.userId、
+  //     入参不含 studentId/classId/checkOutMethod/checkOutTime,班级由服务端按在册关系现取。
+  //     幂等:重复签退第二笔必落 409(UPDATE 带 isNull(checkOutTime) 的 CAS + returning 回库确认)。
+  //     判据零内联:status 重判复用 statusPreservedOnCheckOut + loadEnabledAttendanceRule +
+  //     judgeStatus 三枚既有单源出口(与教师代签同一把尺,§0.6)。
+  // -------------------------------------------------------------------------
+  server.post('/attendance/self-check-out', async (request, reply) => {
+    // 承载层出口(§5):登录即可,不要 edu:manage —— 这是学生给自己的归属型记录改一行。
+    const authed = await checkAuthOrInternalService(request, reply)
+    if (!authed) return
+    const userId = request.userId!
+    const parsed = selfCheckOutSchema.safeParse(request.body)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+
+    const date = parsed.data.date ?? bizDayKey(new Date())
+    // 班级现取与自签同一出口:当日考勤行所属班 → 最近在册(enrolled)报名,两步皆无 ⇒ 409 点名原因
+    const classId = await resolveSelfCheckInClassId(userId, date)
+    if (!classId)
+      return reply
+        .status(409)
+        .send(error(409, '未找到在读班级:当日无考勤记录,也没有在册(enrolled)报名'))
+
+    const result = await checkOutByStudent({
+      studentId: userId,
+      classId,
+      date,
+    })
+    if (!result.ok) return studentCheckOutFailureReply(reply, result.reason)
+    return reply.send(
+      success({
+        // 回显形态与 self-check-in 对齐,端上"签退到了哪个班/判成什么"直接可显示
+        classId: result.record.classId,
+        status: result.record.status,
+        checkOutTime: result.record.checkOutTime,
+        record: result.record,
+        // 判定来源如实点名:status 不是客户端传的,是规则 + judgeStatus 算出来的
+        judgedBy: 'edu_attendance_rule.judgeStatus',
+        // 签退方式的唯一真相:服务端恒定写 'self',不接受客户端自报
+        checkOutMethod: result.record.checkOutMethod,
+      }),
+    )
+  })
+
+  // -------------------------------------------------------------------------
   // 8d-b. 学生本人考勤查询(2026-11-03)
   //       三端「我的考勤」此前借道 /parent/children/:childId/attendance 取数,
   //       而那条走的是 edu_parent_student_binding 家长口径 ⇒ 学生查自己不成立。
@@ -2219,19 +2283,30 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const secret = randomBytes(32).toString('hex')
-    const [updated] = await db
-      .update(eduAttendanceRule)
-      .set({ qrSecret: secret, updatedAt: new Date() })
-      .where(
-        and(
-          eq(eduAttendanceRule.classId, parsed.data.classId),
-          isNull(eduAttendanceRule.deletedAt),
-        ),
-      )
-      .returning()
-    if (!updated)
+    const ruleWhere = and(
+      eq(eduAttendanceRule.classId, parsed.data.classId),
+      isNull(eduAttendanceRule.deletedAt),
+    )
+    // G-998153:先取现值再比,同值不推进 updatedAt(该列是增量读的消费源)。
+    const [existing] = await db
+      .select({ qrSecret: eduAttendanceRule.qrSecret })
+      .from(eduAttendanceRule)
+      .where(ruleWhere)
+      .limit(1)
+    if (!existing)
       return reply.status(404).send(error(404, '该班尚无考勤规则,请先 PUT /attendance/rule 建档'))
+    const secret = randomBytes(32).toString('hex')
+    const changed: { qrSecret?: string } = {}
+    if (existing.qrSecret !== secret) changed.qrSecret = secret
+    if (Object.keys(changed).length > 0) {
+      const [updated] = await db
+        .update(eduAttendanceRule)
+        .set({ ...changed, updatedAt: new Date() })
+        .where(ruleWhere)
+        .returning()
+      if (!updated)
+        return reply.status(404).send(error(404, '该班尚无考勤规则,请先 PUT /attendance/rule 建档'))
+    }
     // 响应绝不回显密钥原文,只给可核对不可用的指纹(前 6 位)
     return reply.send(success({ rotated: true, fingerprint: secret.slice(0, 6) }))
   })
@@ -2685,6 +2760,40 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
   // 11. 孩子数据查看（家长端）
   // ===========================================================================
 
+  /**
+   * B25 + B32 收敛出口(§0.6 单源,RP-70):两条 `/parent/* .../attendance` 路由各自保留
+   * 自己的参数形状闸(`:id` 走 uuidParamSchema、`:childId` 走非空检查,错误文案各不同)、
+   * query 闸与筛选条件构建,但 confirmed 归属判据、考勤查询与 { list } 响应只在这里落一次;
+   * 两枚注册都委托本函数,免得两枚独立处理器各抄一份归属判据后漂移。
+   */
+  async function serveChildAttendance(
+    request: FastifyRequest,
+    reply: FastifyReply,
+    studentId: string,
+    conds: SQL[],
+  ) {
+    const userId = request.userId!
+    const [binding] = await db
+      .select()
+      .from(eduParentStudentBinding)
+      .where(
+        and(
+          eq(eduParentStudentBinding.parentId, userId),
+          eq(eduParentStudentBinding.studentId, studentId),
+          eq(eduParentStudentBinding.status, 'confirmed'),
+          isNull(eduParentStudentBinding.deletedAt),
+        ),
+      )
+      .limit(1)
+    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
+    const list = await db
+      .select()
+      .from(eduAttendanceRecord)
+      .where(and(...conds))
+      .orderBy(desc(eduAttendanceRecord.date))
+    return reply.send(success({ list }))
+  }
+
   // 孩子考勤记录（按学生ID）
   server.get('/parent/child/:id/attendance', async (request, reply) => {
     // 承载层出口(§5):鉴权先于形状闸;下方 confirmed 绑定校验保留(鉴权≠授权)。
@@ -2696,23 +2805,6 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = childAttendanceQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId!
-
-    // 验证该学生确实是当前用户的孩子
-    const [binding] = await db
-      .select()
-      .from(eduParentStudentBinding)
-      .where(
-        and(
-          eq(eduParentStudentBinding.parentId, userId),
-          eq(eduParentStudentBinding.studentId, idParsed.data.id),
-          eq(eduParentStudentBinding.status, 'confirmed'),
-          isNull(eduParentStudentBinding.deletedAt),
-        ),
-      )
-      .limit(1)
-    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
-
     const conds: SQL[] = [
       eq(eduAttendanceRecord.studentId, idParsed.data.id),
       isNull(eduAttendanceRecord.deletedAt),
@@ -2725,13 +2817,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     } else if (parsed.data.endDate) {
       conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
     }
-    const where = and(...conds)
-    const list = await db
-      .select()
-      .from(eduAttendanceRecord)
-      .where(where)
-      .orderBy(desc(eduAttendanceRecord.date))
-    return reply.send(success({ list }))
+    return serveChildAttendance(request, reply, idParsed.data.id, conds)
   })
 
   // 孩子成绩列表（按学生ID）
@@ -3064,22 +3150,6 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     const parsed = childAttendanceQuerySchema.safeParse(request.query)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const userId = request.userId!
-
-    const [binding] = await db
-      .select()
-      .from(eduParentStudentBinding)
-      .where(
-        and(
-          eq(eduParentStudentBinding.parentId, userId),
-          eq(eduParentStudentBinding.studentId, childId),
-          eq(eduParentStudentBinding.status, 'confirmed'),
-          isNull(eduParentStudentBinding.deletedAt),
-        ),
-      )
-      .limit(1)
-    if (!binding) return reply.status(403).send(error(403, '无权查看该学生数据'))
-
     const conds: SQL[] = [
       eq(eduAttendanceRecord.studentId, childId),
       isNull(eduAttendanceRecord.deletedAt),
@@ -3092,12 +3162,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     } else if (parsed.data.endDate) {
       conds.push(lte(eduAttendanceRecord.date, parsed.data.endDate))
     }
-    const list = await db
-      .select()
-      .from(eduAttendanceRecord)
-      .where(and(...conds))
-      .orderBy(desc(eduAttendanceRecord.date))
-    return reply.send(success({ list }))
+    return serveChildAttendance(request, reply, childId, conds)
   })
 
   // 孩子考试成绩

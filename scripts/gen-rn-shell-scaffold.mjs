@@ -31,7 +31,8 @@
  *   node scripts/gen-rn-shell-scaffold.mjs --screen <spec> --write --force
  *   node scripts/gen-rn-shell-scaffold.mjs --self-test
  *
- * 退出码:0 = 预演完成 / 落盘完成;1 = 有屏缺 props 契约未生成;2 = 取不到输入(未判定,§0.3)。
+ * 退出码:0 = 预演完成 / 落盘完成;1 = 有屏缺 props 契约未生成;
+ *         2 = 取不到输入(未判定,§0.3),含缺 typescript/node_modules 的独立工作树。
  */
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -40,7 +41,7 @@ import { fileURLToPath } from 'node:url'
 
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { judgeCoverage } from './check-rn-host-shell-coverage.mjs'
-import { allPropsOf, requiredPropsOf } from './lib/cross-end-screen-props.mjs'
+import { allPropsOf, isTypescriptAvailable, requiredPropsOf } from './lib/cross-end-screen-props.mjs'
 import { RN_DIR, targetPathOf } from './lib/rn-shell-target.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
@@ -418,6 +419,10 @@ function realRun(argv) {
   const screenArg = val(argv, 'screen')
   if (!all && !screenArg) {
     console.error('用法: --all | --screen <feature-path> [--write] [--force] | --self-test')
+    return 2
+  }
+  if (!isTypescriptAvailable()) {
+    console.error('❌ 未判定: 缺 typescript/node_modules,编译面取不到(§0.3),不记绿也不记红')
     return 2
   }
 

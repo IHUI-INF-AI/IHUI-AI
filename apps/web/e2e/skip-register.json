@@ -1,0 +1,2684 @@
+{
+  "schemaVersion": 1,
+  "policy": "apps/web/e2e/SKIP-WAIT-POLICY.md",
+  "reviewByDefault": "2027-05-31",
+  "envRefs": {
+    "ADMIN_ACCESS": {
+      "reason": "当前账号无管理端访问权限,由 spec 先检测 URL 后跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    "AUTH_SESSION": {
+      "reason": "登录态/会话前置不满足时允许跳过(由 spec 自行先检测)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    "BACKEND_SERVICE": {
+      "reason": "后端服务未就绪/接口未返回时允许跳过(由 spec 先检测)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    "CREDENTIALS": {
+      "reason": "缺少第三方凭据/权限时允许跳过(由 spec 先检测)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    "ENV_PRECONDITION": {
+      "reason": "spec 自检的环境前置不满足时允许跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    "LLM_QUOTA": {
+      "reason": "LLM 配额或供应商不可用时允许跳过(由 spec 先检测)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    "LOCAL_ENV": {
+      "reason": "本地/dev/CI 环境能力缺失时允许跳过(由 spec 先检测)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    "SEED_DATA": {
+      "reason": "缺少 seed 数据或可探针行时允许跳过(由 spec 先检测)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    }
+  },
+  "defects": [
+    {
+      "id": "E2E-SKIP-0001",
+      "title": "admin 页面不可访问",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0002",
+      "title": "未找到\"新建\"按钮",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0003",
+      "title": "无编辑按钮(可能列表为空)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0004",
+      "title": "无删除按钮(可能列表为空)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0005",
+      "title": "无工作区,跳过仓库信息展开断言",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0006",
+      "title": "无工作区,跳过提交弹窗断言",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0007",
+      "title": "当前无变更可提交或行缺失,跳过提交弹窗断言",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0008",
+      "title": "header 未提供完整详情按钮,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0009",
+      "title": "无工作区,跳过 GitHub 配置弹窗断言",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0010",
+      "title": "无工作区,跳过 GitHub 授权流程断言",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0011",
+      "title": "无工作区,跳过比较分支行断言",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0012",
+      "title": "无比较分支行(非 git 仓库/错误态),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0013",
+      "title": "登录模态框弹出,跳过 send 触发的 slash 命令测试",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0014",
+      "title": "登录模态框弹出,跳过 send 触发的关键词测试",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0015",
+      "title": "登录模态框弹出,跳过 tooltip 测试",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0016",
+      "title": "Popover 弹层未出现(可能 button 渲染失败 / ICU 报错),跳过压缩测试",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0017",
+      "title": "压缩按钮未渲染(可能 disabled 或 i18n key 缺失),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0018",
+      "title": "Popover 未出现,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0019",
+      "title": "LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0020",
+      "title": "LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}(机器态,非页面缺陷)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0021",
+      "title": "候选会话渲染消息数不在 2..12 区间(实测 ${rendered}),无法可靠断言相邻切换(非断言失败)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0022",
+      "title": "依赖完整 OTP/agreement 链路,本批跳过改为后续 mock 化",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0023",
+      "title": "当前无 plan step(未触发 agent 任务),跳过交互验证",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0024",
+      "title": "timeline-tab 容器不可见(可能 showTabs=false 或 pane 未挂载),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0025",
+      "title": "tab 切换按钮不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0026",
+      "title": "无 plan step 可触发 hover preview,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0027",
+      "title": "hover preview 未在 350ms 内出现(可能无关联数据),跳过内容验证",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0028",
+      "title": "无 AI 消息可触发右键菜单,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0029",
+      "title": "右键菜单未出现(可能消息未挂 onContextMenu),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0030",
+      "title": "pane-drag-grip 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0031",
+      "title": "无法获取 header/pane boundingBox,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0032",
+      "title": "pane-help-toggle 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0033",
+      "title": "pane-tab-timeline 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0034",
+      "title": "timeline-filter-all 不存在(timeline 过滤 chip 尚未实现),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0035",
+      "title": "其他 timeline-filter-* chip 未实现,仅验证 all 存在",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0036",
+      "title": "timeline-search-input 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0037",
+      "title": "timeline-status-counts 不存在(尚未实现),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0038",
+      "title": "timeline-count-{done|failed|running} chip 未实现,仅验证容器存在",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0039",
+      "title": "pane-celebration-banner 未在初始状态显示(可能需触发完成),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0040",
+      "title": "trigger 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0041",
+      "title": "pane-empty-state 未渲染(可能有 active threadId),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0042",
+      "title": "当前无 subagent,跳过 data-status 验证",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0043",
+      "title": "无 plan step 可点击,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0044",
+      "title": "无 plan step 可 hover,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0045",
+      "title": "pane-pin 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0046",
+      "title": "pane-minimize 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0047",
+      "title": "pane-expand-all 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0048",
+      "title": "无有 children 的 event,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0049",
+      "title": "timeline-filter-all 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0050",
+      "title": "无失败项,failure banner 未渲染(预期)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0051",
+      "title": "progress-ring 未渲染(无 plan steps),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0052",
+      "title": "无 in_progress step 关联 tool,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0053",
+      "title": "pane tab 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0054",
+      "title": "pane-header 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0055",
+      "title": "无法获取 header boundingBox,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0056",
+      "title": "pane-help-toggle 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0057",
+      "title": "无法获取 helpToggle boundingBox,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0058",
+      "title": "刷新后跳走,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0059",
+      "title": "刷新后 trigger 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0060",
+      "title": "help panel 初始已打开(异常状态),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0061",
+      "title": "? 键未触发 help panel(快捷键未挂载),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0062",
+      "title": "无 input/textarea 可触发(资源不在),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0063",
+      "title": "input 中 ? 键也触发了 help panel(实现与预期不符,允许记录),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0064",
+      "title": "pane-help-groups 不存在,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0065",
+      "title": "pane-celebration-banner 未渲染(需等任务全部完成才显示),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0066",
+      "title": "banner 内 SVG 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0067",
+      "title": "pane-celebration-banner 未渲染,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0068",
+      "title": "庆祝横幅初始未渲染(任务未全部完成),跳过 3s 计时验证",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0069",
+      "title": "pane-drag-grip 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0070",
+      "title": "无 chat 输入框可聚焦,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0071",
+      "title": "pane 未被 Esc 关闭(可能仍为 pinned 状态),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0072",
+      "title": "折叠子区 header 数量 < 2,无法验证导航,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0073",
+      "title": "pane-celebration-banner 未渲染(任务未全部完成),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0074",
+      "title": "pane-tab-timeline 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0075",
+      "title": "无 timeline event 可验证,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0076",
+      "title": "无 AI 消息可 hover,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0077",
+      "title": "tab 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0078",
+      "title": "en 状态下 tab 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0079",
+      "title": "ja 状态下 tab 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0080",
+      "title": "zh-TW 状态下 pane 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0081",
+      "title": "pane header 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0082",
+      "title": "localStorage 未写入键盘位置(focus 路径不通),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0083",
+      "title": "header 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0084",
+      "title": "localStorage 未写入加速位置,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0085",
+      "title": "overview 复制按钮不可见(可能无 overview 数据),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0086",
+      "title": "clipboard 不可读(headless 限制),只验证点击不报错",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0087",
+      "title": "timeline tab 按钮不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0088",
+      "title": "timeline 导出按钮不可见(可能无 timeline 数据或实现细节),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0089",
+      "title": "未触发 download 事件(可能用 blob+anchor 方式),跳过下载验证",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0090",
+      "title": "子代理树不可见(无 active subagent),跳过右键菜单 E2E",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0091",
+      "title": "右键菜单未出现(可能 onContextMenu 未挂载或事件未触发),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0092",
+      "title": "adminPage pane 不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0093",
+      "title": "adminPage 键盘拖拽未持久化,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0094",
+      "title": "adminPage overview 复制按钮不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0095",
+      "title": "adminPage timeline tab 按钮不可见,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0096",
+      "title": "adminPage timeline 导出按钮不可见(无 timeline 数据),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0097",
+      "title": "adminPage subagent 树不可见(无 active subagent),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0098",
+      "title": "adminPage 右键菜单未出现,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0099",
+      "title": "TimelineEventRow 已从 UI 移除:data-jump-target / jump button 为 timeline 行特有,重构后无等价目标",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0100",
+      "title": "相对时间显示为 TimelineEventRow 特有,重构后已移除,无等价目标",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0101",
+      "title": "TimelineEventRow 类型颜色图标(text-cyan-500)已随 timeline 行移除,无等价目标",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0102",
+      "title": "事件计数徽章为 TimelineTab 特有,重构后 TimelineTab 无挂载,无等价目标",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0103",
+      "title": "TimelineEventRow title(role)展示已随 timeline 行移除,无等价目标",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0104",
+      "title": "宿主 runtimeSupportsInterjection 无协商生产者 ⇒ 回落 false,「打断并执行」真环境唯一可达行为是显式被拒(上一条已断言);成",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0105",
+      "title": "e2e 环境无 HTTPS 强制跳转层,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0106",
+      "title": "collapse 按钮不可见(可能移动端视图)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0107",
+      "title": "window.__workPanelStore 未暴露,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0108",
+      "title": "window.__workPanelStore 未暴露(build 版),跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0109",
+      "title": "tab buttons 未渲染,跳过",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0110",
+      "title": "admin demand-audit 页面被 middleware 拦截",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0111",
+      "title": "/chat 页面无 ModelSelector 触发按钮",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0112",
+      "title": "下拉菜单未渲染(可能 SSR 阶段未水合)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0113",
+      "title": "模型下拉菜单未渲染,无法采样视觉状态",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0114",
+      "title": "模型下拉菜单项未渲染,无法采样视觉状态",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0115",
+      "title": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0116",
+      "title": "空状态 chips 未出现(可能 AI 面板未处于空状态)",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "E2E-SKIP-0117",
+      "title": "历史对话项不足: 期望 >= ${minCount}, 实际 = ${recount}",
+      "status": "open",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    }
+  ],
+  "skips": [
+    {
+      "id": "SKIP-0001",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "admin 登录态被拒绝或后端不可用",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0002",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0003",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0002",
+      "reason": "未找到\"新建\"按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0004",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0005",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0006",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0003",
+      "reason": "无编辑按钮(可能列表为空)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0007",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0008",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0004",
+      "reason": "无删除按钮(可能列表为空)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0009",
+      "category": "ENV",
+      "ref": "ENV:ADMIN_ACCESS",
+      "reason": "当前登录账号未能进入管理端账号代理路由",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0010",
+      "category": "ENV",
+      "ref": "ENV:ADMIN_ACCESS",
+      "reason": "当前登录账号未能进入管理端账号代理路由",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0011",
+      "category": "ENV",
+      "ref": "ENV:ADMIN_ACCESS",
+      "reason": "当前登录账号未能进入管理端账号代理路由",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0012",
+      "category": "ENV",
+      "ref": "ENV:SEED_DATA",
+      "reason": "账号列表中没有「停用且直连」的可探针行",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0013",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0005",
+      "reason": "无工作区,跳过仓库信息展开断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0014",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "工作区非 git 仓库或为错误态,无本地行",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0015",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0006",
+      "reason": "无工作区,跳过提交弹窗断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0016",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0007",
+      "reason": "当前无变更可提交或行缺失,跳过提交弹窗断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0017",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0008",
+      "reason": "header 未提供完整详情按钮,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0018",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0009",
+      "reason": "无工作区,跳过 GitHub 配置弹窗断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0019",
+      "category": "ENV",
+      "ref": "ENV:CREDENTIALS",
+      "reason": "无配置入口(非 GitHub/已配置),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0020",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0010",
+      "reason": "无工作区,跳过 GitHub 授权流程断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0021",
+      "category": "ENV",
+      "ref": "ENV:CREDENTIALS",
+      "reason": "无连接入口(非 GitHub/已配置),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0022",
+      "category": "ENV",
+      "ref": "ENV:CREDENTIALS",
+      "reason": "OAuth 授权 UI 未就绪(无「使用 GitHub 授权」按钮),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0023",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0011",
+      "reason": "无工作区,跳过比较分支行断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0024",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0012",
+      "reason": "无比较分支行(非 git 仓库/错误态),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0025",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "后端 API 不可用,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0026",
+      "category": "ENV",
+      "ref": "ENV:SEED_DATA",
+      "reason": "后端不可用或测试账号未 seed,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0027",
+      "category": "ENV",
+      "ref": "ENV:CREDENTIALS",
+      "reason": "${!platformEnabled ? `未配置 ${p.key} OAuth 凭据` : '本地 dev 环境(厂商拒收 redirect_uri)'},跳过真实厂商跳转验证",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0028",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "E2E 登录态失效,无法请求后端契约接口",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0029",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "E2E 登录态失效,无法请求后端契约接口",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0030",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "E2E 登录态失效,无法请求后端契约接口",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0031",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "分页接口不可用,无法验证契约响应结构",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0032",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0013",
+      "reason": "登录模态框弹出,跳过 send 触发的 slash 命令测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0033",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0014",
+      "reason": "登录模态框弹出,跳过 send 触发的关键词测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0034",
+      "category": "ENV",
+      "ref": "ENV:LLM_QUOTA",
+      "reason": "AI 关键词判定未触发(本地无 LLM 配额),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0035",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0015",
+      "reason": "登录模态框弹出,跳过 tooltip 测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0036",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "admin 未登录或 /chat 不可达 / trigger 未渲染,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0037",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "admin 未登录或 /chat 不可达 / trigger 未渲染,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0038",
+      "category": "ENV",
+      "ref": "ENV:ENV_PRECONDITION",
+      "reason": "trigger 元素句柄不可用,跳过点击",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0039",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0016",
+      "reason": "Popover 弹层未出现(可能 button 渲染失败 / ICU 报错),跳过压缩测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0040",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0017",
+      "reason": "压缩按钮未渲染(可能 disabled 或 i18n key 缺失),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0041",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "compress API 响应监听超时(可能后端冷启动),跳过 5xx 断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0042",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "压缩 toast 未出现(可能业务失败,后端 4xx),跳过 description 断言",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0043",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "admin 未登录或 /chat 不可达,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0044",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0018",
+      "reason": "Popover 未出现,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0045",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "未判定:${ghostPath} 回 500 = 探针问不到(四态 'unknown'),按判据不落 404;需活的后端在场才判得动",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0046",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "需活的 API 后端,否则探针返回 unknown 按 500 处理;确认后端在场时置 1",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0047",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0019",
+      "reason": "LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0048",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0019",
+      "reason": "LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0049",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0020",
+      "reason": "LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}(机器态,非页面缺陷)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0050",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "/chat 被重定向到 ${page.url()},登录态未生效",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0051",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "登录弹窗出现,会话失效,无法验证 /chat 键位归属",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0052",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "API 未返回任何历史会话,无法验证消息焦点切换(非断言失败)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0053",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0021",
+      "reason": "候选会话渲染消息数不在 2..12 区间(实测 ${rendered}),无法可靠断言相邻切换(非断言失败)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0054",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0022",
+      "reason": "依赖完整 OTP/agreement 链路,本批跳过改为后续 mock 化",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0055",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "未登录或页面不可达,graceful skip",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0056",
+      "category": "ENV",
+      "ref": "ENV:SEED_DATA",
+      "reason": "种子通知不在场(seed 未跑),graceful skip",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0057",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "未登录或页面不可达,graceful skip",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0058",
+      "category": "ENV",
+      "ref": "ENV:SEED_DATA",
+      "reason": "预置归档种子不在场(seed 未跑),graceful skip",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0059",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "未登录或页面不可达,graceful skip",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0060",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0023",
+      "reason": "当前无 plan step(未触发 agent 任务),跳过交互验证",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0061",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0024",
+      "reason": "timeline-tab 容器不可见(可能 showTabs=false 或 pane 未挂载),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0062",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0025",
+      "reason": "tab 切换按钮不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0063",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0026",
+      "reason": "无 plan step 可触发 hover preview,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0064",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0027",
+      "reason": "hover preview 未在 350ms 内出现(可能无关联数据),跳过内容验证",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0065",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0028",
+      "reason": "无 AI 消息可触发右键菜单,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0066",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0029",
+      "reason": "右键菜单未出现(可能消息未挂 onContextMenu),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0067",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0030",
+      "reason": "pane-drag-grip 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0068",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0031",
+      "reason": "无法获取 header/pane boundingBox,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0069",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0032",
+      "reason": "pane-help-toggle 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0070",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0033",
+      "reason": "pane-tab-timeline 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0071",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0034",
+      "reason": "timeline-filter-all 不存在(timeline 过滤 chip 尚未实现),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0072",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0035",
+      "reason": "其他 timeline-filter-* chip 未实现,仅验证 all 存在",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0073",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0033",
+      "reason": "pane-tab-timeline 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0074",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0036",
+      "reason": "timeline-search-input 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0075",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0033",
+      "reason": "pane-tab-timeline 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0076",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0037",
+      "reason": "timeline-status-counts 不存在(尚未实现),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0077",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0038",
+      "reason": "timeline-count-{done|failed|running} chip 未实现,仅验证容器存在",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0078",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0039",
+      "reason": "pane-celebration-banner 未在初始状态显示(可能需触发完成),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0079",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0040",
+      "reason": "trigger 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0080",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0041",
+      "reason": "pane-empty-state 未渲染(可能有 active threadId),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0081",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0042",
+      "reason": "当前无 subagent,跳过 data-status 验证",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0082",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0043",
+      "reason": "无 plan step 可点击,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0083",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0044",
+      "reason": "无 plan step 可 hover,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0084",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0045",
+      "reason": "pane-pin 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0085",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0046",
+      "reason": "pane-minimize 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0086",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0047",
+      "reason": "pane-expand-all 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0087",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0032",
+      "reason": "pane-help-toggle 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0088",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0033",
+      "reason": "pane-tab-timeline 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0089",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0048",
+      "reason": "无有 children 的 event,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0090",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0033",
+      "reason": "pane-tab-timeline 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0091",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0049",
+      "reason": "timeline-filter-all 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0092",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0033",
+      "reason": "pane-tab-timeline 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0093",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0036",
+      "reason": "timeline-search-input 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0094",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0050",
+      "reason": "无失败项,failure banner 未渲染(预期)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0095",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0051",
+      "reason": "progress-ring 未渲染(无 plan steps),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0096",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0052",
+      "reason": "无 in_progress step 关联 tool,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0097",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0032",
+      "reason": "pane-help-toggle 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0098",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0053",
+      "reason": "pane tab 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0099",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0054",
+      "reason": "pane-header 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0100",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0055",
+      "reason": "无法获取 header boundingBox,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0101",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0056",
+      "reason": "pane-help-toggle 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0102",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0057",
+      "reason": "无法获取 helpToggle boundingBox,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0103",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0058",
+      "reason": "刷新后跳走,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0104",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0059",
+      "reason": "刷新后 trigger 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0105",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0055",
+      "reason": "无法获取 header boundingBox,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0106",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0060",
+      "reason": "help panel 初始已打开(异常状态),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0107",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0061",
+      "reason": "? 键未触发 help panel(快捷键未挂载),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0108",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0062",
+      "reason": "无 input/textarea 可触发(资源不在),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0109",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0063",
+      "reason": "input 中 ? 键也触发了 help panel(实现与预期不符,允许记录),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0110",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0056",
+      "reason": "pane-help-toggle 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0111",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0056",
+      "reason": "pane-help-toggle 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0112",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0064",
+      "reason": "pane-help-groups 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0113",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0065",
+      "reason": "pane-celebration-banner 未渲染(需等任务全部完成才显示),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0114",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0066",
+      "reason": "banner 内 SVG 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0115",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0067",
+      "reason": "pane-celebration-banner 未渲染,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0116",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0067",
+      "reason": "pane-celebration-banner 未渲染,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0117",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0068",
+      "reason": "庆祝横幅初始未渲染(任务未全部完成),跳过 3s 计时验证",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0118",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0069",
+      "reason": "pane-drag-grip 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0119",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0069",
+      "reason": "pane-drag-grip 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0120",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0069",
+      "reason": "pane-drag-grip 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0121",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0046",
+      "reason": "pane-minimize 不存在,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0122",
+      "category": "ENV",
+      "ref": "ENV:ENV_PRECONDITION",
+      "reason": "minimize boundingBox 不可用,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0123",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0070",
+      "reason": "无 chat 输入框可聚焦,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0124",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0056",
+      "reason": "pane-help-toggle 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0125",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0071",
+      "reason": "pane 未被 Esc 关闭(可能仍为 pinned 状态),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0126",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0072",
+      "reason": "折叠子区 header 数量 < 2,无法验证导航,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0127",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0073",
+      "reason": "pane-celebration-banner 未渲染(任务未全部完成),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0128",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0067",
+      "reason": "pane-celebration-banner 未渲染,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0129",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0066",
+      "reason": "banner 内 SVG 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0130",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0074",
+      "reason": "pane-tab-timeline 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0131",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0074",
+      "reason": "pane-tab-timeline 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0132",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0075",
+      "reason": "无 timeline event 可验证,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0133",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0076",
+      "reason": "无 AI 消息可 hover,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0134",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0074",
+      "reason": "pane-tab-timeline 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0135",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0077",
+      "reason": "tab 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0136",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0078",
+      "reason": "en 状态下 tab 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0137",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0079",
+      "reason": "ja 状态下 tab 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0138",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0080",
+      "reason": "zh-TW 状态下 pane 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0139",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "chat 页面未就绪,跳过键盘拖拽 E2E",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0140",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0081",
+      "reason": "pane header 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0141",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0082",
+      "reason": "localStorage 未写入键盘位置(focus 路径不通),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0142",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "chat 页面未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0143",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0083",
+      "reason": "header 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0144",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0084",
+      "reason": "localStorage 未写入加速位置,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0145",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "chat 页面未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0146",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0085",
+      "reason": "overview 复制按钮不可见(可能无 overview 数据),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0147",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0086",
+      "reason": "clipboard 不可读(headless 限制),只验证点击不报错",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0148",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "chat 页面未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0149",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0087",
+      "reason": "timeline tab 按钮不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0150",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0088",
+      "reason": "timeline 导出按钮不可见(可能无 timeline 数据或实现细节),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0151",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0089",
+      "reason": "未触发 download 事件(可能用 blob+anchor 方式),跳过下载验证",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0152",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "chat 页面未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0153",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0090",
+      "reason": "子代理树不可见(无 active subagent),跳过右键菜单 E2E",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0154",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0091",
+      "reason": "右键菜单未出现(可能 onContextMenu 未挂载或事件未触发),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0155",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "adminPage 未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0156",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0092",
+      "reason": "adminPage pane 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0157",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0083",
+      "reason": "header 不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0158",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0093",
+      "reason": "adminPage 键盘拖拽未持久化,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0159",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "adminPage 未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0160",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0094",
+      "reason": "adminPage overview 复制按钮不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0161",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "adminPage 未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0162",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0095",
+      "reason": "adminPage timeline tab 按钮不可见,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0163",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0096",
+      "reason": "adminPage timeline 导出按钮不可见(无 timeline 数据),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0164",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "adminPage 未就绪,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0165",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0097",
+      "reason": "adminPage subagent 树不可见(无 active subagent),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0166",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0098",
+      "reason": "adminPage 右键菜单未出现,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0167",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0099",
+      "reason": "TimelineEventRow 已从 UI 移除:data-jump-target / jump button 为 timeline 行特有,重构后无等价目标",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0168",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0100",
+      "reason": "相对时间显示为 TimelineEventRow 特有,重构后已移除,无等价目标",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0169",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0101",
+      "reason": "TimelineEventRow 类型颜色图标(text-cyan-500)已随 timeline 行移除,无等价目标",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0170",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0102",
+      "reason": "事件计数徽章为 TimelineTab 特有,重构后 TimelineTab 无挂载,无等价目标",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0171",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0103",
+      "reason": "TimelineEventRow title(role)展示已随 timeline 行移除,无等价目标",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0172",
+      "category": "ENV",
+      "ref": "ENV:ENV_PRECONDITION",
+      "reason": "manifest.webmanifest 未配置,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0173",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0104",
+      "reason": "宿主 runtimeSupportsInterjection 无协商生产者 ⇒ 回落 false,「打断并执行」真环境唯一可达行为是显式被拒(上一条已断言);成功链路 e2e 待能力协商落地",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0174",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "后端不可用或登录失败,跳过已登录测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0175",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "后端不可用或登录失败,跳过已登录测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0176",
+      "category": "ENV",
+      "ref": "ENV:BACKEND_SERVICE",
+      "reason": "后端不可用或登录失败,跳过已登录测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0177",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0105",
+      "reason": "e2e 环境无 HTTPS 强制跳转层,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0178",
+      "category": "ENV",
+      "ref": "ENV:LOCAL_ENV",
+      "reason": "robots.txt 未配置(dev 环境)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0179",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0106",
+      "reason": "collapse 按钮不可见(可能移动端视图)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0180",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0181",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0182",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0183",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0108",
+      "reason": "window.__workPanelStore 未暴露(build 版),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0184",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0185",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0186",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0187",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0188",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0189",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0190",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0109",
+      "reason": "tab buttons 未渲染,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0191",
+      "category": "ENV",
+      "ref": "ENV:ENV_PRECONDITION",
+      "reason": "tab bounding box 不可用,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0192",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0107",
+      "reason": "window.__workPanelStore 未暴露,跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0193",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0108",
+      "reason": "window.__workPanelStore 未暴露(build 版),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0194",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0108",
+      "reason": "window.__workPanelStore 未暴露(build 版),跳过",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0195",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0110",
+      "reason": "admin demand-audit 页面被 middleware 拦截",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0196",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0197",
+      "category": "ENV",
+      "ref": "ENV:SEED_DATA",
+      "reason": "列表无数据,无法打开审批对话框",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0198",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0199",
+      "category": "ENV",
+      "ref": "ENV:SEED_DATA",
+      "reason": "工作流列表没有可验证的数据行",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0200",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0201",
+      "category": "ENV",
+      "ref": "ENV:SEED_DATA",
+      "reason": "工作流列表没有可验证的数据行",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0202",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0001",
+      "reason": "admin 页面不可访问",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0203",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0204",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0205",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0112",
+      "reason": "下拉菜单未渲染(可能 SSR 阶段未水合)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0206",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0207",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0113",
+      "reason": "模型下拉菜单未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0208",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0209",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0113",
+      "reason": "模型下拉菜单未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0210",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0114",
+      "reason": "模型下拉菜单项未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0211",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0212",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0114",
+      "reason": "模型下拉菜单项未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0213",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0214",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0111",
+      "reason": "/chat 页面无 ModelSelector 触发按钮",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0215",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0113",
+      "reason": "模型下拉菜单未渲染,无法采样视觉状态",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0216",
+      "category": "ENV",
+      "ref": "ENV:AUTH_SESSION",
+      "reason": "AI 面板未显示(可能未登录或 store 状态不匹配),跳过此测试",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0217",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0218",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0219",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0220",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0115",
+      "reason": "未触发会话时 AI 面板未挂载,视觉基线无法采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0221",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0116",
+      "reason": "空状态 chips 未出现(可能 AI 面板未处于空状态)",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "SKIP-0222",
+      "category": "BUG",
+      "ref": "BUG:E2E-SKIP-0117",
+      "reason": "历史对话项不足: 期望 >= ${minCount}, 实际 = ${recount}",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    }
+  ],
+  "timings": [
+    {
+      "id": "TIMING-0001",
+      "reason": "点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0002",
+      "reason": "输入去抖/节流窗口,需完整覆盖阈值后才采样",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0003",
+      "reason": "SSE/流式/轮询事件到达间隔窗口,事件本身不可观察",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0004",
+      "reason": "视觉/几何采样前动画稳定窗口,先等待再截图",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0005",
+      "reason": "外部服务响应等待,本地没有可观察信号",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    },
+    {
+      "id": "TIMING-0006",
+      "reason": "为构造卡顿/超时场景保留的显式停顿",
+      "owner": "S-E2E",
+      "reviewBy": "2027-05-31"
+    }
+  ]
+}

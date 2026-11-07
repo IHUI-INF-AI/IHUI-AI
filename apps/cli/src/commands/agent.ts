@@ -31,6 +31,7 @@ import { registerCliTokenProvider } from '../lib/auth-refresh.js';
 import { loadConfig } from '../config/index.js';
 // 2026-09-27:doom_loop pattern 外发前过一次脱敏兜底(防原文字段流入服务端落库)
 import { redactSecrets } from '../redact.js';
+import { sanitizeMessagesForTransport } from '../util/invisible-transport.js';
 import {
   registerTools,
   registerBrowserTools,
@@ -79,7 +80,7 @@ import {
   resolveAuditIngestClient,
 } from '../utils/audit-ingest-client.js';
 import { CLIPBOARD_TOOLS } from '../tools/clipboard.js';
-import { checkPermission, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
+import { checkPermission, isAdvertisableDecision, type PermissionRules, type PermissionMode } from '../tools/permissions.js';
 import { createMarkdownRenderer } from './markdown-renderer.js';
 import { resolveProvider, streamOpenAiCompatible, type ChatCompletionMessage } from '../provider/local.js';
 // G-686:进程级、按 provider/model 分桶的 AIMD 准入闸门(默认关 —— 见该文件头注的翻转前置)。
@@ -674,7 +675,18 @@ export interface RunToolLoopOptions {
    * G-109:第三个入参是**已有**的有界 display 投影(未触发裁剪时为 undefined)。
    * 它只供人读面与持久化 metadata 使用;`output` 仍是喂模型的那一份,一字未动。
    */
-  onToolResult?: (name: string, success: boolean, output: string, display?: ToolResultDisplaySource) => void | Promise<void>;
+  onToolResult?: (
+    name: string,
+    success: boolean,
+    output: string,
+    display?: ToolResultDisplaySource,
+    /**
+     * 失败原因(缺席 = 本次成功或提供方没给原因)。模型侧那一份由 `formatToolResult`
+     * 回灌(index.ts:933 的 `错误: …`),这一维是给**转录与事件面**的:自主班次死后只有
+     * 读回 `success:false` + 空 `output` 时,归因只能靠猜工具名(实测一夜两次栽在这)。
+     */
+    error?: string,
+  ) => void | Promise<void>;
   /**
    * WP-8③ —— 执行**前**声明的硬性指标。非空即进入 goal 模式:循环自宣完成
    * (`end_turn`)必须先过一次独立校验,未通过 / 未判定的档会被改写,
@@ -1466,7 +1478,11 @@ async function sampleWithRetry(
     try {
       await streamChat({
         model: opts.modelId,
-        messages: opts.messages,
+        // 出口清洗:tool 档正文里夹着本仓水印的零宽载荷时,上游会以 400「请求包含不合法字符」
+        // 整趟拒绝(实测:一份派发转录 970/2426 枚零宽,全部落在 read_file 的 tool_result 上;
+        // 会话只要读了水印第枚源文件,下一趟必自毒 ⇒ 这是 artifact-committed 长期为 0 的成因之一)。
+        // 判据单源 = ../util/invisible-transport.ts;本行只调用,不复算(§0.6)。
+        messages: sanitizeMessagesForTransport(opts.messages, 'streamChat', opts.extraBody),
         signal: opts.signal,
         onDelta: opts.onDelta,
         ...(opts.extraBody ? { extraBody: opts.extraBody } : {}),
@@ -1588,10 +1604,10 @@ export function createCompactionSampler(model: string): CompactionSampler {
       try {
         await streamChat({
           model,
-          messages: [
-            { role: 'system', content: COMPACTION_SUMMARY_PROMPT },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
-          ],
+          messages: sanitizeMessagesForTransport([
+            { role: 'system' as const, content: COMPACTION_SUMMARY_PROMPT },
+            ...messages.map((m) => ({ role: m.role, content: m.content })),
+          ]),
           signal: controller.signal,
           // 2026-08-16 修复:显式声明流式,避免后端/中间件对 request.stream 做严格字段检测时关闭 SSE。
           stream: true,
@@ -1868,6 +1884,48 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
    * 4. 未挂 plugins —— preToolCall 钩子可能改写参数,提前跑就绕过了它。
    * 已知取舍:第 4 条让带插件的会话拿不到提前执行收益,这是有意的保守。
    */
+  /**
+   * 广告面 = 可执行面(2026-11-05 立)。
+   *
+   * 立因(现读实测):发给模型的 tools 清单一直下发**整份注册表**
+   * (`toolsToProviderSchema(listTools())`),而拒绝判据 `checkPermission` 只在**调用时**生效
+   * (全仓 `.deny` 除本模块外没有第二个消费者)。自主派发环 68 份转录里 `run_command` 被调
+   * **40 次、几乎全部 success:false** —— 每一次都是一整轮迭代白烧(会话上限 40 轮)。
+   * 无头会话没有审批人(`approverAvailable: false` 由本入口结构性声明,见上文注释),
+   * 那些"要人批准"的工具对它而言**结构上不可能执行**;把它们摆在清单里,就是引诱模型去撞一堵墙。
+   * 口径与本文既有裁决一致:**执行体只做它有权限做的事**。
+   *
+   * 判据**复用那一份现成的** `checkPermission`(§0.6,不另造第二把尺):
+   *  · `deny` ⇒ 永不摘除项之外一律摘(白名单/黑名单/plan 档都是这句);
+   *  · `ask` 且本会话没人可问 ⇒ 摘;但 `--allow-dangerous` 在场时不摘 —— 那时它是真能执行的;
+   *  · 其余(含 `ask` 而人在场)⇒ 照原样广告,交互式会话的确认窗不受影响。
+   * 失效方向:**过滤后为空 ⇒ 不应用过滤**并点名(宁可继续多给一次撞墙机会,
+   * 也不让 native function calling 静默退化成 prompt 模式 —— 那是另一种更难诊断的失败)。
+   */
+  const advertisableTools = (all: ReturnType<typeof listTools>): ReturnType<typeof listTools> => {
+    const mode = opts.ctx.permissionMode ?? 'default';
+    const nobodyToAsk = opts.ctx.approverAvailable === false && opts.ctx.allowDangerous !== true;
+    const kept = all.filter((t) => {
+      const d = checkPermission(
+        t.name,
+        opts.ctx.permissions,
+        mode,
+        t.dangerLevel ?? 'read',
+        undefined,
+        t.nameAliases,
+      );
+      return isAdvertisableDecision(d, nobodyToAsk);
+    });
+    if (all.length > 0 && kept.length === 0) {
+      console.error(
+        `⚠️ 广告面过滤后为空(整份注册表 ${all.length} 枚全被权限档判死)⇒ 原样下发不过滤,` +
+          `以免 native function calling 静默降级成 prompt 模式`,
+      );
+      return all;
+    }
+    return kept;
+  };
+
   const mayDispatchEarly = (toolName: string): boolean => {
     if (opts.signal?.aborted) return false;
     if (opts.planFirst && !opts.planApproved) return false;
@@ -2039,9 +2097,12 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
 
       // 原生 function calling:携带 tools schema 下发 + 收集 SSE tool-call 事件
       // auto 模式下 nativeToolsEnabled 探测失败会被置 false,后续迭代永久降级 prompt 模式
+      // 2026-11-05:下发前按**同一个权限判据**过滤(广告面=可执行面),无头会话不再被引诱去撞
+      // 结构上执行不了的墙(实测 run_command 40 次调用几乎全拒,每次烧掉一整轮迭代)。
       let nativeToolEvents: ParsedToolCall[] = [];
-      const useNativeTools = nativeToolsEnabled && listTools().length > 0;
-      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(listTools()) } : undefined;
+      const advertisedTools = advertisableTools(listTools());
+      const useNativeTools = nativeToolsEnabled && advertisedTools.length > 0;
+      const nativeExtraBody = useNativeTools ? { tools: toolsToProviderSchema(advertisedTools) } : undefined;
 
       // 每轮一条流:换册前先收尾旧册(finalizeLedger 幂等 —— 上一轮尾已收尾则此处为 no-op;
       // 走过 continue 早退路径的旧册则在此交账,已提前发起的执行不得没有记录)。
@@ -2126,7 +2187,7 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         const result = await streamOpenAiCompatible({
           url: localProvider.chatCompletionsUrl!,
           model: localProvider.model || opts.modelId,
-          messages: toOpenAiMessages(requestMessages),
+          messages: sanitizeMessagesForTransport(toOpenAiMessages(requestMessages)),
           ...(withTools && nativeExtraBody
             ? { tools: (nativeExtraBody as { tools?: unknown[] }).tools }
             : {}),
@@ -2729,7 +2790,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
             );
           }
         }
-        await opts.onToolResult?.(call.name, result.success, result.output, result.display);
+        await opts.onToolResult?.(
+          call.name,
+          result.success,
+          result.output,
+          result.display,
+          result.error,
+        );
         // WP-8③ 采集面:goal 校验只认"本轮真跑过什么"。这里记的是**调用与结果**,
         // 模型的自述(final_response)不进这一列 —— §8 禁止执行者自证完成。
         goalCallRecords.push({
@@ -3251,7 +3318,7 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           });
         }
       },
-      onToolResult: (name, success, output, display) => {
+      onToolResult: (name, success, output, display, error) => {
         if (isStructured) {
           // 终态先清预览再落结果:消费方按 toolCallId 撤下流中预览之后才看到最终 diff,
           // 顺序反过来会出现"结果与预览同屏"(repl.ts 同一纪律,靠 settle 而不是再追加一条)。
@@ -3259,10 +3326,19 @@ export async function runAgent(opts: AgentOptions): Promise<AgentResult> {
           if (settled) {
             emit({ type: 'tool_delta_clear', name: settled.toolName, toolCallId: settled.toolCallId });
           }
-          emit({ type: 'tool_result', name, success, output, ...(display ? { display } : {}) });
+          emit({
+            type: 'tool_result',
+            name,
+            success,
+            output,
+            ...(display ? { display } : {}),
+            ...(error ? { error } : {}),
+          });
         } else {
           const icon = success ? '✓' : '✗';
-          console.info(chalk.dim(`  ${icon} ${output.slice(0, 200)}`));
+          // 失败时 `output` 常是空串(结果体只在成功侧填),原先这一格就打出一行 `✗ ` ——
+          // 人读面与转录同盲。原因优先出,没有原因才回落到 output。
+          console.info(chalk.dim(`  ${icon} ${(success ? output : error || output).slice(0, 200)}`));
         }
       },
       onIteration: (count, max) => {

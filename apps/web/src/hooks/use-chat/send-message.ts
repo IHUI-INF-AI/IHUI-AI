@@ -99,6 +99,7 @@ import {
 import {
   clearCompactionPreview,
   createToolCallHandler,
+  createOpenAiToolCallHandler,
   createToolDeltaHandler,
   createToolSummaryHandler,
   createReviewFindingHandler,
@@ -154,11 +155,19 @@ import { claimPendingSend, settlePendingSend } from './pending-send'
 import { applyTurnAnswerFallback, markEmptyTurn } from './turn-answer-fallback'
 // 对标 Qoder 借鉴清单第 10 项(2026-10-30 接线):命名错误码 → 分类处置(动作 / 可重试)。
 // 判据与文案键都在共享层与 lib/stream-error-view,本文件只做拼装与落地(与 send-answer.ts 同谱)。
-import { buildStreamErrorView, type StreamErrorView } from '@/lib/stream-error-view'
-// 对标 Qoder 借鉴清单第 9 项(2026-10-30 接线):发送准入回执配对。
-// 每条首答一个稳定 inputId;回执缺席时凭隐式证据(流已开 / 有增量 / 已收尾)定性,
-// 收场时零证据落 `unconfirmed` —— 绝不把"不知道送没送到"渲染成"已收下"。
-import { createInputId, createSendAdmissionTracker } from '@ihui/shared/chat'
+import {
+  emitPlannedStreamErrorToast,
+  planStreamErrorToast,
+  presentStreamError,
+  type StreamErrorPresentation,
+} from '@/lib/stream-error-view'
+// 对标 Qoder 借鉴清单第 9 项:发送准入回执配对。
+// 响应头不算收下。正文 / 流尾 / 配对回执才算。未收下就撤回乐观气泡并留住草稿。
+import {
+  admissionCountsAsAccepted,
+  createInputId,
+  createSendAdmissionTracker,
+} from '@ihui/shared/chat'
 import type { ChatActionContext } from './types'
 
 // =============================================================================
@@ -554,19 +563,8 @@ export function createSendMessage(
       pendingCommandId = claim.commandId
     }
 
-    // 2. 持久化用户消息(后台 fire-and-forget,不阻塞流式响应)
-    // 重新生成模式跳过:store 中已存在该用户消息(后端 /regenerate 已保留),无需重复持久化
-    if (!isRegenerate) {
-      void persistMessageSafe(
-        conversationId,
-        text,
-        'user',
-        undefined,
-        undefined,
-        undefined,
-        chatStore,
-      )
-    }
+    // 2. 用户消息先不落库。乐观气泡可以先上屏,但「已发送」要等服务端收下这一轮
+    // (admission 回执或正文/流尾证据)才 persist。提前落库会让刷新后的历史假装这一轮成功了。
 
     // W24(2026-09-14):/btw 侧聊消息(meta.sidechat)不进入主线 LLM 历史
     // 票59(3/3):sibling 模式把上下文切到**族根之前** —— 后端不再删行(1/3)、前端
@@ -645,8 +643,10 @@ export function createSendMessage(
     const roundModel = resolveRoundModel(model, chatStore.getState().currentModel)
 
     // 重新生成模式跳过用户消息重复添加(历史已截断到该用户消息之前,store 已包含它)
+    // 记下 id:未准入时按 id 撤回,不能用「从这里截到末尾」(版本族插在中间,截尾会删掉后面的轮次)。
+    let userMessageId: string | null = null
     if (!isRegenerate) {
-      store.addMessage({ role: 'user', content: text, model: roundModel })
+      userMessageId = store.addMessage({ role: 'user', content: text, model: roundModel })
     }
     // 记录该消息生成时的工作区权限模式(2026-07-25 深化,深度对标 Codex 透明性)
     // 模式用于消息气泡的徽章展示,让用户事后能识别"这条回答是基于哪种权限模式生成的"
@@ -733,6 +733,12 @@ export function createSendMessage(
     // 本轮是否已有"产出证据"(正文 或 非文本可见产物)。计算在代际守卫内,收尾结算在守卫外,
     // 故声明与 turnHadReceipt 同层。
     let turnHasEvidence = false
+    // 服务端已经用错误帧 / HTTP 状态明确回过话。这种失败要留错误卡,不算「没送到」。
+    let serverClosedWithError = false
+    // 网络失败已经用同一错误出口 toast 过,收尾不要再叠一条「未确认」。
+    let failureAnnounced = false
+    // true 才让输入框清空。未准入且没有服务端错误卡 ⇒ false,草稿留着。
+    let releaseInput = false
     let abortedByTimeout15s = false
     let abortedByTimeout60s = false
     const timeout15sId = setTimeout(() => {
@@ -819,21 +825,35 @@ export function createSendMessage(
     }
     flushAdmission()
     /**
-     * Qoder 第 10 项(2026-10-30 接线,与 send-answer.ts 同谱):把"一句笼统文案"换成"命名码 → 下一步"。
-     * 只在 `ctx.streamErrorLabels` 就位时启用 —— 缺省时返回 null,调用方逐字节走既有分支
-     * (既有测试的 makeCtx 只造最小面,不传这一格 ⇒ 它们的断言一字不变)。
-     * 定义在 try 外:onError(SSE 支)与 catch(HTTP 4xx 支)两处共用。
+     * 主发送链与续答链共用 `presentStreamError`(lib/stream-error-view)。
+     * 命名码走目录标题;未收录码只用 formatSSEError 的兜底句。不再另写一套中文。
      */
-    const dispositionOf = (info?: { errorCode?: string }): StreamErrorView | null => {
-      if (!streamErrorLabels) return null
-      const view = buildStreamErrorView({
-        errorCode: info?.errorCode,
-        fallbackTitle: '',
-        fallbackMessage: '',
+    const announceStreamError = (input: {
+      errorCode?: string
+      fallbackTitle: string
+      fallbackMessage: string
+      rawNote?: string
+      severity?: string
+    }): StreamErrorPresentation => {
+      const presented = presentStreamError({
+        errorCode: input.errorCode,
+        fallbackTitle: input.fallbackTitle,
+        fallbackMessage: input.fallbackMessage,
+        rawNote: input.rawNote,
         labels: streamErrorLabels,
       })
-      // 码未收录 ⇒ 交回既有分支(零兜底:不编标题、不替用户判可重试)
-      return view.action ? view : null
+      emitPlannedStreamErrorToast(
+        planStreamErrorToast(presented, input.severity),
+        t('retry'),
+        toast,
+        {
+          retry: () => {
+            if (lastSentContentRef.current) sendMessage(lastSentContentRef.current)
+          },
+          relogin: () => useLoginDialogStore.getState().open('login'),
+        },
+      )
+      return presented
     }
     try {
       // 2026-08-16 立:强制传 contextLimit,后端根据该值判断是否触发 88% 自动压缩。
@@ -883,7 +903,14 @@ export function createSendMessage(
         // G-816008:onDone 是"这一轮走完了"的权威信号(done 帧 / 重试耗尽后的正常收束)。
         // 空内容也照样是回执 —— 说明服务端完成了这一轮,只是模型没吐字。
         onDone: () => {
+          // 用户已经按下停止:api-client 在 abort 上仍会补一帧 onDone,那不是服务端跑完。
+          // 记成 done 会把静默撤回抬成已收下,待发送账本也留着,同一段文字发不出去。
+          const userStopped =
+            controller.signal.aborted && !abortedByTimeout15s && !abortedByTimeout60s
+          if (userStopped) return
           turnHadReceipt = true
+          // 流尾才证明服务端把这一轮跑完了。错误帧之后的 done 不得把失败洗成已收下。
+          if (!serverClosedWithError && admission.noteEvidence('done').changed) flushAdmission()
         },
         // P1-7(2026-09-13 立):会话级采样参数(高级参数面板),undefined = 用模型默认,
         // api-client 仅在字段存在时写入 body(见 client.ts streamChat body 构造)。
@@ -1079,8 +1106,7 @@ export function createSendMessage(
         onResponse: () => {
           clearTimeout(timeout15sId)
           clearCompactionPreview(chatStore)
-          // Qoder 第 9 项:响应头已到 = 流已建立 = 网关已受理(隐式证据,与 send-answer 同谱)。
-          if (admission.noteEvidence('stream-open').changed) flushAdmission()
+          // 响应头只清冷启动超时。不记准入:连接建立 ≠ 服务端收下这一轮。
         },
         onUsage: (usage) => {
           // 流尾帧(done 帧族的载荷):能力声明挂在这一帧上时同上落库;读不到不写。
@@ -1125,6 +1151,8 @@ export function createSendMessage(
             // 避免冷启动延迟 + 首个 reasoning 到达间隔 >30s 时误 abort。
             // 保留 timeout60s(防止 reasoning 模型长时间只产 reasoning 不产 content)。
             clearTimeout(timeout15sId)
+            // 推理增量 = 上游已在执行这一轮(与正文增量同一档证据)。
+            if (admission.noteEvidence('delta').changed) flushAdmission()
           }
           reasoningBatcher.batch(delta)
         },
@@ -1138,9 +1166,14 @@ export function createSendMessage(
             firstContentTokenReceived = true
             clearTimeout(timeout15sId)
             clearTimeout(timeout60sId)
+            if (admission.noteEvidence('delta').changed) flushAdmission()
           }
           createToolCallHandler(assistantId, chatStore)(event)
         },
+        // 2026-11-05 立:工具入参逐分片渐进渲染。只订阅 onOpenAiToolCall,
+        // 不开 openAiCompat(Vercel 协议解析路径一行不动);回调只吃 ai-service
+        // 的 tool-call-args-delta 帧,旧服务端不发该帧 ⇒ 零行为变化。
+        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
         // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
         // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
         // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
@@ -1546,7 +1579,7 @@ export function createSendMessage(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore),
+              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
               ...eduToolsFor(content),
               ...uiControlToolsFor(content),
               ...fileToolsFor(content),
@@ -1579,88 +1612,28 @@ export function createSendMessage(
           // W28 Hooks 事件:error(SSE 流式错误)
           emitAgentHook('error', { summary: errMsg?.slice(0, 120) })
           const formatted = formatSSEError(errMsg, info)
-          // 前端错误码透出(P1,2026-07-22 立):errorCode 是唯一可靠判据(见 localizeQuotaExhausted)
+          // 服务端已经用错误帧回过话:留下错误卡,不要在收尾时当成「没送到」撤回。
+          serverClosedWithError = true
           const ec = info?.errorCode
-          // 厂商账号额度耗尽(2026-09-22 批次 60):人话化 + 不给 retry(重试必然再撞)
           const quotaNotice = localizeQuotaExhausted(ec, t)
-          // Budget 三态·硬中断档(2026-09-19 立):网关判定日用量 ≥100% 时返回 429 +
-          // errorCode='BUDGET_EXHAUSTED'(响应体含 percent/usedTokens/limitTokens/resetAt)。
-          // 与普通限频区分:预算要到次日 0 点才重置,通用「频率超限,60 秒后重试」文案会误导。
-          const isBudgetBlock = ec === 'BUDGET_EXHAUSTED'
-          const budgetBlockMessage = '今日 token 预算已用尽,明日 0 点重置后可继续对话'
-          // Qoder 第 10 项(2026-10-30 接线,与 send-answer.ts 同谱):命名码 → 分类处置。
-          // 命中时标题换成该码的词条,按钮按可重试性给或不给(重试 / 重新登录各走各的出口)。
-          // BUDGET_EXHAUSTED 特判:硬中断控制流保持不动(预算支恒先走,呈现也照旧),
-          // disposition 只覆盖非预算路径;未命中(码未收录 / 词表未注入)⇒ 下面既有分支逐字节不变。
-          const disposition = isBudgetBlock ? null : dispositionOf(info)
-          const displayMessage = isBudgetBlock
-            ? budgetBlockMessage
-            : disposition
-              ? disposition.title
-              : (quotaNotice?.message ?? formatted.message)
-          // V3 #69:errorCode 一并落进消息 —— 失败卡的 D67 归属分型(fromErrorCode)只认消息上的
-          // 码;不带码则 429 只落通用失败标题,"额度已用尽"分型卡永远进不了屏幕
-          // (与 send-answer.ts 的 D92 同一姿势:`setMessageError(id, error, errorCode)`)。
-          chatStore.getState().setMessageError(assistantId, displayMessage, ec)
-          chatStore.getState().setError(displayMessage)
-          if (formatted.severity === 'auth') {
-            useLoginDialogStore.getState().open('login')
-          }
-          // toast description 前缀 [errorCode],让用户直接定位问题
-          // (MODEL_NOT_CONFIGURED/PROVIDER_NOT_IMPLEMENTED/LLM_ERROR 等)
-          const toastDesc =
+          const rawNote =
             formatted.severity === 'auth'
               ? formatted.message
               : ec
                 ? `[${ec}] ${formatted.rawMessage}`
                 : formatted.rawMessage
-          if (isBudgetBlock) {
-            // Budget 硬中断档 toast:预算次日 0 点才重置,立即重试必然再 429,故不给 retry 按钮
-            toast.error('今日 AI 用量已达上限', {
-              description: budgetBlockMessage,
-            })
-          } else if (disposition) {
-            // 有处置表就**只有**这一支:标题/建议取该码的词条,按钮按可重试性给或不给
-            // (send-answer.ts onError 同谱样板:具体建议优先于原始报错文本,后者退为附注)。
-            const detail = disposition.detail ? `${disposition.detail} · ${toastDesc}` : toastDesc
-            const isAuth = disposition.action === 'relogin'
-            const retryAction =
-              disposition.retryable && lastSentContentRef.current
-                ? {
-                    label: disposition.actionLabel ?? t('retry'),
-                    onClick: () => sendMessage(lastSentContentRef.current),
-                  }
-                : undefined
-            const openAction = isAuth
-              ? {
-                  label: disposition.actionLabel ?? t('retry'),
-                  onClick: () => useLoginDialogStore.getState().open('login'),
-                }
-              : retryAction
-            if (disposition.retryable) {
-              toast.error(disposition.title, { description: detail, action: openAction })
-            } else {
-              toast.warning(disposition.title, { description: detail, action: openAction })
-            }
-          } else if (quotaNotice) {
-            // 额度耗尽档:全部候选通道都已失败,立即重试必然再撞,故不给 retry 按钮(同 Budget 档理由)
-            toast.error(quotaNotice.title, {
-              description: toastDesc,
-            })
-          } else if (formatted.severity === 'ratelimit') {
-            toast.warning(formatted.title, { description: toastDesc })
-          } else if (formatted.severity === 'safety') {
-            // 内容被 AI 厂商安全策略拦截,用 warning 级别提示用户调整提问方式
-            toast.warning(formatted.title, { description: formatted.message })
-          } else {
-            // P1 错误重试(2026-07-23):toast 加 retry 按钮,一键重发
-            toast.error(formatted.title, {
-              description: toastDesc,
-              action: {
-                label: t('retry'),
-                onClick: () => sendMessage(lastSentContentRef.current),
-              },
-            })
+          const presented = announceStreamError({
+            errorCode: ec,
+            fallbackTitle: quotaNotice?.title ?? formatted.title,
+            fallbackMessage: quotaNotice?.message ?? formatted.message,
+            rawNote,
+            severity: formatted.severity,
+          })
+          // V3 #69:errorCode 一并落进消息 —— 失败卡的归属分型只认消息上的码。
+          chatStore.getState().setMessageError(assistantId, presented.message, ec)
+          chatStore.getState().setError(presented.message)
+          if (formatted.severity === 'auth' || presented.action === 'relogin') {
+            useLoginDialogStore.getState().open('login')
           }
         },
       }
@@ -1675,71 +1648,51 @@ export function createSendMessage(
         summary: err instanceof Error ? err.message.slice(0, 120) : 'unknown',
       })
       if (err instanceof DOMException && err.name === 'AbortError') {
-        // #13 区分两种超时:15s 完全冷启动 vs 60s reasoning 已收到但 content 未到
-        // 用户主动 stop 触发的 abort(abortedByTimeout* 均为 false)静默不报错
-        if (abortedByTimeout15s) {
-          const formatted = formatSSEError(err, t('errorTimeout15s'))
-          chatStore.getState().setMessageError(assistantId, formatted.message)
-          chatStore.getState().setError(formatted.message)
-        } else if (abortedByTimeout60s) {
+        // 完全没收到任何产出就超时:不当作已发送。收尾撤回气泡并留住草稿。
+        // 已经有推理(60s 档)说明服务端在跑,错误卡留在这条气泡上,走同一呈现出口。
+        if (abortedByTimeout60s && (firstContentTokenReceived || firstReasoningTokenReceived)) {
           const formatted = formatSSEError(err, t('errorTimeout60s'))
-          chatStore.getState().setMessageError(assistantId, formatted.message)
-          chatStore.getState().setError(formatted.message)
+          const presented = announceStreamError({
+            errorCode: formatted.errorCode,
+            fallbackTitle: formatted.title,
+            fallbackMessage: formatted.message,
+            rawNote: formatted.message,
+            severity: formatted.severity,
+          })
+          chatStore.getState().setMessageError(assistantId, presented.message, formatted.errorCode)
+          chatStore.getState().setError(presented.message)
         }
       } else {
         const formatted = formatSSEError(err)
-        // Qoder 第 10 项(2026-10-30 接线):catch 路径(HTTP 4xx throw)同样接处置表,
-        // 码从 formatted.errorCode 直接取;命中 ⇒ 呈现归新轨,未命中 ⇒ 下面既有分支逐字节不变。
-        const disposition = dispositionOf({ errorCode: formatted.errorCode })
-        const displayMessage = disposition ? disposition.title : formatted.message
-        chatStore.getState().setMessageError(assistantId, displayMessage)
-        chatStore.getState().setError(displayMessage)
-        // G-816008:非 abort 的 catch 路径 = HTTP 4xx/5xx 抛错,服务端已明确拒绝这一棒
-        // (有结局,不是"没回音")。abort(用户停止 / 超时)刻意**不**置位:那两种情况下
-        // 服务端可能已经执行了一半,必须凭账本拦下一次重复提交。
-        turnHadReceipt = true
-        if (formatted.severity === 'auth') {
-          useLoginDialogStore.getState().open('login')
-        }
-        // 前端错误码透出(P1):catch 路径(HTTP 4xx throw)的 errorCode 从 formatted 直接取
         const ec = formatted.errorCode
-        const prefix = ec ? `[${ec}] ` : ''
-        if (disposition) {
-          // 与 onError 的新轨同谱:标题/建议取该码词条,原始报错文本退为附注。
-          const toastDesc = ec ? `[${ec}] ${formatted.rawMessage}` : formatted.rawMessage
-          const detail = disposition.detail ? `${disposition.detail} · ${toastDesc}` : toastDesc
-          const isAuth = disposition.action === 'relogin'
-          const retryAction =
-            disposition.retryable && lastSentContentRef.current
-              ? {
-                  label: disposition.actionLabel ?? t('retry'),
-                  onClick: () => sendMessage(lastSentContentRef.current),
-                }
-              : undefined
-          const openAction = isAuth
-            ? {
-                label: disposition.actionLabel ?? t('retry'),
-                onClick: () => useLoginDialogStore.getState().open('login'),
-              }
-            : retryAction
-          if (disposition.retryable) {
-            toast.error(disposition.title, { description: detail, action: openAction })
-          } else {
-            toast.warning(disposition.title, { description: detail, action: openAction })
-          }
-        } else if (formatted.severity === 'ratelimit' || formatted.severity === 'safety') {
-          toast.warning(formatted.title, { description: `${prefix}${formatted.message}` })
-        } else if (formatted.severity === 'network') {
-          // P1 错误重试(2026-07-23):网络错误 toast 加 retry 按钮
-          toast.error(formatted.title, {
-            description: `${prefix}${formatted.message}`,
-            action: { label: t('retry'), onClick: () => sendMessage(lastSentContentRef.current) },
+        const rawNote = ec ? `[${ec}] ${formatted.rawMessage}` : formatted.rawMessage
+        const quotaNotice = localizeQuotaExhausted(ec, t)
+        if (formatted.severity === 'network') {
+          // 请求没到服务端:不留「已发送」气泡,也不把账本结算成有回执。
+          failureAnnounced = true
+          announceStreamError({
+            errorCode: ec,
+            fallbackTitle: quotaNotice?.title ?? formatted.title,
+            fallbackMessage: quotaNotice?.message ?? formatted.message,
+            rawNote,
+            severity: formatted.severity,
           })
         } else {
-          toast.error(formatted.title, {
-            description: `${prefix}${formatted.rawMessage}`,
-            action: { label: t('retry'), onClick: () => sendMessage(lastSentContentRef.current) },
+          // HTTP 4xx/5xx:服务端明确拒绝了这一棒,错误卡就是结局。
+          serverClosedWithError = true
+          turnHadReceipt = true
+          const presented = announceStreamError({
+            errorCode: ec,
+            fallbackTitle: quotaNotice?.title ?? formatted.title,
+            fallbackMessage: quotaNotice?.message ?? formatted.message,
+            rawNote,
+            severity: formatted.severity,
           })
+          chatStore.getState().setMessageError(assistantId, presented.message, ec)
+          chatStore.getState().setError(presented.message)
+          if (formatted.severity === 'auth' || presented.action === 'relogin') {
+            useLoginDialogStore.getState().open('login')
+          }
         }
       }
     } finally {
@@ -1757,6 +1710,38 @@ export function createSendMessage(
             : 'failed',
       )
       if (settled.changed) flushAdmission()
+      // 错误帧不算「收下」。只有 admitted/queued 才落库、才允许调用方清空输入框。
+      const turnAccepted = admissionCountsAsAccepted(settled.phase) && !serverClosedWithError
+      if (turnAccepted && !isRegenerate) {
+        void persistMessageSafe(
+          conversationId,
+          text,
+          'user',
+          undefined,
+          undefined,
+          undefined,
+          chatStore,
+        )
+      }
+      if (!turnAccepted && !serverClosedWithError) {
+        const drop = new Set([userMessageId, assistantId].filter((id): id is string => Boolean(id)))
+        const current = chatStore.getState().messages
+        const next = current.filter((m) => !drop.has(m.id))
+        if (next.length !== current.length) chatStore.getState().setMessages(next)
+        chatStore.getState().setError(null)
+        const userAborted =
+          controller.signal.aborted && !abortedByTimeout15s && !abortedByTimeout60s
+        if (!userAborted && !failureAnnounced) {
+          const phaseKey = settled.phase === 'rejected' ? 'rejected' : 'unconfirmed'
+          const phrase = streamErrorLabels?.admission[phaseKey]
+          if (phrase) toast.warning(phrase)
+        }
+        // 气泡已经撤回、这一轮不算已发送(含用户主动停止的静默撤回):
+        // 待发送账本必须清掉,否则下一回同一段文字会被「仍要发送」拦住。
+        // 服务端错误卡不进这个分支,仍按下面的回执规则结算。
+        if (pendingCommandId) settlePendingSend(pendingCommandId)
+      }
+      releaseInput = turnAccepted || serverClosedWithError
       // 2026-07-27 修复"AI 响应不显示":finally 必须先 flush 再 cancel,
       // 否则最后一批 token(还在 pending 未触发 rAF)会被 cancel 直接丢弃,
       // 导致 streamChat 成功返回后 UI 仍为空。
@@ -1875,10 +1860,10 @@ export function createSendMessage(
       // 那些回合屏幕上是有东西的);③ 流正常走完(`onDone`,空内容也算:服务端完成了这一轮,
       // 只是模型没吐字);④ 服务端/网关明确报错(这一棒被拒,重发是用户的权利)。
       //
-      // 明确**不算**回执的只有:用户主动停止、超时 abort、页面死在半路(finally 从没跑)。
-      // 那三种下服务端可能已经执行了一半,条目必须留在账本里 —— 下次提交同一条会被拦
-      // 并给定向说明 + 一键人工放行。这正是本账本存在的理由:若写成"只要 finally 就结算",
-      // 弱网下那条最危险的窗口(请求已发出、一个回执都没收到)会被自己抹平。
+      // 准入未确认且气泡已撤回、以及用户主动停止的静默撤回,已在上面结算 ——
+      // 界面上这一轮不存在了,不能再拦下一次同文。
+      // 超时 abort 仍不算回执:服务端可能已经在跑,条目留在账本里。
+      // 页面死在半路(finally 从没跑)同样留账。错误卡不走撤回分支,只在这里按回执结算。
       //
       // 注意 `onDone` 在 abort 路径也会被调用(api-client 的 isAbortError ⇒ onDone + 静默收束),
       // 所以超时两档必须显式排除,否则超时会被误当成"有回执"。
@@ -1888,8 +1873,8 @@ export function createSendMessage(
         settlePendingSend(pendingCommandId)
       }
     }
-    // 消息已提交到 store(即使流式出错也有 error 标记 + retry 按钮),可清空输入框
-    return true
+    // 只有服务端收下(或明确以错误卡收场)才清空输入框。没送到就留草稿。
+    return releaseInput
   }
   // 注册到按 store 实例隔离的运行时记录(原模块级单例),供无 ctx 组件(MessageList)
   // 通过 CustomEvent 触发 regenerate / branch 时复用同一套流式发送逻辑

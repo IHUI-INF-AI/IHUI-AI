@@ -13,12 +13,15 @@ vi.hoisted(() => {
   process.env.JWT_SECRET ??= 'test-jwt-secret-for-vitest-at-least-32-chars'
 })
 
-const configState = vi.hoisted(() => ({ callbackSecret: 'test-callback-secret' }))
+const configState = vi.hoisted(() => ({ callbackSecret: 'test-callback-secret', mode: 'dual' }))
 
 vi.mock('../../config/index.js', () => ({
   config: {
     get AI_CALLBACK_SECRET() {
       return configState.callbackSecret
+    },
+    get INTERNAL_SECRET_AUTH_MODE() {
+      return configState.mode
     },
   },
 }))

@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "owner": "cross-end-parity",
+  "expires": "2027-06-30",
+  "generatedAt": "2026-11-06T23:30:58.012Z",
+  "face": "HEAD",
+  "why": "跨端漂移门的存量固化基线(回归制):存量只报数,只有相对基线新增/恶化才在 push 面阻断。owner 为跨端对齐线;到期须重新量并决定续期或清偿。",
+  "evidence": [
+    "scripts/check-cross-end-parity-drift.mjs:1331-1341(--gate 现读取值口)",
+    "scripts/check-web-rn-style-tiers.mjs:631-656(档位 kinds/处数与 forkAllowance 出口)",
+    "docs/engineering/rn-miniapp-parity-matrix.md:1(镜像矩阵真源)",
+    "scripts/data/miniapp-key-retractions.jsonl:1(键级撤除台账)"
+  ],
+  "refreshProcedure": {
+    "trigger": "等其余各线全部落 main 后,在最终尖(origin/main 现读)上一次性刷新;严禁在旧尖或本特性分支上刷新",
+    "precondition": "git fetch origin main && git rev-parse origin/main;在 origin/main 的 detached 干净检出上执行(工作树 clean,不用任何人的分支树)",
+    "commands": [
+      "node scripts/check-cross-end-parity-drift.mjs --gate --push --json > .ihui-agent/tmp/drift-gate-final.json",
+      "node -e 'const fs=require(\"fs\");const j=JSON.parse(fs.readFileSync(\".ihui-agent/tmp/drift-gate-final.json\",\"utf8\"));const b=JSON.parse(fs.readFileSync(\"scripts/data/cross-end-drift-gate-baseline.json\",\"utf8\"));for(const k of Object.keys(b.dims)){if(!(k in j.gate.values))throw new Error(\"缺维:\"+k);b.dims[k]=j.gate.values[k]}b.generatedAt=new Date().toISOString();b.face=\"HEAD\";fs.writeFileSync(\"scripts/data/cross-end-drift-gate-baseline.json\",JSON.stringify(b,null,2)+\"\\n\")'"
+    ],
+    "resignFields": [
+      "generatedAt(改为最终尖刷新时刻)",
+      "face(固定 HEAD,证明量的是终尖入库面)",
+      "owner(确认仍为 cross-end-parity;换线须显式改并通知)",
+      "expires(重新设定到期日,不得沿用已过期值)",
+      "evidence(逐条按最终尖行号重指 file:line)",
+      "why(补一句刷新依据:最终尖 sha + 各线落地批次)"
+    ],
+    "guard": "刷新只允许把每个 dim 重置为最终尖现读值;若某维相对旧基线是恶化,必须在同枚提交说明里逐维给出 file:line 证据,否则保持旧值让 302p 拦住,不许借刷新抹平。"
+  },
+  "dims": {
+    "mirrored": 256,
+    "registryEntries": 256,
+    "coverageRed": 0,
+    "mapRot": 0,
+    "aligned": 292,
+    "alignedUnique": 292,
+    "unmapped": 0,
+    "fidelityHosted": 238,
+    "fidelityMissing": 80,
+    "fidelityBroken": 0,
+    "fidelityOther": 0,
+    "fidelityPackAbsent": 1,
+    "fidelityRetractionInvalid": 0,
+    "fidelityRetractionRot": 3,
+    "tierRnMissingN": 134,
+    "tierRnMissingKinds": 25,
+    "tierRnForkN": 59,
+    "tierRnForkKinds": 22,
+    "tierWebOffN": 225,
+    "tierWebOffKinds": 28,
+    "tierPending": 9,
+    "tierAllowanceExpired": 0,
+    "mpTierDefaulted": 378,
+    "mpTierLiteral": 598,
+    "prefixContradicted": 0,
+    "staleCountAssertions": 0,
+    "missingExpiry": 0,
+    "duplicateWebKeys": 1,
+    "pendingWebPair": 1,
+    "judgedGapWeb": 0,
+    "conversionRefused": 0
+  },
+  "advisoryDims": ["doc-stale"],
+  "note": "doc-stale(派生文档数字滞后)单列滞后档:不算倒退、不阻断,重跑生成命令即可。"
+}

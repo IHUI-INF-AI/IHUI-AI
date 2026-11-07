@@ -762,7 +762,7 @@ class TestRunWechat:
         with patch("app.routers.self_media._generate_md_with_llm", mock_gen), \
              patch("app.routers.self_media._safe_filename", mock_safe), \
              patch.object(Path, "mkdir"), \
-             patch.object(Path, "write_text"):
+             patch("app.services.self_media_scheduler.write_text_atomic"):
             result = await scheduler._run_wechat("公众号 {date}", dry_run=True)
         assert result["dry_run"] is True
         assert "公众号" in result["title"]
@@ -797,7 +797,7 @@ class TestRunWechat:
         with patch("app.routers.self_media._generate_md_with_llm", side_effect=fake_gen), \
              patch("app.routers.self_media._safe_filename", return_value="safe"), \
              patch.object(Path, "mkdir"), \
-             patch.object(Path, "write_text"):
+             patch("app.services.self_media_scheduler.write_text_atomic"):
             await scheduler._run_wechat("标题 {date}", dry_run=True)
         # title 应包含 4 位 MMDD 日期
         assert len(captured_title) == 1

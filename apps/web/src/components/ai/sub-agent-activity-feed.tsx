@@ -51,6 +51,7 @@ const AGENT_STREAM_STATUS: Record<AgentStatus, StreamStatus> = {
   completed: 'success',
   failed: 'error',
   cancelled: 'skipped',
+  stub: 'stub',
 }
 
 function agentStreamStatus(agent: SubAgentActivity): StreamStatus {

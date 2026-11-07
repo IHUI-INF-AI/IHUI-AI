@@ -85,6 +85,7 @@ function persistTokens(accessToken: string, refreshToken: string): boolean {
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const read = readSettingsObjectForUpdate(settingsPath);
+  if (read.state === 'corrupt') return false;
   const existing: Settings = read.state === 'ok' ? read.settings : {};
   // 安全存储读出的值与盘上遗留明文都要判:任一是机器凭据都不得被 JWT 覆盖
   if (classifyCredential(existing.apiKey) === 'api_key' || classifyCredential(loadSettings().apiKey) === 'api_key') {

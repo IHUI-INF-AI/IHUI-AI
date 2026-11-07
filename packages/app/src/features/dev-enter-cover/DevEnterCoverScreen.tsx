@@ -88,7 +88,7 @@ function createStyles(tk: AppThemeTokens) {
     desc: {
       fontSize: rnType.title.size,
       color: tk.text.secondary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       marginBottom: rnSpacing['2xl'],
     },
     planSection: {

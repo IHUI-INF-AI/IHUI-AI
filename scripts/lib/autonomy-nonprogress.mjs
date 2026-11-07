@@ -28,6 +28,8 @@
 /** 该票真推进了 ⇒ 空转计数归零。 */
 export const PROGRESS_ACTIONS = Object.freeze([
   'session-ok',
+  // ⚠ 这一枚是**动作名默认档**,真实分档由 `bucketOfRow(row)` 按行字段 `settled` 决定:
+  //    零推进的结算(no-progress)必须计进空转,否则毒票每轮被归零(2026-11-05 实测 dispatched 15 次)。
   'dispatch-settled',
   'artifact-committed',
   'task-registered',
@@ -41,30 +43,278 @@ export const NON_PROGRESS_ACTIONS = Object.freeze([
   'runner-undetermined',
   'artifact-manifest-missing',
   'artifact-commit-failed',
+  // exit 0 但整班一次写盘都没成功(2026-11-04 立)。此前它被记成 `session-ok` 并进 PROGRESS_ACTIONS
+  // ⇒ 阶梯每轮都被"成功"归零 ⇒ 一张永远推不动的票可以无限占班次而不 rotate、不 park。
+  // 实测形态:9/9 次 session-ok 的 transcript 写类工具命中为 0,`artifact-committed` 至今为 0。
+  'session-no-write',
+  // exit=3 = CLI 自己的 `no_progress` 终态(整班无工具调用 + 空正文,补救一次后仍未推进)。
+  // 2026-11-05 立:此前它被 stderr 里一行诊断劫持成 `runner-unavailable`(实测四臂同色:
+  // rc=0/1/3/null 都判 undetermined),于是"零推进"这件事在阶梯里根本不存在,而 41 条台账
+  // 把责任全推给调度器自己的腿。分型改对之后,这一档必须进空转集:它确实吃掉了班次。
+  // 但它不走连败封票(那是"票坏不坏"那条轴),两轴不互相替换。
+  'session-no-progress',
   // 整批落在判据面上被落账腿拒收:会话确实跑了、清单也写了,但**零推进**(没有任何文件进仓)。
   // 计入空转是有方向的收紧(不是放宽):不计,同一枚"非动判据面不可"的票会每小时白占一份日预算,
   // 把 B53 那型饿死在另一个入口上重演。
   'artifact-protected-face',
   'valve-observe-stop',
   'valve-unjudged-block',
+  // 2026-11-04 由"发射集 vs 分档集"对账补上的五枚(此前 23 枚发射动作里 8 枚是票级却两档都不在,
+  // 计数器直接跳过 ⇒ 同一枚票可以每小时白占一份日预算而永不封票 —— 与 B53 那型同一条病,只是入口不同):
+  //  · artifact-manifest-invalid 清单写了但形状坏/票键不符/路径不安全 ⇒ 整批不落(零进仓)
+  //  · artifact-manifest-stale   清单里没有一个文件真有改动 ⇒ 零进仓
+  //  · mint-failed               凭据供值失败,`return` 在 dispatchSession **之前** ⇒ 不产生 session 行,不会双计
+  //  · template-empty            模板未配置:只占队首一枚、一轮一次
+  //  · valve-block               enforce 档命中停机类,`continue` 在派发之前 ⇒ 同样不产生 session 行
+  'artifact-manifest-invalid',
+  'artifact-manifest-stale',
+  'mint-failed',
+  'template-empty',
+  'valve-block',
 ])
+
+/**
+ * 票级但不计入空转的动作,必须逐枚写明理由(§0.7:豁免必须"验过才免"且能被看见)。
+ * 这张表与上面两档同源性由 `scripts/tests/autonomy-action-coverage.test.mjs` 钉住:
+ * 那把锁从 `auto-evolve.mjs` 源码里收割全部发射串,任何一枚不属于三档之一即判红 ⇒
+ * "又冒出一枚没人分档的动作"这件事从此不可能悄悄发生。
+ * 每条理由必须 ≥10 字,且理由只能是"会双计/没占班次/终局另有机制/自身账",
+ * 不许出现"先这样"式空话。
+ */
+export const ACTION_EXEMPTIONS = Object.freeze({
+  // 2026-11-05 覆盖面锁(C1)现读抓到:发射点 `auto-evolve.mjs:1930` 有这一枚,而三档都不在
+  // ⇒ 阶梯静默跳过它(锁判红,不是运行时判红 —— 它只挂在 pnpm test:scripts 层,不在提交链)。
+  // 归 exempt 的依据是**发射点形状**,不是"看着无害":这一枚在取到任何一票之前整轮 return,
+  // 记录里不带 ticketKey ⇒ 它没有占任何一张票的班次,计进空转就是把轮级故障扣到票头上。
+  'runner-budget-exhausted': {
+    reason: '轮级发起腿额度停转,无票键 ⇒ 没占任何一张票的班次',
+    site: 'auto-evolve.mjs 派发前成本闸(blocked.allowed=false 分支)',
+  },
+  // 2026-11-06 现读抓到:调度层会话额度越限(软停机)此前发的是**日预算**那枚 `budget-exhausted`
+  // ⇒ 台账上"今天派满了"和"额度熔断停转"两种真因共用一个字面量,读账的人只能改日预算去解熔断。
+  // 与上一枚同理按发射点形状归 exempt:整轮在任何一票之前 return,记录不带 ticketKey。
+  'cost-breaker-stop': {
+    reason: '轮级调度层会话额度熔断停转,无票键 ⇒ 没占任何一张票的班次',
+    site: 'auto-evolve.mjs 派发前成本闸(cost.allowed=false 分支)',
+  },
+  'valve-allow': {
+    reason: '放行标记,紧随其后必有 session-* 行被计 ⇒ 再计一次就是双计',
+    site: 'auto-evolve.mjs decideValveDispatch',
+  },
+  'valve-unjudged': {
+    reason: '闸判不了但照派(非 enforce 档),紧随的 session 行才是那一次班次',
+    site: 'auto-evolve.mjs decideValveDispatch',
+  },
+  'dryrun-ticket': {
+    reason: 'dry-run 不真派、不占日预算,计进去等于把预演当消耗',
+    site: 'auto-evolve.mjs dispatchSession',
+  },
+  'artifact-preview': {
+    reason: 'dry-run 落账预演,结构上没有真提交发生 ⇒ 不算占了班次',
+    site: 'auto-evolve.mjs landTicketArtifacts',
+  },
+  quarantined: {
+    reason: '封票本身已是终局(48h 不派),再计空转会把同一件事扣两遍并掩盖封票读数',
+    site: 'auto-evolve.mjs 派发循环',
+  },
+  'non-progress-hold': {
+    reason: '阶梯自己写的账(冷却/让位留痕),计入即自增计数,机制会自己把自己抬到 park',
+    site: 'auto-evolve.mjs 空转阶梯',
+  },
+  'non-progress-parked': {
+    reason: '阶梯终局留痕,同上;终局行绝不能成为继续累加的输入',
+    site: 'auto-evolve.mjs 空转阶梯',
+  },
+  'nonprogress-unjudged': {
+    reason: '阶梯自己取不到输入时的留痕,计入即"用判不动的轮次证明自己判得动"',
+    site: 'auto-evolve.mjs 空转阶梯',
+  },
+  // 由并集展开出来的、结构上不会作为动作串发射的一枚(state=ok 时落账腿走 artifact-committed):
+  // 列在这里是为了让"并集里新增一个 state 而忘了分档"这件事必须由锁来判红,而不是静默漏计。
+  'artifact-manifest-ok': {
+    reason: 'state=ok 不发射动作串,推进由 artifact-committed 记账 ⇒ 这一枚结构上不可达',
+    site: 'auto-evolve.mjs landTicketArtifacts',
+  },
+  // 以下四枚是**轮级**留痕:`record` 时不带 ticketKey,而 attemptsSinceProgress 先按票过滤,
+  // 结构上看不见它们 ⇒ 不计数的理由是"不属于任何一枚票",不是"可以不登记"。
+  'runner-preflight-ready': {
+    reason: '轮级在位探测通过留痕,不带 ticketKey ⇒ 按票计数器看不见它',
+    site: 'auto-evolve.mjs 派发前闸',
+  },
+  'runner-preflight-template-empty': {
+    reason: '轮级:模板空(dry-run 档)的探测留痕,不带 ticketKey,不占任何一枚票的班次',
+    site: 'auto-evolve.mjs 派发前闸',
+  },
+  'runner-preflight-missing': {
+    reason: '轮级:执行体不在位 ⇒ 整轮熔断喊人(归 runner-unavailable 那条腿处置),不按票扣',
+    site: 'auto-evolve.mjs 派发前闸',
+  },
+  'runner-preflight-undetermined': {
+    reason: '轮级:仓根取不到判不出在位 ⇒ 本轮不派并点名,不冒充票级空转',
+    site: 'auto-evolve.mjs 派发前闸',
+  },
+  // 自我面闸的两枚(2026-11-05 立):它们**带 ticketKey**(要说清是哪张票没派成)但打
+  // `informational:true` ⇒ 阶梯按标记跳过。不跳过的后果很具体:多会话共树下盘上副本常年不等于
+  // HEAD,若这两行照计空转,每张票都会在几个班次内被推到 park —— 那是"环境常态"伪装成"票干不动",
+  // 与 runner-unavailable 那型同一个洞(不计连败却计空转)。
+  'runner-face-stale-disk': {
+    reason: '盘上这份缺 HEAD 已有判据(有席从旧基线改调度器)⇒ 停派一轮,属环境常态,不计该票空转',
+    site: 'auto-evolve.mjs 自我面闸',
+  },
+  'runner-face-undetermined': {
+    reason: '自我面三面之一取不到 ⇒ 未判定不派,不冒充票级空转(§0.3)',
+    site: 'auto-evolve.mjs 自我面闸',
+  },
+  // 轮级终局档本身(RP-66):它不带 ticketKey,是"这一串轮"的结论,不是某枚票的第 N 次空转。
+  // 漏登记会怎样:覆盖锁判"有个动作既不计进度也不豁免" ⇒ 红;错登记成 non-progress 会更坏 ——
+  // 下一轮派发时它成了每票的公共计数行,把每张票一起推向 park(正是 §12e 反向)。
+  'runner-face-parked-round': {
+    reason: '轮级:连续 N 轮终止在自我面闸 ⇒ 已喊 critical 一次的终局留痕,不属于任何一枚票的空转',
+    site: 'auto-evolve.mjs 自我面闸(RP-66 轮级档)',
+  },
+  // 账面挂账搁置(2026-11-06 立):它**带 ticketKey**(要说清是哪张票被搁),但那是"别席已入库、
+  // 账面没跟上"的等待,不是这张票第 N 次干不动。不豁免的后果很具体:每轮搁一次就计一次空转,
+  // 8 小时后它被推到 park ⇒ 把"等别人结清"伪装成"票坏"——与 runner-face-* 那一族同一个洞。
+  'supply-hold-skip': {
+    reason: '搁置台账命中:等待账面结清,不是本票的第 N 次尝试(到期自动回派单面)',
+    site: 'auto-evolve.mjs 派单面(supply-hold 台账)',
+  },
+  // 占班次/轮级这一族:不属于任何一枚票(行内无 ticketKey,或它只是"将要派"的标记)。
+  // 登记在此是为了让覆盖锁能证明"不计数"是有理由的决定,而不是又一次静默漏计。
+  dispatched: {
+    reason: '日预算的占班次标记,紧随的 session-* 行才是那一次的结果 ⇒ 再计就是双计',
+    site: 'auto-evolve.mjs 派发循环',
+  },
+  'budget-exhausted': {
+    reason: '轮级:日预算耗尽的收尾留痕,不带 ticketKey,不属于任何一枚票的空转',
+    site: 'auto-evolve.mjs 预算闸',
+  },
+  'no-whitelist-hit': {
+    reason: '轮级:派单面非空但白名单逐档命中 0 的收尾读数,与具体票无关',
+    site: 'auto-evolve.mjs 白名单闸',
+  },
+  // 2026-11-06 把上一枚拆成两型(成因相反,合写会诱导人去看错那一侧):
+  'no-open-tickets': {
+    reason: '轮级:派单面为空的收尾读数(台账见底),不属于任何一枚票,也不是政策面窄',
+    site: 'auto-evolve.mjs 派单面 census',
+  },
+  'supply-stall-round': {
+    reason: '轮级:同型供给断档连续 N 轮的终局留痕,已按串喊过一次,不属于任何一枚票的空转',
+    site: 'auto-evolve.mjs 供给断档终局档',
+  },
+  'no-ticket': {
+    reason: '轮级:本轮候选为空的收尾读数,不属于任何一枚票',
+    site: 'auto-evolve.mjs 派单面',
+  },
+  'all-held-nonprogress': {
+    reason: '轮级:候选全被空转记忆扣住的收尾读数(扣的每一枚已在各自票上计过)',
+    site: 'auto-evolve.mjs 空转阶梯',
+  },
+  'decision-undetermined': {
+    reason: '轮级:判期模型没给结论 ⇒ 按静态序兜底,与票的空转无关',
+    site: 'auto-evolve.mjs 判期闸',
+  },
+  'probe-ok': {
+    reason: '轮级:发起通路自检的通过留痕,不是任何一枚票的班次',
+    site: 'auto-evolve.mjs probe',
+  },
+  'probe-fail': {
+    reason: '轮级:通路自检失败(熔断喊人),归 A2/逃逸阀处置,不按票扣',
+    site: 'auto-evolve.mjs probe',
+  },
+  'probe-undetermined': {
+    reason: '轮级:通路自检判不出(仓根取不到),不记成功也不按票扣',
+    site: 'auto-evolve.mjs probe',
+  },
+})
+
+/**
+ * 票级的模板发射点:锁必须把值并集展开成具体串再对账(不展开就会漏判)。
+ * 只登记**票级**(行里带 ticketKey)的两处;`runner-preflight-${state}` 那族是轮级留痕
+ * (行里没有 ticketKey),`attemptsSinceProgress` 的按票过滤天然看不见它们,不参与本锁。
+ */
+export const TEMPLATE_ACTION_SITES = Object.freeze({
+  'artifact-manifest-${state}': {
+    source: 'lib/ticket-artifacts.mjs',
+    unionVar: 'ARTIFACT_MANIFEST_STATES',
+  },
+  'valve-${action}': { source: 'auto-evolve.mjs decideValveDispatch', unionVar: 'VALVE_ACTIONS' },
+  // 第三族是轮级留痕(行内没有 ticketKey,按票计数器结构上看不见),但**照样得分档**:
+  // 分档要写的理由就是"为什么不计数",而不是"可以不写"——不写的后果正是这次对账抓出来的 23 枚。
+  'runner-preflight-${state}': { source: 'lib/autonomy-runner.mjs', unionVar: 'PREFLIGHT_STATES' },
+})
+
+/** 发射动作的分档:progress / non-progress / exempt / 未分档(未分档即锁的红)。 */
+export function actionBucketOf(action) {
+  if (PROGRESS_ACTIONS.includes(action)) return 'progress'
+  if (NON_PROGRESS_ACTIONS.includes(action)) return 'non-progress'
+  if (Object.prototype.hasOwnProperty.call(ACTION_EXEMPTIONS, action)) return 'exempt'
+  return 'unclassified'
+}
+
+/**
+ * **按行**分档(2026-11-05 立)—— 动作名不够,`dispatch-settled` 必须问它自己那一行。
+ *
+ * 病灶(现读实测):`dispatch-settled` 在 PROGRESS_ACTIONS 里,而它今天写下的正文是
+ * `会话零写入且票行逐字未变(L31444)` —— 结算器把"推进了"和"没推进"**发成同一个动作名**,
+ * 真判据在行字段 `settled` 上(`'no-progress'` / `'line-changed'`)。
+ * 后果:每轮结算都把该票的空转计数**归零**,于是票 `eb2ab5be4ad486ee` 累计 dispatched 15 次 /
+ * valve-allow 17 次,而 `--status` 现读"当前封票:无"、本轮输出"空转扣住 0 行"——
+ * 一张永远推不动的票天天占掉日预算 6 份里的一份,永不轮转也永不 park。
+ * 这与 `session-no-write` 那条 2026-11-04 注释点名的是同一型病,只是入口从"会话终态"挪到了"结算"。
+ *
+ * 取值纪律(不许把缺字段的行硬塞进任一侧):
+ *  · `settled='no-progress'` ⇒ non-progress(占了班次而零推进)
+ *  · `settled='line-changed'` ⇒ progress(票行真被改写)
+ *  · 字段缺失 / 不认识的新形态 ⇒ `'undetermined'` ⇒ **既不归零也不累加**,让阶梯如实报"没认出这一枚"
+ *    (§0.3:没判的东西不能冒充判过;静默选边就是给"归零"或"扣减"任一方向开后门)。
+ */
+export function bucketOfRow(row) {
+  const action = String(row?.action ?? '')
+  if (action === 'dispatch-settled') {
+    const st = String(row?.settled ?? '')
+    if (st === 'no-progress') return 'non-progress'
+    if (st === 'line-changed') return 'progress'
+    return 'undetermined'
+  }
+  return actionBucketOf(action)
+}
 
 /**
  * 从台账尾部往回取该票"距上次推进"的空转次数。
  * 只认 ticketKey 相等的行;PROGRESS ⇒ 立即归零返回 0;NON_PROGRESS ⇒ +1;其余 ⇒ 跳过继续往前数。
- * @param {Array<{ticketKey?:string,action?:string}>} ledger
+ * @param {Array<{ticketKey?:string,action?:string,mode?:string,informational?:boolean}>} ledger
  * @param {string} key
  * @returns {number}
  */
-export function attemptsSinceProgress(ledger, key) {
-  if (!Array.isArray(ledger) || !key) return 0
-  let n = 0
+/**
+ * 该票可参与阶梯的留痕行,**从尾往前**逐条给。三道卫生过滤在这里做一次,不给两个调用者各抄一遍(§0.6):
+ *  - `mode==='dryrun'` 直接跳过:预演不占班次,拿它扣真票的空转数 = dry-run 跑一晚上把票 park 光。
+ *  - `informational===true` 跳过:同一次班次的诊断留痕(2026-11-04 发射端收口,§8 未闭环第 9 条)。
+ *    旧形是 `auto-evolve.mjs` 一轮内对同一票落两行(派发结果的 `res.action` 与发起腿分型的
+ *    `runner-unavailable`,ts 相差数毫秒)⇒ rotate4/park8 实际 2/4 轮就触顶。现由发射端给第一行
+ *    打标记、只让 `runner-unavailable` 计一次;本层按标记跳过,不重写历史行(旧账没有该标记,照旧各算一次)。
+ * 刻意**不按 `ts` 折叠**:夹具与真实数据里同毫秒多行都存在,折叠会把 6 条既有阶梯用例一起打掉,
+ * 还把真正该修的发射位置盖掉 —— 本枚第一次就是这么改的,已回退。
+ */
+function* ticketRowsNewestFirst(ledger, key) {
   for (let i = ledger.length - 1; i >= 0; i--) {
     const e = ledger[i]
     if (!e || e.ticketKey !== key) continue
-    const action = String(e.action ?? '')
-    if (PROGRESS_ACTIONS.includes(action)) return n
-    if (NON_PROGRESS_ACTIONS.includes(action)) n++
+    if (e.mode === 'dryrun') continue
+    if (e.informational === true) continue
+    yield e
+  }
+}
+
+export function attemptsSinceProgress(ledger, key) {
+  if (!Array.isArray(ledger) || !key) return 0
+  let n = 0
+  for (const e of ticketRowsNewestFirst(ledger, key)) {
+    // 分档走 bucketOfRow:`dispatch-settled` 的动作名会说谎,只有它自己的 settled 字段说实话
+    const b = bucketOfRow(e)
+    if (b === 'progress') return n
+    if (b === 'non-progress') n++
   }
   return n
 }
@@ -80,39 +330,83 @@ export function attemptsSinceProgress(ledger, key) {
  * 档位自相矛盾 ⇒ route='unjudged' 并点名,绝不猜一档接着跑(§0.3)。
  * @returns {{route:'try'|'rotate'|'cooldown'|'park'|'unjudged',attempts:number,why:string}}
  */
-export function decideNonProgress({ attempts, rotateAt, parkAt, hardAt, cooldownHours, now = Date.now(), lastStoodAt } = {}) {
+export function decideNonProgress({
+  attempts,
+  rotateAt,
+  parkAt,
+  hardAt,
+  cooldownHours,
+  now = Date.now(),
+  lastStoodAt,
+} = {}) {
   const nums = { rotateAt, parkAt, hardAt }
   for (const [k, v] of Object.entries(nums)) {
     if (!Number.isInteger(v) || v < 1) {
-      return { route: 'unjudged', attempts: Number.isInteger(attempts) ? attempts : 0, why: `阈值 ${k} 不是正整数(现值 ${String(v)})⇒ 不判` }
+      return {
+        route: 'unjudged',
+        attempts: Number.isInteger(attempts) ? attempts : 0,
+        why: `阈值 ${k} 不是正整数(现值 ${String(v)})⇒ 不判`,
+      }
     }
   }
   if (!(parkAt > rotateAt && hardAt > parkAt)) {
-    return { route: 'unjudged', attempts: Number.isInteger(attempts) ? attempts : 0, why: `档位必须严格递增 rotateAt(${rotateAt}) < parkAt(${parkAt}) < hardAt(${hardAt}) ⇒ 现值自相矛盾,不判` }
+    return {
+      route: 'unjudged',
+      attempts: Number.isInteger(attempts) ? attempts : 0,
+      why: `档位必须严格递增 rotateAt(${rotateAt}) < parkAt(${parkAt}) < hardAt(${hardAt}) ⇒ 现值自相矛盾,不判`,
+    }
   }
   if (!Number.isInteger(cooldownHours) || cooldownHours < 1) {
-    return { route: 'unjudged', attempts: Number.isInteger(attempts) ? attempts : 0, why: `cooldownHours 不是正整数(现值 ${String(cooldownHours)})⇒ 不判` }
+    return {
+      route: 'unjudged',
+      attempts: Number.isInteger(attempts) ? attempts : 0,
+      why: `cooldownHours 不是正整数(现值 ${String(cooldownHours)})⇒ 不判`,
+    }
   }
   if (!Number.isInteger(attempts) || attempts < 0) {
-    return { route: 'unjudged', attempts: 0, why: `空转次数取不到(attempts=${String(attempts)})⇒ 未判定,按最保守的 rotate 走` }
+    return {
+      route: 'unjudged',
+      attempts: 0,
+      why: `空转次数取不到(attempts=${String(attempts)})⇒ 未判定,按最保守的 rotate 走`,
+    }
   }
   if (attempts >= hardAt) {
-    return { route: 'park', attempts, why: `同票累计空转 ${attempts} 次已达硬顶(${hardAt})⇒ 永久停占班次,等真推进或人工处置,不再自动回升` }
+    return {
+      route: 'park',
+      attempts,
+      why: `同票累计空转 ${attempts} 次已达硬顶(${hardAt})⇒ 永久停占班次,等真推进或人工处置,不再自动回升`,
+    }
   }
   if (attempts >= parkAt) {
     const stood = Number.isFinite(lastStoodAt) ? lastStoodAt : null
     if (stood !== null && now - stood < cooldownHours * 3600_000) {
       const remainMin = Math.ceil((cooldownHours * 3600_000 - (now - stood)) / 60_000)
-      return { route: 'cooldown', attempts, why: `空转 ${attempts} 次(线 ${parkAt})⇒ 冷却中,还差 ${remainMin} 分钟才再试一次` }
+      return {
+        route: 'cooldown',
+        attempts,
+        why: `空转 ${attempts} 次(线 ${parkAt})⇒ 冷却中,还差 ${remainMin} 分钟才再试一次`,
+      }
     }
     if (stood === null) {
       // 到冷却线却读不到上次冷却起点 ⇒ 当作"冷却已到期"放一次,并在 why 里点名(不是静默放行)
-      return { route: 'try', attempts, why: `空转 ${attempts} 次 ≥ ${parkAt},但读不到上次冷却起点 ⇒ 本回合只放一次并点名(不冒充已冷却)` }
+      return {
+        route: 'try',
+        attempts,
+        why: `空转 ${attempts} 次 ≥ ${parkAt},但读不到上次冷却起点 ⇒ 本回合只放一次并点名(不冒充已冷却)`,
+      }
     }
-    return { route: 'try', attempts, why: `空转 ${attempts} 次 ≥ ${parkAt} 且冷却已到期 ⇒ 再放一次(每次空转都会重新进入 ${cooldownHours}h 冷却)` }
+    return {
+      route: 'try',
+      attempts,
+      why: `空转 ${attempts} 次 ≥ ${parkAt} 且冷却已到期 ⇒ 再放一次(每次空转都会重新进入 ${cooldownHours}h 冷却)`,
+    }
   }
   if (attempts >= rotateAt) {
-    return { route: 'rotate', attempts, why: `同票已空转 ${attempts} 次(线 ${rotateAt})⇒ 本轮让位给空转更少的候选` }
+    return {
+      route: 'rotate',
+      attempts,
+      why: `同票已空转 ${attempts} 次(线 ${rotateAt})⇒ 本轮让位给空转更少的候选`,
+    }
   }
   return { route: 'try', attempts, why: `同票空转 ${attempts} 次 < ${rotateAt} ⇒ 照派` }
 }
@@ -124,15 +418,18 @@ export function decideNonProgress({ attempts, rotateAt, parkAt, hardAt, cooldown
 export function breakdownNonProgress(ledger, key) {
   if (!Array.isArray(ledger) || !key) return []
   const tally = new Map()
-  for (let i = ledger.length - 1; i >= 0; i--) {
-    const e = ledger[i]
-    if (!e || e.ticketKey !== key) continue
+  // 与 attemptsSinceProgress 同一套行过滤(dry-run 跳过、同 ts 折一次):
+  //  escalation 邮件的分档数必须和阶梯用的数是同一个口径,否则"邮件说 3 次、判定说 6 次"。
+  for (const e of ticketRowsNewestFirst(ledger, key)) {
+    const b = bucketOfRow(e)
+    if (b === 'progress') break
+    if (b !== 'non-progress') continue
     const action = String(e.action ?? '')
-    if (PROGRESS_ACTIONS.includes(action)) break
-    if (!NON_PROGRESS_ACTIONS.includes(action)) continue
     tally.set(action, (tally.get(action) || 0) + 1)
   }
-  return [...tally.entries()].map(([action, count]) => ({ action, count })).sort((a, b) => b.count - a.count)
+  return [...tally.entries()]
+    .map(([action, count]) => ({ action, count }))
+    .sort((a, b) => b.count - a.count)
 }
 
 /**
@@ -153,12 +450,189 @@ export function lastNonProgressHoldAt(ledger, key) {
   return null
 }
 
+/**
+ * 轮级自我面终局档(RP-66,2026-11-06 立)。
+ *
+ * 立因(现读):`runner-face-stale-disk` / `runner-face-undetermined` 两枚登记在
+ * ACTION_EXEMPTIONS 里 ⇒ 票级阶梯永远不计它们,这是**对的**(多会话共树下盘上副本常年不等于
+ * HEAD,照计就把每张票推向 park)。但豁免之后**没有任何一档替它说话**:环可以连续几十轮
+ * 只在自我面闸上 return,台账每轮多一行 informational,阶梯读数为 0,健康尺按"信息项"放行
+ * ⇒ 一个谁都不喊的稳态停摆。票级阶梯管不了,是因为它压根不属于任何一枚票 —— 要的是**轮级**。
+ *
+ * 计数单位刻意是「轮」而不是「小时」:现读 11 条 dispatched 的轮间隔 =
+ * 0.5 / 0.9 / 4.7 / 5.8 / 8.8 / 10.7 / 12.5 / 42.9 / 48.9 / 322.1 分钟(中位 10.7,双峰),
+ * 按墙钟设阈值会把"调度器被别的席位挤"读成停摆,或反过来把真停摆掩在长间隔里。
+ */
+export const FACE_ROUND_TERMINAL_ACTIONS = Object.freeze([
+  'runner-face-stale-disk',
+  'runner-face-undetermined',
+])
+
+/**
+ * 从台账尾部数"连续多少轮终止在自我面闸上"。
+ * 判序:倒着走,遇到 terminal 就 +1;遇到**任何其它**行就断(不分类、不猜它是好是坏)。
+ * 失效方向 = 少算:取不到行 / 非数组 ⇒ count 0,绝不把"读不懂"读成"停摆很久"。
+ * 同一轮内的其它 informational 行(如同一轮的候选缓存回写)也会断链 —— 这是保守侧,
+ * 代价是停摆要连续 N 轮"干净地只撞面闸"才终局,而不是撞一次就喊。
+ */
+export function faceRoundStreak(rows, { terminalActions = FACE_ROUND_TERMINAL_ACTIONS } = {}) {
+  const list = Array.isArray(rows) ? rows : []
+  const term = new Set(terminalActions)
+  let count = 0
+  let sinceTs = null
+  let lastTs = null
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    if (!row || typeof row !== 'object') break
+    const action = String(row.action ?? '')
+    // 本环自己的轮级终局行:不断链、也不额外占一轮。漏了这一格会是自锁 ——
+    // 喊过一次之后那枚行把自己那串切断,后面第 4、5… 轮永远数回 1,连"仍在同一串"都读不出来。
+    if (action === 'runner-face-parked-round') continue
+    if (!term.has(action)) break
+    count += 1
+    sinceTs = row.ts ?? sinceTs
+    if (lastTs === null) lastTs = row.ts ?? null
+  }
+  return {
+    count,
+    sinceTs: count > 0 ? sinceTs : null,
+    lastTs: count > 0 ? lastTs : null,
+    terminalActions: [...term].sort(),
+  }
+}
+
+/**
+ * 这一轮该不该已经喊过 critical:终局档每枚都带 `streakSince`,与本轮 streak 的
+ * sinceTs 逐字相同 ⇒ 同一串停摆只喊一次(N=3 喊一枚,第 4、5 轮不再重复投递);
+ * 链路断裂后重新攒够会给出新的 sinceTs ⇒ 会再喊,这是对的(那是新的一串停摆)。
+ */
+export function parkedRoundAlreadyAnnounced(rows, sinceTs) {
+  if (!sinceTs) return false
+  const list = Array.isArray(rows) ? rows : []
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    if (!row || typeof row !== 'object') continue
+    if (String(row.action ?? '') !== 'runner-face-parked-round') continue
+    return String(row.streakSince ?? '') === String(sinceTs)
+  }
+  return false
+}
+
+/**
+ * 供给断档的轮级判定(RP-66 的同族第二型,2026-11-06 立)。
+ *
+ * 为什么必须与"自我面停摆"分开成一档:两种安静长得一模一样(本轮没派任何东西),成因完全相反。
+ * ① 面闸停摆 = 机制坏了(已由 `runner-face-parked-round` 接管);
+ * ② 供给断档 = 机制正常但**无票可派**,而它自己还要再分两型:
+ *    · `supply-mismatch`  派单面非空,但白名单逐档命中 0 ⇒ 政策覆盖面比票窄(现读实证:
+ *      16 档全 0,而面上躺着"灰度槽位从未拿到产物""消息级版本切换"这类票);
+ *    · `no-open-tickets`  派单面为空 ⇒ 台账真见底,该问的是"还剩什么没做"。
+ * 把这两型合成一个"没票"读数,下一步一定是有人去扩白名单(或者更糟:去删票)。
+ *
+ * 判序:台账尾部连续同型的轮次计数;`openFaceCount` 取不到/不是数字 ⇒ 该轮记 `unknown`,
+ * 既不算 mismatch 也不算 no-open,并且**断链**(§0.3:不把"没读到"折进任何一型)。
+ * 任何一次真派发(dispatched)或别的终局行同样断链 —— 供给恢复即刻归零。
+ */
+export const SUPPLY_STALL_ROUND_ACTIONS = Object.freeze(['no-whitelist-hit', 'no-open-tickets'])
+export const SUPPLY_STALL_KIND_UNKNOWN = 'unknown'
+
+export function supplyStallKindOf(row) {
+  if (!row || typeof row !== 'object') return SUPPLY_STALL_KIND_UNKNOWN
+  const action = String(row.action ?? '')
+  if (!SUPPLY_STALL_ROUND_ACTIONS.includes(action)) return null
+  if (action === 'no-open-tickets') return 'no-open-tickets'
+  const n = row.openFaceCount
+  if (typeof n !== 'number' || !Number.isFinite(n) || n < 0) return SUPPLY_STALL_KIND_UNKNOWN
+  return n > 0 ? 'supply-mismatch' : 'no-open-tickets'
+}
+
+export function decideSupplyStall(rows, { streakN = 6, now = Date.now() } = {}) {
+  const list = Array.isArray(rows) ? rows : []
+  // 门限只认 number 形态正整数(与 loadGates 同口径):"6" / 0 / NaN 一律不响。
+  // 反例成本实测过:门限读成 NaN 时 `count >= NaN` 恒假 ⇒ 这一档永久静默,而读数上看不出它坏过
+  // (与"两套时钟一比,按日上限就静默失效"同型)。
+  if (typeof streakN !== 'number' || !Number.isInteger(streakN) || streakN <= 0)
+    return {
+      kind: SUPPLY_STALL_KIND_UNKNOWN,
+      count: 0,
+      sinceTs: null,
+      lastTs: null,
+      unknownRounds: 0,
+      emit: false,
+      reason: `supplyStallRounds 不是正整数(现值 ${JSON.stringify(streakN)})⇒ 终局档不响`,
+    }
+  let kind = null
+  let count = 0
+  let sinceTs = null
+  let lastTs = null
+  let unknownRounds = 0
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    // 本档自己写的那行:不断链、也不额外占一轮(RP-66 那一枚刚踩过这型自锁 —— 切断之后
+    // 第 N+1 轮永远数回 1,连"仍在同一串"都读不出来,更不会再喊)。
+    if (row && typeof row === 'object' && String(row.action ?? '') === 'supply-stall-round')
+      continue
+    const k = supplyStallKindOf(row)
+    if (k === SUPPLY_STALL_KIND_UNKNOWN) {
+      unknownRounds += 1
+      break
+    }
+    if (k === null) break
+    if (kind === null) kind = k
+    else if (k !== kind) break
+    count += 1
+    sinceTs = row.ts ?? sinceTs
+    if (lastTs === null) lastTs = row.ts ?? null
+  }
+  const reached = count >= streakN && (kind === 'supply-mismatch' || kind === 'no-open-tickets')
+  const already = reached && parkedRoundAlreadyAnnouncedBy(list, 'supply-stall-round', sinceTs)
+  return {
+    kind: kind ?? SUPPLY_STALL_KIND_UNKNOWN,
+    count,
+    sinceTs: count > 0 ? sinceTs : null,
+    lastTs: count > 0 ? lastTs : null,
+    unknownRounds,
+    emit: reached && !already,
+    reason: !reached
+      ? `连续 ${count} 轮同型 < 门限 ${streakN}${kind ? `(型=${kind})` : ''}${unknownRounds ? ` / 另有 ${unknownRounds} 轮取不到派单面计数 ⇒ 断链不猜` : ''}`
+      : already
+        ? `这一串(${String(kind)}自 ${String(sinceTs)})已喊过 ⇒ 不重复投递`
+        : `连续 ${count} 轮同型 ${kind} ⇒ 轮级终局`,
+  }
+}
+
+/**
+ * 按串去重的通用出口(RP-66 那一枚同一条判序,这里只做"动作名可传")。
+ * 键 = 串首时刻:同一串只喊一次,断裂后重新攒够是新串 ⇒ 会再喊(第二次断档同样是事故)。
+ */
+export function parkedRoundAlreadyAnnouncedBy(rows, action, sinceTs) {
+  if (!sinceTs) return false
+  const list = Array.isArray(rows) ? rows : []
+  for (let i = list.length - 1; i >= 0; i--) {
+    const row = list[i]
+    if (!row || typeof row !== 'object') continue
+    if (String(row.action ?? '') !== action) continue
+    return String(row.streakSince ?? '') === String(sinceTs)
+  }
+  return false
+}
+
 export const __test__ = {
   PROGRESS_ACTIONS,
   NON_PROGRESS_ACTIONS,
+  ACTION_EXEMPTIONS,
+  TEMPLATE_ACTION_SITES,
+  actionBucketOf,
   attemptsSinceProgress,
   decideNonProgress,
   breakdownNonProgress,
   lastNonProgressHoldAt,
+  FACE_ROUND_TERMINAL_ACTIONS,
+  faceRoundStreak,
+  parkedRoundAlreadyAnnounced,
+  SUPPLY_STALL_ROUND_ACTIONS,
+  supplyStallKindOf,
+  decideSupplyStall,
+  parkedRoundAlreadyAnnouncedBy,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -165,6 +165,31 @@ function decideWithMode(
   return decision === 'allow' && humanApprovalMandated(permissionAxis) ? 'ask' : decision;
 }
 
+/**
+ * 该权限判定下,这个工具**该不该出现在发给模型的清单里**(2026-11-05 立)。
+ *
+ * 为什么需要这一格:`checkPermission` 只在调用时生效,而下发给模型的 tools 清单是整份注册表
+ * —— 于是无头会话(结构性 `approverAvailable:false`)会反复调用它**永远执行不了**的工具
+ * (自主派发环实测 `run_command` 40 次、几乎全 success:false,每次烧掉一整轮迭代)。
+ * 判据仍归 `checkPermission` 那一份,本函数只做"三档 → 广告与否"的投影,不重算权限。
+ *
+ * 真值表(成对,不许合并):
+ *  · `allow`            ⇒ 广告(两档同)
+ *  · `deny`             ⇒ 不广告(两档同:白名单外 / plan 档写类 / 黑名单命中,都结构上不可能执行)
+ *  · `ask` + 有人可问    ⇒ 广告(人会在确认窗上答)
+ *  · `ask` + 没人可问    ⇒ 不广告(没人会答 ⇒ 这一枚永远 denied)
+ * `nobodyToAsk` 的取值纪律:只有当会话**既声明没有审批人、又没有 `--allow-dangerous`** 时才为 true;
+ * 开了旁路档时危险工具是真能执行的,摘掉它就是削能力。
+ */
+export function isAdvertisableDecision(
+  decision: PermissionDecision,
+  nobodyToAsk: boolean,
+): boolean {
+  if (decision === 'allow') return true;
+  if (decision === 'deny') return false;
+  return !nobodyToAsk;
+}
+
 export function checkPermission(
   toolName: string,
   rules?: PermissionRules,

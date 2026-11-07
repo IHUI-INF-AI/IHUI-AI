@@ -49,7 +49,7 @@ test.describe('AI 世界展厅', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-world')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 分类可能是 tab 或 button
     const categoryBtn = page.getByRole('button').first()
     const categoryTab = page.getByRole('tab').first()
@@ -63,12 +63,11 @@ test.describe('AI 世界展厅', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/ai-world')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     // 展项可能是 card 或 link
     const item = page.locator('a, article, [role="listitem"]').first()
     if (await item.isVisible({ timeout: 3000 }).catch(() => false)) {
       await item.click().catch(() => {})
-      await page.waitForTimeout(1500)
       expect(page.url()).toBeTruthy()
     }
   })

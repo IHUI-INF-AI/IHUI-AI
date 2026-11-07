@@ -25,6 +25,30 @@ export const HM_RE = /^([01]\d|2[0-3]):([0-5]\d)$/
 const SHANGHAI_OFFSET = '+08:00'
 
 /**
+ * 行内动作资格(签到/签退入口的唯一判据;教师页、学生本人页与用例都从这里取)。
+ * 签到只看「无 checkInTime」,签退只看「有 checkInTime ∧ 无 checkOutTime」——
+ * 签退**绝不按 checkInMethod 挡**:学生自签过的行教师同样必须能签退
+ * (web 侧踩过该缺陷并已修,此处不得回潮)。
+ */
+export function actionAvailability(r: {
+  checkInTime: string | null
+  checkOutTime: string | null
+}): { canCheckIn: boolean; canCheckOut: boolean } {
+  return {
+    canCheckIn: !r.checkInTime,
+    canCheckOut: Boolean(r.checkInTime) && !r.checkOutTime,
+  }
+}
+
+/**
+ * 学生本人自签退载荷:只有业务日。身份与班级由后端按登录态/在册学籍现取,
+ * 不传 studentId/classId/status/checkOutMethod(签退时刻与重判均由服务端落)。
+ */
+export function buildSelfCheckOutPayload(date: string): { date: string } {
+  return { date }
+}
+
+/**
  * 考勤状态词表(展示档;判据仍在服务端 judgeStatus,本端不复算阈值)。
  * `early` 这一档自此**真的会出现在列表里**:签退重判是它唯一的写入路径,此前它只存在于
  * 报表枚举、写不进库,所以端上的文案/色档一直没建这一格。

@@ -195,15 +195,17 @@ class CheckpointStore:
                 try:
                     raw = json.loads(p.read_text(encoding="utf-8"))
                 except json.JSONDecodeError as e:
-                    logger.warning("[checkpoint] 读取失败(按空档续)%s: %s", key, e)
+                    raise TaskExecutionError(
+                        "断点读不到,不能把它当成没有进度 (corrupt)"
+                    ) from e
                 except OSError as e:
                     raise TaskExecutionError(
                         f"断点读不到,不能把它当成没有进度 ({e.errno})"
                     ) from e
-                else:
-                    if isinstance(raw, dict):
-                        self._mem[key] = raw
-                        return Checkpoint.from_dict({**raw, "key": key}, self)
+                if not isinstance(raw, dict):
+                    raise TaskExecutionError("断点读不到,不能把它当成没有进度 (corrupt)")
+                self._mem[key] = raw
+                return Checkpoint.from_dict({**raw, "key": key}, self)
         data = self._mem.get(key)
         if isinstance(data, dict):
             return Checkpoint.from_dict({**data, "key": key}, self)
@@ -217,6 +219,11 @@ class CheckpointStore:
         try:
             self._root.mkdir(parents=True, exist_ok=True)
             p = self._path(cp.key)
+            from app.services.ttl_json_store import json_archive_blocks_replace
+
+            if json_archive_blocks_replace(p, expect="object"):
+                logger.warning("[checkpoint] 断点读不到,不能把它覆盖成新进度: %s", cp.key)
+                return
             tmp = p.with_suffix(".tmp")
             tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             os.replace(tmp, p)
@@ -668,17 +675,24 @@ def read_vitest_report_file(report_path: Path) -> tuple[dict[str, Any], str | No
     except OSError as exc:
         return {}, f"测试报告读不到,不能把它说成没有结果 ({exc.errno})"
     if not stat.S_ISREG(mode):
-        return {}, None
+        return {}, "测试报告读不到,不能把它说成没有结果 (not-file)"
     try:
-        loaded = json.loads(report_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        loaded = None
+        text = report_path.read_text(encoding="utf-8")
     except OSError as exc:
         return {}, f"测试报告读不到,不能把它说成没有结果 ({exc.errno})"
-    report = loaded if isinstance(loaded, dict) else {}
+    if text.strip() == "":
+        with contextlib.suppress(OSError):
+            report_path.unlink(missing_ok=True)
+        return {}, None
+    try:
+        loaded = json.loads(text)
+    except json.JSONDecodeError:
+        return {}, "测试报告读不到,不能把它说成没有结果 (corrupt)"
+    if not isinstance(loaded, dict):
+        return {}, "测试报告读不到,不能把它说成没有结果 (corrupt)"
     with contextlib.suppress(OSError):
         report_path.unlink(missing_ok=True)
-    return report, None
+    return loaded, None
 
 
 def resolve_vitest_cli(start: Path | None = None) -> str | None:

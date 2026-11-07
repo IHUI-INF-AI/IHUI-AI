@@ -62,7 +62,12 @@ export function ensureImport(text, names) {
   if (missing.length === 0) return text
   const single = /import \{([^}]*)\} from '@ihui\/design-tokens'/
   if (single.test(text)) {
-    return text.replace(single, (_m, g) => `import {${g.replace(/\s*,\s*$/, '')}, ${missing.join(', ')} } from '@ihui/design-tokens'`)
+    return text.replace(single, (_m, g) => {
+      // 末尾可能带空格或逗号(如 `{ rnSpacing, rnType `),一律削平后再拼,避免产出 `rnType , rnRadius`
+      const head = g.replace(/^[\s,]+|[\s,]+$/g, '')
+      const all = head ? `${head}, ${missing.join(', ')}` : missing.join(', ')
+      return `import { ${all} } from '@ihui/design-tokens'`
+    })
   }
   const multi = /import \{([\s\S]*?)\n\} from '@ihui\/design-tokens'/
   if (multi.test(text)) {

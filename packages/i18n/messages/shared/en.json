@@ -89,6 +89,8 @@
     "toolWorkbookClose": "Close Workbook",
     "toolGenerateTest": "Generate test code",
     "toolRunCommand": "Run a command",
+    "toolSandboxSession": "Sandbox session",
+    "toolReadToolOutput": "Read tool output",
     "toolGitOperations": "Run Git operations",
     "toolFetchUrl": "Fetch web page content",
     "toolCrawlSite": "Crawl the site",
@@ -133,6 +135,7 @@
     "statusFailed": "Failed",
     "statusRunning": "Running",
     "statusSkipped": "Skipped",
+    "statusStub": "Simulated, not finished",
     "roundNumber": "Round {n}",
     "retriedTimes": "{n} retries",
     "sourcePlugin": "Plugin",
@@ -2578,7 +2581,8 @@
             "completed": "Completed",
             "failed": "Failed",
             "cancelled": "Cancelled",
-            "timeout": "Timed out"
+            "timeout": "Timed out",
+            "stub": "Simulated, not finished"
           },
           "hint": {
             "stopping": "Stop requested; waiting for the task to wind down",

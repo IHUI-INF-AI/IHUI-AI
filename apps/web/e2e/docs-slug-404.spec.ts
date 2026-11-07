@@ -77,7 +77,7 @@ test.describe('不存在的文档 slug', () => {
   test('HTTP 状态码 = 404(需后端在场)', async ({ page }) => {
     test.skip(
       !process.env.IHUI_E2E_EXPECT_HARD_404,
-      '需活的 API 后端,否则探针返回 unknown 按 500 处理;确认后端在场时置 1',
+      '需活的 API 后端,否则探针返回 unknown 按 500 处理;确认后端在场时置 1 [SKIP:SKIP-0046]',
     )
     const res = await page.goto(`/docs/${MISSING_SLUG}`, { waitUntil: 'domcontentloaded' })
     expect(res!.status(), '不存在的 slug 回了非 404 ⇒ 软 404/500 回潮').toBe(404)

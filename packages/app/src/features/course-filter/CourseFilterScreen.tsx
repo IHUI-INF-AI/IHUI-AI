@@ -171,7 +171,10 @@ export function CourseFilterScreen({
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 10, paddingBottom: rnSpacing['3xl'] }}
+          contentContainerStyle={{
+            padding: rnSpacing['sm-loose'],
+            paddingBottom: rnSpacing['3xl'],
+          }}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           // 分页由服务端取下一页:触底即取,不再"只拿第一页然后在端内过滤"

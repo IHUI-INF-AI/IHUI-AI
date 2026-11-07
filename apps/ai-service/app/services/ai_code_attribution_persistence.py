@@ -29,7 +29,12 @@ from app.core.ai_code_attribution import (
     compute_stats,
 )
 
-from .ttl_json_store import load_ttl_records, resolve_retention_days, write_json_atomic
+from .ttl_json_store import (
+    json_archive_blocks_replace,
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +128,7 @@ class AiCodeAttributionStore:
 
     def _persist(self) -> None:
         """全量写回 JSON(原子写);失败保留内存数据,下次变更再试。"""
-        if not self._loaded:
+        if not self._loaded or json_archive_blocks_replace(self._file, expect="array"):
             logger.warning("ai_code_attribution 读不到,不能把它覆盖成新记录")
             return
         write_json_atomic(self._file, self._records, indent=2)
@@ -181,6 +186,49 @@ class AiCodeAttributionStore:
     def stats_for_session(self, session_id: str) -> AttributionStats:
         """某次会话的归属统计(AI 占比等)。"""
         return compute_stats(self.list_records(session_id=session_id, limit=MAX_RECORDS))
+
+    def backfill_commit_sha(self, commit_sha: str, files: list[str]) -> tuple[int, str]:
+        """只给还没有提交号的匹配账行补上这一枚。已有提交号的不改。清单为空不扫全账。"""
+        sha = (commit_sha or "").strip()
+        if len(sha) != 40 or any(ch not in "0123456789abcdefABCDEF" for ch in sha):
+            return 0, "提交号不是 40 位"
+        keys = [key for key in (_path_key(path) for path in files) if key]
+        if not keys:
+            return 0, ""
+        with self._lock:
+            if json_archive_blocks_replace(self._file, expect="array"):
+                return 0, "账本读不到,不能回填提交号"
+            self._load()
+            updated = 0
+            for raw in self._records:
+                if not isinstance(raw, dict):
+                    continue
+                anchor = raw.get("anchor")
+                if not isinstance(anchor, dict):
+                    continue
+                if str(anchor.get("commit_sha") or "").strip():
+                    continue
+                if not _path_matches(str(raw.get("file") or ""), keys):
+                    continue
+                anchor["commit_sha"] = sha
+                updated += 1
+            if updated:
+                self._persist()
+            return updated, ""
+
+
+def _path_key(path: str) -> str:
+    return path.replace("\\", "/").rstrip("/").casefold()
+
+
+def _path_matches(record_file: str, keys: list[str]) -> bool:
+    record_key = _path_key(record_file)
+    if not record_key:
+        return False
+    for key in keys:
+        if record_key == key or record_key.endswith("/" + key) or key.endswith("/" + record_key):
+            return True
+    return False
 
 
 store = AiCodeAttributionStore()

@@ -11,7 +11,7 @@ import { usePathname } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
-import { Sidebar } from '@/components/sidebar'
+import { SIDEBAR_WIDTH, Sidebar } from '@/components/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TooltipProvider } from '@/components/feedback'
 // 2026-09-30 用户强制要求(0ms 在场):AISidePanel 回归静态 import(见下方大段注释的 2026-09-30 修订)
@@ -403,7 +403,8 @@ export function GlobalShell({ children }: { children: React.ReactNode }) {
                 data-main-sidebar=""
                 data-viewport-collapsed="true"
                 className="relative h-screen shrink-0 bg-background"
-                style={{ width: 'var(--sidebar-width, 160px)' }}
+                // fallback 宽度取几何档(不再写字面量 160px),与真实 Sidebar 同一来源
+                style={{ width: `var(--sidebar-width, ${SIDEBAR_WIDTH}px)` }}
               />
             }
           >

@@ -215,6 +215,18 @@ async def test_corrupt_snapshot_refuses_increment(tmp_path):
     assert res.files_indexed == 0 and res.chunks_created == 0
 
 
+def test_save_snapshot_keeps_corrupt_bytes(tmp_path, monkeypatch):
+    monkeypatch.setattr(ci, "_MERKLE_SNAPSHOT_DIR", tmp_path)
+    indexer = CodebaseIndexer()
+    root = tmp_path / "repo"
+    root.mkdir()
+    path = indexer._snapshot_path(REPO_ID, root)
+    body = b"{not json"
+    path.write_bytes(body)
+    indexer._save_snapshot(REPO_ID, root, {"a.py": "abc"})
+    assert path.read_bytes() == body
+
+
 def _public_defined(mod):
     return sorted(
         name

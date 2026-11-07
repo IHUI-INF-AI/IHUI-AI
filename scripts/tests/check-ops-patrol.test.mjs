@@ -40,14 +40,16 @@ test('T1 装车:派发点必须真住在守护的两个执行体里(不跑它等
   // 裸 matchAll 会把它数成第三个挂点 ⇒ 实测 3 ≠ 期望 2,而两个执行体其实都好好在位。
   // 判的是**代码结构**(调用点存在性)而不是字面量 ⇒ 只遮注释、不动字符串。
   const g = maskComments(src('scripts/git-guardian.mjs'))
-  assert.match(g, /export function auditOpsPatrol\(/, '派发函数缺失')
+  // 2026-11-07 起派发点是 async(默认 runner 走 spawn + Promise,让轮级锁心跳在长腿期间照常续),
+  // 形态断言因此放宽到 `export [async] function` —— 放宽的是修饰符,不是"函数必须导出"这一条。
+  assert.match(g, /export (?:async )?function auditOpsPatrol\(/, '派发函数缺失')
   const calls = [...g.matchAll(/auditOpsPatrol\(\)/g)].length
   assert.equal(calls, 2, `调用点应为 2 处(健康轮 + daemon tick),实测 ${calls} —— 少一处就是某个执行体永不巡检`)
 })
 
 test('T2 摘线不得被读成已装车(构造面反向对照,T1 的牙)', () => {
   const g = maskComments(src('scripts/git-guardian.mjs'))
-  const onlyOnce = g.replace(/if \(!CHECK_ONLY\) auditOpsPatrol\(\)/, '')
+  const onlyOnce = g.replace(/if \(!CHECK_ONLY\) await auditOpsPatrol\(\)/, '')
   const calls = [...onlyOnce.matchAll(/auditOpsPatrol\(\)/g)].length
   assert.equal(calls, 1, '摘掉一处调用后必须只剩 1 —— 剩 2 说明 T1 数的是别处文本,不是挂点')
 })
@@ -1030,9 +1032,11 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
         },
         runner: () => ({ status: 0, stdout: payload(red), stderr: '' }),
       })
-    callA(0, true)
-    callA(1, true)
-    callA(2, false)
+    // 派发点是 async(2026-11-07 起):三处必须 await,漏一个就等于"巡检还在跑"被当成"巡检已结束",
+    // 下面那几条 `sendsA/ logA` 断言会读到半成品状态而假绿。
+    await callA(0, true)
+    await callA(1, true)
+    await callA(2, false)
     assert.deepEqual(sendsA, [], '连红 2 轮即回绿 = 风暴型尖峰,门槛 3 轮内不得寄信')
     assert.ok(logA.some((l) => /未达持续性门槛.*连 1\/3 轮/.test(l)), `第 1 轮必须写明"连 1/3 轮"与终态,实得:${logA.filter((l) => /门槛/.test(l))[0] || '(无)'}`)
     assert.ok(logA.some((l) => /连击清零:P4a\(此前连 2 轮/.test(l)), '恢复必须是可见的终态,不是悄悄不留痕')
@@ -1041,7 +1045,7 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
     // 成对反控:门没给原因时必须显式写"(门没给原因)",而不是静默印成 `undefined` ——
     // 盲区说不出为什么瞎,下一轮还是同一条盲区;而"undefined"会被读成"有过原因"。
     const logNoWhy = []
-    auditOpsPatrol({
+    await auditOpsPatrol({
       now: t0 + 30 * INTERVAL,
       tickFile: join(base, 'tickW.iso'),
       streakFile: join(base, 'streakW.json'),
@@ -1057,7 +1061,7 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
     const tickB = join(base, 'tickB.iso')
     const streakB = join(base, 'streakB.json')
     for (let i = 0; i < 3; i++)
-      auditOpsPatrol({
+      await auditOpsPatrol({
         now: t0 + i * INTERVAL,
         tickFile: tickB,
         streakFile: streakB,
@@ -1085,7 +1089,7 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
 
     // ── 反向锁(门槛是不是真装在判据上):把 required 设 1 ⇒ 第一轮就该到人
     const sendsC = []
-    auditOpsPatrol({
+    await auditOpsPatrol({
       now: t0,
       tickFile: join(base, 'tickC.iso'),
       streakFile: join(base, 'streakC.json'),
@@ -1105,7 +1109,8 @@ test('TS1 巡检发信必须过持续性门槛(风暴型尖峰不寄信),且未�
     )
     // ── 形态锁:连击算术只准有一份实现(§22c),巡检这一路必须调既有的 bumpProbeStreak
     const s = src('scripts/git-guardian.mjs')
-    const body = s.slice(s.indexOf('export function auditOpsPatrol'), s.indexOf('export function auditOpsPatrol') + 9000)
+    // 派发点是 async(2026-11-07 起):切片锚点跟着改,但取的仍是同一个函数体。
+    const body = s.slice(s.indexOf('export async function auditOpsPatrol'), s.indexOf('export async function auditOpsPatrol') + 9000)
     assert.match(body, /bumpProbeStreak\(/, '巡检发信没接连击判据 ⇒ 门槛只是注释')
     assert.match(body, /OPS_PATROL_STREAK_FILE/, '连击账本必须是具名常量(第二份戳/第二份账必然漂移)')
     assert.doesNotMatch(body, /streak \+ 1|streak\+\+/, '派发点里不得自己写连击算术(复用同一份实现)')

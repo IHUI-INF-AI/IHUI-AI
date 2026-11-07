@@ -259,7 +259,7 @@ function createStyles(tk: AppThemeTokens) {
     cardDescription: {
       marginTop: rnSpacing.xs, // mt-1
       fontSize: rnType.body.size, // text-sm
-      lineHeight: 20, // leading-5
+      lineHeight: rnType.body.lineHeight, // leading-5
       color: tk.text.secondary,
     },
     tagRow: {

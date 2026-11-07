@@ -276,6 +276,30 @@ def sweep_sequence(
     return kept, dropped
 
 
+def json_archive_blocks_replace(path: str | os.PathLike[str], *, expect: str | None = None) -> bool:
+    """文件不存在或空文件可以新建。非空损坏、读不到、或根类型不对时不能覆盖。"""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        logger.warning("JSON 存档读不到,不能覆盖: %s: %s", path, exc)
+        return True
+    if text.strip() == "":
+        return False
+    try:
+        data = json.loads(text)
+    except ValueError:
+        logger.warning("JSON 存档损坏,不能覆盖: %s", path)
+        return True
+    if expect == "object" and not isinstance(data, dict):
+        return True
+    if expect == "array" and not isinstance(data, list):
+        return True
+    return False
+
+
 def read_json_file(path: str | os.PathLike[str]) -> Any | None:
     """读 JSON 文件。
 

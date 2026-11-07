@@ -58,6 +58,12 @@ const ENV_DIRECT_ACCESS: Record<string, string | undefined> = {
   NEXT_PUBLIC_ALIPAY_REDIRECT_URI: process.env.NEXT_PUBLIC_ALIPAY_REDIRECT_URI,
   NEXT_PUBLIC_ALIPAY_SCOPE: process.env.NEXT_PUBLIC_ALIPAY_SCOPE,
   NEXT_PUBLIC_OIDC_ENABLED: process.env.NEXT_PUBLIC_OIDC_ENABLED,
+  NEXT_PUBLIC_LINUXDO_ENABLED: process.env.NEXT_PUBLIC_LINUXDO_ENABLED,
+  NEXT_PUBLIC_LINUXDO_CLIENT_ID: process.env.NEXT_PUBLIC_LINUXDO_CLIENT_ID,
+  // 仅登记占位,使 .env 键集与本表严格一一对应;LINUXDO_CONFIG.redirectUri 恒留空
+  // (后端代理闭环,填值会切到直连厂商分支 —— 见下方 LINUXDO_CONFIG 注释),本键不参与导航。
+  NEXT_PUBLIC_LINUXDO_REDIRECT_URI: process.env.NEXT_PUBLIC_LINUXDO_REDIRECT_URI,
+  NEXT_PUBLIC_LINUXDO_SCOPE: process.env.NEXT_PUBLIC_LINUXDO_SCOPE,
 }
 
 /**
@@ -247,6 +253,42 @@ export const OIDC_CONFIG: ThirdPartyPlatformConfig = {
   proxyPath: '/api/auth/oauth/oidc/redirect', // method: GET
 }
 
+/**
+ * LinuxDo 登录配置(2026-11-07 立)
+ *
+ * 厂商:LinuxDo(Discourse 社区,授权页 https://connect.linux.do/oauth2/authorize),
+ * 国内可达、面向中国开发者,故归「国内优先」档(排法见
+ * `packages/shared/src/auth/login-region-policy.ts` 的 THIRD_PARTY_PRIORITY.domestic)。
+ *
+ * 闭环形态与 OIDC 同型(**后端代理**),不是 GitHub 那种「前端直连厂商 + web /callback」:
+ *   1. 点击 → `${proxyPath}` = GET /api/auth/oauth/linuxdo/redirect
+ *   2. 后端自己 generateState + 302 到 connect.linux.do(厂商侧登记的 redirect_uri 是**后端**
+ *      GET /api/auth/oauth/linuxdo/callback,即 api `.env` 的 LINUXDO_REDIRECT_URI)
+ *   3. 后端 exchangeCode → setAuthCookies(httpOnly)→ 302 回 `${webOrigin}/sso/login?sso=linuxdo`
+ *   ⇒ 浏览器自己把会话闭环走完,web 侧既不接收厂商回调,也不参与 state 校验。
+ *
+ * 因此 `redirectUri` **恒留空**(与 OIDC_CONFIG 同一手法):`validatePlatformConfig` 拿不到
+ * REDIRECT_URI ⇒ `canDirectRedirect` 恒 false ⇒ `startLogin` 只会落 `proxyPath` 那一跳。
+ * 一旦在此填上 web 回调地址,startLogin 会改走「直连厂商」分支,把用户送回
+ * `POST /api/auth/:platform/callback` —— 那条通用回调只覆盖 8 平台**不含 linuxdo**,
+ * 且厂商白名单也对不上,结果就是"亮着但点了必挂"(本文件 2026-10-22 记的同型事故)。
+ * `authUrl`/`clientId`/`scope` 只作厂商端点与公开标识的登记,不参与导航。
+ *
+ * 「未配置即不亮」:后端只在 redirect/callback 里用 `isLinuxdoConfigured()` 判可用,
+ * 而 `GET /api/auth/oauth-status` 的 8 键里没有 linuxdo(该路由不在前端可控面),
+ * 所以 enabled 沿用 OIDC 那档 fail-closed 默认值 `false` —— 必须由部署方显式烘
+ * `NEXT_PUBLIC_LINUXDO_ENABLED=true` 才点亮,不给"构建期开关说了算"的假绿留窗口
+ * (判据与回归锁见 `src/hooks/__tests__/use-third-party-server-gate.test.tsx`)。
+ */
+export const LINUXDO_CONFIG: ThirdPartyPlatformConfig = {
+  enabled: getEnvBool('NEXT_PUBLIC_LINUXDO_ENABLED', false),
+  clientId: getEnv('NEXT_PUBLIC_LINUXDO_CLIENT_ID'),
+  redirectUri: '',
+  scope: getEnv('NEXT_PUBLIC_LINUXDO_SCOPE', 'user'),
+  authUrl: 'https://connect.linux.do/oauth2/authorize',
+  proxyPath: '/api/auth/oauth/linuxdo/redirect', // method: GET
+}
+
 /** 平台 → 配置映射 */
 const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   google: GOOGLE_CONFIG,
@@ -258,6 +300,7 @@ const PLATFORM_CONFIGS: Record<ThirdPartyPlatform, ThirdPartyPlatformConfig> = {
   feishu: FEISHU_CONFIG,
   alipay: ALIPAY_CONFIG,
   oidc: OIDC_CONFIG,
+  linuxdo: LINUXDO_CONFIG,
   app: APP_CONFIG,
 }
 

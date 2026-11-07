@@ -311,6 +311,15 @@ describe('status 枚举', () => {
 });
 
 describe('损坏文件处理', () => {
+  it('损坏内容不会被收成新会话', () => {
+    const id = 'broken-keep';
+    const file = path.join(tmpStateDir, `${id}.json`);
+    const body = '{not json';
+    fs.writeFileSync(file, body);
+    expect(() => saveSession(makeSession({ id }))).toThrow(/不能把它覆盖成新会话 \(corrupt\)/);
+    expect(fs.readFileSync(file, 'utf-8')).toBe(body);
+  });
+
   it('非 JSON 内容返回 null', () => {
     fs.writeFileSync(path.join(tmpStateDir, 'broken.json'), 'not json{');
     expect(loadSession('broken')).toBeNull();

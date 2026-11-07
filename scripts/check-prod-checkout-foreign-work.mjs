@@ -73,7 +73,8 @@
  *   - 判不到的型:工作区 blob 与 HEAD/origin **都**取得到但组合出别的形态(如把 HEAD 版本挪到新路径)
  *     落 duplicate/foreign 的既有格;本器不判"语义上是不是该提交",只判"内容在不在仓里"。
  *
- * 用法:node scripts/check-prod-checkout-foreign-work.mjs [--json] [--prod-root <path>]
+ * 用法:node scripts/check-prod-checkout-foreign-work.mjs [--json] [--prod-root <path>] [--self-test]
+ *   `--self-test` = 纯函数与注入夹具自检(不读注册表、不派生 git、不扫任何真签出)。
  *   `--prod-root` / `IHUI_PROD_CHECKOUT_ROOT` = 定向复核与阳性对照出口(不给则走上面的多通道发现)。
  * 结论行(纯 ASCII,派发侧只读它不读散文):`PROBE-RESULT state=<clean|duplicate|dirty|unjudged>
  *   foreign=… duplicate=… staged=… untracked=… unjudged=… surface=<judged|absent-surveyed|none>
@@ -887,14 +888,16 @@ export function verdictFromSurvey(survey, opts = {}) {
   }
 }
 
-/** 本器认识的旗标（唯一清单；头注 L74 的用法行与之同源，§0.6 不得两处各写）。 */
-export const PROD_FOREIGN_KNOWN_FLAGS = Object.freeze(['--json', '--prod-root'])
+/** 本器认识的旗标（唯一清单；头注「用法:」行与之同源，§0.6 不得两处各写）。 */
+export const PROD_FOREIGN_KNOWN_FLAGS = Object.freeze(['--json', '--prod-root', '--self-test'])
 
 /**
  * 纯校验：第一枚不认识的旗（字符串），全合法 ⇒ null。不 exit，好被镜像测试直接问。
- * 立因（2026-10-30 实测）：本器原先没有这道闸，又**没有 selfTest**，于是有人敲
+ * 立因（2026-10-30 实测）：本器原先没有这道闸，也没有自检入口，于是有人敲
  * `node scripts/check-prod-checkout-foreign-work.mjs --self-test` 以为在跑自检，
  * 实际被静默忽略并按默认档跑了一整轮生产签出扫描（几万发 git ls-tree 那种）。
+ * 2026-11-06：`--self-test` 已按其它 check-*.mjs 的既有形制补齐（纯函数 + 注入夹具，
+ * 不读注册表、不派生 git、不碰任何真签出）；闸仍然对**未知**旗 exit 2。
  * 同族纪律：`check-verbatim-resurrection.mjs` 头注「未认识的旗标一律用法错 exit 2」、
  * `git-sync-converge.mjs` 的 arg guard（RP-79）。失效方向 = 多要一次定向说明（§0.10），
  * 绝不"不认识就当没问"进而静默执行默认档动作。
@@ -914,14 +917,124 @@ export function findUnknownFlag(argvList = []) {
   return null
 }
 
+/**
+ * 自检：纯函数 + 注入夹具，覆盖正常 / 越界(未知旗、人工根不成立) / 只读三类关键分支。
+ * 只读纪律：发现器全部走注入通道(reg/listServiceNames/conventionalRoots/exists)，
+ * 不派生 git、不读本机注册表、不扫任何真实生产签出 —— 自检本身零副作用。
+ */
+export function selfTest() {
+  const fail = []
+  const t = (name, ok, got) => {
+    if (!ok) fail.push(`${name}${got === undefined ? '' : `（实得:${String(got)}）`}`)
+  }
+  // ① 旗标闸：未知旗点名；已知旗/带值/等号形不误杀(--self-test 必须在清单内)
+  t('未知旗必须点名', findUnknownFlag(['--delete-all']) === '--delete-all', findUnknownFlag(['--delete-all']))
+  t('--self-test 必须认识', findUnknownFlag(['--self-test']) === null)
+  t('--json 认识', findUnknownFlag(['--json']) === null)
+  t('--prod-root 带值不吃值', findUnknownFlag(['--prod-root', 'D:/x']) === null)
+  t('--prod-root 等号形', findUnknownFlag(['--prod-root=D:/x']) === null)
+  t('重复合法旗不炸', findUnknownFlag(['--json', '--prod-root', 'x', '--json', '--self-test']) === null)
+
+  // ② 分类判据：三桶 + 两种未判定(含"摘松会误判/摘紧会漏判"的对照形状)
+  const dupOrigin = classifyEntry({ status: ' M', workBlob: 'o', originBlob: 'o', headBlob: 'h', inOrigin: true, idxExists: true, idxBlob: 'i' })
+  const dupHead = classifyEntry({ status: ' M', workBlob: 'h', originBlob: null, headBlob: 'h', inOrigin: false, idxExists: true, idxBlob: 'i' })
+  const staged = classifyEntry({ status: 'A ', workBlob: 'w', originBlob: null, headBlob: null, inOrigin: false, idxExists: true, idxBlob: 'i' })
+  const foreign = classifyEntry({ status: '??', workBlob: 'w', originBlob: null, headBlob: null, inOrigin: false, idxExists: false, idxBlob: null })
+  const noWorkBlob = classifyEntry({ status: ' D', workBlob: null, originBlob: null, headBlob: null, inOrigin: false, idxExists: false, idxBlob: null })
+  const idxMissing = classifyEntry({ status: ' M', workBlob: 'w', originBlob: null, headBlob: null, inOrigin: false, idxExists: false, idxBlob: 'i' })
+  t('工作区 blob == origin ⇒ duplicate', dupOrigin.bucket === 'duplicate', dupOrigin.bucket)
+  t('工作区 blob == HEAD ⇒ duplicate', dupHead.bucket === 'duplicate', dupHead.bucket)
+  t('索引里远端没有的新文件 ⇒ staged-untracked', staged.bucket === 'staged-untracked', staged.bucket)
+  t('两侧都取不到的新文件 ⇒ foreign(摘紧会漏掉)', foreign.bucket === 'foreign', foreign.bucket)
+  t('工作区 blob 取不到 ⇒ unjudged', noWorkBlob.bucket === 'unjudged' && noWorkBlob.why.includes('status='), noWorkBlob.bucket)
+  t('索引 blob 不在对象库 ⇒ unjudged', idxMissing.bucket === 'unjudged' && idxMissing.why.includes('cat-file'), idxMissing.bucket)
+
+  // ③ 退出码映射
+  t('unjudged ⇒ 2', exitFor({ state: 'unjudged' }) === 2, exitFor({ state: 'unjudged' }))
+  t('dirty ⇒ 1', exitFor({ state: 'dirty' }) === 1, exitFor({ state: 'dirty' }))
+  t('duplicate / clean ⇒ 0', exitFor({ state: 'duplicate' }) === 0 && exitFor({ state: 'clean' }) === 0)
+
+  // ④ porcelain -z 解析(重命名双 NUL 段只取目的路径)
+  const renamed = parsePorcelainZ('R  new.txt\0old.txt\0 M b.txt\0')
+  t(
+    'porcelain -z 重命名不重复计入',
+    renamed.length === 2 && renamed[0].path === 'new.txt' && renamed[1].path === 'b.txt',
+    JSON.stringify(renamed),
+  )
+
+  // ⑤ 结论行:纯 ASCII + 计数/归因位齐全(派发侧按空格切词)
+  const lineDirty = verdictLine('dirty', { foreign: 1, duplicate: 2, staged: 0, untracked: 3, unjudged: 0 }, { surface: 'judged', undet: ['原因:x'] })
+  t('结论行纯 ASCII', /^[\x20-\x7E]+$/.test(lineDirty), lineDirty)
+  t(
+    '结论行带全计数与归因位',
+    /foreign=1/.test(lineDirty) && /untracked=3/.test(lineDirty) && /surface=judged/.test(lineDirty) && /undet=__:x/.test(lineDirty),
+    lineDirty,
+  )
+
+  // ⑥ 发现器(通道 D 成立 / 不成立、全通道空判定面、一通道都量不到)
+  const norm = (p) => String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+  const root = 'D:/prod/ihui'
+  const existsAt = (...paths) => {
+    const set = new Set(paths.map(norm))
+    return (p) => set.has(norm(p))
+  }
+  const okSurvey = surveyProdCheckouts({ env: {}, overrideRoot: root, exists: existsAt(root, `${root}/.git`) })
+  t(
+    '通道 D 人工根成立 ⇒ ok',
+    okSurvey.state === 'ok' && okSurvey.via === 'override' && norm(okSurvey.roots[0].value) === norm(root),
+    okSurvey.state,
+  )
+  const badOverride = surveyProdCheckouts({ env: {}, overrideRoot: 'D:/nope/ihui', exists: () => false })
+  t(
+    '人工根不成立 ⇒ unjudged 且逐型点名(不静默回落)',
+    badOverride.state === 'unjudged' && badOverride.causes.some((c) => c.startsWith('override-root-unusable:')),
+    badOverride.causes.join(';'),
+  )
+  const absentSurvey = surveyProdCheckouts({
+    env: {},
+    repoRoot: 'D:/repo',
+    reg: { injected: true }, // 只用注入通道:真 reg.exe / PowerShell 一概不碰
+    exists: () => false,
+    listServiceNames: () => ({ ok: true, code: 0, names: ['Spooler', 'PrintSpooler'] }),
+    conventionalRoots: { state: 'measured', roots: [] },
+  })
+  t(
+    '全通道量到且无独立签出 ⇒ absent(是量过的空,不是没量)',
+    absentSurvey.state === 'absent' && absentSurvey.evidence.servicesEnumerated === 2,
+    absentSurvey.state,
+  )
+  const unjudgedSurvey = surveyProdCheckouts({ env: {}, repoRoot: 'D:/repo', reg: null, exists: () => false })
+  t(
+    '一条通道都量不到 ⇒ unjudged/reg-not-located',
+    unjudgedSurvey.state === 'unjudged' && unjudgedSurvey.causes.includes('reg-not-located'),
+    unjudgedSurvey.causes.join(';'),
+  )
+
+  // ⑦ 结论装配 + 退出码(正常 / 越界 / 只读三档)
+  const vAbsent = verdictFromSurvey(absentSurvey)
+  t('absent ⇒ surface=absent-surveyed 且 exit 0', vAbsent.surface === 'absent-surveyed' && exitFor(vAbsent) === 0, `${vAbsent.surface}/${exitFor(vAbsent)}`)
+  const vUnjudged = verdictFromSurvey(unjudgedSurvey)
+  t('unjudged ⇒ exit 2 且结论行可机读', exitFor(vUnjudged) === 2 && /^PROBE-RESULT /.test(vUnjudged.line), exitFor(vUnjudged))
+  const merged = probeAllRoots([{ value: 'D:/third-party/rsshub', via: 'override' }], { isProject: () => false })
+  t('第三方仓不进判定面(零 git 调用的只读分支)', merged.state === 'clean' && merged.notProject.length === 1, merged.state)
+
+  console.log(
+    fail.length
+      ? `❌ self-test ${fail.length} 例:\n  - ` + fail.join('\n  - ')
+      : `✅ self-test 通过(7 组判据 · 阳性对照覆盖:旗标闸 / 分类三桶与两种未判定 / 退出码 / porcelain 重命名 / 结论行 ASCII / 通道 D 成立与不成立 / 全通道空判定面 / 第三方仓让路)`,
+  )
+  return fail.length ? 1 : 0
+}
+
 async function main() {
   const argv = process.argv.slice(2)
+  if (argv.includes('--self-test')) process.exit(selfTest())
   const json = argv.includes('--json')
   const badFlag = findUnknownFlag(argv)
   if (badFlag) {
     console.error(
       `用法错误：未认识的旗标 ${badFlag}（本器不做"未知旗静默忽略后按默认档跑真探测"；` +
-        `本器只认 ${PROD_FOREIGN_KNOWN_FLAGS.join(' / ')}，用法见文件头注 L74）`,
+        `本器只认 ${PROD_FOREIGN_KNOWN_FLAGS.join(' / ')}，用法见文件头注「用法:」行）`,
     )
     process.exit(2)
   }
@@ -964,6 +1077,7 @@ if (isDirectRun) {
 export const __test__ = {
   PROD_FOREIGN_KNOWN_FLAGS,
   findUnknownFlag,
+  selfTest,
   PROD_SERVICE,
   ORIGIN_REF,
   REG_SERVICES_KEY,

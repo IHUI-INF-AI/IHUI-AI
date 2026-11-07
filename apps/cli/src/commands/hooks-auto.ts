@@ -54,6 +54,12 @@ export interface HookDefinition {
   scriptType: 'javascript' | 'typescript' | 'shell';
   /** 来源目录绝对路径 */
   source: string;
+  /**
+   * 来源档位标签(`id` 的前缀):工作区五级目录的名字 / `global`。
+   * 此前只在扫描入参里存在(于是只有 `id` 前缀间接带着它),调用方要按档位筛
+   * (例如"工作区 hook vs 用户全局 hook")只能切字符串 —— 这里如实作为字段暴露。
+   */
+  sourceLabel: string;
   enabled: boolean;
   /** 超时 ms,默认 5000 */
   timeout: number;
@@ -180,7 +186,9 @@ export function addTrustedWorkspace(workspacePath: string): void {
   let trusted = new Set<string>();
   if (baseline.content !== null && baseline.content.trim() !== '') {
     const parsed = JSON.parse(baseline.content) as { trusted?: string[] } | null;
-    if (!parsed || typeof parsed !== 'object') throw new Error(`信任清单格式非法: ${file}`);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`信任清单格式非法: ${file}`);
+    }
     trusted = new Set(Array.isArray(parsed.trusted) ? parsed.trusted.map((x) => path.resolve(x)) : []);
   }
   trusted.add(abs);
@@ -559,6 +567,7 @@ export class HookAutoDiscovery {
       script: parsed.script,
       scriptType,
       source: sourceDir,
+      sourceLabel,
       enabled,
       timeout,
       metadata,

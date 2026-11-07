@@ -164,11 +164,18 @@ const envSchema = z.object({
   // AI 回调共享密钥(可选,为空则不校验;配置后 ai-service 回调需带 X-Internal-Secret 头)
   AI_CALLBACK_SECRET: z.string().default(''),
 
-  // ── 内部服务鉴权通道档位(2026-10-06 立)──
-  // ticket = 只认一次性短期票(老门彻底关掉);dual = 两档并存(默认,兼容窗口);
-  // legacy = 只认老门(应急回退,保的是"能进"不是"安全")。
-  // 未知值一律落回 dual,理由:拼错档位名不该静默把门关掉。
-  INTERNAL_SERVICE_AUTH_MODE: z.enum(['ticket', 'dual', 'legacy']).default('dual'),
+  // ── 内部服务鉴权通道档位(2026-10-06 立,2026-11-05 默认收口)──
+  // ticket = 只认一次性短期票(强校验 + 可轮换;默认档);
+  // dual   = 两档并存(**必须显式写环境变量才开启**,启动打显著告警,仅兼容窗口用);
+  // legacy = 只认老门(应急回退,**生产环境启动即失败**,保的是"能进"不是"安全")。
+  // 未知值在运行期解析里一律落回 ticket(fail-closed):拼错档位名不得静默把老门打开。
+  INTERNAL_SERVICE_AUTH_MODE: z.enum(['ticket', 'dual', 'legacy']).default('ticket'),
+
+  // ── X-Internal-Secret 族鉴权档位(2026-11-06)──
+  // 与上面的 INTERNAL_SERVICE_AUTH_MODE 分开:那一档管 x-internal-service-token /
+  // x-user-id 老通道,这一档管 5 个仍以 x-internal-secret 为唯一凭据的内网端点。
+  // ticket = 只认短期票(默认,fail-closed);dual = 兼容窗口;legacy = 应急回退(生产启动失败)。
+  INTERNAL_SECRET_AUTH_MODE: z.enum(['ticket', 'dual', 'legacy']).default('ticket'),
 
   // 票的 TTL 上限(秒),**由验票侧封顶**——发票方误配大值时"短期"这个前提必须还成立。
   INTERNAL_SERVICE_TICKET_MAX_TTL_SECONDS: z.coerce.number().int().positive().default(300),

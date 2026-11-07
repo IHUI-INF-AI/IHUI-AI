@@ -73,6 +73,8 @@ export type SendAdmissionReceipt = {
   readonly messageId?: string
   /** `queued` 档专用:排队项标识,供队列面板后续插队 / 撤回 */
   readonly queuedTurnId?: string
+  /** `queued` 档专用:前面还有几位。0 表示下一位。缺席表示没量到,不得当成 0 */
+  readonly ahead?: number
   /** 拒收原因码(命名错误码,与 stream-error-disposition 同一套码表) */
   readonly reason?: string
 }
@@ -94,6 +96,7 @@ export function readSendAdmissionReceipt(raw: unknown): SendAdmissionReceipt | n
     disposition: AdmissionDisposition
     messageId?: string
     queuedTurnId?: string
+    ahead?: number
     reason?: string
   } = { inputId, disposition }
   const messageId = v['messageId']
@@ -101,6 +104,15 @@ export function readSendAdmissionReceipt(raw: unknown): SendAdmissionReceipt | n
   const queuedTurnId = v['queuedTurnId']
   if (typeof queuedTurnId === 'string' && queuedTurnId.length > 0)
     receipt.queuedTurnId = queuedTurnId
+  const ahead = v['ahead']
+  if (
+    disposition === 'queued' &&
+    typeof ahead === 'number' &&
+    Number.isInteger(ahead) &&
+    ahead >= 0
+  ) {
+    receipt.ahead = ahead
+  }
   const reason = v['reason']
   if (typeof reason === 'string' && reason.length > 0) receipt.reason = reason
   return receipt
@@ -133,19 +145,23 @@ export function createInputId(): string {
 /** 退化路径的进程内自增,保证同毫秒同随机源也不撞 */
 let ID_SEQ = 0
 
-/** 隐式准入证据:不是服务端回执,但**能证明**这一轮真的开始了。 */
+/** 隐式准入证据:不是服务端回执。只有后两档能证明这一轮真的开始了。 */
 export type AdmissionEvidence =
-  /** 响应头已到(流已建立 ⇒ 网关已受理) */
+  /**
+   * 响应头已到。只证明连接建立,中间盒可以先回这一头而回合根本没进服务端。
+   * **不得**据此把界面抬成「已发送」。
+   */
   | 'stream-open'
-  /** 收到任意正文 / 推理增量 ⇒ 上游模型已在产出 */
+  /** 收到任意正文 / 推理 / 工具增量 ⇒ 上游已经在执行这一轮 */
   | 'delta'
-  /** 收到流尾 `done` ⇒ 整轮已跑完 */
+  /** 收到流尾 `done` ⇒ 服务端把这一轮跑完了(空正文也算跑完,不是没收到) */
   | 'done'
 
 /**
  * 消息侧的呈现态。与 `AdmissionDisposition` **不是同一套词**,别互换:
  * - `tentative`:发出去了,服务端还没给任何证据(乐观上屏的默认档);
- * - `admitted`:`accepted` 回执,或有隐式证据证明本轮真的开始了;
+ * - `admitted`:`accepted` / `duplicate` 回执,或正文 / 流尾证据证明本轮真的开始了
+ *   (仅有响应头不算);
  * - `queued`:`queued` 回执(已收下但排在队尾,**不是**"正在回答");
  * - `rejected`:`rejected` 回执(终态);
  * - `unconfirmed`:本轮已收场(失败 / 主动停止),而始终没拿到任何准入证据 ——
@@ -159,6 +175,15 @@ export const ADMISSION_PHASES = [
   'unconfirmed',
 ] as const
 export type AdmissionPhase = (typeof ADMISSION_PHASES)[number]
+
+/**
+ * 界面可以当作「服务端收下了这一轮」的档。
+ * `tentative` 还在等,`rejected` 是明确拒收,`unconfirmed` 是不知道送没送到 ——
+ * 这三档都不许把输入框清空、不许把用户气泡留成一条普通已发送消息。
+ */
+export function admissionCountsAsAccepted(phase: AdmissionPhase): boolean {
+  return phase === 'admitted' || phase === 'queued'
+}
 
 /** 一次判定的结果(`changed:false` 供渲染层跳过无谓写盘,与 store 的等价即不写同取向)。 */
 export interface AdmissionResolution {
@@ -236,10 +261,12 @@ export function createSendAdmissionTracker(input: {
       return receipt ? { ...resolution, receipt } : resolution
     },
 
-    noteEvidence() {
+    noteEvidence(evidence) {
       // 终态与已确认档都不许被证据改写:证据只能"往上抬",不能把 queued 洗成 admitted,
       // 更不能把 rejected 洗白(洗白 = 用一条流证明一个明确被拒的请求成功了)。
       if (TERMINAL_PHASES.has(phase) || phase !== 'tentative') return tracker.read()
+      // 响应头不是回执。弱网下连接可以先建立,服务端却没有这一轮。
+      if (evidence === 'stream-open') return tracker.read()
       return move('admitted', true)
     },
 

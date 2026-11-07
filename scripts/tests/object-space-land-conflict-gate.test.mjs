@@ -92,7 +92,15 @@ function makeRepo(t) {
 }
 
 /** 真跑一次落地(env 驱动的 CLI,与外部调用完全同形)。 */
-function land(dir, { paths = 'land.txt', msg = 'e2e', extra = {} } = {}) {
+// 缺省正文必须过落地器的"正文形状"档(2026-11-04 立:单行且 <24 字符判"不像一句能被回读证明的说明"
+// ⇒ exit 2)。旧缺省 `e2e` 从那天起让本档 4 枚用例整片红:它们要验的是**冲突标记闸**的退出码,
+// 结果先死在形状档上,拿到的 2 既不是业务拒绝的 1 也不是放行的 0。
+// 改夹具不改判据 —— 为了消红去放宽形状档是错方向。
+function land(dir, {
+  paths = 'land.txt',
+  msg = 'test(land): 冲突标记闸夹具正文 —— 需过落地器的正文形状档',
+  extra = {},
+} = {}) {
   return spawnSync(process.execPath, [SCRIPT], {
     env: {
       ...process.env,

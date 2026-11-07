@@ -9,6 +9,12 @@ import { MoreCourseScreen } from '../MoreCourseScreen'
 
 const t = ((key: string) => key) as unknown as TFunction
 
+/**
+ * 测试桩:共享屏只消费调用方解析好的明暗档案(真机值来自 ThemeContext.resolvedTheme);
+ * 单测固定浅色,避免组件静默落回形参默认值。
+ */
+const TEST_COLOR_SCHEME: 'light' | 'dark' = 'light'
+
 const baseProps: MoreCourseScreenProps = {
   t,
   items: [],
@@ -21,6 +27,7 @@ const baseProps: MoreCourseScreenProps = {
   onEndReached: vi.fn(),
   onPressItem: vi.fn(),
   onBack: vi.fn(),
+  colorScheme: TEST_COLOR_SCHEME,
 }
 
 afterEach(cleanup)

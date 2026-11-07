@@ -195,11 +195,14 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
     return () => cancelAnimationFrame(raf)
   }, [mobileOpen, mobileMounted])
 
-  // 桌面端展开态拖拽调整宽度(160-180px,2026-08-01 最小宽度从 130 加大到 160),localStorage 持久化。
+  // 桌面端展开态拖拽调整宽度(范围 = SIDEBAR_MIN_WIDTH..SIDEBAR_MAX_WIDTH,即几何档
+  // drawerWidth..sidebarMaxWidth;2026-08-01 下限由 130 收到与默认宽同值),localStorage 持久化。
   // 2026-07-22 修复首屏 width 闪烁(2026-08-01 修订,根治残留闪烁):
   // - layout.tsx inline script 在 React hydrate 前同步预设 :root --sidebar-width CSS 变量
-  //   (读 localStorage sidebar-width,范围 160-180,fallback 160px),首帧 aside width = 预设值。
-  // - aside 元素 width 用 `var(--sidebar-width, 160px)` 字符串引用(SSR/CSR 字节级一致),
+  //   (读 localStorage sidebar-width,范围 drawerWidth..sidebarMaxWidth,fallback = drawerWidth),
+  //   首帧 aside width = 预设值。
+  // - aside 元素 width 用 `var(--sidebar-width, ${SIDEBAR_WIDTH}px)` 模板插值(SSR/CSR 字节级一致;
+  //   fallback 取几何档,不写字面量 —— 改档一处生效),
   //   React 不解析 CSS 变量,只比较 style 字符串,无 hydration mismatch 警告。
   // - useEffect 首次 mount 只读 localStorage 同步 sidebarWidth state,不覆盖 inline script 预设的
   //   CSS 变量(避免 160→localStorage 值的跳变);state 变化触发 effect 重新执行时才设 CSS 变量。
@@ -468,20 +471,25 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           //  对齐 ai-side-panel/agent-task-progress-pane 的既有 z-sticky 做法。
           //  侧栏内 Tooltip/PortalPanel 均 Portal 到 body 自带 z-popover,不依赖本层。)
           'relative h-screen shrink-0 flex-col overflow-visible bg-background transition-[width] duration-200 flex z-sticky',
-          effectiveCollapsed && 'w-[60px]',
+          // 折叠态宽度不再配 `w-[60px]` 类:宽度只留 inline style 一处来源
+          // ({ width: SIDEBAR_COLLAPSED_WIDTH },值来自几何档 sidebarCollapsedWidth)。
+          // 类名里再写一份 60px 就是第二份真相,且 Tailwind JIT 认不出模板插值 ⇒ 改档必漏。
         )}
         // 2026-07-22 修复首屏 width 闪烁:
-        // width 改为 `var(--sidebar-width, 160px)` 字符串引用 CSS 变量。
-        // - SSR/CSR 字节级一致(都是同一字符串),无 hydration mismatch 警告
+        // width 改为 `var(--sidebar-width, ${SIDEBAR_WIDTH}px)` 模板插值引用 CSS 变量。
+        // - SSR/CSR 字节级一致(同一字符串),无 hydration mismatch 警告
         // - 实际渲染 width = layout.tsx inline script 预设的 --sidebar-width 值
-        // - 折叠态直接 60px inline 覆盖 CSS 变量(避免与 var() 计算冲突)
-        // - 2026-08-01:fallback 160px 跟随 SIDEBAR_WIDTH 默认值同步加大
-        // - 2026-09-07:effectiveCollapsed 含平板视口强制折叠(与 globals.css 60px !important 一致)
+        // - 折叠态直接 SIDEBAR_COLLAPSED_WIDTH inline 覆盖 CSS 变量(避免与 var() 计算冲突)
+        // - 2026-11-07:fallback 直接取 SIDEBAR_WIDTH(几何档),不再写字面量 160px
+        // - 2026-09-07:effectiveCollapsed 含平板视口强制折叠
+        //   (与 globals.css 平板区间的 var(--sidebar-collapsed-width) 一致)
         style={
           effectiveCollapsed
             ? { width: SIDEBAR_COLLAPSED_WIDTH }
             : {
-                width: 'var(--sidebar-width, 160px)',
+                // fallback 也取几何档(不再写字面量 160px):inline script 被 CSP 拦或
+                // 尚未执行时,首帧宽度仍是三端同一个数 —— 改档一处即生效。
+                width: `var(--sidebar-width, ${SIDEBAR_WIDTH}px)`,
                 transition: isResizing ? 'none' : 'width 0.2s cubic-bezier(0.4,0,0.2,1)',
               }
         }
@@ -570,7 +578,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
             - onPointerDown 兼容鼠标 + 触屏,无需额外 touch event listener
             - 命中区 w-2 (8px),right-[-4px] 跨越 aside 右边缘
             - 内层 w-0.5 可见细线,默认 opacity:0,hover/拖拽时显渐变色
-            - 范围自动跟随 SIDEBAR_MIN_WIDTH-SIDEBAR_MAX_WIDTH (130-180),跟 web 统一 */}
+            - 范围自动跟随 SIDEBAR_MIN_WIDTH-SIDEBAR_MAX_WIDTH(即几何档 drawerWidth..sidebarMaxWidth),跟 web 统一 */}
           <div
             onPointerDown={handleResizeStart}
             className="group absolute right-[-4px] top-0 bottom-0 z-20 w-2 cursor-col-resize"

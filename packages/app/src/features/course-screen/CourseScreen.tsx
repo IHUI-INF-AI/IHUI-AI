@@ -56,7 +56,7 @@ export function CourseScreen({
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 10, paddingBottom: 32 }}
+        contentContainerStyle={{ padding: rnSpacing['sm-loose'], paddingBottom: rnSpacing['3xl'] }}
         ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
         ListEmptyComponent={
           loading ? (

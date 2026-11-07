@@ -210,6 +210,8 @@ function saveSettings(settings: Settings): void {
     writeMainCredentials(patch, { recoverCorrupt: true });
   }
   const p = getSettingsPath();
+  const read = readSettingsObjectForUpdate(p);
+  if (read.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
   fs.mkdirSync(path.dirname(p), { recursive: true });
   writePrivateFile(p, JSON.stringify(withoutMainCredentialFields(settings), null, 2) + '\n');
 }

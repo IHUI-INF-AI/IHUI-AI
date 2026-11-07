@@ -22,16 +22,24 @@
  *     在 `git commit --only` 期间 git 会经 `GIT_INDEX_FILE` 传入临时索引,读到的正是本次
  *     提交的内容,语义自动对齐。
  *
- * ## 失效方向(§0.10)
+ * ## 失效方向(§0.10,2026-11-07 收紧)
  *
  * - `resurrected` ⇒ **exit 1**,逐条点名理由与有效期,给两条出路;
- * - `undetermined`(台账坏档 / 读不到索引面)⇒ **只报不拦**,exit 0 —— 判不出不是定罪的许可证;
- * - 台账缺席或零条目 ⇒ 无判据,静默通过(不刷噪音)。
+ * - 台账**缺失** ⇒ **exit 2**(未判定),打印「台账缺失 ⇒ 未判定 ⇒ 判失败」——
+ *   没有判据等于闸没立;旧口径「缺席即静默通过」已于 2026-11-07 删除;
+ * - 台账**坏档** / 读不到索引面 ⇒ **exit 2**(未判定),同样不当作通过;
+ * - 台账在但零条目 ⇒ 有判据、判 clean,exit 0。
+ * 机器口 `--json` 仍永远 exit 0,用 `verdict` 区分 `clean`/`resurrected`/`undetermined`。
+ *
+ * 台账重建(HEAD 实际删除历史,不搬旧文件):
+ *   git log -m --diff-filter=D --name-only --no-renames --since=<ISO> --format= HEAD
+ *   → 只保留「当前 HEAD 树里已不存在」的路径(删了又被后续提交加回来的不算),逐行入账。
+ *   生成脚本的完整口径写在台账文件头注释里。
  *
  * 用法:
- *   node scripts/check-staged-resurrection.mjs          # pre-commit 用,失败 exit 1
+ *   node scripts/check-staged-resurrection.mjs          # pre-commit 用:判红 exit 1,未判定 exit 2
  *   node scripts/check-staged-resurrection.mjs --json   # 机器读,永远 exit 0
- *   node scripts/check-staged-resurrection.mjs --quiet  # 只在失败时说话
+ *   node scripts/check-staged-resurrection.mjs --quiet  # 只在失败/未判定时说话
  */
 import { spawnSync } from 'node:child_process'
 import { judgeResurrection, readFileDeletionNotices } from './lib/intentional-file-deletion.mjs'
@@ -74,8 +82,19 @@ function main() {
   const added = addedPaths()
   if (added === null) {
     if (asJson) console.log(JSON.stringify({ verdict: 'undetermined', why: '读不到索引面' }))
-    else if (!quiet) console.log('⚠️  复活闸:读不到索引面 ⇒ 本轮跳过(判不出≠没回流)')
-    return 0
+    else console.error('❌ 复活闸:读不到索引面 ⇒ 未判定 ⇒ 判失败(先修 git 索引面)')
+    return 2
+  }
+
+  if (notices.absent) {
+    if (asJson)
+      console.log(JSON.stringify({ verdict: 'undetermined', why: '台账缺失', addedCount: added.length }))
+    else {
+      console.error('❌ 复活闸:台账缺失 ⇒ 未判定 ⇒ 判失败。')
+      console.error('   缺 scripts/data/intentional-file-deletions.jsonl:没有台账就判不出回流。')
+      console.error('   重建口径见台账文件头注释与脚本头注释(HEAD 实际删除历史生成,不搬旧文件)')
+    }
+    return 2
   }
 
   const j = judgeResurrection({ notices, addedPaths: added })
@@ -113,8 +132,8 @@ function main() {
   }
 
   if (j.verdict === 'undetermined') {
-    if (!quiet) console.error(`⚠️  复活闸:台账解不开(${j.why})⇒ 本轮只报不拦,修好台账后自动生效`)
-    return 0
+    console.error(`❌ 复活闸:台账解不开(${j.why})⇒ 未判定 ⇒ 判失败(未判定不是通过,修好台账后才放行)`)
+    return 2
   }
 
   if (!quiet) console.log(`✅ 复活闸:新增面 ${added.length} 件,与删除台账无交集`)

@@ -4,12 +4,14 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync, spawn, spawnSync } from 'node:child_process'
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs'
+import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { judgeRunningState } from '../lib/push-state-liveness.mjs'
 import {
   triagePushAttempt,
   PUSH_TRIAGE_KINDS,
@@ -768,8 +770,21 @@ test('分诊·成对:真守门批汇总必判 hook-failed 且保留原重试链'
   const v = triagePushAttempt(FIXTURES_BY_KIND['hook-failed'])
   assert.equal(v.kind, 'hook-failed')
   assert.equal(v.allowHookRetry, true, 'exit 75 中断链(§5b ⑤)不许被本次修复堵死')
-  assert.equal(v.allowNoVerifyRetry, true, '真钩子失败仍按用户规则 --no-verify 兜底')
+  // 2026-11-02 P4:钩子痕迹**本身**不是跳门理由;该夹具没有「范围外降级」证据行 ⇒ 拒绝 --no-verify
+  assert.equal(
+    v.allowNoVerifyRetry,
+    false,
+    '无「全部报错文件均不在本次推送范围…降级为警告」证据 ⇒ 不得 --no-verify',
+  )
+  assert.match(v.why, /没有[\s\S]*显式证据/)
   assert.equal(v.terminalStatus, null, '钩子档不替验证段落终态')
+  // 成对正向:同型失败带上证据 ⇒ 兜底链仍然活着(收紧不是堵死)
+  const withEvidence = triagePushAttempt({
+    status: 1,
+    stderr: `${FIXTURES_BY_KIND['hook-failed'].stderr}\n[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)`,
+  })
+  assert.equal(withEvidence.kind, 'hook-failed')
+  assert.equal(withEvidence.allowNoVerifyRetry, true, '有显式证据时 §12 的兜底链不得被堵死')
 })
 
 test('分诊·成对:Everything up-to-date 只在验证确实相等时才配 done', () => {
@@ -797,10 +812,12 @@ test('分诊·成对:secret-scan 不得被并进 hook-failed;other 保持改动�
   assert.equal(s.allowNoVerifyRetry, false, '--no-verify 关不掉服务器侧规则,重试必然白跑')
   const o = triagePushAttempt(FIXTURES_BY_KIND.other)
   assert.equal(o.kind, 'other')
-  assert.equal(o.allowHookRetry, true, '认不出的一律落 other = 行为与改动前逐字相同')
-  assert.equal(o.allowNoVerifyRetry, true)
+  assert.equal(o.allowHookRetry, true, '认不出的一律落 other = 带 hook 重试那一半不变')
+  // 2026-11-02 P4:other 不再 blanket 允许 --no-verify(网络断/超时都属这一档)
+  assert.equal(o.allowNoVerifyRetry, false, '无「范围外降级」显式证据 ⇒ 认不出的失败没有跳门资格')
   const empty = triagePushAttempt({ status: 1, stdout: '', stderr: '' })
   assert.equal(empty.kind, 'other', '空输出不得被猜成分叉或钩子(宁窄不误)')
+  assert.equal(empty.allowNoVerifyRetry, false, '空输出同样没有跳门证据')
 })
 
 test('分诊·成对:凭据不可得的 git 原话必判 credentials-unavailable;别的 128 仍落 other', () => {
@@ -821,9 +838,13 @@ test('分诊·成对:凭据不可得的 git 原话必判 credentials-unavailable
     }).kind,
     'credentials-unavailable',
   )
-  // 重试策略与退出码**不得**被这一档改变(与 other 同旗 —— 本票只改分类与出路)
+  // 重试策略:带 hook 那一半不变(push-gate 链不动);--no-verify 那一半 2026-11-02 P4 起按证据
   assert.equal(v.allowHookRetry, true, 'allowHookRetry 必须与 other 相同,push-gate 链不动')
-  assert.equal(v.allowNoVerifyRetry, true, 'allowNoVerifyRetry 必须与 other 相同')
+  assert.equal(
+    v.allowNoVerifyRetry,
+    false,
+    'P4:凭据档不再借 other 的旧旗 —— 跳本地钩子修不了凭据链,也没有范围外降级证据',
+  )
   assert.equal(v.terminalStatus, null, '终态仍由验证段落,分诊不越权')
   // 反向成对:同为 exit 128 但无凭据特征的失败(网络断)必须仍落 other
   const net = triagePushAttempt({
@@ -997,12 +1018,15 @@ test('e2e:真 pre-push 钩子失败 → 原有"带 hook 重试 → --no-verify �
     const hooksDir = join(work, '.githooks')
     mkdirSync(hooksDir, { recursive: true })
     // 逐字复现真实产出者的回显(sh + exit 1;本机实测 sh 形态钩子会被执行)
+    // 2026-11-02 P4:这一格要测的是"§12 兜底链没被堵死",而兜底现在要求**显式的范围外降级
+    // 证据**(check-typecheck 判定全部报错都在推送范围外并 exit 0 时才打印)⇒ 夹具带上那行签名。
     writeFileSync(
       join(hooksDir, 'pre-push'),
       [
         '#!/bin/sh',
         `printf '%s\\n' '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:' 1>&2`,
         "printf '%s\\n' '     单独复现:node scripts/check-staged-typecheck.mjs --staged' 1>&2",
+        "printf '%s\\n' '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)' 1>&2",
         "printf '%s\\n' '❌ push 门校验失败,推送已阻止' 1>&2",
         'exit 1',
         '',
@@ -1031,6 +1055,59 @@ test('e2e:真 pre-push 钩子失败 → 原有"带 hook 重试 → --no-verify �
   }
 })
 
+// ─── 端到端②b:P4 反向对照 —— 钩子失败但**无**范围外降级证据 ⇒ 不得 --no-verify ───
+// 上面那一格(②)证明有证据时兜底链还活着;这一格证明它不再是 blanket:同型失败少了那行
+// 签名 ⇒ guard 必须停在失败,且远端 tip 一动没动(旧形态在这里会无条件跳门把 in-scope
+// 类型错误推上去 —— 那是 §12「默认永不跳钩」要根治的假绿)。
+test('e2e:P4 钩子失败且无「范围外降级」证据 → 不跑 --no-verify,保持失败且远端未动', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    const hooksDir = join(work, '.githooks')
+    mkdirSync(hooksDir, { recursive: true })
+    writeFileSync(
+      join(hooksDir, 'pre-push'),
+      [
+        '#!/bin/sh',
+        `printf '%s\\n' '❌ 全量 typecheck 失败,推送已阻止(exit 1)' 1>&2`,
+        `printf '%s\\n' 'ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):' 1>&2`,
+        "printf '%s\\n' '   - scripts/lib/push-attempt-triage.mjs' 1>&2",
+        "printf '%s\\n' '❌ push 门校验失败,推送已阻止' 1>&2",
+        'exit 1',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    )
+    sh(`git config --local core.hooksPath "${hooksDir.replace(/\\/g, '/')}"`, work)
+    makeCommit(work, 'inscope.txt', 'x\n', 'feat: commit behind an in-scope typecheck failure')
+    const localSha = sh('git rev-parse HEAD', work).trim()
+    const remoteBefore = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
+
+    const r = runScript([], { cwd: work })
+    assert.match(r.stdout, /分诊=hook-failed/, `应被分诊成 hook-failed:${r.stdout}`)
+    assert.doesNotMatch(
+      r.stdout,
+      /--no-verify 重试成功/,
+      '无显式证据却跑了 --no-verify ⇒ blanket 放行回潮(§12 默认永不跳钩)',
+    )
+    assert.match(
+      r.stdout,
+      /本次\*\*不\*\*使用 --no-verify/,
+      '必须把"为什么这一趟不跳门"打到人面前,不得静默放弃',
+    )
+    assert.equal(r.status, 1, `无证据的钩子失败应保持失败,实际 ${r.status}\nstdout: ${r.stdout}`)
+    const remoteAfter = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
+    assert.equal(remoteAfter, remoteBefore, '跳门被拒 ⇒ 远端 tip 不得被这一趟推进(副作用没发生)')
+    assert.notEqual(remoteAfter, localSha, '本地那枚 in-scope 失败 commit 不得出现在远端')
+    const st = JSON.parse(
+      readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'),
+    )
+    assert.equal(st.status, 'failed', `失败终态必须落 failed,实得 ${JSON.stringify(st)}`)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
 // ─── 端到端③:重试那一趟回显 Everything up-to-date ⇒ 不得报"push 成功"(事故第二段) ───
 // 事故里那一段是:首趟被钩子挡住 → --no-verify 重试 → 远端其实已被并发落地(回显
 // Everything up-to-date)→ guard 仍打 `✅ push 成功 + 验证通过`。
@@ -1048,6 +1125,10 @@ test('e2e:--no-verify 重试回显 Everything up-to-date → 措辞喊"未推送
         '# 先替"并发会话"把这枚 commit 落地(内部 --no-verify ⇒ 不再触发本钩子)',
         'git push --no-verify origin HEAD:refs/heads/main 1>&2',
         `printf '%s\\n' '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:' 1>&2`,
+        // 2026-11-02 P4:这一格测的是"重试那趟回显 up-to-date 时不得冒充成功",前提仍是
+        // guard 真会去跑 --no-verify 那一趟 ⇒ 夹具必须带显式的范围外降级证据(否则 P4 会拦下,
+        // 走不到这一型)。无证据的那一半由下面新增的反向格钉住。
+        "printf '%s\\n' '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)' 1>&2",
         "printf '%s\\n' '❌ push 门校验失败,推送已阻止' 1>&2",
         'exit 1',
         '',
@@ -1073,6 +1154,174 @@ test('e2e:--no-verify 重试回显 Everything up-to-date → 措辞喊"未推送
     const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
     assert.equal(st.status, 'done')
     assert.equal(st.pushedNothing, true, '状态里要留"什么都没推"的痕迹,否则下一轮又读成推送成功')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// ─── 2026-11-07:running 的存活判据(pid 存活 + 启动时刻一致) ─────────────
+// 现场:worker 07:48:25 死亡、异步日志 0 字节、push-state 停在 running、远端无变化。
+// 最坏组合是下一轮把死进程的 running 读成"还在推"⇒ 什么都不做也不报错。
+
+/** 判据单测(四态):死 / 复用 / 匹配 / 旧档 —— 不依赖真进程,注入探测函数。 */
+test('judgeRunningState: 死/复用/匹配/旧档四态判定', () => {
+  const base = { status: 'running', headSha: 'a'.repeat(40), ts: Date.now(), pid: 4321 }
+  const match = judgeRunningState(
+    { ...base, pidStart: 100 },
+    { isAlive: () => true, identity: () => ({ kind: 'match', why: '启动时刻一致' }) },
+  )
+  assert.equal(match.active, true)
+  assert.equal(match.kind, 'match')
+
+  const reused = judgeRunningState(
+    { ...base, pidStart: 100 },
+    { isAlive: () => true, identity: () => ({ kind: 'mismatch', why: '启动时刻不符' }) },
+  )
+  assert.equal(reused.active, false, '同一 pid 启动时刻不符 = 已被复用,不得当在途')
+  assert.equal(reused.kind, 'reused')
+
+  const dead = judgeRunningState(base, { isAlive: () => false })
+  assert.equal(dead.active, false)
+  assert.equal(dead.kind, 'dead')
+
+  const legacy = judgeRunningState(base, { isAlive: () => true })
+  assert.equal(legacy.active, true, '旧档无 pidStart ⇒ 维持改动前判据(pid 存活即在途)')
+  assert.equal(legacy.kind, 'legacy')
+
+  const stale = judgeRunningState(base, { now: base.ts + 6 * 60 * 1000 })
+  assert.equal(stale.active, false)
+  assert.equal(stale.kind, 'stale')
+})
+
+test('worker 被强杀后残留 running ⇒ 判中止,死因写进异步日志', async () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  let dummy
+  try {
+    makeCommit(work, 'dead-pid.txt', 'x\n', 'feat: dead worker fixture')
+    const head = sh('git rev-parse HEAD', work).trim()
+    // 真起一只进程再强杀,拿它的死 pid —— 与宿主 job-object 清树后留下的形状一致
+    dummy = spawn('node', ['-e', 'setInterval(() => {}, 1000)'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    await new Promise((r) => setTimeout(r, 300))
+    const deadPid = dummy.pid
+    dummy.kill()
+    await new Promise((r) => dummy.once('exit', r))
+    mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
+    writeFileSync(
+      join(work, '.ihui-agent', 'state', 'push-state.json'),
+      JSON.stringify({ status: 'running', headSha: head, ts: Date.now(), pid: deadPid }),
+    )
+
+    const r = runScript([], { cwd: work, env: { HUSKY_SKIP_PUSH: '1' } })
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'failed', `死进程持有的 running 必须翻成 failed,实际 ${st.status}`)
+    assert.match(st.reason, /判据=dead/, `终态要写清判据:${st.reason}`)
+    assert.doesNotMatch(r.stdout, /已有后台推送进行中/, '死 worker 不得被读成"仍在推"')
+
+    const log = readFileSync(join(work, '.ihui-agent', 'state', 'git-push-guard-async.log'), 'utf8')
+    assert.match(log, /判中止:running 的持有者 pid=.*判据=dead/)
+    assert.match(log, /worker 日志=0字节/, '0 字节日志 + running 的组合必须被点名解释')
+  } finally {
+    if (dummy && dummy.exitCode === null) dummy.kill()
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('过期 running(心跳断供)⇒ 同样自愈 failed,不把死档留在途', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'stale-running.txt', 'x\n', 'feat: stale running fixture')
+    const head = sh('git rev-parse HEAD', work).trim()
+    mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
+    // 07:48 现场复盘:状态早已过 5 分钟心跳窗,pid 也已死 —— 只"不 active"不够,
+    // 状态文件必须翻成终态,否则它永远在说 running。
+    writeFileSync(
+      join(work, '.ihui-agent', 'state', 'push-state.json'),
+      JSON.stringify({
+        status: 'running',
+        headSha: head,
+        ts: Date.now() - 6 * 60 * 1000,
+        pid: 999999999,
+      }),
+    )
+    const r = runScript([], { cwd: work, env: { HUSKY_SKIP_PUSH: '1' } })
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'failed', `过期 running 必须翻成 failed,实际 ${st.status}`)
+    assert.match(st.reason, /判据=stale/, `终态要写清判据:${st.reason}`)
+    assert.doesNotMatch(r.stdout, /已有后台推送进行中/)
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('pid 被复用(启动时刻不符)⇒ 不判在途,不许直接返回', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'pid-reuse.txt', 'x\n', 'feat: pid reuse fixture')
+    const head = sh('git rev-parse HEAD', work).trim()
+    mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
+    writeFileSync(
+      join(work, '.ihui-agent', 'state', 'push-state.json'),
+      JSON.stringify({
+        status: 'running',
+        headSha: head,
+        ts: Date.now(),
+        // 活 pid(本测试进程)+ 与现测不可能一致的启动时刻 ⇒ 等价"这个 pid 已换主人"
+        pid: process.pid,
+        pidStart: 1,
+        host: hostname(),
+      }),
+    )
+
+    const r = runScript([], { cwd: work, env: { HUSKY_SKIP_PUSH: '1' } })
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'failed', '复用 pid 的 running 必须判中止')
+    assert.match(st.reason, /reused|unverifiable/, `终态要写清"身份不符/核不上":${st.reason}`)
+    assert.doesNotMatch(r.stdout, /已有后台推送进行中/, '复用 pid 不得被当成仍在推')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('异步派发秒退 ⇒ 日志写明死因并回退同步推送,不留 running', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'dispatch-dead.txt', 'x\n', 'feat: dispatch death fixture')
+    // 临时仓没有 scripts/git-push-guard.mjs ⇒ 派发出的 worker 必然秒退(exit != 0),
+    // 正是"worker 死在派发窗内"的真实形状;父进程必须发现它、写死因、回退同步推送。
+    const r = runScript([], { cwd: work, env: { GUARD_ASYNC: '1' } })
+    assert.equal(r.status, 0, `回退同步推送应成功,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'done', `秒退后必须回退同步并落 done,实际 ${st.status}`)
+    const log = readFileSync(join(work, '.ihui-agent', 'state', 'git-push-guard-async.log'), 'utf8')
+    assert.ok(log.length > 0, '异步派发后日志不得为 0 字节')
+    assert.match(log, /dispatch: worker pid=.*已派生/)
+    assert.match(log, /派发窗内退出/)
+    assert.match(log, /Cannot find module|worker 派发后 1s 内退出/, '死因必须在日志里看得见')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('正常跑完:状态 done,日志有 worker 启动与完成两行', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'ok-worker.txt', 'x\n', 'feat: worker happy path')
+    const r = runScript(['--worker'], { cwd: work, env: { GUARD_ASYNC: '1' } })
+    assert.equal(r.status, 0, `正常 worker 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'done')
+    const log = readFileSync(join(work, '.ihui-agent', 'state', 'git-push-guard-async.log'), 'utf8')
+    assert.match(log, /worker 启动:/)
+    assert.match(log, /"pidStart":\d+/, 'worker 首次落 running 时必须带启动时刻凭据')
+    assert.match(log, /worker 正常完成/)
   } finally {
     rmScratch(work)
     rmScratch(origin)

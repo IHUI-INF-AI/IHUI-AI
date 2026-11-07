@@ -24,7 +24,7 @@ import { getTopBarMetrics } from '@/utils/system-info'
  * 两种模式:
  * - 默认(side='bottom'):底部弹层(原实现,兼容 MaterialPopup / SkillsPopup / ranking 等)
  * - side='left'(首页专用):左侧抽屉,对齐原项目 DrawerComponentall.vue:
- *   - 宽 `taroGeometry.drawerWidth`(单源 250px ⇒ 500rpx),右圆角取 2xl 档
+ *   - 宽 `taroGeometry.drawerWidth`(单源 160px ⇒ 320rpx,与 web 常驻侧栏 SIDEBAR_WIDTH 同值),右圆角取 2xl 档
  *   - 头部 logo + 关闭按钮(矢量)
  *   - 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)
  *   - 3 个标签(我的一人公司/领取免费资料/创建新对话)
@@ -183,7 +183,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
       <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick}>
         {/* 遮罩:var(--color-black-40) */}
         <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
-        {/* 抽屉主体:宽 500rpx + 圆角 0 30rpx 30rpx 0 + 高 100vh */}
+        {/* 抽屉主体:宽取几何档 taroGeometry.drawerWidth(160px ⇒ 320rpx,与 web/RN 同值)
+            + 圆角 0 12 12 0 + 高 100vh */}
         <View
           className={cn(
             'ai-drawer-border absolute top-0 bottom-0 left-0 flex flex-col',
@@ -224,25 +225,28 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             />
           </View>
 
-          {/* 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)*/}
-          <View className="flex justify-between" style={{ padding: '15rpx 28rpx 25rpx' }}>
+          {/* 5 个菜单项:竖排列表(2026-11-07 适配窄抽屉)
+              原先是 `flex justify-between` 横排 5 项,每项 60rpx 图标。抽屉宽随几何档 drawerWidth
+              由 500rpx 收到 320rpx 后,扣掉左右各 28rpx 内边距只剩 264rpx,而 5×60rpx = 300rpx
+              仅图标就放不下 ⇒ 横排必然挤压重叠。改竖排后每行 = 36rpx 图标 + 12rpx 间距 + 标签,
+              与下方 3 个标签项同一形态;行高取 tapBox 档保证可点面积。 */}
+          <View className="flex flex-col" style={{ padding: '8rpx 28rpx 16rpx' }}>
             {menuItems.map((item) => (
               <View
                 key={item.key}
-                className="flex flex-col items-center justify-center"
+                className="flex items-center"
+                style={{ minHeight: rpx(taroGeometry.tapBox) }}
                 onClick={() => onMenuItemClick?.(item)}
                 hoverClass="opacity-60"
               >
-                {item.icon ? (
-                  renderIcon(item.icon, 60)
-                ) : (
-                  // 缺图兜底不得用字符「•」冒充图标 —— 同一载体类:矢量 circle
-                  <LineIcon name="circle" size={60} color="var(--color-muted-foreground)" />
-                )}
+                {item.icon
+                  ? renderIcon(item.icon, 36, { marginRight: rpx(12) })
+                  : // 缺图兜底不得用字符「•」冒充图标 —— 走同一个 renderIcon,尺寸/间距与主分支
+                    // 及下方标签项完全一致(竖排下漏 marginRight 会让图标贴住文字)
+                    renderIcon('circle', 36, { marginRight: rpx(12) })}
                 <Text
-                  className="mt-[8rpx]"
                   style={{
-                    fontSize: rpx(taroGeometry.textLabel),
+                    fontSize: rpx(taroGeometry.textBody),
                     color: 'var(--color-foreground)',
                   }}
                 >
