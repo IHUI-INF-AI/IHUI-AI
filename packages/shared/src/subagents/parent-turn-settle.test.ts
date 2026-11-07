@@ -32,6 +32,8 @@ describe('settleSubagentOnParentTurnEnd', () => {
     expect(settleSubagentOnParentTurnEnd('completed').status).toBe('completed')
     expect(settleSubagentOnParentTurnEnd('failed').status).toBe('failed')
     expect(settleSubagentOnParentTurnEnd('cancelled').status).toBe('cancelled')
+    expect(settleSubagentOnParentTurnEnd('stub').status).toBe('stub')
+    expect(isSubagentTerminalStatus('stub')).toBe(true)
   })
 
   it('未知状态按非终态处理，收场时取消', () => {

@@ -188,6 +188,16 @@ export function mapEndToTimelineUpdate(event: SubagentEndEvent): {
   id: string
   updates: Partial<TimelineEvent>
 } {
+  if (event.status === 'stub') {
+    return {
+      id: event.id,
+      updates: {
+        status: 'stub',
+        description: 'Simulated, not finished',
+        meta: { phase: 'end', status: event.status, i18nKey: 'ai.pane.subagent.statusStub' },
+      },
+    }
+  }
   if (event.status === 'failed') {
     const reason = (event.failureReason ?? '').slice(0, 100)
     return {

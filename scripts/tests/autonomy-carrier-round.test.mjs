@@ -178,6 +178,12 @@ test('结构 · 游标/现场路径常量与守护写盘点一致', () => {
 
 const STAGES = [
   'main:block-enter',
+  // 2026-11-07 补的三个段界:block-enter → post-feedback-loop 之间实测有 22 条腿,
+  // 任一条在 I/O 争用下都可能单步跨过 180s 心跳阈值。段界顺带续心跳后,both
+  // "死在哪一段"与"心跳还活着"两件事都靠同一批锚点,不新增任何日志行。
+  'main:post-heal',
+  'main:post-sweeps',
+  'main:post-heals',
   'main:post-feedback-loop',
   'main:post-self-audit',
   'main:pre-dispatch',
@@ -186,7 +192,7 @@ const STAGES = [
   'main:round-done',
 ]
 
-test('结构 · 七个段界检查点齐全(含 2026-11-06 那轮的真实死亡点)', () => {
+test('结构 · 段界检查点齐全(含 2026-11-06 那轮的真实死亡点)', () => {
   for (const s of STAGES) {
     assert.ok(src.includes(`markRoundStage('${s}')`), `缺检查点 ${s}:游标就断在那一段之前,静默死无法定位`)
   }

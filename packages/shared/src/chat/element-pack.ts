@@ -299,6 +299,7 @@ export const BACKGROUND_TASK_STATES = [
   'failed',
   'cancelled',
   'timeout',
+  'stub',
 ] as const
 export type BackgroundTaskState = (typeof BACKGROUND_TASK_STATES)[number]
 
@@ -431,6 +432,17 @@ export function backgroundTaskView(state: BackgroundTaskState): BackgroundTaskVi
         busy: false,
         terminal: true,
       }
+    case 'stub':
+      // 密钥未配置的模拟结果:终态,但不是完成,也不给重试入口假装能补跑。
+      return {
+        state,
+        tone: 'warning',
+        titleKey: backgroundTaskStateKey('stub'),
+        hintKey: null,
+        action: 'none',
+        busy: false,
+        terminal: true,
+      }
   }
   return assertNeverTaskState(state)
 }
@@ -455,6 +467,7 @@ export const AGENT_STATUS_LITERALS = [
   'completed',
   'failed',
   'cancelled',
+  'stub',
 ] as const
 export type AgentStatusLiteral = (typeof AGENT_STATUS_LITERALS)[number]
 
@@ -481,6 +494,8 @@ export function fromAgentStatus(status: AgentStatusLiteral): BackgroundTaskState
       return 'failed'
     case 'cancelled':
       return 'cancelled'
+    case 'stub':
+      return 'stub'
   }
   return assertNeverAgentStatus(status)
 }

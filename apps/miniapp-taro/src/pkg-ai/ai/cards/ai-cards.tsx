@@ -475,6 +475,7 @@ const STATE_TITLE_FALLBACK: Record<BackgroundTaskState, string> = {
   failed: '执行失败',
   cancelled: '已取消',
   timeout: '已超时',
+  stub: '模拟未完成',
 }
 
 function titleFallback(titleKey: string): string {

@@ -583,7 +583,7 @@ export function createSendAnswer(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore),
+              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
               ...eduToolsFor(answer),
               ...fileToolsFor(answer),
               ...videoToolsFor(answer),
