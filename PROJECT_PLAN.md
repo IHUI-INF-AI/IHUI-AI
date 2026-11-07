@@ -31776,6 +31776,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] RP-75 (2026-11-07) **守护单轮巡检跑不完一轮 ⇒ 全部周期腿与节流戳结构性缺位**:实测 2026-11-07T04:38+08 手动轮 18 分钟零日志、lock mtime 冻结(execFileSync 长步骤占满事件循环,心跳定时器不响),PID 46032 那轮累计 1h13m 仍未过链中段;叠加 refs 面(27107 条)每轮自愈完成后「coreOk && before.refsOk」仍按**自愈前**快照判 ⇒ 整段巡检被跳过(近三轮日志实证只写「自愈成功」+「自陈述版本」两行),4 枚 *-dispatch-last.json 恒缺、A8 恒判 rotting。出路=①自愈后重取 status() 再判 coreOk(单点改动);②单轮分片 + 断点续跑,每片落.ihui-agent/state/guardian-round-cursor.json,单片预算 ≤120s;③A8 增「承载体轮次完成度」维(读 cursor 的 doneAt)。判据单源:两承载面调用集已由 A9 判齐平(ca4b71b97a),本票只判**执行体能否跑完一轮**,不另造覆盖清单。
 
 - [ ] RP-40 **超工事件源真实适配器接入（泵已装车，缺可运行的 Port）**:现状=TriggerSourcePort + SuperAgentPump + 60s env 门控循环（IHUI_SUPER_AGENT_PUMP）已落地并测试钉住,但全仓无任何 Port 实现往 host 喂事件;出路=webhook 回调落账重放 / 已授权 GitHub 源轮询器（凭据属机主面,供值后即插即活）（登记@2026-11-07）
-- [ ] RP-41 **超级工单账本入库（存算分离）**:现状=工单/租约/面板全住 SuperAgentHost 进程内存,重启即失忆;出路=schema 加 super_agent_tickets 账本 + host 状态进出端口 + 泵重启后从库恢复重挂租约（drizzle 迁移按仓规走 journal,先查最新迁移号）（登记@2026-11-07）
+
 - [ ] RP-42 **超工慢路径判断（inferred 该不该动手交给模型）**:现状=receive 只有确定性快筛（addressed/fromBot/白名单）,recorded 需人带 ruleId 手点 acceptRecorded;出路=泵收单后对 inferred 批量跑判定（复用 ai-service 现成模型通道）,判定结果进 pendingRecords 注记（登记@2026-11-07）
 - [ ] RP-43 **超工工作台面板（web 端消费 /api/super-agent/*）**:现状=全仓无任何端 HTTP 调用面板/工单/replies 端点,RN 的 toggle-super-agent 仅按钮事件无 API 线;出路=web 对话工作台列"要人处理"工单+验收入口,端内 i18n 五语言同批,跨端同步按 §9 显式豁免或跟进（登记@2026-11-07）
