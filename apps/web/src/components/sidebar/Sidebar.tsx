@@ -199,8 +199,10 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   // drawerWidth..sidebarMaxWidth;2026-08-01 下限由 130 收到与默认宽同值),localStorage 持久化。
   // 2026-07-22 修复首屏 width 闪烁(2026-08-01 修订,根治残留闪烁):
   // - layout.tsx inline script 在 React hydrate 前同步预设 :root --sidebar-width CSS 变量
-  //   (读 localStorage sidebar-width,范围 160-180,fallback 160px),首帧 aside width = 预设值。
-  // - aside 元素 width 用 `var(--sidebar-width, 160px)` 字符串引用(SSR/CSR 字节级一致),
+  //   (读 localStorage sidebar-width,范围 drawerWidth..sidebarMaxWidth,fallback = drawerWidth),
+  //   首帧 aside width = 预设值。
+  // - aside 元素 width 用 `var(--sidebar-width, ${SIDEBAR_WIDTH}px)` 模板插值(SSR/CSR 字节级一致;
+  //   fallback 取几何档,不写字面量 —— 改档一处生效),
   //   React 不解析 CSS 变量,只比较 style 字符串,无 hydration mismatch 警告。
   // - useEffect 首次 mount 只读 localStorage 同步 sidebarWidth state,不覆盖 inline script 预设的
   //   CSS 变量(避免 160→localStorage 值的跳变);state 变化触发 effect 重新执行时才设 CSS 变量。
@@ -474,12 +476,13 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           // 类名里再写一份 60px 就是第二份真相,且 Tailwind JIT 认不出模板插值 ⇒ 改档必漏。
         )}
         // 2026-07-22 修复首屏 width 闪烁:
-        // width 改为 `var(--sidebar-width, 160px)` 字符串引用 CSS 变量。
-        // - SSR/CSR 字节级一致(都是同一字符串),无 hydration mismatch 警告
+        // width 改为 `var(--sidebar-width, ${SIDEBAR_WIDTH}px)` 模板插值引用 CSS 变量。
+        // - SSR/CSR 字节级一致(同一字符串),无 hydration mismatch 警告
         // - 实际渲染 width = layout.tsx inline script 预设的 --sidebar-width 值
-        // - 折叠态直接 60px inline 覆盖 CSS 变量(避免与 var() 计算冲突)
-        // - 2026-08-01:fallback 160px 跟随 SIDEBAR_WIDTH 默认值同步加大
-        // - 2026-09-07:effectiveCollapsed 含平板视口强制折叠(与 globals.css 60px !important 一致)
+        // - 折叠态直接 SIDEBAR_COLLAPSED_WIDTH inline 覆盖 CSS 变量(避免与 var() 计算冲突)
+        // - 2026-11-07:fallback 直接取 SIDEBAR_WIDTH(几何档),不再写字面量 160px
+        // - 2026-09-07:effectiveCollapsed 含平板视口强制折叠
+        //   (与 globals.css 平板区间的 var(--sidebar-collapsed-width) 一致)
         style={
           effectiveCollapsed
             ? { width: SIDEBAR_COLLAPSED_WIDTH }
