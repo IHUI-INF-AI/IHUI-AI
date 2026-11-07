@@ -28,6 +28,18 @@ wscript //nologo scripts/hook-run-hidden.vbs commit-msg-scope scripts/check-comm
 _scope_rc=$?
 tail -5 .ihui-agent/state/hook-logs/commit-msg-scope.log >&2 || true
 
-# 两道门都跑完再收口:任一门非零即阻断,优先返回样式门的退出码(保留 1/2 语义)
+# ─── 判据面提交自查(--staged;2026-11-07 立)────────────────────────────────
+# 事故:09bcaa58ba / 6676d527cb / 646428c828 三枚都是提交时没人读判据面清单,推送到 IG 才被拦。
+# 成本:一次 git diff --name-status(暂存面)+ 读 scripts/data/immutable-guard.json,不扫历史。
+# 位置:声明写在提交信息里,而 pre-commit 阶段信息文件尚未生成 ⇒ 本门挂 commit-msg(guard 头注同此)。
+# 输出:失败时回显日志末尾,点名「哪条路径在判据面上、缺 immutable-exempt 声明」,当场可补。
+wscript //nologo scripts/hook-run-hidden.vbs commit-msg-immutable-guard scripts/check-immutable-guard.mjs --staged --message-file "$1"
+_guard_rc=$?
+if [ "$_guard_rc" -ne 0 ]; then
+  tail -40 .ihui-agent/state/hook-logs/commit-msg-immutable-guard.log >&2 || true
+fi
+
+# 三道门都跑完再收口:任一门非零即阻断,按样式 → scope → 判据面的顺序返回首个非零码
 if [ "$_style_rc" -ne 0 ]; then exit "$_style_rc"; fi
-exit $_scope_rc
+if [ "$_scope_rc" -ne 0 ]; then exit "$_scope_rc"; fi
+exit $_guard_rc
