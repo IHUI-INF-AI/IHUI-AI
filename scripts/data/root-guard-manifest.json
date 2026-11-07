@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-07T11:00:39.193Z",
+  "sealedAt": "2026-11-07T12:52:29.227Z",
   "sealedBy": "root-guard --seal",
-  "reason": "两刀制第一刀:门 267 复核对账前重封一次(被审面=HEAD),确认清单与 git-guardian.mjs 现读一致",
+  "reason": "门267收口:guardian-runner.mjs 更新生成块唯一写入口的指引文案(staged 面),按索引面重封;同时把 HEAD 已改动但清单未跟上的 git-guardian 现读一并封入,清单与被审面同批提交",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "fafd5b95a8e266467c19049e7e8ba4c954044ec8c372e6c6758d90649525577d"
+      "sha256": "acd9571a5c4524da847bd6df2727f01a3fc31e2cee25e27990e12c08f8cae0af"
     },
     {
       "id": "judgement-libs",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "e38c1d2974b2e370b2426ac2e3f05f8f090a0ad072506c91ca5182c51d12c79d"
+      "sha256": "e7d49394c128bc484e3abc0e6fae68498bf3f947b8e4ef1f61bb8d99484043ce"
     }
   ]
 }
