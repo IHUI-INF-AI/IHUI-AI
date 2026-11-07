@@ -55,6 +55,7 @@ export type ThirdPartyPlatform =
   | 'alipay'
   | 'apple'
   | 'oidc'
+  | 'linuxdo'
   | 'app'
 
 /** 8 平台静态列表,顺序与 web 端 ThirdPartyLoginButtons 一致(3 列网格按行铺) */
