@@ -95,6 +95,25 @@ function sessionReadCode(error: unknown): string {
   return 'unknown';
 }
 
+function sessionFileBlocksReplace(id: string): boolean {
+  const target = getSessionStatePath(id);
+  let raw: string;
+  try {
+    raw = fs.readFileSync(target, 'utf-8');
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+    throw new Error(`会话读不到,不能把它覆盖成新会话 (${code})`);
+  }
+  if (raw.trim() === '') return false;
+  try {
+    const parsed = JSON.parse(raw) as { id?: unknown } | null;
+    return !parsed || typeof parsed !== 'object' || Array.isArray(parsed) || typeof parsed.id !== 'string';
+  } catch {
+    return true;
+  }
+}
+
 function readStateFile(id: string): SessionState | null {
   const p = getSessionStatePath(id);
   let raw: string;
@@ -137,6 +156,9 @@ export function saveSession(state: SessionState): void {
   // 以调用方为准(58 个既有调用点的全快照语义不变),唯独 updatedAt 取
   // max(文件现值, 来值)—— 旧快照不得把并发已推进的活动钟压回过去。
   const current = readStateFile(state.id);
+  if (current === null && sessionFileBlocksReplace(state.id)) {
+    throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
+  }
   const next: SessionState = {
     ...state,
     updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),

@@ -88,11 +88,12 @@ class TestConstantsAndTypes:
         )
 
     def test_agent_state_annotations_contain_all_fields(self):
-        """AgentState 必须声明 7 个字段(messages/mode/session_id/plan/execution_result/summary/error)。"""
+        """AgentState 声明原流水线字段,外加可选的宿主准入视图与决定。"""
         fields = set(AgentState.__annotations__.keys())
         assert fields == {
             "messages", "mode", "session_id",
             "plan", "execution_result", "summary", "error",
+            "work_trigger", "admission",
         }
 
     def test_agent_state_total_false_all_fields_optional(self):

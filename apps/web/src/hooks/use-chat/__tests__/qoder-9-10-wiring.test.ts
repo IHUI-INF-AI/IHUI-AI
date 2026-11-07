@@ -27,24 +27,26 @@ describe('B 接线:send-answer 真消费分类处置(源码面形状锁)', () =>
     expect(src).toContain("from '@/lib/stream-error-view'")
   })
 
-  it('onError 里真的调用了判据(经 dispositionOf 辅助,不是只 import)', () => {
-    // buildStreamErrorView 的真实调用点住在 dispositionOf 里(它把"码 → 视图"收成一处,
-    // 两个错误分支共用)。所以这里钉两件事:辅助函数存在 + onError 里真的用它。
-    expect(src).toMatch(/const dispositionOf = \(info\?: \{ errorCode\?: string \}\)/)
-    expect(src).toMatch(/buildStreamErrorView\(\{/)
+  it('onError 走与主链同一个呈现出口(presentStreamError),不再自留一套分支', () => {
+    expect(src).toContain('presentStreamError({')
+    expect(src).toContain('planStreamErrorToast(')
+    expect(src).not.toContain('dispositionOf')
     const onErrorAt = src.indexOf('onError: (errMsg, info)')
-    const useAt = src.indexOf('const disposition = dispositionOf(info)')
+    const useAt = src.indexOf('announceStreamError({', onErrorAt)
     expect(onErrorAt).toBeGreaterThan(-1)
     expect(useAt).toBeGreaterThan(onErrorAt)
   })
 
-  it('按钮按 retryable 给或不给(不是无差别挂重试)', () => {
-    expect(src).toContain('disposition.retryable')
-    expect(src).toContain('disposition.actionLabel')
+  it('按钮按 retryable 给或不给(计划在呈现层,两链共用)', () => {
+    const view = readSource('../../lib/stream-error-view.ts')
+    expect(view).toContain('presented.retryable')
+    expect(view).toContain("presented.action === 'relogin'")
+    expect(src).toContain('planStreamErrorToast(')
+    expect(readSource('send-message.ts')).toContain('planStreamErrorToast(')
   })
 
   it('relogin 档的按钮真的打开登录弹窗(而不是重发)', () => {
-    expect(src).toMatch(/isAuth[\s\S]{0,200}open\('login'\)/)
+    expect(src).toMatch(/presented\.action === 'relogin'[\s\S]{0,160}open\('login'\)/)
   })
 })
 
@@ -56,8 +58,8 @@ describe('A 接线:send-answer 真装车准入跟踪器(源码面形状锁)', ()
     expect(src).toContain('flushAdmission()')
   })
 
-  it('三个隐式证据点都接了(响应头 / 增量 / 收场)', () => {
-    expect(src).toContain("noteEvidence('stream-open')")
+  it('增量与收场才记准入,响应头不算收下', () => {
+    expect(src).not.toContain("noteEvidence('stream-open')")
     expect(src).toContain("noteEvidence('delta')")
     expect(src).toContain('admission.settle(')
   })
@@ -86,16 +88,33 @@ describe('ctx 面:streamErrorLabels 是可选格(不打断既有 7 处 makeCtx)'
   it('use-chat.ts 真的把 hook 产物塞进 ctx 并列为 useCallback 依赖', () => {
     expect(hook).toContain('const streamErrorLabels = useStreamErrorLabels()')
     expect(hook).toContain('streamErrorLabels,')
-    expect(hook).toMatch(/sendAnswer = React\.useCallback\(createSendAnswer\(ctx, chatStore\), \[[\s\S]{0,80}streamErrorLabels/)
+    expect(hook).toMatch(
+      /sendMessage = React\.useCallback\(createSendMessage\(ctx, chatStore\), \[[\s\S]{0,120}streamErrorLabels/,
+    )
+    expect(hook).toMatch(
+      /sendAnswer = React\.useCallback\(createSendAnswer\(ctx, chatStore\), \[[\s\S]{0,80}streamErrorLabels/,
+    )
   })
 })
 
 describe('i18n:新命名空间与 chat 分离(不回写别人的在飞面)', () => {
-  const SHARED_PACK = join(__dirname, '..', '..', '..', '..', '..', '..', 'packages/i18n/messages/shared')
+  const SHARED_PACK = join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'packages/i18n/messages/shared',
+  )
   const WEB_PACK = join(__dirname, '..', '..', '..', '..', '..', '..', 'packages/i18n/messages/web')
 
   it('streamErrors 是 shared 包里的顶层命名空间,不在 chat 之下', () => {
-    const pack = JSON.parse(readFileSync(join(SHARED_PACK, 'zh-CN.json'), 'utf8')) as Record<string, unknown>
+    const pack = JSON.parse(readFileSync(join(SHARED_PACK, 'zh-CN.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >
     expect(pack['streamErrors']).toBeTypeOf('object')
     expect((pack['chat'] as Record<string, unknown>)['streamErrors']).toBeUndefined()
   })
@@ -109,7 +128,10 @@ describe('i18n:新命名空间与 chat 分离(不回写别人的在飞面)', () 
       string,
       unknown
     >
-    const web = JSON.parse(readFileSync(join(WEB_PACK, 'zh-CN.json'), 'utf8')) as Record<string, unknown>
+    const web = JSON.parse(readFileSync(join(WEB_PACK, 'zh-CN.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >
     if (web['streamErrors'] === undefined) return // 未出现第二份 ⇒ 天然满足
     expect(web['streamErrors']).toEqual(shared['streamErrors'])
   })
@@ -126,10 +148,14 @@ describe('i18n:新命名空间与 chat 分离(不回写别人的在飞面)', () 
       }
       return out
     }
-    const shared = JSON.parse(
-      readFileSync(join(SHARED_PACK, 'zh-CN.json'), 'utf8'),
-    ) as Record<string, unknown>
-    const web = JSON.parse(readFileSync(join(WEB_PACK, 'zh-CN.json'), 'utf8')) as Record<string, unknown>
+    const shared = JSON.parse(readFileSync(join(SHARED_PACK, 'zh-CN.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >
+    const web = JSON.parse(readFileSync(join(WEB_PACK, 'zh-CN.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >
     const chatKeys = new Set([
       ...flatten(shared['chat'] as Record<string, unknown> | undefined),
       ...flatten(web['chat'] as Record<string, unknown> | undefined),

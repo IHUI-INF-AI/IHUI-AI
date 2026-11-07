@@ -861,17 +861,18 @@ select:-webkit-autofill:focus {
 }
 
 /* ============ sidebar 布局变量(2026-07-27 上提自 web 本地 design-tokens.css) ============
- * 2026-07-22 修复首屏宽度闪烁:--sidebar-width 从 200px 改为 130px,
- * 2026-08-19 修订:sidebar.tsx 的 SIDEBAR_WIDTH 常量已从 130 升到 160(用户反馈"侧边栏太窄"),
- *   tokens.css 同步抬到 160px;若再次修改 SIDEBAR_WIDTH,请同步本值以避免首屏 CSS 预设
- *   值 → JS useEffect 覆盖值的宽度跳变闪烁。
- * 与 sidebar.tsx 的 SIDEBAR_WIDTH 常量一致 */
+ * 单一真相源 = `packages/design-tokens/src/geometry.js` 的 `drawerWidth` / `sidebarCollapsedWidth`
+ * (web 常驻侧栏、RN 抽屉、小程序抽屉三端同值,2026-11-07 机主定档统一 160)。
+ *
+ * 为什么这里还要写一遍数字:CSS 变量无法 import JS 常量,而首屏在 JS 执行前就要用到宽度
+ * (防 200→160 宽度跳变闪烁)。所以本处是**镜像值**,由守门
+ * `scripts/check-sidebar-width-consistency.mjs` 拿几何档与之对账 —— 改档不改这里会直接判红,
+ * 不会静默漂移(2026-09-09 就发生过 54 vs 60 的死值漂移)。 */
 :root {
   --sidebar-width: 160px;
-  /* 2026-09-09 修正漂移:54px → 60px,与 sidebar.tsx SIDEBAR_COLLAPSED_WIDTH=60 对齐
-   * (此前该 token 为 54px 旧值且无 var() 引用点,属死值漂移;
-   *  60px 折叠宽度同时由 globals.css 平板区间(768-1023px)硬编码,三源已统一,
-   *  check-sidebar-width-consistency.mjs 守门已扩展校验本值)。 */
+  /* 折叠态宽度镜像几何档 `sidebarCollapsedWidth`(60)。消费点:globals.css 平板区间
+   * (640-1023px)用 var(--sidebar-collapsed-width) 引用,sidebar.tsx 用常量引用,
+   * 两处都不再写字面量 60px。 */
   --sidebar-collapsed-width: 60px;
   --sidebar-menu-height: 24px;
   --sidebar-indent-1: 20px;

@@ -779,7 +779,7 @@ def _active_extra_roots() -> tuple[str, ...]:
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
-    "write_file", "run_command", "db_query", "git_operations",
+    "write_file", "run_command", "sandbox_session", "db_query", "git_operations",
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
@@ -1238,6 +1238,10 @@ LazyIndexStatus = Literal[
     # 状态单列一格而不是并进 over-limit:两者给出的用户动作完全不同 ——
     # over-limit 是"仓库太大,建议缩小范围",not-consented 是"请先在设置里授权"。
     "skipped-not-consented",
+    # 工作区开关：取消、显式关闭、自动关闭、开关文件读不出来。和「没同意出域」分开，
+    # 否则用户会去设置里找授权，而真正挡住的是这个目录的索引开关。
+    "skipped-index-cancelled",
+    "skipped-index-policy",
     "failed",
 ]
 
@@ -1398,6 +1402,19 @@ async def _lazy_index_and_research(
                 status="skipped-not-a-dir",
                 reason=f"传入的 path 不是可读目录({path}),未尝试建索引",
             )
+        from .workspace_index_policy import indexing_decision, workspace_key
+
+        index_decision = indexing_decision(workspace_key(str(root)))
+        if not index_decision.allow_index:
+            return LazyIndexOutcome(
+                results=[],
+                status=(
+                    "skipped-index-cancelled"
+                    if index_decision.phase == "cancelled"
+                    else "skipped-index-policy"
+                ),
+                reason=index_decision.reason,
+            )
         now = time.monotonic()
         # ── 2026-10-03 数据出域合规整改:同意闸在建索引**之前** ──
         # 懒索引会把源码切片送外部 embedding 服务(codebase_indexer →
@@ -1511,6 +1528,50 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     internal_user_id = arguments.get("__user_id") or None
     if not path:
         return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    from .workspace_index_policy import (
+        apply_workspace_index,
+        indexing_decision,
+        workspace_key,
+    )
+
+    keyed = workspace_key(path)
+    control = arguments.get("index_control", None)
+    if control is not None:
+        if not isinstance(control, str) or not control:
+            return {
+                "tool": "index_codebase",
+                "ok": False,
+                "phase": "unjudged",
+                "allowIndex": False,
+                "error": "index_control 没量到",
+            }
+        try:
+            switched = apply_workspace_index(keyed, control)
+        except ValueError:
+            return {
+                "tool": "index_codebase",
+                "ok": False,
+                "phase": "unjudged",
+                "allowIndex": False,
+                "error": "未知的索引开关动作",
+            }
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "phase": switched.phase,
+            "allowIndex": switched.allow_index,
+            "reason": switched.reason,
+        }
+    held = indexing_decision(keyed)
+    if not held.allow_index:
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "skipped": held.phase,
+            "phase": held.phase,
+            "allowIndex": False,
+            "error": held.reason,
+        }
     # 2026-10-03 数据出域合规整改:同意闸。建索引会把源码切片发往外部 embedding
     # 服务,未获授权时**在读任何文件之前**就返回 —— 连文件都不碰,更谈不上出域。
     # 这里刻意不接受"调用方传入已授权"之类的入参:同意必须来自服务端侧的
@@ -2543,6 +2604,18 @@ def _classify_existing_file(path: str) -> tuple[str, os.stat_result | None]:
     return "present", st
 
 
+def _note_ai_edit(tool: str, path: str, hunk: str, arguments: Mapping[str, Any]) -> None:
+    """写成功之后记归属。会话号只取宿主注入的 __session_id。"""
+    try:
+        from .ai_code_attribution_store import note_host_edit
+
+        note_host_edit(tool, path, hunk, arguments)
+    except Exception as exc:  # noqa: BLE001 - 记账失败不得把已写完的文件说成没写成
+        import logging
+
+        logging.getLogger(__name__).warning("归属记账失败(不影响已完成的写入): %s", exc)
+
+
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。
 
@@ -2612,6 +2685,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 record_self_write(arguments.get("__session_id"), resolved_path, content)
             except Exception:  # noqa: BLE001 - 登记层故障不得让写失败
                 pass
+            _note_ai_edit("write_file", resolved_path, content, arguments)
             return {
                 "tool": "write_file",
                 "path": resolved_path,
@@ -2747,6 +2821,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                     new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
         # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
         _record_file_base(resolved_path, new_content)
+    _note_ai_edit("file_edit", resolved_path, "".join(diff[:20]), arguments)
     result_payload: dict[str, Any] = {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
             "strategy": strategy,
@@ -11304,6 +11379,62 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="sandbox_session",
+        description=(
+            "长寿命沙箱会话。action："
+            "create、get、pause、resume、kill、snapshot、list_snapshots、"
+            "delete_snapshot、rollback、clone、write_file、read_file、exec、"
+            "set_timeout、reap_idle。"
+            "命令在该沙箱自己的工作区里执行；暂停后的 exec 会先恢复。"
+            "调用方不能打开网络，密钥形态的环境变量不会进入子进程。"
+        ),
+        input_schema={
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "get",
+                        "pause",
+                        "resume",
+                        "kill",
+                        "snapshot",
+                        "list_snapshots",
+                        "delete_snapshot",
+                        "rollback",
+                        "clone",
+                        "write_file",
+                        "read_file",
+                        "exec",
+                        "set_timeout",
+                        "reap_idle",
+                    ],
+                },
+                "sandbox_id": {"type": "string"},
+                "snapshot_id": {"type": "string"},
+                "command": {"type": "string"},
+                "timeout_s": {
+                    "type": "integer",
+                    "description": "空闲秒数，-1 表示不自动暂停",
+                },
+                "timeout": {"type": "integer", "description": "exec 的超时秒数"},
+                "n": {"type": "integer", "description": "克隆份数，1 到 8"},
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+                "files": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+        },
+    ),
+    MCPTool(
         name="run_command",
         description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
         input_schema={
@@ -14009,6 +14140,17 @@ async def _tool_workbook_close(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "workbook_close", **out}
 
 
+async def _tool_sandbox_session(
+    arguments: dict[str, Any], cancel: asyncio.Event | None = None
+) -> dict[str, Any]:
+    """长寿命沙箱。判定与文件树都在 sandbox_lifecycle，这里只转一次。"""
+    del cancel
+    from app.services.sandbox_lifecycle import dispatch_sandbox_session
+
+    payload = arguments if isinstance(arguments, dict) else {}
+    return await dispatch_sandbox_session(payload)
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
@@ -14027,6 +14169,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "write_file": _tool_write_file,
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
+    "sandbox_session": _tool_sandbox_session,
     "web_search": _tool_web_search,
     "image_search": _tool_image_search,
     "search_web": _tool_search_web,

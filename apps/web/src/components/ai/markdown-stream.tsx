@@ -58,6 +58,7 @@ import { healIncompleteMarkdown } from '@/lib/markdown-incomplete-heal'
 // 刻意**不用** content-visibility / contain-intrinsic-size(AGENTS G-828 明文禁恢复)。
 import {
   STATIC_BLOCK_OVERSCAN,
+  STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS,
   STATIC_BLOCK_VIRTUALIZE_MIN_CHARS,
   buildStaticBlockOffsets,
   resolveStaticBlockWindow,
@@ -1455,7 +1456,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   const virtualBlockCount = renderBlocks.length + (active.trim() ? 1 : 0)
   const virtualizable: boolean =
     !isStreaming &&
-    virtualBlockCount > 1 &&
+    virtualBlockCount >= STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS &&
     parseContent.length >= STATIC_BLOCK_VIRTUALIZE_MIN_CHARS
 
   // 滚动与视口:监听最近的滚动祖先(消息列表容器),只把**视口高度**落进 state

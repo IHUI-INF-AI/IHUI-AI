@@ -203,6 +203,11 @@
       "import": "./src/subagents/*.ts",
       "default": "./src/subagents/*.ts"
     },
+    "./super-agent": {
+      "types": "./src/super-agent/index.ts",
+      "import": "./src/super-agent/index.ts",
+      "default": "./src/super-agent/index.ts"
+    },
     "./utils": {
       "types": "./src/utils/index.ts",
       "import": "./src/utils/index.ts",

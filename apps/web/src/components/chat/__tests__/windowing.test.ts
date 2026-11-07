@@ -16,9 +16,11 @@ import {
   WINDOW_THRESHOLD,
   buildOffsets,
   historyAnchorCandidates,
+  listItemEntranceMotion,
   resolveVisibleWindow,
   shouldWindow,
   windowPaddings,
+  windowRangeCenteredOn,
 } from '../windowing'
 
 function uniformOffsets(count: number, height: number): number[] {
@@ -119,6 +121,24 @@ describe('historyAnchorCandidates(补页锚点:窗口首行优先,回落数组�
   it('空表 ⇒ 无候选;windowStart 越界 ⇒ 钳到末行', () => {
     expect(historyAnchorCandidates(0, 5)).toEqual([])
     expect(historyAnchorCandidates(10, 999)).toEqual([9, 0])
+  })
+})
+
+describe('windowRangeCenteredOn(深链锚点必须落在挂载窗口内)', () => {
+  it('锚点在长表中部 ⇒ 窗口包住它,且不超过挂载上限', () => {
+    const range = windowRangeCenteredOn({ count: 400, index: 200 })
+    expect(range.end - range.start + 1).toBeLessThanOrEqual(MAX_MOUNTED_ITEMS)
+    expect(range.start).toBeLessThanOrEqual(200)
+    expect(range.end).toBeGreaterThanOrEqual(200)
+  })
+
+  it('锚点贴首/贴尾 ⇒ 窗口不越界', () => {
+    expect(windowRangeCenteredOn({ count: 400, index: 0 }).start).toBe(0)
+    expect(windowRangeCenteredOn({ count: 400, index: 399 }).end).toBe(399)
+  })
+
+  it('装饰入场恒拒绝', () => {
+    expect(listItemEntranceMotion()).toBe('none')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

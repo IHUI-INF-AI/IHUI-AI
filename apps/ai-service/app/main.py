@@ -1337,6 +1337,11 @@ def create_app() -> FastAPI:
 
     app.include_router(patch_router.router, prefix="/api", tags=["patch"])
     app.include_router(sandbox_exec_router.router, prefix="/api", tags=["sandbox-exec"])
+    from app.routers import sandbox_lifecycle as sandbox_lifecycle_router
+
+    app.include_router(
+        sandbox_lifecycle_router.router, prefix="/api", tags=["sandbox-lifecycle"]
+    )
     app.include_router(sessions_router.router, prefix="/api", tags=["sessions"])
 
     # 全活动时间线回放(P1-4 闭环 API 出口)

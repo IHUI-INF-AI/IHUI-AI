@@ -501,6 +501,18 @@ def test_unreadable_wechat_token_cache_is_not_truncated(tmp_path, monkeypatch):
     assert cache.read_text(encoding="utf-8") == "KEEP"
 
 
+def test_corrupt_wechat_token_cache_is_not_truncated(tmp_path, monkeypatch):
+    from app.skills.content_engine.lib import wechat_publish
+
+    cache = tmp_path / "token.json"
+    body = "{not json"
+    cache.write_text(body, encoding="utf-8")
+    monkeypatch.setattr(wechat_publish, "TOKEN_CACHE", str(cache))
+    monkeypatch.setattr(wechat_publish, "_load_env", lambda: ("app", "secret"))
+    assert wechat_publish.get_access_token() is None
+    assert cache.read_text(encoding="utf-8") == body
+
+
 def test_unreadable_archive_target_does_not_move_source(tmp_path, monkeypatch):
     from app.skills.content_engine import publish_pipeline
 

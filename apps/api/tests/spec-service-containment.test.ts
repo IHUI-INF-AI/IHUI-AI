@@ -26,7 +26,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { copyOrPlaceholder } from '../src/services/registry-sync/config-migrator.js'
 import { specService } from '../src/services/spec-service.js'
-import { checkpointManager, incrementalIndexer, permissionManager } from '../src/services/workspace-ai-service.js'
+import { checkpointManager, codebaseIndexer, incrementalIndexer, permissionManager } from '../src/services/workspace-ai-service.js'
 import type { SpecScope } from '@ihui/shared'
 
 let scratchRoot: string
@@ -254,6 +254,21 @@ describe('读不到不覆盖', () => {
     writeFileSync(indexFile, body, 'utf8')
     expect(() => incrementalIndexer.diff(ws)).toThrow(/代码索引读不到/)
     expect(readFileSync(indexFile, 'utf8')).toBe(body)
+  })
+
+  it('代码索引根是 null 时增量对比不覆盖原文件', () => {
+    const ws = join(scratchRoot, 'idx-null')
+    const indexFile = join(ws, '.ihui', 'codebase-index.json')
+    mkdirSync(join(ws, '.ihui'), { recursive: true })
+    writeFileSync(indexFile, 'null', 'utf8')
+    expect(() => incrementalIndexer.diff(ws)).toThrow(/代码索引读不到/)
+    expect(readFileSync(indexFile, 'utf8')).toBe('null')
+  })
+
+  it('工作区目录读不到时不写成空索引', () => {
+    const missing = join(scratchRoot, 'idx-missing')
+    expect(() => codebaseIndexer.index(missing)).toThrow(/不能把它覆盖成空索引/)
+    expect(existsSync(join(missing, '.ihui', 'codebase-index.json'))).toBe(false)
   })
 
   it('分支文件读不到时差异对比不说成不存在', async () => {

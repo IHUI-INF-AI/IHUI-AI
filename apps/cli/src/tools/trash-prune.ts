@@ -134,7 +134,7 @@ export function pruneExpiredTrash(workspacePath: string, opts: TrashPruneOptions
     let ledger: ExpiryRunLedger | null = null;
     // 未判定也要落账:死亡机制靠它累计(连败达上限 ⇒ retired);其余闸态零写
     if (decision.gate === 'undetermined') {
-      if (ledgerRead.note?.includes('读不到')) {
+      if (ledgerRead.note?.includes('读不到') || ledgerRead.note?.includes('解析失败')) {
         failed.push({ trashId: null, relativeTrashPath: null, reason: ledgerRead.note });
       } else {
         try {

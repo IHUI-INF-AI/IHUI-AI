@@ -2,10 +2,10 @@
 # Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 # [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-"""Agent Runtime LangGraph 状态机 — plan → execute → summarize 流水线。
+"""Agent Runtime LangGraph 状态机 — admit → plan → execute → summarize。
 
-最小实现:仅让 graph 跑通产生 plan/delta/done 事件,
-不实现完整 tool calling / permission 阻断 / 多轮交互。
+没有 work_trigger 时 admit 直接放行,原 plan → execute → summarize 行为不变。
+有宿主准入视图时,不该派工的触发不会进入规划与执行。
 """
 
 from typing import Any, Literal, TypedDict
@@ -14,6 +14,7 @@ from langgraph.graph import END, StateGraph
 
 from app.core.default_model import default_chat_model
 from app.core.llm_gateway import llm_gateway
+from app.services.work_admission import evaluate_host_view, note_worker_finished
 
 # 2026-10-26:原写死 "stepfun/step-3.7-flash"(stepfun 已永久退役,chat 恒定 400),
 # 改走统一解析入口,随运行期配置自动跟随上游换档。
@@ -28,6 +29,26 @@ class AgentState(TypedDict, total=False):
     execution_result: str
     summary: str
     error: str | None
+    work_trigger: dict[str, Any]
+    admission: dict[str, Any]
+
+
+async def admit_node(state: AgentState) -> dict[str, Any]:
+    """准入节点:没有宿主视图就放行。视图被拒绝时不派工。"""
+    raw = state.get("work_trigger")
+    if not isinstance(raw, dict) or not raw:
+        return {}
+    return {"admission": evaluate_host_view(raw)}
+
+
+def after_admit(state: AgentState) -> Literal["plan", "summarize"]:
+    """不该派工时跳过规划和执行,避免空耗模型。"""
+    admission = state.get("admission")
+    if isinstance(admission, dict) and admission.get("runs_worker") is True:
+        return "plan"
+    if isinstance(admission, dict):
+        return "summarize"
+    return "plan"
 
 
 async def plan_node(state: AgentState) -> dict[str, Any]:
@@ -82,11 +103,28 @@ async def execute_node(state: AgentState) -> dict[str, Any]:
 
 
 async def summarize_node(state: AgentState) -> dict[str, Any]:
-    """总结节点:做减法 — 直接返回执行结果,不再调用 LLM(避免延迟)。"""
+    """总结节点:做减法 — 直接返回执行结果,不再调用 LLM(避免延迟)。
+
+    没派工时,只把准入层准备说给人的那一句送出去;该沉默的仍然是空摘要。
+    """
     result = state.get("execution_result", "")
-    if not result:
-        return {"summary": ""}
-    return {"summary": result}
+    admission = state.get("admission")
+    ticket_id = ""
+    runs_worker = False
+    speak = ""
+    if isinstance(admission, dict):
+        runs_worker = admission.get("runs_worker") is True
+        raw_id = admission.get("ticket_id")
+        ticket_id = raw_id if isinstance(raw_id, str) else ""
+        raw_speak = admission.get("speak")
+        speak = raw_speak if isinstance(raw_speak, str) else ""
+    if runs_worker and ticket_id:
+        note_worker_finished(ticket_id, ok=bool(result))
+    if result:
+        return {"summary": result}
+    if speak:
+        return {"summary": speak}
+    return {"summary": ""}
 
 
 def should_continue(state: AgentState) -> Literal["execute", "summarize"]:
@@ -97,13 +135,15 @@ def should_continue(state: AgentState) -> Literal["execute", "summarize"]:
 
 
 def build_agent_graph() -> Any:
-    """构建 LangGraph StateGraph(plan → execute → summarize)。"""
+    """构建 LangGraph StateGraph(admit → plan → execute → summarize)。"""
     graph = StateGraph(AgentState)
+    graph.add_node("admit", admit_node)
     graph.add_node("plan", plan_node)
     graph.add_node("execute", execute_node)
     graph.add_node("summarize", summarize_node)
 
-    graph.set_entry_point("plan")
+    graph.set_entry_point("admit")
+    graph.add_conditional_edges("admit", after_admit)
     graph.add_conditional_edges("plan", should_continue)
     graph.add_edge("execute", "summarize")
     graph.add_edge("summarize", END)
