@@ -50,6 +50,7 @@ import {
 import { dirname, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { gitRaw, resolveRemoteHead } from './lib/face-reader.mjs'
+import { judgeRunningState } from './lib/push-state-liveness.mjs'
 import { postMergeLedgerSync } from './lib/post-merge-ledger-sync.mjs'
 // 孤儿提交备份腿的单一实现(2026-10-29 门 30a 根因票):四台旁路落地器共用一份判据(§0.6),
 // 本器只留薄封装与再导出 —— conv 档命名/幂等/pack-refs/留痕/永不抛 全部住在那一层。
@@ -508,6 +509,17 @@ function waitForPushState(headSha, timeoutMs = 8 * 60 * 1000) {
         (s.status === 'done' || s.status === 'failed' || s.status === 'diverged')
       )
         return s.status
+      // 2026-11-07:running 的持有者已死 / pid 被复用 / 身份核不上 ⇒ 本次推送已经中止,
+      // 不能把它当"还在跑"白等满 8 分钟(死 worker 残留 running 会让每轮收敛空转)。
+      if (s.headSha === headSha && s.status === 'running') {
+        const v = judgeRunningState(s, { headSha })
+        if (!v.active) {
+          console.warn(
+            `⚠️  push-state running 已失效(${v.kind}: ${v.why})⇒ 判本次推送 failed,不再等满 ${Math.round(timeoutMs / 60000)}min`,
+          )
+          return 'failed'
+        }
+      }
       // state 已被更新 HEAD 的其他推送覆盖 → 视为本 HEAD 推送已无意义
       if (s.headSha !== headSha) return 'superseded'
     } catch {

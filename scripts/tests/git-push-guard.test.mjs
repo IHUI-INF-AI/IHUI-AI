@@ -4,12 +4,14 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync, spawn, spawnSync } from 'node:child_process'
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs'
+import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
+import { judgeRunningState } from '../lib/push-state-liveness.mjs'
 import {
   triagePushAttempt,
   PUSH_TRIAGE_KINDS,
@@ -1152,6 +1154,146 @@ test('e2e:--no-verify 重试回显 Everything up-to-date → 措辞喊"未推送
     const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
     assert.equal(st.status, 'done')
     assert.equal(st.pushedNothing, true, '状态里要留"什么都没推"的痕迹,否则下一轮又读成推送成功')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+// ─── 2026-11-07:running 的存活判据(pid 存活 + 启动时刻一致) ─────────────
+// 现场:worker 07:48:25 死亡、异步日志 0 字节、push-state 停在 running、远端无变化。
+// 最坏组合是下一轮把死进程的 running 读成"还在推"⇒ 什么都不做也不报错。
+
+/** 判据单测(四态):死 / 复用 / 匹配 / 旧档 —— 不依赖真进程,注入探测函数。 */
+test('judgeRunningState: 死/复用/匹配/旧档四态判定', () => {
+  const base = { status: 'running', headSha: 'a'.repeat(40), ts: Date.now(), pid: 4321 }
+  const match = judgeRunningState(
+    { ...base, pidStart: 100 },
+    { isAlive: () => true, identity: () => ({ kind: 'match', why: '启动时刻一致' }) },
+  )
+  assert.equal(match.active, true)
+  assert.equal(match.kind, 'match')
+
+  const reused = judgeRunningState(
+    { ...base, pidStart: 100 },
+    { isAlive: () => true, identity: () => ({ kind: 'mismatch', why: '启动时刻不符' }) },
+  )
+  assert.equal(reused.active, false, '同一 pid 启动时刻不符 = 已被复用,不得当在途')
+  assert.equal(reused.kind, 'reused')
+
+  const dead = judgeRunningState(base, { isAlive: () => false })
+  assert.equal(dead.active, false)
+  assert.equal(dead.kind, 'dead')
+
+  const legacy = judgeRunningState(base, { isAlive: () => true })
+  assert.equal(legacy.active, true, '旧档无 pidStart ⇒ 维持改动前判据(pid 存活即在途)')
+  assert.equal(legacy.kind, 'legacy')
+
+  const stale = judgeRunningState(base, { now: base.ts + 6 * 60 * 1000 })
+  assert.equal(stale.active, false)
+  assert.equal(stale.kind, 'stale')
+})
+
+test('worker 被强杀后残留 running ⇒ 判中止,死因写进异步日志', async () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  let dummy
+  try {
+    makeCommit(work, 'dead-pid.txt', 'x\n', 'feat: dead worker fixture')
+    const head = sh('git rev-parse HEAD', work).trim()
+    // 真起一只进程再强杀,拿它的死 pid —— 与宿主 job-object 清树后留下的形状一致
+    dummy = spawn('node', ['-e', 'setInterval(() => {}, 1000)'], {
+      stdio: 'ignore',
+      windowsHide: true,
+    })
+    await new Promise((r) => setTimeout(r, 300))
+    const deadPid = dummy.pid
+    dummy.kill()
+    await new Promise((r) => dummy.once('exit', r))
+    mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
+    writeFileSync(
+      join(work, '.ihui-agent', 'state', 'push-state.json'),
+      JSON.stringify({ status: 'running', headSha: head, ts: Date.now(), pid: deadPid }),
+    )
+
+    const r = runScript([], { cwd: work, env: { HUSKY_SKIP_PUSH: '1' } })
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'failed', `死进程持有的 running 必须翻成 failed,实际 ${st.status}`)
+    assert.match(st.reason, /判据=dead/, `终态要写清判据:${st.reason}`)
+    assert.doesNotMatch(r.stdout, /已有后台推送进行中/, '死 worker 不得被读成"仍在推"')
+
+    const log = readFileSync(join(work, '.ihui-agent', 'state', 'git-push-guard-async.log'), 'utf8')
+    assert.match(log, /判中止:running 的持有者 pid=.*判据=dead/)
+    assert.match(log, /worker 日志=0字节/, '0 字节日志 + running 的组合必须被点名解释')
+  } finally {
+    if (dummy && dummy.exitCode === null) dummy.kill()
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('pid 被复用(启动时刻不符)⇒ 不判在途,不许直接返回', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'pid-reuse.txt', 'x\n', 'feat: pid reuse fixture')
+    const head = sh('git rev-parse HEAD', work).trim()
+    mkdirSync(join(work, '.ihui-agent', 'state'), { recursive: true })
+    writeFileSync(
+      join(work, '.ihui-agent', 'state', 'push-state.json'),
+      JSON.stringify({
+        status: 'running',
+        headSha: head,
+        ts: Date.now(),
+        // 活 pid(本测试进程)+ 与现测不可能一致的启动时刻 ⇒ 等价"这个 pid 已换主人"
+        pid: process.pid,
+        pidStart: 1,
+        host: hostname(),
+      }),
+    )
+
+    const r = runScript([], { cwd: work, env: { HUSKY_SKIP_PUSH: '1' } })
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'failed', '复用 pid 的 running 必须判中止')
+    assert.match(st.reason, /reused|unverifiable/, `终态要写清"身份不符/核不上":${st.reason}`)
+    assert.doesNotMatch(r.stdout, /已有后台推送进行中/, '复用 pid 不得被当成仍在推')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('异步派发秒退 ⇒ 日志写明死因并回退同步推送,不留 running', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'dispatch-dead.txt', 'x\n', 'feat: dispatch death fixture')
+    // 临时仓没有 scripts/git-push-guard.mjs ⇒ 派发出的 worker 必然秒退(exit != 0),
+    // 正是"worker 死在派发窗内"的真实形状;父进程必须发现它、写死因、回退同步推送。
+    const r = runScript([], { cwd: work, env: { GUARD_ASYNC: '1' } })
+    assert.equal(r.status, 0, `回退同步推送应成功,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'done', `秒退后必须回退同步并落 done,实际 ${st.status}`)
+    const log = readFileSync(join(work, '.ihui-agent', 'state', 'git-push-guard-async.log'), 'utf8')
+    assert.ok(log.length > 0, '异步派发后日志不得为 0 字节')
+    assert.match(log, /dispatch: worker pid=.*已派生/)
+    assert.match(log, /派发窗内退出/)
+    assert.match(log, /Cannot find module|worker 派发后 1s 内退出/, '死因必须在日志里看得见')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
+test('正常跑完:状态 done,日志有 worker 启动与完成两行', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    makeCommit(work, 'ok-worker.txt', 'x\n', 'feat: worker happy path')
+    const r = runScript(['--worker'], { cwd: work, env: { GUARD_ASYNC: '1' } })
+    assert.equal(r.status, 0, `正常 worker 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
+    const st = JSON.parse(readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'))
+    assert.equal(st.status, 'done')
+    const log = readFileSync(join(work, '.ihui-agent', 'state', 'git-push-guard-async.log'), 'utf8')
+    assert.match(log, /worker 启动:/)
+    assert.match(log, /"pidStart":\d+/, 'worker 首次落 running 时必须带启动时刻凭据')
+    assert.match(log, /worker 正常完成/)
   } finally {
     rmScratch(work)
     rmScratch(origin)
