@@ -368,6 +368,42 @@ class AgentMessageBus:
         except TimeoutError:
             return None
 
+    def select_prioritized(
+        self,
+        agent_name: str,
+        limit: int,
+        *,
+        scan_limit: int,
+        head: list[AgentMessage] | None = None,
+    ) -> list[AgentMessage]:
+        """按 priority 取前 limit 条(稳定排序:同优先级保持到达序)。
+
+        `head` 是调用方已用 receive 取走的队头消息,这里把它与队列窗口合并后统一排序;
+        未选中的消息按到达序放回队尾。整个"排空 → 排序 → 放回"在同一同步段内完成,
+        不让出事件循环,因此不会与并发读者交错。
+        """
+        cap = max(1, int(limit))
+        head_items = list(head or [])
+        q = self._queues.get(agent_name)
+        drained: list[AgentMessage] = []
+        if q is not None:
+            window = max(0, min(int(scan_limit), cap + q.qsize()) - len(head_items))
+            for _ in range(window):
+                try:
+                    drained.append(q.get_nowait())
+                except asyncio.QueueEmpty:
+                    break
+        candidates = head_items + drained
+        if not candidates:
+            return []
+        selected = sorted(candidates, key=lambda item: -item.priority)[:cap]
+        selected_ids = {id(item) for item in selected}
+        if q is not None:
+            for item in candidates:
+                if id(item) not in selected_ids:
+                    q.put_nowait(item)
+        return selected
+
     async def broadcast(
         self,
         from_agent: str,
@@ -480,6 +516,10 @@ _BROADCAST_ALIASES = frozenset({"*", "all", "anyone", "broadcast"})
 _NAMABLE_MESSAGE_TYPES = frozenset({"notification", "request", "handoff"})
 # 收件箱排空时单次 receive 的最短等待(0 会退化成语义未定的立即返回)
 _INBOX_DRAIN_TIMEOUT_SECONDS = 0.05
+# 一次读口最多扫描多少条待办消息来挑高优先级(防止积压时无限排空)
+_INBOX_SCAN_LIMIT = 500
+# 唤醒腿注入正文的上限(与消息体截断同一量级,避免把整封信塞进 steer)
+_WAKE_TEXT_LIMIT = 2000
 
 
 def _text(value: object) -> str:
@@ -518,6 +558,44 @@ def _session_owner_conflict(session_id: str, user_id: str) -> bool:
     """会话在 run_ownership 里已登记为他人属主 ⇒ True(不得据此认领席位/发私信)。"""
     session_owner = owner_of(session_id)
     return session_owner is not None and session_owner != user_id
+
+
+def _wake_text(message: AgentMessage) -> str:
+    """triggersAgent 的 steer 正文。
+
+    `entersContext=false` 时正文不注入上下文,只给一条"有信待读"的提示;
+    否则带上截断后的正文,让收件方不必再读一次收件箱就能接活。
+    """
+    head = f"[agent-message:{message.id}] from={message.fromAgent}"
+    if not message.entersContext:
+        return f"{head} 已入收件箱;entersContext=false,正文不注入上下文。"
+    return f"{head}\n{message.content[:_WAKE_TEXT_LIMIT]}"
+
+
+async def _wake_recipient(
+    message: AgentMessage, session_id: str, owner_user_id: str
+) -> dict[str, Any]:
+    """triggersAgent 的消费端:把提示 steer 进收件会话正在跑的回合。
+
+    只影响**已在运行**的回合;没有活跃回合时如实返回 not_running,由承载层决定是否起新回合。
+    唤醒失败不反悔投递结果 —— 消息已经在箱里,失败只降级成"未唤醒"。
+    """
+    if not session_id:
+        return {"ok": False, "code": "no_recipient_session"}
+    try:
+        from .agent_run_control import wake_session
+    except Exception:  # pragma: no cover - 导入失败不阻断投递
+        logger.warning("唤醒腿不可用:agent_run_control 导入失败", exc_info=True)
+        return {"ok": False, "code": "wake_unavailable"}
+    try:
+        return await wake_session(
+            session_id,
+            owner_user_id=owner_user_id,
+            text=_wake_text(message),
+        )
+    except Exception:  # pragma: no cover - 唤醒腿异常不反悔投递
+        logger.warning("唤醒收件会话失败: session=%s", session_id, exc_info=True)
+        return {"ok": False, "code": "wake_failed"}
 
 
 async def send_to_agent(
@@ -672,7 +750,7 @@ async def send_to_agent(
             "messageId": message.id,
             "detail": "总线未把消息落进该席队列,不冒充已投递",
         }
-    return {
+    result: dict[str, Any] = {
         "ok": True,
         "code": "queued",
         "messageId": message.id,
@@ -684,6 +762,13 @@ async def send_to_agent(
         "triggersAgent": message.triggersAgent,
         "hopDepth": message.hopDepth,
     }
+    # triggersAgent 的消费端:消息已入箱后,尝试把收件会话正在跑的回合叫醒。
+    # 唤醒结果只作附加信息,不改变"已投递"这一事实。
+    if message.triggersAgent:
+        result["wakeUp"] = await _wake_recipient(
+            message, recipient_seat.sessionId, recipient_seat.ownerUserId
+        )
+    return result
 
 
 async def read_agent_inbox(
@@ -740,12 +825,24 @@ async def read_agent_inbox(
 
     cap = max(1, int(limit))
     first_timeout = max(wait_seconds, _INBOX_DRAIN_TIMEOUT_SECONDS)
+    first = await b.receive(name, timeout=first_timeout)
+    selected = (
+        []
+        if first is None
+        else b.select_prioritized(name, cap, scan_limit=_INBOX_SCAN_LIMIT, head=[first])
+    )
     collected: list[dict[str, Any]] = []
-    for index in range(cap):
-        got = await b.receive(name, timeout=first_timeout if index == 0 else _INBOX_DRAIN_TIMEOUT_SECONDS)
-        if got is None:
-            break
-        collected.append(got.to_dict())
+    suppressed = 0
+    for got in selected:
+        payload = got.to_dict()
+        # entersContext 的消费端:不进上下文的信仍要"消费掉"(否则会堵住队列),
+        # 但正文不交给模型,只留一条可核对的收据。
+        if payload.get("entersContext", True) is False:
+            payload["contentLength"] = len(payload.get("content") or "")
+            payload["content"] = ""
+            payload["contentOmitted"] = True
+            suppressed += 1
+        collected.append(payload)
     return {
         "ok": True,
         "code": "read",
@@ -754,8 +851,11 @@ async def read_agent_inbox(
         "messages": collected,
         # 2026-11-08:把"该不该起回合 / 该不该进上下文"的判定结果交给调用方,
         # 不在读口里替它决定(读口只负责消费与归属校验)。
-        "contextEligible": sum(1 for item in collected if item.get("entersContext", True) is not False),
+        "contextEligible": sum(
+            1 for item in collected if item.get("entersContext", True) is not False
+        ),
         "triggersAgentCount": sum(1 for item in collected if item.get("triggersAgent")),
+        "suppressedFromContext": suppressed,
         "queueDepthRemaining": b.queue_depth(name),
     }
 
