@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-07T09:21:11.315Z",
+  "sealedAt": "2026-11-07T11:00:39.193Z",
   "sealedBy": "root-guard --seal",
-  "reason": "2026-11-07 全量收敛:106 冲突文件判边合并落地 main,guardian-runner 与 git-guardian 规则面随合并演进(新增门 309-311/单行 stagedTriggers 形态/透传面扩展),清单按 HEAD 现面重封",
+  "reason": "两刀制第一刀:门 267 复核对账前重封一次(被审面=HEAD),确认清单与 git-guardian.mjs 现读一致",
   "targets": [
     {
       "id": "guardian-runner",
