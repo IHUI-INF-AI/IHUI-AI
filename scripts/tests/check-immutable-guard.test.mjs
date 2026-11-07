@@ -374,6 +374,102 @@ test('T20 签名形状正确但验签失败 ⇒ 不放行（窗口内也不放�
   assert.equal(out.signature.code, 'sig-invalid')
 })
 
+// ---------------------------------------------------------------------------
+// 跨枚声明（2026-11-07 立，票 ticket-ig-read-scope-2026-11-07.md 的四条验收用例）
+// 全部真跑 git 夹具；不构造真实锁竞争，也不复制判据常量。
+// ---------------------------------------------------------------------------
+
+const headSha = (root) => String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+const amendAll = (root, message) => gitRaw(['commit', '--amend', '--no-verify', '-F', '-'], root, { input: message })
+const BATCH_REASON = '同批次声明：本批判据面改动已逐路径复核'
+
+test('T25 三枚提交、声明只在中间一枚 ⇒ 区间通过（其余两枚由同批次覆盖）', () => {
+  const root = gate.seedRepo(realText())
+  try {
+    const base = headSha(root)
+    gate.writeIn(root, 'scripts/lib/face-reader.mjs', '// c1 无声明\n')
+    gate.commitAll(root, 'feat: c1 触及受保护面但没写声明')
+    gate.writeIn(root, 'docs/x.md', '# c2\n')
+    gate.commitAll(root, `docs: c2 只补声明\n\n${gate.EXEMPT_TRAILER} ${BATCH_REASON}`)
+    const declSha = headSha(root)
+    gate.writeIn(root, 'scripts/guardian-runner.mjs', '// c3 无声明\n')
+    gate.commitAll(root, 'feat: c3 另一处受保护面也没声明')
+
+    const out = gate.auditRange(root, { range: `${base}..HEAD`, today: '2026-11-04' })
+    assert.equal(out.exit, 0, `同批次声明必须覆盖；report=${gate.formatAuditReport(out)}`)
+    assert.equal(out.state, 'clean')
+    assert.equal(out.breaches.length, 0, '不得因为缺自带声明而判红')
+    assert.equal(out.batchDeclared.length, 2, 'c1/c3 两枚都应由同批次声明覆盖')
+    for (const d of out.batchDeclared) assert.equal(d.declaredBy, declSha, '必须点名覆盖者')
+    assert.match(gate.formatAuditReport(out), /由同批次 /, '报告必须点名"由哪一枚覆盖"')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('T26 声明在区间之外 ⇒ 不通过（禁止跨批次复用）', () => {
+  const root = gate.seedRepo(realText())
+  try {
+    const base = headSha(root)
+    gate.writeIn(root, 'docs/x.md', '# c1\n')
+    gate.commitAll(root, `docs: c1 声明\n\n${gate.EXEMPT_TRAILER} ${BATCH_REASON}`)
+    const declSha = headSha(root)
+    gate.writeIn(root, 'scripts/lib/face-reader.mjs', '// c2 无声明\n')
+    gate.commitAll(root, 'feat: c2 触及受保护面但没写声明')
+
+    // 区间只含 c2：c1 的声明在区间外，不得复用。
+    const out = gate.auditRange(root, { range: `${declSha}..HEAD`, today: '2026-11-04' })
+    assert.equal(out.exit, 1, `区间外声明不得复用；report=${gate.formatAuditReport(out)}`)
+    assert.equal(out.breaches.length, 1)
+    assert.equal(out.breaches[0].code, 'undeclared')
+    assert.equal(out.batchDeclared.length, 0)
+    // 同一条区间若包含声明那枚 ⇒ 就可以覆盖（证明差别只在"是否同批次"）
+    const wide = gate.auditRange(root, { range: `${base}..HEAD`, today: '2026-11-04' })
+    assert.equal(wide.exit, 0)
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('T27 自指：改清单的批次按父提交清单判，新增路径不对本批生效；本批自带声明后通过', () => {
+  const root = gate.seedRepo(realText())
+  try {
+    const base = headSha(root)
+    const parsed = JSON.parse(realText())
+    parsed.entries.push({ path: 'docs/new-protected.md', kind: 'rule-doc', why: '夹具：验证新增登记对本批不生效', reviewBy: '2027-06-30' })
+    gate.writeIn(root, gate.GUARD_DATA_REL, `${JSON.stringify(parsed, null, 2)}\n`)
+    gate.writeIn(root, 'docs/new-protected.md', '# 新增受保护面\n')
+    gate.commitAll(root, `chore(guard): 新增受保护面\n\n${gate.EXEMPT_TRAILER} 新增登记自指处理：本条按父提交清单判定`)
+
+    const one = gate.runAudit(root, 'head', { rev: 'HEAD', policyRev: base, today: '2026-11-04' })
+    assert.equal(one.exit, 0, `本批自带声明必须通过；detail=${one.detail}`)
+    assert.deepEqual(one.hits.map((h) => h.path), [gate.GUARD_DATA_REL], '新增的 docs/new-protected.md 不得在本批生效（否则即自指）')
+  } finally {
+    rmScratch(root)
+  }
+})
+
+test('T28 amend 补声明后重判 ⇒ 通过；旧 sha 不再进入判据（无需旧 sha 台账）', () => {
+  const root = gate.seedRepo(realText())
+  try {
+    const base = headSha(root)
+    gate.writeIn(root, 'scripts/lib/face-reader.mjs', '// 无声明\n')
+    gate.commitAll(root, 'feat: 未声明')
+    const before = gate.auditRange(root, { range: `${base}..HEAD`, today: '2026-11-04' })
+    assert.equal(before.exit, 1, '未声明必须红')
+    const oldSha = headSha(root)
+
+    amendAll(root, `feat: 未声明\n\n${gate.EXEMPT_TRAILER} 补声明：仅补文字，树逐字未变`)
+    const newSha = headSha(root)
+    assert.notEqual(newSha, oldSha, 'amend 必须产生新 sha')
+    const after = gate.auditRange(root, { range: `${base}..HEAD`, today: '2026-11-04' })
+    assert.equal(after.exit, 0, `amend 后重判必须通过；report=${gate.formatAuditReport(after)}`)
+    assert.equal(after.audited, 1, '区间里只剩新 sha（旧 sha 已不在判据范围）')
+  } finally {
+    rmScratch(root)
+  }
+})
+
 test('T21 密钥不存在 ⇒ fail-closed（有签名行但无从验 ⇒ 判未豁免）', () => {
   const { entries } = realEntries()
   const out = gate.decide({ entries, changes: HIT, message: signed(SUBJECT, REASON, ['scripts/lib/face-reader.mjs']), key: null, today: '2026-11-04' })

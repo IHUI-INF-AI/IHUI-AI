@@ -273,7 +273,15 @@ function readHeadMessage(root, rev = 'HEAD') {
  * `key` 只给自检/测试注入用；`undefined` ⇒ 走 `resolveSigningKey` 的正式三源。
  * `policyRev`（2026-11-04 立，push 门专用）：**策略取自哪里**。默认空 = 与 `rev` 同轮（巡检语义）。
  *   push 门给区间基点（origin/main）：被审者无法在自己提交里删掉/推后 `signatureRequiredFrom`
- *   来给自己放行；命中面 entries 仍取被审提交自己的清单（新增登记对当枚即生效）。
+ *   来给自己放行。2026-11-07 起**命中面 entries 也取基点清单**（见 ticket-ig-read-scope-2026-11-07.md）：
+ *   本批次新增的受保护路径对**本批次自己**不生效、从下一批起生效，避免「加一条受保护路径」
+ *   反过来要求本批次先声明该路径的自指。
+ *
+ * 跨枚声明（2026-11-07 立，仅 `--range` 档启用）：读取面 = `a..b` 区间**全部**提交信息，
+ * 声明在同一批次内有效 —— 某枚没自带声明时，可由同批次另一枚的合规声明覆盖（记 code
+ * `declared-batch` / `declared-unsigned-batch` 并在报告里点名"由谁覆盖"）。
+ * 于是「先提交、推送前才发现漏声明」不必再 `--amend` 改写历史（那会改 sha、逼出 superseded 台账）。
+ * `--audit-new` 不启用跨枚声明（巡检按游标逐枚判，口径不跟着放宽）。
  */
 export function runAudit(root, face, { message = undefined, today = todayStr(), record = false, rev = 'HEAD', policyRev = null, key = undefined, ackRows = [] } = {}) {
   const keyRes =
@@ -357,7 +365,9 @@ export function runAudit(root, face, { message = undefined, today = todayStr(), 
 
   const out = decide({
     listProblems: parsed.problems,
-    entries: parsed.entries,
+    // 2026-11-07：点位清单也取基点（push 档）。新增登记只对后继批次生效，
+    // 否则「给清单加一条受保护路径」的提交会反过来要求自己先声明那条新路径（自指）。
+    entries: useBasePolicy ? policyParsed.entries : parsed.entries,
     changes,
     message: msg,
     today,
@@ -579,16 +589,29 @@ const AUDIT_BASE = {
  * 归桶顺序：exit 1 ⇒ breach；exit 2 ⇒ undetermined；exit 0 ⇒ declared（签名验过）
  * 或 unsigned（迁移窗口内仅文字理由）。合并提交跳过并计数（理由见调用处注释）。
  */
-function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev = null } = {}) {
+function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev = null, crossBatch = false } = {}) {
   const breaches = []
   const undetermined = []
   const unsigned = []
   const retro = []
+  const batchDeclared = []
   let declared = 0
   let skippedMerges = 0
   let judged = 0
   // 追认台账整批读一次(同一末端),逐枚只查自己的 sha;坏行带出去点名,不静默。
   const ack = readAckRows(root)
+  // 跨枚声明：整批提交信息先读一次。读不到记 null（不猜、不放行）。
+  const keyRes = crossBatch ? resolveSigningKey(root) : null
+  const batchMessages = new Map()
+  if (crossBatch) {
+    for (const sha of batch) {
+      try {
+        batchMessages.set(sha, readHeadMessage(root, sha))
+      } catch {
+        batchMessages.set(sha, null)
+      }
+    }
+  }
   for (const sha of batch) {
     if (parentCount(root, sha) > 1) {
       skippedMerges += 1
@@ -618,13 +641,72 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
       substitutedFor: one.ack?.substitutedFor ?? '',
       ackProblem: one.ack?.state === 'invalid' ? `${one.ack.code}:${one.ack.why}` : '',
     }
-    if (one.exit === 1) breaches.push(brief)
-    else if (one.exit === 2) undetermined.push(brief)
+    if (one.exit === 1) {
+      // 跨枚声明只在 exit 1 且「本枚完全没声明」时兜：声明过短/签名验不过/清单到期不在此列。
+      const cross =
+        crossBatch && one.code === 'undeclared' && (one.hits ?? []).length > 0
+          ? findBatchDeclaration({
+              batch,
+              messages: batchMessages,
+              self: sha,
+              hits: one.hits,
+              key: keyRes.key,
+              signatureRequiredFrom: one.signatureRequiredFrom,
+              today,
+            })
+          : null
+      if (cross) {
+        batchDeclared.push({
+          ...brief,
+          code: cross.code,
+          declaredBy: cross.sha,
+          reasons: [cross.reason],
+          signatureCode: cross.signed ? 'sig-verified' : 'sig-missing',
+        })
+        declared += 1
+      } else {
+        breaches.push(brief)
+      }
+    } else if (one.exit === 2) undetermined.push(brief)
     else if (one.code === 'declared') declared += 1
     else if (one.code === 'retro-declared') retro.push(brief)
     else if (one.code === 'declared-unsigned') unsigned.push(brief)
   }
-  return { breaches, undetermined, unsigned, retro, declared, skippedMerges, judged, ackProblems: ack.problems, ackAbsent: ack.absent }
+  return {
+    breaches,
+    undetermined,
+    unsigned,
+    retro,
+    declared,
+    batchDeclared,
+    skippedMerges,
+    judged,
+    ackProblems: ack.problems,
+    ackAbsent: ack.absent,
+  }
+}
+
+/**
+ * 同批次声明覆盖：某枚触及判据面却没自带声明时，从**同一批次**其他提交信息里找合规声明。
+ * 签名按「声明那枚的标题 + **本枚的命中路径** + 理由」验（`--sign-staged --paths` 可显式给路径）；
+ * 自带签名却验不过的声明不参与覆盖（不回退成"无签名"）。迁移窗口内无签名可覆盖，code 单独记。
+ */
+function findBatchDeclaration({ batch, messages, self, hits, key, signatureRequiredFrom, today }) {
+  const windowOpen =
+    signatureRequiredFrom === null ||
+    (typeof signatureRequiredFrom === 'string' && today < signatureRequiredFrom)
+  for (const sha of batch) {
+    if (sha === self) continue
+    const msg = messages.get(sha)
+    if (!msg) continue
+    const exempt = parseExemptTrailer(msg)
+    if (!exempt.reasons.length) continue
+    const sig = verifyExemption({ message: msg, hits, key })
+    if (sig.ok) return { sha, code: 'declared-batch', signed: true, reason: exempt.reasons[0].reason }
+    if (sig.present) continue
+    if (windowOpen) return { sha, code: 'declared-unsigned-batch', signed: false, reason: exempt.reasons[0].reason }
+  }
+  return null
 }
 
 /**
@@ -763,18 +845,19 @@ export function auditRange(root, { range = 'origin/main..HEAD', today = todayStr
   if (shas.length === 0) {
     return { ...base, exit: 0, state: 'empty-range', range, detail: `区间 ${range} 为空 ⇒ 本轮零输入（不等于"判过且干净"）` }
   }
-  // 策略基点：区间左端（三点区间取 merge-base）。签名要求日取**基点**的清单 ——
-  // 被审者在自己提交里删掉/推后开关也给自己放不了行；命中面仍取被审提交自己的清单。
+  // 策略基点：区间左端（三点区间取 merge-base）。签名要求日与**命中面清单**都取基点 ——
+  // 被审者在自己提交里删掉/推后开关也给自己放不了行；本批新增的受保护路径从下一批起生效（自指）。
   let baseRev
   try {
     baseRev = rangeBaseRev(root, range)
   } catch (e) {
     return { ...base, state: 'undetermined', range, detail: `区间 ${range} 的基点解析失败：${e?.message ?? e} ⇒ 未判定，不记绿` }
   }
-  const { breaches, undetermined, unsigned, retro, declared, skippedMerges, judged, ackProblems } = judgeBatch(root, shas, {
+  const { breaches, undetermined, unsigned, retro, declared, batchDeclared, skippedMerges, judged, ackProblems } = judgeBatch(root, shas, {
     today,
     record,
     policyRev: baseRev,
+    crossBatch: true,
   })
   return {
     ...base,
@@ -786,6 +869,7 @@ export function auditRange(root, { range = 'origin/main..HEAD', today = todayStr
     judged,
     skippedMerges,
     declared,
+    batchDeclared,
     retro,
     unsigned,
     pending: 0,
@@ -850,6 +934,13 @@ export function formatAuditReport(out) {
     lines.push(`   ⚠️ ${u.sha}「${u.subject}」无签名豁免（${u.signatureCode}；窗口至 ${u.windowUntil}）`)
     for (const h of u.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
     for (const r of u.reasons) lines.push(`     · 理由：${r}`)
+  }
+  // 跨枚声明必须点名"由哪一枚覆盖"：不点名就等于把两枚并成一枚，事后无法追到声明人。
+  for (const d of out.batchDeclared ?? []) {
+    const by = String(d.declaredBy ?? '').slice(0, 12)
+    lines.push(`   ℹ️ ${d.sha}「${d.subject}」本枚无声明，由同批次 ${by} 覆盖（${d.code === 'declared-batch' ? '签名验过' : '迁移窗口内无签名'}）`)
+    for (const h of d.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
+    for (const r of d.reasons) lines.push(`     · 覆盖理由：${r}`)
   }
   for (const u of out.undetermined) lines.push(`   · 未判定 ${u.sha}「${u.subject}」code=${u.code} —— ${u.detail}`)
   // 追认档必须逐枚点名"谁补的、到几时":它和 trailer 不同形,写成一粒计数就等于把事后补发
