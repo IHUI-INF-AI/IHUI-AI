@@ -31781,4 +31781,3 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] RP-42 **超工慢路径判断（inferred 该不该动手交给模型）**:现状=receive 只有确定性快筛（addressed/fromBot/白名单）,recorded 需人带 ruleId 手点 acceptRecorded;出路=泵收单后对 inferred 批量跑判定（复用 ai-service 现成模型通道）,判定结果进 pendingRecords 注记（登记@2026-11-07）
 - [ ] RP-43 **超工工作台面板（web 端消费 /api/super-agent/*）**:现状=全仓无任何端 HTTP 调用面板/工单/replies 端点,RN 的 toggle-super-agent 仅按钮事件无 API 线;出路=web 对话工作台列"要人处理"工单+验收入口,端内 i18n 五语言同批,跨端同步按 §9 显式豁免或跟进（登记@2026-11-07）
 
-- [ ] P87 [auto-triage] API 5xx 错误签名聚类(GET /api/subagents/active 503)(登记@2026-11-07/auto-triage;来源:api-logs 哨兵;证据:现象=24h 同签名 2 次;归属面=apps/api 路由/中间件(api_logs);最小修法=按签名复现该请求并补参数校验/错误处理;最近样本:GET /api/subagents/active → 503 GET /api/subagents/active -> 503 / FastifyError: Service Unavailable)
