@@ -498,6 +498,14 @@ class TelemetryService:
         r.gauge("budget_usage_percent", "预算使用率(%)", ["pillar", "period"])
         r.gauge("budget_degraded_models", "降级模型数", ["pillar"])
 
+        # 数据留存(TTL):破坏性清扫中保留的「无偏移未知来源」记录数
+        # (写入方 app/services/ttl_json_store.py 只按名取用,不自建第二份形状)
+        r.gauge(
+            "ttl_naive_unknown_origin",
+            "TTL 破坏性清扫保留的无偏移未知来源记录数",
+            ["store", "shape"],
+        )
+
     # ---------- Redis ----------
 
     async def _ensure_redis(self) -> Any:

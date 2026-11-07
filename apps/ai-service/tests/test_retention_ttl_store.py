@@ -240,6 +240,55 @@ def test_sweep_naive_unknown_origin_kept_and_counted(caplog: pytest.LogCaptureFi
     assert "ttl.naive_unknown_origin=1" in caplog.text
 
 
+def test_ring_cap_evicts_unknown_before_normal(caplog: pytest.LogCaptureFixture):
+    """环满时先淘汰未知行自己,正常数据不能被它们挤掉。
+
+    反例(修前实测):未知行插在末尾、环上限 2 时,原实现按插入序砍掉最旧的两条
+    **正常行**,反而留下未知行 —— 那是隐式且有损的替换。这里断言修后顺序。
+    """
+    caplog.set_level(logging.WARNING, logger="app.services.ttl_json_store")
+    now = datetime(2026, 1, 1, tzinfo=UTC).timestamp()
+    fresh = {"updated_at": "2025-12-31T00:00:00Z"}
+    unknown = {"updated_at": "2020-01-01T00:00:00"}
+    # max_items=2 ⇒ 未知行独立配额 1 条;正常环容量仍是 2 条。
+    data = {"n1": fresh, "n2": fresh, "u1": unknown, "u2": unknown}
+    kept, dropped = tjs.sweep_mapping(data, retention_days=30, now=now, max_items=2)
+    assert set(kept) == {"n1", "n2", "u2"}, "正常行必须全保留,超配额的未知行自己出局"
+    assert dropped == 1
+    assert "ttl.naive_unknown_origin_overflow=1" in caplog.text
+
+    # 正常行自己超上限时,仍按原顺序淘汰最旧的正常行(未知行不替它们占位)。
+    data2 = {"n1": fresh, "n2": fresh, "n3": fresh, "u1": unknown, "u2": unknown}
+    kept2, dropped2 = tjs.sweep_mapping(data2, retention_days=30, now=now, max_items=2)
+    assert set(kept2) == {"n2", "n3", "u2"}
+    assert dropped2 == 2
+
+    seq = [fresh, fresh, unknown, unknown]
+    kept_seq, dropped_seq = tjs.sweep_sequence(seq, retention_days=30, now=now, max_items=2)
+    assert kept_seq == [fresh, fresh, unknown], "序列形态同样先淘汰未知行"
+    assert dropped_seq == 1
+
+
+def test_naive_unknown_count_has_metric_outlet():
+    """计数不能只有一行日志:必须进统一遥测面,否则没人看就等于没有。"""
+    from app.services.telemetry_service import telemetry_service
+
+    now = datetime(2026, 1, 1, tzinfo=UTC).timestamp()
+    store = "ttl-naive-fixture.json"
+    tjs.sweep_mapping(
+        {"u1": {"updated_at": "2020-01-01T00:00:00"}},
+        retention_days=30,
+        now=now,
+        store=store,
+    )
+    gauge = telemetry_service.registry.get_metric("ttl_naive_unknown_origin")
+    assert gauge is not None, "metric 必须在 telemetry_service 声明"
+    assert gauge.get(store=store, shape="mapping") == 1
+    # 清扫到 0 时要回落,避免旧告警一直挂着。
+    tjs.sweep_mapping({}, retention_days=30, now=now, store=store)
+    assert gauge.get(store=store, shape="mapping") == 0
+
+
 def test_sweep_aware_offsets_expire_normally(caplog: pytest.LogCaptureFixture):
     """带明确偏移(``Z`` / ``+08:00``)的过期行照旧正常删除,不得误进「未知」桶。"""
     caplog.set_level(logging.WARNING, logger="app.services.ttl_json_store")

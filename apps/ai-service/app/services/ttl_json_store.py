@@ -69,6 +69,36 @@ DEFAULT_TIMESTAMP_FIELDS: tuple[str, ...] = (
     "timestamp",
 )
 
+# 「无偏移且来源不明」行的独立配额:最多占环容量的 10%(至少 1 条)。
+# 它们不参与正常环淘汰 —— 环满时先淘汰未知行自己,正常数据不被挤占;
+# 超出配额的部分会打 ``ttl.naive_unknown_origin_overflow=N`` 告警。
+_NAIVE_UNKNOWN_QUOTA_RATIO = 0.1
+
+# 保留计数的 metric 出口名(声明在 telemetry_service._init_metrics)。
+_NAIVE_UNKNOWN_METRIC = "ttl_naive_unknown_origin"
+
+
+def _naive_unknown_quota(max_items: int) -> int:
+    """未知来源行的独立配额;``max_items <= 0`` 时不保留任何未知行。"""
+    if max_items <= 0:
+        return 0
+    return max(1, int(max_items * _NAIVE_UNKNOWN_QUOTA_RATIO))
+
+
+def _report_naive_unknown(store: str, shape: str, count: int) -> None:
+    """把保留计数送进统一遥测出口(``/orchestration/telemetry/metrics``)。
+
+    清理链路不能被遥测可用性拖累:import/取 metric 失败一律静默跳过,
+    聚合日志 ``ttl.naive_unknown_origin=N`` 仍是兜底观测面。
+    """
+    try:
+        from .telemetry_service import Gauge, telemetry_service
+    except ImportError:
+        return
+    metric = telemetry_service.registry.get_metric(_NAIVE_UNKNOWN_METRIC)
+    if isinstance(metric, Gauge):
+        metric.set(count, store=store or "unknown", shape=shape)
+
 
 def resolve_retention_days(env_name: str, default_days: int) -> int:
     """从环境变量读保留天数,只认"纯数字正整数"或显式的关闭字面量。
@@ -250,6 +280,7 @@ def sweep_mapping(
     max_items: int | None = None,
     now: float | None = None,
     fields: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
+    store: str = "",
 ) -> tuple[dict[Any, Any], int]:
     """扫一遍 ``{key: record}`` 形态的数据:先按 TTL 淘汰,再按环形上限截断。
 
@@ -260,6 +291,7 @@ def sweep_mapping(
         max_items:      环形上限,超出丢最旧(插入序末尾视为最新);None = 不限
         now:            当前时间(测试可注入)
         fields:         时间戳字段候选,按优先级
+        store:          metric 标签(存档文件名;调用方不传时记 ``unknown``)
 
     Returns:
         (清理后的 dict, 被丢弃条数)。**原 dict 不被修改**。
@@ -267,13 +299,17 @@ def sweep_mapping(
     破坏性口径:无偏移且来源不明的记录(``origin == "naive"``)**不按任何时区解释
     过期** —— 保留、计数,并打一条可聚合日志 ``ttl.naive_unknown_origin=N``。代价不对称:
     按 UTC 猜错会提前删除且不可恢复;留着最多多占空间,随时能补删。
+
+    容量隔离:未知行**不参与正常环淘汰**,另有 ``_naive_unknown_quota`` 独立配额;
+    超出配额时先淘汰未知行自己(``ttl.naive_unknown_origin_overflow=N``),正常数据
+    不会被它们挤掉。计数同步写入 telemetry 的 ``ttl_naive_unknown_origin`` gauge。
     """
     if not isinstance(data, Mapping):
         return {}, 0
     current = time.time() if now is None else now
     kept: dict[Any, Any] = {}
     dropped = 0
-    naive_unknown = 0
+    naive_keys: list[Any] = []
     for key, record in data.items():
         expired, origin = _expiry_state(
             record,
@@ -284,19 +320,35 @@ def sweep_mapping(
         )
         if expired:
             if origin == "naive":
-                naive_unknown += 1
+                naive_keys.append(key)
                 kept[key] = record
                 continue
             dropped += 1
             continue
         kept[key] = record
+    naive_unknown = len(naive_keys)
+    if max_items is not None and max_items >= 0:
+        quota = _naive_unknown_quota(max_items)
+        over_naive = max(0, naive_unknown - quota)
+        if over_naive:
+            # 配额超出:先淘汰最旧的未知行自己,而不是让它们继续占正常容量。
+            for key in naive_keys[:over_naive]:
+                kept.pop(key, None)
+            naive_keys = naive_keys[over_naive:]
+            naive_unknown = len(naive_keys)
+            dropped += over_naive
+            logger.warning("ttl.naive_unknown_origin_overflow=%d", over_naive)
+        # 正常环只针对非未知行;原淘汰顺序(插入序最旧优先)保持不变。
+        naive_set = set(naive_keys)
+        normal_keys = [key for key in kept if key not in naive_set]
+        if len(normal_keys) > max_items:
+            overflow = len(normal_keys) - max_items
+            for key in normal_keys[:overflow]:
+                kept.pop(key, None)
+            dropped += overflow
     if naive_unknown:
         logger.warning("ttl.naive_unknown_origin=%d", naive_unknown)
-    if max_items is not None and max_items >= 0 and len(kept) > max_items:
-        overflow = len(kept) - max_items
-        for key in list(kept.keys())[:overflow]:
-            kept.pop(key, None)
-        dropped += overflow
+    _report_naive_unknown(store, "mapping", naive_unknown)
     return kept, dropped
 
 
@@ -308,19 +360,21 @@ def sweep_sequence(
     max_items: int | None = None,
     now: float | None = None,
     fields: Sequence[str] = DEFAULT_TIMESTAMP_FIELDS,
+    store: str = "",
 ) -> tuple[list[Any], int]:
     """扫一遍 ``[record, ...]`` 形态的数据(list/JSON 数组),语义同 :func:`sweep_mapping`。
 
     环形上限按"尾部最新"处理(与各模块 append-only 的写入顺序一致)。
     **原 list 不被修改**;非 list 输入(如损坏后读出 dict)按空处理。
-    破坏性口径同 :func:`sweep_mapping`:``naive`` 未知来源的记录保留并计数。
+    破坏性口径同 :func:`sweep_mapping`:``naive`` 未知来源的记录保留并计数,且不参与
+    正常环淘汰 —— 超独立配额时先淘汰未知行自己。
     """
     if not isinstance(data, list):
         return [], 0
     current = time.time() if now is None else now
-    kept: list[Any] = []
+    # (record, 是否未知来源保留行):未知行单独标记,容量阶段与正常行分开淘汰。
+    entries: list[tuple[Any, bool]] = []
     dropped = 0
-    naive_unknown = 0
     for record in data:
         expired, origin = _expiry_state(
             record,
@@ -331,19 +385,29 @@ def sweep_sequence(
         )
         if expired:
             if origin == "naive":
-                naive_unknown += 1
-                kept.append(record)
+                entries.append((record, True))
                 continue
             dropped += 1
             continue
-        kept.append(record)
+        entries.append((record, False))
+    naive_unknown = sum(1 for _, protected in entries if protected)
+    if max_items is not None and max_items >= 0:
+        quota = _naive_unknown_quota(max_items)
+        naive_idx = [i for i, (_, protected) in enumerate(entries) if protected]
+        normal_idx = [i for i, (_, protected) in enumerate(entries) if not protected]
+        over_naive = max(0, len(naive_idx) - quota)
+        over_normal = max(0, len(normal_idx) - max_items)
+        remove = set(naive_idx[:over_naive]) | set(normal_idx[:over_normal])
+        if remove:
+            entries = [entry for i, entry in enumerate(entries) if i not in remove]
+            dropped += len(remove)
+        if over_naive:
+            logger.warning("ttl.naive_unknown_origin_overflow=%d", over_naive)
+        naive_unknown -= over_naive
     if naive_unknown:
         logger.warning("ttl.naive_unknown_origin=%d", naive_unknown)
-    if max_items is not None and max_items >= 0 and len(kept) > max_items:
-        overflow = len(kept) - max_items
-        del kept[:overflow]
-        dropped += overflow
-    return kept, dropped
+    _report_naive_unknown(store, "sequence", naive_unknown)
+    return [record for record, _ in entries], dropped
 
 
 def read_json_file(path: str | os.PathLike[str]) -> Any | None:
@@ -492,6 +556,7 @@ def load_ttl_records(
             max_items=max_items,
             now=now,
             fields=fields,
+            store=Path(path).name,
         )
     else:
         cleaned, expired = sweep_sequence(
@@ -501,6 +566,7 @@ def load_ttl_records(
             max_items=max_items,
             now=now,
             fields=fields,
+            store=Path(path).name,
         )
     if invalid:
         logger.warning("TTL JSON 有 %d 条记录结构不合法已剔除: %s", invalid, path)
