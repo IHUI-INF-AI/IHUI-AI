@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { __test__ as P } from '../check-sweeper-liveness.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..', '..')
@@ -24,37 +25,24 @@ const GUARDIAN_SRC = path.join(ROOT, 'scripts', 'git-guardian.mjs')
 const FN = 'auditFeedbackLoopClosure'
 
 /**
- * 取 startDaemon 里 `const tick = () => {` 之后的正文(判不出 ⇒ 空串,由断言判红)。
- *
- * 边界怎么定:配平花括号会被模板字符串/注释里的 `{` 带偏,所以这里按**缩进**收口 ——
- * tick 体整体有缩进,遇到列 0 的非空行即视为 startDaemon 结束。失效方向是"提前收口
- * ⇒ 判不出 ⇒ 判红",绝不会把 main() 一次性路径里的调用读成 tick 接线。
+ * 切片与"非注释实调用"判据**只此一份**(§0.6/§22c):import 门体 `__test__`,本文件零副本。
+ * 2026-11-07 收口:本文件原先自带一份 `tickBodyOf`/`hasLiveCall` 副本,而被锁面同日改变形态
+ * (四条长腿改 spawn + await ⇒ `const tick = async () => {`)—— 副本只认死字面量 ⇒ 整段切不出
+ * ⇒ T1 从"锁住"退化成"判不出"。两处同时改同一判据正是"第二把尺子必然漂移"的实证:
+ * 与其把字面量再放宽一遍,不如让它认同一把尺。
  */
-function tickBodyOf(src) {
-  const i = src.indexOf('function startDaemon')
-  if (i < 0) return ''
-  const j = src.indexOf('const tick = () => {', i)
-  if (j < 0) return ''
-  const lines = src.slice(j).split(/\r?\n/)
-  const out = []
-  for (let k = 1; k < lines.length; k++) {
-    const l = lines[k]
-    if (l.trim() !== '' && !/^\s/.test(l)) break
-    out.push(l)
-  }
-  return out.join('\n')
-}
+const { tickBodyOf, hasLiveCall } = P
 
-/** 只看非注释行:注释里出现调用名不算接线。 */
-function hasLiveCall(body, name) {
-  return String(body)
-    .split(/\r?\n/)
-    .some((raw) => {
-      const t = raw.trim()
-      if (t.startsWith('//') || t.startsWith('*') || t.startsWith('/*')) return false
-      return t.includes(`${name}(`)
-    })
-}
+test('T0 判据单源:切片/非注释判据 import 门体 __test__,本文件零副本(§0.6/§22c)', () => {
+  const self = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+  assert.equal(typeof tickBodyOf, 'function')
+  assert.equal(typeof hasLiveCall, 'function')
+  assert.deepEqual([tickBodyOf, hasLiveCall], [P.tickBodyOf, P.hasLiveCall], '必须用门体同一把尺')
+  assert.ok(
+    !/function\s+(tickBodyOf|hasLiveCall)\s*\(/.test(self),
+    '不得自带切片/判据副本 ⇒ 被锁面形态一变,副本与门体就各判一套',
+  )
+})
 
 test('T1 正证:守护 tick 体内存在非注释的巡检调用', () => {
   const src = readFileSync(GUARDIAN_SRC, 'utf8')

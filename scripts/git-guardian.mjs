@@ -6598,7 +6598,7 @@ const DANGLING_AUTOTAG_INTERVAL_MS = Number(
  *    只在能整改/真失败时才占到人通道)。
  * 判机器状态 ⇒ 不进提交链(§12e)。
  */
-export function sweepDanglingCommitAutotag(opts = {}) {
+export async function sweepDanglingCommitAutotag(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = DANGLING_AUTOTAG_INTERVAL_MS,
@@ -6623,7 +6623,7 @@ export function sweepDanglingCommitAutotag(opts = {}) {
   const r =
     typeof runner === 'function'
       ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
-      : runLegChild(script, ['--apply', '--json'], 32 * 60 * 1000)
+      : await runLegChildAsync(script, ['--apply', '--json'], 32 * 60 * 1000)
   beatRoundLock()
   let res = null
   try {
@@ -12184,7 +12184,59 @@ function runLegChild(scriptFile, args, timeoutMs, cwd = WORKTREE) {
   }
 }
 
-export function healI18nBundleLeg(opts = {}) {
+/**
+ * `runLegChild` 的异步版(2026-11-07):同样的参数与同样的返回形状,但**不阻塞事件循环**。
+ *
+ * 为什么必须分两个版本而不是把同步版整体改掉:同步版有 15 个消费者,多数腿实测毫秒级,
+ * 一次全面 async 化等于动半个调度面。真正会长时间占住循环的只有 4 条(实测):
+ *   `heal-derived-in-checkout`(i18n/ui-routes/tokens,30min 上限,内部还要**推送**)、
+ *   `healStaleMiniappDist`(45min)、`sweepDanglingCommitAutotag`(32min)、`healStaleDistLeg`(12min)。
+ * 生产现场(2026-11-07 18:13):i18n 那条腿的子孙链 = heal → object-space-land → pre-push 网关 →
+ * `check-dangling-local-imports`(整仓扫描,实测 70s+ CPU),整条链在 `execFileSync` 里跑 ⇒
+ * 轮级锁心跳 372s 不响 ⇒ A11 判「事件循环被长步骤占满,停在 main:post-rn-shell」。
+ * 那个判据没冤:同步父进程确实什么都做不了。所以修的是"别把父进程钉住",不是调阈值。
+ */
+function runLegChildAsync(scriptFile, args, timeoutMs, cwd = WORKTREE) {
+  return new Promise((resolve) => {
+    let out = ''
+    let errOut = ''
+    let timedOut = false
+    let child
+    try {
+      child = spawn(process.execPath, [scriptFile, ...args], {
+        cwd,
+        windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (e) {
+      resolve({ status: null, stdout: '', stderr: String(e?.message ?? e) })
+      return
+    }
+    const timer = setTimeout(() => {
+      timedOut = true
+      try { child.kill('SIGKILL') } catch { /* 已自行退出 */ }
+    }, timeoutMs)
+    if (typeof timer.unref === 'function') timer.unref()
+    child.stdout.on('data', (b) => { if (out.length < 1 << 26) out += b })
+    child.stderr.on('data', (b) => { if (errOut.length < 1 << 26) errOut += b })
+    child.on('error', (e) => {
+      clearTimeout(timer)
+      resolve({ status: null, stdout: out, stderr: String(e?.message ?? e) })
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      resolve({
+        // 同同步版:signal 是"被杀"的唯一凭据,超时与"跑完但没打结论行"必须分得开
+        signal: timedOut ? 'SIGKILL(timeout)' : null,
+        status: timedOut ? null : typeof code === 'number' ? code : null,
+        stdout: out,
+        stderr: timedOut ? `超时 ${Math.round(timeoutMs / 60000)}min 被掐` : errOut,
+      })
+    })
+  })
+}
+
+export async function healI18nBundleLeg(opts = {}) {
   return runDerivedHealLeg('i18n', {
     ...opts,
     tickFile: opts.tickFile ?? join(dirname(LOG), 'i18n-bundle-heal-last.json'),
@@ -12197,7 +12249,7 @@ export function healI18nBundleLeg(opts = {}) {
  * 2026-10-27 实测:写回档在盘上跑生成器时,web 与小程序两份因"该端输入的工作树副本 ≠ 面副本"被拒落
  * —— 拒落是对的(不许把别人的现场或滞后副本烘进派生件),但拒完没人管 ⇒ G5 把红留给下一枚不相干提交。
  */
-export function healUiRoutesLeg(opts = {}) {
+export async function healUiRoutesLeg(opts = {}) {
   return runDerivedHealLeg('ui-routes', {
     ...opts,
     tickFile: opts.tickFile ?? join(dirname(LOG), 'ui-routes-heal-last.json'),
@@ -12212,7 +12264,7 @@ export function healUiRoutesLeg(opts = {}) {
  * 今天由人/代理手工补(近两枚提交标题即「派生产物按 HEAD 面重生成并落地(检出档)」。守护轮此前
  * 对该族**一条腿都没有**(派发自愈只有 i18n / ui-routes),这一格补上才是"样式自动同步"。
  */
-export function healStyleTokensLeg(opts = {}) {
+export async function healStyleTokensLeg(opts = {}) {
   return runDerivedHealLeg('tokens', {
     ...opts,
     tickFile: opts.tickFile ?? join(dirname(LOG), 'style-tokens-heal-last.json'),
@@ -12237,7 +12289,7 @@ const DIST_HEAL_INTERVAL_MS = Number(process.env.IHUI_DIST_HEAL_INTERVAL_MS || 3
  * 只写机器态(gitignored dist),不动仓、不落 HEAD、不推 ⇒ 零协作面副作用;判机器状态 ⇒ 不进提交链(§12e)。
  * 一轮上限 6 个包(器物自证),超量按 refused 出声而不自动背书。
  */
-export function healStaleDistLeg(opts = {}) {
+export async function healStaleDistLeg(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = DIST_HEAL_INTERVAL_MS,
@@ -12255,7 +12307,7 @@ export function healStaleDistLeg(opts = {}) {
   const r =
     typeof runner === 'function'
       ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
-      : runLegChild(script, ['--apply', '--json'], 12 * 60 * 1000)
+      : await runLegChildAsync(script, ['--apply', '--json'], 12 * 60 * 1000)
   beatRoundLock()
   let res = null
   try {
@@ -12302,7 +12354,7 @@ const MINIAPP_DIST_HEAL_INTERVAL_MS = Number(
  * dist 编译重一个量级;产物陈旧是"天"级现象,30 分钟去敲一次只会白烧 CPU。
  * 取不到尺子判词 ⇒ 器物自报 `undetermined`,本条只记日志不喊人(重建失败属常态,不制造噪声)。
  */
-export function healStaleMiniappDist(opts = {}) {
+export async function healStaleMiniappDist(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = MINIAPP_DIST_HEAL_INTERVAL_MS,
@@ -12323,7 +12375,7 @@ export function healStaleMiniappDist(opts = {}) {
   const r =
     typeof runner === 'function'
       ? { status: 0, stdout: String(runner() ?? ''), stderr: '' }
-      : runLegChild(script, ['--apply', '--json'], 45 * 60 * 1000)
+      : await runLegChildAsync(script, ['--apply', '--json'], 45 * 60 * 1000)
   beatRoundLock()
   let res = null
   try {
@@ -12988,7 +13040,7 @@ export function sweepMiniappMessageKeysLeg(opts = {}) {
  * → 逐份复量"新钉 == 面上现算输入哈希" → 只把复量过的 blob 落 HEAD(主工作树一字节不动)。
  * clean = 绝大多数轮次的常态 ⇒ 一声不出(每 30 分钟一行"没问题"只会把守护日志淹成噪声)。
  */
-function runDerivedHealLeg(family, opts = {}) {
+async function runDerivedHealLeg(family, opts = {}) {
   const {
     now = Date.now(),
     intervalMs = DERIVED_HEAL_INTERVAL_MS,
@@ -13007,7 +13059,7 @@ function runDerivedHealLeg(family, opts = {}) {
   const r =
     typeof runner === 'function'
       ? runner()
-      : runLegChild(script, ['--family', family, '--json'], 30 * 60 * 1000)
+      : await runLegChildAsync(script, ['--family', family, '--json'], 30 * 60 * 1000)
   beatRoundLock()
   let summary = null
   try {
@@ -13931,7 +13983,7 @@ async function main() {
     // --list-unbacked 机读清单;只加不减、超窗只报数、取不到落未判定、空转零写零推(§29 GC 归人工)。
     // 挂在这一族同格(健康轮次早退之前 + !CHECK_ONLY)与本文件既有的清扫器一致 —— 挂在后面的长任务
     // 串里等于永不执行(该教训在上一层注释里已写过两次)。
-    if (!CHECK_ONLY) sweepDanglingCommitAutotag()
+    if (!CHECK_ONLY) await sweepDanglingCommitAutotag()
     // 盘根封口同理:重启会清掉 junction,而第三方重建真目录只需要一次启动。
     if (!CHECK_ONLY) healRootSeal()
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
@@ -14142,71 +14194,118 @@ async function main() {
     // 顺序:先感知(分诊/腐烂/依赖)→ 再派发,同轮登记的票下一轮即可被自进化取到。
     // 检查点:派发簇在链尾。A8 长期 dark 的 7 枚腿全在这一簇里 ⇒ 本格到位即"轮次确实走到了链尾"。
     markRoundStage('main:pre-dispatch')
+    // 2026-11-07(二次补):本段到 pre-round-close 之间是 42 条腿,原先**一条心跳点都没有** ——
+    // 段界只有 pre-dispatch / post-rn-shell / pre-round-close 三个,任何一条腿跨过 180s 阈值,
+    // A11 就只能读到「停在 main:post-rn-shell,308s 未续」,把"这一大段腿在正常跑"判成"事件循环死了"。
+    // 判据阈值一个字未改:每条腿前补一次 `beatRoundLock()`(无 activeRoundLock 时自 no-op,
+    // 写一次锁文件 mtime ≈ 0.1ms),于是"心跳停了"此后只在**单条腿 > 180s** 时出现 —— 那才是它本来的含义。
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchGateRot()
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchRelayCapacity()
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchAutoTriage()
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchDeployOutcomeIntake()
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchDeployFeedback()
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchE2eAutofill()
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchDepAdvisoryRadar()
+    beatRoundLock()
     if (!CHECK_ONLY) dispatchAutoEvolve()
+    beatRoundLock()
     if (!CHECK_ONLY) auditImmutableGuardNewCommits()
+    beatRoundLock()
     if (!CHECK_ONLY) auditLandedReverts()
     // 根护栏清单自洽性(2026-10-31 立;与 daemon tick 同一挂点语义,共用
     // .ihui-agent/state/root-guard-manifest-audit-last.json 节流戳 ⇒ 双执行体并存只先到那个真跑)
+    beatRoundLock()
     if (!CHECK_ONLY) auditRootGuardManifestSync()
+    beatRoundLock()
     if (!CHECK_ONLY) sweepDownloadsLiveHealth()
+    beatRoundLock()
     if (!CHECK_ONLY) auditCrossEndParityDrift()
     // 跨端样式欠债台账(2026-11-06 接线):只读尺 scripts/cross-end-ui-parity-debt.mjs 此前全仓
     // 零调度点 = §0.9「造好没装车 = 没有」。与上面 drift 腿同一挂点语义、各自节流戳 ⇒
     // 双执行体并存只有先到那个真跑;判机器状态 ⇒ 绝不进提交链(§12e)。
+    beatRoundLock()
     if (!CHECK_ONLY) auditCrossEndDebtLedger()
     // 格式对账尺巡检轮(2026-11-04 立):十面漂移此前零派发,只挂 main() 会在 daemon 独占
     // 轮级锁后永久不跑(与上面同一判据)⇒ 两处执行体同挂,共用一枚节流戳,先到者真跑。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepFormatParity()
+    beatRoundLock()
     if (!CHECK_ONLY) auditWebRnParity()
+    beatRoundLock()
     if (!CHECK_ONLY) auditPushChannel()
+    beatRoundLock()
     if (!CHECK_ONLY) healCrossEndMirror()
+    beatRoundLock()
     if (!CHECK_ONLY) convergeCrossEndPortalVerdicts()
+    beatRoundLock()
     if (!CHECK_ONLY) autoRegisterRnTokenPairs()
     // 链条按依赖序派:先补 RN 薄壳,再落小程序页 —— 下游三腿判据要问的就是"RN 腿在不在"。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepRnHostShells()
+    beatRoundLock()
     if (!CHECK_ONLY) sweepCrossEndShellPages()
     // 契约件按 HEAD 面重算 ⇒ 必须排在造页腿之后(本轮刚落地的页,下一轮就有契约)。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepRnShellTypes()
     markRoundStage('main:post-rn-shell')
     // 三端非色档落档自愈:源头(web)先补,再 RN,再小程序 —— 只写工作树,落库交给 auto-commit-quiet。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepWebStyleTiers()
     // RN 非色档落档自愈:只补工作树(与上面几腿同族),落库交给 auto-commit-quiet。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepRnStyleTiers()
     // 小程序那一侧同一条腿:三端里只要有一端停在"没人调度",同源门就每天新长一笔分叉。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepMiniappStyleTiers()
+    beatRoundLock()
     if (!CHECK_ONLY) sweepHandMirrorUpgrades()
     // 源头先补(TS 档表→tokens.css 受管块),再把本轮七条腿的写盘产出按落点账本收编入库 ——
     // 这两行是整条跨端链的**最后一节**;此前它们不存在,所以七条腿写得动盘却永远落不了库。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepCssTokensSourceLeg()
     // 两件"早就存在、但写档从未被放行"的存量落档器(小程序↔RN 映射块 / RN 硬编码色),
     // 归属闸与落点账本都已就位 ⇒ 这里才是它们第一次真正上链。落库腿排在最后收。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepUiMirrorLeg()
+    beatRoundLock()
     if (!CHECK_ONLY) sweepRnColorLiteralLeg()
     // 门 251 的修法出口此前全仓零调度点 ⇒ 挂在这里:图标全集/路由映射一漂,提交链那道 blocking 就等人手敲。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepRnCompatLeg()
     // 跨端驾驶舱连日复发的那道红(mirror-pack-namespace-missing)此前只有尺、没有器物 ⇒ 每次等人手抄五语言 JSON。
     // 本腿把它变成机械动作:基准侧已有的译文逐字搬,取不到则点名不代拟;排在建包腿(healI18nBundleLeg)之前,
     // 搬完的词下一轮就进小程序离线包。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepMiniappMessageKeysLeg()
+    beatRoundLock()
     if (!CHECK_ONLY) sweepCrossEndLandingLeg()
     // 汇总面排在各腿之后:驾驶舱会把整条链再跑一趟,先让各腿把该补的补完,这一趟读到的才是本轮终态。
+    beatRoundLock()
     if (!CHECK_ONLY) sweepParityCockpit()
     // 只读对账尺:不进提交链,靠这一腿被自动跑起来(§0.9 造好没装车 = 没有)。
+    beatRoundLock()
     if (!CHECK_ONLY) auditI18nCrossEndWording()
-    if (!CHECK_ONLY) healI18nBundleLeg()
+    beatRoundLock()
+    if (!CHECK_ONLY) await healI18nBundleLeg()
+    beatRoundLock()
     if (!CHECK_ONLY) auditPushDivergenceLeg()
+    beatRoundLock()
     if (!CHECK_ONLY) healMirrorPurgeLeg()
-    if (!CHECK_ONLY) healStyleTokensLeg()
-    if (!CHECK_ONLY) healStaleDistLeg()
-    if (!CHECK_ONLY) healStaleMiniappDist()
-    if (!CHECK_ONLY) healUiRoutesLeg()
+    beatRoundLock()
+    if (!CHECK_ONLY) await healStyleTokensLeg()
+    beatRoundLock()
+    if (!CHECK_ONLY) await healStaleDistLeg()
+    beatRoundLock()
+    if (!CHECK_ONLY) await healStaleMiniappDist()
+    beatRoundLock()
+    if (!CHECK_ONLY) await healUiRoutesLeg()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
     markRoundStage('main:pre-round-close')
     if (!CHECK_ONLY) ensureS4u()
@@ -14493,16 +14592,16 @@ function startDaemon(bootGuard = null) {
         dispatchDeployOutcomeIntake()
         dispatchE2eAutofill()
         healCrossEndMirror()
-        healI18nBundleLeg()
-        healStaleDistLeg()
-        healStaleMiniappDist()
-        healStyleTokensLeg()
-        healUiRoutesLeg()
+        await healI18nBundleLeg()
+        await healStaleDistLeg()
+        await healStaleMiniappDist()
+        await healStyleTokensLeg()
+        await healUiRoutesLeg()
         sweepBannedBuckets()
         sweepCrossEndLandingLeg()
         sweepCrossEndShellPages()
         sweepCssTokensSourceLeg()
-        sweepDanglingCommitAutotag()
+        await sweepDanglingCommitAutotag()
         sweepExposedCredentialRotation()
         sweepHeadRecallRows()
         sweepIosIpaRelay()
@@ -15670,6 +15769,18 @@ export const __test__ = {
   // 悬空 commit 自动保活派发腿(2026-10-30 立;镜像测试 dangling-commit-autotag-dispatch 按名 import,
   // 不复制判据 §22c;此条不登记进本台账 ⇒ 接线锁结构上打不到这一格)。
   sweepDanglingCommitAutotag,
+  // 派生件自愈腿 / 推送分叉审计 / 镜像清理(2026-11-07 登记):四条镜像测试(stale-dist /
+  // miniapp-dist / derived-and-push / cross-end-landing)的装车锁按名 import 本体。函数虽早已
+  // `export`,但没登记进本台账 ⇒ 那几道锁结构上打不到这一格,读到的是跳过的绿
+  // (§0.2「造好没装车」的同型:台账没登 = 锁是哑的)。分两批读:头两条由 derived-and-push 的
+  // L10 点名,后五条由三条派生锁点名,曾因只登一半让 L10 恒红(判据没放松,是台账漏登)。
+  auditPushDivergenceLeg,
+  healMirrorPurgeLeg,
+  healStaleDistLeg,
+  healStaleMiniappDist,
+  healI18nBundleLeg,
+  healUiRoutesLeg,
+  healStyleTokensLeg,
   // AI 自进化调度层派发点(2026-10-26 导出):镜像测试据此逐条钉「节流 / 无票不 spawn /
   // 预算耗尽不 spawn / 锁在让路 / 结论不可解析落未判定」—— 不导出的话只能读源码字符串,
   // 钉不住行为,而这一族的失效形态全是安静(多 spawn 一次 = 多派一个会话)。
