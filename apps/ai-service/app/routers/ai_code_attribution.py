@@ -10,6 +10,7 @@ tags=["ai-code-attribution"])` 方式挂载,最终端点路径:
   GET /api/ai-code-attribution/records              → 归属账明细(可按路径/会话过滤)
   GET /api/ai-code-attribution/stats                → 某文件/某会话的 AI 占比与统计
   GET /api/ai-code-attribution/records/{id}/trace   → 单条记录的回溯裁决(git blame)
+  POST /api/ai-code-attribution/backfill            → 提交成功后给空锚回填提交号
 
 存储:复用 app/services/ai_code_attribution_store(进程内 list + data/ai_code_attribution.json)。
 判据:app/core/ai_code_attribution(仓内只此一份);本路由只做读数与序列化,不判归属。
@@ -27,6 +28,7 @@ from fastapi import APIRouter, Depends
 from ..core.ai_code_attribution import AttributionRecord, AttributionStats
 from ..core.jwt_auth import get_current_user_id
 from ..services.ai_code_attribution_store import (
+    backfill_commit_sha,
     list_records,
     stats_all,
     stats_for_path,
@@ -142,4 +144,28 @@ async def trace_attribution_record(
             "commits": list(result.commits),
         },
     }
+
+
+@router.post("/backfill")
+async def backfill_attribution_commit(
+    body: dict[str, Any],
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """提交已经成功之后调用。提交号不合法或账本读不到时一条都不改。"""
+    sha = body.get("commit_sha")
+    files = body.get("files")
+    if not isinstance(sha, str) or not isinstance(files, list) or any(not isinstance(item, str) for item in files):
+        return {
+            "code": 0,
+            "message": "提交号或文件清单形态不对",
+            "data": {"updated": 0, "refused": "提交号或文件清单形态不对"},
+        }
+    updated, refused = backfill_commit_sha(sha, files)
+    logger.info(
+        "ai-code-attribution backfill user=%s updated=%s refused=%s",
+        user_id,
+        updated,
+        refused or "-",
+    )
+    return {"code": 0, "message": refused or "ok", "data": {"updated": updated, "refused": refused}}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

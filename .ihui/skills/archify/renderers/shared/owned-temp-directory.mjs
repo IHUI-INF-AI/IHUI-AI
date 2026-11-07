@@ -65,14 +65,17 @@ export function createOwnedTempDirectory(prefix, { parent = os.tmpdir() } = {}) 
 
   return Object.freeze({
     path: directory,
-    async cleanup() {
+    async cleanup({ retries = 3, delayMs } = {}) {
       for (let attempt = 0; ; attempt++) {
         try {
           remove();
           return;
         } catch (cause) {
-          if (retryable.has(cause.code) && attempt < 3) {
-            await delay(100 * (attempt + 1));
+          if (retryable.has(cause.code) && attempt < retries) {
+            const wait = typeof delayMs === 'function'
+              ? delayMs(attempt)
+              : (delayMs ?? 100 * (attempt + 1));
+            await delay(wait);
             continue;
           }
           const error = new Error(`Temporary directory cleanup failed; retained path "${directory}": ${cause.message}`, { cause });

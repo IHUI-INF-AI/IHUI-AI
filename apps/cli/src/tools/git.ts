@@ -22,6 +22,7 @@ import { GIT_ADVANCED_TOOLS } from './git-advanced.js';
 import { GITHUB_PR_TOOLS } from './github-pr.js';
 // execGit / formatGitResult 抽到 git-shared.ts(2026-07-31,打破 git.ts ↔ git-advanced.ts 循环依赖)
 import { execGit, formatGitResult } from './git-shared.js';
+import { rememberCommittedFiles } from '../commands/ai-attribution.js';
 
 const git_status: Tool = {
   name: 'git_status',
@@ -272,6 +273,7 @@ const git_commit: Tool = {
       if (amend) return { success: false, output: '', error: '按范围提交与 --amend 互斥(语义不明,请分开执行)' };
       const result = commitWithTempIndex(message, scopedPaths, ctx.workspacePath);
       if (!result.ok) return { success: false, output: '', error: result.error };
+      await rememberCommittedFiles(result.sha, scopedPaths);
       await runPostToolCall('git_commit', { exitCode: 0, message, paths: scopedPaths, sha: result.sha }, ctx.signal);
       return { success: true, output: `[scoped commit] ${result.sha}\n${scopedPaths.join('\n')}` };
     }
@@ -280,6 +282,14 @@ const git_commit: Tool = {
     if (amend) cmdArgs.push('--amend', '--no-edit');
 
     const r = execGit(cmdArgs, ctx.workspacePath);
+    if (r.exitCode === 0) {
+      const shaR = execGit(['rev-parse', 'HEAD'], ctx.workspacePath);
+      const names = execGit(['diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD'], ctx.workspacePath);
+      if (shaR.exitCode === 0 && names.exitCode === 0) {
+        const files = names.stdout.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
+        await rememberCommittedFiles(shaR.stdout.trim(), files);
+      }
+    }
     await runPostToolCall('git_commit', { exitCode: r.exitCode, message }, ctx.signal);
     return formatGitResult(r);
   },
