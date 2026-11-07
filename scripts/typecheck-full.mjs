@@ -278,7 +278,7 @@ if (!_SELF_TEST) {
     console.error('  等对方结束后重跑,或调大 IHUI_TYPECHECK_LOCK_WAIT_MS 再试。')
     process.exit(UNDETERMINED_EXIT_CODE)
   }
-  if (lock.waitedMs > 0) {
+  if (lock.waitedMs >= 1_000) {
     console.log(
       `[typecheck:full] 已串行等待 ${(lock.waitedMs / 1000).toFixed(1)}s 后取得机器级锁(前持有者已退出)`,
     )
