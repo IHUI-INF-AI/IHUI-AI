@@ -7,6 +7,12 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({
   subagentDispatchService: { dispatch: vi.fn() },
 }))
+// 测试隔离铁律:持久腿触库的模块必须 mock(本 service 静态 import user-preferences-queries)
+vi.mock('../src/db/user-preferences-queries.js', () => ({
+  USER_PREFERENCE_GROUPS: { superAgent: 'super_agent' },
+  findUserPreferences: vi.fn(async () => ({ list: [], total: 0 })),
+  upsertUserPreference: vi.fn(async () => undefined),
+}))
 
 import { subagentDispatchService } from '../src/services/subagent-dispatch-service.js'
 import {

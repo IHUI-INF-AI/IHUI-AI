@@ -16,9 +16,134 @@ import {
   type TriggerSourcePort,
   type WorkerAssignment,
 } from '@ihui/shared/super-agent'
+import {
+  USER_PREFERENCE_GROUPS,
+  findUserPreferences,
+  upsertUserPreference,
+} from '../db/user-preferences-queries.js'
+import { logger } from '../utils/logger.js'
 import { subagentDispatchService } from './subagent-dispatch-service.js'
 
-export const superAgentHost = new SuperAgentHost()
+const SUPER_AGENT_SNAPSHOT_KEY = 'state'
+/** 快照归属的保留主体 uuid；机主供值前持久腿如实降级（不谎称已持久）。 */
+function snapshotProvider(): string | null {
+  const v = (process.env.IHUI_SUPER_AGENT_STATE_ACCOUNT ?? '').trim()
+  return v.length > 0 ? v : null
+}
+
+type PersistStatus = 'unconfigured' | 'ok' | 'degraded'
+
+let dirty = false
+let lastPersistError: string | null = null
+let persistStatus: PersistStatus = 'unconfigured'
+let saveChain: Promise<void> = Promise.resolve()
+let savedTakenAt = -1
+
+/** host 构造位回调:声明提升让 onDirty 能引用后面初始化的 saveIfDirty。 */
+function markSuperAgentDirty(): void {
+  dirty = true
+}
+
+export const superAgentHost = new SuperAgentHost(undefined, undefined, {
+  onDirty: markSuperAgentDirty,
+})
+
+async function doSave(): Promise<void> {
+  const provider = snapshotProvider()
+  if (!provider) {
+    persistStatus = 'unconfigured'
+    return
+  }
+  const snap = superAgentHost.snapshot()
+  // 与已存快照同 takenAt(默认时钟即 Date.now)⇒ 无新内容，不写。
+  if (snap.takenAt <= savedTakenAt) return
+  await upsertUserPermissionSnapshot(provider, snap)
+  savedTakenAt = snap.takenAt
+  persistStatus = 'ok'
+  lastPersistError = null
+}
+
+/** 串行写链：脏则写，失败点名并把状态挂出来（不得静默）。 */
+function saveIfDirty(): void {
+  if (!dirty) return
+  dirty = false
+  saveChain = saveChain
+    .then(doSave)
+    .then(() => saveIfDirty())
+    .catch((e: unknown) => {
+      lastPersistError = e instanceof Error ? e.message : String(e)
+      persistStatus = 'degraded'
+      logger.warn(
+        { err: lastPersistError },
+        'super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入',
+      )
+    })
+}
+
+async function upsertUserPermissionSnapshot(provider: string, snap: unknown): Promise<void> {
+  await upsertUserPreference(
+    provider,
+    USER_PREFERENCE_GROUPS.superAgent,
+    SUPER_AGENT_SNAPSHOT_KEY,
+    JSON.stringify(snap),
+  )
+}
+
+export interface LoadSnapshotResult {
+  loaded: boolean
+  status: PersistStatus
+  rejectedReasons: string[]
+  error?: string
+}
+
+/** 进程内一次:读回快照灌账面。版本/形状不匹配 ⇒ host 整场拒绝并点名。 */
+export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> {
+  const provider = snapshotProvider()
+  if (!provider) return { loaded: false, status: 'unconfigured', rejectedReasons: [] }
+  try {
+    const { list } = await findUserPreferences(provider, USER_PREFERENCE_GROUPS.superAgent)
+    const row = list.find((r) => r.key === SUPER_AGENT_SNAPSHOT_KEY)
+    if (!row?.value) return { loaded: false, status: 'ok', rejectedReasons: [] }
+    const parsed = JSON.parse(row.value) as Parameters<typeof superAgentHost.restore>[0]
+    const report = superAgentHost.restore(parsed)
+    if (!report.ok) {
+      persistStatus = 'degraded'
+      lastPersistError = 'restore-rejected'
+      return {
+        loaded: false,
+        status: persistStatus,
+        rejectedReasons: report.rejected.map(
+          (r) => `${r.reason}${r.ownerUserId ? `:${r.ownerUserId}` : ''}`,
+        ),
+      }
+    }
+    savedTakenAt = parsed.takenAt ?? 0
+    persistStatus = 'ok'
+    lastPersistError = null
+    dirty = false
+    return {
+      loaded: true,
+      status: 'ok',
+      rejectedReasons: report.rejected.map(
+        (r) => `${r.reason}${r.ownerUserId ? `:${r.ownerUserId}` : ''}`,
+      ),
+    }
+  } catch (e) {
+    persistStatus = 'degraded'
+    lastPersistError = e instanceof Error ? e.message : String(e)
+    return { loaded: false, status: 'degraded', rejectedReasons: [], error: lastPersistError }
+  }
+}
+
+/** 健康读数:供哨兵/面板判"持久腿到底通没通"（§0.3 不冒充）。 */
+export function superAgentPersistHealth() {
+  return {
+    status: persistStatus,
+    providerConfigured: snapshotProvider() !== null,
+    dirty,
+    lastPersistError,
+  }
+}
 
 const ports = new Map<string, TriggerSourcePort>()
 
@@ -120,17 +245,23 @@ export const superAgentPump = new SuperAgentPump(
   dispatchWorkerWork,
   {
     onLog: logPumpRow,
+    onCycle: () => saveIfDirty(),
   },
 )
 
 let interval: ReturnType<typeof setInterval> | null = null
 
-export function startSuperAgentPumpLoop(intervalMs = 60_000): void {
+export async function startSuperAgentPumpLoop(intervalMs = 60_000): Promise<void> {
   if (interval !== null) return
+  // 启动序:先恢复（版本 fail-closed，拒绝只点名半灌绝不），再开节拍。
+  await loadSuperAgentSnapshotOnce().catch(() => undefined)
   interval = setInterval(() => {
-    void superAgentPump.runOnce().catch(() => {
-      /* 泵内故障逐端口隔离并计数；循环腿自身不得崩服务 */
-    })
+    void superAgentPump
+      .runOnce()
+      .then(() => saveIfDirty())
+      .catch(() => {
+        /* 泵内故障逐端口隔离并计数；循环腿自身不得崩服务 */
+      })
   }, intervalMs)
   // Node 下不钉住事件循环；浏览器宿主本就不该跑此服务。
   if (typeof interval === 'object' && interval !== null && 'unref' in interval) {

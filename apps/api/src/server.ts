@@ -475,7 +475,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   // 间隔 env IHUI_SUPER_AGENT_PUMP_MS 可调,默认 60s。
   const superAgentPumpEnabled = process.env.IHUI_SUPER_AGENT_PUMP === 'true'
   if (superAgentPumpEnabled) {
-    startSuperAgentPumpLoop(Number(process.env.IHUI_SUPER_AGENT_PUMP_MS ?? 60_000))
+    void startSuperAgentPumpLoop(Number(process.env.IHUI_SUPER_AGENT_PUMP_MS ?? 60_000)).catch(
+      () => {
+        /* 恢复/节拍启动失败不崩装配;持久健康读数由 superAgentPersistHealth() 点名 */
+      },
+    )
     server.addHook('onClose', async () => {
       stopSuperAgentPumpLoop()
     })
