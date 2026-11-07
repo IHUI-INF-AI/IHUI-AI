@@ -364,8 +364,7 @@ function commitP0(dir, msg) {
   })
   execFileSync(GIT, ['-c', 'safe.directory=*', 'commit', '-qm', msg], {
     cwd: dir,
-    stdout: 'ignore',
-    stderr: 'ignore',
+    stdio: ['ignore', 'ignore', 'ignore'],
   })
 }
 
