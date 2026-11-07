@@ -81,9 +81,11 @@
  * ## 判红之后的合法出路（2026-11-07 增具名追认档）
  *
  * 判红 ⇒ 先问 `scripts/data/immutable-guard-attestations.jsonl`：若有一行 `sha` 精确匹配、
- * `paths` 与该枚**实际触发路径集合逐元素相等**、`sig` 验过、`reason` ≥40 字、`reviewer` 非空、
+ * `paths` 与该枚**实际触发路径集合逐元素相等**、`sig` 用**独立追认钥**（`ihui.immutableGuardAckKeyPath`
+ * 三源，与提交签名钥必须是两把）验过、`reason` ≥40 字、`reviewer` 非空、
  * `attestedAt` 不早于该枚提交日期 ⇒ `code=declared-attested`（exit 0），**单独计数**为「已追认 N」，
- * 绝不并进 `declared`。任一红线不满足 ⇒ 保持红，并把成因（`attest-*`）带进读数点名。
+ * 绝不并进 `declared`。任一红线不满足 ⇒ 保持红，并把成因（`attest-*`）带进读数点名；
+ * 追认钥取不到 ⇒ `attest-undetermined`（exit 2）判未判定，不静默放行。
  * 它是"事后补发"通道：行由持钥方签，`reviewer` 与日期都写进行里，所以读数必须带人名，不能读成当时合规。
  * 与旧 `immutable-guard-acks.jsonl`（a1/a2）并存但互不替代：acks 带 `expires` 会到期，本档不带。
  *
