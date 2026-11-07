@@ -14,7 +14,7 @@ import {
   type ApiKeyUsage,
   type CreateApiKeyInput,
 } from '@ihui/types'
-import { ApiKeysScreen as SharedApiKeysScreen } from '@ihui/rn-app/features/api-keys/ApiKeysScreen'
+import { ApiKeysScreen as SharedApiKeysScreen } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'

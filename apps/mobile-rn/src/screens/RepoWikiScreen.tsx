@@ -18,10 +18,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import {
-  RepoWikiScreen as SharedRepoWikiScreen,
-  type RepoWikiDocView,
-} from '@ihui/rn-app/features/repo-wiki/RepoWikiScreen'
+import { RepoWikiScreen as SharedRepoWikiScreen } from '@ihui/rn-app'
+import type { RepoWikiDocView } from '@ihui/rn-app/features/repo-wiki/RepoWikiScreen'
 import {
   deleteRepoWikiDoc,
   getRepoWikiDoc,
