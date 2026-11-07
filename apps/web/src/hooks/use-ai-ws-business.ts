@@ -20,6 +20,13 @@ import { buildWsUrl } from '@/lib/ws-url'
 // 文件内部使用的类型必须 import type 引入本地作用域; 其余类型通过下方 export type re-export 给外部消费者。
 import type { AiModelKey, AgentContentListItem } from './types/ai-talk'
 
+/**
+ * 票E:流中断条目的本地扩展标记。
+ * 刻意不改 packages/shared 的 AgentContentListItem 契约 —— 跨包类型改动会
+ * 触发 push 门把全仓 4098 个反向依赖文件一起 typecheck,超出单门预算。
+ */
+type InterruptedAgentContentListItem = AgentContentListItem & { incomplete?: boolean }
+
 export type {
   AiModelKey,
   AgentContentListItem,
@@ -97,7 +104,7 @@ export interface UseAiWebSocketReturn {
   socketTaskRef: React.MutableRefObject<WebSocket | null>
   displayedTexts: string[]
   displayedThinkingTexts: string[]
-  agentContentList: AgentContentListItem[]
+  agentContentList: InterruptedAgentContentListItem[]
   loading: boolean
   talking: boolean
 }
@@ -134,7 +141,9 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
   const socketTaskRef = React.useRef<WebSocket | null>(null)
   const [displayedTexts, setDisplayedTexts] = React.useState<string[]>([])
   const [displayedThinkingTexts, setDisplayedThinkingTexts] = React.useState<string[]>([])
-  const [agentContentList, setAgentContentList] = React.useState<AgentContentListItem[]>([])
+  const [agentContentList, setAgentContentList] = React.useState<InterruptedAgentContentListItem[]>(
+    [],
+  )
   const [loading, setLoading] = React.useState(false)
   const [talking, setTalking] = React.useState(false)
 
