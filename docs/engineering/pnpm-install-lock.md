@@ -66,6 +66,27 @@ IHUI_GATE_INSTALL_LOCK=1 git push
 # 达标后在下一轮把默认改 1，未达标则继续 opt-in 并复盘误拦原因。
 ```
 
+**判据必须可数（2026-11-07 补）**：上面的「≥3 次真实 install、误拦 ≤1」不是记忆判据，而是从
+`<共享根>/.ihui-agent/state/install-lock.log` 重放出来的数字。每次 `run` / `check` / `guard` 判定
+都会追加一行 JSON（`run-start` / `run-end` / `check-block` / `check-stale` / `guard-deny`），统计命令：
+
+```bash
+# 人读（同时给出判据是否达标；未达标 exit 1）
+node scripts/lib/pnpm-install-lock.mjs stats --since=2026-11-07
+
+# 机器读（CI / 归档用）
+node scripts/lib/pnpm-install-lock.mjs stats --since=2026-11-07 --json
+```
+
+口径：
+
+- `installs`：`run-end` 且 `enabled !== false`、命令含 `install`、退出码 0 的次数；
+- `installsFailed`：同上但退出码非 0；
+- `installsViaEmergency`：应急口（`IHUI_PNPM_INSTALL_LOCK=0`）直跑的 install 次数，**不计入** `installs`；
+- `blocks`：`check` 拦截次数；**`falseBlocks`**：拦截发生时没有任何活跃 `run-start` 的条数（= 误拦）；
+- `staleRecoveries`：陈旧清理放行次数；`directDenied`：守卫拒绝「未携带锁 token」的直连次数；
+- `pass = installs >= 3 && falseBlocks <= 1`，观察期结束（2026-11-21）只认这一行输出。
+
 - 无锁 / 锁已陈旧（exit 0）⇒ 照常放行；
 - 安装进行中（exit 4）⇒ 阻止提交/推送，并打印持有者现场（pid / pidStart / 开始时刻 / 已持有时长 / cmd）；
 - pre-commit 经 `scripts/hook-run-hidden.vbs` 隐藏执行，输出落在 `.ihui-agent/state/hook-logs/pre-commit-install-lock.log`；pre-push 直接执行，现场打在终端。
@@ -99,7 +120,7 @@ GitHub 托管 runner（`.github/workflows/*` 全部 `ubuntu-latest`）每个 job
 2. **token**：wrapper 持锁后把 `IHUI_PNPM_INSTALL_TOKEN` 注入子进程；直连 install 没有 token ⇒ 拒绝。
 3. **留痕**：每次判定追加到 `<共享根>/.ihui-agent/state/install-guard.log`（时间 / decision / cwd / pid / 原因）。
 
-**验收判据（比 token 硬）**：安装前后对"本前缀之外的链接清单"取快照，要求零变化：
+**验收判据（比 token 硬）**：安装前后对"本前缀之外的链接清单"取快照，要求**本前缀之外零变化**，唯一例外见下：
 
 ```bash
 node scripts/lib/pnpm-install-lock.mjs snapshot -- before.json
@@ -107,7 +128,17 @@ node scripts/lib/pnpm-install-lock.mjs snapshot -- before.json
 node scripts/lib/pnpm-install-lock.mjs compare -- before.json   # 有任何变化即 exit 1
 ```
 
-已知绕过：`pnpm install --ignore-scripts` 跳过 `preinstall`（无法从脚本层阻止）；发现即按违规处理。
+**显式例外（2026-11-07 裁定，写入判据原文）**：主仓对共享层做收敛安装时，仍挂 junction 的
+worktree 必然看到顶层包减少。这种变化**不计为安装越界**，但必须同时满足三条：
+
+1. 变化只发生在挂 junction 的树上；实名目录树不得有任何变化；
+2. 变化项只能是「主仓 lockfile 不包含、且属于某分支的残留包」，逐项给出包名 + lockfile 证据；
+3. 变化后受影响树的门 78 若转红，**按迁移队列处理，不得以「预期结果」结案**。
+
+本次实例与逐树清单（16 棵树 × 少了什么包 × 是否被真实 import × 现在能否跑）见
+[`docs/engineering/worktree-self-contained-node-modules.md`](./worktree-self-contained-node-modules.md) §3–§4。
+
+已知绕过：`pnpm install --ignore-scripts` 跳过 `preinstall`（无法从脚本层阻止）；责任票见 §2.6。
 
 ### 2.5 机器自检与修复（`node_modules` 完整性）
 
@@ -124,6 +155,19 @@ node scripts/check-node-modules-integrity.mjs --fix     # 只删空的虚拟层�
 ```bash
 node scripts/lib/pnpm-install-lock.mjs run -- pnpm install --frozen-lockfile
 ```
+
+### 2.6 已知绕过面的责任票（声明不等于有人负责）
+
+「已在文档声明」不构成闭环：每条绕过面必须有到期日与封堵前置，到期未封即视为未完成。
+
+| # | 绕过面 | 影响 | 到期日 | 封堵前置（做到才算闭环） | 现在谁来管 |
+|---|---|---|---|---|---|
+| A | `pnpm install --ignore-scripts` | `preinstall` 不执行 ⇒ 守卫、留痕、token 全部失效 | **2026-11-21** | ① 机器级「无锁 install」检出：枚举 `pnpm`/`pnpm.cjs`/`corepack` 安装进程，并与 `install-lock.log` 的 `run-start` 对账（无对应 `run-start` 即违规）；② 该检出接入 hook 或定时巡检并产出 `directDenied`/`bypass` 计数 | 安装域（本线），监控未落地前**无自动封堵** |
+| B | 合并前直连安装（主仓 `main` 根 `package.json` 无 `preinstall`） | 全机任意 worktree 可直连安装绕过守卫 | **2026-11-14** | 最小提交（守卫接线 + 锁默认开）经 PR 合入 `main`；合入即关闭本票 | 安装域（本线）提 PR，等 review 合入 |
+
+> 合并前的事实状态：**还没拦**。主仓 `main` 没有 `preinstall`，任何人在任意 worktree 直连
+> `pnpm install` 都不会被守卫拒绝；`install-lock.log` 里也不会出现 `guard-deny` 记录。
+> 只有在本线分支（`.worktrees/wt-infra-defect-mining-1107`）里，守卫才生效。
 
 ## 3. 判活与失效方向（判据唯一出处）
 

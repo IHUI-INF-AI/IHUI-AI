@@ -415,7 +415,10 @@ async function runCommand(args) {
     console.error(
       `[install-lock] 已显式关闭（${ENABLE_ENV}=0，应急口），直接执行原命令（行为回到未接线）`,
     )
-    return waitChild(spawnCommand(args))
+    appendAudit('run-start', { cmd: args.join(' '), enabled: false })
+    const bypassCode = await waitChild(spawnCommand(args))
+    appendAudit('run-end', { cmd: args.join(' '), code: bypassCode, enabled: false })
+    return bypassCode
   }
 
   const dir = lockDir()
@@ -434,6 +437,7 @@ async function runCommand(args) {
   process.on('exit', releaseOnce)
 
   console.error(`[install-lock] 已拿锁 ${dir}（pid=${owner.pid}），执行：${args.join(' ')}`)
+  appendAudit('run-start', { cmd: args.join(' '), lockPid: owner.pid })
   const beat = setInterval(() => {
     try {
       const state = readState(dir)
@@ -451,6 +455,7 @@ async function runCommand(args) {
   const code = await waitChild(spawnCommand(args))
   clearInterval(beat)
   releaseOnce()
+  appendAudit('run-end', { cmd: args.join(' '), code, lockPid: owner.pid })
   return code
 }
 
@@ -468,11 +473,16 @@ function checkCommand() {
   }
   if (verdict.stale) {
     clearIfSame(dir, state)
+    appendAudit('check-stale', { reason: verdict.reason })
     console.error(`[install-lock] 安装锁已陈旧（${verdict.reason}）⇒ 清理后放行`)
     return EXIT_OK
   }
   console.error(`[install-lock] pnpm 安装进行中：${describe(state)}`)
   console.error('[install-lock] 禁止并发 typecheck（会踩到 node_modules 重建窗口，出现 ENOENT）')
+  appendAudit('check-block', {
+    holderPid: state.kind === 'ok' ? state.owner.pid : null,
+    heldMs: state.kind === 'ok' ? heldMsOf(state.owner) : null,
+  })
   return EXIT_INSTALL_RUNNING
 }
 
@@ -520,6 +530,26 @@ function appendGuardLog(cwd, decision, reason) {
   }
 }
 
+/**
+ * 机器可数的审计日志（2026-11-07 立）：
+ * 观察期判据「≥3 次真实 install、误拦 ≤1」必须能从日志里数出来，不能靠回忆。
+ * 事件: run-start / run-end / check-block / check-stale / guard-deny。
+ * 误拦的定义可复核：check-block 发生时**没有任何活跃 run-start**（replay 得出）。
+ */
+function appendAudit(event, extra = {}) {
+  try {
+    const dir = join(machineAnchor(), '.ihui-agent', 'state')
+    mkdirSync(dir, { recursive: true })
+    appendFileSync(
+      join(dir, 'install-lock.log'),
+      `${JSON.stringify({ at: new Date().toISOString(), event, pid: process.pid, cwd: process.cwd(), ...extra })}\n`,
+      'utf8',
+    )
+  } catch {
+    /* 审计失败不改判定 */
+  }
+}
+
 function guardCommand() {
   const cwd = process.cwd()
   const nm = join(cwd, 'node_modules')
@@ -548,6 +578,7 @@ function guardCommand() {
   }
   if (deny) {
     appendGuardLog(cwd, 'deny', deny)
+    appendAudit('guard-deny', { reason: deny })
     console.error(`[install-guard] 拒绝安装：${deny}`)
     return EXIT_USAGE
   }
@@ -633,6 +664,89 @@ function compareSnapshotCommand(rest) {
   return 1
 }
 
+/**
+ * 观察期统计（2026-11-07 立）：把「≥3 次真实 install、误拦 ≤1」变成可数事实。
+ * 误拦由 replay 判定：check-block 发生时没有任何活跃 run-start ⇒ 那次拦截没有对应的
+ * 真实安装，算误拦；有活跃安装则是正确拦截。
+ */
+function statsCommand(rest) {
+  const sinceArg = rest.find((a) => a.startsWith('--since='))
+  const asJson = rest.includes('--json')
+  const since = sinceArg ? Date.parse(sinceArg.slice('--since='.length)) : NaN
+  const path = join(machineAnchor(), '.ihui-agent', 'state', 'install-lock.log')
+  let lines = []
+  if (existsSync(path)) {
+    lines = readFileSync(path, 'utf8')
+      .split(/\r?\n/)
+      .filter(Boolean)
+      .map((l) => {
+        try {
+          return JSON.parse(l)
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean)
+  }
+  if (Number.isFinite(since)) lines = lines.filter((e) => Date.parse(e.at) >= since)
+  const active = new Set()
+  let installs = 0
+  let installsFailed = 0
+  let installsViaEmergency = 0
+  let blocks = 0
+  let falseBlocks = 0
+  let staleRecoveries = 0
+  let directDenied = 0
+  for (const e of lines) {
+    if (e.event === 'run-start') {
+      active.add(e.pid)
+      if (e.enabled === false) installsViaEmergency += 1
+      continue
+    }
+    if (e.event === 'run-end') {
+      active.delete(e.pid)
+      if (e.enabled !== false && /install/.test(e.cmd || '')) {
+        if (e.code === 0) installs += 1
+        else installsFailed += 1
+      }
+      continue
+    }
+    if (e.event === 'check-block') {
+      blocks += 1
+      if (active.size === 0) falseBlocks += 1
+      continue
+    }
+    if (e.event === 'check-stale') { staleRecoveries += 1; continue }
+    if (e.event === 'guard-deny' && /未携带锁 token/.test(e.reason || '')) directDenied += 1
+  }
+  const pass = installs >= 3 && falseBlocks <= 1
+  const out = {
+    since: Number.isFinite(since) ? new Date(since).toISOString() : null,
+    installs,
+    installsFailed,
+    installsViaEmergency,
+    blocks,
+    falseBlocks,
+    staleRecoveries,
+    directDenied,
+    activeNow: active.size,
+    criterion: 'installs>=3 且 falseBlocks<=1（观察期 2026-11-07 → 2026-11-21）',
+    pass,
+    log: path,
+  }
+  if (asJson) {
+    console.log(JSON.stringify(out, null, 2))
+  } else {
+    console.log(`[install-lock] 统计窗口：${out.since || '全部'}`)
+    console.log(`  真实 install 成功：${installs}（失败 ${installsFailed}；应急口直跑 ${installsViaEmergency}）`)
+    console.log(`  门位拦截：${blocks}（其中无对应安装的误拦 ${falseBlocks}；陈旧清理放行 ${staleRecoveries}）`)
+    console.log(`  直连 install 被守卫拒绝：${directDenied}`)
+    console.log(`  观察期判据：${out.criterion} ⇒ ${pass ? '达标' : '未达标'}`)
+    console.log(`  日志：${path}`)
+  }
+  return pass ? EXIT_OK : 1
+}
+
 function usage(message) {
   if (message) console.error(message)
   console.error(
@@ -644,6 +758,7 @@ function usage(message) {
       '  node scripts/lib/pnpm-install-lock.mjs guard               # preinstall 守卫：链接面 + token + 留痕',
       '  node scripts/lib/pnpm-install-lock.mjs snapshot -- <文件>   # 本前缀之外 worktree node_modules 快照',
       '  node scripts/lib/pnpm-install-lock.mjs compare -- <基线>    # 快照比对，零变化才 exit 0',
+      '  node scripts/lib/pnpm-install-lock.mjs stats [--since=<ISO>] [--json]  # 观察期可数统计（install/误拦）',
       '',
       `默认启用；应急关闭：${ENABLE_ENV}=0（仅排障，非常规）`,
       `超时：${TIMEOUT_ENV}（毫秒，默认 30000，超时 exit 3）`,
@@ -662,6 +777,7 @@ async function main() {
   if (sub === 'guard') return guardCommand()
   if (sub === 'snapshot') return snapshotCommand(rest)
   if (sub === 'compare') return compareSnapshotCommand(rest)
+  if (sub === 'stats') return statsCommand(rest)
   usage(`未知子命令：${sub}`)
 }
 
