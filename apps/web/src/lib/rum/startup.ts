@@ -69,9 +69,11 @@ export function installStartupRum(collector: RumCollector): () => void {
   const timing = readStartupTiming()
   if (!timing) return () => {}
   const emit = (firstPaintMs: number | null) => {
+    const observed = recordStartupMarks(firstPaintMs)
     collector.record('rum_app_start', {
       app_start_ms: timing.appStartMs,
       ...(firstPaintMs === null ? {} : { first_paint_ms: firstPaintMs }),
+      ...startupMarkFields(observed),
     })
   }
   if (timing.firstPaintMs !== null) {
@@ -116,5 +118,90 @@ export function installStartupRum(collector: RumCollector): () => void {
   }
   timer = setTimeout(() => finish(null), FIRST_PAINT_TIMEOUT_MS)
   return () => finish(null)
+}
+
+export type StartupMarkReport = {
+  disposition: 'complete' | 'incomplete' | 'unjudged'
+  reason:
+    | 'all-present'
+    | 'marks-missing'
+    | 'schema-unmeasured'
+    | 'observation-unmeasured'
+    | 'schema-empty'
+    | 'schema-invalid'
+    | 'observation-invalid'
+    | 'undeclared-hit'
+  missing: readonly string[]
+}
+
+function startupMarkIdOk(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !/[\s\0]/.test(value)
+}
+
+/**
+ * 对照声明过的启动点，把没出现的点逐条列出来。
+ * 声明或观测还没量到时，不把缺席说成「一个都没漏」。
+ * 声明是空的也不算全齐。观测里多出来的点同样不算通过。
+ */
+const DECLARED_STARTUP_MARKS = ['app-start', 'first-paint'] as const
+
+/**
+ * 只把 performance.mark 真正收下的名字交出去。
+ * 接口本身不在时返回 null，调用方不得把 null 说成「一个都没漏」。
+ */
+export function recordStartupMarks(firstPaintMs: number | null): readonly string[] | null {
+  const perf = globalThis.performance
+  if (perf === undefined || typeof perf.mark !== 'function') return null
+  const wanted = firstPaintMs === null ? ['app-start'] : ['app-start', 'first-paint']
+  const landed: string[] = []
+  for (const name of wanted) {
+    try {
+      perf.mark(name)
+      landed.push(name)
+    } catch {
+      // 这一笔没落到观测面，不记入已打点
+    }
+  }
+  return landed
+}
+
+/** 只声明这两点。观测名单来自打点接口，不来自首屏毫秒数。 */
+export function startupMarkFields(observed: readonly string[] | null): {
+  startup_mark_disposition: StartupMarkReport['disposition']
+  startup_marks_missing?: string
+} {
+  const report = reportStartupMarks({ declared: DECLARED_STARTUP_MARKS, observed })
+  if (report.missing.length === 0) return { startup_mark_disposition: report.disposition }
+  return {
+    startup_mark_disposition: report.disposition,
+    startup_marks_missing: report.missing.join(','),
+  }
+}
+
+export function reportStartupMarks(input: {
+  declared: readonly string[] | null
+  observed: readonly string[] | null
+}): StartupMarkReport {
+  const none = (reason: StartupMarkReport['reason']): StartupMarkReport => ({
+    disposition: 'unjudged',
+    reason,
+    missing: [],
+  })
+  if (input.declared === null) return none('schema-unmeasured')
+  if (input.observed === null) return none('observation-unmeasured')
+  if (input.declared.length === 0) return none('schema-empty')
+  if (
+    input.declared.some((id) => !startupMarkIdOk(id)) ||
+    new Set(input.declared).size !== input.declared.length
+  ) {
+    return none('schema-invalid')
+  }
+  if (input.observed.some((id) => !startupMarkIdOk(id))) return none('observation-invalid')
+  const declared = new Set(input.declared)
+  if (input.observed.some((id) => !declared.has(id))) return none('undeclared-hit')
+  const seen = new Set(input.observed)
+  const missing = input.declared.filter((id) => !seen.has(id))
+  if (missing.length === 0) return { disposition: 'complete', reason: 'all-present', missing: [] }
+  return { disposition: 'incomplete', reason: 'marks-missing', missing }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
