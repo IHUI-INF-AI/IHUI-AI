@@ -730,8 +730,8 @@ async def dispatch_sandbox_session(arguments: dict[str, Any] | None) -> dict[str
                 "state": "killed",
             }
         if action == "snapshot":
-            info = store.snapshot(sandbox_id)
-            return {"ok": True, "tool": "sandbox_session", **info.as_dict()}
+            snap = store.snapshot(sandbox_id)
+            return {"ok": True, "tool": "sandbox_session", **snap.as_dict()}
         if action == "list_snapshots":
             rows = store.list_snapshots(sandbox_id)
             return {
