@@ -946,6 +946,35 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: '102.action',
     category: 'invalidResponse',
   },
+  // —— 守门 94(R1)补录(2026-11-07,出处 d050d90d10):调度器三码 + 文件读取码 ——
+  // ADD_JOB_FAILED: scheduler_service.py 的 add_task 在 add_job 抛异常时产出,任务未注册;
+  //   属执行失败 ⇒ runtimeException(与 SCHEDULER_ERROR 同档,但触发点在注册而非列表读取)。
+  ADD_JOB_FAILED: {
+    titleKey: 'ADD_JOB_FAILED.title',
+    actionKey: 'ADD_JOB_FAILED.action',
+    category: 'runtimeException',
+  },
+  // INVALID_CALLBACK: scheduler_service.py 的 _validate_callback 校验失败(callback 非对象 /
+  //   类型不在白名单 / shell 回调非管理员);送进去的内容不合契约 ⇒ invalidResponse。
+  INVALID_CALLBACK: {
+    titleKey: 'INVALID_CALLBACK.title',
+    actionKey: 'INVALID_CALLBACK.action',
+    category: 'invalidResponse',
+  },
+  // SCHEDULER_UNAVAILABLE: scheduler_service.py 的 start() 失败后置 _scheduler=None,
+  //   add_task 随即拒绝注册;属"子系统没起来",不是执行失败 ⇒ environmentInitFailed。
+  SCHEDULER_UNAVAILABLE: {
+    titleKey: 'SCHEDULER_UNAVAILABLE.title',
+    actionKey: 'SCHEDULER_UNAVAILABLE.action',
+    category: 'environmentInitFailed',
+  },
+  // UNREADABLE: file_editor.py 的 _path_presence 在 os.stat 抛非 FileNotFoundError 的 OSError
+  //   (权限/IO/占用)时产出;"读不到 ≠ 不存在",故不落 resourceNotFound ⇒ runtimeException。
+  UNREADABLE: {
+    titleKey: 'UNREADABLE.title',
+    actionKey: 'UNREADABLE.action',
+    category: 'runtimeException',
+  },
 })
 
 /**

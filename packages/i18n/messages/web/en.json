@@ -9483,6 +9483,22 @@
           "title": "The scheduled task list could not be read",
           "action": "Retry later; if it keeps failing, ask an admin to check the scheduler"
         },
+        "ADD_JOB_FAILED": {
+          "title": "Scheduled task registration failed",
+          "action": "Check the trigger configuration and retry"
+        },
+        "INVALID_CALLBACK": {
+          "title": "Invalid callback configuration",
+          "action": "Fix the callback type and retry (shell callbacks are admin-only)"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "Background scheduler unavailable",
+          "action": "Retry later; contact an admin if it keeps failing"
+        },
+        "UNREADABLE": {
+          "title": "File unreadable",
+          "action": "Check file permissions or locks and retry"
+        },
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "This workflow cannot be triggered right now",
           "action": "Confirm it exists, is enabled and has no running instance, then retry"

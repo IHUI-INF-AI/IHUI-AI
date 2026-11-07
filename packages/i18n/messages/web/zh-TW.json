@@ -9483,6 +9483,22 @@
           "title": "定時任務清單讀取失敗",
           "action": "稍後重試；持續失敗請聯絡管理員檢查排程服務"
         },
+        "ADD_JOB_FAILED": {
+          "title": "定時任務註冊失敗",
+          "action": "檢查觸發器設定後重試"
+        },
+        "INVALID_CALLBACK": {
+          "title": "回呼設定不合法",
+          "action": "修正回呼類型後重試（shell 回呼僅限管理員）"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "後台排程器不可用",
+          "action": "稍後重試；若持續失敗請聯絡管理員"
+        },
+        "UNREADABLE": {
+          "title": "檔案讀不到",
+          "action": "檢查檔案權限或佔用後重試"
+        },
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "該工作流目前無法觸發",
           "action": "確認工作流存在、已啟用且沒有實例正在執行後重試"
