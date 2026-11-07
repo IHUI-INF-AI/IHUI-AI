@@ -113,27 +113,27 @@ test('③ --ops-pool ⇒ 传 null 并忽略文件(确需运营池的显式出口
   }
 })
 
-test('④ 文件不存在 ⇒ 落运营池,但 stdout 必须点名具名原因与出路(不静默)', async () => {
+test('④ 文件不存在 ⇒ 拒绝导入(exit 2,首次强制落个人池,不再静默落运营池)', async () => {
   const { home, file } = mkHome(undefined)
   try {
     const r = await runMain(['--file', file, '--provider', 'trae'], home)
-    assert.equal(r.calls[0].decision.owner, null, '取不到 ⇒ 旧行为(运营池)')
-    assert.equal(r.calls[0].decision.reason, 'missing')
+    assert.equal(r.exit, 2, '取不到个人池归属 ⇒ 拒绝导入(exit 2)')
+    assert.equal(r.calls.length, 0, '不得静默落运营池')
     assert.match(r.stdout, /未取到个人池归属文件/, '必须有具名警告行')
     assert.match(r.stdout, /文件不存在/)
-    assert.match(r.stdout, /⇒ 本次落运营池/)
+    assert.match(r.stdout, /首次导入强制落个人池/)
     assert.match(r.stdout, /--owner <users\.id>/, '必须写明怎么显式指定')
   } finally {
     rmScratch(home)
   }
 })
 
-test('⑤ 文件为空 ⇒ 同 ④(具名原因=空),不得冒充个人池', async () => {
+test('⑤ 文件为空 ⇒ 同 ④(具名原因=空),拒绝导入不冒充个人池', async () => {
   const { home, file } = mkHome('   \n')
   try {
     const r = await runMain(['--file', file, '--provider', 'trae'], home)
-    assert.equal(r.calls[0].decision.owner, null)
-    assert.equal(r.calls[0].decision.reason, 'empty')
+    assert.equal(r.exit, 2, '空文件 ⇒ 拒绝导入(exit 2)')
+    assert.equal(r.calls.length, 0)
     assert.match(r.stdout, /未取到个人池归属文件/)
     assert.match(r.stdout, /文件为空/)
   } finally {
@@ -141,12 +141,12 @@ test('⑤ 文件为空 ⇒ 同 ④(具名原因=空),不得冒充个人池', asy
   }
 })
 
-test('⑥ 内容不是合法 uuid ⇒ 同 ④(具名原因=形状不合法)', async () => {
+test('⑥ 内容不是合法 uuid ⇒ 同 ④(具名原因=形状不合法),拒绝导入', async () => {
   const { home, file } = mkHome('不是-uuid-30763d9f\n')
   try {
     const r = await runMain(['--file', file, '--provider', 'trae'], home)
-    assert.equal(r.calls[0].decision.owner, null)
-    assert.equal(r.calls[0].decision.reason, 'invalid-format')
+    assert.equal(r.exit, 2, '非法 uuid ⇒ 拒绝导入(exit 2)')
+    assert.equal(r.calls.length, 0)
     assert.match(r.stdout, /未取到个人池归属文件/)
     assert.match(r.stdout, /不是合法 uuid/)
   } finally {

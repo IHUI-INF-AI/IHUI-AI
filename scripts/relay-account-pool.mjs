@@ -62,7 +62,7 @@ const HELP = `反代账号池导入
     [--dry-run]                              只校验预检,不写库
     [--no-health]                            跳过导入后的上游健康检查
     [--owner <users.id>]                     显式导入为该用户的个人池(优先级最高,压过默认)
-    [--ops-pool]                             显式落运营池(压过默认归属;与 --owner 互斥)
+    [--ops-pool]                             显式落运营池(运维逃生口,压过默认归属;与 --owner 互斥)
     [--json]                                 机器可读摘要(提取信息走 stderr)
 
 行文本形态(--tokens-file,2026-11-06 立,手上只有纯文本时的出口):
@@ -77,9 +77,10 @@ const HELP = `反代账号池导入
 归属默认(2026-11-06 器物化,机主 2026-10-31 永久指令"我自己填入号池的账号只能跟着我的账号走"):
   不带 --owner 时,先读本机个人池归属配置 ~/.wb-switch/pool-owner(一行 users.id):
     取到 ⇒ 按它落个人池,并回显「归属=个人池 xxxxxxxx…(默认:取自 pool-owner)」;
-    取不到(不存在/空/读不出/形状不合法)⇒ 仍按旧行为落运营池,但会在 stdout 点名原因,
-      并提示「要落个人池请显式带 --owner <users.id>」—— 绝不静默。
-  确需导入运营池:加 --ops-pool(绕过默认,无需再想归属)。
+    取不到(不存在/空/读不出/形状不合法)⇒ 首次导入强制落个人池,直接拒绝导入(不再静默
+      落运营池),并在 stdout 点名原因 —— 绝不静默、也不冒充个人池。
+  运营池仅由用户经「共享到运营池」按钮填充(2026-11-07 全局开放标记模型),不再接受直接导入;
+  确需运维逃生口直落运营池:加 --ops-pool(显式绕过默认,需本人明确意图)。
   默认与 --owner 走同一枚读取判据(scripts/lib/pool-owner.mjs),与号池→本机快照同步同口径。
 
 标准 JSON:{"accounts":[{"name":"...","token":"...","refreshToken":"...","enabled":true}]}
@@ -241,8 +242,9 @@ function ownerNoticeLine(decision) {
   }
   return (
     `⚠️ 未取到个人池归属文件(${POOL_OWNER_REASON_TEXT[decision.reason] ?? decision.reason}:${decision.file})` +
-    '⇒ 本次落运营池\n' +
-    '   要落个人池请显式带 --owner <users.id>(或在该文件里写入本人 users.id);确需运营池请加 --ops-pool。\n'
+    '⇒ 首次导入强制落个人池,取不到归属即拒绝导入(不再静默落运营池)。\n' +
+    '   要落个人池请显式带 --owner <users.id>(或在该文件里写入本人 users.id)。\n' +
+    '   运营池仅经「共享到运营池」按钮填充。\n'
   )
 }
 
@@ -539,6 +541,20 @@ async function main(argv, injectedDeps = {}) {
         return 2
       }
     }
+  }
+
+  // 首次导入强制落个人池(李总 2026-10-31 永久指令 + 2026-11-07 共享模型):
+  // 取不到个人池归属(无 --owner、无本机 pool-owner 文件)⇒ 拒绝导入,而非静默落运营池。
+  // 放在输入解析/校验之后:空文件 / 全注释 / 形态坏等"未判定"出口优先,本处只拦"确有可用
+  // 凭据却无个人归属"的情形。运营池仅由用户经「共享到运营池」按钮填充(全局开放标记模型),
+  // 不再接受直接导入;显式 --ops-pool 仍保留为运维逃生口(需本人明确意图),不在此拒绝之列。
+  if (decision.source === 'none' && !options.opsPool) {
+    process.stderr.write(
+      `❌ 首次导入强制落个人池:未取到个人池归属(原因=${POOL_OWNER_REASON_TEXT[decision.reason] ?? decision.reason}:${decision.file})。\n` +
+        '   请显式带 --owner <users.id>,或在 ~/.wb-switch/pool-owner 写入本人 users.id。\n' +
+        '   运营池仅经「共享到运营池」按钮填充,不再静默落入。\n',
+    )
+    return 2
   }
 
   const result = await deps.runImporter(payloadText, providerCode, options, decision)
