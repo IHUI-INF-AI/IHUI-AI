@@ -42,7 +42,16 @@
 | 3 | `icpRecord.label1` / 备案主体 | 吉林省爱智汇人工智能科技有限公司 |
 | 4 | `icpRecord.label2` / 主体类型 | 企业 |
 | 5 | `icpRecord.label3` / 备案时间 | 2026-01-15(内容待定) |
-| 6 | `icpRecord.label4` / 备案链接 | aizhs.top |
+| 6 | `icpRecord.label4` / 备案链接 | aizhs.top（行模型带 `href: https://beian.miit.gov.cn`，见 §1.2） |
+
+### 1.2 第 4 条内容口径：备案链接的文本与目标不一致
+
+- **web 现状**（`apps/web/app/(main)/settings/icp-record/page.tsx`）：该行带 `link`，渲染为 `<a>`（新标签打开），**文本与目标都是** `https://beian.miit.gov.cn`。
+- **共享屏现状**：值文本 `aizhs.top`；本轮加了可选 `href`，目标沿用 web 的 `https://beian.miit.gov.cn`（不是新选内容）。
+- **两种改法（都不选，等机主）**：
+  - 甲：保文本 `aizhs.top` + 目标 MIIT。影响：RN/小程序观感不变；web 接屏后该行文本由完整 URL 变为域名，目标不变 ⇒ 出现「显示域名、点开是 MIIT」。
+  - 乙：文本改成完整 URL + 目标同值。影响：web 现状零变化；RN/小程序该行文本由 `aizhs.top` 变成长 URL（排版更长、可能换行）。
+- 结论：`-7A`、公网安备号、备案时间、备案链接文本/目标 **四项全部「内容待定」**；草案标「内容待定·勿合入主干」。
 
 `icpRecord.label5`(备案范围)共享源没有对应值,**本屏不渲染**;web 侧保留该行。RN 壳 `apps/mobile-rn/src/screens/IcpRecordScreen.tsx` 只注入 `t/onBack/onCopy/onQuery/colorScheme`,不覆盖行数据,因此渲染与上表一致。
 

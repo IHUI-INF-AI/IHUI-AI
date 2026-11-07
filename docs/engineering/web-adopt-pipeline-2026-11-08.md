@@ -216,4 +216,23 @@
 | `apps/web/app/layout.tsx` :258 | 文档级 `style.colorScheme` | 不算组件 prop，不计 | — |
 
 合计字面量 **7 处**（withdraw 1 + 其余 6），**现已全部改为 `resolvedTheme` 注入，剩余字面量 0 处**。6 处各自独立可回滚（互不共享重构），批量修改单独一枚提交，与 label 修复、icp-record 分开。
+
+## 10. 生成物指纹不可跨分支搬运（cherry-pick 通则）
+
+- 只 pick 业务 hunk；`apps/web/src/lib/ui-routes.generated.ts` 这类生成物**交给目标分支 heal/重算**，不跟着搬。
+- 依据：`generate-ui-routes.mjs` 的 pin 是对全量页面输入的 sha256；而 `git cherry-pick` **不触发 pre-commit**（临时仓实测：普通提交写了钩子标记、cherry-pick 后无标记），所以 pick 过去的是「钉着源分支指纹」的文件。
+- 目标分支页面输入不一致时：落地的提交本身不脏，但门 105 判 stale；一旦重算就是真脏 diff（pin 行 + 逐输入行，本次实测 `decfa430bad1… → 2c650bb8c009…`，6 行级变化）。
+- 已按此记：`ab50d8d70b`（原提交 `b5e968842a`，withdraw 修复 + 同枚 pin）、`52ff17b485`（原提交 `2a52ad3a87`，6 处 colorScheme + 同枚 pin）。
+- 推送说明必须注明：**生成物指纹不可跨分支搬运，生成物交给目标分支重算**。
+
+## 11. 待办票：staged typecheck 缺依赖 dist 的前置构建
+
+- **取证（2026-11-08，移走 `packages/api-client/dist` 后）**：
+  `node scripts/check-staged-typecheck.mjs --files "apps/web/app/(pilot)/shared-pilot/page.tsx" "apps/web/app/h5/share/[code]/PageClient.tsx" "apps/web/app/(main)/exam/[id]/ExamIntro.tsx"`
+  → **不通过**：`app/h5/share/[code]/PageClient.tsx(14,54): error TS2307: Cannot find module '@ihui/api-client' or its corresponding type declarations.` 该 import 是存量代码，不是本轮新增；闸门按「错误文件 ∈ 声明集」归因，所以记在声明文件上。
+- 把 dist 放回后同命令通过——但**本地 junction 不构成结论前提**，已移除，不再作为修复手段。
+- **CI 有前置构建，不是 CI 缺口**：`.github/workflows/ci.yml` 在 `pnpm turbo run typecheck` 之前有 `pnpm --filter "@ihui/api-client..." run build`（L159；lint-typecheck-test job L563 同款）；`scripts/typecheck-full.mjs` 另带 `staleDistPreflight()`，可用 `--preflight-only` 单独补产物。
+- **缺口只在本地闸门**：`check-staged-typecheck.mjs` 按包直接跑 `tsc`，不跑 `staleDistPreflight()`，缺 dist 就以声明文件 TS2307 假红。**列票，本轮不改闸门**；修法候选：闸门内先跑 `node scripts/typecheck-full.mjs --preflight-only`，或把该前置并进各包 `typecheck` 的 pre 脚本。
+- 以后本仓任何 staged typecheck 结论都必须带前提：**是否预先产出 `packages/*/dist`（真实构建 / 无）、有无 junction**；junction 一律不算通过。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
