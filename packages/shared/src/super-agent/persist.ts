@@ -86,6 +86,21 @@ function workerShape(w: unknown): w is WorkerAssignment {
   )
 }
 
+/** 切片逐数组形状谓词:六族必须全是数组(元素级深验留给 ticketShape 等既有判据)。 */
+function ownerSliceShape(v: unknown): v is OwnerSlice {
+  if (v === null || typeof v !== 'object') return false
+  const x = v as Partial<OwnerSlice>
+  return (
+    Array.isArray(x.ticketIds) &&
+    Array.isArray(x.tickets) &&
+    Array.isArray(x.triggers) &&
+    Array.isArray(x.recordedTriggers) &&
+    Array.isArray(x.subscriptions) &&
+    Array.isArray(x.context) &&
+    Array.isArray(x.replies)
+  )
+}
+
 // 形状判据 export 给引擎侧的 restore 使用（宿主不得复算，§0.6）。
-export const __shape__ = { isPlainString, ticketShape, workerShape }
+export const __shape__ = { isPlainString, ticketShape, workerShape, ownerSliceShape }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
