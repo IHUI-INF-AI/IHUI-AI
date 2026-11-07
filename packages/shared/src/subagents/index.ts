@@ -141,6 +141,17 @@ export interface DispatchInput {
   orchestration?: OrchestrationMode
   /** 可选:会话归属 = chat_conversations.id(D08 ③);语义同 SubagentDispatchInput.conversationId */
   conversationId?: string
+  /**
+   * 可选:工人独立会话 id(超级智能体宿主 roles.executionFor 产出,如 `worker-<ticketId>`)。
+   * 只由宿主派发出口从 WorkerAssignment 携带,**不进 HTTP 请求体**;下游按该会话隔离执行上下文。
+   */
+  sessionId?: string
+  /**
+   * 可选:工人服务端绝对工作目录(宿主按 IHUI_SUPER_AGENT_WORKSPACE_ROOT 落地后的路径)。
+   * 与 roles.executionFor 产出的逻辑目录一一对应;落库后恢复/排队的工人仍知道自己在哪个目录,
+   * 不得只留在 prompt 里(§0.3 不得把「收下」写成「已用」)。
+   */
+  directory?: string
 }
 
 /**
@@ -199,6 +210,13 @@ export interface SubagentDispatch {
   parentDispatchId?: string
   /** 人工注意力(F3 2026-11-02);缺省 = 不需要人(语义见 DispatchAttention) */
   attention?: DispatchAttention
+  /**
+   * 工人独立会话 id / 服务端绝对工作目录(超级智能体宿主派发时写入)。
+   * 与 DispatchInput 同义:随派单记录落库,GET /subagents/* 与启动恢复都能读到真实归属,
+   * 不靠 prompt 口头约束(§0.3)。
+   */
+  sessionId?: string
+  directory?: string
 }
 
 /** 派单结果 */

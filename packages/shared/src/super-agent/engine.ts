@@ -761,6 +761,18 @@ export class SuperAgentHost {
   }
 
   /**
+   * 该主体当前生效的执行槽上限。
+   *
+   * 单一真相源：本方法是 maxWorkers 的唯一对外读数出口，宿主把派单交给下游编排服务前
+   * 用它注册租户并发闸（见 apps/api super-agent-pump-service）。接收/开工判据在本文件内
+   * 也走 policyFor().maxWorkers，因此「引擎认为有槽」与「下游认为没超限」读的是同一个数，
+   * 不再各自维护一套默认值。
+   */
+  maxWorkersFor(ownerUserId: string): number {
+    return this.policyFor(ownerUserId).maxWorkers
+  }
+
+  /**
    * 账面全量快照（深拷贝，宿主拿去写库）。含 pendingStart 未消费队列——
    * 崩溃恢复不得丢"已占槽还没派出去"的工人。
    */

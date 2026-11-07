@@ -17,6 +17,7 @@ export { SNAPSHOT_VERSION } from './persist'
 export type { OwnerSlice, RestoreReport, SuperAgentSnapshot } from './persist'
 export {
   ROUTER_TOOLS,
+  WORKER_SESSION_PREFIX,
   WORKER_TOOLS,
   executionFor,
   scopeFromRequest,
