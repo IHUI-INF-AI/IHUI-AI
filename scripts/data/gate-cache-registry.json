@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "note": "门结果缓存的注册表：只登记可被 gate-worker 在隔离树里复跑的门。id/script/args 与 scripts/guardian-runner.mjs 的 pushGateChecks 一一对应；inputs 是该门声明读取的配置面（用于 configHash），不是全量依赖闭包。",
+  "defaults": {
+    "timeoutMs": 300000
+  },
+  "gates": [
+    {
+      "id": "T1",
+      "label": "push 门全量 typecheck",
+      "script": "scripts/check-typecheck.mjs",
+      "args": [],
+      "inputs": ["scripts/check-typecheck.mjs", "scripts/typecheck-full.mjs"],
+      "timeoutMs": 900000
+    },
+    {
+      "id": "193",
+      "label": "git 派生调用必须显式接管 stdio",
+      "script": "scripts/check-git-stdio-discipline.mjs",
+      "args": [],
+      "inputs": [
+        "scripts/check-git-stdio-discipline.mjs",
+        "scripts/check-git-stdio-exemptions.json"
+      ]
+    },
+    {
+      "id": "47p",
+      "label": "溯源水印覆盖(push scope)",
+      "script": "scripts/check-watermark-coverage.mjs",
+      "args": ["--push-scope"],
+      "inputs": [
+        "scripts/check-watermark-coverage.mjs",
+        "scripts/watermark.mjs",
+        "scripts/lib/watermark-scope.mjs"
+      ]
+    },
+    {
+      "id": "IG",
+      "label": "不可变面守门",
+      "script": "scripts/check-immutable-guard.mjs",
+      "args": ["--range", "origin/main..HEAD"],
+      "inputs": ["scripts/check-immutable-guard.mjs", "scripts/data/immutable-guard.json"]
+    },
+    {
+      "id": "299",
+      "label": "小程序 shell 形态",
+      "script": "scripts/check-miniapp-shell-form.mjs",
+      "args": [],
+      "inputs": ["scripts/check-miniapp-shell-form.mjs"]
+    },
+    {
+      "id": "300",
+      "label": "API endpoint 增量",
+      "script": "scripts/check-api-endpoint-delta.mjs",
+      "args": [],
+      "inputs": ["scripts/check-api-endpoint-delta.mjs", "scripts/lib/api-endpoint-literals.mjs"]
+    },
+    {
+      "id": "301",
+      "label": "Web ↔ 小程序路由载体",
+      "script": "scripts/check-web-mp-route-carriers.mjs",
+      "args": [],
+      "inputs": ["scripts/check-web-mp-route-carriers.mjs"]
+    },
+    {
+      "id": "302p",
+      "label": "跨端一致性漂移",
+      "script": "scripts/check-cross-end-parity-drift.mjs",
+      "args": ["--gate", "--push"],
+      "inputs": [
+        "scripts/check-cross-end-parity-drift.mjs",
+        "scripts/data/cross-end-drift-gate-baseline.json"
+      ]
+    },
+    {
+      "id": "303p",
+      "label": "跨端 i18n 措辞",
+      "script": "scripts/check-i18n-cross-end-wording.mjs",
+      "args": ["--gate", "--push"],
+      "inputs": ["scripts/check-i18n-cross-end-wording.mjs"]
+    },
+    {
+      "id": "304p",
+      "label": "共享层纯净度",
+      "script": "scripts/check-shared-layer-duplication.mjs",
+      "args": ["--platform-purity"],
+      "inputs": ["scripts/check-shared-layer-duplication.mjs"]
+    },
+    {
+      "id": "306p",
+      "label": "knip taro 入口生成物一致",
+      "script": "scripts/gen-knip-taro-entries.mjs",
+      "args": ["--check"],
+      "inputs": ["scripts/gen-knip-taro-entries.mjs", "knip.jsonc"]
+    },
+    {
+      "id": "307p",
+      "label": "工具名集合生成物一致",
+      "script": "scripts/gen-tool-name-sets.mjs",
+      "args": ["--check"],
+      "inputs": ["scripts/gen-tool-name-sets.mjs"]
+    },
+    {
+      "id": "308p",
+      "label": "RN shell 脚手架生成物一致",
+      "script": "scripts/gen-rn-shell-scaffold.mjs",
+      "args": ["--all"],
+      "inputs": ["scripts/gen-rn-shell-scaffold.mjs"]
+    }
+  ]
+}
