@@ -29,7 +29,12 @@ from app.core.ai_code_attribution import (
     compute_stats,
 )
 
-from .ttl_json_store import load_ttl_records, resolve_retention_days, write_json_atomic
+from .ttl_json_store import (
+    json_archive_blocks_replace,
+    load_ttl_records,
+    resolve_retention_days,
+    write_json_atomic,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +128,7 @@ class AiCodeAttributionStore:
 
     def _persist(self) -> None:
         """全量写回 JSON(原子写);失败保留内存数据,下次变更再试。"""
-        if not self._loaded:
+        if not self._loaded or json_archive_blocks_replace(self._file, expect="array"):
             logger.warning("ai_code_attribution 读不到,不能把它覆盖成新记录")
             return
         write_json_atomic(self._file, self._records, indent=2)

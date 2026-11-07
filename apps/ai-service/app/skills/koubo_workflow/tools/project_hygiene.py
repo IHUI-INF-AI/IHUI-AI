@@ -15,11 +15,14 @@ import stat
 import sys
 
 # Windows UTF-8 fix。reconfigure 不替换 stdout,避免导入时关掉调用方的捕获流。
-if sys.platform == 'win32':
-    try:
-        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    except (AttributeError, OSError):
-        pass
+# TextIO 没有 reconfigure;用 getattr 取,没有就跳过(与原先 AttributeError 同一条路)。
+if sys.platform == "win32":
+    _reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(_reconfigure):
+        try:
+            _reconfigure(encoding="utf-8", errors="replace")
+        except OSError:
+            pass
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))   # 工具脚本/
 KOUBO_ROOT = os.path.dirname(SCRIPT_DIR)                  # 口播稿/koubo

@@ -14,31 +14,46 @@ import { fileURLToPath } from 'node:url'
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const SCRIPT_PATH = join(__dirname, '..', 'check-sidebar-width-consistency.mjs')
 
-// ─── Fixtures:合规基线(CSS 200px === JS SIDEBAR_WIDTH=200) ───
-// 源脚本检查 2 个固定路径:
-//   apps/web/src/styles/design-tokens.css  (--sidebar-width: Npx)
-//   apps/web/src/components/sidebar.tsx    (const SIDEBAR_WIDTH = N)
-const VALID_CSS = `:root {
-  --sidebar-width: 200px;
-  --other-token: 10px;
+// ─── Fixtures(2026-11-07 判据重写后的三件套) ────────────────────────────────
+// 期望值只取几何档;CSS 是镜像值;sidebar 组件必须**精确绑定**到档。
+// 本文件的用例除"合规基线"外,每条都对应一个真实可绕过路径(见门脚本头注 A/B/C 三个缺陷)。
+const GEOMETRY_OK = `export const GEOMETRY_PX = {
+  drawerWidth: 160,
+  sidebarMaxWidth: 180,
+  sidebarCollapsedWidth: 60,
+}
+
+export const rnGeometry = GEOMETRY_PX
+`
+
+const TOKENS_OK = `:root {
+  --sidebar-width: 160px;
+  --sidebar-collapsed-width: 60px;
 }
 `
 
-const VALID_TSX = `import { useState } from 'react'
+const TSX_OK = `import { rnGeometry } from '@ihui/design-tokens'
 
-const SIDEBAR_WIDTH = 200
+const SIDEBAR_WIDTH = rnGeometry.drawerWidth
+const SIDEBAR_MIN_WIDTH = rnGeometry.drawerWidth
+const SIDEBAR_MAX_WIDTH = rnGeometry.sidebarMaxWidth
+const SIDEBAR_COLLAPSED_WIDTH = rnGeometry.sidebarCollapsedWidth
 
-export function Sidebar() {
-  return <aside style={{ width: SIDEBAR_WIDTH }} />
-}
+export const widths = [SIDEBAR_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH, SIDEBAR_COLLAPSED_WIDTH]
 `
+
+const GEOM_PATH = 'packages/design-tokens/src/geometry.js'
+const TOKENS_PATH = 'packages/design-tokens/src/styles/tokens.css'
+const BARREL_PATH = 'apps/web/src/components/sidebar.tsx'
+const SUBMODULE_PATH = 'apps/web/src/components/sidebar/SidebarExtra.tsx'
 
 const DEFAULT_FILES = {
-  'apps/web/src/styles/design-tokens.css': VALID_CSS,
-  'apps/web/src/components/sidebar.tsx': VALID_TSX,
+  [GEOM_PATH]: GEOMETRY_OK,
+  [TOKENS_PATH]: TOKENS_OK,
+  [BARREL_PATH]: TSX_OK,
 }
 
-// ─── 辅助:创建临时项目目录(默认 2 文件,overrides 可覆盖/置 null 删除) ───
+// ─── 辅助:创建临时项目目录(默认 3 文件,overrides 可覆盖/置 null 删除) ───
 function createTempProject(overrides = {}) {
   const dir = mkScratch('ihui-sidebar-w-')
   const files = { ...DEFAULT_FILES }
@@ -57,8 +72,7 @@ function createTempProject(overrides = {}) {
   return dir
 }
 
-// ─── 辅助:运行 check-sidebar-width-consistency.mjs ───
-// 去除 ANSI 颜色码,便于正则断言
+// ─── 辅助:运行守门 ───
 const ANSI_RE = /\x1b\[[0-9;]*m/g
 function runScript(cwd, args = []) {
   const r = spawnSync('node', [SCRIPT_PATH, ...args], {
@@ -72,213 +86,272 @@ function runScript(cwd, args = []) {
   return r
 }
 
-// ─── 辅助:断言通过(exit 0 + stdout 含 ✅ 一致) ───
 function assertPass(r) {
   assert.equal(r.status, 0, `应 exit 0,实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-  assert.match(r.stdout, /✅.*一致/, `stdout 应含一致标记\nstdout: ${r.stdout}`)
+  assert.match(r.stdout, /✅/, `stdout 应含 ✅ 标记\nstdout: ${r.stdout}`)
 }
 
-// ─── 辅助:断言失败(exit 1 + stdout 含 ❌ 不一致) ───
-function assertFail(r) {
+function assertFail(r, re = /❌/) {
   assert.equal(r.status, 1, `应 exit 1,实际 exit ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`)
-  assert.match(r.stdout, /❌.*不一致/, `stdout 应含不一致标记\nstdout: ${r.stdout}`)
+  assert.match(r.stdout, re, `stdout 应匹配 ${re}\nstdout: ${r.stdout}`)
 }
 
-// ─── 辅助:在临时目录初始化 git 仓库 ───
+/** 未判定 = exit 2 + 明说「未判定」。逐格 ✅ 允许存在(那是已判格),但整体结论必须是未判定 */
+function assertUndetermined(r, re = /未判定/) {
+  assert.equal(
+    r.status,
+    2,
+    `取不到判据输入应 exit 2(未判定),实际 ${r.status}\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+  )
+  assert.match(r.stdout, re, `stdout 应说明未判定原因\nstdout: ${r.stdout}`)
+}
+
 function initGitRepo(dir) {
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execSync('git init -b main', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execSync('git config user.email "test@test.com"', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execSync('git config user.name "test"', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
-  // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   execSync('git config commit.gpgsign false', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
 }
 
 // ============================================================
-// 检查 1:核心规则 —— CSS 与 JS 宽度一致 → exit 0
+// 1. 合规基线
 // ============================================================
 
-// ─── 1. 合法:CSS 200px === JS SIDEBAR_WIDTH=200 → exit 0 ───
-test('合法: CSS --sidebar-width: 200px === JS SIDEBAR_WIDTH=200 → exit 0', () => {
+test('合规: 档 160/180/60 + CSS 镜像一致 + 四枚精确绑定 → exit 0', () => {
   const dir = createTempProject()
   try {
     const r = runScript(dir)
     assertPass(r)
-    assert.match(r.stdout, /200px === SIDEBAR_WIDTH: 200px/, `stdout 应含一致数值对照\nstdout: ${r.stdout}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-// ─── 2. 合法:两者都是 130 → exit 0(项目实际值) ───
-test('合法: CSS 130px === JS SIDEBAR_WIDTH=130 → exit 0', () => {
-  const dir = createTempProject({
-    'apps/web/src/styles/design-tokens.css': VALID_CSS.replace('200px', '130px'),
-    'apps/web/src/components/sidebar.tsx': VALID_TSX.replace('SIDEBAR_WIDTH = 200', 'SIDEBAR_WIDTH = 130'),
-  })
-  try {
-    const r = runScript(dir)
-    assertPass(r)
+    assert.match(r.stdout, /--sidebar-width: 160px === 几何档 160px/)
+    assert.match(r.stdout, /--sidebar-collapsed-width: 60px === 几何档 60px/)
+    assert.match(r.stdout, /SIDEBAR_MAX_WIDTH = rnGeometry\.sidebarMaxWidth/)
   } finally {
     rmScratch(dir)
   }
 })
 
 // ============================================================
-// 检查 2:核心规则 —— CSS 与 JS 宽度不一致 → exit 1
+// 2. CSS 镜像漂移(两个方向)
 // ============================================================
 
-// ─── 3. 违规: CSS 200px ≠ JS SIDEBAR_WIDTH=130 → exit 1(根因案例值) ──
-test('违规: CSS 200px ≠ JS 130(根因案例值)→ exit 1 + 报告宽度跳变', () => {
+test('违规: --sidebar-width 200px ≠ 档 160 → exit 1 + 点名跳变', () => {
   const dir = createTempProject({
-    'apps/web/src/components/sidebar.tsx': VALID_TSX.replace('SIDEBAR_WIDTH = 200', 'SIDEBAR_WIDTH = 130'),
+    [TOKENS_PATH]: TOKENS_OK.replace('--sidebar-width: 160px', '--sidebar-width: 200px'),
   })
   try {
     const r = runScript(dir)
-    assertFail(r)
-    assert.match(r.stdout, /200px.*!==.*130px|200px.*≠.*130px/, `stdout 应含 200 vs 130 对照\nstdout: ${r.stdout}`)
-    // 根因说明:首屏 CSS 预设 → JS useEffect 覆盖的宽度跳变闪烁
+    assertFail(r, /200px ≠ 几何档 160px/)
     assert.match(r.stdout, /跳变/, `stdout 应含跳变提示\nstdout: ${r.stdout}`)
-    // 修复建议:把 design-tokens.css 的 --sidebar-width 改为 JS 值
-    assert.match(r.stdout, /130px/, `stdout 应含修复建议值 130px\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /改为 160px/, `stdout 应含修复建议\nstdout: ${r.stdout}`)
   } finally {
     rmScratch(dir)
   }
 })
 
-// ─── 4. 违规: CSS 130px ≠ JS SIDEBAR_WIDTH=200 → exit 1(反向) ───
-test('违规: CSS 130px ≠ JS 200(反向)→ exit 1', () => {
+test('违规: --sidebar-collapsed-width 54px ≠ 档 60 → exit 1', () => {
   const dir = createTempProject({
-    'apps/web/src/styles/design-tokens.css': VALID_CSS.replace('200px', '130px'),
+    [TOKENS_PATH]: TOKENS_OK.replace(
+      '--sidebar-collapsed-width: 60px',
+      '--sidebar-collapsed-width: 54px',
+    ),
   })
   try {
     const r = runScript(dir)
-    assertFail(r)
-    assert.match(r.stdout, /130px/, `stdout 应含 CSS 值 130px\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /200px/, `stdout 应含 JS 值 200px\nstdout: ${r.stdout}`)
+    assertFail(r, /54px ≠ 几何档 60px/)
   } finally {
     rmScratch(dir)
   }
 })
 
 // ============================================================
-// 检查 3:边界 —— 文件缺失(警告不阻塞,exit 0)
+// 3. B1:删 token / 换单位 曾经判绿 —— 现在必须 exit 2
 // ============================================================
 
-// ─── 5. 边界: design-tokens.css 缺失 → exit 0(仅 ⚠️ 警告) ───
-test('边界: design-tokens.css 缺失 → exit 0(仅警告不阻塞)', () => {
-  const dir = createTempProject({ 'apps/web/src/styles/design-tokens.css': null })
-  try {
-    const r = runScript(dir)
-    assert.equal(r.status, 0, `css 缺失应 exit 0(仅警告),实际 ${r.status}\nstdout: ${r.stdout}`)
-    // 2026-09-09 三源扩展后被测脚本改口径:候选清单在源脚本 TOKENS_CANDIDATES
-    // (check-sidebar-width-consistency.mjs:43-47/120),缺文件时打印
-    // "未找到 design-tokens 源文件(已尝试: <三份候选>)",不再打印旧串
-    // "design-tokens.css ... 未找到 --sidebar-width"。断言按新契约取,并要求点名
-    // 第三候选 apps/web/src/styles/design-tokens.css(证明查的是同一份清单)。
-    assert.match(r.stdout, /未找到 design-tokens 源文件/, `stdout 应报 design-tokens 源文件缺失\nstdout: ${r.stdout}`)
-    assert.match(
-      r.stdout,
-      /已尝试:[^\n]*apps\/web\/src\/styles\/design-tokens\.css/,
-      `stdout 应列出已尝试的候选路径\nstdout: ${r.stdout}`,
-    )
-    // 不应有 ✅ 通过标记(因为没有完成一致性对比)
-    assert.doesNotMatch(r.stdout, /✅.*一致/, `不应有 ✅ 一致标记\nstdout: ${r.stdout}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-// ─── 6. 边界: sidebar.tsx 缺失 → exit 0(仅 ⚠️ 警告) ───
-test('边界: sidebar.tsx 缺失 → exit 0(仅警告不阻塞)', () => {
-  const dir = createTempProject({ 'apps/web/src/components/sidebar.tsx': null })
-  try {
-    const r = runScript(dir)
-    assert.equal(r.status, 0, `tsx 缺失应 exit 0(仅警告),实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /sidebar\.tsx.*未找到|SIDEBAR_WIDTH.*未找到/, `stdout 应含未找到 SIDEBAR_WIDTH 警告\nstdout: ${r.stdout}`)
-    assert.doesNotMatch(r.stdout, /✅.*一致/, `不应有 ✅ 一致标记\nstdout: ${r.stdout}`)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-// ─── 7. 边界: 两文件都缺失 → exit 0(仅 ⚠️ 警告,先报 CSS 缺失) ───
-test('边界: 两文件都缺失 → exit 0(优先报 CSS 缺失)', () => {
+test('B1 违规: 整行删掉 --sidebar-width → exit 2(删 token 不等于没有约束)', () => {
   const dir = createTempProject({
-    'apps/web/src/styles/design-tokens.css': null,
-    'apps/web/src/components/sidebar.tsx': null,
+    [TOKENS_PATH]: ':root {\n  --sidebar-collapsed-width: 60px;\n}\n',
   })
   try {
     const r = runScript(dir)
-    assert.equal(r.status, 0, `两文件都缺失应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    // 源脚本先判 cssWidth===null,故优先报 CSS 侧缺失(新串见 :120)
-    assert.match(r.stdout, /未找到 design-tokens 源文件/, `stdout 应含 CSS 缺失警告\nstdout: ${r.stdout}`)
+    assertUndetermined(r, /找不到 --sidebar-width/)
   } finally {
     rmScratch(dir)
   }
 })
 
-// ============================================================
-// 检查 4:边界 —— 文件存在但模式不匹配(警告不阻塞,exit 0)
-// ============================================================
-
-// ─── 8. 边界: CSS 存在但无 --sidebar-width 定义 → exit 0(警告) ───
-test('边界: CSS 存在但无 --sidebar-width → exit 0(警告)', () => {
+test('B1 违规: --sidebar-width 改 10rem(换单位)→ exit 2', () => {
   const dir = createTempProject({
-    'apps/web/src/styles/design-tokens.css': `:root { --other: 10px; }\n`,
+    [TOKENS_PATH]: TOKENS_OK.replace('--sidebar-width: 160px', '--sidebar-width: 10rem'),
   })
   try {
     const r = runScript(dir)
-    assert.equal(r.status, 0, `CSS 无 --sidebar-width 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    // 命中候选文件但缺 token 时走另一分支(check-sidebar-width-consistency.mjs:122),
-    // 语序是"<文件> 中未找到 --sidebar-width 定义"(未找到在前),旧正则的
-    // `--sidebar-width.*未找到` 永远不中。
-    assert.match(r.stdout, /中未找到 --sidebar-width 定义/, `stdout 应含未找到警告\nstdout: ${r.stdout}`)
+    assertUndetermined(r, /单位是 rem/)
   } finally {
     rmScratch(dir)
   }
 })
 
-// ─── 9. 边界: TSX 存在但无 SIDEBAR_WIDTH 常量 → exit 0(警告) ───
-test('边界: TSX 存在但无 SIDEBAR_WIDTH 常量 → exit 0(警告)', () => {
+test('B1 违规: --sidebar-width 只出现在媒体查询(不在 :root)→ exit 2', () => {
   const dir = createTempProject({
-    'apps/web/src/components/sidebar.tsx': `export function Sidebar() { return <aside /> }\n`,
+    [TOKENS_PATH]: ':root {\n  --sidebar-collapsed-width: 60px;\n}\n@media (max-width: 800px) {\n  :root { --sidebar-width: 160px; }\n}\n',
   })
   try {
     const r = runScript(dir)
-    assert.equal(r.status, 0, `TSX 无 SIDEBAR_WIDTH 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /sidebar\.tsx.*未找到|SIDEBAR_WIDTH.*未找到/, `stdout 应含未找到警告\nstdout: ${r.stdout}`)
+    assertUndetermined(r, /找不到 --sidebar-width|不在 :root/)
   } finally {
     rmScratch(dir)
   }
 })
 
 // ============================================================
-// 检查 5:正则解析鲁棒性 —— 不同写法仍能匹配
+// 4. B2:引用只做存在性检查曾判绿 —— 现在绑定式,表达式一律红
 // ============================================================
 
-// ─── 10. 鲁棒: CSS --sidebar-width 带不同空白/数值 → exit 0 ───
-test('鲁棒: CSS "--sidebar-width: 180px" 与 JS 180 → exit 0', () => {
+test('B2 违规: const SIDEBAR_WIDTH = 160 字面量 → exit 1', () => {
   const dir = createTempProject({
-    'apps/web/src/styles/design-tokens.css': `:root{--sidebar-width:   180px  ;}\n`,
-    'apps/web/src/components/sidebar.tsx': VALID_TSX.replace('SIDEBAR_WIDTH = 200', 'SIDEBAR_WIDTH = 180'),
+    [BARREL_PATH]: TSX_OK.replace(
+      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth',
+      'const SIDEBAR_WIDTH = 160',
+    ),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /SIDEBAR_WIDTH = 160 不是几何档引用/)
+    assert.match(r.stdout, /geometry\.js/, `stdout 应指向唯一数字所在文件\nstdout: ${r.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B2 违规: const SIDEBAR_WIDTH = rnGeometry.drawerWidth + 40 → exit 1', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: TSX_OK.replace(
+      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth',
+      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth + 40',
+    ),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /不是几何档引用/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B2 违规: const SIDEBAR_WIDTH = Number("160") → exit 1', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: TSX_OK.replace(
+      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth',
+      "const SIDEBAR_WIDTH = Number('160')",
+    ),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /不是几何档引用/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B2 违规: 陪跑引用(void rnGeometry.drawerWidth)+ 数字常量 → exit 1', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: TSX_OK.replace(
+      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth',
+      'void rnGeometry.drawerWidth\nconst SIDEBAR_WIDTH = 160',
+    ),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /不是几何档引用/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B2 违规: 常量绑错档(SIDEBAR_MAX_WIDTH = drawerWidth)→ exit 1', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: TSX_OK.replace(
+      'const SIDEBAR_MAX_WIDTH = rnGeometry.sidebarMaxWidth',
+      'const SIDEBAR_MAX_WIDTH = rnGeometry.drawerWidth',
+    ),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /绑到了 rnGeometry\.drawerWidth,期望 rnGeometry\.sidebarMaxWidth/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ============================================================
+// 5. B3:let / var / 改名 / 删常量
+// ============================================================
+
+test('B3 违规: let SIDEBAR_WIDTH = 160 → exit 1(不再只认 const)', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: TSX_OK.replace(
+      'const SIDEBAR_WIDTH = rnGeometry.drawerWidth',
+      'let SIDEBAR_WIDTH = 160',
+    ),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /不是几何档引用/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B3 违规: 常量被改名(SIDEBAR_WIDTH 消失)→ exit 1', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: TSX_OK.replace(/SIDEBAR_WIDTH/g, 'SIDEBAR_W'),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /找不到 SIDEBAR_WIDTH/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ============================================================
+// 6. B5/B6:两种「合规写法」不得误报
+// ============================================================
+
+test('B5 不误报: 解构 const { drawerWidth, sidebarMaxWidth, sidebarCollapsedWidth } = rnGeometry', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: `import { rnGeometry } from '@ihui/design-tokens'
+
+const { drawerWidth, sidebarMaxWidth, sidebarCollapsedWidth } = rnGeometry
+const SIDEBAR_WIDTH = drawerWidth
+const SIDEBAR_MIN_WIDTH = drawerWidth
+const SIDEBAR_MAX_WIDTH = sidebarMaxWidth
+const SIDEBAR_COLLAPSED_WIDTH = sidebarCollapsedWidth
+`,
   })
   try {
     const r = runScript(dir)
     assertPass(r)
-    assert.match(r.stdout, /180px === SIDEBAR_WIDTH: 180px/, `stdout 应含 180 一致对照\nstdout: ${r.stdout}`)
   } finally {
     rmScratch(dir)
   }
 })
 
-// ─── 11. 鲁棒: TSX SIDEBAR_WIDTH 用 const 但无分号 → exit 0 ───
-test('鲁棒: TSX "const SIDEBAR_WIDTH = 250"(无分号)与 CSS 250px → exit 0', () => {
+test('B6 不误报: 块注释中间行写反例 const SIDEBAR_WIDTH = 160', () => {
   const dir = createTempProject({
-    'apps/web/src/styles/design-tokens.css': VALID_CSS.replace('200px', '250px'),
-    'apps/web/src/components/sidebar.tsx': `const SIDEBAR_WIDTH = 250\nexport function Sidebar() { return null }\n`,
+    [BARREL_PATH]: `import { rnGeometry } from '@ihui/design-tokens'
+
+/*
+反例(禁止这样写):
+const SIDEBAR_WIDTH = 160
+*/
+
+const SIDEBAR_WIDTH = rnGeometry.drawerWidth
+const SIDEBAR_MIN_WIDTH = rnGeometry.drawerWidth
+const SIDEBAR_MAX_WIDTH = rnGeometry.sidebarMaxWidth
+const SIDEBAR_COLLAPSED_WIDTH = rnGeometry.sidebarCollapsedWidth
+`,
   })
   try {
     const r = runScript(dir)
@@ -289,32 +362,151 @@ test('鲁棒: TSX "const SIDEBAR_WIDTH = 250"(无分号)与 CSS 250px → exit 0
 })
 
 // ============================================================
-// 检查 6:--staged 模式(git diff --cached 相关性过滤)
+// 7. B4:子模块旁路(barrel 好看,子模块写死)
 // ============================================================
 
-// ─── 12. staged: git 仓库无相关 staged 文件(仅 README)→ 跳过 exit 0 ───
-test('staged 模式: git 仓库无相关 staged 文件 → 跳过 exit 0', () => {
+test('B4 违规: 子模块写 SIDEBAR_WIDTH = 999 → exit 1', () => {
+  const dir = createTempProject({
+    [SUBMODULE_PATH]: `const SIDEBAR_WIDTH = 999\nexport const w = SIDEBAR_WIDTH\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /SidebarExtra\.tsx.*SIDEBAR_WIDTH = 999/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B4 违规: 子模块用 w-[160px] 类名写死宽度 → exit 1', () => {
+  const dir = createTempProject({
+    [SUBMODULE_PATH]: `export const box = 'w-[160px]'\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /类名写死了侧栏宽度 w-\[160px\]/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('B4 合规: 子模块引用 barrel 常量 / 直接读档 → exit 0', () => {
+  const dir = createTempProject({
+    [SUBMODULE_PATH]: `import { rnGeometry } from '@ihui/design-tokens'\nconst drawerWidth = rnGeometry.drawerWidth\nexport const w = drawerWidth\n`,
+  })
+  try {
+    const r = runScript(dir)
+    assertPass(r)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ============================================================
+// 8. 几何档缺失 / 缺档 → exit 2
+// ============================================================
+
+test('未判定: geometry.js 缺失 → exit 2', () => {
+  const dir = createTempProject({ [GEOM_PATH]: null })
+  try {
+    const r = runScript(dir)
+    assertUndetermined(r, /取不到几何档/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('未判定: geometry.js 缺 sidebarMaxWidth → exit 2', () => {
+  const dir = createTempProject({
+    [GEOM_PATH]: GEOMETRY_OK.replace('  sidebarMaxWidth: 180,\n', ''),
+  })
+  try {
+    const r = runScript(dir)
+    assertUndetermined(r, /缺 sidebarMaxWidth/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('未判定: barrel 与 sidebar/ 目录都不存在 → exit 2', () => {
+  const dir = createTempProject({ [BARREL_PATH]: null })
+  try {
+    const r = runScript(dir)
+    assertUndetermined(r, /侧栏源码面读不到|未找到/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ============================================================
+// 9. import 来源 / token-registry 第三源
+// ============================================================
+
+test('违规: barrel 不从 @ihui/design-tokens 导入 → exit 1', () => {
+  const dir = createTempProject({
+    [BARREL_PATH]: TSX_OK.replace("from '@ihui/design-tokens'", "from '@ihui/other'"),
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /未从 @ihui\/design-tokens 导入几何档/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('违规: token-registry defaultValue 200px ≠ tokens.css 160px → exit 1', () => {
+  const dir = createTempProject({
+    'packages/design-tokens/src/token-registry.ts': `export const TOKEN_REGISTRY = [
+  { name: '--sidebar-width', type: 'layout', defaultValue: '200px' },
+]
+`,
+  })
+  try {
+    const r = runScript(dir)
+    assertFail(r, /token-registry\.ts --sidebar-width defaultValue: 200px/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('合规: token-registry 与 tokens.css 同值 → exit 0', () => {
+  const dir = createTempProject({
+    'packages/design-tokens/src/token-registry.ts': `export const TOKEN_REGISTRY = [
+  { name: '--sidebar-width', type: 'layout', defaultValue: '160px' },
+  { name: '--sidebar-collapsed-width', type: 'layout', defaultValue: '60px' },
+]
+`,
+  })
+  try {
+    const r = runScript(dir)
+    assertPass(r)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ============================================================
+// 10. --staged 模式
+// ============================================================
+
+test('staged 模式: 无相关文件 → 跳过 exit 0', () => {
   const dir = createTempProject()
   try {
     initGitRepo(dir)
     writeFileSync(join(dir, 'README.md'), '# test\n')
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     execSync('git add README.md', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
     const r = runScript(dir, ['--staged'])
-    assert.equal(r.status, 0, `无相关 staged 应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
-    assert.match(r.stdout, /跳过/, `stdout 应含跳过标记\nstdout: ${r.stdout}`)
+    assert.equal(r.status, 0, `应 exit 0,实际 ${r.status}\nstdout: ${r.stdout}`)
+    assert.match(r.stdout, /跳过/)
   } finally {
     rmScratch(dir)
   }
 })
 
-// ─── 13. staged: git 仓库 staged design-tokens.css → 跑全量检查 exit 0 ──
-test('staged 模式: staged design-tokens.css → 跑全量检查 exit 0', () => {
+test('staged 模式: staged geometry.js 触发全量检查', () => {
   const dir = createTempProject()
   try {
     initGitRepo(dir)
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    execSync('git add apps/web/src/styles/design-tokens.css', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+    execSync(`git add ${GEOM_PATH}`, { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
     const r = runScript(dir, ['--staged'])
     assertPass(r)
   } finally {
@@ -322,13 +514,11 @@ test('staged 模式: staged design-tokens.css → 跑全量检查 exit 0', () =>
   }
 })
 
-// ─── 14. staged: git 仓库 staged sidebar.tsx → 跑全量检查 exit 0 ───
-test('staged 模式: staged sidebar.tsx → 跑全量检查 exit 0', () => {
-  const dir = createTempProject()
+test('staged 模式: staged sidebar/ 子模块也触发(不再只看 barrel)', () => {
+  const dir = createTempProject({ [SUBMODULE_PATH]: 'export const w = 1\n' })
   try {
     initGitRepo(dir)
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    execSync('git add apps/web/src/components/sidebar.tsx', { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
+    execSync(`git add ${SUBMODULE_PATH}`, { cwd: dir, encoding: 'utf8', stdio: 'ignore' })
     const r = runScript(dir, ['--staged'])
     assertPass(r)
   } finally {
@@ -336,13 +526,10 @@ test('staged 模式: staged sidebar.tsx → 跑全量检查 exit 0', () => {
   }
 })
 
-// ─── 15. staged: 非 git 环境(无 .git)→ 回退全量检查 exit 0 ───
-test('staged 模式: 非 git 环境 → 回退全量检查 exit 0', () => {
+test('staged 模式: 非 git 环境 → 回退全量 exit 0', () => {
   const dir = createTempProject()
   try {
-    // 不 initGitRepo,直接跑 --staged
     const r = runScript(dir, ['--staged'])
-    // 非 git 环境 catch 块吞掉异常,继续走全量检查
     assertPass(r)
   } finally {
     rmScratch(dir)

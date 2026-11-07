@@ -180,7 +180,9 @@ export function addTrustedWorkspace(workspacePath: string): void {
   let trusted = new Set<string>();
   if (baseline.content !== null && baseline.content.trim() !== '') {
     const parsed = JSON.parse(baseline.content) as { trusted?: string[] } | null;
-    if (!parsed || typeof parsed !== 'object') throw new Error(`信任清单格式非法: ${file}`);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`信任清单格式非法: ${file}`);
+    }
     trusted = new Set(Array.isArray(parsed.trusted) ? parsed.trusted.map((x) => path.resolve(x)) : []);
   }
   trusted.add(abs);

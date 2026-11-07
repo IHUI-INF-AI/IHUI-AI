@@ -88,6 +88,17 @@ describe('运行账目读不到不能覆盖', () => {
     expect(fs.readFileSync(ledger)).toEqual(original);
     expect(fs.readFileSync(path.join(getDeleteTrashDir(ws), 'keep-id', 'keep.txt'), 'utf-8')).toBe('stay');
   });
+
+  it('损坏 JSON 不收成新账', () => {
+    seedTrash('keep-id', DAY, [{ flat: 'keep.txt', content: 'stay' }]);
+    const ledger = ledgerFile();
+    fs.mkdirSync(path.dirname(ledger), { recursive: true });
+    const body = '{not json';
+    fs.writeFileSync(ledger, body, 'utf-8');
+    const r = pruneExpiredTrash(ws, { nowIso: NOW });
+    expect(r.state).toBe('undetermined');
+    expect(fs.readFileSync(ledger, 'utf-8')).toBe(body);
+  });
 });
 
 describe('① 空账:no-op 且零噪声', () => {

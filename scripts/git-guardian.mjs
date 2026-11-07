@@ -223,6 +223,21 @@ const SSH_COMMAND =
   'ssh -i C:/Users/Administrator/.ssh/id_ed25519_deploy -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20'
 const TASK_NAME = 'IHUI-AI git-guardian'
 const LOG = join(WORKTREE, '.ihui-agent', 'state', 'git-guardian.log')
+/**
+ * 轮次游标(2026-11-07 立,RP-75 ①):本机唯一执行体是计划任务单轮,而一轮实测跨 1 小时以上
+ * (> 2 分钟调度周期,故调度器每趟都被"多实例"拒掉)。轮次一旦静默死,A8 只能看见「腿黑了」,
+ * 看不见「死在哪一段」—— 实测 2026-11-06T22:29Z→2026-11-07T00:53Z 有 2h24m 零日志、零痕迹。
+ * 游标只在粗粒度检查点写(每轮 ≤7 次),不做逐腿埋点:逐腿写会把诊断件本身变成新的日志病害。
+ */
+const ROUND_CURSOR = join(WORKTREE, '.ihui-agent', 'state', 'guardian-round-cursor.json')
+/**
+ * 崩溃现场(2026-11-07 立,RP-75 ①):执行体是 `git-guardian-hidden.vbs` 起的**隐藏窗口**,
+ * stderr 落在无人可见的窗口里 ⇒ 未捕获异常此前零痕迹。此件只记最近一次异常的
+ * kind/stage/message/stack,A8 与人工都据此判「承载体死在哪个检查点」。
+ */
+const CRASH_LAST = join(WORKTREE, '.ihui-agent', 'state', 'guardian-crash-last.json')
+/** 本轮进程启动时刻(算「一轮跑了多久」的唯一起点;游标件里逐次带上,不另存第二份) */
+const ROUND_STARTED_MS = Date.now()
 const POINTER = join(WORKTREE, '.git')
 const EXPECTED_POINTER = `gitdir: ${GITDIR}\n`
 // 嵌套 ref( depth>=2 )的期望值清单 —— gitdir 顶层文件,宿主清理不到(2026-09-12 立)
@@ -397,6 +412,41 @@ export function log(msg) {
     appendFileSync(LOG, line + '\n')
   } catch {
     /* 日志失败不影响守护 */
+  }
+}
+
+/**
+ * 记一个粗粒度检查点(2026-11-07 立,RP-75 ①)。语义 = 「本轮活着走过这里」:
+ * 崩溃后读 `.ihui-agent/state/guardian-round-cursor.json` 的最后一枚 stage,
+ * 就能把「腿为什么黑」从「轮次没跑到」收敛到「轮次死在哪一段」。
+ * 三条纪律:
+ *  ① **写失败一律吞掉** —— 游标是诊断件,绝不能让它把巡检本身拖死(失效方向必须是"少一条线索",
+ *     不是"多一次故障");
+ *  ② 只在段边界写,不逐腿写(每轮 ≤7 次);
+ *  ③ 不报错、不写日志行 —— 它每次都跑,写日志就把 2 分钟节流的静默面全填满了。
+ */
+export function markRoundStage(stage) {
+  // 只记**真巡检轮次**。`--check` 是 CI 口径的只读态:它的健康分支会把 `if (!CHECK_ONLY)`
+  // 那一排腿全部跳过,若照样记 `main:round-done`,等于把"一条腿都没跑"写成"跑完了"——
+  // 那正是本维最不能出的假绿(§0.3)。`--status` 同理,它连 main 都不进。
+  if (CHECK_ONLY || STATUS_ONLY) return
+  try {
+    mkdirSync(dirname(ROUND_CURSOR), { recursive: true })
+    writeFileSync(
+      ROUND_CURSOR,
+      `${JSON.stringify({
+        stage,
+        at: new Date().toISOString(),
+        atMs: Date.now(),
+        startedAtMs: ROUND_STARTED_MS,
+        elapsedMs: Date.now() - ROUND_STARTED_MS,
+        pid: process.pid,
+        mode: DAEMON ? 'daemon' : CHECK_ONLY ? 'check' : STATUS_ONLY ? 'status' : 'round',
+      })}\n`,
+      'utf8',
+    )
+  } catch {
+    /* 游标写不下去不影响巡检 */
   }
 }
 
@@ -4341,7 +4391,12 @@ const OPS_PATROL_INTERVAL_MS = Number(process.env.IHUI_OPS_PATROL_INTERVAL_MS ||
 // 拿不到任何一维读数,于是每轮寄一封「元运维巡检红」——报的是巡检自己没跑完,不是哪一维坏了。
 // 360s 仍是有界上限(守门 80),且**大于**内层 runHeadTypecheck 的 240s(嵌套超时纪律:
 // 内层先超时只会把 P12 降成未判定,不会连根拔掉整轮结论)。
-const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 360_000)
+// 2026-11-07 由 360s 提到 720s(实测取证):成功 5 次的耗时 247.3 / 249.0 / 253.7 / 267.2 / 325.5s
+// —— 最坏那次余量只剩 34.5s(9.6%),而失败 9 次全部卡在 360.0~367.3s 被杀。
+// 即「预算贴着实测上限」,不是子进程挂住。720s = 最坏实测的 2.2 倍,
+// 且仍 **大于** `check-ops-patrol.mjs` 内层超时 240s、**小于**上面 15 分钟(900s)节流窗 ——
+// 不会出现"下一趟被上一趟堵住"的自我排队。改这一处常量,不动 guardian-executor 的门超时(那条明令禁止)。
+const OPS_PATROL_TIMEOUT_MS = Number(process.env.IHUI_OPS_PATROL_TIMEOUT_MS || 720_000)
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l3429(门 103 C1 收口)〉首意: ── 巡检发信的持续性门槛(2026-10-16 立,与 auditPublicPathProbe 共用 `bumpProbeStreak` 同一份实现)──
 const OPS_PATROL_STREAK_FILE = join(WORKTREE, '.ihui-agent', 'state', 'ops-patrol-streak.json')
 const OPS_PATROL_STREAK_REQUIRED = Number(process.env.IHUI_OPS_PATROL_STREAK || 3)
@@ -13771,6 +13826,8 @@ async function main() {
 
   const coreOk = coreHealthy(before)
   if (coreOk && before.refsOk) {
+    // 段界检查点(粗粒度,只为"死在哪一段"留证;不写日志行,避免把节流静默面填满)
+    markRoundStage('main:block-enter')
     // `.git` 与嵌套 ref 都健康 ≠ 工作区健康:宿主会成批删除工作区里的已跟踪文件
     // (实测同日三轮 137→27→1)。计划任务跑的是本单轮路径(startDaemon 未启用),
     // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
@@ -13876,6 +13933,9 @@ async function main() {
     // 调用者,链断了没人喊。30 分钟节流;超 48 小时处置窗口仍卡同一段才喊,窗口内只写日志。
     // 判机器状态 ⇒ 不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。
     if (!CHECK_ONLY) auditFeedbackLoopClosure()
+    // 检查点:这里是 2026-11-06 那轮的**最后推进点**(22:29:39Z 之后 2h24m 零日志)。
+    // 单列一格,下一轮再静默死就能直接判"死在反馈闭环之后、巡检心跳之前"。
+    markRoundStage('main:post-feedback-loop')
     // 巡检**自己**也要有人看(2026-10-17 立):上面那行派发它,而它一旦停摆,账面没有任何一格会红
     // —— 它判的是"别的任务没在跑", "它自己没在跑"没有任何判据。挂点与上面各层同格(健康轮次
     // 早退之前 + !CHECK_ONLY),读它每轮落的 ops-patrol-last.json,超 3 期未更新即就地起跳一轮。
@@ -13898,6 +13958,7 @@ async function main() {
     // 立因 = auto-evolve 这条腿在本机断了 6 天(48 轮仅 1 成功),期间零判据在跑 —— 失败被记成
     // "票失败"并封票,真因(执行体路径钉死别机盘符)一行也没被点名。判机器状态 ⇒ 不进提交链(§12e)。
     if (!CHECK_ONLY) sweepAutonomyLegHealth()
+    markRoundStage('main:post-self-audit')
     // git status 余量(2026-11-04 立,尺子 = scripts/check-git-probe-headroom.mjs):
     // 立因 = Qoder 以 5000ms 硬超时探测 git 状态,本机被采集面顶到 5.1~6.5s ⇒ 12 次 timeout,
     // 之后清理失败令整个工作区 git 读恒返 durationMs=0(用户读作"git 状态总是获取不到")。
@@ -14004,6 +14065,8 @@ async function main() {
     // AI 自进化调度层(第 0 期 / 第 1 期 / 第 3 期②③,2026-10-26 接线):四层器物此前零派发点,
     // 属 §0.9「造好没装车 = 没有」。全部自带节流,判机器状态/产出台账 ⇒ 不进提交链(§12e)。
     // 顺序:先感知(分诊/腐烂/依赖)→ 再派发,同轮登记的票下一轮即可被自进化取到。
+    // 检查点:派发簇在链尾。A8 长期 dark 的 7 枚腿全在这一簇里 ⇒ 本格到位即"轮次确实走到了链尾"。
+    markRoundStage('main:pre-dispatch')
     if (!CHECK_ONLY) dispatchGateRot()
     if (!CHECK_ONLY) dispatchRelayCapacity()
     if (!CHECK_ONLY) dispatchAutoTriage()
@@ -14036,6 +14099,7 @@ async function main() {
     if (!CHECK_ONLY) sweepCrossEndShellPages()
     // 契约件按 HEAD 面重算 ⇒ 必须排在造页腿之后(本轮刚落地的页,下一轮就有契约)。
     if (!CHECK_ONLY) sweepRnShellTypes()
+    markRoundStage('main:post-rn-shell')
     // 三端非色档落档自愈:源头(web)先补,再 RN,再小程序 —— 只写工作树,落库交给 auto-commit-quiet。
     if (!CHECK_ONLY) sweepWebStyleTiers()
     // RN 非色档落档自愈:只补工作树(与上面几腿同族),落库交给 auto-commit-quiet。
@@ -14069,9 +14133,13 @@ async function main() {
     if (!CHECK_ONLY) healStaleMiniappDist()
     if (!CHECK_ONLY) healUiRoutesLeg()
     // 幂等确保自身是 S4U(已是则内部秒退,不重建任务、不产生抖动)
+    markRoundStage('main:pre-round-close')
     if (!CHECK_ONLY) ensureS4u()
     // 轮末自陈述版本(2026-11-04 立):让「代码比进程新」自己喊出来。--check 已由函数内部跳过。
     if (!CHECK_ONLY) auditGuardianCodeFreshness()
+    // 完成格:与上面的收口检查点分开写 —— 两者之间只隔 ensureS4u + 自陈述版本,
+    // 停在 pre-round-close 就说明"走到了轮末但收尾那两步挂了",停在 round-done 才是真跑完一整轮。
+    markRoundStage('main:round-done')
     if (CHECK_ONLY)
       console.log('✅ .git 健康(pointer + gitdir + git 可用 + 工作树可用 + 嵌套 ref 完整)')
     return 0
@@ -15350,6 +15418,70 @@ const isDirectRun =
   Boolean(process.argv[1]) && import.meta.url === pathToFileURL(process.argv[1]).href
 
 if (isDirectRun) {
+  /**
+   * 崩溃可见性(2026-11-07 立,RP-75 ①)。立因(实测):执行体是 `git-guardian-hidden.vbs`
+   * 起的**隐藏窗口**,`console.error` 写进的那块 stderr 没有任何人看见。2026-11-06T22:29:39Z
+   * 之后整轮静默 2h24m、`.ihui-agent/state/` 里零异常痕迹,而调度器那 72 趟全部以
+   * "多实例被拒"收场 —— 于是一个已经死掉的轮次,在 A8 上只能显示成"10 条腿黑了"。
+   * 三条纪律:
+   *  ① 先落**游标**(死在哪个检查点)再落**现场**(kind/message/stack),两者合起来才是可定位的;
+   *  ② 记日志用同一份 `log()` ⇒ 落进 `git-guardian.log`,与正常轮次同一时间线,不必去翻第二处;
+   *  ③ 仍然 `process.exit(1)` 且仍然 `releaseGuardianLock()` —— 本层只加可见性,
+   *     绝不改变"异常必须终止本轮"的语义(吞异常继续跑等于把故障洗成静默)。
+   */
+  const crashExit = (kind) => (e) => {
+    const cursor = (() => {
+      try {
+        return JSON.parse(readFileSync(ROUND_CURSOR, 'utf8')).stage ?? null
+      } catch {
+        return null
+      }
+    })()
+    const stack = String((e && e.stack) || e || '')
+    try {
+      log(
+        `❌ 守护轮次异常终止(${kind}):stage=${cursor ?? '(未知)'} elapsedMs=${
+          Date.now() - ROUND_STARTED_MS
+        } | ${stack.split('\n').slice(0, 3).join(' ⏎ ')}`,
+      )
+    } catch {
+      /* 日志层自身失败时不再重试,下面还有 CRASH_LAST 与 console */
+    }
+    try {
+      mkdirSync(dirname(CRASH_LAST), { recursive: true })
+      writeFileSync(
+        CRASH_LAST,
+        `${JSON.stringify(
+          {
+            kind,
+            at: new Date().toISOString(),
+            stage: cursor,
+            elapsedMs: Date.now() - ROUND_STARTED_MS,
+            pid: process.pid,
+            mode: DAEMON ? 'daemon' : 'round',
+            message: String((e && e.message) || e || ''),
+            stack,
+          },
+          null,
+          1,
+        )}\n`,
+        'utf8',
+      )
+    } catch {
+      /* 现场件写不下去时,日志行已是最后一道线索 */
+    }
+    try {
+      releaseGuardianLock()
+    } catch {
+      /* 锁释放失败会由 staleMs 自然过期,不掩盖原始异常 */
+    }
+    console.error(e)
+    process.exit(1)
+  }
+  // 两个入口都要接:`uncaughtException` 收同步抛出,`unhandledRejection` 收被 await 漏掉的 Promise。
+  // 此前两者都没有 handler ⇒ Node 只往 stderr 打一行,在隐藏窗口里等于没发生。
+  process.on('uncaughtException', crashExit('uncaughtException'))
+  process.on('unhandledRejection', crashExit('unhandledRejection'))
   if (DAEMON) {
     // 启动前先拿锁:服务一启动就与计划任务轮次错开;失败由 startDaemon 的重试循环兜住。
     startDaemon(acquireGuardianLock({ role: 'git-guardian:daemon', staleMs: roundStaleMs() }))
@@ -15359,11 +15491,7 @@ if (isDirectRun) {
         releaseGuardianLock() // 退出路径显式释放;lib 的 process.on('exit') 是第二道保险
         process.exit(typeof code === 'number' ? code : 0)
       })
-      .catch((e) => {
-        releaseGuardianLock()
-        console.error(e)
-        process.exit(1)
-      })
+      .catch(crashExit('main-rejected'))
   }
 }
 

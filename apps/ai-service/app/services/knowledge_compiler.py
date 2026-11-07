@@ -322,15 +322,22 @@ async def compile_project(
         _refuse_unreadable(wiki_path)
     try:
         prev = json.loads(cards_path.read_text(encoding="utf-8"))
-        if isinstance(prev, list) and prev and str(prev[0].get("source_hash") or "") == source_hash:
+        if not isinstance(prev, list):
+            if not dry_run:
+                raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译 (corrupt)")
+        elif prev and str(prev[0].get("source_hash") or "") == source_hash:
             compiled_at = str(prev[0].get("compiled_at") or "")
     except FileNotFoundError:
         compiled_at = ""
+    except KnowledgeCardsUnread:
+        raise
     except OSError as exc:
         if not dry_run:
             raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译") from exc
         compiled_at = ""
-    except ValueError:
+    except ValueError as exc:
+        if not dry_run:
+            raise KnowledgeCardsUnread("知识卡片读不到,不能把它覆盖成新编译 (corrupt)") from exc
         compiled_at = ""
     if not compiled_at:
         compiled_at = datetime.now(UTC).isoformat()

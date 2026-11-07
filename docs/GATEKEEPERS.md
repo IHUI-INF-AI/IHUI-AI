@@ -348,11 +348,11 @@ git commit
 
 | 维度 | 说明 |
 |------|------|
-| 用途 | 侧边栏宽度一致性守门,三源 × 双宽度:① `tokens.css` 的 `--sidebar-width` ↔ `sidebar.tsx` 的 `SIDEBAR_WIDTH`;② `tokens.css` 的 `--sidebar-collapsed-width` ↔ `sidebar.tsx` 的 `SIDEBAR_COLLAPSED_WIDTH`;③ `token-registry.ts` 注册表 defaultValue ↔ `tokens.css`(须从仓库根运行) |
-| 检测 | 正则提取三源数值并交叉对比,任一不一致即 exit 1 |
-| 失败原因 | 多源漂移:展开宽度不一致导致首屏 CSS 预设值 → JS useEffect 覆盖值的宽度跳变闪烁;折叠宽度/注册表漂移虽可能暂无 `var()` 引用点,但一旦被引用即引入错误尺寸 |
-| 修复 | 统一三源值;改 `token-registry.ts` 后需 `npm run build`(packages/design-tokens)同步 dist |
-| 立规依据 | 2026-07-22 立(design-tokens.css 200px vs sidebar.tsx 130px 跳变教训);2026-09-09 扩展(--sidebar-collapsed-width 漂移 54px vs 60 长期未被发现,旧守门只查展开宽度单源单值) |
+| 用途 | 侧栏宽度一致性守门。**期望值唯一来源 = 几何档** `packages/design-tokens/src/geometry.js` 的 `drawerWidth`(160) / `sidebarMaxWidth`(180) / `sidebarCollapsedWidth`(60)。校验四条:① `tokens.css` 的 `--sidebar-width` / `--sidebar-collapsed-width` ↔ 档(只认 `:root` 块内 px 值);② `sidebar.tsx` 四枚常量必须**精确绑定**到指定档(`= rnGeometry.<档>`,或经解构别名等价),不得是数字/表达式/`Number()`;③ `sidebar/` 子模块递归扫描:任何宽度常量都必须接档,且不得用 `w-[Npx]` 类名写死;④ `token-registry.ts` defaultValue ↔ `tokens.css`(须从仓库根运行) |
+| 检测 | 绑定式解析(右值整体必须可解到档,不做"字符串出现过吗"的存在性检查)+ 子模块目录递归(2026-08-28 拆分后真实消费在 `sidebar/` 里,只看 barrel 等于只审声明面)。不一致 exit 1;几何档取不到/缺档、CSS 无该 token / 非 px 单位 / 只出现在媒体查询(非顶层 `:root`)⇒ exit 2「未判定」(不记绿也不冒红,AGENTS §0.3) |
+| 失败原因 | ① 多源漂移:展开宽度不一致导致首屏 CSS 预设 → JS 生效的宽度跳变闪烁;② `sidebar.tsx` 又写回 `const SIDEBAR_WIDTH = 160` 这类字面量,或写成 `= rnGeometry.drawerWidth + 40`(实际偏离档 40px,旧版存在性检查会判绿)⇒ 三端变回"数值碰巧相等而不同源"(实测后果:web 160 / RN 250 / 小程序 250);③ 删掉 CSS token 或换成 `10rem` ⇒ 旧版只警告判绿,现已改为未判定 |
+| 修复 | 宽度只改 `geometry.js` 一处;`tokens.css` 是 CSS 无法 import JS 的**镜像值**,改档必须同步它(门会拦),改 `token-registry.ts` 后需 `npm run build`(packages/design-tokens)同步 dist |
+| 立规依据 | 2026-07-22 立(design-tokens.css 200px vs sidebar.tsx 130px 跳变教训);2026-09-09 扩展(`--sidebar-collapsed-width` 漂移 54px vs 60 长期未被发现);2026-11-07 判据重写(机主要求「三端同一数字、改一处生效」——期望值从 tsx 字面量改为几何档,并把"引用"从存在性检查改成绑定式,扫描面从 barrel 扩到 `sidebar/` 全目录;三条绕过路径由独立证伪探针实测确认后逐个封堵) |
 
 ### 第 24b 项 check-port-registry.mjs(warn-only)
 

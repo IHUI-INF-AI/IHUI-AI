@@ -187,6 +187,12 @@ class _ProfileManager:
         profile_dir = _PROFILE_ROOT / account_id
         profile_dir.mkdir(parents=True, exist_ok=True)
         profile_path = profile_dir / "profile.json"
+        if profile_path.is_file():
+            logger.error(
+                "[account_profile] 账号 %s profile 已在但读不成,不覆盖: %s",
+                account_id, profile_path,
+            )
+            return profile
         try:
             profile_path.write_text(
                 json.dumps(profile.to_dict(), ensure_ascii=False, indent=2),
