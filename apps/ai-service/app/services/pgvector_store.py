@@ -50,13 +50,56 @@ def _vec_literal(embedding: list[float]) -> str:
     return "[" + ",".join(f"{float(x):.7g}" for x in embedding) + "]"
 
 
+# 只有「对象已存在」才允许静默:42P07 = duplicate_table,42710 = duplicate_object。
+# 其余任何建表 / 建索引失败都必须可见(尤其 HNSW 因列无维度而失败时,检索会悄悄
+# 退化成顺序扫描 —— 「优化看起来做了,实际没做」是比报错更难发现的事故)。
+_ALREADY_EXISTS_SQLSTATES = frozenset({"42P07", "42710"})
+_ALREADY_EXISTS_NAMES = frozenset({"DuplicateTableError", "DuplicateObjectError"})
+
+
+def _sqlstate(err: BaseException) -> str | None:
+    """取 SQLSTATE;asyncpg 挂 ``sqlstate``,psycopg2 挂 ``pgcode``。"""
+    code = getattr(err, "sqlstate", None) or getattr(err, "pgcode", None)
+    return code if isinstance(code, str) else None
+
+
+def _is_already_exists(err: BaseException) -> bool:
+    """仅「已存在」类错误可静默(按 SQLSTATE 或 asyncpg 异常类名判定)。"""
+    return _sqlstate(err) in _ALREADY_EXISTS_SQLSTATES or type(err).__name__ in _ALREADY_EXISTS_NAMES
+
+
+async def _execute_ddl(conn: Any, sql: str, what: str) -> bool:
+    """执行一条必要 DDL:成功返回 True;失败记 warning(含 SQLSTATE)并返回 False。
+
+    失败不向上抛(不能因为 DDL 失败拖垮启动 / 主链路),但也**不能静默** ——
+    调用方据此降级,日志里必须留下原因。
+    """
+    try:
+        await conn.execute(sql)
+        return True
+    except Exception as e:  # noqa: BLE001
+        if _is_already_exists(e):
+            logger.info("pgvector %s已存在,跳过", what)
+            return True
+        logger.warning(
+            "pgvector %s失败(sqlstate=%s, %s): %s",
+            what,
+            _sqlstate(e) or "unknown",
+            type(e).__name__,
+            e,
+        )
+        return False
+
+
 async def _ensure_schema(pool: Any) -> bool:
-    """幂等建扩展与表;任何失败返回 False(调用方降级)。"""
+    """幂等建扩展与表;必要 DDL 失败返回 False(调用方降级)。"""
     global _schema_ensured
     if _schema_ensured:
         return True
     async with pool.acquire() as conn:
-        # CREATE EXTENSION 需超管,包 DO 块失败不阻塞建表(超管已装过则直接可用)
+        # CREATE EXTENSION 需超管,包 DO 块失败不阻塞建表(超管已装过则直接可用)。
+        # 这一处**不是**静默吞掉:紧接着的 pg_extension 探测决定了能力是否真的可用,
+        # 不可用时 _ensure_schema 返回 False、由调用方计入失败计数并熔断。
         try:
             await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
         except Exception as e:  # noqa: BLE001 - 权限不足等场景静默降级
@@ -65,7 +108,8 @@ async def _ensure_schema(pool: Any) -> bool:
         avail = await conn.fetchval("SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname='vector')")
         if not avail:
             return False
-        await conn.execute(
+        table_ok = await _execute_ddl(
+            conn,
             """
             CREATE TABLE IF NOT EXISTS rag_chunks (
                 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -78,18 +122,33 @@ async def _ensure_schema(pool: Any) -> bool:
                 metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
                 created_at timestamptz NOT NULL DEFAULT now()
             )
-            """
+            """,
+            "建表",
         )
-        await conn.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS rag_chunks_ns_ref_uidx ON rag_chunks (namespace, source, ref_id)"
-        )
-        # ANN 索引:hnsw( pgvector>=0.5);旧版扩展失败静默(顺序扫描兜底)
+        if not table_ok:
+            return False
+        if not await _execute_ddl(
+            conn,
+            "CREATE UNIQUE INDEX IF NOT EXISTS rag_chunks_ns_ref_uidx ON rag_chunks (namespace, source, ref_id)",
+            "唯一索引",
+        ):
+            return False
+        # ANN 索引:hnsw(pgvector>=0.5)。它只是检索优化:失败不阻断功能(顺序扫描兜底),
+        # 但必须按 warning 暴露 —— 修前用 info 吞掉,线上 HNSW 从未建成也无人可见。
         try:
             await conn.execute(
                 "CREATE INDEX IF NOT EXISTS rag_chunks_embedding_hnsw_idx ON rag_chunks USING hnsw (embedding vector_cosine_ops)"
             )
         except Exception as e:  # noqa: BLE001
-            logger.info("pgvector hnsw 索引创建跳过(旧版扩展): %s", e)
+            if _is_already_exists(e):
+                logger.info("pgvector hnsw 索引已存在,跳过重建")
+            else:
+                logger.warning(
+                    "pgvector hnsw 索引创建失败(sqlstate=%s, %s): %s;检索将走顺序扫描",
+                    _sqlstate(e) or "unknown",
+                    type(e).__name__,
+                    e,
+                )
     _schema_ensured = True
     return True
 

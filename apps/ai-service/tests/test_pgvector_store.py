@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -19,6 +20,7 @@ import pytest
 
 from app.services import pgvector_store
 from app.services.pgvector_store import (
+    _ensure_schema,
     _reset_circuit,
     _vec_literal,
     clear_chunks,
@@ -42,12 +44,27 @@ def _fresh_state(monkeypatch: pytest.MonkeyPatch) -> Any:
     _reset_circuit()
 
 
+class _DbError(Exception):
+    """带 SQLSTATE 的假 DB 异常(模拟 asyncpg / psycopg2 的错误码属性)。"""
+
+    def __init__(self, msg: str, sqlstate: str | None = None) -> None:
+        super().__init__(msg)
+        self.sqlstate = sqlstate
+
+
 class _FakeConn:
-    def __init__(self, extension_available: bool = True) -> None:
+    def __init__(
+        self,
+        extension_available: bool = True,
+        fail_sql: tuple[str, Exception] | None = None,
+    ) -> None:
         self.extension_available = extension_available
+        self.fail_sql = fail_sql
         self.executed: list[str] = []
 
     async def execute(self, sql: str, *args: Any) -> None:
+        if self.fail_sql and self.fail_sql[0] in sql:
+            raise self.fail_sql[1]
         self.executed.append(sql)
 
     async def fetchval(self, sql: str, *args: Any) -> Any:
@@ -57,8 +74,12 @@ class _FakeConn:
 
 
 class _FakePool:
-    def __init__(self, extension_available: bool = True) -> None:
-        self.conn = _FakeConn(extension_available)
+    def __init__(
+        self,
+        extension_available: bool = True,
+        fail_sql: tuple[str, Exception] | None = None,
+    ) -> None:
+        self.conn = _FakeConn(extension_available, fail_sql)
         self.fetch = AsyncMock(return_value=[])
         self.fetchrow = AsyncMock(return_value=None)
         self.execute = AsyncMock()
@@ -114,6 +135,50 @@ async def test_extension_missing_falls_back() -> None:
     with patch("app.core.db_pool.get_shared_pool", new=AsyncMock(return_value=pool)):
         assert await upsert_chunk("ns", "s", "e1", "c", [0.1]) is False
         assert await search_chunks("ns", [0.1]) == []
+
+
+async def test_hnsw_index_failure_logs_warning_with_sqlstate(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """HNSW 建索引失败必须可见:warning + SQLSTATE,但不阻断初始化(顺序扫描兜底)。
+
+    修前这里是 ``logger.info``,``column "embedding" does not have dimensions``
+    被吞掉,索引从未建成而日志里什么都看不到。
+    """
+    caplog.set_level(logging.WARNING, logger="app.services.pgvector_store")
+    err = _DbError('column "embedding" does not have dimensions', sqlstate="22023")
+    pool = _FakePool(fail_sql=("USING hnsw", err))
+    assert await _ensure_schema(pool) is True, "索引失败不能让初始化崩掉"
+    assert "hnsw 索引创建失败" in caplog.text
+    assert "sqlstate=22023" in caplog.text
+    assert 'column "embedding" does not have dimensions' in caplog.text
+
+
+async def test_hnsw_already_exists_is_not_warned(caplog: pytest.LogCaptureFixture) -> None:
+    """只有「已存在」(42P07/42710)可以静默,不能把真正的失败也混进这个桶。"""
+    caplog.set_level(logging.WARNING, logger="app.services.pgvector_store")
+    err = _DbError("relation already exists", sqlstate="42P07")
+    pool = _FakePool(fail_sql=("USING hnsw", err))
+    assert await _ensure_schema(pool) is True
+    assert "hnsw 索引创建失败" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("needle", "what"),
+    [("CREATE TABLE", "建表"), ("rag_chunks_ns_ref_uidx", "唯一索引")],
+)
+async def test_required_ddl_failure_is_visible_and_degrades(
+    needle: str, what: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """必要 DDL(建表 / 唯一索引)失败也要 warning + SQLSTATE,并返回 False 让调用方降级。
+
+    修前这些异常会一路冒到 upsert/search 的 ``logger.debug``,等于静默。
+    """
+    caplog.set_level(logging.WARNING, logger="app.services.pgvector_store")
+    pool = _FakePool(fail_sql=(needle, _DbError("permission denied", sqlstate="42501")))
+    assert await _ensure_schema(pool) is False
+    assert f"{what}失败" in caplog.text
+    assert "sqlstate=42501" in caplog.text
 
 
 async def test_circuit_breaker_after_repeated_fatal() -> None:
