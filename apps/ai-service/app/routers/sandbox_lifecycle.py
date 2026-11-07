@@ -14,7 +14,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, NoReturn
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
@@ -67,7 +67,7 @@ def _admin_or_403(request: Request, user_id: str) -> None:
         raise HTTPException(status_code=403, detail="沙箱生命周期仅管理员可用")
 
 
-def _raise_http(exc: SandboxLifecycleError) -> None:
+def _raise_http(exc: SandboxLifecycleError) -> NoReturn:
     raise HTTPException(
         status_code=exc.status,
         detail={"code": exc.code, "message": str(exc)},
