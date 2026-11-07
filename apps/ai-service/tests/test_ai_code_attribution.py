@@ -38,10 +38,12 @@ from app.core.ai_code_attribution import (
 )
 from app.services.ai_code_attribution_store import (
     AiCodeAttributionStore,
+    host_session_id,
     list_records,
     record_attribution,
     stats_all,
     stats_for_path,
+    stats_for_session,
 )
 
 
@@ -234,4 +236,65 @@ def test_file_edit_records_ai_attribution(tmp_path, monkeypatch, tmp_store):
     assert rows[0].tool == "file_edit"
     assert rows[0].anchor.line_start >= 1
     assert rows[0].anchor.commit_sha == "", "未提交的改动不得编出提交锚"
+    assert rows[0].session_id == ""
+
+
+def test_file_edit_keeps_the_host_session(tmp_path, monkeypatch, tmp_store):
+    from app.services import file_editor
+
+    monkeypatch.setattr(file_editor, "_workspace_roots", lambda: [str(tmp_path)])
+    monkeypatch.setattr(file_editor, "_BACKUP_ROOT", tmp_path / "bak")
+    target = tmp_path / "demo.py"
+    target.write_text("a = 1\n", encoding="utf-8")
+
+    result = file_editor.edit_file(str(target), "a = 1", "a = 2", session_id="sess-9")
+
+    assert result["ok"] is True
+    rows = list_records(session_id="sess-9")
+    assert len(rows) == 1
+    assert rows[0].session_id == "sess-9"
+    assert stats_for_session("sess-9").total == 1
+
+
+@pytest.mark.asyncio
+async def test_write_file_records_host_session_not_the_model_claim(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_file_edit, _tool_write_file
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_path_in_workspace",
+        lambda p, extra_roots=None: (True, str(p)),
+    )
+    written = tmp_path / "out.py"
+    out = await _tool_write_file(
+        {
+            "path": str(written),
+            "content": "x = 1\n",
+            "session_id": "model-forged",
+            "__session_id": "host-sess",
+        }
+    )
+    assert out["ok"] is True
+    rows = list_records(session_id="host-sess")
+    assert len(rows) == 1
+    assert rows[0].tool == "write_file"
+    assert rows[0].session_id == "host-sess"
+    assert stats_for_session("model-forged").total == 0
+    assert host_session_id({"session_id": "model-forged"}) == ""
+
+    edited = tmp_path / "edit.py"
+    edited.write_text("a = 1\n", encoding="utf-8")
+    edited_out = await _tool_file_edit(
+        {
+            "file_path": str(edited),
+            "old_string": "a = 1",
+            "new_string": "a = 2",
+            "session_id": "model-forged",
+            "__session_id": "host-edit",
+        }
+    )
+    assert edited_out["ok"] is True
+    edit_rows = list_records(session_id="host-edit")
+    assert len(edit_rows) == 1
+    assert edit_rows[0].tool == "file_edit"
+    assert edit_rows[0].session_id == "host-edit"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1238,6 +1238,10 @@ LazyIndexStatus = Literal[
     # 状态单列一格而不是并进 over-limit:两者给出的用户动作完全不同 ——
     # over-limit 是"仓库太大,建议缩小范围",not-consented 是"请先在设置里授权"。
     "skipped-not-consented",
+    # 工作区开关：取消、显式关闭、自动关闭、开关文件读不出来。和「没同意出域」分开，
+    # 否则用户会去设置里找授权，而真正挡住的是这个目录的索引开关。
+    "skipped-index-cancelled",
+    "skipped-index-policy",
     "failed",
 ]
 
@@ -1398,6 +1402,19 @@ async def _lazy_index_and_research(
                 status="skipped-not-a-dir",
                 reason=f"传入的 path 不是可读目录({path}),未尝试建索引",
             )
+        from .workspace_index_policy import indexing_decision, workspace_key
+
+        index_decision = indexing_decision(workspace_key(str(root)))
+        if not index_decision.allow_index:
+            return LazyIndexOutcome(
+                results=[],
+                status=(
+                    "skipped-index-cancelled"
+                    if index_decision.phase == "cancelled"
+                    else "skipped-index-policy"
+                ),
+                reason=index_decision.reason,
+            )
         now = time.monotonic()
         # ── 2026-10-03 数据出域合规整改:同意闸在建索引**之前** ──
         # 懒索引会把源码切片送外部 embedding 服务(codebase_indexer →
@@ -1511,6 +1528,50 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     internal_user_id = arguments.get("__user_id") or None
     if not path:
         return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    from .workspace_index_policy import (
+        apply_workspace_index,
+        indexing_decision,
+        workspace_key,
+    )
+
+    keyed = workspace_key(path)
+    control = arguments.get("index_control", None)
+    if control is not None:
+        if not isinstance(control, str) or not control:
+            return {
+                "tool": "index_codebase",
+                "ok": False,
+                "phase": "unjudged",
+                "allowIndex": False,
+                "error": "index_control 没量到",
+            }
+        try:
+            switched = apply_workspace_index(keyed, control)
+        except ValueError:
+            return {
+                "tool": "index_codebase",
+                "ok": False,
+                "phase": "unjudged",
+                "allowIndex": False,
+                "error": "未知的索引开关动作",
+            }
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "phase": switched.phase,
+            "allowIndex": switched.allow_index,
+            "reason": switched.reason,
+        }
+    held = indexing_decision(keyed)
+    if not held.allow_index:
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "skipped": held.phase,
+            "phase": held.phase,
+            "allowIndex": False,
+            "error": held.reason,
+        }
     # 2026-10-03 数据出域合规整改:同意闸。建索引会把源码切片发往外部 embedding
     # 服务,未获授权时**在读任何文件之前**就返回 —— 连文件都不碰,更谈不上出域。
     # 这里刻意不接受"调用方传入已授权"之类的入参:同意必须来自服务端侧的
@@ -2543,6 +2604,18 @@ def _classify_existing_file(path: str) -> tuple[str, os.stat_result | None]:
     return "present", st
 
 
+def _note_ai_edit(tool: str, path: str, hunk: str, arguments: Mapping[str, Any]) -> None:
+    """写成功之后记归属。会话号只取宿主注入的 __session_id。"""
+    try:
+        from .ai_code_attribution_store import note_host_edit
+
+        note_host_edit(tool, path, hunk, arguments)
+    except Exception as exc:  # noqa: BLE001 - 记账失败不得把已写完的文件说成没写成
+        import logging
+
+        logging.getLogger(__name__).warning("归属记账失败(不影响已完成的写入): %s", exc)
+
+
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。
 
@@ -2612,6 +2685,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 record_self_write(arguments.get("__session_id"), resolved_path, content)
             except Exception:  # noqa: BLE001 - 登记层故障不得让写失败
                 pass
+            _note_ai_edit("write_file", resolved_path, content, arguments)
             return {
                 "tool": "write_file",
                 "path": resolved_path,
@@ -2747,6 +2821,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                     new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
         # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
         _record_file_base(resolved_path, new_content)
+    _note_ai_edit("file_edit", resolved_path, "".join(diff[:20]), arguments)
     result_payload: dict[str, Any] = {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
             "strategy": strategy,

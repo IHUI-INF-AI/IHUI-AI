@@ -21,7 +21,9 @@ app/services/ai_code_attribution_git.py。
 
 from __future__ import annotations
 
+import logging
 import uuid
+from collections.abc import Mapping
 from pathlib import Path
 
 from app.core.ai_code_attribution import (
@@ -38,10 +40,14 @@ from .ai_code_attribution_git import detect_repo_root, git_blame
 from .ai_code_attribution_persistence import MAX_RECORDS, AiCodeAttributionStore, store
 from .ttl_json_store import iso_now
 
+logger = logging.getLogger(__name__)
+
 __all__ = [
     "AiCodeAttributionStore",
     "MAX_RECORDS",
     "store",
+    "host_session_id",
+    "note_host_edit",
     "record_attribution",
     "list_records",
     "stats_for_path",
@@ -49,6 +55,39 @@ __all__ = [
     "stats_all",
     "trace_record",
 ]
+
+
+def host_session_id(arguments: Mapping[str, object] | None) -> str:
+    """会话号只认承载层注入的 ``__session_id``。模型自报的 ``session_id`` 不算。"""
+    if not isinstance(arguments, Mapping):
+        return ""
+    value = arguments.get("__session_id")
+    if isinstance(value, str):
+        return value.strip()
+    return ""
+
+
+def note_host_edit(
+    tool: str,
+    file: str,
+    hunk: str,
+    arguments: Mapping[str, object] | None,
+    *,
+    line_start: int = 1,
+    line_end: int = 1,
+) -> None:
+    """写成功之后补一条归属账。记账失败不改变已经写完的文件。"""
+    try:
+        record_attribution(
+            tool,
+            file,
+            hunk,
+            session_id=host_session_id(arguments),
+            line_start=line_start,
+            line_end=line_end,
+        )
+    except Exception as exc:
+        logger.warning("归属记账失败(不影响已完成的写入): %s", exc)
 
 
 def record_attribution(
