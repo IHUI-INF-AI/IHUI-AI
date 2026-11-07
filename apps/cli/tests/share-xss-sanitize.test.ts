@@ -1,67 +1,43 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 /**
  * BUG-0003 回归:/share 存储型 XSS —— 会话正文不得作为可执行标签/属性进入 HTML。
  *
- * 两道闸都钉:
- *   ① `escapeMarkdownRawHtml`:原文 `<script>` / `<img onerror>` 在嵌入页面前变实体;
- *   ② `sanitizeRenderedHtml`:marked 产物再过标签/属性/URL 三重白名单,`on*` 与
- *      `javascript:` 一律不留。
- * 反向对照:正常 markdown(标题/表格/链接/代码块/行内代码)观感不变。
+ * 2026-11-07 重钉到当前实现:正文由零依赖受控子集渲染器
+ * (apps/cli/src/utils/markdown-to-html.ts)在导出时生成,安全口径钉四道闸:
+ *   ① 所有文本节点必经 escapeHtml,原始 HTML 块不解析、只转义;
+ *   ② 链接目标白名单 http(s)/mailto/#,伪协议一律回退为字面文本(不产出 href);
+ *   ③ 图片不产出 <img src>(降级为文字引用),分享页对外零请求;
+ *   ④ 输出保证不含 <script src= 与 <link 。
+ * 反向对照:正常 markdown(标题/列表/表格/链接/代码块)观感不变。
  */
 import { describe, it, expect } from 'vitest';
 
-import {
-  ShareManager,
-  escapeMarkdownRawHtml,
-  sanitizeRenderedHtml,
-} from '../src/commands/share.js';
+import { renderShareHtml } from '../src/commands/share.js';
+import { renderMarkdownToHtml } from '../src/utils/markdown-to-html.js';
 
 const HASH = 'a'.repeat(64);
 
-function renderPage(markdown: string): string {
-  const mgr = new ShareManager(process.cwd());
-  return (mgr as unknown as { renderHtml(m: string, h: string, t: string): string }).renderHtml(
-    markdown,
-    HASH,
-    'XSS 回归',
-  );
+/**
+ * 只扫「真实标签」:渲染器保证文本节点必经 escapeHtml(< → &lt;),
+ * 因此产物里所有裸 < 开头的标签都是渲染器亲手产出的可信标签。
+ * 恶意 payload 作为转义后的可见文本(含 onerror= 字样)不算命中。
+ */
+function assertNoExecutableTag(html: string): void {
+  const realTags = html.match(/<[a-zA-Z/][^>]*>/g) ?? [];
+  for (const tag of realTags) {
+    expect(tag.toLowerCase()).not.toMatch(
+      /^<\/?(script|iframe|object|embed|svg|img|form|meta|base|input|video|audio|source)\b/,
+    );
+    expect(tag).not.toMatch(/\son[a-z]+\s*=/i); // 无事件属性(on*)
+    expect(tag).not.toMatch(/(?:href|src|action)\s*=\s*["']?\s*(?:javascript|vbscript|data):/i);
+  }
+  expect(html).not.toMatch(/<script\s+src=/i);
+  expect(html).not.toMatch(/<link\s/i);
 }
 
-describe('BUG-0003 escapeMarkdownRawHtml', () => {
-  it('转义 <script> 原始标签', () => {
-    const out = escapeMarkdownRawHtml('<script>alert(1)</script>');
-    expect(out).not.toContain('<script');
-    expect(out).toBe('&lt;script>alert(1)&lt;/script>');
-  });
-
-  it('转义 <img onerror> 原始标签', () => {
-    const payload = '<img src=x onerror=alert(1)>';
-    const out = escapeMarkdownRawHtml(payload);
-    expect(out).not.toContain('<img');
-    expect(out).not.toMatch(/<[^&]/);
-    expect(out).toContain('&lt;img');
-  });
-
-  it('代码块内原文原样保留(由 marked 负责转义)', () => {
-    const md = '```html\n<img src=x onerror=alert(1)>\n```';
-    expect(escapeMarkdownRawHtml(md)).toBe(md);
-  });
-
-  it('行内代码内原文原样保留', () => {
-    const md = '示例 `'+'<img src=x onerror=alert(1)>'+'` 结束';
-    expect(escapeMarkdownRawHtml(md)).toBe(md);
-  });
-
-  it('正常 markdown 不受影响', () => {
-    const md = '# 标题\n\n- 列表项\n- **粗体**\n\n| a | b |\n|---|---|\n| 1 | 2 |';
-    expect(escapeMarkdownRawHtml(md)).toBe(md);
-  });
-});
-
-describe('BUG-0003 sanitizeRenderedHtml', () => {
+describe('BUG-0003 闸①:原始 HTML 不解析、只转义', () => {
   const payloads = [
     '<script>alert(1)</script>',
     '<img src=x onerror=alert(1)>',
@@ -73,48 +49,125 @@ describe('BUG-0003 sanitizeRenderedHtml', () => {
     '<div onclick="alert(1)">x</div>',
   ];
 
-  it.each(payloads)('恶意载荷 %s 被中和', (payload) => {
-    const out = sanitizeRenderedHtml(payload);
-    expect(out).not.toMatch(/<\s*(script|iframe|svg|object|embed|form|meta|link|base)\b/i);
-    expect(out).not.toMatch(/\bon[a-z]+\s*=/i);
-    expect(out.toLowerCase()).not.toContain('javascript:');
+  it.each(payloads)('payload %s 只能以转义文本出现', (payload) => {
+    const out = renderMarkdownToHtml(payload);
+    assertNoExecutableTag(out);
+    expect(out).toContain('&lt;'); // 原文以实体形态可见(离线可读性不丢)
   });
 
-  it('正常渲染结果原样保留', () => {
-    const normal =
-      '<h2>标题</h2><p>正文 <strong>粗体</strong> <em>斜体</em> ' +
-      '<a href="https://example.com" title="链接">链接</a></p>' +
-      '<table><thead><tr><th colspan="2">表头</th></tr></thead>' +
-      '<tbody><tr><td>1</td><td>2</td></tr></tbody></table>' +
-      '<pre><code class="language-js">const a = 1 &lt; 2;</code></pre>';
-    expect(sanitizeRenderedHtml(normal)).toBe(normal);
+  it('行内代码内 payload 原样转义,不产出可执行标签', () => {
+    const out = renderMarkdownToHtml('示例 `' + '<img src=x onerror=alert(1)>' + '` 结束');
+    assertNoExecutableTag(out);
+    expect(out).toContain('<code>');
+    expect(out).toContain('&lt;img');
   });
 
-  it('相对链接与 http(s)/mailto 保留,javascript:/data: 丢弃', () => {
-    expect(sanitizeRenderedHtml('<a href="/docs">相对</a>')).toContain('href="/docs"');
-    expect(sanitizeRenderedHtml('<a href="https://a.example">https</a>')).toContain('href="https://a.example"');
-    expect(sanitizeRenderedHtml('<a href="mailto:a@b.c">mail</a>')).toContain('href="mailto:a@b.c"');
-    expect(sanitizeRenderedHtml('<a href="javascript:alert(1)">x</a>')).not.toContain('href=');
-    expect(sanitizeRenderedHtml('<img src="data:image/png;base64,AAAA">')).not.toContain('src=');
+  it('围栏代码块内 payload 原样转义', () => {
+    const out = renderMarkdownToHtml('```html\n<img src=x onerror=alert(1)>\n```');
+    assertNoExecutableTag(out);
+    expect(out).toContain('<pre><code');
+    expect(out).toContain('&lt;img');
   });
 });
 
-describe('BUG-0003 生成的分享页', () => {
-  it('恶意 payload 不以可执行标签形式进入页面', () => {
-    const html = renderPage('<script>alert(1)</script><img src=x onerror=alert(1)>\n\n# 正常标题');
-    expect(html).not.toContain('<script>alert(1)</script>');
-    expect(html).not.toContain('<img src=x onerror=alert(1)>');
-    expect(html).toContain('&lt;script');
+describe('BUG-0003 闸②:链接目标白名单', () => {
+  it('伪协议 markdown 链接回退为字面文本,不产出 href', () => {
+    for (const target of ['javascript:alert(1)', 'JaVaScRiPt&colon;alert(1)', 'data:text/html,x', 'vbscript:x']) {
+      const out = renderMarkdownToHtml(`[click](${target})`);
+      expect(out).not.toMatch(/<a\b/i);
+      expect(out).not.toMatch(/href\s*=/i);
+      // 字面回退,信息不丢(& 实体会被二次转义为 &amp;,如 &colon; → &amp;colon;)
+      expect(out).toContain(`[click](${target.replace('&', '&amp;')})`);
+    }
+  });
+
+  it('实体混淆伪协议也被阻断', () => {
+    const out = renderMarkdownToHtml('[click](https://example.com/?x=&#106;avascript:alert(1))');
+    assertNoExecutableTag(out);
+  });
+
+  it('http(s)/mailto/# 锚点保留并带 noopener', () => {
+    const out = renderMarkdownToHtml(
+      '[https](https://a.example) [mail](mailto:a@b.c) [锚](#section-1)',
+    );
+    expect(out).toContain('href="https://a.example"');
+    expect(out).toContain('href="mailto:a@b.c"');
+    expect(out).toContain('href="#section-1"');
+    expect(out).toContain('rel="noopener noreferrer"');
+  });
+});
+
+describe('BUG-0003 闸③:图片零请求', () => {
+  it('图片语法降级为文字引用,不产出 <img src>', () => {
+    const out = renderMarkdownToHtml('![截图](https://example.com/a.png)');
+    assertNoExecutableTag(out);
+    expect(out).toContain('md-media-ref');
+    expect(out).not.toMatch(/<img\b/i);
+  });
+
+  it('data: 图片同样不产出 src', () => {
+    const out = renderMarkdownToHtml('![x](data:image/png;base64,AAAA)');
+    expect(out).not.toMatch(/<img\b/i);
+    assertNoExecutableTag(out);
+  });
+});
+
+describe('BUG-0003 闸④:输出硬保证', () => {
+  it('任意混合 payload 产物无 <script src= 与 <link ', () => {
+    const mixed = [
+      '<script src="https://evil.example/x.js"></script>',
+      '<link rel="stylesheet" href="https://evil.example/x.css">',
+      '<img src=x onerror=alert(1)>',
+      '[x](javascript:alert(1))',
+    ].join('\n\n');
+    const out = renderMarkdownToHtml(mixed);
+    assertNoExecutableTag(out);
+    expect(out).not.toMatch(/<script\s+src=/i);
+    expect(out).not.toMatch(/<link\s/i);
+  });
+});
+
+describe('BUG-0003 生成的分享页(renderShareHtml 终态)', () => {
+  it('恶意 payload 不以可执行形式进入页面,转义文本可见', () => {
+    const html = renderShareHtml(
+      '<script>alert(1)</script><img src=x onerror=alert(1)>\n\n# 正常标题',
+      HASH,
+      'XSS 回归',
+    );
+    // 页面自身的完整性校验脚本是可信静态块;payload 只能以转义形态出现
+    expect(html).not.toContain('<script>alert(1)');
+    expect(html).not.toContain('<img src=x');
+    expect(html).toContain('&lt;script&gt;alert(1)');
     expect(html).toContain('&lt;img');
-    // 正常 markdown 仍在(未整体转义)
-    expect(html).toContain('# 正常标题');
+    // 正常 markdown 正文仍按 markdown 渲染(未整体转义)
+    expect(html).toContain('<h1>正常标题</h1>');
   });
 
-  it('innerHTML 前必须经过净化函数', () => {
-    const html = renderPage('hello');
-    expect(html).toContain('container.innerHTML = sanitizeRenderedHtml(window.marked.parse(raw))');
-    // 净化实现与页面同源注入(不是只改调用点)
-    expect(html).toContain('function sanitizeRenderedHtml');
+  it('标题与 hash 元数据面转义', () => {
+    const html = renderShareHtml('正文', HASH, '<script>alert(1)</script>');
+    expect(html).not.toContain('<title><script>');
+    expect(html).toContain('&lt;script&gt;');
+    expect(html).toContain(`data-sha256="${HASH}"`);
+  });
+
+  it('正文区(不含量产完整性脚本)无可执行标签', () => {
+    const bodyHtml = renderMarkdownToHtml(
+      '<img src=x onerror=alert(1)>\n\n[x](javascript:alert(1))\n\n![y](data:text/html,evil)',
+    );
+    assertNoExecutableTag(bodyHtml);
+  });
+
+  it('正常 markdown 观感不变', () => {
+    const md = '# 标题\n\n- 列表项\n- **粗体**\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n```js\nconst a = 1;\n```\n\n> 引用\n\n`行内码` 与 ~~删除~~ 及 *斜体*';
+    const out = renderMarkdownToHtml(md);
+    expect(out).toContain('<h1>标题</h1>');
+    expect(out).toContain('<strong>粗体</strong>');
+    expect(out).toContain('<table class="md-table">');
+    expect(out).toContain('<blockquote class="md-quote">');
+    expect(out).toContain('<pre><code class="language-js">const a = 1;</code></pre>');
+    expect(out).toContain('<code>行内码</code>');
+    expect(out).toContain('<del>删除</del>');
+    expect(out).toContain('<em>斜体</em>');
+    assertNoExecutableTag(out);
   });
 });
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
