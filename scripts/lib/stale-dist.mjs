@@ -122,6 +122,21 @@ export function collectPackageState(pkgDir, name) {
       })
     }
   }
+  // 2026-11-07(T1 提速):原有实现只看 dist 里**已存在**的文件,`src` 新增文件对应的产物
+  // 整个缺失时不会被判陈旧(只有 dist 整目录缺失才命中)。这里补上"应有产物缺失"这一型:
+  // 消费者按 exports.types 解析,少一个产物就是不可信,必须重建成 fail-closed。
+  const distRelSet = new Set(distFiles.map((d) => d.rel))
+  for (const [rel, s] of srcByArtifact) {
+    if (!distRelSet.has(rel)) {
+      staleArtifacts.push({
+        artifact: rel,
+        src: s.rel,
+        artifactMtimeMs: -1,
+        srcMtimeMs: s.mtimeMs,
+        missing: true,
+      })
+    }
+  }
   staleArtifacts.sort((a, b) => a.artifact.localeCompare(b.artifact))
   return {
     name,
