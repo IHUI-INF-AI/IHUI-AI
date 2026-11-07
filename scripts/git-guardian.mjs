@@ -14305,6 +14305,12 @@ function startDaemon(bootGuard = null) {
       setTimeout(tick, intervalMs)
       return
     }
+    // 2026-11-07(与 main 腿簇入口同点位):心跳点必须**两侧都在**。
+    // A9 载体齐平按"区"比调用集合,只给一次性 `main()` 加直呼点、常驻 tick 不跟,
+    // `beatRoundLock` 就落进「只在 main 里」那一格(dark=1)——那是用漏改把两个承载体分叉,
+    // 不是判据误报。语义上 daemon 的心跳本由 startHeartbeatGuardianLock 的 30s interval 负责,
+    // 这里多一次是无害的"本轮活着"锚点;`beatRoundLock()` 在无 activeRoundLock 时自 no-op。
+    beatRoundLock()
     try {
       const h = status()
       const coreOk = coreHealthy(h)
