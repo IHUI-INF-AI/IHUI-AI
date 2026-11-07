@@ -163,6 +163,14 @@ describe('AgentRuntimePanel 共享层渲染', () => {
     expect(code).toMatch(/t\(\s*`stepDecision\./)
   })
 
+  it('滚动区高度上限两端同值:走 geometry token,不得写 vh 或单端分支', () => {
+    const code = stripComments(PANEL_SOURCE)
+    // 阴性对照:上限改成裸数字(40vh / maxHeight: 240)或端内分支,本断言变红
+    expect(code).toMatch(/maxHeight:\s*rnGeometry\.runtimePanelScrollMaxHeight/)
+    expect(code).not.toMatch(/40vh|maxHeight:\s*\d/)
+    expect(code).not.toMatch(/Platform\.(select|OS)|typeof\s+wx\b/)
+  })
+
   it('零平台 API:无存储、无导航、无 Taro/wx 通道', () => {
     const code = stripComments(PANEL_SOURCE)
     expect(code).not.toMatch(/\bTaro\b/)

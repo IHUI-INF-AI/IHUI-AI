@@ -83,6 +83,17 @@ export const GEOMETRY_PX = {
    * taroGeometry 会同步折出 860rpx,无副作用 —— 小程序端不渲染 web 预览壳,该档无小程序消费者。
    */
   previewShellWidth: 430,
+  /**
+   * Agent 运行时面板滚动区最大高 240(2026-11-07,面板抽到 `packages/app` 共享层时补)。
+   * 小程序端旧实现写 `maxHeight: 40vh`:小屏(667pt)约 267px、大屏(812pt)约 325px —— 是
+   * "跟视口走"的散值,而共享层不能带 vh(RN 侧无视口百分比长度单位),两端同值只能落固定档。
+   * 为什么必须有上限:两端该面板的父级都是**随内容撑开的流式布局**(RN 分享屏外层 ScrollView
+   * 内容流、小程序 agent-detail 页根 `min-h-screen` 无固定高容器),不封顶时运行记录一长就把
+   * 输入行顶出首屏。取 240 = 旧小屏档再留约 10% 余量:面板(头约 40 + 滚动区 + 输入区约 124)
+   * 在 568-667pt 小屏可视高内仍完整可见;大屏宁可少显示几行,也不让输入行滑出视口。
+   * 消费形态:`maxHeight: rnGeometry.runtimePanelScrollMaxHeight`(RN dp / 小程序 px 同值,无端内分支)。
+   */
+  runtimePanelScrollMaxHeight: 240,
 }
 
 /** RN / 共享包侧消费入口:StyleSheet 与内联 style 里写 `width: rnGeometry.tapBox` */

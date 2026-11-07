@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { View, Text, Pressable, ScrollView } from 'react-native'
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import { Check, X } from 'lucide-react-native'
 import { useAgentRuntime, toolDisplayKey, permissionDecisionWord } from '@ihui/shared'
 // D111:审批面板的档名与首屏交代行同源取词(permissionTierWordKeys → @ihui/types 唯一真源),
@@ -144,11 +144,15 @@ export function AgentRuntimePanel({
         </Pressable>
       </View>
 
-      {/* minHeight 与小程序同档(120):短内容时面板不塌成一条,两端同形 */}
+      {/* minHeight 与小程序同档(120):短内容时面板不塌成一条,两端同形;
+          maxHeight 走 geometry.runtimePanelScrollMaxHeight,两端同值无分支 —— 两端父级都是
+          随内容撑开的流式布局(RN 分享屏外层 ScrollView / 小程序页根 min-h-screen),
+          不封顶时记录一长就把输入行顶出首屏 */}
       <ScrollView
         className="flex-1 px-3 py-3"
         style={{
           minHeight: 120,
+          maxHeight: rnGeometry.runtimePanelScrollMaxHeight,
           flex: 1,
           paddingHorizontal: rnSpacing.md,
           paddingVertical: rnSpacing.md,
