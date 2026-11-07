@@ -210,8 +210,9 @@ const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
 const explicitFull =
   !passStaged ||
   process.env.IHUI_GATE_SCOPE === 'full' ||
-  process.env.CI === 'true' ||
-  process.env.CI === '1'
+  // 只认"真 CI"(GitHub Actions)。裸 CI=true 在 agent 宿主/本地也会被置上,
+  // 若把它当显式 full,普通提交路径的 stock 降级会被宿主环境整体关掉(2026-11-08 实测即此)。
+  process.env.GITHUB_ACTIONS === 'true'
 
 const STOCK_LEDGER_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'gate-stock-ledger.jsonl')
 const REFS_BASELINE_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'gate-face-refs-baseline.json')
