@@ -73,7 +73,10 @@ vi.mock('@ihui/api-client', () => ({
   },
 }))
 
-import { useConversationBroadcastSync } from '../use-conversation-broadcast-sync'
+import {
+  describeIncomingValue,
+  useConversationBroadcastSync,
+} from '../use-conversation-broadcast-sync'
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -127,6 +130,34 @@ describe('useConversationBroadcastSync — 票71 消息面接线', () => {
   it('没有 gap 坐标时结构上不发 resync(duplicate/stale 是正常路径)', () => {
     renderHook(() => useConversationBroadcastSync())
     expect(resyncMock).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * 票D(2026-11-07):archive 是布尔,但旧实现 true/false 两支都返回
+ * `meta.field.archive`(字段名"归档状态"),提示条读起来永远是"更新为「归档状态」",
+ * 用户无法判断这次是归档还是取消归档。判据:两支文案必须不同且各自命中 value 键。
+ */
+describe('会话广播 · archive 布尔文案可分(票D)', () => {
+  it('archive=true / false 必须映射到两条不同文案', () => {
+    const tc = vi.fn((key: string) => `[${key}]`)
+    const event = (archive: boolean) =>
+      ({
+        data: {
+          conversationId: 'conv-1',
+          fields: ['archive'],
+          values: { archive },
+          at: '2026-11-07T00:00:00.000Z',
+          changedBy: 'u-1',
+        },
+      }) as never
+
+    const on = describeIncomingValue(event(true), ['archive'], tc)
+    const off = describeIncomingValue(event(false), ['archive'], tc)
+
+    expect(on).toBe('[meta.value.archiveOn]')
+    expect(off).toBe('[meta.value.archiveOff]')
+    expect(on).not.toBe(off)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

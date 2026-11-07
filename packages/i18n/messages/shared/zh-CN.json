@@ -564,6 +564,10 @@
         "title": "标题",
         "archive": "归档状态",
         "model": "模型"
+      },
+      "value": {
+        "archiveOn": "已归档",
+        "archiveOff": "未归档"
       }
     },
     "icuProbe": {

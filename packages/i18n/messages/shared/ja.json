@@ -564,6 +564,10 @@
         "title": "タイトル",
         "archive": "アーカイブ状態",
         "model": "モデル"
+      },
+      "value": {
+        "archiveOn": "アーカイブ済み",
+        "archiveOff": "未アーカイブ"
       }
     },
     "icuProbe": {

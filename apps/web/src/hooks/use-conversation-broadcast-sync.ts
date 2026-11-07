@@ -208,7 +208,8 @@ function fieldLabel(tc: Translator, field: ConversationMetaField): string {
   return tc(`meta.field.${field}`)
 }
 
-function describeIncomingValue(
+/** 字段值 → 文案;布尔字段按值分两支(票D:归档 true/false 曾返回同一句"归档状态") */
+export function describeIncomingValue(
   evt: ConversationUpdatedEvent,
   fields: ConversationMetaField[],
   tc: Translator,
@@ -219,7 +220,10 @@ function describeIncomingValue(
     .map((f) => {
       const v = values[f]
       if (v === undefined || v === null) return ''
-      if (typeof v === 'boolean') return v ? tc('meta.field.archive') : tc('meta.field.archive')
+      if (typeof v === 'boolean') {
+        if (f === 'archive') return v ? tc('meta.value.archiveOn') : tc('meta.value.archiveOff')
+        return String(v)
+      }
       return v
     })
     .filter((s) => s.length > 0)

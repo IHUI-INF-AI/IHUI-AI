@@ -564,6 +564,10 @@
         "title": "標題",
         "archive": "歸檔狀態",
         "model": "模型"
+      },
+      "value": {
+        "archiveOn": "已封存",
+        "archiveOff": "未封存"
       }
     },
     "icuProbe": {

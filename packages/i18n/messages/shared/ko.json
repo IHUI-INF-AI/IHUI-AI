@@ -564,6 +564,10 @@
         "title": "제목",
         "archive": "보관 상태",
         "model": "모델"
+      },
+      "value": {
+        "archiveOn": "보관됨",
+        "archiveOff": "보관 안 됨"
       }
     },
     "icuProbe": {

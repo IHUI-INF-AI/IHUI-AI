@@ -564,6 +564,10 @@
         "title": "title",
         "archive": "archive status",
         "model": "model"
+      },
+      "value": {
+        "archiveOn": "Archived",
+        "archiveOff": "Not archived"
       }
     },
     "icuProbe": {
