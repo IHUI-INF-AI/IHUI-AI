@@ -27047,9 +27047,7 @@
     "loadFailed": "読み込みに失敗しました",
     "passed": "合格",
     "failed": "不合格",
-    "correct": "正解 {count}/{total}",
     "duration": "所用 {min} 分",
-    "wrongQuestions": "誤答",
     "yourAnswer": "あなたの回答",
     "correctAnswer": "正解"
   },
