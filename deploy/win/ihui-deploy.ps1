@@ -1470,7 +1470,18 @@ function Set-BuildMarker {
     $dirNext = Get-WebActiveBuildDir
     if (-not (Test-Path $dirNext)) { return }
     $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
-    if ($sha -match '^[0-9a-f]{7,40}$') { Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction SilentlyContinue }
+    # 2026-11-07 立(B 线残留):旧写法 `Set-Content ... -ErrorAction SilentlyContinue`。
+    # 写失败被吞 ⇒ 本轮被当成"已标记",而盘上没有标记;下一轮 Get-BuildStale 判 stale
+    # 又会重建,表面自愈、实则每轮白跑 10-20 分钟,且没人知道标记没写进去。
+    # 现在写失败必须抛:调用点转 Fail → 可见失败 + exit 1。
+    if ($sha -notmatch '^[0-9a-f]{7,40}$') {
+        throw "HEAD sha 不可用(实得 '$sha'),无法写构建标记"
+    }
+    try {
+        Set-Content -Path "$dirNext\IHUI_BUILD_SHA" -Value $sha -NoNewline -ErrorAction Stop
+    } catch {
+        throw "写 $dirNext\IHUI_BUILD_SHA 失败:$($_.Exception.Message)"
+    }
 }
 
 # ── 构建失败冷却(2026-09-21 加):marker 改为成功标记后,失败轮不再写标记。若不冷却,
@@ -1482,7 +1493,14 @@ function Set-BuildMarker {
 $BuildCooldownFile = "$Root\deploy\win\.build-fail-state.json"
 function Set-BuildCooldown {
     $sha = (& git -C $Root rev-parse HEAD 2>&1 | Out-String).Trim()
-    try { Set-Content -Path $BuildCooldownFile -Value (@{ ts = (Get-Date).ToString('o'); head = $sha } | ConvertTo-Json -Compress) -NoNewline -ErrorAction SilentlyContinue } catch {}
+    # 2026-11-07 立(B 线残留):旧写法把写失败整段吞掉(`-ErrorAction SilentlyContinue` + 空 catch)。
+    # 冷却没落盘 ⇒ 持续失败会每 60s 重跑一次 10-20 分钟构建,刷爆日志与告警配额。
+    # 写失败必须抛,由调用点显式记 FAIL(两支调用点的收场契约不同,见各自包裹)。
+    try {
+        Set-Content -Path $BuildCooldownFile -Value (@{ ts = (Get-Date).ToString('o'); head = $sha } | ConvertTo-Json -Compress) -NoNewline -ErrorAction Stop
+    } catch {
+        throw "写 $BuildCooldownFile 失败:$($_.Exception.Message)"
+    }
 }
 # G-916430②:源码子树指纹 = HEAD:apps + HEAD:packages 树 hash(与 guardian-runner 的
 # computeGateFingerprint 同源)。HEAD 每 1-2 分钟被并发会话推进一次,但多为台账/文档提交
@@ -3601,7 +3619,9 @@ try {
         # 2026-09-21 根治:失败轮不再 Set-BuildMarker(旧逻辑写「尝试标记」导致
         # marker=HEAD → 下一轮误判新鲜 → 永久跳过,根因消失也无法自愈)。
         # 改记失败冷却:30 分钟内不重试,之后自动重试直到成功。
-        Set-BuildCooldown
+        # 冷却写失败要显式记 FAIL(下一轮可能每 60s 重试),但不能吞掉本轮原来的失败:
+        # 下面已有 Fail → exit 1,这里只补一条可见日志。
+        try { Set-BuildCooldown } catch { Log "FAIL  失败冷却未写入(下一轮可能每 60s 重试):$($_.Exception.Message)" }
         # 2026-09-29 补的正是"上面那句注释声称已有的那一半":Build-Web:721 的注释写着
         # "throw 统一走主流程 catch → Set-BuildCooldown → 告警去重",而这一支只 Log 后
         # Release-DeployLock + exit 1,从未调用 Invoke-FailNotify —— 于是**构建连败对人完全静音**。
@@ -3969,7 +3989,13 @@ try {
 # 没有人证明过这个构建活着。要闭掉这一格需要第二份 .next/IHUI_INSTALLED_SHA 并把
 # Get-BuildStale 拆成"需重建 / 只需重新验证 / 跳过"三态(改上面那条跳过判定),属更大的
 # 控制流改动,已作为补丁提案单独登记,未随本票写入。
-Set-BuildMarker
+# 2026-11-07 立(B 线残留):标记写失败不能被当成"本轮已标记"。抛 → Fail(含释放部署锁 +
+# 去重发信 + exit 1)。$m 保持固定措辞,异常原文只进 -Detail,避免每轮换身份压掉 4h 去重槽。
+try {
+    Set-BuildMarker
+} catch {
+    Fail "构建标记写入失败(拒绝把本轮当成已标记)" -Detail $_.Exception.Message
+}
 
 # ── G-204 独立构建证明(拍板@2026-10-07 机主选 B,2026-10-13 落地)──────────────
 # marker 只证明"构建那一刻的工作树能建",不证明"该提交单独可建"——构建吃的是工作树,
@@ -4015,7 +4041,9 @@ if (-not (Test-HealthGate)) {
         # 误判新鲜永久跳过);改记冷却,30 分钟后自动重试。
         # 且回滚后必须提前退出 —— 旧代码会流到收尾 Set-BuildMarker,把「回滚保留的
         # 旧构建」标记成新 HEAD 的成功构建,下轮误判新鲜跳过,同样造成部署停滞。
-        Set-BuildCooldown
+        # 冷却写失败要显式记 FAIL;本支的收场契约是 exit 0(回滚已把服务留在旧包上),
+        # 不改退出码,只补可见日志 —— 否则"没冷却"会静默变成每 60s 重建。
+        try { Set-BuildCooldown } catch { Log "FAIL  失败冷却未写入(下一轮可能每 60s 重试):$($_.Exception.Message)" }
         # 决策留痕要在 Do-Rollback **之前**取回滚点身份:回滚会把 .next 整份换成 .rollback,
         # 而 .rollback 目录要到成功轮才删 —— 顺序反了就只能记"未判定"。
         # 这两个文件是"客人此刻实际跑哪一枚包"的唯一凭据(见 Set-BuildMarker 上方不变量②)。
