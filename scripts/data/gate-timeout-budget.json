@@ -2,7 +2,7 @@
   "version": 1,
   "updatedAt": "2026-11-07",
   "unit": "ms",
-  "rule": "阈值 = 实测基线(baseMs) + 固定余量(marginMs);derivedMs 必须等于两者之和。只有列在 gates 里的门拿专属预算,其余门仍走 GUARDIAN_GATE_TIMEOUT_MS 默认值。任何一次上调(derivedMs 变大)都必须在同批 ledger 里写明「新增了什么工作」——棘轮,不是橡皮筋。",
+  "rule": "阈值 = 实测基线(baseMs) + 固定余量(marginMs);derivedMs 必须等于两者之和。只有列在 gates 里的门拿专属预算,其余门仍走 GUARDIAN_GATE_TIMEOUT_MS 默认值。marginMs 变更必须在同批 evidence[] 追加一条「凭什么改」的新证据——算术自洽不算证据,只涨数字一律拒收(T1 门内按 HEAD 与 HEAD^ 比对,evidence 未增即判红)。derivedMs 上调还必须在 ledger 里写明「新增了什么工作」——棘轮,不是橡皮筋。",
   "gates": {
     "T1": {
       "label": "push 门全量 typecheck(21 个包)",
@@ -50,6 +50,18 @@
         }
       },
       "marginRationale": "固定 150s:先覆盖「首轮无上一轮读数 ⇒ LPT 退化为字典序」的最坏实测墙钟 183s(余量 117s),再留出 e2e/mypy 附加阶段与同机他席并发带来的抖动。",
+      "evidence": [
+        {
+          "date": "2026-11-07",
+          "marginMs": 150000,
+          "reason": "首轮无读数最坏墙钟 183s(实测),余 117s 覆盖 e2e/mypy 与同机并发抖动",
+          "sources": [
+            "warmWallMs.total=163000",
+            "coldNoTimingsWallMs.total=183000",
+            "marginRationale"
+          ]
+        }
+      ],
       "ledger": [
         {
           "date": "2026-11-07",
