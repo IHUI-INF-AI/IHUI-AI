@@ -1484,6 +1484,131 @@ export async function completeAccountPhone(
   return applyPhoneCompletion(row, p, via)
 }
 
+// =============================================================================
+// 共享到运营池标记(2026-11-07 立,李总指令)
+// =============================================================================
+
+export interface SetSharedResult {
+  code: 'ok' | 'not_found'
+  message: string | null
+  id: string | null
+  sharedToOps: boolean | null
+  changed: boolean
+  checkinSync: CheckinSyncOutcome
+}
+
+/**
+ * 设置账号的"共享到运营池"标记(全局开放模型)。
+ *
+ * - shared=true:该号在保留个人池归属(本人可用)的同时,对所有用户/匿名开放(转发选路纳入);
+ * - shared=false:仅个人池可见可用,绝不服务他人请求。
+ *
+ * 仅改路由标记,凭证不变;仍按 applyPhoneCompletion 同口径 bump cred_version 并推一次签到
+ * 同步(使边缘视图对该账号保持最新,且改动可被对账收敛器感知),失败不阻塞主流程。
+ */
+export async function setAccountShared(
+  accountId: string,
+  shared: boolean,
+): Promise<SetSharedResult> {
+  const target = shared === true
+  const [row] = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.id, accountId))
+    .limit(1)
+  if (!row) {
+    return {
+      code: 'not_found',
+      message: '账号不存在或已被删除',
+      id: null,
+      sharedToOps: null,
+      changed: false,
+      checkinSync: NO_SYNC,
+    }
+  }
+  if (row.sharedToOps === target) {
+    return {
+      code: 'ok',
+      message: null,
+      id: row.id,
+      sharedToOps: target,
+      changed: false,
+      checkinSync: NO_SYNC,
+    }
+  }
+  const [written] = await db
+    .update(aiRelayAccountPool)
+    .set({
+      sharedToOps: target,
+      credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(eq(aiRelayAccountPool.id, row.id))
+    .returning({
+      id: aiRelayAccountPool.id,
+      credVersion: aiRelayAccountPool.credVersion,
+      sharedToOps: aiRelayAccountPool.sharedToOps,
+    })
+  if (!written) {
+    return {
+      code: 'not_found',
+      message: '账号不存在或已被删除',
+      id: null,
+      sharedToOps: null,
+      changed: false,
+      checkinSync: NO_SYNC,
+    }
+  }
+  // 签到传播(旁路,失败不阻塞):凭证未动,载荷 = 库内现值解密重建 + 新版本。
+  const checkinSync: CheckinSyncOutcome = { pushed: 0, pending: false, error: null }
+  const platform = checkinPlatformFor(row.providerCode)
+  if (platform) {
+    try {
+      const credentials = decryptAccountCredentials(row)
+      const acc = buildPoolSyncAccount({
+        id: row.id,
+        ownerUserId: row.ownerUserId,
+        uid: row.uid ?? '',
+        name: row.name ?? '',
+        token: credentials.token,
+        refreshToken: credentials.refreshToken,
+        credVersion: written.credVersion,
+        enabled: row.isEnabled,
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
+        deviceId: row.deviceId,
+        machineId: row.machineId,
+        cosy: extractCosy(row.extraMetadata),
+        deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
+        devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
+        tokenExpiresAt: row.tokenExpiresAt,
+      })
+      const push = await pushPoolSync(platform, [acc])
+      if (push.ok && push.failed === 0) {
+        checkinSync.pushed = push.pushed
+        await clearCheckinSyncPending([row.id])
+      } else {
+        checkinSync.error = push.error
+        try {
+          await markCheckinSyncPending([row.id], 'cred', null, push.error ?? '共享标记变更后签到推送失败')
+          checkinSync.pending = true
+        } catch {
+          /* pending 落库失败只意味着少一条待推痕迹,对账收敛器兜底 */
+        }
+      }
+    } catch (e) {
+      checkinSync.error = e instanceof Error ? e.message.slice(0, 200) : '签到同步异常'
+    }
+  }
+  return {
+    code: 'ok',
+    message: null,
+    id: row.id,
+    sharedToOps: written.sharedToOps,
+    changed: true,
+    checkinSync,
+  }
+}
+
 /** 批量候选匹配报告(零凭据;只报 id/名/候选号,歧义项交人工裁决) */
 export interface MatchPhoneReport {
   scannedMasked: number
