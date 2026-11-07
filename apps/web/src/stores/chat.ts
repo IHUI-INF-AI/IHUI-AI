@@ -29,7 +29,12 @@ import { markStreamError } from '@ihui/shared/chat'
 import { settleSubagentOnParentTurnEnd } from '@ihui/shared/subagents/parent-turn-settle'
 // G-704(2026-09-29 立):值等价比较器只能有共享层那一份实现(端内不得再抄一份近似品)
 import { areRecordValuesEqual } from '@ihui/shared/utils/deep-equal-records'
-import type { FollowUpMode } from '@ihui/shared/chat/queue-interactions'
+import {
+  admitCapacityQueueOp,
+  type CapacityQueueOp,
+  type CapacityQueuePlan,
+  type FollowUpMode,
+} from '@ihui/shared/chat/queue-interactions'
 import type { QueueSendOutcome } from '@ihui/shared/chat/input-notices'
 // D75 侧任务生命周期最小真实腿(2026-11-01 装腿):四态 / 运行位置 / 过期与批量清理判定
 // **一律取共享模块这一份**,端内不得再写 `Date.now() - createdAt > 24h` 这类第二套过期算式
@@ -779,6 +784,19 @@ export interface ChatState {
    *  steer 请求在 Runtime 不支持插话时由渲染层 `effectiveMode` 降级为 queue 执行,
    *  偏好本身保留用户选择;判定唯一入口 @ihui/shared/chat/queue-interactions。 */
   followUpQueueMode: FollowUpMode
+  /** 限流队列暂停。按会话分桶;缺席表示量到了且没暂停。 */
+  capacityQueuePausedByConversation: Record<string, boolean>
+  /**
+   * 把 pause/resume/delete/move/sendNow 落到侧问队列。
+   * 名单没量到、条目不在、重复暂停都保持原队列。
+   * sendNow 被接纳时把那一条从队列取出交给调用方立刻发送,其余保持暂停态。
+   */
+  applyCapacityQueueOp: (
+    conversationId: string,
+    op: CapacityQueueOp,
+    itemId?: string,
+    toIndex?: number,
+  ) => { plan: CapacityQueuePlan; released: SideQueueItem | null }
   /** D38:setMode 动词落点(恒可切,无许可门;同值 no-op 不产生新状态) */
   setFollowUpQueueMode: (mode: FollowUpMode) => void
   /** D60 发送可靠性草稿保全(2026-09-23 立):写入失败保留草稿 + 状态;draft 为 null 时清空 */
@@ -1037,6 +1055,7 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   // D38 队列交互模式偏好(2026-09-24 立):默认排队优先;steer 在 Runtime 不支持插话时
   // 由渲染层 effectiveMode 降级为 queue 执行,偏好保留(持久化,见 partialize)
   followUpQueueMode: 'queue',
+  capacityQueuePausedByConversation: {},
   // D60 发送可靠性草稿保全(2026-09-23 立):失败保留草稿(执行期 + 持久化,见 partialize)
   failedDraft: null,
   failedDraftStatus: null,
@@ -2195,6 +2214,44 @@ const buildChatState: ChatStateCreator = (set, get) => ({
   setFollowUpQueueMode: (mode) =>
     set((s) => (s.followUpQueueMode === mode ? s : { followUpQueueMode: mode })),
 
+  applyCapacityQueueOp: (conversationId, op, itemId, toIndex) => {
+    const bucket = get().sideQueueByConversation[conversationId] ?? []
+    const paused = get().capacityQueuePausedByConversation[conversationId] === true
+    const plan = admitCapacityQueueOp({
+      op,
+      queueIds: bucket.map((item) => item.id),
+      paused,
+      itemId,
+      toIndex,
+    })
+    if (plan.disposition !== 'admitted') return { plan, released: null }
+    let released: SideQueueItem | null = null
+    set((s) => {
+      const current = s.sideQueueByConversation[conversationId] ?? []
+      const byId = new Map(current.map((item) => [item.id, item]))
+      const nextPaused = { ...s.capacityQueuePausedByConversation }
+      let order = plan.order
+      if (plan.reason === 'paused') nextPaused[conversationId] = true
+      if (plan.reason === 'resumed') delete nextPaused[conversationId]
+      if (plan.reason === 'sent-now' || plan.reason === 'already-front') {
+        released = byId.get(order[0] ?? '') ?? null
+        order = order.slice(1)
+      }
+      const nextItems = order.flatMap((id) => {
+        const item = byId.get(id)
+        return item ? [item] : []
+      })
+      const nextMap = { ...s.sideQueueByConversation }
+      if (nextItems.length > 0) nextMap[conversationId] = nextItems
+      else delete nextMap[conversationId]
+      return {
+        sideQueueByConversation: nextMap,
+        capacityQueuePausedByConversation: nextPaused,
+      }
+    })
+    return { plan, released }
+  },
+
   // D60 发送可靠性草稿保全(2026-09-23 立):失败时保留正文 + 状态,供输入框回填/重发。
   // 空正文(trim 后为空)不保留(避免把空串当草稿覆盖有效内容);draft null = 显式清空。
   setFailedDraft: (draft, status) =>
@@ -2499,6 +2556,7 @@ export function createChatStore(persistName: string = 'ihui-chat') {
         selectedAgentId: s.selectedAgentId,
         // D38(2026-09-24):队列模式偏好(steer/queue)用户设置持久化
         followUpQueueMode: s.followUpQueueMode,
+        capacityQueuePausedByConversation: s.capacityQueuePausedByConversation,
         // 2026-07-28 移除独立 PlanActToggle 后,plan_mode 字段已从持久化中删除
         // ChatMode 由 useModeStore 独立管理,持久化不重复存储
         // #12 store messages 持久化(2026-07-25 立):
@@ -2558,4 +2616,109 @@ export function createChatStore(persistName: string = 'ihui-chat') {
 
 /** 默认单例:既有全部消费面的入口,行为与工厂化前分毫不变 */
 export const useChatStore = createChatStore()
+
+export type ColdStartTitleMode = 'auto' | 'user'
+
+export type ColdStartItem = {
+  id: string
+  title: string
+  titleMode: ColdStartTitleMode
+  spaceName: string
+}
+
+export type ColdStartPlan = {
+  disposition: 'restore' | 'list-only' | 'unjudged'
+  reason:
+    | 'restore'
+    | 'route-unmeasured'
+    | 'route-invalid'
+    | 'route-absent'
+    | 'route-clock-unmeasured'
+    | 'route-clock-ahead'
+    | 'snapshot-unmeasured'
+    | 'clock-unmeasured'
+    | 'clock-ahead'
+    | 'items-unmeasured'
+    | 'item-unreadable'
+    | 'version-unrecognized'
+    | 'now-unmeasured'
+  items: ColdStartItem[] | null
+  routeId: string | null
+}
+
+const COLD_START_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,80}$/
+const COLD_START_ROUTE = /^\/conversation\/([A-Za-z0-9][A-Za-z0-9_-]{0,80})$/
+const COLD_START_FUTURE_MS = 5 * 60 * 1000
+
+function coldStartClock(value: unknown, now: number): 'ok' | 'missing' | 'ahead' | 'bad' {
+  let ms: number
+  if (typeof value === 'number' && Number.isFinite(value)) ms = value
+  else if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Date.parse(value))) {
+    ms = Date.parse(value)
+  } else if (value === null || value === undefined) return 'missing'
+  else return 'bad'
+  if (ms > now + COLD_START_FUTURE_MS) return 'ahead'
+  return 'ok'
+}
+
+function readColdStartItem(value: unknown): ColdStartItem | null {
+  if (value === null || typeof value !== 'object') return null
+  const row = value as Record<string, unknown>
+  if (typeof row.id !== 'string' || !COLD_START_ID.test(row.id)) return null
+  if (typeof row.title !== 'string') return null
+  if (row.titleMode !== 'auto' && row.titleMode !== 'user') return null
+  if (typeof row.spaceName !== 'string' || row.spaceName.trim() === '') return null
+  return { id: row.id, title: row.title, titleMode: row.titleMode, spaceName: row.spaceName }
+}
+
+/**
+ * 冷启动分两段:列表快照可以先显示,深链必须指向这份快照里的会话。
+ * 标题档只认 auto/user,数字或布尔不折成用户标题。
+ * 快照或当前时刻没量到就不恢复。本函数不写盘、不导航。
+ */
+export function planColdStartRestore(input: {
+  now: unknown
+  snapshot: unknown
+  route: unknown
+}): ColdStartPlan {
+  const blank = (reason: ColdStartPlan['reason']): ColdStartPlan => ({
+    disposition: 'unjudged',
+    reason,
+    items: null,
+    routeId: null,
+  })
+  if (typeof input.now !== 'number' || !Number.isFinite(input.now)) return blank('now-unmeasured')
+  if (input.snapshot === null || input.snapshot === undefined) return blank('snapshot-unmeasured')
+  if (typeof input.snapshot !== 'object') return blank('snapshot-unmeasured')
+  const snapshot = input.snapshot as Record<string, unknown>
+  if (snapshot.version !== 1) return blank('version-unrecognized')
+  const saved = coldStartClock(snapshot.savedAt, input.now)
+  if (saved === 'missing' || saved === 'bad') return blank('clock-unmeasured')
+  if (saved === 'ahead') return blank('clock-ahead')
+  if (!Array.isArray(snapshot.items)) return blank('items-unmeasured')
+  const items: ColdStartItem[] = []
+  for (const row of snapshot.items) {
+    const item = readColdStartItem(row)
+    if (!item) return blank('item-unreadable')
+    items.push(item)
+  }
+  const listOnly = (reason: ColdStartPlan['reason']): ColdStartPlan => ({
+    disposition: 'list-only',
+    reason,
+    items,
+    routeId: null,
+  })
+  if (input.route === null || input.route === undefined) return listOnly('route-unmeasured')
+  if (typeof input.route !== 'object') return listOnly('route-invalid')
+  const route = input.route as Record<string, unknown>
+  const routeClock = coldStartClock(route.savedAt, input.now)
+  if (routeClock === 'missing' || routeClock === 'bad') return listOnly('route-clock-unmeasured')
+  if (routeClock === 'ahead') return listOnly('route-clock-ahead')
+  if (typeof route.path !== 'string') return listOnly('route-invalid')
+  const match = COLD_START_ROUTE.exec(route.path)
+  if (!match) return listOnly('route-invalid')
+  const routeId = match[1]
+  if (!routeId || !items.some((item) => item.id === routeId)) return listOnly('route-absent')
+  return { disposition: 'restore', reason: 'restore', items, routeId }
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

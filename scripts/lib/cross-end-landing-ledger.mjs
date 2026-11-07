@@ -31,6 +31,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, catBatchOids, gitRaw } from './face-reader.mjs'
+import { writeLedgerSeal } from './ledger-seal.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(HERE, '..', '..')
@@ -260,6 +261,11 @@ export function appendLanding(entries, opts = {}) {
   if (toWrite.length > 0) {
     mkdirSync(dirname(file), { recursive: true })
     for (const row of toWrite) appendFileSync(file, `${JSON.stringify(row)}\n`, 'utf8')
+    writeLedgerSeal(file, {
+      segment: 'cross-end-landing',
+      dropped: 0,
+      timestamp: new Date().toISOString(),
+    })
   }
   return { appended: toWrite.length, rejected, deduped }
 }
