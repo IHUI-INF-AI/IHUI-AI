@@ -15,6 +15,13 @@
 
 import { executionFor, scopeFromRequest, workerAssignment, type WorkerAssignment } from './roles'
 import {
+  isSlowVerdict,
+  pickDecisions,
+  type SlowDecision,
+  type SlowJudgeCall,
+  type SlowJudgeInput,
+} from './slow-path'
+import {
   SNAPSHOT_VERSION,
   __shape__,
   type OwnerSlice,
@@ -123,7 +130,12 @@ export interface PanelView {
   }[]
   quietDrops: number
   recorded: number
-  pendingRecords: { id: string; text: string; reason: string }[]
+  pendingRecords: {
+    id: string
+    text: string
+    reason: string
+    decision?: SlowDecision
+  }[]
 }
 
 interface Clock {
@@ -177,7 +189,7 @@ export class SuperAgentHost {
   private readonly triggers = new Map<string, IncomingTrigger>()
   private readonly recordedTriggers = new Map<
     string,
-    { trigger: IncomingTrigger; reason: string }
+    { trigger: IncomingTrigger; reason: string; decision?: SlowDecision }
   >()
   private readonly tickets = new Map<string, SuperTicket>()
   private readonly byThread = new Map<string, string[]>()
@@ -314,12 +326,112 @@ export class SuperAgentHost {
     if (!saved || saved.trigger.actorId !== ownerUserId) {
       return { disposition: 'filtered', reason: 'no_trigger', speech: null }
     }
+    // 人点名优先的既有语义保持：判定只是"建议"，是否开工的门只在自动腿里判（见 judgeRecorded）。
+    // 慢路径通道不替机器人开工。
+    if (saved.trigger.fromBot && ruleId === 'model-slow-path') {
+      return { disposition: 'recorded', reason: 'bot_never_auto', speech: null }
+    }
     if (this.policyFor(ownerUserId).acceptMode !== 'auto' || ruleId.trim().length === 0) {
       return { disposition: 'recorded', reason: 'record_only', speech: null }
     }
     this.recordedTriggers.delete(triggerId)
     const trigger = { ...saved.trigger, text: scopeFromRequest(saved.trigger.text, routerNotes) }
     return this.accept(trigger, ownerUserId, 'inferred')
+  }
+
+  /** 记模型判定注记（record 档与 auto 档都能记）；已不在簿的条目不落（幂等）。 */
+  noteSlowDecisions(
+    ownerUserId: string,
+    rows: { triggerId: string; decision: SlowDecision }[],
+  ): { noted: number; skippedNotRecorded: number } {
+    let noted = 0
+    let skippedNotRecorded = 0
+    for (const { triggerId, decision } of rows) {
+      if (!isSlowVerdict(decision.verdict)) {
+        skippedNotRecorded += 1
+        continue
+      }
+      const saved = this.recordedTriggers.get(triggerId)
+      if (!saved || saved.trigger.actorId !== ownerUserId) {
+        skippedNotRecorded += 1
+        continue
+      }
+      // 已判定且已人工开工的条目不在簿；已开工但判定迟到的 ⇒ 不回滚已发授权（语义与原语一致）。
+      this.recordedTriggers.set(triggerId, { ...saved, decision })
+      noted += 1
+    }
+    if (noted > 0) this.markDirty()
+    return { noted, skippedNotRecorded }
+  }
+
+  /**
+   * 慢路径批判定：取本主体推断积压（可按 verdict 过滤重判），交注入通道判定并回写注记。
+   * auto 档 ∧ act ∧ inferred ⇒ 走与人工同一条 acceptRecorded('model-slow-path') 语义通道开工；
+   * 通道异常 ⇒ 未判定不记绿，积压保留下轮可重试。
+   */
+  async judgeRecorded(
+    ownerUserId: string,
+    judge: SlowJudgeCall,
+    options: { limit?: number; now?: number } = {},
+  ): Promise<{
+    judged: number
+    unjudged: number
+    autoAccepted: (ReceiveResult & { triggerId: string })[]
+    error?: string
+  }> {
+    const limit = Math.max(1, options.limit ?? 20)
+    const now = options.now ?? this.clock.now()
+    const entries: { triggerId: string; input: SlowJudgeInput }[] = []
+    for (const [triggerId, saved] of this.recordedTriggers) {
+      if (saved.trigger.actorId !== ownerUserId) continue
+      if (saved.decision && saved.decision.verdict !== 'unclear') continue
+      entries.push({
+        triggerId,
+        input: {
+          id: triggerId,
+          text: saved.trigger.text,
+          observedAt: now,
+          requesters: [ownerUserId],
+        },
+      })
+      if (entries.length >= limit) break
+    }
+    if (entries.length === 0) return { judged: 0, unjudged: 0, autoAccepted: [] }
+    let raw: Partial<Record<string, SlowDecision>>
+    try {
+      raw = await judge(entries.map((e) => e.input))
+    } catch (e) {
+      // 未判定：不记绿、不动账（§0.3）；积压原地保留。
+      return {
+        judged: 0,
+        unjudged: entries.length,
+        autoAccepted: [],
+        error: e instanceof Error ? e.message : String(e),
+      }
+    }
+    const picked = pickDecisions(
+      raw,
+      entries.map((e) => e.triggerId),
+    )
+    this.noteSlowDecisions(
+      ownerUserId,
+      picked.map((r) => ({ triggerId: r.id, decision: r.decision })),
+    )
+    const autoAccepted: (ReceiveResult & { triggerId: string })[] = []
+    if (this.policyFor(ownerUserId).acceptMode === 'auto') {
+      for (const r of picked) {
+        const saved = this.recordedTriggers.get(r.id)
+        if (!saved || saved.trigger.fromBot) continue
+        if (r.decision.verdict !== 'act') continue
+        const res = this.acceptRecorded(ownerUserId, r.id, 'model-slow-path')
+        if (res.disposition === 'accepted') autoAccepted.push({ ...res, triggerId: r.id })
+      }
+    }
+    return {
+      judged: picked.length,
+      unjudged: entries.length - picked.length,
+      autoAccepted,
+    }
   }
 
   /** 把一条新触发并到已有工单。不新开授权。 */
@@ -443,7 +555,12 @@ export class SuperAgentHost {
       }))
     const pendingRecords = [...this.recordedTriggers.values()]
       .filter((row) => row.trigger.actorId === ownerUserId)
-      .map((row) => ({ id: row.trigger.id, text: row.trigger.text, reason: row.reason }))
+      .map((row) => ({
+        id: row.trigger.id,
+        text: row.trigger.text,
+        reason: row.reason,
+        ...(row.decision ? { decision: row.decision } : {}),
+      }))
     return { needsPerson, quietDrops: this.quietDrops, recorded: this.recorded, pendingRecords }
   }
 
@@ -667,7 +784,11 @@ export class SuperAgentHost {
         recordedTriggers: [...this.recordedTriggers.entries()]
           .filter(([, r]) => r.trigger.actorId === ownerUserId)
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([triggerId, r]) => ({ triggerId, reason: r.reason })),
+          .map(([triggerId, r]) => ({
+            triggerId,
+            reason: r.reason,
+            ...(r.decision ? { decision: r.decision } : {}),
+          })),
         subscriptions: [...this.byThread.entries()]
           .filter(([key]) => key.split('\u0000')[0] === ownerUserId)
           .sort(([a], [b]) => a.localeCompare(b))
@@ -700,7 +821,7 @@ export class SuperAgentHost {
         counters: {
           quietDrops: this.perOwnerQuietDrops.get(ownerUserId) ?? 0,
           recorded: this.perOwnerRecorded.get(ownerUserId) ?? 0,
-        }
+        },
       })
     }
     return {
@@ -768,7 +889,13 @@ export class SuperAgentHost {
       for (const t of slice.tickets) this.tickets.set(t.id, structuredClone(t))
       for (const r of slice.recordedTriggers) {
         const trigger = this.triggers.get(r.triggerId)
-        if (trigger) this.recordedTriggers.set(r.triggerId, { trigger, reason: r.reason })
+        if (trigger) {
+          this.recordedTriggers.set(r.triggerId, {
+            trigger,
+            reason: r.reason,
+            ...(r.decision && isSlowVerdict(r.decision.verdict) ? { decision: r.decision } : {}),
+          })
+        }
       }
       for (const sub of slice.subscriptions) {
         const key = threadKey(owner.ownerUserId, sub.sourceId, sub.threadId)
@@ -814,7 +941,6 @@ export class SuperAgentHost {
     this.recorded = r
   }
 
-
   private runningCount(ownerUserId: string): number {
     let n = 0
     for (const ticket of this.tickets.values()) {
@@ -859,7 +985,10 @@ export class SuperAgentHost {
 
   private dropQuiet(ticket: SuperTicket): void {
     this.quietDrops += 1
-    this.perOwnerQuietDrops.set(ticket.ownerUserId, (this.perOwnerQuietDrops.get(ticket.ownerUserId) ?? 0) + 1)
+    this.perOwnerQuietDrops.set(
+      ticket.ownerUserId,
+      (this.perOwnerQuietDrops.get(ticket.ownerUserId) ?? 0) + 1,
+    )
   }
 
   private bumpRecorded(ownerUserId: string): void {
