@@ -10,7 +10,8 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, render, screen } from '@testing-library/react'
+import * as React from 'react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => key,
@@ -61,6 +62,7 @@ vi.mock('@/stores/ide-workspace', () => ({
 }))
 
 import { AiSidePanelTools } from '@/components/ai/ai-side-panel-tools'
+import { AgentTraceViewer } from '@/components/ai/AgentTraceViewer'
 import { ChatPaneProvider } from '@/stores/chat-pane-context'
 import { getChatStoreForPane, resetChatPaneStores } from '@/stores/chat-panes'
 import {
@@ -178,6 +180,75 @@ describe('AiSidePanelTools 数据面窗格化(片3)', () => {
       getAiToolsPanelStoreForPane('pane-open-c').setState({ open: true })
     })
     expect(screen.getAllByTestId('ai-panel-content-plan').length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * 票C(2026-11-07):Trace 展开态按数组下标存。切到另一份 trace 时
+ * `expanded` 里的 0/1 原样残留,新一轮的第 1/2 轮会被"隔空点亮";
+ * 迭代顺序一变,展开态还会粘在位置上而不是轮次上。
+ * 主修:用 iteration(轮次号,trace 内稳定唯一)做身份与 key;切 trace 再兜底清空。
+ */
+type TraceProp = React.ComponentProps<typeof AgentTraceViewer>['trace']
+
+function traceIteration(n: number, reasoning: string) {
+  return { iteration: n, reasoning, tool_calls: [], tool_results: [], duration_ms: n }
+}
+
+function makeTrace(sessionId: string, iterations: ReturnType<typeof traceIteration>[]): TraceProp {
+  return {
+    session_id: sessionId,
+    success: true,
+    final_response: '',
+    iterations,
+    total_duration_ms: 10,
+    stop_reason: 'completed',
+  }
+}
+
+describe('AgentTraceViewer 展开态身份(票C)', () => {
+  it('① 切换到另一份 trace ⇒ 上一份的展开态不得残留', () => {
+    const traceA = makeTrace('session-a', [traceIteration(1, 'A1'), traceIteration(2, 'A2')])
+    const traceB = makeTrace('session-b', [traceIteration(1, 'B1'), traceIteration(2, 'B2')])
+    const { rerender } = render(<AgentTraceViewer trace={traceA} />)
+    // 展开第 1 轮
+    fireEvent.click(screen.getAllByRole('button')[0]!)
+    expect(screen.getByText('A1')).toBeTruthy()
+
+    rerender(<AgentTraceViewer trace={traceB} />)
+    // 修复前:expanded 里的下标 0 残留,这里会显示 B1
+    expect(screen.queryByText('B1')).toBeNull()
+    expect(screen.queryByText('traceReasoning')).toBeNull()
+  })
+
+  it('② 迭代顺序变化 ⇒ 展开态跟随 iteration 号,不跟随数组下标', () => {
+    const trace = makeTrace('session-c', [traceIteration(2, 'R2'), traceIteration(1, 'R1')])
+    function Harness() {
+      const [, force] = React.useReducer((x: number) => x + 1, 0)
+      return (
+        <>
+          <button type="button" data-testid="force-rerender" onClick={force}>
+            rerender
+          </button>
+          <AgentTraceViewer trace={trace} />
+        </>
+      )
+    }
+    render(<Harness />)
+    // 第 1 个按钮是 trace 的第 2 轮
+    const iterationButtons = screen.getAllByRole('button').slice(1)
+    fireEvent.click(iterationButtons[0]!)
+    expect(screen.getByText('R2')).toBeTruthy()
+    expect(screen.queryByText('R1')).toBeNull()
+
+    // 同一份 trace 对象,原地换序(模拟追平/补发把轮次排序打乱)
+    trace.iterations = [traceIteration(1, 'R1'), traceIteration(2, 'R2')]
+    act(() => {
+      fireEvent.click(screen.getByTestId('force-rerender'))
+    })
+    // 修复前:展开态绑在下标 0,现在下标 0 是第 1 轮 ⇒ 错误显示 R1
+    expect(screen.getByText('R2')).toBeTruthy()
+    expect(screen.queryByText('R1')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -67,11 +67,18 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
   const [expanded, setExpanded] = React.useState<Set<number>>(new Set())
   const [showAllReasoning, setShowAllReasoning] = React.useState(false)
 
-  const toggleIteration = (idx: number) => {
+  // 票C(2026-11-07):展开态按 iteration(轮次号)存,不再按数组下标。
+  // 下标是渲染位置,追平/补发/换序一变,展开态就会粘在位置而不是轮次上。
+  // [trace] 切换只作兜底(同一 trace 内换序不重置,靠 iteration 身份保持)。
+  React.useEffect(() => {
+    setExpanded(new Set())
+  }, [trace])
+
+  const toggleIteration = (iteration: number) => {
     setExpanded((prev) => {
       const next = new Set(prev)
-      if (next.has(idx)) next.delete(idx)
-      else next.add(idx)
+      if (next.has(iteration)) next.delete(iteration)
+      else next.add(iteration)
       return next
     })
   }
@@ -123,18 +130,18 @@ export function AgentTraceViewer({ trace }: AgentTraceViewerProps) {
 
       {/* 迭代列表 */}
       <div className="space-y-2">
-        {trace.iterations.map((it, idx) => {
-          const isOpen = expanded.has(idx)
+        {trace.iterations.map((it) => {
+          const isOpen = expanded.has(it.iteration)
           const hasErrorInIter = it.tool_results.some((r) => r.error)
 
           return (
             <div
-              key={idx}
+              key={it.iteration}
               className={cn('rounded-lg border bg-card', hasErrorInIter && 'border-destructive/30')}
             >
               <button
                 type="button"
-                onClick={() => toggleIteration(idx)}
+                onClick={() => toggleIteration(it.iteration)}
                 className="flex w-full items-center justify-between px-4 py-3 text-left"
               >
                 <div className="flex items-center gap-2">
