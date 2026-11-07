@@ -1775,6 +1775,14 @@ function healWorktreeTracked() {
   // 做成具名 helper 也是为了镜像测试能按**调用形态**钉装车证明(见
   // scripts/tests/git-guardian-drift-align.test.mjs)。
   const run = (args) => {
+    // 2026-11-07:本调用是 execFileSync ⇒ 同步阻塞事件循环,而本文件 :13718 的 30s 心跳是
+    // setInterval(连注释都写明"定时器在单步内不会响,所以长步骤完成点另有 beatRoundLock()")。
+    // 问题在于**本函数此前一处 beatRoundLock 都没有**:实测 --json 跑 11 分钟、--align-drift
+    // 跑满 20 分钟预算,A11 因此恒判 `轮级锁心跳停了:426s 未续`。
+    // 前后各补一次只是"尽快回绿",治本是把单轮耗时压到心跳周期量级 —— 同批已把
+    // rev-reference-graph 的逐文件 git show、check-stale-revert 的逐路径全历史 git log
+    // 改成批量/采样(那两条合起来占本调用的 90%+ 墙钟)。
+    beatRoundLock()
     try {
       const out = execFileSync(process.execPath, [script, ...args], {
         cwd: WORKTREE,
@@ -1799,6 +1807,9 @@ function healWorktreeTracked() {
       return { r: JSON.parse(out || '{}'), err: null }
     } catch (e) {
       return { r: null, err: String(e && e.message ? e.message : e).slice(0, 160) }
+    } finally {
+      // 无论成功/超时/派生失败,退出本调用即续一次 mtime:失败那档同样可能已阻塞数分钟。
+      beatRoundLock()
     }
   }
   const brief = (o) => {
@@ -1809,19 +1820,31 @@ function healWorktreeTracked() {
     `${(paths || []).slice(0, 3).join(', ')}${(paths || []).length > 3 ? ' …' : ''}`
 
   const { r, err } = run(['--json'])
+  // 2026-11-07 修(空值打死整轮,生产中实际发生):run() 在超时/派生失败时返回
+  // `{ r: null, err: 'spawnSync … ETIMEDOUT' }`,而原代码把 err 记完一行日志后**继续往下走**,
+  // 紧随其后的 `if (r.intentLost)` 是**无条件解引用** ⇒ 崩溃现场实测:
+  //   TypeError: Cannot read properties of null (reading 'intentLost')
+  //     at healWorktreeTracked (git-guardian.mjs:1820:9)   elapsedMs=1249537
+  // 也就是说超时这一档真正杀掉的不是自愈(自愈本来就失败了),是**整轮守护**。
+  // 而这一层自己的日志文案自称「不阻断其余」—— 文案与行为相反是本维最不能出的假话,
+  // 比对错更严重:读日志的人会以为"自愈失败但其余照常",实际后面一条腿都没跑。
+  // 因此把「err 之外的一切结论」全部收进 else:取不到数据就没有结论,不是"结论为空"。
   if (err) log('工作区存续自愈失败(不阻断其余守护): ' + err)
-  else if (r.restored)
-    log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${brief(r)})`)
-  else if (r.held) log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
-  // G-1018292:删除意图丢失这一档必须单独出声 —— 它与上面那档的差别是本质的:
-  // `held` 的证据在索引面(标记还在,只是不碰),这一档的标记**已经被摘掉**
-  // (某次 `git reset HEAD` 清空共享索引时没的)。折进 held 或只在 restored 时顺带提一句,
-  // 读日志的人就会以为"标记还在、只是没碰",而真相是标记已经没了。
-  if (r.intentLost)
-    log(
-      `⚠️ 工作区 ${r.intentLost} 个跟踪文件缺失且删除意图已丢失(暂存标记被共享索引清空摘掉)⇒ ` +
-        `分不清是宿主误删还是有意删除,不代裁恢复(${briefList(r.intentLostPaths)})`,
-    )
+  else {
+    if (r.restored)
+      log(`✅ 工作区存续自愈:恢复 ${r.restored} 个被外部删除的跟踪文件(${brief(r)})`)
+    else if (r.held)
+      log(`ℹ️ 工作区 ${r.held} 个跟踪文件缺失,但索引里已是删除(他人在制)⇒ 不代裁恢复`)
+    // G-1018292:删除意图丢失这一档必须单独出声 —— 它与上面那档的差别是本质的:
+    // `held` 的证据在索引面(标记还在,只是不碰),这一档的标记**已经被摘掉**
+    // (某次 `git reset HEAD` 清空共享索引时没的)。折进 held 或只在 restored 时顺带提一句,
+    // 读日志的人就会以为"标记还在、只是没碰",而真相是标记已经没了。
+    if (r.intentLost)
+      log(
+        `⚠️ 工作区 ${r.intentLost} 个跟踪文件缺失且删除意图已丢失(暂存标记被共享索引清空摘掉)⇒ ` +
+          `分不清是宿主误删还是有意删除,不代裁恢复(${briefList(r.intentLostPaths)})`,
+      )
+  }
 
   // 第二层:幻影漂移对齐 + 落后索引刷新(2026-09-24 立,190730d3a67 交付,
   // 被同日 b805d31da44 整文件回写连带删掉 —— 现按原语义前向恢复)。
