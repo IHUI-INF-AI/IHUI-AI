@@ -10884,6 +10884,13 @@ async def _tool_send_team_message(arguments: dict[str, Any]) -> dict[str, Any]:
         message_type=str(arguments.get("message_type") or "notification"),
         require_reply=bool(arguments.get("require_reply") or False),
         sub_task_id=arguments.get("sub_task_id") or None,
+        # 2026-11-08 信箱语义:四枚开关 + 链深/幂等键(落信封,由收件方决定怎么用)
+        enters_context=arguments.get("enters_context", True) is not False,
+        triggers_agent=bool(arguments.get("triggers_agent") or False),
+        artifact_refs=arguments.get("artifact_refs") or None,
+        priority=arguments.get("priority") or 0,
+        hop_depth=arguments.get("hop_depth") or 0,
+        source_event_id=arguments.get("source_event_id") or None,
     )
 
 
@@ -11834,6 +11841,69 @@ _TOOLS: list[MCPTool] = [
         name="browser_close_tab",
         description="关闭当前浏览器标签页",
         input_schema={"type": "object", "properties": {}},
+    ),
+    # ===== 浏览器运行时观测(2026-11-08,后端 Browser Hub + CDP)=====
+    MCPTool(
+        name="browser_console_messages",
+        description=(
+            "读取浏览器页面的 console 输出、未捕获异常与浏览器日志(最近 N 条,环形缓冲有界)。"
+            "改完页面后用它确认报错/警告,不要只看截图。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "浏览器会话 id(Browser Hub)"},
+                "level": {
+                    "type": "string",
+                    "enum": ["all", "error", "warning", "info", "log", "debug"],
+                    "default": "all",
+                },
+                "limit": {"type": "integer", "default": 50, "description": "最多返回条数(上限 200)"},
+                "textContains": {"type": "string", "description": "只返回文本包含该关键字的条目"},
+            },
+            "required": ["session_id"],
+        },
+    ),
+    MCPTool(
+        name="browser_network_requests",
+        description=(
+            "读取浏览器已完成的网络请求(方法/URL/状态码/资源类型/耗时/大小/失败原因)。"
+            "在途请求不落库,由 pending 计数提示还有多少没结束。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string", "description": "浏览器会话 id(Browser Hub)"},
+                "limit": {"type": "integer", "default": 50, "description": "最多返回条数(上限 200)"},
+                "urlContains": {"type": "string", "description": "只返回 URL 包含该关键字的请求"},
+                "method": {"type": "string", "description": "按 HTTP 方法过滤(如 GET/POST)"},
+                "statusMin": {"type": "integer", "description": "状态码下限(如 400 只看失败)"},
+                "failedOnly": {"type": "boolean", "default": False, "description": "只看加载失败(loadingFailed)"},
+            },
+            "required": ["session_id"],
+        },
+    ),
+    # ===== 语言服务诊断(2026-11-08,复用 api/v1/lsp)=====
+    MCPTool(
+        name="get_diagnostics",
+        description=(
+            "读取某文件的语言服务诊断(错误/警告/提示 + 行号列号)。"
+            "编辑后用它在同一份判据下自检,不必先跑完整构建。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "workspacePath": {"type": "string", "description": "工作区根目录(必须在 IHUI_WORKSPACE_ROOTS 白名单内)"},
+                "file": {"type": "string", "description": "文件路径(绝对路径或相对 workspacePath)"},
+                "severity": {
+                    "type": "string",
+                    "enum": ["error", "warning", "info", "hint"],
+                    "description": "只返回指定严重级别",
+                },
+                "limit": {"type": "integer", "default": 100, "description": "最多返回条数(上限 500)"},
+            },
+            "required": ["workspacePath", "file"],
+        },
     ),
     # ===== AI 自动控制电脑(10 个,由 desktop 端 Tauri 执行)=====
     MCPTool(
@@ -13573,6 +13643,22 @@ _TOOLS: list[MCPTool] = [
                 "message_type": {"type": "string", "description": "消息类型(notification/question/handoff,默认 notification)"},
                 "require_reply": {"type": "boolean", "description": "是否需要回信(默认 False)"},
                 "sub_task_id": {"type": "string", "description": "关联子任务 ID(可选)"},
+                "enters_context": {
+                    "type": "boolean",
+                    "description": "是否注入收件方模型上下文(默认 true;false = 只记账不进上下文)",
+                },
+                "triggers_agent": {
+                    "type": "boolean",
+                    "description": "是否唤醒收件方起一个回合(默认 false = 等它下次主动读)",
+                },
+                "artifact_refs": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "产物引用(文件/截图/报告,最多 20 条),用来替代大段正文",
+                },
+                "priority": {"type": "integer", "description": "优先级,越大越先处理(默认 0)"},
+                "hop_depth": {"type": "integer", "description": "协作链深度(默认 0,上限 3;超限拒绝转发)"},
+                "source_event_id": {"type": "string", "description": "来源事件幂等键(窗口内重复投递会被丢弃)"},
             },
             "required": ["recipient", "content"],
             "additionalProperties": False,
@@ -14256,6 +14342,166 @@ async def _tool_sandbox_session(
     return await dispatch_sandbox_session(payload)
 
 
+_BROWSER_OBSERVE_MAX_LIMIT = 200
+
+
+def _clamp_read_limit(value: Any, *, default: int = 50, maximum: int = _BROWSER_OBSERVE_MAX_LIMIT) -> int:
+    """读取类工具的统一上限:非法输入回默认值,越界夹到 [1, maximum]。"""
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        number = default
+    return max(1, min(number, maximum))
+
+
+def _browser_observe_target(
+    arguments: dict[str, Any], tool_name: str
+) -> tuple[Any | None, dict[str, Any] | None]:
+    """观测类工具的公共前置:主体 → 会话(属主过滤)。
+
+    console/network 都是**读取面**,用 `hub.get_session`(读出口)而不是 `require_tab`
+    (动作面);但仍必须带主体,否则等同于"任何 token 都能读别人的页面日志"。
+    会话不存在与无权访问同码同形,不给 session_id 探针。
+    """
+    from .agent_security_prefs import current_security_principal
+    from .browser_hub import hub
+
+    caller_uid = current_security_principal()
+    if not caller_uid:
+        return None, {
+            "tool": tool_name,
+            "ok": False,
+            "error": "缺少调用者身份,拒绝读取他人浏览器会话",
+            "errorCode": "PRINCIPAL_REQUIRED",
+        }
+    session_id = str(arguments.get("session_id") or "").strip()
+    if not session_id:
+        return None, {
+            "tool": tool_name,
+            "ok": False,
+            "error": "缺少 session_id(浏览器会话 id)",
+            "errorCode": "MISSING_SESSION_ID",
+        }
+    session = hub.get_session(session_id, caller_uid)
+    if session is None:
+        return None, {
+            "tool": tool_name,
+            "ok": False,
+            "error": "浏览器会话不存在或无权访问",
+            "errorCode": "SESSION_NOT_FOUND",
+        }
+    return session, None
+
+
+async def _tool_browser_console_messages(arguments: dict[str, Any]) -> dict[str, Any]:
+    """读取浏览器 console / 未捕获异常 / 浏览器日志(环形缓冲,有界)。"""
+    session, error = _browser_observe_target(arguments, "browser_console_messages")
+    if error is not None:
+        return error
+    result = await session.console_messages(
+        level=str(arguments.get("level") or "all"),
+        limit=_clamp_read_limit(arguments.get("limit", 50)),
+        text_contains=str(arguments.get("textContains") or ""),
+    )
+    return {"tool": "browser_console_messages", "sessionId": session.session_id, "ok": True, **result}
+
+
+async def _tool_browser_network_requests(arguments: dict[str, Any]) -> dict[str, Any]:
+    """读取浏览器已完成的网络请求(一条请求一行,未完成的不落库)。"""
+    session, error = _browser_observe_target(arguments, "browser_network_requests")
+    if error is not None:
+        return error
+    raw_status = arguments.get("statusMin")
+    try:
+        status_min = int(raw_status) if raw_status not in (None, "") else None
+    except (TypeError, ValueError):
+        status_min = None
+    result = await session.network_requests(
+        limit=_clamp_read_limit(arguments.get("limit", 50)),
+        url_contains=str(arguments.get("urlContains") or ""),
+        method=str(arguments.get("method") or ""),
+        status_min=status_min,
+        failed_only=bool(arguments.get("failedOnly")),
+    )
+    return {"tool": "browser_network_requests", "sessionId": session.session_id, "ok": True, **result}
+
+
+_DIAGNOSTIC_SEVERITIES = {"error": "Error", "warning": "Warning", "info": "Info", "hint": "Hint"}
+
+
+async def _tool_get_diagnostics(arguments: dict[str, Any]) -> dict[str, Any]:
+    """读取某文件的语言服务诊断。
+
+    复用 `api/v1/lsp` 的既有判据(白名单工作区 + 文件 containment + 可用性),不另造
+    一套 AST/编译;失败面按具名 errorCode 返回,不把服务器路径回显给模型。
+    """
+    from fastapi import HTTPException
+
+    from ..api.v1.lsp import (
+        LspClient,
+        _assert_workspace_root,
+        _check_lsp_available,
+        _format_diagnostic,
+        _resolve_file,
+    )
+    from .agent_security_prefs import current_security_principal
+
+    tool = "get_diagnostics"
+    if not current_security_principal():
+        return {
+            "tool": tool,
+            "ok": False,
+            "error": "缺少调用者身份,拒绝读取语言服务诊断",
+            "errorCode": "PRINCIPAL_REQUIRED",
+        }
+    workspace = str(arguments.get("workspacePath") or arguments.get("workspace_path") or "").strip()
+    file_value = str(arguments.get("file") or arguments.get("path") or "").strip()
+    if not workspace or not file_value:
+        return {
+            "tool": tool,
+            "ok": False,
+            "error": "workspacePath 与 file 必填",
+            "errorCode": "MISSING_ARGUMENTS",
+        }
+    try:
+        _check_lsp_available()
+        real_ws = _assert_workspace_root(workspace)
+        file_path = _resolve_file(file_value, real_ws)
+    except HTTPException as exc:
+        detail = exc.detail
+        if isinstance(detail, dict):
+            detail = detail.get("detail") or detail.get("error") or detail
+        return {
+            "tool": tool,
+            "ok": False,
+            "error": str(detail)[:500],
+            "errorCode": "WORKSPACE_REJECTED" if 400 <= exc.status_code < 500 else "LSP_UNAVAILABLE",
+        }
+    try:
+        client = LspClient.get(real_ws)
+        await client._ensure_started()
+        raw = await client.get_diagnostics(file_path)
+    except HTTPException as exc:
+        return {"tool": tool, "ok": False, "error": str(exc.detail)[:500], "errorCode": "LSP_UNAVAILABLE"}
+    except Exception as exc:  # noqa: BLE001 - LSP 运行时失败统一具名降级
+        return {"tool": tool, "ok": False, "error": str(exc)[:500], "errorCode": "LSP_UNAVAILABLE"}
+    formatted = [_format_diagnostic(item) for item in raw]
+    wanted = _DIAGNOSTIC_SEVERITIES.get(str(arguments.get("severity") or "").strip().lower())
+    if wanted:
+        formatted = [item for item in formatted if item["severity"] == wanted]
+    limit = _clamp_read_limit(arguments.get("limit", 100), default=100, maximum=500)
+    return {
+        "tool": tool,
+        "ok": True,
+        "workspacePath": real_ws,
+        "file": file_value,
+        "count": len(formatted),
+        "errors": sum(1 for item in formatted if item["severity"] == "Error"),
+        "warnings": sum(1 for item in formatted if item["severity"] == "Warning"),
+        "diagnostics": formatted[:limit],
+    }
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
@@ -14313,6 +14559,11 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "browser_select_option": _make_agent_control_handler("browser", "select_option"),
     "browser_switch_tab": _make_agent_control_handler("browser", "switch_tab"),
     "browser_close_tab": _make_agent_control_handler("browser", "close_tab"),
+    # ===== 浏览器运行时观测(2026-11-08,后端 Browser Hub + CDP;非 extension 动作面)=====
+    "browser_console_messages": _tool_browser_console_messages,
+    "browser_network_requests": _tool_browser_network_requests,
+    # ===== 语言服务诊断(2026-11-08,复用 api/v1/lsp 判据)=====
+    "get_diagnostics": _tool_get_diagnostics,
     # ===== AI 自动控制电脑(10 个)=====
     "computer_screenshot_screen": _make_agent_control_handler("computer", "screenshot_screen"),
     "computer_mouse_move": _make_agent_control_handler("computer", "mouse_move"),
