@@ -4,6 +4,9 @@
 
 import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
+// 宽度断言必须读几何档,不能写死 60 —— 否则改档(60→56/64)后这里假红,等于把档位又钉死一份。
+// 与 page-indicator-geometry.spec.ts 同一先例(e2e 直连 design-tokens 源码,不进构建)。
+import { GEOMETRY_PX } from '../../../packages/design-tokens/src/geometry.js'
 
 /**
  * Sidebar 视觉守门测试。
@@ -269,11 +272,14 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
     await authenticatedPage.waitForTimeout(500)
   })
 
-  test('折叠态 aside 宽度为 60px', async ({ authenticatedPage }) => {
+  test('折叠态 aside 宽度等于几何档 sidebarCollapsedWidth', async ({ authenticatedPage }) => {
     const aside = authenticatedPage.locator('aside').first()
     const box = await aside.boundingBox()
     expect(box).not.toBeNull()
-    expect(box!.width, '折叠态 aside 宽度应为 60px').toBe(60)
+    expect(
+      box!.width,
+      `折叠态 aside 宽度应为 ${GEOMETRY_PX.sidebarCollapsedWidth}px(几何档)`,
+    ).toBe(GEOMETRY_PX.sidebarCollapsedWidth)
   })
 
   test('折叠态导航项背景容器统一为 36×36 正方形', async ({ authenticatedPage }) => {
@@ -760,8 +766,11 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     expect(data, `应能读取折叠态几何: ${JSON.stringify(data)}`).not.toHaveProperty('error')
     const d = data as Exclude<typeof data, { error: string }>
 
-    // 1. 平板区间视口强制折叠:aside 60px
-    expect(d.asideWidth, `平板视口 aside 应为 60px,实际 ${d.asideWidth}`).toBe(60)
+    // 1. 平板区间视口强制折叠:aside = 几何档 sidebarCollapsedWidth
+    expect(
+      d.asideWidth,
+      `平板视口 aside 应为 ${GEOMETRY_PX.sidebarCollapsedWidth}px,实际 ${d.asideWidth}`,
+    ).toBe(GEOMETRY_PX.sidebarCollapsedWidth)
 
     // 2. 用户行完整落在 aside 横向边界内(允许 1px border 误差)
     expect(
