@@ -39,6 +39,31 @@
 | `20260913160000_multimodal_billing` | `ai_pricing` 4 列、`llm_call_logs.call_type`、`llm_call_logs_call_type_idx` 全在 | 已应用，无自证行 |
 | `20260916170000_api_subscription_windows_and_peak_pricing` | 3 表 / 8 列 / 7 索引全缺；全 376 个迁移无 DROP 指向它们 | **效果不存在 → DB-SCHEMA-GAP-01（事故级，另票）** |
 
+### 3.1 去向裁定（2026-11-07 收口，一票一条）
+
+**生产实读更正**：本节第 40 行的「3 表 / 8 列 / 7 索引全缺」是**窗口前**状态。本窗口的
+`#2 = 20261107000000_repair_api_subscription_drift` 已把 `20260916170000` 的全部对象**逐条同文重建**
+（同 8 条 `plans` 列、同 3 张表、同名 7 个索引，`CREATE/ALTER ... IF NOT EXISTS` 一条对应一条），
+现全部存在。今日 DB 实读：3 表 + 8 列 + 7 索引全 `t`。
+
+| tag | 现状（今日生产只读） | 去向 | 依据 |
+|---|---|---|---|
+| `0108_r83_supplement_27_tables` | 23 张表中 21 张在；`t_homework`/`t_check_in_record` 已被 `0143`、`20260906173000` 显式 DROP | **补账本行**（`when=1709331200000`） | 21 张现役表是该迁移的唯一建表来源，仍是现行 schema 的祖先；被后迁移删掉的那 2 张不需要任何补偿（删是正确的终态） |
+| `0110_skills_tombstone` | `skills.deleted_at` 在；`skills_deleted_at_idx` 在 | **补账本行**（`when=1709504000000`） | 该索引全仓仅本文件创建（`0108` 也 `ADD COLUMN IF NOT EXISTS deleted_at`，幂等重叠不是替代）；效果仍存活 |
+| `0126_ai-world-sync` | `ai_world_sync_log` 在；4 列 / 4 索引在 | **补账本行**（`when=1710540800000`） | 全仓唯一创建点（且不是 `IF NOT EXISTS` 形式），无后迁移重建；效果仍存活 |
+| `0212_phase2_refund_invoice_fk` | 新 FK `_orders_id_fk` 2 个在、旧自动命名 `_fkey` 2 个不在；`edu_refunds.order_type = integer DEFAULT 0` | **补账本行**（`when=1712096000000`），并注明「删旧 FK 当时落空」 | 净效果（`order_type` 类型/默认）仍存活；旧 FK 是 `20261107001000`（#3）才真正删掉的 —— 账本行不得洗掉这一事实 |
+| `20260913000000_llm_call_logs_config_id_bigint` | `llm_call_logs.config_id` 已是 `bigint` | **补账本行**（`when=1721859200000`） | 效果仍存活且无后迁移重做类型变更；正文含 `DROP DEFAULT`+`USING`，是唯一来源 |
+| `20260913160000_multimodal_billing` | `ai_pricing` 4 列、`llm_call_logs.call_type` 及其索引全在 | **补账本行**（`when=1722118400000`） | 效果仍存活且唯一；未见后迁移重建 |
+| `20260916170000_api_subscription_windows_and_peak_pricing` | 3 表 / 8 列 / 7 索引全在（由 #2 重建） | **永不需要补行** | 该迁移**从未实际执行**（窗口前其对象全缺，全仓无 DROP 指向它们）；`#2` 的语句与本文件逐条同文，已把全部效果重建并入账。补一条「已执行」的账本行等于断言一件没发生过的事 |
+
+**补 6 行后的预期读数**（未执行，只作验收口径）：`applied 352→358`、`lateGap 7→1`（只剩
+`20260916170000`）、`hashDrift` 仍 18、`maxApplied` 不变（6 个 `when` 均低于水位）。
+
+**剩下那 1 条怎么办**：工具侧目前只能靠「账本有行」把 lateGap 清零；本票**不允许**用一条假行换
+绿灯。可选只两条：(a) 接受它长期显示为 1 条已解释 lateGap；(b) 另开一票给工具加
+`lateGapSuperseded` 注记（带覆盖迁移 tag + 生效日期），把「被后续迁移逐条同文覆盖」作为合法出口。
+在 (b) 落地前，(a) 是当前口径。
+
 ## 4. 归档与回滚
 
 - 7 条原行在 `drizzle.__drizzle_migrations_orphan_archive_20261107`

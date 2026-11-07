@@ -117,4 +117,39 @@ describe('DSN 读取纪律', () => {
     }
   })
 })
+
+// 夹具:豁免到期即到期 —— 判据源是 scripts/check-db-migration-gaps.mjs 的
+// exemptExpired()/partitionHashDrift(),这里只钉它的可观测出口,不复制判据(§22c)。
+describe('迁移账本:豁免到期即到期', () => {
+  const exempt = {
+    byTag: new Map([
+      ['expired_pending', { tag: 'expired_pending', state: 'pending', dueAt: '2026-11-06' }],
+      ['live_pending', { tag: 'live_pending', state: 'pending', dueAt: '2026-12-07' }],
+      ['verified', { tag: 'verified', state: 'rewrite-verified' }],
+    ]),
+  }
+  const today = new Date('2026-11-07T00:00:00+08:00')
+
+  it('dueAt 已过期 ⇒ 进 expired、从 exempted 消失、并计入 unexplained', () => {
+    const r = G.partitionHashDrift(['expired_pending', 'live_pending', 'verified', 'no_entry'], exempt, today)
+    assert.deepEqual(r.expired, [{ tag: 'expired_pending', dueAt: '2026-11-06' }])
+    assert.deepEqual(r.exempted.map((e) => e.tag), ['live_pending', 'verified'])
+    assert.deepEqual(r.unexplained, ['expired_pending', 'no_entry'])
+    assert.equal(r.counts.pending, 1)
+  })
+
+  it('到期边界:dueAt 当天 23:59:59 才算到期,当天 00:00 仍豁免', () => {
+    const r = G.partitionHashDrift(['live_pending'], exempt, new Date('2026-12-07T00:00:00+08:00'))
+    assert.deepEqual(r.exempted, [{ tag: 'live_pending', state: 'pending' }])
+    assert.deepEqual(r.expired, [])
+  })
+
+  it('非 pending 条目即使带 dueAt 也永不到期退场', () => {
+    const e2 = new Map([['v', { tag: 'v', state: 'rewrite-verified', dueAt: '2020-01-01' }]])
+    const r = G.partitionHashDrift(['v'], { byTag: e2 }, today)
+    assert.deepEqual(r.exempted, [{ tag: 'v', state: 'rewrite-verified' }])
+    assert.deepEqual(r.expired, [])
+    assert.deepEqual(r.unexplained, [])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
