@@ -14,6 +14,7 @@ import { useAdminRouters } from '@/hooks/use-admin-routers'
 import { useNavigationStore, useOptimisticNavStore } from '@/stores/navigation'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import { SidebarChatHistory } from '@/components/sidebar-chat-history'
+import { useFocusTrap } from '@/components/feedback/Drawer'
 import { ADMIN_NAV_GROUPS } from '@/components/layout/AdminNav'
 import { NAV_GROUPS, flattenNavItems, isHrefActive } from './nav-data'
 import type { SidebarProps, NavItem, RegisterRef } from './types'
@@ -166,6 +167,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
 
   const navRef = React.useRef<HTMLElement>(null)
   const mobileNavRef = React.useRef<HTMLElement>(null)
+  const mobileDrawerRef = React.useRef<HTMLElement>(null)
   const itemRefs = React.useRef<Map<string, HTMLElement>>(new Map())
 
   // 移动抽屉懒挂载(2026-09-02 P2 首屏 HTML 体积优化):
@@ -177,6 +179,16 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
   //   让 CSS transition 播放滑入动画;此后保持挂载,开合动画与旧实现一致。
   const [mobileMounted, setMobileMounted] = React.useState(false)
   const [mobileEntered, setMobileEntered] = React.useState(false)
+
+  // 票A(2026-11-07):移动抽屉是 aria-modal 对话框,必须与 Drawer 同款键盘契约。
+  // 复用 feedback/Drawer 抽出的 useFocusTrap(不另造第二套):
+  // open 取 `mobileOpen && mobileMounted`,确保懒挂载完成后才捕获触发按钮并把焦点送入面板。
+  useFocusTrap({
+    open: mobileOpen && mobileMounted,
+    panelRef: mobileDrawerRef,
+    onEscape: onCloseMobile,
+    stackId: 'sidebar:mobile',
+  })
 
   // 挂载闩:首次打开前不挂载,首次打开后保持挂载(供后续开合动画)
   React.useEffect(() => {
@@ -539,6 +551,7 @@ const Sidebar = React.memo(function Sidebar({ id, mobileOpen, onCloseMobile }: S
           - 2026-09-02 P2 优化:mobileMounted 懒挂载(见上),SSR/首屏不含移动导航副本 */}
       {mobileMounted && (
         <aside
+          ref={mobileDrawerRef}
           aria-modal="true"
           aria-label={t('mainNav')}
           role="dialog"

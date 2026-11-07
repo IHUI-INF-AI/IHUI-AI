@@ -56,30 +56,37 @@ const sideMap: Record<DrawerSide, string> = {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
 
-export function Drawer({
-  open,
-  onClose,
-  side = 'right',
-  title,
-  children,
-  width = '24rem',
-  height = 'auto',
-  className,
-}: DrawerProps) {
-  const t = useTranslations('a11y')
-  const panelRef = React.useRef<HTMLDivElement>(null)
-  const triggerRef = React.useRef<HTMLElement | null>(null)
-  const titleId = React.useId()
-  // 层栈身份:同组件多实例互不相同
+interface UseFocusTrapOptions {
+  /** 浮层是否打开;打开瞬间记录触发元素并把焦点送进面板。 */
+  open: boolean
+  /** 浮层面板容器(被 Tab 循环与初始聚焦约束的范围)。 */
+  panelRef: React.RefObject<HTMLElement | null>
+  /** Esc 关闭回调(仅层栈顶消费)。 */
+  onEscape: () => void
+  /** 层栈身份;同组件多实例请显式传入,缺省按 useId 派生。 */
+  stackId?: string
+}
+
+/**
+ * 焦点陷阱(2026-11-07 从 Drawer 抽出,供 Sidebar 移动抽屉复用)。
+ * 四件事:入栈/出栈、Esc 关闭(层栈顶)、Tab 首尾环绕、关闭后焦点归还触发元素。
+ * 与 Drawer 行为一致,避免两份实现漂移。
+ */
+export function useFocusTrap({ open, panelRef, onEscape, stackId }: UseFocusTrapOptions): void {
   const autoId = React.useId()
-  const stackId = `drawer:${autoId}`
+  const resolvedStackId = stackId ?? `focus-trap:${autoId}`
+  const triggerRef = React.useRef<HTMLElement | null>(null)
+  // 回调走 ref:父组件因无关状态重渲染换了 onEscape 身份时,
+  // 不重新捕获 trigger、不把焦点从用户当前元素抢回面板首元素。
+  const onEscapeRef = React.useRef(onEscape)
+  onEscapeRef.current = onEscape
 
   // 层栈注册:open → 入栈(成为栈顶);close/unmount → 出栈。
   React.useEffect(() => {
     if (!open) return
-    pushOverlay(stackId)
-    return () => popOverlay(stackId)
-  }, [open, stackId])
+    pushOverlay(resolvedStackId)
+    return () => popOverlay(resolvedStackId)
+  }, [open, resolvedStackId])
 
   React.useEffect(() => {
     if (!open) return
@@ -88,8 +95,8 @@ export function Drawer({
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         // 只让栈顶那一层消费 Esc:多层同时打开时,一次 Esc 关最上层
-        if (!isTopOverlay(stackId)) return
-        onClose()
+        if (!isTopOverlay(resolvedStackId)) return
+        onEscapeRef.current()
         return
       }
       if (e.key === 'Tab' && panelRef.current) {
@@ -120,7 +127,27 @@ export function Drawer({
       document.removeEventListener('keydown', handler)
       triggerRef.current?.focus()
     }
-  }, [open, onClose, stackId])
+  }, [open, resolvedStackId, panelRef])
+}
+
+export function Drawer({
+  open,
+  onClose,
+  side = 'right',
+  title,
+  children,
+  width = '24rem',
+  height = 'auto',
+  className,
+}: DrawerProps) {
+  const t = useTranslations('a11y')
+  const panelRef = React.useRef<HTMLDivElement>(null)
+  const titleId = React.useId()
+  // 层栈身份:同组件多实例互不相同
+  const autoId = React.useId()
+  const stackId = `drawer:${autoId}`
+
+  useFocusTrap({ open, panelRef, onEscape: onClose, stackId })
 
   if (!open) return null
 

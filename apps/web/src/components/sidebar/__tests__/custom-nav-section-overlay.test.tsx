@@ -5,7 +5,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import React from 'react'
-import { render, cleanup, act } from '@testing-library/react'
+import { render, cleanup, act, fireEvent, screen, waitFor } from '@testing-library/react'
 import type * as ApiClientModule from '@ihui/api-client'
 
 /**
@@ -54,8 +54,11 @@ vi.mock('@/components/feedback', () => ({
 
 vi.mock('@/stores/navigation', () => ({
   __esModule: true,
-  useOptimisticNavStore: (selector: (s: { optimisticHref: string | null }) => unknown) =>
-    selector({ optimisticHref: null }),
+  useOptimisticNavStore: (
+    selector: (s: { optimisticHref: string | null; set: () => void; clear: () => void }) => unknown,
+  ) => selector({ optimisticHref: null, set: () => {}, clear: () => {} }),
+  useNavigationStore: (selector: (s: { start: () => void }) => unknown) =>
+    selector({ start: () => {} }),
 }))
 
 vi.mock('@/stores/auth', () => ({
@@ -68,12 +71,46 @@ vi.mock('@ihui/api-client', async (importOriginal) => {
   const actual = await importOriginal<typeof ApiClientModule>()
   return {
     ...actual,
-    getSidebarNavPreference: async () => ({ success: true, data: { hrefs: ['/models'], exists: true } }),
+    getSidebarNavPreference: async () => ({
+      success: true,
+      data: { hrefs: ['/models'], exists: true },
+    }),
     updateSidebarNavPreference: async () => ({ success: true, data: { hrefs: [], exists: true } }),
   }
 })
 
+// 票A(Sidebar 移动抽屉 a11y)测试宿主:把 Sidebar 的重型子组件挡在门外,
+// 让抽屉内可聚焦元素只剩下面自造的 header 两枚按钮,焦点断言才可复现。
+vi.mock('../SidebarHeader', () => ({
+  __esModule: true,
+  SidebarHeader: ({ onCloseMobile }: { onCloseMobile?: () => void }) => (
+    <div>
+      <button type="button" data-testid="drawer-first">
+        first
+      </button>
+      <button type="button" data-testid="drawer-last" onClick={onCloseMobile}>
+        close
+      </button>
+    </div>
+  ),
+}))
+vi.mock('../SidebarUserRow', () => ({ __esModule: true, SidebarUserRow: () => null }))
+vi.mock('../SidebarQuickActions', () => ({ __esModule: true, SidebarQuickActions: () => null }))
+vi.mock('../NavGroupSection', () => ({ __esModule: true, NavGroupSection: () => null }))
+vi.mock('../SidebarScrollFades', () => ({ __esModule: true, default: () => null }))
+vi.mock('@/components/sidebar-chat-history', () => ({
+  __esModule: true,
+  SidebarChatHistory: () => null,
+}))
+vi.mock('@/components/layout/AdminNav', () => ({ __esModule: true, ADMIN_NAV_GROUPS: [] }))
+vi.mock('@/hooks/use-admin-routers', () => ({
+  __esModule: true,
+  useAdminRouters: () => ({ list: [], loaded: true }),
+}))
+vi.mock('@/hooks/use-media-query', () => ({ __esModule: true, useMediaQuery: () => false }))
+
 import { CustomNavSection } from '../CustomNavSection'
+import { Sidebar } from '../Sidebar'
 import type { NavItem } from '../types'
 
 const Icon = () => <svg />
@@ -158,6 +195,74 @@ describe('CustomNavSection —— 可见表里查不到的收藏不得渲染成�
     })
     expect(container.querySelectorAll('a[href="/models"]')).toHaveLength(0)
     expect(container.querySelector('[data-testid="nav-custom-remove-/models"]')).toBeNull()
+  })
+})
+
+/**
+ * 票A:移动抽屉是 `role="dialog" aria-modal="true"`,但此前没有任何键盘契约:
+ * 打开后焦点仍在抽屉外、Tab 可以跑出去、Esc 不关、关闭后焦点掉回 body。
+ * 四条判据缺一条都等于「对读屏/键盘用户假装是个模态框」。
+ */
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])'
+
+describe('Sidebar 移动抽屉 a11y 契约(票A)', () => {
+  let trigger: HTMLButtonElement
+
+  beforeEach(() => {
+    trigger = document.createElement('button')
+    trigger.type = 'button'
+    trigger.textContent = 'open-menu'
+    document.body.appendChild(trigger)
+    trigger.focus()
+  })
+
+  afterEach(() => {
+    trigger.remove()
+  })
+
+  it('① 打开后焦点必须落在抽屉内', async () => {
+    render(<Sidebar mobileOpen onCloseMobile={() => {}} />)
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => {
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    })
+  })
+
+  it('② 焦点在末元素时 Tab 必须回绕到首元素', async () => {
+    render(<Sidebar mobileOpen onCloseMobile={() => {}} />)
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => {
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    })
+    const focusable = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE))
+    expect(focusable.length).toBeGreaterThan(1)
+    const first = focusable[0]!
+    const last = focusable[focusable.length - 1]!
+    last.focus()
+    fireEvent.keyDown(document, { key: 'Tab' })
+    expect(document.activeElement).toBe(first)
+  })
+
+  it('③ Esc 必须触发关闭', async () => {
+    const onCloseMobile = vi.fn()
+    render(<Sidebar mobileOpen onCloseMobile={onCloseMobile} />)
+    await screen.findByRole('dialog')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(onCloseMobile).toHaveBeenCalledTimes(1)
+  })
+
+  it('④ 关闭后焦点必须归还触发按钮', async () => {
+    const onCloseMobile = vi.fn()
+    const { rerender } = render(<Sidebar mobileOpen onCloseMobile={onCloseMobile} />)
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => {
+      expect(dialog.contains(document.activeElement)).toBe(true)
+    })
+    rerender(<Sidebar mobileOpen={false} onCloseMobile={onCloseMobile} />)
+    await waitFor(() => {
+      expect(document.activeElement).toBe(trigger)
+    })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
