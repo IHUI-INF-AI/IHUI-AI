@@ -700,6 +700,45 @@ export default () => <ThemeRoot><DemoGate><DemoScreen /></DemoGate></ThemeRoot>`
     `${String(taroGate.carrier)}/${taroGate.carrierReason}/${taroGate.buckets['single-end'].length}`,
   )
 
+  // F20-F22:解析面(A3 2026-11-07)—— 页面 import 的壳名与声明屏基名不同,
+  // 只有壳被机械证明「透明承载该声明屏」才采用;证不成保持旧判(未解析),不放宽任何档位。
+  const otherShellPage = `import { OtherShellScreen as DemoShell } from '@rn-shells/OtherShell'\nexport default () => <DemoShell />`
+  const shellCase = (shellText) => ({
+    pageText: otherShellPage,
+    file: 'apps/miniapp-taro/src/pages/demo/other-shell.tsx',
+    sharedText: sharedContract,
+    rnText: null,
+    specs: [contractSpec],
+    readFile: (rel) => (rel === 'apps/mobile-rn/src/screens/OtherShell.tsx' ? shellText : null),
+  })
+  const otherScreenShell = `import { PlazaScreen } from '@ihui/rn-app/features/plaza/PlazaScreen'
+export function OtherShellScreen() { return <PlazaScreen /> }`
+  const f20 = analyzeScreenContract(shellCase(otherScreenShell))
+  add(
+    'F20 阴性对照:新壳渲染的是另一个共享屏 ⇒ 仍 page-no-element,不得因异名放行',
+    f20.state === 'unresolved' && f20.buckets.unresolved[0]?.prop === 'page-no-element' && f20.carrier === false,
+    f20.reason,
+  )
+  const businessShell = `import { View, Text } from 'react-native'
+import { DemoScreen } from '@ihui/rn-app/features/demo/DemoScreen'
+export function OtherShellScreen() {
+  return <View><Text>自有区块</Text><DemoScreen title={'x'} /></View>
+}`
+  const f21 = analyzeScreenContract(shellCase(businessShell))
+  add(
+    'F21 阴性对照:新壳带真实业务 JSX ⇒ 不得认定为壳承载页',
+    f21.state === 'unresolved' && f21.buckets.unresolved[0]?.prop === 'page-no-element' && f21.carrier === false,
+    f21.reason,
+  )
+  const transparentShell = `import { DemoScreen } from '@ihui/rn-app/features/demo/DemoScreen'
+export function OtherShellScreen() { return <DemoScreen title={'x'} /> }`
+  const f22 = analyzeScreenContract(shellCase(transparentShell))
+  add(
+    'F22 正例:新壳只透明承载声明屏 ⇒ carrier=true 且 RN 实参取自新壳',
+    f22.carrier === true && f22.carrierEvidence?.shellEntry === '@rn-shells/OtherShell' && f22.passed.rn === 1 && f22.carrierExempt === 1,
+    `${String(f22.carrier)}/${f22.carrierEvidence?.shellEntry}/${JSON.stringify(f22.passed)}/${f22.carrierExempt}`,
+  )
+
   // 回归基线:存量入册不红、新增红、去掉基线条目只给可收紧、非法基线红。
   const baseItems = [
     { route: 'demo/cut', bucket: 'single-end', prop: 'renderX', why: '仅小程序页传,RN 未传' },

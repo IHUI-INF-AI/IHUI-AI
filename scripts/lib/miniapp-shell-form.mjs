@@ -32,6 +32,7 @@ import { Undetermined } from './face-reader.mjs'
 import { readFaceOne } from './gate-face.mjs'
 import { __test__ as coverage } from '../check-cross-end-screen-coverage.mjs'
 import { isRetiredRecord } from './ledger-retirement.mjs'
+import { shellTargetRel } from './rn-shell-refs.mjs'
 
 export const REGISTRY = 'scripts/data/cross-end-screen-registry.json'
 export const LEDGER = 'scripts/data/miniapp-shell-copy-ledger.jsonl'
@@ -864,8 +865,9 @@ function extractScreenContract(ctx, sharedText, specRel, baseName) {
  * 旧实现只认路径命中,会把 RN 侧消费点整个漏掉,导致 rn-no-element 假未解析)。
  * 仅对已知壳 barrel 放行别名,避免把同名无关组件当成共享屏。
  */
-function contractLocalNames(sf, specs) {
+function contractLocalNames(sf, specs, extraLocals) {
   const names = sharedLocalNames(sf, specs)
+  if (extraLocals) for (const n of extraLocals) names.add(n)
   const bases = (specs || []).map((s) => String(s).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')).filter(Boolean)
   for (const st of sf.statements) {
     if (!ts.isImportDeclaration(st) || !st.importClause) continue
@@ -881,11 +883,11 @@ function contractLocalNames(sf, specs) {
 }
 
 /** 页面/RN 对共享屏的实参面:属性名 → 传值语义类别集合;是否出现 `{...spread}`。 */
-function extractConsumerUsage(text, specs) {
+function extractConsumerUsage(text, specs, extraLocals) {
   if (typeof text !== 'string') return { state: 'missing', attrs: new Map(), spread: false }
   const sf = contractAst(text)
   if (!sf) return { state: 'unreadable', attrs: new Map(), spread: false }
-  const names = contractLocalNames(sf, specs)
+  const names = contractLocalNames(sf, specs, extraLocals)
   const attrs = new Map()
   let found = false
   let spread = false
@@ -911,15 +913,6 @@ function extractConsumerUsage(text, specs) {
   }
   walk(sf)
   return { state: found ? 'ok' : 'not-found', attrs, spread }
-}
-
-function collectJsxNodes(node, acc) {
-  if (!node) return acc
-  if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) acc.push(node)
-  ts.forEachChild(node, (c) => {
-    collectJsxNodes(c, acc)
-  })
-  return acc
 }
 
 function lineOfNode(sf, node) {
@@ -1087,6 +1080,8 @@ export function detectShellCarrier(text, specs = [], opts = {}) {
   if (!sf) return no('page-unreadable')
   const base = String(specs[0]).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
   if (!base) return no('no-spec')
+  // 解析面:默认按同名壳;调用方已证明「页面实际 import 的异名壳透明承载该共享屏」时传入实际壳模块。
+  const shellModule = opts.shellModule || `@rn-shells/${base}`
   const shellLocals = new Set()
   const importMap = new Map()
   for (const st of sf.statements) {
@@ -1095,7 +1090,7 @@ export function detectShellCarrier(text, specs = [], opts = {}) {
     if (st.importClause.name) importMap.set(st.importClause.name.text, mod)
     const nb = st.importClause.namedBindings
     if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) importMap.set(el.name.text, mod)
-    if (mod !== `@rn-shells/${base}`) continue
+    if (mod !== shellModule) continue
     if (st.importClause.name) shellLocals.add(st.importClause.name.text)
     if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) shellLocals.add(el.name.text)
   }
@@ -1164,7 +1159,7 @@ export function detectShellCarrier(text, specs = [], opts = {}) {
     carrier: true,
     reason: null,
     evidence: {
-      shellEntry: `@rn-shells/${base}`,
+      shellEntry: shellModule,
       shellTag: jsxTag(shellNode),
       line: lineOfNode(sf, shellNode),
       attrCount: 0,
@@ -1174,6 +1169,101 @@ export function detectShellCarrier(text, specs = [], opts = {}) {
       wrappers,
     },
   }
+}
+
+/**
+ * 机械证明「这枚壳只是把被声明的共享屏原样承载出来」(A3:只修解析,不改判据)。
+ *
+ * 只认能被源码证据锁死的一形:壳导出组件的 return 树里**恰好 1 个**被声明屏元素
+ * (属性不限 —— 壳的职责就是注入 props),其余 JSX 只允许 ThemeRoot / 根布局基准容器 /
+ * `attrs=0` 且经 proveTransparentWrapper 证明的透传包装层。任何额外业务 JSX ⇒ 不解。
+ * 证书不成 ⇒ 返回 null,调用方保持旧解析路径(仍是 page-no-element / 未解析)。
+ */
+function shellTransparentRenders(shellText, spec, shellFile, readFile) {
+  if (typeof shellText !== 'string') return null
+  const sf = contractAst(shellText)
+  if (!sf) return null
+  const base = String(spec).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
+  if (!base) return null
+  const names = sharedLocalNames(sf, [spec])
+  const comp = findContractComponent(sf, base)
+  if (!comp) return null
+  const roots = returnRoots(comp)
+  if (roots.length === 0) return null
+  const chains = []
+  for (const rt of roots) collectJsxChains(rt, [], chains)
+  const hits = chains.filter((x) => names.has(jsxTag(x.node)))
+  if (hits.length !== 1) return null
+  const importMap = new Map()
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !st.importClause) continue
+    const mod = st.moduleSpecifier?.text || ''
+    if (st.importClause.name) importMap.set(st.importClause.name.text, mod)
+    const nb = st.importClause.namedBindings
+    if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) importMap.set(el.name.text, mod)
+    if (nb && ts.isNamespaceImport(nb)) importMap.set(nb.name.text, mod)
+  }
+  const ctx = { readFile: typeof readFile === 'function' ? readFile : () => null }
+  const rootSet = new Set(roots)
+  const allowed = new Set([hits[0].node, ...hits[0].parents])
+  for (const parentNode of hits[0].parents) {
+    const tag = jsxTag(parentNode)
+    if (tag === 'ThemeRoot') continue
+    if (
+      rootSet.has(parentNode) &&
+      (ROOT_BASIS_RE.test(attrText(parentNode, 'className')) || /height/.test(attrText(parentNode, 'style')))
+    ) {
+      continue
+    }
+    if (attrsOf(parentNode).properties.length > 0) return null
+    const moduleSpec = importMap.get(tag)
+    if (!moduleSpec) return null
+    if (!proveTransparentWrapper(ctx, shellFile, tag, moduleSpec).ok) return null
+  }
+  if (chains.some((x) => !allowed.has(x.node))) return null
+  return { rootTag: jsxTag(hits[0].node), line: lineOfNode(sf, hits[0].node) }
+}
+
+/**
+ * 解析「页面实际 import 的壳」:页面 import 的 `@rn-shells/X`(X ≠ 声明屏基名)时,
+ * 解析到 apps/mobile-rn/src/screens/X.tsx,再机械证明它透明承载被声明的共享屏。
+ *
+ * 两道守卫(先保不动已通过的页):
+ *   ① 页面已 import `@rn-shells/${base}` ⇒ 返回 null,旧路径优先;
+ *   ② 页面正文已能直接解析到被声明屏 ⇒ 返回 null,旧路径已成立,不介入。
+ * 任一条件不成立同样返回 null ⇒ 调用方保持旧解析,不放宽任何判定档位。
+ *
+ * @returns {{locals:Set<string>,module:string,target:string,text:string}|null}
+ */
+function resolveActualShell(ctx, pageText, specs) {
+  if (typeof pageText !== 'string' || !(specs || []).length) return null
+  const sf = contractAst(pageText)
+  if (!sf) return null
+  const base = String(specs[0]).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
+  if (!base) return null
+  const baseModule = `@rn-shells/${base}`
+  for (const st of sf.statements) {
+    if (ts.isImportDeclaration(st) && (st.moduleSpecifier?.text || '') === baseModule) return null
+  }
+  if (extractConsumerUsage(pageText, specs).state === 'ok') return null
+  for (const st of sf.statements) {
+    if (!ts.isImportDeclaration(st) || !st.importClause) continue
+    const mod = st.moduleSpecifier?.text || ''
+    if (!mod.startsWith('@rn-shells/')) continue
+    const name = mod.slice('@rn-shells/'.length)
+    if (!/^[A-Za-z0-9_]+$/.test(name) || name === base) continue
+    const target = shellTargetRel(name)
+    const text = ctx.readFile(target)
+    if (typeof text !== 'string') continue
+    if (!shellTransparentRenders(text, specs[0], target, ctx.readFile)) continue
+    const locals = new Set()
+    if (st.importClause.name) locals.add(st.importClause.name.text)
+    const nb = st.importClause.namedBindings
+    if (nb && ts.isNamedImports(nb)) for (const el of nb.elements) locals.add(el.name.text)
+    if (locals.size === 0) continue
+    return { locals, module: mod, target, text }
+  }
+  return null
 }
 
 /**
@@ -1203,11 +1293,14 @@ export function analyzeScreenContract(p) {
   if (typeof p?.sharedText !== 'string') return unresolved('shared-unreadable', '共享屏正文在该面读不到')
   const screen = extractScreenContract(ctx, p.sharedText, specRel, baseName)
   if (screen.state !== 'ok') return unresolved(screen.reason || 'props-type-unresolved', `props 契约解不开(${screen.reason || 'unknown'})`)
-  const page = extractConsumerUsage(p.pageText, specs)
+  let page = extractConsumerUsage(p.pageText, specs)
+  // A3:旧解析在页面找不到被声明屏时,才尝试「页面实际 import 的异名壳 → 透明承载」这一条解析链。
+  const shell = page.state === 'not-found' ? resolveActualShell(ctx, p.pageText, specs) : null
+  if (shell) page = extractConsumerUsage(p.pageText, specs, shell.locals)
   if (page.state === 'unreadable') return unresolved('page-unreadable', '页面正文解析失败')
   if (page.state === 'not-found') return unresolved('page-no-element', '页面未渲染被声明的共享屏')
-  const carrier = detectShellCarrier(p.pageText, specs, { file: p.file, readFile: ctx.readFile })
-  const rn = extractConsumerUsage(p.rnText, specs)
+  const carrier = detectShellCarrier(p.pageText, specs, { file: p.file, readFile: ctx.readFile, shellModule: shell?.module })
+  const rn = extractConsumerUsage(shell ? shell.text : p.rnText, specs)
   if (rn.state === 'missing') return unresolved('rn-missing', 'RN 对照正文在该面读不到')
   if (rn.state === 'unreadable') return unresolved('rn-unreadable', 'RN 对照正文解析失败')
   if (rn.state === 'not-found') return unresolved('rn-no-element', 'RN 消费点未渲染被声明的共享屏')
@@ -1599,7 +1692,9 @@ export function classifyMiniappPages(root, face, ledgerRows = []) {
     const declaredList = [...d.specs]
     const analysisSpecs = declaredList.length > 0 ? declaredList : reg?.shared ? [reg.shared] : []
     const sharedText = analysisSpecs.length > 0 ? readText(analysisSpecs[0]) : null
-    const rnText = analysisSpecs.length > 0 ? readText(resolveRn(analysisSpecs[0])) : null
+    // A3:页面实际 import 的异名壳若被证明透明承载声明屏,用它替代按基名猜的 RN 对照;否则保持旧解析。
+    const actualShell = analysisSpecs.length > 0 ? resolveActualShell({ readFile: readText }, p.text, analysisSpecs) : null
+    const rnText = analysisSpecs.length > 0 ? actualShell?.text ?? readText(resolveRn(analysisSpecs[0])) : null
     rows.push(
       classifyPage({
         route: p.route,

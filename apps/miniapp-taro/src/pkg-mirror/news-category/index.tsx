@@ -7,12 +7,12 @@
 /**
  * 由 scripts/gen-miniapp-mirror.mjs 以「壳承载形制」生成:端内不写布局、不写数据。
  *   渲染 = packages/app/src/features/community/NewsCategoryScreen.tsx(经 apps/miniapp-taro/src/rn-compat 兼容层落地),
- *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/NewsCategoryScreen.tsx 本体,
+ *   数据与交互 = RN 壳 apps/mobile-rn/src/screens/NewsCategoryPagedScreen.tsx 本体(分页契约),
  *   取词/主题 = config/rn-shell-replace-plugin.ts 按发起上下文换到端内真相源。
  * ⇒ 源头(RN 屏或壳)改一笔,这一页自动跟随;要改这一页的行为,应去改源头。
  */
 import ThemeRoot from '@/components/ThemeRoot'
-import { NewsCategoryScreen as NewsCategoryScreenShell } from '@rn-shells/NewsCategoryScreen'
+import { NewsCategoryPagedScreen as NewsCategoryScreenShell } from '@rn-shells/NewsCategoryPagedScreen'
 
 export default function NewsCategoryPage() {
   return (
