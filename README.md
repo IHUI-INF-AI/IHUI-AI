@@ -103,7 +103,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 348 | `guardianGates` |
 | — blocking | 319 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19606 | `trackedFiles` |
+| 跟踪文件 | 19607 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -6044,17 +6044,39 @@ A: Yes. ~14839+ tests / 3985 test files / 67 e2e spec / 4672 API 路由 / 618 �
 - [是什么](#是什么) · [关键数字(现算)](#关键数字现算) · [九份主题文档](#九份主题文档从根-readme-拆出的原文收纳件) · [九端清单](#九端清单)
 ## 九端清单
     <code>4393</code> API 路由 · <code>542</code> 张表 · <code>9</code> 端全覆盖 · <code>101</code> 模型 · <code>25</code> 平台发布 · <code>719</code> 测试文件 · <code>87</code> 守门脚本 · <code>109 万</code>行代码
-> **IHUI-AI** is an open-source **AI Agent Platform** and **LLM Gateway** that unifies 101 models through the **MCP** protocol and **LangGraph** orchestration. A production-grade **multi-tenant AI operating system** with row-level security, RAG knowledge base, and agent marketplace — the best **open source ChatGPT alternative** for teams. Built on an **Agentic AI Framework** spanning 9 ends (Web / API / AI-service / Desktop / Extension / Mobile / Mini-program / Capacitor / CLI) from a single monorepo, Apache 2.0 licensed.
-→ **IHUI-AI** 是唯一 9 端全覆盖的开源 AI 平台:Web(Next.js 16,250+ 页面)+ API(Fastify 5,4393 路由)+ AI-Service(FastAPI + LangGraph,200+ services)+ Desktop(Tauri 2,29 命令 + 三阶段自动更新)+ Extension(WXT + Chrome MV3,30 Side Panel 页面)+ Mobile(Expo + React Native,140 屏幕)+ Miniapp(Taro 4,100+ 页面,6 平台一套代码)+ Capacitor(mobile-cap,原生壳)+ CLI(Node.js,50 命令 + 36 工具)。16 共享包跨端复用,真实维护倍数 1.72x(非 9x)。
-**长尾关键词**:open source ai agent platform with multi-tenant · self-hosted chatgpt alternative 100 llms · langgraph mcp a2a triple stack · ai operating system 9 ends monorepo · litellm gateway with rag knowledge base · multi-tenant row level security ai platform · apache 2.0 ai saas template · tauri desktop ai assistant auto update · wxt browser extension ai agent 35 pages · taro mini program ai chatbot 6 platforms · **open source 39 ends auto publishing** · **open source anti-detect framework 37 detection points** · **ai conversation visualization inline to message bubble** · **tool call summary card with source badge** · **risk scoring 0-100 cooldown manager** · **fingerprint isolation 13 submodules canvas audio font webrtc**
+
 - [9 端架构](#9-端架构)
-1. **9 端全覆盖**:Web / API / AI 服务 / CLI / 桌面 Tauri / 浏览器扩展 WXT / 移动 RN / 移动 Capacitor(mobile-cap) / 微信小程序 Taro — 同类型开源 AI 项目一般最多 2 端(Dify/FastGPT),本项目覆盖 9 端
-| **多端开发框架**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                        | 9 端统一架构 + 12 共享包 + 跨端类型安全 + 共享 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                                                                                                 |
-| **9 端框架**      | Web                 | Next.js 16 / **250+ 页面**(Glob 实测)/ **200+ 组件** / **104 hooks** / PWA / SEO / 暗黑模式 / 5 语言 / 三段式顶部搜索面板(历史/热门/联想,`apps/web/src/components/business/SearchBar.tsx` + `search-suggestions.tsx` + `hooks/use-search-history.ts` + `lib/search-suggestions.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+- **9 端全覆盖**:Web / API / AI 服务 / CLI / 桌面 Tauri / 浏览器扩展 WXT / 移动 RN / 移动 Capacitor(mobile-cap) / 微信小程序 Taro — 同类型开源 AI 项目一般最多 2 端(Dify/FastGPT),本项目覆盖 9 端
+- **Developer Productivity(开发者生产力)** — 9 端开发模板 + 12 共享包 + 33+ 守门,Fork 即用,5 分钟启动全栈 AI SaaS
+
 > IHUI-AI 适用于以下 8 类核心场景,每个场景都可在 9 端中任一端运行(9-platform AI Operating System)。
-8. **Developer Productivity(开发者生产力)** — 9 端开发模板 + 12 共享包 + 33+ 守门,Fork 即用,5 分钟启动全栈 AI SaaS
+
+### 多端开发框架
+
+| 维度 | 框架 / 技术栈 | 说明 |
+| --- | --- | --- |
+| **多端开发框架**        | Tauri / Electron / Expo / React Native / Taro / WXT / Next.js / Remix / Nuxt / SvelteKit                                                                                                                                                                                                        | 9 端统一架构 + 12 共享包 + 跨端类型安全 + 共享 UI(`@ihui/ui-react` / `@ihui/ui-native` / `@ihui/design-tokens`)                                                                                                 |
+
+### 9 端框架
+
+| 维度 | 端 | 说明 |
+| --- | --- | --- |
+| **9 端框架**      | Web                 | Next.js 16 / **250+ 页面**(Glob 实测)/ **200+ 组件** / **104 hooks** / PWA / SEO / 暗黑模式 / 5 语言 / 三段式顶部搜索面板(历史/热门/联想,`apps/web/src/components/business/SearchBar.tsx` + `search-suggestions.tsx` + `hooks/use-search-history.ts` + `lib/search-suggestions.ts`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+
+### 端覆盖
+
+| 维度 | 端覆盖 | 说明 |
+| --- | --- | --- |
 | **端覆盖**           | Web / API / AI 服务 / CLI / 桌面 / 扩展 / 移动 RN / 小程序 Taro                                                                                                                                                                                                                                                                                                                                                                 | 行业首个 9 端全覆盖 AI 全栈平台                                 |
+
+### 对标矩阵 · 端覆盖(12 列,表头取自「对标矩阵 · 12 列横向对比」)
+
+| 维度               | IHUI-AI                                                          | OpenAI ChatGPT | Dify        | LangChain        | RAGFlow    | Coze(扣子)     | Claude Code | Cursor      | GitHub Copilot | Khan Academy   | Stripe+Auth0  |
+| ------------------ | ---------------------------------------------------------------- | -------------- | ----------- | ---------------- | ---------- | -------------- | ----------- | ----------- | -------------- | -------------- | ------------- |
 | **端覆盖**         | **9 端**                                                         | 2 端(Web/APP)  | 2 端        | 0 端(库)         | 2 端       | 2 端           | 1 端(CLI)   | 1 端(IDE)   | 1 端(IDE)      | 2 端           | 0 端(库)      |
+
+> 2026-11-07:本节原混排的 3 行营销句与 176 行变更日志片段已逐字归档至 [docs/readme-archive-2026-11-07.md](docs/readme-archive-2026-11-07.md)(保留原始哈希与日期);本节只保留 9 端清单与补全表头后的对照行。
+
 ## 9 端架构
 ### 9 端职责
    │ apps/mobile-rn    │      │ 全部 9 端         │      │ web / desktop│
@@ -6069,182 +6091,6 @@ A: Yes. 9 ends from one monorepo(Web / API / AI-service / Desktop / Extension / 
 - ai operating system 9 ends monorepo
 - **open source 39 ends auto publishing anti-risk framework**
   九端共用一份订阅出口;小程序与 App 端的管理入口在别处,所以状态行附一句去哪配的提示。
-**2026-10-25**
-- 🐞 修复:修 F3 自检恒红 —— 落点判据跟上 G-158 仓内 .DevEnv (1f9deae5c65)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (58111ebfb00)
-- 📚 文档:英文 README 数字对齐现算值 + 9 端/101 模型口径 (6d490805713)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1142cf1807d)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (fb7072816bf)
-- 🔧 工程/其他:清 F11 等人拍板存量 24 条(强制令代裁/摘行;逐条留证) (eb35b31d15d)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (62280da2286)
-- 🔧 工程/其他:D06 派发预填对话框用例(2 例) (2718e8749ce)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e3686744ce8)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (60c64ebf80d)
-- 🔧 工程/其他:复结 5 条并集回捞复活体票(prod-bundle/G-33/G-34/桌面log/活动时钟;结清凭据均已在 plan-row-drop.jsonl,按门 239 单调性零改动复结) (508d7b632cb)
-- 📚 文档:全站口径对齐到 9 端 / 101 模型（对外文档+工程文档+发射器） (73d1ed177b8)
-- 🚀 新功能/改进:D06 审查卡一键派发修复(DispatchSubagentDialog 加 preset 预填,复用既有 dispatch 腿)+ 3 例测试 (f5be4c99b64)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a58f8399d47)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1793b07844f)
-- 🔧 工程/其他:复结 L7657 键名对齐票(并集回捞复活体;2026-10-23 已有完整结清凭据,零改动按门 239 单调性复结) (3dbc8547e45)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ab006eaae77)
-- 🔧 工程/其他:结清 G-61 僵尸票(套件两轮 76/76;heal 第三形态前置已由 da26f3624a 补齐,遂按票面自写终态摘除) (ec713677807)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e5324f86b3b)
-- 🔧 工程/其他:翻勾结清 D13 主聊天并行工具调用票(行内已有 2 条结清注记:D119 只读并行预取在 HEAD、test 5 passed;goal-r1 主会话僵尸行清偿) (7ae7b2995b3)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f210e8fd3ff)
-- 🔧 工程/其他:翻勾结清 G-25 工具结果三投影票(行内已有 3 条结清注记:result-tri-projection.test.mjs 6/6;goal-r1 主会话僵尸行清偿) (8c3e989381f)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b0418b09bbc)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0f52a79625f)
-- 🔧 工程/其他:结清 line-loss 第三形态判活票(门71 已补该形态并入库 da26f3624a;HEAD 面 RC=0、self-test 73/73、镜像 81/81,A/B 证明未造恒红门) (7494794a005)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (e531eb4367c)
-- 🔧 工程/其他:goal-r1 认领 5 票加租约(r25a/r25b/r25c+r25e/r25d/r25f@2026-10-25,主会话派单防打架前置) (f881ee1c233)
-- 🐞 修复:门 55 修复第二次落地 —— 前次 d32263e707c 被 920fff8deb7 整体重写吞掉 (1cdbe49d9a6)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cfa5c9ec9dc)
-- 🚀 新功能/改进:D08 ② agent 换手结构化事件(kind/agent_id/summary/token_usage/ts,复用 subagent_* 帧)+ 14 例测试 + 端内覆盖登记 (35aa933f806)
-- 🐞 修复:live-doc-edit G-313 期末对账三缺陷修补(取材兜底/留痕链/手填号射程/正则泄漏) (cc0f35a4334)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ae64a8112b0)
-- 🔧 工程/其他:复结 9 张被并集回捞的已结清票(origin 同步止血) (acbc383068b)
-- 🚀 新功能/改进:G-62 恢复 F5 欠账名单问责出口(f5Deficit/f5SuppressedCredit 结构化返回,五档判据原样共存)+ 四臂测试 (c9684235f5e)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (db8223555c1)
-- ♻️ 重构:G-29 第二十批 10 站接 flag-value 单源(发布/运维脚本 requireFlagValue,语义未动) (a790c0d0a37)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (21a03a92fa5)
-- 🚀 新功能/改进:端侧读数判据补 V3-V5(非等分宿主)+ 29 处收口 (b83d50c6344)
-- 📚 文档:端侧读数约束补 V3-V5(space-between 行 / absolute 容器 / 定宽格) —— 存量 23→69 处已归零 (10905ec50cc)
-- 🔧 工程/其他:结清发丝线两尺合一票(hairline 尺 HEAD 面真分隔线存量 0 枚;a88793d3d1 已入库,凭据见行内注记) (38f0580dfca)
-- 🐞 修复:补 workPanel.popout 五语键(work-panel 独立窗口按钮引用缺键,i18n 全量档 rc=1 已复绿) (479d43bd68f)
-**2026-10-24**
-- 🐞 修复:发丝尺严格指纹整体上收进分割线门族7(scanHairlineFaces 单源),hairline 门退化为适配层、旧 RN 循环与 classifyBgToken/HAIRLINE_AXIS_RE 退役 —— 两尺对同一枚文件读同一组枚数,等积清偿后计数只降不升,棘轮天然放行,零豁免零削尺;清偿最后一枚 RN 发丝线 HomeScreen.modelModalHairline(背景色画改等积单边描边,同中性档)。主席自证:两把尺 --self-test RC=0(64/64、19/19),镜像 49/49(hairline 20 + no-divider 29),与 HEAD 版同场对账 hairline 输出逐字零差异、no-divider 唯一差异=预筛面 1172→1465(覆盖面变宽,结论行不变);改名一处局部变量 sd→dividerHit 以避开与祖先行逐字撞车的复活判据(行为零变化,已复跑三件) (a88793d3d1d)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (aad49b8ece0)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (75f91b11f67)
-- 🔧 工程/其他:复结 G-29(并集回捞;blocking 口径已清) (18b6e8a5951)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (536ea8dd1c1)
-- 🔧 工程/其他:翻勾三条已带结清证据的存量(G-25 三投影 6/6 · prod-bundle 入库源 rc=0 · D13 只读并行 5 passed) (88f0c680baa)
-- 🐞 修复:剥开 satisfies 后暴露的 3 处端侧缺口 + web 断点陷阱 8 处收口 (00c9eb7343c)
-- 🐞 修复:收口 CI Build 唯一的红 —— community 入口桶文件 import 次序回归(票 G-948) (02bba4c2db9)
-- 🐞 修复:门 55 存量红归零 88/89 → 89/89 —— init_agents_md 补显示名映射与五语言文案 (d32263e707c)
-- 🚀 新功能/改进:编辑器空态一键生成 AGENTS.md(双确认 + 失败明示 + 不带 output_path) (04cfdb7704f)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (2ad9065cdea)
-- 🔧 工程/其他:waitFor/findBy 等待预算从"机器负载读数"改回"测试判据"—— RTL 出厂默认每段 1000ms,实测同一条链空闲 3ms／事件循环被占 1200ms 时首跳 1201ms,本机常年并发 200+ 道守门 ⇒ 122 枚 P1 用例 + 168 处无预算 findBy 的红绿由负载决定。单点杠杆 configure({asyncUtilTimeout:4000}) 落 mobile-rn/web 两端 setup(此前全仓零先例),两处手搓 helper 分身同步抬档;成对自证(旧预算红/新默认绿)+反向牙(永不为真仍红 4008ms)+回归 66 例全绿;g-469 那条 vi.setConfig 注释纠偏(它只抬墙上时间,一分不加给 waitFor 段预算)。落选方案:逐枚改 122 条用例 —— 足迹过大且与兄弟席在飞面撞车 (43ce93f1a80)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (8d5b040ddba)
-- 🔧 工程/其他:结清 G-73(④a 根窗格续传回归已修,8813 clean 服务 8/8) (530e9116c74)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (ce9e0407489)
-- 🚀 新功能/改进:流式 TTS 打断(VAD RMS + policy 驱动 abort) + CodeEditorPane 注册 store 级 reveal 出口 (12e5594f051)
-- 🐞 修复:根窗格续传 await 缓存后台复核 —— 修 ④a tail 静默丢弃 (cd7fb541cf6)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1ce426b999b)
-- 🔧 工程/其他:补挂本席认领牌(前枚只改到句子未插上牌,String.replace 收字符串时 ^ 是字面量) (fb1436f9ef2)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (94a236c6763)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (f15f35e92c3)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (cdfe4c03f8e)
-- 🔧 工程/其他:认领 line-loss 第三形态判活票(机主令全部收口,原注"属他人射程"让位) (761b1c7618b)
-- 🔧 工程/其他:复结 4 张被并集回捞的票 + D-07 同题行(D42046 已结清) (80332d96882)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1003b2a6b57)
-- 🔧 工程/其他:结清 16 票(A 档零改动;承载命令/测试已复跑) (058dd42d258)
-- ♻️ 重构:门 8 方法推导判据抽到 lib 单源 —— 补齐悬空 import 并钉 T7-T10 (88a9e46d799)
-**2026-10-24**
-- 🔧 工程/其他:C8 死规则锚点下调 fractional 3→0 / total 14→11 —— fractional 族根治后重锚 (f09d1cbeb19)
-- 🐞 修复:fractional 死规则根治 —— 1.5 档类串换等值 rpx 任意值(样式静默失效的真 bug) (51faca27a46)
-- ♻️ 重构:27 份文件内 react-native mock 收归全局替身 —— 根治项落地(45 例红事故的复发通道封口) (8c2585ffe55)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (eec8e44473b)
-- 🐞 修复:摘掉 check-rn-readout-cell 的未用 import(改走取材层后 readFileSync 已无调用点) (3dccfd167ca)
-- 🚀 新功能/改进:端侧「等分读数格」判据落地 + 23 处存量收口(门 241) (8ec3cfa172f)
-- 🐞 修复:门 150 弱证据 6 处代裁归位 + scroll-jump-spec 未判定清偿(§24 代裁,依据随附) (482cf8fe9c4)
-- 📚 文档:点名端侧读数格守门 241 —— §13.4 的两条判据与唯一写法 (a510448d379)
-- 🚀 新功能/改进:/review 斜杠只读 diff + review-finding 帧注册 + 聊天 store 审查发现索引 + MessageItem 呈现 (12d98b1d88b)
-- ♻️ 重构:门134 词法层拆出 scripts/lib/batch-write-lexer.mjs(门103 C1 6117⇒5658 行)—— 459 行逐字搬运零改写:台面与 HEAD 版同跑对账 94 行输出 diff 空、--self-test 174 条全过、镜像 30/30 与 9/9 全绿;M13 形状锁的取材面同批扩成 门体∪词法层(只数门体会把"已搬到别处"读成"没有第二份"=把没判写成判过) (0ce9314545c)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6511981014b)
-- 📚 文档:删除「一格一读数」短版重复行(origin 长版为同条上位表述) (a7a78ce6229)
-- 🚀 新功能/改进:CodeEditor 暴露 revealAt 句柄(行内跳转) + 审查发现卡 P1/P2/Nit 分组 (c9bdea170c5)
-- 🔧 工程/其他:长按二维码存相册两枚用例改「只等链终点一次 + 8s 预算」—— 机制实测:同步占死事件循环 1200ms ⇒ fireEvent 到首跳 1201ms > waitFor 默认 1000ms(空闲档同链 3ms),三段串行等待在并发跑 200+ 道守门的同机上必被打成假红;断言不减(requestPermissions/saveToLibrary 仍在,反向牙实测打断写库步照样翻红),连跑 10 次全绿 (e4989cbb9e8)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (81f924cd857)
-- 🔧 工程/其他:重生成 web/miniapp ui-routes —— 清两枚 stale 自述钉(check:all 第 13 步红因) (c532c7bd028)
-- 🐞 修复:门103 C1 行数天花板收口 —— git-guardian/check-batch-write 大块注释逐字归档换指针(零行为变化) (318240af9bb)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (dd0d3f1dcaa)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5a83a417d9c)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b48d16a5759)
-- 📚 文档:清掉「读数不得断行」点名行的旧版重复副本(并发写回叠入,旧版带已腐烂的例数,§0.1 数字现读) (d74139d8d07)
-- 🐞 修复:check-mass-deletion 去裸 git 兜底 —— 型 B 棘轮 3→4 回归 (384c797851c)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c377952bcdd)
-- 🔧 工程/其他:结清 G-84(裸 git 棘轮 60=基线) (bb80c4a27e0)
-- 🐞 修复:G-322 旗标单源收口 + 运维脚本空值静默回落堵死 (b73ed821234)
-- 🐞 修复:三处写死 git 落点改走 §5b 唯一出口(gitdir.resolveGitBin) + sync-tags 补 path/url import + 端内 dispatch 登记 onReviewFinding 缺席理由(web baseline 38→39) (9272aeb4c9a)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (1b1648fe62d)
-- 🐞 修复:采纳对席圆角收口终版,消除 ScreenStates 双席分歧 —— 解开三方合并死结 (9a8202b5ae9)
-- 🐞 修复:origin 并集落地后回补 local 两处(门77 圆角 rounded-sm + 未用参数 _json) (aeaab5a5681)
-- 🐞 修复:门 150 七族 + 门 77 四处圆角存量清偿(wallboard 收尾 + ScreenStates/carte/account-pool/live 跨端同批) (718f6a413d6)
-- 🐞 修复:停靠浏览器 UI 状态改名规避门 223 规则 F(业务名词 session) (591733d9de7)
-- 🐞 修复:门103 D1+D2 消红 —— 三枚 RN 端内测试不再 import 门体(rank 40→90 反向依赖),迁移门判据断言收编进 scripts/tests T11;顺带修 T1/T3 夹具腐坏(原钉 AboutScreen.tsx,该屏今日 01:39 改薄壳并摘线) 对照实测:recruitment 两枚长按落相册用例在 HEAD 面同红(2 failed 9 passed)非本席引入 (afc8080a411)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (86f0588597d)
-- 🚀 新功能/改进:D09 专家路由设置卡 + reveal 注册表 + review-finding 契约 (d6499fc8849)
-- 🚀 新功能/改进:停靠浏览器 stop/home/pick 三命令纵向切片 + 五语种键补齐 (a78e4fcdc6d)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (81a851ac233)
-- 🔧 工程/其他:临时对齐两处同行冲突以让 union-converge 三方归并(随后回补 local 样式/命名) (c0d46b5ac03)
-- 🐞 修复:4 枚门改走 gitRaw(裸 git 棘轮 64→60) + 取号同题查重 + third-party-roots 非仓库误判根治 (a4f7931af5b)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (095537b1e58)
-- 🚀 新功能/改进:D07 残余② 接入 init_agents_md + 钩子初始化纳入可中断语义 + MCP 工作区根守卫 (78f2e0bbeb7)
-- 🔧 工程/其他:结清 B07(步序四已在,服务端 fork 按产品定档不建)+ G-73 复验注记(④a 归因未判定,不翻勾) (5d507ec93d9)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (d805b31cdae)
-- 🔧 工程/其他:结清工具面板开关窗格化(实现现读在位+单测 16 passed) (ebcbb85f038)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (63898cbb055)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (7e66f217e14)
-- 🔧 工程/其他:goal-b15 轮42 B67 结清翻勾 —— 方案②落地(esc 头注跑法更正+global-setup SKIP 警示),现行跑法 esc 主体绿 (d2cd3276763)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (a64e1d82386)
-- 🔧 工程/其他:结清 G-41 与门134 第二格(两处均零改动,判据现读已消) (5c9c0663ebd)
-- 🔧 工程/其他:结清 G-85(门100 A6 内容回退维落地) (0b38961892c)
-- 🐞 修复:半径档位表回归 7 处(门77 B1/B3/B9 + 门150 角色档 chip/card/control) (8892284497f)
-- 🐞 修复:B67 esc 跑法更正与 SKIP 警示 —— ①esc spec 头注更正过时跑法(旧版 SKIP+no-deps 已证不可行:③生态入口依赖 API 数据+SKIP 缺 globalSetup 副作用致①③协议弹窗不叠开,采样矩阵带seed三次3passed/SKIP三次2failed零反例),现行跑法=带 seed 全量;②global-setup SKIP 分支加 teardown 清库警示(不改行为);验证 tsc 0 错+水印完整+带 seed 3passed/3passed/2passed(第3轮1例波动如实记) (ef7bf0417ef)
-- 🐞 修复:门100 补 A6 内容回退维 —— 并发提交被合并吞掉时路径仍在、blob 退回共同基底,A1/A2 结构失明(G-85) (700de8ba1f5)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (30aa5bb3790)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0c7f94d374d)
-- 🔧 工程/其他:goal-b15 轮41 esc SKIP_SEED 跑法发现登记候补票(采样矩阵零反例:带seed三次3passed/SKIP三次2failed;两方案出路+验收判据齐) (42daa5960d0)
-- 🐞 修复:merge-live-doc 无锚点追加分支逐行去重(README 尾部腐坏的根因) (da3095f0ad0)
-- 📚 文档:协作会话最小纵向切片设计稿落档 + §6「另批」时点回填指针 (56dd64658dd)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (af70399256b)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b70f553e967)
-- 🔧 工程/其他:结清 3 票(D13 只读并行 / 取消信号 hook 腿 / 窗格续传) (6d3c17ada9d)
-- 🔧 工程/其他:P10 逐条裁决登记 2026-10-24 孤儿删除引用欠账(复验 0 命中,不补发) (b7f3263b94e)
-- 🚀 新功能/改进:D09 专家意图自动路由腿 — expert_route 规则分类 + llm 接线 + 跨端契约 + 五语言键 (b048e637e54)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (5bf2a99586f)
-- 🔧 工程/其他:goal-20261024-Q 结账注记(G-26 与第3波覆盖面行保持未勾,余量逐条写明) (4194b5faf07)
-- 🔧 工程/其他:补 check-duplicate-policy-literals 的 render 崩溃回归镜像锁(源已入库、锁悬空两日) (1efd821c7d5)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (c17625fb208)
-- 🔧 工程/其他:goal-20261024-Q 收尾批3 终读(门 105/184 归零、ui-routes 全 matched、终读读数) (2cedeff3541)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6158849f52e)
-- 🔧 工程/其他:web ui-routes 自述钉再按 HEAD 面重算(checkin/preferences 落地后),内容行零差 (8655bfb6c18)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (013cc1e82a0)
-- 🔧 工程/其他:结清 D06 结构化代码审查(选择器+事件+卡片+行级揭示) (e4d970ce070)
-- 🔧 工程/其他:四端 ui-routes 自述钉随公告/看板/密钥池页面落地重算,内容行零差 (7382127d478)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (0d73c8bf3eb)
-- 🔧 工程/其他:goal-b15 轮30 G-73 结清翻勾 —— 多窗格 e2e 真机核验达成(6 passed+1 flaky 如实记,四片主体全覆盖) (d07649d6537)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (4cbf4faf66c)
-- 🔧 工程/其他:goal-20261024-Q 收尾批2(checkin 取词/edu 测试转绿/handlers 115 精读收口) (1fc16551d86)
-- 🚀 新功能/改进:历史课程视频(G-921)现网挂载量算仪 check-learn-video-mount.mjs —— 只读尺子,刻意不进提交链 (24430b3a47d)
-- 🐞 修复:批量写诚实性的证据窗收窄到"被审那条写链"(F1/E1b),旧「同体放行」恒绿格钉成必红 (c587f6fbeef)
-- 🔧 工程/其他:C8 死规则分族棘轮重锚 fractional 0→3 / other 12→6(total 17→14) (85e5c9c3166)
-- 🐞 修复:门 193 的 6 处 execSync 补 stdio + 豁免一条随删除消失的存量 —— 解堵推送链 (225fab254d7)
-- 🚀 新功能/改进:分叉告警自带「已验证的补救」——把 7.3 小时的现场重判压成一封可粘贴的信 (61a4812fe3a)
-- 📚 文档:全局 mock 替身加迁移指引 —— 禁止新测试再写覆盖式文件内 react-native mock (edc5bc43555)
-- 🐞 修复:media-tasks 手机档 5 列切断读数,并把 76 处存量的最坏格宽算清、登记断点陷阱 (44ba5d64476)
-- 🐞 修复:清偿 RN 端剩余测试红至全量 1185/0 —— 全局 mock 替身补键两处 + 真回归复挂 VoiceNote + 路由档补录 + 契约随形态 (978a132bbdf)
-- 🐞 修复:长标签收进悬停口径,读数格标签不再折行 (bfd6ce46a49)
-- 🔧 工程/其他:按代码面重算 openapi.json,清掉 CI 的 ARTIFACT_DRIFT (d4d1065aab8)
-- 🐞 修复:清偿 web 全量测试面 32 例真红(8 族根因,6739 用例全绿终验在跑) (d0ccb867450)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (92cda2bce94)
-- 🐞 修复:/api/internal/* 网络分域显式声明(根治 G-815989 判据在 CI 的红) (e65f374d8a9)
-- 🐞 修复:清掉 ruff 全量红(15→0),按 §5c clean→改→inject 保水印载荷 (a43d6eaec99)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (85bd4df8b50)
-- 🐞 修复:drop unnecessary 'tt' dep in course-planet loadData useCallback (CI lint:strict warning->red) (b560edce07d)
-- 🐞 修复:读数不得替「没量到」下结论 + 时间按数据侧时区 + 页头扫描线的横向溢出 (dab47611c97)
-- 🚀 新功能/改进:大屏读数尺补五语言档,并把覆盖边界现读进文档(别把「已装门」当「已覆盖」) (0a6da8a0c1b)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b80203fb3e1)
-- 🔧 工程/其他:goal-b15 轮29 三行取证补录 —— S1/S2 e2e 真跑 3 passed(PG18 恢复后)+G-02 真登录态 200 取证(subagents/all 形状同票面期望) (5cdd3f80244)
-- 🚀 新功能/改进:落地「停靠浏览器 + Trae 网页登录」自洽单元(build.rs 命令表补齐 10 条) (a7b3500f73e)
-- 🐞 修复:旁路落地器接「落地后复跑受影响判据」(G-113) —— lib/land-gate-rerun.mjs 与两台落地器同批入库 (afe67708b50)
-- 🚀 新功能/改进:D11 语音打断腿 — /voice/tts/stream 逐段 NDJSON + voice_barge_in 打断判据 + 22 例测试 (31690b4cb74)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (6b5b56ceb24)
-- 🐞 修复:relay 号池「上游明确拒收」三处断链补实 + 产出面键集契约回退 (99db9d24126)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (488d3ed3724)
-- ♻️ 重构:清偿 PROJECT_PLAN 重复登记存量(L1-L4 指针注记 + L5/L6 无注记真归并) (b9bb78319fb)
-- 🔧 工程/其他:goal-b15 轮20 G-81 结清翻勾 —— 病面已由 G-876 席修复(code zod 必填+verifyCode 统一入口,枚 9e103ac0f6),auth 1311 全绿复验 (384058380d8)
-- 🐞 修复:门 71 抹号/折算位数上限 4→6(止血换号被自愈回插)+ D42046 归位 D-07 (c8d64eb3f27)
 → **IHUI-AI** 是唯一 9 端全覆盖的开源 AI 平台:Web(Next.js 16,250+ 页面)+ API(Fastify 4443 路由)+ AI-Service(FastAPI + LangGraph,200+ services)+ Desktop(Tauri 2,29 命令 + 三阶段自动更新)+ Extension(WXT + Chrome MV3,30 Side Panel 页面)+ Mobile(Expo + React Native,140 屏幕)+ Miniapp(Taro 4,100+ 页面,6 平台一套代码)+ Capacitor(mobile-cap,原生壳)+ CLI(Node.js,50 命令 + 36 工具)。16 共享包跨端复用,真实维护倍数 1.72x(非 9x)。
 → **IHUI-AI** 是唯一 9 端全覆盖的开源 AI 平台:Web(Next.js 16,900+ 页面)+ API(Fastify 4443 路由)+ AI-Service(FastAPI + LangGraph,200+ services)+ Desktop(Tauri 2,29 命令 + 三阶段自动更新)+ Extension(WXT + Chrome MV3,30 Side Panel 页面)+ Mobile(Expo + React Native,200+ 屏幕)+ Miniapp(Taro 4,40+ 页面,6 平台一套代码)+ Capacitor(mobile-cap,原生壳)+ CLI(Node.js,66 命令文件 + 72 工具文件)。16 共享包跨端复用,真实维护倍数 1.72x(非 9x)。
 node scripts/check-identity-principal-source.mjs --staged  # 「身份主体取自 auth 层从不填充的 request.user」对账(2026-10-25 立;crew/knowledge 匿名越权族根治;W1/W3 绝对零容忍 + W2 差值棘轮)
@@ -6257,16 +6103,16 @@ node scripts/check-db-migration-gaps.mjs  # DB 迁移账本「中间缺口」审
 
 > 2026-11-07:逐门说明正文已移入 [docs/GATEKEEPERS.md](docs/GATEKEEPERS.md) 的「10. 门名点名索引」;本节只保留门脚本名单(守门 207 体积预算)。R4 的文档面 = `AGENTS.md` ∪ `README.md`,名单留在此处仍满足「每道已接线门必须被点名」。编号与档位以 `scripts/guardian-runner.mjs` 注册条目现值为准。
 
-- 名单(384 枚):
+- 名单(388 枚):
 - `ai-authorship-report.mjs` `alert-volume-report.mjs` `api-route-uniqueness.mjs`
 - `audit-decision-log.mjs` `audit-pane-store-addressing.mjs` `auto-evolve.mjs`
 - `autonomy-runner.mjs` `build.mjs` `bypass-git.mjs` `c-disk-breakdown.mjs`
 - `check-aasa-public-health.mjs` `check-adapter-style-parity.mjs` `check-agents-doc-size.mjs`
-- `check-ai-panel-mount-guards.mjs` `check-alert-identity-volatility.mjs`
-- `check-alert-identity-volatility.test.mjs` `check-alertmanager-live-config.mjs`
-- `check-analytics-page-coverage.mjs` `check-api-endpoint-delta.mjs`
-- `check-api-key-permission-labels.mjs` `check-api-route-uniqueness.mjs`
-- `check-app-version-latest.mjs` `check-asset-path-health.mjs`
+- `check-ai-panel-mount-guards.mjs` `check-ai-task-background-reference.mjs`
+- `check-alert-identity-volatility.mjs` `check-alert-identity-volatility.test.mjs`
+- `check-alertmanager-live-config.mjs` `check-analytics-page-coverage.mjs`
+- `check-api-endpoint-delta.mjs` `check-api-key-permission-labels.mjs`
+- `check-api-route-uniqueness.mjs` `check-app-version-latest.mjs` `check-asset-path-health.mjs`
 - `check-auth-cookie-domain-scope.mjs` `check-auth-cookie-domain-scope.test.mjs`
 - `check-authorization-column-isolation.mjs` `check-autonomy-leg-health.mjs`
 - `check-bare-decode-uri.mjs` `check-baseline-freshness.mjs`
@@ -6293,7 +6139,7 @@ node scripts/check-db-migration-gaps.mjs  # DB 迁移账本「中间缺口」审
 - `check-error-attribution-single-source.mjs` `check-error-code-not-text-matching.mjs`
 - `check-error-message-bounded.mjs` `check-event-closure-leak.mjs` `check-file-write-safety.mjs`
 - `check-fixture-tmpdir.mjs` `check-format-changed.mjs` `check-format-support-parity.mjs`
-- `check-format-support-parity.test.mjs` `check-gate-face-discipline.mjs`
+- `check-format-support-parity.test.mjs` `check-gate-face-discipline.mjs` `check-gate-rot.mjs`
 - `check-gate-triggers.mjs` `check-gate-wiring.mjs` `check-generator-resource-release.mjs`
 - `check-git-read-timeout.mjs` `check-glyph-arrow-icon.mjs` `check-grafana-datasource-wiring.mjs`
 - `check-grafana-datasource-wiring.test.mjs` `check-grafana-metric-exists.mjs`
@@ -6322,10 +6168,10 @@ node scripts/check-db-migration-gaps.mjs  # DB 迁移账本「中间缺口」审
 - `check-mobile-api-base-bake.mjs` `check-mobile-download-leg-cn.mjs`
 - `check-mobile-download-leg.mjs` `check-mobile-rn-style-parity.mjs`
 - `check-mobile-version-code.mjs` `check-modal-keyboard-avoid.mjs`
-- `check-mode-permission-matrix.mjs` `check-monitor-runtime-parity.mjs`
-- `check-mrn-vitest-mock-alias-surface.mjs` `check-multi-end-sync.mjs`
-- `check-nested-additional-properties.mjs` `check-no-divider.mjs` `check-no-emoji-icons.mjs`
-- `check-no-mask-image.mjs` `check-no-native-dialog.mjs`
+- `check-mode-permission-matrix.mjs` `check-money-display-single-source.mjs`
+- `check-monitor-runtime-parity.mjs` `check-mrn-vitest-mock-alias-surface.mjs`
+- `check-multi-end-sync.mjs` `check-nested-additional-properties.mjs` `check-no-divider.mjs`
+- `check-no-emoji-icons.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs`
 - `check-no-nested-git-sites-durability.mjs` `check-no-nested-git.mjs` `check-no-warm-border.mjs`
 - `check-no-warm-border.test.mjs` `check-ops-patrol.mjs` `check-origin-guard-liveness.mjs`
 - `check-orphan-deletion-refs.mjs` `check-percent-clamp-single-source.mjs`
@@ -6342,15 +6188,16 @@ node scripts/check-db-migration-gaps.mjs  # DB 迁移账本「中间缺口」审
 - `check-python-import-resolvable.mjs` `check-qoder-session-sync-task.mjs`
 - `check-radius-role-conformance.mjs` `check-radius-single-source.mjs` `check-readme-sync.mjs`
 - `check-readme-table-integrity.mjs` `check-redirect-target-origin-pinned.mjs`
-- `check-registry-worktree-superset.mjs` `check-relay-capacity-zero.mjs`
-- `check-relay-queue-db-isolation.mjs` `check-retrieval-quality.mjs`
-- `check-rich-anchor-renderer-single-source.mjs` `check-rn-compat-coverage.mjs`
-- `check-rn-host-shell-coverage.mjs` `check-rn-host-shell-coverage.test.mjs`
-- `check-rn-interaction-hygiene.mjs` `check-rn-type-floor.mjs` `check-root-dir-clean.mjs`
-- `check-root-guard-consistency.mjs` `check-root-guard-manifest-sync.mjs`
-- `check-root-guard-manifest-sync.test.mjs` `check-rounded-full.mjs` `check-ruff-python.mjs`
-- `check-scratch-root-no-nesting.mjs` `check-selftest-registrant-evaluates.mjs`
-- `check-sequence-lag.mjs` `check-service-binary-paths.mjs` `check-service-binary-paths.test.mjs`
+- `check-registry-sync-health.mjs` `check-registry-worktree-superset.mjs`
+- `check-relay-capacity-zero.mjs` `check-relay-queue-db-isolation.mjs`
+- `check-retrieval-quality.mjs` `check-rich-anchor-renderer-single-source.mjs`
+- `check-rn-compat-coverage.mjs` `check-rn-host-shell-coverage.mjs`
+- `check-rn-host-shell-coverage.test.mjs` `check-rn-interaction-hygiene.mjs`
+- `check-rn-type-floor.mjs` `check-root-dir-clean.mjs` `check-root-guard-consistency.mjs`
+- `check-root-guard-manifest-sync.mjs` `check-root-guard-manifest-sync.test.mjs`
+- `check-rounded-full.mjs` `check-ruff-python.mjs` `check-scratch-root-no-nesting.mjs`
+- `check-selftest-registrant-evaluates.mjs` `check-sequence-lag.mjs`
+- `check-service-binary-paths.mjs` `check-service-binary-paths.test.mjs`
 - `check-shared-type-not-redeclared.mjs` `check-sheet-flex-contract.mjs`
 - `check-sheet-flex-contract.test.mjs` `check-single-branch.mjs` `check-skip-env-promise.mjs`
 - `check-slash-command-wired.mjs` `check-spawn-stdio.mjs` `check-sse-frame-watermark.mjs`
