@@ -61,7 +61,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **624 tables · 4722 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · test file counts in the generated table below ·
-336 engineering gates · 55 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+336 engineering gates · 56 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -71,7 +71,7 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | schema 文件 | 241 | `dbSchemaFiles` |
 | API 路由 | 4725 | `apiRoutes` |
 | 路由文件 | 669 | `apiRouteFiles` |
-| AI 服务路由 | 654 | `aiServiceRoutes` |
+| AI 服务路由 | 656 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4357 | `testFiles` |
-| CI 工作流 | 55 | `ciWorkflows` |
+| 测试文件 | 4363 | `testFiles` |
+| CI 工作流 | 56 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 351 | `guardianGates` |
 | — blocking | 322 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19951 | `trackedFiles` |
+| 跟踪文件 | 19999 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -560,7 +560,7 @@ If this project is useful to you, a ⭐ is the most direct contribution.
 
 <!-- 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) -->
 Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4357 test files ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4363 test files ·
 332 engineering gates · 55 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·

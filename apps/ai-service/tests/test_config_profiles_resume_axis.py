@@ -86,8 +86,11 @@ async def _call_shared_resume(
         captured.update(kwargs)
 
         class _FakeLoop:
-            async def resume_from_checkpoint(self, checkpoint_id: str) -> Any:
+            async def resume_from_checkpoint(
+                self, checkpoint_id: str, resume_confirmations: Any = None
+            ) -> Any:
                 captured["checkpoint_id"] = checkpoint_id
+                captured["resume_confirmations"] = resume_confirmations
                 return _loop_result()
 
         return _FakeLoop()

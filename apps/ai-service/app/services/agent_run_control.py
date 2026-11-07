@@ -58,6 +58,7 @@ from enum import StrEnum
 from typing import Protocol
 
 from .agent_checkpoint import AgentLoopCheckpoint
+from .agent_resume_semantics import ResumeBlockedError
 from .durable_resume import renew_resume_point_before_resume, select_resume_point
 from .run_ownership import owner_of
 
@@ -138,6 +139,7 @@ class ResumeOutcome(StrEnum):
     NOT_PAUSED = "not_paused"  # 有会话但它不是暂停态(还在跑 / 已跑完)→ 409
     FORBIDDEN = "forbidden"  # 属主可判定且非请求者 → 403
     OWNER_UNVERIFIABLE = "owner_unverifiable"  # 属主判不出 → 不放行,等人工确认 → 409
+    NEEDS_CONFIRMATION = "needs_confirmation"  # 崩溃轮有副作用调用无法判定 → 409 + 处置清单
     RESUME_FAILED = "resume_failed"  # 续跑过程报错(存储/循环不可用)→ 503
 
 
@@ -694,6 +696,17 @@ async def resume_session(
             outcome=ResumeOutcome.NO_CHECKPOINT,
             changed=False,
             detail=f"检查点在本次续跑取用前已失效:{exc}",
+        )
+    except ResumeBlockedError as exc:
+        # 崩溃那轮有副作用调用无法判定:续跑**没有**发生,会话仍停在暂停点。
+        # payload 原样带回(由路由映射成 409),不在此重新拼一份 —— 证据面只有一个。
+        await _restore_paused()
+        return ResumeResult(
+            outcome=ResumeOutcome.NEEDS_CONFIRMATION,
+            changed=False,
+            checkpoint_id=checkpoint.checkpoint_id,
+            result=dict(exc.payload),
+            detail=str(exc),
         )
     except Exception as exc:  # noqa: BLE001 - 续跑内部异常一律转显式失败,不冒泡成空 500
         await _restore_paused()
