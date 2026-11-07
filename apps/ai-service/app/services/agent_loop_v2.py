@@ -144,6 +144,19 @@ from .agent_checkpoint import (
     get_agent_checkpoint_manager,
 )
 from .agent_deliverables import DeliverablesCollector, save_deliverables
+from .agent_resume_semantics import (
+    RECEIPT_STATE_ATTEMPTING,
+    RECEIPT_STATE_SETTLED_ERROR,
+    RECEIPT_STATE_SETTLED_OK,
+    RECEIPTS_EPOCH,
+    RESUME_ROUND_PHASE_ROUND_DONE,
+    RESUME_ROUND_PHASE_TOOLS_INFLIGHT,
+    RESUME_ROUND_PHASE_TOOLS_INTERRUPTED,
+    ToolReceipt,
+    args_digest,
+    describe_tool_scope,
+    result_digest,
+)
 from .approval_generation_cas import (
     REASON_SNAPSHOT_MISMATCH,
     STATE_RESOLVED,
@@ -1358,6 +1371,21 @@ def _self_heal_max_per_run_from_env() -> int:
         )
     except ValueError:
         return _SELF_HEAL_DEFAULT_MAX_PER_RUN
+
+
+def _resume_receipts_enabled_from_env() -> bool:
+    """跨进程续跑回执开关(env IHUI_AGENT_RESUME_RECEIPTS,默认 **1 严格**)。
+
+    默认严格:每轮工具执行前落"写前 checkpoint",有副作用工具执行前落 attempting
+    回执、执行后落 settle 回执;续跑只认回执,不认历史。
+
+    `0/off/false/no` 是**过渡态应急回退**,不是常规配置:关闭后跨进程续跑退回旧
+    口径(只按消息历史判断,已完成但无凭证的步骤可能被重跑)。稳定后应删除该开关
+    与全部分支,不要把它当成长期产品选项。
+    """
+    return os.environ.get("IHUI_AGENT_RESUME_RECEIPTS", "1").strip().lower() not in (
+        "0", "off", "false", "no",
+    )
 
 
 def _extract_pytest_target(command: str) -> str | None:
@@ -2918,6 +2946,15 @@ class AgentLoopV2:
         # `agent:{session}:{tool_call_id}:{attempt_seq}`,同一次执行跨进程稳定,
         # 服务端按 invocationId 去重才真正生效(此前每次 uuid4 现生成,去重是空话)。
         self._tool_attempts: dict[str, int] = {}
+        # 跨进程续跑回执(默认严格开)。是否真正生效还要看 checkpoint manager
+        # 是否有耐久后端(纯内存 manager 不可跨进程恢复 ⇒ 本 run 回执关闭)。
+        self._resume_receipts_enabled: bool = _resume_receipts_enabled_from_env()
+        self._resume_receipts_active: bool = False
+        # 当前轮写前 checkpoint 句柄:{"checkpoint_id","iteration","assistant_index",
+        # "tool_call_ids","rev"}。round_done / interrupted 后清空。
+        self._resume_round: dict[str, Any] | None = None
+        self._resume_receipt_rev: int = 0
+        self._resume_receipt_lock = asyncio.Lock()
 
     def _ensure_session_id(self) -> str:
         """获取或自动生成 session_id。"""
@@ -2947,6 +2984,9 @@ class AgentLoopV2:
         # 续跑:尝试序号按 run 重置;resume 分支会按回执 attempt_seq 重新预置,
         # 保证重试得到 attempt_seq+1 而不是从 1 再来。
         self._tool_attempts = {}
+        self._resume_receipts_active = False
+        self._resume_round = None
+        self._resume_receipt_rev = 0
         # 批58(接线):executed_tool_calls per-turn 生命周期——新轮次清空
         # (对标 codex 对齐 per-turn 语义);off/None 零副作用,异常隔离。
         if self._executed_tool_calls is not None:
@@ -3542,6 +3582,239 @@ class AgentLoopV2:
                 e,
             )
             return None
+
+    # ------------------------------------------------------------------
+    # 跨进程续跑:写前 checkpoint + 工具回执(默认严格路径)
+    # ------------------------------------------------------------------
+
+    def _resume_round_meta(
+        self,
+        phase: str,
+        iteration: int,
+        assistant_index: int,
+        tool_call_ids: list[str],
+        rev: int,
+    ) -> dict[str, Any]:
+        """续跑元数据唯一构造点(phase/iteration/assistant_index/rev 同源)。"""
+        return {
+            "resume_round": {
+                "phase": phase,
+                "iteration": iteration,
+                "assistant_index": assistant_index,
+                "tool_call_ids": list(tool_call_ids),
+                "rev": rev,
+                "epoch": RECEIPTS_EPOCH,
+            }
+        }
+
+    async def _begin_resume_round(
+        self,
+        iteration: int,
+        messages: list[dict[str, Any]],
+        tool_calls: list[ToolCall],
+    ) -> None:
+        """assistant(tool_calls) 已入历史、工具尚未执行时落**写前** checkpoint。
+
+        没有这一步,"工具执行中崩溃"就只能看到上一条旧 checkpoint,续跑分不清
+        哪些调用已经动过手。纯内存 manager 不可跨进程恢复 ⇒ 回执直接关闭,
+        保持旧口径(不假装有凭证)。
+        """
+        self._resume_receipts_active = False
+        self._resume_round = None
+        if not (self._resume_receipts_enabled and self.enable_checkpoint):
+            return
+        try:
+            durable = await self._checkpoint_manager.receipts_durable()
+        except Exception as e:
+            logger.warning("续跑:探测回执耐久后端失败(本 run 关闭回执): %s", e)
+            return
+        if not durable:
+            return
+
+        receipts = self._tool_state.get("resume_receipts")
+        rev = 0
+        calls: dict[str, Any] = {}
+        if isinstance(receipts, dict):
+            raw_rev = receipts.get("rev", 0)
+            rev = raw_rev if isinstance(raw_rev, int) and raw_rev >= 0 else 0
+            raw_calls = receipts.get("calls")
+            calls = dict(raw_calls) if isinstance(raw_calls, dict) else {}
+        # 回执跨轮保留(续跑要能看到前面轮的 settled),rev 跟随最新 checkpoint。
+        self._tool_state["resume_receipts"] = {"v": 1, "rev": rev, "calls": calls}
+
+        assistant_index = len(messages) - 1
+        tool_call_ids = [tc.id for tc in tool_calls]
+        ckpt_id = await self._save_checkpoint_safe(
+            iteration=iteration,
+            messages=messages,
+            status="running",
+            metadata=self._resume_round_meta(
+                RESUME_ROUND_PHASE_TOOLS_INFLIGHT,
+                iteration,
+                assistant_index,
+                tool_call_ids,
+                rev,
+            ),
+        )
+        if not ckpt_id:
+            # 写前 checkpoint 失败:没有耐久锚点,后续回执写入也会因找不到行而失败;
+            # 有副作用工具会在 intent 阶段被 fail-closed 拦下。
+            return
+        self._resume_round = {
+            "checkpoint_id": ckpt_id,
+            "iteration": iteration,
+            "assistant_index": assistant_index,
+            "tool_call_ids": tool_call_ids,
+        }
+        self._resume_receipt_rev = rev
+        self._resume_receipts_active = True
+
+    async def _write_resume_receipt(
+        self, tool_call_id: str, record: dict[str, Any]
+    ) -> bool:
+        """CAS 写一条回执;True 仅代表耐久后端真的落盘。"""
+        if not self._resume_receipts_active or self._resume_round is None:
+            return False
+        async with self._resume_receipt_lock:
+            checkpoint_id = str(self._resume_round.get("checkpoint_id") or "")
+            expected = self._resume_receipt_rev
+            try:
+                applied = await self._checkpoint_manager.record_tool_receipt(
+                    checkpoint_id, tool_call_id, record, expected
+                )
+            except Exception as e:
+                logger.warning("续跑:回执写入异常(tool_call=%s): %s", tool_call_id, e)
+                applied = False
+            if not applied:
+                return False
+            self._resume_receipt_rev = expected + 1
+            receipts = self._tool_state.get("resume_receipts")
+            if not isinstance(receipts, dict):
+                receipts = {"v": 1, "rev": 0, "calls": {}}
+                self._tool_state["resume_receipts"] = receipts
+            calls = receipts.get("calls")
+            if not isinstance(calls, dict):
+                calls = {}
+                receipts["calls"] = calls
+            receipts["rev"] = self._resume_receipt_rev
+            calls[tool_call_id] = record
+            return True
+
+    async def _resume_note_intent(self, tc: ToolCall) -> bool:
+        """有副作用工具执行前落 `attempting`;False 表示耐久意图写不了,禁止执行。
+
+        只读工具不写意图:崩溃后重跑是安全的,没必要为它制造一条 UNCERTAIN 回执。
+        """
+        if not self._resume_receipts_active:
+            return True
+        scope = describe_tool_scope(tc.name)
+        if not scope.mutating:
+            return True
+        record = ToolReceipt(
+            state=RECEIPT_STATE_ATTEMPTING,
+            scope=scope.scope,
+            mutating=True,
+            args_digest=args_digest(tc.args),
+            attempt_seq=self._current_tool_attempt(tc.id),
+            attempted_at=time.time(),
+        ).to_dict()
+        return await self._write_resume_receipt(tc.id, record)
+
+    def _tool_message_for_result(self, tr: ToolResult) -> dict[str, Any]:
+        """工具结果 → provider 协议消息(续跑重放用的就是这条消息本体)。"""
+        return {
+            "role": "tool",
+            "tool_call_id": tr.tool_call_id,
+            "name": tr.name,
+            "content": bound_tool_result_for_context(
+                tr.result if not tr.error else {"error": tr.error},
+                tool_name=tr.name,
+                session_id=self._session_id,
+                artifact=tr.output_artifact,
+            ),
+        }
+
+    async def _resume_settle_round(
+        self,
+        tool_calls: list[ToolCall],
+        tool_results: list[ToolResult],
+        tool_messages: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """把本轮真实执行过的调用 settle 落盘(**先于** tool 消息入历史)。
+
+        settle 失败不回滚已执行事实:下次续跑会看到卡在 attempting 的回执,
+        按 UNCERTAIN 拦确认 —— 这是安全侧,不是数据丢失。
+        """
+        if not self._resume_receipts_active:
+            return
+        by_id = {tc.id: tc for tc in tool_calls}
+        messages = (
+            list(tool_messages)
+            if tool_messages is not None
+            else [self._tool_message_for_result(tr) for tr in tool_results]
+        )
+        for tr, msg in zip(tool_results, messages, strict=False):
+            tc = by_id.get(tr.tool_call_id)
+            if tc is None:
+                continue
+            scope = describe_tool_scope(tc.name)
+            record = ToolReceipt(
+                state=(
+                    RECEIPT_STATE_SETTLED_ERROR if tr.error else RECEIPT_STATE_SETTLED_OK
+                ),
+                scope=scope.scope,
+                mutating=scope.mutating,
+                args_digest=args_digest(tc.args),
+                attempt_seq=self._current_tool_attempt(tc.id),
+                result_message=msg,
+                result_digest=result_digest(msg),
+                ledger_id=(
+                    f"agent:{self._session_id or ''}:{tc.id}:"
+                    f"{self._current_tool_attempt(tc.id)}"
+                ),
+                settled_at=time.time(),
+            ).to_dict()
+            if not await self._write_resume_receipt(tc.id, record):
+                logger.warning(
+                    "续跑:回执 settle 未能耐久落盘(tool_call=%s),崩溃后将按不确定处理",
+                    tc.id,
+                )
+
+    async def _resume_settle_completed(
+        self, tool_calls: list[ToolCall], raw_results: list[Any]
+    ) -> None:
+        """中断路径:只 settle 已经拿到 ToolResult 的兄弟调用。
+
+        正在执行/抛 _LoopInterrupted 的那个调用**不** settle:它可能已经产生副作用
+        但没走完,留 attempting 才会在续跑时被拦确认。
+        """
+        done = [r for r in raw_results if isinstance(r, ToolResult)]
+        if done:
+            await self._resume_settle_round(tool_calls, done)
+
+    def _resume_interrupted_metadata(self) -> dict[str, Any] | None:
+        """优雅中断(cancel/pause)时携带的续跑元数据。"""
+        if not self._resume_receipts_active or self._resume_round is None:
+            return None
+        return self._resume_round_meta(
+            RESUME_ROUND_PHASE_TOOLS_INTERRUPTED,
+            int(self._resume_round.get("iteration", self._current_iteration)),
+            int(self._resume_round.get("assistant_index", -1)),
+            list(self._resume_round.get("tool_call_ids") or []),
+            self._resume_receipt_rev,
+        )
+
+    def _resume_round_done_metadata(self, iteration: int) -> dict[str, Any] | None:
+        """轮末 checkpoint 元数据:phase=round_done + 全部回执(回执在 tool_state)。"""
+        if self._resume_round is None:
+            return None
+        return self._resume_round_meta(
+            RESUME_ROUND_PHASE_ROUND_DONE,
+            iteration,
+            int(self._resume_round.get("assistant_index", -1)),
+            list(self._resume_round.get("tool_call_ids") or []),
+            self._resume_receipt_rev,
+        )
 
     async def _maybe_self_heal(
         self,
@@ -5281,6 +5554,10 @@ class AgentLoopV2:
                         ],
                     }
                 )
+                # 4-1. 写前 checkpoint:工具尚未执行时先锚定"这一轮有哪些调用"。
+                #      崩溃发生在这里之后,续跑才知道要从工具轮内部接管,而不是
+                #      跳到下一轮 iteration。
+                await self._begin_resume_round(i, messages, tool_calls)
 
                 # 5. 执行工具(V3#54 2026-09-28:先过 doom-loop/stuck 哨兵)
                 #    - terminate_loop:判定卡死(连续相同 tool_call 模式达阈值,或
@@ -5304,9 +5581,14 @@ class AgentLoopV2:
                         (datetime.now(UTC) - iter_start).total_seconds() * 1000
                     )
                     iterations.append(iteration)
+                    resume_meta = self._resume_interrupted_metadata() or {}
                     checkpoint_id = await self._save_checkpoint_safe(
                         iteration=i, messages=messages, status="failed",
-                        metadata={"error": doom_error, "error_type": "doom_loop"},
+                        metadata={
+                            "error": doom_error,
+                            "error_type": "doom_loop",
+                            **resume_meta,
+                        },
                     )
                     return AgentLoopResult(
                         compaction_events=self._compaction_events,
@@ -5349,20 +5631,17 @@ class AgentLoopV2:
                 iteration.tool_results = tool_results
 
                 # 6. 把工具结果加入 messages
-                for tr in tool_results:
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tr.tool_call_id,
-                            "name": tr.name,
-                            "content": bound_tool_result_for_context(
-                                tr.result if not tr.error else {"error": tr.error},
-                                tool_name=tr.name,
-                                session_id=self._session_id,
-                                artifact=tr.output_artifact,
-                            ),
-                        }
+                #    先 settle 耐久回执,再把 tool 消息写进历史 —— 崩溃时只有两种
+                #    可观测状态:回执已 settle(可重放),或卡在 attempting(拦确认)。
+                #    doom-skip 的合成结果不 settle:它没有真实执行,不能造完成凭证。
+                tool_messages = [
+                    self._tool_message_for_result(tr) for tr in tool_results
+                ]
+                if "skip_tool_execution" not in doom_actions:
+                    await self._resume_settle_round(
+                        tool_calls, tool_results, tool_messages
                     )
+                messages.extend(tool_messages)
                 # V3#54(2026-09-28):结果侧观测上提主链路 ——
                 #   failure-streak 达阈值 ⇒ 换策略(注入反思提示,当前只有这一种动作,
                 #   不中断;阈值见 core/doom_loop.py FAILURE_STREAK_STRATEGY_THRESHOLD);
@@ -5447,10 +5726,16 @@ class AgentLoopV2:
                 )
 
                 # Wave 9:每轮 iteration 结束后 checkpoint(status=running);
-                # 捕获返回 id 供下一轮 tool.after 的 rollback 证据引用
+                # 捕获返回 id 供下一轮 tool.after 的 rollback 证据引用。
+                # 续跑:标记 phase=round_done —— 这一轮工具已全部 settle,续跑只需
+                # 从 i+1 继续,不必再对工具轮做预检。
                 checkpoint_id = await self._save_checkpoint_safe(
-                    iteration=i, messages=messages, status="running",
+                    iteration=i,
+                    messages=messages,
+                    status="running",
+                    metadata=self._resume_round_done_metadata(i),
                 )
+                self._resume_round = None
 
             except _LoopInterrupted as e:
                 # P0-B(2026-09-18):循环内中断——长 LLM 调用/工具执行期间命中
@@ -5464,6 +5749,7 @@ class AgentLoopV2:
                 )
                 checkpoint_id = await self._save_checkpoint_safe(
                     iteration=i - 1, messages=messages, status=reason,
+                    metadata=self._resume_interrupted_metadata(),
                 )
                 return AgentLoopResult(
                     compaction_events=self._compaction_events,
@@ -5516,7 +5802,11 @@ class AgentLoopV2:
                 # L5-1:metadata 带 error_type,供元学习失败聚类(2026-08-12 立)
                 checkpoint_id = await self._save_checkpoint_safe(
                     iteration=i, messages=messages, status="failed",
-                    metadata={"error": str(e), "error_type": error_type},
+                    metadata={
+                        "error": str(e),
+                        "error_type": error_type,
+                        **(self._resume_interrupted_metadata() or {}),
+                    },
                 )
 
                 return AgentLoopResult(
@@ -6347,6 +6637,9 @@ class AgentLoopV2:
                     # 中断的 raise 发生在下面第二轮录制循环之前 ⇒ 同批已执行完的工具
                     # 此前一行证据都进不了账(一中断整批蒸发),与"每次工具调用"直接冲突。
                     self._ingest_settled_siblings(tool_calls, gathered_raw)
+                    # 续跑:同批已完成的兄弟调用先 settle 耐久回执,崩溃/中断后
+                    # 它们才能被重放;正在中断的那一枚留 attempting,续跑拦确认。
+                    await self._resume_settle_completed(tool_calls, gathered_raw)
                     with contextlib.suppress(Exception):
                         await self._events.emit_plan_step(
                             self._session_id or "", idx, tc.name, "aborted",
@@ -6383,17 +6676,22 @@ class AgentLoopV2:
         else:
             # 串行执行(2026-08-01 P1 修复:变量名改为 serial_results,避免与并行分支的 results 重定义)
             serial_results: list[ToolResult] = []
-            for idx, tc in enumerate(tool_calls):
-                result = await self._execute_single(tc)
-                serial_results.append(result)
-                self._attach_tool_output_artifact(tc, result)
-                self._maybe_record_step(tc, result)
-                self._record_deliverable_step(tc, result)
-                decision, reason = _derive_step_decision(result)
-                await self._events.emit_plan_step(
-                    self._session_id or "", idx, tc.name, "completed",
-                    decision=decision, reason=reason,
-                )
+            try:
+                for idx, tc in enumerate(tool_calls):
+                    result = await self._execute_single(tc)
+                    serial_results.append(result)
+                    self._attach_tool_output_artifact(tc, result)
+                    self._maybe_record_step(tc, result)
+                    self._record_deliverable_step(tc, result)
+                    decision, reason = _derive_step_decision(result)
+                    await self._events.emit_plan_step(
+                        self._session_id or "", idx, tc.name, "completed",
+                        decision=decision, reason=reason,
+                    )
+            except _LoopInterrupted:
+                # 续跑:串行批里已完成的前序调用先 settle,再传播中断。
+                await self._resume_settle_completed(tool_calls, serial_results)
+                raise
             return serial_results
 
     @staticmethod
@@ -7229,6 +7527,20 @@ class AgentLoopV2:
         # 跨进程续跑:真正执行前登记尝试序号(策略拦截/审批拒绝在上面已返回,
         # 不算执行尝试)。后续 LLM 重试链仍是一次 attempt,不按 retry_count 拆分。
         self._note_tool_attempt(tc.id)
+        # 有副作用工具:执行意图必须先耐久落盘。写不进去就不执行(fail-closed)——
+        # 否则崩在这一步之后,续跑既不知道它动没动手,也无从拦确认。
+        if not await self._resume_note_intent(tc):
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result=None,
+                error=(
+                    "AGENT_RESUME_RECEIPT_UNAVAILABLE: 续跑回执无法耐久落盘,"
+                    "有副作用工具未执行(避免崩溃后无法判定是否已产生副作用)"
+                ),
+                error_type="resume_receipt_unavailable",
+                duration_ms=(time.time() - start) * 1000,
+            )
 
         # P0-B(2026-09-18):_wait_interruptible 包裹工具执行——长工具(如
         # run_command 数分钟)期间命中 cancel/pause 标志立即中断;
