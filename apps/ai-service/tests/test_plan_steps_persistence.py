@@ -78,6 +78,9 @@ def _cb_env(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "ai_callback_secret", "test-secret")
+    # 2026-11-06 票据化:回调必须带短期票(scope=ai-callback),签票依赖 JWT_SECRET;
+    # 缺它则回调被拒发(fail-closed),本文件判据全部失效。
+    monkeypatch.setattr(settings, "jwt_secret", "unit-test-jwt-secret-0123456789-abcdefgh")
     # 同 test_llm_tool_persistence:第 10 批起 callback 只许与 api_service_url 同源。
     monkeypatch.setattr(settings, "api_service_url", "http://cb")
     monkeypatch.setattr("app.routers.llm.httpx.AsyncClient", _FakeClient)

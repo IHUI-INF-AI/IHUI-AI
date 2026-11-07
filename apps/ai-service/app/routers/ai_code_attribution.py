@@ -12,6 +12,11 @@ tags=["ai-code-attribution"])` 方式挂载,最终端点路径:
   GET /api/ai-code-attribution/records/{id}/trace   → 单条记录的回溯裁决(git blame)
   POST /api/ai-code-attribution/backfill            → 提交成功后给空锚回填提交号
   GET  /api/ai-code-attribution/checkpoints         → 编辑检查点日志(损坏时不说成没有)
+  GET  /api/ai-code-attribution/notes-health        → git notes 引用在不在(没量到不说成没有)
+  GET  /api/ai-code-attribution/prompts/{prompt_id} → 按宿主注入的编号取提示词正文
+  POST /api/ai-code-attribution/notes               → 把对得上的检查点写进该仓库的 notes
+  GET  /api/ai-code-attribution/notes/{commit_sha}  → 按提交读 notes(引用不在和没记过分开)
+  GET  /api/ai-code-attribution/blame             → 按档位看归属(没给档位不挑整文件)
 
 存储:复用 app/services/ai_code_attribution_store(进程内 list + data/ai_code_attribution.json)。
 判据:app/core/ai_code_attribution(仓内只此一份);本路由只做读数与序列化,不判归属。
@@ -26,12 +31,20 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from ..core.ai_code_attribution import AttributionRecord, AttributionStats
+from ..core.ai_code_attribution import AttributionRecord, AttributionStats, plan_blame_view
 from ..core.jwt_auth import get_current_user_id
+from ..services.ai_code_attribution_git import (
+    detect_repo_root,
+    judge_notes_refs,
+    list_notes_refs,
+    read_commit_notes,
+)
 from ..services.ai_code_attribution_store import (
     backfill_commit_sha,
     list_checkpoint_log,
     list_records,
+    mirror_checkpoints_to_notes,
+    show_prompt,
     stats_all,
     stats_for_path,
     stats_for_session,
@@ -124,6 +137,31 @@ async def attribution_stats(
     return {"code": 0, "message": "ok", "data": _stats_payload(stats)}
 
 
+@router.get("/blame")
+async def attribution_blame(
+    path: str | None = None,
+    mode: str | None = None,
+    line: int | None = None,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按档位看一个文件的归属。没有路径时不扫全账。"""
+    if not isinstance(path, str) or not path.strip():
+        data: dict[str, Any] = {"status": "refused", "message": "没有文件路径", "records": []}
+    else:
+        status, message, chosen = plan_blame_view(mode, list_records(path=path, limit=_MAX_LIMIT), line=line)
+        data = {
+            "status": status,
+            "message": message,
+            "records": [_record_payload(record) for record in chosen],
+        }
+    logger.info(
+        "ai-code-attribution blame user=%s status=%s",
+        user_id,
+        data.get("status"),
+    )
+    return {"code": 0, "message": str(data.get("message") or ""), "data": data}
+
+
 @router.get("/records/{record_id}/trace")
 async def trace_attribution_record(
     record_id: str,
@@ -185,4 +223,104 @@ async def list_attribution_checkpoints(
         refused or "-",
     )
     return {"code": 0, "message": refused or "ok", "data": {"checkpoints": rows, "refused": refused}}
+
+
+@router.get("/notes-health")
+async def attribution_notes_health(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """notes 引用体检。仓库根或名单没量到时不把缺席说成健康。"""
+    root = detect_repo_root()
+    if root is None:
+        judged: dict[str, Any] = {"status": "unjudged", "message": "取不到 git 仓库根", "refs": []}
+    else:
+        judged = judge_notes_refs(list_notes_refs(root))
+    logger.info(
+        "ai-code-attribution notes-health user=%s status=%s",
+        user_id,
+        judged.get("status"),
+    )
+    return {"code": 0, "message": str(judged.get("message") or ""), "data": judged}
+
+
+@router.post("/notes")
+async def mirror_attribution_notes(
+    body: dict[str, Any],
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """只把账上已有、路径对得上的检查点写进当前仓库。写失败不改归属账。"""
+    sha = body.get("commit_sha")
+    raw_files = body.get("files")
+    raw_namespace = body.get("namespace")
+    namespace = raw_namespace if isinstance(raw_namespace, str) else ""
+    if (
+        not isinstance(sha, str)
+        or not isinstance(raw_files, list)
+        or any(not isinstance(item, str) for item in raw_files)
+    ):
+        return {
+            "code": 0,
+            "message": "提交号或文件清单形态不对",
+            "data": {"updated": 0, "refused": "提交号或文件清单形态不对"},
+        }
+    files = [item for item in raw_files if isinstance(item, str)]
+    root = detect_repo_root()
+    if root is None:
+        return {
+            "code": 0,
+            "message": "取不到 git 仓库根",
+            "data": {"updated": 0, "refused": "取不到 git 仓库根"},
+        }
+    updated, refused = mirror_checkpoints_to_notes(root, sha, files, namespace=namespace)
+    logger.info(
+        "ai-code-attribution notes user=%s updated=%s refused=%s",
+        user_id,
+        updated,
+        refused or "-",
+    )
+    return {"code": 0, "message": refused or "ok", "data": {"updated": updated, "refused": refused}}
+
+
+@router.get("/notes/{commit_sha}")
+async def show_attribution_commit_notes(
+    commit_sha: str,
+    namespace: str = "",
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按提交读 notes。仓库根没量到时不把空列表说成这个提交没有检查点。"""
+    root = detect_repo_root()
+    if root is None:
+        data: dict[str, Any] = {
+            "status": "unjudged",
+            "message": "取不到 git 仓库根",
+            "checkpoints": [],
+            "refs": [],
+        }
+    else:
+        data = read_commit_notes(root, commit_sha, namespace=namespace)
+    logger.info(
+        "ai-code-attribution notes-show user=%s status=%s",
+        user_id,
+        data.get("status"),
+    )
+    return {"code": 0, "message": str(data.get("message") or ""), "data": data}
+
+
+@router.get("/prompts/{prompt_id}")
+async def show_attribution_prompt(
+    prompt_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按编号取提示词。没量到或日志读不到时 text 为空，refused 说明是哪一种。"""
+    text, refused = show_prompt(prompt_id)
+    logger.info(
+        "ai-code-attribution prompt user=%s refused=%s",
+        user_id,
+        refused or "-",
+    )
+    return {
+        "code": 0,
+        "message": refused or "ok",
+        "data": {"prompt_id": prompt_id, "text": text, "refused": refused},
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

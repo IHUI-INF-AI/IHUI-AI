@@ -589,9 +589,7 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
     await installTauriStub(page)
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/', { waitUntil: 'domcontentloaded' })
-    await page
-      .locator(WINDOW_CONTROLS_SELECTOR)
-      .waitFor({ state: 'attached', timeout: 60_000 })
+    await page.locator(WINDOW_CONTROLS_SELECTOR).waitFor({ state: 'attached', timeout: 60_000 })
 
     /* ---- 基线:无遮罩 → 控件未压暗 ---- */
     const idle = await probeDimLayer(page)
@@ -605,6 +603,7 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
     // 询问弹窗(Radix Dialog,role=dialog)出现
     await expect(page.locator('[role="dialog"]')).toBeVisible({ timeout: 15_000 })
     // 让模态遮罩检测(rAF)与顶栏抑制状态都到位
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
 
     /* ---- 证据:询问遮罩确为全屏 z>=2000(否则下面的"未压暗"是空断言)---- */
@@ -645,9 +644,7 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
    * 本用例用**状态**而非**时序**取证据,避免 flaky:在「遮罩仍挂载于 DOM 且 data-state=closed」
    * 这一瞬窗内断言控件 data-modal-dim 已为 null。修复前该瞬窗内 data-modal-dim 仍为 '1' → 失败。
    */
-  test('模态遮罩关闭淡出相(data-state=closed 仍在 DOM)时,窗口控件须已解灰', async ({
-    page,
-  }) => {
+  test('模态遮罩关闭淡出相(data-state=closed 仍在 DOM)时,窗口控件须已解灰', async ({ page }) => {
     test.info().annotations.push({
       type: 'target',
       description: 'modal-overlay-watcher: data-state=closed 跳过 → dimActive 同帧翻 false',
@@ -655,9 +652,7 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
     await installTauriStub(page)
     await page.setViewportSize({ width: 1280, height: 800 })
     await page.goto('/', { waitUntil: 'domcontentloaded' })
-    await page
-      .locator(WINDOW_CONTROLS_SELECTOR)
-      .waitFor({ state: 'attached', timeout: 60_000 })
+    await page.locator(WINDOW_CONTROLS_SELECTOR).waitFor({ state: 'attached', timeout: 60_000 })
 
     // 基线 + 打开遮罩
     const idle = await probeDimLayer(page)
@@ -687,7 +682,9 @@ test.describe('桌面端窗口控制按钮 — 模态压暗 + 失焦降亮(真�
         },
       )
       .toMatchObject({ stillMounted: true, closed: true, unDimmed: true })
-    console.info('[9] 关闭淡出相:遮罩 data-state=closed 仍在 DOM,但 data-modal-dim 已为 null(同帧解灰)')
+    console.info(
+      '[9] 关闭淡出相:遮罩 data-state=closed 仍在 DOM,但 data-modal-dim 已为 null(同帧解灰)',
+    )
 
     // 终态:淡出结束后 dim.opacity 归 0,且 data-modal-dim 消失
     await expect(page.getByTestId('login-dialog')).toBeHidden({ timeout: 15_000 })

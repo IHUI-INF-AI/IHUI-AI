@@ -39,16 +39,21 @@
  * 用法:node scripts/check-git-probe-headroom.mjs [--json] [--self-test] [--samples N]
  */
 import { spawnSync } from 'node:child_process'
-import { readdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { readFileSync, readdirSync, writeFileSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { devEnvArtifactRoot } from './seal-c-root-stray.mjs'
+import { gitBinary } from './lib/face-reader.mjs'
+import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 export const BUDGET_MS = 5000
 export const WARN_MS = 3500
 export const DEFAULT_SAMPLES = 3
+export const PRIME_CMD = 'git update-index --untracked-cache'
 export const PROMTAIL_METRICS_URL = 'http://127.0.0.1:9080/metrics'
-export const LOG_DIR = 'D:/DevEnv/logs'
+/** 活日志目录:本机是半搬迁态,落点一律问共用出口(与 prune-rotated-nssm-logs 同一条路,§22c) */
+export const LOG_DIR = join(devEnvArtifactRoot('logs'), 'logs')
 /** 轮转副本形态:组件名后紧跟 nssm 时间戳(活文件名里没有这一段) */
 export const ROTATION_RE = /-nssm(-err)?-20\d{6}T[\d.]+\.log$/
 /** 活文件形态:svc-<组件>-nssm.log / svc-<组件>-nssm-err.log */
@@ -62,7 +67,7 @@ export function sampleStatusMs(repoRoot, n = DEFAULT_SAMPLES, opts = {}, spawn =
   const out = []
   for (let i = 0; i < n; i++) {
     const t = Date.now()
-    const r = spawn('git', args, {
+    const r = spawn(gitBinary(), args, {
       cwd: repoRoot,
       encoding: 'utf8',
       windowsHide: true,
@@ -88,7 +93,7 @@ export function statusFace(repoRoot, disableMonitor, spawn = spawnSync) {
   const pre = disableMonitor
     ? ['-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false']
     : []
-  const r = spawn('git', [...pre, 'status', '--porcelain=v1', '-z'], {
+  const r = spawn(gitBinary(), [...pre, 'status', '--porcelain=v1', '-z'], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -104,9 +109,37 @@ export function statusFace(repoRoot, disableMonitor, spawn = spawnSync) {
   return { failed: false, why: '', out: r.stdout || '' }
 }
 
+/**
+ * 索引实际落点(本仓 `.git` 是 gitfile、活 gitdir 在工作树外 ⇒ 绝不能拼 `<repo>/.git/index`)。
+ * 一律问 `git rev-parse --git-path index`,取不到就是未判定。
+ */
+export function gitIndexPath(repoRoot, spawn = spawnSync) {
+  const r = spawn(gitBinary(), ['rev-parse', '--git-path', 'index'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const p = String(r.stdout || '').trim()
+  if (r.status !== 0 || !p) return null
+  return resolve(repoRoot, p)
+}
+
+/** 布尔型 config 读取:未设置/取不到一律 false 或由调用方按 null 处理,不猜 */
+export function cfgFlag(name, repoRoot, spawn = spawnSync) {
+  const r = spawn(gitBinary(), ['config', '--get', name], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const v = String(r.stdout || '').trim()
+  return v === 'true' ? true : v === 'false' ? false : null
+}
+
 /** 配置读取:取不到一律按"未启用"处理,不当成错误(本维据此不判) */
 export function isMonitorEnabled(repoRoot, spawn = spawnSync) {
-  const r = spawn('git', ['config', '--get', 'core.fsmonitor'], {
+  const r = spawn(gitBinary(), ['config', '--get', 'core.fsmonitor'], {
     cwd: repoRoot,
     encoding: 'utf8',
     windowsHide: true,
@@ -230,9 +263,223 @@ export function judgeMonitorTrust({ enabled, monitorOut, fullOut, failed, why })
     dim: 'monitor-trust',
     state: 'drift',
     readout: `监控面比全量少 ${missing.length} 条 / 多 ${extra.length} 条 —— 缓存正对着一份已不成立的账面`,
-    next: '先关再查因:`git config --unset core.fsmonitor` + `git config --unset core.untrackedCache` + `git fsmonitor--daemon stop`;漏报的代价是面板与门 281 拿着假净账跑,不能等',
+    next:
+      '第一步做 token 重建(不是关档):`git fsmonitor--daemon stop` 后跑一次 `git status` —— 本机 2026-11-04 实测面等值当场恢复(少 1 条 `?? scripts/tests/check-dead-script-refs.test.mjs` → 少 0 多 0)。' +
+      '仍不一致才关回:`git config --unset core.fsmonitor` + `git config --unset core.untrackedCache`。' +
+      '**关之前先量**:本机三臂对照实测只关 fsmonitor 时 status 墙钟 5.7~6.2s,已超消费者 5000ms 预算 ⇒ 会复活「git 状态总是取不到」这一原始故障;漏报要治,但把加速整个关掉是把病换成死。',
     missing: missing.slice(0, 6),
     extra: extra.slice(0, 6),
+  }
+}
+
+/**
+ * 读索引扩展块名(**倒着按块走,不按窗口扫子串**)。
+ * 立因(2026-11-04 自伤实测):本机索引 2,397,366 字节,UNTR 块负载约 131KB 且写在 FSMN **之前**,
+ * 旧实现只看文件末 64KB ⇒ 扫不到 UNTR ⇒ 把"其实生效"喊成 drift。天天假红 = 把真红一起废掉(§12e)。
+ * 块格式:`签名(4) + 长度(4) + 负载(长度)`,最后一个块尾对齐 = 文件末 - 20(末 20 字节是索引校验和);
+ * 靠这个等式倒着剥,剥不动就停(落在条目区),绝不靠"文件里出现过这四个字节"来判存在。
+ */
+export function readIndexExtensions(indexPath) {
+  try {
+    const b = readFileSync(indexPath)
+    if (b.length < 32 || b.subarray(0, 4).toString('latin1') !== 'DIRC')
+      return { ok: false, why: `索引头不是 DIRC(${indexPath})`, names: [], hasFSMN: false, hasUNTR: false }
+    const names = []
+    let end = b.length - 20
+    for (let hop = 0; hop < 16; hop++) {
+      let found = -1
+      for (let off = 8; off <= Math.min(end - 8, 262_144); off++) {
+        const o = end - 8 - off
+        if (o < 12) break
+        const size = b.readUInt32BE(o + 4)
+        if (size !== off || o + 8 + size !== end) continue
+        const sig = b.subarray(o, o + 4).toString('latin1')
+        // 结构等式会被**负载里的数字串**偶然满足(本机实测 '973\0' 在 off=388 撞等式)
+        // ⇒ 签名不是四个字母就继续往前找,不能在此 break(那样会把"扩展明明在"读成"剥不动")
+        if (!/^[A-Za-z]{4}$/.test(sig)) continue
+        found = o
+        names.push(sig)
+        break
+      }
+      if (found < 0) break
+      end = found
+    }
+    return {
+      ok: names.length > 0,
+      why: names.length ? '' : '倒着剥不出任何扩展块(该索引没写扩展,或结构不是已知形态)',
+      names,
+      hasFSMN: names.includes('FSMN'),
+      hasUNTR: names.includes('UNTR'),
+      entries: b.readUInt32BE(8),
+      bytes: b.length,
+    }
+  } catch (e) {
+    return { ok: false, why: `读不到索引(${e.message.slice(0, 60)})`, names: [], hasFSMN: false, hasUNTR: false }
+  }
+}
+
+/**
+ * 第二路读数:直接问 git 自己 —— `git update-index --test-untracked-cache` 退 0 才算缓存真可用。
+ * 它要拿 `index.lock`,本机多席位常态争用 ⇒ 拿不到锁 rc≠0 **不是**缓存坏了,一律记「取不到」不记「掉」(§0.3)。
+ */
+export function untrackedCacheSelfTest(repoRoot, spawn = spawnSync) {
+  const r = spawn(gitBinary(), ['update-index', '--test-untracked-cache'], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (r.error) return { ok: false, inUse: null, why: String(r.error.message).slice(0, 70) }
+  const err = String(r.stderr || '')
+  if (/unable to lock index|index\.lock/i.test(err)) return { ok: false, inUse: null, why: '拿不到 index.lock(多席位争用)' }
+  if (r.signal) return { ok: false, inUse: null, why: `被信号 ${r.signal} 打断` }
+  if (typeof r.status !== 'number') return { ok: false, inUse: null, why: '取不到退出码' }
+  return { ok: true, inUse: r.status === 0, why: r.status === 0 ? '' : `rc=${r.status}` }
+}
+
+/**
+ * 第四维:加速档是否**真的还在生效**。 * 立因(2026-11-04 实测):本机多席位会整份替换索引(isolated-git / object-space-land /
+ * read-tree 那几条通道写出来的临时索引不带这两枚扩展),把 FSMN/UNTR 抹掉;
+ * 而 git 只在"索引内容有变"时才写回 ⇒ `git status` 连跑 5 次也**不会自愈**,
+ * `preload/sum_lstat` 直接回到全量 19033(生效时是 2333)。
+ * 静默退化比不装更坏:账面写着"已启用 fsmonitor",实际每次都在全量扫。
+ * 两路读数(块面 + git 自测)互相不一致时判「未判定」而不是挑一个信。
+ */
+export function judgeExtensions({ monitorEnabled, untrackedEnabled, index, selfTest = null, primeCmd = PRIME_CMD }) {
+  if (!monitorEnabled && !untrackedEnabled)
+    return { dim: 'accel-live', state: 'report', readout: '两档加速均未启用 ⇒ 无需核(全量扫描由 status-latency 量)', next: '' }
+  if (!index.ok) return { dim: 'accel-live', state: 'unjudged', readout: `索引扩展读不到:${index.why}`, next: '先确认 gitdir 可达;取不到不判' }
+  const at = `FSMN=${index.hasFSMN ? '在' : '掉'} UNTR=${index.hasUNTR ? '在' : '掉'}`
+  const selfTxt = selfTest && selfTest.ok ? `git 自测=${selfTest.inUse ? '通过' : '不通过'}` : 'git 自测未取到'
+  const blockTxt = (Array.isArray(index.names) ? index.names : []).join('/') || '无'
+  if (untrackedEnabled && index.hasUNTR && selfTest && selfTest.ok && !selfTest.inUse)
+    return {
+      dim: 'accel-live',
+      state: 'drift',
+      readout: `${at}(${selfTxt}:缓存块在而 git 自己说它不成立;块 ${blockTxt},条目 ${index.entries})⇒ 每次 status 仍走全量扫目录`,
+      next: `重新 prime:${primeCmd}(会被别席整份换索引再抹一次;反复掉就说明该在这台机关掉这两档,而不是反复补)`,
+    }
+  const want = []
+  if (monitorEnabled && !index.hasFSMN) want.push('FSMN(fsmonitor token)')
+  if (untrackedEnabled && !index.hasUNTR) want.push('UNTR(untracked cache)')
+  if (want.length) {
+    if (untrackedEnabled && !index.hasUNTR && selfTest && selfTest.ok && selfTest.inUse)
+      return {
+        dim: 'accel-live',
+        state: 'unjudged',
+        readout: `两路读数不一致:块面说缺 ${want.join(' 与 ')}(${at}),而 git 自测说缓存在用(${selfTxt})⇒ 不挑一个信`,
+        next: '先复核读法(块面按扩展块倒剥 / 自测按退出码),再谈改判据',
+      }
+    return {
+      dim: 'accel-live',
+      state: 'drift',
+      readout: `config 说开着,索引里却缺 ${want.join(' 与 ')}(${at};块 ${blockTxt};${selfTxt};条目 ${index.entries})⇒ 每次 status 仍在 ${index.hasFSMN ? '全量 stat + ' : ''}全量扫目录,加速已失效`,
+      next: `重新 prime:${primeCmd}(会被别席整份换索引再抹一次;反复掉就说明该在这台机关掉这两档,而不是反复补)`,
+    }
+  }
+  return { dim: 'accel-live', state: 'ok', readout: `${at} 与 config 同事实存(${selfTxt};块 ${blockTxt})⇒ 加速在生效`, next: '' }
+}
+
+/**
+ * 应用侧(Qoder Desktop)自己那份 git 探测日志的根。
+ * 落点一律从 env 推(APPDATA / USERPROFILE),不写死盘符(§26);取不到 ⇒ 本维判「未判定」。
+ */
+export function appProbeLogRoot(env = process.env) {
+  const base = env.APPDATA || (env.USERPROFILE ? join(env.USERPROFILE, 'AppData', 'Roaming') : null)
+  if (!base) return null
+  return join(base, 'com.qodercn.app.stable', 'logs')
+}
+
+/**
+ * 读最新一枚 run 目录里 `GIT_PROCESS_CLEANUP_FAILED` 的 lifecycle。
+ * 立因(2026-11-04 实测):宿主一次 `read_worktree_status` 撞 5000ms 硬超时 ⇒ 强杀子进程的清理失败
+ * ⇒ 此后该工作区**每一次** git 读都重放同一条 commandId(durationMs 恒 0,本机一放就是 4 小时),
+ * 用户侧读作「git 还是有问题」,而同一时刻仓库侧 `git status` 实测 874ms。
+ * 所以这一维量的是「应用还卡在不在那个不自愈的态」,不是「git 慢不慢」——两件事必须分开判。
+ * fs 三件套走注入,自检可用假目录跑,不碰真日志。
+ */
+export function readAppProbeStall({
+  root = appProbeLogRoot(),
+  nowMs = Date.now(),
+  readFile = (p) => readFileSync(p, 'utf8'),
+  ls = (p) => readdirSync(p),
+  stat = (p) => statSync(p),
+} = {}) {
+  const MARKER = 'GIT_PROCESS_CLEANUP_FAILED'
+  if (!root) return { ok: false, why: '取不到 APPDATA/USERPROFILE ⇒ 应用侧读数未判定' }
+  let names
+  try {
+    names = ls(root)
+  } catch (e) {
+    return { ok: false, why: `日志根不可读(${String(e?.message ?? e).slice(0, 44)})` }
+  }
+  const dirs = []
+  for (const n of names) {
+    try {
+      dirs.push([n, stat(`${root}/${n}`).mtimeMs])
+    } catch {
+      /* 单枚目录问不到不动整体:还有别的候选 */
+    }
+  }
+  if (!dirs.length) return { ok: false, why: '日志根里没有可比对的 run 目录' }
+  dirs.sort((a, b) => b[1] - a[1])
+  const run = dirs[0][0]
+  let text
+  try {
+    text = readFile(`${root}/${run}/main.log`)
+  } catch (e) {
+    return { ok: false, why: `${run}/main.log 读不到(${String(e?.message ?? e).slice(0, 44)})` }
+  }
+  const events = []
+  for (const line of String(text).split('\n')) {
+    if (!line.includes(MARKER)) continue
+    const cid = line.match(/"commandId":(\d+)/)
+    const stt = line.match(/"startedAt":(\d+)/)
+    const op = line.match(/"operation":"([^"]+)"/)
+    events.push({
+      commandId: cid ? Number(cid[1]) : null,
+      startedAt: stt ? Number(stt[1]) : null,
+      operation: op ? op[1] : '(读不到)',
+    })
+  }
+  if (!events.length) return { ok: true, stalled: false, events: 0, run, why: '' }
+  const last = events[events.length - 1]
+  const replay = events.filter((e) => last.commandId !== null && e.commandId === last.commandId).length
+  return {
+    ok: true,
+    stalled: true,
+    events: events.length,
+    replayOfSameCommand: replay,
+    run,
+    commandId: last.commandId,
+    operation: last.operation,
+    startedAt: last.startedAt,
+    stalledMinutes: last.startedAt ? Math.round((nowMs - last.startedAt) / 60_000) : null,
+  }
+}
+
+export function judgeAppStall({ probe, statusMs = null }) {
+  const dim = 'app-probe-stall'
+  if (!probe || !probe.ok)
+    return {
+      dim,
+      state: 'unjudged',
+      readout: `应用侧探测日志取不到:${probe?.why ?? '无输入'}`,
+      next: '先确认 Qoder 的 run 日志目录在不在(判不到不记绿,也不冒红)',
+    }
+  if (!probe.stalled)
+    return { dim, state: 'ok', readout: `本轮 run(${String(probe.run).slice(0, 19)})内 0 条 blocked 重放`, next: '' }
+  return {
+    dim,
+    state: 'drift',
+    readout:
+      `应用侧还在校同一条卡死记录(重放 ${probe.replayOfSameCommand} 次,共 ${probe.events} 条 blocked):` +
+      `commandId=${probe.commandId} operation=${probe.operation} 起于 ${probe.stalledMinutes ?? '?'} 分钟前` +
+      (statusMs === null ? '' : ` —— 而仓库侧 git status 本次实测 ${statusMs}ms,不是 git 慢`),
+    next:
+      '清这个态只有一个动作:重载窗口 / 重启 Qoder(它不自愈,本机实测一放 4 小时);' +
+      '若重启后一轮内又卡回来看 status-latency 维,那才是真的慢',
   }
 }
 
@@ -265,7 +512,7 @@ export function judgeWalkShare({ oneNo, full }) {
 export function alertIdentity(dims) {
   const st = (n) => (dims.find((d) => d.dim === n) || { state: 'missing' }).state
   const s = aggregate(dims).state
-  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}:trust=${st('monitor-trust')}`
+  return `git-probe-headroom:${s}:latency=${st('status-latency')}:collectors=${st('collector-tailers')}:trust=${st('monitor-trust')}:accel=${st('accel-live')}:stall=${st('app-probe-stall')}`
 }
 
 export function aggregate(dims) {
@@ -470,6 +717,148 @@ async function selfTest() {
       '取不到 ⇒ 未判定',
     )
   })
+  t('S16 accel-live 四态:齐全绿 / config 开着但扩展掉了判红 / 都没开不判 / 索引读不到未判定', () => {
+    const both = { ok: true, why: '', names: ['TREE', 'UNTR', 'FSMN'], hasFSMN: true, hasUNTR: true, entries: 19033 }
+    eq(judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: both }).state, 'ok', '两枚都在 ⇒ 绿')
+    eq(
+      judgeExtensions({
+        monitorEnabled: true,
+        untrackedEnabled: true,
+        index: { ...both, names: ['TREE', 'FSMN'], hasUNTR: false },
+      }).state,
+      'drift',
+      'UNTR 掉 ⇒ 红(账面说开着)',
+    )
+    eq(
+      judgeExtensions({
+        monitorEnabled: true,
+        untrackedEnabled: true,
+        index: { ...both, names: [], hasFSMN: false, hasUNTR: false },
+      }).state,
+      'drift',
+      '两枚都掉 ⇒ 红',
+    )
+    eq(judgeExtensions({ monitorEnabled: false, untrackedEnabled: false, index: both }).state, 'report', '没启用 ⇒ 不判')
+    eq(
+      judgeExtensions({ monitorEnabled: true, untrackedEnabled: false, index: { ok: false, why: '读不到' } }).state,
+      'unjudged',
+      '索引取不到 ⇒ 未判定',
+    )
+  })
+  t('S18 两路读数之二:块在而 git 自测不通过 ⇒ drift(不能因为"块在"就记绿)', () => {
+    const idx = { ok: true, why: '', names: ['TREE', 'UNTR', 'FSMN'], hasFSMN: true, hasUNTR: true, entries: 19033 }
+    const d = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: idx,
+      selfTest: { ok: true, inUse: false, why: 'rc=1' },
+    })
+    eq(d.state, 'drift', '自测不通过即红')
+    eq(d.readout.includes('缓存块在而 git 自己说它不成立'), true, 'readout 必须点名是哪一路说的')
+  })
+  t('S19 两路读数不一致 ⇒ 未判定(不挑一个信;§0.3)', () => {
+    const d = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: { ok: true, why: '', names: ['TREE', 'FSMN'], hasFSMN: true, hasUNTR: false, entries: 19033 },
+      selfTest: { ok: true, inUse: true, why: '' },
+    })
+    eq(d.state, 'unjudged', '块面说掉、自测说在 ⇒ 不判')
+    eq(d.readout.includes('不挑一个信'), true, '必须把"为什么不判"写出来')
+    const g = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: { ok: true, why: '', names: ['TREE', 'UNTR', 'FSMN'], hasFSMN: true, hasUNTR: true, entries: 1 },
+      selfTest: { ok: false, inUse: null, why: '拿不到 index.lock(多席位争用)' },
+    })
+    eq(g.state, 'ok', '自测取不到不拖后腿(块面两枚都在)')
+    eq(g.readout.includes('git 自测未取到'), true, 'readout 必须说清这一路没量到')
+  })
+  t('S20 回归锁:大 UNTR 块(本机实测 ~131KB)写在 FSMN 之前,按块倒剥仍要认出来(旧 64KB 尾窗把生效读成掉档)', () => {
+    const mkBlock = (sig, payload) => {
+      const head = Buffer.alloc(8)
+      head.write(sig, 0, 'latin1')
+      head.writeUInt32BE(payload.length, 4)
+      return Buffer.concat([head, payload])
+    }
+    const header = Buffer.alloc(12)
+    header.write('DIRC', 0, 'latin1')
+    header.writeUInt32BE(3, 4)
+    header.writeUInt32BE(19021, 8)
+    const entries = Buffer.alloc(4096, 0x41)
+    const untr = mkBlock('UNTR', Buffer.alloc(131_072, 0x33))
+    const fsmn = mkBlock('FSMN', Buffer.from('0'.repeat(64), 'latin1'))
+    const buf = Buffer.concat([header, entries, untr, fsmn, Buffer.alloc(20, 7)])
+    // 故意在 FSMN 负载里造一次「结构等式偶然成立」(本机实测:'973\0' 撞 off=388):
+    // 旧实现在这里 break ⇒ 把"扩展明明在"读成"剥不动"⇒ 天天假 drift
+    const collide = buf.length - 20 - 8 - 12
+    buf.write('973', collide, 'latin1')
+    buf.writeUInt32BE(12, collide + 4)
+    const dir = mkScratch('accel-block')
+    const file = join(dir, 'index')
+    writeFileSync(file, buf)
+    const r = readIndexExtensions(file)
+    rmScratch(dir)
+    eq(r.ok, true, `结构可判:${r.why}`)
+    eq(r.hasUNTR, true, '131KB 的 UNTR 块必须认出来')
+    eq(r.hasFSMN, true, 'FSMN 块必须认出来')
+    eq(r.names.join(','), 'FSMN,UNTR', '块名按倒剥顺序')
+    const junk = Buffer.concat([header, entries, Buffer.alloc(20, 7)])
+    const dir2 = mkScratch('accel-block2')
+    const file2 = join(dir2, 'index')
+    writeFileSync(file2, junk)
+    const r2 = readIndexExtensions(file2)
+    rmScratch(dir2)
+    eq(r2.ok, false, '剥不出块 ⇒ 未判定,不猜"两枚都掉"')
+    eq(
+      judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: r2 }).state,
+      'unjudged',
+      '读不出结构时判未判定(绝不判 drift)',
+    )
+  })
+  t('S21 应用侧卡死重放:同一 commandId 多条 blocked ⇒ drift,并点名"不是 git 慢"', () => {
+    const line = (cid, op, st) =>
+      `[2026-11-04T11:25:07.479Z] [WARN] [main] [GitBranchProjection] 读取失败 {"workspacePathHash":"35e5","operation":"read_branch","systemErrorCode":"GIT_PROCESS_CLEANUP_FAILED","lifecycle":{"commandId":${cid},"operation":"${op}","startedAt":${st}}}`
+    const nowMs = 1_793_790_000_000
+    const p = readAppProbeStall({
+      root: 'FAKE',
+      nowMs,
+      ls: () => ['run-old', 'run-new'],
+      stat: (x) => (x.endsWith('run-new') ? { mtimeMs: 5 } : { mtimeMs: 1 }),
+      readFile: (x) => {
+        if (!x.endsWith('run-new/main.log')) throw new Error('不该读旧 run')
+        return [line(1020, 'read_worktree_status', nowMs - 4 * 3600_000), line(1020, 'read_worktree_status', nowMs - 60_000)].join('\n')
+      },
+    })
+    eq(p.ok && p.stalled, true, '解析到 blocked')
+    eq(p.replayOfSameCommand, 2, `同一条 commandId 重放次数(实读 ${p.replayOfSameCommand})`)
+    eq(p.run, 'run-new', '只读最新一枚 run 目录')
+    const d = judgeAppStall({ probe: p, statusMs: 874 })
+    eq(d.state, 'drift', '卡死重放即 drift')
+    eq(d.readout.includes('874ms'), true, 'readout 必须把"仓库侧不慢"的读数并排给出')
+    eq(d.readout.includes('4 小时') || d.stalledMinutes === undefined || d.readout.includes('分钟前'), true, '必须说卡了多久')
+    eq(d.next.includes('重启'), true, '出路必须点名那个唯一动作')
+  })
+  t('S22 应用侧日志取不到 ⇒ 未判定(不记绿);本轮零 blocked ⇒ ok', () => {
+    const miss = judgeAppStall({ probe: readAppProbeStall({ root: null }), statusMs: null })
+    eq(miss.state, 'unjudged', '取不到不猜')
+    const clean = judgeAppStall({
+      probe: readAppProbeStall({ root: 'FAKE', ls: () => ['r'], stat: () => ({ mtimeMs: 1 }), readFile: () => 'no failure here' }),
+      statusMs: 900,
+    })
+    eq(clean.state, 'ok', '本轮没有 blocked ⇒ 绿')
+    eq(clean.next, '', '绿档不充数')
+  })
+  t('S17 反向锁:判红必须给可执行 prime 命令,并写明"反复掉就该关而不是反复补"', () => {
+    const d = judgeExtensions({
+      monitorEnabled: true,
+      untrackedEnabled: true,
+      index: { ok: true, why: '', hasFSMN: true, hasUNTR: false, entries: 19033 },
+    })
+    eq(d.next.includes('git update-index --untracked-cache'), true, '出路必须是能直接执行的那一条')
+    eq(d.next.includes('反复'), true, '必须把"这不是补一次的事"写进出路')
+    eq(judgeExtensions({ monitorEnabled: true, untrackedEnabled: true, index: { ok: true, why: '', hasFSMN: true, hasUNTR: true, entries: 1 } }).next, '', '绿档不充数')
+  })
   t('S15 反向锁:漏报必须点名少/多几条并给出关回出口', () => {
     const d = judgeMonitorTrust({
       enabled: true,
@@ -479,6 +868,12 @@ async function selfTest() {
     })
     eq(d.missing.length, 2, '少报条数点名')
     eq(d.next.includes('core.fsmonitor'), true, '出路必须是能直接执行的关回命令')
+    eq(
+      d.next.includes('fsmonitor--daemon stop') && d.next.indexOf('token 重建') < d.next.indexOf('config --unset'),
+      true,
+      '第一步必须是 token 重建(stop + 跑一次 status),关回只能排在后面',
+    )
+    eq(d.next.includes('5000'), true, '必须写明关档会撞消费者预算(本机实测 5.7~6.2s)—— 不许劝人随手关掉加速')
     eq(
       judgeMonitorTrust({ enabled: true, monitorOut: 'A\x00', fullOut: 'A\x00', failed: false })
         .next,
@@ -518,6 +913,12 @@ async function main(argv) {
   const metricsText = await fetchText(PROMTAIL_METRICS_URL)
   const faces = countLogFaces(LOG_DIR)
   const enabled = isMonitorEnabled(ROOT)
+  const utrace = cfgFlag('core.untrackedCache', ROOT) === true
+  const idxPath = gitIndexPath(ROOT)
+  const idxExt = idxPath
+    ? readIndexExtensions(idxPath)
+    : { ok: false, why: '取不到 git-path index', names: [], hasFSMN: false, hasUNTR: false }
+  const utSelf = utrace ? untrackedCacheSelfTest(ROOT) : { ok: false, inUse: null, why: '未启用,不测' }
   const monFace = statusFace(ROOT, false)
   const scanFace = statusFace(ROOT, true)
   const dims = [
@@ -535,6 +936,8 @@ async function main(argv) {
       failed: monFace.failed || scanFace.failed,
       why: monFace.why || scanFace.why,
     }),
+    judgeExtensions({ monitorEnabled: enabled === true, untrackedEnabled: utrace, index: idxExt, selfTest: utSelf }),
+    judgeAppStall({ probe: readAppProbeStall(), statusMs: full.samples.length ? Math.max(...full.samples) : null }),
     judgeWalkShare({ oneNo, full }),
   ]
   const agg = aggregate(dims)
@@ -575,6 +978,14 @@ export const __test__ = {
   sampleStatusMs,
   statusFace,
   isMonitorEnabled,
+  cfgFlag,
+  gitIndexPath,
+  readIndexExtensions,
+  untrackedCacheSelfTest,
+  appProbeLogRoot,
+  readAppProbeStall,
+  judgeAppStall,
+  judgeExtensions,
   judgeLatency,
   judgeCollectors,
   judgeMonitorTrust,

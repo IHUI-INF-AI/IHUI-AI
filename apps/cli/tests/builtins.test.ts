@@ -186,6 +186,42 @@ describe('glob 工具', () => {
     expect(result.output).toContain('test.ts')
     expect(result.output).toContain('test.js')
   })
+
+  // 下面四枚钉的是 2026-11-05 抓到的一型静默假阴性:带 `**/` 的 pattern 恒不匹配,
+  // 而工具回 success:true + "未找到匹配文件"。旧实现(链式字符串替换)让这四枚全红,
+  // 摘掉本次重写即翻红 —— 本仓派班会话就是被这一型骗到"文件不存在"从而整班零写盘。
+  it('`**/` 必须能穿多层目录(旧实现在这里恒返回未找到)', async () => {
+    fs.mkdirSync(path.join(tmpDir, 'apps/api/src/routes'), { recursive: true })
+    fs.writeFileSync(path.join(tmpDir, 'apps/api/src/routes/edu-attendance-rule.ts'), 'x', 'utf-8')
+    const result = await glob.execute({ pattern: '**/*attendance*' }, ctx)
+    expect(result.success).toBe(true)
+    expect(result.output).toContain('apps/api/src/routes/edu-attendance-rule.ts')
+    expect(result.output).not.toContain('未找到')
+  })
+
+  it('`**/` 可匹配零目录(2026-09-03 注释声称的能力,此前无锁)', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'stats.mjs'), 'x', 'utf-8')
+    fs.mkdirSync(path.join(tmpDir, 'a/b/c'), { recursive: true })
+    fs.writeFileSync(path.join(tmpDir, 'a/b/c/stats.mjs'), 'x', 'utf-8')
+    const result = await glob.execute({ pattern: '**/stats.mjs' }, ctx)
+    expect(result.output).toContain('stats.mjs')
+    expect(result.output).toContain('a/b/c/stats.mjs')
+  })
+
+  it('单层 `*` 不跨目录段', async () => {
+    fs.mkdirSync(path.join(tmpDir, 'apps/deep'), { recursive: true })
+    fs.writeFileSync(path.join(tmpDir, 'apps/edu-attendance-rule.ts'), 'x', 'utf-8')
+    fs.writeFileSync(path.join(tmpDir, 'apps/deep/edu-attendance-deep.ts'), 'x', 'utf-8')
+    const result = await glob.execute({ pattern: 'apps/*attendance*' }, ctx)
+    expect(result.output).toContain('apps/edu-attendance-rule.ts')
+    expect(result.output).not.toContain('edu-attendance-deep.ts')
+  })
+
+  it('空匹配仍如实说"未找到"(修好匹配器不等于把假阴性改成真阴性)', async () => {
+    const result = await glob.execute({ pattern: '**/*no-such-thing*' }, ctx)
+    expect(result.success).toBe(true)
+    expect(result.output).toBe('未找到匹配文件')
+  })
 })
 
 describe('run_command 工具(危险,需 confirmDangerous)', () => {

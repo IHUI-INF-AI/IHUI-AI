@@ -216,7 +216,68 @@ def plan_checkpoint(
         "path_hash": path_hash,
     }
     record.update(host)
+    prompt_id, _text, prompt_refused = host_prompt(arguments)
+    if prompt_refused:
+        return None, prompt_refused
+    if prompt_id:
+        record["prompt_id"] = prompt_id
     return record, ""
+
+
+def host_prompt(arguments: Mapping[str, object] | None) -> tuple[str, str, str]:
+    """编号和正文必须由宿主一起注入。只给一半不编，模型自报的字段不算。"""
+    if not isinstance(arguments, Mapping):
+        return "", "", ""
+    has_id = "__prompt_id" in arguments
+    has_text = "__prompt_text" in arguments
+    if not has_id and not has_text:
+        return "", "", ""
+    if not has_id or not has_text:
+        return "", "", "提示词编号和正文必须一起给"
+    raw_id = arguments.get("__prompt_id")
+    raw_text = arguments.get("__prompt_text")
+    if not isinstance(raw_id, str) or not isinstance(raw_text, str):
+        return "", "", "提示词编号或正文形态不对"
+    prompt_id = raw_id.strip()
+    text = raw_text.strip()
+    if not prompt_id or not text:
+        return "", "", "提示词编号或正文是空的"
+    if any(mark in prompt_id for mark in ("\n", "\r")) or len(prompt_id) > 200:
+        return "", "", "提示词编号形态不对"
+    if len(text) > 100_000:
+        return "", "", "提示词超长"
+    return prompt_id, text, ""
+
+
+def plan_blame_view(
+    mode: str | None,
+    records: list[AttributionRecord],
+    *,
+    line: int | None = None,
+) -> tuple[str, str, list[AttributionRecord]]:
+    """档位没给，或 auto 却没量到该用行还是整文件，都不挑一份结果。"""
+    if not isinstance(mode, str) or not mode.strip():
+        return "unjudged", "blame 档位没量到", []
+    token = mode.strip()
+    if token == "auto":
+        return "unjudged", "auto 档没有量到该用行还是整文件", []
+    if token == "off":
+        return "off", "blame 档位是关闭", []
+    if token == "all":
+        return "all", "ok", list(records)
+    if token != "line":
+        return "refused", "blame 档位不认识", []
+    if isinstance(line, bool) or not isinstance(line, int) or line <= 0:
+        return "unjudged", "行档没有量到光标行", []
+    chosen: list[AttributionRecord] = []
+    for record in records:
+        start = record.anchor.line_start
+        end = record.anchor.line_end
+        if start <= 0 or end < start:
+            continue
+        if start <= line <= end:
+            chosen.append(record)
+    return "line", "ok", chosen
 
 
 def _host_fields(arguments: Mapping[str, object] | None) -> tuple[dict[str, object], str]:

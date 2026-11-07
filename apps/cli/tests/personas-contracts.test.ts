@@ -19,6 +19,19 @@ import {
 
 const EXPECTED_PERSONAS = ['researcher', 'coder', 'reviewer', 'architect', 'debugger'] as const
 
+/**
+ * 取契约并在运行时校验存在性。`PersonaContracts` 是 Record 索引签名，
+ * noUncheckedIndexedAccess 下索引读取天然是 `PersonaContract | undefined`；
+ * 这里用显式运行时检查收敛类型，而不是用非空断言把告警静音。
+ */
+function contractOf(name: string): PersonaContract {
+  const contract = PERSONAS_CONTRACTS[name]
+  if (contract === undefined) {
+    throw new Error(`PERSONAS_CONTRACTS 缺少 persona: ${name}`)
+  }
+  return contract
+}
+
 function isJSONSchema(v: unknown): v is JSONSchema {
   if (typeof v !== 'object' || v === null) return false
   const o = v as Record<string, unknown>
@@ -48,25 +61,25 @@ describe('PERSONAS_CONTRACTS — 基础完整性', () => {
   it('每个 persona 都有 input_schema 字段', () => {
     for (const p of EXPECTED_PERSONAS) {
       expect(PERSONAS_CONTRACTS[p]).toBeDefined()
-      expect(PERSONAS_CONTRACTS[p].input_schema).toBeDefined()
+      expect(contractOf(p).input_schema).toBeDefined()
     }
   })
 
   it('每个 persona 都有 output_schema 字段', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(PERSONAS_CONTRACTS[p].output_schema).toBeDefined()
+      expect(contractOf(p).output_schema).toBeDefined()
     }
   })
 
   it('每个 persona 的 input_schema 是合法 JSONSchema', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(isJSONSchema(PERSONAS_CONTRACTS[p].input_schema)).toBe(true)
+      expect(isJSONSchema(contractOf(p).input_schema)).toBe(true)
     }
   })
 
   it('每个 persona 的 output_schema 是合法 JSONSchema', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(isJSONSchema(PERSONAS_CONTRACTS[p].output_schema)).toBe(true)
+      expect(isJSONSchema(contractOf(p).output_schema)).toBe(true)
     }
   })
 })
@@ -74,7 +87,7 @@ describe('PERSONAS_CONTRACTS — 基础完整性', () => {
 describe('PERSONAS_CONTRACTS — required 字段约束', () => {
   it('每个 persona 的 input_schema 含 required 字段(数组)', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].input_schema
+      const schema = contractOf(p).input_schema
       expect(Array.isArray(schema.required)).toBe(true)
       expect((schema.required as string[]).length).toBeGreaterThan(0)
     }
@@ -82,7 +95,7 @@ describe('PERSONAS_CONTRACTS — required 字段约束', () => {
 
   it('每个 persona 的 output_schema 含 required 字段(数组)', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].output_schema
+      const schema = contractOf(p).output_schema
       expect(Array.isArray(schema.required)).toBe(true)
       expect((schema.required as string[]).length).toBeGreaterThan(0)
     }
@@ -90,7 +103,7 @@ describe('PERSONAS_CONTRACTS — required 字段约束', () => {
 
   it('每个 persona 的 input_schema required 字段都存在于 properties 中', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].input_schema
+      const schema = contractOf(p).input_schema
       const props = Object.keys(schema.properties ?? {})
       for (const req of schema.required ?? []) {
         expect(props).toContain(req)
@@ -100,7 +113,7 @@ describe('PERSONAS_CONTRACTS — required 字段约束', () => {
 
   it('每个 persona 的 output_schema required 字段都存在于 properties 中', () => {
     for (const p of EXPECTED_PERSONAS) {
-      const schema = PERSONAS_CONTRACTS[p].output_schema
+      const schema = contractOf(p).output_schema
       const props = Object.keys(schema.properties ?? {})
       for (const req of schema.required ?? []) {
         expect(props).toContain(req)
@@ -163,12 +176,12 @@ describe('PersonaContract 类型 — TypeScript 类型推断', () => {
   })
 
   it('PersonaContracts 是 Record<string, PersonaContract>', () => {
-    const map: PersonaContracts = {
+    const map = {
       foo: {
         input_schema: { type: 'object' },
         output_schema: { type: 'object' },
       },
-    }
+    } satisfies PersonaContracts
     expect(map.foo.input_schema).toBeDefined()
     expect(map.foo.output_schema).toBeDefined()
   })
@@ -197,18 +210,18 @@ describe('subagent.ts PersonaConfig — 新字段集成', () => {
     const r = PERSONAS.researcher
     expect(r.input_schema).toBeDefined()
     expect(r.output_schema).toBeDefined()
-    expect(r.input_schema).toBe(PERSONAS_CONTRACTS.researcher.input_schema)
-    expect(r.output_schema).toBe(PERSONAS_CONTRACTS.researcher.output_schema)
+    expect(r.input_schema).toBe(contractOf('researcher').input_schema)
+    expect(r.output_schema).toBe(contractOf('researcher').output_schema)
   })
 
   it('PERSONAS.coder 已绑定 input_schema/output_schema', () => {
-    expect(PERSONAS.coder.input_schema).toBe(PERSONAS_CONTRACTS.coder.input_schema)
-    expect(PERSONAS.coder.output_schema).toBe(PERSONAS_CONTRACTS.coder.output_schema)
+    expect(PERSONAS.coder.input_schema).toBe(contractOf('coder').input_schema)
+    expect(PERSONAS.coder.output_schema).toBe(contractOf('coder').output_schema)
   })
 
   it('PERSONAS.reviewer 已绑定 input_schema/output_schema', () => {
-    expect(PERSONAS.reviewer.input_schema).toBe(PERSONAS_CONTRACTS.reviewer.input_schema)
-    expect(PERSONAS.reviewer.output_schema).toBe(PERSONAS_CONTRACTS.reviewer.output_schema)
+    expect(PERSONAS.reviewer.input_schema).toBe(contractOf('reviewer').input_schema)
+    expect(PERSONAS.reviewer.output_schema).toBe(contractOf('reviewer').output_schema)
   })
 
   it('PERSONAS.planner/general 未绑定 contracts(契约仅 3 档映射)', () => {
@@ -233,7 +246,7 @@ describe('subagent.ts PersonaConfig — 新字段集成', () => {
 
 describe('5 个 persona — input/output 字段语义合理性', () => {
   it('researcher 输出 researchSummary + recommendedApproach(不是 code)', () => {
-    const out = PERSONAS_CONTRACTS.researcher.output_schema
+    const out = contractOf('researcher').output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('researchSummary')
     expect(props).toContain('recommendedApproach')
@@ -242,13 +255,13 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('researcher 输入含 task(调研任务描述)', () => {
-    const inp = PERSONAS_CONTRACTS.researcher.input_schema
+    const inp = contractOf('researcher').input_schema
     expect(inp.properties).toHaveProperty('task')
     expect(inp.required).toContain('task')
   })
 
   it('coder 输出 codeChanges + verification(不是 researchSummary)', () => {
-    const out = PERSONAS_CONTRACTS.coder.output_schema
+    const out = contractOf('coder').output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('codeChanges')
     expect(props).toContain('verification')
@@ -257,7 +270,7 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('coder 输入含 task + affectedFiles(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.coder.input_schema
+    const inp = contractOf('coder').input_schema
     expect(inp.properties).toHaveProperty('task')
     expect(inp.properties).toHaveProperty('affectedFiles')
     expect(inp.required).toContain('task')
@@ -265,21 +278,24 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('reviewer 输出含 decision(approve/request_changes)', () => {
-    const out = PERSONAS_CONTRACTS.reviewer.output_schema
+    const out = contractOf('reviewer').output_schema
     expect(out.properties).toHaveProperty('decision')
-    const decision = out.properties!.decision
+    const props = out.properties
+    if (props === undefined) throw new Error('reviewer output_schema 缺少 properties')
+    const decision = props.decision
+    if (decision === undefined) throw new Error('reviewer output_schema 缺少 decision')
     expect(decision.enum).toContain('approve')
     expect(decision.enum).toContain('request_changes')
   })
 
   it('reviewer 输入含 codeDiff(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.reviewer.input_schema
+    const inp = contractOf('reviewer').input_schema
     expect(inp.properties).toHaveProperty('codeDiff')
     expect(inp.required).toContain('codeDiff')
   })
 
   it('architect 输出 designDoc + fileStructure(不是 rootCause)', () => {
-    const out = PERSONAS_CONTRACTS.architect.output_schema
+    const out = contractOf('architect').output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('designDoc')
     expect(props).toContain('fileStructure')
@@ -288,13 +304,13 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('architect 输入含 requirements(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.architect.input_schema
+    const inp = contractOf('architect').input_schema
     expect(inp.properties).toHaveProperty('requirements')
     expect(inp.required).toContain('requirements')
   })
 
   it('debugger 输出 rootCause + fix(不是 designDoc)', () => {
-    const out = PERSONAS_CONTRACTS.debugger.output_schema
+    const out = contractOf('debugger').output_schema
     const props = Object.keys(out.properties ?? {})
     expect(props).toContain('rootCause')
     expect(props).toContain('fix')
@@ -303,7 +319,7 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
   })
 
   it('debugger 输入含 errorDescription(必填)', () => {
-    const inp = PERSONAS_CONTRACTS.debugger.input_schema
+    const inp = contractOf('debugger').input_schema
     expect(inp.properties).toHaveProperty('errorDescription')
     expect(inp.required).toContain('errorDescription')
   })
@@ -311,28 +327,28 @@ describe('5 个 persona — input/output 字段语义合理性', () => {
 
 describe('5 个 persona — 跨 persona 字段不重叠(语义隔离)', () => {
   it('researcher 输出字段不与 coder 输出字段重叠', () => {
-    const r = Object.keys(PERSONAS_CONTRACTS.researcher.output_schema.properties ?? {})
-    const c = Object.keys(PERSONAS_CONTRACTS.coder.output_schema.properties ?? {})
+    const r = Object.keys(contractOf('researcher').output_schema.properties ?? {})
+    const c = Object.keys(contractOf('coder').output_schema.properties ?? {})
     const overlap = r.filter((x) => c.includes(x))
     expect(overlap).toEqual([])
   })
 
   it('architect 输出字段不与 debugger 输出字段重叠', () => {
-    const a = Object.keys(PERSONAS_CONTRACTS.architect.output_schema.properties ?? {})
-    const d = Object.keys(PERSONAS_CONTRACTS.debugger.output_schema.properties ?? {})
+    const a = Object.keys(contractOf('architect').output_schema.properties ?? {})
+    const d = Object.keys(contractOf('debugger').output_schema.properties ?? {})
     const overlap = a.filter((x) => d.includes(x))
     expect(overlap).toEqual([])
   })
 
   it('每个 persona 的 output_schema type 均为 object', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(PERSONAS_CONTRACTS[p].output_schema.type).toBe('object')
+      expect(contractOf(p).output_schema.type).toBe('object')
     }
   })
 
   it('每个 persona 的 input_schema type 均为 object', () => {
     for (const p of EXPECTED_PERSONAS) {
-      expect(PERSONAS_CONTRACTS[p].input_schema.type).toBe('object')
+      expect(contractOf(p).input_schema.type).toBe('object')
     }
   })
 })

@@ -20,18 +20,37 @@ import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // 
  * 测试口径(两条是本票的硬性约束,不是风格):
  *   - **正反成对**:每个拒绝都配一条"同形但合法"的放过,否则判据过宽与过窄在账面上长得一样;
  *   - **拒绝必须证明"根本没派生 git"**:`node:child_process` 整体被 mock,拒绝路径断言
- *     `execFileSync` 零调用 —— 用 IHUI_MOCK_GIT_CLONE_SRC 那条钩子做不到这件事(它是"不派生"的
- *     另一种成因,会替拒绝路径发出假绿灯),所以成功路径同样用 mock 的 execFileSync 记录 argv。
+ *     同步 `execFileSync` 与异步 `execFile` 两条出口都零调用 —— 用 IHUI_MOCK_GIT_CLONE_SRC 那条钩子
+ *     做不到这件事(它是"不派生"的另一种成因,会替拒绝路径发出假绿灯);
+ *     成功路径记录的是异步 `execFile` 的 argv(HEAD `1f87eb0` 起 clone 走 `execGitCappedAsync`)。
  */
 
 const execFileSyncMock = vi.hoisted(() => vi.fn((_cmd: string, _args: readonly string[]) => ''));
+/**
+ * `execGitCloneWithRetry` 已在 `1f87eb0` 改走异步 `execFile`(回调式):只 mock 同步出口
+ * 会让 Promise 永不 settle ⇒ 用例 15s 超时。这里按回调形式补上异步出口;
+ * 返回值只为实现 `execGitCappedAsync` 的 onAbort(`kill`),用例不触发 abort。
+ */
+const execFileMock = vi.hoisted(() =>
+  vi.fn(
+    (
+      _cmd: string,
+      _args: readonly string[],
+      _opts: unknown,
+      cb: (err: null, stdout: string, stderr: string) => void,
+    ) => {
+      cb(null, '', '');
+      return { kill: () => {} };
+    },
+  ),
+);
 
 vi.mock('node:child_process', () => ({
   execFileSync: execFileSyncMock,
   execSync: vi.fn(() => ''),
   spawn: vi.fn(),
   spawnSync: vi.fn(() => ({ status: 0, stdout: '', stderr: '' })),
-  execFile: vi.fn(),
+  execFile: execFileMock,
   fork: vi.fn(),
 }));
 
@@ -44,7 +63,24 @@ import {
 } from '../src/plugins/url-shape.js';
 import * as marketplace from '../src/plugins/marketplace.js';
 import { isGitSource } from '../src/plugins/marketplace.js';
-import { getCachePath, getOrCloneGitCache } from '../src/plugins/cache.js';
+import { getCachePath, getOrCloneGitCache, type CacheFetchResult } from '../src/plugins/cache.js';
+
+/**
+ * 取"必须被拒"那条路径的异常。
+ *
+ * `getOrCloneGitCache` 的返回类型是成功分支(`CacheFetchResult`),直接 `.catch(e => e)`
+ * 得到的是 `结果 | 异常` 的联合 —— 后续只能靠断言才读得到 `field` / `reasonCode`。
+ * 这里把成功分支显式判红,返回类型就收敛成异常本身,与用例想表达的意思一致。
+ */
+async function rejectFrom(call: Promise<CacheFetchResult>): Promise<GitCloneInputRejectedError> {
+  try {
+    await call;
+  } catch (e) {
+    if (e instanceof GitCloneInputRejectedError) return e;
+    throw e;
+  }
+  throw new Error('期望该次调用被拒,实际返回了缓存结果');
+}
 
 const HOME_ENV = 'IHUI_HOME';
 const MOCK_CLONE_SRC_ENV = 'IHUI_MOCK_GIT_CLONE_SRC';
@@ -54,6 +90,26 @@ let tmpHome: string;
 let savedHome: string | undefined;
 let savedMock: string | undefined;
 let savedGitBin: string | undefined;
+
+/** clone 成功后的落盘夹具:同步/异步两条出口共用同一份,避免两处各写一遍 */
+function materializeTarget(args: readonly string[]): void {
+  const target = args[args.length - 1] ?? '';
+  fs.mkdirSync(target, { recursive: true });
+  fs.writeFileSync(path.join(target, 'plugin.json'), '{"name":"p"}', 'utf-8');
+}
+
+/** "派生了几次"的记录面:同步与异步两条出口合起来才算 */
+const spawnCount = (): number => execFileSyncMock.mock.calls.length + execFileMock.mock.calls.length;
+
+const clearSpawnRecords = (): void => {
+  execFileSyncMock.mockClear();
+  execFileMock.mockClear();
+};
+
+/** 拒绝路径的判据:两个出口都不得被调用(只查同步出口会漏掉异步化后的真派生) */
+function expectNoGitSpawn(): void {
+  expect(spawnCount(), '拒绝路径不得派生 git').toBe(0);
+}
 
 beforeEach(() => {
   tmpHome = mkScratch('git-url-shape-home-');
@@ -65,13 +121,25 @@ beforeEach(() => {
   delete process.env[MOCK_CLONE_SRC_ENV];
   delete process.env[GIT_BIN_ENV];
   execFileSyncMock.mockReset();
+  execFileMock.mockReset();
   execFileSyncMock.mockImplementation((_cmd: string, args: readonly string[]) => {
     // 让 clone 之后那趟提交点有活可干:把 target(最后一个位置参数)造成一份非空副本
-    const target = args[args.length - 1] ?? '';
-    fs.mkdirSync(target, { recursive: true });
-    fs.writeFileSync(path.join(target, 'plugin.json'), '{"name":"p"}', 'utf-8');
+    materializeTarget(args);
     return '';
   });
+  // 异步出口同样要落盘:performClone 成功后上层会读 target 里的清单
+  execFileMock.mockImplementation(
+    (
+      _cmd: string,
+      args: readonly string[],
+      _opts: unknown,
+      cb: (err: null, stdout: string, stderr: string) => void,
+    ) => {
+      materializeTarget(args);
+      cb(null, '', '');
+      return { kill: () => {} };
+    },
+  );
 });
 
 afterEach(() => {
@@ -188,7 +256,7 @@ describe('evaluateGitUrl — 前导横杠与 scheme 白名单', () => {
     const rejected = err as GitCloneInputRejectedError;
     expect(rejected.field).toBe('url');
     expect(rejected.reasonCode).toBe('urlCredentialsInUrl');
-    expect(execFileSyncMock.mock.calls.length, '拒绝路径不得派生 git').toBe(0);
+    expectNoGitSpawn();
     // message 里也不得出现那把凭据(previewOf 的脱敏方向在这里被验收)
     expect(rejected.message).not.toContain('S3cr3t');
   });
@@ -291,35 +359,33 @@ describe('evaluateGitRef / evaluateGitSha', () => {
 describe('getOrCloneGitCache → performClone — 判据先于任何派生', () => {
   it('① "--upload-pack=…" 被拒,且 execFileSync 零调用', async () => {
     const url = '--upload-pack=/bin/sh';
-    const err = await getOrCloneGitCache(url).catch((e: unknown) => e as GitCloneInputRejectedError);
+    const err = await rejectFrom(getOrCloneGitCache(url));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.field).toBe('url');
     expect(err.reasonCode).toBe('urlLeadingDash');
-    expect(execFileSyncMock).not.toHaveBeenCalled();
+    expectNoGitSpawn();
   });
 
   it('② "ext::sh -c \'touch pwned\'" 被拒,且 execFileSync 零调用', async () => {
     const url = "ext::sh -c 'touch pwned'";
-    const err = await getOrCloneGitCache(url).catch((e: unknown) => e as GitCloneInputRejectedError);
+    const err = await rejectFrom(getOrCloneGitCache(url));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.field).toBe('url');
-    expect(execFileSyncMock).not.toHaveBeenCalled();
+    expectNoGitSpawn();
     // 磁盘上也不该留下任何被"clone"出来的东西:降级分支不得把没拿到写成拿到了
     expect(fs.existsSync(getCachePath(url))).toBe(false);
   });
 
   it('⑥ 前导 - 的 ref 被拒,且 execFileSync 零调用', async () => {
-    const err = await getOrCloneGitCache('https://ok.test/a.git', { ref: '--upload-pack=/bin/sh' }).catch(
-      (e: unknown) => e as GitCloneInputRejectedError,
-    );
+    const err = await rejectFrom(getOrCloneGitCache('https://ok.test/a.git', { ref: '--upload-pack=/bin/sh' }));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.field).toBe('ref');
     expect(err.reasonCode).toBe('refLeadingDash');
-    expect(execFileSyncMock).not.toHaveBeenCalled();
+    expectNoGitSpawn();
   });
 
   it('拒绝的消息体不回显入参原文(manifest 里的 URL 可能内嵌凭据)', async () => {
-    const err = await getOrCloneGitCache('--upload-pack=/bin/sh').catch((e: unknown) => e as Error);
+    const err = await rejectFrom(getOrCloneGitCache('--upload-pack=/bin/sh'));
     expect(String(err?.message ?? '')).not.toContain('/bin/sh');
   });
 
@@ -327,8 +393,8 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
     const url = 'https://github.com/openclarity/demo.git';
     const result = await getOrCloneGitCache(url);
     expect(result.fromCache).toBe(false);
-    expect(execFileSyncMock).toHaveBeenCalledTimes(1);
-    const args = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+    expect(spawnCount(), '合法 URL 必须恰好派生一次').toBe(1);
+    const args = execFileMock.mock.calls[0]?.[1] as readonly string[];
     const sep = args.indexOf('--');
     expect(sep).toBeGreaterThan(0);
     expect(args.slice(0, sep)).toEqual(['clone', '--depth', '1']);
@@ -345,7 +411,7 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
   it('③b 带 ref 时 --branch 在分隔符之前,url 仍在其后', async () => {
     const url = 'https://github.com/openclarity/two.git';
     await getOrCloneGitCache(url, { ref: 'v1.2.3' });
-    const args = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+    const args = execFileMock.mock.calls[0]?.[1] as readonly string[];
     const sep = args.indexOf('--');
     expect(args.slice(0, sep)).toEqual(['clone', '--depth', '1', '--branch', 'v1.2.3']);
     expect(args[sep + 1]).toBe(url);
@@ -357,12 +423,12 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
     // MOCK_CLONE_SRC 那档会让 clone 变成"复制目录",argv 根本不产生 —— 用它就证明不了"放行=真派生"。
     process.env[GIT_BIN_ENV] = 'git-fixture';
     await getOrCloneGitCache('http://127.0.0.1:8080/fixture.git');
-    const loopArgs = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+    const loopArgs = execFileMock.mock.calls[0]?.[1] as readonly string[];
     expect(loopArgs.indexOf('--')).toBeGreaterThan(0);
 
-    execFileSyncMock.mockClear();
+    clearSpawnRecords();
     await getOrCloneGitCache('git@github.com:openclarity/scp-like.git');
-    const scpArgs = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+    const scpArgs = execFileMock.mock.calls[0]?.[1] as readonly string[];
     expect(scpArgs).toContain('git@github.com:openclarity/scp-like.git');
     expect(scpArgs.indexOf('--')).toBeLessThan(scpArgs.indexOf('git@github.com:openclarity/scp-like.git'));
   });
@@ -378,16 +444,16 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
     expect(rejected.field).toBe('url');
     expect(rejected.reasonCode).toBe('urlLoopbackHttpNeedsTestHook');
     // 拒绝必须发生在**任何派生之前**:判据是"根本没调用过 git",而不是"调用失败"
-    expect(execFileSyncMock.mock.calls.length, '拒绝路径不得派生 git').toBe(0);
+    expectNoGitSpawn();
     // 结构化码不得只活在文案里:message 里不含被拒的原文(可能内嵌凭据)
     expect(rejected.message).not.toContain('evil.git');
   });
 
   it('④b 非回环 http 在咽喉点上被拒且不派生', async () => {
-    const err = await getOrCloneGitCache('http://evil.test/x.git').catch((e: unknown) => e as GitCloneInputRejectedError);
+    const err = await rejectFrom(getOrCloneGitCache('http://evil.test/x.git'));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect(err.reasonCode).toBe('urlSchemeUnsupported');
-    expect(execFileSyncMock).not.toHaveBeenCalled();
+    expectNoGitSpawn();
   });
 });
 
@@ -402,11 +468,11 @@ describe('getOrCloneGitCache → performClone — 判据先于任何派生', () 
  * 只断言"抛错"会放过"先把 git 跑起来、再抛错"那种写法 —— 那在这条链上等于已经执行了外部 transport。
  */
 describe('G-786 复验 — ext:: / -u 短选项 / 换行注入 / 合法 https / 合法 scp+ssh(带端口)', () => {
-  const spawnCount = (): number => execFileSyncMock.mock.calls.length;
+  // spawnCount 由文件级助手提供(同步 + 异步两条出口合并计数)
 
   it('R1 `-u<something>` 短选项:咽喉点必拒(urlLeadingDash),且 fakeSpawner 零调用', async () => {
     for (const bad of ['-u', '-uhttp://evil.test/x.git'] as const) {
-      execFileSyncMock.mockClear();
+      clearSpawnRecords();
       const err = await getOrCloneGitCache(bad).catch((e: unknown) => e as GitCloneInputRejectedError);
       expect(err, bad).toBeInstanceOf(GitCloneInputRejectedError);
       expect((err as GitCloneInputRejectedError).field, bad).toBe('url');
@@ -421,7 +487,7 @@ describe('G-786 复验 — ext:: / -u 短选项 / 换行注入 / 合法 https / 
       'https://github.com/openclarity/demo.git\t--upload-pack=/bin/sh',
     ] as const;
     for (const raw of injected) {
-      execFileSyncMock.mockClear();
+      clearSpawnRecords();
       // 纯函数档:WHATWG 会把 LF/TAB **剥掉**并给出一个 hostname 合法的 URL,
       // 所以"parsed 成功"不构成放行 —— 这一条钉住判据取的是原文。
       const verdict = evaluateGitUrl(raw);
@@ -439,8 +505,8 @@ describe('G-786 复验 — ext:: / -u 短选项 / 换行注入 / 合法 https / 
 
   it('R3 `ext::` 外部 transport:咽喉点必拒(urlSchemeUnsupported)且零派生、零落盘', async () => {
     const url = "ext::sh -c 'id'";
-    execFileSyncMock.mockClear();
-    const err = await getOrCloneGitCache(url).catch((e: unknown) => e as GitCloneInputRejectedError);
+    clearSpawnRecords();
+    const err = await rejectFrom(getOrCloneGitCache(url));
     expect(err).toBeInstanceOf(GitCloneInputRejectedError);
     expect((err as GitCloneInputRejectedError).field).toBe('url');
     expect((err as GitCloneInputRejectedError).reasonCode).toBe('urlSchemeUnsupported');
@@ -450,11 +516,11 @@ describe('G-786 复验 — ext:: / -u 短选项 / 换行注入 / 合法 https / 
 
   it('R4 合法 https:放行且**恰**派生一次,位置参数前有 `--` 分隔', async () => {
     const url = 'https://github.com/openclarity/valid-https.git';
-    execFileSyncMock.mockClear();
+    clearSpawnRecords();
     const result = await getOrCloneGitCache(url, { ref: 'main' });
     expect(result.fromCache).toBe(false);
     expect(spawnCount(), '合法 URL 必须真的走到派生(否则"放行"是假的)').toBe(1);
-    const args = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+    const args = execFileMock.mock.calls[0]?.[1] as readonly string[];
     const sep = args.indexOf('--');
     expect(sep).toBeGreaterThan(0);
     expect(args.slice(0, sep)).toEqual(['clone', '--depth', '1', '--branch', 'main']);
@@ -465,10 +531,10 @@ describe('G-786 复验 — ext:: / -u 短选项 / 换行注入 / 合法 https / 
   it('R5 合法 scp 形态与 `ssh://git@host:443/…`:两者都放行(白名单不得只认 https 而误伤 SSH)', async () => {
     for (const url of ['git@github.com:open-org/repo-name.git', 'ssh://git@github.com:443/open-org/repo-name.git'] as const) {
       expect(evaluateGitUrl(url).ok, url).toBe(true);
-      execFileSyncMock.mockClear();
+      clearSpawnRecords();
       const result = await getOrCloneGitCache(url);
       expect(result.fromCache, url).toBe(false);
-      const args = execFileSyncMock.mock.calls[0]?.[1] as readonly string[];
+      const args = execFileMock.mock.calls[0]?.[1] as readonly string[];
       expect(spawnCount(), `合法 SSH 形态必须真派生一次:${url}`).toBe(1);
       const sep = args.indexOf('--');
       expect(sep, `分隔符必须在位:${url}`).toBeGreaterThan(0);

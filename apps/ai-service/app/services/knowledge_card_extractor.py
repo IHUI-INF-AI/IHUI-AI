@@ -293,11 +293,24 @@ class KnowledgeCardExtractor:
         }
 
         try:
+            from ..core.internal_ticket import (
+                INTERNAL_SERVICE_PRINCIPAL_AI,
+                mint_internal_service_ticket,
+            )
+
             client = get_api_client()
+            # 2026-11-06 票据化:scope=knowledge-card,票面主体=userId(缺省用服务主体,
+            # 对应 api 侧"全局卡 userId=NULL")。票签不出来仍只发旧头 ⇒ 默认档会拒。
+            ticket = mint_internal_service_ticket(
+                user_id or INTERNAL_SERVICE_PRINCIPAL_AI, "knowledge-card"
+            )
+            headers = {"X-Internal-Secret": settings.ai_callback_secret}
+            if ticket:
+                headers["X-Internal-Service-Ticket"] = ticket
             resp = await client.post(
                 f"{settings.api_service_url}/api/knowledge-cards/",
                 json=payload,
-                headers={"X-Internal-Secret": settings.ai_callback_secret},
+                headers=headers,
             )
             resp.raise_for_status()
             body = resp.json()

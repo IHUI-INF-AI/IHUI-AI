@@ -53,6 +53,13 @@ export const INTERNAL_TICKET_SCOPES = [
   'memory', // /api/memory
   'self-evolution', // clawdbot 自进化回写
   'registry-sync', // 注册表漂移检测
+  // ── X-Internal-Secret 族票据化(2026-11-06)新增用途 ──
+  'knowledge-card', // ai-service 经验抽取写卡
+  'skills-market', // clawdbot 自进化发布 skill 到市场
+  'relay-user-pool', // ai-service 签到侧回填个人号池
+  'relay-account-pool-credential', // ai-service 凭证回写号池
+  'checkin-pool', // api → ai-service 号池/签到同步
+  'prompt-scan-bypass', // api → ai-service 服务间正文免注入扫描
 ] as const
 
 export type InternalTicketScope = (typeof INTERNAL_TICKET_SCOPES)[number]
@@ -82,6 +89,11 @@ export async function mintInternalServiceTicket(input: {
   ttlSeconds?: number
   jti?: string
 }): Promise<string> {
+  // 封闭枚举在**两侧都要成立**:验票侧对未知 scope 判 bad_scope,发票侧若照单全收,
+  // 就等于"任何用途的票都能签",把用途隔离降成注释。这里与验票侧同一条判据。
+  if (!isInternalTicketScope(input.scope)) {
+    throw new Error(`unknown internal ticket scope: ${String(input.scope)}`)
+  }
   const { getJwtSecret } = await import('@ihui/auth')
   const ttl = clampTicketTtl(input.ttlSeconds ?? DEFAULT_TICKET_TTL_SECONDS)
   const jti = input.jti ?? newJti()
@@ -107,32 +119,47 @@ function clampTicketTtl(raw: number): number {
   return Math.min(Math.floor(raw), MAX_TICKET_TTL_SECONDS)
 }
 
+/** 票面判据(签名 / 用途 / 时效)的失败原因 —— 不含单次使用那一维。 */
+export type TicketSignalFailureReason =
+  | 'secret_unavailable'
+  | 'malformed'
+  | 'expired'
+  | 'wrong_audience'
+  | 'wrong_type'
+  | 'missing_subject'
+  | 'missing_jti'
+  | 'bad_scope'
+  | 'scope_mismatch'
+  | 'too_long_lived'
+
 /** 验票结论。失败原因只给内部日志用,对客户端一律同一个 401 形状 (见调用方)。 */
 export type TicketVerifyResult =
   | {
       ok: true
+      /** 两条验票路径的判别位:true = 已登记并消费 jti(鉴权路径)。 */
+      consumed: true
       userId: string
       scope: InternalTicketScope
       jti: string
       /** 剩余有效期 (秒),用于给重放键定 TTL。 */
       remainingSeconds: number
     }
+  | { ok: false; reason: TicketSignalFailureReason | 'replayed' | 'replay_store_unavailable' }
+
+/**
+ * 非消耗式验签结论(`verifyInternalServiceTicketSignature` 的返回)。
+ * `consumed: false` 是刻意保留的判别位:调用方不得把它当成授权结论。
+ */
+export type TicketSignatureResult =
   | {
-      ok: false
-      reason:
-        | 'secret_unavailable'
-        | 'malformed'
-        | 'expired'
-        | 'wrong_audience'
-        | 'wrong_type'
-        | 'missing_subject'
-        | 'missing_jti'
-        | 'bad_scope'
-        | 'scope_mismatch'
-        | 'too_long_lived'
-        | 'replayed'
-        | 'replay_store_unavailable'
+      ok: true
+      consumed: false
+      userId: string
+      scope: InternalTicketScope
+      jti: string
+      remainingSeconds: number
     }
+  | { ok: false; reason: TicketSignalFailureReason }
 
 /**
  * 单次使用登记表。生产实现是 Redis (两侧共享的那台),测试注入内存替身。
@@ -186,24 +213,39 @@ export function createRedisReplayStore(redis: RedisSetNxLike): ReplayStore {
 }
 
 /**
- * 验一枚内部票:签名 → 用途 (aud/type/scope) → 时效 → 单次使用。
+ * **只验票面** (签名 → 用途 aud/type/scope → 时效),**不登记、不消费 jti**。
  *
- * 判序是刻意的,**重放在最后一步之前必须全部判完**:
- * 先 consume 再判 scope 的话,一次"scope 写错"的调用会把那张票烧掉,
- * 于是合法调用方重试时读到的就是 `replayed` —— 把配置错误伪装成重放攻击。
+ * 唯一调用点 = CSRF `onRequest` 钩子(`utils/internal-principal.ts` 的
+ * `isVerifiedInternalTicketCall`)。它问的只是"这是不是一枚签真的内部票",答"是"
+ * 只意味着跳过 CSRF 双提交(那是浏览器 cookie 场景的防线),**不授予任何访问权**:
+ * 同一次请求随后仍要过路由侧 `checkInternalServiceToken` —— 只有那一次会 consume。
+ *
+ * 为什么必须单独一条路径:CSRF 钩子跑在路由鉴权**之前**。若在这里 consume,
+ * 合法调用方的票会被 CSRF 吃掉,路由层只能读到 `replayed` ⇒ 纯票部署下
+ * `POST /api/memory`、`/api/automations`、`/api/im-gateway/send` 全部 401。
+ * 所以本函数刻意**不碰 `ReplayStore`**。
+ *
+ * 重放窗口如何被挡住(安全性论证):
+ *  1. **伪造**:HS256 签名 + `aud=ihui-internal-service` + `type=internal-service-ticket`
+ *     + scope 封闭集;拿不到 `JWT_SECRET` 签不出。用户 access token 在这一层被 aud/type 拒。
+ *  2. **过期**:jose 的 exp 校验 + 本函数再判 remaining>0,且 iat→exp ≤ maxTtl
+ *     (验票侧封顶 300s)⇒ 一枚泄露票最多在签发后 300s 内"过 CSRF"。
+ *  3. **重放**:本函数返回的 true **不是授权**,只是一次 CSRF 豁免。真正改状态的那条路
+ *     仍要 consume jti;第二枚必然 `replayed` ⇒ 401,副作用不会发生。故这里靠
+ *     "时间窗 + 签名"就足够;**不能用 jti**,用了就与"消耗只发生在路由鉴权那一次"冲突。
+ *
+ * 失败方向 fail-closed:密钥/签名实现不可用 ⇒ `{ok:false}`,调用方按"不豁免"处理。
  *
  * @param expectedScope 调用点声明的用途;票的 scope 与之不等 ⇒ `scope_mismatch` (跨用途拒绝)。
- * @param store 单次使用登记表;为 null 表示共享状态未配置 ⇒ 一律 `replay_store_unavailable`。
  */
-export async function verifyInternalServiceTicket(
+export async function verifyInternalServiceTicketSignature(
   raw: string,
   deps: {
-    store: ReplayStore | null
     expectedScope?: InternalTicketScope
     nowSeconds?: number
     maxTtlSeconds?: number
-  },
-): Promise<TicketVerifyResult> {
+  } = {},
+): Promise<TicketSignatureResult> {
   const { getJwtSecret } = await import('@ihui/auth')
   let secret: Uint8Array
   try {
@@ -260,9 +302,44 @@ export async function verifyInternalServiceTicket(
   const iat = typeof payload.iat === 'number' ? payload.iat : null
   if (iat !== null && exp - iat > maxTtl) return { ok: false, reason: 'too_long_lived' }
 
+  return {
+    ok: true,
+    consumed: false,
+    userId: payload.sub,
+    scope: payload.scope,
+    jti: payload.jti,
+    remainingSeconds,
+  }
+}
+
+/**
+ * 验一枚内部票:签名 → 用途 (aud/type/scope) → 时效 → **单次使用**。
+ *
+ * 判序是刻意的,**重放必须在最后一步**:
+ * 先 consume 再判 scope 的话,一次"scope 写错"的调用会把那张票烧掉,
+ * 于是合法调用方重试时读到的就是 `replayed` —— 把配置错误伪装成重放攻击。
+ *
+ * 只有这一条路径会消费 jti;CSRF 前哨用的是上面的
+ * `verifyInternalServiceTicketSignature`(验签但不登记)。
+ *
+ * @param expectedScope 调用点声明的用途;票的 scope 与之不等 ⇒ `scope_mismatch` (跨用途拒绝)。
+ * @param store 单次使用登记表;为 null 表示共享状态未配置 ⇒ 一律 `replay_store_unavailable`。
+ */
+export async function verifyInternalServiceTicket(
+  raw: string,
+  deps: {
+    store: ReplayStore | null
+    expectedScope?: InternalTicketScope
+    nowSeconds?: number
+    maxTtlSeconds?: number
+  },
+): Promise<TicketVerifyResult> {
+  const signal = await verifyInternalServiceTicketSignature(raw, deps)
+  if (!signal.ok) return signal
+
   if (!deps.store) return { ok: false, reason: 'replay_store_unavailable' }
   try {
-    const verdict = await deps.store.consume(payload.jti, remainingSeconds)
+    const verdict = await deps.store.consume(signal.jti, signal.remainingSeconds)
     if (verdict === 'replayed') return { ok: false, reason: 'replayed' }
   } catch {
     // fail-closed:见 createRedisReplayStore 上方三条依据。
@@ -271,10 +348,11 @@ export async function verifyInternalServiceTicket(
 
   return {
     ok: true,
-    userId: payload.sub,
-    scope: payload.scope,
-    jti: payload.jti,
-    remainingSeconds,
+    consumed: true,
+    userId: signal.userId,
+    scope: signal.scope,
+    jti: signal.jti,
+    remainingSeconds: signal.remainingSeconds,
   }
 }
 

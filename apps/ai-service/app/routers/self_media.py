@@ -515,7 +515,7 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
             return {"ok": False, "error": f"mdPath 不存在: {req.mdPath}"}
     elif req.mdContent:
         # 用户上传/在线编辑的 md 内容,直接落盘
-        md_path.write_text(req.mdContent, encoding="utf-8")
+        await asyncio.to_thread(md_path.write_text, req.mdContent, encoding="utf-8")
     elif not md_path.is_file():
         # 走 LLM 生成
         ok, md_content, err_msg = await _generate_md_with_llm(
@@ -523,7 +523,7 @@ async def wechat_generate(req: WechatGenerateRequest) -> dict[str, Any]:
         )
         if not ok:
             return {"ok": False, "error": err_msg, "stage": "llm_generate"}
-        md_path.write_text(md_content, encoding="utf-8")
+        await asyncio.to_thread(md_path.write_text, md_content, encoding="utf-8")
 
     args = ["--md", str(md_path), "--title", req.title, "--dry-run"]
     if req.digest:

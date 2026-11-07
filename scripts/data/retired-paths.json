@@ -50,6 +50,171 @@
       "path": "scripts/heal-generated-artifact-union.mjs",
       "reason": "立因是「append-only 归档型生成物」的合并丢失偿还,而那份生成物 archive-completed-tasks.mjs 已于 2026-10-16 整体退役(AGENTS §1 归档机制退役,现读 git ls-files 匹配数为 0 才算合规);裁决枚 295487496e2731c3dad2885dac5abdbc3786c511 与 eee93b075b71af725ef75270a99c9a195fdbaf0c 两次摘除,被 bcc72af873eadd87f59e50236045f0545cdd8f62 一类「收编本机在飞件」通道逐字带回。全仓剩三条 2026-10-15 的探查留痕提到它,而同批留痕里的 archive-completed-tasks.mjs 本身已是明令不得再跑的旧命令 —— 那不构成活出路(§0.8)。",
       "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-1.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-1.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入,唯一消费面 = @ihui/shared/plugins-data。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-2.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-2.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-3.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-3.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-4.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-4.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-5.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-5.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-6.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-6.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-7.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-7.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-8.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-8.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-9.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-9.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-10.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-10.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins-parts/part-11.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins-parts/part-11.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/market-plugins.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/market-plugins.ts 逐字节相同(同一 blob);判死枚 3570d3d29cf51b3bf43f4f376f236a0fb5a5c8cb、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/project-plugins.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/project-plugins.ts 逐字节相同(同一 blob);判死枚 06e0461dbc50455e3701c341dd9fc959a7ed9d9c、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970 三次摘除,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/web/app/(main)/plugins/plugins-data/types.ts",
+      "reason": "死副本:与 packages/shared/src/plugins-data/types.ts 逐字节相同(同一 blob);判死枚 3570d3d29cf51b3bf43f4f376f236a0fb5a5c8cb、718f74180db9ce7f979cb1cd1819abf23bf00e1d、f2402b15035871544ee25cee9a67c7c77ba22970,又被 9fdbc207ba2ea5536812f8b965d7a9218bb28785 收编通道原样带回;全仓零本地导入。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-metric-exists.mjs",
+      "reason": "grafana-* 旧族(8 枚)之指标名门:a7ced7411c 以 R79 把它改名为 check-panel-metric-exists.mjs(改名契约),0932d2e0af 的『文件面零丢失 union』又原样 A 回,于是新旧两套并存。现读实测旧件指向的三棵 <root>/grafana/dashboards 树已全部退役(3778408c 删 38 枚),跑它只得 exit 2『枚举到 0 个大屏』;新件是旧件的严格超集(+106/−22 全部是路径/台账/跳过变量换名,另加改名连续性折身份),旧件零独有判据。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-metric-exists.test.mjs",
+      "reason": "上一条那份门体的镜像测试,与本体同批退役(a7ced7411c 改名成 check-panel-metric-exists.test.mjs,0932d2e0af 原样带回)。新件是旧件的严格超集(+2/−2 只有 import/门体路径换名),本体既去则旧测试只剩自指,留着就是给下一枚 union 合并当复活锚点。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-logql-panels.mjs",
+      "reason": "grafana-* 旧族之 LogQL 巡检器:a7ced7411c 改名为 verify-panel-logql.mjs,0932d2e0af 原样带回。现读 diff 仅 +8/−8,全部是文件名/注释措辞与 `monitoring/grafana/dashboards` → `monitoring/panel-defs/panels` 的取材面换址;旧件指向的目录已退役,零独有逻辑。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/verify-grafana-panel-data.mjs",
+      "reason": "grafana-* 旧族之面板取数巡检器:a7ced7411c 改名为 verify-panel-data.mjs,0932d2e0af 原样带回。现读 diff 仅 +14/−14,全部是文件名/措辞与取材目录换址;新件 import 的是 check-panel-* 两份判据(单一真相源),旧件指向的平稳监控树已退役,零独有逻辑。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/data/grafana-external-metrics.json",
+      "reason": "grafana-* 旧族之外部导出器台账:a7ced7411c 改名为 scripts/data/panel-external-metrics.json,0932d2e0af 原样带回。旧件唯一多出的 `grafana_` 前缀条目已被新件按清单腐烂判据(§0.7)删除 —— 现读审面零面板引用该前缀,不是新件缺失逻辑;唯一消费者 check-metric-existence.mjs 的路径已同笔改指新台账。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/tests/check-grafana-datasource-wiring.test.mjs",
+      "reason": "grafana-* 旧族之接线门镜像测试:a7ced7411c 改名为 check-panel-datasource-wiring.test.mjs,0932d2e0af 原样带回。新件是旧件的严格超集(+36/−5:覆盖锁换址、saas 树换址,并新增 D13 退役锁),旧件零独有夹具。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square30x30Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square30x30Logo.png 逐字节相同(blob b6bb73a29074d672394b806565b47db857b57195);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square44x44Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square44x44Logo.png 逐字节相同(blob d4b148477ad7911215508ae7618e56154428c38a);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square71x71Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square71x71Logo.png 逐字节相同(blob 842500649079a72f72efcb44be77785d0547ee73);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square89x89Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square89x89Logo.png 逐字节相同(blob 29f3630602378f381f7f9d07d31cc1d24ec7d347);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square107x107Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square107x107Logo.png 逐字节相同(blob 1b4e5128160a7d52e5c654574167e65a1cbc74e4);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square142x142Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square142x142Logo.png 逐字节相同(blob 8ecdac7a308ba8e94b9fe02fd41c3399925ab9d8);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square150x150Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square150x150Logo.png 逐字节相同(blob 512d6224d612017184a84700749de0bf61cf656b);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square284x284Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square284x284Logo.png 逐字节相同(blob 4afb0178600a2c994e50f0bf60b79a42e3a26140);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/Square310x310Logo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/Square310x310Logo.png 逐字节相同(blob e3a69e8dc59be60e274282d612f346f9ae749952);迁入 store-assets 后被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建原样带回;现读 tauri.conf.json 的 bundle.icon 不含该件,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "apps/desktop/src-tauri/icons/StoreLogo.png",
+      "reason": "死副本:与 apps/desktop/store-assets/StoreLogo.png 逐字节相同(blob 73dbaefffa08218333c7b96a7cd7e34a458f2ee8);291a0d15c15ed9f98c3ec49b5b257d753bcb16a7 以 R100 迁入 store-assets,又被 26975a4bfdd814aeb4069a426f2da72925277633 的索引层重建带回;bundle.icon 不含它,全仓零引用。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "packages/shared/src/share/share-intent.tsx",
+      "reason": "死副本:与 packages/shared/src/share/share-intent.ts 逐字节相同(SHA256 99d684dc697f6dbc92789810acba91403b0797ec2cded3e4a7fa1d8d8f49f95b);8eebef0d1f78042d876f90e0d6558aee624b43f6 已把零 JSX 模块改回 .ts,该 .tsx 又被索引层重建带回;全仓唯一引用是 README.md 历史链接,已改址到 .ts。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/check-grafana-datasource-wiring.mjs",
+      "reason": "grafana-* 旧族最后两枚之接线门本体:a7ced7411ca9a4a8d90ae60b29ce2792be0c3aea 已改名为 check-panel-datasource-wiring.mjs,0932d2e0affcac7cae0d1bc5646cb25c774bfcf5 的『文件面零丢失 union』又原样 A 回。旧件唯一独有判据是 listFacePaths 的 head→HEAD 归一(Linux 大小写敏感,直接把 'head' 当 rev 会 fatal: Not a valid object name,Windows 长期掩盖);本轮已把该归一迁进新件并由 D14 镜像测试锁住,旧件遂零独有逻辑,随最后两枚一并退役。首批 6 枚退役裁决枚 ed0bf2fedc3d77e9f882bc3fc05fd49b9f0e150b。",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/sync-grafana-live-provisioning.mjs",
+      "reason": "grafana-* 旧族最后两枚之派生器:新件 sync-panel-live-provisioning.mjs 已完整提供并导出 splitBlocks(唯一实现,守门 222 与镜像测试一律 import 它),旧件本体实测 19/11 差异全部落在地址/文案/换名,零独有判据,故不构成保留理由。首批 6 枚退役裁决枚 ed0bf2fedc3d77e9f882bc3fc05fd49b9f0e150b,本笔为 grafana-* 旧族收口。",
+      "reviewBy": "2027-06-30"
     }
   ]
 }

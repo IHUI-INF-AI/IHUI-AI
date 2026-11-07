@@ -25,6 +25,8 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { InterjectionBuffer } from '../src/interjection.js';
+import { createTaskStatusLine } from '../src/commands/task-status-line.js';
+import { PromptQueue } from '../src/prompt-queue.js';
 import {
   createReplSigintHandler,
   createDrainInterjections,
@@ -54,6 +56,12 @@ function makeTestState(overrides: Partial<ReplState> = {}): ReplState {
     agentRunning: false,
     aborted: false,
     abortController: null,
+    statusLine: createTaskStatusLine({ enabled: () => false }),
+    toolLog: [],
+    toolResultMetadata: {},
+    promptQueue: new PromptQueue(),
+    followUpMode: 'steer',
+    queueInterruptOnce: false,
     ...overrides,
   };
 }

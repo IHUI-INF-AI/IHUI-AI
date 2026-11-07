@@ -245,6 +245,46 @@ async def test_pool_sync_requires_internal_secret(client, monkeypatch):
     assert resp.status_code == 401
 
 
+async def test_pool_sync_ticket_mode_accepts_ticket_and_rejects_legacy(
+    client, fake_store, monkeypatch
+):
+    """2026-11-06 票据化正常路径实测:默认档下有效票必须放行,旧密钥必须被拒。"""
+    from app.core.internal_secret_auth import set_replay_store_for_tests
+    from app.core.internal_ticket import mint_internal_service_ticket
+
+    class _MemStore:
+        def __init__(self) -> None:
+            self.seen: set[str] = set()
+
+        async def consume(self, jti: str, ttl_seconds: int) -> str:
+            if jti in self.seen:
+                return "replayed"
+            self.seen.add(jti)
+            return "consumed"
+
+    monkeypatch.setattr(settings, "internal_secret_auth_mode", "ticket")
+    monkeypatch.setattr(settings, "jwt_secret", "ticket-mode-test-jwt-secret-0123456789abcdef")
+    set_replay_store_for_tests(_MemStore())
+    try:
+        ticket = mint_internal_service_ticket("service:apps-api", "checkin-pool")
+        assert ticket
+        ok = await client.post(
+            "/internal/checkin/pool-sync",
+            json={"platform": "qoder", "accounts": [_account_payload()]},
+            headers={"X-Internal-Service-Ticket": ticket},
+        )
+        assert ok.status_code == 200, ok.text
+
+        legacy = await client.post(
+            "/internal/checkin/pool-sync",
+            json={"platform": "qoder", "accounts": [_account_payload()]},
+            headers={"X-Internal-Secret": INTERNAL_SECRET},
+        )
+        assert legacy.status_code == 401
+    finally:
+        set_replay_store_for_tests(None)
+
+
 # ---------------------------------------------------------------------------
 # pool-sync 建号契约
 # ---------------------------------------------------------------------------

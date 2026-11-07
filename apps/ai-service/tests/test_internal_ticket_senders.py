@@ -52,6 +52,16 @@ def decode_ticket(token: str) -> dict[str, Any]:
     )
 
 
+def header_value(headers: dict[str, str], name: str) -> str | None:
+    """HTTP 头名大小写不敏感:发送侧有的用字面量 'X-Internal-Service-Ticket',
+    有的用常量(小写) —— 断言必须按协议语义取,而不是按字面量取。"""
+    lowered = name.lower()
+    for key, value in headers.items():
+        if key.lower() == lowered:
+            return value
+    return None
+
+
 class _FakeResp:
     def __init__(self, payload: dict[str, Any] | None = None) -> None:
         self._payload = payload if payload is not None else {}
@@ -87,6 +97,10 @@ def _make_fake_httpx(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str, di
             captured.append(("POST", url, dict(kwargs.get("headers") or {})))
             return _FakeResp()
 
+        async def request(self, method: str, url: str, **kwargs: Any) -> _FakeResp:
+            captured.append((method.upper(), url, dict(kwargs.get("headers") or {})))
+            return _FakeResp({"data": {"entries": []}})
+
     monkeypatch.setattr(httpx, "AsyncClient", _FakeClient)
     return captured
 
@@ -118,10 +132,13 @@ def test_edu_反向_签不出票时只留旧头不发票头空串(
 
 
 async def test_edu_零副作用_凭证或身份缺失返回空且不构造任何请求(
-    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+    monkeypatch: pytest.MonkeyPatch, without_jwt_secret: None
 ) -> None:
     import app.services.mcp_server as mcp
 
+    # 2026-11-05 语义升级:默认 ticket 档下"凭据"= 能签出的票,不再是常驻密钥。
+    # 因此"零凭据"必须**两把都没有**(此前只删 AI_CALLBACK_SECRET,把 JWT_SECRET 留着
+    # 还能签票的情形误当成"缺凭据"——那条断言钉的是旧前提,不是安全检查)。
     monkeypatch.delenv("AI_CALLBACK_SECRET", raising=False)
     constructed = _make_fake_httpx(monkeypatch)
     result = await mcp._edu_api_request("GET", "/config", user_id=UID)
@@ -129,6 +146,24 @@ async def test_edu_零副作用_凭证或身份缺失返回空且不构造任何
     assert constructed == [], "凭证缺失必须不发请求(零副作用)"
     monkeypatch.setenv("AI_CALLBACK_SECRET", "legacy-secret")
     assert mcp._edu_internal_headers("bad uid!") == {}
+
+
+def test_edu_默认档_只配_jwt_secret_即可凭票出站(
+    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+) -> None:
+    """默认 ticket 档的凭据是票:只配 JWT_SECRET、不配 AI_CALLBACK_SECRET 也必须出站。
+
+    这是"调用方就地补票获取路径"的正面判据 —— 否则 ticket 档会把只差常驻密钥的
+    正常部署判成"无凭据"。
+    """
+    import app.services.mcp_server as mcp
+
+    monkeypatch.delenv("AI_CALLBACK_SECRET", raising=False)
+    headers = mcp._edu_internal_headers(UID)
+    assert INTERNAL_TICKET_HEADER in headers
+    assert INTERNAL_TOKEN_HEADER not in headers
+    assert headers[USER_ID_HEADER] == UID
+    assert decode_ticket(headers[INTERNAL_TICKET_HEADER])["scope"] == "mcp-edu"
 
 
 # ── 2. im_bridge ───────────────────────────────────────────────────────
@@ -176,6 +211,155 @@ async def test_im_bridge_反向_签不出票时只留旧头(
     headers = captured[0]
     assert headers[INTERNAL_TOKEN_HEADER] == "legacy-secret"
     assert INTERNAL_TICKET_HEADER not in headers
+
+
+# ── 4. LLM 回调(ai-service → apps/api /api/ai/callback)───────────────
+class _CbResp:
+    def __init__(self, code: int) -> None:
+        self.status_code = code
+        self.text = ""
+
+
+def _capture_callback_httpx(
+    monkeypatch: pytest.MonkeyPatch, statuses: list[int] | None = None
+) -> list[dict[str, str]]:
+    """替换 app.routers.llm.httpx.AsyncClient,按 statuses 顺序应答(默认 200)。"""
+    captured: list[dict[str, str]] = []
+    queue = list(statuses or [200])
+
+    class _FakeClient:
+        def __init__(self, **kwargs: Any) -> None:
+            return None
+
+        async def __aenter__(self) -> _FakeClient:
+            return self
+
+        async def __aexit__(self, *exc: Any) -> bool:
+            return False
+
+        async def post(self, url: str, **kwargs: Any) -> _CbResp:
+            captured.append(dict(kwargs.get("headers") or {}))
+            code = queue.pop(0) if len(queue) > 1 else queue[0]
+            return _CbResp(code)
+
+    monkeypatch.setattr("app.routers.llm.httpx.AsyncClient", _FakeClient)
+    return captured
+
+
+async def test_llm_callback_正向_票绑定_metadata_userId_且旧密钥同发(
+    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+) -> None:
+    from app.routers.llm import _fire_callback
+
+    monkeypatch.setattr(settings, "ai_callback_secret", "legacy-secret", raising=False)
+    monkeypatch.setattr(settings, "api_service_url", "http://api.test", raising=False)
+    captured = _capture_callback_httpx(monkeypatch)
+    await _fire_callback(
+        "http://api.test/api/ai/callback",
+        {"content": "hi", "model": "gpt-x", "usage": None, "stub": False},
+        {"userId": UID},
+    )
+    assert len(captured) == 1
+    headers = captured[0]
+    assert headers["X-Internal-Secret"] == "legacy-secret"  # 兼容窗
+    payload = decode_ticket(headers["X-Internal-Service-Ticket"])
+    assert payload["scope"] == "ai-callback"
+    assert payload["sub"] == UID
+
+
+async def test_llm_callback_正向_每轮重试重签新票避免_replayed(
+    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+) -> None:
+    """验票侧按 jti 单次消费 ⇒ 5xx 重试若复用旧票会被判 replayed(正常回调被误挡)。"""
+    import asyncio
+
+    from app.routers.llm import _fire_callback
+
+    monkeypatch.setattr(settings, "ai_callback_secret", "legacy-secret", raising=False)
+    monkeypatch.setattr(settings, "api_service_url", "http://api.test", raising=False)
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+    captured = _capture_callback_httpx(monkeypatch, statuses=[500, 500, 200])
+    await _fire_callback(
+        "http://api.test/api/ai/callback",
+        {"content": "hi", "model": "gpt-x", "usage": None, "stub": False},
+        {"userId": UID},
+    )
+    assert len(captured) == 3
+    jtis = [decode_ticket(h["X-Internal-Service-Ticket"])["jti"] for h in captured]
+    assert len(set(jtis)) == 3, f"重试复用了同一枚票: {jtis}"
+
+
+async def test_llm_callback_反向_签不出票时拒绝发送(
+    monkeypatch: pytest.MonkeyPatch, without_jwt_secret: None
+) -> None:
+    from app.routers.llm import _fire_callback
+
+    monkeypatch.setattr(settings, "ai_callback_secret", "legacy-secret", raising=False)
+    monkeypatch.setattr(settings, "api_service_url", "http://api.test", raising=False)
+    captured = _capture_callback_httpx(monkeypatch)
+    await _fire_callback(
+        "http://api.test/api/ai/callback",
+        {"content": "hi", "model": "gpt-x", "usage": None, "stub": False},
+        {"userId": UID},
+    )
+    assert captured == [], "无票就必须不发(fail-closed),不得只发旧密钥"
+
+
+# ── 5. knowledge_writer / knowledge_card_extractor(→ /api/knowledge-cards)──
+async def test_knowledge_writer_正向_票用途_knowledge_card_且主体为_user(
+    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+) -> None:
+    from app.services.knowledge_writer import KnowledgeWriter
+
+    monkeypatch.setenv("API_SERVICE_URL", "http://api.test")
+    monkeypatch.setenv("AI_CALLBACK_SECRET", "legacy-secret")
+    captured = _make_fake_httpx(monkeypatch)
+    out = await KnowledgeWriter().write_card(
+        title="t", content="c", repo_name="IHUI-AI", user_id=UID, tags=[]
+    )
+    assert out["status"] == "ok"
+    assert len(captured) == 1
+    headers = captured[0][2]
+    assert headers["X-Internal-Secret"] == "legacy-secret"
+    raw = header_value(headers, INTERNAL_TICKET_HEADER)
+    assert raw, "knowledge_writer 必须带内部票(默认 ticket 档下只发旧头会被拒)"
+    payload = decode_ticket(raw)
+    assert payload["scope"] == "knowledge-card"
+    assert payload["sub"] == UID
+
+
+async def test_knowledge_card_extractor_正向_无_user_时用服务主体签票(
+    monkeypatch: pytest.MonkeyPatch, with_jwt_secret: str
+) -> None:
+    """全局卡(user_id 缺省)不是"不发票",而是用服务主体 —— 验票侧按 service: 放行归属校验。"""
+    import app.services.api_client as api_client_mod
+    from app.services.knowledge_card_extractor import KnowledgeCardExtractor
+
+    monkeypatch.setattr(settings, "ai_callback_secret", "legacy-secret", raising=False)
+    monkeypatch.setattr(settings, "api_service_url", "http://api.test", raising=False)
+    captured = _make_fake_httpx(monkeypatch)
+
+    class _Client:
+        async def post(self, url: str, **kwargs: Any) -> _FakeResp:
+            captured.append(("POST", url, dict(kwargs.get("headers") or {})))
+            return _FakeResp({"code": 0, "data": {"id": "card-1"}})
+
+    monkeypatch.setattr(api_client_mod, "get_api_client", lambda: _Client())
+    card = {
+        "kind": "experience",
+        "title": "t",
+        "content": "c",
+        "tags": [],
+        "confidence": 80,
+    }
+    out = await KnowledgeCardExtractor()._save_card(card, "IHUI-AI")
+    assert out == {"id": "card-1"}
+    headers = captured[0][2]
+    raw = header_value(headers, INTERNAL_TICKET_HEADER)
+    assert raw, "抽取器必须带内部票(全局卡用服务主体,不是不发票)"
+    payload = decode_ticket(raw)
+    assert payload["scope"] == "knowledge-card"
+    assert payload["sub"] == "service:ai-service"
 
 
 # ── 3. memory_service(两处)────────────────────────────────────────────

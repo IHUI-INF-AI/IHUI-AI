@@ -61,7 +61,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **624 tables · 4722 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · test file counts in the generated table below ·
-336 engineering gates · 54 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+336 engineering gates · 55 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
@@ -69,26 +69,26 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | ---- | ---- | ------ |
 | 数据库表 | 624 | `dbTables` |
 | schema 文件 | 241 | `dbSchemaFiles` |
-| API 路由 | 4722 | `apiRoutes` |
+| API 路由 | 4725 | `apiRoutes` |
 | 路由文件 | 669 | `apiRouteFiles` |
-| AI 服务路由 | 647 | `aiServiceRoutes` |
+| AI 服务路由 | 654 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
 | CLI 命令文件 | 75 | `cliCommandFiles` |
-| CLI 工具文件 | 94 | `cliToolFiles` |
+| CLI 工具文件 | 95 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4292 | `testFiles` |
-| CI 工作流 | 54 | `ciWorkflows` |
+| 测试文件 | 4357 | `testFiles` |
+| CI 工作流 | 55 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 348 | `guardianGates` |
-| — blocking | 319 | `guardianBlocking` |
+| 工程守门 | 351 | `guardianGates` |
+| — blocking | 322 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19741 | `trackedFiles` |
+| 跟踪文件 | 19951 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -99,6 +99,56 @@ Headline claims (same source as the table below, all live-computed): **624 table
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-06**
+- 🐞 Fix:落地悬空副本里的两枚判据 fail-closed 与跳门降级证据(RP-67) (b7aa56e7f6)
+- 🐞 Fix:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
+- 🐞 Fix:取票腿被击穿时的可证复用 —— 三条安全条件缺一即拒绝,且必须说出是哪一条 (43bdd603e5)
+- 📚 Docs:22 枚在飞票挂完整租约(HEAD 面⊕挂牌,不代他席落地) (1c4f42c0c6)
+
+**2026-11-06**
+- 🐞 Fix:RP-91 旁路器物未知旗标守卫收口 + 修三枚烂牙测试 (09eeb36dcb)
+
+**2026-11-06**
+- 🐞 Fix:健康尺 A15 同批认 cost-breaker-stop —— 新字面量不能变成"没人认领的动作" (c3076a1a36)
+
+**2026-11-06**
+- 🐞 Fix:成本熔断不再冒充"日预算耗尽" —— 两种真因曾共用一个字面量 (f8213f5a4f)
+
+**2026-11-06**
+- 🐞 Fix:日上限计数拿本地日键去比 UTC 时间戳 —— 本地 00:00-08:00 这段窗口日上限根本不生效 (b3cb1ec26b)
+
+**2026-11-05**
+- 🐞 Fix:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
+
+**2026-11-06**
+- 🚀 Feature/Improvement:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
+
+**2026-11-05**
+- 🐞 Fix:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
+
+**2026-11-06**
+- 🐞 Fix:出站清洗补上射程第三格 —— 零宽藏在工具调用参数里时仪器全程报绿 (1b62d16ce2)
+
+**2026-11-05**
+- 🐞 Fix:消灭内部调用无凭据退化成裸 x-user-id,并加静态判据门 (3cfb981dc8)
+- 🐞 Fix:内部服务鉴权默认收口到 ticket,老通道身份头强制签名 (32cf59c6f4)
+
+**2026-11-06**
+- 🐞 Fix:逃生邮件从来没发出去过 —— resolveMailTo 的正则少一个 m 档,还反指控"缺键" (fdc0253f83)
+
+**2026-11-05**
+- 🐞 Fix:重发 tenant RLS batch1 为幂等装车迁移 + 回滚脚本(F-01) (2725de663d)
+
+**2026-11-05**
+- 🐞 Fix:请求出口复位 app.* 会话变量,闭合池化连接串租户(F-02) (ad4828bf26)
+
+**2026-11-05**
+- 🔧 Chore/Other:落地 pre-commit 自动格式化(仅折行/合并,无逻辑变化) (a9a727aada)
+- 🐞 Fix:内部票补齐 CSRF 非消耗式验签与 codebase 路由入口 (fc0e93c32f)
+- 🐞 Fix:判据 3 收严为声明锚定 + 全集相等,补反例 (b84737901b)
+
+**2026-11-05**
+- 🔧 Chore/Other:修正白名单切片定位到常量声明处 (9a302a22fb)
 **2026-11-07**
 - 🚀 Feature/Improvement:落三组确证未落地的真工作（RN 测试面 4 枚 + 类型预算器 4 枚 + tabbar 图标生成器换代） (521e7853d4)
 - 📚 Docs:合并后按现读尖重算生成块数字（trackedFiles/testFiles/apiRoutes 等） (0c67ea403f)
@@ -126,7 +176,6 @@ Headline claims (same source as the table below, all live-computed): **624 table
 - 📚 Docs:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (8b76a25dee)
 - 🚀 Feature/Improvement:量具纠错(D3)+配对改判+轴一结清+词包扩面 —— 未落地链整体重放到活尖单枚落地 (e20af7a824)
 
-**2026-11-06**
 - 🐞 Fix:首页模型选择弹窗高度按内容自适应(修复列表塌成0高看不见) (8d8a28770f)
 - ♻️ Refactor:props 契约下沉 @ihui/types 单一源 + 会话历史排序上移 shared (2447a00d04)
 - 🐞 Fix:读不到不再当成没有再覆盖 (5aee34e06e)
@@ -140,7 +189,6 @@ Headline claims (same source as the table below, all live-computed): **624 table
 **2026-11-07**
 - 🚀 Feature/Improvement:成绩页跨端词条五语同批（三数/全量解析/rank/三操作）并按合并后源重算离线包 (9d2677fe83)
 
-**2026-11-06**
 - 📚 Docs:README 生成块 trackedFiles 19557→19559(按 HEAD 现算值归位) (5f0e886a89)
 - 🐞 Fix:OTA 腿 eas update 超时 15→30 min,并把被杀的末段输出打出来 (e2ba407272)
 - 🐞 Fix:深度收口 RN 样式高度口径 + 百分比判据进提交链 (88958244a0)
@@ -205,7 +253,6 @@ Headline claims (same source as the table below, all live-computed): **624 table
 - 🔧 Chore/Other:versionName 优先 -P,显示版本与原生基座解耦 (fc592e25e1)
 - 🔧 Chore/Other:origin/main 35c870f8705b115086a63aadefe2ecb8e5370558 + mobile overlay b77573788d5d2b31f8d2b09ae2e212c953131f9f (d76367ae48)
 
-**2026-11-05**
 - 📚 Docs:记录 node_modules 空洞导致 eslint 加载失败的根因与恢复口径 (384c883107)
 
 **2026-11-04**
@@ -408,6 +455,12 @@ The sidebar collapses many first-level menu items into **per-domain entries**; e
 - **What they do**: `/goods/select` supplies the cart's product paging read; `/sign-ups` merges course sign-ups and exam sign-ups into one "my sign-ups" list; `/auth/wechat/mini/one-tap-login` is a newly opened endpoint — previously `/mini/login` answered new users with `{needPhone:true, openId}` and issued no token, while `/mini/phone` required an existing session and returned no token either, so that chain was structurally impossible (proof case: `apps/api/src/routes/__tests__/wechat-mini-one-tap-login.test.ts`).
 - **How to use**: all three are registered in `apps/api/src/routes/index.ts` (`goods.ts` under `prefix:'/api'`, `sign-ups.ts` under `prefix:'/api/sign-ups'`, the login leg under the auth prefix). Inputs are Zod-validated; one-tap login accepts `{ loginCode, phoneCode }` as a `strictObject`, so unknown keys answer 400.
 - **End**: backend `apps/api`; consumers are listed in the table column above (web / mobile-rn / mini-program).
+### GitHub App webhook async dispatch (registered 2026-11-06 — RP-69)
+`POST /api/github-app/webhook` now answers first and processes later (Y-91) on the two dispatch paths, `pull_request` and `issue_comment`.
+- **Env var**: `GITHUB_WEBHOOK_RESPONSE_BUDGET_MS` — the response budget in ms. It bounds how long GitHub is kept waiting; it is **not a cancellation timeout**: when the budget expires the handler returns 200 and the job keeps running to completion (no interruption, no retry), still recording the delivery.
+- **Default**: 500 ms (`DEFAULT_RESPONSE_BUDGET_MS = 500`, read from source). Missing, non-finite or negative values all fall back to that default rather than being guessed. `0` selects the pure-async mode, which always returns 200 immediately.
+- **New response field `dispatch`**: `'inline'` or `'async'`. If the job finishes within the budget the 200 carries `dispatch:'inline'` plus the existing `outcome` (the previous response shape is preserved); when the budget expires — or in `0` mode (`deferred`) — the 200 carries `dispatch:'async'` with no `outcome`, while the heavy work finishes in the background queue.
+- **Known gap (deferred is not persisted)**: the dispatch queue is a one-shot in-process, in-memory queue — no resident service, no polling, no durable storage — and the delivery row is written only after the job finishes. If the API process crashes or restarts in the window after a `dispatch:'async'` 200 was sent but before the background job completes, both the in-memory job and the not-yet-written delivery row are lost. GitHub already recorded the delivery as successful and will not redeliver, and the in-process LRU deduper disappears with the process, so that delivery's review / comment write-back is silently lost, cannot be replayed and cannot be reconciled. This window is not closed by the current implementation (the execute-in-place fallback only covers a full backlog, not process exit).
 
 ### Account keepalive centre (added 2026-10-26 — two unrelated liveness loops merged into one answer)
 
@@ -504,3 +557,10 @@ If this project is useful to you, a ⭐ is the most direct contribution.
 
 </div>
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+<!-- 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) -->
+Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4357 test files ·
+332 engineering gates · 55 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
+Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·
+Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·

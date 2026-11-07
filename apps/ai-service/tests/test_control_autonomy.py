@@ -271,4 +271,56 @@ async def test_status_result_is_cached(monkeypatch: pytest.MonkeyPatch) -> None:
     assert calls["n"] == 1, f"应命中缓存,实发 {calls['n']} 次"
     assert seen_headers.get("x-internal-service-token") == "test-secret", seen_headers
     assert seen_headers.get("x-user-id") == _USER, seen_headers
+
+
+async def test_status_query_ticket_only_deployment_still_fires(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """纯票部署(有 JWT_SECRET、无 AI_CALLBACK_SECRET)也必须发这条 status 查询。
+
+    旧实现以 ``headers.get("x-internal-service-token")`` 作开关:票在、旧密钥不在时
+    静默跳过 ⇒ 在线端永远查不到、UI 工具永不注入,而现象只是"AI 不动"。
+    """
+    from app.core.config import settings
+
+    seen: dict[str, str] = {}
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict[str, Any]:
+            return {"data": {"endpoints": [{"endpoint": "web", "instanceId": "w1"}]}}
+
+    class _Client:
+        def __init__(self, **_kw: Any) -> None:
+            pass
+
+        async def __aenter__(self) -> _Client:
+            return self
+
+        async def __aexit__(self, *_a: Any) -> None:
+            return None
+
+        async def get(self, _url: str, **kw: Any) -> _Resp:
+            seen.update(kw.get("headers") or {})
+            return _Resp()
+
+    import httpx
+
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: _Client())
+    monkeypatch.delenv("AI_CALLBACK_SECRET", raising=False)
+    monkeypatch.delenv("INTERNAL_SERVICE_TOKEN", raising=False)
+    monkeypatch.setenv("JWT_SECRET", "test-jwt-secret-for-control-autonomy-0123456789ab")
+    monkeypatch.setattr(
+        settings,
+        "jwt_secret",
+        "test-jwt-secret-for-control-autonomy-0123456789ab",
+        raising=False,
+    )
+
+    assert await ca._online_prefixes(_USER) == frozenset({"web_ui_"})
+    assert seen.get("x-internal-service-ticket"), seen
+    assert seen.get("x-internal-service-token") is None, seen
+    assert seen.get("x-user-id") == _USER, seen
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

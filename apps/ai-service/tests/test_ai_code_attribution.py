@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -34,8 +35,16 @@ from app.core.ai_code_attribution import (
     compute_stats,
     make_record,
     parse_diff_line_range,
+    plan_blame_view,
     plan_checkpoint,
     resolve_anchor,
+)
+from app.services.ai_code_attribution_git import (
+    attach_checkpoint_note,
+    judge_notes_refs,
+    list_notes_refs,
+    notes_ref_for_namespace,
+    read_commit_notes,
 )
 from app.services.ai_code_attribution_store import (
     AiCodeAttributionStore,
@@ -45,9 +54,13 @@ from app.services.ai_code_attribution_store import (
     list_checkpoint_log,
     list_records,
     log_host_edit_checkpoint,
+    mirror_checkpoints_to_notes,
     note_host_edit,
     note_measured_external_edit,
+    prompt_log_path,
     record_attribution,
+    remember_prompt,
+    show_prompt,
     stats_all,
     stats_for_path,
     stats_for_session,
@@ -572,4 +585,340 @@ async def test_file_edit_records_measured_external_drift(tmp_path, monkeypatch, 
     kinds = [row["kind"] for row in list_checkpoint_log()[0]]
     assert "known_human" in kinds
     assert kinds.count("known_human") == 1
+
+
+def test_notes_health_names_absence_and_does_not_collapse_namespaces():
+    assert notes_ref_for_namespace("") == "refs/notes/ai"
+    assert notes_ref_for_namespace("default") == "refs/notes/ai"
+    assert notes_ref_for_namespace("team") == "refs/notes/ai-team"
+    assert notes_ref_for_namespace("../notes") is None
+    assert notes_ref_for_namespace("a/b") is None
+    missing = judge_notes_refs([])
+    assert missing["status"] == "absent"
+    assert missing["message"] == "Expected notes ref is present"
+    unread = judge_notes_refs(None)
+    assert unread["status"] == "unjudged"
+    assert unread["refs"] == []
+    other = judge_notes_refs(["refs/notes/commits"])
+    assert other["status"] == "absent"
+    many = judge_notes_refs(["refs/notes/ai", "refs/notes/ai-team"])
+    assert many["status"] == "multiple"
+    assert many["message"] == "Multiple git-ai note namespaces detected"
+    assert many["refs"] == ["refs/notes/ai", "refs/notes/ai-team"]
+
+
+def _repo_with_one_commit(path: Path) -> str:
+    path.mkdir(parents=True, exist_ok=True)
+
+    def run(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", "-C", str(path), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        return proc.stdout.strip()
+
+    subprocess.run(["git", "init", str(path)], check=True, capture_output=True, text=True)
+    run("config", "user.email", "notes@example.com")
+    run("config", "user.name", "notes")
+    (path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    run("add", "a.py")
+    run("commit", "-m", "init")
+    return run("rev-parse", "HEAD")
+
+
+def test_matching_checkpoint_is_noted_once_and_a_bad_sha_creates_nothing(tmp_path, tmp_store):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    log_host_edit_checkpoint("file_edit", "a.py", "diff", {"__session_id": "s"})
+    updated, refused = mirror_checkpoints_to_notes(repo, "abc", ["a.py"])
+    assert updated == 0
+    assert refused == "提交号不是 40 位"
+    assert list_notes_refs(repo) == []
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["other.py"])
+    assert updated == 0
+    assert refused == ""
+    assert list_notes_refs(repo) == []
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, [])
+    assert (updated, refused) == (0, "")
+    assert list_notes_refs(repo) == []
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert updated == 1
+    assert refused == ""
+    assert list_notes_refs(repo) == ["refs/notes/ai"]
+    again, again_refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert again == 0
+    assert again_refused == ""
+    health = judge_notes_refs(list_notes_refs(repo))
+    assert health["status"] == "present"
+
+
+def test_corrupt_checkpoint_log_is_not_written_into_notes(tmp_path, tmp_store):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    checkpoint_log_path().write_text("{not json\n", encoding="utf-8")
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert updated == 0
+    assert "读不到" in refused
+    assert list_notes_refs(repo) == []
+    assert checkpoint_log_path().read_text(encoding="utf-8") == "{not json\n"
+
+
+def test_escaped_namespace_does_not_fall_back_to_the_default_ref(tmp_path, tmp_store):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    log_host_edit_checkpoint("file_edit", "a.py", "diff", {"__session_id": "s"})
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"], namespace="../notes")
+    assert updated == 0
+    assert refused == "notes 命名空间不能用"
+    assert list_notes_refs(repo) == []
+
+
+@pytest.mark.asyncio
+async def test_notes_routes_do_not_touch_a_repo_they_cannot_see(monkeypatch):
+    from app.routers import ai_code_attribution as route_mod
+
+    monkeypatch.setattr(route_mod, "detect_repo_root", lambda: None)
+    health = await route_mod.attribution_notes_health(user_id="u")
+    assert health["data"]["status"] == "unjudged"
+    assert health["data"]["message"] == "取不到 git 仓库根"
+    mirrored = await route_mod.mirror_attribution_notes(
+        {"commit_sha": "a" * 40, "files": ["a.py"]},
+        user_id="u",
+    )
+    assert mirrored["data"]["updated"] == 0
+    assert mirrored["data"]["refused"] == "取不到 git 仓库根"
+
+
+def test_host_prompt_is_stored_apart_from_the_checkpoint_and_notes(tmp_path, tmp_store):
+    args = {
+        "__session_id": "s",
+        "__prompt_id": "p-1",
+        "__prompt_text": "把这一行改成两行",
+        "prompt_id": "forged",
+        "prompt": "模型自报的正文",
+    }
+    status, refused = log_host_edit_checkpoint("file_edit", "a.py", "diff", args)
+    assert status == "appended"
+    assert refused == ""
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert rows[0]["prompt_id"] == "p-1"
+    assert "prompt_text" not in rows[0]
+    assert "把这一行改成两行" not in checkpoint_log_path().read_text(encoding="utf-8")
+    text, prompt_note = show_prompt("p-1")
+    assert text == "把这一行改成两行"
+    assert prompt_note == ""
+    again, again_note = remember_prompt("p-1", "把这一行改成两行")
+    assert again == "duplicate"
+    assert again_note == ""
+    clash, clash_note = remember_prompt("p-1", "另一段")
+    assert clash == "refused"
+    assert clash_note == "同一编号对上了另一段提示词"
+    assert show_prompt("p-1")[0] == "把这一行改成两行"
+    missing, missing_note = show_prompt("  ")
+    assert missing is None
+    assert missing_note == "没有提示词编号"
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    updated, notes_refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert updated == 1
+    assert notes_refused == ""
+    shown = subprocess.run(
+        ["git", "-C", str(repo), "notes", "--ref", "refs/notes/ai", "show", sha],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert "p-1" in shown.stdout
+    assert "把这一行改成两行" not in shown.stdout
+
+
+def test_half_a_prompt_refuses_the_checkpoint_and_writes_nothing(tmp_store):
+    status, refused = log_host_edit_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        {"__session_id": "s", "__prompt_id": "p-1"},
+    )
+    assert status == "refused"
+    assert refused == "提示词编号和正文必须一起给"
+    assert not checkpoint_log_path().exists()
+    assert not prompt_log_path().exists()
+    status, refused = log_host_edit_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        {"__prompt_text": "只有正文"},
+    )
+    assert status == "refused"
+    assert not prompt_log_path().exists()
+
+
+def test_corrupt_prompt_log_is_not_replaced(tmp_store):
+    body = "{not json\n"
+    prompt_log_path().write_text(body, encoding="utf-8")
+    status, refused = remember_prompt("p-1", "正文")
+    assert status == "refused"
+    assert "读不到" in refused
+    assert prompt_log_path().read_text(encoding="utf-8") == body
+    text, note = show_prompt("p-1")
+    assert text is None
+    assert "读不到" in note
+
+
+@pytest.mark.asyncio
+async def test_prompt_route_names_a_missing_prompt(tmp_store):
+    from app.routers.ai_code_attribution import show_attribution_prompt
+
+    body = await show_attribution_prompt("missing", user_id="u")
+    assert body["data"]["text"] is None
+    assert body["data"]["refused"] == "提示词没量到"
+
+
+def _second_commit(path: Path) -> str:
+    (path / "b.py").write_text("y = 1\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(path), "add", "b.py"], check=True, capture_output=True, text=True)
+    subprocess.run(
+        ["git", "-C", str(path), "commit", "-m", "second"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    proc = subprocess.run(
+        ["git", "-C", str(path), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return proc.stdout.strip()
+
+
+def test_commit_notes_distinguish_missing_ref_empty_note_and_corrupt_body(tmp_path):
+    repo = tmp_path / "repo"
+    first = _repo_with_one_commit(repo)
+    unread = read_commit_notes(repo, "abc")
+    assert unread["status"] == "refused"
+    assert unread["message"] == "提交号不是 40 位"
+    absent = read_commit_notes(repo, first)
+    assert absent["status"] == "absent"
+    assert absent["message"] == "Expected notes ref is present"
+    assert absent["checkpoints"] == []
+    attached, note = attach_checkpoint_note(
+        repo,
+        first,
+        {"dedupe_key": "k-1", "hook_event_name": "after_edit", "tool": "file_edit"},
+    )
+    assert attached == "appended"
+    assert note == ""
+    second = _second_commit(repo)
+    empty = read_commit_notes(repo, second)
+    assert empty["status"] == "empty"
+    assert empty["message"] == "这个提交上没有检查点"
+    assert empty["checkpoints"] == []
+    present = read_commit_notes(repo, first)
+    assert present["status"] == "present"
+    rows = present["checkpoints"]
+    assert isinstance(rows, list) and rows[0]["dedupe_key"] == "k-1"
+    subprocess.run(
+        ["git", "-C", str(repo), "notes", "--ref", "refs/notes/ai", "add", "-f", "-m", "{not json", second],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    corrupt = read_commit_notes(repo, second)
+    assert corrupt["status"] == "refused"
+    assert corrupt["message"] == "notes 读不到,不能把它说成没有检查点"
+    assert corrupt["checkpoints"] == []
+    still = read_commit_notes(repo, first)
+    assert still["status"] == "present"
+
+
+def test_multiple_note_namespaces_are_not_collapsed(tmp_path):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    assert attach_checkpoint_note(repo, sha, {"dedupe_key": "def", "tool": "file_edit"})[0] == "appended"
+    assert (
+        attach_checkpoint_note(
+            repo,
+            sha,
+            {"dedupe_key": "team-key", "tool": "file_edit"},
+            namespace="team",
+        )[0]
+        == "appended"
+    )
+    mixed = read_commit_notes(repo, sha)
+    assert mixed["status"] == "multiple"
+    assert mixed["checkpoints"] == []
+    assert mixed["refs"] == ["refs/notes/ai", "refs/notes/ai-team"]
+    team = read_commit_notes(repo, sha, namespace="team")
+    assert team["status"] == "present"
+    rows = team["checkpoints"]
+    assert isinstance(rows, list) and rows[0]["dedupe_key"] == "team-key"
+    missing = read_commit_notes(repo, sha, namespace="other")
+    assert missing["status"] == "absent"
+    assert missing["message"] == "这个命名空间的 notes 引用不在"
+
+
+@pytest.mark.asyncio
+async def test_notes_show_route_stays_unjudged_without_a_repo(monkeypatch):
+    from app.routers import ai_code_attribution as route_mod
+
+    monkeypatch.setattr(route_mod, "detect_repo_root", lambda: None)
+    body = await route_mod.show_attribution_commit_notes("a" * 40, user_id="u")
+    assert body["data"]["status"] == "unjudged"
+    assert body["data"]["checkpoints"] == []
+    assert body["data"]["message"] == "取不到 git 仓库根"
+
+
+def test_blame_view_does_not_pick_a_mode_or_a_line_that_was_not_measured(tmp_store):
+    record_attribution("file_edit", "a.py", "@@ -3 +3 @@\n+x", line_start=3, line_end=5)
+    record_attribution("file_edit", "a.py", "@@ -1 +1 @@\n+y", line_start=0, line_end=0)
+    records = list_records(path="a.py")
+    assert len(records) == 2
+    status, _message, chosen = plan_blame_view(None, records, line=4)
+    assert status == "unjudged"
+    assert chosen == []
+    status, message, chosen = plan_blame_view("auto", records, line=4)
+    assert status == "unjudged"
+    assert "auto" in message
+    assert chosen == []
+    status, _message, chosen = plan_blame_view("off", records, line=4)
+    assert status == "off"
+    assert chosen == []
+    status, _message, chosen = plan_blame_view("line", records, line=4)
+    assert status == "line"
+    assert len(chosen) == 1
+    assert chosen[0].anchor.line_start == 3
+    status, message, chosen = plan_blame_view("line", records, line=None)
+    assert status == "unjudged"
+    assert "光标行" in message
+    assert chosen == []
+    status, message, chosen = plan_blame_view("wide", records)
+    assert status == "refused"
+    assert chosen == []
+    status, _message, chosen = plan_blame_view("all", records)
+    assert status == "all"
+    assert len(chosen) == 2
+
+
+@pytest.mark.asyncio
+async def test_blame_route_without_a_path_does_not_scan_the_ledger(monkeypatch):
+    from app.routers import ai_code_attribution as route_mod
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("没有路径却扫了全账")
+
+    monkeypatch.setattr(route_mod, "list_records", boom)
+    body = await route_mod.attribution_blame(path=None, mode="all", user_id="u")
+    assert body["data"]["status"] == "refused"
+    assert body["data"]["message"] == "没有文件路径"
+    assert body["data"]["records"] == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

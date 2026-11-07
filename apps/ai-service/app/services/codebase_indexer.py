@@ -41,7 +41,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from ..core.internal_ticket import internal_service_headers
+from ..core.internal_ticket import (
+    INTERNAL_TICKET_HEADER,
+    INTERNAL_TOKEN_HEADER,
+    internal_service_headers,
+)
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
 from .codebase_recall_expand import (
@@ -49,6 +53,15 @@ from .codebase_recall_expand import (
     merge_recall,
     symbol_seeds,
     truncate_chunk,
+)
+from .codebase_symbol_catalog import (
+    CATALOG_KEY,
+    Catalog,
+    FileEntry,
+    build_catalog,
+    catalog_from_payload,
+    entry_from_chunks,
+    merge_catalog,
 )
 from .dir_rhash import diff_dir_rhash, dir_rhash_map
 from .ignore_rules import (
@@ -178,6 +191,9 @@ def _truncate(content: str) -> str:
 #: 合成摘要片的 symbol_type:它们的"符号名"是目录名/文件名(见 `_build_*_summary_chunks`),
 #: 拿去当扩召回种子会把整仓摘要互相拉进来 ⇒ 排除集必须由索引侧给(纯函数层不猜)。
 SUMMARY_SYMBOL_TYPES: frozenset[str] = frozenset({"module_summary", "architecture_summary"})
+#: 这些切片挂在**目录**上而不是文件上(架构层摘要):派生文件目录时必须整片跳过,
+#: 否则 `src/` 会被记成一个"零符号文件",污染文件级查找与计数。
+PATHLESS_CHUNK_TYPES: frozenset[str] = frozenset({"architecture_summary"})
 #: 行区间就近合并的默认间隔(行):0 = 只真正重叠/相接才并;3 = 允许跨三行缝并片。
 DEFAULT_MERGE_GAP_LINES = 3
 #: 符号扩召回的种子上限(每枚种子 = 一跳 keyword 查询,必须有界,不得随命中数放大)。
@@ -253,6 +269,25 @@ _MERKLE_SNAPSHOT_DIR = Path(
 def _file_content_hash(content: str) -> str:
     """文件内容 sha256(Merkle 叶子节点 hash)。"""
     return hashlib.sha256(content.encode("utf-8", errors="replace")).hexdigest()
+
+
+def file_index_digest(path: Path) -> tuple[str | None, str | None]:
+    """盘上文件的"索引口径"摘要 → (内容 hash | None, 读失败原委)。
+
+    与索引扫描轮**逐字同口径**:文档扩展名只按原始字节算 sha256;文本读出来
+    为空(strip 后)⇒ 该文件根本没进索引(返回 None);读盘失败 ⇒ 原委点名。
+
+    `None` 的两义(空文件 / 读失败)由第二个返回值分开,调用方不得把后者读成前者。
+    """
+    try:
+        if path.suffix.lower() in _DOC_EXTS:
+            return hashlib.sha256(path.read_bytes()).hexdigest(), None
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception as e:  # noqa: BLE001 - 读盘原委统一回传给调用方点名
+        return None, f"{type(e).__name__}: {e}"
+    if not text.strip():
+        return None, None
+    return _file_content_hash(text), None
 
 
 def _merkle_root(file_hashes: dict[str, str]) -> str:
@@ -502,6 +537,10 @@ class SnapshotRead:
     #: `None` = 上一轮**没有这一维**(旧档/坏档)⇒ 本轮的「未变/搬家」两桶判不出,
     #: 只能从下一轮起判 —— 这与"判过且干净"必须长得不一样,所以不用空 dict 冒充缺席。
     dir_rhashes: dict[str, str] | None = None
+    #: 文件/符号目录(2026-11-06)。`None` = 这份档没有目录(旧档)或目录形态坏
+    #: (后者整档判 corrupt,见 `_snapshot_extras`);`Catalog.complete=False` 是
+    #: "只覆盖重建过的文件"这一档,**不许**被读成"全仓都查过"。
+    catalog: Catalog | None = None
 
     def __post_init__(self) -> None:
         if self.state not in SNAPSHOT_STATES:
@@ -573,45 +612,51 @@ class IndexResult:
 
 def _snapshot_extras(
     parsed: dict[str, Any],
-) -> tuple[dict[str, str], dict[str, str], dict[str, str] | None, str | None]:
-    """读快照里的三枚附加表(指纹 / 改名别名 / 目录前像)→ (指纹, 别名, 目录前像, 坏形态原委)。
+) -> tuple[dict[str, str], dict[str, str], dict[str, str] | None, Catalog | None, str | None]:
+    """读快照里的附加表(指纹 / 改名别名 / 目录前像 / 文件符号目录)。
 
-    - **缺席**(旧版档、或这一轮没算过指纹)⇒ 空表 / `None`,**不判坏档**:它们不参与
+    Returns:
+        (指纹, 别名, 目录前像, 文件符号目录, 坏形态原委)。
+
+    - **缺席**(旧版档、或这一轮没算过指纹/目录)⇒ 空表 / `None`,**不判坏档**:它们不参与
       `fileCount` / 重算 `merkleRoot` 这条自证链,缺了只降级"本轮只判精确改名"
-      (目录前像缺席则降级为"本轮起才有这一维");
+      (目录前像缺席则降级为"本轮起才有这一维";目录缺席则降级为"没有本地检索面");
     - **在场但形态坏** ⇒ 返回原委,由调用方判 `CORRUPT`(见 `_load_snapshot_read`
-      里"别名一丢就等于静默丢内容"那条)。
+      里"别名一丢就等于静默丢内容"那条;目录同理:坏目录不得被读成"这仓本来没符号")。
     """
     fingerprints: dict[str, str] = {}
     aliases: dict[str, str] = {}
     raw_fp = parsed.get("simhashes")
     if raw_fp is not None:
         if not isinstance(raw_fp, dict):
-            return {}, {}, None, "simhashes 字段形态不合"
+            return {}, {}, None, None, "simhashes 字段形态不合"
         for key, value in raw_fp.items():
             if not isinstance(key, str) or not isinstance(value, str):
-                return {}, {}, None, "simhashes 条目形态不合"
+                return {}, {}, None, None, "simhashes 条目形态不合"
             fingerprints[key] = value
     raw_alias = parsed.get("aliases")
     if raw_alias is not None:
         if not isinstance(raw_alias, dict):
-            return {}, {}, None, "aliases 字段形态不合"
+            return {}, {}, None, None, "aliases 字段形态不合"
         for key, value in raw_alias.items():
             if not isinstance(key, str) or not isinstance(value, str):
-                return {}, {}, None, "aliases 条目形态不合"
+                return {}, {}, None, None, "aliases 条目形态不合"
             aliases[key] = value
     raw_dirs = parsed.get("dirRhashes")
     dir_rhashes: dict[str, str] | None = None
     if raw_dirs is not None:
         if not isinstance(raw_dirs, dict) or not raw_dirs:
-            return {}, {}, None, "dirRhashes 字段形态不合"
+            return {}, {}, None, None, "dirRhashes 字段形态不合"
         for key, value in raw_dirs.items():
             if not isinstance(key, str) or not isinstance(value, str):
-                return {}, {}, None, "dirRhashes 条目形态不合"
+                return {}, {}, None, None, "dirRhashes 条目形态不合"
             if dir_rhashes is None:
                 dir_rhashes = {}
             dir_rhashes[key] = value
-    return fingerprints, aliases, dir_rhashes, None
+    catalog, catalog_err = catalog_from_payload(parsed.get(CATALOG_KEY))
+    if catalog_err is not None:
+        return {}, {}, None, None, catalog_err
+    return fingerprints, aliases, dir_rhashes, catalog, None
 
 
 def _resolve_alias_source(path: str, aliases: dict[str, str], *, limit: int = 16) -> str:
@@ -644,6 +689,10 @@ class CodebaseIndexer:
         self._api_base_url = os.environ.get(
             "API_SERVICE_URL", "http://localhost:8801"
         ).rstrip("/")
+        #: 文件/符号目录进程内缓存(2026-11-06):键 = 快照文件路径,值 =
+        #: (mtime_ns, 字节数, 目录)。快照一被重写这两个量就变 ⇒ 自动失效;
+        #: 上限 8 份(多仓),超出按 FIFO 淘汰 —— 目录是只读派生数据,不存在陈旧可用。
+        self._catalog_cache: dict[str, tuple[int, int, Catalog | None]] = {}
 
     def _internal_auth_headers(
         self,
@@ -656,22 +705,24 @@ class CodebaseIndexer:
         1. api_token(用户 JWT,Bearer 认证)——Web/会话链路显式传入时使用
         2. 内部服务通道 —— MCP 工具/服务端触发索引时使用,与 api 侧
            internal-service-token 中间件契约一致;经 internal_ticket 唯一出口构造,
-           dual 兼容窗内旧 x-internal-service-token 照发、x-internal-service-ticket
-           短期票同带(主体 = internal_user_id,scope='codebase-index')。
+           默认 ticket 档发票,显式 dual/legacy 档才同时发旧 x-internal-service-token
+           (主体 = internal_user_id,scope='codebase-index')。
         两者皆无 → 空 headers(写入会被 401 拒绝,调用方按错误降级处理)。
+
+        票与常驻密钥互不替代:默认 ticket 档下只要有 JWT_SECRET 就能发票,
+        不再把 AI_CALLBACK_SECRET 当"能否走内部通道"的前提。
         """
         if api_token:
             return {"Authorization": f"Bearer {api_token}"}
+        if not internal_user_id or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id):
+            return {}
         secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
-        if (
-            secret
-            and internal_user_id
-            and re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id)
-        ):
-            return internal_service_headers(
-                internal_user_id, "codebase-index", legacy_token=secret
-            )
-        return {}
+        headers = internal_service_headers(
+            internal_user_id, "codebase-index", legacy_token=secret
+        )
+        if INTERNAL_TICKET_HEADER not in headers and INTERNAL_TOKEN_HEADER not in headers:
+            return {}
+        return headers
 
     def _check_tree_sitter(self) -> bool:
         """检查 tree-sitter 是否可用。"""
@@ -1140,7 +1191,7 @@ class CodebaseIndexer:
         ):
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, "files 字段形态不合")
         version = parsed.get("schemaVersion")
-        fingerprints, aliases, prev_dirs, extras_err = _snapshot_extras(parsed)
+        fingerprints, aliases, prev_dirs, prev_catalog, extras_err = _snapshot_extras(parsed)
         if extras_err is not None:
             # 附加表形态坏 ⇒ 判坏档而不是"当没有":别名一丢,那条"行仍在源路径下"的记录
             # 就没了 ⇒ 下一轮会把源路径当"已删除"去清切片,改名后的文件从索引里静默消失。
@@ -1154,6 +1205,7 @@ class CodebaseIndexer:
                 fingerprints,
                 aliases,
                 prev_dirs,
+                prev_catalog,
             )
         if version != SNAPSHOT_SCHEMA_VERSION:
             return SnapshotRead({}, SNAPSHOT_STATE_CORRUPT, f"schemaVersion={version!r} 不在认得的档位里")
@@ -1179,6 +1231,7 @@ class CodebaseIndexer:
             fingerprints,
             aliases,
             prev_dirs,
+            prev_catalog,
         )
 
     def _snapshot_blocks_replace(self, path: Path) -> bool:
@@ -1216,13 +1269,16 @@ class CodebaseIndexer:
         fingerprints: dict[str, str] | None = None,
         aliases: dict[str, str] | None = None,
         dir_rhashes: dict[str, str] | None = None,
+        catalog: Catalog | None = None,
     ) -> None:
         """持久化本轮快照(原子写:先写逐轮唯一的临时件,再 replace 落位)。
 
         `fingerprints` / `aliases` 是**附加输入**(P85):前者供下一轮判近同改名,
         后者记录"精确改名后行仍留在源路径下"这件事。`dir_rhashes` 是目录级递归前像
         (T12 缺口表 #1,2026-11-01),供下一轮做整枝比对与整枝搬家识别。
-        三者都不参与 `files` 的自证,所以旧版读侧只是不认这几枚键,不会把档判坏。
+        `catalog` 是文件/符号目录(2026-11-06),供本地检索腿与"增量只重建变化文件"
+        的目录维护。四者都不参与 `files` 的自证,所以旧版读侧只是不认这几枚键,
+        不会把档判坏;`catalog=None` 时该键缺席(不写空目录冒充"查过了")。
         """
         tmp: Path | None = None
         try:
@@ -1242,6 +1298,8 @@ class CodebaseIndexer:
             }
             if dir_rhashes is not None:
                 payload["dirRhashes"] = dict(dir_rhashes)
+            if catalog is not None:
+                payload[CATALOG_KEY] = catalog.to_payload()
             # 压缩层只包 IO(T12 缺口表 #8,2026-11-01):payload 结构与自证判据一字不动,
             # 只在落盘前把 JSON 字节 gzip 一道;关闭时逐字节保持明文现状。
             text = json.dumps(payload, ensure_ascii=False, indent=0)
@@ -1263,6 +1321,106 @@ class CodebaseIndexer:
                     tmp.unlink(missing_ok=True)
                 except OSError as cleanup_error:  # pragma: no cover - 锁仍未放
                     logger.warning("快照临时件清不掉 %s: %s", tmp, cleanup_error)
+
+    # ==========================================================================
+    # 文件/符号目录读取与"仅目录重建"(2026-11-06)
+    # ==========================================================================
+
+    def load_catalog(self, repo_id: str, root: Path) -> Catalog | None:
+        """读某仓当前的目录(按快照 mtime/size 失效的进程内缓存;缺席返回 None)。"""
+        snapshot_path = self._snapshot_path(repo_id, root)
+        try:
+            stat = snapshot_path.stat()
+        except OSError:
+            return None
+        key = str(snapshot_path)
+        cached = self._catalog_cache.get(key)
+        if cached is not None and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+            return cached[2]
+        snapshot = self._load_snapshot_read(repo_id, root)
+        catalog = snapshot.catalog
+        while len(self._catalog_cache) >= 8 and key not in self._catalog_cache:
+            self._catalog_cache.pop(next(iter(self._catalog_cache)), None)
+        self._catalog_cache[key] = (stat.st_mtime_ns, stat.st_size, catalog)
+        return catalog
+
+    def rebuild_catalog(self, repo_path: str, repo_id: str | None = None) -> IndexResult:
+        """只重建文件/符号目录(零 embedding、零远端调用)。
+
+        用途:旧快照没有目录(本能力上线前的档)、或目录被判缺席时的**本地补齐**。
+        只收录"盘上内容与快照逐字一致"的文件 —— 已漂移的文件本轮**不收录并点名**,
+        因为把新符号挂在旧 hash 上等于同一份档自相矛盾(该走 refresh 重算那些文件)。
+
+        磁盘上的文件才是符号的真相:快照里有、盘上没了的文件不进目录(它已失效)。
+        """
+        root = Path(repo_path).resolve()
+        root_kind = classify_fs_path(root)
+        if root_kind != "dir":
+            return IndexResult(
+                repo_id=repo_id or "",
+                errors=[f"仓库路径读不到或不是目录,不能重建目录: {repo_path}"],
+            )
+        repo_id = repo_id or _default_repo_id(root)
+        snapshot = self._load_snapshot_read(repo_id, root)
+        result = IndexResult(repo_id=repo_id)
+        result.snapshot_state = snapshot.state
+        result.snapshot_detail = snapshot.detail
+        if snapshot.state not in (SNAPSHOT_STATE_OK, SNAPSHOT_STATE_LEGACY):
+            result.errors.append(
+                f"快照档 {snapshot.state} 不可用 ⇒ 无基准可挂目录;请先 index_repository(incremental=True) 或 refresh"
+            )
+            return result
+
+        files, _prov, ignore_report = self.collect_code_files_with_provenance(root)
+        result.files_scanned = len(files)
+        result.files_ignored = ignore_report.files_ignored
+        result.ignored_by = ignore_report.ignored_by
+        entries: dict[str, FileEntry] = {}
+        for file_path, language in files:
+            rel_path = str(file_path.relative_to(root)).replace("\\", "/")
+            if rel_path not in snapshot.files:
+                result.errors.append(f"{rel_path}: 不在快照里(索引未收录)⇒ 本轮目录不含它")
+                continue
+            digest, read_error = file_index_digest(file_path)
+            if read_error is not None:
+                result.errors.append(f"{rel_path}: 读盘失败({read_error})⇒ 本轮目录不含它")
+                continue
+            if digest != snapshot.files[rel_path]:
+                result.errors.append(
+                    f"{rel_path}: 内容已漂移(与快照不一致)⇒ 本轮目录不含它,先 refresh 重算"
+                )
+                continue
+            if digest is None:
+                entries[rel_path] = FileEntry(rel_path, language, ())
+                continue
+            try:
+                if file_path.suffix.lower() in _DOC_EXTS:
+                    # 文档无 AST 符号:保留文件级条目,不抽取正文(那是有 embedding 成本的事)
+                    entries[rel_path] = FileEntry(rel_path, language, ())
+                else:
+                    text = file_path.read_text(encoding="utf-8", errors="replace")
+                    chunks = self._chunk_by_ast(text, language)
+                    entries[rel_path] = entry_from_chunks(
+                        rel_path,
+                        language,
+                        chunks,
+                        exclude_symbol_types=SUMMARY_SYMBOL_TYPES,
+                    )
+            except Exception as e:  # noqa: BLE001 - 单文件失败记 error 续批
+                result.errors.append(f"{rel_path}: 目录派生失败: {e}")
+
+        catalog = Catalog(files=entries, aliases=dict(snapshot.aliases), complete=True)
+        self._save_snapshot(
+            repo_id,
+            root,
+            snapshot.files,
+            fingerprints=snapshot.fingerprints,
+            aliases=snapshot.aliases,
+            dir_rhashes=snapshot.dir_rhashes,
+            catalog=catalog,
+        )
+        result.files_indexed = len(entries)
+        return result
 
     # ==========================================================================
     # 三层语义索引:模块层 + 架构层合成切片(2026-09-07 立,对标 CodeBuddy)
@@ -1493,9 +1651,13 @@ class CodebaseIndexer:
                 if file_path.suffix.lower() in _DOC_EXTS:
                     # 文档格式:扫描轮仅读原始字节算 hash,昂贵的 anydoc 抽取留给切片轮
                     # (所以文档面这一轮不产指纹,近同改名对它们只走精确档)
-                    content_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
+                    content_hash = hashlib.sha256(
+                        await asyncio.to_thread(file_path.read_bytes)
+                    ).hexdigest()
                 else:
-                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    content = await asyncio.to_thread(
+                        file_path.read_text, encoding="utf-8", errors="replace"
+                    )
                     if not content.strip():
                         continue
                     content_hash = _file_content_hash(content)
@@ -1670,6 +1832,8 @@ class CodebaseIndexer:
         # --- 变更文件切片(函数层)+ 三层合成切片(模块层/架构层) ---
         all_chunks: list[CodeChunk] = []
         layer_inputs: list[tuple[str, str, int]] = []  # (rel_path, language, symbol_count)
+        #: 变更文件的目录条目(2026-11-06):逐文件重建,未变文件沿用上一轮目录。
+        changed_entries: dict[str, FileEntry] = {}
         for file_path, rel_path, language in changed:
             try:
                 if file_path.suffix.lower() in _DOC_EXTS:
@@ -1677,13 +1841,21 @@ class CodebaseIndexer:
                     # 失败则跳过该文件并记 error
                     content = await asyncio.to_thread(_extract_document_markdown, file_path)
                 else:
-                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    content = await asyncio.to_thread(
+                        file_path.read_text, encoding="utf-8", errors="replace"
+                    )
                 file_chunks = self._chunk_by_ast(content, language)
                 for c in file_chunks:
                     c.file_path = rel_path
                 all_chunks.extend(file_chunks)
                 result.files_indexed += 1
                 layer_inputs.append((rel_path, language, len(file_chunks)))
+                changed_entries[rel_path] = entry_from_chunks(
+                    rel_path,
+                    language,
+                    file_chunks,
+                    exclude_symbol_types=SUMMARY_SYMBOL_TYPES,
+                )
                 module_chunk = self._build_module_summary_chunks(rel_path, language, file_chunks)
                 if module_chunk:
                     all_chunks.append(module_chunk)
@@ -1705,6 +1877,37 @@ class CodebaseIndexer:
         if changed or deleted_paths or not incremental:
             all_chunks.extend(arch_chunks)
 
+        # --- 文件/符号目录(2026-11-06):全量重建 or 增量合并 ---
+        # 全量轮:从本轮全部切片派生,并把"零符号文件"也补成空条目(文件级查找要用);
+        # 增量轮:变更文件重建条目、删除文件摘除、未变文件沿用上一轮 —— 上一轮没有目录
+        # (旧档/首轮)时候 `complete=False`,绝不把"只覆盖重建过的文件"读成"全仓都查过"。
+        prev_catalog = (
+            snapshot.catalog
+            if incremental and snapshot.state in (SNAPSHOT_STATE_OK, SNAPSHOT_STATE_LEGACY)
+            else None
+        )
+        if incremental:
+            catalog = merge_catalog(
+                prev_catalog, changed_entries, deleted_paths, aliases=live_aliases
+            )
+            # 本轮新出现的零符号文件(被跳过切片/文档无符号)也要有文件级条目。
+            for rel_path, lang in lang_by_rel.items():
+                if rel_path in new_hashes and rel_path not in catalog.files:
+                    catalog.files[rel_path] = FileEntry(rel_path, lang, ())
+            if prev_catalog is None and not snapshot.files:
+                # 上一轮**没有可比前像**(absent/corrupt/truncated):本轮全部文件都在变更集里,
+                # 目录确实覆盖全仓 —— 不把"全量重建"标成 partial,否则每轮都会判 stale、永不收敛。
+                catalog.complete = True
+        else:
+            catalog = build_catalog(
+                all_chunks,
+                exclude_symbol_types=SUMMARY_SYMBOL_TYPES,
+                pathless_symbol_types=PATHLESS_CHUNK_TYPES,
+                language_by_path=lang_by_rel,
+            )
+            for rel_path, lang in lang_by_rel.items():
+                if rel_path in new_hashes and rel_path not in catalog.files:
+                    catalog.files[rel_path] = FileEntry(rel_path, lang, ())
         result.chunks_created = len(all_chunks)
         if not all_chunks:
             self._save_snapshot(
@@ -1714,6 +1917,7 @@ class CodebaseIndexer:
                 fingerprints=new_fingerprints,
                 aliases=live_aliases,
                 dir_rhashes=cur_dir_rhashes,
+                catalog=catalog,
             )
             return result
 
@@ -1729,7 +1933,7 @@ class CodebaseIndexer:
             except Exception as e:
                 result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
 
-        # 持久化快照(下轮增量对比基准;附指纹、改名别名与目录前像)
+        # 持久化快照(下轮增量对比基准;附指纹、改名别名、目录前像与文件符号目录)
         self._save_snapshot(
             repo_id,
             root,
@@ -1737,6 +1941,7 @@ class CodebaseIndexer:
             fingerprints=new_fingerprints,
             aliases=live_aliases,
             dir_rhashes=cur_dir_rhashes,
+            catalog=catalog,
         )
         return result
 
@@ -1780,7 +1985,9 @@ class CodebaseIndexer:
                 # 文档格式:经 anydoc 抽取 Markdown 后入索引
                 content = await asyncio.to_thread(_extract_document_markdown, path)
             else:
-                content = path.read_text(encoding="utf-8", errors="replace")
+                content = await asyncio.to_thread(
+                    path.read_text, encoding="utf-8", errors="replace"
+                )
             if not content.strip():
                 return result
             chunks = self._chunk_by_ast(content, language)

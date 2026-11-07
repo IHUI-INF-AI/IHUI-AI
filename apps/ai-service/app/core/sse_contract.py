@@ -83,6 +83,12 @@ SSE_EVENTS: frozenset[str] = frozenset(
         # tool-result 到达即清预览(最终 diff 以 tool-result 落库面为准,本帧不入库)。
         # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
         "tool-delta",
+        # 2026-11-05 立:工具调用 arguments 逐分片直推帧。生产点 llm_gateway.astream
+        # (tool_call_args_stream=True 时),经 llm.py generic 通道 6793 原样上 wire;
+        # 载荷 {index,id,name,args,argsComplete,argsPartial},残缺分片由
+        # app/utils/tool_call_args.py 的流式修复给出当前最好可用部分对象。
+        # 必须与 packages/shared/src/sse/contract.ts 同步(两份集合由 parity 断言看护)。
+        "tool-call-args-delta",
         # V3 #63(2026-09-27 落地生产者):对话流业务表单**下行**帧。
         # 生产点 app/routers/llm.py 工具循环内的 request_business_form 拦截位,载荷
         # {type, requestId, sessionId, kind, fields, actions, messageId}
@@ -281,6 +287,12 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("reasoning", ("content",)),
     SSEEventContract("thinking", ("content",)),
     SSEEventContract("tool-call-start", ("toolCallId", "toolName", "args")),
+    # 2026-11-05:工具入参逐分片直推。字段与 llm_gateway._tool_call_args_delta_frames
+    # 恒产出的键逐字一致(args 允许为 None、id/name 允许空串,但键恒在)。
+    SSEEventContract(
+        "tool-call-args-delta",
+        ("index", "id", "name", "args", "argsComplete", "argsPartial"),
+    ),
     SSEEventContract("tool-result", ("toolCallId", "result")),
     SSEEventContract("tool-delegate", ("session_id", "tool_call_id", "tool_name", "args", "iteration")),
     # 2026-11-04(sse-event-parity 口径收口):原声明 ("summary",) 与真实帧不符 ——

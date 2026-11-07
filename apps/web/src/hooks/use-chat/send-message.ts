@@ -99,6 +99,7 @@ import {
 import {
   clearCompactionPreview,
   createToolCallHandler,
+  createOpenAiToolCallHandler,
   createToolDeltaHandler,
   createToolSummaryHandler,
   createReviewFindingHandler,
@@ -1169,6 +1170,10 @@ export function createSendMessage(
           }
           createToolCallHandler(assistantId, chatStore)(event)
         },
+        // 2026-11-05 立:工具入参逐分片渐进渲染。只订阅 onOpenAiToolCall,
+        // 不开 openAiCompat(Vercel 协议解析路径一行不动);回调只吃 ai-service
+        // 的 tool-call-args-delta 帧,旧服务端不发该帧 ⇒ 零行为变化。
+        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
         // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
         // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
         // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。

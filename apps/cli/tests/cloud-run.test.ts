@@ -68,6 +68,7 @@ describe('startCloudRun', () => {
     const runId = await startCloudRun({ task: 'x'.repeat(3000), apiKey: 'k' })
     expect(runId).toBeTruthy()
     const body = JSON.parse(String(lastCall!.init.body)) as Record<string, string>
+    if (body.task === undefined) throw new Error('请求体缺少 task')
     expect(body.task.length).toBe(2000)
   })
 

@@ -237,7 +237,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       lineHeight: rnType.strong.lineHeight,
     },
-    optionTextActive: { color: tk.surface.light },
+    optionTextActive: { color: tk.brand.ctaForeground },
     scoreRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -334,7 +334,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     formatChipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
     formatText: { fontSize: rnType.body.size, color: tk.text.medium },
-    formatTextActive: { color: tk.surface.light, fontWeight: '600' },
+    formatTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     reportBody: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,

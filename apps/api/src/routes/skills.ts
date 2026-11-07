@@ -31,11 +31,10 @@ import type {
   SkillNotification,
 } from '@ihui/shared/skills/market'
 import { checkAuth } from '../plugins/auth.js'
-import { secretsEqual } from '../plugins/internal-service-token.js'
+import { authorizeInternalSecretCall } from '../plugins/internal-secret-auth.js'
 import { db } from '../db/index.js'
 import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
-import { config } from '../config/index.js'
 
 interface SkillRecord {
   name: string
@@ -921,14 +920,13 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
   // POST /skills/market — 发布 skill 到市场(用户上架自己的 skill)
   server.post('/skills/market', async (request: FastifyRequest, reply: FastifyReply) => {
     // ── 1. 鉴权(身份)────────────────────────────────────────────────────────────
-    // 内部服务调用(self-evolution 自进化同步)可通过 X-Internal-Secret 绕过 JWT
-    const internalSecret = request.headers['x-internal-secret']
-    // 常量时间比较(secretsEqual 单源):`===` 逐字节短路可被计时侧信道剥密钥
-    const isInternal =
-      typeof config.AI_CALLBACK_SECRET === 'string' &&
-      config.AI_CALLBACK_SECRET.length > 0 &&
-      typeof internalSecret === 'string' &&
-      secretsEqual(internalSecret, config.AI_CALLBACK_SECRET)
+    // 2026-11-06:内部通道走 X-Internal-Secret 族统一出口(scope=skills-market)。
+    // 带坏了票 ⇒ 401;没带内部凭据 ⇒ 继续走用户 JWT(checkAuth)。
+    const auth = await authorizeInternalSecretCall(request, { scope: 'skills-market' })
+    if (!auth.ok && !auth.fallbackAllowed) {
+      return reply.status(auth.status).send(error(auth.status, auth.reason))
+    }
+    const isInternal = auth.ok
     if (!isInternal) {
       if (!(await checkAuth(request, reply))) return
     }
