@@ -59,6 +59,7 @@ async function gotoAuthorize(page: Page) {
   })
   // 等待 .login-scope 可见(全局 LoginDialog open 后渲染 AuthShell)
   await page.waitForSelector(LOGIN_SCOPE, { state: 'visible', timeout: 15000 })
+  // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
   await page.waitForTimeout(800) // 等 hydration + 动画完成
 }
 
@@ -79,6 +80,7 @@ test.describe('登录弹窗 TabsList 凹槽容器 + 密码强度条轨道视觉�
     const registerBtn = page.locator('.login-scope button:has-text("注册")').first()
     await registerBtn.scrollIntoViewIfNeeded()
     await registerBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500) // 等 RegisterFormContent 渲染
 
     // RegisterFormContent 2 个 tab:手机注册 / 邮箱注册,默认 phone tab
@@ -86,6 +88,7 @@ test.describe('登录弹窗 TabsList 凹槽容器 + 密码强度条轨道视觉�
     const passwordInput = page.locator('.login-scope input[name="password"]').first()
     await passwordInput.scrollIntoViewIfNeeded()
     await passwordInput.fill('TestXYZ123!@#')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500) // 等 PasswordStrengthIndicator 渲染
 
     await page
@@ -174,17 +177,20 @@ test.describe('登录弹窗 TabsList 凹槽容器 + 密码强度条轨道视觉�
       document.documentElement.classList.add('dark')
       document.documentElement.style.colorScheme = 'dark'
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     // 切到"注册"模式
     const registerBtn = page.locator('.login-scope button:has-text("注册")').first()
     await registerBtn.scrollIntoViewIfNeeded()
     await registerBtn.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     const passwordInput = page.locator('.login-scope input[name="password"]').first()
     await passwordInput.scrollIntoViewIfNeeded()
     await passwordInput.fill('TestXYZ123!@#')
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     await page

@@ -1780,7 +1780,12 @@ test('T32 熔断必须真接在两个自动层的落地点上', () => {
   if (!/return 0/.test(healBody[0]))
     throw new Error('熔断现场必须能以退出码 0 收场(少做一件事不是错误,做成恒红门就是逼人 --no-verify —— §12e)')
   const g71 = readFileSync(path.join(ROOT, 'scripts', 'check-plan-line-loss.mjs'), 'utf8')
-  const healFn = /function heal\(commit\)[\s\S]*?\n  if \(!commit\)/.exec(g71)
+  // 2026-11-06 锚点跟随门 71 heal() 真实形态更新:签名已加 picks 形参(commit 6ffe4b85b9
+  // "回捞拒绝同号多候选,--pick 显式选一枚"),且早期 `if (!commit)` 守卫已移除 ⇒ 原锚点
+  // `function heal(commit)[\s\S]*?\n  if (!commit)` 失配。本锁只钉"回捞层必须问熔断
+  // (loopTripsForMarkers)";loopTripsForMarkers 定义位于 heal 之前、capture 起点在 heal 签名,
+  // 故捕获到文件尾不会误算,判据未被削弱(遵循本锁自带提示"换一种锁,别删它")。
+  const healFn = /function heal\(commit, picks = new Map\(\)\)[\s\S]*/.exec(g71)
   if (!healFn) throw new Error('门 71 的 heal() 形态变了 ⇒ 换一种锁,别删它')
   if (!/loopTripsForMarkers\(/.test(healFn[0]))
     throw new Error('门 71 的回捞层没问熔断 ⇒ 补回的未勾原文会被 130 号再翻勾,循环照旧')
@@ -1899,16 +1904,30 @@ test('T39 G-246 全部旁路落地站点(现读 9 站)必须各自就地补跑�
     throw new Error(`同一站点两次 heal 必须点名"出现 2 次",实测:${names(v3).slice(0, 3).join(' | ') || '(无违规)'}`)
 
   // ④ 次序颠倒:heal 挪到共享索引写回之后
-  const pair = `    ${HEAL} root: ROOT, paths: [PLAN_REL] })\n    const align = alignSharedIndex(`
+  const pair = `    const ledgerHeal = ${HEAL} root: ROOT, paths: [PLAN_REL] })\n    const align = alignSharedIndex(`
   if (!src.includes(pair))
     throw new Error('锚点形态已变(heal 与 alignSharedIndex 不再相邻)⇒ 本臂失去对象,改夹具而不是删断言')
   const swapped = src.replace(
     pair,
-    `    const align = alignSharedIndex(\n    // 变异臂造的形态:自愈排在索引写回之后\n    /*x*/\n    ${HEAL} root: ROOT, paths: [PLAN_REL] })\n    const alignDup = alignSharedIndex(`,
+    `    const align = alignSharedIndex(\n    // 变异臂造的形态:自愈排在索引写回之后\n    /*x*/\n    const ledgerHeal = ${HEAL} root: ROOT, paths: [PLAN_REL] })\n    const alignDup = alignSharedIndex(`,
   )
   const v4 = landingAttestationStructure(swapped)
   if (!v4.bad.some((b) => /排在共享索引写回之后/.test(b)))
     throw new Error(`heal 挪到索引写回之后必须点名次序违规,实测:${names(v4).slice(0, 3).join(' | ') || '(无违规)'}`)
+})
+
+// RP-13 形状锁:九站折算闭合 —— 每站收返回值且 heal 之后唯一成功出口走 landingExitWithHeal;
+// 收了 ledgerHeal 却不留折算出口 = 半截(洞原地复活),本锁钉住"收与折"成对,且反向排除裸调。
+test('RP-13 九站折算闭合:9 站收返回值 + 8 站落地折算 + 1 站外层聚合,无裸调残留', (t) => {
+  const src = readFileSync(new URL('../plan-tasks-merge.mjs', import.meta.url), 'utf8')
+  const decl = [...src.matchAll(/const ledgerHeal = rerunLedgerHeal\(/g)].length
+  t.assert.equal(decl, 9, `9 站都必须收返回值,实测 ${decl} —— 漏收 = 仍裸调`)
+  const total = [...src.matchAll(/rerunLedgerHeal\(\{/g)].length
+  t.assert.equal(total, decl, `rerunLedgerHeal({ 调用点必须全改为 const ledgerHeal = 形式,实测 ${total} vs ${decl} —— 存在裸调`)
+  const siteUse = [...src.matchAll(/landingExitWithHeal\(0, ledgerHeal\)/g)].length
+  t.assert.equal(siteUse, 8, `除站3(走对象 heal 字段+外层聚合)外 8 站必须折算 exit,实测 ${siteUse}`)
+  const aggUse = [...src.matchAll(/landingExitWithHeal\(0, healAgg\)/g)].length
+  t.assert.equal(aggUse, 1, `站3 外层聚合必须折算,实测 ${aggUse}`)
 })
 
 /**

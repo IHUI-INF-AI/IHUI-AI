@@ -200,7 +200,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     },
     questionCard: {
       padding: rnSpacing.lg,
@@ -215,7 +215,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      lineHeight: 24,
+      lineHeight: rnType.title.lineHeight,
       marginBottom: rnSpacing['md-loose'],
     },
     required: { color: tk.danger.DEFAULT },
@@ -235,9 +235,9 @@ function createStyles(tk: AppThemeTokens) {
     optionText: {
       fontSize: rnType.strong.size,
       color: tk.text.medium,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
-    optionTextActive: { color: tk.surface.light },
+    optionTextActive: { color: tk.brand.ctaForeground },
     scoreRow: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -274,7 +274,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       fontSize: rnType.strong.size,
       color: tk.text.primary,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
     errorText: { color: tk.danger.DEFAULT, fontSize: rnType.body.size, marginBottom: rnSpacing.sm },
     submitContainer: {
@@ -334,11 +334,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     formatChipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
     formatText: { fontSize: rnType.body.size, color: tk.text.medium },
-    formatTextActive: { color: tk.surface.light, fontWeight: '600' },
+    formatTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     reportBody: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
     emptyHint: { fontSize: rnType.body.size, color: tk.text.tertiary },
   })

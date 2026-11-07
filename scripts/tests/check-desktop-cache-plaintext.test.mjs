@@ -223,12 +223,61 @@ test('判据3-密钥不入仓在真仓为绿,且"第二处源码"必判红(变�
   assert.ok(!h.undetermined, `git 面不可用: ${h.undetermined}`)
   assert.deepEqual(h.violations, [], `真仓不该有卫生违规: ${h.violations.join(' | ')}`)
   assert.ok(h.trackedCount > 100, `ls-files 拿到 ${h.trackedCount} 项,尺子疑似空跑`)
-  assert.deepEqual(h.refFiles, ['apps/web/src/lib/local-vault.ts'])
+  assert.deepEqual(
+    [...h.refFiles].sort(),
+    ['apps/desktop/src-tauri/src/store_path.rs', 'apps/web/src/lib/local-vault.ts'],
+  )
+  // 判据纯函数:运行期/自检/镜像共用同一份,不自造第二套判据
+  const judge = (over) =>
+    gate.judgeVaultPlacement({
+      refFiles: ['apps/web/src/lib/local-vault.ts', 'apps/desktop/src-tauri/src/store_path.rs'],
+      rustAllowlist: ['auth.json', consts.vaultStoreFile],
+      vaultStoreFile: consts.vaultStoreFile,
+      declarationBodies: ['pub const REMOTE_STORE_ALLOWLIST ...'],
+      ...over,
+    })
+  assert.deepEqual(judge({}), [])
+  // 漂移
+  assert.ok(judge({ rustAllowlist: ['auth.json', 'other-vault.json'] }).length > 0)
+  // 缺第二落点(仅注释持名 ⇒ 声明体为空、白名单解析不到)
+  assert.ok(judge({ refFiles: ['apps/web/src/lib/local-vault.ts'], rustAllowlist: null, declarationBodies: [] }).length > 0)
+  // 额外条目(不是 includes 含即过)
+  assert.ok(
+    judge({ rustAllowlist: ['auth.json', consts.vaultStoreFile, 'evil-backup.json'] }).length > 0,
+  )
+  // 注释诱饵:声明真实清单只有 auth.json,注释里塞 vault 名
+  const decoy = gate.parseRustStoreAllowlist(
+    [
+      '// 文档提及:pub const REMOTE_STORE_ALLOWLIST 与 ("ihui-vault.json", &["master_key"])',
+      'pub const REMOTE_STORE_ALLOWLIST: &[(&str, &[&str])] = &[',
+      '    ("auth.json", &["refresh_token"]),',
+      '    // ("ihui-vault.json", &["master_key"])',
+      '];',
+    ].join('\n'),
+  )
+  assert.ok(decoy, '应当仍能解析到真实声明')
+  assert.deepEqual(decoy.files, ['auth.json'], '注释诱饵不得进入白名单')
+  assert.ok(judge({ rustAllowlist: decoy.files, declarationBodies: [decoy.body] }).length > 0)
+  // raw 字符串诱饵:权限列表里塞 r#"(...)"#,旧正则会误把串内片段当成条目
+  const raw = gate.parseRustStoreAllowlist(
+    [
+      'pub const REMOTE_STORE_ALLOWLIST: &[(&str, &[&str])] = &[',
+      `    ("auth.json", &["refresh_token", r#"("${consts.vaultStoreFile}", &["#]),`,
+      '];',
+    ].join('\n'),
+  )
+  assert.ok(raw)
+  assert.deepEqual(raw.files, ['auth.json'], 'raw 串里的诱饵不得进入白名单')
+  assert.ok(judge({ rustAllowlist: raw.files, declarationBodies: [raw.body] }).length > 0)
   // 变异:换一个几乎不可能出现在源码里的"文件名",反向确认判据真的在看单源那一条
   const h2 = gate.checkKeyHygiene({ ...consts, vaultStoreFile: 'zzz-no-such-file.json' })
   assert.ok(
     h2.violations.some((v) => v.includes('反而找不到')),
     `变异未触发预期红点: ${JSON.stringify(h2)}`,
+  )
+  assert.ok(
+    h2.violations.some((v) => v.includes('必须恰为')),
+    `变异未触发白名单全集红点: ${JSON.stringify(h2)}`,
   )
 })
 

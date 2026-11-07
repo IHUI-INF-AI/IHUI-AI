@@ -126,7 +126,12 @@ import { queueInteractionPerms } from '@ihui/shared/chat/input-notices'
 import { resolveInterjectionSupport } from '@/hooks/use-chat/runtime-capabilities'
 // G-171a:审批待决事实源(turn-status-line 的 waitingConfirm 同一位,不另取数)
 import { useToolApprovalPending } from '@/components/ai/tool-approval-dialog'
-import { QUEUE_OPS_NAMESPACE, type FollowUpMode } from '@ihui/shared/chat/queue-interactions'
+import { refillDraftAfterWithdraw } from '@ihui/shared/chat/steer-admission'
+import {
+  followUpAutoFlushAllowed,
+  QUEUE_OPS_NAMESPACE,
+  type FollowUpMode,
+} from '@ihui/shared/chat/queue-interactions'
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { getMessages } from '@ihui/api-client'
 import { MARKET_PLUGINS, PROJECT_PLUGINS, getPluginIntegration } from '@ihui/shared/plugins-data'
@@ -455,6 +460,7 @@ export function MessageInput({
   // - submit / doSend(内部)/ handleDragOver / handleDragLeave / handleDrop / handlePaste
   //   / handleFileInputChange 全部内聚到 hook,主组件只消费返回值
   // - 危险命令检测(DANGEROUS_PATTERN_KEY)随同迁移,主组件不再持有
+  const awaitingApproval = useToolApprovalPending()
   const {
     isDragOver,
     reportAttachmentRejections,
@@ -467,6 +473,7 @@ export function MessageInput({
     pendingMessages,
     removePendingMessage,
     sendPendingMessage,
+    reorderPendingMessage,
     steer,
     interruptAndSend,
   } = useMessageSend({
@@ -492,6 +499,7 @@ export function MessageInput({
     onSent: promptHistory.pushSent,
     // 差距③配套(2026-10-30 立):「打断并发送」的停流出口 = W2 既有 onStop(唯一出口)
     onStop,
+    awaitingApproval,
   })
   // D166:发送即收卡 —— 包装保持 submit 原签名 `(overrideValue?: string) => Promise<void>`,
   // 发送动作与结果零变更,仅在发送链启动后关闭链接预览卡(探测失败本就不阻断发送)。
@@ -562,6 +570,12 @@ export function MessageInput({
   const sideQueue = chatStore((s) =>
     conversationId ? s.sideQueueByConversation[conversationId] : undefined,
   )
+  const queuePaused = chatStore((s) => {
+    if (!conversationId) return null
+    const pauseMap = s.capacityQueuePausedByConversation
+    if (pauseMap === null || pauseMap === undefined) return null
+    return pauseMap[conversationId] === true
+  })
   // D75 侧任务生命周期最小真实腿(2026-11-01):补答入口不再 shift 摘条,
   // 改由 chatStore.getState().peekPendingSideQuestion 取待答首条(见下方 answerCurrentSideQuestion)。
   // D75 装腿后队列分两格:交互条仍列**整桶**(重排下标与桶一一对应,零改动),
@@ -583,8 +597,6 @@ export function MessageInput({
   // (ai-side-panel 的 getConversation 分支),均落在 chat store 这一个键上。
   const runtimeInterjection = chatStore((s) => s.runtimeInterjection)
   const runtimeSupportsInterjection = resolveInterjectionSupport(runtimeInterjection)
-  // G-171a:审批待决位(高危工具审批正等待用户决策 ⇒ 插话/打断须让行)。
-  const awaitingApproval = useToolApprovalPending()
   // G-171a:queueChanged 的调用方态 —— 由 QueueInteractionBar 实测的编辑窗口正文漂移
   // 上抛(用户看到的正文与队列现值不一致 = 队列已变),喂进 D69 perms 同一判定。
   const [editQueueDrift, setEditQueueDrift] = React.useState(false)
@@ -662,14 +674,23 @@ export function MessageInput({
     // isStreaming 从 true 变为 false:流式结束,发送队首预备消息
     if (wasStreamingRef.current && !isStreaming) {
       wasStreamingRef.current = false
-      if (pendingMessages.length > 0) {
-        void sendPendingMessage()
-      } else if (sideQueue && sideQueue.length > 0) {
-        answerCurrentSideQuestion()
+      if (followUpAutoFlushAllowed(queuePaused)) {
+        if (pendingMessages.length > 0) {
+          void sendPendingMessage()
+        } else if (sideQueue && sideQueue.length > 0) {
+          answerCurrentSideQuestion()
+        }
       }
     }
     wasStreamingRef.current = isStreaming
-  }, [isStreaming, pendingMessages, sendPendingMessage, sideQueue, answerCurrentSideQuestion])
+  }, [
+    isStreaming,
+    pendingMessages,
+    sendPendingMessage,
+    sideQueue,
+    answerCurrentSideQuestion,
+    queuePaused,
+  ])
   // W27(2026-09-14)→ D36(2026-09-28):草稿持久化收编进 usePromptDrafts hook ——
   // 防抖写入、会话切换回写/载入、超长截断、桶配额淘汰都在 hook + shared 纯逻辑里,
   // 本组件只保留 draftKey 计算(与 useMessageSend 清稿同源)与 resize 回调接线。
@@ -1130,7 +1151,7 @@ export function MessageInput({
     const item = pendingMessages[i]
     if (!item) return
     removePendingMessage(i)
-    setValue((prev) => (prev ? `${prev}\n${item.text}` : item.text))
+    setValue((prev) => refillDraftAfterWithdraw(prev, item.text))
     requestAnimationFrame(() => inputCoreRef.current?.resize())
   }
 
@@ -1196,6 +1217,7 @@ export function MessageInput({
           onSendPastePreview={(text) => void submitAndDismissLinkPreview(text)}
           queueItems={pendingMessages}
           onQueueRemove={handleQueueRemove}
+          onQueueReorder={reorderPendingMessage}
         />
         {/* D124:图片位图标注编辑器(全局单实例,open 由 annotateTarget 决定;
             标注结果经 handleApplyAnnotation 摘旧附件 + commitFileReference 回填) */}
@@ -1246,11 +1268,17 @@ export function MessageInput({
             if (conversationId) chatStore.getState().requeue(conversationId, from, to)
           }}
           onUndo={(id) => {
-            if (conversationId) {
-              // G-171b:被撤回的队列项 = 未发送 ⇒ deferred 终态(D162 两分:deferred≠failed)
-              chatStore.getState().recordQueueSendOutcome(conversationId, id, 'deferred')
-              chatStore.getState().removeQueued(conversationId, id)
-            }
+            if (!conversationId) return
+            const item = (chatStore.getState().sideQueueByConversation[conversationId] ?? []).find(
+              (q) => q.id === id,
+            )
+            // G-171b:被撤回的队列项 = 未发送 ⇒ deferred 终态(D162 两分:deferred≠failed)
+            chatStore.getState().recordQueueSendOutcome(conversationId, id, 'deferred')
+            chatStore.getState().removeQueued(conversationId, id)
+            // 撤回不丢输入:正文回填当前输入框(与待发队列取消同一函数)。
+            if (!item) return
+            setValue((prev) => refillDraftAfterWithdraw(prev, item.text))
+            requestAnimationFrame(() => inputCoreRef.current?.resize())
           }}
           onEdit={(id, text) => {
             if (conversationId) chatStore.getState().editQueued(conversationId, id, text)

@@ -140,7 +140,13 @@ import { resolve } from 'node:path'
 import { usedIdsOfPrefix } from './lib/plan-task-index.mjs'
 import { describeRegisteredFamilies, lookupPlanIdFamily } from './lib/plan-id-families.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
-import { collectIdFace, scanFamilyIds, ID_FACE_TRANSPORT } from './lib/plan-id-face.mjs'
+import {
+  collectIdFace,
+  scanFamilyIds,
+  ID_FACE_TRANSPORT,
+  RETIRE_LEDGER_REL,
+} from './lib/plan-id-face.mjs'
+import { loadRetiredIdSets } from './lib/plan-id-retire-io.mjs'
 // 远端那一维与 live-doc-edit.mjs(第一发号出口)**同一把尺**:transport(含有界自补救 fetch)、
 // 基准读取与硬闸门都只住在那一份实现里 —— 这里只做出口接线,不抄任何判据。
 import { readRemoteIdBasis, idBasisGate } from './live-doc-edit.mjs'
@@ -203,11 +209,14 @@ const FAMILY_SLOT_RE = /\(([A-Za-z])\\d\+/
 function headingReFor(family) {
   const src = HEADING.source
   if (!FAMILY_SLOT_RE.test(src))
-    throw new Error(`HEADING 形状里找不到「(族名\\d+」锚点 ⇒ 无族可换(不得静默退回 ${DEFAULT_FAMILY} 族)`)
+    throw new Error(
+      `HEADING 形状里找不到「(族名\\d+」锚点 ⇒ 无族可换(不得静默退回 ${DEFAULT_FAMILY} 族)`,
+    )
   // 单字母族:逐字沿用改前的 `(Z\d+` 形状;多字母族(RP)按族注册表的书写分隔符允许 `[-_ ]?`。
   const entry = lookupPlanIdFamily(family)
   if (!entry) throw new Error(`族 ${family} 未登记在号域族注册表 ⇒ 拒绝换族形状`)
-  if (entry.multiLetter) return new RegExp(src.replace(FAMILY_SLOT_RE, `(${entry.name}[-_ ]?\\d+`), HEADING.flags)
+  if (entry.multiLetter)
+    return new RegExp(src.replace(FAMILY_SLOT_RE, `(${entry.name}[-_ ]?\\d+`), HEADING.flags)
   return new RegExp(src.replace(FAMILY_SLOT_RE, `(${family}\\d+`), HEADING.flags)
 }
 
@@ -217,7 +226,10 @@ function headingReFor(family) {
  * 本函数只做遍历与取值(§22c:不另写一份标题归一化)。
  * 关键词档用同一份归一化面(小写 + 去空白/标点/符号)做子串匹配。
  */
-const keywordKey = (raw) => String(raw ?? '').toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, '')
+const keywordKey = (raw) =>
+  String(raw ?? '')
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, '')
 function findSameTitleRows(body, { fp, keyword }) {
   if (!fp && !keyword) return []
   const hits = []
@@ -250,12 +262,16 @@ if (srcFlag.error) {
 const SOURCE = srcFlag.value ?? 'HEAD'
 // 第五条(2026-10-24):发号前同题查重的两个输入,取值一律走带值旗标的唯一出口(G-322),
 // 给了却没值 ⇒ 判死在任何取号动作之前(不得静默退回"没给")。
-const titleFlag = requireFlagValue(argv, '--title', { noun: '标题原文(发号前对目标文件现读正文查同题)' })
+const titleFlag = requireFlagValue(argv, '--title', {
+  noun: '标题原文(发号前对目标文件现读正文查同题)',
+})
 if (titleFlag.error) {
   console.error(`❌ ${titleFlag.error}`)
   process.exit(2)
 }
-const keywordFlag = requireFlagValue(argv, '--keyword', { noun: '关键词(发号前对目标文件现读正文查同题)' })
+const keywordFlag = requireFlagValue(argv, '--keyword', {
+  noun: '关键词(发号前对目标文件现读正文查同题)',
+})
 if (keywordFlag.error) {
   console.error(`❌ ${keywordFlag.error}`)
   process.exit(2)
@@ -271,7 +287,10 @@ if (familyFlag.error) {
   process.exit(2)
 }
 /** 本轮发号的族目(缺省 O ⇒ 与改前逐字同形);未登记族在这里被拒 */
-const FAMILY_ENTRY = familyFlag.value === null ? lookupPlanIdFamily(DEFAULT_FAMILY) : lookupPlanIdFamily(familyFlag.value)
+const FAMILY_ENTRY =
+  familyFlag.value === null
+    ? lookupPlanIdFamily(DEFAULT_FAMILY)
+    : lookupPlanIdFamily(familyFlag.value)
 if (!FAMILY_ENTRY) {
   console.error(
     `❌ --family 需要一个**在册**族名(大小写归一;在册 = ${describeRegisteredFamilies()}),` +
@@ -291,7 +310,9 @@ const headingNumOf = (key) =>
   headingNum(
     `${DEFAULT_FAMILY}${
       FAMILY_ENTRY.multiLetter
-        ? String(key).slice(FAMILY.length).replace(/^[-_ ]/, '')
+        ? String(key)
+            .slice(FAMILY.length)
+            .replace(/^[-_ ]/, '')
         : String(key).slice(FAMILY.length)
     }`,
   )
@@ -357,7 +378,9 @@ const nums = [...count.keys()].map(headingNumOf)
 // 标题口径的重号分组:G-927 起**只作读数**,不再参与判红(判红走 lib/plan-id-duplicates.mjs 那一档)。
 const dups = [...count.entries()].filter(([, n]) => n > 1).sort((a, b) => a[0].localeCompare(b[0]))
 /** 含逐字孪生副本的组(组内某一条整行出现 ≥2 次);其余为纯系列小节(标题互异)。 */
-const twinDups = dups.filter(([k]) => [...headingLines.get(k).values()].some((n) => n > 1)).map(([k]) => k)
+const twinDups = dups
+  .filter(([k]) => [...headingLines.get(k).values()].some((n) => n > 1))
+  .map(([k]) => k)
 const seriesDups = dups.map(([k]) => k).filter((k) => !twinDups.includes(k))
 
 if (flags.has('--check')) {
@@ -497,8 +520,9 @@ try {
   worktreeText = readFileSync(resolve(ROOT, PLAN_PATH), 'utf8')
 } catch (e) {
   console.error(
-    `⚠️ 工作树副本 ${PLAN_PATH} 读不到(${String(e?.message ?? e).split(/\r?\n/)[0].slice(0, 120)}) ⇒ ` +
-      `本轮实时占用面退回 HEAD 宽面,他席未提交的登记不在这一轮尺子里`,
+    `⚠️ 工作树副本 ${PLAN_PATH} 读不到(${String(e?.message ?? e)
+      .split(/\r?\n/)[0]
+      .slice(0, 120)}) ⇒ ` + `本轮实时占用面退回 HEAD 宽面,他席未提交的登记不在这一轮尺子里`,
   )
 }
 const scanWork = scanFamilyIds(worktreeText, FAMILY)
@@ -523,7 +547,9 @@ const labelOf = (n) => familyTemplate.replace('%d', String(n))
 // 面 = 工作树副本(他席未提交的登记)⊕ HEAD 宽面(台账 ⊕ 归档件,已并入的旧底稿在这一侧)。
 // 两处可能命中同一行 ⇒ 按 (既有号, 行首预览) 去重,只报一处,免得把"一处命中"读成"两组冲突"。
 const titleFp = titleFlag.value
-  ? extractTaskFingerprint(/^-\s*\[[ x]\]/.test(titleFlag.value) ? titleFlag.value : `- [ ] ${titleFlag.value}`)
+  ? extractTaskFingerprint(
+      /^-\s*\[[ x]\]/.test(titleFlag.value) ? titleFlag.value : `- [ ] ${titleFlag.value}`,
+    )
   : null
 const kwKey = keywordFlag.value ? keywordKey(keywordFlag.value) : ''
 if (titleFlag.value && !titleFp)
@@ -531,7 +557,8 @@ if (titleFlag.value && !titleFp)
     '⚠️ --title 算不出同题指纹(标题过短 / 无标题段,权重 < 16)⇒ 这一维**未判定**,' +
       '不得把"没拦"读成"已查过";要把这一格判到底,请给含标题正文的整行或更长的标题',
   )
-if (keywordFlag.value && !kwKey) console.error('⚠️ --keyword 归一化后为空 ⇒ 这一维**未判定**(关键词须含文字或数字)')
+if (keywordFlag.value && !kwKey)
+  console.error('⚠️ --keyword 归一化后为空 ⇒ 这一维**未判定**(关键词须含文字或数字)')
 if (titleFp || kwKey) {
   const seenHits = new Map()
   for (const f of [
@@ -545,7 +572,10 @@ if (titleFp || kwKey) {
   }
   const titleHits = [...seenHits.values()]
   if (titleHits.length) {
-    const cause = [titleFp ? `--title 指纹=${titleFp}` : '', kwKey ? `--keyword 含「${keywordFlag.value}」` : '']
+    const cause = [
+      titleFp ? `--title 指纹=${titleFp}` : '',
+      kwKey ? `--keyword 含「${keywordFlag.value}」` : '',
+    ]
       .filter(Boolean)
       .join(' / ')
     console.error(`❌ 发号前现读正文查重命中「同题已在册」${titleHits.length} 处(${cause}):`)
@@ -570,6 +600,34 @@ const liveUsed = [...new Set([...poolUsed, ...scanHead, ...scanWork])]
 // `--check` 不发号(在远端读取之前分岔)、`--source` 显式指面(不问远端)⇒ remote 为 null ⇒ 空数组。
 const remoteIdNums = remoteIdNumsOf(remote?.ids?.[FAMILY])
 if (remoteIdNums.length) liveUsed.push(...remoteIdNums)
+// ──「近期已结清号」避让(2026-11-06 立,根因由台账席实测给出)──────────────────────────
+// 本仓 §1 完成即删 ⇒ 结清的号当天就从两张占用面(台账 ⊕ 归档件、全文件扫)上消失,洞被当空闲复发。
+// 实测:补登 5 枚时现算出 RP-65/67/68/69/70,其中 RP-67 是当日刚结清那枚 ⇒ HEAD 只剩一条 RP-67
+// 却同号跨题,后人按号回查凭据读到错的枚号。归档面挡不住(归档机制 2026-10-16 已退役)。
+// 避让号集来自 lib 那一份 `loadRetiredIdSets`(摘除台账 rowBefore ⊕ 近 90 日提交标题,窗口取 §1
+// 对同一族留痕的既有 90 天口径,不自发明阈值)。**两出口同一件事必须同一把尺**(§22c 漂移型):
+// 第一出口 live-doc-edit 已在 resolveIdTokens 内并进同一集合。
+// undetermined ⇒ 本器**不填洞**:候选清单退回"顶号"一条(max+1 永不复用旧号),并大声点名。
+const retiredFace = loadRetiredIdSets({ root: ROOT, families: [FAMILY] })
+const retiredNums = [...(retiredFace.byFamily?.get?.(FAMILY) ?? [])].filter(Number.isFinite)
+if (retiredFace.state !== 'undetermined' && retiredNums.length) {
+  liveUsed.push(...retiredNums)
+  poolUsed.push(...retiredNums)
+  console.error(
+    `ℹ️ 已结清号避让面:摘除台账 ${retiredFace.perSource.dropLedger.state} / 提交标题 ${retiredFace.perSource.gitLog.state} ⇒ 本轮额外避让 ${retiredNums.length} 枚(${retiredNums.slice(0, 12).join(',')}${retiredNums.length > 12 ? '…' : ''})`,
+  )
+}
+if (retiredFace.state === 'undetermined') {
+  // 票面口径就是这一条:"取不到输入 ⇒ 判未判定、拒发号,而不是默默按'没占'发"。
+  // 出路写在 stderr 里,不改判据、不削覆盖面(§0.10)。
+  console.error(
+    `❌ 已结清号避让面未判定:${retiredFace.why} ⇒ **拒发号**(exit 2)。` +
+      `把"读不到历史"当成"没历史"就会把旧号当空闲复发(本次 RP-67 同号跨题的原形)。` +
+      `出路:① 核 ${RETIRE_LEDGER_REL} 是否在场可读(摘除台账是第一源);` +
+      `② 或给本轮显式让位集 —— 两源同时不可读属异常,不作常态绕行通道,本器不设跳过旗标。`,
+  )
+  process.exit(2)
+}
 const nextNarrow = smallestFreeId({ usedNumbers: poolUsed, baseMax: remoteWide })
 const next = smallestFreeId({ usedNumbers: liveUsed, baseMax: remoteWide })
 // 「命中即换号」里被扫描顶掉的号:旧口径判空闲、全文件扫描判已占(撞号正病;走 stderr,
@@ -678,7 +736,8 @@ console.log(
   `权威口径 = git show ${SOURCE}:${PLAN_PATH} ⊕ ${face.archiveFiles.length} 份归档件(台账条目标题 ${seen.length} 行 / 去重 ${count.size} 个号)`,
 )
 // 族射程自报:缺省族(O)不打印,保证改前 stdout 逐字不变;显式换族时立刻点名,免得把 Z 族读数当成 O 族。
-if (FAMILY !== DEFAULT_FAMILY) console.log(`族 = ${FAMILY}(书写形状 ${familyTemplate};缺省族 = ${DEFAULT_FAMILY})`)
+if (FAMILY !== DEFAULT_FAMILY)
+  console.log(`族 = ${FAMILY}(书写形状 ${familyTemplate};缺省族 = ${DEFAULT_FAMILY})`)
 console.log(`已占用的最大号 = ${fmt(maxWide)}   下一个号 = ${labelOf(next)}(池内最小空闲)`)
 console.log(
   `  G-14 实时占用面:全文件扫描 HEAD 宽面 ${scanHead.size} 号 ⊕ 工作树副本 ${scanWork.size} 号` +

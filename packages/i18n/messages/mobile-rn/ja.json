@@ -4808,7 +4808,8 @@
     "title": "ナレッジプラネット",
     "newOfficial": "公式",
     "newCommunity": "コミュニティ",
-    "enter": "プラネットへ"
+    "enter": "プラネットへ",
+    "memberCount": "{count} 人のメンバー"
   },
   "knowledgeRag": {
     "title": "RAG 知識ベース",

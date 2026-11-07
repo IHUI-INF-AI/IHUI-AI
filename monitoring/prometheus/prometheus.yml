@@ -35,7 +35,19 @@ alerting:
 
 # 抓取目标
 scrape_configs:
-  # Fastify 后端 API(端口 8802,/metrics 端点由 metrics.ts 插件暴露)
+  # Fastify 后端 API。
+  # ⚠ 2026-11-07 DBG-75 收口:此 job 此前只抓 router(8802),而真正干活的 API 蓝绿工作色
+  #   BLUE(8842)/GREEN(8843)全文无抓取目标(见 deploy/win/ihui-monitor.ps1:99 与
+  #   ihui-api-bluegreen.ps1:34-35 的权威端口;nginx-blue-green.conf 里的 green_api=8844
+  #   是漂移废配置,以监控/部署脚本为准)。盲区:两工作色全挂但 router 存活时
+  #   `up{job="api"}` 仍为 1 ⇒ 无 ApiDown 告警。
+  #   修法:把两工作色加为 `role: worker` 目标;router 保留为 `role: router`。
+  #   注意稳态只有一色在监听(另一色为待命、无监听,见 api-listener-freshness.ps1:33
+  #   "无人监听的色只作跳过"),故 ApiDown 不能用单实例 `up==0`(否则闲置色恒误报),
+  #   改判 `router 挂 或 两 worker 全挂`(见 alerts.yml 同票)。两色都用同一份 api 代码,
+  #   均暴露 /metrics 与 http_requests_by_status / http_response_time_ms_bucket,加目标后
+  #   ApiHighErrorRate / ApiSlowResponse 也首次拿到真实序列(此前 router 不暴露这些业务指标,
+  #   那两条规则形同恒 NaN 的死规则)。
   - job_name: 'api'
     metrics_path: '/metrics'
     scheme: 'http'
@@ -44,6 +56,19 @@ scrape_configs:
         labels:
           service: 'api'
           layer: 'backend'
+          role: 'router'
+      - targets: ['localhost:8842']
+        labels:
+          service: 'api'
+          layer: 'backend'
+          role: 'worker'
+          color: 'blue'
+      - targets: ['localhost:8843']
+        labels:
+          service: 'api'
+          layer: 'backend'
+          role: 'worker'
+          color: 'green'
 
   # FastAPI AI 服务(端口 8803,需 prometheus-fastapi-instrumentator)
   - job_name: 'ai-service'

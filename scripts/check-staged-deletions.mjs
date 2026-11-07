@@ -739,25 +739,16 @@ function readPendingMessage(root, argv) {
     if (!existsSync(f)) return { text: null, from: `--message-file 指向的文件不存在:${f}` }
     return { text: readFileSync(f, 'utf8'), from: `--message-file ${fileFlag.value}` }
   }
-  let editMsg = ''
-  try {
-    editMsg = gitRaw(['rev-parse', '--git-path', 'COMMIT_EDITMSG'], root, { timeout: 15000 }).trim()
-  } catch {
-    editMsg = ''
+  // 2026-11-04 立:隐式 COMMIT_EDITMSG 通道**整条停用**(不是"与 HEAD 不同文才采用")。
+  // 立因:共用工作区里 `$GIT_DIR/COMMIT_EDITMSG` 是**单份**文件,并发提交时它装的是别席的
+  // 消息;而 pre-commit 阶段 git **还没写**本席消息(实测:pre-commit 里该文件根本不存在,
+  // 只有上一次尝试/别席留下的内容)。因此"与 HEAD 不同文 ⇒ 当成本次理由"这一档,只可能把
+  // **别人的消息**读成自己的理由,给一个本该拦下的删除发免死金牌。
+  // 现只认显式 `--message` / `--message-file`;pre-commit 阶段没有消息是结构事实。
+  return {
+    text: null,
+    from: 'pre-commit 阶段没有本席消息文件;隐式 COMMIT_EDITMSG 通道已停用(共享单文件,并发下会读到别席消息)⇒ 请用 --message/--message-file 显式给',
   }
-  const editPath = editMsg ? resolve(root, editMsg) : ''
-  if (!editPath || !existsSync(editPath))
-    return { text: null, from: 'pre-commit 阶段没有消息文件(可用 --message/--message-file 显式给)' }
-  let headMsg = ''
-  try {
-    headMsg = gitRaw(['log', '-1', '--format=%B'], root, { timeout: 15000 })
-  } catch {
-    headMsg = ''
-  }
-  const body = readFileSync(editPath, 'utf8')
-  if (headMsg && body.trim() === headMsg.trim())
-    return { text: null, from: 'COMMIT_EDITMSG 与 HEAD 正文同文 ⇒ 是上一条的残留,不计入通道②' }
-  return { text: body, from: 'COMMIT_EDITMSG(与 HEAD 不同文)' }
 }
 
 /**

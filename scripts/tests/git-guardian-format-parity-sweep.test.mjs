@@ -68,10 +68,10 @@ function mkEnv() {
   }
 }
 
-test('F1 尺子不在位 ⇒ 跳过且不写节流戳(补回后下一轮立刻能跑)', () => {
+test('F1 尺子不在位 ⇒ 跳过且不写节流戳(补回后下一轮立刻能跑)', async () => {
   const env = mkEnv()
   try {
-    const r = sweepFormatParity({
+    const r = await sweepFormatParity({
       ...env.opts(),
       scriptFile: join(env.dir, 'no-such-ruler.mjs'),
       runner: () => {
@@ -86,10 +86,10 @@ test('F1 尺子不在位 ⇒ 跳过且不写节流戳(补回后下一轮立刻�
   }
 })
 
-test('F2 ok ⇒ 判过、读数入戳、一声不寄', () => {
+test('F2 ok ⇒ 判过、读数入戳、一声不寄', async () => {
   const env = mkEnv()
   try {
-    const r = sweepFormatParity({ ...env.opts(), runner: () => rulerJson() })
+    const r = await sweepFormatParity({ ...env.opts(), runner: () => rulerJson() })
     assert.equal(r.state, 'ok')
     assert.equal(r.judged, true)
     assert.equal(r.ok, true)
@@ -103,10 +103,10 @@ test('F2 ok ⇒ 判过、读数入戳、一声不寄', () => {
   }
 })
 
-test('F3 drift ⇒ 不记绿、日志逐档点名,且**不寄信**(出路归 agent 当场做)', () => {
+test('F3 drift ⇒ 不记绿、日志逐档点名,且**不寄信**(出路归 agent 当场做)', async () => {
   const env = mkEnv()
   try {
-    const r = sweepFormatParity({
+    const r = await sweepFormatParity({
       ...env.opts(),
       runner: () =>
         rulerJson({
@@ -129,10 +129,10 @@ test('F3 drift ⇒ 不记绿、日志逐档点名,且**不寄信**(出路归 age
   }
 })
 
-test('F4 unjudged ⇒ 未判定入戳、连击起点落盘,首轮只报不寄', () => {
+test('F4 unjudged ⇒ 未判定入戳、连击起点落盘,首轮只报不寄', async () => {
   const env = mkEnv()
   try {
-    const r = sweepFormatParity({
+    const r = await sweepFormatParity({
       ...env.opts(),
       runner: () =>
         rulerJson({ state: 'unjudged', exit: 2, buckets: undefined, waiver: undefined }),
@@ -147,11 +147,11 @@ test('F4 unjudged ⇒ 未判定入戳、连击起点落盘,首轮只报不寄', 
   }
 })
 
-test('F5 结论取不到(无 JSON / 派生失败)⇒ 一律未判定,绝不冒绿', () => {
+test('F5 结论取不到(无 JSON / 派生失败)⇒ 一律未判定,绝不冒绿', async () => {
   for (const bad of ['', 'FORMAT-PARITY 跑完了但没打结论 JSON', null]) {
     const env = mkEnv()
     try {
-      const r = sweepFormatParity({
+      const r = await sweepFormatParity({
         ...env.opts(),
         runner: () =>
           bad === null
@@ -167,10 +167,10 @@ test('F5 结论取不到(无 JSON / 派生失败)⇒ 一律未判定,绝不冒�
   }
 })
 
-test('F6 ③ 只认剔掉具名豁免后的有效集(与尺子 verdict 同一份)', () => {
+test('F6 ③ 只认剔掉具名豁免后的有效集(与尺子 verdict 同一份)', async () => {
   const env = mkEnv()
   try {
-    const r = sweepFormatParity({
+    const r = await sweepFormatParity({
       ...env.opts(),
       runner: () =>
         rulerJson({
@@ -190,7 +190,7 @@ test('F6 ③ 只认剔掉具名豁免后的有效集(与尺子 verdict 同一份
   }
 })
 
-test('F7 节流分档:判过档走 interval,未判定档走 cooldown(更短)', () => {
+test('F7 节流分档:判过档走 interval,未判定档走 cooldown(更短)', async () => {
   const env = mkEnv()
   try {
     const base = env.opts()
@@ -199,7 +199,7 @@ test('F7 节流分档:判过档走 interval,未判定档走 cooldown(更短)', (
       env.tickFile,
       JSON.stringify({ attemptAt: new Date(t0).toISOString(), judged: true }),
     )
-    const held = sweepFormatParity({
+    const held = await sweepFormatParity({
       ...base,
       now: t0 + 10 * 60 * 1000,
       intervalMs: 30 * 60 * 1000,
@@ -212,7 +212,7 @@ test('F7 节流分档:判过档走 interval,未判定档走 cooldown(更短)', (
       env.tickFile,
       JSON.stringify({ attemptAt: new Date(t0).toISOString(), judged: false }),
     )
-    const cooled = sweepFormatParity({
+    const cooled = await sweepFormatParity({
       ...base,
       now: t0 + 30 * 60 * 1000,
       cooldownMs: 60 * 60 * 1000,
@@ -221,7 +221,7 @@ test('F7 节流分档:判过档走 interval,未判定档走 cooldown(更短)', (
       },
     })
     assert.equal(cooled.why, '未判定冷却中')
-    const retried = sweepFormatParity({
+    const retried = await sweepFormatParity({
       ...base,
       now: t0 + 61 * 60 * 1000,
       cooldownMs: 60 * 60 * 1000,
@@ -233,7 +233,7 @@ test('F7 节流分档:判过档走 interval,未判定档走 cooldown(更短)', (
   }
 })
 
-test('F8 出口锁:调度腿登记进 __test__(否则接线锁打不到这一格)', () => {
+test('F8 出口锁:调度腿登记进 __test__(否则接线锁打不到这一格)', async () => {
   assert.equal(typeof guardian.sweepFormatParity, 'function')
   assert.equal(guardian.sweepFormatParity, sweepFormatParity)
 })

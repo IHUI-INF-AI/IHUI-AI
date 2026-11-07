@@ -6,7 +6,17 @@
 // 仅负责渲染,状态与事件来自 useSpecPanel 返回的 SpecPanelApi。
 
 import * as React from 'react'
-import { History, Download, GitCompare, Loader2, Eye, EyeOff, Play, Sparkles } from 'lucide-react'
+import {
+  History,
+  Download,
+  GitCompare,
+  Loader2,
+  Eye,
+  EyeOff,
+  Play,
+  Sparkles,
+  X,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Tooltip } from '@/components/feedback'
 import { SCOPE_OPTIONS, TAB_OPTIONS } from './constants'
@@ -245,8 +255,9 @@ export function SpecWatchControl({ p }: { p: SpecPanelApi }) {
                     type="button"
                     onClick={() => void p.handleStopWatch(w.watchId)}
                     className="text-red-500 hover:text-red-600"
+                    aria-label={t('stopListening')}
                   >
-                    ×
+                    <X className="h-3 w-3" aria-hidden="true" />
                   </button>
                 </Tooltip>
               </span>

@@ -27,7 +27,6 @@ import base64
 import contextlib
 import logging
 import os
-import tempfile
 import time
 import uuid
 from typing import Any
@@ -36,6 +35,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Uplo
 from pydantic import BaseModel
 
 from ..core.jwt_auth import require_request_user_id, resolve_request_role_id
+from ..utils.atomic_io import write_bytes_to_tempfile
 from .engine import ENGINE, _bind_principal, _mcp_principal_scope
 
 logger = logging.getLogger(__name__)
@@ -129,11 +129,10 @@ async def _transcribe_audio(data: bytes, filename: str, language: str | None) ->
     from .voice_stt import _get_suffix, _get_whisper_model, _transcribe_sync
 
     model = await asyncio.to_thread(_get_whisper_model)
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=_get_suffix(filename))
+    # 2026-11-05:mkstemp + write + flush + close 收进同一个工作线程,
+    # 避免请求取消时 close 与在飞 write 跨线程竞争。
+    tmp_path = await asyncio.to_thread(write_bytes_to_tempfile, data, _get_suffix(filename))
     try:
-        with os.fdopen(tmp_fd, "wb") as f:
-            f.write(data)
-            f.flush()
         return await asyncio.to_thread(_transcribe_sync, model, tmp_path, language)
     finally:
         with contextlib.suppress(OSError):

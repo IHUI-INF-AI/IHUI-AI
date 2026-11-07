@@ -19,6 +19,7 @@ import {
   TextCursorInput,
   TextWrap,
   Maximize2,
+  X,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
@@ -58,6 +59,7 @@ import { healIncompleteMarkdown } from '@/lib/markdown-incomplete-heal'
 // 刻意**不用** content-visibility / contain-intrinsic-size(AGENTS G-828 明文禁恢复)。
 import {
   STATIC_BLOCK_OVERSCAN,
+  STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS,
   STATIC_BLOCK_VIRTUALIZE_MIN_CHARS,
   buildStaticBlockOffsets,
   resolveStaticBlockWindow,
@@ -294,7 +296,7 @@ function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => 
           className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('codeRun.close')}
         >
-          <span className="text-label leading-none">×</span>
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
       <div className="max-h-[240px] overflow-auto p-2">
@@ -1455,7 +1457,7 @@ export function MarkdownStream({ content, isStreaming, collapseLines = 5 }: Mark
   const virtualBlockCount = renderBlocks.length + (active.trim() ? 1 : 0)
   const virtualizable: boolean =
     !isStreaming &&
-    virtualBlockCount > 1 &&
+    virtualBlockCount >= STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS &&
     parseContent.length >= STATIC_BLOCK_VIRTUALIZE_MIN_CHARS
 
   // 滚动与视口:监听最近的滚动祖先(消息列表容器),只把**视口高度**落进 state

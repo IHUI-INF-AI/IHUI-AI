@@ -16,6 +16,8 @@ import {
   interruptPlan,
   isFollowUpMode,
   isQueueInteractionKind,
+  admitCapacityQueueOp,
+  followUpAutoFlushAllowed,
   reorderQueue,
   type EditableQueueItem,
 } from '../queue-interactions'
@@ -449,6 +451,37 @@ describe('D38 W27 不变式(专门用例:纯函数不含队首选择语义)', ()
     const v2 = interactionAllowed('reorder', perms)
     expect(v1).toEqual(v2)
     expect(effectiveMode('steer', false)).toEqual(effectiveMode('steer', false))
+  })
+})
+
+describe('限流队列动词:没量到名单不改顺序', () => {
+  const queue = ['a', 'b', 'c']
+
+  it('立即发把点名的那条放到队首,点名不在名单里就不动', () => {
+    expect(
+      admitCapacityQueueOp({ op: 'sendNow', queueIds: queue, paused: false, itemId: 'c' }),
+    ).toMatchObject({
+      disposition: 'admitted',
+      reason: 'sent-now',
+      order: ['c', 'a', 'b'],
+    })
+    const missing = admitCapacityQueueOp({
+      op: 'delete',
+      queueIds: queue,
+      paused: false,
+      itemId: 'z',
+    })
+    expect(missing.reason).toBe('item-absent')
+    expect(missing.order).toEqual(queue)
+    expect(admitCapacityQueueOp({ op: 'pause', queueIds: null, paused: false }).reason).toBe(
+      'queue-unmeasured',
+    )
+    expect(admitCapacityQueueOp({ op: 'resume', queueIds: queue, paused: false }).reason).toBe(
+      'not-paused',
+    )
+    expect(followUpAutoFlushAllowed(false)).toBe(true)
+    expect(followUpAutoFlushAllowed(true)).toBe(false)
+    expect(followUpAutoFlushAllowed(null)).toBe(false)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

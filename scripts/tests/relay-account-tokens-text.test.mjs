@@ -221,14 +221,24 @@ test('⑥ 与 JSON 通路产出同构:同一批 token,两通道交给下游的 a
     poolOwner: undefined,
   })
   const calls = []
+  // 解析/纪律类断言:注入一枚个人池(李总)归属,避免"首次强制落个人池"拒绝干扰本测试意图
+  const deps = {
+    calls,
+    resolveDefaultOwner: () => ({
+      owner: OWNER_UUID,
+      source: 'default-owner-file',
+      reason: 'ok',
+      file: '',
+    }),
+  }
   try {
     const viaTokens = await runMain(
       ['--tokens-file', fx.file, '--provider', 'workbuddy'],
-      { calls },
+      deps,
       (s) => s,
     )
     assert.equal(viaTokens.exit, 0)
-    const viaJson = await runMain(['--file', fx.jsonFile, '--provider', 'workbuddy'], { calls })
+    const viaJson = await runMain(['--file', fx.jsonFile, '--provider', 'workbuddy'], deps)
     assert.equal(viaJson.exit, 0)
     assert.equal(calls.length, 2)
     assert.equal(viaTokens.calls[0].providerCode, 'workbuddy')
@@ -250,9 +260,10 @@ test('⑥ 与 JSON 通路产出同构:同一批 token,两通道交给下游的 a
 test('⑦ 默认归属仍走 pool-owner 单源;--ops-pool 反旗照旧(行文本入口不另立第 2 套)', async () => {
   const fx = mkFixtures({ tokensText: `${TOK_A}\n`, poolOwner: undefined })
   try {
+    // 取不到个人池归属 ⇒ 首次强制落个人池,拒绝导入(exit 2);--ops-pool 反旗照旧(下方)
     const r = await runMain(['--tokens-file', fx.file, '--provider', 'workbuddy'])
-    assert.equal(r.calls[0].decision.source, 'none')
-    assert.equal(r.calls[0].decision.reason, 'missing')
+    assert.equal(r.exit, 2, '取不到个人池归属 ⇒ 拒绝导入(exit 2)')
+    assert.equal(r.calls.length, 0, '不得静默落运营池')
     assert.match(r.stdout, /未取到个人池归属文件/, '取不到默认归属必须点名,不静默')
     const ops = await runMain(['--tokens-file', fx.file, '--provider', 'workbuddy', '--ops-pool'])
     assert.equal(ops.calls[0].decision.owner, null)
@@ -295,7 +306,18 @@ test('⑧ 凭据纪律:token 明文不进 stdout/stderr;人给的名称只经 ma
       seen.push(s)
       return `138****5678`
     }
-    const r = await runMain(['--tokens-file', fx.file, '--provider', 'workbuddy'], {}, spy)
+    const r = await runMain(
+      ['--tokens-file', fx.file, '--provider', 'workbuddy'],
+      {
+        resolveDefaultOwner: () => ({
+          owner: OWNER_UUID,
+          source: 'default-owner-file',
+          reason: 'ok',
+          file: '',
+        }),
+      },
+      spy,
+    )
     assert.equal(r.exit, 0)
     assert.ok(!r.stdout.includes(TOK_A) && !r.stderr.includes(TOK_A), 'stdout/stderr 不得含 token')
     assert.ok(!r.stdout.includes(TOK_B) && !r.stderr.includes(TOK_B))
@@ -303,7 +325,18 @@ test('⑧ 凭据纪律:token 明文不进 stdout/stderr;人给的名称只经 ma
     assert.deepEqual(seen, ['13812345678'], 'given 名走单源脱敏;auto 名本身就是指纹,不重复脱敏')
     assert.match(r.stderr, /名称=138\*\*\*\*5678/)
     // 单源取不到 ⇒ 少显示而不是多泄露(绝不回落成明文)
-    const nomask = await runMain(['--tokens-file', fx.file, '--provider', 'workbuddy'], {}, null)
+    const nomask = await runMain(
+      ['--tokens-file', fx.file, '--provider', 'workbuddy'],
+      {
+        resolveDefaultOwner: () => ({
+          owner: OWNER_UUID,
+          source: 'default-owner-file',
+          reason: 'ok',
+          file: '',
+        }),
+      },
+      null,
+    )
     assert.match(nomask.stderr, new RegExp(T.NAME_NOT_MASKED_TEXT.replace(/[()]/g, '\\$&')))
     assert.ok(!nomask.stderr.includes('13812345678'))
   } finally {
@@ -319,7 +352,14 @@ test('⑨ 折叠台账:序号↔行号↔指纹逐条给,且走 stderr(不污染
   try {
     const r = await runMain(
       ['--tokens-file', fx.file, '--provider', 'workbuddy', '--json'],
-      {},
+      {
+        resolveDefaultOwner: () => ({
+          owner: OWNER_UUID,
+          source: 'default-owner-file',
+          reason: 'ok',
+          file: '',
+        }),
+      },
       (s) => s,
     )
     assert.equal(r.exit, 0)

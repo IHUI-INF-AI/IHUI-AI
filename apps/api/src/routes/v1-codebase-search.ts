@@ -12,7 +12,9 @@
  * - DELETE /repo/:repoId  删除指定仓库的所有切片
  * - DELETE /repo/:repoId/files  批量按文件删除切片(Merkle 增量同步,2026-09-07 立)
  *
- * 鉴权:JWT 认证(复用 packages/auth,所有端点需登录)
+ * 鉴权:JWT 认证(packages/auth,所有端点需登录);API Key 走能力闸;
+ * 内部服务(ai-service codebase_indexer)走内部短期票 / 兼容窗口常驻密钥,
+ * 票档必须绑定 `codebase-index` 用途(scope 不符 ⇒ 401)。
  */
 
 import type { FastifyPluginAsync } from 'fastify'
@@ -71,6 +73,14 @@ export const codebaseSearchRoutes: FastifyPluginAsync = async (server) => {
   // 所有端点需认证
   server.addHook('preHandler', async (req, reply) => {
     if (hasApiKeyCredential(req)) return codebaseGate.call(req.server, req, reply)
+    // 内部服务(ai-service codebase_indexer):与 checkAuthOrInternalService 同一分流语义
+    // (老头与短期票都由 hasInternalServiceToken 认出),但本路由族的票必须绑定
+    // `codebase-index` 用途 —— 一枚 memory / im-bridge 票不得读写代码索引。
+    const { hasInternalServiceToken, checkInternalServiceToken } =
+      await import('../plugins/internal-service-token.js')
+    if (hasInternalServiceToken(req)) {
+      return checkInternalServiceToken(req, reply, { scope: 'codebase-index' })
+    }
     try {
       await authenticate(req)
     } catch (e) {

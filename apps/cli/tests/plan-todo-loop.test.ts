@@ -273,6 +273,16 @@ describe('PlanBuildCoordinator 计划-执行-清单闭环', () => {
     expect(() => new PlanBuildCoordinator(tmp)).toThrow(/不能把它覆盖成默认模式/)
     expect(fs.statSync(stateFile).isDirectory()).toBe(true)
   })
+
+  it('损坏的模式状态不会被收成默认模式', () => {
+    const stateFile = path.join(tmp, '.ihui-agent', 'modes', 'plan-build-state.json')
+    fs.mkdirSync(path.dirname(stateFile), { recursive: true })
+    const body = '{not json'
+    fs.writeFileSync(stateFile, body, 'utf-8')
+    const next = new PlanBuildCoordinator(tmp)
+    expect(() => next.enterPlanning()).toThrow(/不能把它覆盖成默认模式 \(corrupt\)/)
+    expect(fs.readFileSync(stateFile, 'utf-8')).toBe(body)
+  })
 })
 
 describe('plan 名单', () => {

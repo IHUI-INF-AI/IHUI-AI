@@ -747,4 +747,55 @@ test('GA7 载体档真 blob 对照:ChatRoomScreen 现 HEAD 面的私有 Header �
   const r = ga7Run('HEAD', CHAT, GA7_PKG + 'chat/ChatRoomScreen.tsx')
   assert.equal(r.findings.length, 0, `票面写"当前活存量 0(该屏无 RN 路由宿主)",现读却判红 ⇒ 载体档越界了:${JSON.stringify(r.findings.map((f) => f.line))}`)
 })
+
+// ─── BUG-0030(2026-11-07 立):web 10 处文本字形/文字「返回」改写 ───
+// 绿臂:6 个 × 站点在 HEAD 面 GA1 归零;PageClient 的两处「返回」靠具名豁免归零。
+// 红臂:把图标改回旧字形 ⇒ 同一判据必须重新判红(证明是代码真改,不是把判据调哑)。
+const GA1_WEB_FILES = [
+  'apps/web/app/(main)/admin/topup-config/page.tsx',
+  'apps/web/app/(main)/design/TemplateDialog.tsx',
+  'apps/web/src/components/ai/dispatch-subagent-dialog.tsx',
+  'apps/web/src/components/ai/markdown-stream.tsx',
+  'apps/web/src/components/ai/spec-panel/components.tsx',
+  'apps/web/src/components/chat/message-list/FallbackBanner.tsx',
+  'apps/web/src/components/ide/terminal-panel/TerminalStatusIndicators.tsx',
+]
+const BACK_WEB_FILE = 'apps/web/app/(main)/learn/[id]/PageClient.tsx'
+const showHead = (p) =>
+  execFileSync('git', ['show', `HEAD:${p}`], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    timeout: 120000,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+const scanText = (p, text) => gate.scan(() => text, [p], { checkWiring: false })
+
+test('BUG-0030 绿臂:7 个 × 站点 GA1 归零 + 返回文案具名豁免生效', () => {
+  for (const p of GA1_WEB_FILES) {
+    const src = showHead(p)
+    const r = scanText(p, src)
+    assert.equal(r.violations.ga1.length, 0, `${p} 仍以文本字形/字符当图标:${JSON.stringify(r.violations.ga1).slice(0, 200)}`)
+  }
+  const learn = showHead(BACK_WEB_FILE)
+  assert.equal(scanText(BACK_WEB_FILE, learn).violations.ga4.length, 0, '「返回」仍被判为返回箭头位')
+})
+
+test('BUG-0030 红臂:图标回注旧字形/删除具名豁免 ⇒ 判据重新判红(不是哑了)', () => {
+  for (const p of GA1_WEB_FILES) {
+    const src = showHead(p)
+    const back = src.replace(/<X (?:className|size)=[^>]*aria-hidden="true" \/>/, '×')
+    assert.notEqual(back, src, `${p} 已找不到 <X …aria-hidden> 图标锚点 ⇒ 红臂换锚点,别删`)
+    assert.ok(
+      scanText(p, back).violations.ga1.length >= 1,
+      `${p} 回注 × 后仍不判红 ⇒ GA1 判据失明`,
+    )
+  }
+  // 剥掉整段 JSX 注释(只删标记文本会留下 `{/* `,把后续按钮整个吞成注释 ⇒ 假绿)
+  const learn = showHead(BACK_WEB_FILE).replace(/\{\/\*[^\n]*back-label-exempt:[^\n]*\*\/\}/g, '')
+  assert.notEqual(learn, showHead(BACK_WEB_FILE), '已找不到 back-label-exempt 注释锚点 ⇒ 红臂换锚点,别删')
+  const r = scanText(BACK_WEB_FILE, learn).violations.ga4
+  assert.ok(r.length >= 2, `删掉具名豁免后「返回」未重新判红(实得 ${r.length}) ⇒ 豁免没有被门显式记账`)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

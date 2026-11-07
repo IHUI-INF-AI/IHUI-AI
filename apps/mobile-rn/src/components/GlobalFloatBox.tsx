@@ -23,7 +23,7 @@ import { Animated, Image, StyleSheet, Text, View, type ViewStyle } from 'react-n
 import { ChevronsLeft, ChevronsRight } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 
-import { rnRadius } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing } from '@ihui/design-tokens'
 import { Tappable } from '@ihui/ui-native'
 
 export interface GlobalFloatBoxProps {
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 0,
+    gap: rnSpacing.none,
     // 图标盒自带约 5.8 的右侧死空(lucide viewBox),居中排布会把可见墨迹整体往左带;
     // 用左内边距把整组(箭头+竖线)往右推 4.8,让竖线右缘离竖条右缘 0.6(2026-09-29 用户定档)。
     // 宽度仍是 ARROW_WIDTH,命中区不变。

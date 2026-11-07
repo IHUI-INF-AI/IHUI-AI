@@ -779,7 +779,7 @@ def _active_extra_roots() -> tuple[str, ...]:
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
-    "write_file", "run_command", "db_query", "git_operations",
+    "write_file", "run_command", "sandbox_session", "db_query", "git_operations",
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
@@ -1238,6 +1238,10 @@ LazyIndexStatus = Literal[
     # 状态单列一格而不是并进 over-limit:两者给出的用户动作完全不同 ——
     # over-limit 是"仓库太大,建议缩小范围",not-consented 是"请先在设置里授权"。
     "skipped-not-consented",
+    # 工作区开关：取消、显式关闭、自动关闭、开关文件读不出来。和「没同意出域」分开，
+    # 否则用户会去设置里找授权，而真正挡住的是这个目录的索引开关。
+    "skipped-index-cancelled",
+    "skipped-index-policy",
     "failed",
 ]
 
@@ -1398,6 +1402,19 @@ async def _lazy_index_and_research(
                 status="skipped-not-a-dir",
                 reason=f"传入的 path 不是可读目录({path}),未尝试建索引",
             )
+        from .workspace_index_policy import indexing_decision, workspace_key
+
+        index_decision = indexing_decision(workspace_key(str(root)))
+        if not index_decision.allow_index:
+            return LazyIndexOutcome(
+                results=[],
+                status=(
+                    "skipped-index-cancelled"
+                    if index_decision.phase == "cancelled"
+                    else "skipped-index-policy"
+                ),
+                reason=index_decision.reason,
+            )
         now = time.monotonic()
         # ── 2026-10-03 数据出域合规整改:同意闸在建索引**之前** ──
         # 懒索引会把源码切片送外部 embedding 服务(codebase_indexer →
@@ -1511,6 +1528,50 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     internal_user_id = arguments.get("__user_id") or None
     if not path:
         return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    from .workspace_index_policy import (
+        apply_workspace_index,
+        indexing_decision,
+        workspace_key,
+    )
+
+    keyed = workspace_key(path)
+    control = arguments.get("index_control", None)
+    if control is not None:
+        if not isinstance(control, str) or not control:
+            return {
+                "tool": "index_codebase",
+                "ok": False,
+                "phase": "unjudged",
+                "allowIndex": False,
+                "error": "index_control 没量到",
+            }
+        try:
+            switched = apply_workspace_index(keyed, control)
+        except ValueError:
+            return {
+                "tool": "index_codebase",
+                "ok": False,
+                "phase": "unjudged",
+                "allowIndex": False,
+                "error": "未知的索引开关动作",
+            }
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "phase": switched.phase,
+            "allowIndex": switched.allow_index,
+            "reason": switched.reason,
+        }
+    held = indexing_decision(keyed)
+    if not held.allow_index:
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "skipped": held.phase,
+            "phase": held.phase,
+            "allowIndex": False,
+            "error": held.reason,
+        }
     # 2026-10-03 数据出域合规整改:同意闸。建索引会把源码切片发往外部 embedding
     # 服务,未获授权时**在读任何文件之前**就返回 —— 连文件都不碰,更谈不上出域。
     # 这里刻意不接受"调用方传入已授权"之类的入参:同意必须来自服务端侧的
@@ -2543,6 +2604,30 @@ def _classify_existing_file(path: str) -> tuple[str, os.stat_result | None]:
     return "present", st
 
 
+def _note_ai_before(tool: str, path: str, hunk: str, arguments: Mapping[str, Any]) -> None:
+    """闸门已经放行、字节还没落地时记 before_edit。记失败不拦这次写入。"""
+    try:
+        from .ai_code_attribution_store import log_host_before_edit
+
+        log_host_before_edit(tool, path, hunk, arguments)
+    except Exception as exc:  # noqa: BLE001 - 检查点失败不得拦已经放行的写入
+        import logging
+
+        logging.getLogger(__name__).warning("写前检查点没记下(不拦写入): %s", exc)
+
+
+def _note_ai_edit(tool: str, path: str, hunk: str, arguments: Mapping[str, Any]) -> None:
+    """写成功之后记归属。会话号只取宿主注入的 __session_id。"""
+    try:
+        from .ai_code_attribution_store import note_host_edit
+
+        note_host_edit(tool, path, hunk, arguments)
+    except Exception as exc:  # noqa: BLE001 - 记账失败不得把已写完的文件说成没写成
+        import logging
+
+        logging.getLogger(__name__).warning("归属记账失败(不影响已完成的写入): %s", exc)
+
+
 async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
     """write_file: 写入文件内容(路径必须在工作区白名单内,防 symlink 穿越)。
 
@@ -2603,6 +2688,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                     ),
                     "concurrency": {"verdict": verdict, "forced": False},
                 }
+            _note_ai_before("write_file", resolved_path, content, arguments)
             with open(resolved_path, "w", encoding="utf-8") as f:
                 f.write(content)
             # 1-2:写盘后刷新 base(agent 视角最新内容)
@@ -2612,6 +2698,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 record_self_write(arguments.get("__session_id"), resolved_path, content)
             except Exception:  # noqa: BLE001 - 登记层故障不得让写失败
                 pass
+            _note_ai_edit("write_file", resolved_path, content, arguments)
             return {
                 "tool": "write_file",
                 "path": resolved_path,
@@ -2721,12 +2808,21 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             )
         except Exception:  # noqa: BLE001 - 判定层故障不得让编辑失败
             read_state = None
+        try:
+            from .ai_code_attribution_store import note_measured_external_edit
+
+            note_measured_external_edit(resolved_path, arguments, read_state)
+        except Exception as exc:  # noqa: BLE001 - 人手改动记账失败不得拦编辑
+            import logging
+
+            logging.getLogger(__name__).warning("外部改动检查点没记下(不拦编辑): %s", exc)
         if read_state is not None and read_state.get("blocking"):
             return _err(
                 "STALE_READ_CONFIRMATION_REQUIRED",
                 str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),
                 readState=read_state_field(read_state),
             )
+        _note_ai_before("file_edit", resolved_path, old_string or "file_edit", arguments)
         try:
             with open(backup_path, "wb") as bf:
                 bf.write(raw)
@@ -2747,6 +2843,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                     new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
         # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
         _record_file_base(resolved_path, new_content)
+    _note_ai_edit("file_edit", resolved_path, "".join(diff[:20]), arguments)
     result_payload: dict[str, Any] = {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
             "strategy": strategy,
@@ -2822,6 +2919,7 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
     backup_path = resolved_path + ".bak"
     # 票78 串行化:写回段持 per-path 锁(与 write_file/file_edit 写段互斥,缩竞态窗口)
     async with get_path_write_lock(resolved_path):
+        _note_ai_before("resolve_conflict", resolved_path, old_string or "resolve_conflict", arguments)
         try:
             with open(backup_path, "wb") as bf:
                 bf.write(raw)
@@ -2840,6 +2938,7 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
 
         # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容;锁内刷新,时序同 file_edit)
         _record_file_base(resolved_path, final_content)
+    _note_ai_edit("resolve_conflict", resolved_path, old_string or "resolve_conflict", arguments)
     rejected = sum(1 for a in applied if a.get("choice") == "theirs")
     return {
         "tool": "resolve_conflict",
@@ -6300,9 +6399,49 @@ def _dispatch_tool_surface_kwargs(
     return extra, None
 
 
+def _settle_dispatch_ticket(ticket_id: str | None, payload: dict[str, Any]) -> None:
+    """派工结束写回既有工单账。模拟结果不算成功,不把步骤收成 ready。"""
+    if not ticket_id:
+        return
+    from .work_admission import note_worker_finished
+
+    stub = payload.get("status") == "stub" or payload.get("stub") is True
+    note_worker_finished(
+        ticket_id,
+        ok=bool(payload.get("ok")) and not stub,
+        simulation=stub,
+    )
+    payload["ticketId"] = ticket_id
+
+
+def _drop_dispatch_ticket(ticket_id: str | None) -> None:
+    """用户停止或连接断开:在途工单记 dropped,不留 ready。"""
+    if not ticket_id:
+        return
+    from .work_admission import report_assignment
+
+    report_assignment(ticket_id, "dropped", by="worker")
+
+
+def _mark_stub_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """任一 worker 是模拟结果时,整包不得再报成功。"""
+    results = payload.get("results")
+    child_stub = any(
+        isinstance(item, dict) and item.get("status") == "stub" for item in results
+    ) if isinstance(results, list) else False
+    if payload.get("status") == "stub" or payload.get("stub") is True or child_stub:
+        payload["ok"] = False
+        payload["stub"] = True
+        payload["status"] = "stub"
+        payload["errorCode"] = "STUB_RESPONSE"
+    return payload
+
+
 async def _tool_dispatch_subagent(
     arguments: dict[str, Any],
     progress_callback: Callable[[dict[str, Any]], None] | None = None,
+    *,
+    host_view: Mapping[str, object] | None = None,
 ) -> dict[str, Any]:
     """dispatch_subagent: 派发子智能体执行独立任务(单 agent 或并行多 agent)。
 
@@ -6321,6 +6460,7 @@ async def _tool_dispatch_subagent(
     task = arguments.get("task", "")
     tasks = arguments.get("tasks")
     max_concurrency = arguments.get("max_concurrency", 5)
+    ticket_id: str | None = None
 
     def _emit(evt: dict[str, Any]) -> None:
         """统一进度事件出口(无 callback 时静默 no-op)"""
@@ -6364,6 +6504,26 @@ async def _tool_dispatch_subagent(
             "errorCode": "INVALID_PARAMS",
         }
 
+    # 主聊天传入宿主视图才准入。不传时保持原执行契约(CLI/调度/既有单测)。
+    # 视图由路由按认证会话组装,不从模型 arguments 里取范围。
+    if host_view is not None:
+        from .work_admission import evaluate_host_view
+
+        admission = evaluate_host_view(host_view)
+        if admission.get("runs_worker") is not True:
+            reason = str(admission.get("reason") or "not_admitted")
+            return {
+                "tool": "dispatch_subagent",
+                "ok": False,
+                "status": "skipped",
+                "error": reason,
+                "errorCode": reason,
+                "admissionKind": admission.get("kind"),
+                "wouldAccept": admission.get("would_accept") is True,
+            }
+        raw_ticket = admission.get("ticket_id")
+        ticket_id = raw_ticket if isinstance(raw_ticket, str) else None
+
     # 并行模式:tasks 数组 → invoke_parallel
     if has_tasks:
         if not isinstance(tasks, list):
@@ -6387,11 +6547,13 @@ async def _tool_dispatch_subagent(
         try:
             orchestrator = _get_orchestrator()
             if _SUBAGENT_SEMAPHORE.locked():
-                return {
+                _limited = {
                     "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
                     "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
                     "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
                 }
+                _settle_dispatch_ticket(ticket_id, _limited)
+                return _limited
             async with _SUBAGENT_SEMAPHORE:
                 # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
                 _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
@@ -6442,35 +6604,46 @@ async def _tool_dispatch_subagent(
             # D08②:任一份子任务显式求助 ⇒ 结束帧 kind 判为 help(与单模式同口)。
             if _par_needs_help:
                 _payload["needs_help"] = True
+            _mark_stub_payload(_payload)
+            _settle_dispatch_ticket(ticket_id, _payload)
             # 0-6 单子代理输出限额:复用 0-2 截断助手
             return _truncate_tool_output(
                 _payload,
                 tool_name="dispatch_subagent",
                 session_id=arguments.get("session_id"),
             )
+        except asyncio.CancelledError:
+            _drop_dispatch_ticket(ticket_id)
+            raise
         except Exception as e:
-            return {
+            _failed = {
                 "tool": "dispatch_subagent", "ok": False, "mode": "parallel",
                 "error": str(e), "errorCode": "SUBAGENT_FAILED",
             }
+            _settle_dispatch_ticket(ticket_id, _failed)
+            return _failed
 
     # 单 agent 模式(兼容)
     session_id = arguments.get("session_id")
     if not name or not task:
-        return {
+        _missing = {
             "tool": "dispatch_subagent", "ok": False,
             "error": "name and task are required(或传 tasks 数组启用并行模式)",
             "errorCode": "MISSING_PARAMS",
         }
+        _settle_dispatch_ticket(ticket_id, _missing)
+        return _missing
     _emit({"phase": "single_started", "agentName": name})
     try:
         orchestrator = _get_orchestrator()
         if _SUBAGENT_SEMAPHORE.locked():
-            return {
+            _limited = {
                 "tool": "dispatch_subagent", "ok": False, "mode": "single",
                 "error": f"子代理并发数已达上限({_SUBAGENT_MAX_CONCURRENT}),拒绝派发",
                 "errorCode": "CONCURRENCY_LIMIT_EXCEEDED",
             }
+            _settle_dispatch_ticket(ticket_id, _limited)
+            return _limited
         async with _SUBAGENT_SEMAPHORE:
             # 0-6 进入嵌套层级:当前深度 +1,供子代理内再派发时检测
             _dtok = _subagent_depth.set(_subagent_depth.get() + 1)
@@ -6515,6 +6688,8 @@ async def _tool_dispatch_subagent(
         # D08②:子代理显式求助位 —— 仅在置位时加键,供 subagent_end 帧的 kind 判为 help。
         if _single_needs_help:
             _payload["needs_help"] = True
+        _mark_stub_payload(_payload)
+        _settle_dispatch_ticket(ticket_id, _payload)
         # D145①:未知名回包补 availableAgents —— 撞"Agent 不存在"后调用方(模型)能
         # 自我纠正,而不是照猜再撞第二次。判据与 invoke 的落空同源(registry.get 为空);
         # 对拿不到 registry 的替身(既有测试的 _FakeOrchestrator)不判也不加键 ——
@@ -6534,11 +6709,16 @@ async def _tool_dispatch_subagent(
             tool_name="dispatch_subagent",
             session_id=arguments.get("session_id"),
         )
+    except asyncio.CancelledError:
+        _drop_dispatch_ticket(ticket_id)
+        raise
     except Exception as e:
-        return {
+        _failed = {
             "tool": "dispatch_subagent", "ok": False, "mode": "single",
             "error": str(e), "errorCode": "SUBAGENT_FAILED",
         }
+        _settle_dispatch_ticket(ticket_id, _failed)
+        return _failed
 
 
 # ===== D08①(2026-10-25):团队共享任务列表(子 agent 可认领/更新条目)=====
@@ -11304,6 +11484,62 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="sandbox_session",
+        description=(
+            "长寿命沙箱会话。action："
+            "create、get、pause、resume、kill、snapshot、list_snapshots、"
+            "delete_snapshot、rollback、clone、write_file、read_file、exec、"
+            "set_timeout、reap_idle。"
+            "命令在该沙箱自己的工作区里执行；暂停后的 exec 会先恢复。"
+            "调用方不能打开网络，密钥形态的环境变量不会进入子进程。"
+        ),
+        input_schema={
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "get",
+                        "pause",
+                        "resume",
+                        "kill",
+                        "snapshot",
+                        "list_snapshots",
+                        "delete_snapshot",
+                        "rollback",
+                        "clone",
+                        "write_file",
+                        "read_file",
+                        "exec",
+                        "set_timeout",
+                        "reap_idle",
+                    ],
+                },
+                "sandbox_id": {"type": "string"},
+                "snapshot_id": {"type": "string"},
+                "command": {"type": "string"},
+                "timeout_s": {
+                    "type": "integer",
+                    "description": "空闲秒数，-1 表示不自动暂停",
+                },
+                "timeout": {"type": "integer", "description": "exec 的超时秒数"},
+                "n": {"type": "integer", "description": "克隆份数，1 到 8"},
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+                "files": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+        },
+    ),
+    MCPTool(
         name="run_command",
         description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
         input_schema={
@@ -14009,6 +14245,17 @@ async def _tool_workbook_close(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "workbook_close", **out}
 
 
+async def _tool_sandbox_session(
+    arguments: dict[str, Any], cancel: asyncio.Event | None = None
+) -> dict[str, Any]:
+    """长寿命沙箱。判定与文件树都在 sandbox_lifecycle，这里只转一次。"""
+    del cancel
+    from app.services.sandbox_lifecycle import dispatch_sandbox_session
+
+    payload = arguments if isinstance(arguments, dict) else {}
+    return await dispatch_sandbox_session(payload)
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
@@ -14027,6 +14274,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "write_file": _tool_write_file,
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
+    "sandbox_session": _tool_sandbox_session,
     "web_search": _tool_web_search,
     "image_search": _tool_image_search,
     "search_web": _tool_search_web,

@@ -154,6 +154,7 @@ describe('②shadow 档:被调用,但返回值与不加这段代码时逐字相�
     process.env[TOOL_ARG_VALIDATION_ENV] = 'shadow';
     await executeToolCall(call({ path: 'c.txt' }), ctx);
     const bucket = snapshotToolArgShadow().tools[0];
+    if (bucket === undefined) throw new Error('缺少 shadow 桶');
     expect(bucket.undeterminedRequired).toBe(1);
   });
 });
@@ -193,6 +194,7 @@ describe('④遥测不含任何入参值', () => {
     expect(dumped).toContain('shadow_demo');
     expect(dumped).toContain('enum_mismatch');
     const bucket = snapshotToolArgShadow().tools[0];
+    if (bucket === undefined) throw new Error('缺少 shadow 桶');
     expect(bucket.firstErrorField).toBe('path');
   });
 });

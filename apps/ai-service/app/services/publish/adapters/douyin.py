@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -115,8 +116,7 @@ class DouyinAdapter(BasePlatformAdapter):
 
         # 上传视频数据(简化:一次 PUT 整个文件,实际应分片)
         try:
-            with open(p, "rb") as f:
-                file_bytes = f.read()
+            file_bytes = await asyncio.to_thread(p.read_bytes)
             async with httpx.AsyncClient(timeout=600.0) as client:
                 upload_resp = await client.post(
                     f"{_API_BASE}/api/douyin/v1/video/upload_part/",

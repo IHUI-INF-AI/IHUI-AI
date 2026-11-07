@@ -39,9 +39,20 @@ import { getStreamTransport } from './stream-transport.js'
 import { recordStreamFrame } from './stream-frame-log.js'
 // b76-13 票1:帧水位与纪元读环判据(唯一语义出口在 @ihui/shared 的 agent-events,
 // 本包零依赖不得反向 import,此为逐字同形移植,漂移由 frame-watermark-parity 测试钉住)
-import { isFrameGap, readFrameWatermark, type FrameWatermarkCursor } from './frame-watermark.js'
+import {
+  isFrameGap,
+  readFrameWatermark,
+  type FrameWatermark,
+  type FrameWatermarkCursor,
+} from './frame-watermark.js'
 // b76-15(2026-10-29 立):seq 维水位生产点(从网关 `id: <seq>` 行派生连续性事实)
-import { carriesPayloadWatermark, createFrameSeqTracker } from './frame-watermark-producer.js'
+import {
+  assembleFrameWatermarkFacts,
+  carriesPayloadWatermark,
+  createFrameSeqTracker,
+  frameWatermarkGapAction,
+  watermarkFactDisposition,
+} from './frame-watermark-producer.js'
 import type { FrameWatermarkFacts } from './frame-watermark-producer.js'
 // G-816030:帧归属屏障 —— 本包零依赖边界下的同形移植(判据源在 shared,对账测试钉住);
 // 溢出错误(FrameBarrierOverflowError)由屏障 activate 命中溢出记录时构造抛出,
@@ -64,6 +75,14 @@ import { stripClientCapabilityFields } from '@ihui/types'
 // 指向 src),判据 9 据此把本包钉成坏包。值出口搬到包内逐字移植(error-serialize.ts,类型仍从
 // @ihui/types 锚定,零重写),同 nullDeviceFingerprintCollector 的既有收口形态。
 import { serializeError } from './error-serialize.js'
+// 2026-11-05 立:OpenAI 兼容流式工具调用解析（逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复）。
+// 仅在 opts.openAiCompat === true 时启用,默认走既有 Vercel AI SDK 协议解析,零行为变化。
+import {
+  parseOpenAiStreamLine,
+  createOpenAiToolCallAccumulator,
+  parseToolCallArgsDeltaFrame,
+  type OpenAiToolCallDelta,
+} from './openai-tool-stream.js'
 
 /**
  * 默认空采集器(发布物自包含,2026-09-26 立)。
@@ -2161,6 +2180,18 @@ export interface StreamChatOptions {
    *  缺失时前端可降级从 onToolCall 累加的 toolCalls 数组本地聚合。
    *  注意:本回调仅扩展类型签名,streamChat 实现解析逻辑由 A2/A3 任务补齐。 */
   onToolSummary?: (summary: ToolSummaryEvent) => void
+  /** OpenAI 兼容流式模式(2026-11-05 立,逆向-复现-超越 Qoder/Trae 的 tool-call args 流式修复):
+   *  上游按 OpenAI chat completion 流式协议下发(`choices[].delta.tool_calls[].function.arguments`
+   *  为字符串分片)。开启后 streamChat 逐行经 parseOpenAiStreamLine 解析,tool_calls 增量喂给
+   *  OpenAiToolCallAccumulator(内部用 ToolCallArgsStreamer 渐进修复/累积 args),每个分片即回调
+   *  onOpenAiToolCall(带 partial/complete 态);文本增量回调 onOpenAiContent。
+   *  默认 false ⇒ 走既有 Vercel AI SDK 协议解析,零行为变化。开启后 Vercel 解析照常跑(对 OpenAI
+   *  行返回 null 不发重复 delta),两条解析互不干扰。 */
+  openAiCompat?: boolean
+  /** OpenAI 兼容模式下,每片 tool_calls 增量回调(含 partial/complete 态)。 */
+  onOpenAiToolCall?: (delta: OpenAiToolCallDelta) => void
+  /** OpenAI 兼容模式下,正文增量回调(`choices[].delta.content`)。 */
+  onOpenAiContent?: (text: string) => void
   /** Subagent 自动派发回调(2026-07-28 立, Work):
    *  主 agent 在对话流中调用 dispatch_subagent 工具时,后端发 subagent_spawn/end SSE 事件,
    *  前端进度面板自动展示 subagent 生命周期(spawned → running → done/failed)。 */
@@ -2312,7 +2343,7 @@ export interface SubagentSpawnEvent {
 /** Subagent 派发结束事件(dispatch_subagent 工具执行后发出) */
 export interface SubagentEndEvent {
   id: string
-  status: 'done' | 'failed'
+  status: 'done' | 'failed' | 'stub'
   failureReason?: string
   timestamp: string
   /** 关联到触发该 subagent 的 assistant 消息 ID(2026-07-31 Phase 2) */
@@ -4172,14 +4203,20 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
    * 不解析);这不算"造了没人读的出口",因为注册方就是本仓的 web 端(见
    * `apps/web/src/hooks/use-chat/stream-error-report.ts`)。
    */
-  const emitFrameWatermarkFacts = (kind: string): void => {
+  const emitFrameWatermarkFacts = (kind: string, frame: FrameWatermark | null = null): void => {
     if (!opts.onFrameWatermarkFacts) return
-    opts.onFrameWatermarkFacts({
-      kind,
-      dropped: watermarkDroppedFrames,
-      cursor: frameSeqTracker.cursor(),
-      payloadWatermarkSeen: payloadWatermarkSeen,
-    })
+    // 必须在改 frameWatermarkRef 之前调用：held 是断线前手上的那一段。
+    opts.onFrameWatermarkFacts(
+      assembleFrameWatermarkFacts({
+        kind,
+        dropped: watermarkDroppedFrames,
+        seqCursor: frameSeqTracker.cursor(),
+        payloadWatermarkSeen,
+        held: frameWatermarkRef.current,
+        frame,
+        disposition: watermarkFactDisposition(kind, frame),
+      }),
+    )
   }
   // G-816030:帧归属屏障 —— ACK(本 attempt 首个 ok 水位帧)之前,undetermined 帧
   // 有界暂存不投递(上游 ackActivationBarrier:通知先于 RPC 响应抵达时,半截批次
@@ -4290,13 +4327,26 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
     }
     const gap = isFrameGap(cursor, read.watermark)
     if (gap !== null) {
+      const action = frameWatermarkGapAction(gap, read.watermark)
+      if (action === 'replace-segment') {
+        // fromSeq=0 的 snapshot：旧订阅/旧纪元整段作废，本帧成为新基线。
+        // 不把这段补进旧游标，也不把序号对不上的 delta 当成新段。
+        emitFrameWatermarkFacts(gap, read.watermark)
+        frameWatermarkRef.current = {
+          subscriptionId: read.watermark.subscriptionId,
+          logEpoch: read.watermark.logEpoch,
+          seq: read.watermark.toSeq,
+        }
+        ackFrameBarrier(read.watermark.subscriptionId)
+        return false
+      }
       // G-816030:所有权未确立(本 attempt 未 ACK)时,gap 说明暂存帧可能属于
       // 旧代际 —— 与被丢的 gap 帧同批清空,不得投递("整批清空"防半截批次投影)。
       if (!frameBarrierAckedThisAttempt) frameBarrier.reset()
       // G-816031:gap 即权威断档 ⇒ 关闸,直到 recovery 信封重新授予权威。
       streamAuthority.observeGap(gap)
       watermarkDroppedFrames++
-      emitFrameWatermarkFacts(gap)
+      emitFrameWatermarkFacts(gap, read.watermark)
       return true
     }
     frameWatermarkRef.current = { ...cursor, seq: read.watermark.toSeq }
@@ -4714,6 +4764,7 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
             task: typeof json.task === 'string' ? json.task : '',
             timestamp:
               typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
           })
         } else if (json?.type === 'subagent_progress' && json?.id) {
           const phase = json.phase
@@ -4734,15 +4785,18 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
               outputPreview:
                 typeof json.output_preview === 'string' ? json.output_preview : undefined,
               agentName: typeof json.agentName === 'string' ? json.agentName : undefined,
+              messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
             })
           }
         } else if (json?.type === 'subagent_end' && json?.id) {
           opts.onSubagentEnd!({
             id: String(json.id),
-            status: json.status === 'failed' ? 'failed' : 'done',
+            status:
+              json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
             failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
             timestamp:
               typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
+            messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
           })
         }
       } catch {
@@ -6123,6 +6177,15 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
       }
     }
 
+    // 2026-11-05 立:OpenAI 兼容流式模式(默认关闭 ⇒ 零行为变化)。
+    // 开启后逐行经 parseOpenAiStreamLine 解析 tool_calls/文本增量,累积器按 call index 渐进出 partial/complete 态。
+    const hasOpenAiCompat = opts.openAiCompat === true
+    const openAiAccumulator = createOpenAiToolCallAccumulator()
+    // 2026-11-05 立:ai-service 自定义逐分片帧与 openAiCompat **互相独立**。
+    // 只有订阅了 onOpenAiToolCall 才解析(未订阅零开销);openAiCompat 仍只管
+    // OpenAI 原生行,默认关闭时 Vercel 协议解析路径逐字不变。
+    const hasOpenAiToolCall = typeof opts.onOpenAiToolCall === 'function'
+
     // ===== D138(承 V4 #96):逐行处理体(原内联读环的行处理,原样搬为闭包)=====
     // 读环、行缓冲、id: 游标捕获、读超时、重连/退避全部下沉 runResumableSSEStream;
     // 本闭包只负责"一行已到"之后的解析与分发(id: 行由 runner 捕获游标后照常递出)。
@@ -6149,6 +6212,13 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         }
       }
       await dispatchTryParse(line)
+      // 2026-11-05 立:ai-service 工具入参逐分片直推帧(独立门控,不依赖 openAiCompat)。
+      // 载荷不含 content/delta/text ⇒ 下方 parseStreamLine 不会把它当正文二次累加;
+      // 未订阅 onOpenAiToolCall 时这一行都不执行 ⇒ 旧客户端零行为变化。
+      if (hasOpenAiToolCall) {
+        const argsDelta = parseToolCallArgsDeltaFrame(line)
+        if (argsDelta) opts.onOpenAiToolCall?.(argsDelta)
+      }
       // P4-2: 优先检查 fallback 事件,命中即触发回调跳过 parseStreamLine
       if (hasFallback) {
         const fbEvt = parseFallbackEvent(line)
@@ -6176,12 +6246,52 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
           debugChunkTimer?.mark('reasoning', r, line)
         }
       }
+      // 2026-11-05 立:OpenAI 兼容流式模式(仅 openAiCompat 时启用)。Vercel parseStreamLine 对
+      // OpenAI 行返回 null,不会重复发 delta,故两条解析互不干扰。
+      if (hasOpenAiCompat) {
+        const frame = parseOpenAiStreamLine(line)
+        if (frame?.toolCalls?.length) {
+          const deltas = openAiAccumulator.pushToolCalls(frame.toolCalls)
+          for (const d of deltas) opts.onOpenAiToolCall?.(d)
+        }
+        if (frame && frame.finishReason !== undefined) {
+          openAiAccumulator.finish()
+          for (const d of openAiAccumulator.snapshot()) opts.onOpenAiToolCall?.(d)
+        }
+        if (frame?.content) opts.onOpenAiContent?.(frame.content)
+      }
     }
 
     await runResumableSSEStream({
       url,
       method: 'POST',
-      body: JSON.stringify(body),
+      body: (() => {
+        const wire = JSON.stringify(body)
+        // 决定性仪器(2026-11-06 立):`IHUI_BODY_AUDIT=1` 才出声,缺省**零行为变化**(逐字仍发 wire)。
+        // 为什么必须量在序列化之后:那条 400 今晚被四次"找到真因"推翻,最新一次是整族零宽在
+        // `content` 与 `tool_calls[].function.arguments` 两格都归零(`sent=0 zwj=0 extra=0`)而 400 不动
+        // ⇒ 病灶只可能在 CLI 射程之外。这里量的正是那一格之外唯一还没看过的东西:**发出去的字节本身**。
+        // 四类各自独立报数,不合并成一个"干净/不干净":
+        //  · loneHigh/loneLow —— 孤立代理项。`String.prototype.slice` 把 emoji/非 BMP 从中间切开才会产生;
+        //    `JSON.stringify` 把它写成 `\udXXX` 转义(所以逐 code unit 扫原串看不见,必须扫 wire 的转义形态),
+        //    前端中转的严格 JSON 解析器多按"非法字符"拒 —— 与"请求包含不合法字符"这条文案同形。
+        //  · repl —— U+FFFD(上游裁剪/解码失败的残迹);ctrl —— 逃过 JSON 转义的原生 C0/C1 控制符;
+        //  · bytes —— 体量,用来把"字符非法"与"体过大被截"两类分开。
+        if (typeof process !== 'undefined' && process.env?.IHUI_BODY_AUDIT) {
+          const loneHigh = (wire.match(/\\ud[89ab][0-9a-f]{2}(?!\\ud[c-f][0-9a-f]{2})/gi) ?? [])
+            .length
+          const loneLow = (wire.match(/(?<!\\ud[89ab][0-9a-f]{2})\\ud[c-f][0-9a-f]{2}/gi) ?? [])
+            .length
+          const repl = (wire.match(/\\ufffd/gi) ?? []).length
+          const ctrl = (wire.match(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g) ?? []).length
+          const bytes = new TextEncoder().encode(wire).length
+          const msgs = (body as { messages?: unknown[] })?.messages?.length ?? -1
+          process.stderr.write(
+            `[body-audit] msgs=${msgs} bytes=${bytes} loneHigh=${loneHigh} loneLow=${loneLow} repl=${repl} ctrl=${ctrl}\n`,
+          )
+        }
+        return wire
+      })(),
       headers,
       signal: opts.signal,
       maxRetries,
@@ -6203,6 +6313,8 @@ export async function streamChat(opts: StreamChatOptions): Promise<void> {
         frameBarrierAckedThisAttempt = false
         _frameBarrierFlush = []
         frameBarrier.reset()
+        // 2026-11-05 立:重连后重建 OpenAI 工具调用累积器(避免上一轮的分片污染本轮)。
+        openAiAccumulator.reset()
         // G-816031:新 attempt = 新订阅代际 ⇒ 权威须重新授予(仅权威感知流;legacy 无操作)
         if (runnerAttempt > 0) streamAuthority.observeReconnect()
       },

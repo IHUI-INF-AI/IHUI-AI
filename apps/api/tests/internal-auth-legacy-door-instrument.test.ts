@@ -14,6 +14,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
+import { createHmac } from 'node:crypto'
 
 vi.hoisted(() => {
   // §5 测试隔离铁律:任何用例都不得触真库/真 Redis
@@ -62,6 +63,24 @@ function legacyWarnEvents(): string[] {
     .mock.calls.map((c) => String((c[1] as { event?: string } | undefined)?.event ?? ''))
 }
 
+/**
+ * 老通道身份必须自带签名(2026-11-05 收口):
+ * `HMAC-SHA256(AI_CALLBACK_SECRET, "legacy-v1\n<userId>\n<timestamp>")`。
+ * 夹具按新契约构造,断言强度保持不变(成功用例仍断言 200,失败用例仍断言 401)。
+ */
+function signedLegacyHeaders(): Record<string, string> {
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const signature = createHmac('sha256', TEST_AI_CALLBACK_SECRET)
+    .update(`legacy-v1\n${SUBJECT}\n${timestamp}`, 'utf8')
+    .digest('hex')
+  return {
+    'x-internal-service-token': TEST_AI_CALLBACK_SECRET,
+    'x-user-id': SUBJECT,
+    'x-internal-service-timestamp': timestamp,
+    'x-internal-service-signature': signature,
+  }
+}
+
 async function probeWith(
   headers: Record<string, string>,
   mode: string,
@@ -102,11 +121,7 @@ afterEach(() => {
 describe('老门使用留痕', () => {
   it('老门认证成功 ⇒ 计数 +1 且点名是哪个端点在用它', async () => {
     const before = internalAuthLegacyDoorUses()
-    const code = await probeWith(
-      { 'x-internal-service-token': TEST_AI_CALLBACK_SECRET, 'x-user-id': SUBJECT },
-      'dual',
-      '/probe-legacy',
-    )
+    const code = await probeWith(signedLegacyHeaders(), 'dual', '/probe-legacy')
     expect(code).toBe(200)
     expect(internalAuthLegacyDoorUses() - before).toBe(1)
     const events = legacyWarnEvents()
@@ -137,28 +152,16 @@ describe('老门使用留痕', () => {
 
   it('同一端点短时间内重复使用 ⇒ 计数累加但只记一条(防刷爆日志盘)', async () => {
     const before = internalAuthLegacyDoorUses()
-    await probeWith(
-      { 'x-internal-service-token': TEST_AI_CALLBACK_SECRET, 'x-user-id': SUBJECT },
-      'dual',
-      '/probe-throttle',
-    )
-    await probeWith(
-      { 'x-internal-service-token': TEST_AI_CALLBACK_SECRET, 'x-user-id': SUBJECT },
-      'dual',
-      '/probe-throttle',
-    )
+    await probeWith(signedLegacyHeaders(), 'dual', '/probe-throttle')
+    await probeWith(signedLegacyHeaders(), 'dual', '/probe-throttle')
     expect(internalAuthLegacyDoorUses() - before).toBe(2)
     const n = legacyWarnEvents().filter((e) => e === 'internal_auth_legacy_door_used').length
     expect(n).toBe(1)
   })
 
-  it('反向自证:ticket 档下只带老头被拒,且**不**计入使用量(关了就不该再喊)', async () => {
+  it('反向自证:ticket 档下只带老头被拒(签名合法也拒),且**不**计入使用量(关了就不该再喊)', async () => {
     const before = internalAuthLegacyDoorUses()
-    const code = await probeWith(
-      { 'x-internal-service-token': TEST_AI_CALLBACK_SECRET, 'x-user-id': SUBJECT },
-      'ticket',
-      '/probe-ticket-only',
-    )
+    const code = await probeWith(signedLegacyHeaders(), 'ticket', '/probe-ticket-only')
     expect(code).toBe(401)
     expect(internalAuthLegacyDoorUses()).toBe(before)
     expect(legacyWarnEvents()).not.toContain('internal_auth_legacy_door_used')

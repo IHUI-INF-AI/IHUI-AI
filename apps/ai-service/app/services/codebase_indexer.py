@@ -41,7 +41,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
-from ..core.internal_ticket import internal_service_headers
+from ..core.internal_ticket import (
+    INTERNAL_TICKET_HEADER,
+    INTERNAL_TOKEN_HEADER,
+    internal_service_headers,
+)
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
 from .codebase_recall_expand import (
@@ -656,22 +660,24 @@ class CodebaseIndexer:
         1. api_token(用户 JWT,Bearer 认证)——Web/会话链路显式传入时使用
         2. 内部服务通道 —— MCP 工具/服务端触发索引时使用,与 api 侧
            internal-service-token 中间件契约一致;经 internal_ticket 唯一出口构造,
-           dual 兼容窗内旧 x-internal-service-token 照发、x-internal-service-ticket
-           短期票同带(主体 = internal_user_id,scope='codebase-index')。
+           默认 ticket 档发票,显式 dual/legacy 档才同时发旧 x-internal-service-token
+           (主体 = internal_user_id,scope='codebase-index')。
         两者皆无 → 空 headers(写入会被 401 拒绝,调用方按错误降级处理)。
+
+        票与常驻密钥互不替代:默认 ticket 档下只要有 JWT_SECRET 就能发票,
+        不再把 AI_CALLBACK_SECRET 当"能否走内部通道"的前提。
         """
         if api_token:
             return {"Authorization": f"Bearer {api_token}"}
+        if not internal_user_id or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id):
+            return {}
         secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
-        if (
-            secret
-            and internal_user_id
-            and re.fullmatch(r"[a-zA-Z0-9-]{1,128}", internal_user_id)
-        ):
-            return internal_service_headers(
-                internal_user_id, "codebase-index", legacy_token=secret
-            )
-        return {}
+        headers = internal_service_headers(
+            internal_user_id, "codebase-index", legacy_token=secret
+        )
+        if INTERNAL_TICKET_HEADER not in headers and INTERNAL_TOKEN_HEADER not in headers:
+            return {}
+        return headers
 
     def _check_tree_sitter(self) -> bool:
         """检查 tree-sitter 是否可用。"""
@@ -1181,6 +1187,32 @@ class CodebaseIndexer:
             prev_dirs,
         )
 
+    def _snapshot_blocks_replace(self, path: Path) -> bool:
+        """空快照可以换成新的。非空损坏、解不开或根不是对象时不能覆盖。"""
+        if not path.is_file():
+            return False
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return True
+        if raw.strip() == b"":
+            return False
+        if raw[:2] == b"\x1f\x8b":
+            try:
+                text = gzip.decompress(raw).decode("utf-8")
+            except (OSError, UnicodeDecodeError, EOFError):
+                return True
+        else:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                return True
+        try:
+            parsed = json.loads(text)
+        except ValueError:
+            return True
+        return not isinstance(parsed, dict)
+
     def _save_snapshot(
         self,
         repo_id: str,
@@ -1202,6 +1234,9 @@ class CodebaseIndexer:
         try:
             _MERKLE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
             path = self._snapshot_path(repo_id, root)
+            if self._snapshot_blocks_replace(path):
+                logger.warning("Merkle 快照损坏,不能把它覆盖成新快照: %s", path)
+                return
             tmp = path.with_name(f"{path.name}.{os.getpid()}-{uuid.uuid4().hex[:8]}.tmp")
             payload: dict[str, Any] = {
                 "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
@@ -1464,9 +1499,13 @@ class CodebaseIndexer:
                 if file_path.suffix.lower() in _DOC_EXTS:
                     # 文档格式:扫描轮仅读原始字节算 hash,昂贵的 anydoc 抽取留给切片轮
                     # (所以文档面这一轮不产指纹,近同改名对它们只走精确档)
-                    content_hash = hashlib.sha256(file_path.read_bytes()).hexdigest()
+                    content_hash = hashlib.sha256(
+                        await asyncio.to_thread(file_path.read_bytes)
+                    ).hexdigest()
                 else:
-                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    content = await asyncio.to_thread(
+                        file_path.read_text, encoding="utf-8", errors="replace"
+                    )
                     if not content.strip():
                         continue
                     content_hash = _file_content_hash(content)
@@ -1648,7 +1687,9 @@ class CodebaseIndexer:
                     # 失败则跳过该文件并记 error
                     content = await asyncio.to_thread(_extract_document_markdown, file_path)
                 else:
-                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                    content = await asyncio.to_thread(
+                        file_path.read_text, encoding="utf-8", errors="replace"
+                    )
                 file_chunks = self._chunk_by_ast(content, language)
                 for c in file_chunks:
                     c.file_path = rel_path
@@ -1751,7 +1792,9 @@ class CodebaseIndexer:
                 # 文档格式:经 anydoc 抽取 Markdown 后入索引
                 content = await asyncio.to_thread(_extract_document_markdown, path)
             else:
-                content = path.read_text(encoding="utf-8", errors="replace")
+                content = await asyncio.to_thread(
+                    path.read_text, encoding="utf-8", errors="replace"
+                )
             if not content.strip():
                 return result
             chunks = self._chunk_by_ast(content, language)

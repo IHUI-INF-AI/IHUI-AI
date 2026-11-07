@@ -43,6 +43,7 @@ import {
 } from '@/lib/tauri-bridge'
 import type { DockedBrowserStore, DockedBrowserTab } from '@/lib/tauri-bridge'
 import { ADD_TEXT_REFERENCE_EVENT } from '@/components/chat/annotation-anchor'
+import { Tooltip } from '@/components/feedback'
 import { useTauriIpcReady } from '@/hooks/use-desktop'
 
 import { CdpBrowserView } from './cdp-browser-view'
@@ -798,14 +799,15 @@ export function WebWorkPanel() {
                       : 'font-[weight:inherit] flex min-w-0 max-w-[180px] items-center gap-1 rounded-md px-2 py-1 text-label text-muted-foreground hover:bg-background/60'
                   }
                 >
-                  <button
-                    type="button"
-                    onClick={() => handleDockTabSelect(t.id)}
-                    title={t.title || t.url}
-                    className="min-w-0 flex-1 truncate text-left"
-                  >
-                    {t.title || t.url}
-                  </button>
+                  <Tooltip content={t.title || t.url}>
+                    <button
+                      type="button"
+                      onClick={() => handleDockTabSelect(t.id)}
+                      className="min-w-0 flex-1 truncate text-left"
+                    >
+                      {t.title || t.url}
+                    </button>
+                  </Tooltip>
                   <button
                     type="button"
                     aria-label={workPanelLabels.closeTab}

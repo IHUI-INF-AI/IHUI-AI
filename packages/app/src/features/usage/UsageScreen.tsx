@@ -280,7 +280,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     meta: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
+    muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
     quotaRow: { flexDirection: 'row', gap: rnSpacing.sm, marginTop: rnSpacing.xs },
     quotaCell: { flex: 1, gap: rnSpacing['2xs'] },
     metric: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },

@@ -144,6 +144,7 @@ test.describe('模型选择器 - SSR 厂商图标渲染', () => {
   test('/models 页面每个厂商卡片应包含 SVG 图标', async ({ page }) => {
     await navigateToModels(page)
     // 等待页面水合(nav 为客户端组件)
+    // WAIT-POLICY:TIMING-0005 外部服务响应等待,本地没有可观察信号
     await page.waitForTimeout(1000)
 
     // 2026-08-27 根因修复:模型卡片数据来自 /api/llm/models(需登录 + ai-service),
@@ -173,7 +174,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     await authenticatedPage.goto('/chat', { waitUntil: 'domcontentloaded' })
     await authenticatedPage.waitForLoadState('domcontentloaded', { timeout: 15000 })
     // 等待 ModelSelector 按钮渲染(可能需要客户端水合 + 模型列表加载)
-    await authenticatedPage.waitForTimeout(3000)
+    await authenticatedPage.waitForLoadState('load', { timeout: 9000 }).catch(() => {})
   })
 
   test('默认态: 按钮应显示厂商图标 + 模型名 + ChevronDown', async ({ authenticatedPage }) => {
@@ -181,7 +182,7 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
       // /chat 可能没有 ModelSelector,跳过
-      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮 [SKIP:SKIP-0203]')
       return
     }
     // 登录后 trigger 不应 disabled(authedWithToken=true → loading 解除)
@@ -199,16 +200,17 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
-      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮 [SKIP:SKIP-0204]')
       return
     }
     await trigger.click({ position: { x: 2, y: 16 } })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
 
     // 下拉菜单应出现(Radix DropdownMenu.Content)
     const menu = page.locator('[role="menu"], [data-radix-popper-content-wrapper]').first()
     if ((await menu.count()) === 0) {
-      test.skip(true, '下拉菜单未渲染(可能 SSR 阶段未水合)')
+      test.skip(true, '下拉菜单未渲染(可能 SSR 阶段未水合) [SKIP:SKIP-0205]')
       return
     }
 
@@ -241,14 +243,15 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
-      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮 [SKIP:SKIP-0206]')
       return
     }
     await trigger.click({ position: { x: 2, y: 16 } })
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(500)
     const menu = page.locator('[role="menu"], [data-radix-popper-content-wrapper]').first()
     if ((await menu.count()) === 0) {
-      test.skip(true, '下拉菜单未渲染')
+      test.skip(true, '模型下拉菜单未渲染,无法采样视觉状态 [SKIP:SKIP-0207]')
       return
     }
     // 2026-08-27 需求:没有配额的模型不显示在可选择列表里。
@@ -267,19 +270,20 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
-      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮 [SKIP:SKIP-0208]')
       return
     }
     await trigger.click({ position: { x: 2, y: 16 } })
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(500)
     const menu = page.locator('[role="menu"], [data-radix-popper-content-wrapper]').first()
     if ((await menu.count()) === 0) {
-      test.skip(true, '下拉菜单未渲染')
+      test.skip(true, '模型下拉菜单未渲染,无法采样视觉状态 [SKIP:SKIP-0209]')
       return
     }
     const firstItem = menu.locator('[role="menuitem"]').first()
     if ((await firstItem.count()) === 0) {
-      test.skip(true, '菜单项未渲染')
+      test.skip(true, '模型下拉菜单项未渲染,无法采样视觉状态 [SKIP:SKIP-0210]')
       return
     }
     // 验证 class 含 focus:bg-accent
@@ -291,17 +295,19 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     const page = authenticatedPage
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
-      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮 [SKIP:SKIP-0211]')
       return
     }
     await trigger.click({ position: { x: 2, y: 16 } })
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(500)
     const item = page.locator('[role="menuitem"]').first()
     if ((await item.count()) === 0) {
-      test.skip(true, '菜单项未渲染')
+      test.skip(true, '模型下拉菜单项未渲染,无法采样视觉状态 [SKIP:SKIP-0212]')
       return
     }
     await item.click()
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
     // 菜单应关闭(不再可见)
     const visibleMenu = await page.locator('[role="menu"]:visible').count()
@@ -317,11 +323,10 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     //   4) Settings 图标外包 bg-primary/10 + text-primary 圆角小色块,视觉区分于普通模型选项
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
-      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮 [SKIP:SKIP-0213]')
       return
     }
     await trigger.click({ position: { x: 2, y: 16 } })
-    await page.waitForTimeout(500)
     const firstItem = page.locator('[role="menuitem"]').first()
     expect(await firstItem.count(), '第一个 menuitem 应渲染').toBeGreaterThan(0)
     const text = (await firstItem.innerText())?.trim() ?? ''
@@ -372,17 +377,19 @@ test.describe('模型选择器 - 下拉菜单 4 状态', () => {
     await page.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(300)
     const trigger = page.locator(MODEL_SELECTOR_TRIGGER_SELECTOR).first()
     if ((await trigger.count()) === 0) {
-      test.skip(true, '/chat 页面无 ModelSelector 触发按钮')
+      test.skip(true, '/chat 页面无 ModelSelector 触发按钮 [SKIP:SKIP-0214]')
       return
     }
     await trigger.click({ position: { x: 2, y: 16 } })
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(500)
     const menu = page.locator('[role="menu"]:visible').first()
     if ((await menu.count()) === 0) {
-      test.skip(true, '下拉菜单未渲染')
+      test.skip(true, '模型下拉菜单未渲染,无法采样视觉状态 [SKIP:SKIP-0215]')
       return
     }
     // 验证 menu 存在且可见

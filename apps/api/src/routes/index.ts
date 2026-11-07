@@ -443,6 +443,7 @@ import { contextMentionRoutes } from './context-mentions.js'
 import { urlPreviewRoutes } from './url-preview.js'
 // Subagent 派单 UI(落地 AGENTS.md §11 派单格式)
 import { subagentDispatchRoutes } from './subagent-dispatch.js'
+import { superAgentRoutes } from './super-agent.js'
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
 import { orchestrationRoutes } from './orchestration.js'
 // A 套壳:SaaS Admin API 代理(迁移自 web 端 app/api/admin-saas/[...path]/route.ts)
@@ -1282,6 +1283,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(urlPreviewRoutes, { prefix: '/api/url-preview' })
   // Subagent 派单 UI(AGENTS.md §11 派单格式 + mesh 拓扑可视化)
   server.register(subagentDispatchRoutes, { prefix: '/api' })
+  server.register(superAgentRoutes, { prefix: '/api' })
   // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
   server.register(orchestrationRoutes, { prefix: '/api' })
   // P3 深度层:AI 教育引擎 SRS 间隔复习(SM-2 算法)+ LangGraph 升级(interrupt HITL + 5 模式 streaming + Time Travel)

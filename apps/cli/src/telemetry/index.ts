@@ -125,6 +125,23 @@ export function redactSensitive(
   return result;
 }
 
+/**
+ * 定时器句柄:浏览器侧是 `number`,Node 侧是 `Timeout` —— 两种都收。
+ *
+ * 注入面刻意只声明客户端真正用到的那两种形态("按间隔回调" / "取消"),而不是
+ * `typeof setInterval`:后者在 DOM + Node 双 lib 下是**双重重载**(返回 number 与 Timeout
+ * 各一档),任何测试替身都无法在保持类型的前提下实现它,于是这个注入点只能靠 `as` 才用得成。
+ * 收窄到实际用法后,真 `setInterval`/`clearInterval` 仍逐字可赋,替身也能如实表达。
+ */
+export type TelemetryTimerHandle = NodeJS.Timeout | number;
+/** 定时器注册面(客户端只用得到"回调 + 间隔"两参形态) */
+export type TelemetrySetInterval = (
+  callback: () => void,
+  intervalMs: number,
+) => TelemetryTimerHandle;
+/** 定时器取消面 */
+export type TelemetryClearInterval = (handle: TelemetryTimerHandle) => void;
+
 /** TelemetryClient 配置 */
 export interface TelemetryConfig {
   /** 上报端点 URL(如 https://api.example.com/v1/telemetry/ingest) */
@@ -138,9 +155,9 @@ export interface TelemetryConfig {
   /** fetch 实现(可注入,测试用) */
   fetchImpl?: typeof fetch;
   /** 定时器实现(可注入,测试用) */
-  setIntervalImpl?: typeof setInterval;
+  setIntervalImpl?: TelemetrySetInterval;
   /** 清除定时器实现(可注入,测试用) */
-  clearIntervalImpl?: typeof clearInterval;
+  clearIntervalImpl?: TelemetryClearInterval;
 }
 
 /** 默认配置 */
@@ -172,12 +189,12 @@ export class TelemetryClient {
   private inFlightBatch: TelemetryEvent[] | null = null;
   /** 因退出预算而被丢弃的事件累计数(丢弃必须可查,不得静默)。 */
   private droppedOnShutdownCount = 0;
-  private flushTimer: NodeJS.Timeout | null = null;
+  private flushTimer: TelemetryTimerHandle | null = null;
   private readonly config: Required<Pick<TelemetryConfig, 'enabled' | 'batchSize' | 'flushIntervalMs'>> &
     Pick<TelemetryConfig, 'endpoint' | 'fetchImpl'>;
   private readonly fetchFn: typeof fetch;
-  private readonly setIntervalFn: typeof setInterval;
-  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly setIntervalFn: TelemetrySetInterval;
+  private readonly clearIntervalFn: TelemetryClearInterval;
 
   constructor(config: TelemetryConfig = {}) {
     this.config = {

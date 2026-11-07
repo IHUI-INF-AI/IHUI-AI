@@ -40,6 +40,7 @@ function subagentStatusToTimelineStatus(s: string): TimelineEventStatus {
   if (s === 'spawned' || s === 'running') return 'running'
   if (s === 'done') return 'done'
   if (s === 'failed' || s === 'dead') return 'failed'
+  if (s === 'stub') return 'stub'
   return 'pending'
 }
 
@@ -160,6 +161,7 @@ const STATUS_EMOJI: Record<TimelineEventStatus, string> = {
   running: '▶️',
   done: '✅',
   failed: '❌',
+  stub: '…',
 }
 
 /**

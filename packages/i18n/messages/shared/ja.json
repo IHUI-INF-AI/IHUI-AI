@@ -89,6 +89,8 @@
     "toolWorkbookClose": "ワークブックを閉じる",
     "toolGenerateTest": "テストコードを生成",
     "toolRunCommand": "コマンドを実行",
+    "toolSandboxSession": "サンドボックスセッション",
+    "toolReadToolOutput": "ツール出力を読む",
     "toolGitOperations": "Git 操作を実行",
     "toolFetchUrl": "Web ページを取得",
     "toolCrawlSite": "サイトをクロール",
@@ -133,6 +135,7 @@
     "statusFailed": "失敗",
     "statusRunning": "実行中",
     "statusSkipped": "スキップ済み",
+    "statusStub": "シミュレーション（未完了）",
     "roundNumber": "第{n}ラウンド",
     "retriedTimes": "再試行{n}回",
     "sourcePlugin": "プラグイン",
@@ -2578,7 +2581,8 @@
             "completed": "完了",
             "failed": "失敗",
             "cancelled": "キャンセル済み",
-            "timeout": "タイムアウト"
+            "timeout": "タイムアウト",
+            "stub": "シミュレーション（未完了）"
           },
           "hint": {
             "stopping": "停止リクエストを送信しました。タスクの終了を待っています",

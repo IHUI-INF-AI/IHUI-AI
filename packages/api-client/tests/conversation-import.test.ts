@@ -16,6 +16,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { setTransport, type Transport } from '../src/transport.js'
 import {
   commitConversationImport,
+  commitRuntimeImport,
   getConversationImportHistory,
   parseConversationImport,
   type ConversationImportCommitPayload,
@@ -121,6 +122,29 @@ describe('conversation-import 端点', () => {
     expect(typeof init.body).toBe('string')
     expect(JSON.parse(init.body as string)).toEqual(payload)
     expect(init.headers?.['Content-Type']).toBe('application/json')
+  })
+
+  it('commit-runtime:只提交归一化分维,不把能力声明写成连接器请求', async () => {
+    const payload = {
+      conversationId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+      runtime: {
+        skills: [{ name: '审查', prompt: '按清单审查' }],
+        automations: [{ name: '夜跑', trigger: '0 2 * * *', prompt: '汇总昨日' }],
+      },
+    }
+    const transport = okTransport({
+      code: 0,
+      message: 'ok',
+      data: { skills: 1, automations: 1, memory: 0, skipped: [] },
+    })
+    setTransport(transport)
+
+    const result = await commitRuntimeImport(payload)
+
+    expect(result.success).toBe(true)
+    const [url, init] = firstCall(transport)
+    expect(url).toBe('/api/user/conversation-import/commit-runtime')
+    expect(JSON.parse(init.body as string)).toEqual(payload)
   })
 
   it('wechat(第 5 个来源):类型可赋值,parse/commit/history 三处均原样透传', async () => {

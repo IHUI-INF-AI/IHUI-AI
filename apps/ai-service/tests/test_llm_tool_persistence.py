@@ -283,6 +283,9 @@ def _cb_env(monkeypatch):
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "ai_callback_secret", "test-secret")
+    # 2026-11-06 票据化:回调必须带短期票(scope=ai-callback),签票依赖 JWT_SECRET;
+    # 缺它则回调被拒发(fail-closed),本文件判据全部失效。
+    monkeypatch.setattr(settings, "jwt_secret", "unit-test-jwt-secret-0123456789-abcdefgh")
     # 2026-10-31 安全强化第 10 批:callback_url 只许与 settings.api_service_url 同源
     # (否则 X-Internal-Secret 连推理结果一起投到攻击者服务器)。本文件锁的是回调载荷
     # 形状,故把基准地址设成本文件用的 http://cb;"异源不发"由 disclosure 那份的正向用例覆盖。

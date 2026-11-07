@@ -61,7 +61,7 @@ export function IdentityVerifyScreen({
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('identityVerify.title')}</Text>
       </View>
-      <ScrollView style={styles.body} contentContainerStyle={{ padding: 14 }}>
+      <ScrollView style={styles.body} contentContainerStyle={{ padding: rnSpacing['md-loose'] }}>
         <View style={styles.card}>
           <Text style={styles.subtitle}>{t('identityVerify.subtitle')}</Text>
           <Text style={[styles.status, status === 'verified' && styles.statusOk]}>

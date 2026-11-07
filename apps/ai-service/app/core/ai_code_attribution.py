@@ -27,12 +27,18 @@ T1-impl.md §3 第 5 行):按 (tool, file, hunk) 记「这段改动是 AI 生成
 from __future__ import annotations
 
 from app.core.ai_code_attribution_record import (
+    CHECKPOINT_HOOKS,
     HUNK_SUMMARY_MAX,
     AttributionRecord,
     HunkAnchor,
+    canonical_path_set,
+    checkpoint_path_hash,
     compute_hunk_id,
+    host_prompt,
     make_record,
     parse_diff_line_range,
+    plan_blame_view,
+    plan_checkpoint,
 )
 from app.core.ai_code_attribution_stats import AttributionStats, compute_stats
 from app.core.ai_code_attribution_trace import (
@@ -82,6 +88,12 @@ __all__ = [
     "compute_hunk_id",
     "make_record",
     "parse_diff_line_range",
+    "CHECKPOINT_HOOKS",
+    "canonical_path_set",
+    "checkpoint_path_hash",
+    "host_prompt",
+    "plan_blame_view",
+    "plan_checkpoint",
     # ③ 统计
     "AttributionStats",
     "compute_stats",

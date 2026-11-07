@@ -354,7 +354,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
     },
     providerTabIconText: {
-      fontSize: 11,
+      fontSize: rnType.caption.size,
       fontWeight: '700',
       color: tk.surface.light,
       lineHeight: 13,
@@ -447,9 +447,9 @@ function createStyles(tk: AppThemeTokens) {
     },
     priceExtra: { fontSize: rnType.label.size, color: tk.text.tertiary },
     cardDesc: {
-      fontSize: 14,
+      fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       marginBottom: rnSpacing['xs-loose'],
     },
     cardTagRow: {

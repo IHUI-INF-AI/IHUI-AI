@@ -263,7 +263,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
       fontSize: rnType.body.size,
       color: tk.text.primary,
-      padding: 0,
+      padding: rnSpacing.none,
     },
     /* 讲师卡片 */
     // 外层 = 卡片在列表里的占位与触区边界(守门 131:按压态不得写在 Pressable 的 style 上);

@@ -5,14 +5,16 @@
 """G-242 残余 A 格:checkin_pool_writeback 真带内部票(2026-10-27,内部票席 C)。
 
 改前:回写请求的票主体恒为空串 ⇒ 永远只发旧常驻密钥头。
-改后:调用方手上真实存在的 owner_user_id 可往下传,能签则签真票;拿不到则维持
-旧行为(只发旧头),**绝不编造主体**。
+改后:调用方手上真实存在的 owner_user_id 可往下传,能签则签真票;拿不到可验主体
+则用服务主体签票(不编造真人 uuid),无 JWT_SECRET 时只发旧头,**绝不发坏票**。
 
 三问成对:
 ① 有 owner ⇒ 头里有 x-internal-service-ticket,同一把 JWT_SECRET 解得 sub=该 uid、
-   scope=ai-callback(既有档,未新增枚举)、aud/type/exp 全对;旧头同发(dual 默认档)。
-② 无 owner(未传 / None / 空串 / 非 str / 开发占位 dev-anonymous)⇒ 只发旧头,
-   不发空票、不发坏票、不带 x-user-id。
+   scope=relay-account-pool-credential(2026-11-06 票据化新增的专用档)、aud/type/exp 全对;
+   旧头同发(dual 默认档)。
+② 无 owner(未传 / None / 空串 / 非 str / 开发占位 dev-anonymous / 运营池 system:relay-pool)
+   ⇒ 用**服务主体** service:ai-service 签票(请求确实是 ai-service 在回写),绝不把占位值
+   伪装成真人 uuid;签不出票时(无 JWT_SECRET)只发旧头,不发空票/坏票。
 ③ 零副作用:httpx 与 DB 访问全为假件,不连生产 PG(8810)/Redis(8811)、不真外呼。
 
 另钉调用链:run_checkin_now 把入参 owner 补进 account;checkin_one 把 account 上的
@@ -29,6 +31,7 @@ import pytest
 
 from app.core.config import settings
 from app.core.internal_ticket import (
+    INTERNAL_SERVICE_PRINCIPAL_AI,
     INTERNAL_TICKET_AUDIENCE,
     INTERNAL_TICKET_HEADER,
     INTERNAL_TICKET_SCOPES,
@@ -109,6 +112,10 @@ def _decode(token: str) -> dict[str, Any]:
     return pyjwt.decode(token, SECRET, algorithms=["HS256"], audience=INTERNAL_TICKET_AUDIENCE)
 
 
+def internal_sub(headers: dict[str, str]) -> str:
+    return _decode(headers[INTERNAL_TICKET_HEADER])["sub"]
+
+
 # =============================================================================
 # ① 能拿到主体 ⇒ 真票
 # =============================================================================
@@ -128,9 +135,9 @@ class TestWithSubject:
         assert 0 < ttl <= MAX_TICKET_TTL_SECONDS  # 短期票,不是另一种常驻密钥
 
     @pytest.mark.asyncio
-    async def test_scope_is_existing_tier_not_new_enum(self) -> None:
+    async def test_scope_is_dedicated_writeback_tier(self) -> None:
         payload = _decode((await _write_once(UID))[INTERNAL_TICKET_HEADER])
-        assert payload["scope"] == "ai-callback"  # 沿用既有契约档
+        assert payload["scope"] == "relay-account-pool-credential"  # 专用档,不借 ai-callback
         assert payload["scope"] in INTERNAL_TICKET_SCOPES
 
     @pytest.mark.asyncio
@@ -143,7 +150,7 @@ class TestWithSubject:
 
 
 # =============================================================================
-# ② 拿不到主体 ⇒ 只发旧头,不伪造
+# ② 拿不到可验主体 ⇒ 服务主体签票,不伪造真人
 # =============================================================================
 
 
@@ -153,11 +160,12 @@ class TestWithoutSubject:
         "owner",
         [None, "", "   ", 0, 123, {"id": UID}, ["dev-anonymous"], "not-a-uuid", "user@example.com"],
     )
-    async def test_no_ticket_and_no_user_id_header(self, owner: Any) -> None:
+    async def test_service_principal_ticket_when_no_owner(self, owner: Any) -> None:
+        """拿不到可验主体 ⇒ 服务主体签票;不把入参值伪装成 sub。"""
         headers = await _write_once(owner)
-        assert INTERNAL_TICKET_HEADER not in headers  # 不发空票/坏票
-        assert USER_ID_HEADER not in headers  # 不声明未证实的主体
-        assert headers[INTERNAL_TOKEN_HEADER] == LEGACY  # 维持现行为:旧头在
+        assert internal_sub(headers) == INTERNAL_SERVICE_PRINCIPAL_AI
+        assert headers[USER_ID_HEADER] == INTERNAL_SERVICE_PRINCIPAL_AI
+        assert headers[INTERNAL_TOKEN_HEADER] == LEGACY  # 兼容窗旧头照发
         assert headers["X-Internal-Secret"] == LEGACY
 
     @pytest.mark.asyncio
@@ -169,8 +177,8 @@ class TestWithoutSubject:
         system:relay-pool 与开发占位 dev-anonymous。
         """
         headers = await _write_once(owner)
-        assert INTERNAL_TICKET_HEADER not in headers
-        assert USER_ID_HEADER not in headers
+        assert internal_sub(headers) == INTERNAL_SERVICE_PRINCIPAL_AI
+        assert internal_sub(headers) != owner  # 占位值绝不被当作票面主体
 
     @pytest.mark.asyncio
     async def test_whitespace_padded_uid_is_normalized(self) -> None:

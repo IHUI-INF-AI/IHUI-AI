@@ -128,6 +128,16 @@
       "import": "./src/reports/*.ts",
       "default": "./src/reports/*.ts"
     },
+    "./rum/*": {
+      "types": "./src/rum/*.ts",
+      "import": "./src/rum/*.ts",
+      "default": "./src/rum/*.ts"
+    },
+    "./collab/*": {
+      "types": "./src/collab/*.ts",
+      "import": "./src/collab/*.ts",
+      "default": "./src/collab/*.ts"
+    },
     "./chat": {
       "types": "./src/chat/index.ts",
       "import": "./src/chat/index.ts",
@@ -202,6 +212,11 @@
       "types": "./src/subagents/*.ts",
       "import": "./src/subagents/*.ts",
       "default": "./src/subagents/*.ts"
+    },
+    "./super-agent": {
+      "types": "./src/super-agent/index.ts",
+      "import": "./src/super-agent/index.ts",
+      "default": "./src/super-agent/index.ts"
     },
     "./utils": {
       "types": "./src/utils/index.ts",

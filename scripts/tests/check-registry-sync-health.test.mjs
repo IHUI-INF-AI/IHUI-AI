@@ -251,9 +251,11 @@ test('W1 守护必须真派发本格:恰一处实调用,且排在迁移缺口审
 test('W2 接线薄度:guardian 里本格只做依赖注入,判定与文案不得回流(§0.6)', () => {
   const i = GUARDIAN_SRC.indexOf('export function auditRegistrySyncHealth')
   assert.ok(i > 0)
-  const body = GUARDIAN_SRC.slice(i, i + 900)
+  const end = GUARDIAN_SRC.indexOf('\n}', i)
+  const body = GUARDIAN_SRC.slice(i, end + 2)
   assert.ok(!/notify\(|execFileSync\(/.test(body), '通知与派生住在 lib,守护函数体不得再生第二份')
   assert.match(body, /tickFile: REGISTRY_SYNC_AUDIT_TICK/)
+  assert.match(body, /intervalMs: REGISTRY_SYNC_INTERVAL_MS/, '节律也必须现解析(族三无从量)')
 })
 
 test('T1 节流纯函数:差一秒不进窗口,满窗必进,tick 缺省 ⇒ 该跑', () => {

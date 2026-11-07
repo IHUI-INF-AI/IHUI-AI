@@ -10,15 +10,16 @@
 - **降级模式**:MTLS_ENABLED=false(默认)时退化为普通 httpx 客户端(开发环境)
 - **fail-fast**:启动时由 settings.validate_mtls_config() 校验证书存在性,本模块不做二次校验
 
-使用方式(调用 apps/api 的推荐入口):
+使用方式(调用 apps/api 的推荐入口,鉴权头经唯一出口构造,见 internal_ticket):
 
+    from app.core.internal_ticket import internal_service_headers
     from app.services.api_client import get_api_client
 
     client = get_api_client()
     resp = await client.post(
         f"{settings.api_service_url}/api/ai/callback",
         json=body,
-        headers={"X-Internal-Secret": settings.ai_callback_secret},
+        headers=internal_service_headers("<subject>", "ai-callback", legacy_token=settings.ai_callback_secret),
     )
 
 生命周期:

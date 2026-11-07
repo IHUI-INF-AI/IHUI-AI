@@ -314,13 +314,17 @@ export function loadMcpConfig(cwd: string = process.cwd(), opts: LoadMcpConfigOp
 
 function saveMcpConfig(config: McpConfig): void {
   const configPath = getMcpConfigPath();
+  let existing: string | null = null;
   try {
-    fs.readFileSync(configPath, 'utf-8');
+    existing = fs.readFileSync(configPath, 'utf-8');
   } catch (error) {
     const code = mcpConfigErrorCode(error);
     if (code !== 'ENOENT' && code !== 'ENOTDIR') {
       throw new Error(`mcp.json 读不到,不能把它覆盖成新配置 (${code})`);
     }
+  }
+  if (existing !== null && existing.trim() !== '' && !isRecord(tryParseJson(existing))) {
+    throw new Error('mcp.json 读不到,不能把它覆盖成新配置 (corrupt)');
   }
   const dir = path.dirname(configPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });

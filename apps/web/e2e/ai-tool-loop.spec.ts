@@ -86,6 +86,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
 
     await textarea.fill('请帮我截图当前页面')
     await page.keyboard.press('Enter').catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(3000)
 
     // 页面不崩溃:URL 仍在 /chat 且无未捕获异常
@@ -117,6 +118,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
 
     await textarea.fill('请帮我截图当前页面')
     await page.keyboard.press('Enter').catch(() => {})
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(5000)
 
     if (toolRequestBodies.length > 0) {
@@ -161,6 +163,7 @@ test.describe('AI 对话 tool loop 全链路', () => {
     // 尝试读取 body(SSE 流可能未关闭,用 timeout 兜底)
     const bodyText = await Promise.race([
       resp.text().catch(() => ''),
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       page.waitForTimeout(5000).then(() => ''),
     ])
     if (bodyText) {

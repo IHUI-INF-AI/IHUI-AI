@@ -8,7 +8,12 @@ if not exist "%IHUI_ROOT%\package.json" (
   echo ROOT_RESOLVE_FAILED: %IHUI_ROOT%
   exit /b 1
 )
-schtasks /create /tn "IHUI-AutoDeploy" /tr "\"C:\Program Files\PowerShell\7\pwsh.exe\" -NoProfile -ExecutionPolicy Bypass -File \"%IHUI_ROOT%\deploy\win\ihui-deploy-loop.ps1\"" /sc MINUTE /mo 6 /ru SYSTEM /rl HIGHEST /f
+rem 2026-11-07 DBG-80 收口:/tr 值改用 `""`(双引号)转义内嵌引号,而非 `\"`。
+rem 旧写法 "...\ihui-deploy-loop.ps1\"" 末尾 `\"` 在 cmd 里被解析为「字面反斜杠 + 闭合引号」,
+rem 注册出的 Task To Run 脚本路径带尾反斜杠 ⇒ pwsh 找不到文件,每 6 分钟静默失败。
+rem `""` 是 cmd 文档明确的内嵌引号转义(`""`→`"`),尾段 `...ps1"" ` 解析后只留一个 `"`、无反斜杠。
+rem 正确标杆见同目录 install-auto-deploy-task.ps1:47($runCmd 用 pwsh 数组展开各自带引号)。
+schtasks /create /tn "IHUI-AutoDeploy" /tr ""C:\Program Files\PowerShell\7\pwsh.exe"" -NoProfile -ExecutionPolicy Bypass -File ""%IHUI_ROOT%\deploy\win\ihui-deploy-loop.ps1"" /sc MINUTE /mo 6 /ru SYSTEM /rl HIGHEST /f
 if errorlevel 1 (
   echo CREATE_FAILED
   exit /b 1

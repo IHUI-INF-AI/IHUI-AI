@@ -62,6 +62,7 @@ import {
   decryptAccountCredentials,
   completeAccountPhone,
   matchPhoneCandidates,
+  setAccountShared,
   type ImportAccountInput,
 } from '../../services/relay-account-pool-service.js'
 import {
@@ -406,6 +407,8 @@ const safeProjection = {
   weight: aiRelayAccountPool.weight,
   isEnabled: aiRelayAccountPool.isEnabled,
   tempUnschedulable: aiRelayAccountPool.tempUnschedulable,
+  // 2026-11-07 立:共享到运营池全局开放标记(前端切换开关 + 个人池视图展示共享态)
+  sharedToOps: aiRelayAccountPool.sharedToOps,
   healthStatus: aiRelayAccountPool.healthStatus,
   healthCheckedAt: aiRelayAccountPool.healthCheckedAt,
   lastErrorMessage: aiRelayAccountPool.lastErrorMessage,
@@ -593,31 +596,30 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           ),
         )
     }
+    // 首次导入强制落个人池(李总 2026-10-31 永久指令 + 2026-11-07 共享模型):
+    // 不再静默落运营池;导入即归当前登录管理员的个人池(owner=本人),之后可由本人经
+    // "共享到运营池"按钮对他人开放(全局开放标记模型,不改 owner)。
+    if (!request.userId) return reply.status(401).send(error(401, '未登录'))
     try {
-      const result = await importAccounts(providerCode, accounts as ImportAccountInput[], null, {
-        preserveMissingRefresh,
-      })
-      // 归属落点必须回显(2026-11-06 立)。本端点交的是运营池(owner=null),而运营池的语义是
-      // "对一切请求者可见可用" —— 这与机主 2026-10-31 永久指令「我自己填入号池的账号只能
-      // 跟着我的账号走」正好是反方向。默认不改(运营池仍是本视图职责,存量视图零变化),
-      // 但从此不再静默:回显落在哪一格,并指出改判与检测的既定器物。
-      // 检测判据不在本层复算 —— 同 uid 跨归属的点名已由 scripts/check-pool-isolation.mjs
-      // 的 sameUidMultiRow 维承担;改判只认 relay-pool-owner-reclaim.ts(全仓唯一写
-      // owner_user_id 的器物,自带备份与写后自证)。
+      const result = await importAccounts(
+        providerCode,
+        accounts as ImportAccountInput[],
+        request.userId,
+        { preserveMissingRefresh },
+      )
       return reply.send(
         success({
           ...result,
           ownership: {
-            pool: 'ops' as const,
-            label: '运营池(owner_user_id=NULL,对一切请求者可见可用)',
-            // 出路必须是能直接跑的那一条:reclaim 是 .ts,用 node 跑不通(§0.8 禁写跑不通的出路),
-            // 其既定形态是先 cd apps/api 再走 tsx;cwd+script 两字段合起来是仓内可回读的真实位置,
-            // 由镜像用例现读验存在(两口径分写就会漂成"cmd 里找不到 script"那种假出路)。
-            toPersonalPool: {
-              cmd: 'cd apps/api && pnpm exec tsx scripts/relay-pool-owner-reclaim.ts --apply',
-              cwd: 'apps/api',
-              script: 'scripts/relay-pool-owner-reclaim.ts',
-              why: '全仓唯一写 owner_user_id 的器物,自带写前备份与写后自证',
+            pool: 'personal' as const,
+            label:
+              '个人池(owner=本人,首次导入强制落个人池;可经"共享到运营池"按钮对他人开放)',
+            // 共享到运营池 = 在保留个人归属的同时对所有用户/匿名开放(全局开放标记模型)。
+            // 不再提供"直接落运营池"的静默出路 —— 运营池仅由用户主动共享动作填充。
+            shareToOps: {
+              share: 'POST /admin/relay/accounts/:id/share',
+              unshare: 'POST /admin/relay/accounts/:id/unshare',
+              why: '共享到运营池 = 保留个人归属的同时全局开放;转发选路纳入 shared_to_ops=true 的号',
             },
             detectSameUidAcrossOwners: {
               cmd: 'node scripts/check-pool-isolation.mjs',
@@ -631,6 +633,50 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
     } catch (e) {
       request.log.error(e)
       return reply.status(500).send(error(500, '批量导入失败'))
+    }
+  })
+
+  // ===== 1b. POST /admin/relay/accounts/:id/share — 共享到运营池(全局开放标记) =====
+  server.post('/admin/relay/accounts/:id/share', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const r = await setAccountShared(p.data.id, true)
+      if (r.code === 'not_found')
+        return reply.status(404).send(error(404, r.message ?? '账号不存在'))
+      return reply.send(
+        success({
+          id: r.id,
+          sharedToOps: r.sharedToOps,
+          changed: r.changed,
+          checkinSync: r.checkinSync,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '共享到运营池失败'))
+    }
+  })
+
+  // ===== 1c. POST /admin/relay/accounts/:id/unshare — 取消共享(回退为仅个人池) =====
+  server.post('/admin/relay/accounts/:id/unshare', async (request, reply) => {
+    const p = idParamSchema.safeParse(request.params)
+    if (!p.success) return reply.status(400).send(error(400, 'id 非法'))
+    try {
+      const r = await setAccountShared(p.data.id, false)
+      if (r.code === 'not_found')
+        return reply.status(404).send(error(404, r.message ?? '账号不存在'))
+      return reply.send(
+        success({
+          id: r.id,
+          sharedToOps: r.sharedToOps,
+          changed: r.changed,
+          checkinSync: r.checkinSync,
+        }),
+      )
+    } catch (e) {
+      request.log.error(e)
+      return reply.status(500).send(error(500, '取消共享失败'))
     }
   })
 
@@ -689,7 +735,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
-              isNull(aiRelayAccountPool.ownerUserId),
+              // 公开服务池 = 运营池 ∪ 已共享到运营池的号(全局开放标记模型,2026-11-07 立)
+              or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.sharedToOps, true)),
               isNotNull(aiRelayAccountPool.tokenExpiresAt),
               lt(aiRelayAccountPool.tokenExpiresAt, now),
             ),
@@ -699,7 +746,8 @@ const relayAccountPoolRoutes: FastifyPluginAsync = async (server) => {
           .from(aiRelayAccountPool)
           .where(
             and(
-              isNull(aiRelayAccountPool.ownerUserId),
+              // 公开服务池 = 运营池 ∪ 已共享到运营池的号(全局开放标记模型,2026-11-07 立)
+              or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.sharedToOps, true)),
               eq(aiRelayAccountPool.isEnabled, true),
               eq(aiRelayAccountPool.tempUnschedulable, false),
               or(

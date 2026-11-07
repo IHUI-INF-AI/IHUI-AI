@@ -49,6 +49,7 @@ AI_GENERATED_TOOLS: frozenset[str] = frozenset(
         "str_replace_editor",
         "multiedit",
         "create_file",
+        "resolve_conflict",
     }
 )
 

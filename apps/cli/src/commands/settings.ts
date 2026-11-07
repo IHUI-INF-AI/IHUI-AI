@@ -453,6 +453,7 @@ export function readSettingsObjectForUpdate(filePath: string): SettingsUpdateRea
     if (code === 'ENOENT' || code === 'ENOTDIR') return { state: 'missing' };
     throw new Error(`配置读不到,不能把它覆盖成新内容 (${code})`);
   }
+  if (raw.trim() === '') return { state: 'missing' };
   const parsed = tryParseJson(raw);
   if (!isRecord(parsed)) return { state: 'corrupt' };
   return { state: 'ok', settings: parsed as Settings };

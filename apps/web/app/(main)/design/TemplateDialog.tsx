@@ -5,6 +5,7 @@
 'use client'
 
 import { rnRadius } from '@ihui/design-tokens'
+import { X } from 'lucide-react'
 
 import { useTranslations } from 'next-intl'
 import { DESIGN_TEMPLATES } from '@/lib/design/design-templates'
@@ -66,7 +67,7 @@ export function TemplateDialog({ open, onClose, onApplyTemplate }: TemplateDialo
             }}
             aria-label={t('common.close')}
           >
-            ×
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
         <div
