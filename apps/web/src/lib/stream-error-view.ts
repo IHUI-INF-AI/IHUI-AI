@@ -144,6 +144,148 @@ export function buildStreamErrorView(input: {
   }
 }
 
+/**
+ * 一条流错误的呈现结果。主发送链与续答链都只读这一份,
+ * 不再各写一套标题 / 按钮分支。
+ */
+export interface StreamErrorPresentation {
+  /** 气泡正文(setMessageError) */
+  readonly message: string
+  /** toast 标题 */
+  readonly title: string
+  /** toast 描述 */
+  readonly description: string
+  readonly action: StreamErrorAction | null
+  readonly actionLabel: string | null
+  /** `null` = 码未收录,严重度交回 formatSSEError */
+  readonly retryable: boolean | null
+  /** 命中了命名码处置表(标题来自目录,不是兜底句) */
+  readonly catalogHit: boolean
+}
+
+/**
+ * 拼装主发送链与续答链共用的那一句。
+ * 词表缺席或码未收录时,标题/正文就是调用方传入的兜底(formatSSEError 产物),
+ * 不另编一套中文。
+ */
+export function presentStreamError(input: {
+  errorCode?: string | null
+  fallbackTitle: string
+  fallbackMessage: string
+  /** 附在具体建议后的原始报错,例如 `[RATE_LIMITED] too many requests` */
+  rawNote?: string
+  labels?: StreamErrorLabelSet | null
+}): StreamErrorPresentation {
+  const note = input.rawNote?.trim() ?? ''
+  const fallback = (): StreamErrorPresentation => ({
+    catalogHit: false,
+    message: input.fallbackMessage,
+    title: input.fallbackTitle,
+    description: note || input.fallbackMessage,
+    action: null,
+    actionLabel: null,
+    retryable: null,
+  })
+  if (!input.labels) return fallback()
+  const view = buildStreamErrorView({
+    errorCode: input.errorCode,
+    fallbackTitle: input.fallbackTitle,
+    fallbackMessage: input.fallbackMessage,
+    labels: input.labels,
+  })
+  if (view.action === null) return fallback()
+  const description = view.detail
+    ? note
+      ? `${view.detail} · ${note}`
+      : view.detail
+    : note || input.fallbackMessage
+  return {
+    catalogHit: true,
+    message: view.title || input.fallbackTitle,
+    title: view.title || input.fallbackTitle,
+    description,
+    action: view.action,
+    actionLabel: view.actionLabel,
+    retryable: view.retryable,
+  }
+}
+
+/** toast 该用哪一档、按钮是重发还是去登录。两链只消费这个计划,不再各写 if。 */
+export interface StreamErrorToastPlan {
+  readonly level: 'error' | 'warning'
+  readonly title: string
+  readonly description: string
+  /** retry = 重发同一条;relogin = 打开登录;null = 不给按钮 */
+  readonly actionKind: 'retry' | 'relogin' | null
+  readonly actionLabel: string | null
+}
+
+export function planStreamErrorToast(
+  presented: StreamErrorPresentation,
+  fallbackSeverity: string | undefined,
+): StreamErrorToastPlan {
+  if (presented.catalogHit) {
+    const actionKind =
+      presented.action === 'relogin' ? 'relogin' : presented.retryable ? 'retry' : null
+    return {
+      level: presented.retryable ? 'error' : 'warning',
+      title: presented.title,
+      description: presented.description,
+      actionKind,
+      actionLabel: actionKind ? presented.actionLabel : null,
+    }
+  }
+  const severity = fallbackSeverity ?? ''
+  if (severity === 'ratelimit' || severity === 'safety') {
+    return {
+      level: 'warning',
+      title: presented.title,
+      description: presented.description,
+      actionKind: null,
+      actionLabel: null,
+    }
+  }
+  return {
+    level: 'error',
+    title: presented.title,
+    description: presented.description,
+    actionKind: 'retry',
+    actionLabel: null,
+  }
+}
+
+export interface PlannedToastSink {
+  error: (
+    title: string,
+    options?: { description?: string; action?: { label: string; onClick: () => void } },
+  ) => void
+  warning: (
+    title: string,
+    options?: { description?: string; action?: { label: string; onClick: () => void } },
+  ) => void
+}
+
+/** 两链把计划落到 toast 的唯一动作。文案与按钮种类都来自计划,调用方只提供点击目标。 */
+export function emitPlannedStreamErrorToast(
+  plan: StreamErrorToastPlan,
+  retryLabel: string,
+  sink: PlannedToastSink,
+  actions: { retry?: () => void; relogin?: () => void },
+): void {
+  const label = plan.actionLabel ?? retryLabel
+  let action: { label: string; onClick: () => void } | undefined
+  if (plan.actionKind === 'relogin' && actions.relogin) {
+    action = { label, onClick: actions.relogin }
+  } else if (plan.actionKind === 'retry' && actions.retry) {
+    action = { label, onClick: actions.retry }
+  }
+  const options = action
+    ? { description: plan.description, action }
+    : { description: plan.description }
+  if (plan.level === 'error') sink.error(plan.title, options)
+  else sink.warning(plan.title, options)
+}
+
 /** 词表自证:两个常量表的成员数必须与共享层闭集一致(改档时这里先红)。 */
 export function assertLabelCoverage(labels: StreamErrorLabelSet): string[] {
   const missing: string[] = []
