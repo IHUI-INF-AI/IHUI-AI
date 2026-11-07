@@ -167,11 +167,16 @@ function readKeyFromSources(root, sources) {
       }
     }
     if (src.config) {
+      // 配置项以 `...KeyPath` 命名 ⇒ 值是**文件路径**，必须读文件内容作为密钥材料；
+      // 绝不能把路径字符串本身当密钥（否则路径公开可猜 = 人人可伪造凭据）。
       try {
-        const v = gitRaw(['config', '--get', src.config], root).trim()
-        if (v.length >= MIN_KEY_CHARS) return v
+        const p = gitRaw(['config', '--get', src.config], root).trim()
+        if (p) {
+          const v = readFileSync(p, 'utf8').trim()
+          if (v.length >= MIN_KEY_CHARS) return v
+        }
       } catch {
-        /* 无该配置继续 */
+        /* 无该配置/读不到继续尝试下一来源 */
       }
     }
   }
