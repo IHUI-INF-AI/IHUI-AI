@@ -87,38 +87,66 @@ const PLAN_REL = 'PROJECT_PLAN.md'
 const DAY_MS = 86400000
 
 /**
+ * `-L` 区间的条数上限。超了就退回全文件 blame。
+ * 为什么要有上限:区间条数逼近行数时,`-L` 既省不下遍历、又把命令行堆成一坨,还不如一次全量;
+ * 上限取 200 是因为真仓现读 open 行 21 条 / 11 个区间,量级差着一个数量级,200 足够宽。
+ */
+export const BLAME_RANGE_ARG_CAP = 200
+
+/**
+ * 把行号列表并成**连续闭区间**。
+ * 纯函数、零 IO:区间合并错一位,`-L` 就会去 blame 相邻的另一行 —— 年龄读数会静默串行,
+ * 而账面看起来跟"判过了"一模一样(§0.3),所以这一层单独可测。
+ */
+export function mergeLineRanges(lineNumbers) {
+  const nums = [...new Set((Array.isArray(lineNumbers) ? lineNumbers : []).map(Number))]
+    .filter((n) => Number.isInteger(n) && n > 0)
+    .sort((a, b) => a - b)
+  const out = []
+  let start = null
+  let prev = null
+  for (const n of nums) {
+    if (start === null) {
+      start = n
+      prev = n
+      continue
+    }
+    if (n === prev + 1) {
+      prev = n
+      continue
+    }
+    out.push([start, prev])
+    start = n
+    prev = n
+  }
+  if (start !== null) out.push([start, prev])
+  return out
+}
+
+/**
  * 跑一次 blame,拿"行号 → 该行最后改动时间(ms)"。只认 `--line-porcelain` 的两种头行形态
  * (带 / 不带重复计数尾巴);真 sha 恒为 40 位十六进制,正则照此收窄。
  *
- * `blocks`(2026-11-05 加):只追这些行区间(`[[起,止],…]`,1 基、含端点)。git 支持**一次
- * 调用带多枚 `-L`**,所以"只问登记行"仍是**一次**派生,不是 N 次。传空数组 ⇒ 整档(旧形态),
- * 调用方若压根没有登记行要问,应该**别调本函数**(见 `headAges` 的 0 行分支),而不是派一次整档。
- * 双臂逐行等值已实测(同枚提交上 缺 0 / 不等 0),区间档不是近似,是同一份答案的取子集。
+ * `lineNumbers`(2026-11-07 补):给了行号就只 blame 这些行的合并区间(`-L a,b`),不给 = 全文件(旧行为)。
+ * 为什么必须能收窄:PROJECT_PLAN.md 已长到 29034 行 / 8.2MB,全文件 blame 在真仓实测 **>240s**
+ * (gc 压缩对象库前后各测一次,不是 I/O 争用的偶发),而 `plan-tasks.mjs` 每次 HEAD 面取数都要
+ * 付这一笔 —— 后果不是"慢",是 A3 射程腿**恒 `unjudged`**:`check-autonomy-leg-health.mjs` 给取票口
+ * 只有 180s,blame 一个人就吃穿,`parseTicketRows` 拿到空 stdout ⇒「派单面取不到 ⇒ 射程判不出」。
+ * 按 open 行的 11 个区间 blame 实测 **3.9s**(>60×)。
+ * 语义不变的自证:`openRowAges` 只对 open 行查表,别的行本来就是白 blame;收窄后 open 行的
+ * 行号→时间映射逐条相同(测试 T13 用真仓正反两跑对照)。
  */
-export function blameLineTimes(root, rev = 'HEAD', relPath = PLAN_REL, blocks = []) {
-  const rangeArgs = (blocks || []).map(([a, b]) => `-L${a},${b}`)
-  const out = execFileSync(
-    gitBinary(),
-    [
-      '-c',
-      'safe.directory=*',
-      '-C',
-      root,
-      'blame',
-      '--line-porcelain',
-      ...rangeArgs,
-      rev,
-      '--',
-      relPath,
-    ],
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    {
-      encoding: 'utf8',
-      maxBuffer: 1 << 26,
-      windowsHide: true,
-      timeout: 180000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
+export function blameLineTimes(root, rev = 'HEAD', relPath = PLAN_REL, lineNumbers = null) {
+  const ranges = Array.isArray(lineNumbers) ? mergeLineRanges(lineNumbers) : null
+  // 没有任何要量的行 ⇒ 不必派子进程(空 Map 与"全量 blame 后一行都没命中"同义)。
+  if (ranges !== null && ranges.length === 0) return new Map()
+  const narrow = ranges !== null && ranges.length <= BLAME_RANGE_ARG_CAP
+  const args = ['-c', 'safe.directory=*', '-C', root, 'blame', '--line-porcelain']
+  if (narrow) for (const [a, b] of ranges) args.push('-L', `${a},${b}`)
+  args.push(rev, '--', relPath)
+  const out = execFileSync(gitBinary(), args,
+// 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    { encoding: 'utf8', maxBuffer: 1 << 26, windowsHide: true, timeout: 180000, stdio: ['ignore', 'pipe', 'pipe'] },
   )
   return parseBlame(out)
 }
@@ -361,6 +389,25 @@ function selfTest() {
       ages.length === parseTaskRows(content).filter((x) => x.state === 'open').length,
       `${ages.length} vs ${parseTaskRows(content).filter((x) => x.state === 'open').length}`,
     )
+    // S13 区间合并(纯函数):乱序 / 重复 / 非正数都要被收拾干净,连续段并成一段
+    const m1 = mergeLineRanges([9, 3, 4, 5, 7, 9, 10, 0, -2, 'x'])
+    ok(
+      'S13 mergeLineRanges:乱序去重后并成连续区间,非法值丢弃',
+      JSON.stringify(m1) === JSON.stringify([[3, 5], [7, 7], [9, 10]]),
+      JSON.stringify(m1),
+    )
+    ok('S13b 空输入 ⇒ 空区间(不得凭空造一个 0,0)', JSON.stringify(mergeLineRanges([])) === '[]')
+    // S14 收窄与全量必须给出**逐条相同**的行号→时间映射(这是"不降级"的自证)
+    const narrowed = blameLineTimes(dir, 'HEAD', PLAN_REL, [1, 2, 3])
+    ok(
+      'S14 区间 blame 与全量 blame 对同一批行给出同一结论',
+      [1, 2, 3].every((ln) => narrowed.get(ln) === times.get(ln)) && narrowed.size === 3,
+      `区间=${JSON.stringify([...narrowed])} 全量前3行=${JSON.stringify([1, 2, 3].map((l) => times.get(l)))}`,
+    )
+    ok(
+      'S14b 没有要量的行 ⇒ 不派子进程,直接空表',
+      blameLineTimes(dir, 'HEAD', PLAN_REL, []).size === 0,
+    )
   } catch (e) {
     ok('临时仓端到端未抛异常', false, String(e?.message ?? e))
   } finally {
@@ -392,21 +439,15 @@ export function headAges(root = ROOT) {
     stdio: ['ignore', 'pipe', 'pipe'],
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   })
+  // 只 blame 未勾选行(2026-11-07):openRowAges 只查表 open 行,别的行从来没人读。
+  // 这一步把 8.2MB 全文件 blame(实测 >240s)收窄成 11 个区间(实测 3.9s),
+  // 而 open 行的映射逐条不变 —— 不是降级,是把白做的那部分去掉。
   const openLines = parseTaskRows(content)
     .filter((r) => r.state === 'open')
     .map((r) => r.line)
-  const blocks = mergeRowLinesToBlocks(openLines)
-  // 0 枚未勾选登记行 ⇒ 一次 blame 都不派(派了就是为一堆没人问的行买整档历史)
-  const times = blocks.length ? blameLineTimes(root, rev, PLAN_REL, blocks) : new Map()
   return {
-    ages: openRowAges({ content, times, nowMs: Date.now() }),
+    ages: openRowAges({ content, times: blameLineTimes(root, 'HEAD', PLAN_REL, openLines), nowMs: Date.now() }),
     content,
-    blameShape: {
-      rev,
-      openRows: openLines.length,
-      blocks: blocks.length,
-      blamed: blocks.length > 0,
-    },
   }
 }
 
@@ -474,3 +515,39 @@ if (isDirectRun) {
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ── 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) ──
+ * `blocks`(2026-11-05 加):只追这些行区间(`[[起,止],…]`,1 基、含端点)。git 支持**一次
+ * 调用带多枚 `-L`**,所以"只问登记行"仍是**一次**派生,不是 N 次。传空数组 ⇒ 整档(旧形态),
+ * 调用方若压根没有登记行要问,应该**别调本函数**(见 `headAges` 的 0 行分支),而不是派一次整档。
+ * 双臂逐行等值已实测(同枚提交上 缺 0 / 不等 0),区间档不是近似,是同一份答案的取子集。
+export function blameLineTimes(root, rev = 'HEAD', relPath = PLAN_REL, blocks = []) {
+  const rangeArgs = (blocks || []).map(([a, b]) => `-L${a},${b}`)
+    [
+      '-c',
+      'safe.directory=*',
+      '-C',
+      root,
+      'blame',
+      '--line-porcelain',
+      ...rangeArgs,
+      rev,
+      '--',
+      relPath,
+    ],
+    {
+      maxBuffer: 1 << 26,
+      timeout: 180000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    },
+  const blocks = mergeRowLinesToBlocks(openLines)
+  // 0 枚未勾选登记行 ⇒ 一次 blame 都不派(派了就是为一堆没人问的行买整档历史)
+  const times = blocks.length ? blameLineTimes(root, rev, PLAN_REL, blocks) : new Map()
+    ages: openRowAges({ content, times, nowMs: Date.now() }),
+    blameShape: {
+      rev,
+      openRows: openLines.length,
+      blocks: blocks.length,
+      blamed: blocks.length > 0,
+    },
+*/

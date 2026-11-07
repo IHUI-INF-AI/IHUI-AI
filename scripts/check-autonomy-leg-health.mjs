@@ -1228,6 +1228,9 @@ export function resolveTransitBases({ apiBase, aiBase } = {}) {
   }
 }
 
+/** 人工阀调用点在派发路径上线的那一天(证据形态从此才可能存在)。改这一行等于改判据射程,须同时补用例。 */
+export const VALVE_WIRED_SINCE = '2026-11-01T00:00:00.000Z'
+
 /**
  * 按**当前规则表**复算历史票面,得到覆盖率现值(2026-11-04 立)。
  * 为什么必须有这一层:台账里的 `ruleId` 是"当时那一版分类器"的结论。匹配器今天改过
@@ -1320,18 +1323,25 @@ export function judgeValveGate(events, { mode, headSource, valveListText, now = 
       next: '核 scripts/auto-evolve.mjs 是否在被审面上',
     }
   }
-  // 同 A4:`session-` 前缀认派发尝试。这里若漏认新档,`attempted` 会掉到 0 ⇒ 下面那条
-  // "有派发尝试而零 valve 留痕 ⇒ 哑闸"的判据**结构上永远不触发** —— 那是把最危险的失效(假绿)留给尺子。
-  const attempted = events.filter(
-    (e) => String(e.action ?? '').startsWith('session-') || e.action === 'runner-unavailable',
-  ).length
-  const valveRows = events.filter((e) => String(e.action ?? '').startsWith('valve-'))
-  const stopRows = valveRows.filter(
-    (e) => e.action === 'valve-observe-stop' || e.action === 'valve-block',
-  )
-  const unjudged = valveRows.filter(
-    (e) => e.action === 'valve-unjudged' || e.action === 'valve-unjudged-block',
-  )
+  // 分代(2026-11-07 补):台账 append-only,`valve-*` 这条证据形态 2026-11-01 才随调用点一起存在。
+  // 此前的派发行按构造**不可能**带 valve 留痕,拿它们当"哑闸"证据等于用"闸还没出生"证明"闸是哑的"
+  // —— 实测那 8 行全是 2026-10-28/29 的旧账,而本维就这么恒红了 8 天(§12e 同型)。
+  // 只判接线之后的派发尝试:带可解析 ts 且早于接线日的行只报数、不进 attempted。
+  // 无 ts 的行按"在代内"处理(保守方向 = 仍可判 drift),旧行为对它们一字未改。
+  const wiredAt = Date.parse(VALVE_WIRED_SINCE)
+  const eraEvents = events.filter((e) => {
+    const t = Date.parse(String(e?.ts ?? '').trim())
+    return !Number.isFinite(t) || t >= wiredAt
+  })
+  const preWiring = events.length - eraEvents.length
+  const eraNote =
+    preWiring > 0
+      ? `;接线前(早于 ${VALVE_WIRED_SINCE.slice(0, 10)})的派发 ${preWiring} 行已剔除 —— 那时 valve-* 这条证据形态还不存在,不构成"哑闸"证据`
+      : ''
+  const attempted = eraEvents.filter((e) => ['session-ok', 'session-failed', 'runner-unavailable', 'session-timeout'].includes(e.action)).length
+  const valveRows = eraEvents.filter((e) => String(e.action ?? '').startsWith('valve-'))
+  const stopRows = valveRows.filter((e) => e.action === 'valve-observe-stop' || e.action === 'valve-block')
+  const unjudged = valveRows.filter((e) => e.action === 'valve-unjudged' || e.action === 'valve-unjudged-block')
   const wired = typeof headSource === 'string' && headSource.includes('gateTicketByHumanValve({')
   if (!wired) {
     return {
@@ -1387,8 +1397,10 @@ export function judgeValveGate(events, { mode, headSource, valveListText, now = 
       dim: 'A6-human-valve-gate',
       state: covState,
       readout:
-        `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条(历史 ruleId 分布,只作历史)` +
-        `【具名 ${namedStops} + 无规则可判 ${unknownStops}】(${dist})/ 未判定 ${unjudged.length} 条${covText}`,
+        `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条` +
+        `【具名 ${namedStops} + 无规则可判 ${unknownStops}】(${dist})/ 未判定 ${unjudged.length} 条` +
+        (attempted === 0 ? ' ⇒ 自接线以来**零真派发**,闸有没有被走过这件事本维没有样本(接线本身已在源码核到);这不是"闸哑了",是流量没到' : '') +
+        eraNote,
       next:
         unjudged.length > 0
           ? `未判定 ${unjudged.length} 条必须先归零(清单坏/取不到),否则切 enforce 就是把票无限期停派;切 enforce 的前置:observe 覆盖完整流量周期 ∧ 未判定=0`
@@ -1409,7 +1421,7 @@ export function judgeValveGate(events, { mode, headSource, valveListText, now = 
   return {
     dim: 'A6-human-valve-gate',
     state: unjudged.length > 0 ? 'drift' : 'ok',
-    readout: `enforce 档:尝试 ${attempted} / 拦下 ${stopRows.filter((e) => e.action === 'valve-block').length} / 未判定 ${unjudged.length}`,
+    readout: `enforce 档:尝试 ${attempted} / 拦下 ${stopRows.filter((e) => e.action === 'valve-block').length} / 未判定 ${unjudged.length}${eraNote}`,
     next: unjudged.length > 0 ? 'enforce 档下的未判定 = fail-closed 停派,须先修清单可读性' : '',
   }
 }
@@ -1875,90 +1887,40 @@ async function selfTest() {
     })(),
   )
   ok('H7 白名单空 ⇒ drift(结构上无票可派必须喊)', judgeWhitelist([], []).state === 'drift')
-  ok(
-    'H8b 零写盘班次也算"派过" ⇒ 新档不得被读成一次都没派(那样本维会假红,§12e)',
-    judgeWhitelist([{ action: 'no-whitelist-hit' }, { action: 'session-no-write' }], ['a'])
-      .state === 'ok',
-  )
-  ok(
-    'H8 只未命中零派发 ⇒ drift;有派发 ⇒ 不喊',
-    judgeWhitelist([{ action: 'no-whitelist-hit' }], ['a']).state === 'drift' &&
-      judgeWhitelist([{ action: 'session-ok' }], ['a']).state === 'ok',
-  )
-  ok(
-    'H9 身份稳定:同型不同明细同键(§5e-3 不掺时刻/sha)',
-    (() => {
-      const mk = (until) => ({
-        state: 'drift',
-        dims: [{ dim: 'A2-attribution', state: 'drift', until }],
-      })
-      return alertIdentity(mk('x')) === alertIdentity(mk('y'))
-    })(),
-  )
-  ok(
-    'H10 变异:三态不得并桶 —— 全 ok 与有 unjudged 的 state 不同',
-    (() => {
-      const g = JSON.stringify({
-        sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`,
-        ticketWhitelist: ['a'],
-      })
-      const allOk = evaluateAll({
-        repoRoot: root,
-        gatesText: g,
-        events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] },
-        ticketRows: [{ key: 'k', text: 'a' }],
-      })
-      const withUnjudged = evaluateAll({
-        repoRoot: root,
-        gatesText: g,
-        events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] },
-        ticketRows: [],
-      })
-      return (
-        allOk.state === 'ok' &&
-        withUnjudged.state === 'unjudged' &&
-        allOk.summary !== withUnjudged.summary
-      )
-    })(),
-  )
-  ok(
-    'H11 封票射程:封禁中的票真被计入 blocked(键按行文本现算)',
-    (() => {
-      const future = new Date(Date.now() + 3600_000).toISOString()
-      const row = { text: 'X-9 **某张被冤封的票**', line: 7 }
-      const ev = [{ action: 'quarantined', ticketKey: ticketKeyOf(row.text), until: future }]
-      const r = judgeRange(ev, [row])
-      return r.state === 'drift' && r.readout.includes('封禁中 1 行')
-    })(),
-  )
-  ok(
-    'H11b 变异:若按不存在的 t.key 比集合就会读成 0(本尺的假绿形态必须被钉住)',
-    (() => {
-      const row = { text: 'X-10 另一张票', line: 8 }
-      const ev = [
-        {
-          action: 'quarantined',
-          ticketKey: ticketKeyOf(row.text),
-          until: new Date(Date.now() + 3600_000).toISOString(),
-        },
-      ]
-      const naiveBlocked = [{ action: 'quarantined', ticketKey: ticketKeyOf(row.text) }].filter(
-        (e) => e.ticketKey === row.key,
-      ).length
-      return naiveBlocked === 0 && judgeRange(ev, [row]).readout.includes('封禁中 1 行')
-    })(),
-  )
-  ok(
-    'H12 取票口径不自行拼装(§0.6 单源):DISPATCH_ARGS 三旗齐',
-    DISPATCH_ARGS.join(' ') === '--open --dispatchable --exclude-inflight',
-  )
-  ok(
-    'H13 resolveSessionCommand 与 preflight 用的是同一仓根口径',
-    (() => {
-      const cmd = resolveSessionCommand(`node \${REPO_ROOT}/a.js -w D:/Nope-Repo`, root)
-      return cmd.includes(`${root}\\a.js`) || cmd.includes('D:/Nope-Repo')
-    })(),
-  )
+  ok('H8 只未命中零派发 ⇒ drift;有派发 ⇒ 不喊', judgeWhitelist([{ action: 'no-whitelist-hit' }], ['a']).state === 'drift' && judgeWhitelist([{ action: 'session-ok' }], ['a']).state === 'ok')
+  ok('H9 身份稳定:同型不同明细同键(§5e-3 不掺时刻/sha)', (() => {
+    const mk = (until) => ({ state: 'drift', dims: [{ dim: 'A2-attribution', state: 'drift', until }] })
+    return alertIdentity(mk('x')) === alertIdentity(mk('y'))
+  })())
+  ok('H10 变异:三态不得并桶 —— 全 ok 与有 unjudged 的 state 不同', (() => {
+    // 2026-11-07 修:原夹具拿 `D:\IHUI-AI`(仓迁 G: 之前的旧盘符)当 repoRoot,于是 A1 预检恒
+    // 'missing' ⇒ 两侧都先染成 drift,"三态不并桶"这条锁变成**永久红**,而红的不是判据。
+    // 夹具改成"真仓根 + 一定存在的执行体(node + scripts/plan-tasks.mjs)",与盘符无关;
+    // 被测的东西(并桶)一个字没变 —— 变的只是让 A1 别抢戏。
+    const g = JSON.stringify({ sessionCommandTemplate: 'node ${REPO_ROOT}/scripts/plan-tasks.mjs', ticketWhitelist: ['a'] })
+    const evalRoot = ROOT // 真仓根(模块常量),不用盘符字面量
+    const allOk = evaluateAll({ repoRoot: evalRoot, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ key: 'k', text: 'a' }] })
+    const withUnjudged = evaluateAll({ repoRoot: evalRoot, gatesText: g, events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [] })
+    return allOk.state === 'ok' && withUnjudged.state === 'unjudged' && allOk.summary !== withUnjudged.summary
+  })())
+  ok('H11 封票射程:封禁中的票真被计入 blocked(键按行文本现算)', (() => {
+    const future = new Date(Date.now() + 3600_000).toISOString()
+    const row = { text: 'X-9 **某张被冤封的票**', line: 7 }
+    const ev = [{ action: 'quarantined', ticketKey: ticketKeyOf(row.text), until: future }]
+    const r = judgeRange(ev, [row])
+    return r.state === 'drift' && r.readout.includes('封禁中 1 行')
+  })())
+  ok('H11b 变异:若按不存在的 t.key 比集合就会读成 0(本尺的假绿形态必须被钉住)', (() => {
+    const row = { text: 'X-10 另一张票', line: 8 }
+    const ev = [{ action: 'quarantined', ticketKey: ticketKeyOf(row.text), until: new Date(Date.now() + 3600_000).toISOString() }]
+    const naiveBlocked = [{ action: 'quarantined', ticketKey: ticketKeyOf(row.text) }].filter((e) => e.ticketKey === row.key).length
+    return naiveBlocked === 0 && judgeRange(ev, [row]).readout.includes('封禁中 1 行')
+  })())
+  ok('H12 取票口径不自行拼装(§0.6 单源):DISPATCH_ARGS 三旗齐', DISPATCH_ARGS.join(' ') === '--open --dispatchable --exclude-inflight')
+  ok('H13 resolveSessionCommand 与 preflight 用的是同一仓根口径', (() => {
+    const cmd = resolveSessionCommand(`node \${REPO_ROOT}/a.js -w D:/Nope-Repo`, root)
+    return cmd.includes(`${root}\\a.js`) || cmd.includes('D:/Nope-Repo')
+  })())
   // A5 的夹具走注入档(验证器不复用被测的那条真 fetch,否则量的是网络不是判据)
   const fakeFetch =
     (statuses, errors = {}) =>
@@ -1986,105 +1948,64 @@ async function selfTest() {
   )
   const h17 = await judgeBackendTransit({ apiBase: 'http://api.test', aiBase: null })
   ok('H17 aiBase 取不到 ⇒ unjudged,不用"api 通"冒充整链通', h17.state === 'unjudged')
-  const h18 = evaluateAll({
-    repoRoot: root,
-    gatesText: JSON.stringify({
-      sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`,
-      ticketWhitelist: ['a'],
-    }),
-    events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] },
-    ticketRows: [{ key: 'k', text: 'a' }],
-    transit: h16,
-  })
+  const h18 = evaluateAll({ repoRoot: root, gatesText: JSON.stringify({ sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`, ticketWhitelist: ['a'] }), events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] }, ticketRows: [{ key: 'k', text: 'a' }], transit: h16 })
+  ok('H18 A5 的 drift 必须顶起整尺 drift(否则服务断了尺子还报绿)', h18.state === 'drift' && h18.dims.some((d) => d.dim === 'A5-backend-transit'))
+  ok('H19 取材面纪律:被审面取不到 ⇒ 抛 Undetermined,绝不回落磁盘那一份(§0.3/守门 118)', (() => {
+    try {
+      readGatesFace('head', join(ROOT, '..'))
+      return false
+    } catch (e) {
+      return e instanceof Undetermined
+    }
+  })())
+  ok('H20 同一份配置在 HEAD 与索引可各自取到(清单与内容同面同轮)', (() => {
+    try {
+      return String(readGatesFace('head', ROOT)).includes('sessionCommandTemplate')
+    } catch {
+      return false
+    }
+  })())
+  ok('H19b 不传 face ⇒ 默认取 FACE_SEL.face,而不是整个选面对象', (() => {
+    // 默认值是对象时 `face === 'staged'/'worktree'` 全落空 ⇒ 一律静默按 HEAD 读;
+    // 本机 --self-test 的 FACE_SEL.face 恰好也是 head,行为上看不出差别,故同时钉默认表达式本身
+    // (写死断言,不读环境变量;回归到对象写法即红)。
+    const defaultExpr = /face\s*=\s*FACE_SEL\.face\s*(?:,|\))/.test(readGatesFace.toString())
+    return defaultExpr && typeof FACE_SEL.face === 'string' && readGatesFace(undefined, ROOT) === readGatesFace(FACE_SEL.face, ROOT)
+  })())
+  const wiredSrc = 'function runOnce(){ const valve = gateTicketByHumanValve({ ticketText, mode, valveListText }) }'
+  ok('H21 派发路径没有调用点 ⇒ drift(闸只是装饰,这正是 2026-11-01 之前的实测形态)', judgeValveGate([], { mode: 'observe', headSource: 'function runOnce(){ dispatchSession(gates, ticket) }' }).state === 'drift')
+  ok('H22 被审面取不到 ⇒ unjudged,不用"取不到"冒充"没接线"', judgeValveGate([], { mode: 'observe', headSource: null }).state === 'unjudged')
+  ok('H23 有真派发尝试而零 valve 留痕 ⇒ drift(代码在却没被走到)', judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }).state === 'drift')
+  // H23b/H23c(2026-11-07):分代射程 —— 接线前的派发行按构造不可能带 valve 留痕,拿它们判"哑闸"就是恒红门。
   ok(
-    'H18 A5 的 drift 必须顶起整尺 drift(否则服务断了尺子还报绿)',
-    h18.state === 'drift' && h18.dims.some((d) => d.dim === 'A5-backend-transit'),
+    'H23b 只有接线前的派发行 ⇒ 不得判 drift(用"闸还没出生"证明"闸是哑的"是假红)',
+    judgeValveGate([{ action: 'session-ok', ticketKey: 'k', ts: '2026-10-28T05:16:50.469Z' }], { mode: 'observe', headSource: wiredSrc }).state === 'ok',
   )
   ok(
-    'H19 取材面纪律:被审面取不到 ⇒ 抛 Undetermined,绝不回落磁盘那一份(§0.3/守门 118)',
-    (() => {
-      try {
-        readGatesFace('head', join(ROOT, '..'))
-        return false
-      } catch (e) {
-        return e instanceof Undetermined
-      }
-    })(),
-  )
-  ok(
-    'H20 同一份配置在 HEAD 与索引可各自取到(清单与内容同面同轮)',
-    (() => {
-      try {
-        return String(readGatesFace('head', ROOT)).includes('sessionCommandTemplate')
-      } catch {
-        return false
-      }
-    })(),
-  )
-  ok(
-    'H19b 不传 face ⇒ 默认取 FACE_SEL.face,而不是整个选面对象',
-    (() => {
-      // 默认值是对象时 `face === 'staged'/'worktree'` 全落空 ⇒ 一律静默按 HEAD 读;
-      // 本机 --self-test 的 FACE_SEL.face 恰好也是 head,行为上看不出差别,故同时钉默认表达式本身
-      // (写死断言,不读环境变量;回归到对象写法即红)。
-      const defaultExpr = /face\s*=\s*FACE_SEL\.face\s*(?:,|\))/.test(readGatesFace.toString())
-      return (
-        defaultExpr &&
-        typeof FACE_SEL.face === 'string' &&
-        readGatesFace(undefined, ROOT) === readGatesFace(FACE_SEL.face, ROOT)
-      )
-    })(),
-  )
-  const wiredSrc =
-    'function runOnce(){ const valve = gateTicketByHumanValve({ ticketText, mode, valveListText }) }'
-  ok(
-    'H21 派发路径没有调用点 ⇒ drift(闸只是装饰,这正是 2026-11-01 之前的实测形态)',
-    judgeValveGate([], {
-      mode: 'observe',
-      headSource: 'function runOnce(){ dispatchSession(gates, ticket) }',
-    }).state === 'drift',
-  )
-  ok(
-    'H22 被审面取不到 ⇒ unjudged,不用"取不到"冒充"没接线"',
-    judgeValveGate([], { mode: 'observe', headSource: null }).state === 'unjudged',
-  )
-  ok(
-    'H23 有真派发尝试而零 valve 留痕 ⇒ drift(代码在却没被走到)',
-    judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], {
-      mode: 'observe',
-      headSource: wiredSrc,
-    }).state === 'drift',
-  )
-  ok(
-    'H24 observe 档有留痕 ⇒ ok 且报命中分布与切 enforce 的前置',
-    (() => {
-      const ev = [
-        { action: 'session-ok', ticketKey: 'k' },
-        { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'production-deploy' },
-        { action: 'valve-allow', ticketKey: 'k2', ruleId: 'code-and-docs' },
-      ]
-      const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc })
-      return (
-        r.state === 'ok' &&
-        r.readout.includes('production-deploy×1') &&
-        r.next.includes('完整流量周期')
-      )
-    })(),
-  )
-  ok(
-    'H25 变异:observe 期出现未判定 ⇒ drift(enforce 前置未满足,不能放量)',
+    'H23c 接线前 + 接线后各有派发行而仍零留痕 ⇒ 必须 drift(剔除的是旧账,不是把判据放宽)',
     judgeValveGate(
       [
-        { action: 'session-failed', ticketKey: 'k' },
-        { action: 'valve-unjudged', ticketKey: 'k' },
+        { action: 'session-ok', ticketKey: 'old', ts: '2026-10-28T05:16:50.469Z' },
+        { action: 'session-ok', ticketKey: 'new', ts: '2026-11-03T05:16:50.469Z' },
       ],
       { mode: 'observe', headSource: wiredSrc },
     ).state === 'drift',
   )
   ok(
-    'H26 档位取值非法 ⇒ drift(不猜档)',
-    judgeValveGate([], { mode: 'yolo', headSource: wiredSrc }).state === 'drift',
+    'H23d 分代必须被点名(不能静默剔除):读数里要出现"已剔除"三个字',
+    /已剔除/.test(judgeValveGate([{ action: 'session-ok', ticketKey: 'k', ts: '2026-10-28T05:16:50.469Z' }], { mode: 'observe', headSource: wiredSrc }).readout),
   )
+  ok('H24 observe 档有留痕 ⇒ ok 且报命中分布与切 enforce 的前置', (() => {
+    const ev = [
+      { action: 'session-ok', ticketKey: 'k' },
+      { action: 'valve-observe-stop', ticketKey: 'k', ruleId: 'production-deploy' },
+      { action: 'valve-allow', ticketKey: 'k2', ruleId: 'code-and-docs' },
+    ]
+    const r = judgeValveGate(ev, { mode: 'observe', headSource: wiredSrc })
+    return r.state === 'ok' && r.readout.includes('production-deploy×1') && r.next.includes('完整流量周期')
+  })())
+  ok('H25 变异:observe 期出现未判定 ⇒ drift(enforce 前置未满足,不能放量)', judgeValveGate([{ action: 'session-failed', ticketKey: 'k' }, { action: 'valve-unjudged', ticketKey: 'k' }], { mode: 'observe', headSource: wiredSrc }).state === 'drift')
+  ok('H26 档位取值非法 ⇒ drift(不猜档)', judgeValveGate([], { mode: 'yolo', headSource: wiredSrc }).state === 'drift')
   // H27-H28:"拦对了"与"没规则可判"必须分开报(2026-11-04 实测 12 枚候选里 11 枚落 unknown,
   // 混在一个数里报就会有人拿"阀在拦"当成绩、也有人拿"unknown 多"去拆 fail-closed 默认)。
   ok(
@@ -3382,4 +3303,168 @@ export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, tr
 
 /*
   const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, claims, round })
+*/
+
+/* ── 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) ──
+      try {
+  )
+  )
+  )
+  )
+    }),
+  )
+  )
+        {
+        },
+      })
+  // 同 A4:`session-` 前缀认派发尝试。这里若漏认新档,`attempted` 会掉到 0 ⇒ 下面那条
+  // "有派发尝试而零 valve 留痕 ⇒ 哑闸"的判据**结构上永远不触发** —— 那是把最危险的失效(假绿)留给尺子。
+  const attempted = events.filter(
+    (e) => String(e.action ?? '').startsWith('session-') || e.action === 'runner-unavailable',
+  ).length
+  const stopRows = valveRows.filter(
+    (e) => e.action === 'valve-observe-stop' || e.action === 'valve-block',
+  )
+  const unjudged = valveRows.filter(
+    (e) => e.action === 'valve-unjudged' || e.action === 'valve-unjudged-block',
+  )
+        `observe 档:派发尝试 ${attempted} 轮 / 闸留痕 ${valveRows.length} 条 / 记为"会拦" ${stopRows.length} 条(历史 ruleId 分布,只作历史)` +
+        `【具名 ${namedStops} + 无规则可判 ${unknownStops}】(${dist})/ 未判定 ${unjudged.length} 条${covText}`,
+  )
+  )
+  )
+  )
+  )
+  ok(
+    (() => {
+    })(),
+  )
+  ok(
+    (() => {
+    })(),
+  ok(
+    (() => {
+      const future = new Date(Date.now() + 3600_000).toISOString()
+      const ev = [
+      ]
+    })(),
+  ok(
+    (() => {
+    })(),
+  ok(
+    (() => {
+        repoRoot: root,
+        ticketRows: [],
+      })
+    })(),
+  ok(
+    'H8b 零写盘班次也算"派过" ⇒ 新档不得被读成一次都没派(那样本维会假红,§12e)',
+    judgeWhitelist([{ action: 'no-whitelist-hit' }, { action: 'session-no-write' }], ['a'])
+      .state === 'ok',
+  ok(
+    'H8 只未命中零派发 ⇒ drift;有派发 ⇒ 不喊',
+    judgeWhitelist([{ action: 'no-whitelist-hit' }], ['a']).state === 'drift' &&
+      judgeWhitelist([{ action: 'session-ok' }], ['a']).state === 'ok',
+  ok(
+    'H9 身份稳定:同型不同明细同键(§5e-3 不掺时刻/sha)',
+    (() => {
+      const mk = (until) => ({
+        dims: [{ dim: 'A2-attribution', state: 'drift', until }],
+      })
+      return alertIdentity(mk('x')) === alertIdentity(mk('y'))
+    })(),
+  ok(
+    'H10 变异:三态不得并桶 —— 全 ok 与有 unjudged 的 state 不同',
+    (() => {
+      const g = JSON.stringify({
+        sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`,
+        ticketWhitelist: ['a'],
+      })
+      const allOk = evaluateAll({
+        repoRoot: root,
+        gatesText: g,
+        events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] },
+        ticketRows: [{ key: 'k', text: 'a' }],
+      const withUnjudged = evaluateAll({
+        gatesText: g,
+        events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] },
+      return (
+        allOk.state === 'ok' &&
+        withUnjudged.state === 'unjudged' &&
+        allOk.summary !== withUnjudged.summary
+      )
+    })(),
+  ok(
+    'H11 封票射程:封禁中的票真被计入 blocked(键按行文本现算)',
+      const row = { text: 'X-9 **某张被冤封的票**', line: 7 }
+      const ev = [{ action: 'quarantined', ticketKey: ticketKeyOf(row.text), until: future }]
+      const r = judgeRange(ev, [row])
+      return r.state === 'drift' && r.readout.includes('封禁中 1 行')
+  ok(
+    'H11b 变异:若按不存在的 t.key 比集合就会读成 0(本尺的假绿形态必须被钉住)',
+      const row = { text: 'X-10 另一张票', line: 8 }
+          action: 'quarantined',
+          ticketKey: ticketKeyOf(row.text),
+          until: new Date(Date.now() + 3600_000).toISOString(),
+      const naiveBlocked = [{ action: 'quarantined', ticketKey: ticketKeyOf(row.text) }].filter(
+        (e) => e.ticketKey === row.key,
+      ).length
+      return naiveBlocked === 0 && judgeRange(ev, [row]).readout.includes('封禁中 1 行')
+  ok(
+    'H12 取票口径不自行拼装(§0.6 单源):DISPATCH_ARGS 三旗齐',
+    DISPATCH_ARGS.join(' ') === '--open --dispatchable --exclude-inflight',
+  ok(
+    'H13 resolveSessionCommand 与 preflight 用的是同一仓根口径',
+      const cmd = resolveSessionCommand(`node \${REPO_ROOT}/a.js -w D:/Nope-Repo`, root)
+      return cmd.includes(`${root}\\a.js`) || cmd.includes('D:/Nope-Repo')
+  const h18 = evaluateAll({
+    repoRoot: root,
+    gatesText: JSON.stringify({
+      sessionCommandTemplate: `node \${REPO_ROOT}/apps/cli/dist/index.js`,
+      ticketWhitelist: ['a'],
+    events: { ok: true, events: [{ action: 'session-ok', ticketKey: 'k' }] },
+    ticketRows: [{ key: 'k', text: 'a' }],
+    transit: h16,
+    'H18 A5 的 drift 必须顶起整尺 drift(否则服务断了尺子还报绿)',
+    h18.state === 'drift' && h18.dims.some((d) => d.dim === 'A5-backend-transit'),
+    'H19 取材面纪律:被审面取不到 ⇒ 抛 Undetermined,绝不回落磁盘那一份(§0.3/守门 118)',
+        readGatesFace('head', join(ROOT, '..'))
+        return false
+      } catch (e) {
+        return e instanceof Undetermined
+    'H20 同一份配置在 HEAD 与索引可各自取到(清单与内容同面同轮)',
+        return String(readGatesFace('head', ROOT)).includes('sessionCommandTemplate')
+        return false
+    'H19b 不传 face ⇒ 默认取 FACE_SEL.face,而不是整个选面对象',
+      // 默认值是对象时 `face === 'staged'/'worktree'` 全落空 ⇒ 一律静默按 HEAD 读;
+      // 本机 --self-test 的 FACE_SEL.face 恰好也是 head,行为上看不出差别,故同时钉默认表达式本身
+      // (写死断言,不读环境变量;回归到对象写法即红)。
+      const defaultExpr = /face\s*=\s*FACE_SEL\.face\s*(?:,|\))/.test(readGatesFace.toString())
+      return (
+        defaultExpr &&
+        typeof FACE_SEL.face === 'string' &&
+        readGatesFace(undefined, ROOT) === readGatesFace(FACE_SEL.face, ROOT)
+  const wiredSrc =
+    'function runOnce(){ const valve = gateTicketByHumanValve({ ticketText, mode, valveListText }) }'
+    'H21 派发路径没有调用点 ⇒ drift(闸只是装饰,这正是 2026-11-01 之前的实测形态)',
+    judgeValveGate([], {
+      mode: 'observe',
+      headSource: 'function runOnce(){ dispatchSession(gates, ticket) }',
+    }).state === 'drift',
+    'H22 被审面取不到 ⇒ unjudged,不用"取不到"冒充"没接线"',
+    judgeValveGate([], { mode: 'observe', headSource: null }).state === 'unjudged',
+    'H23 有真派发尝试而零 valve 留痕 ⇒ drift(代码在却没被走到)',
+    judgeValveGate([{ action: 'session-ok', ticketKey: 'k' }], {
+      mode: 'observe',
+      headSource: wiredSrc,
+    }).state === 'drift',
+    'H24 observe 档有留痕 ⇒ ok 且报命中分布与切 enforce 的前置',
+        { action: 'session-ok', ticketKey: 'k' },
+        { action: 'valve-allow', ticketKey: 'k2', ruleId: 'code-and-docs' },
+        r.readout.includes('production-deploy×1') &&
+        r.next.includes('完整流量周期')
+    'H25 变异:observe 期出现未判定 ⇒ drift(enforce 前置未满足,不能放量)',
+        { action: 'valve-unjudged', ticketKey: 'k' },
+    'H26 档位取值非法 ⇒ drift(不猜档)',
+    judgeValveGate([], { mode: 'yolo', headSource: wiredSrc }).state === 'drift',
 */

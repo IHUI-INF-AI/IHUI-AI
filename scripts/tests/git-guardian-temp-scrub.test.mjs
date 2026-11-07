@@ -43,8 +43,8 @@ function harness(call, intervalMs = DAY, minAgeDays = 7) {
     get derivations() {
       return derivations
     },
-    run(tickFile) {
-      return G.scrubTempFixtures({
+    async run(tickFile) {
+      return await G.scrubTempFixtures({
         now: NOW,
         intervalMs,
         minAgeDays,
@@ -59,10 +59,10 @@ function harness(call, intervalMs = DAY, minAgeDays = 7) {
   }
 }
 
-test('T1 装车锁:main() 单轮路径必须带 !CHECK_ONLY 旗调用本层 —— 挂进 CHECK_ONLY 分支等于永不执行(本文件已踩过两次)', () => {
+test('T1 装车锁:main() 单轮路径必须带 !CHECK_ONLY 旗调用本层 —— 挂进 CHECK_ONLY 分支等于永不执行(本文件已踩过两次)', async () => {
   const mainBlock = SRC.slice(0, SRC.indexOf('function startDaemon'))
   assert.equal(
-    /if \(!CHECK_ONLY\) scrubTempFixtures\(\)/.test(mainBlock),
+    /if \(!CHECK_ONLY\) (?:await )?scrubTempFixtures\(\)/.test(mainBlock),
     true,
     'main() 健康轮次分支里找不到 `if (!CHECK_ONLY) scrubTempFixtures()`',
   )
@@ -74,7 +74,7 @@ test('T1 装车锁:main() 单轮路径必须带 !CHECK_ONLY 旗调用本层 —�
   )
 })
 
-test('T2 装车锁:daemon tick 也要有一处调用(双执行体并存是本机实况:计划任务 + 常驻 daemon)', () => {
+test('T2 装车锁:daemon tick 也要有一处调用(双执行体并存是本机实况:计划任务 + 常驻 daemon)', async () => {
   const daemonBlock = SRC.slice(SRC.indexOf('function startDaemon'))
   assert.match(daemonBlock, /scrubTempFixtures\(\)/, 'daemon 分支里必须同样派发')
   assert.equal(
@@ -84,7 +84,7 @@ test('T2 装车锁:daemon tick 也要有一处调用(双执行体并存是本机
   )
 })
 
-test('T3 节流纯函数三态:无戳 / 坏戳 / 未到 / 已到 —— 取不到戳一律视为**该跑了**', () => {
+test('T3 节流纯函数三态:无戳 / 坏戳 / 未到 / 已到 —— 取不到戳一律视为**该跑了**', async () => {
   assert.equal(G.tempScrubDue(NOW, NaN, DAY), true, '没跑过 ⇒ 该跑')
   assert.equal(G.tempScrubDue(NOW, Number.NaN, DAY), true)
   assert.equal(G.tempScrubDue(NOW, NOW - 1000, DAY), false, '1 秒前刚跑过 ⇒ 绝不派生')
@@ -92,13 +92,13 @@ test('T3 节流纯函数三态:无戳 / 坏戳 / 未到 / 已到 —— 取不�
   assert.equal(G.tempScrubDue(NOW, NOW - DAY - 1, DAY), true)
 })
 
-test('T4 未到窗口 ⇒ 一次都不派生(实测这台机 TEMP 有 4.6 万条目,每 2 分钟扫一遍会把守护变成负担)', () => {
+test('T4 未到窗口 ⇒ 一次都不派生(实测这台机 TEMP 有 4.6 万条目,每 2 分钟扫一遍会把守护变成负担)', async () => {
   const dir = mkScratch('temp-scrub-tick-')
   try {
     const tickFile = join(dir, 'tick.iso')
     writeFileSync(tickFile, new Date(NOW - 1000).toISOString(), 'utf8')
     const h = harness({ status: 0, stdout: '候选 0', stderr: '' })
-    const r = h.run(tickFile)
+    const r = await h.run(tickFile)
     assert.equal(r.ran, false)
     assert.equal(h.derivations, 0, '未到窗口却派生了')
     assert.equal(h.logs.length, 0, '静默跳过是允许的,但不得写日志冒充"已清扫"')
@@ -107,7 +107,7 @@ test('T4 未到窗口 ⇒ 一次都不派生(实测这台机 TEMP 有 4.6 万条
   }
 })
 
-test('T5 删成功 ⇒ ✅ 报条数,并写节流戳;读数只从清扫器自己的报告里取', () => {
+test('T5 删成功 ⇒ ✅ 报条数,并写节流戳;读数只从清扫器自己的报告里取', async () => {
   const dir = mkScratch('temp-scrub-run-')
   try {
     const tickFile = join(dir, 'tick.iso')
@@ -115,7 +115,7 @@ test('T5 删成功 ⇒ ✅ 报条数,并写节流戳;读数只从清扫器自己
       'TEMP 夹具清扫 · root=D:\\tmp · 账龄闸 7 天 · 条目 6410 → 候选 3(文件 12 · 0.01 GB)\n' +
       '  已删 3 条 / 失败 0 条 / 释放 0.01 GB\n'
     const h = harness({ status: 0, stdout: rep, stderr: '' })
-    const r = h.run(tickFile)
+    const r = await h.run(tickFile)
     assert.equal(r.ran, true)
     assert.equal(r.ok, true)
     assert.equal(r.deleted, 3)
@@ -129,25 +129,25 @@ test('T5 删成功 ⇒ ✅ 报条数,并写节流戳;读数只从清扫器自己
   }
 })
 
-test('T6 三态不并桶:无候选 ⇒ 不出日志但 ran:true;未跑成 ⇒ 必出 ⚠️ 且 ok:false(把"没跑成"写成"已清扫"是本仓最高频失效型)', () => {
+test('T6 三态不并桶:无候选 ⇒ 不出日志但 ran:true;未跑成 ⇒ 必出 ⚠️ 且 ok:false(把"没跑成"写成"已清扫"是本仓最高频失效型)', async () => {
   const dir = mkScratch('temp-scrub-3state-')
   try {
     const quiet = harness({ status: 0, stdout: 'TEMP 夹具清扫 · root=D:\\tmp · 账龄闸 7 天 · 条目 6410 → 候选 0(文件 0 · 0.00 GB)', stderr: '' })
-    const rq = quiet.run(join(dir, 'q.iso'))
+    const rq = await quiet.run(join(dir, 'q.iso'))
     assert.equal(rq.ran, true)
     assert.equal(rq.ok, true)
     assert.equal(rq.deleted, null, '没有删除行却报删除数 = 读数来自别处')
     assert.equal(quiet.logs.length, 0, '无候选不该刷日志')
 
     const failed = harness({ status: 2, stdout: '', stderr: '取不到目录清单: EPERM' })
-    const rf = failed.run(join(dir, 'f.iso'))
+    const rf = await failed.run(join(dir, 'f.iso'))
     assert.equal(rf.ok, false, '未跑成不得被读成已清扫')
     assert.equal(failed.logs.length, 1, '未跑成必须大声留一行')
     assert.match(failed.logs[0], /^⚠️ TEMP 夹具清扫未跑成/)
     assert.match(failed.logs[0], /不等于没有残留/)
 
     const partial = harness({ status: 1, stdout: '候选 4\n  已删 2 条 / 失败 2 条', stderr: '' })
-    const rp = partial.run(join(dir, 'p.iso'))
+    const rp = await partial.run(join(dir, 'p.iso'))
     assert.equal(rp.partial, true, '部分失败要单独成态(多为在句柄中的夹具,不是判据红)')
     assert.match(partial.logs[0], /^⚠️/)
   } finally {
@@ -155,9 +155,9 @@ test('T6 三态不并桶:无候选 ⇒ 不出日志但 ran:true;未跑成 ⇒ �
   }
 })
 
-test('T7 尺子不在位 ⇒ ran:false 并报名,绝不记为"这一格已巡检"(空扫不得冒充通过)', () => {
+test('T7 尺子不在位 ⇒ ran:false 并报名,绝不记为"这一格已巡检"(空扫不得冒充通过)', async () => {
   const logs = []
-  const r = G.scrubTempFixtures({
+  const r = await G.scrubTempFixtures({
     now: NOW,
     intervalMs: DAY,
     tickFile: join(mkScratch('temp-scrub-missing-'), 'tick.iso'),
@@ -171,7 +171,7 @@ test('T7 尺子不在位 ⇒ ran:false 并报名,绝不记为"这一格已巡检
   assert.ok(existsSync(join(HERE, '..', 'scrub-temp-fixtures.mjs')), '清扫器必须真在位,否则本测试的"在位那一支"什么都没证明')
 })
 
-test('T8 归属锁(反向):本层不得自己判"什么算我们的残留" —— 名字白名单与账龄只许住在清扫器那一份实现里', () => {
+test('T8 归属锁(反向):本层不得自己判"什么算我们的残留" —— 名字白名单与账龄只许住在清扫器那一份实现里', async () => {
   const from = SWEEPERS.indexOf('export function scrubTempFixtures')
   const next = SWEEPERS.indexOf('\nexport ', from + 10)
   const body = SWEEPERS.slice(from, next > 0 ? next : SWEEPERS.length)
@@ -186,7 +186,7 @@ test('T8 归属锁(反向):本层不得自己判"什么算我们的残留" —�
   assert.match(body, /parseScrubReport\(/, '读数必须走那一份解析出口')
 })
 
-test('T9 多根汇总:读数必须取「汇总」那一行,不得只读第一个根(否则 18 GB 被读成 0.01 GB)', () => {
+test('T9 多根汇总:读数必须取「汇总」那一行,不得只读第一个根(否则 18 GB 被读成 0.01 GB)', async () => {
   const multi =
     'TEMP 夹具清扫 · root=D:\\DevEnv\\Temp · 条目 12 → 候选 1(文件 2 · 0.01 GB)\n' +
     '  本根已删 1 条 / 失败 0 条 / 释放 0.01 GB  root=D:\\DevEnv\\Temp\n' +
@@ -207,7 +207,7 @@ test('T9 多根汇总:读数必须取「汇总」那一行,不得只读第一个
   assert.equal(partial.unreadableRoots, 1)
 })
 
-test('T10 三态补洞:一条都没删掉而全部失败 ⇒ 必出 ⚠️ 且 partial,不得静默返回 ok:true', () => {
+test('T10 三态补洞:一条都没删掉而全部失败 ⇒ 必出 ⚠️ 且 partial,不得静默返回 ok:true', async () => {
   const dir = mkScratch('temp-scrub-allfail-')
   try {
     const h = harness({
@@ -217,7 +217,7 @@ test('T10 三态补洞:一条都没删掉而全部失败 ⇒ 必出 ⚠️ 且 p
         '汇总 · 根 3(可判 3 / 不存在 0 / 取不到 0) · 候选 3 · 文件 9 · 0.00 GB · 已删 0 条 / 失败 3 条\n',
       stderr: '',
     })
-    const r = h.run(join(dir, 'x.iso'))
+    const r = await h.run(join(dir, 'x.iso'))
     assert.equal(r.partial, true, '全部失败被读成"已清扫"就是把没判写成判过了')
     assert.equal(h.logs.length, 1)
     assert.match(h.logs[0], /^⚠️/)
