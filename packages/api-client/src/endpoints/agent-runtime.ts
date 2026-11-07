@@ -905,6 +905,10 @@ export interface ExecuteAgentRuntimeParams {
   mode?: PermissionMode | string
   sessionId?: string
   botId?: string
+  /** 幂等键。同一认证用户重复提交只保留一张工单,不再次派工。不能用来改权限。 */
+  triggerId?: string
+  /** 没点名智能体的候选。服务端默认观察模式只记录,不派工。 */
+  proactive?: boolean
 }
 
 export interface ExecuteAgentRuntimeResult {

@@ -32,6 +32,7 @@ from app.services.memory import unified_memory_client
 # D14② 沙箱任务队列(G-17 拆票,2026-10-23):/queue/* 端点的队列消费面
 from app.services.sandbox_task_queue import SandboxQueueFullError, sandbox_task_queue
 from app.services.session_store import owner_scoped_allows
+from app.services.work_admission import build_chat_trigger, namespaced_trigger_id
 
 from ..core.jwt_auth import get_current_user_id
 from ..core.rbac import Permission, require_permission
@@ -56,6 +57,9 @@ class ExecuteRequest(BaseModel):
     mode: str = Field("default")
     sessionId: str | None = None
     botId: str | None = None
+    # 幂等键只用来去重,不参与权限。proactive 只把这次降成「没点名」的候选。
+    triggerId: str | None = Field(default=None, max_length=80)
+    proactive: bool = False
 
 
 class ExecuteResponse(BaseModel):
@@ -219,6 +223,25 @@ def _load_session_redis(session_id: str) -> SessionState | None:
 # ============ Permission 决策矩阵(对齐 CLI permission-guard)============
 
 
+def _graph_input(req: ExecuteRequest, session: SessionState, user_id: str) -> AgentState:
+    """图状态。准入视图只含认证主体,不抄消息正文,也不抄客户端自报的权限。"""
+    return {
+        "messages": [m.model_dump() for m in session.messages],
+        "mode": req.mode,
+        "session_id": session.id,
+        "plan": "",
+        "execution_result": "",
+        "summary": "",
+        "error": None,
+        "work_trigger": build_chat_trigger(
+            user_id=user_id,
+            session_id=session.id,
+            trigger_id=namespaced_trigger_id(user_id, req.triggerId),
+            addressed=not req.proactive,
+        ),
+    }
+
+
 def _check_permission(tool_name: str, mode: str, danger_level: str) -> str:
     if mode == "bypassPermissions":
         return "allow"
@@ -251,16 +274,7 @@ async def execute(req: ExecuteRequest, request: Request) -> ExecuteResponse:
     try:
         _get_graph: Any = get_agent_graph
         graph = _get_graph()
-        initial_state: AgentState = {
-            "messages": [m.model_dump() for m in session.messages],
-            "mode": req.mode,
-            "session_id": session.id,
-            "plan": "",
-            "execution_result": "",
-            "summary": "",
-            "error": None,
-        }
-        result = await graph.ainvoke(initial_state)
+        result = await graph.ainvoke(_graph_input(req, session, user_id))
         summary = result.get("summary", "")
     except Exception as e:
         logger.warning("agent_runtime /execute graph failed: %s", e)
@@ -291,19 +305,10 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
         try:
             _get_graph: Any = get_agent_graph
             graph = _get_graph()
-            initial_state: AgentState = {
-                "messages": [m.model_dump() for m in session.messages],
-                "mode": req.mode,
-                "session_id": session.id,
-                "plan": "",
-                "execution_result": "",
-                "summary": "",
-                "error": None,
-            }
 
             _graph_stream: AsyncIterator[Any] | None = None
             try:
-                _graph_stream = graph.astream(initial_state)
+                _graph_stream = graph.astream(_graph_input(req, session, user_id))
                 async for event in _graph_stream:
                     if await request.is_disconnected():
                         logger.info("agent_runtime SSE client disconnected, stopping stream")
@@ -317,6 +322,19 @@ async def execute_stream(req: ExecuteRequest, request: Request) -> StreamingResp
                         break
                     for node_name, node_output in event.items():
                         if not isinstance(node_output, dict):
+                            continue
+                        if node_name == "admit":
+                            admission = node_output.get("admission")
+                            frames = admission.get("frames") if isinstance(admission, dict) else None
+                            if isinstance(frames, list):
+                                for frame in frames:
+                                    if not isinstance(frame, dict):
+                                        continue
+                                    evt = frame.get("type")
+                                    if not isinstance(evt, str) or not evt:
+                                        continue
+                                    payload = {key: value for key, value in frame.items() if key != "type"}
+                                    yield _sse_frame(evt, payload)
                             continue
                         if node_name == "plan" and node_output.get("plan"):
                             yield _sse_frame("plan", {"plan": node_output["plan"]})
