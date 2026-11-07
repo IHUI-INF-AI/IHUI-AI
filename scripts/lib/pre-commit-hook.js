@@ -15,6 +15,7 @@
 // .ihui-agent/state/hook-logs/pre-commit.log,由薄壳回显摘要/失败详情。
 // 本文件内部所有 execSync 均带 windowsHide:true,不受影响。
 const { execSync, spawnSync } = require('child_process')
+const path = require('path')
 const {
   takeStagingSnapshot,
   setupRestoreOnExit,
@@ -25,6 +26,8 @@ const indexContext = require('./index-context.js')
 const derivedArtifacts = require('./derived-artifacts.js')
 const indexPinGuard = require('./index-pin-guard.js')
 const { runCapturing } = require('./hook-capture.js')
+const { buildToolPath } = require('./hook-tool-path.js')
+const HOOK_ROOT = path.resolve(__dirname, '..', '..')
 
 /**
  * ⛔ 被 require()/import() 时必须**立即返回**,不得执行下面任何一步(§22d 的 CJS 对应形态:
@@ -309,6 +312,34 @@ try {
   // 守门脚本失败不阻塞 commit(脚本内部 git 失败已自行 exit 0)
 }
 
+// 0b. 复活闸(2026-11-04 立,P0「已声明的删除被复活后收编进提交」)───────────────
+// 判据单源 `lib/intentional-file-deletion.mjs#judgeResurrection`,与 `safe-commit.mjs`
+// Step 3b-2 是**同一份**,区别只在从哪儿取新增面(那边用声明集,这边用索引面 diff)。
+//
+// 为什么 non-safe-commit 路径还要在 hook 里再立一道:`safe-commit` 只是 AGENTS §12 的
+// **约定**入口,仓里仍有 `auto-commit-quiet` 的 `chore(auto)`、人工 `git commit`、各席位
+// 自拼的 git 命令 —— pre-commit 是唯一所有提交路径都会经过的地方。实证 `8331e5460a`
+// (父提交正是修好 healer 的 `54feeb4011`)把 `105a55a40c` 删掉的 3 件当新增提交回来,
+// 全仓零外部引用,直到台账↔树对账才发现。
+//
+// 与上一段"文件数预检"不同,这一道**失败即阻塞**:回流件是"明确有害且可自动判定"的一档,
+// 放过去只会让下一轮清理重来一遍。刻意**不设 HUSKY_SKIP_* 应急变量** —— 台账登记有误时
+// 的正确出路是 `--revoke-deletion`(§0.10:多要一次定向说明),不是给一个谁都能按的跳过键。
+// 台账坏档 / 读不到索引面 ⇒ 脚本自身 exit 0(判不出只报不拦,绝不当定罪证据)。
+try {
+  execSync('node scripts/check-staged-resurrection.mjs --quiet', {
+    stdio: 'inherit',
+    cwd: process.cwd(),
+    windowsHide: true,
+  })
+} catch {
+  console.error(
+    '❌ Pre-commit 复活闸失败:本次提交把「已登记为有意删除」的文件当新增收编了。' +
+      '按上文两条出路处理后重试(确要用回来 ⇒ --revoke-deletion;误带进来 ⇒ git restore --staged)。',
+  )
+  process.exit(1)
+}
+
 function run(label, cmd) {
   console.log(label)
   try {
@@ -580,8 +611,15 @@ auditStagingFiles()
 // 与 GIT_INDEX_FILE 保留的配合:`commit --only` 的临时索引只含本次路径、且 index 与
 // worktree 逐字相同 ⇒ 既不产生 MM 判定,也不存在"别人的文件";lint-staged 全程只写
 // 本次提交的临时索引,共享 index.lock 一次都不碰。
-const LINT_STAGED_CMD =
-  'npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged'
+// ─── 启动方式:不依赖继承 PATH(2026-11-05 立)──────────────────────────────
+// 旧写法 `npx lint-staged ...` 经 shell 解析 npx;钩子子进程在 GUI git 面板 / IDE 隐藏
+// shell / WPS 链等上下文里继承的 PATH 可能既没有 node 目录也没有 npx ⇒ 当场报
+// "'npx' is not recognized"(实测,PATH 只剩 System32+Windows+Git\cmd 时复现,exit 1)。
+// 现在直接用**运行本钩子的那个 node**(process.execPath)+ 仓内绝对 bin 启动,不经过 shell;
+// 同时把 PATH 显式构造成 [node 目录, <repo>/node_modules/.bin, ...原 PATH](见 hook-tool-path.js),
+// 让 eslint / prettier 等任务二进制不靠继承值。Windows 与 POSIX 同一条代码路径。
+const LINT_STAGED_BIN = path.join(HOOK_ROOT, 'node_modules', 'lint-staged', 'bin', 'lint-staged.js')
+const LINT_STAGED_FLAGS = ['--max-arg-length', '4096', '--no-stash', '--no-hide-partially-staged']
 // 递增退避 250/750/2000/5000ms:EBUSY 是负载相关的间歇病(本机空载复现率低、并发时升高),
 // 给它几拍重试通常第二三次就通了。间隔递增是为了不给本机已经很忙的进程面再加压。
 // 2026-10-08 由 [200,600,1500] 加厚到 4 档:当日多 agent 并发提交峰值期实测 5/5 连败 ——
@@ -604,21 +642,29 @@ const LINT_STAGED_GIT_STEP_FINGERPRINTS = [
 ]
 
 function spawnLintStagedOnce() {
-  // 形态说明:`shell: true` 是 npx.cmd 在 Windows 上的必需(与既有 execSync 等价);
-  // `windowsHide: true` 是 AGENTS §5b 硬要求(shell:true 不配它会弹可见控制台)。
+  // 形态说明:`process.execPath` + 仓内绝对 bin ⇒ 不再需要 shell,也不再依赖 PATH 里
+  // 有 npx;Windows 与 POSIX 走同一条 spawn 路径。
+  // `windowsHide: true` 是 AGENTS §5b 硬要求(shell 已去掉,但保留以覆盖 node 子进程)。
   // stdio[0]='ignore' 是**本票的兜底本体**:不写 stdio / 写 'pipe' 都是三通道全管道
   // ⇒ 这条 spawn 自己也 EBUSY(本机实测 `npx lint-staged --version` 裸调即 EBUSY)。
   // stdout 仍 inherit ⇒ lint-staged 的任务输出照旧原样透传(不改变它的实际行为)。
   // stderr 改 pipe ⇒ 仅为把指纹文案拿回来做判定,用完原样回显,见下。
   // 索引上下文(2026-11-04 立):显式传指针(而不是只靠继承)+ NODE_OPTIONS 预载校验;
   // 子进程拿不到同一份私有索引 ⇒ preload 直接 exit 1(报「索引上下文丢失」)。
-  const r = spawnSync(LINT_STAGED_CMD, {
+  // env.PATH 显式构造(node 目录 + node_modules/.bin + 原 PATH):eslint/prettier 不靠继承值。
+  const r = spawnSync(process.execPath, [LINT_STAGED_BIN, ...LINT_STAGED_FLAGS], {
     cwd: process.cwd(),
     windowsHide: true,
-    shell: true,
     stdio: ['ignore', 'inherit', 'pipe'],
     encoding: 'utf8',
-    env: indexContext.lintStagedEnv(INDEX_CTX),
+    env: {
+      ...indexContext.lintStagedEnv(INDEX_CTX),
+      PATH: buildToolPath({
+        envPath: process.env.PATH,
+        execPath: process.execPath,
+        root: HOOK_ROOT,
+      }),
+    },
   })
   const stderr = String(r.stderr || '')
   if (stderr) process.stderr.write(stderr)
@@ -803,16 +849,16 @@ function runLintStaged() {
     console.error(
       `     1) 查并发面:tasklist | findstr /i "git node" —— 杀掉残留的 git/node 进程再 commit;`,
     )
-    // ⚠️ 手工复跑必须与 LINT_STAGED_CMD **同旗**:少给 --no-hide-partially-staged 会走
+    // ⚠️ 手工复跑必须与 LINT_STAGED_FLAGS **同旗**:少给 --no-hide-partially-staged 会走
     //    `git restore --worktree` 那条路,当场把并发会话未暂存的改动卷进 patch(见上方双开关注释)。
     console.error(
-      `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged`,
+      `     2) 原样手工复跑一次(EBUSY 是间歇病,单独跑通常就通):node node_modules/lint-staged/bin/lint-staged.js ${LINT_STAGED_FLAGS.join(' ')}`,
     )
     console.error(
       `     3) 仍红则先看 lint-staged 自己的 git 步骤是否真有问题(别把这句 git error 当 lint 报错):`,
     )
     console.error(
-      `        npx lint-staged --max-arg-length 4096 --no-stash --no-hide-partially-staged --debug`,
+      `        node node_modules/lint-staged/bin/lint-staged.js ${LINT_STAGED_FLAGS.join(' ')} --debug`,
     )
   }
   // ⚠️ 同款指纹的第二种病(2026-10-08 探针实证,2026-11-03 **已根治**):「Failed to stage changes from tasks」
@@ -1352,10 +1398,12 @@ console.log(
   '⏳ 守门批量检查本机实测约 9~15 分钟,期间本进程无输出属正常;' +
     '逐门实时进度: tail -f .ihui-agent/state/hook-logs/gates-progress.log',
 )
-// 快档默认开(2026-10-21,机主要求"整体 ≤1 分钟"):33 道重型门(>3s)实测占全量 86%,
-// 它们由 post-commit 后台补跑;提交链只跑 121 道快门(8 并发 ≈ 20s)。
-// 要全量(CI / 发版前 / 排障):IHUI_GATE_FAST=0。
-process.env.IHUI_GATE_FAST = process.env.IHUI_GATE_FAST ?? '1'
+// 2026-11-06 BUG-19① 根治:快档把 37 道重型 id 一律只 skipped++ 写 deferredGates,
+// printSummary 与退出码都不因此变红 ⇒ 33+ 道 blocking 门在常规提交上根本没跑、退出码仍 0。
+// 常规提交必须真跑全部 blocking 门 ⇒ 默认档改为**全量**(IHUI_GATE_FAST=0);快档只作显式逃生档,
+// 且执行器对快档/预算/应急放行跳过的 blocking 门单列"未判定"档(不记绿、批量 exit 2)。
+// 要临时快档请显式设 IHUI_GATE_FAST=1 并自行承担未判定后果;CI/发版/排障默认即全量。
+process.env.IHUI_GATE_FAST = process.env.IHUI_GATE_FAST ?? '0'
 console.log(
   process.env.IHUI_GATE_FAST === '1'
     ? '⚡ 快档:仅跑快门(重型门由 post-commit 后台补跑);全量请设 IHUI_GATE_FAST=0'

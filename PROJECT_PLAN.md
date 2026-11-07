@@ -31500,7 +31500,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] DBG-26 （登记@2026-11-07/bug-hunt）[P2][pkg][安全] packages/auth/src/blacklist.ts:59-68 TokenBlacklist.has(token, failClosed=false) 默认 fail-open，Redis 抖动/宕机时默认视为未吊销 → 已吊销 token(登出/踢下线)在故障期复活
 - [ ] DBG-27 （登记@2026-11-07/bug-hunt）[P2][pkg][监控] packages/api-client/src/circuit-breaker.ts:99-106,137-146 getStats 用 total-failures 推 successes，半开探针成功清零窗口后 getStats 立即失真 → 监控/告警误判
 - [ ] DBG-28 （登记@2026-11-07/bug-hunt）[P2][pkg][i18n] packages/i18n/src/loader.ts:101-103 getMessagesForLocale 在 zh-CN 表缺失时返回 undefined 但类型标注 Messages → 调用方按 Messages 取键崩溃（类型契约破裂）
-- [ ] DBG-29 （登记@2026-11-07/bug-hunt）[P2][pkg][契约] packages/shared/src/utils/canonical-json.ts:33 canonicalStringify 对循环引用栈溢出、对 BigInt/function/Symbol 直接抛 TypeError，单源出口对任意 unknown 输入缺防御
+- [ ] DBG-20129 （登记@2026-11-07/bug-hunt）[P2][pkg][契约] packages/shared/src/utils/canonical-json.ts:33 canonicalStringify 对循环引用栈溢出、对 BigInt/function/Symbol 直接抛 TypeError，单源出口对任意 unknown 输入缺防御
 - [ ] DBG-30 （登记@2026-11-07/bug-hunt）[P0][mobile][资金] apps/mobile-rn/src/hooks/useWechatPayment.ts:115-122 微信支付状态回查：后端明确未支付/查询失败时 else 分支仍 `onSuccess?.(orderNo)` 给用户充值/加余额（已读源码坐实）— 资金安全
 - [ ] DBG-31 （登记@2026-11-07/bug-hunt）[P1][mobile][安全] apps/miniapp-taro/src/utils/auth.ts:90-91 refreshToken 以明文 setStorageSync 落盘（小程序沙箱明文文件），长期凭据可被直接读出（RN 端用 SecureStore 且 rejectPlaintext）
 - [ ] DBG-32 （登记@2026-11-07/bug-hunt）[P1][mobile][契约] apps/mobile-rn/src/screens/ChatScreen.tsx:2672 autoSendVoice 把录音当纯文本消息发送（`[语音] ${url} ${durationSec}`），非可回听语音气泡，与 RootNavigator 路由契约不符
