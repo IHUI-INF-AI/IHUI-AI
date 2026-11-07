@@ -8,9 +8,29 @@
  * 适配 ESLint 9 flat config。
  */
 import tseslint from 'typescript-eslint'
-import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import ihuiRules from './rules/no-unpaired-card-content-padding.js'
+
+const isInactiveSeverity = (severity) =>
+  severity === 'off' ||
+  severity === 0 ||
+  (Array.isArray(severity) && (severity[0] === 'off' || severity[0] === 0))
+
+/**
+ * tseslint 的 eslint-recommended 块里带有 19 条 'off' 声明(用于关闭 eslint:recommended 的默认规则)。
+ * 本仓从未启用 eslint:recommended,且其余配置块不会重新打开这些核心规则,因此这些 'off' 条目
+ * 等价于"未声明"(规则默认即 off)。但每一条仍会触发一次 ESLint 核心规则模块加载,Windows 下
+ * 实测约 40ms/条。这里只剔除"纯关闭"条目,任何生效规则都不动,判据等价。
+ */
+const dropInactiveRules = (block) => {
+  if (!block || !block.rules) return block
+  return {
+    ...block,
+    rules: Object.fromEntries(
+      Object.entries(block.rules).filter(([, severity]) => !isInactiveSeverity(severity)),
+    ),
+  }
+}
 
 export default tseslint.config(
   {
@@ -25,10 +45,9 @@ export default tseslint.config(
   },
   {
     files: ['**/*.{ts,tsx,js,jsx,mjs,cjs}'],
-    extends: [...tseslint.configs.recommended],
+    extends: tseslint.configs.recommended.map(dropInactiveRules),
     plugins: {
       ihui: ihuiRules,
-      react,
       'react-hooks': reactHooks,
     },
     rules: {
@@ -49,7 +68,6 @@ export default tseslint.config(
       'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
       'prefer-const': 'error',
       eqeqeq: ['error', 'always'],
-      'react/react-in-jsx-scope': 'off',
       'react-hooks/rules-of-hooks': 'error',
       // zod 4 防回归：禁止已废弃 API，防止迁移后再次引入
       'no-restricted-syntax': [
