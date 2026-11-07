@@ -148,7 +148,6 @@ from .agent_resume_semantics import (
     ACCEPT_RESULT_TEXT,
     CONFIRM_ABORT,
     CONFIRM_ACCEPT,
-    CONFIRM_RETRY,
     CONFIRM_SKIP,
     RECEIPT_STATE_ATTEMPTING,
     RECEIPT_STATE_SETTLED_ERROR,
@@ -6038,7 +6037,7 @@ class AgentLoopV2:
                     )
                 )
 
-            if decision.action == "replay" and resolution != CONFIRM_RETRY:
+            if decision.action == "replay":
                 receipt = receipts.get(call_id) or {}
                 stored = receipt.get("result_message")
                 if isinstance(stored, dict) and stored.get("role") == "tool":
