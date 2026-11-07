@@ -11947,6 +11947,8 @@
     "dropAttachmentHint": "마우스를 놓아 첨부파일 추가(이미지/동영상)",
     "empty": "콘텐츠가 없습니다",
     "emptyHint": "아래에 메시지를 입력하여 AI와 대화를 시작하세요",
+    "turnAnchorUnresolvedTitle": "이 턴을 찾지 못했습니다",
+    "turnAnchorUnresolvedHint": "링크의 턴을 불러오지 못했습니다. 다른 기록으로 채우지 않고 비워 둡니다.",
     "errorTimeout15s": "AI 응답 시간 초과(15초 내에 콘텐츠를 받지 못함), 나중에 다시 시도해 주세요",
     "errorTimeout60s": "AI 생각 시간 초과(60초 내에 답변이 생성되지 않음, 추론 모델이 너무 오래 생각할 수 있음), 나중에 다시 시도하거나 일반 모델로 전환하세요",
     "errors": {

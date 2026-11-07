@@ -227,4 +227,40 @@ export function historyAnchorCandidates(count: number, windowStart: number): num
   if (clamped !== 0) out.push(0)
   return out
 }
+
+/**
+ * 把某一行收进挂载窗口的中部,使深链锚点在窗口化之后仍然挂在 DOM 里。
+ * 不挂载就 `scrollIntoView` 不到,锚点会停在视口外。
+ */
+export function windowRangeCenteredOn(input: {
+  readonly count: number
+  readonly index: number
+  readonly maxMounted?: number
+}): WindowRange {
+  const { count } = input
+  if (count <= 0) return EMPTY_WINDOW
+  const maxMounted = isFiniteNumber(input.maxMounted ?? MAX_MOUNTED_ITEMS)
+    ? (input.maxMounted ?? MAX_MOUNTED_ITEMS)
+    : MAX_MOUNTED_ITEMS
+  const span = Math.min(count, Math.max(1, maxMounted))
+  const last = count - 1
+  const index = Math.max(0, Math.min(last, Math.trunc(input.index)))
+  let start = index - Math.floor((span - 1) / 2)
+  if (start < 0) start = 0
+  let end = start + span - 1
+  if (end > last) {
+    end = last
+    start = Math.max(0, end - span + 1)
+  }
+  return { start, end }
+}
+
+/**
+ * 列表条目入场动效。Qoder 的 animateItems(新条目 opacity/位移,约 450ms 后关闭)是纯装饰。
+ * 本仓不接。定位只靠 `windowRangeCenteredOn` 把行挂上,再 `scrollIntoView`。
+ * 返回值恒为 `none`;渲染位只把它写成 data 属性,不得据此加动画 class。
+ */
+export function listItemEntranceMotion(): 'none' {
+  return 'none'
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

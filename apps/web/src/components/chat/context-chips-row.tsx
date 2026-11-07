@@ -20,7 +20,7 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { MessageCircle, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, MessageCircle, X } from 'lucide-react'
 
 import type { ReferenceItem } from '@/hooks/use-message-references'
 import type { MentionSelection } from '@ihui/shared/chat/mention-engine'
@@ -63,6 +63,8 @@ export interface ContextChipsRowProps {
   /** W27 输入队列(流式期间排队的待发消息) */
   queueItems: readonly { text: string }[]
   onQueueRemove: (index: number) => void
+  /** 运行中待发队列重排。缺省时不渲染上移/下移（单测与旧调用保持只有取消）。 */
+  onQueueReorder?: (fromIndex: number, toIndex: number) => void
 }
 
 export function ContextChipsRow({
@@ -81,8 +83,10 @@ export function ContextChipsRow({
   onSendPastePreview,
   queueItems,
   onQueueRemove,
+  onQueueReorder,
 }: ContextChipsRowProps) {
   const t = useTranslations('chat')
+  const tp = useTranslations('playground')
 
   const hasContent =
     references.length > 0 ||
@@ -148,6 +152,36 @@ export function ContextChipsRow({
               className="flex items-center gap-2 rounded-lg border border-dashed border-amber-500/40 bg-amber-500/5 px-3 py-2 text-body"
             >
               <span className="flex-1 truncate text-amber-700 dark:text-amber-300">{pm.text}</span>
+              {onQueueReorder && queueItems.length > 1 ? (
+                <>
+                  <button
+                    type="button"
+                    data-testid={`input-queue-moveup-${i}`}
+                    aria-label={tp('moveUp')}
+                    disabled={i === 0}
+                    onClick={() => {
+                      if (i <= 0) return
+                      onQueueReorder(i, i - 1)
+                    }}
+                    className="text-label text-muted-foreground hover:text-foreground disabled:opacity-40"
+                  >
+                    <ChevronUp className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    data-testid={`input-queue-movedown-${i}`}
+                    aria-label={tp('moveDown')}
+                    disabled={i >= queueItems.length - 1}
+                    onClick={() => {
+                      if (i >= queueItems.length - 1) return
+                      onQueueReorder(i, i + 1)
+                    }}
+                    className="text-label text-muted-foreground hover:text-foreground disabled:opacity-40"
+                  >
+                    <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </>
+              ) : null}
               <button
                 type="button"
                 data-testid={`input-queue-remove-${i}`}
