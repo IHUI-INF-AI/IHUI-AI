@@ -7090,5 +7090,12 @@
     "selfDoneToast": "등교 등록됨",
     "scanDoneToast": "스캔으로 체크인 완료",
     "scanInvalidToast": "이 시스템의 출석 QR 코드가 아닙니다"
+  },
+  "knowledgePlanet": {
+    "title": "지식 플래닛",
+    "newOfficial": "공지",
+    "newCommunity": "커뮤니티",
+    "enter": "플래닛 입장",
+    "memberCount": "{count}명의 멤버"
   }
 }
