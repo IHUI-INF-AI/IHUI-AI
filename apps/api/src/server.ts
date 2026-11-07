@@ -470,6 +470,17 @@ export async function buildServer(): Promise<FastifyInstance> {
   // Redis 不可达时认领整族 fail-closed(设计行为,不降级为无锁放行)。
   startRepairCycleScheduler(() => server.redis)
 
+  // 超级智能体 Watchdog 泵：env 门控启动(IHUI_SUPER_AGENT_PUMP=true 才生效;
+  // 未开启 = 零定时器。端口注册表为空时 runOnce 本身也是零动作)。
+  // 间隔 env IHUI_SUPER_AGENT_PUMP_MS 可调,默认 60s。
+  const superAgentPumpEnabled = process.env.IHUI_SUPER_AGENT_PUMP === 'true'
+  if (superAgentPumpEnabled) {
+    startSuperAgentPumpLoop(Number(process.env.IHUI_SUPER_AGENT_PUMP_MS ?? 60_000))
+    server.addHook('onClose', async () => {
+      stopSuperAgentPumpLoop()
+    })
+  }
+
   return server
 }
 

@@ -9,6 +9,8 @@ export {
   ticketStage,
   waitsForPerson,
 } from './engine'
+export { SuperAgentPump } from './pump'
+export type { PumpLogRow, TriggerSourcePort, WorkerDispatch } from './pump'
 export {
   ROUTER_TOOLS,
   WORKER_TOOLS,
