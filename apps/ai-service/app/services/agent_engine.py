@@ -2095,6 +2095,8 @@ class AgentEngine:
             "thread.start": self._handle_thread_start,
             "thread.prompt": self._handle_thread_prompt,
             "thread.interrupt": self._handle_thread_interrupt,
+            "thread.contextUsage": self._handle_thread_context_usage,
+            "thread.seedReadState": self._handle_thread_seed_read_state,
             "thread.resume": self._handle_thread_resume,
             "thread.state": self._handle_thread_state,
             "thread.close": self._handle_thread_close,
@@ -4081,6 +4083,105 @@ class AgentEngine:
             "mode": mode,
             "status": thread.status,
             "checkpointId": thread.checkpoint_id,
+        }
+
+    async def _handle_thread_context_usage(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """控制帧 get_context_usage:按账本口径返回七类真实占用(不估算、不猜窗口)。
+
+        数据面只有线程已落定的历史消息 + 模型窗口解析;system 文本与工具 schema
+        不保存在线程快照里,按 build_context_ledger 契约传空/None ⇒ 计 0(不伪造
+        那两类占用)。live loop 不暴露消息缓冲,故 source 恒为 thread_history ——
+        不把"读历史"说成"读实时";status 一并回传,让调用方知道账本是否落后于在飞轮次。
+        """
+        from app.core.model_context_window import resolve_with_env_priority
+        from app.services.context_ledger import build_context_ledger
+
+        thread = self._require_thread(params)
+        limit = resolve_with_env_priority(thread.model)
+        history = list(thread.messages)
+        # system 消息从历史里拆出来单独计(账本第 1 类),不重复计入 messages
+        system_text = ""
+        if history and isinstance(history[0], dict) and history[0].get("role") == "system":
+            system_text = str(history[0].get("content") or "")
+            history = history[1:]
+        usage = build_context_ledger(
+            system_text,
+            None,
+            None,
+            history,
+            "",
+            limit,
+            thread.model,
+        )
+        return {
+            "threadId": thread.thread_id,
+            "usage": usage,
+            "source": "thread_history",
+            "status": thread.status,
+            "capturedAt": usage["capturedAt"],
+        }
+
+    async def _handle_thread_seed_read_state(
+        self, params: dict[str, Any], emit: Emitter
+    ) -> dict[str, Any]:
+        """控制帧 seed_read_state:把一批文件登记为该线程会话的"已读"。
+
+        逐路径返回结果:越界(outside_workspace)、不存在(not_found)、登记失败
+        (register_failed:*)都有明确 reason,不做整批静默成功;参数本身非法
+        (非数组 / 空项 / 超量)直接 INVALID_PARAMS。
+        """
+        from app.core.file_read_state import record_read
+
+        thread = self._require_thread(params)
+        raw_paths = params.get("paths")
+        if not isinstance(raw_paths, list) or not raw_paths:
+            raise JsonRpcError(INVALID_PARAMS, "paths 须为非空字符串数组")
+        if len(raw_paths) > 200:
+            raise JsonRpcError(INVALID_PARAMS, "paths 最多 200 条")
+        paths: list[str] = []
+        for entry in raw_paths:
+            if not isinstance(entry, str) or not entry.strip():
+                raise JsonRpcError(INVALID_PARAMS, "paths 每项须为非空字符串")
+            paths.append(entry)
+        root = thread.workspace
+        if not isinstance(root, str) or not root:
+            raise JsonRpcError(
+                INVALID_PARAMS, f"线程无工作区,无法种子化读取状态: {thread.thread_id}"
+            )
+        resolved_root = os.path.normcase(os.path.realpath(root))
+        results: list[dict[str, Any]] = []
+        seeded = 0
+        for raw in paths:
+            target = os.path.normcase(os.path.realpath(os.path.join(root, raw)))
+            try:
+                inside = os.path.commonpath([resolved_root, target]) == resolved_root
+            except ValueError:
+                inside = False
+            if not inside:
+                results.append({"path": raw, "ok": False, "reason": "outside_workspace"})
+                continue
+            if not os.path.isfile(target):
+                results.append({"path": raw, "ok": False, "reason": "not_found"})
+                continue
+            outcome = record_read(thread.session_id, target)
+            ok = bool(outcome.get("ok"))
+            if ok:
+                seeded += 1
+                results.append({"path": raw, "ok": True})
+            else:
+                results.append(
+                    {
+                        "path": raw,
+                        "ok": False,
+                        "reason": str(outcome.get("reason") or "register_failed"),
+                    }
+                )
+        return {
+            "threadId": thread.thread_id,
+            "seededCount": seeded,
+            "results": results,
         }
 
     async def _handle_thread_resume(
