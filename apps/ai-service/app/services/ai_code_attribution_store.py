@@ -21,6 +21,7 @@ app/services/ai_code_attribution_git.py。
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from collections.abc import Mapping
@@ -33,6 +34,7 @@ from app.core.ai_code_attribution import (
     TraceResult,
     compute_stats,
     make_record,
+    plan_checkpoint,
     resolve_anchor,
 )
 
@@ -48,6 +50,8 @@ __all__ = [
     "store",
     "host_session_id",
     "note_host_edit",
+    "log_host_edit_checkpoint",
+    "list_checkpoint_log",
     "record_attribution",
     "backfill_commit_sha",
     "list_records",
@@ -89,6 +93,10 @@ def note_host_edit(
         )
     except Exception as exc:
         logger.warning("归属记账失败(不影响已完成的写入): %s", exc)
+    try:
+        log_host_edit_checkpoint(tool, file, hunk, arguments)
+    except Exception as exc:
+        logger.warning("检查点没记下(不影响已完成的写入): %s", exc)
 
 
 def backfill_commit_sha(commit_sha: str, files: list[str]) -> tuple[int, str]:
@@ -162,4 +170,79 @@ def trace_record(record_id: str, *, repo_root: Path | None = None) -> TraceResul
         record.anchor,
         lambda sha, path, start, end: git_blame(root, sha, path, start, end),
     )
+
+
+def checkpoint_log_path() -> Path:
+    """检查点日志与归属账同目录。测试把账挪走时，日志跟着走。"""
+    return Path(store._file).with_name("ai_code_attribution_checkpoints.jsonl")
+
+
+def _checkpoint_rows(path: Path) -> tuple[str, list[dict[str, object]]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return "", []
+    except OSError:
+        return "检查点日志读不到,不能往下追加", []
+    if text.strip() == "":
+        return "", []
+    rows: list[dict[str, object]] = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except ValueError:
+            return "检查点日志读不到,不能往下追加", []
+        if not isinstance(item, dict):
+            return "检查点日志读不到,不能往下追加", []
+        rows.append(item)
+    return "", rows
+
+
+def list_checkpoint_log() -> tuple[list[dict[str, object]], str]:
+    """读检查点。日志损坏时不把空列表说成「还没有检查点」。"""
+    refused, rows = _checkpoint_rows(checkpoint_log_path())
+    if refused:
+        return [], refused
+    return rows, ""
+
+
+def append_checkpoint(record: dict[str, object]) -> tuple[str, str]:
+    """追加一条。同一去重键不写第二行。损坏的日志原字节不动。"""
+    path = checkpoint_log_path()
+    with store._lock:
+        refused, rows = _checkpoint_rows(path)
+        if refused:
+            return "refused", refused
+        key = str(record.get("dedupe_key") or "")
+        if key and any(row.get("dedupe_key") == key for row in rows):
+            return "duplicate", ""
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n")
+        except OSError:
+            return "refused", "检查点日志写不了"
+        return "appended", ""
+
+
+def log_host_edit_checkpoint(
+    tool: str,
+    file: str,
+    hunk: str,
+    arguments: Mapping[str, object] | None,
+) -> tuple[str, str]:
+    """写成功之后记一条 after_edit。拒绝或重复都不改已经写完的文件。"""
+    planned, refused = plan_checkpoint(
+        tool,
+        file,
+        hunk,
+        arguments,
+        hook_event_name="after_edit",
+        session_id=host_session_id(arguments),
+    )
+    if planned is None:
+        return "refused", refused
+    return append_checkpoint(planned)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
