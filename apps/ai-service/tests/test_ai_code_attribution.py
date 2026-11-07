@@ -46,6 +46,7 @@ from app.services.ai_code_attribution_store import (
     list_records,
     log_host_edit_checkpoint,
     note_host_edit,
+    note_measured_external_edit,
     record_attribution,
     stats_all,
     stats_for_path,
@@ -514,4 +515,61 @@ async def test_write_io_failure_keeps_before_without_after(tmp_path, monkeypatch
     rows, note = list_checkpoint_log()
     assert note == ""
     assert [row["hook_event_name"] for row in rows] == ["before_edit"]
+
+
+def test_external_drift_is_known_human_and_other_drift_is_not(tmp_store):
+    state = {
+        "verdict": "stale",
+        "changed_by": "external",
+        "current": {"fingerprint": "fp-1"},
+    }
+    assert note_measured_external_edit("src/A.py", {"__session_id": "s"}, state)[0] == "appended"
+    assert note_measured_external_edit("src/A.py", {"__session_id": "s"}, state)[0] == "duplicate"
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert rows[0]["kind"] == "known_human"
+    assert rows[0]["operation_id"] == "human"
+    assert rows[0]["tool"] == "external_edit"
+    assert rows[0]["content_fingerprint"] == "fp-1"
+    state["current"] = {"fingerprint": "fp-2"}
+    assert note_measured_external_edit("src/A.py", {"__session_id": "s"}, state)[0] == "appended"
+    assert note_measured_external_edit("src/A.py", {"__session_id": "s"}, {**state, "changed_by": "other"})[0] == "skipped"
+    assert note_measured_external_edit("src/A.py", {"__session_id": "s"}, {**state, "verdict": "fresh"})[0] == "skipped"
+    assert note_measured_external_edit("src/A.py", {"__session_id": "s"}, {"verdict": "stale", "changed_by": "external", "current": {}})[0] == "refused"
+    hooks = [row["hook_event_name"] for row in list_checkpoint_log()[0]]
+    assert hooks == ["checkpoint", "checkpoint"]
+
+
+@pytest.mark.asyncio
+async def test_file_edit_records_measured_external_drift(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_file_edit
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_write_path_in_workspace",
+        lambda p, extra_roots=None: (True, str(p)),
+    )
+    monkeypatch.setattr(
+        "app.services.mcp_server.judge_read_state",
+        lambda *args, **kwargs: {
+            "verdict": "stale",
+            "changed_by": "external",
+            "blocking": False,
+            "current": {"fingerprint": "disk-fp"},
+            "message": "外部改过",
+        },
+    )
+    target = tmp_path / "demo.py"
+    target.write_text("a = 1\n", encoding="utf-8")
+    out = await _tool_file_edit(
+        {
+            "file_path": str(target),
+            "old_string": "a = 1",
+            "new_string": "a = 2",
+            "__session_id": "host-1",
+        }
+    )
+    assert out["ok"] is True
+    kinds = [row["kind"] for row in list_checkpoint_log()[0]]
+    assert "known_human" in kinds
+    assert kinds.count("known_human") == 1
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
