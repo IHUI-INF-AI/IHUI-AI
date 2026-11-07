@@ -40,6 +40,8 @@ export interface AgentContentListItem {
   thinkingContent?: string
   videoRatio?: string
   error?: string
+  /** 流在完成前断掉(无断点可续时由客户端标记,渲染层不得当"已完成") */
+  incomplete?: boolean
   debugInfo?: string
 }
 

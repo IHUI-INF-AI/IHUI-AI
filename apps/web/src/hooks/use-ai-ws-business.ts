@@ -140,6 +140,13 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
 
   const displayedAgentContent1Ref = React.useRef('')
   const textIndexRef = React.useRef(0)
+  // 票E(2026-11-07):记录本条流已收到的增量位置与是否走到完成事件。
+  // 后端 ws-ai 的 capability.delta 不带 seq、capability.start 每次从空缓冲重开流,
+  // 断点信息根本拿不到 ⇒ 断线后绝不重连重发(否则同一回答会拼两遍),
+  // 只用这里区分「正常完成」与「流中断」,后者标记 incomplete 并明示断开。
+  const streamStateRef = React.useRef<{ index: number; receivedChars: number; completed: boolean }>(
+    { index: -1, receivedChars: 0, completed: false },
+  )
 
   /** 方法 2:按 name 构建 7 种参数变体 */
   const buildWebSocketParams = React.useCallback(
@@ -348,6 +355,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         if (event === 'conversation.message.delta') {
           const filtered = data.content.replace(/[*#]+/g, '')
           displayedAgentContent1Ref.current += filtered
+          streamStateRef.current.receivedChars += filtered.length
           const targetIndex = newIndex >= 0 ? newIndex : textIndex >= 0 ? textIndex : newIndex
           if (targetIndex >= 0) {
             setDisplayedThinkingTexts((prev) => {
@@ -364,6 +372,8 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
             })
           }
         } else if (event === 'conversation.chat.completed') {
+          // 服务端已宣告本轮 chat 完成:即使随后连接被关,也不得标成"未完成"
+          streamStateRef.current.completed = true
           onClearThinkingProcessLogic?.()
           const filtered = data.content.replace(/[*#]+/g, '')
           setDisplayedTexts((prev) => {
@@ -398,6 +408,8 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
         onClearThinkingProcessLogic?.()
         onClearInput?.()
         onScrollToBottom?.()
+        // 走到这里才算正常收尾:先打完成标记,随后的 onclose 才不会被误判成流中断
+        streamStateRef.current.completed = true
         const ws = socketTaskRef.current
         if (ws) {
           try {
@@ -617,11 +629,38 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
       }
       setTalking(false)
       setLoading(false)
+
+      // 开成之后断开。若完成事件没到过,这条回答就是半截:
+      // 后端没有 seq/续传接口(见 streamStateRef 注释),这里不重连、不重发原 param,
+      // 只把当前条目标成 incomplete 并明示断开。宁可少一段,也不能把同一回答拼两遍。
+      if (streamStateRef.current.completed) return
+      const streamIndex = streamStateRef.current.index
+      if (streamIndex >= 0) {
+        setAgentContentList((prev) => {
+          const next = [...prev]
+          const existing = next[streamIndex]
+          next[streamIndex] = existing
+            ? { ...existing, incomplete: true }
+            : {
+                content: '',
+                content1: '',
+                imgUrlList: [],
+                totalTokens: 0,
+                isHaveSikao: false,
+                incomplete: true,
+              }
+          return next
+        })
+      }
+      toast.error(t('connectError'))
+      onClearThinkingProcessLogic?.()
     }
   }
 
   const connectWebSocket = React.useCallback(
     (param: WebSocketSendParam, newIndex: number, name: AiModelKey) => {
+      // 直接走 connectWebSocket 的调用方(如旧 AI talk 面板)也要拿到本条流的位置标记
+      streamStateRef.current = { index: newIndex, receivedChars: 0, completed: false }
       void connectInnerRef.current(param, newIndex, name, false)
     },
     [],
@@ -640,6 +679,7 @@ export function useAiWebSocket(options: UseAiWebSocketOptions = {}): UseAiWebSoc
       const param = buildWebSocketParams(name, idstring, zidingyican ?? null, imageUrl)
       const newIndex = agentContentList.length
       textIndexRef.current = displayedTexts.length
+      streamStateRef.current = { index: newIndex, receivedChars: 0, completed: false }
 
       if (talking) {
         sendTask(param)

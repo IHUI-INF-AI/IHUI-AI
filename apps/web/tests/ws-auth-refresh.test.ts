@@ -47,7 +47,10 @@ vi.mock('@/components/common', () => ({
 }))
 
 vi.mock('next-intl', () => ({
-  useTranslations: () => (key: string): string => key,
+  useTranslations:
+    () =>
+    (key: string): string =>
+      key,
 }))
 
 vi.mock('@/hooks/use-ai-websocket', () => ({
@@ -401,6 +404,98 @@ describe('AI 业务 WebSocket:改用短期票 + 握手被拒只重试一次', ()
 
     expect(api.refreshAccessTokenOnce).not.toHaveBeenCalled()
     expect(FakeWebSocket.instances).toHaveLength(1)
+  })
+})
+
+/**
+ * 票E(2026-11-07):开成之后断线,旧实现只把 loading/talking 置 false,界面既不提示
+ * 也没把这条回答标成"半截",用户看到静止的半句话会当成已完成。
+ * 后端 delta 无 seq、capability.start 每次从空缓冲重开流 ⇒ 断点不可得,
+ * 于是只做三件事:不重连不重发(防同答拼两遍)、明示断开、当前条标 incomplete。
+ * 下面三条夹具分别锁死:正常完成 / 流中断线降级 / 握手重连失败。
+ */
+describe('AI 业务 WebSocket:开成后断线不静默(票E)', () => {
+  async function loadHook(): Promise<typeof useAiWebSocket> {
+    const m = await import('@/hooks/use-ai-ws-business')
+    return m.useAiWebSocket
+  }
+
+  const PARAM = { type: 'chat', text: 'hi' } as never
+
+  async function freshToastError() {
+    const { toast } = await import('@/components/common')
+    vi.mocked(toast.error).mockClear()
+    return vi.mocked(toast.error)
+  }
+
+  it('① 正常完成 ⇒ 不报警、不标未完成、不重连', async () => {
+    const toastError = await freshToastError()
+    api.fetchWsTicket.mockResolvedValue('TICKET-1')
+    const useAiWebSocket = await loadHook()
+    const { result } = renderHook(() => useAiWebSocket())
+
+    act(() => result.current.connectWebSocket(PARAM, 0, 'generic'))
+    await settle()
+    act(() => wsOf(0)!.openSelf())
+    act(() => wsOf(0)!.onmessage?.({ data: JSON.stringify({ message: '流式响应完成' }) }))
+    // 服务端收尾后再断开(真实链路常见),完成标记必须已置上
+    act(() => wsOf(0)!.closeWith(1000))
+    await settle()
+
+    expect(FakeWebSocket.instances).toHaveLength(1)
+    expect(toastError).not.toHaveBeenCalled()
+    expect(result.current.agentContentList.some((c) => c.incomplete)).toBe(false)
+  })
+
+  it('② 流中断线(拿不到断点)⇒ 标 incomplete + 明示断开,且只发过一次原 param', async () => {
+    const toastError = await freshToastError()
+    api.fetchWsTicket.mockResolvedValue('TICKET-1')
+    const useAiWebSocket = await loadHook()
+    const { result } = renderHook(() => useAiWebSocket())
+
+    act(() => result.current.connectWebSocket(PARAM, 0, 'generic'))
+    await settle()
+    act(() => wsOf(0)!.openSelf())
+    expect(wsOf(0)!.sent).toHaveLength(1)
+    act(() =>
+      wsOf(0)!.onmessage?.({
+        data: JSON.stringify({
+          event: 'conversation.message.delta',
+          data: { content: '半句话' },
+        }),
+      }),
+    )
+    act(() => wsOf(0)!.closeWith(1006))
+    await settle()
+
+    // 不重连、不重发 ⇒ 不存在"同一回答拼两遍"
+    expect(FakeWebSocket.instances).toHaveLength(1)
+    expect(wsOf(0)!.sent).toHaveLength(1)
+    // 当前条目标记未完成
+    expect(result.current.agentContentList[0]?.incomplete).toBe(true)
+    // 可见提示(复用既有 connectError 文案)
+    expect(toastError).toHaveBeenCalledTimes(1)
+    expect(String(toastError.mock.calls[0]?.[0])).toBe('connectError')
+  })
+
+  it('③ 握手期重连失败 ⇒ 走既有可见错误行,不假装续传', async () => {
+    const toastError = await freshToastError()
+    api.fetchWsTicket.mockResolvedValue('TICKET-1')
+    api.refreshAccessTokenOnce.mockResolvedValue(null)
+    const useAiWebSocket = await loadHook()
+    const { result } = renderHook(() => useAiWebSocket())
+
+    act(() => result.current.connectWebSocket(PARAM, 0, 'generic'))
+    await settle()
+    act(() => wsOf(0)!.closeWith(1006))
+    await settle()
+
+    expect(api.refreshAccessTokenOnce).toHaveBeenCalledTimes(1)
+    expect(FakeWebSocket.instances).toHaveLength(1)
+    expect(result.current.agentContentList[0]?.content).toBe('connectError')
+    // 这一臂是"从未开成"的错误行,不是流中断的 incomplete
+    expect(result.current.agentContentList[0]?.incomplete).toBeUndefined()
+    expect(toastError).not.toHaveBeenCalled()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
