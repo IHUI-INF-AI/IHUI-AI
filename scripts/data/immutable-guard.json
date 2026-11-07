@@ -62,6 +62,12 @@
       "reviewBy": "2027-01-31"
     },
     {
+      "path": "scripts/data/immutable-guard-attestations.jsonl",
+      "kind": "gate-registry",
+      "why": "具名追认台账（2026-11-07 立）：一行 = 给一枚未声明提交补发豁免。paths 必须与该枚实际触发路径逐元素相等、sig 必须验得过、reviewer 与 attestedAt 都在行内；它本身若不受保护，就有人可以「往台账里补一行」直接洗白任意历史提交，护栏形同虚设",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": "scripts/git-guardian.mjs",
       "kind": "gate-registry",
       "why": "巡检调度器本体：auditImmutableGuardNewCommits 住这里，改掉它巡检就永远 return，而巡检仍由被改过的代码执行",
