@@ -12319,11 +12319,18 @@
     "providerHealthTip": "Latency {latency}ms · {count} models available",
     "question": {
       "customPlaceholder": "Or type your own answer...",
+      "expiresIn": "{seconds}s left",
       "multiSelectHint": "Select multiple, then submit",
+      "responseFailed": "Failed to send the answer and fell back to the legacy chain; retry if it did not take effect",
       "selectHint": "Select one to continue",
       "skip": "Skip Question",
+      "statusAnswered": "Answered",
+      "statusTimeout": "Timed out, no longer submittable",
+      "statusWithdrawn": "Withdrawn",
       "submit": "Submit Answer",
-      "title": "AI needs your answer"
+      "submitting": "Submitting...",
+      "title": "AI needs your answer",
+      "withdraw": "Withdraw Question"
     },
     "quotaExhaustedNotice": "The API account behind this model has used up its provider quota, and the platform already tried every other channel without success. This is not a problem with your own account. Please try again later, or switch to a model marked as free.",
     "quotaExhaustedTitle": "Provider account quota used up",
