@@ -7981,7 +7981,8 @@
             "completed": "已完成",
             "failed": "失败",
             "cancelled": "已取消",
-            "timeout": "已超时"
+            "timeout": "已超时",
+            "stub": "模拟未完成"
           },
           "hint": {
             "stopping": "停止请求已发出,等待子任务退出…",
@@ -8584,6 +8585,7 @@
         "statusFailed": "失败",
         "statusRunning": "运行中",
         "statusSpawned": "已派发",
+        "statusStub": "模拟未完成",
         "title": "Subagent 派单",
         "toolCallsCount": "{n}次",
         "toolCallsTitle": "{n} 次工具调用",
