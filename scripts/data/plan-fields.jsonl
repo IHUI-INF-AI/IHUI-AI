@@ -249,3 +249,10 @@
 {"key":"G-98#BUG-98scripts/check-agen","owner":"机主","waiting":"none","updatedAt":"2026-11-05T18:20:58.979Z","updatedBy":"plan-fields-extract"}
 {"key":"G-99#BUG-990125knowledgegraph","owner":"机主","waiting":"none","updatedAt":"2026-11-05T18:20:58.979Z","updatedBy":"plan-fields-extract"}
 {"key":"G-100#BUG-100apps/web/src/comp","owner":"机主","waiting":"none","updatedAt":"2026-11-05T18:20:58.979Z","updatedBy":"plan-fields-extract"}
+{"key":"G-101#BUG-101分页page列绕开apps/api","owner":"机主","waiting":"none","updatedAt":"2026-11-07T09:14:54.879Z","updatedBy":"plan-fields-extract"}
+{"key":"G-102#BUG-102apps/api/src/rout","owner":"机主","waiting":"none","updatedAt":"2026-11-07T09:14:54.879Z","updatedBy":"plan-fields-extract"}
+{"key":"G-103#BUG-103apps/api/src/plug","owner":"机主","waiting":"none","updatedAt":"2026-11-07T09:14:54.879Z","updatedBy":"plan-fields-extract"}
+{"key":"G-104#BUG-104payment-gateway","owner":"机主","waiting":"none","updatedAt":"2026-11-07T09:14:54.879Z","updatedBy":"plan-fields-extract"}
+{"key":"G-105#BUG-105@ihui/miniapp-tar","owner":"机主","waiting":"none","updatedAt":"2026-11-07T09:14:54.879Z","updatedBy":"plan-fields-extract"}
+{"key":"G-106#BUG-106资金/安全副作用通知腿裸空吞无留痕","owner":"机主","waiting":"none","updatedAt":"2026-11-07T09:14:54.879Z","updatedBy":"plan-fields-extract"}
+{"key":"G-107#BUG-107apps/api/src/serv","owner":"机主","waiting":"none","updatedAt":"2026-11-07T09:14:54.879Z","updatedBy":"plan-fields-extract"}
