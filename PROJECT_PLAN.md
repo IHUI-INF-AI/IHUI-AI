@@ -31900,3 +31900,36 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] RP-47（本行实号由取号器给；登记它的那枚提交信息误写成「RP-80」——号不得凭预告书写，此处留痕更正）两把 blocking 门在提交链上恒「取不到索引 blob」⇒ 每枚提交都被逼出 `--no-verify`（§12e 最重病型：逼人跳门连带废掉全部守门）。2026-10-30 实测现场：本席 `51b66c3a61` 落地时 safe-commit 自报「已用 --no-verify 落地(归因=undetermined-red)」，同轮 `gate-batch-run` 记 `300/300 executed, blockingFailed=0`（⇒ 我这批文件门级结论真为零红，跳门不等于内容有问题，但也不能反过来说明门在干活）；单跑现值 = 门 221 `check-mjs-syntax.mjs --staged` 报「staged 面 2006/2006 枚 blob 取不到(首：.github/scripts/npm-bootstrap-runner.mjs)」exit 2，门 254 `check-mjs-export-resolution.mjs --staged` 报「1750 枚射程内正文取不到」exit 2，而两者**全量档(判 HEAD blob)均 rc=0**（221 实测 2006 枚逐一经 vm.SourceTextModule 编译通过、存量 0）⇒ 失效面精确落在 `--staged` 一档。已排除的嫌疑：① `git show :path` / `rev-parse :path` / `cat-file blob` 三形态对同一文件全部 rc=0 取到 21627B；② `lib/face-reader.mjs` 的 `catBatchOids` 对 `:scripts/check-mjs-syntax.mjs`、`:scripts/agent-worktree.mjs` 均返回 40 位 oid（非 null）⇒ **批量取材层没坏**，问题在两门自身的 spec/路径组装或面选择（含 254 的 `stagedTriggers=scripts/` 射程判定）；③ 索引侧无异常：`ls-files --stage` 17709 条、`--unmerged` 0 条。⚠️ 注意门 89 `check-gate-wiring.mjs` 单跑直接抛栈 exit 2，与本格是否同源需一并判。嫌疑时段 = 本席之外有会话在 16:09 落过 `perf(git): face-reader 规格快路径`（`d6db2333fe`），取证时先按 commit 前后 A/B 复现，不得凭时间线归因。出路：先给这两把门的 `--staged` 档补一条"取不到时点名 git 命令与 rc/stderr"的可观测腿，再据实定位；**不得**为消红而放宽判据或把 `--staged` 退回读 HEAD（§0.4 取材面纪律），也不得把门降级了事（§12e）。〔归:可做｜2026-10-30〕
 - [ ] RP-40 **超工事件源真实适配器接入（泵已装车，缺可运行的 Port）**:现状=TriggerSourcePort + SuperAgentPump + 60s env 门控循环（IHUI_SUPER_AGENT_PUMP）已落地并测试钉住,但全仓无任何 Port 实现往 host 喂事件;出路=webhook 回调落账重放 / 已授权 GitHub 源轮询器（凭据属机主面,供值后即插即活）（登记@2026-11-07）
 - [ ] RP-43 **超工工作台面板（web 端消费 /api/super-agent/*）**:现状=全仓无任何端 HTTP 调用面板/工单/replies 端点,RN 的 toggle-super-agent 仅按钮事件无 API 线;出路=web 对话工作台列"要人处理"工单+验收入口,端内 i18n 五语言同批,跨端同步按 §9 显式豁免或跟进（登记@2026-11-07）
+
+## /goal goal-sag2 收口摘要（2026-11-08 · SAG2 词法多跳检索复现与超越）
+
+目标：用 `rea` 取证微信文章 https://mp.weixin.qq.com/s/Zle_gEs168spr9_HC0P0dg 所述新知识库 SAG2 的能力，把对照项目的**前后端能力代码**强化进本仓，循环到边际价值为零。因 §0.12 红线，落到合规路径：MIT 开源项目仅作行为/设计取证，复现能力与设计、写本仓自有代码，不粘对方源码、不破解许可证、不绕过付费、不提取凭据；所有新增文件带 provenance 水印头。
+
+### 取证（观察 / 推断 / 未知）
+- 观察：`rea-agents@6.4.0` 真跑 `doctor` / `capabilities` / `inspect-artifact` / `inspect-binary-layout` / `analyze-javascript-application`；官方架构文档与 `sag2_v10.rs` 等核心源码 raw 取证；对照 = `Zleap-AI/SAG-Wiki`（MIT，release v0.2.7，Tauri 2 + Svelte 5 + Rust core）。
+- 观察：零 embedding / 零 LLM 建库 / 零 GPU；SQLite FTS5 contentless + `bm25(chunk_fts,2,2,1)` 列权重 + `fts5vocab` 词表；`documents.mtime/size/hash` 驱动增量，原文不入库、查询时 hydrate；SAG2 主循环 `max_hops<=2`、初轮宽松 OR + 前 5 protected、`expansion_terms` 切句/name_phrase/smoothed IDF/seed 权重、每组候选 `interleave`、外部 `score(pool,evidence)`；终排 `diversify` 是 DPP 贪心正交化；citation 锚定 file hash + byte range。
+- 推断并被本仓验证：接进既有 `rag.py` 向量+关键词双路 RRF 后，可形成对照不具备的**三通道混合**；证据判断做成可插拔 provider，不可用时显式降级留痕。
+- 未知/未取证：JEV/Noul 打分协议请求 JSON、`sag_register_rank` 外部 C 实现、51 万文档规模真实延迟曲线；`rea doctor` 因 Ghidra env 未注入 / Hopper·IDA 未装报 healthy:false，已按「未判定」分诊而非记绿。
+
+### 本仓自有实现（前后端能力，零新增第三方依赖）
+- 后端 `apps/ai-service/app/services/sag2_lexical/`：`text.py` 中英文切句 / CJK bigram / citation span、`index.py` 内存倒排 + BM25 + SHA-256 增量 + hydrate、`retrieval.py` 扩展词 / `resolve_terms` / `interleave` / 两跳主循环 / 显式状态、`diversity.py` DPP 贪心正交化终排、`judge.py` 可插拔证据判断（`LexicalOnlyJudge` 明确 `judge_mode=lexical-only` 且 `executed=false`）、`service.py` 门面 + 与 `rag.py` 的 RRF 三通道融合。
+- API `/api/v1/ai/sag2/*`：`status` / `documents`(POST,DELETE) / `search` / `retrieve` / `fuse`，统一信封 `{code,message,data}`；由 `app/api/v1/router.py` 显式聚合挂载（未碰在飞的 `main.py`）。
+- 前端 `apps/web/app/(main)/sag2/` + `src/api/sag2-lexical.ts`：design-tokens 极简黑白工作台，六端点可操作、索引状态/引用锚点/检索轨迹/降级原因可见；`next.config.ts` 补 8803 转发白名单、`nav-data.ts` 补入口、5 语言 i18n 各 36 键 + nav 标签；`src/api/sag2-lexical.test.ts` 钉住端点与载荷。
+- `.check-api-routes-ignore.json` 登记 1 条：门的 `buildPyIncludeMaps` 既有已知边界不解析「挂载对象非 app 的二级聚合」，故静态面看不见 `/api/v1/ai/sag2/*`；后端六端点已实装，非真实 404，待门按 Fastify 侧 walk 扩图后可摘除。
+
+### 超越轴
+1. 贴本仓架构：复用 Postgres/服务栈与既有 `rag.py` 熔断降级链，三通道 RRF 混合为对照所无；2. 补齐对照缺失边界：判定器不可用时显式标注纯词法判定，索引未就绪/文件变更/取消/预算用尽均有显式状态；3. 更好测：扩展词 / 轮询合并 / DPP / IDF 全纯函数化，固定夹具钉死数值，不依赖模型服务。
+
+### 验证证据（现读，非自评）
+- 后端：`pytest tests/test_sag2_lexical.py -o addopts=""` → **22 passed**；`ruff check` → All checks passed；`mypy --strict` → Success: no issues found in 8 source files。
+- 落地树面（私有索引 `--staged`）：`check-doc-numbers --strict --push` **RC=0**、`check-api-routes` **RC=0**、`check-i18n-keys` **RC=0**、`check-api-endpoint-delta` **RC=0**、`check-nav-dead-links` **RC=0**、`check-watermark-coverage` **RC=0**（水印 13/13 新文件完整、提交携带 142 文件水印完整）、`check-git-stdio-discipline` **RC=0**、`check-web-mp-route-carriers` **RC=0**。
+- README 生成块与散文按**落地树自身现算值**刷齐（`trackedFiles=20015` / `testFiles=4367`），面自证「索引条目 = 生成器 trackedFiles」。
+- 前端接线自证：5 端点路径 / 6 处调用、rewrite 排在 `/api/:path*` 之前、导航与页面、5 语言 36 键零缺失零冗余、端点与后端装饰器逐条对齐 → **判红 0 项**。
+
+### 未判定与遗留（如实登记，不计绿）
+- 前端 `tsc --noEmit` / `eslint` / `vitest`：并发会话正在重装依赖树，`node_modules/.pnpm` 重建中、`react`/`next`/`vitest`/`typescript` 暂不可加载 ⇒ **环境性未判定**，非代码判红；依赖恢复后应复跑 `pnpm --filter @ihui/web typecheck|lint|test`。
+- `check-miniapp-shell-form`(299) 同因 `ERR_MODULE_NOT_FOUND: typescript` ⇒ 未判定；`check-immutable-guard --range origin/main..HEAD` 对 6 枚**他席本地提交**报 `list-bad` ⇒ 未判定，不代修他席暂存内容。
+- `apps/web/src/lib/ui-routes.generated.ts` 是四端派生产物且三方各异（staged/HEAD/origin 各一版），本轮不覆盖他席在飞面；待其链上用 `generate-ui-routes.mjs` 重生成。
+- 并发分叉：本地 HEAD 另有他席 6 枚未推提交，已由 `refs/backup/local-tip-2026-11-08-sag2*` 钉住零信息损失；闭环判据 = 本轮交付 sha 落在 `origin/main` 链上，不强求此刻 remote==local。
+- 后续建议（P1–P5）：P1 依赖恢复后补前端三项验证；P2 给 `check-api-routes` 扩二级聚合挂载图后摘除 ignore 登记；P3 把内存倒排升级为 Postgres `tsvector`/`ts_rank_cd` 持久化面；P4 接真实模型判定 provider 并补 judge 执行率遥测；P5 为 51 万文档规模补延迟/召回基准与取消预算实测。
+
