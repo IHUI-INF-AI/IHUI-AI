@@ -811,6 +811,22 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[mcp_store] 启动恢复初始化失败(忽略): %s", e)
 
+    # MCP 动态注册表(2026-11-07 立,trust-gated):只从两份白名单来源加载
+    # - 仓库受版本控制: apps/ai-service/config/mcp/servers/*.json
+    # - 用户显式配置目录: ~/.ihui/mcp-servers/*.json(IHUI_MCP_USER_DIR 可覆盖)
+    # 不接受请求体路径/网络拉取/模型自注册;单文件不可信只拒绝该文件,不阻塞启动。
+    try:
+        from app.services.mcp_registry import get_mcp_registry
+
+        _registry_status = await get_mcp_registry().reload(actor="system")
+        logger.info(
+            "[mcp_registry] 启动加载完成: loaded=%d rejected=%d",
+            len(_registry_status.get("loaded", [])),
+            len(_registry_status.get("rejected", [])),
+        )
+    except Exception as e:  # noqa: BLE001 - 注册表异常不阻塞启动(已 fail-closed 拒绝)
+        logger.warning("[mcp_registry] 启动加载异常(忽略): %s", e)
+
     # AI 全量操控桥接(2026-09-20 立):拉取 apps/api OpenAPI 转为 MCP 工具 + 注册前端 UI 动作工具
     try:
         from app.services.api_tools_bridge import setup_api_tools_bridge
@@ -987,6 +1003,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await close_api_client()
 
+    async def _s_mcp_registry() -> None:
+        from app.services.mcp_registry import get_mcp_registry
+
+        await get_mcp_registry().shutdown()
+
     async def _s_mcp_client() -> None:
         from app.services.mcp_client import get_mcp_client_manager
 
@@ -1055,6 +1076,8 @@ async def lifespan(app: FastAPI) -> Any:
         ("lsp_clients", _s_lsp),
         ("llm_gateway_http", _s_llm_http),
         ("api_client_http", _s_api_client),
+        # 动态注册表必须先于 mcp_client/mcp_stdio 卸载(其 _deactivate 要调用两者)
+        ("mcp_registry", _s_mcp_registry),
         ("mcp_client", _s_mcp_client),
         ("mcp_stdio_bridge", _s_mcp_stdio),
         # Z35 接线(2026-11-06):进程退出的引擎侧文件监控排空腿(Z32 遗留的唯一一行)。
