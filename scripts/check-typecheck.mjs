@@ -41,7 +41,7 @@
  *       .husky/pre-push 本体不在本改动允许范围内,改由编排/手动走本包装)。
  */
 import { spawn, spawnSync } from 'node:child_process' // spawnSync:2026-09-20 超时杀进程树/定向快通道用
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 // 硬超时上限(2026-09-20 根治推送挂起;定义前置是因为定向快通道也要用同一上限):
 // 事故实证:某次 push 挂起 62 分钟零产出 —— 本脚本原先对 typecheck 子进程既无 timeout
 // 也无 timer kill,只要 typecheck-full 内部卡住(pnpm -r 依赖解析失败 / worktree 各包
@@ -72,13 +72,77 @@ import { gitRaw } from './lib/face-reader.mjs'
 // 立因(2026-11-07 机主令):算术一致(base+margin)拦不住真正放水 —— 把 margin 从 15 万
 // 改到 30 万,derived 同步加 15 万,等式照样成立、门照绿。故 marginMs 变更必须同批在
 // evidence[] 追加一条「凭什么改」;只涨数字不加证据 ⇒ 本门判红。
-import { checkMarginRatchet } from './lib/gate-timeout-budget.mjs'
+// 2026-11-07 二次收紧:畸形预算(evidence 空 / 末条不覆盖当前 margin / derived≠base+margin)
+// 一律硬失败,禁止回落 300s —— 「数据坏了 = 阈值消失」是同一族 fail-open。
+import {
+  checkMarginRatchetHistory,
+  readBudgetRaw,
+  validateGateTimeoutBudget,
+} from './lib/gate-timeout-budget.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const SELF_TEST = process.argv.includes('--self-test')
+
+// ─── 超时预算棘轮(2026-11-07 机主令) ────────────────────────────────
+// 第一步 = 严格校验当前预算文件:三种畸形(evidence 空 / 末条 margin 不覆盖当前值 /
+// derived≠base+margin)一律 exit 非 0 并点名,禁止回落默认 300s。
+// 第二步 = 跨提交史比对:不是固定 HEAD^,而是在该文件最近的 HISTORY_LIMIT 个版本里找
+// 「最近一个 marginMs 不同的旧版本」作基线,并校验 evidence 条数单调不减 —— 这样
+// 「中间删 evidence 再加回」「revert 后再改」两步形态也能被抓到。
+// 已知边界:只回溯 HISTORY_LIMIT 个提交(成本取舍,不是全史覆盖)。
+// 无 git / 浅克隆 / 文件首次引入 ⇒ 跳过史比对,但当前文件的严格校验仍然执行。
+// 位置约束(2026-11-07 二次收紧):必须在**任何可能 exit 0 的分支之前**(--self-test /
+// --dry-run / 定向快通道)执行 —— 否则畸形预算能被任一早退分支绕过,仍是
+// 「数据坏了 = 门不存在」同一族 fail-open。
+const BUDGET_REL = 'scripts/data/gate-timeout-budget.json'
+const HISTORY_LIMIT = 30
+
+function enforceTimeoutBudgetRatchet() {
+  const abs = join(ROOT, BUDGET_REL)
+  const { ok, errors } = validateGateTimeoutBudget(abs)
+  if (!ok) {
+    console.error('[check-typecheck] ❌ T1 超时预算文件畸形 —— 拒绝回落默认阈值:')
+    for (const e of errors) console.error(`  · ${e}`)
+    console.error('  修法:只修 scripts/data/gate-timeout-budget.json(本门不提供跳过开关)。')
+    process.exit(1)
+  }
+  const cur = readBudgetRaw(abs)?.gates?.T1
+  if (!cur) return
+  const log = spawnSync('git', ['log', '-n', String(HISTORY_LIMIT), '--format=%H', '--', BUDGET_REL], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  if (log.status !== 0 || !log.stdout) return
+  const history = []
+  for (const sha of log.stdout.split('\n').map((x) => x.trim()).filter(Boolean)) {
+    const r = spawnSync('git', ['show', `${sha}:${BUDGET_REL}`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    if (r.status !== 0 || !r.stdout) continue
+    try {
+      const entry = JSON.parse(r.stdout)?.gates?.T1
+      if (entry && Number.isFinite(entry.marginMs)) history.push({ ...entry, __sha: sha.slice(0, 8) })
+    } catch {
+      /* 该版本 JSON 坏 ⇒ 跳过该版;当前版本的畸形已由第一步判红 */
+    }
+  }
+  const ratchetErrors = checkMarginRatchetHistory('T1', cur, history)
+  if (ratchetErrors.length === 0) return
+  console.error('[check-typecheck] ❌ T1 超时预算棘轮未通过 —— 拒绝把放水当预算:')
+  for (const e of ratchetErrors) console.error(`  · ${e}`)
+  console.error('  改余量必须同批在 evidence[] 追加一条「凭什么改」;删证据再加回同样判红。')
+  process.exit(1)
+}
+
+enforceTimeoutBudgetRatchet()
 
 /**
  * 无文件面档判据(2026-11-04 立)。env 契约的唯一产出方是 `.husky/pre-push`:
@@ -653,37 +717,6 @@ if (_fast) {
   )
   process.exit(r.status ?? 1)
 }
-
-// ─── 超时预算棘轮(2026-11-07 机主令) ────────────────────────────────
-// 比对对象是「本次 HEAD」与「上一提交 HEAD^」的预算文件:marginMs 变了但 evidence[]
-// 没有增长 ⇒ 判红并给出改法。无 git / 浅克隆 / 首次引入该文件 ⇒ 不拦(不得因缺历史洗绿
-// 任何已存在的红点,也不得把正常开发判红)。
-function enforceTimeoutBudgetRatchet() {
-  const readAt = (ref) => {
-    const r = spawnSync('git', ['show', `${ref}:scripts/data/gate-timeout-budget.json`], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true,
-    })
-    if (r.status !== 0 || !r.stdout) return null
-    try {
-      return JSON.parse(r.stdout)
-    } catch {
-      return null
-    }
-  }
-  const cur = readAt('HEAD')
-  if (!cur) return
-  const prev = readAt('HEAD^')
-  const errors = checkMarginRatchet('T1', prev?.gates?.T1, cur?.gates?.T1)
-  if (errors.length === 0) return
-  console.error('[check-typecheck] ❌ T1 超时预算棘轮未通过 —— 拒绝把放水当预算:')
-  for (const e of errors) console.error(`  · ${e}`)
-  process.exit(1)
-}
-
-enforceTimeoutBudgetRatchet()
 
 console.log(
   `[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出)${scopeEnabled ? ` [${scopeLabel} 降级启用,${scopeFiles.length} 文件(原始 ${scopeFilesRaw.length} + 反向依赖新增 ${_widen.added.length})]` : ' [无可判定改动范围,无降级]'}...`,
