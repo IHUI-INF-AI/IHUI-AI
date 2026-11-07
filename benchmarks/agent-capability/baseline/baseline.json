@@ -1,0 +1,792 @@
+{
+  "cases": [
+    {
+      "capability": "compaction",
+      "evidence": {
+        "runs": [
+          {
+            "afterTokens": 2216,
+            "beforeTokens": 3700,
+            "compressed": true,
+            "danglingToolCallIds": [],
+            "degenerate": true,
+            "messagesAfter": 3,
+            "orphanToolCallIds": [],
+            "reason": "sampler-failed",
+            "removedCount": 27,
+            "sample": "",
+            "samplerCalls": 1,
+            "summaryChars": 2533,
+            "trigger": "ratio"
+          },
+          {
+            "afterTokens": 2216,
+            "beforeTokens": 3700,
+            "compressed": true,
+            "danglingToolCallIds": [],
+            "degenerate": true,
+            "messagesAfter": 3,
+            "orphanToolCallIds": [],
+            "reason": "sampler-failed",
+            "removedCount": 27,
+            "sample": "   ",
+            "samplerCalls": 1,
+            "summaryChars": 2533,
+            "trigger": "ratio"
+          },
+          {
+            "afterTokens": 2216,
+            "beforeTokens": 3700,
+            "compressed": true,
+            "danglingToolCallIds": [],
+            "degenerate": true,
+            "messagesAfter": 3,
+            "orphanToolCallIds": [],
+            "reason": "sampler-failed",
+            "removedCount": 27,
+            "sample": "[占位] 已完成。",
+            "samplerCalls": 1,
+            "summaryChars": 2533,
+            "trigger": "ratio"
+          }
+        ]
+      },
+      "failures": [],
+      "id": "compaction.degenerate-summary-guard",
+      "metrics": {
+        "compaction.compressed": true,
+        "compaction.degenerate_summary": true,
+        "compaction.token_reduction": 1484,
+        "compaction.tool_pair_integrity": true
+      },
+      "passed": true
+    },
+    {
+      "capability": "compaction",
+      "evidence": {
+        "dangling_tool_call_ids": [],
+        "facts": [
+          {
+            "id": "no-rm-rf",
+            "inSummary": true,
+            "inTail": false,
+            "origin": "head"
+          },
+          {
+            "id": "release-token",
+            "inSummary": true,
+            "inTail": false,
+            "origin": "head"
+          },
+          {
+            "id": "source-table-path",
+            "inSummary": true,
+            "inTail": false,
+            "origin": "head"
+          },
+          {
+            "id": "local-port",
+            "inSummary": true,
+            "inTail": false,
+            "origin": "head"
+          },
+          {
+            "id": "handover-owner",
+            "inSummary": false,
+            "inTail": true,
+            "origin": "tail"
+          },
+          {
+            "id": "secrets-file",
+            "inSummary": false,
+            "inTail": true,
+            "origin": "tail"
+          }
+        ],
+        "messages_after": 12,
+        "messages_before": 29,
+        "orphan_tool_call_ids": [],
+        "reason": "above-threshold",
+        "reduction_ratio": 0.4905405405405405,
+        "removed_count": 18,
+        "sampler_calls": 1,
+        "sampler_input_count": 18,
+        "sampler_input_roles": [
+          "user",
+          "assistant",
+          "user",
+          "assistant",
+          "tool",
+          "assistant",
+          "user",
+          "assistant",
+          "tool",
+          "assistant",
+          "user",
+          "assistant",
+          "tool",
+          "assistant",
+          "user",
+          "assistant",
+          "tool",
+          "assistant"
+        ],
+        "summary_chars": 592,
+        "summary_first_line": "[上下文摘要 — 之前 18 条消息已压缩]",
+        "tokens_after": 1815,
+        "tokens_before": 3700,
+        "tool_pairs_after": 2,
+        "tool_pairs_before": 6,
+        "trigger": "ratio"
+      },
+      "failures": [],
+      "id": "compaction.long-history-facts",
+      "metrics": {
+        "compaction.compressed": true,
+        "compaction.degenerate_summary": false,
+        "compaction.retained_facts": 6,
+        "compaction.retention_ratio": 1,
+        "compaction.token_reduction": 1885,
+        "compaction.tool_pair_integrity": true
+      },
+      "passed": true
+    },
+    {
+      "capability": "error-recovery",
+      "evidence": {
+        "failure_feedback_in_requests": [
+          true
+        ],
+        "served_model_calls": [
+          "read-missing-file",
+          "list-dir-after-failure",
+          "read-real-file",
+          "answer-after-recovery"
+        ],
+        "tool_calls": [
+          {
+            "name": "read_file",
+            "path": "secret.md"
+          },
+          {
+            "name": "list_dir",
+            "path": "."
+          },
+          {
+            "name": "read_file",
+            "path": "notes.md"
+          }
+        ],
+        "tool_success": [
+          false,
+          true,
+          true
+        ],
+        "workspace_files": [
+          "notes.md",
+          "todo.txt"
+        ]
+      },
+      "failures": [],
+      "id": "recovery.missing-file-then-list",
+      "metrics": {
+        "recovery.attempts": 3,
+        "recovery.final_state_correct": true,
+        "recovery.recovered": true,
+        "recovery.stop_reason": "end_turn",
+        "recovery.wasted_side_effects": 0
+      },
+      "passed": true
+    },
+    {
+      "capability": "error-recovery",
+      "evidence": {
+        "failure_feedback_in_requests": [
+          true,
+          true
+        ],
+        "iterations_before_stop": 3,
+        "served_model_calls": [
+          "read-missing-again-1",
+          "read-missing-again-2",
+          "read-missing-again-3"
+        ],
+        "tool_calls": [
+          {
+            "name": "read_file",
+            "path": "missing-report.md"
+          },
+          {
+            "name": "read_file",
+            "path": "missing-report.md"
+          }
+        ],
+        "tool_success": [
+          false,
+          false
+        ],
+        "workspace_files": [
+          "notes.md",
+          "todo.txt"
+        ]
+      },
+      "failures": [],
+      "id": "recovery.repeated-failure-bounded",
+      "metrics": {
+        "recovery.attempts": 2,
+        "recovery.final_state_correct": true,
+        "recovery.recovered": false,
+        "recovery.stop_reason": "error",
+        "recovery.wasted_side_effects": 1
+      },
+      "passed": true
+    },
+    {
+      "capability": "resume",
+      "evidence": {
+        "fingerprints": {
+          "baseline": [
+            "a2d943b9cbe12cb9beafa0911241afb54fe34325bdff364dd5bca52e58e825a5",
+            "e0a81216dda5f75e95b92dc2686b576cd5cd0989fdfd708daac03769a6fe8fa9",
+            "77ce295909876caf7230948e0adb9da7e8717eccbee7573c4f74bca0d2ba17a4"
+          ],
+          "consistent_turns": 3,
+          "final_match": true,
+          "interrupted": [
+            "a2d943b9cbe12cb9beafa0911241afb54fe34325bdff364dd5bca52e58e825a5",
+            "e0a81216dda5f75e95b92dc2686b576cd5cd0989fdfd708daac03769a6fe8fa9",
+            "77ce295909876caf7230948e0adb9da7e8717eccbee7573c4f74bca0d2ba17a4"
+          ]
+        },
+        "resumed_turn": {
+          "duplicate_side_effects": 0,
+          "request_tool_result_blocks": 4,
+          "stop_reason": "end_turn",
+          "tool_calls": [
+            {
+              "arguments_sha256": "a707cbc19c1dcaa9598ab8cfa27f3b31c9b664f3c6dc96f95326ff9f74e7b9ee",
+              "name": "read_file",
+              "seq": "call-01"
+            }
+          ]
+        },
+        "session": {
+          "historical_tool_calls": [
+            {
+              "name": "read_file",
+              "seq": "call-01"
+            },
+            {
+              "name": "read_file",
+              "seq": "call-02"
+            },
+            {
+              "name": "read_file",
+              "seq": "call-03"
+            },
+            {
+              "name": "list_dir",
+              "seq": "call-04"
+            }
+          ],
+          "persisted_messages": 7,
+          "persisted_shape": [
+            {
+              "body_sha256": "e05d0db54f9d78b327955490fe9608b9abc702a704db100aa7b0772850714515",
+              "role": "user",
+              "seq": "msg-001"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-002"
+            },
+            {
+              "body_sha256": "85f7cd255aecf524e325687811bcc271afafa5ff3906ab95c692293aa3d08517",
+              "role": "user",
+              "seq": "msg-003"
+            },
+            {
+              "body_sha256": "ee848b92a5e968ede19095a34305bf3c0594297891a36831a59b12634e0e779d",
+              "role": "assistant",
+              "seq": "msg-004"
+            },
+            {
+              "body_sha256": "c4a8a0c27c2bdb826a1f9292ea77341412153abb26e9fa4aed43b04adba00aea",
+              "role": "user",
+              "seq": "msg-005"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-006"
+            },
+            {
+              "body_sha256": "319b22811c76862bc384444cbcab6c78e2e46d954fcf612ab629273037c09898",
+              "role": "user",
+              "seq": "msg-007"
+            }
+          ],
+          "restored_messages": 7,
+          "restored_shape": [
+            {
+              "body_sha256": "e05d0db54f9d78b327955490fe9608b9abc702a704db100aa7b0772850714515",
+              "role": "user",
+              "seq": "msg-001"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-002"
+            },
+            {
+              "body_sha256": "85f7cd255aecf524e325687811bcc271afafa5ff3906ab95c692293aa3d08517",
+              "role": "user",
+              "seq": "msg-003"
+            },
+            {
+              "body_sha256": "ee848b92a5e968ede19095a34305bf3c0594297891a36831a59b12634e0e779d",
+              "role": "assistant",
+              "seq": "msg-004"
+            },
+            {
+              "body_sha256": "c4a8a0c27c2bdb826a1f9292ea77341412153abb26e9fa4aed43b04adba00aea",
+              "role": "user",
+              "seq": "msg-005"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-006"
+            },
+            {
+              "body_sha256": "319b22811c76862bc384444cbcab6c78e2e46d954fcf612ab629273037c09898",
+              "role": "user",
+              "seq": "msg-007"
+            }
+          ],
+          "restored_tool_result_names": [
+            "read_file",
+            "read_file",
+            "read_file",
+            "list_dir"
+          ]
+        },
+        "turns": [
+          {
+            "fingerprint": "a2d943b9cbe12cb9beafa0911241afb54fe34325bdff364dd5bca52e58e825a5",
+            "message_count": 5,
+            "roles": [
+              "system",
+              "user",
+              "assistant",
+              "user",
+              "assistant"
+            ],
+            "tool_calls": [
+              {
+                "arguments_sha256": "3b321ffc343470aa8823b957731117919703f97ff7267821a111070f0ac2dd7e",
+                "name": "read_file",
+                "seq": "call-01"
+              },
+              {
+                "arguments_sha256": "34b01d11b83d81e16adf0163cefdc4c80c50360b6d328933118cd67d2671a333",
+                "name": "read_file",
+                "seq": "call-02"
+              }
+            ],
+            "turn": 1
+          },
+          {
+            "fingerprint": "e0a81216dda5f75e95b92dc2686b576cd5cd0989fdfd708daac03769a6fe8fa9",
+            "message_count": 8,
+            "roles": [
+              "system",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user"
+            ],
+            "tool_calls": [
+              {
+                "arguments_sha256": "e765e8d7e3744aaf9df3f5c3dc791ff346b6e29b5cca07bd92386569354e0af8",
+                "name": "read_file",
+                "seq": "call-01"
+              },
+              {
+                "arguments_sha256": "4ae486c3a48f8dc732af672b138b438a1d96960304cc334d46bbc2687d169cbb",
+                "name": "list_dir",
+                "seq": "call-02"
+              }
+            ],
+            "turn": 2
+          },
+          {
+            "fingerprint": "77ce295909876caf7230948e0adb9da7e8717eccbee7573c4f74bca0d2ba17a4",
+            "message_count": 12,
+            "roles": [
+              "system",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "user",
+              "assistant",
+              "user",
+              "assistant"
+            ],
+            "tool_calls": [
+              {
+                "arguments_sha256": "a707cbc19c1dcaa9598ab8cfa27f3b31c9b664f3c6dc96f95326ff9f74e7b9ee",
+                "name": "read_file",
+                "seq": "call-01"
+              }
+            ],
+            "turn": 3
+          }
+        ],
+        "workspace_files": [
+          "notes.md",
+          "plan.md",
+          "summary.md",
+          "todo.txt"
+        ]
+      },
+      "failures": [],
+      "id": "resume.mid-turn-tool-pair",
+      "metrics": {
+        "resume.consistent_turns": 3,
+        "resume.duplicate_side_effects": 0,
+        "resume.restored_messages": 7,
+        "resume.resumed_tool_calls": 1,
+        "resume.transcript_hash_match": true
+      },
+      "passed": true
+    },
+    {
+      "capability": "resume",
+      "evidence": {
+        "fingerprints": {
+          "baseline": [
+            "0b489305aaf26cebe40f5042225a74114f20189b3d1e684b6b7336884e3a1ecf",
+            "eb6d37293ea604e2b61db1df93a1fc112e830382e41bb324c4cb4023e7dcc379",
+            "7b9a4f1862fd1dd1a3bbd1ebbbf35ec84dd45a5f707cfb488adba3ced0402f49"
+          ],
+          "consistent_turns": 3,
+          "final_match": true,
+          "interrupted": [
+            "0b489305aaf26cebe40f5042225a74114f20189b3d1e684b6b7336884e3a1ecf",
+            "eb6d37293ea604e2b61db1df93a1fc112e830382e41bb324c4cb4023e7dcc379",
+            "7b9a4f1862fd1dd1a3bbd1ebbbf35ec84dd45a5f707cfb488adba3ced0402f49"
+          ]
+        },
+        "resumed_turn": {
+          "duplicate_side_effects": 0,
+          "request_tool_result_blocks": 2,
+          "stop_reason": "end_turn",
+          "tool_calls": [
+            {
+              "arguments_sha256": "4ae486c3a48f8dc732af672b138b438a1d96960304cc334d46bbc2687d169cbb",
+              "name": "list_dir",
+              "seq": "call-01"
+            }
+          ]
+        },
+        "session": {
+          "historical_tool_calls": [
+            {
+              "name": "read_file",
+              "seq": "call-01"
+            },
+            {
+              "name": "read_file",
+              "seq": "call-02"
+            }
+          ],
+          "persisted_messages": 8,
+          "persisted_shape": [
+            {
+              "body_sha256": "570e53a31991881a399e82c7254b48da3a595a00804d61d5e1dfff2053fd805d",
+              "role": "user",
+              "seq": "msg-001"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-002"
+            },
+            {
+              "body_sha256": "315861de2015eef97bd6c756ec5d8d0ade594a9ed8b91adf0d3bea25e739680f",
+              "role": "user",
+              "seq": "msg-003"
+            },
+            {
+              "body_sha256": "6892a2e01129dd675807c5e17db00ac00645c10dd445bb307d1a64a687892354",
+              "role": "assistant",
+              "seq": "msg-004"
+            },
+            {
+              "body_sha256": "53a4fa8a79afbd8c6066e0649f6bf876c75be7f478ec194d084e18b315c5586d",
+              "role": "user",
+              "seq": "msg-005"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-006"
+            },
+            {
+              "body_sha256": "bef485bb301a2bc59994569480b663621cc7d3cdbe7e220cb1493f28862a7f7c",
+              "role": "user",
+              "seq": "msg-007"
+            },
+            {
+              "body_sha256": "bf6649386316c6e01fded034978816ed61152cdd1091f7ee9224f0218ced2abb",
+              "role": "assistant",
+              "seq": "msg-008"
+            }
+          ],
+          "restored_messages": 8,
+          "restored_shape": [
+            {
+              "body_sha256": "570e53a31991881a399e82c7254b48da3a595a00804d61d5e1dfff2053fd805d",
+              "role": "user",
+              "seq": "msg-001"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-002"
+            },
+            {
+              "body_sha256": "315861de2015eef97bd6c756ec5d8d0ade594a9ed8b91adf0d3bea25e739680f",
+              "role": "user",
+              "seq": "msg-003"
+            },
+            {
+              "body_sha256": "6892a2e01129dd675807c5e17db00ac00645c10dd445bb307d1a64a687892354",
+              "role": "assistant",
+              "seq": "msg-004"
+            },
+            {
+              "body_sha256": "53a4fa8a79afbd8c6066e0649f6bf876c75be7f478ec194d084e18b315c5586d",
+              "role": "user",
+              "seq": "msg-005"
+            },
+            {
+              "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "role": "assistant",
+              "seq": "msg-006"
+            },
+            {
+              "body_sha256": "bef485bb301a2bc59994569480b663621cc7d3cdbe7e220cb1493f28862a7f7c",
+              "role": "user",
+              "seq": "msg-007"
+            },
+            {
+              "body_sha256": "bf6649386316c6e01fded034978816ed61152cdd1091f7ee9224f0218ced2abb",
+              "role": "assistant",
+              "seq": "msg-008"
+            }
+          ],
+          "restored_tool_result_names": [
+            "read_file",
+            "read_file"
+          ]
+        },
+        "turns": [
+          {
+            "fingerprint": "0b489305aaf26cebe40f5042225a74114f20189b3d1e684b6b7336884e3a1ecf",
+            "message_count": 5,
+            "roles": [
+              "system",
+              "user",
+              "assistant",
+              "user",
+              "assistant"
+            ],
+            "tool_calls": [
+              {
+                "arguments_sha256": "3b321ffc343470aa8823b957731117919703f97ff7267821a111070f0ac2dd7e",
+                "name": "read_file",
+                "seq": "call-01"
+              }
+            ],
+            "turn": 1
+          },
+          {
+            "fingerprint": "eb6d37293ea604e2b61db1df93a1fc112e830382e41bb324c4cb4023e7dcc379",
+            "message_count": 9,
+            "roles": [
+              "system",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant"
+            ],
+            "tool_calls": [
+              {
+                "arguments_sha256": "34b01d11b83d81e16adf0163cefdc4c80c50360b6d328933118cd67d2671a333",
+                "name": "read_file",
+                "seq": "call-01"
+              }
+            ],
+            "turn": 2
+          },
+          {
+            "fingerprint": "7b9a4f1862fd1dd1a3bbd1ebbbf35ec84dd45a5f707cfb488adba3ced0402f49",
+            "message_count": 13,
+            "roles": [
+              "system",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant",
+              "user",
+              "assistant"
+            ],
+            "tool_calls": [
+              {
+                "arguments_sha256": "4ae486c3a48f8dc732af672b138b438a1d96960304cc334d46bbc2687d169cbb",
+                "name": "list_dir",
+                "seq": "call-01"
+              }
+            ],
+            "turn": 3
+          }
+        ],
+        "workspace_files": [
+          "notes.md",
+          "plan.md",
+          "todo.txt"
+        ]
+      },
+      "failures": [],
+      "id": "resume.persist-reload-continue",
+      "metrics": {
+        "resume.consistent_turns": 3,
+        "resume.duplicate_side_effects": 0,
+        "resume.restored_messages": 8,
+        "resume.resumed_tool_calls": 1,
+        "resume.transcript_hash_match": true
+      },
+      "passed": true
+    },
+    {
+      "capability": "tool-call",
+      "evidence": {
+        "served_model_calls": [
+          "select-read",
+          "answer-from-tool"
+        ],
+        "tool_calls": [
+          {
+            "name": "read_file",
+            "path": "notes.md"
+          }
+        ],
+        "tool_success": [
+          true
+        ],
+        "workspace_files": [
+          "notes.md",
+          "todo.txt"
+        ]
+      },
+      "failures": [],
+      "id": "tool-call.direct-read",
+      "metrics": {
+        "tool-call.correct_selections": 1,
+        "tool-call.executed_calls": 1,
+        "tool-call.invalid_argument_calls": 0,
+        "tool-call.repair_rounds": 0,
+        "tool-call.stop_reason": "end_turn",
+        "tool-call.workspace_state_correct": true
+      },
+      "passed": true
+    },
+    {
+      "capability": "tool-call",
+      "evidence": {
+        "served_model_calls": [
+          "bad-args",
+          "repair-args",
+          "answer-after-repair"
+        ],
+        "tool_calls": [
+          {
+            "name": "read_file",
+            "path": null
+          },
+          {
+            "name": "read_file",
+            "path": "notes.md"
+          }
+        ],
+        "tool_success": [
+          false,
+          true
+        ]
+      },
+      "failures": [],
+      "id": "tool-call.invalid-arg-repair",
+      "metrics": {
+        "tool-call.correct_selections": 1,
+        "tool-call.executed_calls": 2,
+        "tool-call.invalid_argument_calls": 1,
+        "tool-call.repair_rounds": 1,
+        "tool-call.stop_reason": "end_turn",
+        "tool-call.workspace_state_correct": true
+      },
+      "passed": true
+    },
+    {
+      "capability": "tool-call",
+      "evidence": {
+        "served_model_calls": [
+          "select-list-dir",
+          "answer-file-list"
+        ],
+        "tool_calls": [
+          {
+            "name": "list_dir"
+          }
+        ],
+        "workspace_root_entries": [
+          "notes.md",
+          "todo.txt"
+        ]
+      },
+      "failures": [],
+      "id": "tool-call.select-list-dir",
+      "metrics": {
+        "tool-call.correct_selections": 1,
+        "tool-call.executed_calls": 1,
+        "tool-call.invalid_argument_calls": 0,
+        "tool-call.repair_rounds": 0,
+        "tool-call.stop_reason": "end_turn",
+        "tool-call.workspace_state_correct": true
+      },
+      "passed": true
+    }
+  ],
+  "commit": "158c6f95598f331138d661b04ab9aa459e88e71a",
+  "fixtureHash": "f7450dddd300c825a686b9651a025b294adeb3440ce97cc7181071902e85ffb2",
+  "schemaVersion": 1
+}
