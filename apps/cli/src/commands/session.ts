@@ -110,12 +110,17 @@ export function getMostRecentSession(): Session | null {
  *   5. 移除末尾无响应的 user 消息(interjection 残留,没有 assistant 响应)
  *
  * 返回修复后的 history + 移除条数 + 修复原因清单(供 /repair 命令展示)。
+ *
+ * BUG-0015:入参泛型收敛到 `RepairableMessage`(role: string)。本函数的输入域本就是
+ * 「磁盘上不可信 JSON」——非法 role、缺 id 的脏消息正是它要清理的对象;原先声明为
+ * `ChatMessage[]` 再在函数体里 `as RepairableMessage[]` 强转,是把"输入一定合法"
+ * 写在签名上、把真实前提藏在 cast 里。泛型化后 cast 消失,调用方拿回自己的窄类型。
  */
-export function repairSessionHistory(
-  history: ChatMessage[],
+export function repairSessionHistory<T extends RepairableMessage>(
+  history: T[],
   options?: { keepTrailingUser?: boolean },
 ): {
-  repaired: ChatMessage[];
+  repaired: T[];
   removed: number;
   reasons: string[];
 } {
@@ -123,11 +128,7 @@ export function repairSessionHistory(
   // (主动修复时应删除末尾无响应的 interjection 残留);LLM 请求链路如需保留当前输入
   // (末尾 user),由调用方显式传 { keepTrailingUser: true } —— 与 message-repair.ts
   // Rule 5 的 keepTrailingUser 语义一致,CLI 发送链路不经过本函数,无行为变化。
-  return repairMessages(history as RepairableMessage[], options) as {
-    repaired: ChatMessage[];
-    removed: number;
-    reasons: string[];
-  };
+  return repairMessages(history, options);
 }
 
 /**
