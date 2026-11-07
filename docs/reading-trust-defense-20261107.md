@@ -104,6 +104,36 @@
   `Gate-Owner: <属主>`;未登记属主的门只列清单,不强行填"公共")。
 - 运行环节:CI(判 HEAD 提交)+ 人工补登记。
 
+### F8 约束只存在于对话、机制缺省相反 —— "不许推"在机制上不可执行
+
+- 形态:规则写在对话或文档里,而机制的缺省动作恰好相反。只要执行的人没读到那句话、或忘了设
+  环境变量,缺省行为就替人做了那个被禁止的事 —— 约束在机制层面等于不存在。
+- 今日真实证据(2026-11-07):
+  - `.husky/post-commit` → `scripts/lib/post-commit-hook.js` 的缺省行为 = 只要
+    `HUSKY_SKIP_PUSH !== '1'` 就自动调 `git-push-guard.mjs` 推送 ⇒ **缺省 = 推**;
+  - 同机 `origin` = `ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`,不是硬约束要求的
+    `https://github.com/IHUI-INF-AI/IHUI-AI.git`;
+  - **一次默认行为 + 一个 SSH remote = 一次违规推送**,只差远端当时可达。本轮实测**没有推出去**
+    (远端不可达:`.ihui-agent/state/hook-logs/post-commit-push-guard.log` 记
+    `❌ 远端 origin/tmp/apk-fast-leg 不存在或取不到 ⇒ 本轮不推`),两枚提交留在本地。
+    这是"事故恰好没发生",不是"约束被执行"。
+- 对应检查(同轮补齐;**不改任何既有校验门**):`scripts/git-push-guard.mjs` 在推送前加两道
+  **拒绝**闸,判据本体在 `scripts/lib/push-window-gate.mjs`(纯函数,可单测):
+  1. **协议闸**:目标远端不是显式 `https://` 开头(`ssh://` / `git@`(scp-like) / `git://` /
+     本地路径 / 取不到 URL)⇒ 拒绝,打印目标 URL 原文 + `违反 HTTPS 显式地址约束，本轮不推`,
+     并说明正确写法是显式给 `https://github.com/IHUI-INF-AI/IHUI-AI.git`;
+  2. **窗口闸**:没有显式 `PUSH_WINDOW=1` ⇒ 拒绝,打印
+     `推送窗口未开启 ⇒ 本轮不推（提交已落地本地）`(缺省 / `'0'` / `'true'` 一律视为无窗口)。
+  **缺省值 = 不推**;两道拒绝都走 `process.exit(1)`,绝不降级成 warning 后继续推。
+- 阴性对照 / "把修复去掉必须报红":`node --test scripts/tests/push-window-gate.test.mjs`(9 条):
+  `ssh://` ⇒ 拒、`https://` 但无 `PUSH_WINDOW` ⇒ 拒、`https://` + `PUSH_WINDOW=1` ⇒ 放行
+  (本地 bare + `insteadOf` 测试桩,**不联网、不推真远端**)。另有装车锁:把
+  `judgePushRemoteUrl(originUrl)` / `judgePushWindow(process.env)` 任一摘线即判红
+  (本仓最高频失效型:判据在、门全绿、主流程没用它)。
+- 运行环节:post-commit 自动路径(每次提交都会走到这两道闸);手动收尾同样受约束。
+- 残余(如实记录,不在本轮射程):闸读的是 `git config --get remote.origin.url` **原文**;
+  `url.<base>.insteadOf` 重写后的实际落点不在判据内(测试正是用这条重写做本地桩)。
+
 ---
 
 ## 2. 四道元门与挂载点
@@ -272,6 +302,8 @@ CI:`[.github/workflows/reading-trust-defense.yml](../.github/workflows/reading-t
 docs/reading-trust-defense-20261107.md                    本文档(唯一正本)
 scripts/lib/face-spec-scan.mjs                            面规格识别(唯一实现)
 scripts/lib/face-empty-guard.mjs                          空输入硬闸 + 静态分类
+scripts/lib/push-window-gate.mjs                          推送两道拒绝闸的判据(协议闸 / 窗口闸)
+scripts/tests/push-window-gate.test.mjs                   两道闸的单测 + 装车锁
 scripts/check-face-spec-hardcode.mjs                      元门 A
 scripts/check-face-empty-guard-coverage.mjs               元门 B
 scripts/check-generated-pin-face.mjs                      元门 C
@@ -294,6 +326,7 @@ node scripts/check-face-empty-guard-coverage.mjs --strict  # B:缺保护清单�
 node scripts/check-generated-pin-face.mjs --staged         # C:审计索引面
 node scripts/check-gate-owner-declaration.mjs --staged --message-file=.git/COMMIT_EDITMSG
 node scripts/check-worktree-link-integrity.mjs --strict    # 链接完整性
+node --test scripts/tests/push-window-gate.test.mjs        # 推送两道拒绝闸(ssh/无窗口必拒)
 node --test scripts/tests/check-face-spec-hardcode.test.mjs \
              scripts/tests/check-face-empty-guard-coverage.test.mjs \
              scripts/tests/check-generated-pin-face.test.mjs \
