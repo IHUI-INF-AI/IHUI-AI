@@ -7,10 +7,16 @@
  * check-face-empty-guard-coverage.mjs —— 元门 B:空输入保护的只读盘点(2026-11-07)
  *
  * 本门**不改任何现有门**,只做两件事:
- *  ① 把"有三面旗 + 批量枚举"的门按静态形态分成 guarded / missing-guard / no-zero-check /
- *     no-enumeration,输出清单(缺保护的门点名到 file:line 由源码行号可见,不在这里伪造行号);
- *  ② 默认只报清单(exit 0),`--strict` 时对 missing-guard 判红(exit 1),供人工审计;
+ *  ① 把"有三面旗 + 批量枚举"的门按静态形态分成四类,输出清单(门号到 file:line 由源码可见):
+ *     - 真洞(`real-hole`):零值作用在输入集合,所在函数/执行路径内无 exit 2 / 未判定出口;
+ *     - 已核实误报(`verified-false-positive`):`depth === 0` 结构配平、self-test 断言、字节 NUL 哨兵;
+ *     - 待人工判(`manual-review`):结果计数/中间量/解析不出左值 —— 判不准就不造保护;
+ *     - 已保护(`guarded`):零值判定与未判定出口在同一函数作用域 + 同一执行路径。
+ *  ② 默认只报清单(exit 0),`--strict` 时**只对真洞**判红(exit 1);
  *     枚举到 0 个门脚本 ⇒ exit 2("取数面不可用",本门自己遵守元门 B 的口径)。
+ *
+ * 数字纪律(2026-11-07 用户裁定):同时输出旧 `missing-guard` 总数与四分类;真洞才是缺口,
+ * 误报/人工不因分类而消失,禁止把"分类后数字变小"写成"缺口减少"。
  *
  * 为什么不做成默认红:盘点对象是**存量**(2026-11-07 之前写的门),把它们一次性判红等于
  * 强迫所有门同批改动,而当日已有四条线在 scripts/ 上并行 —— 这正是要避免的第五次撞车。
@@ -81,31 +87,62 @@ function main() {
   }
 
   const groups = { guarded: [], 'missing-guard': [], 'no-zero-check': [], 'no-enumeration': [], 'not-face-gate': [] }
+  const byClass = {
+    guarded: [],
+    'real-hole': [],
+    'verified-false-positive': [],
+    'manual-review': [],
+    'no-zero-check': [],
+    'no-enumeration': [],
+    'not-face-gate': [],
+  }
   for (const f of readable) {
     const c = classifyFaceGateSource(texts.get(f))
-    groups[c.verdict].push({ file: f, reason: c.reason })
+    groups[c.verdict].push({ file: f, reason: c.reason, classification: c.classification, evidence: c.evidence ?? null })
+    byClass[c.classification].push({ file: f, reason: c.reason, excused: c.excused ?? null, evidence: c.evidence ?? null })
   }
 
+  const rawMissing = groups['missing-guard'].length
   const summary = {
     face,
     scannedGates: readable.length,
     faceCapable:
       groups.guarded.length + groups['missing-guard'].length + groups['no-zero-check'].length + groups['no-enumeration'].length,
     guarded: groups.guarded.length,
-    missingGuard: groups['missing-guard'].length,
+    // 旧口径(仅 `verdict`):保留,避免"数字因分类而变小"。
+    missingGuard: rawMissing,
+    // 新口径:真洞才是缺口;误报与待人工判不计入已修。
+    realHole: byClass['real-hole'].length,
+    verifiedFalsePositive: byClass['verified-false-positive'].length,
+    manualReview: byClass['manual-review'].length,
+    regradedGuarded: groups.guarded.length,
     noZeroCheck: groups['no-zero-check'].length,
     noEnumeration: groups['no-enumeration'].length,
   }
 
   if (opts.json) {
-    console.log(JSON.stringify({ ...summary, groups }, null, 2))
+    console.log(JSON.stringify({ ...summary, groups, byClass }, null, 2))
   } else {
     console.log(
       `空输入保护盘点:face=${face} 扫描门=${summary.scannedGates} 三面门=${summary.faceCapable} ` +
-        `有保护=${summary.guarded} 缺保护=${summary.missingGuard} 无零值判定=${summary.noZeroCheck} 无枚举=${summary.noEnumeration}`,
+        `有保护=${summary.guarded} 真洞=${summary.realHole} 已核实误报=${summary.verifiedFalsePositive} ` +
+        `待人工判=${summary.manualReview} (旧 missing-guard=${rawMissing};真洞才是缺口,误报/人工不因分类消失)`,
     )
-    console.log('缺保护(有 0 值判定但邻域无 exit 2/未判定;修复责任在各门属主,本门不改它们):')
-    for (const g of groups['missing-guard']) console.log(`  - ${g.file}(${g.reason})`)
+    console.log('真洞(零值作用在输入集合且作用域内无 exit 2/未判定;必须修):')
+    for (const g of byClass['real-hole']) {
+      const ev = g.evidence || {}
+      console.log(`  - ${g.file}:${ev.zeroLine ?? '?'} [${ev.varName ?? '?'}] ${g.reason}`)
+    }
+    console.log('已核实误报(不计缺口,逐条留证):')
+    for (const g of byClass['verified-false-positive']) {
+      const ev = g.evidence || {}
+      console.log(`  - ${g.file}:${ev.zeroLine ?? '?'} [${g.excused ?? '?'}] ${g.reason}`)
+    }
+    console.log('待人工判(不造保护,保持现状):')
+    for (const g of byClass['manual-review']) {
+      const ev = g.evidence || {}
+      console.log(`  - ${g.file}:${ev.zeroLine ?? '?'} [${ev.varName ?? '?'}] ${g.reason}`)
+    }
     if (groups['no-zero-check'].length > 0) {
       console.log('未判定型(有枚举但没有显式 0 值判定,需人工确认是否把空输入漏过):')
       for (const g of groups['no-zero-check']) console.log(`  - ${g.file}`)
@@ -116,7 +153,7 @@ function main() {
     }
   }
 
-  if (opts.strict && summary.missingGuard > 0) process.exit(1)
+  if (opts.strict && summary.realHole > 0) process.exit(1)
 }
 
 const invokedDirectly = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)

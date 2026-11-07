@@ -107,4 +107,109 @@ test('分类:注释里的 exit(2) 不得把缺保护的门洗成 guarded', () =>
   ].join('\n')
   assert.equal(classifyFaceGateSource(src).verdict, 'missing-guard')
 })
+
+// ── 2026-11-07 用户裁定:分类必须可审计;三类阳性对照必须仍报红 ──
+
+test('阳性对照(::path 形):正文全取不到仍按空集合判绿 ⇒ real-hole', () => {
+  const src = [
+    "const face = argv.includes('--head') ? 'head' : 'worktree'",
+    'const files = listFaceFiles(root, face)',
+    'const bodies = catBatch(root, files.map((f) => `:${f}`))',
+    "const readable = files.filter((f) => typeof bodies.get(f) === 'string')",
+    'if (readable.length === 0) return { violations: [] }',
+  ].join('\n')
+  const c = classifyFaceGateSource(src)
+  assert.equal(c.verdict, 'missing-guard')
+  assert.equal(c.classification, 'real-hole')
+  assert.equal(c.evidence.varName, 'readable')
+})
+
+test('阳性对照(--cached 形):diff 失败吞成 [] 后跳过 ⇒ real-hole', () => {
+  const src = [
+    "const staged = argv.includes('--staged')",
+    'function getStagedFiles() {',
+    '  try {',
+    "    return gitRaw(['diff', '--cached', '--name-only']).split('\\n')",
+    '  } catch {',
+    '    return []',
+    '  }',
+    '}',
+    'const files = getStagedFiles()',
+    'if (files.length === 0) {',
+    "  console.log('暂存区无变更,跳过')",
+    '  process.exit(0)',
+    '}',
+  ].join('\n')
+  const c = classifyFaceGateSource(src)
+  assert.equal(c.classification, 'real-hole')
+  assert.equal(c.evidence.varName, 'files')
+})
+
+test('阳性对照(不认识的 --staged 形):零值判定作用在别的面 ⇒ real-hole', () => {
+  const src = [
+    "const staged = argv.includes('--staged')",
+    'function collect(dir) {',
+    '  return readdirSync(dir)',
+    '}',
+    "const files = collect('apps')",
+    'if (files.length === 0) {',
+    "  console.log('无文件')",
+    '  process.exit(0)',
+    '}',
+  ].join('\n')
+  const c = classifyFaceGateSource(src)
+  assert.equal(c.classification, 'real-hole')
+})
+
+test('阴性对照:depth === 0 是结构配平 ⇒ structure-balance', () => {
+  const src = [
+    "const staged = argv.includes('--staged')",
+    'const files = readdirSync(apps)',
+    'let depth = 0',
+    'depth += 1',
+    "if (depth === 0) console.log('balanced')",
+  ].join('\n')
+  const c = classifyFaceGateSource(src)
+  assert.equal(c.verdict, 'missing-guard')
+  assert.equal(c.classification, 'verified-false-positive')
+  assert.equal(c.excused, 'structure-balance')
+  assert.match(c.evidence.readAt.toString(), /\d+/)
+})
+
+test('阴性对照:self-test 断言 bad === 0 ⇒ selftest-assertion', () => {
+  const src = [
+    "const staged = argv.includes('--staged')",
+    'const files = readdirSync(apps)',
+    'function selfTest() {',
+    '  const bad = 0',
+    "  if (bad === 0) console.log('ok')",
+    '}',
+  ].join('\n')
+  const c = classifyFaceGateSource(src)
+  assert.equal(c.classification, 'verified-false-positive')
+  assert.equal(c.excused, 'selftest-assertion')
+  assert.equal(c.evidence.selftestFn, 'selfTest')
+})
+
+test('同函数作用域:exit 2 在 12 行窗口外仍算已保护(不靠扩窗口)', () => {
+  const body = [
+    'function main() {',
+    '  const files = readdirSync(apps)',
+    '  if (files.length === 0) {',
+    "    console.log('表面为空')",
+    '  }',
+  ]
+  for (let i = 0; i < 18; i += 1) body.push(`  const pad${i} = ${i}`)
+  body.push(
+    '  if (!files) {',
+    "    console.error('未判定:取数面不可用')",
+    '    process.exit(2)',
+    '  }',
+    '}',
+    "const staged = argv.includes('--staged')",
+  )
+  const c = classifyFaceGateSource(body.join('\n'))
+  assert.equal(c.classification, 'guarded')
+  assert.ok(Math.abs(c.evidence.scopeGuardLine - c.evidence.zeroLine) > 12)
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
