@@ -15,6 +15,7 @@
 import type { IncomingTrigger, SuperAgentHost } from './engine'
 import type { WorkerAssignment } from './roles'
 import type { SuperAgentSnapshot } from './persist'
+import type { SlowJudgeCall } from './slow-path'
 
 /** 一个来源 = 一个登录主体 + 一个可拉取事件的端口（webhook 落盘回放、轮询器都实现它）。 */
 export interface TriggerSourcePort {
@@ -28,7 +29,8 @@ export type WorkerDispatch = (work: WorkerAssignment) => Promise<{ ok: boolean; 
 
 export interface PumpLogRow {
   at: number
-  kind: 'port_error' | 'dispatch_error' | 'lease_reclaimed'
+  kind:
+    'port_error' | 'dispatch_error' | 'lease_reclaimed' | 'slow_judge_error' | 'slow_auto_accept'
   source: string
   note: string
 }
@@ -46,6 +48,8 @@ export class SuperAgentPump {
       onLog?: (row: PumpLogRow) => void
       /** 每轮（含 no-op）结束喊一次；宿主自己判 dirty 去抖。 */
       onCycle?: (snapshot: SuperAgentSnapshot) => void
+      /** 慢路径判定通道；不给=泵完全不碰推断积压（保持纯快路径既有行为）。 */
+      slowJudge?: SlowJudgeCall
     } = {},
   ) {}
 
@@ -68,15 +72,26 @@ export class SuperAgentPump {
     accepted: number
     dispatched: number
     reclaimed: string[]
+    slowJudged: number
+    slowUnjudged: number
   }> {
     if (this.running) {
       this.options.onCycle?.(this.host.snapshot())
-      return { ingested: 0, accepted: 0, dispatched: 0, reclaimed: [] }
+      return {
+        ingested: 0,
+        accepted: 0,
+        dispatched: 0,
+        reclaimed: [],
+        slowJudged: 0,
+        slowUnjudged: 0,
+      }
     }
     this.running = true
     let ingested = 0
     let accepted = 0
     let dispatched = 0
+    let slowJudged = 0
+    let slowUnjudged = 0
     const reclaimed: string[] = []
     try {
       const owners = new Set<string>()
@@ -110,8 +125,35 @@ export class SuperAgentPump {
           this.log('dispatch_error', work.sessionId, e instanceof Error ? e.message : String(e))
         }
       }
+      // 慢路径：本轮涉及的 inferred 积压交注入判定器（无判定器=零动作，既有行为不变）。
+      if (this.options.slowJudge) {
+        for (const owner of owners) {
+          const judged = await this.host.judgeRecorded(owner, this.options.slowJudge)
+          slowJudged += judged.judged
+          slowUnjudged += judged.unjudged
+          if (judged.error) {
+            this.log('slow_judge_error', owner, judged.error)
+          }
+          for (const acc of judged.autoAccepted) {
+            this.log('slow_auto_accept', owner, `${acc.triggerId}:${acc.ticketId}`)
+          }
+        }
+      }
       // 租约巡检按本轮涉及的主体收尾结算；回收→promote 的新占槽即时补一派发，
       // 不让重派多等一拍（事件驱动停幅，不赌节拍）。
+      const slowStarted = this.host.takeStarted()
+      for (const work of slowStarted) {
+        try {
+          const r = await this.dispatch(work)
+          if (r.ok) {
+            dispatched += 1
+          } else {
+            this.log('dispatch_error', work.sessionId, r.error ?? 'dispatch_failed')
+          }
+        } catch (e) {
+          this.log('dispatch_error', work.sessionId, e instanceof Error ? e.message : String(e))
+        }
+      }
       for (const owner of owners) {
         const ticked = this.host.tickLeases(owner)
         if (ticked.reclaimed.length > 0) {
@@ -136,7 +178,7 @@ export class SuperAgentPump {
       this.running = false
       this.options.onCycle?.(this.host.snapshot())
     }
-    return { ingested, accepted, dispatched, reclaimed }
+    return { ingested, accepted, dispatched, reclaimed, slowJudged, slowUnjudged }
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
