@@ -120,6 +120,11 @@ GitHub 托管 runner（`.github/workflows/*` 全部 `ubuntu-latest`）每个 job
 2. **token**：wrapper 持锁后把 `IHUI_PNPM_INSTALL_TOKEN` 注入子进程；直连 install 没有 token ⇒ 拒绝。
 3. **留痕**：每次判定追加到 `<共享根>/.ihui-agent/state/install-guard.log`（时间 / decision / cwd / pid / 原因）。
 
+**全新安装豁免**：`node_modules` 不存在时直接放行（不要求 token）。理由：干净检出 / 托管 CI
+runner 上没有共享层可污染，也不存在并发写同一目录的前提；若这里也拒，所有 CI 的
+`pnpm install --frozen-lockfile` 都会被 `preinstall` 打断。判据边界是：**只有「目录已存在且是
+实名目录」才要求 token**——也就是"本机能被并发踩到"的唯一形态。
+
 **验收判据（比 token 硬）**：安装前后对"本前缀之外的链接清单"取快照，要求**本前缀之外零变化**，唯一例外见下：
 
 ```bash

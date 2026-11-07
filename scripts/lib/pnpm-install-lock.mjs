@@ -559,6 +559,12 @@ function guardCommand() {
     console.error(`[install-guard] 锁已被应急关闭（${ENABLE_ENV}=0），放行`)
     return EXIT_OK
   }
+  if (!existsSync(nm)) {
+    // 全新安装（干净检出 / CI runner）：没有 node_modules 可被共享层污染，也没有并发写同一目录的
+    // 前提。放行而不要求 token，否则所有托管 CI 的直接 `pnpm install` 都会被守卫打断。
+    appendGuardLog(cwd, 'allow', 'node_modules 不存在（全新安装）')
+    return EXIT_OK
+  }
   if (isJunction(nm)) {
     deny = `node_modules 是链接/junction（→ ${readlinkSync(nm)}）：先摘掉链接，在自包含目录里安装`
   } else {
