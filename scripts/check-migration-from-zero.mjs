@@ -16,6 +16,8 @@
  * drizzle 元数据的表/列双向 diff。两者互补,不互替。
  *
  * 流程:
+ *   ⓪ 前置:建库后、重放前检查 vector 扩展能力(已预装 / 服务端可用且角色 superuser);
+ *      不满足即报「前置不满足」并立即清库,不产生 368/376 的半成品;
  *   ① 在一次性空库(ihui_fz_<8hex>)上按 _journal.json 顺序**逐个** psql 重放每个迁移,
  *      失败不中断后续,记录 {序号, tag, 错误首行} —— 这正是本轮教训:必须自己按 journal
  *      顺序跑,才能报出"哪一个、为什么"(drizzle-kit 会把原因吞掉)。
@@ -551,6 +553,41 @@ function createTempDatabase(url, password, maintenanceDb, dbName) {
   if (res.status !== 0) fail(`建临时库 ${dbName} 失败:${errorFrom(res, password)}`)
 }
 
+/**
+ * 前置检查:新建库不继承任何 extension。若 pgvector 在服务端可用、但当前角色非 superuser
+ * 且新库未预装 vector,迁移链会在 CREATE EXTENSION 处断,并留下"368 条已应用、8 条缺失"
+ * 的半成品库。这里在建库后、重放前先判前置;不满足立即抛 MigrationCheckAborted,
+ * 由 finally 清库退出,不进入任何重放。
+ */
+function preflightVector(url, password, dbName) {
+  const res = runPsql(
+    url,
+    password,
+    dbName,
+    [
+      '-At',
+      '-F',
+      '\u0001',
+      '-c',
+      "select (select count(*) from pg_extension where extname='vector'), (select count(*) from pg_available_extensions where name='vector'), (select rolsuper from pg_roles where rolname=current_user)",
+    ],
+    60_000,
+  )
+  if (res.status !== 0) return { ok: false, detail: errorFrom(res, password) }
+  const [installed, available, superuser] = String(res.stdout).trim().split('\u0001')
+  if (installed === '1') return { ok: true }
+  if (available !== '1') {
+    return { ok: false, detail: 'pg_available_extensions 无 vector:服务端未安装 pgvector 扩展包' }
+  }
+  if (superuser !== 't') {
+    return {
+      ok: false,
+      detail: 'vector 可用但当前角色非 superuser:全新库无法 CREATE EXTENSION vector',
+    }
+  }
+  return { ok: true }
+}
+
 function dropTempDatabase(url, password, maintenanceDb, dbName) {
   const res = runMaintenance(
     url,
@@ -864,10 +901,18 @@ async function main() {
   )
 
   let exitCode = 0
+  let preflightFailed = false
   const created = []
   try {
     createTempDatabase(url, password, maintenanceDb, replayDb)
     created.push(replayDb)
+    const pre = preflightVector(url, password, replayDb)
+    if (!pre.ok) {
+      preflightFailed = true
+      console.log(`\n${C.red}✗ 前置不满足:${pre.detail}${C.reset}`)
+      console.log('  未执行任何重放;临时库随后立即清理,不留半成品库。')
+      throw new MigrationCheckAborted()
+    }
     const { failures, applied } = replayMigrations(url, password, replayDb, entries)
     if (failures.length) {
       exitCode = 1
@@ -946,7 +991,7 @@ async function main() {
     }
     exitCode = 1
   } finally {
-    if (keep) {
+    if (keep && !preflightFailed) {
       console.log(
         `\n${C.yellow}--keep:保留临时库${C.reset} ${created.join(', ')}(排障完请手工 DROP)`,
       )

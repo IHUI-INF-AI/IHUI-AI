@@ -14,9 +14,10 @@
  *   `chat_message_comments` 在生产**根本没有建表**,而部署日志只说“迁移未落地 1-3 档”。
  *
  * 判据(纯函数 classifyMigrationGaps,构造面可证):
- *   · applied   账本已有该文件的 sha256;
- *   · hashDrift 账本无该 hash 但 created_at == 该文件的 when ⇒ 当年应用过,后来文件字节被改
- *               (实测 17 条全是 2026-10-14 `.git` 事故恢复/水印注入造成的字节差)⇒ 只报数不判红;
+ *   · applied   账本里 created_at == 该文件的 when 的行,hash == **该文件当前字节** sha256(逐行身份);
+ *   · hashDrift 该 when 有账本行但 hash 不等于本文件当前字节 ⇒ 要么当年应用后文件被改,
+ *               要么账本绑定到了别的 tag 的字节。若该 hash 唯一命中另一个当前文件,额外标
+ *               suspectedShift(提示,不计 applied/不计绿);
  *   · pending   hash 缺 ∧ when > maxApplied ⇒ drizzle 下一轮会应用;
  *   · lateGap   hash 缺 ∧ when 不在账本里 ∧ when <= maxApplied ⇒ **drizzle 永不应用** ⇒ 判红。
  *
@@ -63,32 +64,68 @@ export function migrationsDirOf(journalPath) {
 /**
  * 纯判据:journal + 账本 + 文件 hash ⇒ 四桶。
  * `applied` 形如 `[{ hash, createdAt }]`(createdAt 可为 null/数字/数字字符串)。
+ *
+ * 2026-11-07 收紧:applied 只认**逐行身份**——created_at == 本 tag 的 when **且**
+ * hash == 本 tag 当前文件 hash。账本 hash 在别的 tag 文件里命中,一律不算 applied,
+ * 只作为 `suspectedShift` 提示(此时本行仍进 hashDrift)。原因是全局集合命中会让
+ * 错位行的哈希给邻居发绿卡:实测 147 条绑定错位里 137 条被旧判据记成 applied。
+ *
+ * suspectedShift 只在「该 hash 唯一对应另一个当前文件」时给出;两个不同 tag 的文件
+ * 恰好同字节时,hash 不唯一,不能当作位移证据,只保留 hashDrift 红。
  */
 export function classifyMigrationGaps({ journal, applied, fileHashOf }) {
   const entries = Array.isArray(journal?.entries) ? journal.entries : []
-  const hashes = new Set()
-  const whens = new Set()
+  const ownHashes = entries.map((e) => fileHashOf(e))
+  const hashToEntries = new Map()
+  ownHashes.forEach((h, idx) => {
+    if (!h) return
+    const prev = hashToEntries.get(h) ?? []
+    prev.push(idx)
+    hashToEntries.set(h, prev)
+  })
+  const hashesByWhen = new Map()
   let maxApplied = -Infinity
   for (const a of applied ?? []) {
-    if (a?.hash) hashes.add(String(a.hash))
     if (a?.createdAt !== null && a?.createdAt !== undefined && a?.createdAt !== '') {
       const n = Number(a.createdAt)
       if (Number.isFinite(n)) {
-        whens.add(String(n))
+        const key = String(n)
         if (n > maxApplied) maxApplied = n
+        if (a?.hash) {
+          const set = hashesByWhen.get(key) ?? new Set()
+          set.add(String(a.hash))
+          hashesByWhen.set(key, set)
+        }
       }
     }
   }
   if (!Number.isFinite(maxApplied)) maxApplied = 0
-  const out = { applied: [], hashDrift: [], pending: [], lateGap: [], maxApplied }
-  for (const e of entries) {
+  const out = { applied: [], hashDrift: [], pending: [], lateGap: [], maxApplied, suspectedShift: [] }
+  entries.forEach((e, idx) => {
     const when = Number(e.when)
-    const hash = fileHashOf(e)
-    if (hash && hashes.has(hash)) out.applied.push(e)
-    else if (whens.has(String(when))) out.hashDrift.push(e)
-    else if (when > maxApplied) out.pending.push(e)
+    const own = ownHashes[idx]
+    const rowHashes = hashesByWhen.get(String(when))
+    if (own && rowHashes?.has(own)) {
+      out.applied.push(e)
+      return
+    }
+    if (rowHashes) {
+      let hint = null
+      for (const h of rowHashes) {
+        const targets = hashToEntries.get(h) ?? []
+        if (targets.length !== 1) continue
+        const to = targets[0]
+        if (to === idx) continue
+        hint = { toTag: entries[to]?.tag ?? '', offset: to - idx, ledgerHash: h }
+        break
+      }
+      out.hashDrift.push(hint ? { ...e, suspectedShift: hint } : e)
+      if (hint) out.suspectedShift.push({ tag: e.tag, ...hint })
+      return
+    }
+    if (when > maxApplied) out.pending.push(e)
     else out.lateGap.push(e)
-  }
+  })
   return out
 }
 
@@ -239,6 +276,31 @@ function selfTest() {
   const empty = classifyMigrationGaps({ journal: { entries: [] }, applied: [], fileHashOf: () => null })
   ok('S6 空 journal ⇒ 四桶全空(不静默造红)', empty.applied.length + empty.lateGap.length + empty.pending.length + empty.hashDrift.length === 0)
 
+  // S6b/S6c:逐行身份 + 疑似位移边界
+  const nextJournal = { entries: [{ tag: 'x', when: 100 }, { tag: 'y', when: 200 }] }
+  const nextApplied = [{ hash: 'h-y', createdAt: 100 }, { hash: 'h-x-old', createdAt: 200 }]
+  const nextHash = (e) => ({ x: 'h-x', y: 'h-y' })[e.tag]
+  const nr = classifyMigrationGaps({ journal: nextJournal, applied: nextApplied, fileHashOf: nextHash })
+  ok(
+    'S6b binding-next:全局命中不发绿,本行 hashDrift 且带疑似位移 +1',
+    nr.applied.length === 0 &&
+      nr.hashDrift.length === 2 &&
+      nr.hashDrift[0].suspectedShift?.offset === 1 &&
+      nr.hashDrift[0].suspectedShift?.toTag === 'y',
+  )
+  const dupJournal = { entries: [{ tag: 'a', when: 100 }, { tag: 'b', when: 200 }, { tag: 'c', when: 300 }] }
+  const dupApplied = [{ hash: 'h-dup', createdAt: 100 }, { hash: 'h-b-own', createdAt: 200 }]
+  const dupHash = (e) => ({ a: 'h-a', b: 'h-dup', c: 'h-dup' })[e.tag]
+  const dr = classifyMigrationGaps({ journal: dupJournal, applied: dupApplied, fileHashOf: dupHash })
+  ok(
+    'S6c 两个不同 tag 同字节:hash 不唯一 ⇒ 不标疑似位移,但本行仍红',
+    dr.hashDrift.some((e) => e.tag === 'a') && !dr.hashDrift.find((e) => e.tag === 'a')?.suspectedShift,
+  )
+  const sameJournal = { entries: [{ tag: 'p', when: 100 }, { tag: 'q', when: 200 }] }
+  const sameApplied = [{ hash: 'h-same', createdAt: 100 }, { hash: 'h-same', createdAt: 200 }]
+  const sr = classifyMigrationGaps({ journal: sameJournal, applied: sameApplied, fileHashOf: () => 'h-same' })
+  ok('S6d 两 tag 同字节且各自账本行都自证 ⇒ 两条都绿(不因重复 hash 误红)', sr.applied.length === 2)
+
   // T9 豁免清单:契约校验 + 存量/新增分割
   const goodRaw = {
     entries: [
@@ -359,6 +421,7 @@ function main() {
         pending: g.pending.map((e) => e.tag),
         lateGap: g.lateGap.map((e) => ({ tag: e.tag, when: e.when })),
         hashDrift: g.hashDrift.map((e) => e.tag),
+        suspectedShift: g.suspectedShift,
         hashDriftExempted: part.exempted,
         hashDriftUnexplained: part.unexplained,
         maxApplied: g.maxApplied,
@@ -374,6 +437,7 @@ function main() {
     if (g.hashDrift.length)
       console.log(
         `  ℹ️ 账本 hash 与现文件不同但 when 已在账:共 ${g.hashDrift.length} 条,` +
+          `其中疑似位移 ${g.suspectedShift.length} 条,` +
           `存量豁免 ${part.exempted.length}(${driftCounts}),未豁免 ${part.unexplained.length}`,
       )
     if (part.unexplained.length)
@@ -392,7 +456,8 @@ function main() {
     if (!json)
       console.log(
         `GAPS-RESULT state=${red ? 'red' : 'ok'} lateGap=${g.lateGap.length} pending=${g.pending.length} ` +
-          `hashDrift=${g.hashDrift.length} hashDriftUnexplained=${part.unexplained.length}`,
+          `hashDrift=${g.hashDrift.length} hashDriftSuspected=${g.suspectedShift.length} ` +
+          `hashDriftUnexplained=${part.unexplained.length}`,
       )
     return red ? 1 : 0
   }

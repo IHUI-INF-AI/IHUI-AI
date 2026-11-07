@@ -35,7 +35,7 @@ describe('迁移账本:中间缺口判据', () => {
   const fileHashOf = (e) => ({ a_applied: 'h-a', b_late: 'h-b', c_pending: 'h-c', d_drift: 'h-d-new' })[e.tag]
   const r = G.classifyMigrationGaps({ journal, applied, fileHashOf })
 
-  it('hash 在账本 ⇒ applied', () => {
+  it('本 tag 的 when 行 hash == 本 tag 当前文件 hash ⇒ applied', () => {
     assert.deepEqual(r.applied.map((e) => e.tag), ['a_applied'])
   })
   it('hash 缺 ∧ when 不在账本 ∧ ≤ maxApplied ⇒ lateGap(必红)', () => {
@@ -50,6 +50,41 @@ describe('迁移账本:中间缺口判据', () => {
   it('空 journal ⇒ 四桶全空,不静默造红', () => {
     const e = G.classifyMigrationGaps({ journal: { entries: [] }, applied: [], fileHashOf: () => null })
     assert.equal(e.applied.length + e.lateGap.length + e.pending.length + e.hashDrift.length, 0)
+  })
+})
+
+describe('迁移账本:逐行身份与疑似位移边界', () => {
+  it('binding-next 全局命中不发绿,本行红且标 offset +1', () => {
+    const journal = { entries: [{ tag: 'x', when: 100 }, { tag: 'y', when: 200 }] }
+    const applied = [{ hash: 'h-y', createdAt: 100 }, { hash: 'h-x-old', createdAt: 200 }]
+    const r = G.classifyMigrationGaps({
+      journal,
+      applied,
+      fileHashOf: (e) => ({ x: 'h-x', y: 'h-y' })[e.tag],
+    })
+    assert.deepEqual(r.applied.map((e) => e.tag), [])
+    assert.deepEqual(r.hashDrift.map((e) => e.tag), ['x', 'y'])
+    assert.equal(r.hashDrift[0].suspectedShift.offset, 1)
+    assert.equal(r.hashDrift[0].suspectedShift.toTag, 'y')
+  })
+
+  it('两个不同 tag 恰好同字节:hash 不唯一,不作位移证据但仍判红', () => {
+    const journal = { entries: [{ tag: 'a', when: 100 }, { tag: 'b', when: 200 }, { tag: 'c', when: 300 }] }
+    const applied = [{ hash: 'h-dup', createdAt: 100 }, { hash: 'h-b-own', createdAt: 200 }]
+    const r = G.classifyMigrationGaps({
+      journal,
+      applied,
+      fileHashOf: (e) => ({ a: 'h-a', b: 'h-dup', c: 'h-dup' })[e.tag],
+    })
+    assert.ok(r.hashDrift.some((e) => e.tag === 'a'))
+    assert.equal(r.hashDrift.find((e) => e.tag === 'a').suspectedShift, undefined)
+  })
+
+  it('两 tag 同字节且各自账本行都自证 ⇒ 两条都绿', () => {
+    const journal = { entries: [{ tag: 'p', when: 100 }, { tag: 'q', when: 200 }] }
+    const applied = [{ hash: 'h-same', createdAt: 100 }, { hash: 'h-same', createdAt: 200 }]
+    const r = G.classifyMigrationGaps({ journal, applied, fileHashOf: () => 'h-same' })
+    assert.deepEqual(r.applied.map((e) => e.tag), ['p', 'q'])
   })
 })
 

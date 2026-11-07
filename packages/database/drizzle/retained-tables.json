@@ -1077,7 +1077,7 @@
     {
       "name": "rag_chunks",
       "bucket": "in-use",
-      "reason": "ai-service(Python) 真实读写；DDL 为双源:ai-service pgvector_store.py:70-85 首用 CREATE TABLE IF NOT EXISTS,同时 drizzle 迁移 20260919090000_automation_thread_and_pgvector.sql:19-30 条件建表(仅当 vector 扩展存在)；两处均 IF NOT EXISTS ⇒ 先建者赢、后者跳过,字段/索引有分叉风险(ai-service 另建 rag_chunks_embedding_hnsw_idx,迁移未含)；TS 侧只读、不得建模",
+      "reason": "ai-service(Python) 真实读写；DDL 为双源:ai-service pgvector_store.py:70-85 首用 CREATE TABLE IF NOT EXISTS,同时 drizzle 迁移 20260919090000_automation_thread_and_pgvector.sql:19-30 条件建表(仅当 vector 扩展存在)；两处均 IF NOT EXISTS ⇒ 先建者赢、后者跳过,当前字段定义一致。已知限制(2026-11-07 实测):embedding 是无界 vector,HNSW 要求固定维度,pgvector 0.8.6 报 column does not have dimensions;ai-service 的 CREATE INDEX 被 try/except 静默吞掉,迁移也不建 ⇒ 两条路径实际都没有 ANN 索引,检索走顺序扫描。收敛前提是先定维度并改列型,在此之前不要在任何一侧补 hnsw;TS 侧只读、不得建模",
       "liveRows": 0,
       "codeRefs": 4,
       "owner": "ai-service",
