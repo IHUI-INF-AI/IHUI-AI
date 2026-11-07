@@ -430,6 +430,13 @@ export function markRoundStage(stage) {
   // 那一排腿全部跳过,若照样记 `main:round-done`,等于把"一条腿都没跑"写成"跑完了"——
   // 那正是本维最不能出的假绿(§0.3)。`--status` 同理,它连 main 都不进。
   if (CHECK_ONLY || STATUS_ONLY) return
+  // 2026-11-07 补:检查点顺带续一次轮级锁心跳。
+  // 为什么挂在这里:`main:block-enter` 到下一个段界之间实测有 22 条腿(heal / 8 个 sweep /
+  // 4 个 audit / gc / env-drift…),任一条在 I/O 争用下都可能单步跨过 180s 心跳阈值,
+  // 而 A11 只看到"心跳停了"看不到"停在哪条腿上"。段界是**已经存在**的粗粒度锚点,
+  // 让它顺带 beat 等于零成本把心跳点从 7 个加密,不新增任何日志行
+  // (逐腿写日志会把诊断件本身变成新的日志病害 —— 见本函数头注)。
+  beatRoundLock()
   try {
     mkdirSync(dirname(ROUND_CURSOR), { recursive: true })
     writeFileSync(
@@ -13856,6 +13863,7 @@ async function main() {
     // 健康轮次的早退之前是唯一能挂工作区自愈的位置 —— 不在此处就永远不执行。
     // --check 保持零副作用(CI 口径);真巡检才动手,且只在真恢复/发现他人删除时写日志。
     if (!CHECK_ONLY) healWorktreeTracked()
+    markRoundStage('main:post-heal')
     // 「完成即删」兜底清扫(2026-10-22 调度加固):原挂在 5386,但它后面的公网探测/隧道健康/
     // 服务自愈等长任务会让整轮在前段结束 —— 实测清扫心跳停在 09:02、已勾行滞留到 10:40 无人清。
     // 本层自带 30 分钟节流,提前到工作区自愈之后不会放大写入频率;判据仍 import 门 229(单一实现)。
@@ -13888,6 +13896,7 @@ async function main() {
     // 扩成六维机读结论(D1 设备簇 / D2 共用 rt / D3 同 uid 双行 / D4 rt 终点证据 / D5 出口亲和 /
     // D6 死副本),周期量、倒退才到人邮箱。判机器状态 ⇒ 绝不进提交链(§12e)。
     if (!CHECK_ONLY) sweepPoolIsolation()
+    markRoundStage('main:post-sweeps')
     // 悬空 commit 自动保活(2026-10-30 立):守门 30a 的「30 天窗」维是 blocking,而此前**没有任何
     // 自动腿**在悬空出现的当下给它打 lost-commit/<name> tag —— 手工打 10 枚修绿、几十分钟后再冒 2 枚,
     // 于是这台机器周期性重新制造「人人 --no-verify」那一型(§12e)。判据零复算:吃 30a 自己的
@@ -13900,6 +13909,7 @@ async function main() {
     // §26 家目录改道同理:改道树被清掉后工具会立刻在 C 盘重建实体目录,而门 96 是 blocking
     // ⇒ 不自动补回就等于逼每一次提交绕过全部守门。
     if (!CHECK_ONLY) healHomeJunctions()
+    markRoundStage('main:post-heals')
     // 合并吞并对账:别人机器上造好推来的合并跑不到提交链那道门(commit-tree 旁路不跑钩子),
     // 由本层按增量台账判到一次(只判不修)。
     // 2026-11-07 收口(A8 四条恒 rotting 的真因):本机实际执行体是计划任务单轮(vbs 起
