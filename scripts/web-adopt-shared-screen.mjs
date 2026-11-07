@@ -352,9 +352,12 @@ export function parseInterfaceExtends(text, name) {
     .filter((s) => /^[A-Za-z_$][\w$]*$/.test(s))
 }
 
-function resolveShared(rnPath, read = readBatch) {
-  // 登记表有 103 行把 `rn` 直接指向共享层文件(共享屏就是 RN 实现),这一档不用再解析 import。
-  if (rnPath.startsWith('packages/app/src/')) return { shared: rnPath, source: 'map-shared-path' }
+/**
+ * RN 壳的唯一事实源是跨端登记表。映射表(web-rn-screen-map.jsonl)在"已委托"行把
+ * `rn` 指向共享屏本身,那一栏不能当宿主读;登记表无对应行一律未判定,不回退映射表。
+ */
+export function hostShellOf(mapRn, read = readBatch) {
+  if (!mapRn) return null
   const regText = read([REGISTRY_PATH]).get(REGISTRY_PATH)
   if (typeof regText !== 'string') return null
   let entries = []
@@ -363,20 +366,12 @@ function resolveShared(rnPath, read = readBatch) {
   } catch {
     return null
   }
-  const hit = entries.find((e) => e.rn === rnPath)
-  if (hit?.shared) return { shared: hit.shared, source: 'registry' }
-  // 登记表没这行时退化为解析 RN 壳 import(只认单文件 spec,不猜 barrel)
-  const text = read([rnPath]).get(rnPath)
-  if (typeof text !== 'string') return null
-  for (const m of text.matchAll(IMPORT_RE)) {
-    const spec = m[2]
-    if (!spec.startsWith('@ihui/rn-app/features/')) continue
-    const base = `packages/app/src/${spec.slice('@ihui/rn-app/'.length)}`
-    const cands = [base, `${base}.tsx`, `${base}.ts`]
-    const got = read(cands)
-    for (const c of cands) if (typeof got.get(c) === 'string') return { shared: c, source: 'shell-import' }
-  }
-  return null
+  const pool = entries.filter((e) => e.shared === mapRn || e.rn === mapRn)
+  if (pool.length === 0) return null
+  const rn = String(pool[0].rn ?? '')
+  // 登记表自己也把 rn 指向共享层 ⇒ 仍是没有宿主的形态,判未判定而不是硬读共享屏。
+  if (!rn || rn.startsWith('packages/app/src/')) return null
+  return { rn, shared: String(pool[0].shared ?? '') }
 }
 
 /* ---------------- 能力缺口规则 ---------------- */
@@ -587,22 +582,33 @@ function analyzeRoute(route, read = readBatch) {
   const row = mapRows.find((r) => !r.bad && r.web === route)
   if (!row) return { route, verdict: 'refuse', reason: '登记表没有该路由,无法定位 RN 壳', gaps: [] }
   if (!row.rn) return { route, verdict: 'refuse', reason: '登记表该路由没有 RN 壳路径', gaps: [] }
-  const rnText = read([row.rn]).get(row.rn)
-  if (typeof rnText !== 'string') {
-    return { route, verdict: 'refuse', reason: `RN 壳正文取不到:${row.rn}`, gaps: [] }
+  const host = hostShellOf(row.rn, read)
+  if (!host) {
+    return {
+      route,
+      verdict: 'unread',
+      reason: `未判定:跨端登记表没有该路由的 RN 壳(映射表 rn=${row.rn} 不作数)`,
+      webFiles: family,
+      rn: null,
+      shared: row.rn,
+      hostRows: hostResponsibilities(family, read),
+      gaps: [],
+    }
   }
-  const shared = resolveShared(row.rn, read)
-  if (!shared) return { route, verdict: 'refuse', reason: '共享屏无法定位(登记表与壳 import 都没给出)', gaps: [] }
-  const sharedText = read([shared.shared]).get(shared.shared)
+  const rnText = read([host.rn]).get(host.rn)
+  if (typeof rnText !== 'string') {
+    return { route, verdict: 'refuse', reason: `RN 壳正文取不到:${host.rn}`, rn: host.rn, shared: host.shared, gaps: [] }
+  }
+  const sharedText = read([host.shared]).get(host.shared)
   if (typeof sharedText !== 'string') {
-    return { route, verdict: 'refuse', reason: `共享屏正文取不到:${shared.shared}`, gaps: [] }
+    return { route, verdict: 'refuse', reason: `共享屏正文取不到:${host.shared}`, rn: host.rn, shared: host.shared, gaps: [] }
   }
 
-  const sharedBindings = importsOf([row.rn], read)
+  const sharedBindings = importsOf([host.rn], read)
   const screenBinding = sharedBindings.find(
     (b) => /^[A-Z][A-Za-z0-9]*Screen$/.test(b.name) && b.spec.startsWith('@ihui/rn-app'),
   )
-  const componentName = screenBinding?.name ?? shared.shared.split('/').pop().replace(/\.tsx?$/, '')
+  const componentName = screenBinding?.name ?? host.shared.split('/').pop().replace(/\.tsx?$/, '')
   const propsName = propsTypeOf(sharedText, componentName) ?? `${componentName.replace(/^Shared/, '')}Props`
   const propsDecl = propsNamesOf(propsName, sharedText, read)
   const sharedProps = propsDecl.names
@@ -617,8 +623,8 @@ function analyzeRoute(route, read = readBatch) {
   const unitText = webTexts.get(unitFile) ?? ''
 
   const gaps = [
-    ...apiGaps(family, [row.rn], [shared.shared], read),
-    ...sharedUtilGaps(family, [row.rn], [shared.shared], read),
+    ...apiGaps(family, [host.rn], [host.shared], read),
+    ...sharedUtilGaps(family, [host.rn], [host.shared], read),
     ...platformGaps(hostRows, sharedProps),
     ...multiPanelGaps(family, read),
     ...structureGaps(unitFile, unitText),
@@ -627,7 +633,7 @@ function analyzeRoute(route, read = readBatch) {
     gaps.push({
       rule: 'R6-props',
       detail: `共享屏 props 契约 \`${propsName}\` 在共享屏与 packages/types/src 都找不到(未判定)`,
-      evidence: shared.shared,
+      evidence: host.shared,
     })
   }
 
@@ -644,8 +650,8 @@ function analyzeRoute(route, read = readBatch) {
       reason: `发现 ${gaps.length} 项共享屏无法覆盖的能力/结构`,
       webFiles: family,
       unitFile,
-      rn: row.rn,
-      shared: shared.shared,
+      rn: host.rn,
+      shared: host.shared,
       componentName,
       sharedProps,
       rnPassed,
@@ -663,8 +669,8 @@ function analyzeRoute(route, read = readBatch) {
       reason: `props 无法从宿主现有状态映射(${plan.unresolved.length} 个),不做 TODO 占位`,
       webFiles: family,
       unitFile,
-      rn: row.rn,
-      shared: shared.shared,
+      rn: host.rn,
+      shared: host.shared,
       componentName,
       sharedProps,
       rnPassed,
@@ -684,7 +690,7 @@ function analyzeRoute(route, read = readBatch) {
     webFiles: family,
     unitFile,
     rn: row.rn,
-    shared: shared.shared,
+    shared: host.shared,
     componentName,
     sharedProps,
     rnPassed,
@@ -783,7 +789,9 @@ function unifiedDiff(origPath, newText) {
 
 function printReport(r) {
   console.log(`\n=== ${r.route} ===`)
-  console.log(`判定:${r.verdict === 'ready' ? '可出补丁草案' : '拒绝'}`)
+  console.log(
+    `判定:${r.verdict === 'ready' ? '可出补丁草案' : r.verdict === 'unread' ? '未判定' : '拒绝'}`,
+  )
   if (r.rn) console.log(`RN 壳:${r.rn}`)
   if (r.shared) console.log(`共享屏:${r.shared}`)
   if (r.componentName) console.log(`组件:${r.componentName}(props ${r.sharedProps.length} 个)`)
@@ -888,6 +896,10 @@ function survey() {
       verdict: r.verdict,
       reason: r.reason ?? null,
       rules: [...new Set((r.gaps ?? []).map((g) => g.rule))],
+      mapRn: c.rn,
+      rn: r.rn ?? null,
+      shared: r.shared ?? null,
+      rnPassed: Array.isArray(r.rnPassed) ? r.rnPassed.length : 0,
     })
   }
   const pass = results.filter((r) => r.verdict === 'ready')
@@ -918,6 +930,8 @@ function survey() {
     `[web-adopt-survey] 面=${FACE} adopt 候选=${candidates.length} 形态可过=${pass.length} 拒绝=${candidates.length - pass.length}`,
   )
   console.log(`  其中"共享屏已有能力覆盖"(不计 props 映射工作量)=${capabilityPass.length}`)
+  const unread = results.filter((r) => r.verdict === 'unread')
+  console.log(`  其中未判定(registry 无宿主,不回退映射表)=${unread.length}`)
   console.log(
     `  拒绝原因分布:${Object.entries(byRule)
       .sort((a, b) => b[1] - a[1])
@@ -976,6 +990,14 @@ function selfTest() {
     propsTypeOf('export function FooScreen({ t, onBack }: FooCurrentProps) {', 'FooScreen'),
     'FooCurrentProps',
   )
+  const icpHost = analyzeRoute('settings/icp-record')
+  eq('icp-record 宿主走 registry', icpHost.rn, 'apps/mobile-rn/src/screens/IcpRecordScreen.tsx')
+  eq(
+    'icp-record 不拿共享屏当宿主',
+    icpHost.rn === 'packages/app/src/features/icp-record/IcpRecordScreen.tsx',
+    false,
+  )
+  eq('hostShellOf(未登记路由)', hostShellOf('apps/web/app/(main)/x/page.tsx'), null)
   const draft = draftUnitText(
     [
       "import React from 'react'",
@@ -1016,7 +1038,7 @@ function selfTest() {
     console.error('❌ self-test 失败:\n' + bad.join('\n'))
     process.exit(1)
   }
-  console.log('✅ self-test 通过(10 条判据)')
+  console.log('✅ self-test 通过(13 条判据)')
 }
 
 /* ---------------- main ---------------- */
@@ -1043,6 +1065,10 @@ if (flags.json) {
   console.log(JSON.stringify(result, null, 2))
 } else {
   printReport(result)
+}
+if (result.verdict === 'unread') {
+  console.error(`\n⛔ 未判定:${result.reason}(不回退映射表 rn,不给错的宿主职责)`)
+  process.exit(2)
 }
 if (flags.diff) {
   if (result.verdict !== 'ready') {
