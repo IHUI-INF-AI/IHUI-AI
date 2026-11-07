@@ -17,6 +17,7 @@ import os
 import stat
 import sys
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -24,8 +25,23 @@ from app.routers import mcp
 from app.services.mcp_directory import get_directory, get_entry, to_client_config
 
 app = FastAPI()
+
+
+@app.middleware("http")
+async def _inject_admin_role(request, call_next):  # type: ignore[no-untyped-def]
+    """2026-11-07:目录注册收成管理员专属(role >= 1),本文件测目录/转换语义。"""
+    request.state.role_id = 1
+    return await call_next(request)
+
+
 app.include_router(mcp.router, prefix="/api")
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _allow_npx_entry(monkeypatch):
+    """2026-11-07:注册入口新增可执行白名单(fail-closed),放行目录用的 npx 变体。"""
+    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", "npx,npx.cmd,npx.exe,npx.bat")
 
 
 def _fake_npx_env(tmp_path) -> dict[str, str]:

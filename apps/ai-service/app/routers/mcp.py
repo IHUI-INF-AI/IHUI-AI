@@ -9,6 +9,7 @@
 
 import logging
 import os
+from collections.abc import Iterable, Mapping
 from dataclasses import asdict
 from pathlib import PurePath
 from typing import Any
@@ -347,18 +348,67 @@ async def list_mcp_directory() -> dict[str, Any]:
         )  # type: ignore[return-value]
 
 
+def _env_override_gate(
+    env: Mapping[str, str], declared: Iterable[str]
+) -> JSONResponse | None:
+    """请求体 `env` 覆盖闸:只允许目录条目**自己声明过的键**(2026-11-07 收紧)。
+
+    此前 `env` 原样并入子进程环境 ⇒ 任一登录用户可注入 `PATH`/`LD_PRELOAD`/`DATABASE_URL`
+    这类任意键。现在按条目 `env_required` 做白名单:声明过的键仍可传(否则 postgres 这类
+    真正需要密钥的条目会永久装不上),未声明的键一律拒,并把允许键集合回给调用方。
+    审计/日志侧只出现键名,绝不落值。
+    """
+    allowed = set(declared)
+    extra = sorted(set(env) - allowed)
+    if not extra:
+        return None
+    allowed_text = ", ".join(sorted(allowed)) or "(该条目未声明任何可覆盖的环境变量)"
+    return JSONResponse(
+        status_code=400,
+        content={
+            "error": (
+                f"请求体 env 只允许目录条目声明的键;被拒绝的键: {', '.join(extra)}。"
+                f"允许键: {allowed_text}"
+            ),
+            "errorCode": "ENV_OVERRIDE_DENIED",
+        },
+    )
+
+
 @router.post("/mcp/directory/{key}/register", response_model=None)
 async def register_directory_server(
     key: str,
     req: ExternalServerRegisterRequest,
+    request: Request,
     user_id: str = Depends(require_request_user_id),
 ) -> dict[str, Any] | JSONResponse:
     """目录一键注册:把内置条目转换为 MCPClientConfig 并注册连接。
 
+    2026-11-07 安全收紧(动态注册信任模型):
+    - 角色必须 >=1(与 /mcp/external/servers 的 stdio 门禁同一条尺):目录注册会
+      拉起本机子进程,不是普通用户的只读能力。非管理员返回 403 ROLE_DENIED。
+    - 请求体 `env` 只允许该目录条目自己声明的键(400 ENV_OVERRIDE_DENIED):密钥
+      只由部署配置/进程环境 + 条目声明的键名提供,不得由请求方注入任意键。
+    - 解析出的可执行文件必须落在 MCP_STDIO_COMMAND_ALLOWLIST(未配置 ⇒ 关闭)。
     目录条目缺必需环境变量(如 DATABASE_URL / PAT)且未提供时返回 400。
     """
+    if resolve_request_role_id(request) < 1:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "安装/注册 MCP 服务器需要管理员权限(role >= 1)",
+                "errorCode": "ROLE_DENIED",
+            },
+        )
     try:
-        from ..services.mcp_directory import to_client_config
+        from ..services.mcp_directory import get_entry, to_client_config
+
+        entry = get_entry(key)
+        if entry is None:
+            return JSONResponse(status_code=404, content={"error": f"目录中不存在: {key}"})
+        env_gate = _env_override_gate(req.env or {}, entry.env_required)
+        if env_gate is not None:
+            return env_gate
 
         # req.args[0] 在本端点里不是"参数",而是 filesystem 类 server 的工作目录载体:
         # 它会被 to_client_config 拼进 catalog 条目的 args 第三位,而那个 server 真会按它
@@ -384,6 +434,16 @@ async def register_directory_server(
         )
         if cfg_dict is None:
             return JSONResponse(status_code=404, content={"error": f"目录中不存在: {key}"})
+        if str(cfg_dict["transport"]) == TRANSPORT_STDIO and not stdio_command_allowed(
+            str(cfg_dict["command"] or "")
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "command 不在部署级允许清单(MCP_STDIO_COMMAND_ALLOWLIST)内",
+                    "errorCode": "COMMAND_NOT_ALLOWED",
+                },
+            )
         missing = cfg_dict.pop("_missing_env", [])
         if missing:
             return JSONResponse(
@@ -855,7 +915,19 @@ async def install_mcp_store_server(
     已安装但停用(disabled)→ 重新热挂载并启用(幂等语义)。
     2026-09-12(1-4/2-5):审核驳回的条目 → 403;高风险条目未 confirm_risk
     → 409 RISK_CONFIRM_REQUIRED(前端风险确认对话框对齐)。
+    2026-11-07 安全收紧(动态注册信任模型):角色必须 >=1(安装会拉起本机子进程),
+    非管理员返回 403 ROLE_DENIED;请求体 `env` 只允许目录条目自己声明的键
+    (400 ENV_OVERRIDE_DENIED);解析出的可执行文件必须落在 MCP_STDIO_COMMAND_ALLOWLIST。
+    密钥只由部署配置/进程环境 + 条目声明的键名提供。
     """
+    if resolve_request_role_id(request) < 1:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "安装/注册 MCP 服务器需要管理员权限(role >= 1)",
+                "errorCode": "ROLE_DENIED",
+            },
+        )
     try:
         from ..services import mcp_market_review, mcp_quality, mcp_store
         from ..services.mcp_directory import get_entry, to_client_config
@@ -864,6 +936,9 @@ async def install_mcp_store_server(
         entry = get_entry(req.key)
         if entry is None:
             return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        env_gate = _env_override_gate(req.env or {}, entry.env_required)
+        if env_gate is not None:
+            return env_gate
         # 2026-10-31 安全强化第 14 批:商店安装的 workspace_path 此前原样进 cfg ⇒ 任意登录
         # 用户可把 filesystem 类 server 的根指向 C:\ 或 C:\Users\…,再经全局注册的
         # read_text_file/edit_file 读写任意文件。判据复用同文件 /mcp/directory/register
@@ -887,6 +962,16 @@ async def install_mcp_store_server(
         )
         if cfg_dict is None:
             return JSONResponse(status_code=404, content={"error": f"目录中不存在: {req.key}"})
+        if str(cfg_dict["transport"]) == TRANSPORT_STDIO and not stdio_command_allowed(
+            str(cfg_dict["command"] or "")
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "command 不在部署级允许清单(MCP_STDIO_COMMAND_ALLOWLIST)内",
+                    "errorCode": "COMMAND_NOT_ALLOWED",
+                },
+            )
         missing = cfg_dict.pop("_missing_env", [])
         if missing:
             return JSONResponse(
@@ -1386,3 +1471,51 @@ async def disable_capability(cap_id: str, request: Request) -> JSONResponse:
             content=_envelope(500, f"停用能力失败: {e}", None),
         )
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+# ---------------------------------------------------------------------------
+# MCP 动态注册表端点(2026-11-07 立,trust-gated / admin-only)
+# 来源只认仓库受控目录与用户显式配置目录;不接受请求体路径、不拉网络配置、
+# 不注册为模型工具。status 用于"可被真实发现"(含来源文件/哈希/分级),
+# reload 是唯一重扫入口(串行 + 单文件原子,失败不改变现有注册集)。
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mcp/registry/status", response_model=None)
+async def get_mcp_registry_status(
+    request: Request,
+) -> dict[str, Any] | JSONResponse:
+    """查询动态注册表状态(admin-only):来源、文件 sha256、工具与生效分级。"""
+    if resolve_request_role_id(request) < 1:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "查看 MCP 动态注册表需要管理员权限", "errorCode": "ROLE_DENIED"},
+        )
+    from ..services.mcp_registry import get_mcp_registry
+
+    return get_mcp_registry().status()
+
+
+@router.post("/mcp/registry/reload", response_model=None)
+async def reload_mcp_registry(request: Request) -> dict[str, Any] | JSONResponse:
+    """重扫两份白名单来源并按差量热加载(admin-only;无 body path 参数)。
+
+    失败语义:单文件不可信/冲突只拒绝该文件或该 server,不覆盖既有注册项;
+    返回的 rejected 列表含具名错误码,同时落审计。
+    """
+    if resolve_request_role_id(request) < 1:
+        return JSONResponse(
+            status_code=403,
+            content={"error": "重载 MCP 动态注册表需要管理员权限", "errorCode": "ROLE_DENIED"},
+        )
+    from ..services.mcp_registry import get_mcp_registry
+
+    actor = str(getattr(request.state, "user_id", "") or "") or "admin"
+    try:
+        status = await get_mcp_registry().reload(actor=actor)
+    except Exception as e:  # noqa: BLE001 - 端点级兜底,内部已按 fail-closed 处理
+        logger.error("重载 MCP 动态注册表失败: %s", e)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"重载 MCP 动态注册表失败: {e}", "errorCode": "INTERNAL_ERROR"},
+        )
+    return status

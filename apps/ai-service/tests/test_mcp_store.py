@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from app.routers import mcp as mcp_router
@@ -90,9 +90,23 @@ def bridge_mock(monkeypatch):
 
 
 @pytest.fixture
-def api_client(store_path):
-    """只挂载 mcp 路由的 FastAPI app(同步 TestClient)。"""
+def api_client(store_path, monkeypatch):
+    """只挂载 mcp 路由的 FastAPI app(同步 TestClient)。
+
+    2026-11-07:安装入口已收紧为管理员专属(安装/注册 MCP 服务器需要 role >= 1),
+    且解析出的可执行文件必须落在 MCP_STDIO_COMMAND_ALLOWLIST(fail-closed)。
+    故本夹具统一注入管理员角色 + 放行目录里用到的 npx 变体 —— 本文件测的是
+    安装/卸载/启停的**业务语义**,角色闸与白名单本身的拒绝行为由
+    test_mcp_stdio_registration_gates.py 与 test_mcp_store_admin_only_ownerless.py 钉住。
+    """
+    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", "npx,npx.cmd,npx.exe,npx.bat")
     app = FastAPI()
+
+    @app.middleware("http")
+    async def _inject_admin_role(request: Request, call_next):  # type: ignore[no-untyped-def]
+        request.state.role_id = 1
+        return await call_next(request)
+
     app.include_router(mcp_router.router, prefix="/api")
     return TestClient(app)
 
