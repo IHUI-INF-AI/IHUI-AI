@@ -59,7 +59,7 @@ Full positioning narrative (value pyramid, cost comparison, differentiation, ben
 [`scripts/check-doc-numbers.mjs`](./scripts/check-doc-numbers.mjs) re-computes them for this file and
 the Chinese README, and blocks any stale value.
 
-Headline claims (same source as the table below, all live-computed): **624 tables · 4703 API routes ·
+Headline claims (same source as the table below, all live-computed): **624 tables · 4705 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · test file counts in the generated table below ·
 336 engineering gates · 54 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
@@ -69,7 +69,7 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | ---- | ---- | ------ |
 | 数据库表 | 624 | `dbTables` |
 | schema 文件 | 241 | `dbSchemaFiles` |
-| API 路由 | 4703 | `apiRoutes` |
+| API 路由 | 4705 | `apiRoutes` |
 | 路由文件 | 666 | `apiRouteFiles` |
 | AI 服务路由 | 631 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
@@ -88,9 +88,9 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | 工程守门 | 348 | `guardianGates` |
 | — blocking | 319 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19605 | `trackedFiles` |
+| 跟踪文件 | 19606 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-06。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
