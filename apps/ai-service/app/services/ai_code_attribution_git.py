@@ -199,4 +199,71 @@ def attach_checkpoint_note(
             reason = added_lines[0][:200] if added_lines else f"rc={added.returncode}"
         return "refused", reason or "git notes 写不了"
     return "appended", ""
+
+
+def _parse_note_body(body: str) -> tuple[list[dict[str, object]], str]:
+    rows: list[dict[str, object]] = []
+    for line in body.splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except ValueError:
+            return [], "notes 读不到,不能把它说成没有检查点"
+        if not isinstance(item, dict):
+            return [], "notes 读不到,不能把它说成没有检查点"
+        rows.append(item)
+    return rows, ""
+
+
+def read_commit_notes(
+    repo_root: Path,
+    commit_sha: str,
+    *,
+    namespace: str = "",
+) -> dict[str, object]:
+    """按提交读 notes。引用不在、这个提交没记、名单没量到，三种读数各说各的。"""
+    ref = notes_ref_for_namespace(namespace)
+    if ref is None:
+        return {"status": "refused", "message": "notes 命名空间不能用", "checkpoints": [], "refs": []}
+    if _SHA40.fullmatch(commit_sha or "") is None:
+        return {"status": "refused", "message": "提交号不是 40 位", "checkpoints": [], "refs": []}
+    sha = commit_sha.strip().lower()
+    listed = list_notes_refs(repo_root)
+    if listed is None:
+        return {"status": "unjudged", "message": "notes 引用名单没量到", "checkpoints": [], "refs": []}
+    family = [item for item in listed if item == NOTES_REF_DEFAULT or item.startswith("refs/notes/ai-")]
+    pinned = namespace.strip() not in ("", "default")
+    if not pinned and len(family) > 1:
+        return {
+            "status": "multiple",
+            "message": "Multiple git-ai note namespaces detected",
+            "checkpoints": [],
+            "refs": family,
+        }
+    if ref not in listed:
+        message = "Expected notes ref is present" if ref == NOTES_REF_DEFAULT else "这个命名空间的 notes 引用不在"
+        return {"status": "absent", "message": message, "checkpoints": [], "refs": family}
+    shown = _git(repo_root, ["notes", "--ref", ref, "show", sha])
+    if shown is None:
+        return {"status": "unjudged", "message": "git notes 读不到", "checkpoints": [], "refs": family}
+    if shown.returncode != 0:
+        err = (shown.stderr or "").lower()
+        if "no note found" in err:
+            return {"status": "empty", "message": "这个提交上没有检查点", "checkpoints": [], "refs": family}
+        if "bad object" in err or "needed a single revision" in err or "ambiguous argument" in err:
+            return {"status": "refused", "message": "提交在这个仓库里找不到", "checkpoints": [], "refs": family}
+        detail = (shown.stderr or "").strip().splitlines()
+        return {
+            "status": "refused",
+            "message": detail[0][:200] if detail else "git notes 读不到",
+            "checkpoints": [],
+            "refs": family,
+        }
+    rows, refused = _parse_note_body(shown.stdout)
+    if refused:
+        return {"status": "refused", "message": refused, "checkpoints": [], "refs": family}
+    if not rows:
+        return {"status": "empty", "message": "这个提交上没有检查点", "checkpoints": [], "refs": family}
+    return {"status": "present", "message": "ok", "checkpoints": rows, "refs": family}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
