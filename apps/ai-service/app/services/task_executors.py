@@ -675,17 +675,24 @@ def read_vitest_report_file(report_path: Path) -> tuple[dict[str, Any], str | No
     except OSError as exc:
         return {}, f"测试报告读不到,不能把它说成没有结果 ({exc.errno})"
     if not stat.S_ISREG(mode):
-        return {}, None
+        return {}, "测试报告读不到,不能把它说成没有结果 (not-file)"
     try:
-        loaded = json.loads(report_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        loaded = None
+        text = report_path.read_text(encoding="utf-8")
     except OSError as exc:
         return {}, f"测试报告读不到,不能把它说成没有结果 ({exc.errno})"
-    report = loaded if isinstance(loaded, dict) else {}
+    if text.strip() == "":
+        with contextlib.suppress(OSError):
+            report_path.unlink(missing_ok=True)
+        return {}, None
+    try:
+        loaded = json.loads(text)
+    except json.JSONDecodeError:
+        return {}, "测试报告读不到,不能把它说成没有结果 (corrupt)"
+    if not isinstance(loaded, dict):
+        return {}, "测试报告读不到,不能把它说成没有结果 (corrupt)"
     with contextlib.suppress(OSError):
         report_path.unlink(missing_ok=True)
-    return report, None
+    return loaded, None
 
 
 def resolve_vitest_cli(start: Path | None = None) -> str | None:
