@@ -328,7 +328,10 @@ export function GroupsScreen({
             return (
               <View
                 key={group.id}
-                style={[styles.cell, columns > 1 ? styles.cellMulti : null]}
+                style={[
+                  styles.cell,
+                  columns === 2 ? styles.cellTwo : columns === 3 ? styles.cellThree : null,
+                ]}
               >
                 <View style={styles.card}>
                   <View style={styles.itemHead}>
@@ -513,7 +516,8 @@ function createStyles(tk: AppThemeTokens) {
     chipOnText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
     cell: { width: '100%' },
-    cellMulti: { flexGrow: 1, flexBasis: '46%', width: undefined },
+    cellTwo: { flexGrow: 1, flexBasis: '46%', width: undefined },
+    cellThree: { flexGrow: 1, flexBasis: '30%', width: undefined },
     itemHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['sm-loose'] },
     avatar: {
       width: 36,
