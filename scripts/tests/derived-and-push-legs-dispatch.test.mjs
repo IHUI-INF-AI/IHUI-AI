@@ -45,11 +45,11 @@ function tick() {
 
 /* ───────────────────────── A:离线包自走重生成 ───────────────────────── */
 
-test('L1 landed ⇒ 写一行 ✅ 并把器物自述的 changed/paths 带上(不静默)', () => {
+test('L1 landed ⇒ 写一行 ✅ 并把器物自述的 changed/paths 带上(不静默)', async () => {
   const t = tick()
   try {
     const [logger, lines] = collector()
-    const r = healI18nBundleLeg({
+    const r = await healI18nBundleLeg({
       tickFile: t.file,
       logger,
       runner: () => ({
@@ -71,12 +71,12 @@ test('L1 landed ⇒ 写一行 ✅ 并把器物自述的 changed/paths 带上(不
   }
 })
 
-test('L2 clean ⇒ 一行都不写(30 分钟一轮的常态若写日志就是噪声),且真的派生了一次', () => {
+test('L2 clean ⇒ 一行都不写(30 分钟一轮的常态若写日志就是噪声),且真的派生了一次', async () => {
   const t = tick()
   try {
     let runs = 0
     const [logger, lines] = collector()
-    const r = healI18nBundleLeg({
+    const r = await healI18nBundleLeg({
       tickFile: t.file,
       logger,
       runner: () => {
@@ -96,11 +96,11 @@ test('L2 clean ⇒ 一行都不写(30 分钟一轮的常态若写日志就是噪
   }
 })
 
-test('L3 器物没回结论 ⇒ 判"未判定"并 ⚠️ 点名,既不记绿也不冒红(§0.3)', () => {
+test('L3 器物没回结论 ⇒ 判"未判定"并 ⚠️ 点名,既不记绿也不冒红(§0.3)', async () => {
   const t = tick()
   try {
     const [logger, lines] = collector()
-    const r = healI18nBundleLeg({
+    const r = await healI18nBundleLeg({
       tickFile: t.file,
       logger,
       runner: () => ({ status: null, stdout: '', stderr: 'boom' }),
@@ -114,11 +114,11 @@ test('L3 器物没回结论 ⇒ 判"未判定"并 ⚠️ 点名,既不记绿也�
   }
 })
 
-test('L4 refused 也留痕:拒落属常态但不能看不见(与"clean 即静默"分档)', () => {
+test('L4 refused 也留痕:拒落属常态但不能看不见(与"clean 即静默"分档)', async () => {
   const t = tick()
   try {
     const [logger, lines] = collector()
-    const r = healI18nBundleLeg({
+    const r = await healI18nBundleLeg({
       tickFile: t.file,
       logger,
       runner: () => ({
@@ -134,7 +134,7 @@ test('L4 refused 也留痕:拒落属常态但不能看不见(与"clean 即静默
   }
 })
 
-test('L5 节流:窗口内第二次不得再派生器物(每 30 分钟一轮,不是每 2 分钟)', () => {
+test('L5 节流:窗口内第二次不得再派生器物(每 30 分钟一轮,不是每 2 分钟)', async () => {
   const t = tick()
   try {
     let runs = 0
@@ -142,13 +142,13 @@ test('L5 节流:窗口内第二次不得再派生器物(每 30 分钟一轮,不�
       runs += 1
       return { status: 0, stdout: JSON.stringify({ state: 'clean' }), stderr: '' }
     }
-    const first = healI18nBundleLeg({
+    const first = await healI18nBundleLeg({
       tickFile: t.file,
       now: 1_700_000_000_000,
       logger: () => {},
       runner,
     })
-    const second = healI18nBundleLeg({
+    const second = await healI18nBundleLeg({
       tickFile: t.file,
       now: 1_700_000_000_000 + 60_000,
       logger: () => {},
@@ -178,7 +178,7 @@ function breachVerdict(counts) {
   })
 }
 
-test('L6 breach ⇒ 到人,且正文自带可照抄的下一步(§5e-1 可整改性准入)', () => {
+test('L6 breach ⇒ 到人,且正文自带可照抄的下一步(§5e-1 可整改性准入)', async () => {
   const t = tick()
   try {
     const notified = []
@@ -209,7 +209,7 @@ test('L6 breach ⇒ 到人,且正文自带可照抄的下一步(§5e-1 可整改
   }
 })
 
-test('L7 同一场分叉计数怎么抖都不换身份;换了分档才算新故障(守门 224 同型)', () => {
+test('L7 同一场分叉计数怎么抖都不换身份;换了分档才算新故障(守门 224 同型)', async () => {
   const a = WATCH.buildAlertIdentity(breachVerdict({ localAhead: 121, remoteAhead: 331 }), {
     now: 1,
   })
@@ -224,7 +224,7 @@ test('L7 同一场分叉计数怎么抖都不换身份;换了分档才算新故�
   )
 })
 
-test('L8 ok / unjudged / 尺子抛 ⇒ 一律不寄信(失效方向是"少喊一次",不是"多放一次")', () => {
+test('L8 ok / unjudged / 尺子抛 ⇒ 一律不寄信(失效方向是"少喊一次",不是"多放一次")', async () => {
   const mk = (watcher) => {
     const notified = []
     const t = tick()
@@ -302,7 +302,7 @@ test('L8 ok / unjudged / 尺子抛 ⇒ 一律不寄信(失效方向是"少喊一
 
 /* ───────────────────────── C:镜像徽章自愈 ───────────────────────── */
 
-test('L9 门 238 --fix 的结论行按生产方形态解析:clean+0 静默,有改动/有拒落留痕,读不到=未判定', () => {
+test('L9 门 238 --fix 的结论行按生产方形态解析:clean+0 静默,有改动/有拒落留痕,读不到=未判定', async () => {
   const one = (stdout) => {
     const t = tick()
     const [logger, lines] = collector()
@@ -329,7 +329,7 @@ test('L9 门 238 --fix 的结论行按生产方形态解析:clean+0 静默,有�
 
 /* ───────────────────────── 装车锁(摘掉即翻红) ───────────────────────── */
 
-test('L10b 样式派生腿走 --family tokens、有独立节流台账,且不排在派发链队尾', () => {
+test('L10b 样式派生腿走 --family tokens、有独立节流台账,且不排在派发链队尾', async () => {
   assert.match(
     SRC,
     /runDerivedHealLeg\('tokens'/,
@@ -345,8 +345,8 @@ test('L10b 样式派生腿走 --family tokens、有独立节流台账,且不排�
     /IHUI_STYLE_TOKENS_HEAL_INTERVAL_MS/,
     '节流必须有运维旋钮(单轮可能要建一次检出,不能只能等 30 分钟)',
   )
-  const tokensIdx = SRC.indexOf('if (!CHECK_ONLY) healStyleTokensLeg()')
-  const uiIdx = SRC.indexOf('if (!CHECK_ONLY) healUiRoutesLeg()')
+  const tokensIdx = SRC.indexOf('if (!CHECK_ONLY) await healStyleTokensLeg()')
+  const uiIdx = SRC.indexOf('if (!CHECK_ONLY) await healUiRoutesLeg()')
   const tailIdx = SRC.indexOf('if (CHECK_ONLY)', uiIdx)
   assert.ok(
     tokensIdx > 0 && uiIdx > tokensIdx && tailIdx > uiIdx,
@@ -354,7 +354,7 @@ test('L10b 样式派生腿走 --family tokens、有独立节流台账,且不排�
   )
 })
 
-test('L10 装车锁:四条腿都真挂在 !CHECK_ONLY 派发链上,且都在 __test__ 出口里(§0.9)', () => {
+test('L10 装车锁:四条腿都真挂在 !CHECK_ONLY 派发链上,且都在 __test__ 出口里(§0.9)', async () => {
   for (const fn of [
     'healI18nBundleLeg',
     'healStyleTokensLeg',
@@ -362,16 +362,20 @@ test('L10 装车锁:四条腿都真挂在 !CHECK_ONLY 派发链上,且都在 __t
     'auditPushDivergenceLeg',
     'healMirrorPurgeLeg',
   ]) {
-    assert.match(SRC, new RegExp(`if \\(!CHECK_ONLY\\) ${fn}\\(\\)`), `${fn} 必须在巡检轮里被调用`)
+    // 2026-11-07:四条派生族腿改 spawn + await(不再阻塞事件循环,否则 setInterval 心跳停摆),
+    // 调用点从 `fn()` 变 `await fn()`。判据必须**两种形态同价**,但删行仍然必红 —— 放宽的是
+    // 修饰词,不是"要不要有这一行"。
+    const callRe = new RegExp(`if \\(!CHECK_ONLY\\) (?:await )?${fn}\\(\\)`)
+    assert.match(SRC, callRe, `${fn} 必须在巡检轮里被调用`)
     assert.equal(typeof G[fn], 'function', `${fn} 必须进 __test__ 出口(镜像测试反查用)`)
     // 反向对照:调用点必须在派发链那一段(而不是只活在定义里)
-    const callIdx = SRC.indexOf(`if (!CHECK_ONLY) ${fn}()`)
-    const defIdx = SRC.indexOf(`export function ${fn}(`)
+    const callIdx = SRC.search(callRe)
+    const defIdx = SRC.search(new RegExp(`export (?:async )?function ${fn}\\(`))
     assert.ok(callIdx > 0 && defIdx > 0 && callIdx > defIdx, `${fn} 的调用点应在定义之后且真在链上`)
   }
 })
 
-test('L13 两族派生腿底下必须是**同一件器物**(落 HEAD 的接缝只许一处,防止两条 commit-tree 通路各漂一边)', () => {
+test('L13 两族派生腿底下必须是**同一件器物**(落 HEAD 的接缝只许一处,防止两条 commit-tree 通路各漂一边)', async () => {
   assert.match(SRC, /function runDerivedHealLeg\(/, '共用派发体必须在位')
   assert.match(SRC, /runDerivedHealLeg\('i18n'/, 'i18n 腿走共用体')
   assert.match(SRC, /runDerivedHealLeg\('ui-routes'/, 'ui-routes 腿走同一件器物')
@@ -383,7 +387,7 @@ test('L13 两族派生腿底下必须是**同一件器物**(落 HEAD 的接缝�
   )
 })
 
-test('L12 selectFace 的返回是 {face,error} 形态:器物必须取 .face 并处理 error(实测踩过"未知判定面 [object Object]")', () => {
+test('L12 selectFace 的返回是 {face,error} 形态:器物必须取 .face 并处理 error(实测踩过"未知判定面 [object Object]")', async () => {
   const s = readFileSync(resolve(import.meta.dirname, '..', 'heal-derived-in-checkout.mjs'), 'utf8')
   assert.match(
     s,
@@ -398,7 +402,7 @@ test('L12 selectFace 的返回是 {face,error} 形态:器物必须取 .face 并�
   assert.match(s, /if \(sel\.error\)/, '两旗同给必须显式退 2,不许带病往下跑')
 })
 
-test('L11 三条腿一律不进提交链(判机器状态 ⇒ §12e),节流窗口都能用 env 覆盖', () => {
+test('L11 三条腿一律不进提交链(判机器状态 ⇒ §12e),节流窗口都能用 env 覆盖', async () => {
   const runnerFiles = [
     'scripts/guardian-runner.mjs',
     'scripts/lib/pre-commit-hook.js',

@@ -78,7 +78,7 @@ const collectLine = (over = {}) =>
   })
 const runnerOf = (stdout, extra = {}) => () => ({ status: 0, stdout, stderr: '', ...extra })
 
-test('T1 收编 7 枚 ⇒ ok:true、计数正确、logger 落「📦 跨端落库」', () => {
+test('T1 收编 7 枚 ⇒ ok:true、计数正确、logger 落「📦 跨端落库」', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndLandingLeg({
     ...fixture(),
@@ -95,7 +95,7 @@ test('T1 收编 7 枚 ⇒ ok:true、计数正确、logger 落「📦 跨端落�
   assert.match(line, /collected=7/)
 })
 
-test('T2 无待收 ⇒ state:ok 且零日志(clean 常态不淹守护日志)', () => {
+test('T2 无待收 ⇒ state:ok 且零日志(clean 常态不淹守护日志)', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndLandingLeg({ ...fixture(), logger, runner: runnerOf(collectLine()) })
   assert.equal(r.ran, true)
@@ -105,7 +105,7 @@ test('T2 无待收 ⇒ state:ok 且零日志(clean 常态不淹守护日志)', (
   assert.equal(logs.length, 0, 'collected=0 ∧ contested=0 ∧ incomplete=0 ⇒ 一声不出(T1 的阳性对照臂)')
 })
 
-test('T2b 被门整批拦下(collected=0 ∧ blocked>0)⇒ 必须出声并到人,不得落进 T2 的静默分支', () => {
+test('T2b 被门整批拦下(collected=0 ∧ blocked>0)⇒ 必须出声并到人,不得落进 T2 的静默分支', async () => {
   // 立因:2026-11-05 起 `collected` 只算真入库的枚数,"挑了 35 枚被 check-capability-matrix 拦死"
   // 这种轮次 collected=0 —— 若不把 blocked 加进"什么时候出声"的条件,唯一需要喊的那一刻就会变安静
   // (§0.9:判据失效的表现永远是安静;现读实证:一整个下午账本 229 条申报带 landedSha 的 0 条)。
@@ -138,7 +138,7 @@ test('T2b 被门整批拦下(collected=0 ∧ blocked>0)⇒ 必须出声并到人
   assert.equal(q.logs.length, 0, '无 blocked 的 held-only 轮仍须安静(held 会随他席提交自行回落)')
 })
 
-test('T3 无 COLLECT-RESULT ⇒ 未判定,绝不折成 clean', () => {
+test('T3 无 COLLECT-RESULT ⇒ 未判定,绝不折成 clean', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndLandingLeg({ ...fixture(), logger, runner: runnerOf('一些没有结论行的输出\n') })
   assert.equal(r.ran, true)
@@ -155,7 +155,7 @@ test('T3 无 COLLECT-RESULT ⇒ 未判定,绝不折成 clean', () => {
   assert.equal(logs2.length, 0)
 })
 
-test('T4 SIGTERM 掐死 ⇒ 未判定且文案点名是被掐死而非跑完', () => {
+test('T4 SIGTERM 掐死 ⇒ 未判定且文案点名是被掐死而非跑完', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndLandingLeg({
     ...fixture(),
@@ -170,7 +170,7 @@ test('T4 SIGTERM 掐死 ⇒ 未判定且文案点名是被掐死而非跑完', (
   assert.match(line, /掐死/)
 })
 
-test('T5 节流:窗口内第二次不派发;推后过 intervalMs 放行', () => {
+test('T5 节流:窗口内第二次不派发;推后过 intervalMs 放行', async () => {
   const f = fixture()
   const intervalMs = 15 * 60 * 1000
   const T0 = 1_700_000_000_000
@@ -222,7 +222,7 @@ function functionBody(name) {
   assert.fail(`${name}:函数体花括号不配平,取不出闭合体`)
 }
 
-test('T6 形状锁:两条腿函数体内 existsSync 排在节流与派发之前', () => {
+test('T6 形状锁:两条腿函数体内 existsSync 排在节流与派发之前', async () => {
   for (const name of ['sweepCrossEndLandingLeg', 'sweepCssTokensSourceLeg']) {
     const body = functionBody(name)
     const guard = body.search(/if \(!existsSync\(script\)\)/)
@@ -235,7 +235,7 @@ test('T6 形状锁:两条腿函数体内 existsSync 排在节流与派发之前'
   }
 })
 
-test('T7 contested=3 ∧ incomplete=2 ∧ collected=0 ⇒ 计数逐键正确且必须点名', () => {
+test('T7 contested=3 ∧ incomplete=2 ∧ collected=0 ⇒ 计数逐键正确且必须点名', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndLandingLeg({
     ...fixture(),
@@ -249,7 +249,7 @@ test('T7 contested=3 ∧ incomplete=2 ∧ collected=0 ⇒ 计数逐键正确且�
   assert.ok(logs.some((l) => /📦 跨端落库/.test(l)), '有拦截就要点名,不能静默(§0.3 反向:账上有事必须出声)')
 })
 
-test('T8 css-tokens 腿三态:clean 无日志 / written 有日志 / 乱输出未判定', () => {
+test('T8 css-tokens 腿三态:clean 无日志 / written 有日志 / 乱输出未判定', async () => {
   // ① 一致 ⇒ clean,零字节写回是幂等常态 ⇒ 一声不出
   const a = logsOf()
   const rClean = sweepCssTokensSourceLeg({
@@ -279,7 +279,7 @@ test('T8 css-tokens 腿三态:clean 无日志 / written 有日志 / 乱输出未
   assert.ok(!c.logs.some((l) => /🎨/.test(l)))
 })
 
-test('T9 装车顺序锁:两条新腿排在 sweepHandMirrorUpgrades() 后、sweepParityCockpit() 前', () => {
+test('T9 装车顺序锁:两条新腿排在 sweepHandMirrorUpgrades() 后、sweepParityCockpit() 前', async () => {
   const at = (s) => {
     const i = SRC.indexOf(s)
     assert.ok(i >= 0, `派发点缺失:${s}(腿挂了但顺序错/根本没挂,都由这一锁拦)`)
@@ -298,7 +298,7 @@ test('T9 装车顺序锁:两条新腿排在 sweepHandMirrorUpgrades() 后、swee
   assert.match(SRC, /'css-tokens-source-last\.json'/)
 })
 
-test('C1 契约锁:两条腿匹配的结论文案真存在于生产方源码(不手抄形状)', () => {
+test('C1 契约锁:两条腿匹配的结论文案真存在于生产方源码(不手抄形状)', async () => {
   // 落库腿读的 COLLECT-RESULT 由 ledgerConclusionLine 现产(T1 已用同一函数拼行,键集天然对齐);
   // 这里再钉生产方确实导出它,且结论行以 'COLLECT-RESULT' 起头(腿的正则匹配的是前缀)。
   assert.equal(typeof autoQuiet.ledgerConclusionLine, 'function')
@@ -312,7 +312,7 @@ test('C1 契约锁:两条腿匹配的结论文案真存在于生产方源码(不
 // ── 第二批:两件存量落档器首次上链(sweepUiMirrorLeg / sweepRnColorLiteralLeg)────────────
 // 立因:两件器物早就存在,但 parity-auto 只被喂 `--json`、runner 里 255 只跑 `--check --staged`,
 // git-guardian 通篇零 `--apply` ⇒ 写档从未放行(§0.9)。挂周期前的前置是归属闸已就位。
-test('U1 落档腿:有产出 ⇒ 读数进计数且落日志', () => {
+test('U1 落档腿:有产出 ⇒ 读数进计数且落日志', async () => {
   const seen = []
   const r = sweepUiMirrorLeg({
     tickFile: tick('u1.json'),
@@ -333,7 +333,7 @@ test('U1 落档腿:有产出 ⇒ 读数进计数且落日志', () => {
   assert.ok(seen.some((s) => s.includes('小程序↔RN 映射块落档')), '有产出必须点名到哪条腿')
 })
 
-test('U2 落档腿:landing=0 ∧ held=0 ⇒ 一声不出(clean 常态零噪声)', () => {
+test('U2 落档腿:landing=0 ∧ held=0 ⇒ 一声不出(clean 常态零噪声)', async () => {
   let hits = 0
   const r = sweepUiMirrorLeg({
     tickFile: tick('u2.json'),
@@ -346,7 +346,7 @@ test('U2 落档腿:landing=0 ∧ held=0 ⇒ 一声不出(clean 常态零噪声)'
   assert.equal(hits, 0, 'clean 常态不得落日志')
 })
 
-test('U3 落档腿:结论取不到 ⇒ undetermined,绝不折成"无漂移可落"(§0.3)', () => {
+test('U3 落档腿:结论取不到 ⇒ undetermined,绝不折成"无漂移可落"(§0.3)', async () => {
   const seen = []
   const r = sweepRnColorLiteralLeg({
     tickFile: tick('u3.json'),
@@ -358,7 +358,7 @@ test('U3 落档腿:结论取不到 ⇒ undetermined,绝不折成"无漂移可落
   assert.ok(seen.some((s) => s.includes('未判定')), '未判定必须显式点名')
 })
 
-test('U4 落档腿:held>0 ⇒ 必须点名(拦截不能静默)', () => {
+test('U4 落档腿:held>0 ⇒ 必须点名(拦截不能静默)', async () => {
   const seen = []
   const r = sweepRnColorLiteralLeg({
     tickFile: tick('u4.json'),
@@ -370,7 +370,7 @@ test('U4 落档腿:held>0 ⇒ 必须点名(拦截不能静默)', () => {
   assert.ok(seen.length > 0, 'held=6 是"本应落档却被归属闸拦下",不点名等于静默放过')
 })
 
-test('U7 落档腿:downgrade>0 落 tick 字段并进告警面,与未判定分道', () => {
+test('U7 落档腿:downgrade>0 落 tick 字段并进告警面,与未判定分道', async () => {
   const tickFile = tick('u7.json')
   const logs = []
   const alerts = []
@@ -398,7 +398,7 @@ test('U7 落档腿:downgrade>0 落 tick 字段并进告警面,与未判定分道
   assert.match(alerts[0].title, /拒写 2 枚/)
 })
 
-test('U8 落档腿:未判定(exit 2)走另一条字段与另一条文案,不混成拒写', () => {
+test('U8 落档腿:未判定(exit 2)走另一条字段与另一条文案,不混成拒写', async () => {
   const tickFile = tick('u8.json')
   const logs = []
   const alerts = []
@@ -424,7 +424,7 @@ test('U8 落档腿:未判定(exit 2)走另一条字段与另一条文案,不混�
   assert.equal(alerts.length, 0, '未判定不喊人(与拒写的告警面分道)')
 })
 
-test('U5 落档腿顺序锁:两件在写盘腿之后、在落库腿之前,且 tickFile 可被 opts 覆盖', () => {
+test('U5 落档腿顺序锁:两件在写盘腿之后、在落库腿之前,且 tickFile 可被 opts 覆盖', async () => {
   const src = readFileSync(GUARDIAN, 'utf8')
   const at = (needle) => src.indexOf(needle)
   const iCss = at('if (!CHECK_ONLY) sweepCssTokensSourceLeg()')
@@ -444,7 +444,7 @@ test('U5 落档腿顺序锁:两件在写盘腿之后、在落库腿之前,且 ti
 // 而该命令在全仓**零调度点**(git grep 只命中门体文案与自身)。上游发新图标名 / 登记表新增一条
 // rn↔miniapp 都不触发提交 ⇒ 没有这条腿,漂移要等下一个人恰好提交且恰好撞门才被发现(同门 260 的 CVE 型)。
 // 挂周期腿的前置是本器补齐了归属闸 + 未知旗拒绝 + 落点申报(2026-11-03),否则自动写档=覆盖他席现场。
-test('U6 RN兼容层腿:按本器真实结论行解析 landing/held,且 clean 一声不出', () => {
+test('U6 RN兼容层腿:按本器真实结论行解析 landing/held,且 clean 一声不出', async () => {
   const seen = []
   const r = sweepRnCompatLeg({
     tickFile: tick('u6.json'),
@@ -477,7 +477,7 @@ test('U6 RN兼容层腿:按本器真实结论行解析 landing/held,且 clean �
   assert.equal(hits.length, 0, 'clean 档必须零输出(每 30 分钟一行"没问题"会把守护日志淹成噪声)')
 })
 
-test('U7 RN兼容层腿:结论行缺失 ⇒ 未判定,不得折成"无漂移可落"', () => {
+test('U7 RN兼容层腿:结论行缺失 ⇒ 未判定,不得折成"无漂移可落"', async () => {
   const r = sweepRnCompatLeg({
     tickFile: tick('u7.json'),
     logger: () => {},
@@ -487,7 +487,7 @@ test('U7 RN兼容层腿:结论行缺失 ⇒ 未判定,不得折成"无漂移可�
   assert.equal(r.state, 'undetermined')
 })
 
-test('U8 RN兼容层腿挂载与器内契约锁(改措辞即点名,防腿静默失明)', () => {
+test('U8 RN兼容层腿挂载与器内契约锁(改措辞即点名,防腿静默失明)', async () => {
   const src = readFileSync(GUARDIAN, 'utf8')
   const iCompat = src.indexOf('if (!CHECK_ONLY) sweepRnCompatLeg()')
   const iLand = src.indexOf('if (!CHECK_ONLY) sweepCrossEndLandingLeg()')
@@ -509,7 +509,7 @@ test('U8 RN兼容层腿挂载与器内契约锁(改措辞即点名,防腿静默�
 const MSG_KEYS_CONCLUSION =
   '结论 landing=5(新登记 5/在册去重 0) 计划=35 held=0 写出=5 leg=miniapp-message-keys ledger=ok 基准侧查无=0 landingPath=.ihui-agent/state/cross-end-landing.jsonl'
 
-test('U9 词包搬运腿:按本器真实结论行解析 landing/写出,且 clean 一声不出', () => {
+test('U9 词包搬运腿:按本器真实结论行解析 landing/写出,且 clean 一声不出', async () => {
   const seen = []
   const r = sweepMiniappMessageKeysLeg({
     tickFile: tick('u9.json'),
@@ -537,7 +537,7 @@ test('U9 词包搬运腿:按本器真实结论行解析 landing/写出,且 clean
   assert.equal(hits.length, 0, 'clean 档必须零输出(每 30 分钟一行"没问题"会把守护日志淹成噪声)')
 })
 
-test('U10 词包搬运腿:结论行缺失 ⇒ 未判定,不得折成"无缺口可搬"', () => {
+test('U10 词包搬运腿:结论行缺失 ⇒ 未判定,不得折成"无缺口可搬"', async () => {
   const r = sweepMiniappMessageKeysLeg({
     tickFile: tick('u10.json'),
     logger: () => {},
@@ -547,11 +547,11 @@ test('U10 词包搬运腿:结论行缺失 ⇒ 未判定,不得折成"无缺口�
   assert.equal(r.state, 'undetermined')
 })
 
-test('U11 词包搬运腿挂载与器内契约锁(改措辞即点名,防腿静默失明)', () => {
+test('U11 词包搬运腿挂载与器内契约锁(改措辞即点名,防腿静默失明)', async () => {
   const src = readFileSync(GUARDIAN, 'utf8')
   const iMsg = src.indexOf('if (!CHECK_ONLY) sweepMiniappMessageKeysLeg()')
   const iLand = src.indexOf('if (!CHECK_ONLY) sweepCrossEndLandingLeg()')
-  const iBundle = src.indexOf('if (!CHECK_ONLY) healI18nBundleLeg()')
+  const iBundle = src.indexOf('if (!CHECK_ONLY) await healI18nBundleLeg()')
   assert.ok(iMsg > 0, '本腿必须真挂在主串上(不是只在文件里出现过函数名)')
   assert.ok(iMsg < iLand, '写盘腿排在落库腿之前,否则本轮产出收编不到')
   assert.ok(iBundle > iMsg, '离线建包腿必须排在搬运之后,否则搬进来的词进不了本轮包')
@@ -566,7 +566,7 @@ test('U11 词包搬运腿挂载与器内契约锁(改措辞即点名,防腿静�
   assert.doesNotMatch(tool, /function consumedKeys|MARK_RE/, '本器不得自带第二份取词判据')
 })
 
-test('T10 基线让路闸:HEAD 落后 origin/main ⇒ 整轮让路,一次都不派生', () => {
+test('T10 基线让路闸:HEAD 落后 origin/main ⇒ 整轮让路,一次都不派生', async () => {
   const { logs, logger } = logsOf()
   let calls = 0
   const r = sweepCrossEndLandingLeg({
@@ -589,7 +589,7 @@ test('T10 基线让路闸:HEAD 落后 origin/main ⇒ 整轮让路,一次都不�
   assert.ok(!logs.some((l) => /📦/.test(l)), '让路轮不得落成收编读数')
 })
 
-test('T10b 基线让路闸 fail-closed:origin/main 取不到 ⇒ 让路,不读成"已同步"', () => {
+test('T10b 基线让路闸 fail-closed:origin/main 取不到 ⇒ 让路,不读成"已同步"', async () => {
   const { logs, logger } = logsOf()
   let calls = 0
   const r = sweepCrossEndLandingLeg({
@@ -607,7 +607,7 @@ test('T10b 基线让路闸 fail-closed:origin/main 取不到 ⇒ 让路,不读�
   assert.match(logs.join('\n'), /HEAD=cccc3333/)
 })
 
-test('T11 基线让路闸阳性对照:HEAD 是 origin/main 后代 ⇒ 照常收编', () => {
+test('T11 基线让路闸阳性对照:HEAD 是 origin/main 后代 ⇒ 照常收编', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndLandingLeg({
     ...fixture(),
@@ -620,7 +620,7 @@ test('T11 基线让路闸阳性对照:HEAD 是 origin/main 后代 ⇒ 照常收�
   assert.ok(logs.some((l) => /📦 跨端落库/.test(l)), '后代表态不得被让路闸误拦(T10 的反向对照)')
 })
 
-test('T12 readMainAncestry 三态:后代 / 落后 / 取不到远端', () => {
+test('T12 readMainAncestry 三态:后代 / 落后 / 取不到远端', async () => {
   const fake = (over = {}) => (args) => {
     const a = args.join(' ')
     if (a === 'rev-parse --verify HEAD') return over.head ?? 'HEAD-SHA\n'
