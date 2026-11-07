@@ -22,15 +22,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { parseTaskRows } from '../lib/plan-task-index.mjs'
-import {
-  flagValue,
-  resolveLimit,
-  DEFAULT_LIMIT,
-  mergeRowLinesToBlocks,
-  blameLineTimes,
-  headAges,
-} from '../lib/plan-line-age.mjs'
+import { flagValue, resolveLimit, DEFAULT_LIMIT, mergeLineRanges, blameLineTimes, BLAME_RANGE_ARG_CAP } from '../lib/plan-line-age.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const REPO = path.resolve(__dirname, '..', '..')
@@ -319,4 +311,72 @@ test('区间档与整档逐行等值(临时真仓,两臂同枚提交;摘掉 bloc
     rmScratch(dir)
   }
 })
+
+// ─── (d) 只 blame 未勾选行(2026-11-07):全文件 blame 已跑不进 180s 取票预算 ───
+// 事故形态:PROJECT_PLAN.md 长到 29034 行 / 8.2MB 后,全文件 blame 实测 >240s(压缩对象库前后各测一次),
+// 而 `plan-tasks.mjs` 每次 HEAD 面取数都要付这一笔 ⇒ A3 射程腿恒 unjudged(取票口 180s 被杀),
+// 派发腿的 120s spawnSync 也恒超时 ⇒ 自 2026-10-30 起零派发。收窄到 open 行区间后实测 3.9s。
+test('(d) mergeLineRanges 判据:乱序/重复/非法值都要收拾干净,连续段并成一段(变异 +1→+2 必红)', () => {
+  assert.deepEqual(mergeLineRanges([9, 3, 4, 5, 7, 9, 10]), [[3, 5], [7, 7], [9, 10]], '乱序去重后按连续段合并')
+  assert.deepEqual(mergeLineRanges([]), [], '空输入不得凭空造一个 0,0 区间')
+  assert.deepEqual(mergeLineRanges([0, -3, 2, 2.5, 'x']), [[2, 2]], '非正整数一律丢弃(行号 0 不是合法行)')
+  assert.deepEqual(mergeLineRanges([1, 2, 4, 5, 6]), [[1, 2], [4, 6]], '两个连续段不得并成一段')
+  // 变异自证:把 "相邻 = prev+1" 放宽成 prev+2,上面两条必然塌成一段 ⇒ 判据有牙
+  const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
+  assert.match(src, /if \(n === prev \+ 1\) \{/, '相邻判据必须是 n === prev + 1')
+})
+
+test('(d2) 行为双向:按区间 blame 与全量 blame 对同一批行给同一结论;空清单不派子进程', () => {
+  const dir = mkScratch('ihui-plan-line-age-range-')
+  const git = (args, env = {}) =>
+    spawnSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', ...args], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      env: { ...process.env, ...env },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  try {
+    git(['init', '-q', '.'])
+    fs.writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), '# 计划\n- [ ] A\n- [ ] B\n- [ ] C\n')
+    git(['add', '-A'])
+    // 伪作者日期:blame 的 author-time 精度是秒,两笔同秒提交会让"第 2 行被刷新"这条前置恒假,
+    // 于是比较本身恒真 —— 夹具不像被审对象时,判据坏了和夹具写错了在账面上长得一样(§22c)。
+    git(['commit', '-q', '-m', 'first'], { GIT_AUTHOR_DATE: '2026-01-05T12:00:00+00:00', GIT_COMMITTER_DATE: '2026-01-05T12:00:00+00:00' })
+    fs.writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), '# 计划\n- [ ] A\n- [ ] B 改\n- [ ] C\n')
+    git(['add', '-A'])
+    git(['commit', '-q', '-m', 'second'], { GIT_AUTHOR_DATE: '2026-09-20T12:00:00+00:00', GIT_COMMITTER_DATE: '2026-09-20T12:00:00+00:00' })
+    const full = blameLineTimes(dir, 'HEAD', 'PROJECT_PLAN.md')
+    const narrow = blameLineTimes(dir, 'HEAD', 'PROJECT_PLAN.md', [1, 3])
+    assert.equal(narrow.size, 2, `只该量到点名的两行,实际 ${JSON.stringify([...narrow])}`)
+    for (const ln of [1, 3]) assert.equal(narrow.get(ln), full.get(ln), `第 ${ln} 行两种取法必须同值`)
+    // 行号口径:第 1 行是标题 `# 计划`,被第二次提交改写的是第 3 行(`- [ ] B 改`)
+    assert.notEqual(full.get(3), full.get(1), '夹具必须让第 3 行真的被第二次提交刷新,否则上一条恒真')
+    assert.equal(blameLineTimes(dir, 'HEAD', 'PROJECT_PLAN.md', []).size, 0, '空清单 ⇒ 空表,不派子进程')
+    assert.ok(BLAME_RANGE_ARG_CAP >= 100, '区间上限不得退到个位数(真仓现读 11 个区间)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('(d3) headAges 必须把 open 行传给 blame(否则收窄整段失效,退化成全文件 >240s)', () => {
+  const src = fs.readFileSync(SCRIPT_PATH, 'utf8')
+  const body = src.slice(src.indexOf('export function headAges'), src.indexOf('function main()'))
+  assert.match(body, /parseTaskRows\(content\)/, 'headAges 必须先解析 open 行')
+  assert.match(body, /blameLineTimes\(root, 'HEAD', PLAN_REL, openLines\)/, '必须把 openLines 传下去(变异掉这个实参 = 静默退回全量)')
+  assert.match(body, /state === 'open'/, '只量未勾选行:已完成行会被归档搬走,判它年龄无意义')
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ── 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) ──
+import { parseTaskRows } from '../lib/plan-task-index.mjs'
+import {
+  flagValue,
+  resolveLimit,
+  DEFAULT_LIMIT,
+  mergeRowLinesToBlocks,
+  blameLineTimes,
+  headAges,
+} from '../lib/plan-line-age.mjs'
+*/

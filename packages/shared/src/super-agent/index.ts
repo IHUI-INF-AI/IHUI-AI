@@ -9,6 +9,12 @@ export {
   ticketStage,
   waitsForPerson,
 } from './engine'
+export { SuperAgentPump } from './pump'
+export type { PumpLogRow, TriggerSourcePort, WorkerDispatch } from './pump'
+export { VERDICT_VALUES, isSlowVerdict, pickDecisions } from './slow-path'
+export type { SlowDecision, SlowJudgeCall, SlowJudgeInput, SlowVerdict } from './slow-path'
+export { SNAPSHOT_VERSION } from './persist'
+export type { OwnerSlice, RestoreReport, SuperAgentSnapshot } from './persist'
 export {
   ROUTER_TOOLS,
   WORKER_TOOLS,

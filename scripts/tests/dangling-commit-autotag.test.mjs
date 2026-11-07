@@ -119,7 +119,7 @@ const depsOf = ({
   return { deps, calls }
 }
 
-test('A1 窗内未备份 ⇒ 打上 tag;第二次(已在册)零动作 = 幂等', () => {
+test('A1 窗内未备份 ⇒ 打上 tag;第二次(已在册)零动作 = 幂等', async () => {
   const { deps, calls } = depsOf({ unbacked: [H1, H2] })
   const r1 = AT.autotagOnce({ ...deps, apply: true })
   assert.equal(r1.state, 'tagged')
@@ -148,7 +148,7 @@ test('A1 窗内未备份 ⇒ 打上 tag;第二次(已在册)零动作 = 幂等',
   assert.equal(again.calls.tagged.length, 0, '幂等:已在册的一枚也不得再派 git tag')
 })
 
-test('A2 超窗 ⇒ 只报数、一条不 tag(§29 人工 GC 存量)', () => {
+test('A2 超窗 ⇒ 只报数、一条不 tag(§29 人工 GC 存量)', async () => {
   const { deps, calls } = depsOf({ unbacked: [], outOfWeek: [H1, H2, H3] })
   const r = AT.autotagOnce({ ...deps, apply: true })
   assert.equal(r.state, 'clean')
@@ -157,7 +157,7 @@ test('A2 超窗 ⇒ 只报数、一条不 tag(§29 人工 GC 存量)', () => {
   assert.equal(calls.pushed.length, 0)
 })
 
-test('A3 窗维不住在本器:import 的是门 30a 那一把尺(含"时刻读不到⇒保守算窗内")', () => {
+test('A3 窗维不住在本器:import 的是门 30a 那一把尺(含"时刻读不到⇒保守算窗内")', async () => {
   // ① 本器用的清单旗标/窗宽常量与门 30a 是同一对象引用,不是抄的第二份字面量
   assert.equal(lossGuard.FLAGS.listUnbacked, '--list-unbacked')
   assert.equal(lossGuard.WINDOW_DAYS_DEFAULT, 30)
@@ -194,7 +194,7 @@ test('A3 窗维不住在本器:import 的是门 30a 那一把尺(含"时刻读�
   assert.equal(calls.tagged.length, 1)
 })
 
-test('A4 tag 名已存在而指向别的对象 ⇒ 不覆盖并点名', () => {
+test('A4 tag 名已存在而指向别的对象 ⇒ 不覆盖并点名', async () => {
   const taken = AT.tagNameFor(H1)
   const { deps, calls } = depsOf({ unbacked: [H1], names: new Map([[taken, H2]]) })
   const r = AT.autotagOnce({ ...deps, apply: true })
@@ -206,7 +206,7 @@ test('A4 tag 名已存在而指向别的对象 ⇒ 不覆盖并点名', () => {
   assert.equal(r.state, 'conflict')
 })
 
-test('A5 fsck 取不到(门 30a 自报未判定 rc=2)/ 清单与自报枚数对不上 ⇒ 未判定、零 tag', () => {
+test('A5 fsck 取不到(门 30a 自报未判定 rc=2)/ 清单与自报枚数对不上 ⇒ 未判定、零 tag', async () => {
   const g2 = depsOf({ rc: 2, stdout: '' })
   const r2 = AT.autotagOnce({ ...g2.deps, apply: true })
   assert.equal(r2.state, 'undetermined')
@@ -228,7 +228,7 @@ test('A5 fsck 取不到(门 30a 自报未判定 rc=2)/ 清单与自报枚数对�
   assert.equal(AT.autotagOnce({ ...blank.deps, apply: true }).state, 'undetermined')
 })
 
-test('A6 空转零写零推;打上才有留痕与推送;失败必进留痕', () => {
+test('A6 空转零写零推;打上才有留痕与推送;失败必进留痕', async () => {
   const clean = depsOf({ unbacked: [], stdout: guardStdout({ green: true }) })
   const rc = AT.autotagOnce({ ...clean.deps, apply: true })
   assert.equal(rc.state, 'clean')
@@ -259,7 +259,7 @@ test('A6 空转零写零推;打上才有留痕与推送;失败必进留痕', () 
   assert.equal(part.calls.ledger[0].seat, AT.SEAT)
 })
 
-test('A7 红线形状锁:只加不减 —— 源码零删 tag / 零 GC 形态', () => {
+test('A7 红线形状锁:只加不减 —— 源码零删 tag / 零 GC 形态', async () => {
   const src = readFileSync(resolve(ROOT, 'scripts', 'lib', 'dangling-commit-autotag.mjs'), 'utf8')
   const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
   assert.doesNotMatch(code, /tag\s+(-d|--delete)/, '不得删 tag(§29 GC 归人工)')
@@ -268,11 +268,11 @@ test('A7 红线形状锁:只加不减 —— 源码零删 tag / 零 GC 形态', 
   assert.match(code, /gitRaw\(\['tag', tag, sha\]/, '保活动作必须是加法 git tag')
 })
 
-test('A8 接线锁:派发层定义 + 巡检轮调用 + __test__ 出口 + 15 分钟节流(每个判据面都过一遍)', () => {
+test('A8 接线锁:派发层定义 + 巡检轮调用 + __test__ 出口 + 15 分钟节流(每个判据面都过一遍)', async () => {
   for (const face of GUARDIAN_FACES) {
     const code = face.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
-    assert.match(code, /export function sweepDanglingCommitAutotag\(/, '派发函数体不得缺席')
-    assert.match(code, /if \(!CHECK_ONLY\) sweepDanglingCommitAutotag\(\)/, '巡检轮调用点不得缺席')
+    assert.match(code, /export (?:async )?function sweepDanglingCommitAutotag\(/, '派发函数体不得缺席')
+    assert.match(code, /if \(!CHECK_ONLY\) (?:await )?sweepDanglingCommitAutotag\(\)/, '巡检轮调用点不得缺席')
     assert.match(code, /^\s*sweepDanglingCommitAutotag,$/m, '__test__ 出口条目不得缺席')
     assert.match(code, /IHUI_DANGLING_AUTOTAG_INTERVAL_MS/, '节流必须可由 env 覆盖')
     assert.match(
@@ -281,7 +281,7 @@ test('A8 接线锁:派发层定义 + 巡检轮调用 + __test__ 出口 + 15 分�
       '默认节拍 ≥15 分钟(fsck 全量要几分钟)',
     )
     // 与同族清扫器邻接:必须挂在同一个函数体内("文件里两处都出现过"不等于接上了)
-    const mine = code.match(/if \(!CHECK_ONLY\) sweepDanglingCommitAutotag\(\)/)
+    const mine = code.match(/if \(!CHECK_ONLY\) (?:await )?sweepDanglingCommitAutotag\(\)/)
     const sibling = code.match(/if \(!CHECK_ONLY\) sweepBannedBuckets\(\)/)
     assert.ok(mine && sibling, '两条派发都要在(同族节拍)')
     const fnStarts = [...code.matchAll(/^(?:export )?(?:async )?function\s+(\w+)/gm)].map(
@@ -302,7 +302,7 @@ test('A8 接线锁:派发层定义 + 巡检轮调用 + __test__ 出口 + 15 分�
   }
 })
 
-test('A9 派发层读数分档:clean 零日志;tagged 绿行带计数;未判定不记绿且到人', () => {
+test('A9 派发层读数分档:clean 零日志;tagged 绿行带计数;未判定不记绿且到人', async () => {
   const dir = mkScratch('dangling-autotag-')
   const logs = []
   const mails = []
@@ -312,8 +312,7 @@ test('A9 派发层读数分档:clean 零日志;tagged 绿行带计数;未判定�
   }
   const runnerOf = (obj) => () => JSON.stringify(obj)
   // clean ⇒ 不打日志行(空转零写,§5e-1)
-  const r1 = sweepDanglingCommitAutotag({
-    enabled: true,
+  const r1 = await sweepDanglingCommitAutotag({
     tickFile: join(dir, 't1.json'),
     logger: (m) => logs.push(m),
     runner: runnerOf({ state: 'clean', tagged: 0, unbacked: 0, outOfWeek: 0, push: 'skip' }),
@@ -323,8 +322,7 @@ test('A9 派发层读数分档:clean 零日志;tagged 绿行带计数;未判定�
   assert.equal(logs.filter((l) => /悬空 commit 保活/.test(l)).length, 0, 'clean 不得占日志行')
   assert.equal(mails.length, 0, 'clean 不得到人')
   // tagged ⇒ 读数逐键点名
-  const r2 = sweepDanglingCommitAutotag({
-    enabled: true,
+  const r2 = await sweepDanglingCommitAutotag({
     tickFile: join(dir, 't2.json'),
     logger: (m) => logs.push(m),
     runner: runnerOf({
@@ -346,8 +344,7 @@ test('A9 派发层读数分档:clean 零日志;tagged 绿行带计数;未判定�
   assert.match(line, /超窗只报数=9/, '超窗存量必须看得见(不得因"没拦"而在账面蒸发)')
   assert.equal(mails.length, 0, '正常打上 tag 属器物自己能干完的活,不到人')
   // undetermined ⇒ 到人(收信人能做什么:让 fsck 跑得通)
-  const r3 = sweepDanglingCommitAutotag({
-    enabled: true,
+  const r3 = await sweepDanglingCommitAutotag({
     tickFile: join(dir, 't3.json'),
     logger: (m) => logs.push(m),
     runner: runnerOf({ state: 'undetermined', tagged: 0, why: '门 30a 未判定:fsck 判定面取不到' }),
@@ -362,8 +359,7 @@ test('A9 派发层读数分档:clean 零日志;tagged 绿行带计数;未判定�
     '到人按稳定身份去重(§5e-3),不得每轮重寄',
   )
   // 结论行取不到 ⇒ 未判定 + 不记绿
-  const r4 = sweepDanglingCommitAutotag({
-    enabled: true,
+  const r4 = await sweepDanglingCommitAutotag({
     tickFile: join(dir, 't4.json'),
     logger: () => {},
     runner: () => '半截输出',
@@ -373,7 +369,7 @@ test('A9 派发层读数分档:clean 零日志;tagged 绿行带计数;未判定�
   assert.equal(r4.state, 'undetermined')
 })
 
-test('A10 节流窗口内不派生第二次 + 器物不在位只跳过不记绿', () => {
+test('A10 节流窗口内不派生第二次 + 器物不在位只跳过不记绿', async () => {
   const dir = mkScratch('dangling-autotag-')
   let calls = 0
   const counting = () => {
@@ -381,8 +377,7 @@ test('A10 节流窗口内不派生第二次 + 器物不在位只跳过不记绿'
     return JSON.stringify({ state: 'clean', tagged: 0 })
   }
   const now = 1_700_000_000_000
-  const a = sweepDanglingCommitAutotag({
-    enabled: true,
+  const a = await sweepDanglingCommitAutotag({
     tickFile: join(dir, 't.json'),
     logger: () => {},
     runner: counting,
@@ -390,8 +385,7 @@ test('A10 节流窗口内不派生第二次 + 器物不在位只跳过不记绿'
     notify: () => ({}),
   })
   assert.equal(a.ran, true)
-  const b = sweepDanglingCommitAutotag({
-    enabled: true,
+  const b = await sweepDanglingCommitAutotag({
     tickFile: join(dir, 't.json'),
     logger: () => {},
     runner: counting,
@@ -400,8 +394,7 @@ test('A10 节流窗口内不派生第二次 + 器物不在位只跳过不记绿'
   })
   assert.equal(b.ran, false)
   assert.equal(calls, 1, '15 分钟窗内一次都不派生(每轮全仓 fsck 是要烧分钟的)')
-  const c = sweepDanglingCommitAutotag({
-    enabled: true,
+  const c = await sweepDanglingCommitAutotag({
     tickFile: join(dir, 't2.json'),
     logger: () => {},
     scriptFile: join(dir, 'nope.mjs'),
@@ -411,7 +404,7 @@ test('A10 节流窗口内不派生第二次 + 器物不在位只跳过不记绿'
   assert.equal(c.why, '器物不在位', '器物缺席要明说"跳过,不记为已探测"(§0.3)')
 })
 
-test('A11 展示文案依赖的腐烂锁:门 30a 的两句判读锚点仍在源文件里', () => {
+test('A11 展示文案依赖的腐烂锁:门 30a 的两句判读锚点仍在源文件里', async () => {
   // 本器把"未备份集为空但确有悬空"这一档认成 clean,靠的是门 30a 打印的那句"已全部 tag 备份";
   // 这句没进 GREEN_MARKERS ⇒ 属展示文案依赖。文案一改,本器会静默读成"没判成" ⇒ 由这条锁盯住:
   // 门体文案漂了先在这里红,而不是在守护日志里以"未判定"的名义长年空转。
@@ -425,7 +418,7 @@ test('A11 展示文案依赖的腐烂锁:门 30a 的两句判读锚点仍在源�
   assert.equal(lossGuard.FLAGS.listOutOfWindow, '--list-out-of-window')
 })
 
-test('A14 真跑实测那一型:确有悬空但后备援集为空 ⇒ 门只打终态句、零横幅 ⇒ 本器判 clean(不得读成未判定)', () => {
+test('A14 真跑实测那一型:确有悬空但后备援集为空 ⇒ 门只打终态句、零横幅 ⇒ 本器判 clean(不得读成未判定)', async () => {
   // 2026-10-30 本票实跑第二次撞上的形状:`⚠️ 检测到 1 个悬空 commit` + `✅ 无 commit 丢失风险`
   // (那枚被树的等价/同内容白名单放行 ⇒ unbacked 集为空 ⇒ 门根本不打 --list-* 横幅)。
   // 只认 noUnreachable 的实现会把"门判完了、没债"读成"门没判成"⇒ 每 15 分钟一条未判定 + 一封邮件。
@@ -440,7 +433,7 @@ test('A14 真跑实测那一型:确有悬空但后备援集为空 ⇒ 门只打�
   assert.equal(AT.autotagOnce({ ...blank.deps, apply: true }).state, 'undetermined')
 })
 
-test('A15 结论锚点全部门口:本器消费的两句终态文案必须是门自己导出的常量(不抄文案)', () => {
+test('A15 结论锚点全部门口:本器消费的两句终态文案必须是门自己导出的常量(不抄文案)', async () => {
   const src = readFileSync(resolve(ROOT, 'scripts', 'lib', 'dangling-commit-autotag.mjs'), 'utf8')
   // 剥注释后再查(注释里允许出现原文案作为说明,代码里出现才算抄了第二份)
   const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
@@ -453,7 +446,7 @@ test('A15 结论锚点全部门口:本器消费的两句终态文案必须是门
   )
 })
 
-test('A13 真 git 端到端(装车证明):夹具仓里造一枚真悬空 commit ⇒ 真打上 tag,第二轮幂等零动作', () => {
+test('A13 真 git 端到端(装车证明):夹具仓里造一枚真悬空 commit ⇒ 真打上 tag,第二轮幂等零动作', async () => {
   const dir = mkScratch('dangling-autotag-e2e-')
   const git = (...args) =>
     execFileSync('git', ['-c', 'safe.directory=*', '-C', dir, ...args], {
@@ -522,7 +515,7 @@ test('A13 真 git 端到端(装车证明):夹具仓里造一枚真悬空 commit 
   for (const t of before) assert.ok(after.includes(t), `既有 tag ${t} 不得被删`)
 })
 
-test('A12 单轮上限:超出记 deferred 交下一轮,绝不静默截断', () => {
+test('A12 单轮上限:超出记 deferred 交下一轮,绝不静默截断', async () => {
   const many = Array.from({ length: 7 }, (_, i) => String(i).padStart(40, '0'))
   const plan = AT.planAutotags({ unbacked: many, existingTagNames: new Set(), cap: 3 })
   assert.equal(plan.create.length, 3)
@@ -575,3 +568,13 @@ test('A17 增长闸显式打开 ⇒ 仍能建(反向对照,证明不是把功能
   assert.deepEqual(calls.tagged.map((t) => t[0]), [AT.tagNameFor(H1)])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ── 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) ──
+    enabled: true,
+    enabled: true,
+    enabled: true,
+    enabled: true,
+    enabled: true,
+    enabled: true,
+    enabled: true,
+*/

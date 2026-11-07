@@ -32,6 +32,8 @@ export interface WorkerAssignment {
   constraints: string
   deliverables: string
   role: 'worker'
+  /** 归属的登录主体；宿主派发与心跳反查都以它为准，禁止另建第二份账。 */
+  ownerUserId?: string
 }
 
 export function workerAssignment(ticket: {
@@ -45,6 +47,7 @@ export function workerAssignment(ticket: {
     directory: ticket.execution.directory,
     goal: ticket.scope,
     role: 'worker',
+    ownerUserId: ticket.ownerUserId,
     constraints: [
       `只在目录 ${ticket.execution.directory} 里改文件。`,
       `会话 ${ticket.execution.sessionId} 不与其他工单混用。`,

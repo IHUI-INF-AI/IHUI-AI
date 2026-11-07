@@ -32,6 +32,7 @@ import {
   ROUND_HEARTBEAT_STALE_MS,
   ROUND_HEARTBEAT_MS,
 } from '../check-autonomy-leg-health.mjs'
+import { __test__ as guardianTest } from '../git-guardian.mjs'
 
 const REPO = join(fileURLToPath(import.meta.url), '..', '..', '..')
 const GUARDIAN_SRC = join(REPO, 'scripts', 'git-guardian.mjs')
@@ -232,5 +233,60 @@ test('结构 · --check / --status 不许写游标(只读态冒充"跑完"是本
   assert.ok(body.includes('if (CHECK_ONLY || STATUS_ONLY) return'), '缺只读态短路')
   const mutated = body.replace('if (CHECK_ONLY || STATUS_ONLY) return', '/* removed */')
   assert.equal(mutated.includes('if (CHECK_ONLY || STATUS_ONLY) return'), false)
+})
+
+// —— 长腿派生器的轮级锁心跳(2026-11-07 立) ——
+// 现场:scrub-temp-fixtures --apply 同步跑 11min,腿前那一次 beatRoundLock() 之后
+// git-guardian.lock 的 mtime 再没动过 ⇒ A11-carrier-round 判 drift。把腿改成 spawn
+// 只解决"事件循环不占死",await 期间仍没人续锁;故心跳必须收进派生器本体一处。
+function legChildBody(source) {
+  const start = source.indexOf('function runLegChildAsync(')
+  if (start < 0) return ''
+  const end = source.indexOf('\n}\n', start)
+  return end < 0 ? '' : source.slice(start, end)
+}
+
+function assertLegChildHeartbeat(source) {
+  const body = legChildBody(source)
+  assert.notEqual(body, '', '取不到派生器本体 ⇒ 不得默认已接线')
+  assert.match(body, /setInterval\(/, '长腿期间没有周期心跳 ⇒ A11 必 drift')
+  assert.match(body, /onHeartbeat\(\)/, '心跳必须真调(不许建个空 interval 糊弄)')
+  assert.match(body, /:\s*beatRoundLock/, '生产默认心跳必须落在轮级锁上')
+  assert.match(body, /clearInterval\(beat\)/, 'finish 出口不清心跳 ⇒ 腿跑完还在续别人的锁')
+}
+
+test('A11 · 形状锁:长腿派生器自带周期心跳,生产默认打 beatRoundLock,出口清得干净', () => {
+  assertLegChildHeartbeat(src)
+  assert.match(src, /LEG_CHILD_HEARTBEAT_MS = 30 \* 1000/, '心跳周期 30s 必须远小于 A11 阈值')
+  assert.ok(30 * 1000 < ROUND_HEARTBEAT_STALE_MS, '心跳周期必须小于停滞阈值,否则等于没续')
+})
+
+test('A11 · 变异自证:抹掉心跳/默认落点/清理 ⇒ 上面那道锁逐项转红(不是恒真的绿)', () => {
+  const cases = [
+    ['去掉 setInterval', src.replace('setInterval(() => {', '/* removed */ (() => {')],
+    ['默认心跳不再落锁', src.replace(': beatRoundLock', ': undefined')],
+    ['出口不清 interval', src.replace('if (beat) clearInterval(beat)', '/* removed */')],
+  ]
+  for (const [label, mutated] of cases) {
+    assert.notEqual(mutated, src, `${label}:变异没生效 ⇒ 本自证是摆设`)
+    let red = false
+    try { assertLegChildHeartbeat(mutated) } catch { red = true }
+    assert.equal(red, true, `${label} 后形状锁必须红`)
+  }
+})
+
+test('A11 · 行为自证:长子进程期间心跳被反复打到,且退出码/输出面一字不变', async () => {
+  let beats = 0
+  const r = await guardianTest.runLegChildAsync(
+    '-e',
+    ['setTimeout(() => process.stdout.write("done"), 260)'],
+    10_000,
+    REPO,
+    { heartbeatMs: 25, onHeartbeat: () => { beats += 1 } },
+  )
+  assert.equal(r.status, 0, '心跳不得改变派生结论面')
+  assert.equal(r.signal, null)
+  assert.match(r.stdout, /done/)
+  assert.ok(beats >= 2, `长腿期间必须续到锁(实得 ${beats} 次);只有腿前那一次等于没续`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
