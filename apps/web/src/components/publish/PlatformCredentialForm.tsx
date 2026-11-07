@@ -48,7 +48,7 @@ export function PlatformCredentialForm({
 
   if (!schema) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <p className="font-[weight:inherit] text-label text-muted-foreground">
         暂不支持该平台的可视化配置,请使用 JSON 模式或联系管理员补 schema。
       </p>
     )
@@ -120,7 +120,7 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
 
   const labelEl = (
     <div className="flex items-center gap-1">
-      <Label className="text-xs">
+      <Label className="font-[weight:inherit] text-label">
         {field.label}
         {field.required && <span className="ml-0.5 text-destructive">*</span>}
       </Label>
@@ -148,7 +148,7 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
       <div className="space-y-1">
         {labelEl}
         <Select value={value} onValueChange={onChange} disabled={disabled}>
-          <SelectTrigger className="h-8 text-xs">
+          <SelectTrigger className="font-[weight:inherit] h-8 text-label">
             <SelectValue placeholder={field.placeholder ?? '请选择'} />
           </SelectTrigger>
           <SelectContent>
@@ -174,7 +174,7 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
             disabled={disabled}
             rows={3}
             placeholder={field.placeholder}
-            className="flex w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 pr-20 text-xs font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="font-[weight:inherit] flex w-full resize-y rounded-sm border border-input bg-transparent px-3 py-2 pr-20 text-label font-mono shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
           />
           <div className="absolute right-1.5 top-1.5 flex gap-1">
             <Button
@@ -215,7 +215,11 @@ function FieldRenderer({ field, value, onChange, onPaste, onClear, disabled }: F
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
           placeholder={field.placeholder}
-          className={cn('h-8 text-xs', isPassword && 'pr-16', hasValue && 'pr-20')}
+          className={cn(
+            'font-[weight:inherit] h-8 text-label',
+            isPassword && 'pr-16',
+            hasValue && 'pr-20',
+          )}
         />
         <div className="absolute right-1 top-1/2 flex -translate-y-1/2 gap-0.5">
           {isPassword && (

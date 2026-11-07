@@ -7,7 +7,10 @@
  *
  * 消费 relay-account-pool-queue:
  * - repeat job `sweep`:每 5 分钟一轮(sweepAccountPool)——
- *   token 临期刷新 / unknown 健康定级 / down 账号恢复尝试
+ *   token 临期刷新 / unknown 健康定级 / down 账号恢复尝试;
+ *   2026-11-10 C 档:sweep 前当场探测各平台客户端三态(probeKeepAliveClientStates,复用
+ *   工具层探测器),结果作为参数传入 scheduler —— 永久保活号只有在「明确没在跑且心跳
+ *   过 TTL」时才被池接管,量不到一律让位(顶掉机主客户端 = 不可逆掉线)。
  * - repeat job `trae-session-sync`:每 10 分钟一轮 —— 把本机 Trae 客户端会话回灌进
  *   号池(客户端为主策略的取数端;Trae 的 ExchangeToken 会轮换 refreshToken,池主动
  *   刷会把本机客户端顶下线,故 trae 号票未过期时池不刷,新票一律从客户端回灌)
@@ -23,7 +26,7 @@ import type { FastifyInstance } from 'fastify'
 import { spawn } from 'node:child_process'
 import { Queue, Worker } from 'bullmq'
 import { dirname, resolve as resolvePath } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { sweepAccountPool } from '../services/relay-account-pool-scheduler.js'
 import { describeQueueIsolation, relayAccountPoolQueueName } from '../services/relay-queue-name.js'
 import {
@@ -81,8 +84,13 @@ async function runClientSessionSync(scriptName: string): Promise<ClientSyncOutco
       cwd: REPO_ROOT,
       windowsHide: true,
       // 显式 stdio(§12g);凭据走 stdin,stdout 只回 JSON 汇总。
-      // timeout 比编排器内层(120s)宽,防子进程挂死拖住 worker
-      timeout: 180_000,
+      // 外层窗口必须 ≥ 编排器两段内层之和(捕获 240s + 落库 240s)。原值 180s 比两段之和还小,
+      // 而它自己的注释写着「比编排器内层(120s)宽」—— 那个前提从写下那天起就不成立:外层先杀父,
+      // Windows 上又不连带杀孙,实测留下过孤儿子进程。抬到 540s(= 480 + 启动/心跳探测 60,
+      // 且刻意 <600s 的每 10 分钟节拍,不让一轮跨拍叠罗汉)即是这一格的结构性收口。
+      // 数值单源在 scripts/lib/sync-stage-timeouts.mjs;不做跨语言 import(ts 引仓库根 .mjs 会出
+      // include 根),同值由 scripts/tests/sync-stage-timeouts.test.mjs 逐字钉住 —— 靠测试不靠约定。
+      timeout: 540_000,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let out = ''
@@ -120,6 +128,66 @@ export const runWorkbuddySessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-workbuddy-client-session.mjs')
 export const runMinimaxSessionSync = (): Promise<ClientSyncOutcome> =>
   runClientSessionSync('sync-minimax-client-session.mjs')
+
+/**
+ * 接管前「当场再探测一次客户端」的调用方侧实现(2026-11-10 C 档)。
+ *
+ * 立因:scheduler 本体不许 spawn 进程探测(判据留服务层、副作用留调用方),而 api 常驻
+ * 这头的调用方就是本 worker —— 原语义只看心跳 TTL,回灌腿(每 10 分钟)与接管轮(每 5 分钟)
+ * 同 Worker concurrency:1 且**没有先后保证**,心跳一陈旧就顶掉机主正在用的 Qoder(不可逆)。
+ *
+ * 实现:派生一枚短命 node 子进程,import 两条回灌腿已导出的三态探测器
+ * (probeClientActive / __test__.probeQoderClientActive,判据单源在工具层,本层零复算),
+ * 收 JSON。任何失败/超时/解析不出 ⇒ 空表 ⇒ 逐平台按 null = 未判定 ⇒ scheduler 侧
+ * keepAliveForeverVerdictOf 按「在跑」让位 —— 失效方向恒为「多让」,绝不因量不到而接管。
+ * 探测的 provider 只有 trae/qoder(工具层探测器只有这两族);其余平台缺键 ⇒ null ⇒ 同样让位,
+ * 这是已知覆盖面缺口(见交付报告风险项),不是 bug 复算。
+ */
+const CLIENT_PROBE_TIMEOUT_MS = 30_000
+
+export async function probeKeepAliveClientStates(): Promise<Record<string, boolean | null>> {
+  const traeUrl = pathToFileURL(
+    resolvePath(REPO_ROOT, 'scripts', 'sync-trae-client-session.mjs'),
+  ).href
+  const qoderUrl = pathToFileURL(
+    resolvePath(REPO_ROOT, 'scripts', 'sync-qoder-client-session.mjs'),
+  ).href
+  const src =
+    'const out={};' +
+    `import(${JSON.stringify(traeUrl)}).then((m)=>{out.trae=m.probeClientActive();})` +
+    '.catch(()=>{out.trae=null;})' +
+    `.then(()=>import(${JSON.stringify(qoderUrl)})).then((m)=>{out.qoder=m.__test__.probeQoderClientActive();})` +
+    '.catch(()=>{out.qoder=null;})' +
+    '.then(()=>{process.stdout.write(JSON.stringify(out));});'
+  return await new Promise<Record<string, boolean | null>>((resolveP) => {
+    const child = spawn(process.execPath, ['-e', src], {
+      cwd: REPO_ROOT,
+      windowsHide: true,
+      // §12g:派生进程必须显式 stdio;本探测不吃 stdin,要回读 stdout
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: CLIENT_PROBE_TIMEOUT_MS,
+    })
+    let out = ''
+    child.stdout.on('data', (d: Buffer) => (out += d))
+    child.on('error', () => resolveP({}))
+    child.on('exit', (code) => {
+      if (code !== 0) {
+        resolveP({})
+        return
+      }
+      try {
+        const parsed = JSON.parse(out) as Record<string, unknown>
+        const norm: Record<string, boolean | null> = {}
+        for (const [k, v] of Object.entries(parsed)) {
+          norm[k] = v === true ? true : v === false ? false : null
+        }
+        resolveP(norm)
+      } catch {
+        resolveP({})
+      }
+    })
+  })
+}
 
 export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
   registerAllRelayAdapters()
@@ -266,7 +334,10 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
         server.log.warn({ jobName: job.name }, 'relay-account-pool: unknown job')
         return null
       }
-      const result = await sweepAccountPool()
+      // C 档(2026-11-10):接管前当场再探一次客户端 —— 探测结果由调用方(本 worker)传入,
+      // scheduler 不自己 spawn。探测失败/取不到 ⇒ 平台按 null ⇒ 永久保活号本轮让位(多让)。
+      const clientStates = await probeKeepAliveClientStates()
+      const result = await sweepAccountPool((providerCode) => clientStates[providerCode] ?? null)
       // 日志取值面 = sweepAccountPool 的产出面(AccountPoolSweepResult 的键),不得多读:
       // 签到对账 / 断链待推重推当前不在 sweep 产出里(sweep 单轮只做临期刷新 + unknown 定级
       // + down 恢复),读它们只会得到 undefined。要恢复该族埋点,先让生产端真发键(见本票回报)。
@@ -278,6 +349,8 @@ export function startRelayAccountPoolWorker(server: FastifyInstance): Worker {
           refreshSkipped: result.refreshSkipped,
           healthChecked: result.healthChecked,
           healthRecovered: result.healthRecovered,
+          // 永久保活让位计数(2026-11-10 C 档):逐枚原因在 scheduler 侧日志,这里是轮级读数
+          foreverDeferred: result.foreverDeferred,
           // refresh 绝对寿命提前预警:最早到期 < 7 天时 warn 非空(与 logger.warn 同口径)
           refreshExpiresAt: result.refreshExpiresAt,
           refreshExpiryWarn: result.refreshExpiryWarn,

@@ -10,7 +10,11 @@ apps/api 的个人号池(ai_relay_account_pool.owner_user_id = 平台用户 id)�
 
 - 正向: 号池导入/覆盖 → pool-sync → 签到侧 create_account 合并 → device_map.pool_account_id
 - 反向: 用户录入/更新 → 本模块 POST /api/internal/relay/user-pool/upsert
+        (归属主体只随内部票 sub / X-User-Id 头走,请求体不再自报 ownerUserId)
         → importAccounts(ownerUserId) → 自动推回签到侧 → 双方拿到同一个 poolAccountId
+
+Y-24 真漂①收口(2026-11-06):apps/api 侧该端点的归属主体已改由承载层注入,body 的
+ownerUserId 降级为兼容窗核对位;既无权威又在线上跑的发送方就是本模块,在此摘除。
 
 失败绝不阻塞用户操作:失败摘要落 device_map.pool_bridge_pending,下次账号变更重试;
 号池侧每 5 分钟对账收敛器也会按 poolAccountId 补齐差集(单向兜底)。
@@ -57,31 +61,42 @@ def _identity_of(platform: str, jwt: str, device_map: dict[str, Any]) -> str:
 def _auth_headers(secret: str, owner_user_id: str) -> dict[str, str]:
     """反向同步请求鉴权头(经 internal_ticket 唯一出口构造,不再手拼常驻密钥头)。
 
-    dual/legacy 兼容窗:X-Internal-Service-Token 旧头照发(legacy_token = ai_callback_secret,
-    与既有机器凭据验真出口同源),x-internal-service-ticket 短期票同带 —— 主体绑定
-    payload 里的 ownerUserId(两个端点 upsert/delete 都带,是真实的 apps/api 用户 id)。
+    dual 兼容窗:X-Internal-Service-Token 旧头照发(legacy_token = ai_callback_secret,
+    与既有机器凭据验真出口同源),x-internal-service-ticket 短期票同带 —— **归属主体是
+    票的 sub(另附 X-User-Id),请求体里没有任何自报主体位**(2026-11-06 摘除 body
+    ownerUserId:api 侧早已改由承载层注入主体,body 那一位再无权威)。
     X-Internal-Secret 是本端点的机机凭据,与内部票两回事,经 extra 原样带上。
-    scope 取封闭集里的 ``relay-user-pool``(2026-11-06 与 api 侧端点声明同笔换档)。
+    scope 取封闭集里"ai-service 回调写入 apps/api"那一档(ai-callback);若后续 api 侧
+    为 relay user-pool 端点声明更细的用途,须两侧同笔换档。
     """
     return internal_service_headers(
         owner_user_id,
-        "relay-user-pool",
+        "ai-callback",
         legacy_token=secret,
         extra={"Content-Type": "application/json", "X-Internal-Secret": secret},
     )
 
 
-async def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
+async def _post(
+    path: str, payload: dict[str, Any], *, owner_user_id: str
+) -> dict[str, Any]:
+    """发一次反向同步;主体只能由调用方显式交进来(不从 payload 反推)。
+
+    无主体即不发:票铸造侧对空 sub 一律拒签,发出这种请求只会被 api 判 401,
+    等于把"缺主体"这件事伪装成一次正常网络往返。
+    """
     secret = settings.ai_callback_secret
     if not secret:
         raise RuntimeError("ai_callback_secret 未配置,无法反向同步个人号池")
+    subject = str(owner_user_id or "").strip()
+    if not subject:
+        raise RuntimeError("个人号池反向同步缺少归属主体(内部票 sub),拒绝发出")
     url = f"{api_base_url().rstrip('/')}{path}"
-    owner_user_id = str(payload.get("ownerUserId") or "").strip()
     async with httpx.AsyncClient(timeout=_BRIDGE_TIMEOUT) as client:
         resp = await client.post(
             url,
             json=payload,
-            headers=_auth_headers(secret, owner_user_id),
+            headers=_auth_headers(secret, subject),
         )
     if resp.status_code >= 400:
         raise RuntimeError(f"个人号池 HTTP {resp.status_code}: {resp.text[:200]}")
@@ -105,13 +120,16 @@ async def sync_upsert(
     运营池系统账号、平台无号池适配器、身份解析不出 —— 一律零操作返回。
     """
     dm = dict(device_map or {})
-    if owner_user_id == POOL_SYNC_OWNER or platform not in BRIDGE_PLATFORMS:
+    if (
+        not owner_user_id.strip()
+        or owner_user_id == POOL_SYNC_OWNER
+        or platform not in BRIDGE_PLATFORMS
+    ):
         return False, dm
     identity = _identity_of(platform, jwt, dm)
     if not identity:
         return False, dm
     payload: dict[str, Any] = {
-        "ownerUserId": owner_user_id,
         "platform": platform,
         "checkinAccountId": account_id,
         "identityKey": identity,
@@ -124,7 +142,7 @@ async def sync_upsert(
     if isinstance(refresh_token, str) and refresh_token:
         payload["refreshToken"] = refresh_token
     try:
-        data = await _post(UPSERT_PATH, payload)
+        data = await _post(UPSERT_PATH, payload, owner_user_id=owner_user_id)
     except Exception as e:  # noqa: BLE001 — 反向同步是旁路,失败只留待重试
         dm[_PENDING_KEY] = {
             "at": datetime.now(UTC).isoformat(),
@@ -156,12 +174,13 @@ async def sync_upsert(
 
 async def sync_delete(*, owner_user_id: str, pool_account_id: str) -> None:
     """签到账号删除时清掉对应个人池行。失败只记日志(号池对账器会按差集兜底)。"""
-    if owner_user_id == POOL_SYNC_OWNER or not pool_account_id:
+    if not owner_user_id.strip() or owner_user_id == POOL_SYNC_OWNER or not pool_account_id:
         return
     try:
         await _post(
             DELETE_PATH,
-            {"ownerUserId": owner_user_id, "poolAccountId": pool_account_id},
+            {"poolAccountId": pool_account_id},
+            owner_user_id=owner_user_id,
         )
     except Exception as e:  # noqa: BLE001
         logger.warning(

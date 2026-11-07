@@ -22,6 +22,9 @@ import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
+/** 积分榜数值格式(共享屏 amountFormatter 注入点;佣金榜由小程序端传 ¥ 格式) */
+const formatRankingValue = (value: number): string => String(value)
+
 /** 排行榜数据 → FullRankingItem(取昵称首字母作头像占位) */
 function toFullRankingItems(items: RankingItem[]): FullRankingItem[] {
   return items.map((i) => ({
@@ -112,8 +115,14 @@ export function RankingScreen() {
           error={error}
           onRefresh={() => load(true)}
           onBack={() => navigation.goBack()}
-          onRetry={() => { void load(); }}
+          onRetry={() => {
+            void load()
+          }}
           colorScheme={resolvedTheme}
+          title={t('ranking.title')}
+          amountFormatter={formatRankingValue}
+          showRanges={true}
+          showStudyHours={true}
         />
         {/* BottomFigure 底部装饰图(对齐 Uniapp BottomFigure/index.vue) */}
         <View style={shellStyles.bottomFigureWrap}>

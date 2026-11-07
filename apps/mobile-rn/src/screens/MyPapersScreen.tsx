@@ -264,7 +264,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.card,
       gap: rnSpacing['xs-loose'],
     },
-    label: { fontSize: 13, color: tokens.text.secondary },
+    label: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     input: {
       height: 44,
       paddingHorizontal: rnSpacing.md,
@@ -321,7 +321,7 @@ function makeStyles() {
     meta: { fontSize: rnType.label.size, color: tokens.text.tertiary },
     reason: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: rnSpacing.xs },
-    dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     center: { alignItems: 'center', paddingVertical: rnSpacing['5xl'], gap: rnSpacing.md },
     centerText: {
       textAlign: 'center',

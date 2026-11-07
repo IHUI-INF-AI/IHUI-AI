@@ -15,7 +15,7 @@
   display: flex;
   align-items: flex-start;
   gap: var(--spacing-md);
-  padding: var(--spacing-lg) 28rpx;
+  padding: var(--spacing-lg) var(--spacing-md-loose);
   margin: var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -60,7 +60,7 @@
 .dev-sub-btn {
   align-self: flex-start;
   margin-top: var(--spacing-xs);
-  padding: 0 28rpx;
+  padding: 0 var(--spacing-md-loose);
   height: 60rpx;
   line-height: 60rpx;
   font-size: var(--text-body-sm);
@@ -85,7 +85,7 @@
 /* ===== 订阅统计 ===== */
 .dev-stats {
   display: flex;
-  margin: 0 24rpx;
+  margin: 0 var(--spacing-md);
   padding: var(--spacing-md) 0;
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -184,7 +184,7 @@
 }
 .dev-model-btn {
   flex-shrink: 0;
-  padding: 10rpx 24rpx;
+  padding: 10rpx var(--spacing-md);
   font-size: var(--text-label);
   color: var(--color-primary);
   background: var(--color-border);

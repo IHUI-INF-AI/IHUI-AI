@@ -55,7 +55,7 @@
   align-items: center;
   /* 对齐 RN tabRow gap 8 + marginBottom 12 (dp→rpx 1:2) */
   gap: var(--spacing-sm);
-  padding: var(--spacing-xl) 20rpx 24rpx;
+  padding: var(--spacing-xl) var(--spacing-sm-loose) var(--spacing-md);
   box-sizing: border-box;
 }
 .func-btn {
@@ -64,7 +64,7 @@
   align-items: center;
   justify-content: center;
   height: 60rpx;
-  padding: 0 28rpx;
+  padding: 0 var(--spacing-md-loose);
   border-radius: var(--radius-sm);
   box-sizing: border-box;
   background: var(--color-card);
@@ -89,7 +89,7 @@
   display: flex;
   align-items: center;
   /* 对齐 RN StudyBar wrapper marginBottom 9 + studyBarWrap paddingHorizontal 32 (dp→rpx 1:2) */
-  margin: 0 32rpx 18rpx;
+  margin: 0 var(--spacing-lg) 18rpx;
   padding: var(--spacing-2xs);
   border-radius: var(--radius-lg);
   background: var(--color-card);
@@ -119,7 +119,7 @@
 
 /* ===== 记录列表(对齐 RN recordItem + ItemSeparator) ===== */
 .records-section {
-  margin: var(--spacing-md) 20rpx 0;
+  margin: var(--spacing-md) var(--spacing-sm-loose) 0;
 }
 .record-item {
   /* 对齐 RN recordItem padding 14 / borderRadius 16 / border 1 (dp→rpx 1:2) */

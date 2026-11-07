@@ -192,7 +192,9 @@
     "toolStatusSuccess": "成功",
     "toolStatusError": "失敗",
     "toolDetail": "呼び出し詳細",
-    "terminal": "ターミナル",
+    "terminal": {
+      "title": "ターミナル"
+    },
     "terminalStatusRunning": "実行中",
     "terminalStatusCompleted": "完了",
     "terminalStatusFailed": "失敗",

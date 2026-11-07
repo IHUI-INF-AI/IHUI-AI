@@ -269,6 +269,21 @@ def test_load_ttl_records_missing_file_is_empty_not_error(tmp_path: Path):
     assert data == {} and dropped == 0
 
 
+def test_unreadable_store_is_not_empty_and_not_replaced(tmp_path: Path):
+    """目标是目录时读失败不是空存档,写回也不能把目录换成新 JSON。"""
+    blocked = tmp_path / "store.json"
+    blocked.mkdir()
+    marker = blocked / "keep.txt"
+    marker.write_text("keep", encoding="utf-8")
+    with pytest.raises(tjs.TtlStoreUnread):
+        tjs.read_json_file(blocked)
+    with pytest.raises(tjs.TtlStoreUnread):
+        tjs.load_ttl_records(blocked, retention_days=30, shape="mapping")
+    assert tjs.write_json_atomic(blocked, {}) is False
+    assert blocked.is_dir()
+    assert marker.read_text(encoding="utf-8") == "keep"
+
+
 # =============================================================================
 # 各模块接入:存量清理
 # =============================================================================
@@ -529,6 +544,8 @@ async def test_vector_memory_hydrate_still_returns_zero_on_corrupt(tmp_path: Pat
     store = VectorMemoryStore(persist_path=str(p))
     assert await store.hydrate() == 0
     assert len(store) == 0
+    await store.add_entry("e1", {"content": "新的"}, [0.1])
+    assert p.read_text(encoding="utf-8") == "{ not valid json"
 
 
 async def test_vector_memory_hydrate_already_hydrated_no_reload(tmp_path: Path):

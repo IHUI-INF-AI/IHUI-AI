@@ -1,264 +1,144 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // 对齐目标(RN 共享屏): packages/app/src/features/plaza/PlazaScreen.tsx
+// 2026-11-05 薄壳化:列表/搜索/状态条/发布按钮 + 赛道抽屉/身份切换/详情居中弹层 全部走共享屏;
+// 页内只留小程序导航头(平台 chrome,RN 对应 NavBar)与数据获取。
+// 三段弹层 props 由 RN 同屏真消费(见提交说明 file:line),不是"只有小程序传"的 prop。
 
-import { useI18n } from '@/i18n'
-import { logger } from '@/utils/logger'
-import { TAB_BAR_OCCUPIED_PX, TAB_BAR_PAGE_RESERVE_CSS } from '@/constants/tab-bar-metrics'
-import { View, Text, Image, ScrollView } from '@tarojs/components'
-import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
-import { useState, useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { View, Text } from '@tarojs/components'
+import Taro, { useDidShow, usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import * as api from '@/api'
+import { useTt, t } from '@/i18n'
+import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
-import SearchBar from '@/components/SearchBar'
-import CategoryBar from '@/components/CategoryBar'
+import { PlazaScreen } from '@ihui/rn-app/features/plaza/PlazaScreen'
+import { useUserStore } from '@/stores/user'
+import type { PlazaItem } from '@ihui/types'
 import './index.css'
-
-/** 广场卡片项(对标原项目 CardContent info) */
-interface PlazaItem {
-  id: string
-  title: string
-  desc?: string
-  track?: string
-  coverUrl?: string
-  author?: string
-  avatar?: string
-  status?: number
-  attention?: number
-}
-
-interface Filters {
-  status: number
-  track: string
-  search: string
-}
-
-/** 状态筛选 tab(对标原项目 Status:全部/进行中/已完成) */
-const STATUS_TABS = [
-  { key: 0, labelKey: 'plaza.index.tabAll' },
-  { key: 1, labelKey: 'plaza.index.tabOngoing' },
-  { key: 2, labelKey: 'plaza.index.tabDone' },
-]
-
-/** 赛道分类(对标原项目 ScrollTitle 横向赛道) */
-const TRACKS = [
-  { key: '', labelKey: 'common.all' },
-  { key: 'writing', labelKey: 'ai.agentList.categories.writing' },
-  { key: 'coding', labelKey: 'ai.agentList.categories.coding' },
-  { key: 'design', labelKey: 'pagesindexindex.d11' },
-  { key: 'marketing', labelKey: 'plaza.p1' },
-  { key: 'education', labelKey: 'ai.agentList.categories.education' },
-]
-
-/** 身份切换(对标原项目 identity-modal) */
-const IDENTITIES = [
-  { key: 'demander', labelKey: 'plaza.index.identityDemander' },
-  { key: 'developer', labelKey: 'plaza.index.identityDeveloper' },
-]
 
 const PAGE_SIZE = 10
 
-function asString(v: unknown): string {
-  return typeof v === 'string' ? v : ''
-}
-function asNumber(v: unknown, fb = 0): number {
-  const n = Number(v)
-  return Number.isFinite(n) ? n : fb
-}
-function normalizeItem(raw: Record<string, unknown>): PlazaItem {
+/** 赛道选项(与 RN CategoryDropdown 同一份数据形状;id 空串=全部) */
+const TRACK_ITEMS = [
+  { id: '', label: '全部赛道' },
+  ...['ai', 'web', 'app', 'design', 'video', 'ops'].map((id) => ({ id, label: id.toUpperCase() })),
+]
+
+/** 身份选项(与 RN 身份弹层同形:需求方/开发者) */
+const IDENTITY_ITEMS = [
+  { id: 'demander', labelKey: 'plaza.index.identityDemander', fallback: '需求方' },
+  { id: 'developer', labelKey: 'plaza.index.identityDeveloper', fallback: '开发者' },
+]
+
+/** 后端行 → 共享屏 PlazaItem(只做字段改名,不在壳里二次投影) */
+function normalizeRow(raw: Record<string, unknown>): PlazaItem {
+  const categories = Array.isArray(raw['categories']) ? (raw['categories'] as string[]) : []
+  const types = Array.isArray(raw['types']) ? (raw['types'] as string[]) : []
+  const track = categories[0] ?? types[0] ?? ''
   return {
-    id: asString(raw['id']) || String(raw['id'] ?? Math.random()),
-    title: asString(raw['title']) || asString(raw['name']),
-    desc: asString(raw['desc']) || asString(raw['description']) || asString(raw['content']),
-    track: asString(raw['track']) || asString(raw['category']),
-    coverUrl: asString(raw['coverUrl']) || asString(raw['cover'] || raw['imgUrl']),
-    author: asString(raw['author']) || asString(raw['nickname']),
-    avatar: asString(raw['avatar']),
-    status: asNumber(raw['status'], 0),
-    attention: asNumber(raw['attention'] ?? raw['viewCount']),
-  }
+    ...raw,
+    id: String(raw['id'] ?? ''),
+    title: String(raw['title'] ?? ''),
+    description: String(raw['description'] ?? ''),
+    creator: String(raw['userId'] ?? ''),
+    status: String(raw['taskStatus'] ?? raw['status'] ?? ''),
+    track,
+    category: track,
+  } as unknown as PlazaItem
 }
 
 export default function PlazaIndex() {
-  const { t } = useI18n()
-  const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
-
-  const [leftList, setLeftList] = useState<PlazaItem[]>([])
-  const [rightList, setRightList] = useState<PlazaItem[]>([])
-  const [loading, setLoading] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const [status, setStatus] = useState(0)
+  const tt = useTt()
+  const user = useUserStore((s) => s.user)
+  const [items, setItems] = useState<PlazaItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState('')
+  const [hasMore, setHasMore] = useState(false)
+  const [status, setStatus] = useState('waiting')
   const [search, setSearch] = useState('')
+  const [showSearch, setShowSearch] = useState(true)
   const [track, setTrack] = useState('')
+  const [trackVisible, setTrackVisible] = useState(false)
   const [identity, setIdentity] = useState('demander')
-
-  const [drawerVisible, setDrawerVisible] = useState(false)
-  const [showCenter, setShowCenter] = useState(false)
-  const [showBottom, setShowBottom] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(true)
-  const [detail, setDetail] = useState<PlazaItem | null>(null)
-
+  const [identityVisible, setIdentityVisible] = useState(false)
+  const [detailItem, setDetailItem] = useState<PlazaItem | null>(null)
+  const queryRef = useRef({ status: 'waiting', search: '', track: '' })
   const pageRef = useRef(1)
-  const totalRef = useRef(0)
-  const loadedRef = useRef(0)
-  const loadingRef = useRef(false)
+  const busyRef = useRef(false)
 
-  const statusText = useCallback(
-    (s?: number) => {
-      if (s === 1) return tt('plaza.index.tabOngoing', '进行中')
-      if (s === 2) return tt('plaza.index.tabDone', '已完成')
-      return tt('plaza.index.tabAll', '全部')
+  const load = useCallback(
+    async (reset: boolean) => {
+      if (busyRef.current) return
+      busyRef.current = true
+      if (reset) setRefreshing(true)
+      else setLoadingMore(true)
+      try {
+        const q = queryRef.current
+        const res = (await api.getPlazaList({
+          page: reset ? 1 : pageRef.current + 1,
+          pageSize: PAGE_SIZE,
+          taskStatus: q.status === 'mine' || !q.status ? undefined : q.status,
+          creator: q.status === 'mine' && user?.id ? String(user.id) : undefined,
+          search: q.search || undefined,
+          categories: q.track || undefined,
+        })) as { list?: Record<string, unknown>[]; total?: number }
+        const rows = (res.list ?? []).map(normalizeRow)
+        pageRef.current = reset ? 1 : pageRef.current + 1
+        setItems((prev) => (reset ? rows : [...prev, ...rows]))
+        setHasMore(pageRef.current * PAGE_SIZE < Number(res.total ?? 0))
+        setError('')
+      } catch (e) {
+        logger.error('plaza/index', 'load plaza list failed', e)
+        setError(tt('plaza.index.loadFail', '加载失败,请稍后重试'))
+      } finally {
+        busyRef.current = false
+        setLoading(false)
+        setRefreshing(false)
+        setLoadingMore(false)
+      }
     },
-    [tt],
+    [tt, user?.id],
   )
 
-  const fetchPage = useCallback(async (pageNum: number, reset: boolean, flt: Filters) => {
-    if (loadingRef.current) return
-    loadingRef.current = true
-    setLoading(true)
-    try {
-      const params: Record<string, unknown> = {
-        pageNum,
-        pageSize: PAGE_SIZE,
-        status: flt.status === 0 ? '' : flt.status,
-        track: flt.track || '',
-        keyword: flt.search,
-      }
-      const res = (await api.getPlazaList(params)) as Record<string, unknown>
-      const arr = (res?.list as Record<string, unknown>[]) || []
-      const items = arr.map(normalizeItem)
-      totalRef.current = asNumber(res?.total, 0)
-      if (reset) {
-        loadedRef.current = items.length
-        const l: PlazaItem[] = []
-        const r: PlazaItem[] = []
-        items.forEach((it, i) => (i % 2 === 0 ? l.push(it) : r.push(it)))
-        setLeftList(l)
-        setRightList(r)
-      } else {
-        loadedRef.current += items.length
-        setLeftList((prev) => [...prev, ...items.filter((_, i) => i % 2 === 0)])
-        setRightList((prev) => [...prev, ...items.filter((_, i) => i % 2 === 1)])
-      }
-      setHasMore(loadedRef.current < totalRef.current)
-      if (items.length > 0) pageRef.current = pageNum
-    } catch (e) {
-      logger.error('plaza', 'load', e)
-    } finally {
-      loadingRef.current = false
-      setLoading(false)
-    }
-  }, [])
-
   useDidShow(() => {
-    pageRef.current = 1
-    fetchPage(1, true, { status, track, search })
+    void load(true)
   })
 
   usePullDownRefresh(() => {
-    pageRef.current = 1
-    fetchPage(1, true, { status, track, search }).finally(() => Taro.stopPullDownRefresh())
+    void load(true).finally(() => Taro.stopPullDownRefresh())
   })
 
   useReachBottom(() => {
-    if (!hasMore || loadingRef.current) return
-    pageRef.current += 1
-    fetchPage(pageRef.current, false, { status, track, search })
+    if (hasMore) void load(false)
   })
 
-  const onStatusChange = useCallback(
-    (s: number) => {
-      if (s === status) return
-      setStatus(s)
-      pageRef.current = 1
-      fetchPage(1, true, { status: s, track, search })
-    },
-    [status, track, search, fetchPage],
-  )
+  const applyStatus = (next: string) => {
+    queryRef.current = { ...queryRef.current, status: next }
+    setStatus(next)
+    void load(true)
+  }
 
-  const onTrackSelect = useCallback(
-    (key: string) => {
-      setDrawerVisible(false)
-      if (key === track) return
-      setTrack(key)
-      pageRef.current = 1
-      fetchPage(1, true, { status, track: key, search })
-    },
-    [status, track, search, fetchPage],
-  )
+  const applySearch = (next: string) => {
+    queryRef.current = { ...queryRef.current, search: next }
+    setSearch(next)
+  }
 
-  const onSearchConfirm = useCallback(() => {
-    pageRef.current = 1
-    fetchPage(1, true, { status, track, search })
-  }, [status, track, search, fetchPage])
+  const selectTrack = (id: string) => {
+    queryRef.current = { ...queryRef.current, track: id }
+    setTrack(id)
+    setTrackVisible(false)
+    void load(true)
+  }
 
-  const onItemClick = useCallback(async (item: PlazaItem) => {
-    setDetail(item)
-    setShowCenter(true)
-    try {
-      const res = (await api.getPlazaInfoById(item.id)) as Record<string, unknown>
-      if (res) setDetail({ ...item, ...normalizeItem(res) })
-    } catch {
-      // 保留已点击项
-    }
-  }, [])
-
-  const onSetNeed = useCallback(() => {
-    Taro.navigateTo({ url: '/pkg-content/plaza/set-need/index' })
-  }, [])
-
-  const onOpenDetail = useCallback((id: string | number) => {
-    setShowCenter(false)
-    Taro.navigateTo({ url: `/pkg-content/plaza/detail/index?id=${id}` })
-  }, [])
-
-  const onIdentityChange = useCallback((key: string) => {
-    setIdentity(key)
-    setShowBottom(false)
-    // 入口接线(2026-10-23):对齐 RN PlazaScreen 身份弹窗「我是开发者」的唯一调用点
-    // apps/mobile-rn/src/screens/PlazaScreen.tsx:570 `navigation.navigate('Developer', { id: 'self' })`
-    // ⇒ 本端同语义位置(身份切换 = IDENTITIES 里 key 'developer')进开发者空间落地页
-    if (key === 'developer') void Taro.navigateTo({ url: '/pkg-ai/dev-space/index' })
-  }, [])
-
-  // 对齐 RN 共享 PlazaScreen card:cover 固定高 160dp→320rpx(aspectFill)/标题 16dp→32rpx 600 两行截断/
-  // 描述 14dp→28rpx 三行截断/cardMeta 头像 fallback 24dp→48rpx + 作者 14dp→28rpx/状态字 11dp→22rpx
-  const renderCard = (item: PlazaItem) => (
-    <ThemeRoot>
-      <View className="pza-card" hoverClass="pza-card-pressed" onClick={() => onItemClick(item)}>
-        {item.coverUrl ? (
-          <Image className="pza-cover" src={item.coverUrl} mode="aspectFill" />
-        ) : null}
-        <View className="pza-info">
-          <Text className="pza-title">{item.title || tt('plaza.index.untitled', '未命名')}</Text>
-          {item.desc ? <Text className="pza-desc">{item.desc}</Text> : null}
-          <View className="pza-meta">
-            <View className="pza-avatar">
-              <Text className="pza-avatar-text">
-                {(item.author || tt('plaza.index.anonymous', '匿名')).trim().slice(0, 1)}
-              </Text>
-            </View>
-            <Text className="pza-author">{item.author || tt('plaza.index.anonymous', '匿名')}</Text>
-            <Text className={`pza-status${item.status === 2 ? ' done' : ''}`}>
-              {statusText(item.status)}
-            </Text>
-          </View>
-          <View className="pza-tags">
-            {item.track ? <Text className="pza-track">{item.track}</Text> : null}
-            {(item.attention ?? 0) > 0 ? (
-              <View className="pza-attention">
-                <LineIcon name="heart" size={28} color="var(--color-brand-accent-deep)" />
-                <Text className="pza-attention-count">{item.attention}</Text>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      </View>
-    </ThemeRoot>
-  )
+  const selectIdentity = (id: string) => {
+    setIdentity(id)
+    setIdentityVisible(false)
+    if (id === 'developer') void Taro.navigateTo({ url: '/pkg-ai/dev-space/index' })
+  }
 
   return (
     <ThemeRoot>
@@ -266,210 +146,75 @@ export default function PlazaIndex() {
         <View className="pza-header">
           <Text className="pza-page-title">{tt('plaza.index.title', 'AI需求广场')}</Text>
           <View className="pza-nav-btns">
-            <Text className="pza-nav-btn" onClick={() => setSearchOpen((v) => !v)}>
-              {tt('plaza.index.navSearch', '搜索')}
-            </Text>
-            <Text className="pza-nav-btn" onClick={() => setShowBottom(true)}>
-              {tt('plaza.index.navMenu', '菜单')}
-            </Text>
-            <Text className="pza-nav-btn" onClick={() => setDrawerVisible(true)}>
-              {tt('plaza.index.navCategory', '分类')}
-            </Text>
+            {[
+              {
+                id: 'search',
+                label: tt('plaza.index.search', '搜索'),
+                onClick: () => setShowSearch((v) => !v),
+              },
+              {
+                id: 'menu',
+                label: tt('plaza.index.menu', '菜单'),
+                onClick: () => setIdentityVisible(true),
+              },
+              {
+                id: 'category',
+                label: tt('plaza.index.category', '分类'),
+                onClick: () => setTrackVisible(true),
+              },
+            ].map((action) => (
+              <Text key={action.id} className="pza-nav-btn" onClick={action.onClick}>
+                {action.label}
+              </Text>
+            ))}
           </View>
         </View>
-
-        {searchOpen ? (
-          /* 搜索栏(统一圆角输入井,共享 SearchBar) */
-          <SearchBar
-            className=""
-            value={search}
-            placeholder={tt('plaza.index.searchPlaceholder', '搜索需求')}
-            onInput={setSearch}
-            onSearch={onSearchConfirm}
-            onClear={() => setSearch('')}
-          />
-        ) : null}
-
-        {/* 状态筛选 tab */}
-        <CategoryBar
-          className="pza-tabs"
-          value={String(status)}
-          onChange={(id) => onStatusChange(Number(id))}
-          items={STATUS_TABS.map((tab) => ({
-            id: String(tab.key),
-            label: tt(tab.labelKey, tab.key === 0 ? '全部' : tab.key === 1 ? '进行中' : '已完成'),
-          }))}
+        <PlazaScreen
+          t={t}
+          items={items}
+          loading={loading}
+          refreshing={refreshing}
+          loadingMore={loadingMore}
+          error={error}
+          status={status}
+          search={search}
+          showSearch={showSearch}
+          onRefresh={() => void load(true)}
+          onEndReached={() => {
+            if (hasMore) void load(false)
+          }}
+          onStatusChange={applyStatus}
+          onSearchChange={applySearch}
+          onSubmitSearch={() => void load(true)}
+          onPressItem={(item) => setDetailItem(item)}
+          onPublish={() => void Taro.navigateTo({ url: '/pkg-content/plaza/set-need/index' })}
+          onRetry={() => void load(true)}
+          trackFilter={{
+            visible: trackVisible,
+            items: TRACK_ITEMS,
+            selectedId: track,
+            onSelect: selectTrack,
+            onVisibleChange: setTrackVisible,
+            panelTitle: tt('plaza.index.category', '分类'),
+          }}
+          identitySheet={{
+            visible: identityVisible,
+            title: tt('plaza.index.identityTitle', '切换身份'),
+            items: IDENTITY_ITEMS.map((it) => ({ id: it.id, label: tt(it.labelKey, it.fallback) })),
+            selectedId: identity,
+            onSelect: selectIdentity,
+            onClose: () => setIdentityVisible(false),
+          }}
+          detail={{
+            item: detailItem,
+            onClose: () => setDetailItem(null),
+            onOpenDetail: (item) => {
+              setDetailItem(null)
+              void Taro.navigateTo({ url: `/pkg-content/plaza/detail/index?id=${String(item.id)}` })
+            },
+          }}
         />
-
-        {/* 瀑布流双列(底部留位取单一出处 tab-bar-metrics:自定义 tabBar 是浮层,
-            不压缩页面视口 ⇒ 滚动容器自己让位;原 `.pza-bottom-space` 160rpx 空块与之同一名目,
-            已由本 padding 取代,避免两份留位叠加) */}
-        <ScrollView
-          scrollY
-          className="pza-scroll"
-          style={{ paddingBottom: TAB_BAR_PAGE_RESERVE_CSS }}
-        >
-          {loading && leftList.length === 0 ? (
-            <View className="pza-empty">
-              <Text>{tt('common.loading', '加载中…')}</Text>
-            </View>
-          ) : leftList.length === 0 && rightList.length === 0 ? (
-            <View className="pza-empty">
-              <Text className="pza-empty-main">
-                {tt('plaza.index.emptyMain', '当前赛道千万级空白市场')}
-              </Text>
-              <Text className="pza-empty-sub">
-                {tt('plaza.index.emptySub', '不会开发?发布需求快来抢占市场!')}
-              </Text>
-            </View>
-          ) : (
-            <View className="pza-cols">
-              <View className="pza-col">{leftList.map(renderCard)}</View>
-              <View className="pza-col">{rightList.map(renderCard)}</View>
-            </View>
-          )}
-          {loading && leftList.length > 0 ? (
-            <Text className="pza-load-more">{tt('common.loading', '加载中…')}</Text>
-          ) : null}
-          {!hasMore && leftList.length > 0 ? (
-            <Text className="pza-load-more">{tt('common.noMore', '没有更多了')}</Text>
-          ) : null}
-        </ScrollView>
-
-        {/* 悬浮发布按钮 */}
-        <View
-          className="pza-fab"
-          // 浮层胶囊会盖住贴底区域,抬高量取自 tab-bar-metrics 同一出处(不在 CSS 里再抄一份数字)
-          style={{ bottom: `calc(48rpx + ${TAB_BAR_OCCUPIED_PX}px + env(safe-area-inset-bottom))` }}
-          onClick={onSetNeed}
-          hoverClass="opacity-60"
-        >
-          <Text className="pza-fab-icon">+</Text>
-        </View>
-
-        {/* 赛道分类弹窗 */}
-        {drawerVisible ? (
-          <View className="pza-mask" onClick={() => setDrawerVisible(false)}>
-            <View className="pza-drawer" catchMove>
-              <View className="pza-drawer-head">
-                <Text className="pza-drawer-title">
-                  {tt('plaza.index.categoryTitle', '赛道分类')}
-                </Text>
-                <LineIcon
-                  name="x"
-                  size={40}
-                  className="pza-drawer-close"
-                  color="var(--color-muted-foreground)"
-                  onClick={() => setDrawerVisible(false)}
-                />
-              </View>
-              <ScrollView scrollX className="pza-track-scroll">
-                {TRACKS.map((tr) => (
-                  <View
-                    key={tr.key || 'all'}
-                    className={`pza-chip${track === tr.key ? ' active' : ''}`}
-                    onClick={() => onTrackSelect(tr.key)}
-                    hoverClass="opacity-60"
-                  >
-                    <Text>
-                      {tt(
-                        tr.labelKey,
-                        tr.key === ''
-                          ? tt('common.all', '全部')
-                          : tr.key === 'writing'
-                            ? tt('ai.agentList.categories.writing', '写作')
-                            : tr.key === 'coding'
-                              ? tt('ai.agentList.categories.coding', '编程')
-                              : tr.key === 'design'
-                                ? tt('pagesindexindex.d11', '设计')
-                                : tr.key === 'marketing'
-                                  ? tt('plaza.p1', '营销')
-                                  : tt('ai.agentList.categories.education', '教育'),
-                      )}
-                    </Text>
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 卡片详情居中弹窗 */}
-        {showCenter && detail ? (
-          <View className="pza-mask" onClick={() => setShowCenter(false)}>
-            <View className="pza-center" catchMove>
-              <View className="pza-center-head">
-                <Text className="pza-center-title">{detail.title}</Text>
-                <LineIcon
-                  name="x"
-                  size={40}
-                  className="pza-center-close"
-                  color="var(--color-muted-foreground)"
-                  onClick={() => setShowCenter(false)}
-                />
-              </View>
-              <ScrollView
-                scrollY
-                className="pza-center-body pb-[calc(140rpx+env(safe-area-inset-bottom))]"
-              >
-                {detail.coverUrl ? (
-                  <Image className="pza-center-cover" src={detail.coverUrl} mode="widthFix" />
-                ) : null}
-                {detail.desc ? <Text className="pza-center-desc">{detail.desc}</Text> : null}
-                <View className="pza-center-meta">
-                  <Text className="pza-center-label">
-                    {tt('plaza.index.detailTrack', '赛道')}:{detail.track || '-'}
-                  </Text>
-                  <Text className="pza-center-label">
-                    {tt('plaza.index.detailStatus', '状态')}:{statusText(detail.status)}
-                  </Text>
-                </View>
-                <View className="pza-center-meta">
-                  <Text className="pza-center-label">
-                    {tt('plaza.index.detailAuthor', '发布人')}:
-                    {detail.author || tt('plaza.index.anonymous', '匿名')}
-                  </Text>
-                </View>
-              </ScrollView>
-              <View className="pza-center-footer">
-                <View
-                  className="pza-center-detail-btn"
-                  onClick={() => onOpenDetail(detail.id ?? '')}
-                  hoverClass="opacity-60"
-                >
-                  <Text className="pza-center-detail-text">
-                    {tt('plaza.index.viewDetail', '查看详情')}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {/* 身份切换弹窗 */}
-        {showBottom ? (
-          <View className="pza-mask" onClick={() => setShowBottom(false)}>
-            <View className="pza-bottom-sheet" catchMove>
-              <View className="pza-sheet-head">
-                <Text className="pza-sheet-title">
-                  {tt('plaza.index.identityTitle', '切换身份')}
-                </Text>
-              </View>
-              {IDENTITIES.map((it) => (
-                <View
-                  key={it.key}
-                  className={`pza-sheet-item${identity === it.key ? ' active' : ''}`}
-                  onClick={() => onIdentityChange(it.key)}
-                  hoverClass="opacity-60"
-                >
-                  <Text>{tt(it.labelKey, it.key === 'demander' ? '需求方' : '开发者')}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
       </View>
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

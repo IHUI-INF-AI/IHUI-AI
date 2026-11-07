@@ -304,17 +304,11 @@ describe('relay-import-qoder 纯函数', () => {
     })
     it('name 统一取手机号(无平台前缀),取不到才走兜底链', () => {
       expect(buildFromNative({ token: 't', phone: '138' })!.name).toBe('138')
-      expect(buildFromNative({ token: 't', phone: '138', nickname: 'nn' })!.name).toBe(
-        '138',
-      )
+      expect(buildFromNative({ token: 't', phone: '138', nickname: 'nn' })!.name).toBe('138')
       expect(buildFromNative({ token: 't', nickname: 'nn' })!.name).toBe('nn')
       expect(buildFromNative({ token: 't', name: 'nm' })!.name).toBe('nm')
-      expect(buildFromNative({ token: 't', user: { email: 'abc@x.com' } })!.name).toBe(
-        'abc',
-      )
-      expect(buildFromNative({ token: 't', uid: '0123456789abcdef' })!.name).toBe(
-        '01234567',
-      )
+      expect(buildFromNative({ token: 't', user: { email: 'abc@x.com' } })!.name).toBe('abc')
+      expect(buildFromNative({ token: 't', uid: '0123456789abcdef' })!.name).toBe('01234567')
       expect(buildFromNative({ token: 't' })!.name).toBe('未知号')
     })
   })
@@ -419,3 +413,171 @@ describe('relay-import-qoder 纯函数', () => {
     })
   })
 })
+
+// ============================================================================
+// relay-import-qoder 归属落点(2026-11-06 立)
+//
+// 缺陷本体:脚本调 `importAccounts(args.provider, accounts)` 只传两参 ⇒ 第三参走服务层
+// 默认 null ⇒ 机主本人手动填入号池的号恒被打进运营池(违背 2026-10-31 永久指令);
+// 而它先建了运营池行、再由带 owner 的通道导入同一枚时,表上两条 partial unique 各自成立
+// ⇒ 同 uid 双行,`chooseSyncTargetRow` 运营池优先 ⇒ 个人池那行永远拿不到客户端新票,
+// 保活/自动签到落在别处(2026-11-06 机主亲踩)。
+//
+// 判据 import 源脚本 `__test__`(§22c 零复算);默认归属一律走注入替身 ⇒ 不读真机
+// `~/.wb-switch/pool-owner`、不写库、不发网络(AGENTS.md §5 测试隔离铁律)。
+// ============================================================================
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
+import { __test__ as importQoderTest } from '../scripts/relay-import-qoder.js'
+
+const IMPORT_QODER_SRC = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), '../scripts/relay-import-qoder.ts'),
+  'utf8',
+)
+
+const OWNER_UUID = '30763d9f-a4c4-4f0c-84c3-16d6b8a67c35'
+
+describe('relay-import-qoder 归属裁决(显式旗标 > 本机默认 > 运营池)', () => {
+  const { parseArgs, resolveImportOwner, describeImportOwner } = importQoderTest
+
+  /** 默认出口替身:计数 + 可编程返回/抛错,绝不触碰真机文件与服务层默认 null */
+  function fakeDefault(
+    impl: () => { ownerUserId: string | null; source: string; reason: string; file: string },
+  ) {
+    const state = { calls: 0 }
+    return {
+      state,
+      resolveDefaultOwner: () => {
+        state.calls++
+        return impl()
+      },
+    }
+  }
+
+  it('A 显式 --owner ⇒ explicit-flag,且一次都不碰本机默认归属', () => {
+    const f = fakeDefault(() => ({
+      ownerUserId: null,
+      source: 'none',
+      reason: 'missing',
+      file: '',
+    }))
+    const d = resolveImportOwner({ owner: OWNER_UUID, opsPool: false }, f)
+    expect(d.ownerUserId).toBe(OWNER_UUID)
+    expect(d.source).toBe('explicit-flag')
+    expect(d.reason).toBe('ok')
+    expect(f.state.calls, '显式旗标压过默认:默认出口一次都不该被调用').toBe(0)
+  })
+
+  it('B 显式 --ops-pool ⇒ owner=null 且原因具名 ops-pool-flag(压过默认)', () => {
+    const f = fakeDefault(() => ({
+      ownerUserId: OWNER_UUID,
+      source: 'default-owner-file',
+      reason: 'ok',
+      file: 'x',
+    }))
+    const d = resolveImportOwner({ owner: '', opsPool: true }, f)
+    expect(d.ownerUserId).toBeNull()
+    expect(d.reason).toBe('ops-pool-flag')
+    expect(f.state.calls, '--ops-pool 是显式裁决,不该再去读本机默认').toBe(0)
+  })
+
+  it('C 两旗皆不给 ⇒ 整条委托 pool-owner 单源(值/来源/原因/文件原样透传)', () => {
+    const d = resolveImportOwner(
+      { owner: '', opsPool: false },
+      fakeDefault(() => ({
+        ownerUserId: OWNER_UUID,
+        source: 'default-owner-file',
+        reason: 'ok',
+        file: 'H:/.wb-switch/pool-owner',
+      })),
+    )
+    expect(d).toEqual({
+      ownerUserId: OWNER_UUID,
+      source: 'default-owner-file',
+      reason: 'ok',
+      file: 'H:/.wb-switch/pool-owner',
+    })
+  })
+
+  it('D 默认出口抛错(装载失败)⇒ 原样抛出:不许 catch 成 null 悄悄落运营池', () => {
+    expect(() =>
+      resolveImportOwner(
+        { owner: '', opsPool: false },
+        fakeDefault(() => {
+          throw new Error('scripts/lib/pool-owner.mjs 装载失败')
+        }),
+      ),
+    ).toThrow(/装载失败/)
+  })
+
+  it('E --owner 与 --ops-pool 同给 ⇒ parseArgs 点名互斥(未判定,顺序无关)', () => {
+    expect(() => parseArgs(['--owner', OWNER_UUID, '--ops-pool'])).toThrow(/二选一/)
+    expect(() => parseArgs(['--ops-pool', '--owner', OWNER_UUID])).toThrow(/二选一/)
+  })
+
+  it('F --owner 取值卫生:缺值/被相邻旗标顶掉 ⇒ 抛错;正常给值 ⇒ 落 args.owner', () => {
+    expect(() => parseArgs(['--owner', '--dry-run'])).toThrow(/需要一个参数/)
+    expect(() => parseArgs(['--owner'])).toThrow(/需要一个参数/)
+    expect(parseArgs(['--owner', OWNER_UUID]).owner).toBe(OWNER_UUID)
+    expect(parseArgs(['--ops-pool']).opsPool).toBe(true)
+    expect(parseArgs([])).toMatchObject({ owner: '', opsPool: false })
+  })
+
+  it('G 回显措辞:个人池只露前 8 位 + 来源;两型运营池都带"为什么"', () => {
+    expect(
+      describeImportOwner({
+        ownerUserId: OWNER_UUID,
+        source: 'explicit-flag',
+        reason: 'ok',
+        file: '',
+      }),
+    ).toBe('个人池 30763d9f***(来源:explicit-flag)')
+    const explicitOps = describeImportOwner({
+      ownerUserId: null,
+      source: 'none',
+      reason: 'ops-pool-flag',
+      file: '',
+    })
+    expect(explicitOps).toMatch(/运营池/)
+    expect(explicitOps).toMatch(/--ops-pool/, '显式要运营池不该被说成"默认取不到"')
+    const defaultMiss = describeImportOwner({
+      ownerUserId: null,
+      source: 'none',
+      reason: 'missing',
+      file: 'f',
+    })
+    expect(defaultMiss).toMatch(/运营池/)
+    expect(defaultMiss).toMatch(/missing/, '默认取不到而落运营池必须把原因带出来(§0.3 不静默)')
+  })
+
+  it('H 输出面无凭据:归属串只含 users.id 前 8 位,不含全号也不含 token 形态', () => {
+    const out = describeImportOwner({
+      ownerUserId: OWNER_UUID,
+      source: 'default-owner-file',
+      reason: 'ok',
+      file: 'H:/.wb-switch/pool-owner',
+    })
+    expect(out).not.toContain(OWNER_UUID)
+    expect(out).not.toMatch(/token|dt-/i)
+  })
+
+  it('I 形状锁:落库必须交第三参归属;装载失败 exit 2;dry-run 在落库之前且不写', () => {
+    expect(IMPORT_QODER_SRC).toMatch(
+      /importAccounts\(args\.provider,\s*accounts,\s*owner\.ownerUserId\)/,
+      '归属没传给落库出口 ⇒ 同 uid 双行的根因会复发',
+    )
+    expect(IMPORT_QODER_SRC).not.toMatch(/importAccounts\(args\.provider,\s*accounts\)/)
+    expect(IMPORT_QODER_SRC).toMatch(/resolveImportOwner\(args\)/, '脚本没接归属裁决出口')
+    expect(IMPORT_QODER_SRC).toMatch(
+      /归属判据装载失败\(未判定\)[\s\S]{0,400}?process\.exit\(2\)/,
+      '装载失败必须顶格未判定退出,不能继续往下写库',
+    )
+    const dryIdx = IMPORT_QODER_SRC.indexOf('if (args.dryRun)')
+    const writeIdx = IMPORT_QODER_SRC.indexOf('await importAccounts(')
+    expect(dryIdx).toBeGreaterThan(0)
+    expect(writeIdx).toBeGreaterThan(dryIdx)
+    expect(IMPORT_QODER_SRC).toMatch(/dry-run:未落库\(将落:\$\{describeImportOwner\(owner\)\}\)/)
+  })
+})
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

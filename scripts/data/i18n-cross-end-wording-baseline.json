@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "owner": "cross-end-i18n",
+  "expires": "2027-06-30",
+  "generatedAt": "2026-11-06",
+  "face": "HEAD",
+  "why": "小程序↔RN 同名键文案漂移的存量固化基线(回归制):存量漂移只报数,只有相对基线新增未裁/形态坏/过期/腐烂或已裁净减才在 push 面阻断。",
+  "evidence": [
+    "scripts/check-i18n-cross-end-wording.mjs:246-271(--gate 现读取值与判定口)",
+    "scripts/data/i18n-cross-end-waivers.jsonl:1(在册裁定台账)",
+    "packages/i18n/messages/zh-CN/(基准语言词包)"
+  ],
+  "refreshProcedure": {
+    "trigger": "等其余各线全部落 main 后,在最终尖(origin/main 现读)上一次性刷新;严禁在旧尖或本特性分支上刷新",
+    "precondition": "git fetch origin main && git rev-parse origin/main;在 origin/main 的 detached 干净检出上执行(工作树 clean,不用任何人的分支树)",
+    "commands": [
+      "node scripts/check-i18n-cross-end-wording.mjs --gate --push --json > .ihui-agent/tmp/word-gate-final.json",
+      "node -e 'const fs=require(\"fs\");const j=JSON.parse(fs.readFileSync(\".ihui-agent/tmp/word-gate-final.json\",\"utf8\"));const b=JSON.parse(fs.readFileSync(\"scripts/data/i18n-cross-end-wording-baseline.json\",\"utf8\"));Object.assign(b.dims,j.gate.values);b.generatedAt=new Date().toISOString();b.face=\"HEAD\";fs.writeFileSync(\"scripts/data/i18n-cross-end-wording-baseline.json\",JSON.stringify(b,null,2)+\"\\n\")'"
+    ],
+    "resignFields": [
+      "generatedAt(改为最终尖刷新时刻)",
+      "face(固定 HEAD,证明量的是终尖入库面)",
+      "owner(确认仍为 cross-end-i18n;换线须显式改并通知)",
+      "expires(重新设定到期日,不得沿用已过期值)",
+      "evidence(逐条按最终尖行号重指 file:line)",
+      "why(补一句刷新依据:最终尖 sha + 各线落地批次)",
+      "note(重写未裁定/存量说明,不得把新增未裁洗成存量)"
+    ],
+    "guard": "刷新只允许把每个 dim 重置为最终尖现读值;若某维相对旧基线是恶化,必须在同枚提交说明里逐维给出 file:line 证据,否则保持旧值让 303p 拦住,不许借刷新抹平。"
+  },
+  "dims": {
+    "driftTotal": 32,
+    "cleared": 31,
+    "uncleared": 1,
+    "invalid": 0,
+    "expired": 0,
+    "rot": 0
+  },
+  "note": "uncleared=1 为既有存量(见台账未裁定项),只报数不阻断;新增漂移必须先补裁定或修文案。"
+}

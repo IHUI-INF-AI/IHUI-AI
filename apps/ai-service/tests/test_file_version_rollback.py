@@ -144,6 +144,32 @@ def test_rollback_refuses_when_snapshot_could_not_read(workspace, monkeypatch):
     assert _tmp_residue(workspace) == []
 
 
+def test_unreadable_stat_is_not_treated_as_missing(workspace, monkeypatch):
+    """os.stat 报权限错误时不得记成不存在,回滚也不能把文件删掉。"""
+    target = workspace / "blocked.txt"
+    original = "keep\n"
+    target.write_text(original, encoding="utf-8")
+    real_stat = os.stat
+    armed = {"on": True}
+
+    def fake_stat(path, *args, **kwargs):
+        if armed["on"] and os.path.abspath(path) == os.path.abspath(target):
+            raise PermissionError(13, "denied", path)
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(file_editor.os, "stat", fake_stat)
+    snap = file_editor.snapshot_file("s-stat", str(target))
+    armed["on"] = False
+    record = _record("s-stat", target)
+    assert record["existed_before"] is True
+    assert record["read_ok"] is False
+    assert "读不到" in record["read_error"]
+    result = file_editor.rollback_file("s-stat", str(target), version_id=snap["version_id"])
+    assert result["ok"] is False
+    assert result["errorCode"] == "SNAPSHOT_UNREADABLE"
+    assert target.read_text(encoding="utf-8") == original
+
+
 # =============================================================================
 # ③ 正向对照:正常读到的旧内容 → 回滚逐字等值
 # =============================================================================

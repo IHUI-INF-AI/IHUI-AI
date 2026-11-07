@@ -76,7 +76,7 @@ http://localhost:8802/v1          # 自托管`}
           </div>
           <div>
             <p className="text-body font-semibold">认证方式</p>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>
                 <strong>JWT</strong>:用户登录态,
                 <code className="rounded bg-muted px-1">Authorization: Bearer &lt;jwt&gt;</code>
@@ -94,7 +94,7 @@ http://localhost:8802/v1          # 自托管`}
           </div>
           <div>
             <p className="text-body font-semibold">速率限制</p>
-            <p className="text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] text-body text-muted-foreground">
               默认 60 req/min,Pro 200/min,Team 500/min。超限返回{' '}
               <code className="rounded bg-muted px-1">429</code>,响应头含:
             </p>
@@ -113,7 +113,7 @@ X-RateLimit-Reset: 1699900000`}
         <h2 className="text-display font-bold tracking-tight">AI 对话 API</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
           <h3 className="text-lg font-semibold">POST /v1/chat/completions</h3>
-          <p className="text-sm text-muted-foreground">OpenAI 兼容接口,支持流式(SSE)和非流式。</p>
+          <p className="font-[weight:inherit] text-body text-muted-foreground">OpenAI 兼容接口,支持流式(SSE)和非流式。</p>
           <CodeBlock
             language="bash"
             code={`curl -X POST https://api.aizhs.top/v1/chat/completions \\
@@ -135,7 +135,7 @@ data: [DONE]`}
           />
 
           <h3 className="text-lg font-semibold pt-4">POST /v1/chat/agents/:agentId</h3>
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             调用指定 Agent(带知识库 + MCP 工具 + 工作流)。
           </p>
           <CodeBlock
@@ -156,7 +156,7 @@ data: [DONE]`}
       <section id="agent-api" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">Agent 管理 API</h2>
         <div className="overflow-x-auto rounded-lg border bg-card">
-          <table className="w-full text-sm">
+          <table className="font-[weight:inherit] w-full text-body">
             <thead>
               <tr className="bg-muted/60 text-left text-label font-semibold">
                 <th scope="col" className="p-3">
@@ -180,8 +180,8 @@ data: [DONE]`}
                 ['DELETE', '/v1/agents/:id', '删除'],
               ].map(([method, path, desc], i) => (
                 <tr key={`${method}-${path}`} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
-                  <td className="p-3 font-mono text-xs whitespace-nowrap">{method}</td>
-                  <td className="p-3 font-mono text-xs whitespace-nowrap">{path}</td>
+                  <td className="font-[weight:inherit] p-3 font-mono text-label whitespace-nowrap">{method}</td>
+                  <td className="font-[weight:inherit] p-3 font-mono text-label whitespace-nowrap">{path}</td>
                   <td className="p-3 text-muted-foreground">{desc}</td>
                 </tr>
               ))}
@@ -194,7 +194,7 @@ data: [DONE]`}
       <section id="errors" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">错误码</h2>
         <div className="rounded-lg border bg-card p-3">
-          <p className="text-sm text-muted-foreground">统一响应格式:</p>
+          <p className="font-[weight:inherit] text-body text-muted-foreground">统一响应格式:</p>
           <CodeBlock
             language="json"
             code={`{
@@ -204,7 +204,7 @@ data: [DONE]`}
 }`}
           />
           <div className="mt-4 overflow-x-auto rounded-lg border">
-            <table className="w-full text-sm">
+            <table className="font-[weight:inherit] w-full text-body">
               <thead>
                 <tr className="bg-muted/60 text-left text-label font-semibold">
                   <th scope="col" className="p-3">
@@ -229,8 +229,8 @@ data: [DONE]`}
                   ['500', '5000', '服务器错误'],
                 ].map(([http, code, desc], i) => (
                   <tr key={`${http}-${code}`} className={i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}>
-                    <td className="p-3 font-mono text-xs whitespace-nowrap">{http}</td>
-                    <td className="p-3 font-mono text-xs text-muted-foreground">{code}</td>
+                    <td className="font-[weight:inherit] p-3 font-mono text-label whitespace-nowrap">{http}</td>
+                    <td className="font-[weight:inherit] p-3 font-mono text-label text-muted-foreground">{code}</td>
                     <td className="p-3 text-muted-foreground">{desc}</td>
                   </tr>
                 ))}

@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * AGENTS.md 体积守门(守门 207,blocking;跳过 `HUSKY_SKIP_AGENTS_DOC_SIZE=1`)。
+ * AGENTS.md 体积守门(守门 207,blocking;**无逃生舱**,见下方「为什么没有 skipEnv」)。
  *
  * 为什么要有这道门(实测锚点,不是推测):
  *   AGENTS.md 被客户端**逐字注入每一轮对话**,它的大小就是每轮固定上下文账单的大头。
@@ -33,6 +33,15 @@
  * 失效方向(为什么必须由门拦而不是靠人记):该文件 2026-09-29 约 180 KB、2026-10-14 已 1.26 MB,
  *   15 天涨 7 倍无人察觉 —— 因为 `check-file-size.mjs` 只扫源码且全量档 warn-only,
  *   `check-project-plan-size.mjs` 只管台账,注入面从来没有判据覆盖过。判据失效的表现永远是安静。
+ *
+ * 为什么没有 skipEnv(2026-11-05 摘除,RP-5 ③):
+ *   runner 的 skipEnv 是为「并发会话未提交 WIP 造成工作区级假红」设计的 —— 跳过只免本次退出码。
+ *   本门判的是**即将落地的 AGENTS.md 真字节数**(--staged 判索引 blob、全量判 HEAD blob),从不读工作区,
+ *   所以那一类假阳性在结构上不存在:超限就是这次真的要把超限内容写进每轮注入面。
+ *   跳过它也没有后手门——本门只挂在 stagedTriggers=['AGENTS.md'],无 CI 面、无巡检面,
+ *   一旦放过,直到下次有人再改 AGENTS.md 才会被重新发现,而每一轮对话已经为它付过账单。
+ *   故超限的唯一出路是裁剪(见 exit 1 提示),不是放行;谁把跳过变量加回注册条目,`judgeRegistration`
+ *   与镜像测试的反向例当场判红(证明摘除不是无人察觉)。
  */
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
@@ -51,6 +60,33 @@ export function judgeSize(content, face, budget = BUDGET_BYTES) {
   if (typeof content !== 'string') return null
   const bytes = Buffer.byteLength(content, 'utf8')
   return { face, bytes, budget, over: bytes > budget }
+}
+
+/**
+ * 注册形态唯一实现(镜像测试 import 本函数,不得在测试里手写正则复制判据 —— §22c)。
+ * 门 207 自 2026-11-05 起**无逃生舱**:出现 `skipEnv` 即判红,理由见头注「为什么没有 skipEnv」。
+ * 取不到条目文本同样判红(未判定不记绿,§0.3)。
+ *
+ * 取条目 = **锚点所在行**(本条目按头注要求恒为单行紧凑对象,那条要求来自 runner 6000 行上限)。
+ * 不按前后若干字符开窗:窗口会把相邻条目的字段算进来(实测 600 字符窗吃到了下一道门的 skipEnv,
+ * 把刚摘干净的条目判成"仍有逃生舱" ⇒ 假红)。
+ * @returns {{ok:boolean, reason:string}}
+ */
+export function judgeRegistration(runnerText) {
+  const t = String(runnerText ?? '')
+  const anchor = "script: 'check-agents-doc-size.mjs'"
+  const i = t.indexOf(anchor)
+  if (i < 0) return { ok: false, reason: '注册条目取不到或未接线(未判定不记绿)' }
+  const lineStart = t.lastIndexOf('\n', i) + 1
+  const lineEnd = t.indexOf('\n', i)
+  const entry = t.slice(lineStart, lineEnd < 0 ? t.length : lineEnd)
+  if (/skipEnv\s*:/.test(entry)) {
+    return { ok: false, reason: '门 207 不得声明 skipEnv:超限唯一出路是裁剪到预算内,不是跳过(§0.10)' }
+  }
+  if (!/mode:\s*'blocking'/.test(entry)) return { ok: false, reason: "注册条目缺 mode: 'blocking'" }
+  if (!/args:\s*\[\]/.test(entry)) return { ok: false, reason: '注册条目缺 args: [](执行循环 [...check.args] 会 TypeError)' }
+  if (!/id:\s*'207'/.test(entry)) return { ok: false, reason: "注册条目缺 id: '207'(双引号形态对按单引号解析的判据隐身)" }
+  return { ok: true, reason: 'blocking / args / id 齐备,且无 skipEnv' }
 }
 
 function readFace(face) {
@@ -74,6 +110,21 @@ function selfTest() {
   let bad = 0
   for (const c of cases) {
     const ok = c.want === null ? c.got === null : c.got !== null && c.got.over === c.want
+    if (!ok) bad += 1
+    console.log(`${ok ? '✅' : '❌'} self-test:${c.name}`)
+  }
+
+  // 注册形态:无逃生舱这件事必须有牙 —— 反向例把 skipEnv 加回,本判据必须翻红。
+  const regOk =
+    "script: 'check-agents-doc-size.mjs', args: [], mode: 'blocking', id: '207', stagedTriggers: ['AGENTS.md']"
+  const regBad = regOk.replace('args: []', "args: [], skipEnv: 'HUSKY_SKIP_AGENTS_DOC_SIZE'")
+  const regCases = [
+    { name: '注册条目无 skipEnv ⇒ 判绿', got: judgeRegistration(regOk).ok, want: true },
+    { name: '把 skipEnv 加回 ⇒ 判红(反向例)', got: judgeRegistration(regBad).ok, want: false },
+    { name: '注册条目取不到 ⇒ 不记绿(未判定)', got: judgeRegistration('').ok, want: false },
+  ]
+  for (const c of regCases) {
+    const ok = c.got === c.want
     if (!ok) bad += 1
     console.log(`${ok ? '✅' : '❌'} self-test:${c.name}`)
   }
@@ -126,5 +177,5 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { judgeSize, readFace, BUDGET_BYTES, FILE, ROOT }
+export const __test__ = { judgeSize, judgeRegistration, readFace, BUDGET_BYTES, FILE, ROOT }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

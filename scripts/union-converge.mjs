@@ -191,6 +191,13 @@ import { declaredRows } from './scrub-declared-removals.mjs'
 import { archiveDropCaps, selectMovedOut, ARCHIVE_REL } from './lib/live-doc-archive-drops.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
 import { judgeFlags, unknownFlagEscape, USAGE as FLAG_USAGE, checkFlagCoverage } from './lib/union-converge-flags.mjs'
+// 2026-11-05 结构缺陷票①:旁路落地(CAS)后必须回写共享索引 + 落盘工作树,否则新 HEAD 里的路径
+// 在索引/磁盘上都不存在 ⇒ `git status` 恒显 `D `,下一次不带 pathspec 的提交会把它固化成删除。
+import { alignLandingPaths } from './lib/landing-worktree-align.mjs'
+// 2026-11-05 结构缺陷票②:旁路删除 `apps/**`、`packages/**` 的硬门(0 引用 + 删除意图台账)。
+import { judgeBypassDeletions } from './lib/bypass-deletion-gate.mjs'
+// 2026-11-05 独立一笔:内容级防丢闸(键集差集 + 活文档/AGENTS 行级包含),治"整份取对侧"。
+import { formatLossReport, judgeContentLoss } from './lib/content-loss-gate.mjs'
 // —— 2026-11-01 纯搬运拆分(守门 207/103 体积清偿):以下判据族自本器**逐字搬出**到
 //    scripts/lib/union-converge-judgments.mjs(零行为改动);本器只 import 回来并原样再导出,
 //    具名导出面 / `--help` / 参数面 / 退出码 / 结论字段与拆前逐字一致。
@@ -408,7 +415,12 @@ function listPaths(rev, cwd) {
 
 /** 两侧相对基底的"动过的路径"清单(含仅改 mode —— 它同样会进 diff --name-only)。 */
 function diffNames(a, b, cwd) {
-  return git(['diff', '--name-only', a, b], cwd).split('\n').filter(Boolean)
+  // 2026-11-05:必须关掉重命名检测。水印头让任意两文件都有 ~60% 相同字节,`git diff` 会把
+  // "对侧删掉的 A" 报成 "A → 某侧新文件 B 的 R061 重命名",`--name-only` 只吐新路径,
+  // 于是 A 根本不进删除循环 ⇒ 合并树里留着 A,而 A 依赖的另一份被删文件已消失(实测
+  // doubao-voice-api.ts → apps/web/src/config/base-path.ts 的假重命名,留下悬空 import)。本器
+  // 判的是逐路径处置权,重命名感知只会把"删"折成"改名",这里一律按路径面比较。
+  return git(['diff', '--no-renames', '--name-only', a, b], cwd).split('\n').filter(Boolean)
 }
 
 /** 内容面判据不得走 `git()`(encoding utf8 + trim 会毁掉二进制与行尾),单开 buffer 通道。 */
@@ -1076,6 +1088,11 @@ export function buildUnion(
     const takeDocsUndetermined = []
     // A6:声明理由放行的"本侧少内容"格,逐条交回报告面(不得静默折进"0 丢失")。
     const takeDocCredits = []
+    // 归档整区移出的扣行账,逐行交回落地闸的内容级防丢闸(2026-11-05):
+    // 行级 union 按 archiveDropSet 决定"不补回"(对侧滞后基线带回的旧行),落地闸若不知道同一本账,
+    // 就会把"本侧有意移入归档、归并正确排除"的少带读成丢失 —— 两道闸互顶,合并死锁
+    // (与 base/foldLedgers 那两维同族:判据在、台账在,落地调用点没人端)。
+    const archiveCredited = []
     for (const p of LIVE_DOCS) {
       const a = show(ours, p, cwd)
       const b = show(theirs, p, cwd)
@@ -1132,6 +1149,9 @@ export function buildUnion(
       // archiveDropCaps 那一维),F5 落地闸必须问**同一本账**,否则把"本侧有意移入归档、对侧滞后基线
       // 带回又被归并正确排除"的 `<!-- 已归档 -->` 存根读成"未解释少带"(2026-10-29 全仓推送死结)。
       const archiveDropSet = archived && archived.ok ? archiveDropCaps(a, archived) : new Set()
+      // 同一本账同时端给落地闸:行级 union 没补回、报告已经逐行点名的这些行,
+      // 落地闸不该再按逐字包含复读成"丢失"(留痕由 union 的报告面负责,不静默)。
+      for (const l of archiveDropSet) archiveCredited.push(l)
       const built0 = unionLinesCore(a, b, bt, ma.suppress, foldOn, foldPicks, withheldReport, null, archived)
       if (archived === null) {
         console.log(
@@ -1578,6 +1598,8 @@ export function buildUnion(
       liveDocs,
       // 折叠台账(逐文档):自证侧 `verifyUnion` 必须拿它把"少掉的份数"问成"合法折叠"还是"真丢失"。
       foldLedgers,
+      // 归档整区移出的扣行账(逐行):内容级防丢闸按同一本账免复读,留痕已由报告面逐行点名。
+      archiveCredited,
       // 折叠层拒绝裁定的组(逐文档):一条都没折,但必须交回落地闸点名,不得读成"没得折"。
       foldAmbiguous,
       // 声明式保留行没命中的那些(逐文档):"配了清单"不等于"这轮真放过东西"(§0.3)。
@@ -2295,6 +2317,8 @@ export function plan(
     superseded: vu.superseded,
     foldUndetermined: vu.foldUndetermined,
     foldLedgers: built.foldLedgers,
+    // 归档整区移出的扣行账(逐行):落地闸的内容级防丢闸按同一本账免复读(与 base/foldLedgers 同族接线)。
+    archiveCredited: built.archiveCredited || [],
     foldAmbiguous: built.foldAmbiguous,
     // 「因搬运感知而未取回」这一维:逐条目块的行数 + 出处归档件 + 判不出/照旧取回的原因。
     // 报告必须能回答"你没带回 N 行,因为这 N 行在基准面已有 已归档 占位代表"。
@@ -4633,6 +4657,58 @@ async function main() {
     console.log('  未落地(加 --apply 才建合并提交;本工具从不 checkout、不碰共享工作区)')
     process.exit(0)
   }
+  // ② 旁路删除硬门(2026-11-05):删除传播的零丢失证明只证明"基底那份字节没被改过",
+  // 证明不了"没人还在引用它"。`apps/**`、`packages/**` 的删除必须**同时**满足
+  // (a) 落地的树里 0 引用;(b) 有 reason ≥10 字的删除意图台账 —— 缺一条就拒绝落地、exit 1,
+  // 并逐条点名。未判定的引用面同样拒绝(§0.3:判不出不是放行许可证)。
+  const deletionGate = judgeBypassDeletions({
+    root: ROOT,
+    rev: p.tree,
+    deletedPaths: [
+      ...new Set([...(p.propagatedDeletes ?? []), ...(p.shadowDeletes ?? []).map((x) => x.path)]),
+    ],
+  })
+  if (!deletionGate.ok) {
+    console.log(
+      `❌ 旁路删除硬门拒绝落地 ${deletionGate.blocked.length} 处(apps/**、packages/** 必须"0 引用 + 删除意图台账"):`,
+    )
+    for (const b of deletionGate.blocked) console.log(`  · ${b.path} —— ${b.reasons.join('; ')}`)
+    process.exit(1)
+  }
+  // 内容级防丢闸(独立一笔,2026-11-05):文件面判据只能证明"路径还在"。`scripts/data/**` 与
+  // 五语言词包按**键集**比(oursKeys−mergedKeys、theirsKeys−mergedKeys 必须为空),活文档与
+  // AGENTS.md 按**行级包含**比;非空即判红并逐条点名。此前这套闸在别处咬出过 i18n 17 键与
+  // 3 个测试用例的真丢失 —— 那两次路径都在位,只有内容没了。
+  // 折叠/摘除台账里**已逐字举证**的少带行端给本层:attestFoldPair 在产物面证过去向,
+  // 再按逐字包含复读会把"刚被证明合法的少带"判成丢失 —— 两道闸互顶(纠偏二,头注)。
+  const creditedDropLines = new Set([
+    ...(p.folded || []).flatMap((e) => e.dropped || []),
+    ...(p.dropLedgerCredited || []).flatMap((e) => e.dropped || []),
+    // 归档整区移出的扣行账(2026-11-05 接线):行级 union 未补回、报告面已逐行点名的对侧旧基线行,
+    // 与 base/foldLedgers 两维同族 —— 判据在、台账在,落地调用点此前没人端 ⇒ 合并被读成"少带"而死锁。
+    ...(p.archiveCredited || []),
+  ].map((l) => String(l ?? '').trim()).filter(Boolean))
+  // 2026-11-05: 内容级防丢闸的「折叠台账」与「本侧处置权」两维早已在 lib 里(`foldLedgers`/`base`),
+  // 落地调用点却只端了 `creditedDrops` ⇒ 那两维在收敛路径上生效次数为 0(判据在、自检过、没人调)。
+  // 这里按 lib 既有签名接线,不新增判据:基底/折叠台账本来就是 plan 已有的产物。
+  const contentGate = judgeContentLoss({
+    root: ROOT,
+    ours: t.head,
+    theirs: t.theirs,
+    merged: p.tree,
+    base: p.base,
+    foldLedgers: p.foldLedgers,
+    creditedDrops: creditedDropLines,
+    // 本机摘除台账那一维同属"判据在 lib、自检过、落地调用点没人端"的一格:不端它,被 `.ihui-agent/state/plan-row-drop.jsonl`
+    // 正当摘掉的登记行(如超龄认领牌代摘)会在归并侧被读成"少带"而死锁 —— 拦的是合法归并,失效方向却是要人跳门。
+    // 传 declaredRows() 整份对象(lib 同时收 Set 与 {set,keyIndex,…},形态见 content-loss-gate.mjs:306)。
+    declaredRemovals: declaredRows(ROOT),
+  })
+  if (!contentGate.ok) {
+    console.log(`❌ 内容级防丢闸拒绝落地:${contentGate.violations.length} 个路径少带内容(逐条点名)`)
+    console.log(formatLossReport(contentGate))
+    process.exit(contentGate.undetermined.length ? 2 : 1)
+  }
   const msg =
     `Merge ${t.theirs} into ${t.head} —— 文件面零丢失 union(本侧整棵树 ∪ 对侧自身改动 ∪ 两侧同改三方归并 ∪ 活文档行 union)` +
     (p.humanResolved?.length
@@ -4735,6 +4811,43 @@ async function main() {
   console.log(
     `✅ 合并落地 ${sha.slice(0, 12)}${lost.lost.length ? ` —— ⚠️ A1 复核仍报 ${lost.lost.length} 处` : ',A1 复核 0 丢失'}`,
   )
+  // ① 落地即对齐(2026-11-05)。CAS 只推进 ref,**不碰共享索引、不碰工作树**;本器此前把这条
+  // 残局交给 `heal-worktree-tracked --align-drift`,而第四层的父树签名会把"合进来的新文件"
+  // (存在于另一个父树)判成"与有意 git rm 分不清"只报不修 ⇒ `D ` 长期存在,下一次普通提交
+  // 就固化成删除。对齐判据只有一份(lib/landing-worktree-align → lib/bypass-git 的 alignSharedIndex),
+  // 这里只负责"落地这一刻"派出去,并**逐条点名**失败/让路,不许静默。
+  const declaredFiles = [...new Set([...LIVE_DOCS, ...p.tookTheirs])]
+  // declaredFiles 只覆盖"本器构造出内容"的两类;`mergedClean` / `humanResolved` 的改动路径同样会
+  // 让索引停在父提交态(`git diff --cached` 显 M)。这里以"父提交 → 合并树"的差集为上限,
+  // 仍然是同一把 alignSharedIndex 尺(别人真暂存过就跳过并点名),不另立判据。
+  let treeDiffPaths = []
+  try {
+    treeDiffPaths = git(['diff', '--no-renames', '--name-only', t.head, p.tree])
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+  } catch (e) {
+    console.log(`  ⚠️ 落地回写未判定:父提交→合并树差集取不到(${String(e?.message ?? e).slice(0, 120)})`)
+  }
+  const landingAlign = alignLandingPaths({
+    root: ROOT,
+    paths: [
+      ...declaredFiles,
+      ...treeDiffPaths,
+      ...(p.propagatedDeletes ?? []),
+      ...(p.shadowDeletes ?? []).map((x) => x.path),
+    ],
+    parentRef: t.head,
+  })
+  console.log(
+    `  🧷 落地回写:索引对齐 ${landingAlign.aligned.length} 路径 / 工作树 checkout ${landingAlign.checkedOut.length} 条`,
+  )
+  for (const f of landingAlign.failed) console.log(`  ❌ 落地回写失败:${f.path} —— ${f.reason}`)
+  for (const s of landingAlign.skipped)
+    console.log(`  ⚠️ 落地回写未动(归属他人):${s.path} —— ${s.reason}`)
+  for (const u of landingAlign.undetermined)
+    console.log(`  ⚠️ 落地回写未判定:${u.path} —— ${u.reason}`)
+  const landingAlignHardFail = landingAlign.failed.length > 0
   // 旁路合并不跑 post-commit ⇒ 守门 71 的登记行自愈永不触发;而 commit-tree + CAS 也不写钩子链那本
   // 跳门台账 ⇒ 这枚提交在总量统计里会永远落进 unknown(AGENTS §12f 那条"两个来源合起来才是总量")。
   // 两条都在落地这一刻补上,且**都不改本轮结论**:自愈失败只喊一行,留痕按 lib 契约永不抛。
@@ -4743,7 +4856,7 @@ async function main() {
     source: 'union-converge --apply',
     landedSha: sha,
     headBefore: t.head,
-    declaredFiles: [...new Set([...LIVE_DOCS, ...p.tookTheirs])],
+    declaredFiles,
     reason:
       '旁路合并落地(commit-tree + CAS)不触发钩子 ⇒ 提交链上的门禁对本枚未执行;' +
       '声明路径 = 本器构造出内容的那些(活文档 ∪ 取对侧版本的路径)',
@@ -4802,7 +4915,7 @@ async function main() {
       `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚合并已在 HEAD ${sha.slice(0, 11)}(不回滚),请人工复跑点名臂`,
     )
   }
-  process.exit(lost.lost.length || affected.verdict === 1 ? 1 : affected.verdict === 2 ? 2 : 0)
+  process.exit(lost.lost.length || affected.verdict === 1 || landingAlignHardFail ? 1 : affected.verdict === 2 ? 2 : 0)
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

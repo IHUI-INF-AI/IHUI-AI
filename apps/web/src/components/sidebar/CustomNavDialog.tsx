@@ -216,7 +216,7 @@ export function CustomNavDialog({
             placeholder={t('customSearchPlaceholder')}
             // placeholder 不是无障碍名:读屏只念"编辑框",补 aria-label 让它念得出这是什么
             aria-label={t('customSearchPlaceholder')}
-            className="h-9 w-full rounded-sm border bg-background pl-8 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
+            className="font-[weight:inherit] h-9 w-full rounded-sm border bg-background pl-8 pr-3 text-body outline-none transition-colors placeholder:text-muted-foreground/50 focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
 
@@ -225,7 +225,7 @@ export function CustomNavDialog({
           {q ? (
             // 搜索态:拍平 + 分组桶头
             searchBuckets.length === 0 ? (
-              <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground/60">
+              <div className="font-[weight:inherit] flex h-[200px] items-center justify-center text-body text-muted-foreground/60">
                 {t('customNoResults')}
               </div>
             ) : (
@@ -247,7 +247,7 @@ export function CustomNavDialog({
             )
           ) : // 浏览态:三级结构,与侧边栏心智一致 —— 顶级分组头 → 父项 → 缩进子项
           browseBuckets.length === 0 ? (
-            <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground/60">
+            <div className="font-[weight:inherit] flex h-[200px] items-center justify-center text-body text-muted-foreground/60">
               {t('customNoResults')}
             </div>
           ) : (

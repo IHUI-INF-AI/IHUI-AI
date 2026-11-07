@@ -33,6 +33,8 @@ export interface SrsStream {
   status: 'active' | 'inactive' | 'banned'
   channelId?: string | null
   endTime?: string | null
+  /** 归属用户(列表投影带,详情可能不带) */
+  userId?: string | null
   createdAt?: string
   updatedAt?: string
 }
@@ -195,5 +197,78 @@ export async function deleteSrsServer(id: string): Promise<ApiResult<{ deleted: 
 /** SRS 服务器健康检查 — GET /srs/servers/:id/health */
 export async function checkSrsServerHealth(id: string): Promise<ApiResult<SrsServerHealth>> {
   return fetchApi<SrsServerHealth>(`/srs/servers/${encodeURIComponent(id)}/health`)
+}
+
+// ===== 间隔复习(SRS-review 业务域,apps/api `routes/srs-review.ts`)=====
+//
+// 与原 SRS 媒体服务器路由(`/srs/*`)不同前缀:`/api/srs-review/*`。2026-11-05 立,
+// 门 300 台账 A 类:web `src/api/edu-api.ts` 与 RN `LearnReviewScreen` 端内直拼收口。
+// 取消/完成等写操作仅有 `submitReview` 一条(后端路由只注册 due/review/stats)。
+
+export interface SrsReviewItem {
+  id: string
+  userId: string
+  questionId: string
+  questionText: string
+  questionType: string
+  dueDate: string
+  easeFactor: number
+  interval: number
+  repetition: number
+  lastReviewAt: string | null
+}
+
+export interface SrsReviewList<T = SrsReviewItem> {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface SrsReviewSubmitInput {
+  questionId: string
+  quality: number
+}
+
+export interface SrsReviewResponse {
+  success: boolean
+  nextReviewDate: string
+  interval: number
+  easeFactor: number
+  repetition: number
+}
+
+export interface SrsReviewStats {
+  totalDue: number
+  totalReviewed: number
+  streak: number
+  avgEaseFactor: number
+}
+
+export interface SrsReviewDueQuery {
+  page?: number
+  pageSize?: number
+}
+
+/** 今日待复习列表 — GET /api/srs-review/due */
+export async function getDueReviews<T = SrsReviewList>(
+  query: SrsReviewDueQuery = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/srs-review/due${buildQs(query)}`)
+}
+
+/** 提交复习结果(SM-2 评分 0-5)— POST /api/srs-review/review */
+export async function submitReview<T = SrsReviewResponse>(
+  input: SrsReviewSubmitInput,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/srs-review/review', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** 复习统计 — GET /api/srs-review/stats(后端回 `{ stats }`) */
+export async function getReviewStats<T = { stats: SrsReviewStats }>(): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/srs-review/stats')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

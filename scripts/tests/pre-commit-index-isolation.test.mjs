@@ -65,12 +65,11 @@ function realGitEnvPrologue() {
 /** 从生产 hook 源码解析真实 lint-staged 调用参数(不在测试里复写命令串)。 */
 function realLintStagedFlags() {
   const source = readFileSync(HOOK_JS, 'utf8')
-  const matched = source.match(/const LINT_STAGED_CMD\s*=\s*'([^']+)'/)
-  assert.ok(matched, 'pre-commit-hook.js 里找不到 LINT_STAGED_CMD')
-  return matched[1]
-    .replace(/^npx\s+lint-staged\s*/, '')
-    .split(/\s+/)
-    .filter(Boolean)
+  const matched = source.match(/const LINT_STAGED_FLAGS\s*=\s*\[([\s\S]*?)\]/)
+  assert.ok(matched, 'pre-commit-hook.js 里找不到 LINT_STAGED_FLAGS')
+  const flags = [...matched[1].matchAll(/'([^']*)'/g)].map((m) => m[1])
+  assert.ok(flags.length > 0, 'LINT_STAGED_FLAGS 解析为空')
+  return flags
 }
 
 function git(dir, args) {

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
+import { getFimMetricsSummary } from '@ihui/api-client'
 import {
   Card,
   CardContent,
@@ -113,9 +114,14 @@ export default function AiMetricsPage() {
         ),
         apiOrThrow<VipMetrics>('/api/admin/token-balance/metrics'),
         // FIM 补全接受率:ai-service 端点。单独 catch 兜底,避免其不可用拖垮整页看板
-        apiOrThrow<{ models: FimModelMetrics[] }>('/api/llm/fim/metrics/summary').catch(() => ({
-          models: [] as FimModelMetrics[],
-        })),
+        getFimMetricsSummary<{ models: FimModelMetrics[] }>()
+          .then((r) => {
+            if (!r.success) throw new Error(r.error)
+            return r.data
+          })
+          .catch(() => ({
+            models: [] as FimModelMetrics[],
+          })),
       ])
       setSse(sseData)
       setPc(

@@ -30,14 +30,19 @@
  *   node scripts/gen-doc-numbers.mjs --markdown      # README 生成块用的那一段
  *   node scripts/gen-doc-numbers.mjs --description    # 规范化的 GitHub 仓库简介一行
  *   node scripts/gen-doc-numbers.mjs --staged --json # 审索引面
+ * 面旗统一写法(2026-11-05 修):`--face=head|worktree|index` 与 `--head|--staged|--worktree`
+ * 等价(`index` ≡ 内部名 `staged`)。**面旗必须真的换取材面** —— 此前 `--face=head` 未被解析,
+ * 于是"以为在算 HEAD 面,实际算的是工作树",同一份 README 在不同轮次读出 19178/19198/19201/19158
+ * 四个值(门判 HEAD 面、数出自工作树面)。现在:未知面 ⇒ exit 2,绝不静默回落默认面。
  * 紧急跳过:无(本工具只读不判,不需要跳过通道;判据在 check-doc-numbers.mjs)
  */
 
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Undetermined, catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -72,8 +77,7 @@ export const SINGLE_FILES = {
 }
 
 /** 生成块的两端标记:门据此知道"这一段是派生态,不许手改"。 */
-export const BLOCK_BEGIN =
-  '<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->'
+export const BLOCK_BEGIN = '<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->'
 export const BLOCK_END = '<!-- END GENERATED NUMBERS -->'
 
 /**
@@ -132,11 +136,7 @@ export function maskCommentsOnly(src) {
       i += 2
       continue
     }
-    if (
-      (mode === 'squote' && c === "'") ||
-      (mode === 'dquote' && c === '"') ||
-      (mode === 'template' && c === '`')
-    )
+    if ((mode === 'squote' && c === "'") || (mode === 'dquote' && c === '"') || (mode === 'template' && c === '`'))
       mode = 'code'
     out += c
     i += 1
@@ -148,111 +148,8 @@ export function maskCommentsOnly(src) {
  * 一条 Fastify 注册点:`xxx.get('/path'` / `xxx.post<Reply>('/path'`。
  * 刻意要求"方法名 + 左括号 + 引号路径"三者同现,否则 `.get(` 在 Map/Array 上满天都是(误伤)。
  */
-const FASTIFY_RECEIVERS = ['app', 'server', 'fastify', 'instance']
-const FASTIFY_ROUTE_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head']
-const FASTIFY_ROUTE_RE = new RegExp(
-  `\\b(?:${FASTIFY_RECEIVERS.join('|')})\\.(?:${FASTIFY_ROUTE_METHODS.join('|')})\\s*(?:<[^;{}]*?>\\s*)?\\(\\s*['"\`]`,
-  'g',
-)
-/**
- * 从**语法证据**推导本文件里哪些标识符是 Fastify 实例 —— 不靠名字猜(旧口径只认
- * app/server/fastify/instance 四个名字,`server.register(async (s) => ...)` 里的 s 整族隐身):
- *  E1 构造:`const X = Fastify(...)` / `fastify(...)`(文件必须真的 from/require 'fastify')
- *  E2 类型标注:`X: FastifyInstance`(变量声明或函数参数)
- *  E3 插件签名:`: FastifyPluginAsync|Callback = async (X) =>`(首参即实例)
- *  E4 register 回调:已证实例的 `.register(<plugin>)` 首参是同类型子实例
- *  E5 别名:`const X = Y`,Y 已证
- *  E6 工厂返回:`function F(): FastifyInstance|Promise<FastifyInstance>` ⇒ `const X = (await) F(...)`
- * E4/E5/E6 迭代到不动点(role-routes 的 `s.register(async (sub) =>` 需要两轮)。
- */
-export function deriveFastifyReceivers(code) {
-  if (!/\bfrom\s*['"]fastify['"]|\brequire\s*\(\s*['"]fastify['"]\s*\)/.test(code)) return new Set()
-  const proven = new Set()
-  const add = (name) => {
-    if (name && !proven.has(name)) {
-      proven.add(name)
-      return true
-    }
-    return false
-  }
-  const collect = (re, pick = (m) => m[1]) => {
-    for (const m of code.matchAll(re)) add(pick(m))
-  }
-  // E1 + E2 + E3 + E6:一次静态收集,不依赖已有证据
-  collect(
-    /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=;]*)?=\s*(?:new\s+)?(?:Fastify|fastify)\s*(?:<[^()]*>)?\s*\(/g,
-  )
-  collect(/\b([A-Za-z_$][\w$]*)\s*:\s*FastifyInstance\b/g)
-  collect(
-    /\bFastifyPlugin(?:Async|Callback)?\s*(?:<[^=;]*?>)?\s*=\s*(?:async\s+)?(?:function\s+(?:[A-Za-z0-9_$]*)\s*)?\(\s*([A-Za-z_$][\w$]*)/g,
-  )
-  collect(/\bfunction\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*:\s*(?:Promise\s*<\s*)?FastifyInstance\b/g)
-
-  const factories = new Set(
-    [
-      ...code.matchAll(
-        /\bfunction\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*:\s*(?:Promise\s*<\s*)?FastifyInstance\b/g,
-      ),
-    ].map((m) => m[1]),
-  )
-  let changed = true
-  for (let round = 0; changed && round < 20; round += 1) {
-    changed = false
-    // E4:已证实例的 register 回调首参
-    for (const m of code.matchAll(/\b([A-Za-z_$][\w$]*)\s*\.register\s*(?:<[^>()]*>)?\s*\(/g)) {
-      if (!proven.has(m[1])) continue
-      const arg = code.slice(m.index + m[0].length)
-      const cb =
-        /^\s*(?:async\s+)?(?:function\s*(?:[A-Za-z0-9_$]*)\s*)?\(\s*(?:async\s+)?([A-Za-z_$][\w$]*)\s*(?::\s*FastifyInstance)?\s*(?:,\s*[A-Za-z_$][\w$]*\s*(?::\s*[^)]*)?)?\s*\)\s*(?::\s*[^={;]*)?\s*(?:=>|\{)/.exec(
-          arg,
-        )
-      if (cb && add(cb[1])) changed = true
-    }
-    // E5:别名
-    for (const name of [...proven]) {
-      const re = new RegExp(
-        `\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*(?::[^=;]*)?=\\s*${escapeRegExp(name)}(?![.\\w$])`,
-        'g',
-      )
-      for (const m of code.matchAll(re)) if (add(m[1])) changed = true
-    }
-    // E6:工厂返回
-    for (const fn of factories) {
-      const re = new RegExp(
-        `\\b(?:const|let|var)\\s+([A-Za-z_$][\\w$]*)\\s*(?::[^=;]*)?=\\s*(?:await\\s+)?${escapeRegExp(fn)}\\s*\\(`,
-        'g',
-      )
-      for (const m of code.matchAll(re)) if (add(m[1])) changed = true
-    }
-  }
-  return proven
-}
-
-/** 旧口径(只认四个白名单名)—— 单独导出供测试做"新口径必须多捞"的对照,不另存第二份正则。 */
-export function countWhitelistRoutes(code) {
-  return (code.match(FASTIFY_ROUTE_RE) || []).length
-}
-
-/** 本文件里的 Fastify 注册点数 = 白名单名 + 由证据推导出的非白名单实例名(同一文件内)。 */
-export function countFastifyRoutes(code) {
-  let n = countWhitelistRoutes(code)
-  const extra = [...deriveFastifyReceivers(code)].filter(
-    (name) => !FASTIFY_RECEIVERS.includes(name),
-  )
-  if (extra.length === 0) return n
-  const re = new RegExp(
-    `\\b(?:${extra.map(escapeRegExp).join('|')})\\.(?:${FASTIFY_ROUTE_METHODS.join('|')})\\s*(?:<[^;{}]*?>\\s*)?\\(\\s*['"\`]`,
-    'g',
-  )
-  n += (code.match(re) || []).length
-  return n
-}
-
-/** 正则字面量转义(接收者名来自源码,不能直接拼进 RegExp)。 */
-export function escapeRegExp(s) {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
+const FASTIFY_ROUTE_RE =
+  /\b(?:app|server|fastify|instance)\.(get|post|put|patch|delete|options|head)\s*(?:<[^;{}]*?>\s*)?\(\s*['"`]/g
 /** 一条 FastAPI 注册点:`@router.get(...)` / `@app.websocket(...)`(行首装饰器,不是字符串里的) */
 const FASTAPI_ROUTE_RE = /^\s*@(?:router|app)\.(get|post|put|patch|delete|websocket)\b/gm
 /** 数据库表:drizzle 的 `export const x = pgTable(` / `pgTable.schema(` 两种声明形态 */
@@ -338,21 +235,13 @@ export function deriveNumbers(face) {
       numbers.dbSchemaFiles = files.length
       sources.dbSchemaFiles = 'packages/database/src/schema/*.ts 文件数'
     }
-    note(
-      'dbTables',
-      tables,
-      `${prefix}/**/*.ts 的 \`export const X = pgTable(.schema?)\` 声明数`,
-      files.length,
-      tables,
-    )
+    note('dbTables', tables, `${prefix}/**/*.ts 的 \`export const X = pgTable(.schema?)\` 声明数`, files.length, tables)
   }
 
   // ---- API 层 ----
   {
     const apiFiles = face.list(SOURCES.apiSrc.prefix).filter((p) => SOURCES.apiSrc.ext.test(p))
-    const routeFiles = face
-      .list(SOURCES.apiRoutes.prefix)
-      .filter((p) => SOURCES.apiRoutes.ext.test(p))
+    const routeFiles = face.list(SOURCES.apiRoutes.prefix).filter((p) => SOURCES.apiRoutes.ext.test(p))
     let routes = 0
     let ws = 0
     let unreadable = 0
@@ -364,34 +253,18 @@ export function deriveNumbers(face) {
         continue
       }
       const code = maskCommentsOnly(body)
-      routes += countFastifyRoutes(code)
+      routes += (code.match(FASTIFY_ROUTE_RE) || []).length
       for (const m of code.matchAll(WS_PATH_RE)) wsPaths.add(m[1])
     }
     if (unreadable > 0)
-      undetermined.push({
-        key: 'apiSrc',
-        reason: `apps/api/src 有 ${unreadable} 个 .ts 在面上取不到内容`,
-      })
-    note(
-      'apiRoutes',
-      routes,
-      'apps/api/src/**/*.ts 的 Fastify 注册点(get/post/put/patch/delete/options/head)',
-      apiFiles.length,
-      routes,
-    )
+      undetermined.push({ key: 'apiSrc', reason: `apps/api/src 有 ${unreadable} 个 .ts 在面上取不到内容` })
+    note('apiRoutes', routes, 'apps/api/src/**/*.ts 的 Fastify 注册点(get/post/put/patch/delete/options/head)', apiFiles.length, routes)
     ws = wsPaths.size
-    note(
-      'wsEndpoints',
-      ws,
-      'apps/api/src/**/*.ts 里去重后的 `/ws*` 路径字面量',
-      apiFiles.length,
-      ws,
-    )
+    note('wsEndpoints', ws, 'apps/api/src/**/*.ts 里去重后的 `/ws*` 路径字面量', apiFiles.length, ws)
     if (routeFiles.length > 0) {
       numbers.apiRouteFiles = routeFiles.length
       sources.apiRouteFiles = 'apps/api/src/routes/**/*.ts 文件数'
-    } else
-      undetermined.push({ key: 'apiRouteFiles', reason: 'apps/api/src/routes 面上列出 0 个 .ts' })
+    } else undetermined.push({ key: 'apiRouteFiles', reason: 'apps/api/src/routes 面上列出 0 个 .ts' })
   }
 
   // ---- AI 服务层(Python) ----
@@ -408,43 +281,22 @@ export function deriveNumbers(face) {
       decos += (body.match(FASTAPI_ROUTE_RE) || []).length
     }
     if (unreadable > 0)
-      undetermined.push({
-        key: 'aiServiceRoutes',
-        reason: `apps/ai-service/app 有 ${unreadable} 个 .py 取不到内容`,
-      })
-    note(
-      'aiServiceRoutes',
-      decos,
-      'apps/ai-service/app/**/*.py 的 @router/@app 路由装饰器',
-      files.length,
-      decos,
-    )
+      undetermined.push({ key: 'aiServiceRoutes', reason: `apps/ai-service/app 有 ${unreadable} 个 .py 取不到内容` })
+    note('aiServiceRoutes', decos, 'apps/ai-service/app/**/*.py 的 @router/@app 路由装饰器', files.length, decos)
   }
 
   // ---- 模型清单(仓内唯一入库的兜底目录) ----
   {
     const body = face.read(SINGLE_FILES.defaultModels)
     if (body === null) {
-      undetermined.push({
-        key: 'llmModels',
-        reason: `${SINGLE_FILES.defaultModels} 在面上取不到内容`,
-      })
+      undetermined.push({ key: 'llmModels', reason: `${SINGLE_FILES.defaultModels} 在面上取不到内容` })
     } else {
       try {
         const j = JSON.parse(body)
         const n = Array.isArray(j.models) ? j.models.length : NaN
-        note(
-          'llmModels',
-          n,
-          `${SINGLE_FILES.defaultModels} 的 models[] 长度(ModelSyncService 的兜底清单)`,
-          1,
-          n,
-        )
+        note('llmModels', n, `${SINGLE_FILES.defaultModels} 的 models[] 长度(ModelSyncService 的兜底清单)`, 1, n)
       } catch (e) {
-        undetermined.push({
-          key: 'llmModels',
-          reason: `${SINGLE_FILES.defaultModels} 不是合法 JSON: ${e.message}`,
-        })
+        undetermined.push({ key: 'llmModels', reason: `${SINGLE_FILES.defaultModels} 不是合法 JSON: ${e.message}` })
       }
     }
   }
@@ -453,35 +305,19 @@ export function deriveNumbers(face) {
   {
     const body = face.read(SINGLE_FILES.guardianRunner)
     if (body === null) {
-      undetermined.push({
-        key: 'guardianGates',
-        reason: `${SINGLE_FILES.guardianRunner} 在面上取不到内容`,
-      })
+      undetermined.push({ key: 'guardianGates', reason: `${SINGLE_FILES.guardianRunner} 在面上取不到内容` })
     } else {
       const ids = [...body.matchAll(GUARDIAN_ID_RE)].map((m) => m[1])
-      note(
-        'guardianGates',
-        ids.length,
-        `${SINGLE_FILES.guardianRunner} 的注册条目数(id: 单双引号两形态同认)`,
-        1,
-        ids.length,
-      )
+      note('guardianGates', ids.length, `${SINGLE_FILES.guardianRunner} 的注册条目数(id: 单双引号两形态同认)`, 1, ids.length)
       const modes = [...body.matchAll(GUARDIAN_MODE_RE)].map((m) => m[1])
       const blocking = modes.filter((m) => m === 'blocking').length
       const warn = modes.filter((m) => m === 'warn').length
       numbers.guardianBlocking = blocking
       numbers.guardianWarn = warn
       if (blocking === 0 && warn === 0)
-        undetermined.push({
-          key: 'guardianBlocking',
-          reason: 'runner 里解析不到任何 mode: 字段 ⇒ 注册表面貌与判据不符',
-        })
+        undetermined.push({ key: 'guardianBlocking', reason: 'runner 里解析不到任何 mode: 字段 ⇒ 注册表面貌与判据不符' })
       const dup = ids.length - new Set(ids).size
-      if (dup > 0)
-        undetermined.push({
-          key: 'guardianGates',
-          reason: `runner 里有 ${dup} 个重复 id ⇒ 撞号,条目数不可信`,
-        })
+      if (dup > 0) undetermined.push({ key: 'guardianGates', reason: `runner 里有 ${dup} 个重复 id ⇒ 撞号,条目数不可信` })
     }
   }
 
@@ -489,42 +325,23 @@ export function deriveNumbers(face) {
   {
     const body = face.read(SINGLE_FILES.publishSchemas)
     if (body === null) {
-      undetermined.push({
-        key: 'publishPlatforms',
-        reason: `${SINGLE_FILES.publishSchemas} 在面上取不到内容`,
-      })
+      undetermined.push({ key: 'publishPlatforms', reason: `${SINGLE_FILES.publishSchemas} 在面上取不到内容` })
     } else {
       const ids = new Set([...maskCommentsOnly(body).matchAll(PLATFORM_ID_RE)].map((m) => m[1]))
-      note(
-        'publishPlatforms',
-        ids.size,
-        `${SINGLE_FILES.publishSchemas} 里 PLATFORM_SCHEMAS 的去重 platformId`,
-        1,
-        ids.size,
-      )
+      note('publishPlatforms', ids.size, `${SINGLE_FILES.publishSchemas} 里 PLATFORM_SCHEMAS 的去重 platformId`, 1, ids.size)
     }
   }
 
   // ---- i18n ----
   {
     const files = face.list(SOURCES.i18n.prefix).filter((p) => SOURCES.i18n.ext.test(p))
-    const locales = new Set(
-      files.map((p) =>
-        p
-          .split('/')
-          .pop()
-          .replace(/\.json$/, ''),
-      ),
-    )
+    const locales = new Set(files.map((p) => p.split('/').pop().replace(/\.json$/, '')))
     const scopes = new Set(files.map((p) => p.split('/')[3]))
     numbers.i18nLanguages = locales.size
     numbers.i18nScopes = scopes.size
     numbers.i18nMessageFiles = files.length
     if (files.length === 0 || locales.size === 0)
-      undetermined.push({
-        key: 'i18nLanguages',
-        reason: 'packages/i18n/messages 面上列出 0 个 .json',
-      })
+      undetermined.push({ key: 'i18nLanguages', reason: 'packages/i18n/messages 面上列出 0 个 .json' })
     sources.i18nLanguages = 'packages/i18n/messages/<scope>/<locale>.json 的去重 locale 名'
     sources.i18nScopes = 'packages/i18n/messages/ 下含 .json 的 scope 目录数'
     sources.i18nMessageFiles = 'packages/i18n/messages/**/*.json 文件数'
@@ -533,7 +350,9 @@ export function deriveNumbers(face) {
   // ---- 工作区包 / 测试 / CI ----
   {
     const appPkgs = new Set(
-      face.list(SOURCES.appManifests.prefix).filter((p) => /^apps\/[^/]+\/package\.json$/.test(p)),
+      face
+        .list(SOURCES.appManifests.prefix)
+        .filter((p) => /^apps\/[^/]+\/package\.json$/.test(p)),
     )
     const pkgPkgs = new Set(
       face
@@ -544,56 +363,33 @@ export function deriveNumbers(face) {
     numbers.sharedPackages = pkgPkgs.size
     sources.appPackages = 'apps/*/package.json 数(即工作区里的端应用包个数)'
     sources.sharedPackages = 'packages/*/package.json 数(即共享包个数)'
-    if (appPkgs.size === 0)
-      undetermined.push({ key: 'appPackages', reason: '面上找不到任何 apps/*/package.json' })
+    if (appPkgs.size === 0) undetermined.push({ key: 'appPackages', reason: '面上找不到任何 apps/*/package.json' })
 
     const tracked = face.list('')
     const testFiles = tracked.filter(
       (p) => /\.(test|spec)\.(ts|tsx)$/.test(p) || /(^|\/)test_[^/]+\.py$/.test(p),
     ).length
-    note(
-      'testFiles',
-      testFiles,
-      'git 清单里的 *.test.ts(x) / *.spec.ts(x) / test_*.py 文件数',
-      tracked.length,
-      testFiles,
-    )
-    const workflows = tracked.filter((p) =>
-      /^\.github\/workflows\/[^/]+\.(yml|yaml)$/.test(p),
-    ).length
+    note('testFiles', testFiles, 'git 清单里的 *.test.ts(x) / *.spec.ts(x) / test_*.py 文件数', tracked.length, testFiles)
+    const workflows = tracked.filter((p) => /^\.github\/workflows\/[^/]+\.(yml|yaml)$/.test(p)).length
     note('ciWorkflows', workflows, '.github/workflows/*.yml|yaml 文件数', tracked.length, workflows)
     numbers.trackedFiles = tracked.length
     sources.trackedFiles = '面上(git 清单)跟踪的文件总数'
-    if (tracked.length === 0)
-      undetermined.push({ key: 'trackedFiles', reason: '面上列出 0 个跟踪文件 ⇒ 清单枚举失效' })
+    if (tracked.length === 0) undetermined.push({ key: 'trackedFiles', reason: '面上列出 0 个跟踪文件 ⇒ 清单枚举失效' })
   }
 
   // ---- CLI / compose ----
   {
-    const cmds = face
-      .list(SOURCES.cliCommands.prefix)
-      .filter((p) => SOURCES.cliCommands.ext.test(p)).length
-    const tools = face
-      .list(SOURCES.cliTools.prefix)
-      .filter((p) => SOURCES.cliTools.ext.test(p)).length
+    const cmds = face.list(SOURCES.cliCommands.prefix).filter((p) => SOURCES.cliCommands.ext.test(p)).length
+    const tools = face.list(SOURCES.cliTools.prefix).filter((p) => SOURCES.cliTools.ext.test(p)).length
     numbers.cliCommandFiles = cmds
     numbers.cliToolFiles = tools
     sources.cliCommandFiles = 'apps/cli/src/commands/*.ts 文件数'
     sources.cliToolFiles = 'apps/cli/src/tools/*.ts 文件数'
-    if (cmds === 0)
-      undetermined.push({
-        key: 'cliCommandFiles',
-        reason: 'apps/cli/src/commands 面上列出 0 个 .ts',
-      })
-    if (tools === 0)
-      undetermined.push({ key: 'cliToolFiles', reason: 'apps/cli/src/tools 面上列出 0 个 .ts' })
+    if (cmds === 0) undetermined.push({ key: 'cliCommandFiles', reason: 'apps/cli/src/commands 面上列出 0 个 .ts' })
+    if (tools === 0) undetermined.push({ key: 'cliToolFiles', reason: 'apps/cli/src/tools 面上列出 0 个 .ts' })
 
     const body = face.read(SINGLE_FILES.compose)
-    if (body === null)
-      undetermined.push({
-        key: 'composeServices',
-        reason: `${SINGLE_FILES.compose} 在面上取不到内容`,
-      })
+    if (body === null) undetermined.push({ key: 'composeServices', reason: `${SINGLE_FILES.compose} 在面上取不到内容` })
     else {
       const n = countComposeServices(body)
       note('composeServices', n, 'docker-compose.yml 的 services: 段下的服务名', 1, n)
@@ -618,18 +414,73 @@ export function specOf(face, rel) {
   return face === 'head' ? `HEAD:${rel}` : `:${rel}`
 }
 
-/** 面的清单原语:`head` 走 `ls-tree -r HEAD`、`staged`/`worktree` 走 `ls-files`(索引跟踪集)。 */
 /**
- * 面的清单原语:`head` 走 `ls-tree -r HEAD`、`staged`/`worktree` 走 `ls-files`(索引跟踪集)。
- * **一次列全再按前缀筛** —— 每个前缀各派生一次 git 会把一次采集变成二十几次进程创建
- * (真仓实测 18.5s;收口后只剩 catBatch 那几秒)。返回的函数自带记忆化,同一次采集里复用。
+ * 面名归一(§0.4:"判定面"是唯一真源,别名只许一对一)。
+ * `index` 是 `staged` 的对外写法 —— 两者都是"索引面",不许各算一套。
  */
+export const FACE_ALIASES = { head: 'head', worktree: 'worktree', staged: 'staged', index: 'staged' }
+
+/**
+ * 解析面旗。**这是本轮修的那个真缺陷**:此前 `--face=head` 谁都没解析,工具按默认值落回
+ * worktree,于是"门在 HEAD 面判、数出自工作树面" —— 四个数字横跳的根。
+ * 三条命:① 未知面/缺取值 ⇒ `face=null`(调用方 exit 2),绝不静默回落默认面;
+ * ② 两个不同面同给 ⇒ 互斥报错(取任一面都会让另一面成为假绿);
+ * ③ 同一面的不同别名(如 `--face=index --staged`)不算冲突。
+ * @param {string[]} argv
+ * @param {{def?:'head'|'staged'|'worktree'}} [opts]
+ * @returns {{face:string|null, requested:string|null, error:string|null}}
+ */
+export function parseFaceArg(argv, { def = 'worktree' } = {}) {
+  const picked = []
+  const rawArgs = []
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i]
+    let name = null
+    if (a === '--face' || a.startsWith('--face=')) {
+      name = a === '--face' ? argv[i + 1] : a.slice('--face='.length)
+      if (a === '--face') i += 1
+      rawArgs.push(a === '--face' ? `--face=${name ?? ''}` : a)
+      if (!name || name.startsWith('-'))
+        return { face: null, requested: null, error: '--face 缺取值(只认 head / worktree / index)' }
+    } else if (a === '--head' || a === '--staged' || a === '--worktree') {
+      name = a.slice(2)
+      rawArgs.push(a)
+    }
+    if (name === null) continue
+    const canonical = FACE_ALIASES[name]
+    if (!canonical)
+      return { face: null, requested: name, error: `未知判定面 ${name}(只认 head / worktree / index)` }
+    picked.push({ canonical, requested: name })
+  }
+  const distinct = [...new Set(picked.map((p) => p.canonical))]
+  if (distinct.length > 1)
+    return { face: null, requested: null, error: `${rawArgs.join(' 与 ')} 不得同用(判定面互斥)` }
+  if (distinct.length === 1) return { face: distinct[0], requested: picked[0].requested, error: null }
+  return { face: def, requested: def, error: null }
+}
+
+/**
+ * 三面各自取清单的 git 原语 —— **一个面一条命令,不许混用**:
+ *   head     ⇒ `ls-tree -r --name-only HEAD`(提交树)
+ *   staged   ⇒ `ls-files --cached`(索引)
+ *   worktree ⇒ `ls-files --cached --others --exclude-standard`(索引跟踪 ∪ 未跟踪且未被忽略),
+ *              再由 `memoLister` 按盘上存在性过滤 = **工作树真实文件枚举**(暂存删除/盘上缺失不计)
+ */
+export function faceListArgs(face) {
+  if (face === 'head') return ['ls-tree', '-r', '--name-only', 'HEAD']
+  if (face === 'worktree') return ['ls-files', '--cached', '--others', '--exclude-standard']
+  if (face === 'staged') return ['ls-files', '--cached']
+  throw new Undetermined(`未知判定面 ${String(face)}(只认 ${Object.keys(FACE_ALIASES).join(' / ')})`)
+}
+
+/** 面的清单原语:按面选命令(`faceListArgs`),**一次列全再按前缀筛** —— 同一次采集里记忆化复用。 */
 export function memoLister(root, face) {
   let cache = null
   return (prefix) => {
     if (cache === null) {
-      const args = face === 'head' ? ['ls-tree', '-r', '--name-only', 'HEAD'] : ['ls-files']
-      cache = runGitList(args, root).map((p) => p.replace(/\\/g, '/'))
+      cache = runGitList(faceListArgs(face), root).map((p) => p.replace(/\\/g, '/'))
+      // worktree 面:清单只留**盘上真存在**的路径(暂存删除、索引里还挂着但盘上已删的不算)
+      if (face === 'worktree') cache = cache.filter((rel) => existsSync(resolve(root, rel)))
     }
     if (!prefix) return cache
     return cache.filter((x) => x === prefix || x.startsWith(prefix + '/'))
@@ -662,14 +513,7 @@ export function makeFaceAccessors({ root = ROOT, face = 'worktree', paths, list 
     [...need].map((rel) => specOf(face, rel)),
     { maxBuffer: 64 << 20 },
   )
-  const get = (v) =>
-    typeof v === 'string'
-      ? v
-      : v === null || v === undefined
-        ? null
-        : Buffer.isBuffer(v)
-          ? v.toString('utf8')
-          : null
+  const get = (v) => (typeof v === 'string' ? v : v == null ? null : Buffer.isBuffer(v) ? v.toString('utf8') : null)
   return {
     face,
     list: ls,
@@ -778,32 +622,32 @@ export function toDescription(result) {
   return `Eight-platform full-stack AI operating system - unifies ${n.llmModels} catalogued LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over ${n.dbTables} tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.`
 }
 
+/** `--name value` / `--name=value` 取值;缺值返回 null(不猜)。 */
+function readArg(argv, name) {
+  const eq = argv.find((a) => a.startsWith(`${name}=`))
+  if (eq) return eq.slice(name.length + 1)
+  const i = argv.indexOf(name)
+  return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[i + 1] : null
+}
+
 function main(argv) {
-  const { error } = selectFace({
-    staged: argv.includes('--staged'),
-    worktree: argv.includes('--worktree'),
-    def: 'worktree',
-  })
+  // 本工具是"生成"侧,默认判**工作树**(人要看到自己刚改的东西);要审已入库面显式给面旗。
+  // 面旗解析统一走 parseFaceArg:未知面/缺取值 ⇒ exit 2,**绝不静默落回默认面**。
+  const { face: wantFace, requested, error } = parseFaceArg(argv, { def: 'worktree' })
   if (error) {
     console.error(`❌ 无法判定:${error}`)
     return 2
   }
-  // 本工具是"生成"侧,默认判**工作树**(人要看到自己刚改的东西);要审已入库面显式给旗。
-  const wantFace = argv.includes('--staged')
-    ? 'staged'
-    : argv.includes('--head')
-      ? 'head'
-      : 'worktree'
+  const root = resolve(readArg(argv, '--root') ?? ROOT)
   let result
   try {
-    result = collectNumbers({ root: ROOT, face: wantFace })
+    result = collectNumbers({ root, face: wantFace })
   } catch (e) {
-    console.error(
-      `❌ 无法判定(取材失败):${e instanceof Undetermined ? e.message : (e?.message ?? e)}`,
-    )
+    console.error(`❌ 无法判定(取材失败):${e instanceof Undetermined ? e.message : e?.message ?? e}`)
     return 2
   }
   const strict = argv.includes('--strict')
+  const faceLabel = requested && requested !== wantFace ? `${wantFace}(--face=${requested})` : wantFace
   if (argv.includes('--json')) {
     process.stdout.write(JSON.stringify({ face: wantFace, ...result }, null, 2) + '\n')
   } else if (argv.includes('--markdown')) {
@@ -812,7 +656,7 @@ function main(argv) {
     process.stdout.write(toDescription(result) + '\n')
   } else {
     const { numbers, sources, undetermined } = result
-    console.log(`face=${wantFace}`)
+    console.log(`face=${faceLabel}`)
     for (const k of ORDER) {
       if (!Number.isFinite(numbers[k])) continue
       const [label] = LABELS[k] ?? [k]

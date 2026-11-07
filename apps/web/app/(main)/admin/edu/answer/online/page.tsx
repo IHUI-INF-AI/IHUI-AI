@@ -12,7 +12,13 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useTranslations } from 'next-intl'
 import { Loader2, ChevronLeft, Clock, Send } from 'lucide-react'
-import { eduApi, buildQs } from '@/lib/edu'
+import {
+  getExamById,
+  getExamPaper,
+  getExams,
+  startExam,
+  submitExamRecord,
+} from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { AnswerInput } from './AnswerInput'
@@ -31,30 +37,41 @@ function AnswerOnlineContent() {
 
   const { data: papersData } = useQuery({
     queryKey: ['edu', 'answer', 'papers'],
-    queryFn: () =>
-      eduApi<{ list: Paper[] }>(`/api/exam/papers${buildQs({ page: 1, pageSize: 100 })}`),
+    queryFn: async () => {
+      const r = await getExams({ page: 1, pageSize: 100 })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as { list: Paper[] }
+    },
   })
   const papers = (papersData?.list ?? []).filter((p) => p.isPublished)
 
   const { data: paper } = useQuery({
     queryKey: ['edu', 'answer', 'paper', paperId],
-    queryFn: () => eduApi<{ paper: Paper }>(`/api/exam/papers/${paperId}`).then((d) => d.paper),
+    queryFn: async () => {
+      const r = await getExamPaper<{ paper: Paper }>(paperId)
+      if (!r.success) throw new Error(r.error)
+      return r.data.paper
+    },
     enabled: !!paperId,
   })
 
   const { data: questionsData, isLoading } = useQuery({
     queryKey: ['edu', 'answer', 'questions', paperId],
-    queryFn: () =>
-      eduApi<{ list: Question[] }>(`/api/exam/papers/${paperId}/questions`).then(
-        (d) => d.list ?? [],
-      ),
+    queryFn: async () => {
+      const r = await getExamById(paperId)
+      if (!r.success) throw new Error(r.error)
+      return (r.data.questions ?? []) as unknown as Question[]
+    },
     enabled: !!paperId,
   })
   const questions = questionsData ?? []
 
   const startMut = useMutation({
-    mutationFn: () =>
-      eduApi<{ record: { id: string } }>(`/api/exam/papers/${paperId}/start`, { method: 'POST' }),
+    mutationFn: async () => {
+      const r = await startExam<{ record: { id: string } }>(paperId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (d) => {
       setRecordId(d.record.id)
       if (paper) setRemaining(paper.duration * 60)
@@ -64,12 +81,11 @@ function AnswerOnlineContent() {
   })
 
   const submitMut = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const arr = Object.entries(answers).map(([questionId, answer]) => ({ questionId, answer }))
-      return eduApi(`/api/exam/records/${recordId}/submit`, {
-        method: 'POST',
-        body: JSON.stringify({ answers: arr }),
-      })
+      const r = await submitExamRecord(recordId ?? '', { answers: arr })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     onSuccess: (d: unknown) => {
       toast.success(t('submitSuccess'))

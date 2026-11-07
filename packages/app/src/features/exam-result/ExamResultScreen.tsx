@@ -5,13 +5,14 @@
 import { useMemo } from 'react'
 import { ScrollView, Text, View, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { ExamResultItem, ExamResultScreenProps } from '../../types'
+import type { ExamResultItem, ExamResultReviewItem, ExamResultScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { usePublishShareIntent } from '@ihui/shared/share'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { assertRequiredPort } from '../../host/ports'
+import { ExamResultActions, ExamResultReviewList, ExamResultStats } from './exam-result-sections'
 
 /** ExamResult 共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
 export type { ExamResultItem, ExamResultScreenProps }
@@ -25,6 +26,9 @@ export function ExamResultScreen({
   onRetry,
   colorScheme = 'light',
   onNavigate,
+  onRetryExam,
+  onViewList,
+  onShare,
 }: ExamResultScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)
 
@@ -32,7 +36,7 @@ export function ExamResultScreen({
   const styles = useMemo(() => createStyles(tk), [tk])
   // 分享正文交给宿主。path 是**列表页**而非本页 ⇒ 必须显式发布,交宿主兜底会把落点改成成绩页自己。
   usePublishShareIntent({
-    title: item ? t('exam.result.shareTitle', { n: item.score }) : t('share.appTitle'),
+    title: item ? t('examResult.shareTitle', { n: item.score }) : t('share.appTitle'),
     path: '/pages/exam/list',
   })
 
@@ -50,10 +54,22 @@ export function ExamResultScreen({
     )
   }
 
+  const hasDetails = Array.isArray(item.details) && item.details.length > 0
+  const reviews: ExamResultReviewItem[] = hasDetails
+    ? item.details!
+    : (item.wrongQuestions ?? []).map((q, index) => ({
+        id: String(q.index ?? index),
+        title: q.question,
+        yourAnswer: q.yourAnswer,
+        correctAnswer: q.correctAnswer,
+        isCorrect: false,
+        score: 0,
+      }))
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-      <Text style={styles.title}>{item.examTitle}</Text>
+      {item.examTitle ? <Text style={styles.title}>{item.examTitle}</Text> : null}
       <View
         style={[styles.scoreCard, item.passed ? styles.scoreCardPassed : styles.scoreCardFailed]}
       >
@@ -63,38 +79,27 @@ export function ExamResultScreen({
         <Text style={item.passed ? styles.passedText : styles.failedText}>
           {item.passed ? t('examResult.passed') : t('examResult.failed')}
         </Text>
-      </View>
-      <View style={styles.metaRow}>
-        <View style={styles.metaPill}>
-          <Text style={styles.metaPillText}>
-            {t('examResult.correct', { count: item.correctCount, total: item.totalCount })}
+        {typeof item.rank === 'number' ? (
+          <Text style={styles.rankText}>
+            {t('examResult.rank', { rank: item.rank, total: item.rankTotal ?? 0 })}
           </Text>
-        </View>
-        <View style={styles.metaPill}>
-          <Text style={styles.metaPillText}>
-            {t('examResult.duration', { min: item.duration })}
-          </Text>
-        </View>
+        ) : null}
       </View>
-      <Text style={styles.submittedAt}>{item.submittedAt}</Text>
-      {item.wrongQuestions.length > 0 ? (
-        <>
-          <Text style={styles.sectionTitle}>{t('examResult.wrongQuestions')}</Text>
-          {item.wrongQuestions.map((q) => (
-            <View key={q.index} style={styles.card}>
-              <Text style={styles.question}>
-                {q.index + 1}. {q.question}
-              </Text>
-              <Text style={styles.yourAnswer}>
-                {t('examResult.yourAnswer')}: {q.yourAnswer}
-              </Text>
-              <Text style={styles.correctAnswer}>
-                {t('examResult.correctAnswer')}: {q.correctAnswer}
-              </Text>
-            </View>
-          ))}
-        </>
-      ) : null}
+      <ExamResultStats item={item} t={t} colorScheme={colorScheme} />
+      {item.submittedAt ? <Text style={styles.submittedAt}>{item.submittedAt}</Text> : null}
+      <ExamResultReviewList
+        reviews={reviews}
+        t={t}
+        colorScheme={colorScheme}
+        showScore={hasDetails}
+      />
+      <ExamResultActions
+        t={t}
+        colorScheme={colorScheme}
+        onRetryExam={onRetryExam}
+        onViewList={onViewList}
+        onShare={onShare}
+      />
     </ScrollView>
   )
 }
@@ -132,36 +137,16 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.danger.DEFAULT,
     },
-    metaRow: { flexDirection: 'row', gap: rnSpacing.md, marginBottom: rnSpacing.sm },
-    metaPill: {
-      paddingHorizontal: rnSpacing['sm-loose'],
-      paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.md,
-      backgroundColor: tk.surface.muted,
+    rankText: {
+      marginTop: rnSpacing.xs,
+      fontSize: rnType.caption.size,
+      color: tk.text.tertiary,
     },
-    metaPillText: { fontSize: rnType.body.size, color: tk.text.primary },
     submittedAt: {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
       marginBottom: rnSpacing.lg,
     },
-    sectionTitle: {
-      fontSize: rnType.subtitle.size,
-      fontWeight: '600',
-      color: tk.text.primary,
-      marginBottom: rnSpacing.sm,
-    },
-    card: {
-      padding: rnSpacing['md-loose'],
-      borderRadius: rnRadius.lg,
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      backgroundColor: tk.surface.light,
-      marginBottom: rnSpacing.sm,
-    },
-    question: { fontSize: rnType.body.size, fontWeight: '500', color: tk.text.primary },
-    yourAnswer: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.danger.DEFAULT },
-    correctAnswer: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.brand.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

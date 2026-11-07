@@ -149,7 +149,7 @@ export function createCardStyles(tk: AppThemeTokens) {
     },
     cardContent: {
       marginTop: rnSpacing.xs,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.medium,
     },
     rowWrap: {
@@ -180,7 +180,7 @@ export function createCardStyles(tk: AppThemeTokens) {
       opacity: 0.5,
     },
     actionText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
     },
   })

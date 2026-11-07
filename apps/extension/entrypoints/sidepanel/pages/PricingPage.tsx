@@ -29,7 +29,7 @@ export default function PricingPage() {
       const res = await getVipLevels()
       if (!cancelled && res.success) {
         setLevels(
-          res.data.filter((l) => l.status !== 0).sort((a, b) => a.levelValue - b.levelValue),
+          res.data.items.filter((l) => l.status !== 0).sort((a, b) => a.levelValue - b.levelValue),
         )
       }
       setLoading(false)

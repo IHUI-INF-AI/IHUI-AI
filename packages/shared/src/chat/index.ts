@@ -156,3 +156,6 @@ export * from './send-admission'
 // 对标 Qoder 借鉴清单第 10 项(命名错误码分类处置):errorCode → 可执行下一步 + 能不能重试。
 // 码表仍是 error-catalog.ts 那一份(§0.6 不建第二套),本层只补「动作」这一维。
 export * from './stream-error-disposition'
+// 会话历史日期分桶(自然日/自然周(周一起)/自然月(1 号起)/更早 + 时间锚点回退链)的
+// 唯一实现:web 侧栏与小程序历史页共用。此前两端各写一套,web 改好后小程序仍是滚动 7 天。
+export * from './conversation-date-group'

@@ -6,6 +6,10 @@
 // 票面要求的取证逐条钉死:
 //  3. 空清单/空消息必须非零退出(本仓踩过:空 LAND_PATHS 会把 "undefined" 当路径提交);
 //  2. 索引对齐的归属纪律:索引==父提交 ⇒ 对齐;索引==别人新暂存 ⇒ 不动并点名;
+//     2026-11-06 契约更正(T6 / T-WM-NEW-2 两枚红):让路与回写补齐都**必须**进最终结论 ——
+//     让路 ⇒ 退出码 2(不记绿,§0.3),盘上缺那份 ⇒ CAS 后补齐(§5b-④);原意图"不动别人的东西"
+//     不再靠"整片禁止写工作树"守,改由「声明集外零触碰」尺子逐条量(磁盘/索引/在位性三维)。
+//     逐条依据与取证见本文件「2026-11-06 契约更正」那块注释。
 //  + 防覆盖护栏:任一目标路径在基线与当下 HEAD 之间被别人改过 ⇒ 停,不覆盖;
 //  + 声明无差异 ⇒ 事先拒绝(提交面回读结构上证明不了它,"commit message 只能写能被回读证明的东西");
 //  + happy path:落地 + 提交面回读 + 主索引对齐三段各有正向断言;
@@ -34,11 +38,7 @@ import { __test__ } from '../object-space-land.mjs'
 import { decideBanner } from '../object-space-land.mjs'
 // G-04 新建路径载荷维:载荷可解码性只问 watermark.mjs 那一份判据(§0.6,不在测试里重写解码)
 import { __test__ as WM } from '../watermark.mjs'
-// T-BANNER-S 用同一份"哪一行算水印结构"的识别出口(§0.6:不在测试里另拼一份正则)
-import { stripWatermarkStructure } from '../lib/watermark-lines.mjs'
 import { maskCommentsAndStrings } from '../lib/code-mask.mjs'
-// T-BANNER-U 只遮注释(不遮字符串):它要钉的形态里有 'verify' 这类字面量
-import { maskComments } from '../lib/code-mask.mjs'
 import { git, headBlobOf, indexBlobOf, writeBlob } from '../lib/bypass-git.mjs'
 import { landsLedger } from '../lib/bypass-git.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -210,6 +210,150 @@ test('T1 §22c 导出面:判据函数必须在 __test__ 里', () => {
     assert.equal(typeof __test__[k], 'function', `__test__.${k} 缺失`)
 })
 
+/**
+ * 落地回写读数匹配串的**唯一口径**(与 `scripts/object-space-land.mjs` 的 ② 段现行措辞同源,
+ * 2026-11-05 起为「主索引 + 工作树已对齐 N/N 路径(索引 X / checkout Y)」,旧措辞「主索引已对齐」已废):
+ * 用 alignFullyPat(n) 钉"全对齐"读数。**每次使用必须配反证臂**(部分对齐 / 旧措辞样本必须落空),
+ * 防匹配串烂成恒真——本仓要求锁有牙。
+ * @param {number} n 全对齐路径数(同时钉 N/N 与"索引 n")
+ */
+const alignFullyPat = (n) =>
+  new RegExp(`主索引 \\+ 工作树已对齐 ${n}\\/${n} 路径\\(索引 ${n} / checkout \\d+\\)`)
+/** 反证臂喂样本用的两枚"必须落空"读数:① 部分对齐(1/n);② 已废的旧措辞(仅索引档)。 */
+const ALIGN_NEG_PARTIAL = '✅ 主索引 + 工作树已对齐 1/2 路径(索引 1 / checkout 0)'
+const ALIGN_NEG_LEGACY = '✅ 主索引已对齐 2/2 路径(移动 2 / 已就位 0)'
+/**
+ * 「落盘确实发生过」那把尺子(与 alignFullyPat 同一措辞单源,只是把 checkout 计数也钉死):
+ * 反证样本 ALIGN_NEG_INDEX_ONLY = 索引补齐了、盘上那份**没动**(声明路径本来就在盘上时的读数)。
+ */
+const alignCheckedOutPat = (n) =>
+  new RegExp(`主索引 \\+ 工作树已对齐 ${n}\\/${n} 路径\\(索引 ${n} / checkout ${n}\\)`)
+const ALIGN_NEG_INDEX_ONLY = '✅ 主索引 + 工作树已对齐 1/1 路径(索引 1 / checkout 0)'
+/**
+ * 「归属他人」点名串的口径(与 object-space-land.mjs ② 段的 `⚠️ 落地回写未动(归属他人):<路径>` 同源)。
+ * 路径名当参数,是为了让反证臂能喂一枚"措辞对、路径不对"的样本 —— 恒真串必然命中它。
+ */
+const foreignSkipPat = (p) => new RegExp(`未动\\(归属他人\\)[\\s\\S]*${p}`)
+const FOREIGN_SKIP_OTHER_PATH =
+  '⚠️ 落地回写未动(归属他人):sub/keep.txt —— 索引=deadbeef1 ≠ 父提交态 ⇒ 别人已暂存,归属他人,不动'
+
+/**
+ * ── 2026-11-06 契约更正(T6 / T-WM-NEW-2 两枚红的收口;原断言一字不删,只把期望换到新档)──────
+ *
+ * 这两枚锁的是 `e79abfbe5c` **之前**的旧不变量:① 旁路落地只推进 HEAD,索引/工作树的归属让路
+ * **不影响退出码**(rc 恒 0);② blob 模式在任何情况下都不写工作树。现行器物把两条都改了,
+ * 而改的方向与本仓既定纪律同向(逐条取证如下,不是"红了就顺着改"):
+ *  - 落地即回写索引与工作树 = AGENTS.md §5b-④「旁路落地欠回写层」那条既定方向。不补齐会留下
+ *    「账上有、盘上没有」的假 `D `,此后任何一次不带 pathspec 的普通提交把本轮交付固化成删除
+ *    (立因原文见 `scripts/lib/landing-worktree-align.mjs` 头注;阴性对照已另有锁
+ *    `scripts/tests/object-space-land-remove.test.mjs` T12)。
+ *  - 让路/失败进退出码 = §0.3「没判绝不写成判过」+ §0.10「失效方向必须是多要一次定向说明」。
+ *    旧 rc 0 把"索引/磁盘状态没对上"说成完成,新 rc 2 点名到路径 ⇒ 更诚实的一档。
+ *  - 回写的射程**只有本票声明的路径**,且只动两种安全格:索引(== 父提交 blob 或索引里没有)、
+ *    工作树(盘上根本没有那份 —— 没有副本就无从"覆写别人的在飞现场")。别人挂在索引里的第三份
+ *    blob ⇒ 归 skipped/failed 逐条点名;别人挂在盘上的副本 ⇒ `existsSync` 那一格直接跳过。
+ *    ⇒ 观察:结构上写不到他人现场;本文件里 T-BLOB-4「盘上那份(别人的)一字未动」至今仍绿,
+ *    就是这一格的独立凭据。删除档(want=ABSENT)一律不碰磁盘,由 remove 镜像 T2 钉着。
+ *
+ * ⇒ 原意图("落地器不许动别人的东西")不再靠"整片禁止写工作树"那一句守,而由下面这把
+ *   **声明集外零触碰**尺子逐条守(三维:磁盘字节 / 索引 blob / 在位性),并配反证臂。
+ */
+/** 退出码三档的语义名(与 object-space-land.mjs ② 段「主索引 + 工作树对齐」的构成同源)。 */
+const RC_VERDICT = { 0: '全绿', 1: '拒绝/未完成', 2: '未判定或让路' }
+/**
+ * 读数 → 档位的投影器:给 rc 断言配一把**独立的尺子**(退出码与 stdout 读数必须互相印证)。
+ * 判序与器物一致:量不到对齐读数 ⇒ 1;回写失败/索引对齐未完成/锁龄超上限 ⇒ 1;
+ * 归属他人让路或未判定 ⇒ 2;都没有 ⇒ 0。
+ */
+function landingVerdictOf(stdout) {
+  const s = String(stdout)
+  if (!/主索引 \+ 工作树已对齐 \d+\/\d+ 路径/.test(s)) return RC_VERDICT[1]
+  if (/落地回写失败|索引对齐未完成|锁龄超上限/.test(s)) return RC_VERDICT[1]
+  if (/落地回写未动\(归属他人\)|落地回写未判定/.test(s)) return RC_VERDICT[2]
+  return RC_VERDICT[0]
+}
+/** 投影器的三枚反证样本(各档一枚;FAILED 那枚刻意带对齐读数,钉的是"判序"而不是"有无")。 */
+const VERDICT_SAMPLE_GREEN = '✅ 主索引 + 工作树已对齐 2/2 路径(索引 2 / checkout 1)'
+const VERDICT_SAMPLE_FAILED = `${VERDICT_SAMPLE_GREEN}\n❌ 落地回写失败:sub/x.ts —— checkout 后磁盘仍无该文件`
+const VERDICT_SAMPLE_FOREIGN = `${ALIGN_NEG_PARTIAL}\n${FOREIGN_SKIP_OTHER_PATH}`
+
+/**
+ * 有牙的正向匹配:正向必须命中,且每一枚"必须落空"的反证样本都必须真的落空。
+ * 反证样本一律取**非空**近邻读数(全绿读数 / 措辞对但路径不对的读数)——恒真串(`/./`、
+ * `/x|[^x]/`)必然命中它们 ⇒ 这一行当场红,这就是"把断言改成恒真必须被自己抓到"。
+ */
+function assertMatchWithTeeth(positive, pattern, negatives, msg) {
+  assert.match(positive, pattern, msg)
+  for (const s of negatives)
+    assert.equal(
+      pattern.test(s),
+      false,
+      `反证臂:匹配串在样本 ${JSON.stringify(s)} 上也命中 = 恒真锁`,
+    )
+}
+
+/**
+ * 「声明集外零触碰」快照器(只读):逐条量 (磁盘字节, 索引 blob, 在位性) 三维。
+ * 夹具里三种形态各备一枚才算覆盖:已跟踪+盘上有未提交改动 / 别人暂存的新件(索引有、HEAD 无) /
+ * 未跟踪件(既不在索引也不在 HEAD,只活在盘上)。
+ */
+function foreignSnapshot(dir, paths) {
+  const out = {}
+  for (const p of paths) {
+    let bytes = null
+    try {
+      bytes = readFileSync(join(dir, ...p.split('/')), 'utf8')
+    } catch {
+      bytes = null
+    }
+    out[p] = { onDisk: bytes !== null, bytes, indexBlob: indexBlobOf(p, { root: dir }) }
+  }
+  return out
+}
+/** 两帧快照逐条比 ⇒ 被动过的路径清单(空 = 一字未碰)。纯函数,好自带反证臂。 */
+function foreignTouched(before, after) {
+  const touched = []
+  for (const p of Object.keys(before)) {
+    const b = before[p]
+    const a = after[p]
+    if (!a) {
+      touched.push(`${p}(后帧问不到 ⇒ 无从比对)`)
+      continue
+    }
+    if (a.onDisk !== b.onDisk) touched.push(`${p}(在位性 ${b.onDisk}→${a.onDisk})`)
+    if (a.bytes !== b.bytes) touched.push(`${p}(磁盘字节被改写)`)
+    if (a.indexBlob !== b.indexBlob)
+      touched.push(`${p}(索引 blob ${String(b.indexBlob).slice(0, 9)}→${String(a.indexBlob).slice(0, 9)})`)
+  }
+  return touched
+}
+/** 三形态在飞现场的路径名(两枚收口的用例共用同一套夹具形状)。 */
+const FOREIGN_FACES = ['sub/keep.txt', 'other/their.ts', 'loose.txt']
+/** 造"别人的在飞现场":① 已跟踪 + 盘上改动 ② 别人暂存的新件 + 其上再改盘上 ③ 未跟踪件。 */
+function seedForeignFaces(dir) {
+  writeFileSync(join(dir, 'sub', 'keep.txt'), 'keep-别人的在飞改动\n')
+  mkdirSync(join(dir, 'other'), { recursive: true })
+  writeFileSync(join(dir, 'other', 'their.ts'), 'export const theirs = "stagedA"\n')
+  runGit(dir, ['add', '--', 'other/their.ts'])
+  writeFileSync(join(dir, 'other', 'their.ts'), 'export const theirs = "workingB"\n')
+  writeFileSync(join(dir, 'loose.txt'), 'loose\n')
+}
+/** 反证臂用的"被覆写帧":把三枚非声明路径各改一维,尺子必须逐条点名(动的是假帧,不是真器物)。 */
+function assertForeignDiffHasTeeth(foreignBefore, foreignAfter) {
+  assert.deepEqual(foreignTouched(foreignAfter, foreignAfter), [], '形状自检:同一帧自比必须零点名')
+  const 被写帧 = JSON.parse(JSON.stringify(foreignAfter))
+  被写帧['other/their.ts'].bytes = 'export const theirs = "被落地器覆写了"\n'
+  被写帧['loose.txt'].onDisk = false
+  被写帧['sub/keep.txt'].indexBlob = '0'.repeat(40)
+  const 真点名 = foreignTouched(foreignBefore, 被写帧)
+  assert.equal(真点名.length, 3, `反证臂:三处被写必须逐条点名,实得 ${JSON.stringify(真点名)}`)
+  for (const p of FOREIGN_FACES)
+    assert.ok(
+      真点名.some((x) => x.startsWith(`${p}(`)),
+      `反证臂:${p} 被写时本锁没翻红 = 这把尺子恒绿`,
+    )
+}
+
 test('T2 happy path:落地 ⇒ 提交面回读 + 主索引对齐(新文件不留幽灵 D)', (t) => {
   const dir = makeRepo(t)
   const before = git(['rev-parse', 'HEAD'], { root: dir })
@@ -218,7 +362,10 @@ test('T2 happy path:落地 ⇒ 提交面回读 + 主索引对齐(新文件不留
   const r = runLand(dir, { paths: 'a.txt;b.txt' })
   assert.equal(r.status, 0, `应成功,实得 ${r.status}:${r.stderr}`)
   assert.match(r.stdout, /提交面回读 2\/2 路径在树/)
-  assert.match(r.stdout, /主索引已对齐 2\/2 路径/)
+  assert.match(r.stdout, alignFullyPat(2), '落地回写读数必须报"2/2 全对齐"(现行措辞)')
+  // 反证臂:匹配串不得恒真 —— 部分对齐读数与已废旧措辞都必须落空。
+  assert.equal(alignFullyPat(2).test(ALIGN_NEG_PARTIAL), false, '反证臂:1/2 部分对齐读数被放行 = 恒真锁')
+  assert.equal(alignFullyPat(2).test(ALIGN_NEG_LEGACY), false, '反证臂:旧措辞(仅索引档)被放行 = 锁没跟上现行措辞还自认有牙')
   const head = git(['rev-parse', 'HEAD'], { root: dir })
   assert.notEqual(head, before, 'HEAD 必须前进')
   assert.equal(headBlobOf(head, 'a.txt', { root: dir }), writeBlob('v3\n', { root: dir }))
@@ -271,49 +418,99 @@ test('T4 防覆盖护栏:目标路径在基线与当下 HEAD 之间被别人改�
   )
 })
 
-test('T5 声明无差异 ⇒ 事先拒绝(提交面回读永远证不了"改了它")', (t) => {
+test('T5 声明无差异(整片)⇒ 无需落地档 rc=3 + 逐条举证,绝不与 0 共用;部分无差异仍 rc=1(S-OSL-PROOF 契约更正)', (t) => {
   const dir = makeRepo(t)
   const before = git(['rev-parse', 'HEAD'], { root: dir })
   const r = runLand(dir, { paths: 'a.txt', msg: 'chore: no-op' }) // 盘上 a.txt == HEAD 的 v1
-  assert.equal(r.status, 1)
-  assert.match(r.stderr, /逐字节相同|无差异/)
+  assert.equal(r.status, 3, `整片无差异必须走"无需落地"档 rc=3,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const out = (r.stderr || '') + (r.stdout || '')
+  assert.match(out, /NOTHING-TO-LAND/, `必须点名无需落地,现读:${out.slice(0, 400)}`)
+  assert.match(out, /逐字节相同/, `必须逐条举证 blob 等值,现读:${out.slice(0, 400)}`)
+  assert.match(out, /baseRef=HEAD=[0-9a-f]{40}/, `举证必须带基线全量 sha,现读:${out.slice(0, 400)}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '无需落地档不得推进 HEAD')
+  // 反向对照:同一声明里掺一条真有差异的路径 ⇒ 仍是"业务拒绝(1)",本档不得吞掉它
+  writeFileSync(join(dir, 'sub', 'keep.txt'), 'keep v2(本次真改)\n')
+  const r2 = runLand(dir, { paths: 'a.txt;sub/keep.txt', msg: 'chore: partial no-op' })
+  assert.equal(r2.status, 1, `部分无差异必须照旧 rc=1,实得 ${r2.status}:${r2.stdout}|${r2.stderr}`)
+  assert.match((r2.stderr || '') + (r2.stdout || ''), /逐字节相同|无差异/)
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before)
 })
 
-test('T6 归属纪律端到端:索引==别人新暂存 ⇒ 落地成功但对齐不动该路径并点名"归属他人"', (t) => {
+test('T6 归属纪律端到端:索引==别人新暂存 ⇒ 落地已进 HEAD、对齐不动该路径并点名"归属他人",退出码记未判定/让路(2)', (t) => {
   const dir = makeRepo(t)
   // 现场:HEAD=v1;索引被别人暂存成 v2;盘上 v3(我要落的正是 v3)
   writeFileSync(join(dir, 'a.txt'), 'v2\n')
   runGit(dir, ['add', '--', 'a.txt'])
   writeFileSync(join(dir, 'a.txt'), 'v3\n')
+  // 声明集外的三枚别人在飞现场(新契约下回写会真动磁盘,故这一格必须由"禁止覆写"换成"逐条零触碰")
+  seedForeignFaces(dir)
+  const foreignBefore = foreignSnapshot(dir, FOREIGN_FACES)
   const foreign = indexBlobOf('a.txt', { root: dir })
+  const headBefore = git(['rev-parse', 'HEAD'], { root: dir })
   const r = runLand(dir, { paths: 'a.txt' })
-  assert.equal(r.status, 0, `落地本身应成功:${r.stderr}`)
-  assert.match(r.stdout, /未动\(归属他人\)[\s\S]*a\.txt/)
+  /**
+   * 期望更正(e79abfbe5c 起的新契约,理由与依据见本文件「2026-11-06 契约更正」块):
+   * 让路必须体现在最终退出码上 ⇒ 本票这一格是 **2(未判定/让路)**,不再是 0。
+   * 旧 rc 0 把"索引/磁盘没对上"说成完成,正是 §0.3 禁的那一型;新 rc 逐条点名到路径。
+   */
+  assert.equal(r.status, 2, `归属他人让路必须记"未判定/让路(2)",实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  // rc 与 stdout 读数必须互相印证:投影器坏了 / 匹配串松成恒真,都会在这一格或反证臂上露馅。
+  assert.equal(
+    RC_VERDICT[r.status],
+    landingVerdictOf(r.stdout),
+    `退出码与读数必须同一档,读数侧实得 ${landingVerdictOf(r.stdout)}`,
+  )
+  assert.equal(landingVerdictOf(VERDICT_SAMPLE_GREEN), RC_VERDICT[0], '反证臂:全绿读数被归成非 0 档 ⇒ 投影器坏了')
+  assert.equal(landingVerdictOf(VERDICT_SAMPLE_FAILED), RC_VERDICT[1], '反证臂:回写失败读数被归成 0/2 档 ⇒ 把失败读成绿')
+  assert.equal(landingVerdictOf(VERDICT_SAMPLE_FOREIGN), RC_VERDICT[2], '反证臂:让路读数被归成 0/1 档 ⇒ 档位并桶')
+  assert.equal(landingVerdictOf(''), RC_VERDICT[1], '反证臂:什么都没量到不许归 0/2 档(量不到 ≠ 通过)')
+  // 原意图保留①:点名"归属他人"必须带上那条路径;匹配串自带反证臂(恒真串会命中两枚近邻读数)。
+  assertMatchWithTeeth(
+    r.stdout,
+    foreignSkipPat('a\\.txt'),
+    [VERDICT_SAMPLE_GREEN, FOREIGN_SKIP_OTHER_PATH],
+    '必须点名是哪条路径',
+  )
+  // 原意图保留②:让路只否掉"全绿",不否掉落地本身。
+  assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), headBefore, '落地必须已进 HEAD(让路 ≠ 回滚)')
   assert.equal(indexBlobOf('a.txt', { root: dir }), foreign, '别人暂存的 v2 必须原样留在索引里')
+  assert.equal(
+    readFileSync(join(dir, 'a.txt'), 'utf8'),
+    'v3\n',
+    '盘上那份本来就在 ⇒ 对齐档一律跳过,不得被 checkout 覆写(§5b-④:回写层只补"盘上没有"那一格)',
+  )
   assert.equal(
     headBlobOf('HEAD', 'a.txt', { root: dir }),
     writeBlob('v3\n', { root: dir }),
     '提交面照落 v3',
   )
+  assert.equal(headBlobOf('HEAD', 'other/their.ts', { root: dir }), 'ABSENT', '别人暂存的新件不得被夹进本票提交')
+  // 原意图保留③(改由这把尺子守):声明集外一字不得被触碰 —— 磁盘字节 / 索引 blob / 在位性三维。
+  const foreignAfter = foreignSnapshot(dir, FOREIGN_FACES)
+  assert.deepEqual(
+    foreignTouched(foreignBefore, foreignAfter),
+    [],
+    `声明集外的路径必须一字未碰,实得 ${JSON.stringify(foreignTouched(foreignBefore, foreignAfter))}`,
+  )
+  assertForeignDiffHasTeeth(foreignBefore, foreignAfter)
 })
 
 test('T7 parseArgs 纯函数面:同一 env 两次调用结论一致(连跑不漂移的最小证明)', (t) => {
   const dir = makeRepo(t)
   writeFileSync(join(dir, 'b.txt'), 'nb\n')
-  const envA = { LAND_PATHS: ' a.txt ; b.txt ', LAND_MSG: 'chore: fixture msg', LAND_ROOT: dir }
+  const envA = { LAND_PATHS: ' a.txt ; b.txt ', LAND_MSG: 'm', LAND_ROOT: dir }
   const a1 = __test__.parseArgs(envA)
   const a2 = __test__.parseArgs(envA)
   assert.equal(a1.error, undefined, `应通过,实得:${a1.error}`)
   assert.deepEqual(a2.paths, ['a.txt', 'b.txt'])
   assert.equal(a1.paths.join(','), a2.paths.join(','))
-  const noPaths = __test__.parseArgs({ LAND_MSG: 'chore: fixture msg', LAND_ROOT: dir })
+  const noPaths = __test__.parseArgs({ LAND_MSG: 'm', LAND_ROOT: dir })
   assert.match(String(noPaths.error), /LAND_PATHS/)
   const noMsg = __test__.parseArgs({ LAND_PATHS: 'a.txt', LAND_ROOT: dir })
   assert.match(String(noMsg.error), /LAND_MSG/)
   const notRepo = __test__.parseArgs({
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'chore: fixture msg',
+    LAND_MSG: 'm',
     LAND_ROOT: mkScratch('osl-notrepo-'),
   })
   assert.match(String(notRepo.error), /不是可用仓库/)
@@ -829,13 +1026,7 @@ test('T-BLOB-1 blob 模式未出具替代证明 ⇒ 直接拒落(少一道守卫
   const blob = hashText(dir, 'v2 本票新内容\n')
   const mf = join(dir, 'mf.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'a.txt', blob }] }))
-  const env = {
-    ...process.env,
-    LAND_ROOT: dir,
-    LAND_PATHS: 'a.txt',
-    LAND_MSG: 'chore: fixture msg',
-    LAND_BLOBS: mf,
-  }
+  const env = { ...process.env, LAND_ROOT: dir, LAND_PATHS: 'a.txt', LAND_MSG: 'm', LAND_BLOBS: mf }
   delete env.LAND_BLOB_PROOF
   // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
   const r = spawnSync(process.execPath, [TOOL], {
@@ -900,7 +1091,10 @@ test('T-BLOB-4 端到端:落地成功、索引对齐,而盘上那份(别人的)�
   assert.match(r.stdout, /祖先对账 1\/1 路径/)
   // 横幅那一维现在是**分档**报数:基线本来无横幅的路径进"只点名"档,不进"保持"档。
   assert.match(r.stdout, /水印横幅保持 \d+\/1 路径/)
-  assert.match(r.stdout, /主索引已对齐 1\/1 路径/)
+  assert.match(r.stdout, alignFullyPat(1), '落地回写读数必须报"1/1 全对齐"(现行措辞)')
+  // 反证臂:匹配串不得恒真 —— 部分对齐读数与已废旧措辞都必须落空。
+  assert.equal(alignFullyPat(1).test(ALIGN_NEG_PARTIAL), false, '反证臂:1/2 部分对齐读数被放行 = 恒真锁')
+  assert.equal(alignFullyPat(1).test(ALIGN_NEG_LEGACY), false, '反证臂:旧措辞(仅索引档)被放行 = 锁没跟上现行措辞还自认有牙')
   const after = runGit(dir, ['rev-parse', 'HEAD']).trim()
   assert.notEqual(after, before, 'HEAD 必须前进')
   assert.equal(
@@ -1135,13 +1329,17 @@ test('T-BANNER-TEETH blob 模式把基线横幅抹掉仍必须拒绝(放宽只�
 /**
  * ── G-04 第二/三格(2026-10-25):新建路径必须在对象空间内补上溯源水印 ──────────────
  *
- * 票面事实:旁路落地器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,刻意不写工作树
+ * 票面事实:旁路落地器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,这一格刻意不写工作树
  * (§1/§12 要求),于是 §5c 的「writeFileSync 后必须紧随注入」在它身上结构上不可能触发 ——
  * 2026-10-15 实测一枚归档台账(`.ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md`)
  * 就这样以"无水印"形态进了 HEAD,而它正是 `plan-pointer-purge.mjs` 的产出。
+ * (CAS **之后**的 ② 段回写层是另一件事:它只补"盘上根本没有"的那一格,见本文件 T-WM-NEW-2。)
  *
  * 三段成对:
- *  - 新建件(两种取材通道)⇒ 入树内容必须带可解码载荷,且**工作树副本一个字节都不写**;
+ *  - 新建件(两种取材通道)⇒ 入树内容必须带可解码载荷;**盘上已有那份的一律不覆写**(可能是别人的
+ *    在飞现场),盘上根本没有那份的 ⇒ CAS 之后由 ② 段回写层补齐(2026-11-06 契约更正,详见
+ *    本文件「2026-11-06 契约更正」那一块与「声明集外零触碰」尺子;旧期望"任何情况都不写工作树"
+ *    锁的是 e79abfbe5c 之前的形态);
  *  - 已存在路径 ⇒ 不进注入射程,入树内容必须与声明 oid 逐字节一致(既有语义不变)。
  */
 test('T-WM-NEW-1 工作树模式:新建 .ts 落地后必须带可解码载荷,而盘上副本一字未动', (t) => {
@@ -1164,9 +1362,12 @@ test('T-WM-NEW-1 工作树模式:新建 .ts 落地后必须带可解码载荷,�
   )
 })
 
-test('T-WM-NEW-2 blob 模式新建件:判据面=对象库 blob,盘上根本没有该文件也能注入', (t) => {
+test('T-WM-NEW-2 blob 模式新建件:判据面=对象库 blob,盘上根本没有该文件也能注入(CAS 后补齐盘上那份)', (t) => {
   const dir = makeRepo(t)
   assert.equal(existsSync(join(dir, 'brand', 'ghost.ts')), false, '夹具前提:盘上无此文件')
+  // 声明集外的三枚别人在飞现场:blob 模式从不读它们,更不得动它们
+  seedForeignFaces(dir)
+  const foreignBefore = foreignSnapshot(dir, FOREIGN_FACES)
   const bareOid = hashText(dir, 'export const ghost = 1\n')
   const mf = join(dir, 'mf-new-blob.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'brand/ghost.ts', blob: bareOid }] }))
@@ -1182,7 +1383,46 @@ test('T-WM-NEW-2 blob 模式新建件:判据面=对象库 blob,盘上根本没�
     /水印预检通过\(新建 1 \+ 既有 0 = 1 路径/,
     '预检报告必须把新建/既有两段都摊开(既有段是新收紧的面,不能只报新建)',
   )
-  assert.equal(existsSync(join(dir, 'brand', 'ghost.ts')), false, 'blob 模式绝不写工作树')
+  /**
+   * 期望更正(e79abfbe5c 起的新契约,依据与取证见本文件「2026-11-06 契约更正」块):
+   * 旧锁「blob 模式绝不写工作树」把**该补的那一格**一起禁掉了 ⇒ 留下"HEAD 有、盘上没有"的假 `D `,
+   * 下一次不带 pathspec 的普通提交就把本轮交付固化成删除(§5b-④ 治的正是这条)。
+   * 新契约只放开"盘上根本没有那份"的声明路径;盘上已有副本 ⇒ `existsSync` 那一格跳过,
+   * 由同道的 T-WM-NEW-1(声明路径盘上副本一字未动)与 T-BLOB-4(别人的在飞副本一字未动)继续钉。
+   */
+  assert.equal(
+    existsSync(join(dir, 'brand', 'ghost.ts')),
+    true,
+    '新建的声明路径不得留在"账上有、盘上没有"的假删除形态',
+  )
+  const diskRaw = readFileSync(join(dir, 'brand', 'ghost.ts'), 'utf8')
+  // 本机 global core.autocrlf=true ⇒ checkout 落盘会把 LF 归一成 CRLF(现读,不写死进判据):
+  // 内容同一性按 LF 比,逐字节比会把"补齐成功"读成"内容不对"。载荷/正文两维照常逐条判。
+  const toLf = (s) => String(s).replace(/\r\n/g, '\n')
+  assert.equal(toLf(diskRaw), toLf(landed), '落盘那份必须就是入树那枚 blob(行尾归一后逐字同形)')
+  assert.ok(WM.payloadIntact(diskRaw), '落盘副本同样必须带可解码载荷(构建读的是磁盘,不是对象库)')
+  assert.ok(toLf(diskRaw).includes('export const ghost = 1'), '正文一行都不许在补齐中丢失')
+  assert.match(r.stdout, alignCheckedOutPat(1), '回写读数必须把 checkout 计数报出来(补齐真发生过,不是只动了索引)')
+  // 反证臂:匹配串松成恒真 / 只补索引也报成已落盘,都会在这两行当场露馅。
+  assert.equal(
+    alignCheckedOutPat(1).test(ALIGN_NEG_PARTIAL),
+    false,
+    '反证臂:1/2 部分对齐读数被放行 = 恒真锁',
+  )
+  assert.equal(
+    alignCheckedOutPat(1).test(ALIGN_NEG_INDEX_ONLY),
+    false,
+    '反证臂:"索引补了、盘上没动"的读数被放行 = 把没落盘说成已落盘',
+  )
+  // 原意图("落地器不许动别人的东西")由这把尺子守:声明集外一字不得被触碰(三维)。
+  const foreignAfter = foreignSnapshot(dir, FOREIGN_FACES)
+  assert.deepEqual(
+    foreignTouched(foreignBefore, foreignAfter),
+    [],
+    `声明集外的路径必须一字未碰,实得 ${JSON.stringify(foreignTouched(foreignBefore, foreignAfter))}`,
+  )
+  assertForeignDiffHasTeeth(foreignBefore, foreignAfter)
+  assert.equal(headBlobOf(head, 'other/their.ts', { root: dir }), 'ABSENT', '别人暂存的新件不得被夹进本票提交')
 })
 
 test('T-WM-NEW-3 已存在路径不受注入:载荷完好时入树内容必须与清单 oid 逐字节一致', (t) => {
@@ -1219,24 +1459,13 @@ test('T-WM-NEW-3b 反向例:既有路径 banner 完好但零宽载荷被剥 ⇒ 
   // 残迹形态:可见横幅两行俱在,只把零宽载荷整段剥掉(与 agent-chat-stream.ts 丢 24 个码元同型)。
   const residue = baseText.replace(/[\u200b\u200c\u200d\u2060\ufeff]/g, '')
   assert.equal(WM.payloadIntact(residue), false, '夹具前提:残迹载荷必须解不出')
-  assert.ok(
-    residue.includes('© 2026 IHUI AI'),
-    '夹具前提:可见横幅必须仍然在(否则测的是"缺横幅"不是"坏载荷")',
-  )
+  assert.ok(residue.includes('© 2026 IHUI AI'), '夹具前提:可见横幅必须仍然在(否则测的是"缺横幅"不是"坏载荷")')
   const bad = hashText(dir, residue)
   const mf = join(dir, 'mf-existing-bad.json')
   writeFileSync(mf, JSON.stringify({ files: [{ path: 'keep.ts', blob: bad }] }))
   const r = runLandBlob(dir, { paths: 'keep.ts', manifest: mf })
   assert.notEqual(r.status, 0, `坏载荷必须拒落,实得 ${r.status}:${r.stdout}|${r.stderr}`)
-  // 2026-11-05:这一格的拒收**前移了一层**。旧 `payloadIntactViaVerify` 拿 scratch/probe.txt 问
-  // `verify`,覆盖 0/0 仍按 0 退出 ⇒ 载荷复核恒真,这一型只能靠后面那道 CLI 预检抓;
-  // 现在载荷判据在 blob 层就判坏 ⇒ 出口变成"水印横幅未保持"。两个出口都算抓到,少一个都不行
-  // (判据没放宽,只是真话提前说了)。
-  assert.match(
-    r.stderr + r.stdout,
-    /水印预检不通过|水印校验派生失败|水印横幅未保持/,
-    '必须报"预检不通过"或"横幅未保持",不得静默落地',
-  )
+  assert.match(r.stderr + r.stdout, /水印预检不通过|水印校验派生失败/, '必须报"预检不通过",不得静默落地')
   assert.match(r.stderr + r.stdout, /keep\.ts/, '必须点名那个既有文件(只报数不点名 = 责任不可归)')
   assert.equal(git(['rev-parse', 'HEAD'], { root: dir }), before, '被拒时 HEAD 不得前进')
 })
@@ -1403,6 +1632,8 @@ test('T-WM-NEW-6 形状锁:新建路径档只调那一份编排,未判定必须 
   assert.match(seg, /judgeToolGenerated\s*\(/, '上游工具生成物豁免面必须问那份单源判据')
   assert.ok(!/scripts\/data\//.test(seg), '豁免清单只住在 lib 的台账里,本器不得自持一张表')
 })
+
+// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // ─────────────────────────────────────────────────────────────────────────────
 // G-815985 悬空相对引用预检(2026-09-29 立,由本会话一次真实自伤换来)
@@ -1729,15 +1960,37 @@ test('T-JS-5 形状锁:结构档三条件都在,且 blob 模式明确不套用�
     1,
     'refuseByBlob 只允许被赋值一次(声明处);再赋值 = 把唯一拦真回写的支路拆掉',
   )
-  // 四处:声明 + ①结构档豁免 + ②声明式还原白名单(行级) + ③声明式还原白名单(element 型,
-  // 2026-10-30 补)。第二、第三处有没有牙不靠计数证明,靠下面逐支的结构断言:它们必须落在
+  // 五处:声明 + ①结构档豁免 + ②声明式还原白名单(行级) + ③声明式还原白名单(element 型,
+  // 2026-10-30 补) + ④台账授权退休核验不成立时的拒绝(G-814414 补格,2026-11-05,方向是 **=true 收紧**)。
+  // 第二、第三处有没有牙不靠计数证明,靠下面逐支的结构断言:它们必须落在
   // restoreBy 门内,必须要求配平结论 match === true,必须排除 undetermined / 整 blob 命中祖先;
   // 行级那一支另须排除键路径档(!jsonMode),element 那一支另须要求基线零丢(vanished === 0)。
-  // 再多出第五处照旧红(那才是私改口径)。
+  // 计数换成"方向分桶"才保住原锁的牙(§0.7 豁免要验过才免):
+  //  · 放行方向(= false)恰 3 处 —— 冒出第 4 处 = 私开后门,红;
+  //  · 拒绝方向(= true)恰 1 处,且必须住在 retirement-rejected 门内并留痕 —— 挪出门外/不留痕,红;
+  //  · 总赋值面恰 5 处 —— 第六处无论什么方向都要先审,红。
   assert.equal(
     (src.match(/\brefuseByLines\s*=(?!=)/g) ?? []).length,
-    4,
-    'refuseByLines 只允许"声明 + 结构档豁免 + 声明式还原白名单(行级) + 声明式还原白名单(element)"四处赋值;多出第五处就是在私改拒绝口径',
+    5,
+    'refuseByLines 只允许"声明 + 结构档豁免 + 声明式还原白名单(行级) + 声明式还原白名单(element) + 退休核验拒绝"五处赋值;多出第六处就是在私改拒绝口径',
+  )
+  assert.equal(
+    (src.match(/\brefuseByLines\s*=\s*false/g) ?? []).length,
+    3,
+    '放行方向(= false)的赋值必须恰为三处(结构档豁免/行级还原/element 还原);第四处 = 未经审查的放行闸门',
+  )
+  assert.equal(
+    (src.match(/\brefuseByLines\s*=\s*true/g) ?? []).length,
+    1,
+    '拒绝方向(= true)只允许退休核验那一条收紧支;第二条须先过审再入锁',
+  )
+  const iRetireTrue = src.search(/\brefuseByLines\s*=\s*true/)
+  const retireSeg = src.slice(Math.max(0, iRetireTrue - 200), iRetireTrue + 300)
+  assert.ok(
+    iRetireTrue > 0 &&
+      /retirementAudit\?\.applicable && !retirementAudit\.ok/.test(retireSeg) &&
+      /kind: 'retirement-rejected'/.test(retireSeg),
+    '=true 那一处必须落在「台账授权退休不成立」门内且留 retirement-rejected 痕(门外拒绝=无来由误伤;不留痕=静默闸,§0.3)',
   )
   const iRestore = src.indexOf('if (restoreBy?.has(p))')
   const iRestoreAssign = src.indexOf('refuseByLines = false', iRestore)
@@ -1891,7 +2144,7 @@ test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被�
       ...process.env,
       LAND_ROOT: dir,
       LAND_PATHS: 'a.txt',
-      LAND_MSG: 'chore: fixture msg',
+      LAND_MSG: 'm',
       LAND_BLOB_PROOF: 'p',
       LAND_BLOBS: mf,
       LAND_CLASH_SCOPE: bad,
@@ -1919,7 +2172,7 @@ test('T-BLOB-9 出口的两个判死臂:坏 JSON 与射程外声明都不得被�
       ...process.env,
       LAND_ROOT: dir,
       LAND_PATHS: 'a.txt',
-      LAND_MSG: 'chore: fixture msg',
+      LAND_MSG: 'm',
       LAND_BLOB_PROOF: 'p',
       LAND_BLOBS: mf,
       LAND_CLASH_SCOPE: unknown,
@@ -2416,9 +2669,8 @@ test('T-DG6 形状锁:触发面必须与门体 SRC_RE 同形,且门以子进程�
 //     "跑没跑"最硬的回读证据**,所以这里断言的是仓库状态,不是某句输出文本。
 //  L2 反向对照:同样的现场、只是落地**不含**台账 ⇒ 那个进程一次都不许派生(用哨兵文件量派生,
 //     不读源码文本 —— "不触发"这件事在源码里永远读得出来,只有哨兵能证明它没跑)。
-//  L3 方向锁 + 失败臂:补跑**没跑成**时落地不回滚、不判红,以 exit 2 记未判定、拒绝报绿
-//     (零丢失自证已通过的落地不该被替身判红),但必须把"未派生/跑而未成"喊出来,
-//     且**不得**冒出"无缺失"这类凭空结论。
+//  L3 方向锁 + 失败臂:补跑**没跑成**时落地器退出码照旧 0(零丢失自证已通过的落地不该被替身判红),
+//     但必须把"未派生/跑而未成"喊出来,且**不得**冒出"无缺失"这类凭空结论。
 // 水印预检统一用 IHUI_LAND_SKIP_WATERMARK=1 跳过(夹具文件没有横幅,与上面几组同一处置,是有意的)。
 // ─────────────────────────────────────────────────────────────────────────────
 const REG_A = '  - **G-900001 甲行(夹具)**:三面都在的无关登记行,用来确认现场里只有乙行被写回吞掉。'
@@ -2559,7 +2811,7 @@ test('L2 G-816708 反向对照:同样的落地但不含台账 ⇒ 那个进程�
   )
 })
 
-test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地报 2(未判定),但必须喊出来,且不得冒出"无缺失"', (t) => {
+test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地照旧 0,但必须喊出来,且不得冒出"无缺失"', (t) => {
   const dir = makeLedgerRepo(t)
   installHealStub(dir, { rc: 1, stderr: 'boom: 门体未能判定\n' })
   writeFileSync(join(dir, 'PROJECT_PLAN.md'), PLAN_STALE)
@@ -2571,7 +2823,7 @@ test('L3 G-816708 方向锁 + 失败臂:补跑没跑成 ⇒ 落地报 2(未判�
     '--heal --commit',
     '补跑必须是**提交档**(与 post-commit 第 6 节同形),报告档等于把回补留给下一个人',
   )
-  assert.equal(r.status, 2, 'RP-71:自愈跑而未成 ⇒ exit 2 未判定,不得报绿')
+  assert.equal(r.status, 0, `替身没跑成不该把零丢失自证已过的落地判红,实得 ${r.status}:\n${out}`)
   assert.match(out, /跑而未成|未派生成功/, '失败必须点名是哪一档(跑而未成 / 根本没派生)')
   assert.doesNotMatch(out, /无缺失,无需回捞/, '补跑没跑成时,"无缺失"这句话不得由任何人替它说')
 })
@@ -2610,7 +2862,7 @@ test('T-EMPTY1 成对①:0 字节 blob 落地一个基线非空的路径 ⇒ par
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'chore: fixture msg',
+    LAND_MSG: 'm',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -2627,7 +2879,7 @@ test('T-EMPTY2 成对②(反证):同一条路径给非空 blob ⇒ 放行(证明
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'chore: fixture msg',
+    LAND_MSG: 'm',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -2644,7 +2896,7 @@ test('T-EMPTY3 边界:基线没有该路径(新增文件)而内容是空 ⇒ 不
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'brand-new.txt',
-    LAND_MSG: 'chore: fixture msg',
+    LAND_MSG: 'm',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -2669,7 +2921,7 @@ test('T-EMPTY4 未判定:清单里的 oid 在对象库取不到字节数 ⇒ 拒
   const r = __test__.parseArgs({
     LAND_ROOT: dir,
     LAND_PATHS: 'a.txt',
-    LAND_MSG: 'chore: fixture msg',
+    LAND_MSG: 'm',
     LAND_BLOBS: blobs,
     LAND_BLOB_PROOF: '探针',
   })
@@ -2942,10 +3194,7 @@ const rmElem = (jsonPath, value, restoredFrom, why) => ({
 
 test('T-RM-E1 形态闸(element 型,纯函数):两型同给/都没给/jsonPath 不以 $ 起/缺 value/同路径混型 ⇒ 逐条点名', () => {
   const full = 'a'.repeat(40)
-  const okEl = {
-    path: 'reg.json',
-    ...rmElem('$.entries[].roots', 'minus.svg', full, '还原被误删的元素声明'),
-  }
+  const okEl = { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', full, '还原被误删的元素声明') }
   const good = __test__.validateRestoreManifest({ entries: [okEl] }, { paths: ['reg.json'] })
   assert.equal(good.errors.length, 0, `合法 element 声明应零错,现读:${good.errors.join(' | ')}`)
   assert.equal(good.entries.length, 1)
@@ -2957,12 +3206,12 @@ test('T-RM-E1 形态闸(element 型,纯函数):两型同给/都没给/jsonPath �
   assert.equal(good.entries[0].line, null, 'element 型条目的 line 必须是 null(两型互斥)')
 
   const badCases = [
-    ['两型同给', { entries: [{ ...okEl, line: 'x' }] }, /两型都给 ⇒ 口径不同不得混用/],
     [
-      '两型都没给',
-      { entries: [{ path: 'reg.json', restoredFrom: full, why: '什么都没声明的空壳条目' }] },
-      /都没给/,
+      '两型同给',
+      { entries: [{ ...okEl, line: 'x' }] },
+      /两型都给 ⇒ 口径不同不得混用/,
     ],
+    ['两型都没给', { entries: [{ path: 'reg.json', restoredFrom: full, why: '什么都没声明的空壳条目' }] }, /都没给/],
     [
       'jsonPath 不以 $ 起',
       { entries: [{ ...okEl, element: { jsonPath: 'entries[].roots', value: 'x' } }] },
@@ -2973,7 +3222,11 @@ test('T-RM-E1 形态闸(element 型,纯函数):两型同给/都没给/jsonPath �
       { entries: [{ ...okEl, element: { jsonPath: '$.entries[].roots' } }] },
       /element\.value 缺失/,
     ],
-    ['element 不是对象', { entries: [{ ...okEl, element: 'minus.svg' }] }, /element 必须是对象/],
+    [
+      'element 不是对象',
+      { entries: [{ ...okEl, element: 'minus.svg' }] },
+      /element 必须是对象/,
+    ],
   ]
   for (const [name, input, re] of badCases) {
     const r = __test__.validateRestoreManifest(input, { paths: ['reg.json'] })
@@ -3049,20 +3302,14 @@ test('T-RM-E3 正控端到端:键路径档还原一枚被删的数组元素 ⇒ 
   // 追加一枚新条目(不修改既有条目 ⇒ 基线零丢),把两枚元素搬回来
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([
-      { id: 'a', roots: ['x.svg'] },
-      { id: 'b', roots: ['minus.svg'] },
-    ]),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg'] }]),
   )
   const mf = join(dir, '.restore-manifest.json')
   writeFileSync(
     mf,
     JSON.stringify({
       entries: [
-        {
-          path: 'reg.json',
-          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 正控:还原被删的元素'),
-        },
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 正控:还原被删的元素') },
       ],
     }),
   )
@@ -3078,11 +3325,8 @@ test('T-RM-E3 正控端到端:键路径档还原一枚被删的数组元素 ⇒ 
   )
   const body = runGit(dir, ['show', '--format=%B', '-s', 'HEAD']).toString()
   assert.match(body, /Restore-Manifest-Entry/, '清单必须逐字进提交信息')
-  assert.match(
-    body,
-    /"element":\{"jsonPath":"\$\.entries\[\]\.roots","value":"minus\.svg"\}/,
-    `trailer 必须带 element(jsonPath + value),现读:${body.slice(0, 600)}`,
-  )
+  assert.match(body, /"element":\{"jsonPath":"\$\.entries\[\]\.roots","value":"minus\.svg"\}/,
+    `trailer 必须带 element(jsonPath + value),现读:${body.slice(0, 600)}`)
   const face = runGit(dir, ['show', 'HEAD:reg.json']).toString()
   assert.ok(face.includes('minus.svg'), '被还原的元素必须真进树')
 })
@@ -3092,20 +3336,14 @@ test('T-RM-E4 反向①:夹带一枚未声明的元素复活 ⇒ 当场拒落并
   const head = runGit(dir, ['rev-parse', 'HEAD']).trim()
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([
-      { id: 'a', roots: ['x.svg'] },
-      { id: 'b', roots: ['minus.svg', 'plus.svg'] },
-    ]),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg', 'plus.svg'] }]),
   )
   const mf = join(dir, '.restore-manifest.json')
   writeFileSync(
     mf,
     JSON.stringify({
       entries: [
-        {
-          path: 'reg.json',
-          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向①:只声明一枚'),
-        },
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向①:只声明一枚') },
       ],
     }),
   )
@@ -3126,20 +3364,14 @@ test('T-RM-E5 反向②:声明对象里还有标量键复活 ⇒ element 型不�
   // legacy 是 B 里被删掉的**标量键**,这里把它搬回来 + 还原一枚元素
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([
-      { id: 'a', roots: ['x.svg'] },
-      { id: 'b', legacy: 'old', roots: ['minus.svg'] },
-    ]),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', legacy: 'old', roots: ['minus.svg'] }]),
   )
   const mf = join(dir, '.restore-manifest.json')
   writeFileSync(
     mf,
     JSON.stringify({
       entries: [
-        {
-          path: 'reg.json',
-          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向②:只声明元素'),
-        },
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向②:只声明元素') },
       ],
     }),
   )
@@ -3160,21 +3392,13 @@ test('T-RM-E6 反向③:假声明(该祖先 blob 的容器里没有这枚元素)
   const B = head // B 里 minus.svg 已被删 ⇒ 拿它当 restoredFrom 就是假声明
   writeFileSync(
     join(dir, 'reg.json'),
-    rmJson([
-      { id: 'a', roots: ['x.svg'] },
-      { id: 'b', roots: ['minus.svg'] },
-    ]),
+    rmJson([{ id: 'a', roots: ['x.svg'] }, { id: 'b', roots: ['minus.svg'] }]),
   )
   const mfFake = join(dir, '.restore-manifest.json')
   writeFileSync(
     mfFake,
     JSON.stringify({
-      entries: [
-        {
-          path: 'reg.json',
-          ...rmElem('$.entries[].roots', 'minus.svg', B, '假声明:指着一枚没有它的提交'),
-        },
-      ],
+      entries: [{ path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', B, '假声明:指着一枚没有它的提交') }],
     }),
   )
   const r1 = runLand(dir, {
@@ -3201,10 +3425,7 @@ test('T-RM-E7 反向④:改既有条目导致基线丢元素 ⇒ element 型不�
     mf,
     JSON.stringify({
       entries: [
-        {
-          path: 'reg.json',
-          ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向④:改既有条目形态'),
-        },
+        { path: 'reg.json', ...rmElem('$.entries[].roots', 'minus.svg', A, 'e2e 反向④:改既有条目形态') },
       ],
     }),
   )
@@ -3219,211 +3440,180 @@ test('T-RM-E7 反向④:改既有条目导致基线丢元素 ⇒ element 型不�
   assert.equal(runGit(dir, ['rev-parse', 'HEAD']).trim(), head, '被拒的落地不得动 HEAD')
 })
 
-/**
- * 2026-11-04 两道新闸:`LAND_MSG` 收的是**正文**,不是文件路径。
- * 立因(实测,不是假想):落地器把路径当正文照样落地成功,那一枚的正文成了一串
- * 形如 `D:\…\commit-msg-no-write.txt` 的串 ⇒ 取证叙述与 `immutable-exempt` trailer 掉在枚外,
- * 事后判 `undeclared` 而**提交者自己修不了**(补声明要独立追认密钥,签发钥≠追认钥)。
- * 所以:① 正文形状不对当场拒;② 落地后回读枚上正文,命中判据面却没声明就报红。
- */
-test('judgeLandMsgShape:路径形态/空/含糊短行拒,conventional 标题与多行正文放行', () => {
-  const T = __test__.judgeLandMsgShape
-  assert.equal(
-    T('D:\\IHUI-AI\\.ihui-agent\\tmp\\goal-autonomy\\commit-msg-no-write.txt').ok,
-    false,
-    '盘符单行 = 长得像路径 ⇒ 必须拒',
-  )
-  assert.equal(
-    T('/tmp/commit-msg-no-write.txt').ok,
-    false,
-    'commit-msg*.txt 形态同样拒(不带盘符的那种)',
-  )
-  assert.equal(T('').ok, false, '空必拒(提交史无法归因)')
-  assert.equal(
-    T('随手写的一句话').ok,
-    false,
-    '单行、非 conventional、不足 24 字 ⇒ 拒(方向是多要一次说明)',
-  )
-  assert.equal(T('fix(gates): 短标题也算正文').ok, true, 'conventional 标题放行,不许逼人凑字数')
-  assert.equal(T('fix(x): 标题\n\n多行取证正文若干。').ok, true, '多行正文放行')
+/* ──────────────────────────────────────────────────────────────────────────────
+ * S-OSL-PROOF(2026-11-06)落地自证三档:票面要求"用注入假执行的镜像用例钉住三件事"——
+ *   ① rc=0 但 HEAD 未推进 ⇒ 必须非零退出;② 落地成功必须打印并校验 40 位 sha;
+ *   ③ 无需落地必须带举证文案。
+ * 判据一律 import 源脚本的 __test__ 出口(§22c),不在测试里复制第二份实现;
+ * 端到端那几枚走 mkScratch 临时私有索引仓(§15c:夹具不落仓库树内、绝不推真 ref)。
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+const SELF_HREF = new URL('../object-space-land.mjs', import.meta.url).href
+const FULL40 = /^LANDED ([0-9a-f]{40})$/m
+
+test('T-PF-1 注入假执行:judgeLandedProof 三态不并桶(HEAD 未推进/问不到/无 40 位 sha 一律非 0)', () => {
+  const { judgeLandedProof, RC } = __test__
+  const A = 'a'.repeat(40)
+  const B = 'b'.repeat(40)
+  // 正向:逐字等值 ⇒ 0,且打印的必须是那枚全量 sha
+  const ok = judgeLandedProof({ createdSha: A, headAfter: A, parentSha: B })
+  assert.equal(ok.ok, true, `等值必须判绿:${JSON.stringify(ok)}`)
+  assert.equal(ok.code, RC.LANDED)
+  assert.equal(ok.line, `LANDED ${A}`)
+  // 反向①:本轮造出 sha,HEAD 却没推进到它(且不在 HEAD 历史里)⇒ 必须非零,两个 sha 逐字点名
+  const drift = judgeLandedProof({ createdSha: A, headAfter: B, parentSha: B, headContainsMade: false })
+  assert.equal(drift.ok, false, 'HEAD 未推进到本轮 sha 却记绿 ⇒ 正是空跑被读成落地那一型')
+  assert.equal(drift.code, RC.UNJUDGED)
+  assert.match(drift.why, new RegExp(A))
+  assert.match(drift.why, new RegExp(B))
+  // 反向①b:两者不等且祖先性**问不到** ⇒ 未判定(不记绿也不冒红),不得折成"已落地"
+  for (const anc of [null, undefined]) {
+    const u = judgeLandedProof({ createdSha: A, headAfter: B, headContainsMade: anc })
+    assert.equal(u.ok, false, `祖先判定为 ${JSON.stringify(anc)} 时不得记绿`)
+    assert.equal(u.code, RC.UNJUDGED)
+    assert.match(u.why, /未判定|问不到/)
+  }
+  // 合法前向①c:CAS 之后本器补跑的台账自愈可能再建一枚前向提交 ⇒ 本轮 sha 在 HEAD 历史里
+  // 仍是 0,但必须把 HEAD_NOW 点名(绿的含义是"本轮 sha 已入库",不是"HEAD 停在它")。
+  const fwd = judgeLandedProof({ createdSha: A, headAfter: B, headContainsMade: true })
+  assert.equal(fwd.ok, true, `前向推进不得恒红(§12e):${JSON.stringify(fwd)}`)
+  assert.equal(fwd.code, RC.LANDED)
+  assert.equal(fwd.line, `LANDED ${A}`)
+  assert.equal(fwd.forward, true)
+  assert.equal(fwd.headNow, B)
+  // 反向②:回读问不到 ⇒ 未判定(不记绿,也不冒充"缺路径")
+  for (const got of [null, undefined, ''])
+    assert.equal(
+      judgeLandedProof({ createdSha: A, headAfter: got }).code,
+      RC.UNJUDGED,
+      `HEAD 回读取不到(${JSON.stringify(got)})必须按未判定,不得折成"已落地"`,
+    )
+  // 反向③:拿不出一枚 40 位提交 sha ⇒ 落地根本没发生,不得冒 0
+  for (const made of ['', null, undefined, A.slice(0, 9)])
+    assert.equal(
+      judgeLandedProof({ createdSha: made, headAfter: A }).code,
+      RC.UNJUDGED,
+      `短/空 sha(${JSON.stringify(made)})不构成落地凭据(§1 证据指针:短 sha 腐烂率 30.2%)`,
+    )
 })
 
-test('checkExemptDeclaration:命中未声明=missing,已声明=ok,清单取不到=未判定(三态不并桶)', () => {
-  const T = __test__.checkExemptDeclaration
-  const list = readFileSync(join(HERE, '..', 'data', 'immutable-guard.json'), 'utf8')
-  const hit = T({
-    paths: ['scripts/lib/sample.mjs'],
-    guardListText: list,
-    message: 'fix(x): 标题\n\n正文若干行。',
+test('T-PF-2 注入假执行:judgeNothingToLand 只在整片落空时点火,并交出逐条举证文案', () => {
+  const { judgeNothingToLand, RC } = __test__
+  const oidA = 'a'.repeat(40)
+  const oidB = 'b'.repeat(40)
+  const noop = judgeNothingToLand({
+    paths: ['a.txt'],
+    removePaths: [],
+    mine: new Map([['a.txt', oidA]]),
+    base: new Map([['a.txt', oidA]]),
+    noDiff: ['a.txt'],
+    removeInBase: [],
+    baseRef: 'HEAD',
+    baseSha: oidB,
   })
-  assert.equal(hit.state, 'missing', '命中判据面而枚上没 trailer ⇒ missing(不是 ok、不是未判定)')
-  assert.ok(
-    hit.hits.some((h) => h.includes('scripts/lib/sample.mjs')),
-    '必须点名命中的那枚路径',
-  )
-  const declared = T({
-    paths: ['scripts/lib/sample.mjs'],
-    guardListText: list,
-    message: 'fix(x): 标题\n\nimmutable-exempt: 这是一句足够长的理由说明,用来补上判据面声明。',
+  assert.equal(noop.noop, true, JSON.stringify(noop))
+  assert.equal(noop.evidence.length, 1)
+  assert.match(noop.evidence[0], new RegExp(oidA))
+  assert.match(noop.evidence[0], /逐字节相同/)
+  assert.match(noop.rerun, /baseRef=HEAD=/)
+  assert.notEqual(RC.NOTHING_TO_LAND, RC.LANDED, '无需落地档不得复用 0 那一档')
+  // 反向:只要还有一条真有差异 ⇒ 不点火,交回原本的业务拒绝
+  const partial = judgeNothingToLand({
+    paths: ['a.txt', 'c.txt'],
+    removePaths: [],
+    mine: new Map([['a.txt', oidA], ['c.txt', oidB]]),
+    base: new Map([['a.txt', oidA], ['c.txt', oidA]]),
+    noDiff: ['a.txt'],
+    removeInBase: [],
+    baseRef: 'HEAD',
+    baseSha: oidB,
   })
-  assert.equal(declared.state, 'ok', '带 trailer ⇒ ok')
+  assert.equal(partial.noop, false, '部分无差异被折成"无需落地"就是把该落的放行')
+  // 反向:待摘除路径仍在基线树里 ⇒ 有活要干,不点火
   assert.equal(
-    T({ paths: ['docs/sample.md'], guardListText: list, message: 'docs(x): 标题' }).hits.length,
-    0,
-    '射程外 ⇒ 不要求声明',
+    judgeNothingToLand({
+      paths: [],
+      removePaths: ['gone.txt'],
+      mine: new Map(),
+      base: new Map(),
+      noDiff: [],
+      removeInBase: ['gone.txt'],
+      baseRef: 'HEAD',
+      baseSha: oidB,
+    }).noop,
+    false,
+    '还有东西要摘时不得判成无需落地',
   )
+  // 反向:声明面为空不在本档射程(由 parseArgs 的清单守卫负责),不得冒充"无需落地"
   assert.equal(
-    T({ paths: ['scripts/lib/x.mjs'], guardListText: null, message: 'fix(x): t' }).state,
-    'undetermined',
-    '清单取不到 ⇒ 未判定,不得冒充"不需要声明"(§0.3)',
-  )
-  assert.equal(
-    T({ paths: ['scripts/lib/x.mjs'], guardListText: '{不是合法 JSON', message: 'fix(x): t' })
-      .state,
-    'undetermined',
-    '清单坏 ⇒ 未判定',
+    judgeNothingToLand({ paths: [], removePaths: [], noDiff: [], removeInBase: [] }).noop,
+    false,
   )
 })
 
-test('接线锁:两道闸都真被调用(函数在而没人调=没有,§0.9)', () => {
-  const tool = readFileSync(TOOL, 'utf8')
-  assert.ok(tool.includes('judgeLandMsgShape(msg)'), 'parseArgs 必须真调正文形状闸')
-  assert.ok(tool.includes('checkExemptDeclaration({'), '落地后必须真调判据面声明自检')
-  assert.ok(
-    tool.includes("msgRaw.startsWith('@')"),
-    '@<文件> 出口必须在(否则长正文只能塞 env,正是这次踩的形状)',
-  )
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 2026-11-05 两格(同一枚事故引出的两个方向)。
-// 引子:清 HEAD 面水印欠账时,blob 通道把"基线整条载荷缺失 ⇒ inject 追加独立载荷行"这件正事
-// 判成"改写横幅文字"而拒 —— 于是这类欠账**没有落地通道**(提交链上的水印门只写磁盘,而磁盘那份
-// 常属他人现场)。修 A 的同时把 B 挖了出来:旧 `payloadIntactViaVerify` 把正文写进
-// `mkScratch()/probe.txt` 再派生 `verify <该文件>` 拿 RC 当答案,而 scratch 落点不在仓库口径内,
-// verify 报「覆盖 0/0」却按 0 退出 ⇒ 四臂实测(完好/损坏 × .txt/.mjs)同色,复核恒真。
-// §0.7 禁的正是"没验过却写成验过":decideBanner 里那档 fail-closed 从装上那天起就是装饰。
-// ─────────────────────────────────────────────────────────────────────────────
-
-const BANNER_TWO = [
-  '// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top',
-  '// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。',
-].join('\n')
-
-test('T-BANNER-S 载荷缺失档:基线只有可见横幅而整条载荷缺失 ⇒ 追加载荷行默认拒、复核过才算补回', () => {
-  const base = `${BANNER_TWO}\n\n正文 A\n正文 B\n`
-  assert.equal(WM.payloadIntact(base), false, '夹具必须真的没有可解码载荷(否则测不到这一档)')
-  const seat = WM.injectText(base, { rel: 'sample.mjs' })
-  assert.equal(seat.action, 'injected', '夹具必须真被官方构造处注过(否则测的是空差异)')
-  const reseated = seat.text
-  assert.equal(WM.payloadIntact(reseated), true, '官方构造处的产物必须可解码')
-  // 判据用的剥离出口与 lib 同一份:剥掉水印结构行后必须整篇等值,否则这条测不到"只动结构"
-  assert.equal(
-    stripWatermarkStructure(base).text,
-    stripWatermarkStructure(reseated).text,
-    '夹具不成立:两份正文剥掉水印结构后不等值',
-  )
-  const a = decideBanner({ baseText: base, newText: reseated })
-  assert.equal(a.verdict, 'broken', '没复核过就不得放行(默认坏 = fail-closed)')
-  assert.equal(a.needsPayloadCheck, true, '要标明这是"待复核"而不是"已判定坏"')
-  const b = decideBanner({ baseText: base, newText: reseated, newPayloadOk: true })
-  assert.equal(b.verdict, 'repaired', '剥掉结构行整篇等值 + 载荷判完好 ⇒ 这是补回,不是改写')
-  // 反向:同一通道不得吞掉真改动 —— 正文多一行就该回到"改写横幅"那一支
-  const tampered = reseated.replace('正文 B\n', '正文 B\n正文 C\n')
-  const c = decideBanner({ baseText: base, newText: tampered, newPayloadOk: true })
-  assert.equal(c.verdict, 'broken', '夹带了正文改动 ⇒ 载荷复核过也不认')
-  assert.notEqual(c.needsPayloadCheck, true, '真改动不得带"待复核"旗(那等于给它第二次机会)')
-})
-
-test('T-BANNER-T 载荷判据有牙:完好/损坏/无水印三臂必须给出不同读数(旧 CLI 探针四臂同色)', () => {
-  const probe = __test__.payloadIntactViaWatermark
-  assert.equal(typeof probe, 'function', '__test__ 必须透出这一份载荷判据的调用口')
-  const intact = WM.injectText('正文 A\n', { rel: 'sample.mjs' }).text
-  assert.deepEqual(probe(intact), { judged: true, ok: true }, '完好载荷必须读成 ok=true')
-  const damaged = intact.replace(/\u200b/g, '?')
-  assert.notEqual(damaged, intact, '夹具必须真的改坏了载荷')
-  assert.deepEqual(
-    probe(damaged),
-    { judged: true, ok: false },
-    '载荷被改坏必须读成 ok=false —— 旧实现拿 scratch/probe.txt 问 verify,这一臂会读成 ok=true(恒真)',
-  )
-  assert.deepEqual(
-    probe('正文 A\n'),
-    { judged: true, ok: false },
-    '通篇没有载荷 ⇒ 不是"没判",是判为不完好',
-  )
-  assert.equal(probe(null).judged, false, '取不到输入 ⇒ 未判定,不得折成完好或损坏')
-})
-
-test('T-BANNER-U 形状锁:blob 通道不再拿路径口径当载荷判据(反向钉住那次恒真的成因)', () => {
-  // 判"实现"必须看**遮掉注释后**的代码面:成因叙述合规地留在注释里(§14 交付报告一致性),
-  // 拿整份源码比字符串会把说明当成残留(第一版就是这么误红的)。
-  const code = maskComments(readFileSync(TOOL, 'utf8'))
-  assert.ok(
-    !/probe\.txt/.test(code),
-    'scratch 里的探针文件不得再当载荷判据输入 —— 仓库口径外的文件 verify 报「覆盖 0/0」而 RC=0',
-  )
-  assert.ok(
-    !/payloadIntactViaVerify/.test(code),
-    '旧的 verify-探针通道必须整颗摘掉,留着(哪怕没人调)就是给下一个人复用的陷阱',
-  )
-  assert.match(
-    code,
-    /WM_PROBE\?\.payloadIntact/,
-    '载荷完坏必须进程内问 watermark.mjs 那一份实现(§0.6 单一真相源)',
-  )
-  // 工作树模式的预检仍然走 CLI(那里路径在仓库口径内,覆盖数是真的)—— 别把它一起摘了
-  assert.match(code, /WATERMARK_CLI,\s*'verify'/, 'worktree 预检仍须问那份 CLI')
-})
-
-/** 端到端(纯函数格绿不等于有出口):基线"横幅在位而载荷缺失"这一型必须真能落下去。 */
-test('T-BANNER-SEAT-E2E 端到端:基线只有可见横幅而整条载荷缺失 ⇒ blob 通道把补回的载荷落得下去', (t) => {
+test('T-PF-3 端到端正控:真落地必须打印 LANDED <40 位 sha>,且 rev-parse HEAD 逐字等于它', (t) => {
   const dir = makeRepo(t)
-  const base = `${BANNER_TWO}\n\nconst x = 1\n`
-  writeFileSync(join(dir, 'seat.txt'), base)
-  runGit(dir, ['add', '--', 'seat.txt'])
-  runGit(dir, ['commit', '-q', '-m', '基线:横幅在位而载荷缺失'])
-  const before = git(['rev-parse', 'HEAD'], { root: dir })
-  const seat = WM.injectText(base, { rel: 'sample.mjs' })
-  assert.equal(seat.action, 'injected', '夹具必须真被官方构造处注过')
-  const want = writeBlob(seat.text, { root: dir })
-  const r = runLand(dir, {
-    paths: 'seat.txt',
-    blobs: [{ path: 'seat.txt', blob: want }],
-    proof: '构造内容 = 基线正文逐字节 + 官方构造处追加的水印结构行',
-    msg: 'fix(watermark): e2e 补回载荷位(夹具)',
-  })
+  writeFileSync(join(dir, 'a.txt'), 'v1(本次真改)\n')
+  const r = runLand(dir, { paths: 'a.txt', msg: 'chore: landed proof' })
+  assert.equal(r.status, 0, `正控必须落地,实得 ${r.status}:${r.stdout}|${r.stderr}`)
+  const m = r.stdout.match(FULL40)
+  assert.ok(m, `stdout 必须有一行整条 LANDED <40 位 sha>,现读:${String(r.stdout).slice(-600)}`)
   assert.equal(
-    r.status,
-    0,
-    `补回必须落得下去,实得 ${r.status}:${String(r.stdout).slice(-1200)}${String(r.stderr).slice(-600)}`,
+    git(['rev-parse', 'HEAD'], { root: dir }).trim(),
+    m[1],
+    '打印的 LANDED 必须就是回读到的 HEAD',
   )
-  assert.notEqual(git(['rev-parse', 'HEAD'], { root: dir }), before, '落地后 HEAD 必须前进')
-  assert.match(`${r.stdout}${r.stderr}`, /水印横幅保持/, '这一档要报名,不能静默放行')
 })
 
-test('接线锁 2026-11-05:本器的 --self-test 由这一层真跑一次(否则装载证明只住在人工敲的那一档)', () => {
-  // 立因:`judgeLandMsgShape`(2026-11-04 落)把"单行且不足 24 字符"的正文拒了,而 --self-test 的
-  // 九个夹具正文全是 `selftest …` 短串 ⇒ 落地器自己的自检从那天起 6/12 红,而 CI/门禁里没有一处
-  // 跑它(grep `.github/workflows` 对本器 --self-test 零命中)⇒ 红是静默的,直到这次人工敲才撞上。
-  // "造好没装车 = 没有"(§0.9)同样适用于器物自己的自检:它必须住在每次提交都跑的那一层。
-  const r = spawnSync(process.execPath, [TOOL, '--self-test'], {
-    cwd: join(HERE, '..', '..'),
+test('T-PF-4 端到端反向:带完整落地基约却没被认成直接执行 ⇒ 非零 + 点名"一个字节都没落地"(旧形态是静默 rc=0)', (t) => {
+  const dir = makeRepo(t)
+  const head = git(['rev-parse', 'HEAD'], { root: dir }).trim()
+  // 假执行面:以 import 形态调用本器(与 2026-11-06 事故那一支同形 —— argv[1] 不是本文件)
+  const r = spawnSync(process.execPath, ['-e', `import(${JSON.stringify(SELF_HREF)})`], {
     ...runOpts,
-    timeout: 900_000,
+    env: {
+      ...process.env,
+      LAND_ROOT: dir,
+      LAND_PATHS: 'a.txt',
+      LAND_MSG: 'chore: silent zero must shout',
+    },
   })
-  const out = `${String(r.stdout ?? '')}${String(r.stderr ?? '')}`
-  const m = /self-test:\s*(\d+)\/(\d+)\s*通过/.exec(out)
-  assert.ok(m, `末行没给出例数读数(不硬抄数字,§0.1):${out.slice(-400)}`)
-  assert.equal(
-    r.status,
-    0,
-    `--self-test RC=${r.status}\n${out
-      .split(/\r?\n/)
-      .filter((l) => l.startsWith('❌'))
-      .join('\n')
-      .slice(0, 1500)}`,
+  assert.notEqual(r.status, 0, `空跑却回 0 = 把"没发生"报成"发生过":${r.stdout}|${r.stderr}`)
+  assert.match(
+    (r.stderr || '') + (r.stdout || ''),
+    /一个字节都没落地/,
+    `必须点名什么都没落地,现读:${(r.stderr || '') + (r.stdout || '')}`,
   )
-  assert.equal(Number(m[1]), Number(m[2]), `自检未全绿:${m[1]}/${m[2]}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }).trim(), head, '空跑不得动 HEAD')
+  // 正向对照(两臂成对):不带落地基约的纯 import 必须仍然零副作用、仍然 rc=0 且不出声
+  // —— 镜像测试就是这么 import 本器的,把它一并拦死等于拆掉测试面。
+  const bareEnv = { ...process.env, LAND_ROOT: dir }
+  delete bareEnv.LAND_PATHS
+  delete bareEnv.LAND_REMOVE_PATHS
+  delete bareEnv.LAND_MSG
+  const bare = spawnSync(process.execPath, ['-e', `import(${JSON.stringify(SELF_HREF)})`], {
+    ...runOpts,
+    env: bareEnv,
+  })
+  assert.equal(bare.status, 0, `纯 import 不得被拦:${bare.stderr}`)
+  assert.equal((bare.stdout || '').trim(), '', `纯 import 不该出声:${bare.stdout}`)
+  assert.equal(git(['rev-parse', 'HEAD'], { root: dir }).trim(), head)
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+test('T-PF-5 looksLikeLandingContract 纯函数面:齐备才算"想落地",半边缺不算', () => {
+  const { looksLikeLandingContract } = __test__
+  assert.equal(looksLikeLandingContract({ LAND_PATHS: 'a.txt', LAND_MSG: 'chore: x' }), true)
+  assert.equal(
+    looksLikeLandingContract({ LAND_REMOVE_PATHS: '  a.txt ', LAND_MSG: 'chore: x' }),
+    true,
+    '纯删除也是合法的落地基约(与"想落地"同义)',
+  )
+  assert.equal(looksLikeLandingContract({ LAND_PATHS: 'a.txt' }), false, '缺 LAND_MSG 不构成基约')
+  assert.equal(looksLikeLandingContract({ LAND_MSG: 'chore: x' }), false, '缺清单不构成基约')
+  assert.equal(
+    looksLikeLandingContract({ LAND_PATHS: '  ;  ', LAND_MSG: 'chore: x' }),
+    false,
+    '空/纯分隔符的清单不构成基约',
+  )
+  assert.equal(looksLikeLandingContract({}), false, '裸 env 不得被认成落地意图(测试面 import)')
+})

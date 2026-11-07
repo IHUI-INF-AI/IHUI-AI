@@ -12,7 +12,7 @@
  *   ③ 比较不受 1.10 / 1.9 影响（逐段整数比，不是字符串比）
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync, writeFileSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -321,6 +321,54 @@ describe('闸门拦下：可读原因 + 升级出口', () => {
       minGate?: { minimumVersion: string | null };
     };
     expect(rewritten.minGate?.minimumVersion).toBe(null);
+  });
+
+  it('更新缓存读不到时不覆盖成新结论', async () => {
+    const blocked = join(TMP_DIR, 'blocked-update-check.json');
+    mkdirSync(blocked);
+    const writes: string[] = [];
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      writes.push(String(chunk));
+      return true;
+    });
+    try {
+      const result = await enforceServerMinimumVersion({
+        currentVersion: '1.0.0',
+        baseUrl: BASE_URL,
+        cacheFile: blocked,
+        warn: () => undefined,
+        request: async () => serverBody('9.9.9'),
+      });
+      expect(result.blocked).toBe(true);
+      expect(writes.join('')).toContain('不能把它覆盖成新结论');
+      expect(statSync(blocked).isDirectory()).toBe(true);
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
+  it('损坏的更新缓存不会被收成只剩新结论', async () => {
+    const file = join(TMP_DIR, 'corrupt-update-check.json');
+    const body = '{not json';
+    writeFileSync(file, body, 'utf-8');
+    const writes: string[] = [];
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      writes.push(String(chunk));
+      return true;
+    });
+    try {
+      await enforceServerMinimumVersion({
+        currentVersion: '1.0.0',
+        baseUrl: BASE_URL,
+        cacheFile: file,
+        warn: () => undefined,
+        request: async () => serverBody('9.9.9'),
+      });
+      expect(writes.join('')).toContain('不能把它覆盖成新结论');
+      expect(readFileSync(file, 'utf-8')).toBe(body);
+    } finally {
+      stderr.mockRestore();
+    }
   });
 });
 

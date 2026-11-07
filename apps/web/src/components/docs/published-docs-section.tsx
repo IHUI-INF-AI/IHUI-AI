@@ -60,7 +60,7 @@ export function PublishedDocsSection() {
   if (isError) {
     return (
       <div className="col-span-full rounded-lg border border-border bg-card p-3">
-        <p className="py-3 text-center text-sm text-muted-foreground">{tc('errorTitle')}</p>
+        <p className="font-[weight:inherit] py-3 text-center text-body text-muted-foreground">{tc('errorTitle')}</p>
       </div>
     )
   }
@@ -71,12 +71,12 @@ export function PublishedDocsSection() {
   return (
     <section className="col-span-full rounded-lg border bg-card p-3">
       <div className="flex items-center gap-2">
-        <span className="text-2xl">
+        <span className="font-[weight:inherit] text-display">
           <FileText className="h-6 w-6" />
         </span>
         <h2 className="text-lg font-semibold">{td('shellTitle')}</h2>
       </div>
-      <p className="mt-1 text-xs text-muted-foreground">{td('shellSubtitle')}</p>
+      <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">{td('shellSubtitle')}</p>
       <ul className="mt-4 space-y-3">
         {docs.slice(0, MAX_ITEMS).map((doc) => {
           const summary = summaryOf(doc)
@@ -87,7 +87,7 @@ export function PublishedDocsSection() {
                 className="block rounded-lg border bg-background p-3 transition-colors hover:bg-accent"
               >
                 <div className="font-medium text-body">{doc.title}</div>
-                {summary && <div className="text-xs text-muted-foreground">{summary}</div>}
+                {summary && <div className="font-[weight:inherit] text-label text-muted-foreground">{summary}</div>}
               </Link>
             </li>
           )

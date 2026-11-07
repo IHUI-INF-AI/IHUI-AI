@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Clock, Loader2, RefreshCw, Cloud, FileText } from 'lucide-react'
 
-import { fetchApi } from '@/lib/api'
+import { getCloudRun, listCloudRuns } from '@ihui/api-client'
 import { useTopBarBack } from '@/stores/topbar-back'
 
 interface CloudRun {
@@ -46,7 +46,7 @@ export function CloudRunsView() {
     async (page = 1) => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<RunListData>(`/api/cloud-runs?page=${page}&page_size=${PAGE_SIZE}`)
+      const res = await listCloudRuns({ page, page_size: PAGE_SIZE })
       setLoading(false)
       if (res.success && res.data) {
         setData(res.data)
@@ -62,7 +62,7 @@ export function CloudRunsView() {
     async (run: CloudRun) => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<CloudRun>(`/api/cloud-runs/${run.run_id}`)
+      const res = await getCloudRun(run.run_id)
       setLoading(false)
       if (res.success && res.data) {
         setSelected(res.data)

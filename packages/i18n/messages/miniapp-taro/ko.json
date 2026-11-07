@@ -690,8 +690,6 @@
       "agentTipTitle": "에이전트 사용 안내"
     },
     "chatDrawers": {
-      "emptyMaterial": "자료가 없습니다",
-      "materialLibrary": "자료실",
       "promptLabel": "프롬프트",
       "selectModel": "모델 선택",
       "skillDetail": "스킬 상세"
@@ -1192,7 +1190,15 @@
     "getCode": "인증번호 받기",
     "confirmLabel": "확인 문구",
     "confirmPlaceholder": "위 문구 입력",
-    "failed": "계정 탈퇴 실패, 다시 시도해 주세요"
+    "failed": "계정 탈퇴 실패, 다시 시도해 주세요",
+    "warning": "계정 삭제 후 모든 데이터가 영구적으로 삭제되며 복구할 수 없습니다.",
+    "consequence1": "계정 정보, 프로필 사진, 닉네임은 영구 삭제됩니다",
+    "consequence2": "주문, 포인트, 잔액, 멤버십 혜택은 초기화되며 복구할 수 없습니다",
+    "consequence3": "게시한 게시물, 댓글, 즐겨찾기, 채팅 기록은 삭제됩니다",
+    "consequence4": "연동된 휴대폰과 이메일은 해제되며 이 계정으로 로그인할 수 없습니다",
+    "consequence5": "진행 중인 멤버십, 강의 등 혜택은 즉시 종료되며 환불되지 않습니다",
+    "consequence6": "같은 휴대폰 번호로 다시 가입할 수 있지만 과거 데이터는 복구할 수 없습니다",
+    "consequence7": "미정산 거래나 위반 기록이 있는 계정은 신청이 거절될 수 있습니다"
   },
   "ask": {
     "create": {
@@ -1291,7 +1297,6 @@
     "questions": "{n}문제",
     "passScore": "합격 점수",
     "totalScore": "총점",
-    "passed": "합격",
     "result": {
       "scoreValue": "{n}점",
       "rankValue": "{total}명 중 {n}위",
@@ -1485,7 +1490,6 @@
     "withdrawable": "출금 가능",
     "pendingSettle": "정산 대기",
     "withdrawn": "출금 완료",
-    "myTeam": "내 팀",
     "columnTitle": "유통 주문",
     "retry": "재시도",
     "empty": "데이터 없음",
@@ -2080,7 +2084,8 @@
     "new": "신규",
     "empty": "콘텐츠 없음",
     "noDesc": "설명 없음",
-    "useCount": "{n}회 사용"
+    "useCount": "{n}회 사용",
+    "recommended": "추천"
   },
   "circle": {
     "empty": "콘텐츠 없음",
@@ -2112,8 +2117,7 @@
       "selectAigc": "AI 작품 선택(선택)",
       "noAigc": "연결할 AI 작품이 없습니다",
       "allowComments": "댓글 허용",
-      "visibility": "공개 범위",
-      "publishFailed": "게시에 실패했습니다. 다시 시도해 주세요"
+      "visibility": "공개 범위"
     },
     "index": {
       "goPublish": "게시하러 가기",
@@ -2215,8 +2219,7 @@
       "targetGroupEnterprise": "기업",
       "discountNone": "참여 안 함",
       "discountPartial": "부분 참여",
-      "discountFull": "전체 참여",
-      "saveSuccess": "저장되었습니다"
+      "discountFull": "전체 참여"
     }
   },
   "devSpace": {
@@ -2557,7 +2560,6 @@
     "startConversation": "대화를 시작하세요",
     "inputPlaceholder": "메시지를 입력하세요...",
     "sendBtn": "전송",
-    "noInteraction": "알림 없음",
     "noPrivate": "쪽지 없음",
     "noSystem": "시스템 알림 없음",
     "pin": "대화 고정",
@@ -2694,8 +2696,7 @@
     "payFailed": "결제 실패, 다시 시도하세요",
     "paying": "결제 중...",
     "purchaseContent": "구매 내용",
-    "userAgreement": "《사용자 약관》",
-    "activateDelayed": "혜택 부여가 지연되었습니다. 고객센터에 문의해 주세요"
+    "userAgreement": "《사용자 약관》"
   },
   "study": {
     "todayMinutes": "오늘 {n}분",
@@ -2848,10 +2849,7 @@
   },
   "token": {
     "balance": {
-      "title": "내 토큰",
-      "agentConsume": "에이전트 소비",
-      "ordersConsume": "대형 모델 소비",
-      "costTime": "소비 시간:"
+      "title": "내 토큰"
     }
   },
   "user": {
@@ -2942,8 +2940,6 @@
       "phoneInvalid": "잘못된 전화번호",
       "codeSendFailed": "코드 발송 실패",
       "bindSuccess": "전화번호 연결 성공",
-      "codePlaceholder": "코드 입력",
-      "getCode": "코드 받기",
       "bind": "연결",
       "currentLabel": "현재 전화번호",
       "codeSent": "인증코드 발송됨",
@@ -2961,7 +2957,9 @@
       "verifiedTip": "현재 휴대폰 번호가 인증되었습니다",
       "bindDesc": "연동 후 로그인, 비밀번호 찾기, 알림 수신에 사용할 수 있습니다",
       "bindTitle": "휴대전화 번호 연동",
-      "codeLength": "6자리 인증번호를 입력하세요"
+      "codeLength": "6자리 인증번호를 입력하세요",
+      "selectNation": "국가 코드 선택",
+      "resend": "{s}초 후 재시도"
     },
     "profile": {
       "avatar": "아바타",
@@ -2992,6 +2990,10 @@
     "text6": "등급 소개 페이지 미구성",
     "menu": {
       "subscriptions": "내 구독"
+    },
+    "security": {
+      "code": "인증 코드",
+      "sendCode": "전송인증 코드"
     }
   },
   "vipScreen": {
@@ -3247,7 +3249,8 @@
     "contactPlaceholder": "연락처를 입력하세요(선택)",
     "contentPlaceholder": "피드백 상세 내용을 입력하세요",
     "submit": "피드백 제출",
-    "type": "유형"
+    "type": "유형",
+    "success": "제출되었습니다"
   },
   "comment": {
     "loading": "로딩 중...",
@@ -3286,7 +3289,6 @@
     "noCover": "표지 없음",
     "watched": "시청함",
     "playing": "재생중",
-    "courseCatalog": "강의 목차",
     "empty": "챕터가 아직 없습니다"
   },
   "video": {
@@ -3313,20 +3315,13 @@
     "signNow": "지금 체크인 +5 포인트",
     "signedToday": "오늘 체크인 완료"
   },
-  "withdrawal": {
-    "records": "출금 기록"
-  },
   "intro": {
     "empty": "소개 없음",
     "relatedAI": "관련 AI 앱"
   },
   "invite": {
     "title": "친구 초대",
-    "qrcode": "QR 코드",
-    "code": "초대 코드:",
     "saveImage": "이미지 저장",
-    "shareNow": "지금 공유",
-    "inviteSuffix": "님을 초대합니다",
     "inviteCode": "초대 코드",
     "totalInvited": "누적 초대",
     "totalReward": "누적 보상",
@@ -3431,28 +3426,6 @@
     "resendCode": "재전송",
     "termsOfService": "이용약관",
     "loginFailed": "로그인 실패, 재시도"
-  },
-  "level": {
-    "0": "초보자",
-    "1": "브론즈",
-    "2": "실버",
-    "3": "골드",
-    "4": "플래티넘",
-    "5": "다이아몬드",
-    "6": "킹",
-    "distance": "남은"
-  },
-  "interaction": {
-    "collect": "나를 즐겨찾기함",
-    "comment": "나에게 댓글을 남김",
-    "follow": "나를 팔로우함",
-    "like": "나의 게시물에 좋아요"
-  },
-  "planet": {
-    "empty": "플래닛이 아직 없습니다",
-    "join": "플래닛 가입",
-    "joined": "가입됨",
-    "members": "멤버"
   },
   "chat": {
     "approvalExpiredNotice": "연결이 끊겨 {toolName} 도구의 승인이 만료되었습니다. 해당 작업은 실행되지 않았습니다. 계속하려면 다시 요청하세요.",
@@ -3871,21 +3844,8 @@
     "d2": "올라운드",
     "text1": "에이전트 모드"
   },
-  "TitleSwitchScrollPicker": {
-    "d1": "트랙 1",
-    "d2": "트랙 2",
-    "d3": "트랙 3",
-    "d4": "트랙 4",
-    "d5": "트랙 5",
-    "d6": "트랙 6",
-    "d7": "트랙 7",
-    "d8": "트랙 8"
-  },
   "PhoneAreaCodePicker": {
     "d1": "중국"
-  },
-  "WithdrawalRecords": {
-    "d1": "반려됨"
   },
   "askCreate": {
     "d1": "기술",
@@ -3926,13 +3886,6 @@
     "d2": "월 이용료",
     "d3": "구매 완료"
   },
-  "TitleSwitchOverlap": {
-    "d1": "트랙 1",
-    "d2": "트랙 2",
-    "d3": "트랙 3",
-    "d4": "트랙 4",
-    "d5": "트랙 5"
-  },
   "TitleSwitchScrollTitle": {
     "d1": "트랙 1",
     "d2": "서브트랙 1-1",
@@ -3957,11 +3910,6 @@
     "rank": "순위",
     "studyHours": "학습 시간",
     "levelDesc": "레벨"
-  },
-  "EmptyIllustration": {
-    "d1": "관련 콘텐츠를 찾을 수 없음",
-    "d2": "네트워크 오류",
-    "d3": "권한 없음"
   },
   "SystemNotice": {
     "d1": "업그레이드"
@@ -4002,10 +3950,6 @@
     "d4": "에이전트는 어떻게 등록되나요?",
     "d5": "n8n 에이전트"
   },
-  "tokenBalance": {
-    "d1": "1개월",
-    "d2": "최근 1년"
-  },
   "LessonListItem": {
     "text1": "VIP 전용",
     "text2": "VIP 전용",
@@ -4018,12 +3962,6 @@
   "UserInfoCard": {
     "login1": "원탭 로그인",
     "text2": "해지"
-  },
-  "TitleSwitchTypeBar": {
-    "text1": "사용자 정의",
-    "settings2": "사용자 정의 종류를 설정해 주세요",
-    "confirm": "확인",
-    "m1": "종류 입력"
   },
   "adaptersSelectertaro": {
     "text1": "SD 480p",
@@ -4087,12 +4025,8 @@
   },
   "tail": {
     "6": "데이터 없음",
-    "7": "다시 시도",
     "8": "불러오는 중...",
-    "10": "출금 기록 없음",
     "11": "선택 모델: {m}",
-    "12": "인증 코드를 {m}(으)로 전송했습니다",
-    "13": "{m}에 가입",
     "14": "관심 있는 트랙을 선택하여 맞춤 추천 받기",
     "15": "기본 모델",
     "17": "유료 ¥{m}",
@@ -4122,12 +4056,6 @@
   "ErrorView": {
     "p1": "나중에 다시 시도해 주세요"
   },
-  "FilterDropdown": {
-    "p1": "필터"
-  },
-  "InvitePoster": {
-    "p1": "친구를 초대하고 현금 보상 받기"
-  },
   "ModelTypeButtonGroup": {
     "m1": "스킬",
     "m2": "음성",
@@ -4136,13 +4064,6 @@
   "QrCodeShare": {
     "p1": "포스터 공유",
     "p2": "스캔하여 보기"
-  },
-  "TagInput": {
-    "p1": "Enter 키로 추가",
-    "p2": "한도에 도달했습니다"
-  },
-  "VipUpgradeToast": {
-    "p1": "회원 업그레이드로 더 많은 기능 해제"
   },
   "aicareer": {
     "q1": "면접",
@@ -4195,9 +4116,6 @@
     "q2": "위챗 미니 프로그램에서 위챗 로그인을 사용해 주세요",
     "q3": "위챗 로그인 코드가 비어 있습니다",
     "q4": "위챗 사용자"
-  },
-  "TeamManager": {
-    "p1": "비활성"
   },
   "VideoInfo": {
     "p1": "영상 상세"
@@ -4375,18 +4293,6 @@
     "n8nShareFail": "공유 실패",
     "n8nGenBadge": "AI 생성 · 포인트 사용:",
     "n8nHoldToTalk": "길게 눌러 질문 말하기"
-  },
-  "verify": {
-    "phoneEmpty": "휴대폰 번호가 비어 있습니다",
-    "phoneInvalid": "올바른 휴대폰 번호를 입력하세요",
-    "codeSent": "인증 코드를 전송했습니다",
-    "codeIncomplete": "인증 코드를 모두 입력하세요",
-    "verifySuccess": "인증에 성공했습니다",
-    "getCode": "인증 코드를 입력하세요"
-  },
-  "VerifyCodeModal": {
-    "p2": "재전송",
-    "p3": "인증 중..."
   },
   "VoiceInput": {
     "p1": "녹음을 시작하지 못했습니다"
@@ -4797,7 +4703,7 @@
       "rejected": "거부됨",
       "cancelled": "해제됨"
     },
-    "myAttendanceHint": "보기·직접 등교"
+    "myAttendanceHint": "본인 등교 기록 보기"
   },
   "eduChildAttendance": {
     "title": "자녀 출석",
@@ -4820,31 +4726,30 @@
     "status": {
       "present": "정상",
       "late": "지각",
-      "early": "조퇴",
       "absent": "결석",
-      "leave": "휴가"
+      "leave": "조퇴"
     },
     "student": "학생",
-    "batchCheckIn": "반 일괄 출석",
-    "checkInFor": "대신 등교",
-    "checkedInToast": "등교 완료",
-    "checkedOutToast": "하교 완료",
-    "batchDoneToast": "일괄 등교 완료",
-    "batchResult": "출석 처리 완료：신규 {created}명，건너뜀 {skipped}명，미저장 {missed}명",
-    "noClassReason": "반 정보를 가져오지 못해 반 일괄 출석을 할 수 없습니다",
-    "multiClass": "목록에 여러 반이 있습니다，이번에는 {classId}만 처리합니다",
     "checkInAt": "등교 시각",
     "momentNow": "지금",
-    "backfillNeedsTime": "과거 날짜를 등록하려면 해당 날짜의 등교 시각이 필요합니다",
-    "statsTotalLabel": "기록 수",
-    "statsAttendanceRate": "출석률",
-    "statusDistribution": "상태 분포",
-    "trendChartTitle": "출석 추이",
-    "trendChartHint": "출석률 = 정상 출석 ÷ 해당 시간대의 출석 기록 수(체크인하지 않은 학생은 분모에 포함되지 않음)",
-    "trendChartScope": "집계 범위: {scope}",
+    "backfillNeedsTime": "지난 날짜를 등록하려면 해당 날짜의 등교 시각이 필요합니다",
+    "checkedInToast": "등교 처리됨",
+    "checkedOutToast": "하교 처리됨",
+    "batchResult": "출석 완료: 신규 {created}, 건너뜀 {skipped}, 누락 {missed}",
+    "batchDoneToast": "출석 완료",
+    "checkInFor": "대리 등교",
+    "batchCheckIn": "일괄 등교 체크",
+    "noClassReason": "현재 목록에 선택할 반이 없습니다",
+    "multiClass": "여러 반이 있어 이번에는 {classId}만 처리합니다",
+    "statusOther": "기타",
     "trendWindow": "최근 {days}일",
+    "trendChartScope": "집계 범위: {scope}",
+    "statusDistribution": "상태 분포",
+    "statsTotalLabel": "총 체크인 수",
+    "statsAttendanceRate": "출석률",
     "emptyTrend": "추이 데이터가 없습니다",
-    "statusOther": "기타"
+    "trendChartTitle": "출석 추이",
+    "trendChartHint": "출석률 = 정상 출석 ÷ 해당 시간대의 출석 기록 수(체크인하지 않은 학생은 분모에 포함되지 않음)"
   },
   "eduMgmt": {
     "attendanceTitle": "출석 관리",
@@ -5234,9 +5139,7 @@
     "empty": "강좌가 없습니다",
     "free": "무료",
     "studentCount": "{count}명 학습",
-    "nextPage": "다음 페이지",
-    "popular": "인기 강좌",
-    "unknownInstructor": "알 수 없는 강사"
+    "nextPage": "다음 페이지"
   },
   "customerService": {
     "title": "고객 지원 문의",
@@ -5693,7 +5596,10 @@
     "twoFactor": "2단계 인증",
     "loginAlert": "로그인 알림",
     "desc": "계정 보안 관련 설정 관리",
-    "loadFailed": "보안 설정 불러오기 실패"
+    "loadFailed": "보안 설정 불러오기 실패",
+    "readOnlyHint": "이 화면은 현재 상태만 표시하며 여기서 변경할 수 없습니다",
+    "stateOn": "켜짐",
+    "stateOff": "꺼짐"
   },
   "selfMedia": {
     "title": "셀프미디어 어시스턴트",
@@ -6905,7 +6811,15 @@
     "newPassword": "새 비밀번호",
     "language": "언어",
     "theme": "테마",
-    "version": "버전"
+    "version": "버전",
+    "accountDeletionConsequenceTitle": "삭제 후 영향",
+    "accountDeletionConsequence1": "계정 정보, 프로필 사진, 닉네임은 영구 삭제됩니다",
+    "accountDeletionConsequence2": "주문, 포인트, 잔액, 멤버십 혜택은 초기화되며 복구할 수 없습니다",
+    "accountDeletionConsequence3": "게시한 게시물, 댓글, 즐겨찾기, 채팅 기록은 삭제됩니다",
+    "accountDeletionConsequence4": "연동된 휴대폰과 이메일은 해제되며 이 계정으로 로그인할 수 없습니다",
+    "accountDeletionConsequence5": "진행 중인 멤버십, 강의 등 혜택은 즉시 종료되며 환불되지 않습니다",
+    "accountDeletionConsequence6": "같은 휴대폰 번호로 다시 가입할 수 있지만 과거 데이터는 복구할 수 없습니다",
+    "accountDeletionConsequence7": "미정산 거래나 위반 기록이 있는 계정은 신청이 거절될 수 있습니다"
   },
   "liveList": {
     "subtitle": "다양한 라이브, 놓치지 마세요",
@@ -6955,7 +6869,29 @@
     "loadFailed": "불러오기 실패",
     "passed": "합격",
     "wrongQuestions": "틀린 문제",
-    "yourAnswer": "내 답안"
+    "yourAnswer": "내 답안",
+    "correct": "정답",
+    "correctAnswer": "정답",
+    "duration": "소요 시간",
+    "failed": "불합격",
+    "statCorrect": "정답",
+    "statWrong": "오답",
+    "statUnanswered": "미응답",
+    "durationUnit": "{n}분",
+    "countUnit": "{n}문항",
+    "reviewTitle": "문제 해설",
+    "noReview": "해설이 없습니다",
+    "questionIdx": "{n}",
+    "reviewCorrect": "정답",
+    "reviewWrong": "오답",
+    "unansweredAnswer": "미응답",
+    "analysis": "해설",
+    "reviewScore": "{n}점",
+    "rank": "{rank}위 / 총 {total}명",
+    "retry": "다시 응시",
+    "viewList": "시험 목록 보기",
+    "share": "결과 공유",
+    "shareTitle": "시험 점수: {n}점"
   },
   "favorite": {
     "tab_aigc": "AI 작품",
@@ -6985,6 +6921,10 @@
   },
   "messageCenter": {
     "conversations": "대화",
+    "deleteConv": "대화 삭제",
+    "loadMore": "더 불러오기",
+    "markRead": "읽음으로 표시",
+    "searchPh": "대화·연락처 검색",
     "title": "메시지",
     "type": {
       "course": "강좌",
@@ -7000,7 +6940,7 @@
     "labelSaleType": "판매 유형",
     "submit": "저장",
     "submitting": "제출 중...",
-    "readOnlyHint": "현재 수정할 수 없습니다"
+    "readOnlyHint": "이 항목은 아직 수정할 수 없습니다"
   },
   "modelIncome": {
     "accumulated": "누적 수익",
@@ -7115,14 +7055,106 @@
   "studyIndex": {
     "receiveFreeBody": "링크가 클립보드에 복사되었습니다. 브라우저에서 붙여넣어 여세요"
   },
+  "career": {
+    "exportingReport": "내보내는 중...",
+    "exportEmptyHint": "리포트를 생성한 후 내보낼 수 있습니다"
+  },
+  "activities": {
+    "join": "지금 참여"
+  },
+  "chatSettingsPage": {
+    "model": "모델"
+  },
+  "eduExamListPage": {
+    "start": "시험 시작"
+  },
+  "eduExamPage": {
+    "prevQuestion": "이전 문제",
+    "nextQuestion": "다음 문제"
+  },
+  "eduProgressPage": {
+    "weeklyHours": "이번 주 학습 시간"
+  },
+  "learn": {
+    "signedUp": "신청 완료"
+  },
+  "learnMapPage": {
+    "completed": "완료됨",
+    "empty": "학습 경로가 없습니다"
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "구독 취소"
+  },
+  "student": {
+    "myCertsTitle": "자격증 목록"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "질문"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "결제 수단"
+    }
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 키"
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "하위 멤버가 없습니다"
+  },
   "eduMyAttendance": {
     "title": "내 출석",
-    "selfCheckIn": "직접 등교",
-    "selfDoneToast": "등교 완료",
-    "classByBackendHint": "반은 재학 등록 정보에 따라 자동으로 결정됩니다",
-    "remarkPlaceholder": "비고(선택)",
+    "selfCheckIn": "등교 체크하기",
     "scanCheckIn": "스캔으로 체크인",
-    "scanDoneToast": "스캔 체크인이 완료되었습니다",
-    "scanInvalidToast": "이 시스템의 체크인 QR 코드가 아닙니다"
+    "classByBackendHint": "반은 재학 등록 정보에 따라 자동으로 결정됩니다",
+    "selfDoneToast": "등교 등록됨",
+    "scanDoneToast": "스캔으로 체크인 완료",
+    "scanInvalidToast": "이 시스템의 출석 QR 코드가 아닙니다"
+  },
+  "knowledgePlanet": {
+    "title": "지식 플래닛",
+    "newOfficial": "공지",
+    "newCommunity": "커뮤니티",
+    "enter": "플래닛 입장",
+    "memberCount": "{count}명의 멤버"
+  },
+  "publishNew": {
+    "title": "새 게시",
+    "subtitle": "계정을 선택하고 내용과 게시 시각을 설정합니다",
+    "accountLoadFailed": "계정을 불러오지 못했습니다",
+    "noAccounts": "사용 가능한 플랫폼 계정이 없습니다",
+    "noAccountsHint": "먼저 웹에서 QR 로그인 또는 자격 증명을 설정하세요",
+    "contentTitle": "내용",
+    "titlePlaceholder": "제목을 입력하세요",
+    "titleRequired": "제목을 입력하세요",
+    "formatMd": "Markdown",
+    "formatHtml": "HTML",
+    "formatDocx": "Word",
+    "formatPdf": "PDF",
+    "formatImage": "이미지",
+    "formatVideo": "동영상",
+    "bodyPlaceholder": "본문을 입력하세요",
+    "bodyRequired": "본문을 입력하세요",
+    "uploadHint": "docx / pdf / 이미지 / 동영상 지원, 파일당 최대 200MB",
+    "pickFile": "파일 선택",
+    "uploading": "업로드 중…",
+    "uploadFailed": "업로드에 실패했습니다",
+    "removeFile": "삭제",
+    "fileRequired": "먼저 파일을 업로드하세요",
+    "accountsLabel": "게시 계정",
+    "selectedCount": "{count}개 선택됨",
+    "accountsRequired": "계정을 하나 이상 선택하세요",
+    "scheduleLabel": "게시 시각",
+    "scheduleNow": "즉시 게시",
+    "scheduleLater": "예약 게시",
+    "quickTomorrow": "24시간 후",
+    "quickNextWeek": "7일 후",
+    "submit": "게시 제출",
+    "submitting": "제출 중…",
+    "submitSuccess": "게시 작업이 생성되었습니다",
+    "submitFailed": "제출에 실패했습니다",
+    "taskCreated": "작업 ID: {taskId}"
   }
 }

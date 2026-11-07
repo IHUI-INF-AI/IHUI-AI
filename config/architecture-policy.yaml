@@ -566,6 +566,16 @@ modules:
       # 2026-11-01(门 103 D3 清偿):apps/api 与 apps/web 的 artifacts 面从
       # '@ihui/shared/artifact' 取类型,该入口在 packages/shared 的 exports 里真实存在。
       - './artifact'
+      # 2026-11-05(门 103 D3 清偿,存量 14 处):permission / attribution / reports /
+      # local-registry / delete-guard 五个子路径均自带 index.ts,且
+      # packages/shared/package.json#exports 早已逐条声明 ⇒ 它们本就是公开入口,
+      # 本表漏登才是红因(形态与此前 './artifact' 同款)。只登精确名、不登 '*' 通配:
+      # 通配把封装边界开到任意深度,日后真要深导入时由 D3 多要一次定向说明。
+      - './permission'
+      - './attribution'
+      - './reports'
+      - './local-registry'
+      - './delete-guard'
 
   - id: 'packages/app'
     package: '@ihui/rn-app'

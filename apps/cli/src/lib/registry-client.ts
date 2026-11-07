@@ -141,7 +141,16 @@ export class RegistryClient {
 // 供 upgrade 子命令实现"订阅自动 pull 升级":对比本地版本与 registry 最新版本,
 // 落后则自动调用 install 拉取新版本。
 
-const MANIFEST_PATH = path.join(os.homedir(), '.ihui', 'registry-installs.json');
+function installsPath(): string {
+  return path.join(os.homedir(), '.ihui', 'registry-installs.json');
+}
+
+function readErrorCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
 
 /** 本地安装清单单条记录 */
 export interface RegistryInstallRecord {
@@ -153,29 +162,33 @@ export interface RegistryInstallRecord {
 
 /** 本地安装清单路径 */
 export function getInstallsManifestPath(): string {
-  return MANIFEST_PATH;
+  return installsPath();
 }
 
-/** 读取本地安装清单(缺失/损坏返回空数组) */
-export function loadInstalls(): RegistryInstallRecord[] {
+/** 读取本地安装清单。文件不存在或空文件是空数组。非空损坏不能当成没有已装项。 */
+export function loadInstalls(filePath = installsPath()): RegistryInstallRecord[] {
+  let raw: string;
   try {
-    if (!fs.existsSync(MANIFEST_PATH)) return [];
-    const raw = fs.readFileSync(MANIFEST_PATH, 'utf-8');
-    const parsed = tryParseJson(raw);
-    return isRecord(parsed) && Array.isArray(parsed.installs)
-      ? (parsed.installs as RegistryInstallRecord[])
-      : [];
-  } catch {
-    return [];
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    const code = readErrorCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+    throw new Error(`安装清单读不到,不能把它说成没有已装项 (${code})`);
   }
+  if (raw.trim() === '') return [];
+  const parsed = tryParseJson(raw);
+  if (!isRecord(parsed) || !Array.isArray(parsed.installs)) {
+    throw new Error('安装清单读不到,不能把它说成没有已装项 (corrupt)');
+  }
+  return parsed.installs as RegistryInstallRecord[];
 }
 
-/** 写入本地安装清单(覆盖) */
-function writeInstalls(installs: RegistryInstallRecord[]): void {
+/** 写入本地安装清单(覆盖)。写失败不抛,避免挡住安装本身。 */
+function writeInstalls(installs: RegistryInstallRecord[], filePath = installsPath()): void {
   try {
-    const dir = path.dirname(MANIFEST_PATH);
+    const dir = path.dirname(filePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(MANIFEST_PATH, JSON.stringify({ installs }, null, 2), 'utf-8');
+    fs.writeFileSync(filePath, JSON.stringify({ installs }, null, 2), 'utf-8');
   } catch {
     // 写入失败不影响主流程
   }
@@ -185,8 +198,8 @@ function writeInstalls(installs: RegistryInstallRecord[]): void {
  * 记录一次安装(upsert by sourceType + sourceId)。
  * 同 sourceType + sourceId 已存在则更新 version + installedAt,否则追加。
  */
-export function recordInstall(record: RegistryInstallRecord): void {
-  const installs = loadInstalls();
+export function recordInstall(record: RegistryInstallRecord, filePath = installsPath()): void {
+  const installs = loadInstalls(filePath);
   const idx = installs.findIndex(
     (i) => i.sourceType === record.sourceType && i.sourceId === record.sourceId,
   );
@@ -196,17 +209,17 @@ export function recordInstall(record: RegistryInstallRecord): void {
   } else {
     installs.push({ ...record, installedAt: record.installedAt || now });
   }
-  writeInstalls(installs);
+  writeInstalls(installs, filePath);
 }
 
 /** 移除一条安装记录(按 sourceType + sourceId),返回是否实际删除 */
-export function removeInstall(sourceType: RegistrySourceType, sourceId: string): boolean {
-  const installs = loadInstalls();
+export function removeInstall(sourceType: RegistrySourceType, sourceId: string, filePath = installsPath()): boolean {
+  const installs = loadInstalls(filePath);
   const next = installs.filter(
     (i) => !(i.sourceType === sourceType && i.sourceId === sourceId),
   );
   if (next.length === installs.length) return false;
-  writeInstalls(next);
+  writeInstalls(next, filePath);
   return true;
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import ntpath
 import os
+import stat
 from dataclasses import dataclass, field
 
 PROTECTED_METADATA_GIT_PATH_NAME = ".git"
@@ -196,19 +197,40 @@ def default_read_only_subpaths_for_writable_root(
     工作区根的 .codex 即使不存在也保护(首次创建走受保护审批)。返回去重序列。"""
     subpaths: list[str] = []
     top_level_git = os.path.join(writable_root, PROTECTED_METADATA_GIT_PATH_NAME)
-    git_is_file = os.path.isfile(top_level_git)
-    git_is_dir = os.path.isdir(top_level_git)
-    if git_is_dir or git_is_file:
-        if git_is_file and is_git_pointer_file(top_level_git):
+    try:
+        git_mode = os.stat(top_level_git).st_mode
+    except FileNotFoundError:
+        git_mode = None
+    except OSError:
+        subpaths.append(top_level_git)
+        git_mode = None
+    else:
+        if git_mode is not None and stat.S_ISREG(git_mode) and is_git_pointer_file(top_level_git):
             gitdir = resolve_gitdir_from_file(top_level_git)
             if gitdir:
                 subpaths.append(gitdir)
         subpaths.append(top_level_git)
     top_level_agents = os.path.join(writable_root, PROTECTED_METADATA_AGENTS_PATH_NAME)
-    if os.path.isdir(top_level_agents):
+    try:
+        agents_mode = os.stat(top_level_agents).st_mode
+    except FileNotFoundError:
+        agents_mode = None
+    except OSError:
+        subpaths.append(top_level_agents)
+        agents_mode = None
+    if agents_mode is not None and stat.S_ISDIR(agents_mode):
         subpaths.append(top_level_agents)
     top_level_codex = os.path.join(writable_root, PROTECTED_METADATA_CODEX_PATH_NAME)
-    if protect_missing_dot_codex or os.path.isdir(top_level_codex):
+    try:
+        codex_is_dir = stat.S_ISDIR(os.stat(top_level_codex).st_mode)
+        codex_unread = False
+    except FileNotFoundError:
+        codex_is_dir = False
+        codex_unread = False
+    except OSError:
+        codex_is_dir = False
+        codex_unread = True
+    if protect_missing_dot_codex or codex_is_dir or codex_unread:
         subpaths.append(top_level_codex)
     # 去重(保持顺序)
     seen: set[str] = set()

@@ -218,18 +218,56 @@ export interface OrderDetailScreenProps {
 }
 
 /** WithdrawScreen props(表单屏,状态由 wrapper 管理,共享层只负责渲染) */
+export interface WithdrawMethodOption {
+  id: string
+  label: string
+  icon?: string
+}
+
+/** 提现屏文案覆盖(web/小程序注入 i18n;未传时回落到既有 key) */
+export interface WithdrawScreenTexts {
+  title?: string
+  back?: string
+  availableBalance?: string
+  amountLabel?: string
+  amountPlaceholder?: string
+  methodLabel?: string
+  accountLabel?: string
+  accountPlaceholder?: string
+  bankCardLabel?: string
+  bankCardPlaceholder?: string
+  fillAll?: string
+  records?: string
+  submit?: string
+  submitting?: string
+  feeHint?: string
+}
+
 export interface WithdrawScreenProps {
   t: TFunction
   amount: string
-  bankCardId: string
+  /** RN 走银行卡号输入;web/小程序改传 accountInfo */
+  bankCardId?: string
   loading: boolean
   error: string
   success: string
   onAmountChange: (text: string) => void
-  onBankCardIdChange: (text: string) => void
+  onBankCardIdChange?: (text: string) => void
   onSubmit: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 到账方式选择(web/小程序注入);未注入时保留单独银行卡输入(RN) */
+  methods?: WithdrawMethodOption[]
+  method?: string
+  onMethodChange?: (id: string) => void
+  /** 第三方账户(微信/支付宝/银行卡),与 methods 搭配 */
+  accountInfo?: string
+  onAccountInfoChange?: (text: string) => void
+  onFillAll?: () => void
+  recordsLabel?: string
+  onRecords?: () => void
+  texts?: WithdrawScreenTexts
+  submitting?: boolean
 }
 
 /** 批次 10(2026-07-29):订单日志/订单跟踪/课程章节/学习进度 */
@@ -352,15 +390,20 @@ export type ModelIncomeTab = 'all' | 'pending' | 'settled' | string
 /** 模型收益列表项(平台注入,字段对齐 mobile-rn ModelIncomeScreen CommissionRecord) */
 export interface ModelIncomeItem {
   id: string
-  orderId: string
-  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算) */
-  status: string
-  createdAt: string
-  userNickname: string
-  orderAmount: number
-  /** 佣金费率(百分比) */
-  rate: number
-  commissionAmount: number
+  /** 订单号(平台只回流水号时由流水号顶替;缺省则不渲染订单行) */
+  orderId?: string
+  /** 结算状态(原始 status 字段,'settled'/'2' 视为已结算;缺省不渲染状态徽标) */
+  status?: string
+  /** 已格式化的时间文案;缺省不渲染时间行 */
+  createdAt?: string
+  /** 结算对象昵称;缺省不渲染头像/昵称块 */
+  userNickname?: string
+  /** 订单金额;平台无此字段时省略,不补 0(缺省不渲染订单金额) */
+  orderAmount?: number
+  /** 佣金费率(百分比);平台无此列时省略,不补 0 */
+  rate?: number
+  /** 本次结算佣金金额;平台无此字段时省略,不补 0(缺省不渲染金额) */
+  commissionAmount?: number
 }
 
 /** 模型收益概要(平台注入,字段对齐 @ihui/api-client CommissionOverview + DayMonthSummary) */
@@ -393,6 +436,8 @@ export interface ModelIncomeScreenProps {
   onOpenWithdraw: () => void
   onCloseWithdraw: () => void
   onConfirmWithdraw: () => void
+  /** 提现按钮置灰(可提现额为 0 时为 true,点击不再打开弹窗;缺省 false 与旧行为一致) */
+  withdrawDisabled?: boolean
   /** 触底续取下一页中(列表尾部显示"加载中…") */
   loadingMore?: boolean
   /** 是否还有下一页(壳按 total 算出;false 且已有数据时列表尾部显示"没有更多了") */
@@ -510,6 +555,21 @@ export interface TopupSuccessScreenProps {
   onFaqVisibleChange?: (v: boolean) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 可选:页头标题(缺省「充值结果」);showBack=false 时不渲染页头 */
+  title?: string
+  /** 可选:成功文案下的副标题 */
+  subtitle?: string
+  /** 可选:成功文案下方的提示条(如「会员权益已激活」) */
+  notice?: string
+  /** 可选:信息行(缺省按 amount/orderId/time 渲染充值三行);带 onPress 时整行可点(如复制订单号) */
+  rows?: readonly { label: string; value: string; onPress?: () => void }[]
+  /** 可选:次/主按钮文案(缺省「查看订单」「返回首页」) */
+  secondaryLabel?: string
+  primaryLabel?: string
+  /** 可选:按钮下方入口卡(如「分享好友赚佣金」) */
+  footerLink?: { title: string; desc: string; onPress: () => void }
+  /** 可选:是否渲染顶部返回(缺省 true) */
+  showBack?: boolean
 }
 
 export interface EarnCommissionScreenProps {
@@ -526,12 +586,41 @@ export interface EarnCommissionScreenProps {
 }
 
 /** 充值 Screen Props */
+export interface AppTopupUserInfo {
+  avatar?: string
+  nickname?: string
+  subtitle?: string
+}
+
+export interface AppTopupRateTier {
+  key: string
+  label: string
+  tokens: number
+}
+
+/** 充值屏文案覆盖(web/小程序注入 i18n;未传时回落到既有中文) */
+export interface AppTopupScreenTexts {
+  title?: string
+  balanceLabel?: string
+  amountTitle?: string
+  rateTitle?: string
+  customPlaceholder?: string
+  methodTitle?: string
+  submit?: string
+  submitting?: string
+  introTitle?: string
+  introBody?: string
+  gotIt?: string
+  guest?: string
+}
+
 export interface AppTopupScreenProps {
   t: TFunction
   selectedId: string
   customAmount: string
   payMethod: string
-  balance: number
+  /** 账户余额(分);未传时共享屏不渲染余额卡 */
+  balance?: number
   refreshing: boolean
   introVisible: boolean
   /** 当前用户档位,用于高亮对应充值比例(normal 普通 / vip 会员 / trader 操盘手;trader 由 AuthUser.identityType === 'trader' 判定) */
@@ -546,5 +635,13 @@ export interface AppTopupScreenProps {
   onCloseIntro: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 用户资料卡(web/小程序注入);未传时不渲染 */
+  user?: AppTopupUserInfo
+  /** 充值比例档位覆盖;未传时用共享屏默认三档 */
+  rateTiers?: AppTopupRateTier[]
+  /** 提交中态(禁用按钮 + 文案) */
+  submitting?: boolean
+  /** 文案覆盖(i18n) */
+  texts?: AppTopupScreenTexts
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

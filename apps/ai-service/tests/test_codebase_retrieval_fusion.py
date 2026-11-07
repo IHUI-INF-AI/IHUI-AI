@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -396,4 +397,124 @@ async def test_path_error_contract_keeps_ok_false_and_names_mode(
     assert out["mode"] == "unjudged", out["mode"]
     assert out["degraded"] is True
     assert out["stats"]["legs_unavailable"] == ["vector", "keyword"]
+
+
+# ---------------------------------------------------------------------------
+# ⑥ 合并裁决钉的两格(2026-11-06 人工归并:本侧「读不到 ⇒ unjudged」×对侧「同步段挪线程池」)
+#    本侧语义:目录/文件读不到是**取不到**,不是「没有」——必须显式 unjudged 并给理由;
+#    对侧语义:整段同步遍历 + 子进程 + 阻塞读必须离开事件循环线程。
+#    两格各一枚牙 + 一枚正向对照,任何一侧被简化掉都会翻红。
+# ---------------------------------------------------------------------------
+
+
+def _unreadable_tree_repo(tmp_path: Path) -> Path:
+    """关键词腿夹具:一枚读得到的文件 + 一枚读不动的文件,内容都不含查询词。"""
+    (tmp_path / "alpha.py").write_text("def unrelated_body():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "blocked.py").write_text(
+        f"def {_QUERY}():\n    return 1\n", encoding="utf-8"
+    )
+    return tmp_path
+
+
+def _spy_walk(monkeypatch: pytest.MonkeyPatch, errors: list[OSError]) -> None:
+    """把 `errors` 逐条喂给 os.walk 的 onerror 钩子(遍历本身仍走真 os.walk)。
+
+    真造「目录读不动」在跨平台夹具里不可靠,而本侧的判据住在**钩子怎么数**这一格,
+    所以这里只在遍历入口回调钩子,不替换遍历实现。
+    """
+    import os as os_module
+
+    real_walk = os_module.walk
+
+    def _walk_with_errors(
+        top: Any, *args: Any, onerror: Any = None, **kwargs: Any
+    ) -> Any:
+        if onerror is not None:
+            for err in errors:
+                onerror(err)
+        return real_walk(top, *args, onerror=onerror, **kwargs)
+
+    monkeypatch.setattr(os_module, "walk", _walk_with_errors)
+
+
+def _deny_open_of(monkeypatch: pytest.MonkeyPatch, needle: str) -> None:
+    """只让名字含 needle 的那枚文件读不动(PermissionError),其余 open 一律原样放行。"""
+    real_open = open
+
+    def _selective_open(file: Any, *args: Any, **kwargs: Any) -> Any:
+        if needle in str(file):
+            raise PermissionError(13, "denied by fixture")
+        return real_open(file, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", _selective_open)
+
+
+async def test_unread_dirs_and_files_make_keyword_leg_unjudged_not_a_clean_miss(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """①:1 个目录 + 1 个文件读不到 ⇒ 关键词腿只能是 unjudged,空命中不许冒充「判过」。"""
+    root = _unreadable_tree_repo(tmp_path)
+    _install_fake_indexer(monkeypatch, [])  # 语义腿判空,别让它替关键词腿说话
+    _spy_walk(monkeypatch, [PermissionError(13, "denied", str(root))])
+    _deny_open_of(monkeypatch, "blocked.py")
+
+    out = await _tool_search_codebase({"query": _QUERY, "path": str(root)})
+
+    kw = next(r for r in out["reasons"] if r["leg"] == "keyword")
+    assert kw["status"] == "unjudged", f"读不到被读成了别的状态:{out['reasons']}"
+    assert "1 个目录、1 个文件读不到" in str(kw["detail"]), kw["detail"]
+    assert "不能把检索说成完整" in str(kw["detail"]), "理由必须点名「不完整」而不是留白"
+    assert out["matches"] == [], "整棵树都没读到 ⇒ 不得交付任何「答案」"
+    assert out["mode"] == "unjudged" and out["degraded"] is True
+    assert out["stats"]["legs_unavailable"] == ["keyword"]
+
+
+async def test_dirs_vanishing_during_walk_are_not_counted_as_unread(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """①的正向对照:遍历期消失(FileNotFoundError)按本侧口径不计 ⇒ 仍是一次判过的 empty。"""
+    root = tmp_path
+    (root / "alpha.py").write_text("def unrelated_body():\n    return 1\n", encoding="utf-8")
+    _install_fake_indexer(monkeypatch, [])
+    _spy_walk(monkeypatch, [FileNotFoundError(str(root / "gone"))])
+
+    out = await _tool_search_codebase({"query": "nothing_matches_this_zz", "path": str(root)})
+
+    kw = next(r for r in out["reasons"] if r["leg"] == "keyword")
+    assert kw["status"] == "ok", f"没读不到的东西被数进来了:{out['reasons']}"
+    assert kw["detail"] is None
+    assert out["mode"] == "empty" and out["stats"]["legs_unavailable"] == []
+
+
+async def test_keyword_leg_sync_phase_runs_off_the_event_loop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """②:同步段确实经 asyncio.to_thread 调度到工作线程,而不是在事件循环里跑完。"""
+    root = _one_file_repo(tmp_path)
+    _install_fake_indexer(monkeypatch, [])
+    real_to_thread = asyncio.to_thread
+    dispatched: list[str] = []
+    worker_idents: list[int] = []
+
+    async def _spy_to_thread(func: Any, *args: Any, **kwargs: Any) -> Any:
+        dispatched.append(str(getattr(func, "__name__", func)))
+
+        def _run_and_note_ident() -> Any:
+            worker_idents.append(threading.get_ident())
+            return func(*args, **kwargs)
+
+        return await real_to_thread(_run_and_note_ident)
+
+    monkeypatch.setattr(asyncio, "to_thread", _spy_to_thread)
+
+    out = await _tool_search_codebase({"query": _QUERY, "path": str(root)})
+
+    assert "_search_codebase_keyword_sync" in dispatched, (
+        f"关键词腿的同步段没走线程池(调度清单:{dispatched})"
+    )
+    assert worker_idents, "线程池里那次执行没留下线程号 ⇒ 调度不可证"
+    assert worker_idents[0] != threading.main_thread().ident, "仍在事件循环线程上跑"
+    assert out["mode"] == "single-source:keyword", "挪线程池之后关键词腿照常要交付命中"
+    assert [m["path"] for m in out["matches"]][:1] == ["alpha.py"]
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

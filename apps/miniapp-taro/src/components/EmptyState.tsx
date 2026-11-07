@@ -12,7 +12,7 @@ export interface EmptyStateProps {
 
 export default function EmptyState({ text = t('tail.6'), className = '' }: EmptyStateProps) {
   return (
-    <View className={`flex flex-col items-center justify-center py-12 ${className}`}>
+    <View className={`flex flex-col items-center justify-center py-5xl ${className}`}>
       <Text className="text-body text-muted-foreground">{text}</Text>
     </View>
   )

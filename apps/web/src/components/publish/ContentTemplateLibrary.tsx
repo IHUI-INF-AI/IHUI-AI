@@ -144,12 +144,14 @@ export function ContentTemplateLibrary({
     <Card>
       <CardContent className="min-[640px]:p-3 space-y-3 p-3">
         <div className="flex items-center justify-between">
-          <span className="text-label font-medium text-muted-foreground">{t('templates.title')}</span>
+          <span className="text-label font-medium text-muted-foreground">
+            {t('templates.title')}
+          </span>
           <Button
             type="button"
             variant="ghost"
             size="xs"
-            className="px-2 text-xs"
+            className="font-[weight:inherit] px-2 text-label"
             onClick={saveCurrent}
           >
             <Save className="mr-1 h-3 w-3" />
@@ -209,7 +211,7 @@ function TemplateRow({ tpl, labelKey, label, onApply, onRemove, t }: TemplateRow
       <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <button
         type="button"
-        className="min-w-0 flex-1 truncate text-left text-xs hover:text-primary"
+        className="font-[weight:inherit] min-w-0 flex-1 truncate text-left text-label hover:text-primary"
         onClick={onApply}
       >
         {labelKey ? t(labelKey as never) : (label ?? tpl.title)}

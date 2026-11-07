@@ -14,7 +14,17 @@ export type {
   StatusSeverity,
 } from './features/status/StatusScreen'
 export { ProfileScreen } from './features/profile/ProfileScreen'
-export { SettingsScreen } from './features/settings/SettingsScreen'
+export {
+  SettingsScreen,
+  SettingsLanguageSection,
+  SettingsThemeSection,
+} from './features/settings/SettingsScreen'
+export type {
+  SettingsLanguageOption,
+  SettingsLanguageSectionProps,
+  SettingsThemeOption,
+  SettingsThemeSectionProps,
+} from './features/settings/SettingsScreen'
 export { SecurityAuditScreen, auditTypeOf } from './features/security-audit/SecurityAuditScreen'
 export type {
   SecurityAuditItem,
@@ -48,6 +58,9 @@ export { NotificationListScreen } from './features/notification/NotificationList
 export { HistoryScreen } from './features/history/HistoryScreen'
 export { CertificateScreen } from './features/certificate/CertificateScreen'
 export { MessageCenterScreen } from './features/message-center/MessageCenterScreen'
+/** 2026-11-06 门 6 还账:会话历史共享屏此前只走深路径,barrel 补出口供 RN 薄壳直取 */
+export { ConversationHistoryScreen } from './features/chat/ConversationHistoryScreen'
+export type { ConversationHistoryGroup } from './features/chat/ConversationHistoryScreen'
 export { OrderScreen } from './features/order/OrderScreen'
 export { StudyPlanScreen } from './features/study-plan/StudyPlanScreen'
 export { WalletScreen } from './features/wallet/WalletScreen'
@@ -147,7 +160,7 @@ export { SignUpScreen } from './features/sign-up/SignUpScreen'
 export { CloudRunsScreen } from './features/cloud-runs/CloudRunsScreen'
 export type { CloudRunItem, CloudRunsScreenProps } from './features/cloud-runs/CloudRunsScreen'
 export { RegisterScreen } from './features/register/RegisterScreen'
-export { ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
+export { AvatarEditor, ProfileEditScreen } from './features/profile-edit/ProfileEditScreen'
 export { ChangePhoneScreen } from './features/change-phone/ChangePhoneScreen'
 /** 批次 14(P3-3.3):Agent 市场/Agent 评价/直播/活动/收藏/签到 */
 export { AgentMarketScreen } from './features/agent-market/AgentMarketScreen'
@@ -367,6 +380,15 @@ export { ChatRoomScreen, detectChatRoomMediaType } from './features/chat-room/Ch
  * error-any,连锁 TS2724 + TS7006 共 4 错(CI 实测 run 37105480849);文件本身从未删除,
  * 恢复 value 导出即根治。类型契约 ChatScreen* 仍自 ./types 导出。 */
 export { ChatScreen } from './features/chat/ChatScreen'
+export { ChatHeader, ChatCollapsibleCard, ChatCompactionBanner } from './features/chat/ChatHeader'
+export type {
+  ChatHeaderProps,
+  ChatHeaderNavItem,
+  ChatCollapsibleCardProps,
+  ChatCompactionBannerProps,
+} from './features/chat/ChatHeader'
+export { ChatMessageList, ChatMessageBubble } from './features/chat/ChatMessageList'
+export type { ChatMessageListProps, ChatMessageBubbleProps } from './features/chat/ChatMessageList'
 /** G-403/G-225(2026-10-25):上下文占用归因面板单独导出 —— RN 主聊天屏自绘导航栏并传
  * `showModelBar={false}`,走不到 ChatScreen 内部那一处渲染位,缓存两维因此在 RN 无入口。
  * 导出的是**同一个组件**(不是第三份实现):web 用 ring、小程序用归因条、RN 用这块面板,
@@ -397,6 +419,8 @@ export { StudyPublishScreen } from './features/study-publish/StudyPublishScreen'
 export type { StudyPublishScreenProps } from './features/study-publish/StudyPublishScreen'
 export type { StudyCategory } from './features/study-publish/StudyPublishScreen'
 export type { StageOption } from './features/study-publish/StudyPublishScreen'
+/** 批次 3(2026-11-05):充值比例档位给 RN 端显式传参消费(共享屏条件渲染纯段同源) */
+export { TOPUP_TIERS } from './features/app-topup/view-model'
 
 /** 批次 38(2026-08-15):StudyIndex 学习视频 */
 export { StudyIndexScreen } from './features/study-index/StudyIndexScreen'
@@ -467,7 +491,8 @@ export { ScrollJumpButton } from './components'
 export type { ScrollJumpButtonProps } from './components'
 
 /** 跨端共享同构组件(PayButton/TabBar):随 TabBar 液态玻璃接入(068af74ddf),
- * 尚未挂到静态可达入口;自本 barrel 导出使 web/desktop/mobile-rn 宿主可 import(消费接线由各端负责)。 */
+ * 尚未挂到静态可达入口;自本 barrel 导出使 web/desktop/mobile-rn 宿主可 import(消费接线由各端负责)。
+ * 该族零消费者 DOM 副本不得从本 barrel 出口 —— 拓扑锁见 navbar-wiring 的 topologyProblems。 */
 export { PayButton, TabBar } from './components'
 export type {
   PayButtonProps,
@@ -638,6 +663,7 @@ export type {
   LoginScreenProps,
   RegisterScreenProps,
   Gender,
+  AvatarEditorProps,
   ProfileEditScreenProps,
   NationOption,
   ChangePhoneScreenProps,
@@ -667,6 +693,7 @@ export type {
   ExamHistoryItem,
   ExamHistoryScreenProps,
   ExamResultWrongQuestion,
+  ExamResultReviewItem,
   ExamResultItem,
   ExamResultScreenProps,
   ModelIncomeTab,
@@ -705,6 +732,9 @@ export type {
   ModelEditPayCycle,
   ModelEditAudience,
   ModelEditOption,
+  ModelEditValueOption,
+  ModelEditCycleOption,
+  ModelEditAudienceOption,
   ModelEditBaseInfo,
   ModelEditFieldValues,
   ModelEditScreenProps,
@@ -765,7 +795,9 @@ export type {
   RealNameAuthItem,
   RealNameAuthScreenProps,
   SecuritySettingsItem,
+  SecuritySettingsRow,
   SecuritySettingsScreenProps,
+  SecuritySettingsSection,
   /** 批次 23(2026-07-29):Agent 系深屏 + 课程系深屏 */
   AgentStatData,
   AgentStatScreenProps,
@@ -823,6 +855,13 @@ export type {
   DistributionProduct,
   DistributionInfo,
   DistributionScreenProps,
+  DistributionOverviewCard,
+  DistributionEarningsTab,
+  DistributionEarningsItem,
+  DistributionEarningsCard,
+  DistributionServiceFloat,
+  DistributionFunctionBlock,
+  DistributionQrSheet,
   ExamQuestionItem,
   ExamQuestionPaper,
   ExamQuestionScreenProps,
@@ -1332,4 +1371,23 @@ export type {
 export { ChatWorkbenchScreen } from './features/chat-workbench/ChatWorkbenchScreen'
 export type { ChatWorkbenchScreenProps } from './features/chat-workbench/ChatWorkbenchScreen'
 export type { ChatWorkbenchConversationItem } from './features/chat-workbench/chat-workbench-types'
+
+// 门 301 还账(2026-11-06):「试卷介绍」「分享落地页」两共享屏补 RN 腿,barrel 供 RN 壳直接 import
+export { ExamIntroScreen } from './features/exam-intro/ExamIntroScreen'
+export type {
+  ExamIntroScreenProps,
+  ExamIntroStat,
+  ExamIntroHistoryRow,
+} from './features/exam-intro/ExamIntroScreen'
+export { ShareLandingScreen, formatShareTime } from './features/share-landing/ShareLandingScreen'
+export type {
+  ShareLandingScreenProps,
+  ShareLandingContent,
+  ShareLandingAnswer,
+  ShareLandingVideo,
+  ShareLandingAudio,
+  ShareLandingListItem,
+  ShareLandingState,
+} from './features/share-landing/ShareLandingScreen'
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+export { LiveQuickActions } from './features/live-list/LiveQuickActions'

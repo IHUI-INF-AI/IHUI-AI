@@ -395,6 +395,8 @@ export interface TerminalEndEvent {
   endedAt?: string
   /** 耗时(ms) */
   durationMs?: number
+  /** 2026-11-04(sse-event-parity 口径收口):本轮被用户代答过几次,仅 >0 时下发 */
+  interactionCount?: number
   /** 2026-07-31 Phase 2:关联到所属 assistant 消息 ID */
   messageId?: string
 }

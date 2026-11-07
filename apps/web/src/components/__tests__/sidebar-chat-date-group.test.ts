@@ -84,4 +84,92 @@ describe('sidebar groupByDate(日历分桶)', () => {
     expect(g.map((x) => x.key)).toEqual(['today', 'earlier'])
   })
 })
+
+// 2026-11-05 补:日历切界(周日/周一、月末/次月、跨年)与时间锚点回退。
+// 既有断言的期望值一律不动,仅新增用例。
+describe('sidebar groupByDate(日历边界与时间回退)', () => {
+  /** 冻结在 now,返回单个会话落入的桶 key 序列(空桶规则由 groupByDate 自身保证)。 */
+  function bucketAt(now: Date, lastMessageAt: string, extra: Partial<ConversationItem> = {}) {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(now)
+      return groupByDate([{ ...item('probe'), lastMessageAt, ...extra }]).map((x) => x.key)
+    } finally {
+      vi.useRealTimers()
+    }
+  }
+
+  it('周一 00:00 起算本周:周日 23:59 属上一自然周(未跨月 ⇒ thisMonth,跨月 ⇒ earlier)', () => {
+    // 2026-11-02 是周一,此刻 startOfWeek = 11-02 00:00、startOfMonth = 11-01 00:00
+    const now = new Date(2026, 10, 2, 0, 0, 0)
+    expect(bucketAt(now, new Date(2026, 10, 1, 23, 59, 59).toString())).toEqual(['thisMonth'])
+    expect(bucketAt(now, new Date(2026, 9, 31, 23, 59, 59).toString())).toEqual(['earlier'])
+    // 同刻边界:周一 00:00 本身是 today,不是本周
+    expect(bucketAt(now, new Date(2026, 10, 2, 0, 0, 0).toString())).toEqual(['today'])
+  })
+
+  it('周日 23:59 是本周末尾而非下周起点:周一 00:00 仍属本周', () => {
+    // 2026-11-01 是周日,此刻 startOfWeek = 10-26(周一)00:00、startOfMonth = 11-01 00:00
+    const now = new Date(2026, 10, 1, 23, 59, 0)
+    expect(bucketAt(now, new Date(2026, 9, 26, 0, 0, 0).toString())).toEqual(['thisWeek'])
+    // 10-25(上周日)既跨周又跨月 ⇒ earlier
+    expect(bucketAt(now, new Date(2026, 9, 25, 23, 59, 59).toString())).toEqual(['earlier'])
+  })
+
+  it('月末 23:59 ⇒ earlier;本月 1 号 00:00 ⇒ thisMonth(本月从 1 号起)', () => {
+    // 取月中作 now,避免「跨月但同一自然周」被 thisWeek 优先命中
+    const now = new Date(2026, 10, 15, 12, 0, 0)
+    expect(bucketAt(now, new Date(2026, 9, 31, 23, 59, 59).toString())).toEqual(['earlier'])
+    expect(bucketAt(now, new Date(2026, 10, 1, 0, 0, 0).toString())).toEqual(['thisMonth'])
+  })
+
+  it('跨年:跨年但同一自然周 ⇒ thisWeek;错开一周后 ⇒ earlier / thisMonth', () => {
+    // 2027-01-01 是周五,startOfWeek = 2026-12-28(周一)⇒ 12-31 仍在本周内
+    expect(
+      bucketAt(new Date(2027, 0, 1, 0, 0, 0), new Date(2026, 11, 31, 23, 59, 59).toString()),
+    ).toEqual(['thisWeek'])
+    const later = new Date(2027, 0, 15, 12, 0, 0)
+    expect(bucketAt(later, new Date(2026, 11, 31, 23, 59, 59).toString())).toEqual(['earlier'])
+    expect(bucketAt(later, new Date(2027, 0, 1, 0, 0, 0).toString())).toEqual(['thisMonth'])
+  })
+
+  it('缺 lastMessageAt ⇒ 依次回退 updatedAt → createdAt;都不可用才 earlier', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date(2026, 10, 5, 12, 0, 0))
+      const todayNoon = new Date(2026, 10, 5, 12, 0, 0).toString()
+      const oldDay = new Date(2025, 10, 5, 12, 0, 0).toString()
+
+      // lastMessageAt 空串 ⇒ 用 updatedAt
+      expect(
+        groupByDate([{ ...item('a'), lastMessageAt: '', updatedAt: todayNoon }]).map((x) => x.key),
+      ).toEqual(['today'])
+      // lastMessageAt 与 updatedAt 都空 ⇒ 用 createdAt
+      expect(
+        groupByDate([{ ...item('b'), lastMessageAt: '', updatedAt: '', createdAt: todayNoon }]).map(
+          (x) => x.key,
+        ),
+      ).toEqual(['today'])
+      // 只有一年前的 createdAt ⇒ earlier(不回退到"现在")
+      expect(
+        groupByDate([{ ...item('c'), lastMessageAt: '', createdAt: oldDay }]).map((x) => x.key),
+      ).toEqual(['earlier'])
+      // 三者都没有 ⇒ earlier
+      expect(
+        groupByDate([{ ...item('d'), lastMessageAt: '', updatedAt: '', createdAt: '' }]).map(
+          (x) => x.key,
+        ),
+      ).toEqual(['earlier'])
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('非法时间字符串 ⇒ 跳过该字段继续回退;全部非法 ⇒ earlier(不按 1970 冒领本月)', () => {
+    const now = new Date(2026, 10, 5, 12, 0, 0)
+    const todayNoon = new Date(2026, 10, 5, 12, 0, 0).toString()
+    expect(bucketAt(now, 'not-a-date', { updatedAt: todayNoon })).toEqual(['today'])
+    expect(bucketAt(now, 'not-a-date', { createdAt: 'garbage' })).toEqual(['earlier'])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

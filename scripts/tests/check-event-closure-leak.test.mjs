@@ -11,9 +11,11 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
+import { spawnSync, execFileSync } from 'node:child_process'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { writeFileSync } from 'node:fs'
+import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as gate } from '../check-event-closure-leak.mjs'
 
@@ -64,5 +66,85 @@ test('T4 独立子进程 import 门体不得触发 CLI(§22d 立身之本)', () 
   assert.equal(r.status, 0, `import 门体不得非零退出:${r.stdout}${r.stderr}`)
   assert.match(r.stdout, /__IMPORTED__/, '子进程未走到哨兵行,import 可能被判死')
   assert.doesNotMatch(r.stdout, /event-closure-leak: 扫描/, 'import 即执行扫描 ⇒ 顶层裸 main() 回来了')
+})
+
+// ─── 三态:取不到输入 ⇒ exit 2,真 0 ⇒ exit 0(2026-11-04 假绿专项) ───
+
+function runGate(dir, args) {
+  return spawnSync(process.execPath, [GATE, ...args], {
+    cwd: dir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 120_000,
+  })
+}
+
+function git(dir, ...args) {
+  return execFileSync('git', args, {
+    cwd: dir,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: 60_000,
+  })
+}
+
+function initRepo(dir) {
+  git(dir, 'init', '-q', '-b', 'main')
+  git(dir, 'config', 'user.email', 't@t')
+  git(dir, 'config', 'user.name', 't')
+  git(dir, 'config', 'commit.gpgsign', 'false')
+  writeFileSync(join(dir, 'README.md'), '# init\n')
+  git(dir, 'add', 'README.md')
+  git(dir, 'commit', '-qm', 'init')
+}
+
+test('T5 未判定: --staged 非 git 目录 ⇒ exit 2(不得冒充"无文件需扫描")', () => {
+  const dir = mkScratch('event-nogit-')
+  try {
+    const r = runGate(dir, ['--staged'])
+    assert.equal(r.status, 2, `应 exit 2,实得 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stderr, /面取不到|未判定/, '必须点名取材失败')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T6 未判定: 显式文件不存在 ⇒ exit 2(点名路径)', () => {
+  const dir = mkScratch('event-missing-')
+  try {
+    const r = runGate(dir, ['nope.tsx'])
+    assert.equal(r.status, 2, `应 exit 2,实得 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stderr, /nope\.tsx/, '必须点名不存在的文件')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T7 真 0: --staged git 仓库确认为空 ⇒ exit 0 并显式打印不适用', () => {
+  const dir = mkScratch('event-empty-')
+  try {
+    initRepo(dir)
+    const r = runGate(dir, ['--staged'])
+    assert.equal(r.status, 0, `真 0 应 exit 0,实得 ${r.status}\n${r.stdout}${r.stderr}`)
+    assert.match(r.stdout, /不适用/, '真空集必须显式说明')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('T8 真 0/真红: 显式文件 0 命中 ⇒ 0,有反模式 ⇒ 1', () => {
+  const dir = mkScratch('event-files-')
+  try {
+    writeFileSync(join(dir, 'ok.tsx'), 'setTimeout(() => setAnchor(el), 10)\n')
+    const ok = runGate(dir, ['ok.tsx'])
+    assert.equal(ok.status, 0, `0 命中应 exit 0,实得 ${ok.status}\n${ok.stdout}${ok.stderr}`)
+    assert.match(ok.stdout, /0 命中/)
+
+    writeFileSync(join(dir, 'bad.tsx'), 'setTimeout(() => setAnchor(e.currentTarget), 10)\n')
+    const bad = runGate(dir, ['bad.tsx'])
+    assert.equal(bad.status, 1, `有反模式应 exit 1,实得 ${bad.status}\n${bad.stdout}${bad.stderr}`)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -35,6 +35,7 @@ export interface VideoPlayerProps {
 export default function VideoPlayer({
   src,
   poster,
+  title,
   startPosition,
   autoplay = false,
   controls = true,
@@ -65,13 +66,19 @@ export default function VideoPlayer({
         className="flex items-center justify-center w-full overflow-hidden rounded-lg bg-[var(--color-black)]"
         style={STAGE_STYLE}
       >
-        <Text className="text-sm text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
+        <Text className="text-body text-muted-foreground">{tt('video.noVideo', '暂无视频')}</Text>
       </View>
     )
   }
 
   return (
-    <View className="w-full overflow-hidden rounded-lg bg-[var(--color-black)]" style={STAGE_STYLE}>
+    <View className="w-full overflow-hidden rounded-lg bg-[var(--color-black)]">
+      {/* 标题(与 RN 端同槽):原生 Video 之上无法叠放兄弟节点,故排在舞台正上方一行 */}
+      {title ? (
+        <Text className="w-full truncate px-[24rpx] pt-[16rpx] text-label font-medium text-[var(--color-surface-light)]">
+          {title}
+        </Text>
+      ) : null}
       <Video
         className="w-full rounded-lg"
         style={STAGE_STYLE}

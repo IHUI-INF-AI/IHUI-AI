@@ -1,13 +1,18 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
 // P
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Modal, StyleSheet, Text, View } from 'react-native'
 import { appAlert } from '../BottomPops'
 import { ShieldAlert, ShieldCheck } from 'lucide-react-native'
-import type { ToolApprovalEvent } from '@ihui/api-client'
+import type {
+  ToolApprovalEvent,
+  ToolApprovalOperationScope,
+  ToolApprovalReasonCode,
+} from '@ihui/api-client'
 import { postToolApprovalResponse } from '@ihui/api-client'
 import { rnRadius, rnType } from '@ihui/design-tokens'
 import type { ToolApprovalScope } from '@ihui/types'
@@ -96,6 +101,38 @@ const DANGEROUS_COMMAND_PATTERNS: readonly string[] = [
 
 /** 原因输入上限(与 web textarea 的 maxLength 同值)。 */
 const REASON_MAX_LENGTH = 500
+
+/**
+ * 批次 2(2026-11-06):结构化审批决策信息的标签映射(键与 mobile-rn messages
+ * `toolApproval.*` 对齐)。封闭集外的值在解析层已被丢弃,这里不兜底造词。
+ */
+const REASON_LABEL_KEYS: Record<ToolApprovalReasonCode, string> = {
+  dangerous_command: 'toolApproval.reasonDangerousCommand',
+  destructive_operation: 'toolApproval.reasonDestructiveOperation',
+  writes_files: 'toolApproval.reasonWritesFiles',
+  deletes_files: 'toolApproval.reasonDeletesFiles',
+  executes_command: 'toolApproval.reasonExecutesCommand',
+  network_access: 'toolApproval.reasonNetworkAccess',
+  database_write: 'toolApproval.reasonDatabaseWrite',
+  high_risk_tool: 'toolApproval.reasonHighRiskTool',
+  requires_confirmation: 'toolApproval.reasonRequiresConfirmation',
+}
+
+const SCOPE_LABEL_KEYS: Record<ToolApprovalOperationScope, string> = {
+  fs_read: 'toolApproval.scopeFsRead',
+  fs_write: 'toolApproval.scopeFsWrite',
+  fs_delete: 'toolApproval.scopeFsDelete',
+  exec: 'toolApproval.scopeExec',
+  network: 'toolApproval.scopeNetwork',
+  db: 'toolApproval.scopeDb',
+  other: 'toolApproval.scopeOther',
+}
+
+const RISK_LABEL_KEYS: Record<'low' | 'medium' | 'high', string> = {
+  low: 'toolApproval.riskLow',
+  medium: 'toolApproval.riskMedium',
+  high: 'toolApproval.riskHigh',
+}
 
 /** 从 argsPreview(JSON,可能被 200 字符截断)尽力还原 run_command 的 argv。 */
 function extractRunCommandArgv(argsPreview: string): string[] {
@@ -209,12 +246,37 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
 
   // 规则编辑器只在 run_command 上出现(与前缀展示同源:argv 从 argsPreview 尽力还原)。
   const grantArgv = useMemo(
-    () => extractRunCommandArgv(current?.event.argsPreview ?? ''),
-    [current?.event.argsPreview],
+    // 批次 2:结构化 argv(完整,不受 argsPreview 200 字符截断)优先;缺席退回解析
+    // argsPreview(老生产者)。授权规则前缀因此不再因预览截断而少 token。
+    () =>
+      current?.event.argv && current.event.argv.length > 0
+        ? current.event.argv
+        : extractRunCommandArgv(current?.event.argsPreview ?? ''),
+    [current?.event.argsPreview, current?.event.argv],
   )
   const grantPrefix = grantArgv.slice(0, GRANT_RULE_TOKENS).join(' ')
   const showGrantRule = current?.event.toolName === 'run_command'
   const grantDangerous = isDangerousCommand(grantArgv)
+
+  // 批次 2:结构化审批决策信息(全部可选;缺席 ⇒ 整块不渲染,退回 argsPreview)。
+  const reasonLabel = current?.event.reasonCode
+    ? t(REASON_LABEL_KEYS[current.event.reasonCode])
+    : undefined
+  const scopeLabel = current?.event.scope ? t(SCOPE_LABEL_KEYS[current.event.scope]) : undefined
+  const riskLabel = current?.event.riskLevel
+    ? t(RISK_LABEL_KEYS[current.event.riskLevel])
+    : undefined
+  const structuredArgv = current?.event.argv ?? []
+  const structuredPaths = current?.event.affectedPaths ?? []
+  const hasStructuredDetail = !!(
+    reasonLabel ||
+    scopeLabel ||
+    riskLabel ||
+    current?.event.summary ||
+    current?.event.cwd ||
+    structuredArgv.length > 0 ||
+    structuredPaths.length > 0
+  )
 
   const requestApprove = useCallback(() => {
     if (showGrantRule && grantRule && grantDangerous) {
@@ -283,6 +345,44 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
                     {t('toolApproval.dangerLevel', { level: current.event.dangerLevel })}
                   </Text>
                 </View>
+                {hasStructuredDetail ? (
+                  <View testID="tool-approval-structured" style={styles.field}>
+                    <Text style={styles.fieldLabel}>{t('toolApproval.decisionDetail')}</Text>
+                    {current.event.summary ? (
+                      <Text style={styles.summaryText}>{current.event.summary}</Text>
+                    ) : null}
+                    {reasonLabel ? (
+                      <Text style={styles.meta}>
+                        {`${t('toolApproval.decisionDetailReason')}: ${reasonLabel}`}
+                      </Text>
+                    ) : null}
+                    {riskLabel ? (
+                      <Text style={styles.meta}>
+                        {`${t('toolApproval.decisionDetailRisk')}: ${riskLabel}`}
+                      </Text>
+                    ) : null}
+                    {scopeLabel ? (
+                      <Text style={styles.meta}>
+                        {`${t('toolApproval.decisionDetailScope')}: ${scopeLabel}`}
+                      </Text>
+                    ) : null}
+                    {current.event.cwd ? (
+                      <Text style={styles.meta} numberOfLines={2}>
+                        {`${t('toolApproval.decisionDetailCwd')}: ${current.event.cwd}`}
+                      </Text>
+                    ) : null}
+                    {structuredPaths.length > 0 ? (
+                      <Text style={styles.meta} numberOfLines={4}>
+                        {`${t('toolApproval.decisionDetailPaths')}: ${structuredPaths.join('、')}`}
+                      </Text>
+                    ) : null}
+                    {structuredArgv.length > 0 ? (
+                      <Text style={styles.preview} numberOfLines={4}>
+                        {`${t('toolApproval.decisionDetailCommand')}: ${structuredArgv.join(' ')}`}
+                      </Text>
+                    ) : null}
+                  </View>
+                ) : null}
                 <EnvironmentFacts event={current.event} t={t} />
                 {failedId === current.event.approvalId ? (
                   <Text testID="tool-approval-send-failed" style={styles.error}>
@@ -514,7 +614,7 @@ const styles = StyleSheet.create({
     color: tokens.text.primary,
   },
   description: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   meta: {
@@ -531,6 +631,12 @@ const styles = StyleSheet.create({
   toolName: {
     fontSize: rnType.body.size,
     fontWeight: '500',
+    color: tokens.text.primary,
+  },
+  // 批次 2:结构化审批摘要(压在 argsPreview 之上,用户先读人话再看原始参数)。
+  summaryText: {
+    fontSize: rnType.body.size,
+    fontWeight: '600',
     color: tokens.text.primary,
   },
   preview: {
@@ -596,7 +702,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.border.light,
     backgroundColor: tokens.surface.inputBg,
     color: tokens.text.primary,
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     textAlignVertical: 'top',
   },
   actions: {

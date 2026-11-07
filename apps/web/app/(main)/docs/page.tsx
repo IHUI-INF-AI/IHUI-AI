@@ -206,7 +206,7 @@ export default function DocsIndexPage() {
         {docSections.map((section) => (
           <section key={section.title} className="rounded-lg border bg-card p-3">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">
+              <span className="font-[weight:inherit] text-display">
                 {typeof section.icon === 'string' ? (
                   section.icon
                 ) : (
@@ -215,7 +215,7 @@ export default function DocsIndexPage() {
               </span>
               <h2 className="text-lg font-semibold">{section.title}</h2>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">{section.description}</p>
+            <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">{section.description}</p>
             <ul className="mt-4 space-y-3">
               {section.items.map((item) => (
                 <li key={item.href}>
@@ -224,7 +224,7 @@ export default function DocsIndexPage() {
                     className="block rounded-lg border bg-background p-3 transition-colors hover:bg-accent"
                   >
                     <div className="font-medium text-body">{item.name}</div>
-                    <div className="text-xs text-muted-foreground">{item.desc}</div>
+                    <div className="font-[weight:inherit] text-label text-muted-foreground">{item.desc}</div>
                   </Link>
                 </li>
               ))}
@@ -235,7 +235,7 @@ export default function DocsIndexPage() {
       </div>
 
       <div className="rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
-        <p className="text-sm text-muted-foreground">
+        <p className="font-[weight:inherit] text-body text-muted-foreground">
           文档未覆盖到的问题?{' '}
           <a href="https://aizhs.top/faq" className="text-primary underline">
             查看 FAQ

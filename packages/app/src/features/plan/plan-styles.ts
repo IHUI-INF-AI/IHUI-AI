@@ -63,11 +63,15 @@ export function createPlanStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['xs-loose'],
       borderRadius: rnRadius.sm,
     },
-    headerBtnText: { fontSize: 13, fontWeight: '600' },
+    headerBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600' },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
     heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    heroSubtitle: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
+    heroSubtitle: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     filterChip: {
       flexDirection: 'row',
@@ -81,8 +85,12 @@ export function createPlanStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     filterChipActive: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
-    filterChipText: { fontSize: 13, color: tk.text.secondary },
-    filterChipActiveText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    filterChipText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
+    filterChipActiveText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     card: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -103,14 +111,18 @@ export function createPlanStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       flexShrink: 1,
     },
-    cardSub: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
+    cardSub: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
-    goalText: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
+    goalText: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
     progressRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     progressTrack: {
       flex: 1,
@@ -155,11 +167,11 @@ export function createPlanStyles(tk: AppThemeTokens) {
       paddingTop: rnSpacing.sm,
     },
     footDate: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    linkBtnText: { fontSize: 13, fontWeight: '600', color: tk.brandAccent.deep },
+    linkBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brandAccent.deep },
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
     metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
-    fieldContent: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
+    fieldContent: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
     emptyBox: {
       alignItems: 'center',
       gap: rnSpacing.sm,
@@ -237,7 +249,11 @@ export function createPlanStyles(tk: AppThemeTokens) {
     },
     stepIndexText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
     stepTitle: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    stepDesc: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
+    stepDesc: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     stepBadges: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -286,7 +302,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       gap: rnSpacing['2xs'],
       paddingVertical: rnSpacing['xs-loose'],
     },
-    diffChangeTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    diffChangeTitle: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     diffChangeDetail: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     diffChangeKind: { fontSize: rnType.caption.size, fontWeight: '600' },
     confirmBox: {
@@ -298,7 +314,12 @@ export function createPlanStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.md,
     },
-    confirmText: { flex: 1, fontSize: 12, color: ROSE.fg, lineHeight: 18 },
+    confirmText: {
+      flex: 1,
+      fontSize: rnType.label.size,
+      color: ROSE.fg,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     confirmActions: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
     skeletonTitle: {
       height: 20,

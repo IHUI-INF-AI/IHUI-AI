@@ -38,18 +38,7 @@ const SALE_TYPE_OPTIONS: { id: ModelEditSaleType; labelKey: string }[] = [
   { id: 'paid', labelKey: 'modelEdit.salePaid' },
 ]
 
-/** 收费周期选项(label 通过 i18n 注入) */
-const PAY_CYCLE_OPTIONS: { id: ModelEditPayCycle; labelKey: string }[] = [
-  { id: 'month', labelKey: 'modelEdit.cycleMonth' },
-  { id: 'year', labelKey: 'modelEdit.cycleYear' },
-  { id: 'permanent', labelKey: 'modelEdit.cyclePermanent' },
-]
-
-/** 面向群体选项(label 通过 i18n 注入) */
-const AUDIENCE_OPTIONS: { id: ModelEditAudience; labelKey: string }[] = [
-  { id: 'all', labelKey: 'modelEdit.audienceAll' },
-  { id: 'member', labelKey: 'modelEdit.audienceMember' },
-]
+/** 收费周期与面向群体选项由宿主显式注入(两端取值口径不同,共享屏不内建) */
 
 export function ModelEditScreen({
   t,
@@ -59,6 +48,10 @@ export function ModelEditScreen({
   deptOptions,
   freeDurations,
   discountOptions,
+  cycleOptions,
+  audienceOptions,
+  loading,
+  showCancel,
   submitting,
   onChange,
   onToggleCategory,
@@ -80,19 +73,19 @@ export function ModelEditScreen({
   const isAudienceReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('audience')
   const isDiscountReadOnly = MODEL_EDIT_READ_ONLY_FIELDS.includes('discount')
 
-  const cycleLabelKey =
-    fields.cycle === 'month'
-      ? 'modelEdit.cycleMonth'
-      : fields.cycle === 'year'
-        ? 'modelEdit.cycleYear'
-        : 'modelEdit.cyclePermanent'
+  const cycleLabel =
+    cycleOptions.find((option) => option.value === fields.cycle)?.label ?? fields.cycle
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Text style={styles.backText}>{t('common.cancel')}</Text>
-        </TouchableOpacity>
+        {showCancel ? (
+          <TouchableOpacity onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.backText}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.headerSpacer} />
+        )}
         <Text style={styles.headerTitle}>{t('modelEdit.headerTitle')}</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -114,6 +107,12 @@ export function ModelEditScreen({
             </Text>
           </View>
         </View>
+
+        {loading ? (
+          <View style={styles.loadingRow}>
+            <Text style={styles.loadingText}>{t('common.loading')}</Text>
+          </View>
+        ) : null}
 
         <Text style={styles.label}>{t('modelEdit.labelCategory')}</Text>
         {isCategoryReadOnly ? (
@@ -193,31 +192,29 @@ export function ModelEditScreen({
               <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
             ) : null}
             <View style={styles.chipRow}>
-              {PAY_CYCLE_OPTIONS.map((c) => {
-                const active = fields.cycle === c.id
+              {cycleOptions.map((c) => {
+                const active = fields.cycle === c.value
                 return (
                   <TouchableOpacity
-                    key={c.id}
+                    key={c.value}
                     style={[
                       styles.chip,
                       active && styles.chipActive,
                       isCycleReadOnly && styles.chipDisabled,
                     ]}
-                    onPress={isCycleReadOnly ? undefined : () => onChange('cycle', c.id)}
+                    onPress={isCycleReadOnly ? undefined : () => onChange('cycle', c.value)}
                     disabled={isCycleReadOnly}
                     accessibilityState={{ disabled: isCycleReadOnly }}
                     activeOpacity={0.8}
                   >
                     <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {t(c.labelKey)}
+                      {c.label}
                     </Text>
                   </TouchableOpacity>
                 )
               })}
             </View>
-            <Text style={styles.label}>
-              {t('modelEdit.labelPrice', { cycle: t(cycleLabelKey) })}
-            </Text>
+            <Text style={styles.label}>{t('modelEdit.labelPrice', { cycle: cycleLabel })}</Text>
             <View style={styles.priceRow}>
               <Text style={styles.priceUnit}>¥</Text>
               <TextField
@@ -298,24 +295,22 @@ export function ModelEditScreen({
           <Text style={styles.readOnlyHint}>{t('modelEdit.readOnlyHint')}</Text>
         ) : null}
         <View style={styles.chipRow}>
-          {AUDIENCE_OPTIONS.map((a) => {
-            const active = fields.audience === a.id
+          {audienceOptions.map((a) => {
+            const active = fields.audience === a.value
             return (
               <TouchableOpacity
-                key={a.id}
+                key={a.value}
                 style={[
                   styles.chip,
                   active && styles.chipActive,
                   isAudienceReadOnly && styles.chipDisabled,
                 ]}
-                onPress={isAudienceReadOnly ? undefined : () => onChange('audience', a.id)}
+                onPress={isAudienceReadOnly ? undefined : () => onChange('audience', a.value)}
                 disabled={isAudienceReadOnly}
                 accessibilityState={{ disabled: isAudienceReadOnly }}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {t(a.labelKey)}
-                </Text>
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{a.label}</Text>
               </TouchableOpacity>
             )
           })}
@@ -364,6 +359,8 @@ function createStyles(tk: AppThemeTokens) {
     baseMain: { flex: 1 },
     baseName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     baseSub: { marginTop: rnSpacing.sm, fontSize: rnType.body.size, color: tk.text.secondary },
+    loadingRow: { alignItems: 'center', paddingVertical: rnSpacing.md },
+    loadingText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     label: {
       fontSize: rnType.body.size,
       fontWeight: '600',

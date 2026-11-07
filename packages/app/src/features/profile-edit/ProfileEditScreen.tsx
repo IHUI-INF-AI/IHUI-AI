@@ -2,11 +2,10 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
-  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -15,15 +14,200 @@ import {
 } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { TextField } from '../../components/TextField'
-import { Camera, SquarePen } from 'lucide-react-native'
-import type { Gender, ProfileEditScreenProps } from '../../types'
+import { SquarePen, User } from 'lucide-react-native'
+import type { AvatarEditorProps, Gender, ProfileEditScreenProps } from '../../types'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
-/** 资料编辑共享屏 — props 注入式跨端组件(wrapper 负责 getProfile / updateProfile / Alert) */
-export type { ProfileEditScreenProps }
+/**
+ * 头像编辑共享组件 — props 注入式跨端组件。
+ * 相册/相机/文件选择等平台能力只走回调注入,本组件内零平台 API;
+ * RN 资料页与小程序头像页各自注入本端实现。
+ */
+export type { AvatarEditorProps, ProfileEditScreenProps }
+
+export function AvatarEditor({
+  t,
+  currentUrl,
+  onPickFromAlbum,
+  onPickFromCamera,
+  onUpload,
+  uploading,
+  error,
+  onPreview,
+  nickname,
+  showUrlEntry = false,
+  colorScheme = 'light',
+}: AvatarEditorProps) {
+  const tk = getTokens(colorScheme)
+  const styles = useMemo(() => createAvatarStyles(tk), [tk])
+  const [urlInput, setUrlInput] = useState('')
+
+  return (
+    <View style={styles.avatarWrap}>
+      <TouchableOpacity
+        onPress={onPreview}
+        activeOpacity={0.8}
+        testID="avatar-preview"
+        disabled={uploading}
+      >
+        {currentUrl ? (
+          <Image source={{ uri: currentUrl }} style={styles.avatar} />
+        ) : (
+          <View style={[styles.avatar, styles.avatarFallback]}>
+            <User size={36} color={tk.text.medium} />
+          </View>
+        )}
+        <View style={styles.avatarEditBadge}>
+          <SquarePen size={14} color={tk.brand.ctaForeground} />
+        </View>
+      </TouchableOpacity>
+      {nickname ? <Text style={styles.avatarNickname}>{nickname}</Text> : null}
+
+      {onPickFromAlbum || onPickFromCamera ? (
+        <View style={styles.avatarActions}>
+          {onPickFromAlbum ? (
+            <TouchableOpacity
+              style={[styles.avatarActionBtn, uploading && styles.btnDisabled]}
+              onPress={onPickFromAlbum}
+              disabled={uploading}
+              testID="avatar-pick-album"
+            >
+              <Text style={styles.avatarActionPrimaryText}>{t('user.avatar.fromAlbum')}</Text>
+            </TouchableOpacity>
+          ) : null}
+          {onPickFromCamera ? (
+            <TouchableOpacity
+              style={[styles.avatarActionBtn, styles.avatarActionBtnOutline]}
+              onPress={onPickFromCamera}
+              disabled={uploading}
+              testID="avatar-pick-camera"
+            >
+              <Text style={styles.avatarActionOutlineText}>{t('user.avatar.takePhoto')}</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={styles.avatarHint}>
+        <Text style={styles.avatarHintText}>{t('user.avatar.formatHint')}</Text>
+        <Text style={styles.avatarHintText}>{t('user.avatar.sizeHint')}</Text>
+      </View>
+      {showUrlEntry ? (
+        <View style={styles.avatarUrlEntry} testID="avatar-url-entry">
+          <TextField
+            colorScheme={colorScheme}
+            style={styles.avatarUrlInput}
+            value={urlInput}
+            onChangeText={setUrlInput}
+            placeholder={t('profileEdit.avatarUrlPlaceholder')}
+            placeholderTextColor={tk.text.tertiary}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <TouchableOpacity
+            style={[styles.avatarUrlBtn, uploading && styles.btnDisabled]}
+            onPress={() => onUpload(urlInput.trim())}
+            disabled={uploading}
+            testID="avatar-url-submit"
+          >
+            <Text style={styles.avatarActionPrimaryText}>{t('profileEdit.avatarUrlApply')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+      {error ? <Text style={styles.avatarError}>{error}</Text> : null}
+
+      {uploading ? (
+        <View style={styles.avatarMask} testID="avatar-upload-mask">
+          <ActivityIndicator color={tk.surface.light} />
+          <Text style={styles.avatarMaskText}>{t('user.avatar.uploading')}</Text>
+        </View>
+      ) : null}
+    </View>
+  )
+}
+
+function createAvatarStyles(tk: AppThemeTokens) {
+  return StyleSheet.create({
+    avatarWrap: { alignItems: 'center', paddingVertical: rnSpacing.lg, gap: rnSpacing.sm },
+    avatar: {
+      width: 96,
+      height: 96,
+      borderRadius: rnRadius['2xl'],
+      backgroundColor: tk.surface.light,
+    },
+    avatarFallback: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: tk.border.light,
+    },
+    avatarEditBadge: {
+      position: 'absolute',
+      right: -4,
+      bottom: -4,
+      width: 24,
+      height: 24,
+      borderRadius: rnRadius.xl,
+      backgroundColor: tk.brand.cta,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarNickname: { ...rnType.subtitle, color: tk.text.primary },
+    avatarActions: { flexDirection: 'row', gap: rnSpacing.sm },
+    avatarActionBtn: {
+      height: 44,
+      paddingHorizontal: rnSpacing.lg,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    avatarActionBtnOutline: {
+      backgroundColor: tk.surface.light,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    avatarActionPrimaryText: { fontSize: rnType.body.size, color: tk.surface.light },
+    avatarActionOutlineText: { fontSize: rnType.body.size, color: tk.text.secondary },
+    avatarHint: { alignItems: 'center', gap: rnSpacing['2xs'] },
+    avatarHintText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
+    avatarUrlEntry: { width: '100%', gap: rnSpacing.sm, marginTop: rnSpacing.sm },
+    avatarUrlInput: {
+      borderWidth: 1,
+      borderColor: tk.border.light,
+      borderRadius: rnRadius.sm,
+      paddingHorizontal: rnSpacing.md,
+      height: 50,
+      backgroundColor: tk.surface.light,
+      fontSize: rnType.body.size,
+      color: tk.text.primary,
+    },
+    avatarUrlBtn: {
+      height: 44,
+      justifyContent: 'center',
+      alignItems: 'center',
+      borderRadius: rnRadius.sm,
+      backgroundColor: tk.brand.cta,
+    },
+    avatarError: { fontSize: rnType.caption.size, color: tk.error.text },
+    btnDisabled: { opacity: 0.6 },
+    avatarMask: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: tk.overlay.modal,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: rnSpacing.sm,
+      borderRadius: rnRadius.lg,
+    },
+    avatarMaskText: { fontSize: rnType.body.size, color: tk.surface.light },
+  })
+}
 
 const GENDERS: Array<{ value: Gender; key: 'male' | 'female' | 'secret' }> = [
   { value: 1, key: 'male' },
@@ -46,15 +230,10 @@ export function ProfileEditScreen({
   loading,
   saving,
   error,
-  avatarModalVisible,
-  avatarInput,
+  avatarEditor,
   onNicknameChange,
   onBioChange,
   onGenderChange,
-  onOpenAvatarModal,
-  onCloseAvatarModal,
-  onAvatarInputChange,
-  onConfirmAvatar,
   onSave,
   onRetry,
   onBack,
@@ -88,7 +267,7 @@ export function ProfileEditScreen({
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ padding: 14, gap: rnSpacing.md }}
+      contentContainerStyle={{ padding: rnSpacing['md-loose'], gap: rnSpacing.md }}
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.header}>
@@ -101,21 +280,7 @@ export function ProfileEditScreen({
         <Text style={styles.title}>{t('profileEdit.title')}</Text>
       </View>
 
-      <View style={styles.avatarWrap}>
-        <TouchableOpacity onPress={onOpenAvatarModal} activeOpacity={0.8}>
-          {avatar ? (
-            <Image source={{ uri: avatar }} style={styles.avatar} />
-          ) : (
-            <View style={styles.avatarFallback}>
-              <Camera size={28} color={tk.text.medium} />
-            </View>
-          )}
-          <View style={styles.avatarEditBadge}>
-            <SquarePen size={14} color={tk.brand.ctaForeground} />
-          </View>
-        </TouchableOpacity>
-        <Text style={styles.avatarTip}>{t('profileEdit.avatarTip')}</Text>
-      </View>
+      {avatarEditor}
 
       <View style={styles.fieldCard}>
         <Text style={styles.fieldLabel}>{t('profileEdit.nickname')}</Text>
@@ -180,39 +345,6 @@ export function ProfileEditScreen({
           <Text style={styles.saveText}>{t('profileEdit.save')}</Text>
         )}
       </TouchableOpacity>
-
-      <Modal
-        visible={avatarModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={onCloseAvatarModal}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('profileEdit.avatarModalTitle')}</Text>
-            <Text style={styles.modalLabel}>{t('profileEdit.avatarUrlLabel')}</Text>
-            <TextField
-              colorScheme={colorScheme}
-              style={styles.modalInput}
-              value={avatarInput}
-              onChangeText={onAvatarInputChange}
-              placeholder={t('profileEdit.avatarUrlPlaceholder')}
-              placeholderTextColor={tk.text.tertiary}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Text style={styles.modalHint}>{t('profileEdit.avatarUrlHint')}</Text>
-            <View style={styles.modalActions}>
-              <TouchableOpacity onPress={onCloseAvatarModal} style={styles.modalCancelBtn}>
-                <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onConfirmAvatar} style={styles.modalConfirmBtn}>
-                <Text style={styles.modalConfirmText}>{t('common.confirm')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   )
 }
@@ -228,35 +360,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     backBtn: { marginRight: rnSpacing.md },
     title: { ...rnType.heading, color: tk.text.primary },
-    avatarWrap: { alignItems: 'center', paddingVertical: rnSpacing.lg, gap: rnSpacing.sm },
-    avatar: {
-      width: 48,
-      height: 48,
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.surface.light,
-    },
-    avatarFallback: {
-      width: 48,
-      height: 48,
-      borderRadius: rnRadius['2xl'],
-      backgroundColor: tk.border.light,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarEmoji: { fontSize: 28 },
-    avatarEditBadge: {
-      position: 'absolute',
-      right: -4,
-      bottom: -4,
-      width: 24,
-      height: 24,
-      borderRadius: rnRadius.xl,
-      backgroundColor: tk.brand.cta,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarEditBadgeText: { fontSize: rnType.body.size, color: tk.surface.light },
-    avatarTip: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     fieldCard: {
       backgroundColor: tk.surface.light,
       borderRadius: rnRadius.lg,
@@ -313,58 +416,6 @@ function createStyles(tk: AppThemeTokens) {
     },
     btnDisabled: { opacity: 0.6 },
     saveText: { color: tk.surface.light, ...rnType.title },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: tk.overlay.modal,
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: rnSpacing['2xl'],
-    },
-    modalCard: {
-      backgroundColor: tk.surface.light,
-      borderRadius: rnRadiusFor.panel,
-      padding: rnSpacing.lg,
-      width: '100%',
-    },
-    modalTitle: { ...rnType.subtitle, color: tk.text.primary, marginBottom: rnSpacing.md },
-    modalLabel: {
-      fontSize: rnType.body.size,
-      color: tk.text.secondary,
-      marginBottom: rnSpacing.sm,
-    },
-    modalInput: {
-      borderWidth: 1,
-      borderColor: tk.border.light,
-      borderRadius: rnRadius.sm,
-      paddingHorizontal: rnSpacing.md,
-      height: 50,
-      backgroundColor: tk.surface.muted,
-      fontSize: rnType.title.size,
-      color: tk.text.primary,
-    },
-    modalHint: { fontSize: rnType.caption.size, color: tk.text.tertiary, marginTop: rnSpacing.sm },
-    modalActions: {
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: rnSpacing.sm,
-      marginTop: rnSpacing.lg,
-    },
-    modalCancelBtn: {
-      paddingHorizontal: rnSpacing.md,
-      height: 44,
-      justifyContent: 'center',
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.surface.muted,
-    },
-    modalCancelText: { fontSize: rnType.body.size, color: tk.text.secondary },
-    modalConfirmBtn: {
-      paddingHorizontal: rnSpacing.md,
-      height: 44,
-      justifyContent: 'center',
-      borderRadius: rnRadius.sm,
-      backgroundColor: tk.brand.cta,
-    },
-    modalConfirmText: { fontSize: rnType.body.size, color: tk.surface.light },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -204,6 +204,9 @@ export function registerServeCommand(program: Command): void {
           token: opts.token,
           machineKeys,
           requireApiSecret,
+          // 认领件只在 serve 这条真启动路径上开(测试与嵌入式调用不落盘):
+          // 让别的进程不必猜端口 —— 扫 ~/.ihui/clients/agent-server/*.json 即可发现活实例
+          claim: {},
         });
         await attachWsBridge(core, {
           server: handle.server,

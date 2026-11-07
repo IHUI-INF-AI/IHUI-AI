@@ -20,7 +20,7 @@ export function ActivityDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: ActivityDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -39,17 +39,12 @@ export function ActivityDetailScreen({
 
   if (error || !item) {
     return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('activityDetail.title')}</Text>
-        </View>
-        <ErrorState
-          message={error || t('activityDetail.empty')}
-          onRetry={onRetry}
-          colorScheme={colorScheme}
-        />
-      </View>
+      <ErrorState
+        message={error || t('activities.notFound')}
+        onRetry={onRetry}
+        retryLabel={t('common.back')}
+        colorScheme={colorScheme}
+      />
     )
   }
 
@@ -102,7 +97,7 @@ function createStyles(tk: AppThemeTokens) {
     content: {
       marginTop: rnSpacing.md,
       fontSize: rnType.title.size,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
       color: tk.text.primary,
     },
   })

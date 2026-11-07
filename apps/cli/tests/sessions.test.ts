@@ -20,6 +20,7 @@ import {
   getSessionStatePath,
   newSessionId,
   patchSession,
+  sessionPathKind,
   type SessionState,
   type SessionMessage,
 } from '../src/sessions/index.js';
@@ -310,6 +311,15 @@ describe('status 枚举', () => {
 });
 
 describe('损坏文件处理', () => {
+  it('损坏内容不会被收成新会话', () => {
+    const id = 'broken-keep';
+    const file = path.join(tmpStateDir, `${id}.json`);
+    const body = '{not json';
+    fs.writeFileSync(file, body);
+    expect(() => saveSession(makeSession({ id }))).toThrow(/不能把它覆盖成新会话 \(corrupt\)/);
+    expect(fs.readFileSync(file, 'utf-8')).toBe(body);
+  });
+
   it('非 JSON 内容返回 null', () => {
     fs.writeFileSync(path.join(tmpStateDir, 'broken.json'), 'not json{');
     expect(loadSession('broken')).toBeNull();
@@ -448,6 +458,36 @@ describe('saveSession 兼容路径 — G-820(2026-10-07)单调钟', () => {
     const clock = loadSession(s.id)!.updatedAt;
     saveSession({ ...s, updatedAt: clock });
     expect(loadSession(s.id)!.updatedAt).toBe(clock);
+  });
+});
+
+describe('会话文件读不到', () => {
+  it('不把它当成没有这场会话,也不覆盖', () => {
+    const id = 'blocked-session';
+    const sessionPath = getSessionStatePath(id);
+    fs.mkdirSync(sessionPath);
+    expect(() => saveSession(makeSession({ id }))).toThrow(/不能把它当成没有这场会话/);
+    expect(() => loadSession(id)).toThrow(/不能把它当成没有这场会话/);
+    expect(() => listSessions()).toThrow(/不能把它当成没有这场会话/);
+    expect(fs.statSync(sessionPath).isDirectory()).toBe(true);
+  });
+
+  it('会话目录读不到时不是没有会话,也不清理', () => {
+    const id = 'keep-session';
+    saveSession(makeSession({ id }));
+    const file = getSessionStatePath(id);
+    const before = fs.readFileSync(file, 'utf8');
+    const denied = new Error('denied') as NodeJS.ErrnoException;
+    denied.code = 'EACCES';
+    const stat = () => {
+      throw denied;
+    };
+    expect(sessionPathKind(tmpStateDir, stat)).toEqual({ kind: 'unread', code: 'EACCES' });
+    expect(() => listSessions(stat)).toThrow(/不能把它说成没有会话/);
+    expect(() => pruneOldSessions(0, stat)).toThrow(/不能把它说成没有可清理的会话/);
+    expect(() => deleteSession(id, stat)).toThrow(/不能把它说成已删除/);
+    expect(fs.readFileSync(file, 'utf8')).toBe(before);
+    expect(listSessions()).toHaveLength(1);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

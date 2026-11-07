@@ -1102,39 +1102,232 @@ for (const w of FRONTEND_LEGACY_EVENTS) {
 //   只有单侧有键集 ⇒ 未判定警告(取不到必须显式说,不得记绿)。
 //   台账 = scripts/data/sse-dispatch-coverage.json 的 fieldBaseline(豁免键 → 理由)。
 
-/** 解析侧:agent-events.ts 各 parse*Event 函数体实际读取的 wire 键集合。 */
-function extractFrontendReadKeys() {
+/**
+ * 解析侧读取点识别(2026-11-04 扩面,承本单定性 ②):
+ *   - 共享解析层: packages/shared/src/sse/agent-events.ts 的**任意**
+ *     `export function parse*Event`(不再只认 AGENT_TASK_EVENTS 常量命中的 11 个);
+ *     wire 名由函数体内 `AGENT_TASK_EVENTS.<CONST>` 解析,取不到时用函数体内
+ *     出现的生产事件字面量。
+ *   - 对话流读取层: packages/api-client/src/client.ts 的四种真实形态
+ *     ① `json?.type ===/!== '<wire>'`(块体 / 早退守卫剩余体 / 单行语句);
+ *     ② `route === '<wire>'` 分支体;③ `case '<wire>':` 分支;
+ *     ④ 解析函数调用纯读取 helper(readSendAdmissionReceipt /
+ *        projectToolApprovalEnvFacts)时跟随一层。
+ * 键收集支持 camelCase(声明键是 camelCase,原 `[a-z_]` 口径会漏 messageId/toolCallId);
+ * `json.X.Y` 只记顶层 X。
+ */
+function extractFrontendReadKeys(knownNames = backendEvents) {
   const out = new Map(); // wire 事件名 → Set(wire 键)
+  const addKeys = (wire, keys) => {
+    if (!wire) return;
+    if (!out.has(wire)) out.set(wire, new Set());
+    for (const k of keys) out.get(wire).add(k);
+  };
+  const CHAIN_RE = /\b(?:json|data|evt|p|entry|raw|payload)((?:\??\.[A-Za-z_$][\w$]*)+)/g;
+  const BRACKET_RE = /\b(?:json|data|evt|p|entry|raw|v)\s*\[\s*['"]([A-Za-z_][\w]*)['"]\s*\]/g;
+  const GATE_RE = /\bgate\.data\.([A-Za-z_][A-Za-z0-9_]*)/g;
+  const collect = (text, into) => {
+    if (!text) return;
+    for (const m of text.matchAll(CHAIN_RE)) {
+      for (const seg of m[1].split(/\??\./)) if (seg) into.add(seg);
+    }
+    for (const m of text.matchAll(BRACKET_RE)) into.add(m[1]);
+    for (const m of text.matchAll(GATE_RE)) into.add(m[1]);
+  };
+  // helper 函数体(一层跟随;两处定义面:client.ts / shared 的 send-admission)
+  const helperCache = new Map();
+  const helperBody = (name) => {
+    if (helperCache.has(name)) return helperCache.get(name);
+    const candidates = [
+      path.join(ROOT, 'packages/api-client/src/client.ts'),
+      path.join(ROOT, 'packages/shared/src/chat/send-admission.ts'),
+    ];
+    let body = '';
+    for (const f of candidates) {
+      if (!existsSync(f)) continue;
+      const text = stripTsComments(readFileSync(f, 'utf-8'));
+      const re = new RegExp(`(?:export\\s+)?function\\s+${name}\\s*\\(`);
+      const m = re.exec(text);
+      if (!m) continue;
+      const rest = text.slice(m.index);
+      const end = rest.slice(1).search(/\n(?:export\s+)?(?:function|const)\s/) + 1;
+      body = end > 0 ? rest.slice(0, end) : rest;
+      break;
+    }
+    helperCache.set(name, body);
+    return body;
+  };
+
+  // —— 1) 共享解析层 ——
   const srcFile = path.join(ROOT, 'packages/shared/src/sse/agent-events.ts');
-  if (!existsSync(srcFile)) return out;
-  const src = readFileSync(srcFile, 'utf-8');
-  // 常量键(SCREAMING_SNAKE)→ 解析函数名段(PlanStep):parseXxxEvent 与常量一一对应
-  const parseSegment = (constKey) =>
-    constKey.split('_').map((w) => w.charAt(0) + w.slice(1).toLowerCase()).join('');
-  for (const [constKey, wire] of agentTaskEventConstants) {
-    const seg = parseSegment(constKey);
-    const start = src.indexOf(`export function parse${seg}Event(`);
-    if (start === -1) continue;
-    const next = src.indexOf('\nexport ', start + 1);
-    const body = next === -1 ? src.slice(start) : src.slice(start, next);
+  if (existsSync(srcFile)) {
+    const src = stripTsComments(readFileSync(srcFile, 'utf-8'));
+    for (const fm of src.matchAll(/export function (parse[A-Za-z0-9]*Event)\s*\(/g)) {
+      const start = fm.index;
+      const next = src.indexOf('\nexport ', start + 1);
+      const body = next === -1 ? src.slice(start) : src.slice(start, next);
+      // 分发器(parseAgentTaskEvent / Strict)按 switch 分流,单看首个常量会记错事件,跳过
+      if (body.includes('switch (') && (body.match(/AGENT_TASK_EVENTS\./g) ?? []).length > 1) continue;
+      let wire = null;
+      const cm = body.match(/AGENT_TASK_EVENTS\.([A-Z][A-Z_0-9]*)/);
+      if (cm) wire = agentTaskEventConstants.get(cm[1]) ?? null;
+      if (!wire) {
+        // 非常量事件(workspace_lock_released / task_status_changed / start 等):
+        // 先取函数体的 type 守卫字面量,再退化为生产事件名扫描。
+        const tm = body.match(/\.type\s*(?:===|!==)\s*['"]([a-z][\w-]*)['"]/);
+        if (tm && knownNames.has(tm[1])) wire = tm[1];
+      }
+      if (!wire) {
+        for (const n of knownNames) {
+          if (body.includes(`'${n}'`) || body.includes(`"${n}"`)) {
+            wire = n;
+            break;
+          }
+        }
+      }
+      if (!wire) continue;
+      const keys = new Set();
+      collect(body, keys);
+      for (const hm of body.matchAll(/\b(projectToolApprovalEnvFacts|readSendAdmissionReceipt)\s*\(/g)) {
+        collect(helperBody(hm[1]), keys);
+      }
+      addKeys(wire, keys);
+    }
+  }
+
+  // —— 2) 对话流读取层 client.ts ——
+  const clientFile = path.join(ROOT, 'packages/api-client/src/client.ts');
+  if (!existsSync(clientFile)) return out;
+  const client = stripTsComments(readFileSync(clientFile, 'utf-8'));
+
+  /** 最近一个包含 idx 的 `if (` 条件:返回块体/单行语句范围。 */
+  const ifRegion = (idx) => {
+    const pre = client.lastIndexOf('if (', idx);
+    if (pre === -1) return null;
+    let i = pre + 4;
+    let depth = 1;
+    while (i < client.length && depth > 0) {
+      const ch = client[i];
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      i++;
+    }
+    if (depth !== 0 || idx > i) return null; // 该 if 不含本次比较,不能借它的块
+    const cond = client.slice(pre, i);
+    const guard = /!==|!=/.test(cond);
+    let j = i;
+    while (j < client.length && /\s/.test(client[j])) j++;
+    if (client[j] === '{') {
+      let d = 1;
+      const s = j + 1;
+      j++;
+      while (j < client.length && d > 0) {
+        const ch = client[j];
+        if (ch === '{') d++;
+        else if (ch === '}') d--;
+        j++;
+      }
+      return { kind: 'block', guard, start: s, end: j - 1 };
+    }
+    const nl = client.indexOf('\n', j);
+    return { kind: 'inline', guard, start: j, end: nl === -1 ? j + 120 : nl };
+  };
+
+  /** 包含 idx 的最近箭头函数体 / function 体。 */
+  const fnRegion = (idx) => {
+    let best = null;
+    for (const m of client.matchAll(
+      /(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*(?:async\s*)?(?:<[^>]*>\s*)?\([^)]*\)\s*(?::[^=]*)?=>\s*\{/g,
+    )) {
+      const s = m.index + m[0].length - 1;
+      let d = 1;
+      let i = s + 1;
+      while (i < client.length && d > 0) {
+        const ch = client[i];
+        if (ch === '{') d++;
+        else if (ch === '}') d--;
+        i++;
+      }
+      if (s < idx && i - 1 > idx) best = { start: s + 1, end: i - 2 };
+    }
+    return best;
+  };
+
+  const typeCmpRe = /\b(?:json|data|evt)\??\.type\s*(===|==|!==|!=)\s*['"]([a-z][\w-]*)['"]/g;
+  for (const m of client.matchAll(typeCmpRe)) {
+    const wire = m[2];
+    if (!knownNames.has(wire)) continue; // 只对生产面事件做字段判定
     const keys = new Set();
-    for (const m of body.matchAll(/\bp\?\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
-    for (const m of body.matchAll(/\bp\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
-    // b76-05 票1 重构后的读取形态:路由闸(gate.data.X)取的是字段表里的 wire 键
-    for (const m of body.matchAll(/\bgate\.data\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
-    for (const m of body.matchAll(/\bdata\??\.(type|session_id|payload)\b/g)) keys.add(m[1]);
-    // D159:tool-approval 的三个环境事实键经 projectToolApprovalEnvFacts(p) 读取,
-    // 判据只有 client.ts 那一份 —— 键集从那边的函数体现读并入,不在这里重列。
-    if (body.includes('projectToolApprovalEnvFacts(p)')) {
-      const clientSrc = readFileSync(path.join(ROOT, 'packages/api-client/src/client.ts'), 'utf-8');
-      const pjStart = clientSrc.indexOf('export function projectToolApprovalEnvFacts');
-      if (pjStart !== -1) {
-        const pjEnd = clientSrc.indexOf('\nfunction ', pjStart);
-        const pjBody = pjEnd === -1 ? clientSrc.slice(pjStart) : clientSrc.slice(pjStart, pjEnd);
-        for (const m of pjBody.matchAll(/\bjson\??\.([a-z_][a-z_0-9]*)/g)) keys.add(m[1]);
+    const blk = ifRegion(m.index);
+    if (blk && blk.guard) {
+      const fn = fnRegion(m.index);
+      collect(fn ? client.slice(m.index, fn.end) : client.slice(blk.start, blk.end), keys);
+    } else if (blk) {
+      collect(client.slice(blk.start, blk.end), keys);
+    } else {
+      const fn = fnRegion(m.index);
+      collect(fn ? client.slice(fn.start, fn.end) : client.slice(m.index, m.index + 120), keys);
+    }
+    const fn = fnRegion(m.index);
+    if (fn) {
+      const body = client.slice(fn.start, fn.end);
+      for (const hm of body.matchAll(/\b(projectToolApprovalEnvFacts|readSendAdmissionReceipt)\s*\(/g)) {
+        collect(helperBody(hm[1]), keys);
       }
     }
-    out.set(wire, keys);
+    addKeys(wire, keys);
+  }
+
+  /** 具名解析函数体(route/case 分支里 `tryParseX(line)` 的读取跟随后用)。 */
+  const namedFnBody = (name) => {
+    const re = new RegExp(
+      `(?:const|let|var)\\s+${name}\\s*=\\s*(?:async\\s*)?(?:<[^>]*>\\s*)?\\([^)]*\\)\\s*(?::[^=]*)?=>\\s*\\{`,
+    );
+    const m = re.exec(client);
+    if (!m) return '';
+    const s = m.index + m[0].length - 1;
+    let d = 1;
+    let i = s + 1;
+    while (i < client.length && d > 0) {
+      const ch = client[i];
+      if (ch === '{') d++;
+      else if (ch === '}') d--;
+      i++;
+    }
+    return client.slice(s + 1, i - 1);
+  };
+  const followParsers = (seg, keys) => {
+    for (const m of seg.matchAll(/\b(tryParse[A-Za-z0-9]+)\s*\(/g)) collect(namedFnBody(m[1]), keys);
+    for (const m of seg.matchAll(/\b(projectToolApprovalEnvFacts|readSendAdmissionReceipt)\s*\(/g)) {
+      collect(helperBody(m[1]), keys);
+    }
+  };
+
+  const routeCmpRe = /\broute\s*===\s*['"]([a-z][\w-]*)['"]/g;
+  for (const m of client.matchAll(routeCmpRe)) {
+    const wire = m[1];
+    if (!knownNames.has(wire)) continue;
+    const blk = ifRegion(m.index);
+    const keys = new Set();
+    if (blk) {
+      const seg = client.slice(blk.start, blk.end);
+      collect(seg, keys);
+      followParsers(seg, keys);
+    }
+    addKeys(wire, keys);
+  }
+
+  const caseRe = /\bcase\s*['"]([a-z][\w-]*)['"]\s*:/g;
+  for (const m of client.matchAll(caseRe)) {
+    const wire = m[1];
+    if (!knownNames.has(wire)) continue;
+    const rest = client.slice(m.index + m[0].length);
+    const rel2 = rest.search(/\n\s*(?:case\s*['"]|default\s*:)/);
+    const seg = rel2 === -1 ? rest.slice(0, 200) : rest.slice(0, rel2);
+    const keys = new Set();
+    collect(seg, keys);
+    followParsers(seg, keys);
+    addKeys(wire, keys);
   }
   return out;
 }
@@ -1189,8 +1382,7 @@ function scanBackendWriteKeys(record) {
     for (const f of walk(dir, ['.ts'])) {
       const text = stripTsComments(readFileSync(f, 'utf-8'));
       const re = /broadcastSSEEvent\(\s*\{/g;
-      let m;
-      while ((m = re.exec(text)) !== null) {
+      while (re.exec(text) !== null) {
         let depth = 1;
         let i = re.lastIndex;
         while (i < text.length && depth > 0) {
@@ -1260,8 +1452,10 @@ if (!fieldBaseline) {
       `不得静默当"无豁免"放行`,
   );
 }
-const frontendReadKeys = extractFrontendReadKeys();
 const backendWriteKeys = extractBackendWriteKeys();
+const frontendReadKeys = extractFrontendReadKeys(
+  new Set([...backendEvents.keys(), ...backendWriteKeys.keys()]),
+);
 let comparableEvents = 0;
 let fieldFactTotal = 0;
 let fieldGapTotal = 0;
@@ -1271,7 +1465,11 @@ let fieldGapTotal = 0;
     const write = backendWriteKeys.get(ev);
     const read = frontendReadKeys.get(ev);
     if (!read) {
-      warnings.push(`字段面: 事件 "${ev}" 生产侧声明了键集但解析面(agent-events.ts/client.ts)无读取点 — 未判定,不是通过`);
+      errors.push(
+        `字段面断裂: 事件 "${ev}" 生产侧声明了键集(${[...write.keys()].join(', ')})但解析面无读取点 — ` +
+          `真·有声明无读取,不是"未判定":补解析面读取点,或从生产侧注销该死声明` +
+          `(禁止在 ${FIELD_COVERAGE_PATH} 的 fieldBaseline 登记豁免)`,
+      );
       continue;
     }
     if (!write) {

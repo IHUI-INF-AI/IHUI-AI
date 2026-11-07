@@ -322,7 +322,7 @@ export function DeepResearchScreen() {
               <View className="mx-4 mb-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
                 <View className="mb-2 flex-row items-center justify-between">
                   <Text className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                    {t('deepResearch.report')}
+                    {t('deepResearch.reportTitle')}
                   </Text>
                   <Text className="text-xs text-neutral-500">
                     {t('deepResearch.sourceCount', { count: sources.length })}

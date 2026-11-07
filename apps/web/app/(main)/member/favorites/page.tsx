@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocale } from 'next-intl'
 import { Heart, Loader2, Trash2, Folder, FileText } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { listFavorites, deleteFavorite } from '@ihui/api-client'
 import { Button } from '@ihui/ui-react'
 import { BackButton, AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -52,17 +52,23 @@ export default function MemberFavoritesPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', 'favorites', tab],
     queryFn: () =>
-      apiOrThrow<{ list: Favorite[] }>(
-        `/api/favorites?pageSize=100${tab !== 'all' ? `&resourceType=${tab}` : ''}`,
-      )
-        .then((d) => d.list ?? [])
+      listFavorites<Favorite>({
+        pageSize: 100,
+        resourceType: tab !== 'all' ? tab : undefined,
+      })
+        .then((r) => {
+          if (!r.success) throw new Error(r.error)
+          return r.data.list ?? []
+        })
         .catch(() => [] as Favorite[]),
     enabled: allow,
   })
 
   const removeMut = useMutation({
-    mutationFn: (f: Favorite) =>
-      apiOrThrow(`/api/favorites/${f.resourceType}/${f.resourceId}`, { method: 'DELETE' }),
+    mutationFn: async (f: Favorite) => {
+      const r = await deleteFavorite(f.resourceType, f.resourceId)
+      if (!r.success) throw new Error(r.error)
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['member', 'favorites'] }),
   })
 

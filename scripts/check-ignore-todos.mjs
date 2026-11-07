@@ -23,9 +23,11 @@
  *   3. 统计守门 bug 标注数(reason 含 '守门脚本' 的条目)
  *   4. 打印汇总,exit 0 (warn-only,不阻塞)
  *
- * 退出码: 始终 0 (warn-only)
+ * 退出码(三态,AGENTS.md §0.3):
+ *   0 = 读到并正常报告(含存在 TODO:纯监控,无"违规"判据,故不发明 exit 1)
+ *   2 = .check-api-routes-ignore.json 读不到/解析失败(未判定,不得报绿)
  *
- * 集成位置: 可选挂到 pre-commit(不阻塞)或手动 `pnpm check:routes:ignore`
+ * 集成位置: 手动 `pnpm check:routes:ignore`(仍为 advisory,不挂 pre-commit)
  */
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -74,9 +76,12 @@ async function main() {
   try {
     const raw = readFileSync(IGNORE_FILE, 'utf8')
     data = JSON.parse(raw)
-  } catch (_e) {
-    console.log(`${C.dim}⏭  ${IGNORE_FILE} 不存在或解析失败,跳过${C.reset}`)
-    process.exit(0)
+  } catch (e) {
+    // 取不到输入(文件缺失/解析失败)⇒ 未判定,不得静默报绿
+    console.error(
+      `${C.red}✗ check-ignore-todos:${C.reset} 读不到或解析不了 ${IGNORE_FILE} —— 未判定(exit 2):${e?.message ?? e}`,
+    )
+    process.exit(2)
   }
 
   const items = data?.ignorePatterns ?? []
@@ -130,7 +135,7 @@ async function main() {
     `${healthColor}${C.bold}健康度${C.reset}: ${healthColor}${healthScore}%${C.reset} (${C.dim}豁免非 TODO 占比${C.reset})`,
   )
   console.log('')
-  console.log(`${C.dim}退出码 0 (warn-only),不阻塞 commit${C.reset}`)
+  console.log(`${C.dim}退出码 0(已读到并报告;纯监控不阻断)${C.reset}`)
   process.exit(0)
 }
 

@@ -9,14 +9,20 @@ project_hygiene.py - 双项目目录卫生验证
 对应规则：口播稿AGENTS.md 十三 / 公众号AGENTS.md 十一
 用法：python project_hygiene.py
 """
-import io
 import os
 import re
+import stat
 import sys
 
-# Windows UTF-8 fix
-if sys.platform == 'win32':
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+# Windows UTF-8 fix。reconfigure 不替换 stdout,避免导入时关掉调用方的捕获流。
+# TextIO 没有 reconfigure;用 getattr 取,没有就跳过(与原先 AttributeError 同一条路)。
+if sys.platform == "win32":
+    _reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if callable(_reconfigure):
+        try:
+            _reconfigure(encoding="utf-8", errors="replace")
+        except OSError:
+            pass
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))   # 工具脚本/
 KOUBO_ROOT = os.path.dirname(SCRIPT_DIR)                  # 口播稿/koubo
@@ -155,14 +161,34 @@ class HygieneChecker:
     # ===== 口播稿项目 =====
     def check_koubo(self) -> None:
         koubo_dir = os.path.join(MEDIA_ROOT, '\u53e3\u64ad\u7a3f', 'koubo')
-        if not os.path.isdir(koubo_dir):
-            self._add('\u53e3\u64ad\u7a3f/koubo/\u76ee\u5f55', False, '\u76ee\u5f55\u4e0d\u5b58\u5728')
+        try:
+            root_stat = os.stat(koubo_dir)
+        except FileNotFoundError:
+            self._add('口播稿/koubo/目录', False, '目录不存在')
+            return
+        except OSError:
+            self._add('口播稿/koubo/目录', False, '目录读不到,不能把它说成不存在')
+            return
+        if not stat.S_ISDIR(root_stat.st_mode):
+            self._add('口播稿/koubo/目录', False, '目录读不到,不能把它说成不存在')
             return
 
         # 1) __pycache__
         pycache = os.path.join(koubo_dir, '__pycache__')
-        self._add('\u53e3\u64ad\u7a3f __pycache__', not os.path.exists(pycache),
-                  '' if not os.path.exists(pycache) else '\u5b58\u5728__pycache__/\u76ee\u5f55')
+        try:
+            os.stat(pycache)
+            pycache_state = 'present'
+        except FileNotFoundError:
+            pycache_state = 'absent'
+        except OSError:
+            pycache_state = 'unread'
+        self._add(
+            '口播稿 __pycache__',
+            pycache_state == 'absent',
+            '' if pycache_state == 'absent' else (
+                '目录读不到,不能把它说成不存在' if pycache_state == 'unread' else '存在__pycache__/目录'
+            ),
+        )
 
         # 2) 根目录白名单
         unexpected = []
@@ -198,8 +224,16 @@ class HygieneChecker:
     # ===== 公众号项目 =====
     def check_wechat(self) -> None:
         wc_dir = os.path.join(MEDIA_ROOT, '\u516c\u4f17\u53f7')
-        if not os.path.isdir(wc_dir):
+        try:
+            root_stat = os.stat(wc_dir)
+        except FileNotFoundError:
             self._add('\u516c\u4f17\u53f7/\u76ee\u5f55', False, '\u76ee\u5f55\u4e0d\u5b58\u5728')
+            return
+        except OSError:
+            self._add('\u516c\u4f17\u53f7/\u76ee\u5f55', False, '目录读不到,不能把它说成不存在')
+            return
+        if not stat.S_ISDIR(root_stat.st_mode):
+            self._add('\u516c\u4f17\u53f7/\u76ee\u5f55', False, '目录读不到,不能把它说成不存在')
             return
 
         # 1) 公众号根目录白名单
@@ -213,29 +247,76 @@ class HygieneChecker:
                   '' if not unexpected_root else '\u610f\u5916: ' + ', '.join(unexpected_root))
 
         was_dir = os.path.join(wc_dir, 'wechat-article-system')
-        if not os.path.isdir(was_dir):
+        try:
+            was_stat = os.stat(was_dir)
+        except FileNotFoundError:
+            return
+        except OSError:
+            self._add('公众号/wechat-article-system', False, '目录读不到,不能把它说成不存在')
+            return
+        if not stat.S_ISDIR(was_stat.st_mode):
+            self._add('公众号/wechat-article-system', False, '目录读不到,不能把它说成不存在')
             return
 
         # 2) __pycache__
         for subdir in ['lib', 'config']:
             pycache = os.path.join(was_dir, subdir, '__pycache__')
-            self._add(f'\u516c\u4f17\u53f7 {subdir}/__pycache__',
-                      not os.path.exists(pycache),
-                      '' if not os.path.exists(pycache) else '\u5b58\u5728__pycache__/')
+            try:
+                os.stat(pycache)
+                pycache_state = 'present'
+            except FileNotFoundError:
+                pycache_state = 'absent'
+            except OSError:
+                pycache_state = 'unread'
+            self._add(
+                f'\u516c\u4f17\u53f7 {subdir}/__pycache__',
+                pycache_state == 'absent',
+                '' if pycache_state == 'absent' else (
+                    '目录读不到,不能把它说成不存在' if pycache_state == 'unread' else '\u5b58\u5728__pycache__/'
+                ),
+            )
 
         # 3) lib/ 白名单
         lib_dir = os.path.join(was_dir, 'lib')
-        if os.path.isdir(lib_dir):
-            unexpected_lib = []
-            for f in os.listdir(lib_dir):
-                if f in LIB_MODULES:
-                    continue
-                if f == '__pycache__':
-                    continue  # already checked above
-                unexpected_lib.append(f)
-            self._add('\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
-                      len(unexpected_lib) == 0,
-                      '' if not unexpected_lib else '\u610f\u5916\u6a21\u5757: ' + ', '.join(unexpected_lib))
+        try:
+            lib_mode = os.stat(lib_dir).st_mode
+        except FileNotFoundError:
+            lib_mode = None
+        except OSError:
+            self._add(
+                '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                False,
+                '目录读不到,不能把它说成不存在',
+            )
+            lib_mode = None
+        if lib_mode is not None and not stat.S_ISDIR(lib_mode):
+            self._add(
+                '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                False,
+                '目录读不到,不能把它说成不存在',
+            )
+        elif lib_mode is not None:
+            try:
+                names = os.listdir(lib_dir)
+            except OSError:
+                self._add(
+                    '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                    False,
+                    '目录读不到,不能把它说成不存在',
+                )
+            else:
+                unexpected_lib = []
+                for f in names:
+                    if f in LIB_MODULES:
+                        continue
+                    if f == '__pycache__':
+                        continue
+                    unexpected_lib.append(f)
+                self._add(
+                    '\u516c\u4f17\u53f7 lib/\u767d\u540d\u5355',
+                    len(unexpected_lib) == 0,
+                    '' if not unexpected_lib else '\u610f\u5916\u6a21\u5757: ' + ', '.join(unexpected_lib),
+                )
 
         # 4) skills/ 白名单
         skills_dir = os.path.join(wc_dir, 'skills')
@@ -271,7 +352,12 @@ class HygieneChecker:
                   '' if not unexpected_was else '\u610f\u5916: ' + ', '.join(unexpected_was))
 
     # ===== 项目边界硬检测（2026-07-14 用户强制·零容忍） =====
-    def check_cross_project_boundary(self) -> None:
+    def check_cross_project_boundary(
+        self,
+        *,
+        was_dir: str | None = None,
+        koubo_dir: str | None = None,
+    ) -> None:
         """根治疗法: AI 误把口播稿文件写到公众号 output/、或把公众号 HTML 写到口播稿/ 时,
         立即 FAIL,不放过到下次会话。
 
@@ -287,8 +373,8 @@ class HygieneChecker:
         - 公众号端: AGENTS.md / README.md / SKILL.md / MEMORY.md 都是规则文档,排除
         - 口播稿根: 案例库/素材库/选题存档等 pre-existing 业务 .md 文档,排除
         """
-        was_dir = os.path.join(MEDIA_ROOT, '公众号', 'wechat-article-system')
-        koubo_dir = os.path.join(MEDIA_ROOT, '口播稿', 'koubo')
+        was_dir = was_dir or os.path.join(MEDIA_ROOT, '公众号', 'wechat-article-system')
+        koubo_dir = koubo_dir or os.path.join(MEDIA_ROOT, '口播稿', 'koubo')
 
         # 跳过 .py/.json/.log 源码（脚本里可能含 .txt 字符串字面量）
         SKIP_EXTS = ('.py', '.json', '.log', '.pyc')
@@ -303,8 +389,16 @@ class HygieneChecker:
         # === 1+2+3. 公众号端·反向检查 ===
         gzh_pollution = []
         gzh_keyword_hits = []
+        unread_gzh = 0
+
+        def _on_gzh_error(err: OSError) -> None:
+            nonlocal unread_gzh
+            if isinstance(err, FileNotFoundError):
+                return
+            unread_gzh += 1
+
         if os.path.isdir(was_dir):
-            for cur, _subdirs, files in os.walk(was_dir):
+            for cur, _subdirs, files in os.walk(was_dir, onerror=_on_gzh_error):
                 for f in files:
                     if f.endswith(SKIP_EXTS):
                         continue
@@ -327,28 +421,47 @@ class HygieneChecker:
                         try:
                             with open(fp, encoding='utf-8', errors='ignore') as _f:
                                 txt = _f.read()
-                        except Exception:
+                        except FileNotFoundError:
+                            continue
+                        except OSError:
+                            unread_gzh += 1
                             continue
                         kw = [k for k in KOUBO_FILE_PATTERN_TUPLE if k in txt]
                         if len(kw) >= 2:
                             gzh_keyword_hits.append((rel, kw))
+        gzh_unread_note = (
+            f'有 {unread_gzh} 个目录或文件读不到,不能把边界说成通过'
+            if unread_gzh else ''
+        )
         self._add('项目边界·公众号目录无 .txt/MMDD.txt (零容忍)',
-                  len(gzh_pollution) == 0,
-                  '' if not gzh_pollution else
-                  f'发现 {len(gzh_pollution)} 处越界: ' +
-                  ', '.join(f'{h[0]}({h[1]})' for h in gzh_pollution[:5]))
+                  unread_gzh == 0 and len(gzh_pollution) == 0,
+                  gzh_unread_note or (
+                      '' if not gzh_pollution else
+                      f'发现 {len(gzh_pollution)} 处越界: ' +
+                      ', '.join(f'{h[0]}({h[1]})' for h in gzh_pollution[:5])
+                  ))
         self._add('项目边界·公众号文档无口播稿特征词 (≥2个零容忍)',
-                  len(gzh_keyword_hits) == 0,
-                  '' if not gzh_keyword_hits else
-                  f'发现 {len(gzh_keyword_hits)} 处越界: ' +
-                  ', '.join(f'{h[0]}→{h[1][:4]}' for h in gzh_keyword_hits[:3]))
+                  unread_gzh == 0 and len(gzh_keyword_hits) == 0,
+                  gzh_unread_note or (
+                      '' if not gzh_keyword_hits else
+                      f'发现 {len(gzh_keyword_hits)} 处越界: ' +
+                      ', '.join(f'{h[0]}→{h[1][:4]}' for h in gzh_keyword_hits[:3])
+                  ))
 
         # === 4+5+6. 口播稿端·反向检查 ===
         koubo_pollution = []
         koubo_md_json = []
         koubo_img_txt = []
+        unread_koubo = 0
+
+        def _on_koubo_error(err: OSError) -> None:
+            nonlocal unread_koubo
+            if isinstance(err, FileNotFoundError):
+                return
+            unread_koubo += 1
+
         if os.path.isdir(koubo_dir):
-            for cur, _subdirs, files in os.walk(koubo_dir):
+            for cur, _subdirs, files in os.walk(koubo_dir, onerror=_on_koubo_error):
                 for f in files:
                     if f.endswith(SKIP_EXTS):
                         continue
@@ -376,21 +489,31 @@ class HygieneChecker:
                     # 6) koubo/images/ 目录里出现 .txt 文件（口播稿草稿串混淆）
                     if 'images' in cur and f.lower().endswith('.txt'):
                         koubo_img_txt.append((rel, 'koubo/images/ 出现 .txt 草稿串文件'))
+        koubo_unread_note = (
+            f'有 {unread_koubo} 个目录读不到,不能把边界说成通过'
+            if unread_koubo else ''
+        )
         self._add('项目边界·口播稿目录无 .html/.docx (零容忍)',
-                  len(koubo_pollution) == 0,
-                  '' if not koubo_pollution else
-                  f'发现 {len(koubo_pollution)} 处越界: ' +
-                  ', '.join(f'{h[0]}({h[1]})' for h in koubo_pollution[:5]))
+                  unread_koubo == 0 and len(koubo_pollution) == 0,
+                  koubo_unread_note or (
+                      '' if not koubo_pollution else
+                      f'发现 {len(koubo_pollution)} 处越界: ' +
+                      ', '.join(f'{h[0]}({h[1]})' for h in koubo_pollution[:5])
+                  ))
         self._add('项目边界·口播稿根目录无 .md/.json 公众号脚本 (零容忍)',
-                  len(koubo_md_json) == 0,
-                  '' if not koubo_md_json else
-                  f'发现 {len(koubo_md_json)} 处越界: ' +
-                  ', '.join(f'{h[0]}({h[1]})' for h in koubo_md_json[:5]))
+                  unread_koubo == 0 and len(koubo_md_json) == 0,
+                  koubo_unread_note or (
+                      '' if not koubo_md_json else
+                      f'发现 {len(koubo_md_json)} 处越界: ' +
+                      ', '.join(f'{h[0]}({h[1]})' for h in koubo_md_json[:5])
+                  ))
         self._add('项目边界·koubo/images/ 无 .txt 草稿串 (零容忍)',
-                  len(koubo_img_txt) == 0,
-                  '' if not koubo_img_txt else
-                  f'发现 {len(koubo_img_txt)} 处越界: ' +
-                  ', '.join(f'{h[0]}({h[1]})' for h in koubo_img_txt[:5]))
+                  unread_koubo == 0 and len(koubo_img_txt) == 0,
+                  koubo_unread_note or (
+                      '' if not koubo_img_txt else
+                      f'发现 {len(koubo_img_txt)} 处越界: ' +
+                      ', '.join(f'{h[0]}({h[1]})' for h in koubo_img_txt[:5])
+                  ))
 
     # ===== 根目录 =====
     def check_root(self) -> None:

@@ -10,7 +10,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classifyFace, provenanceNote } from '../lib/knip-ratchet-face.mjs'
+import { classifyFace, detectConfigLoadFailures, provenanceNote } from '../lib/knip-ratchet-face.mjs'
 
 test('K1 本地脏树必判 incomparable,且理由里带条数(不许只说"不可比")', () => {
   const r = classifyFace({ ci: false, dirtyCount: 238 })
@@ -60,5 +60,59 @@ test('K7 隔离 HEAD 检出(无 .git)判可比并留专门出处 —— 闸门�
   assert.match(provenanceNote({ comparable: true, dirtyCount: 0, forced: false, isolated: true }), /isolated HEAD checkout/)
   // 反向对照:git 问得到但在 status 上失败 ⇒ 仍是 undetermined,不能借 insideRepo 默认值洗成可比
   assert.equal(classifyFace({ ci: false, dirtyCount: null, insideRepo: true }).verdict, 'undetermined')
+})
+
+test('K8 knip 的 "Error loading" 行被认成配置加载失败(路径与 cause 都要拿到)', () => {
+  const stderr = [
+    "ERROR: Error loading packages/database/drizzle.config.ts (DATABASE_URL 未设置 ⇒ 拒绝加载 drizzle 配置。)",
+    'ERROR: Please fix or visit https://knip.dev/reference/known-issues',
+  ].join('\n')
+  const f = detectConfigLoadFailures(stderr)
+  assert.equal(f.length, 1)
+  assert.equal(f[0].path, 'packages/database/drizzle.config.ts')
+  assert.match(f[0].cause, /DATABASE_URL/)
+})
+
+test('K9 路径自带括号(Next 路由段)不得被当成 cause 的分隔点', () => {
+  // 反面锁:若实现用"第一个左括号"切分,app/(main)/… 会被切成 path='apps/web/app' 而误判
+  const stderr =
+    "ERROR: Error loading apps/web/app/(main)/download/[platform]/x.tsx ([app.config] 缺少配置)"
+  const f = detectConfigLoadFailures(stderr)
+  assert.equal(f.length, 1)
+  assert.equal(f[0].path, 'apps/web/app/(main)/download/[platform]/x.tsx')
+  assert.equal(f[0].cause, '[app.config] 缺少配置')
+})
+
+test('K10 cause 自身带括号时取到行尾的右括号,不被截断', () => {
+  const f = detectConfigLoadFailures(
+    "ERROR: Error loading apps/mobile-rn/app.config.js ([app.config] 缺 WX(见 app.json) 与 android.package)",
+  )
+  assert.equal(f.length, 1)
+  assert.match(f[0].cause, /android\.package/)
+})
+
+test('K11 无配置加载失败时返回空(反向锁:判据不是见 ERROR 就红)', () => {
+  assert.deepEqual(detectConfigLoadFailures(''), [])
+  assert.deepEqual(detectConfigLoadFailures(undefined), [])
+  assert.deepEqual(
+    detectConfigLoadFailures(
+      'Your Expo app does not have a userInterfaceStyle setting\nERROR: 其它类型的错误不属本判据',
+    ),
+    [],
+  )
+})
+
+test('K12 多面同时失败时逐条点名,一条不漏', () => {
+  const f = detectConfigLoadFailures(
+    [
+      "ERROR: Error loading apps/extension/wxt.config.ts (File './.wxt/tsconfig.json' not found.)",
+      "ERROR: Error loading apps/extension/vitest.config.ts (File './.wxt/tsconfig.json' not found.)",
+      'ERROR: Please fix or visit https://knip.dev/reference/known-issues',
+    ].join('\n'),
+  )
+  assert.deepEqual(
+    f.map((x) => x.path),
+    ['apps/extension/wxt.config.ts', 'apps/extension/vitest.config.ts'],
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

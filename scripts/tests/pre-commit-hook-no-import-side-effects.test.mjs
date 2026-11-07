@@ -54,7 +54,7 @@ const FIRST_EXECUTION_MARKERS = [
   "execSync('node scripts/git-lock.mjs clean'",
   'const INITIAL_STAGED_SNAPSHOT = takeStagingSnapshot()',
   'auditStagingFiles()',
-  'npx lint-staged',
+  'if (!runLintStaged())',
 ]
 
 /** 取守卫整块:从 `if (require.main !== module)` 到与之配平的换行 `}`。 */

@@ -46,6 +46,7 @@ const result = spawnSync(process.execPath, [cli, script], {
   cwd: webRoot,
   stdio: 'inherit',
   env: process.env,
+  // 守门 48 要求:派生子进程必须显式抑制新控制台窗口,否则 Windows 下构建期会闪黑框
   windowsHide: true,
 })
 if (result.error) {

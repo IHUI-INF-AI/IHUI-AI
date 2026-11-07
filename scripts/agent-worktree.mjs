@@ -12,6 +12,12 @@
  *  - 默认 dry-run:不带 --apply 只打印将执行的 git 命令,零写入。
  *  - 回收不得静默删未合并检出:分支未并入 main ⇒ 必须 --tag-lost(先打 lost-commit 标签保活,
  *    再移除),否则拒绝(§12h:未合并检出不得静默删;合并与否由 agent 自主裁决,见 §12h-补)。
+ *  - **回收(--reap)只删检出,绝不自动删分支**(2026-11-04 定档,s9 票):分支归 `git branch -d`
+ *    与 §12h 合并裁决;`--remove <名>` 是显式单件操作,删不删分支由该路径的裁决展示。
+ *  - **回收射程不按分支命名收口**(2026-11-04 定档):旧命名闸 `wt/*` 只表达"这张检出是谁创建的",
+ *    不表达任何安全属性,实测让 guardian 每 24h 派发的回收腿结构性空转(21 枚 linked 检出 0 枚
+ *    `wt/*` ⇒ 候选恒 0)。安全实质由后四闸(非 locked ∧ 干净 ∧ HEAD 已并入 main ∧ 空闲 ≥ 阈值)
+ *    表达,一条不弱化;落点闸(.worktrees/ 批准落点,仓外 C:/D:/E: 一律不进射程)保留。
  *  - git 一律显式 stdio(守门 193):不裸 execSync、不共用继承管道。
  *
  * 用法:
@@ -99,12 +105,20 @@ export function isUnderWorktreesRoot(p, root = ROOT) {
 /**
  * 回收判定(纯函数,构造面可证)。返回 `{action:'remove'|'skip', reason}`。
  *
- * 方向一律"宁可少收一个,不可丢一份现场":不在批准落点、非 `wt/*` 分支、locked、脏、
+ * 方向一律"宁可少收一个,不可丢一份现场":不在批准落点、形态判不出、locked、脏、
  * HEAD 未并入 main、活跃未满阈值、量不到最后活动时间 —— 任一命中即保留。
+ *
+ * 2026-11-04 定档(s9 票):命名闸 `wt/*` 已摘 —— 它只表达"这张检出是谁创建的",
+ * 不表达任何安全属性,实测让回收腿结构性空转(0 枚候选)。安全实质由后四闸
+ * (非 locked ∧ 干净 ∧ 已并入 ∧ 空闲 ≥ 阈值)表达,一条不弱化;落点闸保留
+ * (仓外 C:/D:/E: 等其他落点一律不进射程)。两类检出分开走:
+ *  - detached:无现场归属,删除前必须 HEAD 已证并入(merged 闸即其存在前提);
+ *  - 有分支:任意分支名都进射程,回收只删检出、不动分支(分支归 branch -d 与 §12h 裁决)。
  */
 export function evaluateReapCandidate({
   path,
   branch = '',
+  detached = false,
   locked = false,
   dirty = false,
   merged = false,
@@ -113,17 +127,31 @@ export function evaluateReapCandidate({
   minIdleDays = 7,
   worktreesRoot = join(ROOT, '.worktrees'),
 } = {}) {
-  if (!isUnderDir(path, worktreesRoot)) return { action: 'skip', reason: '不在批准落点 .worktrees/ 下' }
-  if (!/^wt\//.test(branch)) return { action: 'skip', reason: '分支不属于 wt/*' }
+  if (!isUnderDir(path, worktreesRoot)) return { action: 'skip', reason: '不在批准落点 .worktrees/ 下(仓外落点不扩)' }
+  // 身份形态闸(替代旧命名闸):detached 与有分支两类之外判不出形态 ⇒ 保守保留。
+  // 此闸不表达安全属性、只表达"这张检出归谁/是什么",故不再按分支名收口。
+  if (!detached && !branch)
+    return { action: 'skip', reason: '既无分支也未标注 detached(形态判不出,保守保留)' }
   if (locked) return { action: 'skip', reason: 'worktree 被 lock' }
   if (dirty) return { action: 'skip', reason: '工作区有未提交/未跟踪改动(保留现场)' }
-  if (!merged) return { action: 'skip', reason: 'HEAD 未并入 main(按 §12h 先裁决,不静默删)' }
+  if (!merged)
+    return {
+      action: 'skip',
+      reason: detached
+        ? 'detached 的 HEAD 未证并入 main(无现场归属,并入即删除前提 ⇒ 保留)'
+        : 'HEAD 未并入 main(按 §12h 先裁决,不静默删)',
+    }
   if (!Number.isFinite(lastActivityMs) || lastActivityMs <= 0)
     return { action: 'skip', reason: '量不到最后活动时间(保守保留)' }
   const idleDays = (now - lastActivityMs) / 86_400_000
   if (idleDays < minIdleDays)
     return { action: 'skip', reason: `最近活动 ${idleDays.toFixed(1)} 天 < 阈值 ${minIdleDays} 天` }
-  return { action: 'remove', reason: `干净且已并入 main,空闲 ${idleDays.toFixed(1)} 天 ≥ ${minIdleDays} 天` }
+  return {
+    action: 'remove',
+    reason: detached
+      ? `detached 无现场归属且 HEAD 已证并入 main,空闲 ${idleDays.toFixed(1)} 天 ≥ ${minIdleDays} 天`
+      : `干净且已并入 main,空闲 ${idleDays.toFixed(1)} 天 ≥ ${minIdleDays} 天(只删检出,分支 ${branch} 保留归 §12h 裁决)`,
+  }
 }
 
 function git(args, { root = ROOT, input = null } = {}) {
@@ -234,8 +262,34 @@ function selfTest() {
     '干净+已并入+超龄 ⇒ 回收',
   )
   assert(
+    evaluateReapCandidate({ ...base, branch: 'feature/x', now, worktreesRoot: '/repo/.worktrees' }).action ===
+      'remove',
+    '非 wt/* 分支名不再被命名闸拦(2026-11-04 定档)',
+  )
+  assert(
+    evaluateReapCandidate({
+      ...base,
+      branch: '',
+      detached: true,
+      now,
+      worktreesRoot: '/repo/.worktrees',
+    }).action === 'remove',
+    'detached 且已证并入 ⇒ 回收',
+  )
+  assert(
+    evaluateReapCandidate({
+      ...base,
+      branch: '',
+      detached: true,
+      merged: false,
+      now,
+      worktreesRoot: '/repo/.worktrees',
+    }).action === 'skip',
+    'detached 未证并入必须保留',
+  )
+  assert(
     evaluateReapCandidate({ ...base, branch: '', now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
-    '非 wt/* 分支必须保留',
+    '形态判不出(无分支且非 detached)必须保留',
   )
   assert(
     evaluateReapCandidate({ ...base, locked: true, now, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
@@ -258,7 +312,7 @@ function selfTest() {
     evaluateReapCandidate({ ...base, now, minIdleDays: 31, worktreesRoot: '/repo/.worktrees' }).action === 'skip',
     '活跃未满阈值必须保留',
   )
-  console.log('self-test: 全绿(17 组断言)')
+  console.log('self-test: 全绿(20 组断言)')
 }
 
 function main(argv) {
@@ -307,22 +361,32 @@ function main(argv) {
       if (resolve(w.path) === resolve(ROOT)) continue
       const dirty = isDirty(w.path)
       const merged = git(['merge-base', '--is-ancestor', w.sha, 'main']).ok
+      const lastActivityMs = lastActivityMsOf(w.path)
       const verdict = evaluateReapCandidate({
         path: w.path,
         branch: w.branch,
+        detached: w.detached,
         locked: !!w.locked,
         dirty,
         merged,
-        lastActivityMs: lastActivityMsOf(w.path),
+        lastActivityMs,
         now,
         minIdleDays: minIdle,
         worktreesRoot: WT_DIR,
       })
-      rows.push({ ...w, ...verdict })
+      // 四闸读数逐条打印(2026-11-04 s9 票):让"为什么没收"可核,不再只有一句 reason。
+      const idle =
+        Number.isFinite(lastActivityMs) && lastActivityMs > 0
+          ? `${((now - lastActivityMs) / 86_400_000).toFixed(1)}d`
+          : '量不到'
+      const gates = `locked=${w.locked ? 'Y' : 'N'} dirty=${dirty ? 'Y' : 'N'} merged=${merged ? 'Y' : 'N'} idle=${idle}`
+      rows.push({ ...w, ...verdict, gates })
     }
     const doomed = rows.filter((r) => r.action === 'remove')
     for (const r of rows) {
-      console.log(`${r.action === 'remove' ? '🗑' : '⏭'} ${r.path} [${r.branch || '(detached)'}] ${r.reason}`)
+      console.log(
+        `${r.action === 'remove' ? '🗑' : '⏭'} ${r.path} [${r.branch || (r.detached ? '(detached)' : '(无分支)')}] ${r.gates} ⇒ ${r.reason}`,
+      )
     }
     if (!doomed.length) {
       console.log(`ℹ 无回收候选(${rows.length} 个检出全数保留;阈值 ${minIdle} 天)`)
@@ -341,12 +405,13 @@ function main(argv) {
         failed += 1
         continue
       }
-      const del = git(['branch', '-d', r.branch])
+      // 2026-11-04 定档(s9 票):自动回收只删检出,绝不自动删分支。
+      // 分支存续归 `git branch -d` 与 §12h 合并裁决 —— 回收器结构上碰不到它。
       removed += 1
-      if (!del.ok) console.log(`⚠ 已回收 ${r.path};分支 ${r.branch} 未删(${del.err.trim().split('\n')[0]})`)
+      if (r.branch) console.log(`🏷 检出已回收;分支 ${r.branch} 保留(删除走 git branch -d 与 §12h 裁决)`)
     }
     git(['worktree', 'prune'])
-    console.log(`✅ 回收 ${removed} 个${failed ? `,失败 ${failed} 个` : ''}(已 prune)`)
+    console.log(`✅ 回收 ${removed} 个${failed ? `,失败 ${failed} 个` : ''}(已 prune;分支一律保留)`)
     if (failed) process.exitCode = EXIT_REFUSED
     return
   }

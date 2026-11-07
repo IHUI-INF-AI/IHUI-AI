@@ -325,19 +325,19 @@ export function AiWorkspaceProjectScreen() {
           )
           if (!res.success) {
             // web 的格式是「转换失败: <后端具体原因>」；后端没给原因时才只留前缀，不重复两遍同一句
-            const prefix = t('aiWorkspace.convertFailed')
+            const prefix = t('workspace.convertMarkdownFailed')
             const reason = apiFailureToText(res, prefix)
             setConvertError(reason === prefix ? prefix : `${prefix}: ${reason}`)
             return
           }
           const markdown = res.data?.markdown
           if (typeof markdown !== 'string') {
-            setConvertError(t('aiWorkspace.convertFailed'))
+            setConvertError(t('workspace.convertMarkdownFailed'))
             return
           }
           setConvertResult({ markdown, fileName: res.data?.fileName || file.name })
         } catch (e) {
-          const prefix = t('aiWorkspace.convertFailed')
+          const prefix = t('workspace.convertMarkdownFailed')
           const message = e instanceof Error ? e.message : ''
           setConvertError(message ? `${prefix}: ${message}` : prefix)
         } finally {

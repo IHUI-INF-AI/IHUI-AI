@@ -827,4 +827,75 @@ test('T15 C7 端到端(--staged 临时仓):工厂存量齐平不红、新增零�
     rmScratch(dir)
   }
 })
+
+/**
+ * T17 端到端(--staged,临时仓):C6 第五族(注入型取词器,2026-11-05 G-816043 补)。
+ *
+ * 要防的那一型:共享屏以 prop 收 `t`(packages/app 的 `WalletScreenProps.t: TFunction`),
+ * 前四族不认 ⇒ 词表加键就成了"无主键",棘轮判红 ⇒ 合法提交被拦(本票复现的假阳性)。
+ * 本测试在临时仓真跑 `--staged`:同一次提交里"词表加 3 键 + 组件用 prop t 全部发射"必须绿;
+ * 只加词表键不给消费者 ⇒ 照旧红(证明修的是假阳性,不是把门关掉)。
+ */
+test('T17 C6 注入型取词器端到端:prop 注入接线 ⇒ 绿;只加词表无消费者 ⇒ 红', () => {
+  const dir = mkScratch('g121-inject-')
+  try {
+    const git = (args) =>
+      spawnSync('git', ['-C', dir, ...args], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 60000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    assert.equal(git(['init', '-q']).status, 0)
+    assert.equal(git(['config', 'user.email', 'gate@example.invalid']).status, 0)
+    assert.equal(git(['config', 'user.name', 'gate']).status, 0)
+    mkdirSync(join(dir, 'packages', 'app', 'src', 'shared'), { recursive: true })
+    mkdirSync(join(dir, 'packages', 'i18n', 'messages', 'mobile-rn'), { recursive: true })
+    const LEX = (obj) => {
+      // 词表候选口径是"五语言全有"的键(只写 en 会让 orphan.x 根本不进判定面,红成假的)
+      for (const L of gate.LEX_LANGS)
+        writeFileSync(join(dir, 'packages', 'i18n', 'messages', 'mobile-rn', `${L}.json`), JSON.stringify(obj))
+    }
+    const COMP = join(dir, 'packages', 'app', 'src', 'shared', 'S.tsx')
+    LEX({ probe: { title: 't' } })
+    writeFileSync(
+      COMP,
+      "export function S({ t }: { t: (k: string) => string }): string { return t('probe.title') }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    assert.equal(git(['commit', '-qm', 'base']).status, 0)
+    const runGate = () =>
+      spawnSync(process.execPath, [SCRIPT, '--staged', '--root', dir], {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 120000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    // A. 词表加 2 键 + prop t 全部发射 ⇒ staged 未接线 0 ≤ 锚点 0 ⇒ 绿(修复前会红)
+    LEX({ probe: { title: 't', extra: 'a', extra2: 'b' } })
+    writeFileSync(
+      COMP,
+      "export function S({ t }: { t: (k: string) => string }): string { return t('probe.title') + t('probe.extra') + t('probe.extra2') }\n",
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    const green = runGate()
+    assert.equal(
+      green.status,
+      0,
+      `prop 注入接线应绿 rc=${green.status}\n${green.stdout?.slice(-800)}${green.stderr?.slice(-800)}`,
+    )
+    // B. 只加词表键、没有消费者 ⇒ staged 1 > 锚点 0 ⇒ 红且点名
+    LEX({ probe: { title: 't', extra: 'a', extra2: 'b' }, orphan: { x: 'c' } })
+    assert.equal(git(['add', '-A']).status, 0)
+    const red = runGate()
+    assert.equal(
+      red.status,
+      1,
+      `无消费者键应红 rc=${red.status}\n${red.stdout?.slice(-800)}${red.stderr?.slice(-800)}`,
+    )
+    assert.match(String(red.stderr), /orphan\.x/, '红必须点名无主键')
+  } finally {
+    rmScratch(dir)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

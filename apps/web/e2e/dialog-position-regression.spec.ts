@@ -104,20 +104,21 @@ async function triggerAndMeasure(
   if (opts.mobile) {
     // 2026-09-14 补:goto 后 AI 面板水合渲染需要时间,isVisible 即时检查会误判跳过
     // (sidebar-visual 同款实测),改 waitFor 轮询;≤8s 未出现视为已关闭。
-    const closePanel = page.locator('button[aria-label="关闭"]').first()
-    const panelShown = await closePanel
+    // 2026-11-04 信息架构重构:header 的可见「关闭」收进溢出菜单
+    // (`[data-testid="ai-panel-close"]`,Radix DropdownMenu.Item ⇒ role=menuitem)。
+    const overflowTrigger = page.locator('[data-testid="ai-panel-overflow-trigger"]').first()
+    const panelShown = await overflowTrigger
       .waitFor({ state: 'visible', timeout: 8000 })
       .then(() => true)
       .catch(() => false)
     if (panelShown) {
-      await closePanel.click()
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await overflowTrigger.click()
+      await page.locator('[data-testid="ai-panel-close"]').click()
       await page.waitForTimeout(500)
     }
     const menuBtn = page.locator('button[aria-label="菜单"]').first()
     await expect(menuBtn).toBeVisible({ timeout: 5000 })
     await menuBtn.click()
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
   }
 
@@ -149,7 +150,6 @@ async function triggerAndMeasure(
   await expect(passwordTab).toBeVisible({ timeout: 5000 })
   await passwordTab.click()
   // 等 PasswordLoginForm 挂载(切 tab 后 TabsContent 重新渲染,testid 出现)
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(500)
 
   // 5. 填表(**不**勾选协议 — defaultAgreed=false,弹窗由 agreementMode='notice-dialog' 触发)

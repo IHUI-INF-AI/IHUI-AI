@@ -44,22 +44,22 @@ function stripAnsi(s) {
   return s.replace(/\x1B\[[0-9;]*m/g, '')
 }
 
-// ─── 1. 文件不存在 → exit 0 + "跳过"(catch 兜底) ────────────────
-test('文件不存在 → exit 0 + "跳过"(catch 兜底)', () => {
+// ─── 1. 文件不存在 → exit 2(未判定) ────────────────
+test('文件不存在 → exit 2(未判定)', () => {
   const root = createTempProject()
   try {
     const r = runScript({ cwd: root })
-    assert.equal(r.status, 0, `文件不存在应 exit 0,实际 ${r.status}`)
-    const out = stripAnsi(r.stdout)
-    assert.match(out, /跳过/, '应输出"跳过"')
-    assert.match(out, /不存在或解析失败/, '应说明跳过原因')
+    assert.equal(r.status, 2, `文件不存在应 exit 2(未判定),实际 ${r.status}`)
+    const err = stripAnsi(r.stderr)
+    assert.match(err, /未判定/, '应说明未判定')
+    assert.match(err, /读不到或解析不了/, '应点名取不到输入')
   } finally {
     rmScratch(root)
   }
 })
 
-// ─── 2. 文件存在但 JSON 解析失败 → exit 0 + "跳过" ────────────────
-test('文件存在但无效 JSON → exit 0 + "跳过"(JSON.parse 抛错)', () => {
+// ─── 2. 文件存在但 JSON 解析失败 → exit 2(未判定) ────────────────
+test('文件存在但无效 JSON → exit 2(未判定)', () => {
   const root = createTempProject()
   try {
     writeFileSync(
@@ -67,10 +67,10 @@ test('文件存在但无效 JSON → exit 0 + "跳过"(JSON.parse 抛错)', () =
       '{ "ignorePatterns": [ invalid json ',
     )
     const r = runScript({ cwd: root })
-    assert.equal(r.status, 0, `无效 JSON 应 exit 0,实际 ${r.status}`)
-    const out = stripAnsi(r.stdout)
-    assert.match(out, /跳过/)
-    assert.match(out, /不存在或解析失败/)
+    assert.equal(r.status, 2, `无效 JSON 应 exit 2(未判定),实际 ${r.status}`)
+    const err = stripAnsi(r.stderr)
+    assert.match(err, /未判定/)
+    assert.match(err, /读不到或解析不了/)
   } finally {
     rmScratch(root)
   }
@@ -310,10 +310,10 @@ test('始终 exit 0: 全是 TODO 也不阻塞(warn-only 硬约束)', () => {
       ],
     })
     const r = runScript({ cwd: root })
-    // warn-only: 即使 TODO 数 > 0 也不阻塞 commit
-    assert.equal(r.status, 0, `warn-only 应始终 exit 0,实际 ${r.status}`)
+    // 纯监控无违规判据:即使 TODO 数 > 0 也 exit 0(不发明 exit 1);缺口径只在输入取不到时 exit 2
+    assert.equal(r.status, 0, `读到并报告应 exit 0,实际 ${r.status}`)
     const out = stripAnsi(r.stdout)
-    assert.match(out, /退出码 0 \(warn-only\),不阻塞 commit/)
+    assert.match(out, /退出码 0\(已读到并报告;纯监控不阻断\)/)
   } finally {
     rmScratch(root)
   }

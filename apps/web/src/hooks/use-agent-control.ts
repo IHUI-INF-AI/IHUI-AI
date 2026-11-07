@@ -26,7 +26,11 @@
  */
 import * as React from 'react'
 
-import { createNotificationClient } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  reportAgentControlCapability,
+  reportAgentControlResult,
+} from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
   createReplayWatermark,
@@ -43,7 +47,6 @@ import type {
   ComputerControlActionType,
   WSNotification,
 } from '@ihui/types'
-import { fetchApi } from '@/lib/api'
 import {
   clipboardGet,
   clipboardSet,
@@ -154,10 +157,7 @@ function buildCapability(): AgentControlCapability {
 
 async function reportCapability(): Promise<void> {
   try {
-    const res = await fetchApi<{ registered: boolean; instanceId: string }>(
-      '/api/agent-control/capability',
-      { method: 'POST', body: JSON.stringify(buildCapability()) },
-    )
+    const res = await reportAgentControlCapability(buildCapability())
     if (!res.success) {
       console.warn('[desktop] agent-control capability report failed')
     }
@@ -171,10 +171,7 @@ async function reportCapability(): Promise<void> {
 async function reportResult(response: AgentActionResponse): Promise<void> {
   const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
   try {
-    const res = await fetchApi<{ accepted: boolean }>('/api/agent-control/result', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
+    const res = await reportAgentControlResult(payload)
     if (!res.success) {
       console.warn('[desktop] agent-control result report failed')
     }

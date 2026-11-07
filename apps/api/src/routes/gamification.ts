@@ -24,8 +24,8 @@ import {
 import { earnPoints, spendPoints } from '../services/points-service.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { calcSignInReward, todayString, shiftDate } from '../utils/checkin-helpers.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 
-const ADMIN_ROLE_ID = 1
 const TX_TYPE = ['earn', 'spend'] as const
 
 // =============================================================================
@@ -77,8 +77,16 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
       await authenticate(request)
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
-      const message = (e as Error).message || '操作失败,请稍后重试'
-      return reply.status(statusCode).send(error(statusCode, message))
+      // BUG-25:异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。
+      request.log.error({ err: e }, 'gamification auth failed')
+      return reply
+        .status(statusCode)
+        .send(
+          error(
+            statusCode,
+            statusCode < 500 ? '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试',
+          ),
+        )
     }
   })
 
@@ -165,11 +173,8 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // POST /points/admin/adjust - 管理员调整用户积分（正数 earn / 负数 spend）
-  server.post('/points/admin/adjust', async (request, reply) => {
-    const roleId = request.jwtPayload?.roleId ?? 0
-    if (roleId < ADMIN_ROLE_ID) {
-      return reply.status(403).send(error(403, '需要管理员权限'))
-    }
+  // 统一走 requireAdmin:内联 roleId 判定会绕过 checkAdminTotpGate 与 requireActiveUser。
+  server.post('/points/admin/adjust', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = adjustPointsSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -182,9 +187,13 @@ export const gamificationRoutes: FastifyPluginAsync = async (server) => {
           : await spendPoints(userId, Math.abs(amount), 'admin', description)
       return reply.send(success(result))
     } catch (e) {
+      // 异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。
+      request.log.error({ err: e }, 'points admin adjust failed')
       const msg = (e as Error).message
       const code = msg.includes('余额不足') ? 400 : 500
-      return reply.status(code).send(error(code, msg))
+      return reply
+        .status(code)
+        .send(error(code, code === 400 ? '积分不足,无法扣减' : '操作失败,请稍后重试'))
     }
   })
 

@@ -27,7 +27,7 @@
   color: var(--color-muted-foreground);
 }
 .following-stats-num {
-  margin: 0 8rpx;
+  margin: 0 var(--spacing-xs);
   font-size: var(--text-heading);
   font-weight: 700;
   color: var(--color-primary);
@@ -40,7 +40,7 @@
   display: flex;
   align-items: center;
   height: 72rpx;
-  padding: 0 20rpx;
+  padding: 0 var(--spacing-sm-loose);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);
@@ -134,7 +134,7 @@
   white-space: nowrap;
 }
 .following-status {
-  padding: var(--spacing-2xs) 12rpx;
+  padding: var(--spacing-2xs) var(--spacing-xs-loose);
   background: var(--color-border);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -160,7 +160,7 @@
   color: var(--color-muted-foreground);
 }
 .following-unfollow-btn {
-  padding: var(--spacing-xs) 20rpx;
+  padding: var(--spacing-xs) var(--spacing-sm-loose);
   font-size: var(--text-label);
   color: var(--color-destructive);
   background: var(--color-danger-tint);
@@ -185,7 +185,7 @@
 }
 .following-empty-btn {
   margin-top: var(--spacing-md);
-  padding: var(--spacing-sm) 40rpx;
+  padding: var(--spacing-sm) var(--spacing-xl);
   background: var(--color-cta);
   border-radius: var(--radius-sm);
 }

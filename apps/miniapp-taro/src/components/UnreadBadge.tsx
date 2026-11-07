@@ -44,7 +44,7 @@ export default function UnreadBadge({
       style={{ minWidth, height: size === 'sm' ? 16 : 20 }}
     >
       <Text
-        className={`text-destructive-foreground font-bold ${size === 'sm' ? 'text-badge' : 'text-xs'}`}
+        className={`text-destructive-foreground font-bold ${size === 'sm' ? 'text-badge' : 'text-label'}`}
       >
         {display}
       </Text>

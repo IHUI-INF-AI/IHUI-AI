@@ -8,84 +8,79 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { useForm, type Resolver } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useTranslations } from 'next-intl'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { fetchApi, apiOrThrow } from '@/lib/api'
-import { formatPrice } from '@ihui/shared/utils/format'
-import {
-  Button,
-  Input,
-  Label,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from '@ihui/ui-react'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app/features/withdraw/WithdrawScreen'
+import type { TFunction } from '@ihui/types'
 
 interface AvailableData {
   available: number
 }
 
-// message 一律写 i18n 键名(不带命名空间前缀),由渲染处 t() 解析。
-// 原先把 'wallet.withdrawAmount' 这类键串塞进 min(),页面又直接渲染字段名 ⇒ 红字永远只写
-// "提现金额",用户看不出错在哪。上限用可提现余额兜住,余额未到(还在加载)时不拦。
-const makeWithdrawSchema = (max?: number) =>
-  z.object({
-    amount: z.coerce
-      .number()
-      .min(0.01, 'errAmountMin')
-      .refine((n) => max === undefined || !(n > max), 'errAmountMax'),
-    method: z.enum(['wechat', 'alipay', 'bank']),
-    accountInfo: z.string().min(1, 'errAccountRequired'),
-  })
-
-type WithdrawValues = z.infer<ReturnType<typeof makeWithdrawSchema>>
-
+/**
+ * 钱包提现页(第 3 批薄壳化):版面/方式选择/账户输入/记录入口全部由共享屏
+ * `@ihui/rn-app/features/withdraw/WithdrawScreen`(react-native-web)输出,web 侧只保留
+ *   ① 鉴权门 + 可提现余额查询;② 校验与提交(金额折分);③ next-intl 词表注入。
+ */
 export default function WithdrawPage() {
   const t = useTranslations('wallet')
+  const td = useTranslations('distribution')
   const router = useRouter()
+  const { allow } = useAuthGate()
+  const [amount, setAmount] = React.useState('')
+  const [method, setMethod] = React.useState('wechat')
+  const [accountInfo, setAccountInfo] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
-  const [serverError, setServerError] = React.useState<string | null>(null)
+  const [error, setError] = React.useState('')
 
   // 2026-09-30 登录态门
-  const { allow } = useAuthGate()
   const availableQ = useQuery({
     queryKey: ['wallet', 'withdrawal', 'available'],
     queryFn: () => apiOrThrow<AvailableData>('/api/finance/withdrawal/available'),
     enabled: allow,
   })
+  // 后端 available 单位是「分」,共享屏按「元」渲染 ⇒ 折元后再传。
+  const availableYuan = availableQ.data ? Math.floor(availableQ.data.available) / 100 : 0
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<WithdrawValues>({
-    resolver: zodResolver(
-      // 可提现余额（available）单位是「分」，表单金额按「元」填 ⇒ 上限也要折成元，
-      // 否则用户填 100 元会被"100 分"的上限拦下（余额够却提不出来）。
-      makeWithdrawSchema(availableQ.data ? Math.floor(availableQ.data.available) / 100 : undefined),
-    ) as unknown as Resolver<WithdrawValues>,
-    defaultValues: { amount: 0, method: 'wechat', accountInfo: '' },
-  })
+  const methods = [
+    { id: 'wechat', label: t('methodWechat') },
+    { id: 'alipay', label: t('methodAlipay') },
+    { id: 'bank', label: t('methodBank') },
+  ]
 
-  const method = watch('method')
+  const texts = {
+    back: t('backToWallet'),
+    title: t('withdrawTitle'),
+    availableBalance: t('availableAmount'),
+    amountLabel: t('withdrawAmount'),
+    amountPlaceholder: td('withdrawAmountPlaceholder'),
+    methodLabel: t('withdrawMethod'),
+    accountLabel: t('withdrawAccount'),
+    accountPlaceholder: t('withdrawAccount'),
+    records: t('withdrawRecords'),
+    submit: t('withdrawBtn'),
+  }
 
-  const onSubmit = async (values: WithdrawValues) => {
-    setServerError(null)
+  const onSubmit = async () => {
+    const amt = Number(amount)
+    if (!Number.isFinite(amt) || amt < 0.01) {
+      setError(t('errAmountMin'))
+      return
+    }
+    if (availableQ.data && amt > availableYuan) {
+      setError(t('errAmountMax'))
+      return
+    }
+    if (!accountInfo.trim()) {
+      setError(t('errAccountRequired'))
+      return
+    }
+    setError('')
     setSubmitting(true)
     try {
       const r = await fetchApi('/api/finance/withdrawal/apply', {
@@ -94,19 +89,19 @@ export default function WithdrawPage() {
         body: JSON.stringify({
           // 表单是「元」，后端 applyWithdrawal 全程按「分」运算（手续费 floor(amount*0.02)、
           // 余额冻结 token_quantity 都是分）⇒ 提交前必须折成分，否则提现 100 元只冻结 100 分。
-          amount: Math.round(values.amount * 100),
-          method: values.method,
-          accountInfo: values.accountInfo,
+          amount: Math.round(amt * 100),
+          method,
+          accountInfo,
         }),
       })
       if (r.success) {
         toast.success(t('withdrawSuccess'))
         router.push('/wallet/withdraw/records')
       } else {
-        setServerError(r.error)
+        setError(r.error)
       }
     } catch (err) {
-      setServerError(err instanceof Error ? err.message : t('rechargeFailDesc'))
+      setError(err instanceof Error ? err.message : t('rechargeFailDesc'))
     } finally {
       setSubmitting(false)
     }
@@ -128,92 +123,30 @@ export default function WithdrawPage() {
       {!allow ? (
         <AuthGatePrompt message="请先登录后申请提现" />
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t('withdrawTitle')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg bg-muted/40 px-4 py-3">
-              <div className="text-label text-muted-foreground">{t('availableAmount')}</div>
-              {availableQ.isLoading ? (
-                <Loader2 className="mt-1 h-5 w-5 animate-spin text-muted-foreground" />
-              ) : availableQ.error ? (
-                <div className="mt-1 text-body text-destructive">
-                  {(availableQ.error as Error).message}
-                </div>
-              ) : (
-                <div className="mt-1 text-display font-bold">
-                  ¥{formatPrice(availableQ.data?.available ?? 0)}
-                </div>
-              )}
-            </div>
-
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              {serverError && (
-                <div className="rounded-md bg-destructive/10 px-3 py-2 text-body text-destructive">
-                  {serverError}
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="amount">{t('withdrawAmount')}</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  min={0.01}
-                  step={0.01}
-                  placeholder={t('withdrawAmount')}
-                  {...register('amount')}
-                />
-                {errors.amount && (
-                  <p className="text-label text-destructive">
-                    {t((errors.amount.message ?? 'errAmountMin') as Parameters<typeof t>[0])}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label>{t('withdrawMethod')}</Label>
-                <Select
-                  value={method}
-                  onValueChange={(v) => setValue('method', v as 'wechat' | 'alipay' | 'bank')}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="wechat">{t('methodWechat')}</SelectItem>
-                    <SelectItem value="alipay">{t('methodAlipay')}</SelectItem>
-                    <SelectItem value="bank">{t('methodBank')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="accountInfo">{t('withdrawAccount')}</Label>
-                <Input
-                  id="accountInfo"
-                  placeholder={t('withdrawAccount')}
-                  {...register('accountInfo')}
-                />
-                {errors.accountInfo && (
-                  <p className="text-label text-destructive">
-                    {t(
-                      (errors.accountInfo.message ?? 'errAccountRequired') as Parameters<
-                        typeof t
-                      >[0],
-                    )}
-                  </p>
-                )}
-              </div>
-
-              <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t('withdrawBtn')}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <div className="overflow-hidden rounded-lg border border-border">
+          <SharedWithdrawScreen
+            t={t as unknown as TFunction}
+            amount={amount}
+            loading={availableQ.isLoading}
+            error={error}
+            success=""
+            onAmountChange={setAmount}
+            onSubmit={onSubmit}
+            onBack={() => router.push('/wallet')}
+            colorScheme="light"
+            balance={availableYuan}
+            methods={methods}
+            method={method}
+            onMethodChange={setMethod}
+            accountInfo={accountInfo}
+            onAccountInfoChange={setAccountInfo}
+            onFillAll={() => setAmount(availableYuan > 0 ? availableYuan.toFixed(2) : '')}
+            recordsLabel={t('withdrawRecords')}
+            onRecords={() => router.push('/wallet/withdraw/records')}
+            texts={texts}
+            submitting={submitting}
+          />
+        </div>
       )}
     </div>
   )

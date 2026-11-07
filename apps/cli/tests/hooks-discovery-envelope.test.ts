@@ -169,6 +169,26 @@ describe('discoverWithDiagnostics 部分失败信封', () => {
     expect(d.severity).toBe('warning');
   });
 
+  it('钩子状态读不到时不覆盖成新状态', () => {
+    const { ws, cliDir } = makeWorkspace('state-unread');
+    writeHook(cliDir, 'alpha.ts', FM_ALPHA);
+    const stateFile = path.join(cliDir, '.state.json');
+    fs.mkdirSync(stateFile);
+    const discovery = new HooksDiscovery(ws);
+    expect(() => discovery.discover()).toThrow(/不能把它覆盖成新状态/);
+    expect(() => discovery.enable('Alpha')).toThrow(/不能把它覆盖成新状态/);
+    expect(fs.statSync(stateFile).isDirectory()).toBe(true);
+  });
+
+  it('损坏的钩子状态不会被写成只剩刚切换的一条', () => {
+    const { ws, cliDir } = makeWorkspace('state-corrupt');
+    const stateFile = path.join(cliDir, '.state.json');
+    const body = '{not json';
+    fs.writeFileSync(stateFile, body);
+    expect(() => new HooksDiscovery(ws).discover()).toThrow(/不能把它覆盖成新状态/);
+    expect(fs.readFileSync(stateFile, 'utf-8')).toBe(body);
+  });
+
   it('free function discoverHooksWithDiagnostics 返回同一信封形状', () => {
     const { ws, cliDir } = makeWorkspace('free-fn');
     writeHook(cliDir, 'alpha.ts', FM_ALPHA);

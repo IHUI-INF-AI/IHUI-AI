@@ -4,15 +4,13 @@
 
 // 对齐目标(RN 共享屏): packages/app/src/features/article-list/ArticleListScreen.tsx
 import { useTt, t } from '@/i18n'
-import { View, Text, Image, ScrollView } from '@tarojs/components'
 import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getNewsList, type News } from '@/api'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
-import SearchBar from '@/components/SearchBar'
-import { EmptyState, PressableCard, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import './list.css'
+import { ArticleListScreen } from '@ihui/rn-app/features/article-list/ArticleListScreen'
+import type { ArticleListItem } from '@ihui/types'
 import { onToast } from '@/host/on-toast'
 
 /** 防御式扩展:后端如返回 category/source/isTop 字段则使用,否则降级 */
@@ -74,12 +72,18 @@ const detectCategory = (n: NewsExt): CategoryKey => {
   return 'info'
 }
 
-const formatViews = (n: number): string => {
-  if (!n || n <= 0) return '0'
-  if (n < 1000) return String(n)
-  if (n < 10000) return `${(n / 1000).toFixed(1)}k`
-  return `${(n / 10000).toFixed(1)}w`
-}
+/** 资讯实回 → 共享屏 ArticleListItem(平台字段在页 wrapper 内归一,屏内不认平台类型) */
+const toArticleItem = (n: NewsExt): ArticleListItem => ({
+  id: String(n.id),
+  title: n.title,
+  author: '',
+  views: Number(n.views ?? 0),
+  publishedAt: String(n.createTime ?? ''),
+  summary: n.summary || undefined,
+  category: n.category || undefined,
+  source: n.source || undefined,
+  pinned: n.isTop === true,
+})
 
 export default function NewsListPage() {
   const tt = useTt()
@@ -186,96 +190,35 @@ export default function NewsListPage() {
 
   return (
     <ThemeRoot className="page">
-      {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
-      <SearchBar
-        value={keyword}
-        placeholder={tt('news.search', '搜索资讯')}
-        onInput={setKeyword}
+      {/* 主 UI 全部委托共享屏;本页只保留资讯域取数/分页/已读存储与分类兜底 */}
+      <ArticleListScreen
+        t={t}
+        items={visibleList.map(toArticleItem)}
+        loading={loading}
+        refreshing={false}
+        error=""
+        onRefresh={() => void load(true)}
+        onPressItem={(item) => goDetail(item.id)}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        onEndReached={() => void load(false)}
+        loadingMore={loading && list.length > 0}
+        noMore={!hasMore}
+        hideHeader
+        keyword={keyword}
+        searchPlaceholder={tt('news.search', '搜索资讯')}
+        onKeywordChange={setKeyword}
         onSearch={onSearchConfirm}
-        onClear={() => setKeyword('')}
+        categories={categories.map((c) => ({ id: c.key, label: c.label }))}
+        selectedCategory={activeCategory}
+        onSelectCategory={(id) => setActiveCategory(id as CategoryKey)}
+        pinnedItem={pinnedVisible && pinned ? toArticleItem(pinned) : null}
+        readIds={[...readIds]}
+        onToast={(msg) => onToast(msg, { kind: 'error' })}
       />
 
-      {/* 分类 Tab */}
-      <ScrollView scrollX className="tabs" enhanced showScrollbar={false}>
-        {categories.map((c) => (
-          <View
-            key={c.key}
-            className={`tab${activeCategory === c.key ? ' tab-active' : ''}`}
-            onClick={() => setActiveCategory(c.key)}
-            hoverClass="opacity-60"
-          >
-            <Text className="tab-label">{c.label}</Text>
-          </View>
-        ))}
-      </ScrollView>
-
-      {/* 置顶新闻 */}
-      {pinnedVisible && pinned ? (
-        <View className="pinned" onClick={() => goDetail(pinned.id)} hoverClass="opacity-60">
-          <View className="pinned-tag">
-            <Text className="pinned-tag-text">{tt('news.pinned', '置顶')}</Text>
-          </View>
-          {pinned.coverUrl ? (
-            <Image className="pinned-cover" src={pinned.coverUrl} mode="aspectFill" />
-          ) : null}
-          <View className="pinned-body">
-            <Text className="pinned-title">{pinned.title}</Text>
-            {pinned.summary ? <Text className="pinned-summary">{pinned.summary}</Text> : null}
-            <View className="pinned-meta">
-              <Text className="pinned-time">{pinned.createTime}</Text>
-              <Text className="pinned-views">
-                {tt('articleList.views', '阅读量')} {formatViews(Number(pinned.views ?? 0))}
-              </Text>
-              {pinned.source ? <Text className="pinned-source">{pinned.source}</Text> : null}
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      {/* 新闻列表 */}
-      {visibleList.length ? (
-        <View className="list">
-          {visibleList.map((n) => {
-            const isRead = readIds.has(String(n.id))
-            return (
-              <ThemeRoot key={n.id}>
-                <PressableCard
-                  className={`item${isRead ? ' item-read' : ''}`}
-                  onClick={() => goDetail(n.id)}
-                >
-                  <View className="body">
-                    <View className="title-row">
-                      {!isRead ? <Text className="unread-dot" /> : null}
-                      <Text className="title">{n.title}</Text>
-                    </View>
-                    {n.summary ? <Text className="summary">{n.summary}</Text> : null}
-                    <View className="meta">
-                      <Text className="time">{n.createTime}</Text>
-                      <Text className="views">
-                        {tt('articleList.views', '阅读量')} {formatViews(Number(n.views ?? 0))}
-                      </Text>
-                    </View>
-                    {n.source ? <Text className="source">{n.source}</Text> : null}
-                  </View>
-                </PressableCard>
-              </ThemeRoot>
-            )
-          })}
-        </View>
-      ) : null}
-
-      {/* 状态 */}
-      {!loading && !pinnedVisible && visibleList.length === 0 ? (
-        <EmptyState title={tt('articleList.empty', '暂无文章')} />
-      ) : null}
-
-      {loading && visibleList.length === 0 ? <ScreenSkeleton variant="list" count={4} /> : null}
-
-      {!loading && !hasMore && visibleList.length > 0 ? (
-        <View className="no-more">
-          <Text>{tt('common.noMore', '没有更多了')}</Text>
-        </View>
-      ) : null}
+      {/* 状态与列表由共享屏承载 */}
     </ThemeRoot>
   )
 }

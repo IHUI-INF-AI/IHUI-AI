@@ -21,7 +21,28 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduFeeReminderBatch,
+  eduFeeReminderList,
+  eduFeeReminderStats,
+  eduFeeSchedule,
+  eduFeeScheduleGenerate,
+  eduPaymentRecordCreate,
+  eduPaymentRecordDelete,
+  eduPaymentRecordList,
+  eduPaymentRecordSummary,
+  eduPaymentRecordUnattributed,
+  eduRefundApprove,
+  eduRefundCreate,
+  eduRefundList,
+  eduStudentRoster,
+  eduTermList,
+  eduTuitionStandardCreate,
+  eduTuitionStandardDelete,
+  eduTuitionStandardList,
+  eduTuitionStandardUpdate,
+} from '@ihui/api-client'
 import { toast } from 'sonner'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
@@ -707,25 +728,26 @@ function SchedulePanel({ enrollments }: { enrollments: RosterItem[] }) {
   const listQuery = useQuery({
     queryKey: ['edu-ai-management', 'fee-schedule', enrollmentId],
     enabled: !!enrollmentId,
-    queryFn: () =>
-      apiOrThrow<{ list: ScheduleItem[]; total: number }>(
-        `/api/edu-ai-management/fee-schedule?enrollmentId=${enrollmentId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduFeeSchedule<{ list: ScheduleItem[]; total: number }>({ enrollmentId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const schedules = listQuery.data?.list ?? []
 
   const generate = useMutation({
-    mutationFn: (body: GenerateScheduleBody) =>
-      apiOrThrow<{
+    mutationFn: async (body: GenerateScheduleBody) => {
+      const r = await eduFeeScheduleGenerate<{
         createdCount: number
         replaced: boolean
         planTotal: number
         amountTotal: number
         ledger: { arrears: number; nextDueDate: string | null } | null
-      }>('/api/edu-ai-management/fee-schedule/generate', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }),
+      }>(body)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'fee-schedule'] })
       queryClient.invalidateQueries({ queryKey: ['edu-ai-management', 'student-roster'] })
@@ -1165,34 +1187,46 @@ export default function FinancePage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class'],
-    queryFn: () => apiOrThrow<{ list: EduClass[] }>('/api/edu-ai-management/class'),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
 
   const tuitionQuery = useQuery({
     queryKey: ['edu-ai-management', 'tuition-standard'],
-    queryFn: () =>
-      apiOrThrow<{ list: TuitionStandard[] }>('/api/edu-ai-management/tuition-standard'),
+    queryFn: async () => {
+      const r = await eduTuitionStandardList<{ list: TuitionStandard[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const tuitions = (tuitionQuery.data?.list ?? []).filter((t) => !t.deletedAt)
 
   const paymentQuery = useQuery({
     queryKey: ['edu-ai-management', 'payment-record', paymentClassFilter, paymentStatusFilter],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (paymentClassFilter) params.set('classId', paymentClassFilter)
-      if (paymentStatusFilter) params.set('status', paymentStatusFilter)
-      const qs = params.toString()
-      return apiOrThrow<{
+    queryFn: async () => {
+      const r = await eduPaymentRecordList<{
         list: PaymentRecord[]
         legacy?: { source: string; total: number; list: LegacyCoursePay[] }
-      }>(`/api/edu-ai-management/payment-record${qs ? `?${qs}` : ''}`)
+      }>({
+        classId: paymentClassFilter || undefined,
+        status: paymentStatusFilter || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
   const payments = (paymentQuery.data?.list ?? []).filter((p) => !p.deletedAt)
@@ -1202,13 +1236,12 @@ export default function FinancePage() {
 
   const summaryQuery = useQuery({
     queryKey: ['edu-ai-management', 'payment-record', 'summary', paymentClassFilter],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (paymentClassFilter) params.set('classId', paymentClassFilter)
-      const qs = params.toString()
-      return apiOrThrow<PaymentSummary>(
-        `/api/edu-ai-management/payment-record/summary${qs ? `?${qs}` : ''}`,
-      )
+    queryFn: async () => {
+      const r = await eduPaymentRecordSummary<PaymentSummary>({
+        classId: paymentClassFilter || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
   const summary = summaryQuery.data
@@ -1216,17 +1249,25 @@ export default function FinancePage() {
   // 无归属流水点名:只有缴费记录 tab 打开才拉;N>0 时亮警示条,0 时不占位。
   const unattributedQuery = useQuery({
     queryKey: ['edu-ai-management', 'payment-record', 'unattributed'],
-    queryFn: () =>
-      apiOrThrow<{ list: UnattributedPayment[]; total: number }>(
-        '/api/edu-ai-management/payment-record/unattributed',
-      ),
+    queryFn: async () => {
+      const r = await eduPaymentRecordUnattributed<{
+        list: UnattributedPayment[]
+        total: number
+      }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: activeTab === 'payments',
   })
   const unattributedPayments = unattributedQuery.data?.list ?? []
 
   const refundQuery = useQuery({
     queryKey: ['edu-ai-management', 'refund'],
-    queryFn: () => apiOrThrow<{ list: RefundRecord[] }>('/api/edu-ai-management/refund'),
+    queryFn: async () => {
+      const r = await eduRefundList<{ list: RefundRecord[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const refunds = (refundQuery.data?.list ?? []).filter((r) => !r.deletedAt)
 
@@ -1238,16 +1279,16 @@ export default function FinancePage() {
       reminderBusinessLine,
       reminderClassFilter,
     ],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      params.set('arrearsOnly', '1')
-      if (reminderBusinessLine) params.set('businessLine', reminderBusinessLine)
-      if (reminderClassFilter) params.set('classId', reminderClassFilter)
-      params.set('page', '1')
-      params.set('pageSize', '100')
-      return apiOrThrow<{ list: RosterItem[]; total: number }>(
-        `/api/edu-ai-management/student-roster?${params.toString()}`,
-      )
+    queryFn: async () => {
+      const r = await eduStudentRoster<{ list: RosterItem[]; total: number }>({
+        arrearsOnly: '1',
+        businessLine: reminderBusinessLine || undefined,
+        classId: reminderClassFilter || undefined,
+        page: 1,
+        pageSize: 100,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
   const arrearsList = arrearsQuery.data?.list ?? []
@@ -1260,23 +1301,27 @@ export default function FinancePage() {
    */
   const payableRosterQuery = useQuery({
     queryKey: ['edu-ai-management', 'student-roster', 'payable'],
-    queryFn: () =>
-      apiOrThrow<{ list: RosterItem[]; total: number }>(
-        '/api/edu-ai-management/student-roster?page=1&pageSize=100',
-      ),
+    queryFn: async () => {
+      const r = await eduStudentRoster<{ list: RosterItem[]; total: number }>({
+        page: 1,
+        pageSize: 100,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const payableEnrollments = payableRosterQuery.data?.list ?? []
 
   const reminderRecordsQuery = useQuery({
     queryKey: ['edu-ai-management', 'fee-reminder', reminderRecordChannel],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (reminderRecordChannel) params.set('channel', reminderRecordChannel)
-      params.set('page', '1')
-      params.set('pageSize', '50')
-      return apiOrThrow<{ list: FeeReminder[]; total: number }>(
-        `/api/edu-ai-management/fee-reminder?${params.toString()}`,
-      )
+    queryFn: async () => {
+      const r = await eduFeeReminderList<{ list: FeeReminder[]; total: number }>({
+        channel: reminderRecordChannel || undefined,
+        page: 1,
+        pageSize: 50,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
   const reminderRecords = reminderRecordsQuery.data?.list ?? []
@@ -1284,7 +1329,11 @@ export default function FinancePage() {
   // 催缴触达统计(近30天):只有催缴 tab 打开才拉,不在其余四个 tab 上白付一次报表查询。
   const reminderStatsQuery = useQuery({
     queryKey: ['edu-ai-management', 'fee-reminder', 'stats'],
-    queryFn: () => apiOrThrow<ReminderStats>('/api/edu-ai-management/fee-reminder/stats?days=30'),
+    queryFn: async () => {
+      const r = await eduFeeReminderStats<ReminderStats>({ days: 30 })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: activeTab === 'reminders',
   })
   const reminderStats = reminderStatsQuery.data
@@ -1295,35 +1344,38 @@ export default function FinancePage() {
   }, [queryClient])
 
   const createTuition = useMutation({
-    mutationFn: (data: TuitionFormData) =>
-      apiOrThrow('/api/edu-ai-management/tuition-standard', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: TuitionFormData) => {
+      const r = await eduTuitionStandardCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateTuition = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: TuitionFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/tuition-standard/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: TuitionFormData }) => {
+      const r = await eduTuitionStandardUpdate(id, data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteTuition = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/tuition-standard/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduTuitionStandardDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createPayment = useMutation({
-    mutationFn: (data: PaymentFormData) =>
-      apiOrThrow('/api/edu-ai-management/payment-record', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: PaymentFormData) => {
+      const r = await eduPaymentRecordCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -1331,27 +1383,27 @@ export default function FinancePage() {
      该信号必须当场递到操作者脸上,否则错账要到对账时才被发现。
      (响应里还有 refundRecord/enrollmentId,前端只用 unattributed,类型只声明用到的。) */
   const createRefund = useMutation({
-    mutationFn: (data: RefundFormData) =>
-      apiOrThrow<{ unattributed: boolean }>('/api/edu-ai-management/refund', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: RefundFormData) => {
+      const r = await eduRefundCreate<{ unattributed: boolean }>(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   /* 撤销缴费(软删 + 重算):后端 DELETE /payment-record/:id 早已建成,此前前端没有入口,
      错录的流水只能永远挂着。响应 unattributed=true ⇒ 被撤流水本来就没挂期次。 */
   const voidPayment = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow<{ deleted: boolean; unattributed: boolean }>(
-        `/api/edu-ai-management/payment-record/${id}`,
-        { method: 'DELETE' },
-      ),
+    mutationFn: async (id: string) => {
+      const r = await eduPaymentRecordDelete<{ deleted: boolean; unattributed: boolean }>(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const approveRefund = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
       status,
       remark,
@@ -1359,27 +1411,27 @@ export default function FinancePage() {
       id: string
       status: 'approved' | 'rejected'
       remark: string
-    }) =>
-      apiOrThrow(`/api/edu-ai-management/refund/${id}/approve`, {
-        method: 'PUT',
-        body: JSON.stringify({ status, approveRemark: remark || null }),
-      }),
+    }) => {
+      const r = await eduRefundApprove(id, { status, approveRemark: remark || null })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const sendFeeReminder = useMutation({
-    mutationFn: (data: { enrollmentIds: string[]; channel: string; message?: string }) =>
-      apiOrThrow<{
+    mutationFn: async (data: { enrollmentIds: string[]; channel: string; message?: string }) => {
+      const r = await eduFeeReminderBatch<{
         sent: number
         total: number
         wxSent: number
         // 短信四档聚合(后端批量端点;dueList 为空时不带该字段)
         sms?: { sent: number; failed: number; not_configured: number; no_phone: number }
         skipped: Array<{ enrollmentId: string; reason: string }>
-      }>('/api/edu-ai-management/fee-reminder/batch', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+      }>(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 

@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useTranslations } from 'next-intl'
 import { Download, Loader2 } from 'lucide-react'
 
-import { fetchRaw } from '@/lib/api'
+import { eduAttendanceExport } from '@ihui/api-client'
 import { Button, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { ClassSelect } from './ClassSelect'
@@ -42,13 +42,12 @@ export function ExportButton({
     setExporting(true)
     setFailed(false)
     try {
-      const params = new URLSearchParams({
+      const blob = await eduAttendanceExport({
         classId,
         startDate,
         endDate,
         format: 'csv',
       })
-      const blob = await fetchRaw(`/api/edu-ai-management/attendance/export?${params.toString()}`)
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -69,11 +68,15 @@ export function ExportButton({
   return (
     <div className="flex flex-wrap items-end gap-3">
       <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+        <Label className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('classLabel')}
+        </Label>
         <ClassSelect value={classId} onChange={setClassId} />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">{t('startDate')}</Label>
+        <Label className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('startDate')}
+        </Label>
         <Input
           type="date"
           value={startDate}
@@ -82,7 +85,9 @@ export function ExportButton({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label className="text-xs text-muted-foreground">{t('endDate')}</Label>
+        <Label className="font-[weight:inherit] text-label text-muted-foreground">
+          {t('endDate')}
+        </Label>
         <Input
           type="date"
           value={endDate}

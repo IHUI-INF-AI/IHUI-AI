@@ -66,15 +66,25 @@ test('T6 modal 判据:单按钮提示 ⇒ advisory;带取消语义 ⇒ 不报', 
   assert.equal(G.judgeModalMisuse('Taro.showModal({ title: "确认", success: (res) => { if (res.cancel) return } })').length, 0)
 })
 
-test('T7 台账:到期即红;缺 owner/evidence/expires 逐条点名', () => {
+test('T7 台账:到期即红;缺 owner/evidence/expires/rationale 逐条点名', () => {
   const expired = G.judgeLedger(
     [],
-    [{ file: 'a.tsx', rule: 'A1-empty-handler', count: 0, owner: 'o', expires: '2020-01-01', evidence: 'e' }],
+    [
+      {
+        file: 'a.tsx',
+        rule: 'A1-empty-handler',
+        count: 0,
+        owner: 'o',
+        expires: '2020-01-01',
+        evidence: 'e',
+        rationale: 'r',
+      },
+    ],
     { today: '2026-11-03' },
   )
   assert.equal(expired.expired.length, 1)
   const malformed = G.judgeLedger([], [{ file: 'a.tsx', rule: 'A1-empty-handler' }], { today: '2026-11-03' })
-  assert.equal(malformed.malformed.length, 3)
+  assert.equal(malformed.malformed.length, 4)
 })
 
 test('T8 台账计数配平:新增未挂账红 / 存量减少只 advisory(清单腐烂)', () => {
@@ -84,21 +94,41 @@ test('T8 台账计数配平:新增未挂账红 / 存量减少只 advisory(清单
   ]
   const over = G.judgeLedger(
     v,
-    [{ file: 'a.tsx', rule: 'A1-empty-handler', count: 1, owner: 'o', expires: '2099-01-01', evidence: 'e' }],
+    [
+      {
+        file: 'a.tsx',
+        rule: 'A1-empty-handler',
+        count: 1,
+        owner: 'o',
+        expires: '2099-01-01',
+        evidence: 'e',
+        rationale: 'r',
+      },
+    ],
     { today: '2026-11-03' },
   )
   assert.equal(over.red.length, 1)
   const under = G.judgeLedger(
     [],
-    [{ file: 'a.tsx', rule: 'A1-empty-handler', count: 3, owner: 'o', expires: '2099-01-01', evidence: 'e' }],
+    [
+      {
+        file: 'a.tsx',
+        rule: 'A1-empty-handler',
+        count: 3,
+        owner: 'o',
+        expires: '2099-01-01',
+        evidence: 'e',
+        rationale: 'r',
+      },
+    ],
     { today: '2026-11-03' },
   )
   assert.equal(under.red.length, 0)
   assert.ok(under.advisory.length >= 1)
 })
 
-test('T9 自检全绿(12 例)', () => {
-  assert.equal(G.runSelfTest(), 12)
+test('T9 自检全绿(23 例:5 类误报判据各带正反例 + A3 台账)', () => {
+  assert.equal(G.runSelfTest(), 23)
 })
 
 test('T10 接线对账:gate 290 已注册进 guardian-runner,blocking + staged 触发面 + skip env', () => {
@@ -112,12 +142,13 @@ test('T10 接线对账:gate 290 已注册进 guardian-runner,blocking + staged �
   assert.match(SELF, /集成位置: .*guardian-runner\.mjs 第 290 项/)
 })
 
-test('T11 账本文件在仓且条目形制齐全(空表合法:blocking 现读 0)', () => {
+test('T11 账本文件在仓且条目形制齐全(A3 豁免须 rationale + expires ≥ 2027-01-31)', () => {
   const raw = JSON.parse(readFileSync(join(ROOT, 'scripts/data/miniapp-interaction-allowlist.json'), 'utf8'))
   assert.ok(Array.isArray(raw.entries))
   for (const e of raw.entries) {
-    assert.ok(e.owner && e.expires && e.evidence, `条目缺 owner/expires/evidence:${JSON.stringify(e)}`)
+    assert.ok(e.owner && e.expires && e.evidence && e.rationale, `条目缺 owner/expires/evidence/rationale:${JSON.stringify(e)}`)
     assert.match(e.expires, /^\d{4}-\d{2}-\d{2}$/)
+    if (/^A3/.test(e.rule)) assert.ok(e.expires >= G.ADVISORY_MIN_EXPIRES, `A3 挂账期过短:${JSON.stringify(e)}`)
   }
 })
 

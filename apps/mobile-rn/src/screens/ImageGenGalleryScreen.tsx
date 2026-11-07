@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi, resolveFileUrl } from '@ihui/api-client'
+import { getImageGallery, resolveFileUrl } from '@ihui/api-client'
 import {
   ImageGenGalleryScreen as SharedImageGenGalleryScreen,
   type GalleryImageItem,
@@ -30,13 +30,6 @@ interface GalleryRow {
   status: number | null
   createdAt: string
   updatedAt: string
-}
-
-interface GalleryData {
-  list: GalleryRow[]
-  total: number
-  page: number
-  pageSize: number
 }
 
 /** content 本身是图片地址时才可当图片用;提示词一律不当图片(避免把文字塞进 Image.src) */
@@ -105,9 +98,7 @@ export default function ImageGenGalleryScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const res = await fetchApi<GalleryData>('/api/image-gen/gallery', {
-        params: { page: 1, pageSize: PAGE_SIZE },
-      })
+      const res = await getImageGallery<GalleryRow>({ page: 1, pageSize: PAGE_SIZE })
       if (!res.success) {
         setError(t('imageGenGallery.loadFailed'))
         return
@@ -132,9 +123,7 @@ export default function ImageGenGalleryScreen() {
     setLoadingMore(true)
     try {
       const nextPage = page + 1
-      const res = await fetchApi<GalleryData>('/api/image-gen/gallery', {
-        params: { page: nextPage, pageSize: PAGE_SIZE },
-      })
+      const res = await getImageGallery<GalleryRow>({ page: nextPage, pageSize: PAGE_SIZE })
       if (res.success) {
         setRows((prev) => [...prev, ...res.data.list])
         setTotal(res.data.total)

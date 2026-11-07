@@ -53,6 +53,7 @@ from ._load_lifecycle import (
     state_after_success as _state_after_success,
 )
 from .ttl_json_store import (
+    json_archive_blocks_replace,
     load_ttl_records,
     resolve_retention_days,
     write_json_atomic,
@@ -285,6 +286,9 @@ class AgentLongTermMemory:
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
+        if not self._loaded or json_archive_blocks_replace(self._file, expect="object"):
+            logger.warning("agent_longterm_memory 读不到,不能把它覆盖成新记录")
+            return
         try:
             # 2026-10-03 数据出域合规整改:原子写(临时文件 + os.replace),
             # 避免崩在半截时盘上留一个坏 JSON(读侧会 fail-closed 成空 ⇒ 静默丢数据)。

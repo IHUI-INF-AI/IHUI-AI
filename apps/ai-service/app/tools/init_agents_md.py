@@ -88,6 +88,20 @@ _BANNER_LINE_RE = re.compile(
 )
 
 
+class WorkspaceUnread(Exception):
+    """目录列不出来。这不是空目录。"""
+
+    def __init__(self, path: Path, code: str) -> None:
+        self.path = path
+        self.code = code
+        super().__init__(f"{path} ({code})")
+
+
+def _unread_code(exc: OSError) -> str:
+    errno = getattr(exc, "errno", None)
+    return str(errno) if errno is not None else type(exc).__name__
+
+
 def _error(code: str, message: str) -> dict[str, Any]:
     """统一失败返回形态(同 report_tools)。"""
     return {"tool": _TOOL_NAME, "ok": False, "errorCode": code, "message": message}
@@ -221,8 +235,10 @@ def _visible_dirs(parent: Path) -> list[Path]:
             ),
             key=lambda p: p.name,
         )
-    except OSError:
-        return []
+    except OSError as exc:
+        if isinstance(exc, FileNotFoundError):
+            return []
+        raise WorkspaceUnread(parent, _unread_code(exc)) from exc
     return entries
 
 
@@ -253,8 +269,11 @@ def _detect_convention_docs(root: Path) -> list[tuple[str, str]]:
             md_files = sorted(
                 p.name for p in docs_dir.iterdir() if p.is_file() and p.suffix.lower() == ".md"
             )
-        except OSError:
-            md_files = []
+        except OSError as exc:
+            if isinstance(exc, FileNotFoundError):
+                md_files = []
+            else:
+                raise WorkspaceUnread(docs_dir, _unread_code(exc)) from exc
         shown = md_files[:_MAX_DOCS_DIR_FILES]
         for fname in shown:
             docs.append((f"docs/{fname}", ""))
@@ -430,12 +449,18 @@ async def init_agents_md(arguments: dict[str, Any]) -> dict[str, Any]:
     if not root.is_dir():
         return _error("WORKSPACE_NOT_FOUND", f"工作区目录不存在: {workspace}")
 
-    project_name, description = _detect_project_identity(root)
-    package_manager = _detect_package_manager(root)
-    commands = _detect_build_commands(root)
-    tree_lines = _scan_directory_structure(root)
-    docs = _detect_convention_docs(root)
-    toolchain = _detect_toolchain(root)
+    try:
+        project_name, description = _detect_project_identity(root)
+        package_manager = _detect_package_manager(root)
+        commands = _detect_build_commands(root)
+        tree_lines = _scan_directory_structure(root)
+        docs = _detect_convention_docs(root)
+        toolchain = _detect_toolchain(root)
+    except WorkspaceUnread as exc:
+        return _error(
+            "WORKSPACE_UNREAD",
+            f"工作区读不到,不能把它写成空目录 ({exc.code}): {exc.path}",
+        )
 
     draft = _build_draft(
         project_name=project_name,

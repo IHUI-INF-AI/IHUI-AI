@@ -219,7 +219,16 @@ async def investigate_codebase(
     findings: list[dict[str, Any]] = []
     missing_inputs: list[str] = []
 
-    if not root.exists() or not root.is_dir():
+    from .codebase_indexer import classify_fs_path
+
+    root_kind = classify_fs_path(root)
+    if root_kind != "dir":
+        unread = root_kind == "unread"
+        reason = (
+            "根目录读不到,不能把它说成不存在或不是目录"
+            if unread
+            else "根目录不存在或不是目录"
+        )
         return {
             "tool": TOOL_NAME,
             "ok": False,
@@ -236,11 +245,13 @@ async def investigate_codebase(
                 )
             ],
             "legs": {
-                "lexical": {"status": "undetermined", "reason": "根目录不存在或不是目录"},
+                "lexical": {"status": "undetermined", "reason": reason},
                 "semantic": {"status": "not_attempted"},
                 "wiki": {"status": "not_attempted"},
             },
-            "missing_inputs": [f"path(现值 {path_raw} 不是可读取目录)"],
+            "missing_inputs": [
+                f"path(现值 {path_raw} {'读不到' if unread else '不是可读取目录'})"
+            ],
             "read_only": True,
         }
 
@@ -259,14 +270,20 @@ async def investigate_codebase(
             legs["lexical"] = {"status": "undetermined", "reason": "枚举未返回 provenance"}
             missing_inputs.append("枚举 provenance(通道自证信息缺失)")
         elif not files:
-            # §0.3:枚举到 0 个候选判死不记绿
+            # §0.3:枚举到 0 个候选判死不记绿。列目录失败不是空仓。
+            if enum_prov.degraded_reason:
+                zero_reason = enum_prov.degraded_reason
+                missing_inputs.append("完整的词法枚举(有目录读不到,不能把候选为空说成空仓)")
+            else:
+                zero_reason = "枚举到 0 个代码文件候选(目标目录为空或被全量忽略)"
+                missing_inputs.append("词法候选文件集(枚举结果为 0,无法区分空仓与过滤过严)")
             legs["lexical"] = {
                 "status": "undetermined",
                 "enumerated_files": 0,
                 "engine": enum_prov.engine,
-                "reason": "枚举到 0 个代码文件候选(目标目录为空或被全量忽略)",
+                "degraded_reason": enum_prov.degraded_reason,
+                "reason": zero_reason,
             }
-            missing_inputs.append("词法候选文件集(枚举结果为 0,无法区分空仓与过滤过严)")
         else:
             legs["lexical"] = {
                 "status": "enumerated",
@@ -316,6 +333,13 @@ async def investigate_codebase(
                     )
                 )
         elif legs["lexical"]["status"] != "failed":
+            incomplete: list[str] = []
+            if enum_prov is not None and enum_prov.degraded_reason:
+                incomplete.append(enum_prov.degraded_reason)
+            if scan.unread_files:
+                incomplete.append(
+                    f"有 {scan.unread_files} 个文件读不到,不能把检索说成没有命中"
+                )
             if scan.unparsed_lines:
                 # 命中为 0 但有行解析不出来 ⇒ 通道不可信,不得判"确实没有"
                 legs["lexical"]["status"] = "undetermined"
@@ -323,6 +347,10 @@ async def investigate_codebase(
                     f"{scan.unparsed_lines} 行解析不出行号且零命中,通道不可信"
                 )
                 missing_inputs.append("可信的词法命中通道(unparsed_lines>0 且 hits=0)")
+            elif incomplete:
+                legs["lexical"]["status"] = "undetermined"
+                legs["lexical"]["reason"] = ";".join(incomplete)
+                missing_inputs.append("完整的词法枚举(有目录或文件读不到)")
             else:
                 # python 通道逐字读过整个枚举集 ⇒ 集内零命中是"验证过的空",可如实报
                 legs["lexical"]["status"] = "empty_verified"

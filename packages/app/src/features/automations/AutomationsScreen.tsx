@@ -172,7 +172,7 @@ export function AutomationsScreen({
             ? rowOf(t('automations.nextRun'), detail.scheduledAtText)
             : null}
           {rowOf(t('automations.timezone'), detail.timezoneText)}
-          {rowOf(t('automations.lastRun'), detail.lastRunText)}
+          {rowOf(t('automations.lastRunAt'), detail.lastRunText)}
           {rowOf(t('automations.nextRun'), detail.nextRunText)}
           <View style={styles.block}>
             <Text style={styles.blockLabel}>{t('automations.prompt')}</Text>
@@ -180,7 +180,7 @@ export function AutomationsScreen({
           </View>
           {detail.lastResultSummary ? (
             <View style={styles.block}>
-              <Text style={styles.blockLabel}>{t('automations.lastRun')}</Text>
+              <Text style={styles.blockLabel}>{t('automations.lastRunAt')}</Text>
               <Text style={styles.blockValue}>{detail.lastResultSummary}</Text>
             </View>
           ) : null}
@@ -210,7 +210,7 @@ export function AutomationsScreen({
           {miniRow(`${t('automations.nextRun')}:`, item.nextRunText)}
           <Text style={styles.summary} numberOfLines={2}>
             {item.lastResultSummary
-              ? `${t('automations.lastRun')}: ${item.lastResultSummary}`
+              ? `${t('automations.lastRunAt')}: ${item.lastResultSummary}`
               : t('automations.noResult')}
           </Text>
           {cardExtra?.(item)}

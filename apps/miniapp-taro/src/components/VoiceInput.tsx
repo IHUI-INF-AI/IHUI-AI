@@ -18,12 +18,6 @@ export type VoiceInputProps = VoiceInputMinimalProps & {
   aiServiceUrl?: string
   /** 识别语言;缺省 zh,传了才覆盖 */
   language?: string
-  /**
-   * 是否显示清除按钮(RN 侧同名 prop,门285 存量收敛补)。
-   * RN 侧控制清除最近一次语音结果的按钮;小程序侧暂未实现清除 UI,
-   * 本 prop 仅作接口对齐保留,功能接线为后手。
-   */
-  showClear?: boolean
 }
 
 const WAVE_BARS = [0, 1, 2, 3, 4, 5, 6]

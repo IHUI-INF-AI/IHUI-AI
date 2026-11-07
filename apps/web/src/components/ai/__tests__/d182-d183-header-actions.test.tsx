@@ -120,6 +120,10 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
   const EXPECTED: Record<(typeof LOCALES)[number], HeaderActions> = {
     'zh-CN': {
       panelGroupButtons: '面板组按钮',
+      overflowMenu: '面板菜单',
+      groupPanel: '面板',
+      groupTools: '工具',
+      groupSession: '会话',
       enterWorkspaceFullscreen: '全屏显示工作面',
       exitWorkspaceFullscreen: '退出工作面全屏',
       createDraftPullRequest: '创建 Draft PR',
@@ -128,6 +132,10 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     'zh-TW': {
       panelGroupButtons: '面板組按鈕',
+      overflowMenu: '面板選單',
+      groupPanel: '面板',
+      groupTools: '工具',
+      groupSession: '工作階段',
       enterWorkspaceFullscreen: '全螢幕顯示工作面',
       exitWorkspaceFullscreen: '退出工作面全螢幕',
       createDraftPullRequest: '建立 Draft PR',
@@ -136,6 +144,10 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     en: {
       panelGroupButtons: 'Panel action buttons',
+      overflowMenu: 'Panel menu',
+      groupPanel: 'Panel',
+      groupTools: 'Tools',
+      groupSession: 'Session',
       enterWorkspaceFullscreen: 'Enter workspace fullscreen',
       exitWorkspaceFullscreen: 'Exit workspace fullscreen',
       createDraftPullRequest: 'Create Draft PR',
@@ -144,6 +156,10 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     ja: {
       panelGroupButtons: 'パネルアクションボタン',
+      overflowMenu: 'パネルメニュー',
+      groupPanel: 'パネル',
+      groupTools: 'ツール',
+      groupSession: 'セッション',
       enterWorkspaceFullscreen: 'ワークスペースを全画面表示',
       exitWorkspaceFullscreen: 'ワークスペースの全画面を終了',
       createDraftPullRequest: 'Draft PR を作成',
@@ -152,6 +168,10 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
     ko: {
       panelGroupButtons: '패널 작업 버튼',
+      overflowMenu: '패널 메뉴',
+      groupPanel: '패널',
+      groupTools: '도구',
+      groupSession: '세션',
       enterWorkspaceFullscreen: '작업 공간 전체 화면 표시',
       exitWorkspaceFullscreen: '작업 공간 전체 화면 종료',
       createDraftPullRequest: 'Draft PR 만들기',
@@ -160,7 +180,7 @@ describe('D182/D183 词包五语言直锁(aiChat.headerActions)', () => {
     },
   }
 
-  it('五语言六键逐一逐字一致(防某包漏插/翻译机踩键)', () => {
+  it('五语言十键逐一逐字一致(防某包漏插/翻译机踩键)', () => {
     for (const locale of LOCALES) {
       expect(readLocale(locale).aiChat.headerActions, locale).toEqual(EXPECTED[locale])
     }

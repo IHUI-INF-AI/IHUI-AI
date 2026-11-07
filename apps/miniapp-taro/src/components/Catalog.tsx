@@ -34,8 +34,8 @@ export default function Catalog({
   const tt = useTt()
   if (loading) {
     return (
-      <View className="py-8 text-center">
-        <Text className="text-sm text-muted-foreground">
+      <View className="py-3xl text-center">
+        <Text className="text-body text-muted-foreground">
           {tt('common.loadingShort', '加载中...')}
         </Text>
       </View>
@@ -49,7 +49,7 @@ export default function Catalog({
   return (
     <ScrollView
       scrollY
-      className="px-3 py-2"
+      className="px-md py-sm"
       style={{ maxHeight: '50vh' }}
       onScrollToLower={() => onReachBottom?.()}
       lowerThreshold={50}
@@ -59,7 +59,7 @@ export default function Catalog({
         return (
           <View
             key={chapter.id}
-            className={`flex py-[20rpx] px-3 mb-2 rounded-lg transition-colors ${
+            className={`flex py-[20rpx] px-md mb-sm rounded-lg transition-colors ${
               active ? 'bg-primary/10' : 'bg-muted'
             }`}
             onClick={() => onSelect?.(chapter)}
@@ -67,39 +67,39 @@ export default function Catalog({
           >
             {chapter.cover ? (
               <Image
-                className="mr-3 rounded bg-muted"
+                className="mr-md rounded bg-muted"
                 style={{ width: '120px', height: '68px' }}
                 src={chapter.cover}
                 mode="aspectFill"
               />
             ) : (
               <View
-                className="flex items-center justify-center mr-3 rounded bg-muted"
+                className="flex items-center justify-center mr-md rounded bg-muted"
                 style={{ width: '120px', height: '68px' }}
               >
-                <Text className="text-xs text-muted-foreground">
+                <Text className="text-label text-muted-foreground">
                   {tt('catalog.noCover', '无封面')}
                 </Text>
               </View>
             )}
             <View className="flex-1 min-w-0">
-              <Text className="block text-sm font-medium text-foreground truncate">
+              <Text className="block text-body font-medium text-foreground truncate">
                 {idx + 1}. {chapter.title}
               </Text>
               {chapter.content && (
-                <Text className="block text-xs text-muted-foreground truncate mt-[4rpx]">
+                <Text className="block text-label text-muted-foreground truncate mt-[4rpx]">
                   {chapter.content}
                 </Text>
               )}
-              <View className="flex items-center mt-1">
+              <View className="flex items-center mt-xs">
                 {chapter.duration && (
-                  <Text className="text-xs text-muted-foreground mr-2">{chapter.duration}</Text>
+                  <Text className="text-label text-muted-foreground mr-sm">{chapter.duration}</Text>
                 )}
                 {chapter.watched && (
-                  <Text className="text-xs text-primary">{tt('catalog.watched', '已观看')}</Text>
+                  <Text className="text-label text-primary">{tt('catalog.watched', '已观看')}</Text>
                 )}
                 {active && (
-                  <Text className="text-xs text-primary ml-auto">
+                  <Text className="text-label text-primary ml-auto">
                     {tt('catalog.playing', '播放中')}
                   </Text>
                 )}

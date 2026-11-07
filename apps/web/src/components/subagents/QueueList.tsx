@@ -45,7 +45,7 @@ export function QueueList({ queue, isLoading, onItemClick }: QueueListProps) {
   return (
     <Card>
       <CardHeader className="p-3">
-        <CardTitle className="flex items-center gap-2 text-sm">
+        <CardTitle className="font-[weight:inherit] flex items-center gap-2 text-body">
           <ListOrdered className="h-4 w-4 text-muted-foreground" />
           优先级调度队列
         </CardTitle>
@@ -57,7 +57,9 @@ export function QueueList({ queue, isLoading, onItemClick }: QueueListProps) {
             加载中...
           </div>
         ) : sorted.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">队列空闲</p>
+          <p className="font-[weight:inherit] py-6 text-center text-body text-muted-foreground">
+            队列空闲
+          </p>
         ) : (
           <ul className="space-y-1.5">
             {sorted.map((entry) => (
@@ -87,8 +89,10 @@ export function QueueList({ queue, isLoading, onItemClick }: QueueListProps) {
                 >
                   {PRIORITY_LABEL[entry.priority]}
                 </span>
-                <span className="flex-1 truncate text-sm">{entry.goal}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="font-[weight:inherit] flex-1 truncate text-body">
+                  {entry.goal}
+                </span>
+                <span className="font-[weight:inherit] shrink-0 text-label text-muted-foreground">
                   {dateFmt.format(new Date(entry.createdAt))}
                 </span>
               </li>

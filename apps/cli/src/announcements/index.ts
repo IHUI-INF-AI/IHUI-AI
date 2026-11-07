@@ -159,18 +159,34 @@ export async function fetchAnnouncements(
   }
 }
 
-/** 读取本地缓存(过期返回 null) */
-export function loadCache(cachePath: string, ttlMs: number = DEFAULT_CACHE_TTL_MS): AnnouncementBrief[] | null {
-  try {
-    if (!fs.existsSync(cachePath)) return null;
-    const raw = fs.readFileSync(cachePath, 'utf-8');
-    const parsed = JSON.parse(raw) as CacheFile;
-    if (!parsed || typeof parsed.fetchedAt !== 'number' || !Array.isArray(parsed.list)) return null;
-    if (Date.now() - parsed.fetchedAt > ttlMs) return null;
-    return parsed.list;
-  } catch {
-    return null;
+function announcementReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
   }
+  return 'unknown';
+}
+
+/** 读取本地缓存。文件不存在或已过期返回 null。损坏不能当成没有,否则下一轮会整份覆盖。 */
+export function loadCache(cachePath: string, ttlMs: number = DEFAULT_CACHE_TTL_MS): AnnouncementBrief[] | null {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(cachePath, 'utf-8');
+  } catch (error) {
+    const code = announcementReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`公告缓存读不到,不能把它说成没有公告 (${code})`);
+  }
+  let parsed: CacheFile;
+  try {
+    parsed = JSON.parse(raw) as CacheFile;
+  } catch {
+    throw new Error('公告缓存读不到,不能把它覆盖成新公告 (corrupt)');
+  }
+  if (!parsed || typeof parsed.fetchedAt !== 'number' || !Array.isArray(parsed.list)) {
+    throw new Error('公告缓存读不到,不能把它覆盖成新公告 (corrupt)');
+  }
+  if (Date.now() - parsed.fetchedAt > ttlMs) return null;
+  return parsed.list;
 }
 
 /** 写入本地缓存(失败不抛错) */
@@ -193,10 +209,17 @@ export async function getAnnouncements(
 ): Promise<AnnouncementBrief[]> {
   const cachePath = opts.cachePath ?? getDefaultCachePath();
   const ttl = opts.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS;
-  const cached = loadCache(cachePath, ttl);
+  let cached: AnnouncementBrief[] | null = null;
+  let cacheUnreadable: string | null = null;
+  try {
+    cached = loadCache(cachePath, ttl);
+  } catch (error) {
+    cacheUnreadable = error instanceof Error ? error.message : '公告缓存读不到,不能把它说成没有公告';
+  }
   if (cached) return cached;
   const list = await fetchAnnouncements(opts);
-  if (list.length > 0) saveCache(cachePath, list);
+  if (cacheUnreadable && list.length === 0) throw new Error(cacheUnreadable);
+  if (list.length > 0 && !cacheUnreadable) saveCache(cachePath, list);
   return list;
 }
 
@@ -210,26 +233,35 @@ export async function refreshAnnouncements(
   return list;
 }
 
-/** 加载已读 ID 集合(文件不存在返回空 Set) */
+/** 加载已读 ID 集合。文件不存在是空集合。损坏不能当成没有已读,否则标记一条会把原文件换成只剩这一条。 */
 export function loadSeenIds(seenPath: string = getDefaultSeenPath()): Set<string> {
+  let raw: string;
   try {
-    if (!fs.existsSync(seenPath)) return new Set();
-    const raw = fs.readFileSync(seenPath, 'utf-8');
-    const parsed = JSON.parse(raw) as SeenFile;
-    if (!parsed || !Array.isArray(parsed.seenIds)) return new Set();
-    return new Set(parsed.seenIds);
-  } catch {
-    return new Set();
+    raw = fs.readFileSync(seenPath, 'utf-8');
+  } catch (error) {
+    const code = announcementReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
+    throw new Error(`已读公告读不到,不能把它说成没有已读 (${code})`);
   }
+  let parsed: SeenFile;
+  try {
+    parsed = JSON.parse(raw) as SeenFile;
+  } catch {
+    throw new Error('已读公告读不到,不能把它覆盖成只剩新的一条 (corrupt)');
+  }
+  if (!parsed || !Array.isArray(parsed.seenIds)) {
+    throw new Error('已读公告读不到,不能把它覆盖成只剩新的一条 (corrupt)');
+  }
+  return new Set(parsed.seenIds);
 }
 
 /** 标记某条公告为已读(幂等,失败不抛错) */
 export function markSeen(seenPath: string, id: string): void {
   if (!id) return;
+  const set = loadSeenIds(seenPath);
+  if (set.has(id)) return;
   try {
     ensureParentDir(seenPath);
-    const set = loadSeenIds(seenPath);
-    if (set.has(id)) return;
     set.add(id);
     // 环形缓冲:超过上限移除最早的(用 Array 顺序保证)
     let arr = Array.from(set);
@@ -246,9 +278,9 @@ export function markSeen(seenPath: string, id: string): void {
 /** 标记列表中所有公告为已读(批量,用于 /announcements read-all) */
 export function markAllSeen(seenPath: string, list: AnnouncementBrief[]): void {
   if (list.length === 0) return;
+  const set = loadSeenIds(seenPath);
   try {
     ensureParentDir(seenPath);
-    const set = loadSeenIds(seenPath);
     for (const a of list) {
       if (a.id) set.add(a.id);
     }

@@ -54,6 +54,14 @@ services:
       dockerfile: deploy/docker/Dockerfile.api
     image: ihui-api:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-api
+    # 非 root:镜像(Dockerfile.api)内已 USER apijs,这里显式声明与之一致;
+    # 并补 CPU/内存上限,避免单容器吃满宿主机。
+    user: apijs
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -160,6 +168,12 @@ services:
       dockerfile: deploy/docker/Dockerfile.api
     image: ihui-api:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-worker
+    user: apijs
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
     restart: unless-stopped
     command: ['node', 'apps/api/dist/worker-entry.js']
     environment:
@@ -223,6 +237,21 @@ services:
       dockerfile: deploy/docker/Dockerfile.web
     image: ihui-web:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-web
+    # nginx 官方(非 unprivileged)镜像的 master 需 root 写 pid/log,强行 user:
+    # 会破坏启动;非 root 改造须换 nginxinc/nginx-unprivileged 基础镜像,
+    # 属镜像选型而非编排层改动(见交付报告遗留风险)。此处补资源上限与健康门禁。
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    healthcheck:
+      # nginx.web.conf 内已有 /health 端点(return 200 "ok")。
+      test: ['CMD', 'wget', '--spider', '-q', 'http://127.0.0.1:8801/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -252,6 +281,13 @@ services:
       dockerfile: Dockerfile
     image: ihui-ai-service:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-ai-service
+    # 镜像(apps/ai-service/Dockerfile)内已 USER aiuser,显式声明与之一致。
+    user: aiuser
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
     restart: unless-stopped
     ports:
       - '127.0.0.1:${AI_SERVICE_PORT:-8803}:8803'
@@ -312,6 +348,14 @@ services:
     # 不能被 18 直接挂载:升级后需 `docker compose down -v` 重建卷,再重新迁移 + 导入数据。
     image: pgvector/pgvector:pg18
     container_name: ihui-db
+    # postgres 官方镜像内置 postgres 用户(非 root);卷 pgdata 初始内容属该用户,
+    # 显式声明 user 与其一致,entrypoint 检测到非 root 会跳过 gosu 直接 exec。
+    user: postgres
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
     restart: unless-stopped
     environment:
       # 2026-07-24 安全审计:强制 DB_PASSWORD 必填(空值启动失败),杜绝弱密码默认
@@ -339,6 +383,13 @@ services:
       dockerfile: deploy/docker/Dockerfile.migrate
     image: ihui-migrate:${IHUI_IMAGE_TAG:-local}
     container_name: ihui-migrate
+    # 镜像(Dockerfile.migrate)内已 USER migratejs,显式声明与之一致。
+    user: migratejs
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
     environment:
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
     depends_on:
@@ -353,9 +404,22 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ihui-redis
+    # redis 官方镜像内置 redis 用户(非 root);卷 redisdata 属该用户,显式声明一致。
+    user: redis
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
     restart: unless-stopped
     # 2026-07-24 安全审计:强制 REDIS_PASSWORD 必填,禁止无密码运行(防未授权访问 + 持久化攻击)
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
+    # 口令只经 environment 注入容器。command / healthcheck 里若出现 ${REDIS_PASSWORD}
+    # 或 $REDIS_PASSWORD,Compose 会在解析期展开成明文写进 Config.Cmd /
+    # Healthcheck.Test,docker inspect / docker ps --no-trunc 即可读出。$$ 转义后
+    # 由容器内 sh 在运行时从环境读取,落盘的是字面量而非口令。
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD 未配置,请在 .env 设置强密码(≥16 字符)}
+    command: ['sh', '-c', 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
     volumes:
       - redisdata:/data
     # 2026-07-24 安全审计:Redis 端口仅绑定 127.0.0.1,禁止暴露到 0.0.0.0(防未授权访问 + RCE)
@@ -364,7 +428,9 @@ services:
     networks:
       - ihui-net
     healthcheck:
-      test: ['CMD-SHELL', 'redis-cli -a "$REDIS_PASSWORD" ping | grep PONG']
+      # redis-cli 官方读 REDISCLI_AUTH 环境变量,无需 -a 明文;$$ 让 CMD-SHELL 在
+      # 运行时从容器环境展开,compose 解析期不把口令拼进 Healthcheck.Test。
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep PONG']
       interval: 10s
       timeout: 5s
       retries: 5

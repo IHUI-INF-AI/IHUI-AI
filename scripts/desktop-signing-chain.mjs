@@ -20,7 +20,9 @@
  *   C5 macOS:Developer ID、hardened runtime、notarytool、staple、spctl 齐备;
  *   C6 独立 signature-gate 作业存在,且 always() 跑、缺清单时 ::error::未签名 并 exit 1;
  *   C7 publish-updater-json 的 needs 必须含 signature-gate(先验签再发 latest.json);
- *   C8 CI 内不得出现 DESKTOP_ALLOW_UNSIGNED(本机豁免不得泄漏到发布链)。
+ *   C8 CI 内不得出现 DESKTOP_ALLOW_UNSIGNED(本机豁免不得泄漏到发布链);
+ *   C9 macOS 公证通道 B 的 .p8 必须真的落盘(内容 secret → 解码 → chmod 600 → always() 清理),
+ *      且落盘步必须在 Build & Release 之前、清理步在其之后。
  *
  * 退出码:0 = 链路完整;1 = 判红(逐条打印);2 = 用法/读取错误(写 stderr)。
  * 用法:
@@ -44,6 +46,7 @@ const REQUIRED_SECRETS = [
   'APPLE_SIGNING_IDENTITY',
   'APPLE_TEAM_ID',
   'APPLE_API_KEY',
+  'APPLE_API_KEY_P8',
   'DESKTOP_TAURI_PRIVATE_KEY',
 ]
 
@@ -141,6 +144,24 @@ export function auditWorkflow(workflowText, { docsExists = true, docsText = '' }
   // C8:CI 不得出现本机未签名豁免
   need('C8', !active.includes('DESKTOP_ALLOW_UNSIGNED'), 'CI 出现了 DESKTOP_ALLOW_UNSIGNED:本机豁免不得进入发布链')
 
+  // C9:公证通道 B 的 .p8 必须落盘(2026-11-05 立:此前只写 APPLE_API_KEY_PATH 环境变量,
+  //     文件从不存在 ⇒ 凭据配齐公证也必失败,而链路审计看不出来)
+  const buildRelease = indexOf('name: Build & Release')
+  const materialize = indexOf('name: Materialize App Store Connect API key')
+  const removeKey = indexOf('name: Remove App Store Connect API key')
+  need('C9a', materialize > -1, '缺少 .p8 落盘步骤「Materialize App Store Connect API key」(只有路径变量 = 公证必失败)')
+  need('C9f', active.includes('APPLE_API_KEY_P8'), 'workflow 未消费 APPLE_API_KEY_P8:.p8 内容没有来源')
+  const matBlock = materialize > -1 ? active.slice(materialize, removeKey > -1 ? removeKey : active.length) : ''
+  need('C9b', /openssl base64 -d -A/.test(matBlock), '.p8 落盘步骤没有用 openssl base64 -d -A 解码')
+  need('C9c', /chmod 600/.test(matBlock), '.p8 落盘后未把权限收紧到 600')
+  need('C9d', removeKey > -1, '缺少 .p8 清理步骤「Remove App Store Connect API key」')
+  const afterRemove = removeKey > -1 ? active.slice(removeKey) : ''
+  // 只看清理步自身的第一个 if:(不能放宽成"全文出现过 always",否则后续 job/step 的同名条件会顶包)
+  const remIf = afterRemove.match(/\n\s*if:([^\n]*)/)
+  need('C9e', Boolean(remIf) && /^\s*always\(\)/.test(remIf[1]), '.p8 清理步不是 always():失败路径会把密钥文件留在 runner 上')
+  need('C9g', materialize > -1 && buildRelease > -1 && materialize < buildRelease, '顺序错误:.p8 必须在 Build & Release 之前落盘')
+  need('C9h', removeKey > -1 && buildRelease > -1 && removeKey > buildRelease, '顺序错误:.p8 清理必须在 Build & Release 之后(否则构建时文件已不存在)')
+
   return problems
 }
 
@@ -175,6 +196,16 @@ const GOOD_FIXTURE = [
   '          xcrun stapler validate "$DMG"',
   '          spctl --assess --type execute "$APP"',
   '      - name: Upload signed macOS bundles',
+  '      - name: Materialize App Store Connect API key (macOS, channel B)',
+  '        env:',
+  '          IN_P8: ${{ secrets.APPLE_API_KEY_P8 }}',
+  '        run: |',
+  '          printf %s "$IN_P8" | openssl base64 -d -A > "$TARGET"',
+  '          chmod 600 "$TARGET"',
+  '      - name: Build & Release',
+  '      - name: Remove App Store Connect API key (macOS)',
+  '        if: always()',
+  '        run: rm -f "$TARGET"',
   '  signature-gate:',
   '    if: always()',
   '    steps:',
@@ -232,6 +263,23 @@ function selfTest() {
     docsText: GOOD_DOCS,
   })
   expect('CI 出现本机豁免必须判红(C8)', leaked.some((p) => p.code === 'C8'))
+
+  // C9 反向例:删掉落盘 / 漏 chmod / 清理非 always() 都必须判红
+  const noMaterialize = GOOD_FIXTURE.split('\n').filter((l) => !l.includes('Materialize App Store Connect API key')).join('\n')
+  expect(
+    '删掉 .p8 落盘步必须判红(C9a)',
+    auditWorkflow(noMaterialize, { docsExists: true, docsText: GOOD_DOCS }).some((p) => p.code === 'C9a'),
+  )
+  const noChmod = GOOD_FIXTURE.replace('          chmod 600 "$TARGET"', '          chmod 644 "$TARGET"')
+  expect(
+    '漏掉 chmod 600 必须判红(C9c)',
+    auditWorkflow(noChmod, { docsExists: true, docsText: GOOD_DOCS }).some((p) => p.code === 'C9c'),
+  )
+  const noAlways = GOOD_FIXTURE.replace('        if: always()\n        run: rm -f "$TARGET"', '        if: success()\n        run: rm -f "$TARGET"')
+  expect(
+    '清理步非 always() 必须判红(C9e)',
+    auditWorkflow(noAlways, { docsExists: true, docsText: GOOD_DOCS }).some((p) => p.code === 'C9e'),
+  )
 
   if (failures > 0) {
     console.error(`self-test 失败 ${failures} 项`)

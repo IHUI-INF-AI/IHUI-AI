@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { createMemoryEntry, deleteMemoryEntry, listMemoryEntries } from '@ihui/api-client'
 import type {
   MemoryEntry,
   MemoryEntryType,
@@ -70,8 +70,9 @@ export function MemoryScreen() {
   const load = useCallback(async () => {
     setError('')
     try {
-      const qs = scopeFilter ? `?scope=${encodeURIComponent(scopeFilter)}` : ''
-      const res = await fetchApi<MemoryListResponse>(`/api/memory${qs}`)
+      const res = await listMemoryEntries<MemoryListResponse>({
+        scope: scopeFilter ?? undefined,
+      })
       if (!res.success) throw new Error(res.error)
       setEntries(res.data.entries)
     } catch {
@@ -109,10 +110,7 @@ export function MemoryScreen() {
         text: newText.trim(),
         source: 'mobile-rn',
       }
-      const res = await fetchApi<MemoryEntry>('/api/memory', {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
+      const res = await createMemoryEntry<MemoryEntry>(body)
       if (!res.success) throw new Error(res.error)
       setEntries((prev) => [res.data, ...prev])
       setCreateVisible(false)
@@ -136,10 +134,7 @@ export function MemoryScreen() {
         onPress: async () => {
           setDeleting(true)
           try {
-            const res = await fetchApi<MemoryDeleteResponse>(
-              `/api/memory/${encodeURIComponent(entry.id)}`,
-              { method: 'DELETE' },
-            )
+            const res = await deleteMemoryEntry<MemoryDeleteResponse>(entry.id)
             if (!res.success) throw new Error(res.error)
             setEntries((prev) => prev.filter((e) => e.id !== entry.id))
             setExpandedId((cur) => (cur === entry.id ? null : cur))

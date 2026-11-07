@@ -100,7 +100,7 @@ class TestAddTask:
     async def test_cron_success(self, sched):
         """cron trigger 成功:返回 ok=True,持久化到 Redis,add_job 被调用。"""
         res = await sched.add_task(
-            "t-cron", "cron", {"minute": 5}, _shell_cb(), conversation_id="conv1"
+            "t-cron", "cron", {"minute": 5}, _shell_cb(), is_admin=True, conversation_id="conv1"
         )
         assert res["ok"] is True
         assert res["task_id"] == "t-cron"
@@ -118,7 +118,7 @@ class TestAddTask:
     async def test_date_success(self, sched):
         """date trigger 成功:DateTrigger 构造,next_run_at 记录。"""
         run_at = (datetime.now(UTC) + timedelta(days=1)).isoformat()
-        res = await sched.add_task("t-date", "date", {"run_date": run_at}, _shell_cb())
+        res = await sched.add_task("t-date", "date", {"run_date": run_at}, _shell_cb(), is_admin=True)
         assert res["ok"] is True
         trigger_arg = sched._scheduler.add_job.call_args.kwargs["trigger"]
         assert isinstance(trigger_arg, DateTrigger)
@@ -127,7 +127,7 @@ class TestAddTask:
     async def test_interval_success(self, sched):
         """interval trigger 成功:IntervalTrigger 构造。"""
         res = await sched.add_task(
-            "t-int", "interval", {"seconds": 60}, _shell_cb()
+            "t-int", "interval", {"seconds": 60}, _shell_cb(), is_admin=True
         )
         assert res["ok"] is True
         trigger_arg = sched._scheduler.add_job.call_args.kwargs["trigger"]
@@ -136,7 +136,7 @@ class TestAddTask:
     @pytest.mark.asyncio
     async def test_invalid_trigger_type(self, sched):
         """无效 trigger_type 返回 INVALID_TRIGGER,不持久化。"""
-        res = await sched.add_task("t-bad", "weekly", {"minute": 5}, _shell_cb())
+        res = await sched.add_task("t-bad", "weekly", {"minute": 5}, _shell_cb(), is_admin=True)
         assert res["ok"] is False
         assert res["errorCode"] == "INVALID_TRIGGER"
         sched._scheduler.add_job.assert_not_called()
@@ -144,7 +144,7 @@ class TestAddTask:
     @pytest.mark.asyncio
     async def test_cron_missing_fields(self, sched):
         """cron 缺少任意原生字段返回 INVALID_TRIGGER。"""
-        res = await sched.add_task("t-empty", "cron", {}, _shell_cb())
+        res = await sched.add_task("t-empty", "cron", {}, _shell_cb(), is_admin=True)
         assert res["ok"] is False
         assert res["errorCode"] == "INVALID_TRIGGER"
         assert "cron" in res["message"]
@@ -152,10 +152,24 @@ class TestAddTask:
     @pytest.mark.asyncio
     async def test_date_missing_run_date(self, sched):
         """date 缺 run_date 返回 INVALID_TRIGGER。"""
-        res = await sched.add_task("t-nodate", "date", {}, _shell_cb())
+        res = await sched.add_task("t-nodate", "date", {}, _shell_cb(), is_admin=True)
         assert res["ok"] is False
         assert res["errorCode"] == "INVALID_TRIGGER"
         assert "run_date" in res["message"]
+
+
+    @pytest.mark.asyncio
+    async def test_shell_requires_admin(self, sched):
+        """BUG-1 根治:shell 回调非管理员被拒(INVALID_CALLBACK),杜绝任意登录用户 RCE。"""
+        res = await sched.add_task("t-shell", "interval", {"seconds": 30}, _shell_cb())
+        assert res["ok"] is False
+        assert res["errorCode"] == "INVALID_CALLBACK"
+        sched._scheduler.add_job.assert_not_called()
+        # 管理员通道可创建
+        ok = await sched.add_task(
+            "t-shell-ok", "interval", {"seconds": 30}, _shell_cb(), is_admin=True
+        )
+        assert ok["ok"] is True
 
 
 # =============================================================================
@@ -167,7 +181,7 @@ class TestRemoveTask:
     @pytest.mark.asyncio
     async def test_remove_existing(self, sched):
         """删除已存在任务:Redis key 清除,返回 ok=True。"""
-        await sched.add_task("rm-1", "interval", {"seconds": 30}, _shell_cb())
+        await sched.add_task("rm-1", "interval", {"seconds": 30}, _shell_cb(), is_admin=True)
         res = await sched.remove_task("rm-1")
         assert res["ok"] is True
         got = await sched.get_task("rm-1")
@@ -189,8 +203,8 @@ class TestListTasks:
     @pytest.mark.asyncio
     async def test_list_default(self, sched):
         """默认列出全部任务。"""
-        await sched.add_task("l-1", "interval", {"seconds": 30}, _shell_cb(), conversation_id="c1")
-        await sched.add_task("l-2", "interval", {"minutes": 1}, _shell_cb(), conversation_id="c2")
+        await sched.add_task("l-1", "interval", {"seconds": 30}, _shell_cb(), is_admin=True, conversation_id="c1")
+        await sched.add_task("l-2", "interval", {"minutes": 1}, _shell_cb(), is_admin=True, conversation_id="c2")
         res = await sched.list_tasks()
         assert res["ok"] is True
         assert res["count"] == 2
@@ -200,8 +214,8 @@ class TestListTasks:
     @pytest.mark.asyncio
     async def test_list_filter_by_conversation(self, sched):
         """按 conversation_id 过滤。"""
-        await sched.add_task("f-1", "interval", {"seconds": 30}, _shell_cb(), conversation_id="convA")
-        await sched.add_task("f-2", "interval", {"minutes": 1}, _shell_cb(), conversation_id="convB")
+        await sched.add_task("f-1", "interval", {"seconds": 30}, _shell_cb(), is_admin=True, conversation_id="convA")
+        await sched.add_task("f-2", "interval", {"minutes": 1}, _shell_cb(), is_admin=True, conversation_id="convB")
         res = await sched.list_tasks(conversation_id="convA")
         assert res["count"] == 1
         assert res["tasks"][0]["task_id"] == "f-1"
@@ -217,7 +231,7 @@ class TestGetTask:
     async def test_get_existing(self, sched):
         """获取已存在任务详情。"""
         await sched.add_task(
-            "g-1", "cron", {"minute": 0, "hour": 9}, _shell_cb("echo g1")
+            "g-1", "cron", {"minute": 0, "hour": 9}, _shell_cb("echo g1"), is_admin=True
         )
         res = await sched.get_task("g-1")
         assert res["ok"] is True
@@ -241,9 +255,9 @@ class TestUpdateTask:
     @pytest.mark.asyncio
     async def test_update_success(self, sched):
         """更新 callback + enabled 成功,Redis 反映变更。"""
-        await sched.add_task("u-1", "interval", {"seconds": 30}, _shell_cb())
+        await sched.add_task("u-1", "interval", {"seconds": 30}, _shell_cb(), is_admin=True)
         new_cb = {"type": "shell", "command": "echo updated"}
-        res = await sched.update_task("u-1", callback=new_cb, enabled=False)
+        res = await sched.update_task("u-1", callback=new_cb, enabled=False, is_admin=True)
         assert res["ok"] is True
         got = await sched.get_task("u-1")
         assert got["task"]["callback"]["command"] == "echo updated"
@@ -259,7 +273,7 @@ class TestUpdateTask:
     @pytest.mark.asyncio
     async def test_update_invalid_trigger_config(self, sched):
         """update 传入无效 trigger_config 返回 INVALID_TRIGGER,不改原任务。"""
-        await sched.add_task("u-2", "cron", {"minute": 5}, _shell_cb())
+        await sched.add_task("u-2", "cron", {"minute": 5}, _shell_cb(), is_admin=True)
         res = await sched.update_task("u-2", trigger_config={})  # cron 缺字段
         assert res["ok"] is False
         assert res["errorCode"] == "INVALID_TRIGGER"
@@ -429,7 +443,7 @@ class TestRedisUnavailableFallback:
             assert s._redis is None
             # 内存模式 add_task
             res = await s.add_task(
-                "mem-1", "interval", {"seconds": 60}, _shell_cb()
+                "mem-1", "interval", {"seconds": 60}, _shell_cb(), is_admin=True
             )
             assert res["ok"] is True
             assert "mem-1" in s._memory_fallback

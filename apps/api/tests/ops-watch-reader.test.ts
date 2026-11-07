@@ -6,7 +6,7 @@
 // 本测试钉四件事:①两族标记形态都能读出且三态不并桶;②去重(冷却内同指纹不重发、内容变立即重报、
 // 消失清键);③CDN 探测"任何 HTTP 应答=活着";④push 失败不外抛、不写冷却(下一轮重试)。
 import { describe, it, expect, beforeEach } from 'vitest'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
@@ -31,6 +31,22 @@ beforeEach(() => {
 describe('scanUndeliveredDir — 标记扫描三态', () => {
   it('目录不存在 ⇒ 空(安静,不报错)', () => {
     expect(scanUndeliveredDir(join(dir, 'nope'))).toEqual([])
+  })
+
+  it('目录读不到不算没有未送达标记', () => {
+    const blocked = join(dir, 'not-a-dir')
+    writeFileSync(blocked, 'keep', 'utf8')
+    const asFile = scanUndeliveredDir(blocked)
+    expect(asFile).toHaveLength(1)
+    expect(asFile[0]?.identity).toBe('undelivered-dir-unreadable')
+    expect(readFileSync(blocked, 'utf8')).toBe('keep')
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const locked = scanUndeliveredDir(join(dir, 'locked'), () => {
+      throw denied
+    })
+    expect(locked).toHaveLength(1)
+    expect(locked[0]?.identity).toBe('undelivered-dir-unreadable')
   })
 
   it('pg-backup 族形态(producer/alertId/title/reason/at)逐字段读出', () => {
@@ -279,6 +295,24 @@ describe('probeCdnLiveness — 任何 HTTP 应答都算活着(404 占位 PNG 也
       throw new Error('ECONNREFUSED')
     }) as unknown as typeof fetch)
     expect(ok).toBe(false)
+  })
+})
+
+describe('去重记录读不到不覆盖', () => {
+  it('去重路径是目录时不把记录写成空文件', () => {
+    const blocked = join(dir, 'dedup-dir')
+    mkdirSync(blocked)
+    const store = new OpsWatchDedupStore(blocked)
+    expect(() => store.set('cdn:1', { at: 1, fp: 'a', failures: 1, alerted: false })).toThrow(/读不到/)
+    expect(statSync(blocked).isDirectory()).toBe(true)
+  })
+
+  it('去重内容坏掉时不覆盖原字节', () => {
+    const file = join(dir, 'dedup-bad.json')
+    writeFileSync(file, '{', 'utf8')
+    const store = new OpsWatchDedupStore(file)
+    expect(() => store.set('cdn:1', { at: 1, fp: 'a', failures: 1, alerted: false })).toThrow(/读不到/)
+    expect(readFileSync(file, 'utf8')).toBe('{')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

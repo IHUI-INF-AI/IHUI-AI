@@ -9,7 +9,7 @@
 // 那类锁防的正是"函数在、但没人调 / 判据被顺手放宽",行为断言覆盖不到它。
 //
 // 四条锁各自的理由:
-//  L1 三态恒不判红(退出码恒 0):票面硬要求。它是**函数行为**,所以既喂构造面,
+//  L1 三态显式映射退出码 0/1/2(不再折成恒 0)。它是**函数行为**,所以既喂构造面,
 //     也端到端跑一次 CLI 取真实退出码(不经管道 —— `| tail` 拿到的是 tail 的码,
 //     那是本仓 §"取证包装器"记过的假绿来源)。
 //  L2 判定路径零写盘:取 `scanScratchRoot`/`decide`/`formatLines`/`measure` 四个函数体
@@ -110,7 +110,7 @@ function runGate(args) {
   return { code: r.status, out: `${r.stdout || ''}${r.stderr || ''}` }
 }
 
-/* ───────────────────────── L1 三态 × 退出码恒 0(构造面)───────────────────────── */
+/* ───────────────────────── L1 三态 × 退出码 0/1/2(构造面)───────────────────────── */
 
 const mkRes = (over = {}) => ({
   root: 'R',
@@ -143,13 +143,14 @@ test('decide:发现 drift 时不因 truncated 降级,但未完备必须另行报
   assert.match(text, /下界|未判完/, '已发现 + 没扫完时,报告必须同时说这两件事')
 })
 
-test('L1:退出码恒 0 —— ok / drift / undetermined 三种都不判红(票面硬要求)', () => {
-  for (const s of ['ok', 'drift', 'undetermined']) assert.equal(gate.exitCodeFor(s), 0, s)
-  // 形状锁:exitCodeFor 的函数体里不得出现 return 1 / return 2 ——
-  // "顺手升档成 blocking"必须由这条挡下,而不是靠下一个人记得票面怎么写的。
-  // (这个函数本来就只有两行,minBody 按它的真实尺寸给,而不是套默认值把它挡掉。)
+test('L1:退出码三态映射 —— ok→0 / drift→1 / undetermined→2(不得折成绿)', () => {
+  assert.equal(gate.exitCodeFor('ok'), 0)
+  assert.equal(gate.exitCodeFor('drift'), 1)
+  assert.equal(gate.exitCodeFor('undetermined'), 2)
+  // 形状锁:三种状态必须各自返回不同码 —— 任何"顺手折回 0"都会让这条爆红。
   const body = extractFnBody(CODE, 'exitCodeFor', { minBody: 10 })
-  assert.doesNotMatch(body, /return\s+[12]\b/, 'exitCodeFor 只许恒 0')
+  assert.match(body, /return\s+1\b/, 'exitCodeFor 必须显式交付 drift=1')
+  assert.match(body, /return\s+2\b/, 'exitCodeFor 必须显式交付 undetermined=2')
 })
 
 /* ───────────────────────── L2 判定路径零写盘 ───────────────────────── */
@@ -209,7 +210,8 @@ test('L3 端到端:junction 指向二阶树时**不得**被穿透计入发现', 
       return
     }
     const r = runGate(['--root', fix, '--json'])
-    assert.equal(r.code, 0)
+    // 真实落点里仍有 N1(二阶 scratch 根)⇒ drift ⇒ exit 1(阻断与否归 runner warn 档)
+    assert.equal(r.code, 1)
     const j = JSON.parse(r.out)
     // 链接本身被跳过(不穿透),但它指向的真实树在 `elsewhere/DevEnv/...` 这一支仍应被看到:
     // 判据不能因为"有一条链接"就把整族放过 —— 那会把 L3 变成一台可以被绕过的门。
@@ -267,7 +269,7 @@ test('L6:本门自己的夹具走 mkScratch,不得绕过落点(§26 唯一落点
 
 /* ───────────────────────── 端到端:三态各有真读数 ───────────────────────── */
 
-test('端到端:注入二阶形态 ⇒ drift 且逐条点名;抹掉 ⇒ ok;根不在 ⇒ undetermined;三者退出码都是 0', () => {
+test('端到端:注入二阶形态 ⇒ drift(1) 且逐条点名;抹掉 ⇒ ok(0);根不在 ⇒ undetermined(2)', () => {
   const fix = mkScratch('g286-e2e-')
   try {
     const a = runGate(['--root', fix])
@@ -278,7 +280,7 @@ test('端到端:注入二阶形态 ⇒ drift 且逐条点名;抹掉 ⇒ ok;根�
     mkdirSync(nested, { recursive: true })
     writeFileSync(join(nested, 'keep.txt'), '别人的现场\n')
     const b = runGate(['--root', fix])
-    assert.equal(b.code, 0, '发现二阶落点也**不得**改退出码(只告警)')
+    assert.equal(b.code, 1, 'drift 必须交付 exit 1(阻断与否归 runner warn 档)')
     assert.match(b.out, /结论:drift/)
     assert.match(b.out, /N1/, '二阶 scratch 根必须按型点名')
     assert.match(b.out, /N2/, '二阶盘级落点必须按型点名')
@@ -299,7 +301,7 @@ test('端到端:注入二阶形态 ⇒ drift 且逐条点名;抹掉 ⇒ ok;根�
     assert.match(c.out, /结论:ok/, '形态抹掉后必须立刻回到 ok(判据认形态不认历史)')
 
     const d = runGate(['--root', join(fix, 'definitely-not-here')])
-    assert.equal(d.code, 0, 'undetermined 同样不改退出码')
+    assert.equal(d.code, 2, 'undetermined 必须交付 exit 2(不得报绿)')
     assert.match(d.out, /结论:undetermined/)
     assert.match(d.out, /未判定/)
   } finally {
@@ -317,7 +319,7 @@ test('端到端:预算闸真的会落下 —— 极小预算把有内容的树�
     mkdirSync(join(fix, 'a', 'b'), { recursive: true })
     writeFileSync(join(fix, 'a', 'b', 'f.txt'), 'x\n')
     const r = runGate(['--root', fix, '--budget', '1', '--json'])
-    assert.equal(r.code, 0)
+    assert.equal(r.code, 2, '预算耗尽 ⇒ undetermined ⇒ exit 2')
     const j = JSON.parse(r.out)
     assert.equal(j.state, 'undetermined')
     assert.equal(j.truncated, true)

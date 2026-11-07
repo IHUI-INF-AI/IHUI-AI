@@ -22,7 +22,7 @@
 
 /* ===== 操盘手头部(对齐 RN heroCard:深色卡 + 白字 + 金价)===== */
 .trader-header {
-  margin: var(--spacing-sm) 32rpx 0;
+  margin: var(--spacing-sm) var(--spacing-lg) 0;
   padding: var(--spacing-md-loose);
   background: var(--color-surface-dark);
   border-radius: var(--radius-xl);
@@ -57,7 +57,7 @@
 .trader-badge {
   /* 对齐 RN heroBadge:金 tint 底 rgba(255,215,0,0.18) + amber 字;圆角按角色档 chip→md */
   margin-left: var(--spacing-xs-loose);
-  padding: var(--spacing-xs) 20rpx;
+  padding: var(--spacing-xs) var(--spacing-sm-loose);
   background: var(--color-vip-gold-tint);
   border-radius: var(--radius-md);
 }
@@ -99,7 +99,7 @@
 
 /* ===== 通用 Section(RN 卡片语言:白底 + 1px 边框)===== */
 .trader-section {
-  margin: var(--spacing-md) 32rpx;
+  margin: var(--spacing-md) var(--spacing-lg);
   padding: var(--spacing-md-loose);
   background: var(--color-card);
   border: 1px solid var(--color-border);
@@ -144,7 +144,7 @@
   gap: var(--spacing-sm);
 }
 .trader-tag {
-  padding: var(--spacing-xs) 20rpx;
+  padding: var(--spacing-xs) var(--spacing-sm-loose);
   background: var(--color-muted);
   border-radius: var(--radius-md);
 }
@@ -190,7 +190,7 @@
   align-items: flex-end;
   justify-content: space-between;
   height: 120rpx;
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
 }
 .trader-chart-col {
   flex: 1;
@@ -279,7 +279,7 @@
 }
 .trader-package-tag {
   /* 推荐 tag 对齐 RN 浅底深字语言(warning.amberLight/amberText) */
-  padding: var(--spacing-2xs) 12rpx;
+  padding: var(--spacing-2xs) var(--spacing-xs-loose);
   background: var(--color-warning-amber-light);
   border-radius: var(--radius-md);
 }
@@ -380,7 +380,7 @@
   right: 0;
   display: flex;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm-loose) 32rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-lg);
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);

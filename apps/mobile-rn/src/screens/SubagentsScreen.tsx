@@ -207,7 +207,7 @@ export function SubagentsScreen() {
   const successRate = total > 0 ? Math.round((completedCount / total) * 100) : 0
   const statItems: StatItem[] = [
     { key: 'total', label: t('subagents.statTotal'), value: total },
-    { key: 'active', label: t('subagents.statActive'), value: activeCount },
+    { key: 'active', label: t('agentTeams.statsActive'), value: activeCount },
     { key: 'successRate', label: t('subagents.statSuccessRate'), value: successRate, suffix: '%' },
     { key: 'queue', label: t('subagents.statQueue'), value: queue.length },
   ]

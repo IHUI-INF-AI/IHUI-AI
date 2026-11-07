@@ -11,12 +11,18 @@
  * 把地址、证书基准、最小体积收进 scripts/data/mobile-download-leg.json,其余消费者 import 或
  * 读取该文件,不准再写第二份字面量。
  *
- * 口径(用户 2026-11-03 拍板):
- *   - 正式包只能由持 ~/.android/ihui-release.keystore 的机器产出;证书 SHA-256 基准
- *     `62:B0:FF:0E…`(hex `62b0ff0e...`),与官网一致。
+ * 证书口径(2026-11-03 取证后改三值分离,机主拍板):
+ *   - 官网/自建腿 = `siteApkCertSha256`(hex `62b0ff0e...`,展示 `62:B0:FF:0E…`),
+ *     只有持 ~/.android/ihui-release.keystore 的机器能产出,这是**官网安装身份**。
+ *   - Play 腿分两层,与官网腿**互不校验**:`playUploadKeyCertSha256` 是上传 AAB 的
+ *     上传密钥证书(EAS 10-19 那枚只有 `62:0C:C9:58…` 8 位前缀,完整 hex 未登记 ⇒ null);
+ *     `playAppSigningCertSha256` 是 Play 最终交付 APK 的应用签名证书(当前无记录 ⇒ null),
+ *     只有它决定 `zh.ai.sq` 能否跨渠道覆盖升级。
+ *   - 三个值都未实测时显式 `null` + `playCertSource='unmeasured'`,不得拿前缀冒充完整 hex,
+ *     也不得把任一腿的值拿去校验另一腿。
  *   - 私钥绝不进 GitHub Secrets/仓库文件 ⇒ CI 永久只产 `ihui-ai-dev-<run>.apk/.aab`,
  *     GitHub Release 不得作为对外下载腿。
- *   - EAS 自动 keystore(`62:0C:C9:58…`)与基准不同源;对齐前禁止其 AAB 对外分发。
+ *   - EAS AAB 携带的是上传密钥身份、不是官网安装身份;对齐前禁止其 AAB 对外分发。
  *
  * 取值优先级(--url 由调用方处理):IHUI_MOBILE_DOWNLOAD_URL > NEXT_PUBLIC_DOWNLOAD_APK_URL >
  * JSON 的 downloadUrl。覆盖只用于部署机/联调,不得写回 JSON。
@@ -40,8 +46,40 @@ export const SITE_LEG_PUBLIC_BASE = String(CONFIG.siteLegPublicBase || '').trim(
 export const SITE_LEG_URL_PREFIX = String(CONFIG.siteLegUrlPrefix || '').trim()
 export const LATEST_KEY = String(CONFIG.latestKey || '').trim()
 export const MIN_APK_BYTES = Number(CONFIG.minApkBytes) || 50 * 1024 * 1024
-export const RELEASE_CERT_SHA256 = normalizeCertDigest(CONFIG.releaseCertSha256)
-export const RELEASE_CERT_SHA256_DISPLAY = String(CONFIG.releaseCertSha256Display || '62:B0:FF:0E…').trim()
+export const SITE_APK_CERT_SHA256 = normalizeCertDigest(CONFIG.siteApkCertSha256)
+export const SITE_APK_CERT_SHA256_DISPLAY = String(CONFIG.siteApkCertSha256Display || '62:B0:FF:0E…').trim()
+export const PLAY_UPLOAD_KEY_CERT_SHA256 = normalizeCertDigest(CONFIG.playUploadKeyCertSha256)
+export const PLAY_UPLOAD_KEY_CERT_SHA256_DISPLAY = String(CONFIG.playUploadKeyCertSha256Display || '').trim()
+export const PLAY_APP_SIGNING_CERT_SHA256 = normalizeCertDigest(CONFIG.playAppSigningCertSha256)
+export const PLAY_APP_SIGNING_CERT_SHA256_DISPLAY = String(CONFIG.playAppSigningCertSha256Display || '').trim()
+export const PLAY_CERT_MEASURED_AT = String(CONFIG.playCertMeasuredAt || '').trim() || null
+export const PLAY_CERT_SOURCE = String(CONFIG.playCertSource || 'unmeasured').trim()
+
+if (!SITE_APK_CERT_SHA256) {
+  throw new Error(`下载腿单源缺 siteApkCertSha256:${MOBILE_DOWNLOAD_LEG_CONFIG_PATH}`)
+}
+
+/**
+ * 三值证书基准表:每条腿只准取自己那一格,禁止跨腿互校(2026-11-03 取证结论)。
+ * 未实测的腿 `sha256` 为空串 ⇒ 判定 skipped,绝不判绿。
+ */
+export const LEG_CERT_BASELINES = Object.freeze({
+  siteApk: Object.freeze({
+    label: '官网/自建安装证书',
+    sha256: SITE_APK_CERT_SHA256,
+    display: SITE_APK_CERT_SHA256_DISPLAY,
+  }),
+  playUploadKey: Object.freeze({
+    label: 'Play 上传密钥证书',
+    sha256: PLAY_UPLOAD_KEY_CERT_SHA256,
+    display: PLAY_UPLOAD_KEY_CERT_SHA256_DISPLAY,
+  }),
+  playAppSigning: Object.freeze({
+    label: 'Play 应用签名证书',
+    sha256: PLAY_APP_SIGNING_CERT_SHA256,
+    display: PLAY_APP_SIGNING_CERT_SHA256_DISPLAY,
+  }),
+})
 
 if (!DEFAULT_MOBILE_DOWNLOAD_URL) {
   throw new Error(`下载腿单源缺 downloadUrl:${MOBILE_DOWNLOAD_LEG_CONFIG_PATH}`)
@@ -116,17 +154,20 @@ export function judgeDownloadProbe(probe, opts = {}) {
 }
 
 /**
- * 证书判据(纯函数):actual 必须等于基准;不等即 fail,并点名基准。
- * @param {{actual?:string|null, expected?:string, display?:string}} args
+ * 证书判据(纯函数):actual 必须等于**调用方显式给出的**基准;不等即 fail,并点名基准。
+ * 基准不给默认值 —— 默认值会让"统一 cert 基准"的旧口径悄悄回流,三值时必须由本腿取自己的值。
+ * @param {{actual?:string|null, expected:string, display?:string}} args
  * @returns {{state:'ok'|'fail', reason:string, actual:string, expected:string}}
  */
-export function judgeCertDigest({ actual, expected = RELEASE_CERT_SHA256, display = RELEASE_CERT_SHA256_DISPLAY } = {}) {
+export function judgeCertDigest({ actual, expected, display } = {}) {
   const wanted = normalizeCertDigest(expected)
+  const label = String(display || '').trim() || wanted
   const got = normalizeCertDigest(actual)
+  if (!wanted) throw new Error('judgeCertDigest 必须显式传入本腿基准(expected),禁止空基准判绿')
   if (!got) {
     return {
       state: 'fail',
-      reason: `读不出 APK 证书 SHA-256(基准 ${display})`,
+      reason: `读不出 APK 证书 SHA-256(基准 ${label})`,
       actual: '',
       expected: wanted,
     }
@@ -134,12 +175,33 @@ export function judgeCertDigest({ actual, expected = RELEASE_CERT_SHA256, displa
   if (got !== wanted) {
     return {
       state: 'fail',
-      reason: `证书 SHA-256 不符:实际 ${got},基准 ${display}(${wanted})`,
+      reason: `证书 SHA-256 不符:实际 ${got},基准 ${label}(${wanted})`,
       actual: got,
       expected: wanted,
     }
   }
-  return { state: 'ok', reason: `证书 SHA-256 = ${display}`, actual: got, expected: wanted }
+  return { state: 'ok', reason: `证书 SHA-256 = ${label}`, actual: got, expected: wanted }
+}
+
+/**
+ * 按腿取证判据:只能取 LEG_CERT_BASELINES[leg] 这一格,三值互不校验。
+ * 本腿未实测(sha256 空) ⇒ skipped 并点名"待 Play Console 量取",绝不判绿。
+ * @param {'siteApk'|'playUploadKey'|'playAppSigning'} leg
+ * @param {{actual?:string|null, baseline?:{label:string, sha256:string, display:string}}} [args]
+ *   baseline 仅供自检夹具模拟"已测"形态;生产调用一律省略。
+ * @returns {{state:'ok'|'fail'|'skipped', reason:string, actual:string, expected:string}}
+ */
+export function judgeLegCertDigest(leg, { actual, baseline = LEG_CERT_BASELINES[leg] } = {}) {
+  if (!baseline) throw new Error(`未知证书腿:${leg}(只能是 ${Object.keys(LEG_CERT_BASELINES).join('/')})`)
+  if (!normalizeCertDigest(baseline.sha256)) {
+    return {
+      state: 'skipped',
+      reason: `${baseline.label}未登记实测 SHA-256(playCertSource=${PLAY_CERT_SOURCE})⇒ 待 Play Console 量取(发布 → 设置 → 应用签名),或下载 Play 签名 APK 跑 apksigner --print-certs`,
+      actual: normalizeCertDigest(actual),
+      expected: '',
+    }
+  }
+  return judgeCertDigest({ actual, expected: baseline.sha256, display: baseline.display })
 }
 
 /**

@@ -166,8 +166,17 @@ export type {
   // 漏一条是**跨包**的悬空具名导入(守门 98 在 HEAD 面直接红)。
   ToolApprovalExecEnvironment,
   ToolApprovalNetworkTarget,
+  // 批次 2(2026-11-06):结构化审批决策信息的类型与封闭集(与 D159 同一显式命名清单纪律)。
+  ToolApprovalReasonCode,
+  ToolApprovalOperationScope,
 } from './client.js'
-export { projectToolApprovalEnvFacts, projectToolApprovalExpiredFact } from './client.js'
+export {
+  TOOL_APPROVAL_REASON_CODES,
+  TOOL_APPROVAL_OPERATION_SCOPES,
+  projectToolApprovalDecisionInfo,
+  projectToolApprovalEnvFacts,
+  projectToolApprovalExpiredFact,
+} from './client.js'
 // AI 对话可视化 Phase 4a 事件类型 re-export(2026-08-01,消息级 plan/terminal inline 展示)
 export type { PlanUpdateEvent, TerminalStartEvent, TerminalEndEvent } from '@ihui/types'
 export { ApiError, isNotFound, isErrorCode } from './api-error.js'
@@ -389,6 +398,7 @@ export * from './endpoints/llm.js'
 export * from './endpoints/lsp.js'
 export * from './endpoints/knowledge-rag.js'
 export * from './endpoints/member.js'
+export * from './endpoints/memory.js'
 export * from './endpoints/misc.js'
 // MCP 商店端点(2026-09-01 立,directory/register/external-servers)
 export * from './endpoints/mcp.js'
@@ -408,9 +418,21 @@ export * from './endpoints/plugin.js'
 export * from './endpoints/resource.js'
 export * from './endpoints/share.js'
 export * from './endpoints/social.js'
+// 健康检查 + GDPR 数据权利端点(2026-11-05 立,门 300 存量 A 类:web/RN 同语义直拼收口)
+export * from './endpoints/health.js'
+export * from './endpoints/gdpr.js'
+// MFA / 安全治理 / Prompt 注册表 / Agent 控制桥端点(2026-11-05 立,门 300 存量 A 类)
+export * from './endpoints/mfa.js'
+export * from './endpoints/security.js'
+export * from './endpoints/prompts.js'
+export * from './endpoints/agent-control.js'
+// 收货地址 + 帮助中心端点(2026-11-05 立,门 300 存量 A 类:web/RN/小程序端内直拼收口)
+export * from './endpoints/address.js'
+export * from './endpoints/help.js'
 export * from './endpoints/srs.js'
 export * from './endpoints/study.js'
 export * from './endpoints/subscription.js'
+export * from './endpoints/subscriptions.js'
 export * from './endpoints/system.js'
 // 公开状态页端点(2026-10-21 立,守门 check-direct-backend-calls 新增违规收口)
 export * from './endpoints/status.js'
@@ -515,3 +537,10 @@ export type { FormRequestEvent } from './client.js'
 export * from './endpoints/support.js'
 export * from './endpoints/tags.js'
 export * from './endpoints/teams.js'
+// 接口单一化第 3 批(2026-11-05 立,门 300 台账 A 类):端内直拼前缀收口
+export * from './endpoints/image-gen.js'
+export * from './endpoints/knowledge-base.js'
+export * from './endpoints/cloud-runs.js'
+export * from './endpoints/article.js'
+export * from './endpoints/account-pool.js'
+export * from './endpoints/edu-ai-management.js'

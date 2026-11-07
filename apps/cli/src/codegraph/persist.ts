@@ -42,11 +42,31 @@ export interface PersistedGraph {
   snapshot: SerializedSnapshot
 }
 
+function cacheReadable(cachePath: string, stat?: (path: string) => fs.Stats): 'missing' | 'present' {
+  const look = stat ?? ((target: string) => fs.statSync(target))
+  try {
+    look(cachePath)
+    return 'present'
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown'
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing'
+    throw new Error(`代码图缓存读不到,不能把它当成没有再写成新的 (${code})`)
+  }
+}
+
 /**
  * 保存索引到缓存文件。
- * 自动创建父目录,覆盖已有文件。
+ * 自动创建父目录,覆盖已有文件。读不到则不写。
  */
-export async function saveCache(index: CodeGraphIndex, cachePath: string): Promise<void> {
+export async function saveCache(
+  index: CodeGraphIndex,
+  cachePath: string,
+  stat?: (path: string) => fs.Stats,
+): Promise<void> {
+  cacheReadable(cachePath, stat)
   const snapshot = index.snapshot()
   const serialized: SerializedSnapshot = {
     definitions: Array.from(snapshot.definitions.entries()),
@@ -70,13 +90,31 @@ export async function saveCache(index: CodeGraphIndex, cachePath: string): Promi
 
 /**
  * 从缓存文件加载索引。
- * 文件不存在 / 解析失败 / magic 不符 / version 不符 → 返回 undefined。
+ * 文件不存在 / magic 不符 / version 不符 → 返回 undefined。
+ * 解析失败或根不是对象 → 抛错,不能当成没有再写成新的。
+ * 权限等读不到 → 抛错,调用方不得据此新建一份再覆盖。
  */
-export async function loadCache(cachePath: string): Promise<CodeGraphIndex | undefined> {
-  if (!fs.existsSync(cachePath)) return undefined
+export async function loadCache(
+  cachePath: string,
+  stat?: (path: string) => fs.Stats,
+): Promise<CodeGraphIndex | undefined> {
+  if (cacheReadable(cachePath, stat) === 'missing') return undefined
 
-  const parsed = tryParseJson(fs.readFileSync(cachePath, 'utf-8'))
-  if (!isRecord(parsed)) return undefined
+  let text: string
+  try {
+    text = fs.readFileSync(cachePath, 'utf-8')
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : undefined
+    if (code) throw new Error(`代码图缓存读不到,不能把它当成没有再写成新的 (${code})`)
+    throw error
+  }
+  const parsed = tryParseJson(text)
+  if (!isRecord(parsed)) {
+    throw new Error('代码图缓存读不到,不能把它当成没有再写成新的 (corrupt)')
+  }
   const data = parsed as unknown as PersistedGraph
 
   // 校验 magic

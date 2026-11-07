@@ -19,7 +19,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
-  padding: var(--spacing-sm-loose) 20rpx 24rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-sm-loose) var(--spacing-md);
 }
 .page-title {
   flex: 1;

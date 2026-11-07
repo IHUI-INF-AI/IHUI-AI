@@ -19,7 +19,7 @@
 | # | 阶段 | Windows 步骤 / job | macOS 步骤 / job | 凭据依赖 | 失败后果 |
 | --- | --- | --- | --- | --- | --- |
 | ① | 出未签名产物 | `Build & Release`(tauri-action) | 同左 | 无 | build 红 |
-| ② | 签名 | `Upload unsigned installer for signing` → `Submit SignPath signing request`(等人工审批,最长 3600s) → `Install signed installer, verify Authenticode, refresh updater signature` | `Export Apple signing credentials` → tauri 自动签名/公证/staple → `Notarize, staple and verify macOS bundles` | `SIGNPATH_*` 四项 / `APPLE_*` 三+三 | 步骤 throw ⇒ build 红,且 `Fallback upload` 拒绝上传 |
+| ② | 签名 | `Upload unsigned installer for signing` → `Submit SignPath signing request`(等人工审批,最长 3600s) → `Install signed installer, verify Authenticode, refresh updater signature` | `Export Apple signing credentials` → tauri 自动签名/公证/staple → `Notarize, staple and verify macOS bundles` | `SIGNPATH_*` 四项 / `APPLE_*` 证书三件 + 公证 A 三件或 B 三件(`APPLE_API_KEY`/`APPLE_API_ISSUER`/`APPLE_API_KEY_P8`) | 缺项 ⇒ **编译前 `Preflight ...` 即红**(不产出、不上传) |
 | ③ | 重算哈希与 `.sig` | 第二步同一步内完成(§4) | staple 后重建 `.app.tar.gz` 并重签 `.sig` | `DESKTOP_TAURI_PRIVATE_KEY` / `_PASSWORD` | 同左 |
 | ④ | 独立复核 | `Signature Gate (windows-x64)` | `Signature Gate (macos-universal)` | 无(只读 artifact) | 门禁红 |
 | ⑤ | 更新清单 | `publish-updater-json`(`needs: [build, signature-gate]`) | 同左 | `GITHUB_TOKEN` | 不生成 `latest.json` |
@@ -102,7 +102,7 @@ Artifact Configuration 的两个细节:
 | `SIGNPATH_SIGNING_POLICY_SLUG` | §2.2 的 Signing Policy slug(如 `release-signing`) | 逐字一致 |
 | `DESKTOP_WIN_SIGNER_SUBJECT` | 期望证书主体**子串** | SignPath Foundation 签发的证书主体含 `SignPath Foundation`;不填时 workflow 默认按 `SignPath Foundation` 断言。**将来换自有 EV 证书只改这一枚 secret,不动 workflow** |
 
-判定逻辑(`build` job 的 job-level env):四项 `SIGNPATH_*` **全部非空** ⇒ `SIGNPATH_CONFIGURED=true` 才启用签名步骤;缺任意一项 ⇒ 整组跳过 ⇒ §5 的红色路径。
+判定逻辑(`build` job 的 job-level env):四项 `SIGNPATH_*` **全部非空** ⇒ `SIGNPATH_CONFIGURED=true` 才启用签名步骤;缺任意一项 ⇒ **编译前即红**:job 第一步 `Preflight desktop signing credentials` 逐条点名缺项并 `exit 1`(2026-11-04 起),因此本链不存在"跳过签名但流水线照绿"这一形态。
 
 `DESKTOP_TAURI_PRIVATE_KEY` / `DESKTOP_TAURI_KEY_PASSWORD`(Tauri 更新签名私钥)**已经在用**,本方案不新增、也不轮换——它负责 `.sig` 重算(§4)。
 
@@ -200,14 +200,16 @@ openssl pkcs12 -info -in /tmp/check.p12 -noout -passin pass:'<导出密码>'
 | --- | --- |
 | `APPLE_API_KEY` | App Store Connect → 用户与访问 → 密钥 → **Key ID**(注意:填 Key ID,不是 `.p8` 文件名) |
 | `APPLE_API_ISSUER` | 同页的 **Issuer ID**(UUID 形态) |
-| `APPLE_API_KEY_PATH` | `.p8` 文件在 **runner 上的路径**;本仓库**没有内置把 `.p8` 落盘/解码的步骤**,走 B 必须自己在前置步骤里把文件写到这个路径 |
+| `APPLE_API_KEY_PATH` | **可选**覆盖:`.p8` 在 runner 上的落盘路径(不填则用 `$RUNNER_TEMP/ihui-asc-api-key.p8`)。文件由 workflow 的 `Materialize App Store Connect API key` 步骤写入,不需要手工准备 |
+
+> 通道 B 的 `.p8` **内容**另占一枚 secret `APPLE_API_KEY_P8`(单行 base64,或原始 PEM)。2026-11-05 前本仓库只搬 `APPLE_API_KEY_PATH` 路径变量、从不落盘文件 ⇒ 三件配齐公证也必失败;现在由 `Materialize App Store Connect API key` 解码写盘(`chmod 600`)、构建结束由 `Remove App Store Connect API key`(`if: always()`)删除。
 
 **A/B 规则**(workflow 的 `APPLE_SIGNING_CONFIGURED` 表达式,别猜):
 
 ```
 APPLE_CERTIFICATE && APPLE_CERTIFICATE_PASSWORD && APPLE_SIGNING_IDENTITY
   && ( (APPLE_ID && APPLE_PASSWORD && APPLE_TEAM_ID)        // 通道 A
-     || (APPLE_API_KEY && APPLE_API_ISSUER && APPLE_API_KEY_PATH) )  // 通道 B
+     || (APPLE_API_KEY && APPLE_API_ISSUER && APPLE_API_KEY_P8) )  // 通道 B
 ```
 
 - **二选一即可**,不需要两套都配;两套都配时 workflow 优先走 **A**(`Export Apple signing credentials` 里 `if [ -n "${IN_APPLE_ID}" ]` 分支在前,B 走 `else`)。
@@ -244,15 +246,15 @@ Tauri 自动更新用 **minisign `.sig`** 校验**文件字节**;Authenticode / 
 
 ## 5. 无凭据时的行为(必须按这个口径理解 CI)
 
-| 平台 | job env | build 内发生了什么 | `signature-gate` | `latest.json` | GitHub Release |
+| 平台 | job env | 编译前 | `signature-gate` | `latest.json` | GitHub Release |
 | --- | --- | --- | --- | --- | --- |
-| Windows | `SIGNPATH_CONFIGURED=false`(四项 `SIGNPATH_*` 未齐) | 签名三步整体跳过;`Report unsigned fallback (Windows)` 打 `::warning::` 并在 Summary 写「未签名 / signature-gate 会因此判红」 | `Assert signed artifact present` 找不到 `signature-manifest.json` ⇒ `::error::未签名(windows-x64):...` 并 **exit 1(红)** | **不更新**(`needs: [build, signature-gate]` 不满足) | **仍可能留有未签名 `*-setup.exe`**:`Fallback upload bundle files to Release` 是 `if: always()`,只在"已配凭据但签名失败"时才拒绝上传 |
-| macOS | `APPLE_SIGNING_CONFIGURED=false` | 签名/公证步整体跳过;`Report unsigned / un-notarized fallback (macOS)` 打 `::warning::` + Summary「未签名 / 未公证」 | `Assert signed artifact present` ⇒ `::error::未签名(macos-universal)` **exit 1(红)** | **不更新** | 同左,可能留有未签名 `.dmg` / `.app.tar.gz` |
+| Windows | `SIGNPATH_CONFIGURED=false`(四项 `SIGNPATH_*` 未齐) | `Preflight desktop signing credentials` 逐条点名缺项并 **`exit 1`**:build **在编译前就红**,不会产出任何安装包(2026-11-04 起;此前是"跳过签名 + gate 红") | 依赖 build ⇒ **skipped**(整条 run 的结论仍是 failure) | **不更新** | **不会有新资产**:build 未产出,`Fallback upload` 在 preflight 失败后也走不到 |
+| macOS | `APPLE_SIGNING_CONFIGURED=false` | 同上(证书三件或公证通道任一整组缺 ⇒ 编译前 `exit 1`) | 同上 | **不更新** | 同上 |
 
 由此得到三条操作口径:
 
 1. **红不等于"构建坏了"**,它是"这次发布没完成"的显式表达。gate 的注释写明:这是刻意设计,**不得用任何开关把它改绿**。
-2. **已装客户端不会收到未签名包**(`latest.json` 没更新,更新端点 <https://aizhs.top/desktop-feed.json> 仍指向上一版)。但 **GitHub Release 里可能已经有未签名资产** ⇒ "Release 上有 exe" **不等于**"这一版可以发布/可以烘焙进更新源"。发布前必须确认 `Signature Gate` 是绿的。
+2. **不会有新的未签名包进入 Release**:build 在编译前即失败,`Fallback upload`(`if: always()`)也因为没走到打包而无可上传。**2026-11-04 之前**"build 照编、gate 红、Release 可能留未签名包"的口径已作废,不要再按它排查。已装客户端同样不会收到未签名包(`latest.json` 不更新)。判据永远是 `Signature Gate` 那一格。
 3. **`DESKTOP_ALLOW_UNSIGNED=1` 不是 CI 开关**。它只作用于**本机**的桌面端打包链路(`DESKTOP_ALLOW_UNSIGNED=1 pnpm --filter @ihui/desktop build`;根 `package.json` 里没有 `desktop:bundle` 这个别名,实现见 `scripts/desktop-build.mjs` → `scripts/desktop-artifact-single.mjs` 的收敛钩子与 `scripts/lib/desktop-unsigned-config.mjs`,它改的只是临时 config 里的 `bundle.createUpdaterArtifacts: false`),用途是"本机没私钥也要产出自测包"。**它不能用于放行未签名发布,CI 中禁止出现该变量**(校验命令见 §6)。
 
 ---
@@ -303,7 +305,7 @@ grep -rn 'DESKTOP_ALLOW_UNSIGNED' .github/workflows/ | grep -v '#' || echo 'CI �
 | macOS `spctl` 拒绝(`source=Unnotarized Developer ID` 等) | `.app` 不是 Developer ID 签名 / 缺 hardened runtime / 公证未 `Accepted` / 没 staple | `codesign -dv --verbose=4` 看 `Authority=` 与 `flags=0x10000(runtime)`;`xcrun stapler validate` 看票据;公证状态必须是 `Accepted` |
 | `未使用 Developer ID Application 证书签名` | 导入的是 Apple Development / 自签证书 | 重新按 §3.2 生成 **Developer ID Application** 证书,p12 与身份字符串都要换 |
 | `证书身份与 APPLE_SIGNING_IDENTITY 不符` | secret 里的字符串与 `security find-identity` 输出不逐字一致(常见:少了 `(TEAMID)` 或多空格) | 用 `security find-identity -v -p codesigning` 的输出整串复制 |
-| `APPLE_SIGNING_CONFIGURED` 一直是 `false` | 只配了证书,公证三件套没齐(或 B 通道缺 `APPLE_API_KEY_PATH`) | 按 §3.5 补齐 A 或 B 的**三条** |
+| `APPLE_SIGNING_CONFIGURED` 一直是 `false` | 只配了证书,公证三件套没齐(或 B 通道缺 `APPLE_API_KEY_P8`) | 按 §3.5 补齐 A 或 B 的**三条** |
 | `.sig` 验签失败 | ① `.sig` 用的是**签名前**的字节(没重算);② 上传的 exe 与 `.sig` 不成对(同名不同字节);③ `DESKTOP_TAURI_PRIVATE_KEY` 与 `tauri.conf.json` 的 pubkey 不配对 | ① 重跑签名链,确认"重算 `.sig`"步骤在覆盖之后;② 重新上传成对资产;③ 私钥/公钥配对问题按 `docs/RELEASE.md` 的"禁止生成新密钥对"口径处理(取回原私钥,不轮换) |
 | gate 报 SHA256/字节数不一致 | artifact 被二次改写(上传后又跑了打包/压缩),或清单与包不是同一轮产物 | 保证"清单生成 → 上传 → gate 下载"之间没有任何步骤再动文件 |
 
@@ -318,14 +320,21 @@ grep -rn 'DESKTOP_ALLOW_UNSIGNED' .github/workflows/ | grep -v '#' || echo 'CI �
 `node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}"`:
 
 - 只判"在不在"(trim 后非空),**绝不打印任何值**,连长度/前缀都不打;
-- 缺项时一次性列出**全部**缺失的 secret 名,`::error::签名凭据缺口(平台=windows,缺 6/6): ...`,随后 job 红;
-- 齐备时打印 `签名凭据已就绪 N/N(平台=windows)` 继续走。
+- 缺项时一次性列出**全部**缺失的 secret 名,`::error::签名凭据缺口(scope=desktop,平台=windows,缺 6/6): ...`,随后 job 红;
+- 齐备时打印 `签名凭据已就绪 N/N(scope=desktop,平台=windows)` 继续走。
 
 平台口径:Windows 要 SignPath 四件 + Tauri 两枚;macOS 要 Apple 证书三件 + 公证通道**整组**三件 + Tauri 两枚;
-Linux 无代码签名,只要 Tauri 两枚(只影响 updater `.sig`)。本地复跑:
+Linux 无代码签名,只要 Tauri 两枚(只影响 updater `.sig`)。
+
+`release-cli.yml` 复用同一脚本、同一判据,只把 scope 收窄为 CLI 实际需要:
+`--scope cli` ⇒ Windows 仅 SignPath 四件(CLI 不发 updater `.sig`、不涉 Apple 凭据),linux/macos 零要求。
+该步同样在**编译前**执行,缺项即红 —— CLI 链自 2026-11-05 起**不会**再"跳过签名、绿着发未签名 `ihui.exe`"。
+
+本地复跑:
 
 ```bash
 node scripts/desktop-signing-preflight.mjs --platform windows   # 缺项 → rc 1
+node scripts/desktop-signing-preflight.mjs --platform windows --scope cli   # CLI 口径
 node scripts/desktop-signing-preflight.mjs --self-test          # 判据自检 → rc 0
 ```
 
@@ -342,7 +351,8 @@ node scripts/desktop-signing-preflight.mjs --self-test          # 判据自检 �
 | `APPLE_CERTIFICATE_PASSWORD` | 导出 .p12 时自设 | 同上 | 同上 | repo secret |
 | `APPLE_SIGNING_IDENTITY` | `security find-identity -v -p codesigning` 整串 | 同上 | 同上;`codesign` 报身份不符 | repo secret |
 | `APPLE_ID` / `APPLE_PASSWORD` / `APPLE_TEAM_ID`(通道 A) | appleid.apple.com → App 专用密码 | 同上 | preflight 报"两组通道全缺";公证 401 | repo secret |
-| `APPLE_API_KEY` / `APPLE_API_ISSUER` / `APPLE_API_KEY_PATH`(通道 B) | App Store Connect → Users and Access → Keys | 同上 | 同上 | repo secret |
+| `APPLE_API_KEY` / `APPLE_API_ISSUER` / `APPLE_API_KEY_P8`(通道 B) | App Store Connect → Users and Access → Keys(`.p8` 下载后转单行 base64) | 同上 | preflight 报"两组通道全缺"/缺 `APPLE_API_KEY_P8`;公证 `--key` 读不到文件 | repo secret |
+| `APPLE_API_KEY_PATH`(可选) | 自己填 runner 上的落盘路径覆盖 | 无 | 不填则用 `$RUNNER_TEMP/ihui-asc-api-key.p8`;填了但目录不存在会在落盘步报错 | repo secret |
 | `DESKTOP_TAURI_PRIVATE_KEY` / `DESKTOP_TAURI_KEY_PASSWORD` | **已存在**(2026-09-16 建,勿轮换) | 无 | preflight 红;`.sig` 无法重算 | repo secret(已有) |
 
 Windows 与 macOS 各自独立:只填 SignPath → Windows 能签、macOS 照旧"未公证"红;只填 Apple → 反之。
@@ -363,22 +373,25 @@ gh secret set APPLE_PASSWORD             --body "<VALUE>"
 gh secret set APPLE_TEAM_ID              --body "<VALUE>"
 gh secret set APPLE_API_KEY              --body "<VALUE>"   # 通道 B(与 A 二选一)
 gh secret set APPLE_API_ISSUER           --body "<VALUE>"
-gh secret set APPLE_API_KEY_PATH         --body "<VALUE>"
+gh secret set APPLE_API_KEY_P8           --body "<VALUE>"   # .p8 内容:单行 base64 或原始 PEM
+# 可选:想把 .p8 落到自选路径才填;不填由 workflow 写到 $RUNNER_TEMP/ihui-asc-api-key.p8
+# gh secret set APPLE_API_KEY_PATH       --body "<VALUE>"
 ```
 
 ### 8.3 两条路径与解锁范围
 
 - **最小可行路径**:SignPath 四件 → Windows 安装包 Authenticode 签名(解 SmartScreen);Apple 证书三件 + 通道 A 三件 → macOS 签名+公证+staple。
   解锁:Windows `-setup.exe` 与 macOS `.dmg`/`.app.tar.gz` 全部可发布,`latest.json` 恢复更新。
-- **完全路径**:另建 `release` environment,把上述 secret 放进 environment 并要求人工审批,配合 SignPath 的 Restricted policy 形成"双人可见"的发版闸。
-  解锁:同一批产物 + 每次发版多一道环境审批;不改变产物字节,只改变"谁有权触发"。
+- **完全路径**:把上述 secret 全部配在**仓库级**(repo secret),配合 SignPath 的 Restricted policy(每次签名请求人工批准)形成"双人可见"的发版闸。
+  **不要**照旧文档"另建 `release` environment 放 secret":本仓库两个 release workflow 全文都没有 `environment:`,environment 级 secret 不会被 job 看到 —— 那样做只会得到"配了但 `signing-preflight` 依然报缺项"。真要改用 environment,必须**同批**给 `build` job 加 `environment: release`,否则等于没配;本轮选择"只修文档、不加 environment",因为加 `environment:` 会给既有发版路径引入人工审批门(未建 environment 时 GitHub 还会隐式建一个无保护规则的),风险大于收益。
+  解锁:同一批产物 + 每次发版多一道 SignPath 审批;不改变产物字节,只改变"谁有权触发"。
 
 ### 8.4 怎么验证接线(不需要真的发版)
 
 1. `gh workflow run release-desktop.yml --ref main -f tag=desktop-v<TEST>`(用临时 tag,事后删 release/tag)。
 2. 看 `Build Desktop (windows-x64)` 最上面的 `Preflight desktop signing credentials`:
-   未配齐时**1 分钟内**就红,日志是 `签名凭据缺口(平台=windows,缺 N/6): <名字列表>`;
-   配齐后是 `签名凭据已就绪 6/6`。
+   未配齐时**1 分钟内**就红,日志是 `签名凭据缺口(scope=desktop,平台=windows,缺 N/6): <名字列表>`;
+   配齐后是 `签名凭据已就绪 6/6(scope=desktop,平台=windows)`。
 3. 再往下看 `Submit SignPath signing request` 进入 waiting(去 SignPath UI 批准)、
    `Install signed installer, verify Authenticode` 打印"签名前/签名后 SHA256 与字节数"且两值不同。
 4. 最后看 `Signature Gate (windows-x64)` / `(macos-universal)`:这两格才是发布判据。

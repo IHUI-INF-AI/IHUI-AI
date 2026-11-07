@@ -109,7 +109,7 @@ export function LiveScreen({
                 ) : null}
                 <View style={styles.metaRow}>
                   <Text style={styles.meta}>
-                    {t('live.startAt')}: {item.startTime}
+                    {t('live.startTime')}: {item.startTime}
                   </Text>
                   <Text style={styles.meta}>
                     {t('live.viewerCount', { count: item.viewCount })}

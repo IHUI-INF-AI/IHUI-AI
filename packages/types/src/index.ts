@@ -52,6 +52,14 @@ export * from './traceparent.js'
 // 开发者 API Key 跨端契约(2026-07-22 立,统一权限点枚举 + 鉴权类型 + /v1/* 响应格式)
 export * from './api-key.js'
 export * from './capability-catalog.js'
+// 声明式扩展 manifest 契约(2026-11-04 立):schema/逐字段校验类型 + 已注册扩展查询类型
+export * from './capability-extensions.js'
+// 技能按模型能力分档契约(2026-11-04 立):模型画像 + 档位声明 + 选档结果类型
+export * from './skill-tiers.js'
+// 产品形态 → 能力布尔 的声明式单源(goal-b49 Y3,2026-11-05 立):本仓四个端形态 × 三块执行面,
+// 判定是纯函数(缺键判 unjudged 并点名形态与能力);消费方 = CLI 工具注册处 / 钩子派发收口。
+// 只经主入口导出(不新增子路径,同 capability-extensions / skill-tiers 的口径)。
+export * from './product-form-capabilities.js'
 
 // /v1/* 对外开放 API 端点请求/响应类型契约(2026-07-22 立,27 权限点 + 97 端点全功能覆盖)
 export * from './v1-endpoints.js'
@@ -105,6 +113,7 @@ export * from './registry.js'
 
 // 跨端 app 组件类型契约(从 packages/app 迁移,2026-07-25)
 export * from './app.js'
+export * from './app-ai.js'
 
 // Coze 平台 API 跨端契约(2026-07-27 立,PAT 直连 Coze 官方 API,chat/workflow/bot/dataset)
 export * from './coze.js'

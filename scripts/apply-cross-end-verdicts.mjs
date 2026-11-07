@@ -37,6 +37,8 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
+import { VERDICT_KINDS } from './lib/cross-end-verdicts.mjs'
+
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
 const TMP_DIR = join(ROOT, '.ihui-agent', 'tmp', 'cross-end-verdicts')
@@ -68,8 +70,19 @@ export function normalizeVerdictItem(item) {
     return { ok: true, kind: 'web', item: { ...item, verdict: mapped }, from: verdict, to: mapped }
   }
   if (item.shared) {
-    const allowed = new Set(['declare', 'missing', 'not-applicable'])
-    if (!allowed.has(verdict)) return { ok: false, why: `miniapp 档未知 verdict=${verdict}` }
+    // 词表从 lib 的 VERDICT_KINDS 派生(§0.6 单一真相源)—— 这里此前硬写第三份名单,比 lib 少一枚
+    // 'generated'。差别不是漏字:**generated 本来就不许手填**。它是「该屏已被小程序页显式镜像」
+    // 的已核验结清凭据,只能由对账器(门 237 那把尺命中)落档;若手一份裁决件就能把自己判定的屏写成
+    // 结清,等于伪造凭据(§0.7「豁免必须验过才免」同一条纪律)。所以显式排除,并把理由说进出口文案。
+    const handAllowed = new Set(['declare', ...VERDICT_KINDS.filter((k) => k !== 'generated')])
+    if (!handAllowed.has(verdict))
+      return {
+        ok: false,
+        why:
+          verdict === 'generated'
+            ? 'verdict=generated 是已核验结清凭据,只能由对账器落档,手填等于伪造凭据'
+            : `miniapp 档未知 verdict=${verdict}(词表单源 scripts/lib/cross-end-verdicts.mjs 的 VERDICT_KINDS)`,
+      }
     return { ok: true, kind: 'miniapp', item, from: verdict, to: verdict }
   }
   return { ok: false, why: '条目既无 web 也无 shared 键' }

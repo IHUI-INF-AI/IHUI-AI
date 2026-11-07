@@ -14,7 +14,7 @@
 .pf-page {
   min-height: 100vh;
   background: var(--color-background);
-  padding: var(--spacing-md) 20rpx 48rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose) var(--spacing-2xl);
   box-sizing: border-box;
 }
 
@@ -23,7 +23,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-xs) 8rpx 24rpx;
+  padding: var(--spacing-xs) var(--spacing-xs) var(--spacing-md);
 }
 .pf-identity-label {
   font-size: var(--text-body);
@@ -35,7 +35,7 @@
   gap: var(--spacing-xs-loose);
 }
 .pf-tag {
-  padding: 6rpx 16rpx;
+  padding: 6rpx var(--spacing-sm);
   border-radius: var(--radius-md);
   font-size: var(--text-body-sm);
 }
@@ -56,11 +56,11 @@
 
 /* ===== 区块分组(RN SettingsScreen section) ===== */
 .pf-section {
-  margin: 0 0 32rpx;
+  margin: 0 0 var(--spacing-lg);
 }
 .pf-section-title {
   display: block;
-  padding: 0 8rpx 16rpx;
+  padding: 0 var(--spacing-xs) var(--spacing-sm);
   font-size: var(--text-body);
   color: var(--color-muted-foreground);
 }
@@ -75,7 +75,7 @@
   align-items: center;
   justify-content: space-between;
   min-height: 120rpx;
-  padding: var(--spacing-md-loose) 24rpx;
+  padding: var(--spacing-md-loose) var(--spacing-md);
   background: var(--color-card);
 }
 .dark .pf-item {

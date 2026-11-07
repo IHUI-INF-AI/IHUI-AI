@@ -17,6 +17,8 @@
  *   C10 只判不修的判据与门 105 同基准(承载层必须是钉的一等输入 —— 2026-10-27 那起恒红的正身)
  *   C9b/C13/C14/C15 2026-10-27 补样式派生面(tokens)一族:在册 / 落后必须建检出并带走 blob /
  *     判不出整轮未判定 / 复校不过一条 blob 都不落(编号接在既有 C12 之后,不复用别人用过的号)
+ *   C17/C18 2026-11-05 补 --report-only 只读档:canary runner 行为级证明"一条写动作都不发出"(含
+ *     写判一体腿必带 --check)+ 三态如实 + 写树结构不可达(函数体零写原语、接线先回于 healDerivedInCheckout)
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -476,4 +478,138 @@ test('C16 全等落点剔出本批 / 变化集仍交落地 / 读不回整批不�
     /const identical = part\.identical/,
     '被剔掉的路径清单要拿得到(JSON 结论与拒落原因都靠它,静默剔除等于没有留痕)',
   )
+})
+
+test('C17 --report-only 只读档的行为级零写证明:canary runner 见任何"写形态 argv"当场抛,整档跑完一条都不抛', () => {
+  // 立因(2026-11-05):--dry-run 并非零写(apply=!argv.includes('--dry-run') 裸跑即写档、判成写 state 件、
+  // 还要 git worktree add),而 judgeTokensFace 对登记表里 check 与 cmd 同体的那条腿(sync-extension-tokens.mjs)
+  // 是**裸跑**——该器不带 --check 即写回模式往主工作树落字节。只读档的"零写"必须由行为证明:
+  // 这里注入的 run 是一只金丝雀——凡见到 (a) 写判一体腿没带 --check、(b) 任何登记外的旗标/写动词,
+  // 都按"写动作发生了"抛错。整档能安静跑完 = 它一条写动作都没发出。判据实现不复制(§22c):全走 __test__。
+  const SHA = '0'.repeat(40)
+  const fakeRd = (text) => ({ has: () => true, read: () => text, prefetch: () => {} })
+  const REG_DUAL = [
+    'const TOKEN_SYNC_TARGETS = [',
+    '  {',
+    "    label: 'miniapp app.css',",
+    "    file: 'apps/miniapp-taro/src/app.css',",
+    "    cmd: 'pnpm --filter @ihui/miniapp-taro sync-tokens',",
+    "    trigger: 'tokens',",
+    "    check: 'check-miniapp-tokens-sync.mjs',",
+    '  },',
+    '  {',
+    "    label: 'extension 注入样式色值',",
+    "    file: 'apps/extension/entrypoints/content/content-toolbar.tsx',",
+    "    cmd: 'node scripts/sync-extension-tokens.mjs --quiet',",
+    "    trigger: 'tokens',",
+    "    check: 'sync-extension-tokens.mjs',",
+    '  },',
+    ']',
+  ].join('\n')
+  const seen = []
+  const READ_ONLY_FLAGS = new Set(['--check', '--staged', '--worktree'])
+  const r = H.reportTokensTier({
+    root: '/T',
+    sourceSha: SHA,
+    reader: fakeRd(REG_DUAL),
+    scriptExists: () => true,
+    run: (cwd, argv) => {
+      seen.push({ cwd, argv })
+      const base = String(argv[1]).split(/[\\/]/).pop()
+      if (base === 'sync-extension-tokens.mjs' && !argv.includes('--check'))
+        throw new Error('金丝雀:写判一体腿被裸跑 = 写回模式,零写档漏了写动作')
+      for (const a of argv.slice(2))
+        if (!READ_ONLY_FLAGS.has(a)) throw new Error(`金丝雀:argv 出现只读档不认识的旗:${a}`)
+      for (const a of argv)
+        if (/hash-object|worktree|commit-tree|--write|--apply|-w\b/.test(String(a)))
+          throw new Error(`金丝雀:argv 出现写动词:${a}`)
+      return { ok: true, stdout: '', code: 0 }
+    },
+  })
+  assert.equal(r.state, 'clean', r.detail)
+  assert.equal(seen.length, 2, '两条在册腿必须都真派了(没派到每条腿的"clean"是假绿)')
+  assert.equal(seen[1].argv.includes('--check'), true, '写判一体腿必须显式 --check')
+  assert.equal(seen[0].argv.includes('--check'), false, '纯判腿(门体)不吃 --check,乱挂会撞互斥闸')
+  assert.ok(
+    seen.every(
+      (c) =>
+        c.cwd === '/T' &&
+        c.argv[0] === process.execPath &&
+        /[\\/]scripts[\\/]/.test(String(c.argv[1])),
+    ),
+    JSON.stringify(seen.map((c) => c.argv)),
+  )
+  // 机读键形状(与同族尺子对账用):state 与待落枚数键必须在
+  for (const k of [
+    'tier',
+    'face',
+    'state',
+    'pending',
+    'pendingPaths',
+    'unjudged',
+    'legs',
+    'source',
+  ]) assert.ok(k in r, `JSON 结论缺键 ${k}`)
+  assert.equal(r.tier, 'report-only')
+})
+
+test('C18 只读档三态如实 + 写树结构不可达(函数体零写原语、--report-only 先回于 healDerivedInCheckout)', () => {
+  const SHA = '0'.repeat(40)
+  const fakeRd = (text) => ({ has: () => true, read: () => text, prefetch: () => {} })
+  const REG =
+    "const TOKEN_SYNC_TARGETS = [\n  {\n    label: 'a',\n    file: 'a.css',\n    cmd: 'node scripts/sync-a.mjs',\n    trigger: 'tokens',\n    check: 'check-a.mjs',\n  },\n]"
+  const tierWith = (code) =>
+    H.reportTokensTier({
+      root: '/T',
+      sourceSha: SHA,
+      reader: fakeRd(REG),
+      scriptExists: () => true,
+      run: () =>
+        code === 0 ? { ok: true, stdout: '', code: 0 } : { ok: false, why: 'x', code, output: '漂移 3 档' },
+    })
+  assert.equal(tierWith(1).state, 'stale')
+  assert.deepEqual(tierWith(1).pendingPaths, ['a.css'], '待落 file 面逐枚点名,级联侧数得出来')
+  assert.match(tierWith(1).legs[0].why, /漂移 3 档/, '"落后几档"的原话来自校验器自己,本器不复算')
+  assert.equal(
+    tierWith(2).state,
+    'undetermined',
+    '校验器坏了(exit 2)不得被读成"落后"(冒红)也不得记绿',
+  )
+  const noHook = H.reportTokensTier({
+    root: '/T',
+    sourceSha: SHA,
+    reader: { has: () => false, read: () => null, prefetch: () => {} },
+    scriptExists: () => true,
+    run: () => ({ ok: true, stdout: '', code: 0 }),
+  })
+  assert.equal(noHook.state, 'undetermined', '登记表取不到 ⇒ 没有尺子,未判定(§0.3)')
+
+  // 结构锁(行为证明之外再兜一维):只读执行体与 CLI 接线体内不得出现任何写原语;
+  // --report-only 的回车点必须排在 healDerivedInCheckout 调用之前(先回即达,写树不可达)。
+  const src = readFileSync(new URL('../heal-derived-in-checkout.mjs', import.meta.url), 'utf8')
+  const bodyOf = (startMark, endMark) => {
+    const s = src.indexOf(startMark)
+    assert.ok(s >= 0, `体标缺失:${startMark}`)
+    const e = src.indexOf(endMark, s)
+    assert.ok(e > s, `尾标缺失:${endMark}`)
+    return src.slice(s, e)
+  }
+  const tierBody = bodyOf('export function reportTokensTier', 'const LAND_MSG_LINES')
+  for (const forbid of [
+    'tokensStateWrite',
+    'landBlobs',
+    'withHeadCheckout',
+    'runGenerator',
+    'hash-object',
+    'hashText',
+    'writeFileSync',
+    'rmSync',
+  ])
+    assert.ok(!tierBody.includes(forbid), `只读执行体出现写原语:${forbid}`)
+  const roBody = bodyOf('function mainReportOnly', 'function main(argv)')
+  assert.ok(!/healDerivedInCheckout|tokensStateWrite|withCheckout/.test(roBody), roBody.slice(0, 120))
+  const mainBody = bodyOf('function main(argv)', 'const isDirectRun')
+  const roIdx = mainBody.indexOf("if (argv.includes('--report-only')) return mainReportOnly(argv)")
+  const writeIdx = mainBody.indexOf('healDerivedInCheckout({')
+  assert.ok(roIdx >= 0 && roIdx < writeIdx, `接线位不对:report-only@${roIdx} vs 写树@${writeIdx}`)
 })

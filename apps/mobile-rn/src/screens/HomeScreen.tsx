@@ -2,6 +2,8 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { DIALOG_HEIGHT_RATIOS, adaptiveDialogContentHeight } from '../lib/dialog-geometry'
+import { useDialogHeightStyle, useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QrCodeImage from '../../assets/images/common/qewm.png'
 import ShareZhuanmiImage from '../../assets/images/common/share-zhuanmi.png'
@@ -61,7 +63,7 @@ import {
   Film,
   Volume2,
   Mic,
-  Handshake,
+  UserPlus,
   MessageCircle,
 } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
@@ -695,6 +697,10 @@ const navShareStyles = StyleSheet.create({
 })
 
 export function HomeScreen() {
+  const dialogHeightStyle = useDialogHeightStyle()
+  const materialHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
+  /** 模型弹窗只需「数值上限」:内容短时自适应收高,内容长时封顶后内部滚动 */
+  const dialogMaxHeightStyle = useDialogMaxHeightStyle()
   const { t } = useI18n()
   // ── i18n 消费侧(§19 端内禁硬编码文案,2026-10-24):以下三组替代原模块顶层
   //    FUNCTION_BLOCKS / MODEL_TYPES / MATERIAL_CATEGORIES 写死中文数组 ──
@@ -821,6 +827,29 @@ export function HomeScreen() {
   const [modelSearch, setModelSearch] = useState('')
   /** 搜索框展开态(头部右侧图标开关;收起时清空搜索词) */
   const [showModelSearch, setShowModelSearch] = useState(false)
+  // ── 模型弹窗几何(2026-11-06):高度按内容自适应,封顶沿用既有 70% 上限 ──
+  // RN 0.86 Fabric:百分比 maxHeight 不给子节点确定高度,列表只写 flex:1 会塌成 0,
+  // 弹窗只剩把手/标题/分类条 ⇒ 模型行不可见。故先给列表确定高度(统一上限),
+  // 再由列表回传的实测内容高把高度收回到「内容小则矮」。
+  /** 固定区(把手/标题/搜索/分类 tab/发丝线)实测高度,列表上限要扣掉它 */
+  const [modelModalChromeHeight, setModelModalChromeHeight] = useState(0)
+  /** 列表内容实测高度(≤0 = 尚未测量,先用上限保证列表能渲染并上报内容尺寸) */
+  const [modelModalContentHeight, setModelModalContentHeight] = useState(0)
+  const modelModalMaxHeight = dialogMaxHeightStyle?.maxHeight ?? 0
+  const modelModalListMaxHeight = Math.max(
+    0,
+    modelModalMaxHeight -
+      MODEL_MODAL_PADDING_TOP -
+      MODEL_MODAL_PADDING_BOTTOM -
+      modelModalChromeHeight,
+  )
+  const modelModalListHeight = adaptiveDialogContentHeight(
+    modelModalContentHeight,
+    modelModalListMaxHeight,
+  )
+  const modelModalListStyle = modelModalListHeight
+    ? [shellStyles.modelModalListBody, { height: modelModalListHeight }]
+    : shellStyles.modelModalListBody
   const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG)
   // ── 素材列表弹窗(对齐 Uniapp ai_index showMaterialList → MaterialList「我的创作」) ──
   // 数据源:getMyCreation,按分类映射 agent/plugin/workflow(对齐 Uniapp getMyCreation → /agent/creation/my/:type)
@@ -979,7 +1008,9 @@ export function HomeScreen() {
   ]
   const navRightActions: ReadonlyArray<NavBarAction> = [
     { icon: Search, a11yLabel: t('common.search'), onPress: () => setSearchOverlayVisible(true) },
-    { icon: Handshake, label: t('home.navJoinGroup'), onPress: handleJoinPress },
+    // 2026-11-06 用户定:加入群只留图标。Handshake(握手/合作)语义不对,换 UserPlus(加入);
+    // 文字移除后语义落 accessibilityLabel,不依赖可见文案
+    { icon: UserPlus, a11yLabel: t('home.navJoinGroup'), onPress: handleJoinPress },
   ]
 
   // ── InputArea 提交(对齐 Uniapp handleSendMessageabc → 跳 ai_index2) ──
@@ -1903,136 +1934,141 @@ export function HomeScreen() {
             onPress={closeModelModal}
             accessibilityLabel={t('home.a11yCloseModels')}
           />
-          <View style={shellStyles.modelModalSheet}>
-            {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
-            <View style={shellStyles.modelModalGrabber} />
-            <View style={shellStyles.modelModalHeader}>
-              <View style={shellStyles.modelModalHeading}>
-                <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
-                  {t('home.modelSelectTitle')}
-                </Text>
-                <Text style={shellStyles.modelModalSubtitle} numberOfLines={1}>
-                  {modelSearch.trim()
-                    ? t('home.modelSelectSearchCount', { count: modalModelCount })
-                    : modelModalTab === 'skills'
-                      ? t('home.modelSelectAgentCount', { count: skillAgentItems.length })
-                      : t('home.modelSelectGroupCount', { count: modalModelCount })}
-                </Text>
-              </View>
-              {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
-              <Tappable
-                onPress={() => {
-                  if (showModelSearch) {
-                    setShowModelSearch(false)
-                    setModelSearch('')
-                  } else {
-                    setShowModelSearch(true)
-                  }
-                }}
-                hitSlop={8}
-                style={shellStyles.modelSearchToggle}
-                accessibilityRole="button"
-                accessibilityLabel={t('home.a11yModelSearch')}
-                accessibilityState={{ selected: showModelSearch }}
-              >
-                <Search
-                  size={18}
-                  color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
-                />
-              </Tappable>
-              <Tappable
-                onPress={closeModelModal}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t('home.closeBtn')}
-              >
-                <Text style={shellStyles.modelModalClose}>×</Text>
-              </Tappable>
-            </View>
-            {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
-            {showModelSearch ? (
-              <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
-                <Search size={16} color={tokens.text.tertiary} />
-                <TextInput
-                  style={shellStyles.modelSearchInput}
-                  value={modelSearch}
-                  onChangeText={setModelSearch}
-                  onFocus={modelSearchFF.onFocus}
-                  onBlur={modelSearchFF.onBlur}
-                  placeholder={t('home.modelSearchPlaceholder')}
-                  placeholderTextColor={tokens.text.tertiary}
-                  returnKeyType="search"
-                  clearButtonMode="while-editing"
-                  accessibilityLabel={t('home.a11yModelSearchInput')}
-                />
-                {modelSearch ? (
-                  <Tappable
-                    onPress={() => setModelSearch('')}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={t('home.a11yClearQuery')}
-                  >
-                    <Text style={shellStyles.modelSearchClear}>×</Text>
-                  </Tappable>
-                ) : null}
-              </View>
-            ) : null}
-            {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={shellStyles.modelModalTabRow}
-              contentContainerStyle={shellStyles.modelModalTabContent}
-            >
-              {modelTypeOptions.map((mt) => {
-                const active = !modelSearch.trim() && modelModalTab === mt.type
-                const Icon = mt.icon
-                return (
-                  <Tappable
-                    key={mt.type}
-                    onPress={() => {
+          <View style={[shellStyles.modelModalSheet, dialogMaxHeightStyle]}>
+            {/* 固定区实测(onLayout):列表高度上限 = 70% 上限 - 上下内边距 - 固定区 */}
+            <View onLayout={(e) => setModelModalChromeHeight(e.nativeEvent.layout.height)}>
+              {/* 拖拽指示条(iOS bottom-sheet 惯例,可下滑关闭) */}
+              <View style={shellStyles.modelModalGrabber} />
+              <View style={shellStyles.modelModalHeader}>
+                <View style={shellStyles.modelModalHeading}>
+                  <Text style={shellStyles.modelModalTitle} numberOfLines={1}>
+                    {t('home.modelSelectTitle')}
+                  </Text>
+                  <Text style={shellStyles.modelModalSubtitle} numberOfLines={1}>
+                    {modelSearch.trim()
+                      ? t('home.modelSelectSearchCount', { count: modalModelCount })
+                      : modelModalTab === 'skills'
+                        ? t('home.modelSelectAgentCount', { count: skillAgentItems.length })
+                        : t('home.modelSelectGroupCount', { count: modalModelCount })}
+                  </Text>
+                </View>
+                {/* 搜索开关(图标钮,2026-10-15 用户定:最右上一个图标,不带文字) */}
+                <Tappable
+                  onPress={() => {
+                    if (showModelSearch) {
+                      setShowModelSearch(false)
                       setModelSearch('')
-                      setModelModalTab(mt.type)
-                    }}
-                    style={[shellStyles.modelModalTab, active && shellStyles.modelModalTabActive]}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={mt.label}
-                  >
-                    <Icon
-                      size={14}
-                      color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
-                    />
-                    <Text
-                      style={[
-                        shellStyles.modelModalTabText,
-                        active && shellStyles.modelModalTabActiveText,
-                      ]}
+                    } else {
+                      setShowModelSearch(true)
+                    }
+                  }}
+                  hitSlop={8}
+                  style={shellStyles.modelSearchToggle}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.a11yModelSearch')}
+                  accessibilityState={{ selected: showModelSearch }}
+                >
+                  <Search
+                    size={18}
+                    color={showModelSearch ? tokens.brand.cta : tokens.text.tertiary}
+                  />
+                </Tappable>
+                <Tappable
+                  onPress={closeModelModal}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('home.closeBtn')}
+                >
+                  <Text style={shellStyles.modelModalClose}>×</Text>
+                </Tappable>
+              </View>
+              {/* 搜索框:头部搜索图标开关控制展开/收起(收起即清词);非空时跨全部分类过滤 */}
+              {showModelSearch ? (
+                <View style={[shellStyles.modelSearchBox, modelSearchFF.focusBorder]}>
+                  <Search size={16} color={tokens.text.tertiary} />
+                  <TextInput
+                    style={shellStyles.modelSearchInput}
+                    value={modelSearch}
+                    onChangeText={setModelSearch}
+                    onFocus={modelSearchFF.onFocus}
+                    onBlur={modelSearchFF.onBlur}
+                    placeholder={t('home.modelSearchPlaceholder')}
+                    placeholderTextColor={tokens.text.tertiary}
+                    returnKeyType="search"
+                    clearButtonMode="while-editing"
+                    accessibilityLabel={t('home.a11yModelSearchInput')}
+                  />
+                  {modelSearch ? (
+                    <Tappable
+                      onPress={() => setModelSearch('')}
+                      hitSlop={8}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('home.a11yClearQuery')}
                     >
-                      {mt.label}
-                    </Text>
-                  </Tappable>
-                )
-              })}
-            </ScrollView>
-            <View style={shellStyles.modelModalHairline} />
+                      <Text style={shellStyles.modelSearchClear}>×</Text>
+                    </Tappable>
+                  ) : null}
+                </View>
+              ) : null}
+              {/* 分类 tab:8 分类横向滚动,active 品牌实心底;与列表间发丝线分层 */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={shellStyles.modelModalTabRow}
+                contentContainerStyle={shellStyles.modelModalTabContent}
+              >
+                {modelTypeOptions.map((mt) => {
+                  const active = !modelSearch.trim() && modelModalTab === mt.type
+                  const Icon = mt.icon
+                  return (
+                    <Tappable
+                      key={mt.type}
+                      onPress={() => {
+                        setModelSearch('')
+                        setModelModalTab(mt.type)
+                      }}
+                      style={[shellStyles.modelModalTab, active && shellStyles.modelModalTabActive]}
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={mt.label}
+                    >
+                      <Icon
+                        size={14}
+                        color={active ? tokens.brand.ctaForeground : tokens.text.secondary}
+                      />
+                      <Text
+                        style={[
+                          shellStyles.modelModalTabText,
+                          active && shellStyles.modelModalTabActiveText,
+                        ]}
+                      >
+                        {mt.label}
+                      </Text>
+                    </Tappable>
+                  )
+                })}
+              </ScrollView>
+              <View style={shellStyles.modelModalHairline} />
+            </View>
             {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
                 搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
             {modelModalTab === 'skills' && !modelSearch.trim() ? (
               <AgentList
-                style={shellStyles.modelModalListBody}
+                style={modelModalListStyle}
                 items={skillAgentItems}
                 onItemClick={handleSkillAgentPress}
                 isLoading={false}
                 emptyText={t('home.noAgentsHint')}
+                onContentSizeChange={(_w, h) => setModelModalContentHeight(h)}
               />
             ) : (
               <ModelList
-                style={shellStyles.modelModalListBody}
+                style={modelModalListStyle}
                 groups={modalModelGroups}
                 selectionMode="single"
                 selectedIds={selectedModel ? [selectedModel.id] : []}
                 onSelectChange={handleModelSelect}
+                onContentSizeChange={(_w, h) => setModelModalContentHeight(h)}
               />
             )}
           </View>
@@ -2053,7 +2089,7 @@ export function HomeScreen() {
             onPress={() => setShowMaterialList(false)}
             accessibilityLabel={t('home.a11yCloseMatList')}
           />
-          <View style={shellStyles.materialSheet}>
+          <View style={[shellStyles.materialSheet, materialHeightStyle]}>
             <View style={shellStyles.materialSheetBar}>
               <Tappable
                 onPress={() => setShowMaterialList(false)}
@@ -2092,7 +2128,7 @@ export function HomeScreen() {
             onPress={closeMaterialDetail}
             accessibilityLabel={t('home.a11yCloseMatDetail')}
           />
-          <View style={shellStyles.detailDialogContent}>
+          <View style={[shellStyles.detailDialogContent, dialogHeightStyle]}>
             <View style={shellStyles.detailDialogHeader}>
               <Text style={shellStyles.detailDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('home.matDetailFallback')}
@@ -2255,37 +2291,45 @@ export function HomeScreen() {
          *  组件默认 collapsible=false → 永久展开,无「×」回折按钮)。
          *  大输入框(2026-09-22 用户定稿):麦克风+文本+发送同框,长按麦克风「按住说出你的问题」。
          *  提交跳 Chat(对齐 Uniapp handleSendMessageabc → 跳 ai_index2)。
-         *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。 */}
-        <InputArea
-          value={inputValue}
-          onChangeText={setInputValue}
-          placeholder={t('home.inputPlaceholder')}
-          onSubmit={handleInputSubmit}
-          showVoiceMic
-          voiceRecording={voiceRecorder.recording}
-          voiceTranscribing={voiceRecorder.transcribing}
-          voiceDuration={voiceRecorder.duration}
-          onVoiceStart={voiceRecorder.start}
-          onVoiceEnd={() => void voiceRecorder.stop()}
-          onPlusToggle={handlePlusToggle}
-          plusActive={plusPanelVisible}
-          // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
-          // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
-          onOpenModelSelect={() => openModelModal()}
-          selectedModelName={selectedModel?.name ?? null}
-          onClearModel={handleClearModel}
-          onOpenModelConfig={() => setShowModelConfig(true)}
-          // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
-          // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
-          // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
-          voiceNoteNode={
-            <VoiceNote
-              conversationId={null}
-              onInsert={(text) => setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))}
-            />
-          }
-          transparentBackground
-        />
+         *  transparentBackground:底色/顶描边由停靠区玻璃统一提供(2026-10-16)。
+         *  inputLayer:停靠区内的固定 UI 必须压在 TabBar 自带 BottomFadeMask 之上 ——
+         *  遮罩高 160 而底边只落在胶囊顶沿,输入框(高 62 + 顶隙 6)整条都落在它的
+         *  0.7→0.98 不透明段里;遮罩溶解的对象是滚动内容,不是这张输入框。
+         *  小程序端同一格早已成立(首页输入栏 zIndex 1000 > 遮罩 zIndex 40),此处补齐同形。 */}
+        <View style={shellStyles.inputLayer}>
+          <InputArea
+            value={inputValue}
+            onChangeText={setInputValue}
+            placeholder={t('home.inputPlaceholder')}
+            onSubmit={handleInputSubmit}
+            showVoiceMic
+            voiceRecording={voiceRecorder.recording}
+            voiceTranscribing={voiceRecorder.transcribing}
+            voiceDuration={voiceRecorder.duration}
+            onVoiceStart={voiceRecorder.start}
+            onVoiceEnd={() => void voiceRecorder.stop()}
+            onPlusToggle={handlePlusToggle}
+            plusActive={plusPanelVisible}
+            // 模型选择收进大输入框(2026-10-15 用户定:对齐 web 输入卡 ModelSelector ——
+            // 单按钮显示当前模型/「自动」,点击直接弹全量模型列表;8 分类 chips 平铺已废)
+            onOpenModelSelect={() => openModelModal()}
+            selectedModelName={selectedModel?.name ?? null}
+            onClearModel={handleClearModel}
+            onOpenModelConfig={() => setShowModelConfig(true)}
+            // D43 票③ RN 大输入框挂载位(2026-10-23 强制令到终态的顺延格,与 ChatScreen
+            // L3025 同形):首页尚未开会话 ⇒ conversationId 恒 null,归档笔记标"无会话";
+            // 「插入对话」= 追加进本页输入框既有通道(setInputValue),提交时随消息带过去。
+            voiceNoteNode={
+              <VoiceNote
+                conversationId={null}
+                onInsert={(text) =>
+                  setInputValue((prev) => (prev.trim() ? `${prev} ${text}` : text))
+                }
+              />
+            }
+            transparentBackground
+          />
+        </View>
         {/* 悬浮胶囊让位区:透明,停靠区玻璃透出;TabBar 绝对定位在其中浮起 */}
         <View style={{ height: tabBarDockSpacer(insets.bottom) }} />
         <TabBar activeTab="home" onChange={handleTabChange} blurTarget={tabBarBlurTargetRef} />
@@ -2293,6 +2337,10 @@ export function HomeScreen() {
     </View>
   )
 }
+
+/** 模型弹窗上下内边距:样式与「列表高度上限」计算共用同一常量,避免两处漂移 */
+const MODEL_MODAL_PADDING_TOP = rpx(32)
+const MODEL_MODAL_PADDING_BOTTOM = rpx(16)
 
 const shellStyles = {
   // 页面根容器不设底色(2026-10-20 用户定稿):底色由外层导航容器提供,本页不再叠一层
@@ -2305,6 +2353,12 @@ const shellStyles = {
     left: 0,
     right: 0,
     bottom: 0,
+  } as const,
+  // 输入区抬到 TabBar 的 BottomFadeMask 之上(TabBar root 未设 zIndex ⇒ 默认 0,同级后渲染者
+  // 压上,输入框会被那层 0.7→0.98 不透明的页面底色糊住)。zIndex 需配合定位才生效,故 relative。
+  inputLayer: {
+    position: 'relative',
+    zIndex: 1,
   } as const,
   // 顶栏行取白档,与 App.tsx 给 Home 的状态栏带同色;主体底色由外层导航容器提供
   scroll: { flex: 1 } as const,
@@ -2344,12 +2398,12 @@ const shellStyles = {
   } as const,
   materialCardTitle: {
     maxWidth: rpx(340),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.primary,
   } as const,
   materialCardClose: {
     fontSize: rnType.title.size,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '400',
     marginLeft: rpx(12),
@@ -2363,7 +2417,7 @@ const shellStyles = {
   } as const,
   materialSheet: {
     width: '100%',
-    height: '80%',
+    height: undefined,
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
@@ -2377,7 +2431,7 @@ const shellStyles = {
   } as const,
   materialSheetClose: {
     fontSize: 22,
-    lineHeight: 24,
+    lineHeight: rnType.title.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
@@ -2391,7 +2445,7 @@ const shellStyles = {
   } as const,
   detailDialogContent: {
     width: '84%',
-    maxHeight: '70%',
+    maxHeight: undefined,
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
@@ -2415,7 +2469,7 @@ const shellStyles = {
   } as const,
   detailDialogClose: {
     fontSize: 22,
-    lineHeight: 24,
+    lineHeight: rnType.title.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
@@ -2438,13 +2492,13 @@ const shellStyles = {
   } as const,
   detailDialogFieldLabel: {
     width: rpx(140),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   } as const,
   detailDialogFieldValue: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: rnType.bodySm.size,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.primary,
   } as const,
   detailDialogErrorWrap: {
@@ -2453,7 +2507,7 @@ const shellStyles = {
     gap: rpx(16),
   } as const,
   detailDialogErrorText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as const,
   detailDialogRetryBtn: {
@@ -2463,7 +2517,7 @@ const shellStyles = {
     backgroundColor: tokens.brand.cta,
   } as const,
   detailDialogRetryText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as const,
@@ -2475,12 +2529,15 @@ const shellStyles = {
   } as const,
   modelModalSheet: {
     width: '100%',
-    maxHeight: '70%',
+    // 高度不写百分比上限(RN 0.86 Fabric 下百分比不给子节点确定高度,列表会塌成 0):
+    // 保留 maxHeight 键(undefined)供门 217 识别 bounded 容器,真正数值由
+    // useDialogMaxHeightStyle 在调用处叠加;内容短时自适应、超上限后内部滚动。
+    maxHeight: undefined,
     backgroundColor: tokens.surface.card,
     borderTopLeftRadius: rnRadius.xl,
     borderTopRightRadius: rnRadius.xl,
-    paddingTop: rpx(32),
-    paddingBottom: rpx(16),
+    paddingTop: MODEL_MODAL_PADDING_TOP,
+    paddingBottom: MODEL_MODAL_PADDING_BOTTOM,
   } as const,
   modelModalHeader: {
     flexDirection: 'row',
@@ -2497,7 +2554,7 @@ const shellStyles = {
   } as const,
   modelModalClose: {
     fontSize: 22,
-    lineHeight: 24,
+    lineHeight: rnType.title.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
@@ -2507,7 +2564,7 @@ const shellStyles = {
     alignSelf: 'center',
     width: rpx(72),
     height: 4,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.border.medium,
     marginBottom: rpx(16),
   } as const,
@@ -2518,7 +2575,7 @@ const shellStyles = {
   modelModalSubtitle: {
     fontSize: rnType.label.size,
     color: tokens.text.tertiary,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   } as const,
   modelModalTabRow: {
     // 横向 tab 行:纵向不收缩,滚动交由内容
@@ -2528,10 +2585,11 @@ const shellStyles = {
     flexShrink: 0,
   } as const,
   modelModalListBody: {
-    // 列表区是弹窗里唯一弹性块:吃掉 sheet 剩余高度并内部滚动
-    // (SectionList 需要确定高度父容器才能滚,RN 0.86),
-    // 避免自然高度撑爆 maxHeight 后压缩固定块(flexShrink 灾难)
-    flex: 1,
+    // 列表高度由调用处按「实测内容高,封顶 = 70% - 内边距 - 固定区」写成像素 height
+    // (SectionList/ScrollView 需要确定高度父容器才能渲染并滚动,RN 0.86 Fabric)。
+    // 这里只留兜底约束:不再写 flex:1,否则在高度由子内容决定的 sheet 里会被压成 0 高。
+    flexGrow: 0,
+    flexShrink: 1,
     minHeight: 0,
   } as const,
   modelModalTabContent: {
@@ -2556,7 +2614,7 @@ const shellStyles = {
     borderColor: tokens.brand.cta,
   } as const,
   modelModalTabText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as const,
   modelModalTabActiveText: {
@@ -2597,11 +2655,11 @@ const shellStyles = {
     fontSize: rnType.body.size,
     color: tokens.text.primary,
     // RN web 端 TextInput 默认内边距偏大,压平与图标同行
-    paddingVertical: 0,
+    paddingVertical: rnSpacing.none,
   } as const,
   modelSearchClear: {
     fontSize: rnType.subtitle.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     color: tokens.text.tertiary,
     paddingHorizontal: rpx(8),
   } as const,
@@ -2642,7 +2700,7 @@ const shellStyles = {
   } as const,
   qrCloseText: {
     fontSize: rnType.display.size,
-    lineHeight: 26,
+    lineHeight: rnType.subtitle.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
   } as const,

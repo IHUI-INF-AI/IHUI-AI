@@ -11,6 +11,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
 import { __test__ as S } from '../sync-qoder-client-session.mjs'
+import { __test__ as T } from '../sync-trae-client-session.mjs'
 
 test('① 参数面:--dry-run/--json 合法;未知参数 ⇒ 未判定;--help 走帮助', () => {
   assert.equal(S.parseArgs(['--dry-run']).dryRun, true)
@@ -97,10 +98,29 @@ test('⑥ 身份键族:phone/nickname 在场 ⇒ 载荷带上(missing 自动入�
 })
 
 test('⑦ phone/nickname 空串/纯空白 ⇒ 不带该键(不拿脏名喂导入判据)', () => {
-  const payload = S.buildPayload([
-    { uid: 'u1', accessToken: 'dt-1', phone: '', nickname: '   ' },
-  ])
+  const payload = S.buildPayload([{ uid: 'u1', accessToken: 'dt-1', phone: '', nickname: '   ' }])
   assert.equal('phone' in payload.accounts[0], false)
   assert.equal('nickname' in payload.accounts[0], false)
+})
+
+test('⑧ 心跳折算必须与 Trae 腿是同一个函数引用(不许在这儿写第二份三态判据,§0.6)', () => {
+  assert.equal(S.heartbeatOf, T.heartbeatOf)
+})
+
+test('⑨ 载荷只在有心跳时带 clientActiveAt 键(键缺席 = ts 侧本轮不写心跳)', () => {
+  const at = '2026-11-05T00:00:00.000Z'
+  const s = [{ uid: 'u1', accessToken: 'dt-1' }]
+  assert.equal(S.buildPayload(s, {}, at).clientActiveAt, at)
+  assert.equal('clientActiveAt' in S.buildPayload(s, {}, null), false)
+  assert.equal('clientActiveAt' in S.buildPayload(s, {}), false)
+  // 心跳时刻不进 accounts:凭据面与探针面各走各的键
+  assert.deepEqual(Object.keys(S.buildPayload(s, {}, at).accounts[0]), ['uid', 'token'])
+})
+
+test('⑩ 客户端进程探测三态:关掉进程控制落 false,不得伪装成「在跑」', () => {
+  // IHUI_TRAE_PROCESS_CONTROL=0 ⇒ 共用器物返回 [](明确无),不是 null(未知)⇒ 本层必须落 false
+  assert.equal(S.probeQoderClientActive({ IHUI_TRAE_PROCESS_CONTROL: '0' }), false)
+  // 镜像名清单事实(2026-11-05 本机现读 = Qoder CN.exe;国际版一并探测,免得换版后心跳静默断供)
+  assert.deepEqual([...S.QODER_PRODUCTS], ['Qoder CN', 'Qoder'])
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

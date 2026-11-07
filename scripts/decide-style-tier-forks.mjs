@@ -20,14 +20,23 @@
  *   ① 非色档分叉处数不在 83 处允许额度内(行内按处数核销,不足的差额进 pending);
  *   ② 差额部分没有 decision,或 decision 缺 owner / owner=unassigned / 缺 expires / 已到期 /
  *      targetTier 不是该 kind 的档值 / evidence 缺失;
- *   ③ 账本里存在已到期的 decision(整本账腐烂也判红,不管该行现在是否已被额度覆盖)。
+ *   ③ 账本里存在已到期的 decision(整本账腐烂也判红,不管该行现在是否已被额度覆盖);
+ *   ④ 档表缺位(`missingTier` = 值 ∉ 档表 ∧ 对端同值在用)逐值问准入线
+ *      `MISSING_TIER_ADMISSION_LINE`:两端各自 ≥ 线 ⇒ 出路是补表(本器**不代写档表**,只点名);
+ *      未达线 ⇒ 必须有在期 decision(按 `kind:值` 值级核销),否则进 pending 判红。
+ *      立因:`spacing.ts` 头注那句"两端各自 ≥100 处才进表"自 2026-10-31 起没有器物实现,
+ *      尺子又每轮把缺位报成"出路=补表" —— 于是一格既不进表也不落档、且无任何核销面
+ *      (fork 有账可销,缺位什么都没有)。2026-11-05 接上这一腿。
  *   首跑现读 `pending=146`(RN 分叉 229 处 − 允许 83 处),必须红 —— 这是验收证据,
- *   不是把账本补成绿的理由。
+ *   不是把账本补成绿的理由。④ 同一条:2026-11-05 现读 9 个缺位值 0 条达线,
+ *   要么逐值定档登记,要么就地落档,**不得为消红下调准入线**(§12e)。
  *
  * 账本 `scripts/data/style-tier-fork-decisions.jsonl`,每行:
  *   {side:"rn", kind, prop, value, targetTier, owner, expires, evidence}
  *   - owner=`unassigned` 是**草稿占位**,不算有效 decision(写明未指派原因,不消红);
  *   - expires 当天仍算在期;targetTier 必须 ∈ 该 kind 的档表;
+ *   - 缺位桶同本账,靠 `bucket:"missingTier"` 分家,键为 `缺位:<kind>:<值>`(值级,`prop:"*"`,
+ *     `side:"both"`);owner/expires/targetTier/evidence 四项与 fork 桶同等生效,未做任何削弱;
  *   - `--apply` 幂等:按 `side:kind:prop:value` 去重,已存在条目只更新不重复;默认只给
  *     缺账本的待决策行补 `unassigned` 草稿,已有有效 decision 不会被草稿覆盖。
  *
@@ -86,11 +95,160 @@ export function decisionKey(d) {
 }
 
 /**
+ * 缺位桶的决策键 = `缺位:<kind>:<值>`。
+ * 缺位是**值级**问题(补表补的是一个值,落档落的也是一个值),不像分叉要逐 prop 定档,
+ * 所以键里不带 prop/side;账本仍与 fork 同用一本 jsonl,靠 `bucket` 字段分家。
+ */
+export function missingDecisionKey(kind, value) {
+  return `缺位:${kind}:${String(value)}`
+}
+
+/**
+ * 档表缺位的准入线 —— **这条线只住这一处**(§0.6)。
+ * `spacing.ts` 头注从 2026-10-31 起就写着"默认仍要求两端各自 ≥100 处同值取用才进表",
+ * 但那句话从来没有器物实现:尺子把表外且对端在用的取值报成 `missingTier` 并印一句
+ * "出路=补表,零端内改动",却没有任何东西能机械回答"这个值到底够不够格进表"。
+ * 后果不是读数难看,而是这一格**既不进表也不落档、且无核销面** —— fork 有账本可销,
+ * 缺位什么都没有,于是每轮报数都落在无人负责的位置上(§0.9「判据指向出路而出路上没有器物」)。
+ * 本常量把那句散文变成可跑判据:达线 ⇒ 出路确为补表;未达线 ⇒ 必须有在期 decision,
+ * 否则计入 pending 并判红。
+ * **不得为消红下调本值**(§12e/门 128「为消红补数字都违规」):2026-11-05 现读 9 个缺位值
+ * (1/3/5/7/9/26/28/80/96)按此线全部未达,最大的 `spacing:1` 也只有 RN 30 处 / web 56 处。
+ */
+export const MISSING_TIER_ADMISSION_LINE = 100
+
+/**
+ * 两侧 `missingTier` 行按 `kind:值` 聚合成值级台账。
+ * 纯函数:输入是 runJudge 已经给好的行(含本侧处数 n),本层不重扫文件、不复算三桶。
+ * 每值的 `rnN`/`webN` 取的是**该侧全部行**(不分 inTier/missingTier)—— 准入线要问的是
+ * "两端各自在这个值上取用了多少处",而不是"这一侧把它报成了哪一桶";按 state 过滤会系统性
+ * 读小(同一值若一侧已 inTier 就漏计),那正是本尺 356-361 行记过的"量纲静默丢失"同型。
+ */
+export function aggregateMissingByValue(rnRows = [], webRows = []) {
+  const countAll = (rows) => {
+    const m = new Map()
+    for (const r of rows ?? []) {
+      const k = `${r.kind}:${String(r.val)}`
+      m.set(k, (m.get(k) ?? 0) + (Number(r.n) || 0))
+    }
+    return m
+  }
+  const rnAll = countAll(rnRows)
+  const webAll = countAll(webRows)
+  const map = new Map()
+  for (const rows of [rnRows, webRows]) {
+    for (const r of rows ?? []) {
+      if (r.state !== 'missingTier') continue
+      const key = missingDecisionKey(r.kind, r.val)
+      let e = map.get(key)
+      if (!e) {
+        e = {
+          kind: r.kind,
+          value: r.val,
+          rnN: Number(rnAll.get(`${r.kind}:${String(r.val)}`)) || 0,
+          webN: Number(webAll.get(`${r.kind}:${String(r.val)}`)) || 0,
+          props: new Set(),
+        }
+        map.set(key, e)
+      }
+      e.props.add(r.prop)
+    }
+  }
+  return [...map.values()]
+    .map((e) => ({ ...e, props: [...e.props].sort(), site: e.rnN + e.webN }))
+    .sort((a, b) => a.kind.localeCompare(b.kind) || Number(a.value) - Number(b.value))
+}
+
+/**
+ * 缺位桶裁决(与 judgeForkDecisions 同构,但按值不按位置)。
+ * @param {{missing:Array, decisions:Array, tier:object, today:string, line:number}} p
+ */
+export function judgeMissingTier({
+  missing = [],
+  decisions = [],
+  tier = null,
+  today = isoToday(),
+  line = MISSING_TIER_ADMISSION_LINE,
+} = {}) {
+  const failures = []
+  const byKey = new Map()
+  for (const d of decisions) {
+    if (d?.bucket !== 'missingTier') continue
+    const key = missingDecisionKey(d.kind, d.value)
+    if (byKey.has(key)) failures.push({ rule: 'missing-decision-duplicate', key })
+    else byKey.set(key, d)
+  }
+  const extendable = []
+  const settled = []
+  const rowsNeeding = []
+  let pending = 0
+  for (const m of missing) {
+    const admitted = m.rnN >= line && m.webN >= line
+    const key = missingDecisionKey(m.kind, m.value)
+    if (admitted) {
+      extendable.push({ ...m, key, line })
+      continue
+    }
+    const d = byKey.get(key)
+    const v = d ? validDecision(d, { today, tier }) : { ok: false, reason: 'no-decision' }
+    if (v.ok) {
+      settled.push({ ...m, key, expires: d.expires, targetTier: d.targetTier })
+      continue
+    }
+    pending += m.site
+    failures.push({
+      bucket: 'missingTier',
+      kind: m.kind,
+      value: m.value,
+      rnN: m.rnN,
+      webN: m.webN,
+      need: m.site,
+      line,
+      props: m.props,
+      reason: v.reason,
+    })
+    rowsNeeding.push({ ...m, key, line })
+  }
+  let ledgerExpired = 0
+  let ledgerUnassigned = 0
+  let ledgerValid = 0
+  for (const d of decisions) {
+    if (d?.bucket !== 'missingTier') continue
+    const expires = String(d?.expires ?? '')
+    if (/^\d{4}-\d{2}-\d{2}$/.test(expires) && expires < today) ledgerExpired += 1
+    if (typeof d?.owner === 'string' && d.owner.trim() === 'unassigned') ledgerUnassigned += 1
+    if (validDecision(d, { today, tier }).ok) ledgerValid += 1
+  }
+  if (ledgerExpired > 0)
+    failures.push({
+      rule: 'missing-decision-expired-ledger',
+      detail: `缺位账本里 ${ledgerExpired} 条 decision 已到期`,
+    })
+  return {
+    ok: failures.length === 0,
+    total: missing.length,
+    pending,
+    line,
+    extendable,
+    settled,
+    failures,
+    rowsNeeding,
+    ledgerTotal: [...byKey.values()].length,
+    ledgerValid,
+    ledgerUnassigned,
+    ledgerExpired,
+  }
+}
+
+/**
  * 单条 decision 是否有效。纯函数:只认三件套 + 档值,不读盘。
  * @returns {{ok:boolean, reason:string|null}}
  */
 export function validDecision(d, { today = isoToday(), tier = null } = {}) {
-  if (!d || d.side !== 'rn') return { ok: false, reason: 'shape(side!=rn)' }
+  // side 三值:`rn` 是 fork 桶的位置级条目;`web`/`both` 只可能来自缺位桶(值级,prop 固定 `*`)。
+  // 放宽是必需的 —— 缺位按定义就是"两端各自都在用同一个表外值",只准登记 RN 侧会漏掉 web 那一半。
+  // owner/expires/targetTier/evidence 四项检查对两桶同等生效,未做任何削弱。
+  if (!d || !['rn', 'web', 'both'].includes(d.side)) return { ok: false, reason: 'shape(side)' }
   if (!['spacing', 'fontSize', 'radius'].includes(d.kind))
     return { ok: false, reason: 'shape(kind)' }
   if (typeof d.prop !== 'string' || d.prop.trim() === '')
@@ -268,7 +426,11 @@ function judgeReal() {
   const rows = forkRowsOf(r)
   const decisions = parseDecisions(readDecisionsText(DECISIONS_REL))
   const v = judgeForkDecisions({ rows, decisions, tier, today: isoToday() })
-  return { face: r.face, tier, rows, decisions, ...v }
+  const missing = aggregateMissingByValue(r?.rn?.rows, r?.web?.rows)
+  if (missing.length === 0 && (r?.rn?.missingTier ?? 0) + (r?.web?.missingTier ?? 0) > 0)
+    throw new Error('尺子报了缺位行而聚合到 0 条 ⇒ 未判定(坏尺子的失效形态永远是安静的,§0.3)')
+  const m = judgeMissingTier({ missing, decisions, tier, today: isoToday() })
+  return { face: r.face, tier, rows, decisions, ...v, ok: v.ok && m.ok, missing: m }
 }
 
 function applyReal() {
@@ -302,6 +464,36 @@ function applyReal() {
         expires: '',
         evidence: `未指派:该分叉值无 owner 认领,待决策 ${x.need} 处;先定档后指派,不得以草稿消红`,
       }))
+    // 缺位桶草稿同批补(与 fork 同一哲学:owner=unassigned 的草稿**不算有效 decision**,
+    // 所以补草稿只会把"无人认领"点名出来,结构上消不掉红 —— 防"以草稿洗绿"。
+    const existingMissingKeys = new Set(
+      existing
+        .filter((d) => d?.bucket === 'missingTier')
+        .map((d) => missingDecisionKey(d.kind, d.value)),
+    )
+    const m0 = judgeMissingTier({
+      missing: aggregateMissingByValue(r?.rn?.rows, r?.web?.rows),
+      decisions: existing,
+      tier,
+      today: isoToday(),
+    })
+    drafts = drafts.concat(
+      m0.rowsNeeding
+        .filter((x) => !existingMissingKeys.has(missingDecisionKey(x.kind, x.value)))
+        .map((x) => ({
+          bucket: 'missingTier',
+          side: 'both',
+          kind: x.kind,
+          prop: '*',
+          value: x.value,
+          targetTier: nearestTier(x.kind, x.value, tier),
+          owner: 'unassigned',
+          expires: '',
+          evidence:
+            `未指派:缺位值 ${x.kind}=${x.value} 现读 RN ${x.rnN} 处 / web ${x.webN} 处,` +
+            `未过准入线 ${x.line} 处/端(补表要过线,落档要定档);不得以草稿消红`,
+        })),
+    )
   }
   const merged = mergeDecisions(existing, explicit ?? drafts)
   writeDecisions(DECISIONS_PATH, merged)
@@ -340,6 +532,32 @@ function reportCheck(out) {
     }
     if (out.failures.length > 40) console.log(`  … 另有 ${out.failures.length - 40} 条`)
   }
+  const m = out.missing
+  if (m) {
+    const mf = m.failures.filter((f) => !f.rule)
+    console.log(`\n🟡 档表缺位(missingTier)准入裁决 —— 准入线 = 两端各自 ≥${m.line} 处`)
+    console.log(
+      `缺位值        : ${m.total} 种(达线可补表 ${m.extendable.length} / 在期决策已覆盖 ${m.settled.length} / 待决策 ${mf.length})`,
+    )
+    for (const x of m.extendable)
+      console.log(
+        `  ⬆️ 达线待补表:${x.kind}=${x.value}(RN ${x.rnN} / web ${x.webN})—— 本器不代写档表,补表后须跑 sync-css-tokens --write`,
+      )
+    if (mf.length === 0 && m.ledgerExpired === 0)
+      console.log('  ✅ 每个缺位值要么达线待补,要么有在期 decision')
+    else {
+      console.log(`  ❌ 待决策 ${m.pending} 处:`)
+      for (const f of mf.slice(0, 40))
+        console.log(
+          `    ✗ ${f.kind}=${f.value} RN ${f.rnN} / web ${f.webN}(未过线 ${f.line};属性 ${f.props.join('/')}):${f.reason}`,
+        )
+      if (mf.length > 40) console.log(`    … 另有 ${mf.length - 40} 条`)
+      for (const f of m.failures.filter((x) => x.rule)) console.log(`    ✗ [${f.rule}] ${f.detail}`)
+    }
+    console.log(
+      `  缺位账本      : ${m.ledgerTotal} 条(有效 ${m.ledgerValid} / 未指派 ${m.ledgerUnassigned} / 到期 ${m.ledgerExpired})`,
+    )
+  }
 }
 
 function main() {
@@ -365,14 +583,35 @@ function main() {
       unassigned: out.decisionsUnassigned,
       expired: out.decisionsExpired,
     },
+    missing: {
+      total: out.missing.total,
+      line: out.missing.line,
+      pending: out.missing.pending,
+      extendable: out.missing.extendable.map((x) => ({
+        kind: x.kind,
+        value: x.value,
+        rnN: x.rnN,
+        webN: x.webN,
+      })),
+      settled: out.missing.settled.length,
+      ledger: {
+        total: out.missing.ledgerTotal,
+        valid: out.missing.ledgerValid,
+        unassigned: out.missing.ledgerUnassigned,
+        expired: out.missing.ledgerExpired,
+      },
+    },
     ok: out.ok,
     failures: out.failures,
     rowsNeeding: out.rowsNeeding,
+    missingFailures: out.missing.failures,
+    missingRowsNeeding: out.missing.rowsNeeding,
   }
   if (jsonMode) console.log(JSON.stringify(json, null, 2))
   else if (gateMode)
     console.log(
-      `STYLE-TIER-FORK-DECISIONS pending=${out.pending} allowed=${out.allowed} decisions=${out.decisionsValid}/${out.decisionsTotal} expired=${out.decisionsExpired} -> ${out.ok ? '绿' : '红'}`,
+      `STYLE-TIER-FORK-DECISIONS pending=${out.pending} allowed=${out.allowed} decisions=${out.decisionsValid}/${out.decisionsTotal} expired=${out.decisionsExpired} ` +
+        `missing_pending=${out.missing.pending} missing_values=${out.missing.total}/${out.missing.settled.length}+${out.missing.extendable.length}达线 line=${out.missing.line} -> ${out.ok ? '绿' : '红'}`,
     )
   else reportCheck(out)
   return out.ok ? 0 : 1
@@ -393,6 +632,10 @@ export const __test__ = {
   decisionKey,
   validDecision,
   judgeForkDecisions,
+  missingDecisionKey,
+  aggregateMissingByValue,
+  judgeMissingTier,
+  MISSING_TIER_ADMISSION_LINE,
   parseDecisions,
   mergeDecisions,
   serializeDecisions,

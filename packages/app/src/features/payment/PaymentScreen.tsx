@@ -109,7 +109,11 @@ export function PaymentScreen({
       <FlatList
         data={orders}
         keyExtractor={(item) => item.orderNo}
-        contentContainerStyle={{ gap: 10, padding: 10, paddingBottom: rnSpacing['3xl'] }}
+        contentContainerStyle={{
+          gap: rnSpacing['sm-loose'],
+          padding: rnSpacing['sm-loose'],
+          paddingBottom: rnSpacing['3xl'],
+        }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           loading ? (
@@ -145,7 +149,7 @@ export function PaymentScreen({
               </View>
               {item.paymentMethod ? (
                 <Text style={styles.metaText}>
-                  {t('payment.method')}:{item.paymentMethod}
+                  {t('learnPaymentConfirmPage.fields.payMethod')}:{item.paymentMethod}
                 </Text>
               ) : null}
               {item.paidAtText ? (

@@ -29,6 +29,9 @@ export const USER_PREFERENCE_GROUPS = {
   // 小程序「设置需求偏好」页(pkg-content/plaza/set-need)的一条 JSON 偏好;它不是广场条目,
   // 不能写进 zhs_demand_square(那是公开需求列表),故落本表的独立 group。
   plazaNeed: 'plaza_need',
+  // 审批授权记忆(2026-11-04):`grants` 键存 ApprovalGrant[];与 agent group 存默认权限档
+  // 同一套路,复用本表避免为一个可变长度的授权列表新开表/新迁移。
+  permission: 'permission',
 } as const
 
 export type UserPreferenceGroup =

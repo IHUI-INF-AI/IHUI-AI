@@ -22,6 +22,8 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { APP_VERSION } from '../lib/config'
 import { checkOtaUpdate, runningBundle } from '../lib/ota-update'
+import { apkSnapshot, checkApkUpdate } from '../lib/apk-update'
+import { openAutoInstallSettings } from '../lib/auto-install'
 import { useI18n, type Locale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import {
@@ -138,6 +140,9 @@ export default function SettingsScreen() {
     { key: 'AccountCancel', label: t('menu.accountCancel') },
     // 通用设置
     { key: 'CheckUpdate', label: t('menu.checkUpdate') },
+    // 自动安装权限常驻入口(2026-11-06):引导卡被确认后 7 天内不再出现,
+    // 这里保证用户随时能回到系统无障碍页把「IHUI 自动安装」打开
+    { key: 'AutoInstallPermission', label: t('menu.autoInstallPermission') },
     // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
     { key: 'ConversationImport', label: t('menu.conversationImport') },
     // 更多功能(子包功能入口集合页,对齐原项目 subpackage index)
@@ -177,6 +182,7 @@ export default function SettingsScreen() {
     { key: 'IdentityVerify', label: t('identityVerify.title'), icon: IdCard },
     { key: 'AccountCancel', label: t('menu.accountCancel'), icon: AlertTriangle },
     { key: 'CheckUpdate', label: t('menu.checkUpdate'), icon: RefreshCw },
+    { key: 'AutoInstallPermission', label: t('menu.autoInstallPermission'), icon: ShieldCheck },
     // D28 多端同步(2026-09-21):外部会话导入
     { key: 'ConversationImport', label: t('menu.conversationImport'), icon: FileUp },
     { key: 'SubPackageIndex', label: t('webViewPortal.sections.more'), icon: Package },
@@ -245,13 +251,21 @@ export default function SettingsScreen() {
   }
 
   const onMenuPress = (key: string) => {
+    // 自动安装权限(2026-11-06 常驻入口):跳转与引导卡「去开启」同一实现,
+    // 不新增第二套 intent 逻辑
+    if (key === 'AutoInstallPermission') {
+      void openAutoInstallSettings()
+      return
+    }
     // 检查更新(2026-10-27 修真):此前这里只弹一句「已是最新版本」—— 无论有没有更新、
     // 无论网络通不通,用户点到的永远是同一句话,那是假的。现在调 OTA 状态机的真实入口,
     // 结论按实际状态回话;查到更新时提示卡(components/UpdatePrompt)会自动出现,
     // 因为两边读的是同一份 store(lib/ota-update.ts)。
     if (key === 'CheckUpdate') {
       void (async () => {
-        const result = await checkOtaUpdate()
+        // 2026-11-04:两条通道一起查 —— OTA 换 JS、APK 换整包,只查一条必然漏报
+        // (旧形态只查 OTA,于是「有新整包」在设置页永远显示成"已是最新",那是假的)。
+        const [otaResult, apkResult] = await Promise.all([checkOtaUpdate(), checkApkUpdate()])
         // 当前包身份(内置/热更+短 id):让「生效没生效」有机器可查的对账凭据,
         // 更新前后各查一次,短 id 变了就是真的换到新代码了
         const rb = runningBundle()
@@ -260,18 +274,42 @@ export default function SettingsScreen() {
             ? `${t('appUpdate.bundleOta')} ${rb.id.slice(0, 8)}`
             : t('appUpdate.bundleEmbedded')
         const bundleLine = `\n${t('appUpdate.currentBundle', { bundle })}`
-        if (result === 'ready') {
+        const apk = apkSnapshot()
+        // 整包更新最实:直接报版本跨度,主界面那张卡(components/ApkUpdatePrompt)会自动浮出,
+        // 用户在这里点完就知道去哪按,不必再翻一遍设置
+        if (apkResult === 'available') {
+          const latest = apk.latestVersion ?? ''
+          appAlert(
+            t('settings.checkUpdateTitle'),
+            `${t('appUpdate.apkTitle', { version: latest })}\n${t('appUpdate.apkBody', {
+              current: apk.currentVersion,
+              latest,
+            })}${bundleLine}`,
+          )
+          return
+        }
+        if (otaResult === 'ready') {
           appAlert(t('settings.checkUpdateTitle'), `${t('appUpdate.ready')}${bundleLine}`)
-        } else if (result === 'up-to-date') {
+          return
+        }
+        // 「没有新版本」的结论必须两条通道各自明确答过,才算数:
+        // 一条答 up-to-date、另一条 error 时不能说"已是最新"(那是拿失败冒充结论)。
+        const otaSettled = otaResult === 'up-to-date' || otaResult === 'unsupported'
+        const apkSettled = apkResult === 'up-to-date' || apkResult === 'unsupported'
+        if (otaSettled && apkSettled) {
+          // 两条都 unsupported = 这个环境根本没有应用内更新通道(如 web)
+          if (otaResult === 'unsupported' && apkResult === 'unsupported') {
+            appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateUnsupported'))
+            return
+          }
           appAlert(
             t('settings.checkUpdateTitle'),
             `${t('settings.checkUpdateLatest')}${bundleLine}`,
           )
-        } else if (result === 'unsupported') {
-          appAlert(t('settings.checkUpdateTitle'), t('settings.checkUpdateUnsupported'))
-        } else if (result === 'error') {
-          appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
+          return
         }
+        // 还有通道没答上来(网络/服务端失败):如实说失败,不冒充"已是最新"
+        appAlert(t('appUpdate.error'), t('appUpdate.errorDesc'))
       })()
       return
     }

@@ -221,11 +221,15 @@ function literalIdHits(face: string, ids: string[]): string[] {
 describe('D01① 装车证明:两个组件真的被宿主渲染', () => {
   const SRC = path.join(WEB_SRC_ROOT, 'components', 'chat', 'message-input.tsx')
 
-  it('<AgentPicker /> 在输入区恰好挂 1 处,且位于模型选择器之前(胶囊挨着模型选择器)', () => {
+  it('<AgentPicker /> 在输入区恰好挂 1 处,且仍位于模型选择器之前(2026-11-04 起收进 + 菜单设置行)', () => {
     const face = codeFace(fs.readFileSync(SRC, 'utf8'))
-    const mounts = face.match(/<AgentPicker\s*\/>/g) ?? []
+    // 2026-11-04:挂载形态由「底栏胶囊 <AgentPicker />」改为「+ 菜单设置行
+    // <AgentPicker variant="row" />」——单源挂载判据不变,匹配时放开属性位。
+    const mounts = face.match(/<AgentPicker(?:\s+[^>]*)?\s*\/>/g) ?? []
     expect(mounts, 'message-input 里没有 <AgentPicker /> ⇒ 组件在、无人调用').toHaveLength(1)
-    expect(face.indexOf('<AgentPicker />')).toBeLessThan(face.indexOf('<ModelSelector'))
+    const mount = mounts[0] ?? ''
+    expect(mount, 'message-input 里没有 <AgentPicker /> ⇒ 组件在、无人调用').not.toBe('')
+    expect(face.indexOf(mount)).toBeLessThan(face.indexOf('<ModelSelector'))
   })
 
   it('<AgentNoticeBar /> 恰好挂 1 处(未选专家时组件自渲染为 null,不留占位)', () => {

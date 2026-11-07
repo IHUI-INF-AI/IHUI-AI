@@ -19,10 +19,13 @@
 // 纯函数、零平台依赖、immutable —— 元数据由调用方持久化(web 端 store 走根 barrel 的 utils 版)。
 
 // chat 侧增量 API 内部实现所用的 utils 原语(别名导入,避免与下方 re-export 同名混淆)
+import type { ConversationHistoryOrderable } from '@ihui/types'
+
 import {
   ORG_TAG_MAX_LENGTH,
   getOrgMeta as readOrgMeta,
   normalizeOrgName as sanitizeOrgName,
+  sortPinnedFirst as sortPinnedFirstImpl,
   withTagsMeta as writeTagsMeta,
   type ConversationOrgMap,
 } from '../utils/conversation-org'
@@ -106,5 +109,21 @@ export function groupByFolder<T extends OrgItem>(
       })),
     ...(ungrouped.length > 0 ? [{ folder: null, items: ungrouped }] : []),
   ]
+}
+
+/** 行的排序键:优先 timestamp,缺失时按 time 解析,再兜底当前时刻(与共享屏原实现逐字等价) */
+export function itemTimestamp(row: ConversationHistoryOrderable): number {
+  if (row.timestamp) return row.timestamp
+  const parsed = new Date(row.time ?? '').getTime()
+  return isNaN(parsed) ? Date.now() : parsed
+}
+
+/**
+ * 唯一排序出口:时间倒序打底,再走共享 sortPinnedFirst 做置顶优先稳定重排。
+ * 2026-11-06 自 packages/app 会话历史屏上移:该排序是纯逻辑、零平台依赖,
+ * 上移后小程序壳经 rn-shells 派生件 re-export 即可拿到真实泛型签名(不再被当成组件)。
+ */
+export function orderHistoryRows<T extends ConversationHistoryOrderable>(items: readonly T[]): T[] {
+  return sortPinnedFirstImpl([...items].sort((a, b) => itemTimestamp(b) - itemTimestamp(a)))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -10,6 +10,7 @@ import { OrderScreen as SharedOrderScreen, type OrderItem, type OrderTab } from 
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import { formatDateByTemplate } from '../utils/date-utils'
+import { useWechatPayment } from '../hooks/useWechatPayment'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -39,6 +40,7 @@ const UNIAPP_TEXT: Record<string, string> = {
   'order.title': '我的订单',
   'order.tab.shipped': '待收货',
   'order.empty': '暂无订单信息',
+  'order.pay': '去支付',
 }
 
 /**
@@ -145,6 +147,19 @@ export function OrderScreen() {
     navigation.navigate('OrderDetail', { id: item.id })
   }
 
+  // 列表「去支付」:复用端内微信 APP 支付链路(与 OrderDetailScreen 同一套),
+  // 共享屏只负责渲染操作区,支付回调完全留在 RN 端。
+  const { pay } = useWechatPayment({
+    orderType: 1,
+    onSuccess: () => {
+      void load()
+    },
+  })
+  const onPay = (item: OrderItem) => {
+    if (item.amount === null) return
+    void pay(Math.round(item.amount * 100), item.title)
+  }
+
   return (
     <SharedOrderScreen
       t={uniappT}
@@ -159,6 +174,7 @@ export function OrderScreen() {
         void load()
       }}
       onPressItem={onPressItem}
+      onPay={onPay}
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
       onLoadMore={onLoadMore}

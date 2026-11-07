@@ -21,7 +21,8 @@ import { reportPluginDiagnostics } from '../src/commands/agent.js';
  *   ① 坏清单存在 ⇒ 装载继续(其余正常插件仍装上,永不抛穿 —— 旧测试已钉,此处复核);
  *   ② 诊断**真的被派发出去**且日志点名那份坏清单(捕获 logger 断言内容,
  *      只断言"函数被调用过"证不了人前可见,票面明令)。
- * 外加装载点自身的装车证明(源码锁):agent.ts 必须真调 loadPluginsWithDiagnostics 并派发,
+ * 外加装载点自身的装车证明(源码锁):agent.ts 必须真调带诊断的装载出口(goal-b49/W2 起为
+ * loadPluginsWithContributionAudit,与 loadPluginsWithDiagnostics 同族)并把诊断派发出去,
  * 薄封装 loadPlugins({…}) 的调用面清零。
  */
 
@@ -155,10 +156,12 @@ describe('G-728 装车证明 — agent.ts 装载调用点必须真走诊断出�
     return fs.readFileSync(path.join(here, '..', 'src', 'commands', 'agent.ts'), 'utf-8');
   }
 
-  it('装载点调 loadPluginsWithDiagnostics 且派发函数真被调用', () => {
+  it('装载点调带诊断的装载出口且派发函数真被调用', () => {
     const source = readAgentSource();
-    // 实际调用形态(带参),不是注释里的提法 —— `loadPluginsWithDiagnostics({` 只可能出现在调用点
-    expect(/loadPluginsWithDiagnostics\(\s*\{/.test(source)).toBe(true);
+    // 实际调用形态(带参),不是注释里的提法 —— `loadPluginsWithDiagnostics({` 只可能出现在调用点。
+    // goal-b49/W2 把出口换成 loadPluginsWithContributionAudit(同族形态,诊断数组里多出贡献拒档):
+    // 本锁钉的是"没退回数组薄封装 + 诊断仍被派发",不是钉死某个函数名,故两型并列放行。
+    expect(/loadPluginsWith(?:ContributionAudit|Diagnostics)\(\s*\{/.test(source)).toBe(true);
     expect(/reportPluginDiagnostics\(\s*diagnostics/.test(source)).toBe(true);
   });
 

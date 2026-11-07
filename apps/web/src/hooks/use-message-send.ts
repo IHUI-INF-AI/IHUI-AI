@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { detectDangerousCommands } from '@/lib/dangerous-command-detector'
+import { analyzeCommandRisk } from '@ihui/shared/utils/command-risk'
 import { compressImage } from '@/lib/file-utils'
 import { formatFileSize } from '@/config/downloads.config'
 import {
@@ -19,6 +20,13 @@ import {
 } from '@/hooks/use-message-references'
 import { useAnalytics } from '@/hooks/use-analytics'
 import { steerChatStream } from '@ihui/api-client'
+import { INPUT_NOTICES_NAMESPACE } from '@ihui/shared/chat/input-notices'
+import { reorderQueue } from '@ihui/shared/chat/queue-interactions'
+import {
+  admitRunningSteer,
+  runningSteerRejectCopyKey,
+  steerCapabilityOf,
+} from '@ihui/shared/chat/steer-admission'
 import { useChatStore } from '@/stores/chat'
 import { answerSideQuestion, tryHandleSideSlash } from '@/hooks/use-chat/slash-commands'
 // 2026-10-06(O59⑤):草稿清桶走加密通道(单一出口,防漏点 —— 过去是 6 处裸 localStorage)
@@ -66,6 +74,11 @@ export interface UseMessageSendParams {
   /** 差距③配套(2026-10-30 立):宿主停流唯一出口(use-chat terminateStream)。
    *  interruptAndSend 入队后调用它停流;缺省时只入队不停流。 */
   onStop?: () => void
+  /**
+   * 高危工具审批是否正等用户决策（waiting-user）。
+   * 缺省 false：调用方没有这路事实时不臆造「正在等你」。
+   */
+  awaitingApproval?: boolean
 }
 
 /** 返回值 */
@@ -79,7 +92,8 @@ export interface UseMessageSendResult {
   handleDrop: (e: React.DragEvent<HTMLDivElement>) => void
   handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void
   handleFileInputChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  submit: (overrideValue?: string) => Promise<void>
+  /** confirmed 为「仍要发送」一次性放行令牌,仅由 submit 内部确认分支递归传入 */
+  submit: (overrideValue?: string, confirmed?: boolean) => Promise<void>
   /** W27 输入队列(2026-09-14 立,对标 Codex/Cursor 多条排队):流式期间输入的预备消息 FIFO 队列,
    *  流式结束后自动发送队首,剩余条目随下一次流式结束继续出队 */
   pendingMessages: Array<{ text: string; refs: ReferenceItem[] }>
@@ -87,6 +101,8 @@ export interface UseMessageSendResult {
   removePendingMessage: (index: number) => void
   /** 立即发送队首预备消息(流式结束后调用) */
   sendPendingMessage: () => Promise<void>
+  /** 运行中待发队列重排（mutateQueue reorder）。越界 / 同位为 no-op。 */
+  reorderPendingMessage: (fromIndex: number, toIndex: number) => void
   /** Steer 中途引导(2026-09-19 立):流式期间闪电按钮触发,不打断当前工具执行,
    *  将输入框文本经网关 /chat/steer 注入 ai-service 队列,下一轮 LLM 调用前生效 */
   steer: () => Promise<void>
@@ -114,6 +130,28 @@ const DANGEROUS_PATTERN_KEY: Record<string, string> = {
   rmEnv: 'permission.dangerousPattern.rmEnv',
   rmGit: 'permission.dangerousPattern.rmGit',
   forcePushMain: 'permission.dangerousPattern.forcePushMain',
+}
+
+/**
+ * 语义判定 code → 既有 i18n pattern 键的展示映射(2026-11-04 立)。
+ * 仅用于标题描述复用既有翻译,不参与判定;新 code 未映射时落 unknown。
+ * 判定本身只看 analyzeCommandRisk 的 level 与 code,不受本表影响。
+ */
+const SEMANTIC_LEGACY_PATTERN: Record<string, string> = {
+  DOWNLOAD_PIPE_EXEC: 'curlPipeSh',
+  DECODE_PIPE_EXEC: 'curlPipeSh',
+  DOWNLOAD_TO_INTERPRETER: 'curlPipeSh',
+  RM_ROOT_OR_HOME: 'rmRrfRoot',
+  RM_NO_PRESERVE_ROOT: 'rmRrfRoot',
+  RM_RECURSIVE_FORCE: 'rmRrfRoot',
+  SENSITIVE_FILE_DELETE: 'rmEnv',
+  DD_WRITE_DEVICE: 'ddToDisk',
+  MKFS_DISK: 'mkfsDisk',
+  REDIRECT_DEVICE: 'redirectToDevice',
+  CHMOD_WORLD_WRITABLE: 'chmodRoot',
+  CHOWN_OWNERSHIP: 'chmodRoot',
+  SUDO_ESCALATION: 'sudoAny',
+  FORCE_PUSH_PROTECTED: 'forcePushMain',
 }
 
 /** 矩阵 A #19:超长纯文本粘贴阈值,超过则转为文本引用 chip 而非塞入 textarea */
@@ -162,8 +200,10 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     draftKey,
     onSent,
     onStop,
+    awaitingApproval = false,
   } = params
   const t = useTranslations('chat')
+  const tn = useTranslations(INPUT_NOTICES_NAMESPACE)
   const { track } = useAnalytics()
   const [isDragOver, setIsDragOver] = React.useState(false)
   // W27(2026-09-14):单条 pendingMessage 升级为 FIFO 队列 —— 流式期间可连续排队多条,
@@ -443,10 +483,78 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     [onSend, draftKey, resetReferences, setValue, inputCoreRef, track, onSent],
   )
 
+  /**
+   * 运行中插话的唯一出口：先过 admitRunningSteer，再走既有 steer 请求或待发队列。
+   * 闪电按钮与「插话优先」模式下的 Enter 共用，避免两套处置。
+   */
+  const dispatchRunningSteer = React.useCallback(
+    async (text: string): Promise<'steered' | 'queued' | 'held' | 'failed'> => {
+      const store = useChatStore.getState()
+      const messageId = store.streamingAssistantId
+      const conversationId = store.conversationId
+      const admission = admitRunningSteer({
+        capability: steerCapabilityOf(store.runtimeInterjection),
+        awaitingApproval,
+        // 控制命令 / 队列漂移：本路径没有生产者。传 false，不把普通正文猜成那两因。
+        isControlCommand: false,
+        queueChanged: false,
+        hasRunningTurn: Boolean(messageId && conversationId),
+      })
+      if (admission.disposition === 'hold') {
+        toast.warning(tn(runningSteerRejectCopyKey(admission.reason)))
+        return 'held'
+      }
+      if (admission.disposition === 'queue') {
+        setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
+        setValue('')
+        detachReferences()
+        if (typeof window !== 'undefined') clearDraft(draftKey)
+        requestAnimationFrame(() => inputCoreRef.current?.resize())
+        toast.warning(tn(runningSteerRejectCopyKey(admission.reason)))
+        return 'queued'
+      }
+      if (!messageId || !conversationId) return 'failed'
+      try {
+        const result = await steerChatStream({ conversationId, messageId, text })
+        if (!result.success) {
+          toast.warning(t('steerFailed'))
+          return 'failed'
+        }
+        track({ name: 'chat_steer', category: 'chat', label: 'web' })
+        useChatStore.getState().appendSteerNotice(messageId, {
+          text,
+          phase: 'queued',
+          queuedAt: result.data?.queuedAt ?? new Date().toISOString(),
+        })
+        setValue('')
+        if (typeof window !== 'undefined') clearDraft(draftKey)
+        requestAnimationFrame(() => inputCoreRef.current?.resize())
+        return 'steered'
+      } catch {
+        toast.warning(t('steerFailed'))
+        return 'failed'
+      }
+    },
+    [
+      awaitingApproval,
+      references,
+      setValue,
+      detachReferences,
+      draftKey,
+      inputCoreRef,
+      tn,
+      t,
+      track,
+    ],
+  )
+
   /** overrideValue:外部预填后立即发送场景(如 draftAutoSend)使用,绕开 value state 异步更新
    * 导致的闭包旧值问题(.setValue 后同帧调用 submit 仍读到旧 value) */
+  /** BUG-10:confirmed=true 是「仍要发送」的一次性放行令牌 —— 用户点确认后跳过
+   *  危险命令重判闸门;否则 onClick 重新 submit 同一段文本必然再次命中并再弹同一条
+   *  toast,命令永远发不出去。仅本函数内部确认分支递归传入,外部调用恒走闸门。 */
   const submit = React.useCallback(
-    async (overrideValue?: string) => {
+    async (overrideValue?: string, confirmed = false) => {
       const text = (overrideValue ?? value).trim()
       if (!text) return
       // D28 /side 输入层统一拦截(2026-09-20 立):置于危险命令检测之前短路处理,
@@ -495,7 +603,46 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       // - 仅在高风险模式(bypass-permissions)下拦截,其他模式不阻断(用户已选择低风险)
       // - critical/high → 弹确认 toast(带「仍要发送」action),用户点 action 才真发
       // - medium → 普通 toast 警告(不阻断,只提醒)
-      if (isHighRisk) {
+      if (isHighRisk && !confirmed) {
+        // 语义判定优先(2026-11-04):旧实现逐条正则扫原文 —— `echo <b64> | base64 -d | bash`
+        // 与 `bash -c "$(curl ...)"` 这类组合会漏,而引号内的 `curl x | sh` 又会误杀。
+        // 新判定先还原管道/子 shell/命令替换结构,只在可执行位置命中并给出稳定 code。
+        // 旧正则表保留为兜底(仅在语义判定 safe 时运行),维持既有 critical/high 确认与
+        // medium 警告契约,避免 i18n 键失效。
+        const risk = analyzeCommandRisk(text)
+        if (risk.level !== 'safe') {
+          const topReason = risk.reasons[0]!
+          const patternLabel = t(
+            DANGEROUS_PATTERN_KEY[SEMANTIC_LEGACY_PATTERN[topReason.code] ?? ''] ??
+              'permission.dangerousPattern.unknown',
+          )
+          // blocked 表示执行即不可逆(如 rm -rf /、下载内容直接交给 shell),不提供「仍要发送」入口;
+          // needs-approval 仍需人工确认后才发送。
+          const proceed =
+            risk.level === 'blocked'
+              ? {}
+              : {
+                  action: {
+                    label: t('permission.dangerousCommandProceed'),
+                    onClick: () => {
+                      void submit(text, true)
+                    },
+                  },
+                }
+          toast(t('permission.dangerousCommandTitle'), {
+            description: t('permission.dangerousCommandDesc', {
+              pattern: patternLabel,
+              reason: topReason.message,
+            }),
+            duration: 10_000,
+            ...proceed,
+            cancel: {
+              label: t('permission.dangerousCommandCancel'),
+              onClick: () => {},
+            },
+          })
+          return
+        }
         const detection = detectDangerousCommands(text)
         if (detection.hasDangerous) {
           // 找出最严重的 critical/high 命中的 pattern + reason 展示
@@ -515,7 +662,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
               action: {
                 label: t('permission.dangerousCommandProceed'),
                 onClick: () => {
-                  void submit()
+                  void submit(text, true)
                 },
               },
               cancel: {
@@ -540,6 +687,11 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
         }
       }
       if (isStreaming) {
+        // 「插话优先」：Enter 走与闪电按钮同一套准入。排队优先仍是 W27 FIFO。
+        if (useChatStore.getState().followUpQueueMode === 'steer') {
+          await dispatchRunningSteer(text)
+          return
+        }
         // W27 输入队列(2026-09-14):流式期间入队 FIFO(可连续排队多条),
         // 显示在输入框上方,每次流式结束后自动出队发送
         setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
@@ -571,6 +723,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
       draftKey,
       inputCoreRef,
       onSent,
+      dispatchRunningSteer,
     ],
   )
 
@@ -593,55 +746,21 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     setPendingMessages((prev) => prev.filter((_, i) => i !== index))
   }, [])
 
-  /** Steer(中途引导,2026-09-19 立):仅流式期间可用(Enter 保持 W27 FIFO 不变,
-   *  本函数是闪电按钮专属路径)。取当前流式 assistant 消息 ID(网关凭
-   *  conversationId+messageId 反查 upstreamSessionId)调网关 POST /chat/steer,
-   *  由 ai-service 在 tool loop 边界注入;差距③(2026-10-30 立)起入队成功即乐观
-   *  写入 queued 条目(呈现撤回按钮),SSE injected 回执(onSteer → appendSteerNotice)
-   *  按 queuedAt/同文本匹配就地提升,不重复追加。
-   *  入队成功即清空输入框文本(引导为纯文本,不含附件引用);失败保留内容供重试。 */
+  /** 运行中待发队列重排。越界 / 同位保持原数组（reorderQueue 同判据）。 */
+  const reorderPendingMessage = React.useCallback((fromIndex: number, toIndex: number) => {
+    setPendingMessages((prev) => {
+      const next = reorderQueue(prev, fromIndex, toIndex)
+      return next === prev ? prev : [...next]
+    })
+  }, [])
+
+  /** Steer(中途引导):闪电按钮。准入与「插话优先」Enter 共用 dispatchRunningSteer。 */
   const steer = React.useCallback(async () => {
     const text = value.trim()
     // 非流式 / 空输入:静默不动作(闪电按钮在非流式态不渲染,此处为双保险)
     if (!text || !isStreaming) return
-    const store = useChatStore.getState()
-    const messageId = store.streamingAssistantId
-    const conversationId = store.conversationId
-    if (!messageId || !conversationId) {
-      // 流已收尾或会话未就绪:退化为普通入队(FIFO),不让引导文本丢失
-      setPendingMessages((prev) => [...prev, { text, refs: references.map((r) => ({ ...r })) }])
-      setValue('')
-      detachReferences()
-      requestAnimationFrame(() => inputCoreRef.current?.resize())
-      return
-    }
-    try {
-      // 2026-09-19 修正:fetchApi 对 4xx(429 队列超限/404 流已结束)返回
-      // {success:false} 而非抛错,必须显式检查,否则引导文本被静默清空丢失。
-      const result = await steerChatStream({ conversationId, messageId, text })
-      if (!result.success) {
-        // 失败:保留输入内容供重试(不 setValue('')、不清草稿)
-        toast.warning(t('steerFailed'))
-        return
-      }
-      // 埋点:中途引导发送成功(web 端)
-      track({ name: 'chat_steer', category: 'chat', label: 'web' })
-      // 差距③(2026-10-30 立):乐观写入 queued 条目,steer-notice-bar 据此渲染撤回按钮。
-      // queuedAt = 入队 ACK 回显的撤回凭据(SteerChatStreamResult.queuedAt,ISO 串;
-      // SSE injected 帧 timestamp 同值,SSE 回执据此就地提升);旧服务端无回显时回落本地钟。
-      useChatStore.getState().appendSteerNotice(messageId, {
-        text,
-        phase: 'queued',
-        queuedAt: result.data?.queuedAt ?? new Date().toISOString(),
-      })
-      setValue('')
-      if (typeof window !== 'undefined') clearDraft(draftKey)
-      requestAnimationFrame(() => inputCoreRef.current?.resize())
-    } catch {
-      // 5xx / 网络失败(fetchApi 抛错路径):同样保留输入内容,toast 提示
-      toast.warning(t('steerFailed'))
-    }
-  }, [value, isStreaming, references, setValue, detachReferences, inputCoreRef, draftKey, track, t])
+    await dispatchRunningSteer(text)
+  }, [value, isStreaming, dispatchRunningSteer])
 
   /** 差距③配套(2026-10-30 立):「打断并发送」组合语义 —— 先按 submit 流式分支同款
    *  W27 路径入队当前输入(清输入/引用/草稿),再 onStop() 停流;message-input.tsx 既有
@@ -671,6 +790,7 @@ export function useMessageSend(params: UseMessageSendParams): UseMessageSendResu
     pendingMessages,
     removePendingMessage,
     sendPendingMessage,
+    reorderPendingMessage,
     steer,
     interruptAndSend,
   }

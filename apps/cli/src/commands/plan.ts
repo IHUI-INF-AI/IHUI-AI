@@ -27,8 +27,6 @@ import {
   statSync,
 } from 'node:fs';
 import { join, dirname } from 'node:path';
-// plan 名判据与落点断言统一走 util/path-guard(不再保留第二套 sanitizePlanName 实现)。
-import { assertPathInside, assertPlainFileName } from '../util/path-guard.js';
 
 const PLANS_RELATIVE_DIR = '.ihui/plans';
 
@@ -53,9 +51,7 @@ function getPlansDir(workspace: string): string {
 }
 
 function planFilePath(workspace: string, name: string): string {
-  // 文件名已由 assertPlainFileName 拒掉穿越;这里补根内/realpath 断言(防 .ihui/plans 被换成符号链接)。
-  const dir = getPlansDir(workspace);
-  return assertPathInside(dir, join(dir, `${name}.md`), 'plan 文件');
+  return join(getPlansDir(workspace), `${name}.md`);
 }
 
 /** 时间戳(文件名安全):YYYYMMDD-HHMMSS */
@@ -65,10 +61,13 @@ function fileTimestamp(): string {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-/** 校验 plan 名称:防路径遍历,去掉 .md 后缀(用户可能传入 foo.md)。判据统一在 util/path-guard。 */
+/** 校验 plan 名称:防路径遍历,去掉 .md 后缀(用户可能传入 foo.md)。 */
 function sanitizePlanName(name: string): string {
-  const stem = assertPlainFileName(name, 'plan 名称');
-  return stem.endsWith('.md') ? stem.slice(0, -3) : stem;
+  if (!name) throw new Error('plan 名称不能为空');
+  if (name.includes('/') || name.includes('\\') || name.includes('..') || name.includes('\0')) {
+    throw new Error(`plan 名称不合法(不能含路径分隔符或 ..): ${name}`);
+  }
+  return name.endsWith('.md') ? name.slice(0, -3) : name;
 }
 
 function generatePlanTemplate(name: string): string {
@@ -108,7 +107,13 @@ function initPlan(workspace: string, name: string | undefined, force: boolean): 
   const dir = dirname(filePath);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
-  if (existsSync(filePath) && !force) {
+  const block = planOverwriteBlock(filePath, force);
+  if (block === 'unread') {
+    console.error(chalk.red(`✗ plan 读不到,不能覆盖: ${stem}`));
+    process.exitCode = 1;
+    return;
+  }
+  if (block === 'exists') {
     console.error(chalk.red(`✗ plan 已存在: ${stem}(使用 --force 覆盖)`));
     process.exitCode = 1;
     return;
@@ -120,29 +125,102 @@ function initPlan(workspace: string, name: string | undefined, force: boolean): 
 
 // ==================== list ====================
 
+export function planOverwriteBlock(
+  filePath: string,
+  force: boolean,
+  stat: (file: string) => unknown = statSync,
+): 'ok' | 'exists' | 'unread' {
+  try {
+    stat(filePath);
+    return force ? 'ok' : 'exists';
+  } catch (error) {
+    const code = errnoCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'ok';
+    return 'unread';
+  }
+}
+
+export function planLookup(
+  filePath: string,
+  stat: (file: string) => unknown = statSync,
+): 'missing' | 'unread' | 'present' {
+  try {
+    stat(filePath);
+    return 'present';
+  } catch (error) {
+    const code = errnoCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'missing';
+    return 'unread';
+  }
+}
+
+function errnoCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+export type PlanListRead =
+  | { kind: 'missing' }
+  | { kind: 'unread'; code: string }
+  | { kind: 'entries'; entries: PlanEntry[]; unreadFiles: number };
+
+/** 目录不存在才是没有。列不出来或文件读不出来，不能说成暂无。 */
+export function readPlanList(
+  plansDir: string,
+  io?: {
+    readdir?: (dir: string) => string[];
+    stat?: (file: string) => { size: number; mtime: Date };
+  },
+): PlanListRead {
+  const readdir = io?.readdir ?? readdirSync;
+  const stat = io?.stat ?? ((file: string) => {
+    const st = statSync(file);
+    return { size: st.size, mtime: st.mtime };
+  });
+  let names: string[];
+  try {
+    names = readdir(plansDir);
+  } catch (error) {
+    const code = errnoCode(error);
+    if (code === 'ENOENT') return { kind: 'missing' };
+    return { kind: 'unread', code };
+  }
+  const entries: PlanEntry[] = [];
+  let unreadFiles = 0;
+  for (const name of names) {
+    if (!name.endsWith('.md')) continue;
+    try {
+      const st = stat(join(plansDir, name));
+      entries.push({ name: name.slice(0, -3), size: st.size, mtime: st.mtime });
+    } catch (error) {
+      const code = errnoCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      unreadFiles += 1;
+    }
+  }
+  entries.sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
+  return { kind: 'entries', entries, unreadFiles };
+}
+
 function listPlans(workspace: string): void {
-  const plansDir = getPlansDir(workspace);
-  if (!existsSync(plansDir)) {
+  const result = readPlanList(getPlansDir(workspace));
+  if (result.kind === 'missing') {
     console.info(chalk.dim('暂无 plan(在 .ihui/plans/ 创建)'));
     return;
   }
-
-  const entries = readdirSync(plansDir)
-    .filter((f) => f.endsWith('.md'))
-    .map((f): PlanEntry | null => {
-      const full = join(plansDir, f);
-      try {
-        // 只读也不能顺着根内符号链接读到根外:stat 前补根内断言。
-        assertPathInside(plansDir, full, 'plan 文件');
-        const st = statSync(full);
-        return { name: f.slice(0, -3), size: st.size, mtime: st.mtime };
-      } catch {
-        return null;
-      }
-    })
-    .filter((e): e is PlanEntry => e !== null)
-    .sort((a, b) => b.mtime.getTime() - a.mtime.getTime());
-
+  if (result.kind === 'unread') {
+    console.error(chalk.red(`计划目录读不到,不能说暂无 plan (${result.code})`));
+    process.exitCode = 1;
+    return;
+  }
+  if (result.entries.length === 0 && result.unreadFiles > 0) {
+    console.error(chalk.red(`有 ${result.unreadFiles} 个 plan 文件读不到,不能说暂无 plan`));
+    process.exitCode = 1;
+    return;
+  }
+  const entries = result.entries;
   if (entries.length === 0) {
     console.info(chalk.dim('暂无 plan(在 .ihui/plans/ 创建)'));
     return;
@@ -162,6 +240,10 @@ function listPlans(workspace: string): void {
     console.info(`  [${chalk.cyan(e.name)}] ${e.size}B  ${chalk.dim(time)}`);
   }
   console.info(chalk.dim(`\n共 ${entries.length} 个 plan`));
+  if (result.unreadFiles > 0) {
+    console.error(chalk.red(`另有 ${result.unreadFiles} 个 plan 文件读不到,这份名单不完整`));
+    process.exitCode = 1;
+  }
 }
 
 // ==================== show ====================
@@ -169,7 +251,13 @@ function listPlans(workspace: string): void {
 function showPlan(workspace: string, name: string): void {
   const stem = sanitizePlanName(name);
   const filePath = planFilePath(workspace, stem);
-  if (!existsSync(filePath)) {
+  const found = planLookup(filePath);
+  if (found === 'unread') {
+    console.error(chalk.red(`✗ plan 读不到,不能说成未找到: ${stem}`));
+    process.exitCode = 1;
+    return;
+  }
+  if (found === 'missing') {
     console.error(chalk.red(`✗ 未找到 plan: ${stem}`));
     process.exitCode = 1;
     return;
@@ -183,7 +271,13 @@ function showPlan(workspace: string, name: string): void {
 function deletePlan(workspace: string, name: string, force: boolean): void {
   const stem = sanitizePlanName(name);
   const filePath = planFilePath(workspace, stem);
-  if (!existsSync(filePath)) {
+  const found = planLookup(filePath);
+  if (found === 'unread') {
+    console.error(chalk.red(`✗ plan 读不到,不能说成未找到: ${stem}`));
+    process.exitCode = 1;
+    return;
+  }
+  if (found === 'missing') {
     console.error(chalk.red(`✗ 未找到 plan: ${stem}`));
     process.exitCode = 1;
     return;

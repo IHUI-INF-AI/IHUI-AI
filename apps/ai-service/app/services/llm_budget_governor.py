@@ -57,6 +57,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
+from ..core.budget_reason import reason_code_for_usage
 from ..core.model_pricing import (
     cost_micro_usd_from_per_1k,
     micro_usd_to_usd,
@@ -171,6 +172,10 @@ class BudgetCheckResult:
     pillar_usage_percent: float    # 支柱用量百分比
     remaining_tokens: int          # 剩余 Token
     remaining_cost_usd: float      # 剩余成本
+    # 批次 3:硬停止原因的封闭集码与维度(门禁/落库/前端只认这两个机器字段;
+    # reason 继续保留给人看)。允许通行时为空串,避免消费方把"无停止"读成某个码。
+    reason_code: str = ""
+    scope: str = ""
 
 
 class BudgetExceededError(Exception):
@@ -578,14 +583,27 @@ class LLMBudgetGovernor:
 
         # 硬停止
         if usage_percent >= self.config.hard_stop_at:
+            # 批次 3:硬停必须给出封闭集原因码 —— 取实际判据(三维占比)而不是从
+            # 中文 reason 反推;pillar 维当前只进快照、不参与硬停,故不参与定码。
+            reason_code, reason_scope = reason_code_for_usage(
+                reason=None,
+                daily_token_percent=token_pct,
+                daily_cost_percent=cost_pct,
+                hourly_token_percent=hourly_pct,
+            )
             await self._emit_event("budget.critical", {
                 "pillar": pillar, "usage_percent": usage_percent,
                 "daily_tokens": daily_tokens, "daily_cost": daily_cost,
+                "reason_code": reason_code, "scope": reason_scope,
+                "hard_stop": True,
             })
             self._record_budget_event("budget.critical", {
                 "pillar": pillar, "usage_percent": usage_percent,
                 "daily_tokens": daily_tokens, "daily_cost": daily_cost,
                 "hard_stop": True,
+                "reason_code": reason_code,
+                "scope": reason_scope,
+                "remaining_tokens": remaining_tokens,
             })
             return BudgetCheckResult(
                 allowed=False,
@@ -595,6 +613,8 @@ class LLMBudgetGovernor:
                 pillar_usage_percent=pillar_usage_percent,
                 remaining_tokens=remaining_tokens,
                 remaining_cost_usd=remaining_cost,
+                reason_code=reason_code,
+                scope=reason_scope,
             )
 
         # 自动降级

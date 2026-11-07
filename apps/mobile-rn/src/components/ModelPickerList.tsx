@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.card,
   },
   toggleText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.secondary,
   },
@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: rnType.body.size,
     color: tokens.text.primary,
-    paddingVertical: 0,
+    paddingVertical: rnSpacing.none,
   },
   empty: {
     paddingVertical: rnSpacing['2xl'],

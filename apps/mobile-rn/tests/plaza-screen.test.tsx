@@ -252,13 +252,23 @@ describe('PlazaScreen 需求广场', () => {
     expect(apiMocks.navigate).toHaveBeenCalledWith('PostCreate', {})
   })
 
-  it('点击需求项 navigate 到 PostDetail', async () => {
+  it('点击需求项先开共享详情弹层,弹层内「查看详情」再 navigate 到 PostDetail', async () => {
     render(<PlazaScreen />)
     await waitFor(() => {
       expect(plazaScreenPropsCaptured.length).toBeGreaterThan(0)
     })
     const props = plazaScreenPropsCaptured[0]!
+    // 2026-11-05 起点击列表项只开共享「详情居中弹层」,导航由弹层里的
+    // 「查看详情」(detail.onOpenDetail)承担 —— 旧用例断的一步跳转已失真。
     await (props.onPressItem as (item: unknown) => void)(mockItem)
+    await waitFor(() => {
+      const latest = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!
+      expect((latest.detail as { item?: { id?: string } }).item?.id).toBe('p1')
+    })
+    const detail = plazaScreenPropsCaptured[plazaScreenPropsCaptured.length - 1]!.detail as {
+      onOpenDetail: (item: unknown) => void
+    }
+    detail.onOpenDetail(mockItem)
     expect(apiMocks.navigate).toHaveBeenCalledWith('PostDetail', { id: 'p1' })
   })
 })

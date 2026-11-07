@@ -57,9 +57,13 @@ import { FallbackBanner } from './FallbackBanner'
 // (`isStreaming` / 最后一条助手消息的工具态与错误态 / 审批待决),与"哪一条消息"无关:
 // 挂进 MessageItem 会变成"每条消息各挂一枚",同一次流式里 N 条历史消息同时声称自己在跑。
 import { TurnStatusLine } from './turn-status-line'
+// 批次 3(2026-11-06):会话级旁路提示 —— 预算硬停止与压缩边界回看。
+// 挂在消息流尾部（与 TurnStatusLine 同一挂载位置），避免改 MessageItem 的工具卡区域。
+import { SessionBudgetStopNotice } from '../budget-stop-notice'
+import { CompactionBoundaryReview } from '../compaction-boundary-review'
 // G-828(2026-10-04):窗口化的纯判据(区间 + 窗口外占位高度)单点住在 ../windowing,
 // 本组件不再手算 `offsets[len] - offsets[end+1]`。
-import { windowPaddings } from '../windowing'
+import { listItemEntranceMotion, windowPaddings } from '../windowing'
 import { useMessageListScroll } from './use-message-list-scroll'
 import { useMessageListDerivations } from './use-message-list-derivations'
 import { useMessageListSearch } from './use-message-list-search'
@@ -87,6 +91,8 @@ interface MessageListProps {
   isLoading?: boolean
   emptyTitle: string
   emptyHint: string
+  /** 深链锚点失败时用 anchor-unresolved:空态不渲染「开始新任务」模板。 */
+  emptyKind?: 'welcome' | 'anchor-unresolved'
   assistantLabel: string
   loadingLabel?: string
   onTemplateSelect?: (content: string) => void
@@ -132,6 +138,7 @@ export function MessageList({
   isLoading,
   emptyTitle,
   emptyHint,
+  emptyKind = 'welcome',
   assistantLabel,
   loadingLabel,
   onTemplateSelect,
@@ -233,6 +240,7 @@ export function MessageList({
     measureItem,
     handleScroll,
     scrollToBottom,
+    pinWindowToIndex,
     userScrolledUp,
     focusedIndex,
     isFarFromTop,
@@ -360,15 +368,27 @@ export function MessageList({
 
   // 监听 pendingJump:滚动到目标消息 + flashHighlight
   // PlanStepItem 点击 → ProgressJumpStore.requestJumpToMessage(id) → 此 effect 响应
+  // 深链锚点:行不在挂载窗口里时先 pin 到中部,下一帧再定位;around 窗口用 auto,
+  // 避免先贴底再平滑滚过去的那一跳。装饰入场(listItemEntranceMotion)恒为 none,不接动画。
   React.useEffect(() => {
     if (!pendingJump) return
     if (handledJumpNonceRef.current === pendingJump.nonce) return
-    handledJumpNonceRef.current = pendingJump.nonce
     const el = containerRef.current?.querySelector(
       `[data-message-id="${pendingJump.messageId}"]`,
     ) as HTMLElement | null
+    if (!el) {
+      const idx = visibleMessages.findIndex((m) => m.id === pendingJump.messageId)
+      if (idx >= 0 && (idx < visibleRange.start || idx > visibleRange.end)) {
+        pinWindowToIndex(idx)
+        return
+      }
+    }
+    handledJumpNonceRef.current = pendingJump.nonce
     if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.scrollIntoView({
+        behavior: messagesTurnWindowed ? 'auto' : 'smooth',
+        block: 'center',
+      })
     }
     // 即便目标暂未渲染也调用 flashHighlight(目标出现时会读到高亮状态)
     flashHighlight(pendingJump.messageId)
@@ -377,7 +397,17 @@ export function MessageList({
       clearPendingJump()
     }, 600)
     return () => window.clearTimeout(timer)
-  }, [pendingJump, flashHighlight, clearPendingJump, containerRef])
+  }, [
+    pendingJump,
+    flashHighlight,
+    clearPendingJump,
+    containerRef,
+    visibleMessages,
+    visibleRange.start,
+    visibleRange.end,
+    pinWindowToIndex,
+    messagesTurnWindowed,
+  ])
 
   // 监听自定义事件 'ihui:scroll-to-message' (agent-task-progress-pane 兼容路径)
   React.useEffect(() => {
@@ -644,6 +674,7 @@ export function MessageList({
         loadingLabel={loadingLabel}
         emptyTitle={emptyTitle}
         emptyHint={emptyHint}
+        showTemplates={emptyKind !== 'anchor-unresolved'}
         onTemplateSelect={onTemplateSelect}
         t={t}
       />
@@ -663,9 +694,10 @@ export function MessageList({
       onScroll={() => handleScroll()}
       id="message-list-panel-inline"
       role="tabpanel"
-      className="hover-scroll min-h-0 h-full flex-1 overflow-y-auto"
+      className="hover-scroll min-h-0 flex-1 overflow-y-auto"
       data-testid="message-list-inline-panel"
       data-window-active={enableVirtual ? 'true' : 'false'}
+      data-list-entrance={listItemEntranceMotion()}
       // 投影结构版本号(生产可观测面):投影结果(行集合与行引用)真的变了才 +1。
       // 流式中只改最后一条消息内容时,若段内该条被重算,版本会前进;整表原样重投影则不动。
       // e2e/单测据此判"投影层在跑且缓存生效",不必读内部实现。
@@ -680,13 +712,6 @@ export function MessageList({
       data-window-padding-bottom={paddingBottom}
     >
       <div className="mx-auto flex max-w-3xl flex-col gap-0.5 px-4 py-6">
-        {/* D181 电脑使用画中画(2026-11-04 结构性调整):会话面设置节从固定头部移入滚动内容。
-            原实现挂在消息面板外的固定头部:会话面变矮(排队条出现/输入区增高)时,固定块
-            整体溢出面板盒,画中画空态卡会盖到输入区,`[data-queue-ops]` 的点击被
-            `pip-empty-state` 命中拦截(e2e queue-interactions 模式切换实证)。
-            移入滚动内容后该节随消息流滚动,不再与输入区共享层叠/命中区域;
-            不用 pointer-events 或父级裁剪掩盖 —— 命中区域由结构本身分离。 */}
-        <PictureInPictureSection conversationId={conversationId} />
         {/* P4-2: fallback 通知横幅(主模型失败切换到备用模型时展示,amber 警告色) */}
         {fallbackNotice && (
           <FallbackBanner
@@ -768,11 +793,9 @@ export function MessageList({
         {/* D71 十态轮次状态徽章(2026-10-29 装车):流尾一行,只对**活跃轮次**出现
             (判据 `shouldShowTurnStatusLine` 复用 shared 的 `isActiveTurnState`)。
             空闲/已完成/已终止时整段不渲染 —— 历史消息不该满屏"已完成"。 */}
+        <SessionBudgetStopNotice conversationId={conversationId} />
+        <CompactionBoundaryReview conversationId={conversationId} />
         <TurnStatusLine />
-        {/* D45(2026-09-24 立,G-54):ambient suggestions 环境建议条。
-            消息列表尾部自有容器、常规文档流,不遮挡正文/不渐变遮罩/无原生 title。
-            派生用原始 messages(建议独立于档位过滤的呈现粒度)。 */}
-        <AmbientSuggestions messages={messages} />
         <div ref={bottomRef} />
       </div>
     </div>
@@ -796,9 +819,26 @@ export function MessageList({
           onPick={preview.scrollToMessage}
         />
       ) : null}
+      {/* D181 电脑使用画中画(2026-11-04 第三轮结构性调整,二次落点):从滚动内容
+          移到面板常驻条(折叠成一行),不再随消息流滚动。
+          理由:滚动内容一旦滚起来,卡片的布局盒有半截落在滚动视口之外,而视口顶边正好
+          贴着档位胶囊底边 —— 280 下审计采样有 40% 命中的是 detail-mode-* 而不是
+          开窗按钮(pip-open-window 只有 60%)。这不是 z-index 竞争:被裁掉的部分本来就
+          不在绘制区,靠 pointer-events/z-index 修不了。让它离开滚动容器才是结构解。
+          常驻条高度由组件自身折叠态约束(一行),不会像旧固定卡那样溢出面板盒盖住
+          `[data-queue-ops]`(e2e queue-interactions 命中自证仍在)。 */}
+      <PictureInPictureSection conversationId={conversationId} />
       {/* D45 档位切换胶囊(2026-09-24 立):消息流顶部工具区,紧凑三选一,持久化 */}
       <DetailModeSwitcher />
       {inlinePanelNode}
+      {/* D45(2026-09-24 立,G-54):ambient suggestions 环境建议条。
+          2026-11-04 第三轮:从滚动内容尾部移到滚动容器**下方**的常驻带。
+          旧落点的问题:建议条是消息流最后一行,会话变窄/变长时这一行会被滚动视口底边
+          切一半,切掉的那半截正好压在 cost-estimate-bar 上(280 命中 40% / 390 命中 20%)。
+          建议条是「下一步做什么」的即时动作,本就不该藏进历史记录末尾;移出滚动容器后
+          它恒在视口内、恒在成本条之上,命中区域由结构分离而非 z-index。
+          派生仍用原始 messages(建议独立于档位过滤的呈现粒度)。 */}
+      <AmbientSuggestions messages={messages} />
       {/* W18 对话流缩略导航(2026-09-13 立):右侧 Query 刻度条,点击跳转任一提问。
           2026-09-21 归一:并入 D3 定位器的滚动联动高亮,删除 ConversationLocatorRail,
           右侧只保留这一条 rail(此前两 rail 并挂,用户反馈"怎么有两个 nav") */}

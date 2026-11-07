@@ -58,7 +58,7 @@ export function StudyProgressScreen({
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{progress.weekMinutes ?? 0}</Text>
-          <Text style={styles.statLabel}>{t('studyProgress.weekMinutes')}</Text>
+          <Text style={styles.statLabel}>{t('eduProgressPage.weeklyHours')}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{progress.streakDays}</Text>
@@ -67,7 +67,7 @@ export function StudyProgressScreen({
       </View>
       <Text style={styles.sectionTitle}>{t('studyProgress.courseProgress')}</Text>
       {progress.courses.length === 0 ? (
-        <Text style={styles.muted}>{t('common.empty')}</Text>
+        <Text style={styles.muted}>{t('eduProgressPage.noData')}</Text>
       ) : (
         progress.courses.map((c) => (
           <View key={c.id} style={styles.card}>

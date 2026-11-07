@@ -8,6 +8,7 @@ import { invoke, Channel } from '@tauri-apps/api/core'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog'
 import { isTauriRuntime } from './api-base-url'
+import { verifyUpdatePackageBeforeInstall } from './update-manifest-verify'
 // 仅类型导入:check() 返回的 Update 对象类型(运行时仍动态 import,避免浏览器端加载插件)
 import type { Update } from '@tauri-apps/plugin-updater'
 
@@ -1415,6 +1416,21 @@ function withTimeout<T>(
   })
 }
 
+/**
+ * 从 Tauri Update 的原始 feed(`rawJson.platforms`)里取当前平台安装包 URL。
+ * plugin 类型未声明该字段 ⇒ 结构化读取;取不到时返回 null,由校验模块按平台在清单里挑包。
+ */
+function readPlatformAssetUrl(update: Update): string | null {
+  const raw = (update as unknown as { rawJson?: { platforms?: Record<string, unknown> } }).rawJson
+  const platforms = raw?.platforms
+  if (!platforms || typeof platforms !== 'object') return null
+  for (const value of Object.values(platforms)) {
+    const url = (value as { url?: unknown } | null)?.url
+    if (typeof url === 'string' && url.length > 0) return url
+  }
+  return null
+}
+
 export async function checkForUpdates(): Promise<UpdateSession | null> {
   if (!isTauri()) return null
   let update: Update | null
@@ -1451,29 +1467,38 @@ export async function checkForUpdates(): Promise<UpdateSession | null> {
     downloadAndInstall: async (onProgress, opts) => {
       let downloaded = 0
       let total = 0
-      // 全仓唯一一次真下载在这一行(两个消费方都经由它:useUpdater.startDownload
-      // 调 session.downloadAndInstall、quitAndUpdateIfNeeded 也调同一个 session)。
-      // 所以超时/取消**只加在这里一处**就够了 —— 在 quit 链那一侧再包一层,等于给同一件
-      // 事写第二份超时(两处实现必漂移,本仓记过最多次的失效型)。
-      const install = update.downloadAndInstall((event) => {
-        switch (event.event) {
-          case 'Started': {
-            const d = event.data as { contentLength?: number }
-            total = d.contentLength ?? 0
-            onProgress?.({ downloaded: 0, total })
-            break
+      // 2026-11-04:安装前逐文件 sha256 自校验(清单 update-files.json 随包发布)。
+      // 校验失败直接抛出 ⇒ 不进入 update.downloadAndInstall,安装被中止;
+      // 上层(useUpdater.startDownload / quitAndUpdateIfNeeded)按既有 catch 展示点名错误。
+      // 清单缺失同样拒绝更新(发布链每次同步都会同批产出清单,见 sync-downloads.mjs:696)。
+      // 校验与真下载合在同一条 install 链里,统一受下面的 withTimeout 终态约束
+      // (校验自身挂死时同样有界收口,不会退回"既不分段也不 reject"的老形态)。
+      const install = (async () => {
+        await verifyUpdatePackageBeforeInstall({ assetUrl: readPlatformAssetUrl(update) })
+        // 全仓唯一一次真下载在这一行(两个消费方都经由它:useUpdater.startDownload
+        // 调 session.downloadAndInstall、quitAndUpdateIfNeeded 也调同一个 session)。
+        // 所以超时/取消**只加在这里一处**就够了 —— 在 quit 链那一侧再包一层,等于给同一件
+        // 事写第二份超时(两处实现必漂移,本仓记过最多次的失效型)。
+        return update.downloadAndInstall((event) => {
+          switch (event.event) {
+            case 'Started': {
+              const d = event.data as { contentLength?: number }
+              total = d.contentLength ?? 0
+              onProgress?.({ downloaded: 0, total })
+              break
+            }
+            case 'Progress': {
+              const d = event.data as { chunkLength?: number }
+              downloaded += d.chunkLength ?? 0
+              onProgress?.({ downloaded, total })
+              break
+            }
+            case 'Finished':
+              onProgress?.({ downloaded: total || downloaded, total })
+              break
           }
-          case 'Progress': {
-            const d = event.data as { chunkLength?: number }
-            downloaded += d.chunkLength ?? 0
-            onProgress?.({ downloaded, total })
-            break
-          }
-          case 'Finished':
-            onProgress?.({ downloaded: total || downloaded, total })
-            break
-        }
-      })
+        })
+      })()
       // 必有终态(P1 残余①):此前这一句是 `await update.downloadAndInstall(…)`,
       // 挂起时**既不 reject 也不 resolve** —— useUpdater 停在 downloading、
       // quit 链停在 downloading 遮罩,账面零错误。现在三种结局各自有名:

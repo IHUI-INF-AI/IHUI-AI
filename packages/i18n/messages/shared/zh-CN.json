@@ -89,6 +89,8 @@
     "toolWorkbookClose": "关闭工作簿",
     "toolGenerateTest": "生成测试代码",
     "toolRunCommand": "执行命令",
+    "toolSandboxSession": "沙箱会话",
+    "toolReadToolOutput": "读取工具输出",
     "toolGitOperations": "执行 Git 操作",
     "toolFetchUrl": "读取网页内容",
     "toolCrawlSite": "抓取站点页面",
@@ -1526,7 +1528,36 @@
     "total": "总榜",
     "rank": "排名",
     "points": "积分",
-    "isMe": "我"
+    "isMe": "我",
+    "unitCreation": "分",
+    "listTitle": "AI榜单",
+    "searchPlaceholder": "搜索 AI 工具",
+    "generalHelper": "通用助手",
+    "free": "免费",
+    "fenlei": "分类",
+    "menu": "菜单",
+    "detailTitle": "详情页",
+    "statusUnknown": "未知",
+    "detail": {
+      "attention": "关注度",
+      "category": "类别",
+      "price": "价格",
+      "status": "状态",
+      "subCategory": "细分类别",
+      "productForm": "产品形式",
+      "org": "所属机构",
+      "url": "官方网址",
+      "copyHint": "点击复制",
+      "contentTitle": "详细介绍",
+      "loadFailed": "获取详情"
+    },
+    "noData": "暂无排行数据",
+    "subtitle": "学习排行榜,看看你排第几",
+    "retry": "重试",
+    "me": "我",
+    "studyHours": "学习 {count} 小时",
+    "histFallback": "历史会话",
+    "visitorName": "排行榜访客"
   },
   "vip": {
     "title": "VIP 会员",
@@ -2620,6 +2651,446 @@
           }
         }
       }
+    },
+    "messageVersion": {
+      "history": "历史版本",
+      "regenerateFailed": "重新生成失败"
+    },
+    "contextUsage": {
+      "title": "上下文使用情况",
+      "segSystem": "系统提示",
+      "segToolSchema": "工具定义",
+      "segSkill": "技能正文",
+      "segRoleUser": "用户消息",
+      "segRoleAssistant": "助手回复",
+      "segRoleToolCall": "工具调用参数",
+      "segRoleToolResult": "工具结果",
+      "segSystemPrompt": "系统提示（整段）",
+      "unnamedItem": "未命名条目",
+      "resultSuffix": "结果",
+      "unobservedServerOnly": "该部分在服务端装配，本端取不到确切用量",
+      "unobservedNotSupplied": "本轮未下发该系统段",
+      "detailsTruncated": "另有 {count} 条未展开",
+      "residualLabel": "未归类开销"
+    },
+    "title": "AI 助手",
+    "inputPlaceholder": "输入你的问题…",
+    "suggestions": [
+      "帮我写一首诗",
+      "解释量子力学",
+      "写一段代码",
+      "翻译这段话"
+    ],
+    "stop": "停止",
+    "clear": "清空",
+    "clearConfirm": "确定要清空当前对话吗?",
+    "serviceUnavailable": "AI 服务异常",
+    "modelLoadFailed": "模型加载失败",
+    "materialLoadFailed": "素材加载失败",
+    "agentLoadFailed": "智能体加载失败",
+    "agent": {
+      "count": "共 {n} 个智能体",
+      "empty": "暂无智能体",
+      "inputPlaceholder": "请描述你的问题...",
+      "searchPlaceholder": "搜索智能体"
+    },
+    "agentDetail": {
+      "runtimeTitle": "智能体运行",
+      "runtimeClear": "清空",
+      "runtimePlan": "执行计划",
+      "runtimePermission": "权限",
+      "runtimePermissionTool": "权限工具",
+      "runtimePermissionLevel": "权限级别",
+      "runtimePermissionMode": "权限模式",
+      "runtimeOutput": "输出",
+      "runtimeError": "运行出错",
+      "runtimeEmpty": "暂无运行记录",
+      "runtimeInputPlaceholder": "输入指令...",
+      "runtimeStop": "停止",
+      "runtimeSend": "发送",
+      "exampleDialog": "示例对话",
+      "favoriteAgent": "收藏智能体",
+      "favorited": "已收藏",
+      "permissionAllowed": "已允许权限",
+      "permissionDenied": "权限已拒绝",
+      "permissionLoading": "权限加载中",
+      "prologue": "开场白",
+      "promptLabel": "提示词",
+      "relatedAgents": "相关智能体",
+      "startChat": "开始对话",
+      "tabRuntime": "运行日志",
+      "unfavorite": "取消收藏",
+      "vipExclusive": "VIP 专属",
+      "vipPermissionDenied": "需要 VIP 权限,请开通后使用"
+    },
+    "agentList": {
+      "categories": {
+        "coding": "编程",
+        "education": "教育",
+        "life": "生活",
+        "office": "办公",
+        "other": "其他",
+        "recommend": "推荐",
+        "writing": "写作"
+      },
+      "createAgent": "创建智能体",
+      "emptyFavorites": "暂无收藏的智能体",
+      "emptyRecent": "暂无最近使用的智能体",
+      "hot": "热门",
+      "hotRecommend": "热门推荐",
+      "noResult": "未找到相关智能体",
+      "sortBy": "排序方式",
+      "sortHot": "按热度",
+      "sortNewest": "按最新",
+      "sortUses": "按使用量",
+      "tabAll": "全部",
+      "tabFavorites": "收藏",
+      "tabRecent": "最近",
+      "useCount": "{n} 次使用"
+    },
+    "aiAssistant": {
+      "copyFailed": "复制失败",
+      "pleaseLogin": "请先登录"
+    },
+    "chat": {
+      "replayFailed": "该会话消息加载失败,请重试",
+      "loadEarlier": "加载更早消息",
+      "earlierLoading": "加载中…",
+      "earlierLoadFailed": "更早消息加载失败,请重试",
+      "agentTipConfirm": "我知道了",
+      "agentTipHistory": "历史记录",
+      "agentTipHistoryDesc": "可查看历史对话",
+      "agentTipImage": "选择绘图",
+      "agentTipImageDesc": "切换到绘图模式,生成图片",
+      "agentTipInput": "输入问题",
+      "agentTipInputDesc": "在底部输入框输入你的问题,按发送",
+      "agentTipSkill": "选择技能",
+      "agentTipSkillDesc": "点击左上角技能按钮,选择对应智能体",
+      "agentTipTalk": "选择对话",
+      "agentTipTalkDesc": "切换到对话模式,与 AI 直接交流",
+      "agentTipTitle": "智能体使用说明"
+    },
+    "chatDrawers": {
+      "promptLabel": "提示词",
+      "selectModel": "选择模型",
+      "skillDetail": "技能详情"
+    },
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "AI 生成",
+      "collapse": "收起",
+      "copy": "复制",
+      "digitalHuman": "数字人",
+      "downloadFailed": "下载失败",
+      "downloading": "下载中...",
+      "edit": "编辑",
+      "errorCardTitle": "请求出错",
+      "favorited": "已收藏",
+      "me": "我",
+      "needAlbumAuth": "需要相册权限",
+      "noContent": "暂无内容",
+      "regenerate": "重新生成",
+      "retry": "重试",
+      "reuse": "复用",
+      "share": "分享",
+      "speak": "朗读",
+      "stopSpeak": "停止朗读",
+      "thinkingProcess": "思考过程",
+      "tokenCost": "消耗 {n} tokens",
+      "viewDigitalHuman": "查看数字人",
+      "voiceMessage": "语音消息"
+    },
+    "common": {
+      "loading": "加载中..."
+    },
+    "fileSelected": "已选择 {count} 个文件",
+    "screenshotHint": "已检测到截屏，可点输入框左侧 + 从相册选择图片发给 AI 分析",
+    "generating": "AI 生成中...",
+    "history": {
+      "clearConfirm": "确定要清空历史记录吗?",
+      "cleared": "已清空",
+      "empty": "暂无历史记录",
+      "title": "历史记录"
+    },
+    "historyPage": {
+      "loadMoreFailed": "加载更多失败,请下拉刷新重试",
+      "deleteFailed": "删除失败,请重试",
+      "clearAll": "清空全部",
+      "clearConfirm": "确定要清空全部对话历史吗?",
+      "cleared": "已清空",
+      "clearServerConfirm": "将永久删除服务端当前已加载的 {n} 条会话,不可恢复。确定清空吗?",
+      "clearServerProgress": "正在删除 {done}/{n}…",
+      "clearServerDone": "已清空 {n} 条会话",
+      "clearServerPartial": "成功 {ok} 条,失败 {fail} 条,失败会话已保留",
+      "deleteOne": "删除该对话",
+      "empty": "暂无历史记录",
+      "fallbackNotice": "服务端会话加载失败,当前显示本机历史记录",
+      "msgCount": "{n} 条消息",
+      "noMore": "没有更多了",
+      "noResult": "未找到相关对话",
+      "pin": "置顶",
+      "pinFailed": "置顶失败,请重试",
+      "pinned": "已置顶",
+      "refreshSuccess": "刷新成功",
+      "searchPlaceholder": "搜索对话历史",
+      "startNew": "开始新对话",
+      "unpinFailed": "取消置顶失败,请重试"
+    },
+    "image": {
+      "download": "下载",
+      "downloadFailed": "下载失败",
+      "downloadSuccess": "下载成功",
+      "empty": "暂无图片",
+      "emptyHint": "还没有图片,快去生成吧",
+      "favorite": "收藏",
+      "favoriteAdded": "已收藏",
+      "favoriteRemoved": "已取消收藏",
+      "favorited": "已收藏",
+      "generate": "生成",
+      "generateFailed": "生成失败",
+      "generating": "生成中...",
+      "history": "历史",
+      "placeholder": "请输入图片描述...",
+      "share": "分享",
+      "title": "AI 绘图",
+      "tryThese": "试试这些提示词",
+      "vertical": "竖版",
+      "examples": [
+        "一只可爱的猫咪",
+        "日落山景",
+        "未来城市",
+        "抽象艺术"
+      ],
+      "styles": [
+        "写实",
+        "动漫",
+        "油画",
+        "水彩",
+        "3D",
+        "像素"
+      ]
+    },
+    "inputArea": {
+      "holdToSpeak": "按住说话",
+      "releaseToSend": "松开发送"
+    },
+    "intelligentAssistant": {
+      "greeting": "你好,我是你的智能助手",
+      "loginRequired": "请先登录后使用",
+      "recharge": "去充值",
+      "subtitle": "随时为你提供 AI 服务",
+      "tokenBalance": "Token 余额:{n}"
+    },
+    "materialPopup": {
+      "empty": "暂无素材",
+      "loadMore": "加载更多",
+      "noMore": "没有更多了",
+      "title": "素材库",
+      "upload": "上传"
+    },
+    "messageAction": {
+      "copy": "复制",
+      "delete": "删除",
+      "reuse": "复用",
+      "pin": "钉选",
+      "unpin": "取消钉选",
+      "bookmark": "收藏",
+      "unbookmark": "取消收藏",
+      "flagFailed": "标记保存失败"
+    },
+    "share": {
+      "title": "分享"
+    },
+    "skillsPopup": {
+      "empty": "暂无技能",
+      "notFound": "未找到相关技能",
+      "searchPlaceholder": "搜索技能",
+      "title": "选择技能",
+      "uses": "{n} 次使用"
+    },
+    "special": {
+      "bannerDesc": "一站式聚合 AI 对话/绘图/视频/语音/智能体/模型广场,精选推荐能力即时使用",
+      "bannerTitle": "AI 专题聚合",
+      "cat": {
+        "agent": "智能体",
+        "all": "全部",
+        "chat": "AI 对话",
+        "image": "AI 绘图",
+        "plaza": "模型广场",
+        "video": "AI 视频",
+        "voice": "AI 语音"
+      },
+      "empty": "暂无内容",
+      "error": "加载失败",
+      "featured": "精选推荐",
+      "history": "我的使用记录",
+      "historySoon": "历史记录即将开放",
+      "pageError": "操作失败",
+      "useBtn": "立即使用",
+      "useCount": "{n} 次使用"
+    },
+    "specialModel": {
+      "confirm": "确认切换",
+      "hint": "提示"
+    },
+    "stream": {
+      "compact": "上下文已压缩 {before} → {after}",
+      "fallback": "已切换备用模型:{model}",
+      "planUpdate": "执行计划已更新",
+      "reconnect": "连接中断,{seconds}s 后第 {attempt} 次重连",
+      "gatewayRetry": "第 {attempt}/{max} 次重试,{seconds} 秒后继续",
+      "subagent": "子任务:{phase}",
+      "title": "执行过程",
+      "toolSummary": "工具汇总:{calls} 次调用",
+      "terminal": "终端任务:{status}",
+      "usage": "用量:{n} tokens"
+    },
+    "switchAgent": {
+      "confirm": "确认切换"
+    },
+    "thinkingTip": "AI 正在思考...",
+    "tishi": {
+      "close": "收起",
+      "needInput": "请输入内容",
+      "title": "使用提示",
+      "view": "查看"
+    },
+    "uploadMaterialTab": "已切换到{tab}模式",
+    "video": {
+      "download": "下载",
+      "downloadFailed": "下载失败",
+      "downloadSuccess": "下载成功",
+      "emptyHistory": "暂无生成记录",
+      "failed": "生成失败",
+      "generate": "生成",
+      "generateFailed": "生成失败",
+      "generating": "生成中...",
+      "history": "历史",
+      "modelUnavailable": "该模型暂不可用",
+      "notAvailable": "暂不可用",
+      "pending": "排队中",
+      "promptPlaceholder": "请输入视频描述...",
+      "share": "分享",
+      "succeeded": "生成成功",
+      "taskSubmitted": "任务已提交",
+      "title": "AI 视频",
+      "duration": "时长",
+      "resolution": "分辨率",
+      "fps": "帧率",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "使用 Sora2 生成视频",
+        "kling": "Kling",
+        "klingDesc": "生成高质量 AI 视频",
+        "doubao": "豆包",
+        "doubaoDesc": "使用豆包模型生成视频",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "使用阿里云 DashScope 生成视频"
+      }
+    },
+    "voice": {
+      "chatFailed": "对话失败,请重试",
+      "clearChat": "清空对话",
+      "clearConfirm": "确定要清空当前对话吗?",
+      "cleared": "对话已清空",
+      "holdToSpeak": "按住说话",
+      "recordFailed": "录音失败,请重试",
+      "releaseToSend": "松开发送",
+      "speed": "语速",
+      "timbre": "音色",
+      "title": "AI 语音对话",
+      "voiceMessage": "[语音消息]",
+      "welcome": "你好,我是你的 AI 语音助手,点击下方按钮开始对话吧"
+    },
+    "welcomeDesc": "一站式 AI 能力聚合,对话、绘图、视频、语音、智能体,一切尽在掌握",
+    "welcomeTitle": "欢迎使用智汇 AI",
+    "businessForms": {
+      "ariaLabel": "业务表单卡",
+      "aria": {
+        "email": "邮件撰写卡",
+        "calendarEvent": "日历表单卡"
+      },
+      "fields": {
+        "to": "收件人",
+        "cc": "抄送",
+        "bcc": "密送",
+        "subject": "主题",
+        "replyTo": "回复至",
+        "body": "正文",
+        "start": "开始",
+        "end": "结束",
+        "attendees": "出席人"
+      },
+      "action": {
+        "approve": "批准",
+        "reject": "拒绝",
+        "create": "创建",
+        "save": "保存"
+      },
+      "error": {
+        "required": "请填写必填项",
+        "invalidEmail": "邮箱格式不正确",
+        "endBeforeStart": "结束时间需晚于开始时间",
+        "noAttendees": "请至少添加一位出席人"
+      },
+      "reason": "拒绝理由(可选)",
+      "fold": {
+        "expand": "展开全部 {count} 位出席人",
+        "collapse": "收起出席人"
+      },
+      "status": {
+        "submitting": "提交中…",
+        "approved": "已批准",
+        "rejected": "已拒绝",
+        "failed": "提交失败，请重试"
+      }
+    },
+    "cards": {
+      "steer": {
+        "title": "已引导 {count} 次",
+        "more": "等 {count} 条"
+      },
+      "plan": {
+        "title": "执行计划"
+      },
+      "tool": {
+        "title": "工具调用"
+      },
+      "terminal": {
+        "title": "终端任务",
+        "isolation": "命令在隔离沙箱中执行，默认不开放网络",
+        "copy": "复制",
+        "copied": "已复制",
+        "exitCode": "退出码:{code}",
+        "truncated": "…(已截断,共 {total} 字符)"
+      },
+      "citation": {
+        "title": "参考来源"
+      },
+      "injection": {
+        "title": "本轮参考的上下文",
+        "kind": {
+          "developer": "自定义指令",
+          "workspace": "工作区记忆",
+          "repoWiki": "仓库 Wiki",
+          "autoContext": "自动检索上下文"
+        },
+        "expand": "展开",
+        "collapse": "收起"
+      },
+      "status": {
+        "running": "执行中",
+        "done": "已完成",
+        "failed": "失败"
+      },
+      "source": {
+        "builtin": "内置",
+        "plugin": "插件",
+        "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "子任务"
+      }
     }
   },
   "streamErrors": {
@@ -2841,5 +3312,152 @@
     "exportingReport": "导出中...",
     "exportEmptyHint": "生成报告后可导出",
     "exportLoginRequired": "请先登录后再导出"
+  },
+  "message": {
+    "tabs": {
+      "all": "全部",
+      "system": "系统",
+      "interaction": "互动",
+      "private": "私信"
+    },
+    "notifLabels": {
+      "system": "系统通知",
+      "interaction": "互动消息",
+      "private": "私信",
+      "marketing": "营销消息"
+    },
+    "notifDescs": {
+      "system": "账户、订单、安全等系统通知",
+      "interaction": "点赞、评论、关注等互动消息",
+      "private": "其他用户发给你的私信",
+      "marketing": "优惠活动、新品推荐等"
+    },
+    "hello": "你好,我是 {name}",
+    "justNow": "刚刚",
+    "unnamedRoom": "未命名会话",
+    "empty": "暂无消息",
+    "deleted": "已删除",
+    "notFound": "未找到相关会话",
+    "settings": "设置",
+    "notificationSettings": "通知设置",
+    "close": "关闭",
+    "startConversation": "开始你们的对话",
+    "inputPlaceholder": "输入消息...",
+    "sendBtn": "发送",
+    "noPrivate": "暂无私信",
+    "noSystem": "暂无系统通知",
+    "pin": "置顶会话",
+    "unpin": "取消置顶"
+  },
+  "developer": {
+    "withdrawal": {
+      "title": "提现记录",
+      "processing": "处理中",
+      "empty": "暂无提现记录"
+    },
+    "subscribe": {
+      "recommended": "推荐",
+      "devName": "开发者",
+      "unfollowed": "已取消关注",
+      "noContact": "暂无联系方式",
+      "bioDefault": "暂无简介",
+      "subscribedBtn": "已关注",
+      "subscribeBtn": "+ 关注",
+      "statSubscribers": "订阅人数",
+      "statModels": "模型数",
+      "statUses": "总使用次数",
+      "modelsTitle": "开发者模型",
+      "noModels": "暂无模型",
+      "notifyTitle": "通知设置",
+      "notifyNew": "新模型发布提醒",
+      "notifyUpdate": "模型更新提醒",
+      "postsTitle": "开发者动态",
+      "noPosts": "暂无动态",
+      "contact": "联系开发者",
+      "copied": "已复制联系方式",
+      "noDesc": "暂无描述",
+      "subscribed": "已关注",
+      "use": "使用",
+      "uses": "使用"
+    },
+    "income": {
+      "withdrawn": "已提现",
+      "withdrawPopup": "提现",
+      "withdrawAvailable": "可提现金额 ¥",
+      "withdrawPlaceholder": "请输入提现金额",
+      "withdrawAll": "全部提现",
+      "noAvailable": "暂无可提现金额",
+      "invalidAmount": "请输入有效金额",
+      "exceedAvailable": "提现金额超出可提现额度",
+      "withdrawSubmitted": "提现申请已提交",
+      "withdrawFailed": "提现失败,请稍后重试",
+      "withdrawnYuan": "已提现(元)",
+      "selectMethod": "请选择提现方式",
+      "settled": "已结算",
+      "pending": "待结算",
+      "titleIncome": "智能体收入",
+      "processing": "处理中",
+      "titleDetail": "提现明细",
+      "tabAll": "全部",
+      "tabPending": "待结算",
+      "tabSettled": "已结算",
+      "cashDetail": "提现明细",
+      "todayIncome": "今日收入",
+      "pendingSettlement": "待结算金额",
+      "feeTip": "平台限时不收取任何服务费",
+      "noMore": "没有更多了",
+      "cashEmpty": "暂无提现明细"
+    },
+    "index": {
+      "subscribeTitle": "订阅服务",
+      "subscribeDesc": "升级解锁更多能力",
+      "unnamedAgent": "未命名智能体",
+      "published": "已发布",
+      "empty": "暂无智能体",
+      "tip": "提示",
+      "deleteConfirm": "确认删除智能体",
+      "deleteBtn": "删除",
+      "deleteOk": "删除成功",
+      "deleteFail": "删除失败",
+      "noType": "—",
+      "myAgents": "我的智能体",
+      "searchPlaceholder": "搜索智能体名称",
+      "typeLabel": "类型",
+      "editBtn2": "修改",
+      "editBtn": "设置",
+      "noMore": "没有更多了"
+    },
+    "becomeDeveloper": "成为开发者"
+  },
+  "news": {
+    "search": "搜索资讯",
+    "empty": "暂无资讯",
+    "cat": {
+      "announce": "公告",
+      "activity": "活动",
+      "info": "资讯",
+      "tutorial": "教程",
+      "all": "全部"
+    },
+    "pinned": "置顶",
+    "title": "AI资讯",
+    "anonAuthor": "佚名",
+    "netFail": "网络异常",
+    "detailTitle": "资讯详情",
+    "notFound": "资讯不存在",
+    "emptyContent": "暂无正文",
+    "tags": "标签",
+    "loadFailed": "加载失败",
+    "publishedAt": "发布于 {date}",
+    "viewCount": "{count} 次浏览",
+    "categoryBackToList": "返回资讯",
+    "categoryNotFound": "分类不存在",
+    "categoryEmpty": "暂无资讯",
+    "categoryPinned": "置顶",
+    "categorySubtitle": "最新动态与公告",
+    "categoryLoadFailed": "加载失败",
+    "categoryTotal": "共 {total} 篇",
+    "categoryPublishedAt": "发布于 {date}",
+    "categoryViewCount": "{count} 次浏览"
   }
 }

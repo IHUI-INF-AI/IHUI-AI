@@ -671,7 +671,10 @@ export default function Community() {
           {/* FloatBox 浮动组件 — 对齐原项目放在 main-container 内第一层 */}
           <FloatBox />
 
-          {/* 双层导航栏:第一个 fixed z-index:999(对齐原项目),第二个 opacity:0 占位 */}
+          {/* 固定导航栏(fixed z-index:999,对齐原项目)。不参与文档流的占位不用第二枚
+              同形 NavBar 充数 —— 它只是"状态栏 top + 行高 height+8"这一档高度,与注入的
+              --app-top-bar-height 同一取数(NavBar ai-home 的 leading/rowStyle 同式),
+              用 spacer 承接即可,避免同一棵 UI 在页内出现两次。 */}
           <View style={{ position: 'fixed', left: 0, top: 0, right: 0, zIndex: 999 }}>
             <NavBar
               variant="ai-home"
@@ -684,18 +687,7 @@ export default function Community() {
               onSearchClick={handleSearchClick}
             />
           </View>
-          <View style={{ opacity: 0 }}>
-            <NavBar
-              variant="ai-home"
-              title={tt('community.m2', 'A I 应用商店')}
-              bgColor="var(--color-card)"
-              showFenLei
-              showSearch
-              onFenLeiClick={handleFenLeiClick}
-              onMenuClick={handleMenuClick}
-              onSearchClick={handleSearchClick}
-            />
-          </View>
+          <View style={{ height: appTopBarHeight }} />
 
           {/* mask — 分类弹层遮罩(对齐原项目) */}
           {showCategoryPopup ? (

@@ -89,10 +89,12 @@ export function LoginHistory() {
             className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-accent"
           >
             <div className="min-w-0 flex-1">
-              <p className="text-sm text-muted-foreground">{fmtTime(recent.createdAt)}</p>
+              <p className="font-[weight:inherit] text-body text-muted-foreground">
+                {fmtTime(recent.createdAt)}
+              </p>
               {/* 本卡只取 login-history(audit_logs 恒 auth.login),把 action 原值摊给中文用户没有信息量,
                   故显示 IP 与 UA;UA 为空时不留一个孤立的分隔点 */}
-              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <p className="font-[weight:inherit] mt-0.5 flex items-center gap-1 text-label text-muted-foreground">
                 <span className="font-mono">{recent.ip ?? '-'}</span>
                 {recent.userAgent ? (
                   <>
@@ -108,7 +110,9 @@ export function LoginHistory() {
             </span>
           </Link>
         ) : (
-          <p className="py-4 text-center text-sm text-muted-foreground">{t('history.empty')}</p>
+          <p className="font-[weight:inherit] py-4 text-center text-body text-muted-foreground">
+            {t('history.empty')}
+          </p>
         )}
       </CardContent>
     </Card>

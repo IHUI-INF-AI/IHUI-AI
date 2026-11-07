@@ -196,34 +196,56 @@ def _dump_failure(failure: Any) -> str:
     return str(failure)
 
 
-def list_workspace_files(root: str, limit: int = 60) -> list[str]:
-    """列出工作区内可编辑的源文件绝对路径(供补丁生成定位真实目标文件)。
+def list_workspace_files(root: str, limit: int = 60) -> dict[str, Any]:
+    """列出工作区内能读到的源文件,并标明这份名单是否完整。
 
     2026-09-12 立:实测 LLM 拿到 workspace_root 后仍会猜文件名(把 calc.py 猜成
     divide.py / math_ops.py),补丁虽然落盘却不命中失败文件。给出真实文件清单后
     LLM 才能选中正确文件。
+
+    返回 ``{"files", "unread_dirs", "capped"}``。目录不存在是空名单且
+    ``unread_dirs=0``。列目录失败或名单触顶时,``files`` 只是已观察到的部分,
+    不能当成全部可编辑文件。
     """
     import os
+    import stat
     from pathlib import Path
 
     SKIP = {".venv", "__pycache__", ".git", "node_modules", ".mypy_cache", ".pytest_cache"}
+    absent: dict[str, Any] = {"files": [], "unread_dirs": 0, "capped": False}
     try:
         base = Path(root)
-        if base.is_file():
-            return [str(base)]
-        if not base.is_dir():
-            return []
-        out: list[str] = []
-        for dirpath, dirnames, filenames in os.walk(base):
-            dirnames[:] = [d for d in dirnames if d not in SKIP]
-            for name in sorted(filenames):
-                if name.endswith((".py", ".ts", ".tsx", ".js", ".jsx")):
-                    out.append(str(Path(dirpath) / name))
-                    if len(out) >= limit:
-                        return sorted(out)
-        return sorted(out)
-    except Exception:  # noqa: BLE001 - 列目录失败不影响主流程
-        return []
+        st = base.stat()
+    except FileNotFoundError:
+        return absent
+    except OSError:
+        return {"files": [], "unread_dirs": 1, "capped": False}
+    if stat.S_ISREG(st.st_mode):
+        return {"files": [str(base)], "unread_dirs": 0, "capped": False}
+    if not stat.S_ISDIR(st.st_mode):
+        return absent
+
+    out: list[str] = []
+    unread = 0
+    capped = False
+
+    def _on_walk_error(err: OSError) -> None:
+        nonlocal unread
+        if isinstance(err, FileNotFoundError):
+            return
+        unread += 1
+
+    for dirpath, dirnames, filenames in os.walk(base, onerror=_on_walk_error):
+        dirnames[:] = [d for d in dirnames if d not in SKIP]
+        for name in sorted(filenames):
+            if name.endswith((".py", ".ts", ".tsx", ".js", ".jsx")):
+                out.append(str(Path(dirpath) / name))
+                if len(out) >= limit:
+                    capped = True
+                    break
+        if capped:
+            break
+    return {"files": sorted(out), "unread_dirs": unread, "capped": capped}
 
 
 def _resolve_test_file(test_id: str, workspace_root: str | None) -> str | None:
@@ -303,7 +325,17 @@ def read_failure_sources(
         if not test_id:
             return ""
         path = _resolve_test_file(str(test_id), str(root))
-        if not path or not _path_within(str(root), path) or not os.path.isfile(path):
+        if not path or not _path_within(str(root), path):
+            return ""
+        import stat
+
+        try:
+            mode = os.stat(path).st_mode
+        except FileNotFoundError:
+            return ""
+        except OSError:
+            return "测试源码读不到,不能把它说成没有这段断言"
+        if not stat.S_ISREG(mode):
             return ""
         with open(path, encoding="utf-8", errors="replace") as f:
             text = f.read()
@@ -355,6 +387,50 @@ def _dump_context(context: Any) -> str:
     return str(context)
 
 
+def _workspace_file_view(raw: Any) -> tuple[list[str], int, bool]:
+    """把工作区文件名单归一成路径、未读目录数、是否触顶。"""
+    if isinstance(raw, dict):
+        listed = raw.get("files")
+        paths = [str(item) for item in listed] if isinstance(listed, list) else []
+        try:
+            unread = int(raw.get("unread_dirs") or 0)
+        except (TypeError, ValueError):
+            unread = 0
+        return paths, max(unread, 0), bool(raw.get("capped"))
+    if isinstance(raw, list):
+        return [str(item) for item in raw], 0, False
+    return [], 0, False
+
+
+def _workspace_files_prompt(files: list[str], unread_dirs: int, capped: bool) -> str:
+    """名单不完整时,禁止写成「只能从这些路径里选」。"""
+    if unread_dirs and not files:
+        return (
+            "Workspace file list could not be read. "
+            "This is not an empty workspace. Do not invent file paths.\n\n"
+        )
+    if not files:
+        return ""
+    body = "\n".join(f"- {path}" for path in files)
+    if unread_dirs or capped:
+        reasons: list[str] = []
+        if unread_dirs:
+            reasons.append(f"{unread_dirs} directories could not be listed")
+        if capped:
+            reasons.append("the list hit its size cap")
+        return (
+            "Editable source files observed in the workspace:\n"
+            f"{body}\n"
+            "This list is not complete (" + "; ".join(reasons) + "). "
+            "Do not treat it as every editable file, and do not invent paths.\n\n"
+        )
+    return (
+        "Editable source files in the workspace "
+        "(file_path MUST be exactly one of these paths):\n"
+        f"{body}\n\n"
+    )
+
+
 def llm_patch_fn(
     failure: Any, context: Any, *, llm: Any = None, model: str | None = None
 ) -> dict[str, Any] | None:
@@ -366,20 +442,14 @@ def llm_patch_fn(
     gateway = llm if llm is not None else llm_gateway
     used_model = model or DEFAULT_MODEL
     root = context.get("workspace_root") if isinstance(context, dict) else None
-    files = context.get("workspace_files") if isinstance(context, dict) else None
+    files_raw = context.get("workspace_files") if isinstance(context, dict) else None
+    files, unread_dirs, files_capped = _workspace_file_view(files_raw)
     root_line = (
         f"Workspace root (every file_path you return MUST be inside it): {root}\n\n"
         if root
         else ""
     )
-    files_line = (
-        "Editable source files in the workspace "
-        "(file_path MUST be exactly one of these paths):\n"
-        + "\n".join(f"- {f}" for f in files)
-        + "\n\n"
-        if files
-        else ""
-    )
+    files_line = _workspace_files_prompt(files, unread_dirs, files_capped)
     # 失败测试的真实源码走独立段落(不塞进 _dump_context,避免重复与上下文膨胀)。
     # 优先用 _patch_adapter 显式注入的 context["failing_test_source"],缺失时自行收集。
     src = context.get("failing_test_source") if isinstance(context, dict) else None
@@ -425,6 +495,10 @@ def llm_patch_fn(
 # ---------------------------------------------------------------------------
 # 3. 真实 pytest 子进程 runner
 # ---------------------------------------------------------------------------
+
+
+class JunitUnread(RuntimeError):
+    """junit 文件在,但这次没读到。不能改去解析 stdout 冒充没有这份结果。"""
 
 
 class PytestSubprocessRunner:
@@ -493,6 +567,18 @@ class PytestSubprocessRunner:
             }
         try:
             return self._parse_junit(junit_path, proc.stdout, proc.returncode)
+        except JunitUnread as exc:
+            return {
+                "passed": [],
+                "failures": [
+                    {
+                        "test_id": self.target_path,
+                        "message": str(exc),
+                        "exception_type": "JunitUnread",
+                    }
+                ],
+                "coverage_hint": "pytest",
+            }
         except Exception as exc:  # noqa: BLE001 - junit 解析失败回退 stdout
             logger.warning(
                 "[self_healing_llm] junit parse failed, fallback stdout: %s", exc
@@ -505,8 +591,14 @@ class PytestSubprocessRunner:
         return os.path.join(d, f"sh_{uuid.uuid4().hex}.xml")
 
     def _parse_junit(self, junit_path: str, stdout: str, returncode: int) -> dict[str, Any]:
-        if not os.path.exists(junit_path):
+        try:
+            os.stat(junit_path)
+        except (FileNotFoundError, NotADirectoryError):
             return self._parse_stdout(stdout, returncode)
+        except OSError as exc:
+            raise JunitUnread(
+                f"junit 读不到,不能把它说成没有这份结果 ({exc.errno})"
+            ) from exc
         root = ET.parse(junit_path).getroot()
         suites = root.iter("testsuite") if root.tag == "testsuites" else [root]
         passed: list[str] = []
@@ -713,8 +805,12 @@ def apply_patch_descriptor(
         diff = str(patch.get("diff") or "")
         if not diff:
             return False, "patch missing new_content"
-        if not os.path.exists(file_path):
+        try:
+            os.stat(file_path)
+        except FileNotFoundError:
             return False, f"diff patch target does not exist: {file_path}"
+        except OSError:
+            return False, "diff patch target unreadable, cannot treat it as missing"
         try:
             with open(file_path, encoding="utf-8") as f:
                 current = f.read()

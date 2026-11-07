@@ -241,11 +241,20 @@ export type GuardedRemovalOutcome =
   | { removed: true; id: string }
   | { removed: false; reason: 'missing-identity' | 'identity-mismatch' | 'not-found'; id: string };
 
-/** 清理任务关联的 worktree(收尾调用,失败吞掉不阻塞) */
+/**
+ * 清理任务关联的 worktree(收尾调用)。
+ *
+ * goal-b49 W-2(与 `tools/worktree.ts` 的 `cleanupWorktree` 改出可传拒返回形态**同批**,缺一条即不算结清):
+ * `cleanupWorktree` 现返回 `WorktreeCleanupOutcome`,这里只在目录**真没了**(`removed` / `absent`)时才清
+ * `task.worktreePath`;`refused`(容器性判越界)/ `failed`(fs / git 抛错)一律**保留账面**——否则一次拒绝
+ * 会被下一次收尾静默洗成"已处理"(§0.9/§0.10 反面),而账面还指着那枚没删掉的目录。
+ */
 function cleanupTaskWorktree(task: BackgroundTask): void {
   if (!task.worktreePath) return;
-  cleanupWorktree(task.worktreePath, task.worktreeSourcePath ?? process.cwd(), true);
-  task.worktreePath = undefined;
+  const outcome = cleanupWorktree(task.worktreePath, task.worktreeSourcePath ?? process.cwd(), true);
+  if (outcome.status === 'removed' || outcome.status === 'absent') {
+    task.worktreePath = undefined;
+  }
 }
 
 /**

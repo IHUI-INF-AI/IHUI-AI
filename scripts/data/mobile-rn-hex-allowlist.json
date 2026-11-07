@@ -20,15 +20,6 @@
       "evidence": "PersonalInformationCard.tsx:74 MEDIA_TEXT"
     },
     {
-      "component": "use-push",
-      "value": "#ff231f7c",
-      "file": "apps/mobile-rn/src/hooks/use-push.ts",
-      "owner": "rn-platform",
-      "expires": "2027-03-27",
-      "reason": "Android 通知 LED lightColor 的平台参数,8 位带 alpha 的红色;主题 token 不承载通知通道参数,无对应语义",
-      "evidence": "use-push.ts:63 lightColor"
-    },
-    {
       "component": "ChatScreen",
       "value": "#9cdcfe",
       "file": "apps/mobile-rn/src/screens/ChatScreen.tsx",
@@ -54,15 +45,6 @@
       "expires": "2027-03-27",
       "reason": "登录页内嵌 SVG 品牌字标的矢量填充值,属于图形资源字面量而非样式取值;替换成主题 token 会让同一矢量在暗色下换色",
       "evidence": "LoginScreen.tsx:147 svg fill"
-    },
-    {
-      "component": "MoreCourseScreen",
-      "value": "#93d2e2",
-      "file": "apps/mobile-rn/src/screens/MoreCourseScreen.tsx",
-      "owner": "rn-ui",
-      "expires": "2027-03-27",
-      "reason": "Uniapp 三色渐变的中间色近似(项目未引入渐变库),design-tokens 无同值档;新增档需产品先定渐变语义",
-      "evidence": "MoreCourseScreen.tsx:285 root backgroundColor"
     },
     {
       "component": "ScanLoginScreen",

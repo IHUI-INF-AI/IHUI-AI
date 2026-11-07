@@ -126,7 +126,7 @@ export function WalletScreen({
               onPress={() => onAction('recharge')}
               activeOpacity={0.7}
             >
-              <Text style={styles.rechargeBtnText}>{t('tokenValue.rechargeLabel')}</Text>
+              <Text style={styles.rechargeBtnText}>{t('wallet.recharge')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.withdrawBtn}
@@ -160,7 +160,7 @@ export function WalletScreen({
             ) : flows.loading ? (
               <View style={styles.flowState}>
                 <ActivityIndicator color={tk.text.tertiary} />
-                <Text style={styles.muted}>{t('wallet.flowsLoading')}</Text>
+                <Text style={styles.muted}>{t('wallet.loading')}</Text>
               </View>
             ) : flows.error ? (
               <View style={styles.flowState}>
@@ -200,7 +200,7 @@ export function WalletScreen({
                 accessibilityLabel={t('wallet.flowsLoadMore')}
               >
                 <Text style={styles.moreText}>
-                  {flows.loadingMore ? t('wallet.flowsLoading') : t('wallet.flowsLoadMore')} (
+                  {flows.loadingMore ? t('wallet.loading') : t('wallet.flowsLoadMore')} (
                   {flows.items.length}/{flows.total})
                 </Text>
               </TouchableOpacity>
@@ -235,7 +235,7 @@ function FlowRow({ item, t, styles }: FlowRowProps) {
       </Text>
       <Text style={styles.flowMeta}>{item.createdAtText}</Text>
       <Text style={styles.flowMeta}>
-        {t('wallet.flowBalanceAfter')}: ¥{fenToYuan(item.balanceAfter)}
+        {t('wallet.flowBalance')}: ¥{fenToYuan(item.balanceAfter)}
       </Text>
     </View>
   )

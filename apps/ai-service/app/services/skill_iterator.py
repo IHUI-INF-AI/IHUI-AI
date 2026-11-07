@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import stat
 from datetime import UTC, datetime
 from typing import Any
 
@@ -69,8 +70,11 @@ class SkillIterator:
             parsed["reason"] = parsed.get("reason", "") + " [新内容为空,未落盘]"
             return parsed
 
-        # 读旧文件 + 计算新版本
-        old_md, skill_path = self._read_skill_file(skill_name)
+        # 读旧文件 + 计算新版本。读不到不能按空内容重写。
+        try:
+            old_md, skill_path = self._read_skill_file(skill_name)
+        except OSError as exc:
+            return self._no_iterate(str(exc))
         current_version = self._extract_version(old_md) or "1.0.0"
         new_version = self.bump_version(current_version)
 
@@ -253,14 +257,19 @@ class SkillIterator:
 
         auto_dir = SkillRegistry._auto_dir()
         skill_path = os.path.join(auto_dir, f"{skill_name}.md")
-        if not os.path.isfile(skill_path):
+        try:
+            st = os.stat(skill_path)
+        except FileNotFoundError:
             return "", skill_path
+        except OSError as exc:
+            raise OSError(f"技能文件读不到,不能按空内容重写: {skill_path}") from exc
+        if not stat.S_ISREG(st.st_mode):
+            raise OSError(f"技能文件读不到,不能按空内容重写: {skill_path}")
         try:
             with open(skill_path, encoding="utf-8") as f:
                 return f.read(), skill_path
-        except Exception as e:
-            logger.warning("读取 skill 文件失败(%s): %s", skill_path, e)
-            return "", skill_path
+        except OSError as exc:
+            raise OSError(f"技能文件读不到,不能按空内容重写: {skill_path}") from exc
 
     @staticmethod
     def _write_skill_file(skill_path: str, content: str) -> bool:

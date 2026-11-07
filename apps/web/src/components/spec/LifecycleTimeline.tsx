@@ -76,12 +76,20 @@ export function LifecycleTimeline({
               <div className="flex items-center gap-2">
                 <span className="text-body font-medium text-foreground">{meta.label}</span>
                 {isCurrent && (
-                  <span className={`rounded-md px-1.5 py-0.5 text-xs ${meta.color}`}>当前</span>
+                  <span
+                    className={`font-[weight:inherit] rounded-md px-1.5 py-0.5 text-label ${meta.color}`}
+                  >
+                    当前
+                  </span>
                 )}
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
+              <p className="font-[weight:inherit] mt-0.5 text-label text-muted-foreground">
+                {meta.description}
+              </p>
               {stamp && (
-                <p className="mt-0.5 text-xs text-muted-foreground/70">{formatDate(stamp)}</p>
+                <p className="font-[weight:inherit] mt-0.5 text-label text-muted-foreground/70">
+                  {formatDate(stamp)}
+                </p>
               )}
             </div>
           </li>

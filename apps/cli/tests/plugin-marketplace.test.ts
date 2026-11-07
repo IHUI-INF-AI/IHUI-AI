@@ -32,6 +32,7 @@ import {
   clearMarketplaceCache,
 } from '../src/plugins/cache.js';
 import {
+  admitMarketplaceMeta,
   scanMarketplace,
   findPluginInIndex,
   isLocalSource,
@@ -272,6 +273,30 @@ describe('Plugin Marketplace', () => {
       expect(scan.indexPath).toBe('');
     });
 
+    it('高优先级索引读不到时不改用下一份', () => {
+      fs.mkdirSync(path.join(tmpMarketplace, '.ihui-plugin'), { recursive: true });
+      const ihui = path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json');
+      fs.writeFileSync(ihui, JSON.stringify({ name: 'ihui-mp', plugins: [] }));
+      fs.mkdirSync(path.join(tmpMarketplace, '.claude-plugin'), { recursive: true });
+      const claude = path.join(tmpMarketplace, '.claude-plugin', 'marketplace.json');
+      fs.writeFileSync(claude, JSON.stringify({ name: 'claude-mp', plugins: [] }));
+      const claudeBytes = fs.readFileSync(claude);
+      const denied = (target: string) => {
+        if (path.resolve(target) === path.resolve(ihui)) {
+          const err = new Error('denied') as NodeJS.ErrnoException;
+          err.code = 'EACCES';
+          throw err;
+        }
+        return fs.statSync(target);
+      };
+      const scan = scanMarketplace(tmpMarketplace, denied);
+      expect(scan.found).toBe(false);
+      expect(scan.unreadable).toBe(true);
+      expect(scan.indexPath).toBe(ihui);
+      expect(scan.index).toBeUndefined();
+      expect(fs.readFileSync(claude)).toEqual(claudeBytes);
+    });
+
     it('scanMarketplace 损坏 JSON 返回 found=false', () => {
       fs.mkdirSync(path.join(tmpMarketplace, '.ihui-plugin'), { recursive: true });
       const corruptPath = path.join(tmpMarketplace, '.ihui-plugin', 'marketplace.json');
@@ -358,9 +383,24 @@ describe('Plugin Marketplace', () => {
       expect(reg.records).toEqual([]);
     });
 
+    it('loadInstallRegistry 非空损坏文件不说成没有已装插件', () => {
+      const regPath = getRegistryPath();
+      fs.mkdirSync(path.dirname(regPath), { recursive: true });
+      const body = '{"records":[{"name":"kept"}]\n';
+      fs.writeFileSync(regPath, body);
+      expect(() => loadInstallRegistry()).toThrow(/插件登记表读不到/);
+      expect(fs.readFileSync(regPath, 'utf-8')).toBe(body);
+    });
+
     it('loadInstallRegistry 文件不存在返回空注册表', () => {
       const reg = loadInstallRegistry();
       expect(reg.records).toEqual([]);
+    });
+
+    it('loadInstallRegistry 登记表读不到时不说成没有已装插件', () => {
+      const regPath = getRegistryPath();
+      fs.mkdirSync(regPath, { recursive: true });
+      expect(() => loadInstallRegistry()).toThrow(/不能把它说成没有已装插件/);
     });
 
     it('saveInstallRegistry 写入注册表并可读回', () => {
@@ -598,6 +638,24 @@ describe('Plugin Marketplace', () => {
       expect(reg.records.find((r) => r.name === 'uninstall-target')).toBeUndefined();
     });
 
+    it('安装目录读不到时不摘注册', async () => {
+      process.chdir(tmpCwd);
+      fs.mkdirSync(path.join(tmpCwd, 'unread-plugin'), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpCwd, 'unread-plugin', 'plugin.json'),
+        JSON.stringify({ name: 'unread-plugin', version: '1.0.0' }),
+      );
+      await installPlugin('./unread-plugin');
+      const installPath = getPluginInstallPath('unread-plugin');
+      const marker = path.join(installPath, 'plugin.json');
+      const before = fs.readFileSync(marker, 'utf8');
+      const denied = new Error('denied') as NodeJS.ErrnoException;
+      denied.code = 'EACCES';
+      await expect(uninstallPlugin('unread-plugin', { stat: () => { throw denied; } })).rejects.toThrow(/读不到/);
+      expect(fs.readFileSync(marker, 'utf8')).toBe(before);
+      expect(loadInstallRegistry().records.find((r) => r.name === 'unread-plugin')).toBeDefined();
+    });
+
     it('uninstallPlugin 卸载不存在的插件不抛错', async () => {
       const outcome = await uninstallPlugin('nonexistent-plugin');
       expect(outcome.name).toBe('nonexistent-plugin');
@@ -652,6 +710,37 @@ describe('Plugin Marketplace', () => {
       // 数据目录已删
       expect(fs.existsSync(dataDir)).toBe(false);
     });
+  });
+});
+
+describe('市场清单要同时对上摘要和来源', () => {
+  const digest = 'ab'.repeat(32);
+
+  it('只有 etag 不收，摘要对不上就拒绝', () => {
+    expect(admitMarketplaceMeta({
+      etag: '"v1"',
+      sha256: digest,
+      sourceKey: 'official',
+      bodySha256: digest,
+    }).disposition).toBe('accept');
+    expect(admitMarketplaceMeta({
+      etag: '"v1"',
+      sha256: digest,
+      sourceKey: 'official',
+      bodySha256: null,
+    }).reason).toBe('digest-unmeasured');
+    expect(admitMarketplaceMeta({
+      etag: '"v1"',
+      sha256: digest,
+      sourceKey: 'official',
+      bodySha256: 'cd'.repeat(32),
+    })).toMatchObject({ disposition: 'refused', reason: 'digest-mismatch' });
+    expect(admitMarketplaceMeta({
+      etag: '"v1"',
+      sha256: digest,
+      sourceKey: null,
+      bodySha256: digest,
+    }).reason).toBe('source-unmeasured');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -490,4 +490,77 @@ def test_main_creates_history_dir_if_missing(patched_paths, patch_today, monkeyp
     assert history_dir.exists()
     # 汇编文件应被创建
     assert anthology.exists()
+
+
+def test_unreadable_anthology_does_not_delete_source(patched_paths, patch_today, monkeypatch):
+    """汇编读不到时不能当成空名单,再追加并删掉 Output 稿。"""
+    output_dir, _history_dir, anthology = patched_paths
+    anthology.write_text("# 0701\n\nkeep\n", encoding="utf-8")
+    _write_koubo_file(output_dir, "0701", "source")
+    real_stat = os.stat
+
+    def denied(path, *args, **kwargs):
+        if os.path.abspath(path) == os.path.abspath(anthology):
+            raise PermissionError(13, "denied", path)
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(archive_daily.os, "stat", denied)
+    monkeypatch.setattr(sys, "argv", ["archive_daily.py", "--finalize"])
+    with pytest.raises(SystemExit) as exc:
+        archive_daily.main()
+    assert exc.value.code == 2
+    assert (output_dir / "0701.txt").read_text(encoding="utf-8")
+    assert "keep" in anthology.read_text(encoding="utf-8")
+
+
+def test_unreadable_wechat_token_cache_is_not_truncated(tmp_path, monkeypatch):
+    from app.skills.content_engine.lib import wechat_publish
+
+    cache = tmp_path / "token.json"
+    cache.write_text("KEEP", encoding="utf-8")
+    monkeypatch.setattr(wechat_publish, "TOKEN_CACHE", str(cache))
+    monkeypatch.setattr(wechat_publish, "_load_env", lambda: ("app", "secret"))
+
+    def denied(path, *args, **kwargs):
+        raise PermissionError(13, "denied", path)
+
+    monkeypatch.setattr(wechat_publish.os, "stat", denied)
+    assert wechat_publish.get_access_token() is None
+    assert cache.read_text(encoding="utf-8") == "KEEP"
+
+
+def test_corrupt_wechat_token_cache_is_not_truncated(tmp_path, monkeypatch):
+    from app.skills.content_engine.lib import wechat_publish
+
+    cache = tmp_path / "token.json"
+    body = "{not json"
+    cache.write_text(body, encoding="utf-8")
+    monkeypatch.setattr(wechat_publish, "TOKEN_CACHE", str(cache))
+    monkeypatch.setattr(wechat_publish, "_load_env", lambda: ("app", "secret"))
+    assert wechat_publish.get_access_token() is None
+    assert cache.read_text(encoding="utf-8") == body
+
+
+def test_unreadable_archive_target_does_not_move_source(tmp_path, monkeypatch):
+    from app.skills.content_engine import publish_pipeline
+
+    articles = tmp_path / "articles"
+    archive = articles / "archive"
+    articles.mkdir()
+    archive.mkdir()
+    src = articles / "note.md"
+    src.write_text("body", encoding="utf-8")
+    dst = archive / "note.md"
+    dst.write_text("old", encoding="utf-8")
+    real_stat = os.stat
+
+    def denied(path, *args, **kwargs):
+        if os.path.abspath(path) == os.path.abspath(dst):
+            raise PermissionError(13, "denied", path)
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(publish_pipeline.os, "stat", denied)
+    publish_pipeline._archive_source(str(src))
+    assert src.read_text(encoding="utf-8") == "body"
+    assert dst.read_text(encoding="utf-8") == "old"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

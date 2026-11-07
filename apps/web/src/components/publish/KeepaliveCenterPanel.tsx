@@ -114,7 +114,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
   if (loading) {
     return (
       <div
-        className={`rounded-xl border border-border p-4 text-sm text-muted-foreground ${className ?? ''}`}
+        className={`font-[weight:inherit] rounded-xl border border-border p-4 text-body text-muted-foreground ${className ?? ''}`}
         data-testid="keepalive-center-loading"
       >
         {t('loading')}
@@ -135,8 +135,12 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
           <AlertTriangle className="h-4 w-4" aria-hidden />
           {t('disabledTitle')}
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">{data.config.enabled_reason}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{t('disabledHint')}</p>
+        <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
+          {data.config.enabled_reason}
+        </p>
+        <p className="font-[weight:inherit] mt-1 text-label text-muted-foreground">
+          {t('disabledHint')}
+        </p>
       </div>
     )
   }
@@ -153,7 +157,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-4 w-4 text-muted-foreground" aria-hidden />
           <h2 className="text-body font-medium">{t('title')}</h2>
-          <span className="text-xs text-muted-foreground">
+          <span className="font-[weight:inherit] text-label text-muted-foreground">
             {t('interval', { hours: data.config.interval_hours })}
           </span>
         </div>
@@ -161,7 +165,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
           type="button"
           onClick={() => void trigger()}
           disabled={busy}
-          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-muted disabled:opacity-50"
+          className="font-[weight:inherit] inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-label hover:bg-muted disabled:opacity-50"
         >
           <RefreshCw className={`h-3 w-3 ${busy ? 'animate-spin' : ''}`} aria-hidden />
           {busy ? t('triggering') : t('triggerNow')}
@@ -171,7 +175,9 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
       <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {HEALTH_ORDER.map((health) => (
           <div key={health} className="rounded-md bg-muted/50 px-3 py-2">
-            <dt className="text-xs text-muted-foreground">{t(HEALTH_LABEL[health])}</dt>
+            <dt className="font-[weight:inherit] text-label text-muted-foreground">
+              {t(HEALTH_LABEL[health])}
+            </dt>
             <dd className={`text-lg font-semibold ${HEALTH_TONE[health]}`}>
               {data.counts[health] ?? 0}
             </dd>
@@ -180,7 +186,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
       </dl>
 
       {needsAttention.length === 0 && expiring.length === 0 ? (
-        <p className="mt-3 flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+        <p className="font-[weight:inherit] mt-3 flex items-center gap-1 text-label text-emerald-600 dark:text-emerald-400">
           <CheckCircle2 className="h-3 w-3" aria-hidden />
           {t('allHealthy', { total: data.total })}
         </p>
@@ -196,7 +202,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
             {needsAttention.slice(0, 8).map((item) => (
               <li
                 key={item.ref}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-2 py-1 text-xs"
+                className="font-[weight:inherit] flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-2 py-1 text-label"
               >
                 <span className="min-w-0 truncate">
                   <span className={HEALTH_TONE[item.health]}>{t(HEALTH_LABEL[item.health])}</span>
@@ -235,7 +241,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
           </h3>
           <ul className="mt-1 space-y-1">
             {expiring.slice(0, 6).map((item) => (
-              <li key={item.ref} className="text-xs text-muted-foreground">
+              <li key={item.ref} className="font-[weight:inherit] text-label text-muted-foreground">
                 {accountLabel(item, t('accountFallback', { id: item.account_id }))}
                 <span aria-hidden> · </span>
                 {t('expiresAt', { time: formatTime(item.expires_at) })}
@@ -246,7 +252,7 @@ export function KeepaliveCenterPanel({ className }: { className?: string }) {
       ) : null}
 
       {Object.keys(data.success_rate_7d).length > 0 ? (
-        <p className="mt-3 text-xs text-muted-foreground">
+        <p className="font-[weight:inherit] mt-3 text-label text-muted-foreground">
           {t('rate7d')}
           {Object.entries(data.success_rate_7d).map(([source, bucket]) => (
             <span key={source} className="ml-2">

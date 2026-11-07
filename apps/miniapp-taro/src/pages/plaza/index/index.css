@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) 32rpx 16rpx;
+  padding: var(--spacing-md) var(--spacing-lg) var(--spacing-sm);
   background: var(--color-card);
   gap: var(--spacing-sm);
 }
@@ -48,7 +48,7 @@
 /* 头部按钮对齐 RN chip 视觉语言:px 10dp→20rpx / py 6dp→12rpx / bg surface.muted /
    border border.light / 字 14dp→28rpx text.secondary;圆角按角色档 control→sm(它们是动作按钮,不是选中项) */
 .pza-nav-btn {
-  padding: var(--spacing-xs-loose) 20rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   font-size: var(--text-body);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
@@ -62,14 +62,14 @@
    原 hairline 底边属纯分割线,按 AGENTS §4 禁止分割线一并移除)。 */
 .pza-tabs {
   white-space: nowrap;
-  padding: var(--spacing-md) 20rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose);
   box-sizing: border-box;
 }
 
 /* 列表对齐 RN listContent:padding 10dp→20rpx / paddingBottom 80dp→160rpx(bottom-space) */
 .pza-scroll {
   flex: 1;
-  padding: var(--spacing-sm-loose) 20rpx 0;
+  padding: var(--spacing-sm-loose) var(--spacing-sm-loose) 0;
   box-sizing: border-box;
 }
 
@@ -204,7 +204,7 @@
   font-size: var(--text-caption);
   color: var(--color-muted-foreground);
   background: var(--color-muted);
-  padding: var(--spacing-2xs) 12rpx;
+  padding: var(--spacing-2xs) var(--spacing-xs-loose);
   border-radius: var(--radius-sm);
 }
 
@@ -249,7 +249,7 @@
    圆角按角色档 control→sm */
 .pza-empty-btn {
   margin-top: var(--spacing-md);
-  padding: var(--spacing-sm-loose) 48rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-2xl);
   border-radius: var(--radius-sm);
   background: var(--color-brand);
 }
@@ -324,7 +324,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) 28rpx;
+  padding: var(--spacing-md) var(--spacing-md-loose);
 }
 
 .pza-drawer-title {
@@ -341,14 +341,14 @@
 
 .pza-track-scroll {
   white-space: nowrap;
-  padding: var(--spacing-xs) 28rpx 28rpx;
+  padding: var(--spacing-xs) var(--spacing-md-loose) var(--spacing-md-loose);
 }
 
 .pza-chip {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-xs-loose) 20rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-sm-loose);
   margin-right: var(--spacing-md);
   background: var(--color-muted);
   border: 1px solid var(--color-border);
@@ -386,7 +386,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md) 28rpx;
+  padding: var(--spacing-md) var(--spacing-md-loose);
   gap: var(--spacing-sm);
 }
 
@@ -404,7 +404,7 @@
 }
 
 .pza-center-body {
-  padding: 0 28rpx 28rpx;
+  padding: 0 var(--spacing-md-loose) var(--spacing-md-loose);
 }
 
 .pza-center-cover {
@@ -435,7 +435,7 @@
 }
 
 .pza-center-footer {
-  padding: 0 28rpx 28rpx;
+  padding: 0 var(--spacing-md-loose) var(--spacing-md-loose);
 }
 
 .pza-center-detail-btn {
@@ -464,7 +464,7 @@
 }
 
 .pza-sheet-head {
-  padding: var(--spacing-md-loose) 28rpx 16rpx;
+  padding: var(--spacing-md-loose) var(--spacing-md-loose) var(--spacing-sm);
 }
 
 .pza-sheet-title {

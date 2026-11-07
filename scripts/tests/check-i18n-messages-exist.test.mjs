@@ -11,6 +11,7 @@ import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, scratchRoot } from '../lib/scratch-dir.mjs'
+import { gitProcessGuards, gitRaw } from '../lib/face-reader.mjs'
 import { __test__ as gate } from '../check-i18n-messages-exist.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
@@ -130,8 +131,18 @@ test('检查清单非空(空清单即"0 项恒绿"的入口)', () => {
   // 根因不得复活:ROOT 不允许再取 process.cwd()(注释里的历史说明不算)
   assert.doesNotMatch(CODE_ONLY, /const\s+ROOT\s*=\s*process\.cwd\(\)/)
   assert.doesNotMatch(CODE_ONLY, /resolveRoot\([^)]*process\.cwd/)
-  // AGENTS.md §5b:派生子进程必须 windowsHide + 有界超时(漏了会弹控制台窗口 / 无界挂起)
-  assert.match(CODE_ONLY, /execFileSync\([\s\S]{0,200}windowsHide:\s*true[\s\S]{0,80}timeout:/)
+  // AGENTS.md §5b:派生子进程必须 windowsHide + 有界超时(漏了会弹控制台窗口 / 无界挂起)。
+  // 2026-11-05:3e8b864094 已把本脚本从 `execFileSync` 改为经 face-reader 的 `gitRaw` 派生,
+  // 旧断言钉的是**源码写法**因而恒红。改钉**进程护栏接口**:实现写法可换,字段不可丢。
+  const guard = gitProcessGuards()
+  assert.equal(guard.windowsHide, true, 'Windows 下派生 git 必须不弹控制台窗口')
+  assert.ok(Number.isFinite(guard.timeout) && guard.timeout > 0, '必须有界超时,不得无界挂起')
+  assert.equal(gitProcessGuards({ timeout: 250 }).timeout, 250, '调用方超时必须透传')
+  assert.equal(gitProcessGuards({ timeout: 0 }).timeout, guard.timeout, '非法超时不得把护栏关成无界')
+  // 接线证明:gitRaw 的派生参数必须由该护栏展开,而不是各处另写一份(漏一处就没人发现)
+  const FACE_READER = readFileSync(join(REPO, 'scripts', 'lib', 'face-reader.mjs'), 'utf8')
+  assert.match(FACE_READER, /\.\.\.gitProcessGuards\(/, 'gitRaw 必须用 ...gitProcessGuards() 展开护栏')
+  assert.match(gitRaw(['--version'], REPO), /git version/, 'gitRaw 必须仍可正常派生')
   assert.doesNotMatch(CODE_ONLY, /\bexecSync\(/)
 })
 

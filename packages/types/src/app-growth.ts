@@ -172,8 +172,9 @@ export interface RankingItem {
   nickname: string
   avatar: string | null
   points: number
-  studyHours: number
-  isMe: boolean
+  /** 学习时长(分钟);非积分榜(如佣金榜)不注入 ⇒ 共享屏不渲染该副行 */
+  studyHours?: number
+  isMe?: boolean
 }
 
 /** RankingScreen props */
@@ -189,6 +190,18 @@ export interface RankingScreenProps {
   onRefresh: () => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 标题覆盖(默认 t('ranking.title')) */
+  title?: string
+  /** 副标题覆盖(默认 t('ranking.subtitle')) */
+  subtitle?: string
+  /** 空态标题覆盖(默认 t('ranking.empty')) */
+  emptyText?: string
+  /** 是否渲染时间范围切换(默认 true;佣金榜等无范围概念时传 false) */
+  showRanges?: boolean
+  /** 是否渲染学习时长副行(默认 true;条目无 studyHours 时可关闭) */
+  showStudyHours?: boolean
+  /** 数值格式化(默认 String);佣金榜注入 v => `¥${v}` */
+  amountFormatter?: (value: number) => string
 }
 
 /** 积分商城商品(平台注入,字段对齐 mobile-rn PointsMallScreen Product) */
@@ -246,6 +259,84 @@ export interface VipMembershipInfo {
   daysRemaining: number
 }
 
+/** VIP 特权特性条目(共享屏渲染用) */
+export interface VipFeatureItem {
+  id: string
+  /** 图标组件;缺省由共享屏按 id 兜底 */
+  icon?: AppIcon
+  title: string
+  desc: string
+  /** 右侧角标;缺省则不渲染 */
+  tag?: string
+}
+
+/** VIP 套餐档位(价格按元计) */
+export interface VipPlanOption {
+  id: string
+  name: string
+  price: number
+  period: string
+}
+
+/** 套餐选择卡(未传则不渲染) */
+export interface VipPlansBlock {
+  title: string
+  options: VipPlanOption[]
+  selectedId: string
+  onSelect: (id: string) => void
+  autoRenewLabel: string
+  autoRenew: boolean
+  onToggleAutoRenew: () => void
+  manageLabel?: string
+  onManage?: () => void
+  memberDescTitle?: string
+  memberDescText?: string
+}
+
+/** 底部购买栏(未传则不渲染) */
+export interface VipBuyBar {
+  price: number
+  label: string
+  onPress: () => void
+}
+
+/** 弹层支付方式行 */
+export interface VipOverlayMethod {
+  id: string
+  label: string
+  /** 左侧圆形文字标(如“微”“付”) */
+  badge: string
+  active: boolean
+  onPress: () => void
+}
+
+/** 弹层套餐摘要 */
+export interface VipOverlayPlan {
+  name: string
+  price: number
+  period?: string
+  originalPrice?: number
+}
+
+/**
+ * 统一弹层(权益/介绍/确认/须知/支付方式/成功/支付确认)。
+ * 只声明数据与回调,渲染由共享屏完成;未传则不渲染。
+ */
+export interface VipOverlay {
+  kind: 'intro' | 'confirm' | 'notice' | 'method' | 'success' | 'benefits' | 'payConfirm'
+  title: string
+  /** 正文行(intro/notice/success) */
+  lines?: string[]
+  plan?: VipOverlayPlan
+  benefits?: VipBenefitCardItem[]
+  /** 购买须知勾选 */
+  agree?: { label: string; checked: boolean; onToggle: () => void }
+  methods?: VipOverlayMethod[]
+  primaryLabel: string
+  onPrimary: () => void
+  onClose?: () => void
+}
+
 /** VipScreen props */
 export interface VipScreenProps {
   t: TFunction
@@ -269,6 +360,20 @@ export interface VipScreenProps {
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /** 头部展示的当前价格(元);缺省则不渲染 */
+  headerPrice?: number
+  /** 会员卡右上“等级介绍”入口;缺省则不渲染 */
+  introduce?: { label: string; onPress: () => void }
+  /** 特权列表;缺省则不渲染 */
+  features?: VipFeatureItem[]
+  /** 特权列表下方“查看全部权益”入口 */
+  viewBenefits?: { label: string; onPress: () => void }
+  /** 套餐选择/自动续费/会员说明卡;缺省则不渲染 */
+  plans?: VipPlansBlock
+  /** 底部购买栏;缺省则不渲染 */
+  buyBar?: VipBuyBar
+  /** 统一弹层;缺省/null 则不渲染 */
+  overlay?: VipOverlay | null
 }
 
 /** 积分记录项(对齐 mobile-rn PointsRecordScreen PointsRecord) */
@@ -400,6 +505,88 @@ export interface DistributionInfo {
   products?: DistributionProduct[]
 }
 
+/** 分销总览卡(个人信息卡变体;两端传真值,缺省不渲染) */
+export interface DistributionOverviewCard {
+  avatar?: string | null
+  nickname: string
+  identity?: string
+  companyName?: string
+}
+
+/** 收益卡 Tab(日/月/总;键值由宿主定义,共享屏只按 key 回传) */
+export interface DistributionEarningsTab {
+  key: string
+  label: string
+}
+
+/** 收益卡数据列(tone 只映射既有语义色,不新增颜色档) */
+export interface DistributionEarningsItem {
+  label: string
+  value: string
+  tone?: 'default' | 'primary' | 'warning'
+}
+
+/** 收益卡(日/月/总统计;两端传真值,缺省不渲染) */
+export interface DistributionEarningsCard {
+  tabs: DistributionEarningsTab[]
+  activeTab: string
+  onSelectTab: (key: string) => void
+  items: DistributionEarningsItem[]
+  /** 底排统计(对齐 RN EarningsStatisticsCard 的推广订单/团队新增/提现金额) */
+  footerItems?: DistributionEarningsItem[]
+}
+
+/** 分佣浮标(注入回调;共享屏内不得出现平台导航/客服 API) */
+export interface DistributionServiceFloat {
+  amount: number
+  label: string
+  onPress: () => void
+}
+
+/**
+ * 功能宫格条目(对齐 RN FunctionBlockColumn:图标 + 标题 + 可选描述 + 点击)。
+ * 图标二选一:小程序传 CDN 图 `iconUrl`,RN 传 lucide 节点 `iconNode`;条目清单由宿主注入。
+ */
+export interface DistributionFunctionBlock {
+  key: string
+  label: string
+  description?: string
+  iconUrl?: string | null
+  iconNode?: ReactNode
+  onPress: () => void
+}
+
+/**
+ * 分享二维码弹层(对齐 RN BottomPops 二维码弹层 + 小程序 dist-qrpop)。
+ * 弹层壳由共享屏用平台无关的 Modal 渲染;二维码载体与分享入口由宿主注入
+ * (小程序:后端图片 + 微信原生 open-type=share 按钮;RN:QRCode 节点 + Share API)。
+ */
+export interface DistributionQrSheet {
+  visible: boolean
+  title: string
+  /** 小程序:后端返回的二维码图片 URL */
+  imageUrl?: string | null
+  /** RN:宿主注入的二维码节点(自带 ref,供保存相册截图) */
+  qrNode?: ReactNode
+  /** 无二维码时的占位文案 */
+  emptyText?: string
+  copyright?: string
+  tips?: string[]
+  /** 邀请链接文本;有值且传 onCopy 时可点击复制 */
+  linkText?: string
+  saveLabel: string
+  savingLabel?: string
+  saving?: boolean
+  shareLabel?: string
+  copyLabel?: string
+  onClose: () => void
+  onSave: () => void
+  onShare?: () => void
+  onCopy?: () => void
+  /** 宿主注入的分享入口(小程序:微信原生 <Button openType="share">) */
+  shareAction?: ReactNode
+}
+
 /** DistributionScreen props(注入式:wrapper 保留 API 调用 + Alert 弹窗) */
 export interface DistributionScreenProps {
   t: TFunction
@@ -417,6 +604,16 @@ export interface DistributionScreenProps {
    * 缺省/空数组 ⇒ 共享屏渲染空态(earnCommission.rateEmpty),不由前端补默认档位。
    */
   rates?: { level: string; rate: string }[]
+  /** 分销总览(可选;缺省不渲染) */
+  overviewCard?: DistributionOverviewCard
+  /** 收益卡(可选;缺省不渲染) */
+  earningsCard?: DistributionEarningsCard
+  /** 分佣浮标(可选;缺省不渲染;点击回调由宿主注入) */
+  serviceFloat?: DistributionServiceFloat
+  /** 功能宫格(可选;缺省不渲染;条目与图标由宿主注入) */
+  functionBlocks?: DistributionFunctionBlock[]
+  /** 分享二维码弹层(可选;缺省不渲染;二维码载体与分享入口由宿主注入) */
+  qrSheet?: DistributionQrSheet
 }
 
 /** 首页推荐课程项(平台注入,字段对齐 mobile-rn HomeScreen Course 子集) */
@@ -600,9 +797,12 @@ export type TeamTab = 'all' | 'direct' | 'indirect'
 /** 团队统计(平台注入,字段对齐 mobile-rn TeamScreen Stats) */
 export interface TeamStats {
   totalMembers: number
-  activeMembers: number
-  directCount: number
-  indirectCount: number
+  /** 本月新增(compact 布局第二列;全量布局不展示) */
+  monthNew?: number
+  /** 全量布局专用;compact 变体不注入 ⇒ 共享屏不渲染该列 */
+  activeMembers?: number
+  directCount?: number
+  indirectCount?: number
   totalContribution: number
 }
 
@@ -614,8 +814,16 @@ export interface TeamMember {
   level: number
   joinDate: string
   contribution: number
-  status: TeamMemberStatus
-  relation: TeamRelation
+  /** 缺字段则不渲染状态徽标(不造假) */
+  status?: TeamMemberStatus
+  /** 缺字段则不渲染关系徽标(不造假) */
+  relation?: TeamRelation
+  /** 成交额(可选;仅 memberMetrics 模式下渲染,缺省按 0) */
+  transactionVolume?: number
+  /** 成交订单数(可选;仅 memberMetrics 模式下渲染,缺省按 0) */
+  orderNum?: number
+  /** 邀请时间展示文本(可选;仅 memberMetrics 模式下渲染,缺省不补) */
+  createdAtLabel?: string
 }
 
 /**
@@ -635,12 +843,15 @@ export interface TeamTreeNode {
 /** TeamScreen props(平台无关,wrapper 注入数据+回调) */
 export interface TeamScreenProps {
   t: TFunction
-  stats: TeamStats | null
+  /** 统计卡;显式 undefined/null 表示不渲染(小程序薄壳用) */
+  stats?: TeamStats | null
   members: TeamMember[]
   activeTab: TeamTab
   loading: boolean
   refreshing: boolean
   error: string
+  /** 屏内自身的「重试」入口(与层级树重试 onRetryTree 分开;不传则错误态不给重试键) */
+  onRetry?: () => void
   onSelectTab: (tab: TeamTab) => void
   onRefresh: () => void
   onBack: () => void
@@ -663,8 +874,66 @@ export interface TeamScreenProps {
   treeTotalLevels?: number
   /** 层级树失败重试回调(可选,不传则不渲染重试按钮) */
   onRetryTree?: () => void
+  /** 统计卡布局:full=4 列 + 贡献盒(默认);compact=3 列(总人数/本月新增/总贡献) */
+  statsLayout?: 'full' | 'compact'
+  /** compact 三列标签(wrapper 注入 i18n;不传则用 team.* 键兜底) */
+  compactStatsLabels?: {
+    totalMembers: string
+    monthNew: string
+    totalContribution: string
+  }
+  /** 是否渲染 header(默认 true) */
+  showHeader?: boolean
+  /** 是否渲染 tab 栏(默认 true) */
+  showTabs?: boolean
+  /** 成员列表上方分区标题(可选,不传不渲染) */
+  listTitle?: string
+  /** 触底加载更多(可选,不传不挂 onEndReached) */
+  onEndReached?: () => void
+  /** 正在加载更多(可选) */
+  loadingMore?: boolean
+  /** 是否还有更多(可选;false + footerNoMoreText ⇒ 渲染「没有更多」) */
+  hasMore?: boolean
+  /** 加载更多文案(可选) */
+  footerLoadingText?: string
+  /** 无更多文案(可选) */
+  footerNoMoreText?: string
+  /** 空态标题覆盖(可选,默认 t('team.empty')) */
+  emptyText?: string
   /** 层级树节点点击回调(可选,不传则节点不可点击) */
   onPressTreeMember?: (memberId: string) => void
+  /**
+   * 排序胶囊栏(可选;有值时在 all/direct/indirect tabs **下方叠加**渲染,不替代关系筛选)。
+   * 「成交订单数/邀请时间」两枚胶囊;日期胶囊点击开内部弹层选日期。RN 与小程序均消费。
+   */
+  sortBar?: {
+    orderLabel: string
+    dateLabel: string
+    active: 'orderNum' | 'date'
+    dateValue?: string
+    onSelectOrder: () => void
+  }
+  /** 日期弹层选项(可选;来自宿主已算好的 YYYY-MM-DD 列表) */
+  dateOptions?: string[]
+  /** 选中日期回调(可选;传空串表示清除日期筛选) */
+  onSelectDate?: (date: string) => void
+  /** 日期弹层标题(可选;缺省用 sortBar.dateLabel) */
+  dateSheetTitle?: string
+  /** 清除日期文案(可选;不传则不渲染清除行) */
+  clearDateLabel?: string
+  /**
+   * 成员卡指标文案(可选;有值时昵称下改渲染成交额/佣金/订单数/邀请时间 + 查看下级)。
+   * 未传时保持原 joinDate + level 两行,RN 视觉不变。
+   */
+  memberMetrics?: {
+    transactionVolume: string
+    commission: string
+    orderNum: string
+    joinTime: string
+    viewSubordinates: string
+  }
+  /** 是否在头像左上角渲染名次徽标(可选;默认 false,RN 视觉不变) */
+  showRankBadge?: boolean
   colorScheme?: 'light' | 'dark'
 }
 
@@ -673,8 +942,68 @@ export interface VipBenefitItem {
   id: string
   name: string
   desc: string
-  level: string
+  /** 等级徽标文案;缺省(小程序端 GET /member/benefits 无 level 字段)则不渲染徽标 */
+  level?: string
+  /** 文字类图标(emoji/短字符);与 iconUri 互斥,均缺省时不渲染图标 */
+  icon?: string
+  /** 图片类图标地址(小程序端后端会返回图片路径);与 icon 互斥 */
+  iconUri?: string
 }
+
+/** 特权页入口种类 */
+export type VipBenefitEntryKind = 'level' | 'trader' | 'privateAdvisory'
+
+/** 特权页入口卡片 */
+export interface VipBenefitEntry {
+  id: VipBenefitEntryKind
+  label: string
+  /** 图标组件;缺省由共享屏按 id 兜底 */
+  icon?: AppIcon
+  onPress: () => void
+}
+
+/** 特权页头部等级信息 */
+export interface VipBenefitHeaderInfo {
+  levelName: string
+  isOpened: boolean
+  /** 顶部标题;缺省用 vipBenefit.title */
+  title?: string
+  /** 已开通时的到期文案(未传则显示 activateHint) */
+  expireText?: string
+  /** 未开通提示 */
+  activateHint?: string
+}
+
+/** 权益矩阵行 */
+export interface VipBenefitMatrixRow {
+  id: string
+  label: string
+  values: string[]
+}
+
+/** 特权页弹层(内容 + 回调;只传一个) */
+export type VipBenefitPopup =
+  | {
+      kind: 'matrix'
+      title: string
+      primaryLabel: string
+      onPrimary: () => void
+      onClose: () => void
+      columns: string[]
+      rows: VipBenefitMatrixRow[]
+      desc?: string
+      /** 高亮列下标(0 起) */
+      highlightColumn?: number
+    }
+  | {
+      kind: 'benefits'
+      title: string
+      primaryLabel: string
+      onPrimary: () => void
+      onClose: () => void
+      intro?: string
+      items: string[]
+    }
 
 /** VipBenefitScreen props(平台无关,wrapper 注入数据+回调) */
 export interface VipBenefitScreenProps {
@@ -684,6 +1013,14 @@ export interface VipBenefitScreenProps {
   error: string
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 头部等级徽标/到期提示;缺省则不渲染 */
+  header?: VipBenefitHeaderInfo
+  /** 3 个入口卡片;缺省则不渲染 */
+  entries?: VipBenefitEntry[]
+  /** 矩阵/权益弹层;缺省/null 则不渲染 */
+  popup?: VipBenefitPopup | null
+  /** 底部升级按钮;缺省则不渲染 */
+  upgrade?: { label: string; onPress: () => void }
 }
 
 /** 团队成员详情 props(批次 34 2026-08-15 建,2026-08-21 扩展 loading/error/onRetry + member 可空) */
@@ -763,6 +1100,8 @@ export interface DistributionOrderListScreenProps {
   onTabChange: (tab: string) => void
   onEndReached: () => void
   onBack: () => void
+  /** 条目点击回带订单号;缺省时不渲染点击面(纯浏览态) */
+  onPressItem?: (orderId: string) => void
   colorScheme?: 'light' | 'dark'
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -39,6 +39,8 @@ pub const DEFAULT_TIMEOUT_MS: u64 = 4000;
 pub const MAX_TIMEOUT_MS: u64 = 15_000;
 /// 显式指定 git 绝对路径的出口（换机/便携 git 用），**不**是 PATH 查找。
 pub const ENV_GIT_BIN: &str = "IHUI_GIT_BIN";
+/// 便携 git 的显式登记位(键名与 `scripts/lib/gitdir.mjs` 一致,两个运行时共用一个词汇)。
+pub const ENV_PORTABLE_GIT: &str = "IHUI_PORTABLE_GIT";
 /// 允许被授权的 workspace 根所在的基目录（`;` 分隔的绝对路径）。
 pub const ENV_GIT_BASES: &str = "IHUI_DESKTOP_GIT_BASES";
 /// 单次最多回报的条目数。**唯一数值在 `git_status_core::MAX_ENTRIES`**，
@@ -362,16 +364,30 @@ pub fn git_binary_candidates(get_env: &dyn Fn(&str) -> Option<String>) -> Vec<Pa
             out.push(PathBuf::from(explicit.trim()));
         }
     }
+    // 第二格显式登记位:与 `scripts/lib/gitdir.mjs` 用**同一个环境变量名** —— 两个运行时
+    // 各造一个键名就一定漂移(本仓记过最多次的失败型),换机时只需设一次。
+    if let Some(portable) = get_env(ENV_PORTABLE_GIT) {
+        if !portable.trim().is_empty() {
+            out.push(PathBuf::from(portable.trim()));
+        }
+    }
     if cfg!(windows) {
         let bases = [
             env_abs(get_env("PROGRAMFILES"), "Git/cmd/git.exe"),
             env_abs(get_env("PROGRAMFILES"), "Git/bin/git.exe"),
             env_abs(get_env("PROGRAMFILES(X86)"), "Git/cmd/git.exe"),
             env_abs(get_env("LOCALAPPDATA"), "Programs/Git/cmd/git.exe"),
-            // 本仓脚本层首选的便携 git（见 scripts/lib/gitdir.mjs），同一台机上两份常同时存在。
+            // 兜底位只指**我方自己的**数据目录。此处曾写死第三方应用的安装目录
+            // (`~/.workbuddy/binaries/PortableGit/cmd/git.exe`),两个独立缺陷一次改掉:
+            //  ① 那条路径在对方真实布局里根本不存在(对方住 `versions/<ver>/cmd/git.exe`)
+            //     ⇒ 一枚永远命不中的死候选,却把"我方 git 可用性"与别人装没装绑在一起;
+            //  ② 即便命中,用的也是随对方版本走的 git —— 实测对方 PortableGit 2.55 的
+            //     git-remote-https 报 `remote helper 'https' aborted session`(见 gitdir.mjs
+            //     2026-10-22 立因),那条失败会被读成"我方推送坏了"。
+            // 需要兜底请显式设 `IHUI_PORTABLE_GIT`(可追责、可撤销),不再静默借用。
             get_env("USERPROFILE")
                 .filter(|s| !s.trim().is_empty())
-                .map(|s| PathBuf::from(s.trim()).join(".workbuddy/binaries/PortableGit/cmd/git.exe")),
+                .map(|s| PathBuf::from(s.trim()).join(".ihui/binaries/PortableGit/cmd/git.exe")),
         ];
         for candidate in bases.into_iter().flatten() {
             out.push(candidate);
@@ -1178,6 +1194,65 @@ pub(crate) mod tests {
             reason.contains("IHUI_GIT_BIN"),
             "给出路：{}",
             reason
+        );
+    }
+
+    /// goal-b49 反向牙：候选表**不得**探测第三方应用的安装目录。
+    /// 立因（一手取证，`docs/benchmark-evidence/2026-11/qoder-trae-workbuddy-rea-20261105/W1-workbuddy-main.md` §3 第⑩行）：
+    /// 旧候选里写死 `~/.workbuddy/binaries/PortableGit/cmd/git.exe` —— 那条路径在对方真实布局
+    /// （住 `versions/<ver>/cmd/git.exe`）里根本不存在，本机现读 `ls` 已证实；
+    /// 一枚永远命不中的死候选，却把我方 git 可用性绑到"别人装没装 WorkBuddy"上。
+    #[test]
+    fn candidates_never_probe_a_third_party_install_dir() {
+        let none = |_: &str| -> Option<String> { None };
+        let list = git_binary_candidates(&none);
+        let joined: Vec<String> = list.iter().map(|p| p.display().to_string()).collect();
+        assert!(
+            !joined.iter().any(|p| p.contains(".workbuddy")),
+            "候选表不得含第三方应用安装目录，实得 {joined:?}"
+        );
+        assert!(
+            joined.iter().all(|p| !p.is_empty()),
+            "未设任何 env 时也不得塞空候选，实得 {joined:?}"
+        );
+
+        // 兜底位必须住在我方自己的数据目录（可追责、可撤销），而不是别人的树里。
+        if cfg!(windows) {
+            let with_home = |k: &str| -> Option<String> {
+                match k {
+                    "USERPROFILE" => Some("C:/Users/tester".to_string()),
+                    _ => None,
+                }
+            };
+            let owned = git_binary_candidates(&with_home)
+                .into_iter()
+                .map(|p| p.display().to_string().replace('\\', "/"))
+                .filter(|p| p.contains("binaries"))
+                .collect::<Vec<String>>();
+            assert_eq!(
+                owned,
+                vec!["C:/Users/tester/.ihui/binaries/PortableGit/cmd/git.exe".to_string()],
+                "便携兜底只许指我方 .ihui 目录"
+            );
+        }
+
+        // 显式登记位排在系统安装位之前，且仅次于 IHUI_GIT_BIN（与 gitdir.mjs 同键名，换机只设一次）。
+        let with_both = |k: &str| -> Option<String> {
+            match k {
+                "IHUI_GIT_BIN" => Some("C:/opt/a/git.exe".to_string()),
+                "IHUI_PORTABLE_GIT" => Some("D:/opt/b/git.exe".to_string()),
+                _ => None,
+            }
+        };
+        let list = git_binary_candidates(&with_both);
+        assert_eq!(
+            list.iter().take(2).map(|p| p.display().to_string()).collect::<Vec<String>>(),
+            vec!["C:/opt/a/git.exe".to_string(), "D:/opt/b/git.exe".to_string()],
+            "两枚显式登记必须排前两位，顺序 = 主覆盖 → 便携"
+        );
+        assert!(
+            list.iter().all(|p| p.is_absolute()),
+            "候选必须全是绝对路径，实得 {list:?}"
         );
     }
 

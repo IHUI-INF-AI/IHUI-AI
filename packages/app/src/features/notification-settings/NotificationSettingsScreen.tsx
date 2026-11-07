@@ -5,18 +5,18 @@
 import { useMemo } from 'react'
 import { View, Text, TouchableOpacity, Switch, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
-import type { NotificationSettingsItem, NotificationSettingsScreenProps } from '../../types'
+import type { NotificationSettingsItem, NotificationSettingsLink, NotificationSettingsRow, NotificationSettingsScreenProps } from '../../types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { BackChevron } from '../../components/BackChevron'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 通知设置共享屏 — props 注入式跨端组件 */
-export type { NotificationSettingsItem, NotificationSettingsScreenProps }
+export type { NotificationSettingsItem, NotificationSettingsLink, NotificationSettingsRow, NotificationSettingsScreenProps }
 
 export function NotificationSettingsScreen({
   t,
-  settings,
+  items,
   loading,
   saving,
   error,
@@ -25,30 +25,33 @@ export function NotificationSettingsScreen({
   onSave,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  showHeader = true,
+  extraLinks,
+  extraLinksTitle,
+  colorScheme = 'light',
 }: NotificationSettingsScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  const header = showHeader ? (
+    <View style={styles.header}>
+      <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+      <Text style={styles.title}>{t('settings.notificationsTitle')}</Text>
+    </View>
+  ) : null
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('notificationSettings.title')}</Text>
-        </View>
+        {header}
         <ScreenSkeleton variant="list" count={5} colorScheme={colorScheme} />
       </View>
     )
   }
 
-  if (error || !settings) {
+  if (error || items.length === 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-          <Text style={styles.title}>{t('notificationSettings.title')}</Text>
-        </View>
+        {header}
         <ErrorState
           message={error || t('common.empty')}
           onRetry={onRetry}
@@ -59,30 +62,19 @@ export function NotificationSettingsScreen({
     )
   }
 
-  const rows: Array<{ key: keyof NotificationSettingsItem; label: string }> = [
-    { key: 'pushEnabled', label: t('notificationSettings.push') },
-    { key: 'messageEnabled', label: t('notificationSettings.message') },
-    { key: 'emailEnabled', label: t('notificationSettings.email') },
-    { key: 'smsEnabled', label: t('notificationSettings.sms') },
-    { key: 'marketingEnabled', label: t('notificationSettings.marketing') },
-  ]
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('notificationSettings.title')}</Text>
-      </View>
+      {header}
       <View style={styles.body}>
         <View style={styles.card}>
           <Text style={styles.desc}>{t('notificationSettings.desc')}</Text>
         </View>
         <View style={styles.card}>
-          {rows.map((row) => (
+          {items.map((row) => (
             <View key={row.key} style={styles.row}>
               <Text style={styles.label}>{row.label}</Text>
               <Switch
-                value={settings[row.key]}
+                value={row.enabled}
                 onValueChange={(v) => onToggle(row.key, v)}
                 trackColor={{ false: tk.border.light, true: tk.brand.DEFAULT }}
               />
@@ -91,6 +83,27 @@ export function NotificationSettingsScreen({
         </View>
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
         {success ? <Text style={styles.successText}>{success}</Text> : null}
+        {extraLinks && extraLinks.length > 0 ? (
+          <View>
+            {extraLinksTitle ? <Text style={styles.sectionTitle}>{extraLinksTitle}</Text> : null}
+            <View style={styles.card}>
+              {extraLinks.map((link) => (
+                <TouchableOpacity
+                  key={link.key}
+                  style={styles.linkRow}
+                  onPress={link.onPress}
+                  accessibilityRole="button"
+                >
+                  <View style={styles.linkText}>
+                    <Text style={styles.label}>{link.label}</Text>
+                    {link.desc ? <Text style={styles.linkDesc}>{link.desc}</Text> : null}
+                  </View>
+                  <Text style={styles.linkChevron}>{'>'}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
         <TouchableOpacity
           style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
           onPress={onSave}
@@ -131,6 +144,20 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing.md,
     },
     label: { ...rnType.body, color: tk.text.medium },
+    sectionTitle: {
+      ...rnType.label,
+      color: tk.text.secondary,
+      marginBottom: rnSpacing.sm,
+    },
+    linkRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: rnSpacing.md,
+    },
+    linkText: { flex: 1, marginRight: rnSpacing.md },
+    linkDesc: { ...rnType.caption, color: tk.text.secondary, marginTop: rnSpacing.xs },
+    linkChevron: { ...rnType.body, color: tk.text.secondary },
     errorText: { ...rnType.body, color: tk.danger.DEFAULT, marginBottom: rnSpacing.sm },
     successText: { ...rnType.body, color: tk.success.DEFAULT, marginBottom: rnSpacing.sm },
     saveBtn: {

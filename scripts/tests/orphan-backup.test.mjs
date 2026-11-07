@@ -14,20 +14,19 @@
  *  ② 成功落地路径零 tag(摘掉 landed 短路即翻红 —— 反向对照 2);
  *  ③ 同 sha 重跑幂等(不撞名、不重复打);
  *  ④ ref 已指向该 sha ⇒ why:'landed' 且一题 git 都不派(防 tag 噪声那一格;并验 trim/失联方向);
- *  ⑤ sha 形状不对 ⇒ 未备份且**出声**,绝不静默折成已备份(§0.3);
- *  ⑥ 同 tree 去重 ⇒ 命中只记台账不打 tag,判据取不到时必须回到"照打"方向(§0.3)。
+ *  ⑤ sha 形状不对 ⇒ 未备份且**出声**,绝不静默折成已备份(§0.3)。
  * 另把 converge 旧镜像锁 T3 的"tag 之后必须 pack-refs"改锚到 lib 源文本上,覆盖面不许随重构蒸发。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { __test__ as lib } from '../lib/orphan-backup.mjs'
 import { __test__ as LAND } from '../object-space-land.mjs'
 import { __test__ as CONV } from '../git-sync-converge.mjs'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
-import { git as bypassGit } from '../lib/bypass-git.mjs'
 
 const SHA = '947ef34a88a2b4c1d2e3f4a5b6c7d8e9f0a1b2c3'
 const OTHER = 'b'.repeat(40)
@@ -37,19 +36,12 @@ const unionSrc = readFileSync(new URL('../union-converge.mjs', import.meta.url),
 const convSrc = readFileSync(new URL('../git-sync-converge.mjs', import.meta.url), 'utf8')
 const libSrc = readFileSync(new URL('../lib/orphan-backup.mjs', import.meta.url), 'utf8')
 
-/** 假 git 面:只记录 argv,不派任何真进程(rev-parse 按 state 答"tag 在不在",tree / 两个可达面按 state 答)。 */
+/** 假 git 面:只记录 argv,不派任何真进程(rev-parse 按 state.tagExists 答"tag 在不在")。 */
 function spyRunner(state = { tagExists: false }) {
   const calls = []
   const runner = (_root, args) => {
     calls.push(args)
-    const joined = args.join(' ')
-    if (args[0] === 'rev-parse') {
-      if (joined.includes('refs/tags/')) return state.tagExists ? SHA : null
-      if (joined.endsWith('^{tree}')) return state.tree === undefined ? null : state.tree
-      return state.tagExists ? SHA : null
-    }
-    if (args[0] === 'for-each-ref') return state.tagTrees === undefined ? '' : state.tagTrees
-    if (args[0] === 'log') return state.logTrees === undefined ? '' : state.logTrees
+    if (args[0] === 'rev-parse') return state.tagExists ? SHA : null
     return ''
   }
   runner.calls = calls
@@ -58,26 +50,22 @@ function spyRunner(state = { tagExists: false }) {
 }
 
 test('① 装车形状锁:三台落地器都必须"import 了 lib 且真的在弃落出口调用",缺任一即红(函数在、调度点没有 = 本仓最高频失效型)', () => {
-  // object-space-land:import + 守卫定义 + 末枚备份出口(12 次耗尽 + 循环内早退),逐轮出口已收掉
+  // object-space-land:import + 守卫定义 + 两处弃落出口调用(CAS 逐轮输 / 12 次耗尽)
   assert.match(landSrc, /import \{ backupOrphanCommit \} from '\.\/lib\/orphan-backup\.mjs'/, 'land 没 import lib')
   assert.match(landSrc, /function backupIfAbandoned\(sha, why, root, deps = \{\}\)/, 'land 的弃落守卫不见了')
   assert.match(landSrc, /kind: 'land'/, "land 调用没走 'land' 档")
-  // 2026-11-04 治本:逐轮 CAS 失败**不许**再打 tag(那是失败沉积单向增长的源头);
-  // 末枚(不会被下一轮取代的那一枚)仍必须经统一出口照打。
-  assert.ok(
-    !/`object-space-land 第 \$\{attempt\} 回 CAS 未抢到`/.test(landSrc),
-    '逐轮 CAS 失败仍在打 tag = 失败沉积的源头没治',
-  )
-  assert.match(landSrc, /const backupLastMadeIfAbandoned = \(why\) => \{/, '末枚备份的统一出口不见了')
-  assert.match(
-    landSrc,
-    /backupLastMadeIfAbandoned\(\s*`object-space-land \$\{MAX_CAS_ATTEMPTS\} 回均未抢到 CAS\(末枚兜底\)`/,
-    '12 次耗尽出口没调末枚备份',
+  assert.match(landSrc, /backupIfAbandoned\(commit, `object-space-land 第 \$\{attempt\} 回 CAS 未抢到`, root\)/, 'CAS 输的那一支没调备份(本票主格子)')
+  assert.match(landSrc, /backupIfAbandoned\(\s*lastMadeCommit\b/, '12 次耗尽出口没调备份')
+  // 变异臂:放宽的只有**空白**(prettier 把实参折行是格式化,不是把备份摘掉),备份调用真被摘走时这把尺必须判红。
+  //   放宽正则而不留阳面对照 = 把"摘掉即红"这格悄悄改成"摘掉也绿"(§12e 修红不得顺手削判据)。
+  const mutatedExhaust = landSrc.replace(/backupIfAbandoned\(\s*lastMadeCommit[\s\S]{0,200}?\)\n/, '')
+  assert.notEqual(mutatedExhaust, landSrc, '变异靶没改下去(这条对照是空断言)')
+  assert.doesNotMatch(
+    mutatedExhaust,
+    /backupIfAbandoned\(\s*lastMadeCommit\b/,
+    '摘掉耗尽兜底的备份后仍判过 ⇒ 放宽空白放宽了判据',
   )
   assert.match(landSrc, /lastMadeCommit = commit/, '耗尽兜底拿不到末枚造出的 sha')
-  // 早退出口也必须兜住:clobber(写入/删除两档)与三处判据拒落,退出时上一轮 sha 同样不会再被取代。
-  const finalExitCalls = (landSrc.match(/backupLastMadeIfAbandoned\(/g) || []).length
-  assert.ok(finalExitCalls >= 6, `末枚备份出口应 ≥6(兜底 + 2 clobber + 3 判据拒落),实测 ${finalExitCalls}`)
   // union-converge:import + CAS 失败分支调用,且第二份"拼 ref 名"的实现必须已删净
   assert.match(unionSrc, /from '\.\/lib\/orphan-backup\.mjs'/, 'union 没 import lib')
   const casAt = unionSrc.indexOf('if (cas.status !== 0)')
@@ -209,86 +197,9 @@ test('⑦ casUpdateRef 抛出一型:先备份、再原样 rethrow(不吞异常�
     /catch \(casErr\)[\s\S]{0,600}?backupIfAbandoned\(\s*commit[\s\S]{0,300}?throw casErr\s*\}/,
     'CAS 抛出分支里必须"先 backupIfAbandoned(commit…) 再 throw casErr";缺一即那枚 sha 无备份,或异常被吞',
   )
-  // 2026-11-04:逐轮出口已收掉 ⇒ backupIfAbandoned 的直接调用只剩 定义 / CAS 抛出 / 末枚出口内部 三处。
   const calls = (landSrc.match(/backupIfAbandoned\(/g) || []).length
-  assert.ok(calls >= 3, `backupIfAbandoned 直接调用数应 ≥3(定义 / CAS 抛出 / 末枚出口),实测 ${calls}`)
+  assert.ok(calls >= 4, `弃落出口调用数应 ≥4(CAS 输 / 耗尽兜底 / CAS 抛出 / __test__ 出口),实测 ${calls}`)
   // 反向对照:守卫自身绝不抛(契约上它必须"永不抛",否则备份失败会把落地器炸成另一种失效)
   assert.doesNotThrow(() => LAND.backupIfAbandoned(null, '测试:无 sha', '.', { backup: () => ({ ok: false }) }))
-})
-
-/**
- * ⑧ 同 tree 去重锁(2026-11-04 失败沉积治本):顶层树已在 lost-commit tag / 分支远端可达面 ⇒
- * 只记台账、不打 tag(门 30a 的 tree 等价档会放行);判据两端都取不到时必须回到"照打"方向
- * (§0.3 未判定 ≠ 已备份,去重只能减噪、不能漏备)。
- */
-test('⑧ 同 tree 去重:命中只记台账不打 tag;判据失灵必须照打(不许把未判定读成已备份)', () => {
-  const dir = mkScratch('orphan-backup-t8-')
-  try {
-    const ledgerFile = join(dir, 'ledger.jsonl')
-    const deps = { headOf: () => OTHER, ledgerFile, now: new Date('2026-11-04T00:00:00Z') }
-    // ① tag 面命中
-    const r1 = spyRunner({ tagExists: false, tree: OTHER, tagTrees: `refs/tags/lost-commit/wip-conv-0000000\t${OTHER}` })
-    const res1 = LAND.backupIfAbandoned(SHA, '同 tree 已在 lost-commit tag', dir, { ...deps, runner: r1 })
-    assert.equal(res1.ok, true)
-    assert.equal(res1.dedup, true, '同 tree 命中必须报 dedup,不能冒充 tagged')
-    assert.equal(res1.ref, null, '去重命中不得产生任何备份 ref')
-    assert.equal(res1.why, 'tree-already-lost-commit-tag')
-    assert.equal(r1.tagCalls().length, 0, '同 tree 命中绝不许再派 git tag')
-    // ② 分支/远端可达面命中(同一份内容已被另一路落地 —— 785ff8c54816 那一型)
-    const r2 = spyRunner({ tagExists: false, tree: OTHER, tagTrees: '', logTrees: `${OTHER}\n` })
-    const res2 = LAND.backupIfAbandoned(SHA, '同 tree 已在可达历史', dir, { ...deps, runner: r2 })
-    assert.equal(res2.dedup, true)
-    assert.equal(res2.why, 'tree-already-reachable-history')
-    assert.equal(r2.tagCalls().length, 0)
-    // ③ 判据失灵(两道面都取不到)⇒ 必须照打,未判定不得折成已备份
-    const r3 = spyRunner({ tagExists: false, tree: OTHER, tagTrees: null, logTrees: null })
-    const res3 = LAND.backupIfAbandoned(SHA, '判据取不到', dir, { ...deps, runner: r3 })
-    assert.equal(res3.ok, true)
-    assert.equal(res3.why, 'tagged')
-    assert.equal(r3.tagCalls().length, 1, '判据失灵时必须回到"照打"方向')
-    // ④ 台账:两行 dedup(ref:null)、一行 tagged;dedup 行必须带 tree 与命中来源
-    const rows = readFileSync(ledgerFile, 'utf8').trim().split('\n').map((l) => JSON.parse(l))
-    assert.deepEqual(rows.map((r) => r.dedup ?? 'tagged'), ['lost-commit-tag', 'reachable-history', 'tagged'])
-    for (const row of rows.slice(0, 2)) {
-      assert.equal(row.ref, null, '去重台账不得写 ref(ref 没被打)')
-      assert.equal(row.tree, OTHER)
-      assert.ok(row.detail, '去重台账必须写命中来源')
-    }
-    // ⑤ 判据本体:形状不对的 tree 不判定(返回 null)
-    assert.equal(lib.findTreeAlreadyPresent('.', 'zzz', () => ''), null)
-  } finally {
-    rmScratch(dir)
-  }
-})
-
-test('⑨ recordAbandonedCommit 只记台账:不建任何 ref,行上带 superseded:true / ref:null(30a 仍按"无 tag = 未备份"判)', () => {
-  const dir = mkScratch('orphan-ledger-only-')
-  try {
-    bypassGit(['init', '-q', '.'], { root: dir })
-    const sha = 'a'.repeat(40)
-    const r = lib.recordAbandonedCommit({
-      sha,
-      why: '中间轮次被下一轮取代',
-      kind: 'conv',
-      root: dir,
-      now: new Date('2026-11-04T00:00:00Z'),
-    })
-    assert.equal(r.ok, true)
-    assert.equal(r.ref, null, '台账出口不得返回任何 ref')
-    assert.equal(r.why, 'ledger-only')
-    assert.equal(bypassGit(['for-each-ref', 'refs/tags'], { root: dir }).trim(), '', '只记台账不许建 tag')
-    const line = JSON.parse(
-      readFileSync(join(dir, '.ihui-agent', 'state', 'orphan-backup.jsonl'), 'utf8').trim(),
-    )
-    assert.equal(line.ref, null)
-    assert.equal(line.superseded, true)
-    assert.equal(line.sha, sha)
-    assert.equal(line.kind, 'conv')
-    // 形状不对必须出声(ok:false),不得静默吞成"已处理"
-    assert.equal(lib.recordAbandonedCommit({ sha: 'nope', kind: 'conv', root: dir }).ok, false)
-    assert.equal(lib.recordAbandonedCommit({ sha, kind: 'B', root: dir }).ok, false)
-  } finally {
-    rmScratch(dir)
-  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

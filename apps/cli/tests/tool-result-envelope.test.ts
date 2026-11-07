@@ -33,6 +33,7 @@ import {
   buildEnvelope,
   isInsideToolArtifactDir,
   readToolArtifact,
+  writeToolArtifact,
   toolArtifactDir,
   sanitizeSessionSegment,
   ReadStateTracker,
@@ -342,6 +343,38 @@ describe('提醒段预算档位', () => {
     expect(takePreview('﻿abcdef', 3)).toBe('abc');
     expect(takePreview('abc', 10)).toBe('abc');
     expect(takePreview('abc', 0)).toBe('');
+  });
+
+  it('产物读不到时不当成没有,也不写成新的', () => {
+    const written = writeToolArtifact({
+      workspacePath: workspace,
+      sessionId: 'keep',
+      toolName: 'grep',
+      content: 'KEEP',
+    });
+    const abs = path.resolve(workspace, written.relativePath);
+    const original = fs.readFileSync(abs);
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    expect(() =>
+      writeToolArtifact({
+        workspacePath: workspace,
+        sessionId: 'keep',
+        toolName: 'grep',
+        content: 'KEEP',
+        stat: denied,
+      }),
+    ).toThrow(/读不到/);
+    const back = readToolArtifact(workspace, written.relativePath, denied);
+    expect(back.ok).toBe(false);
+    if (!back.ok) {
+      expect(back.error).toContain('读不到');
+      expect(back.error.startsWith('产物文件不存在')).toBe(false);
+    }
+    expect(fs.readFileSync(abs)).toEqual(original);
   });
 
   it('buildEnvelope 是纯函数:同输入两次产物逐字节相同', () => {

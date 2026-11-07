@@ -80,25 +80,27 @@ test('豁免: HUSKY_SKIP_STYLE_VERIFY=1 → exit 0(跳过检查)', () => {
   }
 })
 
-// ─── 2. 无 commit message 文件参数 → exit 1 ─────────────
-test('参数: 缺少 commit message 文件参数 → exit 1', () => {
+// ─── 2. 无 commit message 文件参数 → exit 2(未判定) ─────────────
+test('参数: 缺少 commit message 文件参数 → exit 2(未判定)', () => {
   const dir = createTempRepo()
   try {
     const r = runScript([], { cwd: dir })
-    assert.equal(r.status, 1, `缺参数应 exit 1,实际 ${r.status}`)
+    assert.equal(r.status, 2, `缺参数应 exit 2(未判定),实际 ${r.status}`)
     assert.match(stripAnsi(r.stderr), /缺少 commit message 文件参数/)
+    assert.match(stripAnsi(r.stderr), /未判定/)
   } finally {
     rmScratch(dir)
   }
 })
 
-// ─── 3. 非 git 仓库(git diff 失败) → exit 0 ────────────
-test('非 git: 非 git 仓库目录(git diff 抛错被 catch) → exit 0', () => {
+// ─── 3. 非 git 仓库(git diff 失败) → exit 2(未判定) ────────────
+test('非 git: 非 git 仓库目录(git diff 抛错) → exit 2(未判定)', () => {
   const dir = mkScratch('ihui-nongit-style-')
   const msgPath = writeMsgFile(dir, 'feat: test\n')
   try {
     const r = runScript([msgPath], { cwd: dir })
-    assert.equal(r.status, 0, `非 git 仓库应 exit 0(catch 兜底),实际 ${r.status}`)
+    assert.equal(r.status, 2, `非 git 仓库应 exit 2(未判定),实际 ${r.status}`)
+    assert.match(stripAnsi(r.stderr), /未判定|取不到 git 暂存区/)
   } finally {
     rmScratch(dir)
   }

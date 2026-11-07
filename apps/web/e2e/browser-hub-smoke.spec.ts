@@ -75,11 +75,16 @@ test.describe('@browser-hub 内置浏览器真画面链路', () => {
     await authenticatedPage.goto('/')
     const origin = await sameOrigin(authenticatedPage.url(), '/api/browser/sessions')
 
-    // about:blank 起步即可:本用例证的是"引擎能不能起浏览器",不是外网可达性。
+    // 不传 url:本用例证的是"引擎能不能起浏览器",不是外网可达性。
+    // 2026-11-01 起 ai-service 的 create_session 对初始 URL 过 SSRF 闸
+    // (services/browser_hub.py:1079-1084 → screenshot_service._validate_url_ssrf),
+    // 只放行 http/https 且拒绝内网/localhost ⇒ `about:blank` 会被判 400
+    // "协议 'about' 不被允许",任何 URL 都会把这条"引擎活性"用例变成 SSRF 用例。
+    // 省略 url 即服务端默认 about:blank(不触发校验、不做初始导航),断言面不变。
     let created: Envelope<SessionInfoData> | undefined
     try {
       const createRes = await authenticatedPage.request.post(origin, {
-        data: { url: 'about:blank', viewport_width: 1280, viewport_height: 720 },
+        data: { viewport_width: 1280, viewport_height: 720 },
         timeout: 90_000,
       })
       const createText = await createRes.text()

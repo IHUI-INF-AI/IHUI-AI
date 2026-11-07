@@ -26,6 +26,8 @@
  *
  * Usage:
  *   node scripts/land-cross-end-shell-pages.mjs              # 预演:报本轮会产哪几枚、接缝是否全通
+ *     (预演档 = 结构上零写:不写 TMP 临时件、不派生 `watermark.mjs inject`、不取 oid、
+ *      不碰共享对象库、不派生 object-space-land;镜像锁 scripts/tests/land-cross-end-shell-pages-preview.test.mjs)
  *   node scripts/land-cross-end-shell-pages.mjs --apply      # 落地(经 object-space-land,CAS 冲突即拒)
  *   node scripts/land-cross-end-shell-pages.mjs --cap=3 --apply
  *   node scripts/land-cross-end-shell-pages.mjs --self-test
@@ -96,16 +98,29 @@ function writePackText(headText, groups, members) {
 }
 
 /**
- * 纯判据:由计划集 + 各 HEAD 面正文,算出要落的全部 blob。
- * 返回 {ok:false, why} 时调用方**一个字节都不写**(不留有页无路由的孤儿)。
+ * 预演档的落点槽位 —— 既不是 oid 也不是正文。
+ * 立意在"结构上":预演清单里每一条的 blob 都等于这个常量,它喂不进 object-space-land 的清单
+ * (那要 40 位 oid 或带水印正文),所以"把预演产物当落地产物"这条路从数据形态上就断的。
  */
-export function assembleBlobs(planned, { headOf, watermarkOf }) {
+export const PREVIEW_SLOT = 'preview-slot(未物化:预演档不取 oid、不注水印)'
+
+/**
+ * 接缝走查(四条接缝的算法**只有一份**):HEAD 面 ⊕ 本批行在内存里逐条过一遍。
+ * 返回 {ok:false, why, culprit?} 时调用方一个字节都不写(不留"有页无路由"的孤儿)。
+ *
+ * 两条"物化腿"由调用方注入,本函数自己零 IO:
+ *   stampOf(rel,text) -> {ok,blob}  页正文的水印字节(落地档)/ 预演槽位(预演档)
+ *   oidOf(text)       -> blob       接缝文本的 oid(落地档)/ 预演槽位(预演档)
+ * 于是「预演要报的待落枚数与点名清单」与「最终字节/blob 物化」第一次被拆开 ——
+ * 走查路径逐条照旧(同一批插入函数、同一个 HEAD 面取法、同一个改动判定),
+ * 只是不再为"看一眼"去写临时件、也不再往**共享对象库**塞永不进 HEAD 的 loose 对象。
+ */
+function walkSeams(planned, { headOf, stampOf, oidOf }) {
   const files = []
   for (const p of planned) {
-    const stamped = watermarkOf(p.pageRel, p.pageText)
-    if (typeof stamped !== 'string' || stamped.length === 0)
-      return { ok: false, why: `页水印字节取不到(${p.pageRel})⇒ 未判定,整批不落` }
-    files.push({ path: p.pageRel, blob: stamped })
+    const stamped = stampOf(p.pageRel, p.pageText)
+    if (!stamped.ok) return { ok: false, why: stamped.why }
+    files.push({ path: p.pageRel, blob: stamped.blob })
   }
 
   const cfg0 = headOf(MP_CONFIG)
@@ -119,7 +134,7 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
     if (!r.ok) return { ok: false, why: `app.config 插路由 ${p.route}:${r.why}`, culprit: p.route }
     cfg = r.text
   }
-  files.push({ path: MP_CONFIG, blob: hashBytes(cfg) })
+  files.push({ path: MP_CONFIG, blob: oidOf(cfg) })
 
   const reg0 = headOf(REGISTRY)
   if (typeof reg0 !== 'string')
@@ -135,7 +150,7 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
       }
     reg = r.text
   }
-  files.push({ path: REGISTRY, blob: hashBytes(reg) })
+  files.push({ path: REGISTRY, blob: oidOf(reg) })
 
   const packs = new Map()
   const packHeads = new Map()
@@ -154,16 +169,49 @@ export function assembleBlobs(planned, { headOf, watermarkOf }) {
       packs.set(lb.packRel, r.text)
     }
   }
-  // 只有**真变了**的词包才进 blob 清单:空成员组那一档会原样返回底稿(http 在 no-op 屏上),
+  // 只有**真变了**的词包才进清单:空成员组那一档会原样返回底稿(http 在 no-op 屏上),
   // 把未变的文件当成"待写"塞进去 ⇒ 落地器的"写回旧版"守卫当场命中(内容 === 父提交 blob),
   // 整批 undetermined 而根因是自家清单多带了一件。2026-10-27 实测即此型。
   let changedPacks = 0
   for (const [rel, text] of packs) {
     if (text === packHeads.get(rel)) continue
     changedPacks += 1
-    files.push({ path: rel, blob: hashBytes(text) })
+    files.push({ path: rel, blob: oidOf(text) })
   }
   return { ok: true, files, packs: changedPacks }
+}
+
+/** 落地档的两条物化腿:页正文走临时件注入水印,接缝文本走 `hash-object -w`(清单要的 blob 形态)。 */
+function landingStampOf(watermarkOf) {
+  return (rel, text) => {
+    const stamped = watermarkOf(rel, text)
+    return typeof stamped === 'string' && stamped.length > 0
+      ? { ok: true, blob: stamped }
+      : { ok: false, why: `页水印字节取不到(${rel})⇒ 未判定,整批不落` }
+  }
+}
+
+/** 预演档的两条物化腿:纯常量返回,零 fs、零派生进程、零对象库。 */
+function previewStampOf() {
+  return () => ({ ok: true, blob: PREVIEW_SLOT })
+}
+const previewOidOf = () => PREVIEW_SLOT
+
+/**
+ * 落地档装配(与拆分前逐字节同行为):走查 + 真物化。
+ * 预演档不得用它 —— 预演走 `walkSeams` + 纯腿(见 runPages 的档位分叉)。
+ */
+export function assembleBlobs(planned, { headOf, watermarkOf }) {
+  return walkSeams(planned, { headOf, stampOf: landingStampOf(watermarkOf), oidOf: hashBytes })
+}
+
+/** 预演档装配:同一条接缝走查,只出「待落枚数 + 点名清单」,一律落预演槽位。 */
+export function previewSeams(planned, { headOf }) {
+  return walkSeams(planned, {
+    headOf,
+    stampOf: previewStampOf(),
+    oidOf: previewOidOf,
+  })
 }
 
 /**
@@ -549,18 +597,64 @@ function runPages({
         `。出路:重建产物后更新 ${CAPACITY_REL}(或给新屏开新分包),不要靠加 cap 硬灌`,
     }
   }
+  // readHead 可由调用方注入(自检要造"面在两次尝试之间被别席推进"这一形)。
+  const readHead = headOf ?? headBlob
   // 一屏接缝失败不许拖死整批(2026-10-26 实测:home 的词包缺键落在嵌套子对象里,并键档不并
   // ⇒ 整批 blocked ⇒ 队列停在这一屏,和"单行 pages 数组"同一型的安静停摆)。做法:装配失败时
-  // 只摘掉肇事那一屏,其余照落,被摘的逐条点名进 dropped —— 跳过必须可见,不许静默。
+  // 只摘掉肇事那一屏,其余照落,被摘的逐条点名进 dropped —— 跳过必须可见,不许静默。两档同此口径。
+  // ── 档位分叉(2026-11-05 立,预演档结构上零写)────────────────────────────────
+  // 立因:旧实现把 stampOf → assembleBlobs → buildWithDrops 全跑在档位闸之前,于是"只看不落"的
+  // --json 档每轮都会 ① 在 TMP 里 mkdir/写/派生 `watermark.mjs inject`/删临时件,② 往**共享对象库**
+  // 写 loose 对象(`hash-object -w`)。守护每 30 分钟派一次预演,这些字节既不进 HEAD 也不进任何清单,
+  // 只是让共享 odb 长垃圾 —— 而"预演不得动盘"这件事此前只写在注释里,没有器物兜(§0.9)。
+  // 拆法:接缝走查只有一份(walkSeams),档位决定"物化腿"取哪一档;预演档取纯腿 ⇒ 结构上无写通道。
+  // 两档唯一的口径差(如实登记,别当没看见):"页水印字节取不到"那一格预演不跑 ⇒ 注入器真坏时
+  // 预演报 pending、--apply 报 blocked。这是零写预演的代价;不得为抹平这一格把写口加回预演档。
+  if (!apply || headless) {
+    const {
+      built: previewBuilt,
+      batch: previewBatch,
+      dropped: previewDropped,
+    } = buildWithDrops(batch, (arr) => previewSeams(arr, { headOf: readHead }))
+    if (!previewBuilt.ok)
+      return {
+        state: 'blocked',
+        why: previewBuilt.why,
+        planned: planned.length,
+        held,
+        dropped: previewDropped,
+      }
+    if (previewBatch.length === 0) {
+      return {
+        state: 'blocked',
+        planned: planned.length,
+        held,
+        dropped: previewDropped,
+        why: `本批 ${previewDropped.length} 枚全部因接缝失败被摘(${previewDropped[0]?.why ?? '未附原因'})⇒ 无可落之物`,
+      }
+    }
+    return {
+      state: 'pending',
+      planned: planned.length,
+      batch: previewBatch.map((p) => p.route),
+      held,
+      moves,
+      dropped: previewDropped,
+      blobs: previewBuilt.files.length,
+      note: apply
+        ? 'headless 档:只算不落'
+        : '预演模式:加 --apply 落地(本档零写:不注水印、不取 oid、不碰对象库)',
+    }
+  }
+
+  // ── 落地档:从这里起才物化字节(行为/退出码/清单/object-space-land 派生与拆分前逐字节相同)──
   // 页正文不随 HEAD 移动 ⇒ 水印字节按「文件名+正文」记忆,重装配时不重复起子进程。
-  // readHead 可由调用方注入(自检要造"面在两次尝试之间被别席推进"这一形)。
   const stampCache = new Map()
   const stampOf = (name, text) => {
     const k = `${name}\u0000${text}`
     if (!stampCache.has(k)) stampCache.set(k, hashBytes(watermarkBytesOf(name, text)))
     return stampCache.get(k)
   }
-  const readHead = headOf ?? headBlob
   const assemble = (arr) => assembleBlobs(arr, { headOf: readHead, watermarkOf: stampOf })
   let { built, batch: finalBatch, dropped } = buildWithDrops(batch, assemble)
   if (!built.ok) return { state: 'blocked', why: built.why, planned: planned.length, held, dropped }
@@ -574,18 +668,6 @@ function runPages({
     }
   }
 
-  if (!apply || headless) {
-    return {
-      state: 'pending',
-      planned: planned.length,
-      batch: finalBatch.map((p) => p.route),
-      held,
-      moves,
-      dropped,
-      blobs: built.files.length,
-      note: apply ? 'headless 档:只算不落' : '预演模式:加 --apply 落地',
-    }
-  }
   const manifest = join(ROOT, '.ihui-agent', 'tmp', 'land-cross-end-shell-pages', 'blobs.json')
   mkdirSync(dirname(manifest), { recursive: true })
   // 撞车重装的上限只是**节拍**,不是容量判据。立因:装配到提交之间是分钟级窗口,而接缝面
@@ -1152,6 +1234,71 @@ function selfTest() {
         return `${r.dropped.length}/${r.batch.length - r.batch.length}`
       },
     },
+    // ---------- 档位分叉(2026-11-05 立):预演档结构上零写 ----------
+    {
+      name: '预演走查:清单每条 blob 都是预演槽位(不取 oid、不注水印 ⇒ 没有写通道)',
+      want: '4/true',
+      got: () => {
+        const p = previewSeams([fakePlan('selftestPrevA'), fakePlan('selftestPrevB')], {
+          headOf: okHead,
+        })
+        return `${p.files?.length}/${p.files.every((f) => f.blob === PREVIEW_SLOT)}`
+      },
+    },
+    {
+      name: '预演清单的路径序列与枚数 == 落地档(同一份接缝走查;预演少报/多报即此条红)',
+      want: 'true/true',
+      got: () => {
+        const plans = [fakePlan('selftestPrevC'), fakePlan('selftestPrevD')]
+        const pv = previewSeams(plans, { headOf: okHead })
+        const ap = assembleBlobs(plans, { headOf: okHead, watermarkOf: stamp })
+        const samePaths =
+          pv.files?.map((f) => f.path).join('|') === ap.files?.map((f) => f.path).join('|')
+        return `${samePaths}/${ap.files?.length === pv.files?.length}`
+      },
+    },
+    {
+      name: '预演档 runPages(apply=false)⇒ pending,待落枚数 / 点名清单 / blob 枚数照报',
+      want: 'pending/2/2/4',
+      got: () => {
+        const r = runPages({
+          apply: false,
+          cap: 2,
+          planOf: () => ({
+            planned: [fakePlan('selftestPrevE'), fakePlan('selftestPrevF')],
+            refused: [],
+            undetermined: [],
+          }),
+          gateOf: (arr) => ({ ok: true, admitted: arr, held: [], moves: [] }),
+          headOf: okHead,
+        })
+        return `${r.state}/${r.planned}/${r.batch?.length}/${r.blobs}`
+      },
+    },
+    {
+      name: '落地档成对对照:同一条走查产出**真 40 位 oid**(证明上一档的"预演槽位"锁不是空转)',
+      want: 'true',
+      got: () => {
+        let seen = null
+        runPages({
+          apply: true,
+          cap: 2,
+          planOf: () => ({
+            planned: [fakePlan('selftestPrevG')],
+            refused: [],
+            undetermined: [],
+          }),
+          gateOf: (arr) => ({ ok: true, admitted: arr, held: [], moves: [] }),
+          headOf: (rel) => (rel === MP_CONFIG || rel === REGISTRY ? headBlob(rel) : null),
+          landOf: ({ built }) => {
+            seen = built
+            return { ok: true }
+          },
+        })
+        const blobs = (seen?.files ?? []).map((f) => f.blob)
+        return String(blobs.length === 3 && blobs.every((b) => /^[0-9a-f]{40}$/.test(String(b))))
+      },
+    },
   ]
   let pass = 0
   for (const c of cases) {
@@ -1235,6 +1382,9 @@ if (isDirectRun) {
 export const __test__ = {
   buildWithDrops,
   assembleBlobs,
+  walkSeams,
+  previewSeams,
+  PREVIEW_SLOT,
   writePackText,
   run,
   runPages,

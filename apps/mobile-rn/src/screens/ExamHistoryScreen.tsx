@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getExamsByIds, getMyRecords } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { ExamHistoryScreen as SharedExamHistoryScreen, type ExamHistoryItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -47,17 +47,19 @@ export function ExamHistoryScreen() {
       createdAt: string
     }
     type PaperRow = { id: string; title: string; totalScore: string | number }
-    const res = await fetchApi<{ list: RecordRow[] }>('/api/exam/records')
+    const res = await getMyRecords()
     let items: ExamHistoryItem[] = []
     if (res.success) {
-      const rows = res.data?.list ?? []
+      const rows = (res.data as unknown as { list: RecordRow[] })?.list ?? []
       const paperIds = Array.from(new Set(rows.map((r) => r.paperId).filter(Boolean)))
       const paperMap = new Map<string, PaperRow>()
       if (paperIds.length > 0) {
-        const pres = await fetchApi<{ list: PaperRow[] }>(
-          `/api/exam/papers/by-ids?ids=${encodeURIComponent(paperIds.join(','))}`,
-        )
-        if (pres.success) for (const p of pres.data?.list ?? []) paperMap.set(p.id, p)
+        const pres = await getExamsByIds(paperIds)
+        if (pres.success) {
+          for (const p of (pres.data as unknown as { list: PaperRow[] })?.list ?? []) {
+            paperMap.set(p.id, p)
+          }
+        }
       }
       items = rows.map((row) => {
         const paper = paperMap.get(row.paperId)

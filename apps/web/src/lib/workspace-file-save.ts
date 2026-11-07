@@ -19,6 +19,8 @@
 
 import { getBrowserWorkspaceHandle } from '@/lib/workspace-context-loader'
 import { executeWorkspaceTool } from '@/lib/workspace-tool-executor'
+import { getFileAttribution, saveFileAttribution } from '@/lib/line-attribution-store'
+import type { AttributionRange } from '@ihui/shared/attribution'
 import { useIDEWorkspace } from '@/stores/ide-workspace'
 import { useAiPanelStore } from '@/stores/ai-panel'
 
@@ -99,7 +101,20 @@ export async function saveWorkspaceTextFile(
     return { ok: false, reason: 'bad-path', message: '无法解析目标文件路径' }
   }
   try {
-    const { error } = await executeWorkspaceTool('write_file', { path: rel, content }, handle)
+    // 人工保存也走归因旁路:执行器会用写前/写后的真实内容 diff,把被改动的 AI 行翻成 ai-then-human
+    const wsKey = wsPath || handle.name
+    const attribution = {
+      origin: { at: new Date().toISOString() },
+      mode: 'human' as const,
+      records: getFileAttribution(wsKey, rel),
+      onRecord: (ranges: AttributionRange[]) => saveFileAttribution(wsKey, rel, ranges),
+    }
+    const { error } = await executeWorkspaceTool(
+      'write_file',
+      { path: rel, content },
+      handle,
+      attribution,
+    )
     if (error) return { ok: false, reason: 'write-error', message: error }
     return { ok: true, bytes: content.length }
   } catch (err) {

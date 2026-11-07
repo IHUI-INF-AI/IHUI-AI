@@ -10,6 +10,8 @@ describe('toolDisplayKey', () => {
     expect(toolDisplayKey('read_file')).toBe('toolReadFile')
     expect(toolDisplayKey('file_edit')).toBe('toolEditFile')
     expect(toolDisplayKey('run_command')).toBe('toolRunCommand')
+    expect(toolDisplayKey('sandbox_session')).toBe('toolSandboxSession')
+    expect(toolDisplayKey('read_tool_output')).toBe('toolReadToolOutput')
     expect(toolDisplayKey('web_ui_click')).toBe('toolUiClick')
     expect(toolDisplayKey('edu_send_fee_reminder')).toBe('toolEduSendReminder')
   })
@@ -41,6 +43,12 @@ describe('describeToolCall 对象提取', () => {
 
   it('命令类工具取 command 字段', () => {
     const view = describeToolCall({ toolName: 'run_command', args: { command: 'pnpm lint' } })
+    const sandbox = describeToolCall({
+      toolName: 'sandbox_session',
+      args: { action: 'exec', command: 'python -V' },
+    })
+    expect(sandbox.subjectKind).toBe('command')
+    expect(sandbox.subject).toBe('python -V')
     expect(view.subjectKind).toBe('command')
     expect(view.subject).toBe('pnpm lint')
   })

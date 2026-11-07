@@ -4,6 +4,7 @@
 
 import { useTheme } from '../context/ThemeContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Video from 'react-native-video'
 import { getAigcTasks, type AigcTask } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
 import type { AudioPort } from '@ihui/types'
@@ -69,6 +70,19 @@ function toAigcWork(task: AigcTask, tr: (key: string) => string): AigcListItem {
     fileType: asFileType(r.fileType),
     createdAt: task.createdAt ?? '',
   }
+}
+
+/** 内联视频渲染器 — react-native-video 真解码;布局由共享屏卡位约束,本组件只铺满 */
+function InlineVideo({ uri, onError }: { uri: string; onError?: () => void }) {
+  return (
+    <Video
+      source={{ uri }}
+      style={{ width: '100%', height: '100%' }}
+      resizeMode="contain"
+      controls
+      onError={onError}
+    />
+  )
 }
 
 /** 音频端口 — expo-audio 真注入(共享屏只认端口形状,不感知宿主 SDK) */
@@ -195,6 +209,32 @@ export default function AigcListScreen() {
 
   const { onToast } = useHostPorts()
   const audio = useAudioPort()
+  /** 播放态由宿主持有(共享屏只按 id 渲染播放/停止文案),播完/失败由宿主清空 */
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null)
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null)
+
+  const toggleVideo = (work: AigcListItem) => {
+    if (!work.fileUrl) {
+      onToast(t('common.failed'))
+      return
+    }
+    setPlayingVideoId((prev) => (prev === work.id ? null : work.id))
+  }
+
+  const toggleAudio = (work: AigcListItem) => {
+    if (playingAudioId === work.id) {
+      audio.stop()
+      setPlayingAudioId(null)
+      return
+    }
+    const url = work.audioUrl || work.fileUrl
+    if (!url) {
+      onToast(t('common.failed'))
+      return
+    }
+    audio.play(url)
+    setPlayingAudioId(work.id)
+  }
 
   /** 共享屏 props:轮播能力以可选端口注入(共享屏缺省不渲染),端内不再自绘一份 */
   const sharedListProps: AigcListScreenProps = {
@@ -214,6 +254,9 @@ export default function AigcListScreen() {
     colorScheme: resolvedTheme,
     onToast,
     audio,
+    playingAudioId,
+    onToggleAudio: toggleAudio,
+    video: { playingId: playingVideoId, onToggle: toggleVideo, Renderer: InlineVideo },
     carousel: { items: items.slice(0, 5), onPress: openWork },
   }
 

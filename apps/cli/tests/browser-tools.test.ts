@@ -97,6 +97,41 @@ describe('browser_close 幂等安全行为', () => {
 })
 
 describe('findChromeExecutable', () => {
+  it('前一个浏览器读不到时不改用下一个', () => {
+    const prev = process.env.IHUI_BROWSER_EXECUTABLE
+    delete process.env.IHUI_BROWSER_EXECUTABLE
+    const seen: string[] = []
+    const denied = (target: string) => {
+      seen.push(target)
+      const err = new Error('denied') as NodeJS.ErrnoException
+      err.code = 'EACCES'
+      throw err
+    }
+    try {
+      expect(() => findChromeExecutable(denied)).toThrow(/读不到/)
+      expect(seen).toHaveLength(1)
+    } finally {
+      if (prev === undefined) delete process.env.IHUI_BROWSER_EXECUTABLE
+      else process.env.IHUI_BROWSER_EXECUTABLE = prev
+    }
+  })
+
+  it('候选确实都不存在时仍返回 undefined', () => {
+    const prev = process.env.IHUI_BROWSER_EXECUTABLE
+    delete process.env.IHUI_BROWSER_EXECUTABLE
+    const missing = () => {
+      const err = new Error('missing') as NodeJS.ErrnoException
+      err.code = 'ENOENT'
+      throw err
+    }
+    try {
+      expect(findChromeExecutable(missing)).toBeUndefined()
+    } finally {
+      if (prev === undefined) delete process.env.IHUI_BROWSER_EXECUTABLE
+      else process.env.IHUI_BROWSER_EXECUTABLE = prev
+    }
+  })
+
   it('IHUI_BROWSER_EXECUTABLE 环境变量优先', () => {
     vi.stubEnv('IHUI_BROWSER_EXECUTABLE', 'C:\\custom\\my-browser.exe')
     try {

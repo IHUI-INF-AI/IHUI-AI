@@ -13,7 +13,12 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  eduParentBindingConfirm,
+  eduParentBindingDelete,
+  eduParentBindingRecords,
+  eduParentBindingReject,
+} from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
@@ -65,7 +70,7 @@ function EduParentBindScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: BindingRecord[] }>('/api/edu-ai-management/parent-binding')
+      const res = await eduParentBindingRecords<{ list: BindingRecord[] }>()
       if (!res.success) throw new Error(res.error || 'load failed')
       const list = res.data?.list ?? []
       setRaw(list)
@@ -101,13 +106,12 @@ function EduParentBindScreen() {
     async (id: string, kind: 'confirm' | 'reject' | 'delete') => {
       setPending(true)
       try {
-        const url =
+        const res =
           kind === 'confirm'
-            ? `/api/edu-ai-management/parent-binding/${id}/confirm`
+            ? await eduParentBindingConfirm(id)
             : kind === 'reject'
-              ? `/api/edu-ai-management/parent-binding/${id}/reject`
-              : `/api/edu-ai-management/parent-binding/${id}`
-        const res = await fetchApi(url, { method: kind === 'delete' ? 'DELETE' : 'PUT' })
+              ? await eduParentBindingReject(id)
+              : await eduParentBindingDelete(id)
         if (!res.success) throw new Error(res.error)
         void load()
       } catch (e) {

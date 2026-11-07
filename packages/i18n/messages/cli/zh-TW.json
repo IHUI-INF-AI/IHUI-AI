@@ -149,7 +149,20 @@
     "agentStallBudgetGovernance": "預算治理",
     "agentStallHookPipeline": "鉤子管線",
     "agentStallDoomLoopGuard": "死迴圈防護",
-    "agentStallUndetermined": "未判定環節"
+    "agentStallUndetermined": "未判定環節",
+    "taskStatusLabels": {
+      "pending": "待處理",
+      "inProgress": "進行中",
+      "completed": "已完成",
+      "cancelled": "已取消",
+      "blocked": "已阻塞"
+    },
+    "tasksHelpCancel": "/tasks cancel <id>       取消任務",
+    "tasksHelpBlock": "/tasks block <id>         阻塞任務",
+    "tasksUsageCancel": "usage: /tasks cancel <id>",
+    "tasksUsageBlock": "usage: /tasks block <id>",
+    "taskCancelledFeedback": "✓ 任務 #{id} 已取消: {content}",
+    "taskBlockedFeedback": "✓ 任務 #{id} 已阻塞: {content}"
   },
   "waiting": {
     "agent": {
@@ -464,7 +477,7 @@
     "shareHash": "  防篡改 hash: {hash}",
     "shareSize": "  大小: {sizeBytes} bytes",
     "qrGenerated": "  二維碼:已生成(data URL)",
-    "qrFallback": "  二維碼:降級模式(需引入 qr 庫啟用)",
+    "qrFallback": "  二維碼:未產出(連結超出編碼容量或形態不支援)",
     "modeDesc": "查看或切換交互模式: plan(只讀調研) | build(執行修改) | review(審查 diff)",
     "modeCurrent": "當前模式: {mode}",
     "modeAvailable": "可用模式: plan(只讀) / build(執行) / review(審查)",

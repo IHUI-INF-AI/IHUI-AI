@@ -42,15 +42,24 @@ export function formatPhone(phone: string): string {
  *
  * 单一来源:@ihui/shared/utils(2026-07-25 立,从 @ihui/api-client 迁入)。
  * api-client 的同名函数保留作为向后兼容 re-export,新代码应优先从 @ihui/shared/utils 导入。
+ *
+ * BUG-28④:K/M 两支统一「四舍五入到 1 位小数」口径 —— K 支旧用 toFixed(0) 会把
+ * 1500 进成 "2K"、999999 进成 "1000K" 这类畸形值。单位切换按四舍五入后的 K 值判定,
+ * 达到 1000K 就升到 M 单位,不产出 "1000K";M 支同样归一,999999 → "1M"。
  */
+function formatUnitValue(value: number): string {
+  const rounded = Math.round(value * 10) / 10
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+}
+
 export function formatTokenCount(tokens: number): string {
-  if (tokens >= 1_000_000) {
-    const m = tokens / 1_000_000
-    return `${Number.isInteger(m) ? m : m.toFixed(1)}M`
+  const k = tokens / 1_000
+  // 四舍五入后达到 1000K ⇒ 用 M 单位(避免 "1000K" 畸形值,与 M 支口径一致)
+  if (Math.round(k * 10) / 10 >= 1_000) {
+    return `${formatUnitValue(tokens / 1_000_000)}M`
   }
   if (tokens >= 1_000) {
-    const k = tokens / 1_000
-    return `${Number.isInteger(k) ? k : k.toFixed(0)}K`
+    return `${formatUnitValue(k)}K`
   }
   return String(tokens)
 }

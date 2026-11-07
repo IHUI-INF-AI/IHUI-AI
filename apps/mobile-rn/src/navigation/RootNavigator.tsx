@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { rnSpacing } from '@ihui/design-tokens'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, ActivityIndicator } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -241,6 +242,8 @@ import { AgentMarketScreen } from '../screens/AgentMarketScreen'
 import { AgentCreateScreen } from '../screens/AgentCreateScreen'
 import { AgentEditScreen } from '../screens/AgentEditScreen'
 import { ArticleDetailScreen } from '../screens/ArticleDetailScreen'
+import { ExamIntroScreen } from '../screens/ExamIntroScreen'
+import { ShareLandingScreen } from '../screens/ShareLandingScreen'
 import { ArticleListScreen } from '../screens/ArticleListScreen'
 import { PostDetailScreen } from '../screens/PostDetailScreen'
 import { PostCreateScreen } from '../screens/PostCreateScreen'
@@ -374,6 +377,8 @@ import { SelfHealingScreen } from '../screens/SelfHealingScreen'
 import { WorkspaceScreen } from '../screens/WorkspaceScreen'
 // D28 多端同步(2026-09-21):外部会话导入(对应 web 端 /settings/import 会话导入 Tab)
 import { ConversationImportScreen } from '../screens/ConversationImportScreen'
+// A2(2026-11-05):AI 会话历史 —— RN 侧真消费共享屏
+import { ConversationHistoryScreen } from '../screens/ConversationHistoryScreen'
 // P3 侧边栏收敛:教育/交易/社区域入口二级屏
 import DomainHubScreen from '../screens/DomainHubScreen'
 import type { DomainKey } from './domain-hub'
@@ -669,6 +674,8 @@ export type RootStackParamList = {
   ExamDetail: { id: string }
   ExamHistory: undefined
   ExamQuestion: { examId: string }
+  // 门 301 还账(2026-11-06):试卷介绍屏 RN 腿,入口由 ExamScreen「开始考试」进入
+  ExamIntro: { id: string }
   CertDetail: { id: string }
   CertVerify: { certNo?: string }
   MessageDetail: { id: string }
@@ -678,6 +685,8 @@ export type RootStackParamList = {
   History: undefined
   Bookmark: undefined
   Share: undefined
+  // 门 301 还账(2026-11-06):分享落地页 RN 腿,入口为 web 分享链接 h5/share/:code deep link
+  ShareLanding: { code: string }
   SharedDemo: undefined
   Recharge: undefined
   AigcCover: { id: string; title: string }
@@ -795,6 +804,8 @@ export type RootStackParamList = {
   CircleIndex: undefined
   // D28 多端同步(2026-09-21):外部会话导入入口(设置页 → 会话导入屏)
   ConversationImport: undefined
+  // A2(2026-11-05):AI 会话历史共享屏的 RN 入口
+  ConversationHistory: undefined
 }
 
 // MainStackParamList / MainTabKey / mainScreenForTab 已提取到 tab-utils.ts,
@@ -965,7 +976,7 @@ function RootNavigatorInner() {
         style={{ backgroundColor: tokens.surface.bg }}
       >
         <ActivityIndicator color={tokens.brandAccent.deep} />
-        <Text style={{ color: tokens.text.secondary, marginTop: 12 }}>加载中...</Text>
+        <Text style={{ color: tokens.text.secondary, marginTop: rnSpacing.md }}>加载中...</Text>
       </View>
     )
   }
@@ -992,6 +1003,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="DomainHub" component={DomainHubScreen} />
             <RootStack.Screen name="Chat" component={ChatScreen} />
             <RootStack.Screen name="ChatWorkbench" component={ChatWorkbenchScreen} />
+            <RootStack.Screen name="ConversationHistory" component={ConversationHistoryScreen} />
             <RootStack.Screen name="OrderRefund" component={OrderRefundScreen} />
             <RootStack.Screen name="Payment" component={PaymentScreen} />
             <RootStack.Screen name="Vip" component={VipScreen} />
@@ -1241,6 +1253,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="ExamDetail" component={ExamResultScreen} />
             <RootStack.Screen name="ExamHistory" component={ExamHistoryScreen} />
             <RootStack.Screen name="ExamQuestion" component={ExamQuestionScreen} />
+            <RootStack.Screen name="ExamIntro" component={ExamIntroScreen} />
             <RootStack.Screen name="CertDetail" component={CertDetailScreen} />
             <RootStack.Screen name="CertVerify" component={CertVerifyScreen} />
             <RootStack.Screen name="MessageDetail" component={MessageDetailScreen} />
@@ -1250,6 +1263,7 @@ function RootNavigatorInner() {
             <RootStack.Screen name="History" component={HistoryScreen} />
             <RootStack.Screen name="Bookmark" component={BookmarkScreen} />
             <RootStack.Screen name="Share" component={ShareScreen} />
+            <RootStack.Screen name="ShareLanding" component={ShareLandingScreen} />
             <RootStack.Screen name="SharedDemo" component={SharedDemoScreen} />
             {/* Recharge 指向完整充值页 AppTopup(真实微信支付链),替代此前复用钱包页的占位 */}
             <RootStack.Screen name="Recharge" component={AppTopupScreen} />

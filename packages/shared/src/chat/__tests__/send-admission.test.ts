@@ -16,6 +16,7 @@ import {
   ADMISSION_PHASES,
   SSE_ADMISSION_EVENT,
   createInputId,
+  admissionCountsAsAccepted,
   createSendAdmissionTracker,
   isAdmissionDisposition,
   readAdmissionPhaseFromMeta,
@@ -70,6 +71,27 @@ describe('readSendAdmissionReceipt:形状不认一律 null(不猜、不补默认
       queuedTurnId: 'q-1',
       reason: 'RATE_LIMITED',
     })
+  })
+
+  it('排队位置只在 queued 且为非负整数时保留', () => {
+    const queued = readSendAdmissionReceipt({
+      inputId: 'in-1',
+      disposition: 'queued',
+      ahead: 2,
+    })
+    expect(queued?.ahead).toBe(2)
+    const running = readSendAdmissionReceipt({
+      inputId: 'in-1',
+      disposition: 'accepted',
+      ahead: 2,
+    })
+    expect(running?.ahead).toBeUndefined()
+    const bad = readSendAdmissionReceipt({
+      inputId: 'in-1',
+      disposition: 'queued',
+      ahead: 1.5,
+    })
+    expect(bad?.ahead).toBeUndefined()
   })
 })
 
@@ -178,7 +200,14 @@ describe('tracker:回执配对是唯一能把 tentative 抬成 admitted 的正�
 describe('tracker:隐式证据只往上抬,不改写已知结论', () => {
   const make = () => createSendAdmissionTracker({ inputId: 'in-A', messageId: 'm-A' })
 
-  it.each(['stream-open', 'delta', 'done'] as const)('%s 把 tentative 抬成 admitted', (ev) => {
+  it('stream-open 不抬升:响应头只证明连接,不证明服务端收下这一轮', () => {
+    const t = make()
+    const r = t.noteEvidence('stream-open')
+    expect(r.phase).toBe('tentative')
+    expect(r.changed).toBe(false)
+  })
+
+  it.each(['delta', 'done'] as const)('%s 把 tentative 抬成 admitted', (ev) => {
     const t = make()
     expect(t.noteEvidence(ev).phase).toBe('admitted')
   })
@@ -263,6 +292,16 @@ describe('metaPatch / readAdmissionPhaseFromMeta:落盘与回读对称', () => {
     expect(readAdmissionPhaseFromMeta({ admission: null })).toBeNull()
     expect(readAdmissionPhaseFromMeta({ admission: { inputId: 'x' } })).toBeNull()
     expect(readAdmissionPhaseFromMeta({ admission: { phase: 'unknown' } })).toBeNull()
+  })
+})
+
+describe('admissionCountsAsAccepted:只有收下/排队才算界面已发送', () => {
+  it('admitted 与 queued 算收下,其余三档都不算', () => {
+    expect(admissionCountsAsAccepted('admitted')).toBe(true)
+    expect(admissionCountsAsAccepted('queued')).toBe(true)
+    expect(admissionCountsAsAccepted('tentative')).toBe(false)
+    expect(admissionCountsAsAccepted('rejected')).toBe(false)
+    expect(admissionCountsAsAccepted('unconfirmed')).toBe(false)
   })
 })
 

@@ -154,6 +154,7 @@ export default function LiveCalendar() {
         <View className="cal-nav">
           <View
             className="cal-nav-btn"
+            hoverClass="opacity-60"
             onClick={() => shift(-1)}
             ariaRole="button"
             ariaLabel={tt('live.calendar.prevMonth', '')}
@@ -168,6 +169,7 @@ export default function LiveCalendar() {
           </Text>
           <View
             className="cal-nav-btn"
+            hoverClass="opacity-60"
             onClick={() => shift(1)}
             ariaRole="button"
             ariaLabel={tt('live.calendar.nextMonth', '')}

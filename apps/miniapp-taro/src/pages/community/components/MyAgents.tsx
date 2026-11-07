@@ -3,14 +3,16 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * MyAgents — 我的AI APP 横向滚动列表 + "我的AI员工"团队按钮
- * 对齐原项目 zhs_app-ZZ Ai-WXMiniVue tools/components/MyAgents.vue
+ * MyAgents — 我的AI APP 横向滚动列表 + "我的AI员工"入口(小程序端适配层)
+ *
+ * UI 已单源化到 features/agent-screen/AgentMyApps;
+ * 本文件只保留小程序端登录/付费/来源拦截与跳转。
  */
 import { useTt } from '@/i18n'
-import { View, Text, ScrollView, Image } from '@tarojs/components'
+import { useTheme } from '@/rn-compat/theme'
 import Taro from '@tarojs/taro'
-import LineIcon from '@/components/LineIcon'
 import { onToast } from '@/host/on-toast'
+import { AgentMyApps } from '@ihui/rn-app/features/agent-screen/AgentMyApps'
 
 export interface MyAgent {
   id: string
@@ -29,7 +31,7 @@ export interface MyAgentsProps {
 
 export default function MyAgents({ myAgents }: MyAgentsProps) {
   const tt = useTt()
-  if (!myAgents || myAgents.length === 0) return null
+  const { resolvedTheme } = useTheme()
 
   function goToTeam() {
     Taro.navigateTo({ url: '/pages/tools/ai_group/index' })
@@ -53,38 +55,17 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
   }
 
   return (
-    <View className="my-agents-container">
-      <View className="my-header">
-        <Text className="my-title">{tt('communityMyAgents.mine1', '我的AI APP')}</Text>
-        <View className="team-button" onClick={goToTeam} hoverClass="opacity-60">
-          <Text className="team-button-text">{tt('communityMyAgents.mine2', '我的AI员工')}</Text>
-          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
-        </View>
-      </View>
-      <ScrollView scrollX className="my-scroll" showScrollbar={false}>
-        <View className="my-list">
-          {myAgents.map((agent, index) => (
-            <View
-              key={agent.id || index}
-              className="my-item"
-              onClick={() => navigateTo(agent, index)}
-              hoverClass="opacity-60"
-            >
-              {agent.agentAvatar ? (
-                <Image className="agent-avatar" src={agent.agentAvatar} mode="aspectFill" />
-              ) : (
-                <View className="agent-avatar agent-avatar-fallback">
-                  <Text className="agent-avatar-fallback-text">
-                    {(agent.agentName || '?').charAt(0)}
-                  </Text>
-                </View>
-              )}
-              <Text className="agent-name">{agent.agentName}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    </View>
+    <AgentMyApps
+      items={myAgents}
+      title={tt('communityMyAgents.mine1', '我的AI APP')}
+      moreText={tt('communityMyAgents.mine2', '我的AI员工')}
+      onItemClick={(item, index) => navigateTo(item as MyAgent, index)}
+      onMore={goToTeam}
+      showMore
+      colorScheme={resolvedTheme}
+      defaultAvatar={null}
+      emptyText={null}
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

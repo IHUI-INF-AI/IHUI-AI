@@ -3,101 +3,21 @@
   "note": "非色档分叉的元素级归类(2026-11-02 Phase 4)。只读台账:不改任何取值、不新增类型档。rn-only-* 是 RN 单侧渲染,必须在 cross-end-allowed-diffs.json 有 styleTier 条目(到期回红);web-align 是两端同一元素,差值进「待 web 同步对齐」清单,不登记成允许差异;undetermined 必须由人定语义,本器对非零 undetermined 判红。",
   "face": "head",
   "summary": {
-    "elements": 316,
-    "fontSize": 135,
+    "elements": 182,
+    "fontSize": 39,
     "classes": {
-      "rn-only-hairline": 32,
-      "web-align": 228,
-      "rn-only-shape": 10,
-      "rn-only-display": 44,
-      "comment-noise": 2
+      "rn-only-hairline": 33,
+      "web-align": 101,
+      "rn-only-shape": 9,
+      "comment-noise": 1,
+      "rn-only-display": 38
     },
-    "forkRows": 46,
-    "forkOccurrences": 227,
-    "missingTierRows": 19,
-    "missingTierOccurrences": 89
+    "forkRows": 16,
+    "forkOccurrences": 48,
+    "missingTierRows": 26,
+    "missingTierOccurrences": 133
   },
   "fontSizeElements": [
-    {
-      "file": "apps/mobile-rn/src/components/CourseCarousel.tsx",
-      "styleKey": "thumbIcon",
-      "size": 36,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/CourseCarousel.tsx",
-      "styleKey": "thumbIcon",
-      "size": 32,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/CourseCarousel.tsx",
-      "styleKey": "thumbIcon",
-      "size": 28,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/HandPlatePops.tsx",
-      "styleKey": "purchasePrice",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/PersonalInformationCard.tsx",
-      "styleKey": "incomeValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/PersonalInformationCard.tsx",
-      "styleKey": "withdrawValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/Toolbar.tsx",
-      "styleKey": "bannerFloatEmoji",
-      "size": 64,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/Toolbar.tsx",
-      "styleKey": "customIcon",
-      "size": 26,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/components/UpdatePrompt.tsx",
-      "styleKey": "body",
-      "size": 12.5,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
     {
       "file": "apps/mobile-rn/src/components/UserInfoCard.tsx",
       "styleKey": "(none)",
@@ -115,30 +35,12 @@
       "decision": "allowance"
     },
     {
-      "file": "apps/mobile-rn/src/components/common/Default.tsx",
-      "styleKey": "emoji",
-      "size": 56,
-      "count": 1,
-      "class": "rn-only-display",
-      "decision": "allowance"
-    },
-    {
       "file": "apps/mobile-rn/src/components/common/Empty.tsx",
       "styleKey": "emoji",
       "size": 48,
       "count": 1,
       "class": "rn-only-display",
       "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/screens/DevicesScreen.tsx",
-      "styleKey": "pairCode",
-      "size": 40,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "file": "apps/mobile-rn/src/screens/HomeScreen.tsx",
@@ -163,16 +65,6 @@
       "count": 1,
       "class": "rn-only-display",
       "decision": "allowance"
-    },
-    {
-      "file": "apps/mobile-rn/src/screens/InvoicesScreen.tsx",
-      "styleKey": "amount",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "file": "apps/mobile-rn/src/screens/LoginScreen.tsx",
@@ -215,26 +107,6 @@
       "decision": "allowance"
     },
     {
-      "file": "apps/mobile-rn/src/screens/ProfileScreen.tsx",
-      "styleKey": "unsubscribeTitle",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "apps/mobile-rn/src/screens/SecurityCenterScreen.tsx",
-      "styleKey": "scoreValue",
-      "size": 32,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "apps/mobile-rn/src/screens/ShareScreen.tsx",
       "styleKey": "pickerIcon",
       "size": 28,
@@ -251,352 +123,12 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/about/about-styles.ts",
-      "styleKey": "heroTitle",
-      "size": 28,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/agent-screen/AgentScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ai-assistant/AiAssistantScreen.tsx",
-      "styleKey": "headerTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ai-career/AiCareerScreen.tsx",
-      "styleKey": "headerTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ai-career/AiCareerScreen.tsx",
-      "styleKey": "submitBtnText",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ai-group/AiGroupScreen.tsx",
-      "styleKey": "headerTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ai-world/AiWorldCollectionScreen.tsx",
-      "styleKey": "heroTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/aigc-cover/AigcCoverScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/aigc-list/AigcListScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/aigc-publish/AigcPublishScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/announcement-detail/AnnouncementDetailScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/app-topup/AppTopupScreen.tsx",
-      "styleKey": "balanceValue",
-      "size": 32,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/article-detail/ArticleDetailScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ask-create/AskCreateScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ask-detail/AskDetailScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/ask-list/AskListScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/cert-apply/CertApplyScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/cert-verify/CertVerifyScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/change-phone/ChangePhoneScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/check-in/CheckInScreen.tsx",
-      "styleKey": "statsValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/circle-create/CircleCreateScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/circle-detail/CircleDetailScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/community/CirclePostScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/community/InvitationsScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/community/LettersScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/community/NewsCategoryScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/community/SearchHistoryScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/coupon/CouponScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/coupon/CouponScreen.tsx",
-      "styleKey": "amountText",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/course-chapter/CourseChapterScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/course-comment/CourseCommentScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/course-enroll/CourseEnrollScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/course-filter/CourseFilterScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/course-planet/CoursePlanetScreen.tsx",
       "styleKey": "courseCoverEmoji",
       "size": 32,
       "count": 1,
       "class": "rn-only-display",
       "decision": "allowance"
-    },
-    {
-      "file": "packages/app/src/features/course-screen/CourseScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "file": "packages/app/src/features/course-tab/CourseTabScreen.tsx",
@@ -631,122 +163,12 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/dashboard/DashboardScreen.tsx",
-      "styleKey": "cardValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/developer/developer-styles.ts",
-      "styleKey": "userName",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/distribution/DistributionScreen.tsx",
-      "styleKey": "earningsValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/earn-commission/EarnCommissionScreen.tsx",
-      "styleKey": "statsValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/exam-history/ExamHistoryScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/exam-result/ExamResultScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/exam-result/ExamResultScreen.tsx",
-      "styleKey": "scoreText",
-      "size": 36,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/exam/ExamScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/finance/FinanceScreen.tsx",
-      "styleKey": "value",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/home/HomeScreen.tsx",
-      "styleKey": "sectionTitle",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/home/HomeScreen.tsx",
       "styleKey": "menuIcon",
       "size": 22,
       "count": 1,
       "class": "rn-only-display",
       "decision": "allowance"
-    },
-    {
-      "file": "packages/app/src/features/image-gen-templates/ImageGenTemplatesScreen.tsx",
-      "styleKey": "title",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "file": "packages/app/src/features/learn-develop/LearnDevelopScreen.tsx",
@@ -781,36 +203,6 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/live-chat/LiveChatScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/live-list/LiveListScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/live-playback-screen/LivePlaybackScreen.tsx",
       "styleKey": "playerIcon",
       "size": 36,
@@ -820,81 +212,11 @@
     },
     {
       "file": "packages/app/src/features/login/LoginScreen.tsx",
-      "styleKey": "welcomeText",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/login/LoginScreen.tsx",
       "styleKey": "qrPlaceholderIconText",
       "size": 56,
       "count": 1,
       "class": "rn-only-display",
       "decision": "allowance"
-    },
-    {
-      "file": "packages/app/src/features/note-create/NoteCreateScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/note-detail/NoteDetailScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/note/NoteScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/order-detail/OrderDetailScreen.tsx",
-      "styleKey": "price",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/payment/PaymentScreen.tsx",
-      "styleKey": "amountValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/plan/plan-styles.ts",
-      "styleKey": "heroTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "file": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
@@ -937,26 +259,6 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/post-create/PostCreateScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/post-detail/PostDetailScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/profile-edit/ProfileEditScreen.tsx",
       "styleKey": "avatarEmoji",
       "size": 28,
@@ -971,26 +273,6 @@
       "count": 1,
       "class": "rn-only-display",
       "decision": "allowance"
-    },
-    {
-      "file": "packages/app/src/features/profile/ProfileScreen.tsx",
-      "styleKey": "nickname",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/promote/PromoteScreen.tsx",
-      "styleKey": "statValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     },
     {
       "file": "packages/app/src/features/qr-code/QrCodeScreen.tsx",
@@ -1009,116 +291,6 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/register/RegisterScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/search/SearchScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/settings-account/SettingsAccountScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/share/ShareScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/status/status-styles.ts",
-      "styleKey": "heroTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/student/student-styles.ts",
-      "styleKey": "heroTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/student/student-styles.ts",
-      "styleKey": "statValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/student/student-styles.ts",
-      "styleKey": "statValueCompleted",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/student/student-styles.ts",
-      "styleKey": "statValueBrand",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
-      "styleKey": "statValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/study-publish/StudyPublishScreen.tsx",
       "styleKey": "icon",
       "size": 28,
@@ -1135,26 +307,6 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/support/support-styles.ts",
-      "styleKey": "heroTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/task-center/TaskCenterScreen.tsx",
-      "styleKey": "title",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/team-detail/TeamDetailScreen.tsx",
       "styleKey": "avatarText",
       "size": 22,
@@ -1163,36 +315,6 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/token-value/TokenValueScreen.tsx",
-      "styleKey": "balanceValue",
-      "size": 32,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/tools/tools-styles.ts",
-      "styleKey": "heroTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/topic-detail/topic-detail-styles.ts",
-      "styleKey": "topicName",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/topup-fail/TopupFailScreen.tsx",
       "styleKey": "icon",
       "size": 64,
@@ -1201,345 +323,19 @@
       "decision": "allowance"
     },
     {
-      "file": "packages/app/src/features/topup-fail/TopupFailScreen.tsx",
-      "styleKey": "titleText",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
       "file": "packages/app/src/features/topup-success/TopupSuccessScreen.tsx",
       "styleKey": "icon",
       "size": 64,
       "count": 1,
       "class": "rn-only-display",
       "decision": "allowance"
-    },
-    {
-      "file": "packages/app/src/features/topup-success/TopupSuccessScreen.tsx",
-      "styleKey": "titleText",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/vip-level/VipLevelScreen.tsx",
-      "styleKey": "levelName",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/vip-trader/VipTraderScreen.tsx",
-      "styleKey": "footPrice",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/wallet/WalletScreen.tsx",
-      "styleKey": "cardValue",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/workflows/WorkflowDetailScreen.tsx",
-      "styleKey": "wfTitle",
-      "size": 17,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "file": "packages/app/src/features/workflows/WorkflowListScreen.tsx",
-      "styleKey": "heroTitle",
-      "size": 22,
-      "count": 1,
-      "class": "web-align",
-      "decision": "web-alignment-todo",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 同名元素当前字号档 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
     }
   ],
   "forkRows": [
     {
       "kind": "spacing",
-      "prop": "marginTop",
-      "value": 1,
-      "occurrences": 3,
-      "classes": {
-        "rn-only-hairline": 3
-      },
-      "decision": "allowance"
-    },
-    {
-      "kind": "spacing",
-      "prop": "marginTop",
-      "value": 22,
-      "occurrences": 2,
-      "classes": {
-        "web-align": 2
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "marginTop",
-      "value": 18,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingHorizontal",
-      "value": 18,
-      "occurrences": 3,
-      "classes": {
-        "web-align": 3
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingHorizontal",
-      "value": 15,
-      "occurrences": 2,
-      "classes": {
-        "web-align": 2
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingHorizontal",
-      "value": 11,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingHorizontal",
-      "value": 7,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingHorizontal",
-      "value": 30,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingHorizontal",
-      "value": 22,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 1,
-      "occurrences": 24,
-      "classes": {
-        "rn-only-hairline": 24
-      },
-      "decision": "allowance"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 30,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 9,
-      "occurrences": 6,
-      "classes": {
-        "web-align": 6
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 7,
-      "occurrences": 8,
-      "classes": {
-        "web-align": 8
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 18,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 11,
-      "occurrences": 4,
-      "classes": {
-        "web-align": 4
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 13,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 15,
-      "occurrences": 9,
-      "classes": {
-        "web-align": 9
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingVertical",
-      "value": 60,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "marginLeft",
-      "value": 1,
-      "occurrences": 1,
-      "classes": {
-        "rn-only-hairline": 1
-      },
-      "decision": "allowance"
-    },
-    {
-      "kind": "spacing",
       "prop": "marginVertical",
       "value": 2.5,
-      "occurrences": 1,
-      "classes": {
-        "rn-only-hairline": 1
-      },
-      "decision": "allowance"
-    },
-    {
-      "kind": "spacing",
-      "prop": "gap",
-      "value": 18,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "gap",
-      "value": 7,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "gap",
-      "value": 1,
       "occurrences": 1,
       "classes": {
         "rn-only-hairline": 1
@@ -1558,30 +354,6 @@
     },
     {
       "kind": "spacing",
-      "prop": "marginBottom",
-      "value": 18,
-      "occurrences": 2,
-      "classes": {
-        "web-align": 2
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "marginBottom",
-      "value": 9,
-      "occurrences": 2,
-      "classes": {
-        "web-align": 2
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
       "prop": "marginRight",
       "value": 7.8,
       "occurrences": 1,
@@ -1591,123 +363,13 @@
       "decision": "allowance"
     },
     {
-      "kind": "spacing",
-      "prop": "marginRight",
-      "value": 7,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingTop",
-      "value": 18,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingBottom",
-      "value": 30,
-      "occurrences": 2,
-      "classes": {
-        "web-align": 2
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "fontSize",
-      "prop": "fontSize",
-      "value": 36,
-      "occurrences": 3,
-      "classes": {
-        "rn-only-display": 2,
-        "web-align": 1
-      },
-      "decision": "partial-allowance",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
-    },
-    {
       "kind": "fontSize",
       "prop": "fontSize",
       "value": 32,
-      "occurrences": 17,
+      "occurrences": 12,
       "classes": {
-        "rn-only-display": 13,
         "comment-noise": 1,
-        "web-align": 3
-      },
-      "decision": "partial-allowance",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
-    },
-    {
-      "kind": "fontSize",
-      "prop": "fontSize",
-      "value": 28,
-      "occurrences": 11,
-      "classes": {
-        "rn-only-display": 10,
-        "web-align": 1
-      },
-      "decision": "partial-allowance",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
-    },
-    {
-      "kind": "fontSize",
-      "prop": "fontSize",
-      "value": 22,
-      "occurrences": 83,
-      "classes": {
-        "web-align": 75,
-        "rn-only-display": 8
-      },
-      "decision": "partial-allowance",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值(混合行:只对齐非字形盒的那几处)"
-    },
-    {
-      "kind": "fontSize",
-      "prop": "fontSize",
-      "value": 64,
-      "occurrences": 4,
-      "classes": {
-        "rn-only-display": 4
-      },
-      "decision": "allowance"
-    },
-    {
-      "kind": "fontSize",
-      "prop": "fontSize",
-      "value": 12.5,
-      "occurrences": 1,
-      "classes": {
-        "web-align": 1
-      },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
-    },
-    {
-      "kind": "fontSize",
-      "prop": "fontSize",
-      "value": 56,
-      "occurrences": 2,
-      "classes": {
-        "rn-only-display": 2
+        "rn-only-display": 12
       },
       "decision": "allowance"
     },
@@ -1724,26 +386,52 @@
     {
       "kind": "fontSize",
       "prop": "fontSize",
-      "value": 40,
-      "occurrences": 1,
+      "value": 22,
+      "occurrences": 8,
       "classes": {
-        "web-align": 1
+        "rn-only-display": 8
       },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
+      "decision": "allowance"
     },
     {
       "kind": "fontSize",
       "prop": "fontSize",
-      "value": 17,
-      "occurrences": 8,
+      "value": 28,
+      "occurrences": 9,
       "classes": {
-        "web-align": 8
+        "rn-only-display": 9
       },
-      "decision": "pending-decision",
-      "changeSide": "rn",
-      "evidenceNeeded": "web 侧同元素当前取值 + 两端截图对照 + owner 签字;改 RN 侧向 web 现用档收敛,不得在本表内直接改值"
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 36,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-display": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 56,
+      "occurrences": 1,
+      "classes": {
+        "rn-only-display": 1
+      },
+      "decision": "allowance"
+    },
+    {
+      "kind": "fontSize",
+      "prop": "fontSize",
+      "value": 64,
+      "occurrences": 3,
+      "classes": {
+        "rn-only-display": 3
+      },
+      "decision": "allowance"
     },
     {
       "kind": "radius",
@@ -1769,9 +457,9 @@
       "kind": "radius",
       "prop": "borderRadius",
       "value": 24,
-      "occurrences": 2,
+      "occurrences": 1,
       "classes": {
-        "rn-only-shape": 2
+        "rn-only-shape": 1
       },
       "decision": "allowance"
     },
@@ -1810,22 +498,28 @@
     {
       "kind": "spacing",
       "prop": "marginTop",
-      "value": 3,
-      "occurrences": 2,
+      "value": 1,
+      "occurrences": 3,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
-      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
-      "evidence": "档位尺 --json: marginTop=3px×2(missingTier:对端同值在用但不在档表)"
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: marginTop=1px×3(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
       "prop": "marginTop",
-      "value": 5,
-      "occurrences": 1,
+      "value": 3,
+      "occurrences": 2,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
-      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
-      "evidence": "档位尺 --json: marginTop=5px×1(missingTier:对端同值在用但不在档表)"
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
+      "evidence": "档位尺 --json: marginTop=3px×2(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
@@ -1833,7 +527,10 @@
       "value": 28,
       "occurrences": 1,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "布局专用值(marginTop/padding 各 1-2 处),非间距刻度;未过准入线,补表会把局部布局值升成公共档。",
       "evidence": "档位尺 --json: marginTop=28px×1(missingTier:对端同值在用但不在档表)"
     },
@@ -1843,7 +540,10 @@
       "value": 5,
       "occurrences": 8,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
       "evidence": "档位尺 --json: paddingHorizontal=5px×8(missingTier:对端同值在用但不在档表)"
     },
@@ -1853,9 +553,25 @@
       "value": 3,
       "occurrences": 1,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
       "evidence": "档位尺 --json: paddingHorizontal=3px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingHorizontal",
+      "value": 7,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: paddingHorizontal=7px×1(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
@@ -1863,9 +579,38 @@
       "value": 5,
       "occurrences": 6,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
       "evidence": "档位尺 --json: paddingVertical=5px×6(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 1,
+      "occurrences": 25,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: paddingVertical=1px×25(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 9,
+      "occurrences": 6,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "9px 落在档 8/10 之间(Δ=1px):RN 8 处 / web 2 处(pl-[9px]),同上 —— 规模不到准入线,补表只会造出无派生消费方的散档。",
+      "evidence": "档位尺 --json: paddingVertical=9px×6(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
@@ -1873,9 +618,25 @@
       "value": 3,
       "occurrences": 20,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
       "evidence": "档位尺 --json: paddingVertical=3px×20(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingVertical",
+      "value": 7,
+      "occurrences": 8,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: paddingVertical=7px×8(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
@@ -1883,7 +644,10 @@
       "value": 28,
       "occurrences": 1,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "布局专用值(marginTop/padding 各 1-2 处),非间距刻度;未过准入线,补表会把局部布局值升成公共档。",
       "evidence": "档位尺 --json: paddingVertical=28px×1(missingTier:对端同值在用但不在档表)"
     },
@@ -1893,19 +657,25 @@
       "value": 5,
       "occurrences": 1,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
       "evidence": "档位尺 --json: marginLeft=5px×1(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
       "prop": "marginLeft",
-      "value": 28,
+      "value": 1,
       "occurrences": 1,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
-      "reason": "布局专用值(marginTop/padding 各 1-2 处),非间距刻度;未过准入线,补表会把局部布局值升成公共档。",
-      "evidence": "档位尺 --json: marginLeft=28px×1(missingTier:对端同值在用但不在档表)"
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: marginLeft=1px×1(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
@@ -1913,9 +683,25 @@
       "value": 3,
       "occurrences": 11,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
       "evidence": "档位尺 --json: gap=3px×11(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "gap",
+      "value": 7,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: gap=7px×1(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
@@ -1923,49 +709,25 @@
       "value": 5,
       "occurrences": 25,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
       "evidence": "档位尺 --json: gap=5px×25(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
-      "prop": "marginHorizontal",
-      "value": 5,
-      "occurrences": 2,
-      "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
-      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
-      "evidence": "档位尺 --json: marginHorizontal=5px×2(missingTier:对端同值在用但不在档表)"
-    },
-    {
-      "kind": "spacing",
-      "prop": "marginBottom",
-      "value": 3,
+      "prop": "gap",
+      "value": 1,
       "occurrences": 1,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
-      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
-      "evidence": "档位尺 --json: marginBottom=3px×1(missingTier:对端同值在用但不在档表)"
-    },
-    {
-      "kind": "spacing",
-      "prop": "padding",
-      "value": 28,
-      "occurrences": 1,
-      "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
-      "reason": "布局专用值(marginTop/padding 各 1-2 处),非间距刻度;未过准入线,补表会把局部布局值升成公共档。",
-      "evidence": "档位尺 --json: padding=28px×1(missingTier:对端同值在用但不在档表)"
-    },
-    {
-      "kind": "spacing",
-      "prop": "paddingTop",
-      "value": 5,
-      "occurrences": 1,
-      "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
-      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
-      "evidence": "档位尺 --json: paddingTop=5px×1(missingTier:对端同值在用但不在档表)"
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "1px 是 RN 逻辑像素的细线/贴边值(RN 30 处,其中 paddingVertical:1 25 处;web 侧仅 mt-[1px] 2 处),不是间距刻度;两端都远低于准入线,且 1 < 最小档 2 ⇒ 补表会造出 web 无规模取用的档。",
+      "evidence": "档位尺 --json: gap=1px×1(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "spacing",
@@ -1973,7 +735,10 @@
       "value": 80,
       "occurrences": 1,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "屏级留白(paddingBottom 1 处),远离现有档表上界 64,不具备跨端复用规模。",
       "evidence": "档位尺 --json: paddingBottom=80px×1(missingTier:对端同值在用但不在档表)"
     },
@@ -1983,19 +748,90 @@
       "value": 96,
       "occurrences": 2,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "屏级留底(paddingBottom 2 处),同上;补表会新增无派生消费方的档。",
       "evidence": "档位尺 --json: paddingBottom=96px×2(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginBottom",
+      "value": 3,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 20 处),且 spacing.ts 头注已把 3 留给决策表;补表会扩张公开档而无派生收益。",
+      "evidence": "档位尺 --json: marginBottom=3px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginBottom",
+      "value": 9,
+      "occurrences": 2,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "9px 落在档 8/10 之间(Δ=1px):RN 8 处 / web 2 处(pl-[9px]),同上 —— 规模不到准入线,补表只会造出无派生消费方的散档。",
+      "evidence": "档位尺 --json: marginBottom=9px×2(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginRight",
+      "value": 7,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "7px 落在档 6/8 之间(Δ=1px):RN 11 处 / web 2 处(ml-[7px]),两端都在准入线外 ⇒ 不补表;落最近档要逐处裁量(改 1px 观感),不批量落。",
+      "evidence": "档位尺 --json: marginRight=7px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "marginHorizontal",
+      "value": 5,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: marginHorizontal=5px×1(missingTier:对端同值在用但不在档表)"
+    },
+    {
+      "kind": "spacing",
+      "prop": "paddingTop",
+      "value": 5,
+      "occurrences": 1,
+      "verdict": "decision-table",
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
+      "reason": "半步档规模未过 Phase 3 准入线(RN 25+ 处,web 同值在用),spacing.ts 头注已明写\"不得借本表顺手补入\"。",
+      "evidence": "档位尺 --json: paddingTop=5px×1(missingTier:对端同值在用但不在档表)"
     },
     {
       "kind": "fontSize",
       "prop": "fontSize",
       "value": 26,
-      "occurrences": 3,
+      "occurrences": 2,
       "verdict": "decision-table",
-      "reject": ["补表", "落最近档"],
+      "reject": [
+        "补表",
+        "落最近档"
+      ],
       "reason": "字号 26 无对应 TYPE_STEPS 档;本阶段硬约束\"不新增类型档\",最近档 24/30 的 Δ=2px > 1px ⇒ 落档会改观感。",
-      "evidence": "档位尺 --json: fontSize=26px×3(missingTier:对端同值在用但不在档表)"
+      "evidence": "档位尺 --json: fontSize=26px×2(missingTier:对端同值在用但不在档表)"
     }
   ],
   "allowanceCoverage": {
@@ -2006,3 +842,4 @@
   },
   "undetermined": []
 }
+

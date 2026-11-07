@@ -3,13 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import type {
-  QuitUpdateStatus,
-  UpdateProgress,
-  UpdateSession,
-} from '../tauri-bridge'
+import type { QuitUpdateStatus, UpdateProgress, UpdateSession } from '../tauri-bridge'
 
 /**
  * P1 残余① —— 桌面端「下载并安装」的超时与取消回归锁。
@@ -34,7 +31,9 @@ import type {
 // ================== 模块边界 mock ==================
 // tauri-bridge 顶层 import 的三件 + checkForUpdates 内部动态 import 的 plugin-updater。
 // 动态 import 同样被 vi.mock 拦截(同一模块 id),因此测试里不需要真实 Tauri 运行时。
-const invokeMock = vi.hoisted(() => vi.fn(async (..._args: unknown[]): Promise<unknown> => undefined))
+const invokeMock = vi.hoisted(() =>
+  vi.fn(async (..._args: unknown[]): Promise<unknown> => undefined),
+)
 const checkMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@tauri-apps/api/core', () => ({ invoke: invokeMock }))
@@ -94,6 +93,27 @@ beforeEach(async () => {
   invokeMock.mockClear()
   invokeMock.mockImplementation(async () => undefined)
   checkMock.mockReset()
+  // 2026-11-04:downloadAndInstall 现在先走「安装前逐文件 sha256 校验」,本文件只判
+  // 超时/取消语义 ⇒ 提供一份**真实可用**的清单与包字节(不是绕过校验,校验本身
+  // 由 update-manifest-verify.test.ts 与反向例负责)。
+  const pkg = new TextEncoder().encode('ihui-update-pkg-fixture')
+  const sha = createHash('sha256').update(pkg).digest('hex')
+  const files = ['win-x64.exe', 'darwin-arm64.dmg', 'linux-x64.AppImage'].map((name) => ({
+    path: `desktop/IHUI-0.2.0-${name}`,
+    sha256: sha,
+    size: pkg.byteLength,
+  }))
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+    const url = String(input)
+    if (url.endsWith('update-files.json')) {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ schemaVersion: 1, generatedAt: '', files }),
+      } as unknown as Response
+    }
+    return { ok: true, status: 200, arrayBuffer: async () => pkg.buffer } as unknown as Response
+  })
   // isTauri() 的判据是 `'__TAURI_INTERNALS__' in window`(happy-dom 提供 window)
   ;(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {}
   bridge = await loadFresh()
@@ -101,6 +121,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.unstubAllGlobals()
   delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
 })
 
@@ -109,9 +130,7 @@ afterEach(() => {
  * ②用它做正向对照,防的是"改判据时顺手改了进度语义"而账面仍全绿。
  * 刻意留在这里而不是从 git 取:参照物必须与被审对象同时可读。
  */
-function referenceOldMapping(
-  events: Array<{ event: string; data: unknown }>,
-): UpdateProgress[] {
+function referenceOldMapping(events: Array<{ event: string; data: unknown }>): UpdateProgress[] {
   let downloaded = 0
   let total = 0
   const out: UpdateProgress[] = []
@@ -288,7 +307,11 @@ describe('③ 主动取消 —— 终态是「已取消」而不是「失败」'
     const statuses: string[] = []
     const controller = new AbortController()
 
-    const promise = bridge.quitAndUpdateIfNeeded(undefined, (s) => statuses.push(s), controller.signal)
+    const promise = bridge.quitAndUpdateIfNeeded(
+      undefined,
+      (s) => statuses.push(s),
+      controller.signal,
+    )
     await vi.advanceTimersByTimeAsync(1_000)
     expect(statuses[statuses.length - 1]).toBe('downloading')
 
@@ -375,7 +398,14 @@ function findUnguardedInstalls(code: string): string[] {
   if (/await\s+update\.downloadAndInstall\s*\(/.test(code)) {
     bad.push('裸 await update.downloadAndInstall( —— 未过 withTimeout 的插件层调用')
   }
-  const handle = /const\s+(\w+)\s*=\s*update\.downloadAndInstall\s*\(/.exec(code)
+  // 2026-11-04 起,真下载外面多裹了一层 async IIFE(先逐文件 sha256 校验再调插件),
+  // 判据同步收紧:必须①外层变量交给 withTimeout ②IIFE 内在真下载之前调过校验。
+  const wrapped =
+    /const\s+(\w+)\s*=\s*\(async\s*\(\)\s*=>\s*\{\s*[\s\S]{0,600}?verifyUpdatePackageBeforeInstall\([\s\S]{0,300}?return\s+update\.downloadAndInstall\s*\(/.exec(
+      code,
+    )
+  const direct = /const\s+(\w+)\s*=\s*update\.downloadAndInstall\s*\(/.exec(code)
+  const handle = wrapped ?? direct
   if (!handle) {
     // 找不到调用点 ⇒ 判据失明,不得被读成"通过"(本仓纪律:枚举到 0 个候选判死)
     bad.push('找不到 update.downloadAndInstall 的调用点(判据失明,不算通过)')
@@ -384,6 +414,9 @@ function findUnguardedInstalls(code: string): string[] {
     const wired = new RegExp(`withTimeout\\(\\s*${varName}\\s*,`).test(code)
     if (!wired) bad.push(`update.downloadAndInstall 的结果 ${varName} 没有被交给 withTimeout`)
   }
+  // 安装前校验缺位同样判红:本仓纪律"不许把校验做成只在 debug 跑或被重构顺手删掉"。
+  if (!wrapped)
+    bad.push('安装链缺少 verifyUpdatePackageBeforeInstall 前置校验(或顺序不是先校验后下载)')
   // (b) 退出链必须显式带上自己的预算与取消信号,不得退回"裸调用"。
   if (!/session\.downloadAndInstall\([\s\S]{0,400}?\{\s*signal[,\s]*timeoutMs:.*?\}/.test(code)) {
     bad.push('quit 链的 session.downloadAndInstall 未传 {signal,timeoutMs}')
@@ -398,7 +431,7 @@ describe('④ 反向锁 —— 不得再出现裸 await 的 downloadAndInstall',
 
   it('阳性对照:把"裸 await"喂回同一条判据必须判红(锁有牙,不是恒绿)', () => {
     const regressed = MASKED_BRIDGE.replace(
-      /const install = update\.downloadAndInstall\s*\(/,
+      /return update\.downloadAndInstall\s*\(/,
       'await update.downloadAndInstall(',
     )
     expect(regressed).not.toBe(MASKED_BRIDGE) // 替换必须真命中(否则这条对照是空转)
@@ -406,15 +439,18 @@ describe('④ 反向锁 —— 不得再出现裸 await 的 downloadAndInstall',
   })
 
   it('阳性对照:超时出口摘线(变量没交给 withTimeout)必须判红', () => {
-    const unwired = MASKED_BRIDGE.replace(/withTimeout\(\s*install\s*,/, 'withTimeout(\n        install2,')
+    const unwired = MASKED_BRIDGE.replace(
+      /withTimeout\(\s*install\s*,/,
+      'withTimeout(\n        install2,',
+    )
     expect(unwired).not.toBe(MASKED_BRIDGE)
     expect(findUnguardedInstalls(unwired).length).toBeGreaterThan(0)
   })
 
   it('阳性对照:调用点整块消失 ⇒ 判"判据失明",绝不静默算通过', () => {
     const vanished = MASKED_BRIDGE.replace(
-      /const install = update\.downloadAndInstall\s*\(/,
-      'const install = somethingElse(',
+      /return update\.downloadAndInstall\s*\(/,
+      'return somethingElse(',
     )
     expect(vanished).not.toBe(MASKED_BRIDGE)
     expect(findUnguardedInstalls(vanished).join('|')).toContain('判据失明')

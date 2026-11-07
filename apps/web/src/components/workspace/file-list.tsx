@@ -83,7 +83,7 @@ export function FileList({
 
   if (files.length === 0) {
     return (
-      <div className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground">
+      <div className="font-[weight:inherit] rounded-lg border border-dashed p-3 text-center text-body text-muted-foreground">
         {t('emptyFiles')}
       </div>
     )
@@ -91,7 +91,7 @@ export function FileList({
 
   return (
     <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-sm">
+      <table className="font-[weight:inherit] w-full text-body">
         <thead className="bg-muted/50">
           <tr className="text-left">
             <th className="px-4 py-3 font-medium">{t('fileName')}</th>

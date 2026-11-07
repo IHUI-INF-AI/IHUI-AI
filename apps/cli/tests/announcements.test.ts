@@ -99,16 +99,41 @@ describe('缓存读写', () => {
     expect(loadCache(cachePath, 5000)).toBeNull();
   });
 
-  it('loadCache 损坏文件返回 null', () => {
+  it('loadCache 损坏文件不说成没有公告', () => {
     ensureParent(cachePath);
     fs.writeFileSync(cachePath, 'not json', 'utf-8');
-    expect(loadCache(cachePath)).toBeNull();
+    expect(() => loadCache(cachePath)).toThrow(/不能把它覆盖成新公告/);
   });
 
-  it('loadCache 缺少 fetchedAt 返回 null', () => {
+  it('loadCache 缺少 fetchedAt 不说成没有公告', () => {
     ensureParent(cachePath);
     fs.writeFileSync(cachePath, JSON.stringify({ list: [] }), 'utf-8');
-    expect(loadCache(cachePath)).toBeNull();
+    expect(() => loadCache(cachePath)).toThrow(/不能把它覆盖成新公告/);
+  });
+
+  it('损坏的公告缓存拉到新列表后也不覆盖', async () => {
+    const { createServer } = await import('node:http');
+    ensureParent(cachePath);
+    const body = 'not json';
+    fs.writeFileSync(cachePath, body, 'utf-8');
+    const server = createServer((_req, res) => {
+      res.setHeader('content-type', 'application/json');
+      res.end(JSON.stringify({ code: 0, data: { list: [{ id: 'n', title: 'n' }] } }));
+    });
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', () => resolve());
+    });
+    const addr = server.address();
+    const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
+    try {
+      const list = await getAnnouncements({ apiUrl: `http://127.0.0.1:${port}`, cachePath });
+      expect(list).toHaveLength(1);
+      expect(fs.readFileSync(cachePath, 'utf-8')).toBe(body);
+    } finally {
+      await new Promise<void>((resolve) => {
+        server.close(() => resolve());
+      });
+    }
   });
 });
 
@@ -171,11 +196,13 @@ describe('已读状态', () => {
     expect(s.has('pre-existing')).toBe(true);
   });
 
-  it('loadSeenIds 损坏文件返回空 Set', () => {
+  it('loadSeenIds 损坏文件不说成没有已读', () => {
     ensureParent(seenPath);
-    fs.writeFileSync(seenPath, 'not json', 'utf-8');
-    const s = loadSeenIds(seenPath);
-    expect(s.size).toBe(0);
+    const body = 'not json';
+    fs.writeFileSync(seenPath, body, 'utf-8');
+    expect(() => loadSeenIds(seenPath)).toThrow(/不能把它覆盖成只剩新的一条/);
+    expect(() => markSeen(seenPath, 'a-1')).toThrow(/不能把它覆盖成只剩新的一条/);
+    expect(fs.readFileSync(seenPath, 'utf-8')).toBe(body);
   });
 });
 
@@ -300,6 +327,20 @@ describe('fetchAnnouncements / getAnnouncements / refreshAnnouncements', () => {
       cacheTtlMs: 1000,
     });
     expect(list).toEqual([]);
+  });
+
+  it('缓存和已读名单读不到时不说成没有,也不覆盖', async () => {
+    fs.mkdirSync(cachePath, { recursive: true });
+    fs.mkdirSync(seenPath, { recursive: true });
+    expect(() => loadCache(cachePath)).toThrow(/不能把它说成没有公告/);
+    await expect(
+      getAnnouncements({ apiUrl: 'http://127.0.0.1:0', cachePath, cacheTtlMs: 60_000 }),
+    ).rejects.toThrow(/不能把它说成没有公告/);
+    expect(fs.statSync(cachePath).isDirectory()).toBe(true);
+    expect(() => loadSeenIds(seenPath)).toThrow(/不能把它说成没有已读/);
+    expect(() => markSeen(seenPath, 'a-1')).toThrow(/不能把它说成没有已读/);
+    expect(() => markAllSeen(seenPath, sampleList)).toThrow(/不能把它说成没有已读/);
+    expect(fs.statSync(seenPath).isDirectory()).toBe(true);
   });
 
   it('refreshAnnouncements 绕过缓存直接 HTTP(失败返回 [])', async () => {

@@ -459,7 +459,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
     },
     infoName: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
-    infoDesc: { fontSize: 13, color: tk.text.secondary },
+    infoDesc: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     infoMeta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     tabBody: { gap: rnSpacing.sm },
     rowCard: {
@@ -521,8 +521,8 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    inviteBtnText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
-    formTitle: { fontSize: 13, color: tk.text.secondary },
+    inviteBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    formTitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     fieldLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     input: {
       height: 44,
@@ -575,7 +575,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.danger.DEFAULT,
     },
     deleteBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.danger.DEFAULT },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
     retryBtn: {
       marginTop: rnSpacing.md,

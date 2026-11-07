@@ -22,6 +22,9 @@ apps/web/public/vs/
 # 下载构建产物 manifest(sync-downloads.mjs 生成,含 syncedAt 时间戳,每次同步都变化;
 # 下载包 exe/msi/zip 由 sync 脚本复制到 public/downloads/,按需跟踪,manifest 不入库)
 apps/web/public/downloads/manifest.json
+# 逐文件 sha256 清单同样是生成物(2026-11-05):内容随本机实物变化(桌面 exe 不入库),
+# 入库会让干净检出出现"清单列了不存在的文件" ⇒ verify 必红;它只随发布产物落盘,不入库。
+apps/web/public/downloads/update-files.json
 # Desktop 安装包 ~230MB,超过 GitHub 单文件 100MB 限制,不能入库。
 # 下载按钮 href 已指向 GitHub Release 官方资产(downloads.config.ts),本地文件仅供 dev 预览。
 apps/web/public/downloads/desktop/

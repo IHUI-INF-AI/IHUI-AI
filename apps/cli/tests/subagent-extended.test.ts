@@ -69,6 +69,7 @@ import {
   saveSubagentState,
   loadSubagentState,
   deleteSubagentState,
+  pruneOldSubagentStates,
   listSubagentStates,
   getSubagentStateDir,
   type SubagentState,
@@ -564,6 +565,40 @@ describe('state-store 持久化往返', () => {
     expect(deleteSubagentState('del-1')).toBe(true);
     expect(loadSubagentState('del-1')).toBeNull();
     expect(deleteSubagentState('del-1')).toBe(false);
+  });
+
+  it('读不到与确实没有: delete 注入 EACCES 抛错且文件仍是 KEEP', () => {
+    const id = 'keep-delete';
+    const file = path.join(getSubagentStateDir(), `${id}.json`);
+    fs.writeFileSync(file, 'KEEP', 'utf-8');
+    const stat = (): fs.Stats => {
+      const err = new Error('EACCES') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    expect(() => deleteSubagentState(id, stat)).toThrow(/读不到/);
+    expect(fs.readFileSync(file, 'utf-8')).toBe('KEEP');
+  });
+
+  it('读不到与确实没有: prune 目录注入 EACCES 抛错且文件仍是 KEEP', () => {
+    const id = 'keep-prune';
+    const file = path.join(getSubagentStateDir(), `${id}.json`);
+    fs.writeFileSync(file, 'KEEP', 'utf-8');
+    const dir = getSubagentStateDir();
+    const stat = (target: string): fs.Stats => {
+      if (target === dir) {
+        const err = new Error('EACCES') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(target);
+    };
+    expect(() => pruneOldSubagentStates(0, stat)).toThrow(/读不到/);
+    expect(fs.readFileSync(file, 'utf-8')).toBe('KEEP');
+  });
+
+  it('读不到与确实没有: delete 文件确实不存在时返回 false', () => {
+    expect(deleteSubagentState('never-written')).toBe(false);
   });
 
   it('getSubagentStateDir 优先读取 IHUI_SUBAGENT_STATE_DIR', () => {

@@ -26,9 +26,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const ROUTE_FILE = 'apps/api/src/routes/internal-relay-user-pool.ts'
 
 // vi.mock 的工厂会被提升到文件最前执行,普通 const 那时还没初始化 ⇒ 供值件必须走 vi.hoisted
-const { SECRET_HOLDER } = vi.hoisted(() => ({
-  SECRET_HOLDER: { AI_CALLBACK_SECRET: '', INTERNAL_SECRET_AUTH_MODE: 'dual' },
-}))
+const { SECRET_HOLDER } = vi.hoisted(() => ({ SECRET_HOLDER: { AI_CALLBACK_SECRET: '' } }))
 
 vi.mock('../src/config/index.js', () => ({ config: SECRET_HOLDER }))
 
@@ -94,15 +92,18 @@ describe('内部凭据比较必须走 secretsEqual 单源', () => {
     await fresh.close()
   })
 
-  it('接线锁:鉴权必须走 X-Internal-Secret 族统一出口,本文件不得再自行比对密钥', () => {
+  it('接线锁:该文件不得再出现裸 `!==` 比内部密钥,且必须 import secretsEqual', () => {
     const src = readFileSync(join(ROOT, ROUTE_FILE), 'utf8')
+    // 2026-11-06 起同一模块还 import 了 checkInternalServiceToken(承载层主体出口),
+    // 故按"具名 secretsEqual 必须来自该单源模块"判,不再锁整行字面量。
     expect(src).toMatch(
-      // 允许格式化把 import 折行(本仓库 prettier 宽度 100),判据是"来自统一出口"而非字面一行
-      /import\s*\{\s*authorizeInternalSecretCall,\s*ticketSubjectAllows,\s*\}\s*from\s*'\.\.\/plugins\/internal-secret-auth\.js'/,
+      /import \{[^}]*\bsecretsEqual\b[^}]*\} from '\.\.\/plugins\/internal-service-token\.js'/,
     )
-    // 第二道:端点自己不得再直接读旧密钥头/自行比较 —— 判据只有一处,才不会两侧强度分叉
-    expect(src).not.toMatch(/request\.headers\['x-internal-secret'\]/)
-    expect(src).not.toMatch(/secretsEqual/)
+    expect(src).not.toMatch(/provided\s*!==\s*secret/)
+    // 变异自证:把新写法摘回旧写法,同一把尺子必须量出来(否则上面那条 not.toMatch 只是文本巧合)
+    const mutated = src.replace('!secretsEqual(provided, secret)', 'provided !== secret')
+    expect(mutated).not.toBe(src)
+    expect(/provided\s*!==\s*secret/.test(mutated)).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

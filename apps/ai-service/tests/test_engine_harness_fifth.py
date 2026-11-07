@@ -11,13 +11,16 @@
 - git diff 头(diff --git / index / mode)容错 + patch.applied 事件
 """
 
+import os
 from typing import Any
 
 import pytest
 
+from app.services import agent_engine
 from app.services.agent_engine import (
     AgentEngine,
     _apply_hunks_to_content,
+    _classify_patch_target,
     _parse_unified_patch,
 )
 
@@ -204,8 +207,23 @@ async def test_apply_patch_create_update_delete_flow(tmp_path):
     assert len(events) == 1 and events[0]["payload"]["count"] == 3
 
 
+def test_classify_patch_target_permission_error_is_unread(tmp_path, monkeypatch):
+    target = tmp_path / "keep.txt"
+    target.write_text("keep\n", encoding="utf-8")
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", deny)
+    assert _classify_patch_target(target) == "unread"
+    assert target.read_text(encoding="utf-8") == "keep\n"
+
+
 @pytest.mark.asyncio
-async def test_apply_patch_atomic_reject_and_workspace_containment(tmp_path):
+async def test_apply_patch_atomic_reject_and_workspace_containment(tmp_path, monkeypatch):
     """任一 hunk 失配整包拒绝(无半应用);越界路径拒绝;重复新增拒绝;空 patch 拒绝。"""
     (tmp_path / "a.txt").write_text("alpha\n", encoding="utf-8")
     engine, _ = _engine()
@@ -245,6 +263,18 @@ async def test_apply_patch_atomic_reject_and_workspace_containment(tmp_path):
         "+dup\n"
     )
     assert "已存在" in (await tool.executor({"patch": dup}))["error"]
+    # 文件在但读不到:不能当成不存在再覆盖
+    keep = tmp_path / "a.txt"
+    monkeypatch.setattr(agent_engine, "_classify_patch_target", lambda _path: "unread")
+    overwritten = (
+        "--- /dev/null\n"
+        "+++ b/a.txt\n"
+        "@@ -0,0 +1,1 @@\n"
+        "+gone\n"
+    )
+    unread = await tool.executor({"patch": overwritten})
+    assert "读不到" in unread["error"]
+    assert keep.read_text(encoding="utf-8") == "alpha\n"
     # 空 patch
     assert "非空" in (await tool.executor({"patch": "   "}))["error"]
     assert "error" in (await tool.executor({}))

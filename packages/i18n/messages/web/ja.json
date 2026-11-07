@@ -5907,6 +5907,7 @@
           "completed": "完了",
           "failed": "失敗",
           "pending": "審査待ち",
+          "processing": "処理中",
           "rejected": "却下済"
         },
         "subtitle": "ユーザー引き出し申請と取引の管理",
@@ -8866,6 +8867,10 @@
           "title": "プロバイダーが混雑しています",
           "action": "後でもう一度お試しください"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "この消費には確認が必要です",
+          "action": "承認してから再試行してください。承認前は画像を生成しません"
+        },
         "ALREADY_CLAIMED": {
           "title": "このタスクはすでに他のエージェントに引き受けられています",
           "action": "別のタスクを引き受けるか、相手が解放するのを待ってから再試行してください"
@@ -9001,6 +9006,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "この操作はセキュリティポリシーによりブロックされました",
           "action": "内容を変更して再試行"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "このコマンドはポリシーで拒否されました",
+          "action": "別のコマンドを使うか、管理者にポリシー変更を依頼してください"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "このコマンドのポリシーは判定できませんでした",
+          "action": "判定できるまで実行しないでください"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "実行するには確認が必要です",
@@ -9959,6 +9972,10 @@
     "envInfoButton": "環境情報",
     "expandConversation": "会話を展開",
     "headerActions": {
+      "overflowMenu": "パネルメニュー",
+      "groupPanel": "パネル",
+      "groupTools": "ツール",
+      "groupSession": "セッション",
       "panelGroupButtons": "パネルアクションボタン",
       "enterWorkspaceFullscreen": "ワークスペースを全画面表示",
       "exitWorkspaceFullscreen": "ワークスペースの全画面を終了",
@@ -11690,6 +11707,11 @@
     "addContextReference": "コンテキストとして",
     "addMenuDesc": "追加メニュー(テンプレート/参照/Skill/添付/プラグイン/圧縮)",
     "addMenuLabel": "追加",
+    "backToMenu": "メニューに戻る",
+    "quickSettings": "セッション設定",
+    "composerSectionContent": "コンテンツ",
+    "composerSectionCapability": "機能",
+    "moreTools": "その他のツール",
     "artifactCode": "コード",
     "artifactPreview": "プレビュー",
     "assistant": "AIアシスタント",
@@ -11845,6 +11867,7 @@
       "branch": "ここから分岐"
     },
     "contextUsage": {
+      "rowLabel": "コンテキスト使用量",
       "breakdownTitle": "トークン内訳",
       "budgetRow": "本日のクォータ",
       "categoryFiles": "ファイル",
@@ -11924,6 +11947,8 @@
     "dropAttachmentHint": "マウスを離して添付ファイルを追加(画像/動画)",
     "empty": "コンテンツはまだありません。おしみに",
     "emptyHint": "にメッセージをして、aiとのを",
+    "turnAnchorUnresolvedTitle": "このターンを特定できませんでした",
+    "turnAnchorUnresolvedHint": "リンク先のターンを読み込めませんでした。他の履歴で埋めず、空のままにしています。",
     "errorTimeout15s": "AI レスポンスタイムアウト(15 秒以内にコンテンツを受信できませんでした)、後でもう一度お試しください",
     "errorTimeout60s": "AI 思考タイムアウト(60 秒以内に回答が生成されませんでした、推論モデルの思考が長すぎる可能性があります)、後でもう一度お試しいただくか、通常モデルに切り替えてください",
     "errors": {
@@ -12030,6 +12055,7 @@
     "modeTaskAria": "{mode}タスク",
     "taskProgressAria": "タスクの進行状況 {status}",
     "taskProgressOpen": "タスクの進行状況",
+    "taskProgressIdle": "待機中",
     "toolsPanelOpen": "ツールパネルを開く",
     "toolsPanelClose": "ツールパネルを閉じる",
     "model": "モデル",
@@ -12542,6 +12568,7 @@
       "moreItems": "他 {count} 件"
     },
     "agentPicker": {
+      "label": "エージェント",
       "triggerAria": "会話内エージェント / エキスパートを選択",
       "default": "デフォルトアシスタント",
       "defaultDesc": "エキスパートなし",
@@ -14809,7 +14836,7 @@
     "vipMembers": "VIPメンバー",
     "withdrawAmount": "出金金額",
     "withdrawAmountInvalid": "がです",
-    "withdrawAmountPlaceholder": "ご",
+    "withdrawAmountPlaceholder": "出金額を入力",
     "withdrawBtn": "申請を送信",
     "withdrawFail": "出金失敗",
     "withdrawInsufficient": "残高不足",
@@ -15005,6 +15032,33 @@
       "grantRuleConfirmCancel": "キャンセル",
       "approve": "承認",
       "argsPreview": "引数プレビュー",
+      "decisionDetail": "操作の詳細",
+      "decisionDetailReason": "理由",
+      "decisionDetailRisk": "リスク",
+      "decisionDetailScope": "スコープ",
+      "decisionDetailCwd": "実行ディレクトリ",
+      "decisionDetailPaths": "影響パス",
+      "decisionDetailCommand": "コマンド",
+      "rawArgs": "生の引数",
+      "riskLow": "低",
+      "riskMedium": "中",
+      "riskHigh": "高",
+      "scopeFsRead": "読み取り",
+      "scopeFsWrite": "書き込み",
+      "scopeFsDelete": "削除",
+      "scopeExec": "実行",
+      "scopeNetwork": "ネットワーク",
+      "scopeDb": "データベース",
+      "scopeOther": "その他",
+      "reasonDangerousCommand": "危険なコマンド",
+      "reasonDestructiveOperation": "破壊的な操作",
+      "reasonWritesFiles": "ファイル書き込み",
+      "reasonDeletesFiles": "ファイル削除",
+      "reasonExecutesCommand": "コマンド実行",
+      "reasonNetworkAccess": "ネットワークアクセス",
+      "reasonDatabaseWrite": "データベース書き込み",
+      "reasonHighRiskTool": "高リスクツール",
+      "reasonRequiresConfirmation": "確認が必要",
       "description": "AI が次の高リスク操作の実行を要求しています。実行を許可するか確認してください。",
       "pendingCount": "他に {count} 件保留中",
       "reject": "拒否",
@@ -16290,7 +16344,12 @@
       "points": "{n}点",
       "submittedAt": "提出時間：{time}",
       "unanswered": "未回答",
-      "yourAnswer": "あなたの回答："
+      "yourAnswer": "あなたの回答：",
+      "correct": "正答",
+      "wrong": "誤答",
+      "reviewCorrect": "正しい",
+      "reviewWrong": "誤り",
+      "unansweredAnswer": "未回答"
     },
     "score": "得点 {score} / {total}",
     "startExam": "試験を開始",
@@ -17102,6 +17161,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行の帰属表示",
       "zoomIn": "拡大",
       "zoomOut": "縮小"
     },
@@ -23347,6 +23407,8 @@
     "accountDeletionResend": "{seconds}秒後に再送信可能",
     "accountDeletionSendCode": "コード",
     "accountDeletionSubmit": "アカウント削除を確認",
+    "accountDeletionConfirmLabel": "アカウント削除を確認",
+    "accountDeletionConfirmTitle": "アカウント削除を確認",
     "accountDeletionSuccess": "アカウントを削除しました。ログインページに遷移します",
     "accountDeletionTitle": "アカウント削除",
     "accountDeletionWarning": "この操作は取り消せません。すべてのデータが削除されます。",
@@ -23881,6 +23943,8 @@
     "agentSecuritySaveFailed": "セキュリティ設定の保存に失敗しました",
     "analyticsEnabled": "利用状況の分析",
     "analyticsEnabledDesc": "オンにすると、クリック・ページ訪問・所要時間などの匿名の利用イベントを記録し、プロダクト改善に用います。入力された本文・コード・ファイルパスは記録しません。オフにすると送信を直ちに停止し、機能への影響はありません。",
+    "rumEnabled": "パフォーマンス・エラー診断(任意)",
+    "rumEnabledDesc": "既定ではオフです。オンにした場合のみ、匿名の起動時間、AI の初回トークン遅延、ストリーミング中の長タスク数、脱識別化したエラー概要を改善目的で送信します。ファイルパス、ワークスペース名、メールアドレス、デバイス指紋は送信しません。オフにすると即座に収集を停止し、保留データを破棄して以降のリクエストも発生しません。",
     "llmRawRetentionOptOut": "LLM送受信本文を保持しない",
     "llmRawRetentionOptOutDesc": "質問とAI回答の本文はデータベースに保存されません",
     "codeIndexEgressOptOut": "コード意味インデックスを作成しない",
@@ -25883,8 +25947,7 @@
     "empty": "イベントはありません",
     "startTime": "開始時間",
     "endTime": "終了時間",
-    "participants": "参加人数",
-    "joinNow": "今すぐ参加"
+    "participants": "参加人数"
   },
   "agentReviewDetail": {
     "title": "審査詳細",
@@ -26135,8 +26198,6 @@
     "unverifiedDesc": "実名認証は未完了です。以下の情報を入力して完了してください。",
     "name": "本名",
     "namePlaceholder": "本名を入力してください",
-    "idNumber": "身分証明書番号",
-    "idNumberPlaceholder": "身分証明書番号を入力してください",
     "submitting": "送信中…",
     "submit": "認証を送信"
   },
@@ -26148,7 +26209,6 @@
     "title": "学習進捗",
     "courses": "受講コース",
     "totalMinutes": "累計学習時間",
-    "weekMinutes": "今週の学習時間",
     "streak": "連続学習",
     "courseProgress": "コース進捗"
   },
@@ -26818,11 +26878,8 @@
   },
   "agentCreate": {
     "title": "エージェントを作成",
-    "name": "名前",
     "namePlaceholder": "名前を入力してください",
-    "category": "カテゴリ",
     "categoryPlaceholder": "カテゴリを選択してください",
-    "description": "説明",
     "descPlaceholder": "説明を入力してください",
     "systemPrompt": "システムプロンプト",
     "promptPlaceholder": "システムプロンプトを入力してください",
@@ -26889,7 +26946,6 @@
     "remove": "削除"
   },
   "certList": {
-    "title": "マイ証明書",
     "empty": "証明書はありません",
     "issuer": "発行機関",
     "issuedAt": "発行日時"
@@ -26941,7 +26997,6 @@
   },
   "courseQAList": {
     "title": "コース Q&A",
-    "ask": "質問する",
     "empty": "Q&A はありません",
     "asker": "質問者",
     "answers": "回答"
@@ -27018,7 +27073,6 @@
     "actionEdit": "編集"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "プッシュ通知",
     "message": "メッセージ通知",
     "email": "メール通知",
@@ -27119,9 +27173,7 @@
   "withdraw": {
     "title": "出金",
     "availableBalance": "出金可能残高",
-    "amount": "出金額",
     "amountPlaceholder": "出金額を入力してください",
-    "bankCard": "銀行カード",
     "bankCardPlaceholder": "銀行カード番号を入力してください",
     "submitting": "出金中...",
     "submit": "出金を確認",
@@ -27516,7 +27568,6 @@
   },
   "team": {
     "retry": "再試行",
-    "title": "マイチーム",
     "subtitle": "チーム管理",
     "totalMembers": "総メンバー",
     "activeMembers": "アクティブメンバー",

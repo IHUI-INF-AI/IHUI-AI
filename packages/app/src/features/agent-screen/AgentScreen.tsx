@@ -20,7 +20,7 @@ import {
 import { assertRequiredPort } from '../../host/ports'
 
 /** Agent 列表共享屏 — props 注入式跨端组件(纯 UI,不依赖平台 API) */
-export type { AgentScreenProps }
+export type { AgentScreenProps, AgentScreenItem }
 
 function getInitial(name: string): string {
   return name?.trim().charAt(0)?.toUpperCase() || '?'
@@ -100,7 +100,7 @@ export function AgentScreen({
   colorScheme = 'light',
   nestedInScrollView = false,
   onNavigate,
-}: AgentScreenProps & { onRetry?: () => void }) {
+}: AgentScreenProps) {
   assertRequiredPort('onNavigate', onNavigate)
 
   const tk = getTokens(colorScheme)
@@ -303,7 +303,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     meta: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
   })

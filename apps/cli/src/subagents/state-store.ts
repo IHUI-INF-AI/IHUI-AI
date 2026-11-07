@@ -137,11 +137,18 @@ function writeStateRow(state: SubagentState): void {
  *   · `{stateKnown:false, reason,…}`    = **查不到**(读到内容但判不出形状/解析失败)
  * 第三档的 `state` 字段**缺席**(不是 `null`、不是空对象)—— "把没判写成判过了"是本仓最高频失效型。
  */
-export function readSubagentState(id: string): SubagentStateReadResult {
+export function readSubagentState(id: string, stat?: (path: string) => fs.Stats): SubagentStateReadResult {
   const p = getSubagentStatePath(id);
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(p);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { stateKnown: true };
+    return { stateKnown: false, reason: 'unreadable', detail: describeError(e) };
+  }
   let raw: string;
   try {
-    if (!fs.existsSync(p)) return { stateKnown: true };
     raw = fs.readFileSync(p, 'utf-8');
   } catch (e) {
     // 存在性与读取之间被抢删 / EACCES / EISDIR:这一行**判不出**,不得读成"没有这条"
@@ -217,9 +224,16 @@ export function listSubagentStates(parentId?: string): SubagentState[] {
   return r.statesKnown ? r.states : [];
 }
 
-export function deleteSubagentState(id: string): boolean {
+export function deleteSubagentState(id: string, stat?: (path: string) => fs.Stats): boolean {
   const p = getSubagentStatePath(id);
-  if (!fs.existsSync(p)) return false;
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(p);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+    throw new Error('会话行读不到,不能把它说成没有这场会话,也不删除');
+  }
   fs.unlinkSync(p);
   return true;
 }
@@ -233,9 +247,19 @@ export function deleteSubagentState(id: string): boolean {
  *  ② 只删 `startedAt` 可解析且超龄的行 —— 钟缺失/脏钟的行判不出 ⇒ 不动。
  * 返回实际删除条数(有界可观察:上界 = 目录内超龄终态 json 行数)。
  */
-export function pruneOldSubagentStates(maxAgeMs: number = DEFAULT_MAX_AGE_MS): number {
+export function pruneOldSubagentStates(
+  maxAgeMs: number = DEFAULT_MAX_AGE_MS,
+  stat?: (path: string) => fs.Stats,
+): number {
   const dir = getSubagentStateDir();
-  if (!fs.existsSync(dir)) return 0;
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(dir);
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 0;
+    throw new Error('会话目录读不到,不能把它说成没有可裁的行,也不删除');
+  }
   const now = Date.now();
   let removed = 0;
   for (const entry of fs.readdirSync(dir)) {
@@ -248,7 +272,7 @@ export function pruneOldSubagentStates(maxAgeMs: number = DEFAULT_MAX_AGE_MS): n
     const startedAtMs = Date.parse(s.startedAt);
     if (Number.isNaN(startedAtMs)) continue;
     if (now - startedAtMs > maxAgeMs) {
-      if (deleteSubagentState(id)) removed++;
+      if (deleteSubagentState(id, stat)) removed++;
     }
   }
   return removed;
@@ -642,6 +666,73 @@ function reconcileAtConstruction(
   const report = reconcileOrphans(parentId, deps);
   if (report.enumeratedKnown && report.writeFailures.length === 0) reconciledParents.add(parentId);
   return report;
+}
+
+export const CHILD_AGENT_VIEWS = ['snapshot', 'requests', 'tool-detail'] as const
+export type ChildAgentView = (typeof CHILD_AGENT_VIEWS)[number]
+
+export type ChildAgentReadPlan = {
+  disposition: 'admitted' | 'unjudged'
+  reason:
+    | 'snapshot'
+    | 'requests'
+    | 'tool-detail'
+    | 'view-unrecognized'
+    | 'snapshot-unmeasured'
+    | 'requests-unmeasured'
+    | 'detail-unmeasured'
+    | 'id-invalid'
+    | 'request-absent'
+    | 'tool-absent'
+  ids: readonly string[]
+}
+
+function childAgentIdOk(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !/[\s\0]/.test(value)
+}
+
+function childAgentIdsOk(ids: readonly string[]): boolean {
+  return ids.every((id) => childAgentIdOk(id)) && new Set(ids).size === ids.length
+}
+
+/**
+ * 子代理按快照、请求、单工具明细三层读。
+ * 要明细时不把快照名单交出去。
+ * 这一层还没量到时，不把缺席说成空名单。
+ */
+export function admitChildAgentRead(input: {
+  view: unknown
+  snapshots: readonly string[] | null
+  requests: readonly string[] | null
+  toolNames: readonly string[] | null
+  requestId?: unknown
+  toolName?: unknown
+}): ChildAgentReadPlan {
+  const none = (reason: ChildAgentReadPlan['reason']): ChildAgentReadPlan => ({
+    disposition: 'unjudged',
+    reason,
+    ids: [],
+  })
+  if (typeof input.view !== 'string' || !(CHILD_AGENT_VIEWS as readonly string[]).includes(input.view)) {
+    return none('view-unrecognized')
+  }
+  if (input.view === 'snapshot') {
+    if (input.snapshots === null) return none('snapshot-unmeasured')
+    if (!childAgentIdsOk(input.snapshots)) return none('id-invalid')
+    return { disposition: 'admitted', reason: 'snapshot', ids: input.snapshots }
+  }
+  if (input.view === 'requests') {
+    if (input.requests === null) return none('requests-unmeasured')
+    if (!childAgentIdsOk(input.requests)) return none('id-invalid')
+    return { disposition: 'admitted', reason: 'requests', ids: input.requests }
+  }
+  if (input.toolNames === null) return none('detail-unmeasured')
+  if (input.requests === null || !childAgentIdOk(input.requestId) || !input.requests.includes(input.requestId)) {
+    return none('request-absent')
+  }
+  if (!childAgentIdsOk(input.toolNames)) return none('id-invalid')
+  if (!childAgentIdOk(input.toolName) || !input.toolNames.includes(input.toolName)) return none('tool-absent')
+  return { disposition: 'admitted', reason: 'tool-detail', ids: [input.toolName] }
 }
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

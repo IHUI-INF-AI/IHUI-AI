@@ -19,6 +19,7 @@
  * 本文件被扩展打进 chrome-mv3 包时会连带把 node 内建拖进浏览器构建图(实测构建失败)。
  */
 import { ALLOWED_FETCH_PROTOCOLS } from './url-protocols.js'
+import { stripUrlCredentialSegments } from './sanitize-url.js'
 
 /**
  * 除 http/https 外唯一允许的导航目标:空白占位页。
@@ -64,21 +65,42 @@ export function checkNavigableUrl(raw: unknown): NavigableUrlDecision {
     return { ok: true, url: trimmed }
   }
 
+  // BUG-53:白名单判据必须看"归一化后浏览器真正会用的 URL",不能看可被伪装的原始串。
+  //  · 反斜杠按斜杠处理 —— WHATWG URL 把 `https:\host` 与 `https://host` 同视,
+  //    只扫原始串前缀的守卫会被 `https:\` 绕过;
+  //  · URL 构造器归一 scheme 大小写 / 百分号编码 / 默认端口;
+  //  · 再过既有 sanitizer(凭据段剥离唯一出口)后判协议,userinfo 不参与判定。
+  const backslash = String.fromCharCode(92)
+  const normalized = trimmed.split(backslash).join('/')
+  const hasBackslash = normalized !== trimmed
   let parsed: URL
   try {
-    parsed = new URL(trimmed)
+    parsed = new URL(normalized)
   } catch {
     return { ok: false, reason: '不是合法 URL(需含协议,如 https://)', protocol: '' }
   }
 
-  if (!(ALLOWED_FETCH_PROTOCOLS as readonly string[]).includes(parsed.protocol)) {
+  const sanitized = stripUrlCredentialSegments(parsed.toString())
+  let judged: URL
+  try {
+    judged = new URL(sanitized)
+  } catch {
+    return { ok: false, reason: 'URL 归一化后不是合法导航目标', protocol: '' }
+  }
+  if (!(ALLOWED_FETCH_PROTOCOLS as readonly string[]).includes(judged.protocol)) {
     return {
       ok: false,
-      reason: `协议 ${parsed.protocol} 不允许导航(仅 http/https)`,
-      protocol: parsed.protocol,
+      reason: `协议 ${judged.protocol} 不允许导航(仅 http/https)`,
+      protocol: judged.protocol,
     }
   }
 
+  // 返回:正常 URL 原样(既有"守卫不改写目标"契约);仅当原始串含 userinfo 或
+  // 反斜杠(浏览器会重写它们)时,交回归一化后的真实目标,不让凭据段原样穿过守卫。
+  const hasUserInfo = parsed.username !== '' || parsed.password !== ''
+  if (hasUserInfo || hasBackslash) {
+    return { ok: true, url: sanitized }
+  }
   return { ok: true, url: trimmed }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

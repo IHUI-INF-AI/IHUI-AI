@@ -27,7 +27,16 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import Link from 'next/link'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduExamScoreCreate,
+  eduExamScoreDelete,
+  eduExamScoreList,
+  eduExamScoreRanking,
+  eduExamScoreSnapshot,
+  eduExamScoreStats,
+  eduTermList,
+} from '@ihui/api-client'
 import { neutralizeFormulaCell } from '@/lib/export-utils'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -365,7 +374,11 @@ export default function GradesPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -378,8 +391,11 @@ export default function GradesPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -392,12 +408,14 @@ export default function GradesPage() {
 
   const { data: scoresData, isLoading: scoresLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', selectedClassId, filterSubject, filterExamName],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedClassId) params.set('classId', selectedClassId)
-      if (filterSubject) params.set('subject', filterSubject)
-      if (filterExamName) params.set('examName', filterExamName)
-      return apiOrThrow<{ list: EduExamScore[] }>(`/api/edu-ai-management/exam-score?${params}`)
+    queryFn: async () => {
+      const r = await eduExamScoreList<{ list: EduExamScore[] }>({
+        classId: selectedClassId || undefined,
+        subject: filterSubject || undefined,
+        examName: filterExamName || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedClassId,
   })
@@ -405,23 +423,28 @@ export default function GradesPage() {
 
   const { data: statsData } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'stats', selectedClassId],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedClassId) params.set('classId', selectedClassId)
-      return apiOrThrow<ScoreStats>(`/api/edu-ai-management/exam-score/stats?${params}`)
+    queryFn: async () => {
+      const r = await eduExamScoreStats<ScoreStats>({
+        classId: selectedClassId || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedClassId,
   })
 
   const { data: rankingData } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'ranking', selectedClassId, selectedExamName],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedClassId) params.set('classId', selectedClassId)
-      if (selectedExamName) params.set('examName', selectedExamName)
-      return apiOrThrow<{ ranking: RankingEntry[]; totalStudents: number }>(
-        `/api/edu-ai-management/exam-score/ranking?${params}`,
-      )
+    queryFn: async () => {
+      const r = await eduExamScoreRanking<{
+        ranking: RankingEntry[]
+        totalStudents: number
+      }>({
+        classId: selectedClassId || undefined,
+        examName: selectedExamName || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedClassId && !!selectedExamName,
   })
@@ -452,44 +475,46 @@ export default function GradesPage() {
   }, [queryClient])
 
   const createScore = useMutation({
-    mutationFn: (data: ScoreFormData) =>
-      apiOrThrow('/api/edu-ai-management/exam-score', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: ScoreFormData) => {
+      const r = await eduExamScoreCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const batchCreateScores = useMutation({
     mutationFn: (entries: Array<{ studentId: string; subject: string; score: number }>) =>
       Promise.all(
-        entries.map((e) =>
-          apiOrThrow('/api/edu-ai-management/exam-score', {
-            method: 'POST',
-            body: JSON.stringify({
-              ...e,
-              classId: selectedClassId,
-              examName: selectedExamName,
-              examDate: new Date().toISOString().split('T')[0]!,
-            }),
-          }),
-        ),
+        entries.map(async (e) => {
+          const r = await eduExamScoreCreate({
+            ...e,
+            classId: selectedClassId,
+            examName: selectedExamName,
+            examDate: new Date().toISOString().split('T')[0]!,
+          })
+          if (!r.success) throw new Error(r.error)
+          return r.data
+        }),
       ),
     onSuccess: invalidate,
   })
 
   const deleteScore = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/exam-score/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduExamScoreDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const createSnapshot = useMutation({
-    mutationFn: () =>
-      apiOrThrow('/api/edu-ai-management/exam-score/snapshot', {
-        method: 'POST',
-        body: JSON.stringify({ classId: selectedClassId, examName: selectedExamName }),
-      }),
+    mutationFn: async () => {
+      const r = await eduExamScoreSnapshot({ classId: selectedClassId, examName: selectedExamName })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 

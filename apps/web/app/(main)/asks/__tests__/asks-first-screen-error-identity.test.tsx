@@ -35,22 +35,9 @@ import * as React from 'react'
 import type { ApiResult } from '@ihui/types'
 import { apiFailureToError, toUserFriendlyMessage } from '@ihui/shared/utils'
 
-/** `@/lib/api` 会拉起 api-client + stores + vault 整条链;本票只判身份链,替身即可。 */
-const fetchApiMock = vi.fn()
-vi.mock('@/lib/api', () => ({
-  fetchApi: (url: string, options?: RequestInit) => fetchApiMock(url, options),
-  // helpers.api 已改转发单源出口 apiOrThrow:替身按同形补适配器
-  // (失败抛**带 status** 的 Error,成功解包 data —— 身份档判据全靠这个 status)。
-  apiOrThrow: async (url: string, options?: RequestInit) => {
-    const r = await fetchApiMock(url, options)
-    if (!r.success) {
-      const err = new Error(r.error) as Error & { status?: number }
-      err.status = r.status
-      throw err
-    }
-    return r.data
-  },
-}))
+/** 只判身份链:桩共享端点 `getAsks`(真实 fetch/续期语义不参与本票)。 */
+const { getAsksMock } = vi.hoisted(() => ({ getAsksMock: vi.fn() }))
+vi.mock('@ihui/api-client', () => ({ getAsks: getAsksMock }))
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string) => `t:${key}`,
@@ -82,7 +69,7 @@ vi.mock('@ihui/ui-react', () => {
   }
 })
 
-import { api } from '../helpers'
+import { getAsks } from '@ihui/api-client'
 import { AsksList } from '../AsksList'
 
 /** 真接口响应体逐字搬进来(见文件头注),不是自造夹具。 */
@@ -97,22 +84,25 @@ const REAL_401_EXPIRED = {
   status: 401,
 } as const
 
-describe('① helpers.api() 保住失败身份(守门 135 唯一出口)', () => {
-  beforeEach(() => fetchApiMock.mockReset())
+describe('① 共享 getAsks 出口保住失败身份(守门 135 唯一出口)', () => {
+  beforeEach(() => getAsksMock.mockReset())
 
-  it('会话过期 401 ⇒ 抛出的 Error 带 status=401,文案落"登录已过期"档', async () => {
-    fetchApiMock.mockResolvedValue(REAL_401_EXPIRED satisfies ApiResult<unknown>)
-    const err = await api<unknown>('/api/asks?page=1&pageSize=20').catch((e: unknown) => e)
-    expect(err).toBeInstanceOf(Error)
-    expect((err as Error & { status?: number }).status).toBe(401)
-    expect(toUserFriendlyMessage(err)).toBe('登录已过期,请重新登录')
+  it('会话过期 401 ⇒ ApiResult 带 status=401,文案落"登录已过期"档', async () => {
+    getAsksMock.mockResolvedValue(REAL_401_EXPIRED satisfies ApiResult<unknown>)
+    const r = await getAsks({ page: 1, pageSize: 20 })
+    expect(r.success).toBe(false)
+    if (r.success) throw new Error('unreachable')
+    expect(r.status).toBe(401)
+    expect(toUserFriendlyMessage(apiFailureToError(r))).toBe('登录已过期,请重新登录')
   })
 
   it('游客 401 ⇒ 同一档(鉴权失败不因"从未登录"而换映射)', async () => {
-    fetchApiMock.mockResolvedValue(REAL_401_GUEST satisfies ApiResult<unknown>)
-    const err = await api<unknown>('/api/asks?page=1&pageSize=20').catch((e: unknown) => e)
-    expect((err as Error & { status?: number }).status).toBe(401)
-    expect(toUserFriendlyMessage(err)).toBe('登录已过期,请重新登录')
+    getAsksMock.mockResolvedValue(REAL_401_GUEST satisfies ApiResult<unknown>)
+    const r = await getAsks({ page: 1, pageSize: 20 })
+    expect(r.success).toBe(false)
+    if (r.success) throw new Error('unreachable')
+    expect(r.status).toBe(401)
+    expect(toUserFriendlyMessage(apiFailureToError(r))).toBe('登录已过期,请重新登录')
   })
 
   it('反向对照:丢身份的旧写法(new Error(r.error))必产出实拍那句', () => {
@@ -129,11 +119,11 @@ describe('② AsksList 首屏错误态上屏身份档,不摊原文、不误判�
   afterEach(cleanup)
 
   async function thrownByRealFailure(): Promise<Error> {
-    fetchApiMock.mockResolvedValue(REAL_401_EXPIRED satisfies ApiResult<unknown>)
-    const err: unknown = await api<unknown>('/api/asks?page=1&pageSize=20').catch((e: unknown) => e)
-    // 断言在先:下面的 `as Error` 只在"确实 instanceof Error"成立后才有资格收窄
-    expect(err).toBeInstanceOf(Error)
-    return err as Error
+    getAsksMock.mockResolvedValue(REAL_401_EXPIRED satisfies ApiResult<unknown>)
+    const r = await getAsks({ page: 1, pageSize: 20 })
+    expect(r.success).toBe(false)
+    if (r.success) throw new Error('unreachable')
+    return apiFailureToError(r)
   }
 
   it('端到端(helpers 抛出 → AsksList 渲染):上屏「登录已过期,请重新登录」', async () => {

@@ -56,6 +56,25 @@ function assertSafeSpecSegment(value: string, label: string): string {
   return value
 }
 
+function readFailureCode(error: unknown): string | undefined {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return undefined
+}
+
+/** 文件确实没有返回 null。其它读失败抛出,调用方不得据此写成空文件。 */
+async function readUtf8OrAbsent(file: string, unread: string): Promise<string | null> {
+  try {
+    return await readFile(file, 'utf-8')
+  } catch (error) {
+    const code = readFailureCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null
+    throw new Error(`${unread} (${code ?? 'unknown'})`)
+  }
+}
+
 /**
  * 本地预置模板(与 ai-service app/routers/spec.py _BUILTIN_TEMPLATES 保持一致)。
  * ai-service 不可用时降级返回,确保 Web 端 /spec 页面永远有模板列表。
@@ -953,12 +972,16 @@ class SpecService {
    */
   private async readBranchIndex(root: string): Promise<SpecBranch[]> {
     const indexFile = join(root, '.ihui-agent', 'specs', 'branches', 'index.json')
+    const content = await readUtf8OrAbsent(indexFile, '分支索引读不到,不能把它覆盖成只剩当前这一条')
+    if (content === null) return []
+    let parsed: unknown
     try {
-      const content = await readFile(indexFile, 'utf-8')
-      return JSON.parse(content) as SpecBranch[]
+      parsed = JSON.parse(content)
     } catch {
-      return []
+      throw new Error('分支索引读不到,不能把它覆盖成只剩当前这一条 (parse)')
     }
+    if (!Array.isArray(parsed)) throw new Error('分支索引不是数组,不能覆盖')
+    return parsed as SpecBranch[]
   }
 
   /**
@@ -1073,26 +1096,27 @@ ${requirementPreview}
     const branchFile = join(branchesDir, `${input.branchName}.md`)
 
     await mkdir(branchesDir, { recursive: true })
+    const branches = await this.readBranchIndex(root)
 
     // 读取 base spec 内容
     let baseSpec = ''
     if (input.baseVersion === 'latest') {
-      baseSpec = await readFile(
-        join(root, '.ihui-agent', 'specs', `${scopeHash}.md`),
-        'utf-8',
-      ).catch(() => '')
+      baseSpec =
+        (await readUtf8OrAbsent(
+          join(root, '.ihui-agent', 'specs', `${scopeHash}.md`),
+          '规格基线读不到,不能把分支写成空文件',
+        )) ?? ''
     } else {
-      baseSpec = await readFile(
-        join(root, '.ihui-agent', 'specs', 'history', `${input.baseVersion}-${scopeHash}.md`),
-        'utf-8',
-      ).catch(() => '')
+      baseSpec =
+        (await readUtf8OrAbsent(
+          join(root, '.ihui-agent', 'specs', 'history', `${input.baseVersion}-${scopeHash}.md`),
+          '规格基线读不到,不能把分支写成空文件',
+        )) ?? ''
     }
 
     // 写入分支文件(即使 baseSpec 为空也写入,前端可后续编辑)
     await writeFile(branchFile, baseSpec, 'utf-8')
 
-    // 更新 index.json(覆盖同名旧分支)
-    const branches = await this.readBranchIndex(root)
     const now = new Date().toISOString()
     const branch: SpecBranch = {
       specId: scopeHash,
@@ -1133,8 +1157,8 @@ ${requirementPreview}
     const branchFile = join(root, '.ihui-agent', 'specs', 'branches', `${input.branchName}.md`)
     const mainFile = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
 
-    // 读取分支内容
-    const branchContent = await readFile(branchFile, 'utf-8').catch(() => '')
+    // 读取分支内容。读不到不能说成不存在,也不能接着覆盖主规格。
+    const branchContent = await readUtf8OrAbsent(branchFile, '分支文件读不到,不能把它说成不存在')
     if (!branchContent) {
       return {
         merged: false,
@@ -1145,12 +1169,13 @@ ${requirementPreview}
       }
     }
 
-    // 读取 main spec(可能不存在,降级为空)
-    const mainContent = await readFile(mainFile, 'utf-8').catch(() => '')
+    // 主规格确实没有才当空。读不到必须抛,不能用分支盖掉没读到的正文。
+    const mainContent = await readUtf8OrAbsent(mainFile, '主规格读不到,不能用分支覆盖')
+    const mainText = mainContent ?? ''
 
     // 检测冲突行(unified diff 中连续 - + 行视为修改点)
     const conflicts: string[] = []
-    const { diff } = computeUnifiedDiff(mainContent, branchContent)
+    const { diff } = computeUnifiedDiff(mainText, branchContent)
     const diffLines = diff.split('\n')
     for (let i = 0; i < diffLines.length; i++) {
       const line = diffLines[i]!
@@ -1164,12 +1189,11 @@ ${requirementPreview}
       }
     }
 
-    // 合并:用分支内容覆盖 main spec
+    // 索引读不到就不要写主规格,也不要把它覆盖成空名单。
+    const branches = await this.readBranchIndex(root)
+
     await mkdir(dirname(mainFile), { recursive: true })
     await writeFile(mainFile, branchContent, 'utf-8')
-
-    // 更新分支状态为 merged
-    const branches = await this.readBranchIndex(root)
     const updated = branches.map((b) =>
       b.specId === scopeHash && b.name === input.branchName
         ? { ...b, status: 'merged' as const }
@@ -1361,7 +1385,7 @@ ${requirementPreview}
       const specFile = join(specsDir, `${scopeHash}.md`)
       // 备份原文件(如果存在)
       await mkdir(backupDir, { recursive: true })
-      const oldSpec = await readFile(specFile, 'utf-8').catch(() => '')
+      const oldSpec = await readUtf8OrAbsent(specFile, '规格原文读不到,不能把它覆盖成新规格')
       if (oldSpec) {
         await writeFile(join(backupDir, `${scopeHash}.md.bak`), oldSpec, 'utf-8')
       }
@@ -1444,7 +1468,10 @@ ${requirementPreview}
           return r.stdout ?? ''
         }
         runGit(['add', specRelPath], 15000)
-        runGit(['commit', '--no-verify', '-m', `chore(spec): pipeline ${pipelineId} 更新 spec`], 15000)
+        runGit(
+          ['commit', '--no-verify', '-m', `chore(spec): pipeline ${pipelineId} 更新 spec`],
+          15000,
+        )
         commitSha = runGit(['rev-parse', 'HEAD'], 5000).trim()
         stages.push({
           name: 'commit',
@@ -1519,7 +1546,7 @@ ${requirementPreview}
     const branchFile = join(root, '.ihui-agent', 'specs', 'branches', `${input.branchName}.md`)
     const mainFile = join(root, '.ihui-agent', 'specs', `${scopeHash}.md`)
 
-    const branchContent = await readFile(branchFile, 'utf-8').catch(() => '')
+    const branchContent = await readUtf8OrAbsent(branchFile, '分支文件读不到,不能把它说成不存在')
     if (!branchContent) {
       return {
         diff: '',
@@ -1530,9 +1557,10 @@ ${requirementPreview}
         error: `分支文件不存在: ${input.branchName}`,
       }
     }
-    const mainContent = await readFile(mainFile, 'utf-8').catch(() => '')
+    const mainContent = await readUtf8OrAbsent(mainFile, '主规格读不到,不能把它说成空规格再出差异')
+    const mainText = mainContent ?? ''
 
-    const { diff, addedLines, removedLines } = computeUnifiedDiff(mainContent, branchContent)
+    const { diff, addedLines, removedLines } = computeUnifiedDiff(mainText, branchContent)
     return {
       diff,
       addedLines,
@@ -1561,8 +1589,15 @@ ${requirementPreview}
     const backupDir = join(root, '.ihui-agent', 'specs', 'backups', input.pipelineId)
     const relBackup = relative(root, backupDir).replace(/\\/g, '/')
 
-    const statResult = await stat(backupDir).catch(() => null)
-    if (!statResult || !statResult.isDirectory()) {
+    let statResult: Awaited<ReturnType<typeof stat>> | null
+    try {
+      statResult = await stat(backupDir)
+    } catch (error) {
+      const code = readFailureCode(error)
+      if (code === 'ENOENT' || code === 'ENOTDIR') statResult = null
+      else throw new Error(`流水线记录读不到,不能把它说成没有 (${code ?? 'unknown'})`)
+    }
+    if (!statResult) {
       return {
         pipelineId: input.pipelineId,
         stages: [],
@@ -1573,8 +1608,17 @@ ${requirementPreview}
         error: `未找到流水线记录: ${input.pipelineId}`,
       }
     }
+    if (!statResult.isDirectory()) {
+      throw new Error('流水线记录读不到,不能把它说成没有 (not-directory)')
+    }
 
-    const entries = await readdir(backupDir).catch(() => [] as string[])
+    let entries: string[]
+    try {
+      entries = await readdir(backupDir)
+    } catch (error) {
+      const code = readFailureCode(error)
+      throw new Error(`流水线记录读不到,不能把它说成没有备份 (${code ?? 'unknown'})`)
+    }
     const bakCount = entries.filter((f) => f.endsWith('.bak')).length
     return {
       pipelineId: input.pipelineId,
@@ -1607,14 +1651,24 @@ ${requirementPreview}
     const errors: string[] = []
     let rolled = 0
 
-    const statResult = await stat(backupPath).catch(() => null)
-    if (!statResult || !statResult.isDirectory()) {
+    let statResult: Awaited<ReturnType<typeof stat>> | null
+    try {
+      statResult = await stat(backupPath)
+    } catch (error) {
+      const code = readFailureCode(error)
+      if (code === 'ENOENT' || code === 'ENOTDIR') statResult = null
+      else throw new Error(`备份目录读不到,不能把它说成不存在 (${code ?? 'unknown'})`)
+    }
+    if (!statResult) {
       return {
         rolled: 0,
         errors: [`备份目录不存在: ${input.backupDir}`],
         backupDir: input.backupDir,
         error: '备份目录不存在',
       }
+    }
+    if (!statResult.isDirectory()) {
+      throw new Error('备份目录读不到,不能把它说成不存在 (not-directory)')
     }
 
     try {

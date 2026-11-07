@@ -56,7 +56,7 @@ export function ReferrerScreen({
           {info?.referrerCode ? (
             <Text style={styles.value}>{info.referrerName || info.referrerCode}</Text>
           ) : (
-            <Text style={styles.muted}>{t('referrer.empty')}</Text>
+            <Text style={styles.muted}>{t('referrer.noReferrer')}</Text>
           )}
           <Text style={styles.desc}>{t('referrer.desc')}</Text>
         </View>
@@ -80,7 +80,7 @@ export function ReferrerScreen({
               disabled={submitting}
             >
               <Text style={styles.submitText}>
-                {submitting ? t('referrer.submitting') : t('referrer.submit')}
+                {submitting ? t('referrer.submitting') : t('referrer.bindBtn')}
               </Text>
             </TouchableOpacity>
           </View>

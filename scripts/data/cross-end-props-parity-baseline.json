@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-04T07:11:39.541Z",
-  "face": "head",
-  "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名。升绝对零前置=存量归零。",
+  "generatedAt": "2026-11-04T10:06:35.535Z",
+  "face": "staged",
+  "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。存差=未实现+未映射+未裁决,逐键 judged 台账仅移出存差、不入映射、逐条留审(owner/expires/evidence≥2/rationale),坏裁决/过期/一键两归/失效裁决=红且拒写。升绝对零前置=存差归零。",
   "pairs": {
     "AgentRuntimePanel": {
       "state": "ok",
@@ -14,8 +14,8 @@
     "BackChevron": {
       "state": "ok",
       "onlyRn": [],
-      "onlyMini": ["color"],
-      "reqDrift": ["label(req/op)"],
+      "onlyMini": [],
+      "reqDrift": [],
       "mapped": [
         {
           "ours": "onPress",
@@ -23,57 +23,70 @@
           "kind": "event"
         }
       ],
-      "driftTotal": 2
+      "driftTotal": 0
     },
     "BottomActionBar": {
       "state": "ok",
-      "onlyRn": [
-        "knowledgeBaseEnabled",
-        "mcpEnabled",
-        "onKeyboardHide",
-        "onKeyboardShow",
-        "onPromptChange",
-        "onStartVoiceAnimation",
-        "onStopVoiceAnimation",
-        "onTextareaHeightChange",
-        "onToggleKnowledgeBase",
-        "onToggleMcp",
-        "onTogglePermanentMemory",
-        "onToggleSuperAgent",
-        "onToggleSuperAgentfu",
-        "onToggleVoiceInput",
-        "permanentMemoryEnabled",
-        "prompt"
-      ],
-      "onlyMini": [
-        "disabled",
-        "iconButtons",
-        "inputAreaProps",
-        "isVoiceInput",
-        "onAttach",
-        "onIconButtonClick",
-        "onInput",
-        "onToggle",
-        "onVoiceInputToggle",
-        "placeholder",
-        "showAttach",
-        "showIconButtons",
-        "showSend",
-        "toggleButtons",
-        "value",
-        "variant"
-      ],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 32
+      "mapped": [
+        {
+          "ours": "onAddFile",
+          "theirs": "onAttach",
+          "kind": "event"
+        },
+        {
+          "ours": "onIconClick",
+          "theirs": "onIconButtonClick",
+          "kind": "event"
+        },
+        {
+          "ours": "onPromptChange",
+          "theirs": "onInput",
+          "kind": "event"
+        },
+        {
+          "ours": "onToggleVoiceInput",
+          "theirs": "onVoiceInputToggle",
+          "kind": "event"
+        },
+        {
+          "ours": "prompt",
+          "theirs": "value",
+          "kind": "content"
+        },
+        {
+          "ours": "voiceInputEnabled",
+          "theirs": "isVoiceInput",
+          "kind": "content"
+        }
+      ],
+      "driftTotal": 0
     },
     "Carousel": {
       "state": "ok",
-      "onlyRn": ["autoplayInterval", "banner", "onItemPress"],
-      "onlyMini": ["autoplay", "courseMeta", "interval", "items", "onItemClick", "variant"],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 9
+      "mapped": [
+        {
+          "ours": "autoplayInterval",
+          "theirs": "interval",
+          "kind": "content"
+        },
+        {
+          "ours": "onItemPress",
+          "theirs": "onItemClick",
+          "kind": "event"
+        },
+        {
+          "ours": "banner",
+          "theirs": "items",
+          "kind": "content"
+        }
+      ],
+      "driftTotal": 0
     },
     "ColorfulLoader": {
       "state": "ok",
@@ -84,169 +97,131 @@
       "driftTotal": 0
     },
     "FloatBox": {
-      "state": "ok",
-      "onlyRn": ["duration", "message", "onHide", "type", "visible"],
-      "onlyMini": ["onFeedback", "onService"],
-      "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 7
+      "state": "not-applicable",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-03-31",
+      "evidence": [
+        "apps/mobile-rn/src/components/FloatBox.tsx:48-54",
+        "apps/miniapp-taro/src/components/FloatBox.tsx:20-23",
+        "apps/miniapp-taro/src/components/FloatBox.tsx:25-32",
+        "apps/mobile-rn/src/components/GlobalFloatBox.tsx:29-36"
+      ],
+      "why": "同名不同物:mini FloatBox 是右下角悬浮入口组(赚米/客服/反馈三个命令式按钮),RN 同名 FloatBox 是顶部自绘 toast(visible/type/message/onHide/duration 受控覆盖层);RN 的入口组对应物是 GlobalFloatBox 而非 FloatBox。两端 UI 形态与契约互不相干,不构成单组件 props 对,按同名文件配出的 7 键无对账意义。"
     },
     "InputArea": {
       "state": "ok",
-      "onlyRn": [
-        "collapseButtonLabel",
-        "collapsedFabLabel",
-        "collapsible",
-        "defaultCollapsed",
-        "expanded",
-        "images",
-        "onChangeText",
-        "onCollapsedChange",
-        "onExpandToggle",
-        "onImageAdd",
-        "onImageRemove",
-        "onPageAgentVariablesChange",
-        "onParamImageAdd",
-        "onSubmit",
-        "onVoiceAnimationStart",
-        "onVoiceAnimationStop",
-        "onVoiceEnd",
-        "onVoiceStart",
-        "onVoiceToggle",
-        "pageAgentVariables",
-        "voiceActive",
-        "voiceInput"
-      ],
-      "onlyMini": [
-        "autoFocus",
-        "imgsList",
-        "onBlur",
-        "onFangdaChange",
-        "onFocus",
-        "onInput",
-        "onKeyboardHeightChange",
-        "onRemoveImage",
-        "onSend",
-        "onUpload",
-        "onVoicePress",
-        "onVoiceRelease",
-        "variant"
-      ],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 35
+      "mapped": [
+        {
+          "ours": "images",
+          "theirs": "imgsList",
+          "kind": "content"
+        },
+        {
+          "ours": "onChangeText",
+          "theirs": "onInput",
+          "kind": "event"
+        },
+        {
+          "ours": "onImageRemove",
+          "theirs": "onRemoveImage",
+          "kind": "event"
+        },
+        {
+          "ours": "onSubmit",
+          "theirs": "onSend",
+          "kind": "event"
+        },
+        {
+          "ours": "onVoiceEnd",
+          "theirs": "onVoiceRelease",
+          "kind": "event"
+        },
+        {
+          "ours": "onVoiceStart",
+          "theirs": "onVoicePress",
+          "kind": "event"
+        }
+      ],
+      "driftTotal": 0
     },
     "IntelligentAssistant": {
       "state": "ok",
-      "onlyRn": ["tokenQuantity"],
-      "onlyMini": ["isLoggedIn", "tokenBalance"],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 3
+      "mapped": [
+        {
+          "ours": "tokenQuantity",
+          "theirs": "tokenBalance",
+          "kind": "content"
+        }
+      ],
+      "driftTotal": 0
     },
     "LoginPopUp": {
       "state": "ok",
-      "onlyRn": ["avatarUrl", "nickname", "onUpgradeTrader", "phone", "phoneDisabled", "role"],
-      "onlyMini": [
-        "defaultAvatar",
-        "onNicknameChange",
-        "onOneClickLogin",
-        "onPasswordLogin",
-        "onWebAuthLogin",
-        "userInfo"
-      ],
-      "reqDrift": [
-        "description(req/op)",
-        "onPrimary(req/op)",
-        "onSecondary(req/op)",
-        "primaryLabel(req/op)",
-        "secondaryLabel(req/op)",
-        "title(req/op)",
-        "visible(req/op)"
-      ],
+      "onlyRn": [],
+      "onlyMini": [],
+      "reqDrift": [],
       "mapped": [],
-      "driftTotal": 19
+      "driftTotal": 0
     },
     "ModelConfigDialog": {
       "state": "ok",
-      "onlyRn": [
-        "audioUrl",
-        "firstFrameUrl",
-        "isRecording",
-        "lastFrameUrl",
-        "models",
-        "onCloneVoice",
-        "onConfigChange",
-        "onDeleteAudio",
-        "onDeleteFirstFrame",
-        "onDeleteLastFrame",
-        "onDeleteVideo",
-        "onSelectModel",
-        "onSelectVoice",
-        "onStartRecording",
-        "onStopRecording",
-        "onUploadAudio",
-        "onUploadFirstFrame",
-        "onUploadLastFrame",
-        "onUploadVideo",
-        "recordDuration",
-        "selectedModelId",
-        "videoUrl"
-      ],
-      "onlyMini": ["isVip"],
-      "reqDrift": ["config(req/op)", "modelType(req/op)", "onChange(req/op)", "visible(req/op)"],
+      "onlyRn": [],
+      "onlyMini": [],
+      "reqDrift": [],
       "mapped": [],
-      "driftTotal": 27
+      "driftTotal": 0
     },
     "ModelList": {
       "state": "ok",
-      "onlyRn": ["agentModeSelected", "onAgentModeClick", "onEndReached"],
-      "onlyMini": [
-        "agentActive",
-        "currentType",
-        "loading",
-        "models",
-        "onAgentSelect",
-        "onSelect",
-        "selectedId",
-        "variant"
+      "onlyRn": [],
+      "onlyMini": [],
+      "reqDrift": [],
+      "mapped": [
+        {
+          "ours": "agentModeSelected",
+          "theirs": "agentActive",
+          "kind": "content"
+        },
+        {
+          "ours": "onAgentModeClick",
+          "theirs": "onAgentSelect",
+          "kind": "event"
+        }
       ],
-      "reqDrift": ["groups(req/op)"],
-      "mapped": [],
-      "driftTotal": 12
+      "driftTotal": 0
     },
     "NavBar": {
       "state": "ok",
       "onlyRn": [],
-      "onlyMini": [
-        "activeTitleIndex",
-        "bgColor",
-        "joinText",
-        "menuIcon",
-        "notification",
-        "onActiveNav",
-        "onFeedbackClick",
-        "onFenLeiClick",
-        "onJoinClick",
-        "onMenuClick",
-        "onPack",
-        "onRightClick",
-        "onSearchClick",
-        "rightText",
-        "showBack",
-        "showFeedback",
-        "showFenLei",
-        "showSearch",
-        "textColor",
-        "variant"
-      ],
+      "onlyMini": [],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 20
+      "driftTotal": 0
     },
     "ScreenStates": {
-      "state": "undetermined",
-      "reason": "rn=undetermined(出口无默认/同名组件(出口=ScreenSkeleton,EmptyState,ErrorState,PressableCard,ScreenSkeletonProps,EmptyStateProps)) mini=undetermined(出口无默认/同名组件(出口=ScreenSkeleton,EmptyState,ErrorState,PressableCard,ScreenSkeletonProps,EmptyStateProps))"
+      "state": "not-applicable",
+      "owner": "cross-end-props-parity",
+      "expires": "2027-06-30",
+      "evidence": [
+        "packages/app/src/components/ScreenStates.tsx:13-19",
+        "packages/app/src/components/ScreenStates.tsx:70",
+        "packages/app/src/components/ScreenStates.tsx:125",
+        "packages/app/src/components/ScreenStates.tsx:163",
+        "packages/app/src/components/ScreenStates.tsx:199",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:47",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:141",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:180",
+        "apps/miniapp-taro/src/components/ScreenStates.taro.tsx:219",
+        "packages/app/src/components/index.ts:44-49",
+        "scripts/check-cross-end-ui-parity.mjs:1122"
+      ],
+      "why": "ScreenStates 是门128按文件基名(basename)配上的四组件族容器,不是同名组件对:两端文件各自只导出 ScreenSkeleton/EmptyState/ErrorState/PressableCard 四个具名组件及其 Props 接口,既无 default 导出,也无名为 ScreenStates 的符号;RN 侧 barrel(index.ts:44-49)也只 re-export 四个 Props 类型,不构成聚合组件。门288 的采集器只认默认出口或与文件同名出口,故两端同报 undetermined —— 这是配对对象本身不是单组件,不是解析故障。不能把四个独立 props 契约并成一个键集:那会让分属不同组件的键互相顶替(例如 RN EmptyState 的 glyph 与小程序 PressableCard 的 className 并入合集后看着'两端都有'),产生跨组件假阴性。四个子件的逐件对账需要改门128的配对粒度(按组件而非按文件),属配对口径变更,须单独裁决并重落全量台账;本条目到期前由 owner 复核是否拆分。"
     },
     "ScrollJumpButton": {
       "state": "ok",
@@ -269,64 +244,81 @@
     },
     "SectionHeader": {
       "state": "ok",
-      "onlyRn": ["accessibilityLabel", "leading", "style", "subtitleStyle", "titleStyle"],
+      "onlyRn": [],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 5
+      "driftTotal": 0
     },
     "UserInfoCard": {
       "state": "ok",
-      "onlyRn": ["onEdit", "onLevelIntro", "onRecharge", "userInfo"],
-      "onlyMini": [
-        "growthMax",
-        "growthValue",
-        "identityType",
-        "onOpenLevel",
-        "onOpenVip",
-        "onWallet",
-        "tokenValue"
-      ],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 11
+      "mapped": [
+        {
+          "ours": "onEdit",
+          "theirs": "onClick",
+          "kind": "event"
+        },
+        {
+          "ours": "onRecharge",
+          "theirs": "onWallet",
+          "kind": "event"
+        },
+        {
+          "ours": "onLevelIntro",
+          "theirs": "onOpenLevel",
+          "kind": "event"
+        }
+      ],
+      "driftTotal": 0
     },
     "VideoPlayer": {
       "state": "ok",
-      "onlyRn": ["VideoComponent", "url"],
-      "onlyMini": [
-        "autoplay",
-        "controls",
-        "loading",
-        "onEnded",
-        "onError",
-        "onPause",
-        "onPlay",
-        "onTimeUpdate",
-        "poster",
-        "src"
-      ],
+      "onlyRn": [],
+      "onlyMini": [],
       "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 12
+      "mapped": [
+        {
+          "ours": "url",
+          "theirs": "src",
+          "kind": "content"
+        },
+        {
+          "ours": "onComplete",
+          "theirs": "onEnded",
+          "kind": "event"
+        },
+        {
+          "ours": "onProgress",
+          "theirs": "onTimeUpdate",
+          "kind": "event"
+        }
+      ],
+      "driftTotal": 0
     },
     "VoiceInput": {
       "state": "ok",
-      "onlyRn": ["aiServiceUrl", "language", "onImageSelected", "showClear", "showImagePicker"],
+      "onlyRn": [],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [],
-      "driftTotal": 5
+      "driftTotal": 0
     }
   },
   "counts": {
     "pairs": 18,
-    "drifted": 14,
-    "aligned": 3,
-    "undetermined": 1,
-    "maxKeyDrift": 35,
-    "driftKeysTotal": 199,
-    "equivalenceEntries": 3,
-    "mappedKeysTotal": 4
+    "drifted": 0,
+    "aligned": 16,
+    "undetermined": 0,
+    "notApplicable": 2,
+    "maxKeyDrift": 0,
+    "driftKeysTotal": 0,
+    "judgedKeysTotal": 0,
+    "rawDriftKeysTotal": 0,
+    "adjudicatedDriftKeys": 7,
+    "mappedKeysTotal": 49,
+    "equivalenceEntries": 27
   }
 }

@@ -47,9 +47,11 @@ export type SkillsFrontmatterParseResult =
  * 元数据 → frontmatter 文本(不含 `---` 围栏)。键序固定:
  * name → description → allowed-tools → tools → model → tags → version → license →
  * source → related-skills → progressive-disclosure → auto-generated-at →
- * auto-generated-from-task → prerequisites,与对象插入序无关 ⇒ 同一份元数据两次
+ * auto-generated-from-task → prerequisites → tiers,与对象插入序无关 ⇒ 同一份元数据两次
  * 序列化逐字节相同(幂等写,tests/g937961 有钉)。
  * 不引入 yaml 库:数组用 inline [a, b, c],对象用嵌套块,布尔用 true/false,字符串用原值。
+ * `tiers` 是唯一用 inline JSON 承载的字段:手写解析器对多层嵌套块支持有限,
+ * 用 JSON 子串能保证「解析出来的形状 == 声明形状」,不引入 yaml 依赖。
  */
 export function serializeSkillsFrontmatter(fm: SkillFrontmatter): string {
   const lines: string[] = [];
@@ -90,7 +92,29 @@ export function serializeSkillsFrontmatter(fm: SkillFrontmatter): string {
       if (hasEnv) lines.push(`  env: [${env!.join(', ')}]`);
     }
   }
+  if (fm.tiers) push('tiers', JSON.stringify(fm.tiers));
   return lines.join('\n');
+}
+
+/**
+ * 解析 inline JSON 字段(`tiers:` 的唯一承载形态)。
+ * 解析失败按「字段缺省」处理(与 parseFrontmatter 的容错口径一致),
+ * 不抛错、不静默改写形状 —— 消费方拿不到 tiers 就不会走选档。
+ */
+export function parseFrontmatterJson<T>(front: string, key: string): T | undefined {
+  // 只认顶格单行(`key: {...}`):与 parseFrontmatter 的键判据同形,不做块状 YAML 展开。
+  const prefix = `${key}:`;
+  for (const line of front.split(/\r?\n/)) {
+    if (line.startsWith(prefix)) {
+      const raw = line.slice(prefix.length).trim();
+      try {
+        return JSON.parse(raw) as T;
+      } catch {
+        return undefined;
+      }
+    }
+  }
+  return undefined;
 }
 
 /**

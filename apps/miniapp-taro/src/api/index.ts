@@ -51,6 +51,8 @@ import type {
   SubagentProgressEvent,
   // G-425:done 帧 finishReason 透传事件(载荷口径与 web 端 streamChat.onFinishReason 同一份契约)
   FinishReasonEvent,
+  // 批次 3:预算档位帧(warning/critical/stopped)载荷类型复用 api-client
+  BudgetEvent,
   // api-client 已有类型(用于本地映射,字段差异见各 mapped type 注释)
   Course as ApiCourse,
   Live as ApiLive,
@@ -61,6 +63,8 @@ import type {
 import type { TerminalDeltaEvent } from '@ihui/api-client'
 // D113:tool-delta(工具流中 diff 预览)同一纪律 —— 载荷口径以 api-client 为唯一真值。
 import type { ToolDeltaEvent } from '@ihui/api-client'
+// 模型列表统一接口:共享端点 fetchModels 与后端 /api/llm/models 同口径,端内不再直拼裸路径。
+import { fetchModels as fetchModelsShared } from '@ihui/api-client'
 // D151:terminal_interaction(命令在等键盘输入)同一纪律;本端**只渲染降级文案**,不接输入口。
 import type { TerminalInteractionEvent } from '@ihui/api-client'
 // D152(2026-09-29 立):goal_updated(会话目标的服务端主副本变了)同一纪律 —— 载荷类型复用
@@ -69,14 +73,23 @@ import type { GoalUpdateEvent } from '@ihui/api-client'
 // D136(2026-10-01 立,承 V4 #94/D84):高危工具审批(tool-approval)载荷类型同纪律。
 import type { ToolApprovalEvent } from '@ihui/api-client'
 // D136:tool-approval 帧的端内认领层(共享解析面不认领该帧族,见该文件头注)。
-import { parseToolApprovalLine } from '@/lib/tool-approval-frame'
+import { parseToolApprovalLine, parseQuestionLine } from '@/lib/tool-approval-frame'
+import {
+  parseBudgetStopData,
+  parseCompactBoundary,
+  parseCompactionBoundaryLine,
+  parseContextLedgerRow,
+  parseUsageContextLedgerLine,
+  type BudgetStopView,
+  type ContextLedgerEntry,
+} from '@/lib/chat-budget-ledger-frames'
 // D77(2026-10-17 落地小程序腿 / 2026-10-19 收编):form_request 帧的**认领层 + 投影**单源在共享层
 // (@ihui/shared/chat/form-request-frame)。端内**不再走 onRawLine 二次认领**:共享解析面
 // (@ihui/shared/utils/sse-parse)已于 2026-10-18 在 meta 泛化兜底之前认领该帧族,
 // 原先"共享面不认领 ⇒ 不走旁路该帧会被折成 meta、kind/fields/actions 全丢"的前提已不成立;
 // 留着旁路就是同一条帧两处认领 —— 共享面改了字段口径时端内这份会静默比它旧。
 // 投影层仍从该共享件取(与 web/RN 同一份判定),只是接线改由 dispatch 承接已认领的事件。
-import type { FormRequestFramePayload } from '@ihui/shared'
+import type { CompactBoundary, ContextLedger, FormRequestFramePayload } from '@ihui/shared'
 import type { ChatMessage as BaseChatMessage } from '@ihui/shared'
 import type {
   PlanUpdateEvent,
@@ -87,6 +100,7 @@ import type {
 } from '@ihui/types'
 import type { AICardsData } from '@/pkg-ai/ai/cards/types'
 import {
+  fetchApi,
   signRecurringContract as _signRecurringContract,
   listRecurringContracts as _listRecurringContracts,
   getRecurringContract as _getRecurringContract,
@@ -107,6 +121,8 @@ import {
   rateChatMessage as _rateChatMessage,
   sendToolApprovalResponse as _sendToolApprovalResponse,
 } from '@ihui/api-client'
+// 门 300 存量 A 类收口(2026-11-05):等级总览 / 帮助文章走共享端点,端内不再直拼路径。
+import { getCurrentLevel, listHelpArticles } from '@ihui/api-client'
 // HTTP 方法助手(get/post/put/patch/del)与 unwrapApi 统一来自 api-bridge,
 // 替代原 utils/request.ts,内部走 @ihui/api-client fetchApi + Taro transport。
 import { unwrapApi, get, post, put, patch, del } from '../utils/api-bridge'
@@ -257,6 +273,10 @@ export const getLiveList = (params?: { page?: number; pageSize?: number; status?
 
 /** 直播详情 */
 export const getLiveDetail = (id: string | number) => get<Live>(`/live/${id}`)
+
+// 直播订阅端点已下沉 @ihui/api-client(endpoints/live.ts),端内不再自拼路径。
+// 显式具名再导出:本文件另有同名的本地 getLiveList,不能用 export * 整模块转出。
+export { getLiveSubscriptions, unsubscribeLive } from '@ihui/api-client'
 
 /* ============ 订单 ============ */
 
@@ -440,6 +460,18 @@ export interface StreamEventCallbacks {
    */
   onToolApproval?: (evt: ToolApprovalEvent) => void
   /**
+   * BUG-67:AI 主动提问卡(question 帧)。共享 sse-parse 不认领该帧(web/RN 走
+   * tryParseQuestion 整行旁路),故本端在 streamSSE.onRawLine 旁路认领后分发到这里;
+   * 载荷形状与 @ihui/api-client streamChat.onQuestion 逐字对齐。
+   */
+  onQuestion?: (question: {
+    questionId: string
+    prompt: string
+    options: Array<{ id: string; label: string }>
+    allowCustom: boolean
+    allowMultiple: boolean
+  }) => void
+  /**
    * D77(2026-10-17 落地小程序腿):对话流业务表单请求帧(form_request)。
    * 载荷由本文件 streamSSE 的 onRawLine 旁路经 parseFormRequestLine 认领解析
    * (字段口径与 @ihui/api-client 的 tryParseFormRequest 逐字同,镜像锁见
@@ -465,6 +497,22 @@ export interface StreamEventCallbacks {
    * streamChat.onFinishReason 同一纪律)。
    */
   onFinishReason?: (evt: FinishReasonEvent) => void
+  /**
+   * 批次 3(2026-11-06):预算档位帧。共享 sse-parse 已认领 warning/critical/stopped,
+   * 本端只透传;消费侧只在 level='stopped' 时落到终态提示(后续 warning 不得覆盖)。
+   * 载荷类型复用 @ihui/api-client 的 BudgetEvent,端内不抄第二份字段。
+   */
+  onBudget?: (evt: BudgetEvent) => void
+  /**
+   * 批次 3(2026-11-06):usage 帧的七类上下文账本。共享解析面只折 usage 旧字段,
+   * `contextLedger` 由本文件 onRawLine 旁路认领后回调;缺席/形状不认 ⇒ 不触发。
+   */
+  onContextLedger?: (ledger: ContextLedger) => void
+  /**
+   * 批次 3(2026-11-06):compaction 帧的压缩边界(保留段 + 折叠区间)。
+   * 共享解析面同样只折旧字段,`boundary` 由 onRawLine 旁路认领;无边界 ⇒ 不触发。
+   */
+  onCompactionBoundary?: (boundary: CompactBoundary) => void
 }
 
 /**
@@ -565,6 +613,11 @@ export const chatStream = async (
         break
       case 'compaction':
         if (evt.compaction) onCompaction?.(evt.compaction)
+        break
+      // 批次 3:预算档位帧(共享解析面已认领 stopped)。本层原样透传,
+      // warning/critical 是否上屏由页内决定;stopped 的终态语义也在页内收口。
+      case 'budget':
+        if (evt.budget) callbacks?.onBudget?.(evt.budget)
         break
       // G-815976:partial_done —— 流异常中断且已发过 chunk 的标记帧。共享 sse-parse 已在
       // 兜底链之前认领该帧(不认领就整帧丢失),这里只承接已认领的 evt.partialDone;
@@ -736,6 +789,23 @@ export const chatStream = async (
       if (evt && callbacks && typeof callbacks.onToolApproval === 'function') {
         callbacks.onToolApproval(evt)
       }
+      // 批次 3:共享解析面只折 usage/compaction 的旧字段,七类账本与压缩边界
+      // 会在那一层被静默丢掉 ⇒ 这两维在本端旁路认领(形状不认即丢弃,不猜不补)。
+      const ledger = parseUsageContextLedgerLine(line)
+      if (ledger && callbacks && typeof callbacks.onContextLedger === 'function') {
+        callbacks.onContextLedger(ledger)
+      }
+      const boundary = parseCompactionBoundaryLine(line)
+      if (boundary && callbacks && typeof callbacks.onCompactionBoundary === 'function') {
+        callbacks.onCompactionBoundary(boundary)
+      }
+      // BUG-67:question 帧不经共享解析面(SSEEvent 联合类型里根本没有这一格,
+      // parseSSEChunk 也不认领),只在整行旁路补这一条分发分支 → onQuestion 回调;
+      // 不注册回调 ⇒ 帧照旧静默丢弃(与 D136 同纪律)。
+      const question = parseQuestionLine(line)
+      if (question && callbacks && typeof callbacks.onQuestion === 'function') {
+        callbacks.onQuestion(question)
+      }
     },
     onReconnect: (attempt, delayMs) => {
       // 断点续传去重:重连后服务端可能从断点重发,跳过已渲染前缀
@@ -746,6 +816,65 @@ export const chatStream = async (
     },
     readTimeoutMs: STREAM_READ_TIMEOUT_MS,
   })
+}
+
+/* ============ 批次 3:上下文账本 / 压缩边界 / 预算停止回放 ============ */
+
+/** 查询成功且形状可认的条目；任何失败(网络/404/旧库无表)一律空数组,由页面静默回退。 */
+async function fetchConversationItems(
+  conversationId: string,
+  resource: 'context-ledger' | 'compaction-boundaries' | 'budget-stops',
+  limit: number,
+): Promise<unknown[]> {
+  if (!conversationId) return []
+  try {
+    const result = await fetchApi<{ items?: unknown }>(
+      `/ai/chat/conversations/${encodeURIComponent(conversationId)}/${resource}`,
+      { method: 'GET', params: { limit } },
+    )
+    if (!result.success || !result.data) return []
+    const items = result.data.items
+    return Array.isArray(items) ? (items as unknown[]) : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * 最近若干轮七类上下文账本(新→旧)。只返回通过严格形状校验的条目;
+ * 失败静默(不发 toast、不抛错),用量展示位继续用现有估算。
+ */
+export async function fetchConversationContextLedgers(
+  conversationId: string,
+  limit = 5,
+): Promise<ContextLedgerEntry[]> {
+  const items = await fetchConversationItems(conversationId, 'context-ledger', limit)
+  return items
+    .map((item) => parseContextLedgerRow(item))
+    .filter((item): item is ContextLedgerEntry => item !== null)
+}
+
+/** 最近若干条压缩边界(新→旧);无边界/失败 ⇒ 空数组。 */
+export async function fetchConversationCompactionBoundaries(
+  conversationId: string,
+  limit = 5,
+): Promise<CompactBoundary[]> {
+  const items = await fetchConversationItems(conversationId, 'compaction-boundaries', limit)
+  return items
+    .map((item) => parseCompactBoundary(item))
+    .filter((item): item is CompactBoundary => item !== null)
+}
+
+/** 会话最近一次预算硬停止(取新→旧第一条);没有记录/失败 ⇒ null。 */
+export async function fetchConversationLatestBudgetStop(
+  conversationId: string,
+): Promise<BudgetStopView | null> {
+  const items = await fetchConversationItems(conversationId, 'budget-stops', 1)
+  for (const item of items) {
+    const stop = parseBudgetStopData(item, false)
+    if (stop) return stop
+  }
+  return null
 }
 
 /* ============ 用户设置 ============ */
@@ -807,11 +936,7 @@ export const getVipOrderPayInfo = (orderNo: string) =>
 // 与 web points/page.tsx 的 levelQ 同源;coupons 后端无用户侧查询端点(现读零命中)⇒ 恒 0,
 // 与调用方 catch 空对象的既有显示一致。
 export const getMemberInfo = (): Promise<MemberInfo> =>
-  get<{
-    current?: { name: string }
-    experience?: number
-    points?: { points: number }
-  }>('/api/levels/current').then((r) => ({
+  unwrapApi(getCurrentLevel()).then((r) => ({
     level: r.current?.name ?? '',
     integral: r.points?.points ?? 0,
     growth: r.experience ?? 0,
@@ -1107,7 +1232,9 @@ export const getAskList = (params?: { page?: number; pageSize?: number; keyword?
   get<{ list: Ask[]; total: number }>('/asks', params)
 export const getAskDetail = (id: string | number) =>
   get<{ ask: Ask }>(`/asks/${id}`).then((r) => r.ask)
-export const createAsk = (data: { title: string; content: string }) => post('/asks', data)
+// POST /asks 的同名薄封装已退役:唯一消费方 apps/miniapp-taro/src/pages/ask/create.tsx 改打
+// @ihui/api-client 的 createAsk(endpoints/community.ts),与 web 的 asks/edit 页、RN 的
+// AskCreateScreen 同一份端点真相源(§3 共享层优先:端内不得留第二份同名封装)。
 
 /* Ask 模块扩展（M-64 + D7/D8 端点） */
 export const getAskCategories = () =>
@@ -1396,7 +1523,9 @@ export const getAbout = async (): Promise<{
   }
 }
 export const getHelp = () =>
-  get<{ list: Array<{ id: string; title: string; content: string }> }>('/api/help/articles')
+  unwrapApi(listHelpArticles()).then((r) => ({
+    list: r.list.map((h) => ({ id: h.id, title: h.title, content: h.content ?? '' })),
+  }))
 export const getPrivacy = () => get<{ content: string }>('/privacy')
 export const getContact = () =>
   get<{ phone: string; email: string; address: string; qq?: string }>('/contact')
@@ -1820,7 +1949,7 @@ export const getMyCreation = (params: ApiParams) => get('/ai/my-creation', param
 /** 获取 AI 团队智能体类型 */
 export const getAgentType = () => get('/agents/types')
 /** 获取模型列表（统一接口） */
-export const getCozeApiList = (params?: ApiParams) => get('/api/llm/models', params)
+export const getCozeApiList = () => fetchModelsShared()
 
 /* ============ 音频 / Sora ============ */
 /** Sora 请求结束 */

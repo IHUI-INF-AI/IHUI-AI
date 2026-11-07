@@ -5907,6 +5907,7 @@
           "completed": "已完成",
           "failed": "失败",
           "pending": "待审核",
+          "processing": "处理中",
           "rejected": "已驳回"
         },
         "subtitle": "管理用户提现申请与流水",
@@ -8866,6 +8867,10 @@
           "title": "服务提供商繁忙",
           "action": "请稍后重试"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "这次消耗需要你确认",
+          "action": "确认后再重试，未确认不会调用生图"
+        },
         "ALREADY_CLAIMED": {
           "title": "该任务已被他人认领",
           "action": "改领其他任务，或等对方释放后再试"
@@ -8997,6 +9002,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "该操作已被安全策略拦截",
           "action": "修改后重试"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "这条命令被策略拒绝",
+          "action": "换一条命令，或让管理员调整策略"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "这条命令的策略还没判出来",
+          "action": "先不要执行，等策略可读后再试"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "需要确认后才会执行",
@@ -9959,6 +9972,10 @@
     "envInfoButton": "环境信息",
     "expandConversation": "展开对话",
     "headerActions": {
+      "overflowMenu": "面板菜单",
+      "groupPanel": "面板",
+      "groupTools": "工具",
+      "groupSession": "会话",
       "panelGroupButtons": "面板组按钮",
       "enterWorkspaceFullscreen": "全屏显示工作面",
       "exitWorkspaceFullscreen": "退出工作面全屏",
@@ -11687,6 +11704,11 @@
     "addContextReference": "添加为上下文引用",
     "addMenuDesc": "添加菜单(模板/引用/Skill/附件/插件/压缩)",
     "addMenuLabel": "添加",
+    "backToMenu": "返回菜单",
+    "quickSettings": "会话设置",
+    "composerSectionContent": "内容",
+    "composerSectionCapability": "能力",
+    "moreTools": "更多工具",
     "artifactCode": "代码",
     "artifactPreview": "预览",
     "assistant": "AI 助手",
@@ -11845,6 +11867,7 @@
       "branch": "从此处分支"
     },
     "contextUsage": {
+      "rowLabel": "上下文用量",
       "breakdownTitle": "Token 分类明细",
       "budgetRow": "今日额度",
       "categoryFiles": "文件/附件",
@@ -11924,6 +11947,8 @@
     "dropAttachmentHint": "释放鼠标以添加附件(图片/视频)",
     "empty": "开始新的任务",
     "emptyHint": "在下方输入消息，与 AI 开始任务",
+    "turnAnchorUnresolvedTitle": "这一回合没有定位到",
+    "turnAnchorUnresolvedHint": "链接指向的回合没有加载出来。这里留空，没有用这段会话里的其他历史代替。",
     "errorTimeout15s": "AI 响应超时(15 秒内未收到任何内容),请稍后重试",
     "errorTimeout60s": "AI 思考超时(60 秒未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型",
     "errors": {
@@ -12030,6 +12055,7 @@
     "modeTaskAria": "{mode}任务",
     "taskProgressAria": "任务进度 {status}",
     "taskProgressOpen": "任务进度",
+    "taskProgressIdle": "空闲",
     "toolsPanelOpen": "展开工具面板",
     "toolsPanelClose": "收起工具面板",
     "model": "模型",
@@ -12542,6 +12568,7 @@
       "moreItems": "等 {count} 条"
     },
     "agentPicker": {
+      "label": "Agent",
       "triggerAria": "选择对话内 Agent / 专家",
       "default": "默认助手",
       "defaultDesc": "无专家",
@@ -15006,6 +15033,33 @@
       "grantRuleConfirmCancel": "取消",
       "approve": "批准",
       "argsPreview": "参数预览",
+      "decisionDetail": "操作详情",
+      "decisionDetailReason": "原因",
+      "decisionDetailRisk": "风险",
+      "decisionDetailScope": "作用域",
+      "decisionDetailCwd": "执行目录",
+      "decisionDetailPaths": "受影响路径",
+      "decisionDetailCommand": "命令",
+      "rawArgs": "原始参数",
+      "riskLow": "低",
+      "riskMedium": "中",
+      "riskHigh": "高",
+      "scopeFsRead": "读取",
+      "scopeFsWrite": "写入",
+      "scopeFsDelete": "删除",
+      "scopeExec": "执行",
+      "scopeNetwork": "网络",
+      "scopeDb": "数据库",
+      "scopeOther": "其他",
+      "reasonDangerousCommand": "危险命令",
+      "reasonDestructiveOperation": "破坏性操作",
+      "reasonWritesFiles": "写入文件",
+      "reasonDeletesFiles": "删除文件",
+      "reasonExecutesCommand": "执行命令",
+      "reasonNetworkAccess": "访问网络",
+      "reasonDatabaseWrite": "写数据库",
+      "reasonHighRiskTool": "高危工具",
+      "reasonRequiresConfirmation": "需要确认",
       "description": "AI 请求执行以下高危操作,请确认是否允许",
       "pendingCount": "还有 {count} 个待审批",
       "reject": "拒绝",
@@ -16291,7 +16345,12 @@
       "points": "{n}分",
       "submittedAt": "提交时间：{time}",
       "unanswered": "未答",
-      "yourAnswer": "你的答案："
+      "yourAnswer": "你的答案：",
+      "correct": "答对",
+      "wrong": "答错",
+      "reviewCorrect": "正确",
+      "reviewWrong": "错误",
+      "unansweredAnswer": "未作答"
     },
     "score": "得分 {score} / {total}",
     "startExam": "开始考试",
@@ -17103,6 +17162,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "AI 行归属标记",
       "zoomIn": "放大字号",
       "zoomOut": "缩小字号"
     },
@@ -23348,6 +23408,8 @@
     "accountDeletionResend": "{seconds}s 后重新发送",
     "accountDeletionSendCode": "发送验证码",
     "accountDeletionSubmit": "确认注销",
+    "accountDeletionConfirmLabel": "确认注销",
+    "accountDeletionConfirmTitle": "确认注销",
     "accountDeletionSuccess": "账号已注销，正在跳转登录页",
     "accountDeletionTitle": "账号注销",
     "accountDeletionWarning": "此操作不可逆，所有数据将永久丢失。",
@@ -23882,6 +23944,8 @@
     "agentSecuritySaveFailed": "保存安全配置失败",
     "analyticsEnabled": "使用情况分析",
     "analyticsEnabledDesc": "开启后,平台会记录功能使用统计(点击、页面访问、耗时等匿名事件),用于改进产品;不记录您输入的内容、代码或文件路径。关闭后立即停止上报,不影响任何功能。",
+    "rumEnabled": "性能与错误诊断(可选)",
+    "rumEnabledDesc": "默认关闭。开启后仅上报匿名的启动耗时、AI 首字延迟、流式长任务数与脱敏后的错误摘要,用于改进性能;不上报文件路径、工作空间名、邮箱或设备指纹。关闭后立即停止并清空待上报数据,不再发出任何请求。",
     "llmRawRetentionOptOut": "不保留 LLM 调用原文",
     "llmRawRetentionOptOutDesc": "你的提问与 AI 回答正文不会写入数据库",
     "codeIndexEgressOptOut": "不建代码语义索引",
@@ -25884,8 +25948,7 @@
     "empty": "暂无活动",
     "startTime": "开始时间",
     "endTime": "结束时间",
-    "participants": "参与人数",
-    "joinNow": "立即参与"
+    "participants": "参与人数"
   },
   "agentReviewDetail": {
     "title": "审核详情",
@@ -26136,8 +26199,6 @@
     "unverifiedDesc": "您尚未完成实名认证，请完善以下信息。",
     "name": "真实姓名",
     "namePlaceholder": "请输入真实姓名",
-    "idNumber": "身份证号",
-    "idNumberPlaceholder": "请输入身份证号",
     "submitting": "提交中…",
     "submit": "提交认证"
   },
@@ -26149,7 +26210,6 @@
     "title": "学习进度",
     "courses": "学习课程",
     "totalMinutes": "累计学习时长",
-    "weekMinutes": "本周学习时长",
     "streak": "连续学习",
     "courseProgress": "课程进度"
   },
@@ -26819,11 +26879,8 @@
   },
   "agentCreate": {
     "title": "创建 Agent",
-    "name": "名称",
     "namePlaceholder": "请输入名称",
-    "category": "分类",
     "categoryPlaceholder": "请选择分类",
-    "description": "描述",
     "descPlaceholder": "请输入描述",
     "systemPrompt": "系统提示词",
     "promptPlaceholder": "请输入系统提示词",
@@ -26890,7 +26947,6 @@
     "remove": "移除"
   },
   "certList": {
-    "title": "我的证书",
     "empty": "暂无证书",
     "issuer": "颁发机构",
     "issuedAt": "颁发时间"
@@ -26942,7 +26998,6 @@
   },
   "courseQAList": {
     "title": "课程问答",
-    "ask": "提问",
     "empty": "暂无问答",
     "asker": "提问者",
     "answers": "回答"
@@ -27019,7 +27074,6 @@
     "actionEdit": "编辑"
   },
   "notificationSettings": {
-    "title": "通知设置",
     "push": "推送通知",
     "message": "消息提醒",
     "email": "邮件通知",
@@ -27120,9 +27174,7 @@
   "withdraw": {
     "title": "提现",
     "availableBalance": "可提现余额",
-    "amount": "提现金额",
     "amountPlaceholder": "请输入提现金额",
-    "bankCard": "银行卡",
     "bankCardPlaceholder": "请输入银行卡号",
     "submitting": "提现中...",
     "submit": "确认提现",
@@ -27517,7 +27569,6 @@
   },
   "team": {
     "retry": "重试",
-    "title": "我的团队",
     "subtitle": "团队管理",
     "totalMembers": "总成员",
     "activeMembers": "活跃成员",

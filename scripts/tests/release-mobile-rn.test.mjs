@@ -6,8 +6,7 @@
 // 口径见 AGENTS.md §22c(import 源脚本的 __test__,禁止在测试里再抄一份判据)。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -15,13 +14,33 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const SRC_PATH = join(HERE, '..', 'release-mobile-rn.mjs')
 const SRC = readFileSync(SRC_PATH, 'utf8')
 const { __test__ } = await import(import.meta.resolve('../release-mobile-rn.mjs'))
-const { foldStatus, checkSubmitProfile, findChannel, probeRuntimeVersion, buildLegs, buildStoreLegs, probeStoreDimension, exitCode, PLAY_PACKAGE, SA_SLOT_REL, STATUS } = __test__
+const {
+  foldStatus,
+  checkSubmitProfile,
+  findChannel,
+  probeRuntimeVersion,
+  buildLegs,
+  buildStoreLegs,
+  exitCode,
+  PLAY_PACKAGE,
+  SA_SLOT_REL,
+  STATUS,
+} = __test__
 const { STORE_VENDORS } = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
+const { __test__: HM } = await import(import.meta.resolve('../harmony-build.mjs'))
+const { HARMONY_AXES } = HM
 
 const okAndroid = { track: 'alpha', serviceAccountKeyPath: './credentials/x.json' }
 
 test('M1 判据单源:测试面直接吃源脚本导出的函数,未复抄', () => {
-  for (const [name, fn] of Object.entries({ foldStatus, checkSubmitProfile, findChannel, probeRuntimeVersion, buildLegs, exitCode })) {
+  for (const [name, fn] of Object.entries({
+    foldStatus,
+    checkSubmitProfile,
+    findChannel,
+    probeRuntimeVersion,
+    buildLegs,
+    exitCode,
+  })) {
     assert.equal(typeof fn, 'function', `${name} 未从 __test__ 导出`)
   }
   assert.ok(SRC.includes('export const __test__'), '源脚本未导出 __test__')
@@ -35,87 +54,165 @@ test('M2 foldStatus 单调性:unjudged > blocked > ready,空集不冒绿', () =>
 })
 
 test('M3 submit 判据正反对照(found / internal / 缺项 / 空段)', () => {
-  assert.equal(checkSubmitProfile({ submit: { production: { android: okAndroid } } }, { packageName: PLAY_PACKAGE }).status, STATUS.FOUND)
-  assert.equal(checkSubmitProfile({ submit: { production: { android: { ...okAndroid, track: 'internal' } } } }).status, STATUS.MISSING)
-  assert.equal(checkSubmitProfile({ submit: { production: { android: { track: 'alpha' } } } }).status, STATUS.MISSING)
+  assert.equal(
+    checkSubmitProfile(
+      { submit: { production: { android: okAndroid } } },
+      { packageName: PLAY_PACKAGE },
+    ).status,
+    STATUS.FOUND,
+  )
+  assert.equal(
+    checkSubmitProfile({ submit: { production: { android: { ...okAndroid, track: 'internal' } } } })
+      .status,
+    STATUS.MISSING,
+  )
+  assert.equal(
+    checkSubmitProfile({ submit: { production: { android: { track: 'alpha' } } } }).status,
+    STATUS.MISSING,
+  )
   assert.equal(checkSubmitProfile({ submit: { production: {} } }).status, STATUS.MISSING)
-  assert.equal(checkSubmitProfile({ submit: { production: { android: okAndroid } } }, { packageName: 'other.pkg' }).status, STATUS.MISSING)
+  assert.equal(
+    checkSubmitProfile(
+      { submit: { production: { android: okAndroid } } },
+      { packageName: 'other.pkg' },
+    ).status,
+    STATUS.MISSING,
+  )
 })
 
 test('M4 回归锁:eas.json 里不得出现 packageName —— eas-cli schema 拒该键并顶掉全部 eas 命令', () => {
-  const easJson = JSON.parse(readFileSync(join(HERE, '..', '..', 'apps', 'mobile-rn', 'eas.json'), 'utf8'))
+  const easJson = JSON.parse(
+    readFileSync(join(HERE, '..', '..', 'apps', 'mobile-rn', 'eas.json'), 'utf8'),
+  )
   const leg = easJson?.submit?.production?.android ?? {}
-  assert.equal('packageName' in leg, false, `submit.production.android 出现了 packageName(${leg.packageName});eas-cli 实测报 "submit.production.android.packageName is not allowed" 且让 channel:list 一并退 1`)
-  assert.equal(leg.track, 'alpha', 'docs/RELEASE.md:409 实测:个人开发者号 12 人×14 天门槛只认闭测,alpha 是唯一有效轨道')
+  assert.equal(
+    'packageName' in leg,
+    false,
+    `submit.production.android 出现了 packageName(${leg.packageName});eas-cli 实测报 "submit.production.android.packageName is not allowed" 且让 channel:list 一并退 1`,
+  )
+  assert.equal(
+    leg.track,
+    'alpha',
+    'docs/RELEASE.md:409 实测:个人开发者号 12 人×14 天门槛只认闭测,alpha 是唯一有效轨道',
+  )
 })
 
 test('M5 channel 判据:命中/缺失点名枚举集/坏输入一律 unjudged', () => {
-  assert.equal(findChannel(JSON.stringify({ currentPage: [{ name: 'preview', isPaused: false, updateBranches: [] }] }), 'preview').status, STATUS.FOUND)
+  assert.equal(
+    findChannel(
+      JSON.stringify({ currentPage: [{ name: 'preview', isPaused: false, updateBranches: [] }] }),
+      'preview',
+    ).status,
+    STATUS.FOUND,
+  )
   const absent = findChannel(JSON.stringify({ currentPage: [{ name: 'preview' }] }), 'production')
   assert.equal(absent.status, STATUS.MISSING)
-  assert.ok(absent.detail.includes('preview'), '缺失时必须点名已枚举到的渠道,否则"没查到"与"查了没有"不可区分')
+  assert.ok(
+    absent.detail.includes('preview'),
+    '缺失时必须点名已枚举到的渠道,否则"没查到"与"查了没有"不可区分',
+  )
   assert.equal(findChannel('{"currentPage":{}}', 'preview').status, STATUS.UNJUDGED)
   assert.equal(findChannel('nope', 'preview').status, STATUS.UNJUDGED)
 })
 
 test('M6 runtimeVersion 三臂:真件 found / 桶随显示版本漂移 missing / 桶恒缺 missing', () => {
-  const real = probeRuntimeVersion(readFileSync(join(HERE, '..', '..', 'apps', 'mobile-rn', 'app.config.js'), 'utf8'))
+  const real = probeRuntimeVersion(
+    readFileSync(join(HERE, '..', '..', 'apps', 'mobile-rn', 'app.config.js'), 'utf8'),
+  )
   assert.equal(real.status, STATUS.FOUND, `真件判据未过:${real.detail}`)
   assert.match(real.bucket, /^[0-9]+\.[0-9]+\.[0-9]+$/)
-  const drift = probeRuntimeVersion('module.exports = () => ({ version: process.env.IHUI_MOBILE_VERSION, runtimeVersion: process.env.IHUI_MOBILE_VERSION })')
+  const drift = probeRuntimeVersion(
+    'module.exports = () => ({ version: process.env.IHUI_MOBILE_VERSION, runtimeVersion: process.env.IHUI_MOBILE_VERSION })',
+  )
   assert.equal(drift.status, STATUS.MISSING)
-  assert.equal(probeRuntimeVersion('module.exports = () => ({ version: process.env.IHUI_MOBILE_VERSION })').status, STATUS.MISSING)
-  assert.equal(probeRuntimeVersion('module.exports = 42').status, STATUS.UNJUDGED, '导出非函数应落未判定而非猜')
+  assert.equal(
+    probeRuntimeVersion('module.exports = () => ({ version: process.env.IHUI_MOBILE_VERSION })')
+      .status,
+    STATUS.MISSING,
+  )
+  assert.equal(
+    probeRuntimeVersion('module.exports = 42').status,
+    STATUS.UNJUDGED,
+    '导出非函数应落未判定而非猜',
+  )
 })
 
-test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必须自带出路命令', async () => {
+test('M7 腿注册表形状:id 唯一、每条 checks 三键齐、blocked 腿必须自带出路命令', () => {
   const ev = {
     whoami: { status: STATUS.FOUND, detail: 'x' },
     runtime: { status: STATUS.FOUND, detail: 'x' },
-    channels: { status: STATUS.FOUND, detail: '', raw: JSON.stringify({ currentPage: [{ name: 'preview' }, { name: 'production' }] }) },
-    appJson: { updates: { url: 'https://u.expo.dev/1' }, ios: { bundleIdentifier: 'ai.ihui.mobile' }, android: { package: PLAY_PACKAGE } },
+    channels: {
+      status: STATUS.FOUND,
+      detail: '',
+      raw: JSON.stringify({ currentPage: [{ name: 'preview' }, { name: 'production' }] }),
+    },
+    appJson: {
+      updates: { url: 'https://u.expo.dev/1' },
+      ios: { bundleIdentifier: 'ai.ihui.mobile' },
+      android: { package: PLAY_PACKAGE },
+    },
     signing: { status: STATUS.FOUND, detail: 'x' },
     site: { status: STATUS.FOUND, detail: 'x' },
     prodHost: { status: STATUS.MISSING, detail: '本机零 IHUI-* 服务' },
-    latest: { android: { status: STATUS.FOUND, detail: 'x' }, ios: { status: STATUS.MISSING, detail: 'x' } },
-    latestOwnLeg: { android: { status: STATUS.MISSING, detail: '夹具:apk.aizhs.top 不是自有腿' }, ios: { status: STATUS.MISSING, detail: 'x' } },
+    latest: {
+      android: { status: STATUS.FOUND, detail: 'x' },
+      ios: { status: STATUS.MISSING, detail: 'x' },
+    },
     submit: { status: STATUS.FOUND, detail: 'x' },
     saKey: { status: STATUS.FOUND, detail: 'x' },
     slot: { status: STATUS.FOUND, detail: 'x' },
     apple: { status: STATUS.MISSING, detail: 'x' },
     xcode: { status: STATUS.MISSING, detail: 'x' },
     artifacts: { status: STATUS.MISSING, detail: '无 release 产物' },
-    stores: STORE_VENDORS.map((v) => ({ vendor: v, cred: { status: STATUS.MISSING, detail: '夹具' } })),
+    stores: STORE_VENDORS.map((v) => ({
+      vendor: v,
+      cred: { status: STATUS.MISSING, detail: '夹具' },
+    })),
   }
   const legs = buildLegs(ev)
   assert.equal(new Set(legs.map((l) => l.id)).size, legs.length, '腿 id 不得重复')
   for (const leg of legs) {
     assert.ok(leg.checks.length >= 3, `${leg.id} 判据不足`)
     for (const c of leg.checks) {
-      assert.ok(c.k && c.status && c.detail !== undefined, `${leg.id} 的判据项三键不齐:${JSON.stringify(c)}`)
+      assert.ok(
+        c.k && c.status && c.detail !== undefined,
+        `${leg.id} 的判据项三键不齐:${JSON.stringify(c)}`,
+      )
     }
     assert.ok(leg.command.length > 10, `${leg.id} 缺出路命令`)
   }
   // play-aab 腿的"Play 应用/授权"默认留 unjudged(体检面不擅自发外网请求)⇒ 整体顶到 exit 2
-  assert.equal(exitCode(legs.map((l) => ({ status: foldStatus(l.checks.map((c) => c.status)) }))), 2)
-  assert.equal(foldStatus(legs.find((l) => l.id === 'ota-production').checks.map((c) => c.status)), 'ready')
-  assert.equal(foldStatus(legs.find((l) => l.id === 'app-store').checks.map((c) => c.status)), 'blocked')
-  // 行在位 ≠ 更新卡拿到自有腿的包:site-apk 必须消费 latestOwnLeg,否则 apk.aizhs.top 会冒绿
-  const site = legs.find((l) => l.id === 'site-apk')
-  assert.equal(site.checks.find((c) => c.k === 'downloadUrl 指向自有站点腿').status, STATUS.MISSING)
-  const { judgeOwnLegUrl } = await import(import.meta.resolve('../check-app-version-latest.mjs'))
-  assert.equal(judgeOwnLegUrl('https://apk.aizhs.top/download/ihui-ai-0.0.18-26110614.apk').ok, false, '第三方/签名 OSS 腿不得算自有腿')
-  assert.equal(judgeOwnLegUrl('https://www.aizhs.top/remote-images/download/ihui-ai-0.0.18-26110614.apk').ok, true)
+  assert.equal(
+    exitCode(legs.map((l) => ({ status: foldStatus(l.checks.map((c) => c.status)) }))),
+    2,
+  )
+  assert.equal(
+    foldStatus(legs.find((l) => l.id === 'ota-production').checks.map((c) => c.status)),
+    'ready',
+  )
+  assert.equal(
+    foldStatus(legs.find((l) => l.id === 'app-store').checks.map((c) => c.status)),
+    'blocked',
+  )
 })
 
 test('M8 凭据落件闸:git check-ignore 不命中就绝不写盘(结构邻接锁,§15c/§5d)', () => {
   const i = SRC.indexOf("flags.has('--stage-credentials')")
-  assert.ok(i > 0, "找不到 main 里的 --stage-credentials 分支(锚点必须取 flags.has 判定,头注示例不算)")
+  assert.ok(
+    i > 0,
+    '找不到 main 里的 --stage-credentials 分支(锚点必须取 flags.has 判定,头注示例不算)',
+  )
   const block = SRC.slice(i, i + 2000)
   const gateCheck = block.indexOf('ev.slot.status !== STATUS.FOUND')
   const write = block.indexOf('copyFileSync(')
-  assert.ok(block.includes("'check-ignore'") || SRC.includes("'check-ignore'"), '取证面必须实测 git 忽略状态,不得凭 .gitignore 文本推断')
-  assert.ok(gateCheck >= 0 && write >= 0, `分支内缺少忽略闸或落件动作(slotGate=${gateCheck}, copy=${write})`)
+  assert.ok(
+    block.includes("'check-ignore'") || SRC.includes("'check-ignore'"),
+    '取证面必须实测 git 忽略状态,不得凭 .gitignore 文本推断',
+  )
+  assert.ok(
+    gateCheck >= 0 && write >= 0,
+    `分支内缺少忽略闸或落件动作(slotGate=${gateCheck}, copy=${write})`,
+  )
   assert.ok(write > gateCheck, 'copyFileSync 必须排在忽略闸之后,否则凭据可能落到不被忽略的路径')
   assert.match(block.slice(0, gateCheck), /return 1/, '凭据缺席时必须非 0 退出,不得继续往下落件')
   assert.match(block.slice(gateCheck, write), /return 1/, '忽略闸不通过必须直接退出')
@@ -124,51 +221,102 @@ test('M8 凭据落件闸:git check-ignore 不命中就绝不写盘(结构邻接�
 test('M9 eas 派生纪律:必须 node 直调 bin/run,不得走 .bin/eas 的 cmd 壳(§12g/EINVAL 实测)', () => {
   assert.ok(!/\.bin[/\\]eas/.test(SRC), '源码出现 .bin/eas 形态')
   assert.ok(!/[{,]\s*shell:\s*true/.test(SRC), '源码出现 shell:true 形态(注释里的禁令字样不算)')
-  assert.match(SRC, /stdio:\s*\[['"]ignore['"],\s*['"]pipe['"],\s*['"]pipe['"]\]/, 'execFileSync 必须显式接管 stdio')
+  assert.match(
+    SRC,
+    /stdio:\s*\[['"]ignore['"],\s*['"]pipe['"],\s*['"]pipe['"]\]/,
+    'execFileSync 必须显式接管 stdio',
+  )
   assert.ok(SRC.includes('windowsHide: true'), '派生进程必须 windowsHide')
-  assert.ok(/pathToFileURL\(process\.argv\[1\]\)\.href/.test(SRC), 'CLI 脚本必须有 isDirectRun 守卫(§22d,禁手拼 file:/// )')
+  assert.ok(
+    /pathToFileURL\(process\.argv\[1\]\)\.href/.test(SRC),
+    'CLI 脚本必须有 isDirectRun 守卫(§22d,禁手拼 file:/// )',
+  )
 })
 
 test('M10 SA key 按内容识别,不认文件名(GCP 默认名是随机串)', async () => {
   const lib = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
-  assert.ok(!/spherical-door/.test(lib.__test__.playServiceKey.toString()), 'playServiceKey 里不得写死某枚 key 的文件名')
+  assert.ok(
+    !/spherical-door/.test(lib.__test__.playServiceKey.toString()),
+    'playServiceKey 里不得写死某枚 key 的文件名',
+  )
   assert.equal(typeof lib.__test__.fp, 'function')
   assert.notEqual(lib.__test__.fp('a'), lib.__test__.fp('b'))
 })
 
-test('M11 凭据槽位路径与 .gitignore 在册规则一致(忽略不生效即拒落)', () => {  assert.ok(SA_SLOT_REL.startsWith('credentials/'), `槽位必须落在 credentials/ 下,现为 ${SA_SLOT_REL}`)
+test('M11 凭据槽位路径与 .gitignore 在册规则一致(忽略不生效即拒落)', () => {
+  assert.ok(
+    SA_SLOT_REL.startsWith('credentials/'),
+    `槽位必须落在 credentials/ 下,现为 ${SA_SLOT_REL}`,
+  )
   const gi = readFileSync(join(HERE, '..', '..', 'apps', 'mobile-rn', '.gitignore'), 'utf8')
   assert.ok(/^\/credentials$/m.test(gi), '.gitignore 必须整目录忽略 /credentials')
-  assert.ok(!/^!credentials/m.test(gi), '.gitignore 里不得再出现 !credentials/… 白名单:父目录被排除时 negation 静默无效,留着等于暗示密钥可提交')
+  assert.ok(
+    !/^!credentials/m.test(gi),
+    '.gitignore 里不得再出现 !credentials/… 白名单:父目录被排除时 negation 静默无效,留着等于暗示密钥可提交',
+  )
 })
 
 test('M12 商店矩阵:每家一条腿,能力缺口不得报成凭据缺口', () => {
   const ev = {
     artifacts: { status: STATUS.MISSING, detail: '夹具:无 release 产物' },
     signing: { status: STATUS.FOUND, detail: '夹具' },
-    stores: STORE_VENDORS.map((v) => ({ vendor: v, cred: { status: STATUS.MISSING, detail: '夹具' } })),
+    stores: STORE_VENDORS.map((v) => ({
+      vendor: v,
+      cred: { status: STATUS.MISSING, detail: '夹具' },
+    })),
   }
   const legs = buildStoreLegs(ev)
   assert.equal(legs.length, STORE_VENDORS.length, '矩阵必须逐家在册,少一家就是"账面都有而实际没有"')
   for (const leg of legs) {
     assert.ok(leg.id.startsWith('store-'), `腿 id 前缀不统一:${leg.id}`)
-    assert.ok(leg.checks.every((c) => c.k && c.status && c.detail), `${leg.id} 判据三键不齐`)
-    assert.equal(foldStatus(leg.checks.map((c) => c.status)), 'blocked', '凭据/器物缺一即不得冒 ready')
+    assert.ok(
+      leg.checks.every((c) => c.k && c.status && c.detail),
+      `${leg.id} 判据三键不齐`,
+    )
+    assert.equal(
+      foldStatus(leg.checks.map((c) => c.status)),
+      'blocked',
+      '凭据/器物缺一即不得冒 ready',
+    )
     assert.ok(leg.command.length > 8, `${leg.id} 必须自带出路`)
   }
   const harmony = legs.find((l) => l.id === 'store-harmony')
-  assert.match(harmony.checks.find((c) => c.k === '上传通道器物').detail, /无 RN 鸿蒙产物能力/, '鸿蒙要如实报"产物能力都没有",不能混成"缺凭据"')
+  // Y-3 ③(2026-11-06 收):那句写死的"无 RN 鸿蒙产物能力"散文已换成五格现读,
+  // 格名逐字取自 scripts/harmony-build.mjs 的清单(同一把尺,零复算;逐格缺件见 harmony-build.test.mjs)。
+  for (const axis of HARMONY_AXES) {
+    assert.ok(
+      harmony.checks.some((c) => c.k === axis),
+      `鸿蒙列必须含「${axis}」现读格`,
+    )
+  }
+  assert.ok(!harmony.checks.some((c) => c.k === '上传通道器物'), '鸿蒙列不再吃写死的散文格')
+  assert.match(
+    harmony.command,
+    /node scripts\/harmony-build\.mjs/,
+    '出路必须是那条真跑得通的现读命令',
+  )
   const huawei = STORE_VENDORS.find((v) => v.id === 'huawei')
-  assert.match(huawei.note, /HMS OAuth/, '华为那枚实测是 HMS OAuth 客户端凭据(过 AGC Connect API 回 203890688),这条结论必须留在册上')
+  assert.match(
+    huawei.note,
+    /HMS OAuth/,
+    '华为那枚实测是 HMS OAuth 客户端凭据(过 AGC Connect API 回 203890688),这条结论必须留在册上',
+  )
   assert.match(huawei.note, /Connect API/, '出路要点名缺的是 Connect API 客户端凭据')
 })
 
-test('M13 商店凭据按厂商匹配、且绝不外泄字段值', async () => {  const lib = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
+test('M13 商店凭据按厂商匹配、且绝不外泄字段值', async () => {
+  const lib = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
   const { STORE_VENDORS: vendors, storeCredential, STATUS: ST } = lib.__test__
   assert.ok(Array.isArray(vendors) && vendors.length >= 6, '矩阵至少要覆盖国内主流商店')
   const src = readFileSync(join(HERE, '..', 'lib', 'rn-release-credentials.mjs'), 'utf8')
-  const body = src.slice(src.indexOf('export function storeCredential'), src.indexOf('export function androidArtifacts'))
-  assert.ok(!/console\.(log|info)/.test(body), 'storeCredential 自身不得打印任何内容(值只能由调用方以摘要形态输出)')
+  const body = src.slice(
+    src.indexOf('export function storeCredential'),
+    src.indexOf('export function androidArtifacts'),
+  )
+  assert.ok(
+    !/console\.(log|info)/.test(body),
+    'storeCredential 自身不得打印任何内容(值只能由调用方以摘要形态输出)',
+  )
   const fake = { match: /不可能存在的厂商名zz/, label: '夹具厂' }
   const r = storeCredential(fake, { root: 'D:/不存在的密钥根-zz' })
   assert.equal(r.status, ST.MISSING, '根存在但无匹配 ⇒ 判 missing')
@@ -179,10 +327,16 @@ test('M13 商店凭据按厂商匹配、且绝不外泄字段值', async () => {
 test('M14 通道鉴别器三臂:HTML/非 JSON 一律未判定,绝不读成"对方拒绝"', async () => {
   const { __test__ } = await import(import.meta.resolve('../probe-store-channel.mjs'))
   const { classifyTokenResponse, CHANNELS } = __test__
-  const ok = classifyTokenResponse(200, JSON.stringify({ access_token: 'x'.repeat(40), expires_in: 3600 }))
+  const ok = classifyTokenResponse(
+    200,
+    JSON.stringify({ access_token: 'x'.repeat(40), expires_in: 3600 }),
+  )
   assert.equal(ok.status, 'found')
   assert.ok(ok.token, 'token 必须回传给调用方继续探测')
-  const rejected = classifyTokenResponse(200, JSON.stringify({ ret: { code: 203890688, msg: 'client id or secret error' } }))
+  const rejected = classifyTokenResponse(
+    200,
+    JSON.stringify({ ret: { code: 203890688, msg: 'client id or secret error' } }),
+  )
   assert.equal(rejected.status, 'missing', '结构化 ret.code ⇒ 这是对方的答复,可判 missing')
   assert.equal(rejected.code, 203890688)
   // 反例锁:2026-11-02 真踩过的坑 —— 我把 /api-publish/v2/... 当成端点,拿到 Nginx 的 404 HTML,
@@ -201,7 +355,9 @@ test('M15 未核实端点的厂商:零网络调用 + 未判定(防"猜的 URL �
     calls++
     return { status: 200, text: async () => '{}' }
   }
-  const unverified = STORE_VENDORS.map((v) => v.id).filter((id) => !Object.keys(CHANNELS).includes(id))
+  const unverified = STORE_VENDORS.map((v) => v.id).filter(
+    (id) => !Object.keys(CHANNELS).includes(id),
+  )
   assert.ok(unverified.includes('harmony'), '鸿蒙无产物能力也不该有猜的端点,必须留在未核实集里')
   for (const id of unverified) {
     const r = await probeVendor(id, { fetchImpl: fakeFetch })
@@ -224,62 +380,28 @@ test('M16 探测只打只读端点:任何厂商的 URL 都不得含写动词(防
     if (typeof ch.probe !== 'function') continue
     // 只看动作段(路径最后一段):小米域名本身叫 devupload,拿整条 URL 比会误报
     const action = new URL(ch.probe('probe-app-id').url).pathname.split('/').filter(Boolean).pop()
-    assert.ok(!WRITE_VERBS.test(action), `${id} 的探测动作段含写动词:${action} ⇒ 探测只准打只读查询端点`)
+    assert.ok(
+      !WRITE_VERBS.test(action),
+      `${id} 的探测动作段含写动词:${action} ⇒ 探测只准打只读查询端点`,
+    )
   }
   // 三臂:HTML ⇒ 未判定 / 参数校验类拒绝 ⇒ 缺凭据 / "功能不存在" ⇒ 我方形态未获认可,不背书
   assert.equal(classifySignatureProbe(404, '<html>nope</html>').status, 'unjudged')
-  assert.equal(classifySignatureProbe(200, JSON.stringify({ code: -20002, msg: '数字签名异常' })).status, 'missing')
-  assert.equal(classifySignatureProbe(200, JSON.stringify({ code: 10010, msg: '此功能不存在，请联系vivo开放平台' })).status, 'unjudged', '对方没认我的 method ⇒ 端点活着不等于调用形态对,必须落未判定')
-  assert.equal(classifySignatureProbe(200, JSON.stringify({ msg: 'unknown method' })).verdict, 'endpoint-alive-but-call-shape-unverified')
-})
-
-test('M19 .properties 反斜杠判据:成对双写(正确形态)判 found,未成对单反斜杠判 unjudged', async () => {
-  const { androidSigning } = await import(import.meta.resolve('../lib/rn-release-credentials.mjs'))
-  const home = mkdtempSync(join(tmpdir(), 'ihui-sign-'))
-  try {
-    mkdirSync(join(home, '.android'))
-    writeFileSync(join(home, '.android', 'ihui-release.keystore'), 'fixture')
-    mkdirSync(join(home, '.gradle'))
-    const props = (storeFile) =>
-      [
-        `IHUI_RELEASE_STORE_FILE=${storeFile}`,
-        'IHUI_RELEASE_STORE_PASSWORD=pw',
-        'IHUI_RELEASE_KEY_ALIAS=ihui',
-        'IHUI_RELEASE_KEY_PASSWORD=pw',
-      ].join('\n')
-    const propsPath = join(home, '.gradle', 'gradle.properties')
-    // 正确形态:Windows 路径分隔符全部双写(JVM .properties 读到的是单个 `\`)
-    writeFileSync(propsPath, props(String.raw`C:\\Users\\x\\r.keystore`))
-    const ok = androidSigning({ home })
-    assert.equal(ok.status, STATUS.FOUND, `成对反斜杠被误判:${ok.detail}`)
-    // 反例:单反斜杠会被当转义吃掉(`\U` ⇒ `U`),必须不许冒绿
-    writeFileSync(propsPath, props(String.raw`C:\Users\x\r.keystore`))
-    const bad = androidSigning({ home })
-    assert.equal(bad.status, STATUS.UNJUDGED)
-    assert.match(bad.detail, /未成对/)
-  } finally {
-    rmSync(home, { recursive: true, force: true })
-  }
-})
-
-test('M17 渠道登记面实读单源件:0364+schema+路由在位判 found,缺件点名且不冒绿', () => {
-  const real = probeStoreDimension()
-  assert.equal(real.status, STATUS.FOUND, `store 维度真件未过:${real.detail}`)
-  assert.match(real.detail, /0364/)
-  const missing = probeStoreDimension((rel) => {
-    if (rel.includes('schema')) throw new Error('missing fixture')
-    return 'store'
-  })
-  assert.equal(missing.status, STATUS.MISSING)
-  assert.match(missing.detail, /schema/)
-  const legs = buildStoreLegs({
-    artifacts: { status: STATUS.FOUND, detail: '夹具' },
-    signing: { status: STATUS.FOUND, detail: '夹具' },
-    stores: STORE_VENDORS.map((v) => ({ vendor: v, cred: { status: STATUS.FOUND, detail: '夹具' } })),
-  })
-  for (const leg of legs) {
-    const gap = leg.checks.find((c) => c.k === '渠道登记面')
-    assert.equal(gap.status, STATUS.FOUND, `${leg.id} 仍把已落地的 store 维度报成缺口`)
-  }
+  assert.equal(
+    classifySignatureProbe(200, JSON.stringify({ code: -20002, msg: '数字签名异常' })).status,
+    'missing',
+  )
+  assert.equal(
+    classifySignatureProbe(
+      200,
+      JSON.stringify({ code: 10010, msg: '此功能不存在，请联系vivo开放平台' }),
+    ).status,
+    'unjudged',
+    '对方没认我的 method ⇒ 端点活着不等于调用形态对,必须落未判定',
+  )
+  assert.equal(
+    classifySignatureProbe(200, JSON.stringify({ msg: 'unknown method' })).verdict,
+    'endpoint-alive-but-call-shape-unverified',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

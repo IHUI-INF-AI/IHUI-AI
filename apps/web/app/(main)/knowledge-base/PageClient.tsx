@@ -12,7 +12,7 @@ import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 import { BookOpen, Search, FileText, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { getKnowledgeBaseCategories, listKnowledgeBases } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 import { Card, CardHeader, CardTitle, CardDescription, CardFooter, Input } from '@ihui/ui-react'
 
@@ -63,20 +63,25 @@ export default function KnowledgeBasePageClient() {
   const { data: categories = [] } = useQuery({
     queryKey: ['kb', 'categories'],
     enabled: allow,
-    queryFn: () =>
-      apiOrThrow<{ list: KBCategory[] }>(`/api/knowledge-base/categories`).then(
-        (d) => d.list ?? [],
-      ),
+    queryFn: async () => {
+      const res = await getKnowledgeBaseCategories<KBCategory>()
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data.list ?? []
+    },
   })
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['kb', 'list', debounced, categoryId, page],
     enabled: allow,
-    queryFn: () => {
-      const qs = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
-      if (categoryId !== 'all') qs.set('categoryId', categoryId)
-      if (debounced) qs.set('search', debounced)
-      return apiOrThrow<KBListData>(`/api/knowledge-base?${qs.toString()}`)
+    queryFn: async (): Promise<KBListData> => {
+      const res = await listKnowledgeBases({
+        page,
+        pageSize: PAGE_SIZE,
+        ...(categoryId !== 'all' ? { categoryId } : {}),
+        ...(debounced ? { search: debounced } : {}),
+      })
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data
     },
   })
 

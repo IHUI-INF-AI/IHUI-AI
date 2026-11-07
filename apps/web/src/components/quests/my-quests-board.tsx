@@ -12,7 +12,6 @@ import { GOAL_STATUSES, type GoalStatus } from '@ihui/types'
 import { listMyGoals, type MyGoalRow } from '@ihui/api-client'
 
 import { cn } from '@/lib/utils'
-import { TruncatedText } from '@/components/common'
 import {
   groupQuestsByWorkspace,
   questStatusCounts,
@@ -78,7 +77,12 @@ function QuestRow({
       className="space-y-1 rounded-md border px-2 py-1.5"
     >
       <div className="flex items-center gap-1.5">
-        <TruncatedText value={quest.text} className="min-w-0 flex-1 text-xs" />
+        <span
+          className="font-[weight:inherit] min-w-0 flex-1 truncate text-label"
+          title={quest.text}
+        >
+          {quest.text}
+        </span>
         <span
           data-testid={`my-quests-status-${quest.goalId}`}
           className={cn(
@@ -90,14 +94,14 @@ function QuestRow({
         </span>
         <span
           data-testid={`my-quests-progress-${quest.goalId}`}
-          className="shrink-0 text-xs text-muted-foreground"
+          className="font-[weight:inherit] shrink-0 text-label text-muted-foreground"
         >
           {quest.progress}%
         </span>
       </div>
       <p
         data-testid={`my-quests-latest-${quest.goalId}`}
-        className="truncate text-xs text-muted-foreground"
+        className="font-[weight:inherit] truncate text-label text-muted-foreground"
       >
         {t('latestAssessment')}
         {': '}
@@ -115,13 +119,13 @@ function QuestRow({
             }
           }}
           placeholder={t('assessmentPlaceholder')}
-          className="min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-xs outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
+          className="font-[weight:inherit] min-w-0 flex-1 rounded-sm border bg-transparent px-2 py-1 text-label outline-none placeholder:text-muted-foreground focus:ring-1 focus:ring-ring"
         />
         <button
           type="button"
           data-testid={`my-quests-assess-add-${quest.goalId}`}
           onClick={submit}
-          className="flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-xs transition-colors hover:bg-accent"
+          className="font-[weight:inherit] flex shrink-0 items-center gap-0.5 rounded-sm border px-2 py-1 text-label transition-colors hover:bg-accent"
         >
           {t('addAssessment')}
         </button>
@@ -179,7 +183,10 @@ export function MyQuestsBoard({
         </span>
       </p>
       {counts.total === 0 ? (
-        <p data-testid="my-quests-empty" className="text-xs text-muted-foreground">
+        <p
+          data-testid="my-quests-empty"
+          className="font-[weight:inherit] text-label text-muted-foreground"
+        >
           {t('empty')}
         </p>
       ) : (

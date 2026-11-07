@@ -20,6 +20,7 @@
 **返回码**:
     0 = PASS（可以安全写文件）
     1 = FAIL（必须修改路径或内容后才能写）
+    2 = 目录读不到,不能把扫描说成无越界
 
 **根治疗法逻辑**:
     任何 AI 在调用 Write/Edit 工具前，必须先跑一遍本脚本。
@@ -232,7 +233,12 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_scan(args: argparse.Namespace) -> int:
+def cmd_scan(
+    args: argparse.Namespace,
+    *,
+    koubo_dir: str | None = None,
+    gzh_dir: str | None = None,
+) -> int:
     """扫描整个工作区，输出当前越界清单。
 
     白名单设计:
@@ -245,13 +251,22 @@ def cmd_scan(args: argparse.Namespace) -> int:
     print('  pre-flight 全工作区越界扫描')
     print('=' * 64)
     all_hits = []
+    unread = 0
+    koubo_root = KOUBO_DIR if koubo_dir is None else koubo_dir
+    gzh_root = GZH_DIR if gzh_dir is None else gzh_dir
+
+    def _on_walk_error(err: OSError) -> None:
+        nonlocal unread
+        if isinstance(err, FileNotFoundError):
+            return
+        unread += 1
 
     # === koubo/ 扫描 ===
-    if os.path.isdir(KOUBO_DIR):
-        for cur, _subdirs, files in os.walk(KOUBO_DIR):
+    if os.path.isdir(koubo_root):
+        for cur, _subdirs, files in os.walk(koubo_root, onerror=_on_walk_error):
             for f in files:
                 fp = os.path.join(cur, f)
-                rel = os.path.relpath(fp, KOUBO_DIR)
+                rel = os.path.relpath(fp, koubo_root)
                 ext = os.path.splitext(f)[1].lower()
                 # 跳过源码/日志
                 if f.endswith(('.py', '.json', '.log', '.pyc')):
@@ -260,21 +275,21 @@ def cmd_scan(args: argparse.Namespace) -> int:
                 if f in KOUBO_DOC_FILES:
                     continue
                 # _archive/ 子目录里的 .md 允许（历史运营/素材/技能文档）
-                if cur != KOUBO_DIR and '_archive' in cur and ext == '.md':
+                if cur != koubo_root and '_archive' in cur and ext == '.md':
                     continue
                 # 根目录的 .md 允许（规则文档已放行，case 已覆盖）
-                if cur == KOUBO_DIR and f in KOUBO_DOC_FILES:
+                if cur == koubo_root and f in KOUBO_DOC_FILES:
                     continue
                 # 检查后缀是否合法
                 if ext not in KOUBO_ALLOWED_EXTS and f not in KOUBO_DOC_FILES:
                     all_hits.append(f'koubo/{rel} → 后缀 {ext} 不允许')
 
     # === 公众号 wechat-article-system/ 扫描 ===
-    if os.path.isdir(GZH_DIR):
-        for cur, _subdirs, files in os.walk(GZH_DIR):
+    if os.path.isdir(gzh_root):
+        for cur, _subdirs, files in os.walk(gzh_root, onerror=_on_walk_error):
             for f in files:
                 fp = os.path.join(cur, f)
-                rel = os.path.relpath(fp, GZH_DIR)
+                rel = os.path.relpath(fp, gzh_root)
                 ext = os.path.splitext(f)[1].lower()
                 if f.endswith(('.py', '.json', '.log', '.pyc')):
                     continue
@@ -286,6 +301,11 @@ def cmd_scan(args: argparse.Namespace) -> int:
                 if KOUBO_FILE_PATTERN.match(f):
                     all_hits.append(f'wechat-article-system/{rel} → MMDD.txt 命名模式')
 
+    if unread:
+        print(f'  ❌ 有 {unread} 个目录读不到,不能把扫描说成无越界')
+        for h in all_hits:
+            print(f'    {h}')
+        return 2
     if all_hits:
         print(f'  ❌ 发现 {len(all_hits)} 处越界:')
         for h in all_hits:

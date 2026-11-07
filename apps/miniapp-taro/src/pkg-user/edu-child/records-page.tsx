@@ -80,11 +80,11 @@ export function ChildRecordsView(options: {
           : 'text-foreground'
 
   return (
-    <View className="min-h-screen bg-background p-4">
-      <View className="flex items-center gap-3 py-3">
-        <Text className="text-xl font-bold text-foreground">{t(options.titleKey)}</Text>
+    <View className="min-h-screen bg-background p-lg">
+      <View className="flex items-center gap-md py-md">
+        <Text className="text-heading font-bold text-foreground">{t(options.titleKey)}</Text>
         {options.headerAction ? (
-          <View className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <View className="ml-auto flex flex-wrap items-center justify-end gap-sm">
             {options.headerAction}
           </View>
         ) : null}
@@ -92,33 +92,33 @@ export function ChildRecordsView(options: {
       {loading ? (
         <ScreenSkeleton variant="list" />
       ) : failed ? (
-        <View className="py-8 text-center">
-          <Text className="text-sm text-muted-foreground">{t('common.loadFailed')}</Text>
+        <View className="py-3xl text-center">
+          <Text className="text-body text-muted-foreground">{t('common.loadFailed')}</Text>
         </View>
       ) : rows.length === 0 ? (
         <EmptyState title={t('common.empty')} />
       ) : (
-        <View className="space-y-3">
+        <View className="space-y-md">
           {rows.map((r) => {
             // 先求动作节点:函数给了但该行返回空 ⇒ 连动作容器都不产生(默认零节点承诺)
             const actions = options.rowActions ? options.rowActions(r) : null
             return (
-              <View key={r.id} className="rounded-lg border border-border bg-card p-4 space-y-2">
+              <View key={r.id} className="rounded-lg border border-border bg-card p-lg space-y-sm">
                 {options.columns.map((c) => {
                   const v = r.cells[c.key]
                   if (!v) return null
                   return (
                     <View
                       key={c.key}
-                      className={`flex items-center justify-between gap-2 ${c.flex ? '' : ''}`}
+                      className={`flex items-center justify-between gap-sm ${c.flex ? '' : ''}`}
                     >
-                      <Text className="text-xs text-muted-foreground shrink-0">{c.title}</Text>
-                      <Text className={`text-sm text-right ${toneClass(c.tone)}`}>{v}</Text>
+                      <Text className="text-label text-muted-foreground shrink-0">{c.title}</Text>
+                      <Text className={`text-body text-right ${toneClass(c.tone)}`}>{v}</Text>
                     </View>
                   )
                 })}
                 {actions ? (
-                  <View className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                  <View className="flex flex-wrap items-center justify-end gap-sm pt-xs">
                     {actions}
                   </View>
                 ) : null}

@@ -512,11 +512,6 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "path": "apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/list-view.tsx",
-      "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 n8n 模型列表视图分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-ai/dev-enter/n8n-model/index.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "path": "apps/miniapp-taro/src/pkg-learn/course/detail-sections.tsx",
       "reason": "门 30c(check-verbatim-resurrection)2026-10-31 复核放行:本件由 f224aeef9b(10-30 15:41「feat(chat): 跨端修复七票合车补全 —— lint-staged 失败回滚的剩余在途改动(258 文件)」)以【回滚】语义删除,随后 58623fbded(10-30 23:15「fix(miniapp-taro): 可达性收口第二批 —— 撤 13 个假绿钩、接 9 处真值」)**有意加回**。门判「逐字节等于被删掉的那份(纯回潮,不是重写)」恰证这不是演进冲突而是回滚被撤销:内容零新写、消费方在位。§7 删除三问:①承载 课程详情分段;②无等价实现(消费方 apps/miniapp-taro/src/pkg-learn/course/detail.tsx 与 live/detail.tsx 按名 import);③不可删。删除档登记与本枚加回系同一日的回滚-反回滚对,登记本条销账;若日后真要退役,正确动作是先摘消费方再删本件并更新本台账。问责复跑:node scripts/check-verbatim-resurrection.mjs(被审面=HEAD)。",
       "reviewBy": "2027-06-30"

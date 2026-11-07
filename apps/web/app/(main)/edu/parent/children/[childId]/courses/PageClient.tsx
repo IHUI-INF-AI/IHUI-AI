@@ -10,7 +10,7 @@ import { useTranslations } from 'next-intl'
 import { useParams } from 'next/navigation'
 import { BookOpen, Loader2, Clock, MapPin } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduParentChildCourses } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { CHART_BLUE } from '@ihui/design-tokens'
 import { Alert } from '@/components/feedback'
@@ -51,10 +51,11 @@ export default function ChildCoursesPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['parent', 'children', childId, 'courses'],
-    queryFn: () =>
-      apiOrThrow<{ list: CourseItem[] }>(
-        `/api/edu-ai-management/parent/children/${childId}/courses`,
-      ),
+    queryFn: async () => {
+      const r = await eduParentChildCourses<{ list: CourseItem[] }>(childId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 

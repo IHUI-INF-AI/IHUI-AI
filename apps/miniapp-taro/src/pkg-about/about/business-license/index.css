@@ -82,7 +82,7 @@
   line-height: 1.8;
 }
 .tips {
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
 }
 .tips text {
   font-size: var(--text-caption);

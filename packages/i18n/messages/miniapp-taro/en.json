@@ -690,8 +690,6 @@
       "agentTipTitle": "Agent Guide"
     },
     "chatDrawers": {
-      "emptyMaterial": "No materials",
-      "materialLibrary": "Material Library",
       "promptLabel": "Prompt",
       "selectModel": "Select Model",
       "skillDetail": "Skill Details"
@@ -1192,7 +1190,15 @@
     "getCode": "Get code",
     "confirmLabel": "Confirmation text",
     "confirmPlaceholder": "Enter the text above",
-    "failed": "Account cancellation failed, please try again"
+    "failed": "Account cancellation failed, please try again",
+    "warning": "After account deletion, all your data will be permanently deleted and cannot be recovered.",
+    "consequence1": "Profile details, avatar and nickname will be permanently deleted",
+    "consequence2": "Orders, points, balance and membership benefits will be reset and cannot be recovered",
+    "consequence3": "Published posts, comments, favorites and chat history will be erased",
+    "consequence4": "Bound phone and email will be unlinked and this account can no longer sign in",
+    "consequence5": "Active memberships and courses will end immediately with no refund",
+    "consequence6": "The same phone number can register again, but historical data cannot be recovered",
+    "consequence7": "Accounts with unsettled transactions or violations may have requests rejected"
   },
   "ask": {
     "create": {
@@ -1291,7 +1297,6 @@
     "questions": "{n} questions",
     "passScore": "Pass score",
     "totalScore": "Total score",
-    "passed": "Passed",
     "result": {
       "scoreValue": "{n} points",
       "rankValue": "#{n} of {total}",
@@ -1485,7 +1490,6 @@
     "withdrawable": "Withdrawable",
     "pendingSettle": "Pending Settlement",
     "withdrawn": "Withdrawn",
-    "myTeam": "My Team",
     "columnTitle": "Distribution Orders",
     "retry": "Retry",
     "empty": "No data",
@@ -2080,7 +2084,8 @@
     "new": "New",
     "empty": "No content",
     "noDesc": "No description",
-    "useCount": "{n} uses"
+    "useCount": "{n} uses",
+    "recommended": "Recommended"
   },
   "circle": {
     "empty": "No content",
@@ -2112,8 +2117,7 @@
       "selectAigc": "Select AI work (optional)",
       "noAigc": "No AI works available to link",
       "allowComments": "Allow comments",
-      "visibility": "Visibility",
-      "publishFailed": "Publish failed. Please try again"
+      "visibility": "Visibility"
     },
     "index": {
       "goPublish": "Publish",
@@ -2215,8 +2219,7 @@
       "targetGroupEnterprise": "Enterprise",
       "discountNone": "Not eligible",
       "discountPartial": "Partially eligible",
-      "discountFull": "Fully eligible",
-      "saveSuccess": "Saved successfully"
+      "discountFull": "Fully eligible"
     }
   },
   "devSpace": {
@@ -2557,7 +2560,6 @@
     "startConversation": "Start your conversation",
     "inputPlaceholder": "Type a message...",
     "sendBtn": "Send",
-    "noInteraction": "No Messages",
     "noPrivate": "No Private Messages",
     "noSystem": "No System Notices",
     "pin": "Pin Chat",
@@ -2694,8 +2696,7 @@
     "payFailed": "Payment failed. Please try again",
     "paying": "Paying...",
     "purchaseContent": "Purchase Content",
-    "userAgreement": "User Agreement",
-    "activateDelayed": "Benefit activation is delayed. Please contact support"
+    "userAgreement": "User Agreement"
   },
   "study": {
     "todayMinutes": "{n} min today",
@@ -2848,10 +2849,7 @@
   },
   "token": {
     "balance": {
-      "title": "My tokens",
-      "agentConsume": "Agent consumption",
-      "ordersConsume": "Model consumption",
-      "costTime": "Time spent:"
+      "title": "My tokens"
     }
   },
   "user": {
@@ -2942,8 +2940,6 @@
       "phoneInvalid": "Invalid phone number",
       "codeSendFailed": "Code send failed",
       "bindSuccess": "Phone bound",
-      "codePlaceholder": "Enter the code",
-      "getCode": "Get code",
       "bind": "Bind",
       "currentLabel": "Current phone",
       "codeSent": "Code sent",
@@ -2961,7 +2957,9 @@
       "verifiedTip": "Current phone number verified",
       "bindDesc": "After binding, you can use it to log in, retrieve your password, and receive notifications",
       "bindTitle": "Bind Phone Number",
-      "codeLength": "Please enter the 6-digit verification code"
+      "codeLength": "Please enter the 6-digit verification code",
+      "selectNation": "Select country code",
+      "resend": "Retry in {s}s"
     },
     "profile": {
       "avatar": "Avatar",
@@ -2992,6 +2990,10 @@
     "text6": "Level intro page not configured",
     "menu": {
       "subscriptions": "My subscriptions"
+    },
+    "security": {
+      "code": "Verification code",
+      "sendCode": "Send Code"
     }
   },
   "vipScreen": {
@@ -3247,7 +3249,8 @@
     "contactPlaceholder": "Please enter contact information (optional)",
     "contentPlaceholder": "Please enter feedback details",
     "submit": "Submit Feedback",
-    "type": "Type"
+    "type": "Type",
+    "success": "Submitted successfully"
   },
   "comment": {
     "loading": "Loading...",
@@ -3286,7 +3289,6 @@
     "noCover": "No Cover",
     "watched": "Watched",
     "playing": "Playing",
-    "courseCatalog": "Course Catalog",
     "empty": "No chapters yet"
   },
   "video": {
@@ -3313,20 +3315,13 @@
     "signNow": "Check in now +5 points",
     "signedToday": "Checked in today"
   },
-  "withdrawal": {
-    "records": "Withdrawal Records"
-  },
   "intro": {
     "empty": "No Introduction",
     "relatedAI": "Related AI Apps"
   },
   "invite": {
     "title": "Invite Friends",
-    "qrcode": "QR Code",
-    "code": "Invite Code:",
     "saveImage": "Save Image",
-    "shareNow": "Share Now",
-    "inviteSuffix": "invites you to join",
     "inviteCode": "Invite Code",
     "totalInvited": "Total Invited",
     "totalReward": "Total Rewards",
@@ -3431,28 +3426,6 @@
     "resendCode": "Resend",
     "termsOfService": "Terms of Service",
     "loginFailed": "Login failed. Please try again."
-  },
-  "level": {
-    "0": "Beginner",
-    "1": "Bronze",
-    "2": "Silver",
-    "3": "Gold",
-    "4": "Platinum",
-    "5": "Diamond",
-    "6": "King",
-    "distance": "To"
-  },
-  "interaction": {
-    "collect": "Favorited me",
-    "comment": "Commented on me",
-    "follow": "Followed me",
-    "like": "Liked me"
-  },
-  "planet": {
-    "empty": "No planets yet",
-    "join": "Join Planet",
-    "joined": "Joined",
-    "members": "Members"
   },
   "chat": {
     "approvalExpiredNotice": "Approval for {toolName} expired after the connection dropped; the action was not executed. Send the request again if you still need it.",
@@ -3871,21 +3844,8 @@
     "d2": "All-round",
     "text1": "Agent Mode"
   },
-  "TitleSwitchScrollPicker": {
-    "d1": "Track 1",
-    "d2": "Track 2",
-    "d3": "Track 3",
-    "d4": "Track 4",
-    "d5": "Track 5",
-    "d6": "Track 6",
-    "d7": "Track 7",
-    "d8": "Track 8"
-  },
   "PhoneAreaCodePicker": {
     "d1": "China"
-  },
-  "WithdrawalRecords": {
-    "d1": "Rejected"
   },
   "askCreate": {
     "d1": "Tech",
@@ -3926,13 +3886,6 @@
     "d2": "/month",
     "d3": "Purchased"
   },
-  "TitleSwitchOverlap": {
-    "d1": "Track 1",
-    "d2": "Track 2",
-    "d3": "Track 3",
-    "d4": "Track 4",
-    "d5": "Track 5"
-  },
   "TitleSwitchScrollTitle": {
     "d1": "Track 1",
     "d2": "Sub-track 1-1",
@@ -3957,11 +3910,6 @@
     "rank": "Rank",
     "studyHours": "Study Hours",
     "levelDesc": "Level"
-  },
-  "EmptyIllustration": {
-    "d1": "No matching content found",
-    "d2": "Network error",
-    "d3": "No permission"
   },
   "SystemNotice": {
     "d1": "Upgrade"
@@ -4002,10 +3950,6 @@
     "d4": "How are agents listed?",
     "d5": "n8n Agents"
   },
-  "tokenBalance": {
-    "d1": "One month",
-    "d2": "Past year"
-  },
   "LessonListItem": {
     "text1": "VIP only",
     "text2": "VIP only",
@@ -4018,12 +3962,6 @@
   "UserInfoCard": {
     "login1": "One-tap login",
     "text2": "Unsubscribe"
-  },
-  "TitleSwitchTypeBar": {
-    "text1": "Custom",
-    "settings2": "Please set custom types",
-    "confirm": "Confirm",
-    "m1": "Enter a type"
   },
   "adaptersSelectertaro": {
     "text1": "SD 480p",
@@ -4087,12 +4025,8 @@
   },
   "tail": {
     "6": "No data",
-    "7": "Retry",
     "8": "Loading...",
-    "10": "No withdrawal records",
     "11": "Selected model: {m}",
-    "12": "Verification code sent to {m}",
-    "13": "Joined on {m}",
     "14": "Select tracks you are interested in for personalized recommendations",
     "15": "Default model",
     "17": "Paid, ¥{m}",
@@ -4122,12 +4056,6 @@
   "ErrorView": {
     "p1": "Please try again later"
   },
-  "FilterDropdown": {
-    "p1": "Filter"
-  },
-  "InvitePoster": {
-    "p1": "Invite friends to earn cash rewards"
-  },
   "ModelTypeButtonGroup": {
     "m1": "Skills",
     "m2": "Voice",
@@ -4136,13 +4064,6 @@
   "QrCodeShare": {
     "p1": "Share poster",
     "p2": "Scan to view"
-  },
-  "TagInput": {
-    "p1": "Press Enter to add",
-    "p2": "Limit reached"
-  },
-  "VipUpgradeToast": {
-    "p1": "Upgrade to unlock more features"
   },
   "aicareer": {
     "q1": "Interview",
@@ -4195,9 +4116,6 @@
     "q2": "Please use WeChat login in the WeChat mini program",
     "q3": "WeChat login code is empty",
     "q4": "WeChat user"
-  },
-  "TeamManager": {
-    "p1": "Inactive"
   },
   "VideoInfo": {
     "p1": "Video details"
@@ -4375,18 +4293,6 @@
     "n8nShareFail": "Share failed",
     "n8nGenBadge": "Generated by IHUI AI · points used:",
     "n8nHoldToTalk": "Hold to speak your question"
-  },
-  "verify": {
-    "phoneEmpty": "Phone number is empty",
-    "phoneInvalid": "Please enter a valid phone number",
-    "codeSent": "Verification code sent",
-    "codeIncomplete": "Please enter the full verification code",
-    "verifySuccess": "Verification succeeded",
-    "getCode": "Enter verification code"
-  },
-  "VerifyCodeModal": {
-    "p2": "Resend",
-    "p3": "Verifying..."
   },
   "VoiceInput": {
     "p1": "Failed to start recording"
@@ -4797,7 +4703,7 @@
       "rejected": "Rejected",
       "cancelled": "Cancelled"
     },
-    "myAttendanceHint": "View & check in"
+    "myAttendanceHint": "View the student's own check-in records"
   },
   "eduChildAttendance": {
     "title": "Child's Attendance",
@@ -4820,31 +4726,30 @@
     "status": {
       "present": "Present",
       "late": "Late",
-      "early": "Left early",
       "absent": "Absent",
       "leave": "Leave"
     },
     "student": "Student",
-    "batchCheckIn": "Mark class",
-    "checkInFor": "Mark",
-    "checkedInToast": "Checked in",
-    "checkedOutToast": "Checked out",
-    "batchDoneToast": "Class marked",
-    "batchResult": "Class marked: {created} created, {skipped} skipped, {missed} not saved",
-    "noClassReason": "No class found, so class marking is unavailable",
-    "multiClass": "Multiple classes in the list; only {classId} will be marked",
     "checkInAt": "Check-in time",
     "momentNow": "Now",
     "backfillNeedsTime": "Backfilling a past date requires an explicit check-in time within that day",
-    "statsTotalLabel": "Records",
-    "statsAttendanceRate": "Attendance rate",
-    "statusDistribution": "Status distribution",
-    "trendChartTitle": "Attendance trend",
-    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)",
-    "trendChartScope": "Scope: {scope}",
+    "checkedInToast": "Checked in",
+    "checkedOutToast": "Checked out",
+    "batchResult": "Done: created {created}, skipped {skipped}, missed {missed}",
+    "batchDoneToast": "Roll call done",
+    "checkInFor": "Check in",
+    "batchCheckIn": "Batch check-in",
+    "noClassReason": "No selectable class in the current list",
+    "multiClass": "Multiple classes present; this run only covers {classId}",
+    "statusOther": "Other",
     "trendWindow": "Last {days} days",
+    "trendChartScope": "Scope: {scope}",
+    "statusDistribution": "Status distribution",
+    "statsTotalLabel": "Total check-ins",
+    "statsAttendanceRate": "Attendance rate",
     "emptyTrend": "No trend data yet",
-    "statusOther": "Other"
+    "trendChartTitle": "Attendance trend",
+    "trendChartHint": "Attendance rate = present ÷ records logged in that period (students without a record are not in the denominator)"
   },
   "eduMgmt": {
     "attendanceTitle": "Attendance",
@@ -5234,9 +5139,7 @@
     "empty": "No courses yet",
     "free": "Free",
     "studentCount": "{count} learners",
-    "nextPage": "Next",
-    "popular": "Popular Courses",
-    "unknownInstructor": "Unknown instructor"
+    "nextPage": "Next"
   },
   "customerService": {
     "title": "Customer Service",
@@ -5693,7 +5596,10 @@
     "twoFactor": "Two-Factor Authentication",
     "loginAlert": "Login Alerts",
     "desc": "Manage your account security options",
-    "loadFailed": "Failed to load"
+    "loadFailed": "Failed to load",
+    "readOnlyHint": "This page only shows the current status; changes can't be made here",
+    "stateOn": "On",
+    "stateOff": "Off"
   },
   "selfMedia": {
     "title": "Self-Media Assistant",
@@ -6905,7 +6811,15 @@
     "newPassword": "New Password",
     "language": "Language",
     "theme": "Theme",
-    "version": "Version"
+    "version": "Version",
+    "accountDeletionConsequenceTitle": "What Happens After Deletion",
+    "accountDeletionConsequence1": "Profile details, avatar and nickname will be permanently deleted",
+    "accountDeletionConsequence2": "Orders, points, balance and membership benefits will be reset and cannot be recovered",
+    "accountDeletionConsequence3": "Published posts, comments, favorites and chat history will be erased",
+    "accountDeletionConsequence4": "Bound phone and email will be unlinked and this account can no longer sign in",
+    "accountDeletionConsequence5": "Active memberships and courses will end immediately with no refund",
+    "accountDeletionConsequence6": "The same phone number can register again, but historical data cannot be recovered",
+    "accountDeletionConsequence7": "Accounts with unsettled transactions or violations may have requests rejected"
   },
   "liveList": {
     "subtitle": "Great streams you won't want to miss",
@@ -6955,7 +6869,29 @@
     "loadFailed": "Failed to load",
     "passed": "Passed",
     "wrongQuestions": "Wrong questions",
-    "yourAnswer": "Your answer"
+    "yourAnswer": "Your answer",
+    "correct": "Correct",
+    "correctAnswer": "Correct answer",
+    "duration": "Duration",
+    "failed": "Failed",
+    "statCorrect": "Correct",
+    "statWrong": "Wrong",
+    "statUnanswered": "Unanswered",
+    "durationUnit": "{n} min",
+    "countUnit": "{n}",
+    "reviewTitle": "Answer review",
+    "noReview": "No answer review",
+    "questionIdx": "{n}",
+    "reviewCorrect": "Correct",
+    "reviewWrong": "Wrong",
+    "unansweredAnswer": "Not answered",
+    "analysis": "Explanation",
+    "reviewScore": "{n} pts",
+    "rank": "Rank {rank} / {total}",
+    "retry": "Retake exam",
+    "viewList": "View exam list",
+    "share": "Share result",
+    "shareTitle": "My exam score: {n}"
   },
   "favorite": {
     "tab_aigc": "AI Works",
@@ -6985,6 +6921,10 @@
   },
   "messageCenter": {
     "conversations": "Conversations",
+    "deleteConv": "Delete conversation",
+    "loadMore": "Load more",
+    "markRead": "Mark as read",
+    "searchPh": "Search chats, contacts, services",
     "title": "Messages",
     "type": {
       "course": "Course",
@@ -7000,7 +6940,7 @@
     "labelSaleType": "Sale type",
     "submit": "Save",
     "submitting": "Submitting...",
-    "readOnlyHint": "Not editable yet"
+    "readOnlyHint": "This field can't be changed yet"
   },
   "modelIncome": {
     "accumulated": "Total earnings",
@@ -7115,14 +7055,106 @@
   "studyIndex": {
     "receiveFreeBody": "Link copied; paste it in a browser to open"
   },
+  "career": {
+    "exportingReport": "Exporting...",
+    "exportEmptyHint": "Generate a report to export"
+  },
+  "activities": {
+    "join": "Join Now"
+  },
+  "chatSettingsPage": {
+    "model": "Model"
+  },
+  "eduExamListPage": {
+    "start": "Start Exam"
+  },
+  "eduExamPage": {
+    "prevQuestion": "Previous",
+    "nextQuestion": "Next"
+  },
+  "eduProgressPage": {
+    "weeklyHours": "Study hours this week"
+  },
+  "learn": {
+    "signedUp": "Enrolled"
+  },
+  "learnMapPage": {
+    "completed": "Completed",
+    "empty": "No learning paths yet"
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "Cancel Subscription"
+  },
+  "student": {
+    "myCertsTitle": "My Certificates"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "Ask"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "Payment Method"
+    }
+  },
+  "developerHomePage": {
+    "statApiKeys": "API Keys"
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "No subordinates"
+  },
   "eduMyAttendance": {
     "title": "My Attendance",
     "selfCheckIn": "Check in",
-    "selfDoneToast": "Checked in",
-    "classByBackendHint": "Class is resolved automatically from your enrollment",
-    "remarkPlaceholder": "Remark (optional)",
     "scanCheckIn": "Scan to check in",
-    "scanDoneToast": "Scanned check-in succeeded",
-    "scanInvalidToast": "Not a check-in QR code of this system"
+    "classByBackendHint": "Class is resolved automatically from your enrollment",
+    "selfDoneToast": "Checked in",
+    "scanDoneToast": "Checked in by scan",
+    "scanInvalidToast": "Not a valid check-in code"
+  },
+  "knowledgePlanet": {
+    "title": "Knowledge Planet",
+    "newOfficial": "Official",
+    "newCommunity": "Community",
+    "enter": "Enter planet",
+    "memberCount": "{count} members"
+  },
+  "publishNew": {
+    "title": "New Publish",
+    "subtitle": "Pick accounts, write content and set the publish time",
+    "accountLoadFailed": "Failed to load accounts",
+    "noAccounts": "No usable platform account",
+    "noAccountsHint": "Complete QR login or configure credentials on the web first",
+    "contentTitle": "Content",
+    "titlePlaceholder": "Enter a title",
+    "titleRequired": "Title is required",
+    "formatMd": "Markdown",
+    "formatHtml": "HTML",
+    "formatDocx": "Word",
+    "formatPdf": "PDF",
+    "formatImage": "Image",
+    "formatVideo": "Video",
+    "bodyPlaceholder": "Enter the body text",
+    "bodyRequired": "Body text is required",
+    "uploadHint": "Supports docx / pdf / image / video, up to 200 MB per file",
+    "pickFile": "Choose file",
+    "uploading": "Uploading…",
+    "uploadFailed": "Upload failed",
+    "removeFile": "Remove",
+    "fileRequired": "Upload a file first",
+    "accountsLabel": "Publishing accounts",
+    "selectedCount": "{count} account(s) selected",
+    "accountsRequired": "Select at least one account",
+    "scheduleLabel": "Publish time",
+    "scheduleNow": "Publish now",
+    "scheduleLater": "Schedule",
+    "quickTomorrow": "In 24 hours",
+    "quickNextWeek": "In 7 days",
+    "submit": "Submit",
+    "submitting": "Submitting…",
+    "submitSuccess": "Publishing task created",
+    "submitFailed": "Failed to submit",
+    "taskCreated": "Task ID: {taskId}"
   }
 }

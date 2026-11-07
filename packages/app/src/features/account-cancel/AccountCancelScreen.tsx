@@ -23,6 +23,8 @@ export function AccountCancelScreen({
   showConfirmModal,
   confirmCountdown,
   submitting,
+  consequences = [],
+  phoneReadOnly = false,
   onPhoneChange,
   onConfirmTextChange,
   onSmsCodeChange,
@@ -34,39 +36,64 @@ export function AccountCancelScreen({
 }: AccountCancelScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  // 页级倒计时只在"端内不用弹窗"时生效(小程序);RN 走 Modal,主按钮不受此闸影响。
+  // 计时器留在端内页,本屏只消费 confirmCountdown 读数。
+  const pageCountdown = !showConfirmModal && confirmCountdown > 0
+  const submitDisabled = submitting || pageCountdown
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>注销账号</Text>
+        <Text style={styles.title}>{t('settings.accountDeletionTitle')}</Text>
       </View>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        <Text style={styles.desc}>注销账号后，您的所有数据将被永久删除且无法恢复。</Text>
+        <Text style={styles.desc}>{t('settings.accountDeletionWarning')}</Text>
+
+        {consequences.length > 0 && (
+          <View style={styles.consequenceBox}>
+            <Text style={styles.consequenceTitle}>
+              {t('settings.accountDeletionConsequenceTitle')}
+            </Text>
+            {consequences.map((item, index) => (
+              <Text key={`${index}-${item}`} style={styles.consequenceItem}>
+                {`${index + 1}. ${item}`}
+              </Text>
+            ))}
+          </View>
+        )}
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>手机号</Text>
-          <TextField
-            colorScheme={colorScheme}
-            style={styles.input}
-            value={phone}
-            onChangeText={onPhoneChange}
-            placeholder="请输入手机号"
-            placeholderTextColor={tk.text.tertiary}
-            keyboardType="phone-pad"
-            maxLength={11}
-          />
+          <Text style={styles.label}>{t('settings.accountDeletionPhoneLabel')}</Text>
+          {phoneReadOnly ? (
+            <View style={[styles.input, styles.readonlyBox]}>
+              <Text style={styles.readonlyText}>
+                {phone || t('settings.accountDeletionPhonePlaceholder')}
+              </Text>
+            </View>
+          ) : (
+            <TextField
+              colorScheme={colorScheme}
+              style={styles.input}
+              value={phone}
+              onChangeText={onPhoneChange}
+              placeholder={t('settings.accountDeletionPhonePlaceholder')}
+              placeholderTextColor={tk.text.tertiary}
+              keyboardType="phone-pad"
+              maxLength={11}
+            />
+          )}
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>短信验证码</Text>
+          <Text style={styles.label}>{t('settings.accountDeletionCodeLabel')}</Text>
           <View style={styles.smsRow}>
             <TextField
               colorScheme={colorScheme}
               style={[styles.input, styles.smsInput]}
               value={smsCode}
               onChangeText={onSmsCodeChange}
-              placeholder="请输入验证码"
+              placeholder={t('settings.accountDeletionCodePlaceholder')}
               placeholderTextColor={tk.text.tertiary}
               keyboardType="number-pad"
               maxLength={6}
@@ -77,30 +104,36 @@ export function AccountCancelScreen({
               disabled={countdown > 0}
             >
               <Text style={[styles.smsBtnText, countdown > 0 && styles.smsBtnTextDisabled]}>
-                {countdown > 0 ? `${countdown}s` : '获取验证码'}
+                {countdown > 0 ? `${countdown}s` : t('settings.accountDeletionSendCode')}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>确认注销</Text>
+          <Text style={styles.label}>{t('settings.accountDeletionConfirmLabel')}</Text>
           <TextField
             colorScheme={colorScheme}
             style={styles.input}
             value={confirmText}
             onChangeText={onConfirmTextChange}
-            placeholder="请输入「确认注销」"
+            placeholder={t('settings.accountDeletionConfirm')}
             placeholderTextColor={tk.text.tertiary}
           />
         </View>
 
         <TouchableOpacity
-          style={[styles.submitBtn, submitting && styles.btnDisabled]}
+          style={[styles.submitBtn, submitDisabled && styles.btnDisabled]}
           onPress={onSubmit}
-          disabled={submitting}
+          disabled={submitDisabled}
         >
-          <Text style={styles.submitBtnText}>{submitting ? '提交中...' : '提交注销申请'}</Text>
+          <Text style={styles.submitBtnText}>
+            {pageCountdown
+              ? `${confirmCountdown}s`
+              : submitting
+                ? t('settings.accountDeletionSubmitting')
+                : t('settings.accountDeletionSubmit')}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -113,8 +146,8 @@ export function AccountCancelScreen({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>确认注销</Text>
-            <Text style={styles.modalBody}>注销后数据不可恢复，请再次确认是否继续？</Text>
+            <Text style={styles.modalTitle}>{t('settings.accountDeletionConfirmTitle')}</Text>
+            <Text style={styles.modalBody}>{t('settings.accountDeletionWarning')}</Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancel} onPress={onCloseModal}>
                 <Text style={styles.modalCancelText}>{t('common.cancel')}</Text>
@@ -125,7 +158,9 @@ export function AccountCancelScreen({
                 disabled={confirmCountdown > 0}
               >
                 <Text style={styles.modalConfirmText}>
-                  {confirmCountdown > 0 ? `${confirmCountdown}s` : '确认注销'}
+                  {confirmCountdown > 0
+                    ? `${confirmCountdown}s`
+                    : t('settings.accountDeletionSubmit')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -158,6 +193,27 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.light,
       padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
+    },
+    consequenceBox: {
+      gap: rnSpacing.xs,
+      backgroundColor: tk.surface.light,
+      padding: rnSpacing.md,
+      borderRadius: rnRadius.xl,
+    },
+    consequenceTitle: {
+      ...rnType.title,
+      color: tk.text.primary,
+    },
+    consequenceItem: {
+      ...rnType.body,
+      color: tk.text.secondary,
+    },
+    readonlyBox: {
+      justifyContent: 'center',
+    },
+    readonlyText: {
+      fontSize: rnType.title.size,
+      color: tk.text.secondary,
     },
     fieldGroup: {
       gap: rnSpacing.sm,
@@ -241,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.secondary,
       textAlign: 'center',
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     },
     modalActions: {
       flexDirection: 'row',

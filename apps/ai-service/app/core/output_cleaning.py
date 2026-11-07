@@ -531,7 +531,10 @@ _SECRET_PATTERNS: list[tuple[re.Pattern[str], str | Callable[[re.Match[str]], st
             # 端到端测试 test_run_command_output_is_redacted_end_to_end 正是在
             # 断言"键名完整保留"(OPENAI_API_KEY= 必须还在),这条不能碰。
             r"(?i)(?<![\w])([A-Za-z0-9]+_)?"
-            r"(api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|"
+            # BUG-77:企业微信 gettoken 协议强制 corpid+corpsecret 走 query,
+            # corpsecret 是复合键名(secret 前无词边界),旧词表整体漏网 ⇒
+            # httpx 异常上下文 / access_log 里整条凭据裸奔。收口到这唯一的尺子。
+            r"(corpsecret|api[_-]?key|access[_-]?token|auth[_-]?token|token|secret|"
             r"password|passwd|pwd|client[_-]?secret|private[_-]?key|"
             r"encryption[_-]?key)"
             # ⚠ 这里**刻意不加**裸 `key`,也**不加**裸 `credential`,不加裸 `secret`:

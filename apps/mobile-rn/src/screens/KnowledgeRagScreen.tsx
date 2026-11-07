@@ -280,7 +280,7 @@ export function KnowledgeRagScreen() {
                     {item.content}
                   </Text>
                   <Text className={`mt-1 text-xs ${metaCls}`}>
-                    {expanded ? t('knowledgeRag.collapse') : t('knowledgeRag.expand')}
+                    {expanded ? t('knowledgeRag.chunks.showLess') : t('knowledgeRag.expand')}
                   </Text>
                 </TouchableOpacity>
               )
@@ -343,7 +343,9 @@ export function KnowledgeRagScreen() {
                   disabled={deleting}
                   className="mt-2 self-start rounded-md border border-red-200 px-2 py-1"
                 >
-                  <Text className="text-xs text-red-500">{t('knowledgeBase.delete')}</Text>
+                  <Text className="text-xs text-red-500">
+                    {t('knowledgeRag.manage.singleDelete')}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}

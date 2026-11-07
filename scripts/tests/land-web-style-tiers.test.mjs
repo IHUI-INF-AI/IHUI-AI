@@ -8,7 +8,7 @@
  * 判据全部 import 源脚本(`__test__` 的 `rewriteSource` / `MAP` / `findClassRegions` / `inScope`),
  * 本文件不复制正则,也不复制映射表的档值。
  *
- * 钉八件事:
+ * 钉九件事:
  *   ① 四组等值映射各自命中;
  *   ② 表外档(text-base / lg / 3xl / 任意值)一律不动;
  *   ③ 变体前缀 `sm:` / `hover:` / `md:` 保留,只换后缀;
@@ -16,7 +16,9 @@
  *   ⑤ className **之外**的同形文本不动(注释 / 普通字符串 / 测试断言 / 其它属性);
  *   ⑥ 幂等(改完再跑 0 处);
  *   ⑦ 归属避让在位(ownershipDirtyPaths 库出口 / held 分支的结构断言);
- *   ⑧ 权重锁档只改"已有 font-* 伴随"的类名串。
+ *   ⑧ 权重锁档只改"已有 font-* 伴随"的类名串;
+ *   ⑨ 继承钉档(2026-11-04):无权重串补 `font-[weight:inherit]` 后可证恒等地改档,
+ *      cn 条件实参逐枚自带钉、已有其它权重不误钉、绝不退化成 `font-[inherit]`、重跑幂等。
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -149,6 +151,42 @@ test('T12 本文件是测试本体,不是落档器的整文件副本', () => {
   assert.equal(self.includes(copyMarker), false)
 })
 
+test('T13 继承钉档:无权重串补钉可证恒等,条件实参逐枚自带钉,重跑幂等', () => {
+  const pin = land.INHERIT_WEIGHT_CLASS
+  assert.equal(
+    pin,
+    'font-[weight:inherit]',
+    'weight: 类型提示不可省;font-[inherit] 会被 Tailwind 4 解析成 font-family',
+  )
+  const opts = { requireWeightCompanion: true, pinInheritWeight: true }
+  // ① 无权重串补钉;已有 font-bold 的串不误钉(误钉会把 700 覆盖成 inherit)
+  const src = '<a className="text-xl" /><b className="font-bold text-sm" />'
+  const r = land.rewriteSource(src, opts)
+  assert.equal(r.out, `<a className="${pin} ${to('xl')}" /><b className="font-bold ${to('sm')}" />`)
+  assert.equal(r.changes, 2)
+  assert.equal(r.pinned, 1)
+  // ② cn 条件实参:每个含可改档的实参都必须自带钉,否则条件为假时档位回落会重新生效
+  const cond = "<a className={cn('text-xs', ok && 'text-sm')} />"
+  const rc = land.rewriteSource(cond, opts)
+  assert.equal(rc.changes, 2)
+  assert.equal(rc.out.split(pin).length - 1, 2, '两个实参必须逐枚带钉')
+  assert.equal(land.rewriteSource(rc.out, opts).changes, 0, '钉档结果重跑必须 0 处')
+  assert.equal(land.rewriteSource(r.out, opts).pinned, 0, '已带钉的串不得重复补钉')
+  // ③ 另一实参的 font-bold 按整个 className 属性合并判定,不算"无权重"
+  const other = "<a className={cn('text-sm', 'font-bold')} />"
+  assert.equal(
+    land.rewriteSource(other, opts).out,
+    `<a className={cn('${to('sm')}', 'font-bold')} />`,
+  )
+  assert.equal(land.rewriteSource(other, opts).pinned, 0)
+  // ④ 不补钉时旧口径仍在:无权重串跳过
+  const legacy = land.rewriteSource('<a className="text-xl" />', { requireWeightCompanion: true })
+  assert.equal(legacy.changes, 0)
+  assert.equal(legacy.skippedNoWeight, 1)
+  // ⑤ 自检用例表必须真的含钉档形态(防止器物改了、自检表没跟着改)
+  assert.match(land.SELF_TEST_CASES.map((c) => c.name).join('|'), /钉档/)
+})
+
 // ─── 写盘凭据账本接线(2026-11-03,治 R1 无凭据 / R2 不可续跑;三端同形)────────────
 // 判据零复制(§22c):oid 走 land.blobOidOf、读账本走 land.landedPathsOf、登记走
 // land.registerLanding、核验走库的 collectiblePaths —— 本段只编排夹具,不复算任何判定。
@@ -235,8 +273,8 @@ test('L4 dry-run 档零登记:registerLanding([]) 不写一个字节也不造账
     assert.equal(existsSync(ledgerT.ledgerPathFor(dir)), false, '没写盘就没有产出 ⇒ 一行都不许登记')
     assert.match(
       readFileSync(SCRIPT, 'utf8'),
-      /if \(apply && landedBatch\.length\) \{[\s\S]{0,200}?registerLanding\(landedBatch\)/,
-      '登记调用必须被 apply 守卫(预演档结构上到不了)',
+      /if \(apply && landedBatch\.length\) \{[\s\S]{0,200}?registerLanding\(landedBatch, \{ legs: enabledLegs \}\)/,
+      '登记调用必须被 apply 守卫,且把本轮腿集一起交出去(预演档结构上到不了;缺腿集则窄轴行会替宽轴背书)',
     )
   } finally {
     rmScratch(dir, { bestEffort: true })
@@ -266,7 +304,18 @@ test('L6 同形锁:三枚 lander 的腿短名取自同名常量、leg 走 regist
   for (const n of names) {
     const text = readFileSync(join(ROOT, 'scripts', `${n}.mjs`), 'utf8')
     assert.match(text, new RegExp(`export const LEG_NAME = '${n}'`), `${n}: 腿短名必须逐字等于脚本文件名(guardian 派发名现读)`)
-    assert.match(text, /const list = paths\.map\(\(p\) => \(\{ at, leg, path: p, blobOid: blobOidOf\(p, \{ root \}\) \}\)\)/, `${n}: 登记行的 leg 必须取自 registerLanding 参数(默认 = LEG_NAME),三处同一形态`)
+    assert.match(
+      text,
+      /const rowLegs = normalizeLegs\(legs\)\s*\n\s*const list = paths\.map\(\(p\) => \(\{\s*at,\s*leg,\s*path: p,\s*blobOid: blobOidOf\(p, \{ root \}\),\s*\.\.\.\(rowLegs \? \{ legs: rowLegs \} : \{\}\),\s*\}\)\)/,
+      `${n}: 登记行的 leg/legs 必须取自 registerLanding 参数(默认 leg = LEG_NAME),三处同一形态`,
+    )
+    // 腿感知续跑(2026-11-05 立):跳过条件必须由库的 legsCover 判,三处逐字同形 ——
+    // 窄轴登记行替宽轴背书 = 后开的轴永久跳不过去(RN 字号腿实测)。
+    assert.match(
+      text,
+      /c\.leg === leg && legsCover\(c\.legs, legs\)/,
+      `${n}: landedPathsOf 必须用库内 legsCover 判腿覆盖,不得各自复算`,
+    )
     assert.match(text, /gitRaw\(\['hash-object', '--', rel\], root\)/, `${n}: 取 oid 必须与账本库 worktree 面同一把尺(face-reader gitRaw + hash-object)`)
     const m = text.match(/export function landingKeys\([\s\S]*?\n\}/)
     assert.ok(m, `${n}: 缺 landingKeys`)

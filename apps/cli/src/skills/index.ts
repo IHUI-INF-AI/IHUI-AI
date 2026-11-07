@@ -64,17 +64,24 @@ import {
   sanitizeSkillName,
   truncateToCodePoints,
 } from '../utils/prompt-boundary.js';
-import { parseSkillsFrontmatter } from './frontmatter.js';
+import { parseFrontmatterJson, parseSkillsFrontmatter } from './frontmatter.js';
 import { recordInjectionInjected, recordInjectionSkipped } from '../utils/prompt-injection-registry.js';
 import { declareShadowSurfaces } from './allowed-tools-shadow.js';
 import * as os from 'node:os';
-import type { SkillFrontmatter, SkillPrerequisites, SkillSource } from '@ihui/types';
+import {
+  SKILL_LISTING_STATES,
+  type SkillCapabilityTiers,
+  type SkillFrontmatter,
+  type SkillListingState,
+  type SkillPrerequisites,
+  type SkillSource,
+} from '@ihui/types';
 
 /**
  * Skill frontmatter 元信息由 `@ihui/types` 统一维护(P0-2 对齐 packages/types 契约),
  * 此处 re-export 供现有消费方(../tests/skills.test.ts 等)按原路径 import。
  */
-export type { SkillFrontmatter, SkillPrerequisites, SkillSource };
+export type { SkillFrontmatter, SkillListingState, SkillPrerequisites, SkillSource };
 
 /** 解析后的 skill 定义(原始结构,含路径与 frontmatter) */
 export interface SkillDefinition {
@@ -145,18 +152,47 @@ export interface LoadSkillsOptions {
    * 那是本仓记过最多次的失效型("判据/功能失效的表现永远是安静")。
    */
   onNotice?: (message: string) => void;
+  /** 测试注入。缺省用 readdir。列目录失败必须出声，不能当成没有技能。 */
+  readDir?: (dir: string) => fs.Dirent[];
+  /** 测试注入。缺省用 readFile。读失败不是缺失时必须出声。 */
+  readFile?: (file: string) => string;
+}
+
+/** 扫描没读完。这份清单不能当成完整结果写进缓存。 */
+export class SkillScanUnread extends Error {
+  readonly scanPath: string;
+  readonly code: string;
+  constructor(scanPath: string, code: string) {
+    super(`skill scan unread, cache must not be replaced: ${scanPath} (${code})`);
+    this.name = 'SkillScanUnread';
+    this.scanPath = scanPath;
+    this.code = code;
+  }
+}
+
+function gitMarkerState(dir: string, stat: (target: string) => fs.Stats): 'present' | 'absent' | 'unreadable' {
+  try {
+    stat(path.join(dir, '.git'));
+    return 'present';
+  } catch (error) {
+    const code = fsErrorCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return 'absent';
+    return 'unreadable';
+  }
 }
 
 /**
  * 从 cwd 向上查找仓库根(含 .git 目录)。
- * 找不到则返回 cwd 本身。
+ * 找不到则返回 cwd 本身。读不到 .git 时不改去上一层。
  */
-export function findRepoRoot(cwd: string): string {
+export function findRepoRoot(cwd: string, stat: (target: string) => fs.Stats = fs.statSync): string {
   let current = path.resolve(cwd);
   for (let i = 0; i < 20; i++) {
-    if (fs.existsSync(path.join(current, '.git'))) {
-      return current;
+    const marker = gitMarkerState(current, stat);
+    if (marker === 'unreadable') {
+      throw new SkillScanUnread(path.join(current, '.git'), 'unreadable');
     }
+    if (marker === 'present') return current;
     const parent = path.dirname(current);
     if (parent === current) break;
     current = parent;
@@ -249,6 +285,66 @@ function parseFrontmatterArrayAny(front: string, keys: readonly string[]): strin
   return undefined;
 }
 
+function parseListing(front: string, keys: readonly string[]): SkillListingState | null | undefined {
+  for (const key of keys) {
+    const re = new RegExp(`^${escapeForRegExp(key)}:\\s*(.*)\\s*$`, 'm');
+    const match = front.match(re);
+    if (!match) continue;
+    const token = match[1]!.trim().replace(/^["']|["']$/g, '');
+    const plan = admitSkillListing(token);
+    return plan.disposition === 'unlisted' ? plan.reason : null;
+  }
+  return undefined;
+}
+
+function parseInvocableFlag(front: string, keys: readonly string[]): boolean | null | undefined {
+  for (const key of keys) {
+    const re = new RegExp(`^${escapeForRegExp(key)}:\\s*(.*)\\s*$`, 'm');
+    const m = front.match(re);
+    if (!m) continue;
+    const v = m[1]!.trim().toLowerCase().replace(/^["']|["']$/g, '');
+    if (v === 'true' || v === 'yes') return true;
+    if (v === 'false' || v === 'no') return false;
+    return null;
+  }
+  return undefined;
+}
+
+export type SkillInvocationCaller = 'user' | 'model';
+
+/** 词表本体由 `@ihui/types` 单源维护,此处 re-export 供既有消费方按原路径引用。 */
+export { SKILL_LISTING_STATES };
+
+export type SkillListingPlan =
+  | { disposition: 'listed'; reason: 'absent' }
+  | { disposition: 'unlisted'; reason: SkillListingState }
+  | { disposition: 'unjudged'; reason: 'listing-unrecognized' };
+
+/** 缺席才是在架。四个终态各记各的责任,认不出的值不当成其中任何一态。 */
+export function admitSkillListing(value: unknown): SkillListingPlan {
+  if (value === undefined) return { disposition: 'listed', reason: 'absent' };
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return { disposition: 'unjudged', reason: 'listing-unrecognized' };
+  }
+  const normalized = value.trim();
+  if ((SKILL_LISTING_STATES as readonly string[]).includes(normalized)) {
+    return { disposition: 'unlisted', reason: normalized as SkillListingState };
+  }
+  return { disposition: 'unjudged', reason: 'listing-unrecognized' };
+}
+
+export function decideSkillInvocation(
+  caller: SkillInvocationCaller,
+  flag: boolean | null | undefined,
+): { disposition: 'allow' | 'denied' | 'unjudged'; reason: string } {
+  if (flag === undefined) return { disposition: 'allow', reason: 'flag-absent' };
+  if (flag === null) return { disposition: 'unjudged', reason: 'flag-unrecognized' };
+  if (flag === false) {
+    return { disposition: 'denied', reason: caller === 'user' ? 'user-disabled' : 'model-disabled' };
+  }
+  return { disposition: 'allow', reason: 'flag-enabled' };
+}
+
 /** 按 multiple 候选 key 解析布尔字段(true/yes→true,false/no→false),未命中返回 undefined */
 function parseFrontmatterBool(front: string, keys: readonly string[]): boolean | undefined {
   for (const key of keys) {
@@ -298,6 +394,11 @@ const SKILL_FRONTMATTER_KEYS = {
   relatedSkills: ['related-skills', 'relatedSkills'],
   progressiveDisclosure: ['progressive-disclosure', 'progressiveDisclosure'],
   prerequisites: ['prerequisites'],
+  // 技能按模型能力分档声明(2026-11-04):inline JSON,形状见 @ihui/types skill-tiers。
+  tiers: ['tiers'],
+  userInvocable: ['user-invocable', 'userInvocable'],
+  modelInvocable: ['model-invocable', 'modelInvocable'],
+  listing: ['listing', 'listing-state'],
   autoGeneratedAt: ['auto-generated-at', 'autoGeneratedAt'],
   autoGeneratedFromTask: ['auto-generated-from-task', 'autoGeneratedFromTask'],
 } as const satisfies Record<string, readonly string[]>;
@@ -512,8 +613,18 @@ function parseFrontmatter(front: string): SkillFrontmatter {
   if (relatedSkills) fm.relatedSkills = relatedSkills;
   const progressiveDisclosure = parseFrontmatterBool(front, K.progressiveDisclosure);
   if (progressiveDisclosure !== undefined) fm.progressiveDisclosure = progressiveDisclosure;
+  const userInvocable = parseInvocableFlag(front, K.userInvocable);
+  if (userInvocable !== undefined) fm.userInvocable = userInvocable;
+  const modelInvocable = parseInvocableFlag(front, K.modelInvocable);
+  if (modelInvocable !== undefined) fm.modelInvocable = modelInvocable;
+  const listing = parseListing(front, K.listing);
+  if (listing !== undefined) fm.listing = listing;
   const prerequisites = parsePrerequisites(front);
   if (prerequisites) fm.prerequisites = prerequisites;
+  // tiers 只认 inline JSON(见 frontmatter.ts 文件头):解析失败视为字段缺省,
+  // 消费方拿不到就不会走选档,不会出现"半份声明"被半 honour 的中间态。
+  const tiers = parseFrontmatterJson<SkillCapabilityTiers>(front, K.tiers[0]!);
+  if (tiers) fm.tiers = tiers;
   const autoGeneratedAt = parseFrontmatterFieldAny(front, K.autoGeneratedAt);
   if (autoGeneratedAt) fm.autoGeneratedAt = autoGeneratedAt;
   const autoGeneratedFromTask = parseFrontmatterFieldAny(front, K.autoGeneratedFromTask);
@@ -612,9 +723,19 @@ function readSkillFile(
   priority: number,
   origin: SkillLoadOrigin,
   onNotice: (message: string) => void,
+  readFile: (file: string) => string = (file) => fs.readFileSync(file, 'utf-8'),
 ): Skill | null {
+  const read = readFile ?? ((file: string) => fs.readFileSync(file, 'utf-8'));
+  let raw: string;
   try {
-    const raw = fs.readFileSync(fullPath, 'utf-8');
+    raw = read(fullPath);
+  } catch (error) {
+    const code = fsErrorCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    onNotice(`[skills] file could not be read, so this is not "no such skill": ${fullPath} (${code})`);
+    throw new SkillScanUnread(fullPath, code);
+  }
+  try {
     const def = parseSkillDefinition(raw, fullPath);
     const fm = def.frontmatter;
     // —— description 长度闸:只闸 frontmatter 里**声明**的那一条 ——
@@ -673,8 +794,8 @@ function readSkillFile(
       );
     }
     return skill;
-  } catch {
-    // 读取失败跳过
+  } catch (error) {
+    onNotice(`[skills] file could not be read, so this is not "no such skill": ${fullPath} (${fsErrorCode(error)})`);
     return null;
   }
 }
@@ -698,12 +819,51 @@ function realKey(file: string): string {
  * lstat 自身失败(无权限/竞态)返回 false ⇒ 交回调用方按"该路径不可读"的既有路径处理 ——
  * 不得把"判不出"伪装成"确实是链接"而静默拒绝。
  */
-function isReparseLink(p: string): boolean {
-  try {
-    return fs.lstatSync(p).isSymbolicLink();
-  } catch {
-    return false;
+export type PathPresence =
+  | { disposition: 'present'; kind: 'file' | 'directory' | 'other' }
+  | { disposition: 'link'; kind: 'link'; dangling: boolean }
+  | { disposition: 'absent'; kind: 'absent' }
+  | { disposition: 'unjudged'; kind: 'unreadable'; code: string };
+
+function fsErrorCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code;
+    if (typeof code === 'string' && code !== '') return code;
   }
+  return 'unknown';
+}
+
+/**
+ * 先看路径自己，不跟随重解析点去报告目标。
+ * 链接目标不在，仍是链接，不是「文件没了」。
+ * 读失败不是 ENOENT 时保持未判定，不当成空目录。
+ */
+export function classifyPathPresence(p: string): PathPresence {
+  let linked: fs.Stats;
+  try {
+    linked = fs.lstatSync(p);
+  } catch (error) {
+    const code = fsErrorCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { disposition: 'absent', kind: 'absent' };
+    return { disposition: 'unjudged', kind: 'unreadable', code };
+  }
+  if (linked.isSymbolicLink()) {
+    try {
+      fs.statSync(p);
+      return { disposition: 'link', kind: 'link', dangling: false };
+    } catch (error) {
+      const code = fsErrorCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') return { disposition: 'link', kind: 'link', dangling: true };
+      return { disposition: 'unjudged', kind: 'unreadable', code };
+    }
+  }
+  if (linked.isFile()) return { disposition: 'present', kind: 'file' };
+  if (linked.isDirectory()) return { disposition: 'present', kind: 'directory' };
+  return { disposition: 'present', kind: 'other' };
+}
+
+function isReparseLink(p: string): boolean {
+  return classifyPathPresence(p).disposition === 'link';
 }
 
 /**
@@ -728,6 +888,8 @@ function scanDir(
   priority: number,
   origin: SkillLoadOrigin,
   onNotice: (message: string) => void,
+  readDir: (dir: string) => fs.Dirent[] = (target) => fs.readdirSync(target, { withFileTypes: true }),
+  readFile?: (file: string) => string,
 ): Skill[] {
   // G-408③:此前"不跟随链接"是 Dirent.isFile()/isDirectory() 对重解析点恰好返回 false 的
   // **偶然行为** —— 无注释、无判据,libuv 的 dtype 映射哪天变了,这里就静默变成跨根穿透。
@@ -735,23 +897,27 @@ function scanDir(
   // 每处遇到都留可见记录。理由同 AGENTS §26:递归遍历穿透 junction 曾把"清理工具"变成
   // "清空真实目标"的事故现场;技能扫描读的是**仓库内容**,别人放一个指向 ~/.ssh 或
   // 用户主目录的链接,跟随=把任意第三方文件读进 system prompt,那是外读通道不是容错。
-  let rootLink: boolean;
-  try {
-    rootLink = fs.lstatSync(dir).isSymbolicLink();
-  } catch {
-    return []; // 根不存在:正常跳过,不是"拒绝"
+  const root = classifyPathPresence(dir);
+  if (root.disposition === 'absent') return [];
+  if (root.disposition === 'unjudged') {
+    onNotice(`[skills] 扫描根无法判定,不当成没有技能: ${dir} (${root.code})`);
+    throw new SkillScanUnread(dir, root.code);
   }
-  if (rootLink) {
+  if (root.disposition === 'link') {
     onNotice(`[skills] 拒绝跟随符号链接/junction(扫描根本体),该根整根不扫: ${dir}`);
     return [];
   }
+  if (root.kind !== 'directory') return [];
   const skills: Skill[] = [];
   const seen = new Set<string>();
   let entries: fs.Dirent[];
   try {
-    entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return [];
+    const list = readDir ?? ((target: string) => fs.readdirSync(target, { withFileTypes: true }));
+    entries = list(dir);
+  } catch (error) {
+    const code = fsErrorCode(error);
+    onNotice(`[skills] 目录读不到,不当成没有技能: ${dir} (${code})`);
+    throw new SkillScanUnread(dir, code);
   }
   const push = (file: string, fallbackName: string): void => {
     // 第三粒度:根下条目都是真目录时,`<dir>/<name>/SKILL.md` 本体仍可能是链接
@@ -762,7 +928,7 @@ function scanDir(
     }
     const key = realKey(file);
     if (seen.has(key)) return;
-    const skill = readSkillFile(file, fallbackName, priority, origin, onNotice);
+    const skill = readSkillFile(file, fallbackName, priority, origin, onNotice, readFile);
     if (!skill) return;
     seen.add(key);
     skills.push(skill);
@@ -821,7 +987,7 @@ export function loadSkills(opts: LoadSkillsOptions): Skill[] {
   const onNotice = opts.onNotice ?? ((m: string) => console.warn(m));
   const all: Skill[] = [];
   for (const loc of scanLocations) {
-    all.push(...scanDir(loc.dir, loc.priority, loc.origin, onNotice));
+    all.push(...scanDir(loc.dir, loc.priority, loc.origin, onNotice, opts.readDir, opts.readFile));
   }
 
   // 按优先级去重(低 priority 值 = 高优先级,覆盖高 priority 值)
@@ -966,10 +1132,36 @@ export function formatSkillsForPrompt(skills: Skill[], gate?: SkillsPromptGateOp
   if (skills.length === 0) return recordInjectionSkipped('skill_list', '未发现任何技能');
   const autoLoadable: Skill[] = [];
   const withheld: Skill[] = [];
+  const modelHidden: Skill[] = [];
+  const listingHeld: Skill[] = [];
   for (const s of skills) {
-    (s.safeToAutoLoad === false ? withheld : autoLoadable).push(s);
+    if (s.safeToAutoLoad === false) {
+      withheld.push(s);
+      continue;
+    }
+    const listing = admitSkillListing(s.frontmatter?.listing);
+    if (listing.disposition !== 'listed') {
+      listingHeld.push(s);
+      continue;
+    }
+    const modelFlag = s.frontmatter?.modelInvocable;
+    if (modelFlag === false || modelFlag === null) modelHidden.push(s);
+    else autoLoadable.push(s);
   }
   if (autoLoadable.length === 0) {
+    if (listingHeld.length > 0 && withheld.length === 0 && modelHidden.length === 0) {
+      const reasons = listingHeld.map((s) => admitSkillListing(s.frontmatter?.listing).reason).join(',');
+      return recordInjectionSkipped(
+        'skill_list',
+        `${listingHeld.length} skill(s) withheld because listing is ${reasons}`,
+      );
+    }
+    if (modelHidden.length > 0 && withheld.length === 0) {
+      return recordInjectionSkipped(
+        'skill_list',
+        `${modelHidden.length} skill(s) hidden from the model because model-invocable is off or unreadable`,
+      );
+    }
     return recordInjectionSkipped(
       'skill_list',
       `all ${skills.length} skill(s) withheld by the conservative rule (unrecognized frontmatter keys); see the [skills] diagnostics for the key names`,
@@ -1001,6 +1193,13 @@ export function formatSkillsForPrompt(skills: Skill[], gate?: SkillsPromptGateOp
   }
   let text = parts.join('\n\n');
   if (withheld.length > 0) text += withheldCountLine(withheld);
+  if (modelHidden.length > 0) {
+    text += `\n[note] ${modelHidden.length} skill(s) are hidden from the model because model-invocable is off or unreadable.`;
+  }
+  if (listingHeld.length > 0) {
+    const reasons = listingHeld.map((s) => admitSkillListing(s.frontmatter?.listing).reason).join(',');
+    text += `\n[note] ${listingHeld.length} skill(s) are off the list (${reasons}).`;
+  }
   return recordInjectionInjected('skill_list', text);
 }
 

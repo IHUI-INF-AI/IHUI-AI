@@ -103,12 +103,12 @@ export default function WorkflowDocsPage() {
       <section id="what-is-workflow" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">什么是工作流?</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             <strong>工作流(Workflow)</strong>是把多个 AI 能力(对话 / 检索 / 工具调用 / 模型调用)
             按特定逻辑串联起来,完成单次对话无法完成的复杂任务。
           </p>
-          <p className="text-sm text-muted-foreground">适用场景:</p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">适用场景:</p>
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li>
               <strong>多步骤任务</strong>:客服分流 → 工单创建 → 知识库检索 → 回复 → 满意度回访
             </li>
@@ -137,7 +137,7 @@ export default function WorkflowDocsPage() {
               <Zap className="mr-1 inline h-4 w-4" />
               触发器(Trigger)
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-body text-muted-foreground">
               <li>
                 <strong>Manual</strong>:手动点击"运行"触发
               </li>
@@ -160,7 +160,7 @@ export default function WorkflowDocsPage() {
               <Bot className="mr-1 inline h-4 w-4" />
               AI 节点
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-body text-muted-foreground">
               <li>
                 <strong>Chat</strong>:LLM 对话(单轮 / 多轮)
               </li>
@@ -186,7 +186,7 @@ export default function WorkflowDocsPage() {
               <Wrench className="mr-1 inline h-4 w-4" />
               工具节点
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-body text-muted-foreground">
               <li>
                 <strong>HTTP Request</strong>:调用任意 API
               </li>
@@ -209,7 +209,7 @@ export default function WorkflowDocsPage() {
               <GitBranch className="mr-1 inline h-4 w-4" />
               控制流节点
             </p>
-            <ul className="mt-2 ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] mt-2 ml-4 list-disc space-y-1 text-body text-muted-foreground">
               <li>
                 <strong>If</strong>:条件分支(if / else if / else)
               </li>
@@ -237,7 +237,7 @@ export default function WorkflowDocsPage() {
       <section id="create-workflow" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">创建第一个工作流</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             示例:<strong>每日行业新闻 AI 摘要推送</strong>
           </p>
           <CodeBlock
@@ -253,7 +253,7 @@ export default function WorkflowDocsPage() {
                     │              │ → 否 → 跳过
                     └──────────────┘`}
           />
-          <ol className="ml-4 list-decimal space-y-2 text-sm text-muted-foreground">
+          <ol className="font-[weight:inherit] ml-4 list-decimal space-y-2 text-body text-muted-foreground">
             <li>
               访问{' '}
               <a href="https://aizhs.top/workflows" className="text-primary underline">
@@ -293,7 +293,7 @@ export default function WorkflowDocsPage() {
               <Split className="mr-1.5 inline h-5 w-5" />
               并行执行
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] mt-2 text-body text-muted-foreground">
               多个独立分支同时执行,等所有分支完成后再汇聚 — 显著降低延迟。
             </p>
             <CodeBlock
@@ -312,7 +312,7 @@ export default function WorkflowDocsPage() {
               <RefreshCw className="mr-1.5 inline h-5 w-5" />
               循环 + 批处理
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] mt-2 text-body text-muted-foreground">
               Foreach 循环处理数组,自动限流避免触发 API Rate Limit。
             </p>
             <CodeBlock
@@ -330,7 +330,7 @@ export default function WorkflowDocsPage() {
               <Puzzle className="mr-1.5 inline h-5 w-5" />
               子工作流
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] mt-2 text-body text-muted-foreground">
               把常用流程封装为子工作流,主工作流调用 — 复用 + 维护性强。
             </p>
             <CodeBlock
@@ -349,7 +349,7 @@ export default function WorkflowDocsPage() {
               <PauseCircle className="mr-1.5 inline h-5 w-5" />
               人工审批
             </h3>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="font-[weight:inherit] mt-2 text-body text-muted-foreground">
               AI 起草后暂停,等待人工审批通过后继续执行 — 关键场景必备。
             </p>
             <CodeBlock
@@ -368,7 +368,7 @@ export default function WorkflowDocsPage() {
       <section id="monitoring" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">监控与调试</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <ul className="ml-4 list-disc space-y-2 text-sm text-muted-foreground">
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-2 text-body text-muted-foreground">
             <li>
               <strong>实时执行日志</strong>:每个节点的输入 / 输出 / 耗时 / 状态实时显示
             </li>
@@ -397,21 +397,21 @@ export default function WorkflowDocsPage() {
         <div className="mt-3 grid grid-cols-1 gap-3 min-[768px]:grid-cols-3">
           <Link
             href="/docs/agent"
-            className="rounded-lg border bg-card p-3 text-sm hover:bg-accent"
+            className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent"
           >
             <Bot className="mr-1 inline h-4 w-4" />
             Agent 开发 →<br />
-            <span className="text-xs text-muted-foreground">工作流内嵌 Agent 节点</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">工作流内嵌 Agent 节点</span>
           </Link>
-          <Link href="/docs/mcp" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/mcp" className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent">
             <Plug className="mr-1 inline h-4 w-4" />
             MCP 工具集成 →<br />
-            <span className="text-xs text-muted-foreground">工作流调用 MCP 工具</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">工作流调用 MCP 工具</span>
           </Link>
-          <Link href="/docs/api" className="rounded-lg border bg-card p-3 text-sm hover:bg-accent">
+          <Link href="/docs/api" className="font-[weight:inherit] rounded-lg border bg-card p-3 text-body hover:bg-accent">
             <Wrench className="mr-1 inline h-4 w-4" />
             API 参考 →<br />
-            <span className="text-xs text-muted-foreground">通过 API 触发工作流</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">通过 API 触发工作流</span>
           </Link>
         </div>
       </section>

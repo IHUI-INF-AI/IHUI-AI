@@ -137,11 +137,14 @@ export default function ModelIncomeScreen() {
       onOpenWithdraw={() => setShowWithdraw(true)}
       onCloseWithdraw={() => setShowWithdraw(false)}
       onConfirmWithdraw={() => setShowWithdraw(false)}
+      withdrawDisabled={(overview?.availableCommission ?? 0) <= 0}
       loadingMore={loadingMore}
       hasMore={hasMore}
       onLoadMore={loadMore}
       onBack={() => navigation.goBack()}
-      onRetry={() => { void load(); }}
+      onRetry={() => {
+        void load()
+      }}
       colorScheme={resolvedTheme}
     />
   )

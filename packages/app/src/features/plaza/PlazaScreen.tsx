@@ -21,39 +21,16 @@ import { SearchInput } from '../../components/SearchInput'
 import { CategoryInlineBar } from '../../components/category/CategoryInlineBar'
 import type { CategoryItem } from '../../components/category/types'
 import { Globe, User } from 'lucide-react-native'
-import type { TFunction } from '../../types'
-import type { PlazaItem, StatusChip } from '@ihui/types'
+import type { PlazaItem, PlazaScreenProps, StatusChip } from '@ihui/types'
+
+export type { PlazaScreenProps } from '@ihui/types'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { ErrorState, ScreenSkeleton } from '../../components/ScreenStates'
 import { Tappable } from '@ihui/ui-native'
-
-export interface PlazaScreenProps {
-  t: TFunction
-  colorScheme?: 'light' | 'dark'
-  items: PlazaItem[]
-  loading: boolean
-  refreshing: boolean
-  loadingMore: boolean
-  error: string
-  status: string
-  search: string
-  showSearch: boolean
-  onRefresh: () => void
-  onEndReached: () => void
-  onStatusChange: (status: string) => void
-  onSearchChange: (search: string) => void
-  onSubmitSearch: () => void
-  onPressItem: (item: PlazaItem) => void
-  /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
-  onChatPress?: (item: PlazaItem) => void
-  onPublish: () => void
-  /**
-   * 滚动内容区底部预留(px,默认 80)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
-   * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
-   */
-  contentBottomPadding?: number
-}
+import { CategoryDropdown } from '../../components/category/CategoryDropdown'
+import { PlazaIdentitySheet } from './PlazaIdentitySheet'
+import { PlazaDetailModal } from './PlazaDetailModal'
 
 const STATUS_CHIPS: readonly StatusChip[] = [
   { label: '待接单', value: 'waiting' },
@@ -121,9 +98,12 @@ export function PlazaScreen({
   onChatPress,
   onPublish,
   onRetry,
-  colorScheme = 'light',  
+  trackFilter,
+  identitySheet,
+  detail,
+  colorScheme = 'light',
   contentBottomPadding = 80,
-}: PlazaScreenProps & { onRetry?: () => void }) {
+}: PlazaScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
 
@@ -376,6 +356,34 @@ export function PlazaScreen({
           )}
         </Pressable>
       </View>
+      {/* 三段共享弹层(2026-11-05 上收):赛道分类抽屉 / 身份切换 / 详情居中弹层。
+          RN 与小程序都传同一组 props(数据驱动),RN 真渲染 —— 不是小程序专属 prop。 */}
+      {trackFilter ? (
+        <CategoryDropdown
+          items={trackFilter.items}
+          selectedId={trackFilter.selectedId}
+          onSelect={trackFilter.onSelect}
+          colorScheme={colorScheme}
+          visible={trackFilter.visible}
+          onVisibleChange={trackFilter.onVisibleChange}
+          hideTrigger
+          panelTitle={trackFilter.panelTitle}
+          testID="plaza-track-dropdown"
+        />
+      ) : null}
+      {identitySheet ? (
+        <PlazaIdentitySheet t={t} colorScheme={colorScheme} {...identitySheet} />
+      ) : null}
+      {detail ? (
+        <PlazaDetailModal
+          t={t}
+          colorScheme={colorScheme}
+          visible={detail.item !== null}
+          item={detail.item}
+          onClose={detail.onClose}
+          onOpenDetail={detail.onOpenDetail}
+        />
+      ) : null}
     </View>
   )
 }

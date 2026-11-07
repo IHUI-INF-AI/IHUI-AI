@@ -190,7 +190,12 @@ export const StyleSheet = {
 }
 
 export type ViewStyle = Record<string, unknown>
-export type TextStyle = Record<string, unknown>
+/**
+ * 具名键补 `color`:索引签名下 `.color` 读出来是 unknown,共享层把
+ * `styles.x.color` 交给 lucide 的 `color?: string`(ListPager.tsx:50/71)就成 TS2322。
+ * 交集只收窄这一格,其它键仍是索引签名,Rn 侧写法的宽面不变。
+ */
+export type TextStyle = Record<string, unknown> & { color?: string }
 export type ImageStyle = Record<string, unknown>
 /**
  * 与 RN 的 `StyleProp<T>` 同形:**递归**数组与 falsy 都要收。

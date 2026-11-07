@@ -110,19 +110,10 @@ describe('续期能力位端点', () => {
     expect(summary.providers).toBe(RELAY_PROVIDERS.length)
   })
 
-  it('无续期通道的平台判 false:codex/opencode/minimax/zcode/lingma/grokbot 无 refreshToken 方法,doubao/loomy 是显式 false 空壳', async () => {
+  it('无续期通道的平台判 false:codex/opencode/zcode/lingma/grokbot 无 refreshToken 方法,doubao/loomy 是显式 false 空壳', async () => {
     const { items } = await fetchCapability()
     const byCode = new Map(items.map((i) => [i.providerCode, i]))
-    for (const code of [
-      'codex',
-      'opencode',
-      'minimax',
-      'zcode',
-      'lingma',
-      'grokbot',
-      'doubao',
-      'loomy',
-    ]) {
+    for (const code of ['codex', 'opencode', 'zcode', 'lingma', 'grokbot', 'doubao', 'loomy']) {
       expect(byCode.get(code)?.adapterRegistered, `${code} 适配器应已注册`).toBe(true)
       expect(byCode.get(code)?.autoRenewalSupported, `${code} 不该被标成可自动续期`).toBe(false)
     }
@@ -131,7 +122,10 @@ describe('续期能力位端点', () => {
   it('有续期通道的平台判 true(反向对照:整表恒 false 的假账过不了这一条)', async () => {
     const { items } = await fetchCapability()
     const renewable = items.filter((i) => i.autoRenewalSupported).map((i) => i.providerCode)
-    for (const code of ['trae', 'qoder', 'codearts', 'workbuddy']) {
+    // minimax 2026-11-06 迁入:端点已按 mcode 3.1.10 字符串取证复现(POST account.minimax.cn
+    // /oauth2/token,form 五字段,无设备证明),且**同批**登记进 CLIENT_FIRST_FLAGS ——
+    // 上游 rt 是轮换型,续期能力与让位策略必须同批装,只装一边就是把机主的桌面端顶下线。
+    for (const code of ['trae', 'qoder', 'codearts', 'workbuddy', 'minimax']) {
       expect(renewable, `可续期集合应含 ${code}`).toContain(code)
     }
   })

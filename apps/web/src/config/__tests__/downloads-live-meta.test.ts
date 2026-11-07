@@ -214,6 +214,43 @@ describe('judgeExtensionArtifact —— 实物字节压过派生标签', () => {
   it('枚举到 0 枚 ⇒ unavailable(不用 0 冒充"有包")', () => {
     expect(judgeExtensionArtifact(pickNewestArtifact([]), null, NOW).source).toBe('unavailable')
   })
+  it('releaseDate 取实物 mtime,页面能自证"这枚包是哪次构建的"', () => {
+    const out = judgeExtensionArtifact(
+      {
+        name: 'IHUI-AI-Extension-chrome-v1.0.1.zip',
+        sizeBytes: 1,
+        mtimeMs: Date.parse('2026-11-05T03:46:25Z'),
+      },
+      null,
+      NOW,
+    )
+    expect(out.releaseDate).toBe('2026-11-05')
+  })
+  it('sha256 只在清单指向同名文件时才展示(不拿别的包哈希冒充)', () => {
+    const sha = 'b3e9835a545b5dd4f4b846ea4179d648d5d616b4ba64a9ceea15dee427d3f6b2'
+    const matched = judgeExtensionArtifact(artifact, { fileName: artifact.name, sha256: sha }, NOW)
+    expect(matched.assets?.[0]?.sha256).toBe(sha)
+    const mismatch = judgeExtensionArtifact(
+      { ...artifact, name: 'IHUI-AI-Extension-chrome-v1.0.2.zip' },
+      { fileName: 'IHUI-AI-Extension-chrome-v1.0.1.zip', sha256: sha },
+      NOW,
+    )
+    expect(mismatch.assets?.[0]?.sha256).toBeUndefined()
+  })
+  it('反向例:版本没变 ⇒ 页面拿不到任何"有新版"判据;抬版本才出现版本差', () => {
+    const same = judgeExtensionArtifact(
+      { name: 'IHUI-AI-Extension-chrome-v1.0.0.zip', sizeBytes: 1, mtimeMs: 2000 },
+      { version: '1.0.0', sizeBytes: 1 },
+      NOW,
+    )
+    expect(same.reason).toBeUndefined()
+    const bumped = judgeExtensionArtifact(
+      { name: 'IHUI-AI-Extension-chrome-v1.0.1.zip', sizeBytes: 1, mtimeMs: 2000 },
+      { version: '1.0.0', sizeBytes: 1 },
+      NOW,
+    )
+    expect(bumped.reason).toContain('extension-manifest-version-drift:1.0.0!=1.0.1')
+  })
   it('多枚取 mtime 最新那枚', () => {
     const newest = pickNewestArtifact([
       { name: 'a-v1.0.0.zip', sizeBytes: 10, mtimeMs: 100 },

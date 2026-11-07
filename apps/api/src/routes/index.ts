@@ -10,6 +10,8 @@ import { usersRoutes } from './users.js'
 import { workspaceRoutes } from './workspace.js'
 import { workspaceAiRoutes } from './workspace-ai.js'
 import { workspacePermissionRoutes } from './workspace-permissions.js'
+// 行级归因读取面(2026-11-04):GET/PUT /api/workspace/attribution,判据住 @ihui/shared/attribution
+import { workspaceAttributionRoutes } from './workspace-attribution.js'
 import { fileRoutes } from './files.js'
 import { adminRoutes } from './admin.js'
 import { i18nDashboardRoutes } from './i18n-dashboard.js'
@@ -32,6 +34,8 @@ import { chatSkillsRoutes } from './chat-skills.js'
 // 对话模板目录(2026-10-18 立服务端最小闭环):GET /api/chat/templates
 import { chatTemplateRoutes } from './chat-templates.js'
 import { teamRoutes } from './teams.js'
+// 多 Agent 协作:团队实体 / 持久收件箱 / 产物转交(2026-11-04 立,agent_ 前缀表)
+import { agentTeamRoutes } from './agent-team.js'
 import { rbacRoutes } from './rbac.js'
 import { workflowRoutes } from './workflows.js'
 import { commentRoutes } from './comments.js'
@@ -439,6 +443,7 @@ import { contextMentionRoutes } from './context-mentions.js'
 import { urlPreviewRoutes } from './url-preview.js'
 // Subagent 派单 UI(落地 AGENTS.md §11 派单格式)
 import { subagentDispatchRoutes } from './subagent-dispatch.js'
+import { superAgentRoutes } from './super-agent.js'
 // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
 import { orchestrationRoutes } from './orchestration.js'
 // A 套壳:SaaS Admin API 代理(迁移自 web 端 app/api/admin-saas/[...path]/route.ts)
@@ -582,6 +587,7 @@ export function registerRoutes(server: FastifyInstance) {
   // Workspace AI 能力：swarm/subagents/agent_loop/sandbox/computer_use/codebase_index/permissions 等 15 个子模块
   server.register(workspaceAiRoutes, { prefix: '/api/workspace' })
   server.register(workspacePermissionRoutes, { prefix: '/api/workspace' })
+  server.register(workspaceAttributionRoutes, { prefix: '/api/workspace' })
   // 文件管理增强 API：/api/files/*（/api/tags 已迁至 socialRoutes）
   server.register(fileRoutes, { prefix: '/api' })
   server.register(adminRoutes, { prefix: '/api/admin' })
@@ -595,6 +601,8 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(searchRoutes, { prefix: '/api' })
   server.register(auditRoutes, { prefix: '/api/admin' })
   server.register(teamRoutes, { prefix: '/api/teams' })
+  // 独立前缀与人类工作区团队隔离,避免 /api/teams/:id 的既有语义被覆盖
+  server.register(agentTeamRoutes, { prefix: '/api' })
   server.register(chatRoutes, { prefix: '/api/chat' })
   // D179(2026-09-30 用户拍板立项):POST/DELETE /api/chat/conversations/:id/issue + POST /api/chat/issues/search
   server.register(chatIssueBindingRoutes, { prefix: '/api/chat' })
@@ -1275,6 +1283,7 @@ export function registerRoutes(server: FastifyInstance) {
   server.register(urlPreviewRoutes, { prefix: '/api/url-preview' })
   // Subagent 派单 UI(AGENTS.md §11 派单格式 + mesh 拓扑可视化)
   server.register(subagentDispatchRoutes, { prefix: '/api' })
+  server.register(superAgentRoutes, { prefix: '/api' })
   // 跨支柱编排中枢(2026-07-23 立,6 支柱协同 + LLM 预算 + 统一遥测)
   server.register(orchestrationRoutes, { prefix: '/api' })
   // P3 深度层:AI 教育引擎 SRS 间隔复习(SM-2 算法)+ LangGraph 升级(interrupt HITL + 5 模式 streaming + Time Travel)

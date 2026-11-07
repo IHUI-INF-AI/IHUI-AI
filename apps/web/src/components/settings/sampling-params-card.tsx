@@ -117,7 +117,7 @@ function NumberField({
                 commit()
               }
             }}
-            className="h-8 w-28 text-xs"
+            className="font-[weight:inherit] h-8 w-28 text-label"
           />
         </div>
       </div>
@@ -150,7 +150,9 @@ export function SamplingParamsCard() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-xs leading-snug text-muted-foreground">{t('desc')}</p>
+        <p className="font-[weight:inherit] text-label leading-snug text-muted-foreground">
+          {t('desc')}
+        </p>
 
         <div className="grid gap-4 min-[640px]:grid-cols-2">
           <NumberField
@@ -231,7 +233,7 @@ export function SamplingParamsCard() {
             placeholder={t('systemPromptPlaceholder')}
             onChange={(e) => set('systemPrompt')(e.target.value)}
             rows={3}
-            className="w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-xs leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="font-[weight:inherit] w-full resize-y rounded-sm border border-input bg-transparent px-2.5 py-2 text-label leading-relaxed placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
           <p className="text-[11px] leading-snug text-muted-foreground">{t('systemPromptHint')}</p>
         </div>

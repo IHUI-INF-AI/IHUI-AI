@@ -10,7 +10,8 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { __test__ as G } from '../check-web-rn-copy-parity.mjs'
@@ -57,14 +58,15 @@ test('T2 同屏同文案硬编码 ⇒ B1 红,并点名 web 键', () => {
   assert.equal(r.advisory.length, 0)
 })
 
-test('T3 同值异键 ⇒ B2 警告,不判红', () => {
+test('T3 同值异键(同尾段) ⇒ 已裁决的命名约定,不判红', () => {
   const r = G.judgeScreen(
     { web: 'wallet', rn: 'rn/W.tsx', webKeys: new Set(['common.save']), rnKeys: new Set(['wallet.save']), hardcoded: [] },
     MESSAGES,
   )
   assert.equal(r.blocking.length, 0)
-  assert.equal(r.advisory.length, 1)
-  assert.equal(r.advisory[0].rule, 'B2-key-diff')
+  assert.equal(r.advisory.length, 0)
+  assert.equal(r.accepted.length, 1)
+  assert.equal(r.accepted[0].rule, 'B2-accepted')
 })
 
 test('T4 同键不报;RN 自有中文(web 无同值键)不判红', () => {
@@ -124,8 +126,8 @@ test('T8 台账:到期即红;count 差额与缺字段点名;scopeFiles 只判本
   assert.equal(malformed.malformed.length, 3)
 })
 
-test('T9 自检全绿(12 例)', () => {
-  assert.equal(G.runSelfTest(), 12)
+test('T9 自检全绿(18 例)', () => {
+  assert.equal(G.runSelfTest(), 18)
 })
 
 test('T10 接线对账:gate 291 已注册进 guardian-runner,blocking + staged 触发面 + skip env', () => {
@@ -139,13 +141,91 @@ test('T10 接线对账:gate 291 已注册进 guardian-runner,blocking + staged �
   assert.match(SELF, /集成位置: .*guardian-runner\.mjs 第 291 项/)
 })
 
-test('T11 账本文件在仓且条目形制齐全,分母不为零(首读真有差异)', () => {
+test('T11 账本结构合法:条目必须是可判据规则且字段齐全;空账必须带 emptyReason(清零依据)', () => {
   const raw = JSON.parse(readFileSync(join(ROOT, 'scripts/data/web-rn-copy-diffs.json'), 'utf8'))
-  assert.ok(Array.isArray(raw.entries) && raw.entries.length > 0)
+  assert.ok(Array.isArray(raw.entries), 'entries 必须是数组')
+  if (raw.entries.length === 0) {
+    assert.ok(
+      typeof raw.emptyReason === 'string' && raw.emptyReason.trim(),
+      '空账必须写明 emptyReason(已清零的判定依据)',
+    )
+  }
   for (const e of raw.entries) {
     assert.ok(e.file && e.rule && e.owner && e.expires && e.evidence, `条目缺字段:${JSON.stringify(e).slice(0, 120)}`)
     assert.match(e.expires, /^\d{4}-\d{2}-\d{2}$/)
     assert.ok(Number.isInteger(e.count) && e.count > 0, `count 非正整数:${e.file}`)
+    assert.ok(G.JUDGED_RULES.has(e.rule), `rule 不是可判据规则(真缺口不许挂账):${e.rule}`)
+  }
+})
+
+test('T11b 真缺口必红:web 侧缺键而 RN 有消费被挂账(B1-web-no-key)⇒ 形状判据必须红', () => {
+  const gap = G.validateLedgerShape(
+    [{ file: 'learn', rule: 'B1-web-no-key', count: 4, owner: 'web-rn-copy', expires: '2027-06-30', evidence: 'x' }],
+    undefined,
+  )
+  assert.equal(gap.length, 1)
+  assert.match(gap[0], /web 侧缺键而 RN 有消费/)
+  assert.deepEqual(G.validateLedgerShape([], '已清零:B1 0 / B2 0 / B3 0 / 未判定 0'), [])
+  assert.equal(G.validateLedgerShape([], undefined).length, 1)
+})
+
+test('T11c 退休行:entries 带标记 ⇒ 判据面剔除不计数;retired[] 缺 sha/理由短 ⇒ 红;正常条目不受影响', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'web-rn-retired-'))
+  try {
+    // 五个标记齐全、理由定向且 ≥10 字、sha 为 64 位小写十六进制
+    const retired = {
+      file: 'learn',
+      rule: 'B2-key-diff',
+      count: 1,
+      owner: 'web-rn-copy',
+      expires: '2027-06-30',
+      evidence: 'x',
+      retiredAt: '2026-11-05T12:00:00+08:00',
+      retiredReason: '同屏双键经裁决属角色不同,已并入 ROLE_EXEMPTIONS',
+      retiredBy: 'web-rn-copy',
+      retiredFrom: '{"file":"learn"}',
+      retiredFromSha: 'a'.repeat(64),
+    }
+    const p = join(dir, 'ledger.json')
+    writeFileSync(p, JSON.stringify({ entries: [retired], retired: [retired], emptyReason: '已清零' }))
+    // ① 判决面:entries 里的退休行被剔除 ⇒ 0 条、形状不红(不许因 retired[] 存在就红)
+    assert.deepEqual(G.readLedger(p), [], '带退休标记的 entry 不得留在判据面')
+    assert.equal(G.readLedgerRetired(p).length, 1, 'retired[] 必须被读到(否则形状判据空转)')
+    assert.deepEqual(
+      G.validateLedgerShape(G.readLedger(p), '已清零', G.readLedgerRetired(p)),
+      [],
+      '退休行齐全 ⇒ 形状必须绿',
+    )
+    // ② 缺 retiredFromSha ⇒ 红;理由 <10 字 ⇒ 红
+    const noSha = { ...retired }
+    delete noSha.retiredFromSha
+    assert.ok(
+      G.validateLedgerShape([], '已清零', [noSha]).some((x) => /缺退休标记/.test(x)),
+      '缺 retiredFromSha 必须判形状红',
+    )
+    assert.ok(
+      G.validateLedgerShape([], '已清零', [{ ...retired, retiredReason: '退休' }]).some((x) =>
+        /少于 10 字/.test(x),
+      ),
+      '理由 <10 字必须判形状红',
+    )
+    assert.ok(
+      G.validateLedgerShape([], '已清零', [{ ...retired, retiredFromSha: 'short' }]).some((x) =>
+        /retiredFromSha/.test(x),
+      ),
+      'sha 非 64 位必须判形状红',
+    )
+    // ③ 正常条目不受影响:可判据规则照旧绿,非法规则照旧红
+    assert.deepEqual(
+      G.validateLedgerShape([{ file: 'wallet', rule: 'B2-key-diff', count: 1 }], undefined, []),
+      [],
+    )
+    assert.equal(
+      G.validateLedgerShape([{ file: 'learn', rule: 'B1-web-no-key', count: 4 }], undefined, []).length,
+      1,
+    )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
   }
 })
 

@@ -2,17 +2,13 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { apiOrThrow } from '@/lib/api'
+import { listSecurityAnomalies } from '@ihui/api-client'
 import type { AnomalyListData, AnomalyQuery } from './types'
 
 export async function fetchAnomalies(query: AnomalyQuery): Promise<AnomalyListData> {
-  const qs = new URLSearchParams()
-  if (query.limit !== undefined) qs.set('limit', String(query.limit))
-  if (query.offset !== undefined) qs.set('offset', String(query.offset))
-  if (query.minScore !== undefined) qs.set('minScore', String(query.minScore))
-  if (query.ip) qs.set('ip', query.ip)
-  const queryStr = qs.toString()
-  return apiOrThrow<AnomalyListData>(`/api/security/anomalies${queryStr ? `?${queryStr}` : ''}`)
+  const res = await listSecurityAnomalies(query)
+  if (!res.success) throw new Error(res.error)
+  return res.data
 }
 
 export function scoreClass(score: number): string {

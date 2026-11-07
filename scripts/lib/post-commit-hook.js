@@ -249,7 +249,11 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
         } catch {
           /* 快照失败 ⇒ 用主索引(与旧行为一致),不阻断补跑 */
         }
-        const child = spawn(process.execPath, ['scripts/guardian-runner.mjs', '--staged'], {
+        // BUG-19② 根治:补跑发生在**提交之后**,索引快照与 HEAD 树一致 ⇒
+        // `git diff --cached --name-only` 为空,而执行器对带 stagedTriggers 的门在空集上恒 false
+        // ⇒ 被延后的门在补跑里再次全跳(288 道 blocking 中 286 道带 stagedTriggers)。
+        // 去掉 --staged 走全量档:passStaged=false ⇒ 条件触发分支不再生效,门真在新 HEAD 上判。
+        const child = spawn(process.execPath, ['scripts/guardian-runner.mjs'], {
           cwd: ROOT,
           detached: true,
           stdio: ['ignore', fd, fd],

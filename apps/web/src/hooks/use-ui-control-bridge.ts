@@ -17,7 +17,11 @@
 import * as React from 'react'
 
 import { useTranslations } from 'next-intl'
-import { createNotificationClient } from '@ihui/api-client'
+import {
+  createNotificationClient,
+  reportAgentControlCapability,
+  reportAgentControlResult,
+} from '@ihui/api-client'
 import {
   createAssignmentTokenLedger,
   createReplayWatermark,
@@ -34,7 +38,6 @@ import type {
   UiControlActionType,
   WSNotification,
 } from '@ihui/types'
-import { fetchApi } from '@/lib/api'
 import {
   configureUiControlBridge,
   executeUiAction,
@@ -123,10 +126,7 @@ function buildCapability(): AgentControlCapability {
 
 async function reportCapability(): Promise<void> {
   try {
-    const res = await fetchApi<{ registered: boolean; instanceId: string }>(
-      '/api/agent-control/capability',
-      { method: 'POST', body: JSON.stringify(buildCapability()) },
-    )
+    const res = await reportAgentControlCapability(buildCapability())
     if (!res.success) console.warn('[web-ui] agent-control capability report failed')
   } catch (err) {
     console.warn('[web-ui] agent-control capability report error:', err)
@@ -136,10 +136,7 @@ async function reportCapability(): Promise<void> {
 async function reportResult(response: AgentActionResponse): Promise<void> {
   const payload = withRespondedIdentity(response, assignmentTokens, selfIdentity())
   try {
-    const res = await fetchApi<{ accepted: boolean }>('/api/agent-control/result', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    })
+    const res = await reportAgentControlResult(payload)
     if (!res.success) console.warn('[web-ui] agent-control result report failed')
   } catch (err) {
     console.warn('[web-ui] agent-control result report error:', err)

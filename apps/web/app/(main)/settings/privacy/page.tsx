@@ -16,6 +16,7 @@ import {
   Code2,
   Brain,
   ChartNoAxesColumn,
+  Activity,
   Loader2,
 } from 'lucide-react'
 
@@ -23,6 +24,7 @@ import { Card, CardHeader, CardTitle, CardContent, Switch } from '@ihui/ui-react
 import { BackButton } from '@/components/common'
 import { Container } from '@/components/layout'
 import { fetchApi } from '@/lib/api'
+import { isRumConsentGranted, setRumConsent } from '@/lib/rum/consent'
 
 interface PrivacyPrefs {
   dataVisible: boolean
@@ -72,6 +74,14 @@ interface PrivacyPrefs {
    * 缺省(键不存在)= true = 保持整改前的现状行为(埋点照常上报),不静默改变行为。
    */
   analyticsEnabled: boolean
+  /**
+   * 客户端 RUM（性能与错误诊断）同意开关。
+   *
+   * 与 analyticsEnabled 的"默认开、opt-out"不同，RUM 是 **opt-in**：
+   * 默认关闭，只有用户在这里显式打开后才采集；关闭时不入队、不发请求（零网络）。
+   * 该状态只存本机 localStorage，**不写后端偏好** —— 服务端无权替用户打开性能采集。
+   */
+  rumEnabled: boolean
 }
 
 export default function PrivacyPage() {
@@ -90,6 +100,7 @@ export default function PrivacyPage() {
     // 缺省 true = 部署方没关(整改前行为);端点返回前界面不会渲染,不会闪出假状态。
     autoMemoryGloballyEnabled: true,
     analyticsEnabled: true,
+    rumEnabled: isRumConsentGranted(),
   })
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState('')
@@ -144,6 +155,8 @@ export default function PrivacyPage() {
           // 变成关闭,与读取端的判定逻辑不一致,开关会显示成与实际相反的状态。
           analyticsEnabled: s.analyticsEnabled !== 'false',
           autoMemoryGloballyEnabled: globalEnabled,
+          // RUM 同意只读本机（不从后端 prefs 覆盖），刷新页面后沿用本地选择。
+          rumEnabled: isRumConsentGranted(),
         })
       } else {
         setError(t('privacyLoadFailed'))
@@ -168,6 +181,14 @@ export default function PrivacyPage() {
     // 这里直接忽略并把界面复位到"关"(全局闸下记忆确实是关的)。
     if (key === 'autoMemoryOptOut' && !prefs.autoMemoryGloballyEnabled) {
       setPrefs((prev) => ({ ...prev, autoMemoryOptOut: true }))
+      return
+    }
+    // RUM 同意仅本地留存（见 PrivacyPrefs.rumEnabled 注释），不走 PUT /settings/privacy：
+    // 服务端存"允许"会破坏"默认关闭 + 显式同意"的语义。
+    if (key === 'rumEnabled') {
+      setPrefs((prev) => ({ ...prev, rumEnabled: value }))
+      setRumConsent(value)
+      setToast({ type: 'success', msg: t('privacySaveSuccess') })
       return
     }
     setPrefs((prev) => ({ ...prev, [key]: value }))
@@ -237,6 +258,13 @@ export default function PrivacyPage() {
       title: t('analyticsEnabled'),
       desc: t('analyticsEnabledDesc'),
       key: 'analyticsEnabled' as const,
+    },
+    {
+      // 同样是 opt-in 语义（true = 允许采集）。默认 false，关闭时零请求。
+      icon: Activity,
+      title: t('rumEnabled'),
+      desc: t('rumEnabledDesc'),
+      key: 'rumEnabled' as const,
     },
   ]
 

@@ -48,6 +48,12 @@ from ..core.internal_ticket import (
 )
 from ..core.llm_gateway import llm_gateway
 from . import rg_fallback_parity as _rgp
+from .codebase_recall_expand import (
+    fold_adjacent_hits,
+    merge_recall,
+    symbol_seeds,
+    truncate_chunk,
+)
 from .dir_rhash import diff_dir_rhash, dir_rhash_map
 from .ignore_rules import (
     DEFAULT_IGNORE_FILENAMES,
@@ -69,6 +75,25 @@ from .rename_detect import (
 from .rg_fallback_parity import EnumerationProvenance
 
 logger = logging.getLogger(__name__)
+
+
+def classify_fs_path(path: Path) -> str:
+    """dir/file/other = 量到了; missing = 没有; unread = 读失败,不能说成没有。"""
+    import stat as _stat
+
+    try:
+        st = os.stat(path)
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unread"
+    if _stat.S_ISDIR(st.st_mode):
+        return "dir"
+    if _stat.S_ISREG(st.st_mode):
+        return "file"
+    return "other"
+
+
 
 # ---- anydoc 文档提取引擎(可选依赖)----
 # 文档格式(docx/doc/pdf/pptx/ppt/xls/xlsx/odt/ods/odp/rtf/epub)为二进制容器,
@@ -142,6 +167,74 @@ _IGNORED_DIRS: set[str] = {
 
 # 每个切片最大字符数(防 embedding 输入过长)
 MAX_CHUNK_CHARS = 8000
+
+
+def _truncate(content: str) -> str:
+    """切片长度帽的唯一出口(实现单源 = `codebase_recall_expand.truncate_chunk`,§0.6)。
+
+    此前全仓有五处 `x = x[:MAX_CHUNK_CHARS]` 逐字重复;判据只许一份,
+    以后改帽只改 `MAX_CHUNK_CHARS` 这一处。
+    """
+    return truncate_chunk(content, max_chars=MAX_CHUNK_CHARS)
+
+
+# ---- 召回面档位(goal-b49 Z12;取证对齐 triage ② #4「符号扩召回」/#5「行区间就近合并」)----
+#: 合成摘要片的 symbol_type:它们的"符号名"是目录名/文件名(见 `_build_*_summary_chunks`),
+#: 拿去当扩召回种子会把整仓摘要互相拉进来 ⇒ 排除集必须由索引侧给(纯函数层不猜)。
+SUMMARY_SYMBOL_TYPES: frozenset[str] = frozenset({"module_summary", "architecture_summary"})
+#: 行区间就近合并的默认间隔(行):0 = 只真正重叠/相接才并;3 = 允许跨三行缝并片。
+DEFAULT_MERGE_GAP_LINES = 3
+#: 符号扩召回的种子上限(每枚种子 = 一跳 keyword 查询,必须有界,不得随命中数放大)。
+DEFAULT_SYMBOL_EXPAND_SEEDS = 2
+#: 扩召回 env 开关名(缺省**开**;关词 0/false/off)。
+SYMBOL_EXPAND_ENV = "IHUI_CODEBASE_SYMBOL_EXPAND"
+#: 合并间隔 env(非法值 ⇒ 出声回落默认,与 `_lease_wait_seconds` 同一条纪律)。
+MERGE_GAP_ENV = "IHUI_CODEBASE_MERGE_GAP_LINES"
+_RECALL_OFF_VALUES = frozenset({"0", "false", "off", "no"})
+_RECALL_ON_VALUES = frozenset({"1", "true", "on", "yes"})
+
+#: 符号名过滤位下推后「这一跳没判成」的具名异常(goal-b49 Z37)。
+#:
+#: 为什么必须是异常而不是 `[]`:符号档的语义承诺是「库内**全部**同符号切片」,
+#: 而 `search()` 的旧契约把「HTTP 4xx/5xx、网络异常、响应形态不合」和「确实无命中」
+#: 一起咽成 `[]`(§0.3 早在 `_query_chunks` 头注点名过这一型)。缺省档里那格只是
+#: 「语义腿没给结果」,装配层照常按融合出参,危害有限;符号档里它是**冒充判定**——
+#: 调用方以为过滤跑过了,实际连一次查询都没落地。故符号档下首跳未判定时不再返回 `[]`,
+#: 改为抛出本异常,由消费方(`mcp_server._semantic_leg`)转成具名结论。
+#: 缺省档(symbol_name 为空)一次都不抛,行为与今天逐字节相同。
+class SymbolFilterUndetermined(RuntimeError):
+    """symbol_name 已下推、但检索腿取不到响应 ⇒ 未判定(不得静默回落成「没有」)。"""
+
+
+def _recall_env_flag(name: str, default: bool) -> bool:
+    """召回面布尔 env:缺省/空 ⇒ 默认;开/关词各认;非法值**出声**回落默认。"""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    value = raw.strip().lower()
+    if value in _RECALL_OFF_VALUES:
+        return False
+    if value in _RECALL_ON_VALUES:
+        return True
+    logger.warning("%s=%r 不在认得的取值里,回落默认 %s", name, raw, default)
+    return default
+
+
+def _recall_env_int(name: str, default: int, *, minimum: int = 0) -> int:
+    """召回面整数 env:非数字/越界 ⇒ 出声回落默认(不把 0 当"没配过"冒充判过)。"""
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        logger.warning("%s=%r 不是整数,回落默认 %d", name, raw, default)
+        return default
+    if value < minimum:
+        logger.warning("%s=%d 越界(下限 %d),回落默认 %d", name, value, minimum, default)
+        return default
+    return value
+
 # 固定行数切片参数(降级模式)
 FIXED_CHUNK_LINES = 100
 FIXED_CHUNK_OVERLAP = 50
@@ -171,6 +264,15 @@ def _merkle_root(file_hashes: dict[str, str]) -> str:
     任一文件增删改都会改变根 hash,重索引时可 O(1) 判断整仓是否变更。"""
     joined = "\n".join(f"{p}:{h}" for p, h in sorted(file_hashes.items()))
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+def _default_repo_id(root: Path) -> str:
+    """缺省 repo_id 的唯一形态(全量与增量两条路径共用,§0.6 禁第二把尺)。"""
+    return f"local-{hashlib.sha256(str(root).encode()).hexdigest()[:16]}"
+
+
+#: 写入 API 的分批条数(全量与增量共用同一写通道,单源)。
+_WRITE_BATCH_SIZE = 100
 
 
 #: git 跟踪面探针的超时(秒)。派生调用必须有界,否则一次挂起会把整条索引链拖成无界等待。
@@ -682,8 +784,7 @@ class CodebaseIndexer:
                 start_idx = node.start_byte
                 end_idx = node.end_byte
                 chunk_content = content[start_idx:end_idx]
-                if len(chunk_content) > MAX_CHUNK_CHARS:
-                    chunk_content = chunk_content[:MAX_CHUNK_CHARS]
+                chunk_content = _truncate(chunk_content)
                 if chunk_content.strip():
                     chunks.append(CodeChunk(
                         file_path="",  # 由调用方填充
@@ -766,8 +867,7 @@ class CodebaseIndexer:
                         end_idx = start_idx
                     chunk_lines = lines[start_idx : end_idx + 1]
                     chunk_content = "\n".join(chunk_lines)
-                    if len(chunk_content) > MAX_CHUNK_CHARS:
-                        chunk_content = chunk_content[:MAX_CHUNK_CHARS]
+                    chunk_content = _truncate(chunk_content)
                     if chunk_content.strip():
                         chunks.append(CodeChunk(
                             file_path="",
@@ -790,8 +890,7 @@ class CodebaseIndexer:
             end = min(start + FIXED_CHUNK_LINES, total_lines)
             chunk_lines = lines[start:end]
             chunk_content = "\n".join(chunk_lines)
-            if len(chunk_content) > MAX_CHUNK_CHARS:
-                chunk_content = chunk_content[:MAX_CHUNK_CHARS]
+            chunk_content = _truncate(chunk_content)
             if chunk_content.strip():
                 chunks.append(CodeChunk(
                     file_path="",
@@ -1088,6 +1187,32 @@ class CodebaseIndexer:
             prev_dirs,
         )
 
+    def _snapshot_blocks_replace(self, path: Path) -> bool:
+        """空快照可以换成新的。非空损坏、解不开或根不是对象时不能覆盖。"""
+        if not path.is_file():
+            return False
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return True
+        if raw.strip() == b"":
+            return False
+        if raw[:2] == b"\x1f\x8b":
+            try:
+                text = gzip.decompress(raw).decode("utf-8")
+            except (OSError, UnicodeDecodeError, EOFError):
+                return True
+        else:
+            try:
+                text = raw.decode("utf-8")
+            except UnicodeDecodeError:
+                return True
+        try:
+            parsed = json.loads(text)
+        except ValueError:
+            return True
+        return not isinstance(parsed, dict)
+
     def _save_snapshot(
         self,
         repo_id: str,
@@ -1109,6 +1234,9 @@ class CodebaseIndexer:
         try:
             _MERKLE_SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
             path = self._snapshot_path(repo_id, root)
+            if self._snapshot_blocks_replace(path):
+                logger.warning("Merkle 快照损坏,不能把它覆盖成新快照: %s", path)
+                return
             tmp = path.with_name(f"{path.name}.{os.getpid()}-{uuid.uuid4().hex[:8]}.tmp")
             payload: dict[str, Any] = {
                 "schemaVersion": SNAPSHOT_SCHEMA_VERSION,
@@ -1168,8 +1296,7 @@ class CodebaseIndexer:
             f"Module summary: {rel_path} ({language})\n"
             f"This module contains {len(symbols)} symbols:\n" + "\n".join(symbols)
         )
-        if len(content) > MAX_CHUNK_CHARS:
-            content = content[:MAX_CHUNK_CHARS]
+        content = _truncate(content)
         return CodeChunk(
             file_path=rel_path,
             line_start=1,
@@ -1193,8 +1320,9 @@ class CodebaseIndexer:
         Returns:
             架构摘要切片列表(symbol_type=architecture_summary)。
         """
+        # 排序保证两路径逐字等值(增量轮 merged dict 插入序 ≠ 全量枚举序;§0.6 共用判据)
         by_dir: dict[str, list[str]] = {}
-        for rel_path, _lang, sym_count in rel_paths:
+        for rel_path, _lang, sym_count in sorted(rel_paths):
             directory = rel_path.rsplit("/", 1)[0] if "/" in rel_path else "(root)"
             by_dir.setdefault(directory, []).append(f"{rel_path} ({sym_count} symbols)")
 
@@ -1207,8 +1335,7 @@ class CodebaseIndexer:
                 f"Contains {len(files)} indexed source files:\n"
                 + "\n".join(files[:200])
             )
-            if len(content) > MAX_CHUNK_CHARS:
-                content = content[:MAX_CHUNK_CHARS]
+            content = _truncate(content)
             chunks.append(
                 CodeChunk(
                     file_path=f"{directory}/",
@@ -1319,15 +1446,20 @@ class CodebaseIndexer:
             IndexResult 统计信息。
         """
         root = Path(repo_path).resolve()
-        if not root.exists() or not root.is_dir():
+        root_kind = classify_fs_path(root)
+        if root_kind == "unread":
+            return IndexResult(
+                repo_id=repo_id or "",
+                errors=[f"仓库路径读不到,不能把它说成不存在或不是目录: {repo_path}"],
+            )
+        if root_kind != "dir":
             return IndexResult(
                 repo_id=repo_id or "",
                 errors=[f"仓库路径不存在或不是目录: {repo_path}"],
             )
 
         if not repo_id:
-            path_hash = hashlib.sha256(str(root).encode()).hexdigest()[:16]
-            repo_id = f"local-{path_hash}"
+            repo_id = _default_repo_id(root)
 
         result = IndexResult(repo_id=repo_id)
         files, traversal_prov, ignore_report = self.collect_code_files_with_provenance(root)
@@ -1448,6 +1580,19 @@ class CodebaseIndexer:
                 {"newPath": new_path, "oldPath": old_path}
                 for new_path, old_path in sorted(dir_diff.moved.items())
             ]
+        if incremental and (traversal_prov.unread_dirs or traversal_prov.saturated):
+            # 没列全的差集里,缺席的路径可能还在读不到的目录里,或在触顶之后。
+            # 拿它去删切片,等于把没量到说成已删除。
+            deleted_paths = []
+            if traversal_prov.unread_dirs:
+                result.errors.append(
+                    f"有 {traversal_prov.unread_dirs} 个目录读不到,"
+                    "不能把没列到的文件当成已删除,本轮跳过幽灵切片清理"
+                )
+            if traversal_prov.saturated:
+                result.errors.append(
+                    "枚举触顶,没列到的文件不能当成已删除,本轮跳过幽灵切片清理"
+                )
         if incremental and snapshot.state in (SNAPSHOT_STATE_CORRUPT, SNAPSHOT_STATE_TRUNCATED):
             # 坏档派生的"已删除集"不可信:宁可这一轮不清幽灵切片,也不拿一份自证失败的档
             # 去删活文件的切片。上一轮这条是安静退化成 prev={} 的,于是"没清理"被读成"清理完了"。
@@ -1587,8 +1732,8 @@ class CodebaseIndexer:
         # 批量生成 embedding
         result.chunks_vectorized = await self._generate_embeddings_batch(all_chunks)
 
-        # 分批写入 API(每批 100 条)
-        BATCH_WRITE = 100
+        # 分批写入 API(批次大小单源 = 模块常量,增量路径共用同一写通道)
+        BATCH_WRITE = _WRITE_BATCH_SIZE
         for i in range(0, len(all_chunks), BATCH_WRITE):
             batch = all_chunks[i : i + BATCH_WRITE]
             try:
@@ -1625,7 +1770,13 @@ class CodebaseIndexer:
             internal_user_id: 内部用户 ID(写入向量化 chunk 时隔离归属)。
         """
         path = Path(file_path).resolve()
-        if not path.exists() or not path.is_file():
+        path_kind = classify_fs_path(path)
+        if path_kind == "unread":
+            return IndexResult(
+                repo_id=repo_id,
+                errors=[f"文件读不到,不能把它说成不存在: {file_path}"],
+            )
+        if path_kind != "file":
             return IndexResult(
                 repo_id=repo_id,
                 errors=[f"文件不存在: {file_path}"],
@@ -1666,8 +1817,20 @@ class CodebaseIndexer:
         top_k: int = 10,
         api_token: str | None = None,
         internal_user_id: str | None = None,
+        symbol_expand: bool | None = None,
+        merge_gap_lines: int | None = None,
+        symbol_name: str | None = None,
     ) -> list[dict[str, Any]]:
-        """语义搜索代码片段(委托给 API 端点)。
+        """语义搜索代码片段(委托给 API 端点;出口带两跳后处理)。
+
+        召回面(2026-11-05 Z12 补,对齐 triage ② #4/#5):
+        - **符号扩召回**:命中片里的真符号(排除 `SUMMARY_SYMBOL_TYPES` 那两类合成摘要片)
+          至多取 `DEFAULT_SYMBOL_EXPAND_SEEDS` 枚当种子,各补一跳 `mode=keyword` 查询,
+          回来的候选按身份键去重并入(命中片**不会**被复制成两份),逐条打
+          `symbol_expanded` / `expanded_from`。env `IHUI_CODEBASE_SYMBOL_EXPAND` 关词可关。
+        - **行区间就近合并**:同文件内间隔 ≤ `merge_gap_lines` 的碎片并成一片下发,
+          被跳过的行在 `content` 里留显式 gap 标记并计 `gap_lines_skipped`。
+          env `IHUI_CODEBASE_MERGE_GAP_LINES`(缺省 3)。
 
         Args:
             query: 自然语言查询(如"用户认证逻辑")。
@@ -1679,26 +1842,47 @@ class CodebaseIndexer:
                 按归属隔离**)。api 侧从 X-User-Id 头取 req.userId 决定可见范围;
                 不传则检索被拒(401)。这与写入面是同一条纪律 —— 只隔离写不隔离读,
                 等于数据换个方向就又漏出去了。
+            symbol_expand: 三态。None = 听 env `IHUI_CODEBASE_SYMBOL_EXPAND`(缺省**开**);
+                True/False = 本次调用显式覆盖 —— 开关两跑就是"符号维到底带来了哪几枚
+                候选"的正向对照,不需要第二把尺。
+            merge_gap_lines: None = 听 env(缺省 3);数字 = 本次显式间隔(0 = 只并重叠/相接)。
+            symbol_name: 符号名**精确**过滤位(goal-b49 Z37 下推)。None/空串 = 不过滤,
+                这一格今天长什么样就还长什么样(连 HTTP 请求体都不新增键);非空 = 逐字
+                等值条件随首跳一起交给 api 的 `/api/v1/codebase/search`,由 **api 侧单源**
+                `rowBudget()` 决定取回上限(Z36 立:`SYMBOL_SCOPED_ROW_CAP`),本层不复算
+                那份预算,更不在这里做「先截后滤」(§0.6)。取不到响应 ⇒ 抛
+                `SymbolFilterUndetermined`,不返回 `[]` 冒充「库里没有」(§0.3)。
 
         Returns:
-            切片列表,每个含 file_path/line_start/line_end/content/symbol_name/symbol_type/score。
+            切片列表,每个含 file_path/line_start/line_end/content/symbol_name/symbol_type/score;
+            走过扩召回/并片的条目另带在账键 `symbol_expanded`/`expanded_from`/
+            `lines_merged`/`merged_ranges`/`gap_lines_skipped`(计数随片下发,不另开读数面)。
+        """
+        out = await self.search_with_recall(
+            query,
+            repo_id=repo_id,
+            language=language,
+            top_k=top_k,
+            api_token=api_token,
+            internal_user_id=internal_user_id,
+            symbol_expand=symbol_expand,
+            merge_gap_lines=merge_gap_lines,
+            symbol_name=symbol_name,
+        )
+        return cast(list[dict[str, Any]], out["chunks"])
+
+    async def _query_chunks(
+        self, payload: dict[str, Any], headers: dict[str, str]
+    ) -> tuple[list[dict[str, Any]], str | None]:
+        """一次检索查询的唯一出口 → (切片, 未判定原委)。
+
+        三态分立:`([], None)` = 判过了、确实无命中;`([], 原委)` = **没判**(HTTP 4xx/5xx、
+        网络异常、响应形态不合)。调用方必须把后一档带进回执,不得把"取不到"写成"没有"
+        (§0.3;此前 `search()` 两种情况都只 return [],消费方无从分辨)。
         """
         import httpx
 
         url = f"{self._api_base_url}/api/v1/codebase/search"
-        payload: dict[str, Any] = {
-            "query": query,
-            "topK": top_k,
-            # hybrid=向量+关键词 RRF 融合(服务端默认,显式声明契约,2026-09-07 立)
-            "mode": "hybrid",
-        }
-        if repo_id:
-            payload["repoId"] = repo_id
-        if language:
-            payload["language"] = language
-        # 2026-10-03:检索面按归属隔离,身份必须带上(与写入面同一纪律)
-        headers = self._internal_auth_headers(api_token, internal_user_id)
-
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 resp = await client.post(url, json=payload, headers=headers)
@@ -1708,14 +1892,136 @@ class CodebaseIndexer:
                         resp.status_code,
                         resp.text[:200],
                     )
-                    return []
+                    return [], f"HTTP {resp.status_code}"
                 data = resp.json()
                 # API 返回 { code, message, data: { chunks: [...] } }
                 inner = data.get("data", data) if isinstance(data, dict) else {}
-                return cast(list[dict[str, Any]], inner.get("chunks", []))
+                if not isinstance(inner, dict):
+                    return [], "响应体不是对象,取不到 chunks"
+                return cast(list[dict[str, Any]], inner.get("chunks", [])), None
         except Exception as e:
             logger.warning("语义搜索失败: %s", e)
-            return []
+            return [], f"{type(e).__name__}:{e}"
+
+    async def search_with_recall(
+        self,
+        query: str,
+        repo_id: str | None = None,
+        language: str | None = None,
+        top_k: int = 10,
+        api_token: str | None = None,
+        internal_user_id: str | None = None,
+        *,
+        symbol_expand: bool | None = None,
+        merge_gap_lines: int | None = None,
+        symbol_name: str | None = None,
+    ) -> dict[str, Any]:
+        """`search()` 的完整形态:切片 + 一份召回账(`recall`)。
+
+        `recall` 只报本轮**量到**的数:`base`(第一跳回来几条)、`seeds`(取了哪几枚符号种子)、
+        `symbol_added`(补一跳净增几条)、`merged`(并片并掉几条)、`failures`(哪一跳没判成),
+        开关对照读 `base` 与 `symbol_added` 两格即可解释。
+
+        Z37 补一格 `symbol_filter`:只在**请求了**符号名过滤时出现(`recall["symbol_name"]`
+        是下传的那枚串,`recall["symbol_pushdown"]` 是 `pushed` / `unjudged:<原委>`)。
+        缺省档这两个键都不存在 ⇒ 召回账形状与今天逐字节相同。
+        """
+        base_payload: dict[str, Any] = {
+            "query": query,
+            "topK": top_k,
+            # hybrid=向量+关键词 RRF 融合(服务端默认,显式声明契约,2026-09-07 立)
+            "mode": "hybrid",
+        }
+        if repo_id:
+            base_payload["repoId"] = repo_id
+        if language:
+            base_payload["language"] = language
+        # Z37 下推:符号名精确过滤位进**请求体**(不是回来再挑)。
+        # 空串一律不进 payload —— api 侧 searchSchema 是 `min(1)`,把 "" 发过去会拿到 400,
+        # 而 400 在符号档的语义是「未判定」,会把一次本来不该发起过滤的缺省查询顶成红。
+        # 所以「空 = 不过滤」在这一格仍然是逐字节等价于今天(连 payload 都不多一个键)。
+        sym_filter = str(symbol_name or "").strip()
+        if sym_filter:
+            base_payload["symbolName"] = sym_filter
+        # 2026-10-03:检索面按归属隔离,身份必须带上(与写入面同一纪律)
+        headers = self._internal_auth_headers(api_token, internal_user_id)
+
+        base, base_error = await self._query_chunks(base_payload, headers)
+        union = list(base)
+        recall: dict[str, Any] = {
+            "query": query,
+            "top_k": top_k,
+            "base": len(base),
+            "seeds": [],
+            "symbol_added": 0,
+            "merged": 0,
+            "gap_lines": 0,
+            "failures": [f"首跳未判定:{base_error}"] if base_error else [],
+        }
+        if sym_filter:
+            recall["symbol_name"] = sym_filter
+            # 下推成不成,必须是量出来的两档,不许都读成「库里没有该符号」:
+            #   unjudged —— 首跳根本没判成(HTTP/网络/响应形态),抛出具名异常交消费方定档;
+            #   pushed   —— 首跳判过了(哪怕回来 0 条,那也是「查过了,没有」这一格)。
+            recall["symbol_pushdown"] = "unjudged" if base_error else "pushed"
+        if sym_filter and base_error:
+            raise SymbolFilterUndetermined(
+                f"symbol_name={sym_filter} 已下推,但检索腿未判定:{base_error}"
+            )
+
+        expand_on = (
+            _recall_env_flag(SYMBOL_EXPAND_ENV, True)
+            if symbol_expand is None
+            else bool(symbol_expand)
+        )
+        recall["symbol_expand"] = expand_on
+        if expand_on and base:
+            seeds = symbol_seeds(base, limit=DEFAULT_SYMBOL_EXPAND_SEEDS, exclude_symbol_types=SUMMARY_SYMBOL_TYPES)
+            recall["seeds"] = seeds
+            if seeds:
+                seed_top_k = max(1, top_k // 2)
+                legs = await asyncio.gather(
+                    *[
+                        self._query_chunks(
+                            {
+                                **base_payload,
+                                "query": seed,
+                                "topK": seed_top_k,
+                                # 补一跳只认标识符,走词法腿;语义腿会把"名字像"的邻近概念
+                                # 一起拉进来,那一跳的召回增益无法归因到符号名本身。
+                                "mode": "keyword",
+                                # Z37:base_payload 里的 symbolName 随 `**` 一起透传下来
+                                # (与 Z36 在 hybridSearch 里向下透传同一纪律)——补一跳不得
+                                # 把过滤丢掉,否则符号档会在扩召回这一步重新引进别符号的片,
+                                # 而 api 侧那份 rowBudget 也白脱钩了。
+                            },
+                            headers,
+                        )
+                        for seed in seeds
+                    ]
+                )
+                for seed, (rows, err) in zip(seeds, legs, strict=True):
+                    if err:
+                        recall["failures"].append(f"符号腿 {seed} 未判定:{err}")
+                        continue
+                    union, added = merge_recall(union, rows, seed=seed)
+                    recall["symbol_added"] += added
+
+        gap = (
+            _recall_env_int(MERGE_GAP_ENV, DEFAULT_MERGE_GAP_LINES)
+            if merge_gap_lines is None
+            else int(merge_gap_lines)
+        )
+        recall["gap_lines"] = gap
+        try:
+            folded = fold_adjacent_hits(union, gap_lines=gap, max_chars=MAX_CHUNK_CHARS)
+        except ValueError as e:
+            # 畸形行区间不得让整次检索空手而归:原样下发 + 点名,判据不冒绿。
+            logger.warning("行区间就近合并未生效(回落原样下发): %s", e)
+            folded = [dict(h) for h in union]
+            recall["failures"].append(f"并片未判定:{e}")
+        recall["merged"] = len(union) - len(folded)
+        return {"chunks": folded, "recall": recall}
 
 
 codebase_indexer = CodebaseIndexer()

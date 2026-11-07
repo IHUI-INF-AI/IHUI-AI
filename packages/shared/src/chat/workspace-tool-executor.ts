@@ -16,6 +16,14 @@
  * 因此 web(浏览器 / Tauri 降级)与扩展侧栏(chrome-extension://,实测同样暴露 FSA)可直接共用。
  */
 
+import {
+  applyHumanEdit,
+  recordAiAttribution,
+  type AttributionOrigin,
+  type AttributionRange,
+  type LineAttribution,
+} from '../attribution'
+
 /**
  * 浏览器端工具执行代理(2026-08-02 立,阶段 2)
  *
@@ -33,6 +41,25 @@
 export interface ToolExecutionResult {
   result: string | null
   error: string | null
+}
+
+/**
+ * 落盘归因的上下文(可选):AI 工具写文件时,由调用方注入溯源信息与既有记录。
+ * 归因**只认实际 diff** —— 下方 toolWriteFile 在写之前先读旧内容,写之后用 recordAiAttribution
+ * 对比前后真实内容;人工保存(mode='human')走 applyHumanEdit,把被改动的 AI 行翻成 ai-then-human。
+ * 归因失败绝不影响写入本身(仅回调,不抛)。
+ */
+export interface AttributionTrace {
+  origin: AttributionOrigin
+  /** 'ai'(默认)= 工具写入; 'human' = 用户手动保存 */
+  mode?: 'ai' | 'human'
+  /** 该文件既有的归因记录(无则空数组) */
+  records?: readonly LineAttribution[]
+  /** 写入成功后回传新记录(压缩区间),调用方负责持久化 */
+  onRecord?: (
+    ranges: AttributionRange[],
+    info: { filePath: string; before: string; after: string },
+  ) => void
 }
 
 const MAX_FILE_SIZE = 1024 * 1024 // 1MB
@@ -61,15 +88,16 @@ export async function executeWorkspaceTool(
   toolName: string,
   args: Record<string, unknown>,
   handle: FileSystemDirectoryHandle,
+  attribution?: AttributionTrace,
 ): Promise<ToolExecutionResult> {
   try {
     switch (toolName) {
       case 'read_file':
         return await toolReadFile(args, handle)
       case 'write_file':
-        return await toolWriteFile(args, handle)
+        return await toolWriteFile(args, handle, attribution)
       case 'file_edit':
-        return await toolFileEdit(args, handle)
+        return await toolFileEdit(args, handle, attribution)
       case 'file_search':
         return await toolFileSearch(args, handle)
       case 'search_codebase':
@@ -77,9 +105,9 @@ export async function executeWorkspaceTool(
       case 'list_files':
         return await toolListFiles(args, handle)
       case 'apply_patch':
-        return await toolApplyPatch(args, handle)
+        return await toolApplyPatch(args, handle, attribution)
       case 'create_file':
-        return await toolWriteFile(args, handle)
+        return await toolWriteFile(args, handle, attribution)
       case 'delete_file':
         return await toolDeleteFile(args, handle)
       case 'move_file':
@@ -125,17 +153,40 @@ async function toolReadFile(
 async function toolWriteFile(
   args: Record<string, unknown>,
   handle: FileSystemDirectoryHandle,
+  attribution?: AttributionTrace,
 ): Promise<ToolExecutionResult> {
   const path = typeof args.path === 'string' ? args.path : ''
   const content = typeof args.content === 'string' ? args.content : ''
   if (!path) return { result: null, error: 'write_file: path 参数缺失' }
   try {
+    // 归因必须在写之前取旧内容:之后对比真实前后文本,才能只标记实际改动的行
+    let before: string | null = null
+    if (attribution?.onRecord) {
+      const prior = await toolReadFile({ path }, handle)
+      before = prior.error ? '' : (prior.result ?? '')
+    }
     const { dir, name } = splitPath(path)
     const dirHandle = dir ? await ensureDirHandle(handle, dir) : handle
     const fileHandle = await dirHandle.getFileHandle(name, { create: true })
     const writable = await fileHandle.createWritable()
     await writable.write(content)
     await writable.close()
+    if (attribution?.onRecord && before !== null) {
+      try {
+        const ranges =
+          attribution.mode === 'human'
+            ? applyHumanEdit(attribution.records ?? [], before, content, {
+                at: attribution.origin.at,
+                filePath: path,
+              })
+            : recordAiAttribution(attribution.records ?? [], before, content, attribution.origin, {
+                filePath: path,
+              })
+        attribution.onRecord(ranges, { filePath: path, before, after: content })
+      } catch {
+        // 归因是旁路:记录失败不得让一次已经成功的写盘变成失败
+      }
+    }
     return { result: `已写入 ${path}(${content.length} 字符)`, error: null }
   } catch (err) {
     return { result: null, error: `write_file: ${(err as Error).message}` }
@@ -145,6 +196,7 @@ async function toolWriteFile(
 async function toolFileEdit(
   args: Record<string, unknown>,
   handle: FileSystemDirectoryHandle,
+  attribution?: AttributionTrace,
 ): Promise<ToolExecutionResult> {
   const path = typeof args.path === 'string' ? args.path : ''
   const oldString = typeof args.old_string === 'string' ? args.old_string : ''
@@ -162,7 +214,7 @@ async function toolFileEdit(
   }
   // replace 仅替换第一处(与 codex file_edit 语义一致;若需全替换可由 LLM 多次调用)
   const updated = original.replace(oldString, newString)
-  return await toolWriteFile({ path, content: updated }, handle)
+  return await toolWriteFile({ path, content: updated }, handle, attribution)
 }
 
 async function toolFileSearch(
@@ -257,6 +309,7 @@ async function toolListFiles(
 async function toolApplyPatch(
   args: Record<string, unknown>,
   handle: FileSystemDirectoryHandle,
+  attribution?: AttributionTrace,
 ): Promise<ToolExecutionResult> {
   const path = typeof args.path === 'string' ? args.path : ''
   const patch = typeof args.patch === 'string' ? args.patch : ''
@@ -272,7 +325,7 @@ async function toolApplyPatch(
     if (updated === null) {
       return { result: null, error: 'apply_patch: patch 解析或应用失败' }
     }
-    return await toolWriteFile({ path, content: updated }, handle)
+    return await toolWriteFile({ path, content: updated }, handle, attribution)
   } catch (err) {
     return { result: null, error: `apply_patch: ${(err as Error).message}` }
   }

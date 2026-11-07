@@ -25,8 +25,10 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
   const tt = useTt()
   if (!list.length) {
     return (
-      <View className="flex items-center justify-center py-16">
-        <Text className="text-sm text-muted-foreground">{tt('message.noPrivate', '暂无私信')}</Text>
+      <View className="flex items-center justify-center py-6xl">
+        <Text className="text-body text-muted-foreground">
+          {tt('message.noPrivate', '暂无私信')}
+        </Text>
       </View>
     )
   }
@@ -36,11 +38,11 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
       {list.map((item) => (
         <View
           key={item.id}
-          className="flex items-center px-3 py-3 mb-[12rpx]"
+          className="flex items-center px-md py-md mb-[12rpx]"
           onClick={() => onClick?.(item)}
           hoverClass="opacity-60"
         >
-          <View className="relative mr-3">
+          <View className="relative mr-md">
             {item.userAvatar ? (
               <Image
                 src={item.userAvatar}
@@ -49,7 +51,7 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
               />
             ) : (
               <View className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center">
-                <Text className="text-sm text-muted-foreground">{item.userName.charAt(0)}</Text>
+                <Text className="text-body text-muted-foreground">{item.userName.charAt(0)}</Text>
               </View>
             )}
             {item.online && (
@@ -58,19 +60,17 @@ export default function PrivateMessageList({ list, onClick }: PrivateMessageList
           </View>
           <View className="flex-1 min-w-0">
             <View className="flex items-center">
-              <Text className="text-sm font-medium text-foreground truncate flex-1">
+              <Text className="text-body font-medium text-foreground truncate flex-1">
                 {item.userName}
               </Text>
-              <Text className="text-badge text-muted-foreground ml-2">
-                {item.lastTime}
-              </Text>
+              <Text className="text-badge text-muted-foreground ml-sm">{item.lastTime}</Text>
             </View>
             <View className="flex items-center mt-[4rpx]">
-              <Text className="text-xs text-muted-foreground truncate flex-1">
+              <Text className="text-label text-muted-foreground truncate flex-1">
                 {item.lastMessage}
               </Text>
               {item.unread > 0 && (
-                <View className="ml-2 min-w-[36rpx] h-[36rpx] px-1 rounded-md bg-destructive flex items-center justify-center">
+                <View className="ml-sm min-w-[36rpx] h-[36rpx] px-xs rounded-md bg-destructive flex items-center justify-center">
                   <Text className="text-badge text-destructive-foreground">
                     {item.unread > 99 ? '99+' : item.unread}
                   </Text>

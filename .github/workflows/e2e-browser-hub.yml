@@ -375,7 +375,11 @@ jobs:
         run: |
           set -euo pipefail
           echo "== 本次只跑这一档:--grep '$IHUI_E2E_GREP' =="
-          pnpm exec playwright test --grep "$IHUI_E2E_GREP" --reporter=list
+          # 必须显式带 html:CLI 的 --reporter 会**覆盖** playwright.config.ts 的
+          # `reporter: 'html'`,只给 list 时不会产出 playwright-report/,下面
+          # "Upload playwright report" 恒为 "No files were found"(2026-11-05 实测:
+          # 失败的 run 只有一句 "Process completed with exit code 1",产物里没有报告)。
+          pnpm exec playwright test --grep "$IHUI_E2E_GREP" --reporter=list,html
 
       - name: Upload playwright report
         if: always()

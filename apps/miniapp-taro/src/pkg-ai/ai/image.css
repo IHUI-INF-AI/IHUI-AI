@@ -38,7 +38,7 @@
   margin-top: var(--spacing-md);
 }
 .examples {
-  padding: 0 32rpx 24rpx;
+  padding: 0 var(--spacing-lg) var(--spacing-md);
 }
 .ex-title {
   font-size: var(--text-label);
@@ -51,14 +51,14 @@
   margin-top: var(--spacing-sm);
 }
 .ex-item {
-  padding: var(--spacing-xs-loose) 24rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-xl);
   font-size: var(--text-label);
   color: var(--color-muted-foreground);
 }
 .form {
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
 }
 .input {
@@ -82,7 +82,7 @@
   flex: 1;
 }
 .size {
-  padding: var(--spacing-xs) 16rpx;
+  padding: var(--spacing-xs) var(--spacing-sm);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
   font-size: var(--text-label);
@@ -97,7 +97,7 @@
   color: var(--color-cta-foreground);
   border-radius: var(--radius-sm);
   font-size: var(--text-body);
-  padding: 0 32rpx;
+  padding: 0 var(--spacing-lg);
 }
 .btn[disabled] {
   background: var(--color-muted);

@@ -21,7 +21,7 @@
     {
       "script": "check-ignore-todos.mjs",
       "type": "standalone-tool",
-      "reason": "头部如实写「退出码: 始终 0 (warn-only)」,代码三处 exit(0)、无 exit 1 路径 ⇒ 接线零收益。且 IGNORE_FILE 按 process.cwd() 推导,钩子工作目录不保证是仓库根 ⇒ 读不到就静默\"跳过\",接线只会制造假绿。"
+      "reason": "纯监控 CLI:无\"违规\"判据(有 TODO 也只是报告),故无 exit 1。2026-11-04 三态化后:读到并报告 = exit 0,IGNORE_FILE 读不到/解析失败 = exit 2 并点名(不再静默\"跳过\"报绿)。仍为手动 `pnpm check:routes:ignore`,不挂提交链 ⇒ 接线零收益且 IGNORE_FILE 按 process.cwd() 推导,钩子工作目录不保证是仓库根。"
     },
     {
       "script": "check-lock.mjs",
@@ -60,8 +60,8 @@
     }
   ],
   "r3Register": {
-    "$comment": "R3(五处权威接线点零命中且无接线声称)的归属台账。本区块只做三件事:①逐枚登记 state(CLI-tool / deprecated / should-wire / unknown);②登记 reviewBy 到期日,过期条目由 check-gate-wiring 报 warning(仍不判红);③should-wire 条目给出 wireTo。它不改变 R3 的任何判红阈值 —— R3 仍按原口径逐枚计数,已登记与未登记都只报数。裁定依据一律来自脚本头注行号或实际调用点,不采信二手描述。",
-    "updatedAt": "2026-11-04",
+    "$comment": "R3(五处权威接线点零命中且无接线声称)的归属台账。本区块只做三件事:①逐枚登记 state(CLI-tool / deprecated / should-wire / unknown);②登记 reviewBy 到期日,过期条目由 check-gate-wiring 报 warning(仍不判红);③should-wire 条目给出 wireTo。它不改变 R3 的任何判红阈值 —— R3 仍按原口径逐枚计数,已登记与未登记都只报数。裁定依据一律来自脚本头注行号或实际调用点,不采信二手描述。〔2026-11-05 扩面(治理债②「接」的一半,S-D)〕**登记面**由门形脚本(check-/scan-/guard-)扩到 `scripts/` 直属全部 .mjs,由 `filterR3FacePaths` 枚举;档位不变 —— 未登记只报数、永不进 reds(§12e:现读未登记存量 218 枚 ≠ 0,装红即恒红门)。新增 `owner` 字段写明到期复评人(本批条目必填)。唯一升红的一支 = §0.7「验过才免」:`findR3RegisterRot` 判「条目指向的脚本不在被审面(HEAD scripts/ 直属)」⇒ 清单腐烂判红,前置 = 现读腐烂存量 0;条目仍在而已被接线仍只 warning(现读存量 1 枚 check-format-support-parity.mjs)。",
+    "updatedAt": "2026-11-05",
     "entries": [
       {
         "path": "scripts/check-absorption-read-naming.mjs",
@@ -363,6 +363,134 @@
         "reason": "头注 L7「尚未接提交链」,L22 写接链前须先现跑确认存量",
         "wireTo": "scripts/guardian-runner.mjs",
         "reviewBy": "2026-12-31"
+      },
+      {
+        "path": "scripts/package-digital-products.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "产物被 CI 消费而脚本本身无人调用:`git grep -n 'ASSET_DIR=' -- .github/workflows/release-on-tag.yml` 现读 `ASSET_DIR=\"products/ai-prompt-library/dist\"`,同文件 `gh release upload \"$ASSET_DIR\"/*.zip` 取的就是本器产出的 zip ⇒ 删本器即断发布腿,禁删",
+        "reviewBy": "2027-02-09"
+      },
+      {
+        "path": "scripts/measure-cross-end-page-sizes.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "容量台账数值的唯一重算器:`git grep -n -l measure-cross-end-page-sizes` 现读只命中 `scripts/data/cross-end-subpackage-capacity.json`(台账记产物数值,不是调用方)⇒ 台账提及不算接线,但删本器后台账数值无人复算",
+        "reviewBy": "2027-01-12"
+      },
+      {
+        "path": "scripts/seed-ai-feed-source.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "生产表 `ai_feed_source` 唯一初始化入口(头注自述「此前生产为 0 条 → ai-feed-collect 空转」);真跑连库 ⇒ 接提交链违反 AGENTS §5 测试隔离铁律(共享工作区/CI 无库即恒红)",
+        "reviewBy": "2026-12-08"
+      },
+      {
+        "path": "scripts/register-relay-url-handler.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "写本机 URL Scheme 注册表(装机动作,不是仓内判据);消费面真实在位:`git grep -n -l ihui-relay` 现读命中 `apps/ai-service/app/routers/llm.py`、`deploy/relay-standalone/docker-compose.yml`、同族 `scripts/relay-url-handler.ps1` ⇒ 判机器状态,按 §12e 不进提交链",
+        "reviewBy": "2027-01-19"
+      },
+      {
+        "path": "scripts/bare-sentinel-register.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "注册 Windows 计划任务(头注自述「机主 2026-10-18 授权」的一次性装机动作,`schtasks /f` 覆盖式注册后立即启动);配对方 `scripts/bare-config-sentinel.mjs` 同在未接集。本机任务在位与否 = 机器态,`schtasks /query` 逐机不同 ⇒ 不接线、只在到期复评时重量",
+        "reviewBy": "2026-12-15"
+      },
+      {
+        "path": "scripts/cross-publish-producthunt.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "对外发布器(需人工 OAuth、一跑即产生不可撤回的外部副作用)⇒ 不得自动接链。同族 devto 有文档登记面(`docs/exposure/cross-publishing-guide.md:298`),这三枚没有 ⇒ 到期复评时按 README/AGENTS 点名口径补文档",
+        "reviewBy": "2027-02-16"
+      },
+      {
+        "path": "scripts/cross-publish-reddit.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "同上族:对外发布器,人工 OAuth + 不可撤回外部副作用 ⇒ 只能人工敲;`git grep -n cross-publish -- docs/` 现读只列 devto,本器无文档面",
+        "reviewBy": "2027-03-02"
+      },
+      {
+        "path": "scripts/cross-publish-v2ex.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "同上族:对外发布器,人工 OAuth + 不可撤回外部副作用 ⇒ 只能人工敲;与 -producthunt/-reddit 同批留痕,文档缺口在到期复评时一并补",
+        "reviewBy": "2026-11-30"
+      },
+      {
+        "path": "scripts/prod-deploy-now.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "「立即部署」请求投递器(头注自述根因:2026-10-28 实测删除守卫拦 unlink,改走本器人工投递):触发生产部署属不可逆运维动作,按 AGENTS §5e-2/§8 红线不得由提交链自动发起",
+        "reviewBy": "2026-12-03"
+      },
+      {
+        "path": "scripts/rn-live-preview.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "RN 真机热更预览通道(2026-11-04 立):需连真机与 Metro 端口,判的是设备态而非仓内态 ⇒ 只读人工通道;与同批新立的 install-rn-on-device / worktree-reclaim-guard / update-file-manifest 不同,本器无自动调度器候选",
+        "reviewBy": "2027-01-23"
+      },
+      {
+        "path": "scripts/install-rn-on-device.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "RN 真机装机器(2026-11-04 立,装机前强制签名对账):需要 adb + 已连设备,无设备的机器上跑必红 ⇒ 机器态判据,按 §12e 不进提交链;其「签名对账」那一半若要升门,须另票先清存量",
+        "reviewBy": "2027-01-05"
+      },
+      {
+        "path": "scripts/worktree-reclaim-guard.mjs",
+        "state": "should-wire",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "worktree 磁盘约束唯一入口(2026-11-04 立,根因 = G: 盘两次只剩 1.32 GB 致安装中断/git 写 ref 失败);现读五处权威点零命中 ⇒ 判据在、工具在、无人调度(AGENTS §0.9「造好没装车 = 没有」),归属守护巡检轮",
+        "wireTo": "scripts/git-guardian.mjs",
+        "reviewBy": "2026-12-19"
+      },
+      {
+        "path": "scripts/update-file-manifest.mjs",
+        "state": "should-wire",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "更新包「逐文件 sha256 自校验」清单的唯一生成器(2026-11-04 立):生成物在面上而生成器无人调用 ⇒ 清单与包内容必然漂移;正解是接发布链而非继续只报数",
+        "wireTo": ".github/workflows",
+        "reviewBy": "2026-12-26"
+      },
+      {
+        "path": "scripts/verify-model-catalog.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "模型分类物理审计(2026-08-29 立):读外部厂商 registry/网络可达性,判的是线上目录而非仓内 blob ⇒ 接提交链=断网即恒红",
+        "reviewBy": "2027-02-27"
+      },
+      {
+        "path": "scripts/verify-free-providers.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "零成本 provider 真实连通性测试 CLI(头注自述「P1,2026-07-30 立」):直连上游端点、外部服务抖动即红 ⇒ 人工问责档,不进提交链",
+        "reviewBy": "2027-03-09"
+      },
+      {
+        "path": "scripts/rendered-divider-report.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "渲染态分割线**量算仪**(2026-10-23 立,头注写「量屏幕上真有一条线,不判源码怎么写」):红线判据在 `scripts/check-no-divider.mjs`,本器只出读数 ⇒ 与「只读对账尺子不进提交链」一族同口径",
+        "reviewBy": "2027-01-26"
+      },
+      {
+        "path": "scripts/probe-ui-routes-window.mjs",
+        "state": "CLI-tool",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "门 105 G5「重生成窗口」只读探测器(票 G-1142551):探测器本身不判红,判红权在门 105;`git grep -n probe-ui-routes-window -- scripts/` 现读除自身外零命中 ⇒ 登记为人工自查入口",
+        "reviewBy": "2026-12-22"
+      },
+      {
+        "path": "scripts/relay-reencrypt-keys.mjs",
+        "state": "unknown",
+        "owner": "S-D(2026-11-05 R3 扩面批)",
+        "reason": "中转站凭据重加密修复器(safe/idempotent/dry-run-by-default):「库中是否仍有旧密钥密文」现读未判定(需连库,按 §0.3 不拿 0 冒充没有)⇒ 先登记 unknown,到期连库量完再改判 deprecated 或 CLI-tool",
+        "reviewBy": "2026-12-12"
       }
     ]
   }

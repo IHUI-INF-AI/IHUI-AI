@@ -90,6 +90,7 @@
 import cliPkg from '../../../cli/package.json'
 import extensionPkg from '../../../extension/package.json'
 import mobileRnPkg from '../../../mobile-rn/package.json'
+import { withBasePath } from './base-path'
 import { DESKTOP_FEED } from './desktop-feed.generated'
 
 /**
@@ -483,7 +484,11 @@ export function getPlatformMetaMap(): Record<DownloadPlatform, PlatformMeta> {
       // 运行期由 downloads-live 枚举实物填真实字节与版本;取不到时 UI 显示 '-'。
       assets: [
         {
-          href: `/downloads/extension/IHUI-AI-Extension-chrome-v${extensionPkg.version}.zip`,
+          // 站内绝对路径必须过 basePath:Pages 项目站点挂在 /<repo>/ 下,
+          // 裸 `/downloads/...` 会解析到根域而 404(2026-11-05 公网实测)。
+          href: withBasePath(
+            `/downloads/extension/IHUI-AI-Extension-chrome-v${extensionPkg.version}.zip`,
+          ),
           sizeBytes: 0,
           format: 'Chrome MV3 ZIP',
         },

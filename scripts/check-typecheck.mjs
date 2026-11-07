@@ -604,6 +604,52 @@ if (_fast) {
     `[check-typecheck] 🚀 定向快速通道:改动全部位于 apps/${_fast.app} → 仅对该 app 全量 tsc(其余包不参与)`,
   )
   console.log(`[check-typecheck] 命令: pnpm --filter ${_fast.name} run typecheck`)
+  // ─── 陈旧 dist 前置(2026-11-06 补) ──────────────────────────────────────────
+  // 全量通道在跑 tsc 之前有一段 staleDistPreflight()(见 typecheck-full.mjs 文件头「陈旧 dist 前置重建」),
+  // 而定向快速通道原先**直接 spawn** app 自己的 typecheck,把这一段绕开了。消费方按包清单的
+  // `exports.types` 读 `packages/*/dist` ⇒ "包源码已入库、dist 还是旧构建"会让 tsc 在**干净的 HEAD
+  // 文件**上报错,归因判成已入库红。实测(2026-11-06):api-client 三值 budget 类型随 11945bd4f5 入库后,
+  // 仍有工作树的 dist 停在二值态 ⇒ ChatScreen / budget-note / chat-ledger / sse-parse 共 17 处假红,
+  // 本档 exit 1。这里复用**同一份实现**(typecheck-full --preflight-only):不新增判据、不放宽降级、
+  // 不抑制任何报错 —— 只是把"类型结论该拿哪一面的产物"补回与全量通道一致。
+  // 失败出口(2026-11-06 裁决):前置只负责"把输入面准备好",拿不到就**未判定 exit 2** ——
+  // 不许 exit 0(旧产物下结论),也不许沿用 build 的 1(把 build 失败冒充成"类型红";上层会当已入库红追责)。
+  console.log('[check-typecheck] 陈旧 dist 前置:node typecheck-full.mjs --preflight-only(与全量通道同一份实现)')
+  const _pf = spawnSync(
+    process.execPath,
+    [resolve(__dirname, 'typecheck-full.mjs'), '--preflight-only'],
+    {
+      cwd: ROOT,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: TYPECHECK_TIMEOUT_MS,
+    },
+  )
+  const _pfOut = String(_pf.stdout || '')
+  const _pfErr = String(_pf.stderr || '')
+  if (_pfOut) process.stdout.write(_pfOut)
+  if (_pfErr) process.stderr.write(_pfErr)
+  if (_pf.error && _pf.error.code === 'ETIMEDOUT') {
+    console.error(
+      `[check-typecheck] ❓ 未判定(exit 2):陈旧 dist 前置重建超过 ${TYPECHECK_TIMEOUT_MIN} 分钟,产物面取不到 ⇒ 不给类型结论`,
+    )
+    process.exit(2)
+  }
+  const _pfOutcome = classifySpawnOutcome({ status: _pf.status ?? null, signal: _pf.signal ?? null })
+  if (_pfOutcome.kind === 'interrupt') {
+    console.error(`[check-typecheck] ⚠️ 陈旧 dist 前置重建被中断(${_pfOutcome.reason}),非类型检查结论`)
+    console.error(`[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`)
+    process.exit(TEMPFAIL_EXIT_CODE)
+  }
+  if (_pf.status !== 0) {
+    console.error(
+      `[check-typecheck] ❓ 未判定(exit 2):陈旧 dist 前置重建失败(child exit ${_pf.status ?? '?'})—— 产物面取不到,不给类型结论`,
+    )
+    console.error(
+      '[check-typecheck]    未判定 ≠ 通过:本档不产出结论;复现:node scripts/typecheck-full.mjs --preflight-only',
+    )
+    process.exit(2)
+  }
   // stdio 必须 pipe:inherit 拿不到输出,就无法沿用下述 scope 降级判定。
   // 降级必要性(不做 = 行为退化):原先全量路径会「报错文件不在本次改动范围内 → 降级放行」,
   // 若快通道改成直接失败,则他人未提交的类型噪音会阻塞只改单文件的会话推送。

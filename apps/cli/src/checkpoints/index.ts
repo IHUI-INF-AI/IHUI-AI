@@ -3,57 +3,55 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * Checkpoints 检查点系统 — 工作区文件状态快照与回滚。
- *
- * 灵感来源:参考行业 Agent 框架的 workspace crate 设计(检查点能力)。
- * 简化策略(做减法):
- *   - 不复制整个工作区,只快照"被指定的文件"(通常是被工具修改前的版本)
- *   - 按工作区相对路径镜像存储,manifest.json 记录元数据
- *   - 对原工作区不存在的文件标记为 'added',restore 时删除
- *
- * 存储:~/.ihui/checkpoints/<sessionId>/<checkpointId>/
- *   - manifest.json: { id, sessionId, createdAt, reason, files: { relPath: 'snap'|'added' } }
- *   - <relPath>: 镜像文件内容(目录结构 1:1 镜像)
+ * Checkpoints 检查点系统 — 工作区文件状态快照与回滚(编排层)。
+ * 分层(goal-b49 W3 拆分,落 AGENTS §3「每页 < 250 行」):
+ *   - 本文件 = 编排:可寻址版本序列命名(./snapshot-series.ts)+ 三约束回收派发(./snapshot-gc.ts)
+ *   - ./snapshot-store-host.ts = 唯一碰文件系统的适配层(存储形状 + 镜像读写);本文件不 import node:fs
+ *   - ./manifest-integrity.ts = 清单完整性/损坏隔离的唯一出口(AGENTS §0.6,两处都不复算)
+ * 做减法:不复制整个工作区,只快照"被指定的文件",按工作区相对路径镜像存储;
+ * 原工作区不存在的文件标 'added',restore 时删除。回收 = 最近 N 版 ∧ 年龄窗 ∧ 总量上限,缺一不删(§0.3)。
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import * as crypto from 'node:crypto';
-import { isRecord } from '../util/json.js';
-import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
-// 会话/检查点 id 路径穿越修复:目录段收敛 + 根内/realpath 断言统一走 util/path-guard。
-// manifest 里的 files 键属于持久化不可信输入:回滚/对比前必须按"工作区相对路径"重判。
-import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
-// BUG-0010:检查点 manifest 是"回滚赖以判断 files 档值"的状态,落盘必须原子(中断不留半截 JSON)。
-import { writeFileAtomicSync } from '../util/atomic-write.js';
+import { type CorruptManifestEntry, type ManifestReadResult } from './manifest-integrity.js';
+// goal-b49 S3:版本化文件快照的可寻址序列 `<uuid>@vN` + 三约束回收判据(取证 Q1 §4 #16)
+import {
+  allocateNextSnapshotSeriesRef,
+  formatSnapshotSeriesDirName,
+  isSnapshotSeriesDirName,
+  parseSnapshotSeriesDirName,
+  seriesUuidFromSeedHex,
+  SNAPSHOT_SERIES_SEED_HEX_LENGTH,
+} from './snapshot-series.js';
+import {
+  DEFAULT_SNAPSHOT_GC_POLICY,
+  planSnapshotGc,
+  type SnapshotGcCandidate,
+  type SnapshotGcPolicy,
+  type SnapshotGcPlan,
+} from './snapshot-gc.js';
+import {
+  copyFilesIntoSnapshot,
+  diffSnapshotFiles,
+  ensureHostDir,
+  listEntryNames,
+  listSubDirNames,
+  measureSnapshotBytes,
+  readSnapshotMeta,
+  removeSnapshotDir,
+  restoreSnapshotFiles,
+  probeSnapshotRoot,
+  snapshotRootDir,
+  writeSnapshotManifest,
+  type CheckpointDiffEntry,
+  type CheckpointMeta,
+} from './snapshot-store-host.js';
 
 export * from './hunk-tracker.js';
-
-/** G-671:manifest 形状校验 —— 缺关键字段/档值非法/schemaVersion 不识别 ⇒ 不算合法 meta。 */
-export function isCheckpointMeta(v: unknown): v is CheckpointMeta {
-  if (!isRecord(v)) return false;
-  if (typeof v.id !== 'string' || v.id.length === 0) return false;
-  if (typeof v.sessionId !== 'string') return false;
-  if (typeof v.createdAt !== 'string' || Number.isNaN(Date.parse(v.createdAt))) return false;
-  if (typeof v.reason !== 'string') return false;
-  if (!isRecord(v.files)) return false;
-  if (v.schemaVersion !== undefined && v.schemaVersion !== 1) return false;
-  return Object.values(v.files).every((k) => k === 'snap' || k === 'added');
-}
-
-export interface CheckpointMeta {
-  id: string;
-  sessionId: string;
-  createdAt: string;
-  reason: string;
-  files: Record<string, 'snap' | 'added'>;
-}
-
-export interface CheckpointDiffEntry {
-  path: string;
-  status: 'unchanged' | 'modified' | 'added' | 'removed';
-}
+// 拆分前后 index 的对外导出集逐字不变(消费方只认 ./index.js)。isCheckpointMeta 在 HEAD 面已被
+// fix(knip) 降为模块内部函数 ⇒ 抽层后同样只住在 host 内部,不借这次拆分把它加回公开面。
+export type { CheckpointDiffEntry, CheckpointMeta } from './snapshot-store-host.js';
 
 export interface CheckpointManagerOptions {
   sessionId: string;
@@ -61,6 +59,8 @@ export interface CheckpointManagerOptions {
   maxCheckpoints?: number;
   /** G-671:manifest 损坏被隔离时的到人出口;缺省 console.warn 点名路径 */
   onCorruptManifest?: (entry: CorruptManifestEntry) => void;
+  /** goal-b49 S3:覆盖快照回收策略的任一档;缺省取 DEFAULT_SNAPSHOT_GC_POLICY(keepVersions 跟随 maxCheckpoints) */
+  snapshotGcPolicy?: Partial<SnapshotGcPolicy>;
 }
 
 const DEFAULT_MAX_CHECKPOINTS = 20;
@@ -71,20 +71,34 @@ export class CheckpointManager {
   private readonly maxCheckpoints: number;
   private readonly baseDir: string;
   private readonly onCorrupt: (entry: CorruptManifestEntry) => void;
+  /** goal-b49 S3:本会话快照序列的身份(由 sessionId 摘要推导 ⇒ 可寻址,不依赖先列盘) */
+  private readonly seriesUuid: string;
+  private readonly gcPolicy: SnapshotGcPolicy;
   /** 最近一次 list() 扫描隔离出的损坏 manifest(账面必须有名字) */
   private lastQuarantined: CorruptManifestEntry[] = [];
+  /** 最近一次回收轮次的账面(计划档 + 历史 cp_ 清账枚数);null = 还没跑过回收 */
+  private lastGc: { plan: SnapshotGcPlan; legacyDeleted: number } | null = null;
 
   constructor(opts: CheckpointManagerOptions) {
     this.sessionId = opts.sessionId;
     this.workspacePath = path.resolve(opts.workspacePath);
     this.maxCheckpoints = opts.maxCheckpoints ?? DEFAULT_MAX_CHECKPOINTS;
-    // sessionId 来自 `--session`,不得让 `../` 把 baseDir 抬到 `~/.ihui` 之外。
-    // 收敛与根内断言走与 hunk 检查点、计划文件同一套实现(util/path-guard)。
-    this.baseDir = segmentPathInside(
-      path.resolve(os.homedir(), '.ihui', 'checkpoints'),
-      this.sessionId,
-      '会话检查点目录',
-    );
+    this.baseDir = snapshotRootDir(this.sessionId);
+    const seedHex = crypto
+      .createHash('sha256')
+      .update(this.sessionId)
+      .digest('hex')
+      .slice(0, SNAPSHOT_SERIES_SEED_HEX_LENGTH);
+    const derived = seriesUuidFromSeedHex(seedHex);
+    if (!derived.ok) {
+      throw new RangeError(`检查点序列身份推导失败(${derived.reason}):${derived.detail}`);
+    }
+    this.seriesUuid = derived.uuid;
+    this.gcPolicy = {
+      ...DEFAULT_SNAPSHOT_GC_POLICY,
+      keepVersions: this.maxCheckpoints,
+      ...opts.snapshotGcPolicy,
+    };
     this.onCorrupt =
       opts.onCorruptManifest ??
       ((entry) => {
@@ -103,197 +117,148 @@ export class CheckpointManager {
     this.lastQuarantined = [];
   }
 
-  private ensureDir(dir: string): void {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  }
-
-  /**
-   * 检查点目录的唯一构造入口:id 先收敛成单段,再做根内 + realpath 断言
-   * (判据与 hunk 检查点、计划文件共用 util/path-guard,不另起炉灶)。
-   */
-  private checkpointDir(checkpointId: string): string {
-    return segmentPathInside(this.baseDir, checkpointId, '检查点目录');
-  }
-
-  private resolveRel(filePath: string): string {
-    const abs = path.isAbsolute(filePath) ? filePath : path.resolve(this.workspacePath, filePath);
-    // 工具入参口径:允许工作区内的绝对路径(既有行为),只拒越界;判据走 path-guard。
-    if (!isPathInside(this.workspacePath, abs)) {
-      throw new Error(`文件 ${filePath} 不在工作区 ${this.workspacePath} 内`);
-    }
-    return path.relative(this.workspacePath, abs);
-  }
-
   async snapshot(files: string[], reason: string): Promise<CheckpointMeta> {
     return this.snapshotSync(files, reason);
   }
 
   snapshotSync(files: string[], reason: string): CheckpointMeta {
-    this.ensureDir(this.baseDir);
-    const id = `cp_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    ensureHostDir(this.baseDir);
+    // goal-b49 S3:目录名 = 可寻址版本序列 <seriesUuid>@vN(旧 cp_<ts>_<rand> 不可寻址、无从判重号/回退);
+    // 分配器只在本序列内取最大版本 +1,外来命名(hunk_*/cp_*)不参与定序。
+    const allocation = allocateNextSnapshotSeriesRef(listEntryNames(this.baseDir), this.seriesUuid);
+    if (!allocation.ok) {
+      throw new Error(`检查点版本分配失败(${allocation.reason}):${allocation.detail}`);
+    }
+    const id = formatSnapshotSeriesDirName(allocation.ref);
     const cpDir = path.join(this.baseDir, id);
-    this.ensureDir(cpDir);
-
+    ensureHostDir(cpDir);
+    const copied = copyFilesIntoSnapshot(this.workspacePath, cpDir, files);
     const meta: CheckpointMeta = {
       id,
       sessionId: this.sessionId,
       createdAt: new Date().toISOString(),
       reason,
-      files: {},
+      files: copied.files,
+      ...(copied.skipped.length > 0 ? { skipped: copied.skipped } : {}),
     };
 
-    for (const f of files) {
-      const rel = this.resolveRel(f);
-      const absInWorkspace = path.join(this.workspacePath, rel);
-      if (!fs.existsSync(absInWorkspace)) {
-        meta.files[rel] = 'added';
-      } else {
-        const stat = fs.statSync(absInWorkspace);
-        if (!stat.isFile()) {
-          continue;
-        }
-        const dest = path.join(cpDir, rel);
-        this.ensureDir(path.dirname(dest));
-        fs.copyFileSync(absInWorkspace, dest);
-        meta.files[rel] = 'snap';
-      }
-    }
-
-    writeFileAtomicSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2));
-
+    writeSnapshotManifest(cpDir, meta);
     this.pruneOldCheckpoints();
     return meta;
   }
 
+  /** 本管理器自己的命名空间:版本序列(本会话 uuid)或历史 cp_ 前缀;别处写来的目录一概不碰 */
+  private inOwnNamespace(dirName: string): boolean {
+    if (dirName.startsWith('cp_')) return true;
+    const parsed = parseSnapshotSeriesDirName(dirName);
+    return parsed.ok && parsed.ref.uuid === this.seriesUuid;
+  }
+
   list(): CheckpointMeta[] {
-    if (!fs.existsSync(this.baseDir)) return [];
-    const entries = fs.readdirSync(this.baseDir, { withFileTypes: true });
+    // 快照根本就不存在 ⇒ 原样返回。读不到目录时抛错,不把清单说成空。
+    const root = probeSnapshotRoot(this.baseDir);
+    if (root === 'missing') return [];
+    if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成没有检查点');
     const metas: CheckpointMeta[] = [];
     this.lastQuarantined = [];
-    for (const e of entries) {
-      if (!e.isDirectory()) continue;
-      const manifestPath = path.join(this.baseDir, e.name, 'manifest.json');
-      // 只读也不能顺着根内符号链接目录读根外:读之前补一次根内断言。
-      try {
-        assertPathInside(this.baseDir, manifestPath, '检查点清单');
-      } catch (err) {
-        const entry: CorruptManifestEntry = {
-          checkpointId: e.name,
-          manifestPath,
-          quarantinePath: null,
-          reason: 'io-error',
-          detail: `符号链接解析后落在检查点根目录之外,拒绝读取:${err instanceof Error ? err.message : String(err)}`,
-        };
-        this.lastQuarantined.push(entry);
-        this.onCorrupt(entry);
-        continue;
-      }
+    for (const name of listSubDirNames(this.baseDir)) {
+      // goal-b49 S3:会话目录下与 HunkCheckpointManager 的 `hunk_*` 同居一处,其清单形状天然不满足
+      // isCheckpointMeta,旧实现会把它们判损坏并改名隔离(实测复现)⇒ 本管理器只扫自己的命名空间。
+      if (!this.inOwnNamespace(name)) continue;
       // G-671:manifest 不存在 = 目录半成品(不算损坏);读不了/解析不了/形状不对 = 损坏,隔离并报名
-      const result = readManifestChecked(manifestPath, e.name, isCheckpointMeta, (entry) => {
-        this.lastQuarantined.push(entry);
-        this.onCorrupt(entry);
+      const result = readSnapshotMeta(this.baseDir, name, {
+        onCorrupt: this.onCorrupt,
+        onQuarantined: (entry) => {
+          this.lastQuarantined.push(entry);
+        },
       });
+      if (result.status === 'unreadable') throw new Error(result.detail);
       if (result.status === 'ok') metas.push(result.meta);
     }
     return metas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
   get(checkpointId: string): CheckpointMeta | null {
-    const manifestPath = path.join(this.checkpointDir(checkpointId), 'manifest.json');
-    const result = readManifestChecked(manifestPath, checkpointId, isCheckpointMeta, this.onCorrupt);
+    const result = readSnapshotMeta(this.baseDir, checkpointId, { onCorrupt: this.onCorrupt });
+    if (result.status === 'unreadable') throw new Error(result.detail);
     return result.status === 'ok' ? result.meta : null;
   }
 
-  async restore(checkpointId: string): Promise<{ restored: string[]; removed: string[] }> {
-    const meta = this.get(checkpointId);
-    if (!meta) {
-      throw new Error(`检查点 ${checkpointId} 不存在`);
+  private readCheckpoint(checkpointId: string): CheckpointMeta {
+    const result = readSnapshotMeta(this.baseDir, checkpointId, { onCorrupt: this.onCorrupt });
+    if (result.status === 'ok') return result.meta;
+    if (result.status === 'unreadable') throw new Error(result.detail);
+    if (result.status === 'corrupt') {
+      throw new Error(`检查点 ${checkpointId} 清单读不到(${result.entry.reason}),不能把它说成不存在`);
     }
-    const cpDir = this.checkpointDir(checkpointId);
-    const restored: string[] = [];
-    const removed: string[] = [];
+    throw new Error(`检查点 ${checkpointId} 不存在`);
+  }
 
-    // manifest 的 files 键是持久化不可信输入:先整体校验(绝对路径/盘符/`..`/符号链接),
-    // 任一越界即拒,绝不先动一部分文件再抛(避免留下半回滚现场)。
-    const entries = Object.entries(meta.files).map(([rel, kind]) => ({
-      rel,
-      kind,
-      absInWorkspace: resolveWorkspaceRelPath(this.workspacePath, rel, '检查点回滚目标'),
-    }));
-
-    for (const { rel, kind, absInWorkspace } of entries) {
-      if (kind === 'added') {
-        if (fs.existsSync(absInWorkspace)) {
-          fs.rmSync(absInWorkspace, { recursive: true, force: true });
-          removed.push(rel);
-        }
-      } else {
-        const src = assertPathInside(cpDir, path.join(cpDir, rel), '检查点快照');
-        if (fs.existsSync(src)) {
-          this.ensureDir(path.dirname(absInWorkspace));
-          fs.copyFileSync(src, absInWorkspace);
-          restored.push(rel);
-        }
-      }
-    }
-    return { restored, removed };
+  async restore(checkpointId: string): Promise<{ restored: string[]; removed: string[]; notRestored: string[] }> {
+    const meta = this.readCheckpoint(checkpointId);
+    return restoreSnapshotFiles(this.workspacePath, path.join(this.baseDir, checkpointId), meta.files);
   }
 
   diff(checkpointId?: string): CheckpointDiffEntry[] {
-    const cp = checkpointId
-      ? this.get(checkpointId)
-      : this.list()[0] ?? null;
-    if (!cp) return [];
-    const cpDir = this.checkpointDir(cp.id);
-    const entries: CheckpointDiffEntry[] = [];
-    for (const [rel, kind] of Object.entries(cp.files)) {
-      // 同源只读:与 restore() 同一判据,manifest 键越界直接拒,不读根外内容。
-      const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, rel, '检查点对比目标');
-      const existsNow = fs.existsSync(absInWorkspace);
-      if (kind === 'added') {
-        entries.push({ path: rel, status: existsNow ? 'added' : 'unchanged' });
-      } else {
-        if (!existsNow) {
-          entries.push({ path: rel, status: 'removed' });
-          continue;
-        }
-        const snapPath = assertPathInside(cpDir, path.join(cpDir, rel), '检查点快照');
-        const same = fileContentEqual(absInWorkspace, snapPath);
-        entries.push({ path: rel, status: same ? 'unchanged' : 'modified' });
-      }
+    if (checkpointId) {
+      const cp = this.readCheckpoint(checkpointId);
+      return diffSnapshotFiles(this.workspacePath, path.join(this.baseDir, cp.id), cp.files);
     }
-    return entries.filter((e) => e.status !== 'unchanged');
+    const cp = this.list()[0] ?? null;
+    if (!cp) throw new Error('暂无检查点,不能把它说成没有差异');
+    return diffSnapshotFiles(this.workspacePath, path.join(this.baseDir, cp.id), cp.files);
   }
 
   delete(checkpointId: string): boolean {
-    // 递归删除前必须先落到根目录内的真实目录(checkpointDir 已做 id 收敛 + 根目录断言)。
-    const cpDir = this.checkpointDir(checkpointId);
-    if (!fs.existsSync(cpDir)) return false;
-    fs.rmSync(cpDir, { recursive: true, force: true });
-    return true;
+    return removeSnapshotDir(path.join(this.baseDir, checkpointId));
   }
 
+  /** 最近一次回收轮次(snapshotSync() 会刷;list()/get() 不跑回收 ⇒ 取到的是上一轮账面)的点名行;'undetermined' 时逐条说明缺哪门输入 */
+  getLastGcNotes(): string[] {
+    return this.lastGc ? [...this.lastGc.plan.notes] : [];
+  }
+
+  /**
+   * goal-b49 W3:回收轮次的结构化账面(planSnapshotGc 原样输出 + 历史 `cp_` 清账枚数),供命令面分列上账。
+   * null = 本实例还没跑过回收 ⇒ 不编造读数(既不记绿也不冒红,§0.3)。
+   */
+  getLastGcOutcome(): { plan: SnapshotGcPlan; legacyDeleted: number } | null {
+    return this.lastGc;
+  }
+
+  /** 本会话序列的候选清单:只收 `<seriesUuid>@vN`;hunk_ 与历史 cp_ 前缀的目录不入射程,免被误判畸形 */
+  private seriesCandidates(): SnapshotGcCandidate[] {
+    const candidates: SnapshotGcCandidate[] = [];
+    for (const name of listEntryNames(this.baseDir)) {
+      const parsed = parseSnapshotSeriesDirName(name);
+      if (!parsed.ok || parsed.ref.uuid !== this.seriesUuid) continue;
+      candidates.push({ dirName: name, bytes: measureSnapshotBytes(this.baseDir, name) });
+    }
+    return candidates;
+  }
+
+  /**
+   * goal-b49 S3:快照回收 = 三约束同时成立才删(保留最近 N 版 ∧ 年龄窗 ∧ 总量上限),
+   * 判不出来(清单缺失/损坏、体积量不出、序列重号或回退)⇒ 整轮一枚不删并把原因留在 getLastGcNotes()。
+   * 清单完整性自证只走 manifest-integrity 那份出口(§0.6);历史 cp_ 目录无版本档,仍按「超出 maxCheckpoints 即删」清账。
+   */
   private pruneOldCheckpoints(): void {
-    const all = this.list();
-    if (all.length <= this.maxCheckpoints) return;
-    for (const cp of all.slice(this.maxCheckpoints)) {
+    const plan = planSnapshotGc(this.seriesCandidates(), this.gcPolicy, {
+      readManifest: (dirName): ManifestReadResult<CheckpointMeta> =>
+        readSnapshotMeta(this.baseDir, dirName, { onCorrupt: this.onCorrupt }),
+      nowMs: () => Date.now(),
+    });
+    // 账面先挂上「本轮判据」:即使后面的删除动作炸了,未判定原因也已可查(失效方向是多要一次说明,不是少说一次)
+    this.lastGc = { plan, legacyDeleted: 0 };
+    for (const doomed of plan.deletions) {
+      this.delete(doomed.dirName);
+    }
+    const unversioned = this.list().filter((meta) => !isSnapshotSeriesDirName(meta.id));
+    const doomedLegacy = unversioned.slice(this.maxCheckpoints);
+    for (const cp of doomedLegacy) {
       this.delete(cp.id);
     }
-  }
-}
-
-function fileContentEqual(a: string, b: string): boolean {
-  try {
-    const sa = fs.statSync(a);
-    const sb = fs.statSync(b);
-    if (sa.size !== sb.size) return false;
-    const ha = crypto.createHash('sha256').update(fs.readFileSync(a)).digest('hex');
-    const hb = crypto.createHash('sha256').update(fs.readFileSync(b)).digest('hex');
-    return ha === hb;
-  } catch {
-    return false;
+    this.lastGc = { plan, legacyDeleted: doomedLegacy.length };
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

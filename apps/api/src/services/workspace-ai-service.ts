@@ -12,6 +12,7 @@
 import { exec, execFile } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
+import { judgeBoundedSystemJob, type BoundedJobVerdict } from '../utils/process-probe.js'
 // 权限档唯一真源(G-161):本文件第 1574 行曾是第 7 套词表(4 档 camel,无 manual),
 // 且 check() 对 plan 是 fail-open —— 现类型与判定一起收口。值导入用于入参归一。
 import {
@@ -42,6 +43,10 @@ import {
 } from '../utils/workspace-roots.js'
 import { promisify } from 'node:util'
 import { hasNestedQuantifier } from './rules-service.js'
+// 规则级审批引擎(纯函数)+ 授权/历史记忆:静态导入,避免在 FS Bridge 热路径上
+// 每次判定都多一次动态 import 的模块加载延迟(既有用例按"一个 tick"断言 pending)。
+import { computeFacts, decideApproval } from '@ihui/shared/permission'
+import { listApprovalHistory, recordApprovalHistory } from './permission-grants.js'
 
 const execAsync = promisify(exec)
 
@@ -74,6 +79,34 @@ function readJson<T>(file: string, fallback: T): T {
   } catch {
     return fallback
   }
+}
+
+function nodeErrorCode(error: unknown): string | undefined {
+  if (error !== null && typeof error === 'object' && 'code' in error) {
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'string') return code
+  }
+  return undefined
+}
+
+/** 确实没有才用 fallback。读不到或内容损坏必须抛,调用方不得把 fallback 写回去。 */
+function readJsonForUpdate<T>(file: string, fallback: T, unread: string): T {
+  let text: string
+  try {
+    text = readFileSync(file, 'utf-8')
+  } catch (error) {
+    const code = nodeErrorCode(error)
+    if (code === 'ENOENT' || code === 'ENOTDIR') return fallback
+    throw new Error(`${unread} (${code ?? 'unknown'})`)
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error(`${unread} (parse)`)
+  }
+  if (parsed === null) throw new Error(`${unread} (parse)`)
+  return parsed as T
 }
 
 function writeJson(file: string, data: unknown): void {
@@ -849,6 +882,42 @@ export function clampSandboxTimeout(raw: unknown, fallbackMs = 60000): number {
   return Math.min(Math.max(Math.trunc(n), 1000), 120000)
 }
 
+/**
+ * 把一次沙箱子进程收成判定。
+ * 截止先到时不保留子进程退出码；没有数字退出码时也不编成 1。
+ */
+export function settleSandboxJob(input: {
+  timeoutMs: unknown
+  killed: unknown
+  code: unknown
+  stdout: unknown
+  stderr: unknown
+}): BoundedJobVerdict {
+  const deadlineSec =
+    typeof input.timeoutMs === 'number' && Number.isFinite(input.timeoutMs)
+      ? Math.floor(input.timeoutMs / 1000)
+      : input.timeoutMs
+  const sawLog = typeof input.stdout === 'string' || typeof input.stderr === 'string'
+  let finished: unknown
+  let exitCode: unknown
+  if (input.killed === true) {
+    finished = false
+    exitCode = null
+  } else if (typeof input.code === 'number' && Number.isInteger(input.code)) {
+    finished = true
+    exitCode = input.code
+  } else {
+    finished = input.killed === false ? true : input.killed
+    exitCode = input.code
+  }
+  return judgeBoundedSystemJob({
+    deadlineSec,
+    finished,
+    exitCode,
+    log: sawLog ? 'primary' : null,
+  })
+}
+
 const NETWORK_COMMANDS = [
   'curl',
   'wget',
@@ -1089,7 +1158,7 @@ class SandboxExecutor {
     timeoutMs?: number
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin(路由层经 resolveAdminRoleId 判) */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number; mode: SandboxMode }> {
+  }): Promise<{ stdout: string; stderr: string; exitCode: number | null; mode: SandboxMode }> {
     const mode = params.mode ?? 'workspace-write'
     // 2026-10-31 安全强化第 10 批:登记根闸 —— workspacePath 与 cwd 都是客户端自报
     // 字符串,不设闸则传 workspacePath="C:/" 让白名单内的 cat/cp/tee 直接指到服务器
@@ -1239,18 +1308,38 @@ class SandboxExecutor {
           )
         },
       )
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: false,
+        code: 0,
+        stdout,
+        stderr,
+      })
       return {
         stdout: stdout.slice(0, MAX_STDOUT),
         stderr: stderr.slice(0, MAX_STDERR),
-        exitCode: 0,
+        exitCode: verdict.exitCode,
         mode,
       }
     } catch (e) {
-      const err = e as Error & { stdout?: string; stderr?: string; code?: number }
+      const err = e as Error & {
+        stdout?: string
+        stderr?: string
+        code?: unknown
+        killed?: unknown
+      }
+      const stderrText = err.stderr ?? err.message
+      const verdict = settleSandboxJob({
+        timeoutMs: timeout,
+        killed: err.killed,
+        code: err.code,
+        stdout: err.stdout,
+        stderr: stderrText,
+      })
       return {
         stdout: (err.stdout ?? '').slice(0, MAX_STDOUT),
-        stderr: (err.stderr ?? err.message).slice(0, MAX_STDERR),
-        exitCode: err.code ?? 1,
+        stderr: String(stderrText ?? '').slice(0, MAX_STDERR),
+        exitCode: verdict.exitCode,
         mode,
       }
     }
@@ -1447,6 +1536,12 @@ function extToLang(ext: string): string | null {
 
 class CodebaseIndexer {
   index(workspacePath: string): CodebaseIndex {
+    try {
+      readdirSync(workspacePath)
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引读不到目录,不能把它覆盖成空索引 (${code ?? 'unknown'})`)
+    }
     const files: FileIndex[] = []
     this.walk(workspacePath, workspacePath, files)
     const totalLines = files.reduce((s, f) => s + f.lines, 0)
@@ -1492,8 +1587,9 @@ class CodebaseIndexer {
     let entries: string[]
     try {
       entries = readdirSync(dir)
-    } catch {
-      return
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引有目录读不到,不能把它覆盖成不完整索引 (${code ?? 'unknown'})`)
     }
     for (const name of entries) {
       if (IGNORE_DIRS.has(name)) continue
@@ -1564,7 +1660,12 @@ export interface IndexStatus {
 
 class IncrementalIndexer {
   diff(workspacePath: string): IndexDiff {
-    const oldIndex = codebaseIndexer.load(workspacePath)
+    const indexFile = join(workspacePath, '.ihui', 'codebase-index.json')
+    const oldIndex = readJsonForUpdate<CodebaseIndex | null>(
+      indexFile,
+      null,
+      '代码索引读不到,不能把它覆盖成新索引',
+    )
     const oldFiles = new Map<string, FileIndex>()
     if (oldIndex) {
       for (const f of oldIndex.files) oldFiles.set(f.path, f)
@@ -1919,10 +2020,16 @@ class CheckpointManager {
 
   private getStore(workspacePath: string): Checkpoint[] {
     if (!this.stores.has(workspacePath)) {
-      this.stores.set(workspacePath, [])
       const file = join(workspacePath, '.ihui', 'checkpoints.json')
-      const data = readJson<Checkpoint[] | null>(file, null)
-      if (data) this.stores.set(workspacePath, data)
+      const data = readJsonForUpdate<Checkpoint[] | null>(
+        file,
+        null,
+        '检查点读不到,不能把它覆盖成只剩这一次',
+      )
+      if (data !== null && !Array.isArray(data)) {
+        throw new Error('检查点读不到,不能把它覆盖成只剩这一次 (parse)')
+      }
+      this.stores.set(workspacePath, data ?? [])
     }
     return this.stores.get(workspacePath)!
   }
@@ -2200,11 +2307,10 @@ class PermissionManager {
 
   loadRules(workspacePath: string): PermissionRule[] {
     const file = join(workspacePath, '.claude', 'settings.json')
-    if (!existsSync(file)) return []
-    const data = readJson<{ permissions?: { allow?: string[]; ask?: string[]; deny?: string[] } }>(
-      file,
-      {},
-    )
+    const data = readJsonForUpdate<{
+      permissions?: { allow?: string[]; ask?: string[]; deny?: string[] }
+    } | null>(file, null, '权限规则读不到,不能把它说成没有拒绝规则')
+    if (!data) return []
     const rules: PermissionRule[] = []
     for (const r of data.permissions?.allow ?? []) rules.push(this.parseRule(r, 'allow'))
     for (const r of data.permissions?.ask ?? []) rules.push(this.parseRule(r, 'ask'))
@@ -2442,6 +2548,80 @@ class PermissionManager {
     return true
   }
 
+  /**
+   * 规则级审批闸门(2026-11-04):把 `@ihui/shared/permission` 的规则引擎接进真实执行链路。
+   * 语义边界:
+   *  - 档位(decideByPermissionMode)仍是**上限**,这里固定以 tier.verdict='ask' 喂给引擎,
+   *    因此引擎的 allow 只可能来自**授权记忆**或**自动复核**,不会凭空放宽;
+   *  - deny 来自声明式风险规则(凭据读取/批量删除/高危命令/系统目录);
+   *  - ask 仍走既有人工审计,行为与改造前一致。
+   */
+  private async evaluateApprovalGate(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    args: Record<string, unknown>
+  }): Promise<{
+    decision: 'allow' | 'ask' | 'deny'
+    matchedRule: string
+    reason: string
+    scopeKey: string
+  }> {
+    const now = Date.now()
+    // 本闸门是 FS Bridge 的热路径(既有用例按"加一个 tick 就出 pending"来断言),因此这里
+    // **不读库**:持久授权记忆的消费面在 `/api/agent-control/execute`(computer-use 应用白名单)
+    // 与 `/permission/grants`;工具链这边只消费进程内近因历史做自动复核。若日后要让工具链
+    // 也吃持久授权,注入 `loadPermissionGrants` 即可,但需同步给这条热路径补测试桩。
+    const request = {
+      tool: params.tool,
+      args: params.args,
+      context: {
+        workspaceId: params.workspacePath,
+        agentId: null,
+        userId: params.userId,
+        now,
+        grants: [],
+        history: listApprovalHistory(params.userId),
+      },
+    }
+    const result = decideApproval(request)
+    // 档位是上限:规则集的 `allow.read-only` 属于"引擎自行判定",在 default/acceptEdits
+    // 档里不得成为放宽通道 —— 只有**人类既往决定的复用**(自动复核)才允许 allow。
+    // (plan 档的硬 deny 与本档 bypass 分支都在本方法之前返回,不经过这里。)
+    const decision: 'allow' | 'ask' | 'deny' =
+      result.decision === 'allow' && !result.autoReview ? 'ask' : result.decision
+    const facts = computeFacts(request)
+    return {
+      decision,
+      matchedRule: result.matchedRule,
+      reason:
+        decision === result.decision
+          ? result.reason
+          : `${result.reason};档位上限:引擎放行未获既往人工决定背书,转人工`,
+      scopeKey: facts.commandPrefix ?? facts.appName ?? facts.tool,
+    }
+  }
+
+  /** 人工结论落近因历史,供下一次自动复核比对(只记真实发生的人类决定)。 */
+  private async recordApprovalOutcome(params: {
+    userId: string
+    workspacePath: string
+    tool: string
+    ruleId: string
+    scopeKey: string
+    allowed: boolean
+  }): Promise<void> {
+    recordApprovalHistory(params.userId, {
+      tool: params.tool,
+      decision: params.allowed ? 'allow' : 'deny',
+      ruleId: params.ruleId,
+      workspaceId: params.workspacePath,
+      agentId: null,
+      scopeKey: params.scopeKey,
+      at: Date.now(),
+    })
+  }
+
   listWorkspacePending(userId: string): PermissionRequest[] {
     return Array.from(this.workspacePending.values())
       .filter((e) => e.req.userId === userId)
@@ -2580,12 +2760,64 @@ class PermissionManager {
           }
         }
       }
-      // 无匹配 → 走人工审计
+      // 无匹配 → 规则级闸门(2026-11-04):授权记忆/自动复核可放行,风险规则可拒绝,
+      // 其余仍走人工审计 —— 引擎不会凭空放宽(allow 只来自人类的既往决定)
+      const gate = await this.evaluateApprovalGate(params)
+      if (gate.decision === 'deny') {
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'deny',
+          reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: false,
+          mode: permModeWire,
+          configured: true,
+          reason: `规则拒绝: ${gate.reason}`,
+          matchedRule: gate.matchedRule,
+        }
+      }
+      if (gate.decision === 'allow') {
+        await this.recordApprovalOutcome({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          tool: params.tool,
+          ruleId: gate.matchedRule,
+          scopeKey: gate.scopeKey,
+          allowed: true,
+        })
+        await appendAuditLog({
+          userId: params.userId,
+          workspacePath: params.workspacePath,
+          toolName: params.tool,
+          args: JSON.stringify(params.args).slice(0, 1000),
+          decision: 'allow',
+          reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+        })
+        return {
+          allowed: true,
+          mode: permModeWire,
+          configured: true,
+          reason: gate.reason,
+          matchedRule: gate.matchedRule,
+        }
+      }
       const audit = await this.requestWorkspaceConfirmation({
         userId: params.userId,
         workspacePath: params.workspacePath,
         tool: params.tool,
         args: params.args,
+      })
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: audit.allowed,
       })
       await appendAuditLog({
         userId: params.userId,
@@ -2593,22 +2825,75 @@ class PermissionManager {
         toolName: params.tool,
         args: JSON.stringify(params.args).slice(0, 1000),
         decision: audit.allowed ? 'allow' : 'deny',
-        reason: `accept-edits 无匹配规则,人工审计: ${audit.reason}`,
+        reason: `accept-edits 规则转人工(${gate.matchedRule}): ${audit.reason}`,
       })
       return {
         allowed: audit.allowed,
         mode: permModeWire,
         configured: true,
         reason: audit.reason,
+        matchedRule: gate.matchedRule,
       }
     }
 
-    // default → 全部人工审计
+    // default → 规则级闸门(2026-11-04):deny 规则直接拒绝;授权记忆/自动复核可放行;
+    // 其余仍走人工审计(与改造前一致,不新增放宽通道)
+    const gate = await this.evaluateApprovalGate(params)
+    if (gate.decision === 'deny') {
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'deny',
+        reason: `规则拒绝(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: false,
+        mode: permModeWire,
+        configured: true,
+        reason: `规则拒绝: ${gate.reason}`,
+        matchedRule: gate.matchedRule,
+      }
+    }
+    if (gate.decision === 'allow') {
+      await this.recordApprovalOutcome({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        tool: params.tool,
+        ruleId: gate.matchedRule,
+        scopeKey: gate.scopeKey,
+        allowed: true,
+      })
+      await appendAuditLog({
+        userId: params.userId,
+        workspacePath: params.workspacePath,
+        toolName: params.tool,
+        args: JSON.stringify(params.args).slice(0, 1000),
+        decision: 'allow',
+        reason: `规则放行(${gate.matchedRule}): ${gate.reason}`,
+      })
+      return {
+        allowed: true,
+        mode: permModeWire,
+        configured: true,
+        reason: gate.reason,
+        matchedRule: gate.matchedRule,
+      }
+    }
     const audit = await this.requestWorkspaceConfirmation({
       userId: params.userId,
       workspacePath: params.workspacePath,
       tool: params.tool,
       args: params.args,
+    })
+    await this.recordApprovalOutcome({
+      userId: params.userId,
+      workspacePath: params.workspacePath,
+      tool: params.tool,
+      ruleId: gate.matchedRule,
+      scopeKey: gate.scopeKey,
+      allowed: audit.allowed,
     })
     await appendAuditLog({
       userId: params.userId,
@@ -2616,13 +2901,14 @@ class PermissionManager {
       toolName: params.tool,
       args: JSON.stringify(params.args).slice(0, 1000),
       decision: audit.allowed ? 'allow' : 'deny',
-      reason: `default 模式人工审计: ${audit.reason}`,
+      reason: `default 规则转人工(${gate.matchedRule}): ${audit.reason}`,
     })
     return {
       allowed: audit.allowed,
       mode: permModeWire,
       configured: true,
       reason: audit.reason,
+      matchedRule: gate.matchedRule,
     }
   }
 
@@ -2810,11 +3096,21 @@ const BUILTIN_PERSONAS: Persona[] = [
 
 class PersonaRegistry {
   private personas = new Map<string, Persona>()
+  private blockedWrite: string | null = null
 
   constructor() {
     for (const p of BUILTIN_PERSONAS) this.personas.set(p.id, p)
-    const saved = readJson<Persona[] | null>(PERSONAS_FILE, null)
-    if (saved) for (const p of saved) this.personas.set(p.id, p)
+    try {
+      const saved = readJsonForUpdate<Persona[] | null>(
+        PERSONAS_FILE,
+        null,
+        '人格档案读不到,不能按内置名单覆盖',
+      )
+      if (Array.isArray(saved)) for (const p of saved) this.personas.set(p.id, p)
+      else if (saved !== null) this.blockedWrite = '人格档案读不到,不能按内置名单覆盖 (corrupt)'
+    } catch (error) {
+      this.blockedWrite = error instanceof Error ? error.message : String(error)
+    }
   }
 
   list(category?: string): Persona[] {
@@ -2884,6 +3180,7 @@ class PersonaRegistry {
   }
 
   private persist(): void {
+    if (this.blockedWrite) throw new Error(this.blockedWrite)
     writeJson(PERSONAS_FILE, Array.from(this.personas.values()))
   }
 }
@@ -2911,10 +3208,20 @@ export interface Routine {
 class RoutineManager {
   private routines = new Map<string, Routine>()
   private timer: NodeJS.Timeout | null = null
+  private blockedWrite: string | null = null
 
   constructor() {
-    const saved = readJson<Routine[] | null>(ROUTINES_FILE, null)
-    if (saved) for (const r of saved) this.routines.set(r.id, r)
+    try {
+      const saved = readJsonForUpdate<Routine[] | null>(
+        ROUTINES_FILE,
+        null,
+        '例行程序读不到,不能按空名单覆盖',
+      )
+      if (Array.isArray(saved)) for (const r of saved) this.routines.set(r.id, r)
+      else if (saved !== null) this.blockedWrite = '例行程序读不到,不能按空名单覆盖 (corrupt)'
+    } catch (error) {
+      this.blockedWrite = error instanceof Error ? error.message : String(error)
+    }
   }
 
   list(): Routine[] {
@@ -3059,6 +3366,7 @@ class RoutineManager {
   }
 
   private persist(): void {
+    if (this.blockedWrite) throw new Error(this.blockedWrite)
     writeJson(ROUTINES_FILE, Array.from(this.routines.values()))
   }
 }
@@ -3383,7 +3691,7 @@ class FSBridge {
     mode?: SandboxMode
     /** 2026-10-31 R8 复评 F1:解释器族仅 admin,由路由层透传 */
     isAdmin?: boolean
-  }): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  }): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
     return sandboxExecutor.execute({
       command: params.command,
       workspacePath: params.workspacePath,
@@ -3397,7 +3705,14 @@ class FSBridge {
   /** 记录最近工作区 */
   addRecent(meta: { path: string; name: string; techStack?: string[] }): void {
     const file = join(STORE_ROOT, 'recent-workspaces.json')
-    const list = readJson<Array<{ path: string; name: string; lastOpened: number }>>(file, [])
+    const list = readJsonForUpdate<Array<{ path: string; name: string; lastOpened: number }>>(
+      file,
+      [],
+      '最近工作区读不到,不能把它覆盖成只剩刚打开的这一条',
+    )
+    if (!Array.isArray(list)) {
+      throw new Error('最近工作区读不到,不能把它覆盖成只剩刚打开的这一条 (parse)')
+    }
     const filtered = list.filter((w) => w.path !== meta.path)
     filtered.unshift({ path: meta.path, name: meta.name, lastOpened: nowSec() })
     writeJson(file, filtered.slice(0, 20))

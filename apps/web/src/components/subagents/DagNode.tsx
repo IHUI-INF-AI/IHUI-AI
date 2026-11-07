@@ -84,7 +84,9 @@ function DagNodeComponent({ data }: NodeProps) {
       </div>
 
       {/* task 文本,截断 2 行 */}
-      <p className="mt-2 line-clamp-2 text-xs leading-snug text-muted-foreground">{task}</p>
+      <p className="font-[weight:inherit] mt-2 line-clamp-2 text-label leading-snug text-muted-foreground">
+        {task}
+      </p>
     </div>
   )
 }
