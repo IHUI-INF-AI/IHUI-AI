@@ -14,6 +14,7 @@ import {
   STATIC_BLOCK_ESTIMATED_HEIGHT,
   STATIC_BLOCK_MAX_MOUNTED,
   STATIC_BLOCK_OVERSCAN,
+  STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS,
   STATIC_BLOCK_VIRTUALIZE_MIN_CHARS,
   buildStaticBlockOffsets,
   resolveStaticBlockWindow,
@@ -38,6 +39,7 @@ const BASE = {
 describe('静态长文档块级虚拟化判据', () => {
   it('常量取值与 Qoder 同档(16384 / overscan 4),且上限有界', () => {
     expect(STATIC_BLOCK_VIRTUALIZE_MIN_CHARS).toBe(16384)
+    expect(STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS).toBe(4)
     expect(STATIC_BLOCK_OVERSCAN).toBe(4)
     expect(STATIC_BLOCK_MAX_MOUNTED).toBeGreaterThan(STATIC_BLOCK_OVERSCAN * 2)
   })
@@ -101,6 +103,19 @@ describe('静态长文档块级虚拟化判据', () => {
     const w = resolveStaticBlockWindow({ ...BASE, blockCount: 1, offsets: offsetsOf(1) })
     expect(w.enabled).toBe(false)
     expect(w.reason).toBe('single-block')
+  })
+
+  it('让位③块数不足 4 ⇒ 整表渲染(短块长文不进虚拟化)', () => {
+    const w = resolveStaticBlockWindow({ ...BASE, blockCount: 3, offsets: offsetsOf(3) })
+    expect(w.enabled).toBe(false)
+    expect(w.reason).toBe('below-block-floor')
+    expect(w.end).toBe(2)
+  })
+
+  it('恰好 4 块且过字符门槛 ⇒ 启用虚拟化', () => {
+    const w = resolveStaticBlockWindow({ ...BASE, blockCount: 4, offsets: offsetsOf(4) })
+    expect(w.enabled).toBe(true)
+    expect(w.reason).toBeNull()
   })
 
   it('让位④偏移表未量 ⇒ 不猜几何', () => {

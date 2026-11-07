@@ -205,7 +205,7 @@ def default_read_only_subpaths_for_writable_root(
         subpaths.append(top_level_git)
         git_mode = None
     else:
-        if stat.S_ISREG(git_mode) and is_git_pointer_file(top_level_git):
+        if git_mode is not None and stat.S_ISREG(git_mode) and is_git_pointer_file(top_level_git):
             gitdir = resolve_gitdir_from_file(top_level_git)
             if gitdir:
                 subpaths.append(gitdir)

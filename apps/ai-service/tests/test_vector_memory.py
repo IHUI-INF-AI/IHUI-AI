@@ -615,6 +615,9 @@ async def test_hydrate_corrupted_file(tmp_path):
     count = await store.hydrate()
     assert count == 0
     assert len(store) == 0
+    await store.add_entry("e1", {"content": "新的"}, [0.1])
+    with open(path, encoding="utf-8") as fh:
+        assert fh.read() == "{ not valid json }"
 
 
 async def test_hydrate_already_hydrated_no_reload(tmp_path):

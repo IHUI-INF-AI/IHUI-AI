@@ -89,6 +89,8 @@
     "toolWorkbookClose": "关闭工作簿",
     "toolGenerateTest": "生成测试代码",
     "toolRunCommand": "执行命令",
+    "toolSandboxSession": "沙箱会话",
+    "toolReadToolOutput": "读取工具输出",
     "toolGitOperations": "执行 Git 操作",
     "toolFetchUrl": "读取网页内容",
     "toolCrawlSite": "抓取站点页面",

@@ -101,17 +101,40 @@ export function reportStreamError(report: StreamErrorReport): void {
  * 文案拼装(§0.6 单一真相源),不各写一套。
  *
  * 判据纪律(逐条对应 AGENTS §0.3「没判绝不能写成判过」):
- * - `payloadWatermarkSeen === false` ⇒ 输出里必须**点名** `generation=undetermined
- *   epoch=undetermined`,绝不许因为"没报错"就让这一行读起来像三维全绿;
- * - `cursor === null` ⇒ 写 `seq=undetermined`,不写 0(0 是一个合法 seq);
- * - `dropped` 是**有效读数**,0 照写(它不是"未采到")。
+ * - 订阅、纪元、段缺席 ⇒ 写 `undetermined`,不写空串、不写 0(0 是合法序号);
+ * - `payloadWatermarkSeen === false` 时订阅和纪元仍然 undetermined,
+ *   不许因为"没报错"就读成已经知道是哪一次订阅、哪一段;
+ * - `cursor === null` ⇒ 写 `seq=undetermined`,不写 0;
+ * - `dropped` 是**有效读数**,0 照写(它不是"未采到");
+ * - 断档且 `frame.fromSeq === 0` ⇒ `disposition=replace-segment`(整段替换);
+ *   其余断档 ⇒ `disposition=drop`(整帧丢弃,不补序号)。
  */
+function namedId(value: string | undefined): string {
+  return value !== undefined && value.length > 0 ? value : 'undetermined'
+}
+
+function namedNum(value: number | undefined): string {
+  return value === undefined ? 'undetermined' : String(value)
+}
+
 export function formatFrameWatermarkFacts(facts: FrameWatermarkFacts): string {
   const cursor = facts.cursor === null ? 'undetermined' : String(facts.cursor)
-  const dims = facts.payloadWatermarkSeen
-    ? 'generation=judged epoch=judged'
-    : 'generation=undetermined epoch=undetermined'
-  return `kind=${facts.kind} dropped=${String(facts.dropped)} seq=${cursor} payloadWatermark=${facts.payloadWatermarkSeen ? 'seen' : 'absent'} ${dims}`
+  const segment =
+    facts.frame === undefined
+      ? 'undetermined'
+      : `${String(facts.frame.fromSeq)}-${String(facts.frame.toSeq)}`
+  return [
+    `kind=${facts.kind}`,
+    `dropped=${String(facts.dropped)}`,
+    `seq=${cursor}`,
+    `payloadWatermark=${facts.payloadWatermarkSeen ? 'seen' : 'absent'}`,
+    `subscription=${namedId(facts.held?.subscriptionId)}`,
+    `frameSubscription=${namedId(facts.frame?.subscriptionId)}`,
+    `epoch=${namedNum(facts.held?.logEpoch)}`,
+    `frameEpoch=${namedNum(facts.frame?.logEpoch)}`,
+    `segment=${segment}`,
+    `disposition=${facts.disposition ?? 'undetermined'}`,
+  ].join(' ')
 }
 
 /**

@@ -272,8 +272,11 @@ export function readExpiryLedger(
   } catch (err) {
     return { raw: null, note: `运行账目读不到:${msgOf(err)}` };
   }
+  if (text.trim() === '') return { raw: initial, note: null };
   const parsed = tryParseJson(text);
-  if (parsed === undefined) return { raw: null, note: '运行账目 JSON 解析失败' };
+  if (parsed === undefined || parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return { raw: null, note: '运行账目 JSON 解析失败' };
+  }
   return { raw: parsed, note: null };
 }
 

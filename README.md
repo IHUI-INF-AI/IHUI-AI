@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 319 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 19606 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5477,14 +5475,12 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🔧 工程/其他:欠债快照与 README 数字按修好的尺在新面重算 —— 派生态不搬旧面副本 (0b17ae1193)
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (8b76a25dee)
 - 🚀 新功能/改进:量具纠错(D3)+配对改判+轴一结清+词包扩面 —— 未落地链整体重放到活尖单枚落地 (e20af7a824)
-
 **2026-11-06**
 - 🐞 修复:首页模型选择弹窗高度按内容自适应(修复列表塌成0高看不见) (8d8a28770f)
 - ♻️ 重构:props 契约下沉 @ihui/types 单一源 + 会话历史排序上移 shared (2447a00d04)
 - 🐞 修复:读不到不再当成没有再覆盖 (5aee34e06e)
 - 🐞 修复:预算档位枚举收回单一真相源,budget 帧改按 type 认领不再滑进正文兜底链 (7af1564716)
 - 🐞 修复:撤销/重做的删除腿与写入腿各收敛到唯一出口,消除合并机械并存留下的实害 (544f1eba4d)
-
 **2026-11-07**
 - 🐞 修复:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (cee709a769)
 - 🚀 新功能/改进:重放 VIP/钱包薄壳族 + 成绩页整屏单源 + 归属层外部状态本地兜底（十枚滞后续提交的定点入库） (d964d0ec0f)
@@ -42780,3 +42776,4 @@ A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 �
 | 跟踪文件 | 19567 | `trackedFiles` |
 | 测试文件 | 4260 | `testFiles` |
 | 跟踪文件 | 19586 | `trackedFiles` |
+| **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点。沙箱生命周期在 `/api/sandbox/instances`，Agent 工具 `sandbox_session` 同义：暂停/恢复、文件系统快照、克隆、原地回滚；网络与密钥不由请求方自带                                                                                                                                                                                                                                                                                                                                            |

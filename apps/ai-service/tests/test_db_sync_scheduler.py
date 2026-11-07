@@ -629,6 +629,8 @@ class TestStatePersistence:
         s = DbSyncScheduler()
         s._load_state()  # 不抛
         assert s._next_interval_due is None
+        s._save_state()
+        assert isolated_files["state"].read_text(encoding="utf-8") == "{broken"
 
     def test_bad_timestamp_ignored(
         self, isolated_files: dict[str, Path], monkeypatch: pytest.MonkeyPatch

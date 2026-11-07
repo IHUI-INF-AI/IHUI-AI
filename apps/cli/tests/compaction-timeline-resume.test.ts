@@ -153,4 +153,30 @@ describe('G-816014 resume 必经点收敛悬挂压缩时间线', () => {
 
     expect(() => resolveSession({ resume: id })).toThrow(/not an array/);
   });
+
+  it('损坏的会话文件不会被收成新会话', () => {
+    const dir = path.join(scratch!, 'sessions');
+    fs.mkdirSync(dir);
+    const prev = process.env.IHUI_CLI_SESSIONS_DIR;
+    process.env.IHUI_CLI_SESSIONS_DIR = dir;
+    const file = path.join(dir, 'kept.json');
+    const body = '{not json';
+    fs.writeFileSync(file, body, 'utf-8');
+    try {
+      expect(() =>
+        saveSession({
+          id: 'kept',
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          workspacePath: scratch!,
+          modelId: 'test',
+          history: [],
+        }),
+      ).toThrow(/不能把它覆盖成新会话 \(corrupt\)/);
+      expect(fs.readFileSync(file, 'utf-8')).toBe(body);
+    } finally {
+      if (prev === undefined) delete process.env.IHUI_CLI_SESSIONS_DIR;
+      else process.env.IHUI_CLI_SESSIONS_DIR = prev;
+    }
+  });
 });

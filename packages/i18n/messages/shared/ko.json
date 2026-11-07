@@ -89,6 +89,8 @@
     "toolWorkbookClose": "워크북 닫기",
     "toolGenerateTest": "테스트 코드 생성",
     "toolRunCommand": "명령 실행",
+    "toolSandboxSession": "샌드박스 세션",
+    "toolReadToolOutput": "도구 출력 읽기",
     "toolGitOperations": "Git 작업 실행",
     "toolFetchUrl": "웹 페이지 가져오기",
     "toolCrawlSite": "사이트 크롤링",

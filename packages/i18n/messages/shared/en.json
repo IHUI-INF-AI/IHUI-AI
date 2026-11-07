@@ -89,6 +89,8 @@
     "toolWorkbookClose": "Close Workbook",
     "toolGenerateTest": "Generate test code",
     "toolRunCommand": "Run a command",
+    "toolSandboxSession": "Sandbox session",
+    "toolReadToolOutput": "Read tool output",
     "toolGitOperations": "Run Git operations",
     "toolFetchUrl": "Fetch web page content",
     "toolCrawlSite": "Crawl the site",

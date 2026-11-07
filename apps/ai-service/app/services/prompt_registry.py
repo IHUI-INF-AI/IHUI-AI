@@ -190,6 +190,59 @@ class PromptRegistry:
         return False
 
 
+_PROMPT_ROLES = frozenset({"reminder", "identity", "body"})
+
+
+def _cell_token(value: object) -> bool:
+    if not isinstance(value, str) or value == "" or len(value) > 41:
+        return False
+    if not (value[0].islower() or value[0].isdigit()):
+        return False
+    return all(ch.islower() or ch.isdigit() or ch == "-" for ch in value)
+
+
+def select_prompt_cell(
+    *,
+    mode: object,
+    domain: object,
+    role: object,
+    cells: object,
+) -> dict[str, Any]:
+    """按模式、领域、角色取一份已登记且有人用的模板。
+
+    清单没量到时不退回默认句。没人引用的格子不能拿来用。
+    """
+
+    def blank(reason: str, disposition: str = "unjudged") -> dict[str, Any]:
+        return {"disposition": disposition, "reason": reason, "template": None}
+
+    if not _cell_token(mode):
+        return blank("mode-unmeasured")
+    if not _cell_token(domain):
+        return blank("domain-unmeasured")
+    if role not in _PROMPT_ROLES:
+        return blank("role-unrecognized")
+    if not isinstance(cells, list):
+        return blank("cells-unmeasured")
+    found: dict[str, Any] | None = None
+    for item in cells:
+        if not isinstance(item, dict):
+            return blank("cell-unreadable")
+        if item.get("mode") != mode or item.get("domain") != domain or item.get("role") != role:
+            continue
+        if found is not None:
+            return blank("cell-ambiguous", "refused")
+        found = item
+    if found is None:
+        return blank("cell-absent", "refused")
+    if found.get("consumed") is not True:
+        return blank("cell-unused", "refused")
+    template = found.get("template")
+    if not isinstance(template, str) or template.strip() == "" or template.strip() == "{item}":
+        return blank("template-unmeasured")
+    return {"disposition": "use", "reason": "use", "template": template}
+
+
 # 10 个默认 prompt 内容(从 agent_orchestrator.py 提取，保持完全一致)
 DEFAULT_PROMPTS: dict[str, dict[str, str]] = {
     "researcher": {

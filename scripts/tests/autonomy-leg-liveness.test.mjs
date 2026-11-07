@@ -137,21 +137,41 @@ test('L10 真登记表形状可被判定器吃下(现读仓内文件,防两边�
   const { resolve } = await import('node:path')
   const reg = JSON.parse(readFileSync(resolve(import.meta.dirname, '..', 'data', 'autonomy-leg-liveness.json'), 'utf8'))
   assert.ok(Array.isArray(reg.legs) && reg.legs.length >= 12, '登记表至少覆盖已登记的派发腿(现读 12 条)')
-  const res = lv.classifyLegs({ legs: reg.legs, stamps: {}, stampFilesOnDisk: [], now: NOW })
+  // 「登记当天」这个基准**必须从登记表现读**,不许写死日期(2026-11-07 修):
+  // 原先钉在 2026-11-04T04:00Z,而该表此后又加过条目、逐条复核过 verifiedAt ⇒ 有 9 条的
+  // verifiedAt 晚于基准,`now - verifiedAt` 变负 ⇒ 宽限判据不成立 ⇒ 整条断言恒红。
+  // 那种红不是"判据发现真问题",而是**测试自己腐烂**(§0.5 棘轮锚点纪律的反面),
+  // 且会把真正的回归淹没在"反正这条一直是红的"里。
+  // 口径 = 表内最晚一次复核时刻,它天然等于"这批条目最后一次被确认的当下"。
+  const verifiedMs = reg.legs.map((l) => Date.parse(String(l.verifiedAt ?? '')))
+  assert.ok(
+    verifiedMs.every(Number.isFinite),
+    `登记表每条都必须带可解析的 verifiedAt(不可解析的条目会让宽限判据整条失效):${JSON.stringify(
+      reg.legs.filter((_, i) => !Number.isFinite(verifiedMs[i])).map((l) => l.stamp),
+    )}`,
+  )
+  const base = Math.max(...verifiedMs)
+  const res = lv.classifyLegs({ legs: reg.legs, stamps: {}, stampFilesOnDisk: [], now: base })
   // 没有 stamps 输入时每条都得有一行读数:要么 rotting(登记已久仍无戳),要么 pending(当天新登记在宽限内);
   // 绝不允许出现 ok/dark —— 那等于把"输入缺失"读成"这条腿健康"。
   assert.equal(res.rows.length, reg.legs.length, '每条登记都必须有一行读数')
   const bad = res.rows.filter((r) => !['rotting', 'pending'].includes(r.state))
   assert.deepEqual(bad.map((r) => [r.id, r.state]), [], `无 stamps 输入只允许 rotting/pending 两态:${JSON.stringify(bad)}`)
-  // 本表整张是 2026-11-04 新登记的 ⇒ 当刻全落 pending;宽限不是挡箭牌 —— 把钟推到 24h 之后,
-  // 同一条形必须整体转 rotting(反向档,钉死"pending 会自己过期")。
-  assert.ok(res.rows.every((r) => r.state === 'pending'), `登记当天应全部在宽限内,实为:${res.summary}`)
-  const later = lv.classifyLegs({
-    legs: reg.legs,
-    stamps: {},
-    stampFilesOnDisk: [],
-    now: NOW + lv.FIRST_RUN_GRACE_MS + 60 * 60 * 1000,
-  })
-  assert.ok(later.rows.every((r) => r.state === 'rotting'), `越过宽限必须整体转腐烂,实为:${later.summary}`)
+  // 宽限两档改成**逐条自证**,不再要求"整表同一刻全 pending":
+  // 这张表已跨两批登记(2026-11-04 首批 + 2026-11-07 四条复核),整表同一刻的断言会随
+  // 登记节奏自然腐烂 —— 那种红是测试腐烂,不是判据发现真问题,还会把真回归淹掉。
+  // 换成与登记节奏解耦的不变量:每条在**自己的** verifiedAt 当刻 pending、越过后必 rotting。
+  for (const leg of reg.legs) {
+    const at = Date.parse(String(leg.verifiedAt))
+    const one = lv.classifyLegs({ legs: [leg], stamps: {}, stampFilesOnDisk: [], now: at })
+    assert.equal(one.rows[0].state, 'pending', `${leg.stamp} 在自身 verifiedAt 当刻必须 pending,实为 ${one.rows[0].state}`)
+    const past = lv.classifyLegs({
+      legs: [leg],
+      stamps: {},
+      stampFilesOnDisk: [],
+      now: at + lv.FIRST_RUN_GRACE_MS + 60 * 60 * 1000,
+    })
+    assert.equal(past.rows[0].state, 'rotting', `${leg.stamp} 越过宽限必须整体转腐烂,实为 ${past.rows[0].state}`)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

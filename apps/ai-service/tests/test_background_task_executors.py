@@ -236,6 +236,16 @@ def test_unreadable_vitest_report_is_not_an_empty_result(tmp_path, monkeypatch: 
     assert report.read_text(encoding="utf-8") == '{"numTotalTests": 1, "numPassedTests": 1}\n'
 
 
+def test_corrupt_vitest_report_is_not_deleted(tmp_path) -> None:
+    report = tmp_path / "report.json"
+    body = "{not json"
+    report.write_text(body, encoding="utf-8")
+    loaded, unread = te.read_vitest_report_file(report)
+    assert loaded == {}
+    assert unread is not None and "(corrupt)" in unread
+    assert report.read_text(encoding="utf-8") == body
+
+
 # ---------------------------------------------------------------------------
 # 3. 代码索引
 # ---------------------------------------------------------------------------
