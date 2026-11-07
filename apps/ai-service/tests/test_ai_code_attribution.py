@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,11 @@ from app.core.ai_code_attribution import (
     plan_checkpoint,
     resolve_anchor,
 )
+from app.services.ai_code_attribution_git import (
+    judge_notes_refs,
+    list_notes_refs,
+    notes_ref_for_namespace,
+)
 from app.services.ai_code_attribution_store import (
     AiCodeAttributionStore,
     backfill_commit_sha,
@@ -45,9 +51,13 @@ from app.services.ai_code_attribution_store import (
     list_checkpoint_log,
     list_records,
     log_host_edit_checkpoint,
+    mirror_checkpoints_to_notes,
     note_host_edit,
     note_measured_external_edit,
+    prompt_log_path,
     record_attribution,
+    remember_prompt,
+    show_prompt,
     stats_all,
     stats_for_path,
     stats_for_session,
@@ -572,4 +582,198 @@ async def test_file_edit_records_measured_external_drift(tmp_path, monkeypatch, 
     kinds = [row["kind"] for row in list_checkpoint_log()[0]]
     assert "known_human" in kinds
     assert kinds.count("known_human") == 1
+
+
+def test_notes_health_names_absence_and_does_not_collapse_namespaces():
+    assert notes_ref_for_namespace("") == "refs/notes/ai"
+    assert notes_ref_for_namespace("default") == "refs/notes/ai"
+    assert notes_ref_for_namespace("team") == "refs/notes/ai-team"
+    assert notes_ref_for_namespace("../notes") is None
+    assert notes_ref_for_namespace("a/b") is None
+    missing = judge_notes_refs([])
+    assert missing["status"] == "absent"
+    assert missing["message"] == "Expected notes ref is present"
+    unread = judge_notes_refs(None)
+    assert unread["status"] == "unjudged"
+    assert unread["refs"] == []
+    other = judge_notes_refs(["refs/notes/commits"])
+    assert other["status"] == "absent"
+    many = judge_notes_refs(["refs/notes/ai", "refs/notes/ai-team"])
+    assert many["status"] == "multiple"
+    assert many["message"] == "Multiple git-ai note namespaces detected"
+    assert many["refs"] == ["refs/notes/ai", "refs/notes/ai-team"]
+
+
+def _repo_with_one_commit(path: Path) -> str:
+    path.mkdir(parents=True, exist_ok=True)
+
+    def run(*args: str) -> str:
+        proc = subprocess.run(
+            ["git", "-C", str(path), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        return proc.stdout.strip()
+
+    subprocess.run(["git", "init", str(path)], check=True, capture_output=True, text=True)
+    run("config", "user.email", "notes@example.com")
+    run("config", "user.name", "notes")
+    (path / "a.py").write_text("x = 1\n", encoding="utf-8")
+    run("add", "a.py")
+    run("commit", "-m", "init")
+    return run("rev-parse", "HEAD")
+
+
+def test_matching_checkpoint_is_noted_once_and_a_bad_sha_creates_nothing(tmp_path, tmp_store):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    log_host_edit_checkpoint("file_edit", "a.py", "diff", {"__session_id": "s"})
+    updated, refused = mirror_checkpoints_to_notes(repo, "abc", ["a.py"])
+    assert updated == 0
+    assert refused == "提交号不是 40 位"
+    assert list_notes_refs(repo) == []
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["other.py"])
+    assert updated == 0
+    assert refused == ""
+    assert list_notes_refs(repo) == []
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, [])
+    assert (updated, refused) == (0, "")
+    assert list_notes_refs(repo) == []
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert updated == 1
+    assert refused == ""
+    assert list_notes_refs(repo) == ["refs/notes/ai"]
+    again, again_refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert again == 0
+    assert again_refused == ""
+    health = judge_notes_refs(list_notes_refs(repo))
+    assert health["status"] == "present"
+
+
+def test_corrupt_checkpoint_log_is_not_written_into_notes(tmp_path, tmp_store):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    checkpoint_log_path().write_text("{not json\n", encoding="utf-8")
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert updated == 0
+    assert "读不到" in refused
+    assert list_notes_refs(repo) == []
+    assert checkpoint_log_path().read_text(encoding="utf-8") == "{not json\n"
+
+
+def test_escaped_namespace_does_not_fall_back_to_the_default_ref(tmp_path, tmp_store):
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    log_host_edit_checkpoint("file_edit", "a.py", "diff", {"__session_id": "s"})
+    updated, refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"], namespace="../notes")
+    assert updated == 0
+    assert refused == "notes 命名空间不能用"
+    assert list_notes_refs(repo) == []
+
+
+@pytest.mark.asyncio
+async def test_notes_routes_do_not_touch_a_repo_they_cannot_see(monkeypatch):
+    from app.routers import ai_code_attribution as route_mod
+
+    monkeypatch.setattr(route_mod, "detect_repo_root", lambda: None)
+    health = await route_mod.attribution_notes_health(user_id="u")
+    assert health["data"]["status"] == "unjudged"
+    assert health["data"]["message"] == "取不到 git 仓库根"
+    mirrored = await route_mod.mirror_attribution_notes(
+        {"commit_sha": "a" * 40, "files": ["a.py"]},
+        user_id="u",
+    )
+    assert mirrored["data"]["updated"] == 0
+    assert mirrored["data"]["refused"] == "取不到 git 仓库根"
+
+
+def test_host_prompt_is_stored_apart_from_the_checkpoint_and_notes(tmp_path, tmp_store):
+    args = {
+        "__session_id": "s",
+        "__prompt_id": "p-1",
+        "__prompt_text": "把这一行改成两行",
+        "prompt_id": "forged",
+        "prompt": "模型自报的正文",
+    }
+    status, refused = log_host_edit_checkpoint("file_edit", "a.py", "diff", args)
+    assert status == "appended"
+    assert refused == ""
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert rows[0]["prompt_id"] == "p-1"
+    assert "prompt_text" not in rows[0]
+    assert "把这一行改成两行" not in checkpoint_log_path().read_text(encoding="utf-8")
+    text, prompt_note = show_prompt("p-1")
+    assert text == "把这一行改成两行"
+    assert prompt_note == ""
+    again, again_note = remember_prompt("p-1", "把这一行改成两行")
+    assert again == "duplicate"
+    assert again_note == ""
+    clash, clash_note = remember_prompt("p-1", "另一段")
+    assert clash == "refused"
+    assert clash_note == "同一编号对上了另一段提示词"
+    assert show_prompt("p-1")[0] == "把这一行改成两行"
+    missing, missing_note = show_prompt("  ")
+    assert missing is None
+    assert missing_note == "没有提示词编号"
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    updated, notes_refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert updated == 1
+    assert notes_refused == ""
+    shown = subprocess.run(
+        ["git", "-C", str(repo), "notes", "--ref", "refs/notes/ai", "show", sha],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert "p-1" in shown.stdout
+    assert "把这一行改成两行" not in shown.stdout
+
+
+def test_half_a_prompt_refuses_the_checkpoint_and_writes_nothing(tmp_store):
+    status, refused = log_host_edit_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        {"__session_id": "s", "__prompt_id": "p-1"},
+    )
+    assert status == "refused"
+    assert refused == "提示词编号和正文必须一起给"
+    assert not checkpoint_log_path().exists()
+    assert not prompt_log_path().exists()
+    status, refused = log_host_edit_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        {"__prompt_text": "只有正文"},
+    )
+    assert status == "refused"
+    assert not prompt_log_path().exists()
+
+
+def test_corrupt_prompt_log_is_not_replaced(tmp_store):
+    body = "{not json\n"
+    prompt_log_path().write_text(body, encoding="utf-8")
+    status, refused = remember_prompt("p-1", "正文")
+    assert status == "refused"
+    assert "读不到" in refused
+    assert prompt_log_path().read_text(encoding="utf-8") == body
+    text, note = show_prompt("p-1")
+    assert text is None
+    assert "读不到" in note
+
+
+@pytest.mark.asyncio
+async def test_prompt_route_names_a_missing_prompt(tmp_store):
+    from app.routers.ai_code_attribution import show_attribution_prompt
+
+    body = await show_attribution_prompt("missing", user_id="u")
+    assert body["data"]["text"] is None
+    assert body["data"]["refused"] == "提示词没量到"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

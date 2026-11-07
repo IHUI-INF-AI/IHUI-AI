@@ -35,14 +35,21 @@ from app.core.ai_code_attribution import (
     canonical_path_set,
     checkpoint_path_hash,
     compute_stats,
+    host_prompt,
     make_record,
     plan_checkpoint,
     resolve_anchor,
 )
 from app.core.file_read_state import CHANGED_BY_EXTERNAL, VERDICT_STALE
 
-from .ai_code_attribution_git import detect_repo_root, git_blame
-from .ai_code_attribution_persistence import MAX_RECORDS, AiCodeAttributionStore, store
+from .ai_code_attribution_git import attach_checkpoint_note, detect_repo_root, git_blame
+from .ai_code_attribution_persistence import (
+    MAX_RECORDS,
+    AiCodeAttributionStore,
+    _path_key,
+    _path_matches,
+    store,
+)
 from .ttl_json_store import iso_now
 
 logger = logging.getLogger(__name__)
@@ -57,8 +64,11 @@ __all__ = [
     "note_measured_external_edit",
     "log_host_edit_checkpoint",
     "list_checkpoint_log",
+    "show_prompt",
+    "remember_prompt",
     "record_attribution",
     "backfill_commit_sha",
+    "mirror_checkpoints_to_notes",
     "list_records",
     "stats_for_path",
     "stats_for_session",
@@ -107,6 +117,36 @@ def note_host_edit(
 def backfill_commit_sha(commit_sha: str, files: list[str]) -> tuple[int, str]:
     """提交成功后回填。返回 (改了几条, 拒绝原因)。拒绝时一条都不写。"""
     return store.backfill_commit_sha(commit_sha, files)
+
+
+def mirror_checkpoints_to_notes(
+    repo_root: Path,
+    commit_sha: str,
+    files: list[str],
+    *,
+    namespace: str = "",
+) -> tuple[int, str]:
+    """把路径对上的检查点写进该仓库的 git notes。对不上或清单为空都不创建引用。"""
+    rows, refused = list_checkpoint_log()
+    if refused:
+        return 0, refused
+    keys = [key for key in (_path_key(path) for path in files) if key]
+    if not keys:
+        return 0, ""
+    written = 0
+    for row in rows:
+        paths = row.get("edited_filepaths")
+        if not isinstance(paths, list):
+            continue
+        matched = any(isinstance(path, str) and _path_matches(path, keys) for path in paths)
+        if not matched:
+            continue
+        status, reason = attach_checkpoint_note(repo_root, commit_sha, row, namespace=namespace)
+        if status == "refused":
+            return written, reason
+        if status == "appended":
+            written += 1
+    return written, ""
 
 
 def record_attribution(
@@ -182,6 +222,11 @@ def checkpoint_log_path() -> Path:
     return Path(store._file).with_name("ai_code_attribution_checkpoints.jsonl")
 
 
+def prompt_log_path() -> Path:
+    """提示词正文与检查点分开存放。git notes 只带编号，不带正文。"""
+    return Path(store._file).with_name("ai_code_attribution_prompts.jsonl")
+
+
 def _checkpoint_rows(path: Path) -> tuple[str, list[dict[str, object]]]:
     try:
         text = path.read_text(encoding="utf-8")
@@ -232,6 +277,76 @@ def append_checkpoint(record: dict[str, object]) -> tuple[str, str]:
         return "appended", ""
 
 
+def _prompt_rows(path: Path) -> tuple[str, list[dict[str, object]]]:
+    try:
+        text = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return "", []
+    except OSError:
+        return "提示词日志读不到", []
+    if text.strip() == "":
+        return "", []
+    rows: list[dict[str, object]] = []
+    for line in text.splitlines():
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except ValueError:
+            return "提示词日志读不到", []
+        if not isinstance(item, dict):
+            return "提示词日志读不到", []
+        rows.append(item)
+    return "", rows
+
+
+def remember_prompt(prompt_id: str, text: str) -> tuple[str, str]:
+    """按编号收下正文。同一编号对上另一段时不覆盖先记下的那一段。"""
+    token = prompt_id.strip()
+    body = text.strip()
+    if not token or not body:
+        return "refused", "提示词编号或正文是空的"
+    path = prompt_log_path()
+    with store._lock:
+        refused, rows = _prompt_rows(path)
+        if refused:
+            return "refused", refused
+        for row in rows:
+            if row.get("prompt_id") != token:
+                continue
+            if row.get("text") == body:
+                return "duplicate", ""
+            return "refused", "同一编号对上了另一段提示词"
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(
+                    json.dumps({"prompt_id": token, "text": body}, ensure_ascii=False, separators=(",", ":"))
+                    + "\n"
+                )
+        except OSError:
+            return "refused", "提示词日志写不了"
+        return "appended", ""
+
+
+def show_prompt(prompt_id: str) -> tuple[str | None, str]:
+    """按编号取正文。编号是空的不扫全账。日志损坏时不把空结果说成没记过。"""
+    if not isinstance(prompt_id, str) or not prompt_id.strip():
+        return None, "没有提示词编号"
+    refused, rows = _prompt_rows(prompt_log_path())
+    if refused:
+        return None, refused
+    token = prompt_id.strip()
+    for row in rows:
+        if row.get("prompt_id") != token:
+            continue
+        body = row.get("text")
+        if isinstance(body, str) and body.strip():
+            return body, ""
+        return None, "提示词没量到"
+    return None, "提示词没量到"
+
+
 def _log_host_hook(
     tool: str,
     file: str,
@@ -249,7 +364,15 @@ def _log_host_hook(
     )
     if planned is None:
         return "refused", refused
-    return append_checkpoint(planned)
+    status, reason = append_checkpoint(planned)
+    if status != "refused":
+        prompt_id, text, _prompt_refused = host_prompt(arguments)
+        if prompt_id and text:
+            try:
+                remember_prompt(prompt_id, text)
+            except Exception as exc:
+                logger.warning("提示词没记下(不影响已记下的检查点): %s", exc)
+    return status, reason
 
 
 def log_host_before_edit(
