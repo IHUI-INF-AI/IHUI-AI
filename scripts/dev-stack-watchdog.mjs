@@ -24,7 +24,7 @@
 // 用法: node scripts/dev-stack-watchdog.mjs [--install]
 //   --install 注册计划任务(幂等);无参 = 单次巡检(计划任务调用形态)
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,22 +100,31 @@ function pidAlive(pid) {
 function revive() {
   // 经 dev-stack-launch.mjs(node→node fd 直传)隐藏拉起,与开机自启链路一致;
   // 守护侧单实例锁保证心跳旧/进程死时新实例接管而非退出
-  const r = spawnSync(
-    process.execPath,
-    [
-      path.join(ROOT, 'scripts', 'dev-stack-launch.mjs'),
-      'watcher',
-      LOG_DIR,
-      ROOT,
+  //
+  // 2026-11-07:spawnSync(timeout 15s) → spawn(detached) 非阻塞。
+  // 原实现同步等 launcher,而 launcher 要等隐藏控制台里的守护跑起来才返回,
+  // 必然撞 15s 超时;而 spawnSync 超时会**连带杀掉刚 spawn 的那棵树** ⇒ 复活链路
+  // 形同虚设。当日 12:19 实测现场:日志写「复活失败: spawnSync ... ETIMEDOUT」,
+  // 紧接着心跳里的 pid 进程消失,整个栈进入"无守护"状态(各腿在跑但无人巡检)。
+  // 改成 detached + unref:本进程立刻返回,launcher 独立存活,单实例锁照样防双开。
+  try {
+    const child = spawn(
       process.execPath,
-      path.join(ROOT, 'scripts', 'dev-stack.mjs'),
-      '--watch',
-      '--device',
-    ],
-    { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true, timeout: 15_000 },
-  );
-  if (r.error) {
-    log(`复活失败: ${r.error.message}`);
+      [
+        path.join(ROOT, 'scripts', 'dev-stack-launch.mjs'),
+        'watcher',
+        LOG_DIR,
+        ROOT,
+        process.execPath,
+        path.join(ROOT, 'scripts', 'dev-stack.mjs'),
+        '--watch',
+        '--device',
+      ],
+      { detached: true, stdio: 'ignore', windowsHide: true },
+    );
+    child.unref();
+  } catch (e) {
+    log(`复活失败: ${e instanceof Error ? e.message : String(e)}`);
     return false;
   }
   log('守护死亡/心跳过期,已触发复活(dev-stack --watch --device)');
