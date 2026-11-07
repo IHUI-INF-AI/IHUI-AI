@@ -15,10 +15,11 @@ export type { AgentRuntimePanelLabels, AgentRuntimePanelProps } from '@ihui/type
 
 import { getTokens } from '../../theme/tokens'
 
-/** Tailwind 默认调色板的三个字面值(与端内既有 className 逐值同色,不做近似换色) */
+/** Tailwind 默认调色板的字面值(与端内既有 className 逐值同色,不做近似换色)。
+ *  red500(#ef4444) 已并入派生令牌 danger.DEFAULT(rnDarkTokens.danger.DEFAULT ← --color-danger),
+ *  改用 tk.danger.DEFAULT 跟随主题、消除第二真相(门 93 R8 回归修复)。 */
 const PALETTE = {
   white: '#FFFFFF',
-  red500: '#ef4444',
   orange500: '#f97316',
   amber200: '#fde68a',
 } as const
@@ -353,7 +354,7 @@ export function AgentRuntimePanel({
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: rnRadius.md,
-                backgroundColor: PALETTE.red500,
+                backgroundColor: tk.danger.DEFAULT,
                 paddingHorizontal: rnSpacing.md,
               }}
             >
