@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "model": "eval-replay",
+  "calls": [
+    {
+      "label": "select-list-dir",
+      "frames": [
+        {
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "index": 0,
+                    "id": "call_eval_list_1",
+                    "type": "function",
+                    "function": { "name": "list_dir", "arguments": "{\"path\":\".\"}" }
+                  }
+                ]
+              },
+              "finish_reason": null
+            }
+          ]
+        },
+        { "choices": [{ "index": 0, "delta": {}, "finish_reason": "tool_calls" }] }
+      ]
+    },
+    {
+      "label": "answer-file-list",
+      "frames": [
+        {
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": "目录里有 notes.md 和 todo.txt 两个文件。"
+              }
+            }
+          ]
+        },
+        { "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }] }
+      ]
+    }
+  ],
+  "usage": { "prompt_tokens": 130, "completion_tokens": 14, "total_tokens": 144 }
+}
