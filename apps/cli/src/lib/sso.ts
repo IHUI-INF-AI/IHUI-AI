@@ -230,6 +230,7 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const read = readSettingsObjectForUpdate(settingsPath);
+  if (read.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
   const existing: Settings = read.state === 'ok' ? read.settings : {};
   existing.apiKey = accessToken;
   if (refreshToken) existing.refreshToken = refreshToken;
