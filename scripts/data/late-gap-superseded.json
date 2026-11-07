@@ -1,0 +1,12 @@
+{
+  "//": "lateGap 覆盖注记(2026-11-07 裁定二):不是豁免、不是账本行。条目仍计入 lateGap 总数,只是换标签;结构上永不进 applied。coveredBy 必须是 journal 里真实存在且 when 更大的迁移;有注记的条目不会再触发红,也不会被 --repair 补假账本行。",
+  "capturedAt": "2026-11-07",
+  "entries": [
+    {
+      "tag": "20260916170000_api_subscription_windows_and_peak_pricing",
+      "coveredBy": "20261107000000_repair_api_subscription_drift",
+      "effectiveAt": "2026-11-07",
+      "reason": "该迁移从未实际执行(窗口前 3 表 / 8 列 / 7 索引全缺,全仓无 DROP 指向它们);#2 的 DDL 与本文件逐条同文,已把全部效果重建并入账。补一条『已执行』的账本行等于断言一件没发生过的事。"
+    }
+  ]
+}

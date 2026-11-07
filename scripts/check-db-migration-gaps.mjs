@@ -21,6 +21,12 @@
  *   · pending   hash 缺 ∧ when > maxApplied ⇒ drizzle 下一轮会应用;
  *   · lateGap   hash 缺 ∧ when 不在账本里 ∧ when <= maxApplied ⇒ **drizzle 永不应用** ⇒ 判红。
  *
+ * lateGapSuperseded(2026-11-07 裁定二):lateGap 中「从未执行、但其全部效果已被后续迁移
+ *  逐条同文重建」的条目,可在 `scripts/data/late-gap-superseded.json` 登记 coveredBy + effectiveAt。
+ *  三条硬条件:①结构上**永不**进 applied 桶(仍留在 lateGap 计数里);②输出必须带 coveredBy 与
+ *  effectiveAt;③`--json` 里单独一个字段,**不是从 lateGap 消失**,只是换标签、仍可数到。
+ *  有注记的条目不再触发红,也**不会被 `--repair` 补假账本行**;无注记的仍判红。
+ *
  * 用法:
  *   node scripts/check-db-migration-gaps.mjs                 # 只读审计
  *   node scripts/check-db-migration-gaps.mjs --json          # 机器可读
@@ -30,6 +36,7 @@
  *   --env-file <path>   DSN 来源(默认 apps/api/.env;也可直接用 env DATABASE_URL)
  *   --journal <path>    journal(默认 packages/database/drizzle/meta/_journal.json)
  *   --exempt <path>     hashDrift 存量豁免清单(默认 scripts/migration-hash-drift-exempt.json)
+ *   --superseded <path> lateGap 覆盖注记清单(默认 scripts/data/late-gap-superseded.json)
  *   --backup-dir <path> 修复前账本快照目录(默认 D:/DevEnv/backups,§5b 批准落点;env IHUI_BACKUP_DIR 可覆盖)
  *
  * T9 口径:hashDrift 由「只报数」升为**可阻断**,但只对**清单外的新漂移**判红(存量 25 条逐条给了
@@ -54,6 +61,7 @@ const DEFAULT_JOURNAL = join(ROOT, 'packages/database/drizzle/meta/_journal.json
 const DEFAULT_ENV_FILE = join(ROOT, 'apps/api/.env')
 const DEFAULT_BACKUP_DIR = 'D:/DevEnv/backups'
 const DEFAULT_EXEMPT_PATH = join(ROOT, 'scripts/migration-hash-drift-exempt.json')
+const DEFAULT_SUPERSEDED_PATH = join(ROOT, 'scripts/data/late-gap-superseded.json')
 const EXEMPT_STATES = new Set(['compensated', 'rewrite-verified', 'watermark-verified', 'pending'])
 
 /** journal 在 `<drizzle>/meta/` 下,而 SQL 文件在 `<drizzle>/` —— 两者差一层,取错会把每条都读成“文件缺失”。 */
@@ -199,6 +207,65 @@ export function partitionHashDrift(driftTags, exempt, today = new Date()) {
   return out
 }
 
+/**
+ * lateGap 覆盖注记清单校验(纯函数;2026-11-07 裁定二)。
+ * 契约:
+ *   · coveredBy 必须是 journal 中真实存在、且 when **严格大于**本 tag when 的迁移;
+ *   · effectiveAt 必须可解析为日期;reason 必填(为什么这条「没跑」可以被覆盖放过);
+ *   · 清单不合法属于配置错误 ⇒ exit 2,不做静默降级。
+ * 注记**不是**豁免、**不是**账本行:条目仍留在 lateGap 桶里,只换标签。
+ */
+export function loadLateGapSuperseded(raw, journalEntries = []) {
+  const problems = []
+  const byTag = new Map()
+  const whenByTag = new Map((journalEntries ?? []).map((e) => [String(e?.tag ?? ''), Number(e?.when)]))
+  const entries = Array.isArray(raw?.entries) ? raw.entries : []
+  if (!entries.length) problems.push('lateGap 覆盖注记清单为空或缺少 entries 数组')
+  for (const e of entries) {
+    const tag = String(e?.tag ?? '').trim()
+    const coveredBy = String(e?.coveredBy ?? '').trim()
+    const effectiveAt = String(e?.effectiveAt ?? '').trim()
+    const reason = String(e?.reason ?? '').trim()
+    if (!tag) {
+      problems.push('存在 tag 为空的条目')
+      continue
+    }
+    if (byTag.has(tag)) problems.push(`${tag}:重复条目`)
+    if (!whenByTag.has(tag)) problems.push(`${tag}:journal 里没有这个 tag`)
+    if (!coveredBy) problems.push(`${tag}:缺 coveredBy`)
+    else if (!whenByTag.has(coveredBy)) problems.push(`${tag}:coveredBy 不在 journal(${coveredBy})`)
+    else if (Number.isFinite(whenByTag.get(tag)) && whenByTag.get(coveredBy) <= whenByTag.get(tag)) {
+      problems.push(`${tag}:coveredBy 的 when 必须大于本条目(${coveredBy})`)
+    }
+    if (!effectiveAt) problems.push(`${tag}:缺 effectiveAt`)
+    else if (!Number.isFinite(Date.parse(effectiveAt))) problems.push(`${tag}:effectiveAt 非法(${effectiveAt})`)
+    if (!reason) problems.push(`${tag}:缺 reason(为什么覆盖成立)`)
+    byTag.set(tag, { tag, coveredBy, effectiveAt, reason })
+  }
+  return { ok: problems.length === 0, byTag, problems }
+}
+
+/**
+ * 把 lateGap 分成「有覆盖注记」与「无注记」两组。
+ * **不是删除**:两组相加仍等于原 lateGap 总数 —— 被覆盖的条目永远可被数到,只是换标签。
+ */
+export function partitionLateGap(lateGap, superseded) {
+  const known = superseded?.byTag ?? new Map()
+  const out = { superseded: [], unresolved: [], counts: { superseded: 0, unresolved: 0 } }
+  for (const e of lateGap ?? []) {
+    const tag = String(e?.tag ?? '')
+    const note = known.get(tag)
+    if (note) {
+      out.superseded.push({ tag, when: e.when, coveredBy: note.coveredBy, effectiveAt: note.effectiveAt, reason: note.reason })
+      out.counts.superseded++
+    } else {
+      out.unresolved.push(tag)
+      out.counts.unresolved++
+    }
+  }
+  return out
+}
+
 /** DSN 只许来自 env 或 env 文件的 DATABASE_URL;输出永不回显。 */
 export function readDsn({ envFile = DEFAULT_ENV_FILE, env = process.env } = {}) {
   if (env.DATABASE_URL) return { ok: true, dsn: env.DATABASE_URL.trim(), from: 'env' }
@@ -260,6 +327,8 @@ export const __test__ = {
   classifyMigrationGaps,
   loadHashDriftExempt,
   partitionHashDrift,
+  loadLateGapSuperseded,
+  partitionLateGap,
   readDsn,
   migrationsDirOf,
 }
@@ -321,7 +390,7 @@ function selfTest() {
       { tag: 'x1', state: 'compensated', compensation: '20261107006000_a.sql' },
       { tag: 'x2', state: 'rewrite-verified', evidence: 'abc1234' },
       { tag: 'x3', state: 'watermark-verified', evidence: 'def5678' },
-      { tag: 'x4', state: 'pending', ticket: 'DB-DRIFT-01' },
+      { tag: 'x4', state: 'pending', ticket: 'DB-DRIFT-01', dueAt: '2026-12-07' },
     ],
   }
   const good = loadHashDriftExempt(goodRaw, (f) => f === '20261107006000_a.sql')
@@ -337,11 +406,38 @@ function selfTest() {
     },
     () => false,
   )
-  ok('S8 非法清单 ⇒ 逐条报问题(缺文件/缺票/state 非法/重复)', bad.ok === false && bad.problems.length === 4)
+  ok('S8 非法清单 ⇒ 逐条报问题(缺文件/缺票/缺 dueAt/state 非法/重复)', bad.ok === false && bad.problems.length === 5)
   const part = partitionHashDrift(['x1', 'x2', 'zz_new'], good)
   ok('S9 存量豁免、新增未豁免', part.exempted.length === 2 && part.unexplained.length === 1 && part.unexplained[0] === 'zz_new')
   const partNo = partitionHashDrift(['x1'], { byTag: new Map() })
   ok('S10 清单为空 ⇒ 全部未豁免(不静默放水)', partNo.unexplained.length === 1)
+
+  // lateGapSuperseded:只换标签,不删除、不进 applied
+  const supJournal = [{ tag: 'late_old', when: 100 }, { tag: 'cover_new', when: 500 }]
+  const supRaw = {
+    entries: [{ tag: 'late_old', coveredBy: 'cover_new', effectiveAt: '2026-11-07', reason: '效果已由后续迁移逐条重建' }],
+  }
+  const sup = loadLateGapSuperseded(supRaw, supJournal)
+  const supPart = partitionLateGap([{ tag: 'late_old', when: 100 }, { tag: 'late_other', when: 200 }], sup)
+  ok('S11 注记齐备 ⇒ 清单合法', sup.ok && sup.byTag.size === 1)
+  ok(
+    'S12 被覆盖条目仍在 lateGap 计数内,另立一桶带 coveredBy/effectiveAt',
+    supPart.superseded.length === 1 &&
+      supPart.superseded[0].coveredBy === 'cover_new' &&
+      supPart.superseded[0].effectiveAt === '2026-11-07' &&
+      supPart.counts.superseded + supPart.counts.unresolved === 2,
+  )
+  ok('S13 无注记条目仍 unresolved(不静默放水)', supPart.unresolved.length === 1 && supPart.unresolved[0] === 'late_other')
+  const supBad = loadLateGapSuperseded(
+    {
+      entries: [
+        { tag: 'late_old', coveredBy: 'missing_tag', effectiveAt: '2026-11-07', reason: 'x' },
+        { tag: 'late_old', coveredBy: 'cover_new', effectiveAt: 'not-a-date', reason: 'x' },
+      ],
+    },
+    supJournal,
+  )
+  ok('S14 注记非法 ⇒ 逐条报问题(coveredBy 不在 journal / 重复 / 日期非法)', supBad.ok === false && supBad.problems.length >= 3)
 
   let fails = 0
   for (const [name, pass] of checks) {
@@ -371,6 +467,7 @@ function main() {
   const json = has('--json')
   const failOnDrift = has('--fail-on-hash-drift')
   const exemptPath = opt('--exempt', DEFAULT_EXEMPT_PATH)
+  const supersededPath = opt('--superseded', DEFAULT_SUPERSEDED_PATH)
 
   let journal
   try {
@@ -423,6 +520,24 @@ function main() {
     return 2
   }
   const part = partitionHashDrift(g.hashDrift.map((e) => e.tag), exempt)
+
+  // 裁定二:lateGap 覆盖注记(只换标签,不删除、不进 applied;坏清单 exit 2)
+  let supersededRaw
+  try {
+    supersededRaw = JSON.parse(readFileSync(supersededPath, 'utf8'))
+  } catch (e) {
+    console.log(`⚠️ 未判定 —— lateGap 覆盖注记清单读不到:${supersededPath}(${String(e?.code ?? e)})`)
+    console.log('GAPS-RESULT state=undetermined lateGap=0 pending=0 hashDrift=0')
+    return 2
+  }
+  const superseded = loadLateGapSuperseded(supersededRaw, journal.entries)
+  if (!superseded.ok) {
+    console.error(`❌ lateGap 覆盖注记清单不合法(${supersededPath}):`)
+    for (const p of superseded.problems) console.error(`  · ${p}`)
+    console.log('GAPS-RESULT state=undetermined lateGap=0 pending=0 hashDrift=0')
+    return 2
+  }
+  const lg = partitionLateGap(g.lateGap, superseded)
   const driftCounts =
     `compensated=${part.counts.compensated ?? 0}/rewrite=${part.counts['rewrite-verified'] ?? 0}/` +
     `watermark=${part.counts['watermark-verified'] ?? 0}/pending=${part.counts.pending ?? 0}`
@@ -433,7 +548,11 @@ function main() {
       JSON.stringify({
         applied: g.applied.length,
         pending: g.pending.map((e) => e.tag),
+        // lateGap 仍是**原始全量**:被覆盖的条目不会从这里消失(只换标签,仍可数到)
         lateGap: g.lateGap.map((e) => ({ tag: e.tag, when: e.when })),
+        lateGapTotal: g.lateGap.length,
+        lateGapSuperseded: lg.superseded,
+        lateGapUnresolved: lg.unresolved,
         hashDrift: g.hashDrift.map((e) => e.tag),
         suspectedShift: g.suspectedShift,
         hashDriftExempted: part.exempted,
@@ -444,10 +563,20 @@ function main() {
     )
   } else {
     console.log(
-      `应用账本: applied=${g.applied.length} / lateGap=${g.lateGap.length} / pending=${g.pending.length} / ` +
+      `应用账本: applied=${g.applied.length} / lateGap=${g.lateGap.length}(覆盖注记 ${lg.counts.superseded},无注记 ${lg.counts.unresolved}) / ` +
+        `pending=${g.pending.length} / ` +
         `hashDrift=${g.hashDrift.length}(豁免 ${part.exempted.length},未豁免 ${part.unexplained.length})`,
     )
-    if (g.lateGap.length) console.log(`  ❌ 中间缺口(drizzle 永不应用):${fmt(g.lateGap).join(', ')}`)
+    if (lg.unresolved.length)
+      console.log(
+        `  ❌ 中间缺口(drizzle 永不应用):` +
+          `${fmt(g.lateGap.filter((e) => lg.unresolved.includes(e.tag))).join(', ')}`,
+      )
+    if (lg.superseded.length)
+      console.log(
+        `  ℹ️ 中间缺口已被后续迁移逐条同文覆盖(不进 applied,仍计入 lateGap):` +
+          `${lg.superseded.map((x) => `${x.tag} ← ${x.coveredBy}@${x.effectiveAt}`).join(', ')}`,
+      )
     if (g.pending.length) console.log(`  ⏳ 待应用(drizzle 下轮会补):${fmt(g.pending).join(', ')}`)
     if (g.hashDrift.length)
       console.log(
@@ -472,11 +601,13 @@ function main() {
   if (!repair) {
     // `--json` 契约:**只输出一行 JSON**,不再追加人读摘要 —— 调用方(守护/部署)按“最后一行”解析,
     // 多一行摘要就等于把可解析读数永远判成"未判定"(2026-10-25 实测踩中)。
-    const red = g.lateGap.length > 0 || (failOnDrift && part.unexplained.length > 0)
+    // 红只由「无注记的 lateGap」与「未豁免漂移」触发;有覆盖注记的 lateGap 是合法出口(裁定二)
+    const red = lg.unresolved.length > 0 || (failOnDrift && part.unexplained.length > 0)
     if (!json)
       console.log(
-        `GAPS-RESULT state=${red ? 'red' : 'ok'} lateGap=${g.lateGap.length} pending=${g.pending.length} ` +
-          `hashDrift=${g.hashDrift.length} hashDriftSuspected=${g.suspectedShift.length} ` +
+        `GAPS-RESULT state=${red ? 'red' : 'ok'} lateGap=${g.lateGap.length} ` +
+          `lateGapSuperseded=${lg.counts.superseded} lateGapUnresolved=${lg.counts.unresolved} ` +
+          `pending=${g.pending.length} hashDrift=${g.hashDrift.length} hashDriftSuspected=${g.suspectedShift.length} ` +
           `hashDriftUnexplained=${part.unexplained.length}`,
       )
     return red ? 1 : 0
@@ -485,8 +616,12 @@ function main() {
     console.log('❌ 修复档必须显式 --yes(会在生产库执行 DDL 并写迁移账本)')
     return 2
   }
-  if (!g.lateGap.length) {
-    console.log('GAPS-RESULT state=ok lateGap=0(无需修复)')
+  // 有覆盖注记的条目**不许**补账本行:那等于断言一件从未发生的事(裁定二硬条件①)
+  const repairable = g.lateGap.filter((e) => !lg.superseded.some((s) => s.tag === e.tag))
+  if (lg.superseded.length)
+    console.log(`ℹ️ 跳过 ${lg.superseded.length} 条有覆盖注记的 lateGap(不补假账本行):${lg.superseded.map((s) => s.tag).join(', ')}`)
+  if (!repairable.length) {
+    console.log(`GAPS-RESULT state=ok lateGap=${g.lateGap.length}(无注记 0,无需修复)`)
     return 0
   }
   // 修复前先快照账本(小文本,回滚凭据)
@@ -502,7 +637,7 @@ function main() {
     console.log(`❌ 修复前快照失败,拒绝改写生产账本:${String(e?.message ?? e).slice(0, 160)}`)
     return 2
   }
-  for (const e of g.lateGap) {
+  for (const e of repairable) {
     const f = join(dir, `${e.tag}.sql`)
     if (!existsSync(f)) {
       console.log(`❌ ${e.tag}:SQL 文件不在位,停止(已应用的批次不回滚;快照见上)`)
@@ -527,7 +662,7 @@ function main() {
     }
     console.log(`✅ ${e.tag}:已应用并补账本`)
   }
-  console.log(`GAPS-RESULT state=repaired lateGap=${g.lateGap.length}`)
+  console.log(`GAPS-RESULT state=repaired lateGap=${g.lateGap.length} repaired=${repairable.length} lateGapSuperseded=${lg.superseded.length}`)
   return 0
 }
 

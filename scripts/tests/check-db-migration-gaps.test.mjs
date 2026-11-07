@@ -152,4 +152,66 @@ describe('迁移账本:豁免到期即到期', () => {
     assert.deepEqual(r.unexplained, [])
   })
 })
+
+// 夹具:lateGap 覆盖注记(裁定二)—— 只换标签,不删除、不进 applied。
+// 判据源是 scripts/check-db-migration-gaps.mjs 的 partitionLateGap()/loadLateGapSuperseded()。
+describe('迁移账本:lateGap 覆盖注记', () => {
+  const journal = { entries: [{ tag: 'late_old', when: 100 }, { tag: 'cover_new', when: 500 }] }
+  const raw = {
+    entries: [{ tag: 'late_old', coveredBy: 'cover_new', effectiveAt: '2026-11-07', reason: '效果已由后续迁移逐条同文重建' }],
+  }
+
+  it('合法注记 ⇒ 条目留在 lateGap 计数里,另立一桶并带 coveredBy/effectiveAt', () => {
+    const sup = G.loadLateGapSuperseded(raw, journal.entries)
+    assert.equal(sup.ok, true)
+    const lateGap = [{ tag: 'late_old', when: 100 }, { tag: 'late_other', when: 200 }]
+    const r = G.partitionLateGap(lateGap, sup)
+    assert.equal(r.counts.superseded, 1)
+    assert.equal(r.counts.unresolved, 1)
+    // 总数守恒:被覆盖的条目没有从 lateGap 消失
+    assert.equal(r.counts.superseded + r.counts.unresolved, lateGap.length)
+    assert.deepEqual(r.superseded[0], {
+      tag: 'late_old',
+      when: 100,
+      coveredBy: 'cover_new',
+      effectiveAt: '2026-11-07',
+      reason: '效果已由后续迁移逐条同文重建',
+    })
+    assert.deepEqual(r.unresolved, ['late_other'])
+  })
+
+  it('无注记 ⇒ 仍进 unresolved(不静默放水)', () => {
+    const r = G.partitionLateGap([{ tag: 'late_other', when: 200 }], { byTag: new Map() })
+    assert.deepEqual(r.unresolved, ['late_other'])
+    assert.deepEqual(r.superseded, [])
+  })
+
+  it('coveredBy 不在 journal / when 不大于本条目 / 日期非法 / 重复 ⇒ 逐条报问题', () => {
+    const bad = G.loadLateGapSuperseded(
+      {
+        entries: [
+          { tag: 'late_old', coveredBy: 'missing_tag', effectiveAt: '2026-11-07', reason: 'x' },
+          { tag: 'late_old', coveredBy: 'cover_new', effectiveAt: 'not-a-date', reason: 'x' },
+          { tag: 'late_old', coveredBy: 'late_old', effectiveAt: '2026-11-07', reason: 'x' },
+        ],
+      },
+      journal.entries,
+    )
+    assert.equal(bad.ok, false)
+    assert.ok(bad.problems.some((p) => /coveredBy 不在 journal/.test(p)))
+    assert.ok(bad.problems.some((p) => /when 必须大于/.test(p)))
+    assert.ok(bad.problems.some((p) => /effectiveAt 非法/.test(p)))
+    assert.ok(bad.problems.some((p) => /重复条目/.test(p)))
+  })
+
+  it('classifyMigrationGaps 结构不变:被覆盖条目仍不在 applied', () => {
+    const r = G.classifyMigrationGaps({
+      journal,
+      applied: [{ hash: 'h-new', createdAt: 500 }],
+      fileHashOf: (e) => ({ late_old: 'h-old', cover_new: 'h-new' })[e.tag],
+    })
+    assert.deepEqual(r.applied.map((e) => e.tag), ['cover_new'])
+    assert.deepEqual(r.lateGap.map((e) => e.tag), ['late_old'])
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
