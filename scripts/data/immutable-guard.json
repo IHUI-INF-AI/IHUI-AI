@@ -92,6 +92,12 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "path": "scripts/push-receipt.mjs",
+      "kind": "gate-registry",
+      "why": "推送门凭据 CLI 入口：把校验改成恒 true 即可用任意旧 tree 洗白任何提交（实现本体在 scripts/lib/push-receipt.mjs，同受保护）",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": ".husky/pre-commit",
       "kind": "gate-registry",
       "why": "提交链入口薄壳：改成 exit 0 后 226 及整条 pre-commit 门链再不会被调用",
