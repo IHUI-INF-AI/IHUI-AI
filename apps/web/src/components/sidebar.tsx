@@ -23,25 +23,37 @@
  */
 
 import { Sidebar } from './sidebar/Sidebar'
+import { rnGeometry } from '@ihui/design-tokens'
 
 /**
- * 侧边栏宽度常量(2026-07-17 统一,2026-08-01 默认宽度+最小宽度同步加大)
- * - 160px 是展开态默认宽度(桌面 + 移动抽屉复用)
- * - 60px 是折叠态宽度,只显图标
- * - 桌面端展开态支持拖拽调整,范围 160-180px(2026-08-01:最小宽度从 130 加大到 160,跟默认值一致)
+ * 侧边栏宽度常量 —— **全部引用几何档,本文件不再持有任何数字**(2026-11-07 收口)。
  *
- * ⚠️ 保留在 barrel 原位置:scripts/check-sidebar-width-consistency.mjs 守门脚本
- * 通过正则 `const\s+SIDEBAR_WIDTH\s*=\s*(\d+)` 校验本文件,确保与 design-tokens.css 的
- * --sidebar-width 一致。请勿移到子模块,否则该守门会报"未找到 SIDEBAR_WIDTH 常量"。
+ * 为什么必须引用而不是就地写数字:侧栏/抽屉宽度在仓里有四个消费者 ——
+ * web 常驻侧栏(本文件)、web 移动端抽屉(Sidebar.tsx 同一份 state)、
+ * RN 左抽屉(`apps/mobile-rn/src/components/Drawer.tsx`)、小程序左抽屉
+ * (`apps/miniapp-taro/src/components/DrawerComponent.tsx`)。此前 web 这四个
+ * 数字是字面量、RN/小程序读 `drawerWidth` 档,两边"数值碰巧相等"而不是同源,
+ * 于是出现"RN 250 / web 160"的跨端差(2026-11-07 机主定档统一为 160)。
+ * 现在四个端都从 `GEOMETRY_PX` 取同一个数:改 `packages/design-tokens/src/geometry.js`
+ * 一处,三端同时生效。
+ *
+ * - `drawerWidth`           160:展开态默认宽度(下限恒等于它,不另列档)
+ * - `sidebarMaxWidth`       180:桌面拖拽上限
+ * - `sidebarCollapsedWidth`  60:折叠态宽度(只显图标)
+ *
+ * ⚠️ 仍保留在 barrel 原位置:scripts/check-sidebar-width-consistency.mjs 守门脚本
+ * 会解析本文件,校验「四枚常量确实引用 rnGeometry.* 且不含数字字面量」,并拿几何档
+ * 与 tokens.css 的 --sidebar-width / --sidebar-collapsed-width 对账。请勿移到子模块,
+ * 也勿改回 `const SIDEBAR_WIDTH = 160` 这种写法,否则该门直接判红。
  */
-const SIDEBAR_WIDTH = 160
-const SIDEBAR_MIN_WIDTH = 160
-const SIDEBAR_MAX_WIDTH = 180
-const SIDEBAR_COLLAPSED_WIDTH = 60
+const SIDEBAR_WIDTH = rnGeometry.drawerWidth
+const SIDEBAR_MIN_WIDTH = rnGeometry.drawerWidth
+const SIDEBAR_MAX_WIDTH = rnGeometry.sidebarMaxWidth
+const SIDEBAR_COLLAPSED_WIDTH = rnGeometry.sidebarCollapsedWidth
 const SIDEBAR_WIDTH_STORAGE_KEY = 'sidebar-width'
 
 // 导出供子模块(./sidebar/Sidebar)复用,避免 noUnusedLocals 误报;
-// 同时保留本文件 `const SIDEBAR_WIDTH = 160` 字面量,供 check-sidebar-width-consistency.mjs 校验。
+// 同时保留本文件的声明形态,供 check-sidebar-width-consistency.mjs 校验引用关系。
 export {
   SIDEBAR_WIDTH,
   SIDEBAR_MIN_WIDTH,
