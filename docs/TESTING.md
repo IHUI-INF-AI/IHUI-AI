@@ -14,12 +14,12 @@
 
 | 层级 | 框架 | 位置 | 目的 | 运行频率 |
 |---|---|---|---|---|
-| 单元测试 | Vitest 2 | `apps/api/tests/`、`packages/*/tests/` | 验证函数 / 路由 / 工具逻辑(mock DB) | 每次提交 |
-| 集成测试 | Vitest 2(真实 DB) | `apps/api/tests/**/*.real.test.ts` | 验证 SQL 查询 / 迁移 / 真实 PG 行为 | 本地按需 / CI 可选 |
+| 单元测试 | Vitest 4 | `apps/api/tests/`、`packages/*/tests/` | 验证函数 / 路由 / 工具逻辑(mock DB) | 每次提交 |
+| 集成测试 | Vitest 4(真实 DB) | `apps/api/tests/**/*.real.test.ts` | 验证 SQL 查询 / 迁移 / 真实 PG 行为 | 本地按需 / CI 可选 |
 | E2E 测试 | Playwright | `apps/web/e2e/*.spec.ts` | 验证用户完整流程(登录 → 操作 → 结果) | 改 web 时触发 |
 | 视觉回归 | Playwright | `apps/web/tests/visual/*.spec.ts` | 断言 DOM 数值 / 布局对齐(不靠截图主观判断) | 改 UI 时触发 |
 | AI 服务测试 | pytest | `apps/ai-service/tests/` | 验证 LangGraph 工作流 / LLM 网关 / MCP / RAG | 每次提交 |
-| CLI 测试 | Vitest 2 | `apps/cli/tests/` | 验证命令行工具 / 插件 / 上下文管理 | 每次提交 |
+| CLI 测试 | Vitest 4 | `apps/cli/tests/` | 验证命令行工具 / 插件 / 上下文管理 | 每次提交 |
 | 压力测试 | Locust | `scripts/locustfile.py` | 验证核心端点 SLA / 并发承载 | 发版前 / 按需 |
 | 性能预算 | Lighthouse CI | `apps/web/lighthouserc.json` | 验证前端首屏 / CLS / LCP / TBT 指标 | 改 web 时按需 |
 
@@ -49,7 +49,7 @@
 |---|---|
 | 位置 | `apps/api/tests/` |
 | 文件数 | 278 个 `*.test.ts` |
-| 框架 | Vitest 2 |
+| 框架 | Vitest 4 |
 | 配置(默认) | `apps/api/vitest.config.ts`(mock 模式) |
 | 配置(真实 DB) | `apps/api/vitest.real.config.ts`(集成模式) |
 | 运行命令 | `pnpm --filter @ihui/api test` |
@@ -77,14 +77,18 @@
 2. 兜底注入测试专用环境变量:
    ```typescript
    process.env.DATABASE_URL ??= 'postgresql://postgres:postgres@127.0.0.1:5399/ihui_test'  // 不可用哨兵:缺省即连不上,绝不兜底生产 8810
-   process.env.JWT_SECRET ??= 'test-jwt-secret-at-least-32-characters-long!!'
-   process.env.CREDENTIALS_ENCRYPTION_KEY ??= 'a'.repeat(32)  // 测试允许弱密钥
+   process.env.JWT_SECRET ??= randomBytes(32).toString('hex')               // 每次进程内强随机:config 弱密钥加固拒绝 test- 前缀/全同字符/占位符
+   process.env.CREDENTIALS_ENCRYPTION_KEY ??= randomBytes(32).toString('hex') // 同上,弱兜底会让干净检出上 import config 即 exit(1)
    process.env.REDIS_URL ??= 'redis://127.0.0.1:6399/1'        // 不可用哨兵:缺省即连不上,绝不兜底生产 8811
    process.env.NODE_ENV = 'test'
    ```
    `REDIS_URL` 若显式指向 8811(生产 Redis 宿主映射端口)、`DATABASE_URL` 若显式指向 8810(生产 PG 宿主映射端口),
    `setup-env.ts` 都会直接抛错中止,不会静默连生产;空串/非法 URL 同样抛错,不落任何默认值。
 3. 兼容两种 cwd(`cd apps/api` 或仓库根目录)。
+4. 本地跑真实库用例(`*.real.test.ts`):`apps/api/.env.test`(受 .gitignore,不入库)需显式给出
+   `DATABASE_URL=postgresql://<user>:<password>@localhost:5432/ihui_test`;未配置时落到不可用哨兵
+   `127.0.0.1:5399`,真实用例在 import 期即 ECONNREFUSED —— 这是"没有测试实例"的正常表现,不是用例失败。
+   也可临时用 shell 注入同名 `DATABASE_URL` 而不建文件(取值优先级:shell > `.env.test` > 哨兵)。
 
 ### 2.4 Fastify inject 模式
 
@@ -314,10 +318,11 @@ await expect(page).toHaveScreenshot('login.png')
 
 | 包 | 位置 | 框架 | 配置 | 运行命令 |
 |---|---|---|---|---|
-| `@ihui/auth` | `packages/auth/` | Vitest 2 | `packages/auth/vitest.config.ts` | `pnpm --filter @ihui/auth test` |
-| `@ihui/database` | `packages/database/` | Vitest 2 | `packages/database/vitest.config.ts` | `pnpm --filter @ihui/database test` |
-| `@ihui/types` | `packages/types/` | Vitest 2 | `packages/types/vitest.config.ts` | `pnpm --filter @ihui/types test` |
-| `@ihui/api-client` | `packages/sdk/` | Vitest 2 | `packages/sdk/vitest.config.ts` | `pnpm --filter @ihui/api-client test` |
+| `@ihui/auth` | `packages/auth/` | Vitest 4 | `packages/auth/vitest.config.ts` | `pnpm --filter @ihui/auth test` |
+| `@ihui/database` | `packages/database/` | Vitest 4 | `packages/database/vitest.config.ts` | `pnpm --filter @ihui/database test` |
+| `@ihui/types` | `packages/types/` | Vitest 4 | `packages/types/vitest.config.ts` | `pnpm --filter @ihui/types test` |
+| `@ihui/api-client` | `packages/api-client/` | Vitest 4 | 无独立配置(用 vitest 默认) | `pnpm --filter @ihui/api-client test` |
+| `@ihui-ai/sdk` | `packages/sdk/` | Vitest 4 | `packages/sdk/vitest.config.ts` | `pnpm --filter @ihui-ai/sdk test` |
 
 - 共享包测试随 `pnpm test`(turbo 并行)自动运行。
 - `@ihui/auth` 测试覆盖:JWT 签发/验证、OAuth2 流程、WebSocket 认证、token 黑名单。
@@ -331,7 +336,7 @@ await expect(page).toHaveScreenshot('login.png')
 |---|---|
 | 位置 | `apps/cli/tests/` |
 | 文件数 | 13 个 `*.test.ts` |
-| 框架 | Vitest 2 |
+| 框架 | Vitest 4 |
 | 配置 | `apps/cli/vitest.config.ts` |
 | 运行命令 | `pnpm --filter ihui-cli test` |
 
