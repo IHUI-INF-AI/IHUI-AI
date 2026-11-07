@@ -578,3 +578,40 @@ def test_l2_output_complete_false_when_artifact_attached() -> None:
     _, _, output_complete, reason = alv2._ledger_execution_facts(tc, tr, None)
     assert output_complete is False
     assert reason == "completed"
+
+
+@pytest.mark.asyncio
+async def test_j_invocation_id_is_deterministic_per_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """J 确定性幂等键:同 session + 同 tool_call + 同 attempt 跨进程同编号。
+
+    随机 uuid4 让"服务端按 invocationId 去重"形同虚设;续跑重试必须是
+    attempt_seq+1,不能每次换一个随机编号。
+    """
+    calls = _capture_dispatch(monkeypatch)
+    tc = ToolCall(id="c1", name="echo_tool", args={"q": "hi"})
+    tr = ToolResult(tool_call_id="c1", name="echo_tool", result={"ok": True})
+
+    loop = _make_loop(USER)
+    loop._session_id = "sess-det"
+    loop._note_tool_attempt(tc.id)
+    loop._maybe_record_step(tc, tr)
+    loop._note_tool_attempt(tc.id)
+    loop._maybe_record_step(tc, tr)
+    loop._note_tool_attempt(tc.id)
+    loop._maybe_record_step(tc, tr)
+
+    # 另一个进程里的同一次执行(同 session/tool_call/attempt)必须得到同一个键
+    other = _make_loop(USER)
+    other._session_id = "sess-det"
+    other._note_tool_attempt(tc.id)
+    other._maybe_record_step(tc, tr)
+
+    ids = [c["invocation_id"] for c in calls]
+    assert ids[:3] == [
+        "agent:sess-det:c1:1",
+        "agent:sess-det:c1:2",
+        "agent:sess-det:c1:3",
+    ]
+    assert ids[3] == ids[0]

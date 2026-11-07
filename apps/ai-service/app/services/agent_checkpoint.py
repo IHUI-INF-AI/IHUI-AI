@@ -87,6 +87,13 @@ _SELECT_LATEST_BY_SESSION_SQL = (
     "created_at, expires_at FROM agent_checkpoints "
     "WHERE session_id = %s ORDER BY created_at DESC LIMIT 1"
 )
+# 工具回执的 CAS 更新:只有 payload 里 resume_receipts.rev 等于期望值才落盘。
+# 与 UPSERT 分开是刻意的 —— 整行覆盖会让"写前回执"和 checkpoint 并发保存互相踩掉。
+_RECEIPT_UPDATE_SQL = (
+    "UPDATE agent_checkpoints SET payload = %s::jsonb "
+    "WHERE checkpoint_id = %s "
+    "AND COALESCE((payload #>> '{tool_state,resume_receipts,rev}')::int, 0) = %s"
+)
 # 幂等建表 + 索引(部署流程已建时为 no-op;psycopg prepared 模式下单条执行)
 _ENSURE_TABLE_SQLS = (
     "CREATE TABLE IF NOT EXISTS agent_checkpoints ("
@@ -247,6 +254,45 @@ def _row_to_agent_checkpoint(row: Any) -> AgentLoopCheckpoint:
     # psycopg 默认返回 tuple,启用 dict_row 后返回 dict;两者兼容
     payload = row["payload"] if isinstance(row, dict) else row[4]
     return AgentLoopCheckpoint.from_dict(dict(payload))
+
+
+# ----------------------------------------------------------------------
+# 工具回执(resume_receipts)读写辅助
+# ----------------------------------------------------------------------
+# 回执落在 `tool_state.resume_receipts`,不改表结构。结构:
+#   {"v": 1, "rev": <int>, "calls": {<tool_call_id>: <ToolReceipt.to_dict()>}}
+# rev 是 CAS 版本号:每次回执写入 +1,写入必须带 expected_rev,避免两个写入者互相覆盖。
+
+
+def _receipts_rev(tool_state: Any) -> int:
+    """读回执版本号;缺失 / 结构异常一律按 0(首次写入)。"""
+    if not isinstance(tool_state, dict):
+        return 0
+    receipts = tool_state.get("resume_receipts")
+    if not isinstance(receipts, dict):
+        return 0
+    rev = receipts.get("rev", 0)
+    return rev if isinstance(rev, int) and rev >= 0 else 0
+
+
+def _apply_receipt(
+    tool_state: dict[str, Any],
+    tool_call_id: str,
+    record: dict[str, Any],
+    next_rev: int,
+) -> None:
+    """把一条回执写进 tool_state 的 resume_receipts(原地修改)。"""
+    receipts = tool_state.get("resume_receipts")
+    if not isinstance(receipts, dict):
+        receipts = {"v": 1, "rev": 0, "calls": {}}
+        tool_state["resume_receipts"] = receipts
+    calls = receipts.get("calls")
+    if not isinstance(calls, dict):
+        calls = {}
+        receipts["calls"] = calls
+    receipts["v"] = 1
+    receipts["rev"] = next_rev
+    calls[tool_call_id] = json.loads(json.dumps(record, ensure_ascii=False, default=str))
 
 
 class CheckpointNotFoundError(Exception):
@@ -649,6 +695,113 @@ class AgentCheckpointManager:
             checkpoint_id,
         )
         return checkpoint_id
+
+    async def receipts_durable(self) -> bool:
+        """当前 manager 是否有跨进程耐久后端(redis 或 PG)。
+
+        纯内存 manager 不是跨进程可恢复的 —— 调用方据此关闭回执,而不是假装回执存在。
+        """
+        if self._use_pg:
+            return True
+        redis = await self._get_redis()
+        return redis is not None
+
+    async def record_tool_receipt(
+        self,
+        checkpoint_id: str,
+        tool_call_id: str,
+        record: dict[str, Any],
+        expected_rev: int,
+    ) -> bool:
+        """CAS 写入一条工具回执,返回**耐久后端是否真的落地**。
+
+        - `True`:redis 或 PG 至少一侧写入成功,且内存副本已同步。
+        - `False`:没有任何耐久后端接受这次写入(纯内存 / 连接失败 / rev 不匹配)。
+          调用方必须按"没有回执"处理 —— 有副作用工具不得继续执行。
+
+        并发口径:同进程写入由调用方的 asyncio 锁串行化;跨进程并发续跑不是受支持
+        场景(同一 checkpoint 不该被两个恢复者同时接管)。PG 侧用 rev CAS 兜底,
+        redis 侧是 get/set 的非原子 CAS(仅在单写者前提下成立)。
+        """
+        next_rev = int(expected_rev) + 1
+        applied = False
+        redis = await self._get_redis()
+        if redis is not None:
+            try:
+                applied = await self._record_receipt_redis(
+                    redis, checkpoint_id, tool_call_id, record, expected_rev, next_rev
+                )
+            except Exception as e:
+                logger.warning("AgentCheckpointManager redis 回执写入失败: %s", e)
+        if self._use_pg:
+            try:
+                applied = await self._record_receipt_pg(
+                    checkpoint_id, tool_call_id, record, expected_rev, next_rev
+                ) or applied
+            except Exception as e:
+                logger.warning("AgentCheckpointManager PG 回执写入失败(降级继续): %s", e)
+        if not applied:
+            return False
+        async with self._lock:
+            cp = self._checkpoints.get(checkpoint_id)
+            if cp is not None and _receipts_rev(cp.tool_state) == expected_rev:
+                _apply_receipt(cp.tool_state, tool_call_id, record, next_rev)
+        return True
+
+    async def _record_receipt_redis(
+        self,
+        redis: Any,
+        checkpoint_id: str,
+        tool_call_id: str,
+        record: dict[str, Any],
+        expected_rev: int,
+        next_rev: int,
+    ) -> bool:
+        """(内部)回执写 redis,保留原 TTL。"""
+        key = f"agent_ckpt:{checkpoint_id}"
+        raw = await redis.get(key)
+        if not raw:
+            return False
+        data = json.loads(raw)
+        tool_state = data.get("tool_state")
+        if not isinstance(tool_state, dict):
+            tool_state = {}
+            data["tool_state"] = tool_state
+        if _receipts_rev(tool_state) != expected_rev:
+            return False
+        _apply_receipt(tool_state, tool_call_id, record, next_rev)
+        ttl = await redis.ttl(key)
+        ex = ttl if isinstance(ttl, int) and ttl > 0 else self._ttl
+        await redis.set(key, json.dumps(data, ensure_ascii=False), ex=ex)
+        return True
+
+    async def _record_receipt_pg(
+        self,
+        checkpoint_id: str,
+        tool_call_id: str,
+        record: dict[str, Any],
+        expected_rev: int,
+        next_rev: int,
+    ) -> bool:
+        """(内部)回执写 PG:先读 payload 校验 rev,再用 rev 条件 UPDATE。"""
+        pool = await self._get_pool()
+        await self._ensure_table()
+        async with pool.connection() as conn:
+            cur = await conn.execute(_SELECT_BY_ID_SQL, checkpoint_id)
+            row = await cur.fetchone()
+            if row is None:
+                return False
+            cp = _row_to_agent_checkpoint(row)
+            if _receipts_rev(cp.tool_state) != expected_rev:
+                return False
+            _apply_receipt(cp.tool_state, tool_call_id, record, next_rev)
+            cur2 = await conn.execute(
+                _RECEIPT_UPDATE_SQL,
+                _json_dumps(cp.to_dict()),
+                checkpoint_id,
+                expected_rev,
+            )
+            return int(getattr(cur2, "rowcount", 0) or 0) > 0
 
     def _evict_oldest_locked(self) -> None:
         """(必须持锁)删除 created_at 最老的 checkpoint。"""
