@@ -93,6 +93,13 @@ import {
 // (scripts/lib/import-graph.mjs,2026-10-04 G-406 ② 在 check-typecheck 先落了消费先例)。
 // 本门只**消费** buildFileGraph / widenOverDependents,不自己再写一遍边判定 —— 两处实现必漂移。
 import { buildFileGraph, widenOverDependents } from './lib/import-graph.mjs'
+// 合并提交的“本次新增”判据(唯一一份):父集 = HEAD ∪ MERGE_HEAD;非合并时父集只有 HEAD。
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const ROOT = pResolve(pDirname(fileURLToPath(import.meta.url)), '..')
 const POLICY_REL = 'config/architecture-policy.yaml'
@@ -492,6 +499,26 @@ export function suppressionCount(text) {
   if (!mayHaveSuppression(text)) return 0
   const sup = scanExemptionLedger('virtual', blankStrings(text)).suppressions
   return Object.values(sup).reduce((a, b) => a + (Number(b) || 0), 0)
+}
+
+/** 抑制条目的多重集 key:按规则名重复 `suppressionCount` 次,长度与读数严格一致。 */
+export function suppressionKeys(text) {
+  if (!mayHaveSuppression(text)) return []
+  const sup = scanExemptionLedger('virtual', blankStrings(text)).suppressions
+  const out = []
+  for (const [rule, n] of Object.entries(sup)) {
+    for (let i = 0; i < (Number(n) || 0); i++) out.push(rule)
+  }
+  return out
+}
+
+/** 合并档的 DC 锚点:`结果读数 − newOccurrences(...)`,判据 `> anchor` 一个字不动。 */
+export function suppressionAnchorWithParents(currentKeys, parentKeyLists) {
+  if ((parentKeyLists?.length ?? 0) <= 1) return parentKeyLists?.[0]?.length ?? 0
+  return effectiveAnchorCount(
+    currentKeys.length,
+    newOccurrences(currentKeys, parentKeyLists).length,
+  )
 }
 
 /**
@@ -1256,7 +1283,25 @@ export function declarationContext(P, facePaths, rev) {
   ].filter((p) => tracked.has(p))
   const byPath = new Map()
   const unparsed = []
-  for (const [p, text] of readFace(rev, want)) {
+  // 合并父面传的是父提交 sha(不是 head/staged/worktree)⇒ 直接按 `<rev>:<path>` 批量读,
+  // 其余形态仍走 readFace,非合并行为逐字不变。
+  const revIsFace = FACES.includes(rev) || rev === 'HEAD' || rev === ''
+  let texts
+  if (!revIsFace) {
+    const got = catBatch(
+      ROOT,
+      want.map((p) => `${rev}:${p}`),
+      { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT },
+    )
+    texts = new Map(
+      want
+        .filter((p) => typeof got.get(`${rev}:${p}`) === 'string')
+        .map((p) => [p, got.get(`${rev}:${p}`)]),
+    )
+  } else {
+    texts = readFace(rev, want)
+  }
+  for (const [p, text] of texts) {
     try {
       byPath.set(p, JSON.parse(text))
     } catch {
@@ -1638,6 +1683,15 @@ function main(argv) {
   //     `--staged` 而暂存集为空时内容会回退到 HEAD,但表仍取自索引 —— 这一支必须照常设基线,
   //     否则 HEAD 已有的表缺陷全被算成"本次新增",每一次提交都红(§12e 同型)。
   //   · **DC 锚点**问的是「内容面是不是 HEAD」⇒ 由 `contentIsHead` 决定(见下一段)。
+  // 合并未收口 ⇒ 「本次新增」的父集是 HEAD ∪ MERGE_HEAD;非合并父集只有 HEAD,走原有公式。
+  let mergeDelta = null
+  try {
+    const d = deltaParents({ root: ROOT, face })
+    if (d.applicable && d.merge) mergeDelta = d
+  } catch (e) {
+    console.error(`❌ 无法判定:合并父集取不到 —— ${e?.message ?? e}`)
+    return 2
+  }
   const tableNeedsHeadBaseline = policyFace !== 'HEAD'
   const contentIsHead = face === 'head' || scopeMode === 'staged-empty-fallback-full'
   let baselineMsgs = new Set()
@@ -1662,6 +1716,46 @@ function main(argv) {
       anchorUndated = null
     }
   }
+  // 合并档:表缺陷、无日期例外都按「每一枚父提交那份表」各自取基线,而不是只看 HEAD。
+  const parentMsgLists = []
+  const parentUndatedLists = []
+  if (mergeDelta && tableNeedsHeadBaseline) {
+    const policyTexts = readParentTexts({
+      root: ROOT,
+      rels: [POLICY_REL],
+      parents: mergeDelta.parents,
+    })
+    for (const p of mergeDelta.parents) {
+      const text = policyTexts.get(p.label)?.get(POLICY_REL)
+      if (typeof text !== 'string') continue
+      try {
+        const PH = loadPolicy(parseYaml(text, `${POLICY_REL}@${p.label}`))
+        const pPaths = gitAt(ROOT, ['ls-tree', '-r', '--name-only', p.rev, '-z'])
+          .split('\0')
+          .filter(Boolean)
+        const msgs = []
+        for (const v of auditPolicy(PH, pPaths)) if (!v.soft) msgs.push(v.msg)
+        for (const v of auditDeclarations(PH, declarationContext(PH, pPaths, p.rev), {
+          trialModules,
+          strict,
+        }).violations)
+          if (!v.soft) msgs.push(v.msg)
+        parentMsgLists.push(msgs)
+        parentUndatedLists.push([...undatedExceptionIds(PH)])
+      } catch (e) {
+        console.error(
+          `[arch-policy] ⚠️ 合并父面 ${p.label} 的策略表读不出,该父不参与新增基线:${e?.message ?? e}`,
+        )
+      }
+    }
+    if (parentMsgLists.length > 0) {
+      baselineMsgs = new Set(parentMsgLists.flat())
+      anchorUndated = anchorUndatedWithParents(
+        [...undatedExceptionIds(P)],
+        parentUndatedLists,
+      )
+    }
+  }
   // DC 的锚点面**恒为 HEAD**。内容面本身就是 HEAD 时不二次读(一遍 catBatch 约 500MB,
   // 一个"比较"不该付两遍);只有**内容面不是 HEAD** 的那几档(暂存窄口径 / 工作树)才需要为
   // "当前面确有抑制"的文件补一次 HEAD 读,按预筛挑文件而不是整面重读。
@@ -1673,15 +1767,41 @@ function main(argv) {
   if (!contentIsHead) {
     const need = [...files.keys()].filter((p) => mayHaveSuppression(files.get(p)))
     suppressionAnchors = new Map()
-    try {
-      for (const [p, t] of readFace('HEAD', need)) suppressionAnchors.set(p, suppressionCount(t))
-    } catch (e) {
-      console.error(
-        `❌ 无法判定:DC 锚点面(HEAD)取不到 —— ${e.message};DC 判据在缺锚点时不得冒判"没有增长",也不得静默跳过`,
-      )
-      return 2
+    if (mergeDelta) {
+      // 合并档:锚点 = HEAD ∪ MERGE_HEAD 各父自身抑制条数在多重集意义下的有效锚点。
+      try {
+        const parentTexts = readParentTexts({
+          root: ROOT,
+          rels: need,
+          parents: mergeDelta.parents,
+        })
+        for (const p of need) {
+          const currentKeys = suppressionKeys(files.get(p))
+          const parentKeyLists = mergeDelta.parents.map((pr) => {
+            const t = parentTexts.get(pr.label)?.get(p)
+            return typeof t === 'string' ? suppressionKeys(t) : []
+          })
+          suppressionAnchors.set(p, suppressionAnchorWithParents(currentKeys, parentKeyLists))
+        }
+        suppressionAnchorNote = `HEAD ∪ MERGE_HEAD(按当前面预筛补读 ${need.length} 个文件,取到的 ${suppressionAnchors.size} 个;其余按存量 0 起算${isWorktree && missedOnFace.length ? `;工作树磁盘上缺 ${missedOnFace.length} 个被跟踪源文件,已如实报名` : ''})`
+      } catch (e) {
+        console.error(
+          `❌ 无法判定:DC 锚点面(HEAD ∪ MERGE_HEAD)取不到 —— ${e.message};DC 判据在缺锚点时不得冒判"没有增长",也不得静默跳过`,
+        )
+        return 2
+      }
+    } else {
+      try {
+        for (const [p, t] of readFace('HEAD', need))
+          suppressionAnchors.set(p, suppressionCount(t))
+      } catch (e) {
+        console.error(
+          `❌ 无法判定:DC 锚点面(HEAD)取不到 —— ${e.message};DC 判据在缺锚点时不得冒判"没有增长",也不得静默跳过`,
+        )
+        return 2
+      }
+      suppressionAnchorNote = `HEAD(按当前面预筛补读 ${need.length} 个文件,取到的 ${suppressionAnchors.size} 个;其余按存量 0 起算${isWorktree && missedOnFace.length ? `;工作树磁盘上缺 ${missedOnFace.length} 个被跟踪源文件,已如实报名` : ''})`
     }
-    suppressionAnchorNote = `HEAD(按当前面预筛补读 ${need.length} 个文件,取到的 ${suppressionAnchors.size} 个;其余按存量 0 起算${isWorktree && missedOnFace.length ? `;工作树磁盘上缺 ${missedOnFace.length} 个被跟踪源文件,已如实报名` : ''})`
   }
   const exc = auditExceptionExpiry(P, {
     anchorUndatedIds: anchorUndated,
@@ -1692,7 +1812,9 @@ function main(argv) {
   // 工作树档的表来自磁盘,同样要以 HEAD 那份为基线,否则"别人已入库的表缺陷"被每一档新面算成新账。
   const hardTable = [
     ...(tableNeedsHeadBaseline
-      ? filterNewTableDefects(table, baselineMsgs)
+      ? mergeDelta && parentMsgLists.length > 0
+        ? newTableDefects(table, parentMsgLists)
+        : filterNewTableDefects(table, baselineMsgs)
       : table.filter((x) => !x.soft)),
     ...exc.hard,
   ]
@@ -1900,6 +2022,25 @@ export function registrationOf(runnerText, scriptName) {
  *  全量档不套这层:它跑在 check:all / CI,正是"表又坏了"的哨兵。 */
 export function filterNewTableDefects(violations, baselineMessages) {
   return violations.filter((v) => !v.soft && !baselineMessages.has(v.msg))
+}
+
+/**
+ * 合并档的表缺陷棘轮:基线 = 每一枚父提交那份表各自的缺陷集合(HEAD ∪ MERGE_HEAD)。
+ * 结果面的缺陷只要出现在任一父里就归因该父;非合并(父集只有 HEAD)与 `filterNewTableDefects`
+ * 逐字等价(基线是同一条 `msg` 集合)。
+ */
+export function newTableDefects(violations, parentMsgLists) {
+  const parentSets = (parentMsgLists || []).map((list) => new Set(list))
+  return violations.filter((v) => !v.soft && !parentSets.some((s) => s.has(v.msg)))
+}
+
+/** 合并档的 X1 锚点:结果面 id 中「每一枚父提交都没有」的才是本次新登记,其余是存量。 */
+export function anchorUndatedWithParents(resultIds, parentIdLists) {
+  const result = [...(resultIds || [])]
+  const parentLists = parentIdLists || []
+  if (parentLists.length <= 1) return new Set(parentLists[0] ?? [])
+  const fresh = new Set(newOccurrences(result, parentLists))
+  return new Set(result.filter((id) => !fresh.has(id)))
 }
 
 // ── 自检:成对正反例 ────────────────────────────────────────────────────────────────────
@@ -3071,6 +3212,10 @@ export const __test__ = {
   undatedExceptionIds,
   mayHaveSuppression,
   suppressionCount,
+  suppressionKeys,
+  suppressionAnchorWithParents,
+  newTableDefects,
+  anchorUndatedWithParents,
   auditExceptionExpiry,
   publicMethodCount,
   RULES,

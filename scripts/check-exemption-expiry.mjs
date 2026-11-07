@@ -76,6 +76,12 @@ import {
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const GIT_BIN = gitBinary()
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -430,17 +436,59 @@ export function undatedKey(e) {
   return `${e.file}::${e.family}`
 }
 
+/** 一组账条目 → 无日期账键的**多重集**(不含工具面/存档面/带到期日的)。
+ *  undatedCountsOf / 锚点多重集两处共用它,免得"观测一套过滤、锚点另一套过滤"漂移。 */
+export function undatedKeysOf(entries) {
+  const out = []
+  for (const e of entries) {
+    if (e.expiry || e.toolFace || e.archiveFace) continue
+    out.push(undatedKey(e))
+  }
+  return out
+}
+
 /** 一组账条目 → 每 (文件,族) 的无日期计数。E1 的观测面与 HEAD 锚点面共用它。
  *  工具面(`scripts/**`,见 TOOL_FACE_RE)不入账 —— 观测侧与锚点侧走同一个函数,所以这一条
  *  改动对 E1 是**对称**的:不会出现在"锚点按新口径算、观测按旧口径算"的错位假红。 */
 export function undatedCountsOf(entries) {
   const out = {}
-  for (const e of entries) {
-    if (e.expiry || e.toolFace || e.archiveFace) continue
-    const k = undatedKey(e)
-    out[k] = (out[k] || 0) + 1
+  for (const k of undatedKeysOf(entries)) out[k] = (out[k] || 0) + 1
+  return out
+}
+
+/** 多重集计数(键数组 → Map<键,枚数>)。 */
+function multiplicityOf(keys) {
+  const m = new Map()
+  for (const k of keys || []) m.set(k, (m.get(k) || 0) + 1)
+  return m
+}
+
+/**
+ * 多父锚点:每个键的有效锚点 = `结果读数 − 本次真正新增数`(merge-delta 的计数型出口)。
+ * 于是 `读数 > 锚点 ⇔ 本次新增 > 0`,门原判据一个字不动。
+ * 非合并只有 HEAD 一枚父,`newOccurrences` 的新增数 = 结果 \ HEAD,锚点即 HEAD 读数。
+ */
+export function anchorCountsFor(resultKeys, parentKeyLists) {
+  const res = multiplicityOf(resultKeys)
+  const parents = (parentKeyLists || []).map(multiplicityOf)
+  const out = {}
+  for (const [k, n] of res) {
+    const parentCounts = parents.map((m) => m.get(k) || 0)
+    const fresh = newOccurrences(new Array(n).fill(k), parentCounts.map((c) => new Array(c).fill(k)))
+    out[k] = effectiveAnchorCount(n, fresh.length)
   }
   return out
+}
+
+/** 单个键的有效锚点(计数型门的通用形;导出供单测直接钉)。 */
+export function effectiveAnchorFromParents(currentCount, parentCounts) {
+  const n = Number(currentCount || 0)
+  if (!parentCounts || parentCounts.length === 0) return n
+  const fresh = newOccurrences(
+    new Array(n).fill('k'),
+    parentCounts.map((c) => new Array(Number(c || 0)).fill('k')),
+  )
+  return effectiveAnchorCount(n, fresh.length)
 }
 
 /**
@@ -479,13 +527,18 @@ export function unregisteredUsedFamiliesOf(entries) {
  *    可比;把它硬套基线存量,得到的就是一道与任何在飞改动无关、且因基线只下调而抬不动的恒红
  *    —— 那正是 G-174 的成因。存量账在该档由 grandfatherUntil + S1「可下调」报数管,E2(已过期)
  *    与 E3(基线自身过期)照旧判红,牙齿没少。
- *  - **面 = index(提交链)**:锚点取 HEAD 的现测值 ∪ 基线(analyze 内取大)。
- *  - **HEAD 取不到**:返回 null ⇒ analyze 退回"只看基线",调用方必须把这次退化喊出来。
+ *  - **面 = index(提交链)**:锚点取各**父提交**现测值(HEAD ∪ MERGE_HEAD……)逐键取大
+ *    后再与基线取大。非合并只有 HEAD 一枚父 ⇒ 逐字旧行为;合并未收口时上游既有的豁免
+ *    不再记本次新增。
+ *  - **父面取不到**:返回 null ⇒ analyze 退回"只看基线",调用方必须把这次退化喊出来。
  */
-export function resolveAnchor({ face, entries, headEntries }) {
+export function resolveAnchor({ face, entries, headEntries, parentEntryLists }) {
   if (face === 'head') return undatedCountsOf(entries)
-  if (!headEntries) return null
-  return undatedCountsOf(headEntries)
+  const lists = parentEntryLists || (headEntries ? [headEntries] : null)
+  if (!lists) return null
+  // 单父(非合并)走原来的整表出口,输出逐字不变。
+  if (lists.length === 1) return undatedCountsOf(lists[0])
+  return anchorCountsFor(undatedKeysOf(entries), lists.map(undatedKeysOf))
 }
 
 /**
@@ -507,13 +560,28 @@ export function suppressionUndatedCountsOf(byFile) {
 
 /** E5 的锚点取哪一份 —— 与 resolveAnchor 同型(G-174 同款棘轮,三种情形都要能被单测钉住):
  *  - 面 = head(全量审计):本次即 HEAD 自己,自比必相等 ⇒ E5 结构上不响;
- *  - HEAD 面取不到:返回 null ⇒ analyze 退回"只报数不判红"(基线可能还没有
+ *  - 父面取不到:返回 null ⇒ analyze 退回"只报数不判红"(基线可能还没有
  *    suppressionUndatedCounts 字段,拿 0 当锚点 = 上线当场恒红 342 处);
- *  - 否则取 HEAD 现测计数,analyze 内与基线取大。 */
-export function resolveSuppressionAnchor({ face, undatedByFile, headUndatedByFile }) {
+ *  - 否则取各父提交现测计数(合并未收口时 HEAD ∪ MERGE_HEAD 逐键取大),analyze 内与基线取大。 */
+export function resolveSuppressionAnchor({
+  face,
+  undatedByFile,
+  headUndatedByFile,
+  parentUndatedByFiles,
+}) {
   if (face === 'head') return suppressionUndatedCountsOf(undatedByFile)
-  if (!headUndatedByFile) return null
-  return suppressionUndatedCountsOf(headUndatedByFile)
+  const lists = parentUndatedByFiles || (headUndatedByFile ? [headUndatedByFile] : null)
+  if (!lists) return null
+  const counts = lists.map(suppressionUndatedCountsOf)
+  if (counts.length === 1) return counts[0]
+  const expand = (o) => {
+    const out = []
+    for (const [k, n] of Object.entries(o || {})) {
+      for (let i = 0; i < Number(n || 0); i++) out.push(k)
+    }
+    return out
+  }
+  return anchorCountsFor(expand(suppressionUndatedCountsOf(undatedByFile)), counts.map(expand))
 }
 
 export function analyze({
@@ -1390,11 +1458,7 @@ function loadBaselineOrSeed(root, update) {
   }
 }
 
-function collect(root, face) {
-  const rels = grepList(root, face)
-  // 空扫不报绿:本仓 HEAD 实测 100+ 文件带豁免,零命中只可能是判据失效
-  if (rels.length === 0) throw new Undetermined(`候选为 0(面=${face}),判据可能失效而非"没有豁免"`)
-  const contents = readFace(root, face, rels)
+function scanContents(rels, contents) {
   const entries = []
   const suppressionsByFile = {}
   const suppressionUndatedByFile = {}
@@ -1411,15 +1475,37 @@ function collect(root, face) {
     if (Object.keys(r.suppressionUndated).length > 0)
       suppressionUndatedByFile[rel] = r.suppressionUndated
   }
+  return { entries, suppressionsByFile, suppressionUndatedByFile, unreadable }
+}
+
+function collect(root, face) {
+  const rels = grepList(root, face)
+  // 空扫不报绿:本仓 HEAD 实测 100+ 文件带豁免,零命中只可能是判据失效
+  if (rels.length === 0) throw new Undetermined(`候选为 0(面=${face}),判据可能失效而非"没有豁免"`)
+  const contents = readFace(root, face, rels)
+  const got = scanContents(rels, contents)
   // 反"假绿"第二道:候选>0 却解析出 0 条标记,说明**判据正则失效**而不是"仓库没有豁免"
   // (这正是 `HEAD:` 前缀那次故障的形状:366 个候选、0 条账、绿灯)。宁判死不误绿。
-  if (entries.length === 0) {
+  if (got.entries.length === 0) {
     throw new Undetermined(
-      `${rels.length} 个候选里解析出 0 条豁免(取不到 ${unreadable} 个)` +
+      `${rels.length} 个候选里解析出 0 条豁免(取不到 ${got.unreadable} 个)` +
         '——判据可能失效,不按"没有豁免"记绿',
     )
   }
-  return { entries, suppressionsByFile, suppressionUndatedByFile, scannedFiles: rels.length, unreadable }
+  return { ...got, rels, scannedFiles: rels.length }
+}
+
+/**
+ * 各父提交面的同一批候选文件 → 每父一份扫描结果(entries / 抑制账)。
+ * 父集由 merge-delta 判(非合并只有 HEAD;合并未收口时 HEAD ∪ MERGE_HEAD……)。
+ * 父面缺件(null)按"该父没有这份件"处理 —— 合法缺件,不回落结果面。
+ */
+function collectParents(root, face, rels) {
+  const delta = deltaParents({ root, face })
+  const texts = readParentTexts({ root, rels, parents: delta.parents })
+  const out = []
+  for (const [, map] of texts) out.push(scanContents(rels, map))
+  return out
 }
 
 // got = collect 的返回值(entries 与 suppressionUndatedByFile 同面同轮,拆开传就给了
@@ -1508,38 +1594,43 @@ function cliRun(opts) {
   const baseline = loadBaselineOrSeed(root, update)
   const got = collect(root, face)
   const today = isoToday()
-  // E1 的锚点:面不是 HEAD 时,现读一份 HEAD 的同族计数当锚点(G-174)。
-  // 全量档(面=head)不取 —— 自己比自己必然相等,E1 在那里结构上不该响;它本来就是"本次提交
-  // 相对上一次"的棘轮,不是存量账(存量由 grandfatherUntil / S1 报数管)。
-  let headEntries = null
-  let headSuppressionUndatedByFile = null
+  // E1 的锚点:面不是 HEAD 时,现读各**父提交**(HEAD / 合并未收口时的 MERGE_HEAD……)的同族计数
+  // 当锚点(G-174)。全量档(面=head)不取 —— 自己比自己必然相等,E1 在那里结构上不该响;
+  // 它本来就是"本次提交相对上一次"的棘轮,不是存量账(存量由 grandfatherUntil / S1 报数管)。
+  let parentScans = null
   if (face !== 'head') {
     try {
-      // 一次 collect 同时喂 E1/E4/E5 三把锚:E1/E4 要 entries、E5 要 suppressionUndatedByFile,
-      // 拆两次 collect 会各自看见不同的仓库瞬间(同面同轮铁律)。
-      const headGot = collect(root, 'head')
-      headEntries = headGot.entries
-      headSuppressionUndatedByFile = headGot.suppressionUndatedByFile
+      // 一次取满父面同时喂 E1/E4/E5 三把锚:E1/E4 要 entries、E5 要 suppressionUndatedByFile,
+      // 拆两次会各自看见不同的仓库瞬间(同面同轮铁律)。
+      parentScans = collectParents(root, face, got.rels)
     } catch (e) {
       console.log(
-        `  ⚠️ HEAD 锚点取不到(${e.message.slice(0, 70)})⇒ E1 退回"只看基线存量"口径,` +
+        `  ⚠️ 父提交锚点取不到(${String(e.message ?? e).slice(0, 70)})⇒ E1 退回"只看基线存量"口径,` +
           '此时若基线被历史低估,可能产出一条抬不动的恒红(见 PROJECT_PLAN G-174);' +
           'E4 同批退回"族集合自己比自己"⇒ 该档不判红;E5 整维退回只报数(基线可能还没有' +
           'suppressionUndatedCounts 字段,拿 0 当锚点 = 恒红存量)—— 不冒红也不假装判过',
       )
     }
   }
-  const headCounts = resolveAnchor({ face, entries: got.entries, headEntries })
-  // E4 的锚点与 E1 同一份取材(同面同轮):两次 collect 会各自看见不同的仓库瞬间,产出"观测来自
-  // 索引、锚点来自上一秒的 HEAD"这种自洽却错位的尺子。面=head 时不取,自己比自己必然相等。
+  const headCounts = resolveAnchor({
+    face,
+    entries: got.entries,
+    parentEntryLists: parentScans && parentScans.map((s) => s.entries),
+  })
+  // E4 的锚点与 E1 同一份取材(同面同轮),合并未收口时取各父的**并集**:
+  // 上游已经用过的那一族不算本次新引入。
   const headUnregisteredFamilies =
-    face === 'head' || !headEntries ? null : unregisteredUsedFamiliesOf(headEntries)
+    face === 'head' || !parentScans
+      ? null
+      : new Set(
+          parentScans.flatMap((s) => [...unregisteredUsedFamiliesOf(s.entries)]),
+        )
   // E5 的锚点同源同轮(与 E1 的 resolveAnchor 同型:面=head 自比必相等 ⇒ 结构上不响;
-  // HEAD 取不到 ⇒ null ⇒ analyze 退回只报数)。
+  // 父面取不到 ⇒ null ⇒ analyze 退回只报数)。
   const headSuppressionCounts = resolveSuppressionAnchor({
     face,
     undatedByFile: got.suppressionUndatedByFile,
-    headUndatedByFile: headSuppressionUndatedByFile,
+    parentUndatedByFiles: parentScans && parentScans.map((s) => s.suppressionUndatedByFile),
   })
   const res = analyze({
     entries: got.entries,
@@ -1609,6 +1700,9 @@ export const __test__ = {
   mergeBaseline,
   resolveAnchor,
   resolveSuppressionAnchor,
+  anchorCountsFor,
+  effectiveAnchorFromParents,
+  undatedKeysOf,
   suppressionUndatedCountsOf,
   undatedCountsOf,
   isFamilyRegistered,

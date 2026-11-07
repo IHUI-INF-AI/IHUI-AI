@@ -80,6 +80,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // 2026-09-26 由 readLedger() 收口,台账现与帧清单同面同轮取。
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
+// 合并提交的“本次新增”判据(唯一一份):父集 = HEAD ∪ MERGE_HEAD;非合并时父集只有 HEAD。
+import { deltaParents, newOccurrences, readParentTexts } from './lib/merge-delta.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const API_CLIENT_PATH = ['packages', 'api-client', 'src', 'client.ts'].join('/')
@@ -121,7 +123,7 @@ export function resolveFrameCallbacks(source, toolCallbacks) {
  * 纯判据(可离线自测):喂"每端命中集合"与数据文件,输出违规。
  * @param {{ hit: Record<string, Set<string>>, callbacks: string[], known: Set<string>, data: object }} input
  */
-export function evaluateDispatchParity({ hit, callbacks, known, data }) {
+export function evaluateDispatchParity({ hit, callbacks, known, data, parentMissing = null }) {
   const errors = []
   const warnings = []
   const endpoints = Object.keys(data.endpoints ?? {})
@@ -167,7 +169,12 @@ export function evaluateDispatchParity({ hit, callbacks, known, data }) {
     // ③ 唯一真源:实测未命中集合 === 登记的 missing 键集合
     const measuredMissing = callbacks.filter((c) => !hits.has(c)).sort()
     const declaredMissing = Object.keys(data.missing?.[ep] ?? {}).sort()
-    const undeclared = measuredMissing.filter((c) => !declaredMissing.includes(c))
+    // 合并未收口时,`measuredMissing` 里由上游带进来的既有缺帧不该记本次新增:
+    // 父集 = HEAD ∪ MERGE_HEAD,只有「每一枚父提交的缺帧集合里都没有」的才是本次新增。
+    const parentLists = parentMissing ? parentMissing.map((m) => m[ep] ?? []) : []
+    const freshMissing =
+      parentLists.length > 1 ? newOccurrences(measuredMissing, parentLists) : measuredMissing
+    const undeclared = freshMissing.filter((c) => !declaredMissing.includes(c))
     const stale = declaredMissing.filter((c) => !measuredMissing.includes(c))
     if (undeclared.length > 0) {
       errors.push(
@@ -209,6 +216,29 @@ export function collectHitMap(data, callbacks, basis = 'head', readBody = null) 
   for (const ep of Object.keys(data.endpoints ?? {})) hit[ep] = new Set()
   for (const { name, ep } of confirmedFrameHits(data, callbacks, basis, readBody)) hit[ep].add(name)
   return hit
+}
+
+/**
+ * 合并档的父面缺帧集合:每一枚父提交各自从 `client.ts@rev` 取帧清单、各自 grep@rev 取命中,
+ * 得到 `{ 端: 缺帧名[] }`。只有 >1 父(合并未收口)才由调用方传给纯判据;非合并不传。
+ */
+export function collectParentMissing(data, parents, root = ROOT) {
+  const texts = readParentTexts({ root, rels: [API_CLIENT_PATH], parents })
+  const out = []
+  for (const p of parents) {
+    const source = texts.get(p.label)?.get(API_CLIENT_PATH)
+    if (typeof source !== 'string') {
+      throw new Error(`读不到 ${p.label} 面 ${API_CLIENT_PATH} —— 合并父集的缺帧锚点取不到`)
+    }
+    const callbacks = resolveFrameCallbacks(source, data.toolCallbacks)
+    const hit = collectHitMap(data, callbacks, p.rev)
+    const miss = {}
+    for (const ep of Object.keys(data.endpoints ?? {})) {
+      miss[ep] = callbacks.filter((c) => !hit[ep].has(c))
+    }
+    out.push(miss)
+  }
+  return out
 }
 
 /**
@@ -299,7 +329,8 @@ function buildBodyReader(hits, basis) {
     }
     return (file) => bodies.get(file) ?? null
   }
-  const specs = files.map((f) => `${basis === 'index' ? '' : 'HEAD'}:${f}`)
+  const rev = basis === 'index' ? '' : basis === 'worktree' || basis === 'head' ? 'HEAD' : basis
+  const specs = files.map((f) => `${rev}:${f}`)
   let got
   try {
     got = catBatch(ROOT, specs, { maxBuffer: 1 << 30, timeout: 180000 })
@@ -328,7 +359,7 @@ function* grepFrameHits(data, callbacks, basis) {
       : basis === 'worktree'
         ? // 人工磁盘档:不带 --cached 也不带修订 = grep 工作树(仅 --worktree 可达,提交链永走此档即面纪律失守)
           ['grep', '-o', '-E', alt, '--', ...paths]
-        : ['grep', '-o', '-E', alt, 'HEAD', '--', ...paths]
+        : ['grep', '-o', '-E', alt, basis === 'head' ? 'HEAD' : basis, '--', ...paths]
   let raw = ''
   try {
     raw = gitRaw(args, ROOT, { timeout: 120_000 })
@@ -348,7 +379,12 @@ function* grepFrameHits(data, callbacks, basis) {
     if (!line) continue
     const idx = line.lastIndexOf(':')
     if (idx === -1) continue
-    const file = line.slice(0, idx).replace(/^HEAD:/u, '')
+    // 合并父面的 basis 是父提交 sha(非 head/index/worktree),前缀要按同一个修订名剥。
+    const revPrefix = basis === 'index' || basis === 'worktree' ? null : `${basis === 'head' ? 'HEAD' : basis}:`
+    const file =
+      revPrefix && line.startsWith(revPrefix)
+        ? line.slice(revPrefix.length, idx)
+        : line.slice(0, idx).replace(/^HEAD:/u, '')
     const name = line.slice(idx + 1)
     for (const [ep, dirs] of dirsByEp) {
       if (dirs.some((d) => file.startsWith(`${d}/`))) {
@@ -783,7 +819,19 @@ function main() {
     console.log(`❌ ${e?.message ?? e}`)
     process.exit(2)
   }
-  const result = evaluateDispatchParity({ hit, callbacks, known, data })
+  // 合并未收口时,`measuredMissing` 里由上游带进来的既有缺帧不该记本次新增:父集 = HEAD ∪ MERGE_HEAD。
+  let parentMissing = null
+  try {
+    const delta = deltaParents({
+      root: ROOT,
+      face: basis === 'index' ? 'staged' : basis === 'worktree' ? 'worktree' : 'head',
+    })
+    if (delta.applicable && delta.merge) parentMissing = collectParentMissing(data, delta.parents)
+  } catch (e) {
+    console.log(`❌ 合并父集锚点取不到,按无法判定退出(exit 2):${e?.message ?? e}`)
+    process.exit(2)
+  }
+  const result = evaluateDispatchParity({ hit, callbacks, known, data, parentMissing })
 
   if (argv.includes('--report')) {
     console.log(`=== 端内 dispatch 覆盖矩阵(帧 ${callbacks.length} 个)===`)

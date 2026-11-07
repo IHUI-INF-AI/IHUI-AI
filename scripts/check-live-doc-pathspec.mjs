@@ -69,13 +69,18 @@
  * 而守门 89 的 R1/R2/R4 对这一格结构上失明(它的候选集按"脚本在不在被审面"枚举),任何干净检出上
  * 这道门会以"脚本找不到"失败并挡住整批门。这是 README 表格门立项当夜撞到的事故,照它的前车办。
  */
-import { execFileSync } from 'node:child_process'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
 import { classifyMissing } from './lib/live-doc-classify.mjs'
 import { maskComments } from './lib/code-mask.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import {
+  changedAgainstEveryParent,
+  deltaParents,
+  lineKey,
+  lineKeysOf,
+} from './lib/merge-delta.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(dirname(SELF_DIR))
@@ -191,8 +196,6 @@ function lazyArchive({ root, face }) {
   }
 }
 
-/** HEAD 面用 `<rev>:<path>`,索引面用 `:<path>`。 */
-const faceSpec = (face) => (face === 'staged' ? ':' : 'HEAD:')
 const oneLine = (e) =>
   String(e?.message ?? e ?? '')
     .split(/\r?\n/)[0]
@@ -202,7 +205,7 @@ const oneLine = (e) =>
  * 单份文档的判定。返回三态计数 + 逐条站点 + 未判定原因;`参与判定=false` 表示这一档根本不该
  * 由它说话(提交链上索引==HEAD ⇒ 本次没改它),调用方**不得**把它算成通过。
  */
-function judgeDoc({ doc, baseText, candText, archive, face }) {
+function judgeDoc({ doc, baseText, candText, archive, face, parentTexts = [] }) {
   const out = {
     doc,
     inScope: false,
@@ -211,6 +214,7 @@ function judgeDoc({ doc, baseText, candText, archive, face }) {
     superseded: 0,
     stale: [],
     archivedExempt: 0,
+    attributedToParent: 0,
     undetermined: [],
     baseLines: 0,
     candLines: 0,
@@ -243,19 +247,39 @@ function judgeDoc({ doc, baseText, candText, archive, face }) {
 
   const candSet = new Set(cand.map(trim).filter(Boolean))
   const missing = base.filter((l) => trim(l) && !candSet.has(trim(l)))
+  // 合并面:基准行是「本次真正丢失」⇔ 它在**每一枚父提交**(HEAD ∪ MERGE_HEAD)里都存在。
+  // 上游分支本来就改写了/删掉了的行取自 MERGE_HEAD 版本文档的行内容 key 归因给上游;
+  // `changedAgainstEveryParent` 先挡掉「候选面与 MERGE_HEAD 逐字相同 ⇒ 本次没改这份文档」。
+  // 非合并提交 `parentTexts` 为空 ⇒ 这一步恒等,旧行为逐字不变。
+  let missingReal = missing
+  const otherParents = (parentTexts || []).filter((t) => typeof t === 'string')
+  if (otherParents.length) {
+    const noOwnEdit = !changedAgainstEveryParent(String(candText), [String(baseText), ...otherParents])
+    if (noOwnEdit) {
+      out.attributedToParent = missing.length
+      missingReal = []
+    } else {
+      const anchored = new Set()
+      for (const t of otherParents) for (const k of lineKeysOf(doc, t)) anchored.add(k)
+      missingReal = missing.filter((l) => anchored.has(lineKey(doc, trim(l))))
+      out.attributedToParent = missing.length - missingReal.length
+    }
+  } else {
+    out.attributedToParent = 0
+  }
   // 归档豁免先做减法:§1 的搬行不是丢行。归档面取不到时,这些行整批判「未判定」而不是"没豁免所以红"。
   // `archive` 允许是**函数**(生产路径给惰性的:没有缺失行就不去读那 20MB),也允许是直接的对象(自检)。
   const getArchive = typeof archive === 'function' ? archive : () => archive
-  let afterArchive = missing
-  if (missing.length) {
+  let afterArchive = missingReal
+  if (missingReal.length) {
     const ar = getArchive(true)
     if (!ar.ok) {
       out.undetermined.push(
-        `${doc}:${missing.length} 条缺失行需要归档面复核,而归档面取不到(${ar.reason})⇒ 未判定`,
+        `${doc}:${missingReal.length} 条缺失行需要归档面复核,而归档面取不到(${ar.reason})⇒ 未判定`,
       )
       return out
     }
-    afterArchive = missing.filter((l) => {
+    afterArchive = missingReal.filter((l) => {
       const hit = ar.set.has(trim(l))
       if (hit) out.archivedExempt += 1
       return !hit
@@ -310,12 +334,24 @@ export function run({ root = REPO_ROOT, face = 'head', strict = false } = {}) {
     res.undetermined.push(`未知判定面 ${face}`)
     return res
   }
+  // head 面结构上没有「本次提交」这一维 ⇒ 父集不适用;staged/worktree 的父集 = HEAD ∪ MERGE_HEAD。
+  // 取不到父提交(P1~P3)⇒ 未判定,不回落成「只比 HEAD」那套会把上游整批记成本次丢失的旧基准。
+  let otherParents = []
+  if (face !== 'head') {
+    try {
+      otherParents = deltaParents({ root, face }).parents.slice(1)
+    } catch (e) {
+      res.undetermined.push(`父提交取不到:${oneLine(e)}⇒ 未判定,不记通过`)
+      return res
+    }
+  }
   // 一次 catBatch 把「基准 ⊕ 候选 ⊕ 归档」同面同轮读满。混面取数会产出自洽而错位的尺子。
   const specs = []
   for (const d of LIVE_DOCS) {
     specs.push(`${plan.baseRev}:${d}`)
     if (plan.cand === 'git') specs.push(plan.candSpec(d))
   }
+  for (const p of otherParents) for (const d of LIVE_DOCS) specs.push(`${p.rev}:${d}`)
   let texts
   try {
     texts = catBatch(root, specs)
@@ -328,7 +364,7 @@ export function run({ root = REPO_ROOT, face = 'head', strict = false } = {}) {
     if (plan.cand === 'git') return get(plan.candSpec(d))
     try {
       return readWorktreeFile(root, d)
-    } catch (e) {
+    } catch {
       return null
     }
   }
@@ -341,6 +377,7 @@ export function run({ root = REPO_ROOT, face = 'head', strict = false } = {}) {
       doc: d,
       baseText: get(`${plan.baseRev}:${d}`),
       candText: candOf(d),
+      parentTexts: otherParents.map((p) => get(`${p.rev}:${d}`)),
       archive,
       face,
     })

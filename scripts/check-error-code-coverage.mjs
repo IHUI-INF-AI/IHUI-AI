@@ -82,8 +82,17 @@ import {
 // 两档共用同一台分词器(code-mask 里的 scanSpans),只是取的投影不同。
 import { maskComments, maskCommentsAndStrings } from './lib/code-mask.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+// 合并提交的“本次新增”判据(唯一一份):父集 = HEAD ∪ MERGE_HEAD;非合并时父集只有 HEAD。
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
+/** R4a 站点的身份 key(与消息里的逐条定位同形:两段式断言与目标类型)。 */
+const enumCastSiteKey = (s) => `${s.twoStage ? 'as unknown as' : 'as'} ${s.type}`
 
 /**
  * 三个判定面;同一轮所有取材(清单/内容/catalog/词包)必须读同一个面。
@@ -640,7 +649,7 @@ export function extractEnumCastSites(relPath, src) {
  * 而恒红 blocking 门的唯一结局是各会话 `--no-verify`、连带链上全部守门对该提交作废(AGENTS §12e)。
  * 所以:全量档(判 HEAD)只报数;`--staged` 档拿索引面与 HEAD 锚点比,新增/加回才红。
  */
-export function checkEnumCastRatchet(files, { anchorOf, ratcheted }) {
+export function checkEnumCastRatchet(files, { anchorOf, ratcheted, parentSiteKeysOf = null, anchorFace = 'HEAD' }) {
   const sites = []
   for (const f of files) sites.push(...extractEnumCastSites(f.relPath, f.src))
   const byFile = new Map()
@@ -651,16 +660,27 @@ export function checkEnumCastRatchet(files, { anchorOf, ratcheted }) {
   const problems = []
   const reported = []
   for (const [rel, list] of [...byFile.entries()].sort()) {
-    const anchor = ratcheted ? anchorOf(rel) : null
+    let anchor = ratcheted ? anchorOf(rel) : null
+    if (anchor !== null && parentSiteKeysOf) {
+      const parentKeys = parentSiteKeysOf(rel)
+      // 只有合并(>1 父)才换锚点;父集只有 HEAD 时保持旧公式,逐字等价。
+      if (parentKeys && parentKeys.length > 1) {
+        const resultKeys = list.map(enumCastSiteKey)
+        anchor = effectiveAnchorCount(
+          resultKeys.length,
+          newOccurrences(resultKeys, parentKeys).length,
+        )
+      }
+    }
     if (anchor === null) {
       // 没有可比的锚点(全量档 / worktree 逃生舱):如实报数,不冒红也不冒充"已判无违规"
       reported.push(`${rel}(${list.length} 处)`)
       continue
     }
     if (list.length <= anchor) continue
-    const where = list.map((s) => `${s.line}:${s.twoStage ? 'as unknown as' : 'as'} ${s.type}`)
+    const where = list.map((s) => `${s.line}:${enumCastSiteKey(s)}`)
     problems.push(
-      `R4a ${rel} 把外部值直转成枚举档 ${list.length} 处(HEAD 自身存量 ${anchor})—— ${where.join(' / ')} ` +
+      `R4a ${rel} 把外部值直转成枚举档 ${list.length} 处(${anchorFace} 自身存量 ${anchor})—— ${where.join(' / ')} ` +
         `⇒ 未知值会原样透传;改走 ${OUTLET_FILE} 的 ${OUTLET_EXPORT}(值, 全集, 安全档),安全档逐枚举显式声明为终态/只读/禁用`,
     )
   }
@@ -889,15 +909,50 @@ export function runChecks({ root = ROOT, face = 'head', extraFiles = [], strict 
   // 自身存量" —— 棘轮语义不因为多带一枚旗就变严,否则同一次提交会被"别人欠的 + 我加的"混成一堆红。
   // 两档共用同一条 --strict 后果:有未判定 ⇒ 拒绝出具合格证(exit 2)。
   const anchorOf = face === 'staged' ? buildAnchorProvider(root) : () => (strict ? 0 : null)
+  // 合并未收口时,索引面里由上游带进来的既有直转站点不该记本次新增:锚点面改为 HEAD ∪ MERGE_HEAD。
+  let parentSiteKeysOf = null
+  let anchorFace = 'HEAD'
+  if (face === 'staged') {
+    let delta
+    try {
+      delta = deltaParents({ root, face: 'staged' })
+    } catch (e) {
+      throw new UndeterminedError(`合并父集取不到:${e?.message ?? e}`)
+    }
+    if (delta.applicable && delta.merge) {
+      try {
+        const texts = readParentTexts({
+          root,
+          rels: enumFiles.map((f) => f.relPath),
+          parents: delta.parents,
+        })
+        parentSiteKeysOf = (rel) =>
+          delta.parents.map((p) => {
+            const text = texts.get(p.label)?.get(rel)
+            return typeof text === 'string'
+              ? extractEnumCastSites(rel, text).map(enumCastSiteKey)
+              : []
+          })
+        anchorFace = 'HEAD ∪ MERGE_HEAD'
+      } catch (e) {
+        throw new UndeterminedError(`合并面锚点取不到:${e?.message ?? e}`)
+      }
+    }
+  }
   // 锚点从哪儿来必须跟着读数一起说:三种模式的红含义不同(别人的存量 / 本次加回来 / 问责存量),
   // 印成同一句话就会让读报告的人把"这次新加的一处"读成"别人欠的债"。
   const anchorMode =
     face === 'staged'
-      ? '锚点面=HEAD 自身存量,棘轮生效'
+      ? `${anchorFace} 自身存量,棘轮生效`
       : strict
         ? '问责档:锚点按 0(存量也问责)'
         : '全量/工作树档:存量只报数,不判红'
-  const cast = checkEnumCastRatchet(enumFiles, { anchorOf, ratcheted })
+  const cast = checkEnumCastRatchet(enumFiles, {
+    anchorOf,
+    ratcheted,
+    parentSiteKeysOf,
+    anchorFace,
+  })
   // R4b 用宽面:出口的消费点住在 services,而 R4a 的两棵树里一处都没有(见 R4B_SCAN_ROOTS 头注)。
   const coerceFiles = collectCoerceFiles(reader)
   const coerce = checkCoerceSafeArg(coerceFiles)
