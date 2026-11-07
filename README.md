@@ -80,6 +80,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 100 入库模型 · 38 平台自动发布 · 4365 测试文件 · 351 道工程守门 · 56 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
+<!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
 | 数据库表 | 624 | `dbTables` |
@@ -103,10 +104,12 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 351 | `guardianGates` |
 | — blocking | 322 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20002 | `trackedFiles` |
+| 跟踪文件 | 20007 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
+<!-- END GENERATED NUMBERS -->
 
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。

@@ -23,7 +23,7 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { gitRaw } from './face-reader.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
@@ -74,8 +74,14 @@ const timingRows = []
 if (showTiming) {
   process.on('exit', () => {
     try {
-      const out = resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
-      writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) + '\n')
+      // GUARDIAN_TIMING_FILE 允许调用方指定独立落盘路径（push-receipt worker 用），
+      // 避免与其他并发门批量的固定文件互相覆盖。
+      const out = process.env.GUARDIAN_TIMING_FILE
+        ? resolve(process.cwd(), process.env.GUARDIAN_TIMING_FILE)
+        : resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
+      const tmp = `${out}.tmp-${process.pid}`
+      writeFileSync(tmp, JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) + '\n')
+      renameSync(tmp, out)
       process.stderr.write(`⏱  逐门耗时已落盘: ${out}(${timingRows.length} 行)\n`)
     } catch {
       /* 落盘失败不得影响守门结论 —— 只是少一份分析材料 */
@@ -657,7 +663,10 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
       label: check.label,
       script: check.script,
       mode: check.mode,
+      args: cmdArgs.slice(),
       ms: Date.now() - checkStart,
+      rc: typeof r?.status === 'number' ? r.status : null,
+      signal: r?.signal || null,
       ok: !r.error && r.status === 0 && r.signal === null,
     })
   }
@@ -901,7 +910,8 @@ for (const check of effectiveChecks) {
       `⚡ [${check.id}] ${check.label} 命中指纹缓存(${Math.round(cacheHit.ageMs / 1000)}s 前通过,省 ${cacheHit.ms}ms)`,
     )
     if (showTiming) {
-      timingRows.push({ id: check.id, label: check.label, script: check.script, mode: check.mode, ms: 0, ok: true })
+      // cached=true 是关键标记：缓存命中行没有真实 rc，凭据签发必须拒绝这种行。
+      timingRows.push({ id: check.id, label: check.label, script: check.script, mode: check.mode, args: cmdArgs.slice(), ms: 0, rc: null, cached: true, ok: true })
     }
     continue
   }
