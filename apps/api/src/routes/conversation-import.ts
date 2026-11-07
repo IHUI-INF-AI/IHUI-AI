@@ -28,13 +28,21 @@
  * - 批次记录写入失败不阻塞交付(仅记日志,与 cli-import 同语义)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { desc, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
-import { chatConversations, chatMessages, conversationImports } from '@ihui/database'
+import {
+  agentMemoryEpisodic,
+  chatConversations,
+  chatMessages,
+  conversationImports,
+  userAutomations,
+  userChatSkills,
+} from '@ihui/database'
 
 import { db } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
+import { planRuntimeImport } from '../services/runtime-import-plan.js'
 import { withTurnOrdinals } from '../services/turn-ordinal.js'
 import { success, error } from '../utils/response.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
@@ -70,6 +78,18 @@ const commitSchema = z.object({
   model: z.string().min(1).max(64).optional(),
   createdAt: z.string().min(1).max(64).optional(),
   messages: z.array(importedMessageSchema).min(1).max(2000),
+})
+
+const runtimeRecordSchema = z.record(z.string(), z.unknown())
+
+const runtimeCommitSchema = z.object({
+  conversationId: z.string().uuid().optional(),
+  runtime: z.object({
+    skills: z.array(runtimeRecordSchema).max(50).optional(),
+    automations: z.array(runtimeRecordSchema).max(50).optional(),
+    memory: z.array(runtimeRecordSchema).max(50).optional(),
+    capabilities: z.array(runtimeRecordSchema).max(50).optional(),
+  }),
 })
 
 // =============================================================================
@@ -302,6 +322,68 @@ export const conversationImportRoutes: FastifyPluginAsync = async (server) => {
         }
         return reply.status(500).send(error(500, `导入落库失败: ${(err as Error).message}`))
       }
+    },
+  )
+
+  // -------------------------------------------------------------------------
+  // 2b. POST /conversation-import/commit-runtime — 技能 / 暂停的自动化 / 情景记忆
+  // -------------------------------------------------------------------------
+  server.post(
+    '/conversation-import/commit-runtime',
+    { bodyLimit: COMMIT_BODY_LIMIT_BYTES },
+    async (request, reply) => {
+      const userId = request.userId!
+      const parsed = runtimeCommitSchema.safeParse(request.body)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const conversationId = parsed.data.conversationId ?? null
+      if (conversationId) {
+        const [owned] = await db
+          .select({ id: chatConversations.id })
+          .from(chatConversations)
+          .where(
+            and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, userId)),
+          )
+          .limit(1)
+        if (!owned) {
+          return reply.status(400).send(error(400, '会话不存在或无权绑定'))
+        }
+      }
+      const plan = planRuntimeImport(parsed.data.runtime, conversationId)
+      try {
+        await db.transaction(async (tx) => {
+          if (plan.skills.length > 0) {
+            await tx
+              .insert(userChatSkills)
+              .values(plan.skills.map((row) => ({ ...row, userId })))
+              .returning({ id: userChatSkills.id })
+          }
+          if (plan.automations.length > 0) {
+            await tx
+              .insert(userAutomations)
+              .values(plan.automations.map((row) => ({ ...row, userId })))
+              .returning({ id: userAutomations.id })
+          }
+          if (plan.memory.length > 0) {
+            await tx
+              .insert(agentMemoryEpisodic)
+              .values(plan.memory.map((row) => ({ ...row, userId })))
+              .returning({ id: agentMemoryEpisodic.id })
+          }
+        })
+      } catch (err) {
+        request.log.error({ err, userId }, '[conversation-import] runtime commit failed')
+        return reply.status(500).send(error(500, `运行时导入落库失败: ${(err as Error).message}`))
+      }
+      return reply.status(201).send(
+        success({
+          skills: plan.skills.length,
+          automations: plan.automations.length,
+          memory: plan.memory.length,
+          skipped: plan.skipped,
+        }),
+      )
     },
   )
 

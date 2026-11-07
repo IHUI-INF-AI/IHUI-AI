@@ -7981,7 +7981,8 @@
             "completed": "完了",
             "failed": "失敗",
             "cancelled": "キャンセル済み",
-            "timeout": "タイムアウト"
+            "timeout": "タイムアウト",
+            "stub": "シミュレーション（未完了）"
           },
           "hint": {
             "stopping": "停止リクエストを送信しました。サブタスクの終了を待っています…",
@@ -8584,6 +8585,7 @@
         "statusFailed": "失敗",
         "statusRunning": "実行中",
         "statusSpawned": "派遣済み",
+        "statusStub": "シミュレーション（未完了）",
         "title": "Subagent 派遣",
         "toolCallsCount": "{n}回",
         "toolCallsTitle": "{n} 回ツール呼び出し",

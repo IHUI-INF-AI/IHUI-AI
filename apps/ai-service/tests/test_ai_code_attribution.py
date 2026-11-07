@@ -38,6 +38,7 @@ from app.core.ai_code_attribution import (
 )
 from app.services.ai_code_attribution_store import (
     AiCodeAttributionStore,
+    backfill_commit_sha,
     host_session_id,
     list_records,
     record_attribution,
@@ -297,4 +298,42 @@ async def test_write_file_records_host_session_not_the_model_claim(tmp_path, mon
     assert len(edit_rows) == 1
     assert edit_rows[0].tool == "file_edit"
     assert edit_rows[0].session_id == "host-edit"
+
+
+def test_backfill_fills_only_the_matching_empty_anchor(tmp_store):
+    kept = "b" * 40
+    record_attribution("file_edit", r"G:\repo\apps\a.py", "diff")
+    record_attribution("file_edit", r"G:\repo\apps\b.py", "diff", commit_sha=kept)
+    record_attribution("file_edit", r"G:\repo\apps\nota.py", "diff")
+    updated, refused = backfill_commit_sha("a" * 40, ["apps/a.py"])
+    assert updated == 1
+    assert refused == ""
+    assert list_records(path=r"G:\repo\apps\a.py")[0].anchor.commit_sha == "a" * 40
+    assert list_records(path=r"G:\repo\apps\b.py")[0].anchor.commit_sha == kept
+    assert list_records(path=r"G:\repo\apps\nota.py")[0].anchor.commit_sha == ""
+
+
+def test_backfill_rejects_a_short_sha_without_writing(tmp_store):
+    record_attribution("file_edit", "a.py", "diff")
+    updated, refused = backfill_commit_sha("abc", ["a.py"])
+    assert updated == 0
+    assert "40" in refused
+    assert list_records(path="a.py")[0].anchor.commit_sha == ""
+
+
+def test_backfill_empty_list_does_not_stamp_every_row(tmp_store):
+    record_attribution("file_edit", "a.py", "diff")
+    updated, refused = backfill_commit_sha("c" * 40, [])
+    assert updated == 0
+    assert refused == ""
+    assert list_records(path="a.py")[0].anchor.commit_sha == ""
+
+
+def test_backfill_does_not_replace_a_corrupt_ledger(tmp_store):
+    body = "{not json"
+    tmp_store._file.write_text(body, encoding="utf-8")
+    updated, refused = backfill_commit_sha("d" * 40, ["a.py"])
+    assert updated == 0
+    assert "读不到" in refused
+    assert tmp_store._file.read_text(encoding="utf-8") == body
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
