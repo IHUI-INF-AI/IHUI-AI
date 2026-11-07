@@ -69,10 +69,17 @@ import {
   unknownContractTargets,
   panelVerdictOf,
   CONTRACT_FILE_REL,
+  headScannableRels,
+  scanTexts,
+  flatten,
+  isInUsedNamespace,
+  contractEntriesFor,
+  verifyContractEntries,
 } from './_i18n-scan-helpers.mjs'
 // 判定面取材的唯一出口。本入口自己就要用 `catBatch` 读契约(--staged 档)与 `readWorktreeFile`
 // 的语义由 helpers 承担;守门 118 只认"真的调用层读取入口"的文件为 face,故读取写在这里。
-import { Undetermined, catBatch, selectFace, FACE_LABEL } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, catBatchOids, selectFace, FACE_LABEL } from './lib/face-reader.mjs'
+import { deltaParents } from './lib/merge-delta.mjs'
 
 // ROOT 由脚本自身位置推导(§15 / 守门 70 同口径):不再以 process.cwd() 定根,
 // 免得"扫哪棵树"跟着调用者站哪儿走。`--root <dir>` 是显式测试/夹具通道(生产不带)。
@@ -253,6 +260,104 @@ const names =
 if (args.target === 'all' && args.out) {
   console.log('[scan-dead-i18n-keys] --target all 下忽略 --out(各端各写自己的报告,否则会互相覆盖)')
 }
+/**
+ * 合并面归因:某一枚父提交上,**本面死键集里的这些键**是否已经死在该父。
+ *
+ * 只读「父面与索引面 blob 不同」的文件:同 blob 的文件在父面对每条 key 的静态引用
+ * 贡献与结果面逐字相同;而 resultDead 里的键在结果面没有任何静态引用 ⇒ 同 blob 文件
+ * 在父面也不会引用它。于是"父面无引用"只需从变更文件判定,不必重扫整棵树。
+ * 语言包与契约声明(含依据文件)照读,与结果面同一套 `verifyContractEntries`。
+ * 任何一个面读不到 ⇒ 抛 Undetermined,调用方 exit 2;绝不折成空集。
+ */
+function parentDeadKeys({ rev, name, targetCfg, resultDead }) {
+  const rels = headScannableRels(ROOT, targetCfg.scanTargets, rev)
+  const pSpecs = rels.map((r) => `${rev}:${r}`)
+  const iSpecs = rels.map((r) => `:${r}`)
+  const pOids = catBatchOids(ROOT, pSpecs)
+  const iOids = catBatchOids(ROOT, iSpecs)
+  const changed = []
+  for (let i = 0; i < rels.length; i++) {
+    const po = pOids.get(pSpecs[i])
+    if (!po) throw new Undetermined(`父面 ${rev} 的 ${rels[i]} blob 取不到`)
+    if (String(po).toLowerCase() !== String(iOids.get(iSpecs[i]) ?? '').toLowerCase()) changed.push(rels[i])
+  }
+  let scan = { staticRefs: new Set(), usedNamespaces: new Set() }
+  if (changed.length > 0) {
+    const got = catBatch(ROOT, changed.map((r) => `${rev}:${r}`), {
+      maxBuffer: 1 << 29,
+      timeout: 120000,
+    })
+    const items = []
+    for (const r of changed) {
+      const t = got.get(`${rev}:${r}`)
+      if (typeof t !== 'string') throw new Undetermined(`父面 ${rev} 的 ${r} 正文取不到`)
+      items.push({ rel: r, text: t })
+    }
+    scan = scanTexts(items)
+  }
+  let leafKeys = new Set()
+  const zhSpec = `${rev}:${targetCfg.localeDir}/zh-CN.json`
+  const zh = catBatch(ROOT, [zhSpec], { maxBuffer: 1 << 28, timeout: 120000 }).get(zhSpec)
+  if (typeof zh === 'string') {
+    try {
+      leafKeys = flatten(JSON.parse(zh))
+    } catch (e) {
+      throw new Undetermined(`父面 ${rev} 的语言包损坏:${String(e?.message ?? e).split('\n')[0]}`)
+    }
+  }
+  const dead = new Set()
+  for (const k of resultDead) {
+    if (leafKeys.has(k) && !scan.staticRefs.has(k) && !isInUsedNamespace(k, scan.usedNamespaces))
+      dead.add(k)
+  }
+  if (dead.size > 0) {
+    const cSpec = `${rev}:${CONTRACT_FILE_REL}`
+    let cRaw = null
+    const cText = catBatch(ROOT, [cSpec], { maxBuffer: 1 << 28, timeout: 120000 }).get(cSpec)
+    if (typeof cText === 'string') {
+      try {
+        cRaw = JSON.parse(cText)
+      } catch (e) {
+        throw new Undetermined(`父面 ${rev} 的契约声明损坏:${String(e?.message ?? e).split('\n')[0]}`)
+      }
+    }
+    const { entries } = contractEntriesFor(cRaw, name)
+    if (entries.size > 0) {
+      const evRels = new Set()
+      for (const decl of entries.values()) for (const ev of decl.evidence) evRels.add(ev.file)
+      const specs = [...evRels].map((r) => `${rev}:${r}`)
+      const got = catBatch(ROOT, specs, { maxBuffer: 1 << 29, timeout: 120000 })
+      const { exempted } = verifyContractEntries({
+        entries,
+        leafKeys,
+        deadKeys: dead,
+        readHead: (rel) => got.get(`${rev}:${rel}`) ?? null,
+        target: name,
+        faceLabel: `提交 ${rev}`,
+      })
+      for (const e of exempted) dead.delete(e.key)
+    }
+  }
+  return dead
+}
+
+// 合并未收口时(staged 面有 MERGE_HEAD),死键的锚点必须是**每一枚父提交**:
+// 上游带进来的死键不是本次新增;两父都不存在的才是。非合并提交父集只有 HEAD,
+// 走原档(判总死键数 vs 基线),行为一字不改。
+let mergeParents = []
+if (FACE === 'staged') {
+  try {
+    mergeParents = deltaParents({ root: ROOT, face: 'staged' }).parents.filter(
+      (p) => p.label !== 'HEAD',
+    )
+  } catch (e) {
+    console.error(
+      `[scan-dead-i18n-keys] 无法判定(exit 2,未判定): 父提交取不到:**不折成空集**,${e?.message ?? e}`,
+    )
+    process.exit(2)
+  }
+}
+
 const skipped = Object.keys(TARGETS).filter((n) => TARGETS[n].scanTargets.length === 0)
 let worst = 0
 const verdicts = []
@@ -264,13 +369,14 @@ for (const n of names) {
       : `.ihui-agent/tmp/i18n-dead-keys-${TODAY}-${n}.md`
   // 判定凭据逐面板独立(一枚对象一端一份,不复用 —— 复用就是本次缺陷的同型隐患)。
   const report = {}
-  const code = runScan({
+  const merged = mergeParents.length > 0
+  let code = runScan({
     name: n,
     messagesPath: `${targetCfg.localeDir}/zh-CN.json`,
     scanTargets: targetCfg.scanTargets,
     outputPattern,
     dryRun: args.dryRun,
-    exitOnDead: args.exitOnDead,
+    exitOnDead: merged ? false : args.exitOnDead,
     maxDead: baselineMaxDead?.[n] ?? 0,
     out: args.target === 'all' ? null : args.out,
     scriptName: 'scan-dead-i18n-keys',
@@ -279,6 +385,40 @@ for (const n of names) {
     contractPreload: contractRaw,
     report,
   })
+  // 合并面:死键读数里"两父都已死"的部分归因给父提交,只有两父都不存在的才记本次新增。
+  // 判据只在新增集上算,基线/threshold 规则不动(maxDead 仍是每端原值)。
+  if (merged && code !== 2 && typeof report.deadCount === 'number') {
+    const resultDead = report.deadKeys ?? []
+    const inherited = new Set()
+    try {
+      for (const p of mergeParents) {
+        const s = parentDeadKeys({ rev: p.rev, name: n, targetCfg, resultDead })
+        for (const k of s) inherited.add(k)
+      }
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      console.error(`[scan-dead-i18n-keys] ${n} 无法判定(exit 2,未判定): 父面死键取不到:${e.message}`)
+      verdicts.push(panelVerdictOf(n, 2, report))
+      worst = Math.max(worst, 2)
+      continue
+    }
+    const newDead = resultDead.filter((k) => !inherited.has(k))
+    report.inheritedDead = resultDead.length - newDead.length
+    report.newDead = newDead.length
+    // 结论行按"本次新增"而不是总死键数着色:带 --exit 1 时只有新增才红。
+    report.exitOnDead = args.exitOnDead && newDead.length > (baselineMaxDead?.[n] ?? 0)
+    const maxDead = baselineMaxDead?.[n] ?? 0
+    console.log(
+      `[scan-dead-i18n-keys] ${n}:合并面死键 ${resultDead.length} · 归因父提交 ${report.inheritedDead} · 本次新增 ${newDead.length}`,
+    )
+    if (args.exitOnDead && newDead.length > maxDead) {
+      code = 1
+      console.error(
+        `[scan-dead-i18n-keys] ❌ ${n} 本次新增死 key ${newDead.length} 枚(基线 ${maxDead};已归因父提交 ${report.inheritedDead} 枚):`,
+      )
+      for (const k of newDead) console.error(`  - ${k}`)
+    }
+  }
   // 结论拼装只有一份实现(panelVerdictOf,住在公共层):all 档与单档共用,同码同面同输入
   // 必然逐字同值。旧写法 `code===0?'ok':...` 把"死键 43 但没带 --exit 1"印成 `ok`,
   // 与 all --exit 1 的 `exit 1` 互相矛盾(2026-11-01 实测:单档不带旗 = 缺陷本体)。
