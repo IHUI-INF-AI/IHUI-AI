@@ -4,6 +4,9 @@
 
 """同 record_id 二次投递的「逐列定向合并」唯一实现(2026-09-29 G-822 立)。
 
+时区审计:原始 `at` 保留 naive，但排序键 `_order_key` 统一补 UTC;不参与过期比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 账本一行的幂等键是天然的(`run_id:step:N`),但同一行会被**两个阶段**各投一次:先
 "开始/进行中"(此时耗时与结束还不知道),后"一次性完成"(才带回 duration/ended_at)。
 旧实现在同 id 处直接丢弃迟到那条 ⇒ 行永久停在耗时 0 / 结束时刻空。

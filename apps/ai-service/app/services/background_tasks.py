@@ -6,6 +6,9 @@
 
 """后台任务服务(通用「run_in_background」语义 + 完成通知)。
 
+时区审计:`_parse_iso` 只回放任务日志字段;超时判定用 `timeout_s`，不用时间戳比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 提供模块级单例 `background_task_manager`(`BackgroundTaskManager`),负责:
 - 以 uuid4 hex 为 task_id 注册后台任务:`asyncio.create_task` 立即返回,不阻塞调用方
 - 跟踪任务生命周期状态:pending → running → succeeded / failed / timeout / cancelled

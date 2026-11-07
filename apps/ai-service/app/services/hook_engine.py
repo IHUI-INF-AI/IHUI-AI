@@ -4,6 +4,10 @@
 
 """Hook 引擎 — 事件总线 + 触发器匹配 + 执行器 + 日志记录(2026-07-22 立)。
 
+时区审计:触发节流的两侧都是 naive UTC + 同宿主偏移，相消，不是 8h 漂移;`start_time`
+去 Z 只做时长字符串运算。均不按"过期判定"处理，故意保留。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 自研 Hooks:agent 行为事件触发 → 执行自定义脚本/动作。
 
 核心组件:

@@ -1040,6 +1040,9 @@ def _approval_replay_frames(session_id: str, owner_uuid: str | None) -> list[str
             # 判不了新鲜度 ⇒ 不重放(②,fail-closed)
             continue
         try:
+            # 时区审计:生产端 approval_persistence._now_iso() 是 UTC 的 "Z" 串(aware),
+            # 这里与 aware 的 now(UTC) 同类比较;naive 输入才是异常。见
+            # docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
             _age_s = (now - datetime.fromisoformat(_created_at)).total_seconds()
         except ValueError:
             continue

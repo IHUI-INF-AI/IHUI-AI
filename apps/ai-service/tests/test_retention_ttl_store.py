@@ -18,7 +18,10 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -96,6 +99,29 @@ def test_parse_timestamp_iso_with_offset_and_naive():
     assert tjs.parse_timestamp("2026-10-03T01:25:00+08:00") is not None
     assert tjs.parse_timestamp("2026-10-03 01:25:00") is not None
     assert tjs.parse_timestamp("2026-10-03") is not None
+
+
+def test_parse_timestamp_naive_is_utc_not_host_local():
+    """无偏移串必须按 UTC 读:写侧 iso_now() 是 time.gmtime()。
+
+    子进程把宿主切到东八区跑:修前 ``strptime(...).timestamp()`` 按宿主本地解释,
+    会比 UTC 口径早 8 小时(28800 秒)。
+    """
+    code = (
+        "import json;"
+        "from app.services.ttl_json_store import parse_timestamp;"
+        "print(json.dumps(parse_timestamp('2026-10-03T01:25:00')))"
+    )
+    env = dict(os.environ)
+    # Windows CRT 只认 POSIX TZ 串;Linux 认 IANA 名(与签到域双时区夹具同口径)。
+    env["TZ"] = "CST-8" if sys.platform == "win32" else "Asia/Shanghai"
+    env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
+    out = subprocess.check_output(
+        [sys.executable, "-c", code], env=env, text=True, cwd=Path(__file__).resolve().parents[1]
+    )
+    got = json.loads(out)
+    expected = datetime(2026, 10, 3, 1, 25, tzinfo=UTC).timestamp()
+    assert got == pytest.approx(expected)
 
 
 def test_parse_timestamp_epoch_number():

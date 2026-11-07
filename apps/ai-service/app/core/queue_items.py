@@ -5,6 +5,9 @@
 # app/core/queue_items.py
 """排队中的消息(queueItems)数据面 —— 单一真相源(D33①,2026-09-26 立)。
 
+时区审计:时间戳只做队列排序/epoch,不参与过期比较;naive 显式补 UTC。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 为什么需要:D33「过程性信息持久化」九类里 `queueItems` 是唯一**全仓零数据面**的一类
 (`git grep -n "queueItems" HEAD -- apps/ai-service/app | grep -v test` = 0),对话流
 "排队中的消息"在刷新 / 重拉历史后无从还原。票面纪律「api 侧先行 invent schema 属反序

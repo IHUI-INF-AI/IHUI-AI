@@ -4,6 +4,9 @@
 
 """全活动时间线回放(P1-4)聚合服务。
 
+时区审计:`_to_epoch` 只做排序键,不参与过期/有效期/超时比较;naive 输入按宿主本地解释,
+组内相对顺序不变,故意保留。见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 把一次 agent 会话的五类活动合并为一条可回放、可按时间排序的统一事件流,
 供前端时间线组件(GET /api/timeline)一次拉取并可视化:
 

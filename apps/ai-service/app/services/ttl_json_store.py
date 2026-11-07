@@ -112,6 +112,11 @@ def parse_timestamp(value: Any) -> float | None:
       · ISO8601 字符串(``2026-10-03T01:25:00Z`` / 带 ``+08:00`` 偏移 / 空格分隔)
       · epoch 秒的 int/float
     不接受:空串、None、布尔(``True`` 是 int 的子类,显式排除 —— 时间戳没有真假语义)。
+
+    时区口径:无偏移的兜底格式一律按 **UTC** 解释,不按宿主本地。依据是本模块的写侧
+    :func:`iso_now` 用 ``time.gmtime()`` 产出 UTC 串;若读侧按宿主本地解释,宿主从东八区
+    切到 UTC 时,同一份记录的保留期会整体漂 8 小时(见
+    ``docs/engineering/timezone-naive-parse-audit-2026-11-07.md``)。
     """
     if value is None or isinstance(value, bool):
         return None
@@ -128,15 +133,20 @@ def parse_timestamp(value: Any) -> float | None:
     # 本仓运行时是 3.12/3.13(fromisoformat 原生认 "Z"),后面几层手写格式只是
     # 兜底:宁可多认几种写法,也不要因为格式没覆盖到就把一条合法记录判成"无时间戳"
     # —— 那会让它直接落进 fail-closed 分支被当成过期项删掉。
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     try:
-        return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        # fromisoformat 对无偏移串会成功返回 naive;必须在 .timestamp() 之前补 UTC,
+        # 否则仍按宿主本地解释(兜底循环根本走不到)。
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.timestamp()
     except (ValueError, OSError, OverflowError):
         pass
     for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
         try:
-            return datetime.strptime(text, fmt).timestamp()
+            return datetime.strptime(text, fmt).replace(tzinfo=UTC).timestamp()
         except ValueError:
             continue
     return None

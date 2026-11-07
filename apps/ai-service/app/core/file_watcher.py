@@ -5,6 +5,10 @@
 
 """文件监听订阅路由(2026-09-19 第二十二批,对标 Codex file-watcher crate)。
 
+时区审计:`until` 是**声明的到期日**(日历日期，无时区语义);"今天"走 `cn_today()`。
+两者不是同一个"今天"，并存合理。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 语义忠实移植:
 - FileWatcherEvent:粗粒度变更事件(只带变更路径集合,不带细节)
 - Receiver:异步逐事件接收;本实现用轮询扫描(mtime+size+存在性)驱动,
@@ -367,6 +371,8 @@ def resolve_watch_poll_gate(
             POLL_STATE_UNJUDGED,
             f"{POLL_ENABLED_ENV}=on 但未声明 {POLL_UNTIL_ENV}(可到期)⇒ 未判定,不起轮询",
         )
+    # 时区审计:`until` 是声明的日历到期日(无时区语义);"今天"在下一行走 cn_today(),
+    # 二者不是同一个"今天"。见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
     try:
         until = date.fromisoformat(until_raw)
     except ValueError:

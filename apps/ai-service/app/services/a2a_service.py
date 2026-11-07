@@ -4,6 +4,9 @@
 
 """A2A(Agent-to-Agent)任务队列服务。
 
+时区审计:时间串来自自产 `now(UTC).isoformat()`,只做记录/索引分,不参与过期比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 ⚠️ 架构诚实声明(2026-07-09 Phase 4 审计,O11 2026-09-20 更新):
 当前实现是"带 Redis 持久化 + A2A 发现文档的本地异步任务队列",不是完整的 A2A 协议。
 - ✅ 已实现:Redis 持久化(agents + tasks)、内存热缓存、重启恢复、异步执行(agent_executor)

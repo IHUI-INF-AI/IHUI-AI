@@ -73,6 +73,36 @@ async def client(monkeypatch, tmp_path):
 # =============================================================================
 
 
+async def test_query_window_accepts_naive_at(client):
+    """读面窗口:记录 at 无偏移时要按 UTC 补齐,不能与 aware 边界混比 TypeError。
+
+    写侧 ``_now_iso()`` 是 ``time.gmtime()`` 的 UTC 串;历史上手工写入/导入的行可能
+    没有偏移,这里构造一条 naive 行并让它落入 2026-09-03 的窗口。
+    """
+    cost_ledger._data["naive"] = {
+        "record_id": "naive",
+        "user_id": "u2",
+        "session_id": "s-naive",
+        "run_id": "r-naive",
+        "tool_name": "web_search",
+        "model": "deepseek-chat",
+        "tokens_in": 10,
+        "tokens_out": 5,
+        "cost_usd": 0.01,
+        "duration_ms": 3.0,
+        "status": "ok",
+        "at": "2026-09-03T10:00:00",  # 无偏移:按 UTC 解释
+    }
+    res = await client.get(
+        "/api/cost-ledger/query",
+        params={"date_from": "2026-09-03", "date_to": "2026-09-03"},
+    )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["code"] == 0
+    assert any(row["record_id"] == "naive" for row in body["data"]["list"])
+
+
 async def test_summary_all_totals(client):
     res = await client.get("/api/cost-ledger/summary")
     assert res.status_code == 200

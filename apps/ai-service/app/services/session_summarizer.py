@@ -4,6 +4,9 @@
 
 """会话摘要器(L8 长程一致性,2026-07-25 立,对标 Claude 长上下文管理)。
 
+时区审计:`_extract_start_time` 只产出会话摘要的 `start_time` 元数据，不参与过期比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 L8 长程一致性闭环:
 1. 会话摘要:SessionSummarizer.summarize_session 把一次会话的 messages 摘要成
    200-500 字 + key_facts + key_decisions,持久化到 agent_session_summary 表

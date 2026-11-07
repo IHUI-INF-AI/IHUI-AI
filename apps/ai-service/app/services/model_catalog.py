@@ -4,6 +4,9 @@
 
 """模型分类引擎(2026-08-29 立)—— 解决"模型选择器塞满历史过时模型"问题。
 
+时区审计:`release_date` 只做代次分类,不是时刻比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 背景
 ----
 `GET /llm/models` 的数据源是 `default_models.json` + DB `ai_model_config_models`

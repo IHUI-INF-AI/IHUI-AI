@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
@@ -56,16 +56,23 @@ def _build_filter(
 
 
 def _parse_dt(value: str) -> datetime | None:
-    """Parse ISO datetime; trailing 'Z' normalized to +00:00."""
+    """Parse ISO datetime; naive (no offset) is interpreted as **UTC**.
+
+    写侧 ``_now_iso()`` 是 ``time.gmtime()`` 的 UTC 串;历史上手工写入/导入的行可能没有
+    偏移。窗口上下界由 ``_parse_bound`` 显式带 ``+00:00``,若这里保留 naive,比较会直接
+    ``TypeError`` —— 所以此处必须把 naive 补成 UTC,让两侧同类(见
+    ``docs/engineering/timezone-naive-parse-audit-2026-11-07.md``)。
+    """
     if not value:
         return None
     text = str(value).strip()
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
     try:
-        return datetime.fromisoformat(text)
+        dt = datetime.fromisoformat(text)
     except ValueError:
         return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
 
 
 def _parse_bound(value: str | None, is_end: bool) -> datetime | None:

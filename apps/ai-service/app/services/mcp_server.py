@@ -4,6 +4,9 @@
 
 """MCP 服务端。
 
+时区审计:团队板时间戳由 `_team_task_now()` 以 aware UTC 写入，`Z→+00:00` 解析后
+只做闲置逐出;naive 分支不走。见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 定义 11 个工具、3 个资源、3 个提示词,并提供统一的查询/调用接口。
 工具实现为真实文件系统/网络操作,无外部依赖时返回降级结果。
 """

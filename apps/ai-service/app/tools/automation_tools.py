@@ -6,6 +6,9 @@
 
 """G2 对话式自动化:create_automation 工具(2026-10-30 立)。
 
+时区审计:入参时间串要求带偏移，无偏移直接拒绝(fail-closed)，不参与过期比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 让 agent 在对话里替用户创建 user_automations 定时任务。实现方式是**调 apps/api 的
 POST /api/automations 端点**(与 edu_* 工具调 /api/edu-ai-management/* 同一路线:
 internal_service_headers 双头鉴权 + httpx + 剥 success() 壳),而不是自己拼 SQL ——

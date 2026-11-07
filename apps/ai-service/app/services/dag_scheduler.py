@@ -4,6 +4,9 @@
 
 """DAG 调度引擎(2026-07-22 立,替代 linear pipeline,支持依赖图拓扑排序 + 并行批次 + 节点级重试 + 条件分支)。
 
+时区审计:`_to_epoch` 只做排序键,不参与过期/有效期/超时比较,故意保留。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 相比 agent_orchestrator.run_pipeline(线性串行)和 run_parallel(单层 gather):
 - 支持依赖图(节点间显式声明 dependencies)
 - 拓扑排序自动计算执行顺序

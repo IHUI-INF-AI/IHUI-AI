@@ -4,6 +4,9 @@
 
 """长程记忆(L8 长程一致性,2026-07-25 立,对标 Claude 长上下文管理)。
 
+时区审计:时间串只做日期展示,不参与过期比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 L8 长程记忆对外门面:封装 SessionSummarizer 的跨会话检索能力,提供:
 1. recall_cross_session:跨会话 RAG 检索历史摘要
 2. build_context_for_new_session:把历史摘要格式化成 prompt 片段,注入新会话

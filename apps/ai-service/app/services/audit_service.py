@@ -4,6 +4,9 @@
 
 """ai-service 统一审计日志服务(2026-07-22 立,补齐 api 端审计的 ai-service 侧空白)。
 
+时区审计:时间串只做记录时间戳/落库,不参与过期比较。
+见 docs/engineering/timezone-naive-parse-audit-2026-11-07.md。
+
 功能:
 - log_agent_action():记录 agent 执行的关键操作(工具调用/文件修改/命令执行)
 - log_llm_call():记录 LLM 调用(model/token/latency/stub)
