@@ -279,7 +279,23 @@ test('T19 账本族内容级闸装车:两族必须共用同一把尺(旧档残�
   const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
   const fn = src.match(/\nexport function runLedgerFamily\([\s\S]*?\n\}\n/)?.[0] ?? ''
   assert.ok(fn.length > 200, '必须取到 runLedgerFamily 函数体本身(防空串假绿)')
-  assert.match(fn, /dropStaleCopies\(paths, \[\]\)/, '账本族必须调用滞后副本守卫(缺这一臂就会静默回退)')
+  // 2026-11-07 收紧:不只要求调用存在,还要求把 runLedgerFamily 注入的 root 传到残渣闸探针。
+  // 少了 `staleCopyProbes, root` ⇒ 探针查主仓 ROOT ⇒ 主仓活文档一被别席改写,临时仓夹具恒红。
+  assert.match(
+    fn,
+    /dropStaleCopies\(paths, \[\], staleCopyProbes, root\)/,
+    '账本族必须调用滞后副本守卫并把注入 root 传给探针(缺这一臂就会静默回退)',
+  )
+  const noRoot = src.replace(
+    'dropStaleCopies(paths, [], staleCopyProbes, root)',
+    'dropStaleCopies(paths, [])',
+  )
+  const noRootFn = noRoot.match(/\nexport function runLedgerFamily\([\s\S]*?\n\}\n/)?.[0] ?? ''
+  assert.equal(
+    /dropStaleCopies\(paths, \[\], staleCopyProbes, root\)/.test(noRootFn),
+    false,
+    '变异自证:抹掉 root 传递后本锁必须转红(不是恒真的绿)',
+  )
   assert.match(fn, /账本族跳过滞后副本/, '跳过必须留痕点名,不许静默')
   assert.match(fn, /stale-copy-held/, '整批被残渣挡住时 reason 必须与 livedoc-held 区分')
   // 逐字节:两处 hash-object 探针都必须关 autocrlf(否则 oid 被改写 ⇒ 旧档 CRLF 漏判)
@@ -367,6 +383,25 @@ test('T25 装车锁:行级臂必须从生产包装器真被递到', () => {
   assert.deepEqual(r.skipped, ['lag.tsx'])
   assert.ok(seen.lineAncestry >= 1, '包装器没递 lineAncestry ⇒ 该臂在生产路径上仍是哑的')
   assert.match(r.why.get('lag.tsx'), /行级祖先命中/)
+})
+
+test('T20 root 注入行为自证:残渣闸的每一臂探针都拿到调用方给的 root(2026-11-07)', () => {
+  const seen = []
+  __test__.dropStaleCopies(
+    ['x.tsx'],
+    [],
+    (p, root) => {
+      seen.push([p, root])
+      return { worktree: () => null, head: () => null, ancestors: () => [] }
+    },
+    'PROBE_ROOT_SENTINEL',
+  )
+  assert.ok(seen.length >= 1, '探针一次都没被问 ⇒ 这一格是哑的')
+  assert.deepEqual(
+    seen.map((r) => r[1]),
+    seen.map(() => 'PROBE_ROOT_SENTINEL'),
+    '每一臂都必须拿到同一个注入 root;漏递就是 T5/T26 那种主仓串味',
+  )
 })
 
 test('T18 形状锁:两臂都必须从生产包装器可达(不靠读测试自己的假证)', () => {
