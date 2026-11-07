@@ -28,7 +28,6 @@ import {
   appendFileSync,
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { tmpdir } from 'node:os'
 import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 // G-611 产出侧:本脚本正是 check-typecheck:454 那套"族码 ⇒ 临时失败"集合的**被派生方**。
@@ -37,6 +36,13 @@ import { fileURLToPath } from 'node:url'
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
 import { installSignalExit } from './lib/signal-exit.mjs'
 import { formatDuration, readTimings } from './lib/typecheck-timing.mjs'
+import {
+  acquireTypecheckLock,
+  describeLockHolder,
+  DEFAULT_POLL_MS,
+  DEFAULT_WAIT_MS,
+} from './lib/typecheck-lock.mjs'
+import { UNDETERMINED_EXIT_CODE } from './lib/gate-failure-kind.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -219,27 +225,12 @@ function cleanTsbuildinfo(dir, removed = []) {
   return removed
 }
 
-// ─── 全局串行锁(2026-09-18 晚根治):杜绝多会话并行全量 typecheck ──
-// 事故实证(WMI 取证):20:58/20:59 两棵 pnpm -r typecheck 树并行,CPU 打满且
-// 各拉 ~30 个 cmd.exe 子进程。mkdir 原子锁 + 持有者 pid 存活检测(死进程残留锁
-// 立即接管,stale 20min 兜底),与 git 写锁同款模式。
-import {
-  mkdirSync as _mkLock,
-  readFileSync as _rdLock,
-  writeFileSync as _wrLock,
-  rmSync as _rmLock,
-} from 'node:fs'
-// 进程锁放系统临时目录(2026-10-04 迁出仓内):
-//   原锁目录在仓内(ROOT 下)⇒ 清 stale 锁的 rmSync(recursive,force)
-//   触发 WorkBuddy safe-delete shim 的批量守卫(SAFE_DELETE_BULK_GUARD_ERROR),
-//   tsc 根本没起来,守门报「退出码非 0 但未解析到任何报错文件路径」——
-//   属自锁式死锁:重试无用,只能靠 HUSKY_SKIP_TYPECHECK 绕过。
-//   shim 的 shouldBypassSafeDelete 对 os.tmpdir() 放行(见 node-safe-delete-shim.cjs
-//   的 OS_TMP_DIRS),且进程锁本就不该进仓库目录。_lockDir 是单一常量,
-//   下方建/读/清 stale/exit 清 五处使用全部由它派生,改这一处即全覆盖。
-const _lockDir = join(tmpdir(), 'ihui-typecheck-full.lock')
-const _lockMeta = join(_lockDir, 'meta.json')
-const _LOCK_STALE_MS = 20 * 60 * 1000
+// ─── 机器级串行锁(2026-11-07 重构:身份判活 + 等待上限 + 显式未判定出口)──────
+// 旧内联锁(2026-09-18)只有 pid+时间戳,三处病灶:pid 被复用时判活恒真(锁永不清理)、
+// 等不到锁时无限等待(一次并发占用拖成 20min 挂死)、清理路径没有身份复核(可删掉新锁)。
+// 现实现住 scripts/lib/typecheck-lock.mjs(原子创建/陈旧认领/身份核对各只有一份实现);
+// 本文件只保留入口与出口语义。**300s 阈值、LPT 派发、分包计时一律不动**。
+// 进程锁仍落 os.tmpdir():进程锁不该进仓库目录,且 safe-delete shim 对 os.tmpdir() 放行。
 
 // ─── 再入守卫(2026-09-18 深夜根治递归进程树洪水) ─────────────────────
 // 根包 package.json "typecheck" = 本脚本(供 `pnpm typecheck` 直跑全量门)。
@@ -258,51 +249,40 @@ process.env.IHUI_TYPECHECK_FULL_CHILD = '1' // 传给 pnpm -r 子进程链
 // 不可捕获的强杀(TerminateProcess/taskkill /F)任何进程都产不出码 —— 与装本模块前一致,
 // 增益在于"可捕获的那一半现在必有码",而锁清理仍由既有 process.on('exit') 兜住。
 installSignalExit({ label: 'typecheck:full' })
-function _pidAlive(pid) {
-  if (!pid) return true
-  try {
-    process.kill(Number(pid), 0)
-    return true
-  } catch (e) {
-    return e.code === 'EPERM'
-  }
-}
 // `--self-test` 只证 pickStalePackages 这一维纯函数判据,不起 tsc、不需要串行化。
-// 锁落 os.tmpdir(),若自检也建锁,并发跑自检会在同一把锁上互等(累计 5s 轮询),
+// 锁落 os.tmpdir(),若自检也建锁,并发跑自检会在同一把锁上互等,
 // 而自检本身零派生 ⇒ 自检路径整段跳过锁(真实全量跑仍照旧独占)。
 const _SELF_TEST = process.argv.includes('--self-test')
 if (!_SELF_TEST) {
-  for (;;) {
-    try {
-      _mkLock(_lockDir, { recursive: false })
-      _wrLock(_lockMeta, JSON.stringify({ pid: process.pid, ts: Date.now() }))
-      break
-    } catch {
-      let meta = null
-      try {
-        meta = JSON.parse(_rdLock(_lockMeta, 'utf8'))
-      } catch {
-        /* meta 缺失按未知处理 */
-      }
-      const stale = !meta || Date.now() - (meta.ts ?? 0) > _LOCK_STALE_MS || !_pidAlive(meta.pid)
-      if (stale) {
-        _rmLock(_lockDir, { recursive: true, force: true })
-        continue
-      }
-      console.log(`[typecheck:full] 另一全量 typecheck 进行中(pid ${meta.pid}),串行等待...`)
-      spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},5000)'], {
-        stdio: 'ignore',
-        windowsHide: true,
-      })
-    }
-  }
-  process.on('exit', () => {
-    try {
-      _rmLock(_lockDir, { recursive: true, force: true })
-    } catch {
-      /* 忽略 */
-    }
+  const waitMs = Number(process.env.IHUI_TYPECHECK_LOCK_WAIT_MS || DEFAULT_WAIT_MS)
+  const lock = await acquireTypecheckLock({
+    path: process.env.IHUI_TYPECHECK_LOCK_PATH || undefined,
+    waitMs: Number.isFinite(waitMs) ? waitMs : DEFAULT_WAIT_MS,
+    pollMs: Number(process.env.IHUI_TYPECHECK_LOCK_POLL_MS || DEFAULT_POLL_MS),
+    repo: ROOT,
+    role: 'typecheck-full',
   })
+  if (!lock.ok) {
+    // 机器级互斥拿不到 ⇒ **未判定**:不是通过、不是失败、不静默跳过(「未判定 ≠ 通过」)。
+    // 出口必须是 exit 2 + 「未判定」:exit 75 会被 guardian 当 interrupt 立即传播并触发
+    // pre-push「带 hook 重试」,等于把一次并发占用变成两轮空转。
+    const reason =
+      lock.kind === 'io-error'
+        ? `锁目录不可用:${lock.error?.message ?? 'unknown'}`
+        : `等待 ${(lock.waitedMs / 1000).toFixed(1)}s 仍未取得机器级 typecheck 锁`
+    console.error(`[typecheck:full] [UNDETERMINED] 未判定(并发占用):${reason}`)
+    console.error(`[typecheck:full]   持锁者: ${describeLockHolder(lock.holder)}`)
+    console.error('')
+    console.error('  这不是类型检查结论:既不是通过,也不是失败。同一台机器上另一场全量')
+    console.error('  typecheck 仍在运行,此刻的耗时读数混进了对方的 CPU,不可解释。')
+    console.error('  等对方结束后重跑,或调大 IHUI_TYPECHECK_LOCK_WAIT_MS 再试。')
+    process.exit(UNDETERMINED_EXIT_CODE)
+  }
+  if (lock.waitedMs > 0) {
+    console.log(
+      `[typecheck:full] 已串行等待 ${(lock.waitedMs / 1000).toFixed(1)}s 后取得机器级锁(前持有者已退出)`,
+    )
+  }
 }
 
 /**

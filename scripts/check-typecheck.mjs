@@ -58,6 +58,10 @@ import {
   installSignalExit,
   TEMPFAIL_EXIT_CODE,
 } from './lib/signal-exit.mjs'
+// 未判定判据的唯一实现住 gate-failure-kind(exit 2 + 未判定标记),本文件只消费。
+// 机器级锁等不到时 typecheck-full 以 exit 2 交付「未判定(并发占用)」,必须原样透传:
+// 下方的 staged-scope 降级与「退出码非 0 但没解析到报错文件 ⇒ 按失败处理」都会把它折成红。
+import { detectUndetermined, UNDETERMINED_EXIT_CODE } from './lib/gate-failure-kind.mjs'
 import { formatDuration, formatSummaryLine, readTimings, summarizeTimings } from './lib/typecheck-timing.mjs'
 // G-406 ②:反向依赖闭包的门 103 已有那份文件级图(边解析只有这一份实现),
 // 本门只**消费** lib 的反向依赖闭包判据,不自己再实现一遍边判定(2026-10-18 L14546 后,
@@ -734,6 +738,20 @@ child.on('close', (code, signal) => {
       `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
     )
     process.exit(TEMPFAIL_EXIT_CODE)
+  }
+  // 机器级 typecheck 锁等不到 ⇒ 子进程 exit 2 + stderr「未判定(并发占用)」。
+  // 这一格**不是结论**:不许洗成 pass,也不许被下方降级/「未解析到报错文件 ⇒ 按失败处理」
+  // 折成红。按门体系同码透传 undetermined(guardian 逐道点名,不记绿也不判红)。
+  const undetermined = detectUndetermined({
+    status: code === null || code === undefined ? null : code,
+    signal: signal ?? null,
+    stderr: err,
+  })
+  if (undetermined) {
+    console.error(`[check-typecheck] ⏸️ ${undetermined}(并发占用)—— 这不是类型检查结论`)
+    console.error('[check-typecheck]    机器级 typecheck 锁被另一场全量检查持有,且等待已超上限;')
+    console.error('[check-typecheck]    并发占用下的耗时读数不可解释,等对方结束后重跑即可。')
+    process.exit(UNDETERMINED_EXIT_CODE)
   }
 
   // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)

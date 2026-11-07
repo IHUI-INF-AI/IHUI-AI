@@ -129,10 +129,35 @@ test('T7 check-typecheck 超时分支必须先落分包读数再杀进程,且仍
 
 test('T5 自检不得建 os.tmpdir 锁(自检不派生 tsc,并发自检不该在共享临时目录上互等)', () => {
   const iGuard = SRC.indexOf('if (!_SELF_TEST) {')
-  const iLock = SRC.indexOf('_mkLock(_lockDir')
+  const iLock = SRC.indexOf('await acquireTypecheckLock(')
   assert.ok(iGuard > 0, '--self-test 必须整体跳过串行锁(锁落 os.tmpdir 是共享面)')
-  assert.ok(iLock > 0, '找不到真实全量跑的建锁调用(结构变了须同步本测试)')
-  assert.ok(iGuard < iLock, '建锁必须在自检闸门之下,否则自检又去 os.tmpdir 落锁')
+  assert.ok(iLock > 0, '找不到真实全量跑的取锁调用(结构变了须同步本测试)')
+  assert.ok(iGuard < iLock, '取锁必须在自检闸门之下,否则自检又去 os.tmpdir 落锁')
+})
+
+test('T10 机器级锁等不到必须交付「未判定(并发占用)」:exit 2 + 持锁者点名,不得折成通过/失败', () => {
+  // 出口语义:exit 75 会被 guardian 当 interrupt 传播并触发 pre-push 带 hook 重试;
+  // exit 2 + 「未判定」才会被 gate-failure-kind 认成 undetermined(不记绿也不判红)。
+  assert.match(SRC, /未判定\(并发占用\)/, '子进程必须自称未判定,否则消费侧 detectUndetermined 读不到')
+  assert.match(SRC, /describeLockHolder\(lock\.holder\)/, '拿不到锁必须点名持锁者(pid/启动时刻/仓库/已持有时长)')
+  assert.match(
+    SRC,
+    /if \(!lock\.ok\) \{[\s\S]{0,900}process\.exit\(UNDETERMINED_EXIT_CODE\)/,
+    '锁失败分支必须 exit UNDETERMINED_EXIT_CODE(2),不得 exit 0/75',
+  )
+  assert.match(SRC, /IHUI_TYPECHECK_LOCK_WAIT_MS/, '等待上限必须可覆盖(夹具/低配机器)')
+
+  const WRAP = readFileSync(join(ROOT, 'scripts', 'check-typecheck.mjs'), 'utf8')
+  assert.match(WRAP, /detectUndetermined\(\{/, '消费侧必须用 gate-failure-kind 的同一判据,不得另写一份')
+  assert.match(
+    WRAP,
+    /if \(undetermined\) \{[\s\S]{0,400}process\.exit\(UNDETERMINED_EXIT_CODE\)/,
+    '未判定必须在 staged-scope 降级之前原样透传(否则被折成红)',
+  )
+  assert.ok(
+    WRAP.indexOf('detectUndetermined({') < WRAP.indexOf('const errorFiles = extractErrorFiles'),
+    '未判定分支必须早于「解析报错文件」那套失败判定',
+  )
 })
 
 test('T9 apps/api 单腿合并档必须覆盖 src ∪ scripts,且覆盖项不得改松(防只改其中一条腿)', () => {
