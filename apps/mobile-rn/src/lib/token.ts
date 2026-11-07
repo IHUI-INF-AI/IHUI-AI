@@ -235,8 +235,12 @@ async function refreshAccessToken(): Promise<string | null> {
   const rotatedRefresh = res.data.refreshToken
   return serializeCredentialWrite(async () => {
     if (sessionEpoch !== epochAtStart) return null
-    await memoryStore.setToken(accessToken)
+    // 2026-11-07 DBG-35 收口: 原先写 access 后写 refresh —— 两写之间进程被杀时,
+    // 落盘的是「新 access + 旧 refresh」,而旧 refresh 已被服务端轮换作废 ⇒ 无法续期只能重登。
+    // 先写 refresh(与 miniapp-taro auth.ts 同序):中断后落盘「旧 access + 新 refresh」,
+    // 旧 access 未过期前可用、新 refresh 始终可续期,轮换中断可自愈。
     if (rotatedRefresh) await memoryStore.setRefreshToken(rotatedRefresh)
+    await memoryStore.setToken(accessToken)
     return accessToken
   })
 }

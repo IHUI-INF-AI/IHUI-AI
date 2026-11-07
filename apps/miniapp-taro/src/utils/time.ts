@@ -17,11 +17,13 @@ export function formatDate(date: Date | number | string, format = 'YYYY-MM-DD HH
   return formatDateByTemplate(date, format)
 }
 
-// relativeTime:legacy 别名,转发到 shared formatRelativeTime(zh-CN)
-// 新代码推荐直接使用上方已 re-export 的 formatRelativeTime
+// relativeTime:legacy 别名,转发到 shared formatRelativeTime
+// 2026-11-07 DBG-33 收口: 原硬编码 locale 'zh-CN' —— 应用切到 en/ja/ko 后相对时间仍中文。
+// 改读 i18n 模块 getCurrentLocale()(I18nProvider 挂载/切换语言时同步维护的模块级镜像)。
 import { formatRelativeTime } from '@ihui/shared/utils/date-utils'
+import { getCurrentLocale } from '../i18n'
 export function relativeTime(date: Date | number | string): string {
-  return formatRelativeTime(date, 'zh-CN')
+  return formatRelativeTime(date, getCurrentLocale())
 }
 
 // 端独占辅助函数(底层复用 formatDate,保持原有行为)

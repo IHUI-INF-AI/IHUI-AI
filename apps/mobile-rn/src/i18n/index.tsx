@@ -73,6 +73,16 @@ export function requestLocaleChange(locale: Locale): boolean {
   return true
 }
 
+// 2026-11-07 DBG-34/36/37: 模块级当前语言镜像,供组件树外的格式化工具读取
+// (模块级 fmtDate/formatDateTime 不能用 useI18n)。Provider 每次渲染同步,幂等;
+// 未挂 Provider 时回落 DEFAULT_LOCALE,与旧行为(硬编码 zh-CN)一致。
+let currentLocale: Locale = DEFAULT_LOCALE
+
+/** 组件树外读取当前语言的唯一入口(工具函数等非 React 上下文用)。 */
+export function getCurrentLocale(): Locale {
+  return currentLocale
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
 
@@ -132,6 +142,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     () => ({ locale, setLocale: setLocaleStable, t }),
     [locale, setLocaleStable, t],
   )
+
+  // 渲染期同步模块级镜像(幂等):locale state 变化必然触发重渲染,镜像随之刷新
+  currentLocale = locale
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }
