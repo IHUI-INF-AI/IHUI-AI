@@ -77,6 +77,7 @@ export type AgentStatus =
   | 'completed'
   | 'failed'
   | 'cancelled'
+  | 'stub'
 
 /** 子智能体单步执行结果 */
 export interface SubAgentStep {

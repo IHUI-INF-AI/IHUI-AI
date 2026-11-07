@@ -264,6 +264,13 @@ describe('mapProgressToTimelineUpdate', () => {
 
 // ─── mapEndToTimelineUpdate ───────────────────────────────────────
 describe('mapEndToTimelineUpdate', () => {
+  it('status="stub" 不标成完成,文案键走 i18n', () => {
+    const event = makeEndEvent({ status: 'stub' })
+    const result = mapEndToTimelineUpdate(event)
+    expect(result.updates.status).toBe('stub')
+    expect(result.updates.description).not.toContain('完成')
+    expect(result.updates.meta?.i18nKey).toBe('ai.pane.subagent.statusStub')
+  })
   it('status="done" → updates.status="done"', () => {
     const event = makeEndEvent({ status: 'done' })
     const result = mapEndToTimelineUpdate(event)

@@ -1660,33 +1660,36 @@ const buildChatState: ChatStateCreator = (set, get) => ({
       const applyEnd = (a: SubAgentActivity): SubAgentActivity => {
         if (a.agentId !== event.id) return a
         const nextStatus: SubAgentActivity['status'] =
-          event.status === 'failed' ? 'failed' : 'completed'
+          event.status === 'failed' ? 'failed' : event.status === 'stub' ? 'stub' : 'completed'
         return {
           ...a,
           status: nextStatus,
           // 完成时把 currentStep 推入 completedSteps,再清空 currentStep;
-          // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查
+          // 失败时 currentStep 改为错误摘要,保留 step 上下文供用户排查。
+          // stub 不清步骤进完成列表,也不写死中文,文案走活动行 i18n。
           ...(event.status === 'failed'
             ? {
                 currentStep: event.failureReason
                   ? `失败:${event.failureReason.slice(0, 200)}`
                   : '执行失败',
               }
-            : {
-                completedSteps: [
-                  ...a.completedSteps,
-                  ...(a.currentStep
-                    ? [
-                        {
-                          stepAction: a.currentStep,
-                          createdAt: event.timestamp,
-                          status: 'completed' as const,
-                        },
-                      ]
-                    : []),
-                ],
-                currentStep: '',
-              }),
+            : event.status === 'stub'
+              ? { currentStep: '' }
+              : {
+                  completedSteps: [
+                    ...a.completedSteps,
+                    ...(a.currentStep
+                      ? [
+                          {
+                            stepAction: a.currentStep,
+                            createdAt: event.timestamp,
+                            status: 'completed' as const,
+                          },
+                        ]
+                      : []),
+                  ],
+                  currentStep: '',
+                }),
           streamingDone: true,
         }
       }

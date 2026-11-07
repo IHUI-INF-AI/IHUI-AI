@@ -55,7 +55,7 @@ export interface ElementPackFrame {
   readonly task?: string
   readonly agentName?: string
   // subagent_end 专属
-  readonly status?: 'done' | 'failed'
+  readonly status?: 'done' | 'failed' | 'stub'
   readonly failureReason?: string
 }
 
@@ -94,8 +94,8 @@ function isElementPackFrame(value: unknown): ElementPackFrame | null {
     if (str(o.role) !== undefined) frame.role = str(o.role)
     if (str(o.task) !== undefined) frame.task = str(o.task)
   } else if (kind === 'subagent_end') {
-    // status 归一(sse-parse 同判据 —— 非 'failed' 一律 'done')
-    frame.status = o.status === 'failed' ? 'failed' : 'done'
+    // 缺 status 仍归一为 done。显式 stub 保留,回放不能显示成完成。
+    frame.status = o.status === 'failed' ? 'failed' : o.status === 'stub' ? 'stub' : 'done'
     if (str(o.failureReason) !== undefined) frame.failureReason = str(o.failureReason)
   } else if (!SUBAGENT_FRAME_KINDS.has(kind)) {
     // 未知种类:保留为降级帧(渲染位给最小降级卡),不丢 —— 帧是有意落库的信息
@@ -188,11 +188,14 @@ export function elementPackFramesToSubagentActivities(
     }
     if (frame.kind === 'subagent_end') {
       if (!existing) continue
-      existing.status = frame.status === 'failed' ? 'failed' : 'completed'
+      existing.status =
+        frame.status === 'failed' ? 'failed' : frame.status === 'stub' ? 'stub' : 'completed'
       if (frame.status === 'failed') {
         existing.currentStep = frame.failureReason
           ? `失败:${frame.failureReason.slice(0, 200)}`
           : '执行失败'
+      } else if (frame.status === 'stub') {
+        existing.currentStep = ''
       } else {
         existing.completedSteps = [
           ...existing.completedSteps,

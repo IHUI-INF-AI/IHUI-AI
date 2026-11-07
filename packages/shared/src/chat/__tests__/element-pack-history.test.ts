@@ -59,9 +59,15 @@ describe('collectElementPackFrame(写侧收窄)', () => {
   })
 
   it('subagent_progress:表外 phase ⇒ null(不造残帧)', () => {
-    expect(collectElementPackFrame({ type: 'subagent_progress', id: 'sa1', phase: 'running' })).toBeNull()
+    expect(
+      collectElementPackFrame({ type: 'subagent_progress', id: 'sa1', phase: 'running' }),
+    ).toBeNull()
   })
 
+  it('subagent_end:显式 stub 保留,不折成 done', () => {
+    const stub = collectElementPackFrame({ type: 'subagent_end', id: 'sa1', status: 'stub' })
+    expect((stub as { status: string }).status).toBe('stub')
+  })
   it('subagent_end:status 非 failed 归一为 done;failureReason 透传', () => {
     const done = collectElementPackFrame({ type: 'subagent_end', id: 'sa1' })
     expect((done as { status: string }).status).toBe('done')
@@ -92,7 +98,13 @@ describe('collectElementPackFrame(写侧收窄)', () => {
 })
 
 describe('parseElementPackFrames(读侧守卫)', () => {
-  const frame = { kind: 'subagent_spawn', id: 'sa1', role: 'r', task: 't', timestamp: '2026-10-14T00:00:00.000Z' }
+  const frame = {
+    kind: 'subagent_spawn',
+    id: 'sa1',
+    role: 'r',
+    task: 't',
+    timestamp: '2026-10-14T00:00:00.000Z',
+  }
 
   it('合法 metadata.elementPack.frames 全量读回', () => {
     const meta = { [ELEMENT_PACK_METADATA_KEY]: { [ELEMENT_PACK_FRAMES_KEY]: [frame] } }
