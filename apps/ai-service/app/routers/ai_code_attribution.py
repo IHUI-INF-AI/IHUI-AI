@@ -13,6 +13,7 @@ tags=["ai-code-attribution"])` 方式挂载,最终端点路径:
   POST /api/ai-code-attribution/backfill            → 提交成功后给空锚回填提交号
   GET  /api/ai-code-attribution/checkpoints         → 编辑检查点日志(损坏时不说成没有)
   GET  /api/ai-code-attribution/notes-health        → git notes 引用在不在(没量到不说成没有)
+  GET  /api/ai-code-attribution/prompts/{prompt_id} → 按宿主注入的编号取提示词正文
   POST /api/ai-code-attribution/notes               → 把对得上的检查点写进该仓库的 notes
 
 存储:复用 app/services/ai_code_attribution_store(进程内 list + data/ai_code_attribution.json)。
@@ -36,6 +37,7 @@ from ..services.ai_code_attribution_store import (
     list_checkpoint_log,
     list_records,
     mirror_checkpoints_to_notes,
+    show_prompt,
     stats_all,
     stats_for_path,
     stats_for_session,
@@ -245,4 +247,23 @@ async def mirror_attribution_notes(
         refused or "-",
     )
     return {"code": 0, "message": refused or "ok", "data": {"updated": updated, "refused": refused}}
+
+
+@router.get("/prompts/{prompt_id}")
+async def show_attribution_prompt(
+    prompt_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按编号取提示词。没量到或日志读不到时 text 为空，refused 说明是哪一种。"""
+    text, refused = show_prompt(prompt_id)
+    logger.info(
+        "ai-code-attribution prompt user=%s refused=%s",
+        user_id,
+        refused or "-",
+    )
+    return {
+        "code": 0,
+        "message": refused or "ok",
+        "data": {"prompt_id": prompt_id, "text": text, "refused": refused},
+    }
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

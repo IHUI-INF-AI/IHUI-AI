@@ -54,7 +54,10 @@ from app.services.ai_code_attribution_store import (
     mirror_checkpoints_to_notes,
     note_host_edit,
     note_measured_external_edit,
+    prompt_log_path,
     record_attribution,
+    remember_prompt,
+    show_prompt,
     stats_all,
     stats_for_path,
     stats_for_session,
@@ -685,4 +688,92 @@ async def test_notes_routes_do_not_touch_a_repo_they_cannot_see(monkeypatch):
     )
     assert mirrored["data"]["updated"] == 0
     assert mirrored["data"]["refused"] == "取不到 git 仓库根"
+
+
+def test_host_prompt_is_stored_apart_from_the_checkpoint_and_notes(tmp_path, tmp_store):
+    args = {
+        "__session_id": "s",
+        "__prompt_id": "p-1",
+        "__prompt_text": "把这一行改成两行",
+        "prompt_id": "forged",
+        "prompt": "模型自报的正文",
+    }
+    status, refused = log_host_edit_checkpoint("file_edit", "a.py", "diff", args)
+    assert status == "appended"
+    assert refused == ""
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert rows[0]["prompt_id"] == "p-1"
+    assert "prompt_text" not in rows[0]
+    assert "把这一行改成两行" not in checkpoint_log_path().read_text(encoding="utf-8")
+    text, prompt_note = show_prompt("p-1")
+    assert text == "把这一行改成两行"
+    assert prompt_note == ""
+    again, again_note = remember_prompt("p-1", "把这一行改成两行")
+    assert again == "duplicate"
+    assert again_note == ""
+    clash, clash_note = remember_prompt("p-1", "另一段")
+    assert clash == "refused"
+    assert clash_note == "同一编号对上了另一段提示词"
+    assert show_prompt("p-1")[0] == "把这一行改成两行"
+    missing, missing_note = show_prompt("  ")
+    assert missing is None
+    assert missing_note == "没有提示词编号"
+    repo = tmp_path / "repo"
+    sha = _repo_with_one_commit(repo)
+    updated, notes_refused = mirror_checkpoints_to_notes(repo, sha, ["a.py"])
+    assert updated == 1
+    assert notes_refused == ""
+    shown = subprocess.run(
+        ["git", "-C", str(repo), "notes", "--ref", "refs/notes/ai", "show", sha],
+        check=True,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert "p-1" in shown.stdout
+    assert "把这一行改成两行" not in shown.stdout
+
+
+def test_half_a_prompt_refuses_the_checkpoint_and_writes_nothing(tmp_store):
+    status, refused = log_host_edit_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        {"__session_id": "s", "__prompt_id": "p-1"},
+    )
+    assert status == "refused"
+    assert refused == "提示词编号和正文必须一起给"
+    assert not checkpoint_log_path().exists()
+    assert not prompt_log_path().exists()
+    status, refused = log_host_edit_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        {"__prompt_text": "只有正文"},
+    )
+    assert status == "refused"
+    assert not prompt_log_path().exists()
+
+
+def test_corrupt_prompt_log_is_not_replaced(tmp_store):
+    body = "{not json\n"
+    prompt_log_path().write_text(body, encoding="utf-8")
+    status, refused = remember_prompt("p-1", "正文")
+    assert status == "refused"
+    assert "读不到" in refused
+    assert prompt_log_path().read_text(encoding="utf-8") == body
+    text, note = show_prompt("p-1")
+    assert text is None
+    assert "读不到" in note
+
+
+@pytest.mark.asyncio
+async def test_prompt_route_names_a_missing_prompt(tmp_store):
+    from app.routers.ai_code_attribution import show_attribution_prompt
+
+    body = await show_attribution_prompt("missing", user_id="u")
+    assert body["data"]["text"] is None
+    assert body["data"]["refused"] == "提示词没量到"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
