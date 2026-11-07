@@ -16,6 +16,30 @@ export type { SlowDecision, SlowJudgeCall, SlowJudgeInput, SlowVerdict } from '.
 export { SNAPSHOT_VERSION } from './persist'
 export type { OwnerSlice, RestoreReport, SuperAgentSnapshot } from './persist'
 export {
+  DEFAULT_SOURCE_EVENT_ROUTES,
+  EVENT_SOURCE_KINDS,
+  githubDeliveryEventId,
+  githubStableEventId,
+  imStableEventId,
+  normalizeGithubWebhook,
+  normalizeImWebhook,
+  normalizePollItem,
+  parseSourceEventRoutes,
+  pollStableEventId,
+  selectSourceEventRoute,
+  toIncomingTrigger,
+} from './source-events'
+export type {
+  EventSourceKind,
+  GithubWebhookInput,
+  ImWebhookInput,
+  NormalizeResult,
+  NormalizeRejection,
+  NormalizedSourceEvent,
+  PollItemInput,
+  SourceEventRoute,
+} from './source-events'
+export {
   ROUTER_TOOLS,
   WORKER_TOOLS,
   executionFor,

@@ -71,6 +71,17 @@ export interface IncomingTrigger {
   addressed: boolean
   fromBot: boolean
   text: string
+  /**
+   * 上游事件发生时间（ISO 8601）。来源给出时间就沿用（便于按到达顺序审计），
+   * 没给则由归一化点在投递时刻取时钟。
+   */
+  at?: string
+  /** 上游事件可点击地址（评论 / PR / issue / workflow run / 告警条目）。 */
+  url?: string
+  /** 渠道信息：threadId 与顶层一致；url 是渠道根（仓库主页 / 群）。 */
+  channel?: { threadId: string; url?: string }
+  /** 来源元数据（delivery id、平台、仓库名、扫描键等）。只做审计/归因，不参与路由。 */
+  meta?: Record<string, unknown>
 }
 
 export interface Speech {
@@ -187,6 +198,8 @@ function threadKey(ownerUserId: string, sourceId: string, threadId: string): str
 
 export class SuperAgentHost {
   private readonly triggers = new Map<string, IncomingTrigger>()
+  /** 暂停期间到达的事件：原地排队（Map 保序），恢复后按到达顺序重放，不吞事件。 */
+  private readonly parked = new Map<string, { trigger: IncomingTrigger; ownerUserId: string }>()
   private readonly recordedTriggers = new Map<
     string,
     { trigger: IncomingTrigger; reason: string; decision?: SlowDecision }
@@ -219,15 +232,18 @@ export class SuperAgentHost {
   }
 
   receive(trigger: IncomingTrigger, ownerUserId: string): ReceiveResult {
-    if (this.triggers.has(trigger.id)) {
+    // 幂等集同时覆盖"已入账"和"暂停排队"：重复投递绝不再排一次，也绝不开第二张工单。
+    if (this.triggers.has(trigger.id) || this.parked.has(trigger.id)) {
       return { disposition: 'duplicate', speech: null }
+    }
+
+    if (this.policyFor(ownerUserId).paused) {
+      this.parked.set(trigger.id, { trigger, ownerUserId })
+      this.markDirty()
+      return { disposition: 'paused', speech: null }
     }
     this.triggers.set(trigger.id, trigger)
     this.markDirty()
-
-    if (this.policyFor(ownerUserId).paused) {
-      return { disposition: 'paused', speech: null }
-    }
     if (this.policyFor(ownerUserId).sessionIsAllowlist && trigger.actorId !== ownerUserId) {
       return { disposition: 'filtered', reason: 'actor_mismatch', speech: null }
     }
@@ -512,10 +528,12 @@ export class SuperAgentHost {
     return { disposition: 'accepted', ticketId: ticket.id, speech, stage: ticketStage(ticket) }
   }
 
-  /** 策略变了只通知在做的工单，不收回已经发出的授权。 */
+  /** 策略变了只通知在做的工单，不收回已经发出的授权。解除暂停时按到达顺序重放排队事件。 */
   applyPolicy(ownerUserId: string, next: SuperAgentPolicy): string[] {
+    const wasPaused = this.policyFor(ownerUserId).paused
     this.ownerPolicy.set(ownerUserId, next)
     this.markDirty()
+    if (wasPaused && !next.paused) this.replayParked(ownerUserId)
     const notified: string[] = []
     for (const ticket of this.tickets.values()) {
       if (ticket.ownerUserId !== ownerUserId || ticket.ended || ticket.mandateWithdrawn) continue
@@ -527,6 +545,13 @@ export class SuperAgentHost {
       notified.push(ticket.id)
     }
     return notified
+  }
+
+  /** 解除暂停后按到达顺序重放本主体的排队事件；重放走同一条 receive 路径（含过滤/记账）。 */
+  private replayParked(ownerUserId: string): void {
+    const rows = [...this.parked.entries()].filter(([, row]) => row.ownerUserId === ownerUserId)
+    for (const [id] of rows) this.parked.delete(id)
+    for (const [, row] of rows) this.receive(row.trigger, ownerUserId)
   }
 
   /** 扩大范围必须新开一张工单。旧授权的原文不动。 */
@@ -768,6 +793,7 @@ export class SuperAgentHost {
     const ownerIds = new Set<string>()
     for (const t of this.tickets.values()) ownerIds.add(t.ownerUserId)
     for (const { trigger } of this.recordedTriggers.values()) ownerIds.add(trigger.actorId)
+    for (const row of this.parked.values()) ownerIds.add(row.ownerUserId)
     for (const id of this.ownerPolicy.keys()) ownerIds.add(id)
     const owners: SuperAgentSnapshot['owners'] = []
     for (const ownerUserId of [...ownerIds].sort()) {
@@ -781,6 +807,10 @@ export class SuperAgentHost {
           .filter((t) => t.actorId === ownerUserId)
           .sort((a, b) => a.id.localeCompare(b.id))
           .map((t) => structuredClone(t)),
+        // 暂停期间未处理的事件也要落快照：重启后仍能按到达顺序重放（不能只在内存里）。
+        parked: [...this.parked.entries()]
+          .filter(([, row]) => row.ownerUserId === ownerUserId)
+          .map(([, row]) => structuredClone(row.trigger)),
         recordedTriggers: [...this.recordedTriggers.entries()]
           .filter(([, r]) => r.trigger.actorId === ownerUserId)
           .sort(([a], [b]) => a.localeCompare(b))
@@ -890,6 +920,7 @@ export class SuperAgentHost {
     }
     // —— 通过后整场替换 ——
     this.triggers.clear()
+    this.parked.clear()
     this.recordedTriggers.clear()
     this.tickets.clear()
     this.byThread.clear()
@@ -909,6 +940,13 @@ export class SuperAgentHost {
     for (const owner of s.owners) {
       const slice = owner.slice
       for (const trigger of slice.triggers) this.triggers.set(trigger.id, structuredClone(trigger))
+      // 旧快照没有 parked 格：缺省即空，不视为形状错误（fail-closed 只针对必备数组）。
+      for (const trigger of slice.parked ?? []) {
+        this.parked.set(trigger.id, {
+          trigger: structuredClone(trigger),
+          ownerUserId: owner.ownerUserId,
+        })
+      }
       for (const t of slice.tickets) this.tickets.set(t.id, structuredClone(t))
       for (const r of slice.recordedTriggers) {
         const trigger = this.triggers.get(r.triggerId)

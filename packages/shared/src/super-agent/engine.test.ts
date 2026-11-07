@@ -155,5 +155,49 @@ describe('super-agent 控制面', () => {
     expect(agent.receive(trigger(), 'user-a').disposition).toBe('paused')
     expect(agent.panel('user-a').needsPerson).toHaveLength(0)
   })
+
+  it('暂停期间的事件排队，恢复后按到达顺序重放，重复投递不重排', () => {
+    const agent = host({ paused: true })
+    expect(
+      agent.receive(trigger({ id: 'p1', threadId: 'th-p1', text: '第一件' }), 'user-a').disposition,
+    ).toBe('paused')
+    expect(
+      agent.receive(trigger({ id: 'p2', threadId: 'th-p2', text: '第二件' }), 'user-a').disposition,
+    ).toBe('paused')
+    // 暂停期的重复投递：幂等集覆盖排队区，判 duplicate 而不是再排一份。
+    expect(
+      agent.receive(trigger({ id: 'p1', threadId: 'th-p1', text: '第一件' }), 'user-a').disposition,
+    ).toBe('duplicate')
+    agent.applyPolicy('user-a', {
+      ...DEFAULT_SUPER_AGENT_POLICY,
+      paused: false,
+      version: 'v-resume',
+    })
+    expect(agent.takeStarted().map((w) => w.goal)).toEqual(['第一件', '第二件'])
+    expect(
+      agent.receive(trigger({ id: 'p1', threadId: 'th-p1', text: '第一件' }), 'user-a').disposition,
+    ).toBe('duplicate')
+  })
+
+  it('暂停排队的事件进快照，重启恢复后解除暂停仍原序重放', () => {
+    const agent = host({ paused: true })
+    agent.receive(trigger({ id: 'p1', threadId: 'th-p1', text: '第一件' }), 'user-a')
+    agent.receive(trigger({ id: 'p2', threadId: 'th-p2', text: '第二件' }), 'user-a')
+    const snap = agent.snapshot()
+    expect(snap.owners[0]?.slice.parked?.map((t) => t.id)).toEqual(['p1', 'p2'])
+
+    const restarted = host()
+    expect(restarted.restore(snap).ok).toBe(true)
+    // 快照里 defaultPolicy 仍是 paused；恢复后解除暂停才重放，顺序按排队顺序。
+    restarted.applyPolicy('user-a', {
+      ...DEFAULT_SUPER_AGENT_POLICY,
+      paused: false,
+      version: 'v-resume',
+    })
+    expect(restarted.takeStarted().map((w) => w.goal)).toEqual(['第一件', '第二件'])
+    expect(restarted.receive(trigger({ id: 'p1', threadId: 'th-p1' }), 'user-a').disposition).toBe(
+      'duplicate',
+    )
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -56,6 +56,8 @@ import {
 } from '../services/agent-event-trigger.js'
 // CI 三件套的名单只有一份(§0.6):判定复用 GitHub App 腿的出口,本腿不另抄一遍事件名。
 import { isObservedCiEvent } from '../services/github-app/events.js'
+// RP-40:同一份验签后的事件喂超级智能体事件源适配器(不新造第二个 webhook 端点)。
+import { ingestGithubWebhook } from '../services/super-agent-event-sources/index.js'
 
 /** GitHub 支持的事件名(本服务订阅子集) */
 const WATCHED_EVENTS: GitHubEventName[] = ['pull_request', 'issues', 'push', 'code_scanning_alert']
@@ -186,6 +188,16 @@ const githubWebhookRoutes: FastifyPluginAsync = async (server) => {
     }
 
     const eventName = (request.headers['x-github-event'] as string | undefined) ?? ''
+
+    // RP-40:已验证签名的原始事件同时喂超级智能体事件源适配器。
+    // 位置在 HMAC 之后、既有 delivery 去重之前 —— 重复投递照样进入引擎,
+    // 由引擎的触发幂等集判 duplicate(适配器不建第二套去重表)。
+    ingestGithubWebhook({
+      deliveryId: (request.headers['x-github-delivery'] as string | undefined) ?? '',
+      event: eventName,
+      action: (payload.action as string | undefined) ?? null,
+      payload,
+    })
 
     // 4b) D30① 信源分支:ci_failed / gate_failed 不经 GitHub 事件白名单,
     //     单独走"无人值守修复入队"(位置在 HMAC 之后 ⇒ 鉴权面与既有事件完全一致)。

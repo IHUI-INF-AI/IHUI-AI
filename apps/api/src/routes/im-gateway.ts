@@ -47,6 +47,8 @@ import { checkAuth, checkAuthOrInternalService } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { fetchWithinDeadline, withBody } from '../utils/fetch-deadline.js'
 import { normalizeOutboundLocale, t } from '../services/i18n-outbound.js'
+// RP-40:IM 适配器验签后的入站消息同时喂超级智能体事件源适配器。
+import { ingestImWebhook } from '../services/super-agent-event-sources/index.js'
 import {
   INBOUND_DEDUP_TTL_MS,
   OUTBOUND_REQUEST_TIMEOUT_MS,
@@ -1429,6 +1431,18 @@ export const imGatewayRoutes: FastifyPluginAsync = async (server) => {
       const contentText =
         extracted.text ??
         (extracted.mediaUrl ? `[${extracted.messageType}] ${extracted.mediaUrl}` : '')
+
+      // RP-40:验签后的消息先喂事件源适配器(位置在既有去重之前)—— 重复回调照样
+      // 到达引擎并由引擎判 duplicate,适配器不再造第二套去重。归属主体取验签得出的 userId。
+      ingestImWebhook({
+        userId,
+        platform,
+        messageId: inbound.platformMessageId,
+        chatId: inbound.chatId,
+        senderId: inbound.fromUserId,
+        text: contentText,
+        mentioned: inbound.mentionedBot,
+      })
 
       // claim → persist → handoff 的唯一流程在策略层(runInboundIntake),失败撤回也在那一处;
       // 路由只负责把三个动作接起来并把结论写进响应。

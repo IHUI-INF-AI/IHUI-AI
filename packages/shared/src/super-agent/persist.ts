@@ -22,6 +22,11 @@ export interface OwnerSlice {
   ticketIds: string[]
   tickets: SuperTicket[]
   triggers: IncomingTrigger[]
+  /**
+   * 暂停期间排队未处理的事件（按到达顺序）。v1 可选：旧快照没有此格仍可恢复；
+   * 新快照写入后，重启恢复再解除暂停即可原序重放。
+   */
+  parked?: IncomingTrigger[]
   recordedTriggers: { triggerId: string; reason: string; decision?: SlowDecision }[]
   /** 订阅（线程→工单）结构化存三元组，重建走 host 内同一 threadKey。 */
   subscriptions: { sourceId: string; threadId: string; ticketIds: string[] }[]

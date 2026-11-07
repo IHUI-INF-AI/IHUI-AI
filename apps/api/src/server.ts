@@ -128,6 +128,16 @@ import {
   startRepairCycleScheduler,
   stopRepairCycleScheduler,
 } from './services/automation-repair-service.js'
+// 超级智能体:Watchdog 泵 + 事件源适配器(RP-40)。
+// 泵开关 = env 门控 或 任一事件源已装配;事件源装配只做"来源白名单 + 端口注册"。
+import {
+  startSuperAgentPumpLoop,
+  stopSuperAgentPumpLoop,
+} from './services/super-agent-pump-service.js'
+import {
+  installSuperAgentEventSources,
+  stopSuperAgentEventSources,
+} from './services/super-agent-event-sources/index.js'
 // P0 第二批次(2026-07-31 立):响应缓存初始化(RELAY_CACHE_ENABLED=true 时启用)
 import { initRelayResponseCache } from './services/relay-response-cache.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
@@ -470,20 +480,26 @@ export async function buildServer(): Promise<FastifyInstance> {
   // Redis 不可达时认领整族 fail-closed(设计行为,不降级为无锁放行)。
   startRepairCycleScheduler(() => server.redis)
 
+  // 超级智能体事件源装配(RP-40):GitHub webhook / IM 回调 / 定时轮询。
+  // 未配置来源白名单 ⇒ 该来源不装配(零端口、零定时器);装配完成即注册端口。
+  const eventSourceReport = installSuperAgentEventSources()
   // 超级智能体 Watchdog 泵：env 门控启动(IHUI_SUPER_AGENT_PUMP=true 才生效;
   // 未开启 = 零定时器。端口注册表为空时 runOnce 本身也是零动作)。
+  // RP-40:任一事件源装配成功也必须开泵,否则事件只落缓冲、永远不进引擎。
   // 间隔 env IHUI_SUPER_AGENT_PUMP_MS 可调,默认 60s。
-  const superAgentPumpEnabled = process.env.IHUI_SUPER_AGENT_PUMP === 'true'
+  const superAgentPumpEnabled =
+    process.env.IHUI_SUPER_AGENT_PUMP === 'true' || eventSourceReport.enabled
   if (superAgentPumpEnabled) {
     void startSuperAgentPumpLoop(Number(process.env.IHUI_SUPER_AGENT_PUMP_MS ?? 60_000)).catch(
       () => {
         /* 恢复/节拍启动失败不崩装配;持久健康读数由 superAgentPersistHealth() 点名 */
       },
     )
-    server.addHook('onClose', async () => {
-      stopSuperAgentPumpLoop()
-    })
   }
+  server.addHook('onClose', async () => {
+    stopSuperAgentEventSources()
+    stopSuperAgentPumpLoop()
+  })
 
   return server
 }
