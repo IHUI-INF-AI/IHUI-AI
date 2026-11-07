@@ -19,6 +19,9 @@ import { randomUUID } from 'node:crypto';
 import type { SessionState, SessionSummary } from './types.js';
 // G-719(2026-10-03):会话水合读侧唯一入口(落库工具结果元数据的版本分账/剥后校验)。
 import { hydrateToolStateMap } from './tool-part-hydration.js';
+// BUG-0010(T4):状态是"后写覆盖前写"的整份快照,落盘统一走原子写出口(tmp+fsync+rename)。
+// 与未合并分支 3cfdbd7776 同一实现来源,不另写第二份原子写。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 const STATE_DIR_ENV = 'IHUI_SESSION_STATE_DIR';
 const DEFAULT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -121,10 +124,14 @@ function readStateFile(id: string): SessionState | null {
   }
   try {
     const parsed = JSON.parse(raw) as SessionState;
-    if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'string') return null;
+    // 结构不对与"文件不存在"是两件事:前者说明状态已损坏,必须响,不能当成没有这场会话。
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.id !== 'string') {
+      throw new Error('缺少 id 字段或不是对象');
+    }
     return parsed;
-  } catch {
-    return null;
+  } catch (e) {
+    // 原文件保持不动(不重写/不删除),报错里点名文件与解析器原文。
+    throw new Error(`会话状态文件损坏,拒绝当成没有这场会话: ${p} (${(e as Error).message})`);
   }
 }
 
@@ -155,7 +162,7 @@ export function saveSession(state: SessionState): void {
     ...state,
     updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),
   };
-  fs.writeFileSync(p, JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(p, JSON.stringify(next, null, 2));
 }
 
 /**
@@ -191,7 +198,7 @@ export function patchSession(
     id: current.id,
     updatedAt: monotonicUpdatedAt(current.updatedAt, new Date().toISOString()),
   };
-  fs.writeFileSync(getSessionStatePath(id), JSON.stringify(next, null, 2), 'utf-8');
+  writeFileAtomicSync(getSessionStatePath(id), JSON.stringify(next, null, 2));
   return next;
 }
 

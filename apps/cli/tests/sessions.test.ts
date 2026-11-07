@@ -116,7 +116,6 @@ describe('listSessions', () => {
 
   it('跳过非 .json 文件', () => {
     fs.writeFileSync(path.join(tmpStateDir, 'readme.txt'), 'ignore me');
-    fs.writeFileSync(path.join(tmpStateDir, 'broken.json'), '{not valid');
     const s = makeSession();
     saveSession(s);
     const list = listSessions();
@@ -310,29 +309,35 @@ describe('status 枚举', () => {
   }
 });
 
-describe('损坏文件处理', () => {
-  it('非 JSON 内容返回 null', () => {
-    fs.writeFileSync(path.join(tmpStateDir, 'broken.json'), 'not json{');
-    expect(loadSession('broken')).toBeNull();
+describe('损坏文件处理(T4: 必须报错并保留原文件,不得静默消失)', () => {
+  it('非 JSON 内容必须报错,点名文件,且原文件保持不动', () => {
+    const p = path.join(tmpStateDir, 'broken.json');
+    fs.writeFileSync(p, 'not json{');
+    // 修前:catch 后 return null —— 会话凭空蒸发;修后:抛出+文件名+解析器原文。
+    expect(() => loadSession('broken')).toThrow(/会话状态文件损坏/);
+    expect(() => loadSession('broken')).toThrow(/broken\.json/);
+    expect(fs.readFileSync(p, 'utf-8')).toBe('not json{');
   });
 
-  it('JSON 数组(非 object)返回 null', () => {
+  it('JSON 数组(非 object)必须报错,不得当成没有会话', () => {
     fs.writeFileSync(path.join(tmpStateDir, 'arr.json'), '[]');
-    expect(loadSession('arr')).toBeNull();
+    expect(() => loadSession('arr')).toThrow(/会话状态文件损坏/);
   });
 
-  it('缺 id 字段返回 null', () => {
+  it('缺 id 字段必须报错', () => {
     fs.writeFileSync(path.join(tmpStateDir, 'noid.json'), JSON.stringify({ createdAt: 'x' }));
-    expect(loadSession('noid')).toBeNull();
+    expect(() => loadSession('noid')).toThrow(/会话状态文件损坏/);
   });
 
-  it('listSessions 跳过损坏文件', () => {
-    fs.writeFileSync(path.join(tmpStateDir, 'bad.json'), '!!!');
+  it('listSessions 遇到损坏文件必须报错(不得静默跳过)', () => {
     const s = makeSession();
     saveSession(s);
-    const list = listSessions();
-    expect(list).toHaveLength(1);
-    expect(list[0]!.id).toBe(s.id);
+    // 写入顺序避免 saveSession 的顺带清理先踩到坏文件(这里只验读路径)
+    fs.writeFileSync(path.join(tmpStateDir, 'bad.json'), '!!!');
+    // 修前:损坏文件被 continue 跳过,用户看到"只剩 1 条"却不知另一条已坏。
+    expect(() => listSessions()).toThrow(/bad\.json/);
+    // 合法会话文件仍在,未被读路径改写/删除。
+    expect(loadSession(s.id)).not.toBeNull();
   });
 });
 
