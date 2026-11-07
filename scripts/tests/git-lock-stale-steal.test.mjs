@@ -827,10 +827,15 @@ test('⑪d回归锁:clean CLI 活 pid + 过去 ts 未超硬上限 ⇒ 照旧"保
   })
   const r = runClean(wt)
   assert.equal(r.status, 0, r.stderr)
-  assert.match(
-    r.stdout,
-    /保留 ihui-git-write\.lock\(持有者 pid=\d+ 仍存活,age=10s/,
-    `活 pid 未超硬上限照旧保留:${r.stdout}`,
+  // 锁龄 = `Date.now() - ts` 再取整到秒:夹具只保证"约 10s 前",实际可能 10 或 11s
+  // (时间戳毫秒精度 + 向下取整 + 调度延迟都会推着它走)。写死 age=10s 迟早随机红,
+  // 这类"写死一个本该有浮动的数"必须改成范围匹配。
+  const ageMatch = r.stdout.match(/保留 ihui-git-write\.lock\(持有者 pid=\d+ 仍存活,age=(\d+)s/)
+  assert.ok(ageMatch, `活 pid 未超硬上限照旧保留:${r.stdout}`)
+  const ageSec = Number(ageMatch[1])
+  assert.ok(
+    ageSec >= 9 && ageSec <= 12,
+    `锁龄应在 9..12s(约 10s 前 + 取整/精度),实得 ${ageSec}s:${r.stdout}`,
   )
   assert.match(r.stdout, /✅ 无 stale 锁需清理/, '保留态汇总照旧(本票不改这一格)')
   assert.doesNotMatch(r.stdout, /未判定/, '过去 ts 不得点名未判定')
