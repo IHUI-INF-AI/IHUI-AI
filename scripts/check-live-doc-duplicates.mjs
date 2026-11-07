@@ -47,6 +47,13 @@ import { __test__ as DEDUPE } from './dedupe-live-doc.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+/** 取材根:默认按脚本位置推导;`--root=` 只服务枚举面差别的镜像测试。 */
+export function pickRoot(argv) {
+  const a = argv.find((x) => x.startsWith('--root='))
+  return a ? path.resolve(String(a).split('=').slice(1).join('=')) : ROOT
+}
+
 /** 被审面:多会话共写的活文档 + 四语言 README(union 的射程就是重复的射程)。 */
 export const AUDITED_DOCS = [
   'README.md',
@@ -67,37 +74,72 @@ export function duplicateCount(text) {
  * 一律走面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath);取不到 ⇒ null,
  * 由调用方落「未判定」—— 绝不回落另一个面,也不拿空串冒充"文档没内容"。
  */
-function gitShowBlob(ref) {
+function gitShowBlob(ref, root = ROOT) {
   try {
-    return gitRaw(['show', ref], ROOT, { binary: true, maxBuffer: 1 << 28 }).toString('utf8')
+    return gitRaw(['show', ref], root, { binary: true, maxBuffer: 1 << 28 }).toString('utf8')
   } catch {
     return null
   }
 }
 
 /** 面读取:全量档 HEAD blob、--staged 索引 blob、--worktree 盘上(人工逃生舱)。 */
-function readFace(relPath, face) {
+function readFace(relPath, face, root = ROOT) {
   if (face === 'worktree') {
-    const p = path.join(ROOT, relPath)
+    const p = path.join(root, relPath)
     return existsSync(p) ? readFileSync(p, 'utf8') : null
   }
   const ref = face === 'staged' ? `:./${relPath}` : `HEAD:${relPath}`
-  return gitShowBlob(ref)
+  return gitShowBlob(ref, root)
+}
+
+/**
+ * 被审文档枚举(2026-11-07 修面):**枚举失败**与**枚举成功但确实 0 份**是两件事。
+ * 旧实现在 --staged 面用 `ls-tree --name-only : <doc>` —— `:` 不是合法 tree-ish,
+ * git 当场 fatal,异常被吞成 `false` ⇒ 每份文档都"不存在" ⇒ 6 份折成 0 份 ⇒ 以
+ * 「枚举到 0 份」的名义判死。报错看起来像内容问题,实际一个文件都没读到。
+ * 现在的判法:staged 面走 `git ls-files`(索引的合法枚举通道),HEAD 面走 `ls-tree -r`;
+ * 任何一次探测的 git 调用失败都进 `failures`,由调用方报「枚举面取不到」并 exit 2;
+ * 只有 `failures` 为空时,`docs.length === 0` 才是"这一面确实没有这些活文档"。
+ */
+export function enumerateDocs({ root = ROOT, face = 'head' } = {}) {
+  const docs = []
+  const failures = []
+  for (const d of AUDITED_DOCS) {
+    if (face === 'worktree') {
+      if (existsSync(path.join(root, d))) docs.push(d)
+      continue
+    }
+    try {
+      const out =
+        face === 'staged'
+          ? gitRaw(['ls-files', '-z', '--', d], root, { timeout: 15000 })
+          : gitRaw(['ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', d], root, { timeout: 15000 })
+      const hit = String(out)
+        .split('\0')
+        .map((s) => s.replace(/\\/g, '/').trim())
+        .filter(Boolean)
+        .some((p) => p === d)
+      if (hit) docs.push(d)
+    } catch (e) {
+      failures.push({ doc: d, why: String(e?.message ?? e).split('\n')[0] })
+    }
+  }
+  return { docs, failures }
 }
 
 /**
  * 锚点面读数:--staged 的锚 = 同一文档的 HEAD blob;全量档的锚 = HEAD^ blob。
  * 取不到锚 ⇒ 返回 null,调用方按"未判定"处理(不拿 0 冒充"锚上没违规",那是白名单)。
  */
-function anchorCount(relPath, face) {
+function anchorCount(relPath, face, root = ROOT) {
   const ref = face === 'staged' ? `HEAD:${relPath}` : `HEAD^:${relPath}`
-  const text = face === 'staged' ? readFace(relPath, 'head') : readFaceAt(ref)
+  const text = face === 'staged' ? readFace(relPath, 'head', root) : readFaceAt(ref, root)
   if (text === null) return null
   return duplicateCount(text)
 }
 
-function readFaceAt(ref) {
-  return gitShowBlob(ref)
+function readFaceAt(ref, root = ROOT) {
+  return gitShowBlob(ref, root)
 }
 
 export function selfTest() {
@@ -130,51 +172,41 @@ export function selfTest() {
   return rc
 }
 
-function main() {
-  const argv = process.argv.slice(2)
+function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
+  const root = pickRoot(argv)
   const faceFlags = ['--staged', '--worktree'].filter((f) => argv.includes(f))
   if (faceFlags.length > 1) {
     console.error('❌ 两面旗同给(§0.4)⇒ 未判定')
     return 2
   }
   const face = argv.includes('--staged') ? 'staged' : argv.includes('--worktree') ? 'worktree' : 'head'
-  const docs = AUDITED_DOCS.filter((d) => {
-    if (face === 'worktree') return existsSync(path.join(ROOT, d))
-    // 枚举/存在性探测走面读取层(args 逐字保持原样,只换派生通道);git 非零退出 ⇒ 该文档不在这一面
-    let out
-    try {
-      out = gitRaw(
-        [
-          'ls-tree',
-          face === 'staged' ? '--name-only' : '-r',
-          '--name-only',
-          face === 'staged' ? ':' : 'HEAD',
-          d,
-        ],
-        ROOT,
-      )
-    } catch {
-      return false
-    }
-    return String(out).trim() !== ''
-  })
+  const { docs, failures } = enumerateDocs({ root, face })
+  // 枚举失败 ≠ 枚举成功但 0 份:前者是取数面不可用(报「枚举面取不到」),
+  // 后者才是"这一面确实没有被审文档"⇒ 判死。两种输出必须能分辨。
+  if (failures.length > 0) {
+    console.error(
+      `❌ 枚举面取不到:${failures.length} 份被审文档的存在性探测失败 ⇒ 未判定,不出具合格证(§0.3)`,
+    )
+    for (const f of failures.slice(0, 3)) console.error(`  · ${f.doc}: ${f.why}`)
+    return 2
+  }
   if (docs.length === 0) {
-    console.error('❌ 被审文档枚举到 0 份 ⇒ 判死,不出具合格证(§0.3)')
+    console.error('❌ 枚举成功但被审文档确实 0 份 ⇒ 判死,不出具合格证(§0.3)')
     return 2
   }
   const rows = []
   let red = 0
   let undetermined = 0
   for (const doc of docs) {
-    const text = readFace(doc, face)
+    const text = readFace(doc, face, root)
     if (text === null) {
       console.error(`❌ ${doc} 在 ${face} 面取不到 ⇒ 未判定,不记绿`)
       undetermined++
       continue
     }
     const now = duplicateCount(text)
-    const anchor = anchorCount(doc, face)
+    const anchor = anchorCount(doc, face, root)
     if (anchor === null && face !== 'worktree') {
       console.error(`❌ ${doc} 的锚点面取不到 ⇒ 未判定(不拿"锚上 0"冒充)`)
       undetermined++
@@ -211,7 +243,7 @@ function main() {
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
-if (isDirectRun) process.exit(main())
+if (isDirectRun) process.exit(main(process.argv.slice(2)))
 
-export const __test__ = { duplicateCount, AUDITED_DOCS, readFace }
+export const __test__ = { duplicateCount, AUDITED_DOCS, readFace, enumerateDocs }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

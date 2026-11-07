@@ -73,7 +73,8 @@
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
-import { catBatch, selectFace } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, selectFace } from './lib/face-reader.mjs'
+import { deltaParents, readParentTexts } from './lib/merge-delta.mjs'
 // 维②判据单一实现。环形引用说明:plan-tasks-merge → 本门(取 countPointerRows)→ 本门 →
 // plan-tasks-merge(取 foldTwins),两侧都只在**函数体内**用对方导出 ⇒ ESM 循环安全。
 import { foldTwins } from './plan-tasks-merge.mjs'
@@ -82,6 +83,12 @@ const require = createRequire(import.meta.url)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const FILE = 'PROJECT_PLAN.md'
 const idx = require(path.join(ROOT, 'scripts/lib/plan-task-index.mjs'))
+
+/** 取材根:默认按脚本位置推导;`--root=` 只服务镜像测试(合并夹具在临时仓里)。 */
+export function pickRoot(argv) {
+  const a = argv.find((x) => x.startsWith('--root='))
+  return a ? path.resolve(String(a).split('=').slice(1).join('=')) : ROOT
+}
 
 const C = {
   red: '\x1b[31m',
@@ -252,6 +259,45 @@ export function noteRedundancyVerdict(headText, newText) {
   const before = redundantNoteCount(headText)
   const after = redundantNoteCount(newText)
   return { before, after, grew: after > before }
+}
+
+/**
+ * 维③「同一登记行内同一注记」的逐条计数:身份 = 登记行主键 + 逐字注记。
+ * 返回 Map<身份, 份数>;份数 − 1 就是该行的叠注份数(与 `redundantNoteCount` 同源)。
+ */
+export function noteOccurrenceCounts(text) {
+  const m = new Map()
+  for (const l of String(text || '').split(/\r?\n/)) {
+    if (!isRow(l)) continue
+    const k = idx.keyOfRow(l)
+    const id = k ? `K:${String(k).trim()}` : `T:${stripCarrySegments(l).trim()}`
+    for (const tok of noteTokensInLine(l)) {
+      const key = `${id}\u0000${tok}`
+      m.set(key, (m.get(key) ?? 0) + 1)
+    }
+  }
+  return m
+}
+
+/**
+ * 维③合并感知差值判定:结果面叠注份数减去「父提交并集能合法产生的叠注份数」才是本次新增。
+ *
+ * 父面已有份数取**和**而不是最大值:合并结果=两侧并集。实测那一格是同一登记行同一注记,
+ * HEAD 侧 1 份、MERGE_HEAD 侧 1 份、合并结果 2 份 ⇒ 合法并集 = 2 份 ⇒ 新增 0 份。
+ * 合法并集至少保留 1 份(一条注记本身不是叠注);两父都没有、结果 2 份 ⇒ 新增 1 份照旧判红。
+ * 非合并提交父集只有 HEAD 时,本式与旧的 `after > before` 逐字等价。
+ */
+export function mergeAwareNoteVerdict(parentTexts, newText) {
+  const cur = noteOccurrenceCounts(newText)
+  const parents = (parentTexts || []).map((t) => noteOccurrenceCounts(t))
+  let after = 0
+  let fresh = 0
+  for (const [key, n] of cur) {
+    after += n - 1
+    const held = Math.max(1, parents.reduce((s, m) => s + (m.get(key) ?? 0), 0))
+    fresh += Math.max(0, n - held)
+  }
+  return { before: Math.max(0, after - fresh), after, grew: fresh > 0, fresh }
 }
 
 /**
@@ -451,12 +497,13 @@ function main(argv) {
   const jsonOut = argv.includes('--json')
   const auditOnly = argv.includes('--audit-pointers')
   const staged = argv.includes('--staged')
+  const root = pickRoot(argv)
 
   const specNew = staged ? `:${FILE}` : null
   let newContent = null
   if (staged) {
     try {
-      const got = catBatch(ROOT, [specNew], { timeout: 60000 })
+      const got = catBatch(root, [specNew], { timeout: 60000 })
       newContent = got.get(specNew) ?? null
     } catch {
       newContent = null
@@ -467,7 +514,7 @@ function main(argv) {
     // 按工作树判会让整个滞后窗口恒红,而那红与任何人本次动作无关 —— 正是 §12e 禁的恒红门。
     // 真相面判:清偿落地后 HEAD 注记恒为 0,任何把它带回来的动作都在差值面被抓。
     try {
-      const got = catBatch(ROOT, ['HEAD:' + FILE], { timeout: 60000 })
+      const got = catBatch(root, ['HEAD:' + FILE], { timeout: 60000 })
       newContent = got.get('HEAD:' + FILE) ?? null
     } catch {
       newContent = null
@@ -496,12 +543,23 @@ function main(argv) {
   }
 
   let oldContent = ''
+  let parentTexts = []
   if (staged) {
     try {
-      const got = catBatch(ROOT, ['HEAD:' + FILE], { timeout: 60000 })
+      const got = catBatch(root, ['HEAD:' + FILE], { timeout: 60000 })
       oldContent = got.get('HEAD:' + FILE) ?? ''
     } catch {
       oldContent = ''
+    }
+    // 维③的合并感知基准:父集 = HEAD + MERGE_HEAD(非合并提交只有 HEAD ⇒ 与旧行为等价)
+    try {
+      const dp = deltaParents({ root, face: 'staged' })
+      const texts = readParentTexts({ root, rels: [FILE], parents: dp.parents })
+      parentTexts = dp.parents.map((p) => texts.get(p.label)?.get(FILE) ?? '')
+    } catch (e) {
+      if (!(e instanceof Undetermined)) throw e
+      console.error(`${C.yellow}⏭  ${e.message}${C.reset}`)
+      return 2
     }
   } else {
     // 全量:与当前面自己比(delta 恒 0),但存量必须为 0(清偿成果守住)
@@ -528,7 +586,7 @@ function main(argv) {
   // —— 存量此刻可能正被并发写带回,当场判红就是与本次内容无关的恒红门(§12e)。
   const strict = argv.includes('--strict')
   const nr = staged
-    ? noteRedundancyVerdict(oldContent, newContent)
+    ? mergeAwareNoteVerdict(parentTexts, newContent)
     : { before: 0, after: redundantNoteCount(newContent), grew: false }
   if (staged && nr.grew) {
     console.error(
@@ -662,6 +720,8 @@ export const __test__ = {
   redundantNoteCountInLine,
   redundantNoteCount,
   noteRedundancyVerdict,
+  noteOccurrenceCounts,
+  mergeAwareNoteVerdict,
   NOTE_TOKEN_SRC,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
