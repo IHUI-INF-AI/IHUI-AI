@@ -7384,6 +7384,29 @@ const pushGateChecks = [
       '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // 302:空转 mock 门。判据 = 测试 mock 的模块 id 不在被测对象运行时 import 图内
+  // (断言跑在空气上);新增即红,存量走 scripts/data/idle-mocks-baseline.json 豁免且清单只能变短。
+  // 判据源 = scripts/check-idle-mocks.mjs(全仓 TS AST + 运行时 import 图 BFS);`--staged` 档只判本批暂存测试文件。
+  {
+    id: '302',
+    label: '🧪 空转 mock 门(新增空转即红;存量豁免清单只能变短)',
+    script: 'check-idle-mocks.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/',
+      'packages/',
+      'scripts/check-idle-mocks.mjs',
+      'scripts/data/idle-mocks-baseline.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_IDLE_MOCKS',
+    onFailHint: [
+      '  💡 红 = 测试 vi.mock(X) 的 X 不在被测对象运行时 import 图内 ⇒ 断言跑在空气上。',
+      '     改法:改 mock 目标(如 @/lib/api → @ihui/api-client)或删掉惰性声明;禁止两个都 mock。',
+      '     取证:node scripts/check-idle-mocks.mjs;基线 scripts/data/idle-mocks-baseline.json',
+      '     应急放行:HUSKY_SKIP_IDLE_MOCKS=1 git push(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
 ]
 
 // === CLI 解析 ===
