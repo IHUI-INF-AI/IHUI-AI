@@ -380,19 +380,13 @@ export function PermissionModePopover({
   // 1. 覆盖 popover.tsx 默认初始焦点(首个 focusable=learnMore 链接)→
   //    改为 currentMode 对应的 radio 卡片,符合用户视觉预期
   //    (popover.tsx 已有 focus trap,只需覆盖 initial focus)
-  // 2. 给 dialog 补 aria-modal="true",告诉 AT 弹层是模态
-  //    (popover.tsx 有 role="dialog" + focus trap 但缺 aria-modal;
-  //    按规则不能改 popover.tsx,在此上层补 A11y 语义,
-  //    弹层关闭时 dialog div 被 unmount 自动清理 aria-modal)
+  // 2. aria-modal 语义(2026-11-07 票B 修正):由下方内容层 dialog 自身静态声明
+  //    (`aria-modal="true"`),不再全页扫描 `[role="dialog"]`。旧实现会给同页
+  //    其他对话框(设置/历史/宿主 Modal)也补成模态 —— 读屏把背景当当前层。
   React.useEffect(() => {
     if (!isOpen) return
     const idx = MODE_OPTIONS_LIST.findIndex((o) => o.value === currentMode)
     radioRefs.current[idx]?.focus()
-    // popover content 在 portal 里,用 querySelectorAll 找到 role=dialog 的节点
-    // 由于此组件独占一个 popover,document 内 role=dialog 唯一,querySelectorAll 安全
-    document.querySelectorAll('[role="dialog"]').forEach((d) => {
-      d.setAttribute('aria-modal', 'true')
-    })
   }, [isOpen, currentMode])
 
   const currentOption =

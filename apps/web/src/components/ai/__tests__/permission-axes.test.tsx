@@ -21,8 +21,9 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { NextIntlClientProvider } from 'next-intl'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   APPROVAL_POLICIES,
   APPROVAL_PRESETS,
@@ -35,6 +36,29 @@ import {
 import { useAiPanelStore } from '@/stores/ai-panel'
 import { axisPairOrDefaults, effectiveAxisPair, resolveRequestAxes } from '@/lib/permission-axes'
 import { PermissionAxesPicker } from '../permission-axes-picker'
+import { PermissionModePopover } from '../permission-mode-popover'
+
+// 票B(PermissionModePopover 全局 aria-modal 污染)测试外围:
+// 只挡掉与本判据无关的重型依赖(工作区接口/历史面板/portal 定位/Tooltip),
+// 被测组件本身与双轴 picker 都走真实实现。
+vi.mock('@/hooks/use-workspace-permissions', () => ({
+  __esModule: true,
+  useWorkspacePermissionDefault: () => 'default',
+  useSetWorkspacePermissionDefault: () => ({ mutate: vi.fn(), isPending: false }),
+}))
+vi.mock('../permission-history-panel', () => ({
+  __esModule: true,
+  PermissionHistoryPanel: () => null,
+}))
+vi.mock('@/components/feedback', () => ({
+  __esModule: true,
+  Tooltip: ({ children }: { children?: unknown }) => children ?? null,
+}))
+vi.mock('@/components/feedback/portal-panel', () => ({
+  __esModule: true,
+  PortalPanel: ({ open, children }: { open: boolean; children?: unknown }) =>
+    open ? (children ?? null) : null,
+}))
 
 const messages = JSON.parse(
   readFileSync(resolve(process.cwd(), '../../packages/i18n/messages/web/zh-CN.json'), 'utf-8'),
@@ -150,6 +174,45 @@ describe('79 权限双轴 · 与旧单轴互斥 / 缺省不下发', () => {
     const popover = readSource('src/components/ai/permission-mode-popover.tsx')
     expect(popover.match(/setPermissionAxes\(null\)/g) ?? []).toHaveLength(2)
     expect(popover).toContain('<PermissionAxesPicker')
+  })
+})
+
+/**
+ * 票B:权限气泡此前用 `document.querySelectorAll('[role="dialog"]')` 给全页对话框补
+ * `aria-modal="true"` —— 只要同页有别的对话框(设置弹窗/历史面板/宿主 Modal),
+ * 它也会被伪装成模态,读屏会把背景一起当"当前层"。判据:只许自己那层带 aria-modal。
+ */
+describe('PermissionModePopover · aria-modal 只落在自身容器(票B)', () => {
+  it('打开气泡不得给页面中无关 dialog 补 aria-modal', async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <div role="dialog" data-testid="unrelated-dialog" aria-label="unrelated">
+          无关对话框
+        </div>
+        <NextIntlClientProvider
+          locale="zh-CN"
+          messages={messages as unknown as Parameters<typeof NextIntlClientProvider>[0]['messages']}
+        >
+          <PermissionModePopover variant="row" />
+        </NextIntlClientProvider>
+      </QueryClientProvider>,
+    )
+
+    const unrelated = screen.getByTestId('unrelated-dialog')
+    expect(unrelated.getAttribute('aria-modal')).toBeNull()
+
+    fireEvent.click(screen.getByTestId('permission-mode-trigger'))
+    const own = await waitFor(() => {
+      const el = document.querySelector('[data-composer-nested-panel]')
+      expect(el).toBeTruthy()
+      return el!
+    })
+
+    // 自身仍是模态(语义保留)
+    expect(own.getAttribute('aria-modal')).toBe('true')
+    // 无关 dialog 不得被顺手改成模态(修前这里会是 'true')
+    expect(unrelated.getAttribute('aria-modal')).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
