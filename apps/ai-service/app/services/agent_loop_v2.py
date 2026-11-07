@@ -5742,7 +5742,18 @@ class AgentLoopV2:
         if _matches_high_risk_name(name):
             return True
         equivalent = _capability_equivalent(name)
-        return equivalent is not None and _matches_high_risk_name(equivalent)
+        if equivalent is not None and _matches_high_risk_name(equivalent):
+            return True
+        # 2026-11-07:动态注册表(mcp_registry)的 write 工具必须进审批门。
+        # 分级真源是本地 manifest(远端 annotations 只能升级),不在此抄第二份名单。
+        try:
+            from .mcp_registry import is_write_tier_tool
+
+            return is_write_tier_tool(name)
+        except Exception:
+            # 注册表尚未初始化/导入失败:按"非动态工具"处理,后续 call_tool 仍有
+            # 角色矩阵与 handler 内二次校验兜底(fail-closed 不在这一层破)。
+            return False
 
     def _is_high_risk_tool_instance(self, name: str) -> bool:
         """实例级高危判定(含 env 追加的自定义集合)。"""
@@ -5969,6 +5980,15 @@ class AgentLoopV2:
                         "guardian_review_alternative_applied",
                         review.summary or "已改用复核建议的更安全参数",
                     )
+                # 2026-11-07:动态注册写工具的 handler 还要二次校验角色+审批。
+                # once 档不落盘,这里按**最终执行参数**交接一次性授权(用后即焚),
+                # 必须放在 alternative 替换之后,否则键对不上会"批了仍被拒"。
+                try:
+                    from .mcp_registry import note_approved_write_call
+
+                    note_approved_write_call(tc.name, tc.args)
+                except Exception:
+                    pass
                 return None
             if decision == "reject":
                 # D84:拒绝原因进决策提示(供 timeline/审计侧消费;缺省不写 key)。
