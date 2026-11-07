@@ -28,7 +28,7 @@ import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALL
 import { loadSettings, type SandboxSettings } from '../commands/settings.js';
 // 降级 spawn 在 Windows 下只杀 cmd.exe 会留下孙进程(见 spawn-isolated 的注释与 G-690);
 // 终端会话关闭走同一条"杀进程树"出口,不再各自写一套 taskkill / 进程组逻辑。
-import { killProcessTree } from '../util/spawn-isolated.js';
+import { destroyChildOutputStreams, killProcessTree } from '../util/spawn-isolated.js';
 
 // ==================== 沙箱接入(默认关闭,向后兼容) ====================
 
@@ -116,6 +116,8 @@ interface SessionProc {
   kill(signal?: string): void;
   /** 杀整棵进程树;缺省(桩/旧句柄)时调用方回落 kill。抛错必须向上传播,不许假报成功。 */
   killTree?(): void;
+  /** 释放句柄级资源(fallback 的 stdio 流);与 kill 分离,便于 exit 钩子里只做同步树杀。 */
+  dispose?(): void;
   onData(cb: (data: string) => void): () => void;
   onExit(cb: (e: { exitCode: number; signal?: number }) => void): () => void;
 }
@@ -140,9 +142,39 @@ interface TerminalSession {
 const MAX_SESSIONS = 10;
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 分钟
 const MAX_OUTPUT_BUFFER = 1024 * 1024; // 1MB
+/** 已退出会话只保留最近若干个供 terminal_read 取末态，避免长驻进程内存单调增长。 */
+const MAX_EXITED_SESSIONS = 5;
+/** 退出时把缓冲压成一次性快照的上限（超出只保留尾部，最坏丢已读前缀）。 */
+const EXITED_SNAPSHOT_MAX = 256 * 1024;
 
 // routing-handle: key=sessionId minted-by=genId registry=sessions 句柄而非路由身份:值由本进程 genId() 铸造(时间戳+crypto 随机),只经 sessions 查表,查不到即返回"会话不存在"
 const sessions = new Map<string, TerminalSession>();
+
+/**
+ * 进程退出兜底:exit 钩子内只能同步执行 —— taskkill 走 spawnSync、POSIX 走 process.kill，
+ * 不 await、不排队。返回实际发出杀信号的在活会话数(测试据此断言)。
+ */
+export function killAllTerminalSessionsSync(): number {
+  let killed = 0;
+  for (const s of sessions.values()) {
+    if (s.exited || !s.proc) continue;
+    try {
+      if (s.proc.killTree) s.proc.killTree();
+      else s.proc.kill('SIGTERM');
+      killed += 1;
+    } catch { /* 已退出/无权限：兜底清理不再上抛 */ }
+  }
+  return killed;
+}
+
+let exitHookRegistered = false;
+/** 模块加载即注册；once 保证重复导入不叠加。SIGINT 二次强退由入口另行调用同一出口。 */
+function registerExitHook(): void {
+  if (exitHookRegistered) return;
+  exitHookRegistered = true;
+  process.once('exit', () => { killAllTerminalSessionsSync(); });
+}
+registerExitHook();
 
 function genId(): string {
   return `term_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
@@ -225,6 +257,9 @@ function spawnFallback(command: string, cwd: string, _cols: number, _rows: numbe
       child.stderr?.on('data', h2);
       return () => { child.stdout?.off('data', h1); child.stderr?.off('data', h2); };
     },
+    // 复用 spawn-isolated 的同一份流销毁实现（内含 stdout/stderr/stdin destroy + 错误吞掉策略），
+    // 不在终端侧再写第二份。
+    dispose: () => destroyChildOutputStreams(child),
     onExit: (cb) => {
       const h = (code: number | null, signal: NodeJS.Signals | null) => {
         cb({ exitCode: code ?? 0, signal: signal ? Number(signal) : undefined });
@@ -233,6 +268,26 @@ function spawnFallback(command: string, cwd: string, _cols: number, _rows: numbe
       return () => child.off('close', h);
     },
   };
+}
+
+/** 退出即压成一次性快照：之后不会再有新数据，只保留尾部有界片段。 */
+function compactExitedBuffer(session: TerminalSession): void {
+  if (session.outputBuffer.length <= EXITED_SNAPSHOT_MAX) return;
+  const overflow = session.outputBuffer.length - EXITED_SNAPSHOT_MAX;
+  session.outputBuffer = session.outputBuffer.slice(overflow);
+  session.lastReadOffset = Math.max(0, session.lastReadOffset - overflow);
+}
+
+/** 已退出会话按 LRU 保留最近 MAX_EXITED_SESSIONS 个；其余摘表并释放句柄。 */
+function evictOldExitedSessions(): void {
+  const exited = [...sessions.values()]
+    .filter((s) => s.exited)
+    .sort((a, b) => a.lastActivityAt - b.lastActivityAt);
+  for (let i = 0; i < exited.length - MAX_EXITED_SESSIONS; i++) {
+    const s = exited[i]!;
+    try { s.proc?.dispose?.(); } catch { /* 已结束 */ }
+    sessions.delete(s.id);
+  }
 }
 
 /** 清理超时会话(30 分钟无活动)— 每次新建会话前调用 */
@@ -249,6 +304,7 @@ function pruneStaleSessions(): void {
         if (proc.killTree) proc.killTree();
         else proc.kill('SIGTERM');
       } catch { /* 已死/无权限：仍从注册表摘除，避免名额被死会话占住 */ }
+      try { proc.dispose?.(); } catch { /* 已结束 */ }
       sessions.delete(id);
     }
   }
@@ -355,6 +411,8 @@ export const terminal_open: Tool = {
       session.exited = true;
       session.exitCode = e.exitCode;
       session.lastActivityAt = Date.now();
+      compactExitedBuffer(session);
+      evictOldExitedSessions();
     });
 
     sessions.set(id, session);
@@ -532,6 +590,7 @@ export const terminal_close: Tool = {
       } catch (e) {
         return { success: false, output: '', error: `会话 ${sessionId} 关闭失败(进程可能仍存活): ${(e as Error).message}` };
       }
+      try { proc.dispose?.(); } catch { /* 已结束 */ }
     }
     sessions.delete(sessionId);
     return {

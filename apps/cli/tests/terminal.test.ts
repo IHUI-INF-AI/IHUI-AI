@@ -141,6 +141,7 @@ import {
   terminal_read,
   terminal_resize,
   terminal_close,
+  killAllTerminalSessionsSync,
 } from '../src/tools/terminal.js';
 
 // ==================== 本地 ToolContext 类型(避免 import index.js 触发连带类型检查)====================
@@ -277,6 +278,39 @@ describe('terminal_open', () => {
       expect(r.success, `第 ${i + 1} 个新会话应被允许(已退出会话不该占名额)`).toBe(true);
       createdSessionIds.push(extractSessionId(r.output)!);
     }
+  });
+
+  it('T1 退出兜底:钩子已注册,同步出口对每个存活会话调 killTree,已退出会话不重复杀', async () => {
+    const liveA = await openSession('echo A');
+    const liveB = await openSession('echo B');
+    const dead = await openSession('echo DEAD');
+    createdSessionIds.push(liveA.id, liveB.id, dead.id);
+    dead.pty.emitExit(0);
+
+    // 模块加载即 process.once('exit') 注册(exit 钩子内只能同步,spawnSync taskkill)
+    expect(process.listenerCount('exit')).toBeGreaterThan(0);
+
+    const killed = killAllTerminalSessionsSync();
+    // 修前:没有这个同步出口,process.exit 会直接跳过 finally → 存活会话成孤儿
+    expect(killed).toBe(2);
+    expect(liveA.pty.killed).toBe(true);
+    expect(liveB.pty.killed).toBe(true);
+    expect(dead.pty.killed).toBe(false);
+  });
+
+  it('T2 已退出会话按 LRU 只保留最近 5 个(不得无界增长)', async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      const s = await openSession(`echo s${i}`);
+      s.pty.emitExit(0);
+      ids.push(s.id);
+    }
+    // 最老的第 1 个已被 LRU 摘除;最近的仍在,可读末态
+    const oldest = await terminal_read.execute({ sessionId: ids[0]!, timeout: 50 }, ctx);
+    expect(oldest.success).toBe(false);
+    expect(oldest.error).toContain('不存在');
+    const newest = await terminal_read.execute({ sessionId: ids[29]!, timeout: 50 }, ctx);
+    expect(newest.success).toBe(true);
   });
 });
 
