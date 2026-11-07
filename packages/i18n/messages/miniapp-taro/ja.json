@@ -7090,5 +7090,12 @@
     "selfDoneToast": "登校登録しました",
     "scanDoneToast": "スキャンで登録しました",
     "scanInvalidToast": "本システムのQRコードではありません"
+  },
+  "knowledgePlanet": {
+    "title": "ナレッジプラネット",
+    "newOfficial": "公式",
+    "newCommunity": "コミュニティ",
+    "enter": "プラネットへ",
+    "memberCount": "{count} 人のメンバー"
   }
 }

@@ -7090,5 +7090,12 @@
     "selfDoneToast": "Checked in",
     "scanDoneToast": "Checked in by scan",
     "scanInvalidToast": "Not a valid check-in code"
+  },
+  "knowledgePlanet": {
+    "title": "Knowledge Planet",
+    "newOfficial": "Official",
+    "newCommunity": "Community",
+    "enter": "Enter planet",
+    "memberCount": "{count} members"
   }
 }
