@@ -462,7 +462,6 @@
     "pickerUnsupported": "当前浏览器不支持文件夹选择",
     "generateFailed": "Wiki 生成失败",
     "listTitle": "文档列表",
-    "refresh": "刷新",
     "loadingDocs": "加载中…",
     "emptyList": "暂无文档，请先生成",
     "kindOverview": "总览",
@@ -486,7 +485,6 @@
     "autoOff": "自动捕获:关",
     "export": "导出",
     "clear": "清空",
-    "regenerate": "重新生成",
     "regenerateDisabledHint": "未选择仓库目录或尚未收集到文件,无法生成。"
   },
   "workPanel": {

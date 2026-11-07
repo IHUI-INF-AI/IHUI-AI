@@ -462,7 +462,6 @@
     "pickerUnsupported": "현재 브라우저는 폴더 선택을 지원하지 않습니다",
     "generateFailed": "Wiki 생성 실패",
     "listTitle": "문서 목록",
-    "refresh": "새로고침",
     "loadingDocs": "불러오는 중…",
     "emptyList": "문서가 없습니다. 먼저 생성하세요",
     "kindOverview": "개요",
@@ -486,7 +485,6 @@
     "autoOff": "자동 수집: 끔",
     "export": "내보내기",
     "clear": "비우기",
-    "regenerate": "다시 생성",
     "regenerateDisabledHint": "저장소 폴더가 선택되지 않았거나 수집된 파일이 없습니다."
   },
   "workPanel": {

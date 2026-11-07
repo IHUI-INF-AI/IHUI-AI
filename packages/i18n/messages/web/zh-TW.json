@@ -462,7 +462,6 @@
     "pickerUnsupported": "當前瀏覽器不支援資料夾選擇",
     "generateFailed": "Wiki 產生失敗",
     "listTitle": "文件列表",
-    "refresh": "重新整理",
     "loadingDocs": "載入中…",
     "emptyList": "暫無文件，請先產生",
     "kindOverview": "總覽",
@@ -486,7 +485,6 @@
     "autoOff": "自動捕獲:關",
     "export": "匯出",
     "clear": "清空",
-    "regenerate": "重新產生",
     "regenerateDisabledHint": "未選擇倉庫目錄或尚未收集到檔案,無法產生。"
   },
   "workPanel": {

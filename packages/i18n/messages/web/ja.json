@@ -462,7 +462,6 @@
     "pickerUnsupported": "このブラウザーはフォルダー選択に対応していません",
     "generateFailed": "Wiki 生成に失敗しました",
     "listTitle": "ドキュメント一覧",
-    "refresh": "更新",
     "loadingDocs": "読み込み中…",
     "emptyList": "ドキュメントがありません。先に生成してください",
     "kindOverview": "概要",
@@ -486,7 +485,6 @@
     "autoOff": "自動収集:オフ",
     "export": "エクスポート",
     "clear": "クリア",
-    "regenerate": "再生成",
     "regenerateDisabledHint": "リポジトリフォルダが未選択か、ファイルが未収集のため生成できません。"
   },
   "workPanel": {
