@@ -5,10 +5,12 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
-import { config } from '../config/index.js'
 // G-165:助手消息权限档盖章(会话 → 工作区 → workspace_permissions,全部服务端自取)
 import { findConversationById } from '../db/chat-queries.js'
-import { secretsEqual } from '../plugins/internal-service-token.js'
+import {
+  authorizeInternalSecretCall,
+  ticketSubjectAllows,
+} from '../plugins/internal-secret-auth.js'
 import { getPermission } from '../db/workspace-permission-queries.js'
 import {
   permissionStamp,
@@ -242,23 +244,22 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
       config: { sqliGuard: { enabled: false } },
     },
     async (request, reply) => {
-      // 2026-08-06 修复:共享密钥校验从"可选"改为"强制"(fail-closed)。
-      // 原实现:AI_CALLBACK_SECRET 为空时端点完全公开,攻击者可伪造回调
-      // 注入任意 assistant 消息 + 篡改 token 用量(扣费) + 伪造 userId 关联。
-      // 与 plugins/internal-service-token.ts 的 checkInternalServiceToken
-      // 策略保持一致(该函数对未配置 secret 已 fail-closed);docker-compose
-      // 亦强制要求配置 AI_CALLBACK_SECRET(:? 校验),生产环境必有密钥。
-      if (!config.AI_CALLBACK_SECRET) {
-        request.log.error('AI_CALLBACK_SECRET 未配置,拒绝所有 AI 回调(fail-closed)')
-        return reply.status(401).send(error(401, 'AI callback secret not configured'))
-      }
-      const rawProvided = request.headers['x-internal-secret']
-      const provided = Array.isArray(rawProvided) ? rawProvided[0] : rawProvided
-      // 常量时间比较(2026-10-27):`===` 逐字节短路,可被计时侧信道逐字节剥出密钥;
-      // 全仓唯一出口是 internal-service-token.ts 的 secretsEqual,此处曾是漏网。
-      if (!provided || !secretsEqual(provided, config.AI_CALLBACK_SECRET)) {
-        request.log.warn({ hasHeader: !!provided }, 'ai callback secret mismatch')
-        return reply.status(401).send(error(401, 'unauthorized'))
+      // 2026-11-06:改走 X-Internal-Secret 族统一出口 —— 默认只认短期票
+      // (scope=ai-callback);旧共享密钥仅在显式 dual/legacy 兼容档下有效。
+      // 未配置凭据时仍然 fail-closed(401),端点绝不裸奔。
+      const auth = await authorizeInternalSecretCall(request, { scope: 'ai-callback' })
+      if (!auth.ok) {
+        request.log.warn({ reason: auth.reason }, 'ai callback internal credential rejected')
+        return reply
+          .status(401)
+          .send(
+            error(
+              401,
+              auth.reason === 'secret_not_configured'
+                ? 'AI callback secret not configured'
+                : 'unauthorized',
+            ),
+          )
       }
 
       const parsed = callbackSchema.safeParse(request.body)
@@ -306,6 +307,12 @@ const aiCallbackPlugin: FastifyPluginAsync = async (server) => {
         return reply
           .status(202)
           .send(success({ accepted: true, warning: 'missing association keys' }))
+      }
+
+      // 票主体绑定:真人票只能替票面本人写回调,防止"一张泄露票 + 任意 userId"跨用户投毒。
+      if (auth.via === 'ticket' && !ticketSubjectAllows(auth.subject, userId)) {
+        request.log.warn({ endpoint: request.url }, 'ai callback ticket subject mismatch')
+        return reply.status(401).send(error(401, 'Subject mismatch'))
       }
 
       // 入队 aiCallback,Worker 异步处理持久化 + 推送

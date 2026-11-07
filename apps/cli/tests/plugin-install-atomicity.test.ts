@@ -508,7 +508,9 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     // 问归档 ⇒ 永远 not-committed。G-808 改写入侧为按 name 就地替换后,存量那一行被当代覆盖是**预期行为**。
     const rows = readRegistry().records.filter((r) => r.name === 'a-legacy');
     expect(rows.map((r) => r.version)).toEqual(['2.0.0']);
-    expect(rows[0].transactionId).toBe(outcome.transactionId);
+    const firstRow = rows[0];
+    if (firstRow === undefined) throw new Error('注册表缺少 a-legacy 行');
+    expect(firstRow.transactionId).toBe(outcome.transactionId);
   });
 
   it('④ 收口判据:真实安装路径(不注入探针)之后,恢复侧问这笔事务得到 committed', async () => {
@@ -542,7 +544,9 @@ describe('installPlugin — 权威落盘排在 finalize 之前(G-756)', () => {
     expect(readRegistry().records.filter((r) => r.name === 'a-dup').map((r) => r.version)).toEqual([
       '2.0.0',
     ]);
-    expect(readRegistry().records.filter((r) => r.name === 'a-dup')[0].transactionId).toBe(outcome.transactionId);
+    const dupRow = readRegistry().records.filter((r) => r.name === 'a-dup')[0];
+    if (dupRow === undefined) throw new Error('注册表缺少 a-dup 行');
+    expect(dupRow.transactionId).toBe(outcome.transactionId);
     // 归档被收走 = 本票要的效果;若仍残留即说明读侧/清理侧没接上(不是把堆积当期望)
     expect(fs.existsSync(supersededPathFor(dest))).toBe(false);
   });

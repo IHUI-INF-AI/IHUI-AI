@@ -904,7 +904,7 @@ const MUTATIONS = [
   {
     name: '摘掉节流早退',
     anchor:
-      "  if (!devenvArmDue(now, lastTick, intervalMs)) return { ran: false, actions: 0, why: '未到节流窗口' }",
+      "  if (!cadence.due) return { ran: false, actions: 0, why: '未到节流窗口', dense: cadence.dense, cadence: cadenceView }",
     to: '',
     flips: assertThrottleBlocksProbe,
   },

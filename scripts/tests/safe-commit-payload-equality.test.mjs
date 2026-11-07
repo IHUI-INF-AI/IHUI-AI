@@ -158,7 +158,7 @@ test('P2 正常单文件 ⇒ 绿,且报数 1(不得把正常路径弄坏)', (t) 
   const r = runSafe(dir, ['a.txt'])
   const out = outputOf(r)
   assert.equal(r.status, 0, `正常提交必须绿:\n${out}`)
-  assert.match(out, /commit 干净,仅包含 1 个预期文件/)
+  assert.match(out, /commit 干净,仅包含 1 个文件/)
   assert.notEqual(git(dir, 'rev-parse', 'HEAD'), before)
   assert.equal(git(dir, 'show', '--pretty=format:', '--name-only', 'HEAD'), 'a.txt')
 })
@@ -188,7 +188,7 @@ test('P4 变异自证:摘掉新判据调用 ⇒ P1 同一夹具变绿(牙长在�
   const toolPath = join(dir, 'scripts', 'safe-commit.mjs')
   const src = readFileSync(toolPath, 'utf8')
   const mutated = src.replace(
-    'const payloadVerdict = judgeCommitPayload({ expected: [...expectedNorm], actual: committedFiles })',
+    'const payloadVerdict = judgeCommitPayload({ expected: expectedForPayload, actual: committedFiles })',
     "const payloadVerdict = { ok: true, kind: 'exact', expected: [], actual: [], missing: [], extra: [] }",
   )
   assert.notEqual(mutated, src, '变异锚点没命中 ⇒ 本条自证失效')
@@ -197,7 +197,7 @@ test('P4 变异自证:摘掉新判据调用 ⇒ P1 同一夹具变绿(牙长在�
   const r = runSafe(dir, ['a.txt'])
   const out = outputOf(r)
   assert.equal(r.status, 0, `摘掉判据后同一夹具应变绿(证明 P1 的牙来自它):\n${out}`)
-  assert.match(out, /commit 干净,仅包含 0 个预期文件/, '变异后必须复现旧缺陷的原话术')
+  assert.match(out, /commit 干净,仅包含 0 个文件/, '变异后必须复现旧缺陷的原话术')
 })
 
 test('P5 判据表:直接 import 生产判据(不复制常量)', () => {
@@ -232,7 +232,7 @@ test('P6 源码锁:Step 5 只许引这一份判据,旧的 committedUnexpected �
     /import \{ judgeCommitPayload \} from '\.\/lib\/commit-payload-judge\.mjs'/,
     'safe-commit 必须 import 单源判据(造好没装车 = 没有)',
   )
-  assert.match(src, /judgeCommitPayload\(\{ expected: \[\.\.\.expectedNorm\], actual: committedFiles \}\)/)
+  assert.match(src, /judgeCommitPayload\(\{ expected: expectedForPayload, actual: committedFiles \}\)/)
   assert.doesNotMatch(src, /committedUnexpected/, '旧的"只判多出"实现不得复活(两份必漂移)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

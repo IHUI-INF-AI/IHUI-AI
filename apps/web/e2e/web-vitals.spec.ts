@@ -50,18 +50,22 @@ test.describe.parallel('Web Vitals 性能专项', () => {
     // dev 环境首次编译慢,先预热页面(访问一次触发编译),再 reload 测量真实性能
     await page.goto('/', { waitUntil: 'domcontentloaded' })
     // 等待页面稳定(不用 networkidle,dev 环境持续有 HMR 心跳)
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(2000)
     // reload 后测量真实性能指标(排除首次编译干扰)
     // 2026-08-28 修复:全量 E2E 高负载下单次 reload 的 FCP 可能瞬时超阈
     // (实测 3672 vs 3600)→ 有界重试 reload 再测一次(编译缓存热后显著回落)
     await page.reload({ waitUntil: 'domcontentloaded' })
+    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(1000)
     let fcpEarly = await page.evaluate(
       () => performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 0,
     )
     if (fcpEarly >= 1800 * M) {
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1500)
       await page.reload({ waitUntil: 'domcontentloaded' })
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(1000)
       fcpEarly = await page.evaluate(
         () => performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 0,

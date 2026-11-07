@@ -46,7 +46,13 @@
  *       实测 apps/web 全部 route handler 只有 10 个,`app/api/` 下仅 `desktop-feed` 一个 →
  *       web 端其余 `fetch('/api/xxx')` 都是靠 next.config.js `rewrites()`(`source:'/api/:path*'` →
  *       8802/8803)代理到后端,性质上就是端内直连后端,照常计入命中(存量进基线)。
- *  5. **扫描面**:apps/* 与 packages/* 全部 workspace 源码。排除的是「不可能违规的角色」而非文件名:
+ *  5. **扫描面**:默认取 **git 索引面**(`git ls-files` 里的 apps/* 与 packages/*),而不是磁盘遍历:
+ *     被 .gitignore 忽略且未入库的临时件(`apps/web/tmp/**`,2026-11-04 实测该目录被 `tmp/` 规则忽略)
+ *     不进版本库、也**实测不进 next build 产物**(apps/web/.next/*manifest.json 与 out/ 均无 web/tmp,
+ *     且无任何被跟踪源码 import 它),把这类目录当源码扫只会让"再落一个探针脚本"反复判红。
+ *     不跳过的反而是**已跟踪却被忽略**的文件 —— `git ls-files` 照样列出它们(它们真能上线)。
+ *     排障时用 `--include-ignored` 回到旧的文件系统遍历面。
+ *     排除的是「不可能违规的角色」而非文件名:
  *     - `apps/api`(它就是后端本体,package.json 不依赖 @ihui/api-client)/ `apps/ai-service`(Python);
  *     - `packages/api-client`(§3 指定的那条通道本身,它的 transport.ts/client.ts 必须裸 fetch);
  *     - 构建产物与厂商打包资源(复用 scripts/lib/exclude-dirs.mjs 的共享清单 + public/static/assets)、
@@ -75,6 +81,7 @@
  *     stdout 档把一切非 JSON 人读文本改打 stderr;文件档的 stdout 行为一字未变。
  *   node scripts/check-direct-backend-calls.mjs --update-baseline # 用当前全量命注重写基线(收紧额度)
  *   node scripts/check-direct-backend-calls.mjs --self-test       # 判据内建自检(内存语料,不碰真实源码)
+ *   node scripts/check-direct-backend-calls.mjs --include-ignored # 排障:回到文件系统面(含 gitignored/未跟踪)
  *   node scripts/check-direct-backend-calls.mjs --root <dir>      # 指定扫描根(测试/审计缝,同 check-pwsh-version 口径)
  *   node scripts/check-direct-backend-calls.mjs --help
  */
@@ -187,8 +194,9 @@ function extnameOf(name) {
   return i < 0 ? '' : name.slice(i)
 }
 
-/** 收集扫描语料:relPath -> 原始源码(注释剥离在 analyzeCorpus 里统一做,保证注入测试走同一条路) */
-export function buildCorpus(root = DEFAULT_ROOT) {
+/** 磁盘遍历面:apps/* 与 packages/* 下的候选源文件(relPath,已排序)。
+ *  只做「哪些路径存在」,不读内容 —— 索引面/文件系统面共用这一层。 */
+function sourceFileList(root) {
   const files = []
   for (const top of ['apps', 'packages']) {
     const base = join(root, top)
@@ -201,8 +209,45 @@ export function buildCorpus(root = DEFAULT_ROOT) {
       walk(dir, root, files)
     }
   }
+  return files.sort()
+}
+
+/** git 索引面:被跟踪(含已暂存)的 apps/packages 路径。
+ *  git 不可用 / 非仓 ⇒ null(调用方退回文件系统遍历面,不得因此判绿)。 */
+function trackedSourceSet(root) {
+  try {
+    // --root 审计缝若指到仓的子目录/仓外夹具,ls-files 的路径基准会与 root 不一致 ⇒ 退回遍历面
+    const top = String(gitRaw(['rev-parse', '--show-toplevel'], root)).trim()
+    if (resolve(top).toLowerCase() !== resolve(root).toLowerCase()) return null
+    return new Set(
+      String(gitRaw(['ls-files', '-z', '--', 'apps', 'packages'], root))
+        .split('\u0000')
+        .filter(Boolean),
+    )
+  } catch {
+    return null
+  }
+}
+
+/** 候选路径里「真被 .gitignore 命中」的子集 —— 只用于落一句可核对的说明,不参与判据。
+ *  `git check-ignore` 无命中时退出 1(正常现象),这里吞成空集。 */
+function ignoredSubset(root, rels) {
+  if (!rels.length) return []
+  try {
+    return String(
+      gitRaw(['check-ignore', '-z', '--stdin'], root, { input: `${rels.join('\u0000')}\u0000` }),
+    )
+      .split('\u0000')
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
+/** 读入选定路径并做 minified 兜底:relPath -> 原始源码(注释剥离在 analyzeCorpus 里统一做,保证注入测试走同一条路) */
+function readCorpus(root, rels) {
   const corpus = new Map()
-  for (const rel of files.sort()) {
+  for (const rel of rels) {
     let src
     try {
       src = readFileSync(join(root, rel), 'utf8')
@@ -214,6 +259,13 @@ export function buildCorpus(root = DEFAULT_ROOT) {
     corpus.set(rel, src)
   }
   return corpus
+}
+
+/** 收集扫描语料。`tracked` 非空 = 只收 git 索引里的路径(默认调用方由 main 传);
+ *  不传 = 旧的文件系统遍历面(`--include-ignored` 与 git 不可读时走这一档)。 */
+export function buildCorpus(root = DEFAULT_ROOT, { tracked = null } = {}) {
+  const files = sourceFileList(root)
+  return readCorpus(root, tracked ? files.filter((f) => tracked.has(f)) : files)
 }
 
 /**
@@ -1052,8 +1104,10 @@ export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: inje
   if (flags.has('--help') || flags.has('-h')) {
     console.log(
       [
-        '用法: node scripts/check-direct-backend-calls.mjs [--staged|--list|--quiet|--update-baseline|--json <out>|--self-test|--root <dir>|--help]',
+        '用法: node scripts/check-direct-backend-calls.mjs [--staged|--list|--quiet|--update-baseline|--json <out>|--self-test|--include-ignored|--root <dir>|--help]',
         '',
+        '取材面:默认 git 索引(git ls-files;已跟踪却被 .gitignore 命中的文件照样计入),',
+        '      被忽略且未入库的临时目录(apps/web/tmp 等)不计数;--include-ignored 回到文件系统遍历面。',
         '判据:端内(apps/* 与 packages/*,排除 apps/api / apps/ai-service / packages/api-client)出现',
         '      裸 fetch/axios/Taro.request/XMLHttpRequest/sendBeacon/http.request,且 URL 经污点分析指向',
         '      本仓后端(后端基址符号 / 环境变量 / 自家 host / 锚定 /api/ 路径段),即为绕过 @ihui/api-client。',
@@ -1066,10 +1120,34 @@ export function main({ root = DEFAULT_ROOT, argv: localArgv = argv, corpus: inje
   }
 
   let corpus
+  let faceNote = null
   if (injectedCorpus) corpus = injectedCorpus
-  else {
+  else if (flags.has('--include-ignored')) {
     corpus = buildCorpus(root)
+    faceNote =
+      '[check-direct-backend-calls] 取材面: 文件系统遍历(--include-ignored:含 gitignored/未跟踪文件)'
+  } else {
+    // 默认 git 索引面:被忽略且未入库的临时件不再计数(再落一个 tmp 探针不会把门判红);
+    // 已跟踪却被 .gitignore 命中的文件仍在 ls-files 里 ⇒ 照常计数(不放宽真实风险)。
+    const tracked = trackedSourceSet(root)
+    if (tracked) {
+      const all = sourceFileList(root)
+      const skipped = all.filter((f) => !tracked.has(f))
+      corpus = readCorpus(
+        root,
+        all.filter((f) => tracked.has(f)),
+      )
+      const ignored = ignoredSubset(root, skipped)
+      faceNote =
+        `[check-direct-backend-calls] 取材面: git 索引 | 已跳过 gitignored/未跟踪 ${skipped.length} 个文件` +
+        `(其中被 .gitignore 命中 ${ignored.length} 个)`
+    } else {
+      // 非仓 / git 不可读:退回旧面,绝不因取不到索引就判绿
+      corpus = buildCorpus(root)
+      faceNote = '[check-direct-backend-calls] 取材面: 文件系统遍历(git 索引不可读 ⇒ 退回旧面)'
+    }
   } // 空输入绝不判绿:列不到文件属于"扫描器没跑起来",必须显式失败
+  if (faceNote) say(faceNote)
   if (corpus.size === 0) {
     console.error(
       '[check-direct-backend-calls] ❌ 扫描语料为空(apps/* 与 packages/* 一个源文件都没列到),拒绝判绿',

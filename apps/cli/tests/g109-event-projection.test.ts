@@ -71,13 +71,39 @@ describe('G-109 事件面:人读排版取有界 display', () => {
     expect(md).toContain('a\nb');
     expect(md).not.toContain('...(truncated)');
   });
+
+  // 成对夹具:摘掉本次新增的 `error` 投影 ⇒ 第一枚翻红;把 error 无条件下发 ⇒ 第二枚翻红。
+  it('失败带原因 ⇒ 人读报告点名原因(正文为空也不得只剩一个 ✗)', () => {
+    const md = eventToMarkdown({
+      type: 'tool_result',
+      name: 'file_search',
+      success: false,
+      output: '',
+      error: '未知工具: file_search',
+    });
+    expect(md).toContain('[失败]');
+    expect(md).toContain('[failure-reason] 未知工具: file_search');
+  });
+
+  it('成功且无原因 ⇒ 与接入前逐字节同形(新维缺席不得改动既有排版)', () => {
+    const md = eventToMarkdown({ type: 'tool_result', name: 'ls', success: true, output: 'a\nb' });
+    expect(md).toBe(`\n#### ✓ 工具结果 [成功]\n\n\`\`\`\na\nb\n\`\`\`\n`);
+    expect(md).not.toContain('[failure-reason]');
+  });
 });
 
 describe('G-109 事件面:三处出口真实性源锁(不得"造好没装车")', () => {
   it('headless 出口把 display 带进事件对象', () => {
     const src = read('apps/cli/src/commands/agent.ts');
-    expect(src).toContain('onToolResult?.(call.name, result.success, result.output, result.display)');
-    expect(src).toContain("emit({ type: 'tool_result', name, success, output, ...(display ? { display } : {}) })");
+    // 声明点与发射点同锁(按形状而非逐字行:调用改成多行后,逐字 toContain 会假红,
+    // 而"少带一个参数"这种真回归必须仍能被抓到 ⇒ 参数序列整体进正则,缺 result.error 即红)。
+    expect(src).toMatch(
+      /onToolResult\?\.\(\s*call\.name,\s*result\.success,\s*result\.output,\s*result\.display,\s*result\.error,\s*\)/,
+    );
+    expect(src).toMatch(/type: 'tool_result',[\s\S]{0,160}\.\.\.\(display \? \{ display \} : \{\}\),/);
+    expect(src).toMatch(/type: 'tool_result',[\s\S]{0,220}\.\.\.\(error \? \{ error \} : \{\}\),/);
+    const evt = read('apps/cli/src/headless-format.ts');
+    expect(evt).toMatch(/error\?: string;/);
   });
 
   it('HTTP/SSE 出口同样带上 display,且两处事件联合体都登记了该字段', () => {

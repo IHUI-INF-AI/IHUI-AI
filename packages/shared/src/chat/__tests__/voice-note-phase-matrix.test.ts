@@ -305,12 +305,15 @@ describe('结构锁② 转换表只有一份 · 消费点同源', () => {
     'apps/mobile-rn/src/components/chat/VoiceNote.tsx',
   ]
   /**
-   * 票面点名的另两处(现读**尚未接线**:既不引 12 相机,也就没有第二份 switch)。
+   * 票面点名的另三处(现读**尚未接线**:既不引 12 相机,也就没有第二份 switch)。
    * 接线那一刻必须把它们搬进上面的 WIRED_CONSUMER,本组用例随即转为要求它引共享出口;
    * 没搬就接线 ⇒ "未接线点名"那例当场红并点名去登记(不是消红,是补登记)。
+   * web 输入组件 2026-10-18 从 components/ai 迁到 components/chat;锁的目标跟随真实位置,
+   * 不再读已不存在的旧路径(旧路径会让本组在 readFileSync 处抛 ENOENT,而不是给出"未接线"结论)。
    */
   const NOT_YET_WIRED = [
     'apps/miniapp-taro/src/pkg-ai/ai/chat.tsx',
+    'apps/web/src/components/chat/voice-input.tsx',
     'apps/mobile-rn/src/hooks/use-voice-recorder.ts',
   ]
   /** 抄表必写成的形状:事件名 → 相名字面量(检测器,不是表) */

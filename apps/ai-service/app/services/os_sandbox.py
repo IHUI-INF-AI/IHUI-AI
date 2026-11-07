@@ -521,6 +521,18 @@ def build_child_env(
     return child
 
 
+def guarded_child_env(child_env: Mapping[str, str], argv0: str) -> tuple[dict[str, str], dict[str, str]]:
+    """宿主钩子从进程环境读,不从调用方传入的 env 读。"""
+    from app.core.exec_env import apply_child_runtime_guard
+
+    hooks = {
+        "bash": os.environ.get("IHUI_GUARD_BASH"),
+        "node": os.environ.get("IHUI_GUARD_NODE"),
+        "python": os.environ.get("IHUI_GUARD_PYTHON"),
+    }
+    return apply_child_runtime_guard(child_env, argv0, hooks, os.path.isfile)
+
+
 # ============================================================
 # 执行结果
 # ============================================================
@@ -538,6 +550,7 @@ class ExecResult:
     backend: str
     timed_out: bool = False
     killed_by_limit: bool = False
+    guard: dict[str, str] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:
@@ -883,7 +896,12 @@ class WinJob:
             ctypes.c_void_p(self._handle), ctypes.c_void_p(process_handle)
         )
         if not ok:
-            raise WinApiError("AssignProcessToJobObject 失败", winerror=_winerr())
+            err = _winerr()
+            plan = plan_nested_job_fallback(phrase=None, winerror=err)
+            raise WinApiError(
+                f"AssignProcessToJobObject 失败({plan['reason']});不脱离父作业重试",
+                winerror=err,
+            )
 
     def close(self) -> None:
         """CloseHandle(job) — kill_on_close 置位时内核立即终止 job 内全部进程。"""
@@ -1036,6 +1054,37 @@ def _build_env_block(env: Mapping[str, str]) -> Any:
     items = sorted(f"{k}={v}" for k, v in env.items())
     buf = ctypes.create_unicode_buffer("\0".join(items) + "\0\0")
     return ctypes.cast(buf, ctypes.c_void_p)
+
+
+_NESTED_DENIED_PHRASE = "parent Job denied nested assignment"
+
+
+def plan_nested_job_fallback(*, phrase: object, winerror: object) -> dict[str, str]:
+    """只有对照里那句原话才允许脱离父作业重试。
+
+    Win32 错误码本身不是那句原话。用错误码去猜"可以脱离"会在别的失败上放开父作业。
+    原话和错误码都没量到时是未判定,不重试。
+    """
+    phrase_missing = phrase is None
+    winerror_measured = isinstance(winerror, int) and not isinstance(winerror, bool)
+    if phrase_missing and not winerror_measured:
+        return {"disposition": "unjudged", "reason": "assignment-unmeasured"}
+    if phrase_missing:
+        return {"disposition": "refused", "reason": "winerror-not-nested-phrase"}
+    if not isinstance(phrase, str) or phrase.strip() == "":
+        return {"disposition": "unjudged", "reason": "phrase-unmeasured"}
+    if phrase == _NESTED_DENIED_PHRASE:
+        return {"disposition": "breakaway", "reason": "nested-denied"}
+    return {"disposition": "refused", "reason": "assign-failed"}
+
+
+def admit_engine_path(path: object) -> dict[str, str]:
+    """引擎路径必须是已经量到的绝对路径。相对名不交给系统再搜一遍。"""
+    if not isinstance(path, str) or path.strip() == "":
+        return {"disposition": "unjudged", "reason": "engine-path-unmeasured"}
+    if not os.path.isabs(path):
+        return {"disposition": "refused", "reason": "engine-path-not-absolute"}
+    return {"disposition": "admitted", "reason": "absolute"}
 
 
 def _resolve_executable(argv: Sequence[str], cwd: str) -> str:
@@ -1205,7 +1254,7 @@ class WinJobBackend:
         # 白名单过滤一切环境来源(继承 + 调用方传入),仅系统必需变量豁免
         merged_env: dict[str, str] = dict(os.environ)
         merged_env.update(env or {})
-        child_env = build_child_env(self.policy, merged_env)
+        child_env, guard = guarded_child_env(build_child_env(self.policy, merged_env), cmd[0])
         start = time.monotonic()
         timed_out = False
         job = WinJob.create()
@@ -1276,6 +1325,7 @@ class WinJobBackend:
                 backend=self.backend_name,
                 timed_out=timed_out,
                 killed_by_limit=killed,
+                guard=guard,
             )
         finally:
             # 关闭 job:kill_on_close 保证残留(孙)进程一并死亡
@@ -1301,6 +1351,9 @@ class WinJobBackend:
         k32 = _kernel32()
         a32 = _advapi32()
         exe = _resolve_executable(argv, cwd)
+        path_plan = admit_engine_path(exe)
+        if path_plan["disposition"] != "admitted":
+            raise SandboxError(f"引擎路径{path_plan['reason']}")
         cmdline_buf = ctypes.create_unicode_buffer(build_windows_command_line(argv))
         si = STARTUPINFOW()
         si.cb = ctypes.sizeof(STARTUPINFOW)
@@ -1584,7 +1637,7 @@ class LinuxSandboxBackend:
         )
         merged_env: dict[str, str] = dict(os.environ)
         merged_env.update(env or {})
-        child_env = build_child_env(self.policy, merged_env)
+        child_env, guard = guarded_child_env(build_child_env(self.policy, merged_env), cmd[0])
         start = time.monotonic()
         timed_out = False
         try:
@@ -1608,6 +1661,7 @@ class LinuxSandboxBackend:
             duration_ms=(time.monotonic() - start) * 1000,
             backend=self.backend_name,
             timed_out=timed_out,
+            guard=guard,
         )
 
 

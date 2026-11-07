@@ -82,7 +82,7 @@ test.describe.parallel('后端契约专项', () => {
   })
 
   test('/api/auth/me 返回 id / username / email', async ({ request }) => {
-    test.skip(!accessToken, '未登录,跳过')
+    test.skip(!accessToken, 'E2E 登录态失效,无法请求后端契约接口 [SKIP:SKIP-0028]')
     const response = await request.get('/api/auth/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
@@ -97,7 +97,7 @@ test.describe.parallel('后端契约专项', () => {
   })
 
   test('/api/users/:id 返回 id / username', async ({ request }) => {
-    test.skip(!accessToken, '未登录,跳过')
+    test.skip(!accessToken, 'E2E 登录态失效,无法请求后端契约接口 [SKIP:SKIP-0029]')
     // 先获取当前用户 ID
     const meResp = await request.get('/api/auth/me', {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -134,13 +134,13 @@ test.describe.parallel('后端契约专项', () => {
   })
 
   test('分页响应结构包含 data / total / page / pageSize', async ({ request }) => {
-    test.skip(!accessToken, '未登录,跳过')
+    test.skip(!accessToken, 'E2E 登录态失效,无法请求后端契约接口 [SKIP:SKIP-0030]')
     // 尝试一个分页接口(用户列表;usersRoutes 无根 GET,分页在册腿=GET /api/admin/users)
     const response = await request.get('/api/admin/users?page=1&pageSize=10', {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (response.status() !== 200) {
-      test.skip(true, '分页接口不可用')
+      test.skip(true, '分页接口不可用,无法验证契约响应结构 [SKIP:SKIP-0031]')
       return
     }
     const body = (await response.json()) as {

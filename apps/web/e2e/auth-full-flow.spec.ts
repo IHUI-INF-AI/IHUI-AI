@@ -91,6 +91,7 @@ test.describe('完整认证流程', () => {
       const submitBtn = page.getByRole('button', { name: /登录|登 录|sign in|login/i }).first()
       if (await submitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await submitBtn.click({ timeout: 5000 }).catch(() => {})
+        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await page.waitForTimeout(2000)
       }
     }

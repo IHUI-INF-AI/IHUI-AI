@@ -25,8 +25,21 @@ import { locatePsqlClient, psqlLocateMissText } from './psql-client-locate.mjs'
 const PSQL_TIMEOUT = 20_000
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1'])
-/** 生产隧道口:db_sync.prod_dsn 的 tunnelPort,误连即取证违规。 */
+/**
+ * 生产隧道口:db_sync.prod_dsn 的 tunnelPort,误连即取证违规。
+ * 注意:同一个 8810 在本机还住着**本机 PG 集群**(`D:\DevEnv\runtimes\pgsql` + `D:\DevEnv\data\pgdata`,
+ * 库清单里只有 ihui_dev / ihui_e2e / ihui_ci_test / keycloak,没有 ihui_prod;`.ihui-agent/db-sync.local.json`
+ * 不存在 ⇒ 生产隧道当前未配置)。所以「端口=8810」本身不等于「连上了生产隧道」,判据必须再看库名:
+ * 只有**隔离库**才放行,其余(lib 里最常见的 /db、ihui_dev、ihui_prod、postgres 等)一律照旧拒绝。
+ */
 export const FORBIDDEN_PROD_PORT = '8810'
+/**
+ * 8810 上允许连的**隔离库**白名单(2026-11-06 立,e2e 实跑需要):
+ *  - ihui_e2e:`scripts/e2e-local-supply.mjs --stack/--provision-admin` 的默认隔离库;
+ *  - ihui_ci_test:CI 同形的隔离库。
+ * 白名单是显式枚举,不接受前缀/正则匹配:多一个库名就多一处可能被生产复用,宁可多改一次代码。
+ */
+export const ISOLATED_DBS_ON_PROD_PORT = new Set(['ihui_e2e', 'ihui_ci_test'])
 
 /** PostgreSQL 未写端口且无 PGPORT 时的默认口(libpq 语义)。 */
 const DEFAULT_PG_PORT = 5432
@@ -53,13 +66,14 @@ function normalizePort(rawPort, label) {
  * DSN 守卫(纯函数):非回环 / 非postgres协议 / 生产口 ⇒ 拒绝,理由逐条说清。
  * 生产口按**有效端口**判(数值比较):DSN 写明端口 ⇒ 用 DSN 值;DSN 不写 ⇒ 取 `env.PGPORT`
  * 否则 5432。故 `08810` / 无端口 + `PGPORT=8810` 都拒,`8810.0` 这类不合法写法也拒。
+ * 8810 的唯一例外:回环 host + 库名命中 `ISOLATED_DBS_ON_PROD_PORT`(隔离库),缺一条即拒。
  * 返回 { ok:true, dsn } 或 { ok:false, why }。
  */
 export function guardDbDsn(raw, env = process.env) {
   const dsn = String(raw || '').trim()
   const m = /^postgres(?:ql)?:\/\/([^/@:]+)(?::([^@/]*))?@([^/:?]+)(?::(\d+))?\/([^\s?]+)/.exec(dsn)
   if (!m) return { ok: false, why: 'DSN 不是 postgres://user:pass@host:port/db 形态,不猜' }
-  const [, , , host, port] = m
+  const [, , , host, port, db] = m
   if (!LOOPBACK_HOSTS.has(host.toLowerCase())) {
     return { ok: false, why: `host=${host} 不在本机回环白名单(localhost/127.0.0.1/::1)——取证不得连生产库` }
   }
@@ -84,9 +98,16 @@ export function guardDbDsn(raw, env = process.env) {
     }
   }
   if (effectivePort === FORBIDDEN_PROD_PORT_NUM) {
-    return {
-      ok: false,
-      why: `有效端口=${effectivePort} 是生产 SSH 隧道口(db_sync.prod_dsn),--db 档拒绝连接(端口来源:${portOrigin})`,
+    // 8810 放行必须三条件同时成立:回环 host(上面已判)+ 库名命中隔离库白名单 + 有效端口恰好 8810。
+    // 任一条不成立就照旧拒:ihui_dev / ihui_prod / postgres / 任意其它库名与非回环 host 都不得借道。
+    const dbName = String(db || '').replace(/\/+$/, '')
+    if (!ISOLATED_DBS_ON_PROD_PORT.has(dbName)) {
+      return {
+        ok: false,
+        why:
+          `有效端口=${effectivePort} 是生产 SSH 隧道口(db_sync.prod_dsn),库名 ${dbName || '<空>'} 不在本机隔离库白名单` +
+          `(${[...ISOLATED_DBS_ON_PROD_PORT].join('/')}),--db 档拒绝连接(端口来源:${portOrigin})`,
+      }
     }
   }
   return { ok: true, dsn }

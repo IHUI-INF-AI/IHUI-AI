@@ -117,20 +117,27 @@ export type InstallationEventPayload = z.infer<typeof installationEventSchema>
 /**
  * CI 三类事件(check_suite / workflow_run / check_run)的最小事件体。
  *
- * Y-13(2026-10-29)立:此前这三个事件名不在任何白名单里,`parseWebhook` 归到
- * ignored/unsupported_event —— 自动化(评论触发/工单闭环)对这些事件**完全失聪**,
- * 且失败后没有任何可核对的分支。这里只认定位维(id/status/conclusion/head_sha):
- * 少一维就明确判 400 并把缺的字段名回给提供方(schema 诊断),多出来的字段一律放行 ——
- * GitHub 的 CI 正文是提供方自由文本(提交说明、job 名),字段集合随版本增长,
- * 按"全字段严格"校验会把更新后的合法投递判死(这正是本族 400 的另一半成因)。
+ * Y-13(2026-10-29 立;2026-11-06 收尾,判据按 GitHub 官方对象 schema 逐字段核过):
+ * - **结构维仍要求**:`action` ∧ `repository.full_name` ∧ 主体对象本身在场。缺任一门是
+ *   "这根本不是该族事件"的证据 ⇒ 结构化 400 并点名缺的字段(既有测试钉着,不回退)。
+ * - **主体叶子一律宽松**:官方对这几项都留了缺位/为 null 的余地 —— check suite 对象的
+ *   `status` 允许 null,`conclusion` 在完成前为 null,`head_branch` 在 tag/fork 形态下为 null,
+ *   同一枚 sha 还双写在 `head_commit.id` 里。把叶子按"必填非空"校验,就是拿提供方的
+ *   **合法投递**去换 400:实测 `check_suite.status=null`、`workflow_run` 只带 `head_commit.id`、
+ *   定位维不全的体三型全判 400。而这三类在本 App **没有处理分支**,400 换来的只有
+ *   GitHub 侧重投风暴(票面 4 枚 400 的 schema 侧成因)。
+ * - 缺位的叶子进 `summary.unresolved`,只进日志与响应、不参与判定:"看见了、认得出、
+ *   定位维不全"必须是 2xx 上一件可核对的事实(§0.3:取不到就是取不到,不猜数、也不判死)。
  */
 const ciCheckObjectSchema = z.object({
-  id: z.number().int().nonnegative(),
-  status: z.string(),
+  id: z.number().int().nonnegative().nullable().optional(),
+  status: z.string().nullable().optional(),
   conclusion: z.string().nullable().optional(),
-  head_sha: z.string(),
+  head_sha: z.string().nullable().optional(),
+  /** `workflow_run` 的官方双写位:`head_sha` 缺位时用它兜底(不是自造字段) */
+  head_commit: z.object({ id: z.string().nullable().optional() }).nullable().optional(),
   head_branch: z.string().nullable().optional(),
-  name: z.string().optional(),
+  name: z.string().nullable().optional(),
 })
 
 const checkSuiteEventSchema = z.object({
@@ -161,12 +168,14 @@ export type CheckRunEventPayload = z.infer<typeof checkRunEventSchema>
 
 /** 归一后的 CI 事件摘要(降级响应/日志只带这些,不回显提供方正文) */
 export interface CiEventSummary {
-  id: number
-  status: string
+  id: number | null
+  status: string | null
   conclusion: string | null
-  headSha: string
+  headSha: string | null
   headBranch: string | null
   name: string | null
+  /** 定位维缺位的 GitHub 字段名(读数用,不改判定) */
+  unresolved: string[]
 }
 
 // ---------------------------------------------------------------------------
@@ -189,6 +198,10 @@ export type PersistedGithubEvent = (typeof PERSISTED_GITHUB_EVENTS)[number]
  * 刻意不进 HANDLED_GITHUB_EVENTS:/health 那条清单是"会驱动动作的事件"契约,
  * 这三类进来只会让运维以为 CI 事件已经接了业务。它们的落点是显式 200 + 忽略原因
  * (`ci_event_not_subscribed`),而不是静默丢弃 —— 静默与失聪在 GitHub 侧读数上同形。
+ *
+ * export 的理由是 §0.6 单一真相源:另一条 GitHub 投递腿(routes/github-webhook.ts,
+ * /api/webhooks/github)要用同一份判定回话,不得再抄第二份 CI 事件名清单 —— 对外的出口
+ * 是下面那个 `isObservedCiEvent` 谓词,名单本身保持模块私有(免成死导出)。
  */
 const OBSERVED_CI_EVENTS = ['check_suite', 'workflow_run', 'check_run'] as const
 export type ObservedCiEvent = (typeof OBSERVED_CI_EVENTS)[number]
@@ -210,7 +223,8 @@ function isKnownEvent(name: string): name is KnownGithubEvent {
   return (KNOWN_GITHUB_EVENTS as readonly string[]).includes(name)
 }
 
-function isObservedCiEvent(name: string): name is ObservedCiEvent {
+/** CI 三件套判定(export 供另一条投递腿复用,名单只有一份) */
+export function isObservedCiEvent(name: string): name is ObservedCiEvent {
   return (OBSERVED_CI_EVENTS as readonly string[]).includes(name)
 }
 
@@ -289,30 +303,35 @@ interface ParsedCiEvent {
   summary: CiEventSummary
 }
 
+/**
+ * 主体叶子 → 归一摘要(Y-13 收尾)。
+ * 缺位一律落 null(§0.3 不猜数),并把对应的 GitHub 字段名记进 `unresolved` ——
+ * 读数上"这枚投递缺哪几维"因此仍是可核对的事实,而判定停在 2xx。
+ * `head_sha` 缺位时用官方双写位 `head_commit.id` 兜底(兜不到才记 unresolved)。
+ */
 function toCiEvent(
   action: string,
   repository: { full_name: string },
   installation: { id: number } | undefined,
-  subject: {
-    id: number
-    status: string
-    conclusion?: string | null
-    head_sha: string
-    head_branch?: string | null
-    name?: string
-  },
+  subject: z.infer<typeof ciCheckObjectSchema>,
 ): ParsedCiEvent {
+  const headSha = subject.head_sha ?? subject.head_commit?.id ?? null
+  const unresolved: string[] = []
+  if (subject.id === undefined || subject.id === null) unresolved.push('id')
+  if (subject.status === undefined || subject.status === null) unresolved.push('status')
+  if (headSha === null) unresolved.push('head_sha')
   return {
     action,
     repoFullName: repository.full_name,
     installationId: installation?.id ?? null,
     summary: {
-      id: subject.id,
-      status: subject.status,
+      id: subject.id ?? null,
+      status: subject.status ?? null,
       conclusion: subject.conclusion ?? null,
-      headSha: subject.head_sha,
+      headSha,
       headBranch: subject.head_branch ?? null,
       name: subject.name ?? null,
+      unresolved,
     },
   }
 }

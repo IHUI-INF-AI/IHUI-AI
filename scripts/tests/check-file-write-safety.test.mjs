@@ -183,6 +183,27 @@ test('A7 空枚举判"无法判定";面外文件被排除(判据覆盖面不靠�
   assert.equal(G.inScope('apps/cli/src/tools/x.js'), false, '非扫描扩展名被误纳')
 })
 
+// BUG-0044:判据面扩到会话/检查点/子代理状态面,状态面不靠路径权限闸参与
+test('A8 BUG-0044 扩面:sessions/checkpoints/state-store 在面内;面外不被波及', () => {
+  for (const rel of [
+    'apps/cli/src/sessions/state-store.ts',
+    'apps/cli/src/sessions/index.ts',
+    'apps/cli/src/checkpoints/index.ts',
+    'apps/cli/src/checkpoints/hunks.ts',
+    'apps/cli/src/subagents/state-store.ts',
+  ]) {
+    assert.equal(G.inScope(rel), true, `状态面文件被漏扫:${rel}`)
+  }
+  assert.equal(G.inScope('apps/cli/src/hooks/trust.ts'), false, '扩面不得变成全仓扫描')
+  assert.equal(G.inScope('apps/cli/src/subagents/types.ts'), false, '子代理非 state-store 文件不在面内')
+  // 无路径权限闸的状态面裸写 ⇒ 额度 0 即红(扩面前的假绿样本)
+  for (const rel of ['apps/cli/src/sessions/state-store.ts', 'apps/cli/src/checkpoints/index.ts', 'apps/cli/src/subagents/state-store.ts']) {
+    const f = G.analyzeFile(rel, `fs.writeFileSync(abs, body, 'utf-8');\n`)
+    assert.equal(f.inStateStoreSurface, true, `状态面标记丢失:${rel}`)
+    assert.equal(G.evaluateBareWrites([f], { [rel]: 0 }).findings.length, 1, `状态面裸写未判红:${rel}`)
+  }
+})
+
 // ───────────────────────── B. 临时 git 仓端到端 ─────────────────────────
 
 test('B1 已收口的仓:全量档与 --staged 档都 exit 0(不是靠"判据没跑"跑绿)', () => {
@@ -191,9 +212,27 @@ test('B1 已收口的仓:全量档与 --staged 档都 exit 0(不是靠"判据没
     for (const flags of [[], ['--staged']]) {
       const r = runGuard(dir, flags)
       assert.equal(r.status, 0, `flags=${flags} ⇒ ${r.stdout}\n${r.stderr}`)
-      assert.match(r.stdout, /扫描 1 个工具文件/)
+      assert.match(r.stdout, /扫描 1 个写面文件/)
       assert.doesNotMatch(r.stdout, /降级取用/, '锚点已在判定面上,不该报降级')
     }
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// BUG-0044 端到端:会话状态面新增裸写 ⇒ 门必须红(BUG-0010 曾在这个面保持假绿)
+test('B6 BUG-0044:往 sessions/ 新增一处裸写并暂存 ⇒ --staged 判红并点名文件', () => {
+  const dir = makeLandedRepo()
+  try {
+    mkdirSync(join(dir, 'apps/cli/src/sessions'), { recursive: true })
+    writeFileSync(
+      join(dir, 'apps/cli/src/sessions/state-store.ts'),
+      "export function save(p: string, body: string) { require('fs').writeFileSync(p, body, 'utf-8') }\n",
+    )
+    git(dir, 'add', 'apps/cli/src/sessions/state-store.ts')
+    const r = runGuard(dir, ['--staged'])
+    assert.notEqual(r.status, 0, `会话面裸写未被判红 ⇒ 扩面失效:\n${r.stdout}\n${r.stderr}`)
+    assert.match(r.stdout + r.stderr, /sessions\/state-store\.ts/)
   } finally {
     rmScratch(dir)
   }

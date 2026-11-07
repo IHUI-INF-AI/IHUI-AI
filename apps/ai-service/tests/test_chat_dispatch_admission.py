@@ -24,10 +24,13 @@ from app.services.mcp_server import _tool_dispatch_subagent
 from app.services.memory import memory_store
 from app.services.work_admission import (
     Assessment,
+    Ledger,
+    SqliteTicketStore,
     build_chat_trigger,
     get_ledger,
     reset_for_test,
     set_assessor_for_test,
+    trigger_disposition,
 )
 
 
@@ -201,6 +204,68 @@ async def test_cancel_drops_inflight_ticket(monkeypatch: pytest.MonkeyPatch) -> 
     assert rec.open is False
 
 
+async def test_restarted_ledger_does_not_redispatch(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    """派工、丢弃、模拟未完成写进会话库后,新账本按同一 trigger 读回且不再派。"""
+    db = tmp_path / "sessions.db"
+    reset_for_test(SqliteTicketStore(db))
+    stub = _RecordingOrchestrator(status="stub")
+    monkeypatch.setattr("app.services.mcp_server._get_orchestrator", lambda: stub)
+    stub_out = await _tool_dispatch_subagent(
+        {"name": "coder", "task": "do"},
+        host_view=_view(addressed=True, trigger_id="user-1:stub-keep"),
+    )
+    assert stub.calls == 1
+    assert stub_out["status"] == "stub"
+    assert stub_out["ok"] is False
+
+    class _Cancel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def invoke(self, *_args: object, **_kwargs: object) -> AgentStepResult:
+            self.calls += 1
+            raise asyncio.CancelledError()
+
+    cancel = _Cancel()
+    monkeypatch.setattr("app.services.mcp_server._get_orchestrator", lambda: cancel)
+    with pytest.raises(asyncio.CancelledError):
+        await _tool_dispatch_subagent(
+            {"name": "coder", "task": "do"},
+            host_view=_view(addressed=True, trigger_id="user-1:drop-keep"),
+        )
+    assert cancel.calls == 1
+
+    restarted = Ledger(store=SqliteTicketStore(db))
+    try:
+        stub_rec = restarted.find_trigger("user-1:stub-keep")
+        drop_rec = restarted.find_trigger("user-1:drop-keep")
+        assert stub_rec is not None
+        assert trigger_disposition(stub_rec) == "simulation_incomplete"
+        assert stub_rec.last_report != "ready"
+        assert drop_rec is not None
+        assert trigger_disposition(drop_rec) == "dropped"
+    finally:
+        restarted.close()
+
+    reset_for_test(SqliteTicketStore(db))
+    again = _RecordingOrchestrator()
+    monkeypatch.setattr("app.services.mcp_server._get_orchestrator", lambda: again)
+    replay = await _tool_dispatch_subagent(
+        {"name": "coder", "task": "do"},
+        host_view=_view(addressed=True, trigger_id="user-1:stub-keep"),
+    )
+    dropped_again = await _tool_dispatch_subagent(
+        {"name": "coder", "task": "do"},
+        host_view=_view(addressed=True, trigger_id="user-1:drop-keep"),
+    )
+    assert again.calls == 0
+    assert replay["errorCode"] == "duplicate_trigger"
+    assert dropped_again["errorCode"] == "duplicate_trigger"
+
+
 def test_stub_end_event_is_not_done_and_has_no_failure_reason() -> None:
     evt = _build_subagent_end_event(
         "sub-1",
@@ -210,4 +275,6 @@ def test_stub_end_event_is_not_done_and_has_no_failure_reason() -> None:
     assert evt["type"] == "subagent_end"
     assert evt["status"] == "stub"
     assert "failureReason" not in evt
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

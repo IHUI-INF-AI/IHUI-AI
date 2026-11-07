@@ -144,6 +144,11 @@ CREATE TABLE chat_conversations (
   pinned_at timestamp with time zone,
   group_id uuid, -- schema 里是 FK → chat_conversation_groups;演练库不建那张表,被测路由只做 SELECT ⇒ 补列不补约束
   share_token varchar(32) UNIQUE,
+  -- BUG-50 补记(2026-11-06):该列曾在库里、迁移链里没有出处;补齐迁移
+  -- (packages/database/drizzle/20261106180000_share_token_expires_at.sql)后
+  -- drizzle schema 也登记了它。演练 DDL 必须逐列对齐,否则路由 SELECT 该列时
+  -- 整条插入/查询 500 —— 演练库"少一列"不等于"生产没有这一列"。
+  share_token_expires_at timestamp with time zone,
   history_projection_state jsonb
 );
 CREATE INDEX ix_chat_conversations_user_last_message ON chat_conversations (user_id, last_message_at);

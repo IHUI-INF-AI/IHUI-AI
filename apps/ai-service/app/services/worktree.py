@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import shutil
+import threading
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -113,20 +114,32 @@ async def _git(
     return proc.returncode or 0, stdout, stderr
 
 
+# .gitignore 读-改-写串行锁:搬进线程池后,同一仓的并发 worktree 创建可能各自
+# 读到"无 .worktrees/"再各追加一行。加锁恢复单线程时的原子读改写语义。
+_GITIGNORE_LOCK = threading.Lock()
+
+
+def _ensure_gitignore_file(gitignore_path: str) -> None:
+    """同步落盘实现(由 ensure_gitignore 投线程池执行,避免阻塞事件循环)。"""
+    with _GITIGNORE_LOCK:
+        try:
+            with open(gitignore_path, encoding="utf-8") as f:
+                content = f.read()
+            if ".worktrees/" not in content:
+                with open(gitignore_path, "a", encoding="utf-8") as f:
+                    if not content.endswith("\n"):
+                        f.write("\n")
+                    f.write(".worktrees/\n")
+        except FileNotFoundError:
+            with open(gitignore_path, "w", encoding="utf-8") as f:
+                f.write(".worktrees/\n")
+
+
 async def ensure_gitignore(source_path: str) -> None:
     """确保 .worktrees/ 在 .gitignore 中(对齐 CLI 端 ensureGitignore)。"""
-    gitignore_path = os.path.join(source_path, ".gitignore")
-    try:
-        with open(gitignore_path, encoding="utf-8") as f:
-            content = f.read()
-        if ".worktrees/" not in content:
-            with open(gitignore_path, "a", encoding="utf-8") as f:
-                if not content.endswith("\n"):
-                    f.write("\n")
-                f.write(".worktrees/\n")
-    except FileNotFoundError:
-        with open(gitignore_path, "w", encoding="utf-8") as f:
-            f.write(".worktrees/\n")
+    await asyncio.to_thread(
+        _ensure_gitignore_file, os.path.join(source_path, ".gitignore")
+    )
 
 
 async def create_worktree(
@@ -209,7 +222,7 @@ async def remove_worktree(
         "git worktree remove 失败,fallback shutil.rmtree: %s",
         stderr.decode().strip() if stderr else "unknown",
     )
-    shutil.rmtree(wt_path, ignore_errors=True)
+    await asyncio.to_thread(shutil.rmtree, wt_path, ignore_errors=True)
 
     # 层 2.5:目录真删掉之后立刻 prune(2026-10-30 立,与 CLI 端同一根因同一修法)。
     # `git worktree remove` 失败时注册表条目仍指向活目录 ⇒ 只有目录没了 prune 才摘得掉;

@@ -85,8 +85,8 @@ export default function VoiceInput({
       clearInterval(timerRef.current)
       timerRef.current = null
     }
-    const text = await streamingRecognizer.stopRecognizing()
-    if (text) cbRef.current.onComplete?.(text)
+    // 完成回调单通道:final 事件唯一出口,stopRecognizing 只等待不回调
+    await streamingRecognizer.stopRecognizing()
   }, [recording])
 
   const cancelRecord = useCallback(() => {

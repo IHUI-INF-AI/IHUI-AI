@@ -25,12 +25,17 @@
  *   ⇒ 判据在这里,装车在 guard 里,两侧都由 `scripts/tests/git-push-guard.test.mjs` 钉住
  *      (含一条"分诊函数被摘线/不调用"的反向锁 —— 本仓最高频失效型:函数在、判据过、主流程没用它)。
  *
- * 判据取向(本仓惯例:**宁窄不误**):认不出的一律落 `other`,而 `other` 的行为与改动前
- *   逐字相同(marker 重试 + --no-verify 兜底)。新增分类只会**减少**跳门,绝不因为
- *   "分类不确定"把一次真钩子失败洗成不跳门,也绝不反过来。
- *   (2026-09-27 补:`credentials-unavailable` 是唯一的**不减少跳门**的新增档 —— 它的
- *   allow* 与 other 完全相同,只换取"分类名 + 出路文案"更准;当时的 --no-verify 重试
- *   对凭据断点无害也无用,行为不变是为了不动 §5b push-gate 链,出路文案负责教人对因。)
+ * 判据取向(本仓惯例:**宁窄不误**):认不出的一律落 `other`。新增分类只会**减少**跳门,
+ *   绝不因为"分类不确定"把一次真钩子失败洗成不跳门,也绝不反过来。
+ *   (2026-09-27 补:`credentials-unavailable` 曾是唯一的**不减少跳门**的新增档;当时的
+ *   --no-verify 重试对凭据断点无害也无用,行为不变是为了不动 §5b push-gate 链,出路文案负责教人对因。)
+ *   **2026-11-02 P4 更正(`--no-verify` 不再 blanket 放行)**:旧取向把 `hook-failed` / `other`
+ *   的 `allowNoVerifyRetry` 一律设 true ⇒ 只要钩子回显里带一句钩子痕迹,in-scope 类型错误也能
+ *   被 --no-verify 跳门推上去(全链最危险的假绿)。现判据:**只有**本次 push 自身的输出里出现
+ *   `全部报错文件均不在本次(改动|推送)范围 … 降级为警告`,或出现 `[IHUI-SCOPE-DEGRADE]` 显式
+ *   签名行,才允许 --no-verify;`hook-failed` / `other` / `credentials-unavailable` 一律按证据。
+ *   这两串只由 `check-typecheck.mjs` 在**它自己判定全部报错都在范围外并 exit 0** 时打印,所以
+ *   "有证据"等价于"这次钩子失败与类型错误无关,是别的门/别的原因"。
  *
  * 2026-09-28 补第三档(`remote-ref-race`)的立因 —— 同一型误判当天实测两次(05:23Z / 06:2xZ):
  *   管理员凭据直推被 GitHub **放行**时,远端会先打一句信息行
@@ -155,6 +160,20 @@ export const HOOK_TRACE_RE =
   /道 blocking 门失败|push 门校验失败|push 门被中断|守门脚本批量检查汇总|单独复现:node scripts\/|Cannot find module|pre-push hook/i
 
 /**
+ * **允许 --no-verify 的唯一证据**(2026-11-02 P4)。
+ * 两条形态同源,只由 `check-typecheck.mjs` 在降级判据成立(全部报错文件都在本次推送范围外、
+ * 且已被降级为警告 exit 0)时打印:
+ *   ① 人类可读:全量 `ℹ️ 全部报错文件均不在本次改动范围(…),降级为警告` /
+ *      快通道 `… N 个报错文件均不在本次改动范围(…),降级为警告`;
+ *   ② 机器签名:`[IHUI-SCOPE-DEGRADE] …`(打印在降级块**末尾**,保证 `.husky/pre-push`
+ *      的 `tail -40` 不把它截掉)。
+ * ⚠ 只认这两串,不认 guard 自己写的"本任务代码已自验通过"—— 那句是**无证据的自述**,
+ *   旧形态正是拿它当根据,于是 in-scope 类型错误也被跳门推走。
+ */
+export const SCOPE_DEGRADE_EVIDENCE_RE =
+  /报错文件均不在本次(?:改动|推送)范围[\s\S]{0,160}?降级为警告|\[IHUI-SCOPE-DEGRADE\]/
+
+/**
  * 一趟 push 的分诊结果。
  * @typedef {Object} PushAttemptVerdict
  * @property {typeof PUSH_TRIAGE_KINDS[number]} kind      分类
@@ -162,6 +181,8 @@ export const HOOK_TRACE_RE =
  * @property {boolean}        pushedNothing     什么都没推(up-to-date)
  * @property {boolean}        allowHookRetry    是否允许"带 hook 重试"(exit 75 中断链)
  * @property {boolean}        allowNoVerifyRetry是否允许 --no-verify 兜底
+ *   **默认 false**:只有输出里出现 SCOPE_DEGRADE_EVIDENCE_RE 的显式证据才置 true
+ *   (2026-11-02 P4;旧默认 true 等于把 in-scope 类型错误也放行)。
  * @property {'done'|'failed'|'diverged'|null} terminalStatus push-state 该写的终态(null=继续流程)
  * @property {string|null}    nextCommand       指向性出路
  * @property {string}         why               一句话依据(报告里原样打印,便于复核分诊对不对)
@@ -173,10 +194,12 @@ function verdict(v) {
     failed: true,
     pushedNothing: false,
     allowHookRetry: true,
-    allowNoVerifyRetry: true,
+    // 2026-11-02 P4:默认**不允许** --no-verify。认不出原因的失败没有资格跳门;
+    // 只有 hook-failed/other 分支拿到 SCOPE_DEGRADE_EVIDENCE_RE 显式证据时才置 true。
+    allowNoVerifyRetry: false,
     terminalStatus: null,
     nextCommand: null,
-    why: '输出里没有可辨认的失败特征 ⇒ 判 other(保持改动前行为)',
+    why: '输出里没有可辨认的失败特征 ⇒ 判 other;无「范围外降级」显式证据,不得 --no-verify',
     ...v,
   }
 }
@@ -206,6 +229,9 @@ export function triagePushAttempt({
 } = {}) {
   const text = `${stdout ?? ''}\n${stderr ?? ''}`
   const failed = status !== 0
+  // 2026-11-02 P4:`--no-verify` 的唯一通行证。只认 check-typecheck 降级时打印的那两串
+  // (人类可读行 / [IHUI-SCOPE-DEGRADE] 签名行),见 SCOPE_DEGRADE_EVIDENCE_RE 注释。
+  const scopeDegradeEvidence = SCOPE_DEGRADE_EVIDENCE_RE.test(text)
 
   // ── 成功侧 ──
   if (!failed) {
@@ -305,14 +331,16 @@ export function triagePushAttempt({
   }
   if (CREDENTIALS_UNAVAILABLE_RE.test(text)) {
     // 处置动作与出路写在 guard 的失败分支文案里(本判据只负责认出这一型并给问责入口)。
-    // ⚠️ allow* 一律沿用 verdict() 默认(与 other 相同)—— 本次修复**只**改分类与出路,
-    //    不改重试策略与退出码(§5b push-gate 链依赖 other 档的既有行为逐字不变)。
+    // 2026-11-02 P4:--no-verify **不再**给凭据档放行 —— 凭据链根本没拿到值,跳本地钩子
+    // 既修不了它、也不满足"只有显式范围外降级证据才跳门"的必要条件(旧行为:与 other 同旗 true)。
     return verdict({
       kind: 'credentials-unavailable',
+      allowNoVerifyRetry: false,
       nextCommand: 'node scripts/check-credential-health.mjs',
       why:
         'git 原话回显 could not read Username/Password / failed to execute prompt script ⇒ ' +
-        '发起进程的身份下**没有任何凭据 helper 交出值**(与"凭据已失效被远端拒绝"不同,是未取得)',
+        '发起进程的身份下**没有任何凭据 helper 交出值**(与"凭据已失效被远端拒绝"不同,是未取得);' +
+        '--no-verify 对凭据链无作用,不得用它兜底',
     })
   }
   if (UP_TO_DATE_RE.test(text)) {
@@ -329,11 +357,23 @@ export function triagePushAttempt({
   if (HOOK_TRACE_RE.test(text)) {
     return verdict({
       kind: 'hook-failed',
-      why: '输出里解析到守门批/钩子痕迹 ⇒ 走原有"带 hook 重试 → --no-verify 兜底"链(§5b ⑤ 不动)',
+      // 2026-11-02 P4:钩子失败**本身**不是跳门理由。只有输出里带着"全部报错文件均不在
+      // 本次推送范围,降级为警告"的显式证据(或 [IHUI-SCOPE-DEGRADE] 签名),才说明这次
+      // 钩子失败与类型错误无关、是别的原因 ⇒ 才允许 §12 的 --no-verify 兜底。
+      allowNoVerifyRetry: scopeDegradeEvidence,
+      why: scopeDegradeEvidence
+        ? '钩子失败,但输出里有「全部报错文件均不在本次推送范围…降级为警告」的显式证据 ⇒ 允许 --no-verify 兜底(§12 原语义)'
+        : '钩子失败,且输出里**没有**「全部报错文件均不在本次推送范围,降级为警告」的显式证据 ⇒ 拒绝 --no-verify(旧形态 blanket 放行会把 in-scope 类型错误跳门推走)',
     })
   }
   return verdict({
-    why: `退出码 ${status} 且无可辨认特征(网络/凭据/分支保护等)⇒ 保持改动前行为`,
+    // 2026-11-02 P4:认不出原因的失败同样要有证据才跳门(网络断/超时都属这一档)。
+    allowNoVerifyRetry: scopeDegradeEvidence,
+    why: `退出码 ${status} 且无可辨认特征(网络/凭据/分支保护等)⇒ ${
+      scopeDegradeEvidence
+        ? '有范围外降级证据,允许 --no-verify 兜底'
+        : '无范围外降级证据,拒绝 --no-verify(保持失败,不得假绿)'
+    }`,
   })
 }
 
@@ -548,9 +588,9 @@ if (isDirectRun && process.argv.includes('--self-test')) {
       'failed',
     ],
     [
-      'other(网络类)保持原行为:仍允许 --no-verify 兜底',
+      '2026-11-02 P4:other(网络类)不再 blanket 允许 --no-verify',
       triagePushAttempt({ status: 1, stderr: 'fatal: unable to access' }).allowNoVerifyRetry,
-      true,
+      false,
     ],
     [
       'kind: pushed-ok',
@@ -567,19 +607,49 @@ if (isDirectRun && process.argv.includes('--self-test')) {
       'credentials-unavailable',
     ],
     [
-      'credentials-unavailable 不改重试策略(与 other 同旗)',
+      '2026-11-02 P4:credentials 不再借 other 的旧旗允许 --no-verify',
       triagePushAttempt({ status: 128, stderr: "fatal: could not read Username for 'x'" })
         .allowNoVerifyRetry,
+      false,
+    ],
+    [
+      // 2026-11-02 P4 反向验证 ①:hook 因 **in-scope 类型错误**失败。
+      // 钩子痕迹在、但没有"全部报错文件均不在本次推送范围…降级为警告"的证据 ⇒ 必须拒绝跳门。
+      'P4-① hook 因 in-scope 类型错误失败 ⇒ 拒绝 --no-verify',
+      triagePushAttempt({
+        status: 1,
+        stderr: [
+          '❌ 全量 typecheck 失败,推送已阻止(exit 1)',
+          'ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):',
+          '   - scripts/lib/push-attempt-triage.mjs',
+          '❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)',
+        ].join('\n'),
+      }).allowNoVerifyRetry,
+      false,
+    ],
+    [
+      // 2026-11-02 P4 反向验证 ②:确实全是**范围外噪音**(门自己降级过、exit 0),
+      // 这次失败是别的门造成的 ⇒ 显式证据在,仍允许 --no-verify 兜底。
+      'P4-② 确实全是范围外噪音(门打印降级证据)⇒ 仍放行 --no-verify',
+      triagePushAttempt({
+        status: 1,
+        stderr: [
+          'ℹ️ 全部报错文件均不在本次改动范围(push-scope(本次推送改动范围),属并行会话工作区噪音),降级为警告',
+          'ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责',
+          '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+          '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项',
+        ].join('\n'),
+      }).allowNoVerifyRetry,
       true,
     ],
     [
-      '成对反向:另一型 exit 128(网络断)仍落 other',
+      'P4-②b 快通道降级行(「N 个报错文件均不在本次改动范围…降级为警告」)同样算证据',
       triagePushAttempt({
-        status: 128,
+        status: 1,
         stderr:
-          'fatal: unable to access https://github.com/: Failed to connect to 127.0.0.1 port 7897',
-      }).kind,
-      'other',
+          'ℹ️ apps/api 定向 typecheck 的 3 个报错文件均不在本次改动范围(staged-scope(暂存区),属并行会话噪音),降级为警告',
+      }).allowNoVerifyRetry,
+      true,
     ],
     // ── 2026-09-28:竞态 / 策略 / 分叉 三档的成对反证(任务要求的 (a)(b)(c) 三条,退化一条即红) ──
     [
@@ -715,6 +785,7 @@ export const __test__ = {
   NON_FAST_FORWARD_RE,
   CREDENTIALS_UNAVAILABLE_RE,
   HOOK_TRACE_RE,
+  SCOPE_DEGRADE_EVIDENCE_RE,
   PUSH_STATE_FRESH_MS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

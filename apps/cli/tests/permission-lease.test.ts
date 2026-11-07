@@ -234,12 +234,14 @@ describe('⑥ 审计痕迹可回读(落在既有出口 auditLog)', () => {
       'permission_lease_revoked',
     ]);
     for (const c of auditCalls) expect(c.input.auditRef).toBe(lease.auditRef);
-    expect(auditCalls[0].input).toMatchObject({
+    const firstAudit = auditCalls[0];
+    if (firstAudit === undefined) throw new Error('缺少授权审计行');
+    expect(firstAudit.input).toMatchObject({
       scope: 'goal:O32-lease-demo',
       grantor: 'cli-flag',
       capabilities: ['write_file', 'edit_file'],
     });
-    expect(Date.parse(String(auditCalls[0].input.expiresAt))).toBeGreaterThan(T0);
+    expect(Date.parse(String(firstAudit.input.expiresAt))).toBeGreaterThan(T0);
   });
 
   it('一次放宽记一条使用痕迹(实际用到哪一步可回读),未放宽不记', () => {
@@ -248,7 +250,9 @@ describe('⑥ 审计痕迹可回读(落在既有出口 auditLog)', () => {
     checkRulesWithLease('delete_file', { ask: ['delete_file'] }, 'write', lease);
     const used = auditCalls.filter((c) => c.tool === 'permission_lease_used');
     expect(used).toHaveLength(1);
-    expect(used[0].input).toMatchObject({ capability: 'write_file', callsUsed: 1 });
+    const firstUsed = used[0];
+    if (firstUsed === undefined) throw new Error('缺少使用审计行');
+    expect(firstUsed.input).toMatchObject({ capability: 'write_file', callsUsed: 1 });
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

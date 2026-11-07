@@ -475,6 +475,9 @@ describe('G-944② 第二真相不得再多出一处', () => {
 
   it.runIf(erc20Authority !== null)(
     '逐字持有 env 权威值的文件只在豁免清单内(env 轮换时无处可藏)',
+    // BUG-0035:本用例要扫全仓文件找 env 权威值,单跑 1s 级、全量并行时 I/O 争抢会超过
+    // vitest 默认 15s。超时预算按"扫描面而不是机器负载"给,判据本身不变。
+    { timeout: 120_000 },
     () => {
       const holders = filesHoldingValue(String(erc20Authority?.value))
       const outside = holders.filter((h) => !ENV_VALUE_ALLOWED_HOLDERS.includes(h))

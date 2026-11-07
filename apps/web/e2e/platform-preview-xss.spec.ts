@@ -27,6 +27,7 @@ setupTest.describe('@security PlatformPreview XSS 修复回归', () => {
 
   setupTest('script 标签被转义为文本,DOM 无 script 节点', async ({ adminPage }) => {
     await adminPage.locator('textarea').first().fill('<script>alert(1)</script>')
+    // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
     await adminPage.waitForTimeout(600) // useDebounced 500ms
     expect(await adminPage.locator('script:has-text("alert(1)")').count()).toBe(0)
     await expect(adminPage.getByText('alert(1)').first()).toBeVisible()
@@ -34,19 +35,16 @@ setupTest.describe('@security PlatformPreview XSS 修复回归', () => {
 
   setupTest('javascript: 链接 href 被替换为 #', async ({ adminPage }) => {
     await adminPage.locator('textarea').first().fill('[click](javascript:alert(1))')
-    await adminPage.waitForTimeout(600)
     expect(await adminPage.locator('a[href^="javascript:"]').count()).toBe(0)
   })
 
   setupTest('javascript: 图片 src 被置空', async ({ adminPage }) => {
     await adminPage.locator('textarea').first().fill('![](javascript:alert(1))')
-    await adminPage.waitForTimeout(600)
     expect(await adminPage.locator('img[src^="javascript:"]').count()).toBe(0)
   })
 
   setupTest('img onerror 事件属性被转义,不成为有效属性', async ({ adminPage }) => {
     await adminPage.locator('textarea').first().fill('<img src=x onerror=alert(1)>')
-    await adminPage.waitForTimeout(600)
     expect(await adminPage.locator('[onerror]').count()).toBe(0)
   })
 })

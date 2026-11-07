@@ -135,7 +135,7 @@ describe('G-706 验收① phase=installing 崩溃 ⇒ 重启后目录保留不�
     const dir = makeHalfLandedDir(id)
 
     await expect(
-      createWorktreeCoW({ source: sourceRepo, destination: dir }),
+      createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() }),
     ).rejects.toBeInstanceOf(WorktreeLandUnprovableError)
 
     expect(fs.existsSync(dir)).toBe(true)
@@ -161,7 +161,7 @@ describe('G-706 验收② 补建 session 后 marker 被回收', () => {
   it('marker 齐备 + 补建 session ⇒ 对账"重建记录"臂:目录保留、marker 被回收', async () => {
     const id = 'landed-then-session'
     const dir = path.join(worktreesRoot(), id)
-    await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
     expect(isWorktreeMarkerComplete(dir)).toBe(true)
 
     // 补建 session(createSession 提交)
@@ -177,7 +177,7 @@ describe('G-706 验收② 补建 session 后 marker 被回收', () => {
   it('createSession 提交即解除清理武装:reclaimWorktreeMarker 回收后对账不再触碰该目录', async () => {
     const id = 'landed-disarm'
     const dir = path.join(worktreesRoot(), id)
-    await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
 
     expect(reclaimWorktreeMarker(dir)).toBe(true)
     expect(fs.existsSync(worktreeMarkerPath(dir))).toBe(false)
@@ -196,12 +196,12 @@ describe('G-706 机制 mkdir EEXIST 原子互斥 + marker 齐备 reused:true', (
   it('同目录第二次落盘 ⇒ reused:true,不重新复制(目录内改动原样存活)', async () => {
     const id = 'reuse-direct'
     const dir = path.join(worktreesRoot(), id)
-    const first = await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    const first = await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
     expect(first.reused).toBe(false)
 
     fs.writeFileSync(path.join(dir, 'README.md'), 'SENTINEL\n', 'utf-8')
 
-    const second = await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    const second = await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
     expect(second.reused).toBe(true)
     // 若重下载/重复制,reset --hard 会把 README 打回 'hello'
     expect(fs.readFileSync(path.join(dir, 'README.md'), 'utf-8').replace(/\r\n/g, '\n')).toBe('SENTINEL\n')
@@ -210,7 +210,7 @@ describe('G-706 机制 mkdir EEXIST 原子互斥 + marker 齐备 reused:true', (
   it('快路径包装器:marker 齐备且分支未建 ⇒ reused:true 不重下载,分支照常补建', async () => {
     const id = 'reuse-wrapper'
     const dir = path.join(worktreesRoot(), id)
-    await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
     fs.writeFileSync(path.join(dir, 'README.md'), 'SENTINEL2\n', 'utf-8')
 
     const wt = await createWorktreeWithFallback('parent-g706', id, sourceRepo, true)
@@ -234,7 +234,7 @@ describe('G-706 机制 启动对账三态', () => {
   it('marker 齐备 + session 行确实没有 ⇒ 只删自有子目录', async () => {
     const id = 'orphan-own'
     const dir = path.join(worktreesRoot(), id)
-    await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
 
     const actions = reconcileWorktreeArtifacts(sourceRepo)
 
@@ -257,7 +257,7 @@ describe('G-706 机制 启动对账三态', () => {
   it('session 行判不出(损坏 JSON)⇒ 暂时性错误不升级成删除,保留', async () => {
     const id = 'unreadable-row'
     const dir = path.join(worktreesRoot(), id)
-    await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
     fs.mkdirSync(path.dirname(getSubagentStatePath(id)), { recursive: true })
     fs.writeFileSync(getSubagentStatePath(id), '{ broken json', 'utf-8')
 
@@ -270,7 +270,7 @@ describe('G-706 机制 启动对账三态', () => {
   it('本次创建流程正持有的 id(exclude)不被对账触碰', async () => {
     const id = 'in-flight'
     const dir = path.join(worktreesRoot(), id)
-    await createWorktreeCoW({ source: sourceRepo, destination: dir })
+    await createWorktreeCoW({ source: sourceRepo, destination: dir, withinRoot: worktreesRoot() })
 
     const actions = reconcileWorktreeArtifacts(sourceRepo, { excludeSubagentIds: new Set([id]) })
 

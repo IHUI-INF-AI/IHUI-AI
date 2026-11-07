@@ -87,6 +87,7 @@ test('T1 §22c 出口在位:__test__ 必须真的导出被使用的判据(摘线
     'UP_TO_DATE_RE',
     'CREDENTIALS_UNAVAILABLE_RE',
     'HOOK_TRACE_RE',
+    'SCOPE_DEGRADE_EVIDENCE_RE',
   ]) {
     assert.ok(T[name] instanceof RegExp, `__test__.${name} 必须是 RegExp`)
   }
@@ -96,6 +97,11 @@ test('T1 §22c 出口在位:__test__ 必须真的导出被使用的判据(摘线
   assert.match(LIB_SRC, /export const __test__ = \{/, 'lib 里 __test__ 导出块不见了')
   assert.match(LIB_SRC, /\n  pushStateProvenance,/, '__test__ 里没有 pushStateProvenance')
   assert.match(LIB_SRC, /\n  REMOTE_REF_RACE_RE,/, '__test__ 里没有 REMOTE_REF_RACE_RE')
+  assert.match(
+    LIB_SRC,
+    /\n  SCOPE_DEGRADE_EVIDENCE_RE,/,
+    '__test__ 里没有 SCOPE_DEGRADE_EVIDENCE_RE ⇒ 2026-11-02 P4 的证据判据被摘线,镜像测试会退化成只测行为',
+  )
   // 反向锁:本测试文件不得自带一份分诊正则(判据只有一份)
   assert.doesNotMatch(
     SELF_SRC,
@@ -537,5 +543,140 @@ test('T11 e2e:converge 在"本地落后 + 一条四小时前的他人读数"下�
       }
     }
   }
+})
+
+// ══════════════════════════════════════════════════════════════════════
+// 2026-11-02 P4:`--no-verify` 只活在「范围外降级」显式证据后面(§12 默认永不跳钩)
+//   旧形态:hook-failed / other / credentials-unavailable 三档的 allowNoVerifyRetry
+//   一律 true ⇒ 钩子回显里只要带一句钩子痕迹,in-scope 类型错误也能被跳门推上去。
+//   现判据:只有 SCOPE_DEGRADE_EVIDENCE_RE 命中(那两串只由 check-typecheck 在**自己
+//   判定全部报错都在推送范围外并 exit 0** 时打印)才允许兜底。
+//   夹具逐字取自 `scripts/check-typecheck.mjs` 的降级文案,不自造(自造只会让锁跟着漂)。
+// ══════════════════════════════════════════════════════════════════════
+
+/** 钩子痕迹在、报错**在本次改动范围内** ⇒ 没有任何跳门资格。 */
+const HOOK_FAIL_INSCOPE = [
+  '❌ 全量 typecheck 失败,推送已阻止(exit 1)',
+  'ℹ️ 1/1 个报错文件在本次改动范围内,维持失败(样例前 20 个):',
+  '   - scripts/lib/push-attempt-triage.mjs',
+  '❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)',
+].join('\n')
+/** 同一型,但门自己判过"全部报错都在范围外"并打了降级块 ⇒ 显式证据在场。 */
+const HOOK_FAIL_OUT_OF_SCOPE = [
+  'ℹ️ 全部报错文件均不在本次改动范围(push-scope(本次推送改动范围),属并行会话工作区噪音),降级为警告',
+  'ℹ️ 判定:本次 push 放行(exit 0);报错文件的类型修复由其所属会话负责',
+  '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+  '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项',
+].join('\n')
+/** 快通道形态的降级行(N 个报错文件均不在…)也是证据。 */
+const FAST_LANE_DEGRADE =
+  'ℹ️ apps/api 定向 typecheck 的 3 个报错文件均不在本次改动范围(staged-scope(暂存区),属并行会话噪音),降级为警告'
+/** 无证据的自述句 —— 旧形态正是拿它当跳门根据,P4 后它不再是通行证。 */
+const SELF_ASSERTION = '✅ 本任务代码已自验通过,报错均来自并行会话'
+
+test('P4-① hook-failed 缺「范围外降级」证据 ⇒ 拒绝 --no-verify,但带 hook 重试不许被堵死', () => {
+  const v = T.triagePushAttempt({ status: 1, stderr: HOOK_FAIL_INSCOPE })
+  assert.equal(v.kind, 'hook-failed', '钩子痕迹仍须认成 hook-failed(收紧的是跳门资格,不是分类)')
+  assert.equal(v.allowHookRetry, true, '§5b ⑤ 的"带 hook 重试"链不得被本次修复削掉')
+  assert.equal(v.allowNoVerifyRetry, false, 'in-scope 类型错误 ⇒ 无资格 --no-verify')
+  assert.match(v.why, /没有[\s\S]*显式证据/, 'why 必须写明"缺哪条证据",便于复核分诊对不对')
+})
+
+test('P4-② 显式降级证据在场 ⇒ 仍放行 --no-verify(收紧不是把所有失败一律拦死)', () => {
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: HOOK_FAIL_OUT_OF_SCOPE }).allowNoVerifyRetry,
+    true,
+  )
+  // 两条形态各自单独够用:机器签名行 / 人类可读降级行
+  assert.equal(
+    T.triagePushAttempt({
+      status: 1,
+      stderr: `🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项\n[IHUI-SCOPE-DEGRADE] 降级为警告`,
+    }).allowNoVerifyRetry,
+    true,
+    '只带 [IHUI-SCOPE-DEGRADE] 签名行也算证据(它打印在降级块末尾,tail -40 截不掉)',
+  )
+  assert.equal(
+    T.triagePushAttempt({
+      status: 1,
+      stderr: `🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项\n${FAST_LANE_DEGRADE}`,
+    }).allowNoVerifyRetry,
+    true,
+    '快通道那句「N 个报错文件均不在本次改动范围…降级为警告」同样是证据',
+  )
+})
+
+test('P4-③ 有牙:把证据行摘掉 ⇒ 放行必须消失(证据门不是恒真开关)', () => {
+  const pairs = [
+    [HOOK_FAIL_OUT_OF_SCOPE, HOOK_FAIL_INSCOPE],
+    [
+      `🚫 1 道 blocking 门失败\n${FAST_LANE_DEGRADE}`,
+      '🚫 1 道 blocking 门失败\napps/api 定向 typecheck 的 3 个报错文件在本次改动范围内,维持失败',
+    ],
+    [
+      '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)\n🚫 1 道 blocking 门失败',
+      '🚫 1 道 blocking 门失败',
+    ],
+  ]
+  for (const [withEvidence, withoutEvidence] of pairs) {
+    assert.equal(
+      T.triagePushAttempt({ status: 1, stderr: withEvidence }).allowNoVerifyRetry,
+      true,
+      '正向例被写坏 ⇒ 本条锁等于没测',
+    )
+    assert.equal(
+      T.triagePushAttempt({ status: 1, stderr: withoutEvidence }).allowNoVerifyRetry,
+      false,
+      '摘掉证据行后仍放行 ⇒ 证据门形同虚设(blanket 回潮)',
+    )
+  }
+  // 正则层同批反证:判据本身也只认那两串
+  assert.ok(T.SCOPE_DEGRADE_EVIDENCE_RE.test(FAST_LANE_DEGRADE))
+  assert.ok(!T.SCOPE_DEGRADE_EVIDENCE_RE.test(SELF_ASSERTION), '无证据的自述句不得命中证据正则')
+  assert.ok(
+    !T.SCOPE_DEGRADE_EVIDENCE_RE.test(
+      'ℹ️ 全部报错文件均不在本次改动范围(staged-scope(暂存区)),仍维持失败(exit 1)',
+    ),
+    '只说"范围外"而没有"降级为警告"不构成证据 —— 缺半句就得拦',
+  )
+})
+
+test('P4-④ other 与 credentials 同受证据门约束;认不出的失败仍落 other(配对反证不松)', () => {
+  const net = T.triagePushAttempt({
+    status: 128,
+    stderr: 'fatal: unable to access https://github.com/: Failed to connect to 127.0.0.1 port 7897',
+  })
+  assert.equal(net.kind, 'other', '网络断不得被新档吃掉(既有配对反证)')
+  assert.equal(net.allowNoVerifyRetry, false, '认不出原因的失败没有跳门资格(旧形态这里 true)')
+  assert.equal(
+    T.triagePushAttempt({ status: 1, stderr: `${FAST_LANE_DEGRADE}\nfatal: 未知失败` })
+      .allowNoVerifyRetry,
+    true,
+    'other 档拿到显式证据同样放行',
+  )
+  const cred = T.triagePushAttempt({
+    status: 128,
+    stderr:
+      "error: failed to execute prompt script (exit code 1)\nfatal: could not read Username for 'https://github.com': No such file or directory",
+  })
+  assert.equal(cred.kind, 'credentials-unavailable')
+  assert.equal(cred.allowHookRetry, true, '带 hook 重试那一半保持原样,push-gate 链不动')
+  assert.equal(cred.allowNoVerifyRetry, false, '--no-verify 修不了凭据链,不得再借 other 的旧旗')
+  assert.match(cred.nextCommand, /check-credential-health/, '出路仍必须点名凭据巡检入口')
+  assert.match(cred.why, /--no-verify 对凭据链无作用/)
+})
+
+test('P4-⑤ 形状锁:lib 内任何分支都不许再把 allowNoVerifyRetry 写死 true(默认永不跳钩)', () => {
+  // verdict() 默认必须是 false;跳门资格只能来自 scopeDegradeEvidence 或显式 false。
+  assert.match(LIB_SRC, /\n    allowNoVerifyRetry: false,\n/, 'verdict() 默认被改回 true ⇒ 红')
+  assert.doesNotMatch(
+    LIB_SRC,
+    /allowNoVerifyRetry:\s*true/,
+    '出现写死的 allowNoVerifyRetry: true ⇒ blanket 放行回潮(§12 默认永不跳钩)',
+  )
+  const empty = T.triagePushAttempt({ status: 1, stdout: '', stderr: '' })
+  assert.equal(empty.kind, 'other', '空输出不得被猜成任何一种可跳门的档')
+  assert.equal(empty.allowNoVerifyRetry, false)
+  assert.equal(empty.allowHookRetry, true)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -23,7 +23,7 @@
  * 本层零 IO、零 git、零 process：行为只能靠构造面证明（§22c），所以镜像测试不必赌本机状态。
  */
 
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 
 /** 受保护面清单的唯一路径（清单自身也在受保护面里，见清单 why）。 */
 export const GUARD_DATA_REL = 'scripts/data/immutable-guard.json'
@@ -48,11 +48,25 @@ export const MIN_REASON_CHARS = 10
  */
 export const SIG_TRAILER = 'immutable-exempt-sig:'
 
-/** 签名串版本前缀（换算法时必须换版本，验签侧按版本判，不静默降级）。 */
+/**
+ * 签名串版本前缀（换算法时必须换版本，验签侧按版本判，不静默降级）。
+ *  `v1`（2026-11-04 初版）：载荷 `{subject, paths, reason}`，路径集取自**相对取数那一刻 HEAD
+ *       的差异集**——HEAD 被别席推进后差异集漂移，合法提交会被判 `sig-invalid`（本单要治的那支）。
+ *       仍保留**只作历史兼容**（已入库的老签名不能倒过来变红），新签发一律 `v2`。
+ *  `v2`（2026-11-04 本单）：载荷 `{subject, base, files:[{path,blob}], reason}`，`base` 是签发时
+ *       钉住的 HEAD，`blob` 是每条**受保护命中路径的内容号**。验签按 `base` 重放差异集，HEAD 前移
+ *       不再改变取数面；内容被换而路径不变也会验不过。
+ */
 export const SIG_VERSION = 'v1'
+export const SIG_VERSION_V2 = 'v2'
+/** 新签发用的版本（输出层只说这一个）。 */
+export const SIG_VERSION_CURRENT = SIG_VERSION_V2
 
-/** `v1:<64 位 hex>`。形状坏 ⇒ 不进 `sigs`，进 `problems` 点名。 */
-export const SIG_HEX_RE = /^v1:[a-f0-9]{64}$/i
+/** `v1:<64hex>` 或 `v2:<40hex base>:<64hex>`。形状坏 ⇒ 不进 `sigs`，进 `problems` 点名。 */
+export const SIG_HEX_RE = /^(?:v1:[a-f0-9]{64}|v2:[a-f0-9]{40}:[a-f0-9]{64})$/i
+
+/** v2 的分帧：`v2:<base40>:<hmac64>`。 */
+export const SIG_V2_RE = /^v2:([a-f0-9]{40}):([a-f0-9]{64})$/i
 
 /** 密钥最短长度（字符）。短于此按「密钥不存在」处理 ⇒ fail-closed 未豁免。 */
 export const MIN_KEY_CHARS = 32
@@ -64,7 +78,20 @@ export const SIGNATURE_REQUIRED_KEY = 'signatureRequiredFrom'
 export const UNSIGNED_LEDGER_REL = '.ihui-agent/state/immutable-guard-unsigned-ledger.jsonl'
 
 /** 受保护面的四类。kind 是分类不是匹配模式（匹配模式由 path 形态决定）。 */
-export const PROTECTED_KINDS = Object.freeze(['gate-body', 'rule-doc', 'judgement-lib', 'gate-registry'])
+/**
+ * 受保护面的分类闭集(2026-11-05 增 autonomy-* 两枚)。
+ * 补类目的不是省事:自主环的执行体与熔断账本既不是门体也不是判据库,而实测**环自己派出的会话
+ * 会去改执行体**(两枚残骸),旧枚举里没有"环自身"这一类 ⇒ 要么谎称 gate-body、要么根本不登记。
+ * 新增类必须同样带 why + reviewBy(到期回队列),分类扩张本身受本面保护。
+ */
+export const PROTECTED_KINDS = Object.freeze([
+  'gate-body',
+  'rule-doc',
+  'judgement-lib',
+  'gate-registry',
+  'autonomy-executor',
+  'autonomy-cost',
+])
 
 /** 结论码 → 人话。输出层只查这一张表，不逐处拼字符串。 */
 export const CODE_LABEL = Object.freeze({
@@ -75,6 +102,8 @@ export const CODE_LABEL = Object.freeze({
   undeclared: '判红：触及受保护面但提交信息里没有可用的 immutable-exempt: 声明',
   'retro-declared':
     '通过（事后追认）：提交当时**没有**声明，由持钥方在台账里逐枚具名补了签名说明 ⇒ 读数必须打「追认@ackedBy」，不得当"当时就声明了"',
+  'declared-attested':
+    '通过（事后具名追认）：提交当时没有有效声明，持钥方在 attestations 台账里逐枚按实际触发路径签了说明 ⇒ 读数必须打「已追认@reviewer」，不得读成当时就合规',
   'undeclared-unsigned':
     '判红：触及受保护面且有文字理由，但缺少/验不过 immutable-exempt-sig（签名豁免未生效）',
   expired: '判红：受保护面清单里有 reviewBy 已到期的条目（清单腐烂，§0.7）',
@@ -103,7 +132,9 @@ export function isValidDateStr(s) {
   const [, y, mo, d] = m
   const dt = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)))
   return (
-    dt.getUTCFullYear() === Number(y) && dt.getUTCMonth() === Number(mo) - 1 && dt.getUTCDate() === Number(d)
+    dt.getUTCFullYear() === Number(y) &&
+    dt.getUTCMonth() === Number(mo) - 1 &&
+    dt.getUTCDate() === Number(d)
   )
 }
 
@@ -199,7 +230,9 @@ export function parseGuardList(text, { today = todayStr() } = {}) {
   } else {
     return {
       entries: [],
-      problems: [{ code: 'not-array', message: '清单顶层必须是数组或 {entries:[…], signatureRequiredFrom}' }],
+      problems: [
+        { code: 'not-array', message: '清单顶层必须是数组或 {entries:[…], signatureRequiredFrom}' },
+      ],
       expired: [],
       signatureRequiredFrom: null,
     }
@@ -340,18 +373,79 @@ export function subjectOf(message) {
  * 用 JSON 序列化而非分隔符拼接：路径里出现任何字符都不会造成歧义。
  */
 export function exemptPayload({ subject, hits, reason }) {
-  const paths = [...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? '')))]
+  const paths = [
+    ...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? ''))),
+  ]
     .filter(Boolean)
     .sort()
-  return JSON.stringify({ v: SIG_VERSION, subject: String(subject ?? '').trim(), paths, reason: String(reason ?? '').trim() })
+  return JSON.stringify({
+    v: SIG_VERSION,
+    subject: String(subject ?? '').trim(),
+    paths,
+    reason: String(reason ?? '').trim(),
+  })
 }
 
 /** 签发：`v1:<hex>`。只有持钥方（CI / 机主注入的环境变量或仓外路径）能算得出来。 */
 export function signExemption({ subject, hits, reason, key }) {
   const k = String(key ?? '')
-  if (k.length < MIN_KEY_CHARS) throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  if (k.length < MIN_KEY_CHARS)
+    throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
   const mac = createHmac('sha256', k).update(exemptPayload({ subject, hits, reason })).digest('hex')
   return `${SIG_VERSION}:${mac}`
+}
+
+/**
+ * v2 规范串：`{v:'v2', subject, base, files:[{path,blob}], reason}`。
+ *
+ * 与 v1 的差别是**取数面被钉住**：
+ *   - `base` 是签发那一刻的 HEAD（40 位）。验签时按这个 base 重放 `diff --cached <base>`，
+ *     所以「签发之后 HEAD 被别席推进」不再让路径集漂移（v1 的 `sig-invalid` 假红正出在这里）；
+ *   - `files` 逐条带 **blob 内容号**：路径集不变而内容被换（同一路径改别的内容）也验不过，
+ *     v1 只看路径名，这一格是它没覆盖的。
+ * 键集与 v1 不同形 ⇒ 两个版本的签名互不可挪用。
+ */
+export function exemptPayloadV2({ subject, hits, blobs = {}, reason, base }) {
+  const paths = [
+    ...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? ''))),
+  ]
+    .filter(Boolean)
+    .sort()
+  const files = paths.map((p) => ({ path: p, blob: String((blobs && blobs[p]) ?? '') }))
+  return JSON.stringify({
+    v: SIG_VERSION_V2,
+    subject: String(subject ?? '').trim(),
+    base: String(base ?? '')
+      .trim()
+      .toLowerCase(),
+    files,
+    reason: String(reason ?? '').trim(),
+  })
+}
+
+/**
+ * v2 签发：`v2:<base40>:<hex>`。`base` 必须是 40 位全量 sha（短写/空值一律拒签，
+ * 签一个钉不住的 base 等于把取数面留回漂移）。
+ */
+export function signExemptionV2({ subject, hits, blobs = {}, reason, key, base }) {
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS)
+    throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  const b = String(base ?? '')
+    .trim()
+    .toLowerCase()
+  if (!/^[a-f0-9]{40}$/.test(b))
+    throw new Error(`v2 签名的 base 必须是 40 位全量 sha，收到：${String(base ?? '').slice(0, 20)}`)
+  const mac = createHmac('sha256', k)
+    .update(exemptPayloadV2({ subject, hits, blobs, reason, base: b }))
+    .digest('hex')
+  return `${SIG_VERSION_V2}:${b}:${mac}`
+}
+
+/** v2 签名串里的 base；不是 v2 ⇒ null（v1 走旧语义，不猜 base）。 */
+export function sigBaseOf(sig) {
+  const m = SIG_V2_RE.exec(String(sig ?? ''))
+  return m ? m[1].toLowerCase() : null
 }
 
 function hmacEqual(expectedHex, actualHex) {
@@ -368,25 +462,76 @@ function hmacEqual(expectedHex, actualHex) {
  *   sig-malformed  有 sig 行但形状坏
  *   key-unavailable 需要验签但密钥不存在（**fail-closed**，绝不"没钥匙就放行"）
  *   sig-invalid    形状对但验不过（密钥不对 / 内容被改 / 抄了别的提交的签名）
+ *
+ * `hitsByBase`（v2 专用，可选）：`{ <base40>: hits }` —— 调用方按签名自己钉住的 base
+ * 重放出来的命中面。v2 先按 base 重放面验，再按当前面验；v1 只用当前面（旧语义，一字不改）。
+ * 这样「签发后 HEAD 前移」不再判 `sig-invalid`，而 v1 的历史签名行为保持原样（可作对照基线）。
+ *
+ * `blobs`（v2 专用）：`{ <path>: <blob> }`，取数与判定同面同轮（staged 取索引，head 取 `${rev}:path`）。
  * @returns {{present:boolean, ok:boolean, code:string, reasons:Array<object>, problems:Array<object>}}
  */
-export function verifyExemption({ message, hits, key }) {
+export function verifyExemption({ message, hits, key, hitsByBase = null, blobs = {} }) {
   const reasonRes = parseExemptTrailer(message)
   const sigRes = parseSigTrailer(message)
   const problems = [...reasonRes.problems, ...sigRes.problems]
-  const base = { present: sigRes.present, ok: false, reasons: reasonRes.reasons, problems }
-  if (!sigRes.sigs.length) return { ...base, code: sigRes.present ? 'sig-malformed' : 'sig-missing' }
+  const envelope = { present: sigRes.present, ok: false, reasons: reasonRes.reasons, problems }
+  if (!sigRes.sigs.length)
+    return { ...envelope, code: sigRes.present ? 'sig-malformed' : 'sig-missing' }
   const k = String(key ?? '')
-  if (k.length < MIN_KEY_CHARS) return { ...base, code: 'key-unavailable' }
+  if (k.length < MIN_KEY_CHARS) return { ...envelope, code: 'key-unavailable' }
   const subject = subjectOf(message)
+  const current = Array.isArray(hits) ? hits : []
   for (const sig of sigRes.sigs) {
+    const base = sigBaseOf(sig)
+    if (base) {
+      // v2：先按钉住的 base 重放面，再按当前面（两条都是"合法落点"：前者=索引建于旧 HEAD，
+      // 后者=索引已在新 HEAD 上重建，例如 isolated-git 的重试轮）。
+      const actual = sig.split(':')[2]
+      const alt =
+        hitsByBase && Object.prototype.hasOwnProperty.call(hitsByBase, base)
+          ? hitsByBase[base]
+          : null
+      const sets = []
+      if (Array.isArray(alt)) sets.push(alt)
+      if (!Array.isArray(alt) || alt !== current) sets.push(current)
+      for (const set of sets) {
+        // 逐条理由分别算（保持"同一提交里多条理由逐行生效"的旧语义）。
+        for (const r of reasonRes.reasons) {
+          const want = createHmac('sha256', k)
+            .update(exemptPayloadV2({ subject, hits: set, blobs, reason: r.reason, base }))
+            .digest('hex')
+          if (hmacEqual(want, actual)) {
+            return {
+              ...envelope,
+              ok: true,
+              code: 'sig-verified',
+              sigVersion: SIG_VERSION_V2,
+              matchedBase: base,
+              hitsUsed: set,
+            }
+          }
+        }
+      }
+      continue
+    }
+    // v1（历史兼容）：载荷与取数面完全按旧语义，绝不借 v2 的 base/blob 放宽。
     const actual = sig.slice(SIG_VERSION.length + 1)
     for (const r of reasonRes.reasons) {
-      const expected = createHmac('sha256', k).update(exemptPayload({ subject, hits, reason: r.reason })).digest('hex')
-      if (hmacEqual(expected, actual)) return { ...base, ok: true, code: 'sig-verified' }
+      const expected = createHmac('sha256', k)
+        .update(exemptPayload({ subject, hits: current, reason: r.reason }))
+        .digest('hex')
+      if (hmacEqual(expected, actual)) {
+        return {
+          ...envelope,
+          ok: true,
+          code: 'sig-verified',
+          sigVersion: SIG_VERSION,
+          hitsUsed: current,
+        }
+      }
     }
   }
-  return { ...base, code: 'sig-invalid' }
+  return { ...envelope, code: 'sig-invalid' }
 }
 
 /**
@@ -398,7 +543,8 @@ export function judgeChanges({ changes, entries, message = '', today = todayStr(
   const untouched = []
   for (const c of Array.isArray(changes) ? changes : []) {
     if (!c || typeof c.path !== 'string') continue
-    const paths = c.status === 'R' || c.status === 'C' ? [c.oldPath, c.path].filter(Boolean) : [c.path]
+    const paths =
+      c.status === 'R' || c.status === 'C' ? [c.oldPath, c.path].filter(Boolean) : [c.path]
     const local = []
     for (const p of paths) {
       const entry = matchProtected(p, entries)
@@ -441,8 +587,14 @@ export function decide({
   signatureRequiredFrom = null,
   ackRows = [],
   sha = null,
+  hitsByBase = null,
+  blobs = {},
+  ackKey = null,
+  legacyA1 = false,
+  attestRows = [],
+  commitDate = null,
 }) {
-  const base = {
+  const envelope = {
     hits: [],
     untouched: [],
     exempt: { present: false, reasons: [], problems: [] },
@@ -450,21 +602,72 @@ export function decide({
     signature: { present: false, ok: false, code: 'sig-missing', reasons: [], problems: [] },
     signatureRequiredFrom,
   }
-  if (listProblems.length) return { ...base, exit: 2, code: 'list-bad', listProblems }
-  if (!entries.length) return { ...base, exit: 2, code: 'list-empty', listProblems }
+  if (listProblems.length) return { ...envelope, exit: 2, code: 'list-bad', listProblems }
+  if (!entries.length) return { ...envelope, exit: 2, code: 'list-empty', listProblems }
   const judged = judgeChanges({ changes, entries, message: message ?? '', today })
-  const signature = verifyExemption({ message: message ?? '', hits: judged.hits, key })
-  const out = { ...judged, signature, signatureRequiredFrom, listProblems }
+  const signature = verifyExemption({
+    message: message ?? '',
+    hits: judged.hits,
+    key,
+    hitsByBase,
+    blobs,
+  })
+  // v2 若按签名自己钉住的 base 命中，被判定的"本次声明面"应以**签名面**为准；
+  // 当前面里多出来的受保护路径是别席提交借 HEAD 前移入镜的（记数，不当作本次改动）。
+  const signedHits =
+    signature.ok && Array.isArray(signature.hitsUsed) ? signature.hitsUsed : judged.hits
+  const signedPaths = new Set(signedHits.map((h) => normalizeRel(h?.path ?? '')))
+  const foreignHits = judged.hits
+    .map((h) => normalizeRel(h?.path ?? ''))
+    .filter((p) => p && !signedPaths.has(p))
+  const out = {
+    ...judged,
+    hits: signedHits,
+    foreignHits,
+    signature,
+    signatureRequiredFrom,
+    listProblems,
+  }
   if (judged.expired.length) return { ...out, exit: 1, code: 'expired' }
   if (!judged.hits.length) return { ...out, exit: 0, code: 'pass' }
   if (message === null) return { ...out, exit: 2, code: 'message-missing' }
   // 追认台账只在"这一枚当下被判红"时才问;命中面交给 lookupAck,paths 未覆盖即不算点名到位。
   const rows = Array.isArray(ackRows) ? ackRows : []
-  const ack = sha && rows.length > 0 ? lookupAck({ rows, sha, hits: judged.hits, today, key }) : { state: 'none', why: '' }
-  const ackOr = (substitutedFor, redCode) =>
-    ack.state === 'valid'
-      ? { ...out, exit: 0, code: 'retro-declared', ack: { ...ack, substitutedFor } }
-      : { ...out, exit: 1, code: redCode, ack: ack.state === 'invalid' ? ack : null }
+  const ack =
+    sha && rows.length > 0
+      ? lookupAck({ rows, sha, hits: judged.hits, today, key, ackKey, legacyA1 })
+      : { state: 'none', why: '' }
+  // 具名追认台账（2026-11-07）：与 ack 同档，只在判红时兜底；命中面按**实际触发路径**逐个比。
+  // 它先于 ack 生效：attestations 是持钥方按"实际触发路径全集"逐枚签的，比旧 a1/a2 更贴着这一枚。
+  const attestRowList = Array.isArray(attestRows) ? attestRows : []
+  const attest =
+    sha && attestRowList.length > 0
+      ? lookupAttestation({
+          rows: attestRowList,
+          sha,
+          hits: judged.hits,
+          commitDate,
+          key,
+        })
+      : { state: 'none', why: '' }
+  const ackOr = (substitutedFor, redCode) => {
+    if (attest.state === 'valid')
+      return {
+        ...out,
+        exit: 0,
+        code: 'declared-attested',
+        attest: { ...attest, substitutedFor },
+      }
+    if (ack.state === 'valid')
+      return { ...out, exit: 0, code: 'retro-declared', ack: { ...ack, substitutedFor } }
+    return {
+      ...out,
+      exit: 1,
+      code: redCode,
+      ack: ack.state === 'invalid' ? ack : null,
+      attest: attest.state === 'invalid' ? attest : null,
+    }
+  }
   if (!judged.exempt.reasons.length) return ackOr('无 trailer 声明', 'undeclared')
   if (signature.ok) return { ...out, exit: 0, code: 'declared' }
   // 有签名行却验不过（含密钥取不到）⇒ 一律判红：它是对"已签名"的**正向声明**，
@@ -474,7 +677,9 @@ export function decide({
   if (signature.present) return ackOr('自带签名验不过', 'undeclared-unsigned')
   // 开关缺席 = 旧语义（窗未引入/历史提交）⇒ 窗口视为开；非法日期在 parseGuardList 已按 list-bad 拦下。
   // 开关一旦存在，日期到期即 windowOpen=false ⇒ 判红（到期自动收紧，无需再改代码）。
-  const windowOpen = signatureRequiredFrom === null || (isValidDateStr(String(signatureRequiredFrom)) && today < signatureRequiredFrom)
+  const windowOpen =
+    signatureRequiredFrom === null ||
+    (isValidDateStr(String(signatureRequiredFrom)) && today < signatureRequiredFrom)
   if (!windowOpen) return ackOr('窗口已过而只有文字理由', 'undeclared-unsigned')
   return { ...out, exit: 0, code: 'declared-unsigned' }
 }
@@ -553,26 +758,81 @@ export function probeEntry(entry) {
  */
 export const ACK_LEDGER_REL = 'scripts/data/immutable-guard-acks.jsonl'
 
-/** 追认签名版本前缀（与提交内 `v1:` 载荷不同形，互不可挪用）。 */
-export const ACK_SIG_VERSION = 'a1'
+/**
+ * 追认签名版本前缀。与提交内 `v1:` 载荷不同形，互不可挪用。
+ *  `a1`（历史）：载荷 `{v,sha,paths,reason}`，**不含 ackedBy**，由提交签名密钥签发；
+ *        ⇒ 2026-11-04 实测出的洞：作者自己的钥就能给自己补一条，`ackedBy` 只是自由文本。
+ *        只对 **origin/main 已入库枚**保留（那些枚改不动历史、也不会再进推送区间），本地枚一律拒。
+ *  `a2`（本单）：载荷 `{v,sha,paths,reason,ackedBy}`，由**独立追认密钥**签发（与提交签名密钥不同）；
+ *        密钥相同 ⇒ `ack-self-key` 直接拒（自认不算他方追认），密钥缺失 ⇒ `ack-key-unavailable`。
+ */
+export const ACK_SIG_VERSION_LEGACY = 'a1'
+export const ACK_SIG_VERSION = ACK_SIG_VERSION_LEGACY
+export const ACK_SIG_VERSION_CURRENT = 'a2'
 
 /** 证据指针的形态闸：40 位全量 sha，短写一律不收。 */
 export const FULL_SHA_RE = /^[0-9a-f]{40}$/
 
-/** 追认签名串形状 `a1:<64 hex>`（复用长度规则，只换版本前缀）。 */
-export const ACK_SIG_RE = /^a1:[a-f0-9]{64}$/i
+/** 追认签名串形状 `a1:<64 hex>` / `a2:<64 hex>`（复用长度规则，只换版本前缀）。 */
+export const ACK_SIG_RE = /^a[12]:[a-f0-9]{64}$/i
 
-/** 追认签名载荷：`{v,sha,paths,reason}`，paths 去重排序，与 `exemptPayload` 不同键集。 */
+/** 追认签名载荷（a1 legacy）：`{v,sha,paths,reason}`，paths 去重排序，与 `exemptPayload` 不同键集。 */
 export function ackPayload({ sha, paths, reason }) {
-  const uniq = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))].filter(Boolean).sort()
-  return JSON.stringify({ v: ACK_SIG_VERSION, sha: String(sha ?? '').trim().toLowerCase(), paths: uniq, reason: String(reason ?? '').trim() })
+  const uniq = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))]
+    .filter(Boolean)
+    .sort()
+  return JSON.stringify({
+    v: ACK_SIG_VERSION_LEGACY,
+    sha: String(sha ?? '')
+      .trim()
+      .toLowerCase(),
+    paths: uniq,
+    reason: String(reason ?? '').trim(),
+  })
 }
 
-/** 签发追认行（只有持钥方算得出来）。密钥不足 ⇒ 抛，不静默产出可用假签名。 */
-export function signAck({ sha, paths, reason, key }) {
+/** 追认签名载荷（a2）：多绑一格 `ackedBy`，签名后改不动署名（否则"谁补的"仍是一句自由文本）。 */
+export function ackPayloadV2({ sha, paths, reason, ackedBy }) {
+  const uniq = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))]
+    .filter(Boolean)
+    .sort()
+  return JSON.stringify({
+    v: ACK_SIG_VERSION_CURRENT,
+    sha: String(sha ?? '')
+      .trim()
+      .toLowerCase(),
+    paths: uniq,
+    reason: String(reason ?? '').trim(),
+    ackedBy: String(ackedBy ?? '').trim(),
+  })
+}
+
+/** 签发追认行（a2，只有独立追认密钥的持有方能算出来）。密钥/署名不足 ⇒ 抛，不静默产出可用假签名。 */
+export function signAck({ sha, paths, reason, ackedBy, key }) {
   const k = String(key ?? '')
-  if (k.length < MIN_KEY_CHARS) throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
-  return `${ACK_SIG_VERSION}:${createHmac('sha256', k).update(ackPayload({ sha, paths, reason })).digest('hex')}`
+  if (k.length < MIN_KEY_CHARS)
+    throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  const by = String(ackedBy ?? '').trim()
+  if (!by) throw new Error('ackedBy 必填（a2 追认必须把"谁补的"签进载荷）')
+  return `${ACK_SIG_VERSION_CURRENT}:${createHmac('sha256', k)
+    .update(ackPayloadV2({ sha, paths, reason, ackedBy: by }))
+    .digest('hex')}`
+}
+
+/** 追认签名串的版本（`a1` / `a2`）。形状已由 ACK_SIG_RE 闸过。 */
+export function ackVersionOf(sig) {
+  return String(sig ?? '')
+    .slice(0, 2)
+    .toLowerCase() === ACK_SIG_VERSION_LEGACY
+    ? ACK_SIG_VERSION_LEGACY
+    : ACK_SIG_VERSION_CURRENT
+}
+
+/** 密钥指纹（只用于判"两把钥匙是不是同一把"，不回传密钥本身）。 */
+function keyFingerprint(k) {
+  return createHash('sha256')
+    .update(String(k ?? ''))
+    .digest('hex')
 }
 
 /**
@@ -598,17 +858,25 @@ export function parseAckLedger(text) {
       problems.push({ line: i + 1, why: '一行必须是对象' })
       return
     }
-    const missing = ['sha', 'paths', 'reason', 'ackedBy', 'expires', 'sig'].filter((k) => o[k] === undefined || o[k] === null || o[k] === '')
+    const missing = ['sha', 'paths', 'reason', 'ackedBy', 'expires', 'sig'].filter(
+      (k) => o[k] === undefined || o[k] === null || o[k] === '',
+    )
     if (missing.length) {
       problems.push({ line: i + 1, why: `缺必填键：${missing.join(',')}` })
       return
     }
     if (!FULL_SHA_RE.test(String(o.sha))) {
-      problems.push({ line: i + 1, why: `sha 必须 40 位全量（证据指针禁短写）：${String(o.sha).slice(0, 20)}` })
+      problems.push({
+        line: i + 1,
+        why: `sha 必须 40 位全量（证据指针禁短写）：${String(o.sha).slice(0, 20)}`,
+      })
       return
     }
     if (!Array.isArray(o.paths) || o.paths.length === 0) {
-      problems.push({ line: i + 1, why: 'paths 必须逐条列出被追认的受保护面（空数组=模糊范围，不算说明）' })
+      problems.push({
+        line: i + 1,
+        why: 'paths 必须逐条列出被追认的受保护面（空数组=模糊范围，不算说明）',
+      })
       return
     }
     if ([...String(o.reason).trim()].length < MIN_REASON_CHARS) {
@@ -616,11 +884,17 @@ export function parseAckLedger(text) {
       return
     }
     if (!isValidDateStr(String(o.expires))) {
-      problems.push({ line: i + 1, why: `expires 必须是 YYYY-MM-DD：${String(o.expires).slice(0, 20)}` })
+      problems.push({
+        line: i + 1,
+        why: `expires 必须是 YYYY-MM-DD：${String(o.expires).slice(0, 20)}`,
+      })
       return
     }
     if (!ACK_SIG_RE.test(String(o.sig))) {
-      problems.push({ line: i + 1, why: `sig 形状坏（应为 a1:<64hex>）：${String(o.sig).slice(0, 8)}` })
+      problems.push({
+        line: i + 1,
+        why: `sig 形状坏（应为 a1:<64hex>）：${String(o.sig).slice(0, 8)}`,
+      })
       return
     }
     rows.push({ ...o, sha: String(o.sha).toLowerCase(), line: i + 1 })
@@ -637,24 +911,356 @@ export function parseAckLedger(text) {
  * `hits` 传被审提交实际改动的**文件路径**（判定输出里的 `hits[].path`，不是清单匹配模式）：
  * 追认的 paths 必须覆盖它们——"追认整枚但漏掉一个改过的文件"不算说明到位。
  */
-export function lookupAck({ rows, sha, hits = [], today = todayStr(), key = null }) {
+export function lookupAck({
+  rows,
+  sha,
+  hits = [],
+  today = todayStr(),
+  key = null,
+  ackKey = null,
+  legacyA1 = false,
+}) {
   const target = String(sha ?? '').toLowerCase()
   if (!target) return { state: 'none', why: '无 sha 可查' }
   const mine = (Array.isArray(rows) ? rows : []).filter((r) => r.sha === target)
   if (mine.length === 0) return { state: 'none', why: '' }
   const row = mine[mine.length - 1]
   const extra = mine.length > 1 ? { superseded: mine.length - 1 } : {}
-  if (String(row.expires) <= today) return { state: 'invalid', code: 'ack-expired', row, why: `追认已到期（${row.expires}）`, ...extra }
-  const hitPaths = [...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? '')))]
+  if (String(row.expires) <= today)
+    return {
+      state: 'invalid',
+      code: 'ack-expired',
+      row,
+      why: `追认已到期（${row.expires}）`,
+      ...extra,
+    }
+  const hitPaths = [
+    ...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? ''))),
+  ]
   const ackPaths = [...new Set((row.paths || []).map((p) => normalizeRel(p)))]
   const uncovered = hitPaths.filter((p) => !ackPaths.includes(p))
-  if (uncovered.length) return { state: 'invalid', code: 'ack-paths-incomplete', row, why: `追认未列出：${uncovered.join(',')}`, ...extra }
-  const k = String(key ?? '')
-  if (k.length < MIN_KEY_CHARS) return { state: 'invalid', code: 'ack-key-unavailable', row, why: '密钥不可得 ⇒ 无法验签（fail-closed）', ...extra }
-  const expected = createHmac('sha256', k).update(ackPayload({ sha: row.sha, paths: row.paths, reason: row.reason })).digest('hex')
-  if (!hmacEqual(expected, String(row.sig).slice(ACK_SIG_VERSION.length + 1))) {
-    return { state: 'invalid', code: 'ack-sig-invalid', row, why: '追认签名验不过（内容被改 / 抄自别处）', ...extra }
+  if (uncovered.length)
+    return {
+      state: 'invalid',
+      code: 'ack-paths-incomplete',
+      row,
+      why: `追认未列出：${uncovered.join(',')}`,
+      ...extra,
+    }
+  const version = ackVersionOf(row.sig)
+  if (version === ACK_SIG_VERSION_LEGACY) {
+    // a1 只作历史兼容：本地枚（未进 origin/main）一律拒，否则"作者拿提交签名密钥自签一行"
+    // 仍能洗白一枚本地红 —— 那个洞正是本单要关的。
+    if (!legacyA1) {
+      return {
+        state: 'invalid',
+        code: 'ack-legacy-retired',
+        row,
+        why: 'a1 追认只对 origin/main 已入库枚保留；本地枚须 a2 独立追认',
+        ...extra,
+      }
+    }
+    const k = String(key ?? '')
+    if (k.length < MIN_KEY_CHARS)
+      return {
+        state: 'invalid',
+        code: 'ack-key-unavailable',
+        row,
+        why: '密钥不可得 ⇒ 无法验签（fail-closed）',
+        ...extra,
+      }
+    const expected = createHmac('sha256', k)
+      .update(ackPayload({ sha: row.sha, paths: row.paths, reason: row.reason }))
+      .digest('hex')
+    if (!hmacEqual(expected, String(row.sig).slice(ACK_SIG_VERSION_LEGACY.length + 1))) {
+      return {
+        state: 'invalid',
+        code: 'ack-sig-invalid',
+        row,
+        why: '追认签名验不过（内容被改 / 抄自别处）',
+        ...extra,
+      }
+    }
+    return { state: 'valid', code: 'ack-verified', row, why: '', ...extra }
+  }
+  // a2：独立追认密钥。缺钥 ⇒ fail-closed；与提交签名密钥同一把 ⇒ 自认，不算他方追认。
+  const ackK = String(ackKey ?? '')
+  if (ackK.length < MIN_KEY_CHARS) {
+    return {
+      state: 'invalid',
+      code: 'ack-key-unavailable',
+      row,
+      why: '独立追认密钥不可得 ⇒ fail-closed（不拿提交签名密钥顶替）',
+      ...extra,
+    }
+  }
+  const submitK = String(key ?? '')
+  if (submitK.length >= MIN_KEY_CHARS && keyFingerprint(ackK) === keyFingerprint(submitK)) {
+    return {
+      state: 'invalid',
+      code: 'ack-self-key',
+      row,
+      why: '追认密钥与提交签名密钥同一把 ⇒ 作者自认，不算他方追认',
+      ...extra,
+    }
+  }
+  if (!String(row.ackedBy ?? '').trim()) {
+    return {
+      state: 'invalid',
+      code: 'ack-ackedby-missing',
+      row,
+      why: 'a2 追认必须署名（ackedBy 为空）',
+      ...extra,
+    }
+  }
+  const expected = createHmac('sha256', ackK)
+    .update(
+      ackPayloadV2({ sha: row.sha, paths: row.paths, reason: row.reason, ackedBy: row.ackedBy }),
+    )
+    .digest('hex')
+  if (!hmacEqual(expected, String(row.sig).slice(ACK_SIG_VERSION_CURRENT.length + 1))) {
+    return {
+      state: 'invalid',
+      code: 'ack-sig-invalid',
+      row,
+      why: '追认签名验不过（内容被改 / 抄自别处 / 换了署名）',
+      ...extra,
+    }
   }
   return { state: 'valid', code: 'ack-verified', row, why: '', ...extra }
 }
+
+/**
+ * ── 具名追认台账（attestations，2026-11-07 立）──────────────────────────────
+ *
+ * 与上面的 `immutable-guard-acks.jsonl`（a1/a2）是**两条不同通道**，不要混用：
+ *   - acks 是 2026-11-04 立的旧通道，带 `expires`（到期回到红），a1 只对 origin/main 已入库枚保留，
+ *     a2 要求"与提交签名钥不同的独立追认钥"；
+ *   - attestations 是本单立的通道：一行一条，`sha/paths/reason/reviewer/attestedAt/sig`，
+ *     **不带 expires**（是否续期由人工复核决定，不在本档自动收紧），签名钥 = 提交签名钥
+ *     （`ihui.immutableGuardKeyPath`，即"持钥方"这一控制点）。
+ *
+ * 判据红线（写死在这里，不靠调用方自觉）：
+ *  1. `paths` 必须与该枚**实际触发路径集合**逐元素相等（多一条 / 少一条 / 改写路径 ⇒ 判红）；
+ *  2. `sig` 必须验得过（载荷逐字节覆盖 sha/paths/reason/reviewer/attestedAt，改一处即失效）；
+ *  3. `reason` ≥ 40 字、`reviewer` 非空（空理由/空署名不算说明）；
+ *  4. 同一 sha 出现两条及以上 ⇒ 判红（不许重复追认，"最后一行覆盖"在追认语境下等于静默改写）；
+ *  5. `attestedAt` 必须 ≥ 该 sha 的提交日期（不许拿"未来的追认"给已落账的枚背书）。
+ * 台账本身登记在受保护面上（见 `immutable-guard.json` 的 `ATTEST_LEDGER_REL` 条目）：
+ * 往里加一行等于补发豁免，所以**改台账这件事本身也要显式声明**。
+ *
+ * 签名算法（与 `sign-immutable-attestations.mjs` 逐字一致，改动即两边同时改）：
+ *   payload = JSON.stringify({sha, paths, reason, reviewer, attestedAt})
+ *   键序固定为 sha → paths → reason → reviewer → attestedAt；paths 去重后按字典序升序；
+ *   sig      = HMAC-SHA256(key, payload) 的 64 位小写 hex（不带版本前缀，与 v1/v2/a1/a2 不同形）。
+ */
+export const ATTEST_LEDGER_REL = 'scripts/data/immutable-guard-attestations.jsonl'
+
+/** 追认理由最小长度：比 trailer 的 10 字更严——事后追认要交代"当时为什么没声明"，40 字是下限。 */
+export const ATTEST_MIN_REASON_CHARS = 40
+
+/** 追认签名形状：裸 64 hex（无版本前缀）。 */
+export const ATTEST_SIG_RE = /^[0-9a-f]{64}$/
+
+/**
+ * 追认签名载荷。**键序与 paths 排序是签名的一部分**：任何一处变化都会让已签行验不过。
+ * reason/reviewer/attestedAt 取原始字符串（调用方负责先 trim 再落盘），验签侧不再做二次归一，
+ * 这样"改一个空格"也会失效，而不是被归一化悄悄吃掉。
+ */
+export function attestPayload({ sha, paths, reason, reviewer, attestedAt }) {
+  const uniq = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))]
+    .filter(Boolean)
+    .sort()
+  return JSON.stringify({
+    sha: String(sha ?? '').trim().toLowerCase(),
+    paths: uniq,
+    reason: String(reason ?? ''),
+    reviewer: String(reviewer ?? ''),
+    attestedAt: String(attestedAt ?? ''),
+  })
+}
+
+/** 签发一条追认（只有持钥方能算出来）。形状/理由/署名不达标 ⇒ 抛，绝不产出"看起来能用"的假签名。 */
+export function signAttestation({ sha, paths, reason, reviewer, attestedAt, key }) {
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS)
+    throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  if (!FULL_SHA_RE.test(String(sha ?? '').trim().toLowerCase()))
+    throw new Error(`sha 必须 40 位全量（收到 ${String(sha ?? '').slice(0, 20)}）`)
+  const list = Array.isArray(paths) ? paths.filter((p) => String(p ?? '').trim()) : []
+  if (!list.length) throw new Error('paths 必须逐条列出该枚实际触发的受保护路径（空数组不算说明）')
+  if ([...String(reason ?? '')].length < ATTEST_MIN_REASON_CHARS)
+    throw new Error(`reason 不足 ${ATTEST_MIN_REASON_CHARS} 字（追认必须交代当时为什么没声明）`)
+  if (!String(reviewer ?? '').trim()) throw new Error('reviewer 必填（谁追认的必须可追溯）')
+  if (!isValidDateStr(String(attestedAt ?? '')))
+    throw new Error(`attestedAt 必须是 YYYY-MM-DD：${String(attestedAt ?? '').slice(0, 20)}`)
+  return createHmac('sha256', k)
+    .update(attestPayload({ sha, paths, reason, reviewer, attestedAt }))
+    .digest('hex')
+}
+
+/**
+ * 逐行解析 attestations 台账。返回 `{rows, problems}`：
+ *  - 形状坏（非 JSON / 非对象 / 缺键 / sha 非 40 位 / paths 非非空字符串数组 / 日期非法 / sig 非 64hex）
+ *    ⇒ 进 `problems` 并带行号点名，**不进 rows**（这些行连"查得到"都不成立）；
+ *  - 语义问题（路径不齐 / 签名不对 / 理由过短 / 署名空 / 倒填日期 / 同 sha 重复）**保留在 rows**，
+ *    由 `lookupAttestation` 判 invalid 并点名成因——不能让它们静默变成"没有这条"。
+ */
+export function parseAttestLedger(text) {
+  const rows = []
+  const problems = []
+  const lines = String(text ?? '').split(/\r?\n/)
+  lines.forEach((line, i) => {
+    if (!line.trim()) return
+    let o
+    try {
+      o = JSON.parse(line)
+    } catch (e) {
+      problems.push({ line: i + 1, why: `不是合法 JSON：${e.message}` })
+      return
+    }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      problems.push({ line: i + 1, why: '一行必须是对象' })
+      return
+    }
+    const missing = ['sha', 'paths', 'reason', 'reviewer', 'attestedAt', 'sig'].filter(
+      (k) => o[k] === undefined || o[k] === null || o[k] === '',
+    )
+    if (missing.length) {
+      problems.push({ line: i + 1, why: `缺必填键：${missing.join(',')}` })
+      return
+    }
+    if (!FULL_SHA_RE.test(String(o.sha))) {
+      problems.push({
+        line: i + 1,
+        why: `sha 必须 40 位全量（证据指针禁短写）：${String(o.sha).slice(0, 20)}`,
+      })
+      return
+    }
+    if (
+      !Array.isArray(o.paths) ||
+      o.paths.length === 0 ||
+      o.paths.some((p) => typeof p !== 'string' || !p.trim())
+    ) {
+      problems.push({
+        line: i + 1,
+        why: 'paths 必须是非空的路径字符串数组（空数组=模糊范围，不算说明）',
+      })
+      return
+    }
+    if (!isValidDateStr(String(o.attestedAt))) {
+      problems.push({
+        line: i + 1,
+        why: `attestedAt 必须是 YYYY-MM-DD：${String(o.attestedAt).slice(0, 20)}`,
+      })
+      return
+    }
+    if (!ATTEST_SIG_RE.test(String(o.sig))) {
+      problems.push({
+        line: i + 1,
+        why: `sig 形状坏（应为 64 位小写 hex）：${String(o.sig).slice(0, 8)}`,
+      })
+      return
+    }
+    rows.push({ ...o, sha: String(o.sha).toLowerCase(), line: i + 1 })
+  })
+  return { rows, problems }
+}
+
+/**
+ * 取该 sha 的追认并验签。四档：
+ *  - `none`     台账里没有这一枚（判定不变）；
+ *  - `valid`    路径集逐元素相等、签名验过、理由/署名/日期达标 ⇒ `declared-attested`；
+ *  - `invalid`  有这一枚但任一红线不满足 ⇒ 保持红，并把成因带出去点名；
+ *  - 重复行     同 sha ≥2 行 ⇒ 直接 invalid（不取"最后一行"，见台账红线 4）。
+ * `hits` 传该枚**实际触发路径**（判定输出的 `hits[].path`）；`commitDate` 是该枚提交日期（YYYY-MM-DD）。
+ */
+export function lookupAttestation({ rows, sha, hits = [], commitDate = null, key = null }) {
+  const target = String(sha ?? '').toLowerCase()
+  if (!target) return { state: 'none', why: '无 sha 可查' }
+  const mine = (Array.isArray(rows) ? rows : []).filter((r) => r.sha === target)
+  if (mine.length === 0) return { state: 'none', why: '' }
+  if (mine.length > 1)
+    return {
+      state: 'invalid',
+      code: 'attest-duplicate',
+      row: mine[mine.length - 1],
+      count: mine.length,
+      why: `同一 sha 有 ${mine.length} 条追认台账记录（不许重复追认）`,
+    }
+  const row = mine[0]
+  const hitPaths = [
+    ...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? ''))),
+  ]
+    .filter(Boolean)
+    .sort()
+  const rowPaths = [...new Set((row.paths || []).map((p) => normalizeRel(p)))].filter(Boolean).sort()
+  const extra = rowPaths.filter((p) => !hitPaths.includes(p))
+  const missing = hitPaths.filter((p) => !rowPaths.includes(p))
+  if (extra.length || missing.length)
+    return {
+      state: 'invalid',
+      code: 'attest-paths-mismatch',
+      row,
+      why: `paths 与该枚实际触发路径集不一致（多出：${extra.join('、') || '无'}；缺少：${missing.join('、') || '无'}）`,
+    }
+  if ([...String(row.reason ?? '')].length < ATTEST_MIN_REASON_CHARS)
+    return {
+      state: 'invalid',
+      code: 'attest-reason-short',
+      row,
+      why: `追认理由不足 ${ATTEST_MIN_REASON_CHARS} 字`,
+    }
+  if (!String(row.reviewer ?? '').trim())
+    return { state: 'invalid', code: 'attest-reviewer-empty', row, why: '追认人署名为空' }
+  if (!isValidDateStr(String(row.attestedAt)))
+    return {
+      state: 'invalid',
+      code: 'attest-date-bad',
+      row,
+      why: `attestedAt 非法：${String(row.attestedAt ?? '').slice(0, 20)}`,
+    }
+  if (!isValidDateStr(String(commitDate ?? '')))
+    return {
+      state: 'invalid',
+      code: 'attest-commit-date-unknown',
+      row,
+      why: '取不到该枚提交日期 ⇒ 无法判"追认早于提交"（fail-closed）',
+    }
+  if (String(row.attestedAt) < String(commitDate))
+    return {
+      state: 'invalid',
+      code: 'attest-backdated',
+      row,
+      why: `追认日期 ${row.attestedAt} 早于该枚提交日期 ${commitDate}`,
+    }
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS)
+    return {
+      state: 'invalid',
+      code: 'attest-key-unavailable',
+      row,
+      why: '密钥不可得 ⇒ 无法验签（fail-closed）',
+    }
+  const expected = createHmac('sha256', k)
+    .update(
+      attestPayload({
+        sha: row.sha,
+        paths: row.paths,
+        reason: row.reason,
+        reviewer: row.reviewer,
+        attestedAt: row.attestedAt,
+      }),
+    )
+    .digest('hex')
+  if (!hmacEqual(expected, String(row.sig)))
+    return {
+      state: 'invalid',
+      code: 'attest-sig-invalid',
+      row,
+      why: '追认签名验不过（内容被改 / 抄自别处 / 路径集不符）',
+    }
+  return { state: 'valid', code: 'attest-verified', row, why: '' }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

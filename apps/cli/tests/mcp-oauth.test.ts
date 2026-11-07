@@ -19,6 +19,7 @@ import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import http from 'node:http';
+import { escapeHtml as sharedEscapeHtml } from '@ihui/shared/artifact/render';
 import {
   exchangeCodeForToken,
   refreshAccessToken,
@@ -407,6 +408,58 @@ describe('mcp-oauth startLocalCallbackServer', () => {
     await expect(handle.waitForCode).rejects.toThrow(/access_denied/);
   });
 
+  it('失败页把 error 逐字转义(共享 escapeHtml 产出字节不变)', async () => {
+    const port = 19006;
+    const state = 'test-state';
+    const handle = startLocalCallbackServer(port, state, 5000);
+
+    const rejection = expect(handle.waitForCode).rejects.toThrow(/OAuth 授权失败/);
+    const body = await new Promise<string>((resolve, reject) => {
+      setTimeout(() => {
+        http
+          .get(
+            `http://localhost:${port}/callback?error=${encodeURIComponent('\'"<>&x')}`,
+            (res) => {
+              let data = '';
+              res.on('data', (chunk) => {
+                data += chunk;
+              });
+              res.on('end', () => resolve(data));
+            },
+          )
+          .on('error', reject);
+      }, 50);
+    });
+
+    // 改前/改后都走同一套五字符转义(顺序 & < > " '),产出 HTML 必须逐字节一致。
+    expect(body).toBe('<html><body>OAuth 失败: &#39;&quot;&lt;&gt;&amp;x</body></html>');
+    await rejection;
+  });
+
+  it('共享 escapeHtml 与本地基线五字符链逐字节等价(黄金样本冻结)', () => {
+    // 本地基线 = mcp-oauth.ts / sso.ts 改前私有实现(逐字搬运,不作"更正确"改写):
+    const localBaseline = (s: string): string =>
+      s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    const samples = [
+      '',
+      'plain text',
+      `&<>"'`,
+      `'"<>&x`,
+      `<a href="x">&amp;</a>`,
+      `it's a "test" & <tag>`,
+      '中文与 emoji 😀 <>&',
+      '\n\t\r',
+      `&&&<<<>>>"""'''`,
+    ];
+    for (const s of samples) expect(sharedEscapeHtml(s)).toBe(localBaseline(s));
+    expect(sharedEscapeHtml(`'"<>&x`)).toBe('&#39;&quot;&lt;&gt;&amp;x');
+  });
+
   it('超时未收到 code 时 reject', async () => {
     const port = 19004;
     const handle = startLocalCallbackServer(port, 'state', 200);
@@ -517,7 +570,9 @@ describe('mcp-oauth startOAuthFlow 端到端', () => {
     // 验证凭证已写入 mcp-credentials.json
     const creds = await loadMcpCredentials();
     expect(creds['https://mcp.example.com']).toBeDefined();
-    expect(creds['https://mcp.example.com'].accessToken).toBe('e2e-access');
+    const storedCred = creds['https://mcp.example.com'];
+    if (storedCred === undefined) throw new Error('未写入 mcp 凭证');
+    expect(storedCred.accessToken).toBe('e2e-access');
 
     // DPAPI 那一档必须**真的被试过**(而不是因为 mock 缺导出而整段跳过):
     // 有人把 runOneEngine 换掉或删掉时,这条是唯一的报警器。

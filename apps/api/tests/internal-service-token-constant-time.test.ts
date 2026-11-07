@@ -15,6 +15,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createHmac } from 'node:crypto'
 import Fastify, { type FastifyInstance } from 'fastify'
 
 const { mockSelect } = vi.hoisted(() => ({ mockSelect: vi.fn() }))
@@ -78,6 +79,8 @@ describe('checkInternalServiceToken:判定结论一字未变', () => {
   let app: FastifyInstance
 
   beforeEach(async () => {
+    // 老通道只在**显式** dual/legacy 档下可用(默认档是 ticket,不认常驻密钥)
+    process.env.INTERNAL_SERVICE_AUTH_MODE = 'dual'
     mockSelect.mockReset()
     app = Fastify({ logger: false })
     // 用真路由 + inject 驱动:Fastify 5 没有 app.mockRequest,而手搓的 request/reply 对象
@@ -91,8 +94,27 @@ describe('checkInternalServiceToken:判定结论一字未变', () => {
     await app.ready()
   })
   afterEach(async () => {
+    delete process.env.INTERNAL_SERVICE_AUTH_MODE
     await app.close()
   })
+
+  /**
+   * 老通道身份头(2026-11-05 起)必须带签名:
+   * HMAC-SHA256(密钥, "legacy-v1\n<userId>\n<timestamp>"),±300s 有效。
+   * 这里夹具只改"请求长什么样",不改任何既有断言的结论。
+   */
+  const legacyHeaders = (secret: string, userId: string): Record<string, string> => {
+    const timestamp = String(Math.floor(Date.now() / 1000))
+    const signature = createHmac('sha256', secret)
+      .update(`legacy-v1\n${userId}\n${timestamp}`, 'utf8')
+      .digest('hex')
+    return {
+      'x-internal-service-token': secret,
+      'x-user-id': userId,
+      'x-internal-service-timestamp': timestamp,
+      'x-internal-service-signature': signature,
+    }
+  }
 
   const call = async (headers: Record<string, string>): Promise<{ ok: boolean; code: number }> => {
     const res = await app.inject({ method: 'GET', url: '/probe', headers })
@@ -101,17 +123,30 @@ describe('checkInternalServiceToken:判定结论一字未变', () => {
 
   it('对票 + 用户存在且活跃 ⇒ true 并注入 userId', async () => {
     mockSelect.mockResolvedValue([{ id: UID, status: 1, roleId: 0 }])
-    const r = await call({ 'x-internal-service-token': SECRET, 'x-user-id': UID })
+    const r = await call(legacyHeaders(SECRET, UID))
     expect(r.ok).toBe(true)
+  })
+
+  it('对票但身份头未签名 ⇒ 401(不再直接采信自报 X-User-Id)', async () => {
+    mockSelect.mockResolvedValue([{ id: UID, status: 1, roleId: 0 }])
+    const r = await call({ 'x-internal-service-token': SECRET, 'x-user-id': UID })
+    expect(r.code).toBe(401)
+    expect(mockSelect).not.toHaveBeenCalled()
   })
 
   it('错票 ⇒ 401(等长与不等长两种结论必须同形,不许因长度走到不同分支)', async () => {
     mockSelect.mockResolvedValue([{ id: UID, status: 1, roleId: 0 }])
-    const sameLen = await call({
+    // 签名按"正确密钥"签,只把票改错 ⇒ 走的是票闸,不是签名闸
+    const sameLenHeaders = {
+      ...legacyHeaders(SECRET, UID),
       'x-internal-service-token': SECRET.replace(/9$/, '8'),
-      'x-user-id': UID,
-    })
-    const diffLen = await call({ 'x-internal-service-token': 'x', 'x-user-id': UID })
+    }
+    const diffLenHeaders = {
+      ...legacyHeaders(SECRET, UID),
+      'x-internal-service-token': 'x',
+    }
+    const sameLen = await call(sameLenHeaders)
+    const diffLen = await call(diffLenHeaders)
     expect(sameLen.code).toBe(401)
     expect(diffLen.code).toBe(401)
     // 关键:错票必须在**查库之前**就被拒 ⇒ 两条臂都不许触到 select
@@ -126,7 +161,7 @@ describe('checkInternalServiceToken:判定结论一字未变', () => {
 
   it('对票但库里没有这个用户 ⇒ 401(且查询真的跑了 —— 与形状闸的零查询 401 分档)', async () => {
     mockSelect.mockResolvedValue([])
-    const r = await call({ 'x-internal-service-token': SECRET, 'x-user-id': GHOST_UID })
+    const r = await call(legacyHeaders(SECRET, GHOST_UID))
     expect(r.code).toBe(401)
     expect(mockSelect).toHaveBeenCalled()
   })

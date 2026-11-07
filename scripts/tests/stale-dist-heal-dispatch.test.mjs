@@ -52,9 +52,9 @@ const logsOf = () => {
 }
 const runnerOf = (obj) => () => JSON.stringify(obj)
 
-test('D1 clean ⇒ 判过且报读数(无落后不等于"没跑")', () => {
+test('D1 clean ⇒ 判过且报读数(无落后不等于"没跑")', async () => {
   const { logs, logger } = logsOf()
-  const r = healStaleDistLeg({
+  const r = await healStaleDistLeg({
     ...fixture(),
     logger,
     runner: runnerOf({ state: 'clean', targets: [], healed: [], still: [], why: '' }),
@@ -65,9 +65,9 @@ test('D1 clean ⇒ 判过且报读数(无落后不等于"没跑")', () => {
   assert.match(logs.join('\n'), /state=clean/)
 })
 
-test('D2 built ⇒ 已消账进日志', () => {
+test('D2 built ⇒ 已消账进日志', async () => {
   const { logs, logger } = logsOf()
-  const r = healStaleDistLeg({
+  const r = await healStaleDistLeg({
     ...fixture(),
     logger,
     runner: runnerOf({
@@ -82,9 +82,9 @@ test('D2 built ⇒ 已消账进日志', () => {
   assert.match(logs.join('\n'), /已消账=1/)
 })
 
-test('D2b partial ⇒ 仍算判过,但仍落后的包名必须点名(不许被"已重建"盖掉)', () => {
+test('D2b partial ⇒ 仍算判过,但仍落后的包名必须点名(不许被"已重建"盖掉)', async () => {
   const { logs, logger } = logsOf()
-  const r = healStaleDistLeg({
+  const r = await healStaleDistLeg({
     ...fixture(),
     logger,
     runner: runnerOf({
@@ -102,20 +102,20 @@ test('D2b partial ⇒ 仍算判过,但仍落后的包名必须点名(不许被"�
   assert.match(line, /重建后仍落后/)
 })
 
-test('D3 结论取不到 ⇒ 未判定,不记绿(§0.3)', () => {
+test('D3 结论取不到 ⇒ 未判定,不记绿(§0.3)', async () => {
   const { logs, logger } = logsOf()
-  const r = healStaleDistLeg({ ...fixture(), logger, runner: () => 'not json at all' })
+  const r = await healStaleDistLeg({ ...fixture(), logger, runner: () => 'not json at all' })
   assert.equal(r.ran, true)
   assert.equal(r.ok, false, '"器物坏了"与"dist 全新鲜"长得一样就是本文件要治的失效型')
   assert.match(logs.join('\n'), /未判定/)
 })
 
-test('D3b 结论缺 state 键 ⇒ 同样未判定(形状漂移不许冒绿)', () => {
-  const r = healStaleDistLeg({ ...fixture(), logger: () => {}, runner: runnerOf({ targets: [] }) })
+test('D3b 结论缺 state 键 ⇒ 同样未判定(形状漂移不许冒绿)', async () => {
+  const r = await healStaleDistLeg({ ...fixture(), logger: () => {}, runner: runnerOf({ targets: [] }) })
   assert.equal(r.ok, false)
 })
 
-test('D4 节流窗口内第二轮不派生(build 是分钟级,不能被 2 分钟节拍反复点着)', () => {
+test('D4 节流窗口内第二轮不派生(build 是分钟级,不能被 2 分钟节拍反复点着)', async () => {
   const f = fixture()
   let calls = 0
   const runner = () => {
@@ -124,37 +124,37 @@ test('D4 节流窗口内第二轮不派生(build 是分钟级,不能被 2 分钟
   }
   const now = Date.now()
   assert.equal(
-    healStaleDistLeg({ ...f, now, runner, logger: () => {}, intervalMs: 30 * 60 * 1000 }).ran,
+    (await healStaleDistLeg({ ...f, now, runner, logger: () => {}, intervalMs: 30 * 60 * 1000 })).ran,
     true,
   )
   assert.equal(
-    healStaleDistLeg({
+    (await healStaleDistLeg({
       ...f,
       now: now + 60 * 1000,
       runner,
       logger: () => {},
       intervalMs: 30 * 60 * 1000,
-    }).ran,
+    })).ran,
     false,
   )
   assert.equal(calls, 1)
   assert.equal(
-    healStaleDistLeg({
+    (await healStaleDistLeg({
       ...f,
       now: now + 31 * 60 * 1000,
       runner,
       logger: () => {},
       intervalMs: 30 * 60 * 1000,
-    }).ran,
+    })).ran,
     true,
   )
   assert.equal(calls, 2)
 })
 
-test('D5 器物不在位 ⇒ 跳过且不写节流台账(补回后下一轮立刻能跑)', () => {
+test('D5 器物不在位 ⇒ 跳过且不写节流台账(补回后下一轮立刻能跑)', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
-  const r = healStaleDistLeg({
+  const r = await healStaleDistLeg({
     ...f,
     logger,
     scriptFile: join(mkScratch('stale-dist-missing-'), 'nope.mjs'),
@@ -173,7 +173,7 @@ function existsTick(p) {
   }
 }
 
-test('D7 契约锁:调度器读的键必须真存在于器物自己的返回形状(不手抄形状)', () => {
+test('D7 契约锁:调度器读的键必须真存在于器物自己的返回形状(不手抄形状)', async () => {
   const shape = healer.healStaleDist({
     apply: true,
     read: () => ({
@@ -203,7 +203,7 @@ test('D7 契约锁:调度器读的键必须真存在于器物自己的返回形�
   )
 })
 
-test('D8 面差让路契约:被挡的包进 blocked 且点名目录/脏数,一条 build 都不派(2026-11-05 立)', () => {
+test('D8 面差让路契约:被挡的包进 blocked 且点名目录/脏数,一条 build 都不派(2026-11-05 立)', async () => {
   const seen = []
   const shape = healer.healStaleDist({
     apply: true,
@@ -238,7 +238,7 @@ test('D6 装车锁:定义 + 调用挂巡检轮(排在样式派生之后)+ __test
     t.skip('HEAD 面取不到 git-guardian.mjs ⇒ 未判定')
     return
   }
-  if (!/export function healStaleDistLeg\b/.test(src)) {
+  if (!/export (?:async )?function healStaleDistLeg\b/.test(src)) {
     // 尚未入库(本枚提交的同一批里才接上)⇒ 报"待落地"而不是判坏;落地后 HEAD 有它,判据照常生效
     t.skip('healStaleDistLeg 尚未进 HEAD(落地后本锁自动生效)')
     return
@@ -248,9 +248,9 @@ test('D6 装车锁:定义 + 调用挂巡检轮(排在样式派生之后)+ __test
   }
   has(/healStaleDistLeg,/, '必须进 __test__ 出口,否则镜像测试取不到本体')
   has(/IHUI_DIST_HEAL_INTERVAL_MS/, '节流必须可由 env 覆盖')
-  const call = src.match(/^\s*if \(!CHECK_ONLY\) healStaleDistLeg\(\)$/m)
+  const call = src.match(/^\s*if \(!CHECK_ONLY\) (?:await )?healStaleDistLeg\(\)$/m)
   assert.ok(call, '派发必须挂在 !CHECK_ONLY 分支(--check 档不跑 build)')
-  const tokens = src.match(/^\s*if \(!CHECK_ONLY\) healStyleTokensLeg\(\)$/m)
+  const tokens = src.match(/^\s*if \(!CHECK_ONLY\) (?:await )?healStyleTokensLeg\(\)$/m)
   assert.ok(tokens, '样式派生腿的调用锚点必须还在(它没了本锁就该重写,而不是静默失配)')
   // 邻接 + 顺序:两条必须在同一个函数体内,且 dist 腿排在派生腿之后
   const fnStarts = [...src.matchAll(/^(?:export )?(?:async )?function\s+(\w+)/gm)].map(

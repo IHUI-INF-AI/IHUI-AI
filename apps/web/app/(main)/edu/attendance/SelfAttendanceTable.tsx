@@ -16,6 +16,7 @@ export interface StudentAttendanceRecord {
   classId: string
   date: string
   checkInTime: string | null
+  checkOutTime: string | null
   status: string
   checkInMethod: string
   remark: string | null
@@ -53,6 +54,9 @@ export function SelfAttendanceTable({
                   {t('checkInTime')}
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
+                  {t('checkOutTime')}
+                </th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
                   {t('status')}
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">
@@ -69,6 +73,19 @@ export function SelfAttendanceTable({
                       <span className="inline-flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3 text-green-500" />
                         {new Date(r.checkInTime).toLocaleTimeString('zh-CN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-xs">
+                    {r.checkOutTime ? (
+                      <span className="inline-flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                        {new Date(r.checkOutTime).toLocaleTimeString('zh-CN', {
                           hour: '2-digit',
                           minute: '2-digit',
                         })}

@@ -362,7 +362,7 @@ class KouboWorkflowService:
             parts.append(f"## 第 {art['index']} 篇")
             parts.append(art["content"])
             parts.append("")
-        out_path.write_text("\n".join(parts), encoding="utf-8")
+        await asyncio.to_thread(out_path.write_text, "\n".join(parts), encoding="utf-8")
         # 跑 pre_publish_check.py(5 项门禁:歧义/词表/全量/语病/热点覆盖)
         rc, out, err = await _run_koubo_script("pre_publish_check.py", [str(out_path)], timeout_sec=120)
         validated = rc == 0

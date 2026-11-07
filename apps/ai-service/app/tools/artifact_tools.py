@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -233,7 +234,9 @@ async def create_artifact(arguments: dict[str, Any]) -> dict[str, Any]:
             if not prev_file.is_file():
                 return _fail(tool_name, "NOT_FOUND", f"待更新的产物不存在: {artifact_id}")
             try:
-                prev_record = json.loads(prev_file.read_text(encoding="utf-8"))
+                prev_record = json.loads(
+                    await asyncio.to_thread(prev_file.read_text, encoding="utf-8")
+                )
             except (OSError, ValueError) as exc:
                 return _fail(tool_name, "CORRUPTED_RECORD", f"既有产物记录不可读: {exc}")
             if not isinstance(prev_record, dict) or prev_record.get("session_id") != session_id:
@@ -255,14 +258,19 @@ async def create_artifact(arguments: dict[str, Any]) -> dict[str, Any]:
         art_dir.mkdir(parents=True, exist_ok=True)
         payload_path = art_dir / f"v{version}.{ext}"
         data = payload_text.encode("utf-8")
-        payload_path.write_bytes(data)
+        await asyncio.to_thread(payload_path.write_bytes, data)
 
         # 归属 sidecar:与 generate_chart 同一契约(<payload>.owner),
         # routers/artifacts.py 的 token 签发校验直接适用 html_report 预览。
         sidecar = Path(str(payload_path) + ".owner")
-        sidecar.write_text(json.dumps({"user_id": user_id}, ensure_ascii=False), encoding="utf-8")
+        await asyncio.to_thread(
+            sidecar.write_text,
+            json.dumps({"user_id": user_id}, ensure_ascii=False),
+            encoding="utf-8",
+        )
         owner_file = art_dir / "owner.json"
-        owner_file.write_text(
+        await asyncio.to_thread(
+            owner_file.write_text,
             json.dumps({"user_id": user_id, "session_id": session_id}, ensure_ascii=False),
             encoding="utf-8",
         )

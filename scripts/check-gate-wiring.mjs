@@ -33,7 +33,7 @@
  *              2026-09-24 收紧:声称窗口含「可选/手动/后续项/待接/已废弃…」等**未来时或
  *              如实否定**措辞时不判红(那是「还没接线」的诚实说明,不是撒谎);逐出现点各判,
  *              任一处为肯定式即成立。
- *   R2 blocking:AGENTS.md(文档面取材 = HEAD∪索引,见下方「取材铁律」的例外条款)
+ *   R2 blocking:AGENTS.md / docs/GATEKEEPERS.md(文档面取材 = HEAD∪索引,见下方「取材铁律」的例外条款)
  *              点名 scripts/<name>.mjs 且**同一句**(句界 。；;\n)出现
  *              「接入/blocking/BLOCKING/守门/pre-commit/必跑」,但五处全部零命中。
  *              2026-09-24 收紧:原「同一条款」过粗(条款按空行切,bullet 列表整块算一条,
@@ -169,11 +169,18 @@ const DEFAULT_ROOT = resolve(__dirname, '..')
 const SELF_EXEMPT_SCRIPT = 'check-gate-wiring.mjs'
 
 /**
- * 文档面参与判定的两份权威文档。预取规格按它生成;docReader.read(...) 的调用点是
+ * 文档面参与判定的权威文档。预取规格按它生成;docReader.read(...) 的调用点是
  * 字面量(镜像测试 T15 的装车锁)—— 两处若漂移(新增第三份文档忘了进这里),
  * 后果是 blobOf 对未预取规格**当场抛** ⇒ exit 2 大声失败,不会静默错判。
+ *
+ * 2026-11-05 增列 docs/GATEKEEPERS.md:AGENTS.md 的「守门脚本速查」整节已迁到该文档 §10,
+ * R2 只扫 AGENTS.md 时整节接线声明全部脱离射程(实测改前声明只在该文档时 R2 判 0 红)。
+ * 该文档**只进 R2**,R4 的文档面仍是 AGENTS.md ∪ README.md(不顺手扩 R4 的判据)。
  */
-const DOC_FILES = ['AGENTS.md', 'README.md']
+const DOC_FILES = ['AGENTS.md', 'README.md', 'docs/GATEKEEPERS.md']
+
+/** R2 的被审文档面(句级声称对账);两份互不替代,同一句在两份都出现时按原文去重 */
+export const R2_DOC_PATHS = ['AGENTS.md', 'docs/GATEKEEPERS.md']
 
 // R8 的红条件**不自己发明**:直接取 runner 归一层(lib/guardian-triggers.mjs)的契约 ——
 // 那道 lib 自 2026-09-25 起负责判定"什么形态会让整批门中止",本门若另写一套形状规则,
@@ -352,7 +359,7 @@ export const HEADER_CLAIM_PATTERNS = [
   { re: /CI\s*\/\s*pre-commit/, tag: 'CI / pre-commit' },
 ]
 
-/** R2:AGENTS.md 条款内的「已接线」表述 */
+/** R2:文档(AGENTS.md / docs/GATEKEEPERS.md)条款内的「已接线」表述 */
 export const AGENTS_CLAIM_RE = /接入|blocking|BLOCKING|守门|pre-commit|必跑/
 
 /** R2 句界(2026-09-24 收紧):要求接线表述与被点名脚本**同句**,不再是同一条款 */
@@ -680,6 +687,30 @@ export function findAgentsClaims(clauses, gateName) {
   return hits
 }
 
+/**
+ * 纯函数(R2 扩面,2026-11-05):跨文档收集同一道门的接线声称。
+ *
+ * 为什么要扩:AGENTS.md 的「守门脚本速查」整节已迁入 docs/GATEKEEPERS.md §10,而 R2 原先
+ * 只把 AGENTS.md 的条款喂给 findAgentsClaims ⇒ 迁走的整节声明全部脱离射程(改前实测:
+ * 声明只在该文档、五处权威点零命中时 R2 判 0 红,即漏检)。
+ *
+ * 去重口径:按**声称句原文**去重 —— 同一句在两份文档各出现一次时只计一次(两份都在 =
+ * 同一笔债,不重复计数、不双报)。不同措辞的两句仍各计一条(它们都是独立的声称)。
+ * 返回 [{ doc, claim }],doc 只用于报告点名,不参与判定。
+ */
+export function collectR2Claims(docClauses, gateName) {
+  const seen = new Set()
+  const out = []
+  for (const d of docClauses || []) {
+    for (const claim of findAgentsClaims(d && d.clauses ? d.clauses : [], gateName)) {
+      if (seen.has(claim)) continue
+      seen.add(claim)
+      out.push({ doc: d.doc, claim })
+    }
+  }
+  return out
+}
+
 /** 纯函数:AGENTS.md 切条款(以空行为界;HTML 注释块并入所在条款) */
 export function splitAgentClauses(agentsText) {
   return String(agentsText)
@@ -717,7 +748,7 @@ export function classifyGate({
     }
   }
   if (agentsClaims && agentsClaims.length > 0) {
-    return { status: 'red-r2', reason: 'AGENTS.md 点名并声称已接线,但五处权威点全部零命中' }
+    return { status: 'red-r2', reason: '文档(AGENTS.md/docs/GATEKEEPERS.md)点名并声称已接线,但五处权威点全部零命中' }
   }
   if (allowEntry) {
     return {
@@ -1832,7 +1863,14 @@ async function main(argv = process.argv.slice(2)) {
   const docReader = makeDocReader(blobOf)
   const agentsText = docReader.read('AGENTS.md')
   const readmeText = docReader.read('README.md')
+  // R2 扩面(2026-11-05):速查整节住在 docs/GATEKEEPERS.md §10,必须同面同轮读入;
+  // 用同一 docReader(HEAD∪索引),不另起一次工作区读取,也不改变 R2/R4 的取材口径。
+  const gatekeepersText = docReader.read('docs/GATEKEEPERS.md')
   const agentsClauses = splitAgentClauses(agentsText)
+  const r2DocClauses = [
+    { doc: 'AGENTS.md', clauses: agentsClauses },
+    { doc: 'docs/GATEKEEPERS.md', clauses: splitAgentClauses(gatekeepersText) },
+  ]
   const candidates = gateNames.filter(
     (n) => !templateHit.has(n) && ![...hitsByPoint.values()].some((s) => s.has(n)),
   )
@@ -1868,7 +1906,7 @@ async function main(argv = process.argv.slice(2)) {
       headerClaims: headerClaimsByName.get(n) || [],
       agentsClaims:
         n.startsWith('check-') || n.startsWith('scan-') || n.startsWith('guard')
-          ? findAgentsClaims(agentsClauses, n)
+          ? collectR2Claims(r2DocClauses, n)
           : [],
       allowEntry: allowByName.get(n),
     })
@@ -2524,8 +2562,8 @@ async function main(argv = process.argv.slice(2)) {
         )
       for (const r of reds) {
         if (r.status === 'red-r2') {
-          const clauses = findAgentsClaims(agentsClauses, r.script)
-          for (const c of clauses) console.error(`        AGENTS.md: ${c}`)
+          const clauses = collectR2Claims(r2DocClauses, r.script)
+          for (const c of clauses) console.error(`        ${c.doc}: ${c.claim}`)
         }
       }
       console.error(
@@ -2883,6 +2921,65 @@ function runSelfTest() {
     ).length === 1 &&
       findAgentsClaims(['- 别的说明。另见 `scripts/check-d.mjs`,该门 blocking。'], 'check-d.mjs')
         .length === 1,
+  )
+
+  // ── 2026-11-05 R2 扩面:被审文档面 AGENTS.md ∪ docs/GATEKEEPERS.md(只加射程,不动判据) ──
+  // 立据:AGENTS.md 的「守门脚本速查」整节已迁入 docs/GATEKEEPERS.md §10。改前同一夹具(声明只在该
+  // 文档、五处权威点零命中)实测 redR2=0 且该门落 unwired-unclaimed = 整节声明脱离射程,不是"照旧命中"。
+  const r2Docs = (agentsClauses, gkClauses) => [
+    { doc: 'AGENTS.md', clauses: agentsClauses },
+    { doc: 'docs/GATEKEEPERS.md', clauses: gkClauses },
+  ]
+  // ① 声明只在 docs/GATEKEEPERS.md + 该门已接线 ⇒ 不得判红(扩面不是恒红机)
+  assert(
+    'P22 R2 扩面①:声明只在 docs/GATEKEEPERS.md 且已接线,不得判红',
+    R2_DOC_PATHS.length === 2 &&
+      R2_DOC_PATHS.includes('docs/GATEKEEPERS.md') &&
+      classifyGate({
+        name: 'check-gk-wired.mjs',
+        strongPoints: ['runner'],
+        weakPoints: [],
+        headerClaims: [],
+        agentsClaims: collectR2Claims(
+          r2Docs([], ['- **守门**:`scripts/check-gk-wired.mjs`(blocking,接入 runner 第 1 项)']),
+          'check-gk-wired.mjs',
+        ),
+        allowEntry: null,
+      }).status === 'wired',
+  )
+  // ② 声明只在 docs/GATEKEEPERS.md 且五处权威点零命中 ⇒ 必须判红(这才是扩面补回的那截射程;
+  //    改前 AGENTS.md 一份没有 ⇒ 该门落 unwired-unclaimed,R2 判 0 红 = 漏检)
+  const r2GkOnly = collectR2Claims(
+    r2Docs([], ['- **守门**:`scripts/check-gk-lying.mjs`(blocking,已接入 pre-commit 第 9 项)']),
+    'check-gk-lying.mjs',
+  )
+  assert(
+    'P23 R2 扩面②:声明只在 docs/GATEKEEPERS.md、AGENTS.md 零声明且五处零命中,必须判红',
+    r2GkOnly.length === 1 &&
+      classifyGate({
+        name: 'check-gk-lying.mjs',
+        strongPoints: [],
+        weakPoints: [],
+        headerClaims: [],
+        agentsClaims: r2GkOnly,
+        allowEntry: null,
+      }).status === 'red-r2',
+  )
+  // ③ 两份都在 ⇒ 同一句按原文去重只计 1 条,且每门只出一枚 red-r2(不重复计数、不双报)
+  const dupClaim = '- **守门**:`scripts/check-gk-dup.mjs`(blocking,已接入 pre-commit 第 10 项)'
+  const r2Dup = collectR2Claims(r2Docs([dupClaim], [dupClaim]), 'check-gk-dup.mjs')
+  assert(
+    'P24 R2 扩面③:两份同句只计 1 条声称,red-r2 只报 1 枚',
+    r2Dup.length === 1 &&
+      new Set(r2Dup.map((c) => c.claim)).size === 1 &&
+      classifyGate({
+        name: 'check-gk-dup.mjs',
+        strongPoints: [],
+        weakPoints: [],
+        headerClaims: [],
+        agentsClaims: r2Dup,
+        allowEntry: null,
+      }).status === 'red-r2',
   )
 
   assert(
@@ -3981,6 +4078,9 @@ export const __test__ = {
   combineDocSources,
   splitAgentClauses,
   findAgentsClaims,
+  // R2 扩面(2026-11-05):跨文档声称收集 + 被审文档面常量;自检/镜像测试直接 import 同一出口
+  collectR2Claims,
+  R2_DOC_PATHS,
   classifyGate,
   findRevocableExemptions,
   findStaleExemptions,

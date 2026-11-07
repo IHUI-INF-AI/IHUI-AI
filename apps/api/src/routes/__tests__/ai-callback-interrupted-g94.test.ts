@@ -20,7 +20,9 @@ import Fastify, { type FastifyInstance } from 'fastify'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../config/index.js', () => ({
-  config: { AI_CALLBACK_SECRET: 'test-callback-secret' },
+  // 鉴权夹具是"只带旧密钥" ⇒ 显式 dual 兼容档(默认 ticket 档下的拒绝行为
+  // 由 tests/internal-secret-auth.test.ts 覆盖)。
+  config: { AI_CALLBACK_SECRET: 'test-callback-secret', INTERNAL_SECRET_AUTH_MODE: 'dual' },
 }))
 
 // 权限盖章那一支要查会话/权限表:整模块 mock,零 SQL。

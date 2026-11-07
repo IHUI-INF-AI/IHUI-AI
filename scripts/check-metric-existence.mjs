@@ -35,7 +35,7 @@
  *      `/api/v1/label/__name__/values` 取名字全集;一条 `/api/v1/series?match[]=...&start=...`
  *      批量取"窗口内有序列"集合(避免每个名字一次请求)。
  *   ② 取不到 Prometheus:退到**静态清单** —— exporter 前缀台账
- *      (`scripts/data/grafana-external-metrics.json`)+ 代码发射点声明扫描 + recording rule 输出名。
+ *      (`scripts/data/panel-external-metrics.json`)+ 代码发射点声明扫描 + recording rule 输出名。
  *      静态清单判不了"样本过期"(没有时序),只打印一条未判定告警;**不得把没证据读成绿**。
  *   ③ 名字全集取到、但新鲜度查询失败 ⇒ exit 2(未判定),不冒充通过。
  *
@@ -77,7 +77,7 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..')
 /** 仓库面一律写**相对仓库根**的路径:判哪个面由 face-reader 决定,不在这里拼绝对路径。 */
 const RULES_DIR = 'monitoring'
-const EXTERNAL_LEDGER = 'scripts/data/grafana-external-metrics.json'
+const EXTERNAL_LEDGER = 'scripts/data/panel-external-metrics.json'
 const EXEMPTIONS_FILE = 'scripts/data/metric-existence-exemptions.json'
 const PROM_BASES = [
   ...(process.env.PROMETHEUS_URL ? [process.env.PROMETHEUS_URL] : []),

@@ -74,6 +74,7 @@ test.describe('IM 渠道管理页', () => {
 
     // hover 第一个平台卡片
     await firstPlatformBtn.hover()
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(300) // 等 transition-colors 过渡(hover:bg-muted/60)
 
     // 截图:hover 态
@@ -96,6 +97,7 @@ test.describe('IM 渠道管理页', () => {
 
     // 点击飞书平台卡片
     await feishuBtn.click()
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(500) // 等选中态 + AdapterConfigForm 渲染
 
     // 截图:active 态
@@ -124,6 +126,7 @@ test.describe('IM 渠道管理页', () => {
       document.documentElement.classList.add('dark')
       localStorage.setItem('theme', 'dark')
     })
+    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(300) // 等 CSS 变量切换
 
     // 截图:dark mode 态

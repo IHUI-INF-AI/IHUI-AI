@@ -11,13 +11,16 @@ vi.mock('../src/db/chat-queries.js', () => ({
   updateMessage: vi.fn().mockResolvedValue(undefined),
 }))
 
-// Mock config
+// Mock config — 显式跑 dual 兼容档:本文件的夹具以"只带旧密钥"为准,
+// 默认 ticket 档下的拒绝行为由 tests/internal-secret-auth.test.ts 与
+// tests/ai-callback-secret.test.ts 覆盖。
 vi.mock('../src/config/index.js', () => ({
   config: {
     AI_SERVICE_URL: 'http://localhost:8803',
     DATABASE_URL: 'postgres://mock:mock@localhost:5432/mock',
     REDIS_URL: 'redis://localhost:6379/0',
     AI_CALLBACK_SECRET: 'test-secret',
+    INTERNAL_SECRET_AUTH_MODE: 'dual',
   },
 }))
 

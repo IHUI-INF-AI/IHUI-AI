@@ -73,11 +73,10 @@ test.describe('教育完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/learn')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const courseItem = page.locator('a, article, [role="listitem"]').first()
     if (await courseItem.isVisible({ timeout: 3000 }).catch(() => false)) {
       await courseItem.click().catch(() => {})
-      await page.waitForTimeout(1500)
       expect(page.url()).toBeTruthy()
     }
   })
@@ -87,7 +86,7 @@ test.describe('教育完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/learn')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const startBtn = page
       .getByRole('button')
       .filter({
@@ -103,7 +102,7 @@ test.describe('教育完整流程', () => {
     await page.waitForLoadState('domcontentloaded')
     if (!page.url().includes('/exam')) return
 
-    await page.waitForTimeout(2000)
+    await page.waitForLoadState('load', { timeout: 6000 }).catch(() => {})
     const examBtn = page
       .getByRole('button')
       .filter({

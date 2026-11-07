@@ -205,14 +205,16 @@ test('parsePorcelainZ:重命名条目吃掉双 NUL 段,目的路径为准', () =
 })
 
 test('旗标闸(纯函数面):未知旗必须点名,合法清单/带值/等号形不误杀', () => {
-  assert.equal(P.findUnknownFlag(['--self-test']), '--self-test', '本器没有 selfTest,必须拒而不是静默按默认档跑真探测')
+  // 2026-11-06 BUG-0050:头注早于实现印出 --self-test(§0.8「文档写了跑不通的出路」);已按同族形制补齐自检,
+  // 故 --self-test 转为合法旗,真正未知的旗仍必须点名拒收。
+  assert.equal(P.findUnknownFlag(['--self-test']), null)
   assert.equal(P.findUnknownFlag(['--delete-all']), '--delete-all')
   assert.equal(P.findUnknownFlag([]), null)
   assert.equal(P.findUnknownFlag(['--json']), null)
   assert.equal(P.findUnknownFlag(['--prod-root', 'D:/somewhere/ihui-prod']), null, '带值旗的值不得被当成未知旗复检')
   assert.equal(P.findUnknownFlag(['--prod-root=D:/x']), null, '等号形必须认识')
   assert.equal(P.findUnknownFlag(['--json', '--prod-root', 'x', '--json']), null, '重复合法旗不炸')
-  assert.deepEqual([...P.PROD_FOREIGN_KNOWN_FLAGS], ['--json', '--prod-root'])
+  assert.deepEqual([...P.PROD_FOREIGN_KNOWN_FLAGS], ['--json', '--prod-root', '--self-test'])
   // 清单与头注同源:头注 L74 若印了一枚清单外的旗,就是"文档写了跑不通的出路"(§0.8)
   const src = readFileSync(new URL('../check-prod-checkout-foreign-work.mjs', import.meta.url), 'utf8')
   const usageLine = (src.match(/用法:node scripts\/check-prod-checkout-foreign-work\.mjs .*/) || [''])[0]
@@ -223,7 +225,7 @@ test('旗标闸(纯函数面):未知旗必须点名,合法清单/带值/等号�
 
 test('旗标闸(接线面):真跑未知旗 rc=2 且一处探测都不许做', () => {
   const script = new URL('../check-prod-checkout-foreign-work.mjs', import.meta.url).pathname.replace(/^\/(\w:)/, '$1')
-  const r = spawnSync(process.execPath, [script, '--self-test'], {
+  const r = spawnSync(process.execPath, [script, '--delete-all'], {
     encoding: 'utf8',
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -231,7 +233,7 @@ test('旗标闸(接线面):真跑未知旗 rc=2 且一处探测都不许做', ()
   })
   assert.equal(r.status, 2, `未知旗必须 rc=2(实得 ${r.status};out=${String(r.stdout).slice(0, 80)})`)
   const out = `${r.stdout || ''}${r.stderr || ''}`
-  assert.match(out, /未认识的旗标 --self-test/, '必须点名是哪枚旗')
+  assert.match(out, /未认识的旗标 --delete-all/, '必须点名是哪枚旗')
   assert.doesNotMatch(out, /PROBE-RESULT/, '拒收这一趟绝不能已经跑了真探测(零副作用)')
   assert.doesNotMatch(out, /\[root\]|\[foreign\]|\[evidence\]/, '任何探测明细行都不该出现')
 })

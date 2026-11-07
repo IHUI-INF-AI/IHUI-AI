@@ -49,9 +49,11 @@ from ..middleware.output_safety import (
 
 # 允许参数注入与测试覆盖的数量默认值
 _DEFAULT_MAX_ITERATIONS = 4
-_DEFAULT_CONCURRENCY = 4
+# 观察:对照研究流程 Search 五路并行,Fetch 去重后整段最多取 15 条。
+_DEFAULT_CONCURRENCY = 5
 _DEFAULT_GAPS_PER_ROUND = 3
-_DEFAULT_FETCH_PER_SUBQUESTION = 3
+_DEFAULT_FETCH_PER_SUBQUESTION = 15
+REQUEST_STEP_BUDGET = 100
 _SEARCH_RESULTS_K = 6
 _BODY_MAX_CHARS = 6000
 
@@ -205,6 +207,8 @@ class ResearchReport:
     max_iterations: int = _DEFAULT_MAX_ITERATIONS
     iteration: int = 0
     phase_log: list[str] = field(default_factory=list)
+    step_stop: str = ""
+    fetch_unjudged: int = 0
 
     # ---- 序列化(供 FastAPI JSON 返回)----
     def to_dict(self) -> dict[str, Any]:
@@ -234,6 +238,7 @@ class ResearchReport:
             "gap_questions": self.gap_questions,
             "iteration": self.iteration,
             "max_iterations": self.max_iterations,
+            "step_stop": self.step_stop,
             "evidence": [
                 {
                     "question": e.question,
@@ -261,6 +266,7 @@ class ResearchReport:
             "limitations": self.limitations,
             "markdown": serialized_md,
             "phases": list(self.phase_log),
+            "fetch_unjudged": self.fetch_unjudged,
             "stages": [
                 {
                     "phase": st.phase,
@@ -701,45 +707,115 @@ def _build_synthesis_prompt(
 # 检索执行
 # ---------------------------------------------------------------------------
 
+class _RequestSteps:
+    """一次研究共用的请求步数。admit 在两次 await 之间同步加一,并发任务不会把同一步算两次。"""
+
+    def __init__(self, limit: int | None, report: ResearchReport) -> None:
+        self.limit = limit
+        self.taken = 0
+        self.report = report
+
+    def admit(self) -> bool:
+        verdict, reason = admit_request_step(self.taken, limit=self.limit)
+        if verdict != "allow":
+            self.report.step_stop = reason
+            return False
+        self.taken += 1
+        return True
+
+
+class _FetchLedger:
+    """同一轮检索共用的去重名额。seen 只计本轮新抓的地址。"""
+
+    def __init__(self, keep: object, known: set[str]) -> None:
+        self.keep = keep
+        self.known = known
+        self.seen: set[str] = set()
+        self.unjudged = 0
+        self.reason = ""
+
+    def take(self, rows: object) -> list[dict[str, Any]]:
+        planned = plan_phase_fetches(rows, keep=self.keep, seen=self.seen, known=self.known)
+        reason = planned.get("reason")
+        if planned.get("disposition") == "unjudged" and reason == "keep-unmeasured":
+            self.reason = "keep-unmeasured"
+            return []
+        extra = planned.get("unjudged")
+        if isinstance(extra, int) and not isinstance(extra, bool):
+            self.unjudged += extra
+        if reason == "rows-unmeasured":
+            self.reason = self.reason or "rows-unmeasured"
+        chosen = planned.get("rows")
+        if not isinstance(chosen, list):
+            self.reason = self.reason or "rows-unmeasured"
+            return []
+        kept: list[dict[str, Any]] = []
+        for row in chosen:
+            if not isinstance(row, dict):
+                continue
+            url = row.get("url")
+            if not isinstance(url, str) or not url:
+                continue
+            self.seen.add(url)
+            kept.append(row)
+        return kept
+
+
 async def _search_one(
     source: Any,
     question: str,
     *,
     sem: asyncio.Semaphore,
-    max_fetch: int,
+    ledger: _FetchLedger,
+    meter: _RequestSteps,
 ) -> EvidenceUnit:
-    """对单个子问题:搜索 → 取前几个来源抓取正文 → 合并为一条证据。
+    """对单个子问题:搜索 → 按本轮剩余名额抓取正文 → 合并为一条证据。
 
     受外层 Semaphore 限流:同一个多源并发批次内,真正的并发上限为 concurrency。
     """
     async with sem:  # 并发上限:占住信号量槽位再执行搜索+抓取
-        return await _search_one_impl(source, question, max_fetch=max_fetch)
+        return await _search_one_impl(source, question, ledger=ledger, meter=meter)
 
 
 async def _search_one_impl(
-    source: Any, question: str, *, max_fetch: int
+    source: Any, question: str, *, ledger: _FetchLedger, meter: _RequestSteps
 ) -> EvidenceUnit:
     """_search_one 的实际执行体(已在信号量槽位内)。"""
+    if not meter.admit():
+        return EvidenceUnit(
+            question=question,
+            content="",
+            sources=[],
+            source_name=getattr(source, "name", "mcp"),
+        )
     urls: list[str] = []
     sources: list[SourceRef] = []
     snippets: list[str] = []
     try:
         results = await source.search(question)
-        for r in results[: _SEARCH_RESULTS_K]:
-            url = _dedupe_url(r.get("url", ""))
-            if not url or any(_dedupe_url(u) == url for u in urls):
+        window = results[:_SEARCH_RESULTS_K] if isinstance(results, list) else results
+        for r in ledger.take(window):
+            url = r.get("url")
+            if not isinstance(url, str) or not url or url in urls:
                 continue
             urls.append(url)
-            title = r.get("title", "") or url
-            snip = r.get("snippet", "") or ""
-            graded = grade_source(url, title)
-            graded.snippet = snip
+            title = r.get("title")
+            title_text = title if isinstance(title, str) and title else url
+            snip = r.get("snippet")
+            snip_text = snip if isinstance(snip, str) else ""
+            graded = grade_source(url, title_text)
+            graded.snippet = snip_text
             sources.append(graded)
-            if snip:
-                snippets.append(snip)
+            if snip_text:
+                snippets.append(snip_text)
 
-        # 并发受限地抓取正文(url_order 保持稳定)
-        fetches = [source.fetch(url) for url in urls[:max_fetch]]
+        # 每条抓取单独占一步。预算用完的地址不创建协程,避免半截请求已经发出。
+        admitted_urls: list[str] = []
+        for url in urls:
+            if not meter.admit():
+                break
+            admitted_urls.append(url)
+        fetches = [source.fetch(url) for url in admitted_urls]
         bodies = []
         for fut in asyncio.as_completed(fetches):
             try:
@@ -780,18 +856,31 @@ async def _retrieve_many(
     sources: list[Any],
     concurrency: int,
     max_fetch: int,
+    meter: _RequestSteps,
 ) -> list[EvidenceUnit]:
     """并行检索一组问题(子问题或 gap 追问),跨多源去重合并。"""
     if not questions:
         return []
+    if admit_positive_count(concurrency)["disposition"] != "admitted":
+        report.step_stop = report.step_stop or "width-unmeasured"
+        return []
+    if admit_positive_count(max_fetch)["disposition"] != "admitted":
+        report.step_stop = report.step_stop or "keep-unmeasured"
+        return []
     sem = asyncio.Semaphore(concurrency)
+    already_fetched = {_dedupe_url(s.url) for e in report.evidence for s in e.sources}
+    already_fetched.discard("")
+    ledger = _FetchLedger(max_fetch, already_fetched)
     # 遍历多源,收集全部证据(源之间按 URL 去重由 Report.dedup 兜底)
     tasks = [
-        _search_one(src, q, sem=sem, max_fetch=max_fetch)
+        _search_one(src, q, sem=sem, ledger=ledger, meter=meter)
         for src in sources
         for q in questions
     ]
     units = await asyncio.gather(*tasks, return_exceptions=True)
+    report.fetch_unjudged += ledger.unjudged
+    if ledger.reason:
+        report.step_stop = report.step_stop or ledger.reason
     collected: list[EvidenceUnit] = []
     for u in units:
         if not isinstance(u, EvidenceUnit):
@@ -910,6 +999,7 @@ async def run_deep_research(
     gaps_per_round: int = _DEFAULT_GAPS_PER_ROUND,
     max_fetch: int = _DEFAULT_FETCH_PER_SUBQUESTION,
     factcheck_llm_fn: FactcheckLLMFn | None = None,
+    request_step_budget: int | None = REQUEST_STEP_BUDGET,
 ) -> ResearchReport:
     """执行 agentic 多轮深度研究,返回结构化报告。
 
@@ -925,6 +1015,7 @@ async def run_deep_research(
         query=query,
         max_iterations=max_iterations,
     )
+    meter = _RequestSteps(request_step_budget, report)
 
     def _enter(title: str) -> bool:
         verdict = admit_research_phase(report.phase_log, title)
@@ -957,6 +1048,7 @@ async def run_deep_research(
             sources=srcs,
             concurrency=concurrency,
             max_fetch=max_fetch,
+            meter=meter,
         )
         if not _enter("Fetch"):
             return report
@@ -964,6 +1056,10 @@ async def run_deep_research(
         # 3. 双向深度调查:gap 追问 + 再检索,循环至 max_iterations
         report.iteration = 0
         for i in range(1, max_iterations + 1):
+            round_verdict, round_reason = admit_request_step(meter.taken, limit=meter.limit)
+            if round_verdict != "allow":
+                report.step_stop = report.step_stop or round_reason
+                break
             _apply_progress(
                 report, PHASE_DEEPEN, f"第 {i}/{max_iterations} 轮追问"
             )
@@ -985,6 +1081,7 @@ async def run_deep_research(
                 sources=srcs,
                 concurrency=concurrency,
                 max_fetch=max_fetch,
+                meter=meter,
             )
             if not _enter("Fetch"):
                 return report
@@ -1159,7 +1256,6 @@ class DeepResearchManager:
 
 VOTES_PER_CLAIM = 3
 REFUTATIONS_REQUIRED = 2
-REQUEST_STEP_BUDGET = 100
 
 _CONFIDENCE = frozenset({"high", "medium", "low"})
 _FENCE_JSON = re.compile(r"```json\s*([\s\S]*?)```", re.IGNORECASE)
@@ -1332,6 +1428,79 @@ def admit_research_phase(done: object, title: object) -> dict[str, str]:
     if title in allowed:
         return {"disposition": "entered", "reason": "in-order"}
     return {"disposition": "refused", "reason": "out-of-order"}
+
+
+def admit_positive_count(value: object) -> dict[str, str]:
+    """正整数才算量到。布尔值、缺席、零和负数都是未判定,不回落到默认档。"""
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return {"disposition": "unjudged", "reason": "count-unmeasured"}
+    return {"disposition": "admitted", "reason": "measured"}
+
+
+def plan_phase_fetches(
+    rows: object,
+    *,
+    keep: object,
+    seen: set[str],
+    known: set[str] | None = None,
+) -> dict[str, object]:
+    """去重后只留下本段还容得下的地址。
+
+    名单本身或上限没量到时,一条都不抓。缺地址的行单独计数,不占名额,
+    也不把它当成已经抓过。重复地址和已经在报告里的地址不占名额。
+    """
+    if (
+        not isinstance(keep, int)
+        or isinstance(keep, bool)
+        or keep <= 0
+        or not isinstance(seen, set)
+        or (known is not None and not isinstance(known, set))
+    ):
+        return {"disposition": "unjudged", "reason": "keep-unmeasured", "rows": [], "unjudged": 0}
+    held = known if known is not None else set()
+    if not isinstance(rows, list):
+        return {"disposition": "unjudged", "reason": "rows-unmeasured", "rows": [], "unjudged": 0}
+    keep_n = keep
+    admitted: list[dict[str, Any]] = []
+    local: set[str] = set()
+    unjudged = 0
+    for row in rows:
+        if len(seen) + len(admitted) >= keep_n:
+            break
+        if not isinstance(row, dict):
+            unjudged += 1
+            continue
+        raw = row.get("url")
+        if not isinstance(raw, str):
+            unjudged += 1
+            continue
+        url = _dedupe_url(raw)
+        if not url or url in seen or url in local or url in held:
+            if not url:
+                unjudged += 1
+            continue
+        local.add(url)
+        admitted.append({**row, "url": url})
+    if not admitted and unjudged:
+        return {
+            "disposition": "unjudged",
+            "reason": "rows-unmeasured",
+            "rows": [],
+            "unjudged": unjudged,
+        }
+    reason = "within-keep"
+    if not rows:
+        reason = "empty"
+    elif len(seen) + len(admitted) >= keep_n:
+        reason = "capped"
+    elif unjudged:
+        reason = "some-rows-unmeasured"
+    return {
+        "disposition": "partial" if unjudged else "admitted",
+        "reason": reason,
+        "rows": admitted,
+        "unjudged": unjudged,
+    }
 
 
 def ledger_row(claim_id: str, outcome: dict[str, Any]) -> str:

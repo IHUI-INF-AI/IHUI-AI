@@ -29,12 +29,13 @@ import asyncio
 import contextlib
 import logging
 import os
-import tempfile
 from threading import Lock
 from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
+
+from app.utils.atomic_io import write_bytes_to_tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -184,19 +185,16 @@ async def voice_stt(
     # Windows 上 NamedTemporaryFile 默认独占打开,faster-whisper 内部 ffmpeg/av
     # 无法重新打开文件读取。改用 mkstemp:返回 fd + path,先 close fd 释放锁,
     # 让 faster-whisper 自由读取,转写完手动删除。
-    tmp_fd: int = -1
     tmp_path: str = ""
     try:
         # P1 修复(2026-08-06): 模型加载/转写均为阻塞 CPU 操作,
         # 用 asyncio.to_thread 包装,避免阻塞事件循环导致服务整体卡顿。
         model = await asyncio.to_thread(_get_whisper_model)
 
-        tmp_fd, tmp_path = tempfile.mkstemp(suffix=suffix)
-        # 写入音频字节后立即关闭 fd,释放 Windows 文件锁
-        with os.fdopen(tmp_fd, "wb") as f:
-            f.write(audio_bytes)
-            f.flush()
-        tmp_fd = -1  # 已关闭,避免 finally 重复 close
+        # 2026-11-05:mkstemp + write + flush + close 收进**同一个工作线程**。
+        # 旧实现 fd 在事件循环线程 fdopen、write/close 分散到不同工作线程,
+        # 请求被取消时 close 可能与在飞 write 并发(Windows 上 close 异常/fd 泄漏)。
+        tmp_path = await asyncio.to_thread(write_bytes_to_tempfile, audio_bytes, suffix)
 
         text = await asyncio.to_thread(_transcribe_sync, model, tmp_path, language)
 
@@ -227,10 +225,7 @@ async def voice_stt(
             model=_DEFAULT_STT_MODEL,
         )
     finally:
-        # 清理临时文件(fd 若未关闭也一并 close,再 unlink 文件)
-        if tmp_fd >= 0:
-            with contextlib.suppress(OSError):
-                os.close(tmp_fd)
+        # 临时文件由 helper 在自身线程内关闭,这里只需 unlink。
         if tmp_path:
             with contextlib.suppress(OSError):
                 os.unlink(tmp_path)

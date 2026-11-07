@@ -473,6 +473,7 @@ async function scrollToMessageTop(page: Page, pane: string, messageId: string): 
     return el.scrollTop
   }, messageId)
   // scroll 事件在下一帧派发:observedScrollTopRef / 跟随权解除靠它记账(抄 G-934 的成因注)
+  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(250)
   return scrollTopOf(page, pane)
 }

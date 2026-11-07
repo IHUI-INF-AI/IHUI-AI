@@ -214,6 +214,97 @@ function removeQuietly(p: string): void {
   }
 }
 
+/** 原子整文件替换的注入面(生产不传,测试用它证 rename 失败分支)。 */
+export interface AtomicWriteOptions {
+  /** rename 退避表(毫秒);默认 RENAME_BACKOFF_MS,测试可传 [] 关掉重试 */
+  readonly backoffMs?: readonly number[];
+  /** 退避睡眠;默认 sleepSync(测试可替换成空实现,避免真等) */
+  readonly sleep?: (ms: number) => void;
+  /** rename 原语;默认 fs.renameSync(测试注入 EPERM/EBUSY 以证失败分支) */
+  readonly rename?: (tmp: string, absPath: string) => void;
+}
+
+/** 目标存在时取权限位;不存在/Windows 返回 null(与 commitAtomicWrite 原取舍一致)。 */
+function existingMode(absPath: string): number | null {
+  if (process.platform === 'win32') return null;
+  try {
+    return fs.statSync(absPath).mode & 0o7777;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * tmp + fsync + rename 的唯一实现:两个写入口(commitAtomicWrite / writeFileAtomicSync)共用,
+ * 不产生第二份(§0.6)。任何失败都先关 fd、再清 tmp,保证异常路径不留下半截临时件。
+ */
+function writeTempAndRename(
+  absPath: string,
+  content: string,
+  mode: number | null,
+  opts: AtomicWriteOptions,
+): void {
+  const backoff = opts.backoffMs ?? RENAME_BACKOFF_MS;
+  const tmp = tmpPathFor(absPath);
+  let fd: number | null = null;
+  try {
+    fd = openTmpExclusive(tmp);
+    const wantBytes = Buffer.byteLength(content, 'utf-8');
+    const written = fs.writeSync(fd, content, 0, 'utf-8');
+    // 短写(partial write)本身就是"半截文件"的另一条路 —— 宁可失败也不让 rename 把它换上去
+    if (written !== wantBytes) {
+      throw new Error(`写入不完整:${absPath} 期望 ${wantBytes} 字节,实得 ${written} 字节`);
+    }
+    try {
+      fs.fsyncSync(fd); // 数据先落盘,再让 rename 生效 —— 否则"原子"只保并发不保崩溃
+    } catch {
+      // 某些文件系统不支持 fsync:退化为依赖 rename 的原子性,不因此判失败
+    }
+    fs.closeSync(fd);
+    fd = null;
+    if (mode !== null) {
+      try {
+        fs.chmodSync(tmp, mode);
+      } catch {
+        // 权限位拿不到不影响写入正确性
+      }
+    }
+    renameWithRetry(tmp, absPath, backoff, opts);
+  } catch (e) {
+    // 写/关失败时 fd 可能仍开着:先关再删,否则 Windows 上 rmSync 会因句柄占用而清不掉 tmp
+    if (fd !== null) {
+      try {
+        fs.closeSync(fd);
+      } catch {
+        // 关闭失败不得掩盖主错误
+      }
+    }
+    removeQuietly(tmp);
+    const code = errCode(e);
+    if (code === undefined || !RETRYABLE_RENAME_CODES.has(code)) throw e;
+    throw new AtomicReplaceFailedError(absPath, backoff.length + 1, e);
+  }
+}
+
+/**
+ * 无 CAS 的原子整文件替换:调用方写的是"后写覆盖前写"的整份快照,不持有基线令牌。
+ *
+ * 为什么在同一模块开第二个入口(而不是让状态写点各自调 commitAtomicWrite):
+ * 会话/检查点状态(以及锁 meta 一类的状态文件)语义是最后写者胜;套 CAS 会把一次正常保存
+ * 变成 WriteConflictError(改语义,不是加固)。两条入口共用同一份 tmp 命名 / O_EXCL 独占 /
+ * 短写校验 / EPERM 重试 / 失败清理 —— 不是第二份实现。需要读后写校验的编辑面仍走
+ * captureWriteBaseline + commitAtomicWrite。
+ */
+export function writeFileAtomicSync(
+  absPath: string,
+  content: string,
+  opts: AtomicWriteOptions = {},
+): void {
+  assertNotReparsePoint(absPath);
+  fs.mkdirSync(path.dirname(absPath), { recursive: true });
+  writeTempAndRename(absPath, content, existingMode(absPath), opts);
+}
+
 /**
  * 原子写盘:① 重读磁盘并与基线逐字节比对(不一致 ⇒ WriteConflictError,磁盘原样不动);
  * ② 同目录 tmp + fsync;③ rename 替换,Windows EPERM 族错误带退避重试;④ 任何失败都不留 tmp、不截目标。
@@ -230,61 +321,30 @@ export function commitAtomicWrite(baseline: WriteBaseline, content: string): voi
   }
 
   fs.mkdirSync(path.dirname(absPath), { recursive: true });
-
   // POSIX 下保住原文件权限位(rename 会把 tmp 的 0o644 带过去,可执行文件会被改坏)
-  let mode: number | null = null;
-  if (process.platform !== 'win32' && now !== null) {
-    try {
-      mode = fs.statSync(absPath).mode & 0o7777;
-    } catch {
-      mode = null;
-    }
-  }
-
-  const tmp = tmpPathFor(absPath);
-  let fd: number | null = null;
-  try {
-    fd = openTmpExclusive(tmp);
-    const written = fs.writeSync(fd, content, 0, 'utf-8');
-    // 短写(partial write)本身就是"半截文件"的另一条路 —— 宁可失败也不让 rename 把它换上去
-    if (written !== Buffer.byteLength(content, 'utf-8')) {
-      throw new Error(`写入不完整:${absPath} 期望 ${Buffer.byteLength(content, 'utf-8')} 字节,实得 ${written} 字节`);
-    }
-    try {
-      fs.fsyncSync(fd); // 数据先落盘,再让 rename 生效 —— 否则"原子"只保并发不保崩溃
-    } catch {
-      // 某些文件系统不支持 fsync:退化为依赖 rename 的原子性,不因此判失败
-    }
-    fs.closeSync(fd);
-    fd = null;
-    if (mode !== null) {
-      try {
-        fs.chmodSync(tmp, mode);
-      } catch {
-        // 权限位拿不到不影响写入正确性
-      }
-    }
-    renameWithRetry(tmp, absPath);
-  } catch (e) {
-    removeQuietly(tmp);
-    const code = errCode(e);
-    if (code === undefined || !RETRYABLE_RENAME_CODES.has(code)) throw e;
-    throw new AtomicReplaceFailedError(absPath, RENAME_BACKOFF_MS.length + 1, e);
-  }
+  const mode = now !== null ? existingMode(absPath) : null;
+  writeTempAndRename(absPath, content, mode, {});
 }
 
 /** rename 到"已存在但被别的句柄打开"的目标:Windows 实测 EPERM,故短退避重试后仍失败才抛。 */
-function renameWithRetry(tmp: string, absPath: string): void {
+function renameWithRetry(
+  tmp: string,
+  absPath: string,
+  backoff: readonly number[],
+  opts: AtomicWriteOptions,
+): void {
+  const rename = opts.rename ?? ((from: string, to: string) => fs.renameSync(from, to));
+  const sleep = opts.sleep ?? sleepSync;
   let lastErr: unknown = null;
-  for (let i = 0; i <= RENAME_BACKOFF_MS.length; i++) {
+  for (let i = 0; i <= backoff.length; i++) {
     try {
-      fs.renameSync(tmp, absPath);
+      rename(tmp, absPath);
       return;
     } catch (e) {
       lastErr = e;
       const code = errCode(e);
       if (!code || !RETRYABLE_RENAME_CODES.has(code)) throw e;
-      if (i < RENAME_BACKOFF_MS.length) sleepSync(RENAME_BACKOFF_MS[i] ?? 0);
+      if (i < backoff.length) sleep(backoff[i] ?? 0);
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error(`rename 失败:${absPath}`);

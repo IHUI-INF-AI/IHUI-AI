@@ -34,7 +34,11 @@ from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from ..core.internal_ticket import internal_service_headers
+from ..core.internal_ticket import (
+    INTERNAL_TICKET_HEADER,
+    INTERNAL_TOKEN_HEADER,
+    internal_service_headers,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -174,18 +178,25 @@ def _validate_goal(goal: Any) -> tuple[dict[str, Any] | None, str | None]:
 # =============================================================================
 
 def _internal_headers(user_id: str) -> dict[str, str]:
-    """内部凭证头:走 internal_service_headers 唯一出口(dual 档两把头一起带)。
+    """内部凭证头:走 internal_service_headers 唯一出口(默认 ticket 档发票;显式
+    dual/legacy 档才同时带旧 x-internal-service-token)。
 
     scope 用既有 "api-tools"(INTERNAL_TICKET_SCOPES 是封闭集、两侧同笔,新增
     "mcp-automation" 不在本车道授权面);api 侧 checkInternalServiceToken 不传
     opts.scope ⇒ 合法票 + 合法密钥即可,userId 由 X-User-Id 注入 request.userId。
     凭证或身份缺失返回 {},调用方不发请求(fail-closed)。
+
+    票与常驻密钥是**两把互不替代**的凭据:默认 ticket 档下只要有 JWT_SECRET 就能发票,
+    不再把 AI_CALLBACK_SECRET 当发票的前提(那会让"只配了 JWT_SECRET"的默认档被判死)。
     """
     uid = str(user_id or "").strip()
-    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
-    if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
+    if not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
         return {}
-    return internal_service_headers(uid, "api-tools", legacy_token=secret)
+    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
+    headers = internal_service_headers(uid, "api-tools", legacy_token=secret)
+    if INTERNAL_TICKET_HEADER not in headers and INTERNAL_TOKEN_HEADER not in headers:
+        return {}
+    return headers
 
 
 async def _api_request(

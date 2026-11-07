@@ -6406,7 +6406,11 @@ def _settle_dispatch_ticket(ticket_id: str | None, payload: dict[str, Any]) -> N
     from .work_admission import note_worker_finished
 
     stub = payload.get("status") == "stub" or payload.get("stub") is True
-    note_worker_finished(ticket_id, ok=bool(payload.get("ok")) and not stub)
+    note_worker_finished(
+        ticket_id,
+        ok=bool(payload.get("ok")) and not stub,
+        simulation=stub,
+    )
     payload["ticketId"] = ticket_id
 
 

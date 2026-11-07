@@ -26,13 +26,14 @@ const src = {
       new URL('../app/(main)/edu/edu-management/finance/page.tsx', import.meta.url),
       'utf8',
     ),
-  nav: () => readFileSync(new URL('../src/components/layout/AdminNav.tsx', import.meta.url), 'utf8'),
+  nav: () =>
+    readFileSync(new URL('../src/components/layout/AdminNav.tsx', import.meta.url), 'utf8'),
 }
 
 async function requireLoggedIn(page: Page) {
   if (page.url().includes('login')) {
     // 过期凭据属机器态。用 skip 而不是让它红 —— 报成失败会诱导下一个人去改没坏的页面。
-    test.skip(true, `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}`)
+    test.skip(true, `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()} [SKIP:SKIP-0048]`)
   }
 }
 
@@ -48,9 +49,10 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
       .toBeGreaterThan(0)
     const tabs = await page.getByRole('tab').allInnerTexts()
     for (const label of ['学费标准', '缴费记录', '退费管理', '账期管理', '催费管理']) {
-      expect(tabs.some((t) => t.includes(label)), `tab 里应有「${label}」,实得:${tabs.join('|')}`).toBe(
-        true,
-      )
+      expect(
+        tabs.some((t) => t.includes(label)),
+        `tab 里应有「${label}」,实得:${tabs.join('|')}`,
+      ).toBe(true)
     }
   })
 
@@ -145,10 +147,7 @@ test.describe('教育财务 - 缴费登记按报名期次归属', () => {
     await page.waitForLoadState('networkidle')
     await page.getByRole('tab', { name: /缴费记录/ }).click()
     await expect(
-      page
-        .getByRole('columnheader', { name: '操作' })
-        .or(page.getByText('暂无缴费记录'))
-        .first(),
+      page.getByRole('columnheader', { name: '操作' }).or(page.getByText('暂无缴费记录')).first(),
     ).toBeVisible({ timeout: 20_000 })
   })
 

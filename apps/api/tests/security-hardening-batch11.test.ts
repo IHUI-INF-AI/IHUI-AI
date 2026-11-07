@@ -81,6 +81,8 @@ vi.mock('../src/services/relay-account-pool-credential.js', () => ({
 vi.mock('../src/config/index.js', () => ({
   config: {
     AI_CALLBACK_SECRET: 'test-internal-secret-value',
+    // 本批历史用例只带旧密钥 ⇒ 显式兼容档;默认 ticket 档由 internal-secret-auth.test.ts 覆盖
+    INTERNAL_SECRET_AUTH_MODE: 'dual',
     isDevelopmentRuntime: true,
     NODE_ENV: 'test',
   },

@@ -38,28 +38,25 @@ vi.mock('@ihui/api-client', () => ({
     `/api/embed-proxy/raw?url=${encodeURIComponent(targetUrl)}`,
 }))
 
-// Tauri 侧密钥通道:真跑 WebCrypto(HKDF + AES-GCM),只把 tauri-plugin-store 换成内存 Map
+// Tauri 侧密钥通道:真跑 WebCrypto(HKDF + AES-GCM),只把 Tauri IPC 换成内存 Map
 const tauriFiles = vi.hoisted(() => new Map<string, Map<string, unknown>>())
 const storeMode = vi.hoisted(() => ({ broken: false }))
 
-vi.mock('@tauri-apps/plugin-store', () => ({
-  load: async (path: string) => {
+vi.mock('@tauri-apps/api/core', () => ({
+  invoke: async (command: string, args: { file: string; key: string; value?: string | null }) => {
     if (storeMode.broken) throw new Error('IPC denied: origin not in capability list')
-    let entries = tauriFiles.get(path)
+    let entries = tauriFiles.get(args.file)
     if (!entries) {
       entries = new Map<string, unknown>()
-      tauriFiles.set(path, entries)
+      tauriFiles.set(args.file, entries)
     }
-    return {
-      get: async (key: string) => entries!.get(key),
-      set: async (key: string, value: unknown) => {
-        entries!.set(key, value)
-      },
-      delete: async (key: string) => {
-        entries!.delete(key)
-      },
-      save: async () => {},
+    if (command === 'store_read_entry') return entries.get(args.key) ?? null
+    if (command === 'store_write_entry') {
+      if (args.value === null || args.value === undefined) entries.delete(args.key)
+      else entries.set(args.key, args.value)
+      return true
     }
+    throw new Error(`unexpected store command: ${command}`)
   },
 }))
 

@@ -138,7 +138,10 @@ function collectPanelRefs(readDashboard) {
  * @returns {string[]} 仓库相对路径
  */
 function listFacePaths(face) {
-  const args = face === 'staged' ? ['ls-files', '-z'] : ['ls-tree', '-r', '--name-only', '-z', face]
+  // face 是门的内部面名('head'/'staged'),git rev 是 'HEAD' —— Linux 大小写敏感,
+  // 直接把 'head' 当 rev 会 fatal: Not a valid object name(Windows 长期掩盖)。
+  const rev = face === 'head' ? 'HEAD' : face
+  const args = face === 'staged' ? ['ls-files', '-z'] : ['ls-tree', '-r', '--name-only', '-z', rev]
   return gitRaw(args, ROOT, { timeout: 120000 })
     .split('\0')
     .filter(Boolean)
@@ -444,6 +447,6 @@ if (isDirect) process.exit(main())
 // 镜像测试 scripts/tests/check-panel-datasource-wiring.test.mjs 一律从这里取判据
 // (§22c:同一份判据不许有第二份实现)。DASHBOARD_TREES 一并导出:覆盖面清单本身也是判据,
 // 测试要能对账"树是否真的在扫",不许测试另抄一份树清单。
-export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid, DASHBOARD_TREES }
+export const __test__ = { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid, DASHBOARD_TREES, listFacePaths }
 export { collectProvisionedUids, collectPanelRefs, auditTree, auditGrid }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

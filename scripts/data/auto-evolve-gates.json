@@ -1,6 +1,7 @@
 {
   "enabled": true,
-  "dailyDispatchBudget": 6,
+  "dailyDispatchBudget": 10,
+  "dailyDispatchBudgetNote": "机主 2026-11-05 授权:为「端到端验一次自主环真产出」临时上调额度(6→9→10),不是常态值。0→9 那六个班次全部消耗在两条当时尚未修掉的成因上(出站零宽载荷 400 / 模型由继承 HOME 决定 ⇒ 404),修完后当日零真产出 ⇒ 授权目的未达成,故按同一授权再加一枚。**验证一旦证真(artifact-committed ≥1)立刻回落到 6**,回落与上调同属那条授权,不是新的自主决定。上限唯一真值源仍是本文件(loadGates 无 ?? 兜底)。",
   "failureStreakLimit": 3,
   "quarantineHours": 48,
   "rotateAfterAttempts": 4,
@@ -11,7 +12,9 @@
   "maxSessionMinutes": 45,
   "humanValveMode": "observe",
   "humanValveModeNote": "派发前问一次 scripts/lib/human-valve.mjs 的 classifyAction(判据单源,本器零复算)。observe=只记账不拦;enforce=命中停机类即不派并喊人。缺省档只能是 observe:分类器是 fail-closed 的(动作不在已知清单即 stop),直接把新闸设成 enforce 等于把刚修活的发起腿再锁死。切 enforce 的前置条件由尺子 A6 维量:observe 期必须真有过命中、且未判定率落零。",
-  "sessionCommandTemplate": "node ${REPO_ROOT}/apps/cli/node_modules/tsx/dist/cli.mjs ${REPO_ROOT}/apps/cli/src/index.ts --prompt-file {promptFile} --workspace ${REPO_ROOT} --json --max-iterations 40 --permission-mode acceptEdits --no-setup --no-update-check",
+  "sessionCommandTemplate": "node ${REPO_ROOT}/apps/cli/node_modules/tsx/dist/cli.mjs ${REPO_ROOT}/apps/cli/src/index.ts --prompt-file {promptFile} --workspace ${REPO_ROOT} --json --max-iterations 40 --permission-mode acceptEdits --no-setup --no-update-check --model {sessionModel}",
+  "sessionModel": "agnes/agnes-3.0-flash",
+  "sessionModelNote": "模型必须由闸门声明并写进命令行(2026-11-05 立,原因见提交信息:SYSTEM HOME 那份仓外 settings.json 没有 defaultModel 会落回字面量 default 打到 api.openai.com)。档位取值现读对照(12:58Z,同机同权限档 acceptEdits,同一条读+写指令):agnes-3.0-flash ⇒ read_file 两次 + write_file 一次且 success=true,4 轮 end_turn,无 400;而 agnes-2.5-flash 连班 20 次工具调用里写类 0 次,末段正文说「新文件」之后只吐换行。选 3.0 不是因为它新,是因为实测它肯动手;若下一轮读数转坏(session-no-write 占比上升),按本注记回到 2.5 并留读数。",
   "sessionCommandNote": "仓根一律写 ${REPO_ROOT} 令牌(§0 盘符是现读机器事实,入库件里钉死某台机的 G:/IHUI-AI 会让换机后的发起腿静默失效 —— 2026-11-01 实测 48 轮派发仅 1 成功)。派发前由 scripts/lib/autonomy-runner.mjs 的 preflightSessionRunner 拿当次仓根核验在位,不在位即熔断并喊人,不再按票面失败计数。入口走 tsx 源码而非 dist:dist 为 tsc 逐文件产物未 bundle,import @ihui/shared 会落到 packages/shared/src/*.ts 触发 ERR_UNSUPPORTED_DIR_IMPORT(2026-11-01 实测),故自治环须用 tsx 加载 TS 源码图;dist 二进制本身的发布可用性属独立议题。",
   "ticketWhitelist": [
     "readme",
@@ -27,7 +30,10 @@
     "索引",
     "检索",
     "跨端",
-    "旗标"
+    "旗标",
+    "测试",
+    "质量"
   ],
+  "ticketWhitelistNote2": "2026-11-05 第二次扩档(机主『都同意』里的『按票类登进台账』那一半之前,先把类词表补全):新增「测试」「质量」两档,限定同 note 末段 —— 只收**纯写测试/应用码文件**的票,不收需跑测试、需迁移、需生产机、需改判据面的。⚠ 同一次盘点(现读 `matchWhitelist` 复跑 0/19 命中)量到扩档本身不解决问题:匹配器只读**首个加粗段或前 60 字**,而 B67/B70/B71 三行的开头被 `（认领已释放@…）` 前缀吃满窗口,类词落在窗外。所以真正卡住派发的是**票的登记形态**而不是这张表 —— 要把这三张派出去,得由归属席/机主把类词写进标题窗前,而不是继续往表里加档(加档只会让以后更多票看起来可派却照样落窗外)。",
   "ticketWhitelistNote": "2026-11-04 扩到 13 档(前一日读数:派单面 12 行 / 模型判可排期 8 行 / **本轮候选 8 行 / 今日已派 0/6** ⇒ 日预算整天空转,天花板就是这张表)。新增四档逐条来自**当次派单面现读**的票,不是想象:P84(ai-service 索引面 ignore 规则)、P85(代码检索改名检测)、Y-12(api 公网腿 p95 响应 8.3 秒)、RP-91(git-sync-converge 未知旗标用法守卫)、B3 系(跨端 NavBar 对齐)。\n**判据面类(守门/判据/尺子/护栏/豁免)一律不进白名单,且这不是保守,是结构**:那一类票的产物必然落 `scripts/check-*.mjs` 或 `scripts/lib/`(清单现读 `scripts/data/immutable-guard.json` 的 gate-body/judgement-lib 两族),而自治会话手里没有豁免签名钥 ⇒ 落账腿按 `artifact-protected-face` 整批拒收。把「结构上落不了账」的类别写进白名单 = 造一台只会空转的机器,正是 B53 那型饿死(209 行台账里吃掉 127 行)的重演。真要放开那一格,前提是给「持钥方追认台账 `scripts/data/immutable-guard-acks.jsonl`」配一条**人一次性授权、逐枚点名**的通道,而不是把密钥塞进会话环境。"
 }

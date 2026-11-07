@@ -127,13 +127,18 @@ def test_没有常驻密钥时只发新票不发空票(monkeypatch: pytest.Monke
 
 def test_两把都签不出时不得留下空票头(monkeypatch: pytest.MonkeyPatch) -> None:
     """验票方读到 `x-internal-service-ticket: ""` 会判坏票并**拒绝回落旧通道**
-    (那是设计,不是缺陷)——所以签不出就必须不带这个头。"""
+    (那是设计,不是缺陷)——所以签不出就必须不带这个头。
+
+    更进一步:票与常驻密钥都拿不到时**一个凭据头都不许发**。之前这里还带裸
+    `x-user-id`,那等于向 API 声明"我是这个用户"却没有凭据自证——正是要收口的退化态。
+    无凭据就该什么都不发(调用方应改用 `require_internal_service_headers` 直接失败)。"""
     monkeypatch.setattr(settings, "jwt_secret", "", raising=False)
     monkeypatch.delenv("JWT_SECRET", raising=False)
     headers = internal_service_headers(UID, "api-tools", legacy_token="")
     assert INTERNAL_TICKET_HEADER not in headers
     assert INTERNAL_TOKEN_HEADER not in headers
-    assert headers[USER_ID_HEADER] == UID
+    assert USER_ID_HEADER not in headers
+    assert headers == {}
 
 
 def test_jwt_secret_未配置时发票返回_none_并喊话(

@@ -101,7 +101,11 @@ export function extractCodeBlock(text: string): string {
   const re = /```[^\n]*\n([\s\S]*?)```/g;
   let m: RegExpExecArray | null;
   let last: string | null = null;
-  while ((m = re.exec(text)) !== null) last = m[1];
+  while ((m = re.exec(text)) !== null) {
+    const group = m[1];
+    if (group === undefined) throw new Error('extractCodeBlock: 正则捕获组缺失');
+    last = group;
+  }
   if (last !== null) return last.replace(/\r\n/g, '\n');
   return text.replace(/\r\n/g, '\n');
 }
@@ -152,7 +156,9 @@ export function resolveShell(): string {
     for (const line of (git.stdout ?? '').split(/\r?\n/)) {
       const m = /^(.*?)[\\/]cmd[\\/]git\.exe$/i.exec(line.trim());
       if (m) {
-        const b = join(m[1], 'bin', 'bash.exe');
+        const installRoot = m[1];
+        if (installRoot === undefined) throw new Error('resolveShell: git 路径捕获组缺失');
+        const b = join(installRoot, 'bin', 'bash.exe');
         if (existsSync(b)) return b;
       }
     }

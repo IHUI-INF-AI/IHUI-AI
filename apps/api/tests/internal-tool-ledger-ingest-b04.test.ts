@@ -37,6 +37,7 @@ import type * as DrizzleOrm from 'drizzle-orm'
 import type * as LedgerService from '../src/services/tool-invocation-ledger-service.js'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { createHmac } from 'node:crypto'
 
 const { AI_SECRET_TEST, USER_UUID, LEGACY_NUMERIC_ID } = vi.hoisted(() => ({
   AI_SECRET_TEST: 'b04-ingest-test-secret-not-for-prod-0123456789',
@@ -126,6 +127,24 @@ const GOOD_HEADERS = {
   'user-agent': 'pytest-b04-leg',
 }
 
+/**
+ * 老通道身份头(2026-11-05 起)必须与全局密钥同时通过签名校验:
+ * HMAC-SHA256(AI_SECRET_TEST, "legacy-v1\n<userId>\n<timestamp>"),±300s 有效。
+ * 夹具按新契约构造;组一的 400/401/200 语义断言强度保持不变。
+ */
+function signedHeaders(userId: string = USER_UUID): Record<string, string> {
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const signature = createHmac('sha256', AI_SECRET_TEST)
+    .update(`legacy-v1\n${userId}\n${timestamp}`, 'utf8')
+    .digest('hex')
+  return {
+    ...GOOD_HEADERS,
+    'x-user-id': userId,
+    'x-internal-service-timestamp': timestamp,
+    'x-internal-service-signature': signature,
+  }
+}
+
 async function buildApp(withCsrf = false): Promise<FastifyInstance> {
   const app = Fastify({ logger: false })
   if (withCsrf) {
@@ -192,7 +211,7 @@ describe('组一 B04 摄入路由语义(不挂 CSRF,钉 handler 本体)', () => 
       method: 'POST',
       url: LEDGER_PATH,
       payload: { ...GOOD_BODY, userId: 'user-victim' },
-      headers: GOOD_HEADERS,
+      headers: signedHeaders(),
     })
     expect(res.statusCode).toBe(400)
     expect(mockRecord).not.toHaveBeenCalled()
@@ -206,7 +225,7 @@ describe('组一 B04 摄入路由语义(不挂 CSRF,钉 handler 本体)', () => 
       method: 'POST',
       url: LEDGER_PATH,
       payload: GOOD_BODY,
-      headers: GOOD_HEADERS,
+      headers: signedHeaders(),
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toMatchObject({ status: 'recorded', ledgerId: 'l-1' })
@@ -231,7 +250,7 @@ describe('组一 B04 摄入路由语义(不挂 CSRF,钉 handler 本体)', () => 
       method: 'POST',
       url: LEDGER_PATH,
       payload: GOOD_BODY,
-      headers: GOOD_HEADERS,
+      headers: signedHeaders(),
     })
     expect(res.statusCode).toBe(500)
     await app.close()
@@ -244,7 +263,7 @@ describe('组一 B04 摄入路由语义(不挂 CSRF,钉 handler 本体)', () => 
       method: 'POST',
       url: LEDGER_PATH,
       payload: GOOD_BODY,
-      headers: GOOD_HEADERS,
+      headers: signedHeaders(),
     })
     expect(res.statusCode).toBe(500)
     await app.close()
@@ -257,7 +276,7 @@ describe('组一 B04 摄入路由语义(不挂 CSRF,钉 handler 本体)', () => 
       method: 'POST',
       url: LEDGER_PATH,
       payload: GOOD_BODY,
-      headers: GOOD_HEADERS,
+      headers: signedHeaders(),
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data.status).toBe('duplicate')
@@ -270,7 +289,7 @@ describe('组一 B04 摄入路由语义(不挂 CSRF,钉 handler 本体)', () => 
       method: 'POST',
       url: LEDGER_PATH,
       payload: GOOD_BODY,
-      headers: { ...GOOD_HEADERS, 'x-user-id': LEGACY_NUMERIC_ID },
+      headers: signedHeaders(LEGACY_NUMERIC_ID),
     })
     expect(res.statusCode).toBe(401)
     expect(res.json().message).toContain('UUID')
@@ -284,7 +303,7 @@ describe('组一 B04 摄入路由语义(不挂 CSRF,钉 handler 本体)', () => 
       method: 'POST',
       url: LEDGER_PATH,
       payload: { ...GOOD_BODY, permissionDecision: 'always_allow' },
-      headers: GOOD_HEADERS,
+      headers: signedHeaders(),
     })
     expect(res.statusCode).toBe(400)
     expect(mockRecord).not.toHaveBeenCalled()
@@ -329,7 +348,7 @@ describe('组二 CSRF 豁免=凭据验真,不是路径白名单(真 CSRF 钩子)
       method: 'POST',
       url: LEDGER_PATH,
       payload: GOOD_BODY,
-      headers: GOOD_HEADERS,
+      headers: signedHeaders(),
     })
     expect(res.statusCode).toBe(200)
     expect(mockRecord).toHaveBeenCalledTimes(1)

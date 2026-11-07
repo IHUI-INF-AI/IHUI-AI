@@ -471,6 +471,7 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
     let prevCount = await longTaskCount()
     let quiet = false
     for (let i = 0; i < 20; i++) {
+      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(750)
       const cur = await longTaskCount()
       if (cur === prevCount) {
@@ -512,6 +513,7 @@ test.describe('H20 长会话性能验收(D35 分页后)', () => {
       timeout: 30_000,
     })
     // 落定期:flush 后的最终渲染与 pending reveal 追平收尾(有界,不追尾标)
+    // WAIT-POLICY:TIMING-0002 输入去抖/节流窗口,需完整覆盖阈值后才采样
     await page.waitForTimeout(2_000)
 
     // 观测有效性 sanity check:页面必须仍在活跃产生 rAF(无头多标签环境下

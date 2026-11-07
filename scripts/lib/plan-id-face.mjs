@@ -808,6 +808,216 @@ if (isDirectRun) {
   }
 }
 
+/**
+ * 「近期已结清号」占用面(2026-11-06 立,根因由台账席实测提供)。
+ *
+ * 立因(现读可复现):本仓 §1 是**完成即删** —— 结清把整行从台账拿掉,那个号当天就重新变成一个洞;
+ * 而取号面的两处来源(台账 ⊕ 归档件、全文件正则扫)看的都是"**当下**在册",洞因此被当成空闲复发的根。
+ * 实测形态:2026-11-06 补登 5 枚票时 `{{NEXT_ID:RP}}` 现算出 RP-65/67/68/69/70,
+ * 其中 **RP-67 是当日刚结清的那枚**(结清在枚 f71e790ca1),于是 HEAD 面上只剩一条 RP-67 却**同号跨题**,
+ * 后人按号回查凭据会读到错的枚号。归档面挡不住:归档机制 2026-10-16 已退役。
+ *
+ * 两条来源都**已在仓内**,不新增台账、不新增写入者:
+ *  ① `.ihui-agent/state/plan-row-drop.jsonl`(摘除台账,含 `rowBefore` 整行)—— 现读 971 行里
+ *     就有 `RP-67@2026-11-05 kind=closed-row-reclose-open-form` 这一条,即本缺陷的现场;
+ *  ② `git log` 近期提交标题(覆盖没走摘除台账的结清,如人工/会话自己删行)。
+ *
+ * 窗口量纲不自发明:`RETIRE_WINDOW_DAYS = 90` 取自 §1 对同一族留痕既有的"90 天窗口老化"口径
+ * (AGENTS.md §1 摘除台账条),而不是新拍的数。
+ *
+ * 失效方向(这是这一格的全部要点):两源**都**取不到 ⇒ `undetermined` ⇒ 调用方**不得填洞**,
+ * 只许按 max+1 顶号(顶号永远安全,填洞才是本缺陷的原形);绝不把"读不到历史"读成"没历史、随便发"。
+ */
+export const RETIRE_LEDGER_REL = '.ihui-agent/state/plan-row-drop.jsonl'
+export const RETIRE_WINDOW_DAYS = 90
+
+/** 纯函数:从一批文本里按族提出号(只扫正文,不猜语法 —— 语法仍是 scanFamilyIds 那一份)。 */
+export function retiredNumbersFromTexts(texts, families) {
+  const out = new Map()
+  for (const f of families) out.set(f, new Set())
+  for (const t of texts) {
+    if (typeof t !== 'string' || t === '') continue
+    for (const f of families) {
+      const nums = scanFamilyIds(t, f)
+      if (nums === null || nums === undefined) continue
+      for (const n of nums) out.get(f).add(Number(n))
+    }
+  }
+  return out
+}
+
+/**
+ * 从一批"整行文本"里取号 —— **只取登记行的编号声明位**,不取正文里的散文引用。
+ *
+ * 为什么不能用 scanFamilyIds(现读实测逼出来的):摘除台账每行的 `rowBefore` 里常见
+ * `G-160 …(与 G-929 同型票)…` 这种**引用别票**的写法,整行全扫会把 1..99 全部标成已结清
+ * ⇒ G 族"池内可发余量"实测塌成 **0(池满)**。避让面顶满号池比本缺陷更坏:
+ * 登记入口直接发不出号(§12e 同一条:收紧判据前先数被它挡住的人)。
+ * 声明位的判据单源仍是 `plan-task-index.mjs` 的 `usedIdsOfPrefix`(与台账面占用判定同一把尺)。
+ */
+export function retiredDeclaredNumbersFromRows(rows, families) {
+  const out = new Map()
+  for (const f of families) out.set(f, new Set())
+  for (const row of Array.isArray(rows) ? rows : []) {
+    if (typeof row !== 'string' || row === '') continue
+    for (const f of families) {
+      const used = usedIdsOfPrefix(row, f)
+      if (!used || !Array.isArray(used.ids)) continue
+      for (const lbl of used.ids) {
+        const n = Number(/(\d+)$/.exec(String(lbl))?.[1])
+        if (Number.isFinite(n)) out.get(f).add(n)
+      }
+    }
+  }
+  return out
+}
+
+/**
+ * 第二个源(提交标题)的取数口径 —— **只认结清类标题**,不认散文引用。
+ *
+ * 为什么必须有这一格(现读实测,不是洁癖):naive 版把近 90 日 36,095 条标题整片扫进避让集后,
+ * 各族"池内可发余量"塌成 D=1 / G=3 / O=6(池上限 99),真凶是 `D4 形状锁`、`G-929 同型票` 这类
+ * **在正文里引用别票**的写法被当成实占。避让面一旦顶满池,取号器就换族/拒发 —— 那是比本缺陷
+ * (复用一个旧号)更坏的故障(整个登记入口发不出号)。§12e 同一条:收紧判据前先数调用方。
+ *
+ * 反方向也守住:摘除台账(第一个源)虽逐行取声明位,但仍覆盖**所有**被摘掉的登记行 ⇒
+ * 本缺陷现场 RP-66/67/68 三枚全部落在避让集内(现读已验)。
+ */
+export const RETIRE_TITLE_RE =
+  /(结清|销账|摘除|删行|删除.*登记|关闭.*票|closed[- ]?row|reclose|purge|退号|让号)/i
+
+export function retiredNumbersFromTitles(titles, families) {
+  const kept = (Array.isArray(titles) ? titles : []).filter(
+    (t) => typeof t === 'string' && RETIRE_TITLE_RE.test(t),
+  )
+  // 标题**不是登记行**,`usedIdsOfPrefix` 的声明位尺子在标题上恒空(现读实测:改成声明位取数后
+  // 第二源对 RP 族贡献 0 枚)。因此这一源用"全扫"那把尺 —— 它之所以不过宽,全靠上面那道
+  // RETIRE_TITLE_RE 过滤:只扫结清类标题(现读 36,099 条里 2,410 条),散文标题整片不进集。
+  // 两源各自用与自身形态相配的尺,统一成一把它必有一边判错(§22c 反向教训)。
+  return {
+    numbers: retiredNumbersFromTexts(kept, families),
+    keptCount: kept.length,
+    totalCount: (titles || []).length,
+  }
+}
+
+/** 纯函数:从一批文本里按族提出号(全扫那把尺 = scanFamilyIds;登记行声明位用另一个出口)。 */
+
+/**
+ * @param {string[]} families 需要避让的族(大写)
+ * @param {(rel:string)=>string|null} readText 注入读文件(取不到 ⇒ null,不抛)
+ * @param {()=>string[]|null} recentCommitTitles 注入读近 N 日提交标题(null ⇒ 该源未判定)
+ */
+export function collectRetiredIds({
+  families = [PRIMARY_FAMILY],
+  days = RETIRE_WINDOW_DAYS,
+  readText,
+  recentCommitTitles,
+} = {}) {
+  const fams = [...new Set(families.map((f) => String(f).toUpperCase()))]
+  const perSource = {}
+  const texts = []
+  let ledgerState = 'ok'
+  let ledgerText = null
+  let ledgerNums = null
+  try {
+    ledgerText = readText ? readText(RETIRE_LEDGER_REL) : null
+  } catch {
+    ledgerText = null
+  }
+  if (typeof ledgerText === 'string') {
+    // 逐行解 JSON:只吃带 rowBefore 的行;坏行跳过但要计数(整本账烂了不能装作"没记录")
+    const lines = ledgerText.split(/\r?\n/).filter(Boolean)
+    let parsed = 0
+    let bad = 0
+    const rows = []
+    for (const l of lines) {
+      try {
+        const e = JSON.parse(l)
+        rows.push(e)
+        parsed += 1
+      } catch {
+        bad += 1
+      }
+    }
+    const cutoff = Date.now() - days * 86400000
+    const inWindow = rows.filter((r) => {
+      const t = Date.parse(String(r?.at ?? ''))
+      return Number.isFinite(t) ? t >= cutoff : true // 时刻取不到 ⇒ 留在集内(宁多避让,不少避让)
+    })
+    // 只取每行 rowBefore 的**编号声明位**(理由见 retiredDeclaredNumbersFromRows 头注:整行全扫会把
+    // 正文引用算成实占,实测把 G 族顶成池满 0 余量)
+    ledgerNums = retiredDeclaredNumbersFromRows(
+      inWindow.map((r) => (typeof r?.rowBefore === 'string' ? r.rowBefore : '')).filter(Boolean),
+      fams,
+    )
+    perSource.dropLedger = {
+      state: 'ok',
+      lines: lines.length,
+      parsed,
+      unparseable: bad,
+      inWindow: inWindow.length,
+    }
+    if (bad > 0 && parsed === 0) ledgerState = 'undetermined'
+  } else {
+    ledgerState = 'missing'
+    perSource.dropLedger = { state: 'missing', lines: 0, parsed: 0, unparseable: 0, inWindow: 0 }
+  }
+  let gitState = 'ok'
+  let titles = null
+  const titleNums = new Map(fams.map((f) => [f, new Set()]))
+  try {
+    titles = recentCommitTitles ? recentCommitTitles() : null
+  } catch {
+    titles = null
+  }
+  if (Array.isArray(titles)) {
+    // 口径见 RETIRE_TITLE_RE 头注 + 下面这段实测:**这一源只在降级态参与并集**。
+    const t = retiredNumbersFromTitles(titles, fams)
+    perSource.gitLog = {
+      state: 'ok',
+      titles: titles.length,
+      retirementTitles: t.keptCount,
+      numbers: [...t.numbers.values()].reduce((a, s) => a + s.size, 0),
+      role:
+        ledgerState === 'ok' ? 'shadow(第一源可读 ⇒ 不参与并集)' : 'fallback(第一源不可读 ⇒ 顶上)',
+    }
+    if (ledgerState !== 'ok')
+      for (const f of fams) for (const n of t.numbers.get(f) ?? []) titleNums.get(f).add(n)
+  } else {
+    gitState = 'missing'
+    perSource.gitLog = { state: 'missing', titles: 0 }
+  }
+  const state =
+    ledgerState === 'ok' || gitState === 'ok'
+      ? ledgerState === 'ok' && gitState === 'ok'
+        ? 'ok'
+        : 'partial'
+      : 'undetermined'
+  const merged =
+    state === 'undetermined'
+      ? new Map(fams.map((f) => [f, new Set()]))
+      : new Map(fams.map((f) => [f, new Set()]))
+  if (state !== 'undetermined') {
+    for (const f of fams) {
+      for (const n of ledgerNums?.get?.(f) ?? []) merged.get(f).add(n)
+      for (const n of titleNums.get(f) ?? []) merged.get(f).add(n)
+    }
+  }
+  return {
+    state,
+    byFamily: merged,
+    perSource,
+    days,
+    why:
+      state === 'undetermined'
+        ? `两源都取不到(摘除台账 ${perSource.dropLedger.state} / 提交标题 ${perSource.gitLog.state})⇒ 判未判定:本轮**不得填洞**,只许顶号`
+        : state === 'partial'
+          ? `仅一源可用(台账 ${perSource.dropLedger.state} / git log ${perSource.gitLog.state})⇒ 已避让,但这一轮的避让面比两源齐全时窄`
+          : '',
+  }
+}
+
 export const __test__ = {
   collectIdFace,
   parseZList,

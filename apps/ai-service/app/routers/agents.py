@@ -79,6 +79,7 @@ from ..services.memory import memory_store
 from ..services.run_ownership import owner_of, record_ownership, release_ownership
 from ..services.skills import skill_evolution_service
 from ..services.vector_memory import vector_memory
+from ..utils.tool_call_args import normalize_tool_call_args
 
 if TYPE_CHECKING:
     # 仅类型注解使用(运行时在函数内延迟导入,避免循环依赖)
@@ -155,12 +156,14 @@ def _convert_openai_tool_calls(
         if not isinstance(tc, dict):
             continue
         fn = tc.get("function") or {}
-        args_raw = fn.get("arguments") or "{}"
-        if isinstance(args_raw, str):
-            try:
-                args = json.loads(args_raw)
-            except (ValueError, TypeError):
-                args = {}
+        args_raw = fn.get("arguments")
+        # 单一真相源：字符串形态的 args（含残缺/截断/裸键名/单引号）走 normalize_tool_call_args
+        # 修复解析（对标 Qoder/Trae 的 jsonrepair 用法；并超越其只能吃完整串的限制），使 LLM
+        # 产出的残缺 arguments 不再静默丢成 {}。非字符串（已是对象等）保持原样透传，维持契约不变。
+        if args_raw is None:
+            args = {}
+        elif isinstance(args_raw, str):
+            args = normalize_tool_call_args(args_raw) or {}
         else:
             args = args_raw
         result.append(

@@ -103,6 +103,9 @@ from app.routers import prompts as prompts_router
 # D176 任务回顾→移交新任务(2026-09-30 用户拍板立项):交接文档生成出口
 from app.routers import recap as recap_router
 
+# RP-42 超工慢路径判定(2026-11-07):recorded 积压的"该不该动手"模型判断端点
+from app.routers import super_agent_slow as super_agent_slow_router
+
 # Harness 能力补齐:Token 用量统计(2026-08-11 立)
 from app.routers import usage as usage_router
 
@@ -1147,6 +1150,8 @@ def create_app() -> FastAPI:
     app.include_router(a2a.router, prefix="/api", tags=["a2a"])
     # D176(2026-09-30 用户拍板立项):交接文档生成出口
     app.include_router(recap_router.router, prefix="/api", tags=["recap"])
+    # RP-42:超工慢路径判定端点(POST /api/super-agent/slow-path/judge)
+    app.include_router(super_agent_slow_router.router, prefix="/api", tags=["super-agent-slow"])
     # D193(2026-09-30 用户拍板,小切口):「我的待决策」聚合查询(GET /api/agent/decisions/pending)
     app.include_router(decisions_router.router, prefix="/api", tags=["decisions"])
     # G5(2026-10-30 立项):编译式知识引擎(POST /api/knowledge/compile + GET /api/knowledge/cards)

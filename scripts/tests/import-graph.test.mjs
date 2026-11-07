@@ -443,7 +443,7 @@ test('L14546 含源码扩展名才建图(性能预判的正向对照,与上一�
   assert.equal(called, 1, '暂存含 .ts 必须建图')
 })
 
-test('L14546 建图抛错 ⇒ 退回未加宽 + 可见 reason,不崩也不静默假装成功', () => {
+test('L14546 建图抛错 ⇒ 退回未加宽 + 可见 reason + ok:false(降级判据必须关闭)', () => {
   const w = widenFilesOverDependents(['apps/web/src/a.ts'], {
     buildGraph: () => {
       throw new Error('模拟 git 故障')
@@ -452,14 +452,82 @@ test('L14546 建图抛错 ⇒ 退回未加宽 + 可见 reason,不崩也不静默
   assert.equal(w.widened, false)
   assert.deepEqual(w.files, ['apps/web/src/a.ts'])
   assert.match(w.reason, /建图失败/)
+  // 2026-11-02 P3:取不到加宽判据 ⇒ 显式 fail-closed 信号,调用方据此拒绝降级放行
+  assert.equal(
+    w.ok,
+    false,
+    '建图失败必须 ok:false —— 缺这一枚,check-typecheck 会把报错当范围外噪音放行',
+  )
+  assert.match(w.reason, /降级判据必须关闭/)
 })
 
-test('L14546 闭包计算抛错(图缺 reverse Map) ⇒ 退回未加宽 + 可见 reason', () => {
+test('L14546 闭包计算抛错(图缺 reverse Map) ⇒ 退回未加宽 + 可见 reason + ok:false', () => {
   const w = widenFilesOverDependents(['apps/web/src/a.ts'], {
     buildGraph: () => ({}),
   })
   assert.equal(w.widened, false)
   assert.deepEqual(w.files, ['apps/web/src/a.ts'])
   assert.match(w.reason, /闭包计算失败/)
+  assert.equal(w.ok, false, '闭包失败同样是 fail-closed,不冒绿')
+  assert.match(w.reason, /降级判据必须关闭/)
+})
+
+// ── 2026-11-02 P3:widenFilesOverDependents 的 ok 档(fail-closed 降级信号) ──
+// 判据本体在 lib/import-graph.mjs,本文件只 import,不在这里复制任何判定实现(§22c)。
+
+test('P3 ok 只在"加宽判据不可用"时为 false:可用档逐条 ok:true,与不可用档互相区分得开', () => {
+  const okOf = (files, opts) => widenFilesOverDependents(files, opts).ok
+  const usable = [
+    ['空集(无需加宽)', [], { buildGraph: () => WIDEN_FAKE }],
+    ['null(git 不可用,原样返回)', null, { buildGraph: () => WIDEN_FAKE }],
+    ['全非源码扩展名(跳过建图)', ['README.md', 'docs/x.json'], { buildGraph: () => WIDEN_FAKE }],
+    [
+      '建图+闭包跑通(有 importer)',
+      ['packages/shared/src/ctx.ts'],
+      { buildGraph: () => WIDEN_FAKE },
+    ],
+    ['建图+闭包跑通(闭包为空)', ['apps/web/src/solo.ts'], { buildGraph: () => WIDEN_FAKE }],
+  ]
+  for (const [name, files, opts] of usable) {
+    assert.equal(okOf(files, opts), true, `${name} 不是判据不可用,必须 ok:true`)
+  }
+  const boom = {
+    buildGraph: () => {
+      throw new Error('模拟建图崩溃')
+    },
+  }
+  assert.equal(okOf(['apps/web/src/a.ts'], boom), false)
+  assert.equal(okOf(['apps/web/src/a.ts'], { buildGraph: () => ({}) }), false)
+  assert.notEqual(
+    okOf(['apps/web/src/a.ts'], { buildGraph: () => WIDEN_FAKE }),
+    okOf(['apps/web/src/a.ts'], boom),
+    '可用档与不可用档的 ok 必须区分得开 —— 同值等于没有信号',
+  )
+})
+
+test('P3 形状锁:每一条返回路径都带布尔 ok(摘掉任一枚 ⇒ 本条红)', () => {
+  const paths = [
+    widenFilesOverDependents([], { buildGraph: () => WIDEN_FAKE }),
+    widenFilesOverDependents(null, { buildGraph: () => WIDEN_FAKE }),
+    widenFilesOverDependents(['README.md'], { buildGraph: () => WIDEN_FAKE }),
+    widenFilesOverDependents(['apps/web/src/a.ts'], { buildGraph: () => WIDEN_FAKE }),
+    widenFilesOverDependents(['apps/web/src/a.ts'], {
+      buildGraph: () => {
+        throw new Error('模拟建图崩溃')
+      },
+    }),
+    widenFilesOverDependents(['apps/web/src/a.ts'], { buildGraph: () => ({}) }),
+  ]
+  for (const [i, w] of paths.entries()) {
+    assert.ok(
+      'ok' in w && typeof w.ok === 'boolean',
+      `第 ${i} 条返回路径缺 ok 字段 ⇒ 调用方读成 undefined,靠 falsy 侥幸不等于有判据`,
+    )
+  }
+  // widened 语义未被本次改动改写:它仍只表示"闭包新增了 importer"
+  assert.equal(
+    widenFilesOverDependents(['apps/web/src/solo.ts'], { buildGraph: () => WIDEN_FAKE }).widened,
+    false,
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

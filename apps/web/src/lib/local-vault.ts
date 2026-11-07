@@ -5,14 +5,19 @@
 /**
  * 桌面端本地数据保险库 —— D48 本地会话数据主权与加密(G-56)
  *
- * 平台特有:依赖 Tauri plugin-store(window.__TAURI_INTERNALS__)+ 浏览器 WebCrypto,
+ * 平台特有:依赖 Tauri IPC(window.__TAURI_INTERNALS__)+ 浏览器 WebCrypto,
  * 不适合放共享层(§3)。
  *
  * ## 为什么是 web 层加密而不是 Rust 侧 stronghold(2026-09-24 定档)
- * 明文落在 **WebView 的 localStorage**(会话正文)与 **plugin-store 文本文件**(refresh token),
+ * 明文落在 **WebView 的 localStorage**(会话正文)与 **AppData 文本文件**(refresh token),
  * 两者都由 web 层写出。Rust 侧加密存储动不了 localStorage,只能多存一把密钥 ——
- * 那正是本模块用「已有的 tauri-plugin-store 通道」就能拿到的东西。
- * 故:零新增 cargo crate、零新增 npm 依赖、零改动 Rust 侧。
+ * 那正是本模块用「已有的本地保险库通道」就能拿到的东西。
+ * 故:零新增 cargo crate、零新增 npm 依赖。
+ *
+ * 2026-11-05(桌面 store 越权 P0):通道从 `@tauri-apps/plugin-store` 的 `load(任意路径)`
+ * 换成 Rust 侧两条白名单命令 `store_read_entry` / `store_write_entry`(见
+ * apps/desktop/src-tauri/src/store_path.rs)。capability 已移除 `store:default`,
+ * 远程 webview 不再拥有可直接指定路径的 store 通道。
  *
  * ## 三道硬约束
  * 1. **不承认落盘就不加密**:`bootstrapMaster` 生成密钥后必须**回读比对一致**才返回;
@@ -89,51 +94,46 @@ export interface VaultEntryChannel {
   write(fileName: string, key: string, value: string | null): Promise<boolean>
 }
 
-interface TauriStoreFile {
-  get: <T>(k: string) => Promise<T | undefined>
-  set: (k: string, v: unknown) => Promise<void>
-  delete: (k: string) => Promise<boolean>
-  save: () => Promise<void>
-}
+/** IPC 调用结果:必须保留「通道不可用」与「命令成功但值为空」两种语义 */
+type InvokeResult<T> = { status: 'ok'; value: T } | { status: 'error' }
 
-/** 懒加载 plugin-store(动态 import,避免浏览器 bundle 引入 Tauri 依赖) */
-async function openTauriStore(fileName: string): Promise<TauriStoreFile | null> {
-  if (!isDesktopEnv()) return null
+/** 懒加载 Tauri IPC(动态 import,避免浏览器 bundle 引入 Tauri 依赖) */
+async function invokeDesktopStore<T>(
+  command: 'store_read_entry' | 'store_write_entry',
+  args: Record<string, unknown>,
+): Promise<InvokeResult<T>> {
+  if (!isDesktopEnv()) return { status: 'error' }
   try {
-    const { load } = await import('@tauri-apps/plugin-store')
-    // autoSave:false —— 显式 save(),避免并发写时中间态落盘
-    return await load(fileName, { autoSave: false })
+    const { invoke } = await import('@tauri-apps/api/core')
+    return { status: 'ok', value: await invoke<T>(command, args) }
   } catch {
-    return null
+    return { status: 'error' }
   }
 }
 
+/**
+ * 生产通道:Rust 侧白名单命令。
+ * 文件名/key 白名单与路径守卫都在 apps/desktop/src-tauri/src/store_path.rs,
+ * 远程面已无 `store:default`,不能再指定任意路径。
+ */
 const tauriStoreChannel: VaultEntryChannel = {
   async read(fileName, key) {
-    const store = await openTauriStore(fileName)
-    if (!store) return { status: 'error' }
-    try {
-      const value = await store.get<string>(key)
-      if (typeof value === 'string' && value.length > 0) return { status: 'ok', value }
-      return { status: 'ok', value: null }
-    } catch {
-      return { status: 'error' }
-    }
+    const result = await invokeDesktopStore<string | null>('store_read_entry', {
+      file: fileName,
+      key,
+    })
+    if (result.status === 'error') return { status: 'error' }
+    const value = result.value
+    if (typeof value === 'string' && value.length > 0) return { status: 'ok', value }
+    return { status: 'ok', value: null }
   },
   async write(fileName, key, value) {
-    const store = await openTauriStore(fileName)
-    if (!store) return false
-    try {
-      if (value === null) {
-        await store.delete(key)
-      } else {
-        await store.set(key, value)
-      }
-      await store.save()
-      return true
-    } catch {
-      return false
-    }
+    const result = await invokeDesktopStore<boolean>('store_write_entry', {
+      file: fileName,
+      key,
+      value,
+    })
+    return result.status === 'ok' && result.value === true
   },
 }
 

@@ -26,7 +26,7 @@ import {
   isBranchGenerationCurrent,
   recentBranchGenerationEvents,
   recordSupersededBranchResult,
-} from '../src/commands/branch-generation.ts';
+} from '../src/commands/branch-generation.js';
 
 describe('G-632 分支代际计数器', () => {
   beforeEach(() => {

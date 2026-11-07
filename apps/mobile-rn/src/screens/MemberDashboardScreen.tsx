@@ -15,7 +15,7 @@ import {
 import { formatMoney } from '@ihui/shared/utils'
 
 import { useTheme } from '../context/ThemeContext'
-import { useI18n } from '../i18n'
+import { useI18n, getCurrentLocale } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -29,7 +29,9 @@ const fmtDate = (v?: string | null) => {
   if (!v) return null
   const d = new Date(v)
   if (Number.isNaN(d.getTime())) return null
-  return new Intl.DateTimeFormat('zh-CN', {
+  // 2026-11-07 DBG-34 收口: 原 Intl.DateTimeFormat('zh-CN') 硬编码中文 locale,
+  // 应用切到 en/ja/ko 后会员日期仍中文。改读 i18n 模块镜像(Provider 渲染期同步)。
+  return new Intl.DateTimeFormat(getCurrentLocale(), {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',

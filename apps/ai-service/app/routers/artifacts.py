@@ -21,6 +21,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -170,7 +171,12 @@ async def issue_artifact_token(
     owner_file = Path(str(target) + ".owner")
     if owner_file.is_file():
         try:
-            owner = (json.loads(owner_file.read_text(encoding="utf-8")) or {}).get("user_id")
+            owner = (
+                json.loads(
+                    await asyncio.to_thread(owner_file.read_text, encoding="utf-8")
+                )
+                or {}
+            ).get("user_id")
         except (OSError, ValueError):
             owner = None
         if owner and str(owner) != str(user_id):
@@ -198,7 +204,7 @@ async def serve_artifact(token: str) -> HTMLResponse:
     if not target.is_file():
         raise HTTPException(status_code=404, detail="产物文件不存在")
     try:
-        content = target.read_text(encoding="utf-8")
+        content = await asyncio.to_thread(target.read_text, encoding="utf-8")
     except OSError as exc:
         logger.error("读取产物失败 %s: %s", target, exc)
         raise HTTPException(status_code=500, detail="读取产物失败") from None

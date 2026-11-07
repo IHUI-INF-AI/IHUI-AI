@@ -1395,7 +1395,9 @@ async def _resolve_auto_model(
         all_models: list[dict[str, Any]] = []
         if default_file.exists():
             try:
-                raw = json.loads(default_file.read_text(encoding="utf-8"))
+                raw = json.loads(
+                    await asyncio.to_thread(default_file.read_text, encoding="utf-8")
+                )
                 for m in raw.get("models", []):
                     if isinstance(m, dict) and m.get("id"):
                         all_models.append(m)
@@ -3188,25 +3190,25 @@ class LLMGateway:
     # litellm 路径直接忽略 delta.tool_calls,导致调用方拿不到完整工具参数。
     # 统一改为按 index 累积,由 astream 在流结束前以完整 tool_calls 事件产出。
     @staticmethod
-    def _accumulate_tool_calls(
+    def _normalize_tool_call_fragments(
         acc: dict[int, dict[str, Any]],
         fragments: list[Any],
-    ) -> None:
-        """累积流式 tool_calls 分片为完整工具调用列表。
+    ) -> list[tuple[int, dict[str, Any]]]:
+        """把单批 tool_calls 分片归一为 `(index, dict)` 序列。
 
-        OpenAI 流式 function calling 分片规则:
-        - 同一 index 的首个分片携带 id/type/function.name,arguments 从首段开始;
-        - 后续分片仅含该 index 的 arguments 增量片段(可能跨多个 chunk);
-        - 因此同 index 的 id/type 直接覆盖,function.name 直接覆盖,function.arguments 字符串拼接。
+        2026-11-05 立(逐分片直推):index 分配判据**只有这一份** —— `_accumulate_tool_calls`
+        与 `tool_call_args_stream` 逐片腿共用,避免两处对「缺 index 的分片」分配出不同下标,
+        导致前端按 index 建的卡片与完整 tool_calls 终态错配。返回的 dict 必带 index 键。
 
         支持两种分片形态:
         - provider 适配器产出的 dict 列表(openai_provider/stepfun_provider 的 tool_call 事件);
         - litellm delta.tool_calls 对象列表(遍历时归一化为 dict 再处理)。
 
         Args:
-            acc: 累积字典 {index: 已合并的工具调用 dict},调用方在流开始时初始化。
+            acc: 累积字典 {index: 已合并的工具调用 dict},用于缺 index 时分配递增序号。
             fragments: 单个 chunk 内的 tool_calls 分片列表。
         """
+        out: list[tuple[int, dict[str, Any]]] = []
         for frag in fragments:
             if frag is None:
                 continue
@@ -3231,6 +3233,92 @@ class LLMGateway:
             # arguments 被错误拼接),故缺 index 时自动分配递增序号。
             if "index" not in frag or frag.get("index") is None:
                 idx = max(acc.keys()) + 1 if acc else 0
+                frag = {**frag, "index": idx}
+            out.append((idx, frag))
+        return out
+
+    @staticmethod
+    def _tool_call_args_delta_frames(
+        store: dict[int, Any],
+        normalized: list[tuple[int, dict[str, Any]]],
+        *,
+        provider: str = '',
+        model: str = '',
+        start_ts: float | None = None,
+    ) -> list[dict[str, Any]]:
+        """逐片直推腿:每片 arguments 到达即产一条 `tool-call-args-delta` 事件。
+
+        复用 app/utils/tool_call_args.py 的 `accumulate_tool_call_arguments`(标准库自研的
+        流式 JSON 修复),残缺/截断的 arguments 也能给出当前最好可用的部分对象,前端
+        ToolCallCard 因此可在流未结束时渐进渲染入参。store 按本次 astream 调用独立持有,
+        绝不跨会话共享。事件名与 payload 字段由 sse_contract.py 的契约看护。
+
+        2026-11-05 可观测性:每批帧产出后上报埋点(分片数 + 首片时延),让生产可见
+        "渐进渲染是否真在发生"。provider/model 由调用点透传,start_ts 取本轮 astream 开启时刻。
+        """
+        # 函数级 import:core 不模块级依赖 utils 之外的应用层,且与本仓既有
+        # 「函数级 import 防环」写法同形。
+        from app.utils.tool_call_args import accumulate_tool_call_arguments
+
+        frames: list[dict[str, Any]] = []
+        for idx, frag in normalized:
+            fn = frag.get("function") or {}
+            fn = fn if isinstance(fn, dict) else {}
+            name = fn.get("name") or ""
+            piece = fn.get("arguments") or ""
+            if not isinstance(piece, str):
+                # 与 _accumulate_tool_calls 同款:gemini/ollama 等形态 arguments 为 dict
+                try:
+                    piece = json.dumps(piece, ensure_ascii=False)
+                except (TypeError, ValueError):
+                    piece = ""
+            state = accumulate_tool_call_arguments(store, idx, name, piece)
+            frames.append({
+                "type": "tool-call-args-delta",
+                "index": idx,
+                "id": frag.get("id") or "",
+                "name": name,
+                "args": state.get("args"),
+                "argsComplete": bool(state.get("complete")),
+                "argsPartial": bool(state.get("partial")),
+            })
+        # 2026-11-05 可观测性:分片数 + 首片时延(从流开启到本批首片;单批时首片≈末片)。
+        if frames:
+            try:
+                from app.middleware.llm_metrics import record_tool_call_args_delta
+
+                _first_byte = (
+                    time.perf_counter() - start_ts
+                    if start_ts is not None
+                    else 0.0
+                )
+                record_tool_call_args_delta(
+                    provider=provider,
+                    model=model,
+                    frame_count=len(frames),
+                    first_byte_seconds=_first_byte,
+                )
+            except Exception:  # 埋点失败绝不阻断主链路(与 llm_metrics 其他埋点同纪律)
+                logger.debug("tool-call-args-delta 指标上报失败(已忽略)")
+        return frames
+
+    @staticmethod
+    def _accumulate_tool_calls(
+        acc: dict[int, dict[str, Any]],
+        fragments: list[Any],
+    ) -> None:
+        """累积流式 tool_calls 分片为完整工具调用列表。
+
+        OpenAI 流式 function calling 分片规则:
+        - 同一 index 的首个分片携带 id/type/function.name,arguments 从首段开始;
+        - 后续分片仅含该 index 的 arguments 增量片段(可能跨多个 chunk);
+        - 因此同 index 的 id/type 直接覆盖,function.name 直接覆盖,function.arguments 字符串拼接。
+
+        Args:
+            acc: 累积字典 {index: 已合并的工具调用 dict},调用方在流开始时初始化。
+            fragments: 单个 chunk 内的 tool_calls 分片列表。
+        """
+        for idx, frag in LLMGateway._normalize_tool_call_fragments(acc, fragments):
             entry = acc.setdefault(idx, {
                 "index": idx,
                 "id": "",
@@ -3263,6 +3351,10 @@ class LLMGateway:
         owner_uuid: str | None = None,
         billing_user_id: str | None = None,
         conversation_id: str | None = None,
+        # 2026-11-05 立(逐分片直推):默认 False ⇒ 逐片事件一帧不产,既有 astream
+        # 消费方与断言零行为变化。需要渐进渲染的通道(llm.py generic 原生 FC 转发)
+        # 显式置 True,每片 arguments 到达即多产一条 tool-call-args-delta。
+        tool_call_args_stream: bool = False,
         _call_route: str = "direct",
         _call_route_primary: str | None = None,
         _combo_name: str | None = None,
@@ -3336,6 +3428,8 @@ class LLMGateway:
                 # 2026-08-29 修复:tool_calls 分片累积(此前把分片事件直接透传,
                 # 调用方拿不到完整参数)。分片不透传,循环结束后统一 yield。
                 native_tool_acc: dict[int, dict[str, Any]] = {}
+                # 逐分片直推腿:按本次 astream 调用独立持有,不跨会话共享。
+                native_tool_args_store: dict[int, Any] = {}
                 # 观测收口(2026-10-18):原生流式路径此前零埋点(调用/token/成本
                 # 全不入 ihui_llm_*,与 LiteLLM 流式路径双标)。usage 由厂商适配器
                 # 的 done 事件携带(如 alibaba_dashscope yield {"type":"done","usage":...}),
@@ -3418,10 +3512,28 @@ class LLMGateway:
                                     yield fb_evt
                                 return
                             if isinstance(evt, dict) and evt.get("type") == "tool_call":
-                                # 2026-08-29 修复:tool_call 分片按 index 累积,不透传
-                                self._accumulate_tool_calls(
-                                    native_tool_acc, evt.get("tool_calls") or []
-                                )
+                                # 2026-08-29 修复:tool_call 分片按 index 累积,不透传。
+                                # 2026-11-05:开启逐分片直推时,先按同一份归一化判据取
+                                # (index, frag),逐片产 args 态帧,再用**带 index 的同一批
+                                # frag** 累积 —— 两腿下标恒一致,前端卡片不会错配。
+                                _native_frags = evt.get("tool_calls") or []
+                                if tool_call_args_stream:
+                                    _normalized = self._normalize_tool_call_fragments(
+                                        native_tool_acc, _native_frags
+                                    )
+                                    for _delta in self._tool_call_args_delta_frames(
+                                        native_tool_args_store,
+                                        _normalized,
+                                        provider=_metrics_provider(used_model),
+                                        model=used_model,
+                                        start_ts=_native_metrics_t0,
+                                    ):
+                                        yield _delta
+                                    self._accumulate_tool_calls(
+                                        native_tool_acc, [f for _, f in _normalized]
+                                    )
+                                else:
+                                    self._accumulate_tool_calls(native_tool_acc, _native_frags)
                                 continue
                             if isinstance(evt, dict) and evt.get("type") in ("chunk", "reasoning"):
                                 native_sent_content = True
@@ -3592,6 +3704,8 @@ class LLMGateway:
             # 2026-08-29 修复:litellm 流式 tool_calls 分片累积器(带 tools 的 astream 用),
             # 循环内累积 delta.tool_calls,流结束前统一以 tool_calls 事件产出。
             litellm_tool_acc: dict[int, dict[str, Any]] = {}
+            # 逐分片直推腿:与 native 路径同形,按本次调用独立持有。
+            litellm_tool_args_store: dict[int, Any] = {}
             _guard_fallback = False
             # G-425(2026-10-07 立,默认档"只提示"):最后一个非空 finish_reason(litellm
             # 在最终 chunk 的 choices[0].finish_reason 上给 length/stop/tool_calls/…),
@@ -3643,7 +3757,24 @@ class LLMGateway:
                         # 带 tools 的 astream 拿不到 LLM 工具决策。分片按 index 累积。
                         delta_tool_calls = getattr(delta, "tool_calls", None)
                         if delta_tool_calls:
-                            self._accumulate_tool_calls(litellm_tool_acc, delta_tool_calls)
+                            if tool_call_args_stream:
+                                # litellm 分片是对象列表,归一化判据与累积腿共用一份
+                                _normalized = self._normalize_tool_call_fragments(
+                                    litellm_tool_acc, delta_tool_calls
+                                )
+                                for _delta in self._tool_call_args_delta_frames(
+                                    litellm_tool_args_store,
+                                    _normalized,
+                                    provider=_metrics_provider(used_model),
+                                    model=used_model,
+                                    start_ts=_metrics_t0,
+                                ):
+                                    yield _delta
+                                self._accumulate_tool_calls(
+                                    litellm_tool_acc, [f for _, f in _normalized]
+                                )
+                            else:
+                                self._accumulate_tool_calls(litellm_tool_acc, delta_tool_calls)
                     if hasattr(chunk, "usage") and chunk.usage:
                         try:
                             final_usage = (

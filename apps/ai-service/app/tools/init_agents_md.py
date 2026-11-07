@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -480,7 +481,7 @@ async def init_agents_md(arguments: dict[str, Any]) -> dict[str, Any]:
         target = Path(info)
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(draft, encoding="utf-8")
+            await asyncio.to_thread(target.write_text, draft, encoding="utf-8")
             written = info
         except OSError as exc:
             return _error("WRITE_FAILED", f"草稿写盘失败: {exc}")

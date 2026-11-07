@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-store-write-entry"
+description = "Enables the store_write_entry command without any pre-configured scope."
+commands.allow = ["store_write_entry"]
+
+[[permission]]
+identifier = "deny-store-write-entry"
+description = "Denies the store_write_entry command without any pre-configured scope."
+commands.deny = ["store_write_entry"]

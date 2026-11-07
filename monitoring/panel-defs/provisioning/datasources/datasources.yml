@@ -15,7 +15,10 @@ datasources:
     uid: Prometheus
     type: prometheus
     access: proxy
-    url: http://prometheus:9090
+    # 2026-11-07 DBG-73 收口:本机是原生部署(非 docker),不存在 `prometheus` 主机名,
+    # Grafana 解析不了 ⇒ uid=Prometheus 的全部面板恒无数据(README-logging.md:220 自述)。
+    # 实测监听:netstat 127.0.0.1:8815 LISTENING(Prometheus)/127.0.0.1:3100 LISTENING(Loki)。
+    url: http://127.0.0.1:8815
     isDefault: true
     editable: true
     jsonData:
@@ -42,7 +45,8 @@ datasources:
     uid: Loki
     type: loki
     access: proxy
-    url: http://loki:3100
+    # 2026-11-07 DBG-73 收口:原生部署 Loki 实听 127.0.0.1:3100,`loki` 主机名解析不了。
+    url: http://127.0.0.1:3100
     editable: true
     jsonData:
       maxLines: 1000

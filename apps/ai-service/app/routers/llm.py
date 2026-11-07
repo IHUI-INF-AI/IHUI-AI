@@ -30,6 +30,11 @@ from fastapi import APIRouter, Body, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.core.internal_ticket import (
+    INTERNAL_SERVICE_PRINCIPAL_AI,
+    mint_internal_service_ticket,
+)
+
 # 差距①留痕 + 断流续传(2026-10-31 接线):准入留痕账本、恢复窗口与水位状态机的三个出口
 # (mark_admission_acked / begin_recovery / end_recovery)**唯一住在 `core/sse_contract.py`**。
 # 接线前两件事各有两套真相:本路由自持一份 `_admission_seen` dict(账本+判据都在路由),
@@ -149,6 +154,7 @@ from ..services.agent_events import (
     SSE_TERMINAL_END,
     SSE_TERMINAL_INTERACTION,
     SSE_TERMINAL_START,
+    SSE_TOOL_CALL_ARGS_DELTA,
     SSE_TOOL_CALL_START,
     SSE_TOOL_DELEGATE,
     SSE_TOOL_RESULT,
@@ -4935,6 +4941,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 messages, model=req.model, owner_uuid=owner_uuid,
                                 **_billing_kwargs,
                                 tools=openai_tools, tool_choice="auto",
+                                # 2026-11-05 立:agent 工具循环首轮也开启逐分片直推,
+                                # 前端 ToolCallCard 在工具入参流式到达时渐进渲染。
+                                # 零破坏:逐片帧为额外 yield,末尾聚合的 tool-call-start 仍照常产出。
+                                tool_call_args_stream=True,
                             ):
                                 _evt_type = evt.get("type", "")
                                 _note_retry(retry_notices, evt)
@@ -4966,6 +4976,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 elif _evt_type == "tool_calls":
                                     # astream 统一在流结束前 yield 累积后的完整 tool_calls
                                     first_round_tool_calls = evt.get("tool_calls") or []
+                                elif _evt_type == "tool-call-args-delta":
+                                    # 2026-11-05 立:逐分片直推帧(astream tool_call_args_stream=True
+                                    # 时产出)。原样上 wire,前端 api-client 解析后驱动 ToolCallCard
+                                    # 渐进渲染;旧客户端不订阅 onOpenAiToolCall ⇒ 零行为变化。
+                                    # 直接用事件类型串作 SSE 名(与 generic 通道通用兜底同律,
+                                    # 避免引入 llm.py 未导入的 SSE_TOOL_CALL_ARGS_DELTA 常量)。
+                                    yield _sse(_evt_type, evt)
                                 elif _evt_type == "done":
                                     # 记录 model/usage/stub(与 1162-1164 行一致)
                                     accumulated["model"] = evt.get("model", req.model)
@@ -5113,6 +5130,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 messages, model=req.model, owner_uuid=owner_uuid,
                                 **_billing_kwargs,
                                 tools=openai_tools, tool_choice="auto",
+                                # 2026-11-05 立:agent 工具循环后续轮也开启逐分片直推。
+                                tool_call_args_stream=True,
                             ):
                                 _evt_type = evt.get("type", "")
                                 _note_retry(retry_notices, evt)
@@ -5144,6 +5163,11 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 elif _evt_type == "tool_calls":
                                     # astream 统一在流结束前 yield 累积后的完整 tool_calls
                                     _round_tool_calls = evt.get("tool_calls") or []
+                                elif _evt_type == "tool-call-args-delta":
+                                    # 2026-11-05 立:逐分片直推帧(astream tool_call_args_stream=True
+                                    # 时产出)。原样上 wire,前端驱动 ToolCallCard 渐进渲染;
+                                    # 旧客户端不订阅 onOpenAiToolCall ⇒ 零行为变化。
+                                    yield _sse(SSE_TOOL_CALL_ARGS_DELTA, evt)
                                 elif _evt_type == "done":
                                     # 记录 model/usage/stub(与第一轮一致)
                                     complete_result = {
@@ -6820,6 +6844,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
 
             _native_fc_stream = llm_gateway.astream(
                 messages, model=req.model, owner_uuid=owner_uuid,
+                # 2026-11-05 立:generic 原生 FC 通道逐分片直推前端。astream 默认
+                # False(其余通道零行为变化),本通道显式开,每片 arguments 到达即
+                # 多产一条 tool-call-args-delta,由下方 6793 的通用兜底原样上 wire。
+                tool_call_args_stream=True,
                 **_billing_kwargs,
                 **_native_fc_kwargs
             )
@@ -6863,17 +6891,13 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     _native_fc_emitted_tools = True
                     for _tc in event.get("tool_calls") or []:
                         _fn = _tc.get("function") or {}
-                        _args_raw = _fn.get("arguments")
-                        _args: dict[str, Any] | str
-                        if _args_raw is None:
-                            _args = {}
-                        elif isinstance(_args_raw, str):
-                            try:
-                                _args = json.loads(_args_raw)
-                            except (json.JSONDecodeError, ValueError):
-                                _args = _args_raw
-                        else:
-                            _args = _args_raw
+                        # 2026-11-05 立:残缺/截断 arguments 走统一归一化(单一真相源
+                        # app/utils/tool_call_args.py),不再裸 json.loads 把整段可用参数
+                        # 吞成空对象,也不把原始字符串塞进前端卡片的 args 槽。
+                        from ..utils.tool_call_args import normalize_tool_call_args
+                        _args: dict[str, Any] = (
+                            normalize_tool_call_args(_fn.get("arguments")) or {}
+                        )
                         _tc_start = {
                             "type": "tool-call-start",
                             # 2026-09-03:strip 工具 id(个别 provider 返回的 id 尾部带换行,
@@ -8273,10 +8297,23 @@ async def _fire_callback(
             settings.api_service_url,
         )
         return
-    headers: dict[str, str] = {"X-Internal-Secret": settings.ai_callback_secret}
+    # 2026-11-06 X-Internal-Secret 族票据化:回调鉴权改走短期票(scope=ai-callback),
+    # 票面主体绑定 metadata.userId;兼容窗口内同发旧密钥。
+    # 每次重试必须重签一张新票 —— 验票侧按 jti 单次消费,5xx 重试用旧票会被判 replayed。
+    callback_user_id = str((body.get("metadata") or {}).get("userId") or "") or INTERNAL_SERVICE_PRINCIPAL_AI
 
     max_attempts = 3  # 首次 + 2 次重试
     for attempt in range(max_attempts):
+        ticket = mint_internal_service_ticket(callback_user_id, "ai-callback")
+        if not ticket:
+            logger.error(
+                "LLM callback skipped: JWT_SECRET 未配置,无法签发内部回调票(拒绝无票回调)"
+            )
+            return
+        headers: dict[str, str] = {
+            "X-Internal-Secret": settings.ai_callback_secret,
+            "X-Internal-Service-Ticket": ticket,
+        }
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 resp = await client.post(url, json=body, headers=headers)

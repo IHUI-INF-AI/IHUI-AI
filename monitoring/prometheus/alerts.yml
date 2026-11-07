@@ -21,14 +21,22 @@ groups:
   - name: api-alerts
     rules:
       # API 宕机(1 分钟内无指标)
+      # ⚠ 2026-11-07 DBG-75 收口:原 `up{job="api"} == 0` 单实例判据有盲区 —— 此 job 此前只抓
+      #   router(8802),真正干活的 BLUE(8842)/GREEN(8843) 两工作色无目标;且稳态只有一色在监听
+      #   (另一色待命无监听,见 api-listener-freshness.ps1:33),若用单实例 `up==0` 会把闲置色
+      #   永远判 down ⇒ 永久假告警(本仓最高频反模式,见各注释"一条永远响的告警")。
+      #   改为:`router 挂` **或** `两 worker 全挂`(count(up{role="worker"}==1)==0)。
+      #   - router(8802) 是公网入口,它 down = API 对外不可达;
+      #   - 两 worker 同时 down = 无实例可服务(单色 down 属正常切流,不响)。
+      #   这样既补盲区,又不对闲置色误报。
       - alert: ApiDown
-        expr: up{job="api"} == 0
+        expr: up{job="api",role="router"} == 0 or count(up{job="api",role="worker"} == 1) == 0
         for: 1m
         labels:
           severity: critical
         annotations:
           summary: 'API 服务宕机'
-          description: 'API 服务 {{ $labels.instance }} 已宕机超过 1 分钟'
+          description: 'API 不可达:router(8802) 已宕机,或 BLUE(8842)/GREEN(8843) 两工作色全部无监听超过 1 分钟。先查 IHUI-API-ROUTER 与 IHUI-API-BLUE/GREEN 服务状态、8802/8842/8843 端口监听(netstat -ano | findstr :8842)、以及 api-bluegreen.json 活跃色。'
 
       # API 高错误率(5xx 占比 > 5%)
       - alert: ApiHighErrorRate
