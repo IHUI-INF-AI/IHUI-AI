@@ -779,7 +779,7 @@ def _active_extra_roots() -> tuple[str, ...]:
 # 工具权限矩阵:admin 专属工具(role >= 1),其他工具所有用户可用
 # 危险工具:写文件 / 执行命令 / 数据库查询 / git 操作 / 自动化配置 / 电脑控制 / 截图(SSRF 入口)
 _ADMIN_ONLY_TOOLS: set[str] = {
-    "write_file", "run_command", "db_query", "git_operations",
+    "write_file", "run_command", "sandbox_session", "db_query", "git_operations",
     "configure_automation_task",
     # 2026-07-24 file_edit:写文件操作(精细编辑),必须 admin
     "file_edit",
@@ -11304,6 +11304,62 @@ _TOOLS: list[MCPTool] = [
         },
     ),
     MCPTool(
+        name="sandbox_session",
+        description=(
+            "长寿命沙箱会话。action："
+            "create、get、pause、resume、kill、snapshot、list_snapshots、"
+            "delete_snapshot、rollback、clone、write_file、read_file、exec、"
+            "set_timeout、reap_idle。"
+            "命令在该沙箱自己的工作区里执行；暂停后的 exec 会先恢复。"
+            "调用方不能打开网络，密钥形态的环境变量不会进入子进程。"
+        ),
+        input_schema={
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": [
+                        "create",
+                        "get",
+                        "pause",
+                        "resume",
+                        "kill",
+                        "snapshot",
+                        "list_snapshots",
+                        "delete_snapshot",
+                        "rollback",
+                        "clone",
+                        "write_file",
+                        "read_file",
+                        "exec",
+                        "set_timeout",
+                        "reap_idle",
+                    ],
+                },
+                "sandbox_id": {"type": "string"},
+                "snapshot_id": {"type": "string"},
+                "command": {"type": "string"},
+                "timeout_s": {
+                    "type": "integer",
+                    "description": "空闲秒数，-1 表示不自动暂停",
+                },
+                "timeout": {"type": "integer", "description": "exec 的超时秒数"},
+                "n": {"type": "integer", "description": "克隆份数，1 到 8"},
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+                "files": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
+                "env": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                },
+            },
+        },
+    ),
+    MCPTool(
         name="run_command",
         description="运行 shell 命令(asyncio.subprocess 流式读取 stdout/stderr,白名单: git/ls/cat/echo/python/node/npm/pnpm/ruff/mypy/pytest 等,禁止 rm/mv/cp/curl/重定向/管道)。支持 sandbox_backend 切换 local/docker/ssh,支持 env 透传(禁止覆盖 PATH/HOME),cwd 校验工作区,超时 kill 进程并返回 partial_output",
         input_schema={
@@ -14009,6 +14065,17 @@ async def _tool_workbook_close(args: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "workbook_close", **out}
 
 
+async def _tool_sandbox_session(
+    arguments: dict[str, Any], cancel: asyncio.Event | None = None
+) -> dict[str, Any]:
+    """长寿命沙箱。判定与文件树都在 sandbox_lifecycle，这里只转一次。"""
+    del cancel
+    from app.services.sandbox_lifecycle import dispatch_sandbox_session
+
+    payload = arguments if isinstance(arguments, dict) else {}
+    return await dispatch_sandbox_session(payload)
+
+
 _TOOL_HANDLERS: dict[str, Any] = {
     # ===== 工具定义 deferral 反查工具(2026-09-02 立)=====
     "get_tool_schema": _tool_get_tool_schema,
@@ -14027,6 +14094,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "write_file": _tool_write_file,
     "file_edit": _tool_file_edit,
     "run_command": _tool_run_command,
+    "sandbox_session": _tool_sandbox_session,
     "web_search": _tool_web_search,
     "image_search": _tool_image_search,
     "search_web": _tool_search_web,
