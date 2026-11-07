@@ -696,7 +696,9 @@ export function VipScreen() {
         features={resolveVipIndexFeatures(tt)}
         viewBenefits={{
           label: tt('vip.viewAllBenefits', '查看全部权益'),
-          onPress: () => navigation.navigate('VipBenefit'),
+          // 前向跳转一律走宿主端口:跨端(web/小程序/RN)统一由宿主解析 target,
+          // 直连 navigation.navigate 会绕过端口注册/未登记校验(见 nav-b 路由契约)。
+          onPress: () => onNavigate('VipBenefit'),
         }}
       />
       <PurchaseNoticePopUp
