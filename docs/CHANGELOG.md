@@ -48,6 +48,16 @@
 
 ### Changed
 
+- **CLI 会话状态落盘改原子写**:`~/.ihui/sessions/*.json` 的保存与补丁改为同目录 tmp + fsync + rename,
+  半截 JSON 不再可能落盘;状态文件解析失败由「静默返回 null / 当成没有这场会话」改为**报错并保留原文件**,
+  `ihui sessions` 会点名损坏文件而不是跳过
+- **CLI 退出兜底清理**:进程正常退出与第二次 Ctrl+C 时,对所有存活终端会话同步 `killTree`
+  (Windows `taskkill /T /F`,POSIX 进程组),不再遗留孤儿子进程;已退出会话按 LRU 只保留最近 5 份,
+  超出 256KB 的缓冲转一次性尾部快照
+- **CLI 入口参数互斥校验前置**:`--continue` 与 `--resume` 同给、`--json` 与 `--output-format text` 同给、
+  `--output-format` 取非法值,均在任何文件/网络副作用之前以 exit 2 退出,并打印合法枚举
+- **CLI 结构化输出加 `schemaVersion`**:所有 `--json` 出口与 `--output-format json` 事件统一带
+  `schemaVersion: 1`,并写入 `--help`;解析方按字段名 + 类型断言,不依赖字段顺序
 - **code-generator 主题切换性能优化**:复用 `markdown-stream` 方案,降低首屏渲染耗时 (`51bdcd5f`)
 - **C 端 resource 字段配套**:前后端字段命名对齐 + `categoryName` join (`a4bd15d8`)
 - **"我的学习" 二级菜单提示线重设计**:全宽破折线 + 激活态实线 + 无障碍呼吸动画 (`678b7cbb`)
@@ -73,6 +83,13 @@
 
 ### Security
 
+- **会话状态路径校验**:会话 id 来自外部输入(`--resume`)时只接受单个文件名段,
+  拒绝路径分隔符、盘符、`..` 与绝对路径,避免读写落到 `~/.ihui/sessions` 之外
+- **JSON 模式提示与数据分流**:`--json` / `--output-format json` 下租约、中断等提示统一走 stderr,
+  不再污染 stdout 的机器可读输出
+- **升级提示(无需手动迁移)**:`~/.ihui/*` 旧状态文件字段未删,继续按原 JSON 读取;
+  `schemaVersion` 只出现在 CLI 输出流,不写回磁盘,`.ihui-agent/**` 无格式变更。
+  唯一行为变化是损坏的会话状态文件现在会显式报错并保留原文件,需人工修复或删除后再启动
 - **微信支付 V3 安全加固** (`890c1fee`):
   - 商户私钥 + 平台证书激活机制完善(生产环境缺失时启动中止)
   - 凭证轮换手册(`scripts/cert-renew-watchdog.mjs`、`scripts/cert-expiry-check.mjs`)
