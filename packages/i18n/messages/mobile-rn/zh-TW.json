@@ -2492,7 +2492,11 @@
     "copySecret": "複製",
     "secretCopied": "金鑰已複製到剪貼簿",
     "rateLimit": "速率限制",
-    "rateLimitUnit": "次/分鐘"
+    "rateLimitUnit": "次/分鐘",
+    "subtitle": "管理您的開發者 API 密鑰,供第三方應用接入",
+    "permissionsRequired": "請至少選擇一個權限",
+    "rateLimitPerMinute": "速率 {rateLimit}/分鐘",
+    "callsTotal": "累計呼叫 {times} 次"
   },
   "devices": {
     "title": "裝置管理",

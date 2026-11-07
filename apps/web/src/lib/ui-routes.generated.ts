@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 5f0e886a898df49b0b8138a0365f62c7af41ed81
-// inputsSha256: 174bdfef01f5e895f3e88d50cc40179ead6adcafb31f4e2ae3abd7c8d5f3ddf2
+// sourceCommit: 62cb2eaa1f9a856025ad1b89832ad2dba37a36bc
+// inputsSha256: b56ed33e2725db4a88aac252242184a3dec8d09450dd35782614283b60a06cb9
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -260,7 +260,7 @@
 // input: apps/web/app/(main)/admin/refund/[id]/page.tsx ed930c0449c1156144740feb073188f994aec8a47595264ce126920f534e594f
 // input: apps/web/app/(main)/admin/refund/page.tsx 5354bd330a9d2e4aed74b987fda52a4c42800739871fe8ac74bddcda4ba8507a
 // input: apps/web/app/(main)/admin/relay-param-ops/page.tsx ea5d50a5f17c33b3767f77ad81a297178083aa363120b8b8800bbbb24eab0947
-// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx e0b212be3aa22d00af77fa22106b0c8e47e34498236d7a4c466e75bc44a29693
+// input: apps/web/app/(main)/admin/relay/account-pool/page.tsx dea116c0ea8860ee00165f63736542b66e199b80c43d56ba1438eedacd7aaf49
 // input: apps/web/app/(main)/admin/relay/account-proxy/page.tsx b2c990e60630134dd7466e3dba261a2480142cb1c6dd72879c5b83e43b5d1e0e
 // input: apps/web/app/(main)/admin/relay/alert-rules/page.tsx fedc05b330b5a0f92bb81fccd737c8532e80cd23c9cb7ef72eee20a8e3312040
 // input: apps/web/app/(main)/admin/relay/capacity/page.tsx 48763f3c6314af0bdc7e7c0343790a7f303ae7454f64ccc9708c17fba4de2e14
@@ -792,7 +792,7 @@
 // input: apps/web/app/(main)/settings/account-deletion/page.tsx b59b4e906cfc507036cbe14f567bc8efd3ff51df4cb9f8e1a57bd320e6a27fc3
 // input: apps/web/app/(main)/settings/activity/page.tsx e01b30e9f2d8be4089a668bc58f192390b9d9b1d8f145f7f48fe0f8904c32859
 // input: apps/web/app/(main)/settings/agent-security/page.tsx 43c685aa16a4268f677b366eddd03370573e878a1c9d5b74faf161b7a2f6c620
-// input: apps/web/app/(main)/settings/api-keys/page.tsx 64eb416eb0f634d712d8ae232d5b8c03fb584b07493ec184f93ed7efc412ebe4
+// input: apps/web/app/(main)/settings/api-keys/page.tsx 00df8053a4cf42f032d7ceb41165059dd0399a56098b6b52567981c60e02f3e1
 // input: apps/web/app/(main)/settings/authorizations/page.tsx b7936264911cfd42d04115e66179e1eaef5e45d55ee18809fde6fdcb10722e34
 // input: apps/web/app/(main)/settings/billing/page.tsx 59dd63ab12f4afd588c08fae35006bacc20cb0d65b495146006ec02ba1ccbcdb
 // input: apps/web/app/(main)/settings/connected-accounts/page.tsx 9b44514461d055e191dbf96253267b25ccb27cacf5bcfeebeee73b3dc7d86f1b
@@ -936,7 +936,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-06T16:41:14.902Z
+// generatedAt: 2026-11-07T06:34:19.785Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
