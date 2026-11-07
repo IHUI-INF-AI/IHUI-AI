@@ -14,6 +14,7 @@
 
 import type { IncomingTrigger, SuperAgentHost } from './engine'
 import type { WorkerAssignment } from './roles'
+import type { SuperAgentSnapshot } from './persist'
 
 /** 一个来源 = 一个登录主体 + 一个可拉取事件的端口（webhook 落盘回放、轮询器都实现它）。 */
 export interface TriggerSourcePort {
@@ -43,6 +44,8 @@ export class SuperAgentPump {
     private readonly options: {
       now?: () => number
       onLog?: (row: PumpLogRow) => void
+      /** 每轮（含 no-op）结束喊一次；宿主自己判 dirty 去抖。 */
+      onCycle?: (snapshot: SuperAgentSnapshot) => void
     } = {},
   ) {}
 
@@ -66,7 +69,10 @@ export class SuperAgentPump {
     dispatched: number
     reclaimed: string[]
   }> {
-    if (this.running) return { ingested: 0, accepted: 0, dispatched: 0, reclaimed: [] }
+    if (this.running) {
+      this.options.onCycle?.(this.host.snapshot())
+      return { ingested: 0, accepted: 0, dispatched: 0, reclaimed: [] }
+    }
     this.running = true
     let ingested = 0
     let accepted = 0
@@ -128,6 +134,7 @@ export class SuperAgentPump {
       }
     } finally {
       this.running = false
+      this.options.onCycle?.(this.host.snapshot())
     }
     return { ingested, accepted, dispatched, reclaimed }
   }
