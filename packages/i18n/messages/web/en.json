@@ -28304,7 +28304,10 @@
       "time": "Time",
       "weekdays": "Days of week",
       "errName": "Please enter a name",
-      "errDays": "Please select at least one day"
+      "errDays": "Please select at least one day",
+      "rrule": "Schedule (RRULE)",
+      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
+      "errRrule": "Please enter a schedule"
     },
     "runs": {
       "title": "Patrol history",
