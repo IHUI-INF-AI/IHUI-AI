@@ -32,11 +32,14 @@ from app.core.ai_code_attribution import (
     AttributionRecord,
     AttributionStats,
     TraceResult,
+    canonical_path_set,
+    checkpoint_path_hash,
     compute_stats,
     make_record,
     plan_checkpoint,
     resolve_anchor,
 )
+from app.core.file_read_state import CHANGED_BY_EXTERNAL, VERDICT_STALE
 
 from .ai_code_attribution_git import detect_repo_root, git_blame
 from .ai_code_attribution_persistence import MAX_RECORDS, AiCodeAttributionStore, store
@@ -51,6 +54,7 @@ __all__ = [
     "host_session_id",
     "note_host_edit",
     "log_host_before_edit",
+    "note_measured_external_edit",
     "log_host_edit_checkpoint",
     "list_checkpoint_log",
     "record_attribution",
@@ -266,4 +270,35 @@ def log_host_edit_checkpoint(
 ) -> tuple[str, str]:
     """写成功之后记一条 after_edit。拒绝或重复都不改已经写完的文件。"""
     return _log_host_hook(tool, file, hunk, arguments, "after_edit")
+
+
+def note_measured_external_edit(
+    path: str,
+    arguments: Mapping[str, object] | None,
+    read_state: Mapping[str, object] | None,
+) -> tuple[str, str]:
+    """只有量到「读过之后、工具面之外改过」才记 known_human。别的脏因不记。"""
+    if not isinstance(read_state, Mapping):
+        return "skipped", ""
+    if read_state.get("verdict") != VERDICT_STALE or read_state.get("changed_by") != CHANGED_BY_EXTERNAL:
+        return "skipped", ""
+    current = read_state.get("current")
+    fingerprint = current.get("fingerprint") if isinstance(current, dict) else None
+    if not isinstance(fingerprint, str) or not fingerprint.strip():
+        return "refused", "外部改动的指纹没量到"
+    token = fingerprint.strip()
+    path_hash = checkpoint_path_hash([path])
+    session_id = host_session_id(arguments)
+    record: dict[str, object] = {
+        "hook_event_name": "checkpoint",
+        "dedupe_key": f"{session_id}:human:checkpoint:{path_hash}:{token}",
+        "session_id": session_id,
+        "operation_id": "human",
+        "kind": "known_human",
+        "tool": "external_edit",
+        "edited_filepaths": canonical_path_set([path]),
+        "path_hash": path_hash,
+        "content_fingerprint": token,
+    }
+    return append_checkpoint(record)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

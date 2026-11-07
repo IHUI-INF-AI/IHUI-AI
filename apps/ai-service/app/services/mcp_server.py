@@ -2808,6 +2808,14 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
             )
         except Exception:  # noqa: BLE001 - 判定层故障不得让编辑失败
             read_state = None
+        try:
+            from .ai_code_attribution_store import note_measured_external_edit
+
+            note_measured_external_edit(resolved_path, arguments, read_state)
+        except Exception as exc:  # noqa: BLE001 - 人手改动记账失败不得拦编辑
+            import logging
+
+            logging.getLogger(__name__).warning("外部改动检查点没记下(不拦编辑): %s", exc)
         if read_state is not None and read_state.get("blocking"):
             return _err(
                 "STALE_READ_CONFIRMATION_REQUIRED",
