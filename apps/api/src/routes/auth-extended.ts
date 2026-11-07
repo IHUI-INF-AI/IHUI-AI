@@ -21,9 +21,11 @@ import {
   type JWTPayload,
   createOidcProvider,
   createDiscordProvider,
+  createLinuxdoProvider,
   createTelegramProvider,
   isOidcConfigured,
   isDiscordConfigured,
+  isLinuxdoConfigured,
   isTelegramConfigured,
   buildOidcAuthorizationUrl,
   generateTelegramAuthToken,
@@ -526,7 +528,7 @@ export async function mintClientCredentialsToken(
 async function loginWithOAuthAccount(params: {
   request: FastifyRequest
   reply: FastifyReply
-  platform: 'oidc' | 'discord' | 'telegram'
+  platform: 'oidc' | 'discord' | 'linuxdo' | 'telegram'
   openId: string
   unionId?: string
   nickname?: string
@@ -4149,11 +4151,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
   }
 
   // GET /auth/oauth/:provider/redirect — 统一重定向入口
-  // :provider ∈ oidc/discord(telegram 走 /start 端点)
+  // :provider ∈ oidc/discord/linuxdo(telegram 走 /start 端点)
   server.get('/auth/oauth/:provider/redirect', async (request, reply) => {
-    const parsed = z.object({ provider: z.enum(['oidc', 'discord']) }).safeParse(request.params)
+    const parsed = z
+      .object({ provider: z.enum(['oidc', 'discord', 'linuxdo']) })
+      .safeParse(request.params)
     if (!parsed.success)
-      return reply.status(400).send(error(400, '不支持的 provider,仅支持 oidc/discord'))
+      return reply
+        .status(400)
+        .send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
     const provider = parsed.data.provider
     const state = generateState()
 
@@ -4173,8 +4179,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           },
           state,
         )
-      } else {
-        // provider === 'discord'(z.enum 已限定为 oidc | discord)
+      } else if (provider === 'discord') {
         if (!isDiscordConfigured())
           return reply
             .status(400)
@@ -4183,6 +4188,18 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           clientId: process.env.DISCORD_CLIENT_ID!,
           clientSecret: process.env.DISCORD_CLIENT_SECRET!,
           redirectUri: process.env.DISCORD_REDIRECT_URI!,
+        })
+        authUrl = await p.getAuthorizationUrl(state)
+      } else {
+        // provider === 'linuxdo'(z.enum 已限定为 oidc | discord | linuxdo)
+        if (!isLinuxdoConfigured())
+          return reply
+            .status(400)
+            .send(error(400, 'LinuxDo 未配置 (LINUXDO_CLIENT_ID/CLIENT_SECRET/REDIRECT_URI 缺失)'))
+        const p = createLinuxdoProvider({
+          clientId: process.env.LINUXDO_CLIENT_ID!,
+          clientSecret: process.env.LINUXDO_CLIENT_SECRET!,
+          redirectUri: process.env.LINUXDO_REDIRECT_URI!,
         })
         authUrl = await p.getAuthorizationUrl(state)
       }
@@ -4336,6 +4353,73 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
           error(
             500,
             `Discord 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
+          ),
+        )
+    }
+  })
+
+  // GET /auth/oauth/linuxdo/callback — LinuxDo 授权码回调(浏览器闭环,同 OIDC 模式)
+  server.get('/auth/oauth/linuxdo/callback', async (request, reply) => {
+    const parsed = z
+      .object({ code: z.string().min(1), state: z.string().optional() })
+      .safeParse(request.query)
+    if (!parsed.success)
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    if (!isLinuxdoConfigured()) return reply.status(400).send(error(400, 'LinuxDo 未配置'))
+    const stateCheck = await enforceOAuthState(request, reply, 'linuxdo', parsed.data.state)
+    if (stateCheck.denied) return stateCheck.denied
+    try {
+      const provider = createLinuxdoProvider({
+        clientId: process.env.LINUXDO_CLIENT_ID!,
+        clientSecret: process.env.LINUXDO_CLIENT_SECRET!,
+        redirectUri: process.env.LINUXDO_REDIRECT_URI!,
+      })
+      const token = await provider.exchangeCodeForToken(parsed.data.code)
+      const info = await provider.fetchUserInfo(token.accessToken)
+      const result = await loginWithOAuthAccount({
+        request,
+        reply,
+        platform: 'linuxdo',
+        openId: info.openId,
+        unionId: info.unionId,
+        nickname: info.nickname,
+        avatar: info.avatar,
+        email: info.email,
+        emailVerified: info.emailVerified,
+      })
+      if (result.blocked) return reply
+      const fallbackOrigin = config.CORS_ORIGIN.split(',')[0]?.trim() ?? ''
+      const webOrigin =
+        stateCheck.webOrigin && isAllowedWebOrigin(stateCheck.webOrigin)
+          ? stateCheck.webOrigin
+          : fallbackOrigin
+      if ('emailUnverified' in result) {
+        return reply
+          .status(403)
+          .send(
+            error(
+              403,
+              '该邮箱已注册,但身份提供方未确认邮箱归属,拒绝自动关联;请用密码登录后在设置中绑定',
+            ),
+          )
+      }
+      if ('twoFactorRequired' in result) {
+        return reply.redirect(`${webOrigin}/login#sso2fa=${result.challengeToken}`)
+      }
+      setAuthCookies(
+        reply,
+        { accessToken: result.accessToken, refreshToken: result.refreshToken },
+        true,
+      )
+      return reply.redirect(`${webOrigin}/sso/login?sso=linuxdo`)
+    } catch (e) {
+      request.log.error(e)
+      return reply
+        .status(500)
+        .send(
+          error(
+            500,
+            `LinuxDo 登录失败: ${e instanceof Error ? toUserFriendlyMessage(e) : String(e)}`,
           ),
         )
     }
