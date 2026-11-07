@@ -1167,14 +1167,17 @@ export function splitScatteredRatchetWithParents(pendingByFile, parentKeyListsOf
 // CLI
 // ─────────────────────────────────────────────────────────────────────────────
 
-function stagedFiles() {
+function stagedFiles(root = ROOT) {
   try {
-    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
+    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root)
       .split('\n')
       .map((s) => s.trim().replace(/\\/g, '/'))
       .filter(Boolean)
-  } catch {
-    return null
+  } catch (e) {
+    // 取不到暂存清单 ≠ 暂存区为空。改前这里 return null,调用方把它当成
+    // "git 不可用 → 全表回归",于是用索引面读全表、却仍报成暂存面结论(§0.4 面混用);
+    // 真取不到必须落未判定,由 CLI 统一 exit 2。
+    throw new Undetermined(`暂存区清单取不到:${String(e?.message ?? e).split('\n')[0]}`)
   }
 }
 
@@ -1220,10 +1223,9 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
   if (staged) {
     mode = 'staged'
     const touchesCorpus =
-      st && (st.some((f) => f.startsWith('packages/i18n/messages/')) || st.includes(TARO_GEN))
-    const touchesCode = st && st.some((f) => f.startsWith('apps/') || f.startsWith('packages/'))
-    if (!st) scope = '暂存区读不到(git 不可用)→ 全表回归'
-    else if (touchesCorpus) scope = '暂存区触及消息语料或离线包 → 全表回归'
+      st.some((f) => f.startsWith('packages/i18n/messages/')) || st.includes(TARO_GEN)
+    const touchesCode = st.some((f) => f.startsWith('apps/') || f.startsWith('packages/'))
+    if (touchesCorpus) scope = '暂存区触及消息语料或离线包 → 全表回归'
     else if (touchesCode)
       // 只按"暂存文件里有没有词表"收窄会漏:新接线一个消费端(改 apps/**)就把原本无人消费的
       // 词表变成真缺口,而词表文件本身没动 —— 所以端内/包内任何源码改动都回归全表。
@@ -2072,6 +2074,7 @@ function selfTest() {
 }
 
 export const __test__ = {
+  stagedFiles,
   stripComments,
   scanObjectLiterals,
   discoverWordTables,

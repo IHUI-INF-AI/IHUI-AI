@@ -48,14 +48,14 @@
  * 用法:node scripts/check-readout-and-timer-hygiene.mjs [--staged|--worktree] [--self-test]
  * 退出码:0 无判红 / 1 判红 / 2 未判定
  */
-import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import path from 'node:path'
 import { maskCommentsAndStrings } from './lib/code-mask.mjs'
 // 括号配平复用全仓唯一那台分词器(§22c:分词只许一台,自造一份必然漂移)
 import { closeBrace } from './lib/batch-write-lexer.mjs'
 // 被审面取材复用面读取层(§0.4/§5b:绝对路径 git + 显式 stdio + quotepath + 数字 timeout)
-import { gitRaw, gitErrText } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { faceList, readFaceBatch } from './lib/gate-face.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SCOPES = ['apps/web/app', 'apps/web/src', 'packages/ui-react/src', 'packages/app/src']
@@ -235,47 +235,36 @@ export function findUnguardedLengthDivisors(code) {
 }
 
 /**
- * 薄壳:本门既有的 `{status, stdout, stderr}` 形状接到面读取层上(§0.4 取材面纪律 +
- * §5b 绝对路径 git + §12g 显式 stdio)。层抛 Undetermined ⇒ 折回非零 status 交调用方落未判定,
- * 绝不在此回落另一个面。
+ * 被审面清单与正文一律走统一取材层(§0.4):
+ * · 清单 head=`ls-tree HEAD` / staged=`ls-files -c` / worktree 扫盘 —— 不再让 staged 用
+ *   `ls-files -s` 再把行按 \t 切(路径带空格时切片就会错位);
+ * · 正文 head/staged 走 catBatch 的 `HEAD:<p>` / `:<p>`,worktree 读盘。
+ * 改前本门用手写 `FACE_REV = { staged: ':' }` 再拼 `${rev}:${file}` = `::<file>`,
+ * git 解不出来:实测 4781 个候选里 4584 个"取材失败" ⇒ 整门永远 exit 2,等于没审。
  */
-function git(args) {
-  try {
-    const stdout = gitRaw(args, ROOT)
-    return { status: 0, stdout, stderr: '' }
-  } catch (e) {
-    return { status: typeof e.status === 'number' ? e.status : 1, stdout: '', stderr: gitErrText(e) }
-  }
-}
-
 function faceFiles(face) {
-  const args =
-    face === 'head'
-      ? ['ls-tree', '-r', '--name-only', 'HEAD', '--', ...SCOPES]
-      : face === 'staged'
-        ? ['ls-files', '-s', '--', ...SCOPES]
-        : ['ls-files', '--', ...SCOPES]
-  const r = git(args)
-  // 层内 gitErrText 已自带 `git <子命令> 失败:` 前缀,这里不再叠第二层(只折文本,不改判定)
-  if (r.status !== 0) return { err: r.stderr.trim() }
-  return {
-    files: r.stdout
-      .split('\n')
-      .filter(Boolean)
-      .map((l) => (face === 'staged' ? l.split('\t').slice(1).join('\t') : l))
-      .filter((f) => /\.(ts|tsx)$/.test(f)),
-  }
+  const out = new Set()
+  for (const scope of SCOPES) for (const f of faceList(ROOT, face, scope)) out.add(f)
+  return [...out].filter((f) => /\.(ts|tsx)$/.test(f))
 }
 
-function readRev(rev, file) {
-  if (rev === null) {
-    const p = path.join(ROOT, file)
-    return existsSync(p) ? readFileSync(p, 'utf8') : null
-  }
-  const r = git(['show', `${rev}:${file}`])
-  return r.status === 0 ? r.stdout : null
+/**
+ * 固定 revision(HEAD / HEAD^)的正文读取 —— 这不是"判定面选择",所以不走 readFaceOne;
+ * 但仍统一交给 catBatch 解析 spec,门里不出现散装 `HEAD:` / `:` 拼接。
+ */
+function readFixedRev(rev, files) {
+  const specs = files.map((f) => `${rev}:${f}`)
+  const got = catBatch(ROOT, specs)
+  return new Map(files.map((f, i) => [f, got.get(specs[i]) ?? null]))
 }
-const FACE_REV = { head: 'HEAD', staged: ':', worktree: null }
+
+function revExists(rev) {
+  try {
+    return gitRaw(['rev-parse', '--verify', `${rev}^{commit}`], ROOT).trim() !== ''
+  } catch {
+    return false
+  }
+}
 
 function lineOf(src, idx) {
   return src.slice(0, idx).split('\n').length
@@ -404,21 +393,37 @@ function main() {
     return 2
   }
   const face = faceFlags[0] === '--staged' ? 'staged' : faceFlags[0] === '--worktree' ? 'worktree' : 'head'
-  const listed = faceFiles(face)
-  if (listed.err) {
-    console.error(`❌ 被审面(${face})清单取不到:${listed.err} ⇒ 未判定`)
+  let files
+  try {
+    files = faceFiles(face)
+  } catch (e) {
+    console.error(`❌ 被审面(${face})清单取不到:${e?.message ?? e} ⇒ 未判定`)
     return 2
   }
-  if (listed.files.length === 0) {
+  if (files.length === 0) {
     console.error(`❌ 被审面(${face})在 ${SCOPES.join(',')} 枚举到 0 个候选 ⇒ 判死,不记绿`)
+    return 2
+  }
+  const aRev = argv.includes('--staged') || argv.includes('--worktree') ? 'HEAD' : 'HEAD^'
+  let faceTexts
+  let anchorTexts
+  try {
+    faceTexts = readFaceBatch(ROOT, face, files)
+    if (aRev === 'HEAD^' && !revExists('HEAD^')) {
+      // 锚点面没有 HEAD^ ≠ "所有文件都是新建":棘轮失去基线,不得把当前命中全判成新增。
+      console.error('❌ 锚点面 HEAD^ 取不到 ⇒ 未判定')
+      return 2
+    }
+    anchorTexts = aRev === 'HEAD^' ? readFixedRev('HEAD^', files) : readFaceBatch(ROOT, 'head', files)
+  } catch (e) {
+    console.error(`❌ 被审面(${face})正文取不到:${e?.message ?? e} ⇒ 未判定`)
     return 2
   }
   const findings = []
   const stock = []
   let unreadable = 0
-  const aRev = argv.includes('--staged') || argv.includes('--worktree') ? 'HEAD' : 'HEAD^'
-  for (const file of listed.files) {
-    const src = readRev(FACE_REV[face], file)
+  for (const file of files) {
+    const src = faceTexts.get(file) ?? null
     if (src === null) {
       unreadable++
       continue
@@ -436,7 +441,7 @@ function main() {
       line: lineOf(src, h.at),
       what: `除以 ${h.base}.length 无零守卫(NaN/Infinity 可能直接上屏)`,
     })
-    const aSrc = readRev(aRev, file)
+    const aSrc = anchorTexts.get(file) ?? null
     if (aSrc === null) {
       // 锚点面无此文件 = 本枚新建 ⇒ 存量按 0 计,当前命中全算新增
       for (const h of curD2) findings.push(describe(h))
@@ -448,7 +453,7 @@ function main() {
     else for (const h of curD2) stock.push({ ...describe(h), anchor: anchorCount })
   }
   const label = { head: 'HEAD blob', staged: '索引 blob', worktree: '工作树(人工逃生舱)' }[face]
-  console.log(`[readout-timer] 面=${label} 候选 ${listed.files.length} / 取材失败 ${unreadable}`)
+  console.log(`[readout-timer] 面=${label} 候选 ${files.length} / 取材失败 ${unreadable}`)
   for (const f of findings) console.log(`  ❌ ${f.dim} ${f.file}:${f.line}  ${f.what}`)
   if (stock.length) {
     console.log(`  ⚠ D2 存量(可达性未逐条判定 ⇒ 只报数,§12e 不逼跳门)${stock.length} 处:`)

@@ -1425,3 +1425,17 @@ test('BS-4 空射程 ⇒ 注记点名"不得读成都对"(两维同纪律,空集
     assert.ok(r.notes.some((n) => /不得读成/.test(n)), '枚举到 0 个候选必须自杀式点名(§0.3)')
   }
 })
+
+// FA-1 面旗必须接住:守门在 pre-commit 统一传 --staged,原来当"不认识的参数"直接 exit 2,
+// 等于本门每轮都没读到被审面。本门审装机面,面旗只记录、不换取材面;未知参数仍必须报错。
+test('FA-1 --staged/--worktree 必须被 parseArgs 接住(不再当成不认识的参数)', () => {
+  const staged = gate.parseArgs(['--staged'])
+  assert.deepEqual(staged.bad, [])
+  assert.equal(staged.opts.face, 'staged')
+  const wt = gate.parseArgs(['--worktree'])
+  assert.deepEqual(wt.bad, [])
+  assert.equal(wt.opts.face, 'worktree')
+  // 阴性对照:两面旗同给 = 面不明,必须报错;真正的未知参数也必须报错。
+  assert.equal(gate.parseArgs(['--staged', '--worktree']).bad.length, 1)
+  assert.equal(gate.parseArgs(['--nope']).bad.length, 1)
+})
