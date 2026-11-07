@@ -4359,13 +4359,13 @@ const checks = [
     onFailHint: ['', ''].join('\n'),
   },
 
-  // --- 自检登记求值配对(1 项,warn)---
+  // --- 自检登记求值配对(1 项,blocking:2026-11-07 元门裁定;潜伏档仍只报数)---
   {
     id: '156',
     label: '自检用例登记侧的求值配对对账(登记不求值 ∧ 用例传函数 ⇒ 才判红;潜伏档只报数)',
     script: 'check-selftest-registrant-evaluates.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_SELFTEST_REGISTRANT',
     stagedTriggers: ['scripts/'],
     onFailHint: [
@@ -4374,7 +4374,7 @@ const checks = [
       '该 self-test 条目从未被判过 —— 打印的通过数是假的。',
       '出路只有一条:把登记侧改成求值形态(体内调用该形参,或改用 push({name, fn}) + 消费循环 c.fn() 的 thunk 族)。禁止把用例改成布尔去过门。',
       '判不出的形态(形参被喂进别的调用、括号配不平)只报名不判红;问责档:node scripts/check-selftest-registrant-evaluates.mjs --strict(有未判定即 rc=2)。',
-      '定级 warn 是设计前提:现读潜伏 36 处 + 未判定 4 处,接成 blocking 就是每台每次被逼跳门(AGENTS 12f)。',
+      '2026-11-07 裁定升 blocking:本条是元门,绕过即整层自检失守。判红面只收「登记不求值 ∧ 有用例传函数」,潜伏 53 处与未判定 2 处仍只报数,因此不会退化成恒红门;现读配对红 0。',
       '',
     ].join('\n'),
   },
@@ -6168,13 +6168,14 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- lint-staged stdio 三针盯针(1 项,warn:判机器状态 ⇒ §12e 只能 warn,与门 153 同型)---
+  // --- lint-staged stdio 三针盯针(1 项,blocking:2026-11-07 元门裁定;exit 2 未判定不阻断)---
   {
     id: '261',
-    label: '📌 lint-staged stdio 三针盯针(判机器状态:node_modules 里三针还在不在;§12e 只能 warn)',
+    label:
+      '📌 lint-staged stdio 三针盯针(判机器状态:node_modules 里三针还在不在;exit 2 未判定不冒红)',
     script: 'check-lint-staged-stdio-pin.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
     stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_LINT_STAGED_PIN',
     onFailHint: [
@@ -6183,7 +6184,7 @@ const checks = [
       '     而失效方向是安静的:钩子照跑,只在下次提交时以 errno 面目复现(G-53/G-63 消解过的死法)。',
       '     重打:node scripts/lib/patch-lint-staged-stdio.mjs(幂等,已打则零写盘);本门只读不修。',
       '     三档:0 三针齐 / 1 有缺口(逐针点名 file:mode) / 2 未判定(安装副本不在或版本目录漂移,不记绿也不冒红)。',
-      '     判机器状态 ⇒ 挂 blocking 就是恒红门(§12e);另有 git-guardian 巡检轮 45 分钟派发一次',
+      '     2026-11-07 裁定升 blocking(元门,三针被 pnpm install 洗掉即整层失效):判红只认 exit 1 缺口;exit 2(安装副本不在/版本目录漂移)按未判定不阻断,故不是恒红门。另有 git-guardian 巡检轮 45 分钟派发一次',
       '     (实现 scripts/lib/lint-staged-pin-audit.mjs),两处共用同一把尺子。',
       '     紧急跳过:HUSKY_SKIP_LINT_STAGED_PIN=1 git commit ...',
       '',
