@@ -16,9 +16,12 @@ from app.services.work_admission import (
     SPEAK_UNAVAILABLE,
     Assessment,
     HostView,
+    Ledger,
+    SqliteTicketStore,
     evaluate_host_view,
     get_ledger,
     namespaced_trigger_id,
+    note_worker_finished,
     propose_scope,
     report_assignment,
     request_stop,
@@ -26,7 +29,9 @@ from app.services.work_admission import (
     resume,
     revalidate,
     server_accept_mode,
+    session_db_path,
     set_assessor_for_test,
+    trigger_disposition,
 )
 
 
@@ -200,12 +205,15 @@ def test_executor_cannot_stop_and_person_can() -> None:
     assert rec is not None
     assert rec.open is False
     assert rec.stopped_by_person is True
-    assert resume(
-        ticket_id,
-        accept_mode="auto",
-        enabled_rule_ids=frozenset({"user-asked"}),
-        allowed_actors=frozenset({"u1"}),
-    ) == "refused"
+    assert (
+        resume(
+            ticket_id,
+            accept_mode="auto",
+            enabled_rule_ids=frozenset({"user-asked"}),
+            allowed_actors=frozenset({"u1"}),
+        )
+        == "refused"
+    )
 
 
 def test_wider_scope_does_not_mutate_mandate() -> None:
@@ -238,18 +246,24 @@ def test_inferred_mandate_does_not_resume_in_observe() -> None:
     ticket_id = opened["ticket_id"]
     assert isinstance(ticket_id, str)
     report_assignment(ticket_id, "ready", by="worker")
-    assert revalidate(
-        ticket_id,
-        accept_mode="observe",
-        enabled_rule_ids=frozenset({"user-asked"}),
-        allowed_actors=frozenset({"u1"}),
-    ) is False
-    assert resume(
-        ticket_id,
-        accept_mode="observe",
-        enabled_rule_ids=frozenset({"user-asked"}),
-        allowed_actors=frozenset({"u1"}),
-    ) == "revoked"
+    assert (
+        revalidate(
+            ticket_id,
+            accept_mode="observe",
+            enabled_rule_ids=frozenset({"user-asked"}),
+            allowed_actors=frozenset({"u1"}),
+        )
+        is False
+    )
+    assert (
+        resume(
+            ticket_id,
+            accept_mode="observe",
+            enabled_rule_ids=frozenset({"user-asked"}),
+            allowed_actors=frozenset({"u1"}),
+        )
+        == "revoked"
+    )
     rec = get_ledger().get(ticket_id)
     assert rec is not None
     assert rec.open is False
@@ -284,10 +298,12 @@ async def test_graph_skips_llm_when_observe_would_accept() -> None:
 async def test_graph_explicit_still_plans_and_executes() -> None:
     graph = build_agent_graph()
     with patch("app.services.agent_graph.llm_gateway") as mock_llm:
-        mock_llm.complete = AsyncMock(side_effect=[
-            {"content": "the plan"},
-            {"content": "executed"},
-        ])
+        mock_llm.complete = AsyncMock(
+            side_effect=[
+                {"content": "the plan"},
+                {"content": "executed"},
+            ]
+        )
         result = await graph.ainvoke(
             {
                 "messages": [{"role": "user", "content": "请改这个函数"}],
@@ -304,4 +320,60 @@ async def test_graph_explicit_still_plans_and_executes() -> None:
     assert rec is not None
     assert rec.last_report == "ready"
     assert rec.open is False
+
+
+def test_session_db_path_follows_the_session_store(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    target = tmp_path / "sessions.db"
+    monkeypatch.setenv("SESSION_STORE_DB_PATH", str(target))
+    assert session_db_path() == target
+
+
+def test_new_ledger_reads_the_same_trigger_terminal_state(tmp_path) -> None:
+    """写入后换一个 Ledger 实例,同一 trigger 的终态还在,并且不会再派一次。"""
+    db = tmp_path / "sessions.db"
+    reset_for_test(SqliteTicketStore(db))
+    opened = evaluate_host_view(_raw(trigger_id="trig-run"))
+    dropped = evaluate_host_view(_raw(trigger_id="trig-drop"))
+    drop_id = dropped["ticket_id"]
+    assert isinstance(drop_id, str)
+    assert report_assignment(drop_id, "dropped", by="worker") == "recorded"
+    stubbed = evaluate_host_view(_raw(trigger_id="trig-stub"))
+    stub_id = stubbed["ticket_id"]
+    assert isinstance(stub_id, str)
+    note_worker_finished(stub_id, ok=False, simulation=True)
+
+    restarted = Ledger(store=SqliteTicketStore(db))
+    try:
+        run = restarted.find_trigger("trig-run")
+        drop = restarted.find_trigger("trig-drop")
+        stub = restarted.find_trigger("trig-stub")
+        assert run is not None
+        assert trigger_disposition(run) == "dispatched"
+        assert run.assignment == "running"
+        assert run.ticket_id == opened["ticket_id"]
+        assert drop is not None
+        assert trigger_disposition(drop) == "dropped"
+        assert drop.open is False
+        assert stub is not None
+        assert trigger_disposition(stub) == "simulation_incomplete"
+        assert stub.last_report == "failed"
+        assert stub.last_report != "ready"
+    finally:
+        restarted.close()
+
+    reset_for_test(SqliteTicketStore(db))
+    again_run = evaluate_host_view(_raw(trigger_id="trig-run"))
+    again_drop = evaluate_host_view(_raw(trigger_id="trig-drop"))
+    again_stub = evaluate_host_view(_raw(trigger_id="trig-stub"))
+    assert again_run["runs_worker"] is False
+    assert again_run["reason"] == "duplicate_trigger"
+    assert again_run["ticket_id"] == opened["ticket_id"]
+    assert again_drop["runs_worker"] is False
+    assert again_drop["reason"] == "duplicate_trigger"
+    assert again_stub["runs_worker"] is False
+    assert again_stub["reason"] == "duplicate_trigger"
+
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
