@@ -34,7 +34,7 @@ vi.mock('../../db/index.js', () => ({
     update: vi.fn(),
   },
 }))
-vi.mock('../logger.js', () => ({
+vi.mock('../utils/logger.js', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
@@ -121,12 +121,20 @@ describe('AGENT_MEMORY_TABLES（清理清单）', () => {
   it('档位按内容敏感度分三档，不是一刀切', () => {
     const days = AGENT_MEMORY_TABLES.map((t) => t.retentionDays)
     // 多模态最短（caption/source_uri 可能带本地文件路径，最敏感）
-    expect(AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('agent_multimodal'))?.retentionDays).toBe(90)
+    expect(
+      AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('agent_multimodal'))?.retentionDays,
+    ).toBe(90)
     // 团队资产 / 联邦经验最长
-    expect(AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('team_memories'))?.retentionDays).toBe(365)
-    expect(AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('agent_federated'))?.retentionDays).toBe(365)
+    expect(
+      AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('team_memories'))?.retentionDays,
+    ).toBe(365)
+    expect(
+      AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('agent_federated'))?.retentionDays,
+    ).toBe(365)
     // 对话提炼物居中
-    expect(AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('agent_session'))?.retentionDays).toBe(180)
+    expect(
+      AGENT_MEMORY_TABLES.find((t) => t.label.startsWith('agent_session'))?.retentionDays,
+    ).toBe(180)
     expect(new Set(days).size).toBe(3)
   })
 

@@ -24,8 +24,11 @@ const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('react', () => ({ default: { useRef: () => ({ current: undefined }) } }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+vi.mock('@ihui/api-client', () => ({
+  createNotificationClient: vi.fn(),
+  reportAgentControlCapability: vi.fn(async () => ({ success: true })),
+  reportAgentControlResult: fetchApiMock,
+}))
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: vi.fn(() => false),
   clipboardGet: clipboardGetMock,
@@ -136,8 +139,8 @@ describe('桌面桥重放接线(use-agent-control handleWsMessage)', () => {
     // 稍等再确认第二次确实没有产生第二份回执
     await new Promise((r) => setTimeout(r, 20))
     expect(fetchApiMock).toHaveBeenCalledTimes(1)
-    const calls = fetchApiMock.mock.calls as Array<[string, unknown]>
-    expect(calls.every(([url]) => String(url).includes('/api/agent-control/result'))).toBe(true)
+    const calls = fetchApiMock.mock.calls as Array<[Record<string, unknown>]>
+    expect(calls.every(([payload]) => String(payload.requestId).length > 0)).toBe(true)
   })
 })
 

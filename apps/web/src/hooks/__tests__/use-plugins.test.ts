@@ -7,47 +7,61 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
 // ─────────────────────────────────────────────────────────────
-// Mock fetchApi:通过 fetchApiMock 控制返回值
+// 真依赖边界:SUT 从 @ihui/api-client 取这五个端点(2026-11-05 已收口),
+// 故按端点函数 mock,不再 mock 已不存在的 @/lib/api 门面。
 // ─────────────────────────────────────────────────────────────
-const fetchApiMock = vi.fn()
-vi.mock('@/lib/api', () => ({
-  fetchApi: (...args: unknown[]) => fetchApiMock(...args),
+const {
+  getInstalledPluginsMock,
+  installPluginMock,
+  uninstallPluginMock,
+  updatePluginPreferencesMock,
+  recordPluginClickMock,
+} = vi.hoisted(() => ({
+  getInstalledPluginsMock: vi.fn(),
+  installPluginMock: vi.fn(),
+  uninstallPluginMock: vi.fn(),
+  updatePluginPreferencesMock: vi.fn(),
+  recordPluginClickMock: vi.fn(),
+}))
+vi.mock('@ihui/api-client', () => ({
+  getInstalledPlugins: getInstalledPluginsMock,
+  installPlugin: installPluginMock,
+  uninstallPlugin: uninstallPluginMock,
+  updatePluginPreferences: updatePluginPreferencesMock,
+  recordPluginClick: recordPluginClickMock,
 }))
 
 import { usePlugins } from '../use-plugins'
 
 describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失败回滚)', () => {
   beforeEach(() => {
-    fetchApiMock.mockReset()
-    fetchApiMock.mockResolvedValue({ success: false, error: 'not mocked' })
+    getInstalledPluginsMock.mockReset()
+    getInstalledPluginsMock.mockResolvedValue({ states: {}, authenticated: false })
+    installPluginMock.mockReset()
+    uninstallPluginMock.mockReset()
+    updatePluginPreferencesMock.mockReset()
+    recordPluginClickMock.mockReset()
   })
 
   // ─────────────────────────────────────────────────────────
   // 初始化 + refresh
   // ─────────────────────────────────────────────────────────
   it('首次挂载自动调用 GET /api/plugins/installed', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: { states: {}, authenticated: false },
-    })
+    getInstalledPluginsMock.mockResolvedValueOnce({ states: {}, authenticated: false })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
-    expect(fetchApiMock).toHaveBeenCalledTimes(1)
-    expect(fetchApiMock).toHaveBeenCalledWith('/api/plugins/installed')
+    expect(getInstalledPluginsMock).toHaveBeenCalledTimes(1)
     expect(result.current.isAuthenticated).toBe(false)
     expect(result.current.states).toEqual({})
   })
 
   it('GET 成功 + 已登录 + 有数据 → states 更新 + isAuthenticated=true', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: {
-          'playwright-mcp': { installedAt: '2026-07-22T10:00:00.000Z', pinned: true },
-          remotion: { installedAt: '2026-07-22T11:00:00.000Z', pinned: false },
-        },
-        authenticated: true,
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: {
+        'playwright-mcp': { installedAt: '2026-07-22T10:00:00.000Z', pinned: true },
+        remotion: { installedAt: '2026-07-22T11:00:00.000Z', pinned: false },
       },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
@@ -61,7 +75,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   })
 
   it('GET 失败(网络异常) → states={} + isAuthenticated=false + isLoading=false', async () => {
-    fetchApiMock.mockRejectedValueOnce(new Error('network'))
+    getInstalledPluginsMock.mockRejectedValueOnce(new Error('network'))
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.isAuthenticated).toBe(false)
@@ -69,7 +83,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   })
 
   it('GET 返回 success=false → 重置为未认证态', async () => {
-    fetchApiMock.mockResolvedValueOnce({ success: false, error: '401' })
+    getInstalledPluginsMock.mockResolvedValueOnce({ states: {}, authenticated: false })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.isAuthenticated).toBe(false)
@@ -77,24 +91,18 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   })
 
   it('refresh 手动触发再次 GET', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: { states: {}, authenticated: false },
-    })
+    getInstalledPluginsMock.mockResolvedValueOnce({ states: {}, authenticated: false })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
-        authenticated: true,
-      },
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
+      authenticated: true,
     })
     await act(async () => {
       await result.current.refresh()
     })
-    expect(fetchApiMock).toHaveBeenCalledTimes(2)
+    expect(getInstalledPluginsMock).toHaveBeenCalledTimes(2)
     expect(result.current.isInstalled('x')).toBe(true)
   })
 
@@ -102,37 +110,28 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   // install (POST)
   // ─────────────────────────────────────────────────────────
   it('install 乐观更新 + POST 成功后用服务端数据校正', async () => {
-    fetchApiMock.mockResolvedValueOnce({ success: true, data: { states: {}, authenticated: true } })
+    getInstalledPluginsMock.mockResolvedValueOnce({ states: {}, authenticated: true })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
     const serverState = { installedAt: '2026-07-22T10:00:00.000Z', pinned: false }
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: { pluginId: 'playwright-mcp', state: serverState },
-    })
+    installPluginMock.mockResolvedValueOnce({ pluginId: 'playwright-mcp', state: serverState })
 
     let ok = false
     await act(async () => {
       ok = await result.current.install('playwright-mcp', false)
     })
     expect(ok).toBe(true)
-    expect(fetchApiMock).toHaveBeenLastCalledWith(
-      '/api/plugins/playwright-mcp/install',
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({ pinned: false }),
-      }),
-    )
+    expect(installPluginMock).toHaveBeenLastCalledWith('playwright-mcp', { pinned: false })
     expect(result.current.states['playwright-mcp']).toEqual(serverState)
   })
 
   it('install POST 失败 → 回滚到 prev state', async () => {
-    fetchApiMock.mockResolvedValueOnce({ success: true, data: { states: {}, authenticated: true } })
+    getInstalledPluginsMock.mockResolvedValueOnce({ states: {}, authenticated: true })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({ success: false, error: '500' })
+    installPluginMock.mockRejectedValueOnce(new Error('500'))
 
     let ok = true
     await act(async () => {
@@ -144,22 +143,16 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
 
   it('install 保留已安装插件的 installedAt(再次 install 切换 pinned)', async () => {
     const originalTime = '2026-01-01T00:00:00.000Z'
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: { x: { installedAt: originalTime, pinned: false } },
-        authenticated: true,
-      },
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: { x: { installedAt: originalTime, pinned: false } },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        pluginId: 'x',
-        state: { installedAt: originalTime, pinned: true },
-      },
+    installPluginMock.mockResolvedValueOnce({
+      pluginId: 'x',
+      state: { installedAt: originalTime, pinned: true },
     })
     await act(async () => {
       await result.current.install('x', true)
@@ -171,42 +164,34 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   // uninstall (DELETE)
   // ─────────────────────────────────────────────────────────
   it('uninstall 乐观移除 + DELETE 成功保持移除', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
-        authenticated: true,
-      },
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.isInstalled('x')).toBe(true)
 
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: { pluginId: 'x', removed: true as const },
-    })
+    uninstallPluginMock.mockResolvedValueOnce({ pluginId: 'x', removed: true as const })
     let ok = false
     await act(async () => {
       ok = await result.current.uninstall('x')
     })
     expect(ok).toBe(true)
-    expect(fetchApiMock).toHaveBeenLastCalledWith('/api/plugins/x/install', {
-      method: 'DELETE',
-    })
+    expect(uninstallPluginMock).toHaveBeenLastCalledWith('x')
     expect(result.current.isInstalled('x')).toBe(false)
   })
 
   it('uninstall DELETE 失败 → 回滚(插件恢复为已安装)', async () => {
     const prevState = { installedAt: '2026-07-22T00:00:00.000Z', pinned: true }
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: { states: { x: prevState }, authenticated: true },
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: { x: prevState },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({ success: false, error: '500' })
+    uninstallPluginMock.mockRejectedValueOnce(new Error('500'))
     let ok = true
     await act(async () => {
       ok = await result.current.uninstall('x')
@@ -220,7 +205,7 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   // togglePinned (PATCH)
   // ─────────────────────────────────────────────────────────
   it('togglePinned 未安装 → 返回 false,不调用 PATCH', async () => {
-    fetchApiMock.mockResolvedValueOnce({ success: true, data: { states: {}, authenticated: true } })
+    getInstalledPluginsMock.mockResolvedValueOnce({ states: {}, authenticated: true })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
@@ -229,51 +214,40 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
       ok = await result.current.togglePinned('not-installed')
     })
     expect(ok).toBe(false)
-    expect(fetchApiMock).toHaveBeenCalledTimes(1) // 只有初始 GET
+    expect(getInstalledPluginsMock).toHaveBeenCalledTimes(1) // 只有初始 GET
+    expect(updatePluginPreferencesMock).not.toHaveBeenCalled()
   })
 
   it('togglePinned 已安装 pinned=false → 切换为 true,乐观更新 + 服务端校正', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
-        authenticated: true,
-      },
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        pluginId: 'x',
-        state: { installedAt: '2026-07-22T00:00:00.000Z', pinned: true },
-      },
+    updatePluginPreferencesMock.mockResolvedValueOnce({
+      pluginId: 'x',
+      state: { installedAt: '2026-07-22T00:00:00.000Z', pinned: true },
     })
     let ok = false
     await act(async () => {
       ok = await result.current.togglePinned('x')
     })
     expect(ok).toBe(true)
-    expect(fetchApiMock).toHaveBeenLastCalledWith('/api/plugins/x/preferences', {
-      method: 'PATCH',
-      body: JSON.stringify({ pinned: true }),
-    })
+    expect(updatePluginPreferencesMock).toHaveBeenLastCalledWith('x', { pinned: true })
     expect(result.current.isPinned('x')).toBe(true)
   })
 
   it('togglePinned PATCH 失败 → 回滚', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
-        authenticated: true,
-      },
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({ success: false, error: '500' })
+    updatePluginPreferencesMock.mockRejectedValueOnce(new Error('500'))
     let ok = true
     await act(async () => {
       ok = await result.current.togglePinned('x')
@@ -286,48 +260,34 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   // toggleInstall (派生)
   // ─────────────────────────────────────────────────────────
   it('toggleInstall 未安装 → 调用 install', async () => {
-    fetchApiMock.mockResolvedValueOnce({ success: true, data: { states: {}, authenticated: true } })
+    getInstalledPluginsMock.mockResolvedValueOnce({ states: {}, authenticated: true })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        pluginId: 'x',
-        state: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false },
-      },
+    installPluginMock.mockResolvedValueOnce({
+      pluginId: 'x',
+      state: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false },
     })
     await act(async () => {
       await result.current.toggleInstall('x')
     })
-    expect(fetchApiMock).toHaveBeenLastCalledWith(
-      '/api/plugins/x/install',
-      expect.objectContaining({ method: 'POST' }),
-    )
+    expect(installPluginMock).toHaveBeenLastCalledWith('x', { pinned: false })
     expect(result.current.isInstalled('x')).toBe(true)
   })
 
   it('toggleInstall 已安装 → 调用 uninstall', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
-        authenticated: true,
-      },
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: { x: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false } },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))
 
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: { pluginId: 'x', removed: true as const },
-    })
+    uninstallPluginMock.mockResolvedValueOnce({ pluginId: 'x', removed: true as const })
     await act(async () => {
       await result.current.toggleInstall('x')
     })
-    expect(fetchApiMock).toHaveBeenLastCalledWith('/api/plugins/x/install', {
-      method: 'DELETE',
-    })
+    expect(uninstallPluginMock).toHaveBeenLastCalledWith('x')
     expect(result.current.isInstalled('x')).toBe(false)
   })
 
@@ -335,15 +295,12 @@ describe('usePlugins hook (插件市场前端状态管理 + 乐观更新 + 失�
   // 派生选择器
   // ─────────────────────────────────────────────────────────
   it('isInstalled / isPinned / getState 派生正确', async () => {
-    fetchApiMock.mockResolvedValueOnce({
-      success: true,
-      data: {
-        states: {
-          a: { installedAt: '2026-07-22T00:00:00.000Z', pinned: true },
-          b: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false },
-        },
-        authenticated: true,
+    getInstalledPluginsMock.mockResolvedValueOnce({
+      states: {
+        a: { installedAt: '2026-07-22T00:00:00.000Z', pinned: true },
+        b: { installedAt: '2026-07-22T00:00:00.000Z', pinned: false },
       },
+      authenticated: true,
     })
     const { result } = renderHook(() => usePlugins())
     await waitFor(() => expect(result.current.isLoading).toBe(false))

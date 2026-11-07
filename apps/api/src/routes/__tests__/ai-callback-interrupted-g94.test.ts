@@ -25,10 +25,10 @@ vi.mock('../../config/index.js', () => ({
 
 // 权限盖章那一支要查会话/权限表:整模块 mock,零 SQL。
 const dbState = vi.hoisted(() => ({ conversations: [] as unknown[] }))
-vi.mock('../chat-queries.js', () => ({
+vi.mock('../db/chat-queries.js', () => ({
   findConversationById: vi.fn(async () => undefined),
 }))
-vi.mock('../workspace-permission-queries.js', () => ({
+vi.mock('../db/workspace-permission-queries.js', () => ({
   getPermission: vi.fn(async () => null),
 }))
 

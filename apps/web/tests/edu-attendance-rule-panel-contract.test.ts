@@ -27,8 +27,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const apiOrThrowMock = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api', () => ({ apiOrThrow: apiOrThrowMock }))
+/**
+ * 真依赖边界:SUT 直接调 @ihui/api-client 的考勤端点(2026-11 收口后),
+ * 原先 mock 的 `@/lib/api#apiOrThrow` 门面已不在 SUT import 图内 ⇒ 按端点函数 mock。
+ */
+const ruleMock = vi.hoisted(() => vi.fn())
+const ruleSaveMock = vi.hoisted(() => vi.fn())
+const qrcodeMock = vi.hoisted(() => vi.fn())
+const rotateMock = vi.hoisted(() => vi.fn())
+const classListMock = vi.hoisted(() => vi.fn())
+vi.mock('@ihui/api-client', () => ({
+  eduAttendanceRule: ruleMock,
+  eduAttendanceRuleSave: ruleSaveMock,
+  eduAttendanceQrcode: qrcodeMock,
+  eduAttendanceRuleRotateQrSecret: rotateMock,
+  eduClassList: classListMock,
+}))
 
 import { AttendanceRulePanel } from '../app/(main)/edu/edu-management/attendance/AttendanceRulePanel'
 import { CheckInQrPanel } from '../app/(main)/edu/edu-management/attendance/CheckInQrPanel'
@@ -60,23 +74,26 @@ function renderPanel(node: React.ReactElement) {
   )
 }
 
-/** 按 URL + method 分流的假 fetch 层(只喂 apiOrThrow,不发真请求) */
-function fakeApi(handler: (url: string, init?: RequestInit) => unknown): void {
-  apiOrThrowMock.mockImplementation(async (url: string, init?: RequestInit) => {
-    const result = handler(url, init)
-    if (result instanceof Error) throw result
-    return result
-  })
+/** api-client 端点统一返回 ApiResult;测试只造出参,解包仍走 SUT 真实代码路径 */
+function ok<T>(data: T) {
+  return { success: true as const, data }
+}
+function fail(error: string) {
+  return { success: false as const, error }
 }
 
 afterEach(() => {
   cleanup()
-  apiOrThrowMock.mockReset()
+  ruleMock.mockReset()
+  ruleSaveMock.mockReset()
+  qrcodeMock.mockReset()
+  rotateMock.mockReset()
+  classListMock.mockReset()
 })
 
 describe('AttendanceRulePanel', () => {
   it('① 后端回 rule:null 时显示"未配置",三个输入框留空而不补 00:00', async () => {
-    fakeApi((url) => (url.includes('/attendance/rule') ? { rule: null } : { rule: null }))
+    ruleMock.mockResolvedValue(ok({ rule: null }))
     const { container } = renderPanel(
       React.createElement(AttendanceRulePanel, { classId: CLASS_ID }),
     )
@@ -102,14 +119,12 @@ describe('AttendanceRulePanel', () => {
       qrSecret: FAKE_SECRET,
     }
     const badMessage = `时间格式非法:lateAfter="25:99"(必须可归一化为 HH:MM)`
-    fakeApi((url, init) => {
-      if (init?.method === 'PUT') return new Error(badMessage)
-      return { rule: serverRule }
-    })
+    ruleMock.mockResolvedValue(ok({ rule: serverRule }))
+    ruleSaveMock.mockResolvedValue(fail(badMessage))
     const { container } = renderPanel(
       React.createElement(AttendanceRulePanel, { classId: CLASS_ID }),
     )
-    await waitFor(() => expect(apiOrThrowMock).toHaveBeenCalled())
+    await waitFor(() => expect(ruleMock).toHaveBeenCalled())
 
     const late = container.querySelector('#att-rule-lateAfter') as HTMLInputElement
     await waitFor(() => expect(late.value).toBe('08:30'))
@@ -122,18 +137,20 @@ describe('AttendanceRulePanel', () => {
   })
 
   it('③ 界面不渲染 qrSecret 原文,只渲染 qrSecretConfigured 的文案', async () => {
-    fakeApi(() => ({
-      rule: {
-        id: 'r1',
-        classId: CLASS_ID,
-        lateAfter: '08:30',
-        earlyBefore: '17:00',
-        absentAfter: '09:30',
-        enabled: true,
-        qrSecretConfigured: false,
-        qrSecret: FAKE_SECRET,
-      },
-    }))
+    ruleMock.mockResolvedValue(
+      ok({
+        rule: {
+          id: 'r1',
+          classId: CLASS_ID,
+          lateAfter: '08:30',
+          earlyBefore: '17:00',
+          absentAfter: '09:30',
+          enabled: true,
+          qrSecretConfigured: false,
+          qrSecret: FAKE_SECRET,
+        },
+      }),
+    )
     const { container } = renderPanel(
       React.createElement(AttendanceRulePanel, { classId: CLASS_ID }),
     )
@@ -158,10 +175,13 @@ describe('CheckInQrPanel', () => {
       token: FAKE_SECRET,
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     })
-    fakeApi((url) =>
-      url.includes('/attendance/qrcode')
-        ? { payload, classId: CLASS_ID, expiresAt: JSON.parse(payload).expiresAt, ttlMs: 60_000 }
-        : { rule: null },
+    qrcodeMock.mockResolvedValue(
+      ok({
+        payload,
+        classId: CLASS_ID,
+        expiresAt: JSON.parse(payload).expiresAt as string,
+        ttlMs: 60_000,
+      }),
     )
     const { container } = renderPanel(React.createElement(CheckInQrPanel, { classId: CLASS_ID }))
 
@@ -177,7 +197,7 @@ describe('CheckInQrPanel', () => {
   })
 
   it('后端 400(未配规则/未轮换)时给出可执行下一步提示', async () => {
-    fakeApi(() => new Error('该班未配置启用中的考勤规则或未设置扫码密钥(qrSecret)'))
+    qrcodeMock.mockResolvedValue(fail('该班未配置启用中的考勤规则或未设置扫码密钥(qrSecret)'))
     const { container } = renderPanel(React.createElement(CheckInQrPanel, { classId: CLASS_ID }))
 
     await waitFor(() =>
@@ -189,18 +209,15 @@ describe('CheckInQrPanel', () => {
 
   it('轮换成功:显示指纹回执并重取二维码,界面仍无密钥原文', async () => {
     let qrCalls = 0
-    fakeApi((url, init) => {
-      if (init?.method === 'POST') return { rotated: true, fingerprint: 'a1b2c3' }
-      if (url.includes('/attendance/qrcode')) {
-        qrCalls += 1
-        return {
-          payload: JSON.stringify({ type: 'edu-attendance-checkin', token: FAKE_SECRET }),
-          classId: CLASS_ID,
-          expiresAt: new Date(Date.now() + 60_000).toISOString(),
-          ttlMs: 60_000,
-        }
-      }
-      return { rule: null }
+    rotateMock.mockResolvedValue(ok({ rotated: true, fingerprint: 'a1b2c3' }))
+    qrcodeMock.mockImplementation(async () => {
+      qrCalls += 1
+      return ok({
+        payload: JSON.stringify({ type: 'edu-attendance-checkin', token: FAKE_SECRET }),
+        classId: CLASS_ID,
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        ttlMs: 60_000,
+      })
     })
     const { container } = renderPanel(React.createElement(CheckInQrPanel, { classId: CLASS_ID }))
     await screen.findByText(EXPIRES_RE())

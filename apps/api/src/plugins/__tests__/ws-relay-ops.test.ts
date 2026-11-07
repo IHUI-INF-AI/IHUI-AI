@@ -24,7 +24,7 @@ vi.mock('@ihui/auth', () => ({
   }),
 }))
 
-vi.mock('../../ws-helpers.js', () => ({
+vi.mock('../ws-helpers.js', () => ({
   wsAuth: vi.fn(async () => 'u1'),
   WS_CLOSE: {
     MISSING_TOKEN: 4001,

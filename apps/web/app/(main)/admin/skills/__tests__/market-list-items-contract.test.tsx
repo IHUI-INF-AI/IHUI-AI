@@ -45,10 +45,9 @@ const apiClientFile = resolve(
   'skills-market.ts',
 )
 
-// helpers 的导入面只有两处:@ihui/api-client(fetchMarketSkills)与 @/lib/api(api() 通路,
-// 本测试不触发)。mock 掉即可在无网络/无 Next 环境下直测 searchMarketSkills。
+// helpers 的运行时导入面只有 @ihui/api-client(fetchMarketSkills);`@/lib/api` 已不在
+// 其 import 图内(2026-11 收口),旧 mock 属空转,已删除。
 vi.mock('@ihui/api-client', () => ({ fetchMarketSkills: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: vi.fn() }))
 
 import { fetchMarketSkills } from '@ihui/api-client'
 import { searchMarketSkills } from '../helpers'

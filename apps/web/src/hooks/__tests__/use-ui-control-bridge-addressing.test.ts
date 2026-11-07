@@ -20,8 +20,11 @@ const { fetchApiMock, executeUiActionMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('next-intl', () => ({ useTranslations: () => (key: string) => key }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+vi.mock('@ihui/api-client', () => ({
+  createNotificationClient: vi.fn(),
+  reportAgentControlCapability: vi.fn(async () => ({ success: true })),
+  reportAgentControlResult: fetchApiMock,
+}))
 vi.mock('@/lib/ui-action-registry', () => ({
   configureUiControlBridge: vi.fn(),
   resetUiControlBridge: vi.fn(),
@@ -49,9 +52,7 @@ function wsFrame(requestId: string, assignment?: Record<string, unknown>) {
 }
 
 function resultPosts(): Array<{ body: Record<string, unknown> }> {
-  return fetchApiMock.mock.calls
-    .filter((c) => String(c[0]) === '/api/agent-control/result')
-    .map((c) => ({ body: JSON.parse((c[1] as { body: string }).body) as Record<string, unknown> }))
+  return fetchApiMock.mock.calls.map((c) => ({ body: c[0] as Record<string, unknown> }))
 }
 
 beforeEach(() => {

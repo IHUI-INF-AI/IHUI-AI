@@ -18,8 +18,11 @@ const { fetchApiMock, clipboardGetMock, warnSpy } = vi.hoisted(() => ({
 }))
 
 vi.mock('react', () => ({ default: { useRef: () => ({ current: undefined }) } }))
-vi.mock('@ihui/api-client', () => ({ createNotificationClient: vi.fn() }))
-vi.mock('@/lib/api', () => ({ fetchApi: fetchApiMock }))
+vi.mock('@ihui/api-client', () => ({
+  createNotificationClient: vi.fn(),
+  reportAgentControlCapability: vi.fn(async () => ({ success: true })),
+  reportAgentControlResult: fetchApiMock,
+}))
 vi.mock('@/lib/tauri-bridge', () => ({
   isTauri: vi.fn(() => false),
   clipboardGet: clipboardGetMock,
@@ -103,8 +106,7 @@ describe('桌面桥 assignment 定址判据', () => {
       wsFrame('req-mine', { endpoint: 'desktop', instanceId: getInstanceId(), token }),
     )
     await vi.waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
-    const opts = fetchApiMock.mock.calls[0]?.[1] as { body: string }
-    const body = JSON.parse(opts.body) as {
+    const body = fetchApiMock.mock.calls[0]?.[0] as {
       requestId: string
       responded?: { instanceId: string; assignmentToken: string }
     }
@@ -115,8 +117,7 @@ describe('桌面桥 assignment 定址判据', () => {
   it('无 assignment 的旧形态:照常执行且不带 responded(存量语义逐字不变)', async () => {
     handleWsMessage(wsFrame('req-legacy'))
     await vi.waitFor(() => expect(fetchApiMock).toHaveBeenCalledTimes(1))
-    const opts = fetchApiMock.mock.calls[0]?.[1] as { body: string }
-    const body = JSON.parse(opts.body) as { responded?: unknown }
+    const body = fetchApiMock.mock.calls[0]?.[0] as { responded?: unknown }
     expect(body.responded).toBeUndefined()
   })
 })
