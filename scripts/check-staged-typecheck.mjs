@@ -813,6 +813,15 @@ async function acquireStagedTypecheckLock() {
         ? `全量 typecheck 持锁未释放(${describeLockHolder(acquired.holder)})`
         : `锁创建失败(${acquired.error?.message ?? acquired.state ?? 'unknown'})`
     log.error(`${C.red}${C.bold}❓ 未判定(并发占用): ${why}${C.reset}`)
+    if (acquired.kind === 'busy-timeout') {
+      // 判据读数六件套(verdict ∈ stale|live|unverifiable),与 typecheck-full 同一套字段名。
+      log.error(
+        `${C.dim}  判据: holderPid=${acquired.holder?.pid ?? '未知'} ` +
+          `holderPidStart=${acquired.holder?.pidStart ?? '未知'} ` +
+          `holderAlive=${acquired.holderAlive === null || acquired.holderAlive === undefined ? '未知' : acquired.holderAlive} ` +
+          `verdict=${acquired.verdict ?? '未知'} waitedMs=${acquired.waitedMs} limitMs=${acquired.limitMs}${C.reset}`,
+      )
+    }
     log.error(
       `${C.dim}   staged typecheck 本次没有下结论(不是通过、也不是失败);占用结束后原样重跑本次提交${C.reset}`,
     )

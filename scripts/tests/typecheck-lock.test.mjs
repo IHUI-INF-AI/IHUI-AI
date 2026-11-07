@@ -26,6 +26,8 @@ import {
   describeLockHolder,
   judgeLock,
   readLockMeta,
+  DEFAULT_WAIT_MS,
+  GATE_QUEUE_WAIT_MS,
 } from '../lib/typecheck-lock.mjs'
 import { identityFields } from '../lib/proc-identity.mjs'
 
@@ -104,6 +106,13 @@ test('L2 持锁时串行等待,并打出持锁者(pid/启动时刻/仓库/已持
     assert.match(joined, /已持有时长=/, '等待日志必须打出已持有时长')
     assert.match(joined, /仓库=D:\/fixture\/repo/, '等待日志必须打出仓库路径')
     assert.match(joined, /上限 10s/, '等待日志必须打出上限(让读数可解释)')
+    // 判据读数六件套:缺一个等于没做。
+    assert.match(joined, /holderPid=\d+/, '判据必须打印 holderPid')
+    assert.match(joined, /holderPidStart=(?:\d+|未知)/, '判据必须打印 holderPidStart')
+    assert.match(joined, /holderAlive=(?:true|false|未知)/, '判据必须打印 holderAlive')
+    assert.match(joined, /verdict=(?:stale|live|unverifiable|未知)/, '判据必须打印 verdict')
+    assert.match(joined, /waitedMs=\d+/, '判据必须打印 waitedMs')
+    assert.match(joined, /limitMs=\d+/, '判据必须打印 limitMs')
     lock.release()
   })()
 })
@@ -238,5 +247,60 @@ test('L9 CLI:锁被活进程持有且 waitMs=0 ⇒ typecheck-full exit 2 + stder
   assert.match(r.stderr, /已持有时长=/, '必须打出持锁者已持有时长')
   // 锁分支在清 .tsbuildinfo 之前 ⇒ 本次必须零破坏
   assert.equal(r.stdout.includes('清除 .tsbuildinfo'), false, '拿不到锁时不得先清缓存(顺序必须在锁之后)')
+})
+
+test('L10 pid 不存在 ⇒ verdict=stale 且允许认领,不再问身份(不把两档合成一个保守分支)', (t) => {
+  const { dir } = fixture(t)
+  plantLiveLock(dir, { pid: 999_999, pidStart: null, token: 'dead-no-pidstart' })
+  let verified = 0
+  const judged = judgeLock(dir, {
+    pidAlive: DEAD,
+    verify: () => {
+      verified++
+      return { kind: 'unverifiable', why: '夹具:不该被调用' }
+    },
+  })
+  assert.equal(judged.state, 'dead')
+  assert.equal(judged.verdict, 'stale', '进程不在就是 stale —— 没有 pid 复用问题')
+  assert.equal(judged.holderAlive, false)
+  assert.equal(verified, 0, 'pid 已死就不该再问身份(问不到 pidStart 不能反推成"活锁")')
+  return (async () => {
+    const lock = await acquireTypecheckLock({
+      path: dir,
+      repo: 'D:/fixture/repo',
+      role: 'fixture',
+      waitMs: 2000,
+      pollMs: 100,
+      pidAlive: DEAD,
+      verify: () => {
+        verified++
+        return { kind: 'unverifiable' }
+      },
+      log: () => {},
+    })
+    assert.equal(lock.ok, true, 'pid 已死必须允许偷,不能因缺 pidStart 保守等待')
+    lock.release()
+    assert.equal(verified, 0)
+  })()
+})
+
+test('L11 门/锁同一份预算:默认等待上限覆盖他人全量实测(365–565s),不各自写死', () => {
+  assert.equal(DEFAULT_WAIT_MS, GATE_QUEUE_WAIT_MS, '门侧 waitTimeoutMs 与锁侧默认值必须同源')
+  assert.ok(
+    GATE_QUEUE_WAIT_MS >= 565_000,
+    `等锁上限 ${GATE_QUEUE_WAIT_MS}ms 比他人单次全量(365–565s)还短 ⇒ 必然未判定`,
+  )
+})
+
+test('L12 verdict 分明:match ⇒ live,unverifiable ⇒ 保守档;holderAlive 随判据给出', (t) => {
+  const { dir } = fixture(t)
+  plantLiveLock(dir)
+  const live = judgeLock(dir, { pidAlive: ALIVE, verify: MATCH })
+  assert.equal(live.verdict, 'live')
+  assert.equal(live.holderAlive, true)
+  const unv = judgeLock(dir, { pidAlive: ALIVE, verify: () => ({ kind: 'unverifiable', why: '探针不可用' }) })
+  assert.equal(unv.verdict, 'unverifiable')
+  assert.equal(unv.verified, false)
+  assert.equal(unv.holderAlive, true)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

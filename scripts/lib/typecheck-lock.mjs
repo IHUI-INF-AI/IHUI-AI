@@ -25,6 +25,13 @@
 //     mismatch 才算"pid 被复用";unverifiable(探针不可用/跨机/没记启动时间)一律按活锁保守处理,
 //     **绝不据此判死** —— 方向是"少抢一把",抢错的代价是两场全量 typecheck 同时跑。
 //
+// **两档必须分开**(2026-11-07 判据修正,不是调数字):
+//   ① `pid` 不存在 ⇒ 一律 `verdict=stale`,直接认领。进程已经不在,就不存在 pid 复用问题;
+//      `pidStart` 的意义只在于"进程还活着时"区分是不是同一个。把它和"身份无法核实"合成
+//      一个保守分支,代价已经实测出现:三棵 worktree 互把对方锁死,每棵都报未判定。
+//   ② `pid` 还在、但`pidStart` 量不到 ⇒ `verdict=unverifiable`,按活锁保守等待,**不偷**。
+//   ③ 锁在写入那一刻就落 `pidStart`(探针读不到才写 null,并留下 unverifiable 的起因)。
+//
 // 锁落 os.tmpdir():进程锁不该进仓库目录,且 safe-delete shim 对 os.tmpdir() 放行。
 
 import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -37,8 +44,14 @@ import { claimStaleLockCore } from './stale-lock-claim.mjs'
 import { identityFields, verifyHolder } from './proc-identity.mjs'
 
 export const DEFAULT_LOCK_PATH = join(tmpdir(), 'ihui-typecheck-full.lock')
-/** 等待上限默认 120s:再长就会撞 300s 单门看门狗,把"显式未判定"变回"被超时杀掉"。 */
-export const DEFAULT_WAIT_MS = 120_000
+/**
+ * 门/锁**同一份预算**(单源,不许两边各自写死):
+ *   他人一次全量实测 365–565s ⇒ 等锁上限必须 ≥ 565s,否则"对方正在跑"必然落未判定。
+ *   门侧把它的 `waitTimeoutMs` 传进 `acquireTypecheckLock({ waitMs })` 时,用的就是这份预算。
+ *   以前的 120s 比别人的单次执行还短 —— 那不是保守,是**必然**未判定。
+ */
+export const GATE_QUEUE_WAIT_MS = 600_000
+export const DEFAULT_WAIT_MS = GATE_QUEUE_WAIT_MS
 export const DEFAULT_POLL_MS = 2_000
 /** 只有目录、meta 还没落盘(旧实现创建中途被打断)的宽限;超过才按陈旧处理。 */
 const META_GRACE_MS = 30_000
@@ -111,12 +124,12 @@ export function describeLockHolder(holder) {
 }
 
 /**
- * 判锁状态:
- *  absent           锁不存在
- *  unreadable       目录在、meta 还没落盘(旧实现创建窗口内)⇒ 等,不抢
- *  incomplete-stale 目录在、meta 缺失且超过宽限 ⇒ 陈旧
- *  dead             持锁 pid 已死 ⇒ 陈旧
- *  reused           pid 活着但启动时刻与记录不符 ⇒ pid 复用,原持有者已死 ⇒ 陈旧
+ * 判锁状态(附 `verdict` 与 `holderAlive`,两者是判据的对外读数,不是日志装饰):
+ *  absent           锁不存在(verdict=null,无竞争方)
+ *  unreadable       目录在、meta 还没落盘(旧实现创建窗口内)⇒ 等,不抢(verdict=unverifiable)
+ *  incomplete-stale 目录在、meta 缺失且超过宽限 ⇒ 陈旧(verdict=stale)
+ *  dead             持锁 pid 已死 ⇒ 陈旧(verdict=stale)—— **不调用 verify**,进程不在就没有复用问题
+ *  reused           pid 活着但启动时刻与记录不符 ⇒ pid 复用,原持有者已死 ⇒ 陈旧(verdict=stale)
  *  held             活锁(含 identity=unverifiable 的保守档)⇒ 不删、不抢
  *
  * 依赖可注入,夹具据此证真/证伪各条分支,不必真的造一个同名进程。
@@ -129,21 +142,34 @@ export function judgeLock(
   try {
     st = statSync(dir)
   } catch {
-    return { state: 'absent', holder: null, meta: null, ageMs: null }
+    return { state: 'absent', holder: null, meta: null, holderAlive: null, verdict: null, ageMs: null }
   }
   const meta = readLockMeta(dir)
   if (!meta) {
     const ageMs = now() - st.mtimeMs
     return ageMs > META_GRACE_MS
-      ? { state: 'incomplete-stale', holder: null, meta: null, ageMs }
-      : { state: 'unreadable', holder: null, meta: null, ageMs }
+      ? { state: 'incomplete-stale', holder: null, meta: null, holderAlive: null, verdict: 'stale', ageMs }
+      : { state: 'unreadable', holder: null, meta: null, holderAlive: null, verdict: 'unverifiable', ageMs }
   }
   const holder = holderOf(meta, now())
-  if (!pidAlive(meta.pid)) return { state: 'dead', holder, meta, ageMs: null }
+  const holderAlive = pidAlive(meta.pid)
+  // pid 不存在 ⇒ stale:没有 pid 复用问题,直接允许认领。缺 pidStart 不参与这一档。
+  if (!holderAlive) return { state: 'dead', holder, meta, holderAlive, verdict: 'stale', ageMs: null }
   const identity = verify(meta)
-  if (identity?.kind === 'mismatch') return { state: 'reused', holder, meta, identity, ageMs: null }
-  // match ⇒ 同一进程;unverifiable ⇒ 无法核实身份 ⇒ 按活锁保守处理(永不据此判死)。
-  return { state: 'held', holder, meta, identity, verified: identity?.kind === 'match', ageMs: null }
+  if (identity?.kind === 'mismatch') {
+    return { state: 'reused', holder, meta, holderAlive, identity, verdict: 'stale', ageMs: null }
+  }
+  // match ⇒ 同一进程(live);unverifiable ⇒ 无法核实身份 ⇒ 按活锁保守处理(unverifiable),永不据此判死。
+  return {
+    state: 'held',
+    holder,
+    meta,
+    holderAlive,
+    identity,
+    verified: identity?.kind === 'match',
+    verdict: identity?.kind === 'match' ? 'live' : 'unverifiable',
+    ageMs: null,
+  }
 }
 
 /**
@@ -276,8 +302,11 @@ export async function acquireTypecheckLock(options = {}) {
         ok: false,
         kind: 'busy-timeout',
         holder: judged.holder,
+        holderAlive: judged.holderAlive,
         state: judged.state,
+        verdict: judged.verdict,
         waitedMs,
+        limitMs: waitMs,
         error: null,
       }
     }
@@ -289,6 +318,15 @@ export async function acquireTypecheckLock(options = {}) {
           : judged.state === 'unreadable'
             ? ' (meta 尚未落盘,等它写全)'
             : ''
+      // 判据读数六件套:缺一个就等于没做(用户点名)。verdict ∈ stale|live|unverifiable。
+      const fields =
+        `holderPid=${judged.holder?.pid ?? '未知'} ` +
+        `holderPidStart=${judged.holder?.pidStart ?? '未知'} ` +
+        `holderAlive=${judged.holderAlive === null || judged.holderAlive === undefined ? '未知' : judged.holderAlive} ` +
+        `verdict=${judged.verdict ?? '未知'} ` +
+        `waitedMs=${waitedMs} ` +
+        `limitMs=${waitMs}`
+      log(`[typecheck:full] 锁判据: ${fields}${why}`)
       log(
         `[typecheck:full] 另一全量 typecheck 进行中(${describeLockHolder(judged.holder)})${why};本进程串行等待(已等 ${(waitedMs / 1000).toFixed(1)}s,上限 ${(waitMs / 1000).toFixed(0)}s)...`,
       )

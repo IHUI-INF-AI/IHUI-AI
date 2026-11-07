@@ -271,6 +271,15 @@ if (!_SELF_TEST) {
         ? `锁目录不可用:${lock.error?.message ?? 'unknown'}`
         : `等待 ${(lock.waitedMs / 1000).toFixed(1)}s 仍未取得机器级 typecheck 锁`
     console.error(`[typecheck:full] [UNDETERMINED] 未判定(并发占用):${reason}`)
+    if (lock.kind === 'busy-timeout') {
+      // 判据读数六件套(缺一个等于没做):verdict ∈ stale|live|unverifiable。
+      console.error(
+        `[typecheck:full]   判据: holderPid=${lock.holder?.pid ?? '未知'} ` +
+          `holderPidStart=${lock.holder?.pidStart ?? '未知'} ` +
+          `holderAlive=${lock.holderAlive === null || lock.holderAlive === undefined ? '未知' : lock.holderAlive} ` +
+          `verdict=${lock.verdict ?? '未知'} waitedMs=${lock.waitedMs} limitMs=${lock.limitMs}`,
+      )
+    }
     console.error(`[typecheck:full]   持锁者: ${describeLockHolder(lock.holder)}`)
     console.error('')
     console.error('  这不是类型检查结论:既不是通过,也不是失败。同一台机器上另一场全量')

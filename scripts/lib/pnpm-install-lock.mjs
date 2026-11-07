@@ -17,8 +17,17 @@
  *   2) `check`：给 pre-commit / push 门**可选**调用的一句判据：安装期间禁止 typecheck。
  *
  * 默认**不启用**：IHUI_PNPM_INSTALL_LOCK 不是 `1` 时，`run` 原样执行命令、`check` 恒通过。
- * 本文件不被任何现有门引用；接入与否由使用方显式 opt-in 决定。磁盘/迁移另见
- * docs/engineering/pnpm-install-lock.md。
+ * 本文件不被任何现有门引用；接入与否由使用方显式 opt-in 决定（typecheck 侧见
+ * scripts/check-staged-typecheck.mjs 的 IHUI_TYPECHECK_CHECK_INSTALL=1）。
+ *
+ * 与 typecheck 锁的关系（2026-11-07 核实，勿再写成"统一判定"）：
+ *   **两把锁各自判定，理由不同。**
+ *   - typecheck 锁（scripts/lib/typecheck-lock.mjs）按 pid + 进程启动时刻核对持有者
+ *     身份，import 的是 scripts/lib/proc-identity.mjs 的 identityFields()/verifyHolder()；
+ *   - 安装锁（本文件）只按 bootEpoch + 心跳 + 6h 判活，**不** import proc-identity ——
+ *     它要判的是"机器是否重启过 / 持有者是否还在续心跳"，身份核对不是它的判据。
+ *   方向**单向**：只允许 typecheck 查 install（IHUI_TYPECHECK_CHECK_INSTALL=1，opt-in）；
+ *   绝不允许 install 等 typecheck。双向互等会在安装/检查交错时直接死锁。
  *
  * 锁形态：机器级目录锁（原子 mkdir），默认落在 os.tmpdir()/ihui-pnpm-install.lock。
  *   不用 `Global\ihui-pnpm-install` 具名互斥体，是因为它要求原生模块；mkdir 在任何
