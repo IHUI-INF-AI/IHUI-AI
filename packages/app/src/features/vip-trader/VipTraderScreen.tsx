@@ -310,7 +310,12 @@ function createStyles(tk: AppThemeTokens) {
       marginRight: rnSpacing['sm-loose'],
     },
     featureIconText: { fontSize: rnType.subtitle.size },
-    featureTitle: { flex: 1, fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 18 },
+    featureTitle: {
+      flex: 1,
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     footPlaceholder: { height: 88 },
     footer: {
       position: 'absolute',

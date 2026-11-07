@@ -670,9 +670,11 @@ export const __test__ = {
 
 /**
  * admin 号池列表的归属筛选 → SQL 条件(纯函数,2026-10-31 立,ownerListCondition
- * 镜像测试钉住四分支)。ops/缺省 → 运营池(owner IS NULL,存量视图零变化);
+ * 镜像测试钉住分支)。ops/缺省 → 运营池(owner IS NULL,存量视图零变化);
  * all → 不限(返回 null = 不加条件);me → 当前登录用户个人池(登录态判空由
- * handler 层 fail-closed 401,本函数只做条件生成);其余值 → 按 ownerUserId 精确筛。
+ * handler 层 fail-closed 401,本函数只做条件生成);shared → 本人/他人标记为
+ * shared_to_ops=true 的号(全局开放标记模型,2026-11-07 立);其余值 → 按
+ * ownerUserId 精确筛。
  */
 export function ownerListCondition(
   owner: string | undefined,
@@ -681,6 +683,7 @@ export function ownerListCondition(
   if (!owner || owner === 'ops') return isNull(aiRelayAccountPool.ownerUserId)
   if (owner === 'me') return meUserId ? eq(aiRelayAccountPool.ownerUserId, meUserId) : null
   if (owner === 'all') return null
+  if (owner === 'shared') return eq(aiRelayAccountPool.sharedToOps, true)
   return eq(aiRelayAccountPool.ownerUserId, owner)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

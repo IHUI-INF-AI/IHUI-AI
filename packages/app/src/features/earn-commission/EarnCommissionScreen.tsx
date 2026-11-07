@@ -154,7 +154,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     introDesc: {
       fontSize: rnType.body.size,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
       textAlign: 'center',
     },
