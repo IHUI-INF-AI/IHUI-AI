@@ -194,6 +194,20 @@ from ..core.mcp_tool_approval import (
 # A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
 from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 
+# Qoder 行为对齐(2026-11-08):轮次预算提示层。默认档不变(AGENT_MAX_ITERATIONS
+# 仍是 check-doom-loop-parity 的登记基准);部署侧可用 IHUI_AGENT_MAX_ITERATIONS
+# 显式放宽。接线点只有两处:构造器归一 + 循环顶注入一次收尾提示。
+from ..core.turn_budget import (
+    build_budget_exhausted_error as _build_budget_exhausted_error,
+)
+from ..core.turn_budget import build_budget_nudge as _build_budget_nudge
+from ..core.turn_budget import resolve_turn_budget as _resolve_turn_budget
+from ..core.turn_budget import should_nudge as _should_nudge_budget
+
+# Qoder 行为对齐(2026-11-08):Skill 的 allowed-tools 是会话级**授权**(免审批),
+# 不是收窄。只在此处(审批门)消费,硬边界(角色矩阵/能力门/路径校验/沙箱)不受影响。
+from .skill_scope import scope_grants as _skill_scope_grants
+
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
 from ..services.session_security import (
@@ -2561,7 +2575,11 @@ class AgentLoopV2:
         # —— 工具在飞时仍等终态路径处理。
         self._stream_text_snapshot: str = ""
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
-        self.max_iterations = max_iterations
+        # Qoder 行为对齐(2026-11-08):env 显式放宽才生效,缺省与 AGENT_MAX_ITERATIONS
+        # 逐字一致(不破 check-doom-loop-parity 的基准登记)。
+        self.max_iterations = _resolve_turn_budget(max_iterations)
+        # 收尾提示只注入一次:预算窗口内每轮重发会让短预算回合被提示占满上下文。
+        self._budget_nudged: bool = False
         self.tool_timeout = tool_timeout
         self.parallel_tool_calls = parallel_tool_calls
 
@@ -5036,6 +5054,14 @@ class AgentLoopV2:
                 self._inject_context_fragments(messages)
                 self._inject_session_prefix(messages)
                 self._inject_instructional_fragments(messages)
+                # Qoder 行为对齐(2026-11-08):轮次预算提示。进入收尾窗口后注入一次,
+                # 让模型知道"还剩几轮"并自行收敛,而不是在最后一轮被突然截断成空回复。
+                # 只注入一次:短预算回合里每轮重发会把真正的工作上下文挤掉。
+                if not self._budget_nudged and _should_nudge_budget(
+                    i, self.max_iterations
+                ):
+                    self._budget_nudged = True
+                    messages.append(_build_budget_nudge(i, self.max_iterations))
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
@@ -5523,7 +5549,12 @@ class AgentLoopV2:
             ),
             total_tokens_used=total_tokens,
             stop_reason="max_iterations",
-            error=f"达到最大迭代数 {self.max_iterations}",
+            # 判据兼容:error 以 "达到最大迭代数 N" 开头(既有用例断言该子串),
+            # 其后追加"已完成多少工具调用 + 怎么续",不把空回复包装成成功。
+            error=_build_budget_exhausted_error(
+                self.max_iterations,
+                sum(len(getattr(it, "tool_results", ()) or ()) for it in iterations),
+            ),
         )
 
     async def resume_from_checkpoint(self, checkpoint_id: str) -> AgentLoopResult:
@@ -6880,6 +6911,26 @@ class AgentLoopV2:
         # bypassPermissions 覆盖全部高危工具(与 cli 端同名档语义一致),且必留审计事件。
         gate_approved = False  # P0-3:审批门已批准 → exec_policy PROMPT 不再二次弹窗
         needs_approval = self._approval_enabled and self._is_high_risk_tool_instance(tc.name)
+        # Qoder 行为对齐(2026-11-08):Skill 的 allowed-tools 是**会话级授权**
+        # (Qoder 原文 "permission grant, not a restriction",见 skill_scope.py 头注)。
+        # 命中名单 ⇒ 本次免走审批。位置刻意在所有硬边界之后:角色矩阵/能力门/plan
+        # 拦截/路径校验已经在更早的出口判过,这里只替换"要不要问用户"这一步,
+        # 绝不增加可执行面。
+        if needs_approval and _skill_scope_grants(
+            user_id=self._user_id,
+            session_id=self._session_id,
+            tool_name=tc.name,
+        ):
+            logger.info(
+                "skill 授权免审批: tool=%s, session=%s",
+                tc.name,
+                self._session_id or "",
+            )
+            self._decision_hints[tc.id] = (
+                "skill_grant_skip_approval",
+                "skill 的 allowed-tools 已授权该工具,本次免审批",
+            )
+            needs_approval = False
         if _skips_approval_mode(self._permission_mode) and is_readonly_tool(tc.name):
             if needs_approval:
                 logger.info(
