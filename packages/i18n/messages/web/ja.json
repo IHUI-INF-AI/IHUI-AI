@@ -455,6 +455,8 @@
     "generate": "生成",
     "generating": "生成中…",
     "needRepoName": "リポジトリ名を入力してください",
+    "searchBtn": "検索",
+    "loadFailed": "文書一覧の読み込みに失敗しました",
     "needFolder": "先にフォルダーを選択してください",
     "noTextFiles": "分析可能なテキストファイルが見つかりません",
     "pickerUnsupported": "このブラウザーはフォルダー選択に対応していません",

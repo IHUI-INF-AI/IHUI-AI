@@ -455,6 +455,8 @@
     "generate": "Generate",
     "generating": "Generating…",
     "needRepoName": "Please enter a repository name",
+    "searchBtn": "Search",
+    "loadFailed": "Failed to load documents",
     "needFolder": "Please choose a folder first",
     "noTextFiles": "No analyzable text files found",
     "pickerUnsupported": "Your browser does not support folder picking",
