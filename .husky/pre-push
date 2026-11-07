@@ -117,6 +117,20 @@ EOF
 fi
 # <<< tag-ancestor-gate (end)
 
+# ─── 可选位:并发 pnpm install 门(默认关闭,IHUI_GATE_INSTALL_LOCK=1 一键打开)───
+# 背景:多 worktree 共用 node_modules,A 席 install 时 B 席 typecheck 会踩到"已拆未建"
+#   窗口 ⇒ ENOENT(形态与复现见 docs/engineering/pnpm-install-lock.md)。
+# 默认不进入本块:未设 IHUI_GATE_INSTALL_LOCK 时推送行为与接线前一字不差。
+# 打开:export IHUI_GATE_INSTALL_LOCK=1 → 追加执行 check(安装中 exit 4 ⇒ 拦推送)
+# 关闭:unset IHUI_GATE_INSTALL_LOCK
+if [ "${IHUI_GATE_INSTALL_LOCK:-0}" = "1" ]; then
+  IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs check || {
+    printf '%s\n' "❌ 并发安装锁检查未通过(IHUI_GATE_INSTALL_LOCK=1)⇒ 推送已阻止" >&2
+    printf '%s\n' "   锁现场: node scripts/lib/pnpm-install-lock.mjs status" >&2
+    exit 1
+  }
+fi
+
 # ─── 全量 typecheck 强制门 ────────────────────────────────────────────
 # 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
 #      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题

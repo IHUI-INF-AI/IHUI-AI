@@ -6,7 +6,7 @@
 
 # 并发 install 隔离：跨进程安装锁（方案③，未激活）
 
-> 状态：**只交付脚本与文档**。`scripts/lib/pnpm-install-lock.mjs` **没有**接进任何现有门，`package.json` 没有新增 script，CI / pre-commit / push 默认行为**未改**。默认关闭，需显式 opt-in。
+> 状态：脚本与文档已交付，**默认不启用**。`.husky/pre-commit` / `.husky/pre-push` 各留了一个 env 门控的**可选位**（`IHUI_GATE_INSTALL_LOCK=1` 才进入，未设置时整块跳过 ⇒ 现有提交/推送行为未改）。`package.json` 没有新增 script，CI 未接线。
 
 ## 1. 事故形态
 
@@ -43,6 +43,36 @@ node scripts/lib/pnpm-install-lock.mjs status
 | 3 | 拿锁超时（**明确失败**，不静默等死） |
 | 4 | check 判定：安装进行中，禁止并发 typecheck |
 | 其他 | `run` 包裹的命令退出码透传 |
+
+### 2.1 可选门接入（默认关闭，一句命令打开）
+
+两个钩子各留了一个可选位，判据是同一个环境变量：
+
+```bash
+# 一键打开（当前 shell 会话内持续生效）
+export IHUI_GATE_INSTALL_LOCK=1
+
+# 只对一次命令生效
+IHUI_GATE_INSTALL_LOCK=1 git commit -m "..."
+IHUI_GATE_INSTALL_LOCK=1 git push
+
+# 关闭
+unset IHUI_GATE_INSTALL_LOCK
+```
+
+打开后钩子追加执行 `IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs check`：
+
+- 无锁 / 锁已陈旧（exit 0）⇒ 照常放行；
+- 安装进行中（exit 4）⇒ 阻止提交/推送，并提示用 `status` 看持有者现场；
+- pre-commit 经 `scripts/hook-run-hidden.vbs` 隐藏执行，输出落在 `.ihui-agent/state/hook-logs/pre-commit-install-lock.log`；pre-push 直接执行，现场打在终端。
+
+> 前提：安装侧也要走锁，否则锁永远不存在、`check` 只会放行：
+>
+> ```bash
+> IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs run -- pnpm install
+> ```
+>
+> 默认关闭是有意的：现在没有并发安装事故在跑，默认加上只会多一道与 typecheck 无关的等待。等并发安装问题再爆一次，一句 `export IHUI_GATE_INSTALL_LOCK=1` 即可启用；排查完 `unset` 回到原行为。
 
 ## 3. 判活与失效方向
 

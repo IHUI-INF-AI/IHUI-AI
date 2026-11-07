@@ -19,6 +19,20 @@ if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
   unset GIT_INDEX_FILE
 fi
 unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
+# ─── 可选位:并发 pnpm install 门(默认关闭,IHUI_GATE_INSTALL_LOCK=1 一键打开)───
+# 背景:多 worktree 共用 node_modules,A 席 install 时 B 席 typecheck 会踩到"已拆未建"
+#   窗口 ⇒ ENOENT(形态与复现见 docs/engineering/pnpm-install-lock.md)。
+# 默认不进入本块:未设 IHUI_GATE_INSTALL_LOCK 时提交行为与接线前一字不差。
+# 打开:export IHUI_GATE_INSTALL_LOCK=1 → 追加执行 check(安装中 exit 4 ⇒ 拦提交)
+# 关闭:unset IHUI_GATE_INSTALL_LOCK
+if [ "${IHUI_GATE_INSTALL_LOCK:-0}" = "1" ]; then
+  IHUI_PNPM_INSTALL_LOCK=1 wscript //nologo scripts/hook-run-hidden.vbs pre-commit-install-lock scripts/lib/pnpm-install-lock.mjs check || {
+    printf '%s\n' "❌ 并发安装锁检查未通过(IHUI_GATE_INSTALL_LOCK=1)⇒ 提交已阻止" >&2
+    printf '%s\n' "   锁现场: node scripts/lib/pnpm-install-lock.mjs status" >&2
+    printf '%s\n' "   日志: .ihui-agent/state/hook-logs/pre-commit-install-lock.log" >&2
+    exit 1
+  }
+fi
 # ─── Pre-commit 守门薄壳(2026-09-22 弹窗根治) ─────────────────
 # 原本逻辑:本文件直接是 node 脚本(#!/usr/bin/env node),由 git 直接启动。
 # 病理:git hook 继承触发者的 console 上下文;当 commit 在无 console 的上下文
