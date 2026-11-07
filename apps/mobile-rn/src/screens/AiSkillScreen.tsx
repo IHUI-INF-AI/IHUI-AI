@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   importBody: { gap: rnSpacing.md },
   importHint: {
     fontSize: rnType.label.size,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.secondary,
   },
   importInput: {

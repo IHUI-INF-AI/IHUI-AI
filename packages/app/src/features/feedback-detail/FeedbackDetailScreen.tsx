@@ -28,7 +28,7 @@ export function FeedbackDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: FeedbackDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -117,21 +117,21 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
       color: tk.text.medium,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
     createdAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     reply: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
       color: tk.text.medium,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
     replyEmpty: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
       color: tk.text.tertiary,
       fontStyle: 'italic',
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
   })
 }

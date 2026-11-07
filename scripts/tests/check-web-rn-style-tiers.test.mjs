@@ -118,13 +118,15 @@ test('⑤ JSON 取值出口是有限数字:不得从 `gap=10px×n` 展示串反�
 const { rollupStyleTierAllowances, judgeForkAllowance, sumForkAllowance } = src
 
 test('⑥ 登记额度归并:同 key 累加 / 到期取最早 / 杂质条目跳过', () => {
+  const okReason = '这是一条足够长的真实理由,用来证明合法登记会进额度表'
   const map = rollupStyleTierAllowances([
-    { key: 'styleTier:fontSize:fontSize:22', count: 3, expires: '2027-03-27' },
-    { key: 'styleTier:fontSize:fontSize:22', count: 2, expires: '2026-12-01' },
-    { key: 'styleTier:spacing:gap:3', count: 4, expires: '2027-03-27' },
-    { key: 'geometry', count: 9, expires: '2027-01-01' }, // 不是样式档键
-    { key: 'styleTier:fontSize:fontSize:22', count: 0, expires: '2027-03-27' }, // 额度非正整数
+    { key: 'styleTier:fontSize:fontSize:22', count: 3, expires: '2027-03-27', reason: okReason },
+    { key: 'styleTier:fontSize:fontSize:22', count: 2, expires: '2026-12-01', reason: okReason },
+    { key: 'styleTier:spacing:gap:3', count: 4, expires: '2027-03-27', reason: okReason },
+    { key: 'geometry', count: 9, expires: '2027-01-01', reason: okReason }, // 不是样式档键
+    { key: 'styleTier:fontSize:fontSize:22', count: 0, expires: '2027-03-27', reason: okReason }, // 额度非正整数
     { key: 'styleTier:fontSize:fontSize:22', count: 1 }, // 缺到期日
+    { key: 'styleTier:fontSize:fontSize:22', count: 1, expires: '2027-03-27', reason: '太短' }, // 理由不足 20 字
   ])
   assert.equal(map.size, 2, '只有 22 与 gap3 两条键合法')
   assert.equal(map.get('styleTier:fontSize:fontSize:22').count, 5, '同 key 额度必须累加(逐处登记)')
@@ -133,7 +135,7 @@ test('⑥ 登记额度归并:同 key 累加 / 到期取最早 / 杂质条目跳�
 
 test('⑦ 分叉按处数核销:混合行只核销额度内那几处;到期行回红;缺位行不进本账', () => {
   const map = rollupStyleTierAllowances([
-    { key: 'styleTier:fontSize:fontSize:22', count: 5, expires: '2026-12-01' },
+    { key: 'styleTier:fontSize:fontSize:22', count: 5, expires: '2026-12-01', reason: '这是一条足够长的真实理由,用来证明合法登记会进额度表' },
   ])
   const rows = [
     { kind: 'fontSize', prop: 'fontSize', val: 22, n: 8, state: 'fork' }, // 混合:额度 5 < 8

@@ -132,8 +132,12 @@ export class PlanBuildCoordinator {
       priority: 'medium',
     }));
     const newIds = new Set(newTodos.map((t) => t.id));
-    const preserved = readTodoList(todoCtx).filter((t) => !newIds.has(t.id));
-    writeTodoList(todoCtx, [...newTodos, ...preserved]);
+    try {
+      const preserved = readTodoList(todoCtx).filter((t) => !newIds.has(t.id));
+      writeTodoList(todoCtx, [...newTodos, ...preserved]);
+    } catch {
+      // 旧清单读不到就不能并进新计划再写回同一文件
+    }
 
     // plan 文本摘要保持旧字段语义(含标题与目标文件)
     this.plan = steps
@@ -181,14 +185,18 @@ export class PlanBuildCoordinator {
 
     if (step.todoId) {
       const todoCtx = { workspacePath: this.workspacePath };
-      const todos = readTodoList(todoCtx);
-      const todo = todos.find((t) => t.id === step.todoId);
-      if (todo) {
-        todo.status = status;
-        if (status === 'completed' && summary !== undefined) {
-          todo.summary = summary;
+      try {
+        const todos = readTodoList(todoCtx);
+        const todo = todos.find((t) => t.id === step.todoId);
+        if (todo) {
+          todo.status = status;
+          if (status === 'completed' && summary !== undefined) {
+            todo.summary = summary;
+          }
+          writeTodoList(todoCtx, todos);
         }
-        writeTodoList(todoCtx, todos);
+      } catch {
+        // 清单读不到就不改那一份文件
       }
     }
   }

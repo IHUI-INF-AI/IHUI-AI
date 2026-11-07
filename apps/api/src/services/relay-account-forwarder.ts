@@ -319,11 +319,20 @@ async function selectAccountCandidates(
   providerCodes: RelayProviderCode[],
   opts: { policy?: RelayPoolPolicy; rng?: () => number } = {},
 ): Promise<{ rows: AiRelayAccountPool[]; fallbacks: string[] }> {
-  // 双池隔离:请求带用户身份时 = 该用户的个人池 ∪ 运营池(个人池优先,运营池兜底);
-  // 无身份(匿名/渠道 key)= 仅运营池。用户自己的账号绝不服务他人请求。
+  // 双池 + 共享(2026-11-07 立,全局开放标记模型):
+  // - 带用户身份 = 本人个人池 ∪ 运营池 ∪ 他人"共享到运营池"的号(shared_to_ops=true);
+  // - 匿名/渠道 key = 运营池 ∪ 任何"共享到运营池"的号。
+  // 共享号保留其个人池归属(owner 不变),仅因 shared_to_ops=true 而纳入公开服务候选。
   const ownerCond = req.userId
-    ? or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.ownerUserId, req.userId))
-    : isNull(aiRelayAccountPool.ownerUserId)
+    ? or(
+        isNull(aiRelayAccountPool.ownerUserId),
+        eq(aiRelayAccountPool.ownerUserId, req.userId),
+        eq(aiRelayAccountPool.sharedToOps, true),
+      )
+    : or(
+        isNull(aiRelayAccountPool.ownerUserId),
+        eq(aiRelayAccountPool.sharedToOps, true),
+      )
   const rows = await dbRead
     .select()
     .from(aiRelayAccountPool)

@@ -2364,7 +2364,7 @@ const styles = StyleSheet.create({
   sharePopupCloseText: {
     fontSize: 22,
     color: tokens.text.secondary,
-    lineHeight: 22,
+    lineHeight: rnType.strong.lineHeight,
   },
   sharePopupTitle: {
     fontSize: rnType.title.size,
@@ -2649,7 +2649,7 @@ const styles = StyleSheet.create({
     // 对齐 Uniapp 28rpx(≈14px)benefit-item 字号
     fontSize: rnType.body.size,
     color: tokens.text.secondary,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
   },
   levelIntroCloseBtn: {
     backgroundColor: tokens.brand.DEFAULT,
@@ -2692,7 +2692,7 @@ const styles = StyleSheet.create({
   unsubscribeIcon: {
     fontSize: 28,
     color: tokens.danger.DEFAULT,
-    lineHeight: 28,
+    lineHeight: rnType.heading.lineHeight,
   },
   unsubscribeTitle: {
     fontSize: rnType.title.size,
@@ -2701,10 +2701,10 @@ const styles = StyleSheet.create({
     marginBottom: rpx(16),
   },
   unsubscribeDesc: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     marginBottom: rpx(32),
   },
   unsubscribeBtnRow: {

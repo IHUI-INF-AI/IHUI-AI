@@ -775,17 +775,23 @@ export function declarationArgs(argv = process.argv) {
 }
 
 /**
- * `--take-theirs-doc` 的路径集(Set)形状 —— 与 `union-converge` 内部同一形态:
- * 收敛器那条路用 `takeTheirsDocs?.has?.(p)` 逐路径问,索引层这条路必须喂同一个形状,
- * 否则"人的声明"在两条路上是两种东西(§0.6:同一件事只许一种表示)。
- * 无声明 ⇒ 返回 `null`(不是空 Set):`null` 表示"这条维度本轮没开",空 Set 表示
+ * `--take-theirs-doc` 的声明(Map:路径 → 理由)—— 与 `union-converge` 的 CLI 解析同一形态。
+ * 值可以是纯路径,也可以是 `<path>=<理由>`。索引层复量用 `takeDocHas` / `takeDocReason`,
+ * 只认路径做键;把整段 `path=理由` 放进 Set 会让 `has(path)` 落空,理由也送不进去,
+ * 于是「整份取对侧会少内容」永远读成没声明。
+ * 无声明 ⇒ 返回 `null`(不是空 Map):`null` 表示"这条维度本轮没开",空 Map 表示
  * "开了但一个路径都没声明",两者在下游语义不同,不得同形。
  */
 export function declaredTheirsDocs(argv = process.argv) {
   const flat = declarationArgs(argv)
-  const out = new Set()
+  const out = new Map()
   for (let i = 0; i < flat.length; i += 2) {
-    if (flat[i] === '--take-theirs-doc') out.add(flat[i + 1])
+    if (flat[i] !== '--take-theirs-doc') continue
+    const spec = String(flat[i + 1] ?? '')
+    const at = spec.indexOf('=')
+    const doc = at > 0 ? spec.slice(0, at) : spec
+    const why = at > 0 ? spec.slice(at + 1).trim() : ''
+    if (doc) out.set(doc, why)
   }
   return out.size > 0 ? out : null
 }

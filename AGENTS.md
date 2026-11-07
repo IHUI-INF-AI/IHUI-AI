@@ -246,7 +246,7 @@ React 事件对象的 `e.currentTarget` 在 handler 返回后置 null:异步回�
 - **批量写计数诚实性**:`check-batch-write-count-honesty.mjs`(134,blocking):`.where(inArray)` 批量写必须 `.returning({id})` 回库确认集合,响应带 `missedIds`,禁把请求侧 `.length` 当 affected;B3–B7 五维只拦新增。
 - **provider 健康四档单一真相源**(200):canonical = `apps/web/app/(main)/settings/llm/types-v2.ts` 的 `PROVIDER_HEALTH_STATUSES`(as const),全仓禁第二份同值声明(PV2)。
 - **桌面事件接线三层对账**:`check-desktop-event-wiring.mjs`(Tauri emit → listen → 前端注册;"就绪点亮"按可达性判,被抽进被调函数也算,允许一跳)。
-- **迁移正文不可变**(185):已进 journal 的 .sql 禁就地改正文(IM1 首次入库 blob 对照/IM2 索引 vs HEAD);守门 49 记账结构(B1-B5 离线,B6-B9 连库)。**受管 `.env` 键值被清空对账** `check-env-drift.mjs`(守护巡检档,判机器状态不进提交链)。
+- **迁移正文不可变**(185,2026-11-07 机主口径):已进 journal 的 .sql 禁就地改正文(IM1 首次入库 blob 对照/IM2 索引 vs HEAD);守门 49 记账结构(B1-B5 离线,B6-B9 连库)。**唯一例外**:只允许修「从零库必挂」的缺陷——已推且在任何环境成功跑过的迁移一律不改;从零库建不起来等于任何新环境都建不起来,修它属修 bug、不属于改历史。判定不看注释与口头担保,只看全新空库整链 PASS1:该条通不过即属例外可修,通过则必须还原上游原样。**受管 `.env` 键值被清空对账** `check-env-drift.mjs`(守护巡检档,判机器状态不进提交链)。
 - **元运维巡检轮** `check-ops-patrol.mjs`:看守者本身还活着吗(P1-P6:副本漂移/规则不热加载/时钟失步/无上限/心跳无人判/引用不存在指标)。**服务存续双探测**:`check-service-binary-paths.mjs`(warn,STATE/nssm Application 存在/端口应答,nssm stdout 是 UTF-16)、`check-public-path-probe.mjs`(outage 与常态分序列,取证经 `run-evidence.mjs` 封缄,truncated 不成合格证)。
 - **跳门留痕**:钩子失败归因是量出来的(`scripts/lib/commit-gate-attribution.mjs`:逐道复跑、点名本次文件 ⇒ 必修;批没跑完 ⇒ safe-commit 自跑一遍再归因;汇总块必须先过"轮次绑定"锁——之前那次 staged 清单回显必须完整包含本次声明集)。跳门次数唯一真值 = `.ihui-agent/state/safe-commit-attestation.jsonl`。**默认永不跳钩(2026-11-03 立)**:safe-commit 不再在归因非 mine 时自动 `--no-verify`(自跑门集合 ≠ 钩子门集合,自跑全绿不能证明钩子会全绿);并发锁争用 3 次指数退避、总预算 60s,耗尽 exit≠0 且不落地;唯一人工旗标 `--allow-skip-hooks="<原因>"`,正文留痕。**agent 不得假设"钩子红了就能跳"**。
 ## 关键参考文档

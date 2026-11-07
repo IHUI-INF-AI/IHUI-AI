@@ -110,7 +110,7 @@ function loadStore(): TasksStore {
   // 读盘/解析失败一律抛出:绝不能把"读不到"当成"空清单"再整体覆写 ——
   // 那会让用户全部任务静默清零(半截 JSON 会稳定触发这条路径)。
   const parsed = JSON.parse(raw) as Partial<TasksStore> | null;
-  if (!parsed || typeof parsed !== 'object') {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error(`任务库文件损坏(不是对象): ${p}`);
   }
   return {

@@ -61,7 +61,7 @@ export function LecturerDetailScreen({
   onOpenCourse,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onViewCourses,
   onNavigate,
 }: LecturerDetailScreenProps & { onRetry?: () => void }) {
@@ -515,8 +515,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     introText: {
-      fontSize: 13,
-      lineHeight: 20,
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
     },
     expandText: {
@@ -599,7 +599,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['2xs'],
     },
     reviewContent: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       lineHeight: 19,
       color: tk.text.secondary,
     },

@@ -7212,6 +7212,129 @@ const checks = [
       '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // --- 跨端漂移回归制(2026-11-06 立)------------------------------------------------------
+  // 立因:漂移尺/文案尺此前只有"只读体检"形态(存量非 0 ⇒ 恒 exit 1),只能靠人想起来跑,
+  // 结构上不在提交链上 —— 于是"攒新漂移"是无人工区。改法不是把存量一次性洗白(§12e 禁止),
+  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,commit 面只 advisory、
+  // push 面只对"相对基线新增/恶化"blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
+  // 取不到输入面(基线缺失/子对账器未判定/词包读不到)⇒ exit 2 未判定,不折 0、不记绿。
+  {
+    id: '302',
+    label:
+      '🧪 跨端漂移回归门(commit advisory:存量只报数;相对基线新增/恶化才报。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
+    script: 'check-cross-end-parity-drift.mjs',
+    args: ['--gate'],
+    mode: 'warn',
+    stagedTriggers: [
+      'packages/app/src/',
+      'apps/mobile-rn/src/',
+      'apps/web/',
+      'packages/i18n/',
+      'docs/engineering/rn-miniapp-parity-matrix.md',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/miniapp-key-retractions.jsonl',
+      'scripts/data/cross-end-allowed-diffs.json',
+      'scripts/data/cross-end-drift-gate-baseline.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
+    onFailHint: [
+      '  💡 红 = 本轮把某条跨端数字比基线做坏了(丢镜像/多腐烂/多未还原键/多非档值/多重复键)。',
+      '     先看点名维:掉下去的补回来,涨上去的查根因;确属新存量须改基线并在 PR 说明为何接受。',
+      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --json',
+      '     应急放行:HUSKY_SKIP_CROSS_END_DRIFT=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  {
+    id: '303',
+    label: '🗣️ 小程序↔RN 同名键文案漂移(commit advisory:相对基线新增未裁/形态坏/过期/腐烂或已裁净减才报)',
+    script: 'check-i18n-cross-end-wording.mjs',
+    args: ['--gate'],
+    mode: 'warn',
+    stagedTriggers: [
+      'packages/i18n/',
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/src/',
+      'scripts/data/i18n-cross-end-waivers.jsonl',
+      'scripts/data/i18n-cross-end-wording-baseline.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_CROSS_END_WORDING',
+    onFailHint: [
+      '  💡 新增漂移要么把两端文案改成同一键同一字,要么在 waivers 台账补裁定(reason≥20 字+expires)。',
+      '     取证:node scripts/check-i18n-cross-end-wording.mjs --gate --json',
+      '     应急放行:HUSKY_SKIP_CROSS_END_WORDING=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // S3:设计稿裁定"不能并入 291/299/218",独立成维但仍复用本门脚本(不新开脚本 ⇒ 不破 R4 文档门)。
+  // 平台专属资产(仅一端消费)按台账登记 consumption 证据保留原样,不硬改成"看起来纯"。
+  {
+    id: '304',
+    label: '🧬 共享层平台纯度 S3(裸 rpx/内联 var(--)/hoverClass/className 四信号按文件棘轮;未登记或上调即红)',
+    script: 'check-shared-layer-duplication.mjs',
+    args: ['--platform-purity', '--staged'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'packages/app/src/components/',
+      'scripts/data/shared-layer-platform-purity.jsonl',
+      'scripts/check-shared-layer-duplication.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SHARED_LAYER_PURITY',
+    onFailHint: [
+      '  💡 共享层新增平台写法:优先改成 RN 原语/design token;确属平台专属资产则登记台账',
+      '     scripts/data/shared-layer-platform-purity.jsonl(需 consumption 证据 file:line + owner + expires + why)。',
+      '     取证:node scripts/check-shared-layer-duplication.mjs --platform-purity --json',
+      '     应急放行:HUSKY_SKIP_SHARED_LAYER_PURITY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- 空转生成器接成 --check/预演硬门(2026-11-06)------------------------------------------
+  // 只收"实跑与仓库现状一致"的三条;其余 5 条无安全无写入检查面或依赖外部凭据,
+  // 逐条分类与差量见 scripts/data/generator-convergence-baseline.json(未收敛清单,不硬接)。
+  {
+    id: '306',
+    label: '🧱 小程序 knip entry 同步(--check:受管块与页面/alias 源不一致即红)',
+    script: 'gen-knip-taro-entries.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/', 'knip.jsonc', 'scripts/gen-knip-taro-entries.mjs'],
+    skipEnv: 'HUSKY_SKIP_GEN_KNIP_TARO',
+    onFailHint: [
+      '  💡 页面/alias 变了但 knip.jsonc 受管块没跟上:node scripts/gen-knip-taro-entries.mjs --write',
+      '     应急放行:HUSKY_SKIP_GEN_KNIP_TARO=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  {
+    id: '307',
+    label: '🧰 AI 服务 tool-name 集合同步(--check:生成物与 TS 真相源不一致即红)',
+    script: 'gen-tool-name-sets.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/ai-service/', 'scripts/gen-tool-name-sets.mjs'],
+    skipEnv: 'HUSKY_SKIP_GEN_TOOL_NAME_SETS',
+    onFailHint: [
+      '  💡 真相源改了但 apps/ai-service/app/data/tool_name_sets.json 没重生成:node scripts/gen-tool-name-sets.mjs',
+      '     应急放行:HUSKY_SKIP_GEN_TOOL_NAME_SETS=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  {
+    id: '308',
+    label: '🏗️ RN 宿主薄壳骨架预演(--all dry-run:共享屏缺 props 契约/缺壳即红;绝不落盘)',
+    script: 'gen-rn-shell-scaffold.mjs',
+    args: ['--all'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'packages/app/src/components/',
+      'scripts/lib/cross-end-screen-props.mjs',
+      'scripts/data/rn-host-shell-manual.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
+    onFailHint: [
+      '  💡 新共享屏缺 RN 壳或 props 契约取不到:先补契约/壳,或按 scripts/data/rn-host-shell-manual.json 登记判决。',
+      '     预演取证:node scripts/gen-rn-shell-scaffold.mjs --all(默认不落盘)',
+      '     应急放行:HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -7383,6 +7506,57 @@ const pushGateChecks = [
       '     改法:补齐承载列或按台账登记合法例外;取证 node scripts/check-web-mp-route-carriers.mjs --explain',
       '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
+  },
+  // --- push 收窄档:跨端漂移/文案/平台纯度 + 三条已收敛生成器(2026-11-06 立)--------------
+  // 与 commit 面同一判据、同一脚本,只是"是否阻断"不同:R5 要求 id 跨两数组唯一,故 push 档以 p 结尾。
+  // push 面不按 stagedTriggers 过滤(全目录只有 pre-push 一处),任何一次推送都会跑。
+  {
+    id: '302p',
+    label: '🧪 跨端漂移回归门(push blocking:相对基线新增/恶化即拦;存量只报数)',
+    script: 'check-cross-end-parity-drift.mjs',
+    args: ['--gate', '--push'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
+  },
+  {
+    id: '303p',
+    label: '🗣️ 小程序↔RN 文案漂移(push blocking:新增未裁/形态坏/过期/腐烂/已裁净减即拦)',
+    script: 'check-i18n-cross-end-wording.mjs',
+    args: ['--gate', '--push'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_WORDING',
+  },
+  {
+    id: '304p',
+    label: '🧬 共享层平台纯度 S3(push blocking:未登记文件或四信号上调即拦)',
+    script: 'check-shared-layer-duplication.mjs',
+    args: ['--platform-purity'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SHARED_LAYER_PURITY',
+  },
+  {
+    id: '306p',
+    label: '🧱 小程序 knip entry 同步(push blocking)',
+    script: 'gen-knip-taro-entries.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GEN_KNIP_TARO',
+  },
+  {
+    id: '307p',
+    label: '🧰 AI 服务 tool-name 集合同步(push blocking)',
+    script: 'gen-tool-name-sets.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GEN_TOOL_NAME_SETS',
+  },
+  {
+    id: '308p',
+    label: '🏗️ RN 宿主薄壳骨架预演(push blocking,不落盘)',
+    script: 'gen-rn-shell-scaffold.mjs',
+    args: ['--all'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
   },
 ]
 

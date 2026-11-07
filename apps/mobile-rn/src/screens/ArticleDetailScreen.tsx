@@ -30,12 +30,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import {
-  createComment,
-  getComments,
-  getPublicArticle,
-  type CommentItem,
-} from '@ihui/api-client'
+import { createComment, getComments, getPublicArticle, type CommentItem } from '@ihui/api-client'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
@@ -366,7 +361,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentClose: {
     fontSize: rnType.display.size,
-    lineHeight: 26,
+    lineHeight: rnType.subtitle.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
   } as TextStyle,
@@ -417,7 +412,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentContent: {
     fontSize: rnType.body.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     color: tokens.text.primary,
     marginTop: rnSpacing['2xs'],
   } as TextStyle,

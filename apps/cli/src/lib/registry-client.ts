@@ -165,19 +165,22 @@ export function getInstallsManifestPath(): string {
   return installsPath();
 }
 
-/** 读取本地安装清单。文件不存在或内容损坏是空数组。读失败不能当成没有已装项。 */
+/** 读取本地安装清单。文件不存在或空文件是空数组。非空损坏不能当成没有已装项。 */
 export function loadInstalls(filePath = installsPath()): RegistryInstallRecord[] {
+  let raw: string;
   try {
-    const raw = fs.readFileSync(filePath, 'utf-8');
-    const parsed = tryParseJson(raw);
-    return isRecord(parsed) && Array.isArray(parsed.installs)
-      ? (parsed.installs as RegistryInstallRecord[])
-      : [];
+    raw = fs.readFileSync(filePath, 'utf-8');
   } catch (error) {
     const code = readErrorCode(error);
     if (code === 'ENOENT' || code === 'ENOTDIR') return [];
     throw new Error(`安装清单读不到,不能把它说成没有已装项 (${code})`);
   }
+  if (raw.trim() === '') return [];
+  const parsed = tryParseJson(raw);
+  if (!isRecord(parsed) || !Array.isArray(parsed.installs)) {
+    throw new Error('安装清单读不到,不能把它说成没有已装项 (corrupt)');
+  }
+  return parsed.installs as RegistryInstallRecord[];
 }
 
 /** 写入本地安装清单(覆盖)。写失败不抛,避免挡住安装本身。 */

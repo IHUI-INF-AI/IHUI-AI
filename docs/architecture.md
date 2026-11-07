@@ -430,7 +430,7 @@ pnpm turbo typecheck lint test  # 5346/5346 tests passed, 0 errors + 0 warnings
 - `scripts/translate-i18n-batch.mjs` / `apply-i18n-translations.mjs` / `sync-i18n-fixes.mjs` — i18n 翻译工作流
 - `scripts/export-untranslated-i18n.mjs` / `scan-zh-tw-untranslated.mjs` — 未翻译导出
 - `scripts/check-rounded-full.mjs` / `fix-rounded-full.mjs` — rounded-full 违规扫描与修复
-- `scripts/check-api-routes.mjs` / `find-route-conflicts.mjs` / `generate-stub-routes.mjs` — 路由完整性
+- `scripts/check-api-routes.mjs` / `find-route-conflicts.mjs` — 路由完整性
 - `scripts/check-delivery-report-consistency.mjs` — 交付报告一致性守门(pre-commit hook)
 - `scripts/guard-push-other-agent-changes.mjs` — 跨 Agent 改动保护(pre-push hook)
 - `scripts/openapi-check.mjs` — OpenAPI 规范检查

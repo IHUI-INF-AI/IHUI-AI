@@ -74,4 +74,52 @@ test('T5 自检不得建 os.tmpdir 锁(自检不派生 tsc,并发自检不该在
   assert.ok(iLock > 0, '找不到真实全量跑的建锁调用(结构变了须同步本测试)')
   assert.ok(iGuard < iLock, '建锁必须在自检闸门之下,否则自检又去 os.tmpdir 落锁')
 })
+
+test('T6 --preflight-only 必须只建产物不判类型,且不得被再入守卫/串行锁吞掉', () => {
+  // 2026-11-06:push 门的定向快通道复用本档(typecheck-full --preflight-only)补跑前置。
+  // 三条结构约束,每条都对应一种"看起来接了、实际没跑"的假接线:
+  // ① 分支必须自己 exit,不得落进清 .tsbuildinfo 与 pnpm -r 主流程(那是类型检查,不是前置);
+  // ② 必须早于再入守卫 IHUI_TYPECHECK_FULL_CHILD —— 否则被调用方带着该 env 起本档时静默 exit 0,
+  //    旧产物照旧,"前置没跑"与"前置跑了没事"同形;
+  // ③ 必须早于建锁 —— 否则 push 侧会被另一会话的全量 typecheck 串行拖到超时,把真结论换成超时红。
+  const iFlag = SRC.indexOf("'--preflight-only'")
+  assert.ok(iFlag > 0, '--preflight-only 分支不见了 ⇒ 快通道前置无实现可复用')
+  const iPreflightCall = SRC.indexOf('staleDistPreflight()', iFlag)
+  assert.ok(iPreflightCall > iFlag, '--preflight-only 分支必须真调 staleDistPreflight()')
+  const iExitAfter = SRC.indexOf('process.exit(0)', iPreflightCall)
+  assert.ok(iExitAfter > iPreflightCall, '--preflight-only 必须建完即退,不得落进主流程')
+  const iReentry = SRC.indexOf("process.env.IHUI_TYPECHECK_FULL_CHILD === '1'")
+  const iLock = SRC.indexOf('_mkLock(_lockDir')
+  const iClean = SRC.indexOf('清除 .tsbuildinfo 增量缓存')
+  assert.ok(iFlag < iReentry, '前置档必须早于再入守卫,否则会被 IHUI_TYPECHECK_FULL_CHILD=1 静默吞掉')
+  assert.ok(iFlag < iLock, '前置档必须早于建锁,否则 push 会在另一会话的全量门上干等')
+  assert.ok(iFlag < iClean, '前置档不得触发清 .tsbuildinfo(那是全量跑的破坏性动作)')
+})
+
+test('T7 --preflight-only 构建失败必须 exit 2 未判定,且全量通道退出码语义不被改动', () => {
+  // 铁律:前置只负责"把输入面准备好",取不到输入面就不许给结论 —— 既不许报绿(exit 0),
+  // 也不许沿用 build 的退出码(通常 1,上层会把它读成"类型检查有结论的失败"=已入库红)。
+  // 变异实测:把失败分支里的 `if (_PREFLIGHT_ONLY)` 摘掉 ⇒ 本用例红,其余 T1~T6 仍绿。
+  const iFlag = SRC.indexOf("'--preflight-only'")
+  const iFail = SRC.indexOf('if (r.status !== 0) {', iFlag)
+  assert.ok(iFail > iFlag, '找不到前置的构建失败分支(结构变了 ⇒ 本锁须同步)')
+  const iGuarded = SRC.indexOf('if (_PREFLIGHT_ONLY) {', iFail)
+  assert.ok(iGuarded > iFail, '前置档的失败出口必须显式区分,否则会与全量通道共用退出码')
+  const iExit2 = SRC.indexOf('process.exit(2)', iGuarded)
+  assert.ok(iExit2 > iGuarded, '构建失败必须落 process.exit(2)')
+  assert.ok(iExit2 < SRC.length, '构建失败分支必须自己退出')
+  // 读出来那段判据面,钉住"未判定 + 产物面取不到"两句(不许只留一句裸 exit 2,让人误读成类型红)。
+  const guarded = SRC.slice(iGuarded, SRC.indexOf('\n      }', iExit2) + 1)
+  assert.match(guarded, /未判定\(exit 2\)/, '前置失败必须明写"未判定(exit 2)"')
+  assert.match(guarded, /产物面取不到/, '前置失败必须给出"产物面取不到"的可读理由')
+  assert.match(guarded, /复现: pnpm --filter/, '前置失败必须给一键复现命令')
+  assert.ok(!/process\.exit\(0\)/.test(guarded), '前置失败分支内不得出现 exit 0/放行')
+  // 全量通道原行为保持不变:仍是 `process.exit(r.status ?? 1)`。
+  assert.match(
+    SRC.slice(SRC.indexOf('\n      }', iExit2)),
+    /不带着旧产物继续跑类型检查[\s\S]{0,120}process\.exit\(r\.status \?\? 1\)/,
+    '全量通道的失败语义被顺手改了 —— 本次只允许给前置档补死判据',
+  )
+})
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     padding: rnSpacing.xs,
   },
   listBody: {
-    paddingVertical: 0,
+    paddingVertical: rnSpacing.none,
   },
   row: {
     minHeight: 64,
@@ -273,12 +273,12 @@ const styles = StyleSheet.create({
   rankChangeArrow: {
     fontSize: rnType.caption.size,
     fontWeight: '700',
-    lineHeight: 12,
+    lineHeight: rnType.badge.lineHeight,
   },
   rankChangeNum: {
     fontSize: rnType.caption.size,
     fontWeight: '600',
-    lineHeight: 12,
+    lineHeight: rnType.badge.lineHeight,
     marginLeft: 1,
   },
   avatar: {

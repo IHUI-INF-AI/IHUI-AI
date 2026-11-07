@@ -195,6 +195,8 @@ interface AccountRow {
   providerCode: string
   /** 归属用户 id;null = 运营池(全局)—— 名称列的"个人池"徽章判据 */
   ownerUserId: string | null
+  /** 全局开放标记(2026-11-07 立):true = 保留个人归属的同时对他人/匿名全局开放 */
+  sharedToOps: boolean
   uid: string | null
   name: string
   deviceId: string | null
@@ -548,8 +550,9 @@ export default function AdminRelayAccountPoolPage() {
   const [health, setHealth] = React.useState<'all' | 'unknown' | 'healthy' | 'degraded' | 'down'>(
     'all',
   )
-  // 归属(2026-10-31 机主令:admin 管理页要有"我的个人池"视图):ops=运营池(存量默认) me=我的个人池 all=全部
-  const [owner, setOwner] = React.useState<'ops' | 'me' | 'all'>('ops')
+  // 归属(2026-10-31 机主令:admin 管理页要有"我的个人池"视图):ops=运营池(存量默认)
+  // me=我的个人池 all=全部归属 shared=已共享到运营池(全局开放标记,2026-11-07 立)
+  const [owner, setOwner] = React.useState<'ops' | 'me' | 'all' | 'shared'>('ops')
   const [importOpen, setImportOpen] = React.useState(false)
   // 一键重登(2026-10-27 第 3 格):进行中的账号 id + 阶段;null = 空闲。
   // 能力登记在 @/lib/relay-web-login(单一源);trae/workbuddy 有实证链,其余明示未判定。
@@ -824,6 +827,23 @@ export default function AdminRelayAccountPoolPage() {
       invalidate()
     },
     onError: (e: Error) => toast.error(e.message || '操作失败'),
+  })
+
+  // 共享到运营池(2026-11-07 立,全局开放标记模型):保留个人归属的同时对他人/匿名全局开放
+  const setSharedMut = useMutation({
+    mutationFn: async (vars: { id: string; shared: boolean }) => {
+      const r = await fetchApi<{ id: string; sharedToOps: boolean; changed: boolean }>(
+        `/api/admin/relay/accounts/${vars.id}/${vars.shared ? 'share' : 'unshare'}`,
+        { method: 'POST' },
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
+    onSuccess: (d) => {
+      toast.success(d.sharedToOps ? '已共享到运营池(全局开放)' : '已取消共享(仅个人池)')
+      invalidate()
+    },
+    onError: (e: Error) => toast.error(e.message || '共享操作失败'),
   })
 
   // 登录本机(2026-10-27 全平台):把号池账号写进本机客户端登录态(写前自动备份)
@@ -1389,6 +1409,7 @@ export default function AdminRelayAccountPoolPage() {
               <SelectContent>
                 <SelectItem value="ops">运营池</SelectItem>
                 <SelectItem value="me">我的个人池</SelectItem>
+                <SelectItem value="shared">已共享</SelectItem>
                 <SelectItem value="all">全部归属</SelectItem>
               </SelectContent>
             </Select>
@@ -1474,6 +1495,7 @@ export default function AdminRelayAccountPoolPage() {
                     <th className="px-3 py-2 text-left">最近使用</th>
                     <th className="px-3 py-2 text-left">认领</th>
                     <th className="px-3 py-2 text-left">启用</th>
+                    <th className="px-3 py-2 text-left">共享</th>
                     <th className="px-3 py-2 text-left">摘除</th>
                     <th className="px-3 py-2 text-right">操作</th>
                   </tr>
@@ -1525,6 +1547,11 @@ export default function AdminRelayAccountPoolPage() {
                               {k.ownerUserId && (
                                 <span className="whitespace-nowrap rounded-md bg-sky-500/10 px-1.5 py-0.5 text-label font-normal text-sky-600 dark:text-sky-400">
                                   个人池
+                                </span>
+                              )}
+                              {k.sharedToOps && (
+                                <span className="whitespace-nowrap rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-label font-normal text-emerald-600 dark:text-emerald-400">
+                                  已共享
                                 </span>
                               )}
                               {k.expiresSoon === true && (
@@ -1759,6 +1786,22 @@ export default function AdminRelayAccountPoolPage() {
                               onCheckedChange={() => toggleMut.mutate(k.id)}
                               aria-label={`${k.name} 启用开关`}
                             />
+                          </td>
+                          <td className="px-3 py-2">
+                            {k.ownerUserId ? (
+                              <Switch
+                                checked={k.sharedToOps}
+                                disabled={setSharedMut.isPending}
+                                onCheckedChange={() =>
+                                  setSharedMut.mutate({ id: k.id, shared: !k.sharedToOps })
+                                }
+                                aria-label={`${k.name} 共享到运营池开关`}
+                              />
+                            ) : (
+                              <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-label text-emerald-600 dark:text-emerald-400">
+                                运营池(全局)
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             {k.tempUnschedulable ? (

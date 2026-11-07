@@ -35,8 +35,8 @@ def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _load() -> dict[str, dict[str, Any]]:
-    """读取全部启用记录。文件缺失、损坏或非对象时返回空 dict。读不到则抛。"""
+def _load(*, for_update: bool = False) -> dict[str, dict[str, Any]]:
+    """读取全部启用记录。文件缺失或空文件是空 dict。非空损坏在写入前抛。"""
     try:
         _STORE_PATH.stat()
     except FileNotFoundError:
@@ -47,11 +47,19 @@ def _load() -> dict[str, dict[str, Any]]:
         raw = _STORE_PATH.read_text(encoding="utf-8")
     except OSError as exc:
         raise CapabilityMarketUnread(f"能力市场名单读不到,不能把它覆盖成新名单: {exc}") from exc
+    if raw.strip() == "":
+        return {}
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        if for_update:
+            raise CapabilityMarketUnread("能力市场名单读不到,不能把它覆盖成新名单 (corrupt)") from exc
         return {}
-    return data if isinstance(data, dict) else {}
+    if not isinstance(data, dict):
+        if for_update:
+            raise CapabilityMarketUnread("能力市场名单读不到,不能把它覆盖成新名单 (corrupt)")
+        return {}
+    return data
 
 
 def _write(records: dict[str, dict[str, Any]]) -> bool:
@@ -91,7 +99,7 @@ def set_enabled(cap_id: str, enabled: bool) -> dict[str, Any] | None:
     """
     with _LOCK:
         try:
-            records = _load()
+            records = _load(for_update=True)
         except CapabilityMarketUnread:
             return None
         rec = records.get(cap_id, {})

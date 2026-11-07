@@ -479,7 +479,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     containerFullscreen: {
       flex: 1,
-      paddingHorizontal: 0,
+      paddingHorizontal: rnSpacing.none,
     },
     fullscreenHeader: {
       flexDirection: 'row',

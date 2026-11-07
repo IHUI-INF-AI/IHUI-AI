@@ -99,7 +99,11 @@ function createStyles(tk: AppThemeTokens) {
     logoText: { fontSize: rnType.display.size, fontWeight: '700', color: tk.text.primary },
     titleDesc: { flex: 1, gap: rnSpacing['xs-loose'] },
     title: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
-    desc: { fontSize: rnType.body.size, color: tk.text.secondary, lineHeight: 18 },
+    desc: {
+      fontSize: rnType.body.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     row2: { flexDirection: 'row', gap: rnSpacing.sm },
     metric: {
       flex: 1,
@@ -116,7 +120,11 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       padding: rnSpacing.md,
     },
-    contextText: { fontSize: rnType.body.size, color: tk.text.medium, lineHeight: 20 },
+    contextText: {
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.body.lineHeight,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

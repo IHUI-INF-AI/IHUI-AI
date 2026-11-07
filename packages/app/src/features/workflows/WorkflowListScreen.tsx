@@ -358,7 +358,11 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    createBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    createBtnText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
     heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
@@ -387,7 +391,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    descText: { fontSize: 12, color: tk.text.secondary, lineHeight: 17 },
+    descText: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 17 },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
@@ -446,7 +450,11 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
-    primaryBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
+    primaryBtnText: {
+      fontSize: rnType.bodySm.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     secondaryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing.lg,

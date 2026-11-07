@@ -91,6 +91,20 @@ describe('detectCowKind', () => {
     const kind = detectCowKind(path.join(os.tmpdir(), `ihui-nonexistent-${Date.now()}`))
     expect(VALID_KINDS).toContain(kind)
   })
+
+  it('损坏的 CoW 缓存不会被收成新结论', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-cow-cache-'))
+    const file = path.join(dir, 'cow-capability.json')
+    const body = '{not json'
+    fs.writeFileSync(file, body, 'utf-8')
+    try {
+      const kind = detectCowKind(dir, file)
+      expect(VALID_KINDS).toContain(kind)
+      expect(fs.readFileSync(file, 'utf-8')).toBe(body)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
 })
 
 // ============ copyFileCoW ============

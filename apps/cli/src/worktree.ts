@@ -120,14 +120,18 @@ let cachedCowKind: CowKind | undefined = undefined
  * 检测文件系统的 CoW 能力。第一次调用时检测并缓存到模块级变量,
  * 可选持久化到 ~/.ihui/cache/cow-capability.json。检测失败返回 'none'。
  */
-export function detectCowKind(dir: string): CowKind {
+export function detectCowKind(dir: string, cachePath = COW_CACHE_PATH): CowKind {
   if (cachedCowKind) return cachedCowKind
 
-  // 尝试从磁盘缓存加载
-  const loaded = loadCachedCowKind()
-  if (loaded) {
-    cachedCowKind = loaded
-    return loaded
+  let skipSave = false
+  try {
+    const loaded = loadCachedCowKind(cachePath)
+    if (loaded) {
+      cachedCowKind = loaded
+      return loaded
+    }
+  } catch {
+    skipSave = true
   }
 
   let kind: CowKind = 'none'
@@ -138,7 +142,7 @@ export function detectCowKind(dir: string): CowKind {
   }
 
   cachedCowKind = kind
-  saveCachedCowKind(kind)
+  if (!skipSave) saveCachedCowKind(kind, cachePath)
   return kind
 }
 
@@ -231,27 +235,36 @@ function detectRefs(dir: string): boolean {
   }
 }
 
-function loadCachedCowKind(): CowKind | undefined {
+function loadCachedCowKind(cachePath: string): CowKind | undefined {
+  let raw: string
   try {
-    if (!fs.existsSync(COW_CACHE_PATH)) return undefined
-    const raw = fs.readFileSync(COW_CACHE_PATH, 'utf-8')
-    const data = JSON.parse(raw) as { kind?: unknown }
-    if (
-      typeof data.kind === 'string' &&
-      (VALID_COW_KINDS as readonly string[]).includes(data.kind)
-    ) {
-      return data.kind as CowKind
-    }
-    return undefined
-  } catch {
-    return undefined
+    raw = fs.readFileSync(cachePath, 'utf-8')
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown'
+    if (code === 'ENOENT' || code === 'ENOTDIR') return undefined
+    throw new Error(`CoW 缓存读不到,不能把它覆盖成新结论 (${code})`)
   }
+  if (raw.trim() === '') return undefined
+  let data: unknown
+  try {
+    data = JSON.parse(raw)
+  } catch {
+    throw new Error('CoW 缓存读不到,不能把它覆盖成新结论 (corrupt)')
+  }
+  const kind = data !== null && typeof data === 'object' ? (data as { kind?: unknown }).kind : undefined
+  if (typeof kind === 'string' && (VALID_COW_KINDS as readonly string[]).includes(kind)) {
+    return kind as CowKind
+  }
+  throw new Error('CoW 缓存读不到,不能把它覆盖成新结论 (corrupt)')
 }
 
-function saveCachedCowKind(kind: CowKind): void {
+function saveCachedCowKind(kind: CowKind, cachePath: string): void {
   try {
-    fs.mkdirSync(path.dirname(COW_CACHE_PATH), { recursive: true })
-    fs.writeFileSync(COW_CACHE_PATH, JSON.stringify({ kind, ts: Date.now() }), 'utf-8')
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true })
+    fs.writeFileSync(cachePath, JSON.stringify({ kind, ts: Date.now() }), 'utf-8')
   } catch {
     // 持久化失败不抛异常
   }

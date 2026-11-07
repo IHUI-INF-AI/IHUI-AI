@@ -228,7 +228,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     areaText: { fontSize: rnType.title.size, color: tk.text.medium },
     areaArrow: { fontSize: rnType.badge.size, color: tk.text.tertiary, marginLeft: rnSpacing.sm },
-    input: { flex: 1, fontSize: rnType.title.size, color: tk.text.primary, padding: 0 },
+    input: {
+      flex: 1,
+      fontSize: rnType.title.size,
+      color: tk.text.primary,
+      padding: rnSpacing.none,
+    },
     sendBtn: { paddingLeft: rnSpacing.md },
     sendText: { fontSize: rnType.body.size, fontWeight: '700', color: tk.brand.DEFAULT },
     countdownText: {

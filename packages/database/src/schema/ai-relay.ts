@@ -139,6 +139,12 @@ export const aiRelayAccountPool = pgTable(
     isEnabled: boolean('is_enabled').default(true).notNull(),
     /** 临时不可调度(admin/系统手动摘除,区别于 isEnabled 永久停用;选路时跳过) */
     tempUnschedulable: boolean('temp_unschedulable').default(false).notNull(),
+    /**
+     * 共享到运营池标记(2026-11-07 立,李总指令:首次导入强制落个人池,运营池仅由"共享"动作填充)。
+     * true = 该号在保留个人池归属(本人可用)的同时,对所有用户/匿名开放(转发选路纳入);
+     * false = 仅个人池可见可用,绝不服务他人请求。
+     */
+    sharedToOps: boolean('shared_to_ops').default(false).notNull(),
     /** 健康状态:unknown / healthy / degraded / down */
     healthStatus: varchar('health_status', { length: 16 }).default('unknown').notNull(),
     healthCheckedAt: timestamp('health_checked_at', { withTimezone: true }),

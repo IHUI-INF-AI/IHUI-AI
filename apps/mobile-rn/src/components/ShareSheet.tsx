@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   cancelText: {
     fontSize: rnType.strong.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     fontWeight: '500',
     color: tokens.text.primary,
   } as TextStyle,

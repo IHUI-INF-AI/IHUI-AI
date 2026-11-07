@@ -62,7 +62,7 @@ export function FinanceScreen({
   ]
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ padding: 10 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ padding: rnSpacing['sm-loose'] }}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
         <Text style={styles.title}>{t('finance.title')}</Text>

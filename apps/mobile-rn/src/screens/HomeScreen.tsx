@@ -2398,12 +2398,12 @@ const shellStyles = {
   } as const,
   materialCardTitle: {
     maxWidth: rpx(340),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.primary,
   } as const,
   materialCardClose: {
     fontSize: rnType.title.size,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '400',
     marginLeft: rpx(12),
@@ -2431,7 +2431,7 @@ const shellStyles = {
   } as const,
   materialSheetClose: {
     fontSize: 22,
-    lineHeight: 24,
+    lineHeight: rnType.title.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
@@ -2469,7 +2469,7 @@ const shellStyles = {
   } as const,
   detailDialogClose: {
     fontSize: 22,
-    lineHeight: 24,
+    lineHeight: rnType.title.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
@@ -2492,13 +2492,13 @@ const shellStyles = {
   } as const,
   detailDialogFieldLabel: {
     width: rpx(140),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   } as const,
   detailDialogFieldValue: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: rnType.bodySm.size,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.primary,
   } as const,
   detailDialogErrorWrap: {
@@ -2507,7 +2507,7 @@ const shellStyles = {
     gap: rpx(16),
   } as const,
   detailDialogErrorText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as const,
   detailDialogRetryBtn: {
@@ -2517,7 +2517,7 @@ const shellStyles = {
     backgroundColor: tokens.brand.cta,
   } as const,
   detailDialogRetryText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as const,
@@ -2554,7 +2554,7 @@ const shellStyles = {
   } as const,
   modelModalClose: {
     fontSize: 22,
-    lineHeight: 24,
+    lineHeight: rnType.title.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
     paddingHorizontal: rpx(8),
@@ -2564,7 +2564,7 @@ const shellStyles = {
     alignSelf: 'center',
     width: rpx(72),
     height: 4,
-    borderRadius: 2,
+    borderRadius: rnRadius.xs,
     backgroundColor: tokens.border.medium,
     marginBottom: rpx(16),
   } as const,
@@ -2575,7 +2575,7 @@ const shellStyles = {
   modelModalSubtitle: {
     fontSize: rnType.label.size,
     color: tokens.text.tertiary,
-    marginTop: 2,
+    marginTop: rnSpacing['2xs'],
   } as const,
   modelModalTabRow: {
     // 横向 tab 行:纵向不收缩,滚动交由内容
@@ -2614,7 +2614,7 @@ const shellStyles = {
     borderColor: tokens.brand.cta,
   } as const,
   modelModalTabText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as const,
   modelModalTabActiveText: {
@@ -2655,11 +2655,11 @@ const shellStyles = {
     fontSize: rnType.body.size,
     color: tokens.text.primary,
     // RN web 端 TextInput 默认内边距偏大,压平与图标同行
-    paddingVertical: 0,
+    paddingVertical: rnSpacing.none,
   } as const,
   modelSearchClear: {
     fontSize: rnType.subtitle.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     color: tokens.text.tertiary,
     paddingHorizontal: rpx(8),
   } as const,
@@ -2700,7 +2700,7 @@ const shellStyles = {
   } as const,
   qrCloseText: {
     fontSize: rnType.display.size,
-    lineHeight: 26,
+    lineHeight: rnType.subtitle.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
   } as const,

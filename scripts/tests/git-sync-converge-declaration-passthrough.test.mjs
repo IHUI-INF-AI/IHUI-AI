@@ -91,11 +91,15 @@ test('⑦ declarationArgs 对非数组入参不抛(派生点可能被注入 unde
   }
 })
 
-test('⑧ declaredTheirsDocs:无声明返回 null(不是空 Set),有声明返回路径 Set', () => {
+test('⑧ declaredTheirsDocs:无声明返回 null(不是空 Map),有声明按路径取键,理由不进键', () => {
   assert.equal(declaredTheirsDocs(argv('--take-ours', 'README.md')), null, '没声明 take-theirs-doc 时必须 null')
   assert.equal(declaredTheirsDocs(argv()), null)
   const got = declaredTheirsDocs(argv('--take-theirs-doc', 'AGENTS.md', '--take-theirs-doc', 'PROJECT_PLAN.md'))
-  assert.deepEqual([...got].sort(), ['AGENTS.md', 'PROJECT_PLAN.md'])
+  assert.deepEqual([...got.keys()].sort(), ['AGENTS.md', 'PROJECT_PLAN.md'])
+  const reasoned = declaredTheirsDocs(
+    argv('--take-theirs-doc', 'PROJECT_PLAN.md=本侧相对分叉点零改动,远端已摘掉已勾行'),
+  )
+  assert.equal(reasoned.get('PROJECT_PLAN.md'), '本侧相对分叉点零改动,远端已摘掉已勾行')
 })
 
 // ── D 组:索引层这条路必须能接收声明(2026-10-28 的两次真停摆) ──────────────────
@@ -170,7 +174,9 @@ test('D2 正证:同一夹具加 --take-theirs-doc 声明 ⇒ 判绿(声明送进
       tree: r.merged,
       base: r.base,
       cwd: r.dir,
-      takeTheirsDocs: declaredTheirsDocs(argv('--take-theirs-doc', DOC)),
+      takeTheirsDocs: declaredTheirsDocs(
+        argv('--take-theirs-doc', `${DOC}=对侧合法删掉已结清的一行,本侧相对基底零改动`),
+      ),
     })
     assert.deepEqual(got.bad, [], `声明后仍判红:${got.bad.join(' | ')}`)
     assert.deepEqual(got.undetermined, [], `声明后未判定:${got.undetermined.join(' | ')}`)

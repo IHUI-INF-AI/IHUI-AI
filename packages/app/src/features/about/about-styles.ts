@@ -30,7 +30,11 @@ export function createAboutStyles(tk: AppThemeTokens) {
       textAlign: 'center',
       color: tk.text.primary,
     },
-    bodyText: { fontSize: 13, lineHeight: 20, color: tk.text.secondary },
+    bodyText: {
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.body.lineHeight,
+      color: tk.text.secondary,
+    },
     itemLabel: { fontSize: rnType.body.size, color: tk.text.primary },
     sectionTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     chip: {
@@ -64,7 +68,7 @@ export function createAboutStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brandAccent.light,
     },
     cardTitle: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    cardDesc: { fontSize: 12, lineHeight: 19, color: tk.text.secondary },
+    cardDesc: { fontSize: rnType.label.size, lineHeight: 19, color: tk.text.secondary },
     statsCard: { gap: rnSpacing.md },
     statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     statCell: { flexGrow: 1, flexBasis: '44%', alignItems: 'center', gap: rnSpacing.xs },

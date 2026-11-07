@@ -5,7 +5,7 @@
 import { useMemo } from 'react'
 import { AlertTriangle, Hash, Tag } from 'lucide-react-native'
 import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native'
-import { withAlpha } from '@ihui/design-tokens'
+import { withAlpha, rnSpacing } from '@ihui/design-tokens'
 import type { TFunction } from '../../types'
 import { getTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -173,7 +173,10 @@ export function TagsScreen({
 
             <View style={styles.card}>
               <Text
-                style={[styles.cardTitle, { flexDirection: 'row', alignItems: 'center', gap: 6 }]}
+                style={[
+                  styles.cardTitle,
+                  { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
+                ]}
               >
                 <Hash size={16} color={TAG_CHIP_COLORS[0]} strokeWidth={2} />
                 {t('tagsPage.popular')}

@@ -7090,5 +7090,12 @@
     "selfDoneToast": "签到成功",
     "scanDoneToast": "扫码签到成功",
     "scanInvalidToast": "无效的签到码"
+  },
+  "knowledgePlanet": {
+    "title": "知识星球",
+    "newOfficial": "官方资讯",
+    "newCommunity": "星球社区",
+    "enter": "进入星球",
+    "memberCount": "{count} 位成员"
   }
 }

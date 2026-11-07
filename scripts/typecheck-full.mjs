@@ -42,6 +42,27 @@ const EXCLUDE_DIRS = new Set([
   'node_modules',
 ])
 
+// ─── `--preflight-only`:只跑"陈旧 dist 前置重建"后退出(2026-11-06 立) ─────────────
+// 为什么要有这一档:push 门的**定向快速通道**(scripts/check-typecheck.mjs:改动全部落在单一 app 时
+// 直接 `pnpm --filter <app> typecheck`)原先绕开了本文件这里的 staleDistPreflight,而消费方按各包
+// `exports.types` 读的是 `packages/*/dist`。于是"包源码已入库、dist 还是旧构建"会让 tsc 在**干净的
+// HEAD 文件**上报错,归因判成"已入库红"把推送拦死。实测(2026-11-06):api-client 的三值 budget
+// 类型随 11945bd4f5 入库后,仍有工作树的 dist 停在二值态 ⇒ ChatScreen / budget-note /
+// chat-ledger / sse-parse 共 17 处假红,快速通道 exit 1。
+// 判据零新增:本档跑的就是全量档同一个 staleDistPreflight(),只建产物、不判类型、不改任何降级口径。
+// 位置刻意放在**再入守卫(IHUI_TYPECHECK_FULL_CHILD)之前**:这一档不做递归,不该被那条守卫
+// 静默吞成 exit 0(吞掉的表现就是"前置没跑、旧产物照旧",正是本格缺陷)。
+// 同样刻意**不取串行锁**:那把锁的语义是"杜绝两棵**全量 typecheck**并行",而这一步只是 build,
+// 且 atomic-build 已把临时产物整份换入(失败时旧 dist 原样保留)⇒ 并发 build 同一包不会产出半份 dist;
+// 若在此等锁,push 侧会被另一会话的全量 typecheck 串行拖到超时(默认上限 20 分钟),反而变成假红。
+// 失败出口(2026-11-06 裁决):**只建产物不判类型**,所以建不出来时既不报绿也不报"类型红",
+// 一律 `未判定` exit 2(铁律:取不到输入面就不许给结论)。详见下面 staleDistPreflight 内的失败分支。
+const _PREFLIGHT_ONLY = process.argv.includes('--preflight-only')
+if (_PREFLIGHT_ONLY) {
+  staleDistPreflight()
+  process.exit(0)
+}
+
 /**
  * 陈旧 dist 前置重建(2026-09-27 立)。
  *
@@ -216,6 +237,7 @@ process.env.IHUI_TYPECHECK_FULL_CHILD = '1' // 传给 pnpm -r 子进程链
 // 不可捕获的强杀(TerminateProcess/taskkill /F)任何进程都产不出码 —— 与装本模块前一致,
 // 增益在于"可捕获的那一半现在必有码",而锁清理仍由既有 process.on('exit') 兜住。
 installSignalExit({ label: 'typecheck:full' })
+
 function _pidAlive(pid) {
   if (!pid) return true
   try {
@@ -376,6 +398,18 @@ function staleDistPreflight() {
       windowsHide: true,
     })
     if (r.status !== 0) {
+      if (_PREFLIGHT_ONLY) {
+        // 前置档的铁律(AGENTS §0.3):产物面**取不到** ⇒ `未判定` exit 2,不给结论。
+        // 为什么不能沿用 build 的退出码(通常是 1):上层会把 exit 1 读成"类型检查有结论的失败"
+        // (=已入库红),把一次 **build 失败**冒充成类型缺陷,归因就指错人;
+        // 为什么更不能继续跑:旧 .d.ts 还在,结论来自旧产物 = 绿得没有依据。
+        // 两条都被禁 ⇒ 唯一正确出口是 2,并点名包名与 build 退出码,便于一键复现。
+        console.error(
+          `\n[typecheck:full] ❓ 未判定(exit 2):重建 ${n} 失败(build exit ${r.status ?? '?'})—— 产物面取不到,不给类型结论。`,
+        )
+        console.error(`[typecheck:full]    复现: pnpm --filter ${n} build`)
+        process.exit(2)
+      }
       console.error(
         `\n[typecheck:full] 重建 ${n} 失败(exit ${r.status ?? '?'})—— 不带着旧产物继续跑类型检查。`,
       )

@@ -64,7 +64,7 @@ export function MoreCourseScreen({
   onRetry,
   bannerImages,
   planet,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: MoreCourseScreenProps & {
   onRetry?: () => void
   bannerImages?: readonly ImageSourcePropType[]
@@ -260,7 +260,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       fontWeight: '600',
       color: tk.text.primary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     } as TextStyle,
     metaRow: {
       flexDirection: 'row',
