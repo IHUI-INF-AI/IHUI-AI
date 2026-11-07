@@ -67,10 +67,13 @@ export const GEOMETRY_PX = {
   /** 昵称等强调文字 15:RN 抽屉昵称现值,小程序由 14 收到此档 */
   textStrong: 15,
   /**
-   * 左抽屉宽度 250:小程序 `rpx(500)` 折半即 250(= 750 设计宽的 2/3),RN 旧封顶 256 收进此档。
-   * RN 侧保留 `0.66 × 屏宽` 的比例收缩 —— 比例是窄屏自适应机制,封顶值才是档。
+   * 左抽屉宽度 160:2026-11-07 机主定档「三端侧栏/抽屉同一数字」——本档与 web
+   * `apps/web/src/components/sidebar.tsx` 的 `SIDEBAR_WIDTH = 160` 对齐(此前 250,
+   * RN/小程序覆盖抽屉窄于 web 常驻栏的视觉差被明确否决,要求缩到与 web 一样)。
+   * 小程序经 `taroGeometry.drawerWidth` 折出 320rpx;RN 侧保留 `0.66 × 屏宽` 的比例
+   * 收缩 —— 比例是窄屏自适应机制,封顶值才是档;常见 375dp 起屏上恒取 160。
    */
-  drawerWidth: 250,
+  drawerWidth: 160,
   /**
    * web 预览手机壳最大宽度 430:mobile-rn 的浏览器预览壳(`apps/mobile-rn/src/lib/web-shell.web.ts`)
    * 把 `#root` 与 RN Modal portal 两处 `max-width` 封顶在同一值,消费端 `useAppFrameWidth()` 实测
