@@ -81,27 +81,30 @@ const FRESH_DB_GUARD_TIMEOUT_MS = 120_000
 /** 迁移链之外合法存在于库中、但 drizzle schema 不定义的对象(簿记/扩展自管)。 */
 const IGNORED_MIGRATED_TABLES = new Set(['__migrations'])
 /**
- * 运行期自管表(2026-09-21 owner 定夺,表级豁免仅此清单,新增必须逐条注明原因):
+ * 表级 diff 豁免,分两类,新增必须逐条注明原因:
+ *
+ * A. RUNTIME_MANAGED_TABLES — 运行期由应用侧 ensure 建、非迁移链建:
  * rag_chunks 由迁移 20260919090000 的条件 DO 块(仅当库内已有 pgvector 扩展才执行)与
- * ai-service pgvector_store.py 的运行期 CREATE TABLE IF NOT EXISTS 共同管理,列型为
- * **无界 vector**(≠ knowledge-rag.ts 的 vector1536),刻意不进 drizzle schema——
+ * ai-service pgvector_store.py 的运行期 CREATE TABLE IF NOT EXISTS 共同管理(双源),
+ * 列型为 **无界 vector**(≠ knowledge-rag.ts 的 vector1536),刻意不进 drizzle schema——
  * 若声明进 schema,下一次 drizzle-kit generate 会产出无守卫的 CREATE TABLE rag_chunks,
  * 在无 pgvector 的部署环境从"静默跳过"变成硬失败。与 KNOWN_SCHEMA_HOLES 的
  * "多表一律不豁免"不变式不冲突:那条不变式保护的是 **drizzle 托管表**不被 schema 遗忘,
  * 本表从未被 drizzle 托管;若未来该表收回 drizzle 管理,必须先从此清单删除。
  *
- * 2026-11-02 增补(归属回填迁移 20261102180000_ownership_backfill_before_tighten,本席自己引入):
- * - ownership_backfill_state:该迁移建的运行期标记表。apps/api/src/db/agent-queries.ts 的
- *   isAgentTaskBackfillApplied() 直接以裸 SQL 读 scope 标记,决定是否把仍为 NULL 的历史行收紧
- *   为 orphan;它不是 ORM 实体,进 drizzle schema 只会让下一次 generate 与手写迁移的
- *   "先回填、后收紧"幂等语义打架 ⇒ 按运行期自管登记。
+ * B. MIGRATION_OWNED_UNMODELED_TABLES — 迁移链建、但刻意不进 drizzle schema
+ * (2026-11-02 归属回填迁移 20261102180000 引入):
+ * - ownership_backfill_state:由该迁移自己的 CREATE TABLE IF NOT EXISTS 建,
+ *   apps/api/src/db/agent-queries.ts 的 isAgentTaskBackfillApplied() 读 scope 标记,决定
+ *   是否把仍为 NULL 的历史行收紧为 orphan;不是 ORM 实体,进 schema 会让下一次 generate
+ *   与手写迁移的"先回填、后收紧"幂等语义打架。**它不是运行期 ensure 建的**——旧分类把它
+ *   放进 RUNTIME_MANAGED 属于归属写错,2026-11-07 跨线核对后单列。
  * - "_ownership_backfill_20261102_agent_tasks":同一迁移建的一次性回填备份/审计表,
  *   只服务于回填核对与回滚窗口(迁移头写明回滚 SQL,并注明"确认无需回滚后手工 DROP TABLE"),
- *   运行期不读写 ⇒ 同样不进 drizzle schema。生命周期:保留至回滚窗口关闭;手工 DROP 后
- *   必须同步删除本条(不养僵尸豁免)。
+ *   运行期不读写。生命周期:保留至回滚窗口关闭;手工 DROP 后必须同步删除本条。
  */
-const RUNTIME_MANAGED_TABLES = new Set([
-  'rag_chunks',
+const RUNTIME_MANAGED_TABLES = new Set(['rag_chunks'])
+const MIGRATION_OWNED_UNMODELED_TABLES = new Set([
   'ownership_backfill_state',
   '_ownership_backfill_20261102_agent_tasks',
 ])
@@ -283,7 +286,8 @@ function diffIdentifierSets(expected, actual) {
     if (
       !exp.has(key) &&
       !IGNORED_MIGRATED_TABLES.has(have.toLowerCase()) &&
-      !RUNTIME_MANAGED_TABLES.has(have.toLowerCase())
+      !RUNTIME_MANAGED_TABLES.has(have.toLowerCase()) &&
+      !MIGRATION_OWNED_UNMODELED_TABLES.has(have.toLowerCase())
     )
       extra.push(have)
   }
@@ -363,7 +367,8 @@ function errorFrom(result, password) {
 
 /**
  * 用既有漂移基线豁免 diff 的**多列(extra)**方向,其余(缺表/多表/缺列/大小写漂移)一律不豁免;
- * 表级唯一例外是 diffIdentifierSets 内置的 RUNTIME_MANAGED_TABLES(运行期自管,非 drizzle 托管)。
+ * 表级例外是 diffIdentifierSets 内置的 RUNTIME_MANAGED_TABLES(运行期自管)与
+ * MIGRATION_OWNED_UNMODELED_TABLES(迁移链建但刻意不建模),二者均非 drizzle 托管。
  * 返回 { diff, stale }:stale = 基线里已不再命中的条目(说明洞被补上了,必须删条目)。
  */
 function pruneKnownHoles(diff, baseline = KNOWN_SCHEMA_HOLES) {
@@ -904,7 +909,7 @@ async function main() {
       const bits = []
       if (exemptedCols > 0) bits.push(`${exemptedCols} 处命中 KNOWN_SCHEMA_HOLES 既有基线`)
       if (exemptedTables > 0)
-        bits.push(`${exemptedTables} 张命中 RUNTIME_MANAGED_TABLES 运行期自管豁免`)
+        bits.push(`${exemptedTables} 张命中表级豁免(RUNTIME_MANAGED + 迁移建不建模)`)
       const note = bits.length > 0 ? `(${bits.join(';')})` : ''
       console.log(
         `  ${C.green}✓${C.reset} ③ schema diff(对照 ${diffDb}):表集合 + 列集合双向为空${note}`,
@@ -977,6 +982,7 @@ export const __test__ = {
   pruneKnownHoles,
   KNOWN_SCHEMA_HOLES,
   RUNTIME_MANAGED_TABLES,
+  MIGRATION_OWNED_UNMODELED_TABLES,
   firstErrorLine,
   errorFrom,
   formatReplayFailures,

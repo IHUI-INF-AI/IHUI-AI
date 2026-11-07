@@ -1,6 +1,6 @@
 {
   "$comment": "Drizzle 保留清单(勿手改顺序;CI 断言 drizzle.config.ts 的 tablesFilter 与本文件一致)。由 dev 实库只读清点生成于 2026-11-07。",
-  "policy": "本文件列出的表不进入 Drizzle schema 的 push/generate 判定面 ⇒ drizzle-kit push 不会对其发 DROP TABLE。bucket=in-use 需补建模并从本清单移除，但 owner=ai-service 的 9 张 TS 侧只读、不得建模(建模前须先由 ai-service 交接 DDL 所有权)；pending-archive 为待归档候选(与 legacy-archive 同退役流程、单独一桶，未执行任何删除)；legacy-archive 归档后删除；monthly-partition 由分区流程维护。",
+  "policy": "本文件列出的表不进入 Drizzle schema 的 push/generate 判定面 ⇒ drizzle-kit push 不会对其发 DROP TABLE。bucket=in-use 需补建模并从本清单移除；owner=ai-service 的 8 张 TS 侧只读、不得建模(建模前须先由 ai-service 交接 DDL 所有权)，ownership_backfill_state 读写方为 apps/api、DDL 已归 drizzle 迁移，rag_chunks 为双源；pending-archive 为待归档候选(与 legacy-archive 同退役流程、单独一桶，未执行任何删除)；legacy-archive 归档后删除；monthly-partition 由分区流程维护。",
   "counts": {
     "in-use": 9,
     "pending-archive": 29,
@@ -149,11 +149,11 @@
     {
       "name": "ownership_backfill_state",
       "bucket": "in-use",
-      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
+      "reason": "读写方是 apps/api(agent-queries.ts:85 读 scope 标记),ai-service 全目录零引用；DDL 归 drizzle 迁移 20261102180000_ownership_backfill_before_tighten.sql:39-45(该迁移内唯一 CREATE TABLE)；TS 侧只读、不得建模",
       "liveRows": 0,
       "codeRefs": 5,
-      "owner": "ai-service",
-      "ddlOwner": "ai-service"
+      "owner": "api",
+      "ddlOwner": "drizzle-migration:20261102180000_ownership_backfill_before_tighten.sql"
     },
     {
       "name": "_ownership_backfill_20261102_agent_tasks",
@@ -1077,11 +1077,11 @@
     {
       "name": "rag_chunks",
       "bucket": "in-use",
-      "reason": "ai-service(Python) 真实读写；DDL 由 ai-service 持有；TS 侧只读、不得建模；建模前须先由 ai-service 交接 DDL 所有权",
+      "reason": "ai-service(Python) 真实读写；DDL 为双源:ai-service pgvector_store.py:70-85 首用 CREATE TABLE IF NOT EXISTS,同时 drizzle 迁移 20260919090000_automation_thread_and_pgvector.sql:19-30 条件建表(仅当 vector 扩展存在)；两处均 IF NOT EXISTS ⇒ 先建者赢、后者跳过,字段/索引有分叉风险(ai-service 另建 rag_chunks_embedding_hnsw_idx,迁移未含)；TS 侧只读、不得建模",
       "liveRows": 0,
       "codeRefs": 4,
       "owner": "ai-service",
-      "ddlOwner": "ai-service"
+      "ddlOwner": "双源:ai-service + drizzle-migration:20260919090000"
     },
     {
       "name": "audit_logs_202611",

@@ -150,6 +150,7 @@ test('__test__ 导出形状齐全(§22c 锚点)', () => {
     'diffIdentifierSets',
     'diffSchemaMaps',
     'RUNTIME_MANAGED_TABLES',
+    'MIGRATION_OWNED_UNMODELED_TABLES',
     'firstErrorLine',
     'errorFrom',
     'formatReplayFailures',
@@ -217,6 +218,14 @@ test('__migrations 簿记表不算多表(drizzle-kit 自建,非业务 schema)', 
 
 test('RUNTIME_MANAGED_TABLES 运行期自管表豁免多表(rag_chunks),其余多表照红', () => {
   assert.ok(src.RUNTIME_MANAGED_TABLES.has('rag_chunks'), 'rag_chunks 必须在运行期自管清单内')
+  assert.ok(
+    !src.RUNTIME_MANAGED_TABLES.has('ownership_backfill_state'),
+    'ownership_backfill_state 由迁移建,不得再挂在运行期自管清单',
+  )
+  assert.ok(
+    src.MIGRATION_OWNED_UNMODELED_TABLES.has('ownership_backfill_state'),
+    'ownership_backfill_state 必须在迁移建-不建模清单内',
+  )
   const diff = src.diffSchemaMaps(
     new Map([['users', new Set(['id'])]]),
     new Map([
