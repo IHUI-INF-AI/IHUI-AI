@@ -15,6 +15,7 @@
  */
 
 import { spawn, type ChildProcess } from 'node:child_process'
+import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { captureRootCreationIdentity, killProcessTreeVerified } from './spawn-isolated.js'
 
@@ -61,6 +62,68 @@ export function unjudgedFieldsOf(input: WatchdogTickInput): Array<'parentAlive' 
  * ESRCH=进程不存在(死);EPERM=存在但无权(活 —— 把它读成死是本型判据最经典的反转错误);
  * 其余异常 ⇒ null(未判定,判据侧绝不猜)。
  */
+const NESTED_DENIED_PHRASE = 'parent Job denied nested assignment'
+
+export type NestedJobPlan = {
+  disposition: 'breakaway' | 'refused' | 'unjudged'
+  reason: string
+}
+
+/** 只有对照里那句原话才允许脱离父作业。错误码单独出现不是脱离许可。 */
+export function planNestedJobFallback(input: {
+  phrase: string | null
+  winerror: number | null
+}): NestedJobPlan {
+  const winerrorMeasured = typeof input.winerror === 'number' && Number.isInteger(input.winerror)
+  if (input.phrase === null && !winerrorMeasured) {
+    return { disposition: 'unjudged', reason: 'assignment-unmeasured' }
+  }
+  if (input.phrase === null) return { disposition: 'refused', reason: 'winerror-not-nested-phrase' }
+  if (input.phrase.trim() === '') return { disposition: 'unjudged', reason: 'phrase-unmeasured' }
+  if (input.phrase === NESTED_DENIED_PHRASE) return { disposition: 'breakaway', reason: 'nested-denied' }
+  return { disposition: 'refused', reason: 'assign-failed' }
+}
+
+export type SupervisorArmPlan =
+  | { disposition: 'armed'; reason: 'measured' }
+  | {
+      disposition: 'refused'
+      reason: 'engine-path-not-absolute' | 'lifeline-not-dedicated' | 'grace-invalid' | 'receipt-empty'
+    }
+  | {
+      disposition: 'unjudged'
+      reason: 'engine-path-unmeasured' | 'lifeline-unmeasured' | 'grace-unmeasured' | 'receipt-unmeasured'
+    }
+
+/**
+ * 作业监工的启动条件。lifeline 必须是不与标准流混用的描述符(≥3)。
+ * 宽限、退出回执或路径没量到时不记成已装上作业。
+ */
+export function planEngineSupervisor(input: {
+  enginePath: string | null
+  lifelineFd: number | null
+  graceMs: number | null
+  exitReceipt: string | null
+}): SupervisorArmPlan {
+  if (input.enginePath === null || input.enginePath.trim() === '') {
+    return { disposition: 'unjudged', reason: 'engine-path-unmeasured' }
+  }
+  if (!path.isAbsolute(input.enginePath)) {
+    return { disposition: 'refused', reason: 'engine-path-not-absolute' }
+  }
+  if (input.lifelineFd === null || !Number.isInteger(input.lifelineFd)) {
+    return { disposition: 'unjudged', reason: 'lifeline-unmeasured' }
+  }
+  if (input.lifelineFd < 3) return { disposition: 'refused', reason: 'lifeline-not-dedicated' }
+  if (input.graceMs === null || !Number.isInteger(input.graceMs)) {
+    return { disposition: 'unjudged', reason: 'grace-unmeasured' }
+  }
+  if (input.graceMs <= 0) return { disposition: 'refused', reason: 'grace-invalid' }
+  if (input.exitReceipt === null) return { disposition: 'unjudged', reason: 'receipt-unmeasured' }
+  if (input.exitReceipt.trim() === '') return { disposition: 'refused', reason: 'receipt-empty' }
+  return { disposition: 'armed', reason: 'measured' }
+}
+
 export function observeProcessAlive(pid: number): boolean | null {
   if (!Number.isInteger(pid) || pid <= 0) return null
   try {
@@ -119,6 +182,8 @@ export interface ParentWatchdogOptions {
   tickIntervalMs?: number
   maxLifetimeMs?: number
   label?: string
+  /** 作业宽限毫秒。没传入就保持未量到,不拿轮询间隔冒充。 */
+  graceMs?: number
 }
 
 interface RunnerPayload {
@@ -145,7 +210,7 @@ function clamp(n: number, lo: number, hi: number): number {
 export async function spawnParentWatchdog(
   child: ChildProcess,
   opts: ParentWatchdogOptions = {},
-): Promise<{ pid: number } | null> {
+): Promise<{ pid: number; jobSupervisor: SupervisorArmPlan } | null> {
   const childPid = child.pid
   if (typeof childPid !== 'number' || !Number.isInteger(childPid) || childPid <= 0) return null
   let modulePath: string
@@ -177,7 +242,14 @@ export async function spawnParentWatchdog(
       // 异步 spawn 失败(dev TS 无加载器等形态)⇒ 静默降级;主线无感知
     })
     runner.unref()
-    return typeof runner.pid === 'number' ? { pid: runner.pid } : null
+    if (typeof runner.pid !== 'number') return null
+    const jobSupervisor = planEngineSupervisor({
+      enginePath: modulePath,
+      lifelineFd: null,
+      graceMs: typeof opts.graceMs === 'number' ? opts.graceMs : null,
+      exitReceipt: null,
+    })
+    return { pid: runner.pid, jobSupervisor }
   } catch {
     return null
   }
