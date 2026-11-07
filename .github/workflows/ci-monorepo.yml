@@ -119,7 +119,9 @@ jobs:
           cache: 'pnpm'
       - name: Install dependencies
         id: install
-        run: pnpm install --frozen-lockfile
+        # 走安装锁:同机并发 install / install×typecheck 时串行化。GitHub 托管 runner 每 job 独立
+        # VM/tmpdir ⇒ 这里是 no-op;切 self-hosted 或本地 act 并发跑时同一份编排直接生效。
+        run: node scripts/lib/pnpm-install-lock.mjs run -- pnpm install --frozen-lockfile
       # 类型包前置构建(2026-10-09 立,补本 job 与 ci.yml 的那道差):
       # @ihui/types 的 main/types/exports 全指向 ./dist/* 且产物不入库,而 `pnpm install`
       # 从不构建 workspace 包 ⇒ 本 job 的 `pnpm run typecheck` 结构上拿不到它的类型声明。
@@ -150,6 +152,13 @@ jobs:
       - name: Prepare WXT types (extension)
         id: prepare-wxt
         run: pnpm --filter @ihui/extension exec wxt prepare
+      # 安装期禁止并发 typecheck 的判据(exit 4 = 有安装持锁)。按 2026-11-07 裁定:
+      # 这一半是 opt-in(仓库变量 IHUI_GATE_INSTALL_LOCK=1 才跑),不进默认路径。
+      # 托管 runner 上是 no-op;本地 act / 未来 self-hosted 共享锁目录时,
+      # 这一步先于 typecheck 阻断并打印持有者现场。
+      - name: Install-lock check (opt-in; typecheck must not race an install)
+        if: vars.IHUI_GATE_INSTALL_LOCK == '1'
+        run: node scripts/lib/pnpm-install-lock.mjs check
       - name: Typecheck
         id: typecheck
         run: pnpm run typecheck

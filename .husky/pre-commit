@@ -19,16 +19,18 @@ if [ -z "$GIT_INDEX_FILE" ] || [ ! -f "$GIT_INDEX_FILE" ]; then
   unset GIT_INDEX_FILE
 fi
 unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_QUARANTINE_PATH
-# ─── 可选位:并发 pnpm install 门(默认关闭,IHUI_GATE_INSTALL_LOCK=1 一键打开)───
+# ─── 并发 pnpm install 门(opt-in;IHUI_GATE_INSTALL_LOCK=1 打开)─────────────
 # 背景:多 worktree 共用 node_modules,A 席 install 时 B 席 typecheck 会踩到"已拆未建"
 #   窗口 ⇒ ENOENT(形态与复现见 docs/engineering/pnpm-install-lock.md)。
-# 默认不进入本块:未设 IHUI_GATE_INSTALL_LOCK 时提交行为与接线前一字不差。
-# 打开:export IHUI_GATE_INSTALL_LOCK=1 → 追加执行 check(安装中 exit 4 ⇒ 拦提交)
-# 关闭:unset IHUI_GATE_INSTALL_LOCK
+# 互斥本身默认开(preinstall 守卫 + 目录锁);这里只是"typecheck 查 install"的那一半,
+#   按 2026-11-07 裁定先 opt-in 观察,不进默认路径(爆炸半径是所有人每次提交)。
+# 应急关闭:锁本身 IHUI_PNPM_INSTALL_LOCK=0(仅排障,非常规)。
+# 通道:经 hook-run-hidden.vbs 隐藏执行,失败日志落 pre-commit-install-lock.log。
 if [ "${IHUI_GATE_INSTALL_LOCK:-0}" = "1" ]; then
-  IHUI_PNPM_INSTALL_LOCK=1 wscript //nologo scripts/hook-run-hidden.vbs pre-commit-install-lock scripts/lib/pnpm-install-lock.mjs check || {
-    printf '%s\n' "❌ 并发安装锁检查未通过(IHUI_GATE_INSTALL_LOCK=1)⇒ 提交已阻止" >&2
+  wscript //nologo scripts/hook-run-hidden.vbs pre-commit-install-lock scripts/lib/pnpm-install-lock.mjs check || {
+    printf '%s\n' "❌ 并发安装锁检查未通过 ⇒ 提交已阻止" >&2
     printf '%s\n' "   锁现场: node scripts/lib/pnpm-install-lock.mjs status" >&2
+    printf '%s\n' "   应急: IHUI_GATE_INSTALL_LOCK=0(仅排障,非常规)" >&2
     printf '%s\n' "   日志: .ihui-agent/state/hook-logs/pre-commit-install-lock.log" >&2
     exit 1
   }

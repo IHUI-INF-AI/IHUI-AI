@@ -117,16 +117,17 @@ EOF
 fi
 # <<< tag-ancestor-gate (end)
 
-# ─── 可选位:并发 pnpm install 门(默认关闭,IHUI_GATE_INSTALL_LOCK=1 一键打开)───
+# ─── 并发 pnpm install 门(opt-in;IHUI_GATE_INSTALL_LOCK=1 打开)─────────────
 # 背景:多 worktree 共用 node_modules,A 席 install 时 B 席 typecheck 会踩到"已拆未建"
 #   窗口 ⇒ ENOENT(形态与复现见 docs/engineering/pnpm-install-lock.md)。
-# 默认不进入本块:未设 IHUI_GATE_INSTALL_LOCK 时推送行为与接线前一字不差。
-# 打开:export IHUI_GATE_INSTALL_LOCK=1 → 追加执行 check(安装中 exit 4 ⇒ 拦推送)
-# 关闭:unset IHUI_GATE_INSTALL_LOCK
+# 互斥本身默认开(preinstall 守卫 + 目录锁);这里只是"typecheck 查 install"的那一半,
+#   按 2026-11-07 裁定先 opt-in 观察,不进默认路径。应急关闭:IHUI_PNPM_INSTALL_LOCK=0。
+# 判据:安装进行中(exit 4)⇒ 拦推送并打印持有者现场(pid/pidStart/开始时刻/已持有时长)。
 if [ "${IHUI_GATE_INSTALL_LOCK:-0}" = "1" ]; then
-  IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs check || {
-    printf '%s\n' "❌ 并发安装锁检查未通过(IHUI_GATE_INSTALL_LOCK=1)⇒ 推送已阻止" >&2
+  node scripts/lib/pnpm-install-lock.mjs check || {
+    printf '%s\n' "❌ 并发安装锁检查未通过 ⇒ 推送已阻止" >&2
     printf '%s\n' "   锁现场: node scripts/lib/pnpm-install-lock.mjs status" >&2
+    printf '%s\n' "   应急: IHUI_GATE_INSTALL_LOCK=0(仅排障,非常规)" >&2
     exit 1
   }
 fi

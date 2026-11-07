@@ -14,11 +14,11 @@
  *
  * 本文件只做两件事：
  *   1) `run -- <cmd>`：把一条安装命令包在跨进程锁里（拿不到锁 ⇒ 明确失败，不静默等死）；
- *   2) `check`：给 pre-commit / push 门**可选**调用的一句判据：安装期间禁止 typecheck。
+ *   2) `check`：给 pre-commit / push 门调用的一句判据：安装期间禁止 typecheck。
  *
- * 默认**不启用**：IHUI_PNPM_INSTALL_LOCK 不是 `1` 时，`run` 原样执行命令、`check` 恒通过。
- * 本文件不被任何现有门引用；接入与否由使用方显式 opt-in 决定。磁盘/迁移另见
- * docs/engineering/pnpm-install-lock.md。
+ * 默认**启用**（2026-11-07 二次事故后改）：`IHUI_PNPM_INSTALL_LOCK=0` 为应急关闭（仅排障，
+ * 非常规）；不设或设 1 都按启用。pre-commit / pre-push 的调用位默认也开，同一键族
+ * `IHUI_GATE_INSTALL_LOCK=0` 应急关闭。磁盘/迁移另见 docs/engineering/pnpm-install-lock.md。
  *
  * 锁形态：机器级目录锁（原子 mkdir），默认落在 os.tmpdir()/ihui-pnpm-install.lock。
  *   不用 `Global\ihui-pnpm-install` 具名互斥体，是因为它要求原生模块；mkdir 在任何
@@ -29,10 +29,10 @@
  * 判活（四条，任一"正向"不成立 ⇒ 陈旧）：
  *   L1 同机          —— 不同 host 一律不抢（跨机共享目录无法验活，宁可超时报错）
  *   L2 同一次启动    —— bootEpochSec 差 > 5s ⇒ 机器重启过，锁必然无主
- *   L3 进程还在      —— pid 不存在 ⇒ 陈旧
+ *   L3 进程还在      —— pid 不存在 ⇒ 陈旧；pid 在但启动时刻 ≠ owner 记录 ⇒ pid 被复用，仍判陈旧
  *   L4 心跳还在续    —— heartbeatAt 超过 15 分钟未更新 ⇒ 持有者不再活动
  *   另有绝对上限 6h（只用于"读不出 owner"这一支；正常持有不受它约束）。
- *   pid 复用的处置与 deploy-lock-common.ps1 同源：L2 + L4 兜底，不拿裸 pid 当永生锁。
+ *   pid 复用的处置与 deploy-lock-common.ps1 同源：L3 用启动时刻 + L2/L4 兜底，不拿裸 pid 当永生锁。
  *
  * 退出码（供门判断，别只看 stdout）：
  *   0  成功 / check 放行（含未启用）
@@ -47,24 +47,32 @@
  *   node scripts/lib/pnpm-install-lock.mjs run -- pnpm install
  */
 
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import {
+  appendFileSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
+  readlinkSync,
   renameSync,
   rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs'
 import { hostname, tmpdir, uptime } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+
+import { createLockDirectoryAtomically } from './lock-atomic-init.mjs'
+import { identityFields, verifyHolder } from './proc-identity.mjs'
 
 const ENABLE_ENV = 'IHUI_PNPM_INSTALL_LOCK'
 const DIR_ENV = 'IHUI_PNPM_INSTALL_LOCK_DIR'
 const TIMEOUT_ENV = 'IHUI_PNPM_INSTALL_LOCK_TIMEOUT_MS'
+const TOKEN_ENV = 'IHUI_PNPM_INSTALL_TOKEN'
 
 const DEFAULT_TIMEOUT_MS = 30_000
 const POLL_MS = 250
@@ -79,14 +87,57 @@ const EXIT_USAGE = 2
 const EXIT_TIMEOUT = 3
 const EXIT_INSTALL_RUNNING = 4
 
+/**
+ * 机器锚点 = git common dir（所有 worktree 都指向同一份，天然跨目录恒定）。
+ * 不能用"哪个 worktree 有 node_modules"作判据：本机已有多个自包含 worktree，
+ * 谁先出现谁就变成锁位置，锁会漂移。
+ */
+function machineAnchor() {
+  const custom = process.env.IHUI_SHARED_ROOT
+  if (custom && custom.trim()) return custom.trim()
+  try {
+    const rel = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      encoding: 'utf8',
+      timeout: 3000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    if (rel) return resolve(process.cwd(), rel)
+  } catch {
+    /* 非 git 环境 */
+  }
+  return tmpdir()
+}
+
+/** 全部 worktree 路径（git worktree list）。非 git 环境返回空数组。 */
+function worktreePaths() {
+  try {
+    const out = execFileSync('git', ['worktree', 'list', '--porcelain'], {
+      encoding: 'utf8',
+      timeout: 3000,
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return out
+      .split(/\r?\n/)
+      .filter((l) => l.startsWith('worktree '))
+      .map((l) => l.slice('worktree '.length).trim())
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 function lockDir() {
   const custom = process.env[DIR_ENV]
   if (custom && custom.trim()) return custom.trim()
-  return join(tmpdir(), 'ihui-pnpm-install.lock')
+  // 机器锚点上的目录锁：mkdir 成功即持锁，跨 worktree 可见。
+  return join(machineAnchor(), '.ihui-install.lock')
 }
 
+/** 默认启用；只有显式 `IHUI_PNPM_INSTALL_LOCK=0` 才关闭（应急口，非常规）。 */
 function enabled() {
-  return process.env[ENABLE_ENV] === '1'
+  return process.env[ENABLE_ENV] !== '0'
 }
 
 function timeoutMs() {
@@ -121,10 +172,13 @@ function atomicWriteJson(path, obj) {
 
 function makeOwner(cmd) {
   const now = new Date().toISOString()
+  // 身份三元组（pid+host+pidStart）来自 proc-identity：陈旧判定的唯一出处。
+  const id = identityFields()
   return {
-    v: 1,
+    v: 2,
     pid: process.pid,
-    host: hostname(),
+    ...id,
+    pidStartAt: Number.isFinite(id.pidStart) ? new Date(id.pidStart * 1000).toISOString() : null,
     bootEpochSec: bootEpochSec(),
     startedAt: now,
     heartbeatAt: now,
@@ -144,6 +198,8 @@ function pidAlive(pid) {
     return e && e.code === 'EPERM'
   }
 }
+
+// pid 复用/身份判据统一由 proc-identity.mjs 提供，本文件不再自带探针。
 
 /**
  * 读锁现场。三态必须分开：
@@ -213,6 +269,11 @@ function classify(state) {
   if (!pidAlive(owner.pid)) {
     return { stale: true, reason: `持有进程 pid=${owner.pid} 已不存在` }
   }
+  // pid 会被复用：活着不等于还是原主。身份判定只认 proc-identity（陈旧判定的唯一出处）。
+  const idv = verifyHolder(owner)
+  if (idv.kind === 'mismatch') {
+    return { stale: true, reason: `pid=${owner.pid} 已被复用：${idv.why}` }
+  }
   const beatAge = heartbeatAgeMs(owner)
   if (beatAge > HEARTBEAT_MAX_MS) {
     return {
@@ -223,16 +284,31 @@ function classify(state) {
   if (state.dirAgeMs > HARD_CAP_MS) {
     return { stale: true, reason: `锁龄已超绝对上限 ${HARD_CAP_MS / 3600000}h` }
   }
+  const startNote =
+    idv.kind === 'match'
+      ? 'pidStart 相符'
+      : `身份未判定（${idv.why || '未知'}），仅按 pid+心跳判活`
   return {
     stale: false,
-    reason: `pid=${owner.pid} 仍存活且心跳在 ${Math.max(0, Math.round(beatAge / 1000))}s 内`,
+    reason: `pid=${owner.pid} 仍存活且心跳在 ${Math.max(0, Math.round(beatAge / 1000))}s 内（${startNote}）`,
   }
+}
+
+function heldMsOf(owner) {
+  const t = Date.parse(owner && owner.startedAt)
+  if (!Number.isFinite(t)) return null
+  return Math.max(0, Date.now() - t)
 }
 
 function describe(state) {
   if (state.kind !== 'ok') return state.reason
   const o = state.owner
-  return `pid=${o.pid} host=${o.host} startedAt=${o.startedAt} heartbeatAt=${o.heartbeatAt} cmd=${o.cmd || '-'}`
+  const held = heldMsOf(o)
+  return (
+    `pid=${o.pid} host=${o.host} pidStart=${o.pidStartAt || '未知'} ` +
+    `开始=${o.startedAt} 已持有=${held === null ? '未知' : Math.round(held / 1000) + 's'} ` +
+    `心跳=${o.heartbeatAt} cmd=${o.cmd || '-'}`
+  )
 }
 
 /** 判陈旧后删锁：删前复核同一性，避免删掉并发者刚写下的新锁。 */
@@ -258,19 +334,17 @@ async function acquire(dir, cmd) {
   const owner = makeOwner(cmd)
 
   while (true) {
-    try {
-      mkdirSync(dir)
-      try {
-        atomicWriteJson(join(dir, 'owner.json'), owner)
-      } catch (e) {
-        rmSync(dir, { recursive: true, force: true })
-        throw e
-      }
-      return owner
-    } catch (e) {
-      if (!e || e.code !== 'EEXIST') {
-        fail(EXIT_USAGE, `[install-lock] 建锁失败：${e.message}`)
-      }
+    // 原子初始化：先在同级 pending 目录写全内容，再 rename 到正式路径。
+    // 直接 mkdir 正式路径会留下"目录在、owner.json 还没写出"的窗口。
+    const init = createLockDirectoryAtomically({
+      dir,
+      writePayload: (staged) => {
+        writeFileSync(join(staged, 'owner.json'), JSON.stringify(owner), 'utf8')
+      },
+    })
+    if (init.ok) return owner
+    if (init.kind === 'error') {
+      fail(EXIT_USAGE, `[install-lock] 建锁失败：${init.message || init.code}`)
     }
 
     const state = readState(dir)
@@ -305,7 +379,9 @@ function release(dir, owner) {
 function spawnCommand(args) {
   if (process.platform === 'win32') {
     // pnpm 在 Windows 是 .cmd；CreateProcess 不认扩展名，必须经 ComSpec。
-    const quote = (s) => (/[\s"]/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s)
+    // 一律加引号：cmd 只解释引号外的 & | < > ^；曾经 `-e setTimeout(()=>{},1)` 这类
+    // 参数里的 `>` 被当成重定向，命令被截断成半句（实测 2026-11-07）。
+    const quote = (s) => `"${String(s).replace(/"/g, '\\"')}"`
     return spawn(args.map(quote).join(' '), {
       shell: true,
       stdio: 'inherit',
@@ -336,12 +412,19 @@ async function runCommand(args) {
     usage('run 缺少命令，例如：run -- pnpm install')
   }
   if (!enabled()) {
-    console.error(`[install-lock] 未启用（${ENABLE_ENV}!=1），直接执行原命令（行为不变）`)
+    console.error(
+      `[install-lock] 已显式关闭（${ENABLE_ENV}=0，应急口），直接执行原命令（行为回到未接线）`,
+    )
     return waitChild(spawnCommand(args))
   }
 
   const dir = lockDir()
   const owner = await acquire(dir, args)
+  // 把解析结果显式传下去：pnpm 可能在 install 中途删掉 node_modules，
+  // 子进程若重新解析会漂移到别的 worktree，token 校验就会误拒。
+  process.env[DIR_ENV] = dir
+  // 交给子进程（pnpm 会执行根 package.json 的 preinstall 守卫去校验它）
+  process.env[TOKEN_ENV] = owner.token
   let released = false
   const releaseOnce = () => {
     if (released) return
@@ -373,7 +456,7 @@ async function runCommand(args) {
 
 function checkCommand() {
   if (!enabled()) {
-    console.error(`[install-lock] 未启用（${ENABLE_ENV}!=1），check 恒通过（默认行为不变）`)
+    console.error(`[install-lock] 已显式关闭（${ENABLE_ENV}=0，应急口），check 恒通过`)
     return EXIT_OK
   }
   const dir = lockDir()
@@ -397,16 +480,157 @@ function statusCommand() {
   const dir = lockDir()
   const state = readState(dir)
   const verdict = classify(state)
+  const heldMs = state.kind === 'ok' ? heldMsOf(state.owner) : null
   const out = {
     enabled: enabled(),
     lockDir: dir,
     state: state.kind,
     stale: verdict.stale,
     reason: verdict.reason,
+    heldMs,
     owner: state.kind === 'ok' ? state.owner : null,
   }
   console.info(JSON.stringify(out, null, 2))
   return EXIT_OK
+}
+
+/**
+ * preinstall 守卫（唯一能拦住"直连 pnpm install"的位置）。
+ * 三条判据一起用：链接面（junction 指向共享层 ⇒ 拒）、token（wrapper 注入）、留痕。
+ */
+function isJunction(p) {
+  try {
+    return lstatSync(p).isSymbolicLink()
+  } catch {
+    return false
+  }
+}
+
+function appendGuardLog(cwd, decision, reason) {
+  try {
+    const dir = join(machineAnchor(), '.ihui-agent', 'state')
+    mkdirSync(dir, { recursive: true })
+    appendFileSync(
+      join(dir, 'install-guard.log'),
+      `${new Date().toISOString()}\tdecision=${decision}\tcwd=${cwd}\tpid=${process.pid}\t${reason}\n`,
+      'utf8',
+    )
+  } catch {
+    /* 留痕失败不改判据 */
+  }
+}
+
+function guardCommand() {
+  const cwd = process.cwd()
+  const nm = join(cwd, 'node_modules')
+  let deny = null
+  if (!enabled()) {
+    appendGuardLog(cwd, 'allow', `${ENABLE_ENV}=0 应急口`)
+    console.error(`[install-guard] 锁已被应急关闭（${ENABLE_ENV}=0），放行`)
+    return EXIT_OK
+  }
+  if (isJunction(nm)) {
+    deny = `node_modules 是链接/junction（→ ${readlinkSync(nm)}）：先摘掉链接，在自包含目录里安装`
+  } else {
+    const token = process.env[TOKEN_ENV]
+    const dir = lockDir()
+    const state = readState(dir)
+    const verdict = classify(state)
+    if (!token) {
+      deny = '直连 install 未携带锁 token；请走 node scripts/lib/pnpm-install-lock.mjs run -- pnpm install'
+    } else if (state.kind !== 'ok') {
+      deny = `持有 token 但锁不存在（${state.reason}）`
+    } else if (state.owner.token !== token) {
+      deny = `token 与当前锁不匹配：${describe(state)}`
+    } else if (verdict.stale) {
+      deny = `当前锁已陈旧：${verdict.reason}`
+    }
+  }
+  if (deny) {
+    appendGuardLog(cwd, 'deny', deny)
+    console.error(`[install-guard] 拒绝安装：${deny}`)
+    return EXIT_USAGE
+  }
+  appendGuardLog(cwd, 'allow', '持锁 token 匹配')
+  return EXIT_OK
+}
+
+/** 本前缀之外的 worktree node_modules 快照（顶层条目 + mtime + 链接目标）。 */
+function collectWorktreeNodeModules() {
+  const self = resolve(process.cwd())
+  const items = []
+  for (const wtPath of worktreePaths()) {
+    if (resolve(wtPath) === self) continue
+    const nm = join(wtPath, 'node_modules')
+    let st = null
+    try {
+      st = lstatSync(nm)
+    } catch {
+      /* 不存在就是不存在 */
+    }
+    let entries = []
+    if (st) {
+      try {
+        entries = readdirSync(nm).sort()
+      } catch {
+        /* 断链 */
+      }
+    }
+    items.push({
+      worktree: wtPath,
+      exists: Boolean(st),
+      link: st && st.isSymbolicLink() ? readlinkSync(nm) : null,
+      mtimeMs: st ? st.mtimeMs : null,
+      top: entries.length,
+      entries,
+    })
+  }
+  return { at: new Date().toISOString(), root: machineAnchor(), items }
+}
+
+function snapshotCommand(rest) {
+  const out = rest.find((a) => !a.startsWith('-'))
+  const payload = collectWorktreeNodeModules()
+  if (out) {
+    writeFileSync(out, JSON.stringify(payload, null, 2), 'utf8')
+    console.error(`[install-lock] 快照已写 ${out}（worktree ${payload.items.length} 个）`)
+  } else {
+    console.log(JSON.stringify(payload, null, 2))
+  }
+  return EXIT_OK
+}
+
+function compareSnapshotCommand(rest) {
+  const base = rest.find((a) => !a.startsWith('-'))
+  if (!base) usage('compare 需要基线文件，例如：compare -- <baseline.json>')
+  const before = JSON.parse(readFileSync(base, 'utf8'))
+  const now = collectWorktreeNodeModules()
+  const byWt = new Map(now.items.map((i) => [i.worktree, i]))
+  const changes = []
+  for (const old of before.items || []) {
+    const cur = byWt.get(old.worktree)
+    if (!cur) {
+      changes.push(`${old.worktree}: 消失`)
+      continue
+    }
+    if (old.exists !== cur.exists) changes.push(`${old.worktree}: exists ${old.exists} → ${cur.exists}`)
+    if (old.link !== cur.link) changes.push(`${old.worktree}: link ${old.link} → ${cur.link}`)
+    if (old.top !== cur.top) changes.push(`${old.worktree}: top ${old.top} → ${cur.top}`)
+    if (old.mtimeMs !== cur.mtimeMs) changes.push(`${old.worktree}: mtime 变了`)
+    const beforeSet = new Set(old.entries || [])
+    const afterSet = new Set(cur.entries || [])
+    const added = [...afterSet].filter((x) => !beforeSet.has(x))
+    const removed = [...beforeSet].filter((x) => !afterSet.has(x))
+    if (added.length) changes.push(`${old.worktree}: 新增 ${added.slice(0, 5).join(',')}`)
+    if (removed.length) changes.push(`${old.worktree}: 移除 ${removed.slice(0, 5).join(',')}`)
+  }
+  if (changes.length === 0) {
+    console.error('[install-lock] 本前缀之外零变化 ✅')
+    return EXIT_OK
+  }
+  console.error('[install-lock] 本前缀之外发生变化 ❌')
+  for (const c of changes) console.error(`  - ${c}`)
+  return 1
 }
 
 function usage(message) {
@@ -414,13 +638,16 @@ function usage(message) {
   console.error(
     [
       '用法：',
-      '  node scripts/lib/pnpm-install-lock.mjs run -- <命令...>    # 在锁内执行安装',
-      '  node scripts/lib/pnpm-install-lock.mjs check               # 安装期间禁止 typecheck（可选门）',
-      '  node scripts/lib/pnpm-install-lock.mjs status              # 人读/机器读的锁现场',
+      '  node scripts/lib/pnpm-install-lock.mjs run -- <命令...>    # 在锁内执行安装（注入 token）',
+      '  node scripts/lib/pnpm-install-lock.mjs check               # 安装期间禁止 typecheck（门位 opt-in）',
+      '  node scripts/lib/pnpm-install-lock.mjs status              # 锁现场（pid/pidStart/开始时刻/已持有时长）',
+      '  node scripts/lib/pnpm-install-lock.mjs guard               # preinstall 守卫：链接面 + token + 留痕',
+      '  node scripts/lib/pnpm-install-lock.mjs snapshot -- <文件>   # 本前缀之外 worktree node_modules 快照',
+      '  node scripts/lib/pnpm-install-lock.mjs compare -- <基线>    # 快照比对，零变化才 exit 0',
       '',
-      `默认不启用；显式 opt-in：${ENABLE_ENV}=1`,
+      `默认启用；应急关闭：${ENABLE_ENV}=0（仅排障，非常规）`,
       `超时：${TIMEOUT_ENV}（毫秒，默认 30000，超时 exit 3）`,
-      `锁位置：${DIR_ENV}（默认 os.tmpdir()/ihui-pnpm-install.lock）`,
+      `锁位置：${DIR_ENV}（默认 <共享根>/.ihui-install.lock）`,
     ].join('\n'),
   )
   process.exit(EXIT_USAGE)
@@ -432,6 +659,9 @@ async function main() {
   if (sub === 'run') return runCommand(rest)
   if (sub === 'check') return checkCommand()
   if (sub === 'status') return statusCommand()
+  if (sub === 'guard') return guardCommand()
+  if (sub === 'snapshot') return snapshotCommand(rest)
+  if (sub === 'compare') return compareSnapshotCommand(rest)
   usage(`未知子命令：${sub}`)
 }
 

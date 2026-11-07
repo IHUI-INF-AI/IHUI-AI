@@ -4,9 +4,9 @@
   [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 -->
 
-# 并发 install 隔离：跨进程安装锁（方案③，未激活）
+# 并发 install 隔离：跨进程安装锁（方案③，默认启用）
 
-> 状态：脚本与文档已交付，**默认不启用**。`.husky/pre-commit` / `.husky/pre-push` 各留了一个 env 门控的**可选位**（`IHUI_GATE_INSTALL_LOCK=1` 才进入，未设置时整块跳过 ⇒ 现有提交/推送行为未改）。`package.json` 没有新增 script，CI 未接线。
+> 状态：**互斥默认启用**（2026-11-07 四次安装互踩后按门槛改）。强制点是根 `package.json` 的 `preinstall` 守卫——直连 `pnpm install` 也会被拦，锁目录落在共享根 `.ihui-install.lock`。`IHUI_PNPM_INSTALL_LOCK=0` 为应急关闭（仅排障，非常规）。**"typecheck 查 install" 的那一半仍是 opt-in**（`IHUI_GATE_INSTALL_LOCK=1` 打开，观察期 14 天），不进默认路径。CI 只在 `ci-monorepo.yml` 的 typecheck job 接锁（GitHub 托管 runner 是 no-op，见 §2.3）。
 
 ## 1. 事故形态
 
@@ -17,81 +17,126 @@
 ## 2. 用法
 
 ```bash
-# 默认（未 opt-in）：run 原样执行命令，check 恒通过 —— 行为不变
+# 默认（启用）：安装命令进锁，拿不到锁 exit 3
 node scripts/lib/pnpm-install-lock.mjs run -- pnpm install
 
-# 显式启用（当前唯一 opt-in 开关）
-IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs run -- pnpm install
+# 应急关闭（仅排障，非常规）：回到未接线行为
+IHUI_PNPM_INSTALL_LOCK=0 node scripts/lib/pnpm-install-lock.mjs run -- pnpm install
 
-# 供 pre-commit / push 门**可选**调用：安装期间禁止 typecheck
-IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs check
+# 门位判据（OPT-IN，默认不跑）：安装期间禁止 typecheck
+node scripts/lib/pnpm-install-lock.mjs check
 
-# 现场（人读/机器读）
+# preinstall 守卫（根 package.json 已接线，直连 install 会在这里被拒）
+node scripts/lib/pnpm-install-lock.mjs guard
+
+# 现场：pid / pidStart / 开始时刻 / 已持有时长 / 心跳 / cmd
 node scripts/lib/pnpm-install-lock.mjs status
+
+# 安装前后取证：本前缀之外的 worktree node_modules 应零变化
+node scripts/lib/pnpm-install-lock.mjs snapshot -- before.json
+node scripts/lib/pnpm-install-lock.mjs compare -- before.json
 ```
 
 | 环境变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `IHUI_PNPM_INSTALL_LOCK` | 未设（关闭） | 必须为 `1` 才启用 |
-| `IHUI_PNPM_INSTALL_LOCK_DIR` | `os.tmpdir()/ihui-pnpm-install.lock` | 机器级锁目录；跨 worktree 共享 |
+| `IHUI_PNPM_INSTALL_LOCK` | 启用 | 仅 `0` 关闭（应急口）；不设或 `1` 均启用 |
+| `IHUI_GATE_INSTALL_LOCK` | **关闭（opt-in）** | 钩子 `check` 位；仅 `1` 打开（观察期 14 天） |
+| `IHUI_PNPM_INSTALL_LOCK_DIR` | `<共享根>/.ihui-install.lock` | 机器级锁目录；共享根 = `git rev-parse --git-common-dir` 的父目录，跨 worktree 一致 |
+| `IHUI_PNPM_INSTALL_TOKEN` | 内部 | wrapper 持锁后注入给子进程，`preinstall` 守卫据此自证身份 |
 | `IHUI_PNPM_INSTALL_LOCK_TIMEOUT_MS` | `30000` | 拿锁预算，超时 **exit 3** 并打印持有者现场 |
 
 | 退出码 | 含义 |
 | --- | --- |
-| 0 | 成功 / check 放行（含未启用） |
+| 0 | 成功 / check 放行（含无锁、锁已陈旧、显式关闭） |
 | 2 | 用法错误 |
 | 3 | 拿锁超时（**明确失败**，不静默等死） |
 | 4 | check 判定：安装进行中，禁止并发 typecheck |
 | 其他 | `run` 包裹的命令退出码透传 |
 
-### 2.1 可选门接入（默认关闭，一句命令打开）
+### 2.1 门位接入（opt-in，观察期 14 天：2026-11-07 → 2026-11-21）
 
-两个钩子各留了一个可选位，判据是同一个环境变量：
+"安装进行中 ⇒ 禁止 typecheck" 这一半只影响**所有人每次提交/推送**，爆炸半径比互斥大，按 2026-11-07 裁定先 opt-in：两个钩子只在 `IHUI_GATE_INSTALL_LOCK=1` 时执行 `check`。
 
 ```bash
-# 一键打开（当前 shell 会话内持续生效）
+# 打开（观察期内的数据采集方式：真实 install 期间跑 typecheck，看是否被正确拦截/误拦）
 export IHUI_GATE_INSTALL_LOCK=1
-
-# 只对一次命令生效
-IHUI_GATE_INSTALL_LOCK=1 git commit -m "..."
 IHUI_GATE_INSTALL_LOCK=1 git push
 
-# 关闭
-unset IHUI_GATE_INSTALL_LOCK
+# 观察期判定：14 天内至少覆盖 3 次真实 install，误拦 ≤ 1 次且均有明确持有者现场；
+# 达标后在下一轮把默认改 1，未达标则继续 opt-in 并复盘误拦原因。
 ```
 
-打开后钩子追加执行 `IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs check`：
-
 - 无锁 / 锁已陈旧（exit 0）⇒ 照常放行；
-- 安装进行中（exit 4）⇒ 阻止提交/推送，并提示用 `status` 看持有者现场；
+- 安装进行中（exit 4）⇒ 阻止提交/推送，并打印持有者现场（pid / pidStart / 开始时刻 / 已持有时长 / cmd）；
 - pre-commit 经 `scripts/hook-run-hidden.vbs` 隐藏执行，输出落在 `.ihui-agent/state/hook-logs/pre-commit-install-lock.log`；pre-push 直接执行，现场打在终端。
 
 > 前提：安装侧也要走锁，否则锁永远不存在、`check` 只会放行：
 >
 > ```bash
-> IHUI_PNPM_INSTALL_LOCK=1 node scripts/lib/pnpm-install-lock.mjs run -- pnpm install
+> node scripts/lib/pnpm-install-lock.mjs run -- pnpm install
 > ```
->
-> 默认关闭是有意的：现在没有并发安装事故在跑，默认加上只会多一道与 typecheck 无关的等待。等并发安装问题再爆一次，一句 `export IHUI_GATE_INSTALL_LOCK=1` 即可启用；排查完 `unset` 回到原行为。
 
-### 2.2 默认关闭期间谁负责打开（以及什么时候不再默认关）
+### 2.2 升级门槛已触发（2026-11-07）
 
-- **谁**：本机同时跑多个 worktree 的机主；CI 的 install / typecheck job 由值班人负责。
-- **何时（现在）**：同一台机器上可能出现「install 与另一路 install/typecheck 时间重叠」时才需要打开。单 worktree、单任务顺序执行不必开。
-- **升级门槛（写死，不再逐次讨论）**：**同一台机器第二次出现 ENOENT 类安装互踩**（含 typecheck 报 `Cannot find module` / 文件半拆半建）⇒ 立即把默认改为开（`IHUI_GATE_INSTALL_LOCK` 从 opt-in 改为默认 1），并接进 CI 的 typecheck job，同时写进发布前检查单。
-- **默认关闭的代价**：默认配置下这张票只是「可接入」，不是「已防护」——没 export 的人照旧裸跑。要真正挡事故，必须先把上一条门槛触发后的默认值改掉。
+写死的门槛是「同一台机器第二次出现 ENOENT 类安装互踩 ⇒ 默认改为开」。这台机器已出现四次：
 
-> 与 api 席的 `scripts/lib/typecheck-lock.mjs`：两套同为机器级互斥 + 陈旧判定 + 进程身份，**不得再出现第三套**。等 api 席给出「typecheck 能否看见 install 正在进行」的结论后，合并为同一锁文件族；陈旧判定的阈值与口径必须统一——同一个 pid 在两套工具里得出不同答案，比没锁更危险。
+1. api 席推送死在 `Cannot find module …typescript\bin\tsc`；
+2. 集成席 `packages/database/node_modules/typescript`、`apps/web/node_modules/@hookform/resolvers` 指向不存在的相对路径，`check-workspace-dep-links` 报 83 个依赖缺失；
+3. 跨端 UI 席 `packages/ui-react` 无 dist、缺 `lucide-react` / `@radix-ui/*`；
+4. 2026-11-07 09:21 两次 install 并发，其中一次执行 `Recreating D:\IHUI-AI\node_modules`，随后 `rmdir .pnpm` 撞 `ENOTEMPTY`、`RC=-4051`，链接阶段没开始 ⇒ 根顶层只剩 7 条、`lint-staged` 缺失，全机无法提交。
 
-## 3. 判活与失效方向
+⇒ **互斥**按门槛改为默认开（`preinstall` 守卫强制，见 §2.4）；**"typecheck 查 install"那一半**单独裁定为 opt-in（观察期 14 天），两者不要混为一谈。应急口 `IHUI_PNPM_INSTALL_LOCK=0` 仅排障，使用后需补一条说明：为什么关、关了多久、下一次怎么防。
 
-锁是**原子 mkdir** 的目录锁，`owner.json` 记录 `pid / host / bootEpochSec / startedAt / heartbeatAt / token / cmd / cwd`。陈旧判定（任一"正向"证据成立才判陈旧）：
+### 2.3 CI 接线的边界
+
+GitHub 托管 runner（`.github/workflows/*` 全部 `ubuntu-latest`）每个 job 独立 VM，`<共享根>/.ihui-install.lock` 不共享 ⇒ 机器级锁在 CI 里是 **no-op**。`ci-monorepo.yml` 的 typecheck job 把 install 走锁（互斥），而 `check` 步只在仓库变量 `IHUI_GATE_INSTALL_LOCK=1` 时才跑（与本地 opt-in 同一开关）；意义是：若未来切 self-hosted / 本地 `act` 并发跑，同一份编排直接生效。真正的防护对象是**本机多 worktree**。
+
+### 2.4 强制点：`preinstall` 守卫（2026-11-07 立）
+
+只靠"大家约好走 wrapper"不是锁——直连 `pnpm install` 完全无视它。唯一能强制的位置是根 `package.json` 的 `preinstall`，它对直连 install 同样生效。三条判据一起用：
+
+1. **链接面**：`node_modules` 是 reparse point / junction ⇒ 拒绝（写进去就是改共享层），提示「先摘掉链接，在自包含目录里安装」；实名目录 ⇒ 放行。判据是"是不是经 junction 在使用共享层"，**不是"在哪跑"**——否则 `.worktrees/<wt>` 的自包含 install 会被自己的守卫禁掉。
+2. **token**：wrapper 持锁后把 `IHUI_PNPM_INSTALL_TOKEN` 注入子进程；直连 install 没有 token ⇒ 拒绝。
+3. **留痕**：每次判定追加到 `<共享根>/.ihui-agent/state/install-guard.log`（时间 / decision / cwd / pid / 原因）。
+
+**验收判据（比 token 硬）**：安装前后对"本前缀之外的链接清单"取快照，要求零变化：
+
+```bash
+node scripts/lib/pnpm-install-lock.mjs snapshot -- before.json
+# ... 在锁内安装 ...
+node scripts/lib/pnpm-install-lock.mjs compare -- before.json   # 有任何变化即 exit 1
+```
+
+已知绕过：`pnpm install --ignore-scripts` 跳过 `preinstall`（无法从脚本层阻止）；发现即按违规处理。
+
+### 2.5 机器自检与修复（`node_modules` 完整性）
+
+pnpm 把「包目录存在但为空」判为已安装，`--frozen-lockfile` 因此认为无工作可做 ⇒ 手工修完又复发。自检命令：
+
+```bash
+node scripts/check-node-modules-integrity.mjs          # 只读，找到空包目录/断链/顶层缺失
+node scripts/check-node-modules-integrity.mjs --json    # 机器读，exit 1 表示不通过
+node scripts/check-node-modules-integrity.mjs --fix     # 只删空的虚拟层目录（非空不动）
+```
+
+判据：`.pnpm/<id>/node_modules/<pkg>` 的文件数是否为 0。`--fix` 只删空目录，随后必须重新 materialize：
+
+```bash
+node scripts/lib/pnpm-install-lock.mjs run -- pnpm install --frozen-lockfile
+```
+
+## 3. 判活与失效方向（判据唯一出处）
+
+锁是**原子 mkdir / 原子初始化**的目录锁，`owner.json` 记录 `pid / pidStart / pidStartAt(展示用 ISO) / host / bootEpochSec / startedAt / heartbeatAt / token / cmd / cwd`。陈旧判定（任一"正向"证据成立才判陈旧）：
 
 1. `host` 不同 ⇒ **不抢**（跨机无法验活，宁可超时明确报错）；
 2. `bootEpochSec` 差 > 5s ⇒ 机器重启过，陈旧；
 3. 进程不存在 ⇒ 陈旧；
-4. 心跳 15 分钟未续 ⇒ 陈旧；
-5. 读不出 `owner.json` ⇒ 不猜、不删，等超时；只有锁龄 > 6h 才按绝对上限清理。
+4. **pid 被复用** ⇒ 由 `scripts/lib/proc-identity.mjs` 的 `verifyHolder()` 判定（`pidStart` 三态：match / mismatch / unverifiable；match 才算原主，mismatch 直接陈旧，**unverifiable 一律不抢**）；
+5. 心跳 15 分钟未续 ⇒ 陈旧；
+6. 读不出 `owner.json` ⇒ 不猜、不删，等超时；只有锁龄 > 6h 才按绝对上限清理。
+
+> **陈旧判定的唯一出处是 `scripts/lib/proc-identity.mjs`**。本锁的进程身份探测、pid 复用比对全部委托给它（`identityFields()` 写入、`verifyHolder()` 判定），不得在本文件或 typecheck 锁里再复制一套探针。心跳只表示"进程还活着"，**不参与身份判定**；它与 `pidStart` 是两种证据，不允许用同一条代码路径混判。
 
 删锁前复核 `token` 同一性，避免删掉并发者刚写下的新锁。`run` 持锁期间每 15s 续心跳，退出/信号时只删自己那把。
 
