@@ -462,7 +462,6 @@
     "pickerUnsupported": "Your browser does not support folder picking",
     "generateFailed": "Failed to generate wiki",
     "listTitle": "Documents",
-    "refresh": "Refresh",
     "loadingDocs": "Loading…",
     "emptyList": "No documents yet, generate first",
     "kindOverview": "Overview",
@@ -486,7 +485,6 @@
     "autoOff": "Auto-capture: off",
     "export": "Export",
     "clear": "Clear",
-    "regenerate": "Regenerate",
     "regenerateDisabledHint": "No repository folder selected or no files collected yet."
   },
   "workPanel": {

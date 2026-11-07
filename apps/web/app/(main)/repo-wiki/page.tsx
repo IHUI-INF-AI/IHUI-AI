@@ -311,11 +311,14 @@ export default function RepoWikiPage() {
             )}
           </div>
 
-          <div>
+          <div className="flex flex-col gap-2">
             <Button onClick={handleGenerate} disabled={generating || collecting || !folderName}>
               {generating && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
               {generating ? t('generating') : t('generate')}
             </Button>
+            {(!folderName || collectedFiles.length === 0) && (
+              <p className="text-label text-muted-foreground">{t('regenerateDisabledHint')}</p>
+            )}
           </div>
         </CardContent>
       </Card>
