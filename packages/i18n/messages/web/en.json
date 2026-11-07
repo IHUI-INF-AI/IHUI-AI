@@ -15321,6 +15321,7 @@
     },
     "groups": {
       "addMember": "Add member",
+      "allGroups": "All groups",
       "cancel": "Cancel",
       "close": "Close",
       "confirmDelete": "Delete this group?",
@@ -15328,6 +15329,7 @@
       "createdAt": "Created at",
       "custom": "Custom",
       "delete": "Delete",
+      "deleteTitle": "Delete group",
       "description": "Description",
       "edit": "Edit",
       "empty": "No groups yet. Create your first group",
@@ -15336,6 +15338,7 @@
       "groupNameRequired": "Group name is required",
       "memberList": "Members",
       "members": "Members",
+      "membersUnavailable": "The backend exposes no member list endpoint, so only the member count is shown.",
       "owner": "Owner",
       "save": "Save",
       "subtitle": "Create and manage your user groups",

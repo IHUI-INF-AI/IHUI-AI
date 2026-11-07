@@ -15325,6 +15325,7 @@
     },
     "groups": {
       "addMember": "添加成员",
+      "allGroups": "全部群组",
       "cancel": "取消",
       "close": "关闭",
       "confirmDelete": "确定删除该群组？",
@@ -15332,6 +15333,7 @@
       "createdAt": "创建时间",
       "custom": "自定义",
       "delete": "删除",
+      "deleteTitle": "删除群组",
       "description": "群组描述",
       "edit": "编辑",
       "empty": "暂无群组，点击右上角创建",
@@ -15340,6 +15342,7 @@
       "groupNameRequired": "群组名称不能为空",
       "memberList": "成员管理",
       "members": "成员数",
+      "membersUnavailable": "后端未提供成员列表接口,此处仅显示成员数",
       "owner": "群主",
       "save": "保存",
       "subtitle": "创建和管理你的用户群组",

@@ -15324,6 +15324,7 @@
     },
     "groups": {
       "addMember": "メンバー追加",
+      "allGroups": "すべてのグループ",
       "cancel": "キャンセル",
       "close": "閉じる",
       "confirmDelete": "このグループを削除しますか？",
@@ -15331,6 +15332,7 @@
       "createdAt": "作成日時",
       "custom": "カスタム",
       "delete": "削除",
+      "deleteTitle": "グループを削除",
       "description": "説明",
       "edit": "編集",
       "empty": "グループはまだありません",
@@ -15339,6 +15341,7 @@
       "groupNameRequired": "グループ名は必須です",
       "memberList": "メンバー管理",
       "members": "メンバー数",
+      "membersUnavailable": "バックエンドにメンバー一覧 API がないため、メンバー数のみ表示します",
       "owner": "オーナー",
       "save": "保存",
       "subtitle": "ユーザーグループの作成・管理",
