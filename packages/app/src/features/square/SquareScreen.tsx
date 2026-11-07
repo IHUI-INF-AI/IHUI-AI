@@ -56,7 +56,7 @@ export interface SquareScreenProps {
 export function SquareScreen({
   t,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   items,
   loading,
   refreshing,
@@ -277,14 +277,14 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
     } as ViewStyle,
     categoryText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       lineHeight: 14,
       color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     title: {
-      fontSize: 16,
-      lineHeight: 22,
+      fontSize: rnType.title.size,
+      lineHeight: rnType.strong.lineHeight,
       fontWeight: '600',
       color: tk.text.primary,
     } as TextStyle,
@@ -308,18 +308,18 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.medium,
     } as ViewStyle,
     authorText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       lineHeight: 14,
       color: tk.text.primary,
       fontWeight: '600',
     } as TextStyle,
     metaText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       lineHeight: 14,
       color: tk.text.tertiary,
     } as TextStyle,
     sourceText: {
-      fontSize: 12,
+      fontSize: rnType.label.size,
       lineHeight: 14,
       color: tk.text.tertiary,
       marginTop: rnSpacing.xs,

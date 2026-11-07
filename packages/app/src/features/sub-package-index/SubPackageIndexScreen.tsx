@@ -133,7 +133,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       color: tk.text.tertiary,
       textAlign: 'center',
-      lineHeight: 16,
+      lineHeight: rnType.label.lineHeight,
     } as TextStyle,
   })
 }

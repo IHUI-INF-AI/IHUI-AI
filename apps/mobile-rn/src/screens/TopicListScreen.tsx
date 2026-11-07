@@ -30,7 +30,7 @@ import { useNavigation, useRoute, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { ChevronRight, Search } from 'lucide-react-native'
 import { fetchApi } from '@ihui/api-client'
-import { getRnTokens, type RnThemeTokens, rnRadius, rnType } from '@ihui/design-tokens'
+import { getRnTokens, type RnThemeTokens, rnRadius, rnType, rnSpacing } from '@ihui/design-tokens'
 import { TextField, CategoryInlineBar } from '@ihui/rn-app'
 import { NavBar } from '../components/NavBar'
 import { useI18n } from '../i18n'
@@ -263,7 +263,7 @@ const createStyles = (tk: RnThemeTokens) =>
       flex: 1,
       fontSize: rnType.body.size,
       color: tk.text.primary,
-      padding: 0,
+      padding: rnSpacing.none,
     },
     tabRow: {
       flexDirection: 'row',

@@ -168,11 +168,15 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.sm,
     },
     meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    content: { fontSize: rnType.title.size, lineHeight: 22, color: tk.text.medium },
+    content: {
+      fontSize: rnType.title.size,
+      lineHeight: rnType.strong.lineHeight,
+      color: tk.text.medium,
+    },
     detailText: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
     },
     statRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.lg },

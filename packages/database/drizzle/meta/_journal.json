@@ -2566,6 +2566,20 @@
       "when": 1793948400000,
       "tag": "20261106150000_fix_missing_indexes_fks",
       "breakpoints": true
+    },
+    {
+      "idx": 370,
+      "version": "7",
+      "when": 1793996812693,
+      "tag": "0370_equal_violations",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": "371",
+      "when": "1794034800000",
+      "tag": "20261107150000_shared_to_ops_flag",
+      "breakpoints": true
     }
   ]
 }

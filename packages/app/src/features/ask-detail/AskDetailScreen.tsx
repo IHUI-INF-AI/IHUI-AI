@@ -120,7 +120,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     author: { fontSize: rnType.body.size, color: tk.text.secondary, fontWeight: '500' },
     meta: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    content: { fontSize: 16, lineHeight: 22, color: tk.text.medium, marginBottom: rnSpacing.lg },
+    content: {
+      fontSize: rnType.title.size,
+      lineHeight: rnType.strong.lineHeight,
+      color: tk.text.medium,
+      marginBottom: rnSpacing.lg,
+    },
     sectionTitle: {
       fontSize: rnType.subtitle.size,
       fontWeight: '600',

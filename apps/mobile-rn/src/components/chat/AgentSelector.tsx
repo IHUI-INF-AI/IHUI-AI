@@ -7,7 +7,7 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Sparkles, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import AgentList, { type AgentListItem } from '../../components/AgentList'
 import { Tappable } from '@ihui/ui-native'
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
   },
   personaDesc: {
     fontSize: rnGeometry.textLabel,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.secondary,
   },
   personaMetaRow: {
