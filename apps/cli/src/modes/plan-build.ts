@@ -208,6 +208,8 @@ export class PlanBuildCoordinator {
     this.save();
   }
 
+  private stateCorrupt = false;
+
   private load(): void {
     let raw: string;
     try {
@@ -217,9 +219,13 @@ export class PlanBuildCoordinator {
       if (code === 'ENOENT' || code === 'ENOTDIR') return;
       throw new Error(`模式状态读不到,不能把它覆盖成默认模式 (${code})`);
     }
+    if (raw.trim() === '') return;
     try {
       const parsed = tryParseJson(raw);
-      if (!isRecord(parsed)) return;
+      if (!isRecord(parsed)) {
+        this.stateCorrupt = true;
+        return;
+      }
       if (typeof parsed.mode === 'string' && VALID_MODES.has(parsed.mode as PlanBuildMode)) {
         this.mode = parsed.mode as PlanBuildMode;
       }
@@ -244,11 +250,14 @@ export class PlanBuildCoordinator {
         }
       }
     } catch {
-      // 损坏内容忽略,沿用默认状态
+      this.stateCorrupt = true;
     }
   }
 
   private save(): void {
+    if (this.stateCorrupt) {
+      throw new Error('模式状态读不到,不能把它覆盖成默认模式 (corrupt)');
+    }
     try {
       fs.readFileSync(this.stateFile, 'utf-8');
     } catch (error) {

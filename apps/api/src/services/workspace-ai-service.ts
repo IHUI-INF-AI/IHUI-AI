@@ -99,11 +99,14 @@ function readJsonForUpdate<T>(file: string, fallback: T, unread: string): T {
     if (code === 'ENOENT' || code === 'ENOTDIR') return fallback
     throw new Error(`${unread} (${code ?? 'unknown'})`)
   }
+  let parsed: unknown
   try {
-    return JSON.parse(text) as T
+    parsed = JSON.parse(text)
   } catch {
     throw new Error(`${unread} (parse)`)
   }
+  if (parsed === null) throw new Error(`${unread} (parse)`)
+  return parsed as T
 }
 
 function writeJson(file: string, data: unknown): void {
@@ -1533,6 +1536,12 @@ function extToLang(ext: string): string | null {
 
 class CodebaseIndexer {
   index(workspacePath: string): CodebaseIndex {
+    try {
+      readdirSync(workspacePath)
+    } catch (error) {
+      const code = nodeErrorCode(error)
+      throw new Error(`代码索引读不到目录,不能把它覆盖成空索引 (${code ?? 'unknown'})`)
+    }
     const files: FileIndex[] = []
     this.walk(workspacePath, workspacePath, files)
     const totalLines = files.reduce((s, f) => s + f.lines, 0)
