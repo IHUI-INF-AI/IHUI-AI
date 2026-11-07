@@ -64,15 +64,26 @@ export function CertVerifyScreen({
           {result.valid ? (
             <>
               <Text style={styles.resultName}>{result.title}</Text>
-              <Text style={styles.resultLine}>
-                {t('certVerify.holder')}: {result.holder}
-              </Text>
-              <Text style={styles.resultLine}>
-                {t('certVerify.issuer')}: {result.issuer}
-              </Text>
-              <Text style={styles.resultLine}>
-                {t('certVerify.issuedAt')}: {result.issuedAt}
-              </Text>
+              {result.certNo ? (
+                <Text style={styles.resultLine}>
+                  {t('certVerify.certNo')}: {result.certNo}
+                </Text>
+              ) : null}
+              {result.holder ? (
+                <Text style={styles.resultLine}>
+                  {t('certVerify.holder')}: {result.holder}
+                </Text>
+              ) : null}
+              {result.issuer ? (
+                <Text style={styles.resultLine}>
+                  {t('certVerify.issuer')}: {result.issuer}
+                </Text>
+              ) : null}
+              {result.issuedAt ? (
+                <Text style={styles.resultLine}>
+                  {t('certVerify.issuedAt')}: {result.issuedAt}
+                </Text>
+              ) : null}
             </>
           ) : null}
         </View>
