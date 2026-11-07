@@ -7156,5 +7156,36 @@
     "submitSuccess": "Publishing task created",
     "submitFailed": "Failed to submit",
     "taskCreated": "Task ID: {taskId}"
+  },
+  "eduAi": {
+    "groups": {
+      "addMember": "Add member",
+      "allGroups": "All groups",
+      "confirmDelete": "Delete this group?",
+      "createGroup": "Create Group",
+      "createdAt": "Created at",
+      "custom": "Custom",
+      "delete": "Delete",
+      "deleteTitle": "Delete group",
+      "description": "Description",
+      "edit": "Edit",
+      "empty": "No groups yet. Create your first group",
+      "error": "Failed",
+      "groupName": "Group name",
+      "groupNameRequired": "Group name is required",
+      "memberList": "Members",
+      "members": "Members",
+      "membersUnavailable": "The backend exposes no member list endpoint, so only the member count is shown.",
+      "owner": "Owner",
+      "save": "Save",
+      "title": "My Groups",
+      "userId": "User ID"
+    }
+  },
+  "groups": {
+    "title": "My groups",
+    "loadFailed": "Failed to load groups",
+    "addMember": "Add member",
+    "memberAdded": "Member added"
   }
 }
