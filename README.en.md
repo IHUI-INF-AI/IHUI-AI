@@ -82,13 +82,13 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4366 | `testFiles` |
+| 测试文件 | 4368 | `testFiles` |
 | CI 工作流 | 56 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 351 | `guardianGates` |
 | — blocking | 322 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20006 | `trackedFiles` |
+| 跟踪文件 | 20008 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -560,7 +560,7 @@ If this project is useful to you, a ⭐ is the most direct contribution.
 
 <!-- 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) -->
 Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·
-25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4364 test files ·
+25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4363 test files ·
 332 engineering gates · 55 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4725 API routes ·
