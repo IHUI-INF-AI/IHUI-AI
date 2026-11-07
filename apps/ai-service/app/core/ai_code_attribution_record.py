@@ -249,6 +249,37 @@ def host_prompt(arguments: Mapping[str, object] | None) -> tuple[str, str, str]:
     return prompt_id, text, ""
 
 
+def plan_blame_view(
+    mode: str | None,
+    records: list[AttributionRecord],
+    *,
+    line: int | None = None,
+) -> tuple[str, str, list[AttributionRecord]]:
+    """档位没给，或 auto 却没量到该用行还是整文件，都不挑一份结果。"""
+    if not isinstance(mode, str) or not mode.strip():
+        return "unjudged", "blame 档位没量到", []
+    token = mode.strip()
+    if token == "auto":
+        return "unjudged", "auto 档没有量到该用行还是整文件", []
+    if token == "off":
+        return "off", "blame 档位是关闭", []
+    if token == "all":
+        return "all", "ok", list(records)
+    if token != "line":
+        return "refused", "blame 档位不认识", []
+    if isinstance(line, bool) or not isinstance(line, int) or line <= 0:
+        return "unjudged", "行档没有量到光标行", []
+    chosen: list[AttributionRecord] = []
+    for record in records:
+        start = record.anchor.line_start
+        end = record.anchor.line_end
+        if start <= 0 or end < start:
+            continue
+        if start <= line <= end:
+            chosen.append(record)
+    return "line", "ok", chosen
+
+
 def _host_fields(arguments: Mapping[str, object] | None) -> tuple[dict[str, object], str]:
     """只认宿主注入的 ``__`` 字段。没给就是没测到，给了但形态不对就拒绝整条。"""
     found: dict[str, object] = {name: None for _, name in (*_HOST_TEXT_KEYS, *_HOST_LIST_KEYS)}

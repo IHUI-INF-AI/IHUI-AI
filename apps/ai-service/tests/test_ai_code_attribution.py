@@ -35,6 +35,7 @@ from app.core.ai_code_attribution import (
     compute_stats,
     make_record,
     parse_diff_line_range,
+    plan_blame_view,
     plan_checkpoint,
     resolve_anchor,
 )
@@ -875,4 +876,49 @@ async def test_notes_show_route_stays_unjudged_without_a_repo(monkeypatch):
     assert body["data"]["status"] == "unjudged"
     assert body["data"]["checkpoints"] == []
     assert body["data"]["message"] == "取不到 git 仓库根"
+
+
+def test_blame_view_does_not_pick_a_mode_or_a_line_that_was_not_measured(tmp_store):
+    record_attribution("file_edit", "a.py", "@@ -3 +3 @@\n+x", line_start=3, line_end=5)
+    record_attribution("file_edit", "a.py", "@@ -1 +1 @@\n+y", line_start=0, line_end=0)
+    records = list_records(path="a.py")
+    assert len(records) == 2
+    status, _message, chosen = plan_blame_view(None, records, line=4)
+    assert status == "unjudged"
+    assert chosen == []
+    status, message, chosen = plan_blame_view("auto", records, line=4)
+    assert status == "unjudged"
+    assert "auto" in message
+    assert chosen == []
+    status, _message, chosen = plan_blame_view("off", records, line=4)
+    assert status == "off"
+    assert chosen == []
+    status, _message, chosen = plan_blame_view("line", records, line=4)
+    assert status == "line"
+    assert len(chosen) == 1
+    assert chosen[0].anchor.line_start == 3
+    status, message, chosen = plan_blame_view("line", records, line=None)
+    assert status == "unjudged"
+    assert "光标行" in message
+    assert chosen == []
+    status, message, chosen = plan_blame_view("wide", records)
+    assert status == "refused"
+    assert chosen == []
+    status, _message, chosen = plan_blame_view("all", records)
+    assert status == "all"
+    assert len(chosen) == 2
+
+
+@pytest.mark.asyncio
+async def test_blame_route_without_a_path_does_not_scan_the_ledger(monkeypatch):
+    from app.routers import ai_code_attribution as route_mod
+
+    def boom(*_args, **_kwargs):
+        raise AssertionError("没有路径却扫了全账")
+
+    monkeypatch.setattr(route_mod, "list_records", boom)
+    body = await route_mod.attribution_blame(path=None, mode="all", user_id="u")
+    assert body["data"]["status"] == "refused"
+    assert body["data"]["message"] == "没有文件路径"
+    assert body["data"]["records"] == []
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
