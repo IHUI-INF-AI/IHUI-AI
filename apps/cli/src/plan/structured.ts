@@ -96,6 +96,13 @@ export function parseStructuredPlan(raw: string): StructuredPlan | null {
   };
 }
 
+function planReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
 /** 结构化计划持久化仓库(load/save/updateStepStatus,零外部依赖) */
 export class StructuredPlanStore {
   private readonly workspacePath: string;
@@ -107,16 +114,31 @@ export class StructuredPlanStore {
   /** 保存计划(自动创建 .ihui 目录,刷新 updatedAt) */
   save(plan: StructuredPlan): void {
     const p = planFilePath(this.workspacePath, plan.sessionId);
+    try {
+      fs.readFileSync(p, 'utf-8');
+    } catch (error) {
+      const code = planReadCode(error);
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        throw new Error(`计划读不到,不能把它覆盖成新计划 (${code})`);
+      }
+    }
     fs.mkdirSync(path.dirname(p), { recursive: true });
     fs.writeFileSync(p, JSON.stringify({ ...plan, updatedAt: new Date().toISOString() }, null, 2), 'utf-8');
   }
 
-  /** 读取计划(不存在/损坏返回 null) */
+  /** 读取计划(不存在/损坏返回 null;读失败不得当成没有计划) */
   load(sessionId: string): StructuredPlan | null {
     const p = planFilePath(this.workspacePath, sessionId);
+    let raw: string;
     try {
-      if (!fs.existsSync(p)) return null;
-      return parseStructuredPlan(fs.readFileSync(p, 'utf-8'));
+      raw = fs.readFileSync(p, 'utf-8');
+    } catch (error) {
+      const code = planReadCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+      throw new Error(`计划读不到,不能把它覆盖成新计划 (${code})`);
+    }
+    try {
+      return parseStructuredPlan(raw);
     } catch {
       return null;
     }

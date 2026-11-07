@@ -157,7 +157,16 @@ const walletRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(201).send(success(flow))
       } catch (e) {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+        // 异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。
+        request.log.error({ err: e }, 'wallet operation failed')
+        return reply
+          .status(statusCode)
+          .send(
+            error(
+              statusCode,
+              statusCode < 500 ? '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试',
+            ),
+          )
       }
     },
   )
@@ -521,7 +530,16 @@ export const adminWalletRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(201).send(success(result))
       } catch (e) {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
-        return reply.status(statusCode).send(error(statusCode, (e as Error).message))
+        // 异常原文只进服务端日志;对外一律通用文案,DB/内部异常文本不出仓。
+        request.log.error({ err: e }, 'wallet operation failed')
+        return reply
+          .status(statusCode)
+          .send(
+            error(
+              statusCode,
+              statusCode < 500 ? '操作失败,请稍后重试' : '服务暂时不可用,请稍后重试',
+            ),
+          )
       }
     },
   )

@@ -84,6 +84,14 @@ import {
 // enqueue 契约,不 import 它的运行时(那是 `tools/background-registry.ts` 已经反向 import
 // 本模块形成的环 —— 用 `import type` 把依赖留在编译期,运行时零环)。
 import type { PromptQueue, PromptQueueKind } from '../prompt-queue.js';
+// 产品形态能力闸(goal-b49 Y3):判定本体在 @ihui/types 的 PRODUCT_FORM_CAPABILITIES(本层零判据),
+// 本文件只消费 —— 形态表里关掉/未登记的「本机钩子派发面」在该形态下不派发,且**出声**。
+import {
+  announceProductFormGate,
+  gateProductFormCapability,
+  PRODUCT_FORM_CAPABILITY_OFF,
+  PRODUCT_FORM_CAPABILITY_UNJUDGED,
+} from '../lib/product-form.js';
 
 export interface HookEntry {
   name: string;
@@ -746,20 +754,31 @@ interface HooksSourceBundle {
   raw: Record<string, unknown>;
 }
 
-function readHooksConfigBundle(p: string): HooksSourceBundle | null {
-  if (!fs.existsSync(p)) return null;
+function readHooksConfigBundle(p: string, stat?: (path: string) => fs.Stats): HooksSourceBundle | null {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   try {
-    const parsed = tryParseJson(fs.readFileSync(p, 'utf-8'));
-    // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
-    if (!isRecord(parsed)) return null;
-    return { configFile: p, config: parsed as unknown as HooksConfig, raw: parsed };
-  } catch {
-    return null;
+    look(p);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`钩子配置读不到,不能把它当成没有钩子 (${code ?? 'unknown'})`);
   }
+  let text: string;
+  try {
+    text = fs.readFileSync(p, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code) throw new Error(`钩子配置读不到,不能把它当成没有钩子 (${code})`);
+    throw err;
+  }
+  const parsed = tryParseJson(text);
+  // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
+  if (!isRecord(parsed)) return null;
+  return { configFile: p, config: parsed as unknown as HooksConfig, raw: parsed };
 }
 
-function readHooksConfigFile(p: string): HooksConfig | null {
-  return readHooksConfigBundle(p)?.config ?? null;
+function readHooksConfigFile(p: string, stat?: (path: string) => fs.Stats): HooksConfig | null {
+  return readHooksConfigBundle(p, stat)?.config ?? null;
 }
 
 /** 剥掉派发侧盖上的派生字段,只留磁盘上那份声明(信任记录与门内比对必须用同一个口径) */
@@ -841,6 +860,7 @@ export function digestOfHookDeclaration(entry: unknown): string {
  */
 export function computeHookContentDigests(
   cwd: string = process.cwd(),
+  stat?: (path: string) => fs.Stats,
 ): { bundleDigest: string; declarations: Record<string, string> } {
   const paths: string[] = [];
   if (process.env.IHUI_HOOKS_CONFIG) paths.push(process.env.IHUI_HOOKS_CONFIG);
@@ -850,7 +870,7 @@ export function computeHookContentDigests(
   const roots: Array<Record<string, unknown>> = [];
   const declarations: Record<string, string> = {};
   for (const p of paths) {
-    const bundle = readHooksConfigBundle(p);
+    const bundle = readHooksConfigBundle(p, stat);
     if (!bundle) continue;
     // 来源名取相对 cwd 的那一段(<.ihui|...>/hooks.json)或绝对路径本身(单源模式)——
     // 不含盘符前缀,所以"仓库搬家"不会因为路径字符串变化而额外掉信任(搬家本来就要重批目录)。
@@ -891,17 +911,17 @@ export function getHooksPath(): string {
  * IHUI_HOOKS_CONFIG 环境变量设置时退化为单源(向后兼容)。
  * 每条钩子都会被盖上 `source` / `sourceFolder`(派发时判目录信任要用)。
  */
-export function loadHooksConfig(cwd: string = process.cwd()): HooksConfig {
+export function loadHooksConfig(cwd: string = process.cwd(), stat?: (path: string) => fs.Stats): HooksConfig {
   if (process.env.IHUI_HOOKS_CONFIG) {
     const p = process.env.IHUI_HOOKS_CONFIG;
-    const parsed = readHooksConfigFile(p);
+    const parsed = readHooksConfigFile(p, stat);
     if (!parsed) return {};
     return stampConfigSource(parsed, classifyHooksSource(p, cwd), owningFolderOfConfig(p));
   }
   const paths = listHooksConfigPaths(cwd);
   let acc: HooksConfig = {};
   for (const p of [...paths].reverse()) {
-    const parsed = readHooksConfigFile(p);
+    const parsed = readHooksConfigFile(p, stat);
     if (parsed) {
       acc = deepMergeHooks(acc, stampConfigSource(parsed, classifyHooksSource(p, cwd), owningFolderOfConfig(p)));
     }
@@ -1481,6 +1501,33 @@ async function dispatchHookEntry(
       return { result, state, outcome };
     }
     hostIdentity = verdict.identity;
+  }
+  // 产品形态闸(goal-b49 Y3,2026-11-05):形态表里关掉/未登记的「本机钩子派发面」⇒ 本形态不派发。
+  // 与宿主身份核验同形:deny-by-default + 具名错误码 + skipped 档(exitCode 0 ⇒ 不改写既有阻断语义)。
+  // 失效方向(§0.10):关档与未登记都**出声**(点名形态 · 能力),细节随本条结果进 feedback 面,
+  // 绝不静默放行,也绝不静默拒绝(§0.3:没判 ≠ 判过)。
+  const formGate = gateProductFormCapability('localHooks');
+  if (formGate.state !== 'enabled') {
+    const code =
+      formGate.state === 'disabled'
+        ? PRODUCT_FORM_CAPABILITY_OFF
+        : PRODUCT_FORM_CAPABILITY_UNJUDGED;
+    const stderr =
+      `${code}: ${formGate.reason} — hook "${entry.name}" (event ${hookEvent}) not dispatched ` +
+      `(product-form capability gate, deny-by-default)`;
+    // 同一(形态 × 能力)只出声一次;本条细节走 result.stderr → feedback 面。
+    announceProductFormGate(formGate, 'hooks');
+    const result: HookExecResult = { exitCode: 0, stdout: '', stderr, outcome: 'skipped' };
+    const state = classifyHookTerminal(result.outcome, result.exitCode, blockOnError);
+    const outcome = runOutcomeOfExec(result, blockOnError);
+    emitHookRunEvent({
+      type: 'terminal',
+      hookEvent,
+      hook: entry.name,
+      outcome,
+      exitCode: result.exitCode,
+    });
+    return { result, state, outcome };
   }
   // 核验通过后才把宿主身份 stamp 进钩子子进程 env(钩子侧可据此核验自己的宿主)。
   // 复制 env:调用方在循环间共享同一 env 对象,不得被派发侧污染。

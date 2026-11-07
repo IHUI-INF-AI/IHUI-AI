@@ -37,13 +37,29 @@ const matrixSrc = (entries) => `CAPABILITY_MATRIX = [\n${entries.join('')}\n]\n`
 /** 被扫代码:真读一个默认关 env(活条目的 J1/J2 都要有据)。 */
 const FIXTURE_CODE = `import os\nA = os.environ.get("FIXTURE_REAL_ENABLED", "false")\n`
 
-/** 夹具仓:写矩阵与被扫代码,跑 worktree 面 runCheck(与源脚本 selfTestRun 同形)。 */
+/** 夹具 config.py —— J4(2026-10-31 立)要求被检面存在 class Settings,取不到即
+ *  exit 2「未判定」。夹具补这枚字段面时**只给墓碑 env**(pruned 且同 env 无活条目):
+ *  派生大写名必然已在矩阵在册 ⇒ J4 恒绿;又不会命中 J1 的 settings 族免检,因此 M3b
+ *  要的「墓碑不得洗白活条目幽灵红」原样成立(给活条目也会让 J1 免检吞掉那条红)。
+ *  M3b 的墓碑 env 同时被活条目登记 ⇒ 无墓碑专属字段 ⇒ 类体只留 pass,面仍成立。 */
+function configSrc(entries) {
+  const parsed = entries.map((s) => JSON.parse(s.trim().replace(/,$/, '')))
+  const liveEnvs = new Set(parsed.filter((e) => !e.pruned && e.env).map((e) => e.env))
+  const prunedOnlyFields = parsed
+    .filter((e) => e.pruned && e.env && !liveEnvs.has(e.env))
+    .map((e) => e.env.toLowerCase())
+  const body = prunedOnlyFields.map((f) => `    ${f}: bool = False`).join('\n') || '    pass'
+  return `from pydantic_settings import BaseSettings\n\n\nclass Settings(BaseSettings):\n${body}\n`
+}
+
+/** 夹具仓:写矩阵/被扫代码/config.py,跑 worktree 面 runCheck(与源脚本 selfTestRun 同形)。 */
 function runScenario(entries, { fixtureCode = FIXTURE_CODE } = {}) {
   const dir = mkScratch('cap-matrix-g667-')
   try {
     const coreDir = join(dir, 'apps', 'ai-service', 'app', 'core')
     mkdirSync(coreDir, { recursive: true })
     writeFileSync(join(coreDir, 'capability_matrix.py'), matrixSrc(entries))
+    writeFileSync(join(coreDir, 'config.py'), configSrc(entries))
     writeFileSync(join(coreDir, 'fixture.py'), fixtureCode)
     return runCheck(dir)
   } finally {

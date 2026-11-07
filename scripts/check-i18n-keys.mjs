@@ -1088,6 +1088,9 @@ function extractHookKeys(src) {
   // 误报防线:全程只在"去注释后的代码"上跑。扩视野后 miniapp-taro 从 91 个文件涨到
   //   212 个,注释里的示例(如 `// 禁止 tt('p1','发') 这种劈词拼接`)会被真 tt 绑定扫到,
   //   把文档注释当成引用键。真实引用一定在代码里,剥注释只会去噪,不会漏检。
+  // ③ 模块直取(`import { t } from '@/i18n'`)不在本函数射程内:它另成一把尺
+  //   (directImportVarNames / extractDirectImportKeys),判据走同一份 keysForVars,
+  //   但产出只进"新纳面只报数"桶 —— ①② 的判序与退出码语义在此一字未动。
   const code = stripComments(src)
   const varNames = new Set()
   let m
@@ -1103,8 +1106,14 @@ function extractHookKeys(src) {
   const directAssignRe =
     /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:useT|use[A-Za-z0-9_]*Tt)\s*\(/g
   while ((m = directAssignRe.exec(code)) !== null) varNames.add(m[1])
+  return keysForVars(code, varNames)
+}
+
+// 调用点尺(全部绑定形态共用一把,§22c 单一真相源,禁止第二份实现):
+// varNames → 引号字面量键集合;模板字符串/动态拼接跳过(无法静态判定)。
+// 遮注释纪律沿用既有 stripComments(注释里的示例不是发射点,2026-10-20 同型修正的口径)。
+function keysForVars(code, varNames) {
   const keys = []
-  // 2026-10-20:同 extractKeysByVar,静态引用提取前剥注释(端文件注释示例同型)
   const clean = stripComments(code)
   for (const v of varNames) {
     const escaped = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -1114,6 +1123,62 @@ function extractHookKeys(src) {
     while ((k = re.exec(clean)) !== null) keys.push(k[1])
   }
   return [...new Set(keys)]
+}
+
+// ─── 绑定形态 ③:模块直取(2026-11-05 补盲;新纳面**只报数不判红**)────────────
+// ③ `import { t } from '@/i18n'` / `import { useTt, t } from '@/i18n'` /
+//    `import { t as tGlobal } from '@/i18n'`(重命名)—— 端内 HEAD 面现读 53 个文件在用。
+// 为什么这是一格真实的盲区而不是一行洁癖:apps/miniapp-taro/src/components/TagInput.tsx:5 直取
+//    `t`,:19 写 `placeholder = t('TagInput.p1')`;该枚五语包与端内兜底词典都没有,而门此前只认
+//    ①② 两种绑定 ⇒ 它**从未被判过**(§0.3:没判绝不写成判过)。同文件的 TagInput.p2 因走 useTt
+//    绑定被原有档判红 —— 同一把尺在同一文件里的阳性对照。
+// 射程(刻意与 ①② 同口径"只认翻译函数绑定"):具名条目源键必须是 t / tt,且模块说明符含 i18n。
+//    HEAD 面实测 53/53 的说明符都是 '@/i18n' 或 '../i18n' ⇒ 这一约束零误射;去掉它等于"任何库
+//    的 t 都算翻译函数",会把非翻译绑定拖进桶(声明必须有消费者)。
+// 两种形状必须真解析:`type TtFn` 是类型导入不产生运行时绑定(跳过);`t as tGlobal` 的局部名是
+//    tGlobal(漏了重命名就又回到 ① 形态当年"整行不匹配"那一坑)。
+// `import * as ns from '@/i18n'`:HEAD 面现读 0 枚(全端 `import *` 26 处无一来自 i18n)⇒ **不接线**,
+//    没有消费者的判据不装;要装的那一天必须先量到命中。
+function directImportVarNames(code) {
+  const names = new Set()
+  const re =
+    /(?:^|[\s;])import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]*)['"]/g
+  let m
+  while ((m = re.exec(code)) !== null) {
+    if (!/i18n/.test(m[2])) continue
+    for (const raw of m[1].split(',')) {
+      const entry = raw.trim()
+      if (!entry) continue
+      if (/^type\s/.test(entry)) continue // 类型导入不是运行时绑定
+      const parts = entry.split(/\s+as\s+/).map((s) => s.trim())
+      const sourceKey = parts[0]
+      const localName = parts[1]
+      if (sourceKey !== 't' && sourceKey !== 'tt') continue
+      const bound = localName || sourceKey
+      if (/^[A-Za-z_$][\w$]*$/.test(bound)) names.add(bound)
+    }
+  }
+  return names
+}
+function extractDirectImportKeys(src) {
+  const code = stripComments(src)
+  const varNames = directImportVarNames(code)
+  if (varNames.size === 0) return { varNames, keys: [] }
+  return { varNames, keys: keysForVars(code, varNames) }
+}
+// 该键在本文件的调用点有没有**内联兜底串**(第二实参是字符串字面量)。
+// 端内模块级 `t(key, params)` 签名里根本没有兜底位,而 `tt(key, zhFallback)` 有;
+// 无兜底 ⇒ 词典缺键时 translate 先回落 zh-CN 词典,再缺就回显键名本身,用户在界面上看到裸键名
+// (比带兜底串更严重,所以逐键分开报)。
+function callHasInlineFallback(src, varNames, key) {
+  const clean = stripComments(src)
+  const escK = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  for (const v of varNames) {
+    const escV = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`\\b${escV}\\(\\s*['"]${escK}['"]\\s*,\\s*['"\`]`)
+    if (re.test(clean)) return true
+  }
+  return false
 }
 
 // 端内模式:key 在「合并词典(shared+端 JSON)」或「zh-CN 兜底词典」任一处存在即通过。
@@ -1127,6 +1192,16 @@ function hasKeyInMergedOrDict(key) {
 const missingKeyIssues = []
 // 2026-09-07:因"键仅存在于工作区 WIP 消息(未暂存)"而降级的缺失键,仅告警不阻断
 const wipMissingKeyIssues = []
+// 2026-11-05 绑定形态 ③(模块直取)新纳面:只报数、逐条点名,**不参与 shouldBlock**。
+// 为什么不直接把条目塞进 wipMissingKeyIssues:那一桶的对外文案把成因写死成"键由未暂存 WIP 消息
+// 新增,非本 commit 范畴"—— ③ 形态的存量与 WIP 无关,并进去就是把成因说成一条不成立的(§0.3)。
+// 复用的是**同一档出口形态**(只打印、不进退出码,见下方 wipMissingKeyIssues 打印块)与同一份
+// byFile 分组模板,不是同一只桶。升档前置 = 本桶存量归零(§12e)。
+const directImportBlindSpotIssues = []
+// 形态③的**射程读数**(不是判据):命中多少文件、引用多少枚键 —— 有这一行,桶为空时
+// 才分得清"直取形态全数覆盖"与"直取形态压根没被扫到"(§0.3:枚举到 0 个候选不能当绿)。
+const directImportKeyUniverse = new Set()
+let directImportBoundFiles = 0
 
 // 分流:键在工作区 base 消息存在但暂存 blob 缺失 → 并行 WIP 新增键,降级 WARNING;
 // 否则照常进 ERROR 清单(真缺失)。
@@ -1179,6 +1254,27 @@ for (const file of sourceFiles) {
     // 先去注释:注释里举的反例(如 `禁止 "…后重" + tt('p1','发') 这种拼接`)会被
     // 当成真实调用点提取出 p1,而它本就不是键 —— 注释不参与渲染,不该计入缺失。
     const keys = extractHookKeys(stripComments(src))
+    // ── 绑定形态 ③(模块直取):新纳面只报数,排在原有档之前也之前不产生任何交集 ──
+    // ①② 的判序一字未动:keys 仍来自 extractHookKeys、仍按 hasKeyInMergedOrDict 判、仍走
+    // pushMissingKeyIssue 的既有分流、checkedFiles/checkedKeys 计数口径一字不改。
+    // 与 ①② 重复的键不重复报名(同一枚在原有档已被判过,再记一次会把一个成因说成两枚存量)。
+    const direct = extractDirectImportKeys(src)
+    if (direct.varNames.size > 0) {
+      directImportBoundFiles++
+      for (const k of direct.keys) directImportKeyUniverse.add(k)
+    }
+    const blindSpotKeys = direct.keys.filter((k) => !keys.includes(k))
+    if (blindSpotKeys.length > 0) {
+      const directRelPath = relative(REPO_ROOT, file)
+      for (const key of blindSpotKeys) {
+        if (hasKeyInMergedOrDict(key)) continue
+        directImportBlindSpotIssues.push({
+          file: directRelPath,
+          key,
+          hasFallback: callHasInlineFallback(src, direct.varNames, key),
+        })
+      }
+    }
     if (keys.length === 0) continue
     checkedFiles++
     checkedKeys += keys.length
@@ -1406,6 +1502,43 @@ if (wipMissingKeyIssues.length > 0) {
       `${C.yellow}  ${file}: ${keys.length} 键(样例 ${keys.slice(0, 3).join(', ')})${C.reset}`,
     )
   }
+  console.log('')
+}
+// 绑定形态 ③(模块直取)新纳面:出口形态与上面同一档(只打印、不进 shouldBlock、不改计数)。
+// 逐条点名,不截断 —— 把存量说成"样例 3 枚"就是一份不完整的账,升档时要靠这份清单逐枚清偿。
+if (CFG.hookExtract) {
+  console.log(
+    `${C.dim}  ⓘ 绑定形态③(模块直取 import { t } / { t as 别名 } from '…i18n…')射程现读:${directImportBoundFiles} 个文件在用 / 引用键 ${directImportKeyUniverse.size} 枚(全局去重)—— 新纳面只报数,不参与退出码(存量归零前不得升档);①② 档的 checkedFiles/checkedKeys 口径一字未动,故末行那句"按设计跳过源码扫描"不涵盖本族${C.reset}`,
+  )
+}
+if (directImportBlindSpotIssues.length > 0) {
+  const noFb = directImportBlindSpotIssues.filter((i) => !i.hasFallback)
+  const withFb = directImportBlindSpotIssues.filter((i) => i.hasFallback)
+  console.log(
+    `${C.yellow}[i18n 键检查] 本尺新纳面：直取形态 ${directImportBlindSpotIssues.length} 枚 —— 只报数不判红，存量归零前不得升档(AGENTS §12e)${C.reset}`,
+  )
+  console.log(
+    `${C.dim}  绑定形态:import { t } / import { t as 别名 } from '<…i18n…>'(此前门只认 useI18n 解构与 useTt 直赋两种绑定 ⇒ 这一族结构性隐身)${C.reset}`,
+  )
+  const blindByFile = new Map()
+  for (const i of directImportBlindSpotIssues) {
+    if (!blindByFile.has(i.file)) blindByFile.set(i.file, [])
+    blindByFile.get(i.file).push(i)
+  }
+  for (const [file, items] of blindByFile) {
+    console.log(`${C.yellow}  ${file}:${C.reset}`)
+    for (const i of items) {
+      console.log(
+        `${C.yellow}      '${i.key}' ${i.hasFallback ? '(带兜底串)' : '(无兜底串 ⇒ 词典缺键时用户看到裸键名)'}${C.reset}`,
+      )
+    }
+  }
+  console.log(
+    `${C.yellow}  合计:无兜底 ${noFb.length} 枚 / 带兜底 ${withFb.length} 枚 / 涉及 ${blindByFile.size} 个文件${C.reset}`,
+  )
+  console.log(
+    `${C.dim}  清偿出口:在 packages/i18n/messages/miniapp-taro/<lang>.json 五语补齐该键(或在端内兜底词典登记),补一枚本桶少一枚;本桶归零后方可谈升档${C.reset}`,
+  )
   console.log('')
 }
 // next-intl/use-intl 按 "." 路径解析消息,字面含点 key(如 "foldPolicy.title")永远不可达:

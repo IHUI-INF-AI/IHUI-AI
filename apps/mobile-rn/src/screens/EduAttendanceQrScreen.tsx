@@ -26,7 +26,11 @@ import { CameraView, useCameraPermissions } from 'expo-camera'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
 import { ChevronLeft, QrCode, RefreshCw, ScanLine } from 'lucide-react-native'
 import QRCodeSvg from 'react-native-qrcode-svg'
-import { fetchApi } from '@ihui/api-client'
+import {
+  eduAttendanceQrcode,
+  eduAttendanceQrcodeCheckIn,
+  eduClassList,
+} from '@ihui/api-client'
 import { getTokens } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
 import { rnRadius, rnRadiusFor, rnSpacing, rnType, rnCssLight } from '@ihui/design-tokens'
@@ -103,7 +107,7 @@ export function EduAttendanceQrScreen() {
   const loadClasses = useCallback(async () => {
     setLoadingClasses(true)
     try {
-      const res = await fetchApi<{ list: ClassRow[] }>('/api/edu-ai-management/class')
+      const res = await eduClassList<{ list: ClassRow[] }>()
       if (res.success) {
         setClasses(res.data?.list ?? [])
         return
@@ -131,9 +135,7 @@ export function EduAttendanceQrScreen() {
     setGenerating(true)
     setQrError(null)
     try {
-      const res = await fetchApi<QrPayloadResult>(
-        `/api/edu-ai-management/attendance/qrcode?classId=${encodeURIComponent(id)}`,
-      )
+      const res = await eduAttendanceQrcode<QrPayloadResult>({ classId: id })
       if (res.success && res.data?.payload) {
         setQr(res.data)
         return
@@ -212,7 +214,7 @@ export function EduAttendanceQrScreen() {
         </View>
       ) : (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('eduAttendanceQr.chooseClass')}</Text>
+          <Text style={styles.sectionTitle}>{t('eduAttendance.selectClass')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.classRow}>
             {classes.map((c) => {
               const on = c.id === classId
@@ -310,7 +312,7 @@ export function EduAttendanceScanScreen() {
       const token = parseAttendancePayload(data)
       if (!token) {
         busyRef.current = true
-        appAlert(t('eduAttendanceQr.scanTitle'), t('eduAttendanceQr.scanInvalidCode'), [
+        appAlert(t('eduAttendance.qrPanelTitle'), t('eduAttendanceQr.scanInvalidCode'), [
           {
             text: t('common.confirm'),
             onPress: () => {
@@ -323,25 +325,22 @@ export function EduAttendanceScanScreen() {
       busyRef.current = true
       setSubmitting(true)
       try {
-        const res = await fetchApi<QrCheckInResult>(
-          '/api/edu-ai-management/attendance/qrcode-check-in',
-          { method: 'POST', body: JSON.stringify({ token }) },
-        )
+        const res = await eduAttendanceQrcodeCheckIn<QrCheckInResult>({ token })
         if (res.success) {
           // 以后端回显展示,列表刷新交给 EduMyAttendanceScreen 的 focus 腿(不本地改行)
-          appAlert(t('eduAttendanceQr.scanTitle'), t('eduAttendanceQr.scanDone'))
+          appAlert(t('eduAttendance.qrPanelTitle'), t('eduAttendanceQr.scanDone'))
           navigation.goBack()
           return
         }
         // 401/403/400/409 一律把后端 message 上屏(过期/换班/未在册/重复签全靠它区分)
         appAlert(
-          t('eduAttendanceQr.scanTitle'),
+          t('eduAttendance.qrPanelTitle'),
           `${t('eduAttendanceQr.scanFailed')}:${res.error ?? '-'}`,
         )
         busyRef.current = false
       } catch (e) {
         appAlert(
-          t('eduAttendanceQr.scanTitle'),
+          t('eduAttendance.qrPanelTitle'),
           `${t('eduAttendanceQr.scanFailed')}:${e instanceof Error ? e.message : '-'}`,
         )
         busyRef.current = false
@@ -355,7 +354,7 @@ export function EduAttendanceScanScreen() {
   if (!isAuthenticated) {
     return (
       <View style={styles.plainSafe}>
-        <Text style={styles.plainTitle}>{t('eduAttendanceQr.scanTitle')}</Text>
+        <Text style={styles.plainTitle}>{t('eduAttendance.qrPanelTitle')}</Text>
         <Text style={styles.plainHint}>{t('eduAttendanceQr.needLogin')}</Text>
         <Tappable
           onPress={() => navigation.navigate('Login')}
@@ -381,7 +380,7 @@ export function EduAttendanceScanScreen() {
     const denied = permission.status === 'denied'
     return (
       <View style={styles.plainSafe}>
-        <Text style={styles.plainTitle}>{t('eduAttendanceQr.scanTitle')}</Text>
+        <Text style={styles.plainTitle}>{t('eduAttendance.qrPanelTitle')}</Text>
         <Text style={styles.plainHint}>
           {denied ? t('scanLogin.deniedHint') : t('scanLogin.permissionHint')}
         </Text>
@@ -408,7 +407,7 @@ export function EduAttendanceScanScreen() {
         onBarcodeScanned={submitting ? undefined : onScanned}
       />
       <View style={styles.camOverlay} pointerEvents="box-none">
-        <Text style={styles.camTitle}>{t('eduAttendanceQr.scanTitle')}</Text>
+        <Text style={styles.camTitle}>{t('eduAttendance.qrPanelTitle')}</Text>
         <View style={styles.scanFrame}>
           <View style={[styles.corner, styles.cornerTL]} />
           <View style={[styles.corner, styles.cornerTR]} />
@@ -457,7 +456,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
       marginRight: rnSpacing.sm,
       backgroundColor: tk.surface.card,
     },
-    classChipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brand.cta },
+    classChipOn: { backgroundColor: tk.brand.cta, borderColor: tk.brandAccent.deep },
     classChipText: { color: tk.text.primary, fontSize: rnType.caption.size, maxWidth: 180 },
     classChipOnText: { color: tk.brand.ctaForeground, fontWeight: '600' },
     qrArea: {
@@ -470,6 +469,7 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
     qrBox: {
       padding: rnSpacing.md,
       borderRadius: rnRadius.xl,
+      // 二维码安静区必须恒白(暗主题翻面即扫不出),取明暗同值的浅色面板档
       backgroundColor: rnCssLight.surfaceLight,
       borderWidth: 1,
       borderColor: tk.border.light,
@@ -570,8 +570,9 @@ function createQrStyles(tk: ReturnType<typeof getTokens>) {
   })
 }
 
-/** 相机层文字恒白(画面是暗底,不能依赖主题色);取亮档调色板的纯白常量,不随主题翻面。 */
-const CAMERA_TEXT = rnCssLight.surfaceLight
+/** 相机层文字恒白(画面是暗底,不能依赖主题色);取白色透明档族最高档 white98,
+ *  与小程序端压在图上的白字同一档(text-[var(--color-white-98)]),不写 hex。 */
+const CAMERA_TEXT = rnCssLight.white98
 const CAMERA_SHADOW = {
   textShadowColor: rnCssLight.black75,
   textShadowOffset: { width: 0, height: 1 },

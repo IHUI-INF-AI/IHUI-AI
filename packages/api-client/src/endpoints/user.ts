@@ -139,4 +139,41 @@ export async function getFollowing(
 export async function getFans(query: PageQuery = {}): Promise<ApiResult<PageData<FollowUser>>> {
   return fetchApi<PageData<FollowUser>>(`/api/follows/followers${buildQs(query)}`)
 }
+
+/**
+ * 等级/积分总览(2026-11-05 立,门 300 存量 A 类:web / RN / 小程序端内直拼
+ * `/api/levels/current` 收口)。
+ *
+ * 后端真值:`apps/api/src/routes/gamification.ts:400` =
+ * `findCurrentLevel(points.experience)` 的 `{ current, next, experience, progress }`
+ * ⊕ `ensureUserPoints(userId)` 的积分行 `points`。
+ * web 只读前四格、RN 用共享 `PointsLevelInfo`、小程序读 `current.name`/`experience`/`points.points`。
+ */
+export interface LevelTier {
+  level: number
+  name: string
+  minExperience: number
+}
+
+/** 积分账户行(`ensureUserPoints` 的 userPoints 表投影)。 */
+export interface UserPointsAccount {
+  points: number
+  totalEarned?: number
+  totalSpent?: number
+  level?: number
+  experience?: number
+}
+
+/** GET /api/levels/current 回包(current 恒有值:`findCurrentLevel` 空配置会抛错)。 */
+export interface CurrentLevelInfo {
+  current: LevelTier
+  next: LevelTier | null
+  experience: number
+  progress: number
+  points?: UserPointsAccount
+}
+
+export async function getCurrentLevel(): Promise<ApiResult<CurrentLevelInfo>> {
+  return fetchApi<CurrentLevelInfo>('/api/levels/current')
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

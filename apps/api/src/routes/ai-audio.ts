@@ -220,7 +220,7 @@ export const aiAudioRoutes: FastifyPluginAsync = async (server) => {
   const ttsBody = z.object({
     text: z.string(),
     voice_id: z.string().optional(),
-    response_format: z.string().optional(),
+    response_format: z.string().regex(/^[a-z0-9]+$/, 'response_format 仅允许字母数字').optional(),
     rate: z.string().optional(),
     volume: z.string().optional(),
     pitch: z.string().optional(),

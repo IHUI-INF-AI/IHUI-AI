@@ -91,15 +91,17 @@ export default function AgentListPanel({
     >
       {/* RN 共享 AgentScreen 无面板内标题,仅 sheet 形态保留 */}
       {isSheet ? (
-        <View className="flex items-center justify-between px-4 py-3 mb-2">
-          <Text className="text-sm font-medium text-foreground">{tt('agent.title', '智能体')}</Text>
+        <View className="flex items-center justify-between px-lg py-md mb-sm">
+          <Text className="text-body font-medium text-foreground">
+            {tt('agent.title', '智能体')}
+          </Text>
         </View>
       ) : null}
       <ScrollView scrollY style={isSheet ? { maxHeight: '40vh' } : undefined}>
-        <View className={isSheet ? 'px-3 py-2' : ''}>
+        <View className={isSheet ? 'px-md py-sm' : ''}>
           {loading ? (
-            <View className="py-8 text-center">
-              <Text className="text-sm text-muted-foreground">
+            <View className="py-3xl text-center">
+              <Text className="text-body text-muted-foreground">
                 {tt('common.loadingShort', '加载中...')}
               </Text>
             </View>

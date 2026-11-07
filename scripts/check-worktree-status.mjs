@@ -26,6 +26,8 @@ import { resolve } from 'node:path'
 import { gitBinary } from './lib/face-reader.mjs'
 
 const UNMERGED = new Set(['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'])
+/** 红消息里最多点名几枚未跟踪路径(有界,不把整片在飞现场灌进日志)。 */
+const UNTRACKED_NAMED_MAX = 12
 
 function gitEnv() {
   const env = { ...process.env }
@@ -85,11 +87,16 @@ export function parseWorktreePorcelain(out) {
 
 export function parseStatusPorcelain(out) {
   const counts = { staged: 0, unstaged: 0, untracked: 0, conflicts: 0 }
+  // 红消息只报计数时,"CI 干净检出上到底多出来哪一枚"永远查不到主(2026-11-05 实测:CI 面上
+  // 反复出现一枚未跟踪的 `D:` 目录,门 44 点得出名、本门点不出,两轮全量档无人能归因)。
+  // 故随计数并收前 N 枚未跟踪路径 —— 有界是为了不把整片在飞现场灌进日志。
+  const list = []
   for (const line of out.split(/\r?\n/)) {
     if (!line) continue
     const xy = line.slice(0, 2)
     if (xy === '??') {
       counts.untracked += 1
+      if (list.length < UNTRACKED_NAMED_MAX) list.push(line.slice(3).trim())
       continue
     }
     if (xy === '!!') continue
@@ -100,7 +107,7 @@ export function parseStatusPorcelain(out) {
     if (xy[0] !== ' ') counts.staged += 1
     if (xy[1] !== ' ') counts.unstaged += 1
   }
-  return counts
+  return { ...counts, untrackedList: list, untrackedMore: counts.untracked - list.length }
 }
 
 function samePath(a, b) {
@@ -254,6 +261,13 @@ function main(argv) {
         console.error(
           `❌ ${subjectIsMain ? '主工作树' : `当前工作树(${subject.path})`}存在本次提交之外的未提交内容(unstaged=${subject.unstaged} untracked=${subject.untracked} conflict=${subject.conflicts} stash=${subject.stashes}),提交阻断`,
         )
+        // 计数不指认现场:CI 干净检出上反复出现的未跟踪条目(2026-11-05 实测是一枚名为 `D:` 的
+        // 目录)此前只能靠别的门猜。点名到路径,归因才有下落。
+        if (mainTree.untracked > 0 && mainTree.untrackedList?.length) {
+          console.error(
+            `   点名未跟踪(前 ${mainTree.untrackedList.length} 枚${mainTree.untrackedMore > 0 ? `,还有 ${mainTree.untrackedMore} 枚未列` : ''}):${mainTree.untrackedList.join(' | ')}`,
+          )
+        }
       }
       return 1
     }

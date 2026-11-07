@@ -15,10 +15,6 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { repairMessages, type RepairableMessage, type ChatMessage } from '@ihui/types';
 import { tryParseJson, isRecord } from '../util/json.js';
-// 会话 id 来自 --resume/--continue 或磁盘内容:文件名收敛 + 落点断言统一走 util/path-guard。
-import { assertPathInside, segmentFilePathInside } from '../util/path-guard.js';
-// BUG-0010:会话历史落盘走唯一原子写出口 —— 高频保存期间被中断/并发读不得留下截断 JSON。
-import { writeFileAtomicSync } from '../util/atomic-write.js';
 export type { ChatMessage };
 
 export interface Session {
@@ -31,7 +27,15 @@ export interface Session {
 }
 
 export function getSessionsDir(): string {
+  if (process.env.IHUI_CLI_SESSIONS_DIR) return process.env.IHUI_CLI_SESSIONS_DIR;
   return path.join(os.homedir(), '.ihui', 'sessions');
+}
+
+function sessionReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
 }
 
 function ensureSessionsDir(): void {
@@ -49,26 +53,37 @@ export function createSession(workspacePath: string, modelId: string): Session {
 }
 
 export function saveSession(session: Session): void {
+  const filePath = path.join(getSessionsDir(), `${session.id}.json`);
+  let raw: string | null = null;
+  try {
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`会话读不到,不能把它覆盖成新会话 (${code})`);
+    }
+  }
+  if (raw !== null && raw.trim() !== '' && !isRecord(tryParseJson(raw))) {
+    throw new Error('会话读不到,不能把它覆盖成新会话 (corrupt)');
+  }
   ensureSessionsDir();
   session.updatedAt = new Date().toISOString();
-  writeFileAtomicSync(sessionFilePath(session.id), JSON.stringify(session, null, 2));
-}
-
-/** 会话文件路径的唯一构造入口(与 compaction 账本共用同一判据)。 */
-function sessionFilePath(id: string): string {
-  return segmentFilePathInside(getSessionsDir(), id, '.json', '会话文件');
+  fs.writeFileSync(filePath, JSON.stringify(session, null, 2), 'utf-8');
 }
 
 export function loadSession(id: string): Session | null {
-  const filePath = sessionFilePath(id);
-  if (!fs.existsSync(filePath)) return null;
+  const filePath = path.join(getSessionsDir(), `${id}.json`);
+  let raw: string;
   try {
-    const parsed = tryParseJson(fs.readFileSync(filePath, 'utf-8'));
-    // 非对象内容视为损坏文件
-    return isRecord(parsed) ? (parsed as unknown as Session) : null;
-  } catch {
-    return null;
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    const code = sessionReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null;
+    throw new Error(`会话读不到,不能把它说成没有这场会话 (${code})`);
   }
+  const parsed = tryParseJson(raw);
+  // 非对象内容视为损坏文件
+  return isRecord(parsed) ? (parsed as unknown as Session) : null;
 }
 
 export function listSessions(): Session[] {
@@ -77,15 +92,18 @@ export function listSessions(): Session[] {
   const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
   const sessions: Session[] = [];
   for (const f of files) {
+    const filePath = path.join(dir, f);
+    let raw: string;
     try {
-      // readdir 只保证单段名,但根内符号链接文件仍可指向根外:读前断言,失败只跳过这一条。
-      const full = assertPathInside(dir, path.join(dir, f), '会话文件');
-      const parsed = tryParseJson(fs.readFileSync(full, 'utf-8'));
-      // 跳过损坏 / 非对象文件
-      if (isRecord(parsed)) sessions.push(parsed as unknown as Session);
-    } catch {
-      /* 损坏或越界(符号链接指向根外)的文件逐条跳过,不让整批失败 */
+      raw = fs.readFileSync(filePath, 'utf-8');
+    } catch (error) {
+      const code = sessionReadCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      throw new Error(`会话读不到,不能把它说成没有这场会话 (${code})`);
     }
+    const parsed = tryParseJson(raw);
+    // 跳过损坏 / 非对象文件
+    if (isRecord(parsed)) sessions.push(parsed as unknown as Session);
   }
   return sessions.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 }
@@ -110,17 +128,12 @@ export function getMostRecentSession(): Session | null {
  *   5. 移除末尾无响应的 user 消息(interjection 残留,没有 assistant 响应)
  *
  * 返回修复后的 history + 移除条数 + 修复原因清单(供 /repair 命令展示)。
- *
- * BUG-0015:入参泛型收敛到 `RepairableMessage`(role: string)。本函数的输入域本就是
- * 「磁盘上不可信 JSON」——非法 role、缺 id 的脏消息正是它要清理的对象;原先声明为
- * `ChatMessage[]` 再在函数体里 `as RepairableMessage[]` 强转,是把"输入一定合法"
- * 写在签名上、把真实前提藏在 cast 里。泛型化后 cast 消失,调用方拿回自己的窄类型。
  */
-export function repairSessionHistory<T extends RepairableMessage>(
-  history: T[],
+export function repairSessionHistory(
+  history: ChatMessage[],
   options?: { keepTrailingUser?: boolean },
 ): {
-  repaired: T[];
+  repaired: ChatMessage[];
   removed: number;
   reasons: string[];
 } {
@@ -128,7 +141,11 @@ export function repairSessionHistory<T extends RepairableMessage>(
   // (主动修复时应删除末尾无响应的 interjection 残留);LLM 请求链路如需保留当前输入
   // (末尾 user),由调用方显式传 { keepTrailingUser: true } —— 与 message-repair.ts
   // Rule 5 的 keepTrailingUser 语义一致,CLI 发送链路不经过本函数,无行为变化。
-  return repairMessages(history, options);
+  return repairMessages(history as RepairableMessage[], options) as {
+    repaired: ChatMessage[];
+    removed: number;
+    reasons: string[];
+  };
 }
 
 /**

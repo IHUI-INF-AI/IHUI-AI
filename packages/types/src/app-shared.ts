@@ -42,11 +42,19 @@ export interface SharedUserStatistics {
   points?: number
 }
 
+/** 身份标签(个人页身份行:vip / admin / normal;纯展示,不参与鉴权) */
+export interface SharedIdentityTag {
+  text: string
+  tone?: 'vip' | 'admin' | 'normal'
+}
+
 /** 菜单项(个人页/设置页通用) */
 export interface SharedMenuItem {
   key: string
   label: string
   icon?: AppIcon | string
+  /** 右侧读数(账号信息类行展示昵称/手机号等);缺省不渲染 */
+  value?: string
 }
 
 /** 菜单分组(个人页多 section 列表) */

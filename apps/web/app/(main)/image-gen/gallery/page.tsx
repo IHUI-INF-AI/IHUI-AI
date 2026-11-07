@@ -12,7 +12,7 @@ import Image from 'next/image'
 
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
-import { apiOrThrow } from '@/lib/api'
+import { getImageGallery } from '@ihui/api-client'
 import { Card, CardContent } from '@ihui/ui-react'
 
 interface GalleryItem {
@@ -35,7 +35,11 @@ export default function ImageGenGalleryPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['image-gen', 'gallery'],
-    queryFn: () => apiOrThrow<ListData>('/api/image-gen/gallery'),
+    queryFn: async (): Promise<ListData> => {
+      const res = await getImageGallery<GalleryItem>()
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data
+    },
     enabled: allow,
   })
 

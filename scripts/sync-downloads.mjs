@@ -39,6 +39,12 @@ import { readFile, writeFile, copyFile, stat, readdir, mkdir } from 'node:fs/pro
 import { existsSync } from 'node:fs'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  UPDATE_MANIFEST_FILENAME,
+  renderVerifyReport,
+  verifyDirectory,
+  writeUpdateFileManifest,
+} from './update-file-manifest.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -686,6 +692,20 @@ ${C.bold}路径映射:${C.reset}
   // 写入 manifest(仅 sync 模式和 dry-run 模式)
   log('info', '写入 manifest.json...')
   await writeManifest(platforms, dryRun)
+
+  // 逐文件 sha256 清单(2026-11-04):随发布产物一起落盘并**当场自校验**。
+  // 任何文件 size/sha256 不符、包里多文件(清单缺项)、清单多路径(清单多项)都直接中止发布,
+  // 不做"只在 debug 跑"也不做"失败只打日志继续"。
+  if (!dryRun && existsSync(DOWNLOADS_DIR)) {
+    const manifestPath = join(DOWNLOADS_DIR, UPDATE_MANIFEST_FILENAME)
+    const fileManifest = await writeUpdateFileManifest(DOWNLOADS_DIR, manifestPath)
+    const verdict = await verifyDirectory(DOWNLOADS_DIR, fileManifest)
+    console.log(renderVerifyReport(verdict, DOWNLOADS_DIR))
+    if (!verdict.ok) {
+      throw new Error(`更新包逐文件自校验失败:${verdict.issues.length} 项不符,已中止发布`)
+    }
+    log('ok', `逐文件 sha256 清单已发布: ${join('apps/web/public/downloads', UPDATE_MANIFEST_FILENAME)}(${fileManifest.files.length} 个文件)`)
+  }
 
   // 汇总
   console.log()

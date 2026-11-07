@@ -89,6 +89,8 @@
     "toolWorkbookClose": "關閉工作簿",
     "toolGenerateTest": "產生測試程式碼",
     "toolRunCommand": "執行命令",
+    "toolSandboxSession": "沙箱會話",
+    "toolReadToolOutput": "讀取工具輸出",
     "toolGitOperations": "執行 Git 操作",
     "toolFetchUrl": "讀取網頁內容",
     "toolCrawlSite": "抓取網站頁面",
@@ -1526,7 +1528,36 @@
     "total": "總榜",
     "rank": "排名",
     "points": "積分",
-    "isMe": "我"
+    "isMe": "我",
+    "unitCreation": "分",
+    "listTitle": "AI榜單",
+    "searchPlaceholder": "搜尋 AI 工具",
+    "generalHelper": "通用助手",
+    "free": "免費",
+    "fenlei": "分類",
+    "menu": "菜單",
+    "detailTitle": "詳情頁",
+    "statusUnknown": "未知",
+    "detail": {
+      "attention": "關注度",
+      "category": "類別",
+      "price": "價格",
+      "status": "狀態",
+      "subCategory": "細分類別",
+      "productForm": "產品形式",
+      "org": "所屬機構",
+      "url": "官方網址",
+      "copyHint": "點擊複製",
+      "contentTitle": "詳細介紹",
+      "loadFailed": "取得詳情"
+    },
+    "noData": "暫無排行數據",
+    "subtitle": "學習排行榜,看看你排第幾",
+    "retry": "重試",
+    "me": "我",
+    "studyHours": "學習 {count} 小時",
+    "histFallback": "歷史會話",
+    "visitorName": "排行榜訪客"
   },
   "vip": {
     "title": "VIP 會員",
@@ -2620,6 +2651,446 @@
           }
         }
       }
+    },
+    "messageVersion": {
+      "history": "歷史版本",
+      "regenerateFailed": "重新產生失敗"
+    },
+    "contextUsage": {
+      "title": "上下文使用情況",
+      "segSystem": "系統提示",
+      "segToolSchema": "工具定義",
+      "segSkill": "技能正文",
+      "segRoleUser": "使用者訊息",
+      "segRoleAssistant": "助手回覆",
+      "segRoleToolCall": "工具呼叫參數",
+      "segRoleToolResult": "工具結果",
+      "segSystemPrompt": "系統提示（整段）",
+      "unnamedItem": "未命名條目",
+      "resultSuffix": "結果",
+      "unobservedServerOnly": "該部分在服務端裝配，本端取不到確切用量",
+      "unobservedNotSupplied": "本輪未下發該系統段",
+      "detailsTruncated": "另有 {count} 條未展開",
+      "residualLabel": "未歸類開銷"
+    },
+    "title": "AI 助手",
+    "inputPlaceholder": "輸入你的問題…",
+    "suggestions": [
+      "幫我寫一首詩",
+      "解釋量子力學",
+      "寫一段程式碼",
+      "翻譯這段話"
+    ],
+    "stop": "停止",
+    "clear": "清空",
+    "clearConfirm": "確定要清空目前對話嗎?",
+    "serviceUnavailable": "AI 服務異常",
+    "modelLoadFailed": "模型載入失敗",
+    "materialLoadFailed": "素材載入失敗",
+    "agentLoadFailed": "智慧體載入失敗",
+    "agent": {
+      "count": "{n} 個",
+      "empty": "暫無智慧體",
+      "inputPlaceholder": "輸入你的問題…",
+      "searchPlaceholder": "搜尋智慧體"
+    },
+    "agentDetail": {
+      "runtimeTitle": "執行狀態",
+      "runtimeClear": "清空",
+      "runtimePlan": "執行計畫",
+      "runtimePermission": "權限",
+      "runtimePermissionTool": "工具",
+      "runtimePermissionLevel": "危險等級",
+      "runtimePermissionMode": "模式",
+      "runtimeOutput": "輸出",
+      "runtimeError": "錯誤",
+      "runtimeEmpty": "暫無執行記錄",
+      "runtimeInputPlaceholder": "輸入訊息…",
+      "runtimeStop": "停止",
+      "runtimeSend": "傳送",
+      "exampleDialog": "示例對話",
+      "favoriteAgent": "收藏智慧體",
+      "favorited": "已收藏",
+      "permissionAllowed": "已授權",
+      "permissionDenied": "未授權",
+      "permissionLoading": "權限載入中…",
+      "prologue": "開場白",
+      "promptLabel": "提示詞",
+      "relatedAgents": "相關推薦",
+      "startChat": "開始對話",
+      "tabRuntime": "執行狀態",
+      "unfavorite": "取消收藏",
+      "vipExclusive": "VIP 專屬",
+      "vipPermissionDenied": "該智慧體需要 VIP 權限"
+    },
+    "agentList": {
+      "categories": {
+        "coding": "編程",
+        "education": "教育",
+        "life": "生活",
+        "office": "辦公",
+        "other": "其他",
+        "recommend": "推薦",
+        "writing": "寫作"
+      },
+      "createAgent": "創建智慧體",
+      "emptyFavorites": "暫無收藏智慧體",
+      "emptyRecent": "暫無最近使用智慧體",
+      "hot": "熱門",
+      "hotRecommend": "熱門推薦",
+      "noResult": "未找到相關智慧體",
+      "sortBy": "排序",
+      "sortHot": "熱門",
+      "sortNewest": "最新",
+      "sortUses": "使用數",
+      "tabAll": "全部",
+      "tabFavorites": "我的收藏",
+      "tabRecent": "最近使用",
+      "useCount": "{n}人使用"
+    },
+    "aiAssistant": {
+      "copyFailed": "複製失敗",
+      "pleaseLogin": "請先登入"
+    },
+    "chat": {
+      "replayFailed": "該會話訊息載入失敗,請重試",
+      "loadEarlier": "載入更早訊息",
+      "earlierLoading": "載入中…",
+      "earlierLoadFailed": "更早訊息載入失敗,請重試",
+      "agentTipConfirm": "我知道了",
+      "agentTipHistory": "歷史記錄",
+      "agentTipHistoryDesc": "可查看歷史對話",
+      "agentTipImage": "選擇繪圖",
+      "agentTipImageDesc": "切換到繪圖模式,生成圖片",
+      "agentTipInput": "輸入問題",
+      "agentTipInputDesc": "在底部輸入框輸入你的問題,按傳送",
+      "agentTipSkill": "選擇技能",
+      "agentTipSkillDesc": "點擊左上角技能按鈕,選擇對應智慧體",
+      "agentTipTalk": "選擇對話",
+      "agentTipTalkDesc": "切換到對話模式,與 AI 直接交流",
+      "agentTipTitle": "智慧體使用說明"
+    },
+    "chatDrawers": {
+      "promptLabel": "提示詞",
+      "selectModel": "選擇模型",
+      "skillDetail": "技能詳情"
+    },
+    "chatMessageItem": {
+      "ai": "AI",
+      "aiGenerated": "智匯AI生成",
+      "collapse": "收起",
+      "copy": "複製",
+      "digitalHuman": "數字人生成 →",
+      "downloadFailed": "下載失敗",
+      "downloading": "下載中",
+      "edit": "編輯",
+      "errorCardTitle": "請求出錯",
+      "favorited": "已收藏",
+      "me": "我",
+      "needAlbumAuth": "需要相簿權限才能儲存圖片,請在設定中開啟",
+      "noContent": "沒有可複製的內容",
+      "regenerate": "重新生成",
+      "retry": "重試",
+      "reuse": "復用",
+      "share": "分享",
+      "speak": "朗讀",
+      "stopSpeak": "停止",
+      "thinkingProcess": "思考過程",
+      "tokenCost": "消耗智匯值:{n}",
+      "viewDigitalHuman": "查看數字人",
+      "voiceMessage": "語音消息"
+    },
+    "common": {
+      "loading": "載入中…"
+    },
+    "fileSelected": "已選 {count} 個檔案",
+    "screenshotHint": "已偵測到截屏，可點輸入框左側 + 從相簿選擇圖片發給 AI 分析",
+    "generating": "正在極速生成中",
+    "history": {
+      "clearConfirm": "確定清空所有歷史對話?",
+      "cleared": "歷史已清空",
+      "empty": "暫無歷史",
+      "title": "歷史對話"
+    },
+    "historyPage": {
+      "loadMoreFailed": "載入更多失敗,請下拉重新載入",
+      "deleteFailed": "刪除失敗,請重試",
+      "clearAll": "清空全部",
+      "clearConfirm": "確定要清空全部對話歷史嗎?",
+      "cleared": "已清空",
+      "clearServerConfirm": "將永久刪除服務端目前已載入的 {n} 條會話,無法復原。確定清空嗎?",
+      "clearServerProgress": "正在刪除 {done}/{n}…",
+      "clearServerDone": "已清空 {n} 條會話",
+      "clearServerPartial": "成功 {ok} 條,失敗 {fail} 條,失敗會話已保留",
+      "deleteOne": "刪除該對話",
+      "empty": "暫無對話歷史",
+      "fallbackNotice": "伺服器端對話載入失敗,當前顯示本機歷史記錄。",
+      "msgCount": "{n} 條訊息",
+      "noMore": "沒有更多了",
+      "noResult": "未找到相關對話",
+      "pin": "置頂",
+      "pinFailed": "置頂失敗,請重試",
+      "pinned": "已置頂",
+      "refreshSuccess": "重新整理成功",
+      "searchPlaceholder": "搜尋對話歷史",
+      "startNew": "開始新對話",
+      "unpinFailed": "取消置頂失敗,請重試"
+    },
+    "image": {
+      "download": "下載",
+      "downloadFailed": "下載失敗,請重試",
+      "downloadSuccess": "已儲存到相簿",
+      "empty": "暫無生成記錄",
+      "emptyHint": "輸入描述生成圖片",
+      "favorite": "收藏",
+      "favoriteAdded": "已加入收藏",
+      "favoriteRemoved": "已取消收藏",
+      "favorited": "已收藏",
+      "generate": "生成圖片",
+      "generateFailed": "生成失敗,請重試",
+      "generating": "生成中…",
+      "history": "歷史記錄",
+      "placeholder": "描述你想生成的圖片",
+      "share": "分享",
+      "title": "圖片生成",
+      "tryThese": "試試這些",
+      "vertical": "直圖 1024×1792",
+      "examples": [
+        "一隻可愛的貓咪",
+        "日落山景",
+        "未來城市",
+        "抽象藝術"
+      ],
+      "styles": [
+        "寫實",
+        "動漫",
+        "油畫",
+        "水彩",
+        "3D",
+        "像素"
+      ]
+    },
+    "inputArea": {
+      "holdToSpeak": "按住說話",
+      "releaseToSend": "鬆開傳送"
+    },
+    "intelligentAssistant": {
+      "greeting": "你好,我是智匯 AI 助手",
+      "loginRequired": "請先登入後使用",
+      "recharge": "去儲值",
+      "subtitle": "隨時為你提供 AI 服務",
+      "tokenBalance": "Token 餘額:{n}"
+    },
+    "materialPopup": {
+      "empty": "暫無素材",
+      "loadMore": "載入更多",
+      "noMore": "沒有更多了",
+      "title": "選擇素材",
+      "upload": "上傳"
+    },
+    "messageAction": {
+      "copy": "複製",
+      "delete": "刪除",
+      "reuse": "復用",
+      "pin": "釘選",
+      "unpin": "取消釘選",
+      "bookmark": "收藏",
+      "unbookmark": "取消收藏",
+      "flagFailed": "標記儲存失敗"
+    },
+    "share": {
+      "title": "分享"
+    },
+    "skillsPopup": {
+      "empty": "暫無可用技能",
+      "notFound": "未找到相關技能",
+      "searchPlaceholder": "搜尋技能",
+      "title": "選擇技能",
+      "uses": "{n} 次使用"
+    },
+    "special": {
+      "bannerDesc": "一站式聚合 AI 對話/繪圖/影片/語音/智能體/模型廣場,精選推薦能力即時使用",
+      "bannerTitle": "AI 專題聚合",
+      "cat": {
+        "agent": "智能體",
+        "all": "全部",
+        "chat": "AI 對話",
+        "image": "AI 繪圖",
+        "plaza": "模型廣場",
+        "video": "AI 影片",
+        "voice": "AI 語音"
+      },
+      "empty": "暫無內容",
+      "error": "載入失敗",
+      "featured": "精選推薦",
+      "history": "我的使用記錄",
+      "historySoon": "歷史記錄即將開放",
+      "pageError": "操作失敗",
+      "useBtn": "立即使用",
+      "useCount": "{n} 次使用"
+    },
+    "specialModel": {
+      "confirm": "確認切換",
+      "hint": "提示"
+    },
+    "stream": {
+      "compact": "上下文已壓縮 {before} → {after}",
+      "fallback": "已切換備用模型:{model}",
+      "planUpdate": "執行計劃已更新",
+      "reconnect": "連線中斷,{seconds}s 後第 {attempt} 次重連",
+      "gatewayRetry": "第 {attempt}/{max} 次重試,{seconds} 秒後繼續",
+      "subagent": "子任務:{phase}",
+      "title": "執行過程",
+      "toolSummary": "工具彙總:{calls} 次調用",
+      "terminal": "終端任務:{status}",
+      "usage": "用量:{n} tokens"
+    },
+    "switchAgent": {
+      "confirm": "確認切換"
+    },
+    "thinkingTip": "Tips:您可以先點擊右上角三個點浮窗小程式,過一會兒再回來喲~",
+    "tishi": {
+      "close": "關閉",
+      "needInput": "小方需要您輸入以下相關內容,以便於更精準的解決您的需求",
+      "title": "智能體引導說明",
+      "view": "查看"
+    },
+    "uploadMaterialTab": "上傳{tab}素材",
+    "video": {
+      "download": "下載",
+      "downloadFailed": "下載失敗,請重試",
+      "downloadSuccess": "已儲存到相簿",
+      "emptyHistory": "暫無歷史記錄",
+      "failed": "生成失敗",
+      "generate": "生成影片",
+      "generateFailed": "生成失敗,請重試",
+      "generating": "生成中…",
+      "history": "歷史記錄",
+      "modelUnavailable": "該模型 API 暫未開放",
+      "notAvailable": "未開放",
+      "pending": "排隊中…",
+      "promptPlaceholder": "描述你想要生成的影片內容...",
+      "share": "分享",
+      "succeeded": "生成完成",
+      "taskSubmitted": "任務已提交,請稍後查看歷史",
+      "title": "影片生成",
+      "duration": "時長",
+      "resolution": "分辨率",
+      "fps": "幀率",
+      "vendors": {
+        "sora2": "Sora2",
+        "sora2Desc": "使用 Sora2 生成視頻",
+        "kling": "Kling",
+        "klingDesc": "生成高質量 AI 視頻",
+        "doubao": "豆包",
+        "doubaoDesc": "使用豆包模型生成視頻",
+        "dashscope": "DashScope",
+        "dashscopeDesc": "使用阿里雲 DashScope 生成視頻"
+      }
+    },
+    "voice": {
+      "chatFailed": "對話失敗,請重試",
+      "clearChat": "清空對話",
+      "clearConfirm": "確定要清空目前對話嗎?",
+      "cleared": "對話已清空",
+      "holdToSpeak": "按住說話",
+      "recordFailed": "錄音失敗,請重試",
+      "releaseToSend": "鬆開傳送",
+      "speed": "語速",
+      "timbre": "音色",
+      "title": "AI 語音對話",
+      "voiceMessage": "[語音訊息]",
+      "welcome": "你好,長按下方按鈕開始語音對話"
+    },
+    "welcomeDesc": "有什麼可以幫你的嗎?",
+    "welcomeTitle": "你好,我是智匯 AI 助手",
+    "businessForms": {
+      "ariaLabel": "業務表單卡",
+      "aria": {
+        "email": "郵件撰寫卡",
+        "calendarEvent": "日曆表單卡"
+      },
+      "fields": {
+        "to": "收件人",
+        "cc": "副本",
+        "bcc": "密件副本",
+        "subject": "主旨",
+        "replyTo": "回覆至",
+        "body": "內文",
+        "start": "開始",
+        "end": "結束",
+        "attendees": "出席人"
+      },
+      "action": {
+        "approve": "批准",
+        "reject": "拒絕",
+        "create": "建立",
+        "save": "儲存"
+      },
+      "error": {
+        "required": "請填寫必填欄位",
+        "invalidEmail": "電子郵件格式不正確",
+        "endBeforeStart": "結束時間需晚於開始時間",
+        "noAttendees": "請至少新增一位出席人"
+      },
+      "reason": "拒絕理由(可選)",
+      "fold": {
+        "expand": "展開全部 {count} 位出席人",
+        "collapse": "收合出席人"
+      },
+      "status": {
+        "submitting": "提交中…",
+        "approved": "已批准",
+        "rejected": "已拒絕",
+        "failed": "提交失敗，請重試"
+      }
+    },
+    "cards": {
+      "steer": {
+        "title": "已引導 {count} 次",
+        "more": "等 {count} 條"
+      },
+      "plan": {
+        "title": "執行計畫"
+      },
+      "tool": {
+        "title": "工具呼叫"
+      },
+      "terminal": {
+        "title": "終端任務",
+        "isolation": "命令在隔離沙箱中執行，預設不開放網路",
+        "copy": "複製",
+        "copied": "已複製",
+        "exitCode": "結束碼: {code}",
+        "truncated": "…(已截斷,共 {total} 字符)"
+      },
+      "citation": {
+        "title": "參考來源"
+      },
+      "injection": {
+        "title": "本輪參考的上下文",
+        "kind": {
+          "developer": "自訂指令",
+          "workspace": "工作區記憶",
+          "repoWiki": "倉庫 Wiki",
+          "autoContext": "自動檢索上下文"
+        },
+        "expand": "展開",
+        "collapse": "收起"
+      },
+      "status": {
+        "running": "執行中",
+        "done": "已完成",
+        "failed": "失敗"
+      },
+      "source": {
+        "builtin": "內建",
+        "plugin": "外掛",
+        "mcp": "MCP"
+      },
+      "subagent": {
+        "title": "子任務"
+      }
     }
   },
   "streamErrors": {
@@ -2841,5 +3312,152 @@
     "exportingReport": "匯出中...",
     "exportEmptyHint": "產生報告後可匯出",
     "exportLoginRequired": "請先登入後再匯出"
+  },
+  "message": {
+    "tabs": {
+      "all": "全部",
+      "system": "系統",
+      "interaction": "互動",
+      "private": "私信"
+    },
+    "notifLabels": {
+      "system": "系統通知",
+      "interaction": "互動訊息",
+      "private": "私信",
+      "marketing": "行銷訊息"
+    },
+    "notifDescs": {
+      "system": "帳戶、訂單、安全等系統通知",
+      "interaction": "按讚、留言、關注等互動訊息",
+      "private": "其他使用者發給你的私信",
+      "marketing": "優惠活動、新品推薦等"
+    },
+    "hello": "你好,我是 {name}",
+    "justNow": "剛剛",
+    "unnamedRoom": "未命名會話",
+    "empty": "暫無訊息",
+    "deleted": "已刪除",
+    "notFound": "未找到相關會話",
+    "settings": "設定",
+    "notificationSettings": "通知設定",
+    "close": "關閉",
+    "startConversation": "開始你們的對話",
+    "inputPlaceholder": "輸入消息...",
+    "sendBtn": "發送",
+    "noPrivate": "暫無私信",
+    "noSystem": "暫無系統通知",
+    "pin": "置頂會話",
+    "unpin": "取消置頂"
+  },
+  "developer": {
+    "withdrawal": {
+      "title": "提現記錄",
+      "processing": "處理中",
+      "empty": "暫無提現記錄"
+    },
+    "subscribe": {
+      "recommended": "推薦",
+      "devName": "開發者",
+      "unfollowed": "已取消關注",
+      "noContact": "暫無聯絡方式",
+      "bioDefault": "暫無簡介",
+      "subscribedBtn": "已關注",
+      "subscribeBtn": "+ 關注",
+      "statSubscribers": "訂閱人數",
+      "statModels": "模型數",
+      "statUses": "總使用次數",
+      "modelsTitle": "開發者模型",
+      "noModels": "暫無模型",
+      "notifyTitle": "通知設定",
+      "notifyNew": "新模型釋出提醒",
+      "notifyUpdate": "模型更新提醒",
+      "postsTitle": "開發者動態",
+      "noPosts": "暫無動態",
+      "contact": "聯絡開發者",
+      "copied": "已複製聯絡方式",
+      "noDesc": "暫無描述",
+      "subscribed": "已關注",
+      "use": "使用",
+      "uses": "使用"
+    },
+    "income": {
+      "withdrawn": "已提現",
+      "withdrawPopup": "提現",
+      "withdrawAvailable": "可提現金額 ¥",
+      "withdrawPlaceholder": "請輸入提現金額",
+      "withdrawAll": "全部提現",
+      "noAvailable": "暫無可提現金額",
+      "invalidAmount": "請輸入有效金額",
+      "exceedAvailable": "提現金額超出可提現額度",
+      "withdrawSubmitted": "提現申請已提交",
+      "withdrawFailed": "提現失敗,請稍後重試",
+      "withdrawnYuan": "已提現(元)",
+      "selectMethod": "請選擇提現方式",
+      "settled": "已結算",
+      "pending": "待結算",
+      "titleIncome": "智慧體收入",
+      "processing": "處理中",
+      "titleDetail": "提現明細",
+      "tabAll": "全部",
+      "tabPending": "待結算",
+      "tabSettled": "已結算",
+      "cashDetail": "提現明細",
+      "todayIncome": "今日收入",
+      "pendingSettlement": "待結算金額",
+      "feeTip": "平臺限時不收取任何服務費",
+      "noMore": "沒有更多了",
+      "cashEmpty": "暫無提現明細"
+    },
+    "index": {
+      "subscribeTitle": "訂閱服務",
+      "subscribeDesc": "升級解鎖更多能力",
+      "unnamedAgent": "未命名智慧體",
+      "published": "已發布",
+      "empty": "暫無智慧體",
+      "tip": "提示",
+      "deleteConfirm": "確認刪除智慧體",
+      "deleteBtn": "刪除",
+      "deleteOk": "刪除成功",
+      "deleteFail": "刪除失敗",
+      "noType": "—",
+      "myAgents": "我的智慧體",
+      "searchPlaceholder": "搜尋智慧體名稱",
+      "typeLabel": "類型",
+      "editBtn2": "修改",
+      "editBtn": "設定",
+      "noMore": "沒有更多了"
+    },
+    "becomeDeveloper": "成為開發者"
+  },
+  "news": {
+    "search": "搜尋資訊",
+    "empty": "暫無資訊",
+    "cat": {
+      "announce": "公告",
+      "activity": "活動",
+      "info": "資訊",
+      "tutorial": "教程",
+      "all": "全部"
+    },
+    "pinned": "置頂",
+    "title": "AI資訊",
+    "anonAuthor": "佚名",
+    "netFail": "網路異常",
+    "detailTitle": "資訊詳情",
+    "notFound": "資訊不存在",
+    "emptyContent": "暫無正文",
+    "tags": "標籤",
+    "loadFailed": "載入失敗",
+    "publishedAt": "發佈於 {date}",
+    "viewCount": "{count} 次瀏覽",
+    "categoryBackToList": "返回資訊",
+    "categoryNotFound": "分類不存在",
+    "categoryEmpty": "暫無資訊",
+    "categoryPinned": "置頂",
+    "categorySubtitle": "最新動態與公告",
+    "categoryLoadFailed": "載入失敗",
+    "categoryTotal": "共 {total} 篇",
+    "categoryPublishedAt": "發佈於 {date}",
+    "categoryViewCount": "{count} 次瀏覽"
   }
 }

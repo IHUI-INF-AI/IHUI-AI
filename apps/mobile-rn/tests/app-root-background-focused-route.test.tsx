@@ -19,8 +19,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 
 const env = vi.hoisted(() => {
-  // App.tsx 模块求值期有 `if (__DEV__)`(jsdom 无此全局,不定义即 ReferenceError)
-  ;(globalThis as Record<string, unknown>).__DEV__ = false
+  // App.tsx 模块求值期有 `if (__DEV__)`(jsdom 无此全局,不定义即 ReferenceError)。
+  // 必须置 true 而不是 false:vitest.config.ts 把 EXPO_PUBLIC_API_BASE_URL 钉成本机回环
+  // (http://localhost:8802),而 src/lib/config.ts 对「发布档 + 回环 API」直接抛错拒绝启动;
+  // App 根现在经 UpdatePrompt → src/lib/apk-update.ts 在模块求值期读该配置,
+  // 置 false 等于让夹具同时声称"发布档"和"回环 API",两条前提互斥 ⇒ 整文件收集期即崩。
+  // 本用例测的是根 View 底色随聚焦路由翻转,与 dev/release 无关,夹具按测试环境本来的开发档口径置 true。
+  ;(globalThis as Record<string, unknown>).__DEV__ = true
   return {
     /** 模拟当前聚焦路由名(null = 导航器未就绪) */
     route: 'VideoPlayer' as string | null,

@@ -10,11 +10,11 @@ import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import {
-  DEFAULT_STATE_FILE,
-  maskMailRecipient,
-  resolveMailSendLedgerEnv,
-} from '../../monitoring/alertbridge/mail-ledger-env.js'
+// 目标文件是 CJS(`module.exports = { … }`),命名的 ESM 导入虽有 cjs-module-lexer 兜底,
+// 但守门 77 只认 ESM `export` 语法会把这三枚误判为悬空;改默认导入再解构,零行为变化。
+import mailLedgerEnv from '../../monitoring/alertbridge/mail-ledger-env.js'
+
+const { DEFAULT_STATE_FILE, maskMailRecipient, resolveMailSendLedgerEnv } = mailLedgerEnv
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(HERE, '..', '..')

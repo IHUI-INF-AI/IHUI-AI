@@ -114,6 +114,7 @@ export function useChat(): UseChatReturn {
     queryClient,
     t,
     chatStore,
+    streamErrorLabels,
   ])
   const sendAnswer = React.useCallback(createSendAnswer(ctx, chatStore), [
     t,

@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   } as ViewStyle,
   tabText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   tabTextActive: {

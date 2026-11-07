@@ -10,9 +10,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, HelpCircle, Search, BookOpen, Mail } from 'lucide-react'
 
+import { listHelpArticles, listHelpCategories } from '@ihui/api-client'
 import { Card, CardContent, Button, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { api, excerptFromContent, type HelpCategory, type HelpArticleSummary } from '@/lib/content'
+import { excerptFromContent } from '@/lib/content'
 import { BackButton } from '@/components/common'
 import { TruncatedText } from '@/components/common'
 
@@ -24,7 +25,11 @@ export default function HelpPage() {
 
   const { data: cats = [] } = useQuery({
     queryKey: ['help-categories'],
-    queryFn: () => api<{ list: HelpCategory[] }>('/api/help/categories').then((d) => d.list ?? []),
+    queryFn: () =>
+      listHelpCategories().then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return r.data.list ?? []
+      }),
   })
 
   const {
@@ -34,7 +39,10 @@ export default function HelpPage() {
   } = useQuery({
     queryKey: ['help-articles'],
     queryFn: () =>
-      api<{ list: HelpArticleSummary[] }>('/api/help/articles').then((d) => d.list ?? []),
+      listHelpArticles().then((r) => {
+        if (!r.success) throw new Error(r.error)
+        return r.data.list ?? []
+      }),
   })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {

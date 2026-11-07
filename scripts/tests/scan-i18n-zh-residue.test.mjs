@@ -236,6 +236,41 @@ describe('scan-i18n-zh-residue.mjs 集成测试', () => {
     }
   })
 
+  // ─── 11b. `--target <面>` 空格形态必须与 `--target=<面>` 同判 ───────
+  // 立因(2026-11-05 实测):旧 parseArgs 是 `for (const arg of argv)`,拿不到后一个参数,
+  // 于是空格形态整条落进"忽略未知 flag",目标静默留在 web 并打印「✅ web/…无中文残留」——
+  // 同一条命令在 CI 报 shared 红、在本机被读成"扫过了且干净",这是假绿通道不是措辞问题。
+  test('--target extension(空格形态):与等号形态同判,不得扫 web', () => {
+    const root = createTempProject()
+    try {
+      writeExtensionLocale(root, 'ko', { common: { save: '保存' } })
+      writeWebLocale(root, 'ko', { common: { save: '저장' } })
+      const r = runScript(['ko', '--target', 'extension'], { cwd: root })
+      assert.equal(r.status, 1, `空格形态应与 --target=extension 同判 exit 1,实际 ${r.status}`)
+      assert.match(r.stderr, /extension\/ko\.json/)
+      assert.doesNotMatch(r.stdout, /✅.*web\/ko\.json/, '误扫 web ⇒ 会把"没扫"渲染成"扫过且干净"')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
+  // ─── 11c. 面名缺失/坏值一律当场未判定,不回落 web(反向牙) ─────────
+  test('--target 缺值或坏值:exit 2 点名,绝不打印"无残留"', () => {
+    const root = createTempProject()
+    try {
+      writeWebLocale(root, 'ko', { common: { save: '保存' } })
+      const noValue = runScript(['ko', '--target'], { cwd: root })
+      assert.equal(noValue.status, 2, `--target 后面没跟值应 exit 2,实际 ${noValue.status}`)
+      assert.match(noValue.stderr, /没跟到面名/)
+      const badFace = runScript(['ko', '--target', 'nosuchface'], { cwd: root })
+      assert.equal(badFace.status, 2, `坏面名应 exit 2 而非回落到 web,实际 ${badFace.status}`)
+      assert.match(badFace.stderr, /未知 --target=nosuchface/)
+      assert.doesNotMatch(badFace.stdout, /✅/, '回落 web 并打印绿就是本牙要拦的那一型')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
   // ─── 12. --readme: 代码块(``` fence)内中文跳过 ──────────
   test('--readme: 代码块(``` fence)内中文跳过', () => {
     const root = createTempProject()

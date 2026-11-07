@@ -16,6 +16,7 @@
  *
  * 平台特有:依赖 react-native Animated/ScrollView,不适合共享层。
  */
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useEffect, useRef } from 'react'
 import {
   Animated,
@@ -72,6 +73,8 @@ export interface AgentListProps {
   /**
    * 外层容器样式(可选)。调用方需要把列表塞进定高/弹性容器时用,
    * 典型如 `flex: 1`(否则自然高度会撑爆 sheet 的 maxHeight,压缩弹窗固定 chrome)。
+   * 同一份样式也叠加到内部 ScrollView:调用方给的是像素 height 时,
+   * 滚动视口必须与容器同高,否则内容会滚到容器裁切区外、下半段永远看不到。
    */
   style?: StyleProp<ViewStyle>
   /**
@@ -80,6 +83,11 @@ export interface AgentListProps {
    * 仅接受非空字符串,空串/undefined 均不渲染。
    */
   subtitleField?: 'description' | 'prologue'
+  /**
+   * 列表内容尺寸变化(可选)。弹层要「按内容自适应高度」时由调用方消费:
+   * 列表必须先有确定高度才会渲染并上报内容尺寸,调用方据此把 height 收回到内容高。
+   */
+  onContentSizeChange?: (width: number, height: number) => void
 }
 
 function keyExtractor(item: AgentListItem): string {
@@ -176,7 +184,9 @@ export default function AgentList({
   emptyText: emptyTextProp,
   style,
   subtitleField,
+  onContentSizeChange,
 }: AgentListProps): React.JSX.Element {
+  const dialogHeightStyle = useDialogHeightStyle()
   const { t } = useI18n()
   const emptyText = emptyTextProp ?? t('agentList.emptyText')
   const slide = useRef(new Animated.Value(60)).current
@@ -191,10 +201,19 @@ export default function AgentList({
 
   return (
     <Animated.View
-      style={[styles.container, style, { opacity, transform: [{ translateY: slide }] }]}
+      style={[
+        styles.container,
+        dialogHeightStyle,
+        style,
+        { opacity, transform: [{ translateY: slide }] },
+      ]}
     >
       <View style={styles.inner}>
-        <ScrollView style={styles.content} contentContainerStyle={styles.contentBody}>
+        <ScrollView
+          style={[styles.content, dialogHeightStyle, style]}
+          contentContainerStyle={styles.contentBody}
+          onContentSizeChange={onContentSizeChange}
+        >
           {items.map((item) => {
             // 按 subtitleField 取副标题;仅非空字符串才下发(trim 过纯空白),
             // subtitleField 未传 ⇒ 恒为 undefined ⇒ Row 走既有单行分支。
@@ -228,7 +247,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     backgroundColor: 'transparent',
-    maxHeight: '70%',
+    maxHeight: undefined,
     overflow: 'hidden',
   },
   inner: {
@@ -239,7 +258,7 @@ const styles = StyleSheet.create({
   content: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.lg,
-    maxHeight: '70%',
+    maxHeight: undefined,
   },
   contentBody: {
     paddingHorizontal: rnSpacing['sm-loose'],
@@ -348,19 +367,19 @@ const styles = StyleSheet.create({
   loadingText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['sm-loose'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   noMoreText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['sm-loose'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   },
   emptyText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['2xl'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   },
 })

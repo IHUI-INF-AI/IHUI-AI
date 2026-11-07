@@ -48,7 +48,7 @@ export function ExamQuestionScreen({
   onSubmit,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onNavigate,
 }: ExamQuestionScreenProps & { onRetry?: () => void }) {
   assertRequiredPort('onNavigate', onNavigate)

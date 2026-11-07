@@ -246,7 +246,14 @@ async fn emit_before_close_for_navigation(window: &tauri::WebviewWindow) {
 }
 
 /// 探活一次(HEAD /api/health)。仅 2xx 视为健康。
+///
+/// 出站前先过出口门(`egress_gate`,Z17 与 CLI 同源腿):enforce 档拒绝 ⇒ 判「不健康」
+/// 并**具名**留痕,不静默把拒绝伪装成网络失败。
 async fn probe_health(client: &reqwest::Client, health_url: &str) -> bool {
+    if let Err(denied) = crate::egress_gate::guard_egress_target(health_url) {
+        log::warn!("[auto-refresh] 探活目标被出口门拒绝: {denied}");
+        return false;
+    }
     client
         .head(health_url)
         .send()
@@ -438,6 +445,10 @@ async fn refresh_baseline(
     baseline: &mut Option<String>,
     _app: &tauri::AppHandle,
 ) -> bool {
+    if let Err(denied) = crate::egress_gate::guard_egress_target(frontend_url) {
+        log::warn!("[auto-refresh] 指纹抓取目标被出口门拒绝: {denied}");
+        return false;
+    }
     let Ok(resp) = client.get(frontend_url).send().await else {
         return false;
     };

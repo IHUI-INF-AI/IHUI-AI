@@ -2,7 +2,10 @@
   "workflows": {
     "title": "工作流",
     "empty": "暂无工作流",
-    "loadFailed": "工作流加载失败"
+    "loadFailed": "工作流加载失败",
+    "instanceDetail": {
+      "notFound": "实例不存在"
+    }
   },
   "automations": {
     "terminalReason": {
@@ -24,7 +27,8 @@
     "noResult": "暂无运行结果",
     "rrule": "调度规则",
     "timezone": "时区",
-    "schedule": "触发方式"
+    "schedule": "触发方式",
+    "lastRunAt": "上次运行"
   },
   "dashboard": {
     "title": "数据看板",
@@ -51,6 +55,33 @@
     "title": "工具审批",
     "description": "AI 请求执行以下高危操作,请确认是否允许",
     "argsPreview": "参数预览",
+    "decisionDetail": "操作详情",
+    "decisionDetailReason": "原因",
+    "decisionDetailRisk": "风险",
+    "decisionDetailScope": "作用域",
+    "decisionDetailCwd": "执行目录",
+    "decisionDetailPaths": "受影响路径",
+    "decisionDetailCommand": "命令",
+    "rawArgs": "原始参数",
+    "riskLow": "低",
+    "riskMedium": "中",
+    "riskHigh": "高",
+    "scopeFsRead": "读取",
+    "scopeFsWrite": "写入",
+    "scopeFsDelete": "删除",
+    "scopeExec": "执行",
+    "scopeNetwork": "网络",
+    "scopeDb": "数据库",
+    "scopeOther": "其他",
+    "reasonDangerousCommand": "危险命令",
+    "reasonDestructiveOperation": "破坏性操作",
+    "reasonWritesFiles": "写入文件",
+    "reasonDeletesFiles": "删除文件",
+    "reasonExecutesCommand": "执行命令",
+    "reasonNetworkAccess": "访问网络",
+    "reasonDatabaseWrite": "写数据库",
+    "reasonHighRiskTool": "高危工具",
+    "reasonRequiresConfirmation": "需要确认",
     "dangerLevel": "危险等级:{level}",
     "approve": "批准",
     "reject": "拒绝",
@@ -384,7 +415,8 @@
     "empty": "暂无直播",
     "lecturer": "讲师",
     "startAt": "开始时间",
-    "loadFailed": "加载直播失败"
+    "loadFailed": "加载直播失败",
+    "startTime": "开始时间"
   },
   "liveDetail": {
     "title": "直播详情",
@@ -633,7 +665,12 @@
     "runtimeEmpty": "暂无运行记录",
     "runtimeInputPlaceholder": "输入消息发送给智能体",
     "runtimeStop": "停止",
-    "runtimeSend": "发送"
+    "runtimeSend": "发送",
+    "fieldName": "名称",
+    "fieldCategory": "分类",
+    "fieldDescription": "描述",
+    "fieldPrice": "价格",
+    "createTitle": "创建智能体"
   },
   "chat": {
     "assetCatText": "文本",
@@ -941,7 +978,36 @@
     "version": "版本",
     "language": "语言",
     "theme": "主题",
-    "logoutConfirmBody": "确认退出当前账号？"
+    "logoutConfirmBody": "确认退出当前账号？",
+    "accountDeletionConfirmLabel": "确认注销",
+    "accountDeletionConfirmTitle": "确认注销",
+    "revokeAuth": "撤销会话",
+    "noAuthorizations": "暂无活跃会话",
+    "authorizedAt": "登录时间",
+    "sessionExpiresAt": "过期时间",
+    "devices": {
+      "revokeConfirmTitle": "撤销设备",
+      "taskColCreated": "创建时间",
+      "taskColFinished": "结束时间"
+    },
+    "accountDeletionTitle": "账号注销",
+    "accountDeletionWarning": "此操作不可逆，所有数据将永久丢失。",
+    "accountDeletionPhoneLabel": "手机号",
+    "accountDeletionPhonePlaceholder": "输入手机号",
+    "accountDeletionCodeLabel": "验证码",
+    "accountDeletionCodePlaceholder": "输入验证码",
+    "accountDeletionSendCode": "发送验证码",
+    "accountDeletionConfirm": "确认注销账号",
+    "accountDeletionSubmit": "确认注销",
+    "accountDeletionSubmitting": "提交中...",
+    "accountDeletionConsequenceTitle": "注销后果",
+    "accountDeletionConsequence1": "账号资料、头像与昵称将被永久删除",
+    "accountDeletionConsequence2": "订单、积分、余额与会员权益将清零且无法恢复",
+    "accountDeletionConsequence3": "已发布的动态、评论、收藏与聊天记录将被清除",
+    "accountDeletionConsequence4": "已绑定的手机号与邮箱将被解绑，无法再用该账号登录",
+    "accountDeletionConsequence5": "正在生效的会员、课程等权益将立即终止且不退款",
+    "accountDeletionConsequence6": "注销后同一手机号可重新注册，但历史数据无法找回",
+    "accountDeletionConsequence7": "存在未结清交易或违规记录的账号，申请可能被拒"
   },
   "menu": {
     "artifacts": "产物中心",
@@ -954,6 +1020,7 @@
     "changePhone": "更换手机号",
     "accountCancel": "账号注销",
     "checkUpdate": "检查更新",
+    "autoInstallPermission": "自动安装权限",
     "appPermission": "应用权限",
     "usageRules": "使用规范",
     "businessLicense": "营业执照",
@@ -1333,7 +1400,11 @@
     "kindAutoContext": "自动检索上下文"
   },
   "developer": {
-    "becomeDeveloper": "成为开发者"
+    "becomeDeveloper": "成为开发者",
+    "settings": {
+      "infoName": "名称",
+      "infoTitle": "开发者信息"
+    }
   },
   "liveHost": {
     "error": {
@@ -1484,6 +1555,20 @@
     "compactNoSession": "当前对话未关联会话,暂无法压缩"
   },
   "share": {
+    "creation": {
+      "title": "AI 创作分享",
+      "missingCode": "缺少分享码",
+      "loadFailed": "加载失败",
+      "loading": "加载中…",
+      "clickShare": "点击右上角分享给好友",
+      "contentNotExist": "分享内容不存在",
+      "tokenCost": "消耗 {n} 智汇值",
+      "thinkingProcess": "思考过程",
+      "regenerate": "再生成一个",
+      "shareFriend": "分享给好友",
+      "voiceAnswer": "🔊 语音回答",
+      "modelDefault": "AI 模型"
+    },
     "aiContent": "AI 内容",
     "voiceInput": "语音输入",
     "voicePlaceholder": "按住说出分享内容",
@@ -1512,7 +1597,8 @@
     "okSent": "分享成功",
     "cancelled": "已取消分享",
     "fail": "分享失败",
-    "needAlbum": "需要相册权限才能选择图片"
+    "needAlbum": "需要相册权限才能选择图片",
+    "courseTitle": "推荐课程:{title}"
   },
   "vipScreen": {
     "plans": {
@@ -1607,11 +1693,8 @@
   },
   "agentCreate": {
     "title": "创建智能体",
-    "name": "名称",
     "namePlaceholder": "给智能体起个名字",
-    "category": "分类",
     "categoryPlaceholder": "如:办公助手",
-    "description": "描述",
     "descPlaceholder": "介绍一下这个智能体",
     "systemPrompt": "系统提示词",
     "promptPlaceholder": "定义智能体的角色和行为",
@@ -1764,7 +1847,6 @@
     "instructor": "讲师",
     "rating": "评分",
     "free": "免费",
-    "enrolled": "已报名",
     "enroll": "立即报名",
     "pay": "支付 ¥{amount}",
     "lessons": "课程目录",
@@ -1890,7 +1972,10 @@
     "treeLoadFailed": "层级树加载失败",
     "treeRetry": "重试",
     "treeLevelLabel": "第 {level} 层",
-    "treeCollapseHint": "点击节点查看详情"
+    "treeCollapseHint": "点击节点查看详情",
+    "teamTitle": "我的团队",
+    "colJoinedAt": "加入时间",
+    "colLevel": "等级"
   },
   "earnCommission": {
     "title": "分佣计划",
@@ -1903,11 +1988,40 @@
     "openVip": "开通 VIP 会员 参与分佣计划"
   },
   "exam": {
+    "detail": {
+      "loadFailed": "考试加载失败",
+      "questionCount": "题目数量",
+      "questionCountValue": "{n} 题",
+      "duration": "考试时长",
+      "durationValue": "{n} 分钟",
+      "passScore": "及格分数",
+      "passScoreValue": "{n} 分",
+      "notice1": "请仔细阅读题目,在规定时间内完成作答",
+      "notice2": "每道题作答后可修改,提交后不可更改",
+      "start": "开始考试",
+      "startFailed": "开始考试失败",
+      "rule3": "禁止切屏,切屏超过 5 次将自动交卷",
+      "pageTitle": "考试详情",
+      "participants": "参与人数",
+      "passedCount": "已通过",
+      "historyTitle": "历史成绩",
+      "historyPassed": "通过",
+      "historyNotPassed": "未通过",
+      "historyEmpty": "暂无历史成绩",
+      "starting": "正在进入考试…",
+      "historyScoreValue": "{n} 分",
+      "historyTime": "考试时间 {time}",
+      "loading": "加载中…",
+      "retry": "点击重试",
+      "rule1": "考试限时,请合理分配答题时间",
+      "rule2": "退出考试超过 3 次将自动交卷",
+      "rulesTitle": "考试规则",
+      "totalScore": "总分",
+      "totalScoreValue": "{n} 分"
+    },
     "subtitle": "以考促学,检验学习成果",
     "retry": "重试",
-    "questions": "题数",
     "end": "结束时间",
-    "startExam": "开始考试",
     "attempts": "考试次数",
     "duration": "考试时长",
     "empty": "暂无考试",
@@ -1918,14 +2032,20 @@
     "passScore": "及格分",
     "start": "开始考试",
     "title": "考试",
-    "totalScore": "总分"
+    "totalScore": "总分",
+    "questionCountLabel": "题目数",
+    "result": {
+      "shareTitle": "我的考试成绩: {n} 分"
+    },
+    "startExam": "开始考试",
+    "wrongQuestions": {
+      "colTime": "添加时间"
+    }
   },
   "examQuestion": {
     "loadFailed": "加载试卷失败",
     "single": "单选题",
     "multi": "多选题",
-    "prev": "上一题",
-    "next": "下一题",
     "submit": "交卷",
     "submitFailed": "提交失败"
   },
@@ -2085,7 +2205,6 @@
     "saveFailed": "保存失败"
   },
   "notificationSettings": {
-    "title": "通知设置",
     "push": "推送通知",
     "message": "站内消息",
     "email": "邮件通知",
@@ -2236,8 +2355,6 @@
     "unverifiedDesc": "完成实名认证,解锁更多服务",
     "name": "真实姓名",
     "namePlaceholder": "请输入真实姓名",
-    "idNumber": "身份证号",
-    "idNumberPlaceholder": "请输入身份证号",
     "submit": "提交认证",
     "submitting": "提交中...",
     "failed": "认证失败",
@@ -2263,7 +2380,9 @@
     "bindFailed": "绑定失败",
     "bindSuccess": "绑定成功",
     "codeRequired": "请输入邀请码",
-    "loadFailed": "加载邀请人失败"
+    "loadFailed": "加载邀请人失败",
+    "noReferrer": "暂未绑定推荐人",
+    "bindBtn": "绑定"
   },
   "register": {
     "phone": "手机号",
@@ -2283,10 +2402,8 @@
   },
   "withdraw": {
     "availableBalance": "可提现金额(元)",
-    "amount": "提现金额",
     "amountInvalid": "金额无效",
     "amountPlaceholder": "请输入提现金额",
-    "bankCard": "银行卡",
     "bankCardPlaceholder": "请选择银行卡",
     "confirmMessage": "确定要提现 {amount} 元吗?",
     "confirmTitle": "确认提现",
@@ -2637,7 +2754,6 @@
     "current": "当前积分",
     "totalEarned": "累计获得",
     "totalSpent": "累计消费",
-    "level": "等级",
     "nextLevel": "距离 {name} 还需 {points} 积分",
     "maxLevel": "已达最高等级",
     "experience": "经验值",
@@ -2655,16 +2771,22 @@
       "historyTitle": "签到历史",
       "historyEmpty": "暂无签到记录",
       "historyLoadFailed": "签到历史加载失败",
-      "historyConsecutive": "连续 {days} 天"
+      "historyConsecutive": "连续 {days} 天",
+      "consecutiveDays": "已连续签到 {days} 天",
+      "history": "签到历史",
+      "empty": "暂无签到记录"
     },
-    "mallLink": "积分商城",
-    "taskCenterLink": "任务中心",
     "ruleLink": "积分规则",
     "txTitle": "积分流水",
     "empty": "暂无积分记录",
     "loadFailed": "积分加载失败",
     "balance": "余额",
-    "loadMore": "加载更多"
+    "loadMore": "加载更多",
+    "levelLabel": "等级",
+    "mallTitle": "积分商城",
+    "tasks": {
+      "title": "任务中心"
+    }
   },
   "groups": {
     "title": "我的群组",
@@ -2768,7 +2890,6 @@
     "submitFailed": "提交失败，请稍后重试",
     "amountLabel": "充值金额（元）",
     "amountRange": "充值金额需在 {min} - {max} 元之间",
-    "payMethod": "支付方式",
     "wechat": "微信支付",
     "alipay": "支付宝",
     "payNow": "立即支付",
@@ -3136,7 +3257,8 @@
     "priceInvalid": "价格必须是大于 0 的数字",
     "priceOrder": "起步价不能高于最高价",
     "submitting": "发布中…",
-    "submit": "发布需求"
+    "submit": "发布需求",
+    "contactLabel": "联系方式"
   },
   "businessCard": {
     "title": "我的名片"
@@ -3302,7 +3424,7 @@
     "loginAlert": "登录提醒",
     "desc": "管理账号安全相关的开关",
     "loadFailed": "加载安全设置失败",
-    "readOnlyHint": "以下为当前真实状态，后端暂不支持修改",
+    "readOnlyHint": "本页只展示当前状态，不提供修改入口。两步验证请在「安全中心」开启或关闭",
     "stateOn": "已开启",
     "stateOff": "未开启"
   },
@@ -3373,7 +3495,6 @@
     "loadFailed": "加载学习进度失败",
     "courses": "课程(已完成/总数)",
     "totalMinutes": "累计学习(分钟)",
-    "weekMinutes": "本周学习(分钟)",
     "streak": "连续打卡(天)",
     "courseProgress": "课程进度"
   },
@@ -3416,7 +3537,6 @@
     "tab_newbie": "新手"
   },
   "team": {
-    "title": "我的团队",
     "subtitle": "团队人数与业绩一览",
     "retry": "重试",
     "totalMembers": "团队总人数",
@@ -3537,12 +3657,21 @@
     "opType4": "退款",
     "opType5": "佣金",
     "loginRequiredHint": "登录后查看资金流水",
-    "goLogin": "去登录"
+    "goLogin": "去登录",
+    "rechargeFail": "充值失败",
+    "rechargeSuccess": "充值成功",
+    "contactSupport": "联系客服",
+    "retryRecharge": "重新充值",
+    "withdrawAmount": "提现金额",
+    "methodBank": "银行卡",
+    "rechargeMethod": "支付方式",
+    "flowBalance": "余额",
+    "loading": "加载中...",
+    "rechargeOrderNo": "订单号"
   },
   "activity": {
     "empty": "暂无活动",
     "endTime": "结束时间",
-    "joinNow": "立即参加",
     "loadFailed": "加载失败",
     "participants": "参与人数",
     "startTime": "开始时间",
@@ -3553,7 +3682,6 @@
     "description": "简介",
     "free": "免费",
     "loadFailed": "加载智能体详情失败",
-    "price": "价格",
     "rating": "评分",
     "startChat": "开始对话",
     "uses": "使用次数"
@@ -3709,7 +3837,15 @@
       "issued": "有效",
       "revoked": "已撤销"
     },
-    "title": "我的证书"
+    "title": "我的证书",
+    "download": {
+      "noCertificates": "暂无证书"
+    },
+    "detail": {
+      "issueDate": "颁发日期",
+      "statusValid": "有效",
+      "statusRevoked": "已撤销"
+    }
   },
   "certDetail": {
     "certNo": "证书编号",
@@ -3726,8 +3862,7 @@
     "empty": "暂无证书",
     "issuedAt": "颁发时间",
     "issuer": "颁发机构",
-    "loadFailed": "加载失败",
-    "title": "证书列表"
+    "loadFailed": "加载失败"
   },
   "certVerify": {
     "certNo": "证书编号",
@@ -3798,7 +3933,6 @@
   },
   "courseQAList": {
     "answers": "回答",
-    "ask": "提问",
     "asker": "提问者",
     "empty": "暂无问答",
     "loadFailed": "加载失败",
@@ -3819,11 +3953,30 @@
     "loadFailed": "加载失败",
     "passed": "已通过",
     "wrongQuestions": "错题",
-    "yourAnswer": "你的答案"
+    "yourAnswer": "你的答案",
+    "statCorrect": "答对",
+    "statWrong": "答错",
+    "statUnanswered": "未答",
+    "durationUnit": "{n} 分钟",
+    "countUnit": "{n} 题",
+    "reviewTitle": "题目回顾",
+    "noReview": "暂无题目回顾",
+    "questionIdx": "{n}",
+    "reviewCorrect": "正确",
+    "reviewWrong": "错误",
+    "unansweredAnswer": "未作答",
+    "analysis": "解析",
+    "reviewScore": "{n} 分",
+    "rank": "第 {rank} 名 / 共 {total} 人",
+    "retry": "再考一次",
+    "viewList": "查看考试列表",
+    "share": "分享成绩",
+    "shareTitle": "我的考试成绩：{n} 分"
   },
   "favorites": {
     "empty": "暂无收藏",
-    "title": "我的收藏"
+    "title": "我的收藏",
+    "remove": "取消收藏"
   },
   "feedback": {
     "contact": "联系方式",
@@ -3839,7 +3992,8 @@
     "type": "反馈类型",
     "imagesLabel": "请在此上传你所遇到问题的截图（最多9张）",
     "imagePickFailed": "图片选择失败,请重试",
-    "pickImages": "选择图片"
+    "pickImages": "选择图片",
+    "field_contact": "联系方式"
   },
   "feedbackDetail": {
     "content": "反馈内容",
@@ -4210,7 +4364,9 @@
     "ratingSubmitted": "评分已提交",
     "ratingFailed": "评分提交失败",
     "commentPlaceholder": "写下你的评价（可选）",
-    "ratingLoginHint": "登录后可评分"
+    "ratingLoginHint": "登录后可评分",
+    "importBtn": "导入",
+    "exportError": "导出失败"
   },
   "memory": {
     "detail": "详情",
@@ -4306,7 +4462,17 @@
     "platformXiaohongshu": "小红书",
     "platformZhihu": "知乎",
     "platformJuejin": "掘金",
-    "platformShipinhao": "微信视频号"
+    "platformShipinhao": "微信视频号",
+    "history": {
+      "retry": "重试"
+    },
+    "accounts": {
+      "cancelScan": "取消扫码"
+    },
+    "new": {
+      "submitNow": "立即发布",
+      "submitSchedule": "定时发布"
+    }
   },
   "spec": {
     "title": "规范模板库",
@@ -4642,7 +4808,8 @@
     "title": "知识星球",
     "newOfficial": "官方资讯",
     "newCommunity": "星球社区",
-    "enter": "进入星球"
+    "enter": "进入星球",
+    "memberCount": "{count} 位成员"
   },
   "knowledgeRag": {
     "title": "RAG 知识库",
@@ -4650,7 +4817,13 @@
     "searchEmpty": "未找到相关结果",
     "expand": "展开全文",
     "collapse": "收起",
-    "score": "相关度"
+    "score": "相关度",
+    "chunks": {
+      "showLess": "收起"
+    },
+    "manage": {
+      "singleDelete": "删除"
+    }
   },
   "changePhone": {
     "phoneRequired": "请输入手机号码",
@@ -4662,7 +4835,9 @@
     "bindFail": "绑定失败",
     "bindOk": "绑定成功",
     "netBusy": "网络异常",
-    "netBusyRetry": "网络异常,请稍后重试"
+    "netBusyRetry": "网络异常,请稍后重试",
+    "selectNation": "选择区号",
+    "submitting": "提交中..."
   },
   "subagents": {
     "tabOverview": "概览",
@@ -4711,6 +4886,9 @@
   "devSpace": {
     "title": "开发者详情",
     "notLoggedIn": "未登录",
+    "opened": "已开通",
+    "notOpened": "未开通",
+    "enterPlaza": "进入广场",
     "renew": "续费",
     "copy": "复制",
     "copied": "已复制",
@@ -4820,6 +4998,7 @@
     "historyFailed": "加载导入历史失败:{error}",
     "historyParsed": "解析",
     "historyImported": "导入",
+    "failedCountLabel": "失败",
     "statusSuccess": "成功",
     "statusPartial": "部分成功",
     "statusFailed": "失败",
@@ -5136,7 +5315,8 @@
     "empty": "暂无连接器",
     "items": "文档数",
     "enable": "启用",
-    "disable": "停用"
+    "disable": "停用",
+    "lastSyncAt": "最近同步"
   },
   "verify": {
     "getCode": "请输入验证码",
@@ -5200,7 +5380,17 @@
     "formSubmit": "创建",
     "formFailed": "创建失败",
     "nameRequired": "请填写任务名称",
-    "rruleRequired": "请填写执行计划"
+    "rruleRequired": "请填写执行计划",
+    "toast": {
+      "runDone": "巡检完成",
+      "resumed": "已恢复",
+      "paused": "已暂停"
+    },
+    "action": {
+      "delete": "删除",
+      "runNow": "立即巡检",
+      "history": "历史"
+    }
   },
   "selfHealing": {
     "title": "验证自愈引擎",
@@ -5391,7 +5581,8 @@
     "tierUnknown": "未知来源",
     "generating": "生成中…",
     "restartConfirmTitle": "已有研究进行中",
-    "restartConfirmBody": "重新开始将丢弃当前进度，确定继续？"
+    "restartConfirmBody": "重新开始将丢弃当前进度，确定继续？",
+    "reportTitle": "研究报告"
   },
   "resources": {
     "title": "资源中心",
@@ -5445,7 +5636,8 @@
     "permDeleteFailed": "删除权限失败",
     "permSwitchConfirm": "切换权限确认",
     "permSwitchFailed": "权限切换失败",
-    "permSwitchRisk": "切换权限可能影响现有访问"
+    "permSwitchRisk": "切换权限可能影响现有访问",
+    "convertMarkdownFailed": "转换失败"
   },
   "stepDecision": {
     "decision": {
@@ -5507,7 +5699,8 @@
     "adding": "添加中…",
     "deleteConfirm": "确认删除 {name}？",
     "summary": "共 {total} 个账号 · 已启用 {enabled}",
-    "addSuccess": "账号已添加"
+    "addSuccess": "账号已添加",
+    "add": "添加账号"
   },
   "checkinAssistant": {
     "title": "签到助手",
@@ -5763,6 +5956,7 @@
   },
   "ia": {
     "remainingPoints": "剩余智汇值",
+    "loginRequired": "请先登录后使用",
     "recharge": "充值"
   },
   "uiCard": {
@@ -6038,30 +6232,33 @@
     "status": {
       "present": "正常",
       "late": "迟到",
-      "early": "早退",
       "absent": "缺勤",
-      "leave": "请假"
+      "leave": "请假",
+      "early": "早退"
     },
-    "chooseAction": "选择操作",
     "actionDone": "操作成功",
     "actionFailed": "操作失败",
-    "needClassId": "缺少班级信息，无法代签到/签退",
-    "onlyTodayCheckIn": "仅可为当日考勤代签到：跨日回填需给出该日内时刻，本屏未提供",
-    "batchTitle": "整班点名",
-    "chooseClass": "选择要点名的班级",
-    "noClass": "当前列表没有可选班级",
     "batchResult": "点名完成：新增 {created}、跳过 {skipped}、遗漏 {missed}",
-    "qrEntry": "出示签到码",
+    "batchTitle": "整班点名",
+    "chooseAction": "选择操作",
+    "chooseClass": "选择要点名的班级",
     "emptyTrend": "暂无趋势数据",
+    "loadStatsFailed": "加载考勤统计失败，请稍后重试",
+    "needClassId": "缺少班级信息，无法代签到/签退",
+    "noClass": "当前列表没有可选班级",
+    "onlyTodayCheckIn": "仅可为当日考勤代签到：跨日回填需给出该日内时刻，本屏未提供",
+    "qrEntry": "出示签到码",
     "statsAttendanceRate": "出勤率",
+    "statsTotalLabel": "考勤总人次",
     "statusDistribution": "状态分布",
     "statusOther": "其他",
     "trendChartHint": "出勤率 = 正常出勤人次 ÷ 该时段有考勤记录人次（未打卡的学生不在分母内）",
-    "trendChartTitle": "出勤趋势",
-    "statsTotalLabel": "考勤总人次",
-    "loadStatsFailed": "加载考勤统计失败，请稍后重试",
     "trendChartScope": "统计范围：{scope}",
-    "trendWindow": "近 {days} 天"
+    "trendChartTitle": "出勤趋势",
+    "trendWindow": "近 {days} 天",
+    "studentPageTitle": "我的考勤",
+    "selectClass": "选择班级",
+    "qrPanelTitle": "扫码签到"
   },
   "eduGrades": {
     "title": "成绩管理",
@@ -6069,7 +6266,8 @@
     "subject": "科目",
     "exam": "考试",
     "score": "分数",
-    "date": "日期"
+    "date": "日期",
+    "pageTitle": "成绩管理"
   },
   "toolbar": {
     "svcTraffic": "流量运营陪跑",
@@ -6224,7 +6422,10 @@
     "teacher": "教师",
     "availability": "可用性",
     "available": "可用",
-    "busy": "已占"
+    "busy": "已占",
+    "form": {
+      "weekday": "星期"
+    }
   },
   "statusPage": {
     "title": "系统状态",
@@ -7196,7 +7397,17 @@
     "bundleOta": "热更",
     "readyBody": "更新已下载完成，点「更新」立即生效",
     "installingHint": "应用会自动重启，通常只需几秒",
-    "restartNow": "立即重启"
+    "restartNow": "立即重启",
+    "apkTitle": "发现新版本 {{version}}",
+    "apkBody": "当前 {{current}} → 最新 {{latest}}",
+    "apkAction": "下载并安装",
+    "apkActionBrowser": "前往下载",
+    "apkDownloading": "正在下载安装包 {{progress}}%",
+    "apkEta": "剩余约 {{eta}}",
+    "apkInstalling": "正在打开安装程序…",
+    "apkBrowserOpening": "已交给浏览器下载，按提示安装即可",
+    "apkCancel": "取消",
+    "apkHint": "安装包较大，建议在 Wi-Fi 下更新"
   },
   "cloudRuns": {
     "title": "云托管 Agent 运行",
@@ -7229,30 +7440,189 @@
     "searchNoResult": "无匹配结果",
     "retry": "重试"
   },
-  "eduMyAttendance": {
-    "title": "我的考勤",
-    "selfCheckIn": "我要签到",
-    "date": "日期",
-    "notLoggedIn": "未登录，无法操作",
-    "classByBackendHint": "班级由后端按在册学籍自动确定",
-    "scanCheckIn": "扫码签到"
+  "learnMapPage": {
+    "completed": "已完成",
+    "empty": "暂无学习路径",
+    "defaultTitle": "学习地图"
+  },
+  "user": {
+    "security": {
+      "sendCode": "发送验证码"
+    },
+    "realname": {
+      "form": {
+        "idCard": "身份证号",
+        "idCardPlaceholder": "请输入身份证号"
+      }
+    },
+    "articles": {
+      "prevPage": "上一页",
+      "nextPage": "下一页"
+    },
+    "profile": {
+      "changePhoneTitle": "修改手机号",
+      "newPhonePlaceholder": "请输入新手机号",
+      "codePlaceholder": "请输入 6 位验证码",
+      "sendNewCode": "获取新验证码",
+      "resend": "{seconds}s 后重试",
+      "confirmChange": "确认修改",
+      "oldPhone": "当前手机号",
+      "oldCode": "旧手机号验证码",
+      "sendOldCode": "获取旧验证码"
+    }
+  },
+  "NavBar": {
+    "text1": "每日资讯",
+    "z1": "加入社区群",
+    "feedback": "反馈",
+    "fenlei": "分类"
+  },
+  "chatSettingsPage": {
+    "model": "模型"
+  },
+  "eduExamListPage": {
+    "start": "开始考试"
+  },
+  "eduExamPage": {
+    "prevQuestion": "上一题",
+    "nextQuestion": "下一题"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "提问"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "本周学习时长",
+    "noData": "暂无数据"
+  },
+  "learn": {
+    "signedUp": "已报名",
+    "signUp": "立即报名",
+    "dailyReview": {
+      "questionLabel": "题目",
+      "statAvgDifficulty": "平均难度"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支付方式"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "取消订阅"
+  },
+  "student": {
+    "myCertsTitle": "我的证书",
+    "wrongBookTitle": "错题本"
+  },
+  "activities": {
+    "join": "立即参与",
+    "notFound": "活动不存在或已下线"
   },
   "eduAttendanceQr": {
-    "title": "签到二维码",
     "chooseClass": "选择班级",
-    "noClass": "暂无可选班级",
     "classLoadFailed": "班级清单加载失败",
+    "expiresIn": "{s} 秒后过期",
+    "needLogin": "请先登录后再扫码",
+    "nextStepHint": "请先到考勤规则为该班启用规则并设置扫码密钥(qrSecret),再重新出码",
+    "noClass": "暂无可选班级",
     "pickClassFirst": "请先选择班级",
     "qrTip": "让学生用「扫码签到」扫描此码",
-    "expiresIn": "{s} 秒后过期",
     "refresh": "重新出码",
-    "nextStepHint": "请先到考勤规则为该班启用规则并设置扫码密钥(qrSecret),再重新出码",
-    "scanTitle": "扫码签到",
-    "scanHint": "将老师的签到二维码放入框内",
-    "scanSubmitting": "正在签到…",
-    "scanInvalidCode": "这不是本系统的签到二维码",
     "scanDone": "签到成功",
     "scanFailed": "签到失败",
-    "needLogin": "请先登录后再扫码"
+    "scanHint": "将老师的签到二维码放入框内",
+    "scanInvalidCode": "这不是本系统的签到二维码",
+    "scanSubmitting": "正在签到…",
+    "scanTitle": "扫码签到",
+    "title": "签到二维码"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "班级由后端按在册学籍自动确定",
+    "date": "日期",
+    "notLoggedIn": "未登录，无法操作",
+    "scanCheckIn": "扫码签到",
+    "selfCheckIn": "我要签到",
+    "title": "我的考勤"
+  },
+  "memberAddressFormPage": {
+    "setDefault": "设为默认地址"
+  },
+  "learnHomeworkPage": {
+    "errorFallback": "加载失败"
+  },
+  "eduAi": {
+    "dataRights": {
+      "exportCard": "数据导出",
+      "portabilityCard": "数据可携带",
+      "eraseCard": "数据擦除"
+    },
+    "groups": {
+      "title": "我的群组"
+    },
+    "stt": {
+      "error": "转写失败"
+    },
+    "video": {
+      "error": "编排失败"
+    }
+  },
+  "articles": {
+    "hotTitle": "热门文章",
+    "titleField": "标题",
+    "summaryField": "摘要",
+    "categoryField": "分类"
+  },
+  "agentsCategoriesPage": {
+    "total": "共 {count} 个"
+  },
+  "kbEditPage": {
+    "submitLabel": "保存"
+  },
+  "models": {
+    "keys": {
+      "copy": "复制",
+      "table": {
+        "name": "名称"
+      }
+    },
+    "prompts": {
+      "table": {
+        "updatedAt": "更新时间",
+        "description": "描述"
+      }
+    }
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "暂无下级成员"
+  },
+  "parentPortal": {
+    "child": {
+      "studyPlans": "学习计划"
+    }
+  },
+  "aiSkillsPage": {
+    "viewDetail": "查看详情"
+  },
+  "businessCardEditPage": {
+    "editTitle": "编辑名片",
+    "bioLabel": "简介"
+  },
+  "checkin": {
+    "colEnabled": "启用",
+    "addAccount": "添加账号"
+  },
+  "circles": {
+    "title": "圈子"
+  },
+  "knowledgeCard": {
+    "delete": "删除"
+  },
+  "developerHomePage": {
+    "statApiKeys": "API 密钥"
+  },
+  "agentTeams": {
+    "statsActive": "运行中"
   }
 }

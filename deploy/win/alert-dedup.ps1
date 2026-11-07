@@ -26,6 +26,8 @@
 # 当作"已经寄过"——那等于把告警变成哑弹,而哑弹的症状就是安静。
 # =============================================================================
 
+$ErrorActionPreference = 'Stop'
+
 function Get-AlertDedupKey {
     # 签名可能很长且含换行/中文 ⇒ 用 SHA-256 前 16 位当槽键,同时保留一段人类可读标签。
     param([Parameter(Mandatory = $true)][string]$Sig)
@@ -654,7 +656,10 @@ function Invoke-AlertFamilyGate {
         if ($cmd -and (Test-Path $cmd.Source)) { $node = $cmd.Source }
     }
     if (-not $node) {
-        foreach ($p in @('D:\DevEnv\runtimes\node\node.exe', 'C:\Program Files\nodejs\node.exe')) {
+        # DevEnv 根按本模块所在盘现读推导,不写死盘符(IHUI_DEVENV_ROOT 可显式覆盖;
+        # 与 ihui-deploy.ps1 / deploy-window-common.ps1 等同口径)。换机/换盘后不再落到死路径。
+        $devenv = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $PSScriptRoot) + '\DevEnv' }
+        foreach ($p in @((Join-Path $devenv 'runtimes\node\node.exe'), 'C:\Program Files\nodejs\node.exe')) {
             if (Test-Path -LiteralPath $p) { $node = $p; break }
         }
     }

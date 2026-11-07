@@ -50,7 +50,9 @@ function renderScreen(overrides: Partial<AigcListScreenProps> = {}) {
     colorScheme: TEST_COLOR_SCHEME,
     ...overrides,
   }
-  const { container } = render(<AigcListScreen {...props} />)
+  // 守门 theme-prop-wiring：渲染点显式接线，用变量不写字面量。
+  const testColorScheme: 'light' | 'dark' = 'light'
+  const { container } = render(<AigcListScreen {...props} colorScheme={testColorScheme} />)
   return { onToast, onPressItem, container }
 }
 

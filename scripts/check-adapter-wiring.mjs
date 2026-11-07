@@ -126,8 +126,11 @@ function main() {
     return 0
   }
   if (!existsSync(ADAPTERS_DIR)) {
-    console.warn('[check-adapter-wiring] adapters 目录不存在,跳过')
-    return 0
+    // BUG-43④:目录不在位 = 取不到被审面 ⇒ 未判定(exit 2),不得直接返回合格。
+    console.error(
+      `[check-adapter-wiring] ❌ 未判定:adapters 目录不存在(${ADAPTERS_DIR})⇒ 无法判定,不判绿也不判红`,
+    )
+    return 2
   }
 
   const { wired, unwired, adapters } = analyzeAdapterWiring()

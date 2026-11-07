@@ -136,7 +136,7 @@ export function FeedbackScreen({
             style={styles.textarea}
           />
 
-          <Text style={styles.label}>{t('feedback.contact')}</Text>
+          <Text style={styles.label}>{t('feedback.field_contact')}</Text>
           <TextField
             colorScheme={colorScheme}
             value={contact}
@@ -269,7 +269,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    imageRemoveText: { color: tk.surface.light, fontSize: rnType.body.size, lineHeight: 18 },
+    imageRemoveText: {
+      color: tk.surface.light,
+      fontSize: rnType.body.size,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     imageAdd: {
       width: 70,
       height: 70,

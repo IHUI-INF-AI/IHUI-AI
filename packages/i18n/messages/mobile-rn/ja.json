@@ -2,7 +2,10 @@
   "workflows": {
     "title": "ワークフロー",
     "empty": "ワークフローはまだありません",
-    "loadFailed": "ワークフローの読み込みに失敗しました"
+    "loadFailed": "ワークフローの読み込みに失敗しました",
+    "instanceDetail": {
+      "notFound": "つかりません"
+    }
   },
   "automations": {
     "terminalReason": {
@@ -24,7 +27,8 @@
     "noResult": "実行結果はまだありません",
     "rrule": "スケジュール (RRULE)",
     "timezone": "タイムゾーン",
-    "schedule": "実行タイミング"
+    "schedule": "実行タイミング",
+    "lastRunAt": "前回実行"
   },
   "dashboard": {
     "title": "ダッシュボード",
@@ -51,6 +55,33 @@
     "title": "ツール承認",
     "description": "AI が次の高リスク操作を要求しています。許可しますか",
     "argsPreview": "引数プレビュー",
+    "decisionDetail": "操作の詳細",
+    "decisionDetailReason": "理由",
+    "decisionDetailRisk": "リスク",
+    "decisionDetailScope": "スコープ",
+    "decisionDetailCwd": "実行ディレクトリ",
+    "decisionDetailPaths": "影響パス",
+    "decisionDetailCommand": "コマンド",
+    "rawArgs": "生の引数",
+    "riskLow": "低",
+    "riskMedium": "中",
+    "riskHigh": "高",
+    "scopeFsRead": "読み取り",
+    "scopeFsWrite": "書き込み",
+    "scopeFsDelete": "削除",
+    "scopeExec": "実行",
+    "scopeNetwork": "ネットワーク",
+    "scopeDb": "データベース",
+    "scopeOther": "その他",
+    "reasonDangerousCommand": "危険なコマンド",
+    "reasonDestructiveOperation": "破壊的な操作",
+    "reasonWritesFiles": "ファイル書き込み",
+    "reasonDeletesFiles": "ファイル削除",
+    "reasonExecutesCommand": "コマンド実行",
+    "reasonNetworkAccess": "ネットワークアクセス",
+    "reasonDatabaseWrite": "データベース書き込み",
+    "reasonHighRiskTool": "高リスクツール",
+    "reasonRequiresConfirmation": "確認が必要",
     "dangerLevel": "危険度:{level}",
     "approve": "承認",
     "reject": "拒否",
@@ -384,7 +415,8 @@
     "empty": "ライブはありません",
     "lecturer": "講師",
     "startAt": "開始時間",
-    "loadFailed": "ライブの読み込みに失敗"
+    "loadFailed": "ライブの読み込みに失敗",
+    "startTime": "開始時間"
   },
   "liveDetail": {
     "title": "ライブ詳細",
@@ -633,7 +665,12 @@
     "runtimeEmpty": "実行履歴はまだありません",
     "runtimeInputPlaceholder": "エージェントに送信するメッセージを入力",
     "runtimeStop": "停止",
-    "runtimeSend": "送信"
+    "runtimeSend": "送信",
+    "fieldName": "名称",
+    "fieldCategory": "カテゴリ",
+    "fieldDescription": "説明",
+    "fieldPrice": "価格",
+    "createTitle": "エージェント"
   },
   "chat": {
     "assetCatText": "文本",
@@ -941,7 +978,36 @@
     "version": "バージョン",
     "language": "言語",
     "theme": "テーマ",
-    "logoutConfirmBody": "このアカウントからログアウトしますか？"
+    "logoutConfirmBody": "このアカウントからログアウトしますか？",
+    "accountDeletionConfirmLabel": "アカウント削除を確認",
+    "accountDeletionConfirmTitle": "アカウント削除を確認",
+    "revokeAuth": "セッション無効化",
+    "noAuthorizations": "アクティブなセッションがありません",
+    "authorizedAt": "ログイン時刻",
+    "sessionExpiresAt": "有効期限",
+    "devices": {
+      "revokeConfirmTitle": "デバイスを失効",
+      "taskColCreated": "作成日時",
+      "taskColFinished": "終了日時"
+    },
+    "accountDeletionTitle": "アカウント削除",
+    "accountDeletionWarning": "この操作は取り消せません。すべてのデータが削除されます。",
+    "accountDeletionPhoneLabel": "電話番号",
+    "accountDeletionPhonePlaceholder": "電話番号を入力してください",
+    "accountDeletionCodeLabel": "コード",
+    "accountDeletionCodePlaceholder": "認証コードを入力してください",
+    "accountDeletionSendCode": "コード",
+    "accountDeletionConfirm": "アカウント削除の確認",
+    "accountDeletionSubmit": "アカウント削除を確認",
+    "accountDeletionSubmitting": "送信中...",
+    "accountDeletionConsequenceTitle": "削除後の影響",
+    "accountDeletionConsequence1": "アカウント情報・アバター・ニックネームは永久に削除されます",
+    "accountDeletionConsequence2": "注文・ポイント・残高・会員特典はゼロになり、復元できません",
+    "accountDeletionConsequence3": "公開した投稿・コメント・お気に入り・チャット履歴は消去されます",
+    "accountDeletionConsequence4": "連携中の電話番号とメールは解除され、このアカウントではログインできません",
+    "accountDeletionConsequence5": "有効中の会員・コースなどの特典は直ちに終了し、返金はありません",
+    "accountDeletionConsequence6": "同じ電話番号で再登録できますが、過去のデータは復元できません",
+    "accountDeletionConsequence7": "未精算の取引や違反記録があるアカウントは、申請が拒否される場合があります"
   },
   "menu": {
     "artifacts": "成果物センター",
@@ -954,6 +1020,7 @@
     "changePhone": "電話番号変更",
     "accountCancel": "アカウント退会",
     "checkUpdate": "アップデート確認",
+    "autoInstallPermission": "自動インストール権限",
     "appPermission": "アプリの権限",
     "usageRules": "利用規範",
     "businessLicense": "営業許可証",
@@ -1333,7 +1400,11 @@
     "kindAutoContext": "自動取得したコンテキスト"
   },
   "developer": {
-    "becomeDeveloper": "開発者になる"
+    "becomeDeveloper": "開発者になる",
+    "settings": {
+      "infoName": "名称",
+      "infoTitle": "開発者情報"
+    }
   },
   "liveHost": {
     "error": {
@@ -1484,6 +1555,20 @@
     "compactNoSession": "会話が未連携のため圧縮できません"
   },
   "share": {
+    "creation": {
+      "title": "AI作成共有",
+      "missingCode": "共有コードが不足",
+      "loadFailed": "読み込み失敗",
+      "loading": "読み込み中…",
+      "clickShare": "右上をタップして友達に共有",
+      "contentNotExist": "共有コンテンツが存在しません",
+      "tokenCost": "{n} トークン消費",
+      "thinkingProcess": "思考プロセス",
+      "regenerate": "再生成",
+      "shareFriend": "友達に共有",
+      "voiceAnswer": "🔊 音声回答",
+      "modelDefault": "AIモデル"
+    },
     "aiContent": "AIコンテンツ",
     "voiceInput": "音声入力",
     "voicePlaceholder": "長押しして話す",
@@ -1512,7 +1597,8 @@
     "okSent": "共有完了",
     "cancelled": "共有をキャンセル",
     "fail": "共有失敗",
-    "needAlbum": "アルバム権限が必要"
+    "needAlbum": "アルバム権限が必要",
+    "courseTitle": "おすすめコース: {title}"
   },
   "vipScreen": {
     "plans": {
@@ -1607,11 +1693,8 @@
   },
   "agentCreate": {
     "title": "エージェント作成",
-    "name": "名称",
     "namePlaceholder": "エージェントの名前を入力",
-    "category": "カテゴリ",
     "categoryPlaceholder": "例:オフィスアシスタント",
-    "description": "説明",
     "descPlaceholder": "このエージェントを紹介してください",
     "systemPrompt": "システムプロンプト",
     "promptPlaceholder": "エージェントの役割と動作を定義します",
@@ -1764,7 +1847,6 @@
     "instructor": "講師",
     "rating": "評価",
     "free": "無料",
-    "enrolled": "申込済み",
     "enroll": "今すぐ申し込む",
     "pay": "¥{amount} を支払う",
     "lessons": "コース目次",
@@ -1890,7 +1972,10 @@
     "treeLoadFailed": "ツリーの読み込みに失敗しました",
     "treeRetry": "再試行",
     "treeLevelLabel": "第 {level} 階層",
-    "treeCollapseHint": "ノードをタップして詳細を表示"
+    "treeCollapseHint": "ノードをタップして詳細を表示",
+    "teamTitle": "マイチーム",
+    "colJoinedAt": "参加日時",
+    "colLevel": "レベル"
   },
   "earnCommission": {
     "title": "コミッションプラン",
@@ -1903,11 +1988,40 @@
     "openVip": "VIP 会員を開通してコミッションプランに参加"
   },
   "exam": {
+    "detail": {
+      "loadFailed": "試験の読み込み失敗",
+      "questionCount": "問題数",
+      "questionCountValue": "{n} 問",
+      "duration": "試験時間",
+      "durationValue": "{n} 分",
+      "passScore": "合格点",
+      "passScoreValue": "{n} 点",
+      "notice1": "問題をよく読んで制限時間内に回答してください",
+      "notice2": "提出前であれば回答を修正できます",
+      "start": "試験開始",
+      "startFailed": "試験の開始に失敗しました",
+      "rule3": "画面切り替え禁止。5回を超えると自動的に提出されます",
+      "pageTitle": "試験詳細",
+      "participants": "参加人数",
+      "passedCount": "合格者数",
+      "historyTitle": "履歴スコア",
+      "historyPassed": "合格",
+      "historyNotPassed": "不合格",
+      "historyEmpty": "履歴スコアはありません",
+      "starting": "試験にアクセスしています…",
+      "historyScoreValue": "{n} 点",
+      "historyTime": "試験時間 {time}",
+      "loading": "読み込み中…",
+      "retry": "クリックして再試行",
+      "rule1": "試験は制限時間付きです。解答時間をうまく配分してください",
+      "rule2": "試験を3回以上離脱すると、自動的に提出されます",
+      "rulesTitle": "試験規則",
+      "totalScore": "合計点",
+      "totalScoreValue": "{n} 点"
+    },
     "subtitle": "試験で学び、学習成果を確認",
     "retry": "再試行",
-    "questions": "問題数",
     "end": "終了時間",
-    "startExam": "試験開始",
     "attempts": "受験回数",
     "duration": "所要時間",
     "empty": "試験がありません",
@@ -1918,14 +2032,20 @@
     "passScore": "合格点",
     "start": "試験を開始",
     "title": "試験",
-    "totalScore": "総得点"
+    "totalScore": "総得点",
+    "questionCountLabel": "問題数",
+    "result": {
+      "shareTitle": "私の試験成績: {n} 点"
+    },
+    "startExam": "試験を開始",
+    "wrongQuestions": {
+      "colTime": "追加日時"
+    }
   },
   "examQuestion": {
     "loadFailed": "試験問題の読み込みに失敗しました",
     "single": "単一選択",
     "multi": "複数選択",
-    "prev": "前の問題",
-    "next": "次の問題",
     "submit": "提出",
     "submitFailed": "送信に失敗"
   },
@@ -2085,7 +2205,6 @@
     "saveFailed": "保存に失敗"
   },
   "notificationSettings": {
-    "title": "通知設定",
     "push": "プッシュ通知",
     "message": "サイト内メッセージ",
     "email": "メール通知",
@@ -2236,8 +2355,6 @@
     "unverifiedDesc": "実名認証を完了すると、より多くのサービスを利用できます",
     "name": "本名",
     "namePlaceholder": "本名を入力してください",
-    "idNumber": "身分証番号",
-    "idNumberPlaceholder": "身分証番号を入力してください",
     "submit": "認証を提出",
     "submitting": "送信中...",
     "failed": "認証に失敗",
@@ -2263,7 +2380,9 @@
     "bindFailed": "バインドに失敗",
     "bindSuccess": "バインドしました",
     "codeRequired": "招待コードを入力",
-    "loadFailed": "紹介者の読み込みに失敗"
+    "loadFailed": "紹介者の読み込みに失敗",
+    "noReferrer": "紹介者は未登録です",
+    "bindBtn": "登録"
   },
   "register": {
     "phone": "電話番号",
@@ -2283,10 +2402,8 @@
   },
   "withdraw": {
     "availableBalance": "引き出し可能額(元)",
-    "amount": "出金額",
     "amountInvalid": "金額が無効です",
     "amountPlaceholder": "出金額を入力",
-    "bankCard": "銀行口座",
     "bankCardPlaceholder": "銀行口座を選択",
     "confirmMessage": "{amount}元の出金を行いますか?",
     "confirmTitle": "確認",
@@ -2637,7 +2754,6 @@
     "current": "現在のポイント",
     "totalEarned": "累計獲得",
     "totalSpent": "累計消費",
-    "level": "レベル",
     "nextLevel": "{name} まであと {points} ポイント",
     "maxLevel": "最高レベルに到達しました",
     "experience": "経験値",
@@ -2655,16 +2771,22 @@
       "historyTitle": "チェックイン履歴",
       "historyEmpty": "チェックイン記録がありません",
       "historyLoadFailed": "チェックイン履歴の読み込みに失敗しました",
-      "historyConsecutive": "{days} 日連続"
+      "historyConsecutive": "{days} 日連続",
+      "consecutiveDays": "{days}サインイン",
+      "history": "チェックイン履歴",
+      "empty": "コンテンツはまだありません。おしみに"
     },
-    "mallLink": "ポイントモール",
-    "taskCenterLink": "タスクセンター",
     "ruleLink": "ポイントルール",
     "txTitle": "ポイント履歴",
     "empty": "ポイント記録がありません",
     "loadFailed": "ポイントの読み込みに失敗しました",
     "balance": "残高",
-    "loadMore": "さらに読み込む"
+    "loadMore": "さらに読み込む",
+    "levelLabel": "レベル",
+    "mallTitle": "ポイントモール",
+    "tasks": {
+      "title": "タスクセンター"
+    }
   },
   "groups": {
     "title": "マイグループ",
@@ -2768,7 +2890,6 @@
     "submitFailed": "送信に失敗しました。後でもう一度お試しください",
     "amountLabel": "チャージ金額（元）",
     "amountRange": "チャージ金額は {min}〜{max} 元の範囲で指定してください",
-    "payMethod": "支払い方法",
     "wechat": "WeChat Pay",
     "alipay": "Alipay",
     "payNow": "支払う",
@@ -3136,7 +3257,8 @@
     "priceInvalid": "価格は 0 より大きい数値で入力してください",
     "priceOrder": "開始価格は上限価格を超えられません",
     "submitting": "投稿中…",
-    "submit": "依頼を投稿"
+    "submit": "依頼を投稿",
+    "contactLabel": "連絡先"
   },
   "businessCard": {
     "title": "マイ名刺"
@@ -3302,7 +3424,7 @@
     "loginAlert": "ログイン通知",
     "desc": "アカウントログインに関するスイッチを管理",
     "loadFailed": "セキュリティ設定の読み込みに失敗",
-    "readOnlyHint": "以下は現在のサーバー側の状態です。変更にはまだ対応していません",
+    "readOnlyHint": "この画面は現在の状態を表示するのみで、ここから変更できません。二段階認証は「セキュリティセンター」でオン／オフしてください",
     "stateOn": "オン",
     "stateOff": "オフ"
   },
@@ -3373,7 +3495,6 @@
     "loadFailed": "学習進捗の読み込みに失敗しました",
     "courses": "コース(完了/合計)",
     "totalMinutes": "累計学習(分)",
-    "weekMinutes": "今週の学習(分)",
     "streak": "連続学習(日)",
     "courseProgress": "コース進捗"
   },
@@ -3416,7 +3537,6 @@
     "tab_newbie": "初心者"
   },
   "team": {
-    "title": "マイチーム",
     "subtitle": "チーム人数と業績を一覧表示",
     "retry": "再試行",
     "totalMembers": "チーム総人数",
@@ -3537,12 +3657,21 @@
     "opType4": "返金",
     "opType5": "コミッション",
     "loginRequiredHint": "ログインして資金履歴を表示",
-    "goLogin": "ログイン"
+    "goLogin": "ログイン",
+    "rechargeFail": "チャージ",
+    "rechargeSuccess": "チャージ",
+    "contactSupport": "サポートに連絡",
+    "retryRecharge": "再チャージ",
+    "withdrawAmount": "出金金額",
+    "methodBank": "カード",
+    "rechargeMethod": "支払い方法",
+    "flowBalance": "残高",
+    "loading": "読み込み中...",
+    "rechargeOrderNo": "注文番号"
   },
   "activity": {
     "empty": "アクティビティがありません",
     "endTime": "終了時間",
-    "joinNow": "今すぐ参加",
     "loadFailed": "読み込みに失敗しました",
     "participants": "参加人数",
     "startTime": "開始時間",
@@ -3553,7 +3682,6 @@
     "description": "紹介",
     "free": "無料",
     "loadFailed": "エージェント詳細の読み込みに失敗",
-    "price": "価格",
     "rating": "評価",
     "startChat": "チャットを開始",
     "uses": "利用回数"
@@ -3709,7 +3837,15 @@
       "issued": "有効",
       "revoked": "取り消されました"
     },
-    "title": "マイ証明書"
+    "title": "マイ証明書",
+    "download": {
+      "noCertificates": "証明書がありません"
+    },
+    "detail": {
+      "issueDate": "発行日",
+      "statusValid": "有効",
+      "statusRevoked": "取り消し"
+    }
   },
   "certDetail": {
     "certNo": "証明書番号",
@@ -3726,8 +3862,7 @@
     "empty": "証明書がありません",
     "issuedAt": "発行日",
     "issuer": "発行機関",
-    "loadFailed": "読み込みに失敗",
-    "title": "証明書一覧"
+    "loadFailed": "読み込みに失敗"
   },
   "certVerify": {
     "certNo": "証明書番号",
@@ -3798,7 +3933,6 @@
   },
   "courseQAList": {
     "answers": "回答",
-    "ask": "質問",
     "asker": "質問者",
     "empty": "質問がありません",
     "loadFailed": "読み込みに失敗",
@@ -3819,11 +3953,30 @@
     "loadFailed": "読み込みに失敗",
     "passed": "合格",
     "wrongQuestions": "誤答問題",
-    "yourAnswer": "あなたの回答"
+    "yourAnswer": "あなたの回答",
+    "statCorrect": "正答",
+    "statWrong": "誤答",
+    "statUnanswered": "未回答",
+    "durationUnit": "{n}分",
+    "countUnit": "{n}問",
+    "reviewTitle": "解答の振り返り",
+    "noReview": "復習できる問題がありません",
+    "questionIdx": "{n}",
+    "reviewCorrect": "正しい",
+    "reviewWrong": "誤り",
+    "unansweredAnswer": "未回答",
+    "analysis": "解説",
+    "reviewScore": "{n}点",
+    "rank": "{rank}位 / 全{total}人",
+    "retry": "もう一度受験",
+    "viewList": "試験一覧を見る",
+    "share": "結果を共有",
+    "shareTitle": "試験結果：{n}点"
   },
   "favorites": {
     "empty": "お気に入りなし",
-    "title": "マイお気に入り"
+    "title": "マイお気に入り",
+    "remove": "favorite"
   },
   "feedback": {
     "contact": "連絡先",
@@ -3839,7 +3992,8 @@
     "type": "種類",
     "imagesLabel": "問題のスクリーンショットをアップロード(最大9枚)",
     "imagePickFailed": "画像の選択に失敗しました",
-    "pickImages": "画像を選択"
+    "pickImages": "画像を選択",
+    "field_contact": "連絡先"
   },
   "feedbackDetail": {
     "content": "内容",
@@ -4210,7 +4364,9 @@
     "ratingSubmitted": "評価を送信しました",
     "ratingFailed": "評価の送信に失敗しました",
     "commentPlaceholder": "コメントを入力（任意）",
-    "ratingLoginHint": "ログイン後に評価できます"
+    "ratingLoginHint": "ログイン後に評価できます",
+    "importBtn": "インポート",
+    "exportError": "エクスポート失敗"
   },
   "memory": {
     "detail": "詳細",
@@ -4306,7 +4462,17 @@
     "platformXiaohongshu": "小紅書（RED）",
     "platformZhihu": "知乎",
     "platformJuejin": "掘金（Juejin）",
-    "platformShipinhao": "微信视频号"
+    "platformShipinhao": "微信视频号",
+    "history": {
+      "retry": "再試行"
+    },
+    "accounts": {
+      "cancelScan": "スキャン取消"
+    },
+    "new": {
+      "submitNow": "即時公開",
+      "submitSchedule": "予約公開"
+    }
   },
   "spec": {
     "title": "規範テンプレート",
@@ -4642,7 +4808,8 @@
     "title": "ナレッジプラネット",
     "newOfficial": "公式",
     "newCommunity": "コミュニティ",
-    "enter": "プラネットへ"
+    "enter": "プラネットへ",
+    "memberCount": "{count} 人のメンバー"
   },
   "knowledgeRag": {
     "title": "RAG 知識ベース",
@@ -4650,7 +4817,13 @@
     "searchEmpty": "結果が見つかりません",
     "expand": "全文を展開",
     "collapse": "折りたたむ",
-    "score": "関連度"
+    "score": "関連度",
+    "chunks": {
+      "showLess": "折りたたみ"
+    },
+    "manage": {
+      "singleDelete": "削除"
+    }
   },
   "changePhone": {
     "phoneRequired": "電話番号を入力してください",
@@ -4662,7 +4835,9 @@
     "bindFail": "紐付けに失敗しました",
     "bindOk": "紐付けました",
     "netBusy": "通信エラー",
-    "netBusyRetry": "通信エラー、しばらくして再試行してください"
+    "netBusyRetry": "通信エラー、しばらくして再試行してください",
+    "selectNation": "国番号を選択",
+    "submitting": "送信中..."
   },
   "subagents": {
     "tabOverview": "概要",
@@ -4711,6 +4886,9 @@
   "devSpace": {
     "title": "開発者詳細",
     "notLoggedIn": "未ログイン",
+    "opened": "開通済み",
+    "notOpened": "未開通",
+    "enterPlaza": "広場へ",
     "renew": "継続利用",
     "copy": "コピー",
     "copied": "コピーしました",
@@ -4820,6 +4998,7 @@
     "historyFailed": "インポート履歴の読み込みに失敗しました: {error}",
     "historyParsed": "解析",
     "historyImported": "インポート",
+    "failedCountLabel": "失敗",
     "statusSuccess": "成功",
     "statusPartial": "一部成功",
     "statusFailed": "失敗",
@@ -5136,7 +5315,8 @@
     "empty": "コネクターはありません",
     "items": "ドキュメント数",
     "enable": "有効化",
-    "disable": "無効化"
+    "disable": "無効化",
+    "lastSyncAt": "最終同期"
   },
   "verify": {
     "getCode": "認証コードを入力してください",
@@ -5200,7 +5380,17 @@
     "formSubmit": "作成",
     "formFailed": "作成に失敗しました",
     "nameRequired": "タスク名を入力してください",
-    "rruleRequired": "実行スケジュールを入力してください"
+    "rruleRequired": "実行スケジュールを入力してください",
+    "toast": {
+      "runDone": "巡検が完了しました",
+      "resumed": "再開しました",
+      "paused": "一時停止しました"
+    },
+    "action": {
+      "delete": "削除",
+      "runNow": "今すぐ実行",
+      "history": "履歴"
+    }
   },
   "selfHealing": {
     "title": "自己修復エンジン",
@@ -5391,7 +5581,8 @@
     "tierUnknown": "不明なソース",
     "generating": "生成中…",
     "restartConfirmTitle": "研究中のタスクがあります",
-    "restartConfirmBody": "再開すると現在の進行状況が破棄されます。続行しますか？"
+    "restartConfirmBody": "再開すると現在の進行状況が破棄されます。続行しますか？",
+    "reportTitle": "研究レポート"
   },
   "resources": {
     "title": "リソース",
@@ -5445,7 +5636,8 @@
     "permDeleteFailed": "権限の削除失敗",
     "permSwitchConfirm": "権限切り替えの確認",
     "permSwitchFailed": "権限切り替え失敗",
-    "permSwitchRisk": "切り替えは既存のアクセスに影響する可能性があります"
+    "permSwitchRisk": "切り替えは既存のアクセスに影響する可能性があります",
+    "convertMarkdownFailed": "変換に失敗しました"
   },
   "stepDecision": {
     "decision": {
@@ -5507,7 +5699,8 @@
     "adding": "追加中…",
     "deleteConfirm": "{name} を削除しますか？",
     "summary": "アカウント {total} 件 · 有効 {enabled}",
-    "addSuccess": "アカウントを追加しました"
+    "addSuccess": "アカウントを追加しました",
+    "add": "アカウントを追加"
   },
   "checkinAssistant": {
     "title": "チェックインアシスタント",
@@ -5763,6 +5956,7 @@
   },
   "ia": {
     "remainingPoints": "残りポイント",
+    "loginRequired": "先にログインしてお使いください",
     "recharge": "チャージ"
   },
   "uiCard": {
@@ -6038,30 +6232,33 @@
     "status": {
       "present": "出席",
       "late": "遅刻",
-      "early": "早退",
       "absent": "欠席",
-      "leave": "休み"
+      "leave": "休み",
+      "early": "早退"
     },
-    "chooseAction": "操作を選択",
     "actionDone": "操作に成功しました",
     "actionFailed": "操作に失敗しました",
-    "needClassId": "クラス情報がないため代理の登校・下校ができません",
-    "onlyTodayCheckIn": "代理チェックインは当日のみ：遡って記入するにはその日内の時刻が必要で、この画面では扱えません",
-    "batchTitle": "クラス一括点呼",
-    "chooseClass": "点呼するクラスを選択",
-    "noClass": "現在のリストに選択できるクラスがありません",
     "batchResult": "点呼完了：新規 {created}、スキップ {skipped}、見落とし {missed}",
-    "qrEntry": "チェックインQRを表示",
+    "batchTitle": "クラス一括点呼",
+    "chooseAction": "操作を選択",
+    "chooseClass": "点呼するクラスを選択",
     "emptyTrend": "推移データがありません",
+    "loadStatsFailed": "出席統計の読み込みに失敗しました。後で再試行してください。",
+    "needClassId": "クラス情報がないため代理の登校・下校ができません",
+    "noClass": "現在のリストに選択できるクラスがありません",
+    "onlyTodayCheckIn": "代理チェックインは当日のみ：遡って記入するにはその日内の時刻が必要で、この画面では扱えません",
+    "qrEntry": "チェックインQRを表示",
     "statsAttendanceRate": "出席率",
+    "statsTotalLabel": "考勤延べ人数",
     "statusDistribution": "状態分布",
     "statusOther": "その他",
     "trendChartHint": "出席率 = 正常出席 ÷ 当該時間帯の出席記録数（未打刻の生徒は分母に含みません）",
-    "trendChartTitle": "出席の推移",
-    "statsTotalLabel": "考勤延べ人数",
-    "loadStatsFailed": "出席統計の読み込みに失敗しました。後で再試行してください。",
     "trendChartScope": "集計範囲：{scope}",
-    "trendWindow": "直近 {days} 日間"
+    "trendChartTitle": "出席の推移",
+    "trendWindow": "直近 {days} 日間",
+    "studentPageTitle": "マイ出席記録",
+    "selectClass": "クラスを選択",
+    "qrPanelTitle": "QR出席登録"
   },
   "eduGrades": {
     "title": "成績管理",
@@ -6069,7 +6266,8 @@
     "subject": "科目",
     "exam": "試験",
     "score": "点数",
-    "date": "日付"
+    "date": "日付",
+    "pageTitle": "成績管理"
   },
   "toolbar": {
     "svcTraffic": "流量運用伴走",
@@ -6224,7 +6422,10 @@
     "teacher": "教師",
     "availability": "空き状況",
     "available": "空き",
-    "busy": "埋まり"
+    "busy": "埋まり",
+    "form": {
+      "weekday": "曜日"
+    }
   },
   "statusPage": {
     "title": "システムステータス",
@@ -7196,7 +7397,17 @@
     "bundleOta": "ホットアップデート",
     "readyBody": "更新のダウンロードが完了しました。「更新」をタップするとすぐに反映されます。",
     "installingHint": "アプリは自動的に再起動します（通常は数秒）。",
-    "restartNow": "今すぐ再起動"
+    "restartNow": "今すぐ再起動",
+    "apkTitle": "新しいバージョン {{version}} があります",
+    "apkBody": "現在 {{current}} → 最新 {{latest}}",
+    "apkAction": "ダウンロードしてインストール",
+    "apkActionBrowser": "ダウンロードへ",
+    "apkDownloading": "インストーラーをダウンロード中 {{progress}}%",
+    "apkEta": "残り約 {{eta}}",
+    "apkInstalling": "インストーラーを起動しています…",
+    "apkBrowserOpening": "ブラウザに引き継ぎました。案内に従ってインストールしてください",
+    "apkCancel": "キャンセル",
+    "apkHint": "パッケージが大きいため、Wi-Fi での更新を推奨します"
   },
   "cloudRuns": {
     "title": "クラウドエージェント実行",
@@ -7229,30 +7440,189 @@
     "searchNoResult": "結果なし",
     "retry": "再試行"
   },
-  "eduMyAttendance": {
-    "title": "自分の出席",
-    "selfCheckIn": "自分で登校登録",
-    "date": "日付",
-    "notLoggedIn": "ログインしていないため操作できません",
-    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
-    "scanCheckIn": "スキャンしてチェックイン"
+  "learnMapPage": {
+    "completed": "完了",
+    "empty": "学習パスがありません",
+    "defaultTitle": "学習マップ"
+  },
+  "user": {
+    "security": {
+      "sendCode": "コード取得"
+    },
+    "realname": {
+      "form": {
+        "idCard": "身分証番号",
+        "idCardPlaceholder": "身分証番号を入力してください"
+      }
+    },
+    "articles": {
+      "prevPage": "前へ",
+      "nextPage": "次へ"
+    },
+    "profile": {
+      "changePhoneTitle": "電話番号変更",
+      "newPhonePlaceholder": "新しい電話番号を入力",
+      "codePlaceholder": "6桁の認証コードを入力",
+      "sendNewCode": "新コード取得",
+      "resend": "{seconds}秒後に再試行",
+      "confirmChange": "変更確認",
+      "oldPhone": "現在の電話番号",
+      "oldCode": "旧電話番号認証コード",
+      "sendOldCode": "旧コード取得"
+    }
+  },
+  "NavBar": {
+    "text1": "デイリーニュース",
+    "z1": "コミュニティに参加",
+    "feedback": "フィードバック",
+    "fenlei": "カテゴリ"
+  },
+  "chatSettingsPage": {
+    "model": "モデル"
+  },
+  "eduExamListPage": {
+    "start": "試験を開始"
+  },
+  "eduExamPage": {
+    "prevQuestion": "前の問題",
+    "nextQuestion": "次の問題"
+  },
+  "edu": {
+    "qa": {
+      "askBtn": "質問"
+    }
+  },
+  "eduProgressPage": {
+    "weeklyHours": "今週の学習時間",
+    "noData": "データがありません"
+  },
+  "learn": {
+    "signedUp": "申込済み",
+    "signUp": "立即申込",
+    "dailyReview": {
+      "questionLabel": "問題",
+      "statAvgDifficulty": "平均難易度"
+    }
+  },
+  "learnPaymentConfirmPage": {
+    "fields": {
+      "payMethod": "支払い方法"
+    }
+  },
+  "memberSubscriptionPage": {
+    "cancelSubscription": "サブスクリプションをキャンセル"
+  },
+  "student": {
+    "myCertsTitle": "証明書一覧",
+    "wrongBookTitle": "間違いノート"
+  },
+  "activities": {
+    "join": "今すぐ参加",
+    "notFound": "つかりません"
   },
   "eduAttendanceQr": {
-    "title": "チェックインQRコード",
     "chooseClass": "クラスを選択",
-    "noClass": "選択できるクラスがありません",
     "classLoadFailed": "クラス一覧の読み込みに失敗しました",
+    "expiresIn": "{s} 秒で有効期限切れ",
+    "needLogin": "ログインしてからスキャンしてください",
+    "nextStepHint": "出欠ルールを有効化しスキャン鍵(qrSecret)を設定してから再発行してください",
+    "noClass": "選択できるクラスがありません",
     "pickClassFirst": "最初にクラスを選択してください",
     "qrTip": "生徒はこのコードをスキャンしてチェックインで読み取ります",
-    "expiresIn": "{s} 秒で有効期限切れ",
     "refresh": "再発行",
-    "nextStepHint": "出欠ルールを有効化しスキャン鍵(qrSecret)を設定してから再発行してください",
-    "scanTitle": "スキャンしてチェックイン",
-    "scanHint": "先生のチェックインQRコードを枠内に合わせてください",
-    "scanSubmitting": "チェックイン中...",
-    "scanInvalidCode": "本システムのチェックインQRコードではありません",
     "scanDone": "チェックインしました",
     "scanFailed": "チェックインに失敗しました",
-    "needLogin": "ログインしてからスキャンしてください"
+    "scanHint": "先生のチェックインQRコードを枠内に合わせてください",
+    "scanInvalidCode": "本システムのチェックインQRコードではありません",
+    "scanSubmitting": "チェックイン中...",
+    "scanTitle": "スキャンしてチェックイン",
+    "title": "チェックインQRコード"
+  },
+  "eduMyAttendance": {
+    "classByBackendHint": "クラスは在籍情報に基づいて自動的に決定されます",
+    "date": "日付",
+    "notLoggedIn": "ログインしていないため操作できません",
+    "scanCheckIn": "スキャンしてチェックイン",
+    "selfCheckIn": "自分で登校登録",
+    "title": "自分の出席"
+  },
+  "memberAddressFormPage": {
+    "setDefault": "既定の住所に設定"
+  },
+  "learnHomeworkPage": {
+    "errorFallback": "読み込み失敗"
+  },
+  "eduAi": {
+    "dataRights": {
+      "exportCard": "データエクスポート",
+      "portabilityCard": "データポータビリティ",
+      "eraseCard": "データ消去"
+    },
+    "groups": {
+      "title": "マイグループ"
+    },
+    "stt": {
+      "error": "変換失敗"
+    },
+    "video": {
+      "error": "編成失敗"
+    }
+  },
+  "articles": {
+    "hotTitle": "人気記事",
+    "titleField": "タイトル",
+    "summaryField": "要約",
+    "categoryField": "カテゴリー"
+  },
+  "agentsCategoriesPage": {
+    "total": "全 {count} 件"
+  },
+  "kbEditPage": {
+    "submitLabel": "保存"
+  },
+  "models": {
+    "keys": {
+      "copy": "コピー",
+      "table": {
+        "name": "名前"
+      }
+    },
+    "prompts": {
+      "table": {
+        "updatedAt": "更新日時",
+        "description": "説明"
+      }
+    }
+  },
+  "distributionTeamDetailPage": {
+    "noSubordinates": "下位メンバーはいません"
+  },
+  "parentPortal": {
+    "child": {
+      "studyPlans": "学習計画"
+    }
+  },
+  "aiSkillsPage": {
+    "viewDetail": "詳細を見る"
+  },
+  "businessCardEditPage": {
+    "editTitle": "名刺を編集",
+    "bioLabel": "自己紹介"
+  },
+  "checkin": {
+    "colEnabled": "有効",
+    "addAccount": "アカウント追加"
+  },
+  "circles": {
+    "title": "コミュニティ"
+  },
+  "knowledgeCard": {
+    "delete": "削除"
+  },
+  "developerHomePage": {
+    "statApiKeys": "APIキー"
+  },
+  "agentTeams": {
+    "statsActive": "実行中"
   }
 }

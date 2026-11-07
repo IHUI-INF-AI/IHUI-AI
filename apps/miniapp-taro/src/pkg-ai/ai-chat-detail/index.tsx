@@ -3,39 +3,30 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * AI 对话详情页 — miniapp-taro 端实现
+ * AI 对话详情页 — miniapp-taro 端薄壳(2026-11-05)
  *
- * 2026-07-29 迁移:从 Taro 原生 170 行实现 → 接入 @ihui/rn-app 共享层类型契约
- * (ChatScreenProps / MessageInputProps),平台能力用 Taro 原生 API 实现
- * (Taro.chooseImage / Taro.chooseMessageFile / Taro.navigateBack 等)。
+ * 形制 = 直载共享屏 + 注入本端事实,与 pkg-ai/ai-assistant、pkg-about/about-shared 同一条路线:
+ * 布局/气泡/输入栏/语音态/全屏态/附件 chips 的真相源在
+ * `packages/app/src/features/chat/ChatScreen.tsx`(RN 端 `apps/mobile-rn/src/screens/ChatScreen.tsx:2866`
+ * 消费同一份),本页只出本端事实 —— 取词、主题档、Taro 平台能力(chooseImage/chooseMessageFile)、
+ * 历史/流式数据与自动滚底。
  *
- * 共享层 @ihui/rn-app 的 ChatScreen / MessageInput 组件本身基于 react-native,
- * 不能直接在 Taro 小程序中渲染,因此本页保留 Taro 原生实现,但严格遵循
- * 共享层 props 契约,确保未来 web / mobile-rn 包装层可共用类型与业务逻辑。
- *
- * 涉及共享类型(全部从 @ihui/types 单源导出,@ihui/rn-app 仅是 react-native 包装):
- * - ChatScreenMessage   聊天消息条目
- * - ChatScreenModel     模型选项
- * - MessageInputFile    附件条目(图片/文档/视频)
- * - MessageInputProps   输入框共享 props 契约
- *
- * 约束:
- * - 不引入新依赖(@ihui/types 已在 dependencies,无需 @ihui/rn-app)
- * - 禁用 any,异步回调统一 unknown + 类型守卫
- * - Taro API 返回类型显式声明 chooseImageRes / chooseMessageFileRes
+ * 自动滚底走共享屏 `onListRef`(`ChatScreen.tsx:199-203`)拿到的 FlatList 句柄:
+ * 小程序侧由 `src/rn-compat/primitives.tsx` 的 forwardRef 把 `scrollToEnd` 转译为
+ * scrollTop+scrollWithAnimation;该透传的阴性/阳性对照见 tests/rn-compat-flatlist-ref.test.tsx。
  */
-import { useI18n } from '@/i18n'
-import { View, Text, ScrollView, Input } from '@tarojs/components'
-import { useFieldFocus } from '@/hooks/use-field-focus'
-import LineIcon from '@/components/LineIcon'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback, useRef, useEffect } from 'react'
-import type { ChatScreenMessage, MessageInputFile } from '@ihui/types'
-import { chatStream, getChatHistory, type ChatMessage } from '@/api'
-import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { logger } from '@/utils/logger'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { ChatScreen as SharedChatScreen } from '@ihui/rn-app/features/chat/ChatScreen'
+import { EmptyState, ErrorState, ScreenSkeleton } from '@/components/ScreenStates.taro'
+import { useTheme } from '@/rn-compat/theme'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useI18n } from '@/i18n'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
+import { chatStream, getChatHistory, type ChatMessage } from '@/api'
+import { logger } from '@/utils/logger'
 import { onToast } from '@/host/on-toast'
+import type { ChatScreenMessage, MessageInputFile } from '@ihui/types'
 
 /** Taro.chooseImage 返回类型(避免 any) */
 interface ChooseImageRes {
@@ -57,6 +48,11 @@ interface ChooseMessageFileRes {
   errMsg?: string
 }
 
+/** 共享屏 FlatList 句柄的最小面(只取本页用到的命令式方法) */
+interface ListHandle {
+  scrollToEnd: (params?: { animated?: boolean }) => void
+}
+
 /** 文件 ID 自增计数器(模块级,避免多实例碰撞) */
 let fileIdCounter = 0
 const nextFileId = (): string => `file-${Date.now()}-${++fileIdCounter}`
@@ -72,6 +68,7 @@ function inferFileType(rawType: string | undefined): MessageInputFile['type'] {
 export default function AiChatDetail() {
   const gate = useAuthReadyGate()
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   // 兜底翻译:key 缺失时返回 fallback,避免显示原始 key
   const tt = useCallback(
     (k: string, fb: string, params?: Record<string, string | number>): string => {
@@ -90,24 +87,21 @@ export default function AiChatDetail() {
   const [inputValue, setInputValue] = useState('')
   const [sending, setSending] = useState(false)
   const [sessionId, setSessionId] = useState('')
-  const [scrollTop, setScrollTop] = useState(0)
 
   // MessageInput 平台能力(共享层 props 契约对齐)
   const [inputFiles, setInputFiles] = useState<MessageInputFile[]>([])
   const [isInputFullscreen, setIsInputFullscreen] = useState(false)
-  // 聚焦态唯一来源:本端唯一实现 useFieldFocus(描边画在外层胶囊容器上 = hook 文档的 WRAP 形态②,
-  // handlers 留 Input、focusStyle 铺容器;取色只有 hook 那一处 var(--color-primary),本文件不写第二份)。
-  const ff = useFieldFocus()
   const [isVoiceMode, setIsVoiceMode] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [inputError, setInputError] = useState('')
 
-  const inputRef = useRef('')
+  const listRef = useRef<ListHandle | null>(null)
+  const sendingRef = useRef(false)
   const idCounter = useRef(0)
   const nextMsgId = (): string => `${++idCounter.current}`
 
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 50)
   }, [])
 
   const loadData = useCallback(async () => {
@@ -146,11 +140,18 @@ export default function AiChatDetail() {
     })
   })
 
-  const handleInputChange = useCallback((e: { detail: { value: string } }) => {
-    const val = e.detail.value
-    setInputValue(val)
-    inputRef.current = val
-  }, [])
+  /** 共享屏词汇 → 本页历史键位(chat.title / chat.thinking / 输入框占位与发送键) */
+  const tScreen = useCallback(
+    (key: string, params?: Record<string, string | number>): string => {
+      if (key === 'chat.title') return t('aiChatDetail.title')
+      if (key === 'chat.thinking') return tt('aiChatDetail.thinking', '思考中…')
+      if (key === 'messageInput.placeholder')
+        return tt('aiChatDetail.inputPlaceholder', '输入消息…')
+      if (key === 'messageInput.send') return t('chat.send')
+      return params ? t(key, params) : t(key)
+    },
+    [t, tt],
+  )
 
   const handleFullscreenToggle = useCallback(() => {
     setIsInputFullscreen((v) => !v)
@@ -162,7 +163,6 @@ export default function AiChatDetail() {
 
   const handleClear = useCallback(() => {
     setInputValue('')
-    inputRef.current = ''
     setInputError('')
   }, [])
 
@@ -231,8 +231,8 @@ export default function AiChatDetail() {
   }, [tt, handleAddFile])
 
   const sendMessage = useCallback(async () => {
-    const text = inputRef.current.trim()
-    if (!text || sending) return
+    const text = inputValue.trim()
+    if (!text || sendingRef.current) return
     const userMsg: ChatScreenMessage = {
       id: nextMsgId(),
       role: 'user',
@@ -245,7 +245,7 @@ export default function AiChatDetail() {
     }
     setMessages((prev) => [...prev, userMsg, aiMsg])
     setInputValue('')
-    inputRef.current = ''
+    sendingRef.current = true
     setSending(true)
     scrollToBottom()
     try {
@@ -293,229 +293,83 @@ export default function AiChatDetail() {
       )
       onToast(tt('aiChatDetail.sendFailed', '发送失败,请重试'), { kind: 'error' })
     } finally {
+      sendingRef.current = false
       setSending(false)
     }
-  }, [sending, sessionId, messages, scrollToBottom, tt])
+  }, [inputValue, sessionId, messages, scrollToBottom, tt])
 
   useEffect(() => {
     scrollToBottom()
   }, [messages, scrollToBottom])
 
+  /**
+   * 思考中占位:共享屏只在 `isStreaming` 下注入 `chat.thinking`,而本页发送态用的是
+   * `isSending`(发送按钮转菊花、不出现无人接管的「停止」)。故在渲染前的投影上补同一语义,
+   * 原始 messages 不掺显示态(发送载荷仍用原文)。
+   */
+  const displayMessages = useMemo(
+    () =>
+      messages.map((m) =>
+        m.role === 'assistant' && !m.content && sending
+          ? { ...m, content: tt('aiChatDetail.thinking', '思考中…') }
+          : m,
+      ),
+    [messages, sending, tt],
+  )
+
+  const listHeader = loading ? (
+    <ScreenSkeleton variant="list" count={4} colorScheme={resolvedTheme} />
+  ) : error ? (
+    <ErrorState
+      message={tt('aiChatDetail.loadFailed', '加载失败')}
+      retryLabel={t('common.retry')}
+      onRetry={loadData}
+      colorScheme={resolvedTheme}
+    />
+  ) : messages.length === 0 ? (
+    <EmptyState title={t('aiChatDetail.empty')} colorScheme={resolvedTheme} />
+  ) : null
+
   return (
-    <ThemeRoot className="flex flex-col h-screen bg-background">
-      {/* 对齐 RN ChatScreen header:无卡片底 + 标题 20dp/600(底部描边已按 §4 两端同批摘除) */}
-      <View className="flex flex-row items-center justify-between px-[24rpx] py-[24rpx] flex-shrink-0">
-        <Text className="text-heading font-semibold text-foreground">
-          {t('aiChatDetail.title')}
-        </Text>
-      </View>
-      <ScrollView scrollY className="flex-1 min-h-0" scrollTop={scrollTop} scrollWithAnimation>
-        {loading ? (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-body">
-              {t('common.loading')}
-            </Text>
-          </View>
-        ) : error ? (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-body">
-              {tt('aiChatDetail.loadFailed', '加载失败')}
-            </Text>
-            <View
-              className="mt-[24rpx] px-[48rpx] py-[16rpx] bg-primary rounded-xl flex items-center justify-center"
-              onClick={loadData}
-              hoverClass="opacity-60"
-            >
-              <Text className="text-body text-primary-foreground">{t('common.retry')}</Text>
-            </View>
-          </View>
-        ) : messages.length ? (
-          <View className="px-[24rpx] py-[24rpx]">
-            {/* 对齐 RN ChatScreen list:paddingHorizontal 12dp/paddingVertical 12dp/气泡间距 10dp */}
-            {messages.map((msg) => (
-              <View
-                key={msg.id}
-                className={`flex mb-[20rpx] ${msg.role === 'user' ? 'justify-end items-end' : 'justify-start items-start'}`}
-              >
-                {/* 对齐 RN 气泡:user = surface.muted/radius 12dp;ai = surface.light+描边/radius 15dp */}
-                <View
-                  className={`max-w-[80%] px-[20rpx] py-[20rpx] ${
-                    msg.role === 'user'
-                      ? 'bg-muted rounded-xl'
-                      : 'bg-card border-[length:2rpx] border-border rounded-2xl'
-                  }`}
-                >
-                  <Text className="text-title leading-[44rpx] break-words text-foreground">
-                    {msg.content ||
-                      (msg.role === 'assistant' && sending
-                        ? tt('aiChatDetail.thinking', '思考中…')
-                        : '')}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        ) : (
-          <View className="flex flex-col items-center py-[96rpx]">
-            <Text className="text-center text-muted-foreground text-body">
-              {t('aiChatDetail.empty')}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-
-      {inputError ? (
-        <View className="px-[32rpx] pb-[16rpx]">
-          <Text className="text-body text-destructive">{inputError}</Text>
-        </View>
-      ) : null}
-
-      {inputFiles.length > 0 ? (
-        <View className="flex flex-row flex-wrap gap-[16rpx] px-[16rpx] py-[16rpx]">
-          {inputFiles.map((f) => (
-            <View
-              key={f.id}
-              className="relative w-[144rpx] h-[144rpx] rounded-xl bg-[var(--color-border)] overflow-hidden flex items-center justify-center"
-            >
-              <Text
-                className="text-[length:18rpx] text-muted-foreground px-[8rpx] text-center"
-                numberOfLines={1}
-              >
-                {f.filename || f.type}
-              </Text>
-              <View
-                className="absolute top-[5rpx] right-[5rpx] w-[30rpx] h-[30rpx] rounded-full bg-[var(--color-danger)] flex items-center justify-center"
-                onClick={() => handleRemoveFile(f.id)}
-                hoverClass="opacity-60"
-              >
-                <Text className="text-label font-bold leading-none text-[var(--color-danger-foreground)]">
-                  ×
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
-      {isInputFullscreen ? (
-        <View className="flex flex-row items-center justify-between px-[32rpx] py-[24rpx]">
-          {/* back-label-exempt: 全屏输入态的退出按钮,「返回」是按钮文案且箭头已矢量化(LineIcon 在同一按钮内) until 2026-12-31 */}
-          <View
-            onClick={handleFullscreenToggle}
-            hoverClass="opacity-60"
-            className="flex flex-row items-center"
-          >
-            <LineIcon name="chevron-left" size={32} className="mr-[8rpx]" />
-            <Text className="text-title text-muted-foreground mr-[24rpx]">
-              {t('messageInput.fullscreenBack')}
-            </Text>
-          </View>
-          <Text className="text-label text-[var(--color-text-tertiary)]">
-            {t('messageInput.fullscreenHint')}
-          </Text>
-        </View>
-      ) : null}
-
-      {isVoiceMode ? (
-        <View className="flex flex-col items-center px-[20rpx] pt-[10rpx] pb-[20rpx]">
-          <Text className="text-label text-[var(--color-text-tertiary)] mb-[12rpx]">
-            {isRecording ? t('messageInput.recording') : t('messageInput.voiceHint')}
-          </Text>
-          <View
-            className="w-full py-[24rpx] rounded-xl bg-muted flex items-center justify-center"
-            onTouchStart={() => setIsRecording(true)}
-            onTouchEnd={() => setIsRecording(false)}
-            onTouchCancel={() => setIsRecording(false)}
-          >
-            <Text
-              className={`text-body ${isRecording ? 'text-[var(--color-success-deep-text)]' : 'text-muted-foreground'}`}
-            >
-              {isRecording
-                ? tt('messageInput.releaseToSend', '松开发送')
-                : tt('messageInput.holdToSpeak', '按住说话')}
-            </Text>
-          </View>
-        </View>
-      ) : (
-        <View className="px-[20rpx] pt-[10rpx] pb-[20rpx] flex-shrink-0">
-          {/* 对齐 RN MessageInput inputRow:胶囊描边容器(radius 2xl=16px,聚焦态取墨档 = focusStyle) */}
-          <View
-            className="flex flex-row items-end rounded-2xl border-[length:2rpx] border-border bg-card px-[30rpx] py-[12rpx] gap-[20rpx]"
-            style={ff.focusStyle}
-          >
-            <View
-              className="w-[48rpx] h-[48rpx] flex items-center justify-center shrink-0"
-              onClick={handleVoiceToggle}
-              hoverClass="opacity-60"
-            >
-              <LineIcon name="mic" size={20} color="var(--color-muted-foreground)" />
-            </View>
-            <View
-              className={`flex-1 flex items-center ${isInputFullscreen ? 'min-h-[400rpx]' : 'min-h-[80rpx]'}`}
-            >
-              {/* Taro Input 组件:支持 onInput / onFocus / onBlur / onConfirm + i18n placeholder */}
-              <Input
-                className="w-full h-[80rpx] text-subtitle bg-transparent text-foreground"
-                type="text"
-                value={inputValue}
-                placeholder={tt('aiChatDetail.inputPlaceholder', '输入消息…')}
-                placeholderClass="text-[var(--color-text-tertiary)]"
-                onInput={handleInputChange}
-                {...ff.spread}
-                onConfirm={sendMessage}
-                confirmType="send"
-                disabled={sending}
-              />
-            </View>
-            <View className="flex flex-row items-end gap-[8rpx] shrink-0">
-              {ff.focused ? (
-                <View
-                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
-                  onClick={handleFullscreenToggle}
-                  hoverClass="opacity-60"
-                >
-                  <LineIcon name="maximize" size={20} color="var(--color-muted-foreground)" />
-                </View>
-              ) : null}
-              {ff.focused ? (
-                <View
-                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
-                  onClick={handleAddFile}
-                  hoverClass="opacity-60"
-                >
-                  <LineIcon name="paperclip" size={20} color="var(--color-muted-foreground)" />
-                </View>
-              ) : (
-                <View
-                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
-                  onClick={handleAddImage}
-                  hoverClass="opacity-60"
-                >
-                  <Text className="text-title text-muted-foreground leading-none">+</Text>
-                </View>
-              )}
-              {inputValue.length > 0 && !sending ? (
-                <View
-                  className="w-[48rpx] h-[48rpx] flex items-center justify-center"
-                  onClick={handleClear}
-                  hoverClass="opacity-60"
-                >
-                  <Text className="text-label text-muted-foreground leading-none">×</Text>
-                </View>
-              ) : null}
-              <View
-                className={`px-[28rpx] py-[16rpx] rounded-2xl min-w-[100rpx] flex items-center justify-center ${!inputValue.trim() || sending ? 'bg-[var(--color-text-tertiary)]' : 'bg-primary'}`}
-                onClick={sendMessage}
-                hoverClass="opacity-60"
-              >
-                <Text className="text-body font-semibold text-primary-foreground">
-                  {sending ? tt('aiChatDetail.sending', '发送中…') : t('chat.send')}
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-      )}
+    <ThemeRoot>
+      <SharedChatScreen
+        t={tScreen}
+        messages={displayMessages}
+        inputText={inputValue}
+        isStreaming={false}
+        error=""
+        models={[]}
+        model=""
+        pickerOpen={false}
+        navItems={[]}
+        inputFiles={inputFiles}
+        isInputFullscreen={isInputFullscreen}
+        isVoiceMode={isVoiceMode}
+        isRecording={isRecording}
+        isSending={sending}
+        inputError={inputError}
+        onInputTextChange={setInputValue}
+        onSend={() => void sendMessage()}
+        onStop={() => undefined}
+        onModelChange={() => undefined}
+        onPickerOpenChange={() => undefined}
+        onLongPressMessage={() => undefined}
+        onInputFullscreenToggle={handleFullscreenToggle}
+        onInputVoiceToggle={handleVoiceToggle}
+        onInputAddImage={() => void handleAddImage()}
+        onInputAddFile={() => void handleAddFile()}
+        onInputRemoveFile={handleRemoveFile}
+        onInputClear={handleClear}
+        onInputVoiceStart={() => setIsRecording(true)}
+        onInputVoiceEnd={() => setIsRecording(false)}
+        onListRef={(ref) => {
+          listRef.current = ref as ListHandle | null
+        }}
+        renderListHeader={listHeader}
+        colorScheme={resolvedTheme}
+        onNavigate={(target) => void Taro.navigateTo({ url: target })}
+        onToast={onToast}
+      />
     </ThemeRoot>
   )
 }

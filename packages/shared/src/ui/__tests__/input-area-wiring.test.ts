@@ -78,16 +78,14 @@ const CROSS_END_TIERS = [
   'INPUT_AREA_CONTROL_GLYPH_PX',
   'INPUT_AREA_ATTACHMENT_CLOSE_GLYPH_PX',
   'INPUT_AREA_DOC_NAME_STRIP_PX',
-  'INPUT_AREA_EXPAND_BTN_BOX_PX',
-  'INPUT_AREA_FANGDA_TOP_PX',
   'INPUT_AREA_GLYPH_MD_PX',
   'INPUT_AREA_THUMB_GLYPH_PX',
-  'INPUT_AREA_VOICE_BTN_GAP_PX',
 ] as const
 
 /**
- * 单端档归属表 —— 本族"两端不一样"的那 13 枚具名档各自只许在哪一端出现(O02 票④ 第 ④ 格,
- * 枚数 2026-10-28 现读;旧笔"14 枚"是把未入表的幻影档 96 一起数了进去)。
+ * 单端档归属表 —— 本族"两端不一样"的那 16 枚具名档各自只许在哪一端出现(O02 票④ 第 ④ 格,
+ * 枚数 2026-11-05 现读;2026-10-28 时 13 枚,2026-11-04 props-parity 批删除 RN 的折叠/放大/
+ * 语音切换变体后,EXPAND_BTN_BOX / FANGDA_TOP / VOICE_BTN_GAP 三枚退成小程序单端)。
  *
  * 为什么要一张**机器钉住的账**,而不是一段散文:
  *  - 守门 128 的 diffCount 只报"这一档只在一端出现",它**说不出**那是"另一端根本没有这个元素"
@@ -106,6 +104,21 @@ const SINGLE_END_TIERS: ReadonlyArray<{ tier: string; owner: LegName; why: strin
   // ── A 一端根本没有该元素 ──
   { tier: 'INPUT_AREA_AI_HOME_EMOJI_CELL_PX', owner: 'miniapp-taro', why: 'A RN 无表情面板' },
   { tier: 'INPUT_AREA_AI_HOME_EMOJI_PANEL_H_PX', owner: 'miniapp-taro', why: 'A RN 无表情面板' },
+  {
+    tier: 'INPUT_AREA_EXPAND_BTN_BOX_PX',
+    owner: 'miniapp-taro',
+    why: 'A RN 的框内放大变体已随 props-parity 批删除,小程序 search-right/search-suo 仍在',
+  },
+  {
+    tier: 'INPUT_AREA_FANGDA_TOP_PX',
+    owner: 'miniapp-taro',
+    why: 'A RN 已删放大钮变体;小程序放大钮内缩仍取本档',
+  },
+  {
+    tier: 'INPUT_AREA_VOICE_BTN_GAP_PX',
+    owner: 'miniapp-taro',
+    why: 'A RN 已删语音/键盘切换钮变体;小程序切换钮间距仍取本档',
+  },
   {
     tier: 'INPUT_AREA_AI_HOME_OVERLAY_BOTTOM_WITH_PANEL_PX',
     owner: 'miniapp-taro',
@@ -868,10 +881,10 @@ describe('InputArea 跨端档位一致性(O02 票④)', () => {
   })
 
   it('④ 本锁有牙:一端把档放大(TIER → TIER * 2)⇒ 取值一致性判据必须红', () => {
-    const tier = 'INPUT_AREA_EXPAND_BTN_BOX_PX'
+    const tier = 'INPUT_AREA_DOC_NAME_STRIP_PX'
     const dirtyRn = LEG_SRC['mobile-rn'].replace(
-      /height:\s*INPUT_AREA_EXPAND_BTN_BOX_PX,/,
-      'height: INPUT_AREA_EXPAND_BTN_BOX_PX * 2,',
+      /height:\s*INPUT_AREA_DOC_NAME_STRIP_PX,/,
+      'height: INPUT_AREA_DOC_NAME_STRIP_PX * 2,',
     )
     expect(dirtyRn).not.toBe(LEG_SRC['mobile-rn'])
     const { problems } = tierParityProblems(tier, LEG_SRC['miniapp-taro'], dirtyRn, RPX_PER_PX)
@@ -879,10 +892,10 @@ describe('InputArea 跨端档位一致性(O02 票④)', () => {
   })
 
   it('⑤ 本锁有牙:某一端把引用改成裸数字(退回各写一份)⇒ 脱线判据必须红', () => {
-    const tier = 'INPUT_AREA_EXPAND_BTN_BOX_PX'
+    const tier = 'INPUT_AREA_DOC_NAME_STRIP_PX'
     const dirtyRn = LEG_SRC['mobile-rn'].replace(
-      /width:\s*INPUT_AREA_EXPAND_BTN_BOX_PX,\s*\n\s*height:\s*INPUT_AREA_EXPAND_BTN_BOX_PX,/,
-      'width: 20,\n    height: 20,',
+      /height:\s*INPUT_AREA_DOC_NAME_STRIP_PX,/,
+      'height: 16,',
     )
     expect(dirtyRn).not.toBe(LEG_SRC['mobile-rn'])
     const { problems } = tierParityProblems(tier, LEG_SRC['miniapp-taro'], dirtyRn, RPX_PER_PX)
@@ -894,8 +907,8 @@ describe('InputArea 跨端档位一致性(O02 票④)', () => {
 
   it('⑥ 本锁有牙:只把块内一个槽位改成裸数字 ⇒ 块级反向锁必须红(端内第二份真相)', () => {
     const dirtyRn = LEG_SRC['mobile-rn'].replace(
-      /width:\s*INPUT_AREA_EXPAND_BTN_BOX_PX,/,
-      'width: 20,',
+      /width:\s*INPUT_AREA_IN_SHELL_BTN_PX,/,
+      'width: 32,',
     )
     expect(dirtyRn).not.toBe(LEG_SRC['mobile-rn'])
     const problems = doubleTruthProblems(dirtyRn, 'mobile-rn', RPX_PER_PX)
@@ -921,12 +934,12 @@ describe('InputArea 跨端档位一致性(O02 票④)', () => {
   })
 
   it('⑧ 本锁有牙:小程序端整枚档退出引用 ⇒ 脱线判据必须红(改一端不带另一端走)', () => {
-    // 把小程序端**全部**取数点退回收编前写法(两处 search-right / search-suo 的 width+height),
-    // 这一枚档在小程序端就彻底没有引用了 ⇒ 改 spec 档值不带小程序端走。
-    const tier = 'INPUT_AREA_EXPAND_BTN_BOX_PX'
+    // 把小程序端**全部**取数点退回收编前写法,这一枚档在小程序端就彻底没有引用了
+    // ⇒ 改 spec 档值不带小程序端走。
+    const tier = 'INPUT_AREA_DOC_NAME_STRIP_PX'
     const dirtyMini = LEG_SRC['miniapp-taro'].replace(
-      /toUnit\(INPUT_AREA_EXPAND_BTN_BOX_PX\)/g,
-      'rpx(40)',
+      /toUnit\(INPUT_AREA_DOC_NAME_STRIP_PX\)/g,
+      'rpx(32)',
     )
     expect(dirtyMini).not.toBe(LEG_SRC['miniapp-taro'])
     expect(

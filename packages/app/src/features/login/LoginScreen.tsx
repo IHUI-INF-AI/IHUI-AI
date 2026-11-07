@@ -751,7 +751,11 @@ function PhoneTabContent({
                 accessibilityLabel={t('auth.selectAreaCode')}
               >
                 <Text style={styles.areaText}>{phoneHead}</Text>
-                <ChevronDown size={10} color={tk.text.tertiary} style={{ marginLeft: 6 }} />
+                <ChevronDown
+                  size={10}
+                  color={tk.text.tertiary}
+                  style={{ marginLeft: rnSpacing['xs-loose'] }}
+                />
               </Tappable>
               <TextField
                 colorScheme={colorScheme}
@@ -1619,13 +1623,13 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     errorIcon: {
       color: tk.danger.DEFAULT,
       fontSize: rnType.body.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     errorText: {
       flex: 1,
       color: tk.danger.DEFAULT,
       fontSize: rnType.label.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     },
     // ===== Tab 切换条(对齐 web ui-react TabsList:TabsTrigger) =====
     // web TabsList:h-9 rounded-lg bg-muted p-1;TabsTrigger rounded-md px-3 py-1 text-sm,
@@ -1637,7 +1641,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     // (#E5E5E5 / #383838 = --color-border 两档逐位同值),不得再取 surface.light/gray.black 自拼 alpha。
     tabBar: {
       flexDirection: 'row',
-      gap: 0,
+      gap: rnSpacing.none,
       marginBottom: rnSpacing.lg,
       padding: rnSpacing.xs,
       borderRadius: rnRadius.lg,
@@ -1666,7 +1670,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     tabText: {
       fontSize: rnType.body.size,
       fontWeight: '500',
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
       // 中文字体度量光学居中
       transform: [{ translateY: -0.75 }],
@@ -1678,7 +1682,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: tk.selection.foreground,
     },
     tabContent: {
-      gap: 0,
+      gap: rnSpacing.none,
     },
     // ===== 输入框 =====
     field: {
@@ -1878,7 +1882,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     agreementText: {
       flex: 1,
       fontSize: rnType.label.size,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
     },
     agreementLink: {
@@ -1897,7 +1901,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     autoLoginText: {
       fontSize: rnType.label.size,
-      lineHeight: 16,
+      lineHeight: rnType.label.lineHeight,
       color: tk.text.secondary,
     },
     // 悬浮在账号输入框正下方,不挤压布局;完整描边 + 阴影区分层级
@@ -1919,7 +1923,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       shadowRadius: 8,
     },
     historyItem: {
-      paddingVertical: 0,
+      paddingVertical: rnSpacing.none,
       paddingHorizontal: rnSpacing['md-loose'],
       flexDirection: 'row',
       alignItems: 'center',
@@ -1936,7 +1940,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
     },
     historyItemText: {
       fontSize: rnType.body.size,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.primary,
     },
     historyClear: {
@@ -1945,7 +1949,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       alignItems: 'center',
     },
     historyClearText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     // ===== 主按钮 =====
@@ -1962,7 +1966,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: onBrandText,
       fontSize: rnType.body.size,
       fontWeight: '500',
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       // 光学居中:中文回退字体度量导致墨迹重心偏下(像素实测 ~0.5-1px + 汉字下重视觉),
       // 上移 1.5px 校正(2026-09-04 像素级测量)
       transform: [{ translateY: -1.5 }],
@@ -1984,7 +1988,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       color: OAUTH_BUTTON_FOREGROUND,
       fontSize: rnType.body.size,
       fontWeight: '500',
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       // 与 loginBtnText 同一光学居中校正
       transform: [{ translateY: -1.5 }],
     },
@@ -2069,7 +2073,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       borderRadius: rnRadius.lg,
       borderWidth: 1,
       borderColor: tk.border.light,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.primary,
       textAlign: 'center',
@@ -2099,11 +2103,11 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.surface.muted,
     },
     qrPlaceholderText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.tertiary,
     },
     qrStatusText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
       textAlign: 'center',
     },
@@ -2116,7 +2120,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: surface,
     },
     qrRefreshText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '500',
       color: tk.text.primary,
     },
@@ -2199,7 +2203,7 @@ function createStyles(tk: AppThemeTokens, colorScheme: 'light' | 'dark') {
       backgroundColor: tk.brand.cta,
     },
     qrOpenWebText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '500',
       color: onBrandText,
     },

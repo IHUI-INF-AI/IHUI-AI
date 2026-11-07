@@ -637,6 +637,63 @@ export function externalsDiffUsable(myFace, baseline) {
 }
 
 /**
+ * 外部状态快照的**来源选择与读数组装**(纯函数,零 IO;2026-11-05 立)。
+ *
+ * 为什么加这一路:分支没有 upstream 时,旧口径只认 `@{u}` + `ls-remote` + `for-each-ref`
+ * 三件,任一取不到就让 `readGateExternals()` 返回 null ⇒ 归因层落 `undetermined-red`。
+ * 可本地 `refs/remotes/origin/main` 一直都在 —— 它同样是「外部已有状态」的可复现快照,
+ * 只是不联网、不会把「问不到远端」当成「远端没动」。所以:
+ *   · 三件齐全 ⇒ 输出与旧口径**逐字一致**(有 upstream 的机器行为不变);
+ *   · 三件取不全但本地有 `refs/remotes/origin/main` ⇒ 用本地 tip + `refs/remotes` 清单兜底;
+ *   · 两路都取不到 ⇒ 返回 null + why,归因层落今日的 `undetermined-red`(不静默放宽)。
+ * ⚠️ 兜底读数带 `source=remote-tracking` 前缀,与 network 口径**永远不能比成相等** ——
+ * 两跑之间换了来源就是「两侧不是同一份外部状态」,必须按 moved 处理,不得折算成没动。
+ */
+export const EXTERNALS_LOCAL_REF = 'refs/remotes/origin/main'
+
+export function composeExternalsSnapshot({
+  upstream = null,
+  remoteTip = null,
+  remoteRefs = null,
+  localRef = EXTERNALS_LOCAL_REF,
+  localTip = null,
+} = {}) {
+  const norm = (s) =>
+    String(s ?? '')
+      .split(/\r?\n/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .sort()
+  const up = String(upstream ?? '').trim()
+  const tip = norm(remoteTip)
+  const tracked = norm(remoteRefs)
+  if (up && tip.length > 0 && tracked.length > 0)
+    return {
+      ok: true,
+      mode: 'network',
+      why: null,
+      value: `upstream=${up}\nremoteTip=${tip.join(' | ')}\nremoteRefs=${tracked.join(' | ')}`,
+    }
+  const lr = String(localRef ?? '').trim()
+  const lt = String(localTip ?? '').trim()
+  if (lr && lt)
+    return {
+      ok: true,
+      mode: 'remote-tracking',
+      why: null,
+      value: `source=remote-tracking\nref=${lr}\ntip=${lt}${
+        tracked.length > 0 ? `\nremoteRefs=${tracked.join(' | ')}` : ''
+      }`,
+    }
+  return {
+    ok: false,
+    mode: 'unavailable',
+    value: null,
+    why: `外部状态快照现读失败(rev-parse @{u} / ls-remote 取不到,且本地没有 ${EXTERNALS_LOCAL_REF} remote-tracking ref)⇒ 取不到`,
+  }
+}
+
+/**
  * 解析 guardian-runner 的汇总块。
  * 返回 { batchReported, executed, total, earlyAbort, failed:[{id,label,script}] }
  *
@@ -1919,6 +1976,16 @@ export function decideWithSelfRunBatch({
 /** commit-msg 阶段"未判定"档的名字(可机读,与 gate-self-undetermined 不得并桶) */
 export const COMMIT_MSG_UNDETERMINED_NAME = 'commit-msg-未判定'
 
+/**
+ * commit-msg 阶段复跑的**索引面**三态名(2026-11-05 立,判据见 decideCommitMsgStageIndexFace)。
+ * 三态不得并桶:`shared-default` 是"钩子本来就读这一面",`undetermined` 是"没能确定是哪一面"。
+ */
+export const COMMIT_MSG_FACE = {
+  DEFAULT: 'shared-default',
+  PRIVATE: 'private-index',
+  UNDETERMINED: 'undetermined',
+}
+
 /** 钩子里被调用的检查脚本形态:`scripts/<name>.mjs`(含经 hook-run-hidden.vbs 包装那一层)。 */
 const COMMIT_MSG_CHECK_RE = /scripts\/[A-Za-z0-9._-]+\.mjs/g
 
@@ -1957,6 +2024,77 @@ function excerptOf(output, max = 12) {
     .map((l) => l.replace(/\s+$/, ''))
     .filter((l) => l.trim())
   return { picked: lines.slice(0, max), total: lines.length, truncated: lines.length > max }
+}
+
+/**
+ * commit-msg 阶段复跑**读哪一面索引**的三态判据(2026-11-05 立)。
+ *
+ * 要修的那一型(§12e 恒红门,2026-11-05 19:09:59 实测):safe-commit 的 Step 3h 在有外来暂存时
+ * 把本枚提交交给 `GIT_INDEX_FILE=<私有索引>`(= 生效索引 ∖ 外来件),`.husky/commit-msg` 里那几条
+ * **读索引**的检查因此只在"本枚那一面"上看到声明集(日志原文「4 文件 … 通过」);而归因层的复跑
+ * 用父进程的 `process.env`(那里没有这枚指针)⇒ 落到**共享索引**面(当时挂着 129 条外来件,含
+ * `packages/i18n/messages/` 族)⇒ `check-commit-scope-consistency.mjs` 的 R2 以"红"复现 ⇒
+ * 定责本枚 ⇒ 拒绝提交并回滚,两枚已建好的 commit 变孤儿。复跑的面与钩子当时的面不是同一份,
+ * 结论自然不是钩子的结论 —— 而它的红与本次提交内容无关,唯一结局就是逼人跳门。
+ *
+ * 三条判序:
+ *  ① 钩子当时**没有**私有索引(共享索引里没有外来件)⇒ git 用的就是默认索引,复跑原样继承
+ *     `process.env` 即同一面。这一档记 `shared-default`,它是"同一面",不是"回落"。
+ *  ② 有私有索引 ⇒ 必须它自己还在位、暂存面还取得到、且逐条等于声明集(既不缺声明件、
+ *     也不混外来件),否则这一面已经不是钩子当时那一面。
+ *  ③ ② 里任何一环取不到 ⇒ `undetermined`(调用方须据此落 `ran:false`,由
+ *     `decideWithCommitMsgStage` 折算成「commit-msg-未判定」)。**绝不**回落到共享索引重跑 ——
+ *     那正是本型的成因;失效方向恒为"多要一次定向说明"(§0.3/§0.10),不是"多放一次跳门"。
+ *
+ * 为什么这里不做"读钩子日志里那行结论":`.ihui-agent/state/hook-logs/*.log` 与
+ * `.git/COMMIT_EDITMSG` 同属**共享可变态**(多会话随时改写),把归因建在别人会写的行上,
+ * 红了不知道是谁的、绿了也不知道 —— 本模块 ① 那条注记已经为同一型错误拒绝过一次。
+ *
+ * @param hookIndexFile 本枚提交交给钩子的索引指针(GIT_INDEX_FILE);null/空 ⇒ git 用默认索引
+ * @param indexExists   该指针指向的文件当前是否存在;取不到一律传 null(不得猜 false 了事)
+ * @param stagedFiles   该面此刻的暂存清单(正/反斜杠皆可);取不到传 null
+ * @param declaredFiles 本枚声明集;取不到传 null
+ * @returns {{use:'shared-default'|'private-index'|'undetermined', indexFile:string|null, why:string|null}}
+ */
+export function decideCommitMsgStageIndexFace({
+  hookIndexFile = null,
+  indexExists = null,
+  stagedFiles = null,
+  declaredFiles = null,
+} = {}) {
+  const raw = typeof hookIndexFile === 'string' ? hookIndexFile.trim() : null
+  // ① 本枚没有把私有索引交给钩子 ⇒ 钩子看的就是默认索引,继承 env 即同一面。
+  if (!raw) return { use: COMMIT_MSG_FACE.DEFAULT, indexFile: null, why: null }
+  const undetermined = (why) => ({ use: COMMIT_MSG_FACE.UNDETERMINED, indexFile: raw, why })
+  // ② 三面输入逐条现读;任一取不到只说明"这一面没法自证",既不说明"它绿"也不说明"它不是我的"。
+  if (indexExists !== true)
+    return undetermined(`私有索引不在位或存在性取不到(实得 ${JSON.stringify(indexExists)}):${raw}`)
+  if (!Array.isArray(stagedFiles))
+    return undetermined(`私有索引的暂存面取不到(git diff --cached 无输出):${raw}`)
+  if (!Array.isArray(declaredFiles))
+    return undetermined(`本枚声明集取不到,无法与私有索引面对账:${raw}`)
+  // Windows 实测:git 输出正斜杠、声明集可能带反斜杠 —— 归一化只对齐形状,不比内容。
+  const norm = (p) =>
+    String(p ?? '')
+      .replace(/\\/g, '/')
+      .replace(/^\.\//, '')
+  const face = stagedFiles.map(norm)
+  const declared = declaredFiles.map(norm)
+  const faceSet = new Set(face)
+  const declaredSet = new Set(declared)
+  const missing = declared.filter((p) => !faceSet.has(p))
+  if (missing.length)
+    return undetermined(
+      `私有索引里已没有本枚声明集的 ${missing.length} 条(如 ${missing.slice(0, 3).join(', ')})` +
+        ` ⇒ 这一面不再是钩子当时看到的那一面:${raw}`,
+    )
+  const extra = face.filter((p) => !declaredSet.has(p))
+  if (extra.length)
+    return undetermined(
+      `私有索引里多出 ${extra.length} 条非声明件(如 ${extra.slice(0, 3).join(', ')})` +
+        ` ⇒ 在它上面复跑会把别人的件算进本枚:${raw}`,
+    )
+  return { use: COMMIT_MSG_FACE.PRIVATE, indexFile: raw, why: null }
 }
 
 /** 逐条派生复跑;出口抛异常/返回怪形状一律折成"跑不动",绝不折成绿。 */
@@ -3107,6 +3245,84 @@ D:\\IHUI-AI\\scripts\\check-project-plan-archive.mjs
     `D13k 提前中止的批次不得用半张未判定名单定档,实得 ${d13k.kind}`,
   )
 
+  // ── S30(2026-11-05 第二阶段,票「无 upstream 也要能差分归属」)──────────────────────────
+  // 改的只是外部状态快照的**来源**:三件齐全仍走网络真值;取不全时用本地
+  // `refs/remotes/origin/main`(带 `source=remote-tracking` 前缀,与网络读数不可比成相等)。
+  // 下面四条钉的是"换了来源之后四态语义一格没动",尤其不许把存量放宽成本票引入的反面。
+  const extUnobtainable = Object.freeze({
+    before: null,
+    after: null,
+    why: '外部状态快照现读失败(rev-parse @{u} / ls-remote 取不到,且本地没有 refs/remotes/origin/main remote-tracking ref)⇒ 取不到',
+  })
+  const extLocalStable = Object.freeze({
+    before: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=abc123',
+    after: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=abc123',
+    why: null,
+  })
+  const extLocalAdvanced = Object.freeze({
+    before: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=abc123',
+    after: 'source=remote-tracking\nref=refs/remotes/origin/main\ntip=def456',
+    why: null,
+  })
+  const myRedNoExt = () => ({ status: 1, output: GATE55_REAL, externals: extUnobtainable })
+  const myRedLocalExt = () => ({ status: 1, output: GATE55_REAL, externals: extLocalStable })
+  const myRedLocalAdvanced = () => ({ status: 1, output: GATE55_REAL, externals: extLocalAdvanced })
+  const greenBaselineLocal = () => ({
+    ran: true,
+    status: 0,
+    output: '✅ 覆盖率 87/87',
+    why: null,
+    externals: extLocalStable,
+  })
+  const stockBaselineLocal = () => ({
+    ran: true,
+    status: 1,
+    output: 'HEAD 面同样红(存量)',
+    why: null,
+    externals: extLocalStable,
+  })
+  // S30f 无 ref ⇒ 退回今日口径:undetermined-red 且点名"取不到",不得落存量档
+  const s30f = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedNoExt,
+    runGateBaseline: greenBaselineLocal,
+  })
+  assert(
+    s30f.kind === 'undetermined-red' && /取不到/.test(s30f.reason),
+    `S30f 无本地 ref 时必须退回今日口径并点名 why,实得 ${s30f.kind}:${s30f.reason}`,
+  )
+  assert(s30f.kind !== 'not-ours', 'S30f 无快照不得被写成"与本次无关"(§0.3 不得把取不到折成没变)')
+  // S30g 两侧同红 + 本地快照稳定 ⇒ 存量(不阻断本票)
+  const s30g = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedLocalExt,
+    runGateBaseline: stockBaselineLocal,
+  })
+  assert(s30g.kind === 'not-ours', `S30g 两侧同红必须仍是存量档,实得 ${s30g.kind}`)
+  // S30h 本票引入(我的面红 / 基线面绿)+ 本地快照稳定 ⇒ mine(红),没被快照洗绿
+  const s30h = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedLocalExt,
+    runGateBaseline: greenBaselineLocal,
+  })
+  assert(s30h.kind === 'mine', `S30h 基线面绿而我的面红必须仍判 mine,实得 ${s30h.kind}`)
+  assert(s30g.kind !== s30h.kind, 'S30g/S30h 唯一差别是基线面读数 ⇒ 换来源后两态仍必须可分')
+  // S30i 本地快照在两跑之间前移 ⇒ moved ⇒ 未判定,不得折成存量,也不得折成本票引入
+  const s30i = classifyHookFailure({
+    text: SUMMARY + FAIL_29,
+    stagedFiles: DECL_MCP,
+    runGate: myRedLocalAdvanced,
+    runGateBaseline: greenBaselineLocal,
+  })
+  assert(
+    s30i.kind === 'undetermined-red',
+    `S30i 快照前移时必须落未判定档,实得 ${s30i.kind}`,
+  )
+  assert(s30i.kind !== 'not-ours' && s30i.kind !== 'mine', 'S30i 外部动过 ≠ 存量,也 ≠ 本票引入')
+
   return { parsedFixture: p }
 }
 
@@ -3117,6 +3333,8 @@ export const __test__ = {
   lineNamesFile,
   baselineUsable,
   externalsDiffUsable,
+  composeExternalsSnapshot,
+  EXTERNALS_LOCAL_REF,
   findingLines,
   parseGateSummary,
   parseUndeterminedGates,
@@ -3136,6 +3354,8 @@ export const __test__ = {
   needsBatchSelfRun,
   decideWithSelfRunBatch,
   parseCommitMsgStageChecks,
+  decideCommitMsgStageIndexFace,
+  COMMIT_MSG_FACE,
   decideWithCommitMsgStage,
   COMMIT_MSG_UNDETERMINED_NAME,
   SUMMARY,

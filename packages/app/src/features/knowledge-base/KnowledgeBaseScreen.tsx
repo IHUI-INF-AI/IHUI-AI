@@ -120,6 +120,7 @@ export function KnowledgeBaseScreen({
           {selectionMode ? (
             <TouchableOpacity
               onPress={() => onToggleSelect?.(item.id)}
+              hitSlop={8}
               activeOpacity={0.7}
               style={[styles.checkBox, selected && styles.checkBoxOn]}
               accessibilityRole="checkbox"
@@ -322,8 +323,8 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginTop: rnSpacing['2xs'],
     },
-    // 选中态成对取档(AGENTS §4):实底 brand.cta + 其上字形 brand.ctaForeground,配对由 key 名成立
     checkBoxOn: { borderColor: tk.brandAccent.deep, backgroundColor: tk.brand.cta },
+    // 选中态品牌底的配对前景(§4 底字同档):Check 图标取它,名字与 checkBoxOn 成 R4 兄弟。
     checkBoxOnText: { color: tk.brand.ctaForeground },
     card: {
       marginBottom: rnSpacing.md,

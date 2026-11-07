@@ -62,8 +62,10 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
           <Card key={it.key} className="p-3">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">{it.label}</p>
-                <p className="text-display font-semibold tabular-nums">{isLoading ? '—' : it.value}</p>
+                <p className="font-[weight:inherit] text-label text-muted-foreground">{it.label}</p>
+                <p className="text-display font-semibold tabular-nums">
+                  {isLoading ? '—' : it.value}
+                </p>
               </div>
               <Icon className={`h-5 w-5 ${it.iconClass}`} />
             </div>

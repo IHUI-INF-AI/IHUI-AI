@@ -825,7 +825,6 @@
     "apps/cli/src/updater.ts": 2,
     "apps/mobile-rn/src/components/Carousel.tsx": 1,
     "apps/mobile-rn/src/components/CommissionFloatingIcon.tsx": 1,
-    "apps/mobile-rn/src/components/common/Default.tsx": 1,
     "apps/mobile-rn/src/components/common/Empty.tsx": 1,
     "apps/mobile-rn/src/components/common/Loading.tsx": 1,
     "apps/mobile-rn/src/components/ImagePreviewModal.tsx": 1,

@@ -92,6 +92,7 @@ class EnumerationProvenance:
     #: 触顶时两条通道各自在**自己的遍历序**上收手,截出来的子集不保证同形 ——
     #: 这一格也是"本轮索引面可能是静默子集"的唯一机器凭据。
     saturated: bool = False
+    unread_dirs: int = 0
 
 
 @dataclass
@@ -388,7 +389,15 @@ def enumerate_with_walk(
     t0 = time.perf_counter()
     suffix_set = normalize_suffixes(suffixes)
     results: set[str] = set()
-    for dirpath, dirnames, filenames in os.walk(root):
+    unread_dirs = 0
+
+    def _on_walk_error(err: OSError) -> None:
+        nonlocal unread_dirs
+        if isinstance(err, FileNotFoundError):
+            return
+        unread_dirs += 1
+
+    for dirpath, dirnames, filenames in os.walk(root, onerror=_on_walk_error):
         dirnames[:] = [d for d in dirnames if d not in ignored_dirs]
         for fname in filenames:
             if not _matches_suffix(fname, suffix_set):
@@ -402,6 +411,12 @@ def enumerate_with_walk(
                         duration_s=time.perf_counter() - t0,
                         counted=len(results),
                         saturated=True,
+                        unread_dirs=unread_dirs,
+                        degraded_reason=(
+                            f"有 {unread_dirs} 个目录读不到,不能把枚举说成完整"
+                            if unread_dirs
+                            else None
+                        ),
                     ),
                 )
     return (
@@ -410,6 +425,10 @@ def enumerate_with_walk(
             engine=ENGINE_PYTHON_WALK,
             duration_s=time.perf_counter() - t0,
             counted=len(results),
+            unread_dirs=unread_dirs,
+            degraded_reason=(
+                f"有 {unread_dirs} 个目录读不到,不能把枚举说成完整" if unread_dirs else None
+            ),
         ),
     )
 
@@ -456,7 +475,8 @@ def enumerate_code_files(
     paths, prov = enumerate_with_walk(
         root, ignored_dirs=ignored_dirs, suffixes=suffixes, max_files=max_files
     )
-    prov.degraded_reason = fallback_detail
+    walk_note = prov.degraded_reason
+    prov.degraded_reason = f"{fallback_detail}; {walk_note}" if walk_note else fallback_detail
     prov.fallback_detail = fallback_detail
     return sorted(paths), prov
 
@@ -580,6 +600,12 @@ class ContentScanResult:
     #: rg 输出里解析不出行号的行数。必须显式带出 —— 静默丢弃会把"通道坏了"
     #: 伪装成"就是没命中"(实测踩过:全部命中被丢光而报告一切正常)。
     unparsed_lines: int = 0
+    #: 目标在,但这一轮没读到。不能把它算进「没有命中」。
+    unread_files: int = 0
+
+
+class _ContentUnread(Exception):
+    """文件读失败。这不是没有命中。"""
 
 
 def _python_content_match_one(
@@ -588,13 +614,15 @@ def _python_content_match_one(
     """纯 Python 内容匹配(基准语义):**子串、忽略大小写、不要求词边界**。
 
     与既有 `file_search` 的实现保持一致:整读 + `content.lower()` 包含判断,
-    再逐行取命中行号。返回 None = 不命中或读不了(OSError/解码按 errors=ignore 容错)。
+    再逐行取命中行号。返回 None = 不命中或文件不存在。其它读失败抛 _ContentUnread。
     """
     try:
         with open(abs_path, encoding="utf-8", errors="ignore") as f:  # noqa: PTH123 - 热路径要的是快,不必再过 Path
             content = f.read()
-    except OSError:
+    except FileNotFoundError:
         return None
+    except OSError as exc:
+        raise _ContentUnread(abs_path) from exc
     if needle_lower not in content.lower():
         return None
     lines = content.splitlines()
@@ -763,23 +791,35 @@ def _search_with_python(
 ) -> ContentScanResult:
     needle_lower = needle.lower()
     hits: list[ContentHit] = []
+    unread = 0
     for rel in files:
         if len(hits) >= max_results:
             break
-        got = _python_content_match_one(os.path.join(str(root), rel.replace("/", os.sep)), needle_lower, max_lines)
+        try:
+            got = _python_content_match_one(
+                os.path.join(str(root), rel.replace("/", os.sep)), needle_lower, max_lines
+            )
+        except _ContentUnread:
+            unread += 1
+            continue
         if got is None:
             continue
         numbers, size = got
         hits.append(ContentHit(path=rel, line_numbers=numbers, size=size))
+    degraded = reason
+    if unread:
+        note = f"有 {unread} 个文件读不到,不能把它们说成没有命中"
+        degraded = f"{reason}; {note}" if reason else note
     return ContentScanResult(
         hits=hits,
         scanned_files=len(files),
         truncated=len(hits) >= max_results,
+        unread_files=unread,
         provenance=EnumerationProvenance(
             engine=ENGINE_PYTHON_WALK,
             duration_s=time.perf_counter() - t0,
             counted=len(hits),
-            degraded_reason=reason,
+            degraded_reason=degraded,
         ),
     )
 

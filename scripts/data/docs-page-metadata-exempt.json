@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "why": "D4(docs 公开面每个 page.tsx 必须自带 metadata)的例外表。每条必须给 ≥10 字理由,且只许登记 apps/web/app/(main)/docs/ 子树内的页面;表损坏由 check-docs-public-health.mjs 判 exit 2。",
+  "entries": []
+}

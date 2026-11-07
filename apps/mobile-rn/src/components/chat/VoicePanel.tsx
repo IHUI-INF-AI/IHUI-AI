@@ -1,16 +1,18 @@
-import { useI18n } from '../../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '../../i18n'
 
 // 纯抽取:从 ChatScreen 抽出「转语音(TTS)」弹窗(D126)。零行为/视觉变更。
 
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Loader2, Mic, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { Tappable } from '@ihui/ui-native'
+import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 
 /** TTS 语音类型选项(P1.1 转语音 Modal,真实 TTS 已接入) */
 const TTS_VOICE_OPTIONS: readonly string[] = ['男声', '女声', '儿童'] as const
@@ -45,7 +47,7 @@ const styles = StyleSheet.create({
   },
   listDialogContent: {
     width: '88%',
-    maxHeight: '70%',
+    // 高度由 dialogHeightStyle 统一注入(禁止写百分比上限,见 lib/dialog-geometry.ts)
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
@@ -105,12 +107,12 @@ const styles = StyleSheet.create({
     paddingBottom: rpx(12),
   },
   realtimeTitle: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   realtimeErrorText: {
     marginTop: rpx(6),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.error.text,
   },
   realtimeBtn: {
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
   },
   turnNoteText: {
     marginTop: rpx(8),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   // ── 功能面板/来源面板(BottomPops 子内容样式) ──
@@ -218,6 +220,8 @@ export function VoicePanel({
   turnBusy = false,
   turnNote,
 }: VoicePanelProps) {
+  const dialogHeightStyle = useDialogHeightStyle()
+  const listDialogStyle = [styles.listDialogContent, dialogHeightStyle]
   const { t } = useI18n()
   const errText = realtimeErrorText ?? t(DEFAULT_REALTIME_ERROR_TEXT)
   if (!visible) return null
@@ -239,7 +243,7 @@ export function VoicePanel({
           if (!loading) onClose()
         }}
       >
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>转语音</Text>
             <Tappable

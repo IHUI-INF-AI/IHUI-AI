@@ -339,7 +339,7 @@ async def test_credits_snapshot_qoder_prefers_pool_cred(monkeypatch):
     upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
     _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
 
-    async def fake_load_cred(uid: str) -> dict[str, Any] | None:
+    async def fake_load_cred(uid: str, **_kw: Any) -> dict[str, Any] | None:
         assert uid == "u18"
         return {
             "token": "pool-jwt",
@@ -394,7 +394,7 @@ async def test_credits_snapshot_qoder_without_pool_cred_is_undetermined(monkeypa
     upserts: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
     _patch_snapshot_store(monkeypatch, accounts, upserts=upserts)
 
-    async def fake_load_cred(uid: str) -> dict[str, Any] | None:
+    async def fake_load_cred(uid: str, **_kw: Any) -> dict[str, Any] | None:
         return None
 
     async def forbidden_qoder_query(

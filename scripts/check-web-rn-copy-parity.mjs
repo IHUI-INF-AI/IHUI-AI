@@ -28,6 +28,12 @@
  *      label/alt` 属性字面量。代码里的普通字符串(API 参数、日志、样式类名)不在射程。
  *   B2 advisory —— RN 用了 key K_rn、web 用了 K_web,K_rn ≠ K_web 但 zh-CN 译文逐字相同
  *      ⇒ 警告(语义同、键不同),记入账本 `scripts/data/web-rn-copy-diffs.json`。
+ *      已裁决的三类不再逐条报噪声:`common.*` 通用键白名单(A 组)、同尾段命名约定差(B 组)、
+ *      角色不同的同字不同义(E 组,§ROLE_EXEMPTIONS);裁决理由写进账本 `decisions`。
+ *   B3 blocking —— 同义键异值:按语义族(SYNONYM_FAMILIES,retry / payMethod / enrolled / 学习时长)
+ *      配对后比较**归一化取值**(大小写/标点/术语/单位/占位符顺序都压平);B1/B2 只认逐字相同,
+ *      故「重试」vs「重新充值」这类差异此前恒为 0,是盲区而非零差异。
+ *   计数口径:同一 RN 文件同一键会因多条 web 路由重复命中,派生前按 (RN 文件, 键, 值) 去重。
  *
  * 为什么 B1 敢 blocking、B2 只 warn:
  *   B1 是**同一句话被写了两遍**:web 那份有键有译文,RN 那份是裸中文 —— 改法是替换成同一个键,
@@ -38,8 +44,17 @@
  *   认领数少于现读 ⇒ 红(新增未挂账;B2 仍只 advisory);多于现读 ⇒ advisory(清单腐烂)。
  *   staged 档只判本次动到的屏,未触及屏的存量账不参与差额判序(否则每次提交都刷 68 条腐烂)。
  *
+ * 未解析键(不许折成 0,也不计入已对齐)按成因分桶,逐条带 file:line(见 `classifyUnresolvedKey`):
+ *   - `array-json-value`:键存在但值是数组(`t.raw()` 返回数组)—— 机械可判、当前不参与文字比对。
+ *   - `bundle-gap`:合并后(shared ⊕ 端词包)仍无此键 —— 真缺词条,运行时回显键名,**需人读**。
+ *   - `cross-end-only`:只存在于另一端词包 —— 端词包边界问题,**需人读**。
+ *   端词包组合口径:web = `mergeMessages(shared, web)`(apps/web/src/providers/i18n-provider),
+ *   RN = `mergeMessages(shared, mobile-rn)`(apps/mobile-rn/src/i18n/index.tsx:39);只读端词包
+ *   会把 shared 里的键误算未解析(本轮 2562 → 12,其中 2550 属此类)。
+ *
  * 盲区(静态判不了,写在这里):动态键(`t(\`k.${x}\`)` / `t(variable)`)、模板串拼出来的中文、
  *   `{cond ? '中文' : '英文'}` 里的字面量、共享组件内部文案、web 侧 `next-intl` 之外的取词方式。
+ *   动态键不进解析器射程 ⇒ 不计入未解析数(这是与本门计数器并列的、仍未覆盖的一类)。
  *
  * 集成位置: scripts/guardian-runner.mjs 第 291 项(pre-commit blocking;staged 触发面 =
  *   apps/web/app/ + apps/mobile-rn/src/ + packages/app/src/features/ + 屏幕映射台账 + 本门脚本/台账)。
@@ -54,17 +69,383 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskComments } from './lib/code-mask.mjs'
 import { catBatch, gitBinary, readWorktreeFile } from './lib/face-reader.mjs'
+import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
+import {
+  RETIRED_AT_RE,
+  RETIRED_FROM_SHA_RE,
+  RETIRE_REASON_MIN_CHARS,
+  isRetiredRecord,
+} from './lib/ledger-retirement.mjs'
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 export const REPO = resolve(HERE, '..')
 export const MAP_REL = 'scripts/data/web-rn-screen-map.jsonl'
+/** web 端词包(运行时 components/i18n-provider 走 mergeMessages(shared ⊕ web),见 run 内的组合)。 */
 export const MESSAGES_REL = 'packages/i18n/messages/web/zh-CN.json'
+export const WEB_MESSAGES_REL = MESSAGES_REL
+export const SHARED_MESSAGES_REL = 'packages/i18n/messages/shared/zh-CN.json'
+/** RN 端词包(apps/mobile-rn/src/i18n/index.tsx 走 mergeMessages(shared ⊕ mobile-rn))。 */
+export const RN_MESSAGES_REL = 'packages/i18n/messages/mobile-rn/zh-CN.json'
 export const LEDGER_REL = 'scripts/data/web-rn-copy-diffs.json'
 export const SKIP_ENV = 'HUSKY_SKIP_WEB_RN_COPY_PARITY'
 
 const CJK_RE = /[\u3400-\u9fff]/
 const USER_FACING_ATTRS = ['placeholder', 'title', 'accessibilityLabel', 'aria-label', 'label', 'alt']
+
+/**
+ * 通用键白名单(A 组决策):RN 复用 `common.*` 与 web 屏级键并存属于通用键复用,不算命名漂移。
+ * 白名单之外的键(如 `wallet.retryRecharge` vs `common.retry`)照旧进 B2。
+ */
+export const COMMON_KEY_WHITELIST = new Set([
+  'common.loading',
+  'common.cancel',
+  'common.back',
+  'common.retry',
+  'common.error',
+  'common.save',
+  'common.delete',
+  'common.more',
+  'common.confirm',
+  'common.close',
+  'common.ok',
+  'common.submit',
+  'common.next',
+  'common.prev',
+  'common.search',
+])
+
+/**
+ * 角色裁决(E 组「同字不同义」):同一个键/同一句话在两端承担**不同的 UI 角色**时,
+ * 字面相同但语义不同 ⇒ 不算漂移。按 (RN 文件, RN 键) 精确匹配,不做模糊豁免。
+ */
+export const ROLE_EXEMPTIONS = [
+  {
+    rn: 'apps/mobile-rn/src/screens/DevicesScreen.tsx',
+    rnKey: 'common.error',
+    webKeys: ['settings.devices.taskColError'],
+    reason: 'RN 用作错误弹窗标题,web 是设备表「错误」列头 —— 同字不同义',
+  },
+  {
+    rn: 'packages/app/src/features/activity-detail/ActivityDetailScreen.tsx',
+    rnKey: 'activityDetail.title',
+    webKeys: ['activities.descriptionLabel'],
+    reason: 'RN 用作活动详情页标题,web 是活动描述字段标签 —— 同字不同义',
+  },
+  {
+    rn: 'packages/app/src/features/account-cancel/AccountCancelScreen.tsx',
+    rnKey: 'settings.accountDeletionConfirmLabel',
+    webKeys: ['settings.accountDeletionSubmit'],
+    reason: 'RN 是注销确认词输入框标签,web accountDeletionSubmit 是提交按钮 —— 同字不同义,已拆独立键',
+  },
+  {
+    rn: 'packages/app/src/features/account-cancel/AccountCancelScreen.tsx',
+    rnKey: 'settings.accountDeletionConfirmTitle',
+    webKeys: ['settings.accountDeletionSubmit'],
+    reason: 'RN 是注销二次确认弹窗标题,web accountDeletionSubmit 是提交按钮 —— 同字不同义,已拆独立键',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PurchaseScreen.tsx',
+    rnKey: 'common.retry',
+    webKeys: ['wallet.retryRecharge'],
+    reason: 'RN 是订阅列表加载失败的重试,web wallet.retryRecharge 是充值失败的重试 —— 同字不同义',
+  },
+  {
+    rn: 'packages/app/src/features/exam/ExamScreen.tsx',
+    rnKey: 'exam.retry',
+    webKeys: ['eduExamResultPage.retry'],
+    reason: 'RN「重试」是重做本题,web「重新考试」是整场重考 —— 同字不同义',
+  },
+  {
+    rn: 'packages/app/src/features/exam/ExamScreen.tsx',
+    rnKey: 'eduExamListPage.start',
+    webKeys: ['exam.startExam'],
+    reason:
+      'RN 考试列表的开始按钮;同一 RN 文件被 exam 与 edu/exam 两条 web 路由映射,web 两页各用一个同值键(开始考试),无单键可同时满足两条路由 —— 非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/payment/PaymentScreen.tsx',
+    rnKey: 'learnPaymentConfirmPage.fields.payMethod',
+    webKeys: ['payment.checkout.paymentMethod'],
+    reason:
+      'RN 支付方式标签;同一 RN 文件被 payment 与 learn/payment/confirm 两条 web 路由映射,web 两页各用一个同值键,且 payment.checkout.paymentMethod 的 ja/ko 译文存量损坏 —— 非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/subscriptions/SubscriptionsScreen.tsx',
+    rnKey: 'memberSubscriptionPage.cancelSubscription',
+    webKeys: ['subscriptions.cancel'],
+    reason:
+      'RN 取消订阅;同一 RN 文件被 subscriptions 与 member/subscription 两条 web 路由映射,web 两页各用一个同值键(取消订阅),无单键可同时满足两条路由 —— 非 RN 漂移',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PurchaseScreen.tsx',
+    rnKey: 'wallet.rechargeMethod',
+    webKeys: ['purchase.payMethod'],
+    reason:
+      'RN 充值支付方式;同一 RN 文件被 purchase 与 wallet/recharge 两条 web 路由映射,web 两页各用一个同值键(支付方式) —— 非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/points/PointsScreen.tsx',
+    rnKey: 'points.levelLabel',
+    webKeys: ['points.level'],
+    reason:
+      'web points 屏内 PointsSummary 用 points.level、PointsLeaderboard 用 points.levelLabel,两键五语言同值;RN 采用 levelLabel 后另一键仍同值命中 —— web 屏内双键,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/points/PointsScreen.tsx',
+    rnKey: 'points.mallTitle',
+    webKeys: ['points.mallLink'],
+    reason:
+      'web points 屏内页签链接用 points.mallLink、商城页标题用 points.mallTitle,两键五语言同值;RN 采用 mallTitle 后另一键仍同值命中 —— web 屏内双键,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/points/PointsScreen.tsx',
+    rnKey: 'points.tasks.title',
+    webKeys: ['points.taskCenterLink'],
+    reason:
+      'web points 屏内页签链接用 points.taskCenterLink、任务页标题用 points.tasks.title,两键五语言同值;RN 采用 tasks.title 后另一键仍同值命中 —— web 屏内双键,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/vip/VipScreen.tsx',
+    rnKey: 'vip.duration',
+    webKeys: ['vip.durationDays'],
+    reason:
+      'RN 需插值渲染「{days} 天」;web/shared 合并面 vip.durationDays 在 shared 为无插值标签「有效天数」,直接统一会让 RN 丢失天数 —— 同键不同形态',
+  },
+  {
+    rn: 'packages/app/src/features/agent-create/AgentCreateScreen.tsx',
+    rnKey: 'agentCreate.categoryPlaceholder',
+    webKeys: ['agent.fieldCategoryPlaceholder'],
+    reason:
+      'RN 分类是自由文本输入(示例占位「如:办公助手」),web 分类是 Select(占位「请选择分类」) —— 同字不同义',
+  },
+  {
+    rn: 'packages/app/src/features/course-detail/CourseDetailScreen.tsx',
+    rnKey: 'learn.signedUp',
+    webKeys: ['learn.signUp', 'learn.signupCount'],
+    reason:
+      'web learn/[id] 同屏同义族并存 signUp(报名)与 signedUp(已报名);RN 采用 signedUp 后族内比较排除自身,余键取值不同 —— web 同族双值,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/wallet/WalletScreen.tsx',
+    rnKey: 'wallet.flowsRetry',
+    webKeys: ['wallet.retryRecharge'],
+    owner: 'i18n-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN 是流水列表加载失败的重试按钮(WalletScreen.tsx:174/176),web retryRecharge 是充值失败页的「重新充值」(apps/web/app/(main)/wallet/page.tsx:193);同屏 web 流水失败只显示原始错误、无重试键,故不是同角色文案',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/KnowledgePlanetScreen.tsx',
+    rnKey: 'common.loadFailPullRetry',
+    webKeys: ['knowledgePlanet.retry'],
+    owner: 'i18n-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN 在无错误详情时用「加载失败，请下拉刷新重试」作提示文案、靠下拉手势重试(KnowledgePlanetScreen.tsx:76);web 是错误详情旁的「重试」按钮(apps/web/app/(main)/knowledge-planet/page.tsx:84),提示语与按钮文案不可统一',
+  },
+  {
+    rn: 'packages/app/src/features/wallet/WalletScreen.tsx',
+    rnKey: 'wallet.balance',
+    webKeys: ['wallet.flowBalance'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN 钱包页头部余额卡「余额」(WalletScreen.tsx:85),web wallet.flowBalance 是流水行「余额」列(apps/web/app/(main)/wallet/page.tsx:166);同屏同文案不同位置,不可合并(处置单 scripts/data/web-rn-copy-b2-plan.json)',
+  },
+  {
+    rn: 'packages/app/src/features/profile-edit/ProfileEditScreen.tsx',
+    rnKey: 'profileEdit.avatarModalTitle',
+    webKeys: ['user.profile.avatar'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「更换头像」是选头像弹窗标题(ProfileEditScreen.tsx:192),web user.profile.avatar 是头像字段标签/按钮(ProfileAvatar.tsx:66);标题与标签不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/WorkspaceScreen.tsx',
+    rnKey: 'workspace.nameRequired',
+    webKeys: ['workspace.namePlaceholder'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「请输入项目名称」是校验错误提示(WorkspaceScreen.tsx:138),web workspace.namePlaceholder 是输入框占位符(page.tsx:139);校验文案与占位符不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PurchaseScreen.tsx',
+    rnKey: 'purchase.topupDescription',
+    webKeys: ['purchase.tabTopup'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「账户充值」是充值区说明文案(PurchaseScreen.tsx:188),web purchase.tabTopup 是充值 Tab 标题(PageClient.tsx:41);说明与 Tab 不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PlazaNewScreen.tsx',
+    rnKey: 'plazaNew.submit',
+    webKeys: ['plazaNew.title'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「发布需求」是提交按钮(PlazaNewScreen.tsx:175),web plazaNew.title 是页面标题(new/page.tsx:70);按钮与标题不可合并',
+  },
+  {
+    rn: 'packages/app/src/features/follow/FollowScreen.tsx',
+    rnKey: 'follow.following',
+    webKeys: ['follows.title'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「关注」是个人页 Tab 标签(FollowScreen.tsx:67),web follows.title 是关注列表页标题(PageClient.tsx:91);Tab 与标题不可合并',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/EduMealScreen.tsx',
+    rnKey: 'eduChildMeals.nutrition',
+    webKeys: ['eduMeal.template.nutritionPlaceholder'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '角色不同:RN「营养」是餐次信息字段标签(EduMealScreen.tsx:86),web eduMeal.template.nutritionPlaceholder 是营养模板输入占位符(edu-management/meal/page.tsx:612);标签与占位符不可合并',
+  },
+  // ─── B2 收编后余量(2026-11-05):同一 RN 屏对齐多条 web 路由 / web 同屏重复同值键 ───
+  {
+    rn: 'packages/app/src/features/exam/ExamScreen.tsx',
+    rnKey: 'exam.startExam',
+    webKeys: ['eduExamListPage.start'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN ExamScreen 同时对齐 edu/exam 与 exam 两条 web 路由;已采用 exam 路由键 exam.startExam(ExamIntro.tsx:63),edu/exam 路由同值键 eduExamListPage.start(edu/exam/page.tsx:124)无法同时满足(同屏多处考试入口)',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PatrolScreen.tsx',
+    rnKey: 'patrol.toast.paused',
+    webKeys: ['patrol.statusPaused'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:patrol/page.tsx:126 toast.paused 与 :221 statusPaused 同值;RN 已采用同屏 web 键 toast.paused(PatrolScreen.tsx:196),剩余 statusPaused 属 web 侧重复命名,非 RN 漂移',
+  },
+  {
+    rn: 'packages/app/src/features/developer/DeveloperScreen.tsx',
+    rnKey: 'developerHomePage.statApiKeys',
+    webKeys: ['developer.navApiKeys'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:developer/PageClient.tsx:158 统计卡 statApiKeys 与 developer/layout.tsx:25 侧栏 navApiKeys 同值;RN 开发者信息行(DeveloperScreen.tsx:75)取统计卡键,侧栏键位置/角色不同',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/PublishNewScreen.tsx',
+    rnKey: 'publish.new.submitSchedule',
+    webKeys: ['publish.new.schedule'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:publish/new/ScheduleCard.tsx:41 分区标签 new.schedule 与 :67 提交按钮 new.submitSchedule 同值;RN 提交按钮(PublishNewScreen.tsx:378)取 submitSchedule',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/UserArticlesScreen.tsx',
+    rnKey: 'user.articles.prevPage',
+    webKeys: ['student.prev'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 user/articles 与 student/my-articles;已采用 user/articles 键 user.articles.prevPage(user/articles/page.tsx:173),student 路由同值键 student.prev(student/my-articles/page.tsx:201)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/UserArticlesScreen.tsx',
+    rnKey: 'user.articles.nextPage',
+    webKeys: ['student.next'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:同上,已采用 user.articles.nextPage(user/articles/page.tsx:199);student 路由同值键 student.next(student/my-articles/page.tsx:212)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/SubagentsScreen.tsx',
+    rnKey: 'agentTeams.statsActive',
+    webKeys: ['agentTeams.filter.running'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:agent-teams/page.tsx:87 统计卡 statsActive 与 :25 筛选器 running 同值;RN 统计卡(SubagentsScreen.tsx:210)取 statsActive,筛选器键角色不同',
+  },
+  {
+    rn: 'packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx',
+    rnKey: 'student.wrongBookTitle',
+    webKeys: ['exam.wrongQuestions.title'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 student/wrong-book 与 exam/wrong-questions;已采用 student 路由键 student.wrongBookTitle(student/wrong-book/page.tsx:66),exam 路由同值键 exam.wrongQuestions.title(exam/wrong-questions/page.tsx:141)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx',
+    rnKey: 'models.prompts.table.description',
+    webKeys: ['models.prompts.form.description'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:models/prompts/page.tsx:402 表头 table.description 与 :520 表单标签 form.description 同值;RN 表格列头(ModelsPromptsScreen.tsx:77)取表头键,表单键角色不同',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/LearnMapScreen.tsx',
+    rnKey: 'learnMapPage.defaultTitle',
+    webKeys: ['eduAi.map.title', 'eduAi.map.maps'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 learn/map 与 edu-ai/map;已采用 learn/map 键 learnMapPage.defaultTitle(learn/map/page.tsx:66),edu-ai/map 同屏 title/maps 两键同值(edu-ai/map/page.tsx:241/250)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/AiSkillScreen.tsx',
+    rnKey: 'aiSkillDetail.importBtn',
+    webKeys: ['aiSkillsPage.importConfirm'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web 同屏重复同值键:ai-skills/PageClient.tsx:210 导入按钮 importBtn 与 :357 二次确认按钮 importConfirm 同值;RN 导入按钮(AiSkillScreen.tsx:221)取 importBtn,确认按钮角色不同',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/CircleIndexScreen.tsx',
+    rnKey: 'circles.title',
+    webKeys: ['plaza.circlesTab'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '跨路由同值异键:RN 屏同时对齐 circles 与 plaza;已采用 circles 路由键 circles.title(circles/PageClient.tsx:53),plaza 路由同值键 plaza.circlesTab(plaza/PlazaHeader.tsx:43)无法同时满足',
+  },
+  {
+    rn: 'apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx',
+    rnKey: 'eduAttendance.statusTitle',
+    webKeys: ['eduAttendance.status'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      '结构性冲突:web eduAttendance.status 是字符串列头(edu/attendance/SelfAttendanceTable.tsx:56);RN 同路径 eduAttendance.status 已是考勤状态枚举对象命名空间,不能作字符串键;RN 保留 statusTitle(EduMyAttendanceScreen.tsx:155),非文案漂移',
+  },
+  {
+    rn: 'packages/app/src/features/course-detail/CourseDetailScreen.tsx',
+    rnKey: 'learn.signUp',
+    webKeys: ['learn.signupCount', 'learn.signedUp'],
+    owner: 'web-rn-copy',
+    expires: '2026-12-31',
+    reason:
+      'web learn/[id] 同屏同键 learn.signUp(PageClient.tsx:288)与 RN 同值;B3 族内比较排除自身,余键 signupCount(:177)/signedUp(:278)取值不同 —— web 同族多值,非 RN 漂移',
+  },
+]
+
+/**
+ * B3 同义键异值:按「语义族」把不同键名的同义键配成对,再用**归一化后的取值**比较
+ * (大小写/标点/术语/单位/占位符顺序都压平)。B1/B2 只认逐字相同,故这类差异此前恒为 0。
+ */
+export const SYNONYM_FAMILIES = [
+  { id: 'retry', keyRe: /retry/i, terms: ['重试', '重新充值', '再充值', '重新支付', '再试一次'] },
+  { id: 'pay-method', keyRe: /(payMethod|paymentMethod|rechargeMethod|payKind)/i, terms: ['支付方式', '付款方式', '充值方式'] },
+  { id: 'enrol', keyRe: /(enrolled|signedUp|signUp|enrollment)/i, terms: ['已报名', '已注册', '已加入'] },
+  { id: 'study-duration', keyRe: /(weekMinutes|weeklyHours|studyHours|learnHours)/i, terms: ['学习时长', '每周学习时长', '本周学习时长'] },
+]
 
 /** 读索引面或工作树面;取不到 ⇒ null(调用方按未判定处理)。取材统一走 lib/face-reader(守门 118)。 */
 export function readFace(rel, face = 'worktree') {
@@ -113,7 +494,40 @@ export function flattenMessages(obj, prefix = '', out = new Map()) {
   return out
 }
 
-/** 取 web 文件的 i18n 键(命名空间感知)。返回 `{keys:Set, unresolved:string[]}`。 */
+/**
+ * 端词包组合:`mergeMessages(shared, 端)` 的扁平等价物 —— 同名叶子以端词包为准(last-wins)。
+ * 运行时 web 是 shared ⊕ web、RN 是 shared ⊕ mobile-rn(`apps/mobile-rn/src/i18n/index.tsx:39`);
+ * 只读端词包会把「键就在 shared 里」误算成未解析(本轮 2562 中的 2550 即此类)。
+ */
+export function mergeMessageMaps(base, override) {
+  return new Map([...base, ...override])
+}
+
+/** 收集**数组值**叶子键(next-intl 的 `t.raw()` 可返回数组,flat 字符串表里看不见它们)。 */
+export function flattenArrayKeys(obj, prefix = '', out = new Set()) {
+  if (obj === null || typeof obj !== 'object') return out
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k
+    if (Array.isArray(v)) out.add(key)
+    else if (v && typeof v === 'object') flattenArrayKeys(v, key, out)
+  }
+  return out
+}
+
+/**
+ * 未解析键分桶(自证式,按「为什么静态解析不到」而非按文件名):
+ *  - `array-json-value`:键存在,但值是数组 —— 调用侧走 t.raw(),不是缺键(机械可判,当前不参与文字比对)。
+ *  - `bundle-gap`:合并后的端词包也没有这个键 —— 真缺词条,RN/Web 会回显键名,需人读。
+ *  - `cross-end-only`:只存在于另一端词包(如 RN 用了 miniapp-taro 的键)—— 端词包边界问题,需人读。
+ * 动态键(`t(\`k.${x}\`)` / `t(variable)`)根本不进解析器射程,不计入未解析数(见文件头盲区)。
+ */
+export function classifyUnresolvedKey(key, { arrayKeys, otherBundle }) {
+  if (arrayKeys.has(key)) return 'array-json-value'
+  if (otherBundle?.has(key)) return 'cross-end-only'
+  return 'bundle-gap'
+}
+
+/** 取 web 文件的 i18n 键(命名空间感知)。返回 `{keys:Set, unresolved:string[], unresolvedItems}`。 */
 export function extractWebKeys(text, messages) {
   const masked = maskComments(text)
   const bindings = new Map()
@@ -123,6 +537,7 @@ export function extractWebKeys(text, messages) {
   while ((m = bindRe.exec(masked))) bindings.set(m[1], m[2] || m[3] || m[4] || '')
   const keys = new Set()
   const unresolved = []
+  const unresolvedItems = []
   const callRe = /([A-Za-z_$][\w$]*)(?:\.(?:rich|markup|has|raw))?\s*\(\s*(['"])([^'"]+)\2/g
   while ((m = callRe.exec(masked))) {
     const fn = m[1]
@@ -132,9 +547,13 @@ export function extractWebKeys(text, messages) {
     const composed = ns && !key.startsWith(`${ns}.`) ? `${ns}.${key}` : key
     if (messages.has(composed)) keys.add(composed)
     else if (messages.has(key)) keys.add(key)
-    else unresolved.push(ns ? `${ns}.${key}` : key)
+    else {
+      const miss = ns ? `${ns}.${key}` : key
+      unresolved.push(miss)
+      unresolvedItems.push({ key: miss, line: lineAt(masked, m.index), fn })
+    }
   }
-  return { keys, unresolved }
+  return { keys, unresolved, unresolvedItems }
 }
 
 /** 取 RN 文件的 i18n 键(共享屏的 t 由宿主注入,不认绑定声明,直接认 `t('全键')`)。 */
@@ -142,19 +561,41 @@ export function extractRnKeys(text, messages) {
   const masked = maskComments(text)
   const keys = new Set()
   const unresolved = []
+  const unresolvedItems = []
   const callRe = /\bt\s*\(\s*(['"])([^'"]+)\1/g
   let m
   while ((m = callRe.exec(masked))) {
     const key = m[2]
     if (messages.has(key)) keys.add(key)
-    else if (key.includes('.')) unresolved.push(key)
+    else if (key.includes('.')) {
+      unresolved.push(key)
+      unresolvedItems.push({ key, line: lineAt(masked, m.index), fn: 't' })
+    }
   }
-  return { keys, unresolved }
+  return { keys, unresolved, unresolvedItems }
 }
 
 /** 归一化比较用文案:只压空白,其余逐字比对(不做同义词/标点归一,宁少报不误报)。 */
 export function normalizeCopy(s) {
   return String(s).replace(/\s+/g, ' ').trim()
+}
+
+/** B3 同义比较用归一化:大小写、标点、空白、单位写法、占位符顺序统统压平(保留占位符本身)。 */
+export function normalizeSemanticCopy(s) {
+  const holes = []
+  let out = String(s)
+    .toLowerCase()
+    .replace(/\{[^}]*\}/g, (m) => {
+      holes.push(m.replace(/\s/g, ''))
+      return '\u0000'
+    })
+    .replace(/[，,。.、；;：:！!？?、"'“”‘’()（）【】[\]\-_/\\|]/g, '')
+    .replace(/\s+/g, '')
+    .replace(/小时|時|hours?/g, 'h')
+    .replace(/分钟|minutes?|mins?|分/g, 'm')
+  holes.sort()
+  out = out.split('\u0000').join('#')
+  return `${out}|${holes.join(',')}`
 }
 
 /**
@@ -188,10 +629,34 @@ export function extractHardcodedChinese(text) {
   return out
 }
 
-/** 纯判据:同屏比较 ⇒ `{blocking, advisory}`。测试直接喂键集/硬编码,不读盘。 */
-export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages) {
+/** 键名落在哪个语义族(去掉命名空间后按 keyRe 匹配)。 */
+function familyForKey(key) {
+  const tail = String(key).split('.').pop()
+  return SYNONYM_FAMILIES.find((f) => f.keyRe.test(key) || f.keyRe.test(tail)) || null
+}
+
+/** 文案值命中了哪个语义族(按该族术语表)。 */
+function familyForValue(value) {
+  return (
+    SYNONYM_FAMILIES.find((f) => f.terms.some((term) => String(value).includes(term))) || null
+  )
+}
+
+/**
+ * 纯判据:同屏比较 ⇒ `{blocking, advisory, b3, accepted}`。测试直接喂键集/硬编码,不读盘。
+ * - blocking: B1 同屏同文案硬编码
+ * - advisory: B2 同值异键(已剔除通用键白名单/同尾段命名约定/角色裁决)
+ * - b3: B3 同义键异值(语义族配对 + 归一化取值比较)
+ * - accepted: 已裁决/已豁免(B2 通用键复用、命名约定、同字不同义)
+ * @param messages web 侧词包(shared ⊕ web);B1 与 web 键取值用它。
+ * @param rnMessages RN 侧词包(shared ⊕ mobile-rn);缺省与 messages 同表(夹具兼容)。
+ *   —— 两端词包不同,RN 键只在 mobile-rn 里时用 web 表取值会「取不到 ⇒ 假同值/假缺失」。
+ */
+export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages, rnMessages = messages) {
   const blocking = []
   const advisory = []
+  const b3 = []
+  const accepted = []
   const webValueKeys = new Map()
   for (const key of webKeys) {
     const v = messages.get(key)
@@ -213,10 +678,28 @@ export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages) {
         detail: `${h.kind} 与 web 键 ${hit.slice(0, 3).join('/')} 译文逐字相同`,
       })
     }
+    // B3 ①:硬编码值落在某语义族,而 web 同族键的归一化取值并不相同 ⇒ 同义不同值
+    const fam = familyForValue(h.value)
+    if (!fam) continue
+    const famWebKeys = [...webKeys].filter((k) => familyForKey(k)?.id === fam.id)
+    if (!famWebKeys.length) continue
+    const hNorm = normalizeSemanticCopy(h.value)
+    const equal = famWebKeys.some((k) => normalizeSemanticCopy(messages.get(k) || '') === hNorm)
+    if (!equal) {
+      b3.push({
+        rule: 'B3-synonym-drift',
+        file: web,
+        rn,
+        line: h.line,
+        value: h.value,
+        webKeys: famWebKeys,
+        detail: `${h.kind}「${h.value}」与 web 同义族键 ${famWebKeys.slice(0, 3).join('/')} 取值不同(归一化后仍不同)`,
+      })
+    }
   }
   const rnKeyByValue = new Map()
   for (const key of rnKeys) {
-    const v = messages.get(key)
+    const v = rnMessages.get(key)
     if (typeof v !== 'string' || !CJK_RE.test(v)) continue
     const n = normalizeCopy(v)
     if (!rnKeyByValue.has(n)) rnKeyByValue.set(n, [])
@@ -228,6 +711,43 @@ export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages) {
     for (const rk of rnList) {
       const other = webList.filter((wk) => wk !== rk)
       if (!other.length) continue
+      const exemption = ROLE_EXEMPTIONS.find((e) => e.rn === rn && e.rnKey === rk)
+      if (exemption) {
+        accepted.push({
+          rule: 'B2-accepted',
+          file: web,
+          rn,
+          rnKey: rk,
+          webKeys: other,
+          value,
+          reason: exemption.reason,
+        })
+        continue
+      }
+      if (COMMON_KEY_WHITELIST.has(rk)) {
+        accepted.push({
+          rule: 'B2-accepted',
+          file: web,
+          rn,
+          rnKey: rk,
+          webKeys: other,
+          value,
+          reason: '通用键复用:RN 直接复用 common.* 与 web 屏级键并存,不算命名漂移',
+        })
+        continue
+      }
+      if (other.some((wk) => wk.split('.').pop() === rk.split('.').pop())) {
+        accepted.push({
+          rule: 'B2-accepted',
+          file: web,
+          rn,
+          rnKey: rk,
+          webKeys: other,
+          value,
+          reason: '同尾段命名约定差:命名空间前缀不同、尾段同名,属可接受约定',
+        })
+        continue
+      }
       advisory.push({
         rule: 'B2-key-diff',
         file: web,
@@ -239,7 +759,42 @@ export function judgeScreen({ web, rn, webKeys, rnKeys, hardcoded }, messages) {
       })
     }
   }
-  return { blocking, advisory }
+  // B3 ②:RN 键与 web 键同语义族但键名不同 ⇒ 归一化后比较取值
+  for (const rk of rnKeys) {
+    const fam = familyForKey(rk)
+    if (!fam) continue
+    const rnVal = rnMessages.get(rk)
+    if (typeof rnVal !== 'string' || !CJK_RE.test(rnVal)) continue
+    const famWebKeys = [...webKeys].filter((k) => k !== rk && familyForKey(k)?.id === fam.id)
+    if (!famWebKeys.length) continue
+    const rnNorm = normalizeSemanticCopy(rnVal)
+    const same = famWebKeys.filter((k) => normalizeSemanticCopy(messages.get(k) || '') === rnNorm)
+    if (!same.length) {
+      const exemption = ROLE_EXEMPTIONS.find((e) => e.rn === rn && e.rnKey === rk)
+      if (exemption) {
+        accepted.push({
+          rule: 'B3-accepted',
+          file: web,
+          rn,
+          rnKey: rk,
+          webKeys: famWebKeys,
+          value: rnVal,
+          reason: exemption.reason,
+        })
+        continue
+      }
+      b3.push({
+        rule: 'B3-synonym-drift',
+        file: web,
+        rn,
+        rnKey: rk,
+        value: rnVal,
+        webKeys: famWebKeys,
+        detail: `RN ${rk}「${rnVal}」与 web 同义族键 ${famWebKeys.slice(0, 3).join('/')} 归一化后取值仍不同`,
+      })
+    }
+  }
+  return { blocking, advisory, b3, accepted }
 }
 
 /**
@@ -336,9 +891,100 @@ export function readLedger(path = join(REPO, LEDGER_REL)) {
   if (!existsSync(path)) return null
   try {
     const raw = JSON.parse(readFileSync(path, 'utf8'))
-    return Array.isArray(raw.entries) ? raw.entries : null
+    if (!Array.isArray(raw.entries)) return null
+    // 退休通道(2026-11-05):退休条目保留原行 + 五个标记(retiredAt/Reason/By/From/FromSha),
+    // 判据面必须在这里**统一剔除** —— 否则已退休的行会被当成"现读缺口"重复计账,
+    // 呈现为账本到期/认领差额红。过滤只此一处,消费点不再各写一遍。
+    return raw.entries.filter((e) => !isRetiredRecord(e))
   } catch {
     return null
+  }
+}
+
+/** 台账顶层的 retired[](退休行单独成表);缺失 = 空表,形状坏 = null(交形状判据点名)。 */
+export function readLedgerRetired(path = join(REPO, LEDGER_REL)) {
+  if (!existsSync(path)) return []
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8'))
+    if (raw.retired === undefined) return []
+    return Array.isArray(raw.retired) ? raw.retired : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 可判据规则:B1/B2/B3 三条判据能由 judgeLedger 归因到现读读数。
+ * 不在集合里的 rule(如历史的 `B1-web-no-key`)= 把「web 侧缺键而 RN 有消费」的真缺口挂账
+ * —— 那是真缺口,必须当场修(补 web 词条或改 RN 取键),不许挂账。
+ */
+export const JUDGED_RULES = new Set(['B1-hardcoded-cjk', 'B2-key-diff', 'B3-synonym-drift'])
+
+/**
+ * 账本形状判据(取代「entries 非空」这条宽松阈值):
+ *  ① 每条 entry 的 rule 必须在 JUDGED_RULES 内;否则 = 把真缺口挂账 ⇒ 红。
+ *  ② entries 为空数组合法,但顶层必须带非空 emptyReason(写明清零依据),否则 ⇒ 红。
+ *  ③ 退休行(entries 里带退休标记的条目、或顶层 `retired[]`)必须五个标记齐全、
+ *     retiredReason ≥ RETIRE_REASON_MIN_CHARS 字、retiredAt 为 ISO-8601、retiredFromSha 为
+ *     sha256;缺任一 ⇒ 红。retired[] 的存在本身**不许**判红(2026-11-05 消费面跟进)。
+ * @returns {string[]} 红项(空数组 = 形状合法)
+ */
+export function validateLedgerShape(entries, emptyReason, retired = []) {
+  const red = []
+  const list = Array.isArray(entries) ? entries : []
+  for (const e of list) {
+    if (isRetiredRecord(e)) continue // 退休行不参与"现读缺口"判据(由 readLedger 统一剔除)
+    const rule = e?.rule
+    if (typeof rule === 'string' && JUDGED_RULES.has(rule)) continue
+    red.push(
+      `台账条目 ${e?.file || '?'} [${rule || '?'}] 不是可判据规则:web 侧缺键而 RN 有消费属真缺口,必须当场修(补 web 词条或改 RN 取键),不得挂账`,
+    )
+  }
+  if (list.length === 0 && (typeof emptyReason !== 'string' || !emptyReason.trim()))
+    red.push('台账 entries 为空但缺 emptyReason:空账必须写明已清零的判定依据')
+  if (retired !== null && !Array.isArray(retired))
+    red.push('台账 retired 不是数组:退休行必须单独成表(或整个字段缺省)')
+  const retiredList = Array.isArray(retired) ? retired : []
+  for (const r of retiredList) {
+    const who = r?.file || r?.page || r?.key || r?.route || '?'
+    if (!isRetiredRecord(r)) {
+      red.push(
+        `退休行 ${who} 缺退休标记:必须带 retiredAt/retiredReason/retiredBy/retiredFrom/retiredFromSha 五个字段,否则无从核验"谁按什么依据退的"`,
+      )
+      continue
+    }
+    const reason = String(r.retiredReason ?? '').trim()
+    if ([...reason].length < RETIRE_REASON_MIN_CHARS)
+      red.push(
+        `退休行 ${who} 的 retiredReason 少于 ${RETIRE_REASON_MIN_CHARS} 字(现 ${[...reason].length} 字):定向理由不足 = 退役不可复核`,
+      )
+    if (!RETIRED_AT_RE.test(String(r.retiredAt ?? '')))
+      red.push(`退休行 ${who} 的 retiredAt 不是 ISO-8601 时刻:${r.retiredAt}`)
+    if (!RETIRED_FROM_SHA_RE.test(String(r.retiredFromSha ?? '')))
+      red.push(`退休行 ${who} 的 retiredFromSha 不是 sha256(64 位小写十六进制):${r.retiredFromSha}`)
+  }
+  return red
+}
+
+/** 账本顶层 emptyReason(空账清零依据);取不到 ⇒ null。 */
+export function readLedgerEmptyReason(path = join(REPO, LEDGER_REL)) {
+  if (!existsSync(path)) return null
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8'))
+    return typeof raw.emptyReason === 'string' ? raw.emptyReason : null
+  } catch {
+    return null
+  }
+}
+
+/** 账本里的已裁决清单(A/B/E 键空间决策),只用于读数展示,不参与配额判序。 */
+export function readLedgerDecisions(path = join(REPO, LEDGER_REL)) {
+  if (!existsSync(path)) return []
+  try {
+    const raw = JSON.parse(readFileSync(path, 'utf8'))
+    return Array.isArray(raw.decisions) ? raw.decisions : []
+  } catch {
+    return []
   }
 }
 
@@ -351,6 +997,13 @@ export function runSelfTest() {
     ['common.save', '保存'],
     ['wallet.save', '保存'],
     ['wallet.flowsTitle', '资金流水'],
+    ['wallet.retryRecharge', '重新充值'],
+    ['common.retry', '重试'],
+    ['wallet.retryLabel', '重试'],
+    ['common.loading', '加载中'],
+    ['home.loadingText', '加载中'],
+    ['wallet.payMethod', '支付方式'],
+    ['wallet.rechargeMethod', '充值方式'],
   ])
   const cases = []
   const expect = (cond, msg) => {
@@ -392,13 +1045,16 @@ export function runSelfTest() {
     )
     expect(r.blocking.length === 1, '属性位未判红')
   })
-  ok('③ 同值异键:RN wallet.save 与 web common.save ⇒ advisory', () => {
+  ok('③ 同值异键(同尾段):RN wallet.save 与 web common.save ⇒ 已裁决的命名约定', () => {
     const r = judgeScreen(
       { web: 'wallet', rn: 'rn/X.tsx', webKeys: new Set(['common.save']), rnKeys: new Set(['wallet.save']), hardcoded: [] },
       messages,
     )
     expect(r.blocking.length === 0, '同值异键被误判 blocking')
-    expect(r.advisory.length === 1 && r.advisory[0].rule === 'B2-key-diff', '同值异键未进 advisory')
+    expect(
+      r.advisory.length === 0 && r.accepted.length === 1 && r.accepted[0].rule === 'B2-accepted',
+      '同尾段命名约定未进已裁决',
+    )
   })
   ok('④ 同键:两侧都用 wallet.balance ⇒ 不报', () => {
     const r = judgeScreen(
@@ -484,6 +1140,98 @@ export function runSelfTest() {
     expect(scoped.advisory.length === 0, '未审过的屏不该刷清单腐烂')
   })
 
+  ok('⑬ B3 反例:RN 硬编码「重试」vs web wallet.retryRecharge「重新充值」⇒ 同义异值', () => {
+    const r = judgeScreen(
+      {
+        web: 'wallet',
+        rn: 'package/app/src/features/topup-fail/TopupFailScreen.tsx',
+        webKeys: new Set(['wallet.retryRecharge']),
+        rnKeys: new Set(),
+        hardcoded: [{ kind: 'jsx-text', value: '重试', line: 48 }],
+      },
+      messages,
+    )
+    expect(r.blocking.length === 0, 'B3 反例被误判 B1')
+    expect(r.b3.length === 1 && r.b3[0].rule === 'B3-synonym-drift', '「重试」反例未被 B3 抓到')
+  })
+  ok('⑭ 通用键白名单:common.loading 复用 ⇒ 已裁决;白名单外的 retryLabel 仍报 B2', () => {
+    const wl = judgeScreen(
+      { web: 'home', rn: 'rn/X.tsx', webKeys: new Set(['home.loadingText']), rnKeys: new Set(['common.loading']), hardcoded: [] },
+      messages,
+    )
+    expect(wl.advisory.length === 0, '通用键白名单仍在报 B2')
+    expect(wl.accepted.length === 1, '通用键白名单未记入已裁决')
+    const out = judgeScreen(
+      { web: 'wallet', rn: 'rn/X.tsx', webKeys: new Set(['common.retry']), rnKeys: new Set(['wallet.retryLabel']), hardcoded: [] },
+      messages,
+    )
+    expect(out.advisory.length === 1, '白名单之外未照常报 B2')
+  })
+  ok('⑮ B3 归一化:标点/大小写/单位/占位符顺序压平后一致 ⇒ 不报', () => {
+    const punct = judgeScreen(
+      {
+        web: 'wallet',
+        rn: 'rn/X.tsx',
+        webKeys: new Set(['wallet.retryRecharge']),
+        rnKeys: new Set(),
+        hardcoded: [{ kind: 'jsx-text', value: '重新充值！', line: 1 }],
+      },
+      messages,
+    )
+    expect(punct.b3.length === 0, '标点差异被误报 B3')
+    const same = normalizeSemanticCopy('剩余 {minutes} 分钟')
+    const other = normalizeSemanticCopy('剩余{minutes}分')
+    expect(same === other, `单位归一失效:${same} vs ${other}`)
+  })
+
+  ok('⑯ 真缺口挂账 ⇒ 红:非可判据规则(B1-web-no-key,web 缺键而 RN 有消费)不许进账', () => {
+    const red = validateLedgerShape(
+      [{ file: 'learn', rule: 'B1-web-no-key', count: 4, owner: 'o', expires: '2027-06-30', evidence: 'e' }],
+      undefined,
+    )
+    expect(red.length === 1, '真缺口挂账未判红')
+    expect(red[0].includes('web 侧缺键而 RN 有消费'), '红项未点明真缺口性质')
+  })
+  ok('⑰ 空账合法:entries=[] 且有 emptyReason ⇒ 不红;缺 emptyReason ⇒ 红', () => {
+    const withReason = validateLedgerShape([], 'B1/B2/B3 均已清零,依据见 decisions 与 emptyReason')
+    expect(withReason.length === 0, '空账带 emptyReason 被误判红')
+    const noReason = validateLedgerShape([], undefined)
+    expect(noReason.length === 1, '空账缺 emptyReason 未判红')
+  })
+  ok('⑱ 端词包分片:RN 键只在 mobile-rn 词包 ⇒ 用 rnMessages 解析并按 RN 取值判 B2', () => {
+    const webMsgs = new Map([['memberAddressFormPage.setDefault', '设为默认地址']])
+    const rnMsgs = new Map([
+      ['memberAddressFormPage.setDefault', '设为默认地址'],
+      ['addresses.defaultLabel', '设为默认地址'],
+    ])
+    const r = judgeScreen(
+      {
+        web: 'addresses',
+        rn: 'rn/A.tsx',
+        webKeys: new Set(['memberAddressFormPage.setDefault']),
+        rnKeys: new Set(['addresses.defaultLabel']),
+        hardcoded: [],
+      },
+      webMsgs,
+      rnMsgs,
+    )
+    expect(r.advisory.length === 1, 'RN 侧词包键未参与 B2(被误当成未解析)')
+    const noRn = judgeScreen(
+      {
+        web: 'addresses',
+        rn: 'rn/A.tsx',
+        webKeys: new Set(['memberAddressFormPage.setDefault']),
+        rnKeys: new Set(['addresses.defaultLabel']),
+        hardcoded: [],
+      },
+      webMsgs,
+    )
+    expect(noRn.advisory.length === 0, '只用 web 词包时不该假报同值异键')
+    expect(classifyUnresolvedKey('a.b', { arrayKeys: new Set(['a.b']), otherBundle: null }) === 'array-json-value', '数组键未分到 array-json-value')
+    expect(classifyUnresolvedKey('a.c', { arrayKeys: new Set(), otherBundle: new Map([['a.c', 'x']]) }) === 'cross-end-only', '跨端词包键未分到 cross-end-only')
+    expect(classifyUnresolvedKey('a.d', { arrayKeys: new Set(), otherBundle: null }) === 'bundle-gap', '真缺键未分到 bundle-gap')
+  })
+
   console.log('🧪 web↔RN 措辞一致性门自检')
   for (const line of cases) console.log(line)
   console.log(`\n✅ ${cases.length}/${cases.length} 例通过`)
@@ -493,9 +1241,18 @@ export function runSelfTest() {
 export async function run({ mode = 'full', json = false } = {}) {
   const face = mode === 'staged' ? 'staged' : 'worktree'
   const mapText = readFace(MAP_REL, 'worktree')
-  const messagesText = readFace(MESSAGES_REL, face) ?? readFace(MESSAGES_REL, 'worktree')
-  if (!mapText || !messagesText) {
-    console.error('❌ 台账行或 zh-CN 消息表取不到 ⇒ 未判定')
+  const readBundle = (rel) => readFace(rel, face) ?? readFace(rel, 'worktree')
+  const webText = readBundle(WEB_MESSAGES_REL)
+  const rnText = readBundle(RN_MESSAGES_REL)
+  const sharedText = readBundle(SHARED_MESSAGES_REL)
+  if (!mapText || !webText || !rnText || !sharedText) {
+    const missing = [
+      !mapText && MAP_REL,
+      !webText && WEB_MESSAGES_REL,
+      !rnText && RN_MESSAGES_REL,
+      !sharedText && SHARED_MESSAGES_REL,
+    ].filter(Boolean)
+    console.error(`❌ 取不到输入:${missing.join(' / ')} ⇒ 未判定(不把读不到读成"零差异")`)
     process.exit(2)
   }
   const { rows, skipped } = loadAlignedRows(mapText)
@@ -503,7 +1260,16 @@ export async function run({ mode = 'full', json = false } = {}) {
     console.error('❌ 台账没有 aligned 行 ⇒ 未判定(不把空集读成"零差异")')
     process.exit(2)
   }
-  const messages = flattenMessages(JSON.parse(messagesText))
+  const webJson = JSON.parse(webText)
+  const rnJson = JSON.parse(rnText)
+  const sharedJson = JSON.parse(sharedText)
+  const shared = flattenMessages(sharedJson)
+  // 两端运行时都是 shared ⊕ 端词包(web: i18n-provider;RN: apps/mobile-rn/src/i18n/index.tsx:39)。
+  const messages = mergeMessageMaps(shared, flattenMessages(webJson))
+  const rnMessages = mergeMessageMaps(shared, flattenMessages(rnJson))
+  const arrayKeys = flattenArrayKeys(sharedJson)
+  for (const k of flattenArrayKeys(webJson)) arrayKeys.add(k)
+  for (const k of flattenArrayKeys(rnJson)) arrayKeys.add(k)
   const routes = new Map(parity.collectWebRoutes(face).map((r) => [r.route, r.rel]))
   const touched = mode === 'staged' ? touchedFiles() : null
   if (mode === 'staged' && !touched) {
@@ -512,10 +1278,13 @@ export async function run({ mode = 'full', json = false } = {}) {
   }
   const blocked = []
   const advisories = []
+  const b3List = []
+  const acceptedList = []
   const undetermined = []
   const auditedScreens = new Set()
+  const unresolvedItems = []
+  const nonTextItems = []
   let webFileCount = 0
-  let unresolvedKeys = 0
   let untouched = 0
 
   for (const row of rows) {
@@ -546,33 +1315,96 @@ export async function run({ mode = 'full', json = false } = {}) {
       webFileCount += 1
       const r = extractWebKeys(text, messages)
       for (const k of r.keys) webKeys.add(k)
-      unresolvedKeys += r.unresolved.length
+      for (const item of r.unresolvedItems) {
+        const bucket = classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: rnMessages })
+        const rec = { side: 'web', file: rel, ...item, bucket }
+        if (bucket === 'array-json-value') nonTextItems.push(rec)
+        else unresolvedItems.push(rec)
+      }
     }
-    const rn = extractRnKeys(rnText, messages)
-    unresolvedKeys += rn.unresolved.length
+    const rn = extractRnKeys(rnText, rnMessages)
+    for (const item of rn.unresolvedItems) {
+      const bucket = classifyUnresolvedKey(item.key, { arrayKeys, otherBundle: messages })
+      const rec = { side: 'rn', file: row.rn, ...item, bucket }
+      if (bucket === 'array-json-value') nonTextItems.push(rec)
+      else unresolvedItems.push(rec)
+    }
     const hardcoded = extractHardcodedChinese(rnText)
-    const judged = judgeScreen({ web: row.web, rn: row.rn, webKeys, rnKeys: rn.keys, hardcoded }, messages)
+    const judged = judgeScreen({ web: row.web, rn: row.rn, webKeys, rnKeys: rn.keys, hardcoded }, messages, rnMessages)
     for (const v of judged.blocking) blocked.push(v)
     for (const v of judged.advisory) advisories.push(v)
+    for (const v of judged.b3) b3List.push(v)
+    for (const v of judged.accepted) acceptedList.push(v)
   }
+
+  // D 项去重:同一 RN 文件同一键会因多条 web 路由重复计数(113 vs 106 唯一键),按唯一键只记一次。
+  const dedupeBy = (list, keyFn) => {
+    const seen = new Set()
+    const out = []
+    let dup = 0
+    for (const r of list) {
+      const k = keyFn(r)
+      if (seen.has(k)) {
+        dup += 1
+        continue
+      }
+      seen.add(k)
+      out.push(r)
+    }
+    return { out, dup }
+  }
+  const b2Unique = dedupeBy(advisories, (r) => `${r.rn}|${r.rnKey}|${r.value}`)
+  const b3Unique = dedupeBy(b3List, (r) => `${r.rn}|${r.rnKey || '@hardcode'}|${r.value}`)
+  const acceptedUnique = dedupeBy(acceptedList, (r) => `${r.rn}|${r.rnKey}|${r.value}`)
+  const advisoriesDeduped = b2Unique.out
+  const b3Deduped = b3Unique.out
+  // 未解析键:逐条带 file:line + 成因桶;不许折成 0,也不许算进已对齐。
+  // 数组值键(t.raw())是「已解析但不可比」:独立计数 + 独立清单,不算未解析、也不算已对齐。
+  const unresolvedKeys = unresolvedItems.length
+  const unresolvedBuckets = {}
+  for (const it of unresolvedItems) unresolvedBuckets[it.bucket] = (unresolvedBuckets[it.bucket] || 0) + 1
+  const nonTextKeys = nonTextItems.length
 
   const entries = readLedger()
   if (entries === null) {
     console.error(`❌ 台账读不到或形状坏:${LEDGER_REL} ⇒ 未判定`)
     process.exit(2)
   }
+  const ledgerRetired = readLedgerRetired()
   const b1 = judgeLedger(blocked, entries.filter((e) => e?.rule === 'B1-hardcoded-cjk'), {
     today: todayStr(),
     scopeFiles: touched ? auditedScreens : null,
   })
-  const b2 = judgeLedger(advisories, entries.filter((e) => e?.rule === 'B2-key-diff'), {
+  const b2 = judgeLedger(advisoriesDeduped, entries.filter((e) => e?.rule === 'B2-key-diff'), {
     today: todayStr(),
     scopeFiles: touched ? auditedScreens : null,
   })
-  // B1 新增未挂账 ⇒ 红;B2 新增未记账仍只是 advisory(措辞建议不拦提交),但**过期/缺字段照样红**
+  const b3 = judgeLedger(b3Deduped, entries.filter((e) => e?.rule === 'B3-synonym-drift'), {
+    today: todayStr(),
+    scopeFiles: touched ? auditedScreens : null,
+  })
+  // B1/B3 新增未挂账 ⇒ 红;B2 新增未记账仍只是 advisory(措辞建议不拦提交),但**过期/缺字段照样红**
   // —— 那是账本纪律,不是判据强度。
-  const blockingRed = [...b1.red, ...b1.expired, ...b1.malformed, ...b2.expired, ...b2.malformed]
-  const ledgerAdvisory = [...b1.advisory, ...b2.advisory, ...b2.red.map((s) => `(B2 advisory,不阻提交) ${s}`)]
+  // 账本形状先行:非可判据规则(= 把「web 缺键 + RN 有消费」的真缺口挂账)与「空账无 emptyReason」直接红。
+  const ledgerShape = validateLedgerShape(entries, readLedgerEmptyReason(), ledgerRetired)
+  const blockingRed = [
+    ...ledgerShape,
+    ...b1.red,
+    ...b1.expired,
+    ...b1.malformed,
+    ...b2.expired,
+    ...b2.malformed,
+    ...b3.red,
+    ...b3.expired,
+    ...b3.malformed,
+  ]
+  const ledgerAdvisory = [
+    ...b1.advisory,
+    ...b2.advisory,
+    ...b3.advisory,
+    ...b2.red.map((s) => `(B2 advisory,不阻提交) ${s}`),
+    ...b3.red.map((s) => `(B3 advisory,不阻提交) ${s}`),
+  ]
 
   if (json) {
     console.log(
@@ -585,12 +1417,25 @@ export async function run({ mode = 'full', json = false } = {}) {
           skipped,
           undetermined,
           unresolvedKeys,
+          unresolvedBuckets,
+          unresolvedDetail: unresolvedItems,
+          nonTextKeys,
+          nonTextDetail: nonTextItems,
           blocking: blocked.length,
           blockingDetail: blocked,
-          advisory: advisories.length,
-          advisoryDetail: advisories,
+          advisory: advisoriesDeduped.length,
+          advisoryDetail: advisoriesDeduped,
+          b3: b3Deduped.length,
+          b3Detail: b3Deduped,
+          accepted: acceptedUnique.out.length,
+          acceptedDetail: acceptedUnique.out,
+          duplicates: { b2: b2Unique.dup, b3: b3Unique.dup, accepted: acceptedUnique.dup },
           ledger: {
             entries: entries.length,
+            retired: ledgerRetired === null ? null : ledgerRetired.length,
+            emptyReason: readLedgerEmptyReason(),
+            shapeRed: ledgerShape,
+            decisions: readLedgerDecisions(),
             b1Red: b1.red,
             b2Red: b2.red,
             expired: [...b1.expired, ...b2.expired],
@@ -606,15 +1451,36 @@ export async function run({ mode = 'full', json = false } = {}) {
     console.log(
       `🔍 web↔RN 措辞一致性门(291) face=${face} aligned 屏 ${rows.length}${untouched ? ` / 本次未触及 ${untouched}` : ''} / web 文件 ${webFileCount}`,
     )
-    console.log(`  B1 blocking:${blocked.length}  · B2 advisory:${advisories.length}  · 未判定:${undetermined.length}  · 未解析键:${unresolvedKeys}`)
     console.log(
-      `  台账:${entries.length} 条;到期 ${b1.expired.length + b2.expired.length} / B1 认领差额 ${b1.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length}`,
+      `  B1 blocking:${blocked.length}  · B2 advisory:${advisoriesDeduped.length}(去重 ${b2Unique.dup} 条)  · B3 同义异值:${b3Deduped.length}  · 已裁决/豁免:${acceptedUnique.out.length}  · 未判定:${undetermined.length}  · 未解析键:${unresolvedKeys}`,
+    )
+    if (unresolvedKeys)
+      console.log(
+        `  未解析键分桶:${Object.entries(unresolvedBuckets).map(([k, n]) => `${k} ${n}`).join(' / ')}(逐条清单见 --json 的 unresolvedDetail)`,
+      )
+    for (const it of unresolvedItems.slice(0, 20))
+      console.log(`   ⚠ 未解析[${it.bucket}] ${it.side}:${it.file}:${it.line} ${it.key}`)
+    if (nonTextKeys) {
+      console.log(
+        `  已解析但不可比(数组值 t.raw,${nonTextKeys} 条):${[...new Set(nonTextItems.map((x) => x.key))].join(' / ')}`,
+      )
+      for (const it of nonTextItems.slice(0, 20))
+        console.log(`   ⓘ 不可比[${it.bucket}] ${it.side}:${it.file}:${it.line} ${it.key}`)
+    }
+    console.log(
+      `  台账:${entries.length} 条(退休 ${ledgerRetired === null ? '形状坏' : ledgerRetired.length} 条,已从判据面剔除);到期 ${b1.expired.length + b2.expired.length + b3.expired.length} / B1 认领差额 ${b1.red.length} / B3 认领差额 ${b3.red.length} / 缺字段 ${b1.malformed.length + b2.malformed.length + b3.malformed.length} / 形状 ${ledgerShape.length}`,
     )
     for (const v of blocked.slice(0, 25))
       console.log(`   ✗ ${v.file} ↔ ${v.rn}:${v.line} 「${v.value}」→ web 键 ${v.webKeys.slice(0, 3).join('/')}`)
     for (const line of blockingRed.slice(0, 20)) console.log(`   ✗ 台账:${line}`)
     for (const line of ledgerAdvisory.slice(0, 10)) console.log(`   ⚠ 台账:${line}`)
-    for (const v of advisories.slice(0, 15)) console.log(`   ⚠ ${v.file} ↔ ${v.rn} [${v.rule}] ${v.detail}`)
+    for (const v of advisoriesDeduped.slice(0, 15)) console.log(`   ⚠ ${v.file} ↔ ${v.rn} [${v.rule}] ${v.detail}`)
+    for (const v of b3Deduped.slice(0, 15)) console.log(`   ⚠ ${v.file} ↔ ${v.rn}:${v.line || '-'} [${v.rule}] ${v.detail}`)
+    const decisions = readLedgerDecisions()
+    if (decisions.length)
+      console.log(
+        `   已裁决(A/B/E):${decisions.map((d) => `${d.group}组 ${d.count} 条(${d.rule})`).join(' · ')}`,
+      )
     for (const u of undetermined.slice(0, 10)) console.log(`   ⚠ 未判定:${u}`)
   }
   process.exit(blockingRed.length > 0 ? 1 : 0)
@@ -647,10 +1513,20 @@ export const __test__ = {
   listScreenFiles,
   touchedFiles,
   readLedger,
+  readLedgerRetired,
+  readLedgerEmptyReason,
+  JUDGED_RULES,
+  validateLedgerShape,
   runSelfTest,
   normalizeCopy,
+  mergeMessageMaps,
+  flattenArrayKeys,
+  classifyUnresolvedKey,
   MAP_REL,
   MESSAGES_REL,
+  WEB_MESSAGES_REL,
+  RN_MESSAGES_REL,
+  SHARED_MESSAGES_REL,
   LEDGER_REL,
   SKIP_ENV,
 }

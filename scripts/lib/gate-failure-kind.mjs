@@ -39,11 +39,18 @@
  */
 
 /** 崩溃指纹:Node 自己抛出来的、不是门打印的。全部锚在**错误码/固定措辞**上,不靠"看着像堆栈"。 */
+/**
+ * 仓内 import↔export 断链(2026-11-05 实测门 299 崩型):模块找得到、具名导出不存在。
+ * 它**不是缺依赖**——pnpm install 治不了它(对它喊装依赖 = §0.8 跑不通的出路,实测误导过一次
+ * 「取 build 锁跑全量 install」)。排在 /SyntaxError: / 之前,reason 里带上缺失的导出名。
+ */
+const EXPORT_BREAK_RE = /does not provide an export named '[^']*'/
 const CRASH_MARKERS = Object.freeze([
   /ERR_MODULE_NOT_FOUND/,
   /ERR_UNKNOWN_BUILTIN_MODULE/,
   /Cannot find module '[^']*'/,
   /ReferenceError: \w+ is not defined/,
+  EXPORT_BREAK_RE,
   /SyntaxError: /,
 ])
 
@@ -148,6 +155,14 @@ export function crashNextStep(reason) {
     case 'ENOBUFS':
       return '单独复跑本门看它在刷什么输出;**不要**靠调大 20MB 上限消红(那是削判据)'
     default:
+      if (typeof reason === 'string' && EXPORT_BREAK_RE.test(reason)) {
+        return (
+          '仓内 import↔export 断链(模块在、具名导出不存在)——**不是缺依赖,pnpm install 治不了它**。' +
+          '出路:单独复现上面给出的复现命令,以真实错误首行点名的模块路径为准,对账两侧版本 —— ' +
+          'git show HEAD:<该模块路径> 与工作树逐字节对比;若工作树副本等于某枚祖先 blob,即旧 blob 回写(门 298 同型),' +
+          '正解是把两侧对齐到自洽的那一版,而不是改 import 名单迁就坏副本。'
+        )
+      }
       return (
         '先取 build 锁(deploy-lock.mjs acquire --mode build)再跑全量 pnpm install(不带 --filter),' +
         '装完复跑本批;**禁止并发安装** —— 它写的就是 node_modules 本身(先清后链),并发会互踩成空目录'
@@ -163,10 +178,18 @@ export function crashNextStep(reason) {
 export function crashAdvisory(crashCount, reasons = []) {
   const list = Array.isArray(reasons) ? [...reasons] : []
   const fallbackKilled = list.filter((r) => fallbackCodeOfReason(r) !== null).length
-  const dependencyOnly = Math.max(0, Number(crashCount) - fallbackKilled)
+  // 断链型单独计数(2026-11-05 门 299 实测):对它喊 pnpm install 是误归因,必须从缺依赖型里拆出来
+  const exportBreak = list.filter((r) => typeof r === 'string' && EXPORT_BREAK_RE.test(r)).length
+  const dependencyOnly = Math.max(0, Number(crashCount) - fallbackKilled - exportBreak)
   const parts = [
     `其中 ${crashCount} 道是**跑不起来(未判定)**而不是判红 —— 把它们当"仓库里有缺陷"读会让人去修不存在的东西`,
   ]
+  if (exportBreak > 0)
+    parts.push(
+      `仓内 import↔export 断链型 ${exportBreak} 道(具名导出缺失):**不是缺依赖**,` +
+        '`pnpm install` 治不了它们;逐道按上面的复现命令单独跑,拿真实错误首行点名的模块路径 ' +
+        '对账 HEAD 面与工作树面(git show HEAD:<模块> 逐字节比);工作树等于祖先旧 blob 即旧 blob 回写,对齐到自洽版本即可',
+    )
   if (dependencyOnly > 0)
     parts.push(
       `缺依赖型 ${dependencyOnly} 道:先取 build 锁再跑**全量** \`pnpm install\`(不带 --filter,见 AGENTS §12e),` +
@@ -182,6 +205,7 @@ export function crashAdvisory(crashCount, reasons = []) {
 
 export const __test__ = {
   CRASH_MARKERS,
+  EXPORT_BREAK_RE,
   FALLBACK_KILL_CODES,
   UNDETERMINED_EXIT_CODE,
   UNDETERMINED_MARKERS,

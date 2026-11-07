@@ -34,12 +34,31 @@ import { existsSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
-import { classifyFace, provenanceNote } from './lib/knip-ratchet-face.mjs'
+import { classifyFace, detectConfigLoadFailures, provenanceNote } from './lib/knip-ratchet-face.mjs'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(SCRIPT_DIR, '..')
 const BASELINE_PATH = join(ROOT, 'knip-baseline.json')
 const KNIP_BIN = join(ROOT, 'node_modules', 'knip', 'bin', 'knip.js')
+
+/**
+ * 静态分析专用的环境供给 —— **口径单源就在这里**,CI 的 knip.yml 只是镜像(见该文件 env 段)。
+ *
+ * 为什么由棘轮自己供:这几个值只用于"让配置文件可被加载",不连库、不打包、不进产物;
+ * 而对应的三处配置在缺值时都是**故意 fail-closed 抛错**的(判据本身正确,不能改弱):
+ *   · packages/database/drizzle.config.ts —— 缺 DATABASE_URL 拒绝加载(旧默认指向 8810 生产隧道口)
+ *   · apps/mobile-rn/app.config.js —— 缺微信支付三值拒绝加载(静态分析器用 dummy config 调用它)
+ *   · apps/mobile-rn/metro.config.cjs —— nativewind 的 configPath 默认相对 cwd;已改为 __dirname,
+ *     本条不再需要 env,保留说明是为了记录"为什么曾经从仓库根跑不动"
+ * 供给值与真实值刻意不同形(库名带 _knip_static、域名用 .invalid),免得有人误把它当可用配置;
+ * 真实构建(EAS/CI 打包)由各自 env 注入,与本常量无关。
+ */
+const STATIC_ANALYSIS_ENV = {
+  DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/ihui_knip_static',
+  WX_ANDROID_PACKAGE: 'zh.ai.sq',
+  WX_APP_APPID: 'wx0123456789abcdef',
+  EXPO_PUBLIC_WECHAT_UNIVERSAL_LINK: 'https://static-analysis.invalid/app/',
+}
 
 // 与 knip json reporter 的 issue 字段一一对应;顺序即输出顺序
 const CATEGORIES = [
@@ -77,18 +96,46 @@ function runKnipJson() {
     console.error(`[knip-ratchet] ❌ 未找到 knip:${KNIP_BIN}(请先 pnpm install)`)
     process.exit(2)
   }
+  const env = { ...process.env, CODEBUDDY_SAFE_DELETE_ENABLED: '0' }
+  // 只补空缺:显式导出的值优先(本机想量特定库/特定 appId 时不必改脚本)
+  for (const [k, v] of Object.entries(STATIC_ANALYSIS_ENV)) if (!env[k]) env[k] = v
   const result = spawnSync(process.execPath, [KNIP_BIN, '--reporter', 'json'], {
     cwd: ROOT,
     encoding: 'utf8',
     maxBuffer: 128 * 1024 * 1024,
     // 保持与本仓库其它守门脚本一致的删除守护豁免(pnpm/knip 内部可能创建临时目录)
-    env: { ...process.env, CODEBUDDY_SAFE_DELETE_ENABLED: '0' },
+    env,
     windowsHide: true,
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (result.error) {
     console.error(`[knip-ratchet] ❌ 无法启动 knip:${result.error.message}`)
+    process.exit(2)
+  }
+  // 判据顺序不能反:先问"这次到底量全了没有",再读 JSON —— knip 在插件配置加载失败时
+  // 只把该配置从入口面摘掉、进程仍 exit 0,JSON 照出。只读 JSON 会把"少了一整块面"
+  // 当成绿读数(2026-11-04 实测:干净检出上 5 处同时失败,而棘轮一路判绿/判红都与此无关)。
+  const loadFailures = detectConfigLoadFailures(result.stderr)
+  if (loadFailures.length > 0) {
+    console.error(
+      `[knip-ratchet] ❌ ${loadFailures.length} 个 knip 插件配置加载失败 ⇒ 本次读数是被降级的面,不可比:`,
+    )
+    for (const f of loadFailures) {
+      console.error(`[knip-ratchet]    · ${f.path}`)
+      console.error(`[knip-ratchet]      ${f.cause}`)
+    }
+    console.error('[knip-ratchet]    按 cause 修,不要放过 —— knip 侧"没报错"只代表它没算那一块:')
+    console.error(
+      "[knip-ratchet]      · File './.wxt/tsconfig.json' not found ⇒ 在 apps/extension 下跑 `wxt prepare`(CI 有独立步骤)",
+    )
+    console.error(
+      `[knip-ratchet]      · 缺 env 类 ⇒ 本脚本已供 ${Object.keys(STATIC_ANALYSIS_ENV).join(' / ')};` +
+        ' 仍失败说明该配置读的是别的值,按 cause 补进 STATIC_ANALYSIS_ENV',
+    )
+    console.error(
+      '[knip-ratchet]      · 路径解析类 ⇒ 配置文件不得依赖 process.cwd()(参照 apps/mobile-rn/metro.config.cjs 用 __dirname)',
+    )
     process.exit(2)
   }
   const stdout = result.stdout ?? ''
@@ -190,8 +237,17 @@ if (args.has('--print')) {
   process.exit(0)
 }
 
-if (args.has('--update') || !existsSync(BASELINE_PATH)) {
-  const isInit = !existsSync(BASELINE_PATH)
+// BUG-43③:基线缺失时**自动生成**基线并 exit 0 ⇒ 删基线重跑一次就把门槛抬到当前值。
+// 基线不在位 = 拿不到比较基准 ⇒ 未判定(exit 2),绝不自动生成放行;只有显式 --update 才是人工动作。
+if (!existsSync(BASELINE_PATH)) {
+  console.error(
+    '[knip-ratchet] ❌ 未判定:基线 knip-baseline.json 不在位 ⇒ 无法判定(不得自动生成基线把门槛抬到当前值);' +
+      '请先人工核对当前计数,再显式运行 node scripts/check-knip-ratchet.mjs --update 生成并提交。',
+  )
+  process.exit(2)
+}
+
+if (args.has('--update')) {
   const payload = {
     // 说明:这是「允许存在的历史债上限」。只允许通过修复来收紧(重新 --update),
     // 不允许为了过门禁而放大——放大会在 PR 审查中被看见。
@@ -208,9 +264,7 @@ if (args.has('--update') || !existsSync(BASELINE_PATH)) {
     counts,
   }
   writeFileSync(BASELINE_PATH, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
-  console.log(
-    `[knip-ratchet] ${isInit ? '已初始化' : '已更新'}基线 → knip-baseline.json(total=${currentTotal})`,
-  )
+  console.log(`[knip-ratchet] 已更新基线 → knip-baseline.json(total=${currentTotal})`)
   console.log('[knip-ratchet] 请把该文件一并提交(它是门禁的一部分)。')
   process.exit(0)
 }

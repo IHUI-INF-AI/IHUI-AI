@@ -86,8 +86,12 @@ function remoteUrl(repoRoot) {
 function isHealthy(repoRoot) {
   const head = run(`git -C ${repoRoot} rev-parse HEAD`, true)
   if (!head) return false
-  const commitOk = run(`git -C ${repoRoot} cat-file -e ${head}^{commit}`, true) !== null || true
-  const treeOk = run(`git -C ${repoRoot} cat-file -e ${head}^{tree}`, true) !== null || true
+  // 2026-11-05 治理债④:原 `!== null || true` 使本行恒真 ⇒ 对象缺失也报「健康」(§0.3)。
+  // `git cat-file -e` 成功时不打字,run(…, true) 返回 '';失败返回 null —— 只认这两态。
+  // 另:revspec 必须加双引号。本机 execSync 经 cmd.exe,裸 `^{commit}` 的 `^` 会被当脱字符吃掉
+  // ⇒ git 收到 `abc{commit}` 恒失败 ⇒ 摘掉 `|| true` 后判据会反过来变成「恒假」。实测见交付报告。
+  const commitOk = run(`git -C ${repoRoot} cat-file -e "${head}^{commit}"`, true) !== null
+  const treeOk = run(`git -C ${repoRoot} cat-file -e "${head}^{tree}"`, true) !== null
   return !!head && !!commitOk && !!treeOk
 }
 

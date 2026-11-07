@@ -78,6 +78,7 @@ import { registerMemoryCommand } from './commands/memory.js';
 import { registerWorkflowsCommand } from './commands/workflows.js';
 import { registerSpecCommand } from './commands/spec.js';
 import { registerPlanCommand } from './commands/plan.js';
+import { registerTrashCommand } from './commands/trash.js';
 import { registerAgentsCommand } from './commands/agents.js';
 import { registerAiSkillsCommand } from './commands/ai-skills.js';
 import { attachChatSubcommands } from './commands/chat-subcommands.js';
@@ -89,6 +90,8 @@ import { registerMcpMarketCommand } from './commands/mcp-market.js';
 import { registerModelsCommand } from './commands/models.js';
 import { registerSecurityCommand } from './commands/security.js';
 import { registerCheckpointCommand } from './commands/checkpoint.js';
+import { registerAiAttributionCommand } from './commands/ai-attribution.js';
+import { registerReportCommand } from './commands/report.js';
 import { startCloudRun, completeCloudRun } from './cloud-run.js';
 import { registerHooksCommand } from './commands/hooks.js';
 import { registerHooksAutoCommand } from './commands/hooks-auto.js';
@@ -113,7 +116,18 @@ import { getTool } from './tools/index.js';
 import { replayArgumentDeviations } from './tools/argument-validation-replay.js';
 import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
+import { registerSkillPackageCommands } from './commands/skill-package.js';
+import { registerSkillsListCommand } from './commands/skills-catalog-view.js';
 import { needsFirstRunSetup, runFirstRunSetup } from './commands/first-run.js';
+// G-B49 C2(REA 对齐 WorkBuddy startup-profile.cjs / cbc-prewarm,取证见 W1-workbuddy-main.md 缺口⑪):
+// 启动画像(纯判据) + 预热命中读数(可断言) —— 接线仅在下文 direct-run 块,opt-in,零改动命令注册。
+import { createStartupTracker, renderStartupLine } from './startup/profile.js';
+import {
+  buildProcessFingerprint,
+  defaultIsPidAlive,
+  readPrewarmStatus,
+  renderPrewarmLine,
+} from './startup/prewarm.js';
 
 // P1-16 在所有模块加载后立即安装 crash handler(全局兜底未捕获异常)
 installCrashHandler();
@@ -372,7 +386,11 @@ async function runAgentAndExit(
       if (session && !jsonMode) {
         console.info(chalk.yellow(t('cliEntry.interruptSaving')));
       }
+      return;
     }
+    // 第二次 Ctrl-C:注册 SIGINT listener 后默认终止行为已被抑制,保存流程若卡住
+    // 用户将完全无出口。给一条真实可用的强退(128 + SIGINT 标准码 130)。
+    process.exit(130);
   };
   process.on('SIGINT', onSigint);
   try {
@@ -854,6 +872,9 @@ registerSpecCommand(program);
 // plan 子命令组 — 对齐 Web 端 /plan(init/list/show/delete 本地文档管理)
 registerPlanCommand(program);
 
+// trash 子命令组 — 本机回收站(list / restore),误删件的人用出口
+registerTrashCommand(program);
+
 // agents 子命令组 — 对齐 Web 端 /agents(list/my/show/create/stats 5 页)
 registerAgentsCommand(program);
 
@@ -890,6 +911,12 @@ registerSecurityCommand(program);
 // checkpoint 子命令组
 registerCheckpointCommand(program);
 
+// ai-attribution 子命令组 — AI 代码归属账读数(判据在服务端 core/ai_code_attribution.py,此处只读)
+registerAiAttributionCommand(program);
+
+// report 子命令组 — 自包含单文件诊断报告(KPI + 阶段瀑布 + findings;判据在 @ihui/shared/reports)
+registerReportCommand(program);
+
 // hooks 子命令组
 registerHooksCommand(program);
 
@@ -909,24 +936,9 @@ program.addCommand(registryCommand());
 // skills 子命令 — 列出/查看已加载的 skills(从 .ihui/.agents/.claude/.cursor/skills 平面加载)
 const skillsCmd = program.command('skills').description(t('cliEntry.skillsCmdDesc'));
 
-skillsCmd
-  .command('list')
-  .description(t('cliEntry.skillsListDesc'))
-  .action(() => {
-    const skills = loadSkills({ cwd: process.cwd() });
-    if (skills.length === 0) {
-      console.info(chalk.dim(t('cliEntry.skillsEmpty')));
-      console.info(chalk.dim('  <cwd>/.ihui/skills/   <cwd>/.agents/skills/   <cwd>/.claude/skills/   <cwd>/.cursor/skills/'));
-      console.info(chalk.dim('  <repo-root>/.ihui/skills/ ...   ~/.ihui/skills/'));
-      return;
-    }
-    console.info(chalk.cyan(t('cliEntry.skillsLoaded', { count: skills.length })));
-    for (const s of skills) {
-      console.info(`  ${chalk.bold(s.name)} — ${chalk.dim(s.description)}`);
-      console.info(chalk.dim(t('cliEntry.skillsSourceLine', { source: s.source })));
-    }
-    console.info('');
-  });
+// `list` 与 REPL `/skills` 同一展示/缓存出口(goal-b49 X3):格式化与缓存只有一份,
+// 住在 commands/skills-catalog-view.ts;这里只挂子命令,不手搓条目行、不另读一次盘。
+registerSkillsListCommand(skillsCmd);
 
 skillsCmd
   .command('show <name>')
@@ -972,6 +984,9 @@ skillsCmd
     // 样本 ≥1 ⇒ 0,报告里带冲突率与逐对建议,裁决(开不开真门控)仍是单独一票的事。
     if (agg.insufficient) process.exitCode = 2;
   });
+
+// 技能包安装安全链 + 专家包生成器: install / verify / uninstall / pack
+registerSkillPackageCommands(skillsCmd);
 
 // settings 子命令组
 const settingsCmd = program.command('settings').description(t('cliEntry.settingsCmdDesc'));
@@ -1366,6 +1381,31 @@ auditCmd
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
   // G-18:每次 CLI 进程启动落一份 run manifest(argv/ppid/env/cwd/项目身份),写失败静默。
   writeRunManifest();
+  // G-B49 C2 启动画像登记 + 预热命中读数(opt-in 零副作用,对标对方"未开启不产生任何 I/O"):
+  // IHUI_STARTUP_PROFILE≠1 ⇒ 只内存打点、零 I/O;开启 ⇒ stderr 两行 ASCII 读数(守门 70 惯例,
+  // 与 background-drain 播报同一形态)。三态诚实:缺里程碑落 unjudged 点名,绝不以 0ms 冒充量到。
+  const startupTracker = createStartupTracker(() => performance.now());
+  startupTracker.mark('entry');
+  const startupProfileOn = process.env.IHUI_STARTUP_PROFILE === '1';
+  const prewarmReading = startupProfileOn
+    ? readPrewarmStatus({
+        currentFingerprint: buildProcessFingerprint({
+          platform: process.platform,
+          arch: process.arch,
+          nodeVersion: process.version,
+          cliVersion: pkg.version,
+        }),
+        nowMs: Date.now(),
+        isPidAlive: defaultIsPidAlive,
+      })
+    : null;
+  process.on('exit', () => {
+    startupTracker.mark('exit');
+    if (!startupProfileOn) return;
+    console.error(renderStartupLine(startupTracker.reading()));
+    if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
+  });
   program.parse();
+  startupTracker.mark('commandParsed');
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

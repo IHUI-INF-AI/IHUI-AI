@@ -9,6 +9,11 @@
  * 本脚本负责落库。判据全部复用服务端实现(relay-account-format 的校验、
  * relay-account-pool-service 的 importAccounts),不抄第二份。
  *
+ * uid 口径(2026-11-06 收口):预检(--dry-run / 失败点名 / 批内重复计数)报的 uid 一律走
+ * 服务层 `resolveImportAccountUidProbe`,与 importAccounts 写入的 `(provider_code, uid)`
+ * 同一枚键源;此前预检用 format 层 `extractUid(token)`、落库用平台映射 seed,两键永不相等
+ * ⇒ "同 provider+uid 覆盖"的语义在预检面完全失效(每换一次票就在池里多留一行孤儿)。
+ *
  * 用法(在仓根):
  *   node scripts/relay-account-pool.mjs --from workbuddy
  *   node scripts/relay-account-pool.mjs --file accounts.json --provider trae
@@ -18,7 +23,9 @@
  *   ... --stdin              从标准输入读 JSON
  *   ... --dry-run            只校验与预检,不写库
  *   ... --no-health          导入后不做上游健康检查
- *   ... --json               输出机器可读摘要
+ *   ... --json               输出机器可读摘要(含 ownerUserIdMasked / ownerSource)
+ *   ... --owner <users.id>   落该用户的个人池;缺省 = 运营池(不猜)
+ *   ... --owner-source <名>  归属来源透传(词汇单源 scripts/lib/pool-owner.mjs)
  *
  * 安全:任何输出都不包含令牌明文;cookies/token 只在内存与加密落库之间流动。
  * 退出码:0 成功 / 1 校验不通过或全部失败 / 2 参数/读取/环境未判定。
@@ -28,6 +35,7 @@ import { resolve as resolvePath, dirname } from 'node:path'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { RelayProviderCode } from '../src/services/relay-account-format.js'
+import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url))
 const API_DIR = resolvePath(SCRIPT_DIR, '..')
@@ -39,7 +47,7 @@ const { eq, and } = await import('drizzle-orm')
 const { aiRelayAccountPool } = await import('@ihui/database')
 const { isRelayProviderCode, RELAY_PROVIDERS, validateAccountExport } =
   await import('../src/services/relay-account-format.js')
-const { importAccounts, decryptAccountCredentials } =
+const { importAccounts, decryptAccountCredentials, resolveImportAccountUidProbe } =
   await import('../src/services/relay-account-pool-service.js')
 const { db, dbRead } = await import('../src/db/index.js')
 const { registerAllRelayAdapters } = await import('../src/services/upstream-adapters/index.js')
@@ -53,6 +61,18 @@ interface CliOptions {
   dryRun: boolean
   health: boolean
   json: boolean
+  /**
+   * 归属个人池的 users.id;缺省 null = 运营池(存量语义零变化)。
+   * 2026-11-05 补:CLI 此前没有 owner 出口,把个人池的号重导入一次就会掉回运营池 ——
+   * 与机主 2026-10-31「我自己填入号池的账号只能跟着我的账号走」直接相违。
+   */
+  ownerUserId: string | null
+  /**
+   * 归属来源词汇的唯一真相源 = `scripts/lib/pool-owner.mjs` 的 `OWNER_SOURCES`
+   * (`explicit-flag` | `default-owner-file` | `none`)。本脚本**只透传不解释**(故不在此
+   * 复制第二份清单,§0.6),缺省按"给了 --owner 就是显式旗标,否则 none"如实回填。
+   */
+  ownerSource: string
 }
 
 const HELP = `账号池导入(服务端落库)
@@ -64,6 +84,14 @@ const HELP = `账号池导入(服务端落库)
 直接调用:
   pnpm exec tsx scripts/relay-account-import.ts (--file <json> | --stdin)
     [--provider <${RELAY_PROVIDERS.join('|')}>] [--dry-run] [--no-health] [--json]
+    [--owner <users.id>]      落该用户的个人池;缺省 = 运营池
+    [--owner-source <名>]     归属来源(explicit-flag|default-owner-file|none),编排器透传;
+                              缺省按"给了 --owner 记 explicit-flag,否则 none"回填。
+                              词汇唯一真相源 = scripts/lib/pool-owner.mjs 的 OWNER_SOURCES,
+                              本脚本只透传不解释。
+
+归属默认(2026-11-06 器物化):编排器不带 --owner 时会读本机 ~/.wb-switch/pool-owner 并代填,
+  取不到才落运营池(取不到的原因由编排器打在 stdout,不静默)。直调本脚本不享有该默认。
 
 输入:标准账号导出 JSON({accounts:[...]} 或裸数组);provider 可来自 --provider 或文件顶层 providerCode。
 退出码:0 成功 / 1 校验不通过或全部失败 / 2 参数或环境未判定。`
@@ -80,6 +108,8 @@ function parseArgs(argv: string[]): {
     dryRun: false,
     health: true,
     json: false,
+    ownerUserId: null,
+    ownerSource: '',
   }
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
@@ -99,6 +129,24 @@ function parseArgs(argv: string[]): {
         }
       }
       options.providerCode = v
+    } else if (arg === '--owner') {
+      const v = (argv[++i] ?? '').trim()
+      if (!v || v.startsWith('--')) {
+        return { help: false, options: null, error: '--owner 需要 users.id(不给 = 运营池,不猜)' }
+      }
+      options.ownerUserId = v
+    } else if (arg === '--owner-source') {
+      // 只透传不解释:词汇的唯一真相源在 scripts/lib/pool-owner.mjs 的 OWNER_SOURCES,
+      // 本脚本不得复制第二份清单(§0.6);取值形状校验与同文件其余带值旗标同一把尺。
+      const v = (argv[++i] ?? '').trim()
+      if (!v || v.startsWith('--')) {
+        return {
+          help: false,
+          options: null,
+          error: '--owner-source 需要来源短名(explicit-flag|default-owner-file|none)',
+        }
+      }
+      options.ownerSource = v
     } else {
       return { help: false, options: null, error: `未知参数: ${arg}` }
     }
@@ -109,11 +157,29 @@ function parseArgs(argv: string[]): {
   if (!options.stdin && !options.file) {
     return { help: false, options: null, error: '缺少输入:--file <json> 或 --stdin' }
   }
+  // 来源缺省回填(单独直调本脚本时没有编排器给旗标):给了 --owner 就是显式旗标,否则 none。
+  if (!options.ownerSource) {
+    options.ownerSource = options.ownerUserId ? 'explicit-flag' : 'none'
+  }
   return { help: false, options, error: null }
 }
 
 function readStdin(): string {
   return readFileSync(0, 'utf8')
+}
+
+/**
+ * 归属的对外显示形态:个人池 = 前 8 位 + ***(完整 users.id 不外显,非机密也不必外显);
+ * 运营池 = null。人类面与 --json 机器面共用本函数 ⇒ 两端不可能给出不同结论。
+ */
+function ownerUserIdForDisplay(opts: CliOptions): string | null {
+  return opts.ownerUserId ? `${opts.ownerUserId.slice(0, 8)}***` : null
+}
+
+/** 人类面归属短语(与 ownerUserIdForDisplay / ownerSource 同源) */
+function ownerDisplayText(opts: CliOptions): string {
+  if (opts.ownerUserId) return `${ownerUserIdForDisplay(opts)} 个人池(来源:${opts.ownerSource})`
+  return `运营池(来源:${opts.ownerSource})`
 }
 
 export interface HealthOutcome {
@@ -134,7 +200,14 @@ export async function runHealth(providerCode: string, uid: string): Promise<Heal
     .limit(1)
   if (!row) return null
   const adapter = getRelayAdapter(providerCode)
-  if (!adapter) return { id: row.id, uid, ok: false, indeterminate: true, error: `平台 ${providerCode} 适配器未注册` }
+  if (!adapter)
+    return {
+      id: row.id,
+      uid,
+      ok: false,
+      indeterminate: true,
+      error: `平台 ${providerCode} 适配器未注册`,
+    }
   let outcome: { ok: boolean; error?: string; indeterminate?: boolean }
   try {
     outcome = await Promise.race([
@@ -221,6 +294,27 @@ async function main(argv: string[]): Promise<number> {
 
   const report = validateAccountExport(raw, { providerCode })
   const accounts = report.accounts.length
+
+  // ── 落库口径 uid(2026-11-06 收口,主会话取证:同一份豆包输入预检报 auto:2972051c…、
+  // 实际入库落 auto:acc3bb70…)──
+  // 预检此前吃 format 层 `extractUid(token)`(seed=token 单值),落库吃服务层平台映射
+  // (豆包/loomy seed=`source:key:token`,codex/opencode/minimax/lingma/qoder 另有稳定 id 优先)
+  // ⇒ 两枚键永不相等,预检报出的 uid 指不到"将被覆盖的那一行",覆盖语义形同虚设。
+  // 收口口径 = **调用侧复用落库那枚键源**(`resolveImportAccountUidProbe` → 同一个
+  // `mapImportedAccount` 分派 + 同一句 `uidFromImportPayload`),四个 `auto:` 生成点与
+  // relay-account-format 的既有函数语义一字未改,号池身份键三下游(转发选号/保活/签到)零影响。
+  const importInput = (
+    Array.isArray(raw)
+      ? raw
+      : raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).accounts)
+        ? ((raw as Record<string, unknown>).accounts as unknown[])
+        : []
+  ) as ImportAccountInput[]
+  const probes = resolveImportAccountUidProbe(providerCode, importInput)
+  const uidOf = (index: number): string | null => probes[index]?.uid ?? null
+  /** 批内重复枚数(按落库口径键计;口径 = importAccounts 的 seenInBatch) */
+  const poolDuplicateUids = probes.filter((p) => p.duplicateOf !== null).length
+
   if (!report.ok) {
     process.stderr.write(
       `❌ 预检不通过:平台=${providerCode} 账号=${accounts} 结构无效=${report.invalid} 文件问题=${report.issues.filter((i) => i.level === 'error').length}\n`,
@@ -232,7 +326,9 @@ async function main(argv: string[]): Promise<number> {
     for (const acc of report.accounts) {
       for (const issue of acc.issues) {
         if (issue.level === 'error')
-          process.stderr.write(`   #${acc.index + 1} ${issue.code}: ${issue.message}\n`)
+          process.stderr.write(
+            `   #${acc.index + 1} uid=${uidOf(acc.index) ?? '-'} ${issue.code}: ${issue.message}\n`,
+          )
       }
     }
     return 1
@@ -243,16 +339,23 @@ async function main(argv: string[]): Promise<number> {
       ok: true,
       dryRun: true,
       providerCode,
+      // 归属如实上报:机器面与人类面必须读同一枚结论(2026-11-06 与编排器同步新增)
+      // 值一律脱敏形态(前 8 位 + ***),与人类面同一把尺;完整 uuid 不外显。
+      ownerUserIdMasked: ownerUserIdForDisplay(opts),
+      ownerSource: opts.ownerSource,
       total: report.total,
       valid: report.valid,
-      duplicateUids: report.duplicateUids,
+      // 口径点名:这里的 duplicateUids/uid 一律是"落库口径"(与 importAccounts 同键源),
+      // 不再是 format 层 extractUid(token) 的那枚
+      uidKeySource: 'pool-side(resolveImportAccountUidProbe)',
+      duplicateUids: poolDuplicateUids,
       expired: report.expired,
       expiringSoon: report.expiringSoon,
       expiredWithoutRefresh: report.expiredWithoutRefresh,
       accounts: report.accounts.map((a) => ({
         index: a.index + 1,
         name: a.name,
-        uid: a.uid,
+        uid: uidOf(a.index),
         tokenExpiresAt: a.tokenExpiresAt,
         hasRefreshToken: a.hasRefreshToken,
         issues: a.issues.length,
@@ -266,14 +369,22 @@ async function main(argv: string[]): Promise<number> {
     return 0
   }
 
-  const importInput = (
-    Array.isArray(raw)
-      ? raw
-      : raw && typeof raw === 'object' && Array.isArray((raw as Record<string, unknown>).accounts)
-        ? ((raw as Record<string, unknown>).accounts as unknown[])
-        : []
-  ) as Array<Record<string, unknown>>
-  const result = await importAccounts(providerCode, importInput)
+  const result = await importAccounts(providerCode, importInput, opts.ownerUserId ?? null)
+  // 落库后逐行自证:预检报的键必须与真正写进 (provider_code, uid) 的枚枚相等。
+  // 任一格不等 = 键源又分叉了(新增平台映射没走 mapImportedAccount 的同一条路),
+  // 这是运行时可观测的牙,不是只活在测试里。
+  const driftRows: string[] = []
+  for (const item of result.items) {
+    if (item.status !== 'imported' && item.status !== 'updated') continue
+    const pre = probes[item.index]?.uid ?? null
+    if (pre !== item.uid)
+      driftRows.push(`#${item.index + 1} 预检=${pre ?? '-'} 入库=${item.uid ?? '-'}`)
+  }
+  if (driftRows.length > 0) {
+    process.stderr.write(
+      `⚠️ 预检 uid 与入库 uid 不一致(键源再次分叉,须修): ${driftRows.join(' | ')}\n`,
+    )
+  }
 
   const health: HealthOutcome[] = []
   if (opts.health) {
@@ -289,6 +400,9 @@ async function main(argv: string[]): Promise<number> {
   const summary = {
     ok: result.failed === 0,
     providerCode,
+    // 归属如实上报:与预检档、人类面同源(值脱敏,完整 uuid 不外显)
+    ownerUserIdMasked: ownerUserIdForDisplay(opts),
+    ownerSource: opts.ownerSource,
     total: result.total,
     imported: result.imported,
     updated: result.updated,
@@ -312,7 +426,9 @@ async function main(argv: string[]): Promise<number> {
     process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`)
   } else {
     process.stdout.write(
-      `导入完成:平台=${providerCode} 新增=${result.imported} 更新=${result.updated} 跳过=${result.skipped} 失败=${result.failed}\n`,
+      `导入完成:平台=${providerCode} 新增=${result.imported} 更新=${result.updated} 跳过=${result.skipped} 失败=${result.failed}` +
+        // 归属必须回显:此前 CLI 没有 owner 出口,个人池的号被静默打回运营池 = 别人也可能被调度到它
+        ` 归属=${ownerDisplayText(opts)}\n`,
     )
     for (const item of summary.items) {
       process.stdout.write(

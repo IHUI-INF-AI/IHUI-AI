@@ -2540,17 +2540,45 @@
       "breakpoints": true
     },
     {
-      "version": "7",
       "idx": 366,
-      "when": 1793888061055,
-      "tag": "20261105120000_tenant_rls_policies_batch1_install",
+      "version": "7",
+      "when": 1793764800000,
+      "tag": "20261104120000_agent_team_collab",
+      "breakpoints": true
+    },
+    {
+      "idx": 367,
+      "version": "7",
+      "when": 1793937600000,
+      "tag": "20261106120000_tool_ledger_execution_facts",
+      "breakpoints": true
+    },
+    {
+      "idx": 368,
+      "version": "7",
+      "when": 1793944800000,
+      "tag": "20261106140000_chat_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 369,
+      "version": "7",
+      "when": 1793948400000,
+      "tag": "20261106150000_fix_missing_indexes_fks",
+      "breakpoints": true
+    },
+    {
+      "idx": 370,
+      "version": "7",
+      "when": 1793996812693,
+      "tag": "0370_equal_violations",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 370,
-      "when": 1793959200000,
-      "tag": "20261106180000_share_token_expires_at",
+      "idx": "371",
+      "when": "1794034800000",
+      "tag": "20261107150000_shared_to_ops_flag",
       "breakpoints": true
     }
   ]

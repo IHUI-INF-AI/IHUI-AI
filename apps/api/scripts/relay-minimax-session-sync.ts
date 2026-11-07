@@ -15,10 +15,18 @@
  * 让巡检重新定级 —— 同票 / 过期票一律不碰健康字段(否则每 10 分钟一次的回灌会把 down 洗成
  * unknown,§0.3 取不到 ≠ 失效)。
  *
- * 身份识别(2026-10-31 现读):`mapMinimaxImport` 的 uid 是 `auto:sha256(recordKey:token)`,
- * **随 token 旋转而变**,照 uid 找行在票一换之后就永远找不到 → 会每轮新建一行、旧行永久 down。
- * 故本脚本按「uid(载荷显式给出时)> secrets.recordKey(导入时已落库、轮换前后不变,本机实证)」
- * 两级匹配;两级都不中才走 `importAccounts` 自动入池。uid 列本身不改写(它是签到/台账的引用键)。
+ * 身份识别(2026-10-31 立,2026-11-06 实测更正):`mapMinimaxImport` 的 uid 是
+ * `auto:sha256(recordKey:token)`,**随 token 旋转而变**,照 uid 找行在票一换之后找不到。
+ * 但 `recordKey` 也不是账号身份 —— 实测:本机 `auth.json` 只有一个会话槽
+ * (`com.minimax.mcode.oauth.prod.cn\u0000<后缀>`),号池三枚 minimax 行的 `secrets.recordKey`
+ * **逐字节全等于这一个槽名**(其中两枚连 `loginEpoch` 都相同 ⇒ 同一次登录的两份副本)。
+ * 所以按 recordKey 认行只能认到「本机这个槽此刻装着谁的票」,一台机结构上不可能同时保活
+ * 多枚 mcode 号。由此两条硬规矩:
+ *   ① 无人值守的回灌(cron)继续按 recordKey 认运营池那一行 —— 它就是这个槽的镜像,正确;
+ *   ② 人工切号/切回时必须由编排器把 `--uid=<池行uid>` 随载荷带上点名目标行;点名未命中
+ *      一律拒写(见下面的 `none` 分支),因为自动入池重算出来的 uid 与点名的不是同一个,
+ *      悄悄建行 = 操作者以为写进 A 行、实际多出孤儿行。
+ * uid 列本身不改写(它是签到/台账的引用键)。
  *
  * 归属收窄(2026-11-01 收口,与 trae/qoder/workbuddy 同型):候选查询**不再带
  * `owner_user_id IS NULL`**——本机客户端号若已被某用户个人池持有,回灌必须看得见它,
@@ -50,6 +58,8 @@ const decideSync = traeSync.__test__.decideSync
 const parseIso = traeSync.__test__.parseIso
 // rt 终点键名单源与 Trae/Qoder 腿共用(§0.6):消费端不得各写一份字面量
 const clientRefreshExpiryRaw = traeSync.__test__.clientRefreshExpiryRaw
+// 心跳写回腿也与 Trae/Qoder 同一条(本腿不写第二份 jsonb 合并 SQL)
+const touchClientHeartbeat = traeSync.touchClientHeartbeat
 // 目标行选择单源(2026-11-01 第四条腿收口):运营池优先 / 个人池唯一行 / 多行拒写。
 // 候选查询去掉 owner 过滤,本机号落个人池时不再走自动入池造重复行(与 qoder 事故同型)。
 const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync-target.js')
@@ -81,6 +91,8 @@ export interface MinimaxSyncCandidate {
 export interface MinimaxSyncPayload {
   providerCode: string
   accounts: MinimaxSyncCandidate[]
+  /** 客户端心跳时刻(编排器探测在跑/未知时带;不带 = 没证据,不写心跳) */
+  clientActiveAt?: string | null
   meta?: Record<string, unknown>
 }
 
@@ -129,6 +141,8 @@ export interface MinimaxSyncSummary {
   revived: number
   /** 池内 minimax 行里 secrets 解不出的行数(身份识别对它们失效,如实报数) */
   undecryptable: number
+  /** 本轮写下的客户端心跳行数(client-first 让位判据的产地;0 = 载荷没带心跳) */
+  heartbeat?: number
   rows: RowOutcome[]
 }
 
@@ -183,10 +197,10 @@ export function matchPoolRow(
 }
 
 /**
- * 候选收窄(归属感知,判据单源 §0.6):先按 uid / recordKey 两级命中候选集 —— 这是 minimax
- * 平台特有的稳定身份键(uid 随 token 旋转而变、recordKey 轮换前后不变) —— 再交
- * chooseSyncTargetRow 定归属:运营池唯一行优先;运营池无行而个人池恰好一行则写该行;
- * 多行 = 归属未判定 ⇒ ambiguous,调用方拒写并点名(同号多行写穿他人副本)。
+ * 候选收窄(归属感知,判据单源 §0.6):载荷点了 uid ⇒ 只按 uid 收窄(人工切号/切回);
+ * 没点 ⇒ 按 recordKey 收窄(无人值守节拍,recordKey 认的是「本机会话槽」而不是账号)。
+ * 再交 chooseSyncTargetRow 定归属:运营池唯一行优先 / 个人池唯一行 / 多行 ambiguous 拒写;
+ * 零行 none ⇒ 点名时拒写(namedMissRejection),未点名才走自动入池。
  * 候选查询已去掉 owner 过滤,故个人池行进得了候选集(否则本机号落个人池时仍走自动入池
  * 造重复行,与 qoder 事故同型)。
  */
@@ -196,12 +210,36 @@ function pickTargetRow(
 ): ReturnType<typeof chooseSyncTargetRow<PoolRowSlice>> {
   const uid = cstr(candidate.uid)
   const recordKey = cstr(candidate.recordKey)
-  const candidates = poolRows.filter((r) => {
-    if (uid && r.uid === uid) return true
-    if (recordKey && recordKeyOfSecrets(r.secrets) === recordKey) return true
-    return false
-  })
+  // 点名优先且**独占**:操作者点了 uid,就只按 uid 收窄 —— 否则「uid OR recordKey」会把
+  // 同槽的其余行一起带进候选集,再被运营池优先规则顶回运营池那一行(2026-11-06 用例当场
+  // 判红:点名个人池行却选中运营池行)。点名的语义是「我知道这个槽此刻是谁」,不是「再猜一次」。
+  const candidates = uid
+    ? poolRows.filter((r) => r.uid === uid)
+    : recordKey
+      ? poolRows.filter((r) => recordKeyOfSecrets(r.secrets) === recordKey)
+      : []
   return chooseSyncTargetRow(candidates)
+}
+
+/**
+ * 点名未命中的处置(纯函数,测试锁)。
+ * 载荷里操作者点了 uid(编排器 `--uid=`,人工切号/切回用)而池内零命中 ⇒ 返回一条拒写条目;
+ * 未点名、或候选不是 none ⇒ 返回 null(交调用方走原有自动入池)。
+ * 为什么必须拒:`importAccounts` 重算的 uid 是 `auto:sha256(recordKey:token)`,与点名的那个
+ * 不是同一个 —— 落进去就是「操作者以为写进了 A 行,实际多出一行孤儿票」。
+ */
+export function namedMissRejection(
+  uidIn: string | null | undefined,
+  decision: { kind: string },
+): RowOutcome | null {
+  const uid = cstr(uidIn)
+  if (!uid || decision.kind !== 'none') return null
+  return {
+    uid,
+    decision: 'apply',
+    applied: false,
+    error: '点名 --uid 在池内未命中 ⇒ 拒写(不新建行、不改他行)',
+  }
 }
 
 /**
@@ -377,6 +415,9 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
   }
 
   let pool: { rows: PoolRowSlice[]; undecryptable: number } | null = null
+  // 心跳只拨给「本轮真认到的那一行」(一台机一个会话槽 ⇒ 每份载荷至多一行);
+  // 整族都拨会把其余号的 client-first 让位判据洗成常亮(2026-11-05 同型缺陷已踩过一次)
+  const heartbeatRowIds: string[] = []
   const ensurePool = async (): Promise<PoolRowSlice[]> => {
     if (!pool) {
       pool = await loadPoolRows()
@@ -409,6 +450,16 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
         recordKey: cstr(acc.recordKey),
       })
       if (decision.kind === 'none') {
+        // 点名未命中 ⇒ 当场拒,绝不落到自动入池(自动入池重算出来的 uid 与点名的不是同一个,
+        // 悄悄新建一行 = 操作者以为写进了 A 行、实际多出一行孤儿票)。判据是纯函数,测试锁。
+        const rejected = namedMissRejection(uidIn, decision)
+        if (rejected) {
+          // 记 failed 而不是 missing:missing 的语义是「池内无此号 ⇒ 自动入池」(正常结局);
+          // 点了名却没这行是操作者意图落空,必须顶到退出码 1(`ok = failed>0`),不能绿着退。
+          summary.failed++
+          summary.rows.push(rejected)
+          continue
+        }
         // 池内无此号 ⇒ 自动入池:与手动导入同一落库出口(运营池行、credVersion+1、
         // 唯一索引只圈运营池 ⇒ 结构上碰不到个人池行)。并发撞索引按 failed 点名,绝不冒绿。
         const autoInput = buildMinimaxAutoImportInput(acc)
@@ -433,6 +484,9 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
           continue
         }
         const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
+        // 刻意落运营池(2026-11-06 注明,不是漏网):minimax 一族是槽位形态的共享 key 池
+        // (name 形如 `minimax:region`,不是本人手机号),没有「跟着某个用户走」的语义 ⇒ 不接
+        // relay-session-autoimport-owner。本机会话自动入池的归属单源只管 trae/qoder 两条本人号腿。
         const res = await importAccounts('minimax', [autoInput], null)
         const item = res.items[0]
         if (item && (item.status === 'imported' || item.status === 'updated')) {
@@ -465,6 +519,7 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
         continue
       }
       const row = decision.row
+      heartbeatRowIds.push(row.id)
 
       const final = decideSync({
         poolToken: row.tokenPlain,
@@ -526,6 +581,8 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Min
       })
     }
   }
+  // 心跳写回与票面写回解耦:认到了行但载荷没带时刻 ⇒ 一条都不拨(不拿"没证据"当"客户端在跑")
+  summary.heartbeat = await touchClientHeartbeat(heartbeatRowIds, payload.clientActiveAt, dryRun)
   if (summary.failed > 0) summary.ok = false
   return summary
 }
@@ -580,7 +637,7 @@ export async function main(argv: string[]): Promise<number> {
   } else {
     process.stderr.write(
       `回灌完成: applied=${summary.applied} skipped=${summary.skipped} missing=${summary.missing} ` +
-        `imported=${summary.imported} revived=${summary.revived} failed=${summary.failed}` +
+        `imported=${summary.imported} revived=${summary.revived} 心跳=${summary.heartbeat ?? 0} failed=${summary.failed}` +
         `${summary.undecryptable > 0 ? ` undecryptable=${summary.undecryptable}` : ''}` +
         `${summary.dryRun ? '(dry-run 未写)' : ''}\n`,
     )
@@ -612,6 +669,8 @@ export const __test__ = {
   recordKeyOfSecrets,
   recordKeyLabel,
   matchPoolRow,
+  pickTargetRow,
+  namedMissRejection,
   buildMinimaxAutoImportInput,
   revivePatchOf,
   buildSecretsPatch,

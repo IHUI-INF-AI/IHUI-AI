@@ -326,6 +326,12 @@ export interface ChangePhoneScreenProps {
   onSendCode: () => void
   onSubmit: () => void
   onBack: () => void
+  /** 旧手机号(传入即渲染“当前手机号 + 旧验证码”安全步骤,缺省不渲染) */
+  oldPhone?: string
+  oldCode?: string
+  oldCodeMin?: number
+  onOldCodeChange?: (text: string) => void
+  onSendOldCode?: () => void
   colorScheme?: 'light' | 'dark'
 }
 
@@ -385,20 +391,60 @@ export interface SecuritySettingsItem {
   loginAlert: boolean
 }
 
+/** 设置行(端侧数据驱动:宿主交数据,共享屏只管渲染) */
+export interface SecuritySettingsRow {
+  key: string
+  label: string
+  /** 行内说明(次行小字) */
+  desc?: string
+  /** 开关行当前值(与 onToggle 配对) */
+  value?: boolean
+  /** 只读读数(onToggle 缺省时上屏) */
+  stateText?: string
+  stateTone?: 'success' | 'danger' | 'muted'
+  /** 行内开关写回调;缺省 ⇒ 该行只读(不得渲染假开关) */
+  onToggle?: (value: boolean) => void
+  /** 整行可点入口(矢量箭头);与 onToggle 互斥 */
+  onPress?: () => void
+  /** 行尾次级动作(如小程序端「去设置」) */
+  action?: { label: string; onPress: () => void }
+}
+
+/** 一组设置(标题/说明/提示 + 行) */
+export interface SecuritySettingsSection {
+  key: string
+  title?: string
+  desc?: string
+  hint?: string
+  items: readonly SecuritySettingsRow[]
+}
+
 /** SecuritySettingsScreen props */
 export interface SecuritySettingsScreenProps {
   t: TFunction
-  settings: SecuritySettingsItem | null
+  /**
+   * 端侧数据。两端显式传且值不同:小程序 = 系统权限 5 行 + 本地隐私 3 行;RN = 账号安全 4 行。
+   * null / 空数组 ⇒ 空态(不得凭空造行)。
+   *
+   * 行内四键(SecuritySettingsItem)的逐项可写性:一概而论的「后端无写端点」是谎,按项区分,
+   * 真相源是端点本身,不在类型里建清单:
+   *  - `twoFactorEnabled`:**可写**,走 `POST /api/auth/2fa/setup|verify|disable`
+   *    (packages/api-client/src/endpoints/system.ts 的 setupTwoFactor / verifyTwoFactor /
+   *    disableTwoFactor),RN「安全中心」屏整条流程在用;本屏只渲染入口。
+   *  - `passwordEnabled`:只读**派生**值(`users.password_hash` 非空),写面在改密流程,不在本屏。
+   *  - `biometricEnabled` / `loginAlert`:存 `user_preferences(group='security')` 的
+   *    `biometric` / `loginAlert` 两键;`GET /user/security`(apps/api/src/routes/
+   *    user-security-routes.ts)是这条路径上唯一的端点,api 层现读**没有写入方** ⇒ 真实只读。
+   * 「本条路径无写端点」只约束行内开关,**不等于后端不支持修改**。
+   */
+  sections: readonly SecuritySettingsSection[] | null
   loading: boolean
   error: string
-  /**
-   * 切换回调。后端 /user/security 只有 GET 无写端点 ⇒ 只读形态(readOnly)下不会调用;
-   * 不传即等价只读。缺省 undefined,既有调用方零影响。
-   */
-  onToggle?: (key: keyof SecuritySettingsItem, value: boolean) => void
-  /** 只读展示:true 时四项渲染为状态文字而非 Switch(后端无写端点,不得留假开关) */
-  readOnly?: boolean
   onBack: () => void
+  /** 底部链接。两端显式传且不同:小程序 = 隐私政策页;RN = 端内 Privacy 屏 */
+  footerLink?: { label: string; onPress: () => void }
+  /** 页内标题/返回条:小程序页无 header ⇒ false;RN ⇒ true */
+  showHeader?: boolean
   colorScheme?: 'light' | 'dark'
 }
 
@@ -458,6 +504,25 @@ export interface ChangePwdScreenProps {
   onToggleConfirm: () => void
   onSubmit: () => void
   colorScheme?: 'light' | 'dark'
+  /** 可选:提交按钮文案(缺省为 common.confirm);小程序端沿用「修改密码」 */
+  submitLabel?: string
+  /** 可选:渲染「忘记原密码」入口(点击由宿主注入;缺省不渲染) */
+  onForgotOld?: () => void
+  forgotLabel?: string
+  /** 可选:字段内联校验提示(缺省不渲染;校验规则仍由宿主决定) */
+  newPwdError?: string
+  confirmPwdError?: string
+  /**
+   * 可选:输入框最大长度。缺省 undefined ⇒ 不设上限,web/RN 既有行为零变化。
+   * 小程序原页三个框都是 `maxlength={20}`(硬截断),由壳侧传 20。
+   */
+  inputMaxLength?: number
+  /**
+   * 可选:内联校验提示的出现时机。
+   * - `'on-change'`(缺省):错误值非空即显 —— web/RN 与小程序原页的现有语义;
+   * - `'on-submit'`:仅点击提交后显(宿主只想在提交时暴露错误时用)。
+   */
+  errorVisibility?: 'on-submit' | 'on-change'
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
@@ -474,6 +539,10 @@ export interface AccountCancelScreenProps {
   showConfirmModal: boolean
   confirmCountdown: number
   submitting: boolean
+  /** 注销后果清单;空数组 = 不渲染该段(两端都真传 7 项) */
+  consequences?: string[]
+  /** true = 手机号只读展示(小程序);false/缺省 = 可编辑(RN) */
+  phoneReadOnly?: boolean
   onPhoneChange: (text: string) => void
   onConfirmTextChange: (text: string) => void
   onSmsCodeChange: (text: string) => void

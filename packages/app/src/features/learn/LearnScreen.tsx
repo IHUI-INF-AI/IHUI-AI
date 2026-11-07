@@ -103,7 +103,7 @@ export function LearnScreen({
             </View>
             <View style={styles.progressItem}>
               <Text style={styles.progressNum}>{progress?.completedCourses ?? 0}</Text>
-              <Text style={styles.progressLabel}>已完成</Text>
+              <Text style={styles.progressLabel}>{t('learnMapPage.completed')}</Text>
             </View>
             <View style={styles.progressItem}>
               <Text style={styles.progressNum}>{progress?.learningHours ?? 0}</Text>
@@ -114,7 +114,7 @@ export function LearnScreen({
           <View style={styles.section}>
             {renderSectionHeader('学习路径', onOpenBrowse)}
             {paths.length === 0 ? (
-              <EmptyState title="暂无学习路径" colorScheme={colorScheme} />
+              <EmptyState title={t('learnMapPage.empty')} colorScheme={colorScheme} />
             ) : (
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={styles.horizontalList}>

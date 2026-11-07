@@ -42,7 +42,9 @@ export interface NoteListScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
-/** 文章列表项(平台注入,字段对齐 mobile-rn ArticleListScreen Article) */
+/** 文章列表项(平台注入,字段对齐 mobile-rn ArticleListScreen Article)
+ *  资讯域复用同一屏时额外注入 summary/category/source/pinned;通用文章域不传即可(缺了不渲染)。
+ */
 export interface ArticleListItem {
   id: string
   title: string
@@ -51,9 +53,19 @@ export interface ArticleListItem {
   publishedAt: string
   /** 封面图 URL(可空) */
   cover?: string
+  /** 摘要(资讯域;为空不渲染) */
+  summary?: string
+  /** 分类名(资讯域;为空不渲染) */
+  category?: string
+  /** 来源名(资讯域;为空不渲染) */
+  source?: string
+  /** 是否置顶(资讯域;置顶卡优先取此条) */
+  pinned?: boolean
 }
 
-/** ArticleList 屏 props */
+/** ArticleList 屏 props
+ *  搜索/分类/置顶/已读均为显式可选段:不传则屏保持通用文章列表形态,不引入平台 API。
+ */
 export interface ArticleListScreenProps extends ListPaginationProps {
   t: TFunction
   items: ArticleListItem[]
@@ -67,6 +79,33 @@ export interface ArticleListScreenProps extends ListPaginationProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
+  /** 搜索关键字(受控);传 onKeywordChange 时才渲染搜索栏 */
+  keyword?: string
+  /** 搜索框占位文案 */
+  searchPlaceholder?: string
+  onKeywordChange?: (text: string) => void
+  onSearch?: () => void
+  /** 分类 chips;空数组/缺省不渲染分类栏 */
+  categories?: CategoryItem[]
+  selectedCategory?: string
+  onSelectCategory?: (id: string) => void
+  /** 置顶条目(wrapper 计算);null/缺省不渲染置顶卡 */
+  pinnedItem?: ArticleListItem | null
+  /** 已读 id 集合(用于已读态弱化 + 未读点) */
+  readIds?: ReadonlyArray<string>
+  /** 隐藏自带 header(宿主已有导航栏时用) */
+  hideHeader?: boolean
+  /** 列表滚动容器 ref 透出(返回顶部用) */
+  onListRef?: (ref: unknown) => void
+  /** 是否显示返回顶部按钮(需同时传 onBackToTop) */
+  showBackTop?: boolean
+  onBackToTop?: () => void
+  /** 滚动内容区底部预留(px,默认 12) */
+  contentBottomPadding?: number
+  /** 无更多数据(页脚显示"没有更多了") */
+  noMore?: boolean
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** 公告列表项(平台注入,字段对齐 mobile-rn AnnouncementScreen Announcement) */
@@ -612,6 +651,18 @@ export interface StatusChip {
 }
 
 /** AI 需求广场 Screen Props */
+/** 端侧分类筛选项的最小面(端内 CategoryItem 的可选扩展字段不属于契约) */
+export interface PlazaFilterItem {
+  id: string
+  label: string
+}
+
+/** 身份选项(两端同一组 id+label) */
+export interface PlazaIdentityOption {
+  id: string
+  label: string
+}
+
 export interface PlazaScreenProps {
   t: TFunction
   colorScheme?: 'light' | 'dark'
@@ -630,12 +681,45 @@ export interface PlazaScreenProps {
   onSubmitSearch: () => void
   onPressItem: (item: PlazaItem) => void
   onPublish: () => void
+  /** 「聊一聊」独立点击回调。缺省时与整卡一致(onPressItem)。 */
+  onChatPress?: (item: PlazaItem) => void
+  /**
+   * 赛道分类弹层(2026-11-05 自小程序页内联抽屉上收;RN 同步消费同一实例)。
+   * 端侧只传「可选」id+label;图标/图片是端内可选扩展,故契约不锚死端内 CategoryItem。
+   */
+  trackFilter?: {
+    visible: boolean
+    items: readonly PlazaFilterItem[]
+    selectedId: string
+    onSelect: (id: string) => void
+    onVisibleChange: (next: boolean) => void
+    panelTitle?: string
+  }
+  /** 身份切换弹层(两端同屏消费;用户区/底部入口由调用方按需给) */
+  identitySheet?: {
+    visible: boolean
+    title?: string
+    items: readonly PlazaIdentityOption[]
+    selectedId?: string
+    user?: { avatar?: string; name: string; subtext?: string }
+    footer?: { title: string; text: string; onPress: () => void }
+    onSelect: (id: string) => void
+    onClose: () => void
+  }
+  /** 卡片详情居中弹层(两端消费:RN 由整卡点击打开,弹层内「查看详情」再跳详情页) */
+  detail?: {
+    item: PlazaItem | null
+    onClose: () => void
+    onOpenDetail: (item: PlazaItem) => void
+  }
   onBack?: () => void
   /**
    * 滚动内容区底部预留(px,默认 80)。mobile-rn 各屏 TabBar 改绝对悬浮胶囊后
    * (2026-10-16),由调用方传 tabBarScrollReserve(insets.bottom) 让内容可滚到胶囊底下。
    */
   contentBottomPadding?: number
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** 需求广场 Screen Props */

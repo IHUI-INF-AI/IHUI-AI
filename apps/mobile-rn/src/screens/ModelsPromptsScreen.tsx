@@ -8,19 +8,11 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { listPrompts } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
-
-interface PromptSummary {
-  name: string
-  description: string | null
-  latest_version: number
-  updated_at: string
-  created_at: string
-}
 
 function ModelsPromptsScreen() {
   const { t, locale } = useI18n()
@@ -48,7 +40,7 @@ function ModelsPromptsScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<PromptSummary[]>('/api/prompts')
+      const res = await listPrompts()
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data ?? []).map((p) => ({
@@ -74,9 +66,9 @@ function ModelsPromptsScreen() {
 
   const columns: ConsoleColumn[] = [
     { key: 'name', title: t('modelsPrompts.name'), render: 'mono', flex: 2 },
-    { key: 'desc', title: t('modelsPrompts.desc'), flex: 2 },
+    { key: 'desc', title: t('models.prompts.table.description'), flex: 2 },
     { key: 'version', title: t('modelsPrompts.version'), render: 'badge' },
-    { key: 'updated', title: t('modelsPrompts.updated') },
+    { key: 'updated', title: t('models.prompts.table.updatedAt') },
   ]
 
   return (

@@ -14,18 +14,17 @@
  *    proof 步骤扑空)。**存在性判据问 git 的结论而不是解析它的输出**(G-801):`git show --name-only`
  *    的输出文本默认按 core.quotePath 把非 ASCII 路径八进制转写并加引号,拿输出字节当路径身份,
  *    中文/带空格路径必然比不中 ⇒ 已成功的交付被报成"缺路径";该清单只留作"是否混提"的辅助且必须 -c core.quotePath=false;
- *  - ② 逐路径把共享主索引对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
+ *  - ② 逐路径把共享主索引**与工作树**对齐到新 blob —— commit-tree+update-ref 不碰主索引,新文件在别人眼里就成了
  *    `D ` 暂存删除、改动文件成 `M `,此后一次不带 pathspec 的普通提交就把本轮交付写回旧版。
  *    对齐只在"索引 blob == 父提交 blob 或索引里没有"时动(判据住在 lib,只有一份实现);
- *    别人真暂存过的一律**不动并点名"归属他人"**(退出码 0,但逐条喊出来,绝不静默)。
+ *    索引对齐后磁盘仍缺该路径 ⇒ 才 `git checkout HEAD -- <path>` 补最后一格;
+ *    别人真暂存过的一律**不动并点名"归属他人"**(failed ⇒ 退出码 1 / 让路 ⇒ 2,绝不静默)。
  *  - ③ (G-816708,2026-10-05)声明的落地面含 `PROJECT_PLAN.md` 时,CAS 成功后**就地补跑一次守门 71
  *    台账自愈**(`--heal --commit`,与 `.husky/post-commit` 第 6 节同一条命令、同一个器物:
  *    `lib/post-merge-ledger-sync.mjs`)。为什么必须由本器自己跑:本器产的提交走 commit-tree ⇒
  *    **结构上不跑任何钩子** ⇒ 那层自愈对旁路落地从来不会触发,台账被滞后副本写回时账面只剩
  *    "自愈每轮都跑过、什么都没缺"。判据必须在真跑它的那一刻才成立,否则等于没有(§1 为
- *    `git-sync-converge` 补同一条时的原话)。补跑跑而未成/未派生成功按 RP-71 / §0.3
- *    折成 **exit 2 未判定**(不判红、不回滚,只拒绝报绿;折算口径见 `lib/bypass-git.mjs`
- *    的 `landingExitWithHeal`);
+ *    `git-sync-converge` 补同一条时的原话)。补跑失败只喊一行、不改本器退出码;
  *    未闭环的一格:`scripts/plan-tasks-merge.mjs` 是第四台旁路落地器,同样需要自带补跑,
  *    本票开工时它正被他人持有(` M`)⇒ 未动,登记在这里而不是装作已全覆盖。
  *  - ④ (G-113,2026-10-23)落地、回读、主索引对齐全部完成后,**复跑受影响判据**
@@ -39,10 +38,18 @@
  *    同档接线已闭环(2026-10-23 续席):`scripts/union-converge.mjs` 已在落地+对齐之后接同一
  *    出口(声明面 = 活文档 ∪ 取对侧版本的路径,与它 recordBypassLanding 的 declaredFiles 同集);
  *    形状锁见 scripts/tests/land-gate-rerun.test.mjs T12。
- *  - ⑤ [G-04 新建路径注入格 · 2026-10-25] 父提交里不存在的声明路径,
- *    正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再 `hash-object`,
- *    工作树副本一个字节都不写。已存在路径不进这一档(横幅保持/祖先对账/行级复活照旧)。
- *    blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
+ *  - ⑤ [G-04 新建路径注入格 · 2026-10-25;盘面口径随 ② 段回写层于 2026-11-06 更正] 父提交里不存在的
+ *    声明路径,正文先过 `watermark.mjs` 的 `injectText`(横幅/L2 载荷/L3 尾行的唯一构造处)再
+ *    `hash-object` —— **注入这一格只落在对象空间,不改盘上那份**。已存在路径不进这一档(横幅保持/
+ *    祖先对账/行级复活照旧)。blob 模式的新建路径另由水印预检在对象库面上判"载荷可解码"(取不到 ⇒ exit 2)。
+ *    **本器对盘上那份的口径由下面四条逐字界定**(旧版写在那儿的那句绝对表述与行为相反,已废):
+ *    ① **只补盘上根本不存在的声明路径**(判据单源 `lib/landing-worktree-align.mjs`;那一份从新 HEAD
+ *       落下来,带的就是注入后的内容);
+ *    ② **盘上已有副本一律不动**(`existsSync` 那一格直接跳过 —— 没有副本才谈不上覆写别人的在飞现场);
+ *    ③ **索引 blob 与父提交态不一致 ⇒ 归属他人**,不动并逐条点名(索引里躺着别人暂存的第三份 blob);
+ *    ④ 结论行出现「N 未判定 / N 归属他人」那一档 ⇒ **退出码 2,不得读成绿**(HEAD 已推进 ≠ 索引/磁盘已对上)。
+ *    ⇒ 据此纪律:落地后仍要按结论行判盘面,别把旧绝对表述读成"不必校验磁盘";也别反过来以为
+ *    "补齐盘上那份必然越界"而绕过本器手搓索引。
  *  - ⑥ [L33560 最后一格 · 2026-11-01] 落地(CAS)**之前**,对"将要进树的那份内容"跑一次冲突
  *    标记判据(`lib/conflict-marker-landing-gate.mjs` 唯一实现,union-converge 落地闸同源):
  *    `must-block` ⇒ 不落地 + 逐条点名(文件/行号/标记原文),exit 1;`strippable`(空区)只建议
@@ -64,11 +71,8 @@
  *              ② **互斥**:同一路径不得同时出现在 LAND_PATHS 与 LAND_REMOVE_PATHS(自相矛盾);
  *              ③ **clobber 同语义**:CAS 期间 HEAD 推进而该路径在位性变了 ⇒ 拒绝,不照旧删。
  *              `paths` 与 `removePaths` 可同时非空(一次落地里既有写入又有摘除);两边都空才拒绝。
- *              他席已暂存的删除路径由 `alignSharedIndex` 保护:不动并点名(§12)。
- *  LAND_MSG    必填,提交信息**正文本身**(不是文件路径)。要按文件给就写 `@<路径>`(相对 LAND_ROOT 或绝对),
- *              读不到即拒。为什么把这句话说全:2026-11-04 实测有调用方把路径塞进来,落地照样成功,
- *              而那枚的正文成了一串路径 ⇒ 取证叙述与 `immutable-exempt` trailer 全掉在枚外,
- *              事后判 `undeclared` 且提交者自己修不了(追认要独立密钥)。现在另有形状闸兜住(见 judgeLandMsgShape)。
+ *              他席已暂存的删除路径由 `alignLandingPaths`(内部 `alignSharedIndex`)保护:不动并点名(§12)。
+ *  LAND_MSG    必填,提交信息
  *  LAND_BLOBS  可选,指向一份 JSON 清单**文件的路径**(内容 `{files:[{path,blob}]}`;
  *              blob 由 hash-object -w 得到,须已在对象库)。注意与 LAND_CLASH_SCOPE 同形:传的是路径,
  *              不是内联 JSON —— 本器按 `readFileSync(env.LAND_BLOBS)` 取它,把 JSON 字符串直接塞进
@@ -135,13 +139,28 @@
  *              命中祖先)。判不出(解析失败)退回原行级判据并大声报名;Markdown 类活文档永不进这一档。
  *              这面旗对 .json/.jsonl 不再有豁免权(键路径档已默认生效),保留给"非 JSON 后缀但
  *              内容确是机器 JSON"的落地面(镜像测试 T-JS-1 钉的那一格)。
- * 退出码:0 = 已落地且回读通过(对齐的 skipped/未判定只在 stdout 点名);
- *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
+ * 退出码(S-OSL-PROOF 2026-11-06 起四档,不再是"0 与沉默同义";回写档位口径同批并入别席 11-06 契约):
+ *        0 = **真建了提交**且末尾自证通过:打印 `LANDED <40 位 sha>`,并回读 `git rev-parse HEAD`
+ *            逐字节等于它(或本轮那枚确在 HEAD 历史里 = CAS 之后本器补跑的台账自愈建了前向提交,
+ *            那一支必须同时点名 HEAD_NOW),且 ② 段回写没有任何 failed / skipped(归属他人) / 未判定
+ *            (三类逐条点名并各自决定档位:skipped / 未判定 ⇒ 2,failed ⇒ 1;自 2026-11-06 契约起
+ *            不再"只在 stdout 点名"就记绿);
+ *        1 = 业务拒绝(某目标路径被别人改过 ⇒ 需重新归并 / 声明路径**部分**无差异 / 盘上副本等于祖先版本且会抹掉基线里活着的行 /
  *            落地内容里存在"基线已删、祖先版本写过"的复活行,或该维判据未判定 ⇒ 未判定不等于通过 /
- *            CAS 12 次未抢到 / 提交面回读 git 明确回答"不在树里"(G-801 起存在性逐路径 cat-file -e 判) / 索引锁龄超上限);
- *        2 = 用法或环境错(空清单 / 空消息 / 声明路径不在盘上 / 根不可当仓库问 /
- *            提交面回读"问不到"⇒ 未判定:落地已推进 HEAD,但存在性未能判定 —— 既不报成功也不报"缺路径",
- *            因为假失败会诱使重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真)。
+ *            CAS 12 次未抢到(**DEFERRED**:HEAD 被别人推进,本轮一枚也没落,大声点名)/
+ *            提交面回读 git 明确回答"不在树里"(G-801 起存在性逐路径 cat-file -e 判) / 索引锁龄超上限 /
+ *            ② 段回写真失败(failed / 索引对齐未完成);
+ *        2 = 用法或环境错、**回写让路/未判定**,以及**落地自证不通过**(空清单 / 空消息 / 声明路径不在盘上 /
+ *            根不可当仓库问 / 提交面回读"问不到"⇒ 未判定:既不报成功也不报"缺路径",因为假失败会诱使
+ *            重跑一次已经成功的落地,而"未判定"折成"没有"是同一型失真 / ② 段回写有 skipped(归属他人)或
+ *            undetermined ⇒ 结论行「N 未判定 / N 归属他人」就是这一档的凭据,磁盘与索引没对上就不是绿 /
+ *            末尾回读 HEAD 既不等于本轮 sha、本轮 sha 也不在 HEAD 历史里(或祖先判定问不到)⇒ 逐字点名两个 sha
+ *            (§0.3:不许把"没推进"报成 0)/ 带完整落地基约却**没被认成直接执行** ⇒ 点名"一个字节都没落地"
+ *            (原负分支是静默 rc=0;2026-11-06 实测事故即此型:第一次跑 rc=0 零输出 HEAD 不动,同形复跑才真落地,
+ *            落的却是占位信息);
+ *        3 = **无需落地且逐条举证**(NOTHING-TO-LAND):声明面每一条写入路径的 blob 与基线逐字节相同、
+ *            每一条待摘除路径本就不在基线树里 ⇒ 本轮建不出任何差异,不建提交、不推 ref;
+ *            该档必须打出逐路径 oid 等值证据与 baseRef 的全量 sha,且**绝不与 0 共用**(0 = 真落了)。
  *
  * ⚠️ 头注刻意不写"已接 pre-commit / CI / 第 N 项"—— 它是手动常驻工具,那种话会被守门 89 判"声称已接线而零命中"。
  *
@@ -166,24 +185,12 @@ import {
   hasAnyWatermarkTrace,
   hasExactCanonicalBanner,
   dropZeroWidth,
-  stripWatermarkStructure,
-  isWatermarkStructureLine,
 } from './lib/watermark-lines.mjs'
 // G-04 第二格(2026-10-25):新建路径的注入必须复用 watermark.mjs 的**文本级唯一构造处**
 // (`injectText`)。在这里再拼一份横幅/零宽载荷 = §0.6 禁止的第二份真相 —— 编码只有
 // `encodePayload` 一份,拼第二次必然漂移;而漂移的形态是"落地器造的载荷 verify 解不出"。
-// `WM_PROBE.payloadIntact` 同批取用(2026-11-05):载荷完不完好是同一件事,判据只许住在
-// watermark.mjs 那一处;本器过去拿 `verify <scratch>/probe.txt` 问它,而那份探针**从来不被
-// 水印口径覆盖**(实测 覆盖 0/0、RC 恒 0),等于无条件放行 —— 详见 payloadIntactViaWatermark 头注。
-import { injectText, __test__ as WM_PROBE } from './watermark.mjs'
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-  statSync,
-  appendFileSync,
-} from 'node:fs'
+import { injectText } from './watermark.mjs'
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { execFileSync, spawnSync } from 'node:child_process'
 import { basename, dirname, join, normalize, relative, resolve } from 'node:path'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
@@ -194,23 +201,27 @@ import { createExclusionPredicate } from './lib/third-party-roots.mjs'
 import { judgeToolGenerated, loadToolGeneratedEntries } from './lib/tool-generated-roots.mjs'
 import { maskComments, scanLiterals } from './lib/code-mask.mjs'
 import { rerunAffectedGates } from './lib/land-gate-rerun.mjs'
-// 单实例闸(2026-11-06 立,机理由环机制席承担):复用 git-lock 那一份既有原语,不自造第二把锁。
-import { tryAcquireSingleInstance, isPidAlive } from './git-lock.mjs'
-import {
-  judgeLandingLock,
-  shouldAnnounceLockStall,
-  resolveStallMs,
-  buildStallRow,
-  STALL_LEDGER_REL,
-  LOCK_STALL_ENV,
-} from './lib/landing-lock-stall.mjs'
 // L33560 最后一格(2026-11-01):落地前的冲突标记判据**只有一份实现**,住在 lib 里
 // (union-converge 的落地闸用的是同一个出口)。本器只提供"将要落地的内容"这一取材面。
-import { gateLandingMarkers, LANDING_MARKER_SKIP_ENV } from './lib/conflict-marker-landing-gate.mjs'
+import {
+  gateLandingMarkers,
+  LANDING_MARKER_SKIP_ENV,
+} from './lib/conflict-marker-landing-gate.mjs'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { createHash } from 'node:crypto'
+// G-814414 补格(2026-11-05):台账「授权退休」的形态与身份口径只有一份实现,
+// 消费面(门 299 的台账读取)与本器共用它,不在两处各写一套标记名。
+import {
+  RETIRE_REASON_MIN_CHARS,
+  RETIRED_AT_RE,
+  RETIRED_FROM_SHA_RE,
+  isRetiredRecord,
+  retirementChannelFor,
+  retireIdentityOf,
+  stripRetireMarkers,
+} from './lib/ledger-retirement.mjs'
 
 import {
-  alignSharedIndex,
   casUpdateRef,
   commitTreeWithIndex,
   git,
@@ -220,10 +231,13 @@ import {
   writeBlob,
   writeBlobOfWorktree,
   rerunLedgerHeal,
-  landingExitWithHeal,
   ABSENT,
   UNKNOWN,
 } from './lib/bypass-git.mjs'
+// 2026-11-05:CAS 成功之后**索引 + 工作树**一并回写的唯一出口(与 union-converge 装车点同一份判据)。
+// 旧实现只调 alignSharedIndex,于是"索引已对齐、磁盘仍缺"会留下假 `D ` / 编译缺文件;本层在索引
+// 对齐后按"磁盘仍缺才 checkout HEAD -- <path>"补最后一格,判据不在这里另抄第二份。
+import { alignLandingPaths } from './lib/landing-worktree-align.mjs'
 import {
   analyze as staleAncestorAnalysis,
   ancestorCommits,
@@ -254,8 +268,6 @@ import { recordBypassLanding } from './lib/commit-attestation.mjs'
 // 孤儿提交备份腿的单一真相源(2026-10-29 门 30a 根因票):拼名/查重/annotated tag/pack-refs/
 // 留痕/永不抛 全部住 lib,本器只在**弃落出口**调它 —— 判据不在本文件复刻第二份(§0.6)。
 import { backupOrphanCommit } from './lib/orphan-backup.mjs'
-// 判据面声明自检复用护栏自己的清单与匹配器(§0.6 单一真相源:本器不另写一份"什么算受保护面")
-import { GUARD_DATA_REL, parseGuardList, matchProtected } from './lib/immutable-guard.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 // 水印 CLI 与本器同目录:用它而不是拼 cwd 相对路径,理由见 watermarkPreflight 内注释。
@@ -304,120 +316,13 @@ function defaultRefHeadValue(root) {
 }
 
 /** 读 env 并判用法;不合法 ⇒ {error, code:2}。 */
-/**
- * `LAND_MSG` 的形状判定(2026-11-04 立,立因是一次真事故)。
- * 本器原先只要求"非空",而头注对它的写法是「必填,提交信息」——没说**收的是正文还是路径**。
- * 自主环调用方按"文件路径"理解并传了进来,结果落地成功、而那枚的正文就是一串
- * `D:\…\.ihui-agent\tmp\…\commit-msg-no-write.txt`:取证叙述、票键、`immutable-exempt` trailer
- * 全掉在枚外 ⇒ 判据面命中被事后判 `undeclared`,而这一格按设计**提交者自己修不了**
- * (补声明要独立的追认密钥,签发钥不等于追认钥)。代价不是一次失败,是一条无法自愈的账。
- * 所以这里两条一起做:① 给 `@<文件>` 一个显式出口(长正文/多行不必塞进环境变量);
- * ② 分不清是正文还是路径时**拒落**,不猜(§0.10 失效方向恒为"多要一次说明",
- *    绝不是"多放一次静默")。
- * @param {string} msg 已经过 @file 解析的文本
- * @returns {{ok:boolean, why:string}}
- */
-export function judgeLandMsgShape(msg) {
-  const t = String(msg ?? '').trim()
-  if (t === '') return { ok: false, why: '空 ⇒ 提交史无法归因' }
-  const startsConventional =
-    /^(feat|fix|docs|chore|test|refactor|perf|style|ci|build)(\([^)]*\))?!?:\s/.test(t)
-  const oneLine = !t.includes('\n')
-  // 盘符绝对路径 / UNC / 以 commit-msg*.txt|md 形态收尾的裸路径 —— 三者都是"把文件名当正文"的形状
-  const looksLikePath =
-    /^[A-Za-z]:[\\/]/.test(t) ||
-    /^\\\\/.test(t) ||
-    /^(?:[^\s]*[\\/])?commit-msg[^\s]*\.(?:txt|md|log)$/i.test(t)
-  if (oneLine && looksLikePath && !startsConventional) {
-    return {
-      ok: false,
-      why: `正文只有一行且长得像**文件路径**(${t.slice(0, 60)}…)⇒ 拒落。LAND_MSG 收的是提交信息正文;要从文件取,写 LAND_MSG=@<路径>`,
-    }
-  }
-  if (oneLine && t.length < 24 && !startsConventional) {
-    return {
-      ok: false,
-      why: `正文单行且不足 24 字符(${t})⇒ 不像一句能被回读证明的说明;要么写成 conventional 标题,要么把取证正文一起给全`,
-    }
-  }
-  return { ok: true, why: '' }
-}
-
-/**
- * 判据面(受保护面)命中自检(2026-11-04 立,立因是同一次"正文传成路径"的事故)。
- * 护栏判的是**提交信息里的 `immutable-exempt:` trailer**,而本器的正文由调用方传。传歪时:
- * 落地成功、提交面回读全绿、什么也不喊 —— 只有事后 `--audit-new` 才发现 undeclared,
- * 而那一格按设计**提交者自己修不了**(补声明要独立的追认密钥,签发钥≠追认钥)。
- * 所以把这一问搬到"还改得动"的那一刻:枚上要声明却没声明 ⇒ 当场报红并点名命中面。
- * @param {{paths:string[], guardListText:string|null, message:string}} p
- * @returns {{state:'ok'|'missing'|'undetermined', hits:string[], why:string}}
- */
-export function checkExemptDeclaration({ paths = [], guardListText = null, message = '' }) {
-  if (guardListText === null || guardListText === undefined) {
-    return {
-      state: 'undetermined',
-      hits: [],
-      why: '受保护面清单取不到 ⇒ 无法判断本枚是否需要声明(不冒充"不需要")',
-    }
-  }
-  let parsed
-  try {
-    parsed = parseGuardList(guardListText)
-  } catch (e) {
-    return {
-      state: 'undetermined',
-      hits: [],
-      why: `清单解析抛错(${String(e?.message ?? e).slice(0, 80)})⇒ 未判定`,
-    }
-  }
-  if (
-    (parsed.problems ?? []).length > 0 ||
-    !Array.isArray(parsed.entries) ||
-    parsed.entries.length === 0
-  ) {
-    return {
-      state: 'undetermined',
-      hits: [],
-      why: `清单形状坏或为空(${(parsed.problems ?? []).map((x) => x.code ?? x.message).join(',') || 'empty'})⇒ 未判定`,
-    }
-  }
-  const hits = []
-  for (const p of paths) {
-    const rel = String(p).replace(/\\/g, '/')
-    const hit = matchProtected(rel, parsed.entries)
-    if (hit) hits.push(`${rel}〔${hit.path}〕`)
-  }
-  if (hits.length === 0) return { state: 'ok', hits: [], why: '本枚不触及判据面 ⇒ 无需豁免声明' }
-  if (!/immutable-exempt:\s*\S/.test(String(message ?? ''))) {
-    return {
-      state: 'missing',
-      hits,
-      why: `本枚命中判据面 ${hits.length} 处而提交信息里没有 immutable-exempt 行`,
-    }
-  }
-  return { state: 'ok', hits, why: `命中判据面 ${hits.length} 处且已随枚声明` }
-}
-
 export function parseArgs(env = process.env) {
   const root = env.LAND_ROOT ? resolve(env.LAND_ROOT) : REPO_ROOT
   const paths = String(env.LAND_PATHS ?? '')
     .split(';')
     .map((s) => s.trim())
     .filter(Boolean)
-  const msgRaw = String(env.LAND_MSG ?? '')
-  let msg = msgRaw
-  // `LAND_MSG=@<文件>` 是显式的"从文件取正文"出口(长正文/多行取证不必塞进环境变量)。
-  // 读不到一律拒,绝不把 `@路径` 字面量当正文落进去 —— 那正是本旗要治的那一型。
-  if (msgRaw.startsWith('@')) {
-    const msgFile = msgRaw.slice(1).trim()
-    try {
-      msg = readFileSync(resolve(root, msgFile), 'utf8')
-    } catch (e) {
-      return {
-        error: `LAND_MSG=@${msgFile} 读不到(${String(e?.message ?? e).slice(0, 140)})⇒ 拒绝执行(不把"@路径"当正文落地)`,
-      }
-    }
-  }
+  const msg = env.LAND_MSG ?? ''
   const baseRef = env.LAND_BASE_REF || 'HEAD'
   /**
    * `LAND_REMOVE_PATHS` = 从结果树里**摘掉**的路径清单(以 `;` 分隔)。G-926(2026-10-21 立):
@@ -458,8 +363,6 @@ export function parseArgs(env = process.env) {
         '缺 LAND_PATHS / LAND_REMOVE_PATHS(至少给一边,以 ; 分隔)⇒ 拒绝执行(空清单会把 undefined 当路径提交,本仓踩过)',
     }
   if (msg === '') return { error: '缺 LAND_MSG ⇒ 拒绝执行(不允许空消息落地,提交史无法归因)' }
-  const msgShape = judgeLandMsgShape(msg)
-  if (!msgShape.ok) return { error: `LAND_MSG 形状不成立:${msgShape.why}` }
   if (!resolveHeadRef({ root }))
     return { error: `${root} 不是可用仓库(HEAD 不可解析或 detached)⇒ 无法判定,不落` }
   // 仓库身份对账(2026-10-30):root 必须是**它自己的仓顶**,不能是某个仓的内部目录 ——
@@ -545,6 +448,156 @@ export function parseArgs(env = process.env) {
 /** 防覆盖护栏:基线快照与当下 HEAD 之间,哪些目标路径的内容被别人动过。 */
 export function clobberedPaths(paths, baseMap, headNow, { root }) {
   return paths.filter((p) => headBlobOf(headNow, p, { root }) !== baseMap.get(p))
+}
+
+/** 落地成功自证与「无需落地」两条档的退出码(S-OSL-PROOF 2026-11-06;镜像测试按 §22c import 它们,不复制数字)。 */
+export const RC = { LANDED: 0, REFUSED: 1, UNJUDGED: 2, NOTHING_TO_LAND: 3 }
+const FULL_SHA_RE = /^[0-9a-f]{40}$/
+
+/**
+ * **落地自证**(2026-11-06 立,机主亲历事故):本轮 commit-tree 造出并已 CAS 成功的那枚 sha,
+ * 必须在**末尾**被回读证明"它现在就是 HEAD",证明不了就绝不是 0。
+ *
+ * 为什么判据必须是"回读逐字节等值",而不是"我刚才 CAS 成功了":
+ *  - CAS 成功与"进程结束时 HEAD 是什么"之间还隔着提交面回读、索引/工作树对齐、受影响判据复跑
+ *    三段,任何一段被别席插进来推进 HEAD,报"已落地"就是在替别人的一枚做证;
+ *  - 本仓的失效史上最难查的一型正是"rc=0 + 零输出 + HEAD 未推进"被读成"落地没生效"⇒
+ *    同形复跑 ⇒ 复跑那枚才真落地(2026-11-06 实测,占位信息 `docs: probe` 因此入库)。
+ *    把"没发生"报成 0,就是把"没判"写成"判过了"(§0.3),所以两枚 sha 必须逐字打出来。
+ *
+ * 三态不并桶:`headAfter` 取不到 ⇒ 未判定(2),不是"不等";等值 ⇒ 0 且必须打印全量 40 位。
+ * 纯函数(不碰 git),便于注入假执行做镜像取证。
+ *
+ * **允许的前向推进**(2026-11-06 L1 现读撞出来的边界,不是放宽):本器在 CAS 之后还会就地
+ * 补跑守门 71 的台账自愈(`rerunLedgerHeal`),它**有权再建一枚前向恢复提交** —— 那时 HEAD 自然
+ * 不等于本轮那枚。这一型必须仍然是 0(否则每一枚含台账的旁路落地都恒红,§12e),前提是
+ * `headContainsMade` 由调用方量好后交进来(true = 本轮那枚确实在 HEAD 的历史里),并且必须
+ * 把 `HEAD_NOW` 一起点名:绿的含义是"本轮 sha 已入库",不是"HEAD 停在本轮 sha"。
+ * 反过来,`headContainsMade` 为 false(本轮 sha 不在 HEAD 历史里 ⇒ 被别席顶掉/根本没推进)
+ * 或 null(祖先判定问不到)⇒ 一律非零并逐字点名两个 sha。
+ */
+export function judgeLandedProof({ createdSha, headAfter, parentSha = null, headContainsMade = null }) {
+  const made = String(createdSha ?? '').trim()
+  if (!FULL_SHA_RE.test(made))
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why:
+        `本轮拿不出一枚 40 位提交 sha(实得 "${made.slice(0, 12) || '(空)'}")⇒ 落地没有发生,` +
+        '绝不报 0;也不得据此重跑同一形命令(重跑的那枚才会真落地,而信息是第二次凑的)',
+    }
+  const got = String(headAfter ?? '').trim()
+  if (got === '')
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why: `HEAD 回读取不到(git rev-parse HEAD 问不到)⇒ 未判定:本轮提交 ${made} 是否已成为 HEAD 无法证明(§0.3)`,
+    }
+  if (!FULL_SHA_RE.test(got))
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why: `HEAD 回读不是一枚 40 位 sha(实得 "${got.slice(0, 12)}")⇒ 未判定,不记绿`,
+    }
+  if (got === made)
+    return { ok: true, code: RC.LANDED, line: `LANDED ${made}`, headNow: got, forward: false, why: null }
+  if (headContainsMade === null || headContainsMade === undefined)
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why:
+        `HEAD 现为 ${got} 而本轮提交是 ${made},两者不等且**祖先关系问不到** ⇒ 未判定:` +
+        '"本轮那枚到底进没进 HEAD 的历史"必须量得出,拿不到结论不得记绿也不得报缺(§0.3)',
+    }
+  if (headContainsMade === false)
+    return {
+      ok: false,
+      code: RC.UNJUDGED,
+      line: null,
+      why:
+        `HEAD 未推进到本轮提交:本轮造出并 CAS 的是 ${made},HEAD 现为 ${got}` +
+        `${parentSha ? `(本轮基线 ${parentSha})` : ''},且 ${made} 不在 ${got} 的历史里 ⇒ 这一型必须非零退出:` +
+        '把"没推进"报成 0,下一席就会同形复跑,而真落地的是复跑那枚(2026-11-06 实测事故)',
+    }
+  return {
+    ok: true,
+    code: RC.LANDED,
+    line: `LANDED ${made}`,
+    headNow: got,
+    forward: true,
+    why: null,
+  }
+}
+
+/**
+ * **「无需落地」档**(2026-11-06 立;与 exit 0 严格分开):
+ * 声明面**全部**落空 —— 每条写入路径将要提交的 blob 与基线逐字节相同,且每条待摘除路径
+ * 本就不在基线树里 —— 结构上建不出任何差异,于是不建提交、不推 ref,退出码单列 3 档并逐条举证。
+ *
+ * 为什么不折成 0:"这次什么都不必做"与"这次真做了一枚提交"在账面必须长得就不一样;
+ * 也不折成 1:1 是"被守卫拦下",而本档是"无事可做"。既有语义(partial 无差异仍 ⇒ 1)一字不动。
+ * 纯函数:等值事实由调用方(main)从 git 量好后交进来,镜像测试注入假面即可(§22c)。
+ */
+export function judgeNothingToLand({
+  paths = [],
+  removePaths = [],
+  mine,
+  base,
+  noDiff = [],
+  removeInBase = [],
+  baseRef = 'HEAD',
+  baseSha = null,
+}) {
+  const declared = paths.length + removePaths.length
+  if (declared === 0)
+    return { noop: false, evidence: [], why: '声明面为空(由 parseArgs 的清单守卫负责)' }
+  if (noDiff.length !== paths.length || removeInBase.length > 0)
+    return {
+      noop: false,
+      evidence: [],
+      why:
+        noDiff.length !== paths.length
+          ? `声明面里还有 ${paths.length - noDiff.length} 条路径与基线不同 ⇒ 本轮确有东西要落`
+          : `待摘除路径仍有 ${removeInBase.length} 条在基线树里 ⇒ 本轮确有东西要摘`,
+    }
+  const evidence = paths.map((p) => {
+    const oid = mine?.get?.(p) ?? '(无)'
+    const baseOid = base?.get?.(p) ?? '(无)'
+    return `写入 ${p}:本轮 blob ${oid} == 基线 ${baseRef}:${p} 的 blob ${baseOid}(逐字节相同)`
+  })
+  for (const p of removePaths)
+    evidence.push(`摘除 ${p}:${baseRef} 的树里本就不在位 ⇒ 无需再摘(不是"已经摘过"的凭据,只是本轮无事)`)
+  return {
+    noop: true,
+    evidence,
+    baseSha,
+    why: null,
+    rerun:
+      `可复跑的证据:baseRef=${baseRef}${baseSha ? `=${baseSha}` : ''};` +
+      '要真落东西必须先改动 LAND_PATHS 里那份内容(或给出仍在基线树里的 LAND_REMOVE_PATHS)再重跑同一形命令;' +
+      '确属"这一枚早已入库"则无需再落 —— 本档不建提交、不推 ref、不动索引(退出码 3,不是 0)',
+  }
+}
+
+/**
+ * 「是否带着完整落地基约」(纯函数,给直接执行识别的负分支用):
+ * LAND_MSG 齐备 且 LAND_PATHS / LAND_REMOVE_PATHS 至少一边非空 ⇒ 调用方**确实想落一枚提交**。
+ * 这种形态下若本器没被认成直接执行,就必须大声非零,绝不能让事件循环排空换来一个静默的 0。
+ */
+export function looksLikeLandingContract(env = {}) {
+  // 清单口径与 parseArgs 逐字同源(以 ; 分隔、逐项 trim 后取非空),不在这里发明第二种"非空":
+  // 否则 `LAND_PATHS=" ; "` 在这把尺上算"想落地",在那把尺上是"空清单 ⇒ 用法错",两把尺必漂移。
+  const listed = (v) =>
+    String(v ?? '')
+      .split(';')
+      .map((s) => s.trim())
+      .filter(Boolean).length > 0
+  const content = listed(env.LAND_PATHS) || listed(env.LAND_REMOVE_PATHS)
+  return content && String(env.LAND_MSG ?? '').trim() !== ''
 }
 
 /* 计行口径与行级复活判据(linesOf / tallyLines / resurrectKey / lineDelta / resurrectAnalysis)
@@ -711,6 +764,7 @@ export function detectStaleLanding({
     const newText = wt instanceof Error ? null : wt
     const baseText = batchError ? null : (texts.get(`${baseRef}:${p}`) ?? null)
     let delta = lineDelta(baseText, newText)
+    let retirementAudit = null
     const wholeHit = hitBy.get(p) ?? null
     /**
      * blob 模式:整 blob 命中祖先这一格已由祖先对账(`blobAncestorClash`,含逐行声明出口)判过,
@@ -765,11 +819,12 @@ export function detectStaleLanding({
         text: texts.get(`${c}:${p}`) ?? null,
       }))
       const kind = jsonGuardKindFor(p)
-      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors }) : null
+      const audit = kind ? jsonKeyPathAudit({ baseText, newText, kind, ancestors, path: p }) : null
       if (audit && audit.applicable) {
         jsonMode = true
         delta = audit.delta
         line = audit.line
+        retirementAudit = audit.retirement ?? null
         notes.push({
           path: p,
           kind: 'json-keypath-mode',
@@ -827,6 +882,42 @@ export function detectStaleLanding({
         : jsonMode
           ? (line.count ?? 0) > 0 || (delta.vanished ?? 0) > 0
           : line.status === 'judged' && line.count > 0
+    // G-814414 补格(2026-11-05):台账「授权退休」——**不是放宽**,是一条有载体、逐条可核验的收缩。
+    // 退休不成立(只删行/假登记/理由太短/原文对不上)⇒ 照拒;成立 ⇒ 只把退休覆盖的那几条从
+    // 键路径对账里剥掉,其余任何消失仍由上面两颗牙照拦。正常值编辑不进本通道(身份仍在)。
+    if (retirementAudit?.applicable && !retirementAudit.ok) {
+      refuseByLines = true
+      notes.push({
+        path: p,
+        kind: 'retirement-rejected',
+        why:
+          `台账授权退休不成立(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条 / 退休登记 ` +
+          `${retirementAudit.retired} 条 / 有效覆盖 ${retirementAudit.covered} 条 / rewritten=${retirementAudit.rewritten ?? 0} ⇒ 拒绝落地。` +
+          retirementAudit.problems.slice(0, 3).join(' ; '),
+      })
+    } else if (retirementAudit?.applicable && retirementAudit.covered > 0) {
+      notes.push({
+        path: p,
+        kind: 'retirement-accepted',
+        why:
+          `台账授权退休逐条核验通过(${retirementAudit.channel}):被摘 ${retirementAudit.dropped} 条、` +
+          `退休登记 ${retirementAudit.retired} 条、有效覆盖 ${retirementAudit.covered} 条(双向等值)、` +
+          `rewritten=${retirementAudit.rewritten ?? 0};` +
+          `退休行已从在册条目中剥离,键路径对账只剩在册内容(消失 ${delta.vanished} / 重现 ${delta.appeared})。`,
+      })
+    } else if (retirementAudit?.applicable && (retirementAudit.rewritten ?? 0) > 0) {
+      // ④ 改写档**必须单独报名**:covered=0 时上面两支都不点火,不补这一支就是把"放过了一格"
+      // 写成静默 —— 本仓最高频失效型(§0.3:没判/判过/放行了,报告里必须长得就不一样)。
+      notes.push({
+        path: p,
+        kind: 'retirement-rewrite',
+        why:
+          `台账改写档(窄放行,不是放宽):${retirementAudit.channel} 下 rewritten=${retirementAudit.rewritten} 条 —— ` +
+          `这些条目在落地内容里有同 ${REWRITE_ANCHOR_KEYS.join('+')} 且逐字未变的新行,只是补了键 ⇒ 判为规范化改写,` +
+          `不计入被摘、不需退休登记。改 verdict / 改 evidence / 改或删任何已有键 / 整行删除都不在本档射程,` +
+          `仍须逐条登记 retired 或走人工。明细:${(retirementAudit.rewriteSample ?? []).slice(0, 3).join(' ; ')}`,
+      })
+    }
     // ── 声明式还原通道:白名单逐行配平(2026-10-30)──────────────────────────────
     // 放行条件**全部**成立才免:行级判据 judged(undetermined/out-of-scope 永不免,§0.3)∧
     // 非键路径档 ∧ 整 blob 未命中祖先(A 支另有 LAND_CLASH_SCOPE 出口)∧ lib 里算出的
@@ -846,7 +937,10 @@ export function detectStaleLanding({
           declared: entries.map((en) => en.element),
         })
         const exempt =
-          line.status === 'judged' && !wholeHit && (delta.vanished ?? 0) === 0 && cmp.match === true
+          line.status === 'judged' &&
+          !wholeHit &&
+          (delta.vanished ?? 0) === 0 &&
+          cmp.match === true
         restoreEval.set(p, {
           consumed: exempt,
           entries,
@@ -1077,8 +1171,7 @@ export function validateRestoreManifest(parsed, { paths, removePaths = [] } = {}
     }
     const p = typeof e.path === 'string' ? e.path : ''
     const l = typeof e.line === 'string' ? e.line : null
-    const el =
-      e.element && typeof e.element === 'object' && !Array.isArray(e.element) ? e.element : null
+    const el = e.element && typeof e.element === 'object' && !Array.isArray(e.element) ? e.element : null
     const sha = typeof e.restoredFrom === 'string' ? e.restoredFrom : ''
     const why = typeof e.why === 'string' ? e.why.trim() : ''
     if (!p) {
@@ -1679,19 +1772,391 @@ function compareElementRestore({ evidence, overflow, declared }) {
 }
 
 /**
+ * G-814414 补格(2026-11-05):台账「授权退休」审计 —— **不是放宽判据**,而是给有意收缩
+ * 一个可核验的载体。判据三条:
+ *  ① 每一条被摘条目必须**有且只有一条**退休行(原条目保留 + retiredAt/Reason/By/From/FromSha);
+ *     只删行不写退休 ⇒ 红;文件被清空且无退休 ⇒ 红;多登记一条没被摘的 ⇒ 红(双向等值)。
+ *  ② `retiredFrom` 的规范形必须逐字等于上一版对应条目,`retiredFromSha` 必须是它的 sha256,
+ *     对不上 ⇒ 红(假登记/拿旧版别的行顶账都过不去)。
+ *  ③ retiredReason trim 后 ≥10 码点、retiredAt 是 ISO-8601、retiredBy 非空,缺/短 ⇒ 红。
+ * 值编辑不算摘除(身份仍在,交给原本的键路径/行级内容闸);只有身份消失才进本通道。
+ * 退休行被排除在"在册条数"之外,所以台账 `93 → 90` 与门 299 的「复制 90」账实相符。
+ *
+ * ④ 窄档「改写 ≠ 摘除」(2026-11-05 补格,现场 = 给 `scripts/data/miniapp-mirror-verdicts.jsonl`
+ *   某行**补一个必填键**被读成"摘除一条判定"):① 的身份口径按**整元素规范形**比 —— 该台账行的键集
+ *   落不进 `lib/ledger-retirement.mjs` 的 IDENTITY_GROUPS 任何一组(它要 `shared`+`domain`,而行里是
+ *   `shared`+`verdict`+`evidence`+`at`+`source`),于是退到 `canon:{整条 JSON}`;补一个键就把整条身份
+ *   改掉 ⇒ 旧元素读起来像被摘 ⇒ 拒落。**它分不开「规范化改写」与「真删一条判定」**,④ 只补这一格。
+ *   射程与牙见下方 `REWRITE_ANCHOR_KEYS` / `isLedgerRewrite` 的头注;本档**不削减**①②③ 任何一条。
+ */
+function parseJsonlForRetire(text) {
+  const out = []
+  for (const line of String(text).split('\n')) {
+    const raw = line.trim()
+    if (!raw) continue
+    const value = JSON.parse(raw)
+    out.push({ raw, value, canon: canonOf(value) })
+  }
+  return out
+}
+
+function collectArrayElements(value, path = '$', out = []) {
+  if (Array.isArray(value)) {
+    for (const el of value) {
+      out.push({ value: el, canon: canonOf(el), arrayPath: path })
+      collectArrayElements(el, `${path}[]`, out)
+    }
+    return out
+  }
+  if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) collectArrayElements(v, `${path}.${k}`, out)
+  }
+  return out
+}
+
+/** 深拷贝并摘掉 shouldDrop 命中的数组元素(对象键序保持,判据只看键路径)。 */
+function pruneJsonValue(v, shouldDrop) {
+  if (Array.isArray(v)) {
+    const out = []
+    for (const el of v) if (!shouldDrop(el)) out.push(pruneJsonValue(el, shouldDrop))
+    return out
+  }
+  if (v && typeof v === 'object') {
+    const o = {}
+    for (const [k, val] of Object.entries(v)) o[k] = pruneJsonValue(val, shouldDrop)
+    return o
+  }
+  return v
+}
+
+/**
+ * ④ 窄档「改写 ≠ 摘除」的锚点三字段(2026-11-05 立;判据只住本器这一处,§0.6 不抄第二份):
+ * `shared` = 判的是哪一对(主体)、`verdict` = 判定本身、`evidence` = 判定依据。
+ * 任一锚点缺失 / 非字符串 / 值变了 ⇒ 本档结构上不放行,照旧走 ①②③ 那三颗牙的拒
+ * (§0.10:失效方向恒为"多要一次说明",绝不是"多放一次跳门")。
+ */
+export const REWRITE_ANCHOR_KEYS = ['shared', 'verdict', 'evidence']
+
+/** 锚点分组键:三字段全为**非空字符串**才配得出锚点;元素形态坏 ⇒ null ⇒ 不进本档(取不到不猜)。 */
+function rewriteAnchorOf(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null
+  const parts = []
+  for (const k of REWRITE_ANCHOR_KEYS) {
+    const x = v[k]
+    if (typeof x !== 'string' || x === '') return null
+    parts.push(x)
+  }
+  // 用 \u0000 连接:字段值本身含任何标点,也不可能被折成"两对不同行同一锚点"。
+  return parts.join('\u0000')
+}
+
+/**
+ * E(基线里那一行)与 R(落地内容里那一行)构成「改写」而非「摘除」,三条**同时**成立才算:
+ *  ① 三个锚点 `shared`/`verdict`/`evidence` 两边都在且**逐字相同**;
+ *  ② E 里**已有的非锚点键**在 R 里必须都还在且取值不变(用本文件那一条 `canonOf` 尺:键序/缩进是
+ *     序列化形态,值变化不是)—— 改 `route`、改 `at`、改 `source`、改任何业务键的取值,或把已有键删掉,
+ *     都不在本档射程 ⇒ 仍拒;
+ *  ③ R 允许**新增键**(本档要放的正是"给某行补一个必填键"这一型)。
+ * 所以本档能放过的只有一型:判定本身一字未动,只是把那一行的形态补齐。
+ */
+export function isLedgerRewrite(baseValue, nextValue) {
+  const anchor = rewriteAnchorOf(baseValue)
+  if (anchor === null) return false
+  if (rewriteAnchorOf(nextValue) !== anchor) return false
+  for (const k of Object.keys(baseValue)) {
+    if (REWRITE_ANCHOR_KEYS.includes(k)) continue
+    if (!Object.prototype.hasOwnProperty.call(nextValue, k)) return false
+    if (canonOf(baseValue[k]) !== canonOf(nextValue[k])) return false
+  }
+  return true
+}
+
+export function jsonRetirementAudit({ baseText, newText, kind, path }) {
+  const channel = retirementChannelFor(path)
+  if (!channel)
+    return {
+      applicable: false,
+      ok: true,
+      channel: null,
+      reason: '该路径未启用退休通道(只覆盖 scripts/data/*.jsonl 与 web-rn-copy-diffs.json)',
+      problems: [],
+      dropped: 0,
+      retired: 0,
+      preExistingRetired: 0,
+      covered: 0,
+      rewritten: 0,
+      rewriteSample: [],
+    }
+  let baseItems
+  let nextItems
+  try {
+    if (kind === 'jsonl') {
+      baseItems = parseJsonlForRetire(baseText)
+      nextItems = parseJsonlForRetire(newText)
+    } else {
+      baseItems = collectArrayElements(JSON.parse(baseText))
+      nextItems = collectArrayElements(JSON.parse(newText))
+    }
+  } catch (e) {
+    return {
+      applicable: true,
+      ok: false,
+      channel,
+      problems: [`退休通道解析失败:${String(e?.message ?? e).slice(0, 120)}`],
+      dropped: 0,
+      retired: 0,
+      preExistingRetired: 0,
+      covered: 0,
+      rewritten: 0,
+      rewriteSample: [],
+    }
+  }
+  const retiredItems = nextItems.filter((it) => isRetiredRecord(it.value))
+  const activeNext = nextItems.filter((it) => !isRetiredRecord(it.value))
+  // ⓪ base 里**已是退休行**且本枚落地里**逐字节仍在册**的条目:不是本轮"被摘",也不再逐条重验
+  // (它们在上一枚落地时已验过一次)。base 已退休却在落地里消失 ⇒ 不进本档豁免,照旧进 dropped
+  // (删行仍红)。2026-11-05 补:此前本档把 base 里既有的退休行也读成"被摘",于是第二轮起
+  // 正规落地通道恒报"假登记/多登记"而误拒,被迫改走 safe-commit。
+  const baseRetiredByCanon = new Map()
+  for (const it of baseItems)
+    if (isRetiredRecord(it.value)) baseRetiredByCanon.set(it.canon, (baseRetiredByCanon.get(it.canon) ?? 0) + 1)
+  const nextRetiredByCanon = new Map()
+  for (const it of retiredItems) nextRetiredByCanon.set(it.canon, (nextRetiredByCanon.get(it.canon) ?? 0) + 1)
+  let preExistingRetired = 0
+  // ① 先按身份做多重集匹配(同身份优先配同原文),剩余才是"被摘条目"。
+  const used = new Set()
+  const nextById = new Map()
+  activeNext.forEach((it, i) => {
+    const id = retireIdentityOf(it.value)
+    if (!nextById.has(id)) nextById.set(id, [])
+    nextById.get(id).push(i)
+  })
+  const dropped = []
+  for (const it of baseItems) {
+    if (isRetiredRecord(it.value)) {
+      const c = nextRetiredByCanon.get(it.canon) ?? 0
+      if (c > 0) {
+        nextRetiredByCanon.set(it.canon, c - 1)
+        continue
+      }
+    }
+    const id = retireIdentityOf(it.value)
+    const pool = nextById.get(id) ?? []
+    let pick = pool.find((i) => !used.has(i) && activeNext[i].canon === it.canon)
+    if (pick === undefined) pick = pool.find((i) => !used.has(i))
+    if (pick === undefined) dropped.push({ ...it, id, __covered: false })
+    else used.add(pick)
+  }
+  const problems = []
+  /**
+   * ④ 窄档「改写 ≠ 摘除」(2026-11-05 立):上面那轮按**整元素规范形**比身份,补一个键就把身份改掉,
+   * 于是"规范化改写"被读成"摘除一条判定"。这里只补那一格 —— 三锚点(`shared`+`verdict`+`evidence`)
+   * 逐字未变、且只是**补键**(非锚点的已有键一个不许变、一个不许删)才算改写,不计入被摘。
+   * 配不上的照旧留在 dropped 里走 ①②③;锚点变了但主体还在 ⇒ 额外点名"这是改判定,须退休登记"。
+   * 消费纪律:只有 ① 那轮**没配走**的落地行才能进本档的候选池,且一条改写配掉一行(不许一鱼两吃)。
+   */
+  let rewritten = 0
+  const rewriteSample = []
+  if (dropped.length > 0) {
+    const pool = new Map()
+    activeNext.forEach((it, i) => {
+      if (used.has(i)) return
+      const a = rewriteAnchorOf(it.value)
+      if (a === null) return
+      if (!pool.has(a)) pool.set(a, [])
+      pool.get(a).push(i)
+    })
+    const still = []
+    for (const d of dropped) {
+      const anchor = rewriteAnchorOf(d.value)
+      let pick
+      if (anchor !== null) {
+        for (const i of pool.get(anchor) ?? []) {
+          if (used.has(i)) continue
+          if (isLedgerRewrite(d.value, activeNext[i].value)) {
+            pick = i
+            break
+          }
+        }
+      }
+      if (pick === undefined) {
+        // 同主体(同 `shared`)在落地内容里仍有活行,却配不成改写 ⇒ verdict/evidence 变了,或已有键被动过。
+        const s = d.value && typeof d.value === 'object' && typeof d.value.shared === 'string' ? d.value.shared : null
+        d.__sameSubject =
+          s !== null &&
+          activeNext.some((it, i) => !used.has(i) && it.value && typeof it.value === 'object' && it.value.shared === s)
+        still.push(d)
+        continue
+      }
+      used.add(pick)
+      rewritten++
+      if (rewriteSample.length < SAMPLE_LINES) {
+        const added = Object.keys(activeNext[pick].value).filter((k) => !Object.prototype.hasOwnProperty.call(d.value, k))
+        rewriteSample.push(`${String(d.value.shared).slice(0, 70)} ⇒ 补键[${added.join(',') || '—'}]`)
+      }
+    }
+    dropped.length = 0
+    dropped.push(...still)
+  }
+  const coveredCounters = new Map()
+  let covered = 0
+  const overDeclared = []
+  const preExistingRetiredByCanon = new Map()
+  for (const it of retiredItems) {
+    const pre = baseRetiredByCanon.get(it.canon) ?? 0
+    if (pre > 0) {
+      // base 里已登记且逐字节未变的退休行:上一枚落地已核验过,不再要求它对应本轮的"被摘"。
+      baseRetiredByCanon.set(it.canon, pre - 1)
+      preExistingRetired++
+      preExistingRetiredByCanon.set(it.canon, (preExistingRetiredByCanon.get(it.canon) ?? 0) + 1)
+      continue
+    }
+    const v = it.value
+    const where = `退休行 ${(v.retiredFrom ?? '').slice(0, 80) || '(无 retiredFrom)'}`
+    if (typeof v.retiredAt !== 'string' || !RETIRED_AT_RE.test(v.retiredAt) || Number.isNaN(Date.parse(v.retiredAt)))
+      problems.push(`${where}:retiredAt 不是 ISO-8601 时刻(${String(v.retiredAt).slice(0, 40)})`)
+    if (typeof v.retiredReason !== 'string' || [...v.retiredReason.trim()].length < RETIRE_REASON_MIN_CHARS)
+      problems.push(`${where}:retiredReason 至少 ${RETIRE_REASON_MIN_CHARS} 字(实得 ${typeof v.retiredReason === 'string' ? [...v.retiredReason.trim()].length : '非字符串'})`)
+    if (typeof v.retiredBy !== 'string' || !v.retiredBy.trim()) problems.push(`${where}:retiredBy 为空`)
+    if (typeof v.retiredFrom !== 'string') problems.push(`${where}:retiredFrom 缺失(必须是上一版原文的规范 JSON)`)
+    let fromCanon = null
+    if (typeof v.retiredFrom === 'string') {
+      try {
+        fromCanon = canonOf(JSON.parse(v.retiredFrom))
+      } catch {
+        problems.push(`${where}:retiredFrom 不是可解析 JSON`)
+      }
+    }
+    const stripped = stripRetireMarkers(v)
+    const strippedCanon = canonOf(stripped)
+    if (fromCanon !== null && fromCanon !== strippedCanon)
+      problems.push(`${where}:retiredFrom 与退休行原文对不上(剥标记后规范化不等)`)
+    if (typeof v.retiredFromSha !== 'string' || !RETIRED_FROM_SHA_RE.test(v.retiredFromSha))
+      problems.push(`${where}:retiredFromSha 必须是 64 位小写十六进制`)
+    else {
+      const want = createHash('sha256').update(fromCanon ?? strippedCanon, 'utf8').digest('hex')
+      if (v.retiredFromSha !== want)
+        problems.push(`${where}:retiredFromSha 与上一版原文不一致(声明 ${v.retiredFromSha.slice(0, 12)}… 实算 ${want.slice(0, 12)}…)`)
+    }
+    const id = retireIdentityOf(stripped)
+    const hit = dropped.find((d) => !d.__covered && d.id === id && d.canon === strippedCanon)
+    if (!hit) {
+      overDeclared.push(id)
+      problems.push(`${where}:上一版找不到对应的被摘条目(身份 ${id.slice(0, 80)})⇒ 假登记/多登记`)
+    } else {
+      hit.__covered = true
+      covered++
+      coveredCounters.set(strippedCanon, (coveredCounters.get(strippedCanon) ?? 0) + 1)
+    }
+  }
+  const uncovered = dropped.filter((d) => !d.__covered)
+  const sameSubjectDrift = uncovered.filter((d) => d.__sameSubject).length
+  if (sameSubjectDrift > 0)
+    problems.push(
+      `${sameSubjectDrift} 条条目在落地内容里有**同 shared 的新行但判定已变**(verdict 或 evidence 逐字不同,` +
+        `或已有键被改/被删)⇒ 这是改判定,不是改写:必须逐条登记 retired(retiredFrom/retiredFromSha 可核验)或走人工`,
+    )
+  if (uncovered.length)
+    problems.push(
+      `${uncovered.length} 条条目被摘除但未登记 retired(身份:${uncovered
+        .slice(0, 3)
+        .map((d) => d.id.slice(0, 80))
+        .join(' ; ')})⇒ 这是丢,不是退休`,
+    )
+  const ok = problems.length === 0
+  // ② 合法退休后,把被摘条目从基线、把退休行从落地内容里剥掉再做键路径对账 ——
+  //    "退休"与"丢失"从此在数据上分得开:只减退休覆盖的那几条,其余任何消失照旧红。
+  let filteredBaseText = baseText
+  let filteredNextText = newText
+  if (ok && covered > 0) {
+    if (kind === 'jsonl') {
+      const left = new Map(coveredCounters)
+      const leftPre = new Map(preExistingRetiredByCanon)
+      filteredBaseText =
+        baseItems
+          .filter((it) => {
+            const c = left.get(it.canon) ?? 0
+            if (c > 0) {
+              left.set(it.canon, c - 1)
+              return false
+            }
+            // base 里既有的退休行:落地内容那一侧已被 activeNext 整体剥掉,基线侧必须同步剥掉,
+            // 否则它们的标记键会被读成"消失"(同根因的另一半)。
+            const p = leftPre.get(it.canon) ?? 0
+            if (p > 0) {
+              leftPre.set(it.canon, p - 1)
+              return false
+            }
+            return true
+          })
+          .map((it) => it.raw)
+          .join('\n') + '\n'
+      filteredNextText = activeNext.map((it) => it.raw).join('\n') + '\n'
+    } else {
+      const left = new Map(coveredCounters)
+      const leftPre = new Map(preExistingRetiredByCanon)
+      const prunedBase = pruneJsonValue(JSON.parse(baseText), (el) => {
+        const k = canonOf(el)
+        const c = left.get(k) ?? 0
+        if (c > 0) {
+          left.set(k, c - 1)
+          return true
+        }
+        const p = leftPre.get(k) ?? 0
+        if (p > 0) {
+          leftPre.set(k, p - 1)
+          return true
+        }
+        return false
+      })
+      const prunedNext = pruneJsonValue(JSON.parse(newText), (el) => isRetiredRecord(el))
+      filteredBaseText = JSON.stringify(prunedBase)
+      filteredNextText = JSON.stringify(prunedNext)
+    }
+  }
+  return {
+    applicable: true,
+    ok,
+    channel,
+    problems,
+    dropped: dropped.length,
+    retired: retiredItems.length - preExistingRetired,
+    preExistingRetired,
+    covered,
+    overDeclared: overDeclared.length,
+    // ④ 窄档读数:改写条数 + 逐条补了什么键 + 有多少条是"同主体但判定变了"(只点名,不放行)。
+    rewritten,
+    rewriteSample,
+    sameSubjectDrift,
+    filteredBaseText,
+    filteredNextText,
+  }
+}
+
+/**
  * 档位总入口:`.json`/`.jsonl` 后缀路径的键路径对账。两侧任一解析不了 ⇒ applicable:false
  * (调用方退回原行级判据并逐条报名);适用 ⇒ 结构化 delta(丢/重现,票面第一格)+
  * 键路径复活判定(票面第二格)。祖先取正文失败(text 为 null)与解析失败同待遇:提供不了证据。
+ * `path` 只为「授权退休」通道而传:只有台账族路径启用,其余路径行为与改前逐字节一致。
  */
-export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
+export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [], path = null }) {
   if (kind !== 'json' && kind !== 'jsonl')
     return { applicable: false, reason: '档位不是 .json/.jsonl ⇒ 走原行级判据' }
   if (typeof baseText !== 'string' || typeof newText !== 'string')
     return { applicable: false, reason: '有一侧正文取不到 ⇒ 不启用键路径档' }
-  const base = jsonKeyPathFingerprint(baseText, kind)
-  if (!base.ok) return { applicable: false, reason: `基线${base.reason} ⇒ 走原行级判据` }
-  const next = jsonKeyPathFingerprint(newText, kind)
-  if (!next.ok) return { applicable: false, reason: `落地内容${next.reason} ⇒ 走原行级判据` }
+  const rawBase = jsonKeyPathFingerprint(baseText, kind)
+  if (!rawBase.ok) return { applicable: false, reason: `基线${rawBase.reason} ⇒ 走原行级判据` }
+  const rawNext = jsonKeyPathFingerprint(newText, kind)
+  if (!rawNext.ok) return { applicable: false, reason: `落地内容${rawNext.reason} ⇒ 走原行级判据` }
+  const retirement = jsonRetirementAudit({ baseText, newText, kind, path })
+  const base = retirement.applicable && retirement.ok && retirement.covered > 0
+    ? jsonKeyPathFingerprint(retirement.filteredBaseText, kind)
+    : rawBase
+  const next = retirement.applicable && retirement.ok && retirement.covered > 0
+    ? jsonKeyPathFingerprint(retirement.filteredNextText, kind)
+    : rawNext
+  if (!base.ok || !next.ok)
+    return { applicable: false, reason: '退休过滤后的内容不可解析 ⇒ 走原行级判据' }
   const delta = jsonKeyPathDelta(base, next)
   const line = jsonKeyPathResurrect({
     base,
@@ -1702,7 +2167,7 @@ export function jsonKeyPathAudit({ baseText, newText, kind, ancestors = [] }) {
     })),
   })
   // 计数口径跟着档位走:报告层据此前置"键路径口径"而不是"证据行门槛"(unit 缺省 = 行)。
-  return { applicable: true, delta, line: { ...line, unit: 'key-path' } }
+  return { applicable: true, delta, line: { ...line, unit: 'key-path' }, retirement }
 }
 
 /** 拒绝/留痕时要说的话集中在一处:出口必须可复制,原因必须点名到文件与祖先版本。 */
@@ -2011,7 +2476,8 @@ function defaultRun(cmd, args, opts) {
  * G-04 第三格(2026-10-25 立):**新建路径**在对象空间内补齐溯源水印。
  *
  * 票面事实(现读 HEAD 可复现):本器按「HEAD blob → 内存改写 → commit-tree → CAS」产出,
- * 刻意**从不写工作树**(§1/§12 要求,这条本身是对的),于是 §5c 的
+ * 内容一律在对象空间构造,注入这一格不改盘上那份(§1/§12 要求;盘上那份只在「声明路径盘上
+ * 根本没有」时才由落地后的索引+工作树回写层补齐,口径逐字见头注⑤),于是 §5c 的
  * 「writeFileSync 后必须紧随注入」在它身上结构上不可能触发 —— 新建的归档台账曾以
  * "无水印"形态直接进 HEAD(2026-10-15 实测 `.ihui-agent/archive/plan-pointer-purge-2026-10-14-5.md`,
  * 门 47 换面后才在本地看得见,换面之前只有 CI 会红)。
@@ -2019,7 +2485,8 @@ function defaultRun(cmd, args, opts) {
  * 本函数只动**父提交里不存在**的路径(调用方用 `headBlobOf(baseRef, p) === ABSENT` 选出):
  *  - 正文 → `injectText`(watermark.mjs 的文本级唯一构造处,横幅/L2 载荷/L3 尾行只在那一处算)
  *  - 注入后的文本 → `hashText` 回写对象库拿新 oid
- *  - **工作树副本一个字节都不写**(盘上那份可能是别人的在飞现场;blob 模式更是根本不读它)
+ *  - **本函数只落对象空间,不改盘上那份**(盘上那份可能是别人的在飞现场;blob 模式更是根本不读它;
+ *    盘上根本没有的那一格由落地后的索引+工作树回写层补齐,不在本函数射程)
  * 已存在路径一律不进来 —— 它们的语义(横幅保持 `blobBannerPreserved` / 祖先对账 /
  * 行级复活)一字未动。
  *
@@ -2265,47 +2732,14 @@ export function decideBanner({ baseText, newText, newPayloadOk = false }) {
       if (newPayloadOk)
         return {
           verdict: 'repaired',
-          why: '只差在隐写载荷位(可见文案逐字未动)且构造内容经载荷判据判完好 ⇒ 这是 §5c 要求的"载荷损坏"修复',
+          why: '只差在隐写载荷位(可见文案逐字未动)且构造内容经 watermark verify 判完好 ⇒ 这是 §5c 要求的"载荷损坏"修复',
         }
       return {
         verdict: 'broken',
-        why: '差异只在零宽载荷位,但构造内容没能经载荷判据复核 ⇒ 不认这次"修复",拒绝把解不出载荷的内容放进 HEAD',
-        // 这一格是"待复核"而不是"已判定坏":调用方有权问一次唯一判据(`watermark.mjs` 的 `payloadIntact`)
+        why: '差异只在零宽载荷位,但构造内容没能经 watermark verify ⇒ 不认这次"修复",拒绝把解不出载荷的内容放进 HEAD',
+        // 这一格是"待复核"而不是"已判定坏":调用方有权问一次唯一判据(`watermark.mjs verify`)
         // 再带 `newPayloadOk:true` 重试。**默认坏 = fail-closed** —— 调用方不复核就落不了地,
         // 而不是悄悄放行。
-        needsPayloadCheck: true,
-      }
-    }
-    // 2026-11-05 补的一档:基线**整条载荷缺失**(§5c 的"残迹(载荷丢失)"那一态)时,inject 的正解是
-    // 追加一条独立载荷行,而它就落在横幅区里 ⇒ "前三行"必然不同、剥掉零宽后也不同,上一档救不了它。
-    // 旧判据把这档读成"改写横幅文字"而拒,于是这类 HEAD 面欠账**没有任何落地通道**:提交链上的水印门
-    // 是自愈式、只写磁盘,而磁盘那份常属他人现场(§12 不许本席写),blob 通道又被上一行堵死。
-    // 收紧而非放宽,两条同时成立才算"只动结构":
-    //   ① 剥掉全部水印结构行后**整篇**逐字相等(识别用 lib/watermark-lines 那一份,§0.6 不复算)
-    //      —— 正文任何改动都会破坏这个等式;
-    //   ② 基线已有的每一条水印结构行,剥掉零宽后必须**原样**出现在构造内容里(只许增加结构行,不许改写
-    //      其中某一行)。缺这一条时"在载荷标记行里塞一个可见字符"会随整行一起被剥掉而洗白 ——
-    //      2026-11-05 自家反向锁 T-BANNER-BOM4 当场抓到,所以补,而不是把那一档当误报删掉。
-    // 并且同样要求载荷经判据复核,否则照旧拒(fail-closed 与上一档同形)。
-    const structVisible = (text) =>
-      String(text)
-        .split('\n')
-        .filter(isWatermarkStructureLine)
-        .map((l) => dropZeroWidth(l))
-    const baseStruct = structVisible(baseText)
-    const newStruct = new Set(structVisible(newText))
-    const bodyEqual =
-      stripWatermarkStructure(baseText).text === stripWatermarkStructure(newText).text
-    const structureOnlyGrew = baseStruct.every((l) => newStruct.has(l))
-    if (bodyEqual && structureOnlyGrew) {
-      if (newPayloadOk)
-        return {
-          verdict: 'repaired',
-          why: '剥掉全部水印结构行后整篇逐字相等、基线结构行又逐条原样在位 ⇒ 本次只追加了载荷结构(基线是"载荷缺失"态),并经载荷判据判完好',
-        }
-      return {
-        verdict: 'broken',
-        why: '差异只在水印结构行,但构造内容没能经载荷判据复核 ⇒ 不认这次"补回",拒绝把解不出载荷的内容放进 HEAD',
         needsPayloadCheck: true,
       }
     }
@@ -2372,12 +2806,13 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
       continue
     }
     const d0 = decideBanner({ baseText: bt, newText: nt })
-    // 只有走到"载荷位复核"那一格才问判据 —— 其余分支不为此多花一次解码(载荷解码要扫全文零宽族)。
+    // 只有走到"载荷位复核"那一格才派生 verify —— 其余分支不为此多花一次进程(落地器是共享出口,
+    // 每次给每个路径都验一遍会把无关提交一起拖慢)。
     let d = d0
     if (d0.needsPayloadCheck) {
-      const v = payloadIntactViaWatermark(String(nt))
+      const v = payloadIntactViaVerify(String(nt))
       if (!v.judged) {
-        unjudged.push({ path: p, why: `差异只在水印结构位,而载荷判据问不到:${v.why}` })
+        unjudged.push({ path: p, why: `差异只在零宽载荷位,而 watermark verify 问不到:${v.why}` })
         continue
       }
       d = decideBanner({ baseText: bt, newText: nt, newPayloadOk: v.ok })
@@ -2389,33 +2824,31 @@ export function blobBannerPreserved({ root, paths, blobOf, baseRef = 'HEAD' }) {
 }
 
 /**
- * 问"这份构造内容的载荷到底完不完好"—— **只能问那一份判据**,不在本器里重写解码:
- * §5c 明写"哪一行算横幅 / 哪一行算隐写 / 规范文案长什么样只许有一份",解码是同一族事实。
- *
- * 2026-11-05 换通道(把假绿换成真牙)。旧写法把正文写进 `mkScratch()/probe.txt`,再派生
- * `watermark.mjs verify <那个文件>` 并把 RC 当答案。四臂实测(完好 / 载荷被改坏 × .txt / .mjs):
- *   probe.txt 完好载荷 ⇒ {"rc":0,"covered":0,"specified":0}
- *   probe.txt 载荷损坏 ⇒ {"rc":0,"covered":0,"specified":0}
- *   probe.mjs 完好载荷 ⇒ {"rc":0,"covered":0,"specified":0}
- *   probe.mjs 载荷损坏 ⇒ {"rc":0,"covered":0,"specified":0}
- * 四臂同色:scratch 落点不在仓库口径内,`verify` 压根没把该文件纳入统计(覆盖 0/0)却按 0 退出
- * ⇒ 旧"复核"从装上那天起恒真,`decideBanner` 里"必须经 verify 判完好才认修复"那一档是装饰:
- * 任何载荷损坏的内容都能拿到 `newPayloadOk:true`。§0.7 禁的正是"没验过却写成验过"。
- *
- * 现改为**进程内直接问那一份实现**(`watermark.mjs` 的 `payloadIntact`,verify 内部用的就是它):
- * 拿布尔而不是退出码,不看路径口径。三态纪律不变 —— `judged=false` 只剩"实现取不到/抛异常"一种成因,
- * 且它**不得**被折成"完好"或"不完好"。
+ * 问"这份构造内容的载荷到底完不完好"—— **只能问那一份判据**(`watermark.mjs verify`),
+ * 不在本器里重写解码:§5c 明写"哪一行算横幅 / 哪一行算隐写 / 规范文案长什么样只许有一份",
+ * 解码是同一族事实。临时件落点走 `scripts/lib/scratch-dir.mjs`(§26:不落 os.tmpdir、不落仓库树内)。
+ * 三态:`judged=false` 是"问不到"(派生失败/超时),**不得**折成"不完好"或"完好"。
  */
-function payloadIntactViaWatermark(text) {
-  if (typeof text !== 'string') return { judged: false, why: '构造正文不是字符串 ⇒ 无从解码' }
-  const fn = WM_PROBE?.payloadIntact
-  if (typeof fn !== 'function') {
-    return { judged: false, why: 'watermark.mjs 未导出 payloadIntact ⇒ 唯一判据取不到' }
-  }
+function payloadIntactViaVerify(text) {
+  const dir = mkScratch('osl-banner-')
   try {
-    return { judged: true, ok: fn(text) === true }
+    const f = join(dir, 'probe.txt')
+    writeFileSync(f, text, 'utf8')
+    // 2026-10-04：不吃的子进程必须给 stdio，否则本机报 spawnSync EBUSY
+    const r = spawnSync(process.execPath, [WATERMARK_CLI, 'verify', f], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      cwd: REPO_ROOT,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+    })
+    if (r.error) return { judged: false, why: String(r.error.message ?? r.error).split('\n')[0] }
+    if (r.signal) return { judged: false, why: `verify 被 ${r.signal} 终止` }
+    return { judged: true, ok: r.status === 0, rc: r.status }
   } catch (e) {
-    return { judged: false, why: `payloadIntact 抛异常:${String(e?.message ?? e).split('\n')[0]}` }
+    return { judged: false, why: String(e?.message ?? e).split('\n')[0] }
+  } finally {
+    rmScratch(dir, { bestEffort: true })
   }
 }
 
@@ -2688,175 +3121,6 @@ function runWarmBorderGate({ root, tree, paths }) {
   }
 }
 
-export const LAND_LOCK_UNIT = 'object-space-land'
-/** 锁落点:资源在哪,锁就在哪 —— 跟着被落地的仓走(夹具各拿各的根,互不相干)。 */
-export function landLockDirOf(root) {
-  return join(root, '.ihui-agent', 'state', `${LAND_LOCK_UNIT}.lock`)
-}
-
-/**
- * 落地器单实例闸(2026-11-06 立)。
- *
- * 立因(现读复现,不是猜测):本机曾同时有 5 枚 `object-space-land` 在跑,落地器**没有任 entry 互斥**,
- * 每枚都要过门 98/231 的两面全量审(单面实测 93s)再抢一次 CAS ⇒ 2026-11-06 05:45 这枚连撞 3 次
- * CAS 失败才落,而并发还把**另一席**的门预检顶成 rc=9 未判定。"少落一次不是故障,叠五枚才是故障"
- * —— 与 git-lock G-262 那条同口径(周期任务每 tick 再叠一发 fetch,当轮量到 26 个父进程)。
- *
- * 三条不许漂的判序:
- *  ① 只有 `skipped-held`(别人正持有)才排队等;`error` / `undetermined` **直接退出并点名**——
- *     拿不到锁的原语自己都说不出锁什么状态时,绝不把"没判"读成"无锁" (§0.3),更不降格成"照落";
- *  ② 等满上限 ⇒ 未判定 exit 2 + "原样重跑即可",不静默成功、不削覆盖面;
- *  ③ release 只在拿到锁时给(跳过者结构上删不掉持有者的活锁),且挂在 exit 上,异常路径同样交还。
- *
- * `acquireOnce` / `sleep` / `waitMs` 是注入面:镜像测试据此在不建真锁目录、不真等墙钟的前提下
- * 把四档(kinds)与等待边界逐格跑一遍。
- */
-export function acquireLandLock({
-  dir,
-  unitId = LAND_LOCK_UNIT,
-  waitMs = Number(process.env.IHUI_LAND_SINGLE_INSTANCE_WAIT_MS ?? 90_000),
-  pollMs = 2_000,
-  acquireOnce = (opts) => tryAcquireSingleInstance(opts),
-  now = () => Date.now(),
-  ensureParent = (d) => mkdirSync(dirname(d), { recursive: true }),
-  sleep = (ms) =>
-    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(0, Math.trunc(ms))),
-  log = (m) => console.log(m),
-} = {}) {
-  // 锁目录的**父路径**必须先在场:`tryAcquireSingleInstance` 走的是"临时目录 + rename"原子初始化,
-  // rename 不会自建缺失父目录 ⇒ `.ihui-agent/state` 不在时当场 ENOENT。落地器的夹具与换仓通道
-  // (LAND_ROOT 指新仓)恰好常年没有这一层,实测把 105 项套件顶红 61 项、把真落地一律拒成 exit 2 ——
-  // 那是闸自己造的新故障,比它要防的并发更坏(§12e 同型:恒红的那道门逼所有人跳门)。
-  try {
-    ensureParent(dir)
-  } catch (e) {
-    return {
-      acquired: false,
-      kind: 'undetermined',
-      why: `锁父目录建不出来(${String(e?.code ?? e?.message ?? e).slice(0, 120)})⇒ 不猜无锁,也不落地`,
-      holder: null,
-      release: null,
-      waitedMs: 0,
-      attempts: 0,
-      timedOut: false,
-    }
-  }
-  const t0 = now()
-  let attempts = 0
-  let last = null
-  for (;;) {
-    attempts += 1
-    last = acquireOnce({ dir, unitId, log })
-    if (!last || typeof last.acquired !== 'boolean') {
-      return {
-        acquired: false,
-        kind: 'undetermined',
-        why: `acquireOnce 返回值形状不成立(${JSON.stringify(last)?.slice(0, 120)})⇒ 不猜无锁`,
-        holder: null,
-        release: null,
-        waitedMs: now() - t0,
-        attempts,
-        timedOut: false,
-      }
-    }
-    if (last.acquired) return { ...last, waitedMs: now() - t0, attempts, timedOut: false }
-    if (last.kind !== 'skipped-held')
-      return { ...last, waitedMs: now() - t0, attempts, timedOut: false }
-    const left = waitMs - (now() - t0)
-    if (left <= 0) return { ...last, waitedMs: now() - t0, attempts, timedOut: true }
-    sleep(Math.min(pollMs, left))
-  }
-}
-
-/**
- * 等待路径的**终局读数**:本枚等满还拿不到锁时,把这一型停摆折成一个机读行 + 一条点名成因的读数,
- * 而不是只留一行 stderr。
- *
- * 为什么必须落账(与前两型同族):落地器是一枚新进程,上一班喊过的停摆下一班完全看不见
- * —— 机制停摆有 `runner-face-parked-round`、供给断档有 `supply-stall-round`,唯独"通道被一枚
- * 活着但不动的持有者独占"只有当时被挡住那枚自己知道。没有账面,这型连着几十班也没人知道(§12e 同族)。
- *
- * 边界三条,都是硬约束:
- *  ① **只喊不放行** —— 回收决定仍归 `git-lock` 原语(身份可核 ∧ 确证 pid 被复用才抢),本函数一个字
- *     不碰锁目录,更不因为"等太久"就削拒抢(失效方向恒为多要一次定向说明,§0.10);
- *  ② CPU 增量这一维在这里**故意不给** —— 一枚进程一生只等一趟,拿不到两个采样点 ⇒ 判据按 §0.3 落
- *     `stall` / `held` / `residual` / `unjudged`,绝不冒充 `wedged`(那是守护 tick 有两点采样后才配说的);
- *  ③ 结论形状不在已知态清单内 ⇒ **一行都不写**,并点名为什么没写(写一行假 state 比不写更坏)。
- *
- * @param {{dir:string, landLock?:object|null, root?:string, env?:object, log?:Function,
- *          ledgerPath?:string|null, now?:Function}} a
- * @returns {object} 判据结论原样返回(供调用方与测试断言,不改本轮退出码)
- */
-export function noteLandLockStall({
-  dir,
-  landLock = null,
-  env = process.env,
-  log = (s) => console.error(s),
-  ledgerPath = null,
-  now = () => new Date(),
-} = {}) {
-  const metaPath = join(dir, 'meta.json')
-  let metaText = null
-  try {
-    metaText = readFileSync(metaPath, 'utf8')
-  } catch {
-    metaText = null
-  }
-  let metaMtimeMs = null
-  try {
-    metaMtimeMs = statSync(metaPath).mtimeMs
-  } catch {
-    metaMtimeMs = null
-  }
-  const { stallMs, why: capWhy } = resolveStallMs(env)
-  if (capWhy) log(`ℹ️ [lock-stall] ${capWhy}`)
-  const verdict = judgeLandingLock({
-    lockExists: existsSync(dir),
-    metaText,
-    metaMtimeMs,
-    nowMs: now().getTime(),
-    pidAlive: isPidAlive,
-    stallMs,
-  })
-  if (shouldAnnounceLockStall(verdict)) {
-    log(
-      `⚠️ [lock-stall/${verdict.state}] 这一型停摆的成因:${String(verdict.why ?? '').slice(0, 220)}`,
-    )
-    log(
-      `   出路(只喊人,不代裁):① 看持有者还在不在做动作 ` +
-        `node scripts/git-lock.mjs check --unit ${LAND_LOCK_UNIT};` +
-        `② 真要回收走抢占通道(先归档现场,绝不直删原路径)node scripts/git-lock.mjs clean;` +
-        `③ 本枚等待旗 IHUI_LAND_SINGLE_INSTANCE_WAIT_MS,停滞门限旗 ${LOCK_STALL_ENV}(坏值照旧回落实测缺省)。`,
-    )
-    const row = buildStallRow({
-      nowIso: now().toISOString(),
-      unitId: LAND_LOCK_UNIT,
-      verdict,
-      waitedMs: landLock?.waitedMs ?? null,
-    })
-    if (!row) {
-      log(
-        `⚠️ [lock-stall] 结论 state=${JSON.stringify(verdict?.state)} 不在已知态清单内 ⇒ 一行都不写`,
-      )
-    } else if (typeof ledgerPath === 'string' && ledgerPath !== '') {
-      try {
-        appendFileSync(ledgerPath, `${JSON.stringify(row)}\n`, 'utf8')
-        log(`ℹ️ [lock-stall] 已写 1 行账面 ${ledgerPath}(source=${row.source})`)
-      } catch (e) {
-        log(
-          `⚠️ [lock-stall] 账面未写入(${String(e?.code ?? e?.message ?? e).slice(0, 80)})⇒ 本轮读数只在 stderr,` +
-            '不得读成"没发生"',
-        )
-      }
-    }
-  } else {
-    log(
-      `ℹ️ [lock-stall/${verdict.state}] ${String(verdict.why ?? '').slice(0, 160)} ⇒ 本轮不喊(不等于通道空闲)`,
-    )
-  }
-  return verdict
-}
-
 async function main() {
   const parsed = parseArgs()
   if (parsed.error) {
@@ -2864,42 +3128,6 @@ async function main() {
     process.exit(2)
   }
   const { root, paths, removePaths, msg, baseRef, blobOf, jsonStructure } = parsed
-  // ── 单实例闸(排在一切取材之前:一进来就排队,别先把两面全量审跑完再发现该等)──
-  const landLockDir = landLockDirOf(root)
-  const landLock = acquireLandLock({ dir: landLockDir })
-  // 拿不到锁 ⇒ 先把这一型停摆折成读数(成因为什么、下一步是什么、账面在哪一行),
-  // **不改本轮退出码**:拒抢本身就是正确结论,这里只补"谁也不必再猜是哪一型"那一格。
-  if (!landLock.acquired && landLock.kind === 'skipped-held')
-    noteLandLockStall({
-      dir: landLockDir,
-      landLock,
-      ledgerPath: join(root, STALL_LEDGER_REL),
-    })
-  if (!landLock.acquired) {
-    console.error(
-      `❌ 未判定:拿不到落地器单实例闸(kind=${landLock.kind})⇒ 本枚不落地、不叠并发。${String(landLock.why ?? '').slice(0, 200)}`,
-    )
-    console.error(
-      `   这**不是内容判红**:等 ${Math.round((landLock.waitedMs ?? 0) / 1000)}s / ${landLock.attempts} 次尝试,` +
-        `持有者=${landLock.holder?.pid ?? '(未报到)'}${landLock.timedOut ? ' ⇒ 等满上限' : ''}。` +
-        `出路 = 等那一枚收尾后原样重跑本命令(不削覆盖面、不改缺省值);等待上限 IHUI_LAND_SINGLE_INSTANCE_WAIT_MS=<ms>。`,
-    )
-    process.exit(2)
-  }
-  if (landLock.kind === 'reentrant') console.log('ℹ 单实例闸:同进程重入(本枚已在临界区内)')
-  process.on('exit', () => {
-    try {
-      if (typeof landLock.release === 'function') {
-        const r = landLock.release()
-        if (r && r.released === false)
-          console.error(
-            `⚠️ 单实例闸未交还:${String(r.why ?? '').slice(0, 160)}(交下一轮按 pid/龄判读)`,
-          )
-      }
-    } catch (e) {
-      console.error(`⚠️ 单实例闸交还抛错:${String(e?.message ?? e).slice(0, 160)}`)
-    }
-  })
   const skipWatermark = process.env.IHUI_LAND_SKIP_WATERMARK === '1'
   // 与水印预检同级:默认必查,跳过要出声(IHUI_LAND_SKIP_IMPORT_CHECK=1)。
   const skipImportCheck = process.env.IHUI_LAND_SKIP_IMPORT_CHECK === '1'
@@ -2918,13 +3146,14 @@ async function main() {
    * ── G-04 第二格(2026-10-25):**新建路径**在建 blob 之前先注入水印 ────────────────
    *
    * 判据面 = 父提交(`baseRef`,缺省 HEAD)里**不存在**的路径。这类路径没有"横幅保持"
-   * 可判(`blobBannerPreserved` 对它们只能打一句 note),而旁路通道不跑钩子、又不写工作树
+   * 可判(`blobBannerPreserved` 对它们只能打一句 note),而旁路通道不跑钩子、注入这一格又不落盘
    * ⇒ 它们是"无水印内容进 HEAD"的唯一缺口(2026-10-15 实测一枚归档台账即此型)。
    *
    * 三条不许动的边界:
    *  ① **已存在路径的语义一字不改** —— 不进 `newPaths`,不重算 blob,横幅保持/祖先对账/
    *     行级复活三道判据照旧读 `blobOf` 里那份构造内容;
-   *  ② 工作树副本**一个字节都不写**(注入只发生在对象空间:文本 → injectText → hash-object);
+   *  ② 注入只发生在对象空间(文本 → injectText → hash-object),**这一格不改盘上那份**;
+   *     盘上那份的补齐由落地后的索引+工作树回写层管(口径逐字见头注⑤),不在本格射程;
    *  ③ 豁免面(第三方台账 / 上游工具生成物)复用各自的唯一判据,不在这里另立第二张表。
    * `refused` 非空 ⇒ exit 2:取不到正文 ≠ 无需注入(§0.3)。
    */
@@ -2983,11 +3212,16 @@ async function main() {
     // 注入改写了"将要进树的字节" ⇒ 必须逐条点名,静默改写比不注入更糟(§0.3 可见性)。
     if (newPathWatermark.injected.length > 0) {
       console.log(
-        `ℹ️ 新建路径已按 §5c 注入溯源水印后再取 blob(${newPathWatermark.injected.length} 个;工作树副本一个字节都没写):`,
+        `ℹ️ 新建路径已按 §5c 注入溯源水印后再取 blob(${newPathWatermark.injected.length} 个;注入只落在对象空间,这一格没改盘上那份):`,
       )
       for (const p of newPathWatermark.injected) console.log(`   · ${p}`)
       console.log(
-        '   盘上副本滞后是预期的(本器绝不写工作树);要把它补齐 ⇒ node scripts/watermark.mjs inject <上面每个路径>',
+        '   盘上那份的口径(与落地后的索引+工作树回写层逐字一致):只补**盘上根本没有**的声明路径;' +
+          '已有副本一律不动(那可能是别人的在飞现场);索引 blob 与父提交态不一致 ⇒ 归属他人,不动并点名;' +
+          '结论行里的「N 未判定 / N 归属他人」(例:0 未判定 7 归属他人)⇒ 退出码 2,那一档不得读成绿。',
+      )
+      console.log(
+        '   盘上这份滞后是预期的(本格只改对象空间里的 blob);要把盘上这份也补上横幅 ⇒ node scripts/watermark.mjs inject <上面每个路径>',
       )
     }
     if (newPathWatermark.already.length > 0)
@@ -3090,11 +3324,42 @@ async function main() {
 
   // 声明无差异 ⇒ 事先拒绝(提交面回读结构上证明不了"改了它";safe-commit Step③ 同型的中止语义,前置到写盘之前)
   const noDiff = paths.filter((p) => mine.get(p) === base.get(p))
+  /**
+   * 「无需落地」档(S-OSL-PROOF 2026-11-06):上一版把"声明面**整片**与基线逐字节相同"也折进
+   * 下面那条 exit 1,与"部分无差异被拦"同码同形;而 0 那一档又从不出现 —— 于是"重跑一枚早已
+   * 入库的票"读起来像"被守卫拦下了"。本档把它单列 exit 3 并逐条举证(oid 等值 + 在位性),
+   * 与真落地的 0 严格分开。判据本体是纯函数 judgeNothingToLand,镜像注入假面即可(§22c)。
+   */
+  const removeInBase = removePaths.filter(
+    (p) => headBlobOf(baseRef, p, { root }) !== ABSENT,
+  )
+  const noop = judgeNothingToLand({
+    paths,
+    removePaths,
+    mine,
+    base,
+    noDiff,
+    removeInBase,
+    baseRef,
+    // 只有 baseRef 就是 HEAD 时 head0 才是它的现读 sha;带 LAND_BASE_REF 取证通道时不拿 HEAD 冒充基线 sha。
+    baseSha: baseRef === 'HEAD' ? head0 : null,
+  })
+  if (noop.noop) {
+    console.error(
+      `ℹ️ NOTHING-TO-LAND ⇒ 不建提交、不推 ref、不动索引(exit 3,不是 exit 0:本轮结构上没有差异可落):`,
+    )
+    for (const l of noop.evidence) console.error(`   ${l}`)
+    console.error(`   ${noop.rerun}`)
+    process.exit(RC.NOTHING_TO_LAND)
+  }
   if (noDiff.length > 0) {
     console.error(
       `❌ 这些声明路径与基线(${baseRef})内容逐字节相同 ⇒ 拒绝落地(提交面回读永远证不了它们被改):\n  ${noDiff.join('\n  ')}`,
     )
-    process.exit(1)
+    console.error(
+      `   注:只有**整片**无差异才走"无需落地"(exit 3 并逐条举证);这里是部分相同 ⇒ 仍按业务拒绝拦。`,
+    )
+    process.exit(RC.REFUSED)
   }
 
   /**
@@ -3307,39 +3572,15 @@ async function main() {
     }
   }
 
-  // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在**最终**弃落出口上(判据见 backupIfAbandoned)。
-  //
-  // 2026-11-04 治本(失败沉积单向增长):原先**每轮 CAS 失败**都打一枚 `lost-commit/wip-land-*`,
-  // 实测单日 46 枚、存量 100 枚。中间轮次的 sha 为什么不需要打 tag —— 这**不是**"内容丢了也没关系",
-  // 而是可以逐条证明"内容一字节没丢,丢的只是 commit 对象":
-  //   ① `mine`(本轮声明的 blob 映射)在进入循环之前一次算定,之后每一轮 entries 都取同一批 blob;
-  //   ② `casUpdateRef` 对 old→new 做祖先性守卫(非快进直接抛,fail-closed),所以第 N+1 轮的 parent
-  //      必然是第 N 轮 parent 的快进后代 —— 第 N 轮树的全部内容都在第 N+1 轮提交的可达面之内;
-  // 于是中间提交被下一轮"结构上取代":下一轮的树 = 更新的 HEAD 树 ⊕ **同一批声明 blob**。
-  // 只有"最后造出、不会再有下一轮"的那一枚才会真正沉淀成无备份孤儿 —— 它必须照打,
-  // 漏打就等于把 30a 的红转嫁给下一位提交者。因此出口收敛为:
-  //   · 12 回耗尽兜底;
-  //   · CAS 抛出(catch 内,先备份再原样 rethrow);
-  //   · 循环内三个早退(clobber / 删除档 clobber / 判据拒落)—— 它们退出时上一轮 sha 同样是"末枚",
-  //     不兜就会把上面刚收掉的逐轮噪声换成另一处泄漏。
+  // 本轮造出却没能成为 ref 值的 sha 才是孤儿 ⇒ 备份只挂在弃落出口上(判据见 backupIfAbandoned)。
+  // lastMadeCommit = 最后一轮 commit-tree 造出的那枚,供「12 次耗尽」出口兜底(与逐轮弃落同枚时幂等零加)。
   let lastMadeCommit = ''
-  /**
-   * 只备份"最后造出且不会再被下一轮取代"的那枚。
-   * 一次失败运行最多一枚 tag(同 sha 幂等 zero-add);没造出过 commit 时**不伪造备份动作**(§0.3)。
-   */
-  const backupLastMadeIfAbandoned = (why) => {
-    if (!lastMadeCommit) return { ok: true, ref: null, why: 'no-commit-made' }
-    return backupIfAbandoned(lastMadeCommit, why, root)
-  }
   for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
     const head = git(['rev-parse', 'HEAD'], { root })
     const clobber = clobberedPaths(paths, base, head, { root })
     if (clobber.length > 0) {
       console.error(
         `❌ 放弃落地:HEAD 已推进且这些目标路径被别人改过 ⇒ 需重新归并而非覆盖(第 ${attempt} 次尝试):\n  ${clobber.join('\n  ')}`,
-      )
-      backupLastMadeIfAbandoned(
-        `object-space-land 第 ${attempt} 回放弃(clobber:目标路径已被他席改过)`,
       )
       process.exit(1)
     }
@@ -3353,9 +3594,6 @@ async function main() {
     if (removeClobber.length > 0) {
       console.error(
         `❌ 放弃落地:HEAD 已推进且这些待摘除路径的在位性被别人改过 ⇒ 需重新归并而非照旧删(第 ${attempt} 次尝试):\n  ${removeClobber.join('\n  ')}`,
-      )
-      backupLastMadeIfAbandoned(
-        `object-space-land 第 ${attempt} 回放弃(clobber:待摘除路径在位性已被他席改过)`,
       )
       process.exit(1)
     }
@@ -3413,7 +3651,6 @@ async function main() {
                 '真判红(rc=1)才需要修导入。应急 IHUI_LAND_SKIP_DANGLING_GATE=1(会打留痕)。'
             : '   出路:把悬空导入修掉后重落。应急跳过 IHUI_LAND_SKIP_DANGLING_GATE=1(会把跳过那行打进输出留痕)',
         )
-        backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回判据拒落(门 98 涉事判据未过)`)
         process.exit(danglingGate.undetermined ? 2 : 1)
       }
       if (warmBorderGate && !warmBorderGate.pass) {
@@ -3426,7 +3663,6 @@ async function main() {
           '   出路:把该处描边改成中性档(border.light/medium)或强调档(brandAccent.light/deep)后重落;' +
             '判据边界见门体头注。应急跳过 IHUI_LAND_SKIP_WARM_BORDER=1(会把跳过那行打进输出留痕)',
         )
-        backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回判据拒落(门 231 暖色描边未过)`)
         process.exit(warmBorderGate.undetermined ? 2 : 1)
       }
       console.error(`❌ 悬空相对引用预检不通过,拒绝落地(未创建任何 commit、HEAD 与主索引均未动):`)
@@ -3443,7 +3679,6 @@ async function main() {
         '   出路只有两条:把被引用的文件一起加进 LAND_PATHS,或去掉这条引用。' +
           '应急跳过 IHUI_LAND_SKIP_IMPORT_CHECK=1(会把跳过那行打进输出留痕)',
       )
-      backupLastMadeIfAbandoned(`object-space-land 第 ${attempt} 回判据拒落(悬空相对引用预检未过)`)
       process.exit(1)
     }
     if (!skipImportCheck) {
@@ -3500,16 +3735,22 @@ async function main() {
       )
       break
     }
-    // 中间轮次的 sha 被下一轮结构上取代(证明见循环前注释)⇒ 这里**不打 tag**,只留一行可追溯的日志。
-    console.log(
-      `⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试(本轮 ${commit.slice(0, 9)} 仅中间件,不备份)`,
-    )
+    console.log(`⚠️ 第 ${attempt} 次 CAS 失败(别人先推进了 HEAD),重读重试`)
+    // ref 没动而本枚已造出 ⇒ 孤儿就在这一行出生:当场备份(争用越久备得越多,同 sha 幂等零加)。
+    backupIfAbandoned(commit, `object-space-land 第 ${attempt} 回 CAS 未抢到`, root)
   }
   if (landed === '') {
-    // 兜底:这是"最后造出、不会再有下一轮"的那一枚 ⇒ 必须照打;取不到 sha 也只会报 no-sha 不冒充绿(§0.3)。
-    backupLastMadeIfAbandoned(`object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`)
-    console.error(`❌ ${MAX_CAS_ATTEMPTS} 次均未抢到 CAS,主索引未动`)
-    process.exit(1)
+    // 兜底:末枚多半已在上面逐轮备过(幂等 already:true 零加);取不到 sha 也只会报 no-sha 不冒充绿(§0.3)。
+    backupIfAbandoned(
+      lastMadeCommit,
+      `object-space-land ${MAX_CAS_ATTEMPTS} 回均未抢到 CAS(末枚兜底)`,
+      root,
+    )
+    console.error(
+      `❌ DEFERRED:${MAX_CAS_ATTEMPTS} 次均未抢到 CAS(别人一直在推进 HEAD)⇒ 本轮一枚也没落地、主索引未动;` +
+        '这是"让位"不是"完成",不得按 0 重跑同一形命令',
+    )
+    process.exit(RC.REFUSED)
   }
 
   // ① 提交面回读(G-801):存在性逐路径问 git 的结论 `cat-file -e <commit>:<path>`,三态不并桶。
@@ -3577,45 +3818,6 @@ async function main() {
   console.log(
     `✅ 提交面回读 ${paths.length}/${paths.length} 路径在树${removePaths.length ? `;删除档 ${removePaths.length} 路径已摘除` : ''}${listed ? (extras.length ? `;另有非声明路径 ${extras.length} 条(检查是否混提)` : '') : '(混提核查未判定)'}`,
   )
-  // 判据面声明自检:紧接回读成功之后(这一刻还改得动 —— 下一枚就能把正文补对;等到事后审计就只剩追认)
-  {
-    let guardText = null
-    try {
-      guardText = execFileSync(gitBinary(), ['-C', root, 'show', `${landed}:${GUARD_DATA_REL}`], {
-        encoding: 'utf8',
-        maxBuffer: 32 * 1024 * 1024,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 60_000,
-      })
-    } catch {
-      guardText = null
-    }
-    let landedMsg = ''
-    try {
-      landedMsg = execFileSync(gitBinary(), ['-C', root, 'show', '-s', '--format=%B', landed], {
-        encoding: 'utf8',
-        maxBuffer: 32 * 1024 * 1024,
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: 60_000,
-      })
-    } catch {
-      landedMsg = ''
-    }
-    const dec = checkExemptDeclaration({ paths, guardListText: guardText, message: landedMsg })
-    if (dec.state === 'missing') {
-      console.error(
-        `❌ 判据面声明自检:本枚命中受保护面而枚上**没有** immutable-exempt 行 ⇒ 事后只会判 undeclared,而那一格提交者自己修不了(追认要独立密钥)。命中面:\n  ${dec.hits.join('\n  ')}\n   出路:就地再落一枚带 \`immutable-exempt: <≥10 字理由>\` 的更正,或请持追认钥的一方 --ack。落地不回滚。`,
-      )
-      process.exitCode = 2
-    } else if (dec.state === 'undetermined') {
-      console.error(`⚠ 判据面声明自检未判定:${dec.why} —— 未判定不等于"无需声明",请人工核这一枚`)
-      process.exitCode = 2
-    } else if (dec.hits.length > 0) {
-      console.log(`ℹ 判据面声明自检:${dec.why}`)
-    }
-  }
 
   /**
    * G-725 留痕:走到这里"这枚提交已在 HEAD 里、且声明路径都过了逐路径存在性判定"是既成事实 ——
@@ -3638,7 +3840,7 @@ async function main() {
   })
   if (!attest.ok)
     console.log(
-      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed.slice(0, 11)},不改退出码):${attest.why}`,
+      `⚠️ 跳门留痕未写入(落地已成功 HEAD=${landed},不改退出码):${attest.why}`,
     )
   else console.log(`✅ 跳门留痕 1 行已写入 ${attest.path}(kind=bypass-landing,gatesRun=false)`)
 
@@ -3656,10 +3858,9 @@ async function main() {
    * 用提交档还是报告档、以及为什么不成环:理由写在 `lib/bypass-git.mjs` 的 `rerunLedgerHeal` 头上
    * (一句话:这一跑是 post-commit 第 6 节的替身,替身必须与原件同形;恢复提交仍由 commit-tree 产生
    * ⇒ 钩子不跑 ⇒ 结构上回不到本器,且它只在 HEAD 真缺行时才建提交,补完即"无缺失"⇒ 严格收敛)。
-   * 补跑跑而未成/未派生成功仍大声点名(stderr),按 RP-71 / §0.3 折成 **exit 2 未判定** —— 落地内容
-   * 不回滚、不判红,只拒绝报绿;折算口径见 `lib/bypass-git.mjs` 的 `landingExitWithHeal`。
+   * 补跑失败只喊一行(stderr),不改本轮落地的退出码 —— 零丢失自证已通过的落地不该被替身判红。
    */
-  const ledgerHeal = rerunLedgerHeal({ root, paths })
+  rerunLedgerHeal({ root, paths })
 
   /**
    * G-816040 的旁路落地半格(2026-10-18 立):四端 `ui-routes` 派生态的写回出口挂在
@@ -3670,67 +3871,96 @@ async function main() {
    * 本步只做**复检与点名**,不做写回:写回档 `--heal-ui-routes` 的纪律是"面上取不到/工作树副本≠面副本/
    * 量级异常 ⇒ 拒绝并点名",而 CAS 之后磁盘那份恰好与新品不一致(别人或本人的在飞现场),在这里跑它
    * 只会得到一次"拒绝写回"的噪声,却可能把他人现场改脏 —— 要写回必须由人显式跑那条命令。
-   * 退出码不在本处硬改,但上面判据面声明自检软设的 `process.exitCode=2` 会在末尾由 `baseBefore`
-   * 带进 `landingExitWithHeal`,不得被 `process.exit(finalCode)` 洗掉(RP-71 / §12e);零丢失自证
-   * 已过的落地不判红、不回滚,只拒绝报绿。真正的判定权仍在提交链那一轮的 `--staged` 面。
+   * 退出码刻意不改(与上面 rerunLedgerHeal 同一条理由):零丢失自证已通过的落地,不该被替身判红;
+   * 真正的判定权仍在提交链那一轮的 `--staged` 面。
    */
   uiRoutesFreshnessNotice({ root, paths })
 
-  // ② 共享主索引对齐(判据在 lib,只有一份):未尽事项点名后退出码仍 0 —— 落地本身已成功
-  //    删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉(否则 `git status` 显一条
-  //    `D `,此后任何人一次不带 pathspec 的普通提交就把刚删的死文件加回 HEAD —— 本仓 2026-09-27/28
-  //    连复活四次的孤儿组件正是这一型),且他席真暂存过的一律不动并点名(§12)。
-  const align = alignSharedIndex({ root, paths: paths.concat(removePaths), parentRef: parentSha })
-  if (align.lockAbandoned) {
+  // ② 共享主索引 + 工作树对齐(判据在 lib,只有一份):CAS 只推进 ref,**不碰主索引、不碰工作树**;
+  //    落地器若只对齐索引,新 HEAD 里的新增路径会留下「索引有、磁盘无」或假 `D `(下一次普通提交
+  //    就固化成删除)。删除路径一并交给它:lib 内建的删除档会把索引里的删除残留清掉,且他席真暂存
+  //    过的一律不动并点名(§12)。失败/让路逐条打印并**影响退出码**,不静默:
+  //      failed / lockAbandoned / alignFailed ⇒ 1(落地已在 HEAD,但回写没做完)
+  //      undetermined / skipped(归属他人)⇒ 2(未判定/让路,不冒充完成)
+  const landingAlign = alignLandingPaths({
+    root,
+    paths: paths.concat(removePaths),
+    parentRef: parentSha,
+  })
+  console.log(
+    `✅ 主索引 + 工作树已对齐 ${landingAlign.aligned.length}/${paths.concat(removePaths).length} 路径(索引 ${landingAlign.aligned.length} / checkout ${landingAlign.checkedOut.length})`,
+  )
+  for (const f of landingAlign.failed) console.error(`❌ 落地回写失败:${f.path} —— ${f.reason}`)
+  for (const s of landingAlign.skipped) console.log(`⚠️ 落地回写未动(归属他人):${s.path} —— ${s.reason}`)
+  for (const u of landingAlign.undetermined) console.log(`⚠️ 落地回写未判定:${u.path} —— ${u.reason}`)
+  if (landingAlign.lockAbandoned) {
     console.error('❌ .git/index.lock 锁龄超上限:不代删别人的锁,请人工确认持有者后单跑索引对齐')
     process.exit(1)
   }
-  if (align.failed) {
-    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):${align.error ?? ''}`)
+  if (landingAlign.alignFailed) {
+    console.error(`❌ 索引对齐未完成(轮次耗尽/派生持续失败):HEAD 已推进 ${landed}`)
     process.exit(1)
   }
-  console.log(
-    `✅ 主索引已对齐 ${align.moved.length + align.already.length}/${paths.length} 路径(移动 ${align.moved.length} / 已就位 ${align.already.length})`,
-  )
-  if (align.skipped.length > 0) {
-    console.log(
-      `⚠️ 未动(归属他人):\n  ${align.skipped.map((s) => `${s.path} (${s.reason})`).join('\n  ')}`,
+  if (landingAlign.failed.length > 0) {
+    console.error(
+      `❌ 落地回写未完成(${landingAlign.failed.length} 路径)⇒ HEAD 已推进 ${landed},但索引/工作树没有全部对上`,
     )
+    process.exit(1)
   }
-  if (align.undetermined.length > 0) {
-    console.log(
-      `⚠️ 未判定:\n  ${align.undetermined.map((u) => `${u.path} (${u.reason})`).join('\n  ')}`,
+  if (landingAlign.undetermined.length > 0 || landingAlign.skipped.length > 0) {
+    console.error(
+      `❌ 落地回写未判定/让路(${landingAlign.undetermined.length} 未判定 / ${landingAlign.skipped.length} 归属他人)⇒ HEAD 已推进 ${landed},这些路径的索引/磁盘状态不记绿`,
     )
+    process.exit(2)
   }
 
   /**
    * G-113(头注④,2026-10-23):落地后复跑受影响判据。位置与 ③ 同一条理由链 —— 必须在
    * CAS 成功且提交面回读通过之后(没落地的东西没有"落地那一刻"可补),且在主索引对齐之后
    * (tsc --files 档读盘上那份,对齐后索引=落地面,盘的漂已由 notes 点名,不静默)。
-   * 与 ③ 不同的一点:③ 已按 RP-71 折成 exit 2 未判定(自愈替身不判红、不回滚,但拒绝报绿),
+   * 与 ③ 不同的一点:③ 失败只喊一行不改退出码(自愈替身无权判红一次零丢失自证已通过的落地),
    * 本档是**判据本身** —— 票面纪律:复跑失败 ⇒ 大声报数 + exit 非 0;不回滚(既成事实),
    * 但拒绝静默。应急出口 IHUI_LAND_SKIP_AFFECTED_GATES=1(lib 内打留痕行)。
    */
   const affected = rerunAffectedGates({ root, paths: paths.concat(removePaths) })
   if (affected.verdict === 1) {
     console.error(
-      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
+      `❌ 落地后受影响判据复跑判红(blocking ${affected.failed.length} 臂)⇒ 本枚落地已在 HEAD ${landed}(不回滚),但拒绝报绿静默;修复后请就地再落一次更正提交`,
     )
     process.exit(1)
   }
   if (affected.verdict === 2) {
     console.error(
-      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚落地已在 HEAD ${landed.slice(0, 11)}(不回滚),请人工复跑点名臂`,
+      `❌ 落地后受影响判据复跑有臂无法判定(${affected.undetermined.length} 臂)⇒ 未判定不等于通过;本枚落地已在 HEAD ${landed}(不回滚),请人工复跑点名臂`,
     )
     process.exit(2)
   }
-  const baseBefore = Number(process.exitCode) || 0
-  const finalCode = landingExitWithHeal(baseBefore, ledgerHeal)
-  if (finalCode === 2 && baseBefore === 0)
+  /**
+   * 落地自证(S-OSL-PROOF,2026-11-06):最后一句必须是"回读 HEAD 逐字节等于本轮那枚 40 位 sha",
+   * 证明不了 ⇒ 非零并点名两个 sha。判据本体是纯函数 judgeLandedProof(镜像注入假面钉三态,§22c)。
+   */
+  const headAfter = String(git(['rev-parse', 'HEAD'], { root, allowFail: true }) ?? '').trim()
+  // 两者不等时才问祖先性(等值那一支不需要任何派生):true = 本轮 sha 已进 HEAD 历史
+  // (CAS 之后本器自己补跑的台账自愈可能再建一枚前向恢复提交 ⇒ 这是合法前向,不是没落地)。
+  const headContainsMade =
+    headAfter === landed || !FULL_SHA_RE.test(headAfter) ? null : isAncestor(landed, headAfter, { root })
+  const proof = judgeLandedProof({ createdSha: landed, headAfter, parentSha, headContainsMade })
+  if (!proof.ok) {
+    console.error(`❌ 落地自证不通过(未记绿,亦不 rollback:既成事实交人工裁决):${proof.why}`)
     console.error(
-      '❌ [RP-71] 台账自愈跑而未成/未派生成功 ⇒ exit 2 未判定;零丢失自证已过的落地不回滚、不判红,但拒绝报绿;请手工补跑 node scripts/check-plan-line-loss.mjs --heal --commit',
+      '   方向:先问 HEAD 为何不等于本轮 sha(别席推进 / detached / rev-parse 问不到),再决定是否重落;' +
+        '**禁止**按"刚才没落地"直接同形复跑(§0.3:取不到 ⇒ 未判定,不记绿也不冒红)。',
     )
-  process.exit(finalCode)
+    process.exit(proof.code)
+  }
+  console.log(proof.line)
+  console.log(
+    proof.forward
+      ? `   HEAD_NOW=${proof.headNow}(本轮那枚之后有**前向提交** = CAS 后本器补跑的台账自愈替身所建;` +
+          `LANDED 的 40 位 sha 已逐字证明在 HEAD 历史里 ⇒ 0 档成立,含义是"本轮 sha 已入库",不是"HEAD 停在它")`
+      : `   (0 档的唯一含义:上面这枚 40 位 sha 就是回读到的 HEAD;parent=${parentSha},基线 ${baseRef}=${head0})`,
+  )
+  process.exit(RC.LANDED)
 }
 
 /**
@@ -3849,10 +4079,30 @@ const SELF_TEST_PLAN = [
     name: '声明式还原·未被消费的声明(该行没复活)⇒ 拒;与 ALLOW_STALE 同举 ⇒ exit 2',
     expect: 'reject',
   },
+  {
+    id: 'ST13',
+    name: '无需落地档:整片声明与基线逐字节相同 ⇒ rc=3 且逐条举证(绝不与 0 共用)',
+    expect: 'reject',
+  },
+  {
+    id: 'ST14',
+    name: '落地自证:真建提交必须打印 LANDED <40 位 sha>,且回读 HEAD 逐字节等于它',
+    expect: 'accept',
+  },
+  {
+    id: 'ST15',
+    name: '空跑必须响:带完整落地基约却没被认成直接执行 ⇒ 非零 + 点名"一个字节都没落地"(旧形态是静默 rc=0)',
+    expect: 'reject',
+  },
 ]
 
 /** 自含电池共用的 git 直跑姿势(与镜像测试同构:显式身份 + safe.directory + autocrlf 关)。 */
-const SELF_TEST_GIT = gitBinary()
+let SELF_TEST_GIT = 'git'
+try {
+  SELF_TEST_GIT = gitBinary()
+} catch {
+  /* 解析不到就回落 'git',由具体用例把失败喊出来,不在这里静默改结论 */
+}
 const stGit = (dir, args) =>
   execFileSync(
     SELF_TEST_GIT,
@@ -3887,16 +4137,6 @@ const stTreeHas = (dir, p) => {
   }
 }
 
-// 夹具必须自带判据面清单,否则 dec 恒 undetermined ⇒ 软设 2 被 baseBefore 保住 ⇒ 正控假红(RP-71)。
-// 数组形态经 parseGuardList 判 problems=0 && entries 非空;path「never-hit/」不命中任何夹具路径
-// ⇒ dec.hits=0 ⇒ state='ok' ⇒ 不软设 2。两处造仓函数共用本常量(单一真相源)。
-const SELFTEST_GUARD_JSON =
-  JSON.stringify(
-    [{ path: 'never-hit/', kind: 'rule-doc', why: '自证夹具占位,不命中任何夹具路径', reviewBy: '2099-01-01' }],
-    null,
-    2,
-  ) + '\n'
-
 /** 造三文件临时仓:gone.txt(待摘) / keep.txt(不动) / sub/stay.txt(嵌套路径)。 */
 function stMakeRepo() {
   const dir = mkScratch('osl-self-')
@@ -3905,15 +4145,13 @@ function stMakeRepo() {
   writeFileSync(join(dir, 'keep.txt'), 'keep me v1\n', 'utf8')
   mkdirSync(join(dir, 'sub'), { recursive: true })
   writeFileSync(join(dir, 'sub', 'stay.txt'), 'stay\n', 'utf8')
-  mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
-  writeFileSync(join(dir, GUARD_DATA_REL), SELFTEST_GUARD_JSON, 'utf8')
   stGit(dir, ['add', '-A'])
   stGit(dir, ['commit', '-q', '-m', 'selftest-base'])
   return dir
 }
 
 /** 以子进程真身重入本器(env 契约与外部调用完全同形,不走任何内存内快捷路径)。 */
-function stRun(dir, { paths = '', remove = '', msg = 'test(land): selftest fixture', extra = {} }) {
+function stRun(dir, { paths = '', remove = '', msg = 'selftest', extra = {} }) {
   const r = spawnSync(process.execPath, [fileURLToPath(import.meta.url)], {
     env: {
       ...process.env,
@@ -3984,7 +4222,7 @@ async function runSelfTest() {
   })
 
   await one('ST4', SELF_TEST_PLAN[3].name, (dir) => {
-    const r = stRun(dir, { remove: 'gone.txt', msg: 'test(land): selftest pure remove' })
+    const r = stRun(dir, { remove: 'gone.txt', msg: 'selftest-pure-remove' })
     if (r.rc !== 0) return `纯删除必须放行,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
     if (stTreeHas(dir, 'gone.txt')) return '纯删除后 gone.txt 仍在树里'
     return null
@@ -4030,8 +4268,6 @@ async function runSelfTest() {
   const RS_LINE_B = 'export const secondUndeclaredG35 = true'
   const RS_TICKET = '// ticket g35-s7 的本票新内容行'
   function stMakeRestoreRepo(dir) {
-    mkdirSync(join(dir, 'scripts', 'data'), { recursive: true })
-    writeFileSync(join(dir, GUARD_DATA_REL), SELFTEST_GUARD_JSON, 'utf8')
     writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\n${RS_LINE_B}\nbeta\n`, 'utf8')
     stGit(dir, ['add', '-A'])
     stGit(dir, ['commit', '-q', '-m', 'A: 两枚日后成为还原对象的声明行'])
@@ -4061,7 +4297,7 @@ async function runSelfTest() {
     ])
     const r = stRun(dir, {
       paths: 'r.txt',
-      msg: 'test(land): selftest restore',
+      msg: 'selftest restore',
       extra: { LAND_RESTORE_MANIFEST: mf },
     })
     if (r.rc !== 0) return `正控必须放行,实得 rc=${r.rc}:${r.out.slice(0, 500)}`
@@ -4089,7 +4325,7 @@ async function runSelfTest() {
     ])
     const r = stRun(dir, {
       paths: 'r.txt',
-      msg: 'test(land): selftest restore ①',
+      msg: 'selftest restore ①',
       extra: { LAND_RESTORE_MANIFEST: mf },
     })
     if (r.rc === 0) return `夹带未声明的复活行仍必须拒落,实得 rc=0(白名单被走成了整闸放行,假修复)`
@@ -4114,7 +4350,7 @@ async function runSelfTest() {
     ])
     const r1 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'test(land): selftest restore ②a',
+      msg: 'selftest restore ②a',
       extra: { LAND_RESTORE_MANIFEST: mf1 },
     })
     if (r1.rc !== 1)
@@ -4124,7 +4360,7 @@ async function runSelfTest() {
     const mf2 = stManifest(dir, [{ path: 'r.txt', line: RS_LINE_A, restoredFrom: A, why: '太短' }])
     const r2 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'test(land): selftest restore ②b',
+      msg: 'selftest restore ②b',
       extra: { LAND_RESTORE_MANIFEST: mf2 },
     })
     if (r2.rc !== 2) return `why 过短必须 exit 2(用法错),实得 rc=${r2.rc}`
@@ -4138,7 +4374,7 @@ async function runSelfTest() {
     ])
     const r3 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'test(land): selftest restore ②c',
+      msg: 'selftest restore ②c',
       extra: { LAND_RESTORE_MANIFEST: mf3 },
     })
     if (r3.rc !== 2) return `短 sha 必须 exit 2(§1 证据指针:40 位全量),实得 rc=${r3.rc}`
@@ -4151,7 +4387,7 @@ async function runSelfTest() {
     const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
     writeFileSync(join(dir, 'r.txt'), `alpha\n${RS_LINE_A}\nbeta\n${RS_TICKET}\n`, 'utf8')
     // 与 ST8 正控**同一现场**,只是不传旗 ⇒ 必须与设立前逐字节同形:陈旧守卫照旧拒
-    const r = stRun(dir, { paths: 'r.txt', msg: 'test(land): selftest restore ③' })
+    const r = stRun(dir, { paths: 'r.txt', msg: 'selftest restore ③' })
     if (r.rc !== 1) return `不传旗的滞后复活必须照旧 rc=1,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
     if (!/陈旧落地守卫/.test(r.out))
       return `拒绝行必须是既有的"陈旧落地守卫"文案,实得:${r.out.slice(0, 300)}`
@@ -4175,7 +4411,7 @@ async function runSelfTest() {
     ])
     const r = stRun(dir, {
       paths: 'r.txt',
-      msg: 'test(land): selftest restore ④',
+      msg: 'selftest restore ④',
       extra: { LAND_RESTORE_MANIFEST: mf },
     })
     if (r.rc !== 1) return `未被消费的声明必须 rc=1 拒落,实得 rc=${r.rc}:${r.out.slice(0, 400)}`
@@ -4184,11 +4420,59 @@ async function runSelfTest() {
     // 与 LAND_ALLOW_STALE 同举 ⇒ 用法错 exit 2(逐行放行与整闸关旗不得合并语义)
     const r2 = stRun(dir, {
       paths: 'r.txt',
-      msg: 'test(land): selftest restore ⑤',
+      msg: 'selftest restore ⑤',
       extra: { LAND_RESTORE_MANIFEST: mf, LAND_ALLOW_STALE: '1' },
     })
     if (r2.rc !== 2) return `两面旗同给必须 exit 2,实得 rc=${r2.rc}:${r2.out.slice(0, 300)}`
     if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '被拒的落地不该动 HEAD'
+    return null
+  })
+
+  await one('ST13', SELF_TEST_PLAN[12].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    // keep.txt 的盘上副本 == 基线 blob ⇒ 整片声明无差异(唯一声明的就是这一条)
+    const r = stRun(dir, { paths: 'keep.txt', msg: 'selftest nothing-to-land' })
+    if (r.rc !== RC.NOTHING_TO_LAND)
+      return `整片无差异必须走"无需落地"档 rc=3,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    if (!/NOTHING-TO-LAND/.test(r.out)) return '必须点名 NOTHING-TO-LAND,实得:' + r.out.slice(0, 300)
+    if (!/逐字节相同/.test(r.out)) return '必须逐条举证 blob 等值,实得:' + r.out.slice(0, 300)
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '无需落地档不得推进 HEAD'
+    return null
+  })
+
+  await one('ST14', SELF_TEST_PLAN[13].name, (dir) => {
+    writeFileSync(join(dir, 'keep.txt'), 'keep me v14(自证用例)\n', 'utf8')
+    const r = stRun(dir, { paths: 'keep.txt', msg: 'selftest landed-proof' })
+    if (r.rc !== 0) return `真落地必须 rc=0,实得 rc=${r.rc}:${r.out.slice(0, 300)}`
+    const m = r.out.match(/^LANDED ([0-9a-f]{40})$/m)
+    if (!m) return '末尾必须打印整条 LANDED <40 位 sha>,实得:' + r.out.slice(0, 300)
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== m[1])
+      return `打印的 LANDED ${m[1]} 与回读 HEAD 不一致(实得 ${stGit(dir, ['rev-parse', 'HEAD']).trim()})`
+    return null
+  })
+
+  await one('ST15', SELF_TEST_PLAN[14].name, (dir) => {
+    const head = stGit(dir, ['rev-parse', 'HEAD']).trim()
+    // 注入"没被认成直接执行"的假执行面:以 import 形态带完整落地基约调本器。
+    // 旧形态 = 事件循环排空 ⇒ rc 0 + 零输出 + HEAD 不动(2026-11-06 实测事故那一支)。
+    const href = pathToFileURL(fileURLToPath(import.meta.url)).href
+    const r = spawnSync(process.execPath, ['-e', `import(${JSON.stringify(href)})`], {
+      env: {
+        ...process.env,
+        LAND_ROOT: dir,
+        LAND_PATHS: 'keep.txt',
+        LAND_MSG: 'selftest silent-zero must shout',
+      },
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
+    if ((r.status ?? -1) === 0)
+      return `带落地基约的空跑必须非零退出,实得 rc=0:${out.slice(0, 300)}(这正是把"没发生"报成"发生过")`
+    if (!/一个字节都没落地/.test(out)) return '必须点名"一个字节都没落地",实得:' + out.slice(0, 300)
+    if (stGit(dir, ['rev-parse', 'HEAD']).trim() !== head) return '空跑不得动 HEAD'
     return null
   })
 
@@ -4224,16 +4508,53 @@ const USAGE = [
   '      # CLI 契约是 env 驱动、无位置参数;每个 env 的含义:',
   '  LAND_PATHS          必填(与 LAND_REMOVE_PATHS 至少给一边),";" 分隔的仓库相对路径',
   '  LAND_REMOVE_PATHS   可选,要从结果树里摘掉(取消跟踪)的同一形清单;与 LAND_PATHS 不得有交集',
-  '  LAND_MSG            提交信息**正文**(不是路径);按文件给写 @<路径>;长得像路径的单行正文会被拒',
+  '  LAND_MSG            提交信息(只写能被回读证明的东西)',
   '  LAND_BASE_REF       基线 ref(缺省 HEAD)',
   '  LAND_BLOBS          内容清单 JSON 路径(给了就不读工作树,用于"同文件里有他人在飞改动")',
   '  LAND_ROOT           仓库根(缺省本仓)',
   '      node scripts/object-space-land.mjs --self-test   # 器物自证(先于 env 契约)',
   '      node scripts/object-space-land.mjs --help|-h     # 本用法(rc=0,不执行任何动作)',
-  '退出码: 0 正常/用法打印 · 1 判据红(自证不过) · 2 用法或环境错(空清单/空消息/路径不在盘上/根不可当仓库问)',
+  '退出码: 0 = 真建了提交且末尾自证通过(必打 LANDED <40 位 sha>;回读 HEAD 等值,或本轮那枚在 HEAD 历史里的前向分支并点名 HEAD_NOW)且回写全对上',
+  '        1 = 业务拒绝(被拦 / 部分无差异 / CAS 12 次未抢到 = DEFERRED)+ 回写真失败(failed / 索引未完成)',
+  '        2 = 用法或环境错(空清单/空消息/声明路径不在盘上/根不可当仓库问)、回写让路或未判定,',
+  '            以及落地自证不通过(HEAD 既不等于本轮 sha 也不含它)或「带落地基约却没被认成直接执行」',
+  '        3 = NOTHING-TO-LAND 无需落地:整片声明与基线逐字节相同且待摘项本就不在位 ⇒ 逐条举证,不建提交(绝不与 0 共用)',
+  '        # 用法打印(--help)同样回 0,但它不碰 refs/索引(零副作用是这条口径能被测的前提)',
 ]
 
-const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+/**
+ * 「本器被当成可执行文件跑了吗」(§22d 的 Windows 加固,S-OSL-PROOF 2026-11-06 立)。
+ *
+ * 旧写法 `import.meta.url === pathToFileURL(process.argv[1]).href` 是**逐字节比 URL**,
+ * 而同一个本器在 URL 面上可以长成好几种样子:8.3 短名(`OBJECT-S~1.MJS`)、junction/符号链接
+ * 提供的另一条路径、盘符大小写、经 realpath 解析后不同的挂载点 —— 任一种不等值都会掉进
+ * 负分支,而负分支过去**什么也不做**:模块加载完 ⇒ 事件循环排空 ⇒ Node 自然退出 0、
+ * stdout 零字节、HEAD 一动不动。2026-11-06 实测事故正是这一型:第一次带真 LAND_MSG 跑
+ * 拿到 rc=0 + 零输出,席据此判"没落地",同形复跑才真落地(而第二次跑的是占位信息)。
+ * 正解两条:① 比对前先 realpath + (win32) 大小写折叠,把"同一个文件的各种写法"收敛成一个身份;
+ * ② 负分支不再沉默 —— 带着完整落地基约(LAND_MSG + 至少一边清单)却没被认成直接执行,
+ *    一律大声 exit 2 并点名"一个字节都没落地",失效方向恒为"多要一次说明"(§0.10)。
+ */
+function looksLikeThisModule(arg) {
+  if (!arg) return false
+  const norm = (p) => {
+    let real = p
+    try {
+      real = realpathSync(p)
+    } catch {
+      /* 取不到 realpath 就用原值 —— 判不出时宁可走回落比对,不在这里猜 */
+    }
+    const abs = resolve(real)
+    return process.platform === 'win32' ? abs.toLowerCase() : abs
+  }
+  try {
+    return norm(arg) === norm(fileURLToPath(import.meta.url))
+  } catch {
+    return import.meta.url === pathToFileURL(arg).href
+  }
+}
+
+const isDirectRun = !!process.argv[1] && looksLikeThisModule(process.argv[1])
 if (isDirectRun) {
   // help 排在**第一位**:它不该被 env 契约(缺 LAND_PATHS 即拒 exit 2)挡成"用法错",
   // 也不该排到 --self-test 之后 —— 用户要的是用法,不是自证。
@@ -4255,12 +4576,21 @@ if (isDirectRun) {
       process.exit(2)
     })
   }
+} else if (looksLikeLandingContract(process.env)) {
+  console.error(
+    '❌ 本器带着完整落地基约(LAND_MSG + LAND_PATHS/LAND_REMOVE_PATHS)被调用,**却没被认成直接执行**' +
+      '⇒ 一个字节都没落地、一枚提交都没建、HEAD 未动。' +
+      '这一型过去会静默回 0(模块被 import / argv[1] 写法对不上 ⇒ 事件循环排空自然退出),' +
+      '于是"没发生"在账面上读成"发生了",下一席的同形复跑才是真落地那枚(2026-11-06 实测事故)。',
+  )
+  console.error(
+    `   argv[1]="${process.argv[1] ?? '(无)'}" 本器="${fileURLToPath(import.meta.url)}" ⇒ 请用 \`node <本文件路径> \` 直跑(env 契约见 --help)。`,
+  )
+  process.exit(RC.UNJUDGED)
 }
 
 export const __test__ = {
   parseArgs,
-  judgeLandMsgShape,
-  checkExemptDeclaration,
   backupIfAbandoned,
   clobberedPaths,
   lineDelta,
@@ -4272,15 +4602,22 @@ export const __test__ = {
   jsonStructuralSuperset,
   jsonGuardKindFor,
   jsonKeyPathAudit,
+  jsonRetirementAudit,
+  retirementChannelFor,
+  // ④ 窄档「改写 ≠ 摘除」:镜像测试按 §22c 直接 import 这两个出口,不在测试里另抄一份锚点表。
+  REWRITE_ANCHOR_KEYS,
+  isLedgerRewrite,
+  // S-OSL-PROOF(2026-11-06):三档语义的判据本体都是纯函数,镜像测试按 §22c 注入假面直接判,
+  // 不在测试里复制第二份实现(数字 RC.* 也走同一份出口)。
+  RC,
+  judgeLandedProof,
+  judgeNothingToLand,
+  looksLikeLandingContract,
   staleReport,
   commitFacePresence,
   // G-04:新建路径注入(文本级构造住在 watermark.mjs 的 injectText,本处只做对象空间编排)
   injectNewPathBlobs,
   watermarkPreflight,
-  // 横幅保持档的判据是纯函数(2026-11-05 起镜像测试直接 import 生产实现,§22c 不复制判据)
-  decideBanner,
-  blobBannerPreserved,
-  payloadIntactViaWatermark,
   SELF_TEST_PLAN,
   runSelfTest,
 }

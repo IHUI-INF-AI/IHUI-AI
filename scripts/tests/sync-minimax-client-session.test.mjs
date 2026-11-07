@@ -13,6 +13,9 @@ import path from 'node:path'
 
 import { __test__ as S } from '../sync-minimax-client-session.mjs'
 import { __test__ as E } from '../lib/minimax-auth-extract.mjs'
+// 心跳时刻判据与映像名清单的两个真相源(测试直接对账,免得本层测试自成第二份)
+import { __test__ as traeSyncTest } from '../sync-trae-client-session.mjs'
+import { CLIENT_IMAGES } from '../local-login.mjs'
 
 const RECORD_KEY =
   'com.minimax.mcode.oauth.prod.cn\u0000pn7olbPZk-liTDivJTlyUgyJxgtXvTojk5gKj6qHfMI'
@@ -77,6 +80,8 @@ test('② 载荷形状:providerCode=minimax,expiresAtMs 折成 ISO 一并带上'
   assert.deepEqual(payload.meta, {
     count: 1,
     skipped: 0,
+    uid: null,
+    uidError: null,
     roots: ['C:/Users/x/.minimax'],
   })
 })
@@ -132,7 +137,10 @@ test('⑦ 服务身份:MINIMAX_DATA_DIR 直接指定数据根,不再拼 USERPROF
   // 不是"能不能读到本机 .minimax" —— IHUI-API 以 LocalSystem 运行时 USERPROFILE 是
   // systemprofile,回灌腿因此结构上读不到真实用户会话(2026-10-31 现读 MINIMAX_DIR_MISSING)。
   const real = path.resolve('scripts')
-  assert.deepEqual(E.candidateRoots({ env: { MINIMAX_DATA_DIR: real, USERPROFILE: 'C:/no-such-home' } }), [real])
+  assert.deepEqual(
+    E.candidateRoots({ env: { MINIMAX_DATA_DIR: real, USERPROFILE: 'C:/no-such-home' } }),
+    [real],
+  )
   const viaHome = E.candidateRoots({ env: { USERPROFILE: 'C:/no-such-home' } })
   assert.deepEqual(viaHome, [])
 })
@@ -144,5 +152,64 @@ test('⑦b scopes 只留非空字符串;全空 ⇒ 不带该键', () => {
   assert.deepEqual(withScopes.accounts[0].scopes, ['a'])
   const empty = S.buildPayload({ accounts: [{ accessToken: 'acc', scopes: ['', null] }] })
   assert.equal('scopes' in empty.accounts[0], false)
+})
+
+// 2026-11-06 切号实测:recordKey 是「本机会话槽名」,池内三枚 minimax 行共用同一个槽名 ⇒
+// 无人值守的回灌只能镜像一个槽;人工切号必须由操作者点名目标行,否则新票会落进别人那一行。
+test('⑧ --uid= 点名:恰一条会话才把 uid 写进载荷;空值/未知参数 ⇒ 未判定', () => {
+  assert.equal(S.parseArgs(['--uid=auto:aaaa']).uid, 'auto:aaaa')
+  assert.equal(S.parseArgs([]).uid, '')
+  assert.match(S.parseArgs(['--uid=']).error ?? '', /需要一个池内 uid/)
+  // 空格形态不是本腿约定 ⇒ 按未知参数拒(不猜下一个 token 是值)
+  assert.equal(S.parseArgs(['--uid', 'auto:aaaa']).error, '未知参数: --uid')
+
+  const one = { accessToken: 'acc-1', recordKey: RECORD_KEY }
+  const payload = S.buildPayload({ accounts: [one] }, 'auto:aaaa')
+  assert.equal(payload.accounts[0].uid, 'auto:aaaa')
+  assert.equal(payload.meta.uid, 'auto:aaaa')
+  assert.equal(payload.meta.uidError, null)
+
+  // 不点名 ⇒ 载荷不带 uid 键(认行仍走槽名,规则一份都不在这一层写)
+  const plain = S.buildPayload({ accounts: [one] })
+  assert.equal('uid' in plain.accounts[0], false)
+  assert.equal(plain.meta.uid, null)
+  assert.equal(plain.meta.uidError, null)
+})
+
+test('⑨ 点名而本机不止一条会话 ⇒ 当场拒(认不出这条属于哪一行,绝不猜)', () => {
+  const payload = S.buildPayload(
+    { accounts: [{ accessToken: 'a', recordKey: RECORD_KEY }, { accessToken: 'b' }] },
+    'auto:aaaa',
+  )
+  assert.equal(
+    payload.accounts.some((a) => 'uid' in a),
+    false,
+  )
+  assert.match(payload.meta.uidError, /本机有 2 条会话/)
+  assert.match(payload.meta.uidError, /拒不回灌/)
+  // 反向牙:零条会话也算「认不出」(不冒绿:点名了却没有可写的会话 = 未判定)
+  const zero = S.buildPayload({ accounts: [] }, 'auto:aaaa')
+  assert.match(zero.meta.uidError, /本机有 0 条会话/)
+})
+
+// 心跳生产腿(2026-11-06 第四条同型腿):mcode 的 rt 是轮换型 ⇒ 客户端在跑时必须让位,
+// 而让位判据吃的就是 extraMetadata.clientActiveAt。判据单源在 Trae 腿,本层只产时刻。
+test('⑩ 心跳面:时刻只在"客户端在跑或未知"时带上,清单派生自 CLIENT_IMAGES 而非自立', () => {
+  const acc = [{ accessToken: 'acc-1', recordKey: RECORD_KEY }]
+  const withBeat = S.buildPayload({ accounts: acc }, '', '2026-11-06T00:00:00.000Z')
+  assert.equal(withBeat.clientActiveAt, '2026-11-06T00:00:00.000Z')
+  // 不带时刻 ⇒ 键都不出现(不带 ≠ false:没证据就不是"客户端没在跑")
+  const noBeat = S.buildPayload({ accounts: acc }, '', null)
+  assert.equal('clientActiveAt' in noBeat, false)
+
+  // 三态收敛判据单源 = Trae 腿的 heartbeatOf(复制一份就当场翻红,§22c)
+  assert.equal(S.heartbeatOf, traeSyncTest.heartbeatOf)
+  assert.equal(S.heartbeatOf(false, '2026-11-06T00:00:00.000Z'), null)
+  assert.equal(S.heartbeatOf(true, '2026-11-06T00:00:00.000Z'), '2026-11-06T00:00:00.000Z')
+  assert.equal(S.heartbeatOf(null, '2026-11-06T00:00:00.000Z'), '2026-11-06T00:00:00.000Z')
+
+  // 映像名清单派生自 local-login 的 CLIENT_IMAGES.minimax(换发行版只改那一处)
+  assert.deepEqual([...S.MINIMAX_PRODUCTS], [...CLIENT_IMAGES.minimax])
+  assert.ok(S.MINIMAX_PRODUCTS.length > 0, '候选映像名不得为空(空清单 = 心跳恒判不到在跑)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

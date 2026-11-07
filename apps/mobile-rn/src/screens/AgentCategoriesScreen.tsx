@@ -15,6 +15,8 @@
  * 分类详情 + 分类下智能体收进一个详情弹层(web 是独立路由,移动端不复制路由层级)。
  * 点智能体跳已注册的 AgentDetail 路由(参数 { id: agentId })。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -62,6 +64,7 @@ interface Agent {
 }
 
 export default function AgentCategoriesScreen() {
+  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.extraTall)
   const { t, locale } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
@@ -206,7 +209,7 @@ export default function AgentCategoriesScreen() {
       >
         <View style={styles.overlay}>
           <Tappable style={styles.mask} onPress={() => setPanel(null)} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, dialogHeightStyle]}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {panel?.name}
@@ -240,7 +243,7 @@ export default function AgentCategoriesScreen() {
                 <View style={styles.sectionHead}>
                   <Text style={styles.cardTitle}>{t('agentCategories.agentsTitle')}</Text>
                   <Text style={styles.meta}>
-                    {t('agentCategories.agentTotal', { count: agents.length })}
+                    {t('agentsCategoriesPage.total', { count: agents.length })}
                   </Text>
                 </View>
 
@@ -339,10 +342,14 @@ function makeStyles() {
     paidText: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.warning.amberText },
     desc: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 17 },
     meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
-    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
+    hint: {
+      fontSize: rnType.caption.size,
+      color: tokens.text.tertiary,
+      lineHeight: rnType.label.lineHeight,
+    },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     stateBox: {
       alignItems: 'center',
       justifyContent: 'center',
@@ -359,7 +366,7 @@ function makeStyles() {
       backgroundColor: tokens.overlay.modal,
     },
     sheet: {
-      maxHeight: '85%',
+      maxHeight: undefined,
       padding: rnSpacing.lg,
       gap: rnSpacing.sm,
       borderTopLeftRadius: rnRadius.xl,
@@ -409,7 +416,7 @@ function makeStyles() {
       overflow: 'hidden',
     },
     agentMain: { flex: 1, gap: rnSpacing['2xs'] },
-    agentName: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    agentName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     price: { fontSize: rnType.label.size, fontWeight: '600', color: tokens.text.primary },
     free: { color: tokens.success.deep },
   })

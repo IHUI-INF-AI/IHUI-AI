@@ -7,9 +7,14 @@ import { useTheme } from '../context/ThemeContext'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { getProfile, updateProfile } from '@ihui/api-client'
+import * as ImagePicker from 'expo-image-picker'
+import { getProfile, resolveFileUrl, updateProfile, uploadFileMultipart } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
-import { ProfileEditScreen as SharedProfileEditScreen, type Gender } from '@ihui/rn-app'
+import {
+  AvatarEditor,
+  ProfileEditScreen as SharedProfileEditScreen,
+  type Gender,
+} from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
@@ -33,6 +38,15 @@ const UNIAPP_TEXT: Record<string, string> = {
   'profileEdit.avatarUrlLabel': '头像链接',
   'profileEdit.avatarUrlPlaceholder': '请输入头像 URL',
   'profileEdit.avatarUrlHint': '支持 JPG / PNG,建议 200x200',
+  'profileEdit.avatarUrlApply': '应用头像链接',
+  'profileEdit.avatarPermissionDenied': '需要相册/相机权限才能更换头像',
+  'profileEdit.avatarUploadFailed': '头像上传失败',
+  'profileEdit.avatarUrlEmpty': '请输入头像链接',
+  'user.avatar.fromAlbum': '从相册选择',
+  'user.avatar.takePhoto': '拍照',
+  'user.avatar.uploading': '上传中…',
+  'user.avatar.formatHint': '支持 JPG / PNG',
+  'user.avatar.sizeHint': '建议 200x200',
   // 对齐 Uniapp loginPopUp:「昵称过长 不能超过8个字符」
   'profileEdit.nicknameTooLong': '昵称过长 不能超过8个字符',
 }
@@ -49,8 +63,8 @@ export function ProfileEditScreen() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [avatarModalVisible, setAvatarModalVisible] = useState(false)
-  const [avatarInput, setAvatarInput] = useState('')
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
 
   // t 包装:缺失 key 的中文兜底优先,其余回落 i18n
   const uniappT = useCallback(
@@ -110,13 +124,75 @@ export function ProfileEditScreen() {
     }
   }
 
-  const onOpenAvatarModal = () => {
-    setAvatarInput(avatar ?? '')
-    setAvatarModalVisible(true)
+  const pickAvatar = useCallback(
+    async (source: 'album' | 'camera') => {
+      if (avatarUploading) return
+      setAvatarError('')
+      const permission =
+        source === 'camera'
+          ? await ImagePicker.requestCameraPermissionsAsync()
+          : await ImagePicker.requestMediaLibraryPermissionsAsync()
+      if (!permission.granted) {
+        setAvatarError(uniappT('profileEdit.avatarPermissionDenied'))
+        return
+      }
+      const result =
+        source === 'camera'
+          ? await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            })
+          : await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            })
+      if (result.canceled) return
+      const asset = result.assets?.[0]
+      if (!asset?.uri) return
+      const previousAvatar = avatar
+      setAvatar(asset.uri)
+      setAvatarUploading(true)
+      const uploaded = await uploadFileMultipart(
+        {
+          uri: asset.uri,
+          type: asset.mimeType ?? 'image/jpeg',
+          name: asset.fileName ?? `avatar_${Date.now()}.jpg`,
+        },
+        {
+          allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+          maxSize: 10 * 1024 * 1024,
+        },
+      )
+      setAvatarUploading(false)
+      if (uploaded.success) {
+        setAvatar(resolveFileUrl(uploaded.data.path))
+      } else {
+        setAvatar(previousAvatar)
+        setAvatarError(apiFailureToText(uploaded, uniappT('profileEdit.avatarUploadFailed')))
+      }
+    },
+    [avatar, avatarUploading, uniappT],
+  )
+
+  const onUploadAvatarUrl = (url: string) => {
+    if (!url) {
+      setAvatarError(uniappT('profileEdit.avatarUrlEmpty'))
+      return
+    }
+    setAvatarError('')
+    setAvatar(url)
   }
-  const onConfirmAvatar = () => {
-    setAvatar(avatarInput.trim() || null)
-    setAvatarModalVisible(false)
+
+  const onPreviewAvatar = () => {
+    if (!avatar) {
+      appAlert(uniappT('user.avatar.fromAlbum'))
+      return
+    }
+    appAlert(avatar)
   }
 
   return (
@@ -129,15 +205,24 @@ export function ProfileEditScreen() {
       loading={loading}
       saving={saving}
       error={error}
-      avatarModalVisible={avatarModalVisible}
-      avatarInput={avatarInput}
+      avatarEditor={
+        <AvatarEditor
+          t={uniappT}
+          currentUrl={avatar}
+          onPickFromAlbum={() => void pickAvatar('album')}
+          onPickFromCamera={() => void pickAvatar('camera')}
+          onUpload={onUploadAvatarUrl}
+          uploading={avatarUploading}
+          error={avatarError}
+          onPreview={onPreviewAvatar}
+          nickname={nickname}
+          showUrlEntry
+          colorScheme={resolvedTheme}
+        />
+      }
       onNicknameChange={setNickname}
       onBioChange={setBio}
       onGenderChange={setGender}
-      onOpenAvatarModal={onOpenAvatarModal}
-      onCloseAvatarModal={() => setAvatarModalVisible(false)}
-      onAvatarInputChange={setAvatarInput}
-      onConfirmAvatar={onConfirmAvatar}
       onSave={onSave}
       onRetry={fetchProfile}
       onBack={() => navigation.goBack()}

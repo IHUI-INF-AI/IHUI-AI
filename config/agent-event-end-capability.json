@@ -72,7 +72,7 @@
     {
       "app": "apps/miniapp-taro/src",
       "label": "小程序",
-      "reason": "小程序没有 EventSource,走分块 wx.request 自写续传层(D138 正在并回 api-client);已接帧以 HEAD 实测提及为准,其余暂无对应 UI。",
+      "reason": "小程序没有 EventSource,走分块 wx.request 自写续传层(D138 正在并回 api-client);已接帧以 HEAD 实测提及为准,其余暂无对应 UI。permission 仅经 /agent-runtime/execute/stream 下发(agent_runtime.py:286),小程序未接该端点,故登记为已知缺口而非已接。",
       "until": "2026-12-31",
       "events": [
         "chunk",
@@ -140,10 +140,11 @@
       "until": "2026-12-31",
       "events": ["done", "error", "status", "tool-call-start"],
       "knownGaps": {
-        "reason": "RN 存量未接(第一轮棘轮基线),逐帧补齐前显式登记,不得静默。",
+        "reason": "RN 存量未接(第一轮棘轮基线),逐帧补齐前显式登记,不得静默。budget 一帧:本批(2026-11-06)新增 ai-service 生产端(agents.py 预算硬停帧);RN 已展示「因预算停止」,但消费走 api-client 类型化 onBudget 回调,端内无逐名字面量,门 2c 提及口径扫不到(真实消费证据在门 2b 解析面)。",
         "until": "2026-12-31",
         "events": [
           "agent-status",
+          "budget",
           "chunk",
           "citations",
           "compaction",
@@ -199,10 +200,11 @@
       "until": "2026-12-31",
       "events": ["error", "message", "question", "session", "status"],
       "knownGaps": {
-        "reason": "共享屏层存量未接,按 HEAD 存量登记棘轮基线。",
+        "reason": "共享屏层存量未接,按 HEAD 存量登记棘轮基线。budget 一帧:本批(2026-11-06)新增 ai-service 生产端(agents.py 预算硬停帧);共享屏层经 apps/mobile-rn ChatScreen 与 api-client 回调展示,本层无独立命名帧分发器。",
         "until": "2026-12-31",
         "events": [
           "agent-status",
+          "budget",
           "chunk",
           "citations",
           "compaction",
@@ -268,10 +270,11 @@
         "tool-call-start"
       ],
       "knownGaps": {
-        "reason": "扩展存量未接(该帧无对应 UI 面),显式登记。",
+        "reason": "扩展存量未接(该帧无对应 UI 面),显式登记。budget 一帧:本批(2026-11-06)新增 ai-service 生产端(agents.py 预算硬停帧);扩展侧无对话预算 UI 落点。",
         "until": "2026-12-31",
         "events": [
           "agent-status",
+          "budget",
           "citations",
           "compaction",
           "delta",
@@ -321,10 +324,11 @@
       "until": "2026-12-31",
       "events": [],
       "knownGaps": {
-        "reason": "桌面端存量未接,按 HEAD 存量登记棘轮基线。",
+        "reason": "桌面端存量未接,按 HEAD 存量登记棘轮基线。budget 一帧:本批(2026-11-06)新增 ai-service 生产端(agents.py 预算硬停帧);桌面端暂无对话流消费面。",
         "until": "2026-12-31",
         "events": [
           "agent-status",
+          "budget",
           "chunk",
           "citations",
           "compaction",

@@ -28,7 +28,7 @@
 .cd-head {
   display: flex;
   align-items: center;
-  padding: var(--spacing-md) 20rpx 16rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose) var(--spacing-sm);
   gap: var(--spacing-sm-loose);
 }
 .cd-avatar {
@@ -63,7 +63,7 @@
   font-size: var(--text-label);
   border-radius: var(--radius-xl);
   margin: 0;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   height: 56rpx;
   line-height: 56rpx;
 }
@@ -75,7 +75,7 @@
 
 /* ===== 帖子正文(对齐 RN: title 22dp→44rpx 600 primary / content 16dp→32rpx lh 22dp text.medium) ===== */
 .cd-body {
-  padding: var(--spacing-xs) 20rpx 0;
+  padding: var(--spacing-xs) var(--spacing-sm-loose) 0;
 }
 .cd-title {
   display: block;
@@ -154,7 +154,7 @@
   display: inline-flex;
   align-items: center;
   margin-top: var(--spacing-sm);
-  padding: var(--spacing-2xs) 12rpx;
+  padding: var(--spacing-2xs) var(--spacing-xs-loose);
   background: var(--color-card);
   border-radius: var(--radius-sm);
 }
@@ -169,14 +169,14 @@
   align-items: center;
   gap: var(--spacing-md);
   margin-top: var(--spacing-lg);
-  padding: 0 20rpx;
+  padding: 0 var(--spacing-sm-loose);
 }
 .cd-action {
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-xs);
-  padding: var(--spacing-xs-loose) 24rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md);
   background: var(--color-card);
   border-radius: var(--radius-xl);
 }
@@ -195,7 +195,7 @@
 /* ===== 评论区域(扁平铺底,对齐 RN 无白卡) ===== */
 .cd-comments-section {
   margin-top: var(--spacing-lg);
-  padding: 0 20rpx 32rpx;
+  padding: 0 var(--spacing-sm-loose) var(--spacing-lg);
 }
 .cd-comments-head {
   display: flex;
@@ -280,7 +280,7 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-sm-loose) 20rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-sm-loose);
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   box-shadow: 0 -4rpx 16rpx var(--color-black-6);
@@ -289,7 +289,7 @@
 .cd-input {
   flex: 1;
   height: 72rpx;
-  padding: 0 24rpx;
+  padding: 0 var(--spacing-md);
   background: var(--color-muted);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -302,7 +302,7 @@
   font-size: var(--text-label);
   border-radius: var(--radius-xl);
   margin: 0;
-  padding: 0 28rpx;
+  padding: 0 var(--spacing-md-loose);
   height: 72rpx;
   line-height: 72rpx;
 }

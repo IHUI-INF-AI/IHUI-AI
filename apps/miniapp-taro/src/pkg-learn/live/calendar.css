@@ -41,7 +41,7 @@
   border-radius: var(--radius-sm);
 }
 .cal-today-btn {
-  padding: var(--spacing-xs) 20rpx;
+  padding: var(--spacing-xs) var(--spacing-sm-loose);
   font-size: var(--text-label);
   color: var(--color-muted-foreground);
   background: var(--color-card);
@@ -117,7 +117,7 @@
 
 /* ===== 选中日期直播列表 ===== */
 .cal-section-title {
-  margin: var(--spacing-md) 0 16rpx;
+  margin: var(--spacing-md) 0 var(--spacing-sm);
   font-size: var(--text-body);
   font-weight: 600;
   color: var(--color-foreground);

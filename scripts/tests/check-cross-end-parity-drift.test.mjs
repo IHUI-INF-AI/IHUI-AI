@@ -14,6 +14,8 @@
  */
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { __test__ as P } from '../check-cross-end-parity-drift.mjs'
 
 const results = []
@@ -375,6 +377,34 @@ test('D6 上轮基线没有这一维 ⇒ 本轮首次量到**不是净增**(别�
   // 但本轮读到的数必须进快照面,下一轮起才可比
   assert.equal(j.extras.prefixContradicted, 3)
   assert.equal(j.extras.missingExpiry, 1)
+})
+
+test('E1 存续锁:这台尺的 self-test 必须整趟绿,且例数钉死(2026-11-05 实测它坏了 19/24 却无人发现)', () => {
+  // 为什么必须有这一条:本尺刻意不进提交链(判机器状态,§12e),于是它自己的取证面坏了也不会被任何门拦。
+  // 现读复证:HEAD 版 --self-test 19/24 失败(坏例连实际 state 都不打印),而镜像用例此前只测纯函数,
+  // 从不跑整趟自检 ⇒ "夹具落后于判据"这一型结构上无人守。这里把整趟自检与例数一起钉住:
+  // 少一例(被删/被注释)⇒ 末行数字对不上即翻红;某一例坏 ⇒ rc=1 直接抛。
+  const script = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'check-cross-end-parity-drift.mjs')
+  let out = ''
+  try {
+    out = execFileSync(process.execPath, [script, '--self-test'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      maxBuffer: 1 << 24,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (e) {
+    const body = `${String(e.stdout ?? '')}${String(e.stderr ?? '')}`
+    const last = body.trim().split('\n').filter(Boolean).slice(-3).join(' / ')
+    assert.fail(`self-test 未整趟通过 ⇒ 跨端倒退看门狗的取证面是坏的:${last}`)
+  }
+  const m = /SELF-TEST PASS (\d+)\/(\d+)/.exec(out)
+  assert.ok(m, `self-test 跑通了却没有 PASS 末行:${out.trim().split('\n').slice(-1)[0]}`)
+  assert.equal(m[1], m[2], 'PASS 的分母与分子必须相等')
+  assert.ok(
+    Number(m[1]) >= 24,
+    `自检例数从 24 掉到 ${m[1]} ⇒ 有用例被删/失效,这条锁必须拦住(要减例请连本锁一起改并写明理由)`,
+  )
 })
 
 let bad = 0

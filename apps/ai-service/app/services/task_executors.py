@@ -181,14 +181,31 @@ class CheckpointStore:
     def load(self, key: str) -> Checkpoint:
         if self._root is not None:
             p = self._path(key)
-            if p.is_file():
+            try:
+                mode = p.stat().st_mode
+            except FileNotFoundError:
+                mode = None
+            except OSError as e:
+                raise TaskExecutionError(
+                    f"断点读不到,不能把它当成没有进度 ({e.errno})"
+                ) from e
+            import stat as _checkpoint_mode
+
+            if mode is not None and _checkpoint_mode.S_ISREG(mode):
                 try:
                     raw = json.loads(p.read_text(encoding="utf-8"))
-                    if isinstance(raw, dict):
-                        self._mem[key] = raw
-                        return Checkpoint.from_dict({**raw, "key": key}, self)
-                except Exception as e:  # noqa: BLE001 - 坏档按无档处理,但必须喊出来
-                    logger.warning("[checkpoint] 读取失败(按空档续)%s: %s", key, e)
+                except json.JSONDecodeError as e:
+                    raise TaskExecutionError(
+                        "断点读不到,不能把它当成没有进度 (corrupt)"
+                    ) from e
+                except OSError as e:
+                    raise TaskExecutionError(
+                        f"断点读不到,不能把它当成没有进度 ({e.errno})"
+                    ) from e
+                if not isinstance(raw, dict):
+                    raise TaskExecutionError("断点读不到,不能把它当成没有进度 (corrupt)")
+                self._mem[key] = raw
+                return Checkpoint.from_dict({**raw, "key": key}, self)
         data = self._mem.get(key)
         if isinstance(data, dict):
             return Checkpoint.from_dict({**data, "key": key}, self)
@@ -202,6 +219,11 @@ class CheckpointStore:
         try:
             self._root.mkdir(parents=True, exist_ok=True)
             p = self._path(cp.key)
+            from app.services.ttl_json_store import json_archive_blocks_replace
+
+            if json_archive_blocks_replace(p, expect="object"):
+                logger.warning("[checkpoint] 断点读不到,不能把它覆盖成新进度: %s", cp.key)
+                return
             tmp = p.with_suffix(".tmp")
             tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             os.replace(tmp, p)
@@ -642,6 +664,37 @@ def parse_vitest_report(report: dict[str, Any]) -> tuple[dict[str, int], list[st
     return counts, failures
 
 
+def read_vitest_report_file(report_path: Path) -> tuple[dict[str, Any], str | None]:
+    """读 vitest json 报告。文件不存在是空报告。读不到不能当成没有结果,也不删除。"""
+    import stat
+
+    try:
+        mode = report_path.stat().st_mode
+    except FileNotFoundError:
+        return {}, None
+    except OSError as exc:
+        return {}, f"测试报告读不到,不能把它说成没有结果 ({exc.errno})"
+    if not stat.S_ISREG(mode):
+        return {}, "测试报告读不到,不能把它说成没有结果 (not-file)"
+    try:
+        text = report_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        return {}, f"测试报告读不到,不能把它说成没有结果 ({exc.errno})"
+    if text.strip() == "":
+        with contextlib.suppress(OSError):
+            report_path.unlink(missing_ok=True)
+        return {}, None
+    try:
+        loaded = json.loads(text)
+    except json.JSONDecodeError:
+        return {}, "测试报告读不到,不能把它说成没有结果 (corrupt)"
+    if not isinstance(loaded, dict):
+        return {}, "测试报告读不到,不能把它说成没有结果 (corrupt)"
+    with contextlib.suppress(OSError):
+        report_path.unlink(missing_ok=True)
+    return loaded, None
+
+
 def resolve_vitest_cli(start: Path | None = None) -> str | None:
     """从仓库向上找 `node_modules/vitest/vitest.mjs`(不假设装在根)。"""
     cur = (start or Path.cwd()).resolve()
@@ -731,15 +784,16 @@ async def _exec_test_suite(ctx: TaskContext) -> dict[str, Any]:
         failures = parse_pytest_failures(text)
     else:
         report: dict[str, Any] = {}
-        if report_path is not None and report_path.is_file():
-            with contextlib.suppress(Exception):
-                loaded = json.loads(
-                    await asyncio.to_thread(report_path.read_text, encoding="utf-8")
+        if report_path is not None:
+            report, unread_report = read_vitest_report_file(report_path)
+            if unread_report:
+                return _proof(
+                    ctx.task_type, False,
+                    ok=False, framework=framework, target=target,
+                    error=unread_report,
+                    tool_available=True, counts={}, failures=[],
+                    command=argv,
                 )
-                if isinstance(loaded, dict):
-                    report = loaded
-            with contextlib.suppress(OSError):
-                report_path.unlink(missing_ok=True)
         counts, failures = parse_vitest_report(report)
 
     collected_any = sum(counts.values()) > 0
@@ -903,9 +957,23 @@ async def _exec_batch_llm(ctx: TaskContext) -> dict[str, Any]:
     if len(items) > DEFAULT_MAX_UNITS:
         raise TaskExecutionError(f"batch_llm: items 超过上限 {DEFAULT_MAX_UNITS}")
     concurrency = ctx.int_arg("concurrency", DEFAULT_CONCURRENCY, lo=1, hi=MAX_CONCURRENCY)
-    template = ctx.arguments.get("prompt_template")
-    if not isinstance(template, str) or not template.strip():
-        template = "{item}"
+    cell_asked = any(key in ctx.arguments for key in ("mode", "domain", "prompt_role", "prompt_cells"))
+    if cell_asked:
+        from .prompt_registry import select_prompt_cell
+
+        picked = select_prompt_cell(
+            mode=ctx.arguments.get("mode"),
+            domain=ctx.arguments.get("domain"),
+            role=ctx.arguments.get("prompt_role"),
+            cells=ctx.arguments.get("prompt_cells"),
+        )
+        if picked["disposition"] != "use":
+            raise TaskExecutionError(f"batch_llm: prompt cell {picked['reason']}")
+        template = picked["template"]
+    else:
+        template = ctx.arguments.get("prompt_template")
+        if not isinstance(template, str) or not template.strip():
+            template = "{item}"
     model = ctx.arguments.get("model")
     model_name = model if isinstance(model, str) and model.strip() else None
     llm_call = ctx.llm_call or _default_llm_call
@@ -1129,12 +1197,30 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
     findings: list[dict[str, str]] = []
     scanned = 0
     unreadable = 0
+    unread_dirs = 0
     reused = 0
     truncated_by_cap = False
 
     def walk() -> None:  # noqa: C901 - 一遍遍历产多判据,拆函数反而绕
-        nonlocal scanned, unreadable, truncated_by_cap, reused
-        for dirpath, dirnames, filenames in os.walk(root):
+        nonlocal scanned, unreadable, truncated_by_cap, reused, unread_dirs
+
+        def _on_walk_error(err: OSError) -> None:
+            nonlocal unread_dirs
+            if isinstance(err, FileNotFoundError):
+                return
+            unread_dirs += 1
+            if "unreadable_files" in checks:
+                findings.append({
+                    "check": "unreadable_files",
+                    "path": str(getattr(err, "filename", "") or dir_label(err)),
+                    "severity": "warning",
+                    "detail": "目录读不到,不能把它说成已巡完",
+                })
+
+        def dir_label(err: OSError) -> str:
+            return type(err).__name__
+
+        for dirpath, dirnames, filenames in os.walk(root, onerror=_on_walk_error):
             dirnames[:] = sorted(d for d in dirnames if d not in _PATROL_SKIP_DIRS)
             dp = Path(dirpath)
             rel_dir = dp.relative_to(root).as_posix() or "."
@@ -1206,6 +1292,7 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
                 )
 
     await asyncio.to_thread(walk)
+    unreadable += unread_dirs
 
     by_check: dict[str, int] = dict.fromkeys(checks, 0)
     worst = "ok"
@@ -1215,7 +1302,9 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
             worst = "critical"
         elif f["severity"] == "warning" and worst != "critical":
             worst = "warning"
-    if unreadable and "unreadable_files" in checks and worst == "ok":
+    if unread_dirs and worst == "ok":
+        worst = "warning"
+    elif unreadable and "unreadable_files" in checks and worst == "ok":
         worst = "warning"
 
     artifact_path: str | None = None
@@ -1237,6 +1326,7 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
         files_scanned=scanned,
         files_reused_from_checkpoint=reused,
         unreadable=unreadable,
+        directories_unreadable=unread_dirs,
         findings_by_check=by_check,
         findings=findings[:500],
         findings_truncated=len(findings) > 500,

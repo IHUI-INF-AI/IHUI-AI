@@ -271,19 +271,39 @@ export interface ExamResultWrongQuestion {
   correctAnswer: string
 }
 
+/** 单题作答回顾 —— web 端「全量解析」与 mobile-rn `getResult.details` 的统一口径 */
+export interface ExamResultReviewItem {
+  id: string
+  title: string
+  yourAnswer?: string | string[] | null
+  correctAnswer?: string | string[] | null
+  isCorrect: boolean
+  score: number
+  analysis?: string | null
+}
+
 /** 考试结果详情(平台注入,字段对齐 mobile-rn ExamResultScreen ExamResult) */
 export interface ExamResultItem {
   id: string
-  examTitle: string
+  examTitle?: string
+  /** 已提交记录对应的试卷 id(再考一次需要) */
+  examId?: string
   score: number
   totalScore: number
   passed: boolean
   correctCount: number
   totalCount: number
+  wrongCount?: number
+  unansweredCount?: number
   /** 答题时长(分钟) */
   duration: number
-  submittedAt: string
-  wrongQuestions: ExamResultWrongQuestion[]
+  submittedAt?: string
+  /** 同卷已提交记录中的名次 / 参与排名人数 */
+  rank?: number
+  rankTotal?: number
+  /** 全量作答回顾(题干/答案/解析);缺省时回落到 wrongQuestions */
+  details?: ExamResultReviewItem[]
+  wrongQuestions?: ExamResultWrongQuestion[]
 }
 
 /** ExamResultScreen props */
@@ -296,6 +316,57 @@ export interface ExamResultScreenProps {
   colorScheme?: 'light' | 'dark'
   /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
   onNavigate: OnNavigate
+  /** 底部三操作:平台能力一律注入,屏内零平台 API */
+  onRetryExam?: () => void
+  onViewList?: () => void
+  onShare?: () => void
+}
+
+/**
+ * 成绩四格统计项(共享段 ExamResultStats)。
+ * 两端各自把字段映射成同一行:label/value 由宿主翻译后注入,tone 只表达配色语义。
+ */
+export interface ExamResultStatItem {
+  key: string
+  label: string
+  value: string
+  tone?: 'correct' | 'wrong' | 'neutral' | 'muted'
+}
+
+/** ExamResultStats props */
+export interface ExamResultStatsProps {
+  items: ExamResultStatItem[]
+  colorScheme?: 'light' | 'dark'
+}
+
+/** 题目回顾条目(小程序 GET /exam/:id/review 与 web getMyRecords details 的同一形状) */
+export interface ExamReviewItem {
+  id: string
+  title: string
+  isCorrect: boolean
+  score: number
+  myAnswer?: string
+  correctAnswer?: string
+  analysis?: string
+}
+
+/** ReviewList props:文案全部宿主注入(两端 i18n 键族不同,不在此强行合并) */
+export interface ExamReviewListProps {
+  items: ExamReviewItem[]
+  title: string
+  labels: {
+    correct: string
+    wrong: string
+    yourAnswer: string
+    correctAnswer: string
+    analysis: string
+    score: (n: number) => string
+    questionIndex: (n: number) => string
+  }
+  /** 错题计数行标题;缺省 = 不渲染该行(web 详情列表无此段) */
+  wrongTitle?: string
+  emptyText: string
+  colorScheme?: 'light' | 'dark'
 }
 
 /** 课程报名列表项 */
@@ -772,6 +843,14 @@ export interface DeveloperScreenProps {
   subscribed: boolean
   /** null ⇒ 未加载完或无有效订阅 ⇒ 不渲染开发者信息卡 */
   info: DeveloperSpaceInfo | null
+  /** 头部状态行文案(已开通/未开通/开通中,端侧取词);缺省不渲染 */
+  statusText?: string
+  /** 可见入口集合;缺省 = DEVELOPER_SPACE_ENTRIES 全量。端侧数据源各自不同(RN 4 / 小程序 3) */
+  entryIds?: readonly DeveloperSpaceEntryId[]
+  /** FAQ 之后的主操作(进入广场/继续接单);缺省不渲染 */
+  footerAction?: { label: string; onPress: () => void } | null
+  /** 信息卡是否渲染 API 密钥行;默认 true,小程序无密钥概念传 false */
+  showApiKeyRow?: boolean
   onBecomeDeveloper: () => void
   onRenew: () => void
   onCopyApiKey: (apiKey: string) => void
@@ -823,11 +902,46 @@ export interface SubPackageIndexScreenProps {
   colorScheme?: 'light' | 'dark'
 }
 
+/**
+ * 分类头共享段的字段(web 分类详情页原有 inline 实现抽出的单源)。
+ * 全部字段“给了才渲染”:端内没有的事实不伪造(如 RN 只有路由 title)。
+ */
+export interface CategoryHeaderProps {
+  name: string
+  icon?: string | null
+  description?: string | null
+  /** 状态徽标文案(端内 i18n 注入);未传则不渲染状态徽标 */
+  statusLabel?: string
+  /** 状态是否启用(决定徽标配色);与 statusLabel 配套 */
+  statusEnabled?: boolean
+  /** 付费徽标文案;isPaid 为真时渲染 */
+  paidLabel?: string
+  isPaid?: boolean
+  /** 已格式化的创建时间文案;未传不渲染 */
+  createdAtLabel?: string
+  colorScheme?: 'light' | 'dark'
+}
+
 /** 分类详情 Screen Props */
 export interface CategoryDetailScreenProps {
   t: TFunction
-  items: { id: string; name: string; description?: string; cover?: string }[]
+  items: {
+    id: string
+    name: string
+    description?: string
+    cover?: string
+    /** 条目头像(web 已有同元素;RN 由 Agent.avatar 映射) */
+    avatar?: string | null
+    /** 条目使用次数(web 无此字段;RN 由 Agent.usageCount 映射) */
+    useCount?: number
+  }[]
   activeTab: string
+  /** 页头标题(默认“分类详情”;小程序传 categoryId/全部分类) */
+  title?: string
+  /** 分类头共享段(web 与 RN 同源);不传则只渲染标题 */
+  header?: CategoryHeaderProps
+  /** 三档文案(默认中文;端内有 i18n 时注入,避免回退) */
+  tabLabels?: readonly [string, string, string]
   loading: boolean
   hasMore: boolean
   error: string
@@ -836,6 +950,8 @@ export interface CategoryDetailScreenProps {
   onAgentPress: (id: string) => void
   onBack: () => void
   colorScheme?: 'light' | 'dark'
+  /** 屏内自身的「重试」入口(端口注入;页面等价于相对屏的 retry) */
+  onRetry?: () => void
 }
 
 /** 课程星球 Screen Props */
@@ -872,6 +988,8 @@ export interface DevEnterCoverScreenProps {
 export interface KnowledgePlanetScreenProps {
   t: TFunction
   items: { id: string; title: string; cover?: string; summary?: string; createdAt: number }[]
+  /** 星球资讯头卡(GET /knowledge-planet/info);缺省即不渲染该轴 */
+  planet?: { name: string; memberCount: number; description: string } | null
   loading: boolean
   refreshing: boolean
   error: string

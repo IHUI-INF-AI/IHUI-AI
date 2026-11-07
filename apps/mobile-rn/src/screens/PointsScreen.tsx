@@ -5,7 +5,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi, getSignInHistory, type SignInHistoryItem } from '@ihui/api-client'
+import {
+  fetchApi,
+  getCurrentLevel,
+  getSignInHistory,
+  type SignInHistoryItem,
+} from '@ihui/api-client'
 import {
   PointsScreen as SharedPointsScreen,
   type PointsAccountInfo,
@@ -107,7 +112,7 @@ export default function PointsScreen() {
     try {
       const [pRes, lRes, sRes] = await Promise.all([
         fetchApi<{ points: PointsAccountInfo }>('/api/points'),
-        fetchApi<PointsLevelInfo>('/api/levels/current'),
+        getCurrentLevel(),
         fetchApi<SignInTodayRow>('/api/sign-in/today'),
       ])
       setAccount(pRes.success ? (pRes.data?.points ?? null) : null)

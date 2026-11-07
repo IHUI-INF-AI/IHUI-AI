@@ -56,6 +56,11 @@ const { chooseSyncTargetRow } = await import('../src/services/relay-session-sync
 // 本地作用域也要这个名字(RowOutcome.decision);export type from 只交出出口,不建本地绑定。
 // 2026-10-30 收口:此前的双份 import type 是 HEAD 就有的 tsc 重复声明(10-29 的「可转译锁」
 // 只钉 esbuild 声明面,tsc 的 TS2300 一直没被看到)——全文件只留这一份,零语义改动。
+import {
+  describeAutoImportOwner,
+  resolveAutoImportOwner,
+  type AutoImportOwnerDecision,
+} from './relay-session-autoimport-owner.js'
 import type { SyncReason } from '../src/services/relay-session-sync-decision.js'
 import type { ImportAccountInput } from '../src/services/relay-account-pool-service.js'
 export type {
@@ -325,10 +330,13 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
       if (target.kind === 'none') {
         // 缺行(运营池与个人池都无同 uid)⇒ 自动入池(2026-10-30 根治,与 Qoder 腿同型):
         // 此前该支只报「池内无此 uid」且无人接 —— 本机新登录的 Trae 号静默脱离保活直到
-        // 人工发现。现把本机会话交给与手动导入同一个落库出口 importAccounts(运营池行
-        // ownerUserId=null,部分唯一索引只圈运营池,结构上碰不到个人池同 uid 行;
-        // credVersion 原子 +1,O64 推签到池;推送断链落 pending 不阻塞)。并发撞唯一索引
-        // (他席先建了行)按 failed 点名,绝不冒绿(§0.3);下一轮回灌即命中现有行走正常凭证覆盖。
+        // 人工发现。现把本机会话交给与手动导入同一个落库出口 importAccounts(credVersion
+        // 原子 +1,O64 推签到池;推送断链落 pending 不阻塞)。并发撞唯一索引(他席先建了行)
+        // 按 failed 点名,绝不冒绿(§0.3);下一轮回灌即命中现有行走正常凭证覆盖。
+        // 归属 2026-11-06 收口:原先这里硬写 null(恒落运营池),与机主 2026-10-31 永久指令
+        // 「我自己填入号池的账号只能跟着我的账号走」相抵,且会凭空造出同 uid 运营池重复行
+        // (chooseSyncTargetRow 运营池优先 ⇒ 个人池那行拿不到客户端新票)。现按 pool-owner
+        // 单源取默认归属;取不到才落运营池,且必须把"为什么"回显出来。判据不在此复算。
         const { importAccounts } = await import('../src/services/relay-account-pool-service.js')
         const autoInput = buildTraeAutoImportInput(acc)
         if (!autoInput) {
@@ -341,12 +349,31 @@ export async function runSync(payloadText: string, dryRun: boolean): Promise<Syn
           })
           continue
         }
-        if (dryRun) {
-          summary.imported++
-          summary.rows.push({ uid, decision: 'auto-import', applied: false, error: 'dry-run 未写' })
+        let autoOwner: AutoImportOwnerDecision
+        try {
+          autoOwner = resolveAutoImportOwner()
+        } catch (e) {
+          // 装载失败 = 未判定,不猜归属、更不许悄悄落运营池冒充"这号本来就该进运营池"
+          summary.failed++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: `归属判据装载失败(未判定): ${(e instanceof Error ? e.message : String(e)).slice(0, 160)}`,
+          })
           continue
         }
-        const res = await importAccounts('trae', [autoInput], null)
+        if (dryRun) {
+          summary.imported++
+          summary.rows.push({
+            uid,
+            decision: 'auto-import',
+            applied: false,
+            error: `dry-run 未写(将落:${describeAutoImportOwner(autoOwner)})`,
+          })
+          continue
+        }
+        const res = await importAccounts('trae', [autoInput], autoOwner.ownerUserId)
         const item = res.items[0]
         if (item && (item.status === 'imported' || item.status === 'updated')) {
           summary.imported++

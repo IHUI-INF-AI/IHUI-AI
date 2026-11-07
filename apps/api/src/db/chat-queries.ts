@@ -99,6 +99,7 @@ export async function findConversationsByUser(
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
         shareToken: chatConversations.shareToken,
+        shareTokenExpiresAt: chatConversations.shareTokenExpiresAt,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
         groupId: chatConversations.groupId,
@@ -2157,6 +2158,7 @@ export async function findFavoriteConversations(
         compressedAt: chatConversations.compressedAt,
         compressedContext: chatConversations.compressedContext,
         shareToken: chatConversations.shareToken,
+        shareTokenExpiresAt: chatConversations.shareTokenExpiresAt,
         pinned: chatConversations.pinned,
         pinnedAt: chatConversations.pinnedAt,
         groupId: chatConversations.groupId,
@@ -2204,29 +2206,53 @@ export async function findFavoriteConversations(
 export async function setConversationShareToken(
   id: string,
   userId: string,
-): Promise<{ conversation: ChatConversation; token: string }> {
+  expiresInDays = 30,
+): Promise<{ conversation: ChatConversation; token: string; expiresAt: Date }> {
   const existing = await findConversationById(id)
   if (!existing) throw new Error('对话不存在')
   if (existing.userId !== userId) throw new Error('无权操作该对话')
   // 强制生成新的随机 token，不复用已有的 shareToken
   const token = randomBytes(8).toString('hex')
+  // BUG-50:分享链接必须带有限期,杜绝"拿到 token 永久可查"。
+  const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
   const rows = await db
     .update(chatConversations)
-    .set({ shareToken: token, updatedAt: new Date() })
+    .set({ shareToken: token, shareTokenExpiresAt: expiresAt, updatedAt: new Date() })
     .where(eq(chatConversations.id, id))
     .returning()
   const row = rows[0]
   if (!row) throw new Error('设置分享 token 失败')
-  return { conversation: row, token }
+  return { conversation: row, token, expiresAt }
+}
+
+// BUG-50:撤销分享。清空 token 与过期时间,使公开查看端点立即 404。
+export async function removeConversationShareToken(
+  id: string,
+  userId: string,
+): Promise<void> {
+  const existing = await findConversationById(id)
+  if (!existing) throw new Error('对话不存在')
+  if (existing.userId !== userId) throw new Error('无权操作该对话')
+  await db
+    .update(chatConversations)
+    .set({ shareToken: null, shareTokenExpiresAt: null, updatedAt: new Date() })
+    .where(eq(chatConversations.id, id))
 }
 
 export async function findConversationByShareToken(
   token: string,
 ): Promise<ChatConversation | undefined> {
+  // BUG-50:仅返回未过期(token 存在 且 过期时间 > 当前)的分享,过期链接视为不存在。
+  // 历史存量 NULL 过期时间在迁移中已统一回填为有限期,故此处不把 NULL 当成永久有效。
   const rows = await dbRead
     .select()
     .from(chatConversations)
-    .where(eq(chatConversations.shareToken, token))
+    .where(
+      and(
+        eq(chatConversations.shareToken, token),
+        gt(chatConversations.shareTokenExpiresAt, sql`now()`),
+      ),
+    )
     .limit(1)
   return rows[0]
 }

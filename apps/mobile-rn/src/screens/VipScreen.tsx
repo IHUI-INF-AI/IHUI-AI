@@ -18,7 +18,7 @@ import { QrCode } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import {
   checkPaymentStatus,
-  createOrder,
+  fetchApi,
   createWechatAppPayment,
   getMembershipInfo,
   getVipLevels,
@@ -32,6 +32,7 @@ import {
   type VipMembershipInfo,
   scaleText,
 } from '@ihui/rn-app'
+import { resolveVipIndexFeatures } from '@ihui/rn-app/features/vip/view-model'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { formatDateOnly } from '@ihui/shared/utils/date-utils'
 import { BottomPopup } from '../components/BottomPopup'
@@ -56,6 +57,20 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
  * 契约 VipLevelItem2.benefits 已同步收成 string[] ⇒ 端内在此归一。取不到/非数组一律返回空,
  * 共享屏按「无权益数据」处理,不造词。
  */
+/**
+ * BUG-64:后端 POST /api/orders 的 createOrderSchema 必填 `orderType`(z.string()),
+ * 且 resolveOrderAmount 对 orderType='2' 反查 VIP 等级真实价格(不传金额时由服务端补齐)。
+ * packages/api-client 的 createOrder 入参是 `type: OrderType` 且直接 JSON.stringify 成 body,
+ * 字段名与值都与后端不符(旧调用 createOrder({type:'vip'}) 必 400)。
+ * 该共享端点属本组范围外(见「范围外待转派」),故本屏按后端契约直接下单。
+ */
+function createVipOrder(targetId: string) {
+  return fetchApi<{ orderNo: string; payAmount: number }>('/api/orders', {
+    method: 'POST',
+    body: JSON.stringify({ orderType: '2', targetId }),
+  })
+}
+
 function normalizeBenefits(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
   const out: string[] = []
@@ -203,6 +218,14 @@ const TABS: readonly { key: PlanTab; labelKey: string }[] = [
 export function VipScreen() {
   const { onNavigate, onToast } = useHostPorts()
   const { t } = useI18n()
+  // i18n 缺失键回落(特权列表文案与小程序同源)
+  const tt = useCallback(
+    (key: string, fallback: string) => {
+      const value = t(key as never) as string
+      return value === key ? fallback : value
+    },
+    [t],
+  )
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   // route.params.type 五分支驱动(对齐 Uniapp vip_info/index.vue onLoad 行 58-76)
@@ -240,10 +263,10 @@ export function VipScreen() {
       setError('')
       const [levelsRes, membershipRes] = await Promise.all([getVipLevels(), getMembershipInfo()])
       if (levelsRes.success) {
-        const mapped = levelsRes.data.map(toVipLevel)
+        const mapped = levelsRes.data.items.map(toVipLevel)
         setLevels(mapped)
         // 从 VipLevel 动态生成价格档位(对齐 Uniapp getvipPrice 个性化定价)
-        setPricePlans(buildPricePlans(levelsRes.data, t))
+        setPricePlans(buildPricePlans(levelsRes.data.items, t))
       } else {
         setError(apiFailureToText(levelsRes, t('vip.loadFailed')))
       }
@@ -293,7 +316,7 @@ export function VipScreen() {
     setPurchasingId(level.id)
     setToast('')
     try {
-      const res = await createOrder({ type: 'vip', targetId: level.id })
+      const res = await createVipOrder(level.id)
       if (res.success) {
         setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
         // 订单创建成功后弹出购买须知,引导用户完成支付
@@ -329,13 +352,13 @@ export function VipScreen() {
     setBottomPopupVisible(true)
   }, [])
 
-  // BottomPopup 确认 → 调 createOrder API(对齐 Uniapp pay 流程)
+  // BottomPopup 确认 → 调 createVipOrder(后端 createOrderSchema 契约,见本文件 BUG-64 注)
   const onBottomPopupConfirm = useCallback(
     async (levelId: string) => {
       setBottomPopupVisible(false)
       setToast('')
       try {
-        const res = await createOrder({ type: 'vip', targetId: levelId })
+        const res = await createVipOrder(levelId)
         if (res.success) {
           setToast(t('vip.orderCreated', { orderNo: res.data.orderNo }))
         } else {
@@ -664,10 +687,17 @@ export function VipScreen() {
         onRefresh={() => load(true)}
         onPurchase={onPurchase}
         onBack={() => navigation.goBack()}
-        onRetry={() => { void load(); }}
+        onRetry={() => {
+          void load()
+        }}
         colorScheme={resolvedTheme}
         onNavigate={onNavigate}
         onToast={onToast}
+        features={resolveVipIndexFeatures(tt)}
+        viewBenefits={{
+          label: tt('vip.viewAllBenefits', '查看全部权益'),
+          onPress: () => navigation.navigate('VipBenefit'),
+        }}
       />
       <PurchaseNoticePopUp
         visible={introVisible}

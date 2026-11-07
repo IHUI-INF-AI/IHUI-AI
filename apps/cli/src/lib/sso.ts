@@ -46,8 +46,7 @@ import {
   type SsoTokenData,
 } from '@ihui/shared/auth/sso-core';
 import { SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared/constants';
-import { loadSettings, getSettingsPath, type Settings } from '../commands/settings.js';
-import { tryParseJson, isRecord } from '../util/json.js';
+import { loadSettings, getSettingsPath, readSettingsObjectForUpdate, type Settings } from '../commands/settings.js';
 
 // 重新导出类型与工具(保持调用方 API 一致)
 export type { SsoTokenData } from '@ihui/shared/auth/sso-core';
@@ -216,17 +215,9 @@ function persistTokens(accessToken: string, refreshToken?: string): void {
   const settingsPath = getSettingsPath();
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  let existing: Settings = {};
-  if (fs.existsSync(settingsPath)) {
-    try {
-      const raw = fs.readFileSync(settingsPath, 'utf-8');
-      // 损坏/非对象(如数组、标量)一律从头建,防止把数组误当 Settings 写丢 token
-      const parsed = tryParseJson(raw);
-      if (isRecord(parsed)) existing = parsed as Settings;
-    } catch {
-      // 读文件失败,从头建
-    }
-  }
+  const read = readSettingsObjectForUpdate(settingsPath);
+  if (read.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
+  const existing: Settings = read.state === 'ok' ? read.settings : {};
   existing.apiKey = accessToken;
   if (refreshToken) existing.refreshToken = refreshToken;
   writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');

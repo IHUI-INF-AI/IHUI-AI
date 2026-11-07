@@ -35,8 +35,10 @@ import { getInstalledPluginsDir, getPluginInstallPath } from '../src/plugins/pat
 import { isUsableDirectoryCopy, swapScratchMarkers } from '../src/plugins/cache.js';
 import {
   PluginPathUnsafeError,
+  findPluginSubdir,
   installPlugin,
   loadInstallRegistry,
+  readPluginManifest,
   type InstallOutcome,
 } from '../src/plugins/installer.js';
 import { __test__ as pathSafety, type RealpathProbe } from '../src/plugins/path-safety.js';
@@ -519,6 +521,98 @@ describe('installPlugin(local) 顶层路径 — 判不了不再被读成"没有�
     expect(run.ok).toBe(true);
     if (!run.ok) return;
     expect(isUsableDirectoryCopy(getPluginInstallPath(name))).toBe(true);
+  });
+
+  it('第一份清单读不到时不改用下一份候选', () => {
+    const dir = path.join(tmpCwd, 'manifests');
+    fs.mkdirSync(dir, { recursive: true });
+    const primary = path.join(dir, 'plugin.json');
+    const fallback = path.join(dir, 'plugin.config.json');
+    fs.writeFileSync(primary, JSON.stringify({ name: 'primary-plugin', version: '1.0.0' }));
+    fs.writeFileSync(fallback, JSON.stringify({ name: 'fallback-plugin', version: '9.9.9' }));
+    const fallbackBytes = fs.readFileSync(fallback);
+    const denied = (target: string) => {
+      if (path.resolve(target) === path.resolve(primary)) {
+        const err = new Error('denied') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(target);
+    };
+    expect(() => readPluginManifest(dir, denied)).toThrow(/读不到/);
+    expect(fs.readFileSync(fallback)).toEqual(fallbackBytes);
+    expect(fs.readFileSync(primary, 'utf-8')).toContain('primary-plugin');
+  });
+
+  it('根清单读不到时不改用子目录里的另一份', () => {
+    const cache = path.join(tmpCwd, 'cache');
+    fs.mkdirSync(path.join(cache, 'nested'), { recursive: true });
+    const rootManifest = path.join(cache, 'plugin.json');
+    const nestedManifest = path.join(cache, 'nested', 'plugin.json');
+    fs.writeFileSync(rootManifest, JSON.stringify({ name: 'root-plugin', version: '1.0.0' }));
+    fs.writeFileSync(nestedManifest, JSON.stringify({ name: 'nested-plugin', version: '1.0.0' }));
+    const nestedBytes = fs.readFileSync(nestedManifest);
+    const denied = (target: string) => {
+      if (path.resolve(target) === path.resolve(rootManifest)) {
+        const err = new Error('denied') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(target);
+    };
+    expect(() => findPluginSubdir(cache, denied)).toThrow(/读不到/);
+    expect(fs.readFileSync(nestedManifest)).toEqual(nestedBytes);
+    expect(fs.readFileSync(rootManifest, 'utf-8')).toContain('root-plugin');
+  });
+
+  it('根上没有清单时仍用一级子目录', () => {
+    const cache = path.join(tmpCwd, 'cache-sub');
+    fs.mkdirSync(path.join(cache, 'nested'), { recursive: true });
+    fs.writeFileSync(path.join(cache, 'nested', 'plugin.json'), '{"name":"nested-plugin","version":"1.0.0"}');
+    expect(findPluginSubdir(cache)).toBe('nested');
+  });
+
+  it('插件目录列不出来时不说成清单在根上', () => {
+    const cache = path.join(tmpCwd, 'unlistable');
+    fs.mkdirSync(path.join(cache, 'nested'), { recursive: true });
+    const nested = path.join(cache, 'nested', 'plugin.json');
+    fs.writeFileSync(nested, '{"name":"nested-plugin","version":"1.0.0"}');
+    const bytes = fs.readFileSync(nested);
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    expect(() => findPluginSubdir(cache, fs.statSync, denied as typeof fs.readdirSync)).toThrow(/列不出来/);
+    expect(fs.readFileSync(nested)).toEqual(bytes);
+    expect(fs.existsSync(nested)).toBe(true);
+  });
+
+  it('本地源读不到时不说成不是目录,也不安装', async () => {
+    process.chdir(tmpCwd);
+    const src = writePluginDir(
+      path.join(tmpCwd, 'blocked-plugin'),
+      { name: 'p-unread', version: '1.0.0' },
+      { 'keep.txt': 'KEEP' },
+    );
+    const original = fs.readFileSync(path.join(src, 'keep.txt'));
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    let err: unknown;
+    try {
+      await installPlugin('./blocked-plugin', { stat: denied });
+    } catch (caught) {
+      err = caught;
+    }
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('读不到');
+    expect((err as Error).message.startsWith('本地源不是目录')).toBe(false);
+    expect(fs.existsSync(getPluginInstallPath('p-unread'))).toBe(false);
+    expect(loadInstallRegistry().records.some((r) => r.name === 'p-unread')).toBe(false);
+    expect(fs.readFileSync(path.join(src, 'keep.txt'))).toEqual(original);
   });
 
   it('反向对照:路径明确不存在 ⇒ 仍是"本地源不是目录"的常规错误,不伪装成安全拒装', async () => {

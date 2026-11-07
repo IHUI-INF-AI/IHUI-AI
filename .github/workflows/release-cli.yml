@@ -33,6 +33,7 @@ jobs:
   npm-publish:
     name: Publish to npm
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # 2026-10-19 定案:不启用 2FA → 不登记 Trusted Publisher。发布实际走 secrets.NPM_PUBLISH_TOKEN
     # (granular token,bypass_2fa),OIDC/--provenance 仅作前向兼容保留,失败会自动回退。
     # 首版 1.0.0 已 bootstrap 完成(docs/npm-publish-guide.md §7.2)。
@@ -124,9 +125,12 @@ jobs:
     # 与 npm-publish 完全解耦(needs: []):npm 侧无论 bootstrap 与否,6 平台二进制照常发布
     needs: []
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     env:
       # SignPath 通道开关:四项凭据齐备才置 true(step-level if 不支持 secrets 上下文,
-      # 故先在此折算成 env)。未配置时签名相关步骤整体跳过,发布保持现状(未签名 exe)。
+      # 故先在此折算成 env)。2026-11-05 起这不再是"缺凭据就静默跳过"的降级开关——
+      # 下方 "Preflight CLI signing credentials" 在**编译前**对 Windows 逐条点名缺项并让
+      # job 失败;本变量只负责"凭据齐了才允许走签名步"(非 Windows 平台恒不执行签名步)。
       SIGNPATH_CONFIGURED: ${{ secrets.SIGNPATH_API_TOKEN != '' && secrets.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_PROJECT_SLUG != '' && secrets.SIGNPATH_SIGNING_POLICY_SLUG != '' }}
     strategy:
       fail-fast: false
@@ -173,6 +177,22 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # 签名凭据前置自检(2026-11-05 加,缺口 1):此前 Windows 二进制在四项 SignPath secret
+      # 缺任一项时**整体跳过签名**,只打一条 ::warning::,流水线照绿并把未签名 `ihui.exe`
+      # 发上 Release —— 与桌面端(有 preflight,缺项即 exit 1)口径不一致。
+      # 本步在建二进制之前一次性点名缺项并让 job 失败;只判"在不在",**不打印任何值**。
+      # CLI 口径:Windows 只要求 SignPath 四件(CLI 不发 updater `.sig`、不涉 Apple 凭据),
+      # linux/macos 零要求(这两条产物的本链不做代码签名)。
+      - name: Preflight CLI signing credentials
+        id: signing-preflight
+        shell: bash
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+          SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          SIGNPATH_PROJECT_SLUG: ${{ secrets.SIGNPATH_PROJECT_SLUG }}
+          SIGNPATH_SIGNING_POLICY_SLUG: ${{ secrets.SIGNPATH_SIGNING_POLICY_SLUG }}
+        run: node scripts/desktop-signing-preflight.mjs --platform "${{ runner.os }}" --scope cli
 
       - name: Build CLI
         # 2026-09-26 起改用拓扑选择器 `^...`(= 该包的**全部 workspace 依赖**,不含本包):
@@ -257,9 +277,10 @@ jobs:
           Write-Host "SHA256: $((Get-FileHash -Algorithm SHA256 apps\cli\dist-sea\ihui.exe).Hash.ToLower())"
           "### 签名状态`n- Status: $($sig.Status)`n- Subject: $($sig.SignerCertificate.Subject)" >> $env:GITHUB_STEP_SUMMARY
 
-      # 凭据不齐时上面三步整体跳过 ⇒ 流水线照绿、产物照发,但发出去的是**未签名 exe**,
-      # 用户端 SmartScreen 警告一分不减。这类"静默降级"本仓的口径是不许无声:
-      # 这里显式打一条 warning 注解 + 写进 job 摘要,让 green 不被读成 signed。
+      # 凭据不齐时本步**不应再被走到**:2026-11-05 加的 preflight 会在编译前把 job 打红。
+      # 保留本步骤是刻意留的反向证据点 —— 若哪天 preflight 被删/被改回 warning,这里会重新
+      # 打出"未签名 exe 照发 + 流水线照绿"的注解(job 摘要里也留痕),即缺口 1 原样复发。
+      # 口径不变:green 不得被读成 signed。
       - name: Report unsigned fallback (Windows)
         if: matrix.os == 'windows' && env.SIGNPATH_CONFIGURED != 'true'
         shell: pwsh
@@ -338,7 +359,8 @@ jobs:
         if: failure()
         env:
           TRIAGE_WORKFLOW_FILE: .github/workflows/release-cli.yml
-          TRIAGE_IDS: upload-unsigned signpath
+          TRIAGE_IDS: signing-preflight upload-unsigned signpath
+          O_SIGNING_PREFLIGHT: ${{ steps.signing-preflight.outcome }}
           O_UPLOAD_UNSIGNED: ${{ steps.upload-unsigned.outcome }}
           O_SIGNPATH: ${{ steps.signpath.outcome }}
         run: bash scripts/ci-failure-triage.sh
@@ -348,6 +370,7 @@ jobs:
     name: Build & Push Docker Image
     needs: []
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -411,6 +434,7 @@ jobs:
     name: Release Summary
     needs: [npm-publish, build-binary, build-docker]
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     if: always()
     steps:
       - name: Checkout

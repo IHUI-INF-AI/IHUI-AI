@@ -151,12 +151,14 @@ export function readGatesFace(face = FACE_SEL.face, root = ROOT) {
   return t
 }
 
-/** 读台账(缺文件 ⇒ 空集,但由调用方如实标 unjudged,不用 0 冒充"没失败过")。
+/** 读台账(缺文件 / 0 字节空文件 ⇒ 一律 ok:false,由调用方如实标 unjudged,
+ *  不用 0 冒充"没失败过";空台账读成"从未失败"是 §0.3 明令禁止的假绿)。
  *  默认全量读:`limit` 截断会把超窗历史行挤出被审面,判据就会随台账增长悄悄变绿/变红(§12e)。 */
 export function readLedgerEvents(limit = Infinity) {
   if (!existsSync(LEDGER)) return { ok: false, events: [], why: `台账不在位:${LEDGER}` }
   const raw = readFileSync(LEDGER, 'utf8').trim()
-  if (!raw) return { ok: true, events: [], why: '台账空' }
+  // BUG-42④:日志轮转/清空后返回 ok:true,events:[] 会被各维读成"从未失败过" ⇒ 判未判定。
+  if (!raw) return { ok: false, events: [], why: `台账为空(0 字节):${LEDGER} ⇒ 未判定` }
   const events = raw
     .split('\n')
     .slice(Number.isFinite(limit) ? -limit : 0)
@@ -442,6 +444,134 @@ export function judgeCarrierParityFace({ face = FACE_SEL.face, root = ROOT } = {
         : r.state === 'unjudged'
           ? '先把被审面取到(HEAD/索引任一可读)再谈判定'
           : '',
+  }
+}
+
+/**
+ * A11-carrier-round —— 承载体「一轮能不能真正跑完」(2026-11-07 立,RP-75 ③)。
+ *
+ * 立因(实测):A8 连着多日把 10 条腿报成 dark,而逐条查下去,归属函数、env 开关、节流戳
+ * 全都在位。真问题在**共同上游**:本机唯一执行体是计划任务单轮,一轮实测跨 1 小时以上
+ * (2026-11-06T22:29:39Z 之后整轮静默 2h24m,同期调度器 72 趟全以"多实例被拒"收场)。
+ * 十片叶子同时黄,根却只有一个 —— 逐条去查叶子等于把同一个根查十遍。
+ *
+ * 判据的两个输入都由 `scripts/git-guardian.mjs` 现写(不在本层复算):
+ *   · 游标 `.ihui-agent/state/guardian-round-cursor.json` —— `markRoundStage()` 在 7 个段界落点;
+ *   · 现场 `.ihui-agent/state/guardian-crash-last.json` —— 三条异常出口
+ *     (`uncaughtException` / `unhandledRejection` / `main-rejected`)。
+ * 此前这两者都不存在:异常只写 stderr,而执行体是 VBS 隐藏窗口 ⇒ 一轮死了,账面只剩"腿黑了"。
+ *
+ * 三条纪律:
+ *  ① 游标读不到 ⇒ **unjudged**,绝不读成"轮次正常"(§0.3:没判 ≠ 判过);
+ *  ② 只看"最近有没有推进",不在这维猜是哪条腿拖慢的(那是 A8 的射程,两维不互相顶账);
+ *  ③ 崩溃件比游标新 ⇒ 一律 drift:说明最近一次终止是异常,而不是跑完或在跑。
+ */
+export const ROUND_CURSOR_REL = join('.ihui-agent', 'state', 'guardian-round-cursor.json')
+export const CRASH_LAST_REL = join('.ihui-agent', 'state', 'guardian-crash-last.json')
+/** 停滞线:一轮实测跨 1h+,而单段预算最长 15 分钟 ⇒ 45 分钟无推进只可能是卡死或静默死 */
+export const ROUND_STALL_MS = 45 * 60 * 1000
+/** 心跳消失线:跑完一轮后超过这么久没有新游标 ⇒ 调度器本身可能已停(不是腿的问题) */
+export const ROUND_HEARTBEAT_MS = 6 * 60 * 60 * 1000
+/** 轮级锁文件(心跳载体 = 它的 mtime)与心跳停滞线:正常每 30s 续一次,3 分钟未续即卡死 */
+export const LOCK_REL = join('.ihui-agent', 'state', 'git-guardian.lock')
+export const ROUND_HEARTBEAT_STALE_MS = 3 * 60 * 1000
+
+export function judgeCarrierRoundFace({ root = ROOT, now = Date.now() } = {}) {
+  const readJson = (rel) => {
+    try {
+      return JSON.parse(readFileSync(join(root, rel), 'utf8'))
+    } catch {
+      return null
+    }
+  }
+  const mins = (ms) => Math.round(ms / 60000)
+  const cur = readJson(ROUND_CURSOR_REL)
+  if (!cur || typeof cur.stage !== 'string' || !Number.isFinite(Number(cur.atMs))) {
+    return {
+      dim: 'A11-carrier-round',
+      state: 'unjudged',
+      readout: `轮次游标取不到/形状坏(${ROUND_CURSOR_REL})⇒「这一轮跑完没」没量`,
+      next:
+        '确认执行体是 2026-11-07 之后的 git-guardian.mjs(markRoundStage 那批才装),且计划任务至少真跑过一趟;'
+        + '注意 --check 刻意不写游标(只读态不许冒充跑完)',
+    }
+  }
+  const atMs = Number(cur.atMs)
+  const ageMs = Math.max(0, now - atMs)
+  const elapsedMs = Number(cur.elapsedMs) || 0
+  const crashed = readJson(CRASH_LAST_REL)
+  const crashMs = crashed ? Date.parse(String(crashed.at ?? '')) : NaN
+  if (Number.isFinite(crashMs) && crashMs >= atMs) {
+    return {
+      dim: 'A11-carrier-round',
+      state: 'drift',
+      readout: `承载体最近一次终止是异常:kind=${crashed.kind ?? '?'} stage=${crashed.stage ?? '(未落游标)'}(${mins(now - crashMs)} 分钟前)`,
+      next: `先读 ${CRASH_LAST_REL} 里的 stack 定位那一段,别去逐条放宽黑腿判据;修好后跑一趟真轮次让游标走到 main:round-done`,
+    }
+  }
+  if (cur.stage === 'main:round-done') {
+    if (ageMs > ROUND_HEARTBEAT_MS) {
+      return {
+        dim: 'A11-carrier-round',
+        state: 'drift',
+        readout: `上一轮跑完于 ${mins(ageMs)} 分钟前,此后无新游标 ⇒ 调度器可能已停(不是腿的问题)`,
+        next: '查计划任务 IHUI-AI git-guardian 的 Last Run Time / Last Result;多实例被拒与"任务被停"要分开判',
+      }
+    }
+    return {
+      dim: 'A11-carrier-round',
+      state: 'ok',
+      readout: `上一轮真跑完(stage=main:round-done,总耗时 ${mins(elapsedMs)} 分钟,${mins(ageMs)} 分钟前)`,
+      next: '',
+    }
+  }
+  // 走到这里 = 游标停在段中间。必须区分三种"停在中间":
+  //   ① 这一轮正活着跑(轮级锁心跳新鲜、且锁 pid 就是写游标那个 pid)⇒ ok「进行中」;
+  //   ② 这一轮已静默死(锁已被**另一个** pid 接手,而游标没走到 round-done)⇒ drift,点名死在哪段;
+  //   ③ 这一轮卡死(同一 pid 持锁但心跳停止 ⇒ 事件循环被长步骤占满)⇒ drift,点名心跳停了。
+  // 心跳载体是锁文件的 mtime(scripts/lib/guardian-lock.mjs 每 30s utimes 一次),
+  // 读不到就 null —— 绝不把"读不到"当成"新鲜"(§0.3)。
+  const lockInfo = (() => {
+    try {
+      const text = readFileSync(join(root, LOCK_REL), 'utf8')
+      const pid = Number((/^pid=(\d+)$/m.exec(text) || [])[1])
+      const mtimeMs = statSync(join(root, LOCK_REL)).mtimeMs
+      return { pid: Number.isFinite(pid) ? pid : null, mtimeMs }
+    } catch {
+      return null
+    }
+  })()
+  const hbAgeMs = lockInfo && Number.isFinite(lockInfo.mtimeMs) ? Math.max(0, now - lockInfo.mtimeMs) : null
+  const secs = (ms) => Math.round(ms / 1000)
+  if (lockInfo && lockInfo.pid !== null && cur.pid !== undefined && Number(cur.pid) !== lockInfo.pid && hbAgeMs !== null && hbAgeMs <= ROUND_HEARTBEAT_STALE_MS) {
+    return {
+      dim: 'A11-carrier-round',
+      state: 'drift',
+      readout: `上一轮停在 ${cur.stage} 后终止:游标 pid=${cur.pid} 已不再持锁(现由 pid=${lockInfo.pid} 持有且心跳 ${secs(hbAgeMs)}s 前),本轮已跑 ${mins(elapsedMs)} 分钟却没到 round-done`,
+      next: `这就是"静默死"的那种形态 ⇒ 先读 ${CRASH_LAST_REL}(有则据 stack 定位)与 git-guardian.log 该时段末行;修好后跑到 main:round-done 再判下游黑腿`,
+    }
+  }
+  if (hbAgeMs !== null && hbAgeMs > ROUND_HEARTBEAT_STALE_MS) {
+    return {
+      dim: 'A11-carrier-round',
+      state: 'drift',
+      readout: `轮级锁心跳停了:${secs(hbAgeMs)}s 未续(阈值 ${secs(ROUND_HEARTBEAT_STALE_MS)}s,正常每 30s 续一次)⇒ 事件循环被长步骤占满,停在 ${cur.stage}`,
+      next: '按 execFileSync 长步骤找占满事件循环的那一段(此前实测 = 派生带 240s 预算的重活),不是去放宽黑腿判据',
+    }
+  }
+  if (hbAgeMs === null && ageMs > ROUND_STALL_MS) {
+    return {
+      dim: 'A11-carrier-round',
+      state: 'drift',
+      readout: `轮次停在 ${cur.stage},${mins(ageMs)} 分钟无推进(本轮已跑 ${mins(elapsedMs)} 分钟),且轮级锁读不到 ⇒ 无心跳可证存活`,
+      next: '这一段之后的所有腿结构上都跑不到 ⇒ 先修「轮次跑不完」(票 RP-75),别把下游黑腿记成各自故障',
+    }
+  }
+  return {
+    dim: 'A11-carrier-round',
+    state: 'ok',
+    readout: `轮次进行中(stage=${cur.stage},当前段已 ${mins(ageMs)} 分钟${hbAgeMs === null ? '' : `,心跳 ${secs(hbAgeMs)}s 前`})`,
+    next: '',
   }
 }
 
@@ -962,6 +1092,7 @@ export function evaluateAll({
   parity,
   claims,
   output,
+      round,
   outputAll,
 } = {}) {
   const dims = []
@@ -1013,6 +1144,7 @@ export function evaluateAll({
       readout: '无台账输入 ⇒ 封票数判不出',
       next: '',
     })
+  if (round) dims.push(round)
   } else {
     dims.push(judgeMisattribution(events.events))
     dims.push(judgeRange(events.events, ticketRows))
@@ -3148,6 +3280,7 @@ async function main() {
   const liveness = judgeLivenessFace({ face: FACE_SEL.face, repoRoot, root: repoRoot })
   const parity = judgeCarrierParityFace({ face: FACE_SEL.face, root: repoRoot })
   const claims = judgeRoadmapClaimsFace({ face: FACE_SEL.face, root: repoRoot })
+  const round = judgeCarrierRoundFace({ root: repoRoot })
   const output = judgeClosureOutputFace({ root: repoRoot })
   const outputAll = judgeLegOutputsFace({ face: FACE_SEL.face, root: repoRoot })
   // A13 与 A7 同源取材:会话结果档的射程同样只认被审面上那一份 SESSION_RESULT_ACTIONS 解析。
@@ -3174,6 +3307,7 @@ async function main() {
     outputAll,
     claims,
     output,
+        round,
   })
   if (asJson) {
     console.log(
@@ -3233,3 +3367,19 @@ export const __test__ = {
   classifyLegOutputs,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+/* ── 对侧单行排版原文逐字保留(2026-11-07 三方归并)──
+ * 语义已由本侧多行展开承载(import 多行成员/签名与调用多行形态含全部同参数 + round 成员),
+ * 以下 3 行是对侧单行排版的原文存档,行级零丢失用;删它们 = 丢对侧独有行。
+ */
+/*
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
+*/
+
+/*
+export function evaluateAll({ repoRoot = ROOT, gatesText, events, ticketRows, transit, valve, closure, liveness, parity, claims, round } = {}) {
+*/
+
+/*
+  const result = evaluateAll({ repoRoot, gatesText, events, ticketRows: ticketRows ?? [], transit, valve, closure, liveness, parity, claims, round })
+*/

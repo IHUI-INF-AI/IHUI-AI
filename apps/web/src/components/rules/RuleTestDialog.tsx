@@ -51,7 +51,10 @@ function RuleTestDialog() {
           <CloseButton aria-label={tCommon('close')} onClick={closeTestDialog} />
         </div>
         <div className="space-y-1.5">
-          <label htmlFor="rule-test-msg" className="text-xs text-muted-foreground">
+          <label
+            htmlFor="rule-test-msg"
+            className="font-[weight:inherit] text-label text-muted-foreground"
+          >
             {t('inputMessage')}
           </label>
           <textarea
@@ -60,7 +63,7 @@ function RuleTestDialog() {
             onChange={(e) => setTestMessage(e.target.value)}
             placeholder={t('inputTestMessage')}
             rows={4}
-            className="thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-xs leading-relaxed outline-none focus:border-foreground/20"
+            className="font-[weight:inherit] thin-scroll w-full resize-none rounded-sm border border-border bg-background px-2 py-1.5 text-label leading-relaxed outline-none focus:border-foreground/20"
           />
         </div>
         <div className="flex items-center justify-end gap-2">
@@ -74,7 +77,7 @@ function RuleTestDialog() {
         {testResult && (
           <div
             className={cn(
-              'rounded-md px-3 py-2 text-xs',
+              'font-[weight:inherit] rounded-md px-3 py-2 text-label',
               testResult.matched
                 ? 'bg-green-500/10 text-green-600'
                 : 'bg-muted text-muted-foreground',

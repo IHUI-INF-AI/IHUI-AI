@@ -225,7 +225,7 @@ export default function CheckinAssistantScreen() {
                   onPress={() => void toggle(acc)}
                 >
                   <Text style={styles.actionText}>
-                    {acc.enabled ? t('checkinAssistant.disable') : t('checkinAssistant.enable')}
+                    {acc.enabled ? t('checkinAssistant.disable') : t('checkin.colEnabled')}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.action} onPress={() => remove(acc)}>
@@ -244,7 +244,7 @@ export default function CheckinAssistantScreen() {
         <View style={styles.card}>
           <View style={styles.rowHead}>
             <Plus size={16} color={tokens.text.secondary} />
-            <Text style={styles.cardTitle}>{t('checkinAssistant.addTitle')}</Text>
+            <Text style={styles.cardTitle}>{t('checkin.addAccount')}</Text>
           </View>
           <View style={styles.chips}>
             {PLATFORMS.map((p) => (
@@ -319,7 +319,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   summary: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
-  muted: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 18 },
+  muted: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+    lineHeight: rnType.bodySm.lineHeight,
+  },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
   badge: {
     fontSize: rnType.caption.size,

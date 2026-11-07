@@ -6,12 +6,16 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { handleConfigCommand } from '../src/commands/config-cmd.js'
 import {
   getSettingsPath,
   loadSettings,
+  readSettingsObjectForUpdate,
   saveSettingsTemplate,
   resolveEffectiveConfig,
 } from '../src/commands/settings.js'
+import { recordInstall } from '../src/lib/registry-client.js'
+import { addTask } from '../src/commands/tasks.js'
 
 describe('settings 加载/保存/合并', () => {
   let tmpDir: string
@@ -55,6 +59,26 @@ describe('settings 加载/保存/合并', () => {
     expect(content.allowDangerous).toBe(false)
   })
 
+  it('损坏的配置即使 --force 也不覆盖', () => {
+    const p = getSettingsPath()
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    const body = '{not json'
+    fs.writeFileSync(p, body)
+    expect(() => saveSettingsTemplate(true)).toThrow(/不能把它覆盖成新内容/)
+    expect(fs.readFileSync(p, 'utf-8')).toBe(body)
+  })
+
+  it('空白设置当成没有,损坏内容不能被 /config set 收掉', () => {
+    const p = getSettingsPath()
+    fs.mkdirSync(path.dirname(p), { recursive: true })
+    fs.writeFileSync(p, '  \n')
+    expect(readSettingsObjectForUpdate(p)).toEqual({ state: 'missing' })
+    const body = '{not json'
+    fs.writeFileSync(p, body)
+    expect(() => handleConfigCommand('set locale zh-CN')).toThrow(/不能把它覆盖成新内容 \(corrupt\)/)
+    expect(fs.readFileSync(p, 'utf-8')).toBe(body)
+  })
+
   it('resolveEffectiveConfig 优先级:CLI flag > settings > env > 默认', () => {
     process.env.IHUI_API_URL = 'http://env-host:1234'
     process.env.IHUI_API_KEY = 'env-key'
@@ -96,6 +120,50 @@ describe('settings 加载/保存/合并', () => {
     fs.writeFileSync(p, JSON.stringify({ auditEnabled: false }))
     const r = resolveEffectiveConfig({})
     expect(r.auditEnabled).toBe(false)
+  })
+})
+
+describe('安装清单损坏时不覆盖', () => {
+  it('损坏的安装清单不会被记成只剩这一条', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-registry-installs-'))
+    const corrupt = path.join(dir, 'corrupt.json')
+    const body = '{not json'
+    fs.writeFileSync(corrupt, body, 'utf-8')
+    try {
+      expect(() =>
+        recordInstall(
+          { sourceType: 'skill', sourceId: 'demo', version: '1.0.0', installedAt: '2026-11-06T00:00:00.000Z' },
+          corrupt,
+        ),
+      ).toThrow(/不能把它说成没有已装项 \(corrupt\)/)
+      expect(fs.readFileSync(corrupt, 'utf-8')).toBe(body)
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  })
+})
+
+describe('任务库根不是对象时不覆盖', () => {
+  it('数组根不会被收成只剩新的一条', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-tasks-array-'))
+    const prevHome = process.env.HOME
+    const prevProfile = process.env.USERPROFILE
+    process.env.HOME = dir
+    process.env.USERPROFILE = dir
+    const file = path.join(dir, '.ihui', 'tasks.json')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    const body = '[]'
+    fs.writeFileSync(file, body, 'utf-8')
+    try {
+      expect(() => addTask(dir, '新任务')).toThrow(/不是对象/)
+      expect(fs.readFileSync(file, 'utf-8')).toBe(body)
+    } finally {
+      if (prevHome === undefined) delete process.env.HOME
+      else process.env.HOME = prevHome
+      if (prevProfile === undefined) delete process.env.USERPROFILE
+      else process.env.USERPROFILE = prevProfile
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

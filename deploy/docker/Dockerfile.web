@@ -17,9 +17,10 @@ RUN npm install -g pnpm@11.18.0
 FROM base AS deps
 WORKDIR /app
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-# 根 package.json 的 postinstall 要跑这两个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
+# 根 package.json 的 postinstall 要跑这三个脚本;镜像只 COPY 清单文件,漏了它 pnpm install 必挂
 COPY scripts/fix-expo-metro-junction.mjs scripts/
 COPY scripts/lib/patch-lint-staged-stdio.mjs scripts/lib/
+COPY scripts/sync-mobile-app-json-version.mjs scripts/
 COPY apps/web/package.json ./apps/web/
 # 复制 @ihui/web 的 workspace 传递闭包(原清单引用了不存在的 packages/config、packages/ui、
 # packages/ui-primitives,且遗漏 app/i18n/ui-react/tsconfig → docker build 必挂,2026-09-10 修正)。
@@ -40,11 +41,12 @@ COPY packages/ui-react/package.json ./packages/ui-react/
 # apps/web 的 postinstall(node scripts/copy-monaco-to-public.mjs)在 deps 阶段即执行,
 # 只装 package.json 缺该脚本必挂 Cannot find module(2026-09-10)
 COPY apps/web/scripts ./apps/web/scripts/
-# --no-frozen-lockfile: 允许安装 package.json 中新增的 @lobehub/icons 依赖
+# --frozen-lockfile: 与全部 CI / 同目录 API·migrate Dockerfile 同口径,锁文件钉死依赖树;
+# 新增依赖必须先更新 pnpm-lock.yaml,否则构建当场失败,而不是装出一棵与 commit 无关的漂移树。
 # 2026-11-03(CI 提速):pnpm store 挂 BuildKit cache mount —— 实测 install 要下载 1331 个包,
 # store 命中后这一层在同一个 builder 上变成纯链接。注意:cache mount **不会**被 type=gha
 # 导出(跨 run 零收益),跨 run 的收益来自下面按清单分层的 `COPY package.json...` 层复用。
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm install --no-frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile
 
 FROM base AS builder
 WORKDIR /app
@@ -65,7 +67,7 @@ COPY . .
 # web prebuild 链会构建 @ihui/extension(wxt)并同步下载产物。extension 依赖不在 deps
 # 闭包内(postinstall wxt prepare 需完整源码,deps 阶段只有 package.json 会挂),
 # 待 builder 阶段源码就位后再补装其依赖(2026-09-10)
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm install --no-frozen-lockfile --filter @ihui/extension...
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store pnpm install --frozen-lockfile --filter @ihui/extension...
 ENV NEXT_TELEMETRY_DISABLED=1
 # 构建期固化 rewrites 代理地址为 Docker 内网地址(next.config.ts rewrites 在 build 时求值)
 ENV API_URL=http://api:8802

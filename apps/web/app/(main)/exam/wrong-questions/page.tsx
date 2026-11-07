@@ -20,7 +20,12 @@ import {
   X,
 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  explainWrongQuestion,
+  getWrongQuestionStats,
+  listWrongQuestions,
+  resolveWrongQuestion,
+} from '@ihui/api-client'
 import {
   Button,
   Card,
@@ -82,30 +87,39 @@ export default function WrongQuestionsPage() {
     [locale],
   )
 
-  const qs = React.useMemo(() => {
-    const q = new URLSearchParams({ page: String(page), pageSize: String(PAGE_SIZE) })
-    if (examId.trim()) q.set('examId', examId.trim())
-    if (filter === 'unresolved') q.set('isResolved', 'false')
-    if (filter === 'resolved') q.set('isResolved', 'true')
-    return q.toString()
-  }, [examId, filter, page])
-
   const { data: statsEnvelope } = useQuery({
     queryKey: ['exam', 'wrong-questions', 'stats'],
-    queryFn: () => apiOrThrow<{ stats: WrongQuestionStats }>('/api/exam/wrong-questions/stats'),
+    queryFn: async () => {
+      const r = await getWrongQuestionStats<{ stats: WrongQuestionStats }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
   const stats = statsEnvelope?.stats
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'wrong-questions', 'list', examId, filter, page],
-    queryFn: () => apiOrThrow<WrongQuestionListData>(`/api/exam/wrong-questions?${qs}`),
+    queryFn: async (): Promise<WrongQuestionListData> => {
+      const r = await listWrongQuestions<WrongQuestionListData>({
+        page,
+        pageSize: PAGE_SIZE,
+        ...(examId.trim() ? { examId: examId.trim() } : {}),
+        ...(filter === 'unresolved' ? { isResolved: 'false' } : {}),
+        ...(filter === 'resolved' ? { isResolved: 'true' } : {}),
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: allow,
   })
 
   const resolveMut = useMutation({
-    mutationFn: (questionId: string) =>
-      apiOrThrow(`/api/exam/wrong-questions/${questionId}/resolve`, { method: 'PUT' }),
+    mutationFn: async (questionId: string) => {
+      const r = await resolveWrongQuestion(questionId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => {
       toast.success(t('markSuccess'))
       qc.invalidateQueries({ queryKey: ['exam', 'wrong-questions'] })
@@ -116,11 +130,13 @@ export default function WrongQuestionsPage() {
   // AI 讲解:POST /exam/wrong-questions/:questionId/explain(首调生成并落库,此后回放缓存,G-978072)
   const [explanation, setExplanation] = React.useState<{ title: string; text: string } | null>(null)
   const explainMut = useMutation({
-    mutationFn: (wq: WrongQuestion) =>
-      apiOrThrow<{ explanation: string; cached: boolean }>(
-        `/api/exam/wrong-questions/${wq.questionId}/explain`,
-        { method: 'POST' },
-      ),
+    mutationFn: async (wq: WrongQuestion) => {
+      const r = await explainWrongQuestion<{ explanation: string; cached: boolean }>(
+        wq.questionId,
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (d, wq) => {
       setExplanation({
         title: wq.questionTitle || wq.paperTitle || wq.questionId,

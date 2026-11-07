@@ -11,13 +11,17 @@
  * 机制面:mkdir EEXIST 原子互斥、marker 齐备即 reused:true 不重下载、
  *        createSession 提交后解除清理武装、启动对账三态。
  *
- * 夹具全部落仓内 `.ihui-agent/tmp`(os.tmpdir() 禁用),测试后清理。
+ * 夹具落点:唯一取自 `scripts/lib/scratch-dir.mjs` 的 `mkScratch()`(AGENTS §15b / §15c)。
+ * 历史的"仓内 `.ihui-agent/tmp`"写法已废:该处会造出 `.git`(本用例 `git init` 建源仓),
+ * 而它落在**仓库工作树内** ⇒ 测试崩溃/超时留残骸就由门 208(`check-no-nested-git`,
+ * blocking)堵死全仓提交链;且 `os.tmpdir()` 同样禁用(可能钉 C 盘)。`mkScratch` 的落点
+ * 推导、拒建闸与"非 git 面"边界全在源模块里,本文件不重写任何判据(§0.6)。
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs' // arch-exempt: 测试夹具只能取 §15b 唯一落点(禁 os.tmpdir/裸 mkdtemp,不得在仓库树内造 git 夹具=门 208);正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
 import {
   createWorktree as createWorktreeCoW,
   worktreeMarkerPath,
@@ -35,8 +39,6 @@ import {
   type SubagentState,
 } from '../src/subagents/state-store.js'
 
-const REPO_ROOT = path.resolve(fileURLToPath(new URL('.', import.meta.url)), '../../..')
-const FIXTURE_ROOT = path.join(REPO_ROOT, '.ihui-agent', 'tmp')
 
 // 真实 git 子进程 + CoW 复制,负载下 15s 默认易误伤 → 与 worktree.test.ts 同档 60s
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 })
@@ -92,8 +94,7 @@ function makeStateRow(id: string, worktreePath: string): SubagentState {
 }
 
 beforeEach(() => {
-  fs.mkdirSync(FIXTURE_ROOT, { recursive: true })
-  fixture = fs.mkdtempSync(path.join(FIXTURE_ROOT, 'g706-fail-radius-'))
+  fixture = mkScratch('g706-fail-radius-')
   sourceRepo = path.join(fixture, 'source')
   fs.mkdirSync(sourceRepo, { recursive: true })
   gitInit(sourceRepo)
@@ -112,7 +113,7 @@ afterEach(() => {
   else process.env.IHUI_WORKTREE_DIR = savedWtDir
   if (savedStateDir === undefined) delete process.env.IHUI_SUBAGENT_STATE_DIR
   else process.env.IHUI_SUBAGENT_STATE_DIR = savedStateDir
-  fs.rmSync(fixture, { recursive: true, force: true })
+  rmScratch(fixture)
 })
 
 // ============ 票面验收①:phase=installing 崩溃 ⇒ 重启后目录保留不被删 ============

@@ -104,10 +104,8 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | — blocking | 304 | `guardianBlocking` |
 | — warn | 32 | `guardianWarn` |
 | 跟踪文件 | 19087 | `trackedFiles` |
-
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
-
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
@@ -5461,49 +5459,35 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
 - 🐞 修复:取票腿被击穿时的可证复用 —— 三条安全条件缺一即拒绝,且必须说出是哪一条 (43bdd603e5)
 - 📚 文档:22 枚在飞票挂完整租约(HEAD 面⊕挂牌,不代他席落地) (1c4f42c0c6)
-
 **2026-11-06**
 - 🐞 修复:RP-91 旁路器物未知旗标守卫收口 + 修三枚烂牙测试 (09eeb36dcb)
-
 **2026-11-06**
 - 🐞 修复:健康尺 A15 同批认 cost-breaker-stop —— 新字面量不能变成"没人认领的动作" (c3076a1a36)
-
 **2026-11-06**
 - 🐞 修复:成本熔断不再冒充"日预算耗尽" —— 两种真因曾共用一个字面量 (f8213f5a4f)
-
 **2026-11-06**
 - 🐞 修复:日上限计数拿本地日键去比 UTC 时间戳 —— 本地 00:00-08:00 这段窗口日上限根本不生效 (b3cb1ec26b)
-
 **2026-11-05**
 - 🐞 修复:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
-
 **2026-11-06**
 - 🚀 新功能/改进:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
-
 **2026-11-05**
 - 🐞 修复:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
-
 **2026-11-06**
 - 🐞 修复:出站清洗补上射程第三格 —— 零宽藏在工具调用参数里时仪器全程报绿 (1b62d16ce2)
-
 **2026-11-05**
 - 🐞 修复:消灭内部调用无凭据退化成裸 x-user-id,并加静态判据门 (3cfb981dc8)
 - 🐞 修复:内部服务鉴权默认收口到 ticket,老通道身份头强制签名 (32cf59c6f4)
-
 **2026-11-06**
 - 🐞 修复:逃生邮件从来没发出去过 —— resolveMailTo 的正则少一个 m 档,还反指控"缺键" (fdc0253f83)
-
 **2026-11-05**
 - 🐞 修复:重发 tenant RLS batch1 为幂等装车迁移 + 回滚脚本(F-01) (2725de663d)
-
 **2026-11-05**
 - 🐞 修复:请求出口复位 app.* 会话变量,闭合池化连接串租户(F-02) (ad4828bf26)
-
 **2026-11-05**
 - 🔧 工程/其他:落地 pre-commit 自动格式化(仅折行/合并,无逻辑变化) (a9a727aada)
 - 🐞 修复:内部票补齐 CSRF 非消耗式验签与 codebase 路由入口 (fc0e93c32f)
 - 🐞 修复:判据 3 收严为声明锚定 + 全集相等,补反例 (b84737901b)
-
 **2026-11-05**
 - 🔧 工程/其他:修正白名单切片定位到常量声明处 (9a302a22fb)
 <!-- END RECENT UPDATES -->
@@ -41639,3 +41623,916 @@ A: Yes. ~14839+ tests / 4036 test files / 67 e2e spec / 4683 API 路由 / 619 �
 - **53 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
 - **4045 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
 A: Yes. ~14839+ tests / 4045 test files / 67 e2e spec / 4685 API 路由 / 618 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+对外关键数字声明(与本页生成块同源,均现算):**624 张表 · 4705 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 测试文件数见生成块 · 348 道工程守门 · 54 CI workflows ·
+| 数据库表 | 624 | `dbTables` |
+| schema 文件 | 241 | `dbSchemaFiles` |
+| API 路由 | 4705 | `apiRoutes` |
+| 路由文件 | 666 | `apiRouteFiles` |
+| AI 服务路由 | 631 | `aiServiceRoutes` |
+| CLI 命令文件 | 75 | `cliCommandFiles` |
+| CLI 工具文件 | 92 | `cliToolFiles` |
+| 测试文件 | 4260 | `testFiles` |
+| CI 工作流 | 54 | `ciWorkflows` |
+| 工程守门 | 348 | `guardianGates` |
+| — blocking | 319 | `guardianBlocking` |
+| 跟踪文件 | 19606 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
+    <code>4393</code> API 路由 · <code>542</code> 张表 · <code>8</code> 端全覆盖 · <code>176</code> 模型 · <code>25</code> 平台发布 · <code>719</code> 测试文件 · <code>87</code> 守门脚本 · <code>109 万</code>行代码 <!-- doc-num-exempt: 截至 2026-09-21 的历史快照(旧版 hero 副本,非当前总量声明) -->
+  <sub><strong>以上为截至 2026-09-21 的历史快照(沿革留档,非当前值;当前值见上方「关键数字(现算)」)</strong></sub>
+  <strong>624 张表 · 4705 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 测试文件数/用例数见生成块 · 67 e2e spec · 54 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **624 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4705 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **工程守门** | **88 守门/验证脚本**(60 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(47 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段(push 门 staged-scope 降级) + 54 CI workflows          |
+| **测试覆盖** | **测试文件 / 测试用例(见上方生成块)**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4705 API 路由;测试文件数与用例数见生成块。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 54 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 测试文件数与用例数见生成块 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 测试文件数与用例数见生成块 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+- **运维**:Prometheus + 大屏 · 54 CI workflows · 88 守门脚本 · 蓝绿部署
+- **运维**:Prometheus + 大屏 · 54 CI workflows · 88 守门脚本 · 蓝绿部署
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4705 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 624 数据库表 / drizzle-kit push / 4705 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4705 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 工程守门            | **87 守门/验证脚本**(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ **pre-commit 56+10 项**(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + **54 CI workflows** + post-commit 自动 push + lost-commit tag 自动同步                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+|                   | 测试覆盖            | **测试文件 / 测试用例(见生成块)**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:624 张表 · 4705 API 路由 · 测试文件数与用例数见生成块
+- **质量**:348 道工程守门（244 blocking）· 54 CI workflows · 删水印即 CI 失败
+| **AI 服务** | `apps/ai-service/`   | FastAPI + LangGraph + Socket.IO | LLM 网关 + Agent 执行 + MCP 工具 + A2A 协议 + 14 发布 adapter,~55 端点。沙箱生命周期在 `/api/sandbox/instances`，Agent 工具 `sandbox_session` 同义：暂停/恢复、文件系统快照、克隆、原地回滚；网络与密钥不由请求方自带                                                                                                                                                                                                                                                                                                                                            |
+├── .github/workflows/       # 54 个 CI workflows
+├── .github/workflows/       # 54 个 CI workflows
+### 通病 ② 边界条件处理不足 → 实际:测试文件数与用例数见生成块 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 测试文件 / 测试用例(见生成块)+ 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 624 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4705 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **54 CI workflows**:CI / Build Docker / e2e / Visual Regression / Release SDK / Release Desktop / Release CLI / Lighthouse CI / Knip / i18n Check / weekly-security-audit / WebSocket Load Test 等
+- **测试文件 / 测试用例(见生成块)**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4705 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+**2026-11-07**
+- 🚀 新功能/改进:落三组确证未落地的真工作（RN 测试面 4 枚 + 类型预算器 4 枚 + tabbar 图标生成器换代） (521e7853d4)
+- 📚 文档:合并后按现读尖重算生成块数字（trackedFiles/testFiles/apiRoutes 等） (0c67ea403f)
+- 📚 文档:结档 miniapp-shell content-batch2 三件套（spec/tasks/checklist） (3048057ccb)
+- 🐞 修复:规格差异和流水线记录读不到不再说成没有 (27ce4c3148)
+- 🐞 修复:补真运行时已在消费的类型面(skill 三字段/stat 注入/压缩阈值/unreadable 分支),cli T1 15 条归零 (c3d3fb644a)
+- 📚 文档:生成块按现读尖归位(四语) + last-sha 跟随 (00ed09fe38)
+- 🐞 修复:损坏的百科缓存不再被换成新摘要 (2c6b134f1e)
+- 🐞 修复:损坏的配置即使强制也不换成模板 (0e1d479c5a)
+- 📚 文档:README 生成块按 HEAD 现算归位(trackedFiles 19566→19567、testFiles 4251→4252) (22790a0797)
+- 🐞 修复:读不到或损坏的名单不再被整份覆盖 (2cae179ad5)
+- 🐞 修复:catch 绑定不再遮蔽 error() 响应助手,stat 注入类型跟随 statSync 重载;消除 7 条 T1 红 (d5923692c8)
+- 🐞 修复:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (f4e1c402ca)
+- 🐞 修复:补真运行时已在消费的类型面(skill 三字段/stat 注入/压缩阈值/unreadable 分支),cli T1 15 条归零 (f660808092)
+- 🐞 修复:损坏的插件登记表不再被读成没有已装插件 (ec5240013b)
+- 🐞 修复:隐私政策过度声明收口 + 路由级回落锁补测(接棒 11-06 中断会话 set4) (80b4b2bb0d)
+- 📚 文档:README 生成块按 HEAD 现算归位(trackedFiles 19561→19563、testFiles 4249→4251) (257fac5a34)
+- 🐞 修复:读不到的技能目录和项目根不再写成空清单 (3092936925)
+- 🐞 修复:doubao Cookie 头按 ByteString 归一,非 Latin-1 字符 percent-encode;消除 U+FFFD 触发的 fetch ByteString 异常把未判定伪装成凭据错误。补两条回归用例(vitest 40/40 绿),重导入后健康态回到 unknown/未判定 (3e0a1b5497)
+- 🐞 修复:读不到不再当成没有再覆盖 (be7022c861)
+- 🔧 工程/其他:补齐 6 枚文件溯源水印(47p HEAD 面欠账清零) (305e237c4e)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (e4dc97f170)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (027c2e3da9)
+- 🔧 工程/其他:欠债快照与 README 数字按修好的尺在新面重算 —— 派生态不搬旧面副本 (0b17ae1193)
+- 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (8b76a25dee)
+- 🚀 新功能/改进:量具纠错(D3)+配对改判+轴一结清+词包扩面 —— 未落地链整体重放到活尖单枚落地 (e20af7a824)
+- 🐞 修复:首页模型选择弹窗高度按内容自适应(修复列表塌成0高看不见) (8d8a28770f)
+- ♻️ 重构:props 契约下沉 @ihui/types 单一源 + 会话历史排序上移 shared (2447a00d04)
+- 🐞 修复:读不到不再当成没有再覆盖 (5aee34e06e)
+- 🐞 修复:预算档位枚举收回单一真相源,budget 帧改按 type 认领不再滑进正文兜底链 (7af1564716)
+- 🐞 修复:撤销/重做的删除腿与写入腿各收敛到唯一出口,消除合并机械并存留下的实害 (544f1eba4d)
+**2026-11-07**
+- 🐞 修复:提现状态补 processing 五语言词条,并在 web 映射补齐 label/style(对齐 @ihui/types 六值契约) (cee709a769)
+- 🚀 新功能/改进:重放 VIP/钱包薄壳族 + 成绩页整屏单源 + 归属层外部状态本地兜底（十枚滞后续提交的定点入库） (d964d0ec0f)
+**2026-11-07**
+- 🚀 新功能/改进:成绩页跨端词条五语同批（三数/全量解析/rank/三操作）并按合并后源重算离线包 (9d2677fe83)
+- 📚 文档:README 生成块 trackedFiles 19557→19559(按 HEAD 现算值归位) (5f0e886a89)
+- 🐞 修复:OTA 腿 eas update 超时 15→30 min,并把被杀的末段输出打出来 (e2ba407272)
+- 🐞 修复:深度收口 RN 样式高度口径 + 百分比判据进提交链 (88958244a0)
+- 🐞 修复:余下 ciWorkflows 53→54 对齐现算值 (f56a522031)
+- 🐞 修复:ciWorkflows 53→54 对齐现算值(cross-end-sync 工作流落地后) (e0124cd427)
+- 📚 文档:记录 Taro 侧四条平台硬限制(onLayout/RootPortal/定高/line-clamp) (2e99f52b07)
+- 🚀 新功能/改进:补齐五类原语能力缺口(ScrollView 高度边界/Modal Portal/onLayout/threshold 换算/numberOfLines≥2) (abe20accdb)
+- 🐞 修复:OSS 签名 Content-Type 大小写不敏感(修 0.0.18 快腿 SignatureDoesNotMatch) (b6617e4d20)
+- 🐞 修复:补 zh-TW 的 menu.autoInstallPermission 并按合并后源重算离线包 —— 门 2f 点名本票 overlay 重放只写进四语，§19 五语同批补齐;生成件由 gen-i18n-compressed 重算而非手改(4 枚 CDN b64 载荷本轮逐字节未变，不入清单) (cbae427abd)
+- 🔧 工程/其他:代码检索两腿行为补锁——读不到目录或文件必须显式 unjudged、同步段必须经线程池 (48e81a85d6)
+- 🐞 修复:永久保活接管前先当场探测客户端,把"顶掉机主正在用的号"翻成默认让位 (fe0ab4cbe3)
+- 🐞 修复:离线包按现读尖 bca76e72 重生成(消 B2 缺 categoryDetail.recommended 与 G5 钉值不等) (8875e2b728)
+- 📚 文档:刷新生成块数字 testFiles 4247 / trackedFiles 19553(推送门 [173] 要求) (bca76e7275)
+- 🐞 修复:逐页裁决退休 2 页纯壳并加严 S2 可摘判据 (080d16775f)
+- 🐞 修复:合并残留的 createOrder 改回 createVipOrder,并补 text() 替身(BUG-13) (0b4351eee6)
+- 🔧 工程/其他:同步桶入口替身与受影响的三个套件 (165213038e)
+- 🚀 新功能/改进:补齐剩余 RN 薄壳导入与 301 三屏映射(未判定 3→0) (a744c37ec7)
+- 🐞 修复:4 份测试替身对齐 BUG-13/字体缩放取档(消 rn-tests 13 例恒红) (fc6784fd1c)
+- 📚 文档:补 4 条删除意图通知书 —— 两枚 src-tauri mod 与两枚死图标 svg 均由主干自身提交(d050d90d10/bce2df19d4)整文件删除，mod 声明两侧实算 0 命中(lib.rs 作阳性对照) (40d1e01772)
+- 🐞 修复:budget-note 判据对齐 formatTokenCount 一位小数口径(85.3K,消 rn-tests 恒红) (1d9ffcb447)
+- 🐞 修复:主进程探测三态化(量不到 != 没进程) + 超时带出 signal (bdc5eff9ed)
+- 🐞 修复:插件读失败只认一份缺失名单 (8c0c0b88f3)
+- 🐞 修复:测试 mock 的 text() 与 json() 同源(BUG-13 2xx 走 text 后 19 例转绿) (ba90dfce18)
+- 🐞 修复:主进程探测三态化(量不到 != 没进程) + 超时带出 signal (f27ffc8809)
+- 🔧 工程/其他:G-815989 公开清单钉子改钉单一真相源(消 rn-tests 红) (f681776468)
+- 📚 文档:README 生成块与现算面数字刷新(消 DN2 红) (f57a72c81e)
+- 🐞 修复:qoder:import 降级通道接上 pool-owner 默认归属,不再恒落运营池 (7ae99e02dc)
+- 📚 文档:README 现算面 API 路由 4702→4703 对齐(消 DN2 红) (7a03f720f6)
+- 🐞 修复:S 族编号判据补族 + S-26 同号归并;消除 ESM 图 TLA 令两把尺恢复同步加载(§22c 16 红→25 绿) (ed4a870092)
+- 🐞 修复:插件目录和完整性门体读不到时不再当成没有 (173a79ac95)
+- 🐞 修复:全量收口 RN 百分比限高面板到高度单一真相源(15 处/12 屏) (ff5f6ac52f)
+- 📚 文档:生成块 trackedFiles 对齐 HEAD 实测 19545(.tmp 未跟踪文件不计入) (20d8c82fdd)
+- 📚 文档:merge 后同步关键数字与生成块(622->624 表, 4699->4703 路由, 4078/4099->4243 测试文件, 333->336 守门) (dee7c77466)
+- 🐞 修复:修复 public-paths 溯源水印载荷损坏(消门47p红) (d79ffb249c)
+- 🐞 修复:pkg-ai/ai/chat 按 S1 撤销退休重新在册(消门299红) (1455683633)
+- 🐞 修复:admin 批量导入把归属落点回显出来,不再静默交运营池 (845ba68a36)
+- 📚 文档:Y-24 结清摘行 — c59c7052e5 键源稳定身份+同批迁库 / 637aa1d8 validate CLI 换 resolveImportAccountUidProbe 与镜像 22+196 例 / 628fba02b7 同 uid 双行根因封口; --check clean 24/24 dupGroups=0, Z68 探针 0 重复组, 61/61+27/27 绿 (dc41e4afa1)
+- 🐞 修复:壳声明不再遮蔽可解析的 @ihui/rn-app 深路径，tsc 101 归零 (e4951cabd2)
+- 🐞 修复:VipScreen 下单改用后端契约 createVipOrder(消 typecheck 红) (c474857607)
+- 🐞 修复:安装包只有路径不能当成内容已核验 (d624bd5852)
+- 🔧 工程/其他:同步 README 生成块现算数字(门173 归零) (2681ff4d52)
+- 🔧 工程/其他:重生成 ui-routes 与 README 现算数字(门105/173 归零) (60a958977f)
+- 🔧 工程/其他:同步 README 现算数字与小程序离线语言包(门173/105 归零) (31f9323852)
+- 🐞 修复:BUG-67 提问卡迁入共享屏 overlaySlot,chat 页恢复真薄壳(门299 归零) (f0325cf3a7)
+- 🔧 工程/其他:收编守护落档产出(1 件,凭落点账本) (1a18e2d274)
+- 🚀 新功能/改进:APK 快腿接入发版链(OSS 签名直链/证书自动续签/--download-url 登记) (41a9fad663)
+- 🐞 修复:代码检索读不到目录或文件时标明不完整 (470e7dea5a)
+- 🔧 工程/其他:land Z58 bridge: apps/ai-service/app/services/checkin_user_pool_bridge.py, apps/ai-service/tests/test_checkin_user_pool_bridge_owner_subject.py, apps/ai-service/tests/test_checkin_user_pool_bridge_internal_ticket.py (06c4bb2583)
+- 🔧 工程/其他:land Z66 relay-pool artifacts: apps/api/scripts/relay-account-import-validate.ts, apps/api/scripts/relay-pool-uid-keysource-audit.ts, apps/api/tests/relay-pool-validate-cli-uid-keysource.test.ts, apps/api/tests/relay-pool-uid-keysource-audit.test.ts (637aa1d817)
+- 🐞 修复:本机会话自动入池改按 pool-owner 落个人池,同 uid 双行根因封口 (628fba02b7)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (d911713aba)
+- 🐞 修复:全量收口 RN 弹层高度 bug、门131/273 交互缺陷与样式文档漂移(14 文件) (97f70b4b84)
+- 🐞 修复:alignSharedIndex 让路/耗尽两档桶形态 0→[] 坐实并钉住(Z69R) (533b67bfde)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (652ce1d097)
+- 📚 文档:落地取证册§16(第十一回合死席收编与机主面分家定稿,6处短sha补全40位)+RELEASE.md鸿蒙行改五格现读事实(Z67残余3) (ba2af37965)
+- 🐞 修复:读不到的文件不再当成没有再覆盖、删除或改用下一份 (faf9aa9ced)
+- 🐞 修复:根治 BUG-65/79 共享契约字段错位 + 补齐 miniapp 导出声明 + 清理明文 DSN 兜底注释 (52505f20c3)
+- 🐞 修复:简介数字对齐现算口径并移除两枚死图标 (bce2df19d4)
+- 🐞 修复:OTA 腿必须回读新组才算落地 + hook 顺序回归锁 (ede655949e)
+- 🐞 修复:AutoInstallGuide 的 hook 必须早退前声明 (f070fddf2f)
+- 🐞 修复:公网终检 -NoProxy + 重试,清理失败不再污染退出码 (d86d4c7d3f)
+- 🔧 工程/其他:versionName 优先 -P,显示版本与原生基座解耦 (fc592e25e1)
+- 🔧 工程/其他:origin/main 35c870f8705b115086a63aadefe2ecb8e5370558 + mobile overlay b77573788d5d2b31f8d2b09ae2e212c953131f9f (d76367ae48)
+- 📚 文档:记录 node_modules 空洞导致 eslint 加载失败的根因与恢复口径 (384c883107)
+**2026-11-04**
+- 🐞 修复:派生进度始终落地,门禁红只拦合并不拦推进 (252ef71a05)
+- 🚀 新功能/改进:跨端级联全自动流水线 web→RN→小程序 (机主令 2026-11-04) (06f85e2a91)
+- 📚 文档:随本轮文件面变动同步现算数字(表 621/测试文件 4108/守门 336) (2f779fcd75)
+- 📚 文档:第六回合五席产出入账 + §8c 那道合并分歧的结清读数 (2441c18be2)
+- 🔧 工程/其他:并入 origin/main 后按最新源面重生成 miniapp 路由钉与 README 数字块 (d3ce25f178)
+- 🐞 修复:共享层公开入口补登 5 条精确名——清门103 D3 的 14 处"入口未声明" (6dc60e0fd3)
+- 🐞 修复:NavBar 加入按钮描边改 brandAccent.deep——对齐小程序端既有档,清门83 R3/R8 双债 (16b03e422b)
+- 🔧 工程/其他:落地已声明删除(8 条孤儿 D + model-edit-save 孤儿层),重生成 miniapp 路由钉 (461bfa0554)
+- 🚀 新功能/改进:补上 worktree 删除出口的容器性断言并接满三处出口,W-2 那格连账面副作用一起改对(rea goal-b49 W5 判据 + W9 接线,主席复量收口) (78926473f1)
+- 🚀 新功能/改进:给删除保护链补上「到期清理」判据 + 清理器自身的死亡机制(rea goal-b49 W7 席产物,主席复量收口) (c96284038a)
+- 🚀 新功能/改进:技能目录缓存接上 /skills 真消费点(rea goal-b49 W4 写 + W8 复核,主席复量收口) (d51703a8b3)
+- 🚀 新功能/改进:复现 Qoder 的激活事件档位与 33 条权限名入库,并接权限面到 dataClass 默认拒(rea goal-b49 W6 席产物,主席复量收口) (97d676acd8)
+- 🐞 修复:放宽 _wb_request/_post_once 的 body 类型——main 侧 c70dc9951b 引入的 arg-type,修语义不消音 (9ace5d96e0)
+- 🐞 修复:g706 夹具改走 scratch-dir——不再在仓库树内造 .git 堵死门208 (994ae64ea8)
+- 🚀 新功能/改进:快照存储层按 fs 适配拆档,GC「判不出⇒不删」的原因逐条上账(rea goal-b49 W3 席产物,主席复量收口) (d71a551036)
+- 🐞 修复:rebuild-local 摘掉 || true 恒真兜底——cat-file 失败不再被读成健康 (45a9da7bde)
+- 🔧 工程/其他:治理债②结清——删除 HEAD 面 13 枚零消费者死脚本 (34cd0f1b20)
+- 🚀 新功能/改进:门89 R3 登记面扩到 scripts/ 直属全量 + red-r3-rot 腐烂档;r3Register +18 枚逐枚定性 (37881c66ba)
+- 🚀 新功能/改进:守护全量档开工作日定时+报告档——332 道门不再只靠人手点,逐门日志入 artifact 且不设 required (64bf9417b9)
+- 🚀 新功能/改进:把 Trae 式四维工具配额真正接到消费点(具名拒绝,不静默截断) (405239526e)
+- 🐞 修复:stylelint 缺配置改灰跳不假绿——探测步单源门控,未执行落 warning 与 step summary 而非静默成功 (1c67575e1c)
+- 🚀 新功能/改进:把插件贡献审计装到生产装载链,并把 loader.ts 按职责拆到三档(rea goal-b49 W2 席产物,主席复量收口) (74e321fc08)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9dbe548e3d)
+- 🐞 修复:顶层 import type 替代 import() 类型注解，修复 gate-analyse lint 红 (a939b66110)
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+**2026-11-03**
+- git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-staged-resurrection.mjs`(pre-commit 0b 段取索引面 `--diff-filter=A`,拦「已声明删除被当新增收编」;判据单源 `scripts/lib/intentional-file-deletion.mjs`;刻意不设 `HUSKY_SKIP_*` 跳过键,唯一出口 `--revoke-deletion`) `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
+- 接线/自检: `check-gate-face-discipline.mjs` `check-skip-env-promise.mjs` `check-selftest-registrant-evaluates.mjs` `check-ci-failure-triage-wiring.mjs`(W1 差值只拦新增、W2 失明/错位/孤儿锁硬拦,`TRIAGE_WORKFLOW_FILE` 必须指本文件) `check-api-key-permission-labels.mjs`(union↔web 标签表↔五语言键集) `check-sheet-flex-contract.mjs`(bounded 容器内列表唯一弹性块;镜像 `check-sheet-flex-contract.test.mjs`) `check-mobile-rn-style-parity.mjs`(RN 硬编码 hex 基线棘轮) `check-list-predicate-has-positive-proof.mjs` `check-ops-patrol.mjs` `check-shared-type-not-redeclared.mjs`(sameShape+reachable 两维) `check-alert-identity-volatility.mjs`(V1 去重身份不含抖动量;V3 声明 `inScope:true` 必须在 `SCOPE_PREFIXES` 内、V4 发现集不得漏面;台账 `scripts/data/alert-mail-faces.json`;生产者 `alert-notification-service.ts`;镜像 `check-alert-identity-volatility.test.mjs`) `check-generator-resource-release.mjs`(async 生成器消费点必须显式 aclose/return;warn 起步) `check-no-warm-border.mjs`(W1-W4 暖色描边/9-patch/colorAccent/plugins 被 ignore;镜像 `check-no-warm-border.test.mjs`) `check-auth-cookie-domain-scope.mjs`(V1 域外写手/V2 判据拆毁/V3 回归形状;单源 `apps/api/src/utils/auth-cookies.ts` 的 `resolveCookieDomain`;镜像 `check-auth-cookie-domain-scope.test.mjs`) `check-bpe-encoding-parity.mjs`(C1 声明/C2 行为/C3 反向锁) `check-grafana-metric-exists.mjs`(指标名必须有发射点或台账) `check-grafana-datasource-wiring.mjs`(A uid 必须存在;B 只报数;C gridPos 相交/越界;镜像 `check-grafana-datasource-wiring.test.mjs`) `check-sse-no-blind-merge.mjs`(全量帧/`snapshot`/`initial` 分支禁止铺开本地旧状态,判据落在 `sse-parse.ts`) `check-direct-run-guard.mjs` `check-test-judge-not-replicated.mjs` `check-staged-typecheck-mirror-sync.mjs` `check-registry-worktree-superset.mjs` `check-rich-anchor-renderer-single-source.mjs`(249) `check-mobile-download-leg-cn.mjs`(CI 弱接线,`.github/workflows/mobile-download-leg.yml` 手动触发;两条腿各以 `Range: bytes=0-0` 真探 `Content-Range` 总长 —— 任一腿量不到 ⇒ exit 2 未判定,低于体积下限或两腿总长不等 ⇒ exit 1,全等才绿;自检 `--self-test`)
+| — warn | 29 | `guardianWarn` |
+- 🔧 工程/其他:分叉收敛后按 HEAD 面重生成 web/miniapp 两枚 ui-routes 产物(合并提交承诺的落地后重生成;门 105 stale→matched) (35bddefbd9)
+| — warn | 32 | `guardianWarn` |
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (55c2cb04cd)
+- ♻️ 重构:共享屏间距 26 处落档 + 2 处 Platform 锁 web 值,销账 18 条 decision (73dfd3f56c)
+- 🐞 修复:B02② 会话切换时 chatSync 判据面与 resyncPending 一起换人(同 id 重设不动,补 1 条判据测试) (03b1cec6db)
+- 🐞 修复:PayPopup 回退误带入的他会话间距中间态，仅保留 ¥ 档位落档 (2ea19b406b)
+- 🐞 修复:RP-1 号域族注册表(RP 多字母族在册,单字母逐字不变)+ O01 空对照面收口为「挂账+到期」; immutable-exempt: 族注册表为新增只读取表,挂账判定只在空对照面改判,既有判红档与退出码语义不动 (73eac1c22b)
+- 🐞 修复:RP-47×2 staged 面双测试(有暂存必须取索引 blob/暂存为空判未判定不回落工作树) (1952b604cd)
+- ♻️ 重构:钱包/课程/排行等 92 处间距默认档落具名档 (7afdef0638)
+- 🐞 修复:runGate 的 node 分支显式 windowsHide(守门 no-visible-spawn 73 行按面转绿;超时与错误文案不变) (f4e33958fc)
+- 🐞 修复:出包链 windowsHide 接线回归锁(静态扫描全部 spawn/exec 调用点+门体形态锁,2 项) (f04f0b8ab7)
+- 🔧 工程/其他:D171 形状锁五→六处，点名 O67 发令前只读点名 (fd1fe89c72)
+- ♻️ 重构:门128 几何名额回退 3 处(4/8 档恢复 numeric) (b295cede8c)
+- 🐞 修复:18 处人工档位判定·落 8 保 10·不动几何额度 (ec9802df54)
+- 📚 文档:守门 207 体积清偿归零(96,790→95,910) (8e09798d32)
+- ♻️ 重构:支付/分销/课程头/简介/VIP/课时 87 处间距默认档落具名档 (9772113c78)
+- ♻️ 重构:共享屏 17/28/32/36 字号落 title/displayLg 档·10 处 (7a241e4d3e)
+- ♻️ 重构:模型配置/运行时/评论 92 处间距默认档落具名档 (d32e043698)
+- ♻️ 重构:共享屏 22px 标题/数值落 heading 20 档·71 处 (d2f150f983)
+- 🐞 修复:默认永不跳钩,锁重试收窄为 3 次/指数退避/60s,新增 --allow-skip-hooks (c3898fdb14)
+- 🔧 工程/其他:提交后格式化回流 2 文件 (1eac95dcd6)
+- ♻️ 重构:默认档等值落具名档·课程批 73 处 (904cb347c2)
+- ♻️ 重构:默认档等值落具名档·屏级批 58 处 (511fcc7b95)
+- ♻️ 重构:默认档等值落具名档·组件批 68 处 (766687c346)
+- 🐞 修复:--next-id 拒发池外号,池满点名改走 next-plan-id(G-44/G-54) (42f6d6414f)
+- ♻️ 重构:销账 6 条已全清 decision、补细 19 条挂账证据 (903c6cee1a)
+- ♻️ 重构:22px 上边距落 xl 20 档、30px 内边距落 3xl 32 档 (d5a54b93f4)
+- ♻️ 重构:18px 间距落 lg 16 档、30px 落 3xl 32 档 (83617072bc)
+- ♻️ 重构:17/32/40/12.5 字号落 title/displayLg/label 档 (4e11292057)
+- 🔧 工程/其他:结清 B67/B70/B71、G-1222560/59/56 与 Z-1 两条(证据见行内) (85f1c08855)
+- ♻️ 重构:22px 金额/标题落 heading 20 档 (2be9294d5f)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14cdb641cc)
+- 🚀 新功能/改进:新增小程序交互卫生门(290)与 web↔RN 措辞一致性门(291) (f664fb52e9)
+- 🔧 工程/其他:补齐 gen-rn-shell-scaffold 与 rn-shell-target 两枚溯源水印欠账 (e343c19714)
+- 🐞 修复:门 289 补射程声明 stagedTriggers ['**/*'] —— check-gate-triggers 新增缺 1→0(到期与暂存面无关,必须每提交跑) (75768f75a5)
+- 🚀 新功能/改进:deferred@ 到期判据常驻(门 289,blocking) (fec71850ab)
+- 🚀 新功能/改进:覆盖门增补「新屏无壳且无判决」造壳命令队列(既有读数不变) (5f258fd86a)
+- 🚀 新功能/改进:新增 gen-rn-shell-scaffold 预演式造壳器(默认 dry-run/--force 先备份/6 例自检) (9eaf14ef2f)
+- 🐞 修复:结清 P84/P85/P86 + 摘 RP-91 重复副本 + 结清 docs-207 (848e4a4f46)
+- 🐞 修复:收口被整块重复的登记(F6 块级判据的修复出口) (e61c494fc5)
+- 🔧 工程/其他:登记 B72/D04/D05 处置 (a1ee9465bf)
+- 🔧 工程/其他:登记 B72/D04/D05 处置 (d9ed3e722f)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0af18824e2)
+- 🔧 工程/其他:RP-79 dedupe theirs (plan-union-merge input) (c3a32de7d7)
+- 🔧 工程/其他:store-migration-end-factory 冷启动移出用例窗口——全量超时 flake 的确定化收口 (3b72141949)
+- 🐞 修复:门 30a 悬空 commit 分档——等价残留(仅树逐字同)不判红,四档逐次报数 (18a0179a49)
+对外关键数字声明(与本页生成块同源,均现算):**622 张表 · 4699 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 4078 测试文件 · 333 道工程守门 · 53 CI workflows ·
+| 数据库表 | 622 | `dbTables` |
+| schema 文件 | 241 | `dbSchemaFiles` |
+| API 路由 | 4699 | `apiRoutes` |
+| 路由文件 | 663 | `apiRouteFiles` |
+| CLI 命令文件 | 70 | `cliCommandFiles` |
+| 测试文件 | 4078 | `testFiles` |
+| 工程守门 | 333 | `guardianGates` |
+| — blocking | 303 | `guardianBlocking` |
+| 跟踪文件 | 19102 | `trackedFiles` |
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-04。
+  <strong>624 张表 · 4703 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4243 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 53 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **622 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4699 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **4243 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4703 API 路由 / 4243 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 53 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4243 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4078 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4703 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 624 数据库表 / drizzle-kit push / 4703 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4699 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **4243 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:622 张表 · 4699 API 路由 · 4078 测试文件 · ~14839 测试用例
+- **质量**:333 道工程守门（303 blocking）· 53 CI workflows · 删水印即 CI 失败
+- **规则级审批引擎**(2026-11-04,`packages/shared/src/permission/`):
+  - 声明式规则 `{id,match,decision,priority}` 排序后判定,输出 `{decision:allow|ask|deny,matchedRule,reason}`;命令风险对接 `packages/shared/src/utils/command-risk.ts` 的 AST 判定(非 token 正则,字符串字面量不误判),规则族覆盖命令风险 / 路径越界 / 网络出口 / 凭据读取 / 批量删除
+  - 自动复核只对 `ask` 且 `autoReviewable` 的规则生效(同主体 + 同 workspace + 同规则 id + 同命令前缀的重复请求),结果留 `matchedRule` 与理由;**deny 不可降级为 allow**
+  - 授权记忆持久化在 `user_preferences(group='permission', key='grants')`,字段 `{tool,matchPattern,scope(workspace|agent|global),expiresAt,createdAt,grantedBy}`;判定侧校验 scope 与 expiresAt,过期即失效
+  - 接口(API 端,需登录):`GET/POST /api/agent-control/permission/grants`、`DELETE /api/agent-control/permission/grants/:id`
+  - computer-use 应用白名单:声明 `appName` 的 `/execute` 先过白名单闸门,未授权/过期/scope 不匹配一律 `PERMISSION_DENIED`
+### 通病 ② 边界条件处理不足 → 实际:4243 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4078 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 622 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4699 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **4243 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4243 test files / 67 e2e spec / 4703 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (08d41693f6)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (0cdb9c5adc)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (cd5826f592)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3bd970724d)
+- 🐞 修复:恢复下载详情页被误删的三个展示组件,修复主干编译中断 (60e311a376)
+- 🐞 修复:门291 C组32条挂账清零,RN改取web真源键并摘除旧键 (09aab027db)
+- 🐞 修复:门 285 证据定位改为按符号名解析，消除加注释即报证据行漂移的误红 (55cfe0055f)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (e8587b8d24)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (3f53cd4128)
+- 🐞 修复:分片腿加首片看门狗,任何失败都退回原生单流 (8dbc29d49e)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (59190b65a4)
+- 🐞 修复:B 组收尾补漏（showClear 两端删除、mini robotImage 真渲染） (1b02399947)
+- 🐞 修复:平台裁决清零(46→0),A组18条真实现/删除,门128两红收口;补 pnpm-lock 记账(解门101 存量红) (e281cc9b3e)
+- 🐞 修复:整包下载改 8 连接分片 + 诚实的速率读数 (e4c0b285e7)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (9ba7780301)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (ad0af8b999)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (79fc8f2339)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (e89b032d64)
+- 🐞 修复:c-drive 默认即扫暂存区，无输入面不再空转报绿 (3bed6719e3)
+- 📚 文档:门45 注释同步空暂存区=0 不适用 (e27c873fec)
+- 🐞 修复:c-drive 空暂存区按 A 级 check-file-size 口径 = 0 不适用（更正） (e62a4f5e2f)
+- ♻️ 重构:屏级默认档等值落具名档·carte/edu-parent 10 处 (0b23dbfbab)
+- 🐞 修复:B 级 6 门三态化，取不到输入即 exit 2 (ebee2d6fa5)
+- 🚀 新功能/改进:跨端写盘腿 tick 落 downgrade/undetermined 两态并接告警面 (8c61f56034)
+- 🐞 修复:登录页 welcome SVG 按 </svg> 截断,消除裸文本子节点触发的 Text 组件告警 (493d714c83)
+- 🚀 新功能/改进:新增真机热更预览通道 rn-live-preview(8809, 自检12/12) (2faca4b6fe)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (af754200b8)
+- 🐞 修复:BottomActionBar 来源面板空声明回退 (731af09c90)
+- 🐞 修复:LoginPopUp/BackChevron 必选性对齐 (947b908505)
+- 🐞 修复:ModelConfigDialog 死变体删除 (767c0b9c0c)
+- 🐞 修复:InputArea/ModelList 死腿删除 (0b8992e620)
+- 🐞 修复:BottomActionBar 手工压缩入口接线与死腿删除 (ca5429d33a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (61f270bf6e)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (0d87de6175)
+- 🐞 修复:NavBar/VideoPlayer 证据换真 (518a6776d0)
+- 🐞 修复:VoiceInput 图片死腿删除 (458a4ebf67)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4c371d6d51)
+- 🐞 修复:UserInfoCard onOpenVip 真实现与死字段删除 (0c51f35b2f)
+- 🐞 修复:LoginPopUp 协议真实现与同槽收敛 (912d931bf7)
+- 🐞 修复:capability-catalog 门取不到暂存面时改判 exit 2 未判定 (60b472eaa1)
+- 🔧 工程/其他:dedupe 夹具超时放宽到 600s(规避 pnpm 并发持有夹具) (794f8b02b0)
+- 🐞 修复:底部淡出遮罩渐变段 120→90 —— 机主复看仍点名「顶部有点高」 (cf11ee7293)
+- 🐞 修复:根治「签名不一致」—— debug 签名不再静默可得,装机前强制证书对账 (0c3dd5bed7)
+- 🐞 修复:底部淡出遮罩渐变段 160→120 —— 机主点名「还是高」,同步「我的」页让位量 104→72 (bdab328668)
+- 🐞 修复:overlay-zindex 门扫描面为空/文件读不到时改判 exit 2 (dfbf262512)
+- 🐞 修复:基线落账补记等价映射条数,棘轮字段不再随重落丢失 (f3fc367307)
+- 🐞 修复:event-closure-leak 门取材失败/文件缺失时改判 exit 2 (08298485b8)
+- 🔧 工程/其他:门285 基线重落(存量存差 177→0,judged 166,裁决不适用 2 对) (c44caaf496)
+- 🐞 修复:VoiceInput 3 键逐键裁决登记(RN 预留未接线腿) (47a3762e07)
+- 🐞 修复:VideoPlayer 3 键逐键裁决登记(原生 Video vs 注入组件/页面标题) (2b39134193)
+- 🐞 修复:NavBar 23 键逐键裁决登记(固定槽位 vs RN 泛型动作数组) (94ae780bd9)
+- 🐞 修复:file-size 门取材失败/读不到文件时改判 exit 2 (2dc1efb330)
+- 🐞 修复:ModelList 5 键逐键裁决登记(分组 groups vs 平铺 models+currentType) (9593eb00fe)
+- 🐞 修复:ModelConfigDialog 23 键逐键裁决登记(indexa 媒体链路未接/选型拆到 ModelList) (a773fae04c)
+- 🐞 修复:LoginPopUp 20 键逐键裁决登记(登录三回调 vs RN 受控弹窗+扁平资料) (b5ea3cfbf4)
+- 🐞 修复:IntelligentAssistant robotImage 归矢量字形媒介裁决 (8234539080)
+- 🐞 修复:BackChevron 2 键逐键裁决登记(label 端内 i18n 兜底/color 走 token) (1d228a2a68)
+- 🐞 修复:dedupe 门取不到 staged 面/锁文件时改判 exit 2 (9731f496ba)
+- 🐞 修复:BottomActionBar 44 键逐键裁决登记(开关聚合/图标卡入参与 RN 受控腿) (01196483c8)
+- 🐞 修复:InputArea 31 键逐键裁决登记(折叠/模型/语音腿归平台载体) (07c6dfb7c6)
+- 🐞 修复:Carousel banner↔items 映射登记(3 键转裁决) (172a007e10)
+- 🐞 修复:UserInfoCard 扁平字段真接线 + 报销空 prop 半成品(6 键转裁决) (4a66989645)
+- 🐞 修复:commit-scope 门取不到输入时改判 exit 2 未判定 (b54ee9a4a9)
+- 🐞 修复:push-sync 四类折绿分支收口 —— 窗口只降文案不降退出码,祖先/HEAD/清单读数失败一律 exit 2 (344c5dd91c)
+- 🐞 修复:底部淡出遮罩延伸到屏幕底 —— 胶囊下方那段悬浮间距此前无人覆盖 (cbce78a947)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (344909256f)
+- 🐞 修复:首页 AI 输入框不再被底部淡出遮罩压住 —— 补小程序已有的那一层 (ba3cec2095)
+- 🐞 修复:校正 push-sync 注释的 rev-list 失败实测读数(本机 bad object exit 1,非 128) (714fda7cf5)
+- 🔧 工程/其他:收编守护落档产出(5 件,凭落点账本) (b255c8ac82)
+- 🐞 修复:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (9c0824df44)
+- 🐞 修复:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (5321db0ce9)
+- 🐞 修复:git 派生调用显式接管 stdio —— 门193 三处判红清零(两枚测试文件),解除 pre-push 阻塞;两测试 14/14 通过 (b135c1b1df)
+- 🐞 修复:写盘闸 HEAD 三态 —— git 取不到不再折成「新增文件」放行 (12d92ce084)
+- 🔧 工程/其他:285 judged 自检改临时夹具 —— 不再钉死真仓行号 (d472bb39bc)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (af3c51866d)
+- 📚 文档:285/289/290/291/292 语义与三条纪律入档 + 逃生变量并入 §6.3 (3ca2913348)
+- 🚀 新功能/改进:门285 引入逐键 judged 桶 —— 存差=未实现+未映射+未裁决 (aaac585bd5)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a810aefb23)
+- 🐞 修复:门290 判据纠偏 + A3 可挂账 + 修真缺陷 (d255a623ba)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (a076d3bb7a)
+- 🔧 工程/其他:账本收敛为 C 组挂账与 A/B/E 裁决,统一 3 处可改调用点并登记 LearnScreen 4 处 web 无键文案 (5c1de64915)
+- 🐞 修复:证书基准拆为官网/Play 上传/Play 应用签名三值并互不校验 (9b5b3233f5)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (3d8e89c074)
+- 🐞 修复:新增 B3 同义键异值判据、common.* 白名单/同字不同义裁决与唯一键去重 (3834b737e4)
+- 🐞 修复:门291 P0 将 10 处 RN 硬编码文案改为 web 同源键并补齐 5 语言词包 (67e082814f)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (1df5542521)
+- 🐞 修复:LoginPopUp 24→20 键 —— RN 补 visible 可选、userInfo 适配、defaultAvatar、onNicknameChange (6480532d13)
+- 🐞 修复:NavBar 25→23 键 —— 小程序补 subtitle/sticky 真实现，menuIcon 接渲染分支 (7772e22277)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (c1b9d5ac1f)
+- 🐞 修复:BottomActionBar 59→56 键 —— RN 真接 placeholder/disabled,小程序真接 isLoading (fcc34bccf8)
+- 🐞 修复:VideoPlayer 补齐 autoplay/poster/loading/onPlay/onPause/startPosition (9816826db5)
+- 🐞 修复:ModelList 两端补齐选择/加载/动效/样式契约 (20e1c01630)
+- 🐞 修复:ModelConfigDialog 对齐必填漂移 visible/config/onChange/modelType (e87ea6fa69)
+- 🐞 修复:InputArea 补齐 RN 输入契约 autoFocus/onFocus/onBlur/onKeyboardHeightChange (6e2dd73d77)
+- 🔧 工程/其他:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门285 258 键不变 (d695719bb0)
+- 📚 文档:派生块按生成器重算 —— 守门/跟踪文件读数对齐现算,最近更新补齐 48540f6..HEAD (40e31c3b92)
+- 🔧 工程/其他:ui-routes 派生件按 HEAD 面重生成(model-edit/apis 两枚输入补钉) (8b2af27a78)
+- 🐞 修复:小程序 model-edit 接上 RN 同一份只读清单,并补派生进程 windowsHide (0f46e9a019)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (43a0ab0c05)
+- 🚀 新功能/改进:词包搬运器补键级射程(整块之外的单键缺口此前无人判) (03d72eac3c)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4096426428)
+- 🔧 工程/其他:收编守护落档产出(5 件,凭落点账本) (a3cd0e3375)
+- 🐞 修复:门285 将 ScreenStates 判为 not-applicable —— 文件级四组件族容器,非单组件对 (71a4f299c2)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (a8f8227ad9)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dde2283d8c)
+- 🐞 修复:恢复下载详情页被误删的三个展示组件,修复主干编译中断 (a7fc6138d3)
+- 🐞 修复:门291 C组32条挂账清零,RN改取web真源键并摘除旧键 (0605ec255d)
+- 🐞 修复:门 288 证据定位改为按符号名解析，消除加注释即报证据行漂移的误红 (842c0f0b9a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4fd158208d)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (61d4502095)
+- 🐞 修复:分片腿加首片看门狗,任何失败都退回原生单流 (61bf95afe2)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (61d4502095)
+- 🐞 修复:分片腿加首片看门狗,任何失败都退回原生单流 (61bf95afe2)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (decbaf9b4c)
+- 🐞 修复:B 组收尾补漏（showClear 两端删除、mini robotImage 真渲染） (dcd22d3ccc)
+- 🐞 修复:平台裁决清零(46→0),A组18条真实现/删除,门128两红收口;补 pnpm-lock 记账(解门101 存量红) (2cf8856fd1)
+- 🐞 修复:整包下载改 8 连接分片 + 诚实的速率读数 (7242b9cc3d)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (6dcc3be9c8)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (8e04ad552e)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (4cde28b4d4)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (dcd5d46c43)
+- 🐞 修复:c-drive 默认即扫暂存区，无输入面不再空转报绿 (ce21ce2967)
+- 📚 文档:门45 注释同步空暂存区=0 不适用 (d03d3421ab)
+- 🐞 修复:c-drive 空暂存区按 A 级 check-file-size 口径 = 0 不适用（更正） (15ab31909f)
+- ♻️ 重构:屏级默认档等值落具名档·carte/edu-parent 10 处 (31b1682c69)
+- 🐞 修复:B 级 6 门三态化，取不到输入即 exit 2 (12c11a928f)
+- 🚀 新功能/改进:跨端写盘腿 tick 落 downgrade/undetermined 两态并接告警面 (682441757b)
+- 🐞 修复:登录页 welcome SVG 按 </svg> 截断,消除裸文本子节点触发的 Text 组件告警 (2892132dbf)
+- 🚀 新功能/改进:新增真机热更预览通道 rn-live-preview(8809, 自检12/12) (80a4925cb6)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (cd055b78af)
+- 🐞 修复:BottomActionBar 来源面板空声明回退 (cf4c76ff1e)
+- 🐞 修复:LoginPopUp/BackChevron 必选性对齐 (f11df86f5f)
+- 🐞 修复:ModelConfigDialog 死变体删除 (923044485c)
+- 🐞 修复:InputArea/ModelList 死腿删除 (804ee7142a)
+- 🐞 修复:BottomActionBar 手工压缩入口接线与死腿删除 (a7e4a73d7a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (cbe4ddd32c)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (5ffc1c5120)
+- 🐞 修复:NavBar/VideoPlayer 证据换真 (2ef7755dc4)
+- 🐞 修复:VoiceInput 图片死腿删除 (633b4a018a)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (9795a8effe)
+- 🐞 修复:UserInfoCard onOpenVip 真实现与死字段删除 (67afef48b0)
+- 🐞 修复:LoginPopUp 协议真实现与同槽收敛 (db8e6679cb)
+- 🐞 修复:capability-catalog 门取不到暂存面时改判 exit 2 未判定 (d551e17bc3)
+- 🔧 工程/其他:dedupe 夹具超时放宽到 600s(规避 pnpm 并发持有夹具) (552b8cfc5d)
+- 🐞 修复:底部淡出遮罩渐变段 120→90 —— 机主复看仍点名「顶部有点高」 (f989956df1)
+- 🐞 修复:根治「签名不一致」—— debug 签名不再静默可得,装机前强制证书对账 (45506184a7)
+- 🐞 修复:底部淡出遮罩渐变段 160→120 —— 机主点名「还是高」,同步「我的」页让位量 104→72 (2c32f411d7)
+- 🐞 修复:overlay-zindex 门扫描面为空/文件读不到时改判 exit 2 (c26b9a983a)
+- 🐞 修复:基线落账补记等价映射条数,棘轮字段不再随重落丢失 (beb3a3e6e9)
+- 🐞 修复:event-closure-leak 门取材失败/文件缺失时改判 exit 2 (31cede2149)
+- 🔧 工程/其他:门288 基线重落(存量存差 177→0,judged 166,裁决不适用 2 对) (f92c386395)
+- 🐞 修复:VoiceInput 3 键逐键裁决登记(RN 预留未接线腿) (5538025fff)
+- 🐞 修复:VideoPlayer 3 键逐键裁决登记(原生 Video vs 注入组件/页面标题) (a728994def)
+- 🐞 修复:NavBar 23 键逐键裁决登记(固定槽位 vs RN 泛型动作数组) (d7d23a6822)
+- 🐞 修复:file-size 门取材失败/读不到文件时改判 exit 2 (361b4678f8)
+- 🐞 修复:ModelList 5 键逐键裁决登记(分组 groups vs 平铺 models+currentType) (362de27391)
+- 🐞 修复:ModelConfigDialog 23 键逐键裁决登记(indexa 媒体链路未接/选型拆到 ModelList) (45fe8f9a40)
+- 🐞 修复:LoginPopUp 20 键逐键裁决登记(登录三回调 vs RN 受控弹窗+扁平资料) (91d15877ab)
+- 🐞 修复:IntelligentAssistant robotImage 归矢量字形媒介裁决 (3280b88e47)
+- 🐞 修复:BackChevron 2 键逐键裁决登记(label 端内 i18n 兜底/color 走 token) (c4154d3c81)
+- 🐞 修复:dedupe 门取不到 staged 面/锁文件时改判 exit 2 (137263b6ac)
+- 🐞 修复:BottomActionBar 44 键逐键裁决登记(开关聚合/图标卡入参与 RN 受控腿) (0fe3ce7009)
+- 🐞 修复:InputArea 31 键逐键裁决登记(折叠/模型/语音腿归平台载体) (dfd42f5393)
+- 🐞 修复:Carousel banner↔items 映射登记(3 键转裁决) (d7ab5acac8)
+- 🐞 修复:UserInfoCard 扁平字段真接线 + 报销空 prop 半成品(6 键转裁决) (784d8dfdbb)
+- 🐞 修复:commit-scope 门取不到输入时改判 exit 2 未判定 (9ffeb094b2)
+- 🐞 修复:push-sync 四类折绿分支收口 —— 窗口只降文案不降退出码,祖先/HEAD/清单读数失败一律 exit 2 (e0f8c0e451)
+- 🐞 修复:底部淡出遮罩延伸到屏幕底 —— 胶囊下方那段悬浮间距此前无人覆盖 (3c2e132bf5)
+**2026-11-04**
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (43f56aa425)
+- 🐞 修复:首页 AI 输入框不再被底部淡出遮罩压住 —— 补小程序已有的那一层 (12b69b48aa)
+- 🐞 修复:校正 push-sync 注释的 rev-list 失败实测读数(本机 bad object exit 1,非 128) (15915596b8)
+**2026-11-04**
+- 🔧 工程/其他:收编守护落档产出(5 件,凭落点账本) (cd17b5992d)
+- 🐞 修复:push-sync 读数改三态 —— rev-list 失败/取不到对象不再折算成 ahead=0 假绿,5 例钉三态 (03f58d1a29)
+- 🐞 修复:两处 git 派生补 windowsHide —— 门52 生产面两处判红清零,消除控制台闪窗;staged 面 3 文件 0 违规 (3f5a439b05)
+- 🐞 修复:git 派生调用显式接管 stdio —— 门193 三处判红清零(两枚测试文件),解除 pre-push 阻塞;两测试 14/14 通过 (38f420f6cb)
+- 🐞 修复:写盘闸 HEAD 三态 —— git 取不到不再折成「新增文件」放行 (860fc3e087)
+- 🔧 工程/其他:288 judged 自检改临时夹具 —— 不再钉死真仓行号 (414db88c6b)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (6f77b0a629)
+- 📚 文档:288/289/290/291/292 语义与三条纪律入档 + 逃生变量并入 §6.3 (53cbd16b34)
+- 🚀 新功能/改进:门288 引入逐键 judged 桶 —— 存差=未实现+未映射+未裁决 (0013f61827)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (1759854c49)
+- 🐞 修复:门290 判据纠偏 + A3 可挂账 + 修真缺陷 (9e6d7fedeb)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (eb67922536)
+- 🔧 工程/其他:账本收敛为 C 组挂账与 A/B/E 裁决,统一 3 处可改调用点并登记 LearnScreen 4 处 web 无键文案 (7337b633c3)
+- 🐞 修复:证书基准拆为官网/Play 上传/Play 应用签名三值并互不校验 (c7274b7f66)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (582088f7cd)
+- 🐞 修复:新增 B3 同义键异值判据、common.* 白名单/同字不同义裁决与唯一键去重 (fcb2cc8570)
+- 🐞 修复:门291 P0 将 10 处 RN 硬编码文案改为 web 同源键并补齐 5 语言词包 (dc74afd1bb)
+- 🔧 工程/其他:登记 9 对跨端 props 提案(等价 21 + 平台 141 + FloatBox 整对不适用) (8c63a3b963)
+- 🐞 修复:LoginPopUp 24→20 键 —— RN 补 visible 可选、userInfo 适配、defaultAvatar、onNicknameChange (c5b7f31ae9)
+- 🐞 修复:NavBar 25→23 键 —— 小程序补 subtitle/sticky 真实现，menuIcon 接渲染分支 (db8b3c8c06)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (ffbc1e83bd)
+- 🐞 修复:BottomActionBar 59→56 键 —— RN 真接 placeholder/disabled,小程序真接 isLoading (3356abdcd5)
+- 🐞 修复:VideoPlayer 补齐 autoplay/poster/loading/onPlay/onPause/startPosition (4c44c59a30)
+- 🐞 修复:ModelList 两端补齐选择/加载/动效/样式契约 (29f6d7e7d1)
+- 🐞 修复:ModelConfigDialog 对齐必填漂移 visible/config/onChange/modelType (46b2a8cf4a)
+- 🐞 修复:InputArea 补齐 RN 输入契约 autoFocus/onFocus/onBlur/onKeyboardHeightChange (60fa2ebbea)
+- 🔧 工程/其他:摘除 ColorfulLoader 死副本并重算 ui-routes inputs —— 全仓静态/动态引用为 0,删除后经生成器重算(inputs 611→610、自述钉自洽);门105 保持绿、门288 258 键不变 (72eea3c5d5)
+- 📚 文档:派生块按生成器重算 —— 守门/跟踪文件读数对齐现算,最近更新补齐 48540f6..HEAD (4576ffade7)
+- 🔧 工程/其他:ui-routes 派生件按 HEAD 面重生成(model-edit/apis 两枚输入补钉) (c6c90050fb)
+- 🐞 修复:小程序 model-edit 接上 RN 同一份只读清单,并补派生进程 windowsHide (5133f2817d)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (7755f73e27)
+- 🚀 新功能/改进:词包搬运器补键级射程(整块之外的单键缺口此前无人判) (0f42f52703)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (29e3c26cc0)
+- 🔧 工程/其他:收编守护落档产出(5 件,凭落点账本) (335d63c7e8)
+- 🐞 修复:门288 将 ScreenStates 判为 not-applicable —— 文件级四组件族容器,非单组件对 (ec90d7b58b)
+- 🚀 新功能/改进:小程序词包整块缺口首次有器物并挂上自动链 (3c19ced5cd)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (57c6228ab4)
+- 🔧 工程/其他:派生产物按 HEAD 面重生成并落地(检出档)—— 补 G5 在工作树滞后那一格的重跑出路 (8548571866)
+- 🐞 修复:SectionHeader 两端同源收口 —— 小程序适配层真接 leading/style/titleStyle/subtitleStyle/accessibilityLabel(容器与文字样式覆盖、ariaLabel 落地),非空 prop;门288 270→265,该对归零;intentional-delete: 该对五键已由实现消除 (b80032e3b9)
+- 🐞 修复:IntelligentAssistant 两端同源收口 —— RN 补 isLoggedIn(登录态文案+隐藏充值,默认 true 零观感变化)与 5 语 loginRequired,tokenQuantity↔tokenBalance 入映射表;门288 273→270;intentional-delete: 该对 tokenQuantity/tokenBalance/isLoggedIn 三键已由映射+实现消除 (9436bdf042)
+- 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
+- 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
+- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
+- 🔧 工程/其他:收编停留≥3分钟的未提交改动 (14cdb641cc)
+- 🚀 新功能/改进:支付出口移入导航层 + Follow/VideoPlayer 语义登记 + 九屏端口自证测试 (830eb717a3)
+- 🚀 新功能/改进:校正 AigcList 薄壳对共享屏承接行号的引用 (b569c10672)
+- 🔧 工程/其他:重算四语 README 数字块并刷新最近更新 (e647bf8ab5)
+- ♻️ 重构:间距 rpx 字面量等值落档（CSS var / taroSpacing，weapp 像素零变化） (0ea20bbe01)
+- 🔧 工程/其他:扫码凭证用例确定化 2500ms 轮询触发,消除首轮计时抖动 (ad65d2b05f)
+- 🐞 修复:修掉 runner 两处撞号并重封根护栏 (73e64fd2e2)
+- ♻️ 重构:常量/条件字面量与手工收尾字号落档 (89831e5034)
+- 🚀 新功能/改进:Vip 支付链成功落 PayResult(replace),失败/取消留守;等级横幅入口走 VipUpgrade (2c37223cfd)
+- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (5a9fcadb2e)
+- 🚀 新功能/改进:ConversationImport 选文件取消/失败经 onToast 明确反馈 (f778f2a752)
+- ♻️ 重构:字号任意值等值落具名档（className 字面量批，零视觉变化） (0fdda86798)
+- 🚀 新功能/改进:AigcList 切薄壳并给 AigcPublish 接真实上传进度 (ea9e0f60f7)
+- 🚀 新功能/改进:补 ExamDetail/VipUpgrade 路由并收口 Exam 两屏推送 (a514deeecc)
+- 🔧 工程/其他:refactor(web)!: 容器 hover 浮起回归 --lift-* 单源并立守门 287 防回潮 (13a919a708)
+- ♻️ 重构:发布/巡检脚本接入 mobile-download-leg 单源并补一致性断言 (4078b4afcd)
+- 🐞 修复:给 @ihui/rn-app 替身补出 AgentReview 列表/详情两屏与 props 捕获出口(与真身 154/278 行同步) (7ffcf16a68)
+- 🐞 修复:补录 ai-service memory.py 六个 MEMORY_* 兜底码到错误目录并补齐五语词包 (575a1bd2b7)
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+| 工程守门 | 288 | `guardianGates` |
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4696 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4696 个 API 路由。**
+- 文档中心 / 公开面健康(2026-11-03 装车,blocking,runner id '288';**原登记为 282,与 `check-web-rn-gap-ratchet.mjs` 撞号后被后来者让号**): `check-docs-public-health.mjs`(D1 docs 页 `metadata.alternates.languages` 声明的 hreflang 必须有真实路由文件 / D2 `app/sitemap.ts` 收录的 `/docs*` 路径必须有路由 / D3 docs 页 `icon:` 字段禁 emoji 当图标,须 lucide 矢量组件;三档各自成对夹具 + `--self-test` 10 例,镜像 `scripts/tests/check-docs-public-health.test.mjs`;应急 `HUSKY_SKIP_DOCS_PUBLIC_HEALTH=1`)
+- 📚 文档:门 287 号位现读回灌两枚残留 —— hover 门入库时与同批 props 对账门撞 288,落地腿已把 runner 注册块与门体头注顺延为 287(HEAD 面在位);本枚对齐其余两处字面:README 点名条 runner id 与 UI/样式尾注、镜像⑦形状锁号位 regex+文案(prettier 归位后水印已复验完整)。README 盘上派生块(跟踪文件 18947/收编行,可重算件)随本枚带落;props 门自身与其 285 条目未触碰。盘面 scripts/guardian-runner.mjs 为已落地历史拷贝的幻影漂移(§5b 形态,P1 对账尺当轮点名),已按 30c 出路②单文件 checkout HEAD 对齐——零丢失(盘 blob 系上一枚落地态,本票文字全部已入 HEAD)。 (1c9cdb39c2)
+- 🚀 新功能/改进:落语义等价映射表 + 门288 mapped 分类与棘轮 —— 3 条命名等价(onPress↔onTap×2、label↔labelKey)归 mapped 4 键,漂移 277→273;表扩容须同轮收敛 (2ccede4e8e)
+- 🐞 修复:ColorfulLoader 两端同源收口 —— RN 补 visible(不渲染即 null)、小程序适配层补 duration(默认共享档),门288 消 2 键 (657b9ed59f)
+对外关键数字声明(与本页生成块同源,均现算):**622 张表 · 4699 API 路由 · 25 个 WebSocket 端点 ·
+100 入库模型 · 38 平台自动发布 · 4078 测试文件 · 333 道工程守门 · 53 CI workflows ·
+| 数据库表 | 622 | `dbTables` |
+| schema 文件 | 241 | `dbSchemaFiles` |
+| API 路由 | 4699 | `apiRoutes` |
+| 路由文件 | 663 | `apiRouteFiles` |
+| CLI 命令文件 | 70 | `cliCommandFiles` |
+| 测试文件 | 4078 | `testFiles` |
+| 工程守门 | 333 | `guardianGates` |
+| — blocking | 303 | `guardianBlocking` |
+  <strong>624 张表 · 4703 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4243 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 53 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **622 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4699 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+| **测试覆盖** | **4243 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4703 API 路由 / 4243 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 53 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4243 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4078 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4703 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 624 数据库表 / drizzle-kit push / 4703 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4699 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|                   | 测试覆盖            | **4243 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:622 张表 · 4699 API 路由 · 4078 测试文件 · ~14839 测试用例
+- **质量**:333 道工程守门（244 blocking）· 53 CI workflows · 删水印即 CI 失败
+### 通病 ② 边界条件处理不足 → 实际:4243 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4078 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- 622 数据库表 + drizzle-kit push + 16 共享包 + pgvector + 知识图谱 + Knip + Lighthouse + Locust 压测
+- **API(Fastify 5)**:4699 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+- **4243 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4243 test files / 67 e2e spec / 4703 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+| 跟踪文件 | 19119 | `trackedFiles` |
+- git/提交链: `check-commit-scope-consistency.mjs` `check-push-sync.mjs` `check-head-typecheck.mjs` `check-typecheck.mjs` `check-git-read-timeout.mjs` `check-spawn-stdio.mjs` `check-registry-worktree-superset.mjs` `check-no-nested-git.mjs` `check-commit-loss-guard.mjs` `check-merge-addition-loss.mjs` `check-merge-deletion-resurrection.mjs` `check-staged-resurrection.mjs`(pre-commit 复活闸,与 `safe-commit.mjs` Step 3b-2 同一判据 `lib/intentional-file-deletion.mjs#judgeResurrection`;已登记删除件出现在索引新增面 ⇒ exit 1,台账判不开 ⇒ 只报不拦) `check-single-branch.mjs` `check-stale-stashes.mjs` `check-bypass-landing-scope.mjs` `check-live-doc-references.mjs` `check-mjs-syntax.mjs`(纯语法 compile 不 evaluate;判红臂 = 索引新引入不可解析;镜像 `check-mjs-syntax.test.mjs`) `check-format-changed.mjs` `check-husky-hook-form.mjs`(H1 钩子必须是 sh 薄壳;H2 包装与 node 正文同面在位;正文即 `post-commit-hook.js` 一族;镜像 `check-husky-hook-form.test.mjs`) `check-no-nested-git-sites-durability.mjs`(门 208 豁免台账耐久性)
+- 发布线 / 安卓对外下载腿(2026-11-03 立,CI 档,runner id 以现值为准): `check-mobile-download-leg.mjs`(三问各允许「未判定」而不猜绿:① 配置里的下载 URL 跟随 302 后必须 200/206;② `Content-Length` 须 ≥ `--min-bytes`(默认 50MiB);③ 手里的 APK 证书 SHA-256 须等于正式基准。**退出码 2 = skipped/未判定,不是绿** —— 判据读的是公网与签名,提交者结构上改不了那一格,故按 §12e 不挂提交门;取证 `--self-test`,口径见门体头注) · 配套国内腿运行态门 `check-mobile-download-leg-cn.mjs`(Gitee 国内腿,2026-11-04 立:两条腿 `Range: bytes=0-0` 真探,Content-Range 总长必须同为够大的同一枚包;任一腿量不到 ⇒ exit 2 未判定,绝不折算成绿)
+| 跟踪文件 | 19097 | `trackedFiles` |
+| 跟踪文件 | 19088 | `trackedFiles` |
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4551 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4557 个 API 路由。**
+> **9 端代码 · 624 张数据库表 · 4561 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 624 张数据库表 · 4451 个 API 路由。**
+> **8 端代码 · 622 张数据库表 · 4451 个 API 路由。**
+100 入库模型 · 38 平台自动发布 · 4099 测试文件 · 336 道工程守门 · 53 CI workflows ·
+| CLI 命令文件 | 72 | `cliCommandFiles` |
+| 测试文件 | 4099 | `testFiles` |
+| 工程守门 | 336 | `guardianGates` |
+| — blocking | 306 | `guardianBlocking` |
+| 跟踪文件 | 19201 | `trackedFiles` |
+  <strong>624 张表 · 4703 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 4243 测试文件 / ~14939+ 测试用例 · 67 e2e spec · 53 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **测试覆盖** | **4243 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 用例 + Python 4663 用例)+ Locust 压测 + Lighthouse 性能 + Visual Regression                                                                      |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4703 API 路由 / 4243 测试文件 / ~14839+ 测试用例。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+→ **IHUI-AI 工程守门**:87 守门/验证脚本(59 check + 11 verify + 6 guard + 2 sync + 9 scan)+ pre-commit 56+10 项(40 blocking / 14 warn / 2 info)+ commit-msg 2 项 + post-commit 5 段 + pre-push 2 段 + 53 CI workflows + post-commit 自动 push + lost-commit tag 自动同步 + 4243 测试文件 / ~14939+ 测试用例 + 67 e2e spec + Knip 死代码检测 + Lighthouse 性能 + Locust 压测 + mypy strict(Python 0 errors)+ tsc --noEmit(TS 0 errors)。每一行代码都通过三重门禁。
+核心数字: 8 端 / 176 模型 / 542 表 / 4393 API / 24 MCP 工具 / **38 发布平台** / **反风控五层防线 37+ 检测点** / **AI 对话可视化 inline 到消息气泡** / 88 守门脚本 / 4243 测试文件 / ~14839+ 测试用例 / 5 语言 i18n(7 端 35 JSON)/ 109 万行代码
+|                   | 测试覆盖            | **4243 测试文件 / ~14839+ 测试用例**(490 .test.ts + 67 .spec.ts + 162 test_*.py;TS ~10176 + Python 4663)+ Vitest + Playwright + pytest + Locust 压测 + Lighthouse 性能 + Visual Regression                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:622 张表 · 4699 API 路由 · 4099 测试文件 · ~14839 测试用例
+- **质量**:336 道工程守门（306 blocking）· 53 CI workflows · 删水印即 CI 失败
+### 通病 ② 边界条件处理不足 → 实际:4243 测试文件 / ~14839+ 测试用例 + 67 e2e + 微服务工程模式
+| 边界条件缺失     | 4243 测试文件 / ~14839+ 测试用例 + 67 e2e + pytest 集成测试 + 微服务容错模式                          |
+- **4243 测试文件 / ~14839+ 测试用例**:490 .test.ts + 67 .spec.ts + 162 test_*.py
+A: Yes. ~14839+ tests / 4244 test files / 67 e2e spec / 4703 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+- UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` check-miniapp-shell-form.mjs(门 299:小程序「薄壳 vs 复制」实现形态,新增复制页即红;跳过 HUSKY_SKIP_MINIAPP_SHELL_FORM) check-web-mp-route-carriers.mjs(门 301:web↔小程序共享屏承载路由对账;跳过 HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS)
+- API/后端/DB: `check-credential-leak-in-message.mjs` `check-egress-ip-drift.mjs` `check-credential-presence-bypass.mjs` `check-principal-consumed.mjs` `check-public-exposure-list.mjs` `check-public-admin-default.mjs`(G-875,2026-10-24 立:仓内不得再出现可登录的公开 admin 默认口令;运行面口令一律环境变量注入,历史散列由失效迁移统一作废) `check-capability-field-not-client-supplied.mjs` `check-authorization-column-isolation.mjs` `check-migration-immutable.mjs` `check-db-blind-updatedat-set.mjs` `check-sequence-lag.mjs` `check-error-code-not-text-matching.mjs` `check-error-attribution-single-source.mjs` `check-error-message-bounded.mjs` `check-inbound-schema-strict.mjs` `check-nested-additional-properties.mjs` `check-enum-default-widening.mjs` `check-enum-fallback-terminal.mjs` `check-txn-cancel-boundary.mjs` `check-dockerfile-copy-paths.mjs` `check-edu-arrears-single-source.mjs` `check-sse-frame-watermark.mjs` `check-python-import-landed.mjs` `check-python-import-resolvable.mjs` `check-mode-permission-matrix.mjs` `check-subagent-permission-inherited.mjs` `check-csrf-exemption-shape.mjs` `check-batch-write-count-honesty.mjs` `check-prod-bundle-shadow.mjs` `check-env-drift.mjs` check-api-endpoint-delta.mjs(门 300:三端 API 调用差集台账,棘轮只拦新增;跳过 HUSKY_SKIP_API_ENDPOINT_DELTA) check-drizzle-journal-sync.mjs(迁移链「文件↔journal」双向对账,git-guardian 巡检轮派发)
+| 测试文件 | 4214 | `testFiles` |
+| — blocking | 309 | `guardianBlocking` |
+| 跟踪文件 | 19464 | `trackedFiles` |
+| 测试文件 | 4215 | `testFiles` |
+| 跟踪文件 | 19463 | `trackedFiles` |
+| 测试文件 | 4216 | `testFiles` |
+| 跟踪文件 | 19476 | `trackedFiles` |
+- UI/样式: `check-miniapp-taro-design-tokens.mjs` `check-adapter-style-parity.mjs` `check-percent-clamp-single-source.mjs` `check-line-split-parity.mjs` `check-input-focus-feedback.mjs` `check-button-height.mjs` `check-glyph-arrow-icon.mjs` `check-no-divider.mjs` `check-no-mask-image.mjs` `check-no-native-dialog.mjs` `check-no-emoji-icons.mjs` `check-radius-single-source.mjs` `check-radius-role-conformance.mjs` `check-rounded-full.mjs` `check-statusbar-single-source.mjs` `check-cross-end-ui-parity.mjs` `check-cross-end-screen-coverage.mjs` `check-miniapp-tokens-sync.mjs` `check-miniapp-taro-style-parity.mjs` `check-cross-end-tokens.mjs` `check-miniapp-css-landing.mjs` `cross-end-ui-parity-debt.mjs`(2026-11-06 装车的只读欠债账,不进提交链 §12e;轴一 miniapp↔RN 四维 + 轴二 web↔RN 五维,判据全消费门 128 --json 自己零复算;派发层 = git-guardian 的 auditCrossEndDebtLedger(),main 健康轮次 + daemon tick 双挂点共用一枚节流戳,60 分钟、先写 attemptAt 后派生;rc=0/1/2 三态:rc=1 族涨只逐族写日志**不到人**(§5e-1:基线 2026-10-22 的涨项非本次引入,能做的动作是按族派单收口;提前开 IHUI_CROSS_END_DEBT_MAIL=1),rc=2 或结论取不到落未判定不记绿;镜像 scripts/tests/cross-end-debt-dispatch.test.mjs 11 例 import __test__ 零复算 §22c)
+| 测试文件 | 4247 | `testFiles` |
+| 跟踪文件 | 19553 | `trackedFiles` |
+A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| 测试文件 | 4252 | `testFiles` |
+| 跟踪文件 | 19567 | `trackedFiles` |
+| 测试文件 | 4260 | `testFiles` |
+| 跟踪文件 | 19586 | `trackedFiles` |

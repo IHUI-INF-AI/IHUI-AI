@@ -172,7 +172,10 @@ services:
       # 端口虽仅绑 localhost,容器被打通后弱口令即横向跳板
       - GF_SECURITY_ADMIN_PASSWORD=${BOARD_ADMIN_PASSWORD:?BOARD_ADMIN_PASSWORD 未配置}
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_AUTH_ANONYMOUS_ENABLED=true
+      # BUG-22:关闭匿名访问。此前 =true 会让任意本地进程/反代免登录读全部经营数据面板;
+      # 即便 monitoring/grafana/grafana.ini 的 [auth.anonymous] enabled=false,GF_* 环境变量
+      # 优先级更高,仍把匿名重新打开。此处钉死 false,匿名只读面彻底关闭(嵌入看板改为登录后读)。
+      - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_SERVER_ROOT_URL=http://127.0.0.1:8816
       - GF_SERVER_HTTP_PORT=8816

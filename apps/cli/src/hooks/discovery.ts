@@ -65,7 +65,8 @@ type HookDiscoveryDiagnosticCode = (typeof HOOK_DISCOVERY_DIAGNOSTIC_CODES)[numb
 type HookDiscoveryDiagnosticSeverity = 'error' | 'warning';
 
 /**
- * 判别码 → 严重级的唯一映射(与 plugins/loader.ts 的 DIAGNOSTIC_SEVERITY 同一纪律:
+ * 判别码 → 严重级的唯一映射(与 plugins/manifest-scan.ts 的 DIAGNOSTIC_SEVERITY 同一纪律 ——
+ * goal-b49/W2 拆分后那张表从 loader.ts 搬到了 manifest-scan.ts,纪律没变:
  * `Record<Code, Severity>` 键穷尽,新增码忘定档编译期就红)。
  */
 const HOOK_DIAGNOSTIC_SEVERITY: Record<HookDiscoveryDiagnosticCode, HookDiscoveryDiagnosticSeverity> = {
@@ -148,6 +149,13 @@ export function getHooksDirs(workspacePath = process.cwd()): HooksDirs {
     cli: path.join(workspacePath, '.ihui-agent', 'hooks'),
     user: path.join(os.homedir(), '.ihui-agent', 'hooks'),
   };
+}
+
+function hookStateReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
 }
 
 export class HooksDiscovery {
@@ -314,19 +322,30 @@ export class HooksDiscovery {
   }
 
   private loadState(): HookState {
-    if (!fs.existsSync(this.stateFile)) return {};
+    let raw: string;
     try {
-      const parsed = tryParseJson(fs.readFileSync(this.stateFile, 'utf-8'));
-      if (isRecord(parsed)) {
-        return parsed as unknown as HookState;
-      }
-      return {};
-    } catch {
-      return {};
+      raw = fs.readFileSync(this.stateFile, 'utf-8');
+    } catch (error) {
+      const code = hookStateReadCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') return {};
+      throw new Error(`钩子状态读不到,不能把它覆盖成新状态 (${code})`);
     }
+    const parsed = tryParseJson(raw);
+    if (!isRecord(parsed)) {
+      throw new Error('钩子状态读不到,不能把它覆盖成新状态 (corrupt)');
+    }
+    return parsed as unknown as HookState;
   }
 
   private saveState(state: HookState): void {
+    try {
+      fs.readFileSync(this.stateFile, 'utf-8');
+    } catch (error) {
+      const code = hookStateReadCode(error);
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        throw new Error(`钩子状态读不到,不能把它覆盖成新状态 (${code})`);
+      }
+    }
     const dir = path.dirname(this.stateFile);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });

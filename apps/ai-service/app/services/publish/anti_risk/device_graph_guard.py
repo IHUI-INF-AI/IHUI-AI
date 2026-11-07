@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.logging import get_logger
+from app.services.ttl_json_store import json_archive_blocks_replace
 
 from ..._load_lifecycle import (
     DECISION_BACKOFF as _DECISION_BACKOFF,
@@ -308,6 +309,9 @@ class DeviceGraphGuard:
 
     async def _persist(self) -> None:
         """持久化绑定数据到 JSON 文件。"""
+        if json_archive_blocks_replace(_GRAPH_FILE, expect="object"):
+            logger.warning("[device_graph] 绑定文件损坏,不能把它覆盖成新绑定")
+            return
         try:
             _GRAPH_FILE.parent.mkdir(parents=True, exist_ok=True)
             data = {

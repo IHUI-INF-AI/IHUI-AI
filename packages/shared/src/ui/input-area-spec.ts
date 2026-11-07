@@ -96,12 +96,6 @@ export type GeometryUnit<U extends string | number> = (px: number) => U
 export const INPUT_AREA_FANGDA_TOP_PX = 6
 
 /**
- * 控制按钮命中外扩 6(RN hitSlop 机制,小程序无对应属性):数值与放大钮内缩同族
- * (都是"贴边控件向外让 6"),收进本表让该档只有一份真相。机制通道各端保留。
- */
-export const INPUT_AREA_CONTROL_HIT_SLOP_PX = 6
-
-/**
  * 计数浮层距底 6(RN 端,小程序端不渲染计数器 —— 契约分叉见头注):与上面两枚同源,
  * 收进来是为了两侧文件同时不再出现裸 6(见 INPUT_AREA_FANGDA_TOP_PX 注)。
  */
@@ -114,13 +108,6 @@ export const INPUT_AREA_COUNTER_BOTTOM_PX = 6
  * INPUT_AREA_FANGDA_TOP_PX 注)。
  */
 export const INPUT_AREA_VOICE_BTN_GAP_PX = 10
-
-/**
- * 参数变量输入行竖向内边距 6(RN 独有「参数变量区」;小程序端该功能走 Selecter,无对应行)。
- * 刻意入表:6 这一族若只搬走部分,RN 文件残留的一枚就会从"两端同值"变成"仅 RN 档"
- * (台账 23→24 的机制),分叉不是被修掉而是被挪出来 —— 全部同族 6 进同一份源才归零。
- */
-export const INPUT_AREA_PARAM_FIELD_PADDING_V_PX = 6
 
 /**
  * 输入行顶部内边距 10:RN `input/inputBare paddingTop: 10`;小程序端对应值在 CSS 类臂
@@ -244,14 +231,6 @@ export const INPUT_AREA_THUMB_GLYPH_PX = 24
 export const INPUT_AREA_CONTROL_GLYPH_PX = GEOMETRY_PX.controlGlyph
 
 /**
- * 【B 单端档·RN】语音/键盘切换钮盒宽 32。
- * 变体契约分叉,非取值分叉:小程序同一处是原项目 `.search-box1` 的 50×44rpx(=25×22),
- * 其所在行高由端内 CSS 的 80rpx 定,把命中盒扩到 RN 这一档会撑破那一行(不是"取小会贴边"
- * 的例外,而是"取大会破版")。两枚档各记各的,不互相靠拢。
- */
-export const INPUT_AREA_VOICE_BTN_WIDTH_PX = 32
-
-/**
  * 【B 单端档·RN】输入行最小高 48:输入框 `minHeight`、语音区 `minHeight`、语音钮盒 `height`
  * 三处同档(它们同排,上缘要对齐,分两档就会看到一根错位 1px 的缝)。
  * 小程序 ai-home 对应位置是 44rpx(=22)一行高的紧凑条,且 22 这一档两端共享,故不同形。
@@ -285,18 +264,9 @@ export const INPUT_AREA_VOICE_BAR_BASE_PX = 8
 
 /**
  * 【B 单端档·RN】删除角标的命中外扩 8(RN hitSlop 通道,小程序无对应属性)。
- * 与 INPUT_AREA_CONTROL_HIT_SLOP_PX(6)是两处不同的贴位控件:那枚贴容器边、本枚贴在
- * 缩略图角上且可见盒只有 18,故外扩档不同 —— 数值不同形但都收进同一份源。
+ * 贴在缩略图角上且可见盒只有 18,故外扩档与贴容器边的控件不同。
  */
 export const INPUT_AREA_CLOSE_HIT_SLOP_PX = 8
-
-/**
- * 【B 单端档·RN】参数变量输入行最小高 32(输入框与"添加参数图片"虚线框同档 —— 两者并排,
- * 一高一矮就会露出错位,所以同一枚档)。
- * 单端落地的原因写在 INPUT_AREA_PARAM_FIELD_PADDING_V_PX:小程序端参数变量走 Selecter 弹层,
- * 根本没有这一行。
- */
-export const INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX = 32
 
 /**
  * 【A 两端同值】大输入框(showVoiceMic)内的发送钮 / 麦克风方盒 32。
@@ -312,15 +282,6 @@ export const INPUT_AREA_PARAM_FIELD_MIN_HEIGHT_PX = 32
  * 右侧偏移那条(`INPUT_AREA_AI_HOME_INLINE_GAP_PX` 的派生式)由本常数自动跟随,无需另改。
  */
 export const INPUT_AREA_IN_SHELL_BTN_PX = GEOMETRY_PX.controlBox
-
-/**
- * 【B 单端档·RN】大输入框内放大钮的右侧偏移。收编前端内写 52,它的构成就是
- * 「发送钮盒 40 + 其左间距 4 + 让位一档 8」;写成派生式(而不是第四枚裸数字)之后,
- * 上面钮盒或间距一动,这一档跟着动,不会留下"改了钮忘了改让位"的那半格。
- * 若将来观感要调,调的是那两枚入参,不是在这里补常数。
- */
-export const INPUT_AREA_IN_SHELL_EXPAND_RIGHT_PX =
-  INPUT_AREA_IN_SHELL_BTN_PX + 4 + INPUT_AREA_STACK_GAP_PX
 
 /**
  * 【B 单端档·RN】附件缩略图盒 72×72(方形,图片/视频/文档同盒)。

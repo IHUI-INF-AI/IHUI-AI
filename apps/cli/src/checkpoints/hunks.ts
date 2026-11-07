@@ -21,11 +21,7 @@ import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord, isJsonArray } from '../util/json.js';
 import { readManifestChecked, type CorruptManifestEntry } from './manifest-integrity.js';
-// 会话/检查点 id 路径穿越修复:与 CheckpointManager 共用同一套收敛 + 根内/realpath 判据。
-// manifest 里的 file 字段属于持久化不可信输入:回滚/对比前必须按"工作区相对路径"重判。
-import { assertPathInside, isPathInside, resolveWorkspaceRelPath, segmentPathInside } from '../util/path-guard.js';
-// BUG-0010:hunk 检查点 manifest 同为回滚依赖的状态,落盘必须原子。
-import { writeFileAtomicSync } from '../util/atomic-write.js';
+import { probeSnapshotRoot } from './snapshot-store-host.js';
 
 export interface HunkRange {
   /** 起始行(1-indexed,包含) */
@@ -93,12 +89,7 @@ export class HunkCheckpointManager {
     this.sessionId = opts.sessionId;
     this.workspacePath = path.resolve(opts.workspacePath);
     this.maxCheckpoints = opts.maxCheckpoints ?? DEFAULT_MAX_HUNK_CHECKPOINTS;
-    // sessionId 来自 `--session`,与整文件检查点同解:收敛成单段并断言在 checkpoints 根内。
-    this.baseDir = segmentPathInside(
-      path.resolve(os.homedir(), '.ihui', 'checkpoints'),
-      this.sessionId,
-      '会话 hunk 检查点目录',
-    );
+    this.baseDir = path.join(os.homedir(), '.ihui', 'checkpoints', this.sessionId);
     this.onCorrupt =
       opts.onCorruptManifest ??
       ((entry) => {
@@ -121,17 +112,23 @@ export class HunkCheckpointManager {
 
   private resolveRel(filePath: string): string {
     const abs = path.isAbsolute(filePath) ? filePath : path.resolve(this.workspacePath, filePath);
-    // 工具入参口径:允许工作区内的绝对路径(既有行为),只拒越界;判据走 path-guard。
-    if (!isPathInside(this.workspacePath, abs)) {
+    const rel = path.relative(this.workspacePath, abs);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
       throw new Error(`文件 ${filePath} 不在工作区 ${this.workspacePath} 内`);
     }
-    return path.relative(this.workspacePath, abs).replace(/\\/g, '/');
+    return rel.replace(/\\/g, '/');
   }
 
-  /** 读取文件所有行(不含换行符),文件不存在时返回空数组。 */
+  /** 读取文件所有行(不含换行符)。文件不存在返回空数组;读不到则抛错,不当成空文件。 */
   private readLines(absPath: string): string[] {
-    if (!fs.existsSync(absPath)) return [];
-    const content = fs.readFileSync(absPath, 'utf-8');
+    let content: string;
+    try {
+      content = fs.readFileSync(absPath, 'utf-8');
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+      throw new Error('文件读不到,不能把它当成空文件');
+    }
     // 保留行尾换行符信息:split('\n') 后,最后一行若为空(因 \n 结尾)则丢弃
     const lines = content.split('\n');
     if (lines.length > 0 && lines[lines.length - 1] === '') {
@@ -191,59 +188,58 @@ export class HunkCheckpointManager {
       hunks: records,
     };
 
-    const cpDir = segmentPathInside(this.baseDir, id, 'hunk 检查点目录');
+    const cpDir = path.join(this.baseDir, id);
     this.ensureDir(cpDir);
-    writeFileAtomicSync(path.join(cpDir, 'manifest.json'), JSON.stringify(meta, null, 2));
+    fs.writeFileSync(
+      path.join(cpDir, 'manifest.json'),
+      JSON.stringify(meta, null, 2),
+      'utf-8',
+    );
 
     this.pruneOldCheckpoints();
     return meta;
   }
 
   list(): HunkCheckpointMeta[] {
-    if (!fs.existsSync(this.baseDir)) return [];
+    const root = probeSnapshotRoot(this.baseDir);
+    if (root === 'missing') return [];
+    if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成没有检查点');
     const entries = fs.readdirSync(this.baseDir, { withFileTypes: true });
     const metas: HunkCheckpointMeta[] = [];
     this.lastQuarantined = [];
     for (const e of entries) {
       if (!e.isDirectory() || !e.name.startsWith('hunk_')) continue;
       const manifestPath = path.join(this.baseDir, e.name, 'manifest.json');
-      // 只读也不能顺着根内符号链接目录读根外:读之前补一次根内断言。
-      try {
-        assertPathInside(this.baseDir, manifestPath, 'hunk 检查点清单');
-      } catch (err) {
-        const entry: CorruptManifestEntry = {
-          checkpointId: e.name,
-          manifestPath,
-          quarantinePath: null,
-          reason: 'io-error',
-          detail: `符号链接解析后落在 hunk 检查点根目录之外,拒绝读取:${err instanceof Error ? err.message : String(err)}`,
-        };
-        this.lastQuarantined.push(entry);
-        this.onCorrupt(entry);
-        continue;
-      }
       // G-671:manifest 不存在 = 目录半成品(不算损坏);读不了/解析不了/形状不对 = 损坏,隔离并报名
       const result = readManifestChecked(manifestPath, e.name, isHunkCheckpointMeta, (entry) => {
         this.lastQuarantined.push(entry);
         this.onCorrupt(entry);
       });
+      if (result.status === 'unreadable') throw new Error(result.detail);
       if (result.status === 'ok') metas.push(result.meta);
     }
     return metas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
+  private readHunkCheckpoint(
+    checkpointId: string,
+  ):
+    | { status: 'ok'; meta: HunkCheckpointMeta }
+    | { status: 'missing' }
+    | { status: 'unreadable'; detail: string }
+    | { status: 'corrupt'; reason: string } {
+    const manifestPath = path.join(this.baseDir, checkpointId, 'manifest.json');
+    const result = readManifestChecked(manifestPath, checkpointId, isHunkCheckpointMeta, this.onCorrupt);
+    if (result.status === 'ok') return { status: 'ok', meta: result.meta };
+    if (result.status === 'unreadable') return { status: 'unreadable', detail: result.detail };
+    if (result.status === 'corrupt') return { status: 'corrupt', reason: result.entry.reason };
+    return { status: 'missing' };
+  }
+
   get(checkpointId: string): HunkCheckpointMeta | null {
-    const manifestPath = path.join(
-      segmentPathInside(this.baseDir, checkpointId, 'hunk 检查点目录'),
-      'manifest.json',
-    );
-    const result = readManifestChecked(
-      manifestPath,
-      checkpointId,
-      isHunkCheckpointMeta,
-      this.onCorrupt,
-    );
-    return result.status === 'ok' ? result.meta : null;
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'unreadable') throw new Error(read.detail);
+    return read.status === 'ok' ? read.meta : null;
   }
 
   /**
@@ -252,17 +248,32 @@ export class HunkCheckpointManager {
    * @returns { restored: true } 成功;{ restored: false, reason } 失败
    */
   restoreHunk(checkpointId: string, hunkIdx: number): { restored: boolean; linesAffected: number; reason?: string } {
-    const meta = this.get(checkpointId);
-    if (!meta) {
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'unreadable') {
+      return { restored: false, linesAffected: 0, reason: read.detail };
+    }
+    if (read.status === 'corrupt') {
+      return {
+        restored: false,
+        linesAffected: 0,
+        reason: `检查点 ${checkpointId} 清单读不到(${read.reason}),不能把它说成不存在`,
+      };
+    }
+    if (read.status === 'missing') {
       return { restored: false, linesAffected: 0, reason: `检查点 ${checkpointId} 不存在` };
     }
+    const meta = read.meta;
     if (hunkIdx < 0 || hunkIdx >= meta.hunks.length) {
       return { restored: false, linesAffected: 0, reason: `hunkIdx ${hunkIdx} 越界(共 ${meta.hunks.length} 个 hunks)` };
     }
     const hunk = meta.hunks[hunkIdx]!;
-    // meta.file 来自 manifest(持久化不可信输入):写回前先按工作区相对路径重判。
-    const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, meta.file, 'hunk 回滚目标');
-    const currentLines = this.readLines(absInWorkspace);
+    const absInWorkspace = path.join(this.workspacePath, meta.file);
+    let currentLines: string[];
+    try {
+      currentLines = this.readLines(absInWorkspace);
+    } catch (err) {
+      return { restored: false, linesAffected: 0, reason: err instanceof Error ? err.message : String(err) };
+    }
 
     // 按记录的行范围替换,行号超出当前文件时截断
     const start = Math.min(hunk.range.start, currentLines.length + 1);
@@ -277,10 +288,21 @@ export class HunkCheckpointManager {
 
   /** 回滚所有 hunks(按 hunkIdx 倒序回滚,避免行号偏移问题)。 */
   restoreAll(checkpointId: string): { hunksRestored: number; linesAffected: number; reason?: string } {
-    const meta = this.get(checkpointId);
-    if (!meta) {
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'unreadable') {
+      return { hunksRestored: 0, linesAffected: 0, reason: read.detail };
+    }
+    if (read.status === 'corrupt') {
+      return {
+        hunksRestored: 0,
+        linesAffected: 0,
+        reason: `检查点 ${checkpointId} 清单读不到(${read.reason}),不能把它说成不存在`,
+      };
+    }
+    if (read.status === 'missing') {
       return { hunksRestored: 0, linesAffected: 0, reason: `检查点 ${checkpointId} 不存在` };
     }
+    const meta = read.meta;
     let totalLines = 0;
     let restored = 0;
     // 倒序回滚(从后往前),避免前一个 hunk 回滚后影响后一个 hunk 的行号
@@ -295,9 +317,10 @@ export class HunkCheckpointManager {
   }
 
   delete(checkpointId: string): boolean {
-    // 递归删除前必须先落到根内的真实目录(id 收敛 + 根内/realpath 断言)。
-    const cpDir = segmentPathInside(this.baseDir, checkpointId, 'hunk 检查点目录');
-    if (!fs.existsSync(cpDir)) return false;
+    const cpDir = path.join(this.baseDir, checkpointId);
+    const root = probeSnapshotRoot(cpDir);
+    if (root === 'missing') return false;
+    if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成未找到');
     fs.rmSync(cpDir, { recursive: true, force: true });
     return true;
   }
@@ -306,10 +329,14 @@ export class HunkCheckpointManager {
    * 对比当前文件与 hunk 快照,返回每个 hunk 的状态。
    */
   diffHunks(checkpointId: string): Array<{ hunkIdx: number; range: HunkRange; status: 'unchanged' | 'modified' | 'gone' }> {
-    const meta = this.get(checkpointId);
-    if (!meta) return [];
-    // 同源只读:与 restoreHunk 同一判据。
-    const absInWorkspace = resolveWorkspaceRelPath(this.workspacePath, meta.file, 'hunk 对比目标');
+    const read = this.readHunkCheckpoint(checkpointId);
+    if (read.status === 'missing') return [];
+    if (read.status === 'unreadable') throw new Error(read.detail);
+    if (read.status === 'corrupt') {
+      throw new Error(`检查点 ${checkpointId} 清单读不到(${read.reason}),不能把它说成不存在`);
+    }
+    const meta = read.meta;
+    const absInWorkspace = path.join(this.workspacePath, meta.file);
     const currentLines = this.readLines(absInWorkspace);
     const result: Array<{ hunkIdx: number; range: HunkRange; status: 'unchanged' | 'modified' | 'gone' }> = [];
     meta.hunks.forEach((hunk, idx) => {

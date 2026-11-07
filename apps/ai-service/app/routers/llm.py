@@ -606,6 +606,40 @@ def _is_budget_exhaustion_error(error_code: Any, message: Any = "") -> bool:
     return bool(text) and any(p in text for p in _BUDGET_EXHAUSTED_MESSAGE_PATTERNS)
 
 
+# 批次 3(2026-11-06):上游模型账户额度耗尽在外部契约里只有一档
+# provider_budget_exhausted。本文件只改 SSE error 帧的 errorCode 字段,文案/控制流
+# 一律不动。刻意**不**把网关的 BUDGET_EXHAUSTED 也映射过来 —— 那是用户日限额,
+# 属于 daily_token_limit 作用域,混成一个码会让端上把"今天用完了"说成"上游挂了"。
+_PROVIDER_BUDGET_ERROR_CODES = frozenset(
+    {
+        "PROVIDER_QUOTA_EXHAUSTED",  # llm_gateway 额度耗尽稳定码(批次 60)
+        "PROVIDER_BUDGET_EXHAUSTED",
+    }
+)
+_PROVIDER_HINTS = ("provider", "upstream", "上游", "供应商")
+_PROVIDER_QUOTA_HINTS = ("quota", "insufficient", "额度", "配额", "余额不足")
+
+
+def _normalize_provider_budget_error_code(error_code: Any, message: Any = "") -> str:
+    """把 provider 预算/配额耗尽的 errorCode 归一到 `provider_budget_exhausted`。
+
+    - 精确码(网关/上游已盖章)直接映射;
+    - 泛化码(空/LLM_ERROR/PROVIDER_ERROR)且**同时**命中"上游"与"额度"两类关键词
+      才映射 —— 只命中一半说明不了是谁的额度,不猜。
+    """
+    code = "" if error_code is None else str(error_code).strip()
+    upper = code.upper()
+    if upper in _PROVIDER_BUDGET_ERROR_CODES:
+        return "provider_budget_exhausted"
+    if upper in {"", "LLM_ERROR", "PROVIDER_ERROR"}:
+        text = str(message or "").strip().lower()
+        if any(h in text for h in _PROVIDER_HINTS) and any(
+            q in text for q in _PROVIDER_QUOTA_HINTS
+        ):
+            return "provider_budget_exhausted"
+    return code
+
+
 def _d120_should_extend(
     *,
     tool_iter: int,
@@ -1378,6 +1412,7 @@ def _form_pending_entry(session_id: str, request_id: str) -> dict[str, Any] | No
 _TOOL_DANGER_LEVELS: dict[str, str] = {
     # 命令执行:可执行任意命令,最高危
     "run_command": "high",
+    "sandbox_session": "high",
     "execute_command": "high",
     # 删除/移动/git:不可逆操作
     "delete_file": "high",
@@ -2215,7 +2250,7 @@ def _compaction_payload(info: dict[str, Any] | None) -> dict[str, Any] | None:
     compressed = bool(info.get("compressed"))
     if not compressed and trigger != "incompressible":
         return None
-    return {
+    payload: dict[str, Any] = {
         "triggered": True,
         "tokensBefore": info.get("original_tokens", 0),
         "tokensAfter": info.get("compressed_tokens", 0),
@@ -2223,6 +2258,12 @@ def _compaction_payload(info: dict[str, Any] | None) -> dict[str, Any] | None:
         "usageRatio": info.get("usage_ratio", 0),
         "trigger": trigger or "llm",
     }
+    # 批次 3:压缩边界随帧下发(可选字段;未压缩/不压缩的老 info 不带该键,
+    # 消费方按"缺失=未交代"处理,不伪造空边界)。
+    boundary = info.get("boundary")
+    if isinstance(boundary, dict) and boundary:
+        payload["boundary"] = boundary
+    return payload
 
 
 def _compaction_frame(info: dict[str, Any] | None) -> str | None:
@@ -3635,10 +3676,34 @@ async def llm_complete(req: LLMCompleteRequest, request: Request) -> dict[str, A
         return JSONResponse(
             status_code=status_code,
             content={
-                "errorCode": err_code,
+                # 批次 3:仅响应里的 errorCode 归一(provider 配额 → provider_budget_exhausted),
+                # status_code/文案/控制流保持原样。
+                "errorCode": _normalize_provider_budget_error_code(err_code, err_msg),
                 "message": err_msg,
                 "model": req.model,
             },
+        )
+    # BUG-7 根治:非流式 /llm/complete 拿到 usage 后补 consume,与流式 done-usage 同一把尺。
+    # 入口 check(见本函数开头)只校验余量、不累加;缺这条腿 ⇒ 日额度永远停在 0,可无限刷。
+    _usage_obj = result.get("usage")
+    _trial_tokens = (
+        int(_usage_obj.get("total_tokens", 0) or 0)
+        if isinstance(_usage_obj, dict)
+        else 0
+    )
+    if owner_uuid and _trial_tokens > 0:
+        spawn(
+            user_trial_quota.consume(owner_uuid, _trial_tokens),
+            name="trial-quota-consume-nonstream",
+        )
+    # check/consume 配对断言:受额度约束的成功请求必须已累加;usage 缺失属上游异常,
+    # 记 error 可观测而非静默漏账(避免"逐处补又漏一处")。
+    if trial.get("limit", 0) > 0 and owner_uuid and _trial_tokens <= 0:
+        logger.error(
+            "[trial-quota] /llm/complete 成功响应缺少可用 usage,check/consume 未配对: "
+            "owner=%s usage=%r",
+            owner_uuid,
+            _usage_obj,
         )
     # 透传 metadata
     if req.metadata:
@@ -4926,7 +4991,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     err_evt = {
                                         "type": "error",
                                         "message": evt.get("message", "LLM 调用失败"),
-                                        "errorCode": evt.get("errorCode", "LLM_ERROR"),
+                                        "errorCode": _normalize_provider_budget_error_code(
+                                            evt.get("errorCode", "LLM_ERROR"),
+                                            evt.get("message"),
+                                        ),
                                     }
                                     yield _sse(SSE_ERROR, err_evt)
                                     return
@@ -5106,7 +5174,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     err_evt = {
                                         "type": "error",
                                         "message": evt.get("message", "LLM 调用失败"),
-                                        "errorCode": evt.get("errorCode", "LLM_ERROR"),
+                                        "errorCode": _normalize_provider_budget_error_code(
+                                            evt.get("errorCode", "LLM_ERROR"),
+                                            evt.get("message"),
+                                        ),
                                     }
                                     yield _sse(SSE_ERROR, err_evt)
                                     return
@@ -5850,6 +5921,26 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 _approval_id = f"appr_{uuid.uuid4().hex[:12]}"
                                 # 参数预览截断 200 字符(与 agent 任务流 tool-approval 口径一致)
                                 _args_preview = json.dumps(args, ensure_ascii=False)[:200]
+                                # 批次 2(2026-11-06):结构化审批决策信息,与 agent
+                                # 任务流共用 `tool_approval_descriptor`(字段逐名一致)。
+                                # 风险档以本链路既有的 `_danger` 为准,描述器不另造口径。
+                                try:
+                                    from ..services.tool_approval_descriptor import (
+                                        describe_tool_request as _describe_tool_request,
+                                    )
+
+                                    _decision_info = _describe_tool_request(
+                                        tool_name,
+                                        args if isinstance(args, dict) else None,
+                                        risk_level=_danger,
+                                    )
+                                except Exception as _desc_exc:  # noqa: BLE001 - 描述失败退旧字段
+                                    logger.warning(
+                                        "审批决策信息组装失败(tool=%s): %s",
+                                        tool_name,
+                                        _desc_exc,
+                                    )
+                                    _decision_info = None
                                 _approval_ev = asyncio.Event()
                                 _approval_sessions.setdefault(session_id, {})[_approval_id] = {
                                     "event": _approval_ev,
@@ -5906,6 +5997,21 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                             tool_name,
                                             args if isinstance(args, dict) else None,
                                             owner_uuid,
+                                        ),
+                                        # 批次 2:结构化决策信息(可选附加键,老客户端忽略)。
+                                        **(
+                                            {
+                                                "reason_code": _decision_info.get("reason_code"),
+                                                "risk_level": _decision_info.get("risk_level"),
+                                                "argv": _decision_info.get("argv"),
+                                                "cwd": _decision_info.get("cwd"),
+                                                "affected_paths": _decision_info.get("affected_paths")
+                                                or [],
+                                                "scope": _decision_info.get("scope"),
+                                                "summary": _decision_info.get("summary"),
+                                            }
+                                            if _decision_info is not None
+                                            else {}
                                         ),
                                     },
                                 )
@@ -6838,6 +6944,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                 err_code = "PROVIDER_NOT_IMPLEMENTED"
             elif "API key 未配置" in err_msg or "未配置" in err_msg:
                 err_code = "MODEL_NOT_CONFIGURED"
+            # 批次 3:上游账户额度耗尽统一码(只改 errorCode,文案原样)。
+            err_code = _normalize_provider_budget_error_code(err_code, err_msg)
             err = {"type": "error", "message": err_msg, "errorCode": err_code}
             logger.warning(
                 "stream gen error: model=%s code=%s msg=%s",
@@ -7009,6 +7117,49 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                     "model": accumulated.get("model"),
                     "costUsd": None,
                 }
+                # 批次 3:七类上下文账本(usage.contextLedger)。本链路口径:
+                # - skills 计 0:主聊天流不单独下发 skill 正文(技能若被注入会并入
+                #   system prompt),拿不到独立文本就不伪造;
+                # - other 计 0:附件/其他注入文本在此链路已并入 system 或 messages,
+                #   不存在独立条目,同样不伪造;
+                # - system_prompt 取本轮下发的全部 system 内容,messages 取非 system
+                #   消息(压缩后的真实上下文);context_limit 与压缩同一来源。
+                try:
+                    from ..services.context_ledger import build_context_ledger
+
+                    _ledger_system = "\n".join(
+                        str(m.get("content") or "")
+                        for m in (messages or [])
+                        if isinstance(m, dict) and m.get("role") == "system"
+                    )
+                    _ledger_messages = [
+                        m
+                        for m in (messages or [])
+                        if isinstance(m, dict) and m.get("role") != "system"
+                    ]
+                    _usage_frame["contextLedger"] = build_context_ledger(
+                        system_prompt_text=_ledger_system,
+                        tool_schemas=req.tools,
+                        skill_texts=[],
+                        messages=_ledger_messages,
+                        attachments_or_other_text="",
+                        context_limit=_ctx_limit,
+                        model=(
+                            str(accumulated.get("model"))
+                            if accumulated.get("model")
+                            else req.model
+                        ),
+                        provider_prompt_tokens=(
+                            _prompt if isinstance(_prompt, int) else None
+                        ),
+                        compacted=bool(
+                            compaction_info.get("compressed")
+                            if isinstance(compaction_info, dict)
+                            else False
+                        ),
+                    )
+                except Exception as _ledger_err:  # noqa: BLE001 - 账本失败不阻塞收尾
+                    logger.warning("contextLedger 构造失败(降级不发送): %s", _ledger_err)
                 # D33(2026-09-23 立):usageDetail 持久化通道(与 event: usage 同源同字段)。
                 # 成本经 model_pricing.estimate_cost_usd 推算(与 ai-cost 扣费同口径);
                 # 失败/未计费降级为 None,绝不阻塞主链路。仅当确有 token 用量时才构建,

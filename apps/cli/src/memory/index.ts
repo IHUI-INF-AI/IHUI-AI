@@ -118,14 +118,7 @@ export function setMemoryEnabled(enabled: boolean): void {
  * 读取 memory 文件,解析为 MemoryEntry 数组。
  * 解析规则:每行以 "- " 开头视为条目,最近的 "## " 标题作为分类。
  */
-function parseMemoryFile(filePath: string, source: 'global' | 'project'): MemoryEntry[] {
-  if (!fs.existsSync(filePath)) return [];
-  let content: string;
-  try {
-    content = fs.readFileSync(filePath, 'utf-8');
-  } catch {
-    return [];
-  }
+function parseMemoryContent(content: string, source: 'global' | 'project'): MemoryEntry[] {
   const entries: MemoryEntry[] = [];
   let currentCategory = '未分类';
   for (const line of content.split('\n')) {
@@ -142,6 +135,18 @@ function parseMemoryFile(filePath: string, source: 'global' | 'project'): Memory
     }
   }
   return entries;
+}
+
+function parseMemoryFile(filePath: string, source: 'global' | 'project'): MemoryEntry[] {
+  let content: string;
+  try {
+    content = fs.readFileSync(filePath, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return [];
+    throw new Error('memory 读不到,不能把它说成没有条目');
+  }
+  return parseMemoryContent(content, source);
 }
 
 /**
@@ -167,20 +172,25 @@ export function searchMemory(entries: MemoryEntry[], query: string): MemoryEntry
  * 添加 memory 条目到指定文件(全局或项目)。
  * 自动创建文件和目录,条目追加到末尾(无分类段则加到"## 通用"下)。
  */
+export type MemoryWriteLease = { sessionId: unknown; at: unknown; byteCap?: unknown };
+
 export function addMemoryEntry(
   filePath: string,
   text: string,
   category = '通用',
-): void {
+  lease?: MemoryWriteLease,
+): MemoryRotationPlan | undefined {
   const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
   let content = '';
-  if (fs.existsSync(filePath)) {
+  try {
     content = fs.readFileSync(filePath, 'utf-8');
-  } else {
-    content = `# Memory\n\n`;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') content = `# Memory\n\n`;
+    else throw new Error('memory 读不到,不能把它覆盖成新条目');
   }
 
   // 查找分类段
@@ -217,16 +227,164 @@ export function addMemoryEntry(
     content += `${sectionHeader}\n\n- ${text}\n`;
   }
 
+  if (lease) return commitMemoryFile(filePath, content, lease);
   fs.writeFileSync(filePath, content, 'utf-8');
+  return undefined;
 }
 
 /**
  * 清空指定 memory 文件(全局或项目)。
  */
-export function clearMemory(filePath: string): void {
-  if (fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, `# Memory\n\n`, 'utf-8');
+export function clearMemory(filePath: string, lease?: MemoryWriteLease): MemoryRotationPlan | undefined {
+  try {
+    if (!fs.statSync(filePath).isFile()) {
+      throw new Error('memory 读不到,不能把它说成已经清空');
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === 'memory 读不到,不能把它说成已经清空') {
+      if (!lease) throw err;
+      return {
+        disposition: 'unjudged',
+        reason: 'bytes-unmeasured',
+        bakName: '',
+        at: null,
+        previousBytes: null,
+      };
+    }
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return undefined;
+    if (!lease) throw new Error('memory 读不到,不能把它说成已经清空');
+    return {
+      disposition: 'unjudged',
+      reason: 'bytes-unmeasured',
+      bakName: '',
+      at: null,
+      previousBytes: null,
+    };
   }
+  const next = `# Memory\n\n`;
+  if (lease) return commitMemoryFile(filePath, next, lease);
+  fs.writeFileSync(filePath, next, 'utf-8');
+  return undefined;
+}
+
+export const MEMORY_OCCASIONS = ['session-start', 'identity-recall'] as const;
+
+export type MemoryOccasion = (typeof MEMORY_OCCASIONS)[number];
+
+const MEMORY_OCCASION_ALIASES: Readonly<Record<string, MemoryOccasion>> = {
+  'session-start': 'session-start',
+  'session start': 'session-start',
+  'identity-recall': 'identity-recall',
+  'identity recall': 'identity-recall',
+};
+
+export type MemoryOccasionPlan = {
+  disposition: 'admitted' | 'refused' | 'unjudged';
+  reason:
+    | 'declared'
+    | 'occasion-mismatch'
+    | 'timing-absent'
+    | 'timing-unrecognized'
+    | 'occasion-unrecognized'
+    | 'text-unreadable';
+  body: string;
+};
+
+function normalizeMemoryOccasion(value: string): MemoryOccasion | null {
+  return MEMORY_OCCASION_ALIASES[value.trim().toLowerCase()] ?? null;
+}
+
+/**
+ * 人格/记忆件只在自己声明的时机进入提示。
+ * 没写 read_when 的件不当成「随时可读」。
+ * 声明里出现不认识的时机,整份不注入。
+ */
+export function selectMemoryForOccasion(input: { text: unknown; occasion: unknown }): MemoryOccasionPlan {
+  const blank = (
+    reason: MemoryOccasionPlan['reason'],
+    disposition: MemoryOccasionPlan['disposition'] = 'unjudged',
+  ): MemoryOccasionPlan => ({ disposition, reason, body: '' });
+  if (typeof input.occasion !== 'string' || normalizeMemoryOccasion(input.occasion) === null) {
+    return blank('occasion-unrecognized');
+  }
+  const occasion = normalizeMemoryOccasion(input.occasion)!;
+  if (typeof input.text !== 'string') return blank('text-unreadable');
+  const text = input.text.replace(/^\uFEFF/, '');
+  const open = text.startsWith('---\r\n') ? 5 : text.startsWith('---\n') ? 4 : 0;
+  if (open === 0) return blank('timing-absent');
+  const end = text.indexOf('\n---', open);
+  if (end < 0) return blank('text-unreadable');
+  const front = text.slice(open, end);
+  const body = text.slice(end + 4).replace(/^\r?\n/, '');
+  const line = front.split(/\r?\n/).find((row) => /^read_when\s*:/.test(row));
+  if (!line) return blank('timing-absent');
+  const raw = line.replace(/^read_when\s*:\s*/, '').trim().replace(/^["']|["']$/g, '');
+  if (raw.length === 0) return blank('timing-absent');
+  const mapped: MemoryOccasion[] = [];
+  for (const token of raw.split('/')) {
+    const known = normalizeMemoryOccasion(token);
+    if (!known) return blank('timing-unrecognized');
+    mapped.push(known);
+  }
+  if (mapped.includes(occasion)) return { disposition: 'admitted', reason: 'declared', body };
+  return blank('occasion-mismatch', 'refused');
+}
+
+export function promptMemoryForOccasion(input: { occasion: unknown; documents: unknown }): {
+  text: string;
+  reasons: string[];
+  entryCount: number;
+  entries: MemoryEntry[];
+} {
+  if (!Array.isArray(input.documents)) {
+    return { text: '', reasons: ['documents-unmeasured'], entryCount: 0, entries: [] };
+  }
+  const entries: MemoryEntry[] = [];
+  const reasons: string[] = [];
+  for (const item of input.documents) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      reasons.push('text-unreadable');
+      continue;
+    }
+    const row = item as { source?: unknown; text?: unknown };
+    const source = row.source === 'global' || row.source === 'project' ? row.source : null;
+    if (!source) {
+      reasons.push('text-unreadable');
+      continue;
+    }
+    const plan = selectMemoryForOccasion({ text: row.text, occasion: input.occasion });
+    if (plan.disposition !== 'admitted') {
+      reasons.push(plan.reason);
+      continue;
+    }
+    entries.push(...parseMemoryContent(plan.body, source));
+  }
+  return { text: formatMemoryForPrompt(entries), reasons, entryCount: entries.length, entries };
+}
+
+export function loadMemoryForPrompt(projectPath: string, occasion: unknown): {
+  text: string;
+  reasons: string[];
+  entryCount: number;
+  entries: MemoryEntry[];
+} {
+  const store = getMemoryStore(projectPath);
+  if (!store.enabled) return { text: '', reasons: ['disabled'], entryCount: 0, entries: [] };
+  const documents: { source: 'global' | 'project'; text: string | null }[] = [];
+  for (const [source, filePath] of [
+    ['global', store.globalPath],
+    ['project', store.projectPath],
+  ] as const) {
+    try {
+      documents.push({ source, text: fs.readFileSync(filePath, 'utf-8') });
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      documents.push({ source, text: null });
+    }
+  }
+  return promptMemoryForOccasion({ occasion, documents });
 }
 
 /**
@@ -333,4 +491,110 @@ export * from './long-term.js';
 export * from './soul.js';
 export * from './dream.js';
 export * from './vector-search.js';
+
+export type MemoryRotationPlan = {
+  disposition: 'rotate' | 'unjudged' | 'refused';
+  reason:
+    | 'rotate'
+    | 'session-invalid'
+    | 'bytes-unmeasured'
+    | 'bytes-invalid'
+    | 'cap-unmeasured'
+    | 'over-cap'
+    | 'clock-unmeasured';
+  bakName: string;
+  at: string | null;
+  previousBytes: number | null;
+};
+
+const MEMORY_SESSION_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
+
+function memoryByteCountOk(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+/**
+ * 会话记忆留上一版时，时刻和两边字节数都必须是调用方已经量到的。
+ * 缺时钟不改用当前时间，缺字节数不写成 0。超过调用方给出的上限就不轮转。
+ * 本函数不写盘。
+ */
+export function planMemoryRotation(input: {
+  sessionId: unknown;
+  previousBytes: unknown;
+  nextBytes: unknown;
+  byteCap: unknown;
+  at: unknown;
+}): MemoryRotationPlan {
+  const blank = (
+    reason: MemoryRotationPlan['reason'],
+    disposition: MemoryRotationPlan['disposition'],
+  ): MemoryRotationPlan => ({
+    disposition,
+    reason,
+    bakName: '',
+    at: null,
+    previousBytes: null,
+  });
+  if (typeof input.sessionId !== 'string' || !MEMORY_SESSION_ID.test(input.sessionId)) {
+    return blank('session-invalid', 'refused');
+  }
+  if (
+    input.previousBytes === null ||
+    input.previousBytes === undefined ||
+    input.nextBytes === null ||
+    input.nextBytes === undefined
+  ) {
+    return blank('bytes-unmeasured', 'unjudged');
+  }
+  if (!memoryByteCountOk(input.previousBytes) || !memoryByteCountOk(input.nextBytes)) {
+    return blank('bytes-invalid', 'unjudged');
+  }
+  if (input.byteCap === null || input.byteCap === undefined) return blank('cap-unmeasured', 'unjudged');
+  if (!memoryByteCountOk(input.byteCap) || input.byteCap < 1) return blank('bytes-invalid', 'unjudged');
+  if (input.previousBytes > input.byteCap || input.nextBytes > input.byteCap) {
+    return blank('over-cap', 'refused');
+  }
+  if (typeof input.at !== 'string' || input.at.trim() === '' || Number.isNaN(Date.parse(input.at))) {
+    return blank('clock-unmeasured', 'unjudged');
+  }
+  return {
+    disposition: 'rotate',
+    reason: 'rotate',
+    bakName: `${input.sessionId}_memory.md.bak`,
+    at: input.at,
+    previousBytes: input.previousBytes,
+  };
+}
+
+const MEMORY_FILE_BYTE_CAP = 256 * 1024;
+
+function commitMemoryFile(filePath: string, content: string, lease: MemoryWriteLease): MemoryRotationPlan {
+  let previousBytes: number | null = null;
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile()) previousBytes = null;
+    else {
+      const size = stat.size;
+      previousBytes = typeof size === 'number' && Number.isInteger(size) && size >= 0 ? size : null;
+    }
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    previousBytes = code === 'ENOENT' || code === 'ENOTDIR' ? 0 : null;
+  }
+  const plan = planMemoryRotation({
+    sessionId: lease.sessionId,
+    previousBytes,
+    nextBytes: Buffer.byteLength(content, 'utf8'),
+    byteCap: lease.byteCap === undefined ? MEMORY_FILE_BYTE_CAP : lease.byteCap,
+    at: lease.at,
+  });
+  if (plan.disposition !== 'rotate') return plan;
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  if (previousBytes !== null && previousBytes > 0) {
+    fs.copyFileSync(filePath, path.join(dir, plan.bakName));
+  }
+  fs.writeFileSync(filePath, content, 'utf-8');
+  return plan;
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

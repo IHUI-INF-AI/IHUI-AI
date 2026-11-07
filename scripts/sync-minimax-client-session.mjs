@@ -10,19 +10,28 @@
  * 由 apps/api/src/workers/relay-account-pool-worker.ts 的 `minimax-session-sync` 定时任务
  * 每 10 分钟派发;也可人工跑:
  *
- *   node scripts/sync-minimax-client-session.mjs [--dry-run] [--json]
+ *   node scripts/sync-minimax-client-session.mjs [--dry-run] [--json] [--uid=<池行uid>]
  *
  * 为什么需要它:mcode 会轮换 accessToken/refreshToken,池里那枚票是导入时的快照;而
  * minimax 适配器刻意不实现 refreshToken(刷新端点无公开文档)⇒ 不回灌就永久 down。
  *
  * 身份:mcode 记录没有 uid 字段,池内 uid 是导入期按 `recordKey+token` 哈希出来的(随票旋转
- * 而变)⇒ 本文件只把 recordKey 随载荷带上,由 ts 侧按 recordKey 找行;规则一份都不在这里写
- * (§0.6 判据单源)。退出码:0 全部处理完(含 skip)/ 1 落库失败 / 2 未判定
- * (本机无 mcode 会话 / 会话文件解析失败 / tsx 缺失)。
+ * 而变);而 `recordKey` 是「本机会话槽名」不是账号身份(2026-11-06 实测:池内三枚 minimax
+ * 行的 recordKey 逐字节全等,一台机只有一个会话槽)⇒ 默认只把 recordKey 随载荷带上,由 ts 侧
+ * 认「这个槽」;人工切号/切回必须用 `--uid=` 点名目标行,认行规则一份都不在这里写(§0.6 单源)。
+ * 退出码:0 全部处理完(含 skip)/ 1 落库失败 / 2 未判定
+ * (本机无 mcode 会话 / 会话文件解析失败 / tsx 缺失 / 点名时本机不止一条会话)。
  *
  * 安全:令牌只在两个进程的管道里流动,任何输出都不含凭据明文(只报 recordKey 尾、区域、到期)。
  */
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
+// 落库段窗口与失败身份判据单源(§0.6):三条同型腿不各写一份 120_000
+import { DB_WRITE_TIMEOUT_MS, stageFailureText } from './lib/sync-stage-timeouts.mjs'
+import { listProductPids } from './lib/trae-client-process.mjs'
+import { __test__ as traeSyncTest } from './sync-trae-client-session.mjs'
+// 映像名清单单源 = scripts/local-login.mjs 的 CLIENT_IMAGES(写回腿与心跳探测共用一张表,
+// 换发行版时只改那一处;本层不写第二份候选名,§0.6)
+import { CLIENT_IMAGES } from './local-login.mjs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -34,19 +43,50 @@ const SYNC_TS = path.join(API_DIR, 'scripts', 'relay-minimax-session-sync.ts')
 const EXTRACTOR = path.join(ROOT, 'scripts', 'lib', 'minimax-auth-extract.mjs')
 
 export function parseArgs(argv) {
-  const options = { dryRun: false, json: false, help: false, error: null }
+  const options = { dryRun: false, json: false, help: false, uid: '', error: null }
+  // 第一个错就停(报最后一个会把「--uid 没支持」念成「auto:aaaa 没支持」,把人引偏)
+  const bad = (msg) => {
+    if (!options.error) options.error = msg
+  }
   for (const a of argv) {
     if (a === '--dry-run') options.dryRun = true
     else if (a === '--json') options.json = true
     else if (a === '--help' || a === '-h') options.help = true
-    else if (a === '--')
+    else if (a.startsWith('--uid=')) {
+      options.uid = str(a.slice('--uid='.length))
+      // 给了空值 = 想点名却没说点谁:当场拒,不静默退回 recordKey 认行
+      if (!options.uid) bad('--uid= 需要一个池内 uid(人工切号后点名回灌目标行)')
+    } else if (a === '--')
       continue // pnpm 透传的裸分隔符,不是参数
-    else options.error = `未知参数: ${a}`
+    else bad(`未知参数: ${a}`)
   }
   return options
 }
 
 const str = (v) => (typeof v === 'string' ? v.trim() : '')
+
+/** 本机 mcode 客户端映像名(单源派生自 CLIENT_IMAGES.minimax,本层不另立清单) */
+export const MINIMAX_PRODUCTS = Object.freeze([...(CLIENT_IMAGES.minimax ?? [])])
+
+/**
+ * 客户端此刻在不在跑 —— 三态绝不并桶(§0.3):true=任一在跑;false=都不在;null=探测失败。
+ * 未知与 true 同向(照样写心跳):误判「没在跑」会让登记了永久保活的号被池接管续票,
+ * 而 mcode 的 refresh_token 是轮换型 ⇒ 当场把机主正在用的桌面端顶下线,且这条号
+ * 掉线后必须手机验证码才登得回来(2026-11-06 实测:上游拒绝旧 rt 时客户端直接清槽)。
+ * 判据与 Trae/Qoder 腿同一型(本仓第四条同型腿)。
+ */
+export function probeMinimaxClientActive(env = process.env) {
+  let unknown = false
+  for (const product of MINIMAX_PRODUCTS) {
+    const pids = listProductPids(product, env)
+    if (pids === null) {
+      unknown = true
+      continue
+    }
+    if (pids.length > 0) return true
+  }
+  return unknown ? null : false
+}
 
 /** 记录键的人读短名(leveldb 键分隔符后的账号哈希尾 8 位;非凭据) */
 export function recordKeyLabel(recordKey) {
@@ -60,8 +100,12 @@ export function recordKeyLabel(recordKey) {
  * 提取结果 → 同步脚本的 stdin 载荷(纯函数,测试锁形状)。
  * 只搬「凭据 + 身份 + 溯源」三族键:记录原样明文直通会把无关键一路带进 extraMetadata,
  * 而本腿只需要能落 token 面与认出是哪枚号。expiresAt 由 expiresAtMs 折成 ISO(ts 侧首选它)。
+ *
+ * `uid` = 操作者点名回灌目标行(人工切号/切回用)。一台机只有一个 mcode 会话槽,
+ * recordKey 认到的是「槽」不是「账号」⇒ 只有恰有一条会话时才允许点名;多条会话
+ * 点一行无法判定这条会话属于谁,一律落到 meta.uidError 由调用方拒(§0.3 不猜)。
  */
-export function buildPayload(extracted) {
+export function buildPayload(extracted, uid = '', heartbeatAt = null) {
   const accounts = (Array.isArray(extracted?.accounts) ? extracted.accounts : [])
     .map((a) => {
       const accessToken = str(a?.accessToken)
@@ -96,12 +140,23 @@ export function buildPayload(extracted) {
     })
     .filter(Boolean)
   const meta = extracted?.meta ?? {}
+  const named = str(uid)
+  let uidError = null
+  if (named) {
+    if (accounts.length === 1) accounts[0] = { ...accounts[0], uid: named }
+    else
+      uidError = `点名 --uid=${named},但本机有 ${accounts.length} 条会话 ⇒ 认不出这条会话属于哪一行,拒不回灌`
+  }
   return {
     providerCode: 'minimax',
     accounts,
+    // 心跳只在量到「客户端在跑/探测未知」时带上;拿不到时刻就不带(不带 ≠ false,§0.3)
+    ...(typeof heartbeatAt === 'string' && heartbeatAt ? { clientActiveAt: heartbeatAt } : {}),
     meta: {
       count: accounts.length,
       skipped: typeof meta.skipped === 'number' ? meta.skipped : 0,
+      uid: named || null,
+      uidError,
       roots: Array.isArray(meta.roots) ? meta.roots.map((r) => str(r?.root)).filter(Boolean) : [],
     },
   }
@@ -127,7 +182,11 @@ function runSyncTs(payloadText, dryRun) {
     })
     let stdout = ''
     let stderr = ''
-    const timer = setTimeout(() => child.kill(), 120_000)
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill()
+    }, DB_WRITE_TIMEOUT_MS)
     child.stdout.on('data', (d) => (stdout += d))
     child.stderr.on('data', (d) => (stderr += d))
     child.on('error', (e) => {
@@ -150,9 +209,17 @@ function runSyncTs(payloadText, dryRun) {
       resolve({
         code: signal ? 2 : (code ?? 2),
         json,
+        // 超时是一等读数:旧形态 `stderr || 退出码/信号` 会被 ts 脚本常态打的 db 噪音顶掉,
+        // 于是「本方等死它」与「它自己崩了」在账面上是同一句话(§0.3 两桶必须分开)。
         error: json
           ? null
-          : (stderr || `退出码 ${code ?? '?'}${signal ? ` 信号 ${signal}` : ''}`).slice(0, 300),
+          : stageFailureText({
+              timedOut,
+              signal,
+              code,
+              stderr,
+              limitMs: DB_WRITE_TIMEOUT_MS,
+            }).slice(0, 300),
       })
     })
     child.stdin.write(payloadText)
@@ -168,9 +235,12 @@ async function main(argv) {
   }
   if (parsed.help) {
     process.stdout.write(
-      '用法: node scripts/sync-minimax-client-session.mjs [--dry-run] [--json]\n' +
+      '用法: node scripts/sync-minimax-client-session.mjs [--dry-run] [--json] [--uid=<池行uid>]\n' +
         '读取本机 MiniMax Code(mcode)登录态并回灌号池(客户端为主策略的取数端;' +
-        '判据在 apps/api/scripts/relay-minimax-session-sync.ts)。\n',
+        '判据在 apps/api/scripts/relay-minimax-session-sync.ts)。\n' +
+        '--uid: 人工切号/切回后点名要写回的那一行(一台机只有一个 mcode 会话槽,' +
+        'recordKey 只认得到槽、认不到账号 ⇒ 切过号必须点名)。默认不带 = 无人值守节拍,' +
+        '按 recordKey 镜像运营池那一行。\n',
     )
     return 0
   }
@@ -186,7 +256,13 @@ async function main(argv) {
     return 2
   }
 
-  const payload = buildPayload(extracted)
+  const heartbeatAt = traeSyncTest.heartbeatOf(probeMinimaxClientActive(), new Date().toISOString())
+  const payload = buildPayload(extracted, parsed.uid, heartbeatAt)
+  if (payload.meta.uidError) {
+    process.stderr.write(`❌ ${payload.meta.uidError}(未判定)\n`)
+    return 2
+  }
+  if (parsed.uid) process.stderr.write(`点名回灌目标行: uid=${parsed.uid}\n`)
   // 指纹按 recordKey 取(不按数组下标 —— 丢弃过记录时下标会错位,报出别人的指纹比不报更坏)
   const fingerprintByKey = new Map(
     (Array.isArray(extracted?.meta?.sessions) ? extracted.meta.sessions : []).map((s) => [
@@ -202,7 +278,8 @@ async function main(argv) {
   )
   process.stderr.write(
     `提取: ${payload.accounts.length} 条可用会话` +
-      `${payload.meta.skipped > 0 ? `(跳过 ${payload.meta.skipped} 条双缺记录)` : ''}\n`,
+      `${payload.meta.skipped > 0 ? `(跳过 ${payload.meta.skipped} 条双缺记录)` : ''}` +
+      `${payload.clientActiveAt ? ` 心跳=已记(${payload.clientActiveAt})` : ' 心跳=未带(客户端未跑)'}\n`,
   )
   for (const line of lines) process.stderr.write(`  ${line}\n`)
   if (payload.accounts.length === 0) {
@@ -243,5 +320,13 @@ if (isDirectRun) {
     })
 }
 
-export const __test__ = { parseArgs, buildPayload, recordKeyLabel }
+export const __test__ = {
+  parseArgs,
+  buildPayload,
+  recordKeyLabel,
+  probeMinimaxClientActive,
+  MINIMAX_PRODUCTS,
+  // 心跳时刻判据单源 = Trae 腿(本层不复算,§22c)
+  heartbeatOf: traeSyncTest.heartbeatOf,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

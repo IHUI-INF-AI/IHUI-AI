@@ -24,7 +24,12 @@
  *      准入判据全在 `scripts/lib/cross-end-landing-ledger.mjs` 的 `collectiblePaths`
  *      (账本在册 ∧ 落点 blob 逐字节等于登记 blobOid ∧ 超静默期 ∧ 非 ignored),本器再逐条
  *      **双检**一次工作树 blob(防收编途中被改),然后吃同一批护栏(busy 闸 / 活文档归复洁链 /
- *      MAX_PATHS 分批 / i18n 切批),自成一枚 `chore(cross-end):` 批次。
+ *      **内容级残渣闸** / MAX_PATHS 分批 / i18n 切批),自成一枚 `chore(cross-end):` 批次。
+ *      **内容级残渣闸(2026-11-05 补,缺失臂)**:账本"验过"只证明盘 == 登记,不证明登记不是旧档;
+ *      若守护腿拿滞后缓冲重算后重新登记,盘会等于某个祖先而 HEAD 已是更新版 ⇒ 本族此前照收 =
+ *      静默回退。现在与白名单族共用 `dropStaleCopies` 同一把尺(盘逐字节 == 祖先 blob / 部分回退 /
+ *      删除档死件回潮),命中即不收编、逐条点名并计入 held;正常新改动照收(**不阻断别人**)。
+ *      探针 `hash-object` 一律带 `core.autocrlf=false`(逐字节,防止 CRLF 归一改写 oid)。
  *      取不到账本 ⇒ `ledger=unjudged` 且一条不收(§0.3,不用空集冒充"没有待收")。
  *
  * 落地一律走 safe-commit(全门冻结索引),失败只记日志不重试轰炸;调度器下一轮自然重来。
@@ -46,7 +51,7 @@ import {
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, gitRaw } from './lib/face-reader.mjs'
+import { catBatch, describeProbe, gitRaw, probeFaceSpec } from './lib/face-reader.mjs'
 // 已结清行回退判据(§0.6 单一真相源):本器只 import,不抄第二份"什么算已结清/同一件事"。
 import { closedRowRegressions } from './lib/ledger-closed-rows.mjs'
 // 账本收编族(2026-11-03 新增)的唯一准入判据住在库里,本器不写第二份(§0.6):
@@ -57,6 +62,8 @@ import {
   collectiblePaths,
   ledgerPathFor,
 } from './lib/cross-end-landing-ledger.mjs'
+// 活文档清单的唯一出处(§0.6):本器不再自己抄一份"哪些文件算活文档"。
+import { DEFAULT_LIVE_DOCS } from './lib/content-loss-gate.mjs'
 
 // 测试注入面(2026-11-03,"结论行纪律"的镜像测试要直跑子进程于临时仓夹具):
 // 仅 IHUI_AUTO_COMMIT_QUIET_TEST_ROOT 显式设置时改钉 ROOT;守护/生产派发从不设置该变量
@@ -71,7 +78,8 @@ const LOG = join(ROOT, '.ihui-agent', 'state', 'hook-logs', 'auto-commit-quiet.l
  * 账本族的静默期:与白名单族同一把尺(QUIET_MIN 分钟),量不到时退回库里的默认档。
  * 两族共用一个阈值是刻意的 —— 同一份改动不该因为来源不同而等不同的时间(§0.6)。
  */
-const LEDGER_QUIET_MS = Number.isFinite(QUIET_MIN) && QUIET_MIN > 0 ? QUIET_MIN * 60_000 : DEFAULT_QUIET_MS
+const LEDGER_QUIET_MS =
+  Number.isFinite(QUIET_MIN) && QUIET_MIN > 0 ? QUIET_MIN * 60_000 : DEFAULT_QUIET_MS
 /**
  * 单轮 pathspec 上限(命令行长度,2026-10-24 实测):脏件到 620 个时,整批 pathspec 传给
  * safe-commit 会在 Windows CreateProcess 处撞 ENAMETOOLONG(日志连续多轮
@@ -135,6 +143,13 @@ const COLLECT_WHITELIST = [
   // 逐值兜底 —— 不是 f6e0ba44a9 防的那一型(业务代码/半成品测试)。守护的源头腿若写了它却无人收,
   // 「Web 改档表 → 三端自动跟」就停在最后一公里。
   /^packages\/design-tokens\/src\/styles\/tokens\.css$/,
+  // 小程序端壳承载页的**编译期契约**(gen-rn-shell-types.mjs 按 HEAD 面派生;文件头自述「勿手改」)。
+  // 立因(2026-11-05):守护补上这条腿的调度点后只写工作树,而本器两支收编口都接不到它 ——
+  // 账本支要求「leg 在册 ∧ blobOid 相符」(本腿不写落点账本),白名单支此前没有 `.d.ts` 这一形
+  // (`/\.generated\.ts$/` 逐字不吃 `.generated.d.ts`)⇒ 写盘件永久悬挂,自动化停在最后一公里。
+  // 与 tokens.css 同性质:派生态 + 手改由门 251 C9 在提交链判红,不是 f6e0ba44a9 防的业务代码/半成品。
+  // 覆盖面刻意钉到**一枚确切文件**,不是 types/ 目录(目录形会把人工写的 .d.ts 一起收进主干)。
+  /^apps\/miniapp-taro\/types\/rn-shells\.generated\.d\.ts$/,
 ]
 
 /**
@@ -162,9 +177,23 @@ function partitionCollectible(paths, predicate = isCollectible) {
   return { collected, held }
 }
 
-
-/** 活文档:收编前必须归并(工作树副本可能滞后于 HEAD,直接提交会吞掉别人已入库的行)。 */
-const HUMAN_LEDGER_RE = /(^|\/)(PROJECT_PLAN|AGENTS)\.md$/
+/**
+ * 活文档:收编前必须归并(工作树副本可能滞后于 HEAD,直接提交会吞掉别人已入库的行)。
+ *
+ * **清单向 `lib/content-loss-gate` 的 `DEFAULT_LIVE_DOCS` 问,不在本器抄第四份**(§0.6;
+ * 同口径另有 union-converge-judgments 的 LIVE_DOCS 与 safe-commit 3e 的 LIVE_DOCS)。
+ * 现读实证(2026-11-05):旧写法只认 `PROJECT_PLAN|AGENTS`,而 safe-commit Step 3e 的闸
+ * **含 `README.md`** —— 于是本器从不给 README 做归并准备,README 工作树副本滞后时(实测吃掉
+ * HEAD 已入库行 438 条)3e 每次都拒整批,白名单族 13 枚/轮原地空转。两处对"哪些是活文档"
+ * 给出不同答案,受害的只有自动化那一侧(人是 agent,会自己去跑 merge-live-doc --apply)。
+ *
+ * 形状刻意取**宽于 3e**(`(^|\/)<名>$`,连 `apps/web/AGENTS.md` 这类同名嵌套件也一起备):
+ * 3e 的射程只有根级三枚,宽一档的结果只会是"本器多归并、多让路",不会出现"本器不收编而 3e 照收"
+ * 之外的反向漏洞(把嵌套件放过去才真会吃掉别人已入库的行 —— §0.10:失效方向恒为多要一次准备)。
+ */
+const HUMAN_LEDGER_RE = new RegExp(
+  `(^|/)(${DEFAULT_LIVE_DOCS.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})$`,
+)
 /** README 生成数字块(由 sync-readme-numbers.mjs 独占写入)。 */
 const README_FILES = ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md']
 
@@ -217,6 +246,29 @@ export function isPartialRevert(delta) {
   if (!(removed >= 15) || !(total > 0)) return false
   if (removed * 100 < total * 2) return false // 删占比 <2% 全文:是有意的定点删除,不是缓冲回退
   return added * 8 <= removed // 增不得盖过删:大量重写过的算新工作
+}
+
+/** 祖先版本检索窗口(与 staleCopyProbes.ancestors 同一把尺,§0.6:窗口只此一处)。 */
+const STALE_ANCESTOR_WINDOW = 40
+
+/**
+ * 行级祖先命中判据(纯函数;2026-11-05 立,立因枚 8dbe7ed287)。
+ *
+ * 立因(现读,不是推测):8dbe7ed287(`chore(cross-end): 收编守护落档产出(1 件)`)把
+ * 23142d49c7 守护落档刚入库的 11 处具名字号档原样回退。盘上那份副本**不等于任何祖先 blob**
+ * ——它是"落档前的态"再叠上别席的改动,该 blob 历史上从未入库,所以整片等值那一臂看不见它;
+ * 而删 13 / 增 11 的量级又远低于 isPartialRevert 的「删≥15 行 ∧ 删占比≥2%」阈值。可证的共同点
+ * 在**行级**:盘上相对 HEAD 的每一行"新增"都逐字存在于该路径的某个祖先版本,一行新东西都没有。
+ * ⇒ 这不是新工作,是把旧档里的旧行搬回来(滞后副本的混血形态)。
+ *
+ * 口径:added = 盘上相对 HEAD 的多重集新增行数;newLines = 其中在**任何**祖先版本都找不到的
+ * 行数(逐字)。added>0 ∧ newLines===0 ⇒ 判滞后。纯删除(add===0)不归本臂(归 isPartialRevert),
+ * 探针取不到 ⇒ 不判。失效方向仍是"少收编一次"并逐条点名(§0.10),不是静默丢活。
+ */
+export function isLineLevelStale(v) {
+  if (!v || typeof v.added !== 'number' || typeof v.newLines !== 'number') return false
+  if (!(v.added > 0)) return false
+  return v.newLines === 0
 }
 
 /**
@@ -276,6 +328,18 @@ export function partitionStaleCopies(paths, probes) {
       )
       continue
     }
+    // 行级祖先命中臂(2026-11-05 补,立因枚 8dbe7ed287):整片等值臂与部分回退臂都看不见
+    // 「blob 从未入库、但相对 HEAD 的每一行新增都逐字来自祖先」这一型(混血副本的小回退)。
+    // 排在部分回退臂之后:后者阈值更钝、但语义更强(整片批量删),命中优先归它点名。
+    const ancestry = probes.lineAncestry?.(p)
+    if (isLineLevelStale(ancestry)) {
+      skipped.push(p)
+      why.set(
+        p,
+        `行级祖先命中(相对 HEAD 新增 ${ancestry.added} 行,全部逐字来自该路径的祖先版本 ⇒ 滞后副本)`,
+      )
+      continue
+    }
     kept.push(p)
   }
   return { kept, skipped, why }
@@ -293,7 +357,9 @@ function staleCopyProbes(p) {
   return {
     worktree: () => {
       try {
-        return git(['hash-object', '--', p]).trim()
+        // 逐字节:不关 autocrlf 会把 CRLF 归一成 LF 形态的 oid,把"盘上旧档"误判成 HEAD/祖先
+        // 等值(反方向则漏判)。与门 298 的工作树臂同一把尺(2026-11-05)。
+        return git(['-c', 'core.autocrlf=false', 'hash-object', '--', p]).trim()
       } catch {
         return null
       }
@@ -332,12 +398,65 @@ function staleCopyProbes(p) {
         headLines: headText.split('\n').length,
       }
     },
+    /**
+     * 行级祖先命中臂的输入(2026-11-05,立因枚 8dbe7ed287):盘上相对 HEAD 的"新增行"里,
+     * 有多少行在任何祖先版本都找不到。added=0(纯删除)或任一文本取不到 ⇒ null,该臂不参与。
+     * 读祖先文本是**按需短路**的:剩余未命中行清空即停,绝大多数路径 1–3 枚提交内收敛;
+     * 窗口与 ancestors 同一常量,不得各写一份。
+     */
+    lineAncestry: () => {
+      let headText = null
+      let wtText = null
+      try {
+        headText = git(['show', `HEAD:${p}`])
+      } catch {
+        return null
+      }
+      try {
+        wtText = readFileSync(join(ROOT, p), 'utf8')
+      } catch {
+        return null
+      }
+      if (headText === null || wtText === null) return null
+      // 多重集差:盘上有而 HEAD 没有的行(重复行按份数),与 minusCount 同一口径。
+      const pool = new Map()
+      for (const l of headText.split('\n')) pool.set(l, (pool.get(l) ?? 0) + 1)
+      const added = []
+      for (const l of wtText.split('\n')) {
+        const c = pool.get(l) ?? 0
+        if (c > 0) pool.set(l, c - 1)
+        else added.push(l)
+      }
+      if (added.length === 0) return { added: 0, newLines: 0 } // 纯删除:归部分回退臂,本臂不判
+      let commits = []
+      try {
+        commits = git(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+      } catch {
+        return null
+      }
+      const remaining = new Set(added)
+      for (const c of commits) {
+        if (remaining.size === 0) break
+        let text = null
+        try {
+          text = git(['show', `${c}:${p}`])
+        } catch {
+          continue
+        }
+        if (text === null) continue
+        for (const l of text.split('\n')) remaining.delete(l)
+      }
+      return { added: added.length, newLines: remaining.size }
+    },
     ancestors: () => {
       let commits = []
       try {
         // 窗口 6→40(2026-10-31):回潮-删除轮次多的路径(aboutPageSections 三删四回)在 6 枚
         // 窗口里可能只见删除不见旧 blob,滞后判定漏网;40 覆盖同一路径的现实轮次。
-        commits = git(['log', '-n', '40', '--format=%H', '--', p])
+        commits = git(['log', '-n', String(STALE_ANCESTOR_WINDOW), '--format=%H', '--', p])
           .trim()
           .split('\n')
           .filter(Boolean)
@@ -377,9 +496,143 @@ function dropStaleCopies(stale, changes, probeFactory = staleCopyProbes) {
     head: (p) => probeFactory(p).head(),
     everExisted: (p) => probeFactory(p).everExisted?.(),
     lineDelta: (p) => probeFactory(p).lineDelta?.(),
+    // 行级祖先命中臂(2026-11-05):同上一批哑臂教训,必须从生产包装器真递进去。
+    lineAncestry: (p) => probeFactory(p).lineAncestry?.(),
     ancestors: (p) => probeFactory(p).ancestors(),
   })
   return { kept: stale.filter((p) => !skipped.includes(p)), skipped, why }
+}
+
+/**
+ * 台账类活文档的「面一致性」闸(2026-11-06 立,票 S-26 后半格 = Z46 席点名"本票未结清的那半格")。
+ *
+ * 立因(现读链路与行号,不是推测):Z46 把 converge 链的取材面改成 blob 三态以后如实登记——收编器这一路
+ * 仍然把**滞后的台账副本按 pathspec 直提**。四步链路:
+ *   ① `merge-live-doc.mjs` 对「工作树停在旧形态、HEAD 是同一主键的更新版」判 `stale` 并**刻意不插回**
+ *      (插回即同一件事新老并存 —— 那一格它判得对,处置权归持牌那席,本票不动它);
+ *   ② 本器 `mergeLiveDoc()`(本文件 563 行)只认 lost / 长行重复两把尺,两项都绿 ⇒ 该文件留在候选批;
+ *   ③ `dropStaleCopies()` 四臂全是**整片/blob 级**判据,一行滞后叠几十行正当新增时一臂都不命中;
+ *   ④ safe-commit 按 pathspec 提交的是**工作树字节** ⇒ HEAD 已入库的较新行当场退化(面退化)。
+ * 最小复现 = 镜像测试 `scripts/tests/auto-commit-quiet-ledger-face.test.mjs` ①/①b(真仓夹具,零 mock)。
+ *
+ * 裁决(三档取一,为什么不选另两档写在这里,取证同上):按 **③「只在 HEAD 面 blob 与工作树等值时才提」**
+ * 落 —— 判据面就是"即将入库的那份字节 vs 当下 HEAD 面 blob",两把尺全在本器在册(`worktreeBlobOid` /
+ * `headBlobOidsOf`),本函数零新判据(§0.6)。
+ *   · 不选 ①(台账类一律不由本器直提):那会把"归并→复洁→归档单调性→已结清行闸"整链一起摘掉,射程远超
+ *     本票那一格,并回到 2026-10-22 实测过的"改动永久悬挂";①只在滞后与等值两态上等价于本档,却拿不出
+ *     反向牙(等值照收)与逐条指路 ⇒ 少了可证伪性。
+ *   · 不选 ②(先问摘除/回捞台账):`scrub-declared-removals.declaredRows` 说的是"**已声明摘除**的行",
+ *     本型那一行在候选里**存在、只是陈旧**,结构上命中不了;且它在归并之后已经跑过一遍,再问一次 =
+ *     同一条判据第二处消费(§0.6),治不到这一格。
+ * 三态口径与 Z46 的 `readFace` 同形:内容 / `absent`(该面无此路径 ⇒ 该维在该面无语义,不制造无人能
+ * 处置的未判定)/ `error`(取不到 ⇒ 未判定,**不回落索引面也不把工作树副本当"内容"**,§0.4)。
+ * 失效方向恒为"少提并出声"(§0.10):滞后与未判定一律剔出本批、逐条点名并指路活文档器物
+ * (`union-converge` 的行级 union / `object-space-land` 的对象空间落盘),本器不复算任何行级 union。
+ *
+ * 射程只有**人工撰写的台账类活文档**(PROJECT_PLAN.md / AGENTS.md 一族)。README 生成数字块明确排除:
+ * `syncReadmeNumbers` 刚把工作树刷到现算值 ⇒ 它永远 ≠ HEAD blob,把本闸套上去会得到"README 永不随批
+ * 入库、下一枚不带它的提交门 173 必红"的**恒红门**(§12e 明令禁止);README 那一族的滞后由 3e 活文档闸
+ * 与本器归并链负责,不是无人管。排除项由镜像测试 ④d 钉住(反向牙:摘掉即翻红)。
+ */
+export const LEDGER_FACE_HELD = '活文档面一致性闸不收编'
+export const LEDGER_FACE_UNDETERMINED = '[活文档面一致性未判定]'
+
+/** 本闸射程(纯函数;镜像测试直接喂构造路径,§22c 不在测试里复制判据)。 */
+export function isLedgerFaceGated(path, { readmeFiles = README_FILES } = {}) {
+  const p = normSlashes(path)
+  if (!HUMAN_LEDGER_RE.test(p)) return false
+  return !readmeFiles.map((f) => normSlashes(f)).includes(p)
+}
+
+/**
+ * 纯判据(零 IO,三态各归各位):`{kept, lagging, undetermined, why}`。
+ * `probes.headFace(rel)` ⇒ `{oid}` | `{absent:true, why}` | `{error}`;`probes.worktree(rel)` ⇒ oid|null。
+ * 任何一态都不存在"改过了也照收":等值才 kept,absent 只在**该面结构上没有这一路径**时 kept。
+ */
+export function partitionLedgerDocFace(paths, probes) {
+  const kept = []
+  const lagging = []
+  const undetermined = []
+  const why = new Map()
+  for (const p of paths) {
+    if (!isLedgerFaceGated(p)) {
+      kept.push(p)
+      continue
+    }
+    const face = probes.headFace(p)
+    if (!face || face.error) {
+      undetermined.push(p)
+      why.set(
+        p,
+        `${LEDGER_FACE_UNDETERMINED} HEAD 面 blob 取不到(${face?.error || '探针未给出原因'})⇒ 不判定、不收编;不回落索引面,也不把工作树副本当"内容"`,
+      )
+      continue
+    }
+    if (face.absent) {
+      kept.push(p)
+      why.set(p, `HEAD 面无此路径(${face.why})⇒ 本闸在该面无语义(新落档不构成对 HEAD 的退化)`)
+      continue
+    }
+    const wt = probes.worktree(p)
+    if (!wt) {
+      undetermined.push(p)
+      why.set(
+        p,
+        `${LEDGER_FACE_UNDETERMINED} 工作树 blob 取不到 ⇒ 无法证明"即将入库的字节 == 当下 HEAD 面"`,
+      )
+      continue
+    }
+    if (wt === face.oid) {
+      kept.push(p)
+      continue
+    }
+    lagging.push(p)
+    why.set(
+      p,
+      `${LEDGER_FACE_HELD}:即将入库的工作树字节 ≠ 当下 HEAD 面 blob(台账类)⇒ 本器不按 pathspec 直提;出路 = 活文档器物(行级 union:scripts/union-converge.mjs;对象空间落盘:scripts/object-space-land.mjs)或持牌席位自行提交`,
+    )
+  }
+  return { kept, lagging, undetermined, why }
+}
+
+/**
+ * HEAD 面三态取数(生产臂):复用本器在册的 `headBlobOidsOf` / `worktreeBlobOid` 两把尺,
+ * oid 取不到时再向层内的取证探针 `probeFaceSpec` 问一次"是 absent 还是 error"——
+ * 这一问就是 §0.3 与"把没判写成判过"的分界(旧写法一律 null ⇒ 当"HEAD 没有"处理)。
+ */
+export function ledgerFaceProbes(root = ROOT) {
+  return {
+    headFace: (p) => {
+      let oid = null
+      try {
+        oid = headBlobOidsOf([p], root).get(p) ?? null
+      } catch (e) {
+        return { error: `HEAD 面批量取数整批失败:${String(e?.message ?? e).split('\n')[0]}` }
+      }
+      if (oid) return { oid }
+      const probe = probeFaceSpec(root, `HEAD:${normSlashes(p)}`)
+      if (probe.ok)
+        return {
+          error: `--batch-check 未给 oid 而 git cat-file -t 应答 ${probe.type} ⇒ 两把尺结论相反,不猜`,
+        }
+      return /does not exist in|exists on disk, but not in/i.test(probe.stderr)
+        ? { absent: true, why: describeProbe(probe) }
+        : { error: describeProbe(probe) }
+    },
+    worktree: (p) => worktreeBlobOid(p, root),
+  }
+}
+
+/**
+ * 装车出口:候选批过闸,滞后与未判定一律剔出本批并**逐条点名出声**(日志)。
+ * 调用方只需比 `kept.length`:变少 = 本批少了这些枚(少提),整批空了 = 让路并给出原因码。
+ */
+export function gateLedgerDocFaceBatch(paths, { root = ROOT, logLine = log } = {}) {
+  const out = partitionLedgerDocFace([...paths], ledgerFaceProbes(root))
+  for (const p of [...out.lagging, ...out.undetermined]) {
+    logLine(`活文档面一致性闸(${p}):${out.why.get(p)}`)
+  }
+  return out
 }
 
 /**
@@ -668,10 +921,39 @@ function worktreeBlobOid(path, root = ROOT) {
   const p = normSlashes(path)
   try {
     if (!existsSync(join(root, p))) return null
-    return String(gitRaw(['hash-object', '--', p], root)).trim().toLowerCase()
+    // 逐字节(2026-11-05):账本准入口径必须与门 298 工作树臂、dropStaleCopies 探针同一把尺,
+    // autocrlf 不关会把 CRLF 归一后改写 oid ⇒ 两把尺漂开。
+    return String(gitRaw(['-c', 'core.autocrlf=false', 'hash-object', '--', p], root))
+      .trim()
+      .toLowerCase()
   } catch {
     return null
   }
+}
+
+/**
+ * 一批路径在 **HEAD 面**的 blob oid:`Map<path, oid|null>`(null = HEAD 上没有这一枚)。
+ *
+ * 一次 `cat-file --batch-check` 问完整批:逐路径 spawn 在 188 枚这批上就是 188 个进程。
+ * `--batch-check` 对每条输入**恰好输出一行**(解不开的那行形如 `HEAD:<path> missing`),
+ * 所以按输入序对齐下标即可;解不出 40 位 + `blob` ⇒ null,不猜。
+ * 整批取不到 ⇒ 抛给调用方(由调用方记「未判定」,绝不把"读不到"当成"都不在 HEAD")。
+ */
+function headBlobOidsOf(paths, root = ROOT) {
+  const out = new Map()
+  if (paths.length === 0) return out
+  const specs = paths.map((p) => `HEAD:${normSlashes(p)}`)
+  const raw = String(
+    gitRaw(['cat-file', '--batch-check=%(objectname) %(objecttype)'], root, {
+      input: `${specs.join('\n')}\n`,
+    }),
+  )
+  const lines = raw.split(/\r?\n/)
+  paths.forEach((p, i) => {
+    const m = /^([0-9a-f]{40}) blob\b/.exec(lines[i] ?? '')
+    out.set(p, m ? m[1].toLowerCase() : null)
+  })
+  return out
 }
 
 /**
@@ -687,11 +969,19 @@ function worktreeBlobOid(path, root = ROOT) {
  *     不等 ⇒ 剔出本批并计入 contested(绝不"改过了也照收")。
  *
  * @returns {{ledger:'ok'|'unjudged', reason:string|null, collectible:object[],
+ *            settled:object[], settledCheck:'ok'|'unjudged', settledCheckReason:string|null,
  *            quiet:object[], contested:object[], incomplete:object[], ignored:object[],
  *            deduped:object[]}}
  */
 export function collectLedgerEntries(now = Date.now(), opts = {}) {
-  const { quietMs = LEDGER_QUIET_MS, root = ROOT, face = 'worktree', whitelistPaths = new Set() } = opts
+  const {
+    quietMs = LEDGER_QUIET_MS,
+    root = ROOT,
+    face = 'worktree',
+    whitelistPaths = new Set(),
+    // 测试注入面(与 commit/logLine/busyCheck 同一取向):结清维的取数函数。生产默认走 git 一次批量问。
+    headOidsOf = headBlobOidsOf,
+  } = opts
   const res = collectiblePaths(now, { quietMs, face, root })
   if (!res.ok) {
     // §0.3:账本不存在 / 为空 / git 取不到 ⇒ **未判定**,不得把"取不到"当成"没有待收",
@@ -700,6 +990,9 @@ export function collectLedgerEntries(now = Date.now(), opts = {}) {
       ledger: 'unjudged',
       reason: String(res.reason ?? '未给出原因'),
       collectible: [],
+      settled: [],
+      settledCheck: 'unjudged',
+      settledCheckReason: `账本未判定:${String(res.reason ?? '')}`,
       quiet: [],
       contested: [],
       incomplete: [],
@@ -736,7 +1029,56 @@ export function collectLedgerEntries(now = Date.now(), opts = {}) {
       stage: 'recheck-before-commit',
     })
   }
-  return { ledger: 'ok', reason: null, collectible, quiet, contested, incomplete, ignored, deduped }
+  /**
+   * 第三道:申报内容**已在主干上**(HEAD 面 blob == 申报 blob)⇒ 这一条已经结清,
+   * 不再交给提交通道(2026-11-05 立,现读实证见下面 settled 的成因)。
+   *
+   * 为什么必须在这里判,而不是等 safe-commit 报错:收编器把批交给 safe-commit 后,后者
+   * Step 2 的 `git add -A -- <声明集>` 对这些枚**零暂存**(内容与 HEAD 一致,无 diff 可暂),
+   * Step 3b 就按"预期文件未暂存"整枚退出 ⇒ **一批里混进一条已结清的,整轮 0 入库**。
+   * 现读:账本 229 行 / 可收编 188 枚里 **113 枚已在 HEAD**、单轮批预算只有 100 枚 ⇒
+   * 死行长期占满队列头部,真活(75 枚)永远排不进本轮 —— 这是"最后一公里冻结"的第二层
+   * 根因(第一层是别席暂存件连坐的复活闸,已同日收口)。
+   *
+   * 失效方向(§0.10):HEAD 面整批取不到 ⇒ 一条也不剔(`settledCheck='unjudged'` 进结论行),
+   * 宁可让这一轮继续撞 safe-commit 的显式报错,也不"读不到就当已结清"把真活静默丢掉。
+   */
+  const settled = []
+  let settledCheck = 'ok'
+  let settledCheckReason = null
+  let headOids = null
+  try {
+    headOids = headOidsOf(
+      collectible.map((c) => c.path),
+      root,
+    )
+  } catch (e) {
+    settledCheck = 'unjudged'
+    settledCheckReason = String(e?.message ?? e).split('\n')[0]
+  }
+  if (headOids) {
+    const stillOpen = []
+    for (const it of collectible) {
+      const head = headOids.get(it.path) ?? null
+      if (head && head === String(it.blobOid).toLowerCase()) settled.push(it)
+      else stillOpen.push(it)
+    }
+    collectible.length = 0
+    collectible.push(...stillOpen)
+  }
+  return {
+    ledger: 'ok',
+    reason: null,
+    collectible,
+    settled,
+    settledCheck,
+    settledCheckReason,
+    quiet,
+    contested,
+    incomplete,
+    ignored,
+    deduped,
+  }
 }
 
 /**
@@ -789,9 +1131,24 @@ export function ledgerConclusionLine(r) {
     `ignored=${r.ignored}`,
     `deduped=${r.deduped}`,
     `held=${r.held}`,
+    // 2026-11-05 补两键(§0.3:挑了 N 枚 ≠ 入库 N 枚。此前失败也被计进 collected,
+    // 于是"被无关全局面红门整批拦死"在机读面上与"收得很顺"同形。加在行尾,既有前缀解析不受影响。)
+    `blocked=${r.blocked ?? 0}`,
     `dry=${r.dry ? 'true' : 'false'}`,
   ]
   if (r.reason) parts.push(`reason=${r.reason}`)
+  // 身份位 blocker 必须是稳定类别(§5e-3 寄信去重按它);认不出精确门名时,摘要走 hint
+  // —— 摘要含路径/文案,进身份会造成寄信风暴,所以只作附列供人读。
+  if (r.blocker) parts.push(`blocker=${r.blocker}`)
+  if (r.hint) parts.push(`hint=${r.hint}`)
+  /**
+   * 结清维(2026-11-05 立,同 `blocked/blocker/hint` 的先例只加行尾、不动前缀):
+   * `settled=N` 存在即证明本轮**量过**"申报内容是否已在 HEAD";白名单族那一类结论没有这一维
+   * 就整键缺席(缺席 = 没测,不得用 settled=0 冒充"测过且都还活着")。
+   * HEAD 面取不到时额外写 `settledCheck=unjudged`(§0.3:未判定要有机读面)。
+   */
+  if (typeof r.settled === 'number') parts.push(`settled=${r.settled}`)
+  if (r.settledCheck === 'unjudged') parts.push('settledCheck=unjudged')
   return parts.join(' ')
 }
 
@@ -835,6 +1192,9 @@ function baseConclusion(over = {}) {
     ignored: 0,
     deduped: 0,
     held: 0,
+    blocked: 0,
+    blocker: null,
+    hint: null,
     dry: DRY,
     reason: null,
     ...over,
@@ -957,6 +1317,9 @@ export function runLedgerFamily(opts = {}) {
     whitelistCollected = 0,
     whitelistHeld = 0,
     whitelistReasons = [],
+    whitelistBlocked = 0,
+    whitelistBlocker = null,
+    whitelistHint = null,
     commit = commitBatch,
     logLine = log,
     busyCheck = guardBusy,
@@ -975,6 +1338,14 @@ export function runLedgerFamily(opts = {}) {
     incomplete: entries.incomplete.length,
     ignored: entries.ignored.length,
     deduped: entries.deduped.length,
+    // 已在主干上的申报(结清件):它们**不占批预算**、也不该再交通道(见 collectLedgerEntries 第三道)。
+    settled: entries.settled.length,
+    settledCheck: entries.settledCheck,
+    // 两族合计的"被拦枚数 + 拦路者"(挑了 N 枚 ≠ 入库 N 枚;被拦不许并进 held —— held 的既有
+    // 语义是归属未明/活文档让路,与"门把整批拦死"是两回事,合并就读不回成因)。
+    blocked: whitelistBlocked,
+    blocker: whitelistBlocker,
+    hint: whitelistHint,
   }
   // 轮级结论行的 reason = 白名单族形态码 + 本族形态码(无空格 '+' 连接;取不到任何
   // 让路形态 ⇒ null,行内不写 reason 键,与既有形态同形)。held 同样两族合计。
@@ -1022,25 +1393,46 @@ export function runLedgerFamily(opts = {}) {
   // 四桶逐条点名排在**任何早退之前**:只报总数就等于没点名(事故面恰恰是"改过了还照收"),
   // 而可收编集为空时更要让人看见"为什么这一轮一条都没收"。
   if (counts.contested)
-    logLine(`账本族 contested 逐条点名:${named(entries.contested)}${counts.contested > 8 ? ' …' : ''}`)
+    logLine(
+      `账本族 contested 逐条点名:${named(entries.contested)}${counts.contested > 8 ? ' …' : ''}`,
+    )
   if (counts.quiet)
-    logLine(`账本族 quiet(未到静默期)逐条点名:${named(entries.quiet)}${counts.quiet > 8 ? ' …' : ''}`)
+    logLine(
+      `账本族 quiet(未到静默期)逐条点名:${named(entries.quiet)}${counts.quiet > 8 ? ' …' : ''}`,
+    )
   if (counts.incomplete)
     logLine(
       `账本族 incomplete(键/形状不正)逐条点名:${entries.incomplete
         .slice(0, 8)
-        .map((it) => `${it.path}[缺 ${Array.isArray(it.missingFields) ? it.missingFields.join('+') : '?'}]`)
+        .map(
+          (it) =>
+            `${it.path}[缺 ${Array.isArray(it.missingFields) ? it.missingFields.join('+') : '?'}]`,
+        )
         .join(', ')}${counts.incomplete > 8 ? ' …' : ''}`,
     )
   if (counts.ignored)
-    logLine(`账本族 ignored(被 .gitignore 覆盖)逐条点名:${named(entries.ignored)}${counts.ignored > 8 ? ' …' : ''}`)
+    logLine(
+      `账本族 ignored(被 .gitignore 覆盖)逐条点名:${named(entries.ignored)}${counts.ignored > 8 ? ' …' : ''}`,
+    )
+  // 结清件也要点名:它们从批里出去了,读结论行的人必须能看出"少交的那些枚去哪了",
+  // 而不是把它们当成"本轮没排到"。
+  if (counts.settled)
+    logLine(
+      `账本族 settled(申报内容已在 HEAD ⇒ 已结清,不再交通道)逐条点名:${named(entries.settled)}${counts.settled > 8 ? ' …' : ''}`,
+    )
+  if (counts.settledCheck === 'unjudged')
+    logLine(
+      `账本族结清维未判定(${entries.settledCheckReason ?? 'HEAD 面 blob 取不到'})⇒ 本轮一条都不剔,照旧交给通道(§0.10:读不到不许当已结清)`,
+    )
 
   if (entries.collectible.length === 0) {
     return withCounts({
       collected: whitelistCollected,
       ledgerCollected: 0,
       held: 0,
-      reason: 'no-ledger-collectible',
+      // "整批都已在 HEAD"与"账本里根本没有可收的申报"是两件事:前者说明守护腿这一轮的产出
+      // 已全部入库(好消息),后者说明无人申报(要查派发)。合并成一个码就读不回成因。
+      reason: counts.settled ? 'ledger-all-settled' : 'no-ledger-collectible',
     })
   }
 
@@ -1058,8 +1450,9 @@ export function runLedgerFamily(opts = {}) {
   }
 
   // 活文档护栏(同批器物):命中 HUMAN_LEDGER_RE 的逐条过链,不达标即让路。
-  const paths = []
+  let paths = []
   let held = 0
+  let staleHeld = 0
   for (const it of entries.collectible) {
     const p = normSlashes(it.path)
     if (HUMAN_LEDGER_RE.test(p)) {
@@ -1072,12 +1465,50 @@ export function runLedgerFamily(opts = {}) {
     }
     paths.push(p)
   }
+  // 台账类活文档的「面一致性」闸(S-26 后半格,2026-11-06):**第二条入库通道不得成为绕过它的那一格**
+  // —— 账本族同样把工作树字节按 pathspec 交给 safe-commit,故与白名单族共用同一个出口、同一把尺(§0.6)。
+  // 位置刻意在归并/复洁链之后、残渣闸与提交之前:此刻盘上那份就是即将入库的那一份。
+  let faceHeld = 0
+  {
+    const g = gateLedgerDocFaceBatch(paths, { root, logLine })
+    faceHeld = g.lagging.length + g.undetermined.length
+    held += faceHeld
+    paths = g.kept
+  }
+  // 2026-11-05 内容级残渣闸(**补账本族的缺失臂**):账本族准入口径是"盘上 blob == 申报 blob",
+  // 但申报本身可能是旧档(守护腿拿滞后缓冲重算后又登记了一次)⇒ 账本说"验过"、HEAD 却是更新版,
+  // 本族此前会照收,等于静默回退。判据复用白名单族同一把尺(dropStaleCopies →
+  // partitionStaleCopies:盘逐字节 == 某祖先 blob / 部分回退 / 删除档死件回潮),不另写第二支。
+  // 失效方向仍是"少收编一次":只跳过**证实**的残渣并逐条点名,正常新改动照收(不阻断别人)。
+  if (paths.length > 0) {
+    const { kept, skipped, why } = dropStaleCopies(paths, [])
+    if (skipped.length) {
+      logLine(
+        `账本族跳过滞后副本(${skipped.length} 枚,留在工作树交删除意图账/归属席位显式处置):${skipped
+          .slice(0, 8)
+          .map((p) => `${p}${why?.get?.(p) ? ` [${why.get(p)}]` : ''}`)
+          .join(', ')}${skipped.length > 8 ? ' …' : ''}`,
+      )
+      held += skipped.length
+      staleHeld = skipped.length
+    }
+    paths = kept
+  }
   if (paths.length === 0)
     return withCounts({
       collected: whitelistCollected,
       ledgerCollected: 0,
       held,
-      reason: 'livedoc-held',
+      reason:
+        faceHeld > 0 && staleHeld === 0
+          ? 'ledger-face-held'
+          : faceHeld > 0
+            ? 'ledger-face+stale-copy-held'
+            : staleHeld > 0
+              ? held > staleHeld
+                ? 'livedoc+stale-copy-held'
+                : 'stale-copy-held'
+              : 'livedoc-held',
     })
 
   // 既有护栏之一:MAX_PATHS 分批(命令行长度,见模块级定义处注释)。
@@ -1097,20 +1528,42 @@ export function runLedgerFamily(opts = {}) {
 
   // 既有护栏之一:i18n / 非 i18n 切两批(同 autoCommitMessages 那一刀的判据来源)。
   const { i18n, rest } = partitionI18nBatch(batch)
+  // 2026-11-05:`landed` 只认提交真成功的那批(此前无论成败都 += 本批枚数 ⇒ 结论行把"被拦死"
+  // 报成"收了 N 枚")。被拦的枚数单列 blocked 并点名拦路者,不许并进 held(held 的既有语义是
+  // "归属未明/活文档让路",与"门拦了"是两回事,合并就读不回成因)。
   let landed = 0
-  if (i18n.length) {
-    commit(i18n, ledgerCommitMessage(i18n, 'i18n'), root)
-    landed += i18n.length
+  let blocked = 0
+  let blocker = null
+  let hint = null
+  for (const [list, tag] of [
+    [i18n, 'i18n'],
+    [rest, 'rest'],
+  ]) {
+    if (!list.length) continue
+    const r = commit(list, ledgerCommitMessage(list, tag), root) ?? {}
+    const done = typeof r.landed === 'number' ? r.landed : 0
+    const tried = typeof r.attempted === 'number' ? r.attempted : list.length
+    landed += done
+    if (tried - done > 0) {
+      blocked += tried - done
+      blocker ??= r.blocker ?? 'unidentified'
+      hint ??= r.hint ?? null
+    }
   }
-  if (rest.length) {
-    commit(rest, ledgerCommitMessage(rest, 'rest'), root)
-    landed += rest.length
-  }
-  logLine(`账本族已交 safe-commit:${landed} 枚(推送交 post-commit 的 git-push-guard,本器不带 push 腿)`)
+  if (blocked)
+    logLine(
+      `⛔ 账本族本轮被拦 ${blocked} 枚(拦路者=${blocker}${hint ? ` 摘要=${hint}` : ''})⇒ 这些枚仍在盘上未入库,下一轮仍会重来`,
+    )
+  logLine(
+    `账本族已交 safe-commit:${landed} 枚(推送交 post-commit 的 git-push-guard,本器不带 push 腿)`,
+  )
   return withCounts({
     collected: whitelistCollected + landed,
     ledgerCollected: landed,
     held,
+    blocked: whitelistBlocked + blocked,
+    blocker: whitelistBlocker ?? blocker,
+    hint: whitelistHint ?? hint,
   })
 }
 
@@ -1129,7 +1582,15 @@ function main() {
     return emitConclusion(baseConclusion({ ledger: 'unjudged', reason: classifyBusy(busy) }))
   }
 
-  const tally = { collected: 0, paths: new Set(), held: 0, reasons: [] }
+  const tally = {
+    collected: 0,
+    paths: new Set(),
+    held: 0,
+    reasons: [],
+    blocked: 0,
+    blocker: null,
+    hint: null,
+  }
   try {
     runWhitelistFamily(tally)
   } finally {
@@ -1138,12 +1599,56 @@ function main() {
       whitelistCollected: tally.collected,
       whitelistHeld: tally.held,
       whitelistReasons: [...tally.reasons],
+      whitelistBlocked: tally.blocked,
+      whitelistBlocker: tally.blocker,
+      whitelistHint: tally.hint,
     })
   }
 }
 
 /** 白名单族(既有收编链,判据与顺序一字未改;只是从 main 拆出来,并向下族交回本轮计数)。 */
-function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, reasons: [] }) {
+/**
+ * 活文档拒收后的**唯一**再发令判据(2026-11-05 立,现读实证)。
+ *
+ * 事故形态不是"判据太严",是**准备与发令之间的窗**:本器 22:01:31 刚把 README 归并到
+ * `lost=0 / 长行重复新增 0`(机读行就在同一份日志里),22:02:29 safe-commit Step 3e 复跑
+ * 同一把尺却判红 —— 这 58 秒里别的席位又推进了 HEAD。活文档的"已准备好"天然是**会过期的凭据**。
+ * 人是 agent 会"再 merge 一次再提交",器物此前不会 ⇒ 同一批 13 枚连续多轮原地空转。
+ *
+ * 纪律三条:① 只对 `live-doc-line-loss` 这一类生效(别的拦路者一律不重发,更不是跳门);
+ * ② 批内没有活文档路径 ⇒ 不重发(说明红来自别处,重发只会掩盖);
+ * ③ 重备未达标(lost≠0 / 长行重复新增≠0)⇒ **不重发**并逐枚点名,不得用重试掩盖真丢失。
+ * 通过三条才允许**再一次**发令(调用方拿到 retry=true 后只 commit 一次,不做循环)。
+ */
+export function liveDocRetryPlan({
+  blocker = null,
+  paths = [],
+  root = ROOT,
+  merge = mergeLiveDoc,
+} = {}) {
+  if (blocker !== 'live-doc-line-loss') return { retry: false, docs: [], notReady: [] }
+  const docs = (paths ?? []).filter((p) => HUMAN_LEDGER_RE.test(normSlashes(p)))
+  if (docs.length === 0) return { retry: false, docs, notReady: [] }
+  const notReady = []
+  for (const f of docs) {
+    const g = merge(f, root)
+    if (!g?.ok) notReady.push(`${f}:${g?.why ?? '未给出原因'}`)
+  }
+  return { retry: notReady.length === 0, docs, notReady }
+}
+
+function runWhitelistFamily(
+  tally = {
+    collected: 0,
+    paths: new Set(),
+    held: 0,
+    reasons: [],
+    blocked: 0,
+    blocker: null,
+    hint: null,
+  },
+  { root = ROOT, commit = commitBatch, retryPlan = liveDocRetryPlan, logLine = log } = {},
+) {
   const rawChanges = listChanges().filter((c) => !isExcluded(c.path))
   // 路径白名单(2026-11-02,fail-safe):白名单外的改动一律不收编,只记日志留给人清;
   // 无法判定归属的路径同样落进 held —— 宁可悬挂,也不再替别的席位提交业务代码/测试。
@@ -1354,6 +1859,25 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, r
     }
   }
 
+  // 台账类活文档的「面一致性」闸(S-26 后半格,2026-11-06):**归并之后、拿到提交批之前**的最后一档。
+  // 归并/复洁/单调性/已结清闸四道都判不到"同一主键的更新版在 HEAD、陈旧版在盘上"这一型(判据与
+  // 行号见 partitionLedgerDocFace 头注),而本器提交的正是工作树字节 ⇒ 滞后版直提、HEAD 面退化。
+  // 失效方向恒为"少提并出声"(§0.10):剔出本批的枚数计入 held 并逐条点名,留在工作树交活文档器物;
+  // 绝不因"归并绿了"就把 ≠ HEAD 面的台账字节送进 pathspec。
+  {
+    const g = gateLedgerDocFaceBatch(stale)
+    if (g.kept.length !== stale.length) {
+      const heldDocs = [...g.lagging, ...g.undetermined]
+      tally.held += heldDocs.length
+      log(
+        `本轮台账类活文档不收编 ${heldDocs.length} 枚(滞后=${g.lagging.length} / 未判定=${g.undetermined.length}),仍在盘上,下一轮仍会重来`,
+      )
+      if (g.kept.length === 0) return exitWhitelist(tally, 'ledger-face-held-empty')
+      stale.length = 0
+      stale.push(...g.kept)
+    }
+  }
+
   syncReadmeNumbers(stale) // 先刷数字,再把真写盘的 README 纳入
   // 命令行长度上限(2026-10-24 实测):脏件到 620 个时,整批 pathspec 传给 safe-commit 会在
   // Windows CreateProcess 处撞 ENAMETOOLONG(日志连续多轮 `spawnSync ... ENAMETOOLONG`),
@@ -1377,9 +1901,94 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, r
   // 把本轮白名单族的集计交回调用方:①账本族据此去重(同路径以白名单族为准,绝不重复提交);
   // ②总结论行的 `collected=` 才是"两族合计"而不是本族自说自话。
   for (const p of [...i18nPaths, ...restPaths]) tally.paths.add(normSlashes(p))
-  tally.collected = i18nPaths.length + restPaths.length
-  commitBatch(i18nPaths, msgs.i18n)
-  commitBatch(restPaths, msgs.rest)
+  // 同一条诚实性判据:白名单族也只认提交真成功的枚数(旧形态先赋 collected 再提交,成败都一样)。
+  let wlLanded = 0
+  let wlBlocked = 0
+  let wlBlocker = null
+  let wlHint = null
+  for (const [list, msg] of [
+    [i18nPaths, msgs.i18n],
+    [restPaths, msgs.rest],
+  ]) {
+    if (!list.length) continue
+    let r = commit(list, msg) ?? {}
+    // 活文档拒收 ⇒ 就地重备一次(判据与副作用分开,便于镜像测试钉住"只做一次")。
+    if (r.blocker === 'live-doc-line-loss') {
+      const plan = retryPlan({ blocker: r.blocker, paths: list, root })
+      if (plan.retry) {
+        logLine(
+          `白名单族活文档拒收 ⇒ 已就地重备 ${plan.docs.length} 枚(merge-live-doc --apply)并重试一次:${plan.docs.join(', ')}`,
+        )
+        r = commit(list, msg) ?? {}
+      } else if (plan.notReady.length > 0) {
+        logLine(
+          `白名单族活文档重备未达标 ⇒ 不重试(不得用重试掩盖真丢失):${plan.notReady.join(' / ')}`,
+        )
+      }
+    }
+    const done = typeof r.landed === 'number' ? r.landed : 0
+    const tried = typeof r.attempted === 'number' ? r.attempted : list.length
+    wlLanded += done
+    if (tried - done > 0) {
+      wlBlocked += tried - done
+      wlBlocker ??= r.blocker ?? 'unidentified'
+      wlHint ??= r.hint ?? null
+    }
+  }
+  if (wlBlocked)
+    log(
+      `⛔ 白名单族本轮被拦 ${wlBlocked} 枚(拦路者=${wlBlocker}${wlHint ? ` 摘要=${wlHint}` : ''})⇒ 仍在盘上,下一轮仍会重来`,
+    )
+  tally.collected = wlLanded
+  tally.blocked = wlBlocked
+  tally.blocker = wlBlocker
+  tally.hint = wlHint
+}
+
+/**
+ * 从 safe-commit 的失败输出里认出**拦路的那道门**(可归因才有整改的下一步,§5e-1)。
+ * 只认既有输出形态,不猜:① `❌ <label>...失败，提交已阻止`(runner 的汇总行)
+ * ② `❌ check-xxx: ...`(门体自报)③ 兜底 `unknown` ⇒ 如实说"拦路的门没认出来",不冒充已知。
+ */
+export function blockerFromOutput(text) {
+  const s = String(text ?? '')
+  const m = /❌\s*([^\n]*?)\.\.\.失败，提交已阻止/.exec(s)
+  if (m) {
+    const script = /check-[a-z0-9-]+\.mjs|check-[a-z0-9-]+/.exec(s)
+    return `${m[1].trim().slice(0, 40)}${script ? `(${script[0]})` : ''}`.replace(/\s+/g, '_')
+  }
+  const c = /^❌\s*(check-[a-z0-9-]+)/m.exec(s)
+  if (c) return c[1]
+  // 以下四类都是 safe-commit **本身**的整轮拒(不是某道门判红),现读都真实发生过:
+  // 复活暂存件回流被拦(本仓另一席的删除意图被带回)、活文档工作树副本吃掉 HEAD 已入库的行、
+  // 声明集不符、并发锁耗尽。
+  if (/中止 commit[^\n]*回流/.test(s)) return 'resurrected-deletion-refusal'
+  if (/heal-worktree-tracked|revoke-deletion|intentional-file-deletions/.test(s))
+    return 'resurrected-deletion-refusal'
+  // Step 3e 的活文档闸(README/AGENTS/PROJECT_PLAN):工作树副本少了 HEAD 已入库的行 ⇒ 整轮拒。
+  if (/活文档对账判红/.test(s)) return 'live-doc-line-loss'
+  if (/声明集|本任务文件|pathspec 只提交/.test(s)) return 'safe-commit-scope-refusal'
+  if (/并发锁|锁争用|index\.lock/.test(s)) return 'safe-commit-lock-exhausted'
+  return 'unidentified'
+}
+
+/**
+ * 认不出精确门名时给一行**可归因摘要**(§5e-1:红了要能给出下一步,不能只说 unidentified)。
+ * 只进日志/邮件正文,不进 `blocker` 身份位 —— 身份里塞会抖动的路径/计数会造成寄信风暴(§5e-3)。
+ */
+export function blockerHint(text) {
+  const lines = String(text ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+  const bad =
+    [...lines].reverse().find((l) => l.startsWith('❌')) ??
+    lines.find((l) => /error|失败|拒|中止/.test(l)) ??
+    ''
+  return bad
+    .replace(/["`$\\]/g, '')
+    .slice(0, 90)
+    .replace(/\s+/g, '_')
 }
 
 /**
@@ -1388,9 +1997,16 @@ function runWhitelistFamily(tally = { collected: 0, paths: new Set(), held: 0, r
  * 失败只记日志不重试轰炸,调度器下一轮自然重来;**不自带 push 腿**(推送仍由 post-commit 的
  * git-push-guard 自动完成并回读,§16b/§20 契约不变)。
  * `root` 形参给测试注入 mkScratch 临时仓用(默认 ROOT ⇒ 既有行为一字未变)。
+ *
+ * 2026-11-05 改返回值(§0.3 的诚实性,不是加功能):此前调用方**无论成败**都把本批枚数累加进
+ * `collected` ⇒ 现读实证:一整个下午跨端账本 229 条申报里**带 landedSha 的 0 条**,而结论行连报
+ * `collected=103`(它真实含义是"本轮挑了 103 枚"),于是"被一道与跨端无关的全局面红门整批拦死"
+ * 这件事在机读面上长得像"收得很好"。失败方向必须是"多要一次定向说明"(§0.10):
+ * 现在返回 `{attempted, landed, blocker}`, landed 只在提交真成功时计数, blocker 点名拦路的门。
  */
 function commitBatch(paths, message, root = ROOT) {
-  if (!paths.length) return
+  const attempted = paths.length
+  if (!attempted) return { attempted: 0, landed: 0, blocker: null }
   try {
     const out = execFileSync(
       process.execPath,
@@ -1404,14 +2020,11 @@ function commitBatch(paths, message, root = ROOT) {
       },
     )
     log(`✅ safe-commit 成功(${message})\n${String(out).trim().split('\n').slice(-4).join('\n')}`)
+    return { attempted, landed: attempted, blocker: null, hint: null }
   } catch (e) {
-    log(
-      `❌ safe-commit 失败(下一轮再试):${String(e.stdout || e.message)
-        .trim()
-        .split('\n')
-        .slice(-6)
-        .join('\n')}`,
-    )
+    const body = String(e.stdout || e.message)
+    log(`❌ safe-commit 失败(下一轮再试):${body.trim().split('\n').slice(-6).join('\n')}`)
+    return { attempted, landed: 0, blocker: blockerFromOutput(body), hint: blockerHint(body) }
   }
 }
 
@@ -1440,6 +2053,8 @@ if (isDirectRun) {
 
 export const __test__ = {
   isExcluded,
+  blockerFromOutput,
+  blockerHint,
   isCollectible,
   partitionCollectible,
   COLLECT_WHITELIST,
@@ -1451,12 +2066,21 @@ export const __test__ = {
   rollbackLedger,
   partitionStaleCopies,
   dropStaleCopies,
+  // 台账类活文档面一致性闸(S-26 后半格,2026-11-06):纯判据 + 生产取数臂一并导出,
+  // 镜像测试按 §22c 直接喂构造面,不得在测试里另抄一把尺。
+  isLedgerFaceGated,
+  partitionLedgerDocFace,
+  ledgerFaceProbes,
+  gateLedgerDocFaceBatch,
   minusCount,
   isPartialRevert,
+  isLineLevelStale,
   partitionI18nBatch,
   autoCommitMessages,
   // 账本收编族(2026-11-03):判据住在 lib/cross-end-landing-ledger.mjs,这里只暴露本器的段。
   collectLedgerEntries,
+  headBlobOidsOf,
+  liveDocRetryPlan,
   runLedgerFamily,
   guardLedgerLiveDocPath,
   ledgerCommitMessage,

@@ -90,6 +90,12 @@ describe('抽屉导航单源(对齐 web 侧边栏)', () => {
     expect(domains.slice(0, 3)).toEqual(['edu', 'content', 'trade'])
   })
 
+  it('扫一扫是纯图标入口(2026-11-06 用户定),其余快捷入口仍图文同行', () => {
+    expect(DRAWER_SCAN_ITEM.iconOnly).toBe(true)
+    expect(DRAWER_HOME_ITEM.iconOnly).toBeUndefined()
+    expect(DRAWER_AUTOMATION_ITEM.iconOnly).toBeUndefined()
+  })
+
   it('每个条目的 labelKey 五语言齐全(裸 key 只有用户看得见)', () => {
     const packs = LOCALES.map((locale) => ({
       locale,
@@ -142,10 +148,7 @@ describe('抽屉导航单源(对齐 web 侧边栏)', () => {
     for (const item of domainItems) {
       for (const { locale, end, shared } of packs) {
         const value = lookup(end, item.labelKey) ?? lookup(shared, item.labelKey)
-        expect(
-          typeof value,
-          `${locale} 缺键 ${item.labelKey}(${item.where})`,
-        ).toBe('string')
+        expect(typeof value, `${locale} 缺键 ${item.labelKey}(${item.where})`).toBe('string')
       }
     }
   })
@@ -155,10 +158,9 @@ describe('抽屉导航单源(对齐 web 侧边栏)', () => {
     for (const item of domainItems) {
       if (!item.route) continue
       if (item.route === 'HomeMain' || item.route === 'ProfileMain') continue
-      expect(
-        src.includes(`name="${item.route}"`),
-        `未注册路由: ${item.route}(${item.where})`,
-      ).toBe(true)
+      expect(src.includes(`name="${item.route}"`), `未注册路由: ${item.route}(${item.where})`).toBe(
+        true,
+      )
     }
   })
 

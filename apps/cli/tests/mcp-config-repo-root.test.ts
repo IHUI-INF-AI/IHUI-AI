@@ -11,11 +11,12 @@
  * 判据:根源优先级 cwd > repo-root(向上找 .git,与 skills 加载器同源) > home,
  * 根源去重,且 listMcpConfigSources 只列实际存在的文件、按优先级排序。
  */
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { loadMcpConfig, listMcpConfigSources } from '../src/commands/mcp-config.js'
+import { addMcpServer, getMcpConfigPath, loadMcpConfig, listMcpConfigSources } from '../src/commands/mcp-config.js'
+import { loadMcpTools } from '../src/tools/mcp-runtime.js'
 
 let tmpRoot: string
 let repoRoot: string
@@ -96,6 +97,36 @@ describe('loadMcpConfig 仓库根向上查找', () => {
     expect(config.servers.map((s) => s.name).sort()).toEqual(['home-only', 'rea'])
   })
 
+  it('mcp.json 是目录时不当成没有配置', () => {
+    const blocked = path.join(repoRoot, '.ihui', 'mcp.json');
+    fs.mkdirSync(blocked, { recursive: true });
+    const unread: string[] = [];
+    const config = loadMcpConfig(repoRoot, {
+      onUnread: (filePath, code) => unread.push(`${filePath} ${code}`),
+    });
+    expect(config.servers).toEqual([]);
+    expect(unread.join('\n')).toContain(blocked);
+    expect(unread.join('\n')).not.toContain('ENOENT');
+  });
+
+  it('服务器连不上时不当成没有这个工具', async () => {
+    writeMcpJson(repoRoot, '.ihui', [{ name: 'broken', transport: 'stdio' }]);
+    const lines: string[] = [];
+    const spy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: unknown) => {
+      lines.push(String(chunk));
+      return true;
+    });
+    try {
+      const tools = await loadMcpTools({ workspacePath: repoRoot }, { allowProjectServers: true });
+      expect(tools).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
+    const text = lines.join('\n');
+    expect(text).toContain('broken');
+    expect(text).toContain('不能把它说成没有这个工具');
+  });
+
   it('无 .git 时仓库根回落为 cwd 本身,不引入额外源', () => {
     const plainDir = path.join(tmpRoot, 'plain')
     fs.mkdirSync(plainDir, { recursive: true })
@@ -120,6 +151,30 @@ describe('listMcpConfigSources', () => {
       path.join(repoRoot, '.ihui', 'mcp.json'),
       path.join(fakeHome, '.ihui', 'mcp.json'),
     ])
+  })
+})
+
+describe('家目录 mcp.json 读不到', () => {
+  it('不把它覆盖成只剩新加的一项', () => {
+    const blocked = getMcpConfigPath()
+    fs.mkdirSync(blocked)
+    expect(() => addMcpServer('demo', 'node')).toThrow(/不能把它覆盖成新配置/)
+    expect(fs.statSync(blocked).isDirectory()).toBe(true)
+  })
+
+  it('损坏内容不收成只剩新加的一项', () => {
+    const file = getMcpConfigPath()
+    const body = '{not json'
+    fs.writeFileSync(file, body, 'utf-8')
+    expect(() => addMcpServer('demo', 'node')).toThrow(/不能把它覆盖成新配置 \(corrupt\)/)
+    expect(fs.readFileSync(file, 'utf-8')).toBe(body)
+  })
+
+  it('文件不存在时仍可以新建', () => {
+    const created = addMcpServer('demo', 'node')
+    expect(created.name).toBe('demo')
+    const written = JSON.parse(fs.readFileSync(getMcpConfigPath(), 'utf-8')) as { servers: { name: string }[] }
+    expect(written.servers.some((server) => server.name === 'demo')).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

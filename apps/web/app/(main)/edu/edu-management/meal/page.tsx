@@ -28,7 +28,19 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduMealApplyTemplate,
+  eduMealCreate,
+  eduMealDelete,
+  eduMealGenerateShoppingList,
+  eduMealList,
+  eduMealNutritionSummary,
+  eduMealTemplateCreate,
+  eduMealTemplateDelete,
+  eduMealTemplateList,
+  eduMealTemplateNames,
+  eduMealUpdate,
+} from '@ihui/api-client'
 import { BackButton, toast } from '@/components/common'
 import {
   Card,
@@ -776,24 +788,36 @@ export default function MealPage() {
     error: mealsError,
   } = useQuery({
     queryKey: ['edu-ai-management', 'meal', dateRange.startDate, dateRange.endDate],
-    queryFn: () =>
-      apiOrThrow<{ list: MealRecipe[] }>(
-        `/api/edu-ai-management/meal?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`,
-      ),
+    queryFn: async () => {
+      const r = await eduMealList<{ list: MealRecipe[] }>({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const meals = (mealsData?.list ?? []).filter((m) => !m.deletedAt)
 
   const { data: templatesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template'],
-    queryFn: () => apiOrThrow<{ list: MealTemplate[] }>('/api/edu-ai-management/meal/template'),
+    queryFn: async () => {
+      const r = await eduMealTemplateList<{ list: MealTemplate[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const templates = templatesData?.list ?? []
 
   const { data: templateNamesData } = useQuery({
     queryKey: ['edu-ai-management', 'meal', 'template-names'],
-    queryFn: () => apiOrThrow<{ list: string[] }>('/api/edu-ai-management/meal/template-names'),
+    queryFn: async () => {
+      const r = await eduMealTemplateNames<{ list: string[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   const templateNames = templateNamesData?.list ?? []
@@ -804,42 +828,45 @@ export default function MealPage() {
   }, [queryClient])
 
   const createMeal = useMutation({
-    mutationFn: (data: MealFormData) =>
-      apiOrThrow('/api/edu-ai-management/meal', {
-        method: 'POST',
-        body: JSON.stringify({
-          date: data.date,
-          mealType: data.mealType,
-          dishName: data.dishName,
-          ingredients: data.ingredients || null,
-          nutrition: data.nutrition || null,
-          imageUrl: data.imageUrl || null,
-          notes: data.notes || null,
-        }),
-      }),
+    mutationFn: async (data: MealFormData) => {
+      const r = await eduMealCreate({
+        date: data.date,
+        mealType: data.mealType,
+        dishName: data.dishName,
+        ingredients: data.ingredients || null,
+        nutrition: data.nutrition || null,
+        imageUrl: data.imageUrl || null,
+        notes: data.notes || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const updateMeal = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: MealFormData }) =>
-      apiOrThrow(`/api/edu-ai-management/meal/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          date: data.date,
-          mealType: data.mealType,
-          dishName: data.dishName,
-          ingredients: data.ingredients || null,
-          nutrition: data.nutrition || null,
-          imageUrl: data.imageUrl || null,
-          notes: data.notes || null,
-        }),
-      }),
+    mutationFn: async ({ id, data }: { id: string; data: MealFormData }) => {
+      const r = await eduMealUpdate(id, {
+        date: data.date,
+        mealType: data.mealType,
+        dishName: data.dishName,
+        ingredients: data.ingredients || null,
+        nutrition: data.nutrition || null,
+        imageUrl: data.imageUrl || null,
+        notes: data.notes || null,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
   const deleteMeal = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/meal/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduMealDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -847,23 +874,24 @@ export default function MealPage() {
     mutationFn: ({ name, entries }: { name: string; entries: TemplateEntryForm[] }) => {
       // Delete existing entries with same name, then create new ones
       const existingIds = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
-      const deletePromises = existingIds.map((id) =>
-        apiOrThrow(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
-      )
+      const deletePromises = existingIds.map(async (id) => {
+        const r = await eduMealTemplateDelete(id)
+        if (!r.success) throw new Error(r.error)
+        return r.data
+      })
       const filledEntries = entries.filter((e) => e.dishName.trim())
-      const createPromises = filledEntries.map((e) =>
-        apiOrThrow('/api/edu-ai-management/meal/template', {
-          method: 'POST',
-          body: JSON.stringify({
-            name,
-            weekday: e.weekday,
-            mealType: e.mealType,
-            dishName: e.dishName,
-            ingredients: e.ingredients || null,
-            nutrition: e.nutrition || null,
-          }),
-        }),
-      )
+      const createPromises = filledEntries.map(async (e) => {
+        const r = await eduMealTemplateCreate({
+          name,
+          weekday: e.weekday,
+          mealType: e.mealType,
+          dishName: e.dishName,
+          ingredients: e.ingredients || null,
+          nutrition: e.nutrition || null,
+        })
+        if (!r.success) throw new Error(r.error)
+        return r.data
+      })
       return Promise.all([...deletePromises, ...createPromises])
     },
     onSuccess: () => {
@@ -876,9 +904,11 @@ export default function MealPage() {
     mutationFn: (name: string) => {
       const ids = templates.filter((tpl) => tpl.name === name).map((tpl) => tpl.id)
       return Promise.all(
-        ids.map((id) =>
-          apiOrThrow(`/api/edu-ai-management/meal/template/${id}`, { method: 'DELETE' }),
-        ),
+        ids.map(async (id) => {
+          const r = await eduMealTemplateDelete(id)
+          if (!r.success) throw new Error(r.error)
+          return r.data
+        }),
       )
     },
     onSuccess: () => {
@@ -888,11 +918,11 @@ export default function MealPage() {
   })
 
   const applyTemplateMutation = useMutation({
-    mutationFn: ({ name, startDate }: { name: string; startDate: string }) =>
-      apiOrThrow('/api/edu-ai-management/meal/apply-template', {
-        method: 'POST',
-        body: JSON.stringify({ name, startDate }),
-      }),
+    mutationFn: async ({ name, startDate }: { name: string; startDate: string }) => {
+      const r = await eduMealApplyTemplate({ name, startDate })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 
@@ -913,8 +943,8 @@ export default function MealPage() {
       dateRange.startDate,
       dateRange.endDate,
     ],
-    queryFn: () =>
-      apiOrThrow<{
+    queryFn: async () => {
+      const r = await eduMealNutritionSummary<{
         totalMeals: number
         summary: { totalCalories: number; totalProtein: number; totalCarbs: number }
         byType: Array<{
@@ -925,22 +955,25 @@ export default function MealPage() {
           carbs: number
           avgCalories: number
         }>
-      }>(
-        `/api/edu-ai-management/meal/nutrition-summary?startDate=${dateRange.startDate}&endDate=${dateRange.endDate}`, // method: GET
-      ),
+      }>({
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: false,
   })
 
   const handleGenerateShoppingList = async () => {
     setGeneratingShopping(true)
     try {
-      const data = await apiOrThrow<{
+      const r = await eduMealGenerateShoppingList<{
         shoppingList: Array<{ ingredient: string; count: number; dishes: string[] }>
         totalIngredients: number
-      }>('/api/edu-ai-management/meal/generate-shopping-list', {
-        method: 'POST',
-        body: JSON.stringify({ startDate: dateRange.startDate, endDate: dateRange.endDate }),
-      })
+      }>({ startDate: dateRange.startDate, endDate: dateRange.endDate })
+      if (!r.success) throw new Error(r.error)
+      const data = r.data
       setShoppingListData(data)
       setShoppingListOpen(true)
     } catch (e: unknown) {

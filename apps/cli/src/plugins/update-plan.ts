@@ -40,6 +40,7 @@ import {
   execGitCapped,
   type GitSpawnOptions,
 } from './git-runner.js';
+import { classifyRealpathFailure, isDefinitePathAbsence } from './path-safety.js';
 import {
   collectInstallFileDigests,
   loadInstallRegistry,
@@ -93,14 +94,37 @@ export type GateLoadOutcome =
 let gateCache: { key: string; outcome: GateLoadOutcome } | null = null;
 
 /** 从给定起点向上找仓根下的门体(不猜盘符、不硬编码绝对路径 —— AGENTS §15) */
-export function locateIntegrityGateFile(startDirs: readonly string[]): string | null {
+export function locateIntegrityGateFile(
+  startDirs: readonly string[],
+  stat?: (target: string) => fs.Stats,
+): string | null {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  const classify = (target: string): 'present' | 'missing' | 'unreadable' => {
+    try {
+      look(target);
+      return 'present';
+    } catch (err) {
+      const verdict = classifyRealpathFailure(err);
+      return verdict.kind === 'missing' && verdict.errno !== 'EISDIR' ? 'missing' : 'unreadable';
+    }
+  };
   const override = process.env[GATE_PATH_ENV];
-  if (override) return fs.existsSync(override) ? override : null;
+  if (override) {
+    const kind = classify(override);
+    if (kind === 'unreadable') {
+      throw new Error(`完整性门体读不到,不能把它说成没装 (${override})`);
+    }
+    return kind === 'present' ? override : null;
+  }
   for (const start of startDirs) {
     let dir = path.resolve(start);
     for (let depth = 0; depth < 8; depth += 1) {
       const candidate = path.join(dir, GATE_SCRIPT);
-      if (fs.existsSync(candidate)) return candidate;
+      const kind = classify(candidate);
+      if (kind === 'unreadable') {
+        throw new Error(`完整性门体读不到,不能把它说成没装 (${candidate})`);
+      }
+      if (kind === 'present') return candidate;
       const parent = path.dirname(dir);
       if (parent === dir) break;
       dir = parent;
@@ -116,7 +140,16 @@ export function locateIntegrityGateFile(startDirs: readonly string[]): string | 
 export async function loadIntegrityGate(
   startDirs: readonly string[] = [path.dirname(fileURLToPath(import.meta.url)), process.cwd()],
 ): Promise<GateLoadOutcome> {
-  const file = locateIntegrityGateFile(startDirs);
+  let file: string | null;
+  try {
+    file = locateIntegrityGateFile(startDirs);
+  } catch (e) {
+    return {
+      ok: false,
+      reason: 'integrity-gate-unusable',
+      detail: e instanceof Error ? e.message : String(e),
+    };
+  }
   if (!file) {
     return {
       ok: false,
@@ -282,6 +315,32 @@ export function disposeStagingRoot(stagingRoot: string, base?: string): void {
   }
 }
 
+/** 候选子树在不在。明确没有才是 missing;读不到不能说成没有。 */
+export function classifyStagedSubtree(
+  stagedDir: string,
+  stat: (target: string) => fs.Stats = fs.statSync,
+): { ok: true } | { ok: false; reason: string; detail: string } {
+  try {
+    if (!stat(stagedDir).isDirectory()) {
+      return { ok: false, reason: 'candidate-subtree-missing', detail: `候选 commit 里没有目录 ${stagedDir}` };
+    }
+    return { ok: true };
+  } catch (error) {
+    if (isDefinitePathAbsence(error)) {
+      return { ok: false, reason: 'candidate-subtree-missing', detail: `候选 commit 里没有 ${stagedDir}` };
+    }
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+    return {
+      ok: false,
+      reason: 'candidate-subtree-unreadable',
+      detail: `候选子树读不到,不能把它说成没有 (${code})`,
+    };
+  }
+}
+
 /**
  * 生产取源器:全量 clone(浅克隆拿不到祖先关系 ⇒ 判据就无从证,所以刻意不用 `--depth 1`)
  * → detach 到候选 commit → 用**写侧唯一采集器** `collectInstallFileDigests` 取回新副本台账。
@@ -304,8 +363,12 @@ export const gitCandidateStager: CandidateStager = async ({ url, candidateSha, p
     return { ok: false, reason: 'candidate-checkout-failed', detail: e instanceof Error ? e.message : String(e) };
   }
   const stagedDir = pluginSubdir ? path.join(repoDir, pluginSubdir) : repoDir;
-  if (!fs.existsSync(stagedDir) || !fs.statSync(stagedDir).isDirectory()) {
-    return { ok: false, reason: 'candidate-subtree-missing', detail: `候选 commit 里没有 ${pluginSubdir || '(整个子树)'}` };
+  const presence = classifyStagedSubtree(stagedDir);
+  if (!presence.ok) {
+    if (presence.reason === 'candidate-subtree-missing') {
+      return { ok: false, reason: presence.reason, detail: `候选 commit 里没有 ${pluginSubdir || '(整个子树)'}` };
+    }
+    return presence;
   }
   const ledger = collectInstallFileDigests(stagedDir);
   if (!ledger) {

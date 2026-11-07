@@ -23,9 +23,11 @@ import {
 } from '@ihui/shared/chat/message-version-family'
 
 const CHAT_SRC = readFileSync(path.resolve(__dirname, '..', 'chat.tsx'), 'utf8')
+const SHELL_SRC = readFileSync(path.resolve(__dirname, '..', 'chat-shell-extras.tsx'), 'utf8')
 const MENU_SRC = readFileSync(path.resolve(__dirname, '..', 'message-version-menu.tsx'), 'utf8')
 const ITEM_SRC = readFileSync(path.resolve(__dirname, '..', 'ChatMessageItem.tsx'), 'utf8')
 const NORM = CHAT_SRC.replace(/\s+/g, '')
+const SHELL_NORM = SHELL_SRC.replace(/\s+/g, '')
 const MENU_NORM = MENU_SRC.replace(/\s+/g, '')
 
 /** 一条已带服务端版本族坐标的助手消息(regenerate 落库后的行形状) */
@@ -108,21 +110,21 @@ describe('② 接线半:chat.tsx 的读投影与版本菜单挂载点', () => {
   })
 
   it('版本菜单挂在 assistant 且有服务端 id 的那一条之后,吃全量 familyRows(投影前)读数', () => {
-    expect(NORM).toContain('importMessageVersionMenufrom')
-    expect(NORM).toContain("msg.role==='assistant'&&msg.id")
-    expect(NORM).toContain('<MessageVersionMenu')
-    expect(NORM).toContain('messages={versionList.familyRows}')
-    expect(NORM).toContain('onSwitch={handleSwitchMessageVersion}')
+    expect(SHELL_NORM).toContain('importMessageVersionMenufrom')
+    expect(SHELL_NORM).toContain("msg.role==='assistant'&&msg.id")
+    expect(SHELL_NORM).toContain('<MessageVersionMenu')
+    expect(SHELL_NORM).toContain('messages={versionList.familyRows}')
+    expect(SHELL_NORM).toContain('onSwitch={handleSwitchMessageVersion}')
     // 族枚举必须看投影前的全量:把可见行喂给菜单会让切换器永远只数到 1 版
-    expect(NORM).not.toContain('messages={versionList.items')
+    expect(SHELL_NORM).not.toContain('messages={versionList.items')
   })
 
   it('渲染腿回调仍按原始下标切片(截断/长按定位吃的是 messages 的下标,不是投影后的下标)', () => {
     expect(NORM).toContain('.map((msg,idx)=>({msg,idx}))')
     // 没有服务端 id 的行(流式占位)不参与族判定,必须原样保留,不能被投影吃掉
     expect(NORM).toContain('!msg.id||visibleIds.has(msg.id)')
-    expect(NORM).toContain('onLongPress={()=>handleLongPress(msg,idx)}')
-    expect(NORM).toContain("msg.role==='user'?()=>handleEdit(msg,idx)")
+    expect(SHELL_NORM).toContain('onLongPress={()=>handleLongPress(msg,idx)}')
+    expect(SHELL_NORM).toContain("msg.role==='user'?()=>handleEdit(msg,idx)")
   })
 
   it('重新生成成功后:族根补坐标 + 指针回落默认(不留在旧版本上)', () => {
@@ -139,11 +141,12 @@ describe('② 接线半:chat.tsx 的读投影与版本菜单挂载点', () => {
   })
 
   it('「重新生成」必须带上被点的那一条 —— 不带 target 只会落到最后一版,族就开错了根', () => {
-    expect(NORM).toContain("msg.role==='assistant'?()=>handleRegenerate(msg):undefined")
+    expect(SHELL_NORM).toContain("msg.role==='assistant'?()=>handleRegenerate(msg):undefined")
     // 反向锁:渲染腿不得再把事件对象直接当 handler 交出去(Taro onClick 的第一参是事件)
     const ITEM_NORM = ITEM_SRC.replace(/\s+/g, '')
-    expect(ITEM_NORM).toContain('onClick={()=>onRegenerate(msg)}')
-    expect(ITEM_NORM).not.toContain('onClick={onRegenerate}')
+    // 块7 上收后:端内适配器把 target 原样包一层再交给共享视觉层(共享件只拿无参回调)
+    expect(ITEM_NORM).toContain('onRegenerate={onRegenerate?()=>onRegenerate(msg):undefined}')
+    expect(ITEM_NORM).not.toContain('onRegenerate={onRegenerate}')
     expect(ITEM_SRC).toContain('onRegenerate?: (msg: ChatMessage) => void')
   })
 })

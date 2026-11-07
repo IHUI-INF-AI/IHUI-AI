@@ -7,10 +7,11 @@
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native'
 import { Sparkles, X } from 'lucide-react-native'
 import { tokens } from '../../theme/active-tokens'
-import { rnGeometry, rnRadius } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import AgentList, { type AgentListItem } from '../../components/AgentList'
 import { Tappable } from '@ihui/ui-native'
+import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 
 const styles = StyleSheet.create({
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
@@ -22,7 +23,7 @@ const styles = StyleSheet.create({
   },
   listDialogContent: {
     width: '88%',
-    maxHeight: '70%',
+    // 高度由 dialogHeightStyle 统一注入(禁止写百分比上限,见 lib/dialog-geometry.ts)
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
@@ -73,7 +74,7 @@ const styles = StyleSheet.create({
   },
   personaDesc: {
     fontSize: rnGeometry.textLabel,
-    lineHeight: 18,
+    lineHeight: rnType.bodySm.lineHeight,
     color: tokens.text.secondary,
   },
   personaMetaRow: {
@@ -127,6 +128,8 @@ export function AgentSelector({
   selectedAgentId,
   subtitleField,
 }: AgentSelectorProps) {
+  const dialogHeightStyle = useDialogHeightStyle()
+  const listDialogStyle = [styles.listDialogContent, dialogHeightStyle]
   if (!visible) return null
   // 人格摘要只对「能定位到的选中项」渲染;未选中 / 未命中 / 无文案 ⇒ 整区不渲染(不留空盒子)。
   const personaItem = selectedAgentId
@@ -139,7 +142,7 @@ export function AgentSelector({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Tappable style={styles.modalMask} onPress={onClose}>
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>选择 Agent</Text>
             <Tappable hitSlop={8} onPress={onClose} style={styles.listDialogClose}>

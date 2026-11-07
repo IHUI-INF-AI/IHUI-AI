@@ -147,6 +147,7 @@ export const CATEGORY_TABLE_BY_KEY: Readonly<Record<CategoryKey, CategoryDef>> =
 const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   // 文件读
   read_file: 'file_read',
+  read_tool_output: 'file_read',
   list_dir: 'file_read',
   read_dir: 'file_read',
   // 文件查
@@ -168,6 +169,7 @@ const EXACT_MAP: Readonly<Record<string, CategoryKey>> = {
   remove_file: 'file_delete',
   // 命令
   run_command: 'command',
+  sandbox_session: 'command',
   execute_command: 'command',
   shell: 'command',
   bash: 'command',

@@ -73,6 +73,7 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     # 2026-10-13 修(P0,真机实测立因):这两个 EXPO_PUBLIC_* 原先只挂在 `expo prebuild` 那一步,
     # 而真正把 `process.env.EXPO_PUBLIC_*` **内联进 JS 产物**的是其后 gradle 的
     # `createBundleReleaseJsAndAssets`(metro/babel 在转换期求值)—— 它不在那一步的 env 作用域内
@@ -176,7 +177,11 @@ jobs:
 
       - name: Build release-variant APK + AAB (dev package)
         working-directory: apps/mobile-rn/android
-        run: ./gradlew assembleRelease bundleRelease --no-daemon
+        # 2026-11-04 签名纪律:build.gradle 里"缺 IHUI_RELEASE_* 就静默回落 debug.keystore"已改成
+        # 配置期 GradleException(见 scripts/patch-rn-release-signing.mjs)。CI 本来就是要 dev 包,
+        # 所以这里**显式**声明 -PallowDebugSigning=true:签名身份由调用方声明,而不是由"凭据恰好缺失"决定。
+        # 少了这面旗,CI 会在配置期就失败 —— 那正是设计目的(静默产出 debug 签名包才是事故源)。
+        run: ./gradlew assembleRelease bundleRelease --no-daemon -PallowDebugSigning=true
 
       # dev 包固定带 dev- 前缀,文件名本身即定性:任何人从 artifact 下载页看到的都不是
       # ihui-ai-latest.apk;CI 不再有发布 Release 的权限(permissions: contents: read)。

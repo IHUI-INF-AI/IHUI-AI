@@ -53,8 +53,7 @@ const NEW_TREND_KEYS = [
 describe('edu attendance web contract', () => {
   it('批量点名走 POST /attendance/batch-check-in,班级取自下拉(无手输 UUID),载荷不含 status', () => {
     const src = read(batchFile)
-    expect(src).toContain("'/api/edu-ai-management/attendance/batch-check-in'")
-    expect(src).toContain("method: 'POST'")
+    expect(src).toContain('eduAttendanceBatchCheckIn')
     // 2026-11 后端收口:状态一律服务端现算 ⇒ 端上不再自报 status,也不再传 statusOptions
     expect(src).not.toMatch(/\bstatus\b\s*:/)
     expect(src).not.toMatch(/setStatus\(/)
@@ -74,28 +73,26 @@ describe('edu attendance web contract', () => {
     expect(src).toContain('missedIds: string[]')
   })
 
-  it('导出走 GET /attendance/export 且固定 format=csv、经 fetchRaw 下载、班级用下拉', () => {
+  it('导出走共享 eduAttendanceExport 且固定 format=csv、经 fetchRaw 下载、班级用下拉', () => {
     const src = read(exportFile)
-    expect(src).toContain('/api/edu-ai-management/attendance/export?')
+    expect(src).toContain('eduAttendanceExport')
     expect(src).toContain("format: 'csv'")
     expect(src).toContain('classId,')
     expect(src).toContain('startDate')
     expect(src).toContain('endDate')
-    expect(src).toContain('fetchRaw')
     expect(src).toContain('<ClassSelect')
     expect(src).not.toMatch(/classId.*trim/)
   })
 
-  it('学生本人页取数走 GET /attendance/me(禁权限守卫端点),自签只发 date/remark', () => {
+  it('学生本人页取数走共享 eduMyAttendance(禁权限守卫端点),自签只发 date/remark', () => {
     const src = read(studentFile)
     expect(src).toContain('user?.id')
-    expect(src).toContain('/api/edu-ai-management/attendance/me?date=${date}')
+    expect(src).toContain('eduMyAttendance')
     // 旧写法带 edu:view/edu:manage 守卫,普通学生必 403 ⇒ 禁止回潮
     expect(src).not.toContain('/api/edu-ai-management/attendance?studentId=')
-    expect(src).toContain("'/api/edu-ai-management/attendance/self-check-in'")
-    expect(src).toContain("method: 'POST'")
+    expect(src).toContain('eduAttendanceSelfCheckIn')
     // 载荷只有 date/remark:不接受 studentId、不接受 classId
-    expect(src).toContain('JSON.stringify({ date, remark: remark.trim() || undefined })')
+    expect(src).toContain('{ date, remark: remark.trim() || undefined }')
     expect(src).not.toMatch(/JSON\.stringify\(\{[^}]*studentId/)
     expect(src).not.toMatch(/JSON\.stringify\(\{[^}]*classId/)
     expect(src).not.toMatch(/classId.*trim/)
@@ -105,7 +102,8 @@ describe('edu attendance web contract', () => {
 
   it('教师侧班级一律经 GET /api/edu-ai-management/class 下拉选择(全目录零手输 UUID)', () => {
     const src = read(classSelectFile)
-    expect(src).toContain('/api/edu-ai-management/class?page=')
+    expect(src).toContain('eduClassList')
+    expect(src).toContain('page: 1, pageSize: 200')
     expect(src).toContain('SelectTrigger')
     const all = [teacherFile, batchFile, exportFile].map(read).join('\n')
     expect(all).not.toMatch(/classId.*trim|placeholder.*UUID/)
@@ -169,10 +167,10 @@ describe('edu attendance web contract', () => {
     expect(chart).not.toContain('fetch(')
     // 班级 + 起止日期 + 粒度三要素都进同一次 stats 请求(记录清单接口只收单日 date)
     expect(page).toMatch(/attendance-stats[\s\S]*?selectedClassId/)
-    expect(page).toContain("params.set('classId', selectedClassId)")
+    expect(page).toContain('classId: selectedClassId || undefined')
     expect(page).toContain('startDate: statsStartDate')
     expect(page).toContain('endDate: statsEndDate')
-    expect(page).toContain('/api/edu-ai-management/attendance/stats?${params}')
+    expect(page).toContain('eduAttendanceStats')
     // 图与周期表同一个聚合出口 ⇒ 两处读数不可能各说一套
     expect(page).toContain('stats?.periodBreakdown ?? []')
     expect(page).toContain('breakdown={periodRows}')

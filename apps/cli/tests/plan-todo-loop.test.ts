@@ -21,6 +21,7 @@ import { PlanBuildCoordinator } from '../src/modes/plan-build.js'
 import { StructuredPlanStore, planFilePath } from '../src/plan/structured.js'
 import { readTodoList } from '../src/tools/todo-write.js'
 import { PlanMachine } from '../src/plan/index.js'
+import { planOverwriteBlock, readPlanList } from '../src/commands/plan.js'
 
 describe('StructuredPlanStore(.ihui/plan-<sessionId>.json)', () => {
   let tmp: string
@@ -74,6 +75,21 @@ describe('StructuredPlanStore(.ihui/plan-<sessionId>.json)', () => {
     fs.mkdirSync(path.dirname(p), { recursive: true })
     fs.writeFileSync(p, JSON.stringify({ sessionId: 'invalid', steps: [{ id: 'x', title: 'y', action: 'hack', status: 'pending' }] }), 'utf-8')
     expect(store.load('invalid')).toBeNull()
+  })
+
+  it('计划读不到时不覆盖成新计划', () => {
+    const blocked = planFilePath(tmp, 'blocked')
+    fs.mkdirSync(blocked, { recursive: true })
+    expect(() =>
+      store.save({
+        sessionId: 'blocked',
+        steps: [{ id: 'st1', title: '不要覆盖', action: 'edit', status: 'pending' }],
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      }),
+    ).toThrow(/不能把它覆盖成新计划/)
+    expect(() => store.load('blocked')).toThrow(/不能把它覆盖成新计划/)
+    expect(fs.statSync(blocked).isDirectory()).toBe(true)
   })
 
   it('updateStepStatus 更新状态并持久化,未知步骤返回 null', () => {
@@ -248,6 +264,57 @@ describe('PlanBuildCoordinator 计划-执行-清单闭环', () => {
     const todos = readTodoList(todoCtx(tmp))
     expect(todos.filter((t) => t.id.startsWith('todo-sess-7')).every((t) => t.status === 'completed')).toBe(true)
     expect(machine.transition('execute_complete')).toBe('done')
+  })
+
+  it('模式状态读不到时不覆盖成默认模式', () => {
+    const stateFile = path.join(tmp, '.ihui-agent', 'modes', 'plan-build-state.json')
+    fs.mkdirSync(stateFile, { recursive: true })
+    expect(() => coord.enterPlanning()).toThrow(/不能把它覆盖成默认模式/)
+    expect(() => new PlanBuildCoordinator(tmp)).toThrow(/不能把它覆盖成默认模式/)
+    expect(fs.statSync(stateFile).isDirectory()).toBe(true)
+  })
+
+  it('损坏的模式状态不会被收成默认模式', () => {
+    const stateFile = path.join(tmp, '.ihui-agent', 'modes', 'plan-build-state.json')
+    fs.mkdirSync(path.dirname(stateFile), { recursive: true })
+    const body = '{not json'
+    fs.writeFileSync(stateFile, body, 'utf-8')
+    const next = new PlanBuildCoordinator(tmp)
+    expect(() => next.enterPlanning()).toThrow(/不能把它覆盖成默认模式 \(corrupt\)/)
+    expect(fs.readFileSync(stateFile, 'utf-8')).toBe(body)
+  })
+})
+
+describe('plan 名单', () => {
+  it('计划目录读不到时不是暂无', () => {
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const unread = readPlanList('G:/plans', {
+      readdir: () => {
+        throw denied
+      },
+    })
+    expect(unread).toEqual({ kind: 'unread', code: 'EACCES' })
+    const missing = readPlanList(path.join(os.tmpdir(), 'ihui-plans-missing-' + process.pid))
+    expect(missing.kind).toBe('missing')
+  })
+
+  it('plan 读不到时不能覆盖', () => {
+    const denied = new Error('denied') as NodeJS.ErrnoException
+    denied.code = 'EACCES'
+    const stat = () => {
+      throw denied
+    }
+    expect(planOverwriteBlock('G:/plans/keep.md', true, stat)).toBe('unread')
+    expect(planOverwriteBlock('G:/plans/keep.md', false, stat)).toBe('unread')
+    const file = path.join(os.tmpdir(), `ihui-plan-keep-${process.pid}.md`)
+    fs.writeFileSync(file, 'keep\n')
+    try {
+      expect(planOverwriteBlock(file, false)).toBe('exists')
+      expect(fs.readFileSync(file, 'utf8')).toBe('keep\n')
+    } finally {
+      fs.unlinkSync(file)
+    }
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

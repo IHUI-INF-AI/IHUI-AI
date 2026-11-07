@@ -29,6 +29,11 @@ import {
   getDefaultCachePath,
   type FileEvent,
 } from '../codegraph/index.js';
+import {
+  assertWorkspaceIndexBudget,
+  clearWorkspaceIndex,
+  resolveWorkspaceIndexMode,
+} from '../codegraph/workspace-index.js';
 
 const CODE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 const IGNORED_DIRS = new Set([
@@ -68,16 +73,31 @@ interface ReferenceHit {
   preview: string;
 }
 
-/** 递归扫描工作区,返回所有代码文件(相对路径 POSIX 风格)。 */
-function scanCodeFiles(workspacePath: string): FileEntry[] {
+type CodeScan = { files: FileEntry[]; unreadDirs: string[] };
+
+function fsErrorCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+/** 递归扫描工作区。目录不存在可以跳过。读失败不能当成没有代码文件。 */
+function scanCodeFiles(workspacePath: string): CodeScan {
   const out: FileEntry[] = [];
+  const unreadDirs: string[] = [];
   const stack: string[] = [workspacePath];
   while (stack.length > 0 && out.length < MAX_FILES) {
     const cur = stack.pop()!;
     let entries: fs.Dirent[];
     try {
       entries = fs.readdirSync(cur, { withFileTypes: true });
-    } catch {
+    } catch (error) {
+      const code = fsErrorCode(error);
+      const rel = path.relative(workspacePath, cur).replace(/\\/g, '/') || '.';
+      if (code === 'ENOENT') continue;
+      if (code === 'ENOTDIR' && rel !== '.') continue;
+      unreadDirs.push(`${rel} (${code})`);
       continue;
     }
     for (const e of entries) {
@@ -100,7 +120,7 @@ function scanCodeFiles(workspacePath: string): FileEntry[] {
       }
     }
   }
-  return out.sort((a, b) => a.rel.localeCompare(b.rel));
+  return { files: out.sort((a, b) => a.rel.localeCompare(b.rel)), unreadDirs };
 }
 
 // import 语句匹配模式(覆盖 ES modules + CommonJS + dynamic import)
@@ -116,13 +136,13 @@ const IMPORT_PATTERNS: Array<{ re: RegExp; kind: 'relative' | 'bare' | 'dynamic'
   { re: /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g, kind: 'relative' },
 ];
 
-/** 解析单个文件的 import 语句,返回 (源文件, 目标路径, 类型) 三元组列表。 */
-function parseImports(file: FileEntry): Array<{ to: string; kind: 'relative' | 'bare' | 'dynamic' }> {
+/** 解析单个文件的 import 语句。读不到不能当成没有依赖。 */
+function parseImports(file: FileEntry): { imports: Array<{ to: string; kind: 'relative' | 'bare' | 'dynamic' }>; unreadable: boolean } {
   let content: string;
   try {
     content = fs.readFileSync(file.abs, 'utf-8');
   } catch {
-    return [];
+    return { imports: [], unreadable: true };
   }
   const results: Array<{ to: string; kind: 'relative' | 'bare' | 'dynamic' }> = [];
   const seen = new Set<string>();
@@ -139,7 +159,7 @@ function parseImports(file: FileEntry): Array<{ to: string; kind: 'relative' | '
       results.push({ to: target, kind: resolvedKind });
     }
   }
-  return results;
+  return { imports: results, unreadable: false };
 }
 
 /** 尝试将相对 import 路径解析为实际文件(支持省略扩展名和 index 文件)。 */
@@ -198,12 +218,38 @@ let incrementalEnabled = false;
 
 /** 启用增量索引:加载缓存 + 全量索引一次(后续走增量) */
 export async function enableCodegraphIncremental(workspaceRoot: string): Promise<void> {
-  incrementalEnabled = true;
+  // 显式开关(2026-11-04):`IHUI_WORKSPACE_INDEX` 缺省 off ⇒ 不建任何本地索引;
+  // 只有显式 workspace 才允许在当前工作区内建索引(见 codegraph/workspace-index.ts)。
+  const decision = resolveWorkspaceIndexMode();
+  if (decision.mode === 'off') {
+    disableCodegraphIncremental();
+    return;
+  }
+  // 范围/体量硬闸门:越界或超限直接拒绝建索引,不写半份、不静默吃磁盘
+  assertWorkspaceIndexBudget(workspaceRoot);
   const cachePath = getDefaultCachePath(workspaceRoot);
-  incrementalIndex = (await loadCache(cachePath)) ?? new CodeGraphIndex();
+  let loaded: CodeGraphIndex | undefined;
+  try {
+    loaded = await loadCache(cachePath);
+  } catch (error) {
+    disableCodegraphIncremental();
+    throw error;
+  }
+  incrementalEnabled = true;
+  incrementalIndex = loaded ?? new CodeGraphIndex();
   incrementalManager = new IndexManager(workspaceRoot, incrementalIndex);
-  // 启动时全量索引一次(后续走增量)
-  await incrementalManager.indexDirectory();
+  try {
+    await incrementalManager.indexDirectory();
+  } catch (error) {
+    disableCodegraphIncremental();
+    throw error;
+  }
+}
+
+/** 一键清除当前工作区的本地索引产物(外部缓存),并清空内存态。 */
+export function clearCodegraphWorkspaceIndex(workspaceRoot: string): { removed: boolean; dir: string } {
+  disableCodegraphIncremental();
+  return clearWorkspaceIndex(workspaceRoot);
 }
 
 /** 禁用增量索引(清空模块级状态) */
@@ -253,14 +299,16 @@ function isImportLine(line: string): boolean {
   return /^\s*(import\s|const\s+\w+\s*=\s*require\s*\()/.test(line);
 }
 
-function findDefinitions(symbol: string, files: FileEntry[]): DefinitionHit[] {
+function findDefinitions(symbol: string, files: FileEntry[]): { hits: DefinitionHit[]; unreadFiles: string[] } {
   const hits: DefinitionHit[] = [];
+  const unreadFiles: string[] = [];
   const sym = escapeRegex(symbol);
   for (const file of files) {
     let content: string;
     try {
       content = fs.readFileSync(file.abs, 'utf-8');
     } catch {
+      unreadFiles.push(file.rel);
       continue;
     }
     const lines = content.split('\n');
@@ -282,14 +330,15 @@ function findDefinitions(symbol: string, files: FileEntry[]): DefinitionHit[] {
           break; // 同一行只算一次命中
         }
       }
-      if (hits.length >= MAX_RESULTS) return hits;
+      if (hits.length >= MAX_RESULTS) return { hits, unreadFiles };
     }
   }
-  return hits;
+  return { hits, unreadFiles };
 }
 
-function findReferences(symbol: string, files: FileEntry[]): ReferenceHit[] {
+function findReferences(symbol: string, files: FileEntry[]): { hits: ReferenceHit[]; unreadFiles: string[] } {
   const hits: ReferenceHit[] = [];
+  const unreadFiles: string[] = [];
   const sym = escapeRegex(symbol);
   // import 中的引用模式
   const importRe = new RegExp(
@@ -307,6 +356,7 @@ function findReferences(symbol: string, files: FileEntry[]): ReferenceHit[] {
     try {
       content = fs.readFileSync(file.abs, 'utf-8');
     } catch {
+      unreadFiles.push(file.rel);
       continue;
     }
     const lines = content.split('\n');
@@ -327,11 +377,11 @@ function findReferences(symbol: string, files: FileEntry[]): ReferenceHit[] {
           kind: isImport ? 'import' : 'usage',
           preview: line.trim().slice(0, 120),
         });
-        if (hits.length >= MAX_RESULTS) return hits;
+        if (hits.length >= MAX_RESULTS) return { hits, unreadFiles };
       }
     }
   }
-  return hits;
+  return { hits, unreadFiles };
 }
 
 // ==================== 工具实现 ====================
@@ -356,15 +406,21 @@ export const codegraph: Tool = {
     const preResult = await runPreToolCall('codegraph', args, ctx.signal);
     if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
-    const files = scanCodeFiles(ctx.workspacePath);
+    const scan = scanCodeFiles(ctx.workspacePath);
+    const files = scan.files;
     if (files.length === 0) {
+      if (scan.unreadDirs.length > 0) {
+        return { success: false, output: '', error: `工作区读不到,不能把它说成没有代码文件 (${scan.unreadDirs[0]})` };
+      }
       return { success: true, output: '工作区无代码文件(.ts/.tsx/.js/.jsx)' };
     }
     const fileMap = new Map<string, FileEntry>(files.map((f) => [f.rel, f]));
     const edges: DependencyEdge[] = [];
+    const unreadFiles: string[] = [];
     for (const file of files) {
-      const imports = parseImports(file);
-      for (const imp of imports) {
+      const parsed = parseImports(file);
+      if (parsed.unreadable) unreadFiles.push(file.rel);
+      for (const imp of parsed.imports) {
         if (imp.kind === 'bare') {
           edges.push({ from: file.rel, to: imp.to, kind: 'bare' });
         } else {
@@ -385,6 +441,9 @@ export const codegraph: Tool = {
 
     if (targetFile) {
       const normalized = targetFile.replace(/\\/g, '/');
+      if (unreadFiles.includes(normalized)) {
+        return { success: false, output: '', error: `${normalized} 读不到,不能把它说成没有依赖` };
+      }
       if (reverse) {
         const dependents = edges.filter((e) => e.to === normalized).map((e) => e.from);
         const unique = Array.from(new Set(dependents)).sort();
@@ -434,6 +493,9 @@ export const codegraph: Tool = {
       '被依赖最多的 10 个文件(核心模块):',
       ...mostDependents.map((x) => `  ${x.count} ← ${x.file}`),
     ];
+    if (scan.unreadDirs.length > 0 || unreadFiles.length > 0) {
+      lines.push('', `扫描没有完成,下面只是已经读到的 (${[...scan.unreadDirs, ...unreadFiles].slice(0, 5).join(', ')})`);
+    }
     return { success: true, output: lines.join('\n') };
   },
 };
@@ -487,10 +549,17 @@ export const goto_definition: Tool = {
     }
 
     // 全量扫描路径(默认)
-    const files = scanCodeFiles(ctx.workspacePath);
-    const hits = findDefinitions(symbol, files);
+    const scan = scanCodeFiles(ctx.workspacePath);
+    if (scan.files.length === 0 && scan.unreadDirs.length > 0) {
+      return { success: false, output: '', error: `工作区读不到,不能把它说成没有符号定义 (${scan.unreadDirs[0]})` };
+    }
+    const found = findDefinitions(symbol, scan.files);
+    const hits = found.hits;
     await runPostToolCall('goto_definition', { symbol, hits: hits.length }, ctx.signal);
 
+    if (hits.length === 0 && (found.unreadFiles.length > 0 || scan.unreadDirs.length > 0)) {
+      return { success: false, output: '', error: '扫描没有完成,不能把符号说成没有定义' };
+    }
     if (hits.length === 0) {
       return { success: true, output: `未找到符号 "${symbol}" 的定义` };
     }
@@ -562,10 +631,17 @@ export const find_references: Tool = {
     }
 
     // 全量扫描路径(默认)
-    const files = scanCodeFiles(ctx.workspacePath);
-    const hits = findReferences(symbol, files);
+    const scan = scanCodeFiles(ctx.workspacePath);
+    if (scan.files.length === 0 && scan.unreadDirs.length > 0) {
+      return { success: false, output: '', error: `工作区读不到,不能把它说成没有符号引用 (${scan.unreadDirs[0]})` };
+    }
+    const found = findReferences(symbol, scan.files);
+    const hits = found.hits;
     await runPostToolCall('find_references', { symbol, hits: hits.length }, ctx.signal);
 
+    if (hits.length === 0 && (found.unreadFiles.length > 0 || scan.unreadDirs.length > 0)) {
+      return { success: false, output: '', error: '扫描没有完成,不能把符号说成没有引用' };
+    }
     if (hits.length === 0) {
       return {
         success: true,

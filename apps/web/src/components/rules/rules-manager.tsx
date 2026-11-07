@@ -59,7 +59,7 @@ export function RulesManager() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+        <p className="font-[weight:inherit] text-body text-muted-foreground">
           {t('totalRulesSorted', { n: rules.length })}
         </p>
         <div className="flex flex-wrap items-center gap-2">
@@ -103,13 +103,13 @@ export function RulesManager() {
           {tCommon('loading')}
         </div>
       ) : error ? (
-        <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="font-[weight:inherit] rounded-lg border border-destructive/50 bg-destructive/10 p-3 text-body text-destructive">
           {(error as Error).message}
         </div>
       ) : rules.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
           <ScrollText className="h-8 w-8 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">{t('emptyHint')}</p>
+          <p className="font-[weight:inherit] text-body text-muted-foreground">{t('emptyHint')}</p>
         </div>
       ) : (
         <div className="space-y-2">

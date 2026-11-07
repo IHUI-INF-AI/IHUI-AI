@@ -19,7 +19,13 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduClassList,
+  eduHomeworkSubmissionGrade,
+  eduHomeworkSubmissionList,
+  eduHomeworkSubmissionStats,
+  eduTermList,
+} from '@ihui/api-client'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
@@ -205,7 +211,11 @@ export default function HomeworkPage() {
   /* ── Queries ── */
   const { data: termsData } = useQuery({
     queryKey: ['edu-ai-management', 'term'],
-    queryFn: () => apiOrThrow<{ list: Term[] }>('/api/edu-ai-management/term'),
+    queryFn: async () => {
+      const r = await eduTermList<{ list: Term[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const terms = React.useMemo(() => termsData?.list ?? [], [termsData])
 
@@ -218,8 +228,11 @@ export default function HomeworkPage() {
 
   const { data: classesData } = useQuery({
     queryKey: ['edu-ai-management', 'class', selectedTermId],
-    queryFn: () =>
-      apiOrThrow<{ list: EduClass[] }>(`/api/edu-ai-management/class?termId=${selectedTermId}`),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: EduClass[] }>({ termId: selectedTermId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedTermId,
   })
   const classes = React.useMemo(() => classesData?.list ?? [], [classesData])
@@ -232,19 +245,23 @@ export default function HomeworkPage() {
 
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['edu-ai-management', 'homework-submission', 'stats', selectedClassId],
-    queryFn: () =>
-      apiOrThrow<HomeworkStats>(
-        `/api/edu-ai-management/homework-submission/stats?classId=${selectedClassId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduHomeworkSubmissionStats<HomeworkStats>({ classId: selectedClassId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!selectedClassId,
   })
 
   const { data: submissionsData, isLoading: submissionsLoading } = useQuery({
     queryKey: ['edu-ai-management', 'homework-submission', selectedClassId, statusFilter],
-    queryFn: () => {
-      let url = `/api/edu-ai-management/homework-submission?classId=${selectedClassId}`
-      if (statusFilter) url += `&status=${statusFilter}`
-      return apiOrThrow<{ list: HomeworkSubmission[] }>(url)
+    queryFn: async () => {
+      const r = await eduHomeworkSubmissionList<{ list: HomeworkSubmission[] }>({
+        classId: selectedClassId,
+        status: statusFilter || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!selectedClassId,
   })
@@ -256,11 +273,11 @@ export default function HomeworkPage() {
   }, [queryClient])
 
   const gradeMutation = useMutation({
-    mutationFn: ({ id, score, comment }: { id: string; score: number; comment: string }) =>
-      apiOrThrow(`/api/edu-ai-management/homework-submission/${id}/grade`, {
-        method: 'PUT',
-        body: JSON.stringify({ score, comment: comment || null }),
-      }),
+    mutationFn: async ({ id, score, comment }: { id: string; score: number; comment: string }) => {
+      const r = await eduHomeworkSubmissionGrade(id, { score, comment: comment || null })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidate,
   })
 

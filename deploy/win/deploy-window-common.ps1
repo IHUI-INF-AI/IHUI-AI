@@ -27,7 +27,10 @@
 
 function Get-IhuiDeployWindowPath {
     if ($env:IHUI_DEPLOY_WINDOW_FILE) { return $env:IHUI_DEPLOY_WINDOW_FILE }
-    return 'D:\DevEnv\state\ihui-deploy-window.json'
+    # 状态根按本模块所在盘现读推导,不写死盘符(IHUI_DEVENV_ROOT 可显式覆盖;AGENTS §0)。
+    # 模块被 PS5.1(monitor) 与 PS7(deploy) 共同加载,只用两版通用语法。
+    $devenv = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $PSScriptRoot) + '\DevEnv' }
+    return (Join-Path (Join-Path $devenv 'state') 'ihui-deploy-window.json')
 }
 
 function ConvertTo-IhuiDeployWindowInstant {

@@ -1034,7 +1034,11 @@ export const lsp_server_status: Tool = {
       if (wanted && !wanted.includes(config.language)) continue;
       if (!ready.some((r) => r.language === config.language)) continue;
       const markers = checkWorkspaceMarkers(config, ctx.workspacePath);
-      if (markers.required.length > 0 && markers.found.length === 0) {
+      if (markers.unreadable) {
+        markerNotes.push(
+          `${config.language}: 工作区读不到,不能说没有 ${markers.required.join(' / ')}`,
+        );
+      } else if (markers.required.length > 0 && markers.found.length === 0) {
         markerNotes.push(
           `${config.language}: 服务器已就绪,但工作区没有 ${markers.required.join(' / ')} 任一标记 ⇒ 符号索引大概率为空(这是提示,不是错误)`,
         );

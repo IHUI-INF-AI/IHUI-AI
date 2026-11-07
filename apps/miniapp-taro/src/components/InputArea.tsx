@@ -76,7 +76,8 @@ export interface InputAreaProps {
   onSend?: (text: string) => void
   onVoicePress?: () => void
   onVoiceRelease?: (filePath: string) => void
-  onUpload?: (files: string[]) => void
+  /** 添加文件/图片(对齐 RN 端同名 prop:选文件由调用方负责,组件只发起点按) */
+  onImageAdd?: () => void
   onRemoveImage?: (index: number) => void
   imgsList?: InputFileItem[]
   /** 仅禁用发送按钮,不禁用 textarea */
@@ -88,8 +89,6 @@ export interface InputAreaProps {
   onFocus?: () => void
   onBlur?: () => void
   onKeyboardHeightChange?: (height: number) => void
-  /** 放大态变化通知父组件 */
-  onFangdaChange?: (active: boolean) => void
 
   // ── 跨端对齐(门285 B2 存量收敛):以下 16 项对齐 mobile-rn/src/components/InputArea.tsx ──
   // 仅对齐类型契约,RN 同名项缺省即降级为原行为;组件内部暂未接线的保持可选,
@@ -180,7 +179,7 @@ export default function InputArea({
   onSend,
   onVoicePress,
   onVoiceRelease,
-  onUpload,
+  onImageAdd,
   disabled = false,
   maxLength = 50000,
   autoFocus = false,
@@ -190,7 +189,6 @@ export default function InputArea({
   onFocus,
   onBlur,
   onKeyboardHeightChange,
-  onFangdaChange,
 }: InputAreaProps) {
   const { t } = useI18n()
   const [mode, setMode] = useState<Mode>('text')
@@ -250,14 +248,10 @@ export default function InputArea({
     onInput?.('')
   }, [onInput])
 
-  // 切换放大(通知父组件放大态变化)
+  // 切换放大
   const toggleFangda = useCallback(() => {
-    setIsFangdaActive((prev) => {
-      const next = !prev
-      onFangdaChange?.(next)
-      return next
-    })
-  }, [onFangdaChange])
+    setIsFangdaActive((prev) => !prev)
+  }, [])
 
   // 删除附件
   const handleRemoveImage = useCallback(
@@ -267,28 +261,11 @@ export default function InputArea({
     [onRemoveImage],
   )
 
-  // 加号旋转 + 取消后回退(成功选图后保持 isShowIcon,仅用户取消时回退)
-  const handleUploadToggle = useCallback(async () => {
+  // 加号旋转 + 通知调用方选文件(选文件由调用方负责,与 RN 端 onImageAdd 同契约)
+  const handleUploadToggle = useCallback(() => {
     setIsShowIcon((v) => !v)
-    try {
-      const imgRes = await Taro.chooseImage({
-        count: 9,
-        sizeType: ['compressed'],
-        sourceType: ['album', 'camera'],
-      })
-      const files = Array.isArray(imgRes.tempFilePaths) ? imgRes.tempFilePaths : []
-      if (files.length) onUpload?.(files)
-    } catch {
-      try {
-        const fileRes = await Taro.chooseMessageFile({ count: 9, type: 'file' })
-        const files = (fileRes.tempFiles || []).map((f: { path: string }) => f.path)
-        if (files.length) onUpload?.(files)
-      } catch {
-        /* 用户取消:回退加号旋转 */
-        setIsShowIcon(false)
-      }
-    }
-  }, [onUpload])
+    onImageAdd?.()
+  }, [onImageAdd])
 
   // 键盘高度自管(e.detail.height 单位为 px)
   const handleFocus = useCallback(
@@ -590,13 +567,14 @@ export default function InputArea({
                   : {}),
               }}
             >
-              {/* 语音切换按钮 search-box1:50rpx×44rpx */}
+              {/* 语音切换按钮 search-box1:50rpx×48rpx */}
               <View
                 className={cn('search-box1', mode === 'voice' ? 'active' : '')}
                 style={{
                   width: toUnit(INPUT_AREA_AI_HOME_VOICE_BTN_W_PX),
-                  // 高度 44rpx(=22)留在端内:22 这一档两端共享(RN 框内放大钮盒同为 22)
-                  height: rpx(44),
+                  // 高度收敛到 48rpx(=24):RN 删除框内放大钮后,原 22 档失去对端出处;
+                  // 24 是两端共用档(design-tokens 间距档 rnSpacing.2xl),不再单独占一档。
+                  height: rpx(48),
                   display: 'flex',
                   alignItems: 'center',
                   flex: 'none',
@@ -641,7 +619,8 @@ export default function InputArea({
                     color: 'var(--color-foreground)',
                     lineHeight: rpx(40),
                     flex: 1,
-                    minHeight: rpx(44),
+                    // 同语音钮高度:22 档收敛到两端共用 24(48rpx)
+                    minHeight: rpx(48),
                   } as CSSProperties
                 }
                 value={value}
@@ -809,7 +788,7 @@ export default function InputArea({
                       实底 cta + 配对前景,墨迹 `controlGlyph`(14)。此前本端是 25 的裸图标 + 品牌绿前景,
                       而 RN/web 是 32 黑底白字方块的同一枚控件,即"两端还是不一样"里最显眼的一格。 */}
                   <View
-                    className="flex items-center justify-center ml-2 rounded-sm bg-cta text-cta-foreground"
+                    className="flex items-center justify-center ml-sm rounded-sm bg-cta text-cta-foreground"
                     style={{
                       width: rpx(taroGeometry.controlBox),
                       height: rpx(taroGeometry.controlBox),
@@ -837,8 +816,8 @@ export default function InputArea({
   return (
     <View className="w-full">
       {showEmoji ? (
-        <ScrollView scrollY className="h-48 mb-2">
-          <View className="flex flex-wrap p-2">
+        <ScrollView scrollY className="h-48 mb-sm">
+          <View className="flex flex-wrap p-sm">
             {EMOJI_LIST.map((e, i) => (
               // 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈
               <View
@@ -855,7 +834,7 @@ export default function InputArea({
       ) : null}
 
       <View className="flex items-center w-full">
-        <View className="flex items-center mr-2 flex-shrink-0">
+        <View className="flex items-center mr-sm flex-shrink-0">
           {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
           <View
             className={`w-9 h-9 flex items-center justify-center rounded-sm ${mode === 'voice' ? 'text-primary' : 'text-muted-foreground'}`}
@@ -873,10 +852,11 @@ export default function InputArea({
         </View>
 
         {mode === 'text' ? (
-          <View className="flex-1 min-h-10 bg-muted rounded-sm px-3 py-2 flex items-center">
+          <View className="flex-1 min-h-10 bg-muted rounded-sm px-md py-sm flex items-center">
             <Textarea
-              className="w-full text-sm text-foreground dark:text-muted-foreground bg-transparent"
-              style={{ minHeight: rpx(40), maxHeight: rpx(200), width: '100%' }}
+              className="w-full text-body text-foreground dark:text-muted-foreground bg-transparent"
+              // 默认变体输入框上限收敛到 120(=240rpx),与 RN 卡片式 INPUT_MAX_HEIGHT 同值
+              style={{ minHeight: rpx(40), maxHeight: rpx(240), width: '100%' }}
               value={value}
               placeholder={placeholder || t('messageInput.placeholder')}
               placeholderStyle="color: var(--color-muted-foreground); font-size: 28rpx;"
@@ -896,7 +876,7 @@ export default function InputArea({
           </View>
         ) : (
           <View
-            className={`flex-1 min-h-10 mx-2 rounded-sm flex items-center justify-center text-sm ${recording ? 'bg-[var(--color-danger-light)] text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
+            className={`flex-1 min-h-10 mx-sm rounded-sm flex items-center justify-center text-body ${recording ? 'bg-[var(--color-danger-light)] text-destructive' : 'bg-muted text-foreground dark:text-muted-foreground'}`}
             onTouchStart={handleVoiceStart}
             onTouchEnd={handleVoiceEnd}
             onTouchCancel={handleVoiceCancel}
@@ -907,7 +887,7 @@ export default function InputArea({
           </View>
         )}
 
-        <View className="flex items-center ml-2 flex-shrink-0">
+        <View className="flex items-center ml-sm flex-shrink-0">
           {mode === 'text' ? (
             // 开关钮载体 = 矢量(AGENTS §4「UI 图标一律用矢量图标库,禁止 emoji 充当图标」);命中盒 w-9 h-9 / 圆角档 rounded-sm / 开合两态色档与原字符实现同档,墨迹取本文件既有具名档 ⇒ 不新增端内数字
             <View
@@ -922,7 +902,7 @@ export default function InputArea({
               />
             </View>
           ) : null}
-          <View className="flex flex-col items-center ml-1">
+          <View className="flex flex-col items-center ml-xs">
             {/* 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈 */}
             <View
               className="w-9 h-9 flex items-center justify-center rounded-sm text-muted-foreground"
@@ -941,7 +921,7 @@ export default function InputArea({
         {mode === 'text' ? (
           // active:bg-primary 在 weapp 端为死样式(:active 伪类对 View 不生效),改用 hoverClass 按压反馈
           <View
-            className={`ml-2 px-4 h-9 leading-9 rounded-sm text-sm flex-shrink-0 ${canSend ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'}`}
+            className={`ml-sm px-lg h-9 leading-9 rounded-sm text-body flex-shrink-0 ${canSend ? 'bg-cta text-cta-foreground' : 'bg-muted text-muted-foreground'}`}
             onClick={handleSend}
             hoverClass="opacity-60"
           >

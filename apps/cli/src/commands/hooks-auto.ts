@@ -35,6 +35,7 @@ import * as os from 'node:os';
 import { exec } from 'node:child_process';
 import type { Command } from 'commander';
 import chalk from 'chalk';
+import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 
 // ==================== 类型定义 ====================
 
@@ -125,27 +126,73 @@ function hooksTrustFile(): string {
   );
 }
 
-/** 读用户级信任集(工作区绝对路径);文件缺失/损坏一律视为空(fail-closed)。 */
+/** 读用户级信任集。文件确实没有才是空集;读不到必须抛,不能说成没批准过。 */
 export function loadTrustedWorkspaces(): Set<string> {
+  const file = hooksTrustFile();
+  let text: string;
   try {
-    const raw = JSON.parse(fs.readFileSync(hooksTrustFile(), 'utf-8')) as { trusted?: string[] };
-    return new Set(Array.isArray(raw.trusted) ? raw.trusted.map((x) => path.resolve(x)) : []);
+    text = fs.readFileSync(file, 'utf-8');
+  } catch (error) {
+    const code = trustReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
+    throw new Error(`钩子信任名单读不到,不能把它说成没有批准过的工作区 (${code})`);
+  }
+  const raw = JSON.parse(text) as { trusted?: string[] } | null;
+  if (!raw || typeof raw !== 'object') throw new Error(`信任清单格式非法: ${file}`);
+  return new Set(Array.isArray(raw.trusted) ? raw.trusted.map((x) => path.resolve(x)) : []);
+}
+
+function trustReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+/** 准备写入用的信任集。文件不存在可以新建。读不到不能覆盖成只剩新的工作区。 */
+function readTrustedForUpdate(): Set<string> {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(hooksTrustFile(), 'utf-8');
+  } catch (error) {
+    const code = trustReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
+    throw new Error(`钩子信任名单读不到,不能把它覆盖成只剩新的工作区 (${code})`);
+  }
+  try {
+    const parsed = JSON.parse(raw) as { trusted?: string[] };
+    return new Set(Array.isArray(parsed.trusted) ? parsed.trusted.map((item) => path.resolve(item)) : []);
   } catch {
     return new Set();
   }
 }
 
+/** 读不到就停。放在写入函数外面,是为了和基线解析那一段各用各的变量名。 */
+function refuseUnreadableTrustList(): void {
+  const trusted = readTrustedForUpdate();
+  if (trusted.size < 0) throw new Error('信任清单格式非法');
+}
+
 /** 把工作区写入信任集(信任是显式动作,不提供删除出口——删除属 GC 范畴)。 */
 export function addTrustedWorkspace(workspacePath: string): void {
   const abs = path.resolve(workspacePath);
-  const trusted = loadTrustedWorkspaces();
+  refuseUnreadableTrustList();
+  const file = hooksTrustFile();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  // 落盘前捕获**这一次**读到的字节作为基线并在它之上重算;commitAtomicWrite
+  // 重读校验基线 + 同目录 tmp/rename 原子替换 + 拒绝穿透符号链接。旧写法
+  // 先 load(读失败吞成空集)再裸 writeFileSync 整体覆写,是同一语义的第二套未修实现。
+  const baseline = captureWriteBaseline(file);
+  let trusted = new Set<string>();
+  if (baseline.content !== null && baseline.content.trim() !== '') {
+    const parsed = JSON.parse(baseline.content) as { trusted?: string[] } | null;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error(`信任清单格式非法: ${file}`);
+    }
+    trusted = new Set(Array.isArray(parsed.trusted) ? parsed.trusted.map((x) => path.resolve(x)) : []);
+  }
   trusted.add(abs);
-  fs.mkdirSync(path.dirname(hooksTrustFile()), { recursive: true });
-  fs.writeFileSync(
-    hooksTrustFile(),
-    JSON.stringify({ trusted: [...trusted] }, null, 2) + String.fromCharCode(10),
-    'utf-8',
-  );
+  commitAtomicWrite(baseline, JSON.stringify({ trusted: [...trusted] }, null, 2) + String.fromCharCode(10));
 }
 
 /** 文件扩展名 → scriptType 映射 */
@@ -368,18 +415,34 @@ function hookSignature(hook: HookDefinition): string {
 export class HookAutoDiscovery {
   private readonly workspacePath: string;
   private readonly hooks: Map<string, HookDefinition> = new Map();
+  private readonly readDir: (dir: string) => fs.Dirent[];
+  private unreadScans: string[] = [];
   private watchers: fs.FSWatcher[] = [];
   private watchTimer: ReturnType<typeof setTimeout> | null = null;
   private watching = false;
 
-  constructor(workspacePath: string) {
+  constructor(workspacePath: string, readDir?: (dir: string) => fs.Dirent[]) {
     this.workspacePath = path.resolve(workspacePath);
+    this.readDir = readDir ?? ((dir) => fs.readdirSync(dir, { withFileTypes: true }));
+  }
+
+  unreadScanCount(): number {
+    return this.unreadScans.length;
   }
 
   /** 扫描所有 hook 目录,返回发现的 hooks(按 priority 降序) */
   discover(): HookDefinition[] {
     this.hooks.clear();
-    const trusted = loadTrustedWorkspaces();
+    this.unreadScans = [];
+    let trusted: Set<string>;
+    try {
+      trusted = loadTrustedWorkspaces();
+    } catch (e) {
+      // 信任清单读不出来 ⇒ fail-closed:工作区 hook 一个都不放行,且必须点名。
+      // 静默当成"空清单"会把"读失败"与"从未批准过"混成同一件事。
+      console.warn(chalk.yellow(`⚠ 信任清单读取失败,工作区 hook 全部禁用: ${(e as Error).message}`));
+      trusted = new Set();
+    }
     const workspaceTrusted = trusted.has(path.resolve(this.workspacePath));
     for (const loc of this.getScanLocations()) {
       // 信任门:工作区级 hook 在未信任工作区一律 enabled=false(执行器只认
@@ -397,6 +460,13 @@ export class HookAutoDiscovery {
         );
       }
     }
+    if (this.unreadScans.length > 0) {
+      console.warn(
+        chalk.yellow(
+          `⚠ 有 ${this.unreadScans.length} 个 hook 目录或文件读不到,不能把它们说成没有 hook (${this.unreadScans[0]})`,
+        ),
+      );
+    }
     return this.getHooks();
   }
 
@@ -413,11 +483,16 @@ export class HookAutoDiscovery {
 
   /** 扫描单个目录下的 hook 文件(扁平,不递归);trusted=false 时全部禁用 */
   private scanDirectory(dir: string, sourceLabel: string, trusted: boolean): void {
-    if (!fs.existsSync(dir)) return;
     let entries: fs.Dirent[];
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
+      entries = this.readDir(dir);
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code === 'ENOENT' || code === 'ENOTDIR') return;
+      this.unreadScans.push(`${dir} (${code})`);
       return;
     }
     for (const entry of entries) {
@@ -443,7 +518,12 @@ export class HookAutoDiscovery {
     let content: string;
     try {
       content = fs.readFileSync(fullPath, 'utf-8');
-    } catch {
+    } catch (error) {
+      const code =
+        error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+          ? (error as { code: string }).code
+          : 'unknown';
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') this.unreadScans.push(`${fullPath} (${code})`);
       return null;
     }
     const filename = path.basename(fullPath);

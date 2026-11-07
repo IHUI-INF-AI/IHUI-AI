@@ -267,7 +267,9 @@ export function ImportAnalysisSheet({
                           value={variables[name] ?? ''}
                           placeholder={t('conversationImport.analysisVarPlaceholder', { name })}
                           placeholderTextColor={tk.text.tertiary}
-                          onChangeText={(v) => setVariables((prev) => ({ ...prev, [name]: v }))}
+                          onChangeText={(v: string) =>
+                            setVariables((prev) => ({ ...prev, [name]: v }))
+                          }
                         />
                       </View>
                     ))
@@ -384,8 +386,12 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     title: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    close: { fontSize: 13, color: tk.text.secondary },
-    desc: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.secondary },
+    close: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
+    desc: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.secondary,
+    },
     stateRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -394,8 +400,12 @@ function createStyles(tk: AppThemeTokens) {
     },
     scroll: { maxHeight: 460 },
     scrollBody: { gap: rnSpacing.sm, paddingBottom: rnSpacing.sm },
-    sectionTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
-    hint: { fontSize: rnType.caption.size, lineHeight: 16, color: tk.text.tertiary },
+    sectionTitle: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
+    hint: {
+      fontSize: rnType.caption.size,
+      lineHeight: rnType.label.lineHeight,
+      color: tk.text.tertiary,
+    },
     errorBox: {
       flexDirection: 'row',
       alignItems: 'flex-start',
@@ -404,7 +414,12 @@ function createStyles(tk: AppThemeTokens) {
       borderRadius: rnRadius.lg,
       backgroundColor: tk.danger.DEFAULT + '22',
     },
-    errorText: { flex: 1, fontSize: rnType.caption.size, lineHeight: 16, color: tk.danger.DEFAULT },
+    errorText: {
+      flex: 1,
+      fontSize: rnType.caption.size,
+      lineHeight: rnType.label.lineHeight,
+      color: tk.danger.DEFAULT,
+    },
     scenarioRow: {
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing['2xs'],
@@ -414,7 +429,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
     },
     scenarioRowActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
-    scenarioTitle: { fontSize: 13, fontWeight: '600', color: tk.text.primary },
+    scenarioTitle: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
     scenarioSubtitle: { fontSize: rnType.caption.size, lineHeight: 15, color: tk.text.tertiary },
     browseToggle: { paddingVertical: rnSpacing['xs-loose'] },
     browseBox: {
@@ -482,7 +497,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.brand.cta,
     },
     submitDisabled: { backgroundColor: tk.border.medium },
-    submitText: { fontSize: 13, fontWeight: '600', color: tk.brand.ctaForeground },
+    submitText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.brand.ctaForeground },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

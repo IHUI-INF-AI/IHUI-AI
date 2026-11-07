@@ -58,22 +58,25 @@ test.describe('IDE 编辑器工作区', () => {
     await page.goto('/developer/ide')
     await expect(page).toHaveURL(/developer\/ide/)
 
-    // 打开终端视图:ViewSwitcher(Plus 按钮)弹层 → 点击"终端"项;Ctrl+` 作为兜底。
-    // 2026-09-14 修复 flaky:isVisible() 是即时检查(timeout 参数无效),弹层展开动画
-    // 未完成时误判不可见 → 走 Ctrl+` 兜底,与弹层后续渲染竞态(全量两轮各 flaky 1 次)。
-    // 改 waitFor 轮询,动画完成后稳定点击。
-    const plusTrigger = page.locator('div.relative > button:has(svg.lucide-plus)').first()
+    // 打开终端视图:IDE 顶栏的 ViewSwitcher(Plus 按钮)弹层 → 点击"终端"项。
+    // 2026-11-04 确定性归因(CI run 41779865086 三次尝试同形):
+    // 全局顶栏 GlobalTopBar 也有一个 Plus「添加视图」,且在 DOM 中先于 main(IDE 顶栏在其内),
+    // 旧的 `div.relative > button:has(svg.lucide-plus)` 取 .first() 点中的是**全局视图菜单**;
+    // 该菜单项是 role=menuitem(名"终端"的那项切 WorkPanel 标签,不挂载 IDE 终端),
+    // `getByRole('button')` 找不到 → 落 Ctrl+` 兜底,而全局菜单仍开着、焦点在菜单搜索框,
+    // 快捷键被菜单消费 ⇒ 助手区没切终端视图,`.xterm` 永不出现、POST 一次都没发出
+    // (失败工件快照里 menu 展开 + IDE 主区停在编辑器空态,即此形)。
+    // 修正:触发器限定在 main(IDE 顶栏必在 main 内,全局顶栏在其外);菜单项改硬断言,
+    // 不再静默兜底 —— 兜底与弹层渲染本就存在竞态,是上一版 flaky 的来源。
+    const ideRoot = page.locator('main').first()
+    const plusTrigger = ideRoot.locator('div.relative > button:has(svg.lucide-plus)').first()
     await plusTrigger.click()
     const terminalItem = page.getByRole('button', { name: /终端|Terminal/i }).first()
-    const itemShown = await terminalItem
-      .waitFor({ state: 'visible', timeout: 5000 })
-      .then(() => true)
-      .catch(() => false)
-    if (itemShown) {
-      await terminalItem.click()
-    } else {
-      await page.keyboard.press('Control+`')
-    }
+    await expect(
+      terminalItem,
+      'IDE ViewSwitcher 弹层未出现"终端"项(role=button)——若命中全局"添加视图"菜单,其项为 menuitem',
+    ).toBeVisible({ timeout: 5000 })
+    await terminalItem.click()
 
     // xterm 终端实例挂载 .xterm 容器(WS 未连接也渲染 DOM)
     const xterm = page.locator('.xterm')

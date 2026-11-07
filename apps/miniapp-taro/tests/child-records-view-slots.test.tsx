@@ -89,8 +89,8 @@ const ROWS = [{ id: 'r1', cells: { student: 'S1' } }]
 
 /** 壳的旧形态标题行(2026-11-03 加槽前的逐字形态),① 的比对基准 */
 const OLD_TITLE_ROW =
-  '<div class="flex items-center gap-3 py-3">' +
-  '<span class="text-xl font-bold text-foreground">eduMgmt.attendanceTitle</span>' +
+  '<div class="flex items-center gap-md py-md">' +
+  '<span class="text-heading font-bold text-foreground">eduMgmt.attendanceTitle</span>' +
   '</div>'
 
 beforeEach(() => {
@@ -109,10 +109,10 @@ describe('ChildRecordsView 槽位', () => {
       }),
     )
     expect(html).toContain(OLD_TITLE_ROW)
-    // 三个槽容器类名一个都不许出现(ml-auto 头部 / justify-end 行尾 / pt-1 行尾)
+    // 三个槽容器类名一个都不许出现(ml-auto 头部 / justify-end 行尾 / pt-xs 行尾)
     expect(html).not.toContain('ml-auto')
     expect(html).not.toContain('justify-end')
-    expect(html).not.toContain('pt-1')
+    expect(html).not.toContain('pt-xs')
   })
 
   it('①b 显式传 undefined 槽与不传槽输出完全一致(可选槽不得改变默认形态)', () => {
@@ -146,7 +146,7 @@ describe('ChildRecordsView 槽位', () => {
       }),
     )
     expect(html).toContain('data-marker="hdr-slot"')
-    expect(html).toContain('ml-auto flex flex-wrap items-center justify-end gap-2')
+    expect(html).toContain('ml-auto flex flex-wrap items-center justify-end gap-sm')
     expect(html).not.toContain(OLD_TITLE_ROW) // 旧形态已被槽撑开,证明①判的是真变化
   })
 

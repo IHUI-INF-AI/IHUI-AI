@@ -17,10 +17,39 @@
  *  - 必填 = props 类型里非 optional 的属性名;平台可注入档见 INJECTABLE(取词/主题/导航回调)。
  *  - 判定分三档:`reusable`(必填全落在可注入集) / `needs-data(点名缺哪些)` / `undetermined`。
  */
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import ts from 'typescript'
+const requireFromHere = createRequire(import.meta.url)
+let tsCache = null
+
+/**
+ * typescript 惰性装载:无 node_modules 的独立工作树/干净检出里,静态 import 会在模块装载期
+ * 抛 ERR_MODULE_NOT_FOUND,调用方只能拿到 exit 1,与"漂移 1 条"混在一起。改成惰性后,
+ * 缺依赖是"取不到输入(未判定)"(§0.3),由调用方折成 exit 2,不记绿也不记红。
+ */
+function loadTs() {
+  if (tsCache) return tsCache
+  try {
+    tsCache = requireFromHere('typescript')
+    return tsCache
+  } catch (error) {
+    const e = new Error(`缺 typescript/node_modules:${String(error?.message ?? error).slice(0, 120)}`)
+    e.code = 'IHUI_TS_UNAVAILABLE'
+    throw e
+  }
+}
+
+/** 供调用方在跑判据前显式问一次"编译面在不在",缺依赖时折成 exit 2。 */
+export function isTypescriptAvailable() {
+  try {
+    loadTs()
+    return true
+  } catch {
+    return false
+  }
+}
 
 const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
 const RN_TSCONFIG = join(ROOT, 'apps', 'mobile-rn', 'tsconfig.json')
@@ -58,6 +87,7 @@ let programCache = null
 
 function loadProgram() {
   if (programCache) return programCache
+  const ts = loadTs()
   const cfgFile = ts.readConfigFile(RN_TSCONFIG, ts.sys.readFile)
   if (cfgFile.error) throw new Error(`读不到 ${RN_TSCONFIG}:${ts.flattenDiagnosticMessageText(cfgFile.error.messageText, ' ')}`)
   const parsed = ts.parseJsonConfigFileContent(cfgFile.config, ts.sys, dirname(RN_TSCONFIG))
@@ -77,6 +107,7 @@ export function requiredPropsOf(specRel) {
   } catch (error) {
     return { state: 'undetermined', reason: `编译面取不到:${String(error?.message ?? error).slice(0, 120)}`, required: [] }
   }
+  const ts = loadTs()
   const source = program.getSourceFile(absolute)
   if (!source) return { state: 'undetermined', reason: '该文件不在 RN 编译面里(路径或 tsconfig include 漂移)', required: [] }
   const checker = program.getTypeChecker()
@@ -142,6 +173,7 @@ export function allPropsOf(specRel) {
   } catch (error) {
     return { state: 'undetermined', reason: `编译面取不到:${String(error?.message ?? error).slice(0, 120)}`, props: [] }
   }
+  const ts = loadTs()
   const source = program.getSourceFile(absolute)
   if (!source) return { state: 'undetermined', reason: '该文件不在 RN 编译面里(路径或 tsconfig include 漂移)', props: [] }
   const checker = program.getTypeChecker()

@@ -16,6 +16,12 @@
  *                四种排序的结果集与名次差(下一票改完的前后对比凭据)。
  *   J4 对照侧口径 本仓 rrfK / 腿权重 vs 对方 `rrfK:60 / textWeight:2 / vectorWeight:1`,
  *                报 同 / 不同 / 未判定。**不自动改本仓任何参数**(改不改是下一票的事)。
+ *   J5 段账维(2026-11-06 Z28,消费 Z19 的 stages 键 / [stage_result] 行)逐枚出口判四问:
+ *                ① 段清单在器物 stage_telemetry 的 _TOOL_STAGES 登记过 ② 出口经
+ *                StageRecorder("<tool>") 落册 ③ 在册每一段在出口都留有登记点 ④ 出参带段投影。
+ *                段名/结论行锚点全部从器物面**现读**(本文件不抄字面量,§0.6);四问全过 ⇒
+ *                `instrumented`,缺一 ⇒ `stage-gap`(进缺陷档,exit 1),器物面或函数体取不到
+ *                ⇒ `unjudged`(exit 2,不冒绿)。
  *
  * 判据单源(AGENTS §0.6 + 门 191「判据复制」反模式):
  *   J3 的融合分数**不在本文件计算**。每轮判定派生一次 `python -c`,import 真函数
@@ -44,8 +50,8 @@
  *         --python <exe>  --no-python  --top <N>
  *
  * 退出码(优先级 2 > 1 > 0;"没判"绝不压成"判过"):
- *   0 = 四档全部判定完成,且无 silent-degrade
- *   1 = 判出 ≥1 枚 silent-degrade(缺陷档)
+ *   0 = 五档全部判定完成,且无 silent-degrade / 无 stage-gap
+ *   1 = 判出 ≥1 枚 silent-degrade(J2)或 ≥1 枚 stage-gap(J5,缺陷档)
  *   2 = 用法错 / 被审面取不到 / 任一维度 unjudged(不冒绿)
  *
  * 人读输出末行带机器可解析协议(形态搬自对方自检器,内容自定):
@@ -127,6 +133,141 @@ const EXITS = [
     carrierKeys: [{ key: 'semantic_index', var: 'semantic_index_field' }],
   },
 ]
+
+/** 器物面:段清单 / 结论词表 / 结论行事件名的唯一登记处(J5 的取材点)。 */
+const STAGE_FACE = 'apps/ai-service/app/services/stage_telemetry.py'
+
+/**
+ * J5 射程:三枚出口 = 三条在册检索/装配链路。
+ * `tool` 取器物 _TOOL_STAGES 的登记名;`projection` 是该链路**出参**里的段投影键
+ * (mcp 返回 `stages`;rag / conversation 的既有投影是 `trace=…` —— 键名口径不改,只判在不在)。
+ */
+const STAGE_EXITS = [
+  {
+    name: 'mcp.search_codebase',
+    file: 'apps/ai-service/app/services/mcp_server.py',
+    fn: '_tool_search_codebase',
+    tool: 'search_codebase',
+    projection: /["']stages["']\s*:/,
+  },
+  {
+    name: 'rag.query',
+    file: 'apps/ai-service/app/services/rag.py',
+    fn: 'query',
+    tool: 'rag_query',
+    projection: /trace\s*=/,
+  },
+  {
+    name: 'conversation.chat',
+    file: 'apps/ai-service/app/services/conversation.py',
+    fn: 'chat',
+    tool: 'conversation_run',
+    projection: /trace\s*=/,
+  },
+]
+
+/** 结论行事件名(器物在册),本文件只用它拼锚点,不抄 `[stage_result]` 字面量。 */
+function parseStageEvent(text) {
+  const m = /STAGE_LOG_EVENT\s*=\s*["']([A-Za-z0-9_]+)["']/.exec(text)
+  return m ? m[1] : null
+}
+
+/** 结论词表(器物在册档);解析不出 ⇒ 空表(调用方记未判定,不拿 0 档冒充"没有档")。 */
+function parseStageVocabulary(text) {
+  const m = /STAGE_RESULTS\s*:\s*tuple\[str,\s*\.\.\.\]\s*=\s*\(([\s\S]{0,400}?)\)/.exec(text)
+  if (!m) return []
+  return [...m[1].matchAll(/["']([a-z_]+)["']/g)].map((x) => x[1])
+}
+
+/**
+ * `_TOOL_STAGES` 登记块 → { tool: [段名…] }。值有两种在册形态:直接元组字面量,或引用
+ * 具名常量(先去常量定义里取字面量)。本文件因此**不需要**知道任何段名(§0.6)。
+ */
+function parseStageRegistry(text) {
+  const block = /_TOOL_STAGES\s*:\s*dict[^=]*=\s*\{([\s\S]*?)\}/.exec(text)
+  if (!block) return { ok: false, reason: '器物面解析不出 _TOOL_STAGES 登记块', tools: {}, words: [], event: null }
+  const named = new Map()
+  for (const m of text.matchAll(
+    /^([A-Z][A-Z0-9_]*_STAGES)\s*:\s*tuple\[str,\s*\.\.\.\]\s*=\s*\(([\s\S]{0,300}?)\)/gm,
+  )) {
+    named.set(
+      m[1],
+      [...m[2].matchAll(/["']([a-z_]+)["']/g)].map((x) => x[1]),
+    )
+  }
+  const tools = {}
+  for (const m of block[1].matchAll(/["']([a-z_]+)["']\s*:\s*(\([^)]*\)|[A-Z][A-Z0-9_]*)/g)) {
+    const value = m[2]
+    tools[m[1]] = value.startsWith('(')
+      ? [...value.matchAll(/["']([a-z_]+)["']/g)].map((x) => x[1])
+      : [...(named.get(value) ?? [])]
+  }
+  const empty = Object.entries(tools)
+    .filter(([, list]) => list.length === 0)
+    .map(([k]) => k)
+  return {
+    ok: Object.keys(tools).length > 0 && empty.length === 0,
+    tools,
+    words: parseStageVocabulary(text),
+    event: parseStageEvent(text),
+    reason:
+      empty.length > 0
+        ? `登记块里这些工具的段名解析不出(既不是元组字面量也没指向在册常量):${empty.join(',')}`
+        : null,
+  }
+}
+
+/**
+ * J5 单枚出口的判定(三档:instrumented / stage-gap / unjudged)。
+ * 除四问外还有两条绝对锁:消费方不得自立第二份段清单/词表(§0.6,与 Z19 的
+ * test_single_source_locks 同判据),器物必须仍在产结论行(锚点现读自器物面)。
+ */
+function judgeStageAccounting(body, spec, registry, sourceText) {
+  const base = { tool: spec.tool, stages: registry.tools?.[spec.tool] ?? [], words: registry.words.length }
+  if (!registry.ok || !registry.event) {
+    return {
+      verdict: 'unjudged',
+      detail: registry.reason ?? '器物面解析不出结论行事件名(谈不上有没接上单源)',
+      ...base,
+    }
+  }
+  const list = registry.tools[spec.tool]
+  if (!list || list.length === 0) {
+    return { verdict: 'stage-gap', detail: `器物 _TOOL_STAGES 未登记 ${spec.tool} ⇒ 段清单无源`, ...base }
+  }
+  const missing = []
+  if (!new RegExp(`StageRecorder\\(\\s*["']${spec.tool}["']`).test(body)) {
+    missing.push('出口未构造 StageRecorder("<tool>") ⇒ 段账不经单源落册')
+  }
+  const unreached = list.filter((s) => !new RegExp(`["']${s}["']`).test(body))
+  if (unreached.length > 0) missing.push(`在册段在出口无登记点:${unreached.join(',')}`)
+  if (!spec.projection.test(body)) missing.push(`出参无段投影(锚点 ${spec.projection.source})`)
+  if (/_TOOL_STAGES|STAGE_RESULTS/.test(sourceText)) missing.push('消费方自立了第二份段清单/词表(§0.6)')
+  if (registry.words.length === 0) missing.push('器物结论词表解析不出')
+  return missing.length === 0
+    ? {
+        verdict: 'instrumented',
+        detail: `${list.length} 段全在册并留有登记点 · 结论行锚点 [${registry.event}]`,
+        ...base,
+      }
+    : { verdict: 'stage-gap', detail: missing.join(' + '), ...base }
+}
+
+/**
+ * 零抄源自证:判据函数(judgeStageAccounting / runAll 的 J5 段)源码里不得出现结论行事件名,
+ * 也不得出现带下划线的在册段名 —— 出现即说明本文件把单源的字面量抄了一份进来(§0.6)。
+ * 用函数源码而不是整文件文本:文件里的注释与本自测夹具**允许**提到这些词,判据本身不许。
+ */
+function selfCheckNoStageLiterals(fnSources, registry) {
+  const stageNames = [
+    ...new Set(Object.values(registry?.tools ?? {}).flat()),
+  ].filter((s) => s.includes('_'))
+  const hay = Array.isArray(fnSources) ? fnSources.join('\n') : String(fnSources)
+  const hit = ['stage_result', ...stageNames].filter((w) => hay.includes(w))
+  return { clean: hit.length === 0, hit, stageNamesChecked: stageNames.length }
+}
+
+
 
 /** J3 默认离线夹具(内置,零真库依赖;context_recall 只在关键词腿第 3 名,codebase_indexer 只在向量腿第 1 名)。 */
 const DEFAULT_FIXTURE = {
@@ -299,7 +440,10 @@ function fuseViaPython(
  * (实测第一版就栽在这里)。结束行判据:相对 def 行的括号深度归 0 且该行以 `:` 收尾。
  */
 function extractFunctionBody(source, fnName) {
-  const re = new RegExp(`^(\\s*)(?:async\\s+)?def\\s+${fnName}\\s*\\(`, 'm')
+  // CRLF 面(`--worktree` 逃生舱)实测坑:`^` 在 JS 里也在 `\r` 之后成立,原写法用
+  // `\s*` 吞换行 ⇒ 匹配起点落到**上一行行尾**,baseIndent 被算成 6 而不是 4,函数体当场
+  // 截成 1 行(J1/J2/J5 三档同时假未判定/假缺陷)。取缩进只允许空格与制表符。
+  const re = new RegExp(`^([ \t]*)(?:async\\s+)?def\\s+${fnName}\\s*\\(`, 'm')
   const m = re.exec(source)
   if (!m) return null
   const lines = source.split(/\r?\n/)
@@ -940,7 +1084,7 @@ function compareParams(repo, counterpart) {
 }
 
 // =========================================================================
-// 组装四个判据
+// 组装五个判据(J5 段账维在 Z28 加入,函数体上方)
 // =========================================================================
 
 function runAll({
@@ -964,6 +1108,7 @@ function runAll({
     J2: { items: [], defects: [], unjudged: [] },
     J3: {},
     J4: {},
+    J5: { items: [], defects: [], unjudged: [] },
     unjudgedDims: [],
   }
   if (!head) report.unjudgedDims.push('HEAD(commit 取不到)')
@@ -972,6 +1117,8 @@ function runAll({
   for (const rel of [
     ...new Set([
       ...EXITS.map((e) => e.file),
+      ...STAGE_EXITS.map((e) => e.file),
+      STAGE_FACE,
       'apps/ai-service/app/services/reranker.py',
       EVIDENCE_DOC,
     ]),
@@ -1016,6 +1163,50 @@ function runAll({
       report.J2.defects.push({ exit: spec.name, detail: sig.detail })
     if (sig.verdict === 'unjudged') report.J2.unjudged.push({ exit: spec.name, reason: sig.detail })
   }
+  const stageFace = faces.get(STAGE_FACE)
+  if (!stageFace?.ok) {
+    for (const spec of STAGE_EXITS) {
+      report.J5.unjudged.push({
+        exit: spec.name,
+        reason: `器物面取不到(${STAGE_FACE}): ${stageFace?.reason ?? '未知原因'}`,
+      })
+    }
+  } else {
+    const stageRegistry = parseStageRegistry(stageFace.text)
+    for (const spec of STAGE_EXITS) {
+      const f = faces.get(spec.file)
+      if (!f.ok) {
+        report.J5.unjudged.push({
+          exit: spec.name,
+          reason: `被审面取不到(${spec.file}): ${f.reason}`,
+        })
+        continue
+      }
+      const stageFn = extractFunctionBody(f.text, spec.fn)
+      if (!stageFn) {
+        report.J5.unjudged.push({
+          exit: spec.name,
+          reason: `函数 ${spec.fn} 在 ${spec.file}(面 ${f.face})里定位不到`,
+        })
+        continue
+      }
+      const j5 = judgeStageAccounting(stageFn.body, spec, stageRegistry, f.text)
+      report.J5.items.push({
+        exit: spec.name,
+        file: spec.file,
+        fn: spec.fn,
+        blob: f.digest.slice(0, 16),
+        ...j5,
+      })
+      if (j5.verdict === 'stage-gap') report.J5.defects.push({ exit: spec.name, detail: j5.detail })
+      if (j5.verdict === 'unjudged')
+        report.J5.unjudged.push({ exit: spec.name, reason: j5.detail })
+    }
+  }
+  if (report.J5.items.length === 0 && report.J5.unjudged.length < STAGE_EXITS.length)
+    report.unjudgedDims.push('J5 段账维(枚举到 0 枚出口判出,§0.3 不判绿)')
+  for (const u of report.J5.unjudged) report.unjudgedDims.push(`J5 ${u.exit} 未判定:${u.reason}`)
+
   if (report.J1.items.length === 0)
     report.unjudgedDims.push('J1 形态(枚举到 0 枚出口判出,§0.3 不判绿)')
   if (report.J2.items.length === 0) report.unjudgedDims.push('J2 降级信号(枚举到 0 枚出口判出)')
@@ -1115,6 +1306,7 @@ function runAll({
 function decideExit(report) {
   if (report.unjudgedDims.length > 0) return 2
   if ((report.J2?.defects?.length ?? 0) > 0) return 1
+  if ((report.J5?.defects?.length ?? 0) > 0) return 1
   if ((report.J1?.items?.length ?? 0) === 0 || (report.J2?.items?.length ?? 0) === 0) return 2
   return 0
 }
@@ -1192,6 +1384,18 @@ function render(report) {
   for (const r of report.J4.rows)
     L.push(`      ${r.dim}: 本仓=${r.repo} 对方=${r.counterpart} ⇒ ${r.verdict}(${r.note})`)
   L.push(`  - ${report.J4.summary}`)
+
+  L.push('J5 段账维(消费 stages 键 / [stage_result] 行;器物 = stage_telemetry 单源):')
+  for (const it of report.J5.items) {
+    L.push(
+      `  - ${it.exit} [tool=${it.tool}] verdict=${it.verdict} 在册段=${it.stages.length} 词表=${it.words} 体=${it.file}:${it.fn} blob=${it.blob}`,
+    )
+    L.push(`      · ${it.detail}`)
+  }
+  for (const u of report.J5.unjudged) L.push(`  - ${u.exit} verdict=unjudged 原因=${u.reason}`)
+  L.push(
+    `[J5] instrumented=${report.J5.items.filter((i) => i.verdict === 'instrumented').length} gaps=${report.J5.defects.length} unjudged=${report.J5.unjudged.length}`,
+  )
 
   if (report.unjudgedDims.length > 0)
     L.push(`unjudged=${report.unjudgedDims.length} ${report.unjudgedDims.join(' | ')}`)
@@ -1356,6 +1560,108 @@ async function selfTest({ repoRoot = ROOT, usePython = true }) {
     noFormula.hit ? `命中 ${noFormula.hit}` : 'clean',
   )
   ok('python 桥只做 import+call(桥体内无算式)', pyBridgeIsCallOnly())
+
+  // 2b. J5 段账维:成对夹具(接上单源 vs 三型缺口)+ 零抄源锁
+  const REG = {
+    ok: true,
+    tools: { demo_tool: ['alpha_leg', 'beta_leg'] },
+    words: ['ok', 'empty', 'failed', 'unjudged'],
+    event: 'stage_result',
+  }
+  const J5_CLEAN_BODY = `
+async def _tool_demo(arguments):
+    stages = StageRecorder("demo_tool")
+    stages.record("alpha_leg", "ok", count=1)
+    stages.record("beta_leg", "empty", count=0)
+    return {"tool": "demo", "stages": stages.finalize(), "ok": True}
+`
+  const J5_SPEC = {
+    name: 'demo.exit',
+    file: 'demo.py',
+    fn: '_tool_demo',
+    tool: 'demo_tool',
+    projection: /["']stages["']\s*:/,
+  }
+  ok(
+    'J5 夹具:段清单在册 + 落册 + 段段有登记点 + 出参有投影 ⇒ instrumented',
+    judgeStageAccounting(J5_CLEAN_BODY, J5_SPEC, REG, J5_CLEAN_BODY).verdict === 'instrumented',
+    judgeStageAccounting(J5_CLEAN_BODY, J5_SPEC, REG, J5_CLEAN_BODY).detail,
+  )
+  ok(
+    'J5 变异:摘掉 StageRecorder 那行必须翻 stage-gap(证明这一问有牙)',
+    judgeStageAccounting(
+      J5_CLEAN_BODY.replace('stages = StageRecorder("demo_tool")', 'stages = None'),
+      J5_SPEC,
+      REG,
+      J5_CLEAN_BODY,
+    ).verdict === 'stage-gap',
+  )
+  ok(
+    'J5 变异:在册段少一个登记点 ⇒ stage-gap 且点名该段',
+    (() => {
+      const v = judgeStageAccounting(
+        J5_CLEAN_BODY.replace('stages.record("beta_leg", "empty", count=0)', ''),
+        J5_SPEC,
+        REG,
+        J5_CLEAN_BODY,
+      )
+      return v.verdict === 'stage-gap' && /beta_leg/.test(v.detail)
+    })(),
+  )
+  ok(
+    'J5 变异:消费方自立第二份段清单 ⇒ stage-gap(§0.6)',
+    judgeStageAccounting(
+      J5_CLEAN_BODY,
+      J5_SPEC,
+      REG,
+      J5_CLEAN_BODY + '\n_TOOL_STAGES = {}\n',
+    ).verdict === 'stage-gap',
+  )
+  ok(
+    'J5 变异:出参无段投影 ⇒ stage-gap',
+    judgeStageAccounting(
+      J5_CLEAN_BODY.replace('"stages": stages.finalize(),', ''),
+      J5_SPEC,
+      REG,
+      J5_CLEAN_BODY,
+    ).verdict === 'stage-gap',
+  )
+  ok(
+    'J5 器物未登记该工具 ⇒ stage-gap(段清单无源)',
+    judgeStageAccounting(J5_CLEAN_BODY, { ...J5_SPEC, tool: 'not_registered' }, REG, J5_CLEAN_BODY)
+      .verdict === 'stage-gap',
+  )
+  ok(
+    'J5 器物面解析不出 ⇒ unjudged(不冒绿也不冒红,§0.3)',
+    judgeStageAccounting(J5_CLEAN_BODY, J5_SPEC, { ok: false, tools: {}, words: [], event: null, reason: 'x' }, J5_CLEAN_BODY)
+      .verdict === 'unjudged',
+  )
+  const regLive = parseStageRegistry(
+    readFileFace(STAGE_FACE, { repoRoot }).ok
+      ? readFileFace(STAGE_FACE, { repoRoot }).text
+      : '',
+  )
+  ok(
+    'J5 器物面现读:登记块非空且每工具都有段名',
+    regLive.ok && Object.keys(regLive.tools).length > 0,
+    JSON.stringify(regLive.tools),
+  )
+  const noStage = selfCheckNoStageLiterals(
+    [judgeStageAccounting.toString(), runAll.toString()],
+    regLive,
+  )
+  ok(
+    'J5 零抄源锁:判据函数源码不含结论行事件名与带下划线的在册段名',
+    noStage.clean,
+    noStage.hit.length > 0
+      ? `命中 ${noStage.hit.join(',')}`
+      : `已核 ${noStage.stageNamesChecked} 个在册段名`,
+  )
+  ok(
+    'J5 结论行锚点取自器物面现读(非空)',
+    typeof regLive.event === 'string' && regLive.event.length > 0,
+    regLive.event ?? '未判定',
+  )
   ok(
     '加权档不引入第二套算式(用同腿重复计入表达权重)',
     /Array\(2\)\.fill\(toItems\(fx\.legs\.text\)\)/.test(runAll.toString()) &&
@@ -1601,6 +1907,13 @@ export const __test__ = {
   splitTopLevel,
   classifyShape,
   judgeDegradeSignal,
+  STAGE_FACE,
+  STAGE_EXITS,
+  parseStageRegistry,
+  parseStageEvent,
+  parseStageVocabulary,
+  judgeStageAccounting,
+  selfCheckNoStageLiterals,
   collectionDims,
   fusionDiff,
   readRepoRrfConfig,

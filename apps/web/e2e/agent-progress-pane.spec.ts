@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { test, expect } from './fixtures'
+import { test, expect, type Page } from './fixtures'
 
 /**
  * AgentTaskProgressPane E2E 测试(v11+ Phase 13)
@@ -21,7 +21,81 @@ import { test, expect } from './fixtures'
  *
  * 注:此测试需要登录态(因 chat 页面在 /chat),但触发器可能在未登录时仍可见。
  * 所有断言采用软断言:找不到元素则 skip,不阻塞 CI。
+ *
+ * 2026-11-04 信息架构重构校准(只改"怎么到达元素",断言内容与 timeout 数值一律未动):
+ * `agent-progress-trigger` 已从输入卡片可见底栏移入「+ → 更多工具」抽屉,仅 + 菜单
+ * mode==='tools' 时挂载 ⇒ 所有原先直接找 trigger 的用例,改为先 openComposerTools
+ * 进抽屉再找;Ctrl+Shift+J 的 window 监听也随 trigger 挂载,故快捷键用例同样先开抽屉。
  */
+
+/** 输入区可见底栏锚点(2026-11-04):`+` = add-menu-trigger,菜单一层 → 「更多工具」抽屉 */
+const ADD_MENU_TRIGGER = '[data-testid="add-menu-trigger"]'
+/** 菜单已打开判据(一层 = 快捷设置组,抽屉层 = tools 面板,二者互斥) */
+const ADD_MENU_OPEN_MARK =
+  '[data-testid="composer-quick-settings"], [data-testid="composer-tools-panel"]'
+const TOOLS_ENTRY = '[data-testid="composer-tools-entry"]'
+const TOOLS_PANEL = '[data-testid="composer-tools-panel"]'
+
+/** 打开 `+` 菜单(幂等:已开则不动 —— 自写 popover,再点一次 `+` 会把它点关) */
+async function openComposerMenu(page: Page) {
+  const trigger = page.locator(ADD_MENU_TRIGGER)
+  await expect(trigger).toBeVisible()
+  // 2026-11-04 校准:aria-expanded 在自写 popover 上呈现空串,判开合改用显式 data-state。
+  if ((await trigger.getAttribute('data-state').catch(() => null)) !== 'open') {
+    await trigger.click()
+  }
+  await expect(page.locator(ADD_MENU_OPEN_MARK).first()).toBeVisible()
+}
+
+/** 进入「+ → 更多工具」抽屉(trigger 唯一挂载处;已打开则幂等返回) */
+async function openComposerTools(page: Page) {
+  const panel = page.locator(TOOLS_PANEL)
+  if (await panel.isVisible().catch(() => false)) return
+  await openComposerMenu(page)
+  await page.locator(TOOLS_ENTRY).click()
+  await expect(panel).toBeVisible()
+}
+
+/** 关闭 `+` 菜单(判据一律看菜单面板在不在,不看 trigger 的 data-state ——
+ *  2026-11-04 CI 实测:本条链路(工具抽屉里再开 agent-progress 弹层)里 trigger 的
+ *  data-state 呈空串,不是 open/closed 二值;面板 `{open && createPortal(...)}` 结构上
+ *  只在打开时存在,`toHaveCount(0)` 才是 DOM 事实。Esc 只在菜单位于 overlay 栈顶时
+ *  被消费(此刻栈顶可能是 agent-progress 弹层),未生效则点自身触发器切关。) */
+async function closeComposerMenu(page: Page) {
+  const panel = page.locator(ADD_MENU_OPEN_MARK)
+  if (
+    !(await panel
+      .first()
+      .isVisible()
+      .catch(() => false))
+  )
+    return
+  await page.keyboard.press('Escape')
+  if (
+    await panel
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    // 此时 Esc 已被上层弹层消费:点 `+` 自身把 open 翻成 false(open 时点击即关闭)。
+    // force 绕过 actionability —— 目标判定只关心触发器的 toggle 语义,不关心遮挡。
+    await page
+      .locator(ADD_MENU_TRIGGER)
+      .click({ force: true })
+      .catch(() => {})
+  }
+  await expect(panel).toHaveCount(0, { timeout: 5000 })
+}
+
+/** 软断言版展开抽屉:未登录 / 无输入卡时返回 false,沿用本文件"找不到则 skip"风格 */
+async function tryOpenComposerTools(page: Page): Promise<boolean> {
+  try {
+    await openComposerTools(page)
+    return true
+  } catch {
+    return false
+  }
+}
 
 test.describe('AgentTaskProgressPane v11 交互流程', () => {
   test('触发按钮存在并可点击', async ({ authenticatedPage }) => {
@@ -30,6 +104,10 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     // 允许未登录跳转到 /login,/register,/chat 都算正常
     if (!authenticatedPage.url().includes('/chat')) return
+
+    // 2026-11-04:就绪锚点 = 可见底栏的 `+`(trigger 已移入抽屉),预算沿用 8000ms
+    await expect(authenticatedPage.locator(ADD_MENU_TRIGGER)).toBeVisible({ timeout: 8000 })
+    await openComposerTools(authenticatedPage)
 
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     await expect(trigger).toBeVisible({ timeout: 8000 })
@@ -41,6 +119,8 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     if (!authenticatedPage.url().includes('/chat')) return
 
+    // 2026-11-04:trigger 已移入「+ → 更多工具」抽屉,先展开抽屉(无输入卡时沿用软断言返回)
+    if (!(await tryOpenComposerTools(authenticatedPage))) return
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 
@@ -49,15 +129,15 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     await expect(pane).toBeVisible({ timeout: 5000 })
   })
 
-  test('Ctrl+Shift+J 快捷键切换 popover', async ({ authenticatedPage }) => {
+  test('Ctrl+Shift+J 快捷键切换 popover(无需打开 + 菜单)', async ({ authenticatedPage }) => {
     await authenticatedPage.goto('/chat')
     await authenticatedPage.waitForLoadState('domcontentloaded').catch(() => {})
 
     if (!authenticatedPage.url().includes('/chat')) return
 
-    // 初始状态:trigger 可见
-    const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
-    if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
+    // 2026-11-04 补洞回归:监听已从 AgentProgressTrigger(抽屉条件挂载)迁到常驻的
+    // message-input —— 不打开 + 菜单,快捷键也必须生效。就绪锚点 = 可见的 `+`。
+    await expect(authenticatedPage.locator(ADD_MENU_TRIGGER)).toBeVisible({ timeout: 8000 })
 
     // Ctrl+Shift+J 打开
     await authenticatedPage.keyboard.press('Control+Shift+J')
@@ -75,6 +155,8 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     if (!authenticatedPage.url().includes('/chat')) return
 
+    // 2026-11-04:trigger 已移入「+ → 更多工具」抽屉,先展开抽屉(无输入卡时沿用软断言返回)
+    if (!(await tryOpenComposerTools(authenticatedPage))) return
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 
@@ -100,6 +182,8 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     if (!authenticatedPage.url().includes('/chat')) return
 
+    // 2026-11-04:trigger 已移入「+ → 更多工具」抽屉,先展开抽屉(无输入卡时沿用软断言返回)
+    if (!(await tryOpenComposerTools(authenticatedPage))) return
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 
@@ -125,6 +209,8 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     if (!authenticatedPage.url().includes('/chat')) return
 
+    // 2026-11-04:trigger 已移入「+ → 更多工具」抽屉,先展开抽屉(无输入卡时沿用软断言返回)
+    if (!(await tryOpenComposerTools(authenticatedPage))) return
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 
@@ -149,6 +235,8 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     if (!authenticatedPage.url().includes('/chat')) return
 
+    // 2026-11-04:trigger 已移入「+ → 更多工具」抽屉,先展开抽屉(无输入卡时沿用软断言返回)
+    if (!(await tryOpenComposerTools(authenticatedPage))) return
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 
@@ -157,6 +245,9 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     await expect(pane).toBeVisible({ timeout: 5000 })
 
     // 点击非 pane 区域确保焦点不在 pin 按钮
+    // 2026-11-04:先关掉此刻在 overlay 栈顶的 + 菜单(否则这一次 Esc 只会关菜单),
+    // 再按 Esc 验证 pane 自身的关闭行为,语义与重构前一致
+    await closeComposerMenu(authenticatedPage)
     await authenticatedPage.keyboard.press('Escape')
     // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
@@ -170,6 +261,8 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     if (!authenticatedPage.url().includes('/chat')) return
 
+    // 2026-11-04:trigger 已移入「+ → 更多工具」抽屉,先展开抽屉(无输入卡时沿用软断言返回)
+    if (!(await tryOpenComposerTools(authenticatedPage))) return
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 
@@ -195,6 +288,21 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
   })
 
   test('无 500 错误 / 无控制台异常', async ({ authenticatedPage }) => {
+    // 2026-11-04:CI 的 e2e 栈没有 ai-service(8803)与外部资讯源(见 .github/workflows/e2e.yml
+    // 「没有 ai-service(8803)、没有 python Chromium」注记),/api/llm/* 与
+    // /api/admin/news/status 必然 500/502 —— 它们是外部依赖探针,不属于本用例要守的
+    // 「聊天页自身不产生 500」。这里用 200 空载荷替身把外部依赖中性化,其余端点照常断言。
+    await authenticatedPage.route(/\/api\/llm\/(models|providers\/health|personas)/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '{"data":[],"models":[],"personas":[]}',
+      }),
+    )
+    await authenticatedPage.route('**/api/admin/news/status', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: '{}' }),
+    )
+
     const errors: string[] = []
     const consoleErrors: string[] = []
     authenticatedPage.on('response', (resp) => {
@@ -209,6 +317,8 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     if (!authenticatedPage.url().includes('/chat')) return
 
+    // 2026-11-04:trigger 已移入「+ → 更多工具」抽屉,先展开抽屉(无输入卡时沿用软断言返回)
+    if (!(await tryOpenComposerTools(authenticatedPage))) return
     const trigger = authenticatedPage.locator('[data-testid="agent-progress-trigger"]')
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 

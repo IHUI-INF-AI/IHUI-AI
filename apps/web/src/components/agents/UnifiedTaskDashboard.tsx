@@ -40,6 +40,7 @@ import { Badge, Button, Input } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { fetchApi } from '@/lib/api'
+import { listCloudRuns } from '@ihui/api-client'
 import { formatTimeOnly } from '@/lib/date-utils'
 import { Tooltip } from '@/components/feedback'
 import { useToast } from '@/hooks/use-toast'
@@ -229,7 +230,7 @@ export function UnifiedTaskDashboard() {
     queryKey: CLOUD_RUNS_KEY,
     queryFn: async (): Promise<CloudRunItem[]> => {
       try {
-        const res = await fetchApi<{ list: CloudRunItem[] }>('/api/cloud-runs?page=1&page_size=20')
+        const res = await listCloudRuns<CloudRunItem>({ page: 1, page_size: 20 })
         return res.success && res.data ? (res.data.list ?? []) : []
       } catch {
         return []

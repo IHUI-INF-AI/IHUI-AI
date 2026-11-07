@@ -92,12 +92,12 @@ export default function SelfHostPage() {
           方式一:Docker Compose 单机版(5 分钟)
         </h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             适合个人开发者、小团队、PoC 验证。一台服务器即可运行全部服务。
           </p>
 
           <h3 className="text-lg font-semibold">环境要求</h3>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li>
               <strong>CPU</strong>:2 核(推荐 4 核)
             </li>
@@ -144,7 +144,7 @@ open http://localhost:8801
 # 管理员:admin(口令由部署环境注入,首次登录后立即改密)`}
           />
 
-          <div className="rounded-lg border bg-background p-3 text-sm">
+          <div className="font-[weight:inherit] rounded-lg border bg-background p-3 text-body">
             <p className="font-semibold">服务端口</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
               <li>
@@ -173,12 +173,12 @@ open http://localhost:8801
           方式二:Kubernetes Helm Chart(高可用)
         </h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             适合企业生产环境,支持水平扩展、滚动升级、自动备份、监控告警。
           </p>
 
           <h3 className="text-lg font-semibold">集群要求</h3>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li>Kubernetes 1.28+</li>
             <li>至少 3 节点(控制面 + 2 工作节点)</li>
             <li>每节点 4 核 / 8 GB RAM</li>
@@ -264,9 +264,9 @@ kubectl get ingress -n ihui`}
           ].map(([key, required, desc], i) => (
             <div
               key={key}
-              className={`grid grid-cols-2 gap-2 rounded p-3 text-sm min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
+              className={`font-[weight:inherit] grid grid-cols-2 gap-2 rounded p-3 text-body min-[768px]:grid-cols-3 ${i % 2 === 0 ? 'bg-card' : 'bg-muted/40'}`}
             >
-              <div className="font-mono text-xs">{key}</div>
+              <div className="font-[weight:inherit] font-mono text-label">{key}</div>
               <div className="text-muted-foreground">{required}</div>
               <div className="col-span-2 text-muted-foreground min-[768px]:col-span-1">{desc}</div>
             </div>
@@ -283,7 +283,7 @@ kubectl get ingress -n ihui`}
               <BarChart3 className="mr-1.5 inline h-5 w-5" />
               监控
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>
                 内置 Prometheus metrics(<code className="rounded bg-muted px-1">/metrics</code>)
               </li>
@@ -302,7 +302,7 @@ kubectl get ingress -n ihui`}
               <Save className="mr-1.5 inline h-5 w-5" />
               备份
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>
                 PostgreSQL:<code className="rounded bg-muted px-1">pg_dump</code> 每日全量
               </li>

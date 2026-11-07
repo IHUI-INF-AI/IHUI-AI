@@ -12,7 +12,7 @@ import { describe, expect, it, beforeEach, afterEach } from 'vitest'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { todo_read, todo_write, readTodoList } from '../src/tools/todo-write.js'
+import { clearTodoFile, todo_read, todo_write, readTodoList } from '../src/tools/todo-write.js'
 import type { ToolContext } from '../src/tools/index.js'
 
 function makeCtx(tmp: string): ToolContext {
@@ -150,12 +150,22 @@ describe('todo_write 工具', () => {
     expect(saved[0]?.status).toBe('completed')
   })
 
-  it('持久化文件损坏时降级为空数组', async () => {
+  it('损坏的任务清单不会被写成只剩新的一条', async () => {
     const p = path.join(tmp, '.ihui', 'todos.json')
     fs.mkdirSync(path.dirname(p), { recursive: true })
-    fs.writeFileSync(p, '{ invalid json', 'utf-8')
-    const saved = readTodoList(ctx)
-    expect(saved).toEqual([])
+    const body = '{ invalid json'
+    fs.writeFileSync(p, body, 'utf-8')
+    expect(() => readTodoList(ctx)).toThrow(/不能把它说成没有任务 \(corrupt\)/)
+    const result = await todo_write.execute(
+      {
+        todos: [{ id: 't1', content: '新任务', status: 'pending', priority: 'high' }],
+        merge: true,
+      },
+      ctx,
+    )
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('不能把它说成没有任务')
+    expect(fs.readFileSync(p, 'utf-8')).toBe(body)
   })
 
   it('summary 字段在渲染中显示', async () => {
@@ -193,6 +203,26 @@ describe('todo_read 工具', () => {
     } catch {
       // ignore
     }
+  })
+
+  it('任务清单读不到时不说成没有任务,也不覆盖', async () => {
+    const todoPath = path.join(tmp, '.ihui', 'todos.json')
+    fs.mkdirSync(todoPath, { recursive: true })
+    const read = await todo_read.execute({}, ctx)
+    expect(read.success).toBe(false)
+    expect(read.error).toContain('不能把它说成没有任务')
+    expect(read.output).not.toContain('(无 todo)')
+    const write = await todo_write.execute(
+      { merge: true, todos: [{ id: 't1', content: 'x', status: 'pending', priority: 'low' }] },
+      ctx,
+    )
+    expect(write.success).toBe(false)
+    expect(fs.statSync(todoPath).isDirectory()).toBe(true)
+    expect(clearTodoFile(tmp)).toBe('unreadable')
+    expect(fs.statSync(todoPath).isDirectory()).toBe(true)
+    const missing = path.join(tmp, 'empty-workspace')
+    fs.mkdirSync(missing)
+    expect(clearTodoFile(missing)).toBe('absent')
   })
 
   it('空清单返回 (无 todo),不创建持久化文件', async () => {

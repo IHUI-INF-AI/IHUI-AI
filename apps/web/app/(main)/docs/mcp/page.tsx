@@ -75,14 +75,14 @@ export default function McpDocsPage() {
       <section id="what-is-mcp" className="space-y-6">
         <h2 className="text-display font-bold tracking-tight">什么是 MCP?</h2>
         <div className="rounded-lg border bg-card p-3 space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             <strong>Model Context Protocol(MCP)</strong>是 Anthropic 主导的 AI 工具连接开放标准, 让
             AI 模型能够安全地调用外部工具、读取外部数据、执行外部操作。
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             类比:USB-C 让硬件设备即插即用,MCP 让 AI 工具即插即用。
           </p>
-          <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
             <li>
               <strong>标准化</strong>:统一协议,任何 MCP Server 可接入任何 MCP Client
             </li>
@@ -108,7 +108,7 @@ export default function McpDocsPage() {
               <FolderOpen className="mr-1.5 inline h-5 w-5" />
               文件与存储
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>本地文件系统(读/写/搜索)</li>
               <li>S3 / OSS / MinIO 对象存储</li>
               <li>Google Drive / OneDrive / Dropbox</li>
@@ -120,7 +120,7 @@ export default function McpDocsPage() {
               <Monitor className="mr-1.5 inline h-5 w-5" />
               开发工具
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>GitHub(GitLab/Bitbucket)— PR/Issue/代码搜索</li>
               <li>GitLab CI / GitHub Actions</li>
               <li>Linear / Jira / Asana — 项目管理</li>
@@ -132,7 +132,7 @@ export default function McpDocsPage() {
               <MessageCircle className="mr-1.5 inline h-5 w-5" />
               通讯协作
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>Slack / Discord / Telegram</li>
               <li>飞书 / 钉钉 / 企业微信</li>
               <li>Email(IMAP/SMTP)</li>
@@ -144,7 +144,7 @@ export default function McpDocsPage() {
               <Database className="mr-1.5 inline h-5 w-5" />
               数据库
             </h3>
-            <ul className="ml-4 mt-2 list-disc space-y-1 text-sm text-muted-foreground">
+            <ul className="font-[weight:inherit] ml-4 mt-2 list-disc space-y-1 text-body text-muted-foreground">
               <li>PostgreSQL / MySQL / SQLite</li>
               <li>MongoDB / Redis / Elasticsearch</li>
               <li>ClickHouse / DuckDB(分析型)</li>
@@ -158,7 +158,7 @@ export default function McpDocsPage() {
       <section id="use-preset" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">接入预置 Server</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             在 Agent 编排页面 → 工具 → 添加 MCP Server,选择预置项,填入凭据即可。
           </p>
           <CodeBlock
@@ -187,7 +187,7 @@ Agent: [调用 GitHub MCP] 找到 23 个 bug 标签的 Issue...`}
       <section id="custom-server" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">开发自定义 MCP Server</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             企业内部系统(ERP/OA/CRM)可封装为 MCP Server,让 Agent 安全调用。
           </p>
           <CodeBlock
@@ -233,7 +233,7 @@ server.tool(
 await server.connect()`}
           />
 
-          <div className="rounded-lg border bg-background p-3 text-sm">
+          <div className="font-[weight:inherit] rounded-lg border bg-background p-3 text-body">
             <p className="font-semibold">部署方式</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
               <li>
@@ -254,7 +254,7 @@ await server.connect()`}
       <section id="security" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">安全与权限</h2>
         <div className="rounded-lg border bg-card p-3">
-          <ul className="ml-4 list-disc space-y-2 text-sm text-muted-foreground">
+          <ul className="font-[weight:inherit] ml-4 list-disc space-y-2 text-body text-muted-foreground">
             <li>
               <strong>用户显式授权</strong>:Agent 调用工具前,用户必须在 UI 点击允许(除非标记为
               trusted)

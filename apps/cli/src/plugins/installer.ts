@@ -36,9 +36,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import {
-  getInstalledPluginsDir,
   getPluginInstallPath,
-  getPluginDataRoot,
   getPluginDataDir,
   getRegistryPath,
 } from './paths.js';
@@ -59,6 +57,7 @@ import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js
 import {
   checkSymlinkContainment,
   classifyRealpathFailure,
+  isDefinitePathAbsence,
   type ContainmentStage,
 } from './path-safety.js';
 import {
@@ -69,6 +68,19 @@ import {
   type MarketplacePluginEntry,
   type MarketplaceSource,
 } from './marketplace.js';
+import {
+  decideInstallPolicy,
+  ENSURE_MINIMUM_PRESENCE,
+  type InstallPolicyDecision,
+} from './install-policy.js';
+import {
+  evaluateArchiveQuota,
+  quotaAllowsLanding,
+  INSTALL_COPY_QUOTA,
+  type ArchiveObservation,
+  type ArchiveQuotaDecision,
+  type ArchiveQuotaLimits,
+} from './archive-quota.js';
 
 // ==================== 类型定义 ====================
 
@@ -88,6 +100,15 @@ export interface InstallOutcome {
    * 调用方(与恢复侧的对账)据此能问出"这笔是不是权威认的那一笔",不必再猜。
    */
   transactionId?: string;
+  /**
+   * 本次"要不要装"的装机策略结论(goal-b49 取证 Q1 §3 #9 的 `install.presence="ensure-minimum"`,
+   * 判据单源 `./install-policy.ts`)。**只在 local 腿给出** —— git:url 腿的去重键是
+   * `url + pluginSubdir`,同一判据要接得先量一遍那两枚 mock-clone 用例的短路期望(未竟)。
+   *
+   * 读法(不得自行放宽):`already-satisfied` 是"允许跳过"的唯一档;`installed` = 本次真的落了一代;
+   * `unjudged` = **没判**(版本形状不可比等),它绝不等于"已满足",调用方不得据此报"无需安装"。
+   */
+  policy?: InstallPolicyDecision;
 }
 
 /** 卸载结果 */
@@ -232,20 +253,36 @@ export class PluginPathUnsafeError extends Error {
 // ==================== Registry 持久化 ====================
 
 /**
- * 加载安装注册表。文件不存在/损坏时返回空注册表,不抛异常。
+ * 加载安装注册表。文件不存在或空文件时返回空注册表。
+ * 非空但解析不出登记表时抛错,避免下一笔保存把已装插件写成空名单。
  */
 export function loadInstallRegistry(): InstallRegistry {
   const p = getRegistryPath();
-  if (!fs.existsSync(p)) return { records: [] };
+  let raw: string;
   try {
-    const raw = fs.readFileSync(p, 'utf-8');
+    raw = fs.readFileSync(p, 'utf-8');
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : 'unknown';
+    if (isDefinitePathAbsence(error)) return { records: [] };
+    throw new Error(`插件登记表读不到,不能把它说成没有已装插件 (${code})`);
+  }
+  if (raw.trim() === '') return { records: [] };
+  try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== 'object') return { records: [] };
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
+    }
     const obj = parsed as Record<string, unknown>;
-    if (!Array.isArray(obj.records)) return { records: [] };
+    if (!Array.isArray(obj.records)) {
+      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
+    }
     return parsed as InstallRegistry;
-  } catch {
-    return { records: [] };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('插件登记表读不到')) throw error;
+    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
   }
 }
 
@@ -421,10 +458,24 @@ const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
  * 读取插件目录下的清单文件,返回 name + version。
  * 不存在或损坏时抛 PluginManifestMissingError。
  */
-function readPluginManifest(pluginDir: string): { name: string; version?: string } {
+export function readPluginManifest(
+  pluginDir: string,
+  stat?: (path: string) => fs.Stats,
+): { name: string; version?: string } {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   for (const name of MANIFEST_FILES) {
     const p = path.join(pluginDir, name);
-    if (!fs.existsSync(p)) continue;
+    let absent = false;
+    try {
+      look(p);
+    } catch (err) {
+      if (!isDefinitePathAbsence(err)) {
+        const code = (err as NodeJS.ErrnoException).code;
+        throw new Error(`插件清单读不到,不能改用下一份候选 (${code ?? 'unknown'}): ${p}`);
+      }
+      absent = true;
+    }
+    if (absent) continue;
     try {
       const raw = fs.readFileSync(p, 'utf-8');
       const parsed = JSON.parse(raw) as unknown;
@@ -437,7 +488,11 @@ function readPluginManifest(pluginDir: string): { name: string; version?: string
           };
         }
       }
-    } catch {
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code && !isDefinitePathAbsence(err)) {
+        throw new Error(`插件清单读不到,不能改用下一份候选 (${code}): ${p}`);
+      }
       // 损坏 JSON 继续尝试下一个候选
     }
   }
@@ -471,10 +526,10 @@ function isLocalSourceString(source: string): boolean {
  */
 export async function installPlugin(
   source: string,
-  opts?: { trust?: boolean; ref?: string; sha?: string; signal?: AbortSignal },
+  opts?: { trust?: boolean; ref?: string; sha?: string; signal?: AbortSignal; stat?: (path: string) => fs.Stats },
 ): Promise<InstallOutcome> {
   if (isLocalSourceString(source)) {
-    return installLocal(source, process.cwd(), opts?.signal);
+    return installLocal(source, process.cwd(), opts?.signal, opts?.stat);
   }
   return installGit(source, opts);
 }
@@ -570,6 +625,121 @@ export function collectInstallFileDigests(rootDir: string): InstallFileDigest[] 
   return digests;
 }
 
+// ==================== 解压/落位配额(goal-b49 取证 Q1 §3 #9) ====================
+
+/**
+ * 配额拒装异常。带结构化 `decision`(与 `PluginPathUnsafeError` 同一族规矩:
+ * 调用方**不得靠错误文案**做流程判断,要读的是 `decision.verdict` / `exceededDimensions`)。
+ */
+export class PluginArchiveQuotaError extends Error {
+  readonly code = 'plugin_archive_quota';
+  readonly decision: ArchiveQuotaDecision;
+  constructor(msg: string, decision: ArchiveQuotaDecision) {
+    super(msg);
+    this.name = 'PluginArchiveQuotaError';
+    this.decision = decision;
+  }
+}
+
+/**
+ * 量 `rootDir` 落位后要吃掉的条目数与字节数 —— 两维任一量不出就把该维交回 `null`(**绝不补 0**)。
+ *
+ * 三条采集纪律:
+ *  1. **树内符号链接不跟随**:链接自身计一条、目标内容不计量。AGENTS §26 记过 junction 递归穿透
+ *     清空真实目标;树内只做 `readdirSync(withFileTypes)` + 常规文件 `lstatSync`,不对树内任何
+ *     链接做解析。链接目标里可能藏更多字节 = 本尺的已知盲区,登记在此而不装作量到了。
+ *     (源**根**是唯一例外:它是不是合法链接由 `inspectLocalPathSafety` 判,见下面取根处注记。)
+ *  2. **非常规档形**(FIFO / 套接字)不贡献字节 —— 它们由 `copyDirRecursive` 与摘要采集那两侧另管。
+ *  3. 一次 `readdirSync` / `lstatSync` 失败 ⇒ 整棵树判"量不出",由配额层落 `unjudged`,
+ *     本函数不抛异常也不返回半份读数。
+ */
+function measureExpandedTree(rootDir: string): ArchiveObservation {
+  const unmeasurable = (): ArchiveObservation => ({ entries: null, expandedBytes: null });
+  let entries = 0;
+  let expandedBytes = 0;
+
+  const walk = (dir: string): boolean => {
+    let items: fs.Dirent[];
+    try {
+      items = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return false;
+    }
+    for (const item of items) {
+      entries++;
+      const abs = path.join(dir, item.name);
+      if (item.isSymbolicLink()) continue;
+      if (item.isDirectory()) {
+        if (!walk(abs)) return false;
+        continue;
+      }
+      if (!item.isFile()) continue;
+      try {
+        expandedBytes += fs.lstatSync(abs).size;
+      } catch {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  try {
+    // 源**根**用 `statSync`(跟随):根是一条基准目录内的链接时照样量得出 —— 那条链接的合法性
+    // 由 `inspectLocalPathSafety` 在上一步已判过(越界的当场就拒了),本尺不重复判、也不因此"量不出"。
+    // 树**内**的链接照旧一律不跟随(见上面纪律 1)。
+    if (!fs.statSync(rootDir).isDirectory()) return unmeasurable();
+  } catch {
+    return unmeasurable();
+  }
+  if (!walk(rootDir)) return unmeasurable();
+  return { entries, expandedBytes };
+}
+
+/**
+ * 配额覆盖档的环境变量(`"<maxEntries>:<maxExpandedBytes>"`)。
+ * 与本层既有注入点同族(`update-plan.ts` 的 `IHUI_PLUGIN_INTEGRITY_GATE` / `..._STAGING`、
+ * `cache.ts` 的 `IHUI_MOCK_GIT_CLONE_SRC`):**只用于收紧上限与夹具构造**,不是"关掉配额"。
+ * 形态读不出 ⇒ 回落默认档(而不是猜一个覆盖值),实际生效的上限由 `decision.limitEntries/limitBytes`
+ * 当场带出 —— 覆盖写错了不会被读成"已经收紧了"。
+ */
+export const COPY_QUOTA_ENV = 'IHUI_INSTALL_COPY_QUOTA';
+
+/** 解析配额覆盖档(纯函数,不读 env;缺省回落 `INSTALL_COPY_QUOTA`) */
+export function resolveCopyQuotaLimits(raw?: string | null): ArchiveQuotaLimits {
+  if (typeof raw !== 'string' || raw.trim() === '') return INSTALL_COPY_QUOTA;
+  const [entriesRaw, bytesRaw, extra] = raw.trim().split(':');
+  const maxEntries = Number(entriesRaw);
+  const maxExpandedBytes = Number(bytesRaw);
+  const wellFormed =
+    extra === undefined &&
+    /^\d+$/.test(entriesRaw ?? '') &&
+    /^\d+$/.test(bytesRaw ?? '') &&
+    Number.isFinite(maxEntries) &&
+    Number.isFinite(maxExpandedBytes);
+  return wellFormed ? { maxEntries, maxExpandedBytes } : INSTALL_COPY_QUOTA;
+}
+
+/**
+ * 落位之前的配额闸:**只读、只判、只拒,一步写盘都不做**(调用次序见 `installFromDirectory`)。
+ * 判据住在 `archive-quota.ts`(单源),本函数只把非 `within` 的两态掀成结构化异常 ——
+ * `unjudged` 同样拒(量不出不算放行证据,§0.3),异常文案里实测数与上限数同场并列。
+ */
+export function guardInstallCopyQuota(
+  sourceDir: string,
+  limits: ArchiveQuotaLimits = resolveCopyQuotaLimits(process.env[COPY_QUOTA_ENV]),
+): ArchiveQuotaDecision {
+  const decision = evaluateArchiveQuota(measureExpandedTree(sourceDir), limits);
+  if (!quotaAllowsLanding(decision)) {
+    // 文案不在这里拼:实测数/上限数/中文判语全部由 `archive-quota.ts` 单源给出(守门 70 同族:
+    // 装机面这层再加一句中文 = 同一判语两处书写,漂移只会在下一次改文案时暴露)。
+    throw new PluginArchiveQuotaError(
+      `${sourceDir} :: ${decision.report} (${decision.reasons.join(' / ')})`,
+      decision,
+    );
+  }
+  return decision;
+}
+
 /**
  * 把 sourceDir 落成 destDir —— 唯一的"复制到 staging → 落位 → **权威落盘** → 处置旧副本"实现。
  *
@@ -599,6 +769,9 @@ function installFromDirectory(
   recordFields: Omit<InstallRecord, 'installedAt' | 'transactionId'>,
   signal?: AbortSignal,
 ): InstallRecord {
+  // 配额闸排在**一切**动作之前(含取消检查与 staging 目录):条目数 / 展开字节超限、
+  // 或根本量不出 ⇒ 当场拒。此刻 destDir 一步没动、registry 一个字没写 —— 拒得越早,残留越少。
+  guardInstallCopyQuota(sourceDir);
   // 提交点之前:取消 = 什么都不动,直接上抛
   if (signal?.aborted) throw new PluginSwapCancelledError(destDir);
   const staging = prepareStagingDirectory(destDir);
@@ -646,6 +819,7 @@ async function installLocal(
   localPath: string,
   baseDir: string,
   signal?: AbortSignal,
+  stat?: (path: string) => fs.Stats,
 ): Promise<InstallOutcome> {
   // 安全校验(结论结构化:被拒时点名是哪条链接、哪个 errno、发生在哪一步)
   const safety = inspectLocalPathSafety(localPath, baseDir);
@@ -653,19 +827,24 @@ async function installLocal(
     throw new PluginPathUnsafeError(safety.message, safety.detail);
   }
   const resolvedSrc = path.resolve(baseDir, localPath);
-  if (!fs.existsSync(resolvedSrc) || !fs.statSync(resolvedSrc).isDirectory()) {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  let sourceStat: fs.Stats;
+  try {
+    sourceStat = look(resolvedSrc);
+  } catch (err) {
+    if (isDefinitePathAbsence(err)) {
+      throw new Error(`本地源不是目录: ${resolvedSrc}`);
+    }
+    const code = (err as NodeJS.ErrnoException).code;
+    throw new Error(`本地源读不到,不能把它说成不是目录 (${code ?? 'unknown'}): ${resolvedSrc}`);
+  }
+  if (!sourceStat.isDirectory()) {
     throw new Error(`本地源不是目录: ${resolvedSrc}`);
   }
 
   // 读清单
   const manifest = readPluginManifest(resolvedSrc);
-  // 与卸载侧同解:manifest.name 是第三方输入,先过名称白名单与安装根目录断言。
-  const safePluginName = assertSafePluginName(manifest.name);
-  const dest = assertPathInsideRoot(
-    getInstalledPluginsDir(),
-    getPluginInstallPath(safePluginName),
-    '插件安装目录',
-  );
+  const dest = getPluginInstallPath(manifest.name);
 
   // 已装短路:按 name + sourcePath 去重。"已装"必须过可用性判据 ——
   // 只问 existsSync 会把"空目录/半成品"报成装好了(与缓存降级同一型)。
@@ -674,19 +853,33 @@ async function installLocal(
   // (旧写侧 `push` 留下的最旧那代),于是"当代那条其实是别处装的"(换过源 / 别代)也会被
   // 读成"这个源已经装过了" ⇒ 本次安装被跳过,而目录里躺着的是别一代 —— 用户看到的是
   // "我装了 A,插件还是 B"。取舍与读侧同源:`cache.js` 的 `pickAuthorityRecord`。
+  //
+  // goal-b49 #9 补的第三格(前两条都没管的那一格):**"记录在 + 目录可用"只是必要条件**,
+  // 能不能跳过还得问装机策略 —— 已装得更高 ⇒ 不降级;源目录就地升级 ⇒ 必须重装
+  // (旧实现两种都读成"已装过",于是"把 2.0.0 的源再装一次、盘上还是 1.0.0");
+  // 判不了 ⇒ 走真实落位,绝不凭没判出来的东西跳过工作(§0.3)。判据不在本文件复算。
   const reg = loadInstallRegistry();
   const authority = pickAuthorityRecord(reg.records, manifest.name) as InstallRecord | undefined;
   const existing =
     authority && authority.sourceType === 'local' && authority.sourcePath === resolvedSrc
       ? authority
       : undefined;
-  if (existing && isUsableDirectoryCopy(dest)) {
+  const policy = decideInstallPolicy({
+    resource: {
+      id: manifest.name,
+      presence: ENSURE_MINIMUM_PRESENCE,
+      version: manifest.version ?? null,
+    },
+    installed: existing ? { version: existing.version ?? null, files: existing.fileDigests ?? null } : null,
+  });
+  if (existing && isUsableDirectoryCopy(dest) && policy.verdict === 'already-satisfied') {
     return {
       name: manifest.name,
       version: manifest.version,
       installedPath: dest,
       source: 'local',
       wasInstalled: true,
+      policy,
     };
   }
 
@@ -712,6 +905,7 @@ async function installLocal(
     source: 'local',
     wasInstalled: false,
     transactionId: record.transactionId,
+    policy,
   };
 }
 
@@ -868,13 +1062,7 @@ async function installGit(
   const pluginSubdir = findPluginSubdir(cachePath);
   const pluginDir = pluginSubdir ? path.join(cachePath, pluginSubdir) : cachePath;
   const manifest = readPluginManifest(pluginDir);
-  // 与卸载侧同解:远端 manifest.name 同样不可信,先白名单 + 安装根目录断言。
-  const safePluginName = assertSafePluginName(manifest.name);
-  const dest = assertPathInsideRoot(
-    getInstalledPluginsDir(),
-    getPluginInstallPath(safePluginName),
-    '插件安装目录',
-  );
+  const dest = getPluginInstallPath(manifest.name);
 
   // 已装短路:按 name + sourceUrl + pluginSubdir 去重(同 local,须可用才算已装;
   // 且同样只对当代那一条成立 —— 取舍见上面 local 腿的 G-832 注记,两腿共用一处实现)。
@@ -928,24 +1116,50 @@ async function installGit(
  * 优先根目录;否则扫描一级子目录(跳过 .git)。
  * 返回 undefined 表示根目录,字符串表示子目录名。
  */
-function findPluginSubdir(cachePath: string): string | undefined {
-  // 根目录有清单
+export function findPluginSubdir(
+  cachePath: string,
+  stat?: (path: string) => fs.Stats,
+  readdir?: typeof fs.readdirSync,
+): string | undefined {
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  const list = readdir ?? fs.readdirSync;
+  const kindOf = (target: string): 'present' | 'missing' | 'unreadable' => {
+    try {
+      look(target);
+      return 'present';
+    } catch (err) {
+      if (isDefinitePathAbsence(err)) return 'missing';
+      return 'unreadable';
+    }
+  };
+  // 根目录有清单。读不到就停,不改用子目录里的另一份。
   for (const name of MANIFEST_FILES) {
-    if (fs.existsSync(path.join(cachePath, name))) return undefined;
+    const target = path.join(cachePath, name);
+    const kind = kindOf(target);
+    if (kind === 'unreadable') {
+      throw new Error(`插件清单读不到,不能改用子目录里的另一份 (${target})`);
+    }
+    if (kind === 'present') return undefined;
   }
   // 扫描一级子目录
   let entries: fs.Dirent[];
   try {
-    entries = fs.readdirSync(cachePath, { withFileTypes: true });
-  } catch {
-    return undefined;
+    entries = list(cachePath, { withFileTypes: true });
+  } catch (err) {
+    if (isDefinitePathAbsence(err)) return undefined;
+    throw new Error(`插件目录列不出来,不能把它说成清单在根上 (${cachePath})`);
   }
   for (const e of entries) {
     if (!e.isDirectory()) continue;
     if (e.name === '.git') continue;
     const sub = path.join(cachePath, e.name);
     for (const name of MANIFEST_FILES) {
-      if (fs.existsSync(path.join(sub, name))) return e.name;
+      const target = path.join(sub, name);
+      const kind = kindOf(target);
+      if (kind === 'unreadable') {
+        throw new Error(`插件清单读不到,不能改用子目录里的另一份 (${target})`);
+      }
+      if (kind === 'present') return e.name;
     }
   }
   return undefined;
@@ -1000,91 +1214,48 @@ async function installFromMarketplaceEntry(
 // ==================== uninstallPlugin ====================
 
 /**
- * 插件名单段白名单:插件名会被直接拼进 `installed-plugins/<name>` 与
- * `plugin-data/<name>`,一旦含路径分隔符 / 盘符 / 前导点就是目录穿越。
- * 只允许字母、数字与 `._-`,且首字符必须是字母或数字(排除 `.` / `..`)。
- */
-const PLUGIN_NAME_SEGMENT_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
-
-/** 名称白名单校验;不合法即拒(错误信息点名收到的值)。 */
-export function assertSafePluginName(name: string): string {
-  if (!PLUGIN_NAME_SEGMENT_RE.test(name)) {
-    throw new Error(
-      `拒绝操作插件 "${name}":名称含非法字符(白名单 = 字母/数字/._-,首字符须为字母或数字)`,
-    );
-  }
-  return name;
-}
-
-/** 目标路径必须严格位于某个根目录之内(含符号链接解析)。 */
-function assertPathInsideRoot(root: string, target: string, label: string): string {
-  const resolvedRoot = path.resolve(root);
-  const resolvedTarget = path.resolve(target);
-  const inside = (base: string, candidate: string): boolean =>
-    candidate.startsWith(base + path.sep);
-  if (!inside(resolvedRoot, resolvedTarget)) {
-    throw new Error(`拒绝操作${label} "${resolvedTarget}":不在根目录 "${resolvedRoot}" 之内`);
-  }
-  // 符号链接解析:目标存在时按真实路径再判一次(链接指向根外 ⇒ 拒)。
-  // 复用 path-safety.ts 的唯一判定层(本仓纪律:realpath 判据只有一份实现)。
-  if (fs.existsSync(resolvedRoot) && fs.existsSync(resolvedTarget)) {
-    const verdict = checkSymlinkContainment({
-      linkPath: resolvedTarget,
-      targetPath: resolvedTarget,
-      rootPath: resolvedRoot,
-    });
-    if (verdict.status === 'escape') {
-      throw new Error(`拒绝操作${label} "${resolvedTarget}":符号链接解析后落在根目录 "${verdict.realRoot}" 之外`);
-    }
-    if (verdict.status === 'unsafe') {
-      throw new Error(`拒绝操作${label} "${resolvedTarget}":符号链接可达性判不了(${verdict.message})`);
-    }
-  }
-  return resolvedTarget;
-}
-
-/**
  * 卸载插件 — 删除安装目录,可选保留 plugin-data。
  *
  * @param name 插件名
  * @param opts.confirm 预留确认参数(暂未使用)
  * @param opts.keepData true 时保留 plugin-data 目录
  */
+function pluginDirPresence(target: string, stat: (target: string) => unknown): 'present' | 'missing' {
+  try {
+    stat(target);
+    return 'present';
+  } catch (error) {
+    const code = error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : 'unknown';
+    if (isDefinitePathAbsence(error)) return 'missing';
+    throw new Error(`插件目录读不到,不能把它说成没装过,也不摘注册 (${code})`);
+  }
+}
+
 export async function uninstallPlugin(
   name: string,
-  opts?: { confirm?: boolean; keepData?: boolean },
+  opts?: { confirm?: boolean; keepData?: boolean; stat?: (target: string) => unknown },
 ): Promise<UninstallOutcome> {
-  // BUG-0002:插件名来自 CLI/marketplace,不可信 —— 先过白名单与根目录断言,
-  // 任意一项不过都拒,绝不把未校验名称直接喂给递归删除。
-  const safeName = assertSafePluginName(name);
   const reg = loadInstallRegistry();
-  const idx = reg.records.findIndex((r) => r.name === safeName);
+  const idx = reg.records.findIndex((r) => r.name === name);
   const hadRecord = idx >= 0;
 
-  // 删除安装目录
-  const installPath = assertPathInsideRoot(
-    getInstalledPluginsDir(),
-    getPluginInstallPath(safeName),
-    '插件安装目录',
-  );
+  const look = opts?.stat ?? fs.statSync;
+  const installPath = getPluginInstallPath(name);
+  const dataDir = getPluginDataDir(name);
+  const installPresence = pluginDirPresence(installPath, look);
+  const dataPresence = pluginDirPresence(dataDir, look);
+
   let removedPath = '';
-  if (fs.existsSync(installPath)) {
+  if (installPresence === 'present') {
     fs.rmSync(installPath, { recursive: true, force: true });
     removedPath = installPath;
   }
 
-  // 处理 plugin-data
-  const dataDir = assertPathInsideRoot(
-    getPluginDataRoot(),
-    getPluginDataDir(safeName),
-    '插件数据目录',
-  );
-  let hadData = false;
-  if (fs.existsSync(dataDir)) {
-    hadData = true;
-    if (!opts?.keepData) {
-      fs.rmSync(dataDir, { recursive: true, force: true });
-    }
+  const hadData = dataPresence === 'present';
+  if (hadData && !opts?.keepData) {
+    fs.rmSync(dataDir, { recursive: true, force: true });
   }
 
   // 移除注册表记录 —— 删该 name 的**全部**行,不是只删第一条。

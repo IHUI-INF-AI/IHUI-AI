@@ -27,8 +27,15 @@
  *       ② **行级(`splitStagedRatchet`,staged 档专用)**:活性区的旧账同样按"本轮动过哪几行"
  *          收窄 —— 2026-10-31 现读 README.md 活性声明只有 **37 处**、README.en.md **1 处**,
  *          但改 README 的那枚此前要把这 38 处存量连同全仓六万条一起背走 ⇒ **README 实际不可改**
- *          (逼人 `--no-verify`,§12e 恒红门同型)。现在:**基线 = 该文档 HEAD 面自身**
- *          (基线正文 + 基线命中集合),只判本轮新增/改写出来的声明行,HEAD 存量只报数不判红。
+ *          (逼人 `--no-verify`,§12e 恒红门同型)。现在:**基线 = 本地 remote-tracking ref
+ *          `origin/main` 快照 ∪ 该文档 HEAD 面自身**(基线正文 + 基线命中集合),
+ *          只判本轮新增/改写出来的声明行,存量只报数不判红。
+ *          为什么快照面要含 `origin/main`(2026-11-05):此前面只有 HEAD 一个本地面,而"存量"
+ *          的判定口径是"这行在**外部已有状态**里红过"。本地 HEAD 之外的已推送面就是 `origin/main`
+ *          (仓库里一直存在,不依赖分支 upstream,也不需要联网)。只认 HEAD ⇒ 分支无 upstream 时
+ *          每枚提交都被归属层判 `undetermined-red`,只能人工授权跳钩。
+ *          快照取不到(`origin/main` 这个 ref 真的不存在 ⇒ 仓库没有 origin)⇒ 退回今日口径:
+ *          基线面取不到 ⇒ **全判并点名**(失效方向恒为"多要一次定向说明",绝不静默放宽)。
  *          两条判据联立(任一成立即判红):① 命中落在本轮新增/改写的行上(diff 的 `+` 行);
  *          ② 命中的存量指纹(键+数值+行全文)在基线命中集合里找不到 ⇒ 本轮新造的说法。
  *          取不到基线面或改动行清单 ⇒ **全判并点名**(失效方向恒为"多要一次定向说明")。
@@ -37,11 +44,21 @@
  *       没给输入 ⇒ 计「未判定」并点名(默认不影响退出码,`--strict` 下影响)。
  *       为什么刻意不做成默认必判:提交链里调 `gh api` = 每台每次联网,离线即恒红 ⇒ 逼人
  *       `--no-verify` 连带废掉全部守门(AGENTS §12e 同型)。
+ *   GATE_ID: TBD-readme-numbers-sync(拟挂既有 doc-numbers 门,暂不占号,待编号表分配)。
+ *   DN5 清单不变式(2026-11-05)—— 本轮引入 A/D/R/C(新增/删除/改名/复制)⇒ README.md 生成块的
+ *       `trackedFiles` 必须等于现算值,否则红并点名重跑命令。**独立于"是否触及 README"**:
+ *       旧机制只在"本轮碰了生成块"时整块重算,于是"改文件清单但不碰 README"的提交
+ *       (279875ba85 定格 / 224b4b020f −2)全绿。清单未变的轮次只报数(防恒红,§12e)。
+ *
+ * pre-push 档(`--push`,2026-11-05,判责时机补位):DN2 **全量(head 面)**判据挂到推送 —— 提交频次高、
+ *   推送频次低 ⇒ 不恒红;语义 = 不许把带过期正文的树推上去。本档 ≡ `--strict` + 简介面(DN3)
+ *   不记未判定(推送腿不联网);`planAccountability` 一行未改(只传 strict=true)。射程外:只判本地 HEAD。
  *
  * 判责时机(DN4,本门的防恒红设计):块里多数数字(`trackedFiles`/`apiRoutes`/`testFiles`…)随
  *   **每一次**普通提交漂移,若任何提交都必须同步重算块,本门就在与提交内容无关处恒红 —— 唯一
  *   结局是各会话合法 `--no-verify`,连带废掉全部守门(§12e)。所以注册条目带
- *   `stagedTriggers: ['README.md', 'README.en.md']`,而门体自身再收一道(纵深防御,防手工直跑):
+ *   `stagedTriggers` = 全路径通配(2026-11-05 由 README 两篇放宽,为 DN5 的射程),
+ *   而门体自身再收一道(纵深防御,防手工直跑):
  *   `--staged`/全量档先问"被审文档本轮是否被改动"(`touchedAuditedDocs`),未改动 ⇒ 漂移只报数
  *   exit 0;改动了 ⇒ `--staged` 档走**行级差值棘轮**(只判本轮新增/改写的声明行,HEAD 面存量
  *   只报数),全量档(HEAD 面)与 `--strict`(问责档,`pnpm check:doc-numbers` 走这档)、
@@ -66,8 +83,8 @@ import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
-import { BLOCK_BEGIN, BLOCK_END, ORDER, collectNumbers, specOf } from './gen-doc-numbers.mjs'
+import { Undetermined, assertRepoRoot, catBatch, gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
+import { BLOCK_BEGIN, BLOCK_END, ORDER, collectNumbers, parseFaceArg, specOf } from './gen-doc-numbers.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 /** ROOT 由脚本自身位置推导(§15,不得写死盘符) */
@@ -84,6 +101,11 @@ export const UPDATES_END = '<!-- END RECENT UPDATES -->'
 export const SELF_SKIP = 'HUSKY_SKIP_DOC_NUMBERS'
 /** 带对外数字、必须被审的文档(新增一份就加一行,别在别处再抄清单) */
 export const AUDITED_DOCS = ['README.md', 'README.en.md']
+/**
+ * staged 档的基准快照 ref(2026-11-05):本地 remote-tracking ref,不依赖分支 upstream、不联网。
+ * 取不到它(= 仓库没有 origin)⇒ `pickStagedBaselineRef` 落 undetermined,退回今日全判口径。
+ */
+export const STAGED_BASELINE_REF = 'origin/main'
 
 /**
  * DN2 的措辞表:**封闭集**,每条都带 `pick` 从捕获组里挑那个数字。
@@ -252,6 +274,39 @@ export function toInt(text) {
 }
 
 /**
+ * 行内标签白名单(DN2 盲区修,2026-11-06):**封闭集**,只认这几个行内标签。
+ * 不许通配任意标签 —— `<a>`/`<div>` 之类会改变语义结构,不在本判据的归一范围内。
+ */
+const INLINE_TAGS = ['code', 'strong', 'span', 'sub', 'sup', 'b', 'i', 'em', 'small', 'mark', 'kbd', 'u', 'br']
+/** `<br>` 没有闭合配对,本身就是一个换行位 ⇒ 同样换成一个空格。 */
+const INLINE_VOID_TAG = /<br(?:\s[^<>]*)?\s*\/?>/gi
+/** 其余白名单标签按"成对"处理:开/闭标签各自换空格,缺闭合的原样留着(不猜)。 */
+const INLINE_PAIRS = INLINE_TAGS.filter((t) => t !== 'br').map((tag) => ({
+  open: new RegExp(`<${tag}(?:\\s[^<>]*)?>`, 'gi'),
+  close: new RegExp(`</${tag}\\s*>`, 'gi'),
+}))
+
+/**
+ * 行内标签归一:把**成对**行内标签的起止标签各自换成一个空格,供 DN2 措辞正则读数字。
+ *
+ * 盲区实证:`<code>4393</code> API 路由` / `<code>542</code> 张表` 这类写法,数字被标签
+ * 包住 ⇒ 措辞正则整型看不见(命中 0 条);同文去掉标签后立刻判红。归一只换"判据吃进的
+ * 文本",**行号与 excerpt 仍用原始行**,证据可指回原文。
+ *
+ * 换**空格**不是空串:空串会把两段文本粘成一段(`<code>5</code><code>4393</code>` 被读成
+ * `54393`),归一瞬间自己造出新数字 = 假阳,比漏报贵。
+ */
+export function normalizeInlineTags(line) {
+  let out = String(line)
+  out = out.replace(INLINE_VOID_TAG, ' ')
+  for (const { open, close } of INLINE_PAIRS) {
+    if (out.search(close) < 0) continue
+    out = out.replace(open, ' ').replace(close, ' ')
+  }
+  return out
+}
+
+/**
  * DN2:找出块外所有命中措辞的数字并判等。纯函数 ⇒ 构造面可证,不依赖仓库瞬时状态。
  * @returns {{violations:{key:string,found:number,want:number,line:number,excerpt:string}[],checked:number,unmappable:{line:number,excerpt:string}[]}}
  */
@@ -290,10 +345,14 @@ export function findStaleClaims(text, numbers, { blockBegin = BLOCK_BEGIN, block
     // 与守门 102/108 同一条锁)。用在"这个数字是叙述性引用、不是当前总量声明"的场合,
     // 例如记录历史事故的"当年约 110 道守门对全队同时失效"—— 它讲的是过去某个时点的量。
     if (/doc-num-exempt:\s*\S/.test(line)) continue
+    // 行内标签归一(2026-11-06 DN2 盲区):数字被 `<code>`/`<strong>` 之类包住时措辞正则
+    // 整型看不见(实测 0 命中)。归一只换判据吃进的文本;豁免判定在上一步已用**原始行**做完,
+    // 行号与 excerpt 也仍取原始行,证据可指回原文。块内行在上面的 masked 里已置空,不参与归一。
+    const normalized = normalizeInlineTags(line)
     for (const claim of CLAIMS) {
       claim.re.lastIndex = 0
       let m
-      while ((m = claim.re.exec(line))) {
+      while ((m = claim.re.exec(normalized))) {
         const digits = claim.pick(m)
         if (digits === undefined) continue // 该措辞这一支不带数 ⇒ 只当触发器不计数
         const found = toInt(digits)
@@ -332,19 +391,23 @@ export function findStaleClaims(text, numbers, { blockBegin = BLOCK_BEGIN, block
  *
  * @param {{line:number,key:string,found:number,want:number}[]} violations 门按行报的点(行号 1-based)
  * @param {string} text 被审面正文
- * @param {string|null} baselineText 基线面正文(HEAD 面档取 HEAD^,提交链/工作树档取 HEAD;取不到传 null)
+ * @param {string|null} baselineText 基线面正文(HEAD 面档取 HEAD^,提交链/工作树档取 HEAD^/HEAD;取不到传 null)
+ * @param {string[]|null} baselineTexts 多快照正文(2026-11-05:staged 档 = origin/main ∪ HEAD);
+ *   给了它就以它为准(并集),否则退回单面 `baselineText`(旧调用/自检口径不变)
  */
-export function splitArchiveStock(violations, text, baselineText, { archiveMarker = UPDATES_END } = {}) {
+export function splitArchiveStock(violations, text, baselineText, { archiveMarker = UPDATES_END, baselineTexts = null } = {}) {
   const lines = text.split(/\r?\n/)
   let archiveStart = -1
   for (let i = 0; i < lines.length; i += 1) if (lines[i].includes(archiveMarker)) archiveStart = i
   if (archiveStart < 0) {
     return { actionable: violations, stock: [], archiveStart, why: '缺 END RECENT UPDATES 标记 ⇒ 分不出历史区,全判' }
   }
-  if (baselineText === null || baselineText === undefined) {
+  const texts = Array.isArray(baselineTexts) && baselineTexts.length ? baselineTexts : baselineText === null || baselineText === undefined ? null : [baselineText]
+  if (texts === null) {
     return { actionable: violations, stock: [], archiveStart, why: '基线面取不到 ⇒ 全判(不静默放宽)' }
   }
-  const baseline = new Set(baselineText.split(/\r?\n/))
+  const baseline = new Set()
+  for (const t of texts) for (const l of String(t).split(/\r?\n/)) baseline.add(l)
   const actionable = []
   const stock = []
   for (const v of violations) {
@@ -442,29 +505,39 @@ export function blockTouchedByRound(text, changedLines, { blockBegin = BLOCK_BEG
  * 历史快照区)。于是任何一次改 README 的提交,都得先把 HEAD 面自己的旧账一起还清 ——
  * 改不动文档(README 实际不可改),逼人 `--no-verify`(§12e 恒红门同型)。
  *
- * 正解(本函数):**基线 = 该文档 HEAD 面自身**,只判本轮新增/改写出来的声明行,
- * HEAD 已有的存量漂移只报数、不判红。两条判据联立(任一成立即判红):
+ * 正解(本函数):**基线 = 本地 remote-tracking ref `origin/main` 快照 ∪ 该文档 HEAD 面自身**
+ * (2026-11-05 起;此前只有 HEAD 单快照),只判本轮新增/改写出来的声明行,存量漂移只报数、不判红。
+ * 为什么要 origin/main:存量 = "在外部已有状态里红过"。分支没有 upstream 时,归属层拿不到
+ * 外部快照 ⇒ 把每一枚红都判 `undetermined-red` 逼人跳钩;而 `origin/main` 这个 ref 在仓库里
+ * 一直存在(不依赖分支 upstream、不联网),门此前没用它。取不到该 ref(仓库没有 origin)⇒
+ * 退回今日口径(基线面取不到 ⇒ 全判)。
+ * 两条判据联立(任一成立即判红):
  *   ① 该命中落在**本轮新增/改写的行**上(diff 的 `+` 行)⇒ 本轮带进来的;
- *   ② 该命中的「存量指纹」= 键 + 数值 + 所在行全文,在**基线命中集合**里找不到
- *      ⇒ 本轮新造的说法(即便那一行没进 diff,基线面也没有这句话)。
- * 两条都不成立 ⇒ HEAD 存量漂移 ⇒ 只报数。
+ *   ② 该命中的「存量指纹」= 键 + 数值 + 所在行全文,在**基线命中集合(并集)**里找不到
+ *      ⇒ 本轮新造的说法(即便那一行没进 diff,任一基线面也没有这句话)。
+ * 两条都不成立 ⇒ 存量漂移 ⇒ 只报数。
  *
  * 失效方向恒为「多要一次定向说明」,**绝不**是"多放一次跳门":
- *   · 基线面(HEAD)取不到 ⇒ 全判并点名;
+ *   · 基线面(origin/main ∪ HEAD)取不到 ⇒ 全判并点名;
  *   · 本轮改动行清单取不到 ⇒ 全判并点名;
  *   · 两者都取到但指纹算不出 ⇒ 落到 ② ⇒ 判红(多问一句,不是放过)。
  */
-export function splitStagedRatchet(violations, { text, baselineText, numbers, changedLines = null } = {}) {
+export function splitStagedRatchet(violations, { text, baselineText, baselineTexts = null, numbers, changedLines = null } = {}) {
   if (changedLines === null || changedLines === undefined)
     return { actionable: violations, stock: [], why: '本轮改动行清单取不到 ⇒ 全判(不静默放宽)' }
-  if (baselineText === null || baselineText === undefined)
-    return { actionable: violations, stock: [], why: '基线面(HEAD)取不到 ⇒ 全判(不静默放宽)' }
+  // 2026-11-05:staged 档的基准快照 = 本地 remote-tracking ref `origin/main` ∪ HEAD 面自身。
+  // 只给 `baselineText` 的旧调用(HEAD 面档 / 自检)口径不变。
+  const texts = Array.isArray(baselineTexts) && baselineTexts.length ? baselineTexts : baselineText === null || baselineText === undefined ? null : [baselineText]
+  if (texts === null)
+    return { actionable: violations, stock: [], why: '基线面(origin/main ∪ HEAD)取不到 ⇒ 全判(不静默放宽)' }
   const curLines = String(text ?? '').split(/\r?\n/)
-  const baseLines = String(baselineText).split(/\r?\n/)
-  // 基线命中集合 = 该文档 HEAD 面自身的存量(同一把 CLAIMS、同一轮现算值 ⇒ 口径同源,零复算)
+  // 基线命中集合 = 各快照面自己的存量(同一把 CLAIMS、同一轮现算值 ⇒ 口径同源,零复算)
   const baseFingerprints = new Set()
-  for (const bv of findStaleClaims(baselineText, numbers).violations) {
-    baseFingerprints.add(`${bv.key}|${bv.found}|${baseLines[bv.line - 1] ?? ''}`)
+  for (const snapshot of texts) {
+    const baseLines = String(snapshot).split(/\r?\n/)
+    for (const bv of findStaleClaims(snapshot, numbers).violations) {
+      baseFingerprints.add(`${bv.key}|${bv.found}|${baseLines[bv.line - 1] ?? ''}`)
+    }
   }
   const actionable = []
   const stock = []
@@ -475,6 +548,26 @@ export function splitStagedRatchet(violations, { text, baselineText, numbers, ch
     else stock.push(v)
   }
   return { actionable, stock, why: null }
+}
+
+/**
+ * staged 档的基准快照 ref(2026-11-05)。纯函数,IO 在 `resolveStagedBaselineRef`。
+ *
+ * 取本地 remote-tracking ref `origin/main` 当基准快照 —— 它不依赖当前分支有没有 upstream,
+ * 也不需要联网(旧口径要求 `@{u}` 存在,分支无 upstream 时归属层只能判 `undetermined-red`)。
+ * 只有该 ref 真的不存在(仓库没有 origin)时才落 `undetermined`:退回今日"基线面取不到 ⇒ 全判"
+ * 的行为,绝不改判据语义、绝不把真红折成绿。
+ * @param {{ tip?: string|null }} opts tip = `git rev-parse --verify origin/main^{commit}` 的读数
+ * @returns {{ ref: string|null, mode: 'remote-tracking'|'undetermined', why: string|null }}
+ */
+export function pickStagedBaselineRef({ tip = null } = {}) {
+  if (typeof tip === 'string' && tip.trim())
+    return { ref: STAGED_BASELINE_REF, mode: 'remote-tracking', why: null }
+  return {
+    ref: null,
+    mode: 'undetermined',
+    why: `本地没有 ${STAGED_BASELINE_REF} 这个 remote-tracking ref(仓库没有 origin)⇒ 基线快照取不到:全判(今日未判定口径)`,
+  }
 }
 
 /**
@@ -525,6 +618,79 @@ export function checkDescription(text, numbers) {
     }
   }
   return { problems, checked }
+}
+
+/**
+ * DN5 清单不变式(2026-11-05,补机制欠账)。
+ *
+ * 现场(可复现):`279875ba85` 把 trackedFiles 定格、`224b4b020f` 删了 2 个跟踪文件,两次都没重跑
+ * 生成器,门却全绿。根因不是"门读的源与生成器不一致"(两侧都走 `face.list('')` = git 清单,
+ * 同源),而是**判责时机**:DN1 的块级棘轮只在"本轮碰过生成块"时整块重算;注册条目的
+ * `stagedTriggers` 又只盯 README 两篇 —— 于是"只改文件清单、不碰 README"的提交既不触发行,
+ * 块内 trackedFiles 过期也只落进"存量只报数"。
+ *
+ * 补法(取"清单变化轮次必红",不取"每次提交都重算块"):
+ *   本轮引入 A/D/R/C(新增/删除/改名/复制)⇒ README.md 生成块的 `trackedFiles` 必须等于现算值;
+ *   否则点名并给出重跑命令。本轮清单未变 ⇒ 只报数(否则每次普通提交都在与内容无关处恒红,§12e)。
+ *   配套把注册条目的 `stagedTriggers` 放宽到全路径通配,让门在**任何**提交上都有机会看见清单变化。
+ */
+export function inventoryChanged(root, face) {
+  if (face === 'worktree') return null
+  const args =
+    face === 'staged'
+      ? ['diff', '--cached', '--name-status', 'HEAD']
+      : ['diff', '--name-status', 'HEAD^', 'HEAD']
+  let out
+  try {
+    out = gitRaw(args, root, { timeout: 120000 })
+  } catch (e) {
+    // 根提交(无 HEAD^):全部路径都是本轮引入 ⇒ 按"清单变化"处理,而不是判未判定
+    if (e instanceof Undetermined && e.status === 1) return { total: 0, changed: ['<root-commit>'], rootCommit: true }
+    throw e
+  }
+  const rows = out
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const changed = rows.filter((r) => /^[ADRC]\t/.test(r) || /^[ADRC]\s/.test(r))
+  return { total: rows.length, changed, rootCommit: false }
+}
+
+/** 从 README 生成块里取 `trackedFiles` 的登记值;块缺失/该行缺失 ⇒ null(不猜)。 */
+export function readBlockTrackedFiles(text) {
+  if (typeof text !== 'string') return null
+  const b = text.indexOf(BLOCK_BEGIN)
+  const e = text.indexOf(BLOCK_END)
+  if (b < 0 || e < b) return null
+  const row = new RegExp(`\\|\\s*[^|]*\\|\\s*([\\d,]+)\\s*\\|\\s*\`trackedFiles\`\\s*\\|`).exec(text.slice(b, e))
+  return row ? toInt(row[1]) : null
+}
+
+/**
+ * 纯函数:清单变化轮次的 trackedFiles 对账。applicable=false ⇒ 本轮不涉清单,只报数。
+ * 无 README 块或块里没有该行 ⇒ 红(清单变了却无对账对象,不能当"一致")。
+ */
+export function judgeTrackedInventory({ docText, numbers, inventory }) {
+  if (!inventory) return { applicable: false, ok: true, problems: [], note: 'worktree 面不判清单不变式(人工面全判已含 DN1)' }
+  if (inventory.changed.length === 0)
+    return { applicable: false, ok: true, problems: [], note: '本轮文件清单未变化(A/D/R/C=0)⇒ trackedFiles 不单独判' }
+  const got = readBlockTrackedFiles(docText)
+  if (got === null)
+    return {
+      applicable: true,
+      ok: false,
+      problems: ['README.md 生成块里取不到 `trackedFiles` 行 ⇒ 本轮改了文件清单却无对账对象(跑 node scripts/gen-doc-numbers.mjs --markdown)'],
+    }
+  const want = numbers.trackedFiles
+  if (got !== want)
+    return {
+      applicable: true,
+      ok: false,
+      problems: [
+        `生成块 \`trackedFiles\` = ${got},现算 ${want}(本轮新增/删除/改名/复制 ${inventory.changed.length} 个路径)⇒ 跑 node scripts/gen-doc-numbers.mjs --markdown 刷新块`,
+      ],
+    }
+  return { applicable: true, ok: true, problems: [], note: `清单变化 ${inventory.changed.length} 个路径,trackedFiles 已同步(${want})` }
 }
 
 /**
@@ -592,6 +758,11 @@ function readArg(argv, name) {
   const i = argv.findIndex((a) => a === name || a.startsWith(`${name}=`))
   if (i < 0) return null
   return argv[i].includes('=') ? argv[i].slice(i === -1 ? 0 : argv[i].indexOf('=') + 1) : argv[i + 1] ?? null
+}
+
+/** push 档不联网取简介 ⇒ 未给 --description 时不记"简介未判定"(否则内容全对的推送也 exit 2)。 */
+export function shouldRecordDescUndetermined(argv) {
+  return !argv.includes('--push') && readArg(argv, '--description') === null
 }
 
 /** 自检:构造面(不依赖真仓),正反成对。 */
@@ -848,22 +1019,147 @@ export function selfTest() {
       blockTouchedByRound(s26doc, new Set([3])) === true &&
       blockTouchedByRound(s26doc, null) === true,
   )
+  // S27 DN5 清单不变式(2026-11-05):清单变化轮次必判 trackedFiles;未变只报数(防恒红)。
+  const s27doc = (v) => `x\n${BLOCK_BEGIN}\n| 跟踪文件 | ${v} | \`trackedFiles\` |\n${BLOCK_END}\ny\n`
+  const s27nums = { ...numbers, trackedFiles: 19095 }
+  ok(
+    'S27a 清单变化 + 块里旧值 ⇒ 红并点名重跑命令',
+    judgeTrackedInventory({ docText: s27doc(19099), numbers: s27nums, inventory: { changed: ['A a.ts', 'D b.ts'] } }).ok === false,
+  )
+  ok(
+    'S27b 清单变化 + 块里现算值 ⇒ 绿',
+    judgeTrackedInventory({ docText: s27doc(19095), numbers: s27nums, inventory: { changed: ['A a.ts'] } }).ok === true,
+  )
+  ok(
+    'S27c 清单未变(只改文件内容)⇒ 不判(只报数),块过期也不红',
+    judgeTrackedInventory({ docText: s27doc(19099), numbers: s27nums, inventory: { changed: [] } }).applicable === false,
+  )
+  ok(
+    'S27d 清单变了但块里没有该行 ⇒ 红(无对账对象不等于一致)',
+    judgeTrackedInventory({ docText: 'x', numbers: s27nums, inventory: { changed: ['A a.ts'] } }).ok === false,
+  )
+  ok(
+    'S27e worktree 面不判清单不变式(人工面全判已含 DN1)',
+    judgeTrackedInventory({ docText: s27doc(19099), numbers: s27nums, inventory: null }).applicable === false,
+  )
+  ok(
+    'S27f readBlockTrackedFiles 只认生成块内的行,块外同形文本不冒充',
+    readBlockTrackedFiles(`${s27doc(19095)}| 跟踪文件 | 1 | \`trackedFiles\` |\n`) === 19095,
+  )
+  // S28 pre-push 档(2026-11-05):判责时机挪到推送,判据一字不改。
+  ok('S28a push 档未给简介 ⇒ 不记未判定(否则全对的推送也 exit 2)', shouldRecordDescUndetermined(['--strict', '--push']) === false)
+  ok('S28b 非 push 档未给简介 ⇒ 仍记未判定(提交链/总览档口径不变)', shouldRecordDescUndetermined(['--strict']) === true)
+  const s28n = { dbTables: numbers.dbTables, testFiles: numbers.testFiles }
+  const s28doc = `正文 ${numbers.testFiles - 3} 个测试文件;另有 ${numbers.dbTables} 张表\n${BLOCK_BEGIN}\n| 数据库表 | ${numbers.dbTables} | \`dbTables\` |\n| 测试文件 | ${numbers.testFiles} | \`testFiles\` |\n${BLOCK_END}\n`
+  const s28r = findStaleClaims(s28doc, s28n)
+  ok(
+    'S28c 生成块正确、正文抄旧数 ⇒ 红并点名第 1 行(DN2;DN5 不适用 ⇒ 非重复)',
+    checkGeneratedBlock(s28doc, s28n).ok &&
+      s28r.violations.length === 1 && s28r.violations[0].line === 1 && s28r.violations[0].key === 'testFiles' &&
+      judgeTrackedInventory({ docText: s28doc, numbers: s28n, inventory: { changed: [] } }).applicable === false,
+  )
+  // S29 staged 档基准快照换成本地 remote-tracking ref `origin/main`(2026-11-05):
+  // 差分归属不再依赖分支 upstream;四组对照 = 无 ref / 两侧同红 / 本票引入 / 存量红。
+  const s29n = { ...numbers, dbTables: 583 }
+  const s29tip = pickStagedBaselineRef({ tip: 'abcdef0123456789' })
+  ok(
+    'S29a ref 存在 ⇒ 基准快照取本地 origin/main(remote-tracking,不依赖 upstream)',
+    s29tip.ref === STAGED_BASELINE_REF && s29tip.mode === 'remote-tracking' && s29tip.why === null,
+  )
+  const s29none = pickStagedBaselineRef({ tip: null })
+  const s29new = '542 张表\n999 张表\n'
+  const s29v = findStaleClaims(s29new, s29n).violations
+  const s29a = splitStagedRatchet(s29v, { text: s29new, baselineTexts: null, numbers: s29n, changedLines: new Set([2]) })
+  ok(
+    'S29b ref 不存在(仓库没有 origin)⇒ 退回今日未判定口径:基线面取不到,全判并点名 why',
+    s29none.ref === null && s29none.mode === 'undetermined' && s29a.actionable.length === 2 && typeof s29a.why === 'string',
+  )
+  // ② 两侧快照同红:同一行在 origin/main 与 HEAD 都已红过、本票未触及 ⇒ 存量
+  const s29both = '542 张表\n999 张表\n'
+  const s29b = splitStagedRatchet(s29v, {
+    text: s29both,
+    baselineTexts: [s29both, s29both],
+    numbers: s29n,
+    changedLines: new Set(),
+  })
+  ok('S29c origin/main 与 HEAD 两侧同红、本票未触及 ⇒ 全部记存量(不阻断本票)', s29b.actionable.length === 0 && s29b.stock.length === 2)
+  // ③ 本票引入:第 2 行是本票新增/改写 ⇒ 仍判红(不改判据语义)
+  const s29c = splitStagedRatchet(s29v, {
+    text: s29new,
+    baselineTexts: ['542 张表\n', '542 张表\n'],
+    numbers: s29n,
+    changedLines: new Set([2]),
+  })
+  ok('S29d 本票新增/改写的声明行 ⇒ 仍判红(本票引入,不被快照洗绿)', s29c.actionable.length === 1 && s29c.actionable[0].line === 2 && s29c.stock.length === 1)
+  // ④ 存量红只在外快照上:origin/main 有那句话、HEAD 已修正,本票未触及那行 ⇒ 记存量
+  const s29d = splitStagedRatchet(findStaleClaims('999 张表\n542 张表\n', s29n).violations, {
+    text: '999 张表\n542 张表\n',
+    baselineTexts: ['542 张表\n', `${s29n.dbTables} 张表\n`],
+    numbers: s29n,
+    changedLines: new Set([1]),
+  })
+  ok(
+    'S29e 只在 origin/main 快照里红过的行(HEAD 已修正)、本票未触及 ⇒ 记存量;本票新增行照判红',
+    s29d.actionable.length === 1 && s29d.actionable[0].line === 1 && s29d.stock.length === 1 && s29d.stock[0].line === 2,
+  )
+  // S30 行内标签归一(2026-11-06,DN2 盲区):`<code>542</code> 张表` 这类被标签包住的数字
+  //     以前整型看不见(0 命中),同文去标签立刻判红 ⇒ 归一必须真把数字送进措辞正则。
+  //     每例都断 checked:只断"0 违规"会把"根本没看见"当成"一致"(本门历史上就栽在这型恒真断言)。
+  const s30n = { dbTables: 621, apiRoutes: 4699 }
+  const s30a = findStaleClaims('<code>542</code> 张表', s30n)
+  ok(
+    'S30a 正例:<code>542</code> 张表 ⇒ 恰 1 条,found=542 / want=621(且真被看见)',
+    s30a.checked === 1 &&
+      s30a.violations.length === 1 &&
+      s30a.violations[0].key === 'dbTables' &&
+      s30a.violations[0].found === 542 &&
+      s30a.violations[0].want === 621,
+  )
+  const s30b = findStaleClaims('<code>621</code> 张表', s30n)
+  ok('S30b 阴性:<code>621</code> 张表 ⇒ 0 违规(且 checked=1,不是没看见)', s30b.checked === 1 && s30b.violations.length === 0)
+  const s30cRaw = '<strong>542</strong><strong>张表</strong>'
+  ok(
+    'S30c 粘连反例:相邻标签换空格不粘连,542 仍点名 dbTables,且不把 5+4393 粘成 54393',
+    findStaleClaims(s30cRaw, s30n).violations.length === 1 &&
+      findStaleClaims(s30cRaw, s30n).violations[0].key === 'dbTables' &&
+      findStaleClaims(s30cRaw, s30n).violations[0].found === 542 &&
+      !normalizeInlineTags(s30cRaw).includes('542张表') &&
+      !normalizeInlineTags('<code>5</code><code>4393</code> API 路由').includes('54393'),
+  )
+  const s30plainStale = findStaleClaims('542 张表', s30n)
+  const s30plainGood = findStaleClaims('621 张表', s30n)
+  const s30doc = `第一行\n<code>542</code> 张表`
+  const s30d = findStaleClaims(s30doc, s30n)
+  ok(
+    'S30d 纯文本回归 + 证据指回原文:542⇒1 条、621⇒0 条;行号=2、excerpt 仍含 <code>',
+    s30plainStale.violations.length === 1 &&
+      s30plainGood.violations.length === 0 &&
+      s30d.violations.length === 1 &&
+      s30d.violations[0].line === 2 &&
+      s30d.violations[0].excerpt.includes('<code>'),
+  )
+  // 阴性对照:把归一"改回"返回原行 —— 直接拿原始行跑同一批 CLAIMS,必须 0 命中。
+  // 这一条证明 S30a 不是恒真(否则归一是死代码,测试照样绿)。
+  const s30eRawHits = CLAIMS.filter((c) => {
+    c.re.lastIndex = 0
+    return c.re.test('<code>542</code> 张表')
+  })
+  ok('S30e 阴性对照:不归一(原始行直跑 CLAIMS)⇒ 0 命中,证明 S30a 有牙', s30eRawHits.length === 0)
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
 
 function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
-  const { face, error } = selectFace({
-    staged: argv.includes('--staged'),
-    worktree: argv.includes('--worktree'),
-    def: 'head',
-  })
+  // 面旗解析与生成侧同源(`--face=head|worktree|index` / `--head|--staged|--worktree`):
+  // 门默认判 HEAD(提交面),未知面 ⇒ exit 2,**绝不静默回落默认面**(那是四个数字横跳的根)。
+  const { face, error } = parseFaceArg(argv, { def: 'head' })
   if (error) {
     console.error(`❌ 无法判定:${error}`)
     return 2
   }
-  const strict = argv.includes('--strict')
+  const pushMode = argv.includes('--push')
+  const strict = argv.includes('--strict') || pushMode
   const root = resolve(readArg(argv, '--root') ?? ROOT)
   let derived
   const docsText = new Map()
@@ -905,23 +1201,70 @@ function main(argv) {
     return 2
   }
   const plan = planAccountability({ face, touched, strict })
+  // DN5 清单不变式(2026-11-05):**独立于**"是否触及 README"判责 —— 本轮改了文件清单
+  // (A/D/R/C)就必须让生成块的 trackedFiles 跟上,否则正是 224b4b020f 那一型(删了文件、
+  // 没碰 README、门全绿)。取不到清单变化 ⇒ exit 2,不猜。
+  let inventory = null
+  try {
+    inventory = inventoryChanged(root, face)
+  } catch (e) {
+    console.error(`❌ 无法判定(责任清单变化取不到):${e instanceof Undetermined ? e.message : e?.message ?? e}`)
+    return 2
+  }
+  const inv = judgeTrackedInventory({ docText: docsText.get('README.md') ?? '', numbers: derived.numbers, inventory })
+  const dn5Problems = inv.ok ? [] : inv.problems
+  if (inv.applicable) candidates += 1
   // 按**文档**分别问责:strict/worktree 面全判;提交链面只判"本轮被触及的那份" ——
   // 否则改 zh 的那枚会为 en 的旧账挡路(别人欠的债钉红无关提交,§12e 同型),
   // 未触及文档的偏差如实计入"漂移只报数",它被改动的那枚必判。
   const judgeAll = plan.enforce && (strict || face === 'worktree')
   const driftDocs = []
-  // DN2 差值棘轮取材:基线面 = HEAD 面档取 HEAD^、其余取 HEAD;取不到 ⇒ null(该篇全判,不静默放宽)。
-  const baselineRef = face === 'head' ? 'HEAD^' : 'HEAD'
-  const baselines = new Map()
-  let baselineWhy = null
-  try {
-    const bs = catBatch(root, AUDITED_DOCS.map((rel) => `${baselineRef}:${rel}`))
-    for (const rel of AUDITED_DOCS) {
-      const v = bs.get(`${baselineRef}:${rel}`)
-      if (typeof v === 'string') baselines.set(rel, v)
+  // DN2 差值棘轮取材:基线面 = HEAD 面档取 HEAD^、worktree 档取 HEAD;
+  // staged 档(2026-11-05)取本地 remote-tracking ref `origin/main` ∪ HEAD(两快照并集),
+  // 不依赖分支 upstream;该 ref 真的不存在 ⇒ 快照为 null(退回今日口径:该篇全判,不静默放宽)。
+  let stagedBaseline = null
+  if (face === 'staged') {
+    let tip = null
+    try {
+      tip = gitRaw(['rev-parse', '--verify', `${STAGED_BASELINE_REF}^{commit}`], root, { timeout: 30000 }).trim()
+    } catch {
+      tip = null
     }
-  } catch (e) {
-    baselineWhy = `基线面 ${baselineRef} 取不到(${e?.message ?? e})⇒ 历史快照区按全判处理`
+    stagedBaseline = pickStagedBaselineRef({ tip })
+  }
+  const baselineRef = face === 'head' ? 'HEAD^' : face === 'staged' ? stagedBaseline.ref : 'HEAD'
+  const baselines = new Map()
+  /** staged 档的多快照正文(origin/main ∪ HEAD);某个文档缺远端面 ⇒ 该篇置 null ⇒ 全判。 */
+  const stagedBaselineTexts = new Map()
+  let baselineWhy = stagedBaseline?.why ?? null
+  if (baselineRef) {
+    // 逐文件读取:某份文档在某个快照面上不存在(例如新文档)只影响它自己,不连坐整批。
+    const readOne = (ref, rel) => {
+      try {
+        const v = catBatch(root, [`${ref}:${rel}`]).get(`${ref}:${rel}`)
+        return typeof v === 'string' ? v : null
+      } catch {
+        return null
+      }
+    }
+    if (face === 'staged') {
+      for (const rel of AUDITED_DOCS) {
+        const remote = readOne(baselineRef, rel)
+        if (remote === null) {
+          baselineWhy = `基线快照 ${baselineRef}:${rel} 取不到 ⇒ 该篇按全判处理`
+          stagedBaselineTexts.set(rel, null)
+          continue
+        }
+        const head = readOne('HEAD', rel)
+        stagedBaselineTexts.set(rel, head === null ? [remote] : [remote, head])
+      }
+    } else {
+      for (const rel of AUDITED_DOCS) {
+        const v = readOne(baselineRef, rel)
+        if (v !== null) baselines.set(rel, v)
+      }
+      if (baselines.size === 0) baselineWhy = `基线面 ${baselineRef} 取不到 ⇒ 历史快照区按全判处理`
+    }
   }
   const archiveStock = []
   // ── staged 档的行级差值棘轮取材(2026-10-31)──────────────────────────────
@@ -962,15 +1305,18 @@ function main(argv) {
       continue
     }
     candidates += r.checked + g.checked
-    const ratchet = splitArchiveStock(r.violations, text, baselines.get(rel) ?? null)
+    // staged 档:基准快照 = origin/main ∪ HEAD(多快照);其余档沿用单一基线面。
+    const snapshots = face === 'staged' ? (stagedBaselineTexts.get(rel) ?? null) : null
+    const ratchet = splitArchiveStock(r.violations, text, baselines.get(rel) ?? null, { baselineTexts: snapshots })
     let actionable = ratchet.actionable
     const stock = [...ratchet.stock]
     let why = ratchet.why
     if (isRatchetFace) {
-      // 行级差值棘轮:只判本轮新增/改写的声明行;HEAD 面自身的存量漂移只报数。
+      // 行级差值棘轮:只判本轮新增/改写的声明行;存量漂移(origin/main ∪ HEAD 已红过)只报数。
       const s = splitStagedRatchet(actionable, {
         text,
         baselineText: baselines.get(rel) ?? null,
+        baselineTexts: snapshots,
         numbers: derived.numbers,
         changedLines: changedWhy.has(rel) ? null : (changedLineNumbers.get(rel) ?? null),
       })
@@ -1006,7 +1352,7 @@ function main(argv) {
   if (isRatchetFace) {
     console.log(
       `ℹ 差值棘轮(staged 档):本轮新增/改写的声明行 ${ratchetNew} 处(判红见上);` +
-        `HEAD 面存量漂移 ${ratchetStock} 处只报数不判红(锚点 = 该文档 HEAD 面自身的命中集合)`,
+        `存量漂移 ${ratchetStock} 处只报数不判红(锚点 = ${baselineRef ? `${baselineRef} ∪ HEAD` : '基线快照(取不到 ⇒ 全判)'} 的命中集合)`,
     )
     for (const b of blockStock)
       console.log(`ℹ ${b.rel}:生成块存量 ${b.n} 处(本轮未碰生成块):只报数不判红(要刷新块跑 node scripts/gen-doc-numbers.mjs --markdown)`)
@@ -1025,24 +1371,29 @@ function main(argv) {
     } catch (e) {
       undetermined.push({ key: 'description', reason: `读不到简介输入(${descArg}):${e.message}` })
     }
-  } else {
+  } else if (shouldRecordDescUndetermined(argv)) {
     undetermined.push({ key: 'description', reason: '未提供 --description ⇒ 简介面本轮不判(问责请跑 --strict --description -)' })
   }
 
   const { code, why } = decide({
     violations,
-    blockProblems,
+    blockProblems: [...blockProblems, ...dn5Problems],
     descProblems,
     undetermined,
     strict,
     candidates,
-    scopeApplicable: plan.enforce,
+    scopeApplicable: plan.enforce || inv.applicable,
   })
   const driftCount = driftDocs.reduce((a, d) => a + d.n, 0)
   if (!plan.enforce) {
-    const drift = driftCount + violations.length + blockProblems.length + descProblems.length
+    const drift = driftCount + violations.length + blockProblems.length + dn5Problems.length + descProblems.length
     console.log(`face=${face} · 现算 ${Object.keys(derived.numbers).length} 个数字 · ${plan.why}`)
+    if (inv.applicable) {
+      if (inv.ok) console.log(`   DN5 清单不变式:✅ ${inv.note}`)
+      else for (const p of inv.problems) console.log(`❌ ${p}`)
+    }
     if (drift > 0) console.log(`   当前漂移 ${drift} 处(只报数)—— 明细:node scripts/check-doc-numbers.mjs --strict`)
+    if (code !== 0) console.log(`结论:${why}`)
     return code
   }
   console.log(
@@ -1050,6 +1401,10 @@ function main(argv) {
   )
   if (driftDocs.length > 0 && !judgeAll)
     console.log(`   ${driftDocs.map((d) => `${d.rel}(${d.n} 处漂移)`).join('、')} 本轮未被触及 ⇒ 不判,被改动那枚必判`)
+  if (inv.applicable) {
+    if (inv.ok) console.log(`✅ DN5 清单不变式:${inv.note}`)
+    else for (const p of inv.problems) console.log(`❌ ${p}`)
+  }
   for (const v of violations)
     console.log(`❌ ${v.file}:${v.line} \`${v.key}\` 写着 ${v.found},现算 ${v.want} —— ${v.excerpt}`)
   for (const p of blockProblems) console.log(`❌ ${p}`)
@@ -1066,4 +1421,6 @@ function main(argv) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   process.exit(main(process.argv.slice(2)))
 }
+/** §22c 镜像测试出口:行内标签归一单独暴露,测试直接 import 生产实现,不复制判据。 */
+export const __test__ = { normalizeInlineTags }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

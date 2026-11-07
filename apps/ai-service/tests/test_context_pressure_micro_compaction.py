@@ -7,8 +7,8 @@
 钉住三件事:
 1. assess_context_pressure:warning/error/autoCompact/blocking 四道阈值两侧取值,
    percent_left 0/100 边界与超窗钳位,窗口缺失记 None(未判定);
-2. compress_messages_if_needed 出口只增五个只读字段 —— 既有 info 键集/取值与
-   tuple 返回形态逐项不变(legacy 路径零改动);
+2. compress_messages_if_needed 出口只增五个只读判据字段 + 批次 3 的 boundary ——
+   既有 info 键集/取值与 tuple 返回形态逐项不变(legacy 路径零改动);
 3. micro_compact_messages 的 tools_kept / tools_removed 计数,且该计数并进
    compaction_metrics 既有事件维度(metric dict + report.tools + by_trigger),
    不新增第二套 Prometheus 指标。
@@ -40,6 +40,8 @@ PRESSURE_KEYS = {
     "is_above_auto_compact",
     "is_at_blocking",
 }
+#: 批次 3:真正压缩成功时追加的边界字段(未压缩/不压缩的路径不带该键)
+BOUNDARY_KEYS = {"boundary"}
 #: 改动前 compress_messages_if_needed 的 info 键集(legacy 形态,一个都不许少/改名)
 LEGACY_INFO_KEYS = {
     "compressed",
@@ -162,10 +164,10 @@ def _head_heavy_messages() -> list[dict[str, Any]]:
 
 
 def test_compress_info_only_adds_pressure_keys():
-    """触发压缩:info 键集 = 旧六键 + 五判据,一个不多一个不少。"""
+    """触发压缩:info 键集 = 旧六键 + 五判据 + boundary,一个不多一个不少。"""
     msgs = _head_heavy_messages()
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
-    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS
+    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS | BOUNDARY_KEYS
     assert isinstance(out, list)
     assert info["compressed"] is True
     assert info["trigger"] == "ratio"
@@ -230,7 +232,7 @@ def test_truncate_fallback_pressure_uses_compressed_tokens():
     )
     out, info = compress_messages_if_needed(msgs, context_limit=5000)
     assert info["trigger"] == "truncated"
-    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS
+    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS | BOUNDARY_KEYS
     expected = round((1 - info["compressed_tokens"] / 5000) * 100, 2)
     assert info["percent_left"] == max(0.0, min(100.0, expected))
     # 截断到 target 阈值(≈60%)以下 ⇒ 出口已回落到 warning 线内

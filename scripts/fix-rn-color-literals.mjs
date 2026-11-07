@@ -58,6 +58,8 @@ import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-
 // `scripts/lib/git-paths.mjs`(三枚 lander + gen-ui-mirror 共用同一份,§0.6 / 门 191)。
 // 多会话共享工作区里,自动腿写他席正在编辑的文件 = 覆盖别人的未提交工作(§12/§16 事故型)。
 import { ownershipGate } from './lib/git-paths.mjs'
+// 具名裁决台账(同名同值多档)判据与匹配的唯一一份都在 lib —— 本层只消费,不重写匹配尺(§0.6)
+import { applyVerdicts, loadVerdicts } from './lib/rn-color-verdicts.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SCAN_FACES = ['apps/mobile-rn/src', 'packages/app/src']
@@ -160,8 +162,13 @@ function sitesOf(rel, src, byNorm) {
           const amb = cands.length > 1
           const pick = cands[0]
           const needsTheme = !pick.same
+          const pname =
+            node.name.kind === ts.SyntaxKind.Identifier || node.name.kind === ts.SyntaxKind.StringLiteral
+              ? node.name.getText(sf).replace(/^['"]|['"]$/g, '')
+              : node.name.getText(sf)
           out.push({
             rel,
+            property: pname,
             line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
             raw,
             key: pick.key,
@@ -248,7 +255,9 @@ function collect(face) {
   const { byNorm, paletteSize } = buildIndex(rnText, cssText)
   const all = []
   for (const r of files) all.push(...sitesOf(r, contents.get(r) ?? '', byNorm))
-  return { all, paletteSize, contents, byNorm }
+  const led = loadVerdicts(ROOT)
+  const vres = led.ok ? applyVerdicts(all, byNorm, led.entries) : { sites: all, applied: [], conflicts: [], invalid: [], offFace: [] }
+  return { all, paletteSize, contents, byNorm, sites: vres.sites, verdict: vres, ledger: led }
 }
 function prefix0(face) {
   return face === 'staged' ? ':' : 'HEAD:'
@@ -406,7 +415,12 @@ export function checkRatchet({ face, changedRels, sites, sitesOfBase }) {
 /** 提交链档:被审面(索引或 HEAD)对上一面,只按本枚改过的文件比命中数。 */
 function runCheck(face) {
   const baseRef = face === 'staged' ? 'HEAD' : 'HEAD^'
-  const { all, paletteSize, byNorm } = collect(face)
+  const { paletteSize, byNorm, sites, verdict, ledger } = collect(face)
+  const entryList = ledger.ok ? ledger.entries : []
+  if (!ledger.ok) {
+    console.log(`⚠️ 裁决台账未判定(${ledger.reason})⇒ 本枚歧义裁决计数按"未裁"算,ratchet 不因此放行已登记项`)
+  }
+  const resolvedSites = sites.filter((s) => s.decidedBy)
   let changedRaw
   try {
     changedRaw = git([
@@ -423,9 +437,9 @@ function runCheck(face) {
   }
   const changed = new Set(changedRaw.split('\n').filter((p) => /\.(tsx|ts)$/.test(p)))
   if (changed.size === 0) {
-    console.log(
-      `[fix-color-literals] ✅ 本枚未新增可走源档的色值字面量(射程内改动文件 0 枚 ⇒ 不适用,不等于全仓归零;全数存量 ${all.filter((s) => !s.ambiguous && !s.needsTheme).length} 处,覆盖面档 ${paletteSize})`,
-    )
+    const bucketed = sites.filter((s) => !s.ambiguous && !s.needsTheme).length
+    const line0 = `[fix-color-literals] ✅ 本枚无改动文件,不适用(存量 ${bucketed} / 已裁 ${verdict.applied.length} / 档 ${paletteSize})`
+    console.log(line0)
     return 0
   }
   const sitesOfBase = new Map()
@@ -436,9 +450,10 @@ function runCheck(face) {
     } catch {
       t = '' // 新建文件:上一面没有 ⇒ 基线 0 处(新建里写死字面量同样该拦)
     }
-    sitesOfBase.set(rel, sitesOf(rel, t, byNorm).filter((s) => !s.ambiguous && !s.needsTheme).length)
+    sitesOfBase.set(rel, applyVerdicts(sitesOf(rel, t, byNorm), byNorm, entryList).sites.filter((s) => !s.ambiguous && !s.needsTheme).length)
   }
-  const r = checkRatchet({ face, changedRels: changed, sites: all, sitesOfBase })
+  const { safe, needsTheme, ambiguous } = splitBuckets(sites)
+  const r = checkRatchet({ face, changedRels: changed, sites, sitesOfBase })
   for (const f of r.fresh)
     console.log(
       `✗ ${f.rel}:${f.line} 新写死 ${JSON.stringify(f.raw)}(源里有档 rnCssLight.${f.key})⇒ 该走源档;本枚把这枚文件从 ${f.before} 处抬到 ${f.now} 处`,
@@ -448,7 +463,27 @@ function runCheck(face) {
     : `✅ 本枚零新增:检查 ${r.checked} 枚改动文件,全数存量 ${r.stock} 处只报数(存量治理归替换器 --apply)`
   console.log(line)
   if (argv.includes('--json'))
-    console.log(JSON.stringify({ summary: { face, base: r.base, checked: r.checked, fresh: r.fresh.length, stock: r.stock } }))
+    console.log(
+      JSON.stringify({
+        summary: {
+          face,
+          hits: sites.length,
+          safe: safe.length,
+          needsTheme: needsTheme.length,
+          ambiguous: ambiguous.length,
+          resolved: resolvedSites.length,
+          files: changed.size,
+          decided: verdict.applied.length,
+          conflicts: verdict.conflicts.length,
+          invalid: verdict.invalid.length,
+          offFaces: verdict.offFace.length,
+          fresh: r.fresh.length,
+          stock: r.stock,
+          checked: r.checked,
+          unjudgedLedger: !ledger.ok,
+        },
+      }),
+    )
   return r.fresh.length ? 1 : 0
 }
 
@@ -523,30 +558,65 @@ export function applyRewriteToWorktree(rel, { root = ROOT, idxForRewrite, headCo
   }
 }
 
+/**
+ * 写盘档退出码的唯一裁决处(2026-11-05 立,与三枚 land-* 同契约)。
+ *
+ * 旧写法是 `changed > 0 ? 0 : 1` —— 那把"本轮没有可写的"报成了**失败**。后果不是措辞问题:
+ * 守护 `runCrossEndApplyLeg(['--apply'])` 每轮都记一次假失败,一键级联 `--apply` 也每次都
+ * 把这列判成 failed(2026-11-05 实测:落盘 0 枚 / held 2 ⇒ rc=1 ⇒ 级联报「器物失败」)——
+ * 一个恒非 0 的自动腿和一道恒红门是同一件事(§12e:与本次内容无关的红,唯一结局是逼人跳门)。
+ *
+ * 三兄弟 lander 的契约现读:`0 正常(含"改 0 处")/ 1 有文件落盘后 verify 失败并已回滚 / 2 用法错或取不到输入`。
+ * 本函数据此只回答"这次跑坏了吗":真败 = 有文件写失败(已回滚)或落账未成功;
+ * "没活/被归属闸让路/账本读不到(ledger=unjudged)"都不是失败 —— 那些读数在结论行里逐条点名,
+ * 不靠退出码冒充(§0.3 的"没判"另有 rc=2 一档,由各取不到输入的 return 承担)。
+ */
+export function applyExitCode({ changed = 0, failed = [], landingErr = '' } = {}) {
+  // 形参保留 = 调用方契约(见上注);"改 0 处"按 2026-11-05 定案不算失败,故不据此判红。
+  void changed
+  if (Array.isArray(failed) && failed.length > 0) return 1
+  if (typeof landingErr === 'string' && landingErr !== '') return 1
+  return 0
+}
+
 function main() {
   if (argv.includes('--self-test')) return selfTest()
   const isCheck = argv.includes('--check')
   const isStaged = argv.includes('--staged')
   if (isCheck) return runCheck(isStaged ? 'staged' : 'head')
   const face = argv.includes('--apply') ? 'worktree' : 'head'
-  const { all, paletteSize } = collect(face)
-  const { safe, ambiguous, needsTheme } = splitBuckets(all)
+  const { all, paletteSize, sites, verdict, ledger } = collect(face)
+  const { safe, ambiguous, needsTheme } = splitBuckets(sites)
   const perFileSafe = new Map()
   for (const s of safe) {
     if (!perFileSafe.has(s.rel)) perFileSafe.set(s.rel, [])
     perFileSafe.get(s.rel).push(s)
   }
 
-  console.log(
-    `[fix-color-literals] 面=${face} 覆盖面档 ${paletteSize} 枚;对象位色值字面量命中 ${all.length} 处 ⇒ 可直接改写 ${safe.length} / 明暗不同需主题 ${needsTheme.length} / 同值多档歧义 ${ambiguous.length}`,
-  )
-  for (const s of ambiguous.slice(0, 8)) console.log(`  歧义 ${s.rel}:${s.line} ${JSON.stringify(s.raw)} 命中 ${s.candCount} 档`)
-  for (const s of needsTheme.slice(0, 8)) console.log(`  需主题 ${s.rel}:${s.line} ${JSON.stringify(s.raw)} → ${s.key}(light≠dark)`)
+  const ledTxt = ledger.ok
+    ? `裁 ${ledger.entries.length}/落 ${verdict.applied.length}/双 ${verdict.conflicts.length}/废 ${verdict.invalid.length}`
+    : `台账未判定:${ledger.reason}`
+  console.log(`[fix-color-literals] 面=${face} 覆盖 ${paletteSize} 档 | 命中 ${all.length} 处 => 改写 ${safe.length} 需主题 ${needsTheme.length} 歧义 ${ambiguous.length} | ${ledTxt}`)
+  for (const x of verdict.conflicts.slice(0, 6)) console.log(`  双裁 ${x.rel}:${x.line} [${x.ids.join(',')}]`)
+  for (const s of ambiguous.slice(0, 8)) console.log(`  歧 ${s.rel}:${s.line} ${JSON.stringify(s.raw)} ${s.candCount} 档`)
+  for (const s of needsTheme.slice(0, 8)) console.log(`  主题 ${s.rel}:${s.line} ${s.key}`)
 
   if (argv.includes('--json')) {
     console.log(
       JSON.stringify({
-        summary: { face, hits: all.length, safe: safe.length, needsTheme: needsTheme.length, ambiguous: ambiguous.length, files: perFileSafe.size },
+        summary: {
+          face,
+          hits: all.length,
+          safe: safe.length,
+          needsTheme: needsTheme.length,
+          ambiguous: ambiguous.length,
+          files: perFileSafe.size,
+          decided: verdict.applied.length,
+          conflicts: verdict.conflicts.length,
+          invalid: verdict.invalid.length,
+          offFaces: verdict.offFace.length,
+          unjudgedLedger: !ledger.ok,
+        },
       }),
     )
   }
@@ -674,7 +744,7 @@ function main() {
       ` held=${held.length}` +
       (plan.ok ? '' : ' ownership=unjudged'),
   )
-  return changed > 0 ? 0 : 1
+  return applyExitCode({ changed, failed, landingErr })
 }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
@@ -705,5 +775,7 @@ export const __test__ = {
   ownershipPlan,
   applyRewriteToWorktree,
   ownershipGate,
+  // 写盘档退出码裁决(2026-11-05:与三枚 land-* 同契约,"没活"不是失败)
+  applyExitCode,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

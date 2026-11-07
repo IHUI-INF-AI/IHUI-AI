@@ -270,7 +270,7 @@ export default function QuickstartPage() {
           从注册到发布第一个 AI Agent,只需 5 步。 智汇 AI 是开源的全栈 AI 操作系统,Apache 2.0
           协议,支持私有化部署。
         </p>
-        <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-sm">
+        <div className="font-[weight:inherit] flex flex-wrap items-center justify-center gap-3 pt-2 text-body">
           <a
             href="#step-1"
             className="inline-flex items-center gap-1.5 rounded-lg border bg-card px-4 py-2 hover:bg-accent"
@@ -300,14 +300,14 @@ export default function QuickstartPage() {
               </span>
               <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">注册账号</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-[weight:inherit] text-body text-muted-foreground">
                   访问{' '}
                   <a href="https://aizhs.top/sso/register" className="text-primary underline">
                     https://aizhs.top/sso/register
                   </a>
                   ,使用邮箱或 GitHub/Google/微信 登录,无需信用卡,注册即得 1000 积分。
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
                   <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
                   企业用户支持 SSO(SAML 2.0 / OIDC)和私有化部署,联系{' '}
                   <a href="mailto:contact@aizhs.top" className="text-primary underline">
@@ -325,21 +325,21 @@ export default function QuickstartPage() {
               </span>
               <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">浏览 Agent 市场</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-[weight:inherit] text-body text-muted-foreground">
                   打开{' '}
                   <a href="https://aizhs.top/agents" className="text-primary underline">
                     Agent 市场
                   </a>
                   ,从 200+ 模板中选择一个适合你场景的 Agent:
                 </p>
-                <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+                <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
                   <li>智能客服 Agent — 7×24 在线,统一知识库</li>
                   <li>代码审查 Agent — PR 自动审查,安全漏洞检测</li>
                   <li>内容创作 Agent — 多模态生成(文/图/音/视频)</li>
                   <li>数据分析 Agent — SQL 自动生成 + 可视化</li>
                   <li>企业知识库 Agent — 内部文档问答</li>
                 </ul>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
                   <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
                   点击「Use」即可一键 fork 到你的工作区,无需从零搭建。
                 </p>
@@ -354,14 +354,14 @@ export default function QuickstartPage() {
               </span>
               <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">配置 AI 模型</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-[weight:inherit] text-body text-muted-foreground">
                   在{' '}
                   <a href="https://aizhs.top/models" className="text-primary underline">
                     模型管理
                   </a>
                   页面选择 AI 模型,支持 100+ 主流模型:
                 </p>
-                <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+                <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
                   <li>
                     <strong>OpenAI</strong>:GPT-4o、o1、o3-mini、GPT-4.1、GPT-5
                   </li>
@@ -378,7 +378,7 @@ export default function QuickstartPage() {
                     <strong>本地</strong>:Ollama、LM Studio、vLLM
                   </li>
                 </ul>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
                   <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
                   支持 OpenAI 兼容 API,任何第三方模型都可接入。系统支持自动 fallback 和成本路由。
                 </p>
@@ -393,14 +393,14 @@ export default function QuickstartPage() {
               </span>
               <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">上传知识库(可选)</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-[weight:inherit] text-body text-muted-foreground">
                   在{' '}
                   <a href="https://aizhs.top/knowledge-base" className="text-primary underline">
                     知识库
                   </a>
                   页面上传文档,系统自动处理:
                 </p>
-                <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+                <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
                   <li>
                     上传入口可选格式:PDF、Word(.docx)、Markdown、TXT、HTML(.html/.htm)
                     —即文件选择框列出的 6 种扩展名;Excel / CSV / PPT 等当前不经此入口,需走 API
@@ -425,10 +425,10 @@ export default function QuickstartPage() {
               </span>
               <div className="flex-1 min-w-0 space-y-2">
                 <h3 className="text-lg font-semibold">一键发布到六端</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="font-[weight:inherit] text-body text-muted-foreground">
                   在 Agent 编排页面点击「发布」,选择目标客户端:
                 </p>
-                <ul className="ml-4 list-disc space-y-1 text-sm text-muted-foreground">
+                <ul className="font-[weight:inherit] ml-4 list-disc space-y-1 text-body text-muted-foreground">
                   <li>
                     <Globe className="mr-1.5 inline h-4 w-4" />
                     <strong>Web</strong> — Next.js 16,主入口
@@ -454,7 +454,7 @@ export default function QuickstartPage() {
                     <strong>CLI</strong> — Node.js/Bun,脚本和 CI/CD
                   </li>
                 </ul>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-[weight:inherit] text-label text-muted-foreground">
                   <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
                   一套代码,六端同发。所有客户端共享 React 组件库 + API 契约 + 业务逻辑。
                 </p>
@@ -468,7 +468,7 @@ export default function QuickstartPage() {
       <section id="self-host" className="mt-16 space-y-6">
         <h2 className="text-display font-bold tracking-tight">方式二:自托管(5 分钟 Docker 部署)</h2>
         <div className="rounded-lg border bg-card p-3 space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="font-[weight:inherit] text-body text-muted-foreground">
             适合需要数据私有化、定制化、合规审计的企业用户。
           </p>
           <CodeBlock
@@ -487,7 +487,7 @@ docker compose up -d
 # 4. 访问
 open http://localhost:8801`}
           />
-          <div className="rounded-lg border bg-background p-3 text-sm">
+          <div className="font-[weight:inherit] rounded-lg border bg-background p-3 text-body">
             <p className="font-semibold">最低硬件要求</p>
             <ul className="ml-4 mt-2 list-disc space-y-1 text-muted-foreground">
               <li>CPU:2 核</li>
@@ -495,7 +495,7 @@ open http://localhost:8801`}
               <li>磁盘:20 GB</li>
               <li>GPU:不需要(LLM 推理默认走云端 API)</li>
             </ul>
-            <p className="mt-3 text-xs text-muted-foreground">
+            <p className="font-[weight:inherit] mt-3 text-label text-muted-foreground">
               <Lightbulb className="mr-1 inline h-3.5 w-3.5 align-text-bottom" aria-hidden />
               推荐配置 4 核 / 8GB / 50GB SSD。Kubernetes 高可用部署见{' '}
               <a href="https://aizhs.top/docs/self-host" className="text-primary underline">
@@ -510,7 +510,7 @@ open http://localhost:8801`}
       {/* 下一步 */}
       <section className="mt-16 rounded-lg border bg-gradient-to-br from-primary/5 to-primary/10 p-3 text-center">
         <h2 className="text-display font-bold tracking-tight">下一步</h2>
-        <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
+        <p className="font-[weight:inherit] mx-auto mt-2 max-w-2xl text-body text-muted-foreground">
           上手后,深入探索智汇 AI 的更多能力。
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">

@@ -28,7 +28,11 @@ vi.mock('react-native', () => {
       return createElement(tag, { ...rest, onClick: onPress, style: flat(style) }, children)
     }
   return {
-    PixelRatio: { getFontScale: () => 1, getPixelSizeForLayoutSize: (n: number) => n, roundToNearestPixel: (n: number) => n },
+    PixelRatio: {
+      getFontScale: () => 1,
+      getPixelSizeForLayoutSize: (n: number) => n,
+      roundToNearestPixel: (n: number) => n,
+    },
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     useColorScheme: () => 'light',
     View: mk('div'),
@@ -88,6 +92,10 @@ const examFixture = {
 
 vi.mock('@ihui/api-client', () => ({
   getExams: vi.fn(async () => ({ success: true, data: [examFixture] })),
+  getMyRecords: vi.fn(async () => ({
+    success: true,
+    data: { list: [], total: 0, page: 1, pageSize: 20 },
+  })),
   fetchApi: vi.fn(async () => ({ success: true, data: { list: [], total: 0 } })),
   updatePassword: vi.fn(async () => ({ success: true })),
 }))
@@ -129,12 +137,12 @@ describe('nav-B 薄壳端口', () => {
     shared.changePwd.current = null
   })
 
-  it('Exam 列表开始考试 → ExamQuestion(examId)', async () => {
+  it('Exam 列表开始考试 → ExamIntro(id),介绍页再进 ExamQuestion(examId)', async () => {
     renderScreen(createElement(ExamScreen))
     await act(async () => {})
     const props = shared.exam.current as { onStart: (e: typeof examFixture) => void }
     await act(async () => props.onStart(examFixture))
-    expect(nav.navigate).toHaveBeenCalledWith('ExamQuestion', { examId: 'exam-1' })
+    expect(nav.navigate).toHaveBeenCalledWith('ExamIntro', { id: 'exam-1' })
   })
 
   it('ExamHistory 列表条目 → ExamDetail(id)', async () => {

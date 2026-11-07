@@ -117,27 +117,50 @@ function getInstalledSkillsPath(): string {
   return path.join(home, '.ihui', 'ai-skills.json');
 }
 
-function loadInstalledSkills(): Set<string> {
-  const p = getInstalledSkillsPath();
-  try {
-    if (!fs.existsSync(p)) return new Set();
-    const raw = fs.readFileSync(p, 'utf-8');
-    const parsed = JSON.parse(raw) as InstalledSkillsData;
-    if (parsed && Array.isArray(parsed.installed)) {
-      return new Set(parsed.installed.filter((s): s is string => typeof s === 'string'));
-    }
-  } catch {
-    // 损坏文件忽略,降级为空集合
+function skillListReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
   }
-  return new Set();
+  return 'unknown';
 }
 
-function saveInstalledSkills(ids: Set<string>): void {
-  const p = getInstalledSkillsPath();
-  const dir = path.dirname(p);
+function loadInstalledSkills(filePath = getInstalledSkillsPath()): Set<string> {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    const code = skillListReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
+    throw new Error(`已安装技能名单读不到,不能把它覆盖成只剩新的一项 (${code})`);
+  }
+  try {
+    const parsed = JSON.parse(raw) as InstalledSkillsData;
+    if (!parsed || !Array.isArray(parsed.installed)) {
+      throw new Error('已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)');
+    }
+    return new Set(parsed.installed.filter((s): s is string => typeof s === 'string'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('已安装技能名单读不到')) throw error;
+    throw new Error('已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)');
+  }
+}
+
+function saveInstalledSkills(ids: Set<string>, filePath = getInstalledSkillsPath()): void {
+  const dir = path.dirname(filePath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const data: InstalledSkillsData = { installed: [...ids] };
-  fs.writeFileSync(p, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+}
+
+/** 把技能记进本地名单。读不到旧名单时不写。返回标记前是否已经在名单里。 */
+export function addInstalledSkill(id: string, filePath = getInstalledSkillsPath()): boolean {
+  const installed = loadInstalledSkills(filePath);
+  const already = installed.has(id);
+  if (!already) {
+    installed.add(id);
+    saveInstalledSkills(installed, filePath);
+  }
+  return already;
 }
 
 // === 参数校验 ===
@@ -292,12 +315,7 @@ async function installSkill(
     return;
   }
 
-  const installed = loadInstalledSkills();
-  const already = installed.has(id);
-  if (!already) {
-    installed.add(id);
-    saveInstalledSkills(installed);
-  }
+  const already = addInstalledSkill(id);
 
   if (asJson) {
     printJson({ id: data.id, name: data.name, installed: true, already });

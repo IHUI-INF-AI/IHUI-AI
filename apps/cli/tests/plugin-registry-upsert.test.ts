@@ -523,4 +523,22 @@ describe('G-832 写侧 —— 已装短路只对"当代那条来自同一个源"
     expect(fs.readFileSync(path.join(dest, 'marker.txt'), 'utf-8')).toBe('1.0.0');
   });
 });
+
+describe('插件缓存目录读不到不是没有遗留', () => {
+  it('父路径不是目录时不说成没有遗留现场', async () => {
+    const dir = mkScratch('plugin-cache-unread-');
+    try {
+      const blocked = path.join(dir, 'not-a-dir');
+      fs.writeFileSync(blocked, 'x');
+      const unread = await recoverStaleSwapArtifacts(path.join(blocked, 'plugin'));
+      expect(unread).toHaveLength(1);
+      expect(unread[0]?.action).toBe('left-as-is');
+      expect(unread[0]?.reason).toContain('不能把它说成没有遗留现场');
+      const missing = await recoverStaleSwapArtifacts(path.join(dir, 'missing', 'plugin'));
+      expect(missing).toEqual([]);
+    } finally {
+      rmScratch(dir);
+    }
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

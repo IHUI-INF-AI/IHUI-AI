@@ -286,7 +286,7 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     SSEEventContract("chunk", ("content",)),
     SSEEventContract("reasoning", ("content",)),
     SSEEventContract("thinking", ("content",)),
-    SSEEventContract("tool-call-start", ("toolCallId", "name", "args")),
+    SSEEventContract("tool-call-start", ("toolCallId", "toolName", "args")),
     # 2026-11-05:工具入参逐分片直推。字段与 llm_gateway._tool_call_args_delta_frames
     # 恒产出的键逐字一致(args 允许为 None、id/name 允许空串,但键恒在)。
     SSEEventContract(
@@ -294,13 +294,33 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
         ("index", "id", "name", "args", "argsComplete", "argsPartial"),
     ),
     SSEEventContract("tool-result", ("toolCallId", "result")),
-    SSEEventContract("tool-delegate", ("payload",)),
-    SSEEventContract("tool-summary", ("summary",)),
+    SSEEventContract("tool-delegate", ("session_id", "tool_call_id", "tool_name", "args", "iteration")),
+    # 2026-11-04(sse-event-parity 口径收口):原声明 ("summary",) 与真实帧不符 ——
+    # llm.py `_build_tool_summary` 产出的是下列 11 个统计键(无 summary),
+    # client.ts tryParseToolSummary 逐键读取。声明以真实发射形状为准。
+    SSEEventContract(
+        "tool-summary",
+        (
+            "filesSearched",
+            "webSearched",
+            "filesModified",
+            "linesAdded",
+            "linesDeleted",
+            "toolsByCategory",
+            "totalCalls",
+            "totalDurationMs",
+            "directories",
+            "edits",
+            "terminalCommands",
+        ),
+    ),
     SSEEventContract("citations", ("citations",)),
     SSEEventContract("question", ("question",)),
-    SSEEventContract("subagent_spawn", ("payload",)),
-    SSEEventContract("subagent_progress", ("payload",)),
-    SSEEventContract("subagent_end", ("payload",)),
+    # 2026-11-04:子 agent 三帧真实发射为平铺键(llm.py:5421/6284/3012),
+    # 原 ("payload",) 是声明漂移;这里登记前端实际消费的核心键。
+    SSEEventContract("subagent_spawn", ("id", "role", "task", "timestamp")),
+    SSEEventContract("subagent_progress", ("id", "phase", "timestamp")),
+    SSEEventContract("subagent_end", ("id", "status", "timestamp")),
     SSEEventContract("plan-step", ("payload",)),
     SSEEventContract("plan_updated", ("plan", "explanation", "timestamp", "messageId")),
     # D115(2026-10-23,G-229):结构化审查 finding。字段集与
@@ -370,19 +390,21 @@ SSE_EVENT_CONTRACTS: tuple[SSEEventContract, ...] = (
     # 它是**每轮恒在**字段(不像 finishReason/reasoningEffort 那样"缺席不带键"):
     # 端上缺这一格就只剩猜,而猜的默认正是今天写死的 false —— 那就等于没声明。
     SSEEventContract("done", ("usage", "model", "stub", "capabilities")),
-    # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出
+    # 消息级计量帧(D7/D1 全链路,2026-09-19 立):llm.py 流结束前发出。
+    # 批次 3(2026-11-06):新增 contextLedger(七类上下文账本,形状见 contract.ts)。
+    # 唯一生产点是 llm.py 流收尾,正常路径恒在;仅账本构造异常时降级缺席(那时
+    # `_sse()` 诊断会告警,属于真实故障信号,不是合法帧的常态)。
     SSEEventContract(
         "usage",
-        ("messageId", "usage", "timing", "model", "costUsd"),
+        ("messageId", "usage", "timing", "model", "costUsd", "contextLedger"),
     ),
     SSEEventContract("error", ("message", "errorCode")),
     # 模型降级通知(P4-2,2026-09-19 入契约):llm_gateway 主模型失败切换备用模型时
     # yield,llm.py tool loop 两处 astream 循环 + 非 tool-loop 兜底路径转发
     SSEEventContract("fallback", ("primary_model", "backup_model", "reason")),
-    SSEEventContract(
-        "compaction",
-        ("triggered", "tokensBefore", "tokensAfter", "removedCount", "usageRatio", "trigger"),
-    ),
+    # 2026-11-04:真实帧是嵌套 {"compaction": {...}}(llm.py:2235),
+    # client.ts tryParseCompaction 读 json.compaction.*;原平铺声明是口径漂移。
+    SSEEventContract("compaction", ("compaction",)),
     # 中途引导注入确认(Steer,2026-09-19 立):llm.py tool loop 注入用户引导文本时发出。
     # G-815975(2026-10-07):phase 两个值 —— injected(注入确认)/ dropped(流收口时
     # 该条引导未消费的显式回报,点名该条目,不再静默丢弃);kind 为条目类型轴

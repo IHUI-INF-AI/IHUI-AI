@@ -55,6 +55,7 @@
  *   node scripts/scrub-doc-numbers.mjs              # dry-run(默认,只处置本轮新增/改写行)
  *   node scripts/scrub-doc-numbers.mjs --apply      # 备份 + 写回 + 自证
  *   node scripts/scrub-doc-numbers.mjs --scope=archive --apply   # 维护档:清偿归档区存量
+ *   node scripts/scrub-doc-numbers.mjs --scope=active --apply     # 维护档:只清偿活性区(最后一枚 END RECENT UPDATES 之前)存量
  *   node scripts/scrub-doc-numbers.mjs --scope=all --apply       # 维护档:清偿全文存量
  *   node scripts/scrub-doc-numbers.mjs --self-test  # 构造面成对夹具(每桶摘掉判据即翻红)
  * 本器刻意不进提交链(§12e:它是清偿器不是判据;判红权仍归门 173)。
@@ -107,15 +108,20 @@ export function exemptMarker(features) {
 /**
  * 维护档的行范围(显式 `--scope=archive|all` 才用;缺省返回 null = 走行级差值棘轮)。
  * archive 的边界与门 173 的区级判据同源:**最后一枚** `END RECENT UPDATES`(门用 includes 扫全文,
- * 这里逐字复用它,不另造标记识别)。
+ * 这里逐字复用它,不另造标记识别)。`active` 是它的互补区(该标记**之前**)。
  * @returns {Set<number>|null} 1-based 行号集合;null = 不启用维护档
  */
 export function scopeLines(text, scope, violations) {
   if (scope === 'all') return new Set(violations.map((v) => v.line))
-  if (scope !== 'archive') return null
+  if (scope !== 'archive' && scope !== 'active') return null
   const lines = text.split(/\r?\n/)
   let last = -1
   for (let i = 0; i < lines.length; i += 1) if (lines[i].includes(UPDATES_END)) last = i
+  // `active` = 最后一件 END RECENT UPDATES 之前的活性区,即门 173 在 strict/全量档实际点名的那一区
+  // (archive 区经 splitArchiveStock 只报数不判红)。立它(2026-11-04)的理由:门恒红的 44 处存量
+  // 全在活性区,`--scope=all` 会连带把 6 万余行历史快照改成今天(门自己定性为反模式),而这笔债
+  // 又无法用默认档(行级棘轮只判本轮改动行)清偿 —— 缺口的唯一正解是补一个与门同一分区的范围。
+  if (scope === 'active') return new Set(violations.filter((v) => v.line - 1 <= last).map((v) => v.line))
   return new Set(violations.filter((v) => v.line - 1 > last).map((v) => v.line))
 }
 
@@ -444,6 +450,8 @@ function selfTest() {
   )
   ok('M2 --scope=all 取全部违规行', mAll !== null && mAll.size === 2)
   ok('M3 缺省/未知 scope ⇒ null(不静默启用维护档)', scopeLines(mText, null, mVios) === null && scopeLines(mText, 'bogus', mVios) === null)
+  // M4 active:档案区与 archive 互补,mTest 前段 542 张表 = 行 1 唯一命中
+  ok('M4 --scope=active 只取 END RECENT UPDATES 之前的行(与 archive 互补)', scopeLines(mText, 'active', mVios)?.size === 1 && [...scopeLines(mText, 'active', mVios)].join(',') === '1')
   console.log(`\n自检:pass ${pass} / fail ${fail}`)
   return fail === 0 ? 0 : 1
 }
@@ -455,11 +463,11 @@ function stamp() {
 async function main(argv) {
   if (argv.includes('--self-test')) return selfTest()
   const apply = argv.includes('--apply')
-  /** 维护档(显式):缺省 null = 行级差值棘轮;archive/all = 区级/全文存量清偿 */
+  /** 维护档(显式):缺省 null = 行级差值棘轮;archive/active/all = 区级/全文存量清偿 */
   const scopeArg = argv.find((a) => a.startsWith('--scope='))
   const scope = scopeArg ? scopeArg.slice('--scope='.length) : null
-  if (scope !== null && scope !== 'archive' && scope !== 'all') {
-    console.error(`❌ 未判定:--scope 只认 archive|all(收到 "${scope}")`)
+  if (scope !== null && scope !== 'archive' && scope !== 'active' && scope !== 'all') {
+    console.error(`❌ 未判定:--scope 只认 archive|active|all(收到 "${scope}")`)
     return 2
   }
   const texts = new Map()

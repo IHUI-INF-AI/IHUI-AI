@@ -5907,6 +5907,7 @@
           "completed": "Completed",
           "failed": "Failed",
           "pending": "Pending Review",
+          "processing": "Processing",
           "rejected": "Rejected"
         },
         "subtitle": "Manage user withdrawal requests and flows",
@@ -8866,6 +8867,10 @@
           "title": "Provider busy",
           "action": "Please try again later"
         },
+        "CREDIT_APPROVAL_REQUIRED": {
+          "title": "This spend needs your approval",
+          "action": "Approve and retry. Image generation stays off until you do"
+        },
         "ALREADY_CLAIMED": {
           "title": "This task has already been claimed",
           "action": "Claim another task, or wait for the holder to release it"
@@ -9001,6 +9006,14 @@
         "EXEC_POLICY_DENIED": {
           "title": "This action was blocked by a security policy",
           "action": "Adjust and retry"
+        },
+        "COMMAND_POLICY_DENIED": {
+          "title": "This command was denied by policy",
+          "action": "Use a different command, or ask an admin to change the policy"
+        },
+        "COMMAND_POLICY_UNDETERMINED": {
+          "title": "This command policy could not be judged",
+          "action": "Do not run it until the policy can be read"
         },
         "EXEC_POLICY_NEEDS_APPROVAL": {
           "title": "This action needs your confirmation first",
@@ -9959,6 +9972,10 @@
     "envInfoButton": "Environment Info",
     "expandConversation": "Expand Conversation",
     "headerActions": {
+      "overflowMenu": "Panel menu",
+      "groupPanel": "Panel",
+      "groupTools": "Tools",
+      "groupSession": "Session",
       "panelGroupButtons": "Panel action buttons",
       "enterWorkspaceFullscreen": "Enter workspace fullscreen",
       "exitWorkspaceFullscreen": "Exit workspace fullscreen",
@@ -11690,6 +11707,11 @@
     "addContextReference": "Add as Context Reference",
     "addMenuDesc": "Add menu (Templates / References / Skills / Attachments / Plugins / Compact)",
     "addMenuLabel": "Add",
+    "backToMenu": "Back to menu",
+    "quickSettings": "Session settings",
+    "composerSectionContent": "Content",
+    "composerSectionCapability": "Capabilities",
+    "moreTools": "More tools",
     "artifactCode": "Code",
     "artifactPreview": "Preview",
     "assistant": "AI Assistant",
@@ -11845,6 +11867,7 @@
       "branch": "Branch from here"
     },
     "contextUsage": {
+      "rowLabel": "Context usage",
       "breakdownTitle": "Token breakdown",
       "budgetRow": "Daily quota",
       "categoryFiles": "Files",
@@ -11924,6 +11947,8 @@
     "dropAttachmentHint": "Release mouse to add attachment (image/video)",
     "empty": "Start a conversation",
     "emptyHint": "Type a message below to start chatting with AI",
+    "turnAnchorUnresolvedTitle": "This turn could not be located",
+    "turnAnchorUnresolvedHint": "The linked turn did not load. This view stays empty instead of filling in other history from the conversation.",
     "errorTimeout15s": "AI response timeout (no content received within 15 seconds), please retry later",
     "errorTimeout60s": "AI thinking timeout (no answer produced within 60 seconds, reasoning model may be thinking too long), please retry later or switch to a regular model",
     "errors": {
@@ -12030,6 +12055,7 @@
     "modeTaskAria": "{mode} task",
     "taskProgressAria": "Task progress {status}",
     "taskProgressOpen": "Task progress",
+    "taskProgressIdle": "Idle",
     "toolsPanelOpen": "Show tools panel",
     "toolsPanelClose": "Hide tools panel",
     "model": "Model",
@@ -12542,6 +12568,7 @@
       "moreItems": "{count} more"
     },
     "agentPicker": {
+      "label": "Agent",
       "triggerAria": "Select in-conversation agent / expert",
       "default": "Default assistant",
       "defaultDesc": "No expert",
@@ -15002,6 +15029,33 @@
       "grantRuleConfirmCancel": "Cancel",
       "approve": "Approve",
       "argsPreview": "Arguments",
+      "decisionDetail": "Operation details",
+      "decisionDetailReason": "Reason",
+      "decisionDetailRisk": "Risk",
+      "decisionDetailScope": "Scope",
+      "decisionDetailCwd": "Working directory",
+      "decisionDetailPaths": "Affected paths",
+      "decisionDetailCommand": "Command",
+      "rawArgs": "Raw arguments",
+      "riskLow": "Low",
+      "riskMedium": "Medium",
+      "riskHigh": "High",
+      "scopeFsRead": "Read",
+      "scopeFsWrite": "Write",
+      "scopeFsDelete": "Delete",
+      "scopeExec": "Execute",
+      "scopeNetwork": "Network",
+      "scopeDb": "Database",
+      "scopeOther": "Other",
+      "reasonDangerousCommand": "Dangerous command",
+      "reasonDestructiveOperation": "Destructive operation",
+      "reasonWritesFiles": "Writes files",
+      "reasonDeletesFiles": "Deletes files",
+      "reasonExecutesCommand": "Executes command",
+      "reasonNetworkAccess": "Network access",
+      "reasonDatabaseWrite": "Database write",
+      "reasonHighRiskTool": "High-risk tool",
+      "reasonRequiresConfirmation": "Requires confirmation",
       "description": "AI requests to run the following high-risk operation. Please confirm whether to allow it.",
       "pendingCount": "{count} more pending",
       "reject": "Reject",
@@ -16287,7 +16341,12 @@
       "points": "{n} pts",
       "submittedAt": "Submitted at: {time}",
       "unanswered": "Unanswered",
-      "yourAnswer": "Your answer:"
+      "yourAnswer": "Your answer:",
+      "correct": "Correct",
+      "wrong": "Wrong",
+      "reviewCorrect": "Correct",
+      "reviewWrong": "Wrong",
+      "unansweredAnswer": "Not answered"
     },
     "score": "Score {score} / {total}",
     "startExam": "Start Exam",
@@ -17099,6 +17158,7 @@
     },
     "codeEditor": {
       "lspStatus": "LSP",
+      "attributionToggle": "Toggle AI line attribution",
       "zoomIn": "Zoom in",
       "zoomOut": "Zoom out"
     },
@@ -23344,6 +23404,8 @@
     "accountDeletionResend": "Resend in {seconds}s",
     "accountDeletionSendCode": "Send Code",
     "accountDeletionSubmit": "Confirm Deletion",
+    "accountDeletionConfirmLabel": "Confirm Deletion",
+    "accountDeletionConfirmTitle": "Confirm Deletion",
     "accountDeletionSuccess": "Account deleted, redirecting to login",
     "accountDeletionTitle": "Account Deletion",
     "accountDeletionWarning": "This action is irreversible. All data will be permanently lost.",
@@ -23878,6 +23940,8 @@
     "agentSecuritySaveFailed": "Failed to save security config",
     "analyticsEnabled": "Usage analytics",
     "analyticsEnabledDesc": "When on, the platform records anonymous feature-usage events (clicks, page visits, timings) to improve the product. It never records the content, code, or file paths you enter. Turning this off stops reporting immediately and affects no feature.",
+    "rumEnabled": "Performance & error diagnostics (optional)",
+    "rumEnabledDesc": "Off by default. When enabled, only anonymous startup timing, AI first-token latency, streaming long-task counts, and redacted error summaries are reported to improve performance. File paths, workspace names, email addresses, and device fingerprints are never sent. Turning it off stops collection immediately, clears pending data, and sends no further requests.",
     "llmRawRetentionOptOut": "Don't Retain LLM Conversation Text",
     "llmRawRetentionOptOutDesc": "Your prompts and AI replies are never written to the database",
     "codeIndexEgressOptOut": "Don't Build Code Semantic Index",
@@ -25880,8 +25944,7 @@
     "empty": "No activities",
     "startTime": "Start time",
     "endTime": "End time",
-    "participants": "Participants",
-    "joinNow": "Join now"
+    "participants": "Participants"
   },
   "agentReviewDetail": {
     "title": "Review details",
@@ -26132,8 +26195,6 @@
     "unverifiedDesc": "Your identity is not yet verified. Please complete the information below.",
     "name": "Full name",
     "namePlaceholder": "Enter your full name",
-    "idNumber": "ID number",
-    "idNumberPlaceholder": "Enter your ID number",
     "submitting": "Submitting…",
     "submit": "Submit"
   },
@@ -26145,7 +26206,6 @@
     "title": "Study progress",
     "courses": "Courses",
     "totalMinutes": "Total study time",
-    "weekMinutes": "This week",
     "streak": "Streak",
     "courseProgress": "Course progress"
   },
@@ -26815,11 +26875,8 @@
   },
   "agentCreate": {
     "title": "Create Agent",
-    "name": "Name",
     "namePlaceholder": "Enter a name",
-    "category": "Category",
     "categoryPlaceholder": "Select a category",
-    "description": "Description",
     "descPlaceholder": "Enter a description",
     "systemPrompt": "System Prompt",
     "promptPlaceholder": "Enter the system prompt",
@@ -26886,7 +26943,6 @@
     "remove": "Remove"
   },
   "certList": {
-    "title": "My Certificates",
     "empty": "No certificates",
     "issuer": "Issuer",
     "issuedAt": "Issued at"
@@ -26938,7 +26994,6 @@
   },
   "courseQAList": {
     "title": "Course Q&A",
-    "ask": "Ask",
     "empty": "No Q&A",
     "asker": "Asker",
     "answers": "Answers"
@@ -27015,7 +27070,6 @@
     "actionEdit": "Edit"
   },
   "notificationSettings": {
-    "title": "Notification Settings",
     "push": "Push notifications",
     "message": "Message alerts",
     "email": "Email notifications",
@@ -27116,9 +27170,7 @@
   "withdraw": {
     "title": "Withdraw",
     "availableBalance": "Withdrawable balance",
-    "amount": "Amount",
     "amountPlaceholder": "Enter the withdrawal amount",
-    "bankCard": "Bank card",
     "bankCardPlaceholder": "Enter the bank card number",
     "submitting": "Withdrawing...",
     "submit": "Confirm withdrawal",
@@ -27513,7 +27565,6 @@
   },
   "team": {
     "retry": "Retry",
-    "title": "My Team",
     "subtitle": "Team Management",
     "totalMembers": "Total Members",
     "activeMembers": "Active Members",

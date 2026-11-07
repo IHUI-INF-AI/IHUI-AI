@@ -1,24 +1,23 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
 // 对齐目标(RN 共享屏): packages/app/src/features/notification-settings/NotificationSettingsScreen.tsx
+// 批次 5 薄壳:开关组 + 「更多」入口 + 保存条全部由共享屏渲染;本页只留数据编排。
+// 两端显式传值且不同:items(小程序=服务端偏好键 / RN=自身固定 5 键)、showHeader(小程序 false / RN true)、
+// extraLinks(小程序 3 条小程序可达目标 / RN 1 条 MessageCenter)。
+import { useCallback, useMemo, useState } from 'react'
+import Taro, { useDidShow } from '@tarojs/taro'
+import { NotificationSettingsScreen as SharedNotificationSettingsScreen } from '@ihui/rn-app/features/notification-settings/NotificationSettingsScreen'
+import type { NotificationSettingsLink, NotificationSettingsRow } from '@ihui/types'
+import { getNotificationSettings, updateNotificationSettings } from '@/api'
+import ThemeRoot from '@/components/ThemeRoot'
+import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useI18n } from '@/i18n'
+import { useAppTheme } from '@/lib/theme'
+import { onToast } from '@/host/on-toast'
 import { logger } from '@/utils/logger'
 import { requestPushSubscription } from '@/utils/push-init'
-import { View, Text, Switch } from '@tarojs/components'
-import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
-import { getNotificationSettings, updateNotificationSettings } from '@/api'
-import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import ThemeRoot from '@/components/ThemeRoot'
-import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
-import LineIcon from '@/components/LineIcon'
-import { getRnTokens } from '@ihui/design-tokens'
-import { useAppTheme } from '@/lib/theme'
 import { useChannelLabel } from './notification-channel-label'
-import NotificationSaveBar from './notification-save-bar'
-import { onToast } from '@/host/on-toast'
 
 interface NotificationSettingItem {
   key: string
@@ -28,11 +27,9 @@ interface NotificationSettingItem {
 
 export default function NotificationPage() {
   const { t } = useI18n()
-  const gate = useAuthReadyGate()
-  /* 微信 <switch color> 走 wxml 原生属性位、不解析 CSS 变量 ⇒ 必须 JS 派生 hex。
-     取墨档 brand.DEFAULT(亮 #000000 / 暗 #FFFFFF,随主题翻转),与 RN trackColor.true 同档。 */
   const { resolved } = useAppTheme()
-  const switchInk = getRnTokens(resolved).brand.DEFAULT
+  const channelLabel = useChannelLabel()
+  const gate = useAuthReadyGate()
   const [list, setList] = useState<NotificationSettingItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -43,8 +40,6 @@ export default function NotificationPage() {
     },
     [t],
   )
-
-  const channelLabel = useChannelLabel()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -60,15 +55,22 @@ export default function NotificationPage() {
   }, [tt])
 
   // G-933 冷启动抢跑门控:挂载唯一一支 GET /api/settings/notification 需鉴权
-  // (apps/api/src/routes/miniapp-compat-routes.ts:2516 handler 内
-  // `if (!(await checkAuth(request, reply))) return`,注册前缀 /api 见 routes/index.ts:1045)
-  // ⇒ 挡到门后。等待期间由既有 loading 分支(加载中)承载;
-  // 开关那一支 PUT /api/settings/notification 由用户点击触发,不属挂载抢跑,原样不动。
+  // (apps/api/src/routes/miniapp-compat-routes.ts:2707 handler 内 checkAuth)⇒ 挡到门后。
   useDidShow(() => {
     gate.waitUntilReady(() => {
       void load()
     })
   })
+
+  const items: readonly NotificationSettingsRow[] = useMemo(
+    () =>
+      list.map((item) => ({
+        key: item.key,
+        label: channelLabel(item.key, item.title),
+        enabled: item.enabled,
+      })),
+    [channelLabel, list],
+  )
 
   const onToggle = useCallback(
     (key: string, value: boolean) => {
@@ -81,12 +83,7 @@ export default function NotificationPage() {
     [tt],
   )
 
-  const onDetail = useCallback(() => {
-    Taro.navigateTo({ url: '/pkg-user/message/index' })
-  }, [])
-
-  /* 对齐 RN saveBtn:开关仍即时生效(本页既有交互),保存按钮做一次全量确认提交 ——
-     幂等,失败会明确回吐,不让"点了没反应"冒充已保存。 */
+  // 开关即时生效(既有交互),保存按钮做一次全量确认提交 —— 幂等,失败明确回吐。
   const onSave = useCallback(async () => {
     if (saving) return
     setSaving(true)
@@ -105,6 +102,10 @@ export default function NotificationPage() {
     }
   }, [list, saving, t, tt])
 
+  const onBack = useCallback(() => {
+    void Taro.navigateBack()
+  }, [])
+
   // 微信订阅消息授权(一次性授权,消耗后需再次订阅才能收到下一条推送)
   const onSubscribeWx = useCallback(async () => {
     const accepted = await requestPushSubscription()
@@ -118,114 +119,52 @@ export default function NotificationPage() {
     }
   }, [tt])
 
+  // 小程序专有三条入口(微信订阅走 wx.requestSubscribeMessage;账单/通知详情跳小程序路由)。
+  // 共享屏只负责渲染这一段数据,不内联任何端侧导航 —— RN 侧另传它自己的入口。
+  const extraLinks: readonly NotificationSettingsLink[] = useMemo(
+    () => [
+      {
+        key: 'wx-subscribe',
+        label: tt('setting.notification.wxSubscribe', '微信催费提醒'),
+        desc: t('bill.wxSubscribeDesc'),
+        onPress: () => void onSubscribeWx(),
+      },
+      {
+        key: 'bills',
+        label: tt('setting.notification.myBills', '我的学费账单'),
+        desc: tt('setting.notification.myBillsDesc', '查看应缴/已缴/欠费并在线缴费'),
+        onPress: () => void Taro.navigateTo({ url: '/pkg-user/bill/index' }),
+      },
+      {
+        key: 'detail',
+        label: tt('setting.notification.detail', '通知详情'),
+        desc: tt('setting.notification.detailDesc', '查看历史通知消息'),
+        onPress: () => void Taro.navigateTo({ url: '/pkg-user/message/index' }),
+      },
+    ],
+    [onSubscribeWx, t, tt],
+  )
+
   return (
-    <ThemeRoot>
-      {/* 根容器背景对齐 RN 共享 NotificationSettingsScreen container(surface.bg → --color-background);
-          留白对齐 body padding 10dp→20rpx + 页尾 paddingBottom 24dp→48rpx */}
-      <View className="min-h-screen bg-background pt-[24rpx] pb-[48rpx]">
-        {/* 对齐 RN 顶部 card:说明文案(notificationSettings.desc) */}
-        <View className="mx-[20rpx] mt-[32rpx] rounded-lg bg-card p-[24rpx]">
-          <Text className="text-body leading-[1.5] text-[color:var(--color-text-medium)]">
-            {t('notificationSettings.desc')}
-          </Text>
-        </View>
-        {/* 分组标题沿用共享 SettingsScreen sectionTitle 视觉:14dp→28rpx(text.secondary) */}
-        <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-body text-muted-foreground">
-            {tt('setting.notification.categoryTitle', '通知分类')}
-          </Text>
-          {/* 卡片对齐 RN card: 圆角 12dp→24rpx + padding 12dp→24rpx + surface.light→--color-card
-              (RN 暗色仍用白色卡面导致浅字不可读,按语义 token 修正为 --color-card 随主题) */}
-          <View className="rounded-lg bg-card p-[24rpx]">
-            {loading ? (
-              <ScreenSkeleton variant="list" count={4} />
-            ) : list.length === 0 ? (
-              <EmptyState title={tt('setting.notification.empty', '暂无通知设置项')} />
-            ) : (
-              list.map((item) => (
-                <View key={item.key} className="flex items-center justify-between py-[20rpx]">
-                  <View className="mr-[16rpx] flex-1">
-                    {/* label 对齐 RN: 14dp→28rpx + text.medium 语义映射 muted-foreground */}
-                    <Text className="text-body text-muted-foreground">
-                      {channelLabel(item.key, item.title)}
-                    </Text>
-                  </View>
-
-                  {/* Switch 对齐 RN trackColor.true = brand.DEFAULT(源 --color-primary 墨档);
-                      原生属性位不解析 var(),取 JS 派生 switchInk */}
-                  <Switch
-                    checked={item.enabled}
-                    color={switchInk}
-                    onChange={(e) => onToggle(item.key, e.detail.value)}
-                  />
-                </View>
-              ))
-            )}
-          </View>
-        </View>
-
-        <View className="mx-[20rpx] mt-[32rpx]">
-          <Text className="mb-[16rpx] block text-body text-muted-foreground">
-            {tt('setting.notification.moreTitle', '更多')}
-          </Text>
-          <View className="rounded-lg bg-card p-[24rpx]">
-            <View
-              className="flex items-center justify-between py-[20rpx]"
-              onClick={() => void onSubscribeWx()}
-              hoverClass="opacity-60"
-            >
-              <View className="mr-[16rpx] flex-1">
-                <Text className="text-body text-muted-foreground">
-                  {tt('setting.notification.wxSubscribe', '微信催费提醒')}
-                </Text>
-                <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
-                  {/* 原写法取 `setting.notification.wxSubscribeDesc` —— 该键在五语言词包里
-                      **都不存在** ⇒ tt() 的中文兜底恒被渲染(非中文环境也是中文)。
-                      改指同义且已在册的 `bill.wxSubscribeDesc`(本屏下方就跳 bill 页)。 */}
-                  {t('bill.wxSubscribeDesc')}
-                </Text>
-              </View>
-              {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex items-center justify-between py-[20rpx]"
-              onClick={() => Taro.navigateTo({ url: '/pkg-user/bill/index' })}
-              hoverClass="opacity-60"
-            >
-              <View className="mr-[16rpx] flex-1">
-                <Text className="text-body text-muted-foreground">
-                  {tt('setting.notification.myBills', '我的学费账单')}
-                </Text>
-                <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
-                  {tt('setting.notification.myBillsDesc', '查看应缴/已缴/欠费并在线缴费')}
-                </Text>
-              </View>
-              {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-            <View
-              className="flex items-center justify-between py-[20rpx]"
-              onClick={onDetail}
-              hoverClass="opacity-60"
-            >
-              <View className="mr-[16rpx] flex-1">
-                <Text className="text-body text-muted-foreground">
-                  {tt('setting.notification.detail', '通知详情')}
-                </Text>
-                <Text className="mt-[6rpx] block text-label leading-[1.5] text-[color:var(--color-text-tertiary)]">
-                  {tt('setting.notification.detailDesc', '查看历史通知消息')}
-                </Text>
-              </View>
-              {/* arrow 对齐 RN plainRow arrow: 20dp→40rpx + text.tertiary */}
-              <LineIcon name="chevron-right" size={24} color="var(--color-text-tertiary)" />
-            </View>
-          </View>
-        </View>
-
-        <NotificationSaveBar saving={saving} onSave={() => void onSave()} />
-      </View>
+    <ThemeRoot className="min-h-screen bg-background">
+      <SharedNotificationSettingsScreen
+        t={t}
+        items={items}
+        showHeader={false}
+        extraLinks={extraLinks}
+        extraLinksTitle={tt('setting.notification.moreTitle', '更多')}
+        loading={loading}
+        saving={saving}
+        error=""
+        success=""
+        onToggle={onToggle}
+        onSave={() => void onSave()}
+        onBack={onBack}
+        onRetry={() => void load()}
+        colorScheme={resolved}
+      />
     </ThemeRoot>
   )
 }
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

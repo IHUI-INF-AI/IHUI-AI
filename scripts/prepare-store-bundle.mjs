@@ -384,7 +384,7 @@ function main() {
   return reconcile.status === STATUS.MISSING ? 1 : plan.every((p) => p.status === 'ready') ? 0 : 2
 }
 
-export const __test__ = { extractManifestPermissions, reconcilePermissions, resolveIcpFiling, ICP_FILING_GATE, ICP_FILING_LEDGER_REL, NORMAL_PERMISSIONS, reconcileSdks, SDK_WATCHLIST, checkListingLimits, buildListing, buildPlan, VENDOR_LIMITS, PERMISSION_EVIDENCE_KEYS, STATUS }
+export const __test__ = { loadInputs, extractManifestPermissions, reconcilePermissions, resolveIcpFiling, ICP_FILING_GATE, ICP_FILING_LEDGER_REL, NORMAL_PERMISSIONS, reconcileSdks, SDK_WATCHLIST, checkListingLimits, buildListing, buildPlan, VENDOR_LIMITS, PERMISSION_EVIDENCE_KEYS, STATUS }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {

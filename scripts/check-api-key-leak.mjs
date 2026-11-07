@@ -84,8 +84,10 @@ function collectFiles() {
         .split('\n')
         .map((f) => f.replace(/\r$/, ''))
         .filter((f) => f && !SELF_FILES.has(f))
-    } catch {
-      return []
+    } catch (e) {
+      // BUG-20①:取不到暂存清单(index.lock 占用/超时)≠ 空清单。返回 [] 会让 violations=[]
+      // ⇒ 打印"通过"并 exit 0,而头注写的是"取不到输入 ⇒ exit 2 无法判定"。
+      throw new Undetermined(`暂存清单取不到(git diff --cached 失败):${e?.message ?? e}`)
     }
   }
   // head/worktree 面:检查所有 .example 文件 + memory
@@ -125,11 +127,13 @@ if (faceError) {
   process.exit(2)
 }
 
-const files = collectFiles()
+let files = []
 const violations = []
 
 try {
   assertRepoRoot(ROOT, 'API key 泄露检查')
+  // 清单取材与内容取材同一次 try:取不到清单抛 Undetermined ⇒ 下方 catch 折成 exit 2。
+  files = collectFiles()
   // 清单与内容同面同轮:一次 catBatch 读满,不在读取时偷偷补派生(守门 118/98 同一纪律)。
   const specs = files.map((p) => (face === 'staged' ? `:${p}` : `HEAD:${p}`))
   const map = face === 'worktree' ? null : catBatch(ROOT, specs)

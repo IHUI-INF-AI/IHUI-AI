@@ -597,6 +597,54 @@ function safeRead(rel) {
 // 不合格逐条点名拒收原因(§0.3 取不到/不成立不冒充通过);confidence≠high 的 declare 一律拒。
 const proposalsArg = argv.find((a) => a.startsWith('--proposals='))
 const proposals = { miniapp: [], web: [], refused: [], filesRead: [], verdicts: [] }
+
+/**
+ * 证据型改判的字段透传(2026-11-05 立)。
+ * 旧形态三处 push 只写 {web,rn,status,note,at},把裁决件里的 `state / data / residualGap / verifiedAt`
+ * **整片丢掉** ⇒ 尺子的 structuredProblem 判 "aligned 结构化字段不合格"(它要求 state==='verified' ∧
+ * data.kind 合法 ∧ data.evidence ≥8 字),而"主功能已验、子能力缺"这一档唯一的表达通道 residualGap
+ * 也随之一并消失(现读 484 行台账里只有 1 行带它 —— 那是人手写的,不是登记器产的)。
+ * 结果:诚实的改判(带残余缺口的 aligned)写不进去,队列只能一直烂在 pending。
+ * 本函数只透传并核验形状,不新造判据:核验规则与尺子同形(缺字段 ⇒ 不写该字段而不是编一个)。
+ */
+function structuredExtras(it, refuse) {
+  const out = {}
+  const state = typeof it.state === 'string' ? it.state.trim() : ''
+  if (state && state !== 'verified' && state !== 'pending') {
+    refuse(`state=${state} 不合法(只认 verified/pending)`)
+    return null
+  }
+  if (it.data !== undefined) {
+    const d = it.data
+    if (!d || typeof d !== 'object' || Array.isArray(d)) {
+      refuse('data 不是对象')
+      return null
+    }
+    if (typeof d.kind !== 'string' || !d.kind.trim()) {
+      refuse('data.kind 缺失')
+      return null
+    }
+    if (typeof d.evidence !== 'string' || d.evidence.trim().length < 8) {
+      refuse('data.evidence 缺失或不足以定位(需 ≥8 字,形如 文件:行)')
+      return null
+    }
+    out.data = { kind: d.kind.trim(), via: typeof d.via === 'string' ? d.via : undefined, evidence: d.evidence.trim() }
+    if (typeof d.webEvidence === 'string' && d.webEvidence.trim().length >= 8)
+      out.data.webEvidence = d.webEvidence.trim()
+  }
+  if (state) out.state = state
+  if (state === 'verified' && !out.data) {
+    refuse('state=verified 但缺 data(证据字段)⇒ 不许写成 verified')
+    return null
+  }
+  const rg = typeof it.residualGap === 'string' ? it.residualGap.trim() : ''
+  if (rg) out.residualGap = rg
+  const va = typeof it.verifiedAt === 'string' ? it.verifiedAt.trim() : ''
+  if (va) out.verifiedAt = va
+  const ss = typeof it.supersedeStatus === 'string' ? it.supersedeStatus.trim() : ''
+  if (ss) out.supersedeStatus = ss
+  return out
+}
 if (proposalsArg) {
   const target = resolve(ROOT, proposalsArg.slice('--proposals='.length))
   const files = existsSync(target) && statSync(target).isDirectory()
@@ -702,8 +750,7 @@ if (proposalsArg) {
         if (ev.trim().length < 10) {
           refuse('note/reason 少于 10 字,拒')
           continue
-        }
-        if (it.verdict === 'gap') {
+        }        if (it.verdict === 'gap') {
           if (!webRouteSet.has(it.web)) {
             refuse(`web 键不在路由集:${String(it.web)}`)
             continue
@@ -712,7 +759,15 @@ if (proposalsArg) {
             refuse('该路由已有判定登记(aligned/excluded/gap)')
             continue
           }
-          proposals.web.push({ web: it.web, status: 'gap', note: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+          const exGap = structuredExtras(it, refuse)
+          if (!exGap) continue
+          proposals.web.push({
+            web: it.web,
+            status: 'gap',
+            note: `子代理判定@${TODAY}: ${ev}`,
+            at: TODAY,
+            ...exGap,
+          })
           continue
         }
         if (it.verdict === 'aligned') {
@@ -729,7 +784,16 @@ if (proposalsArg) {
             refuse(`aligned 指向的屏不存在:${String(it.rn)}`)
             continue
           }
-          proposals.web.push({ web: it.web, rn: it.rn, status: 'aligned', note: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+          const exAligned = structuredExtras(it, refuse)
+          if (!exAligned) continue
+          proposals.web.push({
+            web: it.web,
+            rn: it.rn,
+            status: 'aligned',
+            note: `子代理判定@${TODAY}: ${ev}`,
+            at: TODAY,
+            ...exAligned,
+          })
         } else if (it.verdict === 'excluded') {
           const seg = String(it.web).endsWith('/**')
           if (!seg && !webRouteSet.has(it.web)) {
@@ -740,7 +804,15 @@ if (proposalsArg) {
             refuse('该路由/段已有判定登记(aligned/excluded/gap)')
             continue
           }
-          proposals.web.push({ web: it.web, status: 'excluded', reason: `子代理判定@${TODAY}: ${ev}`, at: TODAY })
+          const exExcluded = structuredExtras(it, refuse)
+          if (!exExcluded) continue
+          proposals.web.push({
+            web: it.web,
+            status: 'excluded',
+            reason: `子代理判定@${TODAY}: ${ev}`,
+            at: TODAY,
+            ...exExcluded,
+          })
         }
       } else {
         refuse('条目既无 shared 也无 web 键')
@@ -1041,6 +1113,49 @@ summary.renderConverge = {
 }
 let appliedPortalCount = 0
 
+/**
+ * web 档改判的具名让位通道(2026-11-05 立)。
+ * 缺口:此前 proposals.web 只有"追加"一条路,而 pending 行的改判**没有出口** ——
+ * 旧 pending 行不动 ⇒ 同一 web 落两行(尺子的 duplicateWebKeys 维当场红),
+ * 于是"判过了"的结论写不进去,队列只能一直烂着(现读 pending=8,自 10-24/25 起无人能改判)。
+ * 纪律:让位必须**显式点名要让的旧状态**,且该旧行必须真在册;
+ * 没点名 / 点名了但册上没有 ⇒ 拒这一条并大声点名(不静默追加成双行,也不替别席洗在册判定)。
+ */
+const webSupersede = []
+const webRefused = []
+for (const r of proposals.web) {
+  const declared = typeof r.supersedeStatus === 'string' ? r.supersedeStatus.trim() : ''
+  const prior = mapRows.filter((m) => m.web === r.web && m.status !== r.status)
+  const statuses = new Set(prior.map((m) => m.status))
+  if (prior.length === 0) {
+    if (declared)
+      webRefused.push({ web: r.web, why: `点名让位 ${declared} 但册上没有别的旧判定行(假声明)` })
+    continue
+  }
+  if (!declared) {
+    webRefused.push({
+      web: r.web,
+      why: `在册旧行 status=${[...statuses].join('/')} 未被点名让位 ⇒ 拒(否则同 web 双行灌两个分母)`,
+    })
+    continue
+  }
+  if (!statuses.has(declared)) {
+    webRefused.push({
+      web: r.web,
+      why: `点名的 supersedeStatus=${declared} 与在册 ${[...statuses].join('/')} 不符(假声明)⇒ 拒`,
+    })
+    continue
+  }
+  webSupersede.push({ web: r.web, dropStatus: declared })
+}
+if (webRefused.length)
+  console.log(
+    `⛔ web 改判拒收 ${webRefused.length} 枚(改判必须显式点名要让位的旧状态,且不替别席洗在册判定):`,
+  )
+for (const r of webRefused) console.log(`   · ${r.web} —— ${r.why}`)
+const webRowsToLand = proposals.web.filter((r) => !webRefused.some((x) => x.web === r.web))
+for (const r of webRowsToLand) delete r.supersedeStatus
+
 if (applyMode) {
   const mapRowsToAdd = summary.webRn.map((c) => ({
     web: c.web,
@@ -1049,7 +1164,7 @@ if (applyMode) {
     note: `自动登记@${TODAY}: 端点交集 ${c.commonEps} 条(${(c.sample || []).join(', ')}) + 名称 token ${c.nameHit.join('+')}`,
     at: TODAY,
   }))
-  for (const r of proposals.web) mapRowsToAdd.push(r)
+  for (const r of webRowsToLand) mapRowsToAdd.push(r)
   for (const r of portalRowsToLand) mapRowsToAdd.push(r)
   for (const r of renderRowsToLand) mapRowsToAdd.push(r)
   appliedPortalCount = portalRowsToLand.length
@@ -1081,7 +1196,10 @@ if (applyMode) {
   for (const p of proposals.miniapp)
     land(p.file, p.shared, p.rn, p.miniapp, `子代理判定:${p.evidence}`)
   const addedMap = appendMapRows(mapRowsToAdd, {
-    supersede: renderRowsToLand.map((r) => ({ web: r.web, dropStatus: 'gap' })),
+    supersede: [
+      ...renderRowsToLand.map((r) => ({ web: r.web, dropStatus: 'gap' })),
+      ...webSupersede,
+    ],
     // 幂等跳过的那枚路由仍须清掉 HEAD 侧旧判定行(D1);取代不等于本批产出。
     supersedeWebs: portalSupersede,
   })

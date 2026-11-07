@@ -15,6 +15,7 @@
  *  - `snapshot`     拿不到输入(超时/非 200/形状不对)⇒ 不覆盖、也不说"该端没货"
  *  - `unavailable`  拿到了输入且判据不命中(该端确实没登记 / 无机器可读发布源)⇒ 不覆盖
  */
+import { withBasePath } from './base-path'
 import type { LiveDesktopSource, ReleaseScanSummary } from './desktop-feed-live'
 import type { DownloadAsset, DownloadPlatform, PlatformMeta } from './downloads.config'
 
@@ -227,11 +228,19 @@ export interface ArtifactEntry {
 export interface ExtensionManifestEntry {
   version?: unknown
   sizeBytes?: unknown
+  /** manifest.json 里登记的包文件名;用于确认 sha256 指的是被挑中的那一枚 */
+  fileName?: unknown
+  /** update-files.json 里同一文件的 sha256(发布侧逐文件清单) */
+  sha256?: unknown
 }
 
-/** 扩展包站内可点地址(单一落形处,防第二处手拼漂移) */
+/** 与发布侧 update-file-manifest.mjs 同一条哈希字面量判据(只认 64 位小写 hex) */
+const SHA256_RE = /^[0-9a-f]{64}$/
+
+/** 扩展包站内可点地址(单一落形处,防第二处手拼漂移)。
+ *  同样必须过 basePath —— Pages 上裸 `/downloads/...` 解析到根域即 404。 */
 function extensionAssetHref(fileName: string): string {
-  return `/downloads/extension/${encodeURIComponent(fileName)}`
+  return withBasePath(`/downloads/extension/${encodeURIComponent(fileName)}`)
 }
 
 /** 从扩展包文件名里取版本号;取不到返回 null(不编) */
@@ -276,15 +285,28 @@ export function judgeExtensionArtifact(
       drift.push(`extension-manifest-size-drift:${manifest.sizeBytes}!=${picked.sizeBytes}`)
     }
   }
+  // 2026-11-05:页面要能自证"这份包是哪次构建的"。releaseDate 取实物 mtime(不是底稿里的
+  // 手写日期),sha256 只认发布侧清单里**同名文件**的那条 —— 版本抬了但清单还没跟上时宁可不显示,
+  // 也不拿另一枚包的哈希冒充。
+  const sha256 =
+    manifest !== null &&
+    typeof manifest.sha256 === 'string' &&
+    SHA256_RE.test(manifest.sha256) &&
+    typeof manifest.fileName === 'string' &&
+    manifest.fileName === picked.name
+      ? manifest.sha256
+      : undefined
   return {
     ...base,
     source: 'live',
     version: version ?? undefined,
+    releaseDate: isoDateOf(new Date(picked.mtimeMs).toISOString()),
     reason: drift.length > 0 ? drift.join(',') : undefined,
     assets: [
       {
         href: extensionAssetHref(picked.name),
         sizeBytes: picked.sizeBytes,
+        ...(sha256 === undefined ? {} : { sha256 }),
         format: 'Chrome MV3 ZIP',
       },
     ],

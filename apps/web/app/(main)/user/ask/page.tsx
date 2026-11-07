@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
 import { Loader2, HelpCircle, MessageCircle } from 'lucide-react'
-import { fetchApi } from '@/lib/api'
+import { getAsks } from '@ihui/api-client'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { pushError } from '@/stores/error-banner'
@@ -42,13 +42,12 @@ export default function AskPage() {
     queryKey: ['user', 'ask', user?.id],
     enabled: allow && !!user?.id,
     queryFn: async (): Promise<AskItem[]> => {
-      const r = await fetchApi<{ list?: AskItem[] } | AskItem[]>(`/api/asks?authorId=${user!.id}`)
+      const r = await getAsks({ authorId: user!.id })
       if (!r.success) {
         if (r.status === 404) return []
         throw new Error(r.error)
       }
-      const d = r.data
-      return Array.isArray(d) ? d : (d.list ?? [])
+      return r.data.list ?? []
     },
   })
 

@@ -18,6 +18,8 @@
  * 「重新授权」走真实扫码链路:start → 轮询 status → 展示服务端截图二维码 → 成功自动刷新。
  * 不搬 web 的批量导入 / 批量验证 / 分组管理(移动端低频)。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -80,6 +82,7 @@ function fmt(iso: string | null | undefined, locale: string): string {
 }
 
 export default function PublishAccountsScreen() {
+  const dialogMaxHeightStyle = useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.extraTall)
   const { t, locale } = useI18n()
   const navigation = useNavigation<NavigationProp>()
 
@@ -369,7 +372,7 @@ export default function PublishAccountsScreen() {
       <Modal visible={panel !== null} transparent animationType="slide" onRequestClose={closePanel}>
         <View style={styles.overlay}>
           <Tappable style={styles.mask} onPress={closePanel} />
-          <View style={styles.sheet}>
+          <View style={[styles.sheet, dialogMaxHeightStyle]}>
             <View style={styles.sheetHead}>
               <Text style={styles.sheetTitle} numberOfLines={1}>
                 {scan ? t('publishAccounts.scanTitle') : panel?.displayName}
@@ -404,7 +407,7 @@ export default function PublishAccountsScreen() {
                   onPress={closePanel}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.outlineBtnText}>{t('publishAccounts.scanCancel')}</Text>
+                  <Text style={styles.outlineBtnText}>{t('publish.accounts.cancelScan')}</Text>
                 </TouchableOpacity>
               </View>
             ) : panel ? (
@@ -497,10 +500,14 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
+    hint: {
+      fontSize: rnType.caption.size,
+      color: tokens.text.tertiary,
+      lineHeight: rnType.label.lineHeight,
+    },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
       position: 'absolute',
@@ -511,7 +518,7 @@ function makeStyles() {
       backgroundColor: tokens.overlay.modal,
     },
     sheet: {
-      maxHeight: '85%',
+      maxHeight: undefined,
       padding: rnSpacing.lg,
       gap: rnSpacing['sm-loose'],
       borderTopLeftRadius: rnRadius.xl,
@@ -539,7 +546,7 @@ function makeStyles() {
       justifyContent: 'center',
       gap: rnSpacing['xs-loose'],
     },
-    outlineBtnText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    outlineBtnText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     primaryBtn: {
       height: 44,
       borderRadius: rnRadius.sm,
@@ -561,7 +568,7 @@ function makeStyles() {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     disabled: { opacity: 0.5 },
   })
 }

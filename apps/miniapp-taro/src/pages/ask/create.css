@@ -26,7 +26,7 @@
 
 .ask-create-body {
   flex: 1;
-  padding: var(--spacing-md) 20rpx 160rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose) 160rpx;
   box-sizing: border-box;
 }
 
@@ -63,7 +63,7 @@
   width: 100%;
   font-size: var(--text-title);
   color: var(--color-foreground);
-  padding: var(--spacing-sm) 24rpx;
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -73,7 +73,7 @@
 .ask-create-textarea {
   width: 100%;
   min-height: 240rpx;
-  padding: var(--spacing-sm) 24rpx;
+  padding: var(--spacing-sm) var(--spacing-md);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -87,7 +87,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-sm-loose) 24rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-md);
   margin-top: var(--spacing-xs);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
@@ -112,7 +112,7 @@
 
 .ask-create-reward {
   min-width: var(--spacing-4xl);
-  padding: var(--spacing-xs-loose) 28rpx;
+  padding: var(--spacing-xs-loose) var(--spacing-md-loose);
   text-align: center;
   background: var(--color-card);
   border: 2rpx solid var(--color-border-medium);
@@ -205,7 +205,7 @@
   bottom: 0;
   left: 0;
   right: 0;
-  padding: var(--spacing-sm-loose) 20rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-sm-loose);
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   background: var(--color-card);
   z-index: 10;
@@ -253,7 +253,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md-loose) 32rpx;
+  padding: var(--spacing-md-loose) var(--spacing-lg);
   margin-bottom: var(--spacing-xs);
 }
 
@@ -266,14 +266,14 @@
 .ask-create-sheet-close {
   font-size: var(--text-subtitle);
   color: var(--color-muted-foreground);
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
 }
 
 .ask-create-sheet-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spacing-md-loose) 32rpx;
+  padding: var(--spacing-md-loose) var(--spacing-lg);
   font-size: var(--text-body);
   color: var(--color-foreground);
 }

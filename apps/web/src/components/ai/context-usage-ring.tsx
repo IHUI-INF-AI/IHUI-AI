@@ -8,6 +8,7 @@ import * as React from 'react'
 import {
   ChevronDown,
   ChevronRight,
+  Gauge,
   Loader2,
   Minimize2,
   CheckCircle2,
@@ -17,6 +18,12 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/components/common'
 
 import { cn } from '@/lib/utils'
+import {
+  COMPOSER_MENU_ROW_CHEVRON_CLASS,
+  COMPOSER_MENU_ROW_CLASS,
+  COMPOSER_MENU_ROW_ICON_CLASS,
+  COMPOSER_MENU_ROW_VALUE_CLASS,
+} from '@/lib/composer-menu-row'
 import { isTopOverlay, popOverlay, pushOverlay } from '@/lib/overlay-stack'
 import { IconButton } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
@@ -42,6 +49,9 @@ import {
   type AttributionMessage,
 } from '@ihui/shared/utils/context-attribution'
 import type { SegmentLabelKey } from '@ihui/types'
+// 批次 3(2026-11-06):服务端七类账本（进入会话/每轮 usage 后查询；不可得时回退客户端归因）
+import { ContextLedgerPanel } from './context-ledger-panel'
+import type { ContextLedgerRecord } from '@/hooks/use-chat/context-ledger'
 
 /** 层栈 id(见 @/lib/overlay-stack):本弹层的 Esc 只在栈顶时被消费 */
 const CONTEXT_USAGE_OVERLAY_ID = 'context-usage-ring'
@@ -362,7 +372,11 @@ interface ContextUsageRingProps {
   isStreaming?: boolean
 }
 
-export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRingProps) {
+export function ContextUsageRing({
+  model,
+  isStreaming = false,
+  variant = 'ring',
+}: ContextUsageRingProps & { /** row = + 菜单内的统一设置行 */ variant?: 'ring' | 'row' }) {
   // 票60 步序四:窗格寻址。根窗格无 Provider ⇒ 单例;非根窗格读各自实例。
   const chatStore = usePaneChatStore()
   const t = useTranslations('chat.contextUsage')
@@ -370,6 +384,14 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
   const conversationId = chatStore((s) => s.conversationId)
   const usageByMessageId = chatStore((s) => s.usageByMessageId)
   const translateDetail = useDetailLabelTranslator()
+  // 批次 3:最近 20 轮账本里被点选的那一轮；有值时大圆环切到该轮的服务端口径。
+  // latestLedger=服务端最新一轮：账本可得时主圆环默认优先采信它，缺账本才回退客户端估算。
+  const [selectedLedger, setSelectedLedger] = React.useState<ContextLedgerRecord | null>(null)
+  const [latestLedger, setLatestLedger] = React.useState<ContextLedgerRecord | null>(null)
+  React.useEffect(() => {
+    setSelectedLedger(null)
+    setLatestLedger(null)
+  }, [conversationId])
 
   const maxTokens = React.useMemo(() => getModelContextCapacity(model), [model])
 
@@ -400,6 +422,12 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   const usedTokens = attribution.totalTokens
   const ratio = maxTokens > 0 ? usedTokens / maxTokens : 0
+  // 点选历史轮次时，圆环一律用服务端账本的 used/limit 与已算好的 percentage，
+  // 端内不再以 contextLimit 作除数（口径与 clamp 都是服务端单源）。
+  const ledgerView = selectedLedger ?? latestLedger
+  const ringUsedTokens = ledgerView ? ledgerView.usedTokens : usedTokens
+  const ringMaxTokens = ledgerView ? ledgerView.contextLimit : maxTokens
+  const ringRatio = ledgerView ? ledgerView.percentage / 100 : ratio
   const messageCount = messages.filter(
     (m) => !m.error && (m.role === 'user' || m.role === 'assistant') && m.content,
   ).length
@@ -489,6 +517,7 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
     const gap = 8
     const pad = 8
     const VW = window.innerWidth
+    const VH = window.innerHeight
 
     let top = r.top - gap - panelRect.height
     let left = r.left
@@ -501,6 +530,10 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
     if (top < pad) {
       top = r.bottom + gap
     }
+    // 2026-11-04:触发器随输入区收敛进「+ → 更多工具」抽屉后可能落在视口下半区,
+    // 上面的"放不下就翻到下方"兜底会把 600+px 的面板顶出视口底。
+    // 补一条底边夹紧(VH - pad - 面板高),任何情况下都留在视口内。
+    top = Math.min(top, VH - pad - panelRect.height)
     top = Math.max(pad, top)
 
     setCoords({ top, left })
@@ -580,30 +613,67 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
   return (
     <div>
-      <Tooltip content={triggerLabel} side="top">
-        <IconButton
+      {variant === 'row' ? (
+        /* + 菜单内的统一设置行(2026-11-04 第三轮):圆环降级为行内图标,右侧给百分比,
+           详细归因仍在同一个弹层里 */
+        <button
           ref={triggerRef}
+          type="button"
           onClick={() => setIsOpen((prev) => !prev)}
-          // E2E 锚点(2026-09-14 补回):aria-label 是百分比动态插值,floating-panel-viewport
-          // 等 e2e 需要稳定 testid 选中触发按钮
           data-testid="context-usage-trigger"
+          data-variant="row"
           aria-label={triggerLabel}
           aria-haspopup="dialog"
           aria-expanded={isOpen}
-          // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
-          // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后
-          // 焦点环常驻(此文件未显式 triggerRef.focus 归还,但 click-outside 关闭后 trigger
-          // 仍可能短暂持有焦点,加 data-state 是零成本防御)。
           data-state={isOpen ? 'open' : 'closed'}
+          className={COMPOSER_MENU_ROW_CLASS}
         >
-          <TriggerRing
-            ratio={ratio}
-            usedTokens={usedTokens}
-            maxTokens={maxTokens}
-            level={triggerLevel}
+          <Gauge
+            className={cn(
+              COMPOSER_MENU_ROW_ICON_CLASS,
+              triggerLevel === 'high' && 'text-amber-500',
+              triggerLevel === 'critical' && 'text-destructive',
+            )}
+            aria-hidden
           />
-        </IconButton>
-      </Tooltip>
+          <span className="min-w-0 flex-1 truncate">{t('rowLabel')}</span>
+          <span
+            className={cn(
+              COMPOSER_MENU_ROW_VALUE_CLASS,
+              triggerLevel === 'high' && 'text-amber-600 dark:text-amber-400',
+              triggerLevel === 'critical' && 'text-destructive',
+            )}
+          >
+            {Math.round(ratio * 100)}%
+          </span>
+          <ChevronDown className={COMPOSER_MENU_ROW_CHEVRON_CLASS} aria-hidden />
+        </button>
+      ) : (
+        <Tooltip content={triggerLabel} side="top">
+          <IconButton
+            ref={triggerRef}
+            onClick={() => setIsOpen((prev) => !prev)}
+            // E2E 锚点(2026-09-14 补回):aria-label 是百分比动态插值,floating-panel-viewport
+            // 等 e2e 需要稳定 testid 选中触发按钮
+            data-testid="context-usage-trigger"
+            aria-label={triggerLabel}
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            // 2026-09-02 治理:自写 popover trigger 加 data-state,让 globals.css:1090
+            // `button[data-state='closed']:focus-visible { box-shadow: none }` 抑制关闭后
+            // 焦点环常驻(此文件未显式 triggerRef.focus 归还,但 click-outside 关闭后 trigger
+            // 仍可能短暂持有焦点,加 data-state 是零成本防御)。
+            data-state={isOpen ? 'open' : 'closed'}
+          >
+            <TriggerRing
+              ratio={ratio}
+              usedTokens={usedTokens}
+              maxTokens={maxTokens}
+              level={triggerLevel}
+            />
+          </IconButton>
+        </Tooltip>
+      )}
       {isOpen &&
         createPortal(
           <div
@@ -617,10 +687,17 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
             // 无障碍遍历、后续改样式的人)检查,类名上看不出它是浮层 —— 而"忘了写定位"
             // 正是弹层跟着页面滚走那一类事故的成因。top/left 仍由 inline 给(坐标是动态的)。
             className="fixed z-popover w-72 ui-popover rounded-md border bg-popover p-3 text-popover-foreground shadow-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            style={coords ? { top: coords.top, left: coords.left } : { top: -9999, left: -9999 }}
+            style={
+              coords
+                ? { top: coords.top, left: coords.left, maxHeight: 'calc(100vh - 16px)' }
+                : { top: -9999, left: -9999 }
+            }
             role="dialog"
             aria-label={t('title')}
             aria-modal="true"
+            // 2026-11-04:本面板从底栏收进「+ → 更多工具」抽屉后,点击面板内部不得被
+            // add-menu-popover 的 outside-click 判定为"点外面"(否则父菜单连同本面板一起卸载)。
+            data-composer-nested-panel=""
             tabIndex={-1}
           >
             {/* 标题 */}
@@ -639,11 +716,11 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
 
             {/* 大圆环 + 模型信息 */}
             <div className="flex items-center gap-4">
-              <PanelRing ratio={ratio} usedTokens={usedTokens} maxTokens={maxTokens} />
+              <PanelRing ratio={ringRatio} usedTokens={ringUsedTokens} maxTokens={ringMaxTokens} />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5 text-label">
                 <StatRow label={t('currentModel')} value={model} truncate />
-                <StatRow label={t('used')} value={formatTokenCount(usedTokens)} mono />
-                <StatRow label={t('max')} value={formatTokenCount(maxTokens)} mono />
+                <StatRow label={t('used')} value={formatTokenCount(ringUsedTokens)} mono />
+                <StatRow label={t('max')} value={formatTokenCount(ringMaxTokens)} mono />
                 <StatRow label={t('messages')} value={String(messageCount)} mono />
                 {/* B 节(2026-09-30):今日额度行 —— 收到过 budget 帧才渲染,不假装有任何进度;
                     percent 走 budgetBarPercent(与 ContextBudgetBar 同源同式),tier 是服务端
@@ -833,6 +910,14 @@ export function ContextUsageRing({ model, isStreaming = false }: ContextUsageRin
                 )}
               </div>
             </div>
+
+            {/* 批次 3:服务端七类账本主视图；不可得时上面的客户端归因即兜底 */}
+            <ContextLedgerPanel
+              conversationId={conversationId}
+              refreshKey={usageByMessageId}
+              onSelect={setSelectedLedger}
+              onLatestChange={setLatestLedger}
+            />
 
             {/* 压缩区 */}
             <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-2.5">

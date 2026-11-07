@@ -75,6 +75,7 @@ export function writeToolArtifact(opts: {
   sessionId?: string;
   toolName: string;
   content: string;
+  stat?: (path: string) => fs.Stats;
 }): ArtifactWrite {
   const dir = toolArtifactDir(opts.workspacePath, opts.sessionId);
   const contentHash = createHash('sha1').update(opts.content, 'utf8').digest('hex').slice(0, 8);
@@ -83,7 +84,17 @@ export function writeToolArtifact(opts: {
   const absolutePath = path.join(dir, fileName);
   const relativePath = path.posix.join(...ARTIFACT_ROOT_SEGMENTS, sanitizeSessionSegment(opts.sessionId), fileName);
 
-  const alreadyExists = fs.existsSync(absolutePath);
+  const look = opts.stat ?? ((target: string) => fs.statSync(target));
+  let alreadyExists = false;
+  try {
+    look(absolutePath);
+    alreadyExists = true;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`产物读不到,不能把它当成没有再写成新的 (${code ?? 'unknown'})`);
+    }
+  }
   if (!alreadyExists) {
     fs.mkdirSync(dir, { recursive: true });
     // 尾部补一个换行:many editors / read_file 的行号渲染对无尾换行文件不友好
@@ -104,9 +115,20 @@ export function writeToolArtifact(opts: {
  * 不做"必须落在产物目录内"的强制校验:调用方(agent 侧)已只把产物目录里的路径写进信封,
  * 这里越校验越容易因 Windows 路径分隔符差异误杀;但会如实返回不存在/读失败。
  */
-export function readToolArtifact(workspacePath: string, relativePath: string): { ok: true; content: string } | { ok: false; error: string } {
+export function readToolArtifact(
+  workspacePath: string,
+  relativePath: string,
+  stat?: (path: string) => fs.Stats,
+): { ok: true; content: string } | { ok: false; error: string } {
   const abs = path.resolve(workspacePath, relativePath);
-  if (!fs.existsSync(abs)) return { ok: false, error: `产物文件不存在: ${relativePath}` };
+  const look = stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(abs);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { ok: false, error: `产物文件不存在: ${relativePath}` };
+    return { ok: false, error: `产物文件读不到,不能把它说成不存在 (${code ?? 'unknown'}): ${relativePath}` };
+  }
   try {
     return { ok: true, content: fs.readFileSync(abs, 'utf8') };
   } catch (err) {

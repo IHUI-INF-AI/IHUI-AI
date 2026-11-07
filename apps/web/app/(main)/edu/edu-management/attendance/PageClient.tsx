@@ -23,7 +23,17 @@ import {
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduAttendanceCheckIn,
+  eduAttendanceCheckOut,
+  eduAttendanceDelete,
+  eduAttendanceList,
+  eduAttendanceStats,
+  eduLeaveApprove,
+  eduLeaveCreate,
+  eduLeaveDelete,
+  eduLeaveList,
+} from '@ihui/api-client'
 import { BackButton, TruncatedText } from '@/components/common'
 import {
   Card,
@@ -65,7 +75,7 @@ import { CheckInQrPanel } from './CheckInQrPanel'
 import {
   backfillBlocked,
   bizDay,
-  buildAttendanceListUrl,
+  buildAttendanceListParams,
   buildCheckInPayload,
   type CheckInPayload,
 } from './check-in-contract'
@@ -627,10 +637,13 @@ export default function AttendancePage() {
   /* ── Queries ── */
   const attendanceQuery = useQuery({
     queryKey: ['edu-ai-management', 'attendance', attendanceDate, attendanceStatusFilter],
-    queryFn: () =>
-      apiOrThrow<{ list: AttendanceRecord[] }>(
-        buildAttendanceListUrl(attendanceDate, attendanceStatusFilter),
-      ),
+    queryFn: async () => {
+      const r = await eduAttendanceList<{ list: AttendanceRecord[] }>(
+        buildAttendanceListParams(attendanceDate, attendanceStatusFilter),
+      )
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
 
   // 统计口径三要素:班级 + 起止日期 + 时段粒度。
@@ -646,28 +659,28 @@ export default function AttendancePage() {
       statsEndDate,
       selectedClassId,
     ],
-    queryFn: () => {
-      const params = new URLSearchParams({
+    queryFn: async () => {
+      const r = await eduAttendanceStats<AttendanceStats>({
         period: statsPeriod,
         startDate: statsStartDate,
         endDate: statsEndDate,
+        classId: selectedClassId || undefined,
       })
-      if (selectedClassId) params.set('classId', selectedClassId)
-      return apiOrThrow<AttendanceStats>(`/api/edu-ai-management/attendance/stats?${params}`)
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
   const leaveQuery = useQuery({
     queryKey: ['edu-ai-management', 'leave', leaveStatusFilter, leaveStartDate, leaveEndDate],
-    queryFn: () => {
-      let url = '/api/edu-ai-management/leave'
-      const params = new URLSearchParams()
-      if (leaveStatusFilter) params.set('status', leaveStatusFilter)
-      if (leaveStartDate) params.set('startDate', leaveStartDate)
-      if (leaveEndDate) params.set('endDate', leaveEndDate)
-      const qs = params.toString()
-      if (qs) url += `?${qs}`
-      return apiOrThrow<{ list: LeaveRequest[] }>(url)
+    queryFn: async () => {
+      const r = await eduLeaveList<{ list: LeaveRequest[] }>({
+        status: leaveStatusFilter || undefined,
+        startDate: leaveStartDate || undefined,
+        endDate: leaveEndDate || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
   })
 
@@ -685,16 +698,16 @@ export default function AttendancePage() {
   }, [queryClient])
 
   const checkInMutation = useMutation({
-    mutationFn: (data: CheckInPayload) =>
-      apiOrThrow('/api/edu-ai-management/attendance/check-in', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: CheckInPayload) => {
+      const r = await eduAttendanceCheckIn(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateAttendance,
   })
 
   const checkOutMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       studentId,
       classId,
       date,
@@ -702,31 +715,34 @@ export default function AttendancePage() {
       studentId: string
       classId: string
       date: string
-    }) =>
-      apiOrThrow('/api/edu-ai-management/attendance/check-out', {
-        method: 'PUT',
-        body: JSON.stringify({ studentId, classId, date, checkOutMethod: 'manual' }),
-      }),
+    }) => {
+      const r = await eduAttendanceCheckOut({ studentId, classId, date, checkOutMethod: 'manual' })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateAttendance,
   })
 
   const deleteAttendanceMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/attendance/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduAttendanceDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateAttendance,
   })
 
   const createLeaveMutation = useMutation({
-    mutationFn: (data: LeaveFormData) =>
-      apiOrThrow('/api/edu-ai-management/leave', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: async (data: LeaveFormData) => {
+      const r = await eduLeaveCreate(data)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateLeave,
   })
 
   const approveLeaveMutation = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       id,
       status,
       remark,
@@ -734,17 +750,20 @@ export default function AttendancePage() {
       id: string
       status: 'approved' | 'rejected'
       remark: string
-    }) =>
-      apiOrThrow(`/api/edu-ai-management/leave/${id}/approve`, {
-        method: 'PUT',
-        body: JSON.stringify({ status, approveRemark: remark || null }),
-      }),
+    }) => {
+      const r = await eduLeaveApprove(id, { status, approveRemark: remark || null })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateLeave,
   })
 
   const deleteLeaveMutation = useMutation({
-    mutationFn: (id: string) =>
-      apiOrThrow(`/api/edu-ai-management/leave/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await eduLeaveDelete(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: invalidateLeave,
   })
 
@@ -856,7 +875,9 @@ export default function AttendancePage() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+                <Label className="font-[weight:inherit] text-label text-muted-foreground">
+                  {t('classLabel')}
+                </Label>
                 <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
               </div>
               {/* 「全部状态」只是 UI 哨兵值,不得进 query:后端按枚举精确匹配,把哨兵值当状态
@@ -1067,7 +1088,9 @@ export default function AttendancePage() {
                 ))}
               </div>
               <div className="flex items-center gap-2">
-                <Label className="text-xs text-muted-foreground">{t('classLabel')}</Label>
+                <Label className="font-[weight:inherit] text-label text-muted-foreground">
+                  {t('classLabel')}
+                </Label>
                 <ClassSelect value={selectedClassId} onChange={setSelectedClassId} />
               </div>
               <div className="flex items-center gap-2">

@@ -102,7 +102,7 @@ export function createCartStyles(tk: AppThemeTokens) {
       justifyContent: 'flex-end',
       gap: rnSpacing.xs,
     },
-    totalLabel: { fontSize: 13, color: tk.text.secondary },
+    totalLabel: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     totalPrice: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.danger.DEFAULT },
     checkoutBtn: {
       paddingHorizontal: rnSpacing['lg'],

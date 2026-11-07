@@ -210,7 +210,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
     column: { gap: rnSpacing['sm-loose'] },
     header: { gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xs'] },
-    subtitle: { fontSize: 13, color: tk.text.secondary },
+    subtitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     loading: { paddingVertical: rnSpacing['2xl'] },
     errorBox: {
       paddingVertical: rnSpacing.lg,
@@ -221,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing['md-loose'],
@@ -230,9 +230,9 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.medium,
     },
-    retryText: { fontSize: 13, color: tk.text.primary },
+    retryText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     emptyBox: { alignItems: 'center', paddingVertical: rnSpacing['4xl'], gap: rnSpacing.sm },
-    emptyText: { fontSize: 13, color: tk.text.secondary },
+    emptyText: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     card: {
       flex: 1,
       borderRadius: rnRadius.lg,

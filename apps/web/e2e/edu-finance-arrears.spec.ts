@@ -257,7 +257,7 @@ test.describe('教育财务 - 催缴(欠费提醒)上屏与不误导', () => {
    */
   test('源码锁:批量催费 toast 逐档消费 res.sms 的 sent/failed/not_configured/no_phone', () => {
     const s = src.finance()
-    expect(s).toContain("'/api/edu-ai-management/fee-reminder/batch'")
+    expect(s).toContain('eduFeeReminderBatch')
     expect(s).toContain(
       'sms?: { sent: number; failed: number; not_configured: number; no_phone: number }',
     )
