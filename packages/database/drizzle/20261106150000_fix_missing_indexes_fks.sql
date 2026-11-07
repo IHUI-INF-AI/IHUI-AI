@@ -5,8 +5,13 @@
 -- © 2026 IHUI AI · BUG-29 幂等补齐迁移（离线静态分析生成，全部带 IF NOT EXISTS / DO 守卫）
 -- 生成器: scripts/audit-missing-indexes.mjs ；本文件仅补齐，不删除任何既有对象、不改数据。
 
+-- [2026-11-07] 守卫化（DB-SCHEMA-GAP-01）：2 个 api_subscriptions 索引在表缺失时可见跳过（RAISE NOTICE 42P01），
+-- 由 20261107007000 在 20261107000000 建表后幂等补齐；27 条 FK 改为逐条 built/exists/skipped 审计通知。
+-- 已删除全部 EXCEPTION：缺表/同名冲突以外的真实失败一律冒泡 abort（四分支只覆盖合法态）。
+-- 移除 fk_resource_downloads_user_id_users（integer 列对 uuid 引用，见 DB-TYPE-DRIFT-01）；
+-- 移除 idx_ab_tests_status（同名索引已由 ab_tests 占用，等价索引 agent_ab_tests_status_idx 已存在）。
+
 -- ---------- ① 补齐 schema 声明但迁移链缺失的索引 ----------
-CREATE INDEX IF NOT EXISTS "idx_ab_tests_status" ON "agent_ab_tests" (status);
 CREATE INDEX IF NOT EXISTS "agent_meta_lessons_user_type_idx" ON "agent_meta_lessons" (user_id, lesson_type);
 CREATE INDEX IF NOT EXISTS "idx_agent_meta_lessons_type_title" ON "agent_meta_lessons" (lesson_type, title);
 CREATE INDEX IF NOT EXISTS "agent_multimodal_memory_user_idx" ON "agent_multimodal_memory" (user_id);
@@ -56,8 +61,26 @@ CREATE INDEX IF NOT EXISTS "ix_orders_plan_id" ON "orders" ("plan_id");
 CREATE INDEX IF NOT EXISTS "ix_orders_created_by" ON "orders" ("created_by");
 CREATE INDEX IF NOT EXISTS "ix_orders_updated_by" ON "orders" ("updated_by");
 CREATE INDEX IF NOT EXISTS "ix_payments_order_id" ON "payments" ("order_id");
-CREATE INDEX IF NOT EXISTS "ix_api_subscriptions_plan_id" ON "api_subscriptions" ("plan_id");
-CREATE INDEX IF NOT EXISTS "ix_api_subscriptions_order_id" ON "api_subscriptions" ("order_id");
+DO $$ BEGIN
+  IF to_regclass('public.api_subscriptions') IS NULL THEN
+    RAISE NOTICE 'BUG-29 IDX AUDIT item=% status=skipped reason=missing_table sqlstate=42P01', 'ix_api_subscriptions_plan_id';
+  ELSIF to_regclass('public.ix_api_subscriptions_plan_id') IS NOT NULL THEN
+    RAISE NOTICE 'BUG-29 IDX AUDIT item=% status=exists sqlstate=00000', 'ix_api_subscriptions_plan_id';
+  ELSE
+    CREATE INDEX IF NOT EXISTS "ix_api_subscriptions_plan_id" ON "api_subscriptions" ("plan_id");
+    RAISE NOTICE 'BUG-29 IDX AUDIT item=% status=built sqlstate=00000', 'ix_api_subscriptions_plan_id';
+  END IF;
+END $$;
+DO $$ BEGIN
+  IF to_regclass('public.api_subscriptions') IS NULL THEN
+    RAISE NOTICE 'BUG-29 IDX AUDIT item=% status=skipped reason=missing_table sqlstate=42P01', 'ix_api_subscriptions_order_id';
+  ELSIF to_regclass('public.ix_api_subscriptions_order_id') IS NOT NULL THEN
+    RAISE NOTICE 'BUG-29 IDX AUDIT item=% status=exists sqlstate=00000', 'ix_api_subscriptions_order_id';
+  ELSE
+    CREATE INDEX IF NOT EXISTS "ix_api_subscriptions_order_id" ON "api_subscriptions" ("order_id");
+    RAISE NOTICE 'BUG-29 IDX AUDIT item=% status=built sqlstate=00000', 'ix_api_subscriptions_order_id';
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS "ix_canary_audit_logs_config_id" ON "canary_audit_logs" ("config_id");
 CREATE INDEX IF NOT EXISTS "ix_chat_conversation_collaborators_invited_by" ON "chat_conversation_collaborators" ("invited_by");
 CREATE INDEX IF NOT EXISTS "ix_chat_message_comments_user_id" ON "chat_message_comments" ("user_id");
@@ -198,149 +221,279 @@ CREATE INDEX IF NOT EXISTS "ix_workflow_logs_instance_id" ON "workflow_logs" ("i
 CREATE INDEX IF NOT EXISTS "ix_workflow_logs_task_id" ON "workflow_logs" ("task_id");
 -- ② 实际生成索引语句数: 154
 
--- ---------- ③ 为无 FK 的 userId 列补外键（DO 块守卫 + EXCEPTION 防脏数据中断） ----------
+-- ---------- ③ 为无 FK 的 userId 列补外键（四分支守卫：缺表跳过 / 同名已存在 / 建成 / 其余失败直接 abort） ----------
 -- 注意: onDelete 统一用 NO ACTION（最保守，不级联删）。若业务要求 cascade/set null，请 DBA 复核后改。
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_event_triggers_user_id_users') THEN
+  IF to_regclass('public.agent_event_triggers') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_agent_event_triggers_user_id_users', 'agent_event_triggers', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_event_triggers_user_id_users' AND conrelid='public.agent_event_triggers'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_agent_event_triggers_user_id_users';
+  ELSE
     ALTER TABLE "agent_event_triggers" ADD CONSTRAINT "fk_agent_event_triggers_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_agent_event_triggers_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_upload_user_id_users') THEN
+  IF to_regclass('public.agent_upload') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_agent_upload_user_id_users', 'agent_upload', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_upload_user_id_users' AND conrelid='public.agent_upload'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_agent_upload_user_id_users';
+  ELSE
     ALTER TABLE "agent_upload" ADD CONSTRAINT "fk_agent_upload_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_agent_upload_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_memory_decay_state_user_id_users') THEN
+  IF to_regclass('public.agent_memory_decay_state') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_agent_memory_decay_state_user_id_users', 'agent_memory_decay_state', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_memory_decay_state_user_id_users' AND conrelid='public.agent_memory_decay_state'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_agent_memory_decay_state_user_id_users';
+  ELSE
     ALTER TABLE "agent_memory_decay_state" ADD CONSTRAINT "fk_agent_memory_decay_state_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_agent_memory_decay_state_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_user_profile_user_id_users') THEN
+  IF to_regclass('public.agent_user_profile') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_agent_user_profile_user_id_users', 'agent_user_profile', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_user_profile_user_id_users' AND conrelid='public.agent_user_profile'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_agent_user_profile_user_id_users';
+  ELSE
     ALTER TABLE "agent_user_profile" ADD CONSTRAINT "fk_agent_user_profile_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_agent_user_profile_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agents_user_id_users') THEN
+  IF to_regclass('public.agents') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_agents_user_id_users', 'agents', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agents_user_id_users' AND conrelid='public.agents'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_agents_user_id_users';
+  ELSE
     ALTER TABLE "agents" ADD CONSTRAINT "fk_agents_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_agents_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_examines_user_id_users') THEN
+  IF to_regclass('public.agent_examines') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_agent_examines_user_id_users', 'agent_examines', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_agent_examines_user_id_users' AND conrelid='public.agent_examines'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_agent_examines_user_id_users';
+  ELSE
     ALTER TABLE "agent_examines" ADD CONSTRAINT "fk_agent_examines_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_agent_examines_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_analytics_events_user_id_users') THEN
+  IF to_regclass('public.analytics_events') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_analytics_events_user_id_users', 'analytics_events', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_analytics_events_user_id_users' AND conrelid='public.analytics_events'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_analytics_events_user_id_users';
+  ELSE
     ALTER TABLE "analytics_events" ADD CONSTRAINT "fk_analytics_events_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_analytics_events_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_clawdbot_permissions_user_id_users') THEN
+  IF to_regclass('public.clawdbot_permissions') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_clawdbot_permissions_user_id_users', 'clawdbot_permissions', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_clawdbot_permissions_user_id_users' AND conrelid='public.clawdbot_permissions'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_clawdbot_permissions_user_id_users';
+  ELSE
     ALTER TABLE "clawdbot_permissions" ADD CONSTRAINT "fk_clawdbot_permissions_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_clawdbot_permissions_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_clawdbot_sessions_user_id_users') THEN
+  IF to_regclass('public.clawdbot_sessions') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_clawdbot_sessions_user_id_users', 'clawdbot_sessions', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_clawdbot_sessions_user_id_users' AND conrelid='public.clawdbot_sessions'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_clawdbot_sessions_user_id_users';
+  ELSE
     ALTER TABLE "clawdbot_sessions" ADD CONSTRAINT "fk_clawdbot_sessions_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_clawdbot_sessions_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_coupons_referrer_user_id_users') THEN
+  IF to_regclass('public.user_coupons') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_user_coupons_referrer_user_id_users', 'user_coupons', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_coupons_referrer_user_id_users' AND conrelid='public.user_coupons'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_user_coupons_referrer_user_id_users';
+  ELSE
     ALTER TABLE "user_coupons" ADD CONSTRAINT "fk_user_coupons_referrer_user_id_users" FOREIGN KEY ("referrer_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_user_coupons_referrer_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_exam_signups_user_id_users') THEN
+  IF to_regclass('public.exam_signups') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_exam_signups_user_id_users', 'exam_signups', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_exam_signups_user_id_users' AND conrelid='public.exam_signups'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_exam_signups_user_id_users';
+  ELSE
     ALTER TABLE "exam_signups" ADD CONSTRAINT "fk_exam_signups_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_exam_signups_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_exam_wrong_question_user_id_users') THEN
+  IF to_regclass('public.exam_wrong_question') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_exam_wrong_question_user_id_users', 'exam_wrong_question', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_exam_wrong_question_user_id_users' AND conrelid='public.exam_wrong_question'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_exam_wrong_question_user_id_users';
+  ELSE
     ALTER TABLE "exam_wrong_question" ADD CONSTRAINT "fk_exam_wrong_question_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_exam_wrong_question_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_knowledge_cards_user_id_users') THEN
+  IF to_regclass('public.knowledge_cards') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_knowledge_cards_user_id_users', 'knowledge_cards', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_knowledge_cards_user_id_users' AND conrelid='public.knowledge_cards'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_knowledge_cards_user_id_users';
+  ELSE
     ALTER TABLE "knowledge_cards" ADD CONSTRAINT "fk_knowledge_cards_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_knowledge_cards_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_learn_community_post_user_id_users') THEN
+  IF to_regclass('public.learn_community_post') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_learn_community_post_user_id_users', 'learn_community_post', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_learn_community_post_user_id_users' AND conrelid='public.learn_community_post'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_learn_community_post_user_id_users';
+  ELSE
     ALTER TABLE "learn_community_post" ADD CONSTRAINT "fk_learn_community_post_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_learn_community_post_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_lesson_rate_user_id_users') THEN
+  IF to_regclass('public.lesson_rate') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_lesson_rate_user_id_users', 'lesson_rate', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_lesson_rate_user_id_users' AND conrelid='public.lesson_rate'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_lesson_rate_user_id_users';
+  ELSE
     ALTER TABLE "lesson_rate" ADD CONSTRAINT "fk_lesson_rate_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_lesson_rate_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_langgraph_thread_owners_user_id_users') THEN
+  IF to_regclass('public.langgraph_thread_owners') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_langgraph_thread_owners_user_id_users', 'langgraph_thread_owners', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_langgraph_thread_owners_user_id_users' AND conrelid='public.langgraph_thread_owners'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_langgraph_thread_owners_user_id_users';
+  ELSE
     ALTER TABLE "langgraph_thread_owners" ADD CONSTRAINT "fk_langgraph_thread_owners_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_langgraph_thread_owners_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_remote_devices_user_id_users') THEN
+  IF to_regclass('public.remote_devices') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_remote_devices_user_id_users', 'remote_devices', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_remote_devices_user_id_users' AND conrelid='public.remote_devices'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_remote_devices_user_id_users';
+  ELSE
     ALTER TABLE "remote_devices" ADD CONSTRAINT "fk_remote_devices_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_remote_devices_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_repo_wiki_docs_user_id_users') THEN
+  IF to_regclass('public.repo_wiki_docs') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_repo_wiki_docs_user_id_users', 'repo_wiki_docs', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_repo_wiki_docs_user_id_users' AND conrelid='public.repo_wiki_docs'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_repo_wiki_docs_user_id_users';
+  ELSE
     ALTER TABLE "repo_wiki_docs" ADD CONSTRAINT "fk_repo_wiki_docs_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_repo_wiki_docs_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_resources_owner_user_id_users') THEN
+  IF to_regclass('public.resources') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_resources_owner_user_id_users', 'resources', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_resources_owner_user_id_users' AND conrelid='public.resources'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_resources_owner_user_id_users';
+  ELSE
     ALTER TABLE "resources" ADD CONSTRAINT "fk_resources_owner_user_id_users" FOREIGN KEY ("owner_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_resources_owner_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_resource_downloads_user_id_users') THEN
-    ALTER TABLE "resource_downloads" ADD CONSTRAINT "fk_resource_downloads_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
-  END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
-DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tbox_device_user_id_users') THEN
+  IF to_regclass('public.tbox_device') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_tbox_device_user_id_users', 'tbox_device', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tbox_device_user_id_users' AND conrelid='public.tbox_device'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_tbox_device_user_id_users';
+  ELSE
     ALTER TABLE "tbox_device" ADD CONSTRAINT "fk_tbox_device_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_tbox_device_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_team_memories_source_user_id_users') THEN
+  IF to_regclass('public.team_memories') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_team_memories_source_user_id_users', 'team_memories', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_team_memories_source_user_id_users' AND conrelid='public.team_memories'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_team_memories_source_user_id_users';
+  ELSE
     ALTER TABLE "team_memories" ADD CONSTRAINT "fk_team_memories_source_user_id_users" FOREIGN KEY ("source_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_team_memories_source_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tool_favorites_user_id_users') THEN
+  IF to_regclass('public.tool_favorites') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_tool_favorites_user_id_users', 'tool_favorites', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_tool_favorites_user_id_users' AND conrelid='public.tool_favorites'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_tool_favorites_user_id_users';
+  ELSE
     ALTER TABLE "tool_favorites" ADD CONSTRAINT "fk_tool_favorites_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_tool_favorites_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_automations_user_id_users') THEN
+  IF to_regclass('public.user_automations') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_user_automations_user_id_users', 'user_automations', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_automations_user_id_users' AND conrelid='public.user_automations'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_user_automations_user_id_users';
+  ELSE
     ALTER TABLE "user_automations" ADD CONSTRAINT "fk_user_automations_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_user_automations_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_billing_group_members_user_id_users') THEN
+  IF to_regclass('public.user_billing_group_members') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_user_billing_group_members_user_id_users', 'user_billing_group_members', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_billing_group_members_user_id_users' AND conrelid='public.user_billing_group_members'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_user_billing_group_members_user_id_users';
+  ELSE
     ALTER TABLE "user_billing_group_members" ADD CONSTRAINT "fk_user_billing_group_members_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_user_billing_group_members_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_memories_user_id_users') THEN
+  IF to_regclass('public.user_memories') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_user_memories_user_id_users', 'user_memories', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_user_memories_user_id_users' AND conrelid='public.user_memories'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_user_memories_user_id_users';
+  ELSE
     ALTER TABLE "user_memories" ADD CONSTRAINT "fk_user_memories_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_user_memories_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_webhook_subscriptions_user_id_users') THEN
+  IF to_regclass('public.webhook_subscriptions') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_webhook_subscriptions_user_id_users', 'webhook_subscriptions', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_webhook_subscriptions_user_id_users' AND conrelid='public.webhook_subscriptions'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_webhook_subscriptions_user_id_users';
+  ELSE
     ALTER TABLE "webhook_subscriptions" ADD CONSTRAINT "fk_webhook_subscriptions_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_webhook_subscriptions_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
+END $$;
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_zhs_agent_examine_examine_user_id_users') THEN
+  IF to_regclass('public.zhs_agent_examine') IS NULL OR to_regclass('public.users') IS NULL THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=skipped reason=missing_table table=% ref=%', 'fk_zhs_agent_examine_examine_user_id_users', 'zhs_agent_examine', 'users';
+  ELSIF EXISTS (SELECT 1 FROM pg_constraint WHERE conname='fk_zhs_agent_examine_examine_user_id_users' AND conrelid='public.zhs_agent_examine'::regclass AND contype='f') THEN
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=exists sqlstate=00000', 'fk_zhs_agent_examine_examine_user_id_users';
+  ELSE
     ALTER TABLE "zhs_agent_examine" ADD CONSTRAINT "fk_zhs_agent_examine_examine_user_id_users" FOREIGN KEY ("examine_user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+    RAISE NOTICE 'BUG-29 FK AUDIT item=% status=built sqlstate=00000', 'fk_zhs_agent_examine_examine_user_id_users';
   END IF;
-EXCEPTION WHEN others THEN NULL; END $$;
--- ③ 实际生成 FK 语句数: 28
+END $$;
+-- ③ 实际生成 FK 语句数: 27（移除 resource_downloads：类型漂移，DB-TYPE-DRIFT-01）
 
 -- ④ 同表两份 DDL 列类型不同: 本迁移不处理（需库级 pg_catalog 核对，见汇报遗留风险）。
 -- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

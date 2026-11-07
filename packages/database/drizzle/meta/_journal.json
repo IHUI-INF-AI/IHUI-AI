@@ -2615,6 +2615,13 @@
       "when": 1793952360000,
       "tag": "20261107006000_rewrite_default_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 377,
+      "version": "7",
+      "when": 1793952420000,
+      "tag": "20261107007000_add_api_subscription_plan_order_indexes",
+      "breakpoints": true
     }
   ]
 }
