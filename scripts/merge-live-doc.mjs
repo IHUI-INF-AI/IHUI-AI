@@ -76,24 +76,22 @@ import { selectMovedOut, selectMovedOutForDisposition } from './lib/live-doc-arc
 
 /**
  * 把 HEAD 里"连续的 lost 段"(段尾空行一并带上,保排版)插回工作树的锚点之后。
- * 锚点 = 该段之前最后一个仍存在于工作树的 HEAD 行;找不到锚点则追加末尾并如实计数,
- * 绝不静默丢弃 —— 静默正是这类工具最危险的失效模式。
+ * 锚点 = 该段之前最后一个仍存在于工作树的 HEAD 行;找不到锚点 ⇒ 判 needHuman 并**整路径
+ * 回滚**(不追加末尾、不落半截结果),由人补一次定向说明 —— 不静默丢弃,也不静默挪位。
  *
- * ② 无锚点追加必须**逐条先问"这一行在工作树里已经有了吗"**(2026-10-24 立,README 尾部
- * 腐坏的根治)。原判据把整段 `out.push(...block)` 无条件甩到文件末尾,而 CLI 的长行重复
- * 守卫(`dupsAfter > base ⇒ exit 1`)排在 `writeFileSync` **之后** —— 于是每轮归并都先把
- * 重复段落盘、再红着脸退出("先写盘、后判定")。多会话共享工作树下 README 的工作树副本
- * 常年滞后 HEAD ⇒ 同一批 HEAD 行被一轮一轮追加,2026-10-24 实测尾部堆到 3385 行、
- * 逐字重复 2202 份(单种最多 98 份),门 173 的 2651 条点名里 2649 条出自这里。
- * 现在同段内与跨轮都只落第一份,被跳过的那些计入 `dupSkipped` 并在结论行**点名报数** ——
- * 失效方向仍是"多要一次定向说明"(AGENTS §0.10),不是静默:`dupSkipped` 的每一种文本
- * 都逐字存活在结果里,所以这不是丢弃,而是不再抄第二遍。锚点搜索用的 `wtSet` 保持纯净
- * (追加进来的行不是工作树原有行,不得反过来当锚点用,否则后段的插回位置会被本轮自己改动)。
+ * ② 无锚点不再追加到文件末尾(2026-11-07 P0)。原实现把 `out.push(...block)` 无条件甩到
+ * 文件末尾。多会话共享工作树下 README 的工作树副本常年滞后 HEAD ⇒ 同一批 HEAD 行被一轮
+ * 一轮追加:2026-10-24 实测尾部堆到 3385 行、逐字重复 2202 份(单种最多 98 份),门 173 的
+ * 2651 条点名里 2649 条出自这里;2026-11-07 复测 README 已有 37,160 行 / 8.0 MB 落在
+ * `END RECENT UPDATES` 之后,正文整体被挪位。现在锚点缺失即 `ok:false`,`out` 原样回退成
+ * 工作树,CLI 在**写盘(及备份)之前**退出 1 并逐行点名 `lostLines`;调用方只回滚这一条
+ * 路径,其余文件照常落地 —— 一次缺锚点不得把别的文件一起卡死。原 `dupSkipped` 计数随
+ * 追加逻辑一并退场(不再有"抄第二遍"这件事)。
+ * 锚点搜索用的 `wtSet` 仍只含工作树原有行,本轮结果不得反过来当锚点用。
  */
 export function mergeByAnchors(headLines, wtLines, verdict) {
   const out = wtLines.slice()
   const wtSet = new Set(wtLines.map(trim).filter(Boolean))
-  const present = new Set(wtSet)
   const wtIndexOf = new Map()
   wtLines.forEach((l, i) => {
     const t = trim(l)
@@ -105,7 +103,7 @@ export function mergeByAnchors(headLines, wtLines, verdict) {
   let segments = 0
   let lines = 0
   let unanchored = 0
-  let dupSkipped = 0
+  const lostLines = []
   while (i < headLines.length) {
     if (!isLost(trim(headLines[i]))) {
       i += 1
@@ -124,30 +122,23 @@ export function mergeByAnchors(headLines, wtLines, verdict) {
       }
     }
     if (anchor === undefined) {
+      // 锚点缺失 ⇒ 判 needHuman,整路径回滚:既不追加到末尾,也不落半截合并结果。
       unanchored += 1
       for (const l of block) {
         const t = trim(l)
-        if (t && present.has(t)) {
-          dupSkipped += 1
-          continue
-        }
-        out.push(l)
-        if (t) present.add(t)
-        lines += 1
+        if (t && !lostLines.includes(t)) lostLines.push(t)
       }
     } else {
       out.splice(anchor + 1, 0, ...block)
       for (const [key, val] of wtIndexOf) if (val > anchor) wtIndexOf.set(key, val + block.length)
       lines += block.length
-      for (const l of block) {
-        const t = trim(l)
-        if (t) present.add(t)
-      }
     }
     segments += 1
     i = j
   }
-  return { out, segments, lines, unanchored, dupSkipped }
+  const ok = unanchored === 0
+  if (!ok) return { out: wtLines.slice(), segments, lines: 0, unanchored, lostLines, ok }
+  return { out, segments, lines, unanchored, lostLines, ok }
 }
 
 export function dupLong(lines, min = 60) {
@@ -289,15 +280,17 @@ function selfTest() {
     assert(r.out.join('\n') === wt.join('\n'), '内容被改写')
   })
 
-  ck('⑥ 无锚点的前导缺失块追加到末尾并计数(不得静默丢)', () => {
+  ck('⑥ 无锚点 ⇒ 判 needHuman、整路径回滚,不追加到末尾(2026-11-07 P0)', () => {
     const head = ['preamble-only-in-head', 'anchor']
     const wt = ['anchor']
     const r = mergeByAnchors(head, wt, classifyMissing(head, wt))
     assert(
-      r.lines === 1 && r.unanchored === 1,
-      `计数异常 seg=${r.segments} lines=${r.lines} un=${r.unanchored}`,
+      r.ok === false && r.unanchored === 1 && r.lines === 0,
+      `计数异常 ok=${r.ok} seg=${r.segments} lines=${r.lines} un=${r.unanchored}`,
     )
-    assert(r.out.includes('preamble-only-in-head'), '内容没进来')
+    assert(r.out.join('\n') === wt.join('\n'), '回滚后必须逐字等于工作树原文')
+    assert(!r.out.includes('preamble-only-in-head'), '仍然追加到了末尾')
+    assert(r.lostLines.includes('preamble-only-in-head'), '缺锚点行必须逐行点名,不得静默')
   })
 
   ck('⑦ 归并结果不得引入新的长行重复(重复=同一件事写两遍)', () => {
@@ -534,9 +527,9 @@ function selfTest() {
     )
   })
 
-  ck('⑳ HEAD 自带逐字重复的 lost 行 ⇒ 无锚点追加只落第一份(README 尾部腐坏的根治锁)', () => {
+  ck('⑳ HEAD 自带逐字重复的 lost 行 ⇒ 缺锚点整路径回滚,一份都不追加(README 尾部腐坏的根治锁)', () => {
     const dup = '- 同一件事在 HEAD 尾部被上一轮无锚点追加抄了两遍的长行,本轮再归并不得抄成三遍 zzzz'
-    const fresh = '- 这一段里既有已在的重复长行,也有工作树还没有的那一行,后者必须照样进来 yyyy'
+    const fresh = '- 这一段里既有已在的重复长行,也有工作树还没有的那一行,后者不得再被挪进尾部 yyyy'
     const head = [fresh, dup, dup]
     const wt = ['工作树自己的一行,与 HEAD 这几行都不逐字相同 xxxx']
     const v = classifyMissing(head, wt)
@@ -545,17 +538,20 @@ function selfTest() {
       '对照组失效:三行都必须是 lost',
     )
     const r = mergeByAnchors(head, wt, v)
-    const landed = r.out.filter((l) => l === dup).length
-    assert(landed === 1, `同一文本落了 ${landed} 份(应只落第一份;尾部堆叠正是这一型)`)
-    assert(r.out.includes(fresh), '唯一那份新行被去重逻辑一起吃掉了 ⇒ 归并职责不得被洗掉')
     assert(
-      r.lines === 2 && r.dupSkipped === 1 && r.unanchored === 1,
-      `计数异常 lines=${r.lines} skip=${r.dupSkipped} un=${r.unanchored}`,
+      r.ok === false && r.unanchored === 1 && r.lines === 0,
+      `计数异常 ok=${r.ok} lines=${r.lines} un=${r.unanchored}`,
     )
-    // 反向对照:幂等 —— 拿本轮结果当工作树再归并一次,一行都不该再加
+    assert(r.out.join('\n') === wt.join('\n'), '回滚后必须逐字等于工作树原文')
+    assert(r.out.filter((l) => l === dup).length === 0, '重复行仍被追加到末尾')
+    assert(
+      r.lostLines.filter((t) => t === trim(dup)).length === 1 && r.lostLines.includes(trim(fresh)),
+      '缺锚点行必须逐行点名(同一文本只点一次),不得静默丢',
+    )
+    // 反向对照:幂等 —— 拿本轮(未变动)结果当工作树再归并一次,一行都不该加,仍判 needHuman
     const again = mergeByAnchors(head, r.out, classifyMissing(head, r.out))
     assert(
-      again.lines === 0 && again.out.length === r.out.length,
+      again.ok === false && again.lines === 0 && again.out.length === r.out.length,
       '第二轮归并仍在往末尾加行(不幂等)',
     )
   })
@@ -568,7 +564,11 @@ function selfTest() {
     // 对照组:没有凭据时它就是真丢失(否则下面那条断言证明不了任何事)
     const bare = classifyMissing(head, wt)
     assert(bare.get(trim(moved)) === 'lost', '对照组失效:无凭据时必须判 lost')
-    assert(mergeByAnchors(head, wt, bare).lines === 1, '对照组失效:无凭据时必须插回')
+    // 2026-11-07 P0:无凭据 ⇒ 锚点缺失,判 needHuman 并整路径回滚(不再追加到末尾)
+    const bareR = mergeByAnchors(head, wt, bare)
+    assert(bareR.ok === false && bareR.lines === 0, '对照组失效:无凭据时必须判 needHuman 并回滚')
+    assert(bareR.out.join('\n') === wt.join('\n'), '对照组失效:回滚后必须逐字等于工作树原文')
+    assert(bareR.lostLines.includes(trim(moved)), '对照组失效:无凭据时必须逐行点名')
     const v = classifyMissing(head, wt, SIM_THRESHOLD, { archived: (t) => t === trim(moved) })
     assert(v.get(trim(moved)) === 'archived', `应判 archived,实判 ${v.get(trim(moved))}`)
     assert(!v.has(trim(keep)), '在册行不得进判定表')
@@ -698,6 +698,16 @@ if (!APPLY) {
   process.exit(1)
 }
 
+const r = mergeByAnchors(headLines, wtLines, verdict)
+// 锚点缺失 = needHuman:在备份与写盘之前退出,本路径保持工作树原样(回滚)。
+// 调用方(如 auto-commit-quiet 的 mergeLiveDocs)只把这一条路径记失败并继续跑其余文件。
+if (!r.ok) {
+  console.log(`结论:锚点缺失 ⇒ needHuman,本路径回滚(未备份、未落盘):${FILE}`)
+  console.log(`  缺锚点判据行数=${r.lostLines.length}(逐行点名,给一次定向说明即可)`)
+  for (const t of r.lostLines.slice(0, 20)) console.log(`    需人工定向说明:${t}`)
+  if (r.lostLines.length > 20) console.log(`    …另 ${r.lostLines.length - 20} 行同样是缺锚点判据`)
+  process.exit(1)
+}
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 // 备份目录必须自己建:本工具跑在**任何**有活文档的仓里(新克隆 / CI / 隔离夹具都没有
 // `.ihui-agent/tmp/`)。2026-09-24 端到端取证实测:目录缺失时 `copyFileSync` 抛 ENOENT,
@@ -708,7 +718,6 @@ copyFileSync(
   resolve(ROOT, FILE),
   resolve(ROOT, `.ihui-agent/tmp/${basename(FILE)}.${stamp}.pre-merge.bak`),
 )
-const r = mergeByAnchors(headLines, wtLines, verdict)
 writeFileSync(resolve(ROOT, FILE), r.out.join('\n'), { encoding: 'utf8' })
 
 const after = readFileSync(resolve(ROOT, FILE), 'utf8').split('\n')
@@ -719,7 +728,7 @@ const headDups = dupLong(headLines).length
 const dupsAfter = dupLong(after).length
 const base = Math.max(dupsBefore, headDups)
 console.log(
-  `已写回:段=${r.segments} 插入行=${r.lines} 无锚点(追加到末尾)=${r.unanchored} 逐字已在·不再抄第二遍=${r.dupSkipped}`,
+  `已写回:段=${r.segments} 插入行=${r.lines} 无锚点(判 needHuman·回滚)=${r.unanchored}`,
 )
 console.log(
   `  行数 ${wtLines.length} → ${after.length}(空行数 ${wtLines.filter((l) => !trim(l)).length} → ${after.filter((l) => !trim(l)).length})`,

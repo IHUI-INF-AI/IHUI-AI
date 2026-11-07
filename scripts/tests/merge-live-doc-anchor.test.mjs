@@ -20,7 +20,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -294,5 +294,169 @@ test('E-c 夹具自证:两条表行确实"不像"且表头/分隔行不冒充数
     '夹具失效:两行已足够相似,E 臂不再证明表格锚点在起作用',
   )
   assert.ok(!TBL_NEW.includes(TBL_OLD), '夹具失效:旧行逐字存活 ⇒ 走的是容器短路')
+})
+
+/**
+ * F 锚点缺失 ⇒ needHuman + 整路径回滚(2026-11-07 P0)
+ *
+ * 立因:归并器原先把"找不到锚点的 lost 段"无条件追加到文件末尾。多会话共享工作树下
+ * README 的工作树副本常年滞后 HEAD ⇒ 同一批 HEAD 行被一轮一轮追加,尾部堆到 37,160 行 /
+ * 8.0 MB(2026-11-07 实测),正文整体被挪到 `END RECENT UPDATES` 之后。现在锚点缺失即
+ * 判 needHuman,并且在写盘(含备份)之前退出 1 —— 该路径逐字保持工作树原样。
+ *
+ * 三条断言(缺一臂就是拿判据洗地):
+ *   F1 锚点缺失 ⇒ `--apply` 退出 1、文件逐字不变、不落 .bak,报告逐行点名缺锚点判据;
+ *   F2 同一批次里的另一条正常文档照常落地 —— 路径隔离:一次缺锚点不得把别的文件一起卡死;
+ *   F3 混合段(锚点存在 + 锚点缺失)⇒ 仍整路径回滚,锚点段也不得落半截结果(原子性)。
+ */
+const F_HEAD_A = '- 前导甲(工作树已整段重写,HEAD 这一版不再存活)\n'
+const F_HEAD_B = '- 前导乙(同上,两行都找不到锚点)\n'
+const F_WT_A = '- 工作树里完全不同的重写内容,与 HEAD 两行既不逐字相同也不相似 xxxx\n'
+const F_KEEP = '- 尾行保留\n'
+
+function seedP0Repo() {
+  const dir = mkScratch('merge-live-doc-anchor-missing-')
+  execFileSync(GIT, ['-c', 'safe.directory=*', 'init', '-q', '--initial-branch=main'], {
+    cwd: dir,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  const g = (...a) =>
+    execFileSync(GIT, ['-c', 'safe.directory=*', ...a], {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  g('config', 'user.email', 't@t')
+  g('config', 'user.name', 't')
+  mkdirSync(join(dir, 'scripts', 'lib'), { recursive: true })
+  copyFileSync(join(REPO, 'scripts/merge-live-doc.mjs'), join(dir, 'scripts/merge-live-doc.mjs'))
+  copyFileSync(
+    join(REPO, 'scripts/lib/live-doc-similarity.mjs'),
+    join(dir, 'scripts/lib/live-doc-similarity.mjs'),
+  )
+  copyClassifyClosure(dir)
+  return dir
+}
+
+function runP0Cli(dir, file, apply) {
+  const args = [join(dir, 'scripts/merge-live-doc.mjs'), '--file', file]
+  if (apply) args.push('--apply')
+  try {
+    const stdout = execFileSync(process.execPath, args, {
+      cwd: dir,
+      encoding: 'utf8',
+      windowsHide: true,
+      timeout: 120000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { status: 0, stdout }
+  } catch (e) {
+    return { status: e.status ?? -1, stdout: String(e.stdout || '') }
+  }
+}
+
+function commitP0(dir, msg) {
+  execFileSync(GIT, ['-c', 'safe.directory=*', 'add', '-A'], {
+    cwd: dir,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  execFileSync(GIT, ['-c', 'safe.directory=*', 'commit', '-qm', msg], {
+    cwd: dir,
+    stdout: 'ignore',
+    stderr: 'ignore',
+  })
+}
+
+test('F1 锚点缺失 ⇒ needHuman,文件逐字不变,不落 .bak(2026-11-07 P0)', () => {
+  const dir = seedP0Repo()
+  try {
+    // 缺锚点段必须落在文件最前(前面没有任何可锚定的存活 HEAD 行),否则会被 `# 头` 锚住。
+    writeFileSync(join(dir, 'AGENTS.md'), `${F_HEAD_A}${F_HEAD_B}# 头\n${F_KEEP}`, 'utf8')
+    commitP0(dir, 'seed 缺锚点')
+    const before = readFileSync(join(dir, 'AGENTS.md'), 'utf8')
+    writeFileSync(join(dir, 'AGENTS.md'), `# 头\n${F_WT_A}${F_KEEP}`, 'utf8')
+    const afterWrite = readFileSync(join(dir, 'AGENTS.md'), 'utf8')
+
+    const out = runP0Cli(dir, 'AGENTS.md', true)
+    assert.equal(out.status, 1, `锚点缺失必须以退出码 1 交人工,实际 ${out.status}:\n${out.stdout}`)
+    assert.match(out.stdout, /锚点缺失 ⇒ needHuman,本路径回滚/, '结论行必须说清回滚')
+    assert.match(out.stdout, /缺锚点判据行数=2/, `缺锚点行必须逐行点名(实读报告:\n${out.stdout})`)
+    assert.equal(
+      readFileSync(join(dir, 'AGENTS.md'), 'utf8'),
+      afterWrite,
+      '回滚必须逐字保持工作树原样(不得把 HEAD 行挪到末尾)',
+    )
+    assert.ok(before !== afterWrite, '夹具失效:工作树没有先被改写')
+    assert.ok(
+      !existsSync(join(dir, '.ihui-agent', 'tmp')),
+      '回滚路径不得先落备份(写盘与备份都必须在判定之后)',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F2 路径隔离:同批次另一条正常文档照常落地,不被缺锚点路径卡死', () => {
+  const dir = seedP0Repo()
+  try {
+    // A 路:缺锚点 ⇒ 回滚; B 路:锚点存在 ⇒ 正常归并写回。
+    writeFileSync(join(dir, 'AGENTS.md'), `${F_HEAD_A}${F_HEAD_B}# 头\n${F_KEEP}`, 'utf8')
+    writeFileSync(join(dir, 'README.md'), '# 头\n- 可定位的说明行\n- 尾行保留\n', 'utf8')
+    commitP0(dir, 'seed 两文档')
+    writeFileSync(join(dir, 'AGENTS.md'), `# 头\n${F_WT_A}${F_KEEP}`, 'utf8')
+    const readmeBefore = readFileSync(join(dir, 'README.md'), 'utf8')
+    writeFileSync(join(dir, 'README.md'), '# 头\n- 尾行保留\n', 'utf8')
+
+    const a = runP0Cli(dir, 'AGENTS.md', true)
+    const b = runP0Cli(dir, 'README.md', true)
+
+    assert.equal(a.status, 1, `A 路必须判 needHuman:\n${a.stdout}`)
+    assert.equal(
+      readFileSync(join(dir, 'AGENTS.md'), 'utf8'),
+      `# 头\n${F_WT_A}${F_KEEP}`,
+      'A 路必须回滚成工作树原样',
+    )
+    assert.equal(b.status, 0, `B 路必须照常落地(一次冲突不得卡死别的文件):\n${b.stdout}`)
+    assert.ok(
+      readFileSync(join(dir, 'README.md'), 'utf8').includes('- 可定位的说明行'),
+      'B 路没有把 HEAD 的说明行按锚点插回',
+    )
+    assert.ok(readmeBefore.includes('- 可定位的说明行'), '夹具失效:HEAD 侧没有待插回行')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F3 混合段(有锚点 + 缺锚点)⇒ 整路径回滚,锚点段也不得落半截', () => {
+  const dir = seedP0Repo()
+  try {
+    // 段一(文件最前)整段缺锚点;段二在"中间保留行"之后,锚点存在 ⇒ 结果必须是一行都不写回。
+    writeFileSync(
+      join(dir, 'AGENTS.md'),
+      '- 缺锚点前导甲\n- 缺锚点前导乙\n- 中间保留行\n- 有锚点段\n',
+      'utf8',
+    )
+    commitP0(dir, 'seed 混合段')
+    writeFileSync(
+      join(dir, 'AGENTS.md'),
+      '- 工作树重写行 xxxx,与 HEAD 两行都不相似\n- 中间保留行\n',
+      'utf8',
+    )
+    const before = readFileSync(join(dir, 'AGENTS.md'), 'utf8')
+
+    const out = runP0Cli(dir, 'AGENTS.md', true)
+    assert.equal(out.status, 1, `混合段必须整路径判 needHuman:\n${out.stdout}`)
+    assert.match(out.stdout, /缺锚点判据行数=2/, '缺锚点那两行必须点名')
+    assert.equal(
+      readFileSync(join(dir, 'AGENTS.md'), 'utf8'),
+      before,
+      '有锚点段也不得先落半截(路径级原子回滚)',
+    )
+    assert.ok(!readFileSync(join(dir, 'AGENTS.md'), 'utf8').includes('- 有锚点段'), '锚点段被写回')
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
