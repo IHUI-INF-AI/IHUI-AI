@@ -17,6 +17,8 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import {
   decideWatchdogTick,
+  planEngineSupervisor,
+  planNestedJobFallback,
   stepWatchdog,
   unjudgedFieldsOf,
   type WatchdogRunConfig,
@@ -128,6 +130,70 @@ describe('stepWatchdog(执行步进:仅 kill 档允许副作用)', () => {
       expect(verdict).toBe(expected)
       expect(killTree).not.toHaveBeenCalled()
     }
+  })
+})
+
+describe('作业监工启动条件', () => {
+  it('错误码不是脱离许可,只有那句原话才是', () => {
+    expect(planNestedJobFallback({ phrase: null, winerror: 5 }).disposition).toBe('refused')
+    expect(planNestedJobFallback({ phrase: null, winerror: null }).disposition).toBe('unjudged')
+    expect(
+      planNestedJobFallback({
+        phrase: 'parent Job denied nested assignment',
+        winerror: 5,
+      }),
+    ).toEqual({ disposition: 'breakaway', reason: 'nested-denied' })
+  })
+
+  it('lifeline 没量到或占用了标准流,都不记成已装上作业', () => {
+    expect(
+      planEngineSupervisor({
+        enginePath: 'C:\\engine.exe',
+        lifelineFd: null,
+        graceMs: 1000,
+        exitReceipt: 'C:\\receipt.json',
+      }).reason,
+    ).toBe('lifeline-unmeasured')
+    expect(
+      planEngineSupervisor({
+        enginePath: 'C:\\engine.exe',
+        lifelineFd: 1,
+        graceMs: 1000,
+        exitReceipt: 'C:\\receipt.json',
+      }).reason,
+    ).toBe('lifeline-not-dedicated')
+    expect(
+      planEngineSupervisor({
+        enginePath: 'engine.exe',
+        lifelineFd: 3,
+        graceMs: 1000,
+        exitReceipt: 'C:\\receipt.json',
+      }).reason,
+    ).toBe('engine-path-not-absolute')
+    expect(
+      planEngineSupervisor({
+        enginePath: 'C:\\engine.exe',
+        lifelineFd: 3,
+        graceMs: null,
+        exitReceipt: 'C:\\receipt.json',
+      }).reason,
+    ).toBe('grace-unmeasured')
+    expect(
+      planEngineSupervisor({
+        enginePath: 'C:\\engine.exe',
+        lifelineFd: 3,
+        graceMs: 1000,
+        exitReceipt: null,
+      }).reason,
+    ).toBe('receipt-unmeasured')
+    expect(
+      planEngineSupervisor({
+        enginePath: 'C:\\engine.exe',
+        lifelineFd: 3,
+        graceMs: 1000,
+        exitReceipt: 'C:\\receipt.json',
+      }),
+    ).toEqual({ disposition: 'armed', reason: 'measured' })
   })
 })
 
