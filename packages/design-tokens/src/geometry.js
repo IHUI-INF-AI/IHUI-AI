@@ -67,10 +67,26 @@ export const GEOMETRY_PX = {
   /** 昵称等强调文字 15:RN 抽屉昵称现值,小程序由 14 收到此档 */
   textStrong: 15,
   /**
-   * 左抽屉宽度 250:小程序 `rpx(500)` 折半即 250(= 750 设计宽的 2/3),RN 旧封顶 256 收进此档。
-   * RN 侧保留 `0.66 × 屏宽` 的比例收缩 —— 比例是窄屏自适应机制,封顶值才是档。
+   * 侧栏/抽屉展开宽度 160(三端唯一数字):2026-11-07 机主定档「三端侧栏/抽屉同一数字」
+   * —— web 常驻侧栏、RN 左抽屉、小程序左抽屉**全部消费本档**,端内不得再写
+   * `const *_WIDTH = 160` 这种第二份真相(web 侧由守门 check-sidebar-width-consistency 拦死)。
+   * 小程序经 `taroGeometry.drawerWidth` 折出 320rpx;RN 侧保留 `0.66 × 屏宽` 的比例
+   * 收缩 —— 比例是窄屏自适应机制,封顶值才是档;常见 375dp 起屏上恒取 160。
+   * 下限恒等于本档(两端"最小宽 = 默认宽"),不为它另列一档:同一个数拆成两档必然漂。
    */
-  drawerWidth: 250,
+  drawerWidth: 160,
+  /**
+   * 桌面侧栏可拖拽上限 180:与 `drawerWidth` 同族。此前 web `sidebar.tsx` 单写
+   * `SIDEBAR_MAX_WIDTH = 180`,是侧栏宽度里第二份真相(拖到 180 后 RN/小程序无对应值,
+   * 改档时也没人知道要一起改)。web 拖拽只钳到本档,视觉仍与抽屉默认宽同族。
+   */
+  sidebarMaxWidth: 180,
+  /**
+   * 侧栏/抽屉折叠态宽 60:此前 web 常量、`apps/web/app/globals.css` 平板区间(640-1023px)、
+   * `tokens.css --sidebar-collapsed-width` 三处各写一遍,2026-09-09 已实测漂成 54。
+   * 立档后三处只许引用本档或 `var(--sidebar-collapsed-width)`,不再出现字面量 60px。
+   */
+  sidebarCollapsedWidth: 60,
   /**
    * web 预览手机壳最大宽度 430:mobile-rn 的浏览器预览壳(`apps/mobile-rn/src/lib/web-shell.web.ts`)
    * 把 `#root` 与 RN Modal portal 两处 `max-width` 封顶在同一值,消费端 `useAppFrameWidth()` 实测

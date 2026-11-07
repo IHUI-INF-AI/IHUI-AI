@@ -5,6 +5,7 @@
 'use client'
 
 import * as React from 'react'
+import { rnGeometry } from '@ihui/design-tokens'
 import { cn } from '../lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './tooltip'
 
@@ -33,18 +34,24 @@ export interface SidebarProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 export const Sidebar = React.forwardRef<HTMLElement, SidebarProps>(
-  ({ collapsed = false, onToggle: _onToggle, children, className, ...props }, ref) => {
+  ({ collapsed = false, onToggle: _onToggle, children, className, style, ...props }, ref) => {
     return (
       <SidebarContext.Provider value={collapsed}>
         <aside
           ref={ref}
           data-sidebar=""
           data-collapsed={collapsed || undefined}
+          // 宽度取几何档(2026-11-07 收口):此前这里是 `w-[54px]/w-[200px]`,
+          // 54 正是 geometry.js 注释里点名的历史漂移值,200 也不是三端任何一档。
+          // 不用 `w-[${...}px]` 模板类:Tailwind JIT 只扫字面量,动态类名会失效。
           className={cn(
             'flex h-screen flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-300 ease-in-out',
-            collapsed ? 'w-[54px]' : 'w-[200px]',
             className,
           )}
+          style={{
+            width: collapsed ? rnGeometry.sidebarCollapsedWidth : rnGeometry.drawerWidth,
+            ...style,
+          }}
           {...props}
         >
           <SidebarScrollHideStyles />

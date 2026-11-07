@@ -24,7 +24,7 @@ import { getTopBarMetrics } from '@/utils/system-info'
  * 两种模式:
  * - 默认(side='bottom'):底部弹层(原实现,兼容 MaterialPopup / SkillsPopup / ranking 等)
  * - side='left'(首页专用):左侧抽屉,对齐原项目 DrawerComponentall.vue:
- *   - 宽 `taroGeometry.drawerWidth`(单源 250px ⇒ 500rpx),右圆角取 2xl 档
+ *   - 宽 `taroGeometry.drawerWidth`(单源 160px ⇒ 320rpx,与 web 常驻侧栏 SIDEBAR_WIDTH 同值),右圆角取 2xl 档
  *   - 头部 logo + 关闭按钮(矢量)
  *   - 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)
  *   - 3 个标签(我的一人公司/领取免费资料/创建新对话)
@@ -183,7 +183,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
       <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick}>
         {/* 遮罩:var(--color-black-40) */}
         <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
-        {/* 抽屉主体:宽 500rpx + 圆角 0 30rpx 30rpx 0 + 高 100vh */}
+        {/* 抽屉主体:宽取几何档 taroGeometry.drawerWidth(160px ⇒ 320rpx,与 web/RN 同值)
+            + 圆角 0 12 12 0 + 高 100vh */}
         <View
           className={cn(
             'ai-drawer-border absolute top-0 bottom-0 left-0 flex flex-col',
