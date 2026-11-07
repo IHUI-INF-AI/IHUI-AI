@@ -63,6 +63,7 @@ Headline claims (same source as the table below, all live-computed): **618 table
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · 4057 test files ·
 332 engineering gates · 53 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 Headline claims (same source as the table below, all live-computed): **624 tables · 4705 API routes ·
+Headline claims (same source as the table below, all live-computed): **624 tables · 4719 API routes ·
 25 WebSocket endpoints · 100 catalogued LLMs · 38 platforms auto-publishing · test file counts in the generated table below ·
 336 engineering gates · 54 CI workflows · 5-language i18n parity · 9 app packages · 16 shared packages ·
 14 compose services**.
@@ -77,9 +78,9 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | AI 服务路由 | 628 | `aiServiceRoutes` |
 | 数据库表 | 624 | `dbTables` |
 | schema 文件 | 241 | `dbSchemaFiles` |
-| API 路由 | 4705 | `apiRoutes` |
-| 路由文件 | 666 | `apiRouteFiles` |
-| AI 服务路由 | 631 | `aiServiceRoutes` |
+| API 路由 | 4719 | `apiRoutes` |
+| 路由文件 | 667 | `apiRouteFiles` |
+| AI 服务路由 | 646 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
@@ -102,11 +103,13 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | CLI 命令文件 | 75 | `cliCommandFiles` |
 | CLI 工具文件 | 92 | `cliToolFiles` |
 | 测试文件 | 4260 | `testFiles` |
+| CLI 工具文件 | 94 | `cliToolFiles` |
+| 测试文件 | 4287 | `testFiles` |
 | CI 工作流 | 54 | `ciWorkflows` |
 | 工程守门 | 348 | `guardianGates` |
 | — blocking | 319 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19606 | `trackedFiles` |
+| 跟踪文件 | 19735 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -437,7 +440,7 @@ and **16 shared packages**.
 | ----------------- | ------------------- | ---------------------------------------------- | ------------------------------------------------------------ |
 | Web               | `apps/web`          | Next.js 16 + React 19 + Tailwind 4 + shadcn/ui | Main site + admin console + IDE panel                        |
 | API               | `apps/api`          | Fastify 5 + Drizzle ORM + PostgreSQL + Zod     | Business backend: auth/tenants/billing/content/WebSocket     |
-| AI service        | `apps/ai-service`   | FastAPI + LangGraph + LiteLLM + MCP            | Model gateway, agent engine, RAG, workflows. Sandbox lifecycle is at /api/sandbox/instances; the agent tool sandbox_session pauses, resumes, snapshots the filesystem, clones, and rolls back in place. Callers do not supply network access or secrets                  |
+| AI service        | `apps/ai-service`   | FastAPI + LangGraph + LiteLLM + MCP            | Model gateway, agent engine, RAG, workflows                  |
 | Mini-program      | `apps/miniapp-taro` | Taro 4 + React + NativeWind                    | WeChat, native WeChat Pay                                    |
 | Mobile app        | `apps/mobile-rn`    | React Native + Expo + NativeWind               | Shares screen layer `packages/app`                           |
 | Desktop           | `apps/desktop`      | Tauri 2 (thin Rust shell) + web frontend       | No bundled frontend in release builds; tray + auto-update    |

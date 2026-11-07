@@ -11258,6 +11258,7 @@
     "invalidPassword": "密碼至少 6 位",
     "invalidPhone": "請輸入正確的手機號",
     "invalidUsername": "使用者名至少 3 位",
+    "linuxdoLogin": "LinuxDo",
     "loginBtn": "登錄",
     "loggedInContinue": "您已登入,點擊下方按鈕繼續",
     "continueToSite": "進入網站",

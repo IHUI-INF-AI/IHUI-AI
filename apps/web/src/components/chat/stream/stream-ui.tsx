@@ -5,7 +5,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, ChevronRight, CircleDashed, Loader2, Minus, X } from 'lucide-react'
+import { Check, ChevronRight, CircleDashed, Loader2, Minus, TriangleAlert, X } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 import { formatDuration } from '@/components/ai/progress-sections/foldable-section'
@@ -25,7 +25,7 @@ import type { ToolMetricKind, ToolSubjectKind } from '@ihui/shared/chat'
  */
 
 /** 活动行状态 —— 与工具/步骤/终端的原始状态词汇统一收敛到这五种 */
-export type StreamStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped'
+export type StreamStatus = 'pending' | 'running' | 'success' | 'error' | 'skipped' | 'stub'
 
 /** 行模板唯一字号:12px。禁止在消息流活动区出现 9/10/11/13px 文字 */
 export const STREAM_ROW_CLASS = 'flex h-6 w-full items-center gap-1.5 text-xs leading-none'
@@ -53,6 +53,13 @@ export function StreamStatusIcon({
       return <X className={cn(ICON_CLASS, 'text-red-500', className)} aria-hidden />
     case 'skipped':
       return <Minus className={cn(ICON_CLASS, 'text-muted-foreground/40', className)} aria-hidden />
+    case 'stub':
+      return (
+        <TriangleAlert
+          className={cn(ICON_CLASS, 'text-muted-foreground/50', className)}
+          aria-hidden
+        />
+      )
     case 'pending':
     default:
       return (
@@ -188,7 +195,7 @@ export function StreamRow({
   )
 
   // 未开始/已跳过的行整行弱化:状态差异靠"重量"表达,不靠多种字号与彩色边框
-  const dimmed = status === 'pending' || status === 'skipped'
+  const dimmed = status === 'pending' || status === 'skipped' || status === 'stub'
 
   if (!interactive) {
     return (
@@ -496,6 +503,7 @@ const STATUS_LABEL_KEY: Record<StreamStatus, string> = {
   success: 'statusSuccess',
   error: 'statusFailed',
   skipped: 'statusSkipped',
+  stub: 'statusStub',
 }
 
 /** 状态词本地化助手:组件里凡是要把状态写成文字(含 aria-label)都走它 */

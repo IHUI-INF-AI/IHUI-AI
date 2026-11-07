@@ -11258,6 +11258,7 @@
     "invalidPassword": "パスワードは6でしてください",
     "invalidPhone": "しいをしてください",
     "invalidUsername": "ユーザーは3でしてください",
+    "linuxdoLogin": "LinuxDo",
     "loginBtn": "ログイン",
     "loggedInContinue": "すでにログイン中です。下のボタンをクリックして続行",
     "continueToSite": "サイトに進む",

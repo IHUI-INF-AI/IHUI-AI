@@ -32,7 +32,11 @@
  */
 
 /** 暂存/回放帧的种类封闭集。新增种类必须连 collectElementPackFrame 分支一起加。 */
-export const ELEMENT_PACK_FRAME_KINDS = ['subagent_spawn', 'subagent_progress', 'subagent_end'] as const
+export const ELEMENT_PACK_FRAME_KINDS = [
+  'subagent_spawn',
+  'subagent_progress',
+  'subagent_end',
+] as const
 
 export type ElementPackFrameKind = (typeof ELEMENT_PACK_FRAME_KINDS)[number]
 
@@ -71,15 +75,13 @@ export interface ElementPackSubagentProgressFrame {
 export interface ElementPackSubagentEndFrame {
   readonly kind: 'subagent_end'
   readonly id: string
-  readonly status: 'done' | 'failed'
+  readonly status: 'done' | 'failed' | 'stub'
   readonly failureReason?: string
   readonly timestamp: string
 }
 
 export type ElementPackFrame =
-  | ElementPackSubagentSpawnFrame
-  | ElementPackSubagentProgressFrame
-  | ElementPackSubagentEndFrame
+  ElementPackSubagentSpawnFrame | ElementPackSubagentProgressFrame | ElementPackSubagentEndFrame
 
 // ---------------------------------------------------------------------------
 // 写侧收窄:网关从一条 data JSON 里提取一帧(判不过 ⇒ null,整帧丢弃,不造残帧)
@@ -140,11 +142,11 @@ export function collectElementPackFrame(json: unknown): ElementPackFrame | null 
       ...(str(o.agentName) !== undefined ? { agentName: str(o.agentName) } : {}),
     }
   }
-  // subagent_end:status 归一(sse-parse 同判据 —— 非 'failed' 一律 'done')
+  // 缺 status 仍归一为 done。显式 stub 保留,不能折成完成。
   return {
     kind: 'subagent_end',
     id,
-    status: o.status === 'failed' ? 'failed' : 'done',
+    status: o.status === 'failed' ? 'failed' : o.status === 'stub' ? 'stub' : 'done',
     ...(str(o.failureReason) !== undefined ? { failureReason: str(o.failureReason) } : {}),
     timestamp: isoTimestamp(o.timestamp),
   }
@@ -162,10 +164,15 @@ function isElementPackFrame(value: unknown): value is ElementPackFrame {
   if (o.kind === 'subagent_progress') {
     const phase = o.phase
     return (
-      phase === 'thinking' || phase === 'tool_call' || phase === 'tool_result' || phase === 'output_ready'
+      phase === 'thinking' ||
+      phase === 'tool_call' ||
+      phase === 'tool_result' ||
+      phase === 'output_ready'
     )
   }
-  if (o.kind === 'subagent_end') return o.status === 'done' || o.status === 'failed'
+  if (o.kind === 'subagent_end') {
+    return o.status === 'done' || o.status === 'failed' || o.status === 'stub'
+  }
   return true // subagent_spawn:关键字段已在上两行判过
 }
 

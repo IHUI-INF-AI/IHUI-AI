@@ -42536,3 +42536,19 @@ A: Yes. ~14839+ tests / 4099 test files / 67 e2e spec / 4699 API 路由 / 622 �
 | 跟踪文件 | 19567 | `trackedFiles` |
 | 测试文件 | 4260 | `testFiles` |
 | 跟踪文件 | 19586 | `trackedFiles` |
+对外关键数字声明(与本页生成块同源,均现算):**624 张表 · 4719 API 路由 · 25 个 WebSocket 端点 ·
+| API 路由 | 4719 | `apiRoutes` |
+| 路由文件 | 667 | `apiRouteFiles` |
+| AI 服务路由 | 646 | `aiServiceRoutes` |
+| CLI 工具文件 | 94 | `cliToolFiles` |
+| 测试文件 | 4287 | `testFiles` |
+| 跟踪文件 | 19735 | `trackedFiles` |
+  <strong>624 张表 · 4719 API 路由 · 25 WebSocket 通道 · 88 守门脚本 · 56+ pre-commit 项 · 测试文件数/用例数见生成块 · 67 e2e spec · 54 CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+| **代码规模** | 8 端代码 / 205 schema 文件 / **624 数据库表**(实测 pgTable)/ drizzle-kit push 模式 / **4719 API 路由 + 25 WebSocket 通道**(实测 grep)/ 250+ Web 页面 / 200+ 组件 / 104 hooks / 16 共享包 / 5 语言 i18n parity(35 JSON 文件 7 端 × 5 语言) |
+→ **IHUI-AI(智汇 AI)**。Apache 2.0 开源,176 大模型统一调度,PostgreSQL 行级安全多租户,完整商业闭环(10 支付网关 + VIP + 积分 + 钱包 + 订阅 + 退款),8 端同源 Monorepo(Web/API/AI-Service/Desktop/Extension/Mobile/Miniapp/CLI),542 张表 / 4719 API 路由;测试文件数与用例数见生成块。5 分钟 Fork 到上线。**GitHub**:https://github.com/IHUI-INF-AI/IHUI-AI
+   技术护城河    │  • 8 端 / 542 表 / drizzle-kit push / 4719 API 路由    │
+| **代码规模** | 8 端代码 / 205 schema 文件 / 624 数据库表 / drizzle-kit push / 4719 API 路由 / 250+ Web 页面 / 16 共享包 / 88 守门脚本 + 56+10 pre-commit 项 / 5 语言 i18n parity                                                   |
+|                   | API                 | Fastify 5 / **4719 API 路由跨 288 路由文件**(Grep 实测)/ **60 插件** / **8 Workers**(relay-health-check/scheduler/registry-sync/notification/notification-dispatch/email/ai-callback/index)/ **200+ services** / **288 路由文件**(Glob 实测)/ 25 WebSocket 端点 / OpenAPI                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+- **规模**:624 张表 · 4719 API 路由 · 测试文件数与用例数见生成块
+- **API(Fastify 5)**:4719 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
+A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4719 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。

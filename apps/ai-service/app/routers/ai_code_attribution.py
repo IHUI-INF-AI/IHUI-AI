@@ -11,6 +11,7 @@ tags=["ai-code-attribution"])` 方式挂载,最终端点路径:
   GET /api/ai-code-attribution/stats                → 某文件/某会话的 AI 占比与统计
   GET /api/ai-code-attribution/records/{id}/trace   → 单条记录的回溯裁决(git blame)
   POST /api/ai-code-attribution/backfill            → 提交成功后给空锚回填提交号
+  GET  /api/ai-code-attribution/checkpoints         → 编辑检查点日志(损坏时不说成没有)
 
 存储:复用 app/services/ai_code_attribution_store(进程内 list + data/ai_code_attribution.json)。
 判据:app/core/ai_code_attribution(仓内只此一份);本路由只做读数与序列化,不判归属。
@@ -29,6 +30,7 @@ from ..core.ai_code_attribution import AttributionRecord, AttributionStats
 from ..core.jwt_auth import get_current_user_id
 from ..services.ai_code_attribution_store import (
     backfill_commit_sha,
+    list_checkpoint_log,
     list_records,
     stats_all,
     stats_for_path,
@@ -168,4 +170,19 @@ async def backfill_attribution_commit(
         refused or "-",
     )
     return {"code": 0, "message": refused or "ok", "data": {"updated": updated, "refused": refused}}
+
+
+@router.get("/checkpoints")
+async def list_attribution_checkpoints(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """检查点读数。日志读不到时 refused 有字，checkpoints 为空也不表示没发生过编辑。"""
+    rows, refused = list_checkpoint_log()
+    logger.info(
+        "ai-code-attribution checkpoints user=%s count=%s refused=%s",
+        user_id,
+        len(rows),
+        refused or "-",
+    )
+    return {"code": 0, "message": refused or "ok", "data": {"checkpoints": rows, "refused": refused}}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

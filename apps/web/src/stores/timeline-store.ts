@@ -20,7 +20,7 @@ import { paneIdForChatStore, type ChatStore } from '@/stores/chat-panes'
  */
 
 export type TimelineEventType = 'plan' | 'subagent' | 'question' | 'tool' | 'thinking' | 'reference'
-export type TimelineEventStatus = 'pending' | 'running' | 'done' | 'failed'
+export type TimelineEventStatus = 'pending' | 'running' | 'done' | 'failed' | 'stub'
 
 /** Timeline 事件类型筛选值(2026-07-29 立,Phase 22);'all' 表示不过滤 */
 export type TimelineFilterType = 'all' | TimelineEventType

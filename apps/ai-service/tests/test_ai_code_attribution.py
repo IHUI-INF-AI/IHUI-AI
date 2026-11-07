@@ -34,13 +34,18 @@ from app.core.ai_code_attribution import (
     compute_stats,
     make_record,
     parse_diff_line_range,
+    plan_checkpoint,
     resolve_anchor,
 )
 from app.services.ai_code_attribution_store import (
     AiCodeAttributionStore,
     backfill_commit_sha,
+    checkpoint_log_path,
     host_session_id,
+    list_checkpoint_log,
     list_records,
+    log_host_edit_checkpoint,
+    note_host_edit,
     record_attribution,
     stats_all,
     stats_for_path,
@@ -64,6 +69,7 @@ def tmp_store(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 def test_classify_ai_tool_positive():
     assert classify_attribution("file_edit", "a.py", "@@ -1 +1 @@\n+x") == ATTRIBUTION_AI
+    assert classify_attribution("resolve_conflict", "a.py", "@@ -1 +1 @@\n+x") == ATTRIBUTION_AI
 
 
 def test_classify_mcp_prefixed_tool_is_ai():
@@ -336,4 +342,176 @@ def test_backfill_does_not_replace_a_corrupt_ledger(tmp_store):
     assert updated == 0
     assert "读不到" in refused
     assert tmp_store._file.read_text(encoding="utf-8") == body
+
+
+def test_after_edit_checkpoint_does_not_invent_defaults(tmp_store):
+    status, refused = log_host_edit_checkpoint(
+        "file_edit",
+        "apps/A.py",
+        "@@ -1 +1 @@\n+x",
+        {"__session_id": "sess-1", "model": "gpt", "completion_id": "forged"},
+    )
+    assert status == "appended"
+    assert refused == ""
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["hook_event_name"] == "after_edit"
+    assert row["kind"] == "ai"
+    assert row["operation_id"] == "unjudged"
+    assert row["tool"] == "file_edit"
+    assert row["model"] is None
+    assert row["session_id"] == "sess-1"
+    assert row["edited_filepaths"] == ["apps/a.py"]
+
+
+def test_checkpoint_duplicate_does_not_append(tmp_store):
+    args = {"__session_id": "sess-1"}
+    assert log_host_edit_checkpoint("file_edit", "a.py", "diff", args)[0] == "appended"
+    body = checkpoint_log_path().read_text(encoding="utf-8")
+    assert log_host_edit_checkpoint("file_edit", "a.py", "diff", args)[0] == "duplicate"
+    assert checkpoint_log_path().read_text(encoding="utf-8") == body
+
+
+def test_checkpoint_path_order_shares_one_key():
+    left, _ = plan_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        None,
+        hook_event_name="before_edit",
+        session_id="s",
+        edited_filepaths=["B.py", "a.py"],
+    )
+    right, _ = plan_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        None,
+        hook_event_name="before_edit",
+        session_id="s",
+        edited_filepaths=["a.py", "b.py"],
+    )
+    assert left is not None and right is not None
+    assert left["dedupe_key"] == right["dedupe_key"]
+
+
+def test_measured_completion_is_ai_tab_and_human_stays_human():
+    tab, _ = plan_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        {"__completion_id": "comp-9", "__model": "own-model"},
+        hook_event_name="checkpoint",
+        session_id="s",
+    )
+    human, _ = plan_checkpoint(
+        "human_edit",
+        "a.py",
+        "diff",
+        None,
+        hook_event_name="after_edit",
+        session_id="s",
+    )
+    assert tab is not None and tab["kind"] == "ai_tab"
+    assert tab["operation_id"] == "comp-9"
+    assert tab["model"] == "own-model"
+    assert human is not None and human["kind"] == "known_human"
+    assert human["operation_id"] == "human"
+
+
+def test_unknown_hook_and_corrupt_log_do_not_write(tmp_store):
+    planned, refused = plan_checkpoint(
+        "file_edit",
+        "a.py",
+        "diff",
+        None,
+        hook_event_name="saved",
+        session_id="s",
+    )
+    assert planned is None
+    assert "before_edit" in refused
+    assert not checkpoint_log_path().exists()
+    body = "{not json\n"
+    checkpoint_log_path().write_text(body, encoding="utf-8")
+    status, refused = log_host_edit_checkpoint("file_edit", "a.py", "diff", {"__session_id": "s"})
+    assert status == "refused"
+    assert "读不到" in refused
+    assert checkpoint_log_path().read_text(encoding="utf-8") == body
+    rows, note = list_checkpoint_log()
+    assert rows == []
+    assert note
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_route_names_a_corrupt_log(tmp_store):
+    from app.routers.ai_code_attribution import list_attribution_checkpoints
+
+    checkpoint_log_path().write_text("{not json\n", encoding="utf-8")
+    body = await list_attribution_checkpoints(user_id="u")
+    assert body["data"]["checkpoints"] == []
+    assert body["data"]["refused"]
+    note_host_edit("file_edit", "a.py", "diff", {"__session_id": "s"})
+    assert checkpoint_log_path().read_text(encoding="utf-8").startswith("{not json")
+    assert len(list_records(path="a.py")) == 1
+
+
+@pytest.mark.asyncio
+async def test_successful_write_pairs_before_and_after(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_write_file
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_write_path_in_workspace",
+        lambda p, extra_roots=None: (True, str(p)),
+    )
+    target = tmp_path / "out.py"
+    out = await _tool_write_file(
+        {"path": str(target), "content": "x = 1\n", "__session_id": "pair"}
+    )
+    assert out["ok"] is True
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert [row["hook_event_name"] for row in rows] == ["before_edit", "after_edit"]
+    assert rows[0]["path_hash"] == rows[1]["path_hash"]
+    assert rows[0]["dedupe_key"] != rows[1]["dedupe_key"]
+    assert rows[0]["kind"] == "ai"
+
+
+@pytest.mark.asyncio
+async def test_rejected_write_does_not_record_a_checkpoint(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_write_file
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_write_path_in_workspace",
+        lambda _p, extra_roots=None: (False, "拒绝"),
+    )
+    out = await _tool_write_file({"path": str(tmp_path / "no.py"), "content": "x\n", "__session_id": "s"})
+    assert out["ok"] is False
+    assert not checkpoint_log_path().exists()
+
+
+@pytest.mark.asyncio
+async def test_write_io_failure_keeps_before_without_after(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_write_file
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_write_path_in_workspace",
+        lambda p, extra_roots=None: (True, str(p)),
+    )
+    target = tmp_path / "out.py"
+    target.write_text("old\n", encoding="utf-8")
+    real_open = open
+
+    def guarded(file, mode="r", *args, **kwargs):
+        if str(file) == str(target) and "w" in str(mode):
+            raise OSError(13, "denied")
+        return real_open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", guarded)
+    out = await _tool_write_file({"path": str(target), "content": "new\n", "__session_id": "s"})
+    assert out["ok"] is False
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert [row["hook_event_name"] for row in rows] == ["before_edit"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

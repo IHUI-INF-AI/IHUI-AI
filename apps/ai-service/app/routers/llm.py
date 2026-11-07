@@ -3039,13 +3039,18 @@ def _build_subagent_end_event(
     `_subagent_handoff_event`,此处只负责把工具结果接到既有帧上。
     """
     _now = ts or datetime.now(UTC).isoformat()
-    if ok:
+    _stubbed = exec_result.get("status") == "stub" or exec_result.get("stub") is True
+    if ok and not _stubbed:
         _summary = (
             exec_result.get("summary")
             or exec_result.get("output")
             or exec_result.get("message")
             or ""
         )
+        _end_status = "done"
+    elif _stubbed:
+        _summary = ""
+        _end_status = "stub"
     else:
         _summary = (
             exec_result.get("summary")
@@ -3053,16 +3058,17 @@ def _build_subagent_end_event(
             or exec_result.get("message")
             or "subagent 执行失败(无详细错误信息)"
         )
+        _end_status = "failed"
     _raw_usage = exec_result.get("token_usage") or exec_result.get("tokenUsage")
     _usage = _raw_usage if isinstance(_raw_usage, dict) and _raw_usage else None
     _evt: dict[str, Any] = {
         "type": "subagent_end",
         "id": subagent_id,
-        "status": "done" if ok else "failed",
+        "status": _end_status,
         "timestamp": _now,
         **_subagent_handoff_event(
             _subagent_handoff_kind(
-                ok=ok,
+                ok=ok and not _stubbed,
                 needs_help=bool(exec_result.get("needs_help") or exec_result.get("needsHelp")),
             ),
             subagent_id,
@@ -3071,14 +3077,29 @@ def _build_subagent_end_event(
             ts=_now,
         ),
     }
-    if not ok:
+    if _end_status == "failed":
         # 旧行为逐字保留:失败原因优先取 error,其次 message,最后给默认文案。
+        # stub 不写 failureReason,用户可见词在前端 i18n,避免把模拟结果说成失败长句。
         _evt["failureReason"] = str(
             exec_result.get("error")
             or exec_result.get("message")
             or "subagent 执行失败(无详细错误信息)"
         )[:500]
     return _evt
+
+
+def _chat_dispatch_host_view(user_id: str | None, session_scope: str | None) -> dict[str, object]:
+    """主聊天派工的宿主视图。范围只来自认证主体和会话 id,不读消息正文。"""
+    from ..services.work_admission import build_chat_trigger, namespaced_trigger_id
+
+    if not user_id or not session_scope:
+        return {}
+    return build_chat_trigger(
+        user_id=user_id,
+        session_id=session_scope,
+        trigger_id=namespaced_trigger_id(user_id, None),
+        addressed=True,
+    )
 
 
 def _load_default_models() -> list[dict[str, Any]]:
@@ -5519,6 +5540,8 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         "task": _sa_task["task"],
                                         "timestamp": _spawn_now,
                                     }
+                                    if message_id:
+                                        _spawn_evt["messageId"] = message_id
                                     yield _sse(SSE_SUBAGENT_SPAWN, _spawn_evt)
 
                             # 重复调用检测(2026-07-24 立,修复 stepfun/step-router-v1 在 tool loop 中重复调用
@@ -6428,13 +6451,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         _sse_evt["agent_id"] = _sa_id
                                     if _agent_name:
                                         _sse_evt["agentName"] = _agent_name
+                                    if message_id:
+                                        _sse_evt["messageId"] = message_id
                                     _progress_queue.put_nowait(_sse_evt)
 
                                 try:
                                     # MCP 工具调用取消闭环:登记到本流追踪器,
                                     # 客户端断开/请求取消时 finally 统一 cancel
+                                    _dispatch_scope = ""
+                                    if isinstance(req.metadata, dict):
+                                        _cid = req.metadata.get("conversationId")
+                                        if isinstance(_cid, str) and _cid.strip():
+                                            _dispatch_scope = _cid.strip()
+                                    if not _dispatch_scope and session_id:
+                                        _dispatch_scope = session_id
                                     _dispatch_task = _inflight_tool_tasks.track(asyncio.create_task(
-                                        _tool_dispatch_subagent(args, progress_callback=_progress_cb)
+                                        _tool_dispatch_subagent(
+                                            args,
+                                            progress_callback=_progress_cb,
+                                            host_view=_chat_dispatch_host_view(
+                                                owner_uuid, _dispatch_scope or None
+                                            ),
+                                        )
                                     ))
                                     # 排水进度事件,直到 dispatch 任务完成
                                     while not _dispatch_task.done():
@@ -6611,11 +6649,14 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 for _sa_id in _spawned_sub_ids:
                                     # D08②:完成/受阻/求助换手消息与结束帧**同帧**下发
                                     # (复用 subagent_end,不新造帧;失败原因默认文案在 helper 内保留)。
+                                    _end_evt = _build_subagent_end_event(
+                                        _sa_id, ok, exec_result, ts=_end_now
+                                    )
+                                    if message_id:
+                                        _end_evt["messageId"] = message_id
                                     yield _sse(
                                         SSE_SUBAGENT_END,
-                                        _build_subagent_end_event(
-                                            _sa_id, ok, exec_result, ts=_end_now
-                                        ),
+                                        _end_evt,
                                     )
 
                             # 回灌工具结果(失败时显式标注,防止 LLM 幻觉"已完成")
