@@ -78,7 +78,10 @@ function loadSettingsFile(p: string, stat?: (path: string) => fs.Stats): Partial
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code
     if (code) throw new Error(`配置读不到,不能把它当成空配置 (${code})`)
-    return {}
+    // JSON.parse 失败(SyntaxError)没有 code 分支。此前直接 `return {}` 会让用户配置
+    // 凭空消失且无任何提示;这里点名文件与解析器给的位置,并让入口以非 0 退出。
+    // 原文件保持不动(不重写、不删除),用户可自行修复。
+    throw new Error(`配置文件损坏,拒绝按空配置继续: ${p} (${(e as Error).message})`)
   }
 }
 

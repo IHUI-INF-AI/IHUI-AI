@@ -442,15 +442,15 @@ describe('loadConfig', () => {
     expect(r.auditEnabled).toBe(true)
   })
 
-  it('某层加载失败不阻塞:损坏 JSON 降级到默认', () => {
+  it('损坏 JSON 必须报错:点名文件位置,不得降级到默认', () => {
     fs.mkdirSync(path.join(tmpHome, '.ihui'), { recursive: true })
-    fs.writeFileSync(
-      path.join(tmpHome, '.ihui', 'settings.json'),
-      '{invalid json',
-    )
-    const r = loadConfig({ cwd: tmpCwd })
-    // global 损坏 → 降级,apiUrl 回退到 defaults
-    expect(r.apiUrl).toBe('http://localhost:8802')
+    const file = path.join(tmpHome, '.ihui', 'settings.json')
+    fs.writeFileSync(file, '{invalid json')
+    // 修前:catch 后 return {} —— 用户配置凭空消失,命令按默认值空跑。
+    expect(() => loadConfig({ cwd: tmpCwd })).toThrow(/配置文件损坏/)
+    expect(() => loadConfig({ cwd: tmpCwd })).toThrow(/settings\.json/)
+    // 原文件保持不动,用户可自行修复
+    expect(fs.readFileSync(file, 'utf-8')).toBe('{invalid json')
   })
 
   it('配置读不到不能当成空配置', () => {
@@ -466,14 +466,13 @@ describe('loadConfig', () => {
     expect(fs.readFileSync(file, 'utf-8')).toContain('http://secret')
   })
 
-  it('project 层损坏也不阻塞', () => {
+  it('project 层损坏同样必须报错', () => {
     fs.mkdirSync(path.join(tmpCwd, '.ihui'), { recursive: true })
     fs.writeFileSync(
       path.join(tmpCwd, '.ihui', 'settings.json'),
       'not a json',
     )
-    const r = loadConfig({ cwd: tmpCwd })
-    expect(r.apiUrl).toBe('http://localhost:8802')
+    expect(() => loadConfig({ cwd: tmpCwd })).toThrow(/配置文件损坏/)
   })
 
   it('CLI 最高优先级:覆盖 env / session / project / global / defaults', () => {
