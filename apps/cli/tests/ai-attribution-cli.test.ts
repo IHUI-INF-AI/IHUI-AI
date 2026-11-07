@@ -14,16 +14,19 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Command } from 'commander';
 import {
   formatRecordLines,
   formatStatsLines,
+  postAttributionBackfill,
   registerAiAttributionCommand,
   type AttributionStatsPayload,
 } from '../src/commands/ai-attribution.js';
+import { getSettingsPath } from '../src/commands/settings.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const COMMAND_FILE = join(HERE, '..', 'src', 'commands', 'ai-attribution.ts');
@@ -84,6 +87,41 @@ describe('ai-attribution CLI(读数侧)', () => {
     expect(src).not.toMatch(/AI_GENERATED_TOOLS|HUMAN_AUTHORED_TOOLS/);
     expect(src).not.toMatch(/tool_in_ai_registry|tool_in_human_registry|tool_not_in_registry/);
     expect(src).not.toMatch(/missing_file_or_hunk/);
+  });
+
+  it('回填把提交号和文件清单交给服务端', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ihui-attr-backfill-'));
+    const previousHome = process.env.HOME;
+    const previousProfile = process.env.USERPROFILE;
+    process.env.HOME = dir;
+    process.env.USERPROFILE = dir;
+    const file = getSettingsPath();
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, JSON.stringify({ apiKey: 'test-key' }), 'utf-8');
+    try {
+      let seenPath = '';
+      let seenSha = '';
+      const ok = await postAttributionBackfill('a'.repeat(40), ['apps/a.py'], async (_base, path, options) => {
+        seenPath = path;
+        const body = options?.body as { commit_sha?: string };
+        seenSha = body.commit_sha ?? '';
+        return { code: 0, data: { updated: 1, refused: '' } };
+      });
+      expect(seenPath).toBe('/backfill');
+      expect(seenSha).toBe('a'.repeat(40));
+      expect(ok).toEqual({ updated: 1, refused: '' });
+      await expect(
+        postAttributionBackfill('b'.repeat(40), ['apps/b.py'], async () => {
+          throw new Error('服务没起来');
+        }),
+      ).rejects.toThrow('服务没起来');
+    } finally {
+      if (previousHome === undefined) delete process.env.HOME;
+      else process.env.HOME = previousHome;
+      if (previousProfile === undefined) delete process.env.USERPROFILE;
+      else process.env.USERPROFILE = previousProfile;
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
