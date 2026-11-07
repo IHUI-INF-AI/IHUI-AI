@@ -135,6 +135,7 @@
     "statusFailed": "執行失敗",
     "statusRunning": "執行中",
     "statusSkipped": "已跳過",
+    "statusStub": "模擬未完成",
     "roundNumber": "第 {n} 輪",
     "retriedTimes": "重試 {n} 次",
     "sourcePlugin": "外掛",
@@ -2580,7 +2581,8 @@
             "completed": "已完成",
             "failed": "執行失敗",
             "cancelled": "已取消",
-            "timeout": "已逾時"
+            "timeout": "已逾時",
+            "stub": "模擬未完成"
           },
           "hint": {
             "stopping": "停止請求已送出，等待任務收尾",

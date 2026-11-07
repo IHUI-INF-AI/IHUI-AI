@@ -79,13 +79,14 @@ import { hydrateHistoryMessages } from '@/hooks/use-chat/history-message'
 // 差距④(2026-10-30 立):?turn= 深链锚点目标(peek/clear)+ 既有跳转机制(锚点定位出口)
 // 差距⑤补全:完整页按服务端 user 开轮口径盖 turnOrdinal(「分享此回合」生成端的数据源)
 import {
-  consumeTurnDeepLink,
+  TURN_ANCHOR_UNRESOLVED_ERROR,
+  decideAroundLoad,
   getTurnDeepLinkVersionForPane,
   markPageTurnOrdinals,
   peekTurnDeepLink,
-  pickTurnAnchorMessageId,
   stampCompletePageTurnOrdinals,
   subscribeTurnDeepLink,
+  unresolvedTurnAnchorState,
 } from '@/lib/turn-deeplink'
 import { useProgressJumpStore } from '@/stores/progress-jump-store'
 import { useMediaQuery } from '@/hooks/use-media-query'
@@ -389,6 +390,7 @@ export function AISidePanel() {
     applyDiffSelection,
   } = useChat()
   const subAgentActivities = useChatStore((s) => s.subAgentActivities)
+  const chatError = useChatStore((s) => s.error)
   // ChatMode 4 态(2026-07-28 移除独立 PlanActToggle):订阅 currentMode 用于动态切换输入框 placeholder
   const currentMode = useModeStore((s) => s.currentMode)
   // 登录弹窗打开状态(2026-07-31 立,双重保险):
@@ -699,8 +701,7 @@ export function AISidePanel() {
       // 差距④(2026-10-30 立):?turn= 深链 —— 有锚点目标时**绕过 LRU 缓存**直接走
       // around 居中窗口(缓存装的是"上次落点"的内容,与分享链接指向的轮次无关,
       // 复用会让锚点行不在窗口里、跳转落空)。半径 5 轮与服务端 window 默认同量级。
-      // 降级(差距④设计口径):turn 不存在(404)/拉取失败 ⇒ 清目标、落到常规路径
-      // (会话最新页,与正常打开同位,不猜位置)。
+      // 锚点解析失败(404 / 抛错 / 窗口里没有请求的那一轮)⇒ 空态错误码,不改拉最新页。
       // 已知退化(登记):窗口就位后上翻分页停用(resetPager(null,false)) —— around
       // 通道断点是 turn 游标,与 handleLoadMoreHistory 的 getMessages keyset 游标
       // 不是同一空间,不得混灌;下翻(prevCursor)通道本窗格暂无消费面,同样不接。
@@ -717,6 +718,19 @@ export function AISidePanel() {
             }),
           ])
           if (cancelled) return
+          const decision = decideAroundLoad({
+            ok: histRes.success,
+            turns: histRes.success ? histRes.data.turns : [],
+            turnOrdinal: deepLink.turnOrdinal,
+          })
+          if (decision.action === 'unresolved-empty') {
+            if (!isLocalMessagesChanged(localBefore)) {
+              useChatStore.setState(unresolvedTurnAnchorState())
+            }
+            resetPager(null, false)
+            setLoadingHistory(false)
+            return
+          }
           if (histRes.success) {
             // 差距⑤补全:拍平处给每行盖 turn 序号 —— /history 读面的 turn 分组自带
             // 服务端盖章的 turnOrdinal,这是窗口行序号的唯一权威来源(窗口尾部续聊的
@@ -761,24 +775,20 @@ export function AISidePanel() {
             // MessageList 消费 pendingJump ⇒ scrollIntoView(center) + flashHighlight;
             // 跳转产生的滚动事件按 scrollTop 回退记成"用户上翻",跟随权自然解除,
             // 不会被贴底 effect 拽回底部(无需给滚动权威另开口子)。
-            const anchorMessageId = pickTurnAnchorMessageId(
-              histRes.data.turns,
-              deepLink.turnOrdinal,
-            )
-            if (anchorMessageId) {
-              useProgressJumpStore.getState().requestJumpToMessage(anchorMessageId)
-            }
+            useProgressJumpStore.getState().requestJumpToMessage(decision.anchorMessageId)
             setLoadingHistory(false)
             return
           }
-          // 404 降级:静默消费(不广播)—— 下面就地落常规路径,广播会多放一枪 effect 重放
-          consumeTurnDeepLink()
+          return
         } catch {
-          consumeTurnDeepLink()
+          if (cancelled) return
+          if (!isLocalMessagesChanged(localBefore)) {
+            useChatStore.setState(unresolvedTurnAnchorState())
+          }
+          resetPager(null, false)
+          setLoadingHistory(false)
+          return
         }
-        if (cancelled) return
-        setLoadingHistory(false)
-        // 不 return:降级继续走下方常规路径(缓存/最新页)
       }
 
       // 缓存命中:同步从缓存恢复(无闪烁),后台异步拉取最新消息对比更新
@@ -1521,8 +1531,15 @@ export function AISidePanel() {
           messages={messages}
           isStreaming={isStreaming}
           isLoading={loadingHistory}
-          emptyTitle={t('empty')}
-          emptyHint={t('emptyHint')}
+          emptyTitle={
+            chatError === TURN_ANCHOR_UNRESOLVED_ERROR ? t('turnAnchorUnresolvedTitle') : t('empty')
+          }
+          emptyHint={
+            chatError === TURN_ANCHOR_UNRESOLVED_ERROR
+              ? t('turnAnchorUnresolvedHint')
+              : t('emptyHint')
+          }
+          emptyKind={chatError === TURN_ANCHOR_UNRESOLVED_ERROR ? 'anchor-unresolved' : 'welcome'}
           assistantLabel={t('assistant')}
           loadingLabel={t('loading')}
           hasMoreHistory={hasMoreHistory}

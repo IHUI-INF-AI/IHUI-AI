@@ -228,6 +228,59 @@ test('CLI 契约:无漂移时同样 exit 0 + 最后一行可解析(守护不得�
   }
 })
 
+/**
+ * 空值解引用锁(2026-11-07 生产事故立项)。
+ *
+ * 事故原文(守护日志 + 崩溃现场件 `.ihui-agent/state/guardian-crash-last.json`):
+ *   [04:00:20.381Z] 工作区存续自愈失败(不阻断其余守护): spawnSync … ETIMEDOUT
+ *   [04:00:20.808Z] ❌ 守护轮次异常终止(main-rejected):stage=main:block-enter elapsedMs=1249537
+ *                   TypeError: Cannot read properties of null (reading 'intentLost')
+ *                     at healWorktreeTracked (git-guardian.mjs:1820:9)
+ *
+ * 机制:`run()` 在超时/派生失败时返回 `{ r: null, err }`;原代码把 err 记成一行日志后
+ * **继续往下走**,紧随其后的 `if (r.intentLost)` 是**无条件解引用** ⇒ 这一层自杀,
+ * 并把整轮守护一起带走。而它自己的日志文案写着「不阻断其余守护」——
+ * 文案与行为相反比单纯的 null 更坏:读日志的人会以为"自愈失败但后面照常跑了",
+ * 实际后面一条腿都没跑(这正是 A8 有 3 条腿 rotting、轮次 2h24m 零痕迹的直接成因)。
+ *
+ * 本锁钉**结构**而不是某一行:恢复层的全部结论解引用必须整体收在 `else` 块内。
+ * 这样将来谁再往里加一条 `if (r.xxx)`,只要漏在块外就会被这里拦下。
+ */
+test('空值锁:恢复层 run() 失败时不得继续解引用 r(整轮守护被杀的生产事故)', () => {
+  const body = funcBody(readFileSync(GUARDIAN, 'utf8'), 'healWorktreeTracked')
+  const at = body.indexOf("const { r, err } = run(['--json'])")
+  assert.ok(at >= 0, '找不到恢复层调用行(断言已失效,先修断言再谈判据)')
+  const fromCall = body.slice(at)
+
+  // ① 形态:err 分支之后必须**紧跟** else 块 —— 不允许"记完日志继续往下走"。
+  //    用形态判据而不是"找第一个 r. 解引用":上一版就是这么写的,结果被本函数里
+  //    `if (r.intentLost)` 那句**注释**骗过(注释先命中正则),整条锁变成空的。
+  const shape = /if \(err\)[^\n]*\n\s*else \{/.exec(fromCall)
+  assert.ok(
+    shape,
+    'run() 失败分支之后必须紧跟 else 块:err 时 r=null,裸解引用会把整轮守护打死',
+  )
+
+  // ② 结论必须真的落在 else 块内,否则那个 else 只是个空壳,照样拦不住裸解引用。
+  const elseBlock = fromCall.slice(shape.index + shape[0].length)
+  for (const k of ['restored', 'held', 'intentLost']) {
+    assert.match(
+      elseBlock,
+      new RegExp(`r\\.${k}\\b`),
+      `结论 r.${k} 必须在 else 块内(err 时 r=null,裸解引用即整轮死)`,
+    )
+  }
+
+  // ③ 变异自证:拆掉 else 包裹,①必须判红 —— 否则这条锁没有牙。
+  const unwrapped = fromCall.replace('else {', 'if (true) {')
+  assert.ok(unwrapped !== fromCall, 'else 包裹形态与断言不符(替换没命中 ⇒ 断言是空的)')
+  assert.equal(
+    /if \(err\)[^\n]*\n\s*else \{/.test(unwrapped),
+    false,
+    '拆掉 else 包裹后本锁必须判红(证明它真的有牙)',
+  )
+})
+
 test('装车证明(2026-11-03 补):两层派生都必须带 timeout,超时只记失败不拖死整轮守护', () => {
   const body = funcBody(readFileSync(GUARDIAN, 'utf8'), 'healWorktreeTracked')
   // 当日实测:`--align-drift` 从 13:11:44 挂到 16:22:55(3h11m)才被人杀掉,期间整轮守护静默。

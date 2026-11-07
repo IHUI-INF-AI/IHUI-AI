@@ -225,25 +225,28 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             />
           </View>
 
-          {/* 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)*/}
-          <View className="flex justify-between" style={{ padding: '15rpx 28rpx 25rpx' }}>
+          {/* 5 个菜单项:竖排列表(2026-11-07 适配窄抽屉)
+              原先是 `flex justify-between` 横排 5 项,每项 60rpx 图标。抽屉宽随几何档 drawerWidth
+              由 500rpx 收到 320rpx 后,扣掉左右各 28rpx 内边距只剩 264rpx,而 5×60rpx = 300rpx
+              仅图标就放不下 ⇒ 横排必然挤压重叠。改竖排后每行 = 36rpx 图标 + 12rpx 间距 + 标签,
+              与下方 3 个标签项同一形态;行高取 tapBox 档保证可点面积。 */}
+          <View className="flex flex-col" style={{ padding: '8rpx 28rpx 16rpx' }}>
             {menuItems.map((item) => (
               <View
                 key={item.key}
-                className="flex flex-col items-center justify-center"
+                className="flex items-center"
+                style={{ minHeight: rpx(taroGeometry.tapBox) }}
                 onClick={() => onMenuItemClick?.(item)}
                 hoverClass="opacity-60"
               >
-                {item.icon ? (
-                  renderIcon(item.icon, 60)
-                ) : (
-                  // 缺图兜底不得用字符「•」冒充图标 —— 同一载体类:矢量 circle
-                  <LineIcon name="circle" size={60} color="var(--color-muted-foreground)" />
-                )}
+                {item.icon
+                  ? renderIcon(item.icon, 36, { marginRight: rpx(12) })
+                  : // 缺图兜底不得用字符「•」冒充图标 —— 走同一个 renderIcon,尺寸/间距与主分支
+                    // 及下方标签项完全一致(竖排下漏 marginRight 会让图标贴住文字)
+                    renderIcon('circle', 36, { marginRight: rpx(12) })}
                 <Text
-                  className="mt-[8rpx]"
                   style={{
-                    fontSize: rpx(taroGeometry.textLabel),
+                    fontSize: rpx(taroGeometry.textBody),
                     color: 'var(--color-foreground)',
                   }}
                 >

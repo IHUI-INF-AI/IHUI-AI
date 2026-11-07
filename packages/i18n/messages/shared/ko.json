@@ -135,6 +135,7 @@
     "statusFailed": "실패",
     "statusRunning": "실행 중",
     "statusSkipped": "건너뜀",
+    "statusStub": "시뮬레이션(미완료)",
     "roundNumber": "{n}번째 순번",
     "retriedTimes": "{n}회 재시도",
     "sourcePlugin": "플러그인",
@@ -2580,7 +2581,8 @@
             "completed": "완료",
             "failed": "실패",
             "cancelled": "취소됨",
-            "timeout": "시간 초과"
+            "timeout": "시간 초과",
+            "stub": "시뮬레이션(미완료)"
           },
           "hint": {
             "stopping": "중지 요청을 보냈습니다. 작업 종료를 기다리는 중입니다",

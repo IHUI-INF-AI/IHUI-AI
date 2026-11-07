@@ -28,7 +28,7 @@
 
 import ts from 'typescript'
 import { Undetermined } from './face-reader.mjs'
-import { readFaceOne } from './gate-face.mjs'
+import { readFaceBatch, readFaceOne } from './gate-face.mjs'
 import { __test__ as coverage } from '../check-cross-end-screen-coverage.mjs'
 import { isRetiredRecord } from './ledger-retirement.mjs'
 
@@ -592,22 +592,21 @@ export function classifyMiniappPages(root, face, ledgerRows = []) {
   const registryMap = new Map(registry.map((e) => [e.miniapp, e]))
   const registryByShared = new Map(registry.map((e) => [e.shared, e.rn]))
   const textCache = new Map()
-  const readText = (rel) => {
-    if (!rel) return null
-    if (!textCache.has(rel)) textCache.set(rel, readFaceOne(root, face, rel))
-    return textCache.get(rel)
-  }
-  // 共享屏→RN 消费端:登记表直配;无登记时只认「约定路径存在且正文含该屏名」的实证兜底。
-  const resolveRn = (spec) => {
-    const rel = registryByShared.get(spec)
-    if (rel) return rel
-    const base = String(spec).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
-    const guess = `apps/mobile-rn/src/screens/${base}.tsx`
-    const txt = readText(guess)
-    return txt && txt.includes(base) ? guess : null
-  }
+  /* 取数批量化的「为什么」(2026-11-07,门 299 顶穿 300s 看门狗):
+   * 旧实现对**每个新 rel** 各起一次 git 子进程(共享屏 253 + RN 对照 252 ⇒ 505 次 spawn,
+   * Windows 单次 ~700ms ⇒ 353s),而判据本身在 worktree 面只要 3.9s —— 差异全在取数面。
+   * 所以先把本轮要读的 rel 一次收齐:共享屏正文已由上方 collectShared 在同一面、同一进程里
+   * 批量预取(直取那份缓存,零 spawn),剩下的 RN 对照交由一次 readFaceBatch 灌满。
+   * 语义一寸未动:取不到仍是 null(不是空串、不是跳过),照旧由 classifyPage 落到 undetermined;
+   * 批量取数故障仍抛 Undetermined ⇒ exit 2,不在这里折成绿。 */
+  const prefetched = new Set(shared.map((s) => s.spec))
+  const rnGuess = (spec) =>
+    `apps/mobile-rn/src/screens/${String(spec).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')}.tsx`
   const rows = []
   const undeterminedMissing = []
+  // 第一遍:只解析声明与收 rel(纯内存,不落任何结论)—— 结论统一留给下面那一遍。
+  const prepared = []
+  const wanted = new Set()
   for (const p of pages) {
     const hay = `${p.text || ''}\n${p.cssText || ''}`
     const d = coverage.mirrorDeclarations(hay, idx)
@@ -618,6 +617,41 @@ export function classifyMiniappPages(root, face, ledgerRows = []) {
     }
     const declaredList = [...d.specs]
     const analysisSpecs = declaredList.length > 0 ? declaredList : reg?.shared ? [reg.shared] : []
+    prepared.push({ p, d, reg, analysisSpecs })
+    if (analysisSpecs.length === 0) continue
+    wanted.add(analysisSpecs[0])
+    // RN 对照:登记表直配就读登记路径;无配读「约定路径」候选 —— 在不在、同名与否仍由正文判。
+    wanted.add(registryByShared.get(analysisSpecs[0]) ?? rnGuess(analysisSpecs[0]))
+  }
+  const pending = []
+  for (const rel of wanted) {
+    if (!rel) continue
+    // 磁盘面没有预取(本来就是逐件直读磁盘),统一走批量口,与本文件改前的读取路径逐字节同源。
+    if (face !== 'worktree' && prefetched.has(rel)) {
+      textCache.set(rel, coverage.faceRead(face, rel))
+      continue
+    }
+    pending.push(rel)
+  }
+  if (pending.length > 0) {
+    // 一次批量取回(不吞异常:git 派生故障 ⇒ Undetermined 原样上抛 ⇒ 门 exit 2 未判定)
+    for (const [rel, txt] of readFaceBatch(root, face, pending)) textCache.set(rel, txt)
+  }
+  const readText = (rel) => {
+    if (!rel) return null
+    if (!textCache.has(rel)) textCache.set(rel, readFaceOne(root, face, rel))
+    return textCache.get(rel)
+  }
+  // 共享屏→RN 消费端:登记表直配;无登记时只认「约定路径存在且正文含该屏名」的实证兜底。
+  const resolveRn = (spec) => {
+    const rel = registryByShared.get(spec)
+    if (rel) return rel
+    const base = String(spec).split('/').pop().replace(/\.(tsx|ts|jsx|js)$/, '')
+    const guess = rnGuess(spec)
+    const txt = readText(guess)
+    return txt && txt.includes(base) ? guess : null
+  }
+  for (const { p, d, reg, analysisSpecs } of prepared) {
     const sharedText = analysisSpecs.length > 0 ? readText(analysisSpecs[0]) : null
     const rnText = analysisSpecs.length > 0 ? readText(resolveRn(analysisSpecs[0])) : null
     rows.push(

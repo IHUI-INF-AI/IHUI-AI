@@ -348,7 +348,9 @@ const checks = [
     script: 'check-sidebar-width-consistency.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/design-tokens/", "apps/web/src/styles/design-tokens.css", "apps/web/src/components/sidebar.tsx", "apps/web/src/components/sidebar/", "apps/web/src/components/layout/GlobalShell.tsx", "apps/web/app/globals.css", "apps/web/app/layout.tsx"],
+    // 2026-11-07:剔除幽灵路径 `apps/web/src/styles/design-tokens.css`(该文件在树里不存在,
+    // 触发面里挂着它等于给人一个"改了却不触发"的错觉);补上第五面五处载体的真实路径。
+    stagedTriggers: ["packages/design-tokens/", "apps/web/src/components/sidebar.tsx", "apps/web/src/components/sidebar/", "apps/web/src/components/layout/GlobalShell.tsx", "apps/web/app/globals.css", "apps/web/app/layout.tsx", "packages/ui-react/src/components/sidebar.tsx", "apps/mobile-rn/src/components/Drawer.tsx", "apps/miniapp-taro/src/components/DrawerComponent.tsx"],
   },
   {
     id: '25',

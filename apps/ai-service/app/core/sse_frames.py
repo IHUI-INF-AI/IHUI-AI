@@ -24,6 +24,7 @@ from .sse_contract import (
     WATERMARK_SNAPSHOT_SEQ,
     StreamWatermark,
     apply_frame,
+    failure_replaces_segment,
 )
 from .trace_context import sse_frame_trace_id
 
@@ -101,8 +102,11 @@ def with_frame_watermark(evt: str, payload: Any) -> Any:
     1. 无流上下文(非主聊天流 / 未注册 session 的流)⇒ 原样返回,线格式逐字节不变;
     2. 兼容面(SSE_COMPAT_EVENTS)不注入 —— 那是 Anthropic 官方 wire 形状,与 traceId 同理;
     3. 载荷非 dict ⇒ 不注入(与 traceId 同取向,不造顶层键的容身之处);
-    4. apply_frame 判不 apply(单写者、纪元恒定、订阅恒定下不该发生)⇒ 不注入,
-       **不冒充推进** —— 水位说假话比没有水位更糟,回退方向恒为现状(undetermined)。
+    4. apply_frame 判不 apply：
+       - 恢复期 defer ⇒ 不注入，序号回滚（不计水位，也不把序号烧成空洞）；
+       - 其余失败（resync / 换纪元 / 换订阅 / 畸形 / 无基线）⇒ 仍带上这帧自己的四维，
+         序号回滚。省略四维会让消费侧当未判定放行，等于猜这段属于当前水位。
+         不把失败 delta 改写成 snapshot：整段替换只认 fromSeq=0 的真基线。
     """
     state = _stream_frame_seq.get()
     if state is None or evt in SSE_COMPAT_EVENTS or not isinstance(payload, dict):
@@ -120,7 +124,9 @@ def with_frame_watermark(evt: str, payload: Any) -> Any:
         subscription_id=state.subscription_id,
     )
     if not decision.applied:
-        return payload
+        state.seq -= 1
+        if not failure_replaces_segment(decision.action):
+            return payload
     subscription_key, epoch_key, from_key, to_key = SSE_WATERMARK_PAYLOAD_KEYS
     return {
         **payload,
