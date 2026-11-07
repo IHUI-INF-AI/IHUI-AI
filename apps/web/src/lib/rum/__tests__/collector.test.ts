@@ -14,6 +14,7 @@ import {
   type RumCollectorOptions,
   type RumEvent,
 } from '../collector'
+import { recordStartupMarks, reportStartupMarks, startupMarkFields } from '../startup'
 
 function makeCollector(options: Partial<RumCollectorOptions> = {}): {
   collector: RumCollector
@@ -336,6 +337,47 @@ describe('RUM 采集：AI 指标与长任务', () => {
         configurable: true,
         value: original,
       })
+    }
+  })
+})
+
+describe('启动点对照声明，没出现的点要列出来', () => {
+  it('漏掉的点不算全齐，声明或观测没量到也不记绿', () => {
+    expect(reportStartupMarks({ declared: ['boot', 'paint'], observed: ['boot'] })).toMatchObject({
+      disposition: 'incomplete',
+      reason: 'marks-missing',
+      missing: ['paint'],
+    })
+    expect(reportStartupMarks({ declared: ['boot'], observed: ['boot'] }).disposition).toBe(
+      'complete',
+    )
+    expect(reportStartupMarks({ declared: [], observed: [] }).reason).toBe('schema-empty')
+    expect(reportStartupMarks({ declared: null, observed: [] }).reason).toBe('schema-unmeasured')
+    expect(reportStartupMarks({ declared: ['boot'], observed: null }).reason).toBe(
+      'observation-unmeasured',
+    )
+    expect(reportStartupMarks({ declared: ['boot'], observed: ['boot', 'extra'] }).reason).toBe(
+      'undeclared-hit',
+    )
+  })
+
+  it('首屏没量到就上报缺失，打点接口不在时不把缺席写成已观测', () => {
+    const marked = recordStartupMarks(null)
+    expect(startupMarkFields(marked)).toEqual({
+      startup_mark_disposition: 'incomplete',
+      startup_marks_missing: 'first-paint',
+    })
+    expect(startupMarkFields(recordStartupMarks(12))).toEqual({
+      startup_mark_disposition: 'complete',
+    })
+    const perf = globalThis.performance
+    const original = perf.mark
+    Object.defineProperty(perf, 'mark', { configurable: true, value: undefined })
+    try {
+      expect(recordStartupMarks(12)).toBeNull()
+      expect(startupMarkFields(null)).toEqual({ startup_mark_disposition: 'unjudged' })
+    } finally {
+      Object.defineProperty(perf, 'mark', { configurable: true, value: original })
     }
   })
 })
