@@ -104,9 +104,10 @@ export function buildScopeFilter(scope: DataScope, userId: string, familyId?: st
  *  - ALL:           始终 true
  *  - ORGANIZATION:  始终 true（本包不持有组织表，宽松放行；严格校验留给 apps/api）
  *  - DEPARTMENT:    始终 true（同上）
- *  - FAMILY:        仅当 currentFamilyId 已配置且资源属于本人时放行；
- *                   跨 family 成员的细粒度判定需要资源自身的 familyId，
- *                   应在调用前用 buildScopeFilter 走 DB 查询，canAccess 只兜底本人数据。
+ *  - FAMILY:        2026-11-07 DBG-25 收口:当调用方能同时提供资源侧 familyId 与当前用户
+ *                   familyId 时，做真正的 family 隔离判定(resourceFamilyId === currentFamilyId);
+ *                   资源侧 familyId 缺失时退化为仅放行本人数据(等价 SELF 兜底) —— canAccess
+ *                   看不到资源行的 familyId 就无法做跨成员判定，宁可收紧不可放行。
  *  - SELF:          资源 ownerId 必须等于 currentUserId
  *  - NONE:          始终 false
  *
@@ -117,6 +118,7 @@ export function canAccess(
   resourceOwnerId: string,
   currentUserId: string,
   currentFamilyId?: string,
+  resourceFamilyId?: string,
 ): boolean {
   switch (scope) {
     case DataScope.ALL:
@@ -124,9 +126,12 @@ export function canAccess(
     case DataScope.DEPARTMENT:
       return true
     case DataScope.FAMILY:
-      // 没有 currentFamilyId 时退化为 SELF；有 familyId 时仍只放行本人数据，
-      // 跨成员可见性需结合资源的 familyId 走 buildScopeFilter + DB 查询。
-      if (!currentFamilyId) return resourceOwnerId === currentUserId
+      // 2026-11-07 DBG-25 收口: 原实现两个分支都返回 resourceOwnerId === currentUserId,
+      // currentFamilyId 形参被忽略 ⇒ family 级隔离从未生效(等价 SELF,与 buildScopeFilter
+      // 的 FAMILY 契约矛盾)。现两侧 familyId 齐备时做真判定;缺资源侧时保守退化为本人兜底。
+      if (resourceFamilyId !== undefined && currentFamilyId !== undefined) {
+        return resourceFamilyId === currentFamilyId
+      }
       return resourceOwnerId === currentUserId
     case DataScope.SELF:
       return resourceOwnerId === currentUserId
