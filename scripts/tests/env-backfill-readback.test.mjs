@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
- 
 /**
  * env-backfill-readback.test.mjs — "写入确认 ≠ 生效确认"回归(2026-09-26 票,离线)
  *
@@ -27,7 +26,7 @@ import { __test__ } from '../env-backfill-model-keys.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const CLI = join(ROOT, 'scripts', 'env-backfill-model-keys.mjs')
-const { writeEnvWithReadBack, fillEmptyKeyLine } = __test__
+const { writeEnvWithReadBack, fillEmptyKeyLine, appendMissingKeyLine } = __test__
 
 const SECRET = 'STEPFUN_FAKE_KEY_0123456789_abcdefghij'
 
@@ -248,5 +247,195 @@ test('形状锁:replacement 必须是函数形式,旧的模板串形态不得回
     /out\.replace\(re, `\$\{entry\.key\}/,
     '模板串 replacement 不得回来',
   )
+})
+
+test('缺行补写:有值才追加;空值/空白/换行/已有行都不新建;$ 逐字节保留', () => {
+  assert.equal(typeof appendMissingKeyLine, 'function')
+  const base = 'A=1\n'
+  for (const value of ['', '   ', 'abc\ndef', 'has space']) {
+    const r = appendMissingKeyLine({ out: base, key: 'FOO', value })
+    assert.equal(r.ok, false, `值 ${JSON.stringify(value)} 不得补行`)
+    assert.equal(r.why, 'empty-value')
+    assert.equal(r.out, base, '拒绝补行时原文一个字节都不许动')
+  }
+  const tricky = 'sk-$&abc'
+  const added = appendMissingKeyLine({ out: base, key: 'FOO', value: tricky })
+  assert.equal(added.ok, true)
+  assert.equal(added.out, `A=1\nFOO=${tricky}\n`)
+  const again = appendMissingKeyLine({
+    out: added.out,
+    key: 'FOO',
+    value: 'other-value-0123456789',
+  })
+  assert.equal(again.ok, false)
+  assert.equal(again.why, 'already-present')
+  assert.equal(again.out, added.out, '已有行不重复、不覆盖')
+  assert.equal(
+    appendMissingKeyLine({ out: 'A=1\r\n', key: 'FOO', value: tricky }).out,
+    `A=1\r\nFOO=${tricky}\r\n`,
+  )
+  assert.equal(
+    appendMissingKeyLine({ out: 'A=1', key: 'FOO', value: tricky }).out,
+    `A=1\nFOO=${tricky}\n`,
+  )
+  const badKey = appendMissingKeyLine({ out: base, key: 'FOO=BAR', value: tricky })
+  assert.equal(badKey.ok, false)
+  assert.equal(badKey.why, 'bad-key')
+  assert.equal(badKey.out, base)
+})
+
+test('CLI e2e:目标面缺行且源文件有唯一候选 ⇒ 补行填值;无源文件的键不新建空行', () => {
+  const dir = mkScratch('env-backfill-e2e-append')
+  try {
+    const keyDir = join(dir, 'keys')
+    mkdirSync(keyDir, { recursive: true })
+    writeFileSync(join(keyDir, 'step apikey.txt'), `${SECRET}\n`)
+    const envPath = join(dir, '.env')
+    writeFileSync(envPath, 'UNRELATED=1\n')
+    const backupDir = join(dir, 'backup')
+    mkdirSync(backupDir, { recursive: true })
+    const res = runCli([
+      '--apply',
+      '--key-dir',
+      keyDir,
+      '--env',
+      envPath,
+      '--backup-dir',
+      backupDir,
+    ])
+    assert.equal(res.status, 0, `CLI 应成功:stderr=${res.stderr}`)
+    assert.match(res.stdout, /STEPFUN_API_KEY: 已补行/)
+    assert.match(res.stdout, /GROQ_API_KEY: 跳过\(源文件不存在\)/)
+    assert.ok(!res.stdout.includes(SECRET), '补行输出同样不得回显完整 key')
+    const disk = readFileSync(envPath, 'utf8')
+    const names = disk
+      .split(/\r?\n/)
+      .map((line) => /^([A-Za-z_][A-Za-z0-9_]*)=/.exec(line)?.[1])
+      .filter(Boolean)
+      .sort()
+    assert.deepEqual(names, ['STEPFUN_API_KEY', 'UNRELATED'])
+    assert.equal(
+      disk.split(/\r?\n/).some((line) => line === `STEPFUN_API_KEY=${SECRET}`),
+      true,
+    )
+    assert.equal(disk.includes('GROQ_API_KEY='), false, '无源文件不得写成空键')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('apply 缺行走补行出口,「请手动添加」这条死路不得回来', () => {
+  const src = readFileSync(CLI, 'utf8')
+  const codeOnly = src
+    .split(/\r?\n/)
+    .filter((l) => !l.trim().startsWith('//') && !l.trim().startsWith('*'))
+    .join('\n')
+  assert.match(codeOnly, /appendMissingKeyLine\(\{ out, key: entry\.key, value: pick \}\)/)
+  assert.equal(src.includes('如需新增请手动添加'), false)
+})
+
+// ─── 面归属锁(2026-11-07 立,台账票「12 个模型密钥没有对应的映射行」)──────────────
+// 12 枚媒体/语音键(stability/flux/runway/luma/elevenlabs/ideogram/vidu/fishaudio/
+// deepgram/cartesia/assemblyai/replicate)在 apps/api VENDORS 直连,ai-service 无消费者。
+// 旧巡检拿整份 MAP 对 ai-service .env,把它们读成「缺行」;补进 ai-service 面即凑数。
+const MEDIA_KEYS = [
+  'ASSEMBLYAI_API_KEY',
+  'CARTESIA_API_KEY',
+  'DEEPGRAM_API_KEY',
+  'ELEVENLABS_API_KEY',
+  'FISHAUDIO_API_KEY',
+  'FLUX_API_KEY',
+  'IDEOGRAM_API_KEY',
+  'LUMA_API_KEY',
+  'REPLICATE_API_TOKEN',
+  'RUNWAY_API_KEY',
+  'STABILITY_API_KEY',
+  'VIDU_API_KEY',
+]
+
+test('面归属:12 枚媒体键只登记 api 面,ai-service 面不得要求它们', () => {
+  assert.equal(typeof __test__.faceOfEnvPath, 'function')
+  assert.equal(__test__.faceOfEnvPath('G:/IHUI-AI/apps/ai-service/.env'), 'ai-service')
+  assert.equal(
+    __test__.faceOfEnvPath('G:\\IHUI-AI\\apps\\api\\.env'),
+    'api',
+    'Windows 反斜杠路径同样要认',
+  )
+  assert.equal(__test__.faceOfEnvPath('G:/IHUI-AI/.env'), null, '根 .env 是部署面,不筛键')
+  assert.equal(__test__.faceOfEnvPath('/scratch/fixture/.env'), null, '镜像夹具不判面')
+  // 结构性断言:先钉住 12 枚集合本身,再钉两面集合的差集 = 这 12 枚,不用总数掩盖
+  const media = __test__.MAP.filter((e) => MEDIA_KEYS.includes(e.key))
+  assert.equal(media.length, 12, '映射表里媒体键必须齐 12 枚')
+  for (const e of media) {
+    assert.deepEqual(__test__.facesOf(e), ['api'], `${e.key} 不得出现在 ai-service 面`)
+  }
+  const ai = __test__.expectedEntriesForFace('ai-service')
+  const api = __test__.expectedEntriesForFace('api')
+  assert.equal(api.length, __test__.MAP.length, 'api 面覆盖全表(含 12 枚媒体键)')
+  assert.deepEqual(
+    __test__.MAP.filter((e) => !ai.includes(e)).map((e) => e.key),
+    MEDIA_KEYS,
+    'ai-service 面剔除的必须恰好是这 12 枚,不得多剔对话 provider',
+  )
+  assert.ok(
+    ai.some((e) => e.key === 'STEPFUN_API_KEY'),
+    '对话 provider 仍属 ai-service 面',
+  )
+})
+
+test('覆盖读回:按键名判 set/empty/missing,值内容不参与判断也不外泄', () => {
+  const entries = [{ key: 'A' }, { key: 'B' }, { key: 'C' }]
+  assert.deepEqual(__test__.coverageOfEnv('A=sk-real-value\nB=\n', entries), {
+    expected: 3,
+    set: 1,
+    empty: 1,
+    missing: 1,
+  })
+  // 同样三个键、值形态全变 ⇒ 统计必须一致(证明判据不是靠值内容)
+  assert.deepEqual(__test__.coverageOfEnv('A=${A}\nB=" x "\n', entries), {
+    expected: 3,
+    set: 2,
+    empty: 0,
+    missing: 1,
+  })
+})
+
+test('CLI e2e:--env 指向 ai-service 面 ⇒ 12 枚媒体键不属本面,有源文件也不补行', () => {
+  const dir = mkScratch('env-backfill-e2e-face')
+  try {
+    const keyDir = join(dir, 'keys')
+    mkdirSync(keyDir, { recursive: true })
+    writeFileSync(join(keyDir, 'step apikey.txt'), `${SECRET}\n`)
+    // 媒体键的源文件也放进来:若面过滤失效,它就会被补进 ai-service —— 这条锁才有牙
+    writeFileSync(join(keyDir, 'ElevenLabs api key.txt'), 'FAKE_ELEVENLABS_TOKEN_0123456789\n')
+    const envPath = join(dir, 'apps', 'ai-service', '.env')
+    mkdirSync(dirname(envPath), { recursive: true })
+    writeFileSync(envPath, 'UNRELATED=1\n')
+    const backupDir = join(dir, 'backup')
+    mkdirSync(backupDir, { recursive: true })
+    const res = runCli([
+      '--apply',
+      '--key-dir',
+      keyDir,
+      '--env',
+      envPath,
+      '--backup-dir',
+      backupDir,
+    ])
+    assert.equal(res.status, 0, `CLI 应成功:stdout=${res.stdout}\nstderr=${res.stderr}`)
+    assert.match(res.stdout, /面: ai-service/)
+    assert.match(res.stdout, /ELEVENLABS_API_KEY\s+⏭ 不属本面\(api\)/)
+    assert.match(res.stdout, /不属本面=12/, '覆盖行必须如实报出 12 枚不属本面')
+    assert.ok(!res.stdout.includes(SECRET), '输出恒脱敏')
+    const disk = readFileSync(envPath, 'utf8')
+    assert.equal(
+      disk.includes('ELEVENLABS_API_KEY'),
+      false,
+      '不属本面的键即使源文件有唯一候选,也不得补进 ai-service',
+    )
+    assert.match(disk, new RegExp(`STEPFUN_API_KEY=${SECRET}`), '本面对话键该补的仍要补')
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
