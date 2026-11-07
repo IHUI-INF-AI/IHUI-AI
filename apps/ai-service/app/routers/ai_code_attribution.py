@@ -16,6 +16,7 @@ tags=["ai-code-attribution"])` 方式挂载,最终端点路径:
   GET  /api/ai-code-attribution/prompts/{prompt_id} → 按宿主注入的编号取提示词正文
   POST /api/ai-code-attribution/notes               → 把对得上的检查点写进该仓库的 notes
   GET  /api/ai-code-attribution/notes/{commit_sha}  → 按提交读 notes(引用不在和没记过分开)
+  GET  /api/ai-code-attribution/blame             → 按档位看归属(没给档位不挑整文件)
 
 存储:复用 app/services/ai_code_attribution_store(进程内 list + data/ai_code_attribution.json)。
 判据:app/core/ai_code_attribution(仓内只此一份);本路由只做读数与序列化,不判归属。
@@ -30,7 +31,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 
-from ..core.ai_code_attribution import AttributionRecord, AttributionStats
+from ..core.ai_code_attribution import AttributionRecord, AttributionStats, plan_blame_view
 from ..core.jwt_auth import get_current_user_id
 from ..services.ai_code_attribution_git import (
     detect_repo_root,
@@ -134,6 +135,31 @@ async def attribution_stats(
         stats.total,
     )
     return {"code": 0, "message": "ok", "data": _stats_payload(stats)}
+
+
+@router.get("/blame")
+async def attribution_blame(
+    path: str | None = None,
+    mode: str | None = None,
+    line: int | None = None,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """按档位看一个文件的归属。没有路径时不扫全账。"""
+    if not isinstance(path, str) or not path.strip():
+        data: dict[str, Any] = {"status": "refused", "message": "没有文件路径", "records": []}
+    else:
+        status, message, chosen = plan_blame_view(mode, list_records(path=path, limit=_MAX_LIMIT), line=line)
+        data = {
+            "status": status,
+            "message": message,
+            "records": [_record_payload(record) for record in chosen],
+        }
+    logger.info(
+        "ai-code-attribution blame user=%s status=%s",
+        user_id,
+        data.get("status"),
+    )
+    return {"code": 0, "message": str(data.get("message") or ""), "data": data}
 
 
 @router.get("/records/{record_id}/trace")

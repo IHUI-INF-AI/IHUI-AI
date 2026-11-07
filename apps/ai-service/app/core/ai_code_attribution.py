@@ -37,6 +37,7 @@ from app.core.ai_code_attribution_record import (
     host_prompt,
     make_record,
     parse_diff_line_range,
+    plan_blame_view,
     plan_checkpoint,
 )
 from app.core.ai_code_attribution_stats import AttributionStats, compute_stats
@@ -91,6 +92,7 @@ __all__ = [
     "canonical_path_set",
     "checkpoint_path_hash",
     "host_prompt",
+    "plan_blame_view",
     "plan_checkpoint",
     # ③ 统计
     "AttributionStats",
