@@ -20,6 +20,7 @@
  */
 
 import { Readable, Writable } from 'node:stream';
+import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import * as acp from '@agentclientprotocol/sdk';
 import { setBaseUrl, type ToolDeltaEvent } from '@ihui/api-client';
@@ -49,6 +50,7 @@ import { synthesizeCancelledToolFrames } from '../stream-cancel-frames.js';
 import { createAuditedDangerGate } from '../tools/danger-gate-audit.js';
 import { PlanMachine } from '../plan/machine.js';
 import { CheckpointManager } from '../checkpoints/index.js';
+import { runHook, surfaceHookOutcome } from '../hooks/index.js';
 import {
   listManagedClients,
   getManagedClient,
@@ -537,6 +539,14 @@ interface McpReconnectResponse {
 export class IhuiAcpAgent {
   private readonly opts: AcpServerOptions;
   private readonly sessions = new Map<string, AcpSessionState>();
+  /**
+   * 上一个会话的工作区 —— cwdChanged 的唯一事件源。
+   *
+   * CLI 单进程从不切换工作目录(third-leg 册的结构断言),编辑器客户端却会以不同
+   * `cwd` 反复 `newSession`;两次会话之间工作区真的变了,才是一条 cwdChanged 事实。
+   * 首个会话没有"变更前",不派发(没发生的事不许报成事件)。
+   */
+  private lastWorkspacePath: string | null = null;
 
   constructor(opts: AcpServerOptions) {
     this.opts = opts;
@@ -556,6 +566,21 @@ export class IhuiAcpAgent {
   }
 
   async newSession(params: acp.NewSessionRequest): Promise<acp.NewSessionResponse> {
+    // cwdChanged:与上一个活动会话的工作区比较(路径规范化后逐字比较)。
+    // 派发在会话创建之前,钩子看到的是"切了"这一事实本身;非成功终态喊到 stderr。
+    if (this.lastWorkspacePath !== null) {
+      const from = path.resolve(this.lastWorkspacePath);
+      const to = path.resolve(params.cwd);
+      if (from !== to) {
+        const hookRes = await runHook('cwdChanged', {
+          workspacePath: to,
+          cwdFrom: from,
+          cwdTo: to,
+        });
+        surfaceHookOutcome('cwdChanged', hookRes);
+      }
+    }
+    this.lastWorkspacePath = params.cwd;
     const session = createSession(params.cwd, this.opts.modelId);
     const checkpoints = new CheckpointManager({
       sessionId: session.id,
