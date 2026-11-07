@@ -12,6 +12,13 @@
  * - 禁蓝色系;品牌色 = 酸绿 #B4FF00,安全告警 = 信号红 #FF3B2F;
  * - 所有插值必须 escapeHtml,链接域名取 CORS_ORIGIN 首项(与 payment-gateway 同约定)。
  *
+ * 「一键复制验证码」为什么不在邮件里写 JS(2026-11-07 立):
+ * QQ 邮箱 / Gmail / Outlook / 163 一律剥离 <script>、内联 onclick 与 clipboard API,
+ * 邮件正文里的「复制按钮」物理上不可能写剪贴板。唯一可达路径 = 按钮是真实 <a> 链接,
+ * 把验证码带到站点落地页(apps/web/public/verify-code.htm),由落地页完成复制。
+ * 邮件内同时保留 `user-select:all` 单击全选 + 纯文本兜底,链路断在哪一层都不至于复制不了。
+ * 落地页只读 query、不发请求、不校验/消费验证码,有效期仍由后端 code-store 裁决。
+ *
  * 本模块保持零副作用(不 import config):CI 脚本(如部署失败通知)可在
  * 无完整环境变量的进程中直接 import 复用品牌版式,CORS_ORIGIN 直读 env。
  */
@@ -117,11 +124,18 @@ interface DispatchLayoutInput {
   tone?: 'accent' | 'danger'
 }
 
-/** 防弹按钮(table + <a>,QQ/Outlook 均可点) */
+/**
+ * 防弹按钮(table + <a>,QQ/Outlook 均可点)。
+ *
+ * opts 缺省时输出与历史版本**逐字一致**(欢迎/告警/收据等所有既有邮件不受影响);
+ * compact/center 只给验证码框内那枚「一键复制」按钮用 —— 同一份形态实现,不另抄一份。
+ * 注意:href 的转义责任在调用方(与 renderDispatchEmail 的 button.label 同约定)。
+ */
 function bulletproofButton(
   href: string,
   label: string,
   kind: 'accent' | 'danger' | 'ghost',
+  opts?: { compact?: boolean; center?: boolean },
 ): string {
   const t = DISPATCH_TOKENS
   const solid = kind !== 'ghost'
@@ -129,8 +143,13 @@ function bulletproofButton(
   const tdStyle = solid
     ? `bgcolor="${bg}"`
     : `bgcolor="${t.cardBg}" style="border:2px solid ${bg};"`
-  const aStyle = `display:inline-block;padding:16px 46px;font-family:'Microsoft YaHei','SimHei',sans-serif;font-size:19px;font-weight:bold;letter-spacing:5px;color:${solid ? '#0A0A0C' : bg};text-decoration:none;`
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td ${tdStyle}><a href="${href}" target="_blank" style="${aStyle}">${label}</a></td></tr></table>`
+  const padding = opts?.compact ? '12px 30px' : '16px 46px'
+  const fontSize = opts?.compact ? '16px' : '19px'
+  const letterSpacing = opts?.compact ? '2px' : '5px'
+  const aStyle = `display:inline-block;padding:${padding};font-family:'Microsoft YaHei','SimHei',sans-serif;font-size:${fontSize};font-weight:bold;letter-spacing:${letterSpacing};color:${solid ? '#0A0A0C' : bg};text-decoration:none;`
+  // 邮件客户端里 td[align=center] 不保证让嵌套 table 居中,必须自带 align + margin:auto
+  const tableAttrs = opts?.center ? ` align="center" style="margin:0 auto;"` : ''
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"${tableAttrs}><tr><td ${tdStyle}><a href="${href}" target="_blank" style="${aStyle}">${label}</a></td></tr></table>`
 }
 
 /** 创始人微信二维码(web public 静态资产,footer-data.ts QRS 同源) */
@@ -247,7 +266,31 @@ const SCENE_TEXT: Record<VerificationScene, string> = {
   bind: '绑定邮箱',
 }
 
-/** 渲染验证码邮件(真实文本验证码,可选中复制) */
+/** 一键复制落地页路径(静态资源,见 apps/web/public/verify-code.htm)。 */
+export const VERIFY_CODE_COPY_PATH = '/verify-code.htm'
+
+/**
+ * 生成「一键复制验证码」落地页链接。
+ *
+ * code 一律走 URLSearchParams 编码(禁止手拼 query);调用方还必须对整串 URL 再过一次
+ * escapeHtml 才能塞进 href —— 否则 `&` 会截断属性,code 里的引号会造成属性注入。
+ * exp/scene 只用于落地页展示有效期与场景文案,**不是**验证码本身的有效期裁决依据
+ * (裁决权始终在后端 code-store)。
+ */
+export function buildVerifyCodeCopyUrl(
+  code: string,
+  scene: VerificationScene,
+  expiresInMinutes: number,
+): string {
+  const params = new URLSearchParams({ code, scene, exp: String(expiresInMinutes) })
+  return `${resolveWebOrigin()}${VERIFY_CODE_COPY_PATH}?${params.toString()}`
+}
+
+/**
+ * 渲染验证码邮件(真实文本验证码 + 一键复制按钮 + 点选全选 + 纯文本兜底,四层可达)。
+ *
+ * 覆盖 register / login / reset / bind 全部发码场景 —— 四个场景共用这一个渲染器。
+ */
 export function renderVerificationEmail(
   code: string,
   scene: VerificationScene,
@@ -258,11 +301,20 @@ export function renderVerificationEmail(
   const sceneText = SCENE_TEXT[scene]
   // 昵称含用户输入 — 此处保留原文,由 renderDispatchEmail 统一转义(避免双重转义)
   const greeting = nickname ? `${nickname},` : ''
+  const copyUrl = buildVerifyCodeCopyUrl(code, scene, expiresInMinutes)
+  // href/label 都先转义:escapeHtml(copyUrl) 把 query 分隔符 & 变成 &amp;,浏览器解析后仍是 &
+  const copyButton = bulletproofButton(
+    escapeHtml(copyUrl),
+    escapeHtml('一键复制验证码 →'),
+    'accent',
+    { compact: true, center: true },
+  )
   const body = `
     ${para(`您正在${sceneText}。输入以下验证码完成操作:`)}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px dashed ${t.accent};margin:0 0 24px;"><tr><td align="center" style="padding:30px 10px;">
-      <div style="font-family:Consolas,'Courier New',monospace;font-size:44px;font-weight:bold;letter-spacing:16px;text-indent:16px;color:${t.ink};">${escapeHtml(code)}</div>
-      <div style="font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:2px;margin-top:12px;">请复制此验证码 · ${expiresInMinutes} 分钟内有效</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px dashed ${t.accent};margin:0 0 24px;"><tr><td align="center" style="padding:28px 10px 26px;">
+      <div style="font-family:Consolas,'Courier New',monospace;font-size:44px;font-weight:bold;letter-spacing:16px;text-indent:16px;color:${t.ink};user-select:all;-webkit-user-select:all;-moz-user-select:all;-ms-user-select:all;cursor:pointer;" title="单击全选验证码">${escapeHtml(code)}</div>
+      <div style="padding:20px 0 0;">${copyButton}</div>
+      <div style="font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:2px;margin-top:14px;">一键复制 · 或点选上方数字手动复制 · ${expiresInMinutes} 分钟内有效</div>
     </td></tr></table>
     ${note(`· 这不是您的操作?<b style="color:${t.ink};">直接忽略本邮件</b>,账号不会有任何变动。<br>· 验证码<b style="color:${t.danger};">绝不会被任何客服索要</b>,请勿告知他人。<br>· 需要帮助:<a href="mailto:support@aizhs.top" style="color:${t.accent};text-decoration:none;">support@aizhs.top</a>`)}`
   return {
@@ -272,7 +324,7 @@ export function renderVerificationEmail(
       title: `${greeting}您的身份验证码`,
       bodyHtml: body,
     }),
-    text: `${nickname ? `${nickname},` : ''}您的${sceneText}验证码是 ${code},${expiresInMinutes} 分钟内有效。如非本人操作请忽略。`,
+    text: `${nickname ? `${nickname},` : ''}您的${sceneText}验证码是 ${code},${expiresInMinutes} 分钟内有效。一键复制:${copyUrl}。如非本人操作请忽略。`,
   }
 }
 
