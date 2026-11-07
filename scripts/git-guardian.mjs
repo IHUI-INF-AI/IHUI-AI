@@ -13951,48 +13951,62 @@ async function main() {
     const RUN_LOG_ROTATE_TICK = join(dirname(LOG), 'run-log-rotate-dispatch-last.json')
     const BASELINE_FRESHNESS_TICK = join(dirname(LOG), 'baseline-freshness-dispatch-last.json')
     if (!CHECK_ONLY && legThrottle(MERGE_LOSS_TICK, 30 * 60 * 1000, Date.now(), log))
+      beatRoundLock()
       auditMergeAdditionLoss()
     // 主机时区漂移问责:必须与上面同格(健康轮次早退之前 + !CHECK_ONLY)—— 挂进 CHECK_ONLY 路径
     // 等于永不执行,本文件已踩过两次(工作区自愈层、根封口层)。
+    beatRoundLock()
     if (!CHECK_ONLY) auditHostTimezone()
     // git filter 残留巡检(2026-10-31 立):任一作用域存在 filter 键 ⇒ Qoder CN 把工作树快照标成
     // "不可信"、会话里看不到真实 git status。同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY 零副作用。
+    beatRoundLock()
     if (!CHECK_ONLY) auditGitFilterResidue()
     // 盘根卫生巡检(G 盘清理收口 2026-09-30):同一挂点语义 —— 健康轮次早退之前 + !CHECK_ONLY。
+    beatRoundLock()
     if (!CHECK_ONLY) auditDiskRootHygiene()
     // 开工前基线新鲜度:只报数的一层(③轴绝不进提交链,故这里既不判红也不喊人)。
     if (!CHECK_ONLY && legThrottle(BASELINE_FRESHNESS_TICK, 60 * 60 * 1000, Date.now(), log))
+      beatRoundLock()
       reportBaselineFreshness()
     // §5b 的"唯一空白层":恢复源刷新原本挂在计划任务上,而那个任务已实测消失 ⇒ 并入 tick。
     if (!CHECK_ONLY && legThrottle(RECOVERY_SOURCE_TICK, 30 * 60 * 1000, Date.now(), log))
+      beatRoundLock()
       refreshRecoverySource()
     // 运行日志保留期回收(对标 ZCode logRetention):同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
     if (!CHECK_ONLY && legThrottle(RUN_LOG_ROTATE_TICK, 30 * 60 * 1000, Date.now(), log))
+      beatRoundLock()
       rotateRunLogs()
     // 会话全文落盘(第 4 格·观测腿)过期回收:同一挂点语义 —— 挂进 CHECK_ONLY 分支等于永不执行。
     // 判据(天数 + 条数双闸,最新一份豁免)全在 lib/session-transcript.mjs。
+    beatRoundLock()
     if (!CHECK_ONLY) gcSessionTranscripts()
     // 受管 .env 的"键值被悄悄清空"巡检 + 到人(G-223 第三格):判机器状态,所以绝不进提交链;
     // 挂点与 heal*/refreshRecoverySource 同一分支 —— 挂进 CHECK_ONLY 早退路径等于永不执行。
+    beatRoundLock()
     if (!CHECK_ONLY) auditEnvDrift()
     // 家宽公网出口 IPv4 ↔ EdgeOne 源站期望巡检(2026-10-21 立):同一挂点语义 —— 判机器状态、
     // 绝不进提交链(§12e);EdgeOne 直填的源站地址一变即全公网 5xx,这一格是本仓唯一的眼睛。
+    beatRoundLock()
     if (!CHECK_ONLY) auditEgressIpDrift()
     // 生产签出外来工作巡检(2026-10-21 立):生产 checkout(独立签出,nssm 现读实跑路径)里的
     // 工作区 blob 不在任何提交链/CI 取材面上,一次 checkout/reset 就静默蒸发。同一挂点语义 ——
     // 判机器状态绝不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。
+    beatRoundLock()
     if (!CHECK_ONLY) auditProdForeignWork()
     // 收敛器收尾对齐停摆喊人(票 O74):收敛器一次性进程只写状态,派发点在此(与
     // heal*/watchWatchdog 同一真正会执行的分支;挂进 CHECK_ONLY 早退分支等于永不执行)。
+    beatRoundLock()
     if (!CHECK_ONLY) checkConvergeAlignStall()
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
     if (!CHECK_ONLY) await auditOpsPatrol()
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
+    beatRoundLock()
     if (!CHECK_ONLY) auditLintStagedPins()
     // 反馈闭环断点(2026-10-28 立,尺子 = scripts/feedback-loop-status.mjs):闭环器件此前零自动
     // 调用者,链断了没人喊。30 分钟节流;超 48 小时处置窗口仍卡同一段才喊,窗口内只写日志。
     // 判机器状态 ⇒ 不进提交链(§12e);挂进 CHECK_ONLY 早退分支等于永不执行。
+    beatRoundLock()
     if (!CHECK_ONLY) auditFeedbackLoopClosure()
     // 检查点:这里是 2026-11-06 那轮的**最后推进点**(22:29:39Z 之后 2h24m 零日志)。
     // 单列一格,下一轮再静默死就能直接判"死在反馈闭环之后、巡检心跳之前"。
