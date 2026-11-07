@@ -52,7 +52,9 @@ const MIN = 60 * 1000
 
 /** 括号配平取函数体:先跳过参数表(`opts = {}` 的默认值里也有花括号,不能当函数体起点)。 */
 function functionBody(src, name) {
-  const start = src.indexOf(`export function ${name}(`)
+  // 2026-11-07:派生族腿改 spawn+await 后定义为 `export async function X(`。只放宽修饰词,
+  // 名字对不上仍返回空串(调用方判"取不到函数体"⇒ 红)。
+  const start = src.search(new RegExp(`export (?:async )?function ${name}\\(`))
   if (start < 0) return ''
   let i = src.indexOf('(', start)
   if (i < 0) return ''
@@ -77,10 +79,10 @@ function functionBody(src, name) {
   return ''
 }
 
-test('L1 器物不在位 ⇒ 跳过且不写节流戳(不记为已探测)', () => {
+test('L1 器物不在位 ⇒ 跳过且不写节流戳(不记为已探测)', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
-  const r = sweepLessonDraft({
+  const r = await sweepLessonDraft({
     ...f,
     logger,
     scriptFile: join(mkScratch('lesson-draft-missing-'), 'nope.mjs'),
@@ -91,10 +93,10 @@ test('L1 器物不在位 ⇒ 跳过且不写节流戳(不记为已探测)', () =
   assert.equal(existsSync(f.tickFile), false, '器物不在位时写戳等于把"没跑"记成"刚跑过"')
 })
 
-test('L2 有候选 ⇒ drafted,written 读数出账,戳记 judged=true', () => {
+test('L2 有候选 ⇒ drafted,written 读数出账,戳记 judged=true', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
-  const r = sweepLessonDraft({
+  const r = await sweepLessonDraft({
     ...f,
     now: T0,
     logger,
@@ -113,28 +115,28 @@ test('L2 有候选 ⇒ drafted,written 读数出账,戳记 judged=true', () => {
   assert.equal(tick.state, 'drafted')
 })
 
-test('L3 5 分钟节流:判过档窗口内不派生第二次,过窗放行', () => {
+test('L3 5 分钟节流:判过档窗口内不派生第二次,过窗放行', async () => {
   const f = fixture()
   let calls = 0
   const runner = () => {
     calls += 1
     return RESULT('ok', 'commits=1 usable=1 written=1')
   }
-  const first = sweepLessonDraft({ ...f, now: T0, logger: () => {}, runner })
+  const first = await sweepLessonDraft({ ...f, now: T0, logger: () => {}, runner })
   assert.equal(first.ran, true)
-  const within = sweepLessonDraft({ ...f, now: T0 + 4 * MIN, logger: () => {}, runner })
+  const within = await sweepLessonDraft({ ...f, now: T0 + 4 * MIN, logger: () => {}, runner })
   assert.equal(within.ran, false)
   assert.match(String(within.why), /节流/)
   assert.equal(calls, 1, '窗口内第二次派发 = 每 2 分钟一 tick 会被反复点着')
-  const after = sweepLessonDraft({ ...f, now: T0 + 5 * MIN, logger: () => {}, runner })
+  const after = await sweepLessonDraft({ ...f, now: T0 + 5 * MIN, logger: () => {}, runner })
   assert.equal(after.ran, true)
   assert.equal(calls, 2)
 })
 
-test('L4 无候选 ⇒ clean 零写,但仍记"判过"(不得与"没跑"并桶)', () => {
+test('L4 无候选 ⇒ clean 零写,但仍记"判过"(不得与"没跑"并桶)', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
-  const r = sweepLessonDraft({
+  const r = await sweepLessonDraft({
     ...f,
     now: T0,
     logger,
@@ -152,33 +154,33 @@ test('L4 无候选 ⇒ clean 零写,但仍记"判过"(不得与"没跑"并桶)',
   assert.equal(tick.written, 0)
 })
 
-test('L5 未判定 ⇒ ok=false 不记绿;1 小时冷却内不重试,过冷却重试', () => {
+test('L5 未判定 ⇒ ok=false 不记绿;1 小时冷却内不重试,过冷却重试', async () => {
   const f = fixture()
   let calls = 0
   const runner = () => {
     calls += 1
     return RESULT('undetermined', 'reason=git-unavailable')
   }
-  const first = sweepLessonDraft({ ...f, now: T0, logger: () => {}, runner })
+  const first = await sweepLessonDraft({ ...f, now: T0, logger: () => {}, runner })
   assert.equal(first.ran, true)
   assert.equal(first.ok, false, '"取不到输入"与"零候选"长得一样就是本文件要治的失效型')
   assert.equal(first.state, 'undetermined')
   const tick = JSON.parse(readFileSync(f.tickFile, 'utf8'))
   assert.equal(tick.judged, false)
   assert.equal(tick.reason, 'git-unavailable')
-  const cool = sweepLessonDraft({ ...f, now: T0 + 30 * MIN, logger: () => {}, runner })
+  const cool = await sweepLessonDraft({ ...f, now: T0 + 30 * MIN, logger: () => {}, runner })
   assert.equal(cool.ran, false)
   assert.match(String(cool.why), /冷却/)
   assert.equal(calls, 1)
-  const retry = sweepLessonDraft({ ...f, now: T0 + 61 * MIN, logger: () => {}, runner })
+  const retry = await sweepLessonDraft({ ...f, now: T0 + 61 * MIN, logger: () => {}, runner })
   assert.equal(retry.ran, true)
   assert.equal(calls, 2)
 })
 
-test('L6 结论行读不到 ⇒ 未判定(形状漂移不许冒绿)', () => {
+test('L6 结论行读不到 ⇒ 未判定(形状漂移不许冒绿)', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
-  const r = sweepLessonDraft({ ...f, now: T0, logger, runner: () => 'not a result line' })
+  const r = await sweepLessonDraft({ ...f, now: T0, logger, runner: () => 'not a result line' })
   assert.equal(r.ok, false)
   assert.equal(r.state, 'undetermined')
   assert.match(logs.join('\n'), /未判定/)
@@ -187,7 +189,7 @@ test('L6 结论行读不到 ⇒ 未判定(形状漂移不许冒绿)', () => {
   assert.equal(tick.reason, 'no-result-line')
 })
 
-test('L7 结构锁:guardian 不写 AGENTS.md / memory;函数体内唯一写盘 = tickFile', () => {
+test('L7 结构锁:guardian 不写 AGENTS.md / memory;函数体内唯一写盘 = tickFile', async () => {
   const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
   const writeRe =
     /\b(writeFileSync|appendFileSync|createWriteStream|writeFile|copyFileSync|renameSync|truncateSync|rmSync|unlinkSync)\b/
@@ -212,15 +214,17 @@ test('L7 结构锁:guardian 不写 AGENTS.md / memory;函数体内唯一写盘 =
   assert.deepEqual(writes, ["writeFileSync(tickFile, JSON.stringify(tickBody), 'utf8')"])
 })
 
-test('L8 装车锁:两处挂点各一处,且登记进 __test__ 出口', () => {
+test('L8 装车锁:两处挂点各一处,且登记进 __test__ 出口', async () => {
   const src = readFileSync(join(ROOT, 'scripts', 'git-guardian.mjs'), 'utf8')
   const lines = src.split('\n')
-  const CALL = 'if (!CHECK_ONLY) sweepLessonDraft()'
-  assert.equal(lines.filter((l) => l.trim() === CALL).length, 2, '挂点必须恰好两处')
+  // 2026-11-07:腿改 spawn+await ⇒ 挂点带 await。行内容按"名字 + 可选 await"比,
+  // 少一处仍判红(计数是 2 就还是 2)。
+  const CALL_RE = /^if \(!CHECK_ONLY\) (?:await )?sweepLessonDraft\(\)$/
+  assert.equal(lines.filter((l) => CALL_RE.test(l.trim())).length, 2, '挂点必须恰好两处')
   const near = (anchor, within = 8) => {
     const i = lines.findIndex((l) => l.trim() === anchor)
     if (i < 0) return false
-    return lines.slice(i, i + within).some((l) => l.trim() === CALL)
+    return lines.slice(i, i + within).some((l) => CALL_RE.test(l.trim()))
   }
   assert.ok(near('if (!CHECK_ONLY) sweepHeadRecallRows()'), '健康轮次族必须接上')
   assert.ok(near('if (!CHECK_ONLY) sweepStaleClaimMarks()'), 'daemon tick 族必须接上')
@@ -228,7 +232,7 @@ test('L8 装车锁:两处挂点各一处,且登记进 __test__ 出口', () => {
   assert.match(exportBlock, /^\s*sweepLessonDraft,$/m, '未登记进 __test__ ⇒ 镜像测试打不到这一格')
 })
 
-test('L9 器物取材面:--commit HEAD 必须真取到该枚提交及其文件清单', () => {
+test('L9 器物取材面:--commit HEAD 必须真取到该枚提交及其文件清单', async () => {
   // 这是 G-14 接线时实测抓出的两处潜伏缺陷的回归锁:① `gitRaw` 在 utf8 下直接返回字符串,
   // 器物多取一层 `.stdout` ⇒ 恒空集;② 记录分隔符写在 format 结尾 ⇒ 路径块落进下一 chunk,
   // 本条 changedFiles 恒空、下一条被路径污染而整条丢弃。两者都让"永远 empty-interval"看起来

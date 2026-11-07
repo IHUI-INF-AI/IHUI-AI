@@ -48,9 +48,9 @@ const logsOf = () => {
 }
 const runnerOf = (stdout, extra = {}) => () => ({ status: 0, stdout, stderr: '', ...extra })
 
-test('T1 有产出 ⇒ 绿行点名写出/待补/需人工', () => {
+test('T1 有产出 ⇒ 绿行点名写出/待补/需人工', async () => {
   const { logs, logger } = logsOf()
-  const r = sweepRnHostShells({
+  const r = await sweepRnHostShells({
     ...fixture(),
     logger,
     runner: runnerOf(
@@ -69,9 +69,9 @@ test('T1 有产出 ⇒ 绿行点名写出/待补/需人工', () => {
   assert.doesNotMatch(line, /⚠️/)
 })
 
-test('T2 无待补壳 ⇒ ok 且仍打读数(区分"没活"与"没跑")', () => {
+test('T2 无待补壳 ⇒ ok 且仍打读数(区分"没活"与"没跑")', async () => {
   const { logs, logger } = logsOf()
-  const r = sweepRnHostShells({
+  const r = await sweepRnHostShells({
     ...fixture(),
     logger,
     runner: runnerOf('GEN-RN-HOST-SHELL state=applied 目标=0 写出=0 跳过=0 需人工=0\n'),
@@ -81,18 +81,18 @@ test('T2 无待补壳 ⇒ ok 且仍打读数(区分"没活"与"没跑")', () => 
   assert.match(logs.find((l) => /RN 薄壳补壳/.test(l)), /待补 0/)
 })
 
-test('T3 结论行取不到 ⇒ 未判定,不折成"无需补壳"(§0.3)', () => {
+test('T3 结论行取不到 ⇒ 未判定,不折成"无需补壳"(§0.3)', async () => {
   const { logs, logger } = logsOf()
-  const r = sweepRnHostShells({ ...fixture(), logger, runner: runnerOf('') })
+  const r = await sweepRnHostShells({ ...fixture(), logger, runner: runnerOf('') })
   assert.equal(r.ran, true)
   assert.equal(r.ok, false)
   assert.equal(r.state, 'undetermined')
   assert.match(logs.find((l) => /RN 薄壳补壳/.test(l)), /未判定/)
 })
 
-test('T3b 子进程被超时掐死 ⇒ 点名 signal 而不是"结论解析不出"', () => {
+test('T3b 子进程被超时掐死 ⇒ 点名 signal 而不是"结论解析不出"', async () => {
   const { logs, logger } = logsOf()
-  const r = sweepRnHostShells({
+  const r = await sweepRnHostShells({
     ...fixture(),
     logger,
     runner: () => ({ status: null, signal: 'SIGTERM', stdout: '', stderr: '' }),
@@ -102,7 +102,7 @@ test('T3b 子进程被超时掐死 ⇒ 点名 signal 而不是"结论解析不�
   assert.match(line, /SIGTERM/, '超时与"跑完但没打结论"必须分得开(同族腿踩过两次)')
 })
 
-test('T4 节流窗口内不派生第二次', () => {
+test('T4 节流窗口内不派生第二次', async () => {
   const f = fixture()
   let calls = 0
   const counting = () => {
@@ -116,7 +116,7 @@ test('T4 节流窗口内不派生第二次', () => {
   assert.equal(calls, 2, '过窗必须放行 —— 节流写死不动就等于这条腿停摆')
 })
 
-test('T5 装车锁:定义在 HEAD 面、调用挂在巡检轮体内、节流可 env 覆盖', () => {
+test('T5 装车锁:定义在 HEAD 面、调用挂在巡检轮体内、节流可 env 覆盖', async () => {
   const src = headSrc('scripts/git-guardian.mjs')
   assert.match(src, /export function sweepRnHostShells\(/, '函数必须已定义')
   const callRe = /if \(!CHECK_ONLY\) sweepRnHostShells\(\)/
@@ -132,7 +132,7 @@ test('T5 装车锁:定义在 HEAD 面、调用挂在巡检轮体内、节流可 
   assert.match(src, /IHUI_RN_HOST_SHELL_INTERVAL_MS/, '值守压节拍要能不改码做到')
 })
 
-test('C1 契约锁:调度器解析的结论行,必须真能在造页器现读输出里匹配到', () => {
+test('C1 契约锁:调度器解析的结论行,必须真能在造页器现读输出里匹配到', async () => {
   const out = execFileSync(process.execPath, [GENERATOR, '--all'], {
     cwd: REPO,
     encoding: 'utf8',
