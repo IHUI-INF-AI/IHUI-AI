@@ -21,6 +21,7 @@
 | `convergence-worktree-divergence.md` | converge 用 `commit-tree`+`update-ref` 前移 HEAD 却不落工作树，push 门恒评陈旧树 | 未落库 |
 | `convergence-prefab-resolve-stale.md` | 预制解析件陈旧导致三方归并丢对侧独有行 | 未落库 |
 | `plan-sidecar-rp40-43-gap.md` | RP-40/41/42/43 待办行已入 `PROJECT_PLAN.md`，侧车 `plan-fields.jsonl` 未同批生成（对侧欠账） | 未落库 |
+| `gate-302-registration-blindspot.md` | 302p 两处结构缺陷：新增 web 路由无提交期登记门（只在 push 面暴露）；`judgedGapWeb` 把「新确认的缺屏」与「新引入的漂移」混为一维 | 未落库 |
 
 ## 事故
 
