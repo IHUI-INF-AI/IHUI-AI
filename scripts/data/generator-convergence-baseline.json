@@ -95,7 +95,7 @@
     {
       "generator": "sync-readme-numbers",
       "status": "covered-by-173",
-      "checkCommand": "node scripts/gen-doc-numbers.mjs --markdown(只读比对)",
+      "checkCommand": "node scripts/sync-readme-numbers.mjs(唯一写入口;gen-doc-numbers.mjs --markdown 已被收口,直接调用 exit 2)",
       "firstReading": "exit 0 · README.md / README.en.md 生成块与生成器输出逐字节相同",
       "wired": [],
       "evidence": [
