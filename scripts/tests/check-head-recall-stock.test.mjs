@@ -14,6 +14,8 @@ const GATE_PATH = resolve(HERE, '..', 'check-head-recall-stock.mjs')
 const GATE = readFileSync(GATE_PATH, 'utf8')
 const { __test__ } = await import(import.meta.resolve('../check-head-recall-stock.mjs'))
 const lib = await import(import.meta.resolve('../lib/head-recall.mjs'))
+const { readFaceOne } = await import(import.meta.resolve('../lib/gate-face.mjs'))
+const ROOT = resolve(HERE, '..', '..')
 
 const R1 = '- [ ] G-901 已被摘除的回捞件'
 const R2 = '- [ ] G-902 真活'
@@ -86,6 +88,17 @@ test('G5 红语必须自带三条出路 + 一条应急(§0.8 文档不得写跑�
   ])
     assert.ok(GATE.includes(needle), `红语缺出路 ${needle}`)
   assert.ok(/exit\(1\)/.test(GATE) && /exit\(2\)/.test(GATE), '三档退出码必须都在')
+})
+
+test('G7 三面取材走统一层;取不到的面必须是 null(落未判定),不得冒充空面(阴性对照)', () => {
+  assert.match(GATE, /readFaceOne\(/, '索引面/HEAD 面取材必须经统一层')
+  assert.ok(!/['"]HEAD:['"]\s*\+/.test(GATE), '门体手拼 HEAD: 前缀 ⇒ 又回到面规格散写')
+  assert.ok(!/`:\$\{FILE\}`/.test(GATE), '门体手拼 `:<path>` ⇒ staged 面规格散写')
+  // 阳性:staged/head 两面都能真读到 PROJECT_PLAN
+  assert.equal(typeof readFaceOne(ROOT, 'staged', __test__.FILE), 'string')
+  assert.equal(typeof readFaceOne(ROOT, 'head', __test__.FILE), 'string')
+  // 阴性对照:取不到的路径只能是 null(交 main 落 exit 2),不能返回 '' 让门当成"0 枚"判绿
+  assert.equal(readFaceOne(ROOT, 'head', 'no-such-plane-xyz.md'), null)
 })
 
 test('G6 与真面对话:判得出的枚数与清扫器同源(lib 同一把尺)', () => {

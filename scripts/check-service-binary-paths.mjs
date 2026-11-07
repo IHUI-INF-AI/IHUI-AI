@@ -1409,7 +1409,18 @@ export function computeExitCode(services, channels, opts = {}) {
 // CLI 参数(纯函数,便于自检喂构造 argv)
 // ---------------------------------------------------------------------------
 export function parseArgs(argv) {
-  const opts = { help: false, json: false, strict: false, selfTest: false, filter: 'IHUI*', services: [] }
+  const opts = {
+    help: false,
+    json: false,
+    strict: false,
+    selfTest: false,
+    filter: 'IHUI*',
+    services: [],
+    // 本门审的是装机面(运行中服务的二进制路径),不存在 head/staged/worktree 三面之分;
+    // 但守护在 pre-commit 会统一传 --staged,必须接住旗标而不是当"不认识的参数"退出 2。
+    // face 仅作记录,不改变取材面 —— 本门不读仓库 blob。
+    face: null,
+  }
   const bad = []
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -1417,6 +1428,11 @@ export function parseArgs(argv) {
     else if (a === '--json') opts.json = true
     else if (a === '--strict') opts.strict = true
     else if (a === '--self-test') opts.selfTest = true
+    else if (a === '--staged' || a === '--worktree') {
+      if (opts.face && opts.face !== a.slice(2))
+        bad.push(`--staged 与 --worktree 同给,取材面不明`)
+      else opts.face = a.slice(2)
+    }
     else if (a === '--filter') {
       const v = argv[++i]
       if (typeof v === 'string' && v !== '') opts.filter = v
