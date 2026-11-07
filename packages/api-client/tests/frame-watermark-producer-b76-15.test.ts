@@ -12,8 +12,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  assembleFrameWatermarkFacts,
   carriesPayloadWatermark,
   createFrameSeqTracker,
+  frameWatermarkGapAction,
+  watermarkFactDisposition,
   __test__,
 } from '../src/frame-watermark-producer'
 
@@ -110,6 +113,58 @@ describe('b76-15 seq 维水位生产点', () => {
     expect(carriesPayloadWatermark({ subscriptionId: 's', logEpoch: 1, fromSeq: 0 })).toBe(false)
     expect(carriesPayloadWatermark(null)).toBe(false)
     expect(carriesPayloadWatermark([])).toBe(false)
+  })
+})
+
+describe('断线后能点名订阅和段', () => {
+  const held = { subscriptionId: 'sub-old', logEpoch: 4, seq: 5 }
+  const hole = { subscriptionId: 'sub-old', logEpoch: 4, fromSeq: 9, toSeq: 10 }
+  const snapshot = { subscriptionId: 'sub-new', logEpoch: 8, fromSeq: 0, toSeq: 1 }
+
+  it('有手上的游标时 cursor 用已应用序号，不退回 seq 腿的另一个数', () => {
+    const facts = assembleFrameWatermarkFacts({
+      kind: 'stream-end',
+      dropped: 0,
+      seqCursor: 99,
+      payloadWatermarkSeen: true,
+      held,
+      frame: null,
+    })
+    expect(facts.cursor).toBe(5)
+    expect(facts.held).toEqual(held)
+    expect(facts.frame).toBeUndefined()
+    expect(facts.disposition).toBeUndefined()
+  })
+
+  it('两腿都没有基线 ⇒ cursor 保持 null，不写 0', () => {
+    const facts = assembleFrameWatermarkFacts({
+      kind: 'stream-end',
+      dropped: 0,
+      seqCursor: null,
+      payloadWatermarkSeen: false,
+      held: null,
+      frame: null,
+    })
+    expect(facts.cursor).toBeNull()
+    expect(facts.held).toBeUndefined()
+  })
+
+  it('序号对不上的 delta 整帧丢弃；fromSeq=0 的 snapshot 才整段替换', () => {
+    expect(frameWatermarkGapAction('seq-discontinuity', hole)).toBe('drop')
+    expect(frameWatermarkGapAction('generation-change', hole)).toBe('drop')
+    expect(frameWatermarkGapAction('epoch-change', snapshot)).toBe('replace-segment')
+    expect(frameWatermarkGapAction('generation-change', snapshot)).toBe('replace-segment')
+    expect(
+      frameWatermarkGapAction('seq-discontinuity', { ...snapshot, subscriptionId: 'sub-old' }),
+    ).toBe('replace-segment')
+  })
+
+  it('事实里的处置跟 gap 动作是同一条：没帧的断档是 drop，终态不写处置', () => {
+    expect(watermarkFactDisposition('seq-discontinuity', hole)).toBe('drop')
+    expect(watermarkFactDisposition('epoch-change', snapshot)).toBe('replace-segment')
+    expect(watermarkFactDisposition('seq-discontinuity', null)).toBe('drop')
+    expect(watermarkFactDisposition('payload-invalid', null)).toBe('drop')
+    expect(watermarkFactDisposition('stream-end', null)).toBeNull()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

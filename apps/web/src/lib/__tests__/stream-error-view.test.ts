@@ -19,6 +19,8 @@ import {
   admissionPhaseText,
   assertLabelCoverage,
   buildStreamErrorView,
+  planStreamErrorToast,
+  presentStreamError,
   type StreamErrorLabelSet,
 } from '@/lib/stream-error-view'
 import {
@@ -33,7 +35,15 @@ import {
 // shared 是 web 端 mergeMessages 的上游,端上取词同样可达 —— 实测见 check-i18n-keys 的合并集口径)。
 // 路径按 __dirname 相对推导:vitest 在 web 端把 import.meta.url 给成 http 形态,
 // fileURLToPath 会抛 "URL must be of scheme file"(实测踩过)。
-const SHARED_MESSAGES = join(__dirname, '..', '..', '..', '..', '..', 'packages/i18n/messages/shared')
+const SHARED_MESSAGES = join(
+  __dirname,
+  '..',
+  '..',
+  '..',
+  '..',
+  '..',
+  'packages/i18n/messages/shared',
+)
 // 标题/具体建议的既有 139 码表住在 web 包(别人的在飞面;本票只**读**它,不写)
 const WEB_MESSAGES = join(__dirname, '..', '..', '..', '..', '..', 'packages/i18n/messages/web')
 const LOCALES = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko'] as const
@@ -86,14 +96,12 @@ function realLabels(locale: (typeof LOCALES)[number]): StreamErrorLabelSet {
     const v = leafAt(pack, `${__test__.ERROR_CATALOG_NS}.${key}`)
     return typeof v === 'string' ? v : `MISSING:${key}`
   }
-  const actions = Object.fromEntries(STREAM_ERROR_ACTIONS.map((a) => [a, t(`action.${a}`)])) as Record<
-    StreamErrorAction,
-    string
-  >
-  const admission = Object.fromEntries(ADMISSION_PHASES.map((p) => [p, t(`admission.${p}`)])) as Record<
-    AdmissionPhase,
-    string
-  >
+  const actions = Object.fromEntries(
+    STREAM_ERROR_ACTIONS.map((a) => [a, t(`action.${a}`)]),
+  ) as Record<StreamErrorAction, string>
+  const admission = Object.fromEntries(
+    ADMISSION_PHASES.map((p) => [p, t(`admission.${p}`)]),
+  ) as Record<AdmissionPhase, string>
   return { actions, admission, nextStepLabel: t('nextStepLabel'), catalog }
 }
 
@@ -155,7 +163,14 @@ describe('buildStreamErrorView:none 档不给按钮', () => {
     // 先找一个真实落 none 档的码(目录表内 resourceNotFound 类默认就是 none)
     const candidates = ['FILE_NOT_FOUND', 'NOT_FOUND', 'TASK_NOT_FOUND']
     const hit = candidates
-      .map((c) => buildStreamErrorView({ errorCode: c, fallbackTitle: 'x', fallbackMessage: 'y', labels: zh }))
+      .map((c) =>
+        buildStreamErrorView({
+          errorCode: c,
+          fallbackTitle: 'x',
+          fallbackMessage: 'y',
+          labels: zh,
+        }),
+      )
       .find((v) => v.action === 'none')
     expect(hit, '目录表里应至少有一码落 none 档').toBeDefined()
     expect(hit?.actionLabel).toBeNull()
@@ -194,6 +209,66 @@ describe('buildStreamErrorView:未收录码保持既有行为(零兜底)', () =>
   })
 })
 
+describe('presentStreamError:主链与续答链共用的那一句', () => {
+  it('已收录码用目录标题,原始报错只作附注', () => {
+    const presented = presentStreamError({
+      errorCode: 'RATE_LIMITED',
+      fallbackTitle: '兜底标题不该出现',
+      fallbackMessage: '请稍候再试',
+      rawNote: '[RATE_LIMITED] too many',
+      labels: zh,
+    })
+    expect(presented.catalogHit).toBe(true)
+    expect(presented.title).toBe(zh.catalog('RATE_LIMITED.title'))
+    expect(presented.title).not.toBe('兜底标题不该出现')
+    expect(presented.description).toContain('[RATE_LIMITED]')
+    const plan = planStreamErrorToast(presented, 'ratelimit')
+    expect(plan.level).toBe('error')
+    expect(plan.actionKind).toBe('retry')
+  })
+
+  it('BUDGET_EXHAUSTED 与续答链同一句:不可重试,不走第二套硬编码标题', () => {
+    const presented = presentStreamError({
+      errorCode: 'BUDGET_EXHAUSTED',
+      fallbackTitle: '今日 AI 用量已达上限',
+      fallbackMessage: '今日 token 预算已用尽',
+      labels: zh,
+    })
+    expect(presented.catalogHit).toBe(true)
+    expect(presented.title).not.toBe('今日 AI 用量已达上限')
+    const plan = planStreamErrorToast(presented, 'ratelimit')
+    expect(plan.level).toBe('warning')
+    expect(plan.actionKind).toBeNull()
+  })
+
+  it('未收录码沿用兜底句,不编按钮', () => {
+    const presented = presentStreamError({
+      errorCode: 'NOT_A_REAL_CODE',
+      fallbackTitle: 'AI 服务异常',
+      fallbackMessage: '请稍后重试',
+      rawNote: '[NOT_A_REAL_CODE] mystery',
+      labels: zh,
+    })
+    expect(presented.catalogHit).toBe(false)
+    expect(presented.title).toBe('AI 服务异常')
+    expect(presented.description).toContain('[NOT_A_REAL_CODE]')
+    expect(planStreamErrorToast(presented, 'unknown').actionKind).toBe('retry')
+  })
+
+  it('没有词表时与有词表的未收录码同一出口:只用兜底句', () => {
+    const presented = presentStreamError({
+      errorCode: 'RATE_LIMITED',
+      fallbackTitle: '请求过于频繁',
+      fallbackMessage: '请稍候再试',
+      labels: null,
+    })
+    expect(presented.catalogHit).toBe(false)
+    expect(presented.title).toBe('请求过于频繁')
+    expect(planStreamErrorToast(presented, 'ratelimit').level).toBe('warning')
+    expect(planStreamErrorToast(presented, 'ratelimit').actionKind).toBeNull()
+  })
+})
+
 describe('词表:五语言 15 键全非空', () => {
   it.each(LOCALES)('%s:9 动作 + 5 准入态 + nextStepLabel 都取得到真值', (locale) => {
     const labels = realLabels(locale)
@@ -222,7 +297,12 @@ describe('词表:五语言 15 键全非空', () => {
   it('标题/建议键在 ai.pane.errorCatalog 五语言里都取得到', () => {
     for (const locale of LOCALES) {
       const labels = realLabels(locale)
-      for (const code of ['INTERNAL_ERROR', 'BUDGET_EXHAUSTED', 'TOKEN_EXPIRED', 'ACCOUNT_RESTRICTED']) {
+      for (const code of [
+        'INTERNAL_ERROR',
+        'BUDGET_EXHAUSTED',
+        'TOKEN_EXPIRED',
+        'ACCOUNT_RESTRICTED',
+      ]) {
         const v = buildStreamErrorView({
           errorCode: code,
           fallbackTitle: '',

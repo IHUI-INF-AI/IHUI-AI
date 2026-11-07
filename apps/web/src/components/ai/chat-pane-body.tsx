@@ -43,13 +43,15 @@ import { parsePendingQuestion } from '@/lib/pending-question'
 // 差距⑤补全(2026-10-30 立):回合深链盖号(与根窗格 ai-side-panel 同一把尺)
 // 差距⑤遗留边界2:窗格化深链消费面(peek 按窗格归属命中 / around 锚点 / 版本号订阅)
 import {
-  consumeTurnDeepLink,
+  TURN_ANCHOR_UNRESOLVED_ERROR,
+  decideAroundLoad,
   getTurnDeepLinkVersionForPane,
   markPageTurnOrdinals,
   peekTurnDeepLink,
-  pickTurnAnchorMessageId,
+  shouldSkipLatestHistoryFill,
   stampCompletePageTurnOrdinals,
   subscribeTurnDeepLink,
+  unresolvedTurnAnchorState,
 } from '@/lib/turn-deeplink'
 import { getProgressJumpStoreForPane } from '@/stores/progress-jump-store'
 import { usePaneChatStore } from '@/stores/chat-pane-context'
@@ -141,6 +143,13 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   // 「用场景分析」开合(与根窗格同判据:只有导入会话才有入口,自建会话不挂空壳弹窗)
   const [analysisOpen, setAnalysisOpen] = React.useState(false)
   const requestSeqRef = React.useRef(0)
+  const chatError = chatStore((s) => s.error)
+  // 差距⑤:订阅必须在投影 effect 之前,深链还在时不得把最新 N 轮并进 around 窗口。
+  const turnDeepLinkVersion = React.useSyncExternalStore(
+    subscribeTurnDeepLink,
+    () => getTurnDeepLinkVersionForPane(paneId),
+    () => getTurnDeepLinkVersionForPane(paneId),
+  )
 
   // ── D35 长会话分页投影挂载(2026-10-31) ──────────────────────────────────
   // 之前 `use-chat-history-projection` 只有实现与单测、没有任何页面消费(§0.9 造好没装车)。
@@ -156,11 +165,21 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   const projectionWasStreamingRef = React.useRef(false)
   React.useEffect(() => {
     // 历史结算后才接管;缓存命中时 loadingHistory 恒 false,切会话即生效。
+    // 深链 around 窗口 / 锚点失败空态:不拉最新 N 轮,否则会把锚点旁边没要的历史并进来。
     if (loadingHistory) return
+    if (
+      shouldSkipLatestHistoryFill({
+        deepLinkActive: peekTurnDeepLink(conversationId, paneId) !== null,
+        messagesTurnWindowed: chatStore.getState().messagesTurnWindowed,
+        error: chatStore.getState().error,
+      })
+    ) {
+      return
+    }
     if (projectionStartedForRef.current === conversationId) return
     projectionStartedForRef.current = conversationId
     void projection.loadLatest(PROJECTION_PAGE_TURNS)
-  }, [conversationId, loadingHistory, projection])
+  }, [conversationId, loadingHistory, projection, paneId, turnDeepLinkVersion, chatStore])
 
   React.useEffect(() => {
     if (isStreaming) {
@@ -177,6 +196,15 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
   React.useEffect(() => {
     const current = chatStore.getState()
     if (current.conversationId !== conversationId) return
+    if (
+      shouldSkipLatestHistoryFill({
+        deepLinkActive: peekTurnDeepLink(conversationId, paneId) !== null,
+        messagesTurnWindowed: current.messagesTurnWindowed,
+        error: current.error,
+      })
+    ) {
+      return
+    }
     const known = new Set(current.messages.map((message) => message.id))
     const missing = projection.turns.flatMap((turn) =>
       turn.messages
@@ -191,18 +219,11 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
       (a, b) => a.createdAt - b.createdAt,
     )
     chatStore.setState({ messages: merged })
-  }, [projection, chatStore, conversationId])
+  }, [projection, chatStore, conversationId, paneId])
   // P1-6 续接(片3,2026-10-21):与根主体共用同一份编排出口 useResumeBranch ——
   // 捕获/结算后续接/中止三条时序只在一处实现(§0.6),本窗格只负责在历史 effect 里挂三个点。
   const resume = useResumeBranch(chatStore, paneId, t)
-  // 差距⑤遗留边界1+2(2026-10-30):订阅"归属本窗格"的深链目标版本号 —— ?turn= 变化
-  // (含同会话换 turn 重锚)即进下方历史 effect 依赖重跑;归属别窗格/根窗格的目标
-  // 不动本快照(恒 0),本窗格不为无关目标空重放。与根主体 ai-side-panel 同一形态。
-  const turnDeepLinkVersion = React.useSyncExternalStore(
-    subscribeTurnDeepLink,
-    () => getTurnDeepLinkVersionForPane(paneId),
-    () => getTurnDeepLinkVersionForPane(paneId),
-  )
+  // turnDeepLinkVersion 在投影 effect 之前订阅(深链在时跳过最新轮并入)。
 
   React.useEffect(() => {
     const seq = ++requestSeqRef.current
@@ -257,7 +278,7 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     // around 居中窗口(缓存装的是"上次落点",与分享链接指向的轮次无关;与根主体
     // ai-side-panel 同一把尺)。锚点跳转投递**本窗格**的 ProgressJumpStore 实例
     // (MessageList 经 useProgressJumpStoreForPane 消费,通道现成,不另造第二条事件总线)。
-    // 降级同根主体口径:turn 不存在(404)/拉取失败 ⇒ 静默消费目标、就地取最新页。
+    // 锚点解析失败(404 / 抛错 / 窗口里没有请求的那一轮)⇒ 空态,不改拉最新页。
     const aroundTarget = peekTurnDeepLink(conversationId, paneId)
     if (aroundTarget) {
       chatStore.setState({ conversationId, error: null })
@@ -274,6 +295,20 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
             }),
           ])
           if (cancelled || seq !== requestSeqRef.current) return
+          const decision = decideAroundLoad({
+            ok: histRes.success,
+            turns: histRes.success ? histRes.data.turns : [],
+            turnOrdinal: aroundTarget.turnOrdinal,
+          })
+          if (decision.action === 'unresolved-empty') {
+            if (chatStore.getState().messages === localBefore) {
+              chatStore.setState(unresolvedTurnAnchorState())
+            }
+            resetPager(null, false)
+            setLoadingHistory(false)
+            resume.runAfterHistory(conversationId)
+            return
+          }
           if (histRes.success) {
             const hydrated = hydrateHistoryMessages(
               histRes.data.turns.flatMap((turn) =>
@@ -306,26 +341,22 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
               oldestCursor: null,
               turnWindowed: true,
             })
-            const anchorMessageId = pickTurnAnchorMessageId(
-              histRes.data.turns,
-              aroundTarget.turnOrdinal,
-            )
-            if (anchorMessageId) {
-              getProgressJumpStoreForPane(paneId).getState().requestJumpToMessage(anchorMessageId)
-            }
+            getProgressJumpStoreForPane(paneId)
+              .getState()
+              .requestJumpToMessage(decision.anchorMessageId)
             setLoadingHistory(false)
             resume.runAfterHistory(conversationId)
             return
           }
-          consumeTurnDeepLink()
         } catch {
-          consumeTurnDeepLink()
+          if (cancelled || seq !== requestSeqRef.current) return
+          if (chatStore.getState().messages === localBefore) {
+            chatStore.setState(unresolvedTurnAnchorState())
+          }
+          resetPager(null, false)
+          setLoadingHistory(false)
+          resume.runAfterHistory(conversationId)
         }
-        if (cancelled || seq !== requestSeqRef.current) return
-        setLoadingHistory(false)
-        // 不 return 到外面:降级就地取最新页(不经缓存恢复,避免旧落点闪现);
-        // runLatestFetch 的 finally 会补结算后续接
-        void runLatestFetch()
       })()
       return () => {
         cancelled = true
@@ -489,8 +520,15 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
           messages={messages}
           isStreaming={isStreaming}
           isLoading={loadingHistory}
-          emptyTitle={t('empty')}
-          emptyHint={t('emptyHint')}
+          emptyTitle={
+            chatError === TURN_ANCHOR_UNRESOLVED_ERROR ? t('turnAnchorUnresolvedTitle') : t('empty')
+          }
+          emptyHint={
+            chatError === TURN_ANCHOR_UNRESOLVED_ERROR
+              ? t('turnAnchorUnresolvedHint')
+              : t('emptyHint')
+          }
+          emptyKind={chatError === TURN_ANCHOR_UNRESOLVED_ERROR ? 'anchor-unresolved' : 'welcome'}
           assistantLabel={t('assistant')}
           loadingLabel={t('loading')}
           hasMoreHistory={hasMoreHistory}

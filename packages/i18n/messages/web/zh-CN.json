@@ -11947,6 +11947,8 @@
     "dropAttachmentHint": "释放鼠标以添加附件(图片/视频)",
     "empty": "开始新的任务",
     "emptyHint": "在下方输入消息，与 AI 开始任务",
+    "turnAnchorUnresolvedTitle": "这一回合没有定位到",
+    "turnAnchorUnresolvedHint": "链接指向的回合没有加载出来。这里留空，没有用这段会话里的其他历史代替。",
     "errorTimeout15s": "AI 响应超时(15 秒内未收到任何内容),请稍后重试",
     "errorTimeout60s": "AI 思考超时(60 秒未产出回答内容,可能 reasoning 模型思考过长),请稍后重试或换用普通模型",
     "errors": {

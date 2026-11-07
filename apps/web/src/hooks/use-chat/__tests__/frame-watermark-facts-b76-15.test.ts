@@ -37,27 +37,52 @@ describe('b76-15 帧水位事实端内投影', () => {
     vi.restoreAllMocks()
   })
 
-  it('载荷级水位缺席 ⇒ 输出点名两维 undetermined(不冒充三维全绿)', () => {
+  it('载荷级水位缺席 ⇒ 订阅、纪元、段都写 undetermined(不冒充已经知道是哪一次)', () => {
     const line = formatFrameWatermarkFacts(ABSENT)
     expect(line).toContain('payloadWatermark=absent')
-    expect(line).toContain('generation=undetermined')
+    expect(line).toContain('subscription=undetermined')
+    expect(line).toContain('frameSubscription=undetermined')
     expect(line).toContain('epoch=undetermined')
-    // 反例守卫:不得出现任何"已判"字样
+    expect(line).toContain('frameEpoch=undetermined')
+    expect(line).toContain('segment=undetermined')
+    expect(line).toContain('disposition=undetermined')
     expect(line).not.toContain('generation=judged')
     expect(line).not.toContain('epoch=judged')
   })
 
-  it('载荷级水位在场 ⇒ 两维标 judged;cursor 原值', () => {
+  it('断档事实点名手上的订阅和这帧的段，不把序号对不上写成整段替换', () => {
     const line = formatFrameWatermarkFacts({
       kind: 'seq-discontinuity',
       dropped: 2,
-      cursor: 17,
+      cursor: 5,
       payloadWatermarkSeen: true,
+      held: { subscriptionId: 'sub-held', logEpoch: 11, seq: 5 },
+      frame: { subscriptionId: 'sub-held', logEpoch: 11, fromSeq: 9, toSeq: 10 },
+      disposition: 'drop',
     })
-    expect(line).toContain('generation=judged')
-    expect(line).toContain('epoch=judged')
-    expect(line).toContain('seq=17')
+    expect(line).toContain('subscription=sub-held')
+    expect(line).toContain('frameSubscription=sub-held')
+    expect(line).toContain('epoch=11')
+    expect(line).toContain('segment=9-10')
+    expect(line).toContain('disposition=drop')
+    expect(line).toContain('seq=5')
     expect(line).toContain('dropped=2')
+  })
+
+  it('换订阅的 snapshot 同时点名旧订阅和新订阅，处置是整段替换', () => {
+    const line = formatFrameWatermarkFacts({
+      kind: 'generation-change',
+      dropped: 0,
+      cursor: 5,
+      payloadWatermarkSeen: true,
+      held: { subscriptionId: 'sub-old', logEpoch: 3, seq: 5 },
+      frame: { subscriptionId: 'sub-new', logEpoch: 3, fromSeq: 0, toSeq: 1 },
+      disposition: 'replace-segment',
+    })
+    expect(line).toContain('subscription=sub-old')
+    expect(line).toContain('frameSubscription=sub-new')
+    expect(line).toContain('segment=0-1')
+    expect(line).toContain('disposition=replace-segment')
   })
 
   it('cursor === null 写 undetermined,绝不写 0(0 是合法 seq)', () => {
