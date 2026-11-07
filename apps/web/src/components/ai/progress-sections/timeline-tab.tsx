@@ -132,13 +132,14 @@ function countByType(events: TimelineEvent[]): Record<TimelineEventType, number>
 }
 
 /** 统计各 status 的事件数(用于右侧 chip) */
-function countByStatus(events: TimelineEvent[]): {
-  done: number
-  failed: number
-  running: number
-  pending: number
-} {
-  const c = { done: 0, failed: 0, running: 0, pending: 0 }
+function countByStatus(events: TimelineEvent[]): Record<TimelineEventStatus, number> {
+  const c: Record<TimelineEventStatus, number> = {
+    done: 0,
+    failed: 0,
+    running: 0,
+    pending: 0,
+    stub: 0,
+  }
   for (const e of events) c[e.status]++
   return c
 }
