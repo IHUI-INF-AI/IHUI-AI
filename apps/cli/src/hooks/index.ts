@@ -2394,6 +2394,18 @@ export interface RunHookOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * 新增派发点的可见性出口:runHook 的非成功反馈只有被调用方消费才看得见,
+ * 而本批新增的事件源(初始化 / 征询 / 工具终态)没有返回值通道 —— 不在这里喊一声,
+ * "钩子坏了"就又回到静默(§30)。成功终态不刷屏。
+ */
+export function surfaceHookOutcome(event: HookEvent, result: HookResult): void {
+  if (result.terminal === 'succeeded') return;
+  const detail = (result.feedback ?? result.reason ?? '').trim();
+  const terminal = describeHookTerminal(result.terminal ?? 'result_unknown');
+  warnOnce(`⚠ ${event} 钩子非成功终态=${terminal}${detail ? `: ${detail}` : ''}`);
+}
+
 export async function runHook(event: HookEvent, ctx: HookContext, options?: RunHookOptions): Promise<HookResult> {
   const signal = options?.signal;
   try {
