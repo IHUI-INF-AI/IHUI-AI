@@ -32,7 +32,8 @@ export default defineConfig({
       'sidePanel',
       'contextMenus',
       'tabs',
-      'scripting',
+      // 2026-11-07 DBG-71 收口: 'scripting' 权限全仓零 chrome.scripting 调用(grep 验证),
+      // 属多余高危权限面(放大商店审核与授权弹窗),按 ledger 建议移除。
       'alarms',
       // 2026-08-01 SSO 接入:chrome.identity.launchWebAuthFlow 打开 web SSO 登录页
       'identity',
