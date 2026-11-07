@@ -44,6 +44,10 @@ const LABEL_KEYS: Record<ThirdPartyPlatform, string> = {
   alipay: 'auth.alipayLogin',
   apple: 'auth.appleLogin',
   oidc: 'auth.oidcLogin',
+  // linuxdo(2026-11-07 立):键补齐即可 —— 渲染集仍是 ALL_THIRD_PARTY_PLATFORMS 那 8 档
+  // (与 oidc 同一口径:后端代理闭环的 provider 不进扩展端的 3x3 网格,
+  //  因为扩展端只走 `WEB_SIGNIN_URL?platform=xxx` 这一路,而该路径依赖通用回调枚举,不含 linuxdo)。
+  linuxdo: 'auth.linuxdoLogin',
   app: 'auth.appLogin',
 }
 
