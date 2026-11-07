@@ -143,6 +143,7 @@
     "check:host-timezone": "node scripts/check-host-timezone.mjs --strict",
     "check:sequence-lag:fix": "node scripts/check-sequence-lag.mjs --fix",
     "doc:numbers": "node scripts/gen-doc-numbers.mjs",
+    "doc:numbers:sync": "node scripts/sync-readme-numbers.mjs",
     "check:doc-numbers": "node scripts/check-doc-numbers.mjs --strict",
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
     "check:prompt-injection": "node scripts/check-prompt-injection-registry.mjs",
