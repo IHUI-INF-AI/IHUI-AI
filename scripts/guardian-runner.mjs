@@ -346,7 +346,7 @@ const checks = [
     script: 'check-sidebar-width-consistency.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/design-tokens/", "apps/web/src/styles/design-tokens.css", "apps/web/src/components/sidebar.tsx"],
+    stagedTriggers: ["packages/design-tokens/", "apps/web/src/styles/design-tokens.css", "apps/web/src/components/sidebar.tsx", "apps/web/src/components/sidebar/", "apps/web/src/components/layout/GlobalShell.tsx", "apps/web/app/globals.css", "apps/web/app/layout.tsx"],
   },
   {
     id: '25',
