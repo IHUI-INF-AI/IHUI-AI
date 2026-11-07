@@ -130,7 +130,9 @@ export const customerServiceAgents = pgTable(
 
 /**
  * 实时会话表（WebSocket 聊天会话）。
- * - status: waiting(排队中) | active(服务中) | closed(已关闭) | transferred(已转接)。
+ * - status: 唯一真相源为 @ihui/types 的 CUSTOMER_SERVICE_STATUSES
+ *   (pending/open/resolved/closed/rejected,packages/types/src/notification.ts);
+ *   本注释不再另列一份枚举字面量(旧 waiting/active/transferred 已废弃)。
  */
 export const customerServiceSessions = pgTable(
   'customer_service_sessions',

@@ -10,7 +10,10 @@ import { useTranslations } from 'next-intl'
 import { Loader2, QrCode, RefreshCw, KeyRound } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  eduAttendanceQrcode,
+  eduAttendanceRuleRotateQrSecret,
+} from '@ihui/api-client'
 import { Alert } from '@/components/feedback'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { ClassSelect } from './ClassSelect'
@@ -57,10 +60,11 @@ export function CheckInQrPanel({
 
   const qrQuery = useQuery({
     queryKey: ['edu-attendance-qrcode', selectedClassId, nonce],
-    queryFn: () =>
-      apiOrThrow<AttendanceQrDto>(
-        `/api/edu-ai-management/attendance/qrcode?classId=${encodeURIComponent(selectedClassId)}`,
-      ),
+    queryFn: async () => {
+      const r = await eduAttendanceQrcode<AttendanceQrDto>({ classId: selectedClassId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: Boolean(selectedClassId),
     retry: false,
   })
@@ -86,11 +90,11 @@ export function CheckInQrPanel({
   }, [qr, remainSec])
 
   const rotateMutation = useMutation({
-    mutationFn: () =>
-      apiOrThrow<RotateDto>('/api/edu-ai-management/attendance/rule/rotate-qr-secret', {
-        method: 'POST',
-        body: JSON.stringify({ classId: selectedClassId }),
-      }),
+    mutationFn: async () => {
+      const r = await eduAttendanceRuleRotateQrSecret<RotateDto>({ classId: selectedClassId })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (data) => {
       setFingerprint(data.fingerprint)
       void qc.invalidateQueries({ queryKey: ['edu-attendance-rule', selectedClassId] })
@@ -115,7 +119,9 @@ export function CheckInQrPanel({
       </CardHeader>
       <CardContent className="flex flex-wrap items-start gap-4">
         {!selectedClassId ? (
-          <p className="text-xs text-muted-foreground">{t('ruleClassHint')}</p>
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
+            {t('ruleClassHint')}
+          </p>
         ) : qrQuery.isLoading ? (
           <div className="flex items-center gap-2 py-6 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -124,18 +130,20 @@ export function CheckInQrPanel({
         ) : qr ? (
           <>
             <div
-              className="rounded-lg border border-border bg-popover p-3"
+              className="rounded-md border border-border bg-popover p-3"
               data-testid="attendance-qr"
             >
               <QRCodeSVG value={qr.payload} size={QR_SIZE} level="M" />
             </div>
             <div className="space-y-2">
-              <p className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
+              <p className="font-[weight:inherit] whitespace-nowrap text-label tabular-nums text-muted-foreground">
                 {remainSec > 0 ? t('qrExpiresIn', { seconds: String(remainSec) }) : t('qrExpired')}
               </p>
-              <p className="text-xs text-muted-foreground">{t('qrSecretNote')}</p>
+              <p className="font-[weight:inherit] text-label text-muted-foreground">
+                {t('qrSecretNote')}
+              </p>
               {fingerprint && (
-                <p className="whitespace-nowrap text-xs tabular-nums text-emerald-600 dark:text-emerald-500">
+                <p className="font-[weight:inherit] whitespace-nowrap text-label tabular-nums text-emerald-600 dark:text-emerald-500">
                   {t('qrRotated', { fingerprint })}
                 </p>
               )}
@@ -164,7 +172,7 @@ export function CheckInQrPanel({
           <Alert
             variant="danger"
             description={String((qrQuery.error as Error | null)?.message ?? t('qrLoadFailed'))}
-            action={<p className="text-xs">{t('qrNeedSetup')}</p>}
+            action={<p className="font-[weight:inherit] text-label">{t('qrNeedSetup')}</p>}
           />
         )}
 
@@ -172,7 +180,7 @@ export function CheckInQrPanel({
           <Alert
             variant="danger"
             description={String((rotateMutation.error as Error).message)}
-            action={<p className="text-xs">{t('qrNeedSetup')}</p>}
+            action={<p className="font-[weight:inherit] text-label">{t('qrNeedSetup')}</p>}
           />
         ) : null}
       </CardContent>

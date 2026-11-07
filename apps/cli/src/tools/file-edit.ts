@@ -29,7 +29,11 @@ import { type Tool, type ToolResult, type ToolContext, checkPathWritePermission 
 import { seekSequence, type MatchLevel } from './seek-sequence.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
-import { createBatchEditTools } from './file-batch-edit.js';
+import {
+  createBatchEditTools,
+  // 删除保护链端内腿(goal-b49 W1-①):单文件删除同样先过护栏判定、再进回收站
+  recycleDeleteSingleFile,
+} from './file-batch-edit.js';
 import {
   AtomicReplaceFailedError,
   captureWriteBaseline,
@@ -188,12 +192,14 @@ function recordWriteState(ctx: ToolContext, abs: string): void {
   }
 }
 
-function snapshotBeforeEdit(ctx: EditToolContext, files: string[], reason: string): void {
-  if (!ctx.checkpoints) return;
+function snapshotBeforeEdit(ctx: EditToolContext, files: string[], reason: string): string {
+  if (!ctx.checkpoints) return '';
   try {
     ctx.checkpoints.snapshotSync(files, reason);
-  } catch {
-    // 快照失败不阻塞编辑
+    return '';
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    return `\n自动检查点没有拍成: ${detail}`;
   }
 }
 
@@ -259,14 +265,14 @@ export function createWriteFileTool(ctx: EditToolContext): Tool {
           ? computeChangedRange(original, content)
           : { startLine: 1, endLine: Math.max(1, content.split('\n').length) };
         warnConflictIfAny(ctx, abs, startLine, endLine);
-        snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
+        const snapshotNote = snapshotBeforeEdit(ctx, [abs], 'auto_pre_write_file');
         commitAtomicWrite(baseline, content);
         recordWriteState(execCtx, abs);
         recordHunk(ctx, abs, startLine, endLine, content);
         await runPostToolCall('write_file', { path: filePath, bytes: content.length }, execCtx.signal);
         const lines = content.split('\n').length;
         const diff = existed ? computeUnifiedDiff(original, content, filePath) : '';
-        return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}` };
+        return { success: true, output: `已写入 ${filePath} (${lines} 行, ${content.length} 字节)${diff}${snapshotNote}` };
       } catch (e) {
         const mapped = writeFailure(e);
         if (mapped) return mapped;
@@ -462,7 +468,7 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
           };
         }
         original = baseline.content;
-        snapshotBeforeEdit(ctx, [abs], 'auto_pre_edit_file');
+        const snapshotNote = snapshotBeforeEdit(ctx, [abs], 'auto_pre_edit_file');
 
         let patchStr: string;
         if (args.patch) {
@@ -488,7 +494,7 @@ export function createEditFileTool(ctx: EditToolContext): Tool {
         // 弱等级命中:告警放在**最前面**,不能让它在 diff 之后被划过去看不见
         return {
           success: true,
-          output: `${fuzzyMatchWarning(applied.blocks)}已编辑 ${filePath} (${applied.replacements} 处替换)${diff}`,
+          output: `${fuzzyMatchWarning(applied.blocks)}已编辑 ${filePath} (${applied.replacements} 处替换)${diff}${snapshotNote}`,
         };
       } catch (e) {
         const mapped = writeFailure(e);
@@ -512,30 +518,51 @@ export function createDeleteFileTool(ctx: EditToolContext): Tool {
       const filePath = args.path as string;
       if (!filePath) return { success: false, output: '', error: '缺少 path 参数' };
 
-      const perm = checkPathWritePermission(filePath, ctx);
+      const perm = checkPathWritePermission(filePath, ctx, 'delete');
       if (!perm.allowed) return { success: false, output: '', error: perm.reason };
 
       const preResult = await runPreToolCall('delete_file', { path: filePath, cwd: ctx.workspacePath }, execCtx.signal);
       if (!preResult.proceed) return { success: false, output: '', error: preResult.reason };
 
       const abs = resolvePath(ctx, filePath);
-      if (!fs.existsSync(abs)) {
+      let stat: fs.Stats;
+      try {
+        stat = fs.statSync(abs);
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code === 'ENOENT' || code === 'ENOTDIR') {
+          return {
+            success: false,
+            output: '',
+            error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
+          };
+        }
+        return { success: false, output: '', error: `文件读不到,删除没有执行: ${filePath}` };
+      }
+      if (stat.isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
+
+      let original: string;
+      try {
+        original = fs.readFileSync(abs, 'utf-8');
+      } catch {
+        return { success: false, output: '', error: `文件读不到,删除没有执行: ${filePath}` };
+      }
+      const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, original.split('\n').length) };
+      warnConflictIfAny(ctx, abs, startLine, endLine);
+      const snapshotNote = snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
+      // 删除保护链(两阶段护栏判定 + 回收站搬运):非 clean 判定即抛错 ⇒ 原文件未被触碰
+      try {
+        recycleDeleteSingleFile(ctx.workspacePath, abs);
+      } catch (err) {
         return {
           success: false,
           output: '',
-          error: withMissingFileSuggestion(`文件不存在: ${filePath}`, abs),
+          error: `删除未执行(回收/护栏失败,原文件仍在):${err instanceof Error ? err.message : String(err)}`,
         };
       }
-      if (fs.statSync(abs).isDirectory()) return { success: false, output: '', error: `是目录,不是文件: ${filePath}` };
-
-      const original = fs.readFileSync(abs, 'utf-8');
-      const { startLine, endLine } = { startLine: 1, endLine: Math.max(1, original.split('\n').length) };
-      warnConflictIfAny(ctx, abs, startLine, endLine);
-      snapshotBeforeEdit(ctx, [abs], 'auto_pre_delete_file');
-      fs.unlinkSync(abs);
       recordHunk(ctx, abs, startLine, endLine, original);
       await runPostToolCall('delete_file', { path: filePath }, execCtx.signal);
-      return { success: true, output: `已删除 ${filePath}` };
+      return { success: true, output: `已删除 ${filePath}${snapshotNote}` };
     },
   };
 }

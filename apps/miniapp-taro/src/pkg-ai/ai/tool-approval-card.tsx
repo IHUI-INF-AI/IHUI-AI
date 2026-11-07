@@ -31,6 +31,7 @@ import {
   DEFAULT_APPROVAL_SCOPE,
   buildApprovePayload,
   buildRejectPayload,
+  describeApprovalDetail,
   offersManualOverride,
   resolveApprovalTexts,
   resolveApprovalTierLabels,
@@ -70,6 +71,8 @@ export default function ToolApprovalCard({
 }: ToolApprovalCardProps) {
   const texts = resolveApprovalTexts(tt)
   const tiers = resolveApprovalTierLabels(tt)
+  // 批次 2:结构化决策信息的降级视图(summary + 至多三行事实);null ⇒ 老帧,不渲染。
+  const detail = request ? describeApprovalDetail(request, texts) : null
   // 作用域选择:默认 once(最小特权),新请求进来即重置 —— 上一条的授权范围不得串到下一条
   const [scope, setScope] = useState<ToolApprovalScope>(DEFAULT_APPROVAL_SCOPE)
   useEffect(() => {
@@ -101,11 +104,22 @@ export default function ToolApprovalCard({
             <Text className="tac-danger">{resolveDangerLevelText(request.dangerLevel, tt)}</Text>
           </View>
 
+          {detail ? (
+            <View className="tac-args-block" data-testid="tool-approval-detail">
+              <Text className="tac-args-label">{texts.decisionDetail}</Text>
+              {detail.summary !== '' ? <Text className="tac-args">{detail.summary}</Text> : null}
+              {detail.lines.map((line) => (
+                <Text key={line} className="tac-args">
+                  {line}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
           <View className="tac-args-block">
             <Text className="tac-args-label">{texts.argsPreview}</Text>
             <Text className="tac-args">{request.argsPreview || '{}'}</Text>
           </View>
-
           <View className="tac-scope-block">
             <Text className="tac-args-label">{texts.scopeLabel}</Text>
             <View className="tac-scope-row">

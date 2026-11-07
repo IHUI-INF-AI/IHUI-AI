@@ -4,9 +4,11 @@
 
 // 镜像 packages/app/src/features/message-center/MessageCenterScreen.tsx
 import { useI18n } from '@/i18n'
-import { View, Text, ScrollView } from '@tarojs/components'
+import { View, Text } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
+import { MessageCenterScreen } from '@ihui/rn-app/features/message-center/MessageCenterScreen'
+import type { MessageCenterItem } from '@ihui/types'
 import {
   getMessageRooms,
   getSystemNotices,
@@ -27,14 +29,12 @@ import { getTopBarMetrics } from '@/utils/system-info'
 import ThemeRoot from '@/components/ThemeRoot'
 import {
   NavBar,
-  MessageTabs,
   SystemNotice,
   PrivateMessageList,
   MessageDetail,
   UnreadBadge,
   MessageActions,
   NotificationSettings,
-  SearchBar,
   type MessageTabItem,
   type SystemNoticeItem,
   type PrivateMessageItem,
@@ -59,6 +59,19 @@ interface Room {
    */
   kind?: 'announcement' | 'system' | 'private'
 }
+
+/**
+ * 共享屏静态键 → 小程序既有词条。共享屏新增的 4 枚键(searchPh/markRead/deleteConv/loadMore)
+ * 已按 §19 与词包同批落到本端五语言,表内不再回声映射。
+ */
+const MESSAGE_TEXT: Record<string, string> = {
+  'messageCenter.settings': 'message.settings',
+  'messageCenter.empty': 'message.empty',
+  'messageCenter.type.system': 'message.tabs.system',
+  'messageCenter.type.social': 'message.tabs.interaction',
+}
+
+const EMPTY_ITEMS: MessageCenterItem[] = []
 
 const { menuButton } = getTopBarMetrics()
 
@@ -119,6 +132,12 @@ export default function MessageIndex() {
       enabled: false,
     },
   ])
+
+  /** 共享屏词条适配:表内键走小程序既有词条,其余原样交回本端 t */
+  const sharedT = useCallback(
+    (key: string, params?: Record<string, string | number>) => t(MESSAGE_TEXT[key] ?? key, params),
+    [t],
+  )
 
   const loadAggregate = useCallback(async () => {
     try {
@@ -257,7 +276,8 @@ export default function MessageIndex() {
     const unreadRoom = list.find((r) => (r.unreadCount ?? r.unread ?? 0) > 0 || r.isUnread === true)
     const target = unreadRoom || list[0]
     if (!target || !target.lastMessage) return undefined
-    return { text: target.lastMessage, onClose: () => setBannerClosed(true) }
+    // 共享屏横幅无关闭按钮 ⇒ 点按横幅关闭,保留原 onClose 的可撤销语义
+    return { text: target.lastMessage, onPress: () => setBannerClosed(true) }
   }, [list, bannerClosed])
 
   const filtered = useMemo(() => {
@@ -265,8 +285,6 @@ export default function MessageIndex() {
     if (!kw) return list
     return list.filter((r) => (r.name || '').includes(kw))
   }, [list, keyword])
-
-  const headerOffset = menuButton.top + (menuButton.height + 8) + (notification ? 40 : 0)
 
   const onTabChange = (k: string) => setActiveTab(k)
 
@@ -385,114 +403,83 @@ export default function MessageIndex() {
     }
   }
 
-  const renderTabContent = () => {
-    if (activeTab === 'order' || activeTab === 'course') {
-      // 对齐共享屏 TABS=['system','order','course','social'] 的 order/course 两类:
-      // 站内消息卡片(与 spec NotificationCard 同信息结构:类型徽章 + 标题 + 正文 + 时间)
+  /**
+   * 共享屏缺段(进缺段表,不造字段):聚合会话行、系统通知、私信列表、order/course 站内消息
+   * 由本端注入;'all' 空态返回 null ⇒ 交回共享屏 EmptyState,'interaction' 同。
+   */
+  const renderTabBody = (tab: string) => {
+    if (tab === 'order' || tab === 'course') {
+      return <InSiteMessagePane msgType={tab} />
+    }
+    if (tab === 'system') {
       return (
-        <ThemeRoot>
-          <InSiteMessagePane msgType={activeTab} />
-        </ThemeRoot>
+        <SystemNotice list={systemList} onClick={(item) => onToast(item.title, { kind: 'info' })} />
       )
     }
-    if (activeTab === 'system') {
-      return (
-        <ThemeRoot>
-          <SystemNotice
-            list={systemList}
-            onClick={(item) => onToast(item.title, { kind: 'info' })}
-          />
-        </ThemeRoot>
-      )
-    }
-    if (activeTab === 'interaction') {
-      // 原先这里渲染三条**写死的演示互动**(张三赞了你的笔记 / 李四回复 / 王五关注,
-      // 日期硬编码 2026-07-13):用户会把它们当成真实消息。互动端点尚未接入,
-      // 按同页 announcements / private 的真数据轨道口径落空态。
-      return (
-        <ThemeRoot>
-          <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
-            {t('message.empty')}
-          </Text>
-        </ThemeRoot>
-      )
-    }
-    if (activeTab === 'private') {
+    if (tab === 'private') {
       return <PrivateMessageList list={privateList} onClick={onOpenPrivate} />
     }
+    if (tab !== 'all') return null
+    if (loading) {
+      return (
+        <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
+          {t('common.loading')}
+        </Text>
+      )
+    }
+    if (!filtered.length) return null
     return (
-      <ThemeRoot>
-        {/* 对齐 RN MessageCenterScreen listBody(padding 10dp) */}
-        <View className="p-[20rpx]">
-          <SearchBar
-            value={keyword}
-            placeholder={t('messageCenter.searchPh')}
-            onInput={setKeyword}
-            onClear={() => setKeyword('')}
-          />
-          {/* 会话区标题(对齐 RN MessageCenterScreen convSection.convTitle) */}
-          {!loading && filtered.length ? (
-            <Text className="block text-body-sm leading-[normal] font-semibold text-muted-foreground mt-[16rpx] mb-[8rpx]">
-              {t('messageCenter.conversations')}
-            </Text>
-          ) : null}
-          {loading ? (
-            <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
-              {t('common.loading')}
-            </Text>
-          ) : filtered.length ? (
-            filtered.map((room) => {
-              const unread = room.unreadCount ?? room.unread ?? 0
-              return (
-                <View
-                  key={(room.id || room.name) as string}
-                  className="flex flex-row items-center py-[24rpx] px-[20rpx] rounded-xl gap-[24rpx]"
-                >
-                  {/* 头像(首字母占位,对齐 RN convAvatar 44dp/radius 10dp) */}
-                  <View className="relative shrink-0">
-                    <View className="w-[88rpx] h-[88rpx] rounded-lg bg-muted flex items-center justify-center">
-                      <Text className="text-title font-semibold text-foreground">
-                        {(room.name || '?').charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    {unread > 0 && (
-                      <View className="absolute -top-[8rpx] -right-[8rpx]">
-                        <UnreadBadge count={unread} />
-                      </View>
-                    )}
-                  </View>
-                  <View className="flex-1 min-w-0">
-                    <Text className="text-strong font-semibold text-foreground truncate">
-                      {room.name || t('message.unnamedRoom')}
-                    </Text>
-                    <Text className="mt-[4rpx] text-body-sm leading-[normal] text-muted-foreground truncate">
-                      {room.lastMessage || t('message.empty')}
-                    </Text>
-                  </View>
-                  {/* 操作区(对齐共享屏 spec):「标记已读」只在未读行出现(onMarkRead 不传整块不渲染);
-                      置顶需真实会话身份(本聚合行是公告/私信,无置顶语义)⇒ 不给假入口 */}
-                  {canActRoom(room) ? (
-                    <MessageActions
-                      onMarkRead={
-                        roomHasUnread(room)
-                          ? () => onRoomMarkRead(room as { id: string } & Room)
-                          : undefined
-                      }
-                      onDelete={() => onRoomDelete(room as { id: string } & Room)}
-                      markReadLabel={t('messageCenter.markRead')}
-                      deleteLabel={t('messageCenter.deleteConv')}
-                    />
-                  ) : null}
+      <View className="p-[20rpx]">
+        {/* 会话区标题(对齐 RN MessageCenterScreen convSection.convTitle) */}
+        <Text className="block text-body-sm leading-[normal] font-semibold text-muted-foreground mt-[16rpx] mb-[8rpx]">
+          {t('messageCenter.conversations')}
+        </Text>
+        {filtered.map((room) => {
+          const unread = room.unreadCount ?? room.unread ?? 0
+          return (
+            <View
+              key={(room.id || room.name) as string}
+              className="flex flex-row items-center py-[24rpx] px-[20rpx] rounded-xl gap-[24rpx]"
+            >
+              {/* 头像(首字母占位,对齐 RN convAvatar 44dp/radius 10dp) */}
+              <View className="relative shrink-0">
+                <View className="w-[88rpx] h-[88rpx] rounded-lg bg-muted flex items-center justify-center">
+                  <Text className="text-title font-semibold text-foreground">
+                    {(room.name || '?').charAt(0).toUpperCase()}
+                  </Text>
                 </View>
-              )
-            })
-          ) : (
-            <Text className="block text-center text-body text-muted-foreground py-[96rpx]">
-              {keyword ? t('message.notFound') : t('message.empty')}
-            </Text>
-          )}
-        </View>
-      </ThemeRoot>
+                {unread > 0 && (
+                  <View className="absolute -top-[8rpx] -right-[8rpx]">
+                    <UnreadBadge count={unread} />
+                  </View>
+                )}
+              </View>
+              <View className="flex-1 min-w-0">
+                <Text className="text-strong font-semibold text-foreground truncate">
+                  {room.name || t('message.unnamedRoom')}
+                </Text>
+                <Text className="mt-[4rpx] text-body-sm leading-[normal] text-muted-foreground truncate">
+                  {room.lastMessage || t('message.empty')}
+                </Text>
+              </View>
+              {/* 操作区(对齐共享屏 spec):「标记已读」只在未读行出现(onMarkRead 不传整块不渲染);
+                  置顶需真实会话身份(本聚合行是公告/私信,无置顶语义)⇒ 不给假入口 */}
+              {canActRoom(room) ? (
+                <MessageActions
+                  onMarkRead={
+                    roomHasUnread(room)
+                      ? () => onRoomMarkRead(room as { id: string } & Room)
+                      : undefined
+                  }
+                  onDelete={() => onRoomDelete(room as { id: string } & Room)}
+                  markReadLabel={t('messageCenter.markRead')}
+                  deleteLabel={t('messageCenter.deleteConv')}
+                />
+              ) : null}
+            </View>
+          )
+        })}
+      </View>
     )
   }
 
@@ -523,45 +510,57 @@ export default function MessageIndex() {
 
   return (
     <ThemeRoot>
-      <View className="min-h-screen bg-background">
-        <NavBar
-          title={t('messageCenter.title')}
-          notification={notification}
-          rightText={t('message.settings')}
-          onRightClick={() => setShowSettings(true)}
-        />
-        <View style={{ height: `${headerOffset}px` }} />
-        <MessageTabs tabs={tabs} active={activeTab} onChange={onTabChange} />
-        <ScrollView scrollY style={{ height: 'calc(100vh - 200px)' }}>
-          {renderTabContent()}
-        </ScrollView>
-
-        {showSettings && (
+      <MessageCenterScreen
+        t={sharedT}
+        items={EMPTY_ITEMS}
+        activeTab={activeTab}
+        onSelectTab={onTabChange}
+        tabs={tabs}
+        loading={loading}
+        refreshing={false}
+        error=""
+        onRefresh={() => void load()}
+        search={
+          activeTab === 'all'
+            ? {
+                value: keyword,
+                placeholder: sharedT('messageCenter.searchPh'),
+                onChangeText: setKeyword,
+              }
+            : undefined
+        }
+        notification={notification}
+        onPressSettings={() => setShowSettings(true)}
+        onBack={() => void Taro.navigateBack()}
+        emptyText={keyword ? t('message.notFound') : t('message.empty')}
+        renderTabBody={renderTabBody}
+        onToast={onToast}
+      />
+      {showSettings && (
+        <View
+          className="fixed inset-0 z-[2000] bg-[rgba(0,0,0,0.4)]"
+          onClick={() => setShowSettings(false)}
+        >
           <View
-            className="fixed inset-0 z-[2000] bg-[rgba(0,0,0,0.4)]"
-            onClick={() => setShowSettings(false)}
+            className="absolute bottom-0 left-0 right-0 bg-card ui-panel rounded-t-xl max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            hoverClass="opacity-60"
           >
-            <View
-              className="absolute bottom-0 left-0 right-0 bg-card ui-panel rounded-t-xl max-h-[80vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60"
-            >
-              <View className="flex items-center justify-between px-4 py-3 mb-2">
-                <Text className="text-sm font-medium text-foreground">
-                  {t('message.notificationSettings')}
-                </Text>
-                <Text
-                  className="text-sm text-muted-foreground"
-                  onClick={() => setShowSettings(false)}
-                >
-                  {t('message.close')}
-                </Text>
-              </View>
-              <NotificationSettings items={settings} onToggle={onToggleSetting} />
+            <View className="flex items-center justify-between px-lg py-md mb-sm">
+              <Text className="text-body font-medium text-foreground">
+                {t('message.notificationSettings')}
+              </Text>
+              <Text
+                className="text-body text-muted-foreground"
+                onClick={() => setShowSettings(false)}
+              >
+                {t('message.close')}
+              </Text>
             </View>
+            <NotificationSettings items={settings} onToggle={onToggleSetting} />
           </View>
-        )}
-      </View>
+        </View>
+      )}
     </ThemeRoot>
   )
 }

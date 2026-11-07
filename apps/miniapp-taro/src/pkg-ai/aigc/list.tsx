@@ -1,21 +1,28 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+// 镜像 packages/app/src/features/aigc-list/AigcListScreen.tsx
+// 薄壳化:页面只保留「数据装载 + 平台能力注入」,渲染统一走共享屏 AigcListScreen。
+// 平台事实 3 项(全部经注入端口,共享屏内零平台 API):
+//   ① 图片预览 Taro.previewImage(共享屏只回 onPressItem)
+//   ② 音频播放/停止 Taro.createInnerAudioContext(经 onToggleAudio 注入,播放态由宿主回传)
+//   ③ 视频内联播放 Taro Video(经 video.Renderer 注入,布局由共享屏卡位约束)
 
-// 对齐目标(RN 共享屏): packages/app/src/features/aigc-list/AigcListScreen.tsx
+import Taro from '@tarojs/taro'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useI18n } from '@/i18n'
-import { View, Text, Image, ScrollView, Video } from '@tarojs/components'
-import Taro, { usePullDownRefresh, useReachBottom } from '@tarojs/taro'
-import { useState, useCallback, useEffect, useRef } from 'react'
 import { getAigcList } from '@/api'
 import { formatDate } from '@/utils/time'
-import './list.css'
 import ThemeRoot from '@/components/ThemeRoot'
-import LineIcon from '@/components/LineIcon'
+import AigcVideoInline from '@/components/AigcVideoInline'
 import { onToast } from '@/host/on-toast'
+import { useTheme } from '@/rn-compat/theme'
+import { AigcListScreen as SharedAigcListScreen } from '@ihui/rn-app/features/aigc-list/AigcListScreen'
+import type { AigcCategory, AigcListItem } from '@ihui/types'
+import type { AigcCategoryOption, AigcFileType } from '@ihui/types'
 
 /** 文件类型枚举(对标原项目 fileType: 0=图片 1=视频 3=音频 4=文本) */
-type Category = 'all' | 'text' | 'image' | 'video' | 'audio'
+type Category = AigcCategory
 
 interface AigcItem {
   id: string | number
@@ -32,13 +39,6 @@ interface AigcItem {
 }
 
 const PAGE_SIZE = 10
-
-const FILE_TYPE_TO_CATEGORY: Record<number, Category> = {
-  0: 'image',
-  1: 'video',
-  3: 'audio',
-  4: 'text',
-}
 
 function asString(v: unknown): string {
   return typeof v === 'string' ? v : ''
@@ -78,9 +78,6 @@ function normalizeItem(raw: Record<string, unknown>): AigcItem {
     fileType: GC_TYPE_TO_FILE_TYPE[gcType] ?? 0,
     // 文本档正文 = meta.problem(发布页文本档把正文写进 problem 槽);非 JSON 的老行退回原文
     content: gcType === 'text' ? (meta ? asString(meta['problem']) : asString(raw['content'])) : '',
-    // 对齐 RN AigcListScreen textCard 的 prompt 行:共享屏用 item.prompt 单独承载用户提示词。
-    // 后端文本档正文落 problem 槽、无独立提示词列 ⇒ 当前 meta 无 prompt 键,该行恒不渲染;
-    // 一旦后端补回提示词即可与 RN 同构自然呈现。
     prompt: meta ? asString(meta['prompt']) : '',
     time: asString(raw['createdAt']) || asString(raw['created_at']),
     likes: asNumber(raw['likes'], 0),
@@ -95,106 +92,75 @@ function formatDuration(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-/** 文件类型分组工具 */
-function groupByType(items: AigcItem[]) {
-  const imageVideo: AigcItem[] = []
-  const text: AigcItem[] = []
-  const audio: AigcItem[] = []
-  items.forEach((it) => {
-    const cat = FILE_TYPE_TO_CATEGORY[it.fileType] ?? 'image'
-    if (cat === 'image' || cat === 'video') imageVideo.push(it)
-    else if (cat === 'text') text.push(it)
-    else if (cat === 'audio') audio.push(it)
-  })
-  return { imageVideo, text, audio }
-}
-
 export default function AigcList() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
+  /** i18n 兜底:key 未命中时返回 fallback */
   const tt = useCallback((k: string, fb: string) => (t(k) === k ? fb : t(k)), [t])
+
   const [category, setCategory] = useState<Category>('all')
   const [list, setList] = useState<AigcItem[]>([])
-  const [loading, setLoading] = useState(false)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
   const [audioPlayingId, setAudioPlayingId] = useState<string | null>(null)
-  /** 当前进入全屏的视频 id(对标原项目 showFullScreen) */
-  const [fullscreenVideoId, setFullscreenVideoId] = useState<string | null>(null)
+  const [videoPlayingId, setVideoPlayingId] = useState<string | null>(null)
+
+  const pageRef = useRef(1)
+  const listRef = useRef<AigcItem[]>([])
+  const hasMoreRef = useRef(true)
+  const loadingRef = useRef(false)
   const audioCtxRef = useRef<Taro.InnerAudioContext | null>(null)
 
-  const categories: { key: Category; label: string }[] = [
-    { key: 'all', label: t('common.all') },
-    { key: 'text', label: tt('aigc.list.catText', '文本') },
-    { key: 'image', label: tt('aigc.list.catImage', '图片') },
-    { key: 'video', label: tt('aigc.list.catVideo', '视频') },
-    { key: 'audio', label: tt('aigc.list.catAudio', '音频') },
-  ]
-
   const load = useCallback(
-    async (reset = false) => {
-      if (loading) return
-      const curPage = reset ? 1 : page
+    async (reset: boolean, viaRefresh = false) => {
+      if (loadingRef.current) return
+      if (!reset && !hasMoreRef.current) return
+      loadingRef.current = true
+      if (viaRefresh) setRefreshing(true)
+      else setLoading(true)
       if (reset) {
-        setHasMore(true)
-        setList([])
-        setPage(1)
+        setError('')
+        hasMoreRef.current = true
+        pageRef.current = 1
       }
-      if (!hasMore && !reset) return
-      setLoading(true)
+      const curPage = reset ? 1 : pageRef.current
       try {
         const res = await getAigcList({ page: curPage, pageSize: PAGE_SIZE })
-        const newList = ((res?.list as Record<string, unknown>[]) || []).map(normalizeItem)
-        if (newList.length === 0 && reset) {
-          // 空就是空:与原 mock 回填不同,对齐 RN AigcListScreen 语义(无数据即空态"暂无作品",不造演示数据)
-          setList([])
-          setHasMore(false)
+        const fetched = ((res?.list as Record<string, unknown>[]) || []).map(normalizeItem)
+        const nextList = reset ? fetched : [...listRef.current, ...fetched]
+        listRef.current = nextList
+        setList(nextList)
+        if (fetched.length === 0 && reset) {
+          // 空就是空:不造演示数据(对齐 RN AigcListScreen 空态语义)
+          hasMoreRef.current = false
         } else {
-          setList((prev) => (reset ? newList : [...prev, ...newList]))
-          const total = res?.total ?? newList.length
-          const prevLen = reset ? 0 : list.length
-          setHasMore(prevLen + newList.length < total)
-          setPage(curPage + 1)
+          const total = res?.total ?? nextList.length
+          const more = nextList.length < total
+          hasMoreRef.current = more
+          pageRef.current = curPage + 1
         }
       } catch {
         if (reset) {
-          // 失败退空态(与素材库页同纪律:静默、不回填假数据;错误横幅差异见交接待账)
+          listRef.current = []
           setList([])
-          setHasMore(false)
+          hasMoreRef.current = false
         }
+        setError(tt('aigc.list.loadFail', '加载失败'))
       } finally {
+        loadingRef.current = false
         setLoading(false)
+        setRefreshing(false)
       }
     },
-    [loading, page, hasMore, list.length],
+    [tt],
   )
 
-  const onCategoryChange = useCallback((c: Category) => {
-    setCategory(c)
+  const loadRef = useRef(load)
+  loadRef.current = load
+  useEffect(() => {
+    void loadRef.current(true)
   }, [])
-
-  const previewImage = useCallback(
-    (url: string, allUrls: string[]) => {
-      if (!url) {
-        onToast(tt('aigc.list.invalidImage', '图片地址无效'), { kind: 'error' })
-        return
-      }
-      // 原生 previewImage 自带全屏(对标原项目 showFullScreen)
-      Taro.previewImage({ urls: allUrls.length > 0 ? allUrls : [url], current: url })
-    },
-    [tt],
-  )
-
-  const playVideoFullscreen = useCallback(
-    (item: AigcItem) => {
-      if (!item.fileUrl) {
-        onToast(tt('aigc.list.invalidVideo', '视频地址无效'), { kind: 'error' })
-        return
-      }
-      // 触发 Video 组件全屏(对标原项目 showFullScreen)
-      setFullscreenVideoId(String(item.id))
-    },
-    [tt],
-  )
 
   const stopAudio = useCallback(() => {
     const ctx = audioCtxRef.current
@@ -207,9 +173,8 @@ export default function AigcList() {
   }, [])
 
   const toggleAudio = useCallback(
-    (item: AigcItem) => {
-      const idStr = String(item.id)
-      if (audioPlayingId === idStr) {
+    (item: AigcListItem) => {
+      if (audioPlayingId === item.id) {
         stopAudio()
         return
       }
@@ -219,12 +184,14 @@ export default function AigcList() {
         oldCtx.destroy()
         audioCtxRef.current = null
       }
-      if (!item.fileUrl) {
+      const url = item.fileUrl || item.audioUrl
+      if (!url) {
+        setAudioPlayingId(null)
         onToast(tt('aigc.list.invalidAudio', '音频地址无效'), { kind: 'error' })
         return
       }
       const ctx = Taro.createInnerAudioContext()
-      ctx.src = item.fileUrl
+      ctx.src = url
       ctx.onEnded(() => {
         setAudioPlayingId(null)
         audioCtxRef.current = null
@@ -236,24 +203,10 @@ export default function AigcList() {
       })
       ctx.play()
       audioCtxRef.current = ctx
-      setAudioPlayingId(idStr)
+      setAudioPlayingId(item.id)
     },
     [audioPlayingId, stopAudio, tt],
   )
-
-  usePullDownRefresh(() => {
-    load(true).finally(() => Taro.stopPullDownRefresh())
-  })
-
-  useReachBottom(() => {
-    if (category === 'all') load()
-  })
-
-  const loadRef = useRef(load)
-  loadRef.current = load
-  useEffect(() => {
-    void loadRef.current(true)
-  }, [])
 
   useEffect(() => {
     return () => {
@@ -266,198 +219,106 @@ export default function AigcList() {
     }
   }, [])
 
-  const filteredList =
-    category === 'all' ? list : list.filter((it) => FILE_TYPE_TO_CATEGORY[it.fileType] === category)
-  const grouped = groupByType(filteredList)
+  const toggleVideo = useCallback(
+    (item: AigcListItem) => {
+      if (!item.fileUrl) {
+        onToast(tt('aigc.list.invalidVideo', '视频地址无效'), { kind: 'error' })
+        return
+      }
+      setVideoPlayingId((prev) => (prev === item.id ? null : item.id))
+    },
+    [tt],
+  )
 
-  const useWaterfall = category === 'all' || category === 'image' || category === 'video'
+  const previewImage = useCallback(
+    (item: AigcListItem) => {
+      const urls = listRef.current
+        .filter((i) => i.fileType === 0 && i.coverUrl)
+        .map((i) => i.coverUrl)
+      if (!item.coverUrl) {
+        onToast(tt('aigc.list.invalidImage', '图片地址无效'), { kind: 'error' })
+        return
+      }
+      Taro.previewImage({ urls: urls.length ? urls : [item.coverUrl], current: item.coverUrl })
+    },
+    [tt],
+  )
 
-  const renderImageVideoCard = (item: AigcItem) => {
-    const idStr = String(item.id)
-    const isVideo = item.fileType === 1
-    const isFullscreenVideo = fullscreenVideoId === idStr
-    const imageUrls = grouped.imageVideo
-      .filter((i) => i.fileType === 0)
-      .map((i) => i.coverUrl)
-      .filter(Boolean)
-    return (
-      <View
-        key={idStr}
-        className="media-card"
-        onClick={() =>
-          isVideo ? playVideoFullscreen(item) : previewImage(item.coverUrl, imageUrls)
+  const onPressItem = useCallback(
+    (item: AigcListItem) => {
+      if (item.fileType === 0) {
+        previewImage(item)
+        return
+      }
+      if (item.fileType === 3) {
+        toggleAudio(item)
+        return
+      }
+      // 文本卡:原页无点击行为,保持一致
+    },
+    [previewImage, toggleAudio],
+  )
+
+  const categories = useMemo<AigcCategoryOption[]>(
+    () => [
+      { key: 'all', label: t('common.all') },
+      { key: 'text', label: tt('aigc.list.catText', '文本'), fileType: 4 },
+      { key: 'image', label: tt('aigc.list.catImage', '图片'), fileType: 0 },
+      { key: 'video', label: tt('aigc.list.catVideo', '视频'), fileType: 1 },
+      { key: 'audio', label: tt('aigc.list.catAudio', '音频'), fileType: 3 },
+    ],
+    [t, tt],
+  )
+
+  const items = useMemo(
+    () =>
+      list.map((it) => {
+        const isText = it.fileType === 4
+        return {
+          id: String(it.id),
+          title:
+            it.title ||
+            tt(
+              isText ? 'aigc.list.untitled' : 'aigc.list.unnamed',
+              isText ? '文本内容' : '未命名作品',
+            ),
+          coverUrl: it.coverUrl || undefined,
+          fileUrl: it.fileUrl || undefined,
+          audioUrl: it.fileType === 3 ? it.fileUrl || undefined : undefined,
+          duration: it.fileType === 3 ? formatDuration(it.duration) : undefined,
+          fileType: it.fileType as AigcFileType,
+          content: it.content || undefined,
+          prompt: it.prompt || undefined,
+          createdAt: it.time ? formatDate(it.time, 'YYYY-MM-DD') : '',
         }
-        hoverClass="opacity-60"
-      >
-        <View className="media-cover-wrap">
-          {isFullscreenVideo && item.fileUrl ? (
-            <Video
-              className="fullscreen-video"
-              src={item.fileUrl}
-              controls
-              autoplay
-              showFullscreenBtn
-              objectFit="contain"
-              onError={() => setFullscreenVideoId(null)}
-            />
-          ) : item.coverUrl ? (
-            <Image className="media-cover" src={item.coverUrl} mode="aspectFill" lazyLoad />
-          ) : (
-            <View className="media-placeholder">
-              <LineIcon name="film" size={80} color="var(--color-muted-foreground)" />
-            </View>
-          )}
-        </View>
-        {isVideo ? (
-          <View className="video-badge">
-            <Text className="video-badge-text">{tt('aigcList.videoBadge', '▶ 视频')}</Text>
-          </View>
-        ) : null}
-        <View className="media-footer">
-          <Text className="card-title">{item.title || tt('aigc.list.unnamed', '未命名作品')}</Text>
-        </View>
-      </View>
-    )
+      }),
+    [list, tt],
+  )
+
+  const screenProps = {
+    t,
+    items,
+    categories,
+    category,
+    loading,
+    refreshing,
+    error,
+    onSelectCategory: (next: AigcCategory) => setCategory(next),
+    onRefresh: () => void load(true, true),
+    onPressItem,
+    onPublish: () => void Taro.navigateTo({ url: '/pkg-ai/aigc/publish' }),
+    onBack: () => void Taro.navigateBack(),
+    onLoadMore: () => void load(false),
+    colorScheme: resolvedTheme,
+    onToast,
+    playingAudioId: audioPlayingId,
+    onToggleAudio: toggleAudio,
+    video: { playingId: videoPlayingId, onToggle: toggleVideo, Renderer: AigcVideoInline },
   }
 
   return (
-    <ThemeRoot className="aigc-list-page">
-      {/* 顶部导航(对齐 RN SharedAigcListScreen header):标题 + 副标题;返回键由微信原生导航栏承担 */}
-      <View className="page-header">
-        <Text className="page-title">{tt('aigcList.title', '灵感')}</Text>
-        <Text className="page-subtitle">
-          {tt('aigcList.subtitle', 'AI 生成的图文/视频/音频作品')}
-        </Text>
-      </View>
-
-      <ScrollView scrollX scrollWithAnimation showScrollbar={false} className="category-bar">
-        <View className="category-inner">
-          {categories.map((c) => (
-            <View
-              key={c.key}
-              className={`category-chip${category === c.key ? ' active' : ''}`}
-              onClick={() => onCategoryChange(c.key)}
-              hoverClass="opacity-60"
-            >
-              <Text className="category-text">{c.label}</Text>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      <View className="content-area">
-        {loading && filteredList.length === 0 ? (
-          <View className="state-wrap">
-            <Text className="state-text">{t('common.loading')}</Text>
-          </View>
-        ) : filteredList.length === 0 ? (
-          <View className="state-wrap">
-            <Text className="state-text">{tt('aigcList.empty', '暂无作品')}</Text>
-          </View>
-        ) : useWaterfall ? (
-          <View className="media-grid">{grouped.imageVideo.map(renderImageVideoCard)}</View>
-        ) : (
-          <View className="list-layout">
-            {/* 文本卡片(对齐 RN textCard):card-header(标题+时间) + 提示词(promptLabel) + 正文;
-                对齐 RN promptText 行:仅当 item.prompt 有值才渲染(后端文本档正文落 problem 槽、
-                暂无独立提示词列 ⇒ 当前 prompt 恒空、该行不显;后端补回提示词即同构呈现) */}
-            {grouped.text.map((item) => (
-              <View key={String(item.id)} className="aigc-text-card">
-                <View className="card-header">
-                  <Text className="card-title">
-                    {item.title || tt('aigc.list.untitled', '文本内容')}
-                  </Text>
-                  {/* 后端 createdAt 是 ISO 串,上屏前必须折成日期(禁裸 ISO) */}
-                  {item.time ? (
-                    <Text className="card-time">{formatDate(item.time, 'YYYY-MM-DD')}</Text>
-                  ) : null}
-                </View>
-                {/* 对齐 RN textCard promptText:标签 + 提示词本体,仅在有提示词时呈现 */}
-                {item.prompt ? (
-                  <Text className="mt-[8rpx] text-body text-[color:var(--color-primary)]">
-                    {t('aigcList.promptLabel')} {item.prompt}
-                  </Text>
-                ) : null}
-                {item.content ? <Text className="content-text">{item.content}</Text> : null}
-              </View>
-            ))}
-            {/* 音频卡片(对齐 RN audioCard):横向布局 封面 + 信息(标题/时长/播放按钮) */}
-            {grouped.audio.map((item) => {
-              const idStr = String(item.id)
-              const isPlaying = audioPlayingId === idStr
-              return (
-                <View key={idStr} className="audio-card">
-                  <View
-                    className="audio-cover"
-                    onClick={() => toggleAudio(item)}
-                    hoverClass="opacity-60"
-                  >
-                    {item.coverUrl ? (
-                      <Image className="audio-cover-img" src={item.coverUrl} mode="aspectFill" />
-                    ) : (
-                      <View className="audio-cover-placeholder">
-                        <LineIcon
-                          name="headphones"
-                          size={48}
-                          color="var(--color-muted-foreground)"
-                        />
-                      </View>
-                    )}
-                  </View>
-                  <View className="audio-info">
-                    <Text className="card-title">
-                      {item.title || tt('aigc.list.unnamed', '未命名作品')}
-                    </Text>
-                    <Text className="audio-duration">{formatDuration(item.duration)}</Text>
-                    <View
-                      className="audio-play-btn"
-                      onClick={() => toggleAudio(item)}
-                      hoverClass="opacity-60"
-                    >
-                      <LineIcon
-                        name={isPlaying ? 'pause' : 'play'}
-                        size={24}
-                        className="audio-play-icon"
-                        color="var(--color-primary)"
-                      />
-                      {/* 对齐 RN audioPlayText:按钮内文案(共享屏有、本页原先只有图标) */}
-                      <Text className="ml-[8rpx] text-body font-semibold text-[color:var(--color-primary)]">
-                        {t('aigcList.playAudio')}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )
-            })}
-          </View>
-        )}
-
-        {loading && filteredList.length > 0 ? (
-          <View className="state-wrap small">
-            <Text className="state-text">{t('common.loading')}</Text>
-          </View>
-        ) : null}
-
-        {!loading && !hasMore && filteredList.length > 0 && category === 'all' ? (
-          <View className="state-wrap small">
-            <Text className="state-text">— {t('common.noMore')} —</Text>
-          </View>
-        ) : null}
-      </View>
-
-      {/* FAB 占位:发布按钮悬浮在列表之上,末行不被遮挡 */}
-      <View className="h-[140rpx]" />
-      {/* 发布入口(对齐 RN AigcListScreen fab:底部居中 160x44,品牌实底 + ctaForeground) */}
-      <View
-        className="fixed bottom-[48rpx] left-0 right-0 z-10 mx-auto flex h-[88rpx] w-[320rpx] items-center justify-center rounded-sm bg-cta"
-        onClick={() => Taro.navigateTo({ url: '/pkg-ai/aigc/publish' })}
-        hoverClass="opacity-60"
-      >
-        <Text className="text-title font-semibold text-cta-foreground">
-          {t('aigcList.publish')}
-        </Text>
-      </View>
+    <ThemeRoot>
+      <SharedAigcListScreen {...screenProps} />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

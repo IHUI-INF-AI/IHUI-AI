@@ -41,6 +41,15 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+
+class TtlStoreUnread(Exception):
+    """存档读失败。这不是空存档,也不能拿来覆盖。"""
+
+    def __init__(self, path: object, code: str) -> None:
+        self.path = path
+        self.code = code
+        super().__init__(f"存档读不到,不能把它当成空存档 ({code}): {path}")
+
 # 一天的秒数(算过期阈值用)
 _SECONDS_PER_DAY = 86400.0
 
@@ -267,20 +276,49 @@ def sweep_sequence(
     return kept, dropped
 
 
-def read_json_file(path: str | os.PathLike[str]) -> Any | None:
-    """读 JSON 文件,任何异常(不存在/权限/半截文件/非法 JSON)都返回 None。
+def json_archive_blocks_replace(path: str | os.PathLike[str], *, expect: str | None = None) -> bool:
+    """文件不存在或空文件可以新建。非空损坏、读不到、或根类型不对时不能覆盖。"""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        logger.warning("JSON 存档读不到,不能覆盖: %s: %s", path, exc)
+        return True
+    if text.strip() == "":
+        return False
+    try:
+        data = json.loads(text)
+    except ValueError:
+        logger.warning("JSON 存档损坏,不能覆盖: %s", path)
+        return True
+    if expect == "object" and not isinstance(data, dict):
+        return True
+    if expect == "array" and not isinstance(data, list):
+        return True
+    return False
 
-    **fail-closed**:读盘失败绝不当成"空但正常",调用方拿到 None 才知道该走
-    "存档不可信"那条路(各模块据此记 error/warning 并按空存储起)。
+
+def read_json_file(path: str | os.PathLike[str]) -> Any | None:
+    """读 JSON 文件。
+
+    文件不存在返回 None(真的没有)。内容损坏(非法 JSON / 解码失败)也返回 None,
+    沿用旧口径,由调用方按空结构起。其它读失败(权限、目标是目录)抛
+    ``TtlStoreUnread``:没量到不能说成空存档。
     """
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     except FileNotFoundError:
         return None
-    except (OSError, ValueError, TypeError, UnicodeDecodeError) as exc:
+    except (ValueError, TypeError, UnicodeDecodeError) as exc:
         logger.warning("TTL JSON 读取失败(按不可信处理): %s: %s", path, exc)
         return None
+    except OSError as exc:
+        code = str(getattr(exc, "errno", None) or type(exc).__name__)
+        logger.warning("TTL JSON 读不到,不能当成空存档: %s: %s", path, exc)
+        raise TtlStoreUnread(path, code) from exc
 
 
 def write_json_atomic(
@@ -301,6 +339,16 @@ def write_json_atomic(
     except OSError as exc:
         logger.warning("TTL JSON 建目录失败(内存保留): %s: %s", target, exc)
         return False
+    if target.exists():
+        try:
+            with open(target, encoding="utf-8") as fh:
+                fh.read(1)
+        except (UnicodeDecodeError, FileNotFoundError):
+            pass
+        except OSError as exc:
+            code = str(getattr(exc, "errno", None) or type(exc).__name__)
+            logger.warning("存档读不到,不能把它覆盖成新内容 (%s): %s", code, target)
+            return False
     tmp = target.with_name(target.name + ".tmp")
     try:
         with open(tmp, "w", encoding="utf-8") as fh:

@@ -47,6 +47,13 @@ export interface PlanBuildState {
 
 const VALID_MODES: ReadonlySet<PlanBuildMode> = new Set<PlanBuildMode>(['plan', 'build', 'review']);
 
+function planBuildReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
 export class PlanBuildCoordinator {
   private mode: PlanBuildMode = 'build';
   private plan: string | null = null;
@@ -125,8 +132,12 @@ export class PlanBuildCoordinator {
       priority: 'medium',
     }));
     const newIds = new Set(newTodos.map((t) => t.id));
-    const preserved = readTodoList(todoCtx).filter((t) => !newIds.has(t.id));
-    writeTodoList(todoCtx, [...newTodos, ...preserved]);
+    try {
+      const preserved = readTodoList(todoCtx).filter((t) => !newIds.has(t.id));
+      writeTodoList(todoCtx, [...newTodos, ...preserved]);
+    } catch {
+      // 旧清单读不到就不能并进新计划再写回同一文件
+    }
 
     // plan 文本摘要保持旧字段语义(含标题与目标文件)
     this.plan = steps
@@ -174,14 +185,18 @@ export class PlanBuildCoordinator {
 
     if (step.todoId) {
       const todoCtx = { workspacePath: this.workspacePath };
-      const todos = readTodoList(todoCtx);
-      const todo = todos.find((t) => t.id === step.todoId);
-      if (todo) {
-        todo.status = status;
-        if (status === 'completed' && summary !== undefined) {
-          todo.summary = summary;
+      try {
+        const todos = readTodoList(todoCtx);
+        const todo = todos.find((t) => t.id === step.todoId);
+        if (todo) {
+          todo.status = status;
+          if (status === 'completed' && summary !== undefined) {
+            todo.summary = summary;
+          }
+          writeTodoList(todoCtx, todos);
         }
-        writeTodoList(todoCtx, todos);
+      } catch {
+        // 清单读不到就不改那一份文件
       }
     }
   }
@@ -193,11 +208,24 @@ export class PlanBuildCoordinator {
     this.save();
   }
 
+  private stateCorrupt = false;
+
   private load(): void {
-    if (!fs.existsSync(this.stateFile)) return;
+    let raw: string;
     try {
-      const parsed = tryParseJson(fs.readFileSync(this.stateFile, 'utf-8'));
-      if (!isRecord(parsed)) return;
+      raw = fs.readFileSync(this.stateFile, 'utf-8');
+    } catch (error) {
+      const code = planBuildReadCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') return;
+      throw new Error(`模式状态读不到,不能把它覆盖成默认模式 (${code})`);
+    }
+    if (raw.trim() === '') return;
+    try {
+      const parsed = tryParseJson(raw);
+      if (!isRecord(parsed)) {
+        this.stateCorrupt = true;
+        return;
+      }
       if (typeof parsed.mode === 'string' && VALID_MODES.has(parsed.mode as PlanBuildMode)) {
         this.mode = parsed.mode as PlanBuildMode;
       }
@@ -222,11 +250,22 @@ export class PlanBuildCoordinator {
         }
       }
     } catch {
-      // 损坏文件忽略,沿用默认状态
+      this.stateCorrupt = true;
     }
   }
 
   private save(): void {
+    if (this.stateCorrupt) {
+      throw new Error('模式状态读不到,不能把它覆盖成默认模式 (corrupt)');
+    }
+    try {
+      fs.readFileSync(this.stateFile, 'utf-8');
+    } catch (error) {
+      const code = planBuildReadCode(error);
+      if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+        throw new Error(`模式状态读不到,不能把它覆盖成默认模式 (${code})`);
+      }
+    }
     const dir = path.dirname(this.stateFile);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });

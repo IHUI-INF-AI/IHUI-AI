@@ -20,10 +20,8 @@ import {
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from '@ihui/ui-react'
 import { Alert } from '@/components/feedback'
 import { BackButton } from '@/components/common'
-import { fetchAiServiceJson } from '@/lib/api'
+import { getA2ATaskStatus, listA2AAgents, registerA2AAgent, sendA2ATask } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
-
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL ?? 'http://localhost:8803'
 
 type TabKey = 'agents' | 'register' | 'tasks'
 
@@ -123,15 +121,10 @@ function parseCapabilities(raw: string): string[] {
     .filter((s) => s.length > 0)
 }
 
-/**
- * AI 服务直连请求(2026-09-09 0-5 迁移:统一走 fetchAiServiceJson)。
- * AI_SERVICE_URL 为绝对 URL,normalizeUrl 直通不改写;鉴权 Bearer / X-Requested-With
- * CSRF / 设备指纹 / 30s 超时均由共享层注入,不再手拼 header。
- */
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetchAiServiceJson<T>(`${AI_SERVICE_URL}${path}`, init)
-  if (!res.success) throw new Error(res.error ?? 'A2A 请求失败')
-  return res.data as T
+/** 共享端点的统一错误提取(fetchAiServiceJson 语义:失败即抛) */
+function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
+  if (!r.success) throw new Error(r.error ?? 'A2A 请求失败')
+  return r.data as T
 }
 
 const STATUS_LABEL_KEYS: Record<TaskStatus, 'pending' | 'running' | 'completed' | 'failed'> = {
@@ -199,7 +192,7 @@ export default function A2APage() {
     setAgentsLoading(true)
     setAgentsError(null)
     try {
-      const data = await apiFetch<unknown>('/api/a2a/agents')
+      const data = unwrap<unknown>(await listA2AAgents())
       if (!isAgentList(data)) throw new Error('智能体列表返回格式异常')
       setAgents(data.agents)
     } catch (e) {
@@ -235,10 +228,7 @@ export default function A2APage() {
         capabilities: parseCapabilities(form.capabilities),
         endpoint: form.endpoint.trim() || undefined,
       }
-      await apiFetch<unknown>('/api/a2a/agents/register', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      })
+      unwrap(await registerA2AAgent(payload))
       setRegisterSuccess(true)
       setForm({ id: '', name: '', description: '', capabilities: '', endpoint: '' })
       await loadAgents()
@@ -253,7 +243,7 @@ export default function A2APage() {
   async function pollTask(taskId: string) {
     if (stoppedRef.current) return
     try {
-      const task = await apiFetch<unknown>(`/api/a2a/tasks/${encodeURIComponent(taskId)}/status`)
+      const task = unwrap<unknown>(await getA2ATaskStatus(taskId))
       if (stoppedRef.current) return
       if (!isTask(task)) throw new Error('任务状态返回格式异常')
       setCurrentTask(task)
@@ -282,15 +272,14 @@ export default function A2APage() {
     setTaskError(null)
     setCurrentTask(null)
     try {
-      const created = await apiFetch<unknown>('/api/a2a/tasks', {
-        method: 'POST',
-        body: JSON.stringify({
+      const created = unwrap<unknown>(
+        await sendA2ATask({
           name: taskName.trim(),
           description: taskDescription.trim() || undefined,
           input: parseTaskInput(taskInput),
           assigned_agent_id: assignedAgentId || undefined,
         }),
-      })
+      )
       if (!isTask(created)) throw new Error('任务创建返回格式异常')
       const taskId = created.task_id ?? created.id
       if (!taskId) throw new Error('任务缺少 ID')

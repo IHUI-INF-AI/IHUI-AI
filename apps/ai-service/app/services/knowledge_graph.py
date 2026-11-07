@@ -490,6 +490,7 @@ class FileGraphStore(InMemoryGraphStore):
         self.persistent: bool = True
         self.persistence_error: str | None = None
         self.load_failed: bool = False
+        self._snapshot_unread: bool = False
         self.write_failures: int = 0
         self._dirty: bool = False
         self._lock = asyncio.Lock()
@@ -513,16 +514,24 @@ class FileGraphStore(InMemoryGraphStore):
     def _load_existing(self) -> None:
         """启动时把已落盘的快照读回工作集(这就是"重启后可恢复"的那一步)。
 
-        文件不存在 = 干净首启,不是错误。文件在但读不动/格式不认识 = 事故,必须
-        留痕并如实置 `load_failed`,**不得**当成"没有数据"蒙过去。
+        文件不存在 = 干净首启,不是错误。读不到不能当成没有数据,也不能被下一次写入覆盖。
+        格式不认识 = 事故,必须留痕并如实置 `load_failed`。
         """
-        if not os.path.exists(self.path):
+        try:
+            os.stat(self.path)
+        except FileNotFoundError:
+            return
+        except OSError as e:
+            self._mark_snapshot_unread(e)
             return
         try:
             with open(self.path, encoding="utf-8") as f:
                 raw = json.load(f)
             self._absorb_snapshot(raw)
-        except (OSError, ValueError, TypeError, KeyError) as e:
+        except OSError as e:
+            self._mark_snapshot_unread(e)
+            return
+        except (ValueError, TypeError, KeyError) as e:
             # json.JSONDecodeError 是 ValueError 的子类;_absorb_snapshot 的结构校验
             # 抛 KeyError/TypeError/ValueError,四类都是"这份快照没能用"。
             self.load_failed = True
@@ -623,6 +632,19 @@ class FileGraphStore(InMemoryGraphStore):
             "relations": [dict(r) for r in self.relations.values()],
         }
 
+    def _mark_snapshot_unread(self, exc: OSError) -> None:
+        """快照读不到。记下失败,并拒绝之后用空图覆盖原文件。"""
+        self._snapshot_unread = True
+        self.load_failed = True
+        self.persistent = False
+        self.persistence_error = f"快照读不到,不能把它当成没有数据再覆盖: {exc}"
+        logger.error(
+            "知识图谱快照读不到 path=%s: %s —— 不会覆盖原文件。%s",
+            self.path,
+            exc,
+            MEMORY_DEGRADED_NOTICE,
+        )
+
     def _write_snapshot_sync(self, snapshot: dict[str, Any]) -> None:
         """同步写盘(executor 线程内调用):同目录临时文件 + os.replace 原子替换。
 
@@ -630,6 +652,8 @@ class FileGraphStore(InMemoryGraphStore):
         (Windows 上并发 rename 到同名目标会 EPERM);替换失败重试只针对
         "目标被别的进程短暂占用",不掩盖真正的权限/磁盘错误。
         """
+        if self._snapshot_unread:
+            raise OSError(self.persistence_error or "快照读不到,不能覆盖")
         tmp_path = f"{self.path}.{os.getpid()}.tmp"
         try:
             with open(tmp_path, "w", encoding="utf-8") as f:

@@ -14,7 +14,7 @@
  * 依赖: yt-dlp (下载), aliyun CLI (上传) 或 OSS SDK
  */
 
-import { execSync } from 'child_process'
+import { execSync, execFileSync } from 'child_process'
 import { mkdirSync, readdirSync, statSync, existsSync } from 'fs'
 import { join, resolve } from 'path'
 
@@ -24,6 +24,14 @@ const action = args[0]
 const filter = args.find((a) => a.startsWith('--filter='))?.split('=')[1]
 const bucket = args.find((a) => a.startsWith('--bucket='))?.split('=')[1] || 'yjs-learning'
 const region = 'cn-guangzhou'
+
+// BUG-97: bucket 来自 argv,必须白名单校验;且所有动态值一律走 execFileSync 参数数组,
+// 禁止拼进 execSync 模板串(避免 shell 命令/参数注入)。
+const BUCKET_RE = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/
+if (!BUCKET_RE.test(bucket)) {
+  console.error(`[upload] 非法 --bucket 值(仅允许小写字母/数字/点/连字符): ${bucket}`)
+  process.exit(1)
+}
 
 const videoSources = [
   { category: 'mcp', url: 'https://www.bilibili.com/video/BV1B14y1Y7gM/' },
@@ -71,7 +79,8 @@ function uploadToOss() {
     const key = file.replace(VIDEOS_DIR + '\\', '').replace(VIDEOS_DIR + '/', '')
     console.log(`[upload] ${key}`)
     try {
-      execSync(`aliyun oss cp "${file}" oss://${bucket}/courses/${key} -f`, {
+      // 参数数组传给 execFileSync:argv/路径值不经过 shell,不构成命令/参数注入面(BUG-97)。
+      execFileSync('aliyun', ['oss', 'cp', file, `oss://${bucket}/courses/${key}`, '-f'], {
         stdio: 'inherit',
         windowsHide: true,
       })

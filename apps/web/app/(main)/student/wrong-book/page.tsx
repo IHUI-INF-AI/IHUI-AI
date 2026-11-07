@@ -9,6 +9,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { XCircle, Loader2, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 
+import { explainWrongQuestion } from '@ihui/api-client'
 import { apiOrThrow } from '@/lib/api'
 import { cn } from '@/lib/utils'
 import { Button, Card, CardContent } from '@ihui/ui-react'
@@ -50,10 +51,11 @@ export default function WrongBookPage() {
   // AI 讲解(与 /exam/wrong-questions 同一端点,结果持久化在错题行,G-978072)
   const [explain, setExplain] = React.useState<{ questionId: string; text: string } | null>(null)
   const explainMut = useMutation({
-    mutationFn: (questionId: string) =>
-      apiOrThrow<{ explanation: string }>(`/api/exam/wrong-questions/${questionId}/explain`, {
-        method: 'POST',
-      }),
+    mutationFn: async (questionId: string) => {
+      const r = await explainWrongQuestion<{ explanation: string }>(questionId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: (d, questionId) => setExplain({ questionId, text: d.explanation }),
   })
 

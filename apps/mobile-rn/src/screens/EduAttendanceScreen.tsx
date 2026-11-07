@@ -23,11 +23,19 @@
  * 三屏(教师/本人/孩子)共用的 attendanceBizDay / attendanceStatusTone / attendanceStatusLabel
  * 单源在 ../components/attendance-status(本文件 re-export 保持既有 import 路径不变)。
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogMaxHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import { QrCode } from 'lucide-react-native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  eduAttendanceBatchCheckIn,
+  eduAttendanceCheckIn,
+  eduAttendanceCheckOut,
+  eduAttendanceList,
+  eduAttendanceStats,
+} from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { getTokens } from '@ihui/rn-app'
 import { Tappable } from '@ihui/ui-native'
@@ -40,7 +48,7 @@ import {
   attendanceStatusTone,
 } from '../components/attendance-status'
 import {
-  attendanceStatsUrl,
+  attendanceStatsParams,
   firstAttendanceClassId,
   type AttendanceStatsPayload,
 } from '../components/edu-attendance-stats'
@@ -74,6 +82,7 @@ interface BatchCheckInResult {
 }
 
 function EduAttendanceScreen() {
+  const dialogMaxHeightStyle = useDialogMaxHeightStyle(DIALOG_HEIGHT_RATIOS.stats)
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp<RootStackParamList>>()
@@ -107,16 +116,16 @@ function EduAttendanceScreen() {
       setStatsLoading(true)
       setStatsError('')
       // 窗口起点算不出来(日键形状不合契约)⇒ 连请求都不发,只落一条常驻回显(§0.10)
-      const url = attendanceStatsUrl({
+      const params = attendanceStatsParams({
         date: attendanceBizDay(),
         classId: firstAttendanceClassId(list),
       })
-      if (!url) {
+      if (!params) {
         settle(null, t('eduAttendance.loadStatsFailed'))
         return
       }
       try {
-        const res = await fetchApi<AttendanceStatsPayload>(url)
+        const res = await eduAttendanceStats<AttendanceStatsPayload>(params)
         if (!res.success) {
           settle(null, `${t('eduAttendance.loadStatsFailed')}:${res.error ?? '-'}`)
           return
@@ -141,9 +150,9 @@ function EduAttendanceScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: AttendanceRecord[] }>(
-        `/api/edu-ai-management/attendance?date=${attendanceBizDay()}`,
-      )
+      const res = await eduAttendanceList<{ list: AttendanceRecord[] }>({
+        date: attendanceBizDay(),
+      })
       if (!res.success) throw new Error(res.error || 'load failed')
       const list = res.data?.list ?? []
       setRecords(list)
@@ -209,28 +218,17 @@ function EduAttendanceScreen() {
       }
       setBusy(true)
       try {
-        const res = await fetchApi(
-          `/api/edu-ai-management/attendance/${kind}`,
+        const payload = {
+          studentId: record.studentId,
+          classId: record.classId,
+          // 签退的 date 是记录定位键(服务端写 checkOutTime=now 后按规则重判状态)
+          // ⇒ 原样回发行自己的业务日,不改写成"今天"
+          date: kind === 'check-in' ? bizDay : rowDay,
+        }
+        const res =
           kind === 'check-in'
-            ? {
-                method: 'POST',
-                body: JSON.stringify({
-                  studentId: record.studentId,
-                  classId: record.classId,
-                  date: bizDay,
-                }),
-              }
-            : {
-                method: 'PUT',
-                body: JSON.stringify({
-                  studentId: record.studentId,
-                  classId: record.classId,
-                  // 签退的 date 是记录定位键(服务端写 checkOutTime=now 后按规则重判状态)
-                  // ⇒ 原样回发行自己的业务日,不改写成"今天"
-                  date: rowDay,
-                }),
-              },
-        )
+            ? await eduAttendanceCheckIn(payload)
+            : await eduAttendanceCheckOut(payload)
         appAlert(
           t('eduAttendance.title'),
           res.success
@@ -273,10 +271,10 @@ function EduAttendanceScreen() {
       if (busy) return
       setBusy(true)
       try {
-        const res = await fetchApi<BatchCheckInResult>(
-          '/api/edu-ai-management/attendance/batch-check-in',
-          { method: 'POST', body: JSON.stringify({ classId, date: attendanceBizDay() }) },
-        )
+        const res = await eduAttendanceBatchCheckIn<BatchCheckInResult>({
+          classId,
+          date: attendanceBizDay(),
+        })
         if (res.success && res.data) {
           appAlert(
             t('eduAttendance.batchTitle'),
@@ -347,7 +345,10 @@ function EduAttendanceScreen() {
       {/* 统计区 + 趋势区:与 web 统计 Tab / 小程序面板同一份数据源、同一档形态。
           RN 侧 ConsoleTableScreen 自带滚动且无可插槽位 ⇒ 本端用限高滚动区承载同一份内容
           (平台独占形态差异,内容/取数/档位三样都对齐)。 */}
-      <ScrollView style={styles.statsArea} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={[styles.statsArea, dialogMaxHeightStyle]}
+        showsVerticalScrollIndicator={false}
+      >
         <AttendanceStatsPanel
           payload={stats}
           loading={statsLoading}
@@ -412,7 +413,7 @@ function createScreenStyles(tk: ReturnType<typeof getTokens>) {
     },
     pressed: { opacity: 0.85 },
     // 统计/趋势的限高滚动区:内容再长也不把下面的清单挤出屏幕(上限是真上限,不是偏好值)
-    statsArea: { flexGrow: 0, maxHeight: '45%' },
+    statsArea: { flexGrow: 0, maxHeight: undefined },
   })
 }
 

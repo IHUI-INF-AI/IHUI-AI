@@ -133,10 +133,13 @@ describe('isBranchableTarget', () => {
 describe('接线:真 api-client 的 branchConversation 跑通一次', () => {
   it('假 transport 下真模块真调用,且返回信封与实现契约一致', async () => {
     // 只替全局 fetch(传输层),@ihui/api-client 与 src/i18n 都是真身。
+    const body = { code: 0, message: 'ok', data: { conversation: { id: 'srv-1' } } }
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ code: 0, message: 'ok', data: { conversation: { id: 'srv-1' } } }),
+      // BUG-13:fetchApi 对 2xx 走 response.text(),mock 必须提供与 json 同源的 text。
+      text: async () => JSON.stringify(body),
+      json: async () => body,
     })
     vi.stubGlobal('fetch', fetchMock)
 

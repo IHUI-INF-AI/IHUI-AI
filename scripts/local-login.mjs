@@ -1148,6 +1148,12 @@ export async function applyWorkbuddy(payload, opts = {}) {
   // 1) 取钥:必须有且只有一个运行中的主进程
   const mains = extract.listWorkbuddyMainProcesses()
   if (mains.length === 0) {
+    if (mains.probe && mains.probe.ok === false) {
+      throw new WriteError(
+        `WorkBuddy 主进程探测失败(未判定,不得读成"未发现主进程"):${mains.probe.reason};本轮不复写,下一拍重探`,
+        'target-locked',
+      )
+    }
     throw new WriteError(
       '未发现运行中的 WorkBuddy 主进程 ⇒ 取不到字段密钥(请先启动并登录 WorkBuddy 再试)',
       'no-target',

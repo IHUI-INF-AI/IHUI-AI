@@ -82,7 +82,9 @@ export function ChatWorkbenchScreen() {
   return (
     <SharedChatWorkbenchScreen
       t={t}
-      onRetry={() => { void load(); }}
+      onRetry={() => {
+        void load()
+      }}
       colorScheme={resolvedTheme}
       onBack={() => navigation.goBack()}
       conversations={conversations}
@@ -92,6 +94,7 @@ export function ChatWorkbenchScreen() {
       onKeywordChange={setKeyword}
       onSelectConversation={(conversationId) => navigation.navigate('Chat', { conversationId })}
       onNewConversation={() => navigation.navigate('Chat', {})}
+      onOpenHistory={() => navigation.navigate('ConversationHistory')}
       onRefresh={() => void load()}
     />
   )

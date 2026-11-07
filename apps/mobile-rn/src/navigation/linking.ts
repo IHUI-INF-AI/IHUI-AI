@@ -37,6 +37,9 @@ export const linking: LinkingOptions<RootStackParamList> = {
       TopicList: 'topic/list',
       TopicDetail: 'topic/:id',
       CircleIndex: 'circle',
+      // 门 301 还账(2026-11-06):两屏 RN 腿的 deep link 入口,路径与 web 端路由逐字一致
+      ExamIntro: 'exam/:id',
+      ShareLanding: 'h5/share/:code',
     },
   },
 }

@@ -74,7 +74,11 @@ const WIRED = [
     triggers: [
       'packages/app/src/features/',
       'apps/mobile-rn/src/screens/',
+      'apps/web/',
+      'apps/miniapp-taro/src/',
       'scripts/check-retry-aliases.mjs',
+      'scripts/lib/retry-reload.mjs',
+      'scripts/data/retry-reload-baseline.jsonl',
       'scripts/check-cross-end-screen-coverage.mjs',
       'scripts/check-rn-host-shell-coverage.mjs',
     ],

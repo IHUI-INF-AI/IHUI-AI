@@ -68,12 +68,19 @@ export function AigcPublishScreen({
   onBack,
   colorScheme = 'light',
   onToast,
+  workTypes,
+  showPromptField = true,
 }: AigcPublishScreenProps) {
   assertRequiredPort('onToast', onToast)
 
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const showTextInput = workType === 'text'
+  /** 宿主可收敛类型档;缺省四档全开(与 RN 原行为一致) */
+  const typeOptions = useMemo(
+    () => (workTypes ? TYPE_OPTIONS.filter((opt) => workTypes.includes(opt.key)) : TYPE_OPTIONS),
+    [workTypes],
+  )
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
@@ -85,7 +92,7 @@ export function AigcPublishScreen({
 
       <Text style={styles.label}>{t('aigcPublish.labelType')}</Text>
       <View style={styles.typeRow}>
-        {TYPE_OPTIONS.map((opt) => (
+        {typeOptions.map((opt) => (
           <TouchableOpacity
             key={opt.key}
             style={[styles.typeChip, workType === opt.key && styles.typeChipActive]}
@@ -216,17 +223,21 @@ export function AigcPublishScreen({
         textAlignVertical="top"
       />
 
-      <Text style={styles.label}>{t('aigcPublish.labelPrompt')}</Text>
-      <TextField
-        colorScheme={colorScheme}
-        style={[styles.input, styles.textarea]}
-        value={prompt}
-        onChangeText={onPromptChange}
-        placeholder={t('aigcPublish.placeholderPrompt')}
-        placeholderTextColor={tk.text.tertiary}
-        multiline
-        textAlignVertical="top"
-      />
+      {showPromptField ? (
+        <>
+          <Text style={styles.label}>{t('aigcPublish.labelPrompt')}</Text>
+          <TextField
+            colorScheme={colorScheme}
+            style={[styles.input, styles.textarea]}
+            value={prompt}
+            onChangeText={onPromptChange}
+            placeholder={t('aigcPublish.placeholderPrompt')}
+            placeholderTextColor={tk.text.tertiary}
+            multiline
+            textAlignVertical="top"
+          />
+        </>
+      ) : null}
 
       <TouchableOpacity
         style={[styles.submitBtn, saving && styles.submitDisabled]}
@@ -353,9 +364,9 @@ function createStyles(tk: AppThemeTokens) {
     progressFill: {
       height: '100%',
       borderRadius: rnRadius.sm,
-      // 进度条无文字载体,不构成品牌实底×前景成对(R3);填充走强调档,
-      // 与 UpdatePrompt.trackBar / student-styles.progressFill 同一写法。
-      backgroundColor: tk.brandAccent.deep,
+      // 进度条按 HomeScreen/PlanList 既有写法走语义色:brand.DEFAULT 只保留墨色/文字色两义,
+      // 不作大色块底(§4),否则深色档案下是一整条纯白(实测 17.4:1 刺眼)。
+      backgroundColor: tk.success.DEFAULT,
     },
     fileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['sm-loose'] },
     fileItem: {
@@ -394,7 +405,11 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
     },
-    fileAddIcon: { fontSize: rnType.display.size, color: tk.text.tertiary, lineHeight: 26 },
+    fileAddIcon: {
+      fontSize: rnType.display.size,
+      color: tk.text.tertiary,
+      lineHeight: rnType.subtitle.lineHeight,
+    },
     fileAddText: {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,

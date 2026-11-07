@@ -9,7 +9,7 @@
 import * as React from 'react'
 import { Loader2, Network, Search } from 'lucide-react'
 import { useTranslations } from 'next-intl'
-import { fetchApi } from '@/lib/api'
+import { getMemoryGraph } from '@ihui/api-client'
 import { cn } from '@/lib/utils'
 
 /**
@@ -152,9 +152,7 @@ export function MemoryGraphPanel() {
     setLoading(true)
     setSelected(null)
     try {
-      const r = await fetchApi<{ nodes: GraphNode[]; edges: GraphEdge[] }>(
-        `/api/memory/graph?query=${encodeURIComponent(q)}`,
-      )
+      const r = await getMemoryGraph<{ nodes: GraphNode[]; edges: GraphEdge[] }>({ query: q })
       if (r.success && r.data) {
         setNodes(r.data.nodes)
         setEdges(r.data.edges)

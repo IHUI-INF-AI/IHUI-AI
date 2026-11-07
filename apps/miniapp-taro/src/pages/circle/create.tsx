@@ -215,7 +215,10 @@ export default function CircleCreatePage() {
       logger.error('circle/create', '发布动态', e)
       // 失败必须出声:原实现只写日志 ⇒ 用户点"发布"后按钮复位、页面原地不动,
       // 无从判断是失败还是没点上(web/RN 同功能都有失败提示)。草稿不清,可直接重试。
-      onToast(tt('circle.create.publishFailed', '发布失败,请重试'), { kind: 'error' })
+      // 键取既有同名值键 `ask.create.failed`(五语齐备,zh-CN 逐字等值"发布失败,请重试"):
+      // 原先的 `circle.create.publishFailed` 从未进过任何语言包 ⇒ 非中文语种恒显示简体兜底。
+      // 不再另立一枚同值异键(门 291 B2 那一型),也不凭空白造四语种措辞。
+      onToast(tt('ask.create.failed', '发布失败,请重试'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

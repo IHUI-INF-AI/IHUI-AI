@@ -173,7 +173,7 @@ class UnreadCount(TypedDict, total=False):
     total: int
 
 
-CustomerServiceSessionStatus = Literal["pending", "active", "closed"]
+CustomerServiceSessionStatus = Literal["pending", "open", "resolved", "closed", "rejected"]
 
 
 class CustomerServiceSession(TypedDict, total=False):

@@ -32,7 +32,7 @@
  * `make_latest: false`,所以它永远拿不到 latest 别名)。
  */
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 
 import { fetchJson, resolveLiveDesktopFeed } from './desktop-feed-live'
 import {
@@ -64,6 +64,7 @@ const NPM_TIMEOUT_MS = 8000
 const REVALIDATE_S = 600
 const EXTENSION_DIR_RELATIVE = join('public', 'downloads', 'extension')
 const EXTENSION_MANIFEST_RELATIVE = join('public', 'downloads', 'manifest.json')
+const EXTENSION_UPDATE_MANIFEST_RELATIVE = join('public', 'downloads', 'update-files.json')
 const MINIAPP_QR_RELATIVE = join('public', 'images', 'common', 'miniapp-qr.png')
 
 /**
@@ -94,17 +95,47 @@ async function fetchJsonWithTimeout<T>(
   }
 }
 
-/** 读 manifest 里扩展端那一格;文件缺失/形状不对一律 null(不算错,只是没有对账输入) */
+/**
+ * 读 manifest 里扩展端那一格;文件缺失/形状不对一律 null(不算错,只是没有对账输入)。
+ * 2026-11-05:顺带把发布侧逐文件清单(update-files.json)里**同一文件名**的 sha256 带上,
+ * 供详情页展示可核对的包哈希;清单缺失/同名条目找不到 ⇒ 只交 version/size/文件名,不猜哈希。
+ */
 function readExtensionManifest(dirRoot: string): ExtensionManifestEntry | null {
   const file = join(dirRoot, EXTENSION_MANIFEST_RELATIVE)
   if (!existsSync(file)) return null
   try {
     const doc = JSON.parse(readFileSync(file, 'utf-8')) as {
-      platforms?: { extension?: { version?: unknown; assets?: { sizeBytes?: unknown }[] } }
+      platforms?: {
+        extension?: { version?: unknown; assets?: { href?: unknown; sizeBytes?: unknown }[] }
+      }
     }
     const entry = doc.platforms?.extension
     if (entry === undefined) return null
-    return { version: entry.version, sizeBytes: entry.assets?.[0]?.sizeBytes }
+    const href = entry.assets?.[0]?.href
+    const fileName = typeof href === 'string' && href.trim() !== '' ? basename(href) : ''
+    let sha256: unknown
+    if (fileName !== '') {
+      const updateFile = join(dirRoot, EXTENSION_UPDATE_MANIFEST_RELATIVE)
+      if (existsSync(updateFile)) {
+        try {
+          const uf = JSON.parse(readFileSync(updateFile, 'utf-8')) as {
+            files?: { path?: unknown; sha256?: unknown }[]
+          }
+          const hit = (uf.files ?? []).find(
+            (x) => typeof x?.path === 'string' && basename(x.path) === fileName,
+          )
+          sha256 = hit?.sha256
+        } catch {
+          sha256 = undefined
+        }
+      }
+    }
+    return {
+      version: entry.version,
+      sizeBytes: entry.assets?.[0]?.sizeBytes,
+      fileName,
+      sha256,
+    }
   } catch {
     return null
   }

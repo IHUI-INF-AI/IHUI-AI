@@ -4,6 +4,9 @@
 
 import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
+// 宽度断言必须读几何档,不能写死 60 —— 否则改档(60→56/64)后这里假红,等于把档位又钉死一份。
+// 与 page-indicator-geometry.spec.ts 同一先例(e2e 直连 design-tokens 源码,不进构建)。
+import { GEOMETRY_PX } from '../../../packages/design-tokens/src/geometry.js'
 
 /**
  * Sidebar 视觉守门测试。
@@ -76,7 +79,7 @@ test.describe('Sidebar 视觉守门', () => {
     const btnVisible = await collapseBtn.isVisible().catch(() => false)
     if (!btnVisible) {
       // 移动端可能隐藏,跳过
-      test.skip(true, 'collapse 按钮不可见(可能移动端视图) [SKIP:SKIP-0179]')
+      test.skip(true, 'collapse 按钮不可见(可能移动端视图)')
       return
     }
 
@@ -117,7 +120,6 @@ test.describe('Sidebar 视觉守门', () => {
     await handle.hover()
 
     // 等 CSS 过渡完成(transition-opacity duration-200)
-    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await authenticatedPage.waitForTimeout(300)
 
     // 2026-08-26 修复:细线背景是 linear-gradient(走 backgroundImage),backgroundColor
@@ -140,7 +142,6 @@ test.describe('Sidebar 视觉守门', () => {
     await handle.focus()
 
     // 等 focus-visible 样式应用
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(100)
 
     // 检查手柄容器自身的 background-color(不是内层细线)
@@ -268,14 +269,17 @@ test.describe('Sidebar 折叠态尺寸守门', () => {
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
     // 等 React hydration + 折叠态样式应用
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    await authenticatedPage.waitForTimeout(500)
   })
 
-  test('折叠态 aside 宽度为 60px', async ({ authenticatedPage }) => {
+  test('折叠态 aside 宽度等于几何档 sidebarCollapsedWidth', async ({ authenticatedPage }) => {
     const aside = authenticatedPage.locator('aside').first()
     const box = await aside.boundingBox()
     expect(box).not.toBeNull()
-    expect(box!.width, '折叠态 aside 宽度应为 60px').toBe(60)
+    expect(
+      box!.width,
+      `折叠态 aside 宽度应为 ${GEOMETRY_PX.sidebarCollapsedWidth}px(几何档)`,
+    ).toBe(GEOMETRY_PX.sidebarCollapsedWidth)
   })
 
   test('折叠态导航项背景容器统一为 36×36 正方形', async ({ authenticatedPage }) => {
@@ -448,7 +452,7 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
     // 等 React hydration + useMounted() 返回 true 后 SidebarUserRow 才渲染
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    await authenticatedPage.waitForTimeout(800)
   })
 
   // 提取核心几何断言,light/dark 共用
@@ -540,7 +544,6 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await authenticatedPage.evaluate(() => {
       document.documentElement.classList.remove('dark')
     })
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
 
     // 2026-08-26 修复:等待 SidebarUserRow 渲染(登录态恢复/首屏时序,否则 evaluate 查到
@@ -626,7 +629,6 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     await authenticatedPage.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
-    // WAIT-POLICY:TIMING-0003 SSE/流式/轮询事件到达间隔窗口,事件本身不可观察
     await authenticatedPage.waitForTimeout(300)
 
     const data = await assertUserRowGeometry(authenticatedPage, 'dark')
@@ -667,7 +669,6 @@ test.describe('Sidebar 底部 SidebarUserRow 居中 + 间距守门', () => {
     const row = authenticatedPage.locator('aside .group\\/row').first()
     await expect(row).toBeVisible()
     await row.hover()
-    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await authenticatedPage.waitForTimeout(300) // transition-colors duration
 
     // 读 hover 状态下 row 的 background-color
@@ -746,7 +747,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
     // 等 React hydration + isTabletViewport layout effect 切折叠态
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    await authenticatedPage.waitForTimeout(500)
 
     const data = await authenticatedPage.evaluate(() => {
       const aside = document.querySelector('aside')
@@ -765,8 +766,11 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     expect(data, `应能读取折叠态几何: ${JSON.stringify(data)}`).not.toHaveProperty('error')
     const d = data as Exclude<typeof data, { error: string }>
 
-    // 1. 平板区间视口强制折叠:aside 60px
-    expect(d.asideWidth, `平板视口 aside 应为 60px,实际 ${d.asideWidth}`).toBe(60)
+    // 1. 平板区间视口强制折叠:aside = 几何档 sidebarCollapsedWidth
+    expect(
+      d.asideWidth,
+      `平板视口 aside 应为 ${GEOMETRY_PX.sidebarCollapsedWidth}px,实际 ${d.asideWidth}`,
+    ).toBe(GEOMETRY_PX.sidebarCollapsedWidth)
 
     // 2. 用户行完整落在 aside 横向边界内(允许 1px border 误差)
     expect(
@@ -786,7 +790,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     await authenticatedPage.setViewportSize({ width: 900, height: 800 })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    await authenticatedPage.waitForTimeout(500)
 
     // header 拉出(展开)按钮:aria-label 正则,与现有 collapse 按钮测试同源
     // (2026-08-29 修:自定义 PanelLeftRounded 无 lucide 类名,只能走 getByLabel)
@@ -822,7 +826,7 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     })
     await authenticatedPage.goto('/')
     await expect(authenticatedPage.locator('aside').first()).toBeVisible({ timeout: 15000 })
-    await authenticatedPage.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+    await authenticatedPage.waitForTimeout(500)
 
     const data = await authenticatedPage.evaluate(() => {
       const row = document.querySelector('aside .group\\/row')
@@ -861,14 +865,19 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     // dialog-position-regression 移动端同根因)—— 按真实用户路径先关面板再点汉堡。
     // 注意 goto 后面板水合渲染需要时间,isVisible 即时检查会误判跳过(实测单跑即挂),
     // 必须 waitFor 轮询;面板缺席(≤8s 未出现)则视为已关闭,继续原流程。
-    const closePanel = authenticatedPage.locator('button[aria-label="关闭"]').first()
-    const panelShown = await closePanel
+    // 2026-11-04 信息架构重构:header 的可见「关闭」收进溢出菜单
+    // (`[data-testid="ai-panel-close"]`,Radix DropdownMenu.Item ⇒ role=menuitem)。
+    // 面板缺席(≤8s 溢出菜单未出现)则视为已关闭,继续原流程。
+    const overflowTrigger = authenticatedPage
+      .locator('[data-testid="ai-panel-overflow-trigger"]')
+      .first()
+    const panelShown = await overflowTrigger
       .waitFor({ state: 'visible', timeout: 8000 })
       .then(() => true)
       .catch(() => false)
     if (panelShown) {
-      await closePanel.click()
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
+      await overflowTrigger.click()
+      await authenticatedPage.locator('[data-testid="ai-panel-close"]').click()
       await authenticatedPage.waitForTimeout(500)
     }
 
@@ -881,7 +890,6 @@ test.describe('Sidebar 折叠/展开布局方向守门', () => {
     // 抽屉是带 role="dialog" 的 aside
     const drawer = authenticatedPage.locator('aside[role="dialog"]')
     await expect(drawer).toBeVisible({ timeout: 10000 })
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
 
     // 抽屉内用户行必须存在且恒展开布局(collapsed={false}),不受桌面折叠偏好影响:

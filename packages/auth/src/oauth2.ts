@@ -1050,7 +1050,9 @@ export function isRefreshTokenReused(record: { revokedAt?: Date | string | null 
 /** refresh token 是否已过期(接受 Date | ISO string | null)。 */
 export function isRefreshTokenExpired(record: { expiresAt?: Date | string | null }): boolean {
   const raw = record?.expiresAt
-  if (!raw) return false
+  // BUG-72 根治:缺失过期时间 ⇒ fail-closed 视为已过期,强制重新认证,
+  // 避免异常/缺失 expiresAt 的 refresh token 被永久放行。
+  if (!raw) return true
   const ts = raw instanceof Date ? raw.getTime() : Date.parse(raw)
   return Number.isFinite(ts) ? ts <= Date.now() : false
 }

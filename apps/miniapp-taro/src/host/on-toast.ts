@@ -9,18 +9,15 @@
  * 由 `HostToastLayer` 单点订阅并落成 `Taro.showToast` —— 与 RN 端共用同一条通道,
  * 不在调用点各自直呼平台 API。
  *
- * 默认时长 1500ms 对齐 Taro.showToast 的端内默认值,显式 duration 原样透传,
- * 避免迁移后轻提示时长发生观感变化。
+ * 时长口径(2026-11-05 收口):本模块**不再自带默认时长**。原先这里写着 1500ms,而渲染层
+ * `HostToastLayer` 另写 2000ms、RN 的 FloatBox 再兜底 3000ms ⇒ 同一条提示三处时长不等。
+ * 默认值单源 = `@ihui/shared/utils/host-toast` 的 `HOST_TOAST_DEFAULT_DURATION_MS`;
+ * 显式 duration 仍原样透传。本端口只做"透传",补默认会让端口层与屏侧走岔。
  */
 import type { OnToast } from '@ihui/types'
 import { showHostToast } from '@ihui/shared/utils/host-toast'
 
-const DEFAULT_DURATION = 1500
-
 export const onToast: OnToast = (message, options) => {
-  showHostToast(message, {
-    ...options,
-    duration: options?.duration ?? DEFAULT_DURATION,
-  })
+  showHostToast(message, options)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

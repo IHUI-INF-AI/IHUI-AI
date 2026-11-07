@@ -70,7 +70,9 @@ export function CredentialGuide({ platformId, value, onChange, disabled }: Crede
 
   if (!schema) {
     return (
-      <p className="text-xs text-muted-foreground">暂不支持该平台的可视化配置,请使用 JSON 模式。</p>
+      <p className="font-[weight:inherit] text-label text-muted-foreground">
+        暂不支持该平台的可视化配置,请使用 JSON 模式。
+      </p>
     )
   }
 
@@ -88,7 +90,9 @@ export function CredentialGuide({ platformId, value, onChange, disabled }: Crede
         />
         <div className="min-w-0 flex-1">
           <div className="text-body font-medium">{schema.platformName}</div>
-          <div className="text-xs text-muted-foreground">{schema.helpText}</div>
+          <div className="font-[weight:inherit] text-label text-muted-foreground">
+            {schema.helpText}
+          </div>
         </div>
         <Badge className={cn('shrink-0 border-transparent', AUTH_BADGE_STYLE[schema.authType])}>
           <AuthIcon className="mr-1 h-3 w-3" />
@@ -109,7 +113,7 @@ export function CredentialGuide({ platformId, value, onChange, disabled }: Crede
         href={schema.setupGuideUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 rounded-sm border border-input bg-background px-2.5 py-1 text-xs text-foreground hover:bg-accent"
+        className="font-[weight:inherit] inline-flex items-center gap-1 rounded-sm border border-input bg-background px-2.5 py-1 text-label text-foreground hover:bg-accent"
       >
         <ExternalLink className="h-3 w-3" />
         详细教程(官网)
@@ -117,7 +121,7 @@ export function CredentialGuide({ platformId, value, onChange, disabled }: Crede
 
       {/* 折叠常见问题 */}
       <Collapsible>
-        <CollapsibleTrigger className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+        <CollapsibleTrigger className="font-[weight:inherit] flex items-center gap-1 text-label text-muted-foreground hover:text-foreground">
           <HelpCircle className="h-3 w-3" />
           常见问题
           <ChevronDown className="h-3 w-3" />

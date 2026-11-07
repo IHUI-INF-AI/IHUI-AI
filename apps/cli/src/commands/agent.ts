@@ -98,7 +98,7 @@ import { resolveSandboxOptions } from '../sandbox/index.js';
 import { resolveCliPermissionAxisFromSettings } from '../sandbox/permission-axis-runtime.js';
 import type { CheckpointManager } from '../checkpoints/index.js';
 import type { HunkTracker } from '../checkpoints/hunk-tracker.js';
-import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, type CompressionResult, UsageLedger } from '../context.js';
+import { compressContextIfNeeded, estimateTokens, estimateMessagesTokens, measuredCompactRatio, type CompressionResult, UsageLedger } from '../context.js';
 import { compressContextV2, type CompactionSampler, type CompactionObserver } from '../compaction-v2.js';
 import { CONTEXT_BUDGET_THRESHOLD, DEFAULT_TRIGGER_RATIO } from '@ihui/context-compaction';
 // WP-2 三道有效性守卫的运行期装配 + WP-3 工具结果预算信封与已读状态跟踪
@@ -130,7 +130,7 @@ import { setSkillCatalog, resetLoadedSkills } from '../skills/session.js';
 import { SKILL_TOOLS } from '../tools/skill-tool.js';
 import { frameSystemReminder, neutralizeBoundaries } from '../utils/prompt-boundary.js';
 import { injectHostSection, injectReminderSection } from '../utils/prompt-injection-registry.js';
-import { loadMemory, formatMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
+import { loadMemoryForPrompt, type MemoryEntry } from '../memory/index.js';
 import { auditLog } from '../audit.js';
 import { loadHooks, runSessionStartHooks, runSessionEndHooks, runHook, onHookRunEvent } from '../hooks/index.js';
 import { loadSettings, type SamplerSettings, type Settings } from './settings.js';
@@ -144,14 +144,25 @@ import type { Session } from './session.js';
 import { saveSession } from './session.js';
 // G-632:异步解算启动时捕获分支代数 —— 解算期间分支被切换则本轮结果在落地口作废
 import { captureBranchGeneration } from './branch-generation.js';
-// G-728:装载调用点改走诊断出口(loadPluginsWithDiagnostics),数组薄封装 loadPlugins 会把诊断丢进垃圾桶
+// G-728:装载调用点走诊断出口,数组薄封装 loadPlugins 会把诊断丢进垃圾桶
+// goal-b49/W2:诊断出口再换成**带贡献审计**的出口 —— declined/unknown-kind 两档各占 diagnostics
+// 一行,于是它们和清单级诊断同一条主通道到人前(不新增环境变量、不升任何档、不静默)。
+// goal-b49/Z1:扩展声明的运行期消费者层 —— 对账腿在本函数(装载后一次性逐名对账),
+// 两族 contributor 的派发腿在 runToolLoop 的 turnStart / turnEnd。
 import {
   PluginRegistry,
-  loadPluginsWithDiagnostics,
+  auditDeclarationConsumers,
+  buildPluginTurnInputSection,
+  declarationDiagnosticsOf,
+  dispatchPluginCommandContributors,
+  loadPluginsWithContributionAudit,
   type PluginDiagnostic,
   type PluginHookContext,
+  type PluginHookEvent,
   type PluginLogger,
 } from '../plugins/index.js';
+// 宿主在册命令名面(对账用):只读注册表出口,不在这里另立第二份命令名单。
+import { getAllSlashNames } from './slash-registry.js';
 import type { PlanMachine } from '../plan/index.js';
 import {
   DoomLoopDetector,
@@ -333,11 +344,12 @@ export function readAgentsMd(workspacePath: string): string | undefined {
   const p = path.join(workspacePath, 'AGENTS.md');
   let content: string | undefined;
   try {
-    if (fs.existsSync(p)) {
-      content = fs.readFileSync(p, 'utf-8');
+    content = fs.readFileSync(p, 'utf-8');
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      console.info(chalk.yellow('AGENTS.md 读不到,不能把它说成仓库里没有'));
     }
-  } catch {
-    // 读取失败忽略(读不动 ⇒ 下面判据自然不派发)
   }
   if (content !== undefined && content.trim().length > 0) {
     void runHook('instructionsLoaded', { workspacePath, instructionsPath: p }).catch(() => {
@@ -409,9 +421,15 @@ export interface SetupAgentToolsResult {
  * 数组薄封装 loadPlugins() —— 诊断被整块丢弃,坏清单 / 同名弃权对用户不可见,
  * 即守门 64/70/81/115/138 记过的「出口在位而无人调用」那一型。本函数就是"调用"这一半:
  *   - severity === 'error'   ⇒ logger.error(有清单没被装载)
- *   - severity === 'warning' ⇒ logger.warn (装载了,但有内容被优先级忽略)
+ *   - severity === 'warning' ⇒ logger.warn (装载了,但有内容被优先级忽略/被本宿主拒收)
  * 日志行逐条点名 code + 清单绝对路径(只转述 message 会让路径信息随文案改版而丢)。
  * 单条派发不得抛穿:logger 实现若抖,由调用点的 try 兜 —— 诊断失败不得拖垮 agent 启动。
+ *
+ * goal-b49/W2 起,本通道还携带插件**贡献档**的拒收裁决:`plugin-contribution-declined`
+ * (本宿主没有落点,或未声明权限被 capability-catalog 默认拒)与 `plugin-contribution-unknown-kind`
+ * (词表里没有这一档)由装载器摊成 warning 诊断一并送来,一行一条、点名档名与清单路径。
+ * goal-b49/Z1 起再加一档:`plugin-declaration-unconsumed` —— 扩展声明被汇总口读到了、
+ * 但对账拿不出运行期消费者(工具名无实现 / hook 事件段永不派发 / 命令族无注册通道 / 声明没有回调)。
  */
 export function reportPluginDiagnostics(diagnostics: readonly PluginDiagnostic[], logger: PluginLogger): void {
   for (const d of diagnostics) {
@@ -423,6 +441,16 @@ export function reportPluginDiagnostics(diagnostics: readonly PluginDiagnostic[]
     else logger.warn(line);
   }
 }
+
+/**
+ * 诊断的人前适配器(模块级唯一一份):三个方法都在**调用时**取 console,
+ * 测试的 `vi.spyOn(console, ...)` 才拦得住 —— 在模块装载时把 `console.warn` 抽成引用会拿死指针。
+ */
+const PLUGIN_CONSOLE_LOGGER: PluginLogger = {
+  info: (msg, ...rest) => console.info(msg, ...rest),
+  warn: (msg, ...rest) => console.warn(msg, ...rest),
+  error: (msg, ...rest) => console.error(msg, ...rest),
+};
 
 /** 注册工具 + 构建 system prompt(含 AGENTS.md + skills + memory 注入) */
 export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<SetupAgentToolsResult> {
@@ -521,7 +549,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   }
 
   // Plugins 集成:settings.plugins.enabled === true 或外部注入 registry 时,
-  // loadPluginsWithDiagnostics + registerAll + runSetups(真实接入,消除死代码)。
+  // loadPluginsWithContributionAudit + registerAll + runSetups(真实接入,消除死代码)。
   // flag 关闭且未注入时,pluginRegistry=undefined,runToolLoop 内 runPluginHooks 直接 return(零回归)
   let pluginRegistry: PluginRegistry | undefined = opts.pluginRegistry;
   if (!pluginRegistry && settings.plugins?.enabled === true) {
@@ -529,15 +557,14 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       const pluginsDir = settings.plugins.pluginsDir ?? path.join(opts.workspacePath, '.ihui', 'plugins');
       // G-728:改调诊断出口。薄封装 loadPlugins() 只把 plugins 递出来,diagnostics 整块丢弃,
       // 坏清单 / 同名弃权今天仍然不会报到人前 —— 与守门 64/70/81/115/138 同型。
-      const { plugins: defs, diagnostics } = loadPluginsWithDiagnostics({ pluginsDir });
+      // goal-b49/W2:换成带贡献审计的同一族出口。装载器对每份清单的 `contributes` 逐档裁决,
+      // declined(本宿主无落点 / 默认拒)与 unknown-kind(不在词表内)**各占 diagnostics 一条**,
+      // 所以人前可见靠的还是下面这条既有派发,不另开通道、不新增环境变量、不升任何档。
+      const { plugins: defs, diagnostics } = loadPluginsWithContributionAudit({ pluginsDir });
       // 派发放在 defs.length 判据**之前**:全部清单都坏时 defs 为空,旧形态下"一个都没装上"
       // 反而零行日志,那正是本票要消灭的静默。装载继续(永不抛穿),诊断逐条点名到 logger。
       if (!opts.silent) {
-        reportPluginDiagnostics(diagnostics, {
-          info: (msg, ...rest) => console.info(msg, ...rest),
-          warn: (msg, ...rest) => console.warn(msg, ...rest),
-          error: (msg, ...rest) => console.error(msg, ...rest),
-        });
+        reportPluginDiagnostics(diagnostics, PLUGIN_CONSOLE_LOGGER);
       }
       if (defs.length > 0) {
         pluginRegistry = new PluginRegistry({ workingDir: opts.workspacePath });
@@ -556,6 +583,18 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   }
 
   const tools = listTools();
+  // goal-b49/Z1 对账腿(五枚 `get*Extensions` 汇总口的生产调用点):
+  // 每个声明名逐个问宿主"你到底有没有消费者",吃不下的逐条摊成 warning 走同一条
+  // reportPluginDiagnostics —— 工具名**不**并进工具表、命令名**不**并进 slash 表:
+  // 声明背后既没有 Tool 实现也没有注册通道,接进去就是一张只被测试喂数据的空壳(AGENTS §0.9 反例)。
+  // 对账本身无条件跑(silent 只压人前那一半),否则"静默模式"会把这一格重新变回静默。
+  if (pluginRegistry) {
+    const declarationFindings = auditDeclarationConsumers(pluginRegistry, {
+      toolNames: tools.map((t) => t.name),
+      commandNames: getAllSlashNames(),
+    });
+    if (!opts.silent) reportPluginDiagnostics(declarationDiagnosticsOf(declarationFindings), PLUGIN_CONSOLE_LOGGER);
+  }
   const agentsMd = readAgentsMd(opts.workspacePath);
   const skills = loadSkills({ cwd: opts.workspacePath });
   // L5669①:目录快照交给 Skill 工具按名解析;装配即重置已加载集合(新会话不带上次的"已加载")。
@@ -563,13 +602,16 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
   if (skills.length > 0 && !opts.silent) {
     console.info(chalk.dim(`  📚 已加载 ${skills.length} 个 skill(/skills 查看,/skill <name> 调用)`));
   }
-  const memory = loadMemory(opts.workspacePath);
-  if (memory.length > 0 && !opts.silent) {
-    console.info(chalk.dim(`  🧠 已加载 ${memory.length} 条 memory(/memory 查看)`));
+  const memoryPrompt = loadMemoryForPrompt(opts.workspacePath, 'session-start');
+  if (memoryPrompt.reasons.includes('text-unreadable') && !opts.silent) {
+    console.info(chalk.yellow('memory 读不到,不能把它说成没有条目'));
+  }
+  if (memoryPrompt.entryCount > 0 && !opts.silent) {
+    console.info(chalk.dim(`  🧠 已加载 ${memoryPrompt.entryCount} 条 memory(/memory 查看)`));
   }
   // G-427 接线:技能段广告按真实工具表门控(Skill 不在表内 ⇒ 整块不出)
   const skillsText = formatSkillsForPrompt(skills, { toolTable: tools.map((t) => t.name) });
-  const memoryText = formatMemoryForPrompt(memory);
+  const memoryText = memoryPrompt.text;
   // AGENTS.md / memory 是**用户仓库与磁盘上的第三方文本**,直接拼进 system prompt 等于让
   // 它们披宿主语气 —— 走登记出口的 reference_data 档(内部过 neutralizeBoundaries 剥冒充标签)。
   // 没有内容时**不记 skipped**:仓库无 AGENTS.md 是常态不是降级,记一行就等于每轮造假噪声
@@ -616,7 +658,7 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
     permissionMode: opts.permissionMode,
   };
 
-  return { systemPrompt, ctx, skills, memory, pluginRegistry };
+  return { systemPrompt, ctx, skills, memory: memoryPrompt.entries, pluginRegistry };
 }
 
 export interface RunToolLoopOptions {
@@ -1134,12 +1176,12 @@ export function formatInterjectionBlocks(blocks: ReadonlyArray<InterjectionBlock
  * 只声明 hooks 数组(无 callback),runHook 内部会通过 logger.info 记录事件(让 registry 真实被使用)。
  *
  * @param registry 插件注册表(可选,未传入直接 return — 零回归)
- * @param event 钩子事件名(preToolCall / postToolCall)
+ * @param event 钩子事件名(单源 = `PLUGIN_HOOK_EVENTS`;对账层读同一份判"事件段会不会真派发")
  * @param context 钩子上下文(工具名 + 参数 + 结果),透传给 plugin.onHook
  */
 async function runPluginHooks(
   registry: PluginRegistry | undefined,
-  event: 'preToolCall' | 'postToolCall',
+  event: PluginHookEvent,
   context: { toolName: string; args: Record<string, unknown>; result?: unknown },
 ): Promise<void> {
   if (!registry) return;
@@ -1629,7 +1671,7 @@ export async function decideCompaction(
       // 阈值时 fire-and-forget 预生成摘要缓存(复用同一 sampler 路径,产物与实时生成一致);
       // 88% 真压缩时命中缓存 → compressContextV2 零 LLM 调用,首响应零摘要阻塞。
       // P3-11 同构收敛:兜底阈值引用共享包单源(此前二次写死 0.88 造成漂移面)。
-      const triggerRatio = v2Config.triggerRatio ?? DEFAULT_TRIGGER_RATIO;
+      const triggerRatio = measuredCompactRatio(v2Config.triggerRatio) ?? DEFAULT_TRIGGER_RATIO;
       const tokensBefore = estimateMessagesTokens(messages);
       const usageRatio = opts.contextLimit > 0 ? tokensBefore / opts.contextLimit : 0;
       if (usageRatio >= CONTEXT_BUDGET_THRESHOLD && tokensBefore < Math.floor(opts.contextLimit * triggerRatio)) {
@@ -1646,7 +1688,10 @@ export async function decideCompaction(
       const cachedSummary = getCachedCompactionSummary(sessionId, messages) ?? undefined;
       const result = await compressContextV2(messages, {
         contextLimit: opts.contextLimit,
-        triggerRatio: opts.triggerRatioOverride ?? v2Config.triggerRatio,
+        triggerRatio:
+          measuredCompactRatio(opts.triggerRatioOverride) ??
+          measuredCompactRatio(v2Config.triggerRatio) ??
+          DEFAULT_TRIGGER_RATIO,
         targetRatio: v2Config.targetRatio,
         samplingTimeoutMs: v2Config.samplingTimeoutMs,
         // G-815992 层1:非 Auto 触发只 1 次(不透传时 V2 走内建默认 3 次,即 Auto 档)
@@ -1673,7 +1718,9 @@ export async function decideCompaction(
   const v1Result = compressContextIfNeeded(messages, {
     contextLimit: opts.contextLimit,
     // /compact 手动压缩:伪造阈值 0.87 使 ceil(t/0.87)*0.87 的 floor 恰为 t,必然触发
-    ...(opts.triggerRatioOverride !== null && opts.triggerRatioOverride !== undefined ? { triggerRatio: opts.triggerRatioOverride } : {}),
+    ...(opts.triggerRatioOverride !== null && opts.triggerRatioOverride !== undefined
+      ? { triggerRatio: measuredCompactRatio(opts.triggerRatioOverride) ?? DEFAULT_TRIGGER_RATIO }
+      : {}),
   });
   return { ...v1Result, reason: v2AttemptFailed ? 'sampler-failed' : 'disabled' };
 }
@@ -2024,6 +2071,18 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
       if (readStateReminder) {
         contextReminderActive = true;
         requestMessages = [...requestMessages, { role: 'user' as const, content: readStateReminder }];
+      }
+      // goal-b49/Z1 派发腿之一(turnStart 位):插件贡献的正文**只进本轮下发视图**,与 G-425
+      // 续写补丁同一条纪律 —— 不 push 进 opts.messages,所以 --resume / 会话落库 / 压缩历史里
+      // 结构性没有它;正文本身走 reference_data 档(第三方内容不得披宿主语气),出处标签由宿主填。
+      const pluginTurnInput = await buildPluginTurnInputSection(opts.plugins, {
+        workingDir: opts.ctx.workspacePath,
+        turnNumber: iterations,
+        maxTurns: opts.maxIterations,
+        sessionId: opts.sessionId,
+      });
+      if (pluginTurnInput) {
+        requestMessages = [...requestMessages, { role: 'user' as const, content: pluginTurnInput }];
       }
       // G-425:上一轮被截断 ⇒ 续写补丁作为最后一条 user 消息进**本轮下发视图**(排在
       // read-state 提醒之后,保证"接着说"是模型看到的最后一条指令)。下发后立即清空:
@@ -2472,6 +2531,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
           sessionId: opts.sessionId,
           turnNumber: iterations,
         }, { signal: opts.signal });
+        // goal-b49/Z1 派发腿之二(commandContributors,end_turn 位):与上面的 runHook 同位同粒度。
+        await dispatchPluginCommandContributors(opts.plugins, {
+          workingDir: opts.ctx.workspacePath,
+          turnNumber: iterations,
+          maxTurns: opts.maxIterations,
+          sessionId: opts.sessionId,
+        });
         break;
       }
 
@@ -2802,6 +2868,13 @@ export async function runToolLoop(opts: RunToolLoopOptions): Promise<RunToolLoop
         sessionId: opts.sessionId,
         turnNumber: iterations,
       }, { signal: opts.signal });
+      // goal-b49/Z1 派发腿之二(commandContributors,工具执行完毕位):同位同粒度,声明为空即不叫 runner。
+      await dispatchPluginCommandContributors(opts.plugins, {
+        workingDir: opts.ctx.workspacePath,
+        turnNumber: iterations,
+        maxTurns: opts.maxIterations,
+        sessionId: opts.sessionId,
+      });
     }
   } catch (err) {
     if (opts.signal?.aborted) {

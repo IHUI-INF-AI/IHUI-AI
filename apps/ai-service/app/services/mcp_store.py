@@ -39,7 +39,7 @@
 - **角色从哪来**:管理员判定只认 `app/core/jwt_auth.resolve_request_role_id` 那一个出口
   (roleId >= 1,与 AGENTS §5 同档)。本模块是 store 层,**不碰 HTTP 对象** —— 角色由承载层
   作为入参传进来,缺省 0 = 普通用户(fail-closed:只带 user_id 不带角色的调用不得被当管理员)。
-- 读写失败降级:读失败返回空列表/None,写失败返回 False,不抛异常不崩服务
+- 读写失败:文件不存在或内容损坏仍返回空列表;权限等读不到要抛,不能当成空名单再写回去。写失败返回 False
 - 进程内加锁防止并发写坏文件(跨进程并发不在本模块职责内)
 """
 
@@ -63,16 +63,39 @@ def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _load() -> list[dict[str, Any]]:
-    """读取全部安装记录;文件缺失/损坏/非列表时返回空列表(异常降级)。"""
+class McpStoreUnread(OSError):
+    """安装名单读不到。调用方不得把它当成空名单再写回去。"""
+
+
+def _load(*, for_update: bool = False) -> list[dict[str, Any]]:
+    """读取全部安装记录。文件缺失是空列表。
+
+    读失败(权限、目标是目录)不算没有安装记录。非空损坏在写入前必须抛,
+    只读查询仍按空名单,避免服务被一份坏文件打崩。
+    """
     try:
-        if not _STORE_PATH.exists():
-            return []
-        raw = _STORE_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        return data if isinstance(data, list) else []
-    except Exception:  # noqa: BLE001 - 读失败返回空列表,不崩服务
+        _STORE_PATH.stat()
+    except FileNotFoundError:
         return []
+    except OSError as exc:
+        raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单") from exc
+    try:
+        raw = _STORE_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单") from exc
+    if raw.strip() == "":
+        return []
+    try:
+        data = json.loads(raw)
+    except Exception as exc:  # noqa: BLE001 - 损坏内容只在写入前拒绝
+        if for_update:
+            raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单 (corrupt)") from exc
+        return []
+    if not isinstance(data, list):
+        if for_update:
+            raise McpStoreUnread("MCP 安装名单读不到,不能把它覆盖成新名单 (corrupt)")
+        return []
+    return data
 
 
 def _write(records: list[dict[str, Any]]) -> bool:
@@ -112,7 +135,7 @@ def save_installed(record: dict[str, Any]) -> dict[str, Any] | None:
         写成功返回入参 record;写失败返回 None。
     """
     with _LOCK:
-        records = _load()
+        records = _load(for_update=True)
         name = record.get("name", "")
         replaced = False
         for i, rec in enumerate(records):

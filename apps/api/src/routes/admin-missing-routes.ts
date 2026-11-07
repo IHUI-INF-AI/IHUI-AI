@@ -37,9 +37,9 @@
  *   - admin-support-tickets.ts(3 个空桩,/support/tickets/:id/{status,
  *     replies,reply});**纠正**:`customerServiceTickets` 表已存在(packages/
  *     database/src/schema/customer-service.ts L42),原注释"待 support_tickets
- *     表落地"不准确,真实阻塞为 status 枚举语义不一致(后端
- *     'pending'|'open'|'resolved'|'closed'|'rejected' vs 前端
- *     'open'|'processing'|'closed'|'resolved')
+ *     表落地"不准确,真实阻塞为 status 枚举语义不一致。状态唯一真相源为
+ *     @ihui/types 的 CUSTOMER_SERVICE_STATUSES(pending/open/resolved/closed/rejected,
+ *     packages/types/src/notification.ts);前后端一律从该数组派生,不再各抄一份字面量。
  *
  *   // : progressive migration - stub retained, see migration-audit-2026-07-26.md P0-3
  *   - ~~admin/stats.ts L407-438 dashboard/revenue/users 聚合端点(3 个空数据桩,

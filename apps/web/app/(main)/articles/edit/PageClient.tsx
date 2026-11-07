@@ -11,7 +11,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 import { ArrowLeft, Edit, Loader2 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import {
+  getArticleDetail,
+  listArticleCategories,
+  publishArticle,
+  updateArticle,
+} from '@ihui/api-client'
 import type { ArticleDetail } from '../types'
 import { ArticleEditForm } from './ArticleEditForm'
 import { EMPTY_FORM } from './types'
@@ -30,15 +35,20 @@ export default function ArticleEditPage() {
 
   const { data: categories = [] } = useQuery({
     queryKey: ['articles', 'categories'],
-    queryFn: () =>
-      apiOrThrow<{ list: ArticleCategoryOption[] }>(`/api/article/categories`).then(
-        (d) => d.list ?? [],
-      ),
+    queryFn: async () => {
+      const r = await listArticleCategories<{ list: ArticleCategoryOption[] }>()
+      if (!r.success) throw new Error(r.error)
+      return r.data.list ?? []
+    },
   })
 
   const { data: existing, isLoading: loadingDetail } = useQuery({
     queryKey: ['article', 'detail', editId],
-    queryFn: () => apiOrThrow<ArticleDetail>(`/api/article/detail/${editId}`),
+    queryFn: async () => {
+      const r = await getArticleDetail<ArticleDetail>(editId as string)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: isEdit,
   })
 
@@ -54,7 +64,7 @@ export default function ArticleEditPage() {
   }, [isEdit, existing])
 
   const saveMut = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const body = {
         title: form.title.trim(),
         summary: form.summary.trim() || undefined,
@@ -62,16 +72,10 @@ export default function ArticleEditPage() {
         categoryId: form.categoryId || undefined,
         coverImage: form.coverImage.trim() || undefined,
       }
-      if (isEdit && editId) {
-        return apiOrThrow(`/api/article/${editId}`, {
-          method: 'PUT',
-          body: JSON.stringify(body),
-        })
-      }
-      return apiOrThrow(`/api/article/publish`, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
+      const r =
+        isEdit && editId ? await updateArticle(editId, body) : await publishArticle(body)
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['articles'] })

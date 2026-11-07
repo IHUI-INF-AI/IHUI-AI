@@ -188,6 +188,24 @@ export async function getResult(id: string): Promise<ApiResult<ExamResult>> {
   return fetchApi<ExamResult>(`/exam/records/${encodeURIComponent(id)}`)
 }
 
+/** 成绩摘要(含同卷名次) —— 与小程序 `getExamResult` 同一后端端点,RN 侧名次真源 */
+export interface ExamResultSummary {
+  score: number
+  pass: boolean
+  rank?: number
+  total?: number
+  duration: number
+  correct: number
+  wrong: number
+  unanswered: number
+  passScore?: number
+  totalScore?: number
+}
+
+export async function getExamResultSummary(id: string): Promise<ApiResult<ExamResultSummary>> {
+  return fetchApi<ExamResultSummary>(`/exam/${encodeURIComponent(id)}/result`)
+}
+
 export async function getWrongBook(
   query: { page?: number; pageSize?: number; examId?: string } = {},
 ): Promise<ApiResult<PageData<WrongQuestion>>> {
@@ -316,6 +334,66 @@ export async function getRecommendExams(
 
 export async function getHotExams(query: { limit?: number } = {}): Promise<ApiResult<Exam[]>> {
   return fetchApi<Exam[]>(`/exam/papers${buildQs({ ...query, hot: '1' })}`)
+}
+
+/** 卷详情 — GET /api/exam/papers/:id */
+export async function getExamPaper<T = { paper: Exam }>(examId: string): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/papers/${encodeURIComponent(examId)}`)
+}
+
+/** 开始答题 — POST /api/exam/papers/:id/start */
+export async function startExam<T = { record: { id: string } }>(
+  examId: string,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/papers/${encodeURIComponent(examId)}/start`, { method: 'POST' })
+}
+
+/** 交卷(按答题记录) — POST /api/exam/records/:id/submit */
+export async function submitExamRecord<T = { result: ExamResult }>(
+  recordId: string,
+  body: { answers: Array<{ questionId: string; answer: unknown }> },
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/records/${encodeURIComponent(recordId)}/submit`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 待批改记录 — GET /api/exam/records/pending-marks */
+export async function listPendingMarks<T = PageData<ExamResult>>(
+  query: { page?: number; pageSize?: number; search?: string } = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/records/pending-marks${buildQs(query)}`)
+}
+
+/** 错题列表 — GET /api/exam/wrong-questions */
+export async function listWrongQuestions<T = PageData<unknown>>(
+  query: Record<string, string | number | boolean | undefined> = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions${buildQs(query)}`)
+}
+
+/** 错题统计 — GET /api/exam/wrong-questions/stats */
+export async function getWrongQuestionStats<T = unknown>(
+  query: Record<string, string | number | boolean | undefined> = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions/stats${buildQs(query)}`)
+}
+
+/** 标记错题已解决 — PUT /api/exam/wrong-questions/:id/resolve */
+export async function resolveWrongQuestion<T = unknown>(questionId: string): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions/${encodeURIComponent(questionId)}/resolve`, {
+    method: 'PUT',
+  })
+}
+
+/** AI 讲解错题 — POST /api/exam/wrong-questions/:id/explain */
+export async function explainWrongQuestion<T = { explanation: string; cached?: boolean }>(
+  questionId: string,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/exam/wrong-questions/${encodeURIComponent(questionId)}/explain`, {
+    method: 'POST',
+  })
 }
 
 export async function getExamsByIds(ids: string[]): Promise<ApiResult<Exam[]>> {

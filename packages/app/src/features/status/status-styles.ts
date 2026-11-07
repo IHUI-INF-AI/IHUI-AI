@@ -73,7 +73,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
     rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     rowMeta: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     incidentRow: { gap: rnSpacing['xs-loose'], paddingVertical: rnSpacing.sm },
-    incidentDesc: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
+    incidentDesc: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
     incidentTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     noticeBox: {
       flexDirection: 'row',
@@ -84,7 +84,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['sm-loose'],
       borderRadius: rnRadius.md,
     },
-    noticeText: { flex: 1, fontSize: 13, color: STATUS_PALETTE.degraded.fg },
+    noticeText: { flex: 1, fontSize: rnType.bodySm.size, color: STATUS_PALETTE.degraded.fg },
     errorBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing['2xl'] },
     errorText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     errorSub: { fontSize: rnType.label.size, color: tk.text.secondary },

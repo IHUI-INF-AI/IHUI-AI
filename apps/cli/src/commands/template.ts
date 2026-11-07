@@ -48,13 +48,27 @@ project/
 `;
 }
 
-export function agentsMdExists(workspacePath: string): boolean {
-  return fs.existsSync(path.join(workspacePath, 'AGENTS.md'));
+export function agentsMdExists(
+  workspacePath: string,
+  stat: (target: string) => unknown = fs.statSync,
+): boolean {
+  const agentsPath = path.join(workspacePath, 'AGENTS.md');
+  try {
+    stat(agentsPath);
+    return true;
+  } catch (error) {
+    const code =
+      error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+        ? (error as { code: string }).code
+        : undefined;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+    throw new Error(`AGENTS.md 读不到,不能用模板覆盖 (${code ?? 'unknown'})`);
+  }
 }
 
 export function writeAgentsMd(workspacePath: string): boolean {
   const agentsPath = path.join(workspacePath, 'AGENTS.md');
-  const existed = fs.existsSync(agentsPath);
+  const existed = agentsMdExists(workspacePath);
   const content = generateAgentsMdTemplate(path.basename(workspacePath));
   fs.writeFileSync(agentsPath, content, 'utf-8');
   return existed;

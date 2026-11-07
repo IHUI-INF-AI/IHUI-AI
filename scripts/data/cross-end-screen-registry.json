@@ -207,11 +207,6 @@
       "miniapp": "pkg-user/bookmark/index"
     },
     {
-      "shared": "packages/app/src/features/business-card/BusinessCardScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/BusinessCardScreen.tsx",
-      "miniapp": "pkg-ai/business-card/index"
-    },
-    {
       "shared": "packages/app/src/features/business-license/BusinessLicenseScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/BusinessLicenseScreen.tsx",
       "miniapp": "pkg-about/about/business-license/index"
@@ -282,6 +277,11 @@
       "miniapp": "pkg-ai/ai/chat"
     },
     {
+      "shared": "packages/app/src/features/chat/ConversationHistoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ConversationHistoryScreen.tsx",
+      "miniapp": "pkg-ai/ai/history"
+    },
+    {
       "shared": "packages/app/src/features/check-in/CheckInScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/CheckInScreen.tsx",
       "miniapp": "pkg-user/check-in/index"
@@ -330,6 +330,11 @@
       "shared": "packages/app/src/features/community/LettersScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/LettersScreen.tsx",
       "miniapp": "pkg-content/letters/index"
+    },
+    {
+      "shared": "packages/app/src/features/community/NewsCategoryScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/NewsCategoryScreen.tsx",
+      "miniapp": "pkg-mirror/news-category/index"
     },
     {
       "shared": "packages/app/src/features/community/SearchHistoryScreen.tsx",
@@ -427,11 +432,6 @@
       "miniapp": "pkg-mirror/customer-service/index"
     },
     {
-      "shared": "packages/app/src/features/dev-enter-cover/DevEnterCoverScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/DevEnterCoverScreen.tsx",
-      "miniapp": "pkg-ai/dev-enter/cover/index"
-    },
-    {
       "shared": "packages/app/src/features/developer/DeveloperScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/DeveloperScreen.tsx",
       "miniapp": "pkg-ai/dev-space/index"
@@ -490,6 +490,11 @@
       "shared": "packages/app/src/features/exam-question/ExamQuestionScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/ExamQuestionScreen.tsx",
       "miniapp": "pages/exam/answer"
+    },
+    {
+      "shared": "packages/app/src/features/exam-intro/ExamIntroScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ExamIntroScreen.tsx",
+      "miniapp": "pages/exam/detail"
     },
     {
       "shared": "packages/app/src/features/exam-result/ExamResultScreen.tsx",
@@ -867,11 +872,6 @@
       "miniapp": "pages/distribution/plan-list/index"
     },
     {
-      "shared": "packages/app/src/features/plaza-cover/PlazaCoverScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/PlazaCoverScreen.tsx",
-      "miniapp": "pkg-content/plaza/cover/index"
-    },
-    {
       "shared": "packages/app/src/features/plaza/PlazaScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/PlazaScreen.tsx",
       "miniapp": "pages/plaza/index/index"
@@ -1027,6 +1027,11 @@
       "miniapp": "pages/share/index"
     },
     {
+      "shared": "packages/app/src/features/share-landing/ShareLandingScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/ShareLandingScreen.tsx",
+      "miniapp": "pkg-content/share/creation"
+    },
+    {
       "shared": "packages/app/src/features/sign-up/SignUpScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/SignUpScreen.tsx",
       "miniapp": "pkg-user/sign-up/index"
@@ -1082,11 +1087,6 @@
       "miniapp": "pkg-mirror3/student-center/index"
     },
     {
-      "shared": "packages/app/src/features/study-index/StudyIndexScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/StudyIndexScreen.tsx",
-      "miniapp": "pages/study/index"
-    },
-    {
       "shared": "packages/app/src/features/study-plan/StudyPlanScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/StudyPlanScreen.tsx",
       "miniapp": "pages/study/plan"
@@ -1095,11 +1095,6 @@
       "shared": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/StudyProgressScreen.tsx",
       "miniapp": "pkg-mirror3/study-progress/index"
-    },
-    {
-      "shared": "packages/app/src/features/study-publish/StudyPublishScreen.tsx",
-      "rn": "apps/mobile-rn/src/screens/StudyPublishScreen.tsx",
-      "miniapp": "pages/study/publish/index"
     },
     {
       "shared": "packages/app/src/features/study-record/StudyRecordScreen.tsx",
@@ -1275,6 +1270,16 @@
       "shared": "packages/app/src/features/wrong-questions/WrongQuestionsScreen.tsx",
       "rn": "apps/mobile-rn/src/screens/WrongQuestionsScreen.tsx",
       "miniapp": "pages/exam/wrong-list/index"
+    },
+    {
+      "shared": "packages/app/src/features/developer/DeveloperScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/DeveloperScreen.tsx",
+      "miniapp": "pkg-ai/dev-enter/cover/index"
+    },
+    {
+      "shared": "packages/app/src/features/study-progress/StudyProgressScreen.tsx",
+      "rn": "apps/mobile-rn/src/screens/StudyProgressScreen.tsx",
+      "miniapp": "pages/study/index"
     }
   ]
 }

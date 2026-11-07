@@ -130,15 +130,20 @@ class CloudRunStore:
         if decision == _DECISION_BACKOFF:
             return  # 退避窗口内:本次调用不打 IO
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, list):
-                    fields = set(CloudRun.__dataclass_fields__)
-                    for item in raw:
-                        if not isinstance(item, dict) or not item.get("run_id"):
-                            continue
-                        clean = {k: v for k, v in item.items() if k in fields}
-                        self._runs[item["run_id"]] = CloudRun(**clean)
+            try:
+                self._file.stat()
+            except FileNotFoundError:
+                self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
+                return
+            raw = json.loads(self._file.read_text(encoding="utf-8"))
+            if not isinstance(raw, list):
+                raise ValueError("cloud runs file is not a list")
+            fields = set(CloudRun.__dataclass_fields__)
+            for item in raw:
+                if not isinstance(item, dict) or not item.get("run_id"):
+                    continue
+                clean = {k: v for k, v in item.items() if k in fields}
+                self._runs[item["run_id"]] = CloudRun(**clean)
             self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
         except Exception as e:
             self._load_failures, self._load_next_attempt_s = _state_after_failure(
@@ -148,6 +153,9 @@ class CloudRunStore:
 
     def _persist(self) -> None:
         """把内存全量记录写回 JSON 文件(尽力,失败降级内存保留)。"""
+        if not self._loaded:
+            logger.warning("cloud_run_store 读不到,不能把它覆盖成新记录")
+            return
         try:
             self._file.parent.mkdir(parents=True, exist_ok=True)
             data = [r.to_dict() for r in self._runs.values()]

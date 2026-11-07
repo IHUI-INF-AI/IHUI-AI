@@ -24,7 +24,7 @@ import {
   Radar,
 } from 'recharts'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduExamScoreTrend, eduExamScoreWeakness } from '@ihui/api-client'
 import {
   CHART_GREEN,
   CHART_AMBER,
@@ -95,22 +95,23 @@ export default function TrendPage() {
   /* ── Queries ── */
   const { data: trendData, isLoading: trendLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'trend', studentId, selectedSubject],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedSubject) params.set('subject', selectedSubject)
-      return apiOrThrow<{ list: TrendEntry[] }>(
-        `/api/edu-ai-management/exam-score/trend/${studentId}?${params}`,
-      )
+    queryFn: async () => {
+      const r = await eduExamScoreTrend<{ list: TrendEntry[] }>(studentId, {
+        subject: selectedSubject || undefined,
+      })
+      if (!r.success) throw new Error(r.error)
+      return r.data
     },
     enabled: !!studentId,
   })
 
   const { data: weaknessData, isLoading: weaknessLoading } = useQuery({
     queryKey: ['edu-ai-management', 'exam-score', 'weakness', studentId],
-    queryFn: () =>
-      apiOrThrow<{ weakness: WeaknessItem[] }>(
-        `/api/edu-ai-management/exam-score/weakness/${studentId}`,
-      ),
+    queryFn: async () => {
+      const r = await eduExamScoreWeakness<{ weakness: WeaknessItem[] }>(studentId)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     enabled: !!studentId,
   })
 

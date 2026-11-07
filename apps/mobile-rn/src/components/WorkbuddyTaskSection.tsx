@@ -433,7 +433,11 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
   chevronOpen: { transform: [{ rotate: '180deg' }] },
   body: { gap: rnSpacing.sm, paddingTop: rnSpacing['2xs'] },
-  muted: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 18 },
+  muted: {
+    fontSize: rnType.label.size,
+    color: tokens.text.secondary,
+    lineHeight: rnType.bodySm.lineHeight,
+  },
   mono: {
     fontSize: rnType.caption.size,
     color: tokens.text.secondary,
@@ -458,7 +462,7 @@ const styles = StyleSheet.create({
   sweepOn: { backgroundColor: tokens.success.light, borderColor: tokens.success.DEFAULT },
   sweepWarn: { backgroundColor: tokens.warning.light, borderColor: tokens.warning.DEFAULT },
   sweepIdle: { backgroundColor: tokens.surface.muted, borderColor: tokens.border.light },
-  sweepLine: { fontSize: rnType.caption.size, lineHeight: 16 },
+  sweepLine: { fontSize: rnType.caption.size, lineHeight: rnType.label.lineHeight },
   sweepLabel: { fontWeight: '600' },
   sweepOnText: { color: tokens.success.deepText },
   sweepWarnText: { color: tokens.warning.amberText },

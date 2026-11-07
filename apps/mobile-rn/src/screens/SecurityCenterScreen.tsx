@@ -26,6 +26,7 @@ import {
   disableTwoFactor,
   fetchApi,
   getAuthorizations,
+  getMfaRecoveryCodes,
   getSecurityScore,
   getTwoFactorStatus,
   revokeUserSession,
@@ -250,9 +251,7 @@ export default function SecurityCenterScreen() {
             void (async () => {
               setRecoveryBusy(true)
               try {
-                const res = await fetchApi<{ recoveryCodes: string[] }>('/api/mfa/recovery-codes', {
-                  method: 'POST',
-                })
+                const res = await getMfaRecoveryCodes()
                 if (!res.success) {
                   appAlert(
                     t('common.error'),
@@ -277,7 +276,7 @@ export default function SecurityCenterScreen() {
   }
 
   const onRevoke = (session: AuthorizationSession) => {
-    appAlert(t('securityCenter.sessions.revokeTitle'), t('securityCenter.sessions.revokeConfirm'), [
+    appAlert(t('settings.revokeAuth'), t('securityCenter.sessions.revokeConfirm'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('common.confirm'),
@@ -466,16 +465,16 @@ export default function SecurityCenterScreen() {
           {sessionsLoading ? (
             <ActivityIndicator style={styles.loading} color={tokens.text.tertiary} />
           ) : sessions.length === 0 ? (
-            <Text style={styles.muted}>{t('securityCenter.sessions.empty')}</Text>
+            <Text style={styles.muted}>{t('settings.noAuthorizations')}</Text>
           ) : (
             sessions.map((s, i) => (
               <View key={s.id} style={[styles.row, i === sessions.length - 1 && styles.rowLast]}>
                 <View style={styles.rowMain}>
                   <Text style={styles.rowPrimary}>
-                    {t('securityCenter.sessions.createdAt')} {fmt(s.createdAt, locale)}
+                    {t('settings.authorizedAt')} {fmt(s.createdAt, locale)}
                   </Text>
                   <Text style={styles.rowSecondary}>
-                    {t('securityCenter.sessions.expiresAt')} {fmt(s.expiresAt, locale)}
+                    {t('settings.sessionExpiresAt')} {fmt(s.expiresAt, locale)}
                   </Text>
                 </View>
                 <TouchableOpacity onPress={() => onRevoke(s)} activeOpacity={0.7}>
@@ -560,7 +559,7 @@ function makeStyles() {
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     loading: { paddingVertical: rnSpacing.lg },
-    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
     scoreRow: {
       flexDirection: 'row',
       alignItems: 'baseline',
@@ -621,7 +620,7 @@ function makeStyles() {
     },
     secret: {
       fontFamily: 'monospace',
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tokens.text.primary,
       paddingVertical: rnSpacing.xs,
     },
@@ -636,7 +635,7 @@ function makeStyles() {
     backupGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     backupCode: {
       fontFamily: 'monospace',
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tokens.text.primary,
       width: '45%',
     },
@@ -650,7 +649,7 @@ function makeStyles() {
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     rowPrimary: { fontSize: rnType.body.size, color: tokens.text.primary },
     rowSecondary: { fontSize: rnType.label.size, color: tokens.text.tertiary },
-    revoke: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    revoke: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     linkRow: {
       flexDirection: 'row',
       alignItems: 'center',

@@ -201,22 +201,30 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
   const inputRef = React.useRef<HTMLInputElement>(null)
   const [dragging, setDragging] = React.useState(false)
   const [items, setItems] = React.useState<FileItem[]>([])
-  const xhrRef = React.useRef<XMLHttpRequest | null>(null)
-  // 取消/逐项移除必须是**真**取消:原实现只清 UI 列表,上传循环照旧跑完,
-  // 末尾还把结果推给 onChange ⇒ 用户以为撤回了,文件却随提交发了出去。
-  const activeKeyRef = React.useRef<string | null>(null)
-  const cancelledRef = React.useRef(false)
-  const droppedKeysRef = React.useRef<Set<string>>(new Set())
+  // BUG-33②:取消/逐项移除必须是**真**取消 —— 原实现只清 UI 列表,上传循环照旧跑完,
+  // 末尾还把结果推给 onChange ⇒ 用户以为撤回了,文件却随提交发了出去。以下 ref 是
+  // 所有并发批次共享的单一真相源,取代原先的单槽 xhrRef / 全局 cancelledRef 布尔。
+  const committedRef = React.useRef<string[]>(value) // 本组件最后一次 onChange 推送的完整列表
+  const inFlightRef = React.useRef(0) // 已接受、尚未结束的上传数(用于名额上限)
+  const xhrByKeyRef = React.useRef<Map<string, XMLHttpRequest>>(new Map()) // 按 key 登记全部在途 XHR
+  const cancelEpochRef = React.useRef(0) // 取消意图按 epoch 记账,新批次不撤销别的批次的取消
+  const droppedKeysRef = React.useRef<Set<string>>(new Set()) // 逐项移除的 key 集合
 
-  const remaining = Math.max(0, maxCount - value.length)
+  // 外部 value 变化(父级确认推送 / 移除 URL)时,以它为新基准,避免组件内乐观值漂移。
+  React.useEffect(() => {
+    const committed = committedRef.current
+    const changed = committed.length !== value.length || committed.some((u, i) => u !== value[i])
+    if (changed) committedRef.current = value
+  }, [value])
 
   /** 上传单个文件(内部用 XHR 以支持 progress 事件) */
   const uploadOne = React.useCallback(
     (file: File, key: string): Promise<string> => {
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest()
-        xhrRef.current = xhr
-        activeKeyRef.current = key
+        // BUG-33②:按 key 登记到全量 Map —— 取消全部能 abort 所有批次,逐项移除也能
+        // 精确定位到单个请求,不再是"只 abort 最后一个"的单槽 xhrRef。
+        xhrByKeyRef.current.set(key, xhr)
         xhr.open('POST', endpoint, true)
 
         // 设置自定义头
@@ -271,6 +279,9 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       const incoming = Array.from(fileList)
       if (incoming.length === 0) return
 
+      // BUG-33②④:名额上限在**批次启动时实时**算,扣掉"已推送 + 仍在途"的项。
+      // 旧口径 maxCount - value.length 既不看上传中的项,又是渲染快照,并发批次会超上限。
+      const remaining = Math.max(0, maxCount - committedRef.current.length - inFlightRef.current)
       const slots = remaining > 0 ? remaining : 0
       const accepted = incoming.slice(0, slots)
       if (accepted.length === 0) {
@@ -303,19 +314,23 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
       }))
       setItems((prev) => [...prev, ...newItems])
 
+      // BUG-33②③:取消意图按 epoch 记账。本批只认自己的 epoch;新批次不再把
+      // 全局 cancelledRef 置 false(那会撤销别的批次已经作出的取消意图)。
+      const epochAtStart = cancelEpochRef.current
+      const isCancelled = () => cancelEpochRef.current !== epochAtStart
+      // 每个被接受的文件立即占一个在途名额
+      inFlightRef.current += valid.length
+
       // 逐个上传
       const newUrls: string[] = []
-      cancelledRef.current = false
-      droppedKeysRef.current.clear()
       for (let i = 0; i < valid.length; i++) {
-        if (cancelledRef.current) break
         const file = valid[i]!
         const item = newItems[i]!
-        if (droppedKeysRef.current.has(item.key)) continue
         try {
+          if (isCancelled() || droppedKeysRef.current.has(item.key)) continue
           const url = await uploadOne(file, item.key)
           // 成功回调可能落在用户取消/移除之后:此时不得再写入结果
-          if (cancelledRef.current || droppedKeysRef.current.has(item.key)) continue
+          if (isCancelled() || droppedKeysRef.current.has(item.key)) continue
           newUrls.push(url)
           setItems((prev) =>
             prev.map((it) =>
@@ -325,28 +340,30 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
         } catch (err) {
           // abort 走的是 onabort→reject 这条道:用户主动取消/移除不是"上传失败",
           // 报出去会让调用方弹一句莫名其妙的错误。
-          if (cancelledRef.current || droppedKeysRef.current.has(item.key)) continue
+          if (isCancelled() || droppedKeysRef.current.has(item.key)) continue
           const msg = err instanceof Error ? err.message : labels.uploadFailed
           setItems((prev) =>
             prev.map((it) => (it.key === item.key ? { ...it, status: 'error', error: msg } : it)),
           )
           onError?.(err instanceof Error ? err : new Error(msg))
         } finally {
-          if (activeKeyRef.current === item.key) activeKeyRef.current = null
+          // 无论成功/失败/取消,都释放这个文件的在途名额并摘掉 XHR 登记
+          inFlightRef.current = Math.max(0, inFlightRef.current - 1)
+          xhrByKeyRef.current.delete(item.key)
         }
       }
-      if (cancelledRef.current) return
+      if (isCancelled()) return
 
-      // 推送新增 URL(单选模式只保留最后一个,多选模式追加)
+      // BUG-33②①:推送基于"本组件最后一次 emit 的完整列表"累加,而不是 handleFiles
+      // 闭包里的 value 快照 —— 后完成的批次不会再覆盖前一批已推送的 URL。
       if (newUrls.length > 0) {
-        if (multiple) {
-          onChange?.([...value, ...newUrls])
-        } else {
-          onChange?.([newUrls[newUrls.length - 1]!])
-        }
+        const base = committedRef.current
+        const next = multiple ? [...base, ...newUrls] : [newUrls[newUrls.length - 1]!]
+        committedRef.current = next
+        onChange?.(next)
       }
     },
-    [labels, maxCount, maxSize, multiple, onChange, onError, remaining, uploadOne, value],
+    [labels, maxCount, maxSize, multiple, onChange, onError, uploadOne],
   )
 
   // 已上传 URL 列表(去重保序)
@@ -368,18 +385,22 @@ export const Upload = React.forwardRef<HTMLDivElement, UploadProps>(function Upl
     // 逐项移除必须同时中止该请求:原实现只把行从列表里删掉,文件继续上传,
     // 传完后又出现在"已上传"缩略图里(用户的删除被静默撤回)。
     droppedKeysRef.current.add(key)
-    if (activeKeyRef.current === key) {
-      xhrRef.current?.abort()
-      xhrRef.current = null
+    // BUG-33②:按 key 从全量 Map 精确 abort 该文件的请求,不动其他并发批次。
+    const xhr = xhrByKeyRef.current.get(key)
+    if (xhr) {
+      xhr.abort()
+      xhrByKeyRef.current.delete(key)
     }
     setItems((prev) => prev.filter((it) => it.key !== key))
   }, [])
 
   const handleCancelAll = React.useCallback(() => {
-    cancelledRef.current = true
-    xhrRef.current?.abort()
-    xhrRef.current = null
-    activeKeyRef.current = null
+    // BUG-33②③:推进 cancelEpoch 让**所有**在途批次都判定为已取消(单槽 xhrRef 时代
+    // 只能 abort 最后一个),再 abort 全量 Map 里的每一个 XHR。新批次用新 epoch,
+    // 既不会撤销这次取消,也仍能正常上传新选的文件。
+    cancelEpochRef.current += 1
+    for (const xhr of xhrByKeyRef.current.values()) xhr.abort()
+    xhrByKeyRef.current.clear()
     setItems([])
   }, [])
 

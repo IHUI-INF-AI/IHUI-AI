@@ -9,7 +9,8 @@
 - 记录结构:{ "<capability_id>": { "enabled": true, "updated_at": "ISO" } }
 - 平台自研能力默认全部 enabled(它们是平台内置特性);
   停用 = 从"对外暴露的 MCP 能力集"中移除(供给侧收口)
-- 读写失败降级:读失败返回空 dict,写失败返回 None,不抛异常不崩服务
+- 文件不存在或内容损坏仍按空名单;权限等读不到要抛,写入侧不覆盖
+- 写失败返回 None,不抛异常不崩服务
 """
 
 from __future__ import annotations
@@ -25,21 +26,40 @@ _STORE_PATH = Path(__file__).resolve().parents[2] / "data" / "capability_market.
 _LOCK = threading.Lock()
 
 
+class CapabilityMarketUnread(OSError):
+    """名单读不到。调用方不得把它当成空名单再写回去。"""
+
+
 def now_iso() -> str:
     """当前 UTC 时间的 ISO 8601 字符串(持久化时间戳用)。"""
     return datetime.now(UTC).isoformat()
 
 
-def _load() -> dict[str, dict[str, Any]]:
-    """读取全部启用记录;文件缺失 / 损坏 / 非对象时返回空 dict(异常降级)。"""
+def _load(*, for_update: bool = False) -> dict[str, dict[str, Any]]:
+    """读取全部启用记录。文件缺失或空文件是空 dict。非空损坏在写入前抛。"""
     try:
-        if not _STORE_PATH.exists():
-            return {}
-        raw = _STORE_PATH.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        return data if isinstance(data, dict) else {}
-    except Exception:  # noqa: BLE001 - 读失败返回空 dict,不崩服务
+        _STORE_PATH.stat()
+    except FileNotFoundError:
         return {}
+    except OSError as exc:
+        raise CapabilityMarketUnread(f"能力市场名单读不到,不能把它覆盖成新名单: {exc}") from exc
+    try:
+        raw = _STORE_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise CapabilityMarketUnread(f"能力市场名单读不到,不能把它覆盖成新名单: {exc}") from exc
+    if raw.strip() == "":
+        return {}
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        if for_update:
+            raise CapabilityMarketUnread("能力市场名单读不到,不能把它覆盖成新名单 (corrupt)") from exc
+        return {}
+    if not isinstance(data, dict):
+        if for_update:
+            raise CapabilityMarketUnread("能力市场名单读不到,不能把它覆盖成新名单 (corrupt)")
+        return {}
+    return data
 
 
 def _write(records: dict[str, dict[str, Any]]) -> bool:
@@ -78,7 +98,10 @@ def set_enabled(cap_id: str, enabled: bool) -> dict[str, Any] | None:
         写失败返回 None。
     """
     with _LOCK:
-        records = _load()
+        try:
+            records = _load(for_update=True)
+        except CapabilityMarketUnread:
+            return None
         rec = records.get(cap_id, {})
         rec["enabled"] = bool(enabled)
         rec["updated_at"] = now_iso()

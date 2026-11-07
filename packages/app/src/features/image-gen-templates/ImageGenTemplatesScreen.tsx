@@ -292,7 +292,7 @@ function createStyles(tk: AppThemeTokens) {
     body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
     column: { gap: rnSpacing['sm-loose'] },
     listHeader: { gap: rnSpacing['sm-loose'], paddingBottom: rnSpacing['2xs'] },
-    subtitle: { fontSize: 13, color: tk.text.secondary },
+    subtitle: { fontSize: rnType.bodySm.size, color: tk.text.secondary },
     chips: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.sm },
     chip: {
       paddingHorizontal: rnSpacing.md,
@@ -312,7 +312,7 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.card,
       gap: rnSpacing.sm,
     },
-    errorText: { fontSize: 13, color: tk.danger.DEFAULT },
+    errorText: { fontSize: rnType.bodySm.size, color: tk.danger.DEFAULT },
     retryBtn: {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing['md-loose'],
@@ -321,7 +321,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.medium,
     },
-    retryText: { fontSize: 13, color: tk.text.primary },
+    retryText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     card: {
       flex: 1,
       padding: rnSpacing.lg,
@@ -333,10 +333,14 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    cardDesc: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.secondary },
+    cardDesc: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.secondary,
+    },
     cardPrompt: {
       fontSize: rnType.label.size,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
       fontFamily: 'monospace',
       color: tk.text.secondary,
       paddingHorizontal: rnSpacing.sm,
@@ -370,7 +374,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     sheetHead: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing.sm },
     sheetTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    sheetDesc: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.secondary },
+    sheetDesc: {
+      fontSize: rnType.label.size,
+      lineHeight: rnType.bodySm.lineHeight,
+      color: tk.text.secondary,
+    },
     sheetLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
     sheetContentBox: {
       padding: rnSpacing['sm-loose'],
@@ -378,7 +386,11 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.bg,
       maxHeight: 260,
     },
-    sheetContent: { fontSize: 13, lineHeight: 20, color: tk.text.primary },
+    sheetContent: {
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.body.lineHeight,
+      color: tk.text.primary,
+    },
     notice: { fontSize: rnType.label.size, color: tk.text.secondary },
     button: {
       height: 44,

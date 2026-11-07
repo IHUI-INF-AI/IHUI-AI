@@ -14,6 +14,7 @@ import json
 import os
 import sys
 import textwrap
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -27,6 +28,7 @@ from app.services.self_healing_llm import (
     apply_patch_descriptor,
     llm_gen_fn,
     llm_patch_and_apply,
+    list_workspace_files,
     llm_patch_fn,
     read_failure_sources,
 )
@@ -153,6 +155,27 @@ def test_apply_patch_diff_no_hunks(tmp_path: Any) -> None:
     assert not ok
     assert "no hunks" in info
     assert target.read_text(encoding="utf-8") == "l1\n"
+
+
+def test_apply_patch_diff_unreadable_is_not_missing(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """目标在但读不到时,不能说成不存在,也不能落盘。"""
+    target = tmp_path / "keep.py"
+    target.write_text("keep\n", encoding="utf-8")
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", deny)
+    ok, info = apply_patch_descriptor(
+        {"file_path": str(target), "diff": _udiff("keep\n", "gone\n")},
+        validator=lambda p: (True, p),
+    )
+    assert not ok
+    assert "unreadable" in info
+    assert target.read_text(encoding="utf-8") == "keep\n"
 
 
 def test_apply_patch_diff_target_missing(tmp_path: Any) -> None:
@@ -289,6 +312,34 @@ def test_runner_timeout_graceful(tmp_path: Any) -> None:
     assert result["failures"][0]["exception_type"] == "TimeoutError"
 
 
+def test_unreadable_junit_is_not_treated_as_missing(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    """stdout 写着 passed 也不能把读不到的 junit 说成没有失败。"""
+    from app.services.self_healing_llm import PytestSubprocessRunner as R
+
+    junit = tmp_path / "kept.xml"
+    junit.write_text("<testsuite><testcase name='kept'><failure message='stay'/></testcase></testsuite>", encoding="utf-8")
+    original = junit.read_bytes()
+
+    def deny(path: object) -> None:
+        raise PermissionError(13, "denied", str(path))
+
+    monkeypatch.setattr("app.services.self_healing_llm.os.stat", deny)
+
+    class Proc:
+        stdout = "1 passed"
+        returncode = 0
+
+    monkeypatch.setattr(
+        "app.services.self_healing_llm.subprocess.run",
+        lambda *args, **kwargs: Proc(),
+    )
+    out = R("unused.py", junit_dir=str(tmp_path)).run()
+    assert out["passed"] == []
+    assert out["failures"][0]["exception_type"] == "JunitUnread"
+    assert "读不到" in out["failures"][0]["message"]
+    assert junit.read_bytes() == original
+
+
 def test_parse_junit_attribute_only_failure(tmp_path: Any) -> None:
     """junit <failure message=".."/>(无子节点)必须归因为失败,不得误判通过。"""
     from app.services.self_healing_llm import PytestSubprocessRunner as R
@@ -406,6 +457,25 @@ def test_read_failure_sources_rejects_traversal(tmp_path: Any) -> None:
     assert out == ""
 
 
+def test_read_failure_sources_unreadable_is_not_empty(tmp_path: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = tmp_path / "test_keep.py"
+    target.write_text("def test_keep():\n    assert True\n", encoding="utf-8")
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", deny)
+    out = read_failure_sources(
+        {"test_id": "test_keep.py::test_keep"},
+        {"workspace_root": str(tmp_path)},
+    )
+    assert "读不到" in out
+    assert target.read_text(encoding="utf-8") == "def test_keep():\n    assert True\n"
+
+
 def test_read_failure_sources_no_file_returns_empty(tmp_path: Any) -> None:
     """test_id 解析不出文件 -> 优雅返回空串(不抛错)。"""
     assert (
@@ -469,6 +539,45 @@ def test_llm_patch_fn_uses_injected_source(tmp_path: Any) -> None:
     ctx = {"workspace_root": str(tmp_path), "failing_test_source": "MARKER_ASSERT_SRC"}
     llm_patch_fn({"test_id": "t"}, ctx, llm=gw)
     assert "MARKER_ASSERT_SRC" in gw.calls[0][1]["content"]
+
+
+def test_unreadable_directory_is_not_a_complete_file_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """子目录列不出来时,名单不能自称完整,也不能把工作区说成没有源文件。"""
+    keep = tmp_path / "keep.py"
+    keep.write_text("print(1)\n", encoding="utf-8")
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "hidden.py"
+    hidden.write_text("secret = 1\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    listed = list_workspace_files(str(tmp_path))
+    assert listed["unread_dirs"] >= 1
+    assert listed["capped"] is False
+    assert str(keep) in listed["files"]
+    assert str(hidden) not in listed["files"]
+    assert hidden.read_text(encoding="utf-8") == "secret = 1\n"
+    missing = list_workspace_files(str(tmp_path / "no-such-dir"))
+    assert missing == {"files": [], "unread_dirs": 0, "capped": False}
+
+    gw = FakeGateway(json.dumps({"file_path": str(keep), "new_content": "print(1)\n"}))
+    out = llm_patch_fn(
+        {"test_id": "t"},
+        {"workspace_root": str(tmp_path), "workspace_files": listed},
+        llm=gw,
+    )
+    assert out is not None
+    user = gw.calls[0][1]["content"]
+    assert "This list is not complete" in user
+    assert "MUST be exactly one of these paths" not in user
 
 
 def test_llm_patch_fn_no_source_still_works(tmp_path: Any) -> None:

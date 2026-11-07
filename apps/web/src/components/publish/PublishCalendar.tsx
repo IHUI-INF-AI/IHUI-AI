@@ -246,7 +246,7 @@ export function PublishCalendar({ tasks, onReschedule, onCreateTask }: PublishCa
                 {selectedTasks.map((task) => (
                   <div
                     key={task.id}
-                    className="flex items-center gap-2 rounded-lg bg-card px-2 py-1 text-xs"
+                    className="font-[weight:inherit] flex items-center gap-2 rounded-lg bg-card px-2 py-1 text-label"
                   >
                     <Badge
                       variant="secondary"

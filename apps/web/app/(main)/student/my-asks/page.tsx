@@ -19,7 +19,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { deleteAsk, getMyAsks } from '@ihui/api-client'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 import { formatDateOnly } from '@/lib/date-utils'
 import { AuthGatePrompt, BackButton } from '@/components/common'
@@ -61,12 +61,20 @@ export default function MyAsksPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['student', 'my-asks', page],
-    queryFn: () => apiOrThrow<AsksData>(`/api/asks/mine?page=${page}&pageSize=${PAGE_SIZE}`),
+    queryFn: async (): Promise<AsksData> => {
+      const r = await getMyAsks({ page, pageSize: PAGE_SIZE })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as AsksData
+    },
     enabled: allow,
   })
 
   const delMut = useMutation({
-    mutationFn: (id: string) => apiOrThrow(`/api/asks/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id: string) => {
+      const r = await deleteAsk(id)
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'my-asks'] }),
   })
 

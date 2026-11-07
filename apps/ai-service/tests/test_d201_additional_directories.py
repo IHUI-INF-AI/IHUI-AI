@@ -44,6 +44,24 @@ def test_admission_rejects_relative_path(tmp_path):
     assert not ok and "绝对路径" in err
 
 
+def test_admission_unreadable_directory_is_not_missing(tmp_path, monkeypatch):
+    target = tmp_path / "docs"
+    target.mkdir()
+    real_stat = os.stat
+
+    def deny(path, *args, **kwargs):
+        if os.path.normcase(os.path.abspath(path)) == os.path.normcase(str(target)):
+            raise PermissionError(13, "denied", str(path))
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(os, "stat", deny)
+    ok, err = _validate_extra_directory(str(target), allowed_roots=[str(tmp_path)])
+    assert not ok
+    assert err.startswith("附加目录读不到")
+    monkeypatch.undo()
+    assert target.is_dir()
+
+
 def test_admission_rejects_missing_and_file(tmp_path):
     ok, err = _validate_extra_directory(str(tmp_path / "nope"))
     assert not ok and "不存在" in err
@@ -100,6 +118,30 @@ def test_read_overlay_allows_and_expires(tmp_path):
     clear_session_extra_roots("sess-read")
     ok, _ = _validate_path_in_workspace(str(f), extra_roots=get_session_extra_roots("sess-read"))
     assert not ok
+
+
+def test_unreadable_relative_path_does_not_switch_root(tmp_path, monkeypatch):
+    blocked = tmp_path / "blocked"
+    other = tmp_path / "other"
+    blocked.mkdir()
+    other.mkdir()
+    (blocked / "keep.txt").write_text("keep\n", encoding="utf-8")
+    (other / "keep.txt").write_text("other\n", encoding="utf-8")
+    from pathlib import Path
+
+    real_stat = Path.stat
+
+    def fake_stat(self, *args, **kwargs):
+        if os.path.abspath(self) == os.path.abspath(blocked / "keep.txt"):
+            raise PermissionError(13, "denied", str(self))
+        return real_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    ok, info = _validate_path_in_workspace("keep.txt", extra_roots=(str(blocked), str(other)))
+    assert ok is False
+    assert info.startswith("路径读不到")
+    assert (other / "keep.txt").read_text(encoding="utf-8") == "other\n"
+    assert (blocked / "keep.txt").read_text(encoding="utf-8") == "keep\n"
 
 
 def test_write_overlay_enforces_sensitive_blacklist(tmp_path):

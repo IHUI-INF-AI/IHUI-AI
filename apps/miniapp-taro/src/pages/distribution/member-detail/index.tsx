@@ -2,52 +2,56 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 镜像 packages/app/src/features/team/TeamScreen.tsx(团队**成员列表**共享屏)
+
 import { useTt, useI18n } from '@/i18n'
-import { View, Text, Image } from '@tarojs/components'
-import Taro, { useDidShow, useReachBottom, usePullDownRefresh } from '@tarojs/taro'
+import Taro, { useDidShow, usePullDownRefresh } from '@tarojs/taro'
 import { useState, useRef } from 'react'
 import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { logger } from '@/utils/logger'
 import ThemeRoot from '@/components/ThemeRoot'
-
-interface MemberItem {
-  id: string
-  nickname: string
-  avatar?: string
-  level: number
-  joinTime: string
-  contribution: number
-}
-
-interface Stats {
-  teamCount: number
-  monthNew: number
-  totalCommission: number
-}
+import { useTheme } from '@/rn-compat/theme'
+import {
+  TeamScreen as SharedTeamScreen,
+  type TeamMember,
+  type TeamStats,
+} from '@ihui/rn-app/features/team/TeamScreen'
 
 const PAGE_SIZE = 20
 
+/**
+ * 手工迁移(批 4):原 242 行自绘列表 → 直载 team/TeamScreen 共享屏。
+ * 缺的只是「紧凑 3 列统计卡 / 分区标题 / 分页尾」三件 → 共享屏以显式 props 承担
+ * (statsLayout="compact" + compactStatsLabels + listTitle + footer 文案 + onEndReached)。
+ * 数据腿与本端旧行为逐字同:GET /api/distribution/overview(3 个真实字段) +
+ * GET /api/distribution/team 分页(pageSize 20);成员缺口字段(status/relation)不注入,
+ * 共享屏按缺字段不渲染徽标。
+ */
 export default function MemberDetail() {
   const { t } = useI18n()
   const tt = useTt()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
-  const [list, setList] = useState<MemberItem[]>([])
-  const [stats, setStats] = useState<Stats>({ teamCount: 0, monthNew: 0, totalCommission: 0 })
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(false)
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [stats, setStats] = useState<TeamStats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
   const [hasMore, setHasMore] = useState(true)
   const pageRef = useRef(1)
   const hasMoreRef = useRef(true)
   const loadingRef = useRef(false)
+  const firstLoadRef = useRef(true)
 
   const loadStats = async () => {
     try {
       const info = (await api.getDistributionInfo()) as unknown as Record<string, unknown>
       setStats({
-        teamCount: (info.teamCount as number) ?? 0,
+        totalMembers: (info.teamCount as number) ?? 0,
         monthNew: (info.monthNew as number) ?? 0,
-        totalCommission: (info.totalCommission as number) ?? 0,
+        totalContribution: (info.totalCommission as number) ?? 0,
       })
     } catch (e) {
       logger.error('unknown', '加载团队统计', e)
@@ -60,12 +64,13 @@ export default function MemberDetail() {
       pageRef.current = 1
       hasMoreRef.current = true
       setHasMore(true)
-      setList([])
-      setError(false)
+      setMembers([])
+      setError('')
     }
     if (!hasMoreRef.current) return
     loadingRef.current = true
-    setLoading(true)
+    if (reset && firstLoadRef.current) setLoading(true)
+    else if (!reset) setLoadingMore(true)
     try {
       const res = (await api.getDistributionTeam({
         page: pageRef.current,
@@ -74,34 +79,42 @@ export default function MemberDetail() {
         list: Array<Record<string, unknown>>
         total: number
       }
-      const items: MemberItem[] = (res.list || []).map((u) => ({
+      const items: TeamMember[] = (res.list || []).map((u) => ({
         id: String(u.id ?? ''),
         nickname:
           (u.nickname as string) ||
           (u.username as string) ||
           tt('distribution.memberDetail.member', '成员'),
-        avatar: (u.avatar as string) ?? undefined,
+        avatar: (u.avatar as string) ?? null,
         level: (u.level as number) ?? 1,
-        joinTime: (u.createdAt as string) || (u.joinTime as string) || '',
+        joinDate: (u.createdAt as string) || (u.joinTime as string) || '',
         contribution: (u.contribution as number) ?? (u.commission as number) ?? 0,
       }))
-      setList((prev) => (reset ? items : [...prev, ...items]))
+      setMembers((prev) => (reset ? items : [...prev, ...items]))
       const more = pageRef.current * PAGE_SIZE < (res.total ?? 0)
       hasMoreRef.current = more
       setHasMore(more)
       pageRef.current++
     } catch (e) {
       logger.error('unknown', '加载团队成员', e)
-      setError(true)
+      setError(tt('distribution.memberDetail.error', '加载失败'))
     } finally {
       loadingRef.current = false
       setLoading(false)
+      setLoadingMore(false)
+      setRefreshing(false)
+      firstLoadRef.current = false
     }
   }
 
-  // G-933 冷启动抢跑门控:首屏两发 GET /api/distribution/overview 与
-  // GET /api/distribution/invited-users 全在 distributionRoutes 统一 preHandler 之下
-  // (`apps/api/src/routes/distribution.ts:24` addHook authenticate)⇒ 需鉴权,整块挡到门后。
+  const reload = () => {
+    setRefreshing(true)
+    void loadStats()
+    void load(true)
+  }
+
+  // G-933 冷启动抢跑门控:GET /api/distribution/overview 与 /distribution/team
+  // 都在 distributionRoutes 统一 preHandler 之下(apps/api/src/routes/distribution.ts:24)⇒ 需鉴权。
   useDidShow(() => {
     gate.waitUntilReady(() => {
       void loadStats()
@@ -109,134 +122,44 @@ export default function MemberDetail() {
     })
   })
 
-  useReachBottom(() => {
-    load()
-  })
-
   usePullDownRefresh(() => {
-    Promise.all([loadStats(), load(true)]).finally(() => Taro.stopPullDownRefresh())
+    Promise.all([loadStats(), load(true)]).finally(() => {
+      setRefreshing(false)
+      Taro.stopPullDownRefresh()
+    })
   })
 
-  /* 对齐 RN TeamDetailScreen(packages/app 共享屏):scrollContent padding 14dp→28rpx + gap 12dp→24rpx,
-     统计行 18dp→36rpx 品牌色数值 + 14dp→28rpx 标签;列表项复用 memberCard 语言(24rpx 圆角 + 28rpx padding)。
-     RN memberCard 用 surface.light(恒白),暗色下不可读,按语义 token 修正为 bg-card */
   return (
-    <ThemeRoot className="min-h-screen bg-background pb-[64rpx]">
-      <View className="p-[28rpx] flex flex-col gap-[24rpx]">
-        {/* 对齐 RN TeamDetailScreen statsRow:card 底 + 24rpx 圆角 + 品牌色数值 */}
-        <View className="flex flex-row rounded-lg bg-card p-[28rpx] gap-[16rpx]">
-          <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-subtitle font-semibold text-[var(--color-primary)]">
-              {stats.teamCount}
-            </Text>
-            <Text className="text-body text-muted-foreground">
-              {tt('distribution.memberDetail.teamCount', '团队人数')}
-            </Text>
-          </View>
-          <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-subtitle font-semibold text-[var(--color-primary)]">
-              {stats.monthNew}
-            </Text>
-            <Text className="text-body text-muted-foreground">
-              {tt('distribution.memberDetail.monthNew', '本月新增')}
-            </Text>
-          </View>
-          <View className="flex-1 flex flex-col items-center gap-[8rpx]">
-            <Text className="text-subtitle font-semibold text-[var(--color-primary)]">
-              ¥{stats.totalCommission}
-            </Text>
-            <Text className="text-body text-muted-foreground">
-              {tt('distribution.memberDetail.totalCommission', '总佣金')}
-            </Text>
-          </View>
-        </View>
-
-        <View className="flex flex-col gap-[24rpx]">
-          <Text className="text-body text-muted-foreground">
-            {tt('distribution.memberDetail.memberList', '成员列表')}
-          </Text>
-
-          {list.length > 0 && (
-            <View className="flex flex-col gap-[16rpx]">
-              {list.map((m) => (
-                <View
-                  key={m.id}
-                  className="flex flex-row items-center rounded-lg bg-card p-[28rpx] gap-[24rpx]"
-                >
-                  {m.avatar ? (
-                    <Image
-                      className="w-[96rpx] h-[96rpx] rounded-2xl flex-shrink-0"
-                      src={m.avatar}
-                      mode="aspectFill"
-                    />
-                  ) : (
-                    <View className="w-[96rpx] h-[96rpx] rounded-2xl bg-primary items-center justify-center flex-shrink-0">
-                      <Text className="text-[length:44rpx] font-semibold text-[var(--color-primary-foreground)]">
-                        {m.nickname.charAt(0) || '?'}
-                      </Text>
-                    </View>
-                  )}
-                  <View className="flex-1 min-w-0 flex flex-col gap-[8rpx]">
-                    <View className="flex flex-row items-center gap-[12rpx]">
-                      <Text className="flex-1 text-title font-semibold text-foreground truncate">
-                        {m.nickname}
-                      </Text>
-                      <Text className="flex-shrink-0 px-[12rpx] py-[2rpx] rounded-lg bg-[var(--color-muted)] text-badge text-muted-foreground">
-                        V{m.level}
-                      </Text>
-                    </View>
-                    <View className="flex flex-row items-center justify-between gap-[16rpx]">
-                      <Text className="flex-1 text-caption text-[var(--color-text-tertiary)] truncate">
-                        {tt('distribution.memberDetail.joinTime', '加入')}:{m.joinTime || '-'}
-                      </Text>
-                      <Text className="flex-shrink-0 text-body font-semibold text-[var(--color-success)]">
-                        {tt('distribution.memberDetail.contribution', '贡献')} ¥{m.contribution}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {list.length === 0 && !loading && !error && (
-            <View className="py-[48rpx] text-center">
-              <Text className="text-body text-muted-foreground">
-                {t('distribution.memberDetail.empty')}
-              </Text>
-            </View>
-          )}
-
-          {error && !loading && (
-            <View className="flex flex-col items-center py-[48rpx] gap-[24rpx]">
-              <Text className="text-body text-muted-foreground text-center">
-                {tt('distribution.memberDetail.error', '加载失败')}
-              </Text>
-              <View
-                className="px-[40rpx] h-[72rpx] rounded-lg bg-primary flex items-center justify-center"
-                onClick={() => load(true)}
-                hoverClass="opacity-60"
-              >
-                <Text className="text-body font-medium text-[var(--color-primary-foreground)]">
-                  {tt('distribution.memberDetail.retry', '点击重试')}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {loading && (
-            <Text className="block text-center text-body text-[var(--color-text-tertiary)] py-[48rpx]">
-              {t('distribution.memberDetail.loading')}
-            </Text>
-          )}
-
-          {!loading && !hasMore && list.length > 0 && (
-            <Text className="block text-center text-body text-[var(--color-text-tertiary)] py-[48rpx]">
-              {tt('distribution.memberDetail.noMore', '没有更多了')}
-            </Text>
-          )}
-        </View>
-      </View>
+    <ThemeRoot className="min-h-screen bg-background">
+      <SharedTeamScreen
+        t={t}
+        stats={stats}
+        members={members}
+        activeTab="all"
+        loading={loading}
+        refreshing={refreshing}
+        error={error}
+        onSelectTab={() => {}}
+        onRefresh={reload}
+        onBack={() => void Taro.navigateBack()}
+        onRetry={reload}
+        colorScheme={resolvedTheme}
+        statsLayout="compact"
+        compactStatsLabels={{
+          totalMembers: tt('distribution.memberDetail.teamCount', '团队人数'),
+          monthNew: tt('distribution.memberDetail.monthNew', '本月新增'),
+          totalContribution: tt('distribution.memberDetail.totalCommission', '总佣金'),
+        }}
+        showHeader={false}
+        showTabs={false}
+        listTitle={tt('distribution.memberDetail.memberList', '成员列表')}
+        onEndReached={() => void load()}
+        loadingMore={loadingMore}
+        hasMore={hasMore}
+        footerLoadingText={tt('distribution.memberDetail.loading', '加载中…')}
+        footerNoMoreText={tt('distribution.memberDetail.noMore', '没有更多了')}
+        emptyText={tt('distribution.memberDetail.empty', '暂无成员')}
+      />
     </ThemeRoot>
   )
 }

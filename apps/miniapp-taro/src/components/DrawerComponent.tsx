@@ -24,7 +24,7 @@ import { getTopBarMetrics } from '@/utils/system-info'
  * 两种模式:
  * - 默认(side='bottom'):底部弹层(原实现,兼容 MaterialPopup / SkillsPopup / ranking 等)
  * - side='left'(首页专用):左侧抽屉,对齐原项目 DrawerComponentall.vue:
- *   - 宽 `taroGeometry.drawerWidth`(单源 250px ⇒ 500rpx),右圆角取 2xl 档
+ *   - 宽 `taroGeometry.drawerWidth`(单源 160px ⇒ 320rpx,与 web 常驻侧栏 SIDEBAR_WIDTH 同值),右圆角取 2xl 档
  *   - 头部 logo + 关闭按钮(矢量)
  *   - 5 个菜单项横排(应用商店/需求广场/灵感/动态/课程)
  *   - 3 个标签(我的一人公司/领取免费资料/创建新对话)
@@ -183,7 +183,8 @@ export default function DrawerComponent(props: DrawerComponentProps) {
       <View className="fixed inset-0 z-[1005]" onClick={handleMaskClick}>
         {/* 遮罩:var(--color-black-40) */}
         <View className="absolute inset-0" style={{ background: 'var(--color-black-40)' }} />
-        {/* 抽屉主体:宽 500rpx + 圆角 0 30rpx 30rpx 0 + 高 100vh */}
+        {/* 抽屉主体:宽取几何档 taroGeometry.drawerWidth(160px ⇒ 320rpx,与 web/RN 同值)
+            + 圆角 0 12 12 0 + 高 100vh */}
         <View
           className={cn(
             'ai-drawer-border absolute top-0 bottom-0 left-0 flex flex-col',
@@ -262,9 +263,10 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                   fontSize: rpx(taroGeometry.textBody),
                   lineHeight: rpx(56),
                   color: 'var(--color-foreground)',
-                  // 本组件 5 处复合 padding 保持字面量:父级几何由跨端门 128 静态比对,
-                  // 改成 rpx(taroSpacing.*) 模板表达式后门解不出值、差异 12→13 判红(2026-11-03)。
-                  padding: '4rpx 28rpx',
+                  // 本组件 5 处复合 padding:可落部分用 var(--spacing-*) 形态(门 128 认 var 档,
+                  // 2026-11-05 实测未登记 0);23rpx/28rpx/13rpx 无同值档保留字面量。
+                  // 不用 rpx(taroSpacing.*) 模板表达式——门解不出值、差异 12→13 判红(2026-11-03)。
+                  padding: 'var(--spacing-2xs) 28rpx',
                 }}
                 onClick={() => {
                   if (item.key === 'newChat') {
@@ -288,7 +290,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           </View>
 
           {/* 历史对话标题 */}
-          <View style={{ padding: '20rpx 23rpx 10rpx' }}>
+          <View style={{ padding: 'var(--spacing-sm-loose) 23rpx var(--spacing-xs-loose)' }}>
             <Text
               className="font-bold"
               style={{
@@ -303,7 +305,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
           {/* 历史对话列表:scroll-y,按模型 + 日期分组 */}
           <ScrollView scrollY className="flex-1">
             {groupedData.length === 0 ? (
-              <View style={{ padding: '40rpx 23rpx' }} className="text-center">
+              <View style={{ padding: 'var(--spacing-xl) 23rpx' }} className="text-center">
                 <Text
                   style={{
                     fontSize: rpx(taroGeometry.textLabel),
@@ -367,7 +369,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
                               'flex items-center justify-between',
                               isActive && 'ai-menu-item-active',
                             )}
-                            style={{ padding: '20rpx 23rpx' }}
+                            style={{ padding: 'var(--spacing-sm-loose) 23rpx' }}
                             onClick={() => onChatItemClick?.(chat)}
                             hoverClass="opacity-60"
                           >
@@ -412,7 +414,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
             <View
               className="flex items-center justify-between"
               style={{
-                padding: '12rpx 13rpx',
+                padding: 'var(--spacing-xs-loose) 13rpx',
                 background: 'var(--color-card)',
               }}
             >
@@ -465,7 +467,7 @@ export default function DrawerComponent(props: DrawerComponentProps) {
         onClick={handleStop}
         hoverClass="opacity-60"
       >
-        <View className="flex justify-center pt-2 pb-1">
+        <View className="flex justify-center pt-sm pb-xs">
           <View className="w-9 h-1 rounded-lg bg-muted" />
         </View>
         {children}

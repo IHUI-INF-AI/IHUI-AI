@@ -479,8 +479,8 @@ const styles = StyleSheet.create({
     width: '100%',
   } as ViewStyle,
   benefitText: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: rnType.bodySm.size,
+    lineHeight: rnType.body.lineHeight,
     color: tokens.text.secondary,
   } as TextStyle,
   benefitTextHighlight: {
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
   paymentName: {
     flex: 1,
     marginLeft: rnSpacing['sm-loose'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.primary,
   } as TextStyle,
   radio: {
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   agreementText: {
     fontSize: rnType.caption.size,
-    lineHeight: 16,
+    lineHeight: rnType.label.lineHeight,
     color: tokens.text.tertiary,
   } as TextStyle,
   buttonRow: {

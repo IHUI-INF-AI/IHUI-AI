@@ -192,7 +192,9 @@
     "toolStatusSuccess": "성공",
     "toolStatusError": "실패",
     "toolDetail": "호출 상세",
-    "terminal": "터미널",
+    "terminal": {
+      "title": "터미널"
+    },
     "terminalStatusRunning": "실행 중",
     "terminalStatusCompleted": "완료",
     "terminalStatusFailed": "실패",

@@ -270,14 +270,19 @@ class CostLedger:
         if decision == _DECISION_BACKOFF:
             return  # 退避窗口内:本次调用不打 IO
         try:
-            if self._file.exists():
-                raw = json.loads(self._file.read_text(encoding="utf-8"))
-                if isinstance(raw, dict):
-                    self._data = {
-                        rid: dict(entry)
-                        for rid, entry in raw.items()
-                        if isinstance(entry, dict) and rid
-                    }
+            try:
+                self._file.stat()
+            except FileNotFoundError:
+                self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
+                return
+            raw = json.loads(self._file.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                raise ValueError("cost ledger is not an object")
+            self._data = {
+                rid: dict(entry)
+                for rid, entry in raw.items()
+                if isinstance(entry, dict) and rid
+            }
             self._loaded, self._load_failures, self._load_next_attempt_s = _state_after_success()
         except Exception as e:
             self._load_failures, self._load_next_attempt_s = _state_after_failure(
@@ -286,7 +291,10 @@ class CostLedger:
             logger.warning("cost_ledger 读取失败(降级为空)(本次降级为空,退避后自动重试;连续失败到上限停自动重试): %s", e)
 
     def _persist(self) -> None:
-        """把内存全量条目写回 JSON 文件(尽力,失败降级内存保留)。"""
+        """把内存全量条目写回 JSON 文件(尽力,失败降级内存保留)。没读成时不覆盖原文件。"""
+        if not self._loaded:
+            logger.warning("cost_ledger 没读成,不能覆盖原文件")
+            return
         try:
             self._file.parent.mkdir(parents=True, exist_ok=True)
             self._file.write_text(

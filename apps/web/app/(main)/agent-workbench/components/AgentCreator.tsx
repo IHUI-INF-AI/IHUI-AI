@@ -27,6 +27,7 @@ import {
 } from '@ihui/ui-react'
 import { FALLBACK_MODELS } from '@/components/chat/fallback-models'
 import { fetchApi } from '@/lib/api'
+import { listLlmModels } from '@ihui/api-client'
 import {
   isArchivedModel,
   normalizeCategory,
@@ -114,13 +115,13 @@ export function AgentCreator({ open, onOpenChange, onCreated }: Props) {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetchApi<{
+        const res = await listLlmModels<{
           models?: Array<{
             id: string
             category?: ModelUsageCategory
             model_tier?: ModelTier
           }>
-        }>('/api/llm/models')
+        }>()
         if (cancelled) return
         if (!res.success || !res.data) {
           setModels(toFallbackModels())

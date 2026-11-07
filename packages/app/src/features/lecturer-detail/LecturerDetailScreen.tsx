@@ -61,7 +61,7 @@ export function LecturerDetailScreen({
   onOpenCourse,
   onBack,
   onRetry,
-  colorScheme = 'light',  
+  colorScheme = 'light',
   onViewCourses,
   onNavigate,
 }: LecturerDetailScreenProps & { onRetry?: () => void }) {
@@ -462,7 +462,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     title: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.text.secondary,
     },
     followBtn: {
@@ -475,12 +475,12 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.surface.muted,
     },
     followBtnText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.surface.light,
     },
     followBtnTextActive: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.secondary,
     },
@@ -515,12 +515,12 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     introText: {
-      fontSize: 13,
-      lineHeight: 20,
+      fontSize: rnType.bodySm.size,
+      lineHeight: rnType.body.lineHeight,
       color: tk.text.secondary,
     },
     expandText: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tk.brandAccent.deep,
     },
     /* 主讲课程 */
@@ -590,7 +590,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     reviewNickname: {
       flex: 1,
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       fontWeight: '600',
       color: tk.text.primary,
     },
@@ -599,7 +599,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['2xs'],
     },
     reviewContent: {
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       lineHeight: 19,
       color: tk.text.secondary,
     },

@@ -23,6 +23,7 @@ permissions:
 jobs:
   drift-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
@@ -45,17 +46,40 @@ jobs:
         run: |
           # 声明配置位于 deploy/s3-lifecycle.yml，先转为 JSON 后比对
           python3 - <<'PY'
-          import json, sys, subprocess
-          declared = subprocess.run(
-            ['python3', '-c', 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open("deploy/s3-lifecycle.yml"))))'],
+          import json, sys, os, subprocess
+          decl_path = 'deploy/s3-lifecycle.yml'
+          # BUG-56③:解析失败绝不能当"无声明 ⇒ 无漂移"。缺文件/解析非 0/空输出一律判红(fail-closed),
+          # 不再用 .stdout 静默吞掉 returncode/stderr。
+          if not os.path.isfile(decl_path):
+              print('::error::声明文件缺失: ' + decl_path)
+              sys.exit(2)
+          proc = subprocess.run(
+            ['python3', '-c', 'import sys,yaml,json; print(json.dumps(yaml.safe_load(open(sys.argv[1]))))', decl_path],
             capture_output=True, text=True
-          ).stdout
-          with open('/tmp/current-lifecycle.json') as f:
-            current = json.load(f)
-          declared_rules = json.loads(declared).get('Rules', []) if declared.strip() else []
+          )
+          if proc.returncode != 0 or not proc.stdout.strip():
+              print('::error::声明文件解析失败(returncode=%s): %s' % (proc.returncode, proc.stderr.strip()))
+              sys.exit(2)
+          try:
+              declared_doc = json.loads(proc.stdout)
+          except ValueError as e:
+              print('::error::声明文件解析结果不是合法 JSON: %s' % e)
+              sys.exit(2)
+          declared_rules = declared_doc.get('Rules', []) if isinstance(declared_doc, dict) else []
+          if not declared_rules:
+              print('::error::声明文件未解析出任何 Rules —— 判据失明,不得判无漂移')
+              sys.exit(2)
+          try:
+              with open('/tmp/current-lifecycle.json') as f:
+                  current = json.load(f)
+          except ValueError as e:
+              print('::error::线上生命周期配置不是合法 JSON: %s' % e)
+              sys.exit(2)
           current_rules = current.get('Rules', [])
           drift = len(declared_rules) != len(current_rules)
-          print(f'::set-output name=drift::{str(drift).lower()}')
+          # ::set-output 已废弃:不写 $GITHUB_OUTPUT 则 output 恒空,Report drift 永不触发 ⇒ 恒绿。
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as fh:
+              fh.write('drift=%s\n' % ('true' if drift else 'false'))
           print(f'声明规则数: {len(declared_rules)}, 实际规则数: {len(current_rules)}')
           PY
 

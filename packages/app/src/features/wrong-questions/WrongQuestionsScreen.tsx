@@ -142,7 +142,7 @@ export function WrongQuestionsScreen({
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
-        <Text style={styles.title}>{t('wrongQuestions.title')}</Text>
+        <Text style={styles.title}>{t('student.wrongBookTitle')}</Text>
       </View>
 
       <View style={styles.filterZone}>
@@ -208,7 +208,7 @@ export function WrongQuestionsScreen({
             <Text style={styles.meta}>
               {item.paperTitle ?? '—'} ·{' '}
               {t('wrongQuestions.wrongCount', { count: item.wrongCount })} ·{' '}
-              {t('wrongQuestions.time')}: {item.createdAtText}
+              {t('exam.wrongQuestions.colTime')}: {item.createdAtText}
             </Text>
             <View style={styles.actions}>
               <TouchableOpacity
@@ -344,7 +344,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
     },
     badge: {
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -354,7 +354,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     badgeText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     badgeTextOk: { color: tk.success.DEFAULT },
-    meta: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 18 },
+    meta: {
+      fontSize: rnType.label.size,
+      color: tk.text.secondary,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     actions: { flexDirection: 'row', gap: rnSpacing.lg, paddingTop: rnSpacing.xs },
     actionBtn: {
       flexDirection: 'row',
@@ -372,7 +376,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       marginTop: rnSpacing.xs,
     },
-    moreText: { fontSize: 13, color: tk.text.primary },
+    moreText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     overlay: { flex: 1, justifyContent: 'flex-end' },
     mask: {
       position: 'absolute',
@@ -392,7 +396,11 @@ function createStyles(tk: AppThemeTokens) {
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     sheetTitle: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    explainText: { fontSize: rnType.body.size, lineHeight: 22, color: tk.text.secondary },
+    explainText: {
+      fontSize: rnType.body.size,
+      lineHeight: rnType.strong.lineHeight,
+      color: tk.text.secondary,
+    },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

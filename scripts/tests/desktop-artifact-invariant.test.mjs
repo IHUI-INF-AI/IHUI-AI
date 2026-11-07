@@ -6,12 +6,12 @@
 // 反例(不该被删的东西)与正例同权重 —— 判据只要误删过一次的签名/包,就是发版事故。
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { writeFileSync, readdirSync, rmSync, existsSync } from 'node:fs'
+import { writeFileSync, readdirSync, rmSync, existsSync, mkdirSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { mkScratch, rmScratch, scratchRoot } from '../lib/scratch-dir.mjs'
 
-import { planArtifactInvariant } from '../lib/desktop-artifact-invariant.mjs'
+import { planArtifactInvariant, judgeContentManifest } from '../lib/desktop-artifact-invariant.mjs'
 
 const CUR = '智汇AI_0.1.44_x64-setup.exe'
 
@@ -40,13 +40,22 @@ test('正例:2026-09-22 真实污染场景(三个版本共存)→ 只留当前�
 
 test('反例:当前包字母序靠后也不能被当成陈旧(字母序选包正是本缺陷的成因)', () => {
   // 0.1.9 排在 0.1.10 之后 —— 若哪天有人按 glob[0] 取包就会拿到错的版本
-  const r = planArtifactInvariant(['智汇AI_0.1.10_x64-setup.exe', '智汇AI_0.1.9_x64-setup.exe'], '智汇AI_0.1.9_x64-setup.exe')
+  const r = planArtifactInvariant(
+    ['智汇AI_0.1.10_x64-setup.exe', '智汇AI_0.1.9_x64-setup.exe'],
+    '智汇AI_0.1.9_x64-setup.exe',
+  )
   assert.deepEqual(r.stale, ['智汇AI_0.1.10_x64-setup.exe'])
   assert.deepEqual(r.keep, ['智汇AI_0.1.9_x64-setup.exe'])
 })
 
 test('反例:非产物文件一律不碰(日志/备份/说明不得被删)', () => {
-  const decoys = ['README.md', 'build.log', `${CUR}.bak`, '智汇AI_0.1.45_x64-setup.exe.tmp', 'notes-setup.exe.txt']
+  const decoys = [
+    'README.md',
+    'build.log',
+    `${CUR}.bak`,
+    '智汇AI_0.1.45_x64-setup.exe.tmp',
+    'notes-setup.exe.txt',
+  ]
   const r = planArtifactInvariant([CUR, `${CUR}.sig`, ...decoys], CUR)
   assert.deepEqual(r.stale, [], `诱饵被误判为陈旧产物: ${r.stale.join(',')}`)
   assert.deepEqual(r.keep.sort(), [CUR, `${CUR}.sig`].sort())
@@ -54,16 +63,28 @@ test('反例:非产物文件一律不碰(日志/备份/说明不得被删)', () 
 
 test('违规:缺当前包 → 必须报', () => {
   const r = planArtifactInvariant(['智汇AI_0.1.45_x64-setup.exe'], CUR)
-  assert.ok(r.violations.some((v) => v.includes(CUR)), r.violations.join(';'))
+  assert.ok(
+    r.violations.some((v) => v.includes(CUR)),
+    r.violations.join(';'),
+  )
 })
 
 test('违规:缺当前签名 → 必须报(签名缺失=更新链路不可用)', () => {
   const r = planArtifactInvariant([CUR], CUR)
-  assert.ok(r.violations.some((v) => v.includes('.sig')), r.violations.join(';'))
+  assert.ok(
+    r.violations.some((v) => v.includes('.sig')),
+    r.violations.join(';'),
+  )
 })
 
 test('护栏:exeName 传成通配/目录形态时立即抛,不给"glob 猜包"留活路', () => {
-  for (const bad of ['', '*-setup.exe', '智汇AI_0.1.44_x64-setup', undefined, '智汇AI_0.1.44_x64-setup.exe.sig']) {
+  for (const bad of [
+    '',
+    '*-setup.exe',
+    '智汇AI_0.1.44_x64-setup',
+    undefined,
+    '智汇AI_0.1.44_x64-setup.exe.sig',
+  ]) {
     assert.throws(() => planArtifactInvariant([CUR], bad), TypeError, `应拒绝: ${String(bad)}`)
   }
 })
@@ -71,10 +92,19 @@ test('护栏:exeName 传成通配/目录形态时立即抛,不给"glob 猜包"�
 test('集成:临时目录里跑完整"删+复算"流程,收尾必须只剩当前一对', () => {
   const dir = mkScratch('ihui-artifact-inv-')
   try {
-    const names = [CUR, `${CUR}.sig`, '智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig', 'keep-me.log']
+    const names = [
+      CUR,
+      `${CUR}.sig`,
+      '智汇AI_0.1.45_x64-setup.exe',
+      '智汇AI_0.1.45_x64-setup.exe.sig',
+      'keep-me.log',
+    ]
     for (const n of names) writeFileSync(join(dir, n), 'x')
     const { stale } = planArtifactInvariant(readdirSync(dir), CUR)
-    assert.deepEqual(stale.sort(), ['智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig'])
+    assert.deepEqual(stale.sort(), [
+      '智汇AI_0.1.45_x64-setup.exe',
+      '智汇AI_0.1.45_x64-setup.exe.sig',
+    ])
     for (const f of stale) rmSync(join(dir, f), { force: true })
     const after = readdirSync(dir).sort()
     assert.deepEqual(after, [CUR, `${CUR}.sig`, 'keep-me.log'].sort(), '无关文件必须活下来')
@@ -86,7 +116,10 @@ test('集成:临时目录里跑完整"删+复算"流程,收尾必须只剩当前
 
 // ── 构建期钩子 scripts/desktop-artifact-single.mjs 的行为(它比判据多做两件事:
 //    真删文件,以及"这次构建压根没产 nsis 时不许动手"的自缚条款)──
-const HOOK = new URL('../desktop-artifact-single.mjs', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1')
+const HOOK = new URL('../desktop-artifact-single.mjs', import.meta.url).pathname.replace(
+  /^\/([A-Za-z]:)/,
+  '$1',
+)
 const runHook = (dir, expect) =>
   execFileSync(process.execPath, [HOOK, '--dir', dir, '--expect', expect], {
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
@@ -98,7 +131,13 @@ const runHook = (dir, expect) =>
 test('钩子正例:多版本共存 → 目录里只剩当前一对,无关文件活下来', () => {
   const dir = mkScratch('ihui-artifact-hook-')
   try {
-    for (const n of [CUR, `${CUR}.sig`, '智汇AI_0.1.45_x64-setup.exe', '智汇AI_0.1.45_x64-setup.exe.sig', 'keep-me.log']) {
+    for (const n of [
+      CUR,
+      `${CUR}.sig`,
+      '智汇AI_0.1.45_x64-setup.exe',
+      '智汇AI_0.1.45_x64-setup.exe.sig',
+      'keep-me.log',
+    ]) {
       writeFileSync(join(dir, n), 'x')
     }
     const out = runHook(dir, CUR)
@@ -134,5 +173,66 @@ test('钩子反例:目录压根不存在 → 静默退出 0,不报错也不建�
   })
   assert.equal(out, '')
   assert.equal(existsSync(missing), false)
+})
+
+const SHA = 'ab'.repeat(32)
+
+test('路径清单不能当成内容已核验', () => {
+  const verdict = judgeContentManifest({ fileCount: 1, files: ['vendor/sandbox/example.dll'] }, {})
+  assert.equal(verdict.disposition, 'path-only')
+  assert.equal(verdict.reason, 'paths-cannot-prove-content')
+})
+
+test('读不到的安装包是未判定,不是缺件', () => {
+  const verdict = judgeContentManifest(
+    { fileCount: 1, files: [{ path: CUR, sha256: SHA, bytes: 1, arch: 'x64' }] },
+    { [CUR]: null },
+  )
+  assert.equal(verdict.disposition, 'unjudged')
+  assert.equal(verdict.reason, 'content-unmeasured')
+  assert.deepEqual(verdict.mismatches, [])
+})
+
+test('哈希或体积对不上就不是完整', () => {
+  const verdict = judgeContentManifest(
+    { fileCount: 1, files: [{ path: CUR, sha256: SHA, bytes: 1, arch: 'x64' }] },
+    { [CUR]: { sha256: 'cd'.repeat(32), bytes: 1 } },
+  )
+  assert.equal(verdict.disposition, 'incomplete')
+  assert.deepEqual(verdict.mismatches, [{ path: CUR, kind: 'content' }])
+})
+
+test('量到的哈希和体积一致才是完整', () => {
+  const verdict = judgeContentManifest(
+    { fileCount: 1, files: [{ path: CUR, sha256: SHA, bytes: 1, arch: 'x64' }] },
+    { [CUR]: { sha256: SHA, bytes: 1 } },
+  )
+  assert.equal(verdict.disposition, 'intact')
+})
+
+test('钩子:安装包路径是目录时不得报内容已核验', () => {
+  const dir = mkScratch('ihui-artifact-unread-')
+  try {
+    mkdirSync(join(dir, CUR))
+    writeFileSync(join(dir, `${CUR}.sig`), 'sig')
+    let failed = false
+    try {
+      execFileSync(process.execPath, [HOOK, '--dir', dir, '--expect', CUR], {
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (error) {
+      failed = true
+      const stdout = typeof error.stdout === 'string' ? error.stdout : ''
+      const stderr = typeof error.stderr === 'string' ? error.stderr : ''
+      assert.equal(error.status, 2, `${stdout}\n${stderr}`)
+      assert.ok(`${stdout}${stderr}`.includes('读不到'), stderr)
+      assert.ok(!`${stdout}${stderr}`.includes('唯一安装包'), stdout)
+    }
+    assert.equal(failed, true)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

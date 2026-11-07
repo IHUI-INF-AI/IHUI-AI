@@ -275,6 +275,100 @@ test('T17 行差按多重集算:同一行重复出现按份数计(否则复制�
   assert.equal(__test__.minusCount(b, a), 0, '反向:b 的每一行 a 里都有 ⇒ 0')
 })
 
+test('T19 账本族内容级闸装车:两族必须共用同一把尺(旧档残渣不进账本批)', () => {
+  const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
+  const fn = src.match(/\nexport function runLedgerFamily\([\s\S]*?\n\}\n/)?.[0] ?? ''
+  assert.ok(fn.length > 200, '必须取到 runLedgerFamily 函数体本身(防空串假绿)')
+  assert.match(fn, /dropStaleCopies\(paths, \[\]\)/, '账本族必须调用滞后副本守卫(缺这一臂就会静默回退)')
+  assert.match(fn, /账本族跳过滞后副本/, '跳过必须留痕点名,不许静默')
+  assert.match(fn, /stale-copy-held/, '整批被残渣挡住时 reason 必须与 livedoc-held 区分')
+  // 逐字节:两处 hash-object 探针都必须关 autocrlf(否则 oid 被改写 ⇒ 旧档 CRLF 漏判)
+  assert.match(src, /core\.autocrlf=false', 'hash-object'/, '探针必须逐字节取 oid')
+})
+
+// ── 2026-11-05 补:行级祖先命中臂(事故回放 8dbe7ed287)────────────────────────────
+// 事故形态:盘上 blob = 落档前的旧态再叠别席改动 ⇒ **不等于任何祖先 blob**(整片等值臂看不见);
+// 删 13 / 增 11 远低于部分回退臂阈值 ⇒ 两臂都漏。可证的是行级:相对 HEAD 的每一行新增
+// 都逐字来自祖先版本,一行新东西都没有。
+test('T20 事故回放(8dbe7ed287):blob 不等于任何祖先,但新增行全部命中祖先 ⇒ 拦下并点名', () => {
+  const r = __test__.partitionStaleCopies(['local-folder-picker.tsx'], {
+    worktree: () => 'ac487d3340',
+    head: () => '00302fdba0',
+    ancestors: () => ['00302fdba0', '656d13f093'],
+    everExisted: () => true,
+    lineDelta: () => ({ removed: 13, added: 11, headLines: 968 }),
+    lineAncestry: () => ({ added: 11, newLines: 0 }),
+  })
+  assert.deepEqual(r.kept, [], '滞后副本不得进收编批')
+  assert.deepEqual(r.skipped, ['local-folder-picker.tsx'], '必须跳过并点名')
+  assert.match(r.why.get('local-folder-picker.tsx'), /行级祖先命中/)
+  assert.match(r.why.get('local-folder-picker.tsx'), /新增 11 行/, '点名要带读数,否则看不出凭什么拦')
+})
+
+test('T21 真正的新改动:新增行里有任何一行不在祖先版本 ⇒ 照常收编', () => {
+  const r = __test__.partitionStaleCopies(['new-work.tsx'], {
+    worktree: () => 'brand-new',
+    head: () => 'head-blob',
+    ancestors: () => ['head-blob', 'older'],
+    everExisted: () => false,
+    lineDelta: () => ({ removed: 2, added: 9, headLines: 500 }),
+    lineAncestry: () => ({ added: 9, newLines: 3 }),
+  })
+  assert.deepEqual(r, { kept: ['new-work.tsx'], skipped: [], why: new Map() })
+})
+
+test('T22 工作树 == HEAD ⇒ 本臂无事可做(不因探针读数而误杀)', () => {
+  const r = __test__.partitionStaleCopies(['same.tsx'], {
+    worktree: () => 'h',
+    head: () => 'h',
+    ancestors: () => ['h'],
+    lineAncestry: () => ({ added: 0, newLines: 0 }),
+  })
+  assert.deepEqual(r, { kept: ['same.tsx'], skipped: [], why: new Map() })
+})
+
+test('T23 行级探针取不到 / 纯删除 ⇒ 一律不判(fail-open 收编,只认证实)', () => {
+  const noProbe = __test__.partitionStaleCopies(['a.tsx'], {
+    worktree: () => 'w',
+    head: () => 'h',
+    ancestors: () => ['h', 'p'],
+  })
+  assert.deepEqual(noProbe.kept, ['a.tsx'])
+  const delOnly = __test__.partitionStaleCopies(['b.tsx'], {
+    worktree: () => 'w2',
+    head: () => 'h2',
+    ancestors: () => ['h2'],
+    lineAncestry: () => ({ added: 0, newLines: 0 }),
+  })
+  assert.deepEqual(delOnly.kept, ['b.tsx'], '纯删除归部分回退臂,本臂不得把删除判成滞后')
+})
+
+test('T24 判据纯函数形状:isLineLevelStale 只在 added>0 ∧ newLines===0 时为真', () => {
+  assert.equal(__test__.isLineLevelStale({ added: 11, newLines: 0 }), true)
+  assert.equal(__test__.isLineLevelStale({ added: 11, newLines: 1 }), false)
+  assert.equal(__test__.isLineLevelStale({ added: 0, newLines: 0 }), false)
+  assert.equal(__test__.isLineLevelStale(null), false)
+  assert.equal(__test__.isLineLevelStale({ added: 11 }), false, '缺读数 ⇒ 不判')
+})
+
+test('T25 装车锁:行级臂必须从生产包装器真被递到', () => {
+  const seen = { lineAncestry: 0 }
+  const r = __test__.dropStaleCopies(['lag.tsx'], [], (_p) => ({
+    worktree: () => 'w',
+    head: () => 'h',
+    ancestors: () => ['h', 'p'],
+    everExisted: () => false,
+    lineDelta: () => ({ removed: 1, added: 1, headLines: 300 }),
+    lineAncestry: () => {
+      seen.lineAncestry += 1
+      return { added: 1, newLines: 0 }
+    },
+  }))
+  assert.deepEqual(r.skipped, ['lag.tsx'])
+  assert.ok(seen.lineAncestry >= 1, '包装器没递 lineAncestry ⇒ 该臂在生产路径上仍是哑的')
+  assert.match(r.why.get('lag.tsx'), /行级祖先命中/)
+})
+
 test('T18 形状锁:两臂都必须从生产包装器可达(不靠读测试自己的假证)', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'auto-commit-quiet.mjs'), 'utf8')
   const fn = src.match(/\nfunction dropStaleCopies\([\s\S]*?\n\}\n/)?.[0] ?? ''

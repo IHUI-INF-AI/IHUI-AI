@@ -131,7 +131,7 @@ test('②b 参数映射:其它平台 → login-local-verified argv(--to 折成 -
   }
 })
 
-test('③ list/current 分流:Trae 系转 account 入口,其它平台如实未判定', () => {
+test('③ list/current 分流:Trae 系转 account 入口,其余平台 list 走只读列池、current 如实未判定', () => {
   const list = planCli(['--list'])
   assert.equal(list.ok, true)
   assert.equal(list.target, 'trae-account')
@@ -147,14 +147,53 @@ test('③ list/current 分流:Trae 系转 account 入口,其它平台如实未�
   assert.equal(soloList.ok, true)
   assert.deepEqual(soloList.args, ['--list'])
 
-  const other = planCli(['--list', '--provider', 'workbuddy'])
-  assert.equal(other.ok, false)
-  assert.equal(other.code, 2)
-  assert.match(other.error, /relay-account-pool/)
-  assert.match(other.error, /relay:inspect/)
+  // 非 Trae 平台的名单面已有只读列池出口(2026-11-05 补);写回腿本来就通
+  const otherList = planCli(['--list', '--provider', 'workbuddy'])
+  assert.equal(otherList.ok, true)
+  assert.equal(otherList.target, 'pool-list')
+  assert.deepEqual(otherList.args, ['--provider', 'workbuddy'])
+
+  const otherJson = planCli(['--list', '--provider', 'qoder', '--json'])
+  assert.equal(otherJson.target, 'pool-list')
+  assert.deepEqual(otherJson.args, ['--provider', 'qoder', '--json'])
+
+  // --current 要读本机客户端登录态,各家形态不同 ⇒ 仍不冒充
+  const otherCurrent = planCli(['--current', '--provider', 'qoder'])
+  assert.equal(otherCurrent.ok, false)
+  assert.equal(otherCurrent.code, 2)
+  assert.match(otherCurrent.error, /relay-account-pool/)
+  assert.match(otherCurrent.error, /relay:inspect/)
 
   assert.equal(planCli(['--list', '--current']).code, 2)
   assert.equal(planCli(['--list', '--to', 'u-1', '--provider', 'trae']).code, 2)
+})
+
+test('③b --counts 走全池概览:参数互斥有牙,用法行不吞掉别档', () => {
+  const c = planCli(['--list', '--counts'])
+  assert.equal(c.ok, true)
+  assert.equal(c.target, 'pool-list')
+  assert.deepEqual(c.args, ['--counts'])
+
+  const cj = planCli(['--list', '--counts', '--json'])
+  assert.deepEqual(cj.args, ['--counts', '--json'])
+
+  // 概览档不需要 provider,故缺省 trae 的归一化不得掺进来
+  assert.ok(!c.args.includes('--provider'))
+
+  // 单给 --counts:被"缺动作"那档先拦也算有牙,只断它拒(拒法有两条,不必钉死哪条先)
+  assert.equal(planCli(['--counts']).ok, false)
+  // --current 配 --counts:必落到本档自己的互斥牙上,这条要精确
+  const wrongAction = planCli(['--current', '--counts'])
+  assert.equal(wrongAction.ok, false)
+  assert.match(wrongAction.error, /只与 --list 同用/)
+  const clash = planCli(['--list', '--counts', '--provider', 'qoder'])
+  assert.equal(clash.ok, false)
+  assert.match(clash.error, /互斥/)
+
+  // 我改这一行时把 --current 整行覆盖掉了 —— 用法面必须每档都在,否则人找不到出路
+  assert.match(S.USAGE, /--counts/)
+  assert.match(S.USAGE, /--current/)
+  assert.match(S.USAGE, /--list/)
 })
 
 test('④ 未知 provider / 缺 --to / 未知参数 ⇒ exit 2 并列出支持集', () => {

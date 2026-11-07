@@ -336,8 +336,12 @@ export interface ApplyRefundInput {
 /** 申请退款：仅 paid 订单可申请。事务+行锁防并发重复申请。 */
 export async function applyRefund(
   data: ApplyRefundInput,
-): Promise<{ refund?: EduRefund; reason?: 'order_not_found' | 'order_not_paid' }> {
+): Promise<{
+  refund?: EduRefund
+  reason?: 'order_not_found' | 'order_not_paid' | 'refund_already_exists'
+}> {
   return db.transaction(async (tx) => {
+    // 订单行锁:同一订单的并发申请在此串行,后到的事务必能看到先者已提交的退款单。
     const orderRows = await tx
       .select()
       .from(eduOrders)
@@ -347,6 +351,22 @@ export async function applyRefund(
     const order = orderRows[0]
     if (!order) return { reason: 'order_not_found' }
     if (order.status !== 'paid') return { reason: 'order_not_paid' }
+
+    // 唯一约束思路:DB 层 edu_refunds(order_id) 唯一约束归 schema/迁移侧(范围外待转派);
+    // 应用层在订单行锁内查活跃退款单,先堵住两个入口(/orders/:id/refund、/refunds/apply)
+    // 的重复申请 —— 审核侧因此不可能对同一订单「通过并完成」多次。
+    // rejected/failed 允许重新申请;其余状态一律视为已有在途或已完成退款。
+    const active = await tx
+      .select({ id: eduRefunds.id })
+      .from(eduRefunds)
+      .where(
+        and(
+          eq(eduRefunds.orderId, data.orderId),
+          inArray(eduRefunds.status, ['pending', 'approved', 'processing', 'completed']),
+        ),
+      )
+      .limit(1)
+    if (active.length > 0) return { reason: 'refund_already_exists' }
 
     const rows = await tx
       .insert(eduRefunds)

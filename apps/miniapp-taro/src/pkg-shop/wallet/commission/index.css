@@ -16,7 +16,7 @@
 }
 .wc-stat-item {
   flex: 1;
-  padding: var(--spacing-md) 12rpx;
+  padding: var(--spacing-md) var(--spacing-xs-loose);
   background: var(--color-card);
   border: 2rpx solid var(--color-border);
   border-radius: var(--radius-md);

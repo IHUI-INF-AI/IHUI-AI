@@ -195,9 +195,31 @@ export function createGateContentCache(opts = {}) {
     return state
   }
 
+  /**
+   * 指纹必须含**门脚本字节**(头注不变量③),不能只含路径字符串 —— 否则改弱某道门后
+   * 60 分钟内仍命中旧缓存按"通过"计数(BUG-19③)。脚本读不到时用确定性哨兵进键:
+   * 它与任何"读得到字节"的形态都不同键 ⇒ 未命中 ⇒ 门照跑(失效方向恒为多跑一次),
+   * 删除/新增脚本同样必然换键,不产生"没判写成判过"。
+   */
   function inputKey(st, input) {
+    const rel = String(input.script ?? '')
+    // 兼容两种登记形态:执行器传裸名(check-x.mjs),镜像测试传带 scripts/ 前缀的相对路径。
+    let scriptBytes = null
+    for (const p of [resolve(cwd, rel), resolve(cwd, 'scripts', rel)]) {
+      try {
+        scriptBytes = readFileSync(p)
+        break
+      } catch {
+        /* 试下一个候选形态 */
+      }
+    }
     const h = createHash('sha256')
-    h.update(`${CACHE_VERSION}\0${st}\0${input.script}\0${JSON.stringify(input.args ?? [])}`)
+    h.update(`${CACHE_VERSION}\0${st}\0${rel}\0${JSON.stringify(input.args ?? [])}\0`)
+    if (scriptBytes === null) h.update('\0<script-bytes-unavailable>\0')
+    else {
+      h.update(`script-bytes:${scriptBytes.length}\0`)
+      h.update(scriptBytes)
+    }
     return h.digest('hex')
   }
 

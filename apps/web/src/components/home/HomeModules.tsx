@@ -18,7 +18,6 @@ import {
   Flame,
 } from 'lucide-react'
 import { ModuleSection } from './ModuleSection'
-import { fetchApi } from '@/lib/api'
 import {
   getLearnCourses,
   getRecommendLearnCourses,
@@ -29,6 +28,7 @@ import {
   getAsks,
   getCircles,
   getKnowledgeList,
+  listPublicArticles,
 } from '@ihui/api-client'
 
 function unwrap<T>(r: { success: boolean; data?: T; error?: string }): T {
@@ -159,7 +159,7 @@ export function HomeModules() {
         variant="list"
         queryKey={['home', 'articles']}
         queryFn={async () => {
-          const r = await fetchApi<ArticleListItem[]>('/api/articles?limit=6')
+          const r = await listPublicArticles<ArticleListItem[]>({ limit: 6 })
           if (r.success && Array.isArray(r.data) && r.data.length > 0) {
             return r.data.map((a) => ({
               id: a.id,

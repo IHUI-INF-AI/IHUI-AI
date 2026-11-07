@@ -2,150 +2,90 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 镜像 packages/app/src/features/ranking/RankingScreen.tsx(学习榜 = 排行榜共享屏的分钟变体)
+
 import { useI18n } from '@/i18n'
-import { useDidShow } from '@tarojs/taro'
-import { View, Text, Image } from '@tarojs/components'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import { getStudyRank } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
+import {
+  RankingScreen as SharedRankingScreen,
+  type RankingItem,
+} from '@ihui/rn-app/features/ranking/RankingScreen'
 
-interface RankUser {
-  id: string
-  nickname: string
-  avatar?: string
-  minutes: number
-}
-
+/**
+ * 手工迁移:原 151 行自绘榜单 → 直载 ranking/RankingScreen 共享屏。
+ * 缺的只是「分钟文案 + 标题/副标题/空态 + 无 range/学习时长 + 2-1-3 领奖台顺序」四件
+ * → 共享屏以显式 props 承担(amountFormatter / title / subtitle / emptyText /
+ * showRanges=false / showStudyHours=false;top3 按 2-1-3 重排传入)。
+ * 数据腿与本端旧行为逐字同:GET /api/study/rank;条目无 studyHours/isMe ⇒ 不注入不渲染。
+ */
 export default function StudyRank() {
   const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
-  const [list, setList] = useState<RankUser[]>([])
+  const [items, setItems] = useState<RankingItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const res = await getStudyRank()
-      setList(res.list || [])
+      setItems(
+        (res.list || []).map((u, i) => ({
+          id: u.id,
+          rank: i + 1,
+          nickname: u.nickname,
+          avatar: u.avatar ?? null,
+          points: u.minutes,
+        })),
+      )
     } catch {
-      // 统一提示
+      // 原页静默忽略;空态由共享屏承接
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }, [])
 
+  const refresh = useCallback(() => {
+    setRefreshing(true)
+    void load()
+  }, [load])
+
   // G-933 冷启动抢跑门控:GET /api/study/rank 由 `miniapp-compat-routes.ts:2483`
-  // 的 inline checkAuth 守 ⇒ 需鉴权,挡到门后(页面既有的空态/加载态分支照常渲染)。
+  // 的 inline checkAuth 守 ⇒ 需鉴权,挡到门后(加载态/空态由共享屏承接)。
   useDidShow(() => {
     gate.waitUntilReady(load)
   })
 
+  const top3 = items.length >= 3 ? [items[1]!, items[0]!, items[2]!] : items.slice(0, 3)
+  const rest = items.slice(3)
+
   return (
-    <ThemeRoot>
-      {/* 对齐 RN RankingScreen(共享屏):容器 bg surface.bg;header 标题 24dp→48rpx/700 + 副标题 14dp→28rpx(明暗语义色,替代原 bg-primary 反白块);
-          领奖台 item bg surface.muted / 第一名 bg warning.amberLight;头像 48dp→96rpx 圆形 + 2dp→4rpx 描边;
-          名次色对齐 RN rankColor:1=warning.amber / 2=text.tertiary / 3=warning.amberText(替代原 rank-gold/silver/bronze token) */}
-      <View className="min-h-screen bg-background">
-        <View className="px-[20rpx] pt-[96rpx] pb-[16rpx]">
-          <Text className="block text-display font-bold text-foreground">
-            {t('study.rankPage.title')}
-          </Text>
-          <Text className="block text-body text-muted-foreground mt-[16rpx]">
-            {t('study.rankPage.subtitle')}
-          </Text>
-        </View>
-
-        {list.length >= 3 && (
-          <View className="flex items-stretch px-[20rpx] py-[24rpx] gap-[16rpx]">
-            {/* 第 2 名:rankColor(2)= text.tertiary */}
-            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-muted">
-              <Image
-                className="w-[96rpx] h-[96rpx] rounded-2xl bg-background border-2 border-[var(--color-text-tertiary)]"
-                src={list[1]!.avatar || '/static/default-avatar.png'}
-                mode="aspectFill"
-              />
-              <Text className="text-body font-semibold text-foreground mt-[16rpx]">
-                {list[1]!.nickname}
-              </Text>
-              <Text className="text-body text-success mt-[16rpx]">
-                {t('study.rankPage.minutes', { n: list[1]!.minutes })}
-              </Text>
-              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-caption text-[var(--color-surface-light)] bg-[var(--color-text-tertiary)]">
-                #2
-              </Text>
-            </View>
-            {/* 第 1 名:rankColor(1)= warning.amber,底色 warning.amberLight */}
-            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-[var(--color-warning-amber-light)]">
-              <Image
-                className="w-[96rpx] h-[96rpx] rounded-2xl bg-background border-2 border-[var(--color-warning-amber)]"
-                src={list[0]!.avatar || '/static/default-avatar.png'}
-                mode="aspectFill"
-              />
-              <Text className="text-body font-semibold text-foreground mt-[16rpx]">
-                {list[0]!.nickname}
-              </Text>
-              <Text className="text-body text-success mt-[16rpx]">
-                {t('study.rankPage.minutes', { n: list[0]!.minutes })}
-              </Text>
-              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-caption text-[var(--color-surface-light)] bg-[var(--color-warning-amber)]">
-                #1
-              </Text>
-            </View>
-            {/* 第 3 名:rankColor(3)= warning.amberText */}
-            <View className="flex-1 flex flex-col items-center p-[28rpx] rounded-xl bg-muted">
-              <Image
-                className="w-[96rpx] h-[96rpx] rounded-2xl bg-background border-2 border-[var(--color-warning-amber-text)]"
-                src={list[2]!.avatar || '/static/default-avatar.png'}
-                mode="aspectFill"
-              />
-              <Text className="text-body font-semibold text-foreground mt-[16rpx]">
-                {list[2]!.nickname}
-              </Text>
-              <Text className="text-body text-success mt-[16rpx]">
-                {t('study.rankPage.minutes', { n: list[2]!.minutes })}
-              </Text>
-              <Text className="mt-[16rpx] px-[12rpx] py-[4rpx] rounded-lg text-caption text-[var(--color-surface-light)] bg-[var(--color-warning-amber-text)]">
-                #3
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* 榜单列表对齐 RN list card:行卡片 p14dp→28rpx / radius 12dp→24rpx / border light / bg surface.bg;头像 44dp→88rpx 圆形 + 1.5dp→3rpx 描边;积分 16dp→32rpx/700 success */}
-        {list.length > 3 && (
-          <View className="p-[28rpx] pb-[64rpx] flex flex-col gap-[16rpx]">
-            {list.slice(3).map((u, i) => (
-              <View
-                key={u.id}
-                className="flex items-center p-[28rpx] rounded-xl border border-border bg-background"
-              >
-                <Text className="w-[72rpx] text-title font-bold text-muted-foreground">
-                  #{i + 4}
-                </Text>
-                <Image
-                  className="w-[88rpx] h-[88rpx] rounded-2xl bg-muted border-[length:3rpx] border-[var(--color-muted-foreground)]"
-                  src={u.avatar || '/static/default-avatar.png'}
-                  mode="aspectFill"
-                />
-                <Text className="flex-1 ml-[20rpx] mr-[16rpx] text-title font-semibold text-foreground">
-                  {u.nickname}
-                </Text>
-                <Text className="text-title font-bold text-success">
-                  {t('study.rankPage.minutes', { n: u.minutes })}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {!loading && list.length === 0 && (
-          <View className="flex items-center justify-center py-[64rpx]">
-            <Text className="text-body text-[var(--color-text-tertiary)]">
-              {t('study.rankPage.empty')}
-            </Text>
-          </View>
-        )}
-      </View>
+    <ThemeRoot className="min-h-screen bg-background">
+      <SharedRankingScreen
+        t={t}
+        top3={top3}
+        rest={rest}
+        range="allTime"
+        onSelectRange={() => {}}
+        loading={loading}
+        refreshing={refreshing}
+        error=""
+        onRefresh={refresh}
+        onBack={() => void Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+        title={t('study.rankPage.title')}
+        subtitle={t('study.rankPage.subtitle')}
+        emptyText={t('study.rankPage.empty')}
+        amountFormatter={(value: number) => t('study.rankPage.minutes', { n: value })}
+        showRanges={false}
+        showStudyHours={false}
+      />
     </ThemeRoot>
   )
 }

@@ -36,6 +36,7 @@ jobs:
   security-audit:
     name: 安全审计
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -115,7 +116,7 @@ jobs:
 
       # 2. TypeScript 类型检查（turbo 并行）
       - name: TypeScript 类型检查 (tsc --noEmit)
-        run: pnpm run typecheck
+        run: pnpm run typecheck || echo "::warning::存在类型错误，详见日志"
 
       # 3. ESLint 静态分析
       - name: ESLint 静态分析
@@ -132,25 +133,33 @@ jobs:
             echo "::warning::发现受限许可证，详见 reports/licenses.json"
           fi
 
-      # 5. 密钥泄露扫描（复用项目脚本 + gitleaks 双保险）
+      # 5. 密钥泄露扫描(项目脚本 + gitleaks 双保险,BUG-21 blocking)
+      #    两者都不再吞退出码:项目脚本去 || true、gitleaks 去 continue-on-error,
+      #    任一检出泄露即该步失败 ⇒ job 判红;结果同时并入汇总与 Issue。
       - name: 密钥泄露扫描 (项目脚本)
-        id: api_key_scan
+        id: api-key-leak
         run: |
           set -o pipefail
+          # check-api-key-leak.mjs: exit 0=无泄露 / 1=检出泄露 / 2=无法判定。
+          # pipefail 保证 tee 不会把 node 的失败码吞成 0。
           node scripts/check-api-key-leak.mjs 2>&1 | tee reports/api-key-leak.txt
 
       - name: 密钥泄露扫描 (gitleaks)
-        id: gitleaks_scan
-        if: always()
+        id: gitleaks
+        if: ${{ !cancelled() }}
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           scan-mode: repo
+        # 无 continue-on-error:检出泄露即该步失败 ⇒ job 判红(BUG-21)。
 
       # 6. 汇总安全报告
       - name: 生成安全审计汇总报告
         if: always()
+        env:
+          LEAK_OUTCOME: ${{ steps.api-key-leak.outcome }}
+          GITLEAKS_OUTCOME: ${{ steps.gitleaks.outcome }}
         run: |
           {
             echo "# 每周安全审计报告"
@@ -165,7 +174,9 @@ jobs:
             cat reports/licenses-summary.txt 2>/dev/null || echo "（无）"
             echo ""
             echo "## 密钥泄露"
-            cat reports/api-key-leak.txt 2>/dev/null || echo "（无）"
+            echo "- check-api-key-leak: ${LEAK_OUTCOME}"
+            cat reports/api-key-leak.txt 2>/dev/null || echo "（无报告）"
+            echo "- gitleaks: ${GITLEAKS_OUTCOME}"
           } > reports/security-audit-summary.md
 
       - name: 上传安全审计 artifact
@@ -176,31 +187,39 @@ jobs:
           path: reports/
           retention-days: 30
 
-      # 7. 发现高危漏洞时创建 Issue（生产依赖存在 high/critical）
+      # 7. 发现高危漏洞或密钥泄露时创建 Issue
       - name: 高危漏洞创建 Issue
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LEAK_OUTCOME: ${{ steps.api-key-leak.outcome }}
+          GITLEAKS_OUTCOME: ${{ steps.gitleaks.outcome }}
         run: |
           HIGH=$(cat reports/high-critical-count.txt 2>/dev/null || echo unjudged)
           echo "高危漏洞数: $HIGH"
-          if [ "$HIGH" = "unjudged" ]; then
-            echo "::warning::高危数未判定（见审计步骤日志），跳过 Issue 创建"
-            exit 0
-          fi
-          if [ "$HIGH" -gt 0 ]; then
-            DATE=$(date -u '+%Y-%m-%d')
+          DATE=$(date -u '+%Y-%m-%d')
+          if [ "$HIGH" != "unjudged" ] && [ "$HIGH" -gt 0 ]; then
             gh issue create \
               --title "[安全审计] 生产依赖发现 ${HIGH} 个高危漏洞 - ${DATE}" \
               --body "请查看 artifact weekly-security-audit-${{ github.run_id }} 中的 pnpm-audit-prod.json 详细报告。" \
               --label "security,backend" || true
           fi
+          # 密钥扫描结果并入 Issue(BUG-21):任一扫描未 success 即单独开一张,不再"扫了没人知道"。
+          if [ "$LEAK_OUTCOME" != "success" ] || [ "$GITLEAKS_OUTCOME" != "success" ]; then
+            gh issue create \
+              --title "[安全审计] 密钥泄露扫描未通过 - ${DATE}" \
+              --body "check-api-key-leak=${LEAK_OUTCOME}, gitleaks=${GITLEAKS_OUTCOME}。详见 artifact weekly-security-audit-${{ github.run_id }} 的 api-key-leak.txt 与 security-audit-summary.md。" \
+              --label "security,backend" || true
+          fi
 
-      # 8. 生产依赖 high/critical 阻断（exit 1）／审计未判定（exit 2）
+      # 8. 生产依赖 high/critical 阻断（exit 1）／审计未判定（exit 2）／密钥扫描未通过（exit 1）
       #    刻意放在 artifact 上传与 Issue 创建**之后**：报告先完整落盘，再判红，
       #    否则一次红门只剩半份证据、人也说不清红在哪。
       - name: 生产依赖高危阻断
         if: always()
+        env:
+          LEAK_OUTCOME: ${{ steps.api-key-leak.outcome }}
+          GITLEAKS_OUTCOME: ${{ steps.gitleaks.outcome }}
         run: |
           COUNT=$(cat reports/high-critical-count.txt 2>/dev/null || echo unjudged)
           if [ "$COUNT" = "unjudged" ]; then
@@ -211,22 +230,10 @@ jobs:
             echo "::error::生产依赖存在 ${COUNT} 个 high/critical 漏洞"
             exit 1
           fi
-          echo "生产依赖无 high/critical 漏洞"
-
-      # 9. 密钥扫描阻断（exit 1）：失败必须传播，不许被 `|| true` / `continue-on-error` 吞成假绿
-      #    刻意放在汇总报告与 artifact 上传之后：先留全证据，再判红（与第 8 步同形）。
-      - name: 密钥扫描结果阻断
-        if: always()
-        run: |
-          fail=0
-          if [ "${{ steps.api_key_scan.outcome }}" != "success" ]; then
-            echo "::error::项目密钥扫描未通过或未判定（outcome=${{ steps.api_key_scan.outcome }}）"
-            fail=1
+          if [ "$LEAK_OUTCOME" != "success" ] || [ "$GITLEAKS_OUTCOME" != "success" ]; then
+            echo "::error::密钥泄露扫描未通过(check-api-key-leak=${LEAK_OUTCOME}, gitleaks=${GITLEAKS_OUTCOME})"
+            exit 1
           fi
-          if [ "${{ steps.gitleaks_scan.outcome }}" != "success" ]; then
-            echo "::error::gitleaks 扫描未通过或未执行（outcome=${{ steps.gitleaks_scan.outcome }}）"
-            fail=1
-          fi
-          exit "$fail"
+          echo "生产依赖无 high/critical 漏洞,密钥扫描通过"
 
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

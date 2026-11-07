@@ -60,6 +60,7 @@ jobs:
   intake:
     name: deliver-failure-intake
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # workflow_run 分支只在失败时投递;dispatch 分支由调用方显式发起
     if: >
       github.event_name == 'workflow_dispatch' ||

@@ -83,12 +83,22 @@ export function renderStatusPanel(snap: StatusSnapshot): string {
   lines.push(chalk.cyan('│'));
   lines.push(chalk.cyan('├─ 资源'));
   let mcpCount = 0;
+  let mcpUnread = false;
   try {
-    mcpCount = loadMcpConfig().servers.length;
+    mcpCount = loadMcpConfig(undefined, {
+      onUnread: () => {
+        mcpUnread = true;
+      },
+    }).servers.length;
   } catch {
-    mcpCount = 0;
+    mcpUnread = true;
   }
-  lines.push(`│  ${chalk.dim('MCP 服务器: ')} ${mcpCount > 0 ? chalk.green(String(mcpCount)) : chalk.dim('0')}`);
+  const mcpLabel = mcpUnread
+    ? chalk.yellow(`${mcpCount}，有配置读不到，不能把它说成没有配置`)
+    : mcpCount > 0
+      ? chalk.green(String(mcpCount))
+      : chalk.dim('0');
+  lines.push(`│  ${chalk.dim('MCP 服务器: ')} ${mcpLabel}`);
   lines.push(`│  ${chalk.dim('Skills:     ')} ${snap.skills.length > 0 ? chalk.green(String(snap.skills.length)) : chalk.dim('0')}`);
   const globalMemCount = snap.memory.filter((e) => e.source === 'global').length;
   const projMemCount = snap.memory.length - globalMemCount;

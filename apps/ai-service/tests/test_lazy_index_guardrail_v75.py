@@ -350,6 +350,16 @@ class TestLazyIndexAndResearchContract:
         return idx
 
     @pytest.mark.asyncio
+    async def test_unreadable_dir_is_not_skipped_as_not_a_dir(self, tmp_path, monkeypatch) -> None:
+        (tmp_path / "keep.py").write_text("keep\n", encoding="utf-8")
+        monkeypatch.setattr(mcp_server, "_classify_path", lambda _path: ("unread", None))
+        out = await mcp_server._lazy_index_and_research(self._indexer(), "q", str(tmp_path), 5)
+        assert out.results == []
+        assert out.status == "skipped-unreadable"
+        assert "读不到" in out.reason
+        assert (tmp_path / "keep.py").read_text(encoding="utf-8") == "keep\n"
+
+    @pytest.mark.asyncio
     async def test_nonexistent_dir_says_so(self) -> None:
         out = await mcp_server._lazy_index_and_research(self._indexer(), "q", "Z:/no/such/dir", 5)
         assert out.results == []

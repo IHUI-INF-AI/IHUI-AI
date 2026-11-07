@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { __test__ as W } from '../lib/workbuddy-auth-extract.mjs'
+import { __test__ as W, listWorkbuddyMainProcesses } from '../lib/workbuddy-auth-extract.mjs'
 
 test('① collectSealedPaths:点分 + accounts[0].nickname 方括号格式', () => {
   const raw = {
@@ -218,4 +218,32 @@ test('⑦ 路径语法两面同一条尺:坏形态在读写两侧都抛,且抛�
   // 变异自证:parseSealedPath 一旦被绕过(比如给读侧另写一份 split),这条即红
   assert.equal(W.getPathByJsonPath(tree, 'a.b'), 1)
 })
+
+test(
+  '⑧ 主进程探测三态:量不到 ≠ 确实 0 个,数组消费形态逐字不变',
+  { skip: process.platform !== 'win32' && 'CIM 探测通道只在 win32 成立' },
+  () => {
+    const okJson = JSON.stringify([
+      { ProcessId: 100, ParentProcessId: 10, CommandLine: 'WorkBuddy.exe --type=renderer --user-data-dir=C:\\wb\\app' },
+      { ProcessId: 10, ParentProcessId: 1, CommandLine: 'C:\\Program Files\\WorkBuddy\\WorkBuddy.exe' },
+    ])
+    const ok = listWorkbuddyMainProcesses(() => okJson)
+    assert.ok(Array.isArray(ok), '仍须是数组,既有调用方按 length/遍历消费')
+    assert.equal(ok.probe.ok, true, '成功臂必须标 ok:true')
+    assert.equal(typeof ok.length, 'number')
+
+    const bad = [
+      listWorkbuddyMainProcesses(() => {
+        throw Object.assign(new Error('boom'), { code: 'ETIMEDOUT' })
+      }),
+      listWorkbuddyMainProcesses(() => ''),
+      listWorkbuddyMainProcesses(() => 'not-json'),
+    ]
+    for (const r of bad) {
+      assert.equal(r.length, 0, '探测失败仍是空数组(数组消费形态不变)')
+      assert.equal(r.probe.ok, false, '但必须标未判定,不得读成"未发现主进程"')
+      assert.ok(r.probe.reason.length > 0, '必须带得出原因,下游才喊得出口')
+    }
+  },
+)
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

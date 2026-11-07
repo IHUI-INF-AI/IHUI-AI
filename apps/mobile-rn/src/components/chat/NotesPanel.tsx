@@ -1,7 +1,8 @@
-import { useI18n } from '../../i18n'
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+import { useI18n } from '../../i18n'
 
 // 新建:会话内「语音笔记」插入面板(D43③)。列表只读(不归档/不删除),零副作用、不落盘。
 
@@ -13,6 +14,7 @@ import { tokens } from '../../theme/active-tokens'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { rpx } from '../../utils/rpx'
 import { formatShortDateTime } from '../../utils/date-utils'
+import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 import { Tappable } from '@ihui/ui-native'
 
 /** durationMs → `m:ss`;0/负值视为「无时长」(回空串,行上只留创建时间) */
@@ -34,7 +36,7 @@ const styles = StyleSheet.create({
   },
   listDialogContent: {
     width: '88%',
-    maxHeight: '70%',
+    // 高度由 dialogHeightStyle 统一注入(禁止写百分比上限,见 lib/dialog-geometry.ts)
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',
@@ -105,21 +107,21 @@ const styles = StyleSheet.create({
   loadingText: {
     textAlign: 'center',
     paddingVertical: rpx(48),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   },
   // 空态沿用全仓 emptyText 口径(AgentList/BottomPopup 同值)
   emptyText: {
     textAlign: 'center',
     paddingVertical: rnSpacing['2xl'],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   },
   errorText: {
     textAlign: 'center',
     paddingTop: rpx(48),
     paddingBottom: rpx(16),
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.error.text,
   },
   retryBtn: {
@@ -181,6 +183,8 @@ export function NotesPanel({
   onRecordNew,
   onClose,
 }: NotesPanelProps) {
+  const dialogHeightStyle = useDialogHeightStyle()
+  const listDialogStyle = [styles.listDialogContent, dialogHeightStyle]
   const { t } = useI18n()
   const [notes, setNotes] = useState<VoiceNoteItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -211,7 +215,7 @@ export function NotesPanel({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Tappable style={styles.modalMask} onPress={onClose}>
-        <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+        <Pressable style={listDialogStyle} onPress={(e) => e.stopPropagation()}>
           <View style={styles.listDialogHeader}>
             <Text style={styles.listDialogTitle}>语音笔记</Text>
             <Tappable

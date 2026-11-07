@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { getCloudRun, listCloudRuns } from '@ihui/api-client'
 import { CloudRunsScreen as CloudRunsScreenShared, type CloudRunItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -23,13 +23,6 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 const PAGE_SIZE = 20
-
-interface RunListData {
-  list: CloudRunItem[]
-  total: number
-  page: number
-  pageSize: number
-}
 
 export function CloudRunsScreen() {
   const navigation = useNavigation<NavigationProp>()
@@ -47,9 +40,10 @@ export function CloudRunsScreen() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetchApi<RunListData>(
-          `/api/cloud-runs?page=${target}&page_size=${PAGE_SIZE}`,
-        )
+        const res = await listCloudRuns<CloudRunItem>({
+          page: target,
+          page_size: PAGE_SIZE,
+        })
         if (!res.success || !res.data) {
           setError((res as { message?: string }).message || t('cloudRuns.loadFailed'))
           return
@@ -75,9 +69,7 @@ export function CloudRunsScreen() {
       setLoading(true)
       setError(null)
       try {
-        const res = await fetchApi<CloudRunItem>(
-          `/api/cloud-runs/${encodeURIComponent(run.run_id)}`,
-        )
+        const res = await getCloudRun<CloudRunItem>(run.run_id)
         if (res.success && res.data) setDetail(res.data)
         else setError((res as { message?: string }).message || t('cloudRuns.loadFailed'))
       } catch {

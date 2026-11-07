@@ -7,7 +7,7 @@
  * publish-mobile-apk.mjs — 把 mobile-rn release APK 发到固定的公网地址(2026-10-29 立)
  *
  * 固定地址(用户永远用这一条,不再跟着版本号换):
- *   https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk   (站点 CDN 腿,EdgeOne,国内实测 1–4 MB/s)
+ *   https://www.aizhs.top/remote-images/download/ihui-ai-latest.apk   (站点腿;⚠️ 2026-11-04 现读:国内 EdgeOne 腿并不在生效链上,实际由 Cloudflare 洛杉矶边缘跨境回源 —— 取证响应头与选腿判据单源见 `apps/mobile-rn/src/lib/apk-download-legs.ts`,本行不复制速率数字以免两处漂移)
  *
  * 为什么只剩一条腿:COS/CF 备用腿(dl.aizhs.top → 腾讯云 COS 桶 ihui-download-1367022840)已于
  * 2026-10-30 整桶下线。它按外网下行流量计费(0.5 元/GB),建桶当天被下载 3.48GB 就扣了 1.54 元
@@ -20,7 +20,7 @@
  *
  * 链路形状(2026-10-29 实测):
  *   站点腿:本机 → `deploy/server-root/remote-images/download/`(线上 cdn-server 的 --root)
- *           → EdgeOne → 用户。`…/ihui-ai-latest.apk` 不是实物文件,而是 cdn-server 读旁边
+ *           → 边缘(现读:走 Cloudflare LAX,EdgeOne 未在生效链上,见上)→ 用户。`…/ihui-ai-latest.apk` 不是实物文件,而是 cdn-server 读旁边
  *           `ihui-ai-latest.apk.redirect.json` 转出的 no-cache 302;真正被边缘长缓存的是带
  *           版本号那份(字节恒定才谈得上缓存)。
  *
@@ -234,11 +234,12 @@ export function registerLegFromEnv(env = process.env) {
 }
 
 /** 唯一可复制整改命令:只含参数与 env 名,绝不含凭据值。 */
-export function registerRemediationCommand({ version, versionCode, latestKey = LATEST_KEY, platform }) {
+export function registerRemediationCommand({ version, versionCode, latestKey = LATEST_KEY, platform, downloadUrl }) {
   const platArg = platform ? ` --platform ${platform}` : ''
+  const url = downloadUrl || siteLegUrl(latestKey)
   return (
     'node scripts/register-app-version-latest.mjs --apply --via db --db-url "$DATABASE_URL"' +
-    ` --version ${version} --build-number ${versionCode} --download-url ${siteLegUrl(latestKey)}${platArg}`
+    ` --version ${version} --build-number ${versionCode} --download-url ${url}${platArg}`
   )
 }
 
@@ -294,6 +295,7 @@ export async function publishRegisterStep({
   versionCode,
   platform = 'android',
   latestKey = LATEST_KEY,
+  downloadUrl,
   env = process.env,
   out = (m) => console.log(m),
   err = (m) => console.error(m),
@@ -303,6 +305,7 @@ export async function publishRegisterStep({
     version,
     versionCode,
     latestKey,
+    downloadUrl,
     ...(platform === 'android' ? {} : { platform }),
   })
   let r
@@ -311,7 +314,7 @@ export async function publishRegisterStep({
       version,
       versionCode,
       platform,
-      downloadUrl: siteLegUrl(latestKey),
+      downloadUrl: downloadUrl || siteLegUrl(latestKey),
       env,
       deps,
     })
@@ -343,6 +346,7 @@ function parseArgs(argv) {
     if (a === '--apk') out.apk = argv[++i] ?? ''
     else if (a === '--version') out.version = argv[++i] ?? ''
     else if (a === '--version-code') out.versionCode = argv[++i] ?? ''
+    else if (a === '--download-url') out.downloadUrl = argv[++i] ?? ''
     else if (a === '--dry-run') out.dryRun = true
     else if (a === '--help' || a === '-h') out.help = true
     else throw new Error(`未知参数: ${a}`)
@@ -353,7 +357,9 @@ function parseArgs(argv) {
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   if (args.help) {
-    console.log('用法: node scripts/publish-mobile-apk.mjs --apk <path> --version <semver> --version-code <int> [--dry-run]')
+    console.log(
+      '用法: node scripts/publish-mobile-apk.mjs --apk <path> --version <semver> --version-code <int> [--download-url <https 快腿地址>] [--dry-run]',
+    )
     return 0
   }
   if (!args.apk || !args.version || !args.versionCode) {
@@ -365,11 +371,14 @@ async function main() {
     return 2
   }
   // 做不出合法登记行的参数,要在落 85MB 包之前就地未判定(而不是站点腿翻完指针才发现登记不了)
+  // 快腿地址(OSS 签名直链)必须与站点腿同样通过 validateDesired 的 https 判据;
+  // 站点腿本身永远是兜底真相,快腿只是"用户点下载时优先走的那条"。
+  const downloadUrl = args.downloadUrl || siteLegUrl(LATEST_KEY)
   const regBad = validateDesired({
     platform: 'android',
     version: args.version,
     buildNumber: Number(args.versionCode),
-    downloadUrl: siteLegUrl(LATEST_KEY),
+    downloadUrl,
   })
   if (regBad.length > 0) {
     console.error('未判定: 发布参数做不出合法 app_versions 登记行 ⇒ 拒绝落包\n  - ' + regBad.join('\n  - '))
@@ -410,11 +419,12 @@ async function main() {
   console.log(`[publish] ✓ 公网自证 HTTP ${live.status} content-range 大小 ${live.size} → ${live.location}`)
 
   // 登记步(Y-14):没有它,发布链就是"只推包、从不登记"——手工补一次,下次发布照样空。
-  const step = await publishRegisterStep({ version: args.version, versionCode: args.versionCode })
+  const step = await publishRegisterStep({ version: args.version, versionCode: args.versionCode, downloadUrl })
   if (!step.ok) return 1
 
   console.log(`\n下载地址(固定): ${siteLegUrl(LATEST_KEY)}`)
   console.log(`本次版本副本: ${siteLegUrl(vKey)}`)
+  if (downloadUrl !== siteLegUrl(LATEST_KEY)) console.log(`快腿(已登记为 App 内下载地址): ${downloadUrl}`)
   console.log(`SHA256: ${sha}`)
   return 0
 }

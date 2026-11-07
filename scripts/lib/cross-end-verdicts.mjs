@@ -9,16 +9,36 @@
 // 远高于一行台账。台账把"判过"变成仓内可消费的数据:缺口账本生成器读它,才能把
 // 「未判定」与「已判定(缺页/不承载)」分开 —— 混在一起就等于把"没人验过"记成"验过没发现"。
 //
-// 形态:JSONL,一行一屏,键 = 共享屏 spec(与 scripts/data/cross-end-screen-registry.json 的
-// shared 同一键空间)。只有"验过但没落地代码"的两档才进台账:
+// 形态:JSONL,一行一条判定(整屏判决一行一屏;声明错配一行一条 (shared, route) 声明),
+// 键 = 共享屏 spec(与 scripts/data/cross-end-screen-registry.json 的 shared 同一键空间)。
+// 进台账的是四档:验过但没落地代码的两档(missing / not-applicable)+ 已核验结清的凭据
+// 一档(generated)+ 声明错配一档(declared-object-mismatch);头注只列两档会让消费方按两档
+// 口径写,把 generated 当成非法值或待办(2026-11-05 补齐第三档语义)。
 //   {"shared":"packages/app/src/features/x/XScreen.tsx","route":"pkg-x/x/index",
 //    "verdict":"missing","evidence":"<带文件:行号的证据>","at":"2026-10-25","source":"miniapp-batch-1.json"}
 //   route = 小程序承载路由(registry 的 miniapp);无路由写 '-'。
 //   verdict=missing        小程序端确实没有对应页(该造页)
 //   verdict=not-applicable 该屏本就不该由小程序承载(不造页)
+//   verdict=generated      该屏**已被小程序页显式镜像** —— 已核验并结清的凭据,**不是待办**。
+//                          这一档只声明「镜像在位」这一件事,自身不含功能对齐状态;功能对齐
+//                          与否由 evidence 里的显式裁决读出来分桶(见 report-rn-miniapp-gaps.mjs
+//                          的 hooksBucketOf)。此前把这一档整档念成「数据钩子待补」,于是 97 条
+//                          结清凭据被每一轮读它的人(含 agent)重新列成 97 张票 —— 词表语义必须
+//                          写在这一处,而不是散在消费方的注释里。
+//                          写入出口只有对账器:手填等于伪造凭据(apply-cross-end-verdicts 已拦)。
+//   verdict=declared-object-mismatch(2026-11-06 补)
+//                          语义 = **该 route 对该 shared 的声明与页面实际业务对象不符**:
+//                          页面声明「镜像 XScreen」,实际实现的是另一个业务对象。这一档只撤销
+//                          这一条 (shared, route) 声明,不是整屏裁决 —— 同屏其他合法承载路由
+//                          照旧有效,故不得用整屏 not-applicable 代替(那会把同屏真承载一并误伤)。
+//                          键空间:missing / not-applicable / generated 仍以 shared 为唯一键;
+//                          本档以 `shared\u0000route` 复合键(见 verdictKey),同屏不同 route 的
+//                          多条互不覆盖(按 shared 归并会互相吃掉)。两档语义互斥:同一 shared
+//                          不得同时存在整屏 not-applicable 与任何 mismatch 行,读面与写面都拒收。
 // `declare` 档不进台账 —— 它直接落成标记行 + registry 条目,落点本身就是凭据。
 //
-// 幂等:同一 shared 以最后写入者为准(同屏以本批为准);写盘口径 = HEAD 面 ∪ 工作树面 ∪ 本批。
+// 幂等:同一 verdictKey 以最后写入者为准(整屏判决按 shared,声明错配按 shared+route);
+// 写盘口径 = HEAD 面 ∪ 工作树面 ∪ 本批。
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -43,7 +63,55 @@ export const VERDICTS_PATH = 'scripts/data/miniapp-mirror-verdicts.jsonl'
  *      **静默删干净**(内容损失,且删的是"这一格验过并结清"的凭据,下一轮它们会重新列成待办)。
  * ⇒ 词表必须等于生产方真实产出的档位;少一档,读面与写面就同时失真(§0.3/§0.6)。
  */
-export const VERDICT_KINDS = Object.freeze(['missing', 'not-applicable', 'generated'])
+export const VERDICT_KINDS = Object.freeze([
+  'missing',
+  'not-applicable',
+  'generated',
+  // 声明错配 —— 该 route 对该 shared 的声明与页面实际业务对象不符(只撤销这一条声明)。
+  'declared-object-mismatch',
+])
+
+/**
+ * 台账键:整屏判决(`missing` / `not-applicable` / `generated`)以 shared 为唯一键;
+ * `declared-object-mismatch` 是「一条 (shared, route) 声明作废」,必须用复合键 ——
+ * 按 shared 归并会让同屏两条 mismatch 互相覆盖(后写吃掉先写),读出的条数永远少于写入的。
+ */
+export function verdictKey(row) {
+  if (row && row.verdict === 'declared-object-mismatch') {
+    return `${String(row.shared)}\u0000${String(row.route || '')}`
+  }
+  return String(row?.shared ?? '')
+}
+
+/**
+ * `declared-object-mismatch` 行自身的字段判据(读面与写面共用,§0.6 单一真相源):
+ * route 必填且不得写整屏占位 '-',evidence 必须含 `文件:行`(否则无法复核)。
+ * @returns {string|null} 不合格原因(合格返回 null)
+ */
+function mismatchRowProblem(obj) {
+  if (typeof obj.route !== 'string' || !obj.route.trim() || obj.route.trim() === '-') {
+    return 'declared-object-mismatch 行必须有非空 route(不得写 "-",它是整屏无路由的占位)'
+  }
+  if (typeof obj.evidence !== 'string' || !obj.evidence.trim()) {
+    return 'declared-object-mismatch 行必须有非空 evidence(空口声明不算证据)'
+  }
+  if (!/\S+:\d+/.test(obj.evidence)) {
+    return 'declared-object-mismatch 行 evidence 必须含 文件:行(形如 path/index.tsx:12),否则无法复核'
+  }
+  return null
+}
+
+/** 同一 shared 的整屏 not-applicable 与任何 mismatch 语义冲突 ⇒ 返回该 shared 清单 */
+function conflictShareds(rows) {
+  const notApplicable = new Set()
+  const mismatch = new Set()
+  for (const r of rows || []) {
+    if (!r || typeof r.shared !== 'string') continue
+    if (r.verdict === 'not-applicable') notApplicable.add(r.shared)
+    else if (r.verdict === 'declared-object-mismatch') mismatch.add(r.shared)
+  }
+  return [...notApplicable].filter((s) => mismatch.has(s))
+}
 
 /**
  * 解析台账文本。坏行**不静默丢**:单独归入 bad 并带原因(§0.3「没判不写成判过」——
@@ -53,6 +121,7 @@ export const VERDICT_KINDS = Object.freeze(['missing', 'not-applicable', 'genera
 export function parseVerdictRows(text) {
   const rows = []
   const bad = []
+  const parsed = []
   for (const line of String(text || '').split('\n')) {
     const s = line.trim()
     if (!s) continue
@@ -71,7 +140,23 @@ export function parseVerdictRows(text) {
       bad.push({ raw: s, why: `verdict 非法:${String(obj.verdict)}` })
       continue
     }
-    rows.push(obj)
+    if (obj.verdict === 'declared-object-mismatch') {
+      const why = mismatchRowProblem(obj)
+      if (why) {
+        bad.push({ raw: s, why })
+        continue
+      }
+    }
+    parsed.push({ obj, raw: s })
+  }
+  // 互斥:整屏 not-applicable 与声明错配说的是两件事,同屏同时出现 ⇒ 涉事行全部拒收。
+  const conflicts = new Set(conflictShareds(parsed.map((p) => p.obj)))
+  for (const p of parsed) {
+    if (conflicts.has(p.obj.shared)) {
+      bad.push({ raw: p.raw, why: `同屏 not-applicable 与 declared-object-mismatch 语义冲突:${p.obj.shared}` })
+      continue
+    }
+    rows.push(p.obj)
   }
   return { rows, bad }
 }
@@ -107,7 +192,9 @@ export function readVerdicts(face = 'head', root = ROOT) {
 }
 
 /**
- * 按 shared 归并:已有行(HEAD ∪ 工作树)∪ 本批,同屏以本批为准。
+ * 按 verdictKey 归并:已有行(HEAD ∪ 工作树)∪ 本批,同键以本批为准。
+ * 整屏判决仍按 shared 覆盖;声明错配按 shared+route 合并 —— 同屏不同 route 的多条 mismatch
+ * 必须各自留在台账里,否则一条新声明会吃掉同屏其他 route 的既有错配判据。
  * @param {object[]} existing 已存在的行
  * @param {object[]} batch 本批要落的行
  * @returns {{rows: object[], added: number, total: number}} added = 新增键数(改写不计入新增)
@@ -115,13 +202,14 @@ export function readVerdicts(face = 'head', root = ROOT) {
 export function mergeVerdictRows(existing, batch) {
   const byKey = new Map()
   for (const r of existing) {
-    if (r && typeof r.shared === 'string') byKey.set(r.shared, r)
+    if (r && typeof r.shared === 'string') byKey.set(verdictKey(r), r)
   }
   let added = 0
   for (const r of batch) {
     if (!r || typeof r.shared !== 'string' || !r.shared) continue
-    if (!byKey.has(r.shared)) added++
-    byKey.set(r.shared, r)
+    const k = verdictKey(r)
+    if (!byKey.has(k)) added++
+    byKey.set(k, r)
   }
   return { rows: [...byKey.values()], added, total: byKey.size }
 }
@@ -132,28 +220,32 @@ export function mergeVerdictRows(existing, batch) {
  * 门 71 的"逐字节相同"判据与 git diff 都会被噪声淹没)。
  *
  * route = 该共享屏在小程序端的承载路由(取自 cross-end-screen-registry 的 miniapp 字段);
- * 无路由时写 '-'。字段必须随行落盘:否则下一次 writeVerdictRows 归并会把新字段静默删掉。
+ * 整屏判决无路由时写 '-'。`declared-object-mismatch` 的 route 是判据本身(必填),
+ * 不得回落 '-':回落等于把「某条声明作废」写成「整屏无路由」。
+ * 字段必须随行落盘:否则下一次 writeVerdictRows 归并会把新字段静默删掉。
  */
 export function serializeVerdicts(rows) {
   return rows
-    .map((r) =>
-      JSON.stringify({
+    .map((r) => {
+      const why = r.verdict === 'declared-object-mismatch' ? mismatchRowProblem(r) : null
+      if (why) throw new Error(`台账序列化被拒:${why}(shared=${String(r.shared)})`)
+      return JSON.stringify({
         shared: r.shared,
-        route: r.route || '-',
+        route: r.verdict === 'declared-object-mismatch' ? r.route : r.route || '-',
         verdict: r.verdict,
         evidence: r.evidence || '',
         at: r.at || '',
         source: r.source || '',
-      }),
-    )
+      })
+    })
     .join('\n')
 }
 
-/** 按 shared 建索引,供缺口账本 O(1) 查"这一格判过没有"。 */
+/** 按 verdictKey 建索引,供缺口账本 O(1) 查"这一格判过没有"(整屏判决仍按 shared 直查)。 */
 export function indexVerdicts(rows) {
   const m = new Map()
   for (const r of rows || []) {
-    if (r && typeof r.shared === 'string') m.set(r.shared, r)
+    if (r && typeof r.shared === 'string') m.set(verdictKey(r), r)
   }
   return m
 }
@@ -164,7 +256,7 @@ export function indexVerdicts(rows) {
  * 台账的唯一写出口(2026-10-27 补,§0.6):HEAD 上的消费方(auto-register-cross-end.mjs:42)
  * 早就按名 import 这个符号,而 lib 里没有它 ⇒ ESM 具名导入在链接期即抛,该工具在干净检出/CI 上
  * **连加载都失败**(门 253 D1 存量 8 条之一)。这里按 HEAD 已有的读面/归并/序列化原语实现它,
- * 不新起第二套口径:归并 = HEAD 面 ∪ 工作树面 ∪ 本批,同 shared 键以本批为准。
+ * 不新起第二套口径:归并 = HEAD 面 ∪ 工作树面 ∪ 本批,同 verdictKey 键以本批为准。
  * 取不到某一面的行数如实计入 unreadable 并继续(不把"没读到"当成"那一面是空的",§0.4 不回落另一个面)。
  */
 export function writeVerdictRows(root, batch) {
@@ -178,6 +270,15 @@ export function writeVerdictRows(root, batch) {
         `台账写入被拒:verdict=${JSON.stringify(v)} 不在词表 [${VERDICT_KINDS.join('|')}] 内(单源 scripts/lib/cross-end-verdicts.mjs 的 VERDICT_KINDS)`,
       )
     }
+    if (v === 'declared-object-mismatch') {
+      const why = mismatchRowProblem(r)
+      if (why) throw new Error(`台账写入被拒:${why}(shared=${String(r.shared)})`)
+    }
+  }
+  // 互斥:写面不得写出冲突态(同一 shared 的整屏 not-applicable 与任何 mismatch 不能共存)。
+  const batchConflicts = conflictShareds(batch)
+  if (batchConflicts.length > 0) {
+    throw new Error(`台账写入被拒:同屏 not-applicable 与 declared-object-mismatch 语义冲突:${batchConflicts.join(',')}`)
   }
   const headRows = readVerdicts('head', root)
   const workRows = readVerdicts('worktree', root)
@@ -196,6 +297,13 @@ export function writeVerdictRows(root, batch) {
     )
   }
   const merged = mergeVerdictRows([...headRows.rows, ...workRows.rows], batch)
+  // 本批与既有面也要互斥:本批一条 mismatch 落在既有 not-applicable 的屏上,落盘即冲突态。
+  const mergedConflicts = conflictShareds(merged.rows)
+  if (mergedConflicts.length > 0) {
+    throw new Error(
+      `台账写入被拒:落盘后会留下冲突态(同屏 not-applicable 与 declared-object-mismatch):${mergedConflicts.join(',')}`,
+    )
+  }
   writeFileSync(join(root, VERDICTS_PATH), serializeVerdicts(merged.rows) + '\n', 'utf8')
   return {
     total: merged.total,
@@ -207,6 +315,7 @@ export function writeVerdictRows(root, batch) {
 export const __test__ = {
   VERDICTS_PATH,
   VERDICT_KINDS,
+  verdictKey,
   parseVerdictRows,
   mergeVerdictRows,
   serializeVerdicts,

@@ -5,7 +5,7 @@
 // @ihui/i18n loader 工具 — 各端 I18nProvider 共享的翻译查找 + 占位符替换
 
 import type { Locale, Messages } from './types.js'
-import { formatIcu, hasIcuSyntax } from './icu.js'
+import { formatIcu, hasIcuSyntax, setIcuLocale } from './icu.js'
 
 /** 按点分路径查找原始值(支持 string / 对象 / 数组等任意类型) */
 export function getValueByPath(obj: unknown, path: string): unknown {
@@ -25,7 +25,7 @@ export function getValueByPath(obj: unknown, path: string): unknown {
 export interface TranslateOptions {
   fallback?: Messages
   params?: Record<string, string | number>
-  /** ICU plural/number 所依 locale;缺省 zh-CN */
+  /** ICU plural/number 所依 locale;缺省为运行时 ICU 语言(由消息包语言登记,见 getMessagesForLocale) */
   locale?: string
 }
 
@@ -99,6 +99,11 @@ export function mergeMessages(base: Messages, override: Messages): Messages {
 }
 
 export function getMessagesForLocale(locale: Locale, messages: Record<Locale, Messages>): Messages {
-  return messages[locale] ?? messages['zh-CN']
+  // BUG-73:选包即登记 ICU 判据语言 —— 非 web 端不往 t() 传 locale,但它们必然
+  // 经本函数取当前语言包,这一步就是"在 loader 层按消息包语言兜底透传"的落点。
+  // 回落 zh-CN 时登记实际生效的那一门,不登记请求了却未命中的语言。
+  const resolved = messages[locale] ?? messages['zh-CN']
+  setIcuLocale(messages[locale] ? locale : 'zh-CN')
+  return resolved
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

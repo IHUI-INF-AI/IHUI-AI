@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { SYNTAX_TABLE } from './syntax-table.js';
+import { commandSpecOf } from './syntax-table.js';
 import { isFileRedirectTarget, tokenizeCommand, type ArgToken, type TokenizedSegment } from './tokenizer.js';
 import type { CommandAssessment, CommandEffect, CommandFinding, CommandSpec, OptionSpec, SubcommandSpec, SyntaxVerdict } from './types.js';
 
@@ -144,7 +144,7 @@ function evaluateSegment(segment: TokenizedSegment, blocked: boolean): RawSegmen
     return out;
   }
 
-  const spec = SYNTAX_TABLE[basename];
+  const spec = commandSpecOf(basename);
   if (!spec) {
     out.unknownReasons.push(`未登记命令 ${basename}`);
     out.reason = 'unregistered-command';
@@ -469,7 +469,7 @@ export function resolveStableCommandPrefix(command: string): string | null {
   if (argv.some((t) => t.expanded)) return null; // 有变量展开 = 动态语义,不担保
   const basename = normalizeProgram(argv[0]!.value);
   if (!basename) return null;
-  const spec = SYNTAX_TABLE[basename];
+  const spec = commandSpecOf(basename);
   if (!spec) return null;
   // 危险面一票否决:dangerous / destructive / alwaysConfirm 命中的命令绝不给前缀
   // (rm -rf 绝不能建议出 `rm:*`),退回整命令精确规则。

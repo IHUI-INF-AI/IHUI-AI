@@ -25,8 +25,11 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveTsxCli } from './lib/tsx-cli.mjs'
-// 进程探测单源在回灌腿里(§0.6):这里复用同一把,不在本文件重抄 tasklist 判据
-import { probeClientActive } from './sync-trae-client-session.mjs'
+// 进程探测单源在两条回灌腿里(§0.6):这里复用同两把,不在本文件重抄 tasklist 判据
+import { probeClientActive as probeTraeClientActive } from './sync-trae-client-session.mjs'
+import { __test__ as qoderSessionSync } from './sync-qoder-client-session.mjs'
+
+const probeQoderClientActive = qoderSessionSync.probeQoderClientActive
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
@@ -36,7 +39,8 @@ const MAIL_SCRIPT = path.join(API_DIR, 'scripts', 'notify-deploy-failure.ts')
 const TMP_DIR = path.join(ROOT, '.ihui-agent', 'tmp', 'relay-account-keepalive')
 
 const USAGE =
-  '用法: node scripts/relay-account-keepalive.mjs --status|--mark <uid> [--provider trae] [--off]|--once [--json]\n'
+  '用法: node scripts/relay-account-keepalive.mjs --status|--mark <uid> [--provider trae] [--off]|--once|--explain <uid> [--json]\n' +
+  '  --once/--explain 会先当场探测各平台客户端三态再派发(C 档 2026-11-10,探测单源在回灌腿)\n'
 
 /** 透传参数面:只认这三组动词,其余原样交给 ts 侧判(未知参数由它报「未判定」) */
 export function parseArgs(argv) {
@@ -180,15 +184,35 @@ async function main(argv) {
     return 0
   }
   const childArgv = [...argv]
-  if (parsed.once) {
-    // 探测在本机做,不交给池里那条旧心跳:api 一挂旧心跳必然陈旧 ⇒ 池判成静默 ⇒ 接管续期
-    // ⇒ 把用户正在用的 Trae 顶下线。未知(null)与在跑(true)同向送心跳 —— 误判「在跑」只是
-    // 本轮少刷一次,误判「静默」是不可逆的掉线,代价不对称。
-    const active = probeClientActive()
-    if (active !== false) childArgv.push('--client-active', new Date().toISOString())
+  // C 档(2026-11-10):接管前当场再探测一次 —— --once 的 sweep 与 --explain 的"为什么没刷"
+  // 都要吃这份三态。探测器单源在两条回灌腿里(§0.6),本层只搬运、不复算;一次探测两处用,
+  // 绝不同轮探两次(两次读数不一致 = 判据面自己打架)。
+  const probing = parsed.once || argv.includes('--explain')
+  if (probing) {
+    const probed = [
+      ['trae', probeTraeClientActive()],
+      ['qoder', probeQoderClientActive()],
+    ]
+    for (const [provider, active] of probed) {
+      const word = active === null ? 'unknown' : active ? 'running' : 'stopped'
+      childArgv.push('--client-probe', `${provider}=${word}`)
+    }
     process.stderr.write(
-      `客户端探测: ${active === null ? '未知(按在跑处理,不让池接管)' : active ? '在跑' : '未运行'}\n`,
+      `客户端探测: ${probed
+        .map(
+          ([p, a]) => `${p}=${a === null ? '未知(按在跑处理,不让池接管)' : a ? '在跑' : '未运行'}`,
+        )
+        .join(' ')}\n`,
     )
+    if (parsed.once) {
+      // 心跳在同一份探测结果上折算(不交给池里那条旧心跳):这条腿的存在前提是「api 不在也能
+      // 保活」,api 一挂池内旧心跳必然陈旧。未知(null)与在跑(true)同向送心跳 —— 误判「在跑」
+      // 只是本轮少刷一次,误判「静默」是不可逆的掉线,代价不对称。
+      const at = new Date().toISOString()
+      for (const [provider, active] of probed) {
+        if (active !== false) childArgv.push('--client-active', `${provider}=${at}`)
+      }
+    }
   }
   const run = runKeepaliveTs(childArgv)
   if (run.error) {
@@ -215,6 +239,7 @@ async function main(argv) {
       ` registered=${Array.isArray(run.json?.keepAlive) ? run.json.keepAlive.length : '?'}` +
       ` refreshed=${sweep?.refreshed ?? '?'} refreshFailed=${sweep?.refreshFailed ?? '?'}` +
       ` keepalive=${sweep?.keepalive ?? '?'} heartbeat=${run.json?.heartbeated ?? '?'}` +
+      ` foreverDeferred=${sweep?.foreverDeferred ?? '?'}` +
       ` alerts=${targets.length} mailed=${sent}\n`,
   )
   return run.code

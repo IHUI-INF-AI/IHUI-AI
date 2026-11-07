@@ -10,19 +10,16 @@ import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useCallback, useMemo } from 'react'
 import { useDidShow } from '@tarojs/taro'
-import {
-  getMemberInfo,
-  getMemberBenefits,
-  getProfile,
-  getVipLevels,
-  type MemberInfo,
-  type VipLevel,
-} from '@/api'
+import { getMemberInfo, getMemberBenefits, getProfile, type MemberInfo, type VipLevel } from '@/api'
+import { getVipLevels } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { calcVipRemainDays, formatDateByTemplate } from '@ihui/shared'
 import { formatPrice } from '@ihui/shared/utils/format'
 import ThemeRoot from '@/components/ThemeRoot'
-import VipLevels, { pickEntryLevel, pickPermanentLevel } from './vip-levels'
+// 档位段单源:与 RN `apps/mobile-rn/src/screens/VipScreen.tsx:663` 消费同一共享段(子路径导入,禁桶入口)
+import { VipLevelsSection } from '@ihui/rn-app/features/vip/VipLevelsSection'
+import { pickEntryLevel, pickPermanentLevel, toLevelItems } from './member-index-props'
 import './index.css'
 
 interface BenefitItem {
@@ -37,6 +34,15 @@ interface LevelTier {
   name: string
   threshold: string
   perks: string
+}
+
+/**
+ * 划线原价读取:后端 vip_levels 暂无 original_price 列,`VipLevel` 也未声明该字段;
+ * 与共享屏 VipScreen overlayPlan.originalPrice 同形,只有真带值才渲染,取不到返回 null。
+ */
+function readOriginalPrice(level: VipLevel | null): number | null {
+  const raw = (level as (VipLevel & { originalPrice?: number }) | null)?.originalPrice
+  return typeof raw === 'number' && raw > 0 ? raw : null
 }
 
 /** 等级成长值阈值(与 levelTiers 一一对应) */
@@ -131,7 +137,6 @@ export default function MemberIndexPage() {
   const [error, setError] = useState('')
   // 会员等级(VIP 套餐)—— GET /vip/levels 公开端点,与 pkg-shop/vip 购买页同源
   const [vipLevels, setVipLevels] = useState<VipLevel[]>([])
-  const [vipLevelsError, setVipLevelsError] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -143,14 +148,15 @@ export default function MemberIndexPage() {
         getMemberBenefits().catch(() => ({
           list: [] as Array<{ id: string; title: string; desc: string; icon?: string }>,
         })),
-        getVipLevels().catch(() => null),
+        unwrapApi(getVipLevels()).catch(() => null),
       ])
       setInfo(memberInfo)
       if (levelsRes) {
         setVipLevels(levelsRes.items || [])
-        setVipLevelsError('')
       } else {
-        setVipLevelsError(tt('member.index.loadFailed', '加载失败'))
+        // 档位拉取失败统一由顶部错误条承接(与共享屏页级 errorBar 同语义),
+        // RN 对应页级重试: apps/mobile-rn/src/screens/VipScreen.tsx:676-677
+        setError(tt('member.index.loadFailed', '加载失败'))
       }
       if (userProfile) {
         const raw = userProfile as Record<string, unknown>
@@ -208,11 +214,23 @@ export default function MemberIndexPage() {
       ? tt('vip.daysRemaining', '剩余 {count} 天', { count: remainDays })
       : ''
 
-  // VIP CTA 的价格一律取同页 <VipLevels> 已拉到的 GET /vip/levels 真档位(price 单位为分,公开端点):
+  // VIP CTA 的价格一律取同页 <VipLevelsSection> 已拉到的 GET /vip/levels 真档位(price 单位为分,公开端点):
   // 此处曾写死 ¥588 / ¥1288,而库里在册档位是 3990/29900/99000/32400 分(packages/database/drizzle/
   // 0037_vip_captcha.sql 种子)⇒ 写死价就是可见错误文案。取不到档位时整块不渲染,不拿 0 或常量冒充。
   const entryLevel = useMemo(() => pickEntryLevel(vipLevels), [vipLevels])
   const permanentLevel = useMemo(() => pickPermanentLevel(vipLevels), [vipLevels])
+  // 划线原价:与共享屏 VipScreen overlayPlan.originalPrice 同形——档位带 originalPrice 才渲染,
+  // 取不到即不渲染。后端 vip_levels 暂无 original_price 列(见 member-index-props.ts:44),不伪造值。
+  const entryOriginalPrice = readOriginalPrice(entryLevel)
+  const permanentOriginalPrice = readOriginalPrice(permanentLevel)
+  // 共享段按元渲染,这里做 分→元 + benefits 归一(纯函数在 member-index-props.ts)
+  const levelItems = useMemo(() => toLevelItems(vipLevels), [vipLevels])
+  // 共享段 t 契约为 TFunction(key, options?);小程序 useTt 是 (key, fallback, params)
+  // ⇒ 适配一层:回退兜底位取键名(段内词条与 RN 同键,缺词时显键而不另造文案)
+  const sectionT = useMemo(
+    () => (key: string, options?: Record<string, string | number>) => tt(key, key, options),
+    [tt],
+  )
 
   // 根据成长值推算当前等级
   const growth = info.growth || 0
@@ -358,9 +376,9 @@ export default function MemberIndexPage() {
         {/* ===== 会员特权列表 ===== */}
         <View className="member-card">
           <Text className="member-card-title">
-            {/* 标题取共享屏同一词条(vip.details.benefitsTitle):此前端内写「会员特权」,
-                RN 写「权益详情」—— 同一块内容两个说法,改一端另一端不跟 */}
-            {tt('vip.details.benefitsTitle', '权益详情')} ·{' '}
+            {/* 标题取共享屏同一词条(vip.privileges):与 RN VipScreen featuresSection 同键,
+                不再用 vip.details.benefitsTitle —— 该键不是共享屏此块的标题源 */}
+            {tt('vip.privileges', '会员权益')} ·{' '}
             {tt('vip.benefitsCount', '{count} 项专属权益', { count: benefits.length })}
           </Text>
           <View className="member-benefits">
@@ -383,11 +401,14 @@ export default function MemberIndexPage() {
           </View>
         </View>
 
-        {/* ===== 会员等级(套餐)—— 对齐共享屏 levelsSection:等级 / 时长 / 权益数 / 价格 ===== */}
-        <VipLevels
-          levels={vipLevels}
-          error={vipLevelsError}
-          onRetry={() => gate.waitUntilReady(load)}
+        {/* ===== 会员等级(套餐)—— 共享段单源:等级 / 时长 / 权益数 / 价格 =====
+            会员中心已有自身 CTA(goToPayment),为避免同屏两个购买入口,不注入 onPurchase ⇒ 纯展示。 */}
+        <VipLevelsSection
+          t={sectionT}
+          title={tt('vip.plans', '套餐选择')}
+          levels={levelItems}
+          membership={null}
+          purchasingId={null}
         />
 
         {/* ===== VIP CTA(三态) ===== */}
@@ -403,6 +424,11 @@ export default function MemberIndexPage() {
               {entryLevel ? (
                 <View className="member-vip-price">
                   <Text className="member-current-price">¥{formatPrice(entryLevel.price)}</Text>
+                  {entryOriginalPrice ? (
+                    <Text className="member-price-label">
+                      {tt('pay.originalPrice', '原价')} ¥{formatPrice(entryOriginalPrice)}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
             </View>
@@ -436,6 +462,11 @@ export default function MemberIndexPage() {
               {permanentLevel ? (
                 <View className="member-price-display">
                   <Text className="member-current-price">¥{formatPrice(permanentLevel.price)}</Text>
+                  {permanentOriginalPrice ? (
+                    <Text className="member-price-label">
+                      {tt('pay.originalPrice', '原价')} ¥{formatPrice(permanentOriginalPrice)}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
             </View>

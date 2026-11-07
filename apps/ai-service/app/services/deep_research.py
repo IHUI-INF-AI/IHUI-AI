@@ -204,6 +204,7 @@ class ResearchReport:
     updated_at: float = field(default_factory=time.time)
     max_iterations: int = _DEFAULT_MAX_ITERATIONS
     iteration: int = 0
+    phase_log: list[str] = field(default_factory=list)
 
     # ---- 序列化(供 FastAPI JSON 返回)----
     def to_dict(self) -> dict[str, Any]:
@@ -259,6 +260,7 @@ class ResearchReport:
             "verifications": self.crosscheck,
             "limitations": self.limitations,
             "markdown": serialized_md,
+            "phases": list(self.phase_log),
             "stages": [
                 {
                     "phase": st.phase,
@@ -518,8 +520,10 @@ async def _apply_llm_factcheck(
     """用注入的 LLM 做语义级交叉核验,按 question 覆盖启发式结论。
 
     契约:返回 list[dict] 含 question / conclusion / reason / confidence。
-    conclusion 须为合法 VerificationStatus;返回异常/超时/非列表/条目畸形 → 静默跳过
-    (保留启发式),绝不炸管线。结果落进同一 evidence.verification / report.crosscheck /
+    带 votes 时以对抗计票为准:成立或驳倒才覆盖,未判定(含只有自评)不覆盖。
+    不带 votes 时 conclusion 须为合法 VerificationStatus。
+    返回异常/超时/非列表/条目畸形 → 静默跳过(保留启发式),绝不炸管线。
+    结果落进同一 evidence.verification / report.crosscheck /
     report.limitations 结构;crosscheck 仅新增 source/reason/confidence key,不改旧 key。
     """
     try:
@@ -540,8 +544,17 @@ async def _apply_llm_factcheck(
         if not isinstance(j, dict):
             continue  # 单条畸形 → 跳过该条,其余仍可用
         q = j.get("question")
+        if not isinstance(q, str):
+            continue
+        if "votes" in j:
+            outcome = adjudicate_claim(j.get("votes"))
+            if outcome["disposition"] == "killed":
+                by_q[q] = (VerificationStatus.CONFLICTING.value, outcome["reason"], 0.0)
+            elif outcome["disposition"] == "survives":
+                by_q[q] = (VerificationStatus.CORROBORATED.value, outcome["reason"], 1.0)
+            continue
         conc = j.get("conclusion")
-        if not isinstance(q, str) or conc not in _VERIFICATION_VALUES:
+        if conc not in _VERIFICATION_VALUES:
             continue
         conf = j.get("confidence")
         by_q[q] = (
@@ -912,6 +925,19 @@ async def run_deep_research(
         query=query,
         max_iterations=max_iterations,
     )
+
+    def _enter(title: str) -> bool:
+        verdict = admit_research_phase(report.phase_log, title)
+        if verdict["disposition"] != "entered":
+            report.status = ResearchStatus.ERROR.value
+            report.error = f"{title}:{verdict['reason']}"[:500]
+            _apply_progress(report, PHASE_ERROR, report.error)
+            return False
+        report.phase_log.append(title)
+        return True
+
+    if not _enter("Scope"):
+        return report
     _apply_progress(report, PHASE_PLANNING)
 
     try:
@@ -922,6 +948,8 @@ async def run_deep_research(
         _apply_progress(report, PHASE_RETRIEVE, f"子问题数={len(report.subquestions)}")
 
         # 2. 多源检索(初始子问题,并行带并发上限)
+        if not _enter("Search"):
+            return report
         await _retrieve_many(
             report,
             report.subquestions,
@@ -930,6 +958,8 @@ async def run_deep_research(
             concurrency=concurrency,
             max_fetch=max_fetch,
         )
+        if not _enter("Fetch"):
+            return report
 
         # 3. 双向深度调查:gap 追问 + 再检索,循环至 max_iterations
         report.iteration = 0
@@ -946,6 +976,8 @@ async def run_deep_research(
                 break
             report.iteration = i
             report.gap_questions.extend(gaps)
+            if not _enter("Search"):
+                return report
             await _retrieve_many(
                 report,
                 gaps,
@@ -954,14 +986,20 @@ async def run_deep_research(
                 concurrency=concurrency,
                 max_fetch=max_fetch,
             )
+            if not _enter("Fetch"):
+                return report
 
         # 4. 综合成稿
         _apply_progress(report, PHASE_SYNTHESIZE)
         existing = _evidence_to_text(report)
         sources_md = _sources_markdown(report)
+        if not _enter("Verify"):
+            return report
         await _run_cross_check(  # 启发式兜底 + 可选 LLM 语义增强
             report, factcheck_llm_fn=factcheck_llm_fn
         )
+        if not _enter("Synthesize"):
+            return report
         verification_md = _verifications_markdown(report)
         try:
             markdown = await llm_complete_fn(
@@ -1118,6 +1156,217 @@ class DeepResearchManager:
         )
         return None
 
+
+VOTES_PER_CLAIM = 3
+REFUTATIONS_REQUIRED = 2
+REQUEST_STEP_BUDGET = 100
+
+_CONFIDENCE = frozenset({"high", "medium", "low"})
+_FENCE_JSON = re.compile(r"```json\s*([\s\S]*?)```", re.IGNORECASE)
+_FENCE_ANY = re.compile(r"```\s*([\s\S]*?)```")
+_OBJECT = re.compile(r"(\{[\s\S]*\})")
+
+
+def extract_model_json(text: object) -> tuple[Any, str]:
+    """按代码块、普通代码块、原文对象的顺序抽 JSON。抽不到不猜。"""
+    if not isinstance(text, str) or not text.strip():
+        return None, "not-text"
+    saw_candidate = False
+    for name, pattern in (
+        ("fence-json", _FENCE_JSON),
+        ("fence", _FENCE_ANY),
+        ("object", _OBJECT),
+    ):
+        match = pattern.search(text)
+        if match is None:
+            continue
+        saw_candidate = True
+        piece = match.group(1).strip()
+        try:
+            return json.loads(piece), name
+        except json.JSONDecodeError:
+            if name != "object":
+                continue
+            later = _first_object_after(text, match.start() + 1)
+            if later is not None:
+                return later, name
+            continue
+    if saw_candidate:
+        return None, "json-invalid"
+    return None, "no-json"
+
+
+def _first_object_after(text: str, start: int) -> Any:
+    """贪婪括号失败后,从下一个左括号起用解码器找第一份对象。"""
+    decoder = json.JSONDecoder()
+    index = text.find("{", start)
+    while index >= 0:
+        try:
+            value, _end = decoder.raw_decode(text[index:])
+        except json.JSONDecodeError:
+            index = text.find("{", index + 1)
+            continue
+        if isinstance(value, dict):
+            return value
+        index = text.find("{", index + 1)
+    return None
+
+
+def _one_vote(raw: object) -> dict[str, Any] | None:
+    if isinstance(raw, str):
+        parsed, _how = extract_model_json(raw)
+        raw = parsed
+    if not isinstance(raw, dict):
+        return None
+    if raw.get("role") == "claimant" or raw.get("selfClaim") is True:
+        return {"role": "claimant", "refuted": raw.get("refuted") is True}
+    if not isinstance(raw.get("refuted"), bool):
+        return None
+    confidence = raw.get("confidence")
+    if confidence is not None and confidence not in _CONFIDENCE:
+        return None
+    evidence = raw.get("evidence")
+    if evidence is not None and not isinstance(evidence, str):
+        return None
+    return {"role": "counter", "refuted": raw["refuted"]}
+
+
+def adjudicate_claim(votes: object) -> dict[str, Any]:
+    """对一条断言计票。返回 disposition / reason 与计数。"""
+    if not isinstance(votes, list):
+        return _outcome("unjudged", "votes-not-a-list", 0, 0, 0, 0)
+    if len(votes) > VOTES_PER_CLAIM:
+        return _outcome("unjudged", "panel-over", 0, 0, 0, 0)
+
+    independent = 0
+    refuted = 0
+    abstained = 0
+    self_yes = 0
+    for raw in votes:
+        ballot = _one_vote(raw)
+        if ballot is None:
+            abstained += 1
+            continue
+        if ballot["role"] == "claimant":
+            self_yes += 1
+            continue
+        independent += 1
+        if ballot["refuted"]:
+            refuted += 1
+
+    if independent < REFUTATIONS_REQUIRED:
+        reason = "self-yes-without-counter" if self_yes and independent == 0 else "quorum-short"
+        return _outcome("unjudged", reason, independent, refuted, abstained, self_yes)
+    if refuted >= REFUTATIONS_REQUIRED:
+        return _outcome("killed", "refuted", independent, refuted, abstained, self_yes)
+    return _outcome("survives", "quorum", independent, refuted, abstained, self_yes)
+
+
+def admit_request_step(
+    taken: object, *, limit: int | None = REQUEST_STEP_BUDGET
+) -> tuple[str, str]:
+    """请求级步数预算。没给上限是未判定,不当成无限步。与留存上限不是同一档。"""
+    if (
+        isinstance(limit, bool)
+        or (limit is not None and not isinstance(limit, int))
+        or (isinstance(limit, int) and limit <= 0)
+    ):
+        return "unjudged", "budget-invalid"
+    if limit is None:
+        return "unjudged", "budget-absent"
+    if isinstance(taken, bool) or not isinstance(taken, int) or taken < 0:
+        return "unjudged", "taken-invalid"
+    if taken >= limit:
+        return "stop", "budget-spent"
+    return "allow", "within-budget"
+
+
+_RESEARCH_PHASES = ("Scope", "Search", "Fetch", "Verify", "Synthesize")
+
+
+def _phase_allowed(done: list[str]) -> set[str] | None:
+    """把已走阶段演成状态。历史本身跳步则返回 None。"""
+    state = "start"
+    allowed = {
+        "start": {"Scope"},
+        "scope": {"Search"},
+        "search": {"Fetch"},
+        "fetch": {"Search", "Verify"},
+        "verify": {"Synthesize"},
+        "done": set(),
+    }
+    for title in done:
+        if title not in allowed[state]:
+            return None
+        if state == "start":
+            state = "scope"
+        elif state == "scope":
+            state = "search"
+        elif state == "search":
+            state = "fetch"
+        elif state == "fetch" and title == "Search":
+            state = "search"
+        elif state == "fetch":
+            state = "verify"
+        else:
+            state = "done"
+    return set(allowed[state])
+
+
+def admit_research_phase(done: object, title: object) -> dict[str, str]:
+    """声明式阶段只许按序进入。跳过核验直接成稿是拒绝,不是完成。
+
+    观察:对照流程把 Scope、Search、Fetch、Verify、Synthesize 写成有序阶段。
+    Fetch 之后可以再搜一轮,也可以进入核验;没核验不能成稿。
+    阶段名不在这五档里,或历史本身跳过,都是未判定。
+    """
+    if not isinstance(title, str) or title not in _RESEARCH_PHASES:
+        return {"disposition": "unjudged", "reason": "title-unrecognized"}
+    if not isinstance(done, list) or any(not isinstance(item, str) for item in done):
+        return {"disposition": "unjudged", "reason": "history-invalid"}
+    if any(item not in _RESEARCH_PHASES for item in done):
+        return {"disposition": "unjudged", "reason": "history-invalid"}
+    allowed = _phase_allowed(done)
+    if allowed is None:
+        return {"disposition": "unjudged", "reason": "history-invalid"}
+    if title in allowed:
+        return {"disposition": "entered", "reason": "in-order"}
+    return {"disposition": "refused", "reason": "out-of-order"}
+
+
+def ledger_row(claim_id: str, outcome: dict[str, Any]) -> str:
+    """一行 JSON,给调用方落台账。不含模型原文。"""
+    return json.dumps(
+        {
+            "claimId": claim_id,
+            "disposition": outcome.get("disposition"),
+            "reason": outcome.get("reason"),
+            "independent": outcome.get("independent"),
+            "refuted": outcome.get("refuted"),
+            "abstained": outcome.get("abstained"),
+            "selfYes": outcome.get("selfYes"),
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+
+
+def _outcome(
+    disposition: str,
+    reason: str,
+    independent: int,
+    refuted: int,
+    abstained: int,
+    self_yes: int,
+) -> dict[str, Any]:
+    return {
+        "disposition": disposition,
+        "reason": reason,
+        "independent": independent,
+        "refuted": refuted,
+        "abstained": abstained,
+        "selfYes": self_yes,
+    }
 
 # 对外单例(路由复用)
 manager = DeepResearchManager()

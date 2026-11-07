@@ -20,7 +20,7 @@
 
 .py-countdown {
   margin-bottom: var(--spacing-md);
-  padding: var(--spacing-sm-loose) 32rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-lg);
   background: var(--color-secondary);
   border-radius: var(--radius-md);
   border: 2rpx solid var(--color-border);
@@ -40,7 +40,7 @@
 }
 
 .py-amount-card {
-  padding: var(--spacing-xl) 32rpx;
+  padding: var(--spacing-xl) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
@@ -68,7 +68,7 @@
 
 .py-order-card {
   margin-top: var(--spacing-md);
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
@@ -94,7 +94,7 @@
 
 .py-method-card {
   margin-top: var(--spacing-md);
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);
@@ -109,7 +109,7 @@
 .py-method {
   display: flex;
   align-items: center;
-  padding: var(--spacing-sm-loose) 12rpx;
+  padding: var(--spacing-sm-loose) var(--spacing-xs-loose);
   border-radius: var(--radius-md);
   border: 2rpx solid transparent;
 }
@@ -154,7 +154,7 @@
 }
 .py-recharge-link {
   /* 辅助描边按钮对齐 RN outlineBtn:success 描边 + success 字 */
-  padding: var(--spacing-xs) 20rpx;
+  padding: var(--spacing-xs) var(--spacing-sm-loose);
   font-size: var(--text-label);
   color: var(--color-success);
   border: 2rpx solid var(--color-success);
@@ -186,7 +186,7 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--spacing-md);
-  padding: var(--spacing-md) 32rpx;
+  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--color-card);
   border-radius: var(--radius-lg);
   border: 2rpx solid var(--color-border);

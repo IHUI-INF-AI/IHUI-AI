@@ -34,6 +34,7 @@
  * 此后本会话不再往已死的窗口里追加帧(继续堆只会在重连时被读成"完整的尾巴")。
  */
 
+import { SSE_HEARTBEAT_INTERVAL_MS } from '@ihui/shared/constants'
 import type { FastifyReply } from 'fastify'
 import {
   getEventsAfter,
@@ -48,14 +49,6 @@ import { getSseStateStore, SSE_REPLICA_ID } from './sse-state-store.js'
 
 /** 断线宽限期:此窗口内上游继续生成等重连接管,超时才 abort(省 token 与上游资源)。 */
 export const SSE_GRACE_PERIOD_MS = 15_000
-
-/**
- * SSE 心跳间隔(15s):写 SSE **注释帧** `: ping`,不编号、不进回放缓冲。
- *
- * 为什么是注释帧而不是 data 帧:注释帧按规范被客户端忽略,不产生 message 事件,
- * 因此永远不会插进 `id:` 序列、也不会在 Last-Event-ID 重放里冒充业务事件。
- */
-const SSE_HEARTBEAT_INTERVAL_MS = 15_000
 
 export interface StreamSession {
   /** replayKey = `${conversationId}:${messageId}`;null = 不启用编号/缓冲(原样透传) */
@@ -382,6 +375,34 @@ export function emitNamedEvent(
 }
 
 /**
+ * 通用 SSE 周期心跳(2026-11-06 批1):对任意可写目标按间隔写注释帧 `: ping\n\n`。
+ *
+ * 立因是主聊天流/续接流/agent-runtime 转发流在「上游静默」(工具执行、长推理、
+ * 挂起等审批)期间一个字节都不发,而消费侧读环以「单次 read 之间空闲」判死
+ * (端侧 30s = 2 拍),代理层也有更短的 idle 超时 ⇒ 静默期被误判断线,重连/重跑
+ * 产生重复内容与重复计费。
+ *
+ * 注释帧按 SSE 规范被客户端忽略(不产生 message 事件),因此不占 `id:` 序号、
+ * 不进回放缓冲 —— Last-Event-ID 续传语义零变化。返回停止函数,调用方必须在
+ * 流收尾(finally)调用一次,否则定时器会活过连接。
+ */
+export function startSseHeartbeat(
+  write: (frame: string) => void,
+  intervalMs: number = SSE_HEARTBEAT_INTERVAL_MS,
+): () => void {
+  const timer: ReturnType<typeof globalThis.setInterval> = globalThis.setInterval(() => {
+    try {
+      write(': ping\n\n')
+    } catch {
+      /* 心跳写出失败不阻塞主链:下一拍连接已断时自然跳过 */
+    }
+  }, intervalMs)
+  // 不阻止进程退出(测试/短生命周期进程不应被心跳挂着)
+  ;(timer as unknown as { unref?: () => void }).unref?.()
+  return () => globalThis.clearInterval(timer)
+}
+
+/**
  * 启动 15s 心跳(2026-11-02 B3 立):只写注释帧,不编号、不进回放缓冲。
  *
  * 断线期间 session.raw 为 null ⇒ 本拍直接跳过(重连后由 takeoverStream 换绑的
@@ -392,17 +413,10 @@ export function startHeartbeat(
   session: StreamSession,
   intervalMs: number = SSE_HEARTBEAT_INTERVAL_MS,
 ): () => void {
-  const timer: ReturnType<typeof globalThis.setInterval> = globalThis.setInterval(() => {
+  return startSseHeartbeat(() => {
     if (!session.raw) return
-    try {
-      session.raw.write(': ping\n\n')
-    } catch {
-      /* 心跳写出失败不阻塞主链:下一拍连接已断时自然跳过 */
-    }
+    session.raw.write(': ping\n\n')
   }, intervalMs)
-  // 不阻止进程退出(测试/短生命周期进程不应被心跳挂着)
-  ;(timer as unknown as { unref?: () => void }).unref?.()
-  return () => globalThis.clearInterval(timer)
 }
 
 /**

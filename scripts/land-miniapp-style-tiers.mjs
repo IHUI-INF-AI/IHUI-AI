@@ -52,7 +52,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { gitRaw, readWorktreeFile } from './lib/face-reader.mjs'
 import { parseTokenTables } from './sync-css-tokens.mjs'
 import { maskComments, scanSpans } from './lib/code-mask.mjs'
-import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+import { appendLanding, collectiblePaths, ledgerPathFor, legsCover, normalizeLegs } from './lib/cross-end-landing-ledger.mjs'
 // 归属避让判据的唯一实现(2026-11-03 提库,§0.6 / 门 191):三枚 lander + 两枚落档器共用这一份。
 import { ownershipDirtyPaths } from './lib/git-paths.mjs'
 
@@ -95,6 +95,14 @@ const fontSafe = argv.includes('--font-safe')
 const inlineSafe = argv.includes('--inline-safe')
 const fontAll = argv.includes('--font-all')
 const font400 = argv.includes('--font-400')
+/** 本轮开着的轴/安全档 = 登记与续跑共用腿集(窄档登记行不得替宽档背书,判据 = 库 legsCover)。 */
+const enabledLegs = [
+  'tiers',
+  ...(fontSafe ? ['font-safe'] : []),
+  ...(inlineSafe ? ['inline-safe'] : []),
+  ...(fontAll ? ['font-all'] : []),
+  ...(font400 ? ['font-400'] : []),
+]
 const selfTest = argv.includes('--self-test')
 const fileArgs = argv.reduce((acc, a, i) => (a === '--file' && argv[i + 1] ? [...acc, argv[i + 1].replace(/\\/g, '/')] : acc), [])
 
@@ -322,20 +330,28 @@ export function blobOidOf(rel, { root = ROOT } = {}) {
  * 账本读不到 ⇒ {ok:false}:调用方必须回落现行为(照旧全量尝试)并在结论行标
  * ledger=unjudged —— 失效方向是"多做一遍",绝不是"少做一遍"或判死。
  */
-export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date() } = {}) {
+export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date(), legs = null } = {}) {
   const r = collectiblePaths(now, { quietMs: 0, face: 'worktree', root })
   if (!r.ok) return { ok: false, reason: r.reason, paths: new Set() }
-  return { ok: true, paths: new Set(r.collectible.filter((c) => c.leg === leg).map((c) => c.path)) }
+  const covered = r.collectible.filter((c) => c.leg === leg && legsCover(c.legs, legs))
+  return { ok: true, paths: new Set(covered.map((c) => c.path)) }
 }
 
 /**
  * 落盘成功后一次批量登记:逐路径**写完盘后实测** oid(绝不取 HEAD 旧值)→ appendLanding。
  * 本体永不抛(账本不可写只如实报 landingError,§0.3);同轮共用一个 ISO 时刻。
  */
-export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString() } = {}) {
+export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString(), legs = null } = {}) {
   if (!paths.length) return { ok: true, landing: 0, deduped: 0, rejected: [] }
   try {
-    const list = paths.map((p) => ({ at, leg, path: p, blobOid: blobOidOf(p, { root }) }))
+    const rowLegs = normalizeLegs(legs)
+    const list = paths.map((p) => ({
+      at,
+      leg,
+      path: p,
+      blobOid: blobOidOf(p, { root }),
+      ...(rowLegs ? { legs: rowLegs } : {}),
+    }))
     const r = appendLanding(list, { root })
     return { ok: true, landing: r.appended, deduped: r.deduped, rejected: r.rejected }
   } catch (e) {
@@ -357,7 +373,7 @@ export function landingKeys({ landing = 0, deduped = 0, rejected = 0, skipLanded
 function openLandingRound() {
   const st = { set: new Set(), unjudged: false, batch: [], skipLanded: 0 }
   if (!apply) return st
-  const lp = landedPathsOf()
+  const lp = landedPathsOf({ legs: enabledLegs })
   if (lp.ok) st.set = lp.paths
   else st.unjudged = true
   return st
@@ -367,7 +383,7 @@ function openLandingRound() {
 function closeLandingRound(st) {
   const out = { landing: 0, deduped: 0, rejected: 0, err: '' }
   if (!(apply && st.batch.length)) return out
-  const reg = registerLanding(st.batch)
+  const reg = registerLanding(st.batch, { legs: enabledLegs })
   out.landing = reg.landing
   out.deduped = reg.deduped
   out.rejected = reg.rejected.length

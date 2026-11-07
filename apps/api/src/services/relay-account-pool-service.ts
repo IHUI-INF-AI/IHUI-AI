@@ -348,6 +348,36 @@ function autoUid(seed: string): string {
 }
 
 /**
+ * 稳定键材料的唯一消毒口径(2026-11-06 Y-24 立):剥 NUL + 去首尾空白。
+ * 与落库侧 `stripNulDeep` 同判据(键与值不得两套消毒,§0.6);`recordKey` 实测内嵌
+ * leveldb 键分隔符 NUL,不消毒则"同一条记录两次导出算出两枚键"。
+ */
+function stableKeyMaterial(v: unknown): string {
+  return cstr(v)
+    .replace(/\u0000/g, '')
+    .trim()
+}
+
+/**
+ * 从票里取"账号级稳定标识"(2026-11-06 Y-24 立):只认声明名,**绝不把 token 本体当材料**。
+ * 取不到 ⇒ 返回 ''(交回调用方,由它显式决定退化形态;本函数不冒充稳定)。
+ */
+function stableClaimUid(claims: Record<string, unknown> | null, names: readonly string[]): string {
+  if (!claims) return ''
+  for (const n of names) {
+    const v = claims[n]
+    const s =
+      typeof v === 'string'
+        ? stableKeyMaterial(v)
+        : typeof v === 'number' && Number.isFinite(v)
+          ? String(v)
+          : ''
+    if (s) return s.slice(0, 128)
+  }
+  return ''
+}
+
+/**
  * 递归剥除字符串里的 NUL 字节(PG text/jsonb 拒收 \u0000;leveldb 键名等本机
  * 取证材料常内嵌键分隔符,透传进 extra_metadata 前统一消毒,只去非法字节不改语义)。
  */
@@ -434,7 +464,19 @@ function mapOpencodeImport(acc: ImportAccountInput): {
   }
 }
 
-/** MiniMax:mcode auth 记录(accessToken/refreshToken/expiresAtMs + region 溯源) */
+/**
+ * MiniMax 导入映射(2026-10-27 扩容;2026-11-06 Y-24 收稳定身份键)。
+ *
+ * 键源缺陷(主会话现读实证,dev 库 25 行 / 23 枚去重键):`minimax:cn` 一名占 3 行 3 枚 uid,
+ * 而这 3 行的 `extra_metadata.recordKey` sha256 前 8 位同为 `95f3a1fe`,且等于本机
+ * `~/.minimax/auth/prod/cn/mcode-public/auth.json` **当下**那条记录键(整键 sha 同为 `95f3a1fe`)
+ * ⇒ 同一账号、同一记录键、三枚不同 uid,唯一变量就是票 ⇒ 旧口径把 token 混进 seed,
+ * 换一次票就换一枚键,「同 provider+uid 覆盖」永远命中不到旧行,每重导出一次多留一行孤儿。
+ * 现收口:键 = `minimax:record:<recordKey>` 的哈希,token 只进凭据列。
+ * `recordKey` 是 mcode 客户端 `auth.json.records` 的映射键(账号级),`scripts/tests/local-login.test.mjs`
+ * ⑤ 族用例已钉"按 recordKey 打补丁、其它记录不得被动" ⇒ 记录键与账号一一对应、不随票旋转。
+ * 退化档:载荷没有 recordKey 时仍按 token 哈希(不硬造伪稳定键;该平台需补采集列已在册)。
+ */
 function mapMinimaxImport(acc: ImportAccountInput): {
   token: string
   refreshToken: string | null
@@ -452,7 +494,11 @@ function mapMinimaxImport(acc: ImportAccountInput): {
   return {
     token,
     refreshToken: cstr(a['refreshToken']) || null,
-    uid: autoUid(`${cstr(a['recordKey']) || 'minimax'}:${token}`),
+    // Y-24:键源 = 账号级 recordKey,token 不进键(缺材料才回落 token 哈希)
+    uid: (() => {
+      const rk = stableKeyMaterial(a['recordKey'])
+      return rk ? autoUid(`minimax:record:${rk}`) : autoUid(`minimax:${token}`)
+    })(),
     name: `minimax${region ? `:${region}` : ''}`,
     expiresAt: expMs !== null && Number.isFinite(expMs) ? new Date(expMs) : null,
     secrets: {
@@ -469,7 +515,14 @@ function mapMinimaxImport(acc: ImportAccountInput): {
   }
 }
 
-/** ZCode:credentials.json 扁平图直通,token 主选 oauth:bigmodel:access_token */
+/**
+ * ZCode:credentials.json 扁平图直通,token 主选 oauth:bigmodel:access_token。
+ *
+ * 2026-11-06 Y-24 收稳定身份键:本机实提那枚票解出的 JWT 声明里带
+ * `customer_id / user_id / username`(账号级),而 `oauth:bigmodel:user_info.id` 与
+ * `customer_id` **同指纹**(同为 `c20d04f8`,两份互独立材料互相印证)⇒ 该 id 不是票派生量,
+ * 换票不改。故 uid = 声明 `customer_id`(缺则 `user_id`);两者皆缺才回落 token 哈希。
+ */
 function mapZcodeImport(acc: ImportAccountInput): {
   token: string
   refreshToken: string | null
@@ -491,7 +544,8 @@ function mapZcodeImport(acc: ImportAccountInput): {
   return {
     token,
     refreshToken: null,
-    uid: autoUid(token),
+    // Y-24:键源 = 票内账号级声明,token 不进键(声明皆缺才回落 token 哈希)
+    uid: stableClaimUid(parseJwtClaims(token), ['customer_id', 'user_id']) || autoUid(token),
     name: `zcode${region ? `:${region}` : ''}`,
     expiresAt: null,
     secrets: {
@@ -521,10 +575,30 @@ function mapSessionEntryImport(
   const token = hits[0]?.value ?? ''
   if (!token) return null
   const key = cstr(a['key'])
+  const source = cstr(a['source']) || providerCode
+  /**
+   * Y-24 收口(2026-11-06):这一支原本是 `autoUid(source:key:token)` —— 对豆包而言 token 就是
+   * `sessionid` 一类的**会话票**,重登即轮换 ⇒ 换一次票换一枚键,「同 provider+uid 覆盖」命中不到
+   * 旧行,每重导出一次多留一行孤儿(dev 库那 12 行的原始成因正是它)。
+   * 改取账号级稳定标识:字节系 `uid_tt` / `uid_tt_ss` 承载用户 id(本机实提的会话族 12 票里就有,
+   * 且席 A 一手量到"uid_tt 族值指纹登录期内不变")。载荷里没有这两枚 ⇒ 保持旧口径,
+   * **不硬造伪稳定键**(退化档有锁,见 tests T9 ⑤)。
+   */
+  const cookieList = Array.isArray(a['cookies'])
+    ? (a['cookies'] as Array<Record<string, unknown>>)
+    : []
+  const accountUid = (() => {
+    for (const n of ['uid_tt', 'uid_tt_ss']) {
+      const hit = cookieList.find((c) => stableKeyMaterial(c['name']) === n)
+      const v = hit ? stableKeyMaterial(hit['value']) : ''
+      if (v) return v
+    }
+    return ''
+  })()
   return {
     token,
     refreshToken: null,
-    uid: autoUid(`${cstr(a['source']) || providerLabel}:${key}:${token}`),
+    uid: accountUid ? autoUid(`${source}:uid:${accountUid}`) : autoUid(`${source}:${key}:${token}`),
     name: key ? `${providerLabel}:${key}` : providerLabel,
     expiresAt: null,
     secrets: {
@@ -567,6 +641,116 @@ function mapLingmaImport(acc: ImportAccountInput): {
 /** GrokBot:凭证全为密封串 ⇒ 映射恒 null,导入在分派处按点名原因失败(不猜不解封) */
 function mapGrokbotImport(_acc: ImportAccountInput): null {
   return null
+}
+
+/**
+ * 平台导入映射的唯一分派(2026-11-06 抽出)。
+ *
+ * 内容 = 原 `importAccounts` 内联三元链的**逐字搬迁**(各映射函数语义一字未改),抽出只为
+ * 让"落库口径的 uid"有一个可复用的入口:预检面(relay-account-import CLI / Web 预检)此前
+ * 自己按 `extractUid(token)` 算 uid,而落库按本函数的 `mapped.uid` 算 ⇒ 同一份输入两个键,
+ * 预检报的 uid 永远指不到将要被覆盖的那一行。收口 = 调用侧复用本函数 + `uidFromImportPayload`
+ * (见 `resolveImportAccountUid`),**不动四个 `auto:` 生成点**、不改任何身份键的取值。
+ */
+function mapImportedAccount(providerCode: RelayProviderCode, acc: ImportAccountInput) {
+  return providerCode === 'codearts'
+    ? mapCodeartsImport(acc)
+    : providerCode === 'qoder'
+      ? mapQoderImport(acc)
+      : providerCode === 'codex'
+        ? mapCodexImport(acc)
+        : providerCode === 'opencode'
+          ? mapOpencodeImport(acc)
+          : providerCode === 'minimax'
+            ? mapMinimaxImport(acc)
+            : providerCode === 'zcode'
+              ? mapZcodeImport(acc)
+              : providerCode === 'loomy'
+                ? mapLoomyImport(acc)
+                : providerCode === 'doubao'
+                  ? mapDoubaoImport(acc)
+                  : providerCode === 'lingma'
+                    ? mapLingmaImport(acc)
+                    : providerCode === 'grokbot'
+                      ? mapGrokbotImport(acc)
+                      : null
+}
+
+/**
+ * 落库口径 uid 的唯一推导(与 `importAccounts` 循环内那一行同源,§0.6 不许有第二份)。
+ * 优先级:平台映射 uid > 载荷显式 uid(归一化后)> `extractUid(token)` 兜底。
+ */
+function uidFromImportPayload(
+  mapped: { uid: string } | null,
+  fallbackAccountUid: unknown,
+  token: string,
+): string {
+  return normalizeCredentialValue(mapped ? mapped.uid : fallbackAccountUid) ?? extractUid(token)
+}
+
+/**
+ * 「这条载荷真导入后会落在哪个 uid 上」的只读出口(2026-11-06 立,预检↔落库键源收口)。
+ *
+ * 与 `importAccounts` 的取值路径逐步对齐:同一次 `normalizeForeignAccountShape` → 同一个
+ * 形状闸门 → 同一个映射分派(`mapImportedAccount`)→ 同一句 uid 推导(`uidFromImportPayload`)。
+ * 因此本函数返回的 uid **就是**入库行的 `(provider_code, uid)` 去重键,预检报出的键可以直接
+ * 用于查/删/重导入命中同一行。
+ *
+ * 返回 null 的三种情形(与落库侧的"这条根本不会写行"一一对应,§0.3 不猜):
+ * - 形状闸门不通过(平台认不出 / 无明文凭据);
+ * - 归一化后 token 为空;
+ * - 入参不是对象形状。
+ * 本函数零 IO、零写库:只算键,不碰数据。
+ */
+export function resolveImportAccountUid(
+  providerCode: RelayProviderCode,
+  account: ImportAccountInput,
+): string | null {
+  if (account === null || typeof account !== 'object' || Array.isArray(account)) return null
+  const acc = normalizeForeignAccountShape(account) as ImportAccountInput
+  if (!recognizeImportShape(providerCode, acc).importable) return null
+  const mapped = mapImportedAccount(providerCode, acc)
+  const token = normalizeCredentialValue(mapped ? mapped.token : acc.token) ?? ''
+  if (!token) return null
+  return uidFromImportPayload(mapped, acc.uid, token)
+}
+
+/** 预检逐行 uid 探针(零 IO;`duplicateOf` 口径与 importAccounts 的 seenInBatch 一致) */
+export interface ImportUidProbe {
+  index: number
+  /** 落库口径 uid;null = 这条根本不会写行(形状闸门不过 / 归一化后无明文 token) */
+  uid: string | null
+  /** 批内已有同 uid 首条时点名其下标(= 落库时会以「批次内重复 uid(以首条为准)」跳过) */
+  duplicateOf: number | null
+}
+
+/**
+ * 一批载荷的落库口径 uid 探针(2026-11-06 立;预检面的唯一出口)。
+ * 逐行只算键、不查库、不写库 ⇒ 预检可以零副作用地报出"真导入后落在哪一行"。
+ */
+export function resolveImportAccountUidProbe(
+  providerCode: RelayProviderCode,
+  accounts: readonly ImportAccountInput[],
+): ImportUidProbe[] {
+  const firstIndexByUid = new Map<string, number>()
+  const probes: ImportUidProbe[] = []
+  for (let index = 0; index < accounts.length; index++) {
+    const account = accounts[index]
+    const uid =
+      account !== null && typeof account === 'object' && !Array.isArray(account)
+        ? resolveImportAccountUid(providerCode, account)
+        : null
+    let duplicateOf: number | null = null
+    if (uid === null) {
+      // 取不到键 = 未判定,不冒充"不重复"
+    } else if (firstIndexByUid.has(uid)) {
+      duplicateOf = firstIndexByUid.get(uid) ?? null
+    } else {
+      firstIndexByUid.set(uid, index)
+    }
+    probes.push({ index, uid, duplicateOf })
+  }
+  return probes
 }
 
 // =============================================================================
@@ -689,28 +873,9 @@ export async function importAccounts(
       // opaque token 会话 / 2026-10-27 扩容八平台(codex/opencode/minimax/zcode/
       // loomy/doubao/lingma/grokbot)。各格式的 uid/expiresAt 都在映射层显式解析,
       // 不透传则退化为哈希 uid + 无过期时刻。
-      const mapped =
-        providerCode === 'codearts'
-          ? mapCodeartsImport(acc)
-          : providerCode === 'qoder'
-            ? mapQoderImport(acc)
-            : providerCode === 'codex'
-              ? mapCodexImport(acc)
-              : providerCode === 'opencode'
-                ? mapOpencodeImport(acc)
-                : providerCode === 'minimax'
-                  ? mapMinimaxImport(acc)
-                  : providerCode === 'zcode'
-                    ? mapZcodeImport(acc)
-                    : providerCode === 'loomy'
-                      ? mapLoomyImport(acc)
-                      : providerCode === 'doubao'
-                        ? mapDoubaoImport(acc)
-                        : providerCode === 'lingma'
-                          ? mapLingmaImport(acc)
-                          : providerCode === 'grokbot'
-                            ? mapGrokbotImport(acc)
-                            : null
+      // 2026-11-06 分派链抽出到 mapImportedAccount(逐字搬迁,语义不变):预检面经
+      // resolveImportAccountUid 复用同一枚,杜绝"预检 uid ≠ 入库 uid"两套键源。
+      const mapped = mapImportedAccount(providerCode, acc)
       // Trae 设备材料独立成档:只写 secretsEnc,不接管 token/refreshToken/uid 的取值路径
       const traeSecrets = providerCode === 'trae' ? mapTraeImport(acc) : null
       // 入口归一化:从 JSON 整段复制的粘贴值会带包裹引号,上游按前缀校验 ⇒ 一个多余字符
@@ -742,7 +907,9 @@ export async function importAccounts(
         continue
       }
       const refreshToken = normalizeCredentialValue(mapped ? mapped.refreshToken : acc.refreshToken)
-      const uid = normalizeCredentialValue(mapped ? mapped.uid : acc.uid) ?? extractUid(token)
+      // uid 取值单源 uidFromImportPayload(2026-11-06 抽出;预检面 resolveImportAccountUid
+      // 走同一句 ⇒ "预检报的键"与"入库落地的键"从此是同一枚)
+      const uid = uidFromImportPayload(mapped, acc.uid, token)
       const shapeIssue = credentialShapeIssue(providerCode, { refreshToken })
       if (shapeIssue) {
         result.failed++
@@ -1315,6 +1482,131 @@ export async function completeAccountPhone(
     )
   }
   return applyPhoneCompletion(row, p, via)
+}
+
+// =============================================================================
+// 共享到运营池标记(2026-11-07 立,李总指令)
+// =============================================================================
+
+export interface SetSharedResult {
+  code: 'ok' | 'not_found'
+  message: string | null
+  id: string | null
+  sharedToOps: boolean | null
+  changed: boolean
+  checkinSync: CheckinSyncOutcome
+}
+
+/**
+ * 设置账号的"共享到运营池"标记(全局开放模型)。
+ *
+ * - shared=true:该号在保留个人池归属(本人可用)的同时,对所有用户/匿名开放(转发选路纳入);
+ * - shared=false:仅个人池可见可用,绝不服务他人请求。
+ *
+ * 仅改路由标记,凭证不变;仍按 applyPhoneCompletion 同口径 bump cred_version 并推一次签到
+ * 同步(使边缘视图对该账号保持最新,且改动可被对账收敛器感知),失败不阻塞主流程。
+ */
+export async function setAccountShared(
+  accountId: string,
+  shared: boolean,
+): Promise<SetSharedResult> {
+  const target = shared === true
+  const [row] = await dbRead
+    .select()
+    .from(aiRelayAccountPool)
+    .where(eq(aiRelayAccountPool.id, accountId))
+    .limit(1)
+  if (!row) {
+    return {
+      code: 'not_found',
+      message: '账号不存在或已被删除',
+      id: null,
+      sharedToOps: null,
+      changed: false,
+      checkinSync: NO_SYNC,
+    }
+  }
+  if (row.sharedToOps === target) {
+    return {
+      code: 'ok',
+      message: null,
+      id: row.id,
+      sharedToOps: target,
+      changed: false,
+      checkinSync: NO_SYNC,
+    }
+  }
+  const [written] = await db
+    .update(aiRelayAccountPool)
+    .set({
+      sharedToOps: target,
+      credVersion: sql`${aiRelayAccountPool.credVersion} + 1`,
+      updatedAt: new Date(),
+    })
+    .where(eq(aiRelayAccountPool.id, row.id))
+    .returning({
+      id: aiRelayAccountPool.id,
+      credVersion: aiRelayAccountPool.credVersion,
+      sharedToOps: aiRelayAccountPool.sharedToOps,
+    })
+  if (!written) {
+    return {
+      code: 'not_found',
+      message: '账号不存在或已被删除',
+      id: null,
+      sharedToOps: null,
+      changed: false,
+      checkinSync: NO_SYNC,
+    }
+  }
+  // 签到传播(旁路,失败不阻塞):凭证未动,载荷 = 库内现值解密重建 + 新版本。
+  const checkinSync: CheckinSyncOutcome = { pushed: 0, pending: false, error: null }
+  const platform = checkinPlatformFor(row.providerCode)
+  if (platform) {
+    try {
+      const credentials = decryptAccountCredentials(row)
+      const acc = buildPoolSyncAccount({
+        id: row.id,
+        ownerUserId: row.ownerUserId,
+        uid: row.uid ?? '',
+        name: row.name ?? '',
+        token: credentials.token,
+        refreshToken: credentials.refreshToken,
+        credVersion: written.credVersion,
+        enabled: row.isEnabled,
+        proxyUrl: resolveAccountProxyUrl(row.proxyUrl),
+        deviceId: row.deviceId,
+        machineId: row.machineId,
+        cosy: extractCosy(row.extraMetadata),
+        deviceKeyPem: pemFromSecrets(credentials.secrets, 'deviceKeyPem'),
+        devicePubPem: pemFromSecrets(credentials.secrets, 'devicePubPem'),
+        tokenExpiresAt: row.tokenExpiresAt,
+      })
+      const push = await pushPoolSync(platform, [acc])
+      if (push.ok && push.failed === 0) {
+        checkinSync.pushed = push.pushed
+        await clearCheckinSyncPending([row.id])
+      } else {
+        checkinSync.error = push.error
+        try {
+          await markCheckinSyncPending([row.id], 'cred', null, push.error ?? '共享标记变更后签到推送失败')
+          checkinSync.pending = true
+        } catch {
+          /* pending 落库失败只意味着少一条待推痕迹,对账收敛器兜底 */
+        }
+      }
+    } catch (e) {
+      checkinSync.error = e instanceof Error ? e.message.slice(0, 200) : '签到同步异常'
+    }
+  }
+  return {
+    code: 'ok',
+    message: null,
+    id: row.id,
+    sharedToOps: written.sharedToOps,
+    changed: true,
+    checkinSync,
+  }
 }
 
 /** 批量候选匹配报告(零凭据;只报 id/名/候选号,歧义项交人工裁决) */

@@ -5,7 +5,8 @@
 """AgentLoopV2 × budget governor 集成测试(1-6 token 治理)。
 
 验证主循环每轮接入 check_budget 硬约束 + record_usage 计量:
-- budget off(默认)→ 行为与改动前完全一致(跑通 2 轮,record_usage 不被调用)
+- budget 显式 off → 行为与改动前完全一致(跑通 2 轮,record_usage 不被调用;
+  批次 3 起 env 默认 on,该路径改为构造参数 budget_enabled=False 验证)
 - budget on + 硬停止(check_budget 返回 allowed=False / raise BudgetExceededError)
   → 循环优雅停止,stop_reason="budget_exceeded",error 非空,iterations 保留
 - budget on + 正常 → 每轮 LLM 返回后 record_usage 被调用
@@ -82,12 +83,16 @@ def _denied_check(reason: str = "已达硬停止阈值(100.0% ≥ 100%)") -> Bud
 
 
 # =============================================================================
-# 1. budget off(默认)→ 行为与改动前完全一致
+# 1. budget 显式 off → 行为与改动前完全一致(批次 3 默认 on,不再以默认值为测点)
 # =============================================================================
 
 
 async def test_budget_off_runs_unchanged():
-    """budget 默认 off:2 轮跑通,stop_reason=completed,record_usage 不被调用。"""
+    """budget 显式 off:2 轮跑通,stop_reason=completed,record_usage 不被调用。
+
+    批次 3 起 AGENT_BUDGET_ENABLED 默认 on;本用例验证"运维显式关闭"这条路径,
+    因此不再依赖 env 默认值,而是构造参数 budget_enabled=False(优先级高于 env)。
+    """
     call_count = 0
 
     async def mock_llm(messages, tools):
@@ -100,9 +105,11 @@ async def test_budget_off_runs_unchanged():
             }
         return {"content": "北京今天晴,25度", "tool_calls": None}
 
-    # 不传 budget_enabled → 默认 off(与改动前行为一致)
+    # 显式关闭(批次 3 默认 on;关掉后行为与改动前一致)
     with patch.object(llm_budget_governor, "record_usage", AsyncMock()) as rec:
-        loop = AgentLoopV2(mock_llm, [_weather_tool()], max_iterations=5)
+        loop = AgentLoopV2(
+            mock_llm, [_weather_tool()], max_iterations=5, budget_enabled=False
+        )
         result = await loop.run(_default_messages())
 
     assert result.success is True
@@ -174,10 +181,71 @@ async def test_budget_on_hard_stop_after_first_iteration():
     assert result.budget is not None
     assert result.budget["stopped_at_iteration"] == 2
     assert result.budget["usage_percent"] == 1.0
+    # 批次 3:旧构造点未填 reason_code ⇒ 从 error 散文归一,必须仍是封闭集内的码
+    assert result.budget["reason_code"] == "daily_token_limit"
+    assert result.budget["scope"] == "daily"
     # 只有第 1 轮真正调了 LLM → check 2 次、record 1 次
     assert check_mock.await_count == 2
     rec.assert_awaited_once()
     assert call_count == 1
+
+
+async def test_budget_stop_carries_governor_reason_code():
+    """governor 结果里有 reason_code/scope ⇒ 原样进 AgentLoopResult.budget(不重新猜)。"""
+    denied = BudgetCheckResult(
+        allowed=False,
+        degrade_to_model=None,
+        reason="hourly token limit exceeded",
+        usage_percent=1.05,
+        pillar_usage_percent=0.4,
+        remaining_tokens=0,
+        remaining_cost_usd=4.0,
+        reason_code="hourly_token_limit",
+        scope="hourly",
+    )
+
+    async def mock_llm(messages, tools):
+        raise AssertionError("LLM 不应被调用(预算已拒)")
+
+    with (
+        patch.object(
+            llm_budget_governor, "check_budget", AsyncMock(return_value=denied)
+        ),
+        patch.object(llm_budget_governor, "record_usage", AsyncMock()),
+    ):
+        loop = AgentLoopV2(
+            mock_llm, [_weather_tool()], max_iterations=3, budget_enabled=True
+        )
+        result = await loop.run(_default_messages())
+
+    assert result.stop_reason == "budget_exceeded"
+    assert result.budget is not None
+    assert result.budget["reason_code"] == "hourly_token_limit"
+    assert result.budget["scope"] == "hourly"
+    assert result.budget["usage_percent"] == 1.05
+    assert result.budget["stopped_at_iteration"] == 1
+
+
+async def test_budget_exception_reason_normalized_to_closed_set():
+    """BudgetExceededError 只有 free-text ⇒ 归一为 hourly_token_limit(不是 None)。"""
+
+    async def mock_llm(messages, tools):
+        raise AssertionError("LLM 不应被调用(预算已拒)")
+
+    with patch.object(
+        llm_budget_governor,
+        "check_budget",
+        AsyncMock(side_effect=BudgetExceededError("hourly token limit exceeded")),
+    ):
+        loop = AgentLoopV2(
+            mock_llm, [_weather_tool()], max_iterations=3, budget_enabled=True
+        )
+        result = await loop.run(_default_messages())
+
+    assert result.stop_reason == "budget_exceeded"
+    assert result.budget is not None
+    assert result.budget["reason_code"] == "hourly_token_limit"
+    assert result.budget["scope"] == "hourly"
 
 
 # =============================================================================

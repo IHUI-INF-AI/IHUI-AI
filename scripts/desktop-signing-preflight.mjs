@@ -21,8 +21,12 @@
  *   macos:   Apple 证书三件 + 公证通道二选一(Apple ID 三件 / API Key 三件) + Tauri 两枚
  *   linux:   仅 Tauri 两枚
  *
+ * 2026-11-05 扩 `--scope cli`:`release-cli.yml` 的 Windows 二进制同样要 Authenticode 签名,
+ *   但 CLI 不发 updater `.sig`、也不需要 Apple 凭据,故 cli 口径 = Windows 只要求 SignPath 四件,
+ *   linux/macos 零要求。默认 scope=desktop,保持既有调用逐字同义。
+ *
  * 退出码: 0 就绪 / 1 有缺项(逐条点名) / 2 用法错误(写 stderr)
- * 用法: node scripts/desktop-signing-preflight.mjs --platform windows|macos|linux
+ * 用法: node scripts/desktop-signing-preflight.mjs --platform windows|macos|linux [--scope desktop|cli]
  *       node scripts/desktop-signing-preflight.mjs --self-test
  */
 import { pathToFileURL } from 'node:url';
@@ -37,7 +41,7 @@ const SIGNPATH = [
 ];
 const APPLE_CORE = ['APPLE_CERTIFICATE', 'APPLE_CERTIFICATE_PASSWORD', 'APPLE_SIGNING_IDENTITY'];
 const APPLE_ID_CHANNEL = ['APPLE_ID', 'APPLE_PASSWORD', 'APPLE_TEAM_ID'];
-const APPLE_KEY_CHANNEL = ['APPLE_API_KEY', 'APPLE_API_ISSUER', 'APPLE_API_KEY_PATH'];
+const APPLE_KEY_CHANNEL = ['APPLE_API_KEY', 'APPLE_API_ISSUER', 'APPLE_API_KEY_P8'];
 
 const HINTS = {
   SIGNPATH_API_TOKEN: 'SignPath 用户设置里的 submitter token(只显示一次)',
@@ -54,10 +58,13 @@ const HINTS = {
   APPLE_TEAM_ID: 'Apple Developer 团队 ID(公证通道 A)',
   APPLE_API_KEY: 'App Store Connect API Key 的 Key ID(公证通道 B)',
   APPLE_API_ISSUER: 'App Store Connect Issuer UUID(公证通道 B)',
-  APPLE_API_KEY_PATH: '.p8 文件路径(公证通道 B,需与 workflow 约定一致)',
+  APPLE_API_KEY_P8: 'App Store Connect API Key 的 .p8 内容(单行 base64 或原始 PEM;公证通道 B)',
+  APPLE_API_KEY_PATH:
+    '可选:.p8 落盘路径覆盖(不填则 workflow 写到 $RUNNER_TEMP/ihui-asc-api-key.p8,不再是必填 secret)',
 };
 
 export const PLATFORMS = ['windows', 'macos', 'linux'];
+export const SCOPES = ['desktop', 'cli'];
 
 function has(env, name) {
   const v = env[name];
@@ -65,13 +72,18 @@ function has(env, name) {
 }
 
 /**
- * 纯函数:给定平台与环境变量,返回 {ready, missing:[{name,hint}], count, total}
+ * 纯函数:给定平台、环境变量与 scope,返回 {ready, scope, missing:[{name,hint}], count, total}
  * missing 里同一枚 secret 只出现一次,顺序固定(便于与日志对照)。
+ * scope=cli 时只要求 Windows 的 SignPath 四件(CLI 不发 updater `.sig`、不涉 Apple 凭据)。
  */
-export function inspectCredentials(platform, env) {
+export function inspectCredentials(platform, env, scope = 'desktop') {
   if (!PLATFORMS.includes(platform)) throw new Error(`未知平台: ${platform}`);
+  if (!SCOPES.includes(scope)) throw new Error(`未知 scope: ${scope}`);
   const required = [];
-  if (platform === 'windows') required.push(...SIGNPATH, ...TAURI);
+  if (scope === 'cli') {
+    // CLI 的 Windows 二进制走 SignPath Authenticode;linux/macos 产物本链不签名
+    if (platform === 'windows') required.push(...SIGNPATH);
+  } else if (platform === 'windows') required.push(...SIGNPATH, ...TAURI);
   else if (platform === 'linux') required.push(...TAURI);
   else {
     required.push(...APPLE_CORE);
@@ -88,20 +100,24 @@ export function inspectCredentials(platform, env) {
   const missing = unique
     .filter((n) => !has(env, n))
     .map((n) => ({ name: n, hint: HINTS[n] || '' }));
-  return { platform, count: unique.length - missing.length, total: unique.length, missing };
+  return { platform, scope, count: unique.length - missing.length, total: unique.length, missing };
 }
 
 function printReport(result) {
-  const { platform, count, total, missing } = result;
+  const { platform, scope, count, total, missing } = result;
+  if (total === 0) {
+    console.log(`无需签名凭据(scope=${scope},平台=${platform})`);
+    return 0;
+  }
   if (missing.length === 0) {
-    console.log(`签名凭据已就绪 ${count}/${total}(平台=${platform})`);
+    console.log(`签名凭据已就绪 ${count}/${total}(scope=${scope},平台=${platform})`);
     return 0;
   }
   const names = missing.map((m) => m.name).join(', ');
-  console.error(`::error::签名凭据缺口(平台=${platform},缺 ${missing.length}/${total}): ${names}`);
+  console.error(`::error::签名凭据缺口(scope=${scope},平台=${platform},缺 ${missing.length}/${total}): ${names}`);
   for (const m of missing) console.error(`  - 缺少 secret: ${m.name} —— ${m.hint}`);
-  if (platform === 'macos' && missing.some((m) => APPLE_ID_CHANNEL.includes(m.name) || APPLE_KEY_CHANNEL.includes(m.name))) {
-    console.error('  说明:公证通道 A(APPLE_ID/PASSWORD/TEAM_ID)与通道 B(API_KEY/ISSUER/API_KEY_PATH)二选一,必须整组给齐');
+  if (scope === 'desktop' && platform === 'macos' && missing.some((m) => APPLE_ID_CHANNEL.includes(m.name) || APPLE_KEY_CHANNEL.includes(m.name))) {
+    console.error('  说明:公证通道 A(APPLE_ID/PASSWORD/TEAM_ID)与通道 B(API_KEY/ISSUER/API_KEY_P8)二选一,必须整组给齐');
   }
   console.error('  取值入口与申请步骤: docs/DESKTOP_CODE_SIGNING.md');
   return 1;
@@ -123,6 +139,20 @@ function selfTest() {
   cases.push([inspectCredentials('macos', macHalfA).missing.length === 5, 'macOS 半个通道 A → 不会被当成就绪']);
   const half = { ...winOk, SIGNPATH_PROJECT_SLUG: '   ' };
   cases.push([inspectCredentials('windows', half).missing.length === 1, '空白串不算就绪(仍是 1 项缺)']);
+  // 通道 B 三件 = Key ID / Issuer / .p8 内容;缺 .p8 内容即不完整(2026-11-05 补落盘步后新增)
+  const macBNoP8 = { ...macCoreOnly, APPLE_API_KEY: 'x', APPLE_API_ISSUER: 'x' };
+  cases.push([
+    inspectCredentials('macos', macBNoP8).missing.some((m) => m.name === 'APPLE_API_KEY_P8'),
+    '通道 B 缺 APPLE_API_KEY_P8 → 不完整(必须点名 .p8 内容)',
+  ]);
+  const macB = { ...macBNoP8, APPLE_API_KEY_P8: 'x' };
+  cases.push([inspectCredentials('macos', macB).missing.length === 0, 'macOS 通道 B 齐 → 0 缺项']);
+  // CLI 口径:Windows 只要求 SignPath 四件;linux/macos 零要求
+  cases.push([inspectCredentials('windows', empty, 'cli').missing.length === 4, 'cli/windows 全空 → 缺 4 项(SignPath)']);
+  const cliWinOk = { SIGNPATH_API_TOKEN: 'x', SIGNPATH_ORGANIZATION_ID: 'x', SIGNPATH_PROJECT_SLUG: 'x', SIGNPATH_SIGNING_POLICY_SLUG: 'x' };
+  cases.push([inspectCredentials('windows', cliWinOk, 'cli').missing.length === 0, 'cli/windows 齐 → 0 缺项']);
+  cases.push([inspectCredentials('linux', empty, 'cli').total === 0, 'cli/linux 零要求(total=0)']);
+  cases.push([inspectCredentials('macos', empty, 'cli').total === 0, 'cli/macos 零要求(total=0)']);
   return cases;
 }
 
@@ -144,11 +174,13 @@ function main(argv) {
   const plIdx = argv.indexOf('--platform');
   // runner.os 给的是 Windows/macOS/Linux,统一小写后比对
   const platform = plIdx >= 0 ? String(argv[plIdx + 1] || '').toLowerCase() : '';
-  if (!PLATFORMS.includes(platform)) {
-    console.error('用法: node scripts/desktop-signing-preflight.mjs --platform windows|macos|linux');
+  const scIdx = argv.indexOf('--scope');
+  const scope = scIdx >= 0 ? String(argv[scIdx + 1] || '').toLowerCase() : 'desktop';
+  if (!PLATFORMS.includes(platform) || !SCOPES.includes(scope)) {
+    console.error('用法: node scripts/desktop-signing-preflight.mjs --platform windows|macos|linux [--scope desktop|cli]');
     return 2;
   }
-  return printReport(inspectCredentials(platform, process.env));
+  return printReport(inspectCredentials(platform, process.env, scope));
 }
 
 if (pathToFileURL(path.resolve(process.argv[1] || '')).href === import.meta.url) {

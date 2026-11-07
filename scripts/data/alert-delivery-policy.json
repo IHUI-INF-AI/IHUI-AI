@@ -65,11 +65,11 @@
   {
     "id": "client-sync-leg-workbuddy",
     "prefix": "WorkBuddy 号池保活腿失效(本机会话不再回灌)",
-    "cooldownMs": 604800000,
-    "reason": "2026-11-03 临时止血:本机回灌腿计划任务 IHUI-WorkBuddy-Session-Sync 已 /DISABLE(只停腿、未删任务),腿不再跑也不再产生新的 breach 读数;保活不依赖此腿(续期走 server 端 5 分钟 sweep、空闲 7 天续票、API 签到)。窗口由 720 分钟临时拉长到 7 天(168h),仅为存量 breach 共振降噪。guardian 审计 auditWorkbuddySessionSyncTask 仍保留(scripts/git-guardian.mjs 正由他人修改,本轮不碰),故本条目必须保留不删——先删条目会退回默认 4h 窗口、反而更吵;等 guardian 审计摘除后再删条目。恢复腿时须把 cooldownMs 改回 43200000。Qoder 腿是另一条腿、另一个告警名,不受影响。",
+    "cooldownMs": 43200000,
+    "reason": "2026-11-05 恢复动作已落地(同批把 cap24 期望一并改准):回灌腿当天用 scripts/setup-qoder-session-sync-task.ps1 -Kind workbuddy 重新注册并 InteractiveToken 启用,日志现读 10 轮、末 4 轮 applied=1,哨兵五维 ok ⇒ 11-03 拉长窗口所要消的那股 breach 共振源头已不存在,按本条自写的「恢复腿时须把 cooldownMs 改回 43200000」回收。**同时更正一处文案数字错误:43200000 是 12 小时,不是 4 小时** —— 真默认 4h = 14400000(量自 scripts/lib/git-guardian-pure.mjs:11);原 reason 把它写成\"默认 4h\"会让下一个读数的人算错预期封数。实测节律:窗口 12h 时 24h 模拟窗内放行 2 封(第 0 与第 725 分钟),身份带 seq 抖动的档位同样是 2 封(策略在册时 due 由族窗口决定,抖动只挪时刻不绕窗)⇒ 测试侧 cap24 同批改 2。历史留账:11-03 因该腿停摆产生持续 breach 读数而临时 /DISABLE(只停腿未删任务)并拉到 168h。guardian 审计 auditWorkbuddySessionSyncTask 仍在册 ⇒ 条目保留不删(先删条目会退回默认 4h 窗口,反而更吵)。Qoder 腿是另一条腿、另一个告警名,不受本条影响。",
     "owner": "git-guardian",
     "reviewBy": "2026-11-16",
-    "evidence": ".ihui-agent/state/mail-send-ledger.jsonl: 7d 7 封 / 1 个 alertId(3f77e5cb15ec);24h 5 封(间隔 601/256/263/293 分钟)"
+    "evidence": "恢复凭据 2026-11-05 现读:node scripts/check-qoder-session-sync-task.mjs --task IHUI-WorkBuddy-Session-Sync --log D:/DevEnv/logs/workbuddy-session-sync.log --json ⇒ overall=ok(五维全 ok,读数 total=1 applied=1);同一日志现读 10 轮 RUN、末 4 轮 applied=1。节律凭据(真跑,非推算):窗口取 43200000 时 24h 模拟窗放行 2 封(0 / 725 分钟);取 14400000(真默认 4h)时 6 封(0/240/480/720/960/1200);取 604800000 时 1 封 ⇒ 与 cap24 新值 2 同源。拉长窗口的历史凭据(11-03 立时读数,留账不重算):mail-send-ledger.jsonl 7d 7 封 / 1 个 alertId;24h 5 封"
   },
   {
     "id": "public-entry-tunnel-leg",

@@ -35,6 +35,7 @@
  * unarchive 出口)与行内改分组,两跳都只经 `@ihui/api-client`(setVoiceNoteArchived /
  * updateVoiceNote),端内零裸 fetch、零本地桶;查询条件(partition/groupKey/q)交给服务端。
  */
+import { useDialogHeightStyle } from '../../lib/use-dialog-height'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -105,6 +106,7 @@ export interface VoiceNoteProps {
 }
 
 export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }: VoiceNoteProps) {
+  const dialogHeightStyle = useDialogHeightStyle()
   const { t, locale } = useI18n()
 
   const [open, setOpen] = useState(false)
@@ -372,7 +374,7 @@ export function VoiceNote({ conversationId = null, sttEnabled = true, onInsert }
       <Modal visible={open} transparent animationType="fade" onRequestClose={closePanel}>
         <View style={styles.backdrop}>
           <Pressable style={StyleSheet.absoluteFill} onPress={closePanel} />
-          <View style={styles.panel} testID="voice-note-panel">
+          <View style={[styles.panel, dialogHeightStyle]} testID="voice-note-panel">
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>{t('chat.voiceNote.title')}</Text>
               <Tappable
@@ -675,7 +677,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: rnRadius.xl, // panel 档 xl(12)
     borderTopRightRadius: rnRadius.xl,
     padding: rnSpacing.md,
-    maxHeight: '70%',
+    maxHeight: undefined,
   },
   panelHeader: {
     flexDirection: 'row',
@@ -683,7 +685,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: rnSpacing.sm,
   },
-  panelTitle: { fontSize: 13, fontWeight: '500', color: tokens.text.primary },
+  panelTitle: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tokens.text.primary },
   phaseBadge: {
     flexDirection: 'row',
     alignItems: 'center',

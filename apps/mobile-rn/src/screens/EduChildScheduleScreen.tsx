@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRoute, type RouteProp } from '@react-navigation/native'
 import { useNavigation, type NavigationProp } from '@react-navigation/native'
-import { fetchApi } from '@ihui/api-client'
+import { eduParentChildSchedule } from '@ihui/api-client'
 import { ConsoleTableScreen, type ConsoleColumn, type ConsoleRowView } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -54,9 +54,7 @@ function EduChildScheduleScreen() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchApi<{ list: CourseItem[] }>(
-        `/api/edu-ai-management/parent/child/${childId}/schedule`,
-      )
+      const res = await eduParentChildSchedule<{ list: CourseItem[] }>(childId)
       if (!res.success) throw new Error(res.error || 'load failed')
       setRows(
         (res.data?.list ?? []).map((c) => ({

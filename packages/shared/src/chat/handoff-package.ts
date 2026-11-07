@@ -31,6 +31,7 @@
 // 给空态文案;证据为空要显式写空态 —— 空态是结论的一部分,不是"没渲染"。
 
 import { sanitizeEvidenceText } from '../utils/redact'
+import { graphemeLength, truncateByGrapheme } from '../utils/truncate'
 import { resolveErrorCatalog } from './error-catalog'
 
 // ===================== 0. 常量与词包契约 =====================
@@ -442,8 +443,11 @@ export interface TruncatedText {
  * 截断后再补一行可见提示,交接单读者要知道"这里还有内容被截了"。
  */
 export function truncateForHandoff(text: string, max: number = MAX_EVIDENCE_CHARS): TruncatedText {
-  if (text.length <= max) return { text, truncatedChars: 0 }
-  return { text: `${text.slice(0, max)}…`, truncatedChars: text.length - max }
+  // BUG-52:按字素簇(code point)截断,不再用 slice(0, max) 按 UTF-16 code unit 截断 ——
+  // 后者会把 emoji / 增补汉字的代理对劈成两半,渲染成 U+FFFD。截断计数也统一到同口径。
+  const total = graphemeLength(text)
+  if (total <= max) return { text, truncatedChars: 0 }
+  return { text: `${truncateByGrapheme(text, max)}…`, truncatedChars: total - max }
 }
 
 /** 证据净化:strip_ansi → 脱敏 → 截断(顺序与 `ir.py:230` 一致) */

@@ -18,14 +18,31 @@ export interface OpenWorkPanelMessage {
   url: string
 }
 
-/** 在新标签页中打开指定 URL */
+/** 只允许 http(s) 绝对 URL:挡掉 javascript: / file: / data: 等可执行或本地文件协议。 */
+function isSafeTabUrl(url: string): boolean {
+  try {
+    const u = new URL(url)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+/** 在新标签页中打开指定 URL(带协议白名单) */
 export async function openInTab(url: string): Promise<void> {
+  if (!isSafeTabUrl(url)) {
+    throw new Error(`拒绝打开非 http(s) URL: ${url}`)
+  }
   await chrome.tabs.create({ url })
 }
 
 /** 注册 "open-work-panel" 消息监听器(background context 调用) */
 export function registerWorkPanelMessageHandler(): void {
-  chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((msg: unknown, sender, sendResponse) => {
+    // 与 entrypoints/background.ts 的 registerMessageListener 同一口径:只接受本扩展
+    // 自己的上下文(popup/sidepanel/options/已注入 content script),外部扩展或网页的
+    // sender.id 是对方的 id,一律丢弃。
+    if (sender.id !== chrome.runtime.id) return false
     if (
       msg &&
       typeof msg === 'object' &&

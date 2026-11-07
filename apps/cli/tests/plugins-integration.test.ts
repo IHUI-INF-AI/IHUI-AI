@@ -85,9 +85,9 @@ describe('PluginRegistry.runHook 集成', () => {
     });
     // 触发 preToolCall:write_file(应匹配)
     await registry.runHook('preToolCall', { toolName: 'write_file' });
-    // 触发 preToolCall(应也匹配,因为 startsWith('preToolCall:'))
+    // 触发 preToolCall(read_file):matcher 现已真参与派发,不再靠 startsWith 前缀蒙混 ⇒ 不匹配
     await registry.runHook('preToolCall', { toolName: 'read_file' });
-    expect(calls).toEqual(['preToolCall', 'preToolCall']);
+    expect(calls).toEqual(['preToolCall']);
   });
 
   it('runHook 不匹配未声明的事件(注册 preToolCall,触发 postToolCall 不调用)', async () => {
@@ -208,8 +208,11 @@ describe('setupAgentTools 接入 PluginRegistry 集成', () => {
       workspacePath: tmpDir,
       silent: true,
     });
+    // 时限放宽仅针对本用例自身的计时预算:首枚动态 import('../src/commands/agent.js')
+    // 要在用例窗口内完成 agent.ts 全图冷转译,多席并发负载下实测 12.9–45s+,
+    // 全局 testTimeout=15s 必然假红(红的是机器负载不是行为);判据本身一字未动。
     expect(result.pluginRegistry).toBeUndefined();
-  });
+  }, 120_000);
 
   it('settings.plugins.enabled === true 时,从 <workspace>/.ihui/plugins 加载插件', async () => {
     // 创建 settings.json 启用 plugins
@@ -239,7 +242,7 @@ describe('setupAgentTools 接入 PluginRegistry 集成', () => {
     // runSetups 已被调用(无 setup 回调 → 不抛错)
     // getHookExtensions 应返回 ['preToolCall']
     expect(result.pluginRegistry!.getHookExtensions()).toEqual(['preToolCall']);
-  });
+  }, 120_000);
 
   it('外部注入 pluginRegistry:setupAgentTools 透传给返回值(优先于 settings)', async () => {
     const external = new PluginRegistry({ workingDir: tmpDir });
@@ -258,7 +261,7 @@ describe('setupAgentTools 接入 PluginRegistry 集成', () => {
     });
     expect(result.pluginRegistry).toBe(external);
     expect(result.pluginRegistry!.has('external-plug')).toBe(true);
-  });
+  }, 120_000);
 
   it('settings.plugins.enabled === true 但 pluginsDir 不存在 → 不抛错,pluginRegistry undefined', async () => {
     const settingsFile = path.join(tmpHome, '.ihui', 'settings.json');
@@ -274,7 +277,7 @@ describe('setupAgentTools 接入 PluginRegistry 集成', () => {
     });
     // loadPlugins 返回空数组 → 不创建 registry
     expect(result.pluginRegistry).toBeUndefined();
-  });
+  }, 120_000);
 
   it('setupAgentTools 加载的 pluginRegistry 可被 runHook 调用(端到端)', async () => {
     const settingsFile = path.join(tmpHome, '.ihui', 'settings.json');
@@ -306,7 +309,7 @@ describe('setupAgentTools 接入 PluginRegistry 集成', () => {
     } finally {
       infoSpy.mockRestore();
     }
-  });
+  }, 120_000);
 });
 
 // ==================== loadPlugins + registerAll + runSetups 端到端 ====================

@@ -70,6 +70,7 @@ import {
   saveCompressedContext,
   setConversationShareToken,
   findConversationByShareToken,
+  removeConversationShareToken,
   regenerateConversationMessages,
   setMessageFlags,
   editAiMessageAsVersion,
@@ -2277,6 +2278,11 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     const userId = request.userId
     const { id } = idParam.parse(request.params)
+    // BUG-50:分享有效期可选(默认 30 天),缺失或不合法时回退默认,避免前端误传导致拒绝。
+    const body = z
+      .object({ expiresInDays: z.number().int().min(1).max(365).optional() })
+      .safeParse(request.body)
+    const expiresInDays = body.success ? body.data.expiresInDays : undefined
     const conversation = await findConversationById(id)
     if (!conversation) {
       return reply.status(404).send(error(404, '对话不存在'))
@@ -2286,8 +2292,18 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     }
     // 跳过响应脱敏：share token 字段名为 token，会被 response-sanitizer 改写为 ***
     request.skipResponseSanitization = true
-    const result = await setConversationShareToken(id, userId)
-    return reply.send(success({ token: result.token }))
+    const result = await setConversationShareToken(id, userId, expiresInDays)
+    return reply.send(success({ token: result.token, expiresAt: result.expiresAt }))
+  })
+
+  // DELETE /conversations/:id/share - 撤销分享(BUG-50:此前无撤销入口)
+  server.delete('/conversations/:id/share', async (request, reply) => {
+    await requireAuth(request, reply)
+    if (!request.userId) return
+    const userId = request.userId
+    const { id } = idParam.parse(request.params)
+    await removeConversationShareToken(id, userId)
+    return reply.send(success({ revoked: true }))
   })
 
   // GET /conversations/share/:token - 公开查看分享对话

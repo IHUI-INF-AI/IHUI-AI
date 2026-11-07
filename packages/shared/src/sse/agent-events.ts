@@ -26,10 +26,12 @@
 
 import { z } from 'zod'
 import {
+  projectToolApprovalDecisionInfo,
   projectToolApprovalEnvFacts,
   type ToolApprovalExecEnvironment as ApiToolApprovalExecEnvironment,
   type ToolApprovalNetworkTarget as ApiToolApprovalNetworkTarget,
 } from '@ihui/api-client'
+import type { ToolApprovalOperationScope, ToolApprovalReasonCode } from './contract'
 // G-816042:分发工厂的"未识别事件名"分支必须计数并报名,而不是静默 null(与 isAgentTaskEventName
 // 同族的另一面 —— 那个谓词回答"这个名字在不在契约里",这里回答"不在的时候有没有人知道")。
 import { recordUnknownSseEventName } from './unknown-event-telemetry'
@@ -212,6 +214,14 @@ export interface ToolApprovalWirePayload {
   exec_environment?: Record<string, unknown>
   network_target?: Record<string, unknown>
   blocked_network_targets?: Record<string, unknown>[]
+  // 批次 2(2026-11-06):结构化审批决策信息(线格式,与主对话流同族)。
+  reason_code?: string
+  risk_level?: string
+  argv?: string[] | null
+  cwd?: string | null
+  affected_paths?: string[]
+  scope?: string
+  summary?: string
 }
 
 // ============================================================================
@@ -260,7 +270,11 @@ export interface SseFieldFault {
 export function isSseFieldFault(value: unknown): value is SseFieldFault {
   if (typeof value !== 'object' || value === null) return false
   const v = value as Record<string, unknown>
-  return v.code === SSE_FIELD_FAULT_CODE && typeof v.eventName === 'string' && typeof v.field === 'string'
+  return (
+    v.code === SSE_FIELD_FAULT_CODE &&
+    typeof v.eventName === 'string' &&
+    typeof v.field === 'string'
+  )
 }
 
 /**
@@ -326,7 +340,8 @@ const fieldFaultCounts = new Map<string, Map<string, number>>()
 
 function defaultFieldReporter(notice: UnknownSseFieldNotice): void {
   // 英文运行时串:packages/shared/src 在守门 70(硬编码中文)射程内,中文只能留在注释里。
-  const what = notice.kind === 'unknown-field' ? 'unrecognized payload field' : 'payload field rejected'
+  const what =
+    notice.kind === 'unknown-field' ? 'unrecognized payload field' : 'payload field rejected'
   console.warn(
     `[sse] ${what} on agent-stream event ${notice.eventName}: ${notice.field} (seen ${notice.count}x; reported once per field)`,
   )
@@ -339,7 +354,11 @@ export function setUnknownSseFieldReporter(next: UnknownSseFieldReporter | null)
   fieldReporter = next ?? defaultFieldReporter
 }
 
-function bumpFieldCount(map: Map<string, Map<string, number>>, eventName: string, field: string): number {
+function bumpFieldCount(
+  map: Map<string, Map<string, number>>,
+  eventName: string,
+  field: string,
+): number {
   let perEvent = map.get(eventName)
   if (!perEvent) {
     perEvent = new Map()
@@ -477,6 +496,14 @@ const TOOL_APPROVAL_FIELDS = z.object({
   exec_environment: z.record(z.string(), z.unknown()).optional(),
   network_target: z.record(z.string(), z.unknown()).optional(),
   blocked_network_targets: z.array(z.record(z.string(), z.unknown())).optional(),
+  // 批次 2:结构化审批决策信息(可选附加键;缺席=老生产者,不是"无风险")。
+  reason_code: z.string().optional(),
+  risk_level: z.string().optional(),
+  argv: z.union([z.array(z.string()), z.null()]).optional(),
+  cwd: z.union([z.string(), z.null()]).optional(),
+  affected_paths: z.array(z.string()).optional(),
+  scope: z.string().optional(),
+  summary: z.string().optional(),
 })
 const TOOL_APPROVAL_ROUTE = z.looseObject(TOOL_APPROVAL_FIELDS.pick({}).shape)
 
@@ -604,6 +631,15 @@ export interface ToolApprovalEvent {
   execEnvironment?: ApiToolApprovalExecEnvironment
   networkTarget?: ApiToolApprovalNetworkTarget
   blockedNetworkTargets?: ApiToolApprovalNetworkTarget[]
+  // 批次 2(2026-11-06):结构化审批决策信息(可选)。缺席 = 老生产者/描述失败,
+  // 端上退回 `argsPreview` 裸 JSON 渲染;不是"没有风险/没有目录"。
+  reasonCode?: ToolApprovalReasonCode
+  riskLevel?: 'low' | 'medium' | 'high'
+  argv?: string[] | null
+  cwd?: string | null
+  affectedPaths?: string[]
+  scope?: ToolApprovalOperationScope
+  summary?: string
 }
 
 // ============================================================================
@@ -846,6 +882,9 @@ export function parseToolApprovalEvent(raw: unknown): ToolApprovalEvent | null {
     argsPreview: String(p.args_preview ?? ''),
     dangerLevel: p.danger_level ?? 'high',
     sessionId: String(data.session_id ?? p.session_id ?? ''),
+    // 批次 2:结构化决策信息与 D159 env 事实共用同一投影纪律(判据只在
+    // @ihui/api-client 一处),封闭集外/型不符 ⇒ 字段缺席(退回 argsPreview)。
+    ...projectToolApprovalDecisionInfo(p),
     // D159:与 chat-stream 通道共用同一份投影(见上 import 处注释)—— 判据只有一份,
     // 两条流各自"认哪些字段算环境事实"不可能漂开。
     ...projectToolApprovalEnvFacts(p),
@@ -1074,5 +1113,77 @@ export function isFrameGap(
   if (cursor.logEpoch !== watermark.logEpoch) return 'epoch-change'
   if (cursor.seq !== watermark.fromSeq) return 'seq-discontinuity'
   return null
+}
+
+/**
+ * 2026-11-04(sse-event-parity 收口):下列三类帧此前只有"事件名消费",字段声明无人读
+ * (门判定 ①真·无读取)。按"保留则补读取点"处置,把读取集中到共享解析层:
+ *   - workspace_lock_released: apps/api/src/services/workspace-lock-heartbeat.ts:162
+ *   - task_status_changed:     apps/api/src/services/subagent-dispatch-service.ts 广播
+ *   - start:                   apps/ai-service/app/routers/agents.py:1594
+ * 各端消费点(useAgentSSE / AgentPane)改走这些解析函数,字段即被真实读取。
+ */
+export interface WorkspaceLockReleasedEvent {
+  taskId?: string
+  timestamp?: string
+  workspace?: string
+  task?: string
+  teamId?: string
+  released?: boolean
+  reason?: string
+}
+
+export function parseWorkspaceLockReleasedEvent(raw: unknown): WorkspaceLockReleasedEvent | null {
+  const data = raw as Record<string, unknown> | null
+  if (!data || data.type !== 'workspace_lock_released') return null
+  const payload = (data.payload ?? {}) as Record<string, unknown>
+  return {
+    ...(typeof data.taskId === 'string' ? { taskId: data.taskId } : {}),
+    ...(typeof data.timestamp === 'string' ? { timestamp: data.timestamp } : {}),
+    ...(typeof payload.workspace === 'string' ? { workspace: payload.workspace } : {}),
+    ...(typeof payload.task === 'string' ? { task: payload.task } : {}),
+    ...(typeof payload.teamId === 'string' ? { teamId: payload.teamId } : {}),
+    ...(typeof payload.released === 'boolean' ? { released: payload.released } : {}),
+    ...(typeof payload.reason === 'string' ? { reason: payload.reason } : {}),
+  }
+}
+
+export interface TaskStatusChangedEvent {
+  taskId?: string
+  timestamp?: string
+  fromStatus?: string
+  toStatus?: string
+  reason?: string
+  task?: string
+}
+
+export function parseTaskStatusChangedEvent(raw: unknown): TaskStatusChangedEvent | null {
+  const data = raw as Record<string, unknown> | null
+  if (!data || data.type !== 'task_status_changed') return null
+  const payload = (data.payload ?? {}) as Record<string, unknown>
+  return {
+    ...(typeof data.taskId === 'string' ? { taskId: data.taskId } : {}),
+    ...(typeof data.timestamp === 'string' ? { timestamp: data.timestamp } : {}),
+    ...(typeof payload.fromStatus === 'string' ? { fromStatus: payload.fromStatus } : {}),
+    ...(typeof payload.toStatus === 'string' ? { toStatus: payload.toStatus } : {}),
+    ...(typeof payload.reason === 'string' ? { reason: payload.reason } : {}),
+    ...(typeof payload.task === 'string' ? { task: payload.task } : {}),
+  }
+}
+
+export interface StartEvent {
+  taskId: string
+  sessionId: string
+  resumeFrom: string | null
+}
+
+export function parseStartEvent(raw: unknown): StartEvent | null {
+  const data = raw as Record<string, unknown> | null
+  if (!data || data.type !== 'start') return null
+  return {
+    taskId: typeof data.task_id === 'string' ? data.task_id : '',
+    sessionId: typeof data.session_id === 'string' ? data.session_id : '',
+    resumeFrom: typeof data.resume_from === 'string' ? data.resume_from : null,
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

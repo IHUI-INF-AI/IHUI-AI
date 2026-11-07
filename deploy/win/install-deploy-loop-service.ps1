@@ -34,7 +34,10 @@ $svc      = 'IHUI-DEPLOYLOOP'
 $nssm     = 'C:\windows\system32\nssm.exe'
 $pwshPath = 'C:\Program Files\PowerShell\7\pwsh.exe'
 $loopPath = Join-Path $Root 'deploy\win\ihui-deploy-loop.ps1'
-$logDir   = 'D:\DevEnv\logs'
+# 日志根按仓库根所在盘现读推导,不写死盘符(IHUI_DEVENV_ROOT 可显式覆盖;
+# AGENTS §0 机器事实现读纪律,与 ihui-pg-backup-scheduler.ps1 的 G-298 口径同一条)。
+$DevEnvRoot = if ($env:IHUI_DEVENV_ROOT) { $env:IHUI_DEVENV_ROOT } else { (Split-Path -Qualifier $Root) + '\DevEnv' }
+$logDir   = Join-Path $DevEnvRoot 'logs'
 $appDir   = $Root
 
 foreach ($p in @($nssm, $pwshPath, $loopPath)) {

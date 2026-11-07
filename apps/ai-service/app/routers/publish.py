@@ -1031,6 +1031,13 @@ async def cancel_task(task_id: str, request: Request) -> dict[str, Any]:
         # 归属校验通过,尝试从内存 running 集合取消
         cancelled = await publish_scheduler.cancel_task(task_id)
         if cancelled:
+            # BUG-8:取消成功即写回终态(与 scheduler._run_task 的 CancelledError 分支
+            # 双保险,幂等 UPDATE 且只在仍为 running 时生效,不覆盖已成功结果)。
+            await conn.execute(
+                "UPDATE publish_tasks SET status='cancelled', finished_at=NOW(), "
+                "updated_at=NOW() WHERE task_id=$1 AND status='running'",
+                task_id,
+            )
             return _wrap_ok({"ok": True, "taskId": task_id, "status": "cancelled"})
 
         if row["status"] in ("success", "failed", "partial"):

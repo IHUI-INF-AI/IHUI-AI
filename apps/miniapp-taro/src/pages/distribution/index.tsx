@@ -3,9 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 // 对齐目标(RN 共享屏): packages/app/src/features/distribution/DistributionScreen.tsx
-import { useTt } from '@/i18n'
-import { View, Text, Image, Button } from '@tarojs/components'
-import { FocusInput } from '@/components/FocusField'
+// 批 5 薄壳化:个人信息卡 / 收益卡 / 分佣浮标 / 功能宫格 / 二维码弹层均以显式 props 注入共享屏;
+// 分佣比例卡、佣金概览子组件、分销数据列三处重复段已删,源码锁见测试。
+// 仅小程序消费的实名验证弹层与微信 open-type=share 分享按钮下沉 host-overlays(宿主能力节点)。
+import { useTt, useI18n } from '@/i18n'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
 import * as api from '@/api'
@@ -13,13 +14,20 @@ import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useUserStore } from '@/stores/user'
 import { aizhsUrl, bspappUrl } from '@/constants/icon-urls'
 import { saveImageToPhotosAlbum } from '@/utils/save-album'
-import NavBar from '@/components/NavBar'
-import DistributionStats, { type ColumnItem } from '@/components/DistributionStats'
-import CustomerServiceFloat from '@/components/CustomerServiceFloat'
-import CommissionOverview from './commission-overview'
 import './index.css'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
+import { renderVerifySheet, renderWxShareButton } from './host-overlays'
+import {
+  DistributionScreen as SharedDistributionScreen,
+  type DistributionInfo,
+  type DistributionOverviewCard,
+  type DistributionEarningsCard,
+  type DistributionServiceFloat,
+  type DistributionFunctionBlock,
+  type DistributionQrSheet,
+} from '@ihui/rn-app/features/distribution/DistributionScreen'
 
 interface OperatorStats {
   dayEarnings?: number
@@ -53,6 +61,8 @@ interface RateRow {
 
 export default function DistributionIndex() {
   const tt = useTt()
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
   const user = useUserStore((s) => s.user)
   const [data, setData] = useState<OperatorData>({})
@@ -63,10 +73,13 @@ export default function DistributionIndex() {
   const [idNum, setIdNum] = useState('')
   const [idName, setIdName] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  // 佣金概览块的重取令牌:每次页面显示(useDidShow)递增,块内同批拉 /distribution/overview
-  const [overviewTick, setOverviewTick] = useState(0)
   // 分佣比例档位(对齐 RN DistributionScreen 的 ratesCard;空数组 ⇒ 空态)
   const [rateRows, setRateRows] = useState<RateRow[]>([])
+  // 共享屏数据腿 GET /distribution/overview(原佣金概览子组件的取数,上收到父页)
+  const [info, setInfo] = useState<DistributionInfo | null>(null)
+  const [infoLoading, setInfoLoading] = useState(true)
+  const [infoError, setInfoError] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -90,23 +103,40 @@ export default function DistributionIndex() {
     } catch {
       setRateRows([])
     }
-  }, [])
+    try {
+      setInfoLoading(true)
+      setInfoError('')
+      const res = await api.get<DistributionInfo>('/distribution/overview')
+      setInfo(res ?? null)
+    } catch {
+      setInfoError(tt('distribution.team.error', '加载失败'))
+    } finally {
+      setInfoLoading(false)
+    }
+  }, [tt])
 
-  // G-933 冷启动抢跑门控(范式同 pages/distribution/plan/index.tsx:36-62):load() 里的两发请求
+  // G-933 冷启动抢跑门控(范式同 pages/distribution/plan/index.tsx:36-62):load() 里的三发请求
   // 都挂在 distributionRoutes 的统一 preHandler 之下 ——
   //   · getOperatorDataCardData → GET /operator/data-card(注册点 apps/api/src/routes/distribution.ts:104)
-  //   · GET /distribution/commission-rates(注册点 apps/api/src/routes/distribution.ts:315)
+  //   · GET /distribution/commission-rates(注册点同文件 :315)
+  //   · GET /distribution/overview(注册点同文件 :42)
   // 而该 preHandler(addHook('preHandler', authenticate),同文件 :32-39)对本插件全部路由生效,
-  // 无票即 authenticate 抛 401。冷启动未落定/未登录时照发,只会换来一次 401,并被下面两个 catch
-  // 吞成"暂无分佣比例"的假空态(比空态更糟:用户以为后端没配比例)。故父页这两发整块挡到门后。
-  // 子组件 CommissionOverview 的 GET /distribution/overview 同样需鉴权,但它自己的挂载 effect
-  // 在这一发之前就会跑,父页门控拦不住,只能在该组件内单独挂门。
+  // 无票即 authenticate 抛 401。冷启动未落定/未登录时照发,只会换来 401 被下面的 catch
+  // 吞成"暂无数据"的假空态。故三发整块挡到门后。
   useDidShow(() => {
     gate.waitUntilReady(() => {
       load()
-      setOverviewTick((n) => n + 1)
     })
   })
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      await load()
+    } finally {
+      setRefreshing(false)
+    }
+  }, [load])
 
   const onGetQrCode = useCallback(async () => {
     try {
@@ -219,249 +249,121 @@ export default function DistributionIndex() {
   }
   const stats = statsMap[statsTab]
 
-  const tabPrefix =
-    statsTab === 'day'
+  const tabLabel = (tab: StatsTab) =>
+    tab === 'day'
       ? tt('distribution.index.tabDay', '日')
-      : statsTab === 'month'
+      : tab === 'month'
         ? tt('distribution.index.tabMonth', '月')
         : tt('distribution.index.tabSum', '总')
-
-  const columnItems: ColumnItem[] = [
-    {
-      label: `${tabPrefix}${tt('distribution.index.columnEarnings', '收益')}`,
-      value: `¥${stats.earnings.toFixed(2)}`,
-      color: 'primary',
-    },
-    {
-      label: `${tabPrefix}${tt('distribution.index.columnOrders', '订单')}`,
-      value: stats.orders,
-      color: 'default',
-    },
-    {
-      label: `${tabPrefix}${tt('distribution.index.columnInvites', '邀请')}`,
-      value: stats.invites,
-      color: 'warning',
-    },
-  ]
-
-  const totalCommission = data.stats?.sumEarnings ?? 0
 
   const avatar = data.avatar || user?.avatar || ''
   const nickname = data.nickname || user?.nickname || tt('distribution.index.defaultName', '操盘手')
   const initial = nickname.charAt(0) || 'U'
 
+  // 分销总览(个人信息卡变体)—— 显式 prop,RN 容器同样传 user/info 真值
+  const overviewCard: DistributionOverviewCard = {
+    avatar: avatar || null,
+    nickname,
+    identity: data.identity || tt('distribution.index.operator', '操盘手'),
+    companyName: data.companyName || undefined,
+  }
+
+  // 收益卡(日/月/总 Tab)—— 显式 prop,点击只回传 key
+  const earningsCard: DistributionEarningsCard = {
+    tabs: (['day', 'month', 'sum'] as StatsTab[]).map((key) => ({ key, label: tabLabel(key) })),
+    activeTab: statsTab,
+    onSelectTab: (key) => setStatsTab(key as StatsTab),
+    items: [
+      {
+        label: tt('distribution.index.earnings', '收益'),
+        value: `¥${stats.earnings.toFixed(2)}`,
+        tone: 'primary',
+      },
+      {
+        label: tt('distribution.index.orders', '订单数'),
+        value: String(stats.orders),
+      },
+      {
+        label: tt('distribution.index.invites', '邀请人数'),
+        value: String(stats.invites),
+      },
+    ],
+  }
+
+  // 分佣浮标 —— 金额取后端 availableCommission(分,与 RN 同口径;formatPrice 统一换算)
+  const serviceFloat: DistributionServiceFloat = {
+    amount: info?.availableCommission ?? 0,
+    label: tt('commission.myLabel', '我的佣金'),
+    onPress: () => {
+      void Taro.navigateTo({ url: '/pkg-shop/wallet/commission/index' })
+    },
+  }
+
+  // 功能宫格(注入共享屏 functionBlocks):图标 URL + 文案 + 点击,条目清单由本端注入
+  const functionBlocks: DistributionFunctionBlock[] = menuItems.map((item, idx) => ({
+    key: item.url ?? item.action ?? String(idx),
+    label: item.label,
+    iconUrl: item.icon,
+    onPress: () => onMenuClick(item),
+  }))
+
+  // 分享二维码弹层(注入共享屏 qrSheet):二维码图片由本端取数;分享按钮注入微信 open-type=share
+  const qrSheet: DistributionQrSheet = {
+    visible: showQrCode,
+    title: tt('distribution.index.qrTitle', '我的分享二维码'),
+    imageUrl: qrCode || null,
+    emptyText: tt('distribution.index.qrLoading', '二维码生成中'),
+    copyright: 'COPYRIGHT © 2025-2035 IHUIINF AGI ALL RIGHTS RESERVED.',
+    saveLabel: tt('distribution.index.saveAlbum', '保存到相册'),
+    shareAction: renderWxShareButton(tt('distribution.index.share', '分享给好友')),
+    onClose: () => setShowQrCode(false),
+    onSave: onSaveQr,
+  }
+
+  // 实名验证弹层 —— 仅小程序消费(不上收共享屏),由宿主模块产出节点
+  const verifySheetNode = showVerify
+    ? renderVerifySheet({
+        title: tt('distribution.index.verifyTitle', '身份信息验证'),
+        avatar,
+        initial,
+        idPlaceholder: tt('distribution.index.idPlaceholder', '请输入身份证号码'),
+        namePlaceholder: tt('distribution.index.namePlaceholder', '请输入姓名'),
+        idValue: idNum,
+        nameValue: idName,
+        copyright: 'Copright © 2025-2035 iHuiInf AGI All Rights Reserved.',
+        confirmLabel: tt('distribution.index.confirm', '确认'),
+        onInputId: setIdNum,
+        onInputName: setIdName,
+        onConfirm: onSaveUserInfo,
+      })
+    : null
+
+  /**
+   * 批 5 薄壳:直载 distribution/DistributionScreen 共享屏;个人信息卡 / 收益卡 /
+   * 分佣浮标 / 功能宫格 / 二维码弹层以显式 props 注入。实名弹层仅小程序消费,留宿主模块。
+   */
   return (
     <ThemeRoot className="dist-page">
-      <NavBar
-        title={tt('distribution.index.title', '我的公司')}
-        bgColor="var(--color-secondary)"
-        textColor="var(--color-secondary-foreground)"
+      <SharedDistributionScreen
+        t={t}
+        info={info}
+        loading={infoLoading && !info}
+        refreshing={refreshing}
+        error={infoError}
+        withdrawing={false}
+        rates={rateRows}
+        onRefresh={() => void onRefresh()}
+        onWithdraw={() => void Taro.navigateTo({ url: '/pages/distribution/withdraw' })}
+        onBack={() => void Taro.navigateBack()}
+        onRetry={() => void load()}
+        colorScheme={resolvedTheme}
+        overviewCard={overviewCard}
+        earningsCard={earningsCard}
+        serviceFloat={serviceFloat}
+        functionBlocks={functionBlocks}
+        qrSheet={qrSheet}
       />
-
-      <View className="dist-content">
-        {/* PersonalInformationCard */}
-        <View className="dist-card dist-person">
-          <View className="dist-person-avatar">
-            {avatar ? (
-              <Image className="dist-person-img" src={avatar} mode="aspectFill" />
-            ) : (
-              <View className="dist-person-img dist-person-placeholder">
-                <Text>{initial}</Text>
-              </View>
-            )}
-          </View>
-          <View className="dist-person-info">
-            <Text className="dist-person-name">{nickname}</Text>
-            <Text className="dist-person-identity">
-              {data.identity || tt('distribution.index.operator', '操盘手')}
-            </Text>
-            {data.companyName ? (
-              <Text className="dist-person-company">{data.companyName}</Text>
-            ) : null}
-          </View>
-        </View>
-
-        {/* EarningsStatisticsCard */}
-        <View className="dist-card dist-stats">
-          <View className="dist-stats-tabs">
-            {(['day', 'month', 'sum'] as StatsTab[]).map((tab) => (
-              <View
-                key={tab}
-                className={`dist-stats-tab ${statsTab === tab ? 'active' : ''}`}
-                onClick={() => setStatsTab(tab)}
-                hoverClass="opacity-60"
-              >
-                <Text>
-                  {tab === 'day'
-                    ? tt('distribution.index.tabDay', '日')
-                    : tab === 'month'
-                      ? tt('distribution.index.tabMonth', '月')
-                      : tt('distribution.index.tabSum', '总')}
-                </Text>
-              </View>
-            ))}
-          </View>
-          <View className="dist-stats-body">
-            <View className="dist-stats-item">
-              <Text className="dist-stats-num">¥{stats.earnings.toFixed(2)}</Text>
-              <Text className="dist-stats-label">{tt('distribution.index.earnings', '收益')}</Text>
-            </View>
-            <View className="dist-stats-item">
-              <Text className="dist-stats-num">{stats.orders}</Text>
-              <Text className="dist-stats-label">{tt('distribution.index.orders', '订单数')}</Text>
-            </View>
-            <View className="dist-stats-item">
-              <Text className="dist-stats-num">{stats.invites}</Text>
-              <Text className="dist-stats-label">
-                {tt('distribution.index.invites', '邀请人数')}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* DistributionStats column 变体 - 分销数据列布局 */}
-        <DistributionStats
-          variant="column"
-          columnTitle={tt('distribution.index.columnTitle', '分销数据')}
-          columnItems={columnItems}
-        />
-
-        {/* FunctionBlockColumn — 对齐 RN 双列卡片网格 */}
-        <View className="dist-menu">
-          {menuItems.map((item, idx) => (
-            <View
-              key={idx}
-              className="dist-menu-item"
-              onClick={() => onMenuClick(item)}
-              hoverClass="opacity-60"
-            >
-              <View className="dist-menu-icon-box">
-                <Image
-                  src={item.icon}
-                  className="dist-menu-icon w-[40rpx] h-[40rpx]"
-                  mode="aspectFit"
-                />
-              </View>
-              <Text className="dist-menu-label">{item.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* 分佣比例 —— 对齐 RN DistributionScreen 的 ratesCard:标题 + 逐档 level/rate;
-            未配置时如实给空态,不拿硬编比例顶位 */}
-        <View className="mt-[24rpx] bg-card ui-card rounded-lg p-[28rpx]">
-          <Text className="block text-title font-semibold text-foreground mb-[16rpx]">
-            {tt('earnCommission.rateTitle', '分佣比例')}
-          </Text>
-          {rateRows.length === 0 ? (
-            <Text className="block text-body text-muted-foreground text-center py-[16rpx]">
-              {tt('earnCommission.rateEmpty', '暂无分佣比例')}
-            </Text>
-          ) : (
-            rateRows.map((row) => (
-              <View
-                key={row.level}
-                className="flex flex-row items-center gap-[24rpx] bg-[var(--color-muted)] rounded-sm px-[24rpx] py-[20rpx] mb-[16rpx]"
-              >
-                <Text className="flex-1 text-body font-medium text-foreground">{row.level}</Text>
-                <Text className="text-title font-bold text-[var(--color-primary)] min-w-[88rpx]">
-                  {row.rate}
-                </Text>
-              </View>
-            ))
-          )}
-        </View>
-
-        {/* 分销佣金概览(等级/佣金比例/收益卡/提现/分销商品)— 对齐 RN 容器底部渲染的共享屏 */}
-        <CommissionOverview reloadTick={overviewTick} />
-      </View>
-
-      {/* CustomerServiceFloat 分佣浮标 */}
-      <CustomerServiceFloat
-        variant="commission"
-        commissionAmount={totalCommission}
-        onCommissionClick={() => Taro.navigateTo({ url: '/pkg-shop/wallet/commission/index' })}
-        draggable
-      />
-
-      {/* BottomPops 二维码弹窗 */}
-      {showQrCode ? (
-        <View className="dist-mask">
-          <View className="dist-qrpop">
-            <View className="dist-qrpop-header">
-              <Text className="dist-qrpop-title">
-                {tt('distribution.index.qrTitle', '我的分享二维码')}
-              </Text>
-              <Image
-                src={aizhsUrl('sys-mini/xtk/cancel.png')}
-                className="dist-qrpop-close w-[32rpx] h-[32rpx]"
-                mode="aspectFit"
-                onClick={() => setShowQrCode(false)}
-              />
-            </View>
-            <View className="dist-qrpop-qr">
-              {qrCode ? (
-                <Image className="dist-qrpop-img" src={qrCode} mode="aspectFit" />
-              ) : (
-                <View className="dist-qrpop-loading">
-                  <Text>{tt('distribution.index.qrLoading', '二维码生成中')}</Text>
-                </View>
-              )}
-            </View>
-            <Text className="dist-qrpop-copyright">
-              COPYRIGHT © 2025-2035 IHUIINF AGI ALL RIGHTS RESERVED.
-            </Text>
-            <View className="dist-qrpop-actions">
-              <Button className="dist-qrpop-btn" openType="share">
-                {tt('distribution.index.share', '分享给好友')}
-              </Button>
-              <Text className="dist-qrpop-link" onClick={onSaveQr}>
-                {tt('distribution.index.saveAlbum', '保存到相册')}
-              </Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
-
-      {/* showVerify 身份验证弹窗 */}
-      {showVerify ? (
-        <View className="dist-mask">
-          <View className="dist-verify">
-            <View className="dist-verify-header">
-              <Text className="dist-verify-title">
-                {tt('distribution.index.verifyTitle', '身份信息验证')}
-              </Text>
-            </View>
-            <View className="dist-verify-avatar">
-              {avatar ? (
-                <Image className="dist-verify-avatar-img" src={avatar} mode="aspectFill" />
-              ) : (
-                <View className="dist-verify-avatar-img dist-person-placeholder">
-                  <Text>{initial}</Text>
-                </View>
-              )}
-            </View>
-            <FocusInput
-              className="dist-verify-input"
-              placeholder={tt('distribution.index.idPlaceholder', '请输入身份证号码')}
-              value={idNum}
-              onInput={(e) => setIdNum(e.detail.value)}
-            />
-            <FocusInput
-              className="dist-verify-input"
-              placeholder={tt('distribution.index.namePlaceholder', '请输入姓名')}
-              value={idName}
-              onInput={(e) => setIdName(e.detail.value)}
-            />
-            <Text className="dist-verify-copyright">
-              Copright © 2025-2035 iHuiInf AGI All Rights Reserved.
-            </Text>
-            <View className="dist-verify-btn" onClick={onSaveUserInfo} hoverClass="opacity-60">
-              <Text>{tt('distribution.index.confirm', '确认')}</Text>
-            </View>
-          </View>
-        </View>
-      ) : null}
+      {verifySheetNode}
     </ThemeRoot>
   )
 }

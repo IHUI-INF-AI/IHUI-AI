@@ -38,12 +38,20 @@ test('T2 not-applicable ⇒ excluded(证据 <10 字拒)', () => {
   assert.equal(bad.ok, false, '短证据必须拒(空口声明不算证据)')
 })
 
-test('T3 missing ⇒ gap 且不委托落地器', () => {
+test('T3 missing ⇒ gap:既留在缺口台账,也委托落地器写 status=gap', () => {
   const one = A.normalizeVerdictItem({ web: 'a2a', verdict: 'missing', evidence: longEv })
   assert.equal(one.to, 'gap')
+  assert.equal(one.item.verdict, 'gap', '落地词必须是 gap,不得被写成 aligned/excluded')
   const all = A.normalizeAll([{ web: 'a2a', verdict: 'missing', evidence: longEv }])
-  assert.equal(all.web.length, 0, 'missing 不许写成 aligned/excluded')
-  assert.equal(all.keptGap.length, 1, '必须留在缺口台账,不许静默消失')
+  // 2026-11-05 订正:本断言原写 `web.length === 0`(题面「不委托落地器」),那是 03d745db63 立器时
+  // 的旧政策;c7476ff89b 把 gap 一并交给落地器写 map(status=gap),理由是 gap 不落盘时
+  // 「判过的缺口」下一轮会退回 unmapped ⇒ 「判过」与「没人判」结构上分不开。落地器侧确有
+  // status='gap' 的解析支(auto-register-cross-end.mjs),且 T6 行为锁「归一输出 ⊆ 落地器接受词」
+  // 也一直按 gap 在册 —— 所以红的是这把陈旧尺子,不是行为。保留的硬不变量:missing 绝不折成
+  // aligned/excluded,且绝不静默消失(既进 web 待落地,也进 keptGap 点名)。
+  assert.equal(all.web.length, 1, 'gap 必须委托落地器写(带 status=gap 进 map)')
+  assert.equal(all.web[0].verdict, 'gap', '进落地器的必须是 gap 档,不是 aligned/excluded')
+  assert.equal(all.keptGap.length, 1, '必须同时留在缺口台账点名,不许静默消失')
 })
 
 test('T4 未知词表 ⇒ 大声拒(不允许静默丢)', () => {
@@ -91,7 +99,9 @@ test('T8 counts 按「原词→落地词」如实记账', () => {
   assert.equal(all.counts['mirrored→aligned'], 1)
   assert.equal(all.counts['not-applicable→excluded'], 1)
   assert.equal(all.counts['missing→gap'], 1)
-  assert.equal(all.web.length, 2)
+  // gap 也委托落地器(T3)⇒ 三条都进 web;keptGap 单独记「这条仍算缺口」的点名面,两者不互斥。
+  assert.equal(all.web.length, 3, 'aligned/excluded/gap 三档都交给落地器')
+  assert.equal(all.web.filter((x) => x.verdict === 'gap').length, 1, '其中只有 missing 那枚落 gap 档')
   assert.equal(all.keptGap.length, 1)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

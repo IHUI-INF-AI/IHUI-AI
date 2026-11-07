@@ -50,12 +50,17 @@ function strip(src: string): string {
 }
 
 function namedClause(clause: string): string[] {
-  return clause
-    .split(',')
-    .map((raw) => raw.trim())
-    .filter((t) => t !== '' && !t.startsWith('type '))
-    .map((t) => (t.split(/\s+as\s+/)[0] ?? '').trim())
-    .filter((n) => /^[A-Za-z_$][\w$]*$/.test(n))
+  return (
+    clause
+      .split(',')
+      .map((raw) => raw.trim())
+      .filter((t) => t !== '' && !t.startsWith('type '))
+      // `export { default as X }` / `import { X as Y }` 取别名后的名字
+      .map((t) => (t.split(/\s+as\s+/)[0] ?? '').trim())
+      // 内联工厂的 `return { Key: value }` 形态:键在冒号前(单行写法此前被整条漏读,读成"缺出口")
+      .map((t) => (t.split(':')[0] ?? '').trim())
+      .filter((n) => /^[A-Za-z_$][\w$]*$/.test(n))
+  )
 }
 
 /** 端内(被测试加载到的那一层)从 barrel 具名取用的值导入。 */
@@ -92,9 +97,7 @@ function testLoadedSrcFiles(): Set<string> {
 function mockExports(): Set<string> {
   const code = strip(readFileSync(MOCK, 'utf8'))
   const names = new Set<string>()
-  for (const m of code.matchAll(
-    /export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g,
-  ))
+  for (const m of code.matchAll(/export\s+(?:type\s+)?\{([^}]*)\}(?:\s+from\s+['"][^'"]+['"])?/g))
     for (const n of namedClause(m[1] ?? '')) names.add(n)
   for (const m of code.matchAll(
     /export\s+(?:declare\s+)?(?:const|let|var|function|class)\s+([A-Za-z_$][\w$]*)/g,
@@ -113,8 +116,17 @@ function inlineFactoryKeysOf(file: string): Set<string> | null {
     saw = true
     const body = m[0] ?? ''
     for (const k of body.matchAll(/^\s*([A-Za-z_$][\w$]*)\s*:/gm)) if (k[1]) set.add(k[1])
-    for (const k of body.matchAll(/return\s*\{([^}]*)\}/g))
-      for (const n of namedClause(k[1] ?? '')) set.add(n)
+    for (const k of body.matchAll(/return\s*\{([^}]*)\}/g)) {
+      // 对象字面量里的 `Key: value` 要取**键名**;namedClause 只认 `A, B as C` 形式,
+      // 直接喂整段会把 `SecuritySettingsScreen: shared.X` 当成一个非法标识符丢掉
+      // ⇒ 明明给了出口却判缺(g958 之后再撞一次,2026-11-06)。
+      for (const raw of (k[1] ?? '').split(',')) {
+        const piece = raw.trim()
+        if (!piece) continue
+        const key = (piece.split(':')[0] ?? '').trim()
+        if (/^[A-Za-z_$][\w$]*$/.test(key)) set.add(key)
+      }
+    }
   }
   return saw ? set : null
 }

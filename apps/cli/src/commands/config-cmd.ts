@@ -24,6 +24,7 @@ import { PERMISSION_MODES } from '@ihui/types/permission-mode';
 import {
   getSettingsPath,
   loadSettings,
+  readSettingsObjectForUpdate,
   type Settings,
   type SamplerSettings,
 } from './settings.js';
@@ -191,6 +192,8 @@ function parseValue(raw: string, type: ConfigValueType, enumValues?: readonly st
 /** 把当前 settings 写回 ~/.ihui/settings.json */
 function saveSettings(settings: Settings): void {
   const p = getSettingsPath();
+  const read = readSettingsObjectForUpdate(p);
+  if (read.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
   fs.mkdirSync(path.dirname(p), { recursive: true });
   writePrivateFile(p, JSON.stringify(settings, null, 2) + '\n');
 }
@@ -259,7 +262,8 @@ function handleConfigSet(key: string, valueStr: string): string {
     const n = parsed.value as number;
     if (n < 1 || n > 32768) return chalk.red(`✗ maxTokens 需在 1-32768 范围(收到: ${n})`);
   }
-  // 写入
+  // 写入。目标配置读不到时不把没读到的内容覆盖掉。
+  readSettingsObjectForUpdate(getSettingsPath());
   const settings = loadSettings() as Settings & Record<string, unknown>;
   setDeep(settings as Record<string, unknown>, field.key, parsed.value);
   // 确保 sampler 对象存在(为 sampler.temperature/maxTokens 写入兜底)

@@ -12,7 +12,10 @@
  *  T5 结论行取不到 ⇒ 必须 notify(这条腿是 api 进程外唯一的续期承载体,它哑了没人兜);
  *  T6 state=undetermined ⇒ 同上,且身份与 T5 不同(两件事两种修法);
  *  T7 上一轮未判定 ⇒ 冷却缩短到 1 小时(一次 Redis 抖动不能把保活停摆六小时);
- *  T8 节流台账必须先写后跑(自愈配额写在阻塞调用之后 ⇒ 计数恒 0、每周期重犯)。
+ *  T8 节流台账必须先写后跑(自愈配额写在阻塞调用之后 ⇒ 计数恒 0、每周期重犯);
+ *  T9 上一轮「结论行取不到」(no-result-line)同样只冷却 1 小时 —— 2026-11-05 实测:派发器
+ *     ETIMEDOUT 落的正是这个名,原判据只认 undetermined,于是兜底续票空窗 4.4 小时;
+ *  T10 反向牙:state=alert(号掉线,器物已自行喊过人)仍按 6 小时,压成 1 小时就是拿坏票撞上游。
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -127,5 +130,39 @@ test('T8 节流台账先写后跑(写在阻塞调用之后 = 计数恒 0)', (t) 
   assert.equal(h.calls[0].tickWritten, true, '派生那一刻台账必须已经落笔')
   const rec = JSON.parse(readFileSync(join(h.dir, 'tick.json'), 'utf8'))
   assert.equal(rec.attemptAt, new Date(NOW).toISOString())
+})
+
+test('T9 上一轮结论行取不到(no-result-line)⇒ 同样只冷却 1 小时(2026-11-05 实测事故型)', (t) => {
+  // 派发器超时/输出被截时,器物交出的是「根本没有 KEEPALIVE-RESULT 这行」,落笔形态是
+  // no-result-line,而不是器物自己报的 undetermined。原判据只认后者,于是这一格按 6 小时
+  // 冷却:实测 07:13 哑一次,直到 13:13 才可能再试 —— 头注却写着"失败只冷却 1 小时"。
+  const h = harness(t, '巡检完成: refreshed=0 keepalive=0 心跳=0')
+  const first = sweepKeepAliveForever(h.opts)
+  assert.equal(first.ran, true)
+  assert.equal(first.state, 'no-result-line')
+  assert.equal(
+    h.mails[0]?.dedupKey,
+    'keepalive-forever;no-result-line',
+    '哑了这件事必须归守护喊人,且身份与 undetermined 不同',
+  )
+  h.mails.length = 0
+  h.opts.now = NOW + 2 * HOUR
+  const r = sweepKeepAliveForever(h.opts)
+  assert.equal(r.ran, true, '结论行取不到后 2 小时就该重试,而不是等满 6 小时')
+})
+
+test('T10 alert 反向牙:号掉线仍按 6 小时,不许压成每小时撞一次上游', (t) => {
+  const h = harness(
+    t,
+    'KEEPALIVE-RESULT state=alert registered=1 refreshed=0 refreshFailed=1 keepalive=1 heartbeat=0 alerts=1 mailed=1',
+  )
+  const first = sweepKeepAliveForever(h.opts)
+  assert.equal(first.state, 'alert')
+  h.opts.now = NOW + 2 * HOUR
+  const early = sweepKeepAliveForever(h.opts)
+  assert.equal(early.ran, false, 'alert 是「号掉线」不是「尺子哑」,压到 1 小时就是拿坏票撞鉴权点')
+  h.opts.now = NOW + 7 * HOUR
+  const late = sweepKeepAliveForever(h.opts)
+  assert.equal(late.ran, true, '满 6 小时窗口仍要给下一次机会')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -29,6 +29,7 @@ import json
 import logging
 import os
 import re
+import stat
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -38,6 +39,18 @@ from app.utils.atomic_io import write_text_atomic
 from .skill_md import parse_skill_md
 
 logger = logging.getLogger(__name__)
+
+
+def _path_under_any(path: str, roots: list[str]) -> bool:
+    """path 是否落在某个读不到的扫描根下面。比较前先归一化,避免斜杠和大小写分叉。"""
+    if not roots:
+        return False
+    target = os.path.normcase(os.path.abspath(path))
+    for root in roots:
+        base = os.path.normcase(os.path.abspath(root))
+        if target == base or target.startswith(base + os.sep):
+            return True
+    return False
 
 
 @dataclass
@@ -709,12 +722,15 @@ class SkillRegistry:
         parsed = parse_skill_md(content)
         return parsed.name, parsed.description, parsed.instructions
 
-    def _iter_skill_files(self) -> list[str]:
+    def _iter_skill_files(self) -> tuple[list[str], list[str], list[str]]:
         """枚举待加载的 skill md 文件路径(默认 auto 目录,可叠加 env 扫描根)。
 
         默认扫描 ``app/skills/auto/*.md``;若设置环境变量 ``IHUI_SKILL_SCAN_ROOTS``
         (逗号分隔目录),额外扫描这些根下的 ``*.md``(仅读取,不覆盖 builtin/ai-top
         执行语义)。业务技能目录默认不在扫描范围,作为只读 catalog 审计。
+
+        第二个返回值是读不到的扫描根。目录不存在不是读失败;列目录失败时
+        调用方不得把该根下已登记的技能当成已删除。
         """
         roots = [self._auto_dir()]
         env = os.environ.get("IHUI_SKILL_SCAN_ROOTS", "")
@@ -722,16 +738,42 @@ class SkillRegistry:
             roots = roots + [p.strip() for p in env.split(",") if p.strip()]
         self.source_dirs = roots
         files: list[str] = []
+        unread_roots: list[str] = []
+        unread_files: list[str] = []
         for root in roots:
-            if not os.path.isdir(root):
+            try:
+                names = os.listdir(root)
+            except FileNotFoundError:
                 continue
-            for fname in sorted(os.listdir(root)):
+            except NotADirectoryError:
+                continue
+            except OSError as exc:
+                logger.warning(
+                    "skills._iter_skill_files 扫描根读不到,不能把它说成空目录(root=%s): %s",
+                    root,
+                    exc,
+                )
+                unread_roots.append(root)
+                continue
+            for fname in sorted(names):
                 if not fname.endswith(".md"):
                     continue
                 path = os.path.join(root, fname)
-                if os.path.isfile(path):
+                try:
+                    st = os.stat(path)
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    logger.warning(
+                        "skills._iter_skill_files 技能文件读不到,不能把它说成已删除(path=%s): %s",
+                        path,
+                        exc,
+                    )
+                    unread_files.append(path)
+                    continue
+                if stat.S_ISREG(st.st_mode):
                     files.append(path)
-        return files
+        return files, unread_roots, unread_files
 
     def _load_auto_skills(self) -> None:
         """增量扫描并注册 skill(自进化生成的 skill + 可配扫描源)。
@@ -740,7 +782,8 @@ class SkillRegistry:
         (仅移除 source=auto 者,不误删 builtin/ai-top)。无参调用幂等。
         """
         seen_paths: set[str] = set()
-        for path in self._iter_skill_files():
+        skill_files, unread_roots, unread_files = self._iter_skill_files()
+        for path in skill_files:
             seen_paths.add(path)
             try:
                 mtime = os.path.getmtime(path)
@@ -769,6 +812,11 @@ class SkillRegistry:
             )
             self._auto_names.add(name)
             self._auto_files[path] = (mtime, name)
+        for path in list(self._auto_files):
+            if path not in seen_paths and _path_under_any(path, unread_roots):
+                seen_paths.add(path)
+        for path in unread_files:
+            seen_paths.add(path)
         # 增量移除已删除文件对应的 skill(仅 auto 来源)
         for path in [p for p in self._auto_files if p not in seen_paths]:
             _mtime, name = self._auto_files.pop(path)

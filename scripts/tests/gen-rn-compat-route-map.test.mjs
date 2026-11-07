@@ -347,6 +347,122 @@ test('C6 形状锁:源脚本里不得再长出"只比键名"的第二份幂等�
   )
 })
 
+// ── C7-C12:--check 路由段(2026-11-05 盲区补刀)───────────────────────────────
+// 立因(现场实证):原 --check 分支在路由段之前就 return(只校图标),而头注自称
+// 「已产出文件与现读全集对账」——当天现读 route-map.generated.ts 缺 VipUpgrade/ExamDetail
+// (源头已新增)且带 AiAssistantN8n/AiCareer/MoreCourse 三条死条目(登记表已撤假配对:
+// 2026-10-30 提交 4af3734988、2026-11-01 提交 ccc4069c83),--check 却 exit 0。
+// "检查从未执行,报的绿是根本没判"——三态成对锁:陈旧⇒必须响 / 对齐⇒必须绿 / 取不到⇒未判定。
+const ALIGNED_DISK = `export const RN_ROUTE_MAP: Record<string, string> = {
+  A: '/x/index',
+  B: '/pkg-learn/course/list',
+}
+`
+
+test('C7 反向牙:盘上多出现读已撤声明的死条目 ⇒ routeMapCovers 判"有变化"(superset 旧语义留不住修口)', () => {
+  const entries = [
+    ['A', '/x/index'],
+    ['B', '/pkg-learn/course/list'],
+  ]
+  const diskWithExtra = ALIGNED_DISK.replace('}', "  Ghost: '/pkg-dead/ghost/index',\n}")
+  assert.equal(
+    GEN.routeMapCovers(entries, diskWithExtra),
+    false,
+    '若"现读 ⊆ 盘上"仍算已覆盖,--check 对死条目冒的红就没有修得掉的出口(--write 空转,§0.8)',
+  )
+})
+
+test('C8 routeMapDiff 三型分桶点名:缺/漂移/死条目各归各桶(两型都报,不许只报一侧)', () => {
+  const disk = `export const RN_ROUTE_MAP = {
+  Kept: '/pkg-a/kept/index',
+  Drifted: '/pkg-a/old-way',
+  Dead: '/pkg-b/dead/index',
+}
+`
+  const d = GEN.routeMapDiff(
+    [
+      ['Kept', '/pkg-a/kept/index'],
+      ['Drifted', '/pkg-a/new-way'],
+      ['Fresh', '/pkg-c/new/index'],
+    ],
+    disk,
+  )
+  assert.equal(d.diskReadable, true)
+  assert.deepEqual(d.missing, [['Fresh', '/pkg-c/new/index']], '① 源头新增而派生件没跟上')
+  assert.deepEqual(d.valueDrift, [['Drifted', '/pkg-a/old-way', '/pkg-a/new-way']])
+  assert.deepEqual(d.extra, [['Dead', '/pkg-b/dead/index']], '② 派生件里有源头已删的死条目')
+})
+
+test('C9 routeMapDiff 盘上取不到/解析到 0 条 ⇒ diskReadable=false(未判定输入,不冒充"已核对")', () => {
+  const entries = [['A', '/x/index']]
+  for (const bad of ['', null, undefined, '// 表体被整片抹掉的一行\n']) {
+    const d = GEN.routeMapDiff(entries, bad)
+    assert.equal(d.diskReadable, false, `盘面 ${JSON.stringify(bad)} 不得判成可对账`)
+    assert.deepEqual([d.missing.length, d.valueDrift.length, d.extra.length], [0, 0, 0])
+  }
+})
+
+test('C10 对齐成对正例:renderRouteMap 产物喂回 routeMapDiff ⇒ 三桶全空(--check 绿腿)', () => {
+  const map = new Map([
+    ['A', '/x/index'],
+    ['B', '/pkg-learn/course/list'],
+  ])
+  const d = GEN.routeMapDiff([...map.entries()], GEN.renderRouteMap(map))
+  assert.equal(d.diskReadable, true)
+  assert.deepEqual(d.missing, [])
+  assert.deepEqual(d.valueDrift, [])
+  assert.deepEqual(d.extra, [])
+})
+
+test('C11 形状锁:--check 分支必须核对路由段(旧"图标对完就 return"的早退形态不得回来)', () => {
+  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
+  const checkStart = src.indexOf('if (check) {')
+  assert.ok(checkStart >= 0, '锚点腐烂 ⇒ 本锁空转,先修锚')
+  const checkSlice = src.slice(checkStart, src.indexOf('const routeInfo = buildRouteMap()'))
+  assert.ok(
+    checkSlice.includes('checkRouteInfo = buildRouteMap()'),
+    'check 分支里没有 buildRouteMap() ⇒ 路由段又回到"之前就 return"的盲区(本锁立因)',
+  )
+  assert.ok(checkSlice.includes('routeMapDiff('), 'check 分支必须走 routeMapDiff 这一个差集出口')
+  assert.ok(checkSlice.includes('process.exit(2)'), '取不到源/枚举 0 条必须按未判定 exit 2')
+  assert.ok(checkSlice.includes('未判定'), '未判定分支必须点名"未判定"(§0.3 不记绿也不冒红)')
+  const iconOk = checkSlice.indexOf('图标覆盖面与现读全集对平')
+  const routeOk = checkSlice.indexOf('路由映射与现读全集双向对平')
+  assert.ok(iconOk >= 0 && routeOk > iconOk, '路由面必须在图标面之后、且都在 return 之前对账')
+})
+
+test('C12 形状锁:现读路由 0 条 ⇒ --check 与 --write 两侧都判死(--write 拒洗表)', () => {
+  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
+  assert.ok(
+    /const routesZeroRefused = routeInfo\.map\.size === 0/.test(src),
+    '--write 侧的"枚举到 0 判死拒写"闸没了 ⇒ 解析面坏一轮就会把整表洗空(判死必须有死亡机制)',
+  )
+  assert.ok(/checkRouteInfo\.map\.size === 0/.test(src), '--check 侧的 0 条判死闸不得摘')
+  assert.ok(
+    /if \(!gate\.ok \|\| routesZeroRefused\) process\.exit\(2\)/.test(src),
+    '拒写轮次必须以未判定收场,不得被 --write 报成成功落盘',
+  )
+})
+
+test('C13 形状锁:归属闸消费方必须读 gate.dirty(2026-11-05 根治 gate.paths 恒 undefined 的静默 held)', () => {
+  const src = readFileSync(fileURLToPath(new URL('../gen-rn-compat.mjs', import.meta.url)), 'utf8')
+  // 现读血案:ownershipGate 的回给是 {ok, reason, dirty, blocked},接线时写成 gate.<paths字面量> ⇒
+  // 恒 undefined ⇒ isCleanOwned 恒 false ⇒ "只要判出要重写就永远 held",且图标腿被 covered 短路
+  // 掩盖,现场只表现为"派生件长期陈旧 + --write 每轮 held"。判据在 lib 一份没错,错的是取错字段。
+  assert.ok(
+    /isCleanOwned\(\s*rel,\s*gate\.dirty\s*\)/.test(src),
+    '归属闸必须消费 gate.dirty;换成别的字段名(或不存在的字段)= 整条写腿静默瘫痪',
+  )
+  // 禁语断言只打**调用形态**(属性访问紧跟 isCleanOwned 第二参);源文件的注记里允许点名旧病灶,
+  // 若把禁语写成正则字面量本身会自指恒假(与 R10 同型,按 R10 的拆词法)。
+  const forbidden = 'gate' + '.pat' + 'hs'
+  assert.ok(
+    !src.includes(`isCleanOwned(rel, ${forbidden})`) &&
+      !src.includes(`isCleanOwned(rel,${forbidden})`),
+    'isCleanOwned 的第二参又取不存在的字段 ⇒ 静默 held 回潮',
+  )
+})
+
 // ── I 组:图标表的幂等判据 iconTableCovers ────────────────────────────────────
 // 立因(2026-10-30 审计确证,与 C 组同型)：产物 `icons-generated.tsx` 的 `const S` 里每个名字的**值是现算
 // 的 SVG data URI**；旧判据只比名字集合 + `length >=`，于是 lucide 升版/某图标路径改动时(名字一条不变)

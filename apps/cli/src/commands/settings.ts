@@ -426,6 +426,34 @@ export function getSettingsPath(): string {
   return path.join(getHomeDir(), '.ihui', 'settings.json');
 }
 
+export type SettingsUpdateRead =
+  | { state: 'missing' }
+  | { state: 'corrupt' }
+  | { state: 'ok'; settings: Settings };
+
+function settingsReadCode(error: unknown): string {
+  if (error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string') {
+    return (error as { code: string }).code;
+  }
+  return 'unknown';
+}
+
+/** 准备覆盖写入前先读配置。文件不存在是 missing。内容损坏是 corrupt。读失败不能覆盖。 */
+export function readSettingsObjectForUpdate(filePath: string): SettingsUpdateRead {
+  let raw: string;
+  try {
+    raw = fs.readFileSync(filePath, 'utf-8');
+  } catch (error) {
+    const code = settingsReadCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { state: 'missing' };
+    throw new Error(`配置读不到,不能把它覆盖成新内容 (${code})`);
+  }
+  if (raw.trim() === '') return { state: 'missing' };
+  const parsed = tryParseJson(raw);
+  if (!isRecord(parsed)) return { state: 'corrupt' };
+  return { state: 'ok', settings: parsed as Settings };
+}
+
 /**
  * 多源加载 settings.json,按优先级深合并(高优先级覆盖低优先级)。
  * 扫描顺序(高→低):<cwd>/.{ihui,claude,cursor} → ~/.{ihui,claude,cursor}。
@@ -443,8 +471,12 @@ export function loadSettings(): Settings {
   return mergeSettingsFromCwd(process.cwd());
 }
 
-/** 把 cwd 抽成显式入参:夹具不必改写 process.cwd() 也能证明同一条判据。 */
-export function mergeSettingsFromCwd(cwd: string): Settings {
+/** 把 cwd 抽成显式入参:夹具不必改写 process.cwd() 也能证明同一条判据。stat 可注入,省略时用 fs.statSync。 */
+export function mergeSettingsFromCwd(
+  cwd: string,
+  stat?: (target: string) => fs.Stats,
+): Settings {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   const paths = listSettingsConfigPaths(cwd);
   // listSettingsConfigPaths 的**前** SETTINGS_SOURCE_DIRS.length 条是工作目录层
   // (后同量条数才是 home 层);按绝对路径成集合,不靠字符串前缀判断(.. 与大小写都会骗)。
@@ -453,7 +485,13 @@ export function mergeSettingsFromCwd(cwd: string): Settings {
   );
   let acc: Settings = {};
   for (const p of [...paths].reverse()) {
-    if (!fs.existsSync(p)) continue;
+    try {
+      look(p);
+    } catch (error) {
+      const code = settingsReadCode(error);
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      throw new Error(`配置读不到,不能把它跳过再合并其它来源 (${code})`);
+    }
     try {
       const raw = fs.readFileSync(p, 'utf-8');
       // 数组/标量不是合法 Settings,防止误合并损坏配置
@@ -474,8 +512,11 @@ export function mergeSettingsFromCwd(cwd: string): Settings {
         }
         acc = deepMergeSettings(acc, value);
       }
-    } catch {
-      // 读文件失败忽略,继续下一源
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT' || code === 'ENOTDIR') continue;
+      if (code) throw new Error(`配置读不到,不能把它跳过再合并其它来源 (${code})`);
+      // 无 errno 的失败(坏 JSON 已由 tryParseJson 吞掉)仍忽略,继续下一源
     }
   }
   return acc;
@@ -483,9 +524,13 @@ export function mergeSettingsFromCwd(cwd: string): Settings {
 
 export function saveSettingsTemplate(overwrite = false): boolean {
   const p = getSettingsPath();
+  const current = readSettingsObjectForUpdate(p);
+  if (current.state === 'corrupt') {
+    throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
+  }
+  if (current.state !== 'missing' && !overwrite) return false;
   const dir = path.dirname(p);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  if (fs.existsSync(p) && !overwrite) return false;
   const template: Settings = {
     apiUrl: 'http://localhost:8802',
     defaultModel: 'default',

@@ -14,7 +14,13 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Check, MapPin, Plus } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import {
+  createAddress,
+  deleteAddress,
+  listAddresses,
+  setDefaultAddress,
+  updateAddress,
+} from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { TextField } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -100,7 +106,7 @@ export default function AddressesScreen() {
     setLoading(true)
     setFailed(false)
     try {
-      const res = await fetchApi<{ list: Address[] }>('/api/addresses')
+      const res = await listAddresses()
       if (!res.success) throw new Error(res.error)
       setList(res.data?.list ?? [])
     } catch {
@@ -161,10 +167,7 @@ export default function AddressesScreen() {
     }
     setSaving(true)
     try {
-      const payload = JSON.stringify(body)
-      const res = editId
-        ? await fetchApi(`/api/addresses/${editId}`, { method: 'PUT', body: payload })
-        : await fetchApi('/api/addresses', { method: 'POST', body: payload })
+      const res = editId ? await updateAddress(editId, body) : await createAddress(body)
       if (!res.success) throw new Error(res.error)
       setForm(null)
       setEditId(null)
@@ -186,7 +189,7 @@ export default function AddressesScreen() {
           void (async () => {
             setBusyId(a.id)
             try {
-              const res = await fetchApi(`/api/addresses/${a.id}`, { method: 'DELETE' })
+              const res = await deleteAddress(a.id)
               if (!res.success) throw new Error(res.error)
               await load()
             } catch {
@@ -203,7 +206,7 @@ export default function AddressesScreen() {
   const onSetDefault = async (a: Address) => {
     setBusyId(a.id)
     try {
-      const res = await fetchApi(`/api/addresses/${a.id}/default`, { method: 'POST' })
+      const res = await setDefaultAddress(a.id)
       if (!res.success) throw new Error(res.error)
       await load()
     } catch {
@@ -251,7 +254,7 @@ export default function AddressesScreen() {
                   <Check size={12} color={styles.checkboxOnText.color} strokeWidth={3} />
                 ) : null}
               </View>
-              <Text style={styles.checkLabel}>{t('addresses.defaultLabel')}</Text>
+              <Text style={styles.checkLabel}>{t('memberAddressFormPage.setDefault')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.button, saving && styles.buttonDisabled]}
@@ -409,12 +412,12 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['4xl'],
     },
-    muted: { fontSize: 13, color: tokens.text.secondary },
-    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
-    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
+    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
+    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     itemHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     itemName: { fontSize: rnType.strong.size, fontWeight: '600', color: tokens.text.primary },
-    itemPhone: { fontSize: 13, color: tokens.text.secondary },
+    itemPhone: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
     badge: {
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: 1,
@@ -422,15 +425,15 @@ function makeStyles() {
       backgroundColor: tokens.surface.muted,
     },
     badgeText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
-    itemAddress: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
+    itemAddress: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
     actions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',
       gap: rnSpacing.lg,
       paddingTop: rnSpacing['2xs'],
     },
-    actionText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    dangerText: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    actionText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
+    dangerText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

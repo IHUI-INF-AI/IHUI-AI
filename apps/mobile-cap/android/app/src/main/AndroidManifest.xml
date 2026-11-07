@@ -7,8 +7,10 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- BUG-70:allowBackup=false —— 含 refresh token 的 SharedPreferences/数据库不得进
+         Android 云备份 / adb backup(会话凭据外泄);release 构建由 build.gradle 守卫复核。 -->
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

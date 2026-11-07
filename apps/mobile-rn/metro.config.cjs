@@ -213,6 +213,19 @@ function tryResolveWithExts(basePath, originDir, platform) {
     return basePath
   }
   const exts = ['ts', 'tsx', 'js', 'jsx', 'json', 'mjs', 'cjs']
+  // 2. 工作区 TS 源码按 Node ESM 约定写 `.js` 说明符(packages/shared 的
+  //    import '../utils/command-risk.js' 实际文件是 command-risk.ts)。Metro 默认链
+  //    与下面的扩展名拼接都不认这种写法:basePath 是 command-risk.js 时只会尝试
+  //    command-risk.js.ts。这里在"直接命中"失败后剥掉脚本扩展,复用同一套
+  //    TS/平台后缀查找 —— 只在 .js 文件确实不存在时才生效,已有产物零影响。
+  //    立因(实测):0.0.10 出包 createBundleReleaseJsAndAssets 红
+  //    "Unable to resolve module ../utils/command-risk.js"。
+  {
+    const stripped = basePath.replace(/\.(js|jsx|mjs|cjs)$/, '')
+    if (stripped !== basePath) {
+      basePath = stripped
+    }
+  }
   // 2. 优先尝试平台扩展(.native/.ios/.android/.web)— 与 Metro 默认解析器行为对齐
   //    2026-07-29 修复:原顺序是先 .js 后 .native.js,导致 doctor.js(web 版)被
   //    错误加载而非 doctor.native.js。平台扩展必须在普通扩展之前,确保 .native.js 优先。
@@ -715,8 +728,17 @@ config.server.enhanceMiddleware = (middleware) => {
   }
 }
 
+// 2026-11-04:CSS 入口与 tailwind 配置一律走**绝对路径**。
+// 立因(实测,不是预防):nativewind 4.2.7 的 withNativeWind 对 configPath 的默认值是
+// **相对字符串** 'tailwind.config',内部以 path.resolve(configPath) 解析 —— 基准是
+// process.cwd(),不是本文件所在目录。于是从 monorepo 根跑任何"加载 metro 配置"的工具
+// (knip 的 @knip/react-native 插件、bundler 分析器)必然拿到
+// "Cannot find module '<repo>/tailwind.config'" 而整体加载失败,进而让 .web.ts/.web.tsx
+// 平台后缀解析整条失效(knip 侧表现为那几个变体文件被误报未引用)。从 apps/mobile-rn
+// 下跑 Metro 一切正常,这才是这个坑长期没被发现的原因。
 module.exports = withNativeWind(config, {
-  input: './global.css',
+  input: require('path').resolve(__dirname, 'global.css'),
+  configPath: require('path').resolve(__dirname, 'tailwind.config.js'),
   ...(isWatchMode ? { forceWriteFileSystem: true } : {}),
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

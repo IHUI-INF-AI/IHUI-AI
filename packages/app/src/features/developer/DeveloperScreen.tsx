@@ -58,21 +58,22 @@ function buildInfoRows(
   info: DeveloperSpaceInfo,
   onCopyApiKey: (key: string) => void,
   onRenew: () => void,
+  showApiKeyRow: boolean,
 ): InfoRowSpec[] {
   const rows: InfoRowSpec[] = []
   if (info.application) {
     const { name, description, status } = info.application
-    rows.push({ label: t('developerInfo.nameLabel'), value: name || EMPTY_PLACEHOLDER })
+    rows.push({ label: t('developer.settings.infoName'), value: name || EMPTY_PLACEHOLDER })
     if (description) {
       rows.push({ label: t('developerInfo.descLabel'), value: description, lines: 2 })
     }
     rows.push({ label: t('developerInfo.statusLabel'), value: applicationStatusLabel(t, status) })
   }
   const copyableKey = info.copyableApiKey
-  rows.push(
-    { label: t('developerInfo.accountLabel'), value: info.account || EMPTY_PLACEHOLDER },
-    {
-      label: t('developerInfo.apiKeyLabel'),
+  rows.push({ label: t('developerInfo.accountLabel'), value: info.account || EMPTY_PLACEHOLDER })
+  if (showApiKeyRow) {
+    rows.push({
+      label: t('developerHomePage.statApiKeys'),
       value:
         info.apiKeyCount > 0
           ? t('developerInfo.apiKeyCount', { count: info.apiKeyCount })
@@ -80,7 +81,9 @@ function buildInfoRows(
       action: copyableKey
         ? { label: t('devSpace.copy'), onPress: () => onCopyApiKey(copyableKey) }
         : null,
-    },
+    })
+  }
+  rows.push(
     { label: t('developerInfo.urlLabel'), value: info.website || EMPTY_PLACEHOLDER },
     {
       label: t('developerInfo.expiryLabel'),
@@ -98,6 +101,10 @@ export function DeveloperScreen({
   displayName,
   subscribed,
   info,
+  statusText,
+  entryIds,
+  footerAction = null,
+  showApiKeyRow = true,
   onBecomeDeveloper,
   onRenew,
   onCopyApiKey,
@@ -108,7 +115,10 @@ export function DeveloperScreen({
 }: DeveloperScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createDeveloperStyles(tk), [tk])
-  const rows = info ? buildInfoRows(t, info, onCopyApiKey, onRenew) : null
+  const rows = info ? buildInfoRows(t, info, onCopyApiKey, onRenew, showApiKeyRow) : null
+  const visibleEntries = entryIds
+    ? DEVELOPER_SPACE_ENTRIES.filter((entry) => entryIds.includes(entry.id))
+    : DEVELOPER_SPACE_ENTRIES
 
   return (
     <ScrollView
@@ -126,6 +136,7 @@ export function DeveloperScreen({
         <Text style={styles.userName} numberOfLines={1}>
           {displayName}
         </Text>
+        {statusText ? <Text style={styles.statusText}>{statusText}</Text> : null}
         <TouchableOpacity style={styles.ctaBtn} onPress={onBecomeDeveloper} activeOpacity={0.8}>
           <Text style={styles.ctaBtnText}>
             {t(subscribed ? 'devSpace.renew' : 'developer.becomeDeveloper')}
@@ -136,16 +147,16 @@ export function DeveloperScreen({
       {/* ② 开发者信息卡(行表驱动) */}
       {rows ? (
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>{t('developerInfo.title')}</Text>
+          <Text style={styles.infoTitle}>{t('developer.settings.infoTitle')}</Text>
           {rows.map((row) => (
             <InfoRow key={row.label} styles={styles} {...row} />
           ))}
         </View>
       ) : null}
 
-      {/* ③ 四个功能入口(顺序即跨端表顺序) */}
+      {/* ③ 功能入口(顺序即跨端表顺序;可见集合由端侧数据源决定) */}
       <View style={styles.entryRow}>
-        {DEVELOPER_SPACE_ENTRIES.map((entry) => (
+        {visibleEntries.map((entry) => (
           <TouchableOpacity
             key={entry.id}
             style={styles.entryItem}
@@ -190,6 +201,17 @@ export function DeveloperScreen({
           <Text style={styles.contactDesc}>{t('devSpace.contactDesc')}</Text>
         </PressableCard>
       </View>
+
+      {/* ⑤ 屏底主操作(进入广场/继续接单,由端侧数据源决定文案与落点) */}
+      {footerAction ? (
+        <TouchableOpacity
+          style={styles.footerBtn}
+          onPress={footerAction.onPress}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.footerBtnText}>{footerAction.label}</Text>
+        </TouchableOpacity>
+      ) : null}
     </ScrollView>
   )
 }

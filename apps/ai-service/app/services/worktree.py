@@ -201,6 +201,13 @@ async def remove_worktree(
     2. shutil.rmtree(ignore_errors=True)(git 失败时,如文件锁)
     3. 仅 log warning(全失败时不抛错,避免阻塞 WorkerPool)
     """
+    try:
+        os.stat(wt_path)
+    except (FileNotFoundError, NotADirectoryError):
+        pass
+    except OSError as exc:
+        raise OSError(f"工作树读不到,不能把它说成已经不在,也不删除 ({exc.errno})") from exc
+
     # 层 1:git worktree remove
     args = ["worktree", "remove"]
     if force:
@@ -224,11 +231,21 @@ async def remove_worktree(
     # `git worktree list` 每条都当独立仓 ⇒ 变更数合计爆表。
     await prune_worktrees(source_path)
 
-    # 层 3:检查是否仍存在(可能文件锁未释放)
-    if os.path.exists(wt_path):
+    # 层 3:删完再量一次。读不到不能当成已经不在。
+    try:
+        os.stat(wt_path)
+    except (FileNotFoundError, NotADirectoryError):
+        return
+    except OSError as exc:
         logger.warning(
-            "worktree 仍存在(可能文件锁): %s,将由后续 prune 清理", wt_path
+            "worktree 删完后读不到,不能把它说成已经不在 (%s): %s",
+            exc.errno,
+            wt_path,
         )
+        return
+    logger.warning(
+        "worktree 仍存在(可能文件锁): %s,将由后续 prune 清理", wt_path
+    )
 
 
 async def prune_worktrees(source_path: str) -> None:

@@ -102,7 +102,8 @@ export function initCrashReport(): void {
   }
 }
 
-function reportCrash(rawMessage: string, rawStack?: string): void {
+/** 供启动链(BUG-41⑤)在初始化失败时主动上报白屏根因;与 Taro.onError 同一出口。 */
+export function reportCrash(rawMessage: string, rawStack?: string): void {
   try {
     // 兜底不得为假:脱敏后整句为空 ⇒ 宁可留一个占位文案,也不能上报一条空消息
     const message = redactCrashText(rawMessage || 'unknown error').slice(0, MAX_MESSAGE)

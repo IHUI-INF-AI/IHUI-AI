@@ -35,8 +35,6 @@ export const EXPORT_COLS: ExportColumn[] = [
 // ── G-28 登记缴费(POST /payment-record,归属报名 enrollmentId)──
 // 支付方式取值与 edu-management/finance 现有 PAYMENT_METHODS 同源(cash/transfer/wechat/alipay),
 // 后端为自由字符串 ≤30,这里只镜像既有档、只存 value;展示文案走 i18n(methodCash 等),不在前端写死中文。
-export const EDU_AI_BASE = '/api/edu-ai-management'
-
 export const PAYMENT_METHODS = ['cash', 'transfer', 'wechat', 'alipay'] as const
 
 export const EMPTY_PAYMENT_RECORD: PaymentRecordForm = {

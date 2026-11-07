@@ -127,10 +127,29 @@ export class DoubaoUpstreamError extends Error {
 // =============================================================================
 
 /**
+ * HTTP 头值必须是 ByteString(每个码点 ≤ 0xff)。本机 Cookies sqlite 解码残留 U+FFFD
+ * 之类非 Latin-1 字符时,直接拼进 cookie 头会让 fetch 抛
+ * "Cannot convert argument to a ByteString because the character ...",把设计上应判
+ * indeterminate 的健康检查伪装成凭据错误(2026-11-06 本机实测:重导入后该行
+ * last_error_message 变成 ByteString 错,而生产库同平台是"quota HTTP 401 ⇒ 未判定")。
+ * 逐字符 percent-encode 非 Latin-1;Latin-1 原样保留 ⇒ 既有合法会话票逐字不变,
+ * 只收敛本来就进不了 HTTP 头的字符。
+ */
+export function byteStringSafeHeaderValue(value: string): string {
+  let out = ''
+  for (const ch of value) {
+    const cp = ch.codePointAt(0) ?? 0
+    out += cp <= 0xff ? ch : encodeURIComponent(ch)
+  }
+  return out
+}
+
+/**
  * 组 Cookie 头:优先 credentials.cookies 整包直通(name=value 逐条拼接,零字段改写);
  * cookies 为空且 tokenEnc 有值 ⇒ 按取证键名当 sessionid_ss/sessionid 用(推断映射:
  * 号池导入时字节 passport 会话票常落 tokenEnc;真实键序待实证后收口)。
  * 两处皆空 ⇒ 抛错(该账号不可转发)。
+ * 键与值都过 byteStringSafeHeaderValue:只防非法头字符,不做凭据改写。
  */
 export function buildCookieHeader(ctx: AdapterAccountContext): string {
   const cookies = Array.isArray(ctx.credentials.cookies) ? ctx.credentials.cookies : []
@@ -141,13 +160,16 @@ export function buildCookieHeader(ctx: AdapterAccountContext): string {
     const value = c['value']
     if (typeof name !== 'string' || name === '') continue
     if (typeof value !== 'string') continue
-    pairs.push(`${name}=${value}`)
+    pairs.push(
+      `${byteStringSafeHeaderValue(name)}=${byteStringSafeHeaderValue(value)}`,
+    )
   }
   if (pairs.length > 0) return pairs.join('; ')
   const token = ctx.credentials.token
   if (token) {
     // 推断映射(未实证):tokenEnc 充当会话票,套用取证实证的两个会话键名
-    return `sessionid_ss=${token}; sessionid=${token}`
+    const safe = byteStringSafeHeaderValue(token)
+    return `sessionid_ss=${safe}; sessionid=${safe}`
   }
   throw new DoubaoUpstreamError(
     401,

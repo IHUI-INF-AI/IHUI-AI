@@ -56,6 +56,29 @@ export const TOOL_LEDGER_RAW_RETENTION_ENV = 'TOOL_LEDGER_RAW_RETENTION_DAYS'
 /** 与 86A2 fact schema 的 state 同集(登记时镜像;两侧对齐由本文件测试逐值钉)。 */
 const LEDGER_STATES = ['registered', 'started', 'settled', 'lost'] as const
 
+/**
+ * 收尾原因封闭集(批次 2 立,本文件是权威):
+ *  - completed: 工具正常返回(不论 ok 与否,error 档见下);
+ *  - error: 工具执行失败(异常/非零退出),不细分错误类别;
+ *  - rejected_by_user: 用户拒绝审批,工具未执行;
+ *  - approval_timeout: 审批超时,工具未执行;
+ *  - blocked: 权限/策略/白名单拦截,工具未执行;
+ *  - cancelled: 调用方取消或循环中断;
+ *  - timeout: 工具自身执行超时;
+ *  - unknown: 宿主未回报可判定的收尾原因。
+ * Python 侧 apps/ai-service/app/services/tool_invocation_ledger.py 是同集镜像。
+ */
+export const TOOL_INVOCATION_TERMINAL_REASONS = [
+  'completed',
+  'error',
+  'rejected_by_user',
+  'approval_timeout',
+  'blocked',
+  'cancelled',
+  'timeout',
+  'unknown',
+] as const
+
 /** execBudget 声明的原样投影(两档并集,与 apps/cli tools/index.ts 的 ToolExecBudget 同形;判据在 scripts/lib/tool-exec-budget.mjs,此处不解释)。 */
 const execBudgetDeclarationSchema = z.union([
   z.strictObject({ ms: z.number().int().positive() }),
@@ -89,6 +112,14 @@ export const toolInvocationLedgerEntrySchema = z
       .string()
       .regex(/^[0-9a-f]{32}$/)
       .optional(),
+    /** 执行目录原样(批次 2):声明或回报的 cwd;缺省 = 不涉及/未回报。 */
+    cwd: z.string().min(1).max(1024).optional(),
+    /** 进程退出码(批次 2):仅命令类工具可观测;缺省 = 未观测(不是 0)。 */
+    exitCode: z.number().int().min(-2_147_483_648).max(2_147_483_647).optional(),
+    /** 输出是否完整(批次 2):false = 超阈值已落盘分页;缺省 = 未观测。 */
+    outputComplete: z.boolean().optional(),
+    /** 收尾原因(批次 2,封闭集见 TOOL_INVOCATION_TERMINAL_REASONS);缺省 = 未回报。 */
+    terminalReason: z.enum(TOOL_INVOCATION_TERMINAL_REASONS).optional(),
     execBudget: execBudgetDeclarationSchema.optional(),
     /** 原文落库是显式 opt-in(默认 false = 只存摘要);为 true 时才写 raw_input/raw_output。 */
     includeRaw: z.boolean().optional(),
@@ -199,6 +230,10 @@ export async function recordToolInvocationLedger(
       streamId: entry.streamId ?? null,
       seq: entry.seq ?? null,
       traceId: entry.traceId ?? null,
+      cwd: entry.cwd ?? null,
+      exitCode: entry.exitCode ?? null,
+      outputComplete: entry.outputComplete ?? null,
+      terminalReason: entry.terminalReason ?? null,
     },
   })
   if (chainEntryId === undefined) {
@@ -230,6 +265,10 @@ export async function recordToolInvocationLedger(
       entry.execBudget && 'notInterruptible' in entry.execBudget ? entry.execBudget.reason : null,
     toolName: entry.toolName,
     sessionId: entry.sessionId,
+    cwd: entry.cwd ?? null,
+    exitCode: entry.exitCode ?? null,
+    outputComplete: entry.outputComplete ?? null,
+    terminalReason: entry.terminalReason ?? null,
     traceId: entry.traceId ?? null,
     turn: entry.turn ?? null,
     streamId: entry.streamId ?? null,

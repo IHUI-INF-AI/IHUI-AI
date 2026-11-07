@@ -245,7 +245,7 @@ export default function ApiKeysScreen() {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={styles.buttonText}>{t('apiKeys.copySecret')}</Text>
+                <Text style={styles.buttonText}>{t('models.keys.copy')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.button, styles.secretBtn]}
@@ -262,7 +262,7 @@ export default function ApiKeysScreen() {
             <Plus size={16} color={tokens.text.secondary} />
             <Text style={styles.cardTitle}>{t('apiKeys.createTitle')}</Text>
           </View>
-          <Text style={styles.label}>{t('apiKeys.nameLabel')}</Text>
+          <Text style={styles.label}>{t('models.keys.table.name')}</Text>
           <TextField
             colorScheme={resolvedTheme}
             value={name}
@@ -459,9 +459,9 @@ function makeStyles() {
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
-    label: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
-    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
-    error: { fontSize: 13, color: tokens.danger.DEFAULT },
+    label: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
+    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
+    error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },
     emptyTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
@@ -569,9 +569,9 @@ function makeStyles() {
       gap: rnSpacing.lg,
       marginTop: rnSpacing['2xs'],
     },
-    link: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+    link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     trashRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
-    dangerLink: { fontSize: 13, fontWeight: '600', color: tokens.danger.DEFAULT },
+    dangerLink: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.danger.DEFAULT },
     usageBox: {
       marginTop: rnSpacing.xs,
       padding: rnSpacing['sm-loose'],
@@ -589,7 +589,7 @@ function makeStyles() {
     },
     secret: {
       fontFamily: 'monospace',
-      fontSize: 13,
+      fontSize: rnType.bodySm.size,
       color: tokens.text.primary,
       paddingVertical: rnSpacing['xs-loose'],
       paddingHorizontal: rnSpacing.sm,

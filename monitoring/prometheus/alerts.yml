@@ -160,13 +160,15 @@ groups:
       # ⚠ 当前 ai-service 尚未打点该指标(absent);与上面同一条机制 —— `or on() vector(0)` 已保证缺席时恒不成立,
       #   故不再写 Prometheus 3.x 不认的 `disabled:` 字段(写了会让整份文件加载失败)。阈值 100k 待真实基线校准。
       - alert: LlmTokenCostSurge
-        expr: (sum(rate(ihui_llm_tokens_total{job="ai-service"}[15m])) or on() vector(0)) > 100000
+        # 量纲修正(BUG-47):描述写的是"15 分钟用量超过 100000 个 token",故用 increase()
+        # (15 分钟窗口内 token 个数),不可用 rate()(量纲 token/秒,阈值会被放大 900 倍)。
+        expr: (sum(increase(ihui_llm_tokens_total{job="ai-service"}[15m])) or on() vector(0)) > 100000
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: 'LLM token/费用突增'
-          description: '15 分钟 LLM token 用量 {{ $value }} 超过阈值 100000,费用可能异常上涨。阈值需按基线人工校准。'
+          description: '15 分钟窗口内 LLM token 用量 {{ $value }} 个 token 超过阈值 100000 个 token(≈111 token/s),费用可能异常上涨。阈值需按基线人工校准。'
 
   - name: infrastructure-alerts
     rules:

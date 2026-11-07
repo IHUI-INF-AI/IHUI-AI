@@ -8,7 +8,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations } from 'next-intl'
 
-import { apiOrThrow } from '@/lib/api'
+import { eduClassList } from '@ihui/api-client'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ihui/ui-react'
 
 /** 班级选项(GET /api/edu-ai-management/class 的投影,取法与 grades/scheduling 页同源) */
@@ -21,8 +21,11 @@ export interface ClassOption {
 export function useClasses(): { classes: ClassOption[]; isLoading: boolean } {
   const query = useQuery({
     queryKey: ['edu-ai-management', 'class', 'options'],
-    queryFn: () =>
-      apiOrThrow<{ list: ClassOption[] }>('/api/edu-ai-management/class?page=1&pageSize=200'),
+    queryFn: async () => {
+      const r = await eduClassList<{ list: ClassOption[] }>({ page: 1, pageSize: 200 })
+      if (!r.success) throw new Error(r.error)
+      return r.data
+    },
   })
   const classes = React.useMemo(() => query.data?.list ?? [], [query.data])
   return { classes, isLoading: query.isLoading }

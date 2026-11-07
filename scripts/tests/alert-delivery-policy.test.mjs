@@ -119,9 +119,15 @@ const NEW_FAMILIES = [
   {
     id: 'client-sync-leg-workbuddy',
     name: 'WorkBuddy 号池保活腿失效(本机会话不再回灌)',
-    // 2026-11-03 临时止血:回灌腿计划任务已 DISABLE,guardian 审计尚在 ⇒ 条目保留不删,窗口拉长到 7 天。
-    cooldownMs: 604800000,
-    cap24: 1,
+    // 本值是 scripts/data/alert-delivery-policy.json 的镜像,两处必须逐字一致(由
+    // 「策略表:五族各自在册」那条用例核对,漂了当场红)。
+    // 2026-11-05 恢复动作落地:腿当天重新注册、末 4 轮 applied=1、哨兵五维 ok ⇒ 照 11-03 条目
+    // 自写的条件把窗口回收为 43200000。**实测纠正一处文案错误:43200000 = 12 小时,不是 4 小时**
+    // (真默认 4h = 14400000,量自 git-guardian-pure.mjs:11)。
+    // cap24 由 1 改成 2,来自真跑:窗口 12h 时 24h 模拟窗内在第 0 与第 725 分钟各放行一封
+    // (身份带 seq 抖动的档位同样是 2 封,因为策略在册时 due 由族窗口决定,抖动只挪时刻)。
+    cooldownMs: 43200000,
+    cap24: 2,
   },
 ]
 const REAL_POLICY = () =>
@@ -258,21 +264,20 @@ test('防误删闸:策略表可解析、顶层数组、条目数≥17、关键�
   assert.ok(Array.isArray(parsed), '策略表顶层必须是数组')
   // 下限取 2026-11-03 实测值 17。纪律:正常增条目不动这行;正常删条目必须显式改小这个数,
   // 把「拆降噪判据」变成本次提交里看得见的一次决策,而不是静默漂移。
-  assert.ok(
-    parsed.length >= 17,
-    `条目数 ${parsed.length} 低于下限 17 ⇒ 疑似条目被误删/文件被写短`,
-  )
+  assert.ok(parsed.length >= 17, `条目数 ${parsed.length} 低于下限 17 ⇒ 疑似条目被误删/文件被写短`)
   // 加载器不得静默丢条目(丢条目 = 变相误删)
   const { entries, invalid } = parseAlertDeliveryPolicy(raw)
   assert.ok(Array.isArray(entries), 'entries 必须是数组')
   assert.deepEqual(invalid, [], '加载器不得有被跳过的坏条目')
   assert.equal(entries.length, parsed.length, '加载器丢条目 = 变相误删')
-  // 关键条目:client-sync-leg-workbuddy 的 7d 窗口是 2026-11-03 临时止血现状。
-  // 断言精确毫秒而不放宽为「≥43200000」:上方五族测试(NEW_FAMILIES)早已钉死同一值,
-  // 本闸不引入额外脆面;将来恢复腿改回 43200000 时两处测试必须同步改 ⇒ 强制有意识改动,正是想要的效果。
+  // 关键条目:client-sync-leg-workbuddy 的窗口现值 = 43200000(12h),即 11-03 临时止血后
+  // 按条目自写条件回收的现状。
+  // 断言精确毫秒而不放宽为「≥」:上方五族测试(NEW_FAMILIES)早已钉死同一值,本闸不引入额外脆面;
+  // 而"恢复腿时必须两处同步改"这句正是本行今天的来历 —— 2026-11-05 腿恢复后同批改到 43200000,
+  // 让"改窗口"必须是一次看得见的决策,而不是静默漂移。
   const wb = parsed.find((e) => e.id === 'client-sync-leg-workbuddy')
   assert.ok(wb, 'client-sync-leg-workbuddy 条目缺失 ⇒ 被误删')
-  assert.equal(wb.cooldownMs, 604800000, 'WorkBuddy 回灌腿 7d 止血窗口必须在册')
+  assert.equal(wb.cooldownMs, 43200000, 'WorkBuddy 回灌腿恢复后的 12h 窗口必须在册')
   // 每条目必需键齐全(非空字符串)+ id 唯一
   const REQUIRED = ['id', 'prefix', 'reason', 'owner', 'reviewBy']
   const seen = new Set()

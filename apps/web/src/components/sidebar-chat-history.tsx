@@ -64,6 +64,11 @@ import {
   sortPinnedFirst,
   type ConversationOrgMap,
 } from '@ihui/shared'
+// 2026-11-05:日期分桶下沉到共享层(小程序历史页同源消费),语义改动只改那一份。
+import {
+  groupConversationByDate,
+  resolveConversationTimestamp,
+} from '@ihui/shared/chat/conversation-date-group'
 import { useChatStore } from '@/stores/chat'
 import { useConversationOrgMap, useConversationOrgStore } from '@/stores/conversation-org'
 // D165:分组置顶(pin/unpin)客户端 store —— 只存分组名,分组本身仍以 orgMap 派生
@@ -146,6 +151,9 @@ export interface ConversationItem {
   model: string
   lastMessageAt: string
   messageCount: number
+  /** 会话创建/更新时间(后端列表接口已返回);lastMessageAt 缺失时作为分桶时间回退,见 resolveConversationTime */
+  createdAt?: string | null
+  updatedAt?: string | null
   archivedAt?: string | null
   /** 2026-08-30 立:会话置顶标记(后端已排序置顶优先;侧栏展示 + 菜单切换) */
   pinned?: boolean
@@ -172,33 +180,33 @@ async function fetchConversations(page = 1): Promise<ConversationsResponse> {
 
 type GroupKey = 'today' | 'thisWeek' | 'thisMonth' | 'earlier'
 
+/**
+ * 分桶时间锚点(2026-11-05 修):优先 lastMessageAt;缺失或非法时依次回退
+ * updatedAt → createdAt(后端列表接口均已返回);三者都不可用才返回 null,
+ * 由调用方归入「更早」。旧实现用 t=0(1970)兜底,会让「没有最后消息时间」的
+ * 会话冒领「本月」—— 这一桶是给真实近期会话用的,不能拿默认值占位。
+ * 2026-11-05:回退链实现下沉到 @ihui/shared/chat/conversation-date-group,本端只声明字段优先级。
+ */
+function resolveConversationTime(item: ConversationItem): number | null {
+  return resolveConversationTimestamp([item.lastMessageAt, item.updatedAt, item.createdAt])
+}
+
+/**
+ * 侧栏会话日期分桶(2026-11-05 改批,与 sidebar-chat-date-group.test.ts 同源语义)。
+ * 全部按本地时区的自然日/自然周/自然月切界:
+ *  - today      : 今天 00:00 起
+ *  - thisWeek   : 本周一 00:00 起(周日为上一自然周的末尾,不是本周第一天)
+ *  - thisMonth  : 本月 1 号 00:00 起
+ *  - earlier    : 更早(含无可用时间戳的会话)
+ * 旧实现按「滚动 7 天」算本周、并把更早的一律塞进 thisMonth,导致用户在本月组里
+ * 看到上月会话。
+ * 2026-11-05:切界与分组算法的唯一实现已下沉到 @ihui/shared/chat/conversation-date-group
+ * (小程序历史页消费同一份),本端只保留「本端字段 → 时间锚点」这一层。行为逐字不变。
+ */
 export function groupByDate(
   items: ConversationItem[],
 ): { key: GroupKey; items: ConversationItem[] }[] {
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const DAY = 24 * 60 * 60 * 1000
-  // 本周 = 周一 00:00 起(不是"过去 7 天"滚动窗);本月 = 当月 1 号 00:00 起。
-  const startOfWeek = startOfToday - ((now.getDay() + 6) % 7) * DAY
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-
-  const buckets: Record<GroupKey, ConversationItem[]> = {
-    today: [],
-    thisWeek: [],
-    thisMonth: [],
-    earlier: [],
-  }
-  for (const item of items) {
-    // 缺 lastMessageAt ⇒ 归「更早」;旧实现兜 t=0 会让它冒领「本月」。
-    const t = item.lastMessageAt ? new Date(item.lastMessageAt).getTime() : Number.NaN
-    if (Number.isNaN(t) || t < startOfMonth) buckets.earlier.push(item)
-    else if (t >= startOfToday) buckets.today.push(item)
-    else if (t >= startOfWeek) buckets.thisWeek.push(item)
-    else buckets.thisMonth.push(item)
-  }
-  return (Object.keys(buckets) as GroupKey[])
-    .filter((k) => buckets[k].length > 0)
-    .map((k) => ({ key: k, items: buckets[k] }))
+  return groupConversationByDate(items, resolveConversationTime)
 }
 
 /** V3 #62:可搜索会话的最小结构(仅声明搜索所需字段,便于纯函数单测与泛型复用) */
@@ -525,7 +533,7 @@ export function SidebarChatHistory({
         <div className="flex items-center justify-between px-1.5 pb-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center gap-1.5 px-2 py-3 text-label text-muted-foreground">
           <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
           <span className="min-w-0 flex-1 truncate">{t('loading')}</span>
         </div>
@@ -543,7 +551,7 @@ export function SidebarChatHistory({
         <div className="flex items-center justify-between px-1.5 pb-1 text-label font-semibold uppercase tracking-wider text-muted-foreground/70">
           <span>{tc('history')}</span>
         </div>
-        <div className="flex items-center gap-1.5 px-2 py-3 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center gap-1.5 px-2 py-3 text-label text-muted-foreground">
           <LogIn className="h-3.5 w-3.5 shrink-0" />
           <span className="min-w-0 flex-1 truncate">{t('loginRequired')}</span>
         </div>
@@ -1394,27 +1402,31 @@ export function SidebarChatHistory({
         )}
 
         {isLoading ? (
-          <div className="flex items-center gap-2 px-2 py-3 text-xs text-muted-foreground">
+          <div className="font-[weight:inherit] flex items-center gap-2 px-2 py-3 text-label text-muted-foreground">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             <span>{t('loading')}</span>
           </div>
         ) : queryError && rawItems.length === 0 ? (
           // D190:仅首屏失败(无任何已加载数据)才整块显示加载失败;
           // 翻页失败时 data 仍在(react-query v5 置 error 但保留 data),列表保持 + 底部重试入口
-          <div className="px-2 py-3 text-xs text-muted-foreground">{tCommon('loadFailed')}</div>
+          <div className="font-[weight:inherit] px-2 py-3 text-label text-muted-foreground">
+            {tCommon('loadFailed')}
+          </div>
         ) : filteredOut ? (
           // D20(G-11)+V3 #62:有会话、但被文件夹筛选或关键词筛到空 —— 必须走"未找到匹配"
           // 而不是"暂无任务记录"。此前判据顺序是 items.length===0 在前,所以搜不到时
           // 界面喊的是"你没有任何任务",清空关键词后文案又变回来 —— 两个完全不同的事实
           // 被同一句文案覆盖(判据 1 的"空态有明确文案"要求正是这一格)。
-          <div className="px-2 py-4 text-center text-xs text-muted-foreground">
+          <div className="font-[weight:inherit] px-2 py-4 text-center text-label text-muted-foreground">
             {t('noResults')}
           </div>
         ) : items.length === 0 ? (
           // 真的一条会话都没有(首屏空库),给新建引导而不是"未找到"
           <div className="flex flex-col items-center gap-1.5 px-2 py-4 text-center">
             <MessageCirclePlus className="h-5 w-5 text-muted-foreground/50" />
-            <span className="text-xs text-muted-foreground">{tc('noHistory')}</span>
+            <span className="font-[weight:inherit] text-label text-muted-foreground">
+              {tc('noHistory')}
+            </span>
           </div>
         ) : (
           <div className="flex flex-col">
@@ -1495,7 +1507,7 @@ export function SidebarChatHistory({
         title={t('archiveChatTitle', { title: pendingArchive?.title ?? '' })}
         content={
           <label
-            className="flex items-center gap-2 text-xs text-muted-foreground"
+            className="font-[weight:inherit] flex items-center gap-2 text-label text-muted-foreground"
             data-testid="archive-confirm-no-ask"
           >
             <Checkbox
@@ -1588,5 +1600,4 @@ export function SidebarChatHistory({
     </>
   )
 }
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

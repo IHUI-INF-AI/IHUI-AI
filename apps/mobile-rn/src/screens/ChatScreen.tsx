@@ -60,9 +60,10 @@ import { captureRef } from 'react-native-view-shot'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { tokens } from '../theme/active-tokens'
+import { dialogContentHeightStyle } from '../lib/dialog-geometry'
 import {
-  Bot,
   BookOpen,
+  Bot,
   Clapperboard,
   Cpu,
   Download,
@@ -136,7 +137,7 @@ import { apiFailureToText, logger } from '@ihui/shared/utils'
 import { FALLBACK_MODELS as SHARED_FALLBACK_MODELS, toUserFriendlyMessage } from '@ihui/shared'
 // 按子路径取:RN 的 vitest 把 `@ihui/shared/utils` 父别名指向测试替身,父入口取不到本模块
 import { isMaxTokensTruncatedFinishReason } from '@ihui/shared/utils/finish-reason'
-import type { ChatMessage } from '@ihui/shared'
+import type { ChatMessage, CompactBoundary, ContextLedger } from '@ihui/shared'
 import {
   applyStreamError,
   isErrorTurn,
@@ -146,6 +147,8 @@ import {
 import type { ModelConfigType } from '@ihui/ui-native'
 import {
   ChatScreen as SharedChatScreen,
+  ChatCollapsibleCard,
+  ChatCompactionBanner,
   ContextUsagePanel,
   type ChatScreenMessage,
   type ChatScreenModel,
@@ -217,7 +220,18 @@ import { DRAWER_TAB_TO_RN_TAB, mainScreenForTab } from '../navigation/tab-utils'
 import { uiControlToolsFor } from '../lib/ui-control-tools'
 import { useUiTextField } from '../lib/use-ui-text-field'
 // D135:额度分档告警一行措辞(两屏共用同一份,键挂 common.*)
-import { budgetNoteText } from '../utils/budget-note'
+import { budgetNoteText, nextBudgetLevel } from '../utils/budget-note'
+// 批次 3(2026-11-06):预算硬停止 / 七类上下文账本 / 压缩边界的展示与回填。
+// 查询面统一走 api-client 的 fetchApi(见 api/chat-ledger);失败静默,不阻断聊天。
+import {
+  fetchLatestBudgetStop,
+  fetchLatestCompactionBoundary,
+  fetchLatestContextLedger,
+  type ChatBudgetStopRow,
+} from '../api/chat-ledger'
+import { BudgetStopNotice } from '../components/chat/BudgetStopNotice'
+import { ContextLedgerPanel } from '../components/chat/ContextLedgerPanel'
+import { CompactionBoundaryNote } from '../components/chat/CompactionBoundaryNote'
 import { useI18n } from '../i18n'
 import {
   resolveRoundModel,
@@ -531,11 +545,13 @@ export function ChatScreen() {
     systemPrompt: '',
     streamEnabled: true,
   })
-  // RN 0.86 Fabric:百分比 maxHeight 不会给子节点确定高度,内部列表无法滚动 →
-  // 用 useWindowDimensions 算出确定高度,并同步覆盖 listDialogContent 的 maxHeight:'70%'
-  // (两者不一致会被 maxHeight 截断,导致底部内容被 overflow:hidden 裁掉)
+  // ── 弹层内容高度:单一真相源 src/lib/dialog-geometry.ts ──
+  // RN 0.86 Fabric 下百分比 maxHeight 不给子节点确定高度 ⇒ 内部 ScrollView / FlatList
+  // 无法滚动,且 overflow:'hidden' 会把底部内容裁掉。此前只有「模型列表」补了确定高度,
+  // 而比例与样式表里的百分比上限各写一份靠人工同步,改一处忘另一处即截断。
+  // 现在比例、取整、height/maxHeight 配对全在那一个模块里,本屏所有弹层统一消费。
   const { height: windowHeight } = useWindowDimensions()
-  const modelPickerHeight = Math.round(windowHeight * 0.7)
+  const dialogHeightStyle = useMemo(() => dialogContentHeightStyle(windowHeight), [windowHeight])
 
   // ── 模型/对话状态 ──
   const [currentModelType, setCurrentModelType] = useState<ModelType | ''>('')
@@ -593,18 +609,11 @@ export function ChatScreen() {
   const previousModelRef = useRef(model)
   const [agents, setAgents] = useState<Agent[]>([])
 
-  // ── BottomActionBar 开关(对齐 Uniapp ToggleButtonGroup) ──
-  const [superAgentEnabled, setSuperAgentEnabled] = useState(false)
-  const [mcpEnabled, setMcpEnabled] = useState(false)
-  const [knowledgeBaseEnabled, setKnowledgeBaseEnabled] = useState(false)
-  const [permanentMemoryEnabled, setPermanentMemoryEnabled] = useState(false)
-  const [superAgentfuEnabled, setSuperAgentfuEnabled] = useState(false)
   const [fangdaVisible, setFangdaVisible] = useState(false)
   // 输入框键盘焦点状态(handleInputFocus/handleInputBlur 维护,供 SharedChatScreen isInputFocused 等 UI 调整)
   const [inputFocused, setInputFocused] = useState(false)
   // 功能面板/来源面板占位弹窗(对齐 Uniapp function-handle / source-handle,后续任务对接真实面板)
   const [functionPanelVisible, setFunctionPanelVisible] = useState<boolean>(false)
-  const [sourcePanelVisible, setSourcePanelVisible] = useState<boolean>(false)
   /** 输入区滑出面板(对齐 Uniapp isShowIcon:辅助按钮行 + 图标按钮组,默认隐藏,
    *  点输入行「+」toggle 滑出/收起;发送后自动收起) */
   const [inputPanelVisible, setInputPanelVisible] = useState<boolean>(false)
@@ -640,6 +649,74 @@ export function ChatScreen() {
   } | null>(null)
   // 手动压缩上下文请求进行中(✂ 按钮 loading + 防重复点击)
   const [compacting, setCompacting] = useState(false)
+  // ── 批次 3(2026-11-06)三件账本态 ──
+  // 预算硬停止:ref 供同一流内的后续 warning 同步判终态(setState 异步,闭包读不到新值)。
+  const [budgetStop, setBudgetStop] = useState<ChatBudgetStopRow | null>(null)
+  const budgetStopRef = useRef<ChatBudgetStopRow | null>(null)
+  // 七类账本:turnIndex 是 0 起轮次下标;-1 = 尚未拿到任何一轮(首轮帧到达后 +1 → 0)。
+  const [contextLedgerView, setContextLedgerView] = useState<{
+    ledger: ContextLedger
+    turnIndex: number
+  } | null>(null)
+  const ledgerTurnRef = useRef(-1)
+  const ledgerCapturedAtRef = useRef<string | null>(null)
+  // 压缩边界:live 帧带 boundary 时写入;进会话由查询面回填最新一条。
+  const [compactionBoundary, setCompactionBoundary] = useState<CompactBoundary | null>(null)
+
+  // 进会话/换会话时回填账本态:刷新或换端后,硬停止提示条、七类账本、压缩边界仍要可见。
+  // 三个查询各自失败静默(contract:查询面失败回退到既有本地估算,不阻断聊天),代际由 AbortController 收口。
+  useEffect(() => {
+    if (!conversationId) {
+      budgetStopRef.current = null
+      setBudgetStop(null)
+      setContextLedgerView(null)
+      setCompactionBoundary(null)
+      ledgerTurnRef.current = -1
+      ledgerCapturedAtRef.current = null
+      return
+    }
+    const controller = new AbortController()
+    void fetchLatestBudgetStop(conversationId, controller.signal)
+      .then((row) => {
+        if (controller.signal.aborted || !row) return
+        budgetStopRef.current = row
+        setBudgetStop(row)
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) logger.warn('chat', 'budget-stops 查询失败', String(error))
+      })
+    void fetchLatestContextLedger(conversationId, controller.signal)
+      .then((row) => {
+        if (controller.signal.aborted || !row) return
+        // live 帧先到:查询返回的旧一轮不得把屏幕上的新一轮顶掉(capturedAt 是同一把尺)
+        const current = ledgerCapturedAtRef.current
+        if (current !== null && current > row.ledger.capturedAt) return
+        ledgerTurnRef.current = row.turnIndex
+        ledgerCapturedAtRef.current = row.ledger.capturedAt
+        setContextLedgerView({ ledger: row.ledger, turnIndex: row.turnIndex })
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted)
+          logger.warn('chat', 'context-ledger 查询失败', String(error))
+      })
+    void fetchLatestCompactionBoundary(conversationId, controller.signal)
+      .then((row) => {
+        if (controller.signal.aborted || !row) return
+        setCompactionBoundary(row.boundary)
+        setCompactionInfo({
+          before: row.tokensBefore,
+          after: row.tokensAfter,
+          removed: row.messagesSummarized,
+        })
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) {
+          logger.warn('chat', 'compaction-boundaries 查询失败', String(error))
+        }
+      })
+    return () => controller.abort()
+    // 只随会话 id 变;回填结果不再反向触发查询。
+  }, [conversationId])
 
   // D136(承 V4 #94/D84):高危工具审批。host = 审批面板 + 常驻待审批胶囊(AGENTS §30:
   // 关闭 ≠ 决策,被拒/收起后仍留人工放行入口);onToolApproval 挂进 streamChat 回调表。
@@ -947,6 +1024,9 @@ export function ChatScreen() {
     roundTraceIdRef.current = undefined
     // G-403:新一轮开始,重置上一轮的缓存读数 —— 旧账挂到本轮归因面板就是把别人的账记到这一页
     setLatestCacheTokens({ cacheReadTokens: null, cacheWriteTokens: null })
+    // 批次 3:新一轮开始,上一轮的硬停止提示条退出列表尾部(重发 = 开新一轮,不把旧终态挂着)
+    budgetStopRef.current = null
+    setBudgetStop(null)
     // 失败轮不进下一轮上下文(与 web send-message.ts 同规则):
     // 否则"请求出错"那句会被模型当成自己上一轮的回答读进去
     const apiMessages = history
@@ -1076,6 +1156,15 @@ export function ChatScreen() {
           cacheWriteTokens: usage.cacheWriteTokens ?? null,
         })
         if (usage.totalTokens <= 0) return
+        // 批次 3:七类账本随 usage 帧下发,按轮次快照落到用量面板下方(不入消息 meta)。
+        if (usage.contextLedger) {
+          const ledger = usage.contextLedger
+          if (ledgerCapturedAtRef.current !== ledger.capturedAt) {
+            ledgerCapturedAtRef.current = ledger.capturedAt
+            ledgerTurnRef.current += 1
+          }
+          setContextLedgerView({ ledger, turnIndex: ledgerTurnRef.current })
+        }
         setMessages((prev) => {
           const next = [...prev]
           const last = next[next.length - 1]
@@ -1089,16 +1178,38 @@ export function ChatScreen() {
         })
       },
       // 额度分档告警:复用两屏共用的一行措辞(utils/budget-note → @ihui/shared)
+      // 批次 3:stopped 是硬停止终态 —— 不走 toast,改在消息列表尾部常驻内联条;
+      // 且一旦 stopped,同流后续 warning/critical 不得把它覆盖回"可继续"(nextBudgetLevel 判据)。
       onBudget: (event) => {
+        const previousLevel = budgetStopRef.current?.level ?? null
+        const level = nextBudgetLevel(previousLevel, event.level)
+        if (previousLevel === 'stopped') return
+        if (level === 'stopped') {
+          const stop: ChatBudgetStopRow = {
+            level: 'stopped',
+            reasonCode: event.reasonCode ?? null,
+            usedTokens: event.usedTokens ?? null,
+            limitTokens: event.limitTokens ?? null,
+            usagePercent: event.usagePercent ?? event.percent ?? null,
+            remainingTokens: event.remainingTokens ?? null,
+            stoppedAtIteration: event.stoppedAtIteration ?? null,
+            createdAt: new Date().toISOString(),
+          }
+          budgetStopRef.current = stop
+          setBudgetStop(stop)
+          return
+        }
         showToast(event.level === 'critical' ? 'warning' : 'info', budgetNoteText(event, t))
       },
       // 上下文自动压缩提示:接入本屏既有提示条渲染阀门(renderListHeader 的 compactionInfo)
+      // 批次 3:帧带 boundary 时,额外在状态条下挂"查看压缩前关键片段"的展开位。
       onCompaction: (info) => {
         setCompactionInfo({
           before: info.tokensBefore,
           after: info.tokensAfter,
           removed: info.removedCount,
         })
+        setCompactionBoundary(info.boundary ?? null)
       },
       // 模型降级(P4-2):本端无横幅位,FloatBox 是既有瞬时提示出口
       onFallback: (event) => {
@@ -1468,31 +1579,6 @@ export function ChatScreen() {
     onInputVoiceToggle()
   }
 
-  /** toggle-super-agent:切换超级智能体 */
-  const toggleSuperAgent = (): void => {
-    setSuperAgentEnabled((prev) => !prev)
-  }
-
-  /** toggle-mcp:切换 MCP */
-  const toggleMCP = (): void => {
-    setMcpEnabled((prev) => !prev)
-  }
-
-  /** toggle-knowledge-base:切换知识库 */
-  const toggleKnowledgeBase = (): void => {
-    setKnowledgeBaseEnabled((prev) => !prev)
-  }
-
-  /** toggle-permanent-memory:切换永久记忆 */
-  const togglePermanentMemory = (): void => {
-    setPermanentMemoryEnabled((prev) => !prev)
-  }
-
-  /** toggle-super-agentfu:切换智能体辅(对齐 Uniapp ToggleChip '智能体辅') */
-  const toggleSuperAgentfu = (): void => {
-    setSuperAgentfuEnabled(!superAgentfuEnabled)
-  }
-
   /** showModelConfig:显示模型配置(对齐 Uniapp ai_index.vue 行 104 ModelConfigDialog) */
   const showModelConfig = (): void => {
     setModelConfigVisible(true)
@@ -1537,24 +1623,14 @@ export function ChatScreen() {
   }
 
   // ── BottomActionBar 其余事件 stub(对齐 Uniapp 30+ 事件,后续 H22 补全) ──
-  // 已挂载到 UI 的:handleInputFocus/handleInputBlur(TextInput)、textareaHeightChange(TextInput onContentSizeChange)
-  // H22 接线:handleInputFocus/handleInputBlur 记录键盘焦点状态 inputFocused(供 isInputFocused 等 UI 调整);
-  // textareaHeightChange 仅 BottomActionBar 接线(回调带 height 参数),Shared ChatScreen 未接线,保留空实现。
+  // H22 接线:handleInputFocus/handleInputBlur 记录键盘焦点状态 inputFocused(供 isInputFocused 等 UI 调整)。
   const handleInputFocus = (): void => setInputFocused(true)
   const handleInputBlur = (): void => setInputFocused(false)
-  const textareaHeightChange = (): void => {}
 
   /** function-handle:打开功能面板(对齐 Uniapp function-handle 子组件,6 项 AI 功能)。
    *  面板(BottomPops)与滑出区(isShowIcon)解耦:开一个面板时关另一个,互斥防叠加 */
   const handleFunctionHandle = (): void => {
     setFunctionPanelVisible(true)
-    setSourcePanelVisible(false)
-  }
-
-  /** source-handle:打开来源面板(对齐 Uniapp source-handle 子组件,4 项知识来源) */
-  const handleSourceHandle = (): void => {
-    setSourcePanelVisible(true)
-    setFunctionPanelVisible(false)
   }
 
   /** 文件上传(对齐 Uniapp source-handle 文件上传:DocumentPicker 选文件 → uploadFileMultipart 上传) */
@@ -1600,7 +1676,6 @@ export function ChatScreen() {
 
   /** 关闭功能/来源面板 */
   const closeFunctionPanel = (): void => setFunctionPanelVisible(false)
-  const closeSourcePanel = (): void => setSourcePanelVisible(false)
 
   /**
    * 2026-10-16 录音消息:长按录音松手 → 上传本地 m4a → 以「[语音] <url> <秒>」
@@ -1922,25 +1997,14 @@ export function ChatScreen() {
       Icon: Star,
       onPress: toggleFavorite,
     },
-  ]
-
-  /**
-   * source-handle 面板 5 项列表(对齐 Uniapp source-handle 子组件 + D43③ 语音笔记)。
-   * 1. 素材库 → 已接 MaterialList 弹窗(数据源 getMyCreation 我的创作;
-   *    后端无 /api/material 端点,素材库接口未开通,勿伪造)
-   * 2. 网页链接 → 已接 URL 输入 Modal(纯前端实现,作为消息发送)
-   * 3. 文件上传 → 已接 DocumentPicker + uploadFileMultipart 真实上传
-   * 4. 历史对话 → 复用 Drawer(setDrawerVisible)
-   * 5. 语音笔记 → 已接 NotesPanel(D43③:列表选一条回填输入框 / 新建录音走语音输入链路)
-   */
-  const sourcePanelItems: readonly PanelItem[] = [
+    // ── 素材/输入来源入口(2026-11-04 门285 收口:来源面板并入功能面板,
+    //     BottomActionBar 的 onSourceHandle 已删,两端 props 面对齐且入口不丢失) ──
     {
       key: 'material',
       label: t('chat.menuMaterial'),
       Icon: BookOpen,
       onPress: () => {
-        // P1.3:素材库弹窗(2026-10-18 起与「+」面板「我的创作」主入口共用 showMyCreation)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         showMyCreation()
       },
     },
@@ -1949,8 +2013,7 @@ export function ChatScreen() {
       label: t('chat.menuVoiceNote'),
       Icon: Mic,
       onPress: () => {
-        // D43③:语音笔记面板(列表回填输入框 / 新建录音)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setNotesVisible(true)
       },
     },
@@ -1959,8 +2022,7 @@ export function ChatScreen() {
       label: t('quickNotes.menuEntry'),
       Icon: PenLine,
       onPress: () => {
-        // D03:快捷笔记面板(可建/可编/可归档/可搜索,选一条插入输入框)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setQuickNotesVisible(true)
       },
     },
@@ -1969,8 +2031,7 @@ export function ChatScreen() {
       label: t('chat.menuWebLink'),
       Icon: Link,
       onPress: () => {
-        // P1.4:打开 URL 输入 Modal
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setUrlInputVisible(true)
       },
     },
@@ -1979,8 +2040,7 @@ export function ChatScreen() {
       label: t('chat.menuFileUpload'),
       Icon: Paperclip,
       onPress: () => {
-        // P1.5:打开文件选择 Modal(DocumentPicker + uploadFileMultipart 真实上传)
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setFileUploadVisible(true)
       },
     },
@@ -1989,7 +2049,7 @@ export function ChatScreen() {
       label: t('chat.menuHistory'),
       Icon: MessageSquare,
       onPress: () => {
-        setSourcePanelVisible(false)
+        setFunctionPanelVisible(false)
         setDrawerVisible(true)
       },
     },
@@ -2018,7 +2078,6 @@ export function ChatScreen() {
     if (!inputPanelVisible) {
       Keyboard.dismiss()
       setFunctionPanelVisible(false)
-      setSourcePanelVisible(false)
     }
     setInputPanelVisible(!inputPanelVisible)
   }
@@ -2043,15 +2102,6 @@ export function ChatScreen() {
   const handleInputClick = (): void => {
     setInputFocused(true)
   }
-
-  /** start/stop-voice-animation:语音动画回调(BottomActionBar 内 voiceInputEnabled 变化触发)。
-      语音动画 UI 尚未建立,mic 高亮由 voiceInputEnabled prop 驱动,此处保留空实现。 */
-  const handleStartVoiceAnimation = (): void => {}
-  const handleStopVoiceAnimation = (): void => {}
-
-  /** keyboard-show / keyboard-hide:键盘监听回调(键盘避让由 KeyboardAvoidingView 处理,保留空实现) */
-  const handleKeyboardShow = (): void => {}
-  const handleKeyboardHide = (): void => {}
 
   /** model-config-change:模型名/配置按钮长按触发(对齐 Uniapp 长按进模型配置)→ 打开模型配置弹窗 */
   const handleModelConfigChange = (_config: unknown): void => {
@@ -2239,41 +2289,40 @@ export function ChatScreen() {
     const nodes: React.ReactNode[] = []
     // 对话页顶部「查看卡片」折叠区(对齐 Uniapp ai_index2.vue 行 117-131:tishi_block + intelligent-assistant)
     nodes.push(
-      <View key="tishi-block" style={styles.tishiBlock}>
-        <Tappable
-          style={styles.tishiBtn}
-          onPress={() => setTishiShow((v) => !v)}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={tishiShow ? t('chat.closeCard') : t('chat.viewCard')}
-        >
-          <Text style={styles.tishiBtnText}>
-            {tishiShow ? t('chat.closeCardShort') : t('chat.viewCardShort')}
-            {t('chat.cardWord')}
-          </Text>
-        </Tappable>
-        {tishiShow ? (
-          <View style={styles.tishiCardWrap}>
-            <IntelligentAssistant
-              tokenQuantity={tokenQuantity}
-              onRecharge={() => onNavigate('AppTopup')}
-            />
-          </View>
-        ) : null}
-      </View>,
+      <ChatCollapsibleCard
+        key="tishi-block"
+        t={t}
+        colorScheme={resolvedTheme}
+        expanded={tishiShow}
+        onToggle={() => setTishiShow((v) => !v)}
+        collapsedLabel={t('chat.viewCardShort')}
+        expandedLabel={t('chat.closeCardShort')}
+        title={t('chat.cardWord')}
+        body={
+          <IntelligentAssistant
+            tokenQuantity={tokenQuantity}
+            onRecharge={() => onNavigate('AppTopup')}
+          />
+        }
+      />,
     )
     if (compactionInfo) {
       nodes.push(
-        <View style={styles.compactionBanner}>
-          <Text style={styles.compactionTitle}>{t('chatAlert.compaction.title')}</Text>
-          <Text style={styles.compactionMessage}>
-            {t('chatAlert.compaction.message', {
-              before: compactionInfo.before,
-              after: compactionInfo.after,
-              removed: compactionInfo.removed,
-            })}
-          </Text>
-        </View>,
+        <ChatCompactionBanner
+          key="compaction-banner"
+          t={t}
+          colorScheme={resolvedTheme}
+          before={compactionInfo.before}
+          after={compactionInfo.after}
+          removed={compactionInfo.removed}
+        />,
+      )
+    }
+    // 批次 3:压缩边界回看位(head/anchor/tail + removedRange)。状态条讲"压了多少",
+    // 这里讲"压缩前保留了哪几段";默认收起,点开才展示摘录。
+    if (compactionBoundary) {
+      nodes.push(
+        <CompactionBoundaryNote key="compaction-boundary-note" boundary={compactionBoundary} />,
       )
     }
     // D135 交互帧最小可视态(列表条目):AI 提问 / 业务表单请求帧到了就得看得见;
@@ -2357,6 +2406,8 @@ export function ChatScreen() {
     removeMaterialCard,
     removeImage,
     compactionInfo,
+    compactionBoundary,
+    resolvedTheme,
     pendingQuestions,
     pendingForms,
     businessForm.host,
@@ -2925,6 +2976,14 @@ export function ChatScreen() {
           cacheWriteTokens={latestCacheTokens.cacheWriteTokens}
         />
       ) : null}
+      {/* 批次 3:七类账本挂在用量面板下方(不是第三份归因实现,后者继续讲缓存命中)。
+          只渲染最新一轮;查询面失败时 contextLedgerView 保持 null,此处零占位。 */}
+      {messages.length && contextLedgerView ? (
+        <ContextLedgerPanel
+          ledger={contextLedgerView.ledger}
+          turnIndex={contextLedgerView.turnIndex}
+        />
+      ) : null}
 
       <KeyboardAvoidingView
         style={styles.body}
@@ -2954,6 +3013,11 @@ export function ChatScreen() {
           renderMessage={renderMessage}
           renderListHeader={renderListHeader() as React.ReactNode}
           renderListFooter={renderListFooter() as React.ReactNode}
+          // 批次 3:硬停止提示条挂在消息列表尾部(最后一条消息之后、脚注之前),
+          // 不是请求失败卡 —— 它在流成功收口后仍常驻,直到下一轮开始或换会话。
+          messageListSlots={{
+            orphanTailNode: budgetStop ? <BudgetStopNotice stop={budgetStop} /> : null,
+          }}
           itemSeparatorComponent={null}
           containerStyle={{ flex: 1 }}
           flatListStyle={{ flex: 1 }}
@@ -2981,33 +3045,39 @@ export function ChatScreen() {
           colorScheme={resolvedTheme}
           onNavigate={onNavigate}
           onToast={onToast}
+          statusSlot={
+            /* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */
+            <TaskStatusBar
+              planSteps={planViz?.planSteps ?? []}
+              toolCalls={planViz?.toolCalls}
+              isStreaming={isStreaming}
+            />
+          }
+          queueSlot={
+            <>
+              {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
+              <QueueInteractionBar
+                items={sideQueue}
+                streaming={isStreaming}
+                mode={followUpMode}
+                // G-171a:待决审批事实喂入许可门(真实来源 = useToolApprovalQueue 的 pending 非空)
+                awaitingApproval={toolApproval.awaitingApproval}
+                onReorder={handleQueueReorder}
+                onUndo={handleQueueUndo}
+                onEdit={handleQueueEdit}
+                onInterruptAndRun={handleInterruptAndRun}
+                onModeChange={handleFollowUpModeChange}
+              />
+              {/*
+                D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
+                数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
+                本端渲染侧只读表 ⇒ 无第二条连接)。票面要求「至少显示状态行 + 桌面端管理提示」:
+                FloatBox toast 会过期,这一行不会。空表 ⇒ 组件返回 null、零占位。
+              */}
+              <McpStatusStrip />
+            </>
+          }
         />
-        {/* D135:任务进度状态条(plan/tool 执行帧折叠结果的可读出口,对齐 web / N8n 位置:输入区上方) */}
-        <TaskStatusBar
-          planSteps={planViz?.planSteps ?? []}
-          toolCalls={planViz?.toolCalls}
-          isStreaming={isStreaming}
-        />
-        {/* D38:队列交互条(排队消息 撤回/编辑/重排 + 打断并执行入口 + 模式切换;空队列零占位) */}
-        <QueueInteractionBar
-          items={sideQueue}
-          streaming={isStreaming}
-          mode={followUpMode}
-          // G-171a:待决审批事实喂入许可门(真实来源 = useToolApprovalQueue 的 pending 非空)
-          awaitingApproval={toolApproval.awaitingApproval}
-          onReorder={handleQueueReorder}
-          onUndo={handleQueueUndo}
-          onEdit={handleQueueEdit}
-          onInterruptAndRun={handleInterruptAndRun}
-          onModeChange={handleFollowUpModeChange}
-        />
-        {/*
-          D154(2026-10-01 收口渲染面):MCP 连接状态行,位置与小程序端一致(输入条上方)。
-          数据源是共享层那一份 `mcpStatusLedger`(帧进表由 ../lib/user-broadcast 的唯一接线负责,
-          本端渲染侧只读表 ⇒ 无第二条连接)。票面要求「至少显示状态行 + 桌面端管理提示」:
-          FloatBox toast 会过期,这一行不会。空表 ⇒ 组件返回 null、零占位。
-        */}
-        <McpStatusStrip />
         <ChatInputBar
           prompt={prompt}
           onPromptChange={updatePrompt}
@@ -3016,11 +3086,6 @@ export function ChatScreen() {
           modelName={models.find((m) => m.id === model)?.name}
           onShowModelList={showModelList}
           onShowModelConfig={showModelConfig}
-          onToggleSuperAgent={toggleSuperAgent}
-          onToggleSuperAgentfu={toggleSuperAgentfu}
-          onToggleMcp={toggleMCP}
-          onToggleKnowledgeBase={toggleKnowledgeBase}
-          onTogglePermanentMemory={togglePermanentMemory}
           onToggleVoiceInput={toggleVoiceInput}
           onRemoveImage={
             inputFiles.length > 0 ? () => onInputRemoveFile(inputFiles[0]!.id) : undefined
@@ -3028,7 +3093,6 @@ export function ChatScreen() {
           onInputFocus={handleInputFocus}
           onInputBlur={handleInputBlur}
           onFunctionHandle={handleFunctionHandle}
-          onSourceHandle={handleSourceHandle}
           // 附件按钮 → 真实 DocumentPicker + uploadFileMultipart(原占位 Alert 已移除)
           onAddFile={() => void handleFileUpload()}
           onIconClick={handleIconClick}
@@ -3074,21 +3138,12 @@ export function ChatScreen() {
           onFangda={handleFangda}
           onCompactContext={() => void handleCompactContext()}
           compactContextLoading={compacting}
-          onTextareaHeightChange={textareaHeightChange}
           onStartLongPress={handleStartLongPress}
           onEndLongPress={handleEndLongPress}
           recording={isRecording}
           recordingDuration={recordingDuration}
           onInputClick={handleInputClick}
-          onStartVoiceAnimation={handleStartVoiceAnimation}
-          onStopVoiceAnimation={handleStopVoiceAnimation}
-          onKeyboardShow={handleKeyboardShow}
-          onKeyboardHide={handleKeyboardHide}
           onModelConfigChange={handleModelConfigChange}
-          superAgentEnabled={superAgentEnabled}
-          mcpEnabled={mcpEnabled}
-          knowledgeBaseEnabled={knowledgeBaseEnabled}
-          permanentMemoryEnabled={permanentMemoryEnabled}
           voiceInputEnabled={isVoiceMode}
           images={inputFiles.filter((f) => f.type === 'image').map((f) => f.url)}
           isLoading={isStreaming}
@@ -3121,7 +3176,10 @@ export function ChatScreen() {
           onRequestClose={closeMaterialList}
         >
           <Tappable style={styles.modalMask} onPress={closeMaterialList}>
-            <Pressable style={styles.materialPopup} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              style={[styles.materialPopup, dialogHeightStyle]}
+              onPress={(e) => e.stopPropagation()}
+            >
               <MaterialList
                 categories={MATERIAL_CATEGORY_KEYS.map((c) => ({ ...c, label: t(c.label) }))}
                 activeCategory={materialTab}
@@ -3146,7 +3204,10 @@ export function ChatScreen() {
         onRequestClose={closeMaterialDetail}
       >
         <Tappable style={styles.modalMask} onPress={closeMaterialDetail}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[styles.listDialogContent, dialogHeightStyle]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle} numberOfLines={1}>
                 {materialDetailItem?.title ?? t('mat.detailLabel')}
@@ -3283,7 +3344,10 @@ export function ChatScreen() {
           {/* 外层由 Pressable 换成避让层后,点遮罩关闭的手势下移到这枚满屏 Pressable
               (与 BottomPops / VerifyCodeModal 同一形态),否则"点空白处关掉"会静默失效。 */}
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setUrlInputVisible(false)} />
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[styles.listDialogContent, dialogHeightStyle]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>网页链接</Text>
               <Tappable
@@ -3329,7 +3393,10 @@ export function ChatScreen() {
         onRequestClose={() => setFileUploadVisible(false)}
       >
         <Tappable style={styles.modalMask} onPress={() => setFileUploadVisible(false)}>
-          <Pressable style={styles.listDialogContent} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[styles.listDialogContent, dialogHeightStyle]}
+            onPress={(e) => e.stopPropagation()}
+          >
             <View style={styles.listDialogHeader}>
               <Text style={styles.listDialogTitle}>文件上传</Text>
               <Tappable
@@ -3383,10 +3450,7 @@ export function ChatScreen() {
       >
         <Tappable style={styles.modalMask} onPress={() => setModelListVisible(false)}>
           <Pressable
-            style={[
-              styles.listDialogContent,
-              { height: modelPickerHeight, maxHeight: modelPickerHeight },
-            ]}
+            style={[styles.listDialogContent, dialogHeightStyle]}
             onPress={(e) => e.stopPropagation()}
           >
             <View style={styles.listDialogHeader}>
@@ -3456,45 +3520,6 @@ export function ChatScreen() {
           accessibilityLabel={t('common.cancel')}
         >
           {({ pressed }) => (
-            <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
-              <Text style={styles.panelCancelText}>取消</Text>
-            </View>
-          )}
-        </Pressable>
-      </BottomPops>
-
-      {/* 来源面板(对齐 Uniapp source-handle 子组件,底部上滑 4 项知识来源) */}
-      <BottomPops
-        visible={sourcePanelVisible}
-        onClose={closeSourcePanel}
-        title={t('chat.sourceTitlePanel')}
-      >
-        {sourcePanelItems.map((item) => (
-          // 守门 131 改型:同功能面板 —— 外层不设 style,可视行盒 + pressed 落内层。
-          <Pressable
-            key={item.key}
-            onPress={item.onPress}
-            accessibilityRole="button"
-            accessibilityLabel={item.label}
-          >
-            {({ pressed }) => (
-              <View style={[styles.panelItem, pressed && styles.panelItemPressed]}>
-                <View style={styles.panelIconTile}>
-                  <item.Icon size={rnGeometry.glyphMd} color={tokens.text.primary} />
-                </View>
-                <Text style={styles.panelItemText}>{item.label}</Text>
-              </View>
-            )}
-          </Pressable>
-        ))}
-        <Pressable
-          onPress={closeSourcePanel}
-          style={styles.panelCancelBtnSlot}
-          accessibilityRole="button"
-          accessibilityLabel={t('common.cancel')}
-        >
-          {({ pressed }) => (
-            // 与功能面板同形:取消是"卡片式按钮"而非"列表行"(此前两个并排面板观感割裂)
             <View style={[styles.panelCancelBtnFace, pressed && styles.panelItemPressed]}>
               <Text style={styles.panelCancelText}>取消</Text>
             </View>
@@ -3861,7 +3886,7 @@ const styles = StyleSheet.create({
   },
   msgText: {
     fontSize: rnType.strong.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
   },
   msgTextUser: {
     color: tokens.brand.ctaForeground,
@@ -3999,8 +4024,8 @@ const styles = StyleSheet.create({
   },
   // ── 素材库弹窗(Modal 内部对话框样式,参考 listDialogContent) ──
   materialPopup: {
+    // 高度由 dialogHeightStyle 统一注入(禁止在此写百分比上限,见 dialog-geometry.ts)
     width: '88%',
-    maxHeight: '70%',
     backgroundColor: tokens.surface.bg,
     borderRadius: rnRadius.lg,
     overflow: 'hidden',
@@ -4190,8 +4215,8 @@ const styles = StyleSheet.create({
   },
   // ── 列表弹窗(ModelList / AgentList 共用容器) ──
   listDialogContent: {
+    // 高度由 dialogHeightStyle 统一注入(禁止在此写百分比上限,见 dialog-geometry.ts)
     width: '88%',
-    maxHeight: '70%',
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
     overflow: 'hidden',

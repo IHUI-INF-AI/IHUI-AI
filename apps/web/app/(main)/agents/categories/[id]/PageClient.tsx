@@ -7,13 +7,14 @@
 import * as React from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
+import { useTheme } from 'next-themes'
 import { useQuery } from '@tanstack/react-query'
 import { useLocale, useTranslations } from 'next-intl'
-import { Loader2, ArrowLeft, Tag, Calendar, CreditCard, Sparkles } from 'lucide-react'
+import { Loader2, ArrowLeft, Sparkles } from 'lucide-react'
 
 import { apiOrThrow } from '@/lib/api'
 import { Card, CardContent } from '@ihui/ui-react'
+import { CategoryHeader, AgentAvatar } from '@ihui/rn-app/pilot'
 import { cn } from '@/lib/utils'
 
 interface Category {
@@ -50,6 +51,8 @@ export default function AgentCategoryDetailPage() {
   const params = useParams<{ id: string }>()
   const locale = useLocale()
   const t = useTranslations('agentsCategoriesPage')
+  const { resolvedTheme } = useTheme()
+  const theme = resolvedTheme === 'dark' ? 'dark' : 'light'
 
   const {
     data: category,
@@ -120,46 +123,18 @@ export default function AgentCategoryDetailPage() {
 
       <Card>
         <CardContent className="min-[640px]:p-3 space-y-4 p-3">
-          <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-              {category.icon ? (
-                <span className="text-heading font-normal">{category.icon}</span>
-              ) : (
-                <Tag className="h-6 w-6 text-primary" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <h1 className="text-heading font-bold tracking-tight">{category.name}</h1>
-              <div className="flex flex-wrap items-center gap-2 text-label text-muted-foreground">
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-1 rounded-md px-2 py-0.5',
-                    category.status === '1'
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500'
-                      : 'bg-muted text-muted-foreground',
-                  )}
-                >
-                  {t(category.status === '1' ? 'status.enabled' : 'status.disabled')}
-                </span>
-                {category.isPaid && (
-                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-amber-600 dark:text-amber-500">
-                    <CreditCard className="h-3 w-3" />
-                    {t('paidCategory')}
-                  </span>
-                )}
-                <span className="inline-flex items-center gap-1">
-                  <Calendar className="h-3 w-3" />
-                  {fmt(category.createdAt)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {category.description && (
-            <p className="whitespace-pre-wrap text-body leading-relaxed text-muted-foreground">
-              {category.description}
-            </p>
-          )}
+          {/* 分类头与 RN/小程序共用同一段:单源 @ihui/rn-app/pilot → CategoryHeader */}
+          <CategoryHeader
+            name={category.name}
+            icon={category.icon}
+            description={category.description}
+            statusLabel={t(category.status === '1' ? 'status.enabled' : 'status.disabled')}
+            statusEnabled={category.status === '1'}
+            paidLabel={t('paidCategory')}
+            isPaid={category.isPaid}
+            createdAtLabel={fmt(category.createdAt)}
+            colorScheme={theme}
+          />
         </CardContent>
       </Card>
 
@@ -186,19 +161,8 @@ export default function AgentCategoryDetailPage() {
                   className="group rounded-lg border p-3 transition-colors hover:bg-accent/40"
                 >
                   <div className="flex items-start gap-3">
-                    {agent.avatar ? (
-                      <Image
-                        src={agent.avatar}
-                        alt={agent.name}
-                        width={40}
-                        height={40}
-                        className="h-10 w-10 rounded-lg object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-                        <Sparkles className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
+                    {/* 条目头像同样走共享段(单源 AgentAvatar),web 不再自绘 */}
+                    <AgentAvatar avatar={agent.avatar} name={agent.name} colorScheme={theme} />
                     <div className="min-w-0 flex-1 space-y-1">
                       <h3 className="line-clamp-2 text-body font-medium group-hover:text-primary">
                         {agent.name}

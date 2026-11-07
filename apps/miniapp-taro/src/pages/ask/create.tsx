@@ -10,7 +10,8 @@ import { FocusInput, FocusTextarea } from '@/components/FocusField'
 import LineIcon from '@/components/LineIcon'
 import Taro from '@tarojs/taro'
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { createAsk } from '@/api'
+import { createAsk } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
 import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
 import { getRnTokens } from '@ihui/design-tokens'
@@ -167,11 +168,18 @@ export default function AskCreatePage() {
         .split(/[,，]/)
         .map((s) => s.trim())
         .filter(Boolean)
-      await createAsk({
-        title: form.title.trim(),
-        content: form.content.trim(),
-        tags,
-      } as { title: string; content: string })
+      // 端点单一真相源:POST /api/asks 的封装住在 @ihui/api-client 的 createAsk
+      // (packages/api-client/src/endpoints/community.ts:171),web 与 RN 同屏早已是这一份;
+      // 端内那份同名薄封装随本笔退役(§3 共享层优先)。解包与失败提示仍走端内唯一出口
+      // unwrapApi(与 pkg-learn/live/host 同写法)⇒ 错误处理逐字不变;tags 由共享签名
+      // 原生承接,故原先掩盖签名缺口的 `as { title; content }` 断言一并去掉。
+      await unwrapApi(
+        createAsk({
+          title: form.title.trim(),
+          content: form.content.trim(),
+          tags,
+        }),
+      )
       Taro.removeStorageSync(DRAFT_KEY)
       onToast(tt('ask.create.published', '问题已发布'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)

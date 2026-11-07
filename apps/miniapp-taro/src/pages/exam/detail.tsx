@@ -2,9 +2,11 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 薄壳(web-单端 parity:web + 小程序,不含 RN):原 275 行页面渲染型 JSX 全部收敛到
+// features/exam-intro/ExamIntroScreen;RN 无「试卷介绍」屏(RootNavigator.tsx:1241 的 ExamDetail
+// 复用 ExamResultScreen),因此本页不算 RN parity。取数/门控/导航/toast 仍留在端内。
 import { useTt } from '@/i18n'
 import { logger } from '@/utils/logger'
-import { View, Text, Button, ScrollView } from '@tarojs/components'
 import Taro, { useRouter, useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useEffect } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
@@ -17,9 +19,9 @@ import {
   type ExamRecord,
 } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import { NavBar } from '@/components'
 import ThemeRoot from '@/components/ThemeRoot'
-import './detail.css'
+import { useTheme } from '@/rn-compat/theme'
+import { ExamIntroScreen } from '@ihui/rn-app/features/exam-intro/ExamIntroScreen'
 import { onToast } from '@/host/on-toast'
 
 type ExamDetail = ExamPaper & {
@@ -42,6 +44,7 @@ const formatTime = (v: string): string => {
 export default function ExamDetail() {
   const tt = useTt()
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
   const [exam, setExam] = useState<ExamDetail>({} as ExamDetail)
   const [history, setHistory] = useState<ExamRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -86,7 +89,7 @@ export default function ExamDetail() {
   // GET /api/exam/records(exam.ts:642),三支都是 handler 内
   // `if (!(await checkAuth(request, reply))) return`(注册前缀 /api 见 routes/index.ts:598)
   // ⇒ 本枚无公开请求,整块挡到门后;落定(含"落定但未登录")后照发一次,
-  // 失败态由既有 loading / exam-detail-error 分支渲染,不新增文案。
+  // 失败态由共享屏 error 分支渲染,不新增文案。
   useEffect(() => {
     return waitUntilReady(() => {
       void loadExam()
@@ -142,133 +145,51 @@ export default function ExamDetail() {
     tt('exam.detail.notice2', '每道题作答后可修改,提交后不可更改'),
   ]
 
+  const ready = !loading && Boolean(exam.title)
+
   return (
     <ThemeRoot>
-      <View className="exam-detail-page">
-        <NavBar title={tt('exam.detail.pageTitle', '考试详情')} showBack />
-        <ScrollView scrollY className="exam-detail-body">
-          {loading ? (
-            <View className="exam-detail-loading">
-              <Text>{tt('exam.detail.loading', '加载中…')}</Text>
-            </View>
-          ) : null}
-
-          {!loading && exam.title ? (
-            <View>
-              {/* 考试标题 + 简介 */}
-              <View className="exam-detail-header">
-                <Text className="exam-detail-title">{exam.title}</Text>
-                {exam.description ? (
-                  <Text className="exam-detail-desc">{exam.description}</Text>
-                ) : null}
-              </View>
-
-              {/* 考试信息统计 */}
-              <View className="exam-detail-stats">
-                {stats.map((s, i) => (
-                  <View key={i} className="exam-detail-stat-item">
-                    <Text className="exam-detail-stat-value">{s.value}</Text>
-                    <Text className="exam-detail-stat-label">{s.label}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* 参与情况 */}
-              <View className="exam-detail-card">
-                <View className="exam-detail-participant-row">
-                  <View className="exam-detail-participant-item">
-                    <Text className="exam-detail-participant-num">{exam.participantCount}</Text>
-                    <Text className="exam-detail-participant-label">
-                      {tt('exam.detail.participants', '参与人数')}
-                    </Text>
-                  </View>
-                  <View className="exam-detail-participant-item">
-                    <Text className="exam-detail-participant-num passed">{exam.passedCount}</Text>
-                    <Text className="exam-detail-participant-label">
-                      {tt('exam.detail.passedCount', '已通过')}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* 考试规则 */}
-              <View className="exam-detail-card">
-                <Text className="exam-detail-card-title">
-                  {tt('exam.detail.rulesTitle', '考试规则')}
-                </Text>
-                {rules.map((rule, i) => (
-                  <View key={i} className="exam-detail-rule-item">
-                    <Text className="exam-detail-rule-dot">•</Text>
-                    <Text className="exam-detail-rule-text">{rule}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* 历史成绩 */}
-              <View className="exam-detail-card">
-                <Text className="exam-detail-card-title">
-                  {tt('exam.detail.historyTitle', '历史成绩')}
-                </Text>
-                {history.length > 0 ? (
-                  history.map((h, i) => (
-                    <View key={h.id || i} className="exam-detail-history-item">
-                      <View className="exam-detail-history-info">
-                        <Text
-                          className={`exam-detail-history-status${h.isPassed ? ' passed' : ' failed'}`}
-                        >
-                          {h.isPassed
-                            ? tt('exam.detail.historyPassed', '通过')
-                            : tt('exam.detail.historyNotPassed', '未通过')}
-                        </Text>
-                        <Text className="exam-detail-history-time">
-                          {tt('exam.detail.historyTime', '考试时间 {time}', {
-                            time: formatTime(h.submittedAt || h.startedAt),
-                          })}
-                        </Text>
-                      </View>
-                      <Text className="exam-detail-history-score">
-                        {tt('exam.detail.historyScoreValue', '{n} 分', {
-                          n: Number(h.score) || 0,
-                        })}
-                      </Text>
-                    </View>
-                  ))
-                ) : (
-                  <Text className="exam-detail-history-empty">
-                    {tt('exam.detail.historyEmpty', '暂无历史成绩')}
-                  </Text>
-                )}
-              </View>
-            </View>
-          ) : null}
-
-          {!loading && !exam.title ? (
-            <View className="exam-detail-error" hoverClass="opacity-60" onClick={loadExam}>
-              <Text className="exam-detail-error-text">
-                {tt('exam.detail.loadFailed', '考试加载失败')}
-              </Text>
-              <Text className="exam-detail-error-retry">{tt('exam.detail.retry', '点击重试')}</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-
-        {/* 开始考试按钮 */}
-        {!loading && exam.title ? (
-          <View className="exam-detail-footer">
-            <Button
-              className="exam-detail-start-btn"
-              loading={starting}
-              disabled={starting}
-              onClick={onStart}
-            >
-              {starting
-                ? tt('exam.detail.starting', '正在进入考试…')
-                : tt('exam.detail.start', '开始考试')}
-            </Button>
-          </View>
-        ) : null}
-      </View>
+      <ExamIntroScreen
+        headerTitle={tt('exam.detail.pageTitle', '考试详情')}
+        title={exam.title || ''}
+        description={exam.description}
+        stats={stats}
+        participants={{
+          label: tt('exam.detail.participants', '参与人数'),
+          value: String(exam.participantCount || 0),
+          passedLabel: tt('exam.detail.passedCount', '已通过'),
+          passedValue: String(exam.passedCount || 0),
+        }}
+        rules={{ title: tt('exam.detail.rulesTitle', '考试规则'), items: rules }}
+        history={{
+          title: tt('exam.detail.historyTitle', '历史成绩'),
+          emptyText: tt('exam.detail.historyEmpty', '暂无历史成绩'),
+          items: history.map((h, i) => ({
+            key: h.id || String(i),
+            statusText: h.isPassed
+              ? tt('exam.detail.historyPassed', '通过')
+              : tt('exam.detail.historyNotPassed', '未通过'),
+            timeText: tt('exam.detail.historyTime', '考试时间 {time}', {
+              time: formatTime(h.submittedAt || h.startedAt),
+            }),
+            scoreText: tt('exam.detail.historyScoreValue', '{n} 分', {
+              n: Number(h.score) || 0,
+            }),
+            passed: Boolean(h.isPassed),
+          })),
+        }}
+        state={loading ? 'loading' : ready ? 'ready' : 'error'}
+        loadingText={tt('exam.detail.loading', '加载中…')}
+        errorText={ready || loading ? '' : tt('exam.detail.loadFailed', '考试加载失败')}
+        retryText={tt('exam.detail.retry', '点击重试')}
+        startText={tt('exam.detail.start', '开始考试')}
+        startingText={tt('exam.detail.starting', '正在进入考试…')}
+        starting={starting}
+        onStart={onStart}
+        onRetry={loadExam}
+        onBack={() => Taro.navigateBack()}
+        colorScheme={resolvedTheme}
+      />
     </ThemeRoot>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

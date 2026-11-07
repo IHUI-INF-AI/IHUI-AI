@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { loadSkills } from '../src/skills/index.js';
+import { classifyPathPresence, loadSkills } from '../src/skills/index.js';
 
 /** 造一个"目录链接"(win32 = junction,其余 = dir symlink)。 */
 function makeLink(target: string, linkPath: string): void {
@@ -103,6 +103,50 @@ describe('技能扫描一律不跟随符号链接/junction(G-408③)', () => {
     return { names: skills.map((s) => s.name), notices };
   }
 
+  it('目录列不出来时不当成没有技能', () => {
+    const root = path.join(tmpDir, '.ihui', 'skills');
+    fs.mkdirSync(path.join(root, 'realskill'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'realskill', 'SKILL.md'), SKILL_BODY('real-skill'));
+    const notices: string[] = [];
+    const skills = loadSkills({
+      cwd: tmpDir,
+      repoRoot: tmpDir,
+      onNotice: (message) => notices.push(message),
+      readDir: () => {
+        throw Object.assign(new Error('denied'), { code: 'EACCES' });
+      },
+    });
+    expect(skills.map((skill) => skill.name)).not.toContain('real-skill');
+    const joined = notices.join('\n');
+    expect(joined).toContain('不当成没有技能');
+    expect(joined).toContain('EACCES');
+    expect(joined).toContain(root);
+  });
+
+  it('技能文件读不到时不当成没有这份技能', () => {
+    const root = path.join(tmpDir, '.ihui', 'skills');
+    fs.mkdirSync(path.join(root, 'empty-pkg'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'real-skill.md'), SKILL_BODY('real-skill'));
+    const notices: string[] = [];
+    const skills = loadSkills({
+      cwd: tmpDir,
+      repoRoot: tmpDir,
+      onNotice: (message) => notices.push(message),
+      readFile: (file) => {
+        if (file.endsWith(`${path.sep}real-skill.md`)) {
+          throw Object.assign(new Error('denied'), { code: 'EACCES' });
+        }
+        return fs.readFileSync(file, 'utf-8');
+      },
+    });
+    expect(skills.map((skill) => skill.name)).not.toContain('real-skill');
+    const joined = notices.join('\n');
+    expect(joined).toContain('not "no such skill"');
+    expect(joined).toContain('EACCES');
+    expect(joined).toContain('real-skill.md');
+    expect(joined).not.toContain('empty-pkg');
+  });
+
   it('阳性对照(真目录包):正常命中,且零拒绝记录', () => {
     const root = path.join(tmpDir, '.ihui', 'skills');
     fs.mkdirSync(path.join(root, 'realskill'), { recursive: true });
@@ -163,6 +207,27 @@ describe('技能扫描一律不跟随符号链接/junction(G-408③)', () => {
     expect(names).not.toContain('bad-skill');
     expect(notices).toHaveLength(1);
     expect(notices[0]).toContain('badlink');
+  });
+});
+
+describe('断链不是文件消失', () => {
+  it('目标删掉以后仍是链接，根本不存在才是 absent', () => {
+    const missing = path.join(os.tmpdir(), 'ihui-skills-no-such-root');
+    expect(classifyPathPresence(missing)).toEqual({ disposition: 'absent', kind: 'absent' });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-skills-presence-'));
+    const target = path.join(dir, 'target');
+    const linkPath = path.join(dir, 'link');
+    fs.mkdirSync(target);
+    makeLink(target, linkPath);
+    try {
+      expect(classifyPathPresence(linkPath)).toEqual({ disposition: 'link', kind: 'link', dangling: false });
+      fs.rmSync(target, { recursive: true, force: true });
+      expect(classifyPathPresence(linkPath)).toEqual({ disposition: 'link', kind: 'link', dangling: true });
+      expect(classifyPathPresence(target).disposition).toBe('absent');
+    } finally {
+      removeLink(linkPath);
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

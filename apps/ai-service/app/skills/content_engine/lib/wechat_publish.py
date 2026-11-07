@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import stat
 import sys
 import time
 import urllib.error
@@ -22,6 +23,21 @@ import urllib.parse
 import urllib.request
 import uuid
 from typing import Any, cast
+
+# BUG-76:微信公众号协议强制 app_secret / access_token 拼进 URL query
+# (`/token?...&secret=`、`/media/uploadimg?access_token=` 等),代码层面无法消除。
+# 本模块 CLI/库双用,大量 print 直写 stdout(绕开 stdlib logging 的脱敏 filter),
+# urllib 异常文本也会带完整 URL ⇒ 在此主动过全仓唯一的脱敏尺
+# app.core.output_cleaning.redact_secrets,不另造第二份正则。
+# 残余风险(如实记录):反代 access_log / urllib|httpx DEBUG 级日志若开启仍会记录
+# 原始 URL;生产运营环境严禁开 DEBUG,且不应把本脚本 stdout 直接外发。
+# 作为独立脚本直跑(python lib/wechat_publish.py)时 app 包不可导入 ⇒ 降级:
+# 仅屏蔽明确含凭据的文本,正常提示原样输出(残余风险见上,已记入台账遗留风险)。
+try:
+    from app.core.output_cleaning import redact_secrets as _redact
+except Exception:  # noqa: BLE001 - 脚本直跑时的降级,不阻断 CLI
+    def _redact(text: str) -> str:
+        return text
 
 # ===== 配置 =====
 # 在项目根目录的 .env 文件中设置（和现有API凭证放一起）：
@@ -53,7 +69,7 @@ def _api_get(url: str) -> dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return cast(dict[str, Any], json.loads(resp.read().decode('utf-8')))
     except urllib.error.URLError as e:
-        return {'errcode': -1, 'errmsg': str(e)}
+        return {'errcode': -1, 'errmsg': _redact(str(e))}
 
 
 def _api_post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
@@ -64,7 +80,7 @@ def _api_post_json(url: str, data: dict[str, Any]) -> dict[str, Any]:
         with urllib.request.urlopen(req, timeout=30) as resp:
             return cast(dict[str, Any], json.loads(resp.read().decode('utf-8')))
     except urllib.error.URLError as e:
-        return {'errcode': -1, 'errmsg': str(e)}
+        return {'errcode': -1, 'errmsg': _redact(str(e))}
 
 
 def _multipart_upload(url: str, filepath: str, field: str = 'media', content_type: str | None = None) -> dict[str, Any]:
@@ -90,10 +106,42 @@ def _multipart_upload(url: str, filepath: str, field: str = 'media', content_typ
         with urllib.request.urlopen(req, timeout=60) as resp:
             return cast(dict[str, Any], json.loads(resp.read().decode('utf-8')))
     except urllib.error.URLError as e:
-        return {'errcode': -1, 'errmsg': str(e)}
+        return {'errcode': -1, 'errmsg': _redact(str(e))}
 
 
 # ===== Token管理 =====
+
+def _token_cache_blocks_replace() -> bool:
+    """空文件可以换成新 token。非空损坏或读不到时不能截断。"""
+    state = _regular_file_state(TOKEN_CACHE)
+    if state == "unread":
+        return True
+    if state != "present":
+        return False
+    try:
+        with open(TOKEN_CACHE, encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return True
+    if text.strip() == "":
+        return False
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return True
+    return not isinstance(data, dict)
+
+
+def _regular_file_state(path: str) -> str:
+    """absent 才是真的没有。读不到或不是普通文件时不能截断重写。"""
+    try:
+        mode = os.stat(path).st_mode
+    except FileNotFoundError:
+        return "absent"
+    except OSError:
+        return "unread"
+    return "present" if stat.S_ISREG(mode) else "unread"
+
 
 def get_access_token(force_refresh: bool = False) -> str | None:
     """获取access_token，自动缓存2小时"""
@@ -102,21 +150,30 @@ def get_access_token(force_refresh: bool = False) -> str | None:
         print('❌ 未配置WECHAT_APP_ID或WECHAT_APP_SECRET，请在.env文件中设置')
         return None
 
-    # 检查缓存
-    if not force_refresh and os.path.exists(TOKEN_CACHE):
+    if _token_cache_blocks_replace():
+        print('❌ token 缓存读不到,不能把它截断重写')
+        return None
+    if not force_refresh and _regular_file_state(TOKEN_CACHE) == "present":
         try:
-            with open(TOKEN_CACHE) as f:
+            with open(TOKEN_CACHE, encoding="utf-8") as f:
                 cache = cast(dict[str, Any], json.load(f))
-            if cache.get('expires_at', 0) > time.time() + 300:  # 提前5分钟刷新
+            if isinstance(cache, dict) and cache.get('expires_at', 0) > time.time() + 300:
                 return cast(str, cache['access_token'])
-        except (json.JSONDecodeError, KeyError):
-            pass
+        except (json.JSONDecodeError, KeyError, AttributeError):
+            print('❌ token 缓存读不到,不能把它截断重写')
+            return None
+        except OSError:
+            print('❌ token 缓存读不到,不能把它截断重写')
+            return None
 
     # 请求新token
     url = f'{API_BASE}/token?grant_type=client_credential&appid={app_id}&secret={app_secret}'
     result = _api_get(url)
 
     if 'access_token' in result:
+        if _regular_file_state(TOKEN_CACHE) == "unread":
+            print('❌ token 缓存读不到,不能把它截断重写')
+            return None
         cache = {
             'access_token': result['access_token'],
             'expires_at': time.time() + result.get('expires_in', 7200)
@@ -350,7 +407,8 @@ def main() -> None:
     if cmd == 'token':
         token = get_access_token(force_refresh=True)
         if token:
-            print(f'token: {token[:20]}...')
+            # BUG-76:不回显 access_token 明文(哪怕前 20 位),避免 CLI stdout 泄露凭据。
+            print('token 获取成功(出于安全不回显明文)')
 
     elif cmd == 'upload' and len(sys.argv) >= 3:
         upload_image(sys.argv[2])

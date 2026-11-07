@@ -36,11 +36,13 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from app.core.ai_code_attribution import parse_diff_line_range
 from app.core.tunables import FILE_VERSION_REDIS_TTL as _FILE_VERSION_REDIS_TTL
 
 # 批58(三十):敏感目录黑名单收敛为单一权威源。
 # 此前本模块与 mcp_server 各持一份实现,而只有本模块这份有黑名单判定,
 # 导致 mcp_server 的三个写工具可写 .git/hooks/。现统一由 path_guard 提供。
+from .ai_code_attribution_store import record_attribution
 from .path_guard import SENSITIVE_DIR_PATTERN
 
 logger = logging.getLogger(__name__)
@@ -170,8 +172,46 @@ def generate_diff(old_content: str, new_content: str, file_path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# AI 归属记账(2026-11-05,goal-b49):一次文件改动落一条归属记录
+# ---------------------------------------------------------------------------
+# 判据(工具登记表 / 归属三态 / 回溯裁决)住在 app/core/ai_code_attribution.py,
+# 仓内**只此一份**;本模块只把「这次改动是谁写的」喂进去,自己不判归属。
+# 归属账是观测面不是控制面:记账失败只记日志,绝不影响编辑主流程。
+def _record_attribution(
+    tool: str,
+    file_path: str,
+    hunk: str,
+    line_start: int,
+    line_end: int,
+    session_id: str = "",
+) -> None:
+    try:
+        record_attribution(
+            tool,
+            file_path,
+            hunk,
+            session_id=session_id if isinstance(session_id, str) else "",
+            line_start=line_start,
+            line_end=line_end,
+        )
+    except Exception as e:
+        logger.warning("file_editor 归属记账失败(不影响编辑主流程): %s", e)
+
+
+# ---------------------------------------------------------------------------
 # 核心函数:edit_file
 # ---------------------------------------------------------------------------
+
+
+def _path_presence(path: str) -> str:
+    """missing = 没有; unread = 读失败; present = 量到了(文件或目录)。"""
+    try:
+        os.stat(path)
+    except FileNotFoundError:
+        return "missing"
+    except OSError:
+        return "unread"
+    return "present"
 
 
 def edit_file(
@@ -180,6 +220,7 @@ def edit_file(
     new_string: str,
     replace_all: bool = False,
     create_if_missing: bool = False,
+    session_id: str = "",
 ) -> dict[str, Any]:
     """精细编辑文件:基于 old_string/new_string 模式。
 
@@ -213,8 +254,15 @@ def edit_file(
         }
     resolved_path = info
 
-    # 3. 文件不存在场景
-    if not os.path.exists(resolved_path):
+    # 3. 文件不存在场景。读失败不能说成没有,更不能新建覆盖。
+    presence = _path_presence(resolved_path)
+    if presence == "unread":
+        return {
+            "ok": False,
+            "errorCode": "UNREADABLE",
+            "message": "文件读不到,不能把它说成不存在,也不能新建覆盖",
+        }
+    if presence == "missing":
         if create_if_missing:
             try:
                 Path(resolved_path).parent.mkdir(parents=True, exist_ok=True)
@@ -232,6 +280,14 @@ def edit_file(
                     "errorCode": "PERMISSION_DENIED",
                     "message": f"文件创建失败: {e}",
                 }
+            _record_attribution(
+                tool="file_edit",
+                file_path=resolved_path,
+                hunk=new_string,
+                line_start=1,
+                line_end=max(1, new_string.count("\n") + 1),
+                session_id=session_id,
+            )
             return {
                 "ok": True,
                 "action": "created",
@@ -342,7 +398,18 @@ def edit_file(
     # 12. 生成 unified diff
     diff = generate_diff(old_content, new_content, resolved_path)
 
-    # 13. 返回结果
+    # 13. 归属记账(file_edit 这一格 = AI 生成面;行区间取自 diff 的 hunk 头)
+    _line_start, _line_end = parse_diff_line_range(diff)
+    _record_attribution(
+        tool="file_edit",
+        file_path=resolved_path,
+        hunk=diff,
+        line_start=_line_start,
+        line_end=_line_end,
+        session_id=session_id,
+    )
+
+    # 14. 返回结果
     action = "replaced_all" if (count > 1 and replace_all) else "replaced"
     return {
         "ok": True,
@@ -556,11 +623,19 @@ def snapshot_file(
     文件" —— 那是数据丢失。现把两者记成一等的布尔位,由 rollback_file 分流。
     """
     absolute = os.path.abspath(file_path)
-    existed_before = os.path.exists(absolute)
     content = ""
     read_ok = False
     read_error: str | None = None
-    if existed_before:
+    try:
+        os.stat(absolute)
+        existed_before = True
+    except FileNotFoundError:
+        existed_before = False
+    except OSError as e:
+        # os.path.exists 会把权限错误说成不存在,回滚就会把文件删掉
+        existed_before = True
+        read_error = f"文件读不到,不能把它说成不存在再回滚删掉: {type(e).__name__}: {e}"
+    if existed_before and read_error is None:
         try:
             content = Path(absolute).read_text(encoding="utf-8")
             read_ok = True

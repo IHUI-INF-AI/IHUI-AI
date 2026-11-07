@@ -12,17 +12,42 @@ const route = (name: string) => RN_UI_ROUTES.find((r) => r.name === name)
 
 describe('nav-B 路由契约', () => {
   it('ExamDetail 已注册且必填 id', () => {
-    expect(route('ExamDetail')).toMatchObject({ tab: false, requiresParams: true, requiredParams: ['id'] })
+    expect(route('ExamDetail')).toMatchObject({
+      tab: false,
+      requiresParams: true,
+      requiredParams: ['id'],
+    })
   })
 
   it('VipUpgrade 已注册且必填 id(与 VipLevel 同一壳)', () => {
-    expect(route('VipUpgrade')).toMatchObject({ tab: false, requiresParams: true, requiredParams: ['id'] })
-    expect(route('VipLevel')).toMatchObject({ tab: false, requiresParams: true, requiredParams: ['id'] })
+    expect(route('VipUpgrade')).toMatchObject({
+      tab: false,
+      requiresParams: true,
+      requiredParams: ['id'],
+    })
+    expect(route('VipLevel')).toMatchObject({
+      tab: false,
+      requiresParams: true,
+      requiredParams: ['id'],
+    })
   })
 
   it('ExamQuestion 必填 examId、PayResult 必填 orderNo', () => {
     expect(route('ExamQuestion')?.requiredParams).toEqual(['examId'])
     expect(route('PayResult')?.requiredParams).toEqual(['orderNo'])
+  })
+
+  it('门 301 两屏 RN 腿:ExamIntro 必填 id、ShareLanding 必填 code', () => {
+    expect(route('ExamIntro')).toMatchObject({
+      tab: false,
+      requiresParams: true,
+      requiredParams: ['id'],
+    })
+    expect(route('ShareLanding')).toMatchObject({
+      tab: false,
+      requiresParams: true,
+      requiredParams: ['code'],
+    })
   })
 
   it('Follow 是 stack 屏而不是 tab(tab 语义走屏内 onSelectTab)', () => {
@@ -53,7 +78,13 @@ describe('nav-B 九屏壳端口与返回面', () => {
   })
 
   it('无前向目标的 5 屏返回统一走栈 goBack', () => {
-    for (const name of ['FollowScreen', 'PostDetailScreen', 'StudyRecordScreen', 'VideoPlayerScreen', 'VipCompareScreen']) {
+    for (const name of [
+      'FollowScreen',
+      'PostDetailScreen',
+      'StudyRecordScreen',
+      'VideoPlayerScreen',
+      'VipCompareScreen',
+    ]) {
       const src = readFileSync(join(process.cwd(), 'src/screens', `${name}.tsx`), 'utf8')
       expect(src, `${name} 返回未走栈`).toMatch(/onBack=\{\(\) => navigation\.goBack\(\)\}/)
     }
@@ -65,12 +96,18 @@ describe('nav-B Vip 支付链出口', () => {
     const onNavigate = vi.fn()
     navigateAfterVipPay('PAY-ORDER-1', onNavigate)
     expect(onNavigate).toHaveBeenCalledTimes(1)
-    expect(onNavigate).toHaveBeenCalledWith('PayResult', { orderNo: 'PAY-ORDER-1' }, { replace: true })
+    expect(onNavigate).toHaveBeenCalledWith(
+      'PayResult',
+      { orderNo: 'PAY-ORDER-1' },
+      { replace: true },
+    )
   })
 
   it('失败/取消不调用出口:未 paid 分支只提示并 return,不落结果页', () => {
     const src = readFileSync(join(process.cwd(), 'src/screens/VipScreen.tsx'), 'utf8')
-    expect(src).toMatch(/if \(!statusRes\.success \|\| !statusRes\.data\?\.paid\) \{[\s\S]*?return\n/)
+    expect(src).toMatch(
+      /if \(!statusRes\.success \|\| !statusRes\.data\?\.paid\) \{[\s\S]*?return\n/,
+    )
     const paidBranch = src.slice(src.indexOf('navigateAfterVipPay(orderNo, onNavigate)'))
     expect(paidBranch).not.toMatch(/statusRes\.data\?\.paid/)
     expect(src.match(/navigateAfterVipPay\(orderNo, onNavigate\)/g)).toHaveLength(1)

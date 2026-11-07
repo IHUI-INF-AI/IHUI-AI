@@ -57,6 +57,9 @@ export function AigcListScreen({
   colorScheme = 'light',
   onToast,
   audio,
+  playingAudioId = null,
+  onToggleAudio,
+  video,
   carousel,
 }: AigcListScreenProps) {
   assertRequiredPort('onToast', onToast)
@@ -77,6 +80,15 @@ export function AigcListScreen({
       return
     }
     audioPort.play(url)
+  }
+
+  /** 播放/停止切换:宿主未注入切换端口时退回单向 play(不假装能停) */
+  const toggleAudio = (item: AigcListItem) => {
+    if (onToggleAudio) {
+      onToggleAudio(item)
+      return
+    }
+    playAudio(item)
   }
 
   const fileTypeForCategory = (key: AigcCategory): AigcFileType | undefined =>
@@ -131,22 +143,37 @@ export function AigcListScreen({
               onPress={(event) => {
                 // 阻止冒泡:点"播放"不应同时跳到作品详情
                 event.stopPropagation()
-                playAudio(item)
+                toggleAudio(item)
               }}
             >
-              <Text style={styles.audioPlayText}>{t('aigcList.playAudio')}</Text>
+              <Text style={styles.audioPlayText}>
+                {playingAudioId === item.id ? t('ai.stop') : t('aigcList.playAudio')}
+              </Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
       )
     }
+    const isVideoPlaying = item.fileType === 1 && video?.playingId === item.id
     return (
       <TouchableOpacity
         style={styles.mediaCard}
-        onPress={() => onPressItem(item)}
+        onPress={() => {
+          if (item.fileType === 1 && video) {
+            video.onToggle(item)
+            return
+          }
+          onPressItem(item)
+        }}
         activeOpacity={0.7}
       >
-        <Image source={{ uri: item.coverUrl }} style={styles.mediaCover} resizeMode="cover" />
+        {isVideoPlaying && video && item.fileUrl ? (
+          <View style={styles.mediaCover}>
+            <video.Renderer uri={item.fileUrl} onError={() => video.onToggle(item)} />
+          </View>
+        ) : (
+          <Image source={{ uri: item.coverUrl }} style={styles.mediaCover} resizeMode="cover" />
+        )}
         {item.fileType === 1 ? (
           <View style={styles.videoBadge}>
             <Text style={styles.videoBadgeText}>{t('aigcList.videoBadge')}</Text>

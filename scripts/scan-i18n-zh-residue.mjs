@@ -129,25 +129,28 @@ function parseArgs(argv) {
   let isStaged = false
   let isReadme = false
   let target = 'web'
-  for (const arg of argv) {
+  // 本器判据面刻意用下标循环:上一版 `for (const arg of argv)` 拿不到后一个参数,于是
+  // 空格形态 `--target shared` 落进"忽略未知 flag"那一格 ⇒ 目标静默留在 web,
+  // 还打印「✅ web/zh-TW.json 无中文残留」,让人以为 shared 面已核过
+  // (2026-11-05 主席量 CI 红门时亲踩:CI 报 shared 红,本机同一条命令读成 web 绿)。
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
     if (arg === '--staged') {
       isStaged = true
     } else if (arg === '--readme') {
       isReadme = true
-    } else if (arg.startsWith('--target=')) {
-      const val = arg.split('=')[1]
-      // 未知 target 以前会被静默丢掉 → 变成"扫 web",还打印"web/xx.json 无中文残留",
-      // 让人以为已经校验过 mobile-rn / miniapp-taro(2026-09-21 两个会话先后踩到)。
-      // 现在:支持全部语言包目录,未知值直接报错退出。
-      // 面清单自 2026-10-05 起取自 lib/i18n-message-faces.mjs —— 与修复器同一份,
-      // 两端面名/路径不再各写一遍(此前修复器仍指 apps/* 旧址而本器已迁 packages/i18n)。
-      if (isKnownFace(val)) target = val
-      else {
+    } else if (arg === '--target') {
+      const val = argv[i + 1]
+      if (val === undefined || val.startsWith('--')) {
         console.error(
-          `未知 --target=${val};可选:${I18N_MESSAGE_FACES.join(' | ')}(不再静默回落到 web)`,
+          `--target 后面没跟到面名(空格形态要两个参数,或用 --target=<面>);可选:${I18N_MESSAGE_FACES.join(' | ')}`,
         )
         process.exit(2)
       }
+      i++
+      target = acceptFace(val, '--target')
+    } else if (arg.startsWith('--target=')) {
+      target = acceptFace(arg.slice('--target='.length), '--target')
     } else if (arg.startsWith('--')) {
       // 忽略未知 flag，避免误判
     } else {
@@ -155,6 +158,17 @@ function parseArgs(argv) {
     }
   }
   return { locale: positional[0], isStaged, isReadme, target }
+}
+
+/**
+ * 面名的唯一接受口(两种书写形态共用一把尺):未知值当场 exit 2 点名,
+ * **绝不回落到 web** —— 回落会把"没扫"渲染成"扫过且干净"(2026-09-21 两席踩过一次,
+ * 那一版只堵了 `--target=<坏值>`,空格形态这一半今天才补上)。
+ */
+function acceptFace(val, flagName) {
+  if (isKnownFace(val)) return val
+  console.error(`未知 ${flagName}=${val};可选:${I18N_MESSAGE_FACES.join(' | ')}(不再静默回落到 web)`)
+  process.exit(2)
 }
 
 function isFileStaged(relPath) {

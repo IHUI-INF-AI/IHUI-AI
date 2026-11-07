@@ -69,7 +69,7 @@ export function CourseActionBar({
 }) {
   const { t } = useI18n()
   return (
-    <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex flex-row items-center justify-between px-4 shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
+    <View className="fixed left-0 right-0 bottom-0 h-[100rpx] bg-card flex flex-row items-center justify-between px-lg shadow-[0_-2rpx_12rpx_var(--color-black-6)]">
       <View className="flex-1 flex flex-row items-baseline">
         {isFree ? (
           <Text className="text-title font-bold text-[var(--color-success)]">
@@ -115,8 +115,8 @@ export function LessonsSection({
 }) {
   const { t } = useI18n()
   return (
-    <View className="mx-3 my-3 bg-card rounded-lg overflow-hidden">
-      <View className="flex flex-row items-center justify-between px-4 py-3">
+    <View className="mx-md my-md bg-card rounded-lg overflow-hidden">
+      <View className="flex flex-row items-center justify-between px-lg py-md">
         <Text className="text-title font-semibold text-foreground">
           {t('courseDetail.lessons')}
         </Text>
@@ -128,7 +128,7 @@ export function LessonsSection({
         lessons.map((lesson, idx) => (
           <View
             key={lesson.id}
-            className={`flex flex-row items-center justify-between px-4 py-[24rpx] ${lesson.current ? 'bg-muted' : ''}`}
+            className={`flex flex-row items-center justify-between px-lg py-[24rpx] ${lesson.current ? 'bg-muted' : ''}`}
             hoverClass="opacity-60"
             onClick={() => onLessonClick(lesson, idx)}
           >
@@ -138,7 +138,7 @@ export function LessonsSection({
               {lesson.title}
             </Text>
             {lesson.completed ? (
-              <Text className="ml-2 text-label text-[var(--color-success)]">
+              <Text className="ml-sm text-label text-[var(--color-success)]">
                 {t('courseDetail.completed')}
               </Text>
             ) : null}
@@ -147,7 +147,7 @@ export function LessonsSection({
                 name="lock"
                 size={28}
                 color="var(--color-muted-foreground)"
-                className="ml-2"
+                className="ml-sm"
               />
             ) : null}
           </View>

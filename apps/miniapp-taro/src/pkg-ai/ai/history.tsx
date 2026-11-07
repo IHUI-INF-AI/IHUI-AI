@@ -3,7 +3,6 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useI18n, type TtFn } from '@/i18n'
-import { View, Text, Button, ScrollView, Image } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useMemo, useSyncExternalStore } from 'react'
 import { formatDateByTemplate } from '@ihui/shared'
@@ -22,15 +21,27 @@ import {
   type ListConversationsResult,
 } from '@ihui/api-client'
 import { togglePinnedItem } from '@ihui/shared/chat/conversation-pin'
-import { sortPinnedFirst } from '@ihui/shared/chat/conversation-org'
+// 2026-11-05 日历制对齐:日期分桶不再端内自写「滚动 7 天」,与 web 侧栏消费同一份
+// 共享实现(@ihui/shared/chat/conversation-date-group:自然日/自然周(周一起)/自然月(1 号起))。
+import {
+  groupConversationByDate,
+  resolveConversationTimestamp,
+  type ConversationDateGroupKey,
+} from '@ihui/shared/chat/conversation-date-group'
 import type { ApiResult } from '@ihui/types'
 import { REMOTE_ICONS } from '@/constants/remote-icons'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
-import ThemeRoot from '@/components/ThemeRoot'
-import SearchBar from '@/components/SearchBar'
-import ConversationHistoryItem from '@/components/ConversationHistoryItem'
-import LineIcon from '@/components/LineIcon'
+// A2(2026-11-05)薄壳化:列表 UI 的渲染真相源迁到共享屏(RN / 小程序消费同一份);
+// 唯一标准 packages/app/src/features/chat/ConversationHistoryScreen.tsx;
+// 排序出口随 UI 一同迁走,端内不再写第二处 sort(见本文件 orderHistoryRows 的再导出)。
+import {
+  ConversationHistoryScreen as SharedConversationHistoryScreen,
+  orderHistoryRows,
+} from '@ihui/rn-app/features/chat/ConversationHistoryScreen'
 import { onToast } from '@/host/on-toast'
+
+// 对外导出面保持不变(3 个既有测试从这里 import orderHistoryRows)
+export { orderHistoryRows }
 
 /**
  * 远程图标静态注册表:noUncheckedIndexedAccess 下 Record 点号访问返回 string | undefined,
@@ -45,7 +56,8 @@ const ICONS = REMOTE_ICONS as {
 }
 
 type FilterType = 'all' | 'chat' | 'image' | 'voice' | 'agent'
-type GroupKey = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
+/** 与 web 侧栏同源的日历桶键(today / thisWeek(周一起) / thisMonth(1 号起) / earlier) */
+type GroupKey = ConversationDateGroupKey
 /** 列表当前的数据来源:server=服务端会话(可置顶);local=本机快照(兜底,不可置顶) */
 export type HistorySource = 'server' | 'local'
 
@@ -133,16 +145,21 @@ export function resolveActiveFilter(filter: FilterType, available: Set<FilterTyp
   return available.has(filter) ? filter : 'all'
 }
 
-const GROUP_LABELS = (tt: TtFn): Array<{ key: GroupKey; labelKey: string; fallback: string }> => [
-  { key: 'today', labelKey: 'live.calendar.today', fallback: tt('live.calendar.today', '今天') },
-  {
-    key: 'yesterday',
-    labelKey: 'index.mock.yesterday',
-    fallback: tt('index.mock.yesterday', '昨天'),
+/**
+ * 分组标题(顺序即渲染顺序,与共享层的 CONVERSATION_DATE_GROUP_ORDER 一致)。
+ * 「本月」复用 live.calendar.monthStat(取值已是「本月 / This month / 今月 / 이번 달」),
+ * 与同页 today 借用 live.calendar.today 是同一套借用口径 —— 小程序词包无 aiHistory 本月键,
+ * 不为一个标题新增五语言词条。
+ */
+const GROUP_LABELS = (tt: TtFn): Record<GroupKey, { labelKey: string; fallback: string }> => ({
+  today: { labelKey: 'live.calendar.today', fallback: tt('live.calendar.today', '今天') },
+  thisWeek: { labelKey: 'aiHistory.d3', fallback: tt('aiHistory.d3', '本周') },
+  thisMonth: {
+    labelKey: 'live.calendar.monthStat',
+    fallback: tt('live.calendar.monthStat', '本月'),
   },
-  { key: 'thisWeek', labelKey: 'aiHistory.d3', fallback: tt('aiHistory.d3', '本周') },
-  { key: 'earlier', labelKey: 'aiHistory.d4', fallback: tt('aiHistory.d4', '更早') },
-]
+  earlier: { labelKey: 'aiHistory.d4', fallback: tt('aiHistory.d4', '更早') },
+})
 
 /** 读本机快照(兜底副本)。读失败=没有兜底数据,返回空数组而不是抛错。 */
 export function readLocalHistory(): HistoryItem[] {
@@ -347,16 +364,6 @@ export async function loadHistoryRows(deps: {
   return { items: deps.readLocal(), source: 'local', serverHasMore: false }
 }
 
-function getGroupKey(ts: number): GroupKey {
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const day = 86400000
-  if (ts >= today) return 'today'
-  if (ts >= today - day) return 'yesterday'
-  if (ts >= today - day * 7) return 'thisWeek'
-  return 'earlier'
-}
-
 function itemTimestamp(h: HistoryItem): number {
   if (h.timestamp) return h.timestamp
   const parsed = new Date(h.time).getTime()
@@ -364,14 +371,15 @@ function itemTimestamp(h: HistoryItem): number {
 }
 
 /**
- * 派生顺序:时间倒序打底,再走共享 sortPinnedFirst 做置顶优先稳定重排。
+ * 分桶用的时间锚点(2026-11-05 对齐 web):timestamp → time 依次回退,两者都不可用 ⇒ null,
+ * 由共享层归入「更早」。
  *
- * 页面不再自己写「pinned 在前」的比较器 —— 置顶排序的出口全仓只有
- * packages/shared/src/chat/conversation-org.ts 一份(AGENTS §3 共享层优先)。
- * 本机快照行 pinned 恒为 undefined ⇒ 这一趟对兜底态是无操作,不改原顺序。
+ * 旧实现用 `Date.now()` 兜底 ⇒ 没有时间戳的行冒领「今天」,与 web 的「不拿默认值占位」
+ * 口径相反。**展示/排序仍走 itemTimestamp**(那里的兜底只影响这一行显示成什么时刻,
+ * 不参与分桶,改它会顺带改动既有列表顺序 —— 不在本次语义对齐面内)。
  */
-export function orderHistoryRows(items: readonly HistoryItem[]): HistoryItem[] {
-  return sortPinnedFirst([...items].sort((a, b) => itemTimestamp(b) - itemTimestamp(a)))
+export function itemGroupTime(h: HistoryItem): number | null {
+  return resolveConversationTimestamp([h.timestamp, h.time])
 }
 
 const fmtTime = (ts: number) => formatDateByTemplate(ts, 'MM-DD HH:mm')
@@ -481,19 +489,6 @@ export default function HistoryPage() {
   }, [list, activeFilter, keyword, metaVersion])
 
   const visible = useMemo(() => filtered.slice(0, page * PAGE_SIZE), [filtered, page])
-
-  const groups = useMemo(() => {
-    const m: Record<GroupKey, HistoryItem[]> = {
-      today: [],
-      yesterday: [],
-      thisWeek: [],
-      earlier: [],
-    }
-    visible.forEach((item) => {
-      m[getGroupKey(itemTimestamp(item))].push(item)
-    })
-    return m
-  }, [visible])
 
   const onRefresh = useCallback(() => {
     setRefreshing(true)
@@ -727,187 +722,91 @@ export default function HistoryPage() {
     })
   }, [source, clearingAll, list, t, tt])
 
-  const isFiltered = keyword.trim() || filter !== 'all'
+  const isFiltered = Boolean(keyword.trim() || filter !== 'all')
   const iconFor = (h: HistoryItem) =>
     FILTERS(tt).find((f) => f.key === (h.type || 'chat'))?.icon || ICONS.message
 
+  /** 共享屏要的展示行:时间/条数/图标换展示值;排序与取词仍在共享屏 */
+  const groups = useMemo(
+    () =>
+      groupConversationByDate(visible, itemGroupTime).map((g) => {
+        const label = GROUP_LABELS(tt)[g.key]
+        return {
+          key: g.key,
+          label: tt(label.labelKey, label.fallback),
+          items: g.items.map((h) => ({
+            id: h.id,
+            title: h.title,
+            preview: h.messages?.[h.messages.length - 1]?.content,
+            timeLabel: fmtTime(itemTimestamp(h)),
+            messageCount: h.messageCount || h.messages?.length || 0,
+            iconSrc: iconFor(h),
+            pinned: h.pinned === true,
+          })),
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- iconFor/FILTERS 只依赖 tt,与 visible 同步
+    [visible, tt],
+  )
+
+  const filters = useMemo(
+    () =>
+      FILTERS(tt)
+        .filter((f) => availableTypes.has(f.key))
+        .map((f) => ({ key: f.key, label: tt(f.labelKey, f.fallback), iconSrc: f.icon })),
+    [tt, availableTypes],
+  )
+
+  const findRow = (row: { id: string }) => list.find((x) => x.id === row.id)
+
   return (
-    <View className="flex flex-col h-screen bg-background">
-      <View className="flex items-center gap-[16rpx] pt-[120rpx] px-[32rpx] pb-[16rpx] bg-card">
-        {/* 搜索栏(统一圆角输入井,共享 SearchBar) */}
-        <SearchBar
-          className="flex-1"
-          value={keyword}
-          placeholder={tt('ai.historyPage.searchPlaceholder', '搜索对话历史')}
-          onInput={(v) => {
-            setKeyword(v)
-            setPage(1)
-            setHasMore(true)
-          }}
-          onClear={() => setKeyword('')}
-        />
-        {list.length > 0 ? (
-          <Text
-            className="text-body-sm leading-[normal] text-destructive flex-shrink-0"
-            onClick={source === 'server' ? () => void onClearServerAll() : onClearAll}
-          >
-            {tt('ai.historyPage.clearAll', '清空全部')}
-          </Text>
-        ) : null}
-      </View>
-
-      {/* 会话导入入口(D28):导入的会话落库后就在本页列表里出现,故入口与列表同页。
-          命中块用 View(hoverClass 只在 View 上受支持)、文案用 Text,与端内既有胶囊同形。 */}
-      <View
-        className="flex items-center gap-[12rpx] py-[16rpx] px-[32rpx] bg-card"
-        onClick={goConversationImport}
-        hoverClass="opacity-60"
-      >
-        <View className="flex-shrink-0">
-          <LineIcon name="file-text" size={28} color="var(--color-muted-foreground)" />
-        </View>
-        <Text className="flex-1 text-label text-muted-foreground">
-          {tt('conversationImport.pageTitle', '外部会话导入')}
-        </Text>
-        <View className="flex-shrink-0">
-          <LineIcon name="chevron-right" size={24} color="var(--color-muted-foreground)" />
-        </View>
-      </View>
-
-      {/* 兜底提示:服务端没取到才出现。可见、不谎报,给「重试」出口 */}
-      {degraded && !loading ? (
-        <View className="flex items-center justify-between gap-[16rpx] px-[32rpx] py-[16rpx] bg-card">
-          <Text className="flex-1 text-label text-muted-foreground">
-            {tt('ai.historyPage.fallbackNotice', '服务端会话加载失败,当前显示本机历史记录')}
-          </Text>
-          {/* 重试:命中块用 View(hoverClass 只在 View 上受支持),文案用 Text */}
-          <View
-            className="flex items-center flex-shrink-0 py-[8rpx] px-[16rpx] rounded-sm bg-background"
-            onClick={onRefresh}
-            hoverClass="opacity-60"
-          >
-            <Text className="text-label text-foreground font-semibold">
-              {tt('common.retry', '重试')}
-            </Text>
-          </View>
-        </View>
-      ) : null}
-
-      <View className="flex gap-[12rpx] py-[16rpx] px-[32rpx] bg-card overflow-x-auto whitespace-nowrap">
-        {FILTERS(tt)
-          .filter((f) => availableTypes.has(f.key))
-          .map((f) => (
-            <View
-              key={f.key}
-              className={`inline-flex items-center gap-[6rpx] py-[8rpx] px-[24rpx] bg-background rounded-sm flex-shrink-0 ${activeFilter === f.key ? 'bg-primary text-foreground' : 'text-muted-foreground'}`}
-              onClick={() => {
-                setFilter(f.key)
-                setPage(1)
-                setHasMore(true)
-              }}
-              hoverClass="opacity-60"
-            >
-              <Image src={f.icon} className="w-[28rpx] h-[28rpx]" mode="aspectFit" />
-              <Text className="text-label">{tt(f.labelKey, f.fallback)}</Text>
-            </View>
-          ))}
-      </View>
-
-      <ScrollView
-        className="flex-1 h-0"
-        scrollY
-        refresherEnabled
-        refresherTriggered={refreshing}
-        onRefresherRefresh={onRefresh}
-        onScrollToLower={onLoadMore}
-        lowerThreshold={80}
-      >
-        {loading ? (
-          <View className="flex items-center justify-center py-[160rpx]">
-            <Text className="text-body text-muted-foreground">
-              {tt('common.loading', '加载中')}
-            </Text>
-          </View>
-        ) : filtered.length === 0 ? (
-          <View className="flex flex-col items-center justify-center py-[160rpx] px-[32rpx]">
-            <Image
-              src={isFiltered ? ICONS.search : ICONS.message}
-              className="w-[120rpx] h-[120rpx]"
-              mode="aspectFit"
-            />
-            <Text className="text-body text-muted-foreground mt-[24rpx]">
-              {isFiltered
-                ? tt('ai.historyPage.noResult', '未找到相关对话')
-                : t('ai.historyPage.empty')}
-            </Text>
-            {!isFiltered ? (
-              <Button
-                className="mt-[40rpx] px-[64rpx] h-[100rpx] leading-[100rpx] bg-primary text-[var(--color-surface-light)] rounded-sm text-title font-semibold"
-                onClick={() => goChat()}
-              >
-                {tt('ai.historyPage.startNew', '开始新对话')}
-              </Button>
-            ) : null}
-          </View>
-        ) : (
-          <View className="py-[24rpx] px-[32rpx]">
-            {GROUP_LABELS(tt).map((g) => {
-              const items = groups[g.key]
-              if (!items || items.length === 0) return null
-              return (
-                <View key={g.key} className="mb-[32rpx]">
-                  <Text className="block text-label text-muted-foreground mb-[16rpx] pl-[8rpx]">
-                    {tt(g.labelKey, g.fallback)}
-                  </Text>
-                  {items.map((h) => {
-                    const ts = itemTimestamp(h)
-                    const count = h.messageCount || h.messages?.length || 0
-                    const preview = h.messages?.[h.messages.length - 1]?.content
-                    return (
-                      <ThemeRoot
-                        key={h.id}
-                        className="flex items-center p-[24rpx] mb-[16rpx] bg-card rounded-lg"
-                      >
-                        <ConversationHistoryItem
-                          id={h.id}
-                          title={h.title}
-                          preview={preview}
-                          time={fmtTime(ts)}
-                          countLabel={t('ai.historyPage.msgCount', { n: count })}
-                          iconSrc={iconFor(h)}
-                          canPin={source === 'server'}
-                          pinned={h.pinned === true}
-                          pinLabel={tt('ai.historyPage.pin', '置顶')}
-                          pinnedLabel={tt('ai.historyPage.pinned', '已置顶')}
-                          onOpen={() => goChat(h)}
-                          onTogglePin={() => void onTogglePin(h)}
-                          onLongPress={
-                            source === 'server'
-                              ? () => void onDeleteServerConversation(h)
-                              : () => onDeleteOne(h)
-                          }
-                        />
-                      </ThemeRoot>
-                    )
-                  })}
-                </View>
-              )
-            })}
-            {loadingMore ? (
-              // 「加载更多」必须看得见在取,否则用户以为到底了 —— 复用既有 common.loading 档
-              <Text className="block text-center p-[32rpx] text-label text-muted-foreground">
-                {tt('common.loading', '加载中')}
-              </Text>
-            ) : null}
-            {!hasMore ? (
-              <Text className="block text-center p-[32rpx] text-label text-muted-foreground">
-                {tt('ai.historyPage.noMore', '没有更多了')}
-              </Text>
-            ) : null}
-          </View>
-        )}
-      </ScrollView>
-    </View>
+    <SharedConversationHistoryScreen
+      t={t}
+      tt={tt}
+      groups={groups}
+      itemCount={filtered.length}
+      loading={loading}
+      isFiltered={isFiltered}
+      keyword={keyword}
+      onKeywordChange={(v) => {
+        setKeyword(v)
+        setPage(1)
+        setHasMore(true)
+      }}
+      filters={filters}
+      activeFilter={activeFilter}
+      onFilterChange={(key) => {
+        setFilter(key as FilterType)
+        setPage(1)
+        setHasMore(true)
+      }}
+      showClearAll={list.length > 0}
+      // 入口按 source 分发(服务端逐条删 / 兜底只写快照),两路互不越界
+      onClearAll={source === 'server' ? () => void onClearServerAll() : onClearAll}
+      onImport={goConversationImport}
+      degraded={degraded}
+      onRetry={onRefresh}
+      canPin={source === 'server'}
+      onOpen={(row) => goChat(findRow(row))}
+      onTogglePin={(row) => {
+        const h = findRow(row)
+        if (h) void onTogglePin(h)
+      }}
+      onLongPress={(row) => {
+        const h = findRow(row)
+        if (!h) return
+        if (source === 'server') void onDeleteServerConversation(h)
+        else onDeleteOne(h)
+      }}
+      hasMore={hasMore}
+      loadingMore={loadingMore}
+      onLoadMore={onLoadMore}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      onStartNew={() => goChat()}
+      emptyIconSrc={isFiltered ? ICONS.search : ICONS.message}
+      colorScheme="light"
+    />
   )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

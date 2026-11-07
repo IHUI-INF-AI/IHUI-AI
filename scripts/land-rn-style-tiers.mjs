@@ -71,7 +71,13 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { gitRaw } from './lib/face-reader.mjs'
 import { parseTokenTables } from './sync-css-tokens.mjs'
-import { appendLanding, collectiblePaths, ledgerPathFor } from './lib/cross-end-landing-ledger.mjs'
+import {
+  appendLanding,
+  collectiblePaths,
+  ledgerPathFor,
+  legsCover,
+  normalizeLegs,
+} from './lib/cross-end-landing-ledger.mjs'
 // 归属避让判据的唯一实现(2026-11-03 提库,§0.6):四枚写盘腿(本器 + web/miniapp lander +
 // gen-ui-mirror + fix-rn-color-literals)一起 import 这一份,不得再各写一份(门 191)。
 import { isCleanOwned, ownershipDirtyPaths } from './lib/git-paths.mjs'
@@ -614,20 +620,29 @@ export function blobOidOf(rel, { root = ROOT } = {}) {
  * 账本读不到 ⇒ {ok:false}:调用方必须回落现行为(照旧全量尝试)并在结论行标
  * ledger=unjudged —— 失效方向是"多做一遍",绝不是"少做一遍"或判死。
  */
-export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date() } = {}) {
+export function landedPathsOf({ root = ROOT, leg = LEG_NAME, now = new Date(), legs = null } = {}) {
   const r = collectiblePaths(now, { quietMs: 0, face: 'worktree', root })
   if (!r.ok) return { ok: false, reason: r.reason, paths: new Set() }
-  return { ok: true, paths: new Set(r.collectible.filter((c) => c.leg === leg).map((c) => c.path)) }
+  // 只认"能替本轮轴背书"的行:leg 名相同而轴集更窄的行不背书(判据单源 = 库的 legsCover)。
+  const covered = r.collectible.filter((c) => c.leg === leg && legsCover(c.legs, legs))
+  return { ok: true, paths: new Set(covered.map((c) => c.path)) }
 }
 
 /**
  * 落盘成功后一次批量登记:逐路径**写完盘后实测** oid(绝不取 HEAD 旧值)→ appendLanding。
  * 本体永不抛(账本不可写只如实报 landingError,§0.3);同轮共用一个 ISO 时刻。
  */
-export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString() } = {}) {
+export function registerLanding(paths, { root = ROOT, leg = LEG_NAME, at = new Date().toISOString(), legs = null } = {}) {
   if (!paths.length) return { ok: true, landing: 0, deduped: 0, rejected: [] }
   try {
-    const list = paths.map((p) => ({ at, leg, path: p, blobOid: blobOidOf(p, { root }) }))
+    const rowLegs = normalizeLegs(legs)
+    const list = paths.map((p) => ({
+      at,
+      leg,
+      path: p,
+      blobOid: blobOidOf(p, { root }),
+      ...(rowLegs ? { legs: rowLegs } : {}),
+    }))
     const r = appendLanding(list, { root })
     return { ok: true, landing: r.appended, deduped: r.deduped, rejected: r.rejected }
   } catch (e) {
@@ -719,12 +734,16 @@ function run() {
   const absorbSkips = (s) => {
     for (const [k, v] of Object.entries(s ?? {})) report.skipped[k] = (report.skipped[k] ?? 0) + v
   }
-  // 续跑(R2):账本在册且工作树 blob 仍相符的路径 = 本 leg 早前已落,整轮跳过(只 --apply 档生效;
-  // 账本读不到 ⇒ 回落现行为 + ledger=unjudged,失效方向恒为"多做一遍",见 landedPathsOf 头注)。
+  // 续跑(R2):账本在册、工作树 blob 仍相符、**且那一行记的腿覆盖本轮开着的腿**的路径才整轮跳过
+  // (只 --apply 档生效)。腿不背书 ⇒ 重查:内容没变则不写盘、不追账,等于白跑一遍读盘。
+  // 账本读不到 ⇒ 回落现行为 + ledger=unjudged,失效方向恒为"多做一遍",见 landedPathsOf 头注。
+  const enabledLegs = Object.entries(report.legs)
+    .filter(([, on]) => on)
+    .map(([k]) => k)
   let landedSet = new Set()
   let ledgerUnjudged = false
   if (apply) {
-    const lp = landedPathsOf()
+    const lp = landedPathsOf({ legs: enabledLegs })
     if (lp.ok) landedSet = lp.paths
     else ledgerUnjudged = true
   }
@@ -839,7 +858,7 @@ function run() {
   let landingRejected = 0
   let landingErr = ''
   if (apply && landedBatch.length) {
-    const reg = registerLanding(landedBatch)
+    const reg = registerLanding(landedBatch, { legs: enabledLegs })
     landing = reg.landing
     landingDedup = reg.deduped
     landingRejected = reg.rejected.length

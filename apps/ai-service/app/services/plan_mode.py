@@ -68,6 +68,8 @@ READONLY_TOOLS: frozenset[str] = frozenset(
         "get_context_remaining",
         # 文件读
         "read_file",
+        # 工具输出工件续读(批次 2):只读本进程落盘的输出分页,无副作用。
+        "read_tool_output",
         "list_files",
         "file_search",
         # 代码分析

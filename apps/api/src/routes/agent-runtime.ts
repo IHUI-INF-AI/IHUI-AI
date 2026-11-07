@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { aiServiceFetchStream } from '../utils/ai-service-fetch.js'
+import { startSseHeartbeat } from '../utils/sse-stream-registry.js'
 import { SessionManager } from '../services/clawdbot/session-manager.js'
 import {
   parsePermissionMode,
@@ -132,6 +133,10 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       const controller = new AbortController()
       const onClose = () => controller.abort()
       req.raw.on('close', onClose)
+      // 2026-11-06 批1:工具执行/等审批期间上游可以静默数分钟。此前本转发流零字节,
+      // 代理 idle 超时或端侧读环会把"在干活"误判成"断了"。注释帧对下面的
+      // event/data 块解析透明(既无 event: 也无 data:),不参与任何序号。
+      const stopHeartbeat = startSseHeartbeat((frame) => reply.raw.write(frame))
 
       try {
         const upstream = await aiServiceFetchStream(req, '/api/agent-runtime/execute/stream', {
@@ -213,6 +218,7 @@ export const agentRuntimeRoutes: FastifyPluginAsync = async (app) => {
       } finally {
         // G9: 清理 close listener,避免泄漏
         req.raw.off('close', onClose)
+        stopHeartbeat()
       }
     },
   )

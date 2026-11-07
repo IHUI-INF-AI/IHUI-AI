@@ -14,7 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Calendar, CheckCircle2 } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { getDueReviews, getReviewStats, submitReview } from '@ihui/api-client'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { tokens } from '../theme/active-tokens'
 import { NavBar } from '../components/NavBar'
@@ -126,13 +126,14 @@ export default function LearnReviewScreen() {
     setLoading(true)
     setError('')
     try {
-      const dueRes = await fetchApi<{ list: ReviewQuestion[]; total: number }>(
-        '/api/srs-review/due?page=1&pageSize=20',
-      )
+      const dueRes = await getDueReviews<{ list: ReviewQuestion[]; total: number }>({
+        page: 1,
+        pageSize: 20,
+      })
       if (!dueRes.success) throw new Error(dueRes.error)
       setReviews(dueRes.data?.list ?? [])
       // 统计是辅助信息:它失败不该把整屏打成错误。
-      const statsRes = await fetchApi<{ stats: ReviewStats }>('/api/srs-review/stats')
+      const statsRes = await getReviewStats<{ stats: ReviewStats }>()
       if (statsRes.success) setStats(statsRes.data?.stats ?? null)
     } catch {
       setError(t('learnReview.loadFailed'))
@@ -152,9 +153,9 @@ export default function LearnReviewScreen() {
     setSubmitting(true)
     setSubmitError('')
     try {
-      const res = await fetchApi<ReviewResult>('/api/srs-review/review', {
-        method: 'POST',
-        body: JSON.stringify({ questionId: current.questionId, quality }),
+      const res = await submitReview<ReviewResult>({
+        questionId: current.questionId,
+        quality,
       })
       if (!res.success) throw new Error(res.error)
       setResult(res.data)
@@ -185,7 +186,7 @@ export default function LearnReviewScreen() {
       case 'subjective':
         return t('learnReview.typeSubjective')
       default:
-        return t('learnReview.typeUnknown')
+        return t('learn.dailyReview.questionLabel')
     }
   }
 
@@ -222,7 +223,10 @@ export default function LearnReviewScreen() {
                 [t('learnReview.statDue'), String(stats?.totalDue ?? 0)],
                 [t('learnReview.statReviewed'), String(reviewedCount)],
                 [t('learnReview.statStreak'), String(stats?.streak ?? 0)],
-                [t('learnReview.statEase'), stats ? stats.avgEaseFactor.toFixed(2) : '—'],
+                [
+                  t('learn.dailyReview.statAvgDifficulty'),
+                  stats ? stats.avgEaseFactor.toFixed(2) : '—',
+                ],
               ].map(([label, value]) => (
                 <View key={label} style={styles.statCell}>
                   <Text style={styles.statValue}>{value}</Text>
@@ -345,7 +349,7 @@ const styles = StyleSheet.create({
     gap: rnSpacing.sm,
     paddingVertical: rnSpacing['5xl'],
   },
-  muted: { fontSize: 13, color: tokens.text.secondary },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   errorBox: {
     padding: rnSpacing.md,
     gap: rnSpacing.sm,
@@ -363,7 +367,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.border.medium,
   },
-  retryText: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  retryText: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
   statsCard: {
     flexDirection: 'row',
     padding: rnSpacing.md,
@@ -417,7 +421,11 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   questionLabel: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
-  questionText: { fontSize: rnType.strong.size, lineHeight: 22, color: tokens.text.primary },
+  questionText: {
+    fontSize: rnType.strong.size,
+    lineHeight: rnType.strong.lineHeight,
+    color: tokens.text.primary,
+  },
   answerArea: { gap: rnSpacing.sm },
   answerLabel: { fontSize: rnType.label.size, color: tokens.text.secondary },
   qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
@@ -444,7 +452,7 @@ const styles = StyleSheet.create({
     color: tokens.text.tertiary,
     textAlign: 'center',
   },
-  resultCellValue: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
+  resultCellValue: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
   primaryBtn: {
     height: 42,
     borderRadius: rnRadius.sm,

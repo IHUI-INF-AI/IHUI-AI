@@ -16,13 +16,13 @@
 精简版(推荐,220 字符以内):
 
 ```
-全栈 AI 操作系统 — 8 端同源 / 176 模型 / LangGraph+MCP+A2A / Apache 2.0 开源 · 在线 Demo: aizhs.top
+全栈 AI 操作系统 — 8 端同源 / 100 个大模型 / LangGraph+MCP+A2A / Apache 2.0 开源 · 在线 Demo: aizhs.top
 ```
 
 完整版(若想堆关键词,330 字符):
 
 ```
-🚀 开源 AI 商业级一体化超级平台 · 8 端全覆盖(web/api/ai-service/cli/desktop/extension/mobile/miniapp)· 176 模型 · LangGraph+MCP+A2A 三栈 · 340 表 · 1300+ API · Apache 2.0 · aizhs.top
+🚀 开源 AI 商业级一体化超级平台 · 8 端全覆盖(web/api/ai-service/cli/desktop/extension/mobile/miniapp)· 100 个大模型 · LangGraph+MCP+A2A 三栈 · 621 张表 · 1300+ API · Apache 2.0 · aizhs.top
 ```
 
 ---

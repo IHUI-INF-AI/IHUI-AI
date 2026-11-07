@@ -1310,8 +1310,9 @@ function parseWorkerStdout(stdout: string): {
 /**
  * 解析 worker-entry 入口文件路径。
  * 优先用 dist 编译产物(worker-entry.js);dev 场景(tsx)用源码 worker-entry.ts。
+ * 读失败(ENOENT/ENOTDIR 以外)不能当成没有,否则会误改用另一份。
  */
-function resolveWorkerEntryPath(): string {
+export function resolveWorkerEntryPath(stat?: (path: string) => fs.Stats): string {
   // SEA 单文件形态(bundle 内 IHUI_BUNDLED=1,见 util/main-module.ts):worker-entry
   // 无法作为独立文件 fork —— 与其让 child_process.fork 抛晦涩的 ENOENT,不如在此
   // 给一句能看懂的话。npm/dist 形态不受影响(该常量仅在 esbuild 打包时被注入)。
@@ -1320,11 +1321,28 @@ function resolveWorkerEntryPath(): string {
       'SEA 单文件形态不支持并行子代理(worker entry 未随包携带);请改用 npm 形态(npm install -g ihui-cli)或将 --max-workers 设为 0 走进程内执行',
     );
   }
+  const look = stat ?? ((target: string) => fs.statSync(target));
   const hereDir = path.dirname(fileURLToPath(import.meta.url));
   const distCandidate = path.join(hereDir, 'worker-entry.js');
-  if (fs.existsSync(distCandidate)) return distCandidate;
   const srcCandidate = path.join(hereDir, 'worker-entry.ts');
-  if (fs.existsSync(srcCandidate)) return srcCandidate;
+  try {
+    look(distCandidate);
+    return distCandidate;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`worker 入口读不到,不能改用源码那一份 (${code ?? 'unknown'})`);
+    }
+  }
+  try {
+    look(srcCandidate);
+    return srcCandidate;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT' && code !== 'ENOTDIR') {
+      throw new Error(`worker 入口读不到,不能改用源码那一份 (${code ?? 'unknown'})`);
+    }
+  }
   // 兜底:返回 dist 路径(让 fork 抛错暴露问题,提示用户先 build)
   return distCandidate;
 }

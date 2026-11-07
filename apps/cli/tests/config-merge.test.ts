@@ -453,6 +453,19 @@ describe('loadConfig', () => {
     expect(r.apiUrl).toBe('http://localhost:8802')
   })
 
+  it('配置读不到不能当成空配置', () => {
+    fs.mkdirSync(path.join(tmpHome, '.ihui'), { recursive: true })
+    const file = path.join(tmpHome, '.ihui', 'settings.json')
+    fs.writeFileSync(file, JSON.stringify({ apiUrl: 'http://secret', permissionMode: 'strict' }))
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException
+      err.code = 'EACCES'
+      throw err
+    }
+    expect(() => loadConfig({ cwd: tmpCwd, stat: denied })).toThrow(/读不到/)
+    expect(fs.readFileSync(file, 'utf-8')).toContain('http://secret')
+  })
+
   it('project 层损坏也不阻塞', () => {
     fs.mkdirSync(path.join(tmpCwd, '.ihui'), { recursive: true })
     fs.writeFileSync(

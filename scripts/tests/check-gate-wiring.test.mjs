@@ -513,15 +513,11 @@ test('T13 装车证明:本门自己必须真在 runner 里 blocking,且 R4 真�
   assert.doesNotMatch(self, /R4\([^)\n]*仅报数/, 'R4 结论行仍写「仅报数」,与实现相反')
 
   // 文档可见性:本门不得只靠 README 表格里的一枚 incidental 提及活着。
-  // 2026-11-05:AGENTS.md 的「守门脚本速查」整节已迁到 docs/GATEKEEPERS.md §10,可见性判定必须同面扩到该文档,
-  // 否则本门自己的装车证明会因「条目在 GATEKEEPERS 里」而误红(实测改前 T13 即红)。
   const docs =
-    readFileSync(join(root, 'AGENTS.md'), 'utf8') +
-    readFileSync(join(root, 'README.md'), 'utf8') +
-    readFileSync(join(root, 'docs/GATEKEEPERS.md'), 'utf8')
+    readFileSync(join(root, 'AGENTS.md'), 'utf8') + readFileSync(join(root, 'README.md'), 'utf8')
   assert.ok(
     /^- \*\*.*\*\*\(89\)/m.test(docs) || /^## .*89/m.test(docs),
-    'AGENTS.md / docs/GATEKEEPERS.md 速查须有本门专属条目(标题含 (89))',
+    'AGENTS.md 速查须有本门专属条目(标题含 (89))',
   )
 })
 
@@ -993,92 +989,74 @@ test('T30 R13 形状锁:main() 必须接 findMergedEntries、吃 R8/R9 同一张
   assert.ok(!/opts\.strict/.test(block), 'red-r13 属结构性缺陷,默认档就必须判红 —— 挂 --strict 等于平时失明')
 })
 
-// ── 2026-11-05 R2 扩面:被审文档面 AGENTS.md ∪ docs/GATEKEEPERS.md ──
-// 背景(实测):「守门脚本速查」整节迁到 docs/GATEKEEPERS.md §10 后,R2 只把 AGENTS.md 条款喂给
-// findAgentsClaims ⇒ 声明只在该文档时改前 redR2=0(漏检),不是"照旧命中"。本条钉死扩面后的三条反向行为。
+// ── R3 登记面扩面(2026-11-05,治理债②「接」的一半)──────────────────────────
+// §22c:面枚举、台账归属计数、腐烂判据全部 import 源脚本 `__test__`,测试里一份判据都不抄。
 
-test('T31 R2 扩面①:声明只在 docs/GATEKEEPERS.md 且已接线 ⇒ 不得判红(不是恒红机)', () => {
-  const claims = G.collectR2Claims(
-    [
-      { doc: 'AGENTS.md', clauses: [] },
-      { doc: 'docs/GATEKEEPERS.md', clauses: ['- **守门**:`scripts/check-only-gk.mjs`(blocking,接入 runner 第 1 项)'] },
-    ],
-    'check-only-gk.mjs',
-  )
-  assert.equal(claims.length, 1, `扩面后应命中 1 条 GATEKEEPERS 声称(实得 ${claims.length})`)
-  assert.equal(claims[0].doc, 'docs/GATEKEEPERS.md')
-  assert.equal(
-    G.classifyGate({
-      name: 'check-only-gk.mjs',
-      strongPoints: ['runner'],
-      weakPoints: [],
-      headerClaims: [],
-      agentsClaims: claims,
-      allowEntry: null,
-    }).status,
-    'wired',
-    '已接线却因声明来自 GATEKEEPERS 被判红 ⇒ 扩面变成恒红门',
-  )
-  assert.deepEqual(G.R2_DOC_PATHS, ['AGENTS.md', 'docs/GATEKEEPERS.md'], 'R2 文档面常量必须恰为这两份')
+const R3_LS = [
+  'scripts/check-gate-shape.mjs',
+  'scripts/tool-cli.mjs',
+  'scripts/lib/check-inner.mjs',
+  'scripts/data/notes.json',
+  'scripts/run.ps1',
+  'scripts/other/x.mjs',
+].join('\n')
+
+test('T31 R3 扩面面枚举:scripts/ 直属全部 .mjs,门形与非门形同面;lib/ 与子目录与非 .mjs 排除', () => {
+  const face = G.filterR3FacePaths(R3_LS)
+  assert.deepEqual(face, ['check-gate-shape.mjs', 'tool-cli.mjs'], '扩面必须含非门形直属 .mjs,且排除 lib/子目录/非 mjs')
+  const gate = G.filterGatePaths(R3_LS)
+  assert.deepEqual(gate, ['check-gate-shape.mjs'], '门形档口径不得因扩面被改动(R1/R2/R4 候选集仍只认门形)')
 })
 
-test('T32 R2 扩面②:原扫描面(AGENTS.md)一份声明都没有、只在 GATEKEEPERS 有且五处零命中 ⇒ 必须判红', () => {
-  const claims = G.collectR2Claims(
-    [
-      { doc: 'AGENTS.md', clauses: [] },
-      { doc: 'docs/GATEKEEPERS.md', clauses: ['- **守门**:`scripts/check-gk-liar.mjs`(blocking,已接入 pre-commit 第 9 项)'] },
-    ],
-    'check-gk-liar.mjs',
-  )
-  assert.equal(claims.length, 1, `扩面后应命中 1 条(实得 ${claims.length});改前同一夹具为 0 ⇒ 漏检`)
-  assert.equal(
-    G.classifyGate({
-      name: 'check-gk-liar.mjs',
-      strongPoints: [],
-      weakPoints: [],
-      headerClaims: [],
-      agentsClaims: claims,
-      allowEntry: null,
-    }).status,
-    'red-r2',
-  )
-})
-
-test('T33 R2 扩面③:两份都在 ⇒ 同一句按原文去重只计 1 条、每门只报 1 枚 red-r2', () => {
-  const line = '- **守门**:`scripts/check-both-docs.mjs`(blocking,已接入 pre-commit 第 10 项)'
-  const claims = G.collectR2Claims(
-    [
-      { doc: 'AGENTS.md', clauses: [line] },
-      { doc: 'docs/GATEKEEPERS.md', clauses: [line] },
-    ],
-    'check-both-docs.mjs',
-  )
-  assert.equal(claims.length, 1, `两份同句必须去重为 1(实得 ${claims.length})`)
-  assert.equal(new Set(claims.map((c) => c.claim)).size, 1, '去重键必须是声称句原文')
-  const results = [
-    G.classifyGate({
-      name: 'check-both-docs.mjs',
-      strongPoints: [],
-      weakPoints: [],
-      headerClaims: [],
-      agentsClaims: claims,
-      allowEntry: null,
-    }),
+test('T32 R3 扩面·已登记条目命中未接集 ⇒ 计入 registered,不落 unregistered', () => {
+  const entries = [
+    { path: 'scripts/tool-cli.mjs', state: 'CLI-tool', reason: '人工 CLI 工具,判机器态', reviewBy: '2099-01-01' },
+    { path: 'scripts/check-gate-shape.mjs', state: 'should-wire', reason: '门形未接,待装 runner', wireTo: 'scripts/guardian-runner.mjs', reviewBy: '2099-01-01' },
   ]
-  assert.equal(results.filter((r) => r.status === 'red-r2').length, 1, '同一门只许 1 枚 red-r2,不得双报')
+  const s = G.summarizeR3Register(entries, ['check-gate-shape.mjs', 'tool-cli.mjs'], '2026-11-05')
+  assert.equal(s.registered, 2, '两枚都在未接集 ⇒ 都已登记')
+  assert.equal(s.unregisteredCount, 0, '登记命中后不得再报未登记')
+  assert.deepEqual(s.stale, [], '条目在未接集内不构成 stale')
+  assert.equal(s.expired.length, 0, 'reviewBy 未到期不报过期')
 })
 
-test('T34 R2 扩面装车锁:main() 必须同轮读入 docs/GATEKEEPERS.md 并走 collectR2Claims', () => {
-  const src = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'), 'utf8')
-  const main = src.slice(src.indexOf('async function main('), src.indexOf('// ─── self-test'))
-  assert.ok(main.length > 500, 'main() 区块取形失败 ⇒ 本条断言无牙')
-  assert.ok(
-    main.includes("docReader.read('docs/GATEKEEPERS.md')"),
-    'R2 扩面必须走同一 docReader(HEAD∪索引),不得另起一次工作区读取',
+test('T33 R3 台账腐烂(§0.7 验过才免):条目指向的脚本不在被审面 ⇒ 命中;在面/子目录路径不算腐烂', () => {
+  const tracked = new Set(['scripts/tool-cli.mjs', 'scripts/lib/inner.mjs'])
+  const entries = [
+    { path: 'scripts/gone.mjs' },
+    { path: 'scripts/tool-cli.mjs' },
+    { path: 'scripts/lib/inner.mjs' },
+    { path: 'scripts/lib/deleted.mjs' },
+    { path: 42 },
+  ]
+  assert.deepEqual(G.findR3RegisterRot(entries, tracked), ['scripts/gone.mjs'], '只有「scripts/ 直属 .mjs 且面上不存在」才是腐烂')
+  assert.deepEqual(G.findR3RegisterRot([], tracked), [], '空台账不命中(不得凭空造红)')
+  assert.deepEqual(
+    G.findR3RegisterRot(entries, new Set()),
+    ['scripts/gone.mjs', 'scripts/tool-cli.mjs'],
+    '面取不到(空 Set)时逐条都算不在面 ⇒ 绝不整批放行;上游 gateNames 为空已先行 exit,不留静默绿',
   )
-  assert.ok(main.includes('collectR2Claims(r2DocClauses, n)'), 'R2 判定必须吃两份文档的并集')
-  assert.equal((main.match(/findAgentsClaims\(agentsClauses, n\)/g) || []).length, 0, '禁止保留只扫 AGENTS.md 的旧路径')
 })
 
+test('T34 R3 档位形状锁:扩面唯一进 reds 的是 red-r3-rot,未登记只报数;候选集仍取门形 filterGatePaths', () => {
+  const src = readFileSync(join(fileURLToPath(new URL('.', import.meta.url)), '..', 'check-gate-wiring.mjs'), 'utf8')
+  const start = src.indexOf('R3 登记面扩面')
+  assert.ok(start > 0, '实现区的「R3 登记面扩面」锚点消失 ⇒ 本条断言无牙')
+  const seg = src.slice(start)
+  const faceBlock = seg.slice(0, seg.indexOf('const r3FaceRot'))
+  assert.ok(faceBlock.includes('filterR3FacePaths(lsTree)'), '扩面必须由 filterR3FacePaths 枚举,不得在 collect 里另写一份 ls-tree 过滤(§22c)')
+  assert.ok(faceBlock.includes('gitGrep(extraFaceNames'), '扩面命中判定必须复用五处权威点那支 gitGrep,不得复制第二份 grep 判据(§0.6)')
+  const upToR5 = seg.slice(0, seg.indexOf('// R5 重复 id'))
+  assert.equal(
+    (upToR5.match(/reds\.push\(/g) || []).length,
+    1,
+    'R3 扩面区块只允许一个 reds.push 点(rot);未登记/过期若被推进 reds 就是给 R3 升档(§12e 禁)',
+  )
+  assert.ok(/status: 'red-r3-rot'/.test(upToR5), 'rot 支必须以 red-r3-rot 进 reds(否则 §0.7 无人守)')
+  assert.ok(
+    src.includes('const gateNames = filterGatePaths(lsTree)'),
+    'R1/R2/R4 的被测全集必须仍是门形档 —— 扩面不得顺手把撒谎档也放大',
+  )
+})
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

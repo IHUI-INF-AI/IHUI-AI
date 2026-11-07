@@ -41,6 +41,9 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { runGuardianBatch } from './lib/guardian-executor.mjs'
 import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
+// BUG-55:档位判定的 git 派生此前用裸 'git',全仓已收口 resolveGitBin();PATH 不通时
+// 该调用恒失败被吞成 warn ⇒ 档位判定恒失败、退回全量档。改用绝对路径 git 二进制。
+import { resolveGitBin } from './lib/gitdir.mjs'
 
 
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
@@ -345,7 +348,7 @@ const checks = [
     script: 'check-sidebar-width-consistency.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/design-tokens/", "apps/web/src/styles/design-tokens.css", "apps/web/src/components/sidebar.tsx"],
+    stagedTriggers: ["packages/design-tokens/", "apps/web/src/styles/design-tokens.css", "apps/web/src/components/sidebar.tsx", "apps/web/src/components/sidebar/", "apps/web/src/components/layout/GlobalShell.tsx", "apps/web/app/globals.css", "apps/web/app/layout.tsx"],
   },
   {
     id: '25',
@@ -549,7 +552,9 @@ const checks = [
     id: '45',
     label: '🛡️  C 盘路径硬编码扫描(warn-only,AGENTS.md §26)',
     script: 'check-c-drive-paths.mjs',
-    args: [],
+    // 2026-11-04:此前无输入面直接返回空数组恒绿。现默认即真扫暂存区(--staged 为兼容别名);
+    // git 取面失败 / 文件读不到 = exit 2 未判定;空暂存区 = 0 不适用(对齐 check-file-size);warn 档不阻断。
+    args: ['--staged'],
     mode: 'warn',
     stagedTriggers: ["**/*"],
     onFailHint: [
@@ -945,23 +950,26 @@ const checks = [
       '',
     ].join('\n'),
   },
-  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门) ---
+  // --- 2f-cli (2026-07-28 新增,cli 端 5 语言 i18n parity 守门;2026-11-05 升 blocking) ---
   // check-cli-i18n-parity.mjs 是独立脚本(校验 packages/i18n/messages/cli/*.json),
-  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(59 keys/5 locales),
-  // 风险低,warn-only 起步,后续按需升级 blocking。
+  // 原未挂载 guardian-runner,CI 未自动跑。cli 端 i18n 体量小(511 keys/5 locales),
+  // 差值面现读为 0(head 与 staged 两面同绿),镜像测试 16 例含「一致→exit 0 / 漂移→exit 1」
+  // 成对夹具 ⇒ 按 §12e(存量归零即升档前置)升 blocking;取材面=磁盘,故配 skipEnv。
   {
     id: '2f-cli',
-    label: '🌐 cli i18n parity 守门(warn-only,2026-07-28 立)',
+    label: '🌐 cli i18n parity 守门(blocking,2026-11-05 由 warn 升档)',
     script: 'check-cli-i18n-parity.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CLI_I18N_PARITY',
     stagedTriggers: ["packages/i18n/messages/cli/"],
     onFailHint: [
       '',
       '  💡 cli 端 5 语言 i18n key 集合不一致。',
       '     修复:node scripts/check-cli-i18n-parity.mjs 查看详情,',
       '     补齐缺失 key 或删除多余 key,确保 zh-CN/zh-TW/en/ja/ko 5 语言 key 集合完全一致。',
-      '     cli 端 i18n 体量小(63 行),warn-only 起步,后续按需升级 blocking。',
+      '     cli 端 i18n 体量小(511 keys),新增状态词必须同批补齐 5 语言(AGENTS §19)。',
+      '     应急放行:HUSKY_SKIP_CLI_I18N_PARITY=1 git commit ...(不推荐;跳过会留痕)',
       '',
     ].join('\n'),
   },
@@ -2305,13 +2313,21 @@ const checks = [
   },
   {
     id: '86',
-    label: '🗂  verify-*.mjs 临时验证文件落点(warn,AGENTS §25 配套,补装)',
+    label: '🗂  一次性验证/探针脚本落点对账(verify-*.{mjs,ts} + tmp-*.{mjs,mts,ts,js},blocking,AGENTS §25 配套)',
     script: 'check-verify-tmp-files.mjs',
-    args: [],
-    mode: 'warn',
+    args: ['--strict'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_VERIFY_TMP_FILES',
     stagedTriggers: ["apps/"],
-    // 该脚本自身默认 warn-only(有警告也 exit 0),--strict 才阻断 ⇒ 放 CI 用 --strict。
-    // 这里保持 warn:§25 的原意是"提示层",升 blocking 会拦掉合法的 scripts/e2e-* 长期脚本。
+    // 升档留痕(2026-11-06,goal-b49 Z41):只翻档位字段(mode/skipEnv/args 的 --strict),
+    //   判据、阈值、覆盖面(射程仍由门体 STRAY_FORMS 登记表决定)一字未动 —— §12e 不许为升档削判据。
+    // 升档前置 = 现读实测存量 0:全量档 0 警告 + --strict exit 0 + --self-test 5 例全过 + 镜像 23 例全过;
+    //   前置不成立时本条目必须留在 warn,故复算入口就是上面那四条命令(数字现读,不采信转述)。
+    // args 必须同批带 --strict:该脚本自身默认 warn-only(有警告也 exit 0),--strict 才阻断 ⇒
+    //   只把 mode 写成 blocking 而不给 --strict,门永远翻不了红 = 判据当场不成立(§0.9);同型先例见 L3172 那条注释。
+    // 取材面 = 工作树文件系统(门体自行声明:"未跟踪"这一事实只在工作树面存在,HEAD/索引面结构上看不见),
+    //   故 §0.4 的 HEAD/索引两档不适用本门;扫描根缺失时 --strict 记 exit 2「未判定」,不冒充全绿(§0.3)。
+    // 旧注释"升 blocking 会拦掉合法 scripts/e2e-* 长期脚本"已随 Z40 扩面失效:豁免口径由门体登记表判定,与档位无关。
   },
   {
     id: '87',
@@ -4518,16 +4534,17 @@ const checks = [
   {
     id: '173',
     label:
-      '对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红)',
+      '对外文档数字对账(README/README.en 的生成块与散文声称必须等于 gen-doc-numbers 现算值;DN5 清单不变式:本轮引入 A/D/R/C 时 trackedFiles 必须同步,与是否触及 README 无关;其余数字判责时机=改动被审文档的那枚,未触及只报漂移数 —— 防恒红)',
     script: 'check-doc-numbers.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DOC_NUMBERS',
-    stagedTriggers: ['README.md', 'README.en.md'],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '刷新块: node scripts/gen-doc-numbers.mjs --markdown 替换 README 的 GENERATED NUMBERS 块(务必在 README 已在被审面上的那份面生成,否则 trackedFiles 天生差数);逐数来源: node scripts/gen-doc-numbers.mjs;连仓库简介一起问责: node scripts/check-doc-numbers.mjs --strict --description -',
       '本门只在触及 README.md/README.en.md 的轮次判红;未触及轮次打印的"漂移只报数"是"下次改 README 必须重跑生成块"的前置提醒,不构成跳门理由。',
+      '例外(DN5):本轮引入新增/删除/改名/复制文件时,生成块 trackedFiles 必须同步,与是否触及 README 无关 —— 改清单的那枚会直接红。',
       '红点绝大多数落在 README 的 END RECENT UPDATES 标记之后的旧版全文快照副本(现读 --strict 61098 条:标记之后占 61048,活性声明只占 45,另 5 条是生成块):那些副本记的是当时的账,批量按现算值逐行改写=把历史改成今天,不是结清(2026-10-31 实测一席的手写"收敛到绿"循环改了 23900 行,其中历史区 7217 行)。正解=先跑配套清偿器 node scripts/scrub-doc-numbers.mjs(默认 dry-run,--apply 才写盘),它复用本门自己的 CLAIMS 与生成块同源取值;整片快照的清偿属全仓维护债,不在逐行手改。',
       '',
     ].join('\n'),
@@ -5195,7 +5212,7 @@ const checks = [
   },
 
   // --- 217/218(2026-10-15/16 立;原注 213/214→214/215 两度与上游撞号让位顺延:213 已归盘根写入门、214 已归 ApiKeyPermission 三面对账;病理五类实锤/hex 取材口径逐字归档 .ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md §门214/215,2026-10-16 C1 腾行)---
-  { id: '217', label: '📐 mobile-rn sheet/弹窗 flex 弹性契约(bounded 容器内列表必须唯一弹性块,固定 chrome 不被压扁)', script: 'check-sheet-flex-contract.mjs', args: [], mode: 'blocking', stagedTriggers: ['apps/mobile-rn/src/'] },
+  { id: '217', label: '📐 mobile-rn sheet/弹窗 flex 弹性契约 + RN 百分比高度零容忍(bounded 容器内列表唯一弹性块 / R3 百分比只能走数值真相源)', script: 'check-sheet-flex-contract.mjs', args: [], mode: 'blocking', stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'scripts/lib/rn-percent-height-policy.mjs'] },
   {
     id: '218',
     label: '🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增)',
@@ -6246,14 +6263,22 @@ const checks = [
     stagedTriggers: [
       'packages/app/src/features/',
       'apps/mobile-rn/src/screens/',
+      // 2026-11-05 扩面:同一提取器/分类器覆盖 web 与小程序,新假重载按棘轮判红
+      'apps/web/',
+      'apps/miniapp-taro/src/',
       'scripts/check-retry-aliases.mjs',
+      'scripts/lib/retry-reload.mjs',
+      'scripts/data/retry-reload-baseline.jsonl',
+      // 2026-11-05 接线:门 296 台账(当时 runner 被 299-301 接线占用,现补)
+      'scripts/data/retry-reload-resolutions.jsonl',
       'scripts/check-cross-end-screen-coverage.mjs',
       'scripts/check-rn-host-shell-coverage.mjs',
     ],
     onFailHint: [
       '',
       '  💡 onRetry 必须绑定真重试回调;别名(onBack / onRefresh / onLoadMore / undefined / null)',
-      '     会把失败路径静默吞掉。共享屏与 RN 壳要同笔接上同一回调。',
+      '     会把失败路径静默吞掉。共享屏 / RN 壳 / web / 小程序要同笔接上同一回调。',
+      '     假重载(退出·翻页·清空)存量在 scripts/data/retry-reload-baseline.jsonl;新增即红。',
       '     复验:node scripts/check-retry-aliases.mjs --staged',
       '',
     ].join('\n'),
@@ -6279,6 +6304,31 @@ const checks = [
       '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
       '',
     ].join('\n'),
+  },
+  // 编号 298:旧 blob 回写守门(本侧独有;上游 293-297 已被 R3 五枚判据占用,按现读最大 + 1 顺延)。
+  // 有意回滚须提交正文写 `intentional-revert: <依据>`(≥8 字符),留痕
+  // .ihui-agent/state/intentional-revert.jsonl;无声明一律红。
+  {
+    id: '298',
+    label:
+      '🧊 旧 blob 回写守门(blocking:暂存内容等于该路径祖先 blob 有**四档**——逐字 / 去空白等值 / 标识符集合等值 / 工作树磁盘旧档——而 HEAD 已有更新档 ⇒ 拦提交;前三档射程=本票声明集,工作树臂提交时同射程、独立审计判全部;另按"疑退形态"报数不判红(§12e);有意回滚须写 intentional-revert: 依据)',
+    script: 'check-staged-downgrade.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: ['**/*'],
+    skipEnv: 'HUSKY_SKIP_STALE_DOWNGRADE',
+    onFailHint: [
+      '  💡 红 = 有人把旧检出档搬回暂存区/工作树(内容与某枚祖先提交的 blob 逐字相同,HEAD 已有新版本)。',
+      '     工作树臂(2026-11-05 补):索引已对齐 HEAD、磁盘仍是旧档 ⇒ 索引面恒绿,但下一次 git add 会固化回退。',
+      '     先看点名里的「祖先 sha」:git show <祖先sha> -- <路径> 对比 HEAD;改法是从 HEAD 形态重做本次编辑',
+      '     (git restore --source=HEAD -- <文件> 后重改),不要保留旧档。',
+      '     独立审计判全部工作树 M 路径:node scripts/check-staged-downgrade.mjs(提交钩子内按声明集收窄)。',
+      '  💡 确属有意回滚:提交正文写一行 `intentional-revert: <依据>`(≥8 字符),本门放行并留痕',
+      '     .ihui-agent/state/intentional-revert.jsonl。',
+      '     取证:node scripts/check-staged-downgrade.mjs --self-test(17 例:四档判据、工作树正反例、诚实边界、空口声明)',
+      '     镜像:node --test scripts/tests/check-staged-downgrade.test.mjs',
+      '     应急放行:HUSKY_SKIP_STALE_DOWNGRADE=1 git commit ...(不推荐;跳过会留痕)',
+  ].join('\n'),
   },
   // --- 工作流/部署脚本引用不存在的脚本(只读门,298)---
   {
@@ -6567,17 +6617,18 @@ const checks = [
     ].join('\n'),
   },
 
-  // --- 有界列表截断诚实 + 投递档位收口绊线(G-998100/G-998101,观察票 warn 起步)(1 项)---
+  // --- 有界列表截断诚实 + 投递档位收口绊线(G-998100/G-998101,2026-11-05 升 blocking)---
   {
     id: '197',
-    label: '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,warn)',
+    label: '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,blocking;2026-11-05 由 warn 升档)',
     script: 'check-truncation-accounting.mjs',
     args: [],
-    mode: 'warn',
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_TRUNCATION_ACCOUNTING',
     stagedTriggers: ['packages/', 'apps/api/src/', 'apps/ai-service/app/'],
     onFailHint: [
       '',
-      '  💡 有界列表截断诚实(票 G-998100/G-998101,观察档):',
+      '  💡 有界列表截断诚实(票 G-998100/G-998101,判红档 = --staged 棘轮:改到哪只咬哪):',
       '     ① truncated 声明块裸奔 = interface/type/z.object 块里数组成员 + truncated 却无计数/总量型',
       '        数值兄弟键 ⇒ 同块补 total/unlisted/omitted/… 计数键(正型:packages/types/src/api-contracts.ts',
       '        BoundedListProjection)。函数体/if 块里的同名局部不判。',
@@ -6586,7 +6637,9 @@ const checks = [
       '        终态逐字节一致测试)必须同期落地;字符串槽位/注释提及只报数不判红(绊线咬代码标识符)。',
       '     单独复验:node scripts/check-truncation-accounting.mjs --staged',
       '     自检:node scripts/check-truncation-accounting.mjs --self-test(23 例)',
+      '     镜像:node --test scripts/tests/check-truncation-accounting.test.mjs',
       '     全量档(HEAD 面)只报数恒 exit 0(棘轮:改到哪只咬哪);Python 面只报数不判。',
+      '     应急放行:HUSKY_SKIP_TRUNCATION_ACCOUNTING=1 git commit ...(不推荐;跳过会留痕)',
       '',
     ].join('\n'),
   },
@@ -7274,6 +7327,129 @@ const checks = [
       '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // --- 跨端漂移回归制(2026-11-06 立)------------------------------------------------------
+  // 立因:漂移尺/文案尺此前只有"只读体检"形态(存量非 0 ⇒ 恒 exit 1),只能靠人想起来跑,
+  // 结构上不在提交链上 —— 于是"攒新漂移"是无人工区。改法不是把存量一次性洗白(§12e 禁止),
+  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,commit 面只 advisory、
+  // push 面只对"相对基线新增/恶化"blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
+  // 取不到输入面(基线缺失/子对账器未判定/词包读不到)⇒ exit 2 未判定,不折 0、不记绿。
+  {
+    id: '302',
+    label:
+      '🧪 跨端漂移回归门(commit advisory:存量只报数;相对基线新增/恶化才报。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
+    script: 'check-cross-end-parity-drift.mjs',
+    args: ['--gate'],
+    mode: 'warn',
+    stagedTriggers: [
+      'packages/app/src/',
+      'apps/mobile-rn/src/',
+      'apps/web/',
+      'packages/i18n/',
+      'docs/engineering/rn-miniapp-parity-matrix.md',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/miniapp-key-retractions.jsonl',
+      'scripts/data/cross-end-allowed-diffs.json',
+      'scripts/data/cross-end-drift-gate-baseline.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
+    onFailHint: [
+      '  💡 红 = 本轮把某条跨端数字比基线做坏了(丢镜像/多腐烂/多未还原键/多非档值/多重复键)。',
+      '     先看点名维:掉下去的补回来,涨上去的查根因;确属新存量须改基线并在 PR 说明为何接受。',
+      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --json',
+      '     应急放行:HUSKY_SKIP_CROSS_END_DRIFT=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  {
+    id: '303',
+    label: '🗣️ 小程序↔RN 同名键文案漂移(commit advisory:相对基线新增未裁/形态坏/过期/腐烂或已裁净减才报)',
+    script: 'check-i18n-cross-end-wording.mjs',
+    args: ['--gate'],
+    mode: 'warn',
+    stagedTriggers: [
+      'packages/i18n/',
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/src/',
+      'scripts/data/i18n-cross-end-waivers.jsonl',
+      'scripts/data/i18n-cross-end-wording-baseline.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_CROSS_END_WORDING',
+    onFailHint: [
+      '  💡 新增漂移要么把两端文案改成同一键同一字,要么在 waivers 台账补裁定(reason≥20 字+expires)。',
+      '     取证:node scripts/check-i18n-cross-end-wording.mjs --gate --json',
+      '     应急放行:HUSKY_SKIP_CROSS_END_WORDING=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // S3:设计稿裁定"不能并入 291/299/218",独立成维但仍复用本门脚本(不新开脚本 ⇒ 不破 R4 文档门)。
+  // 平台专属资产(仅一端消费)按台账登记 consumption 证据保留原样,不硬改成"看起来纯"。
+  {
+    id: '304',
+    label: '🧬 共享层平台纯度 S3(裸 rpx/内联 var(--)/hoverClass/className 四信号按文件棘轮;未登记或上调即红)',
+    script: 'check-shared-layer-duplication.mjs',
+    args: ['--platform-purity', '--staged'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'packages/app/src/components/',
+      'scripts/data/shared-layer-platform-purity.jsonl',
+      'scripts/check-shared-layer-duplication.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SHARED_LAYER_PURITY',
+    onFailHint: [
+      '  💡 共享层新增平台写法:优先改成 RN 原语/design token;确属平台专属资产则登记台账',
+      '     scripts/data/shared-layer-platform-purity.jsonl(需 consumption 证据 file:line + owner + expires + why)。',
+      '     取证:node scripts/check-shared-layer-duplication.mjs --platform-purity --json',
+      '     应急放行:HUSKY_SKIP_SHARED_LAYER_PURITY=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- 空转生成器接成 --check/预演硬门(2026-11-06)------------------------------------------
+  // 只收"实跑与仓库现状一致"的三条;其余 5 条无安全无写入检查面或依赖外部凭据,
+  // 逐条分类与差量见 scripts/data/generator-convergence-baseline.json(未收敛清单,不硬接)。
+  {
+    id: '306',
+    label: '🧱 小程序 knip entry 同步(--check:受管块与页面/alias 源不一致即红)',
+    script: 'gen-knip-taro-entries.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/miniapp-taro/', 'knip.jsonc', 'scripts/gen-knip-taro-entries.mjs'],
+    skipEnv: 'HUSKY_SKIP_GEN_KNIP_TARO',
+    onFailHint: [
+      '  💡 页面/alias 变了但 knip.jsonc 受管块没跟上:node scripts/gen-knip-taro-entries.mjs --write',
+      '     应急放行:HUSKY_SKIP_GEN_KNIP_TARO=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  {
+    id: '307',
+    label: '🧰 AI 服务 tool-name 集合同步(--check:生成物与 TS 真相源不一致即红)',
+    script: 'gen-tool-name-sets.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    stagedTriggers: ['apps/ai-service/', 'scripts/gen-tool-name-sets.mjs'],
+    skipEnv: 'HUSKY_SKIP_GEN_TOOL_NAME_SETS',
+    onFailHint: [
+      '  💡 真相源改了但 apps/ai-service/app/data/tool_name_sets.json 没重生成:node scripts/gen-tool-name-sets.mjs',
+      '     应急放行:HUSKY_SKIP_GEN_TOOL_NAME_SETS=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  {
+    id: '308',
+    label: '🏗️ RN 宿主薄壳骨架预演(--all dry-run:共享屏缺 props 契约/缺壳即红;绝不落盘)',
+    script: 'gen-rn-shell-scaffold.mjs',
+    args: ['--all'],
+    mode: 'blocking',
+    stagedTriggers: [
+      'packages/app/src/features/',
+      'packages/app/src/components/',
+      'scripts/lib/cross-end-screen-props.mjs',
+      'scripts/data/rn-host-shell-manual.json',
+    ],
+    skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
+    onFailHint: [
+      '  💡 新共享屏缺 RN 壳或 props 契约取不到:先补契约/壳,或按 scripts/data/rn-host-shell-manual.json 登记判决。',
+      '     预演取证:node scripts/gen-rn-shell-scaffold.mjs --all(默认不落盘)',
+      '     应急放行:HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -7368,6 +7544,134 @@ const pushGateChecks = [
       '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
       '',
     ].join('\n'),
+  },
+  // ─── 2026-11-05 新增三门(299/300/301):按规则从 299 起向上取未占用号,禁用 285 ───
+  // 299:小程序「薄壳 vs 复制」形态门。射程 = 在册页目录(app.config.ts 决定在册)、映射表、
+  // 台账与门体自身;判据/材质见脚本头注与 scripts/lib/miniapp-shell-form.mjs。
+  {
+    id: '299',
+    label: '📦 小程序「薄壳 vs 复制」实现形态门(新增复制页即红;存量 93 页棘轮)',
+    script: 'check-miniapp-shell-form.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/miniapp-taro/src/pages/',
+      'apps/miniapp-taro/src/pkg-',
+      'apps/miniapp-taro/src/app.config.ts',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/miniapp-shell-copy-ledger.jsonl',
+      'scripts/check-miniapp-shell-form.mjs',
+      'scripts/lib/miniapp-shell-form.mjs',
+      'scripts/lib/gate-face.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_MINIAPP_SHELL_FORM',
+    onFailHint: [
+      '  💡 红 = 映射里声明为镜像/委托,页面却没 import 共享壳(自己复制了一份)。',
+      '     改法:页面改成薄壳(import @rn-shells/<Screen> 或映射登记的等价入口),或按批次收敛台账。',
+      '     取证:node scripts/check-miniapp-shell-form.mjs --explain ;台账 scripts/data/miniapp-shell-copy-ledger.jsonl',
+      '     应急放行:HUSKY_SKIP_MINIAPP_SHELL_FORM=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 300:API 端点「端内直拼」差异台账门。射程 = 三端 src 的调用面 + 共享端点清单 + 台账与门体。
+  {
+    id: '300',
+    label: '🔌 API 端点直拼差异台账门(新增端内独有前缀未登记即红)',
+    script: 'check-api-endpoint-delta.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/src/',
+      'apps/mobile-rn/src/',
+      'apps/miniapp-taro/src/',
+      'packages/api-client/src/endpoints/',
+      'scripts/data/api-endpoint-delta-ledger.jsonl',
+      'scripts/check-api-endpoint-delta.mjs',
+      'scripts/lib/api-endpoint-literals.mjs',
+      'scripts/lib/gate-face.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_API_ENDPOINT_DELTA',
+    onFailHint: [
+      '  💡 红 = 端内出现共享端点清单里没有的前缀,且台账没有新登记行。',
+      '     改法:改走 @ihui/api-client 的共享端点,或在 scripts/data/api-endpoint-delta-ledger.jsonl 登记',
+      '     baseline:false + verdict(非 pending)+ owner + reason(≥10 字)。',
+      '     取证:node scripts/check-api-endpoint-delta.mjs --explain',
+      '     应急放行:HUSKY_SKIP_API_ENDPOINT_DELTA=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // 301:web ↔ 小程序「直接路由尺」(共享屏承载列)。射程 = web 树、小程序在册路由、共享屏目录与台账。
+  {
+    id: '301',
+    label: '🗺️ web↔小程序共享屏承载路由门(新增缺承载/路由不存在/冲突即红)',
+    script: 'check-web-mp-route-carriers.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/web/',
+      'apps/miniapp-taro/src/app.config.ts',
+      'packages/app/src/features/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/data/cross-end-screen-registry.json',
+      'scripts/data/web-mp-route-carrier-ledger.jsonl',
+      'scripts/data/web-mp-route-carrier-legal.jsonl',
+      'scripts/check-web-mp-route-carriers.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS',
+    onFailHint: [
+      '  💡 红 = 共享屏有 web 路由但小程序缺承载/路由不存在/别名冲突。',
+      '     改法:补齐承载列或按台账登记合法例外;取证 node scripts/check-web-mp-route-carriers.mjs --explain',
+      '     应急放行:HUSKY_SKIP_WEB_MP_ROUTE_CARRIERS=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- push 收窄档:跨端漂移/文案/平台纯度 + 三条已收敛生成器(2026-11-06 立)--------------
+  // 与 commit 面同一判据、同一脚本,只是"是否阻断"不同:R5 要求 id 跨两数组唯一,故 push 档以 p 结尾。
+  // push 面不按 stagedTriggers 过滤(全目录只有 pre-push 一处),任何一次推送都会跑。
+  {
+    id: '302p',
+    label: '🧪 跨端漂移回归门(push blocking:相对基线新增/恶化即拦;存量只报数)',
+    script: 'check-cross-end-parity-drift.mjs',
+    args: ['--gate', '--push'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
+  },
+  {
+    id: '303p',
+    label: '🗣️ 小程序↔RN 文案漂移(push blocking:新增未裁/形态坏/过期/腐烂/已裁净减即拦)',
+    script: 'check-i18n-cross-end-wording.mjs',
+    args: ['--gate', '--push'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_CROSS_END_WORDING',
+  },
+  {
+    id: '304p',
+    label: '🧬 共享层平台纯度 S3(push blocking:未登记文件或四信号上调即拦)',
+    script: 'check-shared-layer-duplication.mjs',
+    args: ['--platform-purity'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_SHARED_LAYER_PURITY',
+  },
+  {
+    id: '306p',
+    label: '🧱 小程序 knip entry 同步(push blocking)',
+    script: 'gen-knip-taro-entries.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GEN_KNIP_TARO',
+  },
+  {
+    id: '307p',
+    label: '🧰 AI 服务 tool-name 集合同步(push blocking)',
+    script: 'gen-tool-name-sets.mjs',
+    args: ['--check'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GEN_TOOL_NAME_SETS',
+  },
+  {
+    id: '308p',
+    label: '🏗️ RN 宿主薄壳骨架预演(push blocking,不落盘)',
+    script: 'gen-rn-shell-scaffold.mjs',
+    args: ['--all'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
   },
 ]
 
@@ -7564,7 +7868,7 @@ let effectiveChecks = pushGate ? pushGateChecks : checks
 if (passStaged && !pushGate) {
   try {
     const stagedPaths = String(
-      execFileSync('git', ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
+      execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {
         encoding: 'utf8',
         cwd: process.cwd(),
         windowsHide: true,

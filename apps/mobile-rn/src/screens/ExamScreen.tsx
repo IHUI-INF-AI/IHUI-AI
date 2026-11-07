@@ -76,9 +76,9 @@ export function ExamScreen() {
     if (status === 'notStarted') return setToast(t('exam.notStarted'))
     if (exam.attemptCount >= exam.maxAttempts && exam.maxAttempts > 0)
       return setToast(t('exam.noAttemptsLeft'))
-    // 孤儿路由修复:ExamQuestion 注册无入口,「开始考试」走导航端口进答题页
-    // 目标与参数契约:ExamQuestion 已注册且必填 examId,与共享屏 onStart 的 ExamItem.id 兼容
-    onNavigate('ExamQuestion', { examId: exam.id })
+    // 门 301 还账(2026-11-06):「开始考试」先入「试卷介绍」RN 壳(ExamIntro),
+    // 由其 onStart 再进答题页 ExamQuestion;参数契约 id ↔ examId 在壳内转换
+    onNavigate('ExamIntro', { id: exam.id })
   }
 
   return (
@@ -93,7 +93,9 @@ export function ExamScreen() {
       onRefresh={() => load(true)}
       onStart={onStart}
       onBack={() => navigation.goBack()}
-      onRetry={() => { void load(); }}
+      onRetry={() => {
+        void load()
+      }}
       colorScheme={resolvedTheme}
     />
   )

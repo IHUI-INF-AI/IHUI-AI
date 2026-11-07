@@ -42,7 +42,7 @@ describe('formatBudgetNote', () => {
       KEYS,
     )
     expect(line).toBe(
-      `note[title=warnTitle,detail=usedTokens[used=85K,limit=100K]${BUDGET_DETAIL_SEPARATOR}85.3%${BUDGET_DETAIL_SEPARATOR}resetTomorrow${BUDGET_DETAIL_SEPARATOR}tier[tier=个人版]]`,
+      `note[title=warnTitle,detail=usedTokens[used=85.3K,limit=100K]${BUDGET_DETAIL_SEPARATOR}85.3%${BUDGET_DETAIL_SEPARATOR}resetTomorrow${BUDGET_DETAIL_SEPARATOR}tier[tier=个人版]]`,
     )
   })
 

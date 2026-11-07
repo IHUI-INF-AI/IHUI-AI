@@ -92,4 +92,51 @@ export async function createMemory(
   if (!entry) return { success: false, error: '记忆写入响应缺失条目' }
   return { success: true, data: entry }
 }
+
+/** 端内相对路径查询参数(基址由 fetchApi 全局配置托管) */
+export type MemoryQuery = Record<string, string | number | boolean | undefined | null>
+
+/** 列出统一记忆 — GET /api/memory */
+export async function listMemoryEntries<T = { entries: UnifiedMemoryEntry[] }>(
+  params: MemoryQuery = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/memory', { params })
+}
+
+/** 写入统一记忆 — POST /api/memory */
+export async function createMemoryEntry<T = { entry: UnifiedMemoryEntry }>(
+  body: object,
+): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/memory', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
+/** 单条记忆 — GET /api/memory/:id */
+export async function getMemoryEntry<T = unknown>(
+  id: string,
+  params: MemoryQuery = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/memory/${encodeURIComponent(id)}`, { params })
+}
+
+/** 删除记忆 — DELETE /api/memory/:id */
+export async function deleteMemoryEntry<T = unknown>(
+  id: string,
+  params: MemoryQuery = {},
+): Promise<ApiResult<T>> {
+  return fetchApi<T>(`/api/memory/${encodeURIComponent(id)}`, { method: 'DELETE', params })
+}
+
+/** 记忆状态 — GET /api/memory/status */
+export async function getMemoryStatus<T = unknown>(params: MemoryQuery = {}): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/memory/status', { params })
+}
+
+/** 记忆图谱 — GET /api/memory/graph */
+export async function getMemoryGraph<T = unknown>(params: MemoryQuery = {}): Promise<ApiResult<T>> {
+  return fetchApi<T>('/api/memory/graph', { params })
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

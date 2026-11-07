@@ -187,9 +187,13 @@ test('D7 契约锁:调度器读的键必须真存在于器物自己的返回形�
       },
     }),
     run: () => ({ ok: true, stdout: '' }),
+    // 2026-11-05 器物新增可注入dep `faceSkew`(面差让路判据)。本锁测的是"返回形状",
+    // 不测面差本身 ⇒ 这里给"全部可落"的替身;不这么做的后果是本锁随 packages/shared
+    // 在飞与否忽绿忽红(实测被真 git status 挡成 face-skew 一次)。面差自己的用例见 D8。
+    faceSkew: (targets) => ({ blocked: [], unjudged: [], buildable: [...targets] }),
   })
   // 器物第二轮复量走同一 read ⇒ 恒列同一包 ⇒ partial;这里只关心"有哪些键"
-  for (const k of ['state', 'targets', 'healed', 'still', 'why']) {
+  for (const k of ['state', 'targets', 'healed', 'still', 'why', 'blocked']) {
     assert.ok(k in shape, `器物返回里没有 ${k} ⇒ 调度日志读的是空气`)
   }
   assert.equal(shape.state, 'partial', '复量仍列出同一包 ⇒ 必须是 partial,不能记成 built')
@@ -197,6 +201,34 @@ test('D7 契约锁:调度器读的键必须真存在于器物自己的返回形�
     Array.isArray(shape.targets) && typeof shape.targets[0].pkg === 'string',
     'targets 必须是带 pkg 的条目',
   )
+})
+
+test('D8 面差让路契约:被挡的包进 blocked 且点名目录/脏数,一条 build 都不派(2026-11-05 立)', () => {
+  const seen = []
+  const shape = healer.healStaleDist({
+    apply: true,
+    read: () => ({
+      ok: true,
+      json: {
+        verdicts: {
+          reds: [{ pkg: '@ihui/types', fix: 'pnpm --filter @ihui/types build' }],
+          onlyReported: [],
+          stockOnly: [],
+        },
+      },
+    }),
+    run: (cmd, args) => (seen.push(String(args)), { ok: true, stdout: '' }),
+    faceSkew: (targets) => ({
+      blocked: targets.map((t) => ({ pkg: t.pkg, dir: 'packages/types', dirty: 9 })),
+      unjudged: [],
+      buildable: [],
+    }),
+  })
+  assert.equal(shape.state, 'face-skew', '全部目标被面差挡住 ⇒ 必须如实报让路,不能记 pending/built/partial')
+  assert.equal(seen.length, 0, '让路档一条 build 都不许派(白烧一次构建还每轮判 partial)')
+  assert.equal(shape.blocked[0].pkg, '@ihui/types')
+  assert.equal(shape.blocked[0].dir, 'packages/types', 'blocked 必须点名是哪个目录挡住')
+  assert.match(shape.why, /HEAD 面/, 'why 必须说清判据取哪一面 ⇒ 后人不会误当成"包真的建不出来"')
 })
 
 test('D6 装车锁:定义 + 调用挂巡检轮(排在样式派生之后)+ __test__ 出口 + 节流 env', (t) => {

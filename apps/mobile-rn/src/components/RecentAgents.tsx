@@ -3,21 +3,13 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * RecentAgents 最近使用智能体 (mobile-rn 端)
+ * RecentAgents 最近使用智能体 (mobile-rn 端适配层)
  *
- * 对齐 Uniapp 项目 RecentAgents.vue:
- * - 标题"最近使用"
- * - 横向 ScrollView 展示 agent 卡片列表(原:bg #f8f9fa 卡片 + 内边距)
- * - 每项:头像(80rpx → 40dp 圆角 8)+ 名称(24rpx → 12pt)
- * - 数据字段 1:1 兼容原项目 agentAvatar / agentName / agentId(缺失回退短字段 name / avatar / id)
- * - 点击 → onItemClick(item) 回调(登录校验 / type 3|5 付费模型 / source n8n 跳转均由调用方负责,预留)
- *
- * 类型零 any;圆角守门(无 rounded-full);无分割线(gap 间距);复用 design-tokens;禁用 purple/indigo。
+ * UI 已单源化到 features/agent-screen/AgentRecentUsed;
+ * 本文件只注入 RN 端文案 / 主题,并保留原有 props API 供 AgentScreen 使用。
  */
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native'
-import { tokens } from '../theme/active-tokens'
-
-import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { AgentRecentUsed } from '@ihui/rn-app/features/agent-screen/AgentRecentUsed'
+import { currentRnTheme } from '../theme/active-tokens'
 import { useI18n } from '../i18n'
 
 export interface RecentAgentItem {
@@ -41,91 +33,14 @@ export interface RecentAgentsProps {
 
 export default function RecentAgents({ items, onItemClick, defaultAvatar }: RecentAgentsProps) {
   const { t } = useI18n()
-  if (!items || items.length === 0) return null
-
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t('home.recentUsed')}</Text>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scroll}
-      >
-        {items.map((item, index) => {
-          const name = item.agentName ?? item.name ?? ''
-          const avatar = item.agentAvatar ?? item.avatar ?? defaultAvatar
-          const key = item.agentId ?? item.id ?? `${index}-${name}`
-          return (
-            <TouchableOpacity
-              key={key}
-              style={styles.item}
-              onPress={() => onItemClick(item)}
-              accessibilityRole="button"
-              accessibilityLabel={name}
-            >
-              {avatar ? (
-                <Image source={{ uri: avatar }} style={styles.avatar} />
-              ) : (
-                <View style={[styles.avatar, styles.avatarFallback]}>
-                  <Text style={styles.avatarText}>
-                    {name.trim().charAt(0).toUpperCase() || '?'}
-                  </Text>
-                </View>
-              )}
-              <Text style={styles.name} numberOfLines={1}>
-                {name}
-              </Text>
-            </TouchableOpacity>
-          )
-        })}
-      </ScrollView>
-    </View>
+    <AgentRecentUsed
+      items={items}
+      title={t('home.recentUsed')}
+      onItemClick={(item) => onItemClick(item as RecentAgentItem)}
+      colorScheme={currentRnTheme()}
+      defaultAvatar={defaultAvatar ?? null}
+    />
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: rnSpacing.md,
-    paddingVertical: rnSpacing.sm,
-  },
-  title: {
-    fontSize: rnType.title.size,
-    fontWeight: '700',
-    color: tokens.text.primary,
-    marginBottom: rnSpacing.sm,
-  },
-  scroll: {
-    gap: rnSpacing['sm-loose'],
-  },
-  item: {
-    alignItems: 'center',
-    minWidth: 60,
-    paddingVertical: rnSpacing['sm-loose'],
-    paddingHorizontal: 5,
-    borderRadius: rnRadius.xl,
-    backgroundColor: tokens.surface.muted,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: rnRadius.lg,
-    backgroundColor: tokens.surface.card,
-  },
-  avatarFallback: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: rnType.body.size,
-    fontWeight: '600',
-    color: tokens.text.primary,
-  },
-  name: {
-    marginTop: rnSpacing['xs-loose'],
-    maxWidth: 80,
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-  },
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

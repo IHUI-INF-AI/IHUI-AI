@@ -9,13 +9,20 @@
    行 label 14→28;价格 20→40/danger;权益标题 16→32;正文 14→28、行高 22→44;
    主 CTA 对齐 RN buyBtn(88rpx 高、30rpx 圆角、brand 底白字)。 */
 
+/* 第 5 批薄壳:ThemeRoot 作纵向 flex 容器,共享屏占余下高度,支付块/CTA 固定在下 */
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
 .page {
   min-height: 100vh;
   background: var(--color-background);
   padding-bottom: 120rpx;
 }
 .banner {
-  padding: var(--spacing-md) 20rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose);
 }
 .banner-title {
   font-size: var(--text-heading);
@@ -29,7 +36,7 @@
 }
 .plans {
   display: flex;
-  padding: var(--spacing-md) 20rpx;
+  padding: var(--spacing-md) var(--spacing-sm-loose);
   gap: var(--spacing-sm);
 }
 .plan {
@@ -53,7 +60,7 @@
   background: var(--color-danger);
   color: var(--color-danger-foreground);
   font-size: var(--text-badge);
-  padding: 2rpx 12rpx;
+  padding: 2rpx var(--spacing-xs-loose);
   border-radius: var(--radius-md);
 }
 .plan-name {
@@ -75,7 +82,7 @@
   text-decoration: line-through;
 }
 .rights {
-  margin: 0 20rpx;
+  margin: 0 var(--spacing-sm-loose);
   padding: var(--spacing-md-loose);
   background: var(--color-card);
   border: 1rpx solid var(--color-border);

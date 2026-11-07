@@ -50,11 +50,11 @@ export function CertificateScreen({
   const statusLabel = (status: CertificateStatus): string => {
     switch (status) {
       case 'issued':
-        return t('certificate.status.issued')
+        return t('certificate.detail.statusValid')
       case 'expired':
         return t('certificate.status.expired')
       case 'revoked':
-        return t('certificate.status.revoked')
+        return t('certificate.detail.statusRevoked')
       default:
         return status
     }
@@ -77,7 +77,10 @@ export function CertificateScreen({
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         >
           {items.length === 0 ? (
-            <EmptyState title={t('certificate.empty')} colorScheme={colorScheme} />
+            <EmptyState
+              title={t('certificate.download.noCertificates')}
+              colorScheme={colorScheme}
+            />
           ) : (
             items.map((item: CertificateItem) => (
               <PressableCard
@@ -98,7 +101,7 @@ export function CertificateScreen({
                   {item.courseName}
                 </Text>
                 <Text style={styles.cardDate}>
-                  {t('certificate.issuedDate')}: {item.issueDate}
+                  {t('certificate.detail.issueDate')}: {item.issueDate}
                 </Text>
                 {item.expiryDate ? (
                   <Text style={styles.cardDate}>

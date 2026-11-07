@@ -29,7 +29,6 @@ import type * as I18nModule from '../src/i18n'
 import { translate } from '@ihui/i18n/loader'
 import { messages } from '../src/i18n'
 
-type FetchInit = { method?: string; body?: string }
 type ApiResult =
   { success: true; data: unknown } | { success: false; error: string; status?: number }
 type AlertButton = { text?: string; onPress?: () => void; style?: string }
@@ -60,12 +59,29 @@ function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
   return { promise, resolve }
 }
 
-const api = vi.hoisted(() => ({
-  fetchApi: vi.fn(async (_url: string, _init?: FetchInit): Promise<unknown> => ({
+/**
+ * 共享端点替身:调用点已改走 @ihui/api-client 的领域函数 ⇒ 断言读各函数的入参,
+ * 不再拼 URL(方法/路径已在共享层钉死,端侧可见的只有「打了哪个端点、带了什么参数」)。
+ */
+const api = vi.hoisted(() => {
+  const impl = async (_a?: unknown, _b?: unknown): Promise<unknown> => ({
     success: true as const,
     data: { list: [] },
-  })),
-}))
+  })
+  return {
+    eduAttendanceList: vi.fn(impl),
+    eduAttendanceStats: vi.fn(impl),
+    eduAttendanceCheckIn: vi.fn(impl),
+    eduAttendanceCheckOut: vi.fn(impl),
+    eduAttendanceBatchCheckIn: vi.fn(impl),
+    eduMyAttendance: vi.fn(impl),
+    eduAttendanceSelfCheckIn: vi.fn(impl),
+    eduParentChildAttendance: vi.fn(impl),
+    eduClassList: vi.fn(impl),
+    eduAttendanceQrcode: vi.fn(impl),
+    eduAttendanceQrcodeCheckIn: vi.fn(impl),
+  }
+})
 
 /** 替身捕获面:断言只读这些记录,不读组件内部状态。 */
 const h = vi.hoisted(() => ({
@@ -83,7 +99,7 @@ const h = vi.hoisted(() => ({
   authed: true,
 }))
 
-vi.mock('@ihui/api-client', () => ({ fetchApi: api.fetchApi }))
+vi.mock('@ihui/api-client', () => api)
 
 // ---- 宿主替身 -----------------------------------------------------------------
 vi.mock('react-native', () => {
@@ -103,6 +119,8 @@ vi.mock('react-native', () => {
   return {
     Appearance: { getColorScheme: () => 'light', addChangeListener: () => ({ remove() {} }) },
     useColorScheme: () => 'light',
+    // use-dialog-height 走 useWindowDimensions;替身缺这一项会让整屏挂载即抛。
+    useWindowDimensions: () => ({ width: 390, height: 844, scale: 2, fontScale: 1 }),
     View: mk('div'),
     Text: mk('span'),
     Pressable: mk('button'),
@@ -169,6 +187,9 @@ vi.mock('@ihui/rn-app', () => ({
   getTokens: () => ({
     surface: { bg: '#ffffff', card: '#fafafa' },
     brand: { cta: '#000000', ctaForeground: '#ffffff' },
+    // 出码屏选中态胶囊的描边走 brandAccent.deep(2026-09-26 规矩:本项目没有纯黑描边),
+    // token mock 必须带上,否则 createQrStyles 在 mount 期就 TypeError。
+    brandAccent: { deep: '#4a7a96' },
     text: { primary: '#111111', secondary: '#666666' },
     border: { light: '#eeeeee' },
     error: { text: '#cc0000' },
@@ -248,24 +269,8 @@ import {
   EduAttendanceQrScreen,
   EduAttendanceScanScreen,
 } from '../src/screens/EduAttendanceQrScreen'
-// 统计路径与 URL 口径一律取源出口,测试不复算(§22c 禁止第二份判据)
-import {
-  ATTENDANCE_STATS_PATH as STATS_URL,
-  attendanceStatsUrl,
-} from '../src/components/edu-attendance-stats'
-
-const LIST_URL = '/api/edu-ai-management/attendance'
-const LIST_QUERY = `${LIST_URL}?`
-const ME_URL = `${LIST_URL}/me`
-const CHECK_IN_URL = `${LIST_URL}/check-in`
-const CHECK_OUT_URL = `${LIST_URL}/check-out`
-const BATCH_URL = `${LIST_URL}/batch-check-in`
-const SELF_URL = `${LIST_URL}/self-check-in`
-const SELF_OUT_URL = `${LIST_URL}/self-check-out`
-const QR_URL = `${LIST_URL}/qrcode`
-const QR_SCAN_URL = `${LIST_URL}/qrcode-check-in`
-const CLASS_URL = '/api/edu-ai-management/class'
-const CHILD_URL = '/api/edu-ai-management/parent/child/child-1/attendance'
+// 统计参数口径一律取源出口,测试不复算(§22c 禁止第二份判据)
+import { attendanceStatsParams } from '../src/components/edu-attendance-stats'
 
 const zhKey = (path: string, params?: Record<string, string | number>): string => {
   const v = translate(messages['zh-CN'], path, { params, locale: 'zh-CN' })
@@ -273,28 +278,23 @@ const zhKey = (path: string, params?: Record<string, string | number>): string =
   return v
 }
 
-const urls = (): string[] => api.fetchApi.mock.calls.map((c) => String(c[0]))
-const callsWith = (url: string): Array<[string, FetchInit | undefined]> =>
-  api.fetchApi.mock.calls
-    .filter(([u]) => String(u) === url || String(u).startsWith(`${url}?`))
-    .map(([u, init]) => [String(u), init as FetchInit | undefined])
-/** 列表取数 = 带 query 的那一条;必须与 /attendance/check-in 等写端点严格分开数 */
-const listCalls = (): number =>
-  api.fetchApi.mock.calls.filter(([u]) => String(u).startsWith(LIST_QUERY)).length
-/** 统计区取数:与列表严格分开数(`/attendance?` 与 `/attendance/stats?` 前缀不重叠) */
-const statsCalls = (): number =>
-  api.fetchApi.mock.calls.filter(([u]) => String(u).startsWith(`${STATS_URL}?`)).length
+/** 列表取数次数(教师屏只有一枚列表端点) */
+const listCalls = (): number => api.eduAttendanceList.mock.calls.length
+/** 统计区取数次数:与列表严格分开数 */
+const statsCalls = (): number => api.eduAttendanceStats.mock.calls.length
+/** 全部端点替身的调用总次数:钉「没多发请求」用这一个读数 */
+const allCalls = (): number => Object.values(api).reduce((n, fn) => n + fn.mock.calls.length, 0)
 /**
  * 挂载期取数面的等价强度断言。旧形态是「总共只发 1 次」——统计区上线后那个 1 已是假前提,
- * 收窄成三条同强度:列表恰好 1 次 ∧ 统计恰好 1 次 ∧ 没有第三种 URL。禁止改成 toBeGreaterThan。
+ * 收窄成三条同强度:列表恰好 1 次 ∧ 统计恰好 1 次 ∧ 其余端点一次都没打。禁止改成 toBeGreaterThan。
  */
 const assertMountFetches = (label: string): void => {
   expect(listCalls(), `${label}:列表取数不是恰好一次`).toBe(1)
   expect(statsCalls(), `${label}:统计取数不是恰好一次`).toBe(1)
-  expect(
-    urls().filter((u) => !u.startsWith(LIST_QUERY) && !u.startsWith(`${STATS_URL}?`)),
-    `${label}:多发了第三种请求`,
-  ).toEqual([])
+  const others = Object.entries(api)
+    .filter(([name]) => name !== 'eduAttendanceList' && name !== 'eduAttendanceStats')
+    .flatMap(([name, fn]) => fn.mock.calls.map(() => name))
+  expect(others, `${label}:多打了第三种端点`).toEqual([])
 }
 const lastAlert = (): { title: string; message?: string; buttons?: AlertButton[] } => {
   const a = h.alerts.at(-1)
@@ -321,8 +321,10 @@ const resetCapture = (): void => {
   h.authed = true
   h.permission = { granted: true, status: 'granted', canAskAgain: true }
   h.authUser.user = { id: 'stu-own' }
-  api.fetchApi.mockReset()
-  api.fetchApi.mockImplementation(async () => ok({ list: [] }))
+  for (const fn of Object.values(api)) {
+    fn.mockReset()
+    fn.mockImplementation(async () => ok({ list: [] }))
+  }
 }
 
 /**
@@ -341,11 +343,11 @@ const teacherRow = (over: Record<string, unknown> = {}) => ({
   ...over,
 })
 const latestRows = (): LocalRowView[] => (h.tables.at(-1)?.rows as LocalRowView[] | undefined) ?? []
-/** 某写端点首次请求的 payload(取不到即尺子失效,不用空对象冒充"没带 status") */
-const firstBody = (url: string): Record<string, unknown> => {
-  const body = callsWith(url)[0]?.[1]?.body
-  if (!body) throw new Error(`${url} 没有请求体 ⇒ 尺子失效`)
-  return JSON.parse(body) as Record<string, unknown>
+/** 某端点首次请求的入参(取不到即尺子失效,不用空对象冒充"没带参数") */
+const firstArg = (fn: { mock: { calls: Array<Array<unknown>> } }): Record<string, unknown> => {
+  const arg = fn.mock.calls[0]?.[0]
+  if (!arg || typeof arg !== 'object') throw new Error('端点首次调用没带参数 ⇒ 尺子失效')
+  return arg as Record<string, unknown>
 }
 
 describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
@@ -354,28 +356,29 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     resetCapture()
   })
 
-  it('① 挂载只发一次取列表,路径与 date 参数逐字正确(UTC+8 业务日)', async () => {
-    api.fetchApi.mockImplementation(async () => ok({ list: [teacherRow()] }))
+  it('① 挂载只发一次取列表,date 参数逐字正确(UTC+8 业务日)', async () => {
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [teacherRow()] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
-    expect(urls()[0]).toBe(`${LIST_URL}?date=${todayShanghai()}`)
-    expect(callsWith(LIST_URL)[0]?.[1], '取列表不该带请求选项(方法/请求体)').toBeUndefined()
+    expect(api.eduAttendanceList.mock.calls[0]?.[0]).toEqual({ date: todayShanghai() })
+    expect(api.eduAttendanceList.mock.calls[0], '取列表不该带第二参数(方法/请求体)').toHaveLength(
+      1,
+    )
     await settle()
     assertMountFetches('挂载期')
     // 统计区必须按「当日 + 首行班级」取数(口径来自源出口,测试不复算日期窗口)
     expect(
-      urls().find((u) => u.startsWith(`${STATS_URL}?`)),
-      '统计取数的 URL 与源出口算出的不一致',
-    ).toBe(attendanceStatsUrl({ date: todayShanghai(), classId: 'cls-1' }))
+      api.eduAttendanceStats.mock.calls[0]?.[0],
+      '统计取数的参数与源出口算出的不一致',
+    ).toEqual(attendanceStatsParams({ date: todayShanghai(), classId: 'cls-1' }))
     expect(screen.getByText(zhKey('eduAttendance.status.absent'))).toBeTruthy()
     // 阳性对照:同一把尺子在真有条目时确实读到了行(上一条不是恒真)
     expect(latestRows()[0]?.cells['student']).toBe('stu-1')
   })
 
   it('⑥ 统计区挂掉不带走列表区:失败当场回显且列表照常可操作(正反成对)', async () => {
-    api.fetchApi.mockImplementation(async (url) =>
-      String(url).startsWith(`${STATS_URL}?`) ? fail('boom') : ok({ list: [teacherRow()] }),
-    )
+    api.eduAttendanceStats.mockImplementation(async () => fail('boom'))
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [teacherRow()] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
     await waitFor(() =>
@@ -387,17 +390,15 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
     // 正向对照:同一把尺子在统计成功时必须读不到那条回显 ⇒ 上一条不是恒真
     cleanup()
     resetCapture()
-    api.fetchApi.mockImplementation(async () => ok({ list: [teacherRow()] }))
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [teacherRow()] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(listCalls()).toBe(1))
     await settle()
     expect(screen.queryByText(new RegExp(zhKey('eduAttendance.loadStatsFailed')))).toBeNull()
   })
 
-  it('②④⑤ 行操作「签到」= POST check-in,payload 取自服务端行且不含 status;成功后重取列表', async () => {
-    api.fetchApi.mockImplementation(async (url) =>
-      url.startsWith(LIST_QUERY) ? ok({ list: [teacherRow()] }) : ok({ id: 'rec-1' }),
-    )
+  it('②④⑤ 行操作「签到」= 打 check-in 端点,payload 取自服务端行且不含 status;成功后重取列表', async () => {
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [teacherRow()] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
     fireEvent.click(screen.getByText('stu-1'))
@@ -405,42 +406,39 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
       zhKey('eduAttendance.chooseAction'),
     )
     pressButton(zhKey('eduAttendance.checkIn'))
-    await waitFor(() => expect(callsWith(CHECK_IN_URL).length, '没发出 check-in 请求').toBe(1))
-    const [url, init] = callsWith(CHECK_IN_URL)[0]!
-    expect(url).toBe(CHECK_IN_URL)
-    expect(init?.method).toBe('POST')
-    expect(firstBody(CHECK_IN_URL)).toEqual({
+    await waitFor(() =>
+      expect(api.eduAttendanceCheckIn.mock.calls.length, '没发出 check-in 请求').toBe(1),
+    )
+    expect(firstArg(api.eduAttendanceCheckIn)).toEqual({
       studentId: 'stu-1',
       classId: 'cls-1',
       date: todayShanghai(),
     })
     expect(
-      Object.keys(firstBody(CHECK_IN_URL)),
+      Object.keys(firstArg(api.eduAttendanceCheckIn)),
       '状态由服务端按该班规则现算 ⇒ 代签 payload 不得再自报 status',
     ).not.toContain('status')
     expect(lastAlert().message).toBe(zhKey('eduAttendance.actionDone'))
     await waitFor(() => expect(listCalls(), '签到成功后没回读列表').toBe(2))
-    expect(callsWith(CHECK_OUT_URL), '签到不该顺带发签退').toHaveLength(0)
+    expect(api.eduAttendanceCheckOut.mock.calls, '签到不该顺带发签退').toHaveLength(0)
   })
 
-  it('②⑤ 签退 = PUT check-out(date 是记录定位键、payload 不含 status);被服务端拒时后端 message 上屏且不重取列表', async () => {
+  it('②⑤ 签退 = 打 check-out 端点(date 是记录定位键、payload 不含 status);被服务端拒时后端 message 上屏且不重取列表', async () => {
     const reason = '该学生今天还没有签到记录'
-    api.fetchApi.mockImplementation(async (url) =>
-      url.startsWith(LIST_QUERY) ? ok({ list: [teacherRow()] }) : fail(reason, 400),
-    )
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [teacherRow()] }))
+    api.eduAttendanceCheckOut.mockImplementation(async () => fail(reason, 400))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
     fireEvent.click(screen.getByText('stu-1'))
     pressButton(zhKey('eduAttendance.checkOut'))
-    await waitFor(() => expect(callsWith(CHECK_OUT_URL).length).toBe(1))
-    expect(callsWith(CHECK_OUT_URL)[0]?.[1]?.method).toBe('PUT')
-    expect(firstBody(CHECK_OUT_URL)).toEqual({
+    await waitFor(() => expect(api.eduAttendanceCheckOut.mock.calls.length).toBe(1))
+    expect(firstArg(api.eduAttendanceCheckOut)).toEqual({
       studentId: 'stu-1',
       classId: 'cls-1',
       date: todayShanghai(),
     })
     expect(
-      Object.keys(firstBody(CHECK_OUT_URL)),
+      Object.keys(firstArg(api.eduAttendanceCheckOut)),
       '签退后状态由服务端重判 ⇒ 端上不得自报 status',
     ).not.toContain('status')
     expect(lastAlert().message, '失败必须把后端 message 原样上屏').toContain(reason)
@@ -452,23 +450,21 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
 
   it('⑤ 跨日行:代签当场点名并拒发 check-in,同一行的签退照发且带行自己的 date', async () => {
     const stale = yesterdayShanghai()
-    api.fetchApi.mockImplementation(async (url) =>
-      url.startsWith(LIST_QUERY)
-        ? ok({ list: [teacherRow({ date: stale })] })
-        : ok({ id: 'rec-1' }),
-    )
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [teacherRow({ date: stale })] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
     fireEvent.click(screen.getByText('stu-1'))
     pressButton(zhKey('eduAttendance.checkIn'))
     expect(lastAlert().message).toBe(zhKey('eduAttendance.onlyTodayCheckIn'))
-    expect(callsWith(CHECK_IN_URL), '非当日行却发出了代签请求(新契约下必 400)').toHaveLength(0)
+    expect(api.eduAttendanceCheckIn.mock.calls, '非当日行却发出了代签请求(新契约下必 400)').toHaveLength(
+      0,
+    )
     expect(listCalls()).toBe(1)
     // 阳性对照:同一实例上「签退」这一腿没被同一条护栏误伤 ⇒ 上一条的 0 不是恒真
     fireEvent.click(screen.getByText('stu-1'))
     pressButton(zhKey('eduAttendance.checkOut'))
-    await waitFor(() => expect(callsWith(CHECK_OUT_URL).length).toBe(1))
-    expect(firstBody(CHECK_OUT_URL)).toEqual({
+    await waitFor(() => expect(api.eduAttendanceCheckOut.mock.calls.length).toBe(1))
+    expect(firstArg(api.eduAttendanceCheckOut)).toEqual({
       studentId: 'stu-1',
       classId: 'cls-1',
       date: stale,
@@ -485,7 +481,7 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
       absent: 'danger',
       leave: 'muted',
     }
-    api.fetchApi.mockImplementation(async () =>
+    api.eduAttendanceList.mockImplementation(async () =>
       ok({
         list: order.map((s, i) => teacherRow({ id: `rec-${i}`, studentId: `stu-${i}`, status: s })),
       }),
@@ -506,38 +502,37 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
   })
 
   it('② 缺 classId 的行:当场点名缺班级并拒发请求(副作用没发生)', async () => {
-    api.fetchApi.mockImplementation(async () => ok({ list: [teacherRow({ classId: null })] }))
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [teacherRow({ classId: null })] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
     fireEvent.click(screen.getByText('stu-1'))
     pressButton(zhKey('eduAttendance.checkIn'))
     expect(lastAlert().message).toBe(zhKey('eduAttendance.needClassId'))
-    expect(callsWith(CHECK_IN_URL), '缺班级却发出了代签请求').toHaveLength(0)
+    expect(api.eduAttendanceCheckIn.mock.calls, '缺班级却发出了代签请求').toHaveLength(0)
     expect(listCalls()).toBe(1)
   })
 
   it('②④⑤ 整班点名成功后重新取列表,回读到达前界面仍是旧值(无乐观更新)', async () => {
     const second = deferred<unknown>()
     let hits = 0
-    api.fetchApi.mockImplementation(async (url) => {
-      if (url.startsWith(BATCH_URL)) return ok({ created: 1, skipped: 0, missedIds: [] })
-      if (url.startsWith(LIST_QUERY)) {
-        hits += 1
-        return hits === 1 ? ok({ list: [teacherRow()] }) : second.promise
-      }
-      return ok(null)
+    api.eduAttendanceBatchCheckIn.mockImplementation(async () =>
+      ok({ created: 1, skipped: 0, missedIds: [] }),
+    )
+    api.eduAttendanceList.mockImplementation(async () => {
+      hits += 1
+      return hits === 1 ? ok({ list: [teacherRow()] }) : second.promise
     })
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(screen.getByText('stu-1')).toBeTruthy())
     fireEvent.click(screen.getByText(zhKey('eduAttendance.batchTitle')))
     pressButton('cls-1')
-    await waitFor(() => expect(callsWith(BATCH_URL).length).toBe(1))
-    expect(JSON.parse(callsWith(BATCH_URL)[0]![1]?.body ?? '{}')).toEqual({
+    await waitFor(() => expect(api.eduAttendanceBatchCheckIn.mock.calls.length).toBe(1))
+    expect(firstArg(api.eduAttendanceBatchCheckIn)).toEqual({
       classId: 'cls-1',
       date: todayShanghai(),
     })
     expect(
-      Object.keys(firstBody(BATCH_URL)),
+      Object.keys(firstArg(api.eduAttendanceBatchCheckIn)),
       '点名状态由服务端现算 ⇒ payload 不得带 status',
     ).not.toContain('status')
     await waitFor(() => expect(listCalls(), '点名后没重新取列表').toBe(2))
@@ -554,25 +549,25 @@ describe('考勤屏 · 教师侧 EduAttendanceScreen', () => {
   })
 
   it('④ 无可选班级时拒发点名请求并当场点名(而不是发一个空 classId)', async () => {
-    api.fetchApi.mockImplementation(async () => ok({ list: [] }))
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(listCalls()).toBe(1))
     fireEvent.click(screen.getByText(zhKey('eduAttendance.batchTitle')))
     expect(lastAlert().message).toBe(zhKey('eduAttendance.noClass'))
-    expect(callsWith(BATCH_URL)).toHaveLength(0)
+    expect(api.eduAttendanceBatchCheckIn.mock.calls).toHaveLength(0)
   })
 
   it('① 二维码入口只做导航,挂载不因它多发请求', async () => {
-    api.fetchApi.mockImplementation(async () => ok({ list: [] }))
+    api.eduAttendanceList.mockImplementation(async () => ok({ list: [] }))
     render(createElement(EduAttendanceScreen))
     await waitFor(() => expect(listCalls()).toBe(1))
     await settle()
-    const mountTotal = api.fetchApi.mock.calls.length
+    const mountTotal = allCalls()
     assertMountFetches('挂载期')
     fireEvent.click(screen.getByText(zhKey('eduAttendance.qrEntry')))
     expect(h.navigations).toEqual(['EduAttendanceQr'])
     // 牙不弱化:入口不得新增任何一次请求(基线由上一条断言钉成 列表1+统计1)
-    expect(api.fetchApi.mock.calls.length, '点二维码入口多发了请求').toBe(mountTotal)
+    expect(allCalls(), '点二维码入口多发了请求').toBe(mountTotal)
   })
 })
 
@@ -583,17 +578,20 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
   })
 
   it('①③ 挂载只发一次 attendance/me;调用方塞进来的 studentId 既不当依据也不上送', async () => {
-    api.fetchApi.mockImplementation(async () =>
+    api.eduMyAttendance.mockImplementation(async () =>
       ok({ list: [{ ...teacherRow(), studentId: 'stu-own', status: 'present' }] }),
     )
     // 以「调用方能传参」的形态渲染:组件本身不收 props,任何被用掉的 studentId 都会出现在请求里
     const Loose = EduMyAttendanceScreen as unknown as (p: { studentId?: string }) => ReactNode
     render(createElement(Loose, { studentId: 'other-stu-999' }))
-    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
-    expect(urls()[0]).toBe(`${ME_URL}?date=${todayShanghai()}`)
+    await waitFor(() => expect(api.eduMyAttendance.mock.calls.length).toBe(1))
+    expect(api.eduMyAttendance.mock.calls[0]?.[0]).toEqual({ date: todayShanghai() })
     await settle()
-    expect(api.fetchApi.mock.calls, '挂载期多发了一次取列表').toHaveLength(1)
-    const wire = JSON.stringify(api.fetchApi.mock.calls)
+    expect(allCalls(), '挂载期多发了一次取列表').toBe(1)
+    const wire = JSON.stringify([
+      api.eduMyAttendance.mock.calls,
+      api.eduAttendanceSelfCheckIn.mock.calls,
+    ])
     expect(wire, '客户端把 studentId 当查询依据 ⇒ 越权面').not.toContain('studentId')
     expect(wire).not.toContain('other-stu-999')
     expect(wire, '身份不得由客户端自报').not.toContain('stu-own')
@@ -606,31 +604,29 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
     )
   })
 
-  it('②④⑤ 自签 = POST self-check-in,body 只有当日 date(无 status);成功后回读列表', async () => {
-    api.fetchApi.mockImplementation(async (url) =>
-      url.startsWith(ME_URL) ? ok({ list: [] }) : ok({ classId: 'cls-1', status: 'late' }),
-    )
+  it('②④⑤ 自签 = 打 self-check-in 端点,入参只有当日 date(无 status);成功后回读列表', async () => {
+    api.eduMyAttendance.mockImplementation(async () => ok({ list: [] }))
+    api.eduAttendanceSelfCheckIn.mockImplementation(async () => ok({ classId: 'cls-1', status: 'late' }))
     render(createElement(EduMyAttendanceScreen))
-    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
+    await waitFor(() => expect(api.eduMyAttendance.mock.calls.length).toBe(1))
     fireEvent.click(screen.getByText(zhKey('eduMyAttendance.selfCheckIn')))
-    await waitFor(() => expect(callsWith(SELF_URL).length).toBe(1))
-    expect(callsWith(SELF_URL)[0]?.[1]?.method).toBe('POST')
-    expect(firstBody(SELF_URL)).toEqual({ date: todayShanghai() })
+    await waitFor(() => expect(api.eduAttendanceSelfCheckIn.mock.calls.length).toBe(1))
+    expect(firstArg(api.eduAttendanceSelfCheckIn)).toEqual({ date: todayShanghai() })
     expect(
-      Object.keys(firstBody(SELF_URL)),
+      Object.keys(firstArg(api.eduAttendanceSelfCheckIn)),
       '自签状态由服务端现算 ⇒ payload 不得带 status',
     ).not.toContain('status')
     expect(lastAlert().message).toContain(zhKey('eduAttendance.actionDone'))
     expect(lastAlert().message).toContain(zhKey('eduAttendance.status.late'))
-    await waitFor(() => expect(callsWith(ME_URL).length, '自签成功后必须回读列表').toBe(2))
+    await waitFor(() => expect(api.eduMyAttendance.mock.calls.length, '自签成功后必须回读列表').toBe(2))
   })
 
   it('⑤ 本人页渲染早退档:与教师屏同一色档、同一词表(不各写一份映射)', async () => {
-    api.fetchApi.mockImplementation(async () =>
+    api.eduMyAttendance.mockImplementation(async () =>
       ok({ list: [{ ...teacherRow(), studentId: 'stu-own', status: 'early' }] }),
     )
     render(createElement(EduMyAttendanceScreen))
-    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
+    await waitFor(() => expect(api.eduMyAttendance.mock.calls.length).toBe(1))
     expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.early'))
     expect(latestRows()[0]?.badgeTone, '早退落到默认档 = 与未知状态同色').toBe('warn')
   })
@@ -639,91 +635,24 @@ describe('考勤屏 · 学生本人 EduMyAttendanceScreen', () => {
     h.authUser.user = null
     render(createElement(EduMyAttendanceScreen))
     await waitFor(() => expect(screen.getByText(zhKey('eduMyAttendance.notLoggedIn'))).toBeTruthy())
-    expect(api.fetchApi.mock.calls, '未登录仍发了取列表请求').toHaveLength(0)
+    expect(allCalls(), '未登录仍发了取列表请求').toBe(0)
     fireEvent.click(screen.getByText(zhKey('eduMyAttendance.selfCheckIn')))
-    expect(callsWith(SELF_URL)).toHaveLength(0)
+    expect(api.eduAttendanceSelfCheckIn.mock.calls).toHaveLength(0)
     expect(lastAlert().message).toBe(zhKey('eduMyAttendance.notLoggedIn'))
   })
 
   it('② 学籍取不到(409)时后端 reason 上屏,不静默、不假装成功', async () => {
     const reason = '未找到你在该班的在册学籍'
-    api.fetchApi.mockImplementation(async (url) =>
-      url.startsWith(ME_URL) ? ok({ list: [] }) : fail(reason, 409),
-    )
+    api.eduMyAttendance.mockImplementation(async () => ok({ list: [] }))
+    api.eduAttendanceSelfCheckIn.mockImplementation(async () => fail(reason, 409))
     render(createElement(EduMyAttendanceScreen))
-    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
+    await waitFor(() => expect(api.eduMyAttendance.mock.calls.length).toBe(1))
     fireEvent.click(screen.getByText(zhKey('eduMyAttendance.selfCheckIn')))
     await waitFor(() => expect(lastAlert().message).toContain(reason))
     expect(lastAlert().message).toContain(zhKey('eduAttendance.actionFailed'))
-    expect(callsWith(ME_URL).length, '失败不得伪装成刷新').toBe(1)
+    expect(api.eduMyAttendance.mock.calls.length, '失败不得伪装成刷新').toBe(1)
     // 行内容仍是服务端回读的空列表(没被本地塞进一条「已签到」)
     expect(latestRows()).toHaveLength(0)
-  })
-
-  it('②④⑤ 自签退 = POST self-check-out,body 只有当日 date;成功后回读列表', async () => {
-    api.fetchApi.mockImplementation(async (url) =>
-      url.startsWith(ME_URL)
-        ? ok({
-            list: [
-              {
-                ...teacherRow(),
-                studentId: 'stu-own',
-                checkInTime: '2026-01-01T01:00:00.000Z',
-                status: 'present',
-              },
-            ],
-          })
-        : ok({ classId: 'cls-1', status: 'present', checkOutTime: '2026-01-01T09:00:00.000Z' }),
-    )
-    render(createElement(EduMyAttendanceScreen))
-    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
-    // 今日已签到且未签退 ⇒ 签退入口出现(资格只看服务端回读行)
-    await waitFor(() => expect(screen.getByText(zhKey('eduAttendance.checkOut'))).toBeTruthy())
-    fireEvent.click(screen.getByText(zhKey('eduAttendance.checkOut')))
-    await waitFor(() => expect(callsWith(SELF_OUT_URL).length).toBe(1))
-    expect(callsWith(SELF_OUT_URL)[0]?.[1]?.method).toBe('POST')
-    expect(firstBody(SELF_OUT_URL)).toEqual({ date: todayShanghai() })
-    expect(
-      Object.keys(firstBody(SELF_OUT_URL)),
-      '签退状态由服务端现算 ⇒ payload 不得带 status/studentId/classId',
-    ).not.toContain('status')
-    expect(lastAlert().message).toContain(zhKey('eduAttendance.actionDone'))
-    expect(lastAlert().message).toContain(zhKey('eduAttendance.status.present'))
-    await waitFor(() => expect(callsWith(ME_URL).length, '签退成功后必须回读列表').toBe(2))
-  })
-
-  it('② 今日已签退:不给签退入口(不重复提交)', async () => {
-    api.fetchApi.mockImplementation(async () =>
-      ok({
-        list: [
-          {
-            ...teacherRow(),
-            studentId: 'stu-own',
-            checkInTime: '2026-01-01T01:00:00.000Z',
-            checkOutTime: '2026-01-01T09:00:00.000Z',
-            status: 'present',
-          },
-        ],
-      }),
-    )
-    render(createElement(EduMyAttendanceScreen))
-    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
-    await waitFor(() => expect(latestRows()).toHaveLength(1))
-    expect(screen.queryByText(zhKey('eduAttendance.checkOut'))).toBeNull()
-    expect(callsWith(SELF_OUT_URL)).toHaveLength(0)
-  })
-
-  it('② 今日未签到:不给签退入口(先签到后签退由后端口径裁决)', async () => {
-    api.fetchApi.mockImplementation(async () =>
-      ok({
-        list: [{ ...teacherRow(), studentId: 'stu-own', status: 'absent' }],
-      }),
-    )
-    render(createElement(EduMyAttendanceScreen))
-    await waitFor(() => expect(callsWith(ME_URL).length).toBe(1))
-    await waitFor(() => expect(latestRows()).toHaveLength(1))
-    expect(screen.queryByText(zhKey('eduAttendance.checkOut'))).toBeNull()
-    expect(callsWith(SELF_OUT_URL)).toHaveLength(0)
   })
 })
 
@@ -734,7 +663,7 @@ describe('考勤屏 · 家长侧 EduChildAttendanceScreen', () => {
   })
 
   it('①⑤ 取数只按 route 上的 childId;早退档与教师屏同一色档同一词表(四屏同源)', async () => {
-    api.fetchApi.mockImplementation(async () =>
+    api.eduParentChildAttendance.mockImplementation(async () =>
       ok({
         list: [
           {
@@ -748,10 +677,10 @@ describe('考勤屏 · 家长侧 EduChildAttendanceScreen', () => {
       }),
     )
     render(createElement(EduChildAttendanceScreen))
-    await waitFor(() => expect(callsWith(CHILD_URL).length).toBe(1))
-    expect(urls()[0]).toBe(CHILD_URL)
+    await waitFor(() => expect(api.eduParentChildAttendance.mock.calls.length).toBe(1))
+    expect(api.eduParentChildAttendance.mock.calls[0]).toEqual(['child-1'])
     await settle()
-    expect(api.fetchApi.mock.calls, '挂载期多发了一次请求').toHaveLength(1)
+    expect(allCalls(), '挂载期多发了一次请求').toBe(1)
     expect(latestRows()[0]?.cells['date']).toBe('2020-01-02')
     expect(latestRows()[0]?.cells['status']).toBe(zhKey('eduAttendance.status.early'))
     expect(latestRows()[0]?.badgeTone, '早退落到默认档 = 与未知状态同色').toBe('warn')
@@ -767,68 +696,67 @@ describe('考勤屏 · 扫码(EduAttendanceQrScreen / EduAttendanceScanScreen)',
 
   it('① 出码屏挂载只取一次班级清单,未选班绝不预取出码', async () => {
     const payload = JSON.stringify({ type: 'edu-attendance-checkin', token: 'tk-1' })
-    api.fetchApi.mockImplementation(async (url) =>
-      url === CLASS_URL
-        ? ok({ list: [{ id: 'cls-1', name: '一年级', grade: '1 班' }] })
-        : url.startsWith(QR_URL)
-          ? ok({
-              payload,
-              classId: 'cls-1',
-              expiresAt: new Date(Date.now() + 60_000).toISOString(),
-              ttlMs: 60_000,
-            })
-          : ok(null),
+    api.eduClassList.mockImplementation(async () =>
+      ok({ list: [{ id: 'cls-1', name: '一年级', grade: '1 班' }] }),
+    )
+    api.eduAttendanceQrcode.mockImplementation(async () =>
+      ok({
+        payload,
+        classId: 'cls-1',
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+        ttlMs: 60_000,
+      }),
     )
     render(createElement(EduAttendanceQrScreen))
-    await waitFor(() => expect(callsWith(CLASS_URL).length).toBe(1))
+    await waitFor(() => expect(api.eduClassList.mock.calls.length).toBe(1))
     await settle()
-    expect(api.fetchApi.mock.calls, '挂载期多发了一次请求').toHaveLength(1)
-    expect(callsWith(QR_URL), '没选班就发了出码请求').toHaveLength(0)
+    expect(allCalls(), '挂载期多发了一次请求').toBe(1)
+    expect(api.eduAttendanceQrcode.mock.calls, '没选班就发了出码请求').toHaveLength(0)
     fireEvent.click(screen.getByText('一年级·1 班'))
-    await waitFor(() => expect(callsWith(QR_URL).length).toBe(1))
-    expect(urls()[1]).toBe(`${QR_URL}?classId=cls-1`)
+    await waitFor(() => expect(api.eduAttendanceQrcode.mock.calls.length).toBe(1))
+    expect(api.eduAttendanceQrcode.mock.calls[0]?.[0]).toEqual({ classId: 'cls-1' })
     expect(screen.getByTestId('qr-code').getAttribute('data-value')).toBe(payload)
   })
 
   it('② 出码被拒(400)时后端 message + 下一步原样上屏', async () => {
     const reason = '该班未配置启用中的考勤规则或未设置扫码密钥(qrSecret)'
-    api.fetchApi.mockImplementation(async (url) =>
-      url === CLASS_URL ? ok({ list: [{ id: 'cls-1', name: '一年级' }] }) : fail(reason, 400),
-    )
+    api.eduClassList.mockImplementation(async () => ok({ list: [{ id: 'cls-1', name: '一年级' }] }))
+    api.eduAttendanceQrcode.mockImplementation(async () => fail(reason, 400))
     render(createElement(EduAttendanceQrScreen))
-    await waitFor(() => expect(callsWith(CLASS_URL).length).toBe(1))
+    await waitFor(() => expect(api.eduClassList.mock.calls.length).toBe(1))
     fireEvent.click(screen.getByText('一年级'))
     await waitFor(() => expect(screen.getByText(reason)).toBeTruthy())
     expect(screen.getByText(zhKey('eduAttendanceQr.nextStepHint'))).toBeTruthy()
     expect(screen.queryByTestId('qr-code'), '出码失败却画出了二维码').toBeNull()
   })
 
-  it('①② 扫码屏:非本系统码零上送;有效码只 POST {token},失败 message 上屏', async () => {
+  it('①② 扫码屏:非本系统码零上送;有效码只提交 {token},失败 message 上屏', async () => {
     // 失败档:有效码也必须把后端 message 上屏,且不退屏冒充成功
-    api.fetchApi.mockImplementation(async () => fail('二维码已过期', 410))
+    api.eduAttendanceQrcodeCheckIn.mockImplementation(async () => fail('二维码已过期', 410))
     render(createElement(EduAttendanceScanScreen))
     await waitFor(() => expect(screen.getByTestId('camera')).toBeTruthy())
     const scan1 = h.camera?.onBarcodeScanned as ((d: { data: string }) => void) | undefined
     if (!scan1) throw new Error('相机层没接上 onBarcodeScanned ⇒ 尺子失效')
     scan1({ data: JSON.stringify({ type: 'other-system', token: 'x' }) })
     expect(lastAlert().message).toBe(zhKey('eduAttendanceQr.scanInvalidCode'))
-    expect(callsWith(QR_SCAN_URL), '非签到码却被上送 ⇒ 前端替后端做了判定').toHaveLength(0)
+    expect(api.eduAttendanceQrcodeCheckIn.mock.calls, '非签到码却被上送 ⇒ 前端替后端做了判定').toHaveLength(0)
     expect(h.goBackCalls).toBe(0)
-    // 阳性对照:同一实例点掉提示后,有效码必须真的发出 POST ⇒ 上一条的 0 不是恒真
+    // 阳性对照:同一实例点掉提示后,有效码必须真的提交 ⇒ 上一条的 0 不是恒真
     pressButton(zhKey('common.confirm'))
-    api.fetchApi.mockImplementation(async () => ok({ classId: 'cls-1', status: 'present' }))
+    api.eduAttendanceQrcodeCheckIn.mockImplementation(async () =>
+      ok({ classId: 'cls-1', status: 'present' }),
+    )
     scan1({ data: JSON.stringify({ type: 'edu-attendance-checkin', token: 'tk-9' }) })
-    await waitFor(() => expect(callsWith(QR_SCAN_URL).length).toBe(1))
-    expect(callsWith(QR_SCAN_URL)[0]?.[1]?.method).toBe('POST')
-    expect(JSON.parse(callsWith(QR_SCAN_URL)[0]![1]?.body ?? '{}')).toEqual({ token: 'tk-9' })
+    await waitFor(() => expect(api.eduAttendanceQrcodeCheckIn.mock.calls.length).toBe(1))
+    expect(firstArg(api.eduAttendanceQrcodeCheckIn)).toEqual({ token: 'tk-9' })
     expect(lastAlert().message).toBe(zhKey('eduAttendanceQr.scanDone'))
     expect(h.goBackCalls, '扫码成功后应回上一屏(列表刷新交给 focus 腿)').toBe(1)
     // 后端拒签:换一屏实例重扫,失败 message 必须响
     cleanup()
     h.alerts.length = 0
     h.goBackCalls = 0
-    api.fetchApi.mockReset()
-    api.fetchApi.mockImplementation(async () => fail('二维码已过期', 410))
+    api.eduAttendanceQrcodeCheckIn.mockReset()
+    api.eduAttendanceQrcodeCheckIn.mockImplementation(async () => fail('二维码已过期', 410))
     render(createElement(EduAttendanceScanScreen))
     await waitFor(() => expect(h.camera?.onBarcodeScanned).toBeTypeOf('function'))
     ;(h.camera?.onBarcodeScanned as (d: { data: string }) => void)({
@@ -843,7 +771,7 @@ describe('考勤屏 · 扫码(EduAttendanceQrScreen / EduAttendanceScanScreen)',
     h.authed = false
     render(createElement(EduAttendanceScanScreen))
     await waitFor(() => expect(screen.getByText(zhKey('eduAttendanceQr.needLogin'))).toBeTruthy())
-    expect(api.fetchApi.mock.calls).toHaveLength(0)
+    expect(allCalls()).toBe(0)
     expect(screen.queryByTestId('camera')).toBeNull()
   })
 })

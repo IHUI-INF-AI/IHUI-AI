@@ -23,6 +23,9 @@ import { useHostPorts } from '../host/use-host-ports'
 
 type Nav = NativeStackNavigationProp<RootStackParamList>
 
+/** RN 类型档全开:四档都有上传/校验链路(本端 validate 恒要求提示词) */
+const PUBLISH_WORK_TYPES: readonly AigcPublishWorkType[] = ['image', 'video', 'audio', 'text']
+
 export default function AigcPublishScreen() {
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<Nav>()
@@ -190,6 +193,8 @@ export default function AigcPublishScreen() {
       onBack={() => navigation.goBack()}
       colorScheme={resolvedTheme}
       onToast={onToast}
+      workTypes={PUBLISH_WORK_TYPES}
+      showPromptField
     />
   )
 }

@@ -186,12 +186,52 @@ export function isWithinPath(child: string, parent: string): boolean {
   return c.startsWith(p.endsWith(path.sep) ? p : p + path.sep);
 }
 
-/** 命令是否在白名单内(basename 匹配,大小写不敏感,自动忽略 .exe/.cmd 等后缀) */
+/**
+ * 按 shell 控制符切分复合命令;引号内的控制符不切(避免把字符串参数误拆成命令段)。
+ * `&&` / `||` / `|` / `;` / `&` / 换行 都视作分隔符,连续控制符合并为一个。
+ */
+function splitCommandSegments(commandLine: string): string[] {
+  const segments: string[] = [];
+  let current = '';
+  let quote: '"' | "'" | null = null;
+  for (let i = 0; i < commandLine.length; i++) {
+    const ch = commandLine[i]!;
+    if (quote) {
+      current += ch;
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch;
+      current += ch;
+      continue;
+    }
+    if (ch === '\n' || ch === ';' || ch === '|' || ch === '&') {
+      if (current.trim().length > 0) segments.push(current.trim());
+      current = '';
+      while (i + 1 < commandLine.length && ';&|\n'.includes(commandLine[i + 1]!)) i++;
+      continue;
+    }
+    current += ch;
+  }
+  if (current.trim().length > 0) segments.push(current.trim());
+  return segments;
+}
+
+/**
+ * 命令是否在白名单内(basename 匹配,大小写不敏感,自动忽略 .exe/.cmd 等后缀)。
+ *
+ * 复合命令必须对**每一段**都成立:只比对首个 token 时 `ls && rm -rf ~` 会被
+ * 当成 `ls` 放行,白名单形同虚设。任一段解析不出命令名一律拒绝(fail closed)。
+ */
 export function isCommandAllowed(commandLine: string, allowlist: string[]): boolean {
   if (allowlist.length === 0) return true;
-  const name = extractCommandName(commandLine);
-  if (!name) return false;
-  return allowlist.some((a) => a.toLowerCase() === name.toLowerCase());
+  const segments = splitCommandSegments(commandLine);
+  if (segments.length === 0) return false;
+  return segments.every((seg) => {
+    const name = extractCommandName(seg);
+    return name.length > 0 && allowlist.some((a) => a.toLowerCase() === name.toLowerCase());
+  });
 }
 
 /** 提取命令行第一个 token 的 basename(去引号、去后缀;支持带引号的含空格路径) */

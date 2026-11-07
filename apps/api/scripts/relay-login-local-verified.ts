@@ -16,7 +16,10 @@
  *
  * 对账面映射(§0.6 与 switch-continuity-check 同源,这里只做键名映射):
  *   qoder/minimax/codex/zcode/opencode ⇒ 有本地正库对账面;
- *   trae/trae-solo(携对话腿自证)/workbuddy/codearts/loomy/doubao(对话在云端)/
+ *   doubao ⇒ 对话在云端(无正库),但**有登录态对账面**(scripts/lib/doubao-continuity-face.mjs,
+ *     2026-11-06 立):before/after 采本机字节 passport cookie 族(只读、零明文),
+ *     清单钉随账号变、族键集合随写回齐否变 ⇒ 写回腿可自证切号前后变化;
+ *   trae/trae-solo(携对话腿自证)/codearts/loomy(有正库面见上表)/
  *   lingma/grokbot(未装)⇒ 无对账面,如实标 no-continuity-face,不冒 ok。
  *
  * 凭证纪律:任何输出不含 token/refreshToken 明文(快照面零正文;loginAccountLocal 返回面零凭据)。
@@ -38,8 +41,14 @@ const REPO_ROOT = path.resolve(HERE, '..', '..', '..')
 const continuity = await import(
   pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'switch-continuity-check.mjs')).href
 )
+const doubaoFace = await import(
+  pathToFileURL(path.join(REPO_ROOT, 'scripts', 'lib', 'doubao-continuity-face.mjs')).href
+)
 const { snapshotApp, compareSnapshots } = continuity
 type SnapshotResult = Awaited<ReturnType<typeof snapshotApp>>
+
+/** 豆包走自家登录态面(不在 CONTINUITY_FACE/APPS 映射表内,判据见 doubao-continuity-face.mjs) */
+const DOUBAO_PROVIDER = 'doubao'
 
 // env 由 script 的 `tsx --env-file=.env` 注入(apps/api/.env 是本包运行面);
 // 本文件不 import dotenv 自载:ESM 静态 import 提升会让 db 模块先于任何模块体求值。
@@ -159,6 +168,8 @@ export async function runVerifiedSwitch(opts: {
   writeBack?: typeof loginAccountLocal
   /** 测试注入:替换快照腿 */
   snapshot?: typeof snapshotApp
+  /** 测试注入:替换豆包登录态快照腿(绝不在测试里真读本机 Cookies 库) */
+  snapshotDoubao?: () => SnapshotResult
   /** 测试注入:替换 compare */
   compare?: typeof compareSnapshots
   /** 测试注入:替换「该票有无会话模板」判据(默认解密 secretsEnc,零真库) */
@@ -167,6 +178,7 @@ export async function runVerifiedSwitch(opts: {
   const doLoad = opts.loadRow ?? loadPoolRow
   const doWrite = opts.writeBack ?? loginAccountLocal
   const doSnap = opts.snapshot ?? snapshotApp
+  const doSnapDoubao = opts.snapshotDoubao ?? doubaoFace.snapshotDoubaoFace
   const doCompare = opts.compare ?? compareSnapshots
   const hasTemplate = opts.hasTemplate ?? hasSessionTemplate
   const notes: string[] = []
@@ -178,8 +190,12 @@ export async function runVerifiedSwitch(opts: {
     notes.push(templateMissingNote(row.providerCode))
   }
 
-  const face = CONTINUITY_FACE[opts.provider]
-  const before = face ? doSnap(face) : null
+  const faceKey = CONTINUITY_FACE[opts.provider]
+  const isDoubaoFace = opts.provider === DOUBAO_PROVIDER
+  const face = faceKey ?? (isDoubaoFace ? DOUBAO_PROVIDER : undefined)
+  const takeSnap = (): SnapshotResult | null =>
+    !face ? null : isDoubaoFace ? doSnapDoubao() : doSnap(face)
+  const before = takeSnap()
   if (face && before?.state !== 'ok') notes.push(`切号前快照未判定:${before?.why ?? '?'}`)
 
   if (opts.dryRun) {
@@ -201,7 +217,7 @@ export async function runVerifiedSwitch(opts: {
   }
 
   const writeBack = await doWrite(row)
-  const after = face ? doSnap(face) : null
+  const after = takeSnap()
   let compare: ReturnType<typeof doCompare> | null = null
   let verdict: VerifiedSwitchResult['verdict']
   if (face && before?.state === 'ok' && after?.state === 'ok') {

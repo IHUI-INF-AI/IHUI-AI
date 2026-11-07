@@ -137,7 +137,12 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: { fontSize: rnType.body.size, color: tk.text.secondary },
     updatedAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    sectionBody: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
+    sectionBody: {
+      marginTop: rnSpacing.sm,
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.bodySm.lineHeight,
+    },
     docTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     introText: {
       fontSize: rnType.body.size,
@@ -146,7 +151,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     groupIntro: {
       marginTop: rnSpacing['xs-loose'],
-      fontSize: 12,
+      fontSize: rnType.label.size,
       color: tk.text.secondary,
       lineHeight: 17,
     },
@@ -164,7 +169,7 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
       backgroundColor: tk.surface.inputBg,
     },
-    chipText: { fontSize: 13, color: tk.text.primary },
+    chipText: { fontSize: rnType.bodySm.size, color: tk.text.primary },
     chipDanger: {
       borderColor: tk.danger.DEFAULT,
       backgroundColor: tk.danger.light,

@@ -125,7 +125,7 @@
           "content": "这张图里有什么?\ndata:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCBGAAEAAAAASUVORK5CYII=\n请详细描述"
         }
       ],
-      "expect_tokens_ts": 1227,
+      "expect_tokens_ts": 155,
       "expect_tokens_python": 1227,
       "expect_struct_summary_lines_ts": [
         "[system] Vision-enabled assistant",

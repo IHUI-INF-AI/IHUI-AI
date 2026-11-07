@@ -61,6 +61,7 @@ const NO_FAILED_SOURCES: ReadonlySet<string> = new Set<string>()
  */
 export default function Carousel({
   items = [],
+  itemWidth,
   autoplay = true,
   interval = 3000,
   height = carouselDefaultHeightPx(),
@@ -151,7 +152,13 @@ export default function Carousel({
         className="h-full"
         style={{ height: heightStyle }}
       >
-        <View style={{ display: 'flex', width: `${total * 100}%` }}>
+        {/* itemWidth 提供时按固定分页步长排版(与 RN 端 itemWidth 同义);未提供时仍按整屏等分 */}
+        <View
+          style={{
+            display: 'flex',
+            width: itemWidth ? toUnit(itemWidth * total) : `${total * 100}%`,
+          }}
+        >
           {slides.map(({ item, sourceIndex }, index) => {
             // courseMeta / onItemClick 的入参下标语义 = 调用方传进来的那个数组的下标,
             // 所以一律用 sourceIndex —— 前面某项因图失败被摘掉后,叠加层与点击回调
@@ -179,7 +186,7 @@ export default function Carousel({
                       )
                 }
                 style={{
-                  width: `${100 / total}%`,
+                  width: itemWidth ? toUnit(itemWidth) : `${100 / total}%`,
                   // 修复:H5 ScrollView 内 h-full (100%) 继承高度不稳定,导致渐变背景 h=0。
                   // 显式设置高度,保证 banner 的渐变/纯色完整铺满可见区域。
                   // 背景色/渐变全部由 className 的 .carousel-fallback-* 提供(亮色 token),
@@ -204,15 +211,15 @@ export default function Carousel({
                   // 小程序端独有渲染 —— RN 同名文件不渲染逐项兜底,无同一元素可对照。
                   // 数字刻意留在类名里可见、不入 spec、不改走函数(裁决与禁假绿依据见
                   // @ihui/shared/ui/carousel-spec 头注;收口前置 = RN 移植该渲染或台账拆对声明)。
-                  <View className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                  <View className="absolute inset-0 flex flex-col items-center justify-center p-lg">
                     {/* 亮色 fallback(2026-09-03):浅色 token 渐变底 → 文字用深色,与 web 端 bg-muted 兜底同族 */}
                     {item.title ? (
-                      <Text className="text-xl font-bold text-foreground drop-shadow-[0_2px_4px_var(--color-black-15)] text-center mb-2">
+                      <Text className="text-heading font-bold text-foreground drop-shadow-[0_2px_4px_var(--color-black-15)] text-center mb-sm">
                         {item.title}
                       </Text>
                     ) : null}
                     {item.subtitle ? (
-                      <Text className="text-sm text-muted-foreground drop-shadow-[0_1px_3px_var(--color-black-10)] text-center">
+                      <Text className="text-body text-muted-foreground drop-shadow-[0_1px_3px_var(--color-black-10)] text-center">
                         {item.subtitle}
                       </Text>
                     ) : null}
@@ -223,25 +230,27 @@ export default function Carousel({
                   // 12/8/4/8/2/14/12)同为小程序端独有渲染:variant='course'/courseMeta 只在小程序
                   // 组件入参存在,RN 侧课程卡是另一枚组件(CourseCarousel),不在本配对面上。
                   // 处置同上方兜底块 —— 数字留在类名可见,收口前置见 carousel-spec 头注。
-                  <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--color-black-60)] to-transparent p-3">
+                  <View className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[var(--color-black-60)] to-transparent p-md">
                     {meta.title ? (
-                      <Text className="block text-sm text-[var(--color-white-98)] line-clamp-1">
+                      <Text className="block text-body text-[var(--color-white-98)] line-clamp-1">
                         {meta.title}
                       </Text>
                     ) : null}
                     {meta.isFree || meta.price !== undefined || meta.tag ? (
-                      <View className="flex items-center gap-2 mt-1">
+                      <View className="flex items-center gap-sm mt-xs">
                         {meta.isFree ? (
-                          <Text className="text-xs text-success-foreground bg-success px-2 py-[4rpx] rounded-sm">
+                          <Text className="text-label text-success-foreground bg-success px-sm py-[4rpx] rounded-sm">
                             {tt('course.free', '免费')}
                           </Text>
                         ) : meta.price !== undefined ? (
-                          <Text className="text-xs text-cta-foreground bg-cta px-2 py-[4rpx] rounded-sm">
+                          <Text className="text-label text-cta-foreground bg-cta px-sm py-[4rpx] rounded-sm">
                             ¥{meta.price}
                           </Text>
                         ) : null}
                         {meta.tag ? (
-                          <Text className="text-xs text-[var(--color-white-80)]">{meta.tag}</Text>
+                          <Text className="text-label text-[var(--color-white-80)]">
+                            {meta.tag}
+                          </Text>
                         ) : null}
                       </View>
                     ) : null}

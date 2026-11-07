@@ -45,7 +45,10 @@ const ADOPTED: readonly string[] = [
   // 采纳语义由壳源负责(与上面 feedback 同一条口径)。
   'pkg-about/about/help.tsx',
   'pkg-ai/aigc/publish.tsx',
-  'pkg-ai/dev-enter/n8n-model/index.tsx',
+  // 'pkg-ai/dev-enter/n8n-model/index.tsx' 2026-11-06 换成宿主模块:
+  // 页面转薄壳(列表=共享屏 N8nModelScreen,创建=端内 create-view),
+  // 三个登记点随创建表单迁到 create-view.tsx,语义不变、setter 与输入事件同源。
+  'pkg-ai/dev-enter/n8n-model/create-view.tsx',
   'pkg-content/community/create/index.tsx',
   'pkg-shop/order/refund.tsx',
   'pkg-user/user/email.tsx',

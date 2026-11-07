@@ -20,8 +20,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -389,6 +391,37 @@ def test_close_session_removes_profile_copy(tmp_path: Path, monkeypatch: pytest.
     assert not profile_dir.exists()
 
 
+def test_unreadable_profile_is_not_reported_gone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture):
+    from app.services.browser_hub import BrowserSession
+
+    profile_dir = tmp_path / "ihui-chrome-scan-blocked"
+    cookie = profile_dir / "Default" / "Network" / "Cookies"
+    cookie.parent.mkdir(parents=True)
+    cookie.write_bytes(b"keep-cookies")
+    proc = _FakeProc()
+    hub = BrowserHub()
+    hub._started = True
+    hub._playwright = _FakePlaywright()
+    session = BrowserSession("s-unread", _FakeContext(), _FakePage(), hub._executor, None)  # type: ignore[arg-type]
+    hub._sessions["s-unread"] = session
+    hub._external_procs["s-unread"] = (proc, _FakeBrowser(), str(profile_dir))
+    monkeypatch.setattr(browser_hub.shutil, "rmtree", lambda *args, **kwargs: None)
+    monkeypatch.setattr(browser_hub.time, "sleep", lambda *_args, **_kwargs: None)
+    real_stat = os.stat
+
+    def fake_stat(path, *args, **kwargs):
+        if os.path.abspath(path) == os.path.abspath(profile_dir):
+            raise PermissionError(13, "denied", path)
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(browser_hub.os, "stat", fake_stat)
+    try:
+        assert asyncio.run(hub.close_session("s-unread")) is True
+    finally:
+        hub._executor.shutdown(wait=False)
+    assert cookie.read_bytes() == b"keep-cookies"
+
+
 def test_launch_external_chrome_uses_user_browser_and_profile(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -434,3 +467,52 @@ def test_launch_external_chrome_uses_user_browser_and_profile(
         assert profile_dir != user_data
     finally:
         shutil.rmtree(profile_dir, ignore_errors=True)
+
+
+def _old_scan_profile(root: Path, name: str) -> Path:
+    profile = root / name
+    cookie = profile / "Default" / "Network" / "Cookies"
+    cookie.parent.mkdir(parents=True)
+    cookie.write_bytes(b"keep-cookies")
+    old = time.time() - 3 * 3600
+    os.utime(profile, (old, old))
+    return profile
+
+
+def test_stale_scan_profile_is_removed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """闲置超过 2 小时的扫码目录删掉,并只在确认不在之后计数。"""
+    stale = _old_scan_profile(tmp_path, "ihui-chrome-scan-stale")
+    fresh = tmp_path / "ihui-chrome-scan-fresh"
+    fresh.mkdir()
+    monkeypatch.setattr(browser_hub.tempfile, "gettempdir", lambda: str(tmp_path))
+    assert browser_hub._cleanup_stale_scan_profiles() == 1
+    assert not stale.exists()
+    assert fresh.exists()
+
+
+def test_unreadable_stale_profile_is_not_counted_removed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """读不到闲置目录时不删,也不把它算进已清理。"""
+    stale = _old_scan_profile(tmp_path, "ihui-chrome-scan-unread")
+    cookie = stale / "Default" / "Network" / "Cookies"
+    monkeypatch.setattr(browser_hub.tempfile, "gettempdir", lambda: str(tmp_path))
+
+    def denied(path):
+        raise PermissionError(13, "denied", path)
+
+    monkeypatch.setattr(browser_hub.os.path, "getmtime", denied)
+    assert browser_hub._cleanup_stale_scan_profiles() == 0
+    assert cookie.read_bytes() == b"keep-cookies"
+
+
+def test_delete_that_leaves_profile_is_not_counted(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """删除调用返回了但目录还在,不能记成已清理。"""
+    stale = _old_scan_profile(tmp_path, "ihui-chrome-scan-stuck")
+    cookie = stale / "Default" / "Network" / "Cookies"
+    monkeypatch.setattr(browser_hub.tempfile, "gettempdir", lambda: str(tmp_path))
+    monkeypatch.setattr(browser_hub.shutil, "rmtree", lambda *args, **kwargs: None)
+    assert browser_hub._cleanup_stale_scan_profiles() == 0
+    assert cookie.read_bytes() == b"keep-cookies"

@@ -65,7 +65,7 @@
    文字色 RN surface.light 在暗色 primary(白底)上不可读,按语义修正为 primary-foreground;
    圆角按角色档 control→sm */
 .dc-become-btn {
-  padding: 10rpx 40rpx;
+  padding: 10rpx var(--spacing-xl);
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
@@ -163,7 +163,7 @@
 /* RN infoCopy: 12dp=24rpx,brand(→primary),px 4dp=8rpx,纯文字无底色 */
 .dc-copy-btn {
   flex-shrink: 0;
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
   font-size: var(--text-label);
   color: var(--color-primary);
 }
@@ -173,7 +173,7 @@
 /* RN infoRenew: 12dp=24rpx,danger.bright,600,px 4dp=8rpx,纯文字 */
 .dc-renew-btn {
   flex-shrink: 0;
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
   font-size: var(--text-label);
   color: var(--color-danger-bright);
   font-weight: 600;
@@ -188,7 +188,7 @@
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  padding: 0 8rpx;
+  padding: 0 var(--spacing-xs);
   margin-bottom: var(--spacing-md);
   gap: var(--spacing-sm);
 }
@@ -197,7 +197,7 @@
   color: var(--color-muted-foreground);
 }
 .dc-plaza-btn {
-  padding: var(--spacing-sm) 40rpx;
+  padding: var(--spacing-sm) var(--spacing-xl);
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);
@@ -259,7 +259,7 @@
    文字 surface.light 暗色按语义修正为 primary-foreground */
 .dc-faq-item-btn {
   align-self: flex-start;
-  padding: var(--spacing-xs) 24rpx;
+  padding: var(--spacing-xs) var(--spacing-md);
   background: var(--color-cta);
   border-radius: var(--radius-sm);
   color: var(--color-cta-foreground);

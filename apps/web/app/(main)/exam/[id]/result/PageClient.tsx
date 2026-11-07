@@ -9,10 +9,12 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslations, useLocale } from 'next-intl'
-import { ArrowLeft, Check, X, Loader2, Clock, Award } from 'lucide-react'
+import { ArrowLeft, Check, X, Loader2, Award } from 'lucide-react'
 
-import { apiOrThrow } from '@/lib/api'
+import { getMyRecords } from '@ihui/api-client'
 import { Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
+import type { TFunction } from '@ihui/types'
+import { ExamResultReviewList, ExamResultStats } from '@ihui/rn-app/pilot'
 import { cn } from '@/lib/utils'
 
 interface ResultDetail {
@@ -43,9 +45,51 @@ interface RecordsData {
   total: number
 }
 
-const normalizeAnswer = (v: string | string[]): string => {
-  if (Array.isArray(v)) return v.length > 0 ? v.join('、') : '-'
-  return v && v.trim() ? v : '-'
+/**
+ * 共享段(packages/app `exam-result-sections`)的 key → 本端 `exam.result.*` 词表。
+ * 统计网格 / 全量解析的**渲染**已在共享段里,这里只做词表适配,不重复任何 UI。
+ */
+function buildSharedTranslator(
+  tExam: (key: string, values?: Record<string, string | number>) => string,
+): TFunction {
+  return (key, options) => {
+    switch (key) {
+      case 'examResult.statCorrect':
+        return tExam('result.correct')
+      case 'examResult.statWrong':
+        return tExam('result.wrong')
+      case 'examResult.statUnanswered':
+        return tExam('result.unanswered')
+      case 'examResult.duration':
+        return tExam('result.duration')
+      case 'examResult.durationUnit':
+        return tExam('result.minutes', { n: Number(options?.n ?? 0) })
+      case 'examResult.countUnit':
+        return String(options?.n ?? 0)
+      case 'examResult.reviewTitle':
+        return tExam('result.detailsTitle')
+      case 'examResult.noReview':
+        return tExam('result.detailsEmpty')
+      case 'examResult.questionIdx':
+        return String(options?.n ?? '')
+      case 'examResult.reviewCorrect':
+        return tExam('result.reviewCorrect')
+      case 'examResult.reviewWrong':
+        return tExam('result.reviewWrong')
+      case 'examResult.yourAnswer':
+        return tExam('result.yourAnswer')
+      case 'examResult.unansweredAnswer':
+        return tExam('result.unansweredAnswer')
+      case 'examResult.correctAnswer':
+        return tExam('result.correctAnswer')
+      case 'examResult.analysis':
+        return tExam('result.analysis')
+      case 'examResult.reviewScore':
+        return tExam('result.points', { n: Number(options?.n ?? 0) })
+      default:
+        return key
+    }
+  }
 }
 
 export default function ExamResultPage() {
@@ -55,11 +99,27 @@ export default function ExamResultPage() {
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['exam', 'records', 'by-paper', id],
-    queryFn: () => apiOrThrow<RecordsData>(`/api/exam/records?examId=${id}&page=1&pageSize=1`),
+    queryFn: async (): Promise<RecordsData> => {
+      const r = await getMyRecords({ examId: id, page: 1, pageSize: 1 })
+      if (!r.success) throw new Error(r.error)
+      return r.data as unknown as RecordsData
+    },
     enabled: !!id,
   })
 
   const result = data?.list?.[0] ?? null
+  const sharedT = buildSharedTranslator(
+    t as unknown as (key: string, values?: Record<string, string | number>) => string,
+  )
+  const reviews = (result?.details ?? []).map((d: ResultDetail) => ({
+    id: d.questionId,
+    title: d.title,
+    yourAnswer: d.userAnswer,
+    correctAnswer: d.correctAnswer,
+    isCorrect: d.isCorrect,
+    score: d.score,
+    analysis: d.analysis,
+  }))
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -141,26 +201,22 @@ export default function ExamResultPage() {
             {result.isPassed ? t('passed') : t('failed')}
           </p>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 min-[640px]:grid-cols-4">
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.correct')}</div>
-            <div className="mt-1 text-lg font-semibold text-emerald-600">{result.correctCount}</div>
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.wrong')}</div>
-            <div className="mt-1 text-lg font-semibold text-destructive">{result.wrongCount}</div>
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.unanswered')}</div>
-            <div className="mt-1 text-lg font-semibold">{result.unansweredCount}</div>
-          </div>
-          <div className="rounded-md border bg-muted/30 p-3 text-center">
-            <div className="text-label text-muted-foreground">{t('result.duration')}</div>
-            <div className="mt-1 flex items-center justify-center gap-1 text-lg font-semibold">
-              <Clock className="h-3.5 w-3.5" />
-              {t('result.minutes', { n: result.duration })}
-            </div>
-          </div>
+        {/* 错/未答/正确/用时 四格 —— 渲染归共享段(exam-result-sections),词表由 buildSharedTranslator 适配 */}
+        <CardContent className="pt-0">
+          <ExamResultStats
+            item={{
+              id: result.examId,
+              score: result.score,
+              totalScore: result.totalScore,
+              passed: result.isPassed,
+              correctCount: result.correctCount,
+              wrongCount: result.wrongCount,
+              unansweredCount: result.unansweredCount,
+              totalCount: result.correctCount + result.wrongCount + result.unansweredCount,
+              duration: result.duration,
+            }}
+            t={sharedT}
+          />
         </CardContent>
         <CardContent className="pt-0">
           <div className="flex items-center gap-2 text-label text-muted-foreground">
@@ -170,75 +226,8 @@ export default function ExamResultPage() {
         </CardContent>
       </Card>
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">{t('result.detailsTitle')}</h2>
-        {result.details.length === 0 ? (
-          <div className="rounded-lg border border-dashed py-10 text-center text-body text-muted-foreground">
-            {t('result.detailsEmpty')}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {result.details.map((d: ResultDetail, i: number) => (
-              <Card key={d.questionId} className="transition-colors hover:bg-accent/40">
-                <CardContent className="min-[640px]:p-3 space-y-2 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 items-start gap-2">
-                      {d.isCorrect ? (
-                        <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                      ) : (
-                        <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                      )}
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <p className="break-words text-body font-medium">
-                          {i + 1}. {d.title}
-                        </p>
-                        <div className="grid grid-cols-1 gap-1 text-label">
-                          <div className="flex items-start gap-1">
-                            <span className="shrink-0 text-muted-foreground">
-                              {t('result.yourAnswer')}
-                            </span>
-                            <span
-                              className={cn(
-                                'break-words',
-                                d.isCorrect ? 'text-emerald-600' : 'text-destructive',
-                              )}
-                            >
-                              {normalizeAnswer(d.userAnswer)}
-                            </span>
-                          </div>
-                          {!d.isCorrect && (
-                            <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">
-                                {t('result.correctAnswer')}
-                              </span>
-                              <span className="break-words text-emerald-600">
-                                {normalizeAnswer(d.correctAnswer)}
-                              </span>
-                            </div>
-                          )}
-                          {d.analysis && (
-                            <div className="flex items-start gap-1">
-                              <span className="shrink-0 text-muted-foreground">
-                                {t('result.analysis')}
-                              </span>
-                              <span className="break-words text-muted-foreground">
-                                {d.analysis}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-label text-muted-foreground">
-                      {t('result.points', { n: d.score })}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* 全量解析(题干 + 你的答案 + 正确答案 + 解析 + 本题得分) —— 渲染归共享段 */}
+      <ExamResultReviewList reviews={reviews} t={sharedT} />
     </div>
   )
 }

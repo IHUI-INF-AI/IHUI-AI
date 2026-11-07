@@ -8,7 +8,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { Hash } from 'lucide-react-native'
-import { fetchApi } from '@ihui/api-client'
+import { createCommunityPost } from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { PostCreateScreen as SharedPostCreateScreen } from '@ihui/rn-app'
 import { tokens } from '../theme/active-tokens'
@@ -50,17 +50,14 @@ export function PostCreateScreen() {
     }
     setSaving(true)
     setError('')
-    const res = await fetchApi<{ id: string }>('/api/community/posts', {
-      method: 'POST',
-      body: JSON.stringify({
-        title: title.trim(),
-        content: content.trim(),
-        circleId,
-        tags: tags
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean),
-      }),
+    const res = await createCommunityPost({
+      title: title.trim(),
+      content: content.trim(),
+      circleId,
+      tags: tags
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
     })
     setSaving(false)
     if (res.success && res.data) navigation.replace('PostDetail', { id: res.data.id })

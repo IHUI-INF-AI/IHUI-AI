@@ -19,6 +19,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
 import type { ChildProcess } from 'node:child_process';
 import type { SubagentSpawnResponse } from '@ihui/types';
 
@@ -51,6 +52,7 @@ import {
   SubagentWorkerPool,
   defaultWorkerPoolConfig,
   resolveSubagentIdleTimeoutMs,
+  resolveWorkerEntryPath,
   SUBAGENT_IDLE_TIMEOUT_DEFAULT_MS,
   SUBAGENT_IDLE_TIMEOUT_MAX_MS,
   SUBAGENT_IDLE_TIMEOUT_ENV,
@@ -296,6 +298,28 @@ describe('④ 正常结束 ⇒ 与改动前行为一致', () => {
     expect(final.status).toBe('failed');
     expect(final.error).toContain('timeout');
     expect(pool.getLifecycleStatus(resolved!.subagentId)).toBe('failed');
+  });
+});
+
+describe('resolveWorkerEntryPath — dist 读不到不改用源码', () => {
+  it('dist 的 worker-entry.js 读不到时不改用源码', () => {
+    const stat = (target: string): fs.Stats => {
+      if (target.endsWith('worker-entry.js')) {
+        const err = new Error('EACCES') as NodeJS.ErrnoException;
+        err.code = 'EACCES';
+        throw err;
+      }
+      return fs.statSync(target);
+    };
+    let returned: string | undefined;
+    expect(() => {
+      returned = resolveWorkerEntryPath(stat);
+    }).toThrow(/读不到/);
+    expect(returned).toBeUndefined();
+    expect(returned ?? '').not.toContain('worker-entry.ts');
+
+    const plain = resolveWorkerEntryPath();
+    expect(typeof plain).toBe('string');
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -25,6 +25,7 @@
  */
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isDefinitePathAbsence } from './path-safety.js';
 import { getInstalledPluginsDir } from './paths.js';
 
 /** Marketplace 索引根结构 */
@@ -62,8 +63,10 @@ export type MarketplaceSource =
 export interface MarketplaceScan {
   found: boolean;
   index?: MarketplaceIndex;
-  /** 命中时为索引文件路径;未找到为空字符串;损坏时为损坏文件路径 */
+  /** 命中时为索引文件路径;未找到为空字符串;损坏或读不到时为该文件路径 */
   indexPath: string;
+  /** 高优先级索引在,但这次没读到。不能改用下一份。 */
+  unreadable?: boolean;
 }
 
 /** 候选索引文件相对路径(按优先级排序,前者优先) */
@@ -91,11 +94,20 @@ function isValidIndex(obj: unknown): obj is MarketplaceIndex {
  *   - 命中且解析成功:{ found: true, index, indexPath }
  *   - 未找到任何候选:{ found: false, indexPath: '' }
  *   - 候选存在但损坏:{ found: false, indexPath: '<损坏文件路径>' }
+ *   - 候选读不到:{ found: false, indexPath, unreadable: true }(不改用下一份)
  */
-export function scanMarketplace(root: string): MarketplaceScan {
+export function scanMarketplace(root: string, stat?: (path: string) => fs.Stats): MarketplaceScan {
+  const look = stat ?? ((target: string) => fs.statSync(target));
   for (const segments of CANDIDATE_PATHS) {
     const p = path.join(root, ...segments);
-    if (!fs.existsSync(p)) continue;
+    let missing = false;
+    try {
+      look(p);
+    } catch (err) {
+      if (!isDefinitePathAbsence(err)) return { found: false, indexPath: p, unreadable: true };
+      missing = true;
+    }
+    if (missing) continue;
     try {
       const raw = fs.readFileSync(p, 'utf-8');
       const parsed = JSON.parse(raw) as unknown;
@@ -247,15 +259,28 @@ function parseRegisteredMarketplaces(raw: unknown): { ok: true; marketplaces: Re
  * 任何一条都交回 `marketplaces: []`,调用方据此把候选判成 `unjudged`,
  * **绝不允许把"没登记"读成"没有更新"**。
  */
-export function loadRegisteredMarketplaces(opts: { file?: string } = {}): RegisteredMarketplacesOutcome {
+export function loadRegisteredMarketplaces(opts: { file?: string; stat?: (path: string) => fs.Stats } = {}): RegisteredMarketplacesOutcome {
   const file = opts.file ?? getMarketplaceRegistryPath();
-  if (!fs.existsSync(file)) {
+  const look = opts.stat ?? ((target: string) => fs.statSync(target));
+  try {
+    look(file);
+  } catch (e) {
+    if (isDefinitePathAbsence(e)) {
+      return {
+        ok: false,
+        marketplaces: [],
+        source: 'absent',
+        reason: 'marketplace-registry-file-absent',
+        file,
+      };
+    }
     return {
       ok: false,
       marketplaces: [],
       source: 'absent',
-      reason: 'marketplace-registry-file-absent',
+      reason: 'marketplace-registry-unreadable',
       file,
+      detail: e instanceof Error ? e.message : String(e),
     };
   }
   let text: string;
@@ -341,7 +366,8 @@ export function resolveMarketplaceEntryForRecord(
     }
     const scan = scanMarketplace(m.root);
     if (!scan.found || !scan.index) {
-      tried.push(`${m.name}(${scan.indexPath || '索引不存在或已损坏'})`);
+      const why = scan.unreadable ? `索引读不到:${scan.indexPath}` : scan.indexPath || '索引不存在或已损坏';
+      tried.push(`${m.name}(${why})`);
       continue;
     }
     scanned.push(m.name);
@@ -393,6 +419,52 @@ function marketplaceSourceUrl(source: MarketplaceSource): string {
  * Git 入参形状白名单的转发出口(唯一实现在 `./url-shape.ts`,与 `cache.ts` 同一份)。
  * marketplace 侧做预检、cache 侧做咽喉点,两边都必须从这里取判据 —— 不得在端内各抄一遍正则。
  */
+export type MarketplaceMetaPlan = {
+  disposition: 'accept' | 'refused' | 'unjudged';
+  reason:
+    | 'accept'
+    | 'etag-unmeasured'
+    | 'digest-unmeasured'
+    | 'digest-mismatch'
+    | 'source-unmeasured'
+    | 'source-invalid';
+};
+
+const MARKETPLACE_SHA256 = /^[a-f0-9]{64}$/;
+const MARKETPLACE_SOURCE_KEY = /^[a-z0-9][a-z0-9._:-]{0,127}$/;
+
+/**
+ * 市场清单要同时对上传输标识、内容摘要和来源身份。
+ * 只有 etag 不算验过正文；摘要或来源没量到就不收。本函数不发请求。
+ */
+export function admitMarketplaceMeta(input: {
+  etag: unknown;
+  sha256: unknown;
+  sourceKey: unknown;
+  bodySha256: unknown;
+}): MarketplaceMetaPlan {
+  const none = (
+    reason: MarketplaceMetaPlan['reason'],
+    disposition: MarketplaceMetaPlan['disposition'] = 'unjudged',
+  ): MarketplaceMetaPlan => ({ disposition, reason });
+  if (typeof input.etag !== 'string' || input.etag.trim() === '' || /\s/.test(input.etag)) {
+    return none('etag-unmeasured');
+  }
+  if (input.sha256 === null || input.sha256 === undefined || input.bodySha256 === null || input.bodySha256 === undefined) {
+    return none('digest-unmeasured');
+  }
+  if (typeof input.sha256 !== 'string' || !MARKETPLACE_SHA256.test(input.sha256)) return none('digest-unmeasured');
+  if (typeof input.bodySha256 !== 'string' || !MARKETPLACE_SHA256.test(input.bodySha256)) {
+    return none('digest-unmeasured');
+  }
+  if (input.sha256 !== input.bodySha256) return none('digest-mismatch', 'refused');
+  if (input.sourceKey === null || input.sourceKey === undefined) return none('source-unmeasured');
+  if (typeof input.sourceKey !== 'string' || !MARKETPLACE_SOURCE_KEY.test(input.sourceKey)) {
+    return none('source-invalid', 'refused');
+  }
+  return none('accept', 'accept');
+}
+
 export {
   assertGitCloneInputs,
   evaluateGitRef,

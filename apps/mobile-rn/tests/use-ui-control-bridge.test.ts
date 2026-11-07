@@ -25,6 +25,24 @@ const h = vi.hoisted(() => ({
 }))
 
 vi.mock('@ihui/api-client', () => ({
+  // 2026-11-06:主干把桥接层的上报收口成 api-client 的两个具名端口
+  // (reportAgentControlCapability / reportAgentControlResult),不再由桥层直调 fetchApi。
+  // 替身必须同时补出口 **并** 把载荷落回 h.posts(否则断言"发了几条/发了什么"全部空转),
+  // 失败面仍经 h.fetchImpl 注入,与真实现走 fetchApi 的路径一致。
+  reportAgentControlCapability: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/capability', body: payload })
+    return h.fetchImpl
+      ? h.fetchImpl('/api/agent-control/capability', { body: JSON.stringify(payload) })
+      : Promise.resolve({ success: true })
+  },
+  reportAgentControlResult: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/result', body: payload })
+    return h.fetchImpl
+      ? h.fetchImpl('/api/agent-control/result', { body: JSON.stringify(payload) })
+      : Promise.resolve({ success: true })
+  },
+  // 并入主干 5f0e886a89 时上游替身已自带同名出口,本次只在原处保留一份
+  // (重复键触发 TS1117,且后写者会静默覆盖前者)。
   fetchApi: (url: string, opts: { body?: string }) => {
     h.posts.push({
       url,

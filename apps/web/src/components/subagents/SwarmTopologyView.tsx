@@ -89,7 +89,7 @@ export function SwarmTopologyView({ topology, className }: SwarmTopologyViewProp
   if (!topology || topology.nodes.length === 0) {
     return (
       <div
-        className={`flex items-center justify-center py-10 text-sm text-muted-foreground ${className ?? ''}`}
+        className={`font-[weight:inherit] flex items-center justify-center py-10 text-body text-muted-foreground ${className ?? ''}`}
       >
         Swarm 拓扑为空
       </div>

@@ -14,8 +14,18 @@
  *   - 同名多份:**两个都不装载**,各点名一条诊断(G-684)——装载顺序不是任何人声明过的意图
  *   - 单点失败一律 `continue`,装载永不抛穿
  *
- * 需要知道"哪些清单被跳过了、为什么"请调 loadPluginsWithDiagnostics();
- * loadPlugins() 保留返回 PluginDefinition[] 的既有契约(agent.ts 等既有调用方零改动)。
+ * 分层(goal-b49/W2 拆分,AGENTS §3 每页 <250 行;判据一条没动,只是换了住处):
+ *   - `manifest-scan.ts` — 单份清单的读取/最小校验/规范化 + 判别码→严重级唯一表
+ *   - `contribution-audit.ts` — 贡献词表的运行期消费方(逐档裁决 + 默认拒 + findings→诊断)
+ *   - `activation-events.ts` — 激活词表的运行期消费方(装载/延迟/拒绝三态 + findings→诊断)
+ *   - `permission-names.ts` — 声明式权限名 → 正牌 scope 的归属表(数据类判定仍只有一把尺)
+ *   - 本文件 — 目录扫描、同名歧义裁决、三个装载出口
+ *
+ * 想知道"哪些清单被跳过了、为什么"调 loadPluginsWithDiagnostics();
+ * 想知道"某份清单声明的贡献档本宿主吃不吃得下"调 loadPluginsWithContributionAudit()。
+ * `declined` / `unknown-kind` 两档**已经各占 diagnostics 里的一行**(warning),所以走的就是
+ * `agent.ts` 那条诊断主通道到人前 —— 不静默、不新增环境变量、不升任何档。
+ * loadPlugins() 保留返回 PluginDefinition[] 的既有契约(既有调用方零改动)。
  *
  * 目录结构示例:
  *   plugins/
@@ -28,161 +38,45 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { isDefinitePathAbsence } from './path-safety.js';
 import type {
   LoadPluginsOptions,
   PluginDefinition,
   PluginDiagnostic,
-  PluginDiagnosticCode,
-  PluginDiagnosticSeverity,
   PluginLoadResult,
   PluginManifest,
 } from './types.js';
-
-/** 候选清单文件名(按优先级排序,前者在位时后者被忽略并留一条 warning 诊断) */
-const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
-
-/**
- * 判别码 → 严重级的唯一映射。
- * 集中在装载器这一侧而不是每个产出点各挑一档:两处算同一件事必漂移(本仓记过多次)。
- * `Record<PluginDiagnosticCode, …>` 要求键穷尽联合 —— 新增码忘了定档,编译期就红。
- */
-const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity> = {
-  'manifest-unreadable': 'error',
-  'manifest-json-invalid': 'error',
-  'manifest-not-object': 'error',
-  'manifest-name-missing': 'error',
-  'manifest-version-missing': 'error',
-  'manifest-shadowed-by-priority': 'warning',
-  'plugin_ambiguous_name': 'error',
-  'manifest-unexpected-error': 'error',
-  'plugin-dependency-cycle': 'error',
-};
-
-/** 错误文本(unknown 收窄,零 any) */
-function errorText(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
-/** 造一条诊断:severity 由码唯一决定,产出点不得自行挑档 */
-function diagnostic(
-  code: PluginDiagnosticCode,
-  file: string,
-  message: string,
-  extra?: { pluginName?: string; relatedFiles?: string[] },
-): PluginDiagnostic {
-  const entry: PluginDiagnostic = { code, severity: DIAGNOSTIC_SEVERITY[code], file, message };
-  if (extra?.pluginName !== undefined) entry.pluginName = extra.pluginName;
-  if (extra?.relatedFiles && extra.relatedFiles.length > 0) entry.relatedFiles = extra.relatedFiles;
-  return entry;
-}
-
-/** 兜底诊断:未预期的抛点也编码成数据,绝不让单点失败抛穿整次装载 */
-function unexpectedDiagnostic(file: string, err: unknown): PluginDiagnostic {
-  return diagnostic(
-    'manifest-unexpected-error',
-    file,
-    `Unexpected error while scanning "${path.basename(file)}": ${errorText(err)}`,
-  );
-}
-
-/** 校验解析后的对象是否符合 PluginManifest 最小约束(name + version 必填) */
-function isValidManifest(obj: unknown): obj is PluginManifest {
-  if (!obj || typeof obj !== 'object') return false;
-  const m = obj as Record<string, unknown>;
-  return typeof m.name === 'string' && m.name.length > 0 && typeof m.version === 'string' && m.version.length > 0;
-}
-
-/** 规范化清单 — 仅保留 schema 内字段,数组字段缺失时初始化为 undefined */
-function normalizeManifest(raw: PluginManifest, source: string): PluginDefinition {
-  const def: PluginDefinition = {
-    name: raw.name,
-    version: raw.version,
-    source,
-  };
-  if (raw.description !== undefined) def.description = raw.description;
-  if (raw.author !== undefined) def.author = raw.author;
-  if (Array.isArray(raw.tools)) def.tools = raw.tools.filter((t) => typeof t === 'string');
-  if (Array.isArray(raw.hooks)) def.hooks = raw.hooks.filter((h) => typeof h === 'string');
-  if (Array.isArray(raw.commands)) def.commands = raw.commands.filter((c) => typeof c === 'string');
-  // G-682:dependencies 必须透传,否则 JSON 清单声明的依赖到不了 registry 的注册前闭包校验
-  if (Array.isArray(raw.dependencies)) def.dependencies = raw.dependencies.filter((d) => typeof d === 'string');
-  return def;
-}
-
-/** 单个清单的解析结果:manifest 为 null 表示该清单被跳过,diagnostics 是它留下的诊断 */
-interface ManifestParseOutcome {
-  manifest: PluginManifest | null;
-  diagnostics: PluginDiagnostic[];
-}
+import {
+  diagnostic,
+  findManifestInDir,
+  isValidManifest,
+  normalizeManifest,
+  parseManifestFile,
+  unexpectedDiagnostic,
+} from './manifest-scan.js';
+import {
+  classifyContributions,
+  contributionDiagnosticsOf,
+  contributionInputOf,
+  summarizeContributions,
+  type ContributionFinding,
+  type PluginContributionAudit,
+} from './contribution-audit.js';
+import { activationDiagnosticsOf, activationInputOf, classifyActivations, summarizeActivations, type ActivationFinding, type PluginActivationAudit } from './activation-events.js';
 
 /**
- * 解析单个清单文件 —— G-683 的核心:把失败编码成数据,不是异常,也不是 null。
- * 每份被跳过的清单**恰好**留一条诊断(首个不成立的条件即返回,不再叠加)。
+ * 拆分前后本文件的**导出集逐字不变**(形状锁 = `tests/plugin-contribution-diagnostic-dispatch.test.ts`)。
+ * 审计实现的真身住在 `contribution-audit.ts`,这里只中转名字:既不是第二份实现(§0.6),
+ * 也让既有 `import { classifyContributions } from '…/plugins/loader.js'` 的调用方零改动。
  */
-function parseManifestFile(file: string): ManifestParseOutcome {
-  let content: string;
-  try {
-    content = fs.readFileSync(file, 'utf-8');
-  } catch (err) {
-    return { manifest: null, diagnostics: [diagnostic('manifest-unreadable', file, `Cannot read manifest file: ${errorText(err)}`)] };
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch (err) {
-    return { manifest: null, diagnostics: [diagnostic('manifest-json-invalid', file, `Manifest is not valid JSON: ${errorText(err)}`)] };
-  }
-
-  // 数组/字符串/数字/null 都能 JSON.parse 成功,但都不是清单 —— 旧实现会把它们报成"缺 name",
-  // 那是把"形态就不对"和"字段没填"混成一码,排查方向会被指错(同名歧义的教训是同一条)。
-  if (Array.isArray(parsed) || !parsed || typeof parsed !== 'object') {
-    return { manifest: null, diagnostics: [diagnostic('manifest-not-object', file, 'Manifest JSON must decode to a plain object')] };
-  }
-
-  const obj = parsed as Record<string, unknown>;
-  if (!isValidManifest(obj)) {
-    const code: PluginDiagnosticCode =
-      typeof obj.name !== 'string' || obj.name.length === 0 ? 'manifest-name-missing' : 'manifest-version-missing';
-    const field = code === 'manifest-name-missing' ? 'name' : 'version';
-    return { manifest: null, diagnostics: [diagnostic(code, file, `Manifest is missing the required field "${field}"`)] };
-  }
-
-  return { manifest: obj, diagnostics: [] };
-}
-
-/** 目录内清单查找结果:primary = 实际装载的那份;diagnostics = 被优先级压掉的那份留下的 warning */
-interface ManifestLookup {
-  primary: string | null;
-  diagnostics: PluginDiagnostic[];
-}
-
-/**
- * 在目录中查找清单文件(优先 plugin.json,其次 plugin.config.json)。
- * 高优先级文件在位时,另一份不是"不存在"而是"被忽略" —— 留一条 warning,静默会让
- * 用户以为自己写的那份生效了(与 G-683 同型:被跳过的内容必须报名)。
- */
-function findManifestInDir(dir: string): ManifestLookup {
-  const present: string[] = [];
-  for (const name of MANIFEST_FILES) {
-    const candidate = path.join(dir, name);
-    if (fs.existsSync(candidate)) present.push(candidate);
-  }
-  const primary = present[0] ?? null;
-  const diagnostics: PluginDiagnostic[] = [];
-  if (primary) {
-    for (const shadowed of present.slice(1)) {
-      diagnostics.push(
-        diagnostic(
-          'manifest-shadowed-by-priority',
-          shadowed,
-          `Ignored because "${path.basename(primary)}" in the same directory has higher priority`,
-        ),
-      );
-    }
-  }
-  return { primary, diagnostics };
-}
+export { classifyContributions } from './contribution-audit.js';
+export type {
+  ContributionFinding,
+  ContributionInput,
+  ContributionSupport,
+  ContributionVerdict,
+  PluginContributionAudit,
+} from './contribution-audit.js';
 
 /** 已通过最小校验、等待歧义裁决的候选(保留 file 与 definition,歧义时要点名路径) */
 interface ManifestCandidate {
@@ -191,8 +85,15 @@ interface ManifestCandidate {
   definition: PluginDefinition;
 }
 
+/** 内部扫描结果 = 装载结果 + 贡献裁决 + 激活事件裁决(PluginLoadResult 是 types.ts 的既有契约,不扩字段) */
+export interface ScanResult extends PluginLoadResult {
+  contributions: PluginContributionAudit;
+  /** goal-b49/W6:激活事件的三态裁决(装载/延迟/拒绝),判据单源见 `activation-events.ts` */
+  activations: PluginActivationAudit;
+}
+
 /**
- * 扫描 pluginsDir,返回已装载插件 + 每一条被跳过清单的诊断。
+ * 扫描 pluginsDir,返回已装载插件 + 每一条被跳过清单的诊断 + 逐档贡献裁决。
  *
  * 扫描规则:
  *   - pluginsDir 不存在 / 不是目录 → 返回空集合(不存在是常态,不记诊断)
@@ -202,9 +103,13 @@ interface ManifestCandidate {
  *   - 任一清单解析失败/校验失败 → 跳过并留诊断,不抛异常
  *   - 同名多份 → 全部不装载,各点名一条诊断(G-684)
  */
-export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoadResult {
+function scanPlugins(opts: LoadPluginsOptions): ScanResult {
   const plugins: PluginDefinition[] = [];
   const diagnostics: PluginDiagnostic[] = [];
+  /** 逐档贡献裁决(每份在盘的清单恰好贡献 0..N 条,取决于它声明了几档) */
+  const findings: ContributionFinding[] = [];
+  /** 逐档激活裁决(goal-b49/W6):每份清单声明了几个事件就出几条,未声明零条 */
+  const activationFindings: ActivationFinding[] = [];
   /** name → 声明它的候选(长度 >1 即为歧义) */
   const candidates = new Map<string, ManifestCandidate[]>();
 
@@ -212,11 +117,14 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
 
   let isDirectory = false;
   try {
-    isDirectory = fs.existsSync(dir) && fs.statSync(dir).isDirectory();
+    const stat = opts.stat ?? ((target: string) => fs.statSync(target));
+    isDirectory = stat(dir).isDirectory();
   } catch (err) {
-    diagnostics.push(unexpectedDiagnostic(dir, err));
+    if (!isDefinitePathAbsence(err)) diagnostics.push(unexpectedDiagnostic(dir, err));
   }
-  if (!isDirectory) return { plugins, diagnostics };
+  if (!isDirectory) {
+    return { plugins, diagnostics, contributions: summarizeContributions(findings), activations: summarizeActivations(activationFindings) };
+  }
 
   /** 收下一份清单:坏清单只留诊断(恰好一条)并继续,好清单进候选等待歧义裁决 */
   function acceptManifest(file: string): void {
@@ -225,6 +133,11 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
       diagnostics.push(...outcome.diagnostics);
       if (!outcome.manifest) return;
       const definition = normalizeManifest(outcome.manifest, file);
+      // 贡献裁决对**每一份通过最小校验的清单**给出,包括后来因同名歧义被丢弃的那份:
+      // 歧义裁决管"装不装",本管"声明了什么、本宿主吃不吃得下",两者互不遮蔽。
+      findings.push(...classifyContributions(contributionInputOf(outcome.manifest, definition.name, file)).findings);
+      // 激活事件同批逐档裁决(goal-b49/W6):与贡献一样,管的是"声明了什么、本宿主能不能真触发"
+      activationFindings.push(...classifyActivations(activationInputOf(outcome.manifest, definition.name, file)).findings);
       const bucket = candidates.get(definition.name);
       if (bucket) bucket.push({ name: definition.name, file, definition });
       else candidates.set(definition.name, [{ name: definition.name, file, definition }]);
@@ -293,7 +206,32 @@ export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoad
   else scanDir(dir, 1);
 
   adjudicate();
+  // 拒档进主通道(goal-b49/W2):非 accepted 的裁决各摊一条 warning 诊断,与清单级诊断同一条数组、
+  // 同一个派发出口(agent.ts 的 reportPluginDiagnostics)——不另开第二条通道,也不升任何档。
+  diagnostics.push(...contributionDiagnosticsOf(findings));
+  diagnostics.push(...activationDiagnosticsOf(activationFindings));
+  return { plugins, diagnostics, contributions: summarizeContributions(findings), activations: summarizeActivations(activationFindings) };
+}
+
+/**
+ * 既有出口:只回装载结果(PluginLoadResult 的字段形状由 types.ts 定,本席不改它)。
+ * `declined` / `unknown-kind` 各占一条诊断**已经在这条 diagnostics 数组里**;想要结构化的逐档依据
+ * (档名 / 声明条数 / 可达数据类 / 未登记 scope)请改调 loadPluginsWithContributionAudit()
+ * —— 那一份汇总在这里是被**函数签名**丢掉,不是被静默忽略:调用方看得见自己拿了什么。
+ */
+export function loadPluginsWithDiagnostics(opts: LoadPluginsOptions): PluginLoadResult {
+  const { plugins, diagnostics } = scanPlugins(opts);
   return { plugins, diagnostics };
+}
+
+/**
+ * 装载 + 逐档贡献裁决(词表消费方出口;生产调用点 = `commands/agent.ts`)。
+ *
+ * 返回形态刻意与 loadPluginsWithDiagnostics 同族并附加 `contributions`,
+ * 使既有 `{ plugins, diagnostics }` 的解构继续可用(不破坏任何已装车的调用点)。
+ */
+export function loadPluginsWithContributionAudit(opts: LoadPluginsOptions): ScanResult {
+  return scanPlugins(opts);
 }
 
 /**

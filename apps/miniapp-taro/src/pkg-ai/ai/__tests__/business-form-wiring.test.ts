@@ -27,6 +27,8 @@ const REPO_ROOT = resolve(END_ROOT, '..', '..')
 
 const src = (rel: string): string => readFileSync(join(END_ROOT, rel), 'utf8')
 const CHAT_SRC = src('src/pkg-ai/ai/chat.tsx')
+// 卡片渲染位在 A3 装配前下沉到声明式槽子件(chat.tsx 只交 tailNodes 映射)
+const CHAT_EXTRAS_SRC = src('src/pkg-ai/ai/chat-list-extras.tsx')
 const API_SRC = src('src/api/index.ts')
 const CARD_SRC = src('src/components/BusinessFormCard.tsx')
 const CARD_CSS = src('src/components/BusinessFormCard.css')
@@ -119,7 +121,8 @@ describe('D77 ③ 接线自证:共享认领 → 回调表 → 卡片 → 上行�
   })
 
   it('卡片渲染位 + 上行出口在位(buildFormResponseEvent + postFormResponse 从 api-client 取)', () => {
-    expect(CHAT_SRC).toContain('<BusinessFormCard')
+    expect(CHAT_EXTRAS_SRC).toContain('<BusinessFormCard')
+    expect(CHAT_SRC).toContain('buildBusinessFormTails')
     expect(CHAT_SRC).toContain('buildFormResponseEvent')
     expect(CHAT_SRC).toContain('postFormResponse')
     expect(CHAT_SRC).toContain('form-response-no-session-channel')

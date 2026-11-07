@@ -279,7 +279,7 @@ export default function BusinessCardEditScreen() {
       <NavChrome>
         <NavBar
           title={
-            editingId ? t('businessCardEdit.pageTitleEdit') : t('businessCardEdit.pageTitleCreate')
+            editingId ? t('businessCardEditPage.editTitle') : t('businessCardEdit.pageTitleCreate')
           }
           onBack={() => navigation.goBack()}
         />
@@ -329,7 +329,7 @@ export default function BusinessCardEditScreen() {
             ))}
 
             <View style={styles.field}>
-              <Text style={styles.label}>{t('businessCardEdit.introLabel')}</Text>
+              <Text style={styles.label}>{t('businessCardEditPage.bioLabel')}</Text>
               <TextField
                 colorScheme={resolvedTheme}
                 value={form.intro}
@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   body: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing['sm-loose'] },
   subtitle: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   stateBox: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: rnSpacing.sm },
-  muted: { fontSize: 13, color: tokens.text.secondary },
+  muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
   errorBox: {
     padding: rnSpacing.md,
     gap: rnSpacing.sm,

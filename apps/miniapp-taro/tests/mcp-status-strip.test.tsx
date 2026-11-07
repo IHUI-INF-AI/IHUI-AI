@@ -57,7 +57,6 @@ import { attachUserBroadcast, resetBroadcastNotices } from '@/lib/user-broadcast
 const HERE = dirname(fileURLToPath(import.meta.url))
 const BASE_URL = 'https://aizhs.top/api'
 const STRIP_SOURCE = join(HERE, '../src/pkg-ai/ai/mcp-status-strip.tsx')
-const CHAT_SOURCE = join(HERE, '../src/pkg-ai/ai/chat.tsx')
 
 function translate(key: string, params?: Record<string, string | number>): string {
   return params ? `«${key}»(${JSON.stringify(params)})` : `«${key}»`
@@ -121,10 +120,11 @@ describe('D154 小程序端:MCP 状态行到屏幕', () => {
     sub?.close()
   })
 
-  it('③ 装车证明:渲染点真的挂在 chat.tsx(摘掉渲染点本条必红)', () => {
-    const chatSource = readFileSync(CHAT_SOURCE, 'utf8')
-    expect(chatSource).toMatch(/import\s+McpStatusStrip\s+from\s+'\.\/mcp-status-strip'/)
-    expect(chatSource).toMatch(/<McpStatusStrip\s*\/>/)
+  it('③ 装车证明:渲染点经端内壳注入共享屏 statusSlot(摘掉渲染点本条必红)', () => {
+    const shellSource = readFileSync(join(HERE, '../src/pkg-ai/ai/chat-shell-extras.tsx'), 'utf8')
+    expect(shellSource).toMatch(/import\s+McpStatusStrip\s+from\s+'\.\/mcp-status-strip'/)
+    expect(shellSource).toMatch(/<McpStatusStrip\s*\/>/)
+    expect(shellSource).toMatch(/\n\s+statusSlot,/)
     // 组件本身必须真读共享账本,而不是自带一份状态
     const stripSource = readFileSync(STRIP_SOURCE, 'utf8')
     expect(stripSource).toMatch(/mcpStatusLedger\.subscribe\(/)

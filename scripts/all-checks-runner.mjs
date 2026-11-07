@@ -30,8 +30,9 @@
  */
 
 import { spawnSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 /** 直接执行时的入口(为空则说明本文件被当作断言目标跑,不进 CLI 主流程)。 */
 const entryArg = process.argv[1] || ''
@@ -170,6 +171,11 @@ export function applyOverrides(overrides, base = CHECK_ALL_STEPS) {
   return { plan, overridden: [...byIndex.keys()].sort((a, b) => a - b) }
 }
 
+/** 空子步骤清单 ⇒ 判死(exit 2),不记绿。抽成纯函数供自检 A8 直接裁定,不许只在 main 里写字面量。 */
+export function emptyPlanExitCode(steps) {
+  return Array.isArray(steps) && steps.length === 0 ? 2 : 0
+}
+
 /**
  * 汇总三态并给出退出码。纯函数,便于构造面证明"中间失败 ⇒ 后续仍计为已跑"。
  * @param {StepResult[]} results
@@ -279,9 +285,11 @@ function main() {
     return 2
   }
 
-  if (CHECK_ALL_STEPS.length === 0) {
+  // 空清单判死抽成可测纯函数(见 A8);main 必须真调用它 —— 判据造好没装车 = 没有。
+  const emptyExit = emptyPlanExitCode(CHECK_ALL_STEPS)
+  if (emptyExit !== 0) {
     console.error('❌ 子步骤清单为空 ⇒ 判死不记绿(空扫就是本器要防的同一型故障)')
-    return 2
+    return emptyExit
   }
   const { plan, overridden } = applyOverrides(overrides, CHECK_ALL_STEPS)
   const results = plan.map((p) => {
@@ -401,8 +409,21 @@ function runSelfTest() {
     [
       'A8 空清单判死而不是记绿(main 侧的判据面)',
       (() => {
-        const a = aggregate([])
-        return a.passed === 0 && a.exitCode === 0 && a.failed.length === 0
+        // 方向修正:用例叫"判死",旧断言却要求 exitCode === 0(空扫记绿),且只测 aggregate
+        // ⇒ 删掉 main 的「空清单 ⇒ return 2」闸自检仍全绿。现在既裁定纯函数(空 ⇒ 2),
+        // 又用源形状锁钉住 main 真把它装上车(判据造好没装车 = 没有)。
+        const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+        const mainBody = src.slice(
+          src.indexOf('function main()'),
+          src.indexOf('function runSelfTest()'),
+        )
+        return (
+          emptyPlanExitCode([]) === 2 &&
+          emptyPlanExitCode(CHECK_ALL_STEPS) === 0 &&
+          /emptyPlanExitCode\(CHECK_ALL_STEPS\)/.test(mainBody) &&
+          aggregate([]).passed === 0 &&
+          aggregate([]).failed.length === 0
+        )
       })(),
     ],
     [

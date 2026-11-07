@@ -1,0 +1,481 @@
+{
+  "schema": "ihui-egress-builtin-list/v1",
+  "generatedBy": "scripts/generate-egress-builtin-list.mjs",
+  "handEditForbidden": "派生态:改判据只改 packages/shared/src/utils/{ssrf-guard,ip-literal}.ts 与 apps/cli/src/sandbox/egress/builtin-rules.ts,再跑生成器 --write;手改本文件由 scripts/check-egress-builtin-list-sync.mjs 判红",
+  "consumedBy": "apps/desktop/src-tauri/src/egress_gate.rs(include_str!)",
+  "sources": {
+    "ssrfGuard": "packages/shared/src/utils/ssrf-guard.ts",
+    "ipLiteral": "packages/shared/src/utils/ip-literal.ts",
+    "cliBuiltin": "apps/cli/src/sandbox/egress/builtin-rules.ts",
+    "cliPolicy": "apps/cli/src/sandbox/egress/policy.ts"
+  },
+  "hostNames": [
+    "localhost",
+    "ip6-localhost",
+    "ip6-loopback",
+    "metadata"
+  ],
+  "hostSuffixes": [
+    ".localhost",
+    ".local",
+    ".internal",
+    ".internaldomain"
+  ],
+  "deniedCidrs": [
+    "0.0.0.0/8",
+    "10.0.0.0/8",
+    "100.64.0.0/10",
+    "127.0.0.0/8",
+    "169.254.0.0/16",
+    "172.16.0.0/12",
+    "192.0.0.0/24",
+    "192.168.0.0/16",
+    "198.18.0.0/15",
+    "224.0.0.0/4",
+    "240.0.0.0/4",
+    "::/128",
+    "::1/128",
+    "100::/64",
+    "2001:db8::/32",
+    "64:ff9b:1::/48",
+    "fc00::/7",
+    "fe80::/10",
+    "ff00::/8"
+  ],
+  "ipv6EmbeddedV4Prefixes": [
+    {
+      "cidr": "2002::/16",
+      "v4BitOffset": 16,
+      "label": "6to4(RFC 3056)"
+    },
+    {
+      "cidr": "64:ff9b::/96",
+      "v4BitOffset": 96,
+      "label": "DNS64 全局前缀(RFC 6052 p=96)"
+    }
+  ],
+  "rows": [
+    {
+      "id": "builtin:host:localhost",
+      "domain": "localhost",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "denied host name (ssrf-guard DENIED_HOST_NAMES)"
+    },
+    {
+      "id": "builtin:host:ip6-localhost",
+      "domain": "ip6-localhost",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "denied host name (ssrf-guard DENIED_HOST_NAMES)"
+    },
+    {
+      "id": "builtin:host:ip6-loopback",
+      "domain": "ip6-loopback",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "denied host name (ssrf-guard DENIED_HOST_NAMES)"
+    },
+    {
+      "id": "builtin:host:metadata",
+      "domain": "metadata",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "denied host name (ssrf-guard DENIED_HOST_NAMES)"
+    },
+    {
+      "id": "builtin:suffix:localhost",
+      "domain": "localhost",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "internal host suffix .localhost (ssrf-guard DENIED_HOST_SUFFIXES)"
+    },
+    {
+      "id": "builtin:suffix:localhost/**",
+      "domain": "**.localhost",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "subdomains under .localhost"
+    },
+    {
+      "id": "builtin:suffix:local",
+      "domain": "local",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "internal host suffix .local (ssrf-guard DENIED_HOST_SUFFIXES)"
+    },
+    {
+      "id": "builtin:suffix:local/**",
+      "domain": "**.local",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "subdomains under .local"
+    },
+    {
+      "id": "builtin:suffix:internal",
+      "domain": "internal",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "internal host suffix .internal (ssrf-guard DENIED_HOST_SUFFIXES)"
+    },
+    {
+      "id": "builtin:suffix:internal/**",
+      "domain": "**.internal",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "subdomains under .internal"
+    },
+    {
+      "id": "builtin:suffix:internaldomain",
+      "domain": "internaldomain",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "internal host suffix .internaldomain (ssrf-guard DENIED_HOST_SUFFIXES)"
+    },
+    {
+      "id": "builtin:suffix:internaldomain/**",
+      "domain": "**.internaldomain",
+      "effect": "deny",
+      "enforcement": "advisory",
+      "why": "subdomains under .internaldomain"
+    }
+  ],
+  "vectors": [
+    {
+      "target": "",
+      "decision": "unjudged",
+      "layer": "input",
+      "reason": "target-missing",
+      "ruleId": null,
+      "enforcement": "advisory"
+    },
+    {
+      "target": "localhost",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:host:localhost",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "LOCALHOST.",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:host:localhost",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "ip6-localhost",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:host:ip6-localhost",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "ip6-loopback",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:host:ip6-loopback",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "metadata",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:host:metadata",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "a.local",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:local/**",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "sub.a.local",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:local/**",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "deep.sub.a.local",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:local/**",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "x.internal",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:internal/**",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "y.internaldomain",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:internaldomain/**",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "z.localhost",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:localhost/**",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "local",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:local",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "internal",
+      "decision": "deny",
+      "layer": "rule",
+      "reason": "rule-deny",
+      "ruleId": "builtin:suffix:internal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "example.com",
+      "decision": "allow",
+      "layer": "default",
+      "reason": "default-allow",
+      "ruleId": null,
+      "enforcement": "advisory"
+    },
+    {
+      "target": "aizhs.top",
+      "decision": "allow",
+      "layer": "default",
+      "reason": "default-allow",
+      "ruleId": null,
+      "enforcement": "advisory"
+    },
+    {
+      "target": "notlocal.host",
+      "decision": "allow",
+      "layer": "default",
+      "reason": "default-allow",
+      "ruleId": null,
+      "enforcement": "advisory"
+    },
+    {
+      "target": "0.0.0.0",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "10.0.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "100.64.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "127.0.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "169.254.169.254",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "172.20.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "192.0.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "192.168.1.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "198.18.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "224.0.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "240.0.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "8.8.8.8",
+      "decision": "allow",
+      "layer": "ip-literal",
+      "reason": "public-literal",
+      "ruleId": null,
+      "enforcement": "advisory"
+    },
+    {
+      "target": "::",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "::1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "100::1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "2001:db8::1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "64:ff9b:1::5",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "fc00::1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "fe80::1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "ff02::1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "2002:0808:0808::1",
+      "decision": "allow",
+      "layer": "ip-literal",
+      "reason": "public-literal",
+      "ruleId": null,
+      "enforcement": "advisory"
+    },
+    {
+      "target": "64:ff9b::808:808",
+      "decision": "allow",
+      "layer": "ip-literal",
+      "reason": "public-literal",
+      "ruleId": null,
+      "enforcement": "advisory"
+    },
+    {
+      "target": "2002:7f00:0001::",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "64:ff9b::a9fe:a9fe",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    },
+    {
+      "target": "::ffff:127.0.0.1",
+      "decision": "deny",
+      "layer": "ip-literal",
+      "reason": "internal-range",
+      "ruleId": "builtin:ip-literal",
+      "enforcement": "advisory"
+    }
+  ]
+}

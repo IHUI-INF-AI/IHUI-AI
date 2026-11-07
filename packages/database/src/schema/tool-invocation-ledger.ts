@@ -88,6 +88,17 @@ export const toolInvocationLedger = pgTable(
     execBudgetNotInterruptibleReason: text('exec_budget_not_interruptible_reason'),
     toolName: varchar('tool_name', { length: 80 }).notNull(),
     sessionId: varchar('session_id', { length: 128 }).notNull(),
+    /**
+     * 执行目录(批次 2 增列):工具入参声明或结果回报的 cwd 原样落列;NULL = 本次调用
+     * 不涉及目录/宿主未回报。目录是执行事实,不是从路径反推出来的猜测。
+     */
+    cwd: varchar('cwd', { length: 1024 }),
+    /** 进程退出码(批次 2 增列):仅命令类工具可观测;NULL = 未观测(不是 0)。 */
+    exitCode: integer('exit_code'),
+    /** 输出是否完整(批次 2 增列):false = 超阈值已落盘分页,上下文只拿到预览。 */
+    outputComplete: boolean('output_complete'),
+    /** 收尾原因封闭集镜像(批次 2 增列,TS 侧 zod enum 为权威),见 tool-invocation-ledger-service.ts。 */
+    terminalReason: varchar('terminal_reason', { length: 24 }),
     /** D172 同款 W3C trace id(32 位小写 hex):关联键不是凭据,谁读它都只是"找到同一轮调用"。 */
     traceId: varchar('trace_id', { length: 32 }),
     turn: integer('turn'),
@@ -139,6 +150,10 @@ export const toolInvocationLedger = pgTable(
     outcomeChk: check(
       'tool_invocation_ledger_outcome_check',
       sql`${t.outcome} in ('success', 'failure', 'lost', 'unknown')`,
+    ),
+    terminalReasonChk: check(
+      'tool_invocation_ledger_terminal_reason_check',
+      sql`${t.terminalReason} is null or ${t.terminalReason} in ('completed', 'error', 'rejected_by_user', 'approval_timeout', 'blocked', 'cancelled', 'timeout', 'unknown')`,
     ),
     retentionChk: check(
       'tool_invocation_ledger_retention_check',

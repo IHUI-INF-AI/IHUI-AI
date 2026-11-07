@@ -47,7 +47,6 @@ const read = (relPath: string): string => readFileSync(resolve(REPO_ROOT, relPat
 /** 轮播的渲染路径:组件实现 + 端内自带硬编码 banner 常量的那两处。 */
 const CAROUSEL_RENDER_PATH = [
   'apps/mobile-rn/src/components/Carousel.tsx',
-  'apps/mobile-rn/src/components/CourseCarousel.tsx',
   'apps/mobile-rn/src/components/BottomFigure.tsx',
   'apps/mobile-rn/src/screens/MoreCourseScreen.tsx',
   'apps/miniapp-taro/src/components/Carousel.tsx',

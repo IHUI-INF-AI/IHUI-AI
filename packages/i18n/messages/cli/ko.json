@@ -149,7 +149,20 @@
     "agentStallBudgetGovernance": "예산 관리",
     "agentStallHookPipeline": "훅 파이프라인",
     "agentStallDoomLoopGuard": "무한 루프 방지",
-    "agentStallUndetermined": "미판정 단계"
+    "agentStallUndetermined": "미판정 단계",
+    "taskStatusLabels": {
+      "pending": "대기 중",
+      "inProgress": "진행 중",
+      "completed": "완료",
+      "cancelled": "취소됨",
+      "blocked": "차단됨"
+    },
+    "tasksHelpCancel": "/tasks cancel <id>       작업 취소",
+    "tasksHelpBlock": "/tasks block <id>         작업 차단",
+    "tasksUsageCancel": "usage: /tasks cancel <id>",
+    "tasksUsageBlock": "usage: /tasks block <id>",
+    "taskCancelledFeedback": "✓ 작업 #{id} 취소됨: {content}",
+    "taskBlockedFeedback": "✓ 작업 #{id} 차단됨: {content}"
   },
   "waiting": {
     "agent": {
@@ -464,7 +477,7 @@
     "shareHash": "  변조 방지 해시: {hash}",
     "shareSize": "  크기: {sizeBytes} 바이트",
     "qrGenerated": "  QR 코드: 생성됨(data URL)",
-    "qrFallback": "  QR 코드: 대체 모드(qr 라이브러리를 추가하면 활성화)",
+    "qrFallback": "  QR 코드: 생성되지 않음(링크가 용량 상한을 넘거나 형태 미지원)",
     "modeDesc": "인터랙션 모드 확인·전환: plan(읽기 전용 조사) | build(변경 실행) | review(diff 심사)",
     "modeCurrent": "현재 모드: {mode}",
     "modeAvailable": "사용 가능한 모드: plan(읽기 전용) / build(실행) / review(심사)",

@@ -8,10 +8,12 @@ import { vueToNextRedirects } from './src/config/redirects.config'
 import { buildAiServiceEdgeRewrites } from './src/config/ai-service-edge'
 import { buildCsp } from './src/config/csp'
 import { PUBLIC_HTML_CACHE_RULES } from './src/config/public-html-cache'
+import { resolveBasePath } from './src/config/base-path'
 
-// GitHub Pages 部署需要 basePath(仓库名作为路径前缀)
+// GitHub Pages 部署需要 basePath(仓库名作为路径前缀)。取值口径住 src/config/base-path.ts,
+// 本文件不再写第二份仓库名;同一值经 `env` 注入给客户端(见 nextConfig.env)。
 const isGitHubPages = process.env.GITHUB_PAGES === 'true'
-const repoName = 'IHUI-AI'
+const basePath = resolveBasePath()
 
 // 2026-07-28 修复:Next.js 16 dev server 启动校验更严,`output: 'export'` + middleware.ts
 // 共存直接报错 "Middleware cannot be used with output: export" 并死锁 8801 端口
@@ -68,9 +70,14 @@ const nextConfig: NextConfig = {
   // 生产服务端模式不设 output,保留 rewrites/headers/middleware 全部能力)
   ...(isStaticExport ? { output: 'export' as const } : {}),
   distDir: buildDistDir,
-  basePath: isGitHubPages ? `/${repoName}` : '',
-  assetPrefix: isGitHubPages ? `/${repoName}/` : '',
+  basePath,
+  assetPrefix: basePath === '' ? '' : `${basePath}/`,
   trailingSlash: isGitHubPages, // GitHub Pages 需要 trailingSlash 确保路由可访问
+  // basePath 是构建期配置,客户端 bundle 读不到;把同一个值以公开变量注入,
+  // 供 config/data 层的站内绝对路径(src/config/base-path.ts 的 withBasePath)使用。
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath,
+  },
   // 2026-09-04 性能优化(用户授权"本地开发版最快速度"):关闭 StrictMode。
   // 实测:React 19 StrictMode 在 dev 模式双重渲染,使按钮点击延迟 +35%
   // (侧边栏「收起」按钮 dev 325ms→关闭后 220ms)。生产模式不受 StrictMode 影响

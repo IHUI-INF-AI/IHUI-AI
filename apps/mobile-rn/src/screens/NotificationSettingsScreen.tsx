@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -53,8 +53,29 @@ export function NotificationSettingsScreen() {
     }
   }, [t, reloadKey])
 
-  const handleToggle = useCallback((key: keyof NotificationSettingsItem, value: boolean) => {
-    setSettings((prev) => (prev ? { ...prev, [key]: value } : prev))
+  // 共享屏改为端侧数据驱动行(items):RN 用自身固定 5 键构造,小程序用服务端偏好键构造。
+  const items = useMemo(
+    () =>
+      settings
+        ? [
+            { key: 'pushEnabled', label: t('notificationSettings.push'), enabled: settings.pushEnabled },
+            { key: 'messageEnabled', label: t('notificationSettings.message'), enabled: settings.messageEnabled },
+            { key: 'emailEnabled', label: t('settings.emailNotif'), enabled: settings.emailEnabled },
+            { key: 'smsEnabled', label: t('settings.smsNotif'), enabled: settings.smsEnabled },
+            {
+              key: 'marketingEnabled',
+              label: t('notificationSettings.marketing'),
+              enabled: settings.marketingEnabled,
+            },
+          ]
+        : [],
+    [settings, t],
+  )
+
+  const handleToggle = useCallback((key: string, value: boolean) => {
+    setSettings((prev) =>
+      prev ? { ...prev, [key as keyof NotificationSettingsItem]: value } : prev,
+    )
   }, [])
 
   const handleSave = async () => {
@@ -83,7 +104,16 @@ export function NotificationSettingsScreen() {
   return (
     <SharedNotificationSettingsScreen
       t={t}
-      settings={settings}
+      items={items}
+      showHeader={true}
+      extraLinks={[
+        {
+          key: 'message-center',
+          label: t('messageCenter.title'),
+          onPress: () => navigation.navigate('MessageCenter'),
+        },
+      ]}
+      extraLinksTitle={t('common.more')}
       loading={loading}
       saving={saving}
       error={error}

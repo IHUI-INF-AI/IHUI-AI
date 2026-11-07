@@ -3268,11 +3268,13 @@ pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
         .build()
         .map_err(|e| IpcError::internal(format!("HTTP 客户端构建失败: {e}")))?;
     // 主: cip.cc(plain text,含中文归属地;UA 给 curl 文本版)
-    if let Ok(resp) = client
+    // 出口门(Z17 与 CLI 同源腿):被拒 ⇒ 不拨主源、直接走兜底,理由已具名出声。
+    let primary_allowed = crate::egress_gate::guard_egress_target("https://cip.cc").is_ok();
+    if let (true, Ok(resp)) = (primary_allowed, client
         .get("https://cip.cc")
         .header("User-Agent", "curl/8.9.1")
         .send()
-        .await
+        .await)
     {
         if let Ok(body) = resp.text().await {
             if let Some((ip, location)) = parse_public_ip_body(&body) {
@@ -3281,6 +3283,9 @@ pub async fn checkin_get_public_ip() -> Result<PublicIpReport, IpcError> {
         }
     }
     // 兜底: ipify(只有 IP,无归属地;空响应视为失败,防止前端拿到空串后 IP 对比逻辑失效)
+    if let Err(denied) = crate::egress_gate::guard_egress_target("https://api.ipify.org") {
+        return Err(IpcError::internal(format!("出口门拒绝兜底源: {denied}")));
+    }
     let ip = client
         .get("https://api.ipify.org")
         .send()

@@ -162,4 +162,21 @@ test('④ 主树合并冲突:conflict=1,strict exit 1', (t) => {
   assert.equal(r.json.trees[0].conflicts, 1)
   assert.equal(r.json.totals.conflicts, 1)
 })
+
+test('⑥ 未跟踪要点名到路径:计数不指认现场(§0.9 判据得能指出下落)', (t) => {
+  const dir = makeRepo()
+  t.after(() => rmSync(dir, { recursive: true, force: true }))
+  writeFileSync(join(dir, 'stray-a.txt'), 'x\n')
+  writeFileSync(join(dir, 'stray-b.txt'), 'y\n')
+  const j = run(dir, ['--gate', '--json'])
+  assert.equal(j.status, 1, '主树有未跟踪内容时 --gate 必须阻断')
+  assert.deepEqual([...j.json.trees[0].untrackedList].sort(), ['stray-a.txt', 'stray-b.txt'])
+  assert.equal(j.json.trees[0].untrackedMore, 0, '未列枚数应为 0(两枚都已点名)')
+  const plain = run(dir, ['--gate'])
+  assert.match(
+    plain.stderr,
+    /点名未跟踪[^\n]*stray-a\.txt/,
+    '红消息只报计数 ⇒ CI 上多出来那一枚永远查不到主(2026-11-05 实测:一枚名为 D: 的目录两轮全量档无人能归因)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

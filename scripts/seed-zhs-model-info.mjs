@@ -45,12 +45,12 @@ try {
 
   console.log(`读取模型清单: ${models.length} 个(${MODELS_FILE})`)
 
-  // 清空(配置数据,允许重建)
-  const cleared = await sql`DELETE FROM zhs_ai_model_info`
-  console.log(`已清空 zhs_ai_model_info(${cleared.count} 行)`)
-
-  // 事务批量插入
+  // DELETE 与全部 INSERT 同一事务(BUG-96):INSERT 任一失败回滚后 DELETE 一并回滚,
+  // 模型清单整表不会丢。此前 DELETE 在事务外先提交,回滚只撤 INSERT ⇒ 表被清空且不恢复。
   await sql.begin(async (tx) => {
+    const cleared = await tx`DELETE FROM zhs_ai_model_info`
+    console.log(`已清空 zhs_ai_model_info(${cleared.count} 行)`)
+
     for (let i = 0; i < models.length; i += 50) {
       const batch = models.slice(i, i + 50)
       for (const m of batch) {

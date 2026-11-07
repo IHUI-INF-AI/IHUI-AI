@@ -21,5 +21,18 @@
   "scripts/lib/radius-tokens.mjs",
   "scripts/lib/design-token-blocks.mjs",
   "scripts/lib/third-party-roots.mjs",
-  "scripts/lib/watermark-lines.mjs"
+  "scripts/lib/watermark-lines.mjs",
+  "scripts/lib/bypass-git.mjs",
+  "scripts/lib/git-paths.mjs",
+  "scripts/lib/cross-end-landing-ledger.mjs",
+  "scripts/lib/psql-client-locate.mjs",
+  "scripts/lib/key-dir.mjs",
+  "scripts/lib/commit-attestation.mjs",
+  "scripts/lib/face-scan.mjs",
+  "scripts/lib/plan-id-lease.mjs",
+  "scripts/lib/route-registration-extract.mjs",
+  "scripts/lib/plan-fields.mjs",
+  "scripts/lib/outbound-route-facts.mjs",
+  "scripts/lib/deletion-intent.mjs",
+  "scripts/lib/batch-write-lexer.mjs"
 ]

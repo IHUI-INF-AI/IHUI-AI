@@ -8,6 +8,7 @@
  * 纯展示:评论正文 + 目标类型(article/news/resource/lesson/ask 图标与本地化标签)+ 日期,
  * 分页(page/pageSize=20)、删除入口(确认弹窗由薄壳负责)。
  */
+import { rnSpacing } from '@ihui/design-tokens'
 import { useMemo } from 'react'
 import { BookOpen, FileText, MessageSquare, Newspaper, Trash2 } from 'lucide-react-native'
 import type { LucideIcon } from 'lucide-react-native'
@@ -142,7 +143,13 @@ export function MyCommentsScreen({
                   style={[styles.row, idx === items.length - 1 ? { borderBottomWidth: 0 } : null]}
                 >
                   <View style={styles.rowMain}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: rnSpacing['xs-loose'],
+                      }}
+                    >
                       <Icon size={14} color={tk.text.tertiary} strokeWidth={2} />
                       <Text style={styles.rowTitle} numberOfLines={1}>
                         {comment.targetTitle ?? typeLabel}

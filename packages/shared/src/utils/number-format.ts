@@ -17,9 +17,13 @@
  * - TrendChartDialog Y 轴刻度
  *
  * 调用方负责传入 locale(如 web 端从 document.documentElement.lang 读取,RN 端从 i18n state 读取)。
+ *
+ * BUG-28⑤:只有 null/undefined(缺席)返回空串。真实 0 是有效值,必须渲染成 "0",
+ * 与「0 与缺席不可互换」(packages/types/src/api-contracts.ts)一致 —— 旧实现把
+ * n === 0 一并归入空值,会把真实的 0 热度 / 0 刻度静默抹成空白。
  */
 export function formatCompact(n: number | null | undefined, locale: string): string {
-  if (n === null || n === undefined || n === 0) return ''
+  if (n === null || n === undefined) return ''
   if (n < 10000) return String(n)
   return new Intl.NumberFormat(locale, {
     notation: 'compact',

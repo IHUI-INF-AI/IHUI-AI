@@ -655,6 +655,12 @@ function run() {
   //   桶 M 判为「有提及未成凭据」= 整面扫到屏名、但在载体里没构成四形之一(缺动词 / 写在
   //                  未注册页或组件里)⇒ 同样判过,结论是"凭据不足";逐枚可查(--explain)。
   //   桶 A 名称歧义 = 裸屏名解到 ≥2 枚在位共享屏 ⇒ **不认**(尺子不猜),逐名点名。
+  //   桶 V 已裁决不承载 = 判决台账(scripts/data/miniapp-mirror-verdicts.jsonl,与生成器
+  //                  `gen-miniapp-mirror.mjs` 同一份真相源)里显式判过 not-applicable 的屏。
+  //                  2026-11-05 立:此前那份台账只用于「镜像被撤」豁免,未镜像面仍把这些屏
+  //                  算进 S/M 报数 ⇒ 生成器说"已裁决不做"、本门说"缺口候选 16 枚",同一件事
+  //                  两处口径相反;派单读后者就会去"镜像"一堆已判不承载的屏(幻影活)。
+  //                  台账取不到 ⇒ 一条不豁免,照旧进 S/M(失效方向恒为多报一次待办,§0.3/§0.10)。
   const CARRIER_EXT_RE = /\.(tsx|ts|jsx|js|css|scss|less|wxss|md)$/
   const mpAll = faceList(FACE, MP_SRC).filter((f) => CARRIER_EXT_RE.test(f))
   const carrierSet = new Set(mp.flatMap(carriersOf))
@@ -669,8 +675,18 @@ function run() {
     const re = new RegExp(`\\b${base}\\b`)
     return re.test(carrierBlob) || re.test(offBlob)
   }
-  const bucket = { S: [], M: [], A: [], U: [] }
+  const bucket = { S: [], M: [], A: [], U: [], V: [] }
   for (const s of notMirrored) {
+    // 桶 V:判决台账已显式判「不承载」的屏(与生成器 gen-miniapp-mirror 同一份真相源)。
+    // 为什么必须单列(2026-11-05 实测):生成器按台账把这 18 枚判为不承载并 planned=0,
+    // 而本门此前只把台账用于「镜像被撤」豁免,未镜像面仍把它们算进 S/M 报数 ——
+    // 于是同一件事在两处口径相反:一处说"已裁决不做",一处说"缺口候选 16 枚"。
+    // 派单口径读的是后者 ⇒ 后续会话会被送去"镜像"一堆已判不承载的屏(幻影活)。
+    // 台账取不到 / 读到空 ⇒ 一条也不豁免,照旧进 S/M(失效方向恒为多报一次待办,§0.3/§0.10)。
+    if (verdictsReadable && notApplicable.has(s.spec)) {
+      bucket.V.push(s.spec)
+      continue
+    }
     const base = s.spec.slice(0, -'.tsx'.length).split('/').pop()
     if (ambiguousNames.has(base)) bucket.A.push(s.spec)
     else if (mentions(base)) bucket.M.push(s.spec)
@@ -707,6 +723,8 @@ function run() {
     mirroredRatio: shared.length ? +(nowMirrored.length / shared.length).toFixed(4) : 0,
     registryEntries: (registry.entries || []).length,
     undeterminedMiniapp: bucket.U.length,
+    adjudicatedNotCarried: bucket.V.length,
+    verdictsLedgerReadable: verdictsReadable,
     noDeclaration: bucket.S.length,
     mentionNoCredential: bucket.M.length,
     ambiguousName: bucket.A.length,
@@ -748,6 +766,7 @@ function run() {
           mirrored: nowMirrored,
           notMirrored: notMirrored.map((s) => s.spec),
           buckets: {
+            已裁决不承载: bucket.V.sort(),
             判为无声明: bucket.S.sort(),
             提及未成凭据: bucket.M.sort(),
             名称歧义: bucket.A.sort(),
@@ -776,7 +795,7 @@ function run() {
       `未判定(判定面残缺)      : ${stats.undeterminedMiniapp}${stats.undeterminedMiniapp ? ' ⇒ 不记绿也不冒红,逐枚见 --json 的「真未判定」' : ''}`,
     )
     log(
-      `判为无声明(缺口候选)    : ${stats.noDeclaration} / 提及未成凭据 ${stats.mentionNoCredential} / 名称歧义 ${stats.ambiguousName}`,
+      `未镜像已裁决不承载(桶 V) : ${stats.adjudicatedNotCarried}${stats.verdictsLedgerReadable ? '' : '  ⚠ 判决台账取不到 ⇒ 本档一条未镜像也没有豁免,下面两列含幻影'} / 判为无声明(真缺口候选) ${stats.noDeclaration} / 提及未成凭据 ${stats.mentionNoCredential} / 名称歧义 ${stats.ambiguousName}`,
     )
     log(
       `新检测形认出(从未判定转入判定面): ${stats.recognizedByNewForms} —— ${Object.entries(stats.recognizedByForm).map(([f, l]) => `${f} ${l.length}`).join(' / ') || '无'}`,

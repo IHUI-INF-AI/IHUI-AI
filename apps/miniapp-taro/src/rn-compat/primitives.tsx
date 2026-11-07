@@ -14,19 +14,35 @@
  *  2. `numberOfLines` 在 RN 是排版能力,小程序只能靠 CSS line-clamp(style.ts 承接)。
  *  3. RN `Image` 默认 `resizeMode: cover`,Taro 默认 `scaleToFill` ⇒ 不显式映射会拉伸变形。
  */
-import type { ComponentProps, ReactElement, ReactNode, Ref } from 'react'
+import {
+  createElement,
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ForwardedRef,
+} from 'react'
+import type { ComponentProps, ComponentType, ReactElement, ReactNode, Ref } from 'react'
 import {
   Image as TaroImage,
   Input,
+  RootPortal,
   ScrollView as TaroScrollView,
   Switch as TaroSwitch,
   Text as TaroText,
   Textarea,
   View as TaroView,
 } from '@tarojs/components'
+import Taro from '@tarojs/taro'
 
 import { flattenStyle, toTaroStyle, type StyleProp, type TextStyle, type ViewStyle } from './style'
-import { resolveRefreshControl } from './props-resolution'
+import {
+  resolveLowerThresholdPx,
+  resolveRefreshControl,
+  resolveScrollViewBox,
+  resolveTextLineClamp,
+} from './props-resolution'
 /**
  * 纯类型别名一律 `import type`(编译期擦除,不进运行时图):`./index` 会 `export * from './primitives'`,
  * 值层若互相 require 就是环 —— 类型层没有这个问题。
@@ -39,7 +55,9 @@ import type {
   ImageLoadEventData,
   ImageSourcePropType,
   LayoutChangeEvent,
+  ListRenderItemInfo,
   NativeSyntheticEvent,
+  TextInputSubmitEditingEventData,
 } from './index'
 
 /**
@@ -118,6 +136,34 @@ export interface RNCompatProps {
 /** 组件签名 = 闭合面 + 兜底键(各屏自定义属性照旧可传);派生类型(Omit/Pick)一律用 RNCompatProps */
 export type RNBaseProps = RNCompatProps & { [key: string]: unknown }
 
+/**
+ * TextInput 专用面:RN 的原生输入键单列一层,不并进 RNCompatProps。
+ * 共享层 `Omit<ComponentPropsWithRef<typeof TextInput>, …>`(TextField.tsx:36)会把这些具名键
+ * 原样带到 60+ 个调用点;放进通用面则 View/Switch 等也跟着多出输入专有键,面不再诚实。
+ */
+export interface RNTextInputProps extends RNCompatProps {
+  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
+  autoCorrect?: boolean
+  textAlignVertical?: 'auto' | 'top' | 'bottom' | 'center'
+  returnKeyType?:
+    | 'default'
+    | 'done'
+    | 'emergency-call'
+    | 'go'
+    | 'google'
+    | 'join'
+    | 'next'
+    | 'previous'
+    | 'route'
+    | 'search'
+    | 'send'
+    | 'yahoo'
+  textContentType?: string
+  underlineColorAndroid?: string
+  clearButtonMode?: 'never' | 'while-editing' | 'unless-editing' | 'always'
+  onSubmitEditing?: (e: NativeSyntheticEvent<TextInputSubmitEditingEventData>) => void
+}
+
 /** RN:flex column + 子项不收缩;compat View 的基线,调用方样式覆盖 */
 const VIEW_BASE: ViewStyle = {
   display: 'flex',
@@ -175,6 +221,79 @@ function clickHandler(
  * 因索引签名把 keyof 撑成 string|number 而整块折叠成纯索引签名(className 退回 unknown)。
  * 纯类型手法,运行时仍是下面那一份实现。
  */
+/**
+ * onLayout 下发(2026-11-06)。
+ *
+ * 旧状态:RNCompatProps 声明了 `onLayout`,但 View 从不调用它,声明等于没有;
+ * 小程序也没有 View 级 onLayout 事件。Taro 侧唯一等价能力是
+ * `Taro.createSelectorQuery().select('#id').boundingClientRect()`(Taro 的 WXML 节点查询),
+ * 因此这里给节点补稳定 id,挂载后一帧取矩形并合成为 RN 形状的 `{nativeEvent:{layout}}`。
+ *
+ * 语义等价边界(必须明写,不能假装全等):
+ *  - width/height 与 RN 同义(节点盒子尺寸);
+ *  - x/y 取 boundingClientRect 的 left/top,是**可视区坐标**;RN 的 x/y 是**相对父节点**。
+ *    Taro 没有"查父节点矩形"的原语,无法无创换算 ⇒ 本层只保证 width/height 全等,
+ *    x/y 仅在节点位于页面原点/父节点无偏移时数值一致。共享层现读唯一消费点
+ *    (BannerCarousel.tsx:onLayout)只用 width,不受这条差异影响。
+ *  - 触发时机:挂载后一帧 + 样式串变化 + 页面尺寸变化(由调用方 effect 依赖驱动),
+ *    不是 RN 那种原生布局观察器;纯父容器动画引起的变化不会自动重放。
+ *
+ * 取不到 SelectorQuery/节点(非端内环境、父级在原生自定义组件内)时**静默跳过**,
+ * 不派发 0 尺寸假事件 —— 宁可未判定,也不让共享屏按错误宽度布局。
+ */
+type SelectorRect = { left?: number; top?: number; width?: number; height?: number } | null
+let layoutProbeSeq = 0
+let scrollProbeSeq = 0
+
+function useLayoutBridge(p: RNBaseProps): string | undefined {
+  const onLayout =
+    typeof p.onLayout === 'function'
+      ? (p.onLayout as (event: LayoutChangeEvent) => void)
+      : undefined
+  const autoId = useRef<string | null>(null)
+  if (onLayout && typeof p.id !== 'string' && autoId.current === null) {
+    autoId.current = `rn-layout-${++layoutProbeSeq}`
+  }
+  const probeId = typeof p.id === 'string' ? p.id : (autoId.current ?? undefined)
+  const cbRef = useRef(onLayout)
+  cbRef.current = onLayout
+  // 样式串作依赖:共享屏换宽度(如 carousel 尺寸)时重新量一次;父子层内部变化不追。
+  const styleKey = JSON.stringify(flattenStyle(p.style))
+  useEffect(() => {
+    const cb = cbRef.current
+    if (!cb || !probeId) return
+    if (typeof Taro.createSelectorQuery !== 'function') return
+    const query = Taro.createSelectorQuery()
+    let cancelled = false
+    const measure = () => {
+      query
+        .select(`#${probeId}`)
+        .boundingClientRect((raw: unknown) => {
+          const rect = raw as SelectorRect
+          if (cancelled || !rect) return
+          if (typeof rect.width !== 'number' || typeof rect.height !== 'number') return
+          cb({
+            nativeEvent: {
+              layout: {
+                x: typeof rect.left === 'number' ? rect.left : 0,
+                y: typeof rect.top === 'number' ? rect.top : 0,
+                width: rect.width,
+                height: rect.height,
+              },
+            },
+          })
+        })
+        .exec()
+    }
+    if (typeof Taro.nextTick === 'function') Taro.nextTick(measure)
+    else setTimeout(measure, 0)
+    return () => {
+      cancelled = true
+    }
+  }, [probeId, styleKey])
+  return probeId
+}
+
 export function View(props: RNBaseProps): ReactElement
 export function View(props: RNCompatProps): ReactElement
 export function View(props: RNCompatProps) {
@@ -183,11 +302,12 @@ export function View(props: RNCompatProps) {
   // 所以这一支只能取闭合面 + 断言;运行时形状同一个对象,零改动。
   const p = props as RNBaseProps
   const onClick = clickHandler(p)
+  const probeId = useLayoutBridge(p)
   return (
     <TaroView
       className={typeof p.className === 'string' ? p.className : undefined}
       style={toTaroStyle(merged(p.style, VIEW_BASE))}
-      id={typeof p.id === 'string' ? p.id : undefined}
+      id={probeId}
       onClick={onClick}
       onLongPress={p.onLongPress as EventHandler}
     >
@@ -213,12 +333,14 @@ export type View = ViewInstance
 export function Text(props: RNBaseProps) {
   const onClick = clickHandler(props)
   const numberOfLines = props.numberOfLines as number | undefined
-  // 单行且未给 flex 时,RN 的 Text 默认不换行不折行;多行交给 line-clamp(style.ts)
-  const nowrap = numberOfLines === 1 ? { whiteSpace: 'nowrap' as const } : {}
+  // numberOfLines 是 RN 的 prop,不是样式键;旧实现只在 ===1 时补 nowrap,≥2 整条丢失。
+  // resolveTextLineClamp 把 prop 归一成样式源(≥2 交给 style.ts clampFrom 生成 -webkit-line-clamp),
+  // 单行维持原有 nowrap 排版,不改变既有单行视觉。
+  const lineClamp = resolveTextLineClamp(numberOfLines)
   return (
     <TaroText
       className={typeof props.className === 'string' ? props.className : undefined}
-      style={toTaroStyle({ ...flattenStyle(props.style), ...nowrap })}
+      style={toTaroStyle({ ...flattenStyle(props.style), ...lineClamp })}
       onClick={onClick}
       selectable={props.selectable as boolean | undefined}
     >
@@ -330,10 +452,116 @@ function throttledScroll(
   }
 }
 
-export function ScrollView(props: RNBaseProps) {
+/**
+ * 命令式滚动句柄(2026-11-05):RN 的 ScrollView 有实例方法,小程序没有 ⇒ 由这一层
+ * 翻译成 scrollTop / scrollLeft / scrollWithAnimation 的状态更新再下传 TaroScrollView。
+ * `getScrollResponder` 返回自身,承接 RN 里 `getScrollResponder().scrollTo(...)` 的写法。
+ */
+export interface ScrollViewHandle {
+  scrollTo: (params: { x?: number; y?: number; animated?: boolean }) => void
+  scrollToEnd: (params?: { animated?: boolean }) => void
+  getScrollResponder: () => ScrollViewHandle
+}
+
+/**
+ * 类型位:共享屏写 `useRef<ScrollView>(null)`(BannerCarousel.tsx:53)。值面已换成 compat 组件,
+ * 没有同名类型时小程序侧把它当值实例化 ⇒ TS2749。补齐后读的是本层的命令式句柄形状。
+ */
+export type ScrollView = ScrollViewHandle
+
+function ScrollViewInner(props: RNBaseProps, ref: ForwardedRef<ScrollViewHandle>) {
   const horizontal = props.horizontal === true
   const base: ViewStyle = horizontal ? { flexDirection: 'row' } : {}
   const throttleMs = typeof props.scrollEventThrottle === 'number' ? props.scrollEventThrottle : 16
+  const [imperative, setImperative] = useState<{
+    top?: number
+    left?: number
+    animated?: boolean
+  }>({})
+  /**
+   * 高度边界(2026-11-06):Taro scroll-view 必须有确定高度才会滚(官方 ScrollView.d.ts 明示)。
+   * 共享层习惯写 `style={{flex:1}}`,在 RN 由父 flex 算高度,在 Taro 不成立 ——
+   * 统一在原语层外包 flex:1 容器 + 内层 100%,不逐页打补丁。见 props-resolution.ts 的长注释。
+   */
+  const viewportBox = resolveScrollViewBox(flattenStyle(props.style), horizontal)
+  /**
+   * onEndReachedThreshold(2026-11-06):RN 的 threshold 是**可视长度倍数**,Taro 的 lowerThreshold
+   * 是**px**。旧实现把同名旧键 onEndThreshold 直传、完全忽略 RN 键 ⇒ 共享屏传 0.5 等于没传。
+   * 视口长度优先量 ScrollView 自身轴向尺寸(嵌套半屏列表才不会被整屏高度放大触发距离),
+   * SelectorQuery 不可用时退回系统窗口尺寸,两者都取不到则保留 Taro 默认(不伪造 0)。
+   */
+  const threshold =
+    typeof props.onEndReachedThreshold === 'number' ? props.onEndReachedThreshold : undefined
+  const [measuredViewport, setMeasuredViewport] = useState<number | undefined>(undefined)
+  const measureIdRef = useRef<string | null>(null)
+  if (threshold !== undefined && measureIdRef.current === null) {
+    measureIdRef.current = `rn-scroll-${++scrollProbeSeq}`
+  }
+  const measureId = typeof props.id === 'string' ? props.id : (measureIdRef.current ?? undefined)
+  const [fallbackViewport] = useState<number | undefined>(() => {
+    try {
+      const info = Taro.getSystemInfoSync()
+      return horizontal ? info.windowWidth : info.windowHeight
+    } catch {
+      return undefined
+    }
+  })
+  useEffect(() => {
+    if (threshold === undefined || !measureId) return
+    if (typeof Taro.createSelectorQuery !== 'function') return
+    const query = Taro.createSelectorQuery()
+    let cancelled = false
+    const measure = () => {
+      query
+        .select(`#${measureId}`)
+        .boundingClientRect((raw: unknown) => {
+          const rect = raw as SelectorRect
+          if (cancelled || !rect) return
+          const length = horizontal ? rect.width : rect.height
+          if (typeof length === 'number' && length > 0) setMeasuredViewport(length)
+        })
+        .exec()
+    }
+    if (typeof Taro.nextTick === 'function') Taro.nextTick(measure)
+    else setTimeout(measure, 0)
+    return () => {
+      cancelled = true
+    }
+  }, [measureId, horizontal, threshold])
+  const lowerThreshold =
+    resolveLowerThresholdPx(threshold, measuredViewport ?? fallbackViewport ?? 0) ??
+    (typeof props.onEndThreshold === 'number' ? props.onEndThreshold : undefined)
+  useImperativeHandle(ref, () => {
+    const handle: ScrollViewHandle = {
+      scrollTo: ({ x, y, animated }) => {
+        setImperative((prev) => ({
+          top: typeof y === 'number' ? y : prev.top,
+          left: typeof x === 'number' ? x : prev.left,
+          animated: animated !== false,
+        }))
+      },
+      // RN 的 scrollToEnd 也是"滚到底",这里用足够大的增量走同一路径,不另造定位逻辑
+      scrollToEnd: (params) => {
+        setImperative((prev) => ({
+          top: (prev.top ?? 0) + 1_000_000,
+          left: prev.left,
+          animated: params?.animated !== false,
+        }))
+      },
+      getScrollResponder: () => handle,
+    }
+    return handle
+  }, [])
+  /**
+   * 显式 prop 优先:FlatList 自己维护 scrollTop 并以 prop 下传,不能被命令式状态盖掉;
+   * 只有直接给 ScrollView 挂 ref 调方法时才走 imperative。
+   */
+  const scrollTop = typeof props.scrollTop === 'number' ? props.scrollTop : imperative.top
+  const scrollLeft = typeof props.scrollLeft === 'number' ? props.scrollLeft : imperative.left
+  const scrollWithAnimation =
+    typeof props.scrollWithAnimation === 'boolean'
+      ? props.scrollWithAnimation
+      : imperative.animated === true
   /**
    * 下拉刷新承接(2026-11-01):RN 的 refreshControl 是"挂 <RefreshControl> 子元素的声明位",
    * 手势由 ScrollView 承接;小程序等价物是 refresher 三件套 ⇒ 从元素里解出 refreshing/onRefresh
@@ -346,28 +574,56 @@ export function ScrollView(props: RNBaseProps) {
   const showScrollbar = !(
     props.showsHorizontalScrollIndicator === false || props.showsVerticalScrollIndicator === false
   )
-  return (
+  const scrollNode = (
     <TaroScrollView
       scrollX={horizontal}
       scrollY={!horizontal}
       enhanced
+      // 命令式滚动承载(2026-11-05):RN 端 `FlatList.scrollToEnd` 是 ref 方法,小程序侧没有
+      // 对应实例方法 ⇒ 由 FlatList 适配层改写成 scrollTop 递增 + scrollWithAnimation,经此透传。
+      scrollTop={scrollTop}
+      scrollLeft={scrollLeft}
+      scrollWithAnimation={scrollWithAnimation}
+      // SectionList 的 scrollToLocation 翻译成 Taro 的 scrollIntoView(id 定位)
+      scrollIntoView={typeof props.scrollIntoView === 'string' ? props.scrollIntoView : undefined}
       showScrollbar={showScrollbar}
       refresherEnabled={rc?.enabled === true}
       refresherTriggered={rc?.refreshing === true}
       onRefresherRefresh={rc?.onRefresh ? () => rc.onRefresh?.() : undefined}
       className={typeof props.className === 'string' ? props.className : undefined}
-      style={toTaroStyle(merged(props.style, { ...VIEW_BASE, ...base }))}
+      // viewportBox.innerStyle:flex 场景补 height/width:100%,给原生 scroll-view 一个确定基准
+      style={toTaroStyle(merged(props.style, { ...VIEW_BASE, ...base, ...viewportBox.innerStyle }))}
+      // threshold 测量用的稳定 id(共享屏自带 id 时优先用调用方的)
+      id={measureId}
       // RN 的 scrollEventThrottle 在小程序没有原生对应档(旧写法把它当 Taro prop 直传,组件不认 ⇒ TS2769)
       // ⇒ 由这一层按同样的节奏收口:两次回调之间至少隔 throttleMs,超出窗口的直接吞掉
       onScroll={throttledScroll(props.onScroll as ScrollEventHandler, throttleMs)}
-      lowerThreshold={props.onEndThreshold as number | undefined}
+      lowerThreshold={lowerThreshold}
       onScrollToLower={props.onEndReached as ScrollToLowerEventHandler}
     >
       {props.refreshControl as ReactNode}
       <View style={props.contentContainerStyle as ViewStyle}>{props.children}</View>
     </TaroScrollView>
   )
+  /**
+   * wrapper 只在"声明了 flex 但没显式尺寸"时出现:外层承担 flex 布局(吃父级剩余空间),
+   * 内层 100% 才有百分比基准。显式高度/宽度路径原样直出,不改变既有盒模型。
+   */
+  return viewportBox.wrapperStyle ? (
+    <View style={viewportBox.wrapperStyle as ViewStyle}>{scrollNode}</View>
+  ) : (
+    scrollNode
+  )
 }
+
+/**
+ * `forwardRef` 是**行为修复**而不是类型糖:RN 的 <ScrollView ref={r}> 拿得到实例,
+ * 旧写法是普通函数组件 ⇒ ref 恒为 null,共享层里 `getScrollResponder().scrollTo(...)`
+ * 这类写法在小程序端静默失效(阴性对照见 tests/rn-compat-flatlist-ref.test.tsx)。
+ */
+export const ScrollView = forwardRef(ScrollViewInner) as unknown as (
+  props: RNBaseProps & { ref?: Ref<ScrollViewHandle> },
+) => ReactElement
 
 /**
  * 下拉刷新:RN 把它做成 ScrollView 的子元素;小程序的下拉手势由 ScrollView 的 refresher
@@ -391,25 +647,98 @@ export function RefreshControl(_props: RNBaseProps) {
  */
 export interface RNFlatListProps<T> {
   data?: readonly T[]
-  renderItem?: (info: { item: T; index: number }) => ReactNode
+  /**
+   * 形参含 `separators`:共享屏把 `ListRenderItem<T>`(RN 的形参形状)直接传给本键,
+   * 少一格时按逆变规则不兼容 ⇒ TS2322(DistributionOrderListScreen.tsx:143)。
+   */
+  renderItem?: (info: ListRenderItemInfo<T>) => ReactNode
   keyExtractor?: (item: T, index: number) => string
   numColumns?: number
   contentContainerStyle?: StyleProp<ViewStyle>
   refreshControl?: ReactNode
-  ListHeaderComponent?: ReactNode
-  ListFooterComponent?: ReactNode
-  ListEmptyComponent?: ReactNode
+  // RN 允许「元素」或「渲染函数/组件类型」两形(共享屏 ChatScreen.tsx:216/219 用 `() => <>…</>` 形)。
+  ListHeaderComponent?: ReactNode | (() => ReactNode)
+  ListFooterComponent?: ReactNode | (() => ReactNode)
+  ListEmptyComponent?: ReactNode | (() => ReactNode)
   ItemSeparatorComponent?: () => ReactNode
   [key: string]: unknown
 }
-export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
+export interface FlatListHandle {
+  scrollToEnd: (params?: { animated?: boolean }) => void
+  scrollToOffset: (params: { offset: number; animated?: boolean }) => void
+  scrollToIndex: (params: {
+    index: number
+    animated?: boolean
+    viewOffset?: number
+    viewPosition?: number
+  }) => void
+}
+
+/** RN 的 separators 句柄;compat 没有高亮分隔交互,给空实现满足形参类型 */
+const LIST_SEPARATORS = {
+  highlight: (): void => undefined,
+  unhighlight: (): void => undefined,
+  updateProps: (): void => undefined,
+}
+
+/**
+ * 类型位:共享屏写 `useRef<FlatList<T> | null>`(如 packages/app/src/features/chat/ChatScreen.tsx:196),
+ * 该写法在 RN 端取 react-native 的 `FlatList<T>` 类型。本文件把 react-native 整体替成了 compat,
+ * 因此同名值必须配一枚同名类型,否则小程序侧 tsc 把 `FlatList<T>` 当值实例化 ⇒ TS2749。
+ */
+export interface FlatList<T = unknown> extends FlatListHandle {
+  readonly __itemType?: T
+}
+
+/** 列表槽位两形折叠:元素直用;函数按 RN 语义视为渲染函数(含共享屏的 `() => <>…</>` 形) */
+function renderListSlot(slot: ReactNode | (() => ReactNode) | undefined): ReactNode {
+  if (typeof slot === 'function') {
+    const fn = slot as (() => ReactNode) & { prototype?: { isReactComponent?: boolean } }
+    return fn.prototype?.isReactComponent ? createElement(fn as never) : fn()
+  }
+  return slot
+}
+
+/**
+ * ref 透传(2026-11-05,薄壳化前置):
+ * 共享屏(`ChatScreen.tsx:199-203`)把 FlatList 的实例 ref 交给消费端,消费端用
+ * `ref.scrollToEnd({animated:true})` 做流式自动滚底(RN 端真实方法)。
+ * 本 compat 早先是普通函数组件 ⇒ React 不挂 ref,`onListRef?.(ref)` 永远拿到 null,
+ * 小程序壳页的自动滚底整条静默丢失。这里补 forwardRef,并把命令式方法翻译成
+ * 「scrollTop 递增 + scrollWithAnimation」交给 TaroScrollView(小程序无实例方法)。
+ * 阴性对照见 tests/rn-compat-flatlist-ref.test.tsx:同现场用未补 ref 的旧形制必须拿不到句柄。
+ */
+function FlatListInner<T = unknown>(props: RNFlatListProps<T>, ref: ForwardedRef<FlatListHandle>) {
+  const [scrollTop, setScrollTop] = useState<number | undefined>(
+    typeof props.scrollTop === 'number' ? props.scrollTop : undefined,
+  )
+  const [scrollWithAnimation, setScrollWithAnimation] = useState(false)
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToEnd: (params) => {
+        setScrollWithAnimation(params?.animated !== false)
+        // scroll-view 的 scrollTop 超界会被原生 clamp 到底;每次递增避免"同值不触发滚动"。
+        setScrollTop((prev) => (prev ?? 0) + 1_000_000)
+      },
+      scrollToOffset: ({ offset, animated }) => {
+        setScrollWithAnimation(animated !== false)
+        setScrollTop(offset)
+      },
+      scrollToIndex: (params) => {
+        setScrollWithAnimation(params.animated !== false)
+        setScrollTop((prev) => (prev ?? 0) + 1_000_000)
+      },
+    }),
+    [],
+  )
   const data = props.data ?? []
   const renderItem = props.renderItem
   const keyExtractor = props.keyExtractor
   const numColumns = props.numColumns ?? 1
-  const Header = props.ListHeaderComponent as ReactNode
-  const Footer = props.ListFooterComponent as ReactNode
-  const Empty = props.ListEmptyComponent as ReactNode
+  const Header = renderListSlot(props.ListHeaderComponent)
+  const Footer = renderListSlot(props.ListFooterComponent)
+  const Empty = renderListSlot(props.ListEmptyComponent)
   const Separator = props.ItemSeparatorComponent
   const rows: T[][] = []
   if (numColumns > 1) {
@@ -420,11 +749,11 @@ export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
       key={keyExtractor ? keyExtractor(item, index) : String(index)}
       style={numColumns > 1 ? { flexGrow: 1, flexBasis: `${100 / numColumns}%` } : undefined}
     >
-      {renderItem?.({ item, index })}
+      {renderItem?.({ item, index, separators: LIST_SEPARATORS })}
     </View>
   )
   return (
-    <ScrollView {...props}>
+    <ScrollView {...props} scrollTop={scrollTop} scrollWithAnimation={scrollWithAnimation}>
       {Header}
       {data.length === 0 ? Empty : null}
       {numColumns > 1
@@ -436,7 +765,7 @@ export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
         : data.map((item, index) => (
             <View key={keyExtractor ? keyExtractor(item, index) : String(index)}>
               {index > 0 ? Separator?.() : null}
-              {renderItem?.({ item, index })}
+              {renderItem?.({ item, index, separators: LIST_SEPARATORS })}
             </View>
           ))}
       {Footer}
@@ -444,8 +773,43 @@ export function FlatList<T = unknown>(props: RNFlatListProps<T>) {
   )
 }
 
-export function TextInput(props: RNBaseProps) {
+export const FlatList = forwardRef(FlatListInner) as unknown as (<T = unknown>(
+  props: RNFlatListProps<T> & { ref?: Ref<FlatListHandle> },
+) => ReactElement) & { displayName?: string }
+
+/**
+ * 命令式焦点句柄(2026-11-05):RN 的 TextInput 有 focus/blur/clear/isFocused 实例方法。
+ * 小程序没有实例方法 ⇒ focus/blur 翻译成 Taro 的 `focus` 布尔档(受控),clear 走 onChangeText('')。
+ */
+export interface TextInputHandle {
+  focus: () => void
+  blur: () => void
+  clear: () => void
+  isFocused: () => boolean
+}
+
+function TextInputInner(props: RNBaseProps, ref: ForwardedRef<TextInputHandle>) {
   const multiline = props.multiline === true
+  const [focused, setFocused] = useState(false)
+  // 句柄要跨 focus/blur 保持同一对象(ref 快照语义),故真值放 ref,state 只驱动 focus prop
+  const focusedRef = useRef(false)
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        focusedRef.current = true
+        setFocused(true)
+      },
+      blur: () => {
+        focusedRef.current = false
+        setFocused(false)
+      },
+      // RN 的 clear 是"清空原生文本";受控组件里等价于把空串回给 onChangeText
+      clear: () => (props.onChangeText as ((t: string) => void) | undefined)?.(''),
+      isFocused: () => focusedRef.current,
+    }),
+    [props.onChangeText],
+  )
   const keyboardType = (props.keyboardType as string) ?? 'default'
   const typeMap: Record<string, NonNullable<TaroInputProps['type']>> = {
     // 微信 input 的 type 只有 text/number/idcard/digit/safe-password/nickname ⇒ email/url/tel 无原生键盘档,
@@ -486,6 +850,8 @@ export function TextInput(props: RNBaseProps) {
     maxlength: (props.maxLength as number) ?? -1,
     disabled: props.editable === false,
     autoFocus: props.autoFocus === true,
+    // 受控焦点:focus()/blur() 改的是这一位,和 autoFocus 取或,避免首次挂载把焦点抢回来
+    focus: focused || props.autoFocus === true,
     className: typeof props.className === 'string' ? props.className : undefined,
     style: toTaroStyle(merged(props.style, VIEW_BASE)),
     ...focusBridge,
@@ -511,6 +877,17 @@ export function TextInput(props: RNBaseProps) {
     />
   )
 }
+
+/** 同上:旧写法普通函数组件,<TextInput ref={r}> 恒为 null ⇒ focus() 静默丢失 */
+export const TextInput = forwardRef(TextInputInner) as unknown as (
+  /**
+   * 闭合面(不是 RNBaseProps):后者带 `[key: string]: unknown`,
+   * 共享层 `Omit<ComponentPropsWithRef<typeof TextInput>, …>`(TextField.tsx)会被索引签名
+   * 折叠成纯索引签名 —— 具名键退回 unknown ⇒ 回调形参失去上下文类型(62 处 TS7006)。
+   * 只收 `RNTextInputProps`(输入专有键),仍不带索引签名。
+   */
+  props: RNTextInputProps & { ref?: Ref<TextInputHandle> },
+) => ReactElement
 
 function keyTypeOf(keyboardType: string): string {
   return keyboardType === 'default' ? 'text' : keyboardType
@@ -562,7 +939,7 @@ export function Modal(props: RNBaseProps) {
   if (props.visible !== true) return null
   const transparent = props.transparent === true
   const onBack = props.onRequestClose as (() => void) | undefined
-  return (
+  const overlay = (
     <View
       style={{
         position: 'fixed',
@@ -585,6 +962,24 @@ export function Modal(props: RNBaseProps) {
       <View style={transparent ? undefined : { flex: 1 }}>{props.children}</View>
     </View>
   )
+  /**
+   * Modal → Portal(2026-11-06)。
+   *
+   * RN Modal 是独立宿主层,不受祖先 overflow/transform/层叠上下文裁剪;旧实现只是
+   * `position: fixed` 的普通 View,祖先一有 transform/overflow 就整块被裁,且小程序原生组件
+   * (video/input)层叠顺序会盖住它。
+   * Taro 没有 ReactDOM.createPortal(小程序无真实 DOM),等价能力是 `RootPortal`
+   * (Taro 4.x 的 root-portal 原生节点;weapp 需基础库 ≥ 2.19.4,见 components/types/RootPortal.d.ts)。
+   *
+   * 降级(平台不可实现的部分,不藏):
+   *  - 基础库过低/平台不支持 RootPortal 时退回旧行为 —— 仍是 fixed 覆盖层,但可能被祖先裁剪,
+   *    这是 Taro 侧唯一可用能力,无法做真正"跳出文档流";调用方须避免把 Modal 嵌在有 transform 的容器里。
+   *  - RN 的 animationType/presentationStyle 在 Taro 无等价物(本层不伪造动画);
+   *    onShow/onDismiss 只能由调用方在 visible 变化处自行触发,本层不派发。
+   */
+  const Portal = RootPortal as unknown as ComponentType<{ children?: ReactNode }> | undefined
+  if (!Portal) return overlay
+  return createElement(Portal, null, overlay)
 }
 
 export const SafeAreaView = View
@@ -592,21 +987,56 @@ export const KeyboardAvoidingView = View
 export const TouchableHighlight = View
 export const TouchableWithoutFeedback = View
 
+/**
+ * 命令式定位句柄(2026-11-05):RN 的 SectionList 有 scrollToLocation / getScrollResponder。
+ * 小程序拿不到 item 的测量值 ⇒ 不伪造像素偏移,改用 Taro 的 scrollIntoView(id 定位):
+ * 行节点按 sectionIndex/itemIndex 编稳定 id,"滚到那一行"的语义不变。
+ */
+export interface SectionListHandle {
+  scrollToLocation: (info: {
+    sectionIndex: number
+    itemIndex?: number
+    animated?: boolean
+    viewOffset?: number
+    viewPosition?: number
+  }) => void
+  getScrollResponder: () => ScrollViewHandle | null
+}
+
 /** RN 的分区列表:小程序没有分区原语,按「SectionList 语义」逐段渲染(段头 + 段内行) */
-export function SectionList(props: RNBaseProps) {
+function SectionListInner(props: RNBaseProps, ref: ForwardedRef<SectionListHandle>) {
   const sections =
     (props.sections as Array<{ key?: string; data?: unknown[]; renderItem?: unknown }>) ?? []
   const renderSection = props.renderSectionItem as
     ((info: { section: unknown; index: number }) => ReactNode) | undefined
   const ItemSeparator = props.ItemSeparatorComponent as (() => ReactNode) | undefined
+  const scrollRef = useRef<ScrollViewHandle | null>(null)
+  const [scrollIntoView, setScrollIntoView] = useState<string | undefined>(undefined)
+  const [scrollWithAnimation, setScrollWithAnimation] = useState(true)
+  useImperativeHandle(
+    ref,
+    () => ({
+      scrollToLocation: ({ sectionIndex, itemIndex, animated }) => {
+        setScrollIntoView(`sl-${sectionIndex}-${itemIndex ?? 0}`)
+        setScrollWithAnimation(animated !== false)
+      },
+      getScrollResponder: () => scrollRef.current,
+    }),
+    [],
+  )
   return (
-    <ScrollView {...props}>
+    <ScrollView
+      {...props}
+      ref={scrollRef}
+      scrollIntoView={scrollIntoView}
+      scrollWithAnimation={scrollWithAnimation}
+    >
       {props.ListHeaderComponent as ReactNode}
       {sections.map((section, index) => (
-        <View key={section.key ?? String(index)}>
+        <View key={section.key ?? String(index)} id={`sl-${index}-h`}>
           {renderSection?.({ section, index })}
           {((section.data as unknown[]) ?? []).map((item, i) => (
-            <View key={i}>
+            <View key={i} id={`sl-${index}-${i}`}>
               {i > 0 ? ItemSeparator?.() : null}
               {(
                 section as { renderItem?: (info: { item: unknown; index: number }) => ReactNode }
@@ -622,6 +1052,11 @@ export function SectionList(props: RNBaseProps) {
     </ScrollView>
   )
 }
+
+/** 同上:旧写法普通函数组件,<SectionList ref={r}> 恒为 null ⇒ scrollToLocation 静默丢失 */
+export const SectionList = forwardRef(SectionListInner) as unknown as (
+  props: RNBaseProps & { ref?: Ref<SectionListHandle> },
+) => ReactElement
 
 /** 背景图容器:RN 的 ImageBackground = Image 打底 + 内容浮在上层(absolute 铺满) */
 export function ImageBackground(props: RNBaseProps) {

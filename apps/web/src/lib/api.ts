@@ -192,7 +192,15 @@ function requestLoginDialogForUnauthorized(method: string): void {
 
 // 2026-09-25 接线:让"经端点函数发出"的请求也拿到与经本包装层完全相同的 401 反馈。
 // 与 setTokenProvider 同档,无条件注册(SSR 下 requestLoginDialogForUnauthorized 自行早返回)。
-setUnauthorizedHandler((ctx) => requestLoginDialogForUnauthorized(ctx.method))
+// BUG-69(2026-11-06):三端 401 语义收敛 —— 本回调是 api-client「续期一次已失败」后的
+// 唯一出口,统一为「清本地会话凭据(被动失效,不落主动登出标记)+ 引导登录」。
+// 只在这条出口清会话,绝不在 fetchApi 包装层的任意 401 上清(那会误杀 30 天自动登录、
+// 与 bootstrap 的分型语义冲突);RN(RootNavigator expireAuth)与小程序(auth.ts expireAuth)
+// 同口径。清完再走弹窗,消除"web 只弹窗不清、RN 静默登出、小程序判死不清凭据"的分裂。
+setUnauthorizedHandler((ctx) => {
+  useAuthStore.getState().expireSession()
+  requestLoginDialogForUnauthorized(ctx.method)
+})
 
 /**
  * Web 端 fetchApi 包装:401 未授权时自动打开登录弹窗。

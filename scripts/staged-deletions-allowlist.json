@@ -122,6 +122,14 @@
       "path": "scripts/sync-grafana-live-provisioning.mjs",
       "reason": "2026-11-04 有意删除(同上族收口):E1 引用方同为 scripts/data/retired-paths.json 的退役锁字面量。splitBlocks 的唯一实现已完整住在现役件 scripts/sync-panel-live-provisioning.mjs(实现见该件 splitBlocks 定义,export 在第 255 行),守门 scripts/check-panel-datasource-wiring.mjs 在第 68 行 import 取用;旧件实测 19/11 差异全部落在镜像地址/文案/换名,零独有判据。本条不改门 99 判据。问责复跑:node scripts/check-panel-datasource-wiring.mjs --self-test。",
       "until": "2027-06-30"
+    },
+    {
+      "path": "packages/app/src/features/model-edit/__tests__/model-edit-save.test.ts",
+      "reason": "2026-11-05 随被测件同批退役(与模型编辑保存层上收同笔):本测试被测的 buildModelEditBillingPayload / submitModelEdit 住在同笔一并删除的 packages/app/src/features/model-edit/model-edit-save.ts;该能力于 2026-11-03 上收,现役实现为 packages/shared/src/utils/model-edit-billing.ts(经 packages/shared/src/utils/index.ts 具名出口),现役消费者为 apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:17 与 apps/mobile-rn/src/screens/ModelEditScreen.tsx:19(两处均 `import { submitModelEdit } from '@ihui/shared/utils'`),等价测试已存在于 packages/shared/src/utils/__tests__/model-edit-billing.test.ts(与被删件逐例同断言,仅 import 来源不同),删本件不减少任何行为覆盖。本门 E3『它测的模块仍在 packages/app/src/types.ts』是误判形态:该测试对 ../../../types 只 import 了 type ModelEditFormValues 类型标注,并非被测主体;门按 import 文件存在即判『被测模块仍在』,识别不出『仅类型 import + 被测符号全数退役』——与本台账 apps/cli/tests/argument-repair.test.ts 条目同型。本条豁免记录该形态,不改门判据。问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-orphan-deletion-refs.mjs;packages/shared 内 pnpm exec vitest run src/utils/__tests__/model-edit-billing.test.ts。"
+    },
+    {
+      "path": "packages/app/src/features/model-edit/model-edit-save.ts",
+      "reason": "2026-11-05 有意删除(与同目录 __tests__/model-edit-save.test.ts 同批退役,模型编辑保存层已于 2026-11-03 上收 @ihui/shared/utils):现役实现为 packages/shared/src/utils/model-edit-billing.ts(经 packages/shared/src/utils/index.ts 具名出口),现役消费者 apps/miniapp-taro/src/pkg-ai/dev-enter/model-edit/index.tsx:17 与 apps/mobile-rn/src/screens/ModelEditScreen.tsx:19 两处均从 @ihui/shared/utils 取 submitModelEdit;等价测试 packages/shared/src/utils/__tests__/model-edit-billing.test.ts 已在,删本件不减少任何行为覆盖。本门 E1 点名的唯一引用方 scripts/tests/check-staged-deletions.test.mjs 不是消费者,而是本笔新增的回归用例把本路径当夹具字面量(该用例钉住「同批删测试与源模块时 E3 对仅类型 import 误判」这一形态),属夹具/否定断言引用,与本台账 apps/cli/tests/argument-repair.test.ts 条目同型;本条豁免只记录该形态,不改门 99 判据。问责复跑:node scripts/check-staged-deletions.mjs --staged;node scripts/check-orphan-deletion-refs.mjs;node --test scripts/tests/check-staged-deletions.test.mjs。"
     }
   ]
 }

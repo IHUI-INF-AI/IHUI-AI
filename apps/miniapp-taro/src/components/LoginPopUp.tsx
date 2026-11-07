@@ -104,25 +104,24 @@ export interface LoginPopUpProps {
    * 与 RN 端 onAgreeChange 同槽;登录前的拦截由宿主页决定,组件只持有并回传态。
    */
   onAgreeChange?: (checked: boolean) => void
-  // ===== 对齐 RN LoginPopUpProps 公开属性(跨端属性对齐门 285 存量收敛 · B4 块)=====
-  // RN 必填项在本端暂无全部调用点,先按可选落地并标注「需后手改必填 + 补调用点」。
-  /** [需后手改必填] RN 必填:弹窗标题(授权卡模式) */
+  // ===== 与 RN 端同名同义的授权卡 / 资料操作槽位(传入即渲染,不传零增量)=====
+  /** 弹窗标题(授权卡模式) */
   title?: string
-  /** [需后手改必填] RN 必填:弹窗描述(授权卡模式) */
+  /** 弹窗描述(授权卡模式) */
   description?: string
-  /** [需后手改必填] RN 必填:主按钮文案(授权卡模式) */
+  /** 主按钮文案(授权卡模式) */
   primaryLabel?: string
-  /** [需后手改必填] RN 必填:主按钮点击(授权卡模式) */
+  /** 主按钮点击(授权卡模式) */
   onPrimary?: () => void
-  /** [需后手改必填] RN 必填:次按钮文案(授权卡模式) */
+  /** 次按钮文案(授权卡模式) */
   secondaryLabel?: string
-  /** [需后手改必填] RN 必填:次按钮点击(授权卡模式) */
+  /** 次按钮点击(授权卡模式) */
   onSecondary?: () => void
   /** 绑定手机号回调(carrierLogin 运营商一键登录拿到手机号并回填后触发) */
   onBindPhone?: () => void
-  /** 保存回调(待接后端保存;回传 {avatar, nickname}) */
+  /** 保存回调(回传 {avatar, nickname}) */
   onSave?: (payload: LoginPopUpSavePayload) => void
-  /** 登出回调(待接后端:清缓存 + reLaunch) */
+  /** 登出回调 */
   onLogout?: () => void
 }
 
@@ -416,7 +415,7 @@ export default function LoginPopUp({
                 onToast(tt('login.loginFailed', '登录失败,请重试'), { kind: 'error' })
               }
             }}
-            className="w-full px-4 rounded-sm !border-none text-center"
+            className="w-full px-lg rounded-sm !border-none text-center"
             style={{
               paddingTop: 0,
               paddingBottom: 0,
@@ -443,7 +442,7 @@ export default function LoginPopUp({
             hoverClass="opacity-60"
           >
             <Text
-              className="text-xs text-muted-foreground"
+              className="text-label text-muted-foreground"
               style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
             >
               {tt('login.webAuthLogin', '网页授权登录')}
@@ -475,7 +474,7 @@ export default function LoginPopUp({
                   <View className="login-label-row">
                     <Text className="login-label">{tt('login.password', '密码')}</Text>
                     <Text
-                      className="text-xs text-muted-foreground"
+                      className="text-label text-muted-foreground"
                       onClick={() => Taro.navigateTo({ url: '/pages/forgot-password/index' })}
                     >
                       {tt('login.forgotPassword', '忘记密码')}
@@ -492,7 +491,7 @@ export default function LoginPopUp({
                   />
                 </View>
                 <Button
-                  className="w-full px-4 rounded-sm !border-none text-center"
+                  className="w-full px-lg rounded-sm !border-none text-center"
                   style={{
                     paddingTop: 0,
                     paddingBottom: 0,
@@ -535,7 +534,7 @@ export default function LoginPopUp({
               </>
             ) : (
               <Text
-                className="text-xs text-muted-foreground"
+                className="text-label text-muted-foreground"
                 style={{ lineHeight: toUnit(LOGIN_POPUP_ROW_HEIGHT_PX) }}
                 onClick={() => setPwdOpen(true)}
               >
@@ -574,7 +573,7 @@ export default function LoginPopUp({
                 </Text>
               ) : null}
             </View>
-            <Text className="text-xs text-muted-foreground">
+            <Text className="text-label text-muted-foreground">
               {tt('login.agreement', '登录即代表同意《用户协议》和《隐私政策》')}
             </Text>
           </View>

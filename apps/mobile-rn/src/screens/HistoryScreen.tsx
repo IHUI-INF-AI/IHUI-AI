@@ -5,7 +5,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { fetchApi } from '@ihui/api-client'
+import { listBrowseHistory } from '@ihui/api-client'
 import { HistoryScreen as SharedHistoryScreen } from '@ihui/rn-app'
 import type { HistoryItem } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
@@ -28,7 +28,7 @@ export function HistoryScreen() {
     try {
       // 后端 GET /browse-history 回 success({list,total,page,pageSize}),而这里曾把整个
       // 信封当数组用 —— FlatList 拿到对象不报错,只是永远空列表。web 侧读的是 .list。
-      const res = await fetchApi<{ list: HistoryItem[] }>('/api/browse-history')
+      const res = await listBrowseHistory()
       if (!res.success) throw new Error()
       setItems(res.data?.list ?? [])
     } catch {

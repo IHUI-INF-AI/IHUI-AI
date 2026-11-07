@@ -307,14 +307,23 @@ export function CdpBrowserView({
         if (m.type === 'execute_result') {
           setJsResult(typeof m.data === 'string' ? m.data : JSON.stringify(m.data, null, 2))
           ws.removeEventListener('message', onResult)
+          window.clearTimeout(fallback)
         } else if (m.type === 'error' && m.event === 'execute') {
           setJsResult(t('jsExecFailed', { message: m.message ?? ta('unknownError') }))
           ws.removeEventListener('message', onResult)
+          window.clearTimeout(fallback)
         }
       } catch {
         /* ignore */
       }
     }
+    // BUG-58:与 executeJson 同形态的 3s 兜底 —— 远端不回包时必须主动摘除监听,
+    // 否则该 listener 永久挂在 socket 上,下次执行多个 listener 会同时命中同一条
+    // execute_result,把旧结果写进本次。超时不静默,复用既有失败文案通道给可见结果。
+    const fallback = window.setTimeout(() => {
+      ws.removeEventListener('message', onResult)
+      setJsResult(t('jsExecFailed', { message: ta('unknownError') }))
+    }, 3000)
     ws.addEventListener('message', onResult)
     ws.send(JSON.stringify({ type: 'execute', script }))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- next-intl 4.13.4 的 t 每次渲染换新引用(实测 same=false),补进依赖会让本 effect 每渲染重跑
@@ -711,7 +720,7 @@ export function CdpBrowserView({
       )}
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/90 p-3 text-center">
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="font-[weight:inherit] text-body text-destructive">{error}</p>
         </div>
       )}
       {/* 2026-08-17:交互受限提示条 —— 诚实告知这是自动化截图视图,扫码用手机、完整操作走外部浏览器 */}
@@ -839,7 +848,7 @@ export function CdpBrowserView({
                   role="menuitem"
                   disabled={item.disabled}
                   onClick={item.onClick}
-                  className="flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
+                  className="font-[weight:inherit] flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-label text-foreground transition-colors hover:bg-muted disabled:pointer-events-none disabled:opacity-40"
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   <span>{item.label}</span>

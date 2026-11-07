@@ -14,9 +14,10 @@
  *       自动 push 了污染 commit 到 origin)。现有 staging-snapshot 机制在 hook
  *       退出前自动 unstage 新增文件,但缺少"显式文件数预检"作为快速告警信号。
  *
- * 行为:
- * - 默认:staged 文件数 > 10 时打印警告到 stderr,exit 0(不阻断)
- * - --strict:超过阈值时 exit 1(阻断 commit)
+ * 行为(三态,AGENTS.md §0.3):
+ * - 真 0:staged 文件数 ≤ 阈值 → exit 0
+ * - 真违规:staged 文件数 > 阈值 → exit 1(是否阻断由调用方决定;pre-commit 侧吞掉非零即保持 advisory)
+ * - 未判定:git diff --cached 失败(非 git / 一过性失败)→ exit 2 并点名
  * - --max=N:自定义阈值(默认 10)
  * - --quiet:正常时不输出(超过阈值仍输出警告)
  * - HUSKY_SKIP_STAGED_COUNT=1:跳过
@@ -24,9 +25,8 @@
  * 集成位置:.husky/pre-commit 第 0 项(lint-staged 之前,最早执行)
  *
  * 用法:
- *   node scripts/check-staged-files-count.mjs                 (默认阈值 10, warn-only)
+ *   node scripts/check-staged-files-count.mjs                 (默认阈值 10)
  *   node scripts/check-staged-files-count.mjs --max=20        (自定义阈值)
- *   node scripts/check-staged-files-count.mjs --strict        (超过阈值阻断)
  *   node scripts/check-staged-files-count.mjs --quiet         (正常时不输出)
  *   HUSKY_SKIP_STAGED_COUNT=1 git commit ...                  (紧急跳过)
  */
@@ -34,7 +34,6 @@ import { execSync } from 'node:child_process'
 
 const args = process.argv.slice(2)
 const skip = process.env.HUSKY_SKIP_STAGED_COUNT === '1'
-const strict = args.includes('--strict')
 const quiet = args.includes('--quiet')
 const maxArg = args.find((a) => a.startsWith('--max='))
 const max = maxArg ? Number.parseInt(maxArg.slice(6), 10) : 10
@@ -51,12 +50,19 @@ try {
       windowsHide: true,
     })
   staged = out.split('\n').filter(Boolean)
-} catch {
-  // git 命令失败(非 git 环境),不阻塞 commit
-  process.exit(0)
+} catch (e) {
+  // git 命令失败(非 git 环境 / 一过性失败)⇒ 取不到输入,未判定,不得报绿
+  console.error(
+    `❌ check-staged-files-count: 取不到 git 暂存区(git diff --cached 失败)—— 未判定(exit 2):${e?.message ?? e}`,
+  )
+  process.exit(2)
 }
 
-if (staged.length === 0) process.exit(0)
+if (staged.length === 0) {
+  // 暂存区为空:真 0(计数门无违规),不是"扫描面取不到"
+  if (!quiet) console.log('✅ staged 文件数 0 ≤ 阈值(暂存区为空)')
+  process.exit(0)
+}
 
 if (staged.length > max) {
   console.error(`⚠️  staged 文件数 ${staged.length} > 阈值 ${max},可能存在污染事故:`)
@@ -65,8 +71,11 @@ if (staged.length > max) {
   console.error(
     `   如确认全部为本任务文件,可用 --max=${staged.length} 或 HUSKY_SKIP_STAGED_COUNT=1 跳过`,
   )
-  if (strict) process.exit(1)
-} else if (!quiet) {
+  // 真违规 ⇒ exit 1;是否阻断由调用方决定(pre-commit 侧吞非零 = advisory)
+  process.exit(1)
+}
+
+if (!quiet) {
   console.log(`✅ staged 文件数 ${staged.length} ≤ 阈值 ${max}(正常)`)
 }
 

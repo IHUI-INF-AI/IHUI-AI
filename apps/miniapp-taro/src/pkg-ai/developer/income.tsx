@@ -4,20 +4,26 @@
 
 // 镜像 packages/app/src/features/model-income/ModelIncomeScreen.tsx
 
-import { useTt } from '@/i18n'
+import { useTt, useI18n } from '@/i18n'
 import { View, Text } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import { useState, useCallback } from 'react'
 import { rnRadius, taroSpacing } from '@ihui/design-tokens'
 import { rpx } from '@/utils/rpx'
-import { useDidShow, useReachBottom } from '@tarojs/taro'
+import Taro, { useDidShow } from '@tarojs/taro'
 import { getBuyInfo, getBuyList, getDeveloperWithdrawalList, post } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { getUserInfo } from '@/utils/auth'
 import ThemeRoot from '@/components/ThemeRoot'
+import { useTheme } from '@/rn-compat/theme'
 import './income.css'
 import LineIcon from '@/components/LineIcon'
 import { onToast } from '@/host/on-toast'
+import {
+  ModelIncomeScreen as SharedModelIncomeScreen,
+  type ModelIncomeItem,
+  type ModelIncomeTab,
+} from '@ihui/rn-app/features/model-income/ModelIncomeScreen'
 
 interface BuyInfo {
   AccumulatedIncome?: number
@@ -82,6 +88,8 @@ const PAGE_SIZE = 10
 
 export default function DeveloperIncome() {
   const tt = useTt()
+  const { t } = useI18n()
+  const { resolvedTheme } = useTheme()
   const gate = useAuthReadyGate()
 
   const [title, setTitle] = useState<'income' | 'detail'>('income')
@@ -97,7 +105,6 @@ export default function DeveloperIncome() {
   const [cashLoaded, setCashLoaded] = useState(false)
 
   const [showIncomePopup, setShowIncomePopup] = useState(false)
-  const [incomeType, setIncomeType] = useState<'wechat' | ''>('wechat')
   const [showPopup, setShowPopup] = useState(false)
   const [amount, setAmount] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -172,12 +179,6 @@ export default function DeveloperIncome() {
     gate.waitUntilReady(reload)
   })
 
-  useReachBottom(() => {
-    if (title === 'income' && !loadingMore && incomeList.length < total) {
-      fetchIncomeList(page + 1, settlement, true)
-    }
-  })
-
   const accumulated =
     buyInfo?.AccumulatedIncome ?? buyInfo?.accumulatedIncome ?? buyInfo?.total ?? 0
   const available =
@@ -201,11 +202,6 @@ export default function DeveloperIncome() {
   }
 
   const openIncomePopup = () => {
-    if (available <= 0) {
-      onToast(tt('developer.income.noAvailable', '暂无可提现金额'), { kind: 'info' })
-      return
-    }
-    setIncomeType('wechat')
     setShowIncomePopup(true)
   }
 
@@ -214,10 +210,6 @@ export default function DeveloperIncome() {
   }
 
   const onIncomeMethodConfirm = () => {
-    if (!incomeType) {
-      onToast(tt('developer.income.selectMethod', '请选择提现方式'), { kind: 'info' })
-      return
-    }
     setShowIncomePopup(false)
     setAmount('')
     setShowPopup(true)
@@ -250,20 +242,7 @@ export default function DeveloperIncome() {
     }
   }
 
-  const settleText = (item: IncomeItem) => {
-    const s = String(item.settlement ?? item.settleStatus ?? item.status ?? '')
-    if (s === '2') return tt('developer.income.settled', '已结算')
-    if (s === '1') return tt('developer.income.pending', '待结算')
-    return ''
-  }
-  const settleClass = (item: IncomeItem) => {
-    const s = String(item.settlement ?? item.settleStatus ?? item.status ?? '')
-    if (s === '2') return 'income-item-badge settled'
-    if (s === '1') return 'income-item-badge pending'
-    return 'income-item-badge'
-  }
   const displayTime = (item: IncomeItem) => item.time || item.createTime || item.createdAt || ''
-  const displayAmount = (item: IncomeItem) => Number(item.amount ?? item.money ?? 0)
   const displayTitle = (item: IncomeItem) =>
     item.title || item.name || tt('developer.income.titleIncome', '智能体收入')
 
@@ -275,153 +254,93 @@ export default function DeveloperIncome() {
     return tt('developer.income.processing', '处理中')
   }
 
-  const headerTitle =
-    title === 'detail'
-      ? tt('developer.income.titleDetail', '提现明细')
-      : tt('modelIncome.title', '收益管理')
-
   const hasMore = incomeList.length < total
-  const tabs = [
-    { id: '', name: tt('developer.income.tabAll', '全部') },
-    { id: '1', name: tt('developer.income.tabPending', '待结算') },
-    { id: '2', name: tt('developer.income.tabSettled', '已结算') },
-  ]
+  const activeTab: ModelIncomeTab =
+    settlement === '1' ? 'pending' : settlement === '2' ? 'settled' : 'all'
+  const onChangeTab = (tab: ModelIncomeTab) => {
+    onChangeSettlement(tab === 'pending' ? '1' : tab === 'settled' ? '2' : '')
+  }
+  /**
+   * 数据层 → 共享屏条目:
+   * - orderId 退用接口流水 id(订单号未出网,见 GET /developer/income 契约);
+   * - status 用本次请求的 settlement 过滤结果(接口无状态列);
+   * - 平台无 userNickname/orderAmount/rate,以 title 作名称、金额只给 commissionAmount,
+   *   缺省字段交给共享屏可选渲染,不补 0、不造假。
+   */
+  const sharedItems: ModelIncomeItem[] = incomeList.map((item, idx) => {
+    const flowId = typeof item.id === 'string' || typeof item.id === 'number' ? String(item.id) : ''
+    const rawAmount = item.amount ?? item.money
+    return {
+      id: flowId || String(idx),
+      orderId: flowId,
+      status: String(item.settlement ?? item.settleStatus ?? item.status ?? ''),
+      createdAt: displayTime(item),
+      userNickname: displayTitle(item),
+      commissionAmount: rawAmount === undefined ? undefined : Number(rawAmount),
+    }
+  })
 
   return (
-    <ThemeRoot>
-      <View className="income-page">
-        <View className="income-header">
-          <Text className="income-title">{headerTitle}</Text>
-        </View>
-
-        {error ? (
-          <View className="mx-[20rpx] mt-[16rpx] px-[20rpx] py-[16rpx] rounded-lg bg-[var(--color-danger-tint)] flex items-center justify-between">
-            <Text className="text-label text-[var(--color-danger)]">
-              {tt('common.failed', '加载失败')}
-            </Text>
-            <Text className="text-label font-semibold text-[var(--color-danger)]" onClick={reload}>
-              {tt('modelIncome.retry', '重试')}
-            </Text>
-          </View>
-        ) : null}
-
-        {title === 'income' ? (
-          <View>
-            <View className="income-card-wrap">
-              <View className="income-card">
-                <View className="income-card-top">
-                  <Text className="income-acc-label">
-                    {tt('modelIncome.accumulated', '累计收入')}
-                  </Text>
-                  <Text className="income-acc-value">{loading ? '--' : accumulated}</Text>
-                  <Text className="income-acc-unit">{tt('modelIncome.yuan', '元')}</Text>
-                  <Text className="income-withdraw-btn" onClick={openIncomePopup}>
-                    {tt('developer.income.withdrawPopup', '提现')}
-                  </Text>
-                </View>
-                <View className="income-stats-row">
-                  <View className="income-stat-item">
-                    <Text className="income-stat-label">
-                      {tt('modelIncome.withdrawable', '可提现')}
-                    </Text>
-                    <Text className="income-stat-value">{loading ? '--' : available}</Text>
-                  </View>
-                  <View className="income-stat-item">
-                    <Text className="income-stat-label">
-                      {tt('modelIncome.withdrawn', '已提现')}
-                    </Text>
-                    <Text className="income-stat-value">{loading ? '--' : withdrawn}</Text>
-                  </View>
-                  <View
-                    className="income-stat-item"
-                    onClick={onSwitchToDetail}
-                    hoverClass="opacity-60"
-                  >
-                    <Text className="income-stat-label">
-                      {tt('developer.income.cashDetail', '提现明细')}
-                    </Text>
-                    <LineIcon name="chevron-right" size={24} color="var(--color-foreground)" />
-                  </View>
-                </View>
-                <View className="income-card-bottom">
-                  <View className="income-stat-item">
-                    <Text className="income-stat-label">
-                      {tt('developer.income.todayIncome', '今日收入')}
-                    </Text>
-                    <Text className="income-stat-value">{loading ? '--' : todayAccount}</Text>
-                  </View>
-                  <View className="income-stat-item">
-                    <Text className="income-stat-label">
-                      {tt('developer.income.pendingSettlement', '待结算金额')}
-                    </Text>
-                    <Text className="income-stat-value">{loading ? '--' : pendingSettlement}</Text>
-                  </View>
-                </View>
+    <ThemeRoot className="min-h-screen bg-background">
+      {title === 'income' ? (
+        <>
+          <SharedModelIncomeScreen
+            t={t}
+            items={sharedItems}
+            summary={{
+              totalCommission: accumulated,
+              availableCommission: available,
+              withdrawnCommission: withdrawn,
+              pendingCommission: pendingSettlement,
+              day: todayAccount,
+            }}
+            loading={loading}
+            refreshing={false}
+            error={error ? tt('common.failed', '加载失败') : ''}
+            activeTab={activeTab}
+            onSelectTab={onChangeTab}
+            onRefresh={reload}
+            showWithdrawModal={showIncomePopup}
+            onOpenWithdraw={openIncomePopup}
+            onCloseWithdraw={closeIncomePopup}
+            onConfirmWithdraw={onIncomeMethodConfirm}
+            withdrawDisabled={available <= 0}
+            loadingMore={loadingMore}
+            hasMore={hasMore}
+            onLoadMore={() => {
+              if (!loadingMore && incomeList.length < total) {
+                void fetchIncomeList(page + 1, settlement, true)
+              }
+            }}
+            onBack={() => void Taro.navigateBack()}
+            onRetry={reload}
+            colorScheme={resolvedTheme}
+          />
+          {loading || error ? null : (
+            <>
+              {/* 缺段:服务费提示行(共享屏无此渲染槽;RN 侧无对应文案/数据,按约束留页内) */}
+              <View className="income-fee-tip">
+                <Text>{tt('developer.income.feeTip', '平台限时不收取任何服务费')}</Text>
               </View>
-            </View>
-
-            {/* 对齐 RN 共享屏 summaryCard 下方那行 tip(modelIncome.tip):收益数据的更新节律 */}
-            <View className="px-[24rpx] mt-[12rpx]">
-              <Text className="text-caption text-[var(--color-text-tertiary)]">
-                {tt('modelIncome.tip', '收益数据每日更新')}
-              </Text>
-            </View>
-
-            <View className="income-fee-tip">
-              <Text>{tt('developer.income.feeTip', '平台限时不收取任何服务费')}</Text>
-            </View>
-
-            <View className="income-tabs">
-              {tabs.map((tab) => (
-                <View
-                  key={tab.id || 'all'}
-                  className={`income-tab${settlement === tab.id ? ' active' : ''}`}
-                  onClick={() => onChangeSettlement(tab.id)}
-                  hoverClass="opacity-60"
-                >
-                  <Text>{tab.name}</Text>
-                </View>
-              ))}
-            </View>
-
-            <View className="income-list">
-              {loading ? (
-                <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
-              ) : incomeList.length ? (
-                incomeList.map((item, idx) => (
-                  <View key={item.id ?? idx} className="income-list-item">
-                    <View>
-                      <Text className="income-item-title">{displayTitle(item)}</Text>
-                      <Text className="income-item-time">{displayTime(item)}</Text>
-                      {/* 对齐 RN 共享屏卡片 meta 的订单行(modelIncome.orderLabel):
-                          后端 /api/developer/income 响应固定为 id/title/time/amount(developer.ts GET /income),
-                          订单号未出网 ⇒ 按本页既定口径退用流水 id,键可达。
-                          rateLabel(分成比例)一支因 token_flows 无比例列、接口无从供数,属结构死分支,
-                          2026-10-30 复核已撤 ⇒ 还原度门对本 route 报缺 modelIncome.rateLabel 是如实读数。 */}
-                      <Text className="income-item-time" numberOfLines={1}>
-                        {tt('modelIncome.orderLabel', '订单')} {item.id}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text className="income-item-amount">+¥{displayAmount(item)}</Text>
-                      {settleText(item) ? (
-                        <Text className={settleClass(item)}>{settleText(item)}</Text>
-                      ) : null}
-                    </View>
-                  </View>
-                ))
-              ) : (
-                <Text className="income-empty">{tt('modelIncome.empty', '暂无收益记录')}</Text>
-              )}
-              {incomeList.length > 0 && !hasMore ? (
-                <Text className="income-empty">{tt('developer.income.noMore', '没有更多了')}</Text>
-              ) : null}
-              {loadingMore ? (
-                <Text className="income-empty">{tt('common.loading', '加载中…')}</Text>
-              ) : null}
-            </View>
+              {/* 缺段:提现明细入口(RN 数据链只取 overview/commission/dayMonth,无法供提现记录) */}
+              <View
+                className="mx-[20rpx] mt-[16rpx] px-[20rpx] py-[16rpx] rounded-lg bg-[var(--color-muted)] flex items-center justify-between"
+                onClick={onSwitchToDetail}
+                hoverClass="opacity-60"
+              >
+                <Text className="income-stat-label">
+                  {tt('developer.income.cashDetail', '提现明细')}
+                </Text>
+                <LineIcon name="chevron-right" size={24} color="var(--color-foreground)" />
+              </View>
+            </>
+          )}
+        </>
+      ) : (
+        <View className="income-page">
+          <View className="income-header">
+            <Text className="income-title">{tt('developer.income.titleDetail', '提现明细')}</Text>
           </View>
-        ) : (
           <View className="cash-list">
             {/* back-label-exempt: 面板内视图回退(提现明细→收入概览),非页面级返回键 until 2026-12-31 */}
             <View
@@ -449,248 +368,119 @@ export default function DeveloperIncome() {
               </Text>
             )}
           </View>
-        )}
+        </View>
+      )}
 
-        {showIncomePopup ? (
-          <View className="income-popup-mask" onClick={closeIncomePopup}>
-            <View
-              className="income-popup"
-              onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60"
+      {showPopup ? (
+        <View className="income-popup-mask" onClick={closePopup}>
+          <View
+            className="income-popup"
+            style={{ alignItems: 'center' }}
+            onClick={(e) => e.stopPropagation()}
+            hoverClass="opacity-60"
+          >
+            <Text
+              style={{
+                fontSize: '36rpx',
+                fontWeight: 600,
+                color: 'var(--color-foreground)',
+                marginBottom: 'var(--spacing-md)',
+              }}
             >
-              <View
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  marginBottom: 'var(--spacing-xs-loose)',
-                }}
-              >
-                <Text
-                  style={{
-                    width: '72rpx',
-                    height: '72rpx',
-                    lineHeight: '72rpx',
-                    textAlign: 'center',
-                    background: 'var(--color-primary)',
-                    color: 'var(--color-primary-foreground)',
-                    borderRadius: rnRadius.xl,
-                    fontSize: '32rpx',
-                    marginRight: 'var(--spacing-sm)',
-                  }}
-                >
-                  ¥
-                </Text>
-                <Text className="income-popup-title">
-                  {tt('modelIncome.withdrawModal.title', '选择提现方式')}
-                </Text>
-              </View>
-              <Text
-                className="income-popup-sub"
-                style={{ marginBottom: rpx(taroSpacing['md-loose']) }}
-              >
-                {tt('modelIncome.withdrawModal.moreMethods', '更多提现方式')}
-              </Text>
-              <View
-                className="income-popup-sub"
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  padding: 'var(--spacing-sm-loose)',
-                  background:
-                    incomeType === 'wechat' ? 'var(--color-muted)' : 'var(--color-background)',
-                  borderRadius: rnRadius.md,
-                  marginBottom: rpx(taroSpacing['md-loose']),
-                  boxSizing: 'border-box',
-                }}
-                onClick={() => setIncomeType((prev) => (prev === 'wechat' ? '' : 'wechat'))}
-                hoverClass="opacity-60"
-              >
-                <Text
-                  style={{
-                    width: '72rpx',
-                    height: '72rpx',
-                    lineHeight: '72rpx',
-                    textAlign: 'center',
-                    background: 'var(--color-wechat-green)',
-                    color: 'var(--color-surface-light)',
-                    borderRadius: rnRadius.xl,
-                    fontSize: '32rpx',
-                    marginRight: 'var(--spacing-sm)',
-                  }}
-                >
-                  微
-                </Text>
-                <Text style={{ flex: 1, fontSize: '28rpx', color: 'var(--color-foreground)' }}>
-                  {tt('modelIncome.withdrawModal.wechat', '微信提现')}
-                </Text>
-                {/* 勾选位宽槽沿用原 Text 的 36rpx(未选时同样占位,行宽不跳);
-                    槽内改 flex 居中 —— 原 textAlign:center 只对文字生效,挂在 mask 载体上无效。 */}
-                <View
-                  style={{
-                    width: '36rpx',
-                    display: 'flex',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {incomeType === 'wechat' ? (
-                    <LineIcon name="check" size={32} color="var(--color-primary)" />
-                  ) : null}
-                </View>
-              </View>
-              <View style={{ display: 'flex', width: '100%', gap: 'var(--spacing-sm-loose)' }}>
-                <View
-                  style={{
-                    flex: 1,
-                    textAlign: 'center',
-                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
-                    borderRadius: rnRadius.xl,
-                    background: 'var(--color-secondary)',
-                  }}
-                  onClick={closeIncomePopup}
-                  hoverClass="opacity-60"
-                >
-                  <Text style={{ fontSize: '28rpx', color: 'var(--color-secondary-foreground)' }}>
-                    {tt('common.cancel', '取消')}
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    flex: 1,
-                    textAlign: 'center',
-                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
-                    borderRadius: rnRadius.xl,
-                    background: 'var(--color-primary)',
-                  }}
-                  onClick={onIncomeMethodConfirm}
-                  hoverClass="opacity-60"
-                >
-                  <Text
-                    style={{
-                      fontSize: '28rpx',
-                      color: 'var(--color-primary-foreground)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {tt('developer.income.withdrawPopup', '提现')}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : null}
-
-        {showPopup ? (
-          <View className="income-popup-mask" onClick={closePopup}>
+              {tt('developer.income.withdrawPopup', '提现')}
+            </Text>
+            <Text
+              style={{
+                fontSize: '28rpx',
+                color: 'var(--color-muted-foreground)',
+                marginBottom: 'var(--spacing-md)',
+              }}
+            >
+              {tt('developer.income.withdrawAvailable', '可提现金额 ¥')}
+              {available}
+            </Text>
             <View
-              className="income-popup"
-              style={{ alignItems: 'center' }}
-              onClick={(e) => e.stopPropagation()}
-              hoverClass="opacity-60"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                width: '100%',
+                background: 'var(--color-muted)',
+                borderRadius: rnRadius.xl,
+                padding: `${rpx(taroSpacing.sm)} ${rpx(taroSpacing['sm-loose'])}`,
+                boxSizing: 'border-box',
+                marginBottom: 'var(--spacing-sm)',
+              }}
             >
               <Text
                 style={{
-                  fontSize: '36rpx',
+                  fontSize: '32rpx',
                   fontWeight: 600,
                   color: 'var(--color-foreground)',
-                  marginBottom: 'var(--spacing-md)',
+                  marginRight: 'var(--spacing-xs-loose)',
                 }}
               >
-                {tt('developer.income.withdrawPopup', '提现')}
+                ¥
               </Text>
-              <Text
-                style={{
-                  fontSize: '28rpx',
-                  color: 'var(--color-muted-foreground)',
-                  marginBottom: 'var(--spacing-md)',
-                }}
-              >
-                {tt('developer.income.withdrawAvailable', '可提现金额 ¥')}
-                {available}
+              <FocusInput
+                style={{ flex: 1, fontSize: '32rpx', color: 'var(--color-foreground)' }}
+                type="digit"
+                placeholder={tt('developer.income.withdrawPlaceholder', '请输入提现金额')}
+                value={amount}
+                onInput={(e) => setAmount(e.detail.value)}
+              />
+            </View>
+            <View
+              style={{ alignSelf: 'flex-end', marginBottom: 'var(--spacing-lg)' }}
+              onClick={() => setAmount(String(available))}
+              hoverClass="opacity-60"
+            >
+              <Text style={{ fontSize: '28rpx', color: 'var(--color-primary)' }}>
+                {tt('developer.income.withdrawAll', '全部提现')}
               </Text>
+            </View>
+            <View style={{ display: 'flex', width: '100%', gap: 'var(--spacing-sm-loose)' }}>
               <View
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  width: '100%',
-                  background: 'var(--color-muted)',
+                  flex: 1,
+                  textAlign: 'center',
+                  padding: `${rpx(taroSpacing['sm-loose'])} 0`,
                   borderRadius: rnRadius.xl,
-                  padding: `${rpx(taroSpacing.sm)} ${rpx(taroSpacing['sm-loose'])}`,
-                  boxSizing: 'border-box',
-                  marginBottom: 'var(--spacing-sm)',
+                  background: 'var(--color-secondary)',
                 }}
+                onClick={closePopup}
+                hoverClass="opacity-60"
+              >
+                <Text style={{ fontSize: '28rpx', color: 'var(--color-secondary-foreground)' }}>
+                  {tt('common.cancel', '取消')}
+                </Text>
+              </View>
+              <View
+                style={{
+                  flex: 1,
+                  textAlign: 'center',
+                  padding: `${rpx(taroSpacing['sm-loose'])} 0`,
+                  borderRadius: rnRadius.xl,
+                  background: 'var(--color-primary)',
+                }}
+                onClick={confirmWithdraw}
+                hoverClass="opacity-60"
               >
                 <Text
                   style={{
-                    fontSize: '32rpx',
+                    fontSize: '28rpx',
+                    color: 'var(--color-primary-foreground)',
                     fontWeight: 600,
-                    color: 'var(--color-foreground)',
-                    marginRight: 'var(--spacing-xs-loose)',
                   }}
                 >
-                  ¥
+                  {submitting
+                    ? tt('common.loading', '加载中…')
+                    : tt('modelIncome.withdrawModal.confirm', '确认提现')}
                 </Text>
-                <FocusInput
-                  style={{ flex: 1, fontSize: '32rpx', color: 'var(--color-foreground)' }}
-                  type="digit"
-                  placeholder={tt('developer.income.withdrawPlaceholder', '请输入提现金额')}
-                  value={amount}
-                  onInput={(e) => setAmount(e.detail.value)}
-                />
-              </View>
-              <View
-                style={{ alignSelf: 'flex-end', marginBottom: 'var(--spacing-lg)' }}
-                onClick={() => setAmount(String(available))}
-                hoverClass="opacity-60"
-              >
-                <Text style={{ fontSize: '28rpx', color: 'var(--color-primary)' }}>
-                  {tt('developer.income.withdrawAll', '全部提现')}
-                </Text>
-              </View>
-              <View style={{ display: 'flex', width: '100%', gap: 'var(--spacing-sm-loose)' }}>
-                <View
-                  style={{
-                    flex: 1,
-                    textAlign: 'center',
-                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
-                    borderRadius: rnRadius.xl,
-                    background: 'var(--color-secondary)',
-                  }}
-                  onClick={closePopup}
-                  hoverClass="opacity-60"
-                >
-                  <Text style={{ fontSize: '28rpx', color: 'var(--color-secondary-foreground)' }}>
-                    {tt('common.cancel', '取消')}
-                  </Text>
-                </View>
-                <View
-                  style={{
-                    flex: 1,
-                    textAlign: 'center',
-                    padding: `${rpx(taroSpacing['sm-loose'])} 0`,
-                    borderRadius: rnRadius.xl,
-                    background: 'var(--color-primary)',
-                  }}
-                  onClick={confirmWithdraw}
-                  hoverClass="opacity-60"
-                >
-                  <Text
-                    style={{
-                      fontSize: '28rpx',
-                      color: 'var(--color-primary-foreground)',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {submitting
-                      ? tt('common.loading', '加载中…')
-                      : tt('modelIncome.withdrawModal.confirm', '确认提现')}
-                  </Text>
-                </View>
               </View>
             </View>
           </View>
-        ) : null}
-      </View>
+        </View>
+      ) : null}
     </ThemeRoot>
   )
 }

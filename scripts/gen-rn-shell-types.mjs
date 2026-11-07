@@ -82,11 +82,19 @@ export function specsOfPages(pageTexts) {
 /**
  * 纯判据:给定"页文本集合 + 真相源文本读取器",产出整份声明件正文。
  * 没有任何 IO,便于门与器物共用同一份实现(§0.6)。
+ *
+ * `@ihui/rn-app/features/<domain>/<Name>` 这类深路径**不必**落 ambient:
+ * packages/app 的 package.json 有 `./features/*` → `./src/features/*.tsx` 的 exports,
+ * 小程序端 tsc(moduleResolution Bundler)会真解析到共享屏源,拿到真 props/真类型。
+ * 一旦落 ambient 就用 `ComponentType<Record<string,unknown>>` **遮蔽**了真源 ⇒
+ * `import type { … }` 全 TS2305、页面回调全失上下文(TS7006/TS7031) —— 2026-11-06 实测。
+ * 所以深路径只在"取不到真相源"时记未判定;@rn-shells/* 仍落块(它没有 Node 可解析的包)。
  */
 export function planDeclarations({ pageTexts, readTarget }) {
   const sorted = specsOfPages(pageTexts)
   const blocks = []
   const undetermined = []
+  let resolvedDeep = 0
   for (const spec of sorted) {
     const target = targetOfSpecifier(spec)
     if (!target) {
@@ -96,6 +104,10 @@ export function planDeclarations({ pageTexts, readTarget }) {
     const text = readTarget(target)
     if (text === null || text === undefined) {
       undetermined.push(`${spec}:真相源 ${target} 取不到(面上没有这个文件)`)
+      continue
+    }
+    if (spec.startsWith('@ihui/rn-app/')) {
+      resolvedDeep++
       continue
     }
     const b = declareBlock({ spec, target, text })
@@ -110,7 +122,7 @@ export function planDeclarations({ pageTexts, readTarget }) {
   ].join('\n')
   const body = blocks.length > 0 ? blocks.join('\n\n') : ''
   const next = `${header}${body}${body ? '\n' : ''}${DECL_END}\n`
-  return { next, modules: sorted, undetermined, blockCount: blocks.length }
+  return { next, modules: sorted, undetermined, blockCount: blocks.length, resolvedDeep }
 }
 
 /** 把生成物里已存在的受管块换掉(保留块外的任何人工内容)。 */

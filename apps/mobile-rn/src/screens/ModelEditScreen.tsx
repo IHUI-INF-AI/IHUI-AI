@@ -14,6 +14,8 @@ import {
   type ModelEditBaseInfo,
   type ModelEditFieldValues,
   type ModelEditOption,
+  type ModelEditCycleOption,
+  type ModelEditAudienceOption,
 } from '@ihui/rn-app'
 import { updateAgentBilling } from '@ihui/api-client'
 import { submitModelEdit } from '@ihui/shared/utils'
@@ -110,6 +112,16 @@ export default function ModelEditScreen() {
     ])
   }
 
+  const cycleOptions: ModelEditCycleOption[] = [
+    { value: 'month', label: t('modelEdit.cycleMonth') },
+    { value: 'year', label: t('modelEdit.cycleYear') },
+    { value: 'permanent', label: t('modelEdit.cyclePermanent') },
+  ]
+  const audienceOptions: ModelEditAudienceOption[] = [
+    { value: 'all', label: t('modelEdit.audienceAll') },
+    { value: 'member', label: t('modelEdit.audienceMember') },
+  ]
+
   return (
     <SharedModelEditScreen
       t={t}
@@ -119,6 +131,10 @@ export default function ModelEditScreen() {
       deptOptions={DEPT_OPTIONS}
       freeDurations={FREE_DURATIONS}
       discountOptions={DISCOUNTS}
+      cycleOptions={cycleOptions}
+      audienceOptions={audienceOptions}
+      loading={false}
+      showCancel={true}
       submitting={submitting}
       onChange={handleChange}
       onToggleCategory={toggleCategory}

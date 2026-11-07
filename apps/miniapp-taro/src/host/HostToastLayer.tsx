@@ -11,13 +11,19 @@
  *
  * 样式口径:error 走端内既有错误样式(无图标,`icon:'none'`,与业务代码一致);
  * success 走标准成功图标;info 走无图标轻提示。
+ *
+ * 时长口径(2026-11-05 收口):这里原先自带 `DEFAULT_DURATION = 2000`,而端口层
+ * `on-toast.ts` 写 1500、RN 的 FloatBox 兜底 3000 —— 同一条 `onToast(text)` 三处不等。
+ * 默认值单源已收进共享通道(`HOST_TOAST_DEFAULT_DURATION_MS`),本层只在**直接调用**
+ * (`showMiniHostToast`,不经通道)时补同一枚常量,绝不另立第二个数。
  */
 import Taro from '@tarojs/taro'
 import { useEffect } from 'react'
 import type { ToastKind } from '@ihui/types'
-import { subscribeHostToast } from '@ihui/shared/utils/host-toast'
-
-const DEFAULT_DURATION = 2000
+import {
+  HOST_TOAST_DEFAULT_DURATION_MS,
+  subscribeHostToast,
+} from '@ihui/shared/utils/host-toast'
 
 export function showMiniHostToast(
   message: string,
@@ -29,7 +35,7 @@ export function showMiniHostToast(
   void Taro.showToast({
     title,
     icon: kind === 'success' ? 'success' : 'none',
-    duration: duration ?? DEFAULT_DURATION,
+    duration: duration ?? HOST_TOAST_DEFAULT_DURATION_MS,
   })
 }
 

@@ -86,8 +86,10 @@ def test_corrupt_file_degrades_to_empty(tmp_path):
     p.write_text("{not-json!!", encoding="utf-8")
     s = AuditLogStore(file_path=p)
     assert s.query()["total"] == 0
-    s.record("act", "u")  # 写路径仍可用并覆盖文件
-    assert s.query()["total"] == 1
+    s.record("act", "u")
+    assert p.read_text(encoding="utf-8") == "{not-json!!"
+    fresh = AuditLogStore(file_path=p)
+    assert fresh.query()["total"] == 0
 
 
 def test_field_length_capped(tmp_path):

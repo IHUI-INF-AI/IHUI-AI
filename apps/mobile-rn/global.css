@@ -7,11 +7,12 @@
 /* =============================================================================
  * global.css 同步追踪(2026-07-24 立)
  * -----------------------------------------------------------------------------
- * 最后同步日期:2026-07-24
  * 源文件路径:packages/design-tokens/src/styles/tokens.css
- * 同步规则:tokens.css 改动后必须手动同步到本文件。
+ * 同步规则:tokens.css 改动后由 scripts/sync-rn-global-css.mjs **自动原位写回**本文件
+ *   (pre-commit 提交链已接该脚本;check-rn-global-css-sync.mjs --staged 校验一致性),
+ *   不要手抄,也不要手动改 :root / .dark 里的变量行。
  *   原因:NativeWind 4.x 仅支持 Tailwind v3,不兼容 v4 的 @theme 语法,
- *         无法直接 @import tokens.css,只能手抄 v3 兼容的 :root + .dark 块。
+ *         无法直接 @import tokens.css,只能由同步脚本转写成 v3 兼容的 :root + .dark 块。
  *   值漂移即 bug:本文件 CSS 变量值必须与 tokens.css 严格一致,任何不一致
  *         会导致 RN 端与 web 端视觉表现分裂(颜色/明暗模式错乱)。
  * =============================================================================
@@ -23,7 +24,7 @@
 
 /* 对齐 web 端 design-tokens(packages/design-tokens/src/styles/tokens.css @theme + .dark 块)
  * 注:NativeWind 4.x 仅支持 Tailwind v3,不兼容 v4 的 @theme 语法,无法直接 @import tokens.css。
- * 此处手抄 v3 兼容的 :root + .dark CSS 变量,值必须与 tokens.css 严格一致(值漂移即 bug)。
+ * 下方 v3 兼容的 :root + .dark 块由 sync-rn-global-css.mjs 自动原位写回,勿手动编辑。
  */
 :root {
   /* 语义色(自动同步自 tokens.css @theme 块,勿手动编辑) */

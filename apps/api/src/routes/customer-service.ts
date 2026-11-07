@@ -11,6 +11,7 @@ import {
   customerServiceAgents,
   customerServiceTickets,
 } from '@ihui/database'
+import { CUSTOMER_SERVICE_STATUSES } from '@ihui/types'
 import { checkAuth } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
@@ -77,8 +78,9 @@ const updateTicketSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
 })
 
+// BUG-81:成员清单派生自 @ihui/types 的 CUSTOMER_SERVICE_STATUSES(唯一真相源),不再抄字面量。
 const transitionSchema = z.object({
-  status: z.enum(['pending', 'open', 'resolved', 'closed', 'rejected']),
+  status: z.enum([...CUSTOMER_SERVICE_STATUSES]),
 })
 
 const assignSchema = z.object({

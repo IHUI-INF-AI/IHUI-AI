@@ -17,6 +17,7 @@ import { Smartphone, Monitor } from 'lucide-react'
 import { Button } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
 import { cn } from '@/lib/utils'
+import DOMPurify from 'dompurify'
 // CSP img-src 收窄后,所有外部 http(s) 图片必须走同源代理 /api/media/image,否则被 CSP 拦
 import { toMediaImageUrl } from '@/lib/media-proxy'
 
@@ -145,7 +146,7 @@ export function PlatformPreview({ content, platform, title }: PlatformPreviewPro
         <div
           className={cn('p-3 text-sm leading-relaxed bg-white text-[#222]', platformClass.wrapper)}
           dangerouslySetInnerHTML={{
-            __html: `<h1 class="text-base font-bold mb-2 ${platformClass.title}">${escapeHtml(title || '无标题')}</h1>${html}`,
+            __html: `<h1 class="text-base font-bold mb-2 ${platformClass.title}">${escapeHtml(title || '无标题')}</h1>${DOMPurify.sanitize(html ?? '')}`,
           }}
         />
       </div>

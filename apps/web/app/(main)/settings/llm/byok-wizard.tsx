@@ -42,7 +42,7 @@ import {
   Label,
 } from '@ihui/ui-react'
 import { Tooltip } from '@/components/feedback'
-import { fetchApi } from '@/lib/api'
+import { verifyLlmKey } from '@ihui/api-client'
 import { createProviderV2 } from './helpers-v2'
 import type { ProviderFormState } from './types-v2'
 
@@ -220,11 +220,7 @@ export function ByokWizard() {
     setVerifyState('verifying')
     setVerifyMsg('')
     try {
-      const r = await fetchApi<unknown>('/api/llm/verify-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ providerCode: selected.code, apiKey }),
-      })
+      const r = await verifyLlmKey<unknown>({ providerCode: selected.code, apiKey })
       if (r.success && isVerifyResponse(r.data)) {
         if (r.data.valid) {
           setVerifyState('success')

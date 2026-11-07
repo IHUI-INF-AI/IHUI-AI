@@ -12,6 +12,8 @@
  *   ② 评论(icon-comment + count → 原跳 /pagesA/news/comment?id=,该页未实现,点击提示)
  *   ③ 分享(icon-share → RN Share API,对齐 handleShare)
  */
+import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
+import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import {
@@ -28,7 +30,7 @@ import {
 } from 'react-native'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { createComment, fetchApi, getComments, type CommentItem } from '@ihui/api-client'
+import { createComment, getComments, getPublicArticle, type CommentItem } from '@ihui/api-client'
 import { apiFailureToText, toUserFriendlyMessage } from '@ihui/shared/utils'
 import { tokens } from '../theme/active-tokens'
 import {
@@ -50,6 +52,7 @@ type Route = RouteProp<RootStackParamList, 'ArticleDetail'>
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 export function ArticleDetailScreen() {
+  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.articleComment)
   const { resolvedTheme } = useTheme()
   const { t } = useI18n()
   const route = useRoute<Route>()
@@ -83,7 +86,7 @@ export function ArticleDetailScreen() {
     void (async () => {
       setLoading(true)
       setError('')
-      const res = await fetchApi<ArticleDetailItem>(`/api/articles/${encodeURIComponent(id)}`)
+      const res = await getPublicArticle<ArticleDetailItem>(id)
       if (cancelled) return
       if (res.success) {
         setArticle(res.data)
@@ -207,7 +210,7 @@ export function ArticleDetailScreen() {
       >
         <View style={styles.commentOverlay}>
           <Tappable style={styles.commentMask} onPress={() => setCommentVisible(false)} />
-          <View style={styles.commentSheet}>
+          <View style={[styles.commentSheet, dialogHeightStyle]}>
             <View style={styles.commentHeader}>
               <Text style={styles.commentTitle}>评论</Text>
               <Tappable
@@ -313,11 +316,11 @@ const styles = StyleSheet.create({
     color: tokens.danger.bright,
   } as TextStyle,
   actionCount: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   actionLabel: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.secondary,
   } as TextStyle,
   // ── 评论弹窗 ──
@@ -339,7 +342,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: rnRadius.xl,
     paddingTop: rnSpacing['md-loose'],
     minHeight: 360,
-    maxHeight: '72%',
+    maxHeight: undefined,
   } as ViewStyle,
   commentHeader: {
     flexDirection: 'row',
@@ -358,7 +361,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   commentClose: {
     fontSize: rnType.display.size,
-    lineHeight: 26,
+    lineHeight: rnType.subtitle.lineHeight,
     color: tokens.text.tertiary,
     fontWeight: '300',
   } as TextStyle,
@@ -378,7 +381,7 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing['4xl'],
   } as ViewStyle,
   commentEmptyText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.text.tertiary,
   } as TextStyle,
   commentItem: {
@@ -395,7 +398,7 @@ const styles = StyleSheet.create({
     marginRight: rnSpacing['sm-loose'],
   } as ViewStyle,
   commentAvatarText: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     color: tokens.brand.ctaForeground,
     fontWeight: '600',
   } as TextStyle,
@@ -403,13 +406,13 @@ const styles = StyleSheet.create({
     flex: 1,
   } as ViewStyle,
   commentNickname: {
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
     fontWeight: '600',
     color: tokens.text.primary,
   } as TextStyle,
   commentContent: {
     fontSize: rnType.body.size,
-    lineHeight: 20,
+    lineHeight: rnType.body.lineHeight,
     color: tokens.text.primary,
     marginTop: rnSpacing['2xs'],
   } as TextStyle,

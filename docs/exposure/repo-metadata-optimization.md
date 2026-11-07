@@ -30,7 +30,7 @@
 
 | 维度 | 优化前 | 优化后 |
 | --- | --- | --- |
-| 内容 | (空 / 简短中文) | `Eight-platform full-stack AI operating system - unifies 176 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.` |
+| 内容 | (空 / 简短中文) | `Eight-platform full-stack AI operating system - unifies 100 catalogued LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 621 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.` |
 | 字符数 | ~20 | 244 |
 | SEO 关键词覆盖 | 1(ai) | 12+(ai / llm / langgraph / mcp / a2a / multi-tenant / rag / agent-marketplace / web / api / cli / desktop / extension / mobile / miniapp / apache) |
 | 语言 | 中文 | 英文(国际可读) |
@@ -201,7 +201,7 @@ Google 对 GitHub repo 页面的索引权重信号:
 ```
 full_name: IHUI-INF-AI/IHUI-AI
 html_url: https://github.com/IHUI-INF-AI/IHUI-AI
-description: Eight-platform full-stack AI operating system - unifies 176 LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 340 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.
+description: Eight-platform full-stack AI operating system - unifies 100 catalogued LLMs via LangGraph + MCP + A2A. Multi-tenant RLS over 621 tables, RAG knowledge base, agent marketplace. Web/API/CLI/Desktop/Extension/Mobile/Miniapp. Apache 2.0.
 homepage: https://aizhs.top
 has_issues: True
 has_discussions: True

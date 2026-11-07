@@ -311,6 +311,20 @@ describe('来源盖章(loadHooksConfig)', () => {
     fs.writeFileSync(file, JSON.stringify(config));
   }
 
+  it('钩子配置读不到时不当成没有钩子', () => {
+    const file = path.join(tmpDir, 'hooks.json');
+    writeHooks(file, { preToolCall: [{ name: 'keep', command: 'echo keep' }] });
+    const original = fs.readFileSync(file);
+    process.env.IHUI_HOOKS_CONFIG = file;
+    const denied = () => {
+      const err = new Error('denied') as NodeJS.ErrnoException;
+      err.code = 'EACCES';
+      throw err;
+    };
+    expect(() => loadHooksConfig(tmpDir, denied)).toThrow(/读不到/);
+    expect(fs.readFileSync(file)).toEqual(original);
+  });
+
   it('工作区 .ihui/hooks.json 里的条目被戳成 project,sourceFolder 是仓库根本身', () => {
     writeHooks(path.join(tmpDir, '.ihui', 'hooks.json'), {
       preToolCall: [{ name: 'ws-hook', command: 'echo ws' }],

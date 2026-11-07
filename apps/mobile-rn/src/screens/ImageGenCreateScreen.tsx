@@ -11,7 +11,7 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import * as FileSystem from 'expo-file-system'
 import * as MediaLibrary from 'expo-media-library'
-import { fetchApi, resolveFileUrl } from '@ihui/api-client'
+import { generateImage, resolveFileUrl } from '@ihui/api-client'
 import type { ImageGenResult } from '@ihui/types'
 import { getRnTokens } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
@@ -59,10 +59,7 @@ export function ImageGenCreateScreen() {
     setGenerating(true)
     setResult(null)
     try {
-      const res = await fetchApi<ImageGenResult>('/api/image-gen/generate', {
-        method: 'POST',
-        body: JSON.stringify({ prompt: prompt.trim(), size }),
-      })
+      const res = await generateImage({ prompt: prompt.trim(), size })
       if (!res.success || !res.data?.imageUrl) throw new Error(res.error)
       setResult(res.data)
     } catch (e) {

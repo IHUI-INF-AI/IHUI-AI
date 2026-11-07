@@ -42,6 +42,17 @@
 export const STATIC_BLOCK_VIRTUALIZE_MIN_CHARS = 16384
 
 /**
+ * 启用块级虚拟化的最少渲染块数。Qoder 使用点在字符门槛之外还要求
+ * `renderBlocks.length >= 4`,并且整文档语法不虚拟化(verify10 XOM@2570275:
+ * `requiresWholeDocumentParsing || renderBlocks.length < 4` 时走静态整渲)。
+ *
+ * 整文档语法(脚注 / 原始 HTML / 链接定义 / 数学块)由 `markdown-stable-split`
+ * 整段不切,渲染块数恒为 1,已经落在本门槛下面,这里不再复制第二套扫描。
+ * 2～3 块但字符已经过 16384 的短块长文同样整表渲染,不进虚拟化。
+ */
+export const STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS = 4
+
+/**
  * 窗口上下各多挂的块数。取 Qoder 的 4(`overscan: 4`)。
  *
  * 4 块的缓冲足以覆盖一次惯性滚动的一帧位移(块高中位数 ~512 字符渲染高度约 200px,
@@ -114,7 +125,8 @@ function firstIndexCovering(offsets: readonly number[], position: number): numbe
  *  ① 仍在流式 —— 窗口化会让 active 块在窗口进出时反复重挂,代码块折叠态/mermaid
  *     渲染结果都会被打回(与 `markdown-stream.tsx` 档⑦ 修掉的是同一型);
  *  ② 总字符 < `STATIC_BLOCK_VIRTUALIZE_MIN_CHARS`;
- *  ③ 块数 ≤ 1 —— 没有可窗口的对象;
+ *  ③ 块数 < `STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS`(4)—— 不足四块不虚拟化;
+ *     块数 ≤ 1 仍报 `single-block`,2～3 块报 `below-block-floor`;
  *  ④ 偏移表长度不足(`blockCount + 1`)—— 没量过几何,不许猜;
  *  ⑤ 总高量成 0 或非有限 —— 与 `windowing.ts` 同一档处理,但**此处退化为全量**:
  *     块级窗口没有"从顶部挂满上限"这一档可用(那会把正文中段藏起来);
@@ -135,7 +147,9 @@ export function resolveStaticBlockWindow(input: StaticBlockWindowInput): StaticB
   if (!isFiniteNumber(totalChars) || totalChars < STATIC_BLOCK_VIRTUALIZE_MIN_CHARS) {
     return { ...all, reason: 'below-threshold' }
   }
-  if (blockCount <= 1) return { ...all, reason: 'single-block' }
+  if (blockCount < STATIC_BLOCK_VIRTUALIZE_MIN_BLOCKS) {
+    return { ...all, reason: blockCount <= 1 ? 'single-block' : 'below-block-floor' }
+  }
   if (offsets.length < blockCount + 1) return { ...all, reason: 'offsets-unmeasured' }
 
   const totalHeight = offsets[blockCount]

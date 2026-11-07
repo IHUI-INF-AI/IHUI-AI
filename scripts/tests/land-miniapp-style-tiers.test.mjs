@@ -199,8 +199,8 @@ test('L4 dry-run 档零登记:registerLanding([]) 不写一个字节也不造账
     assert.equal(existsSync(ledgerT.ledgerPathFor(dir)), false, '没写盘就没有产出 ⇒ 一行都不许登记')
     assert.match(
       readFileSync(SCRIPT, 'utf8'),
-      /if \(!\(apply && st\.batch\.length\)\) return out[\s\S]{0,200}?registerLanding\(st\.batch\)/,
-      '登记出口(closeLandingRound)必须被 apply 守卫(预演档结构上到不了)',
+      /if \(!\(apply && st\.batch\.length\)\) return out[\s\S]{0,200}?registerLanding\(st\.batch, \{ legs: enabledLegs \}\)/,
+      '登记出口(closeLandingRound)必须被 apply 守卫(预演档结构上到不了),且把本轮腿集一起交出去',
     )
   } finally {
     rmScratch(dir, { bestEffort: true })
@@ -230,7 +230,16 @@ test('L6 同形锁:三枚 lander 的腿短名取自同名常量、leg 走 regist
   for (const n of names) {
     const text = readFileSync(join(ROOT, 'scripts', `${n}.mjs`), 'utf8')
     assert.match(text, new RegExp(`export const LEG_NAME = '${n}'`), `${n}: 腿短名必须逐字等于脚本文件名(guardian 派发名现读)`)
-    assert.match(text, /const list = paths\.map\(\(p\) => \(\{ at, leg, path: p, blobOid: blobOidOf\(p, \{ root \}\) \}\)\)/, `${n}: 登记行的 leg 必须取自 registerLanding 参数(默认 = LEG_NAME),三处同一形态`)
+    assert.match(
+      text,
+      /const rowLegs = normalizeLegs\(legs\)\s*\n\s*const list = paths\.map\(\(p\) => \(\{\s*at,\s*leg,\s*path: p,\s*blobOid: blobOidOf\(p, \{ root \}\),\s*\.\.\.\(rowLegs \? \{ legs: rowLegs \} : \{\}\),\s*\}\)\)/,
+      `${n}: 登记行的 leg/legs 必须取自 registerLanding 参数(默认 leg = LEG_NAME),三处同一形态`,
+    )
+    assert.match(
+      text,
+      /c\.leg === leg && legsCover\(c\.legs, legs\)/,
+      `${n}: landedPathsOf 必须用库内 legsCover 判腿覆盖,不得各自复算`,
+    )
     assert.match(text, /gitRaw\(\['hash-object', '--', rel\], root\)/, `${n}: 取 oid 必须与账本库 worktree 面同一把尺(face-reader gitRaw + hash-object)`)
     const m = text.match(/export function landingKeys\([\s\S]*?\n\}/)
     assert.ok(m, `${n}: 缺 landingKeys`)

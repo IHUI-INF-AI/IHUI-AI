@@ -293,6 +293,10 @@ class MCPLocalhostOAuthCallbackServer:
                 pass
 
 
+class OAuthPersistUnread(OSError):
+    """凭据文件读不到。不能当成没有令牌再覆盖。"""
+
+
 def _backup_corrupt_persist_file(path: Path) -> None:
     """b75-4#2:凭据文件损坏先备份留证,绝不静默覆盖重置。
 
@@ -312,11 +316,18 @@ def _load_persisted_token(config: MCPOAuthConfig) -> MCPOAuthToken | None:
     """从持久化文件读取 Token(加密/明文二选一);失败返回 None 不报错。"""
     if not config.persist_path:
         return None
+    path = Path(config.persist_path)
     try:
-        path = Path(config.persist_path)
-        if not path.exists():
-            return None
+        path.stat()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise OAuthPersistUnread(f"OAuth 凭据读不到,不能把它说成没有令牌: {exc}") from exc
+    try:
         raw = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise OAuthPersistUnread(f"OAuth 凭据读不到,不能把它说成没有令牌: {exc}") from exc
+    try:
         if not raw:
             return None
         # 优先加密读取:环境变量 MCP_OAUTH_ENCRYPTION_KEY 提供 Fernet key
@@ -332,12 +343,8 @@ def _load_persisted_token(config: MCPOAuthConfig) -> MCPOAuthToken | None:
         logger.warning("读持久化 OAuth Token 失败(降级内存): %s", e)
         # b75-4#2:内容层损坏(解密/解析失败)先备份留证再返回 None —— 若不备份,
         # 后续成功的写入会静默覆盖掉取证现场(上游 backupCorruptFile 判据)。
-        # 文件不存在等非损坏路径在上面已提前返回,不会走到这里。
-        try:
-            if Path(config.persist_path).exists():
-                _backup_corrupt_persist_file(Path(config.persist_path))
-        except Exception:  # noqa: BLE001 - 备份探测失败不影响降级语义
-            pass
+        # 文件不存在或读不到已在上面返回,这里只备份内容损坏。
+        _backup_corrupt_persist_file(path)
         return None
 
 
@@ -349,6 +356,13 @@ def _persist_token(config: MCPOAuthConfig, token: MCPOAuthToken) -> None:
         from cryptography.fernet import Fernet
 
         path = Path(config.persist_path)
+        try:
+            path.stat()
+        except FileNotFoundError:
+            pass
+        except OSError as exc:
+            logger.warning("OAuth 凭据读不到,不能把它覆盖成新令牌: %s", exc)
+            return
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(token.to_dict(), ensure_ascii=False)
         key = os.environ.get("MCP_OAUTH_ENCRYPTION_KEY", "")

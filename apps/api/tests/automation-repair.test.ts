@@ -7,7 +7,7 @@
 // 覆盖:认领幂等重放 / 认领互斥 / 状态机非法迁移拒绝 / 重试上限 / 迁移审计流水 /
 //       App 回帖出口 fail-closed(无凭据零请求)/ App 通道成功路径(断言走 installation token)。
 import { describe, it, expect, beforeEach } from 'vitest'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { generateKeyPairSync } from 'node:crypto'
@@ -417,6 +417,28 @@ describe('AppRepairReporter', () => {
       '/repos/o/r/issues/1/comments',
     ])
     expect(calls[1]?.headers.Authorization).toBe('Bearer ghs_installation_token')
+  })
+})
+
+describe('修复任务读不到不覆盖', () => {
+  it('存储路径是目录时不把任务写成空文件', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ihui-d30-repair-'))
+    const blocked = join(root, 'tasks.json')
+    mkdirSync(blocked)
+    const store = createRepairTaskStore(blocked)
+    expect(() => store.ingest(issueItem(), 'o/r', 3, 'tester')).toThrow(/读不到/)
+    expect(statSync(blocked).isDirectory()).toBe(true)
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('存储内容坏掉时不覆盖原字节', () => {
+    const root = mkdtempSync(join(tmpdir(), 'ihui-d30-repair-'))
+    const blocked = join(root, 'tasks.json')
+    writeFileSync(blocked, '{', 'utf8')
+    const store = createRepairTaskStore(blocked)
+    expect(() => store.ingest(issueItem(), 'o/r', 3, 'tester')).toThrow(/读不到/)
+    expect(readFileSync(blocked, 'utf8')).toBe('{')
+    rmSync(root, { recursive: true, force: true })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

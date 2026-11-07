@@ -1249,8 +1249,16 @@ export function AgentTaskProgressPane() {
     const onClick = (e: MouseEvent) => {
       const target = e.target as Node
       if (paneRef.current && !paneRef.current.contains(target)) {
-        const trigger = document.querySelector('[data-testid="agent-progress-trigger"]')
-        if (trigger && trigger.contains(target)) return
+        // 2026-11-04 第四轮:两个开合锚点都必须放行 —— 抽屉里的设置行(trigger)与
+        // 底栏常驻状态芯片(status)。若只放行 trigger,点芯片时 mousedown 先 closePane、
+        // 随后 click 再 togglePane,净效果是"点了没反应"(面板关了又立刻开)。
+        // 两枚可能同时存在(流式 + 抽屉打开),故逐个 contains 而不是 querySelector 取首个。
+        const triggers = document.querySelectorAll(
+          '[data-testid="agent-progress-trigger"], [data-testid="agent-progress-status"]',
+        )
+        for (const el of Array.from(triggers)) {
+          if (el.contains(target)) return
+        }
         closePane()
       }
     }

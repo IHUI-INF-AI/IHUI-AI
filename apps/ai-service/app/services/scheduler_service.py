@@ -10,8 +10,12 @@ APScheduler AsyncIOScheduler 实现 cron/date/interval 三种触发器,
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
+import signal
+import subprocess
 import uuid
 from collections.abc import Awaitable
 from datetime import UTC, datetime
@@ -34,6 +38,26 @@ _REDIS_TTL_SECONDS = 30 * 24 * 3600  # 30d
 _LOG_KEEP = 50
 
 _VALID_TRIGGER_TYPES = ("cron", "date", "interval")
+
+# 回调类型白名单(BUG-1 根治 RCE):非特权回调任意登录用户可创建;
+# 特权回调(shell ⇒ 进程内任意命令执行)仅限管理员通道(is_admin=True)。
+# 外部导入(apply_bundle)等不可信入口不传 is_admin ⇒ shell 回调被拒,
+# 杜绝"任意登录用户 → 服务进程 RCE"。
+_CALLBACK_TYPE_PRIVILEGED = frozenset({"shell"})
+_CALLBACK_TYPE_ALLOWED = frozenset({"http_webhook", "mcp_tool", "shell"})
+
+
+def _validate_callback(callback: dict[str, Any], is_admin: bool) -> str | None:
+    """校验 callback 类型合法性。返回非空错误码字符串表示拒绝;None 表示通过。"""
+    if not isinstance(callback, dict):
+        return "callback 必须是 dict"
+    cb_type = callback.get("type")
+    if cb_type not in _CALLBACK_TYPE_ALLOWED:
+        allowed = sorted(_CALLBACK_TYPE_ALLOWED - _CALLBACK_TYPE_PRIVILEGED)
+        return f"不支持的 callback 类型: {cb_type!r}(允许: {allowed})"
+    if cb_type in _CALLBACK_TYPE_PRIVILEGED and not is_admin:
+        return "shell 回调仅限管理员创建(INVALID_CALLBACK)"
+    return None
 # CronTrigger 原生参数(apscheduler 3.x)
 _CRON_FIELDS = {
     "year", "month", "day", "week", "day_of_week", "hour", "minute", "second",
@@ -101,7 +125,14 @@ class TaskScheduler:
         try:
             self._scheduler.start()
         except Exception as e:
-            logger.warning("[scheduler_service] scheduler.start 失败: %s", e)
+            # BUG-34②:启动失败绝不能静默进入"已启动"态 —— 旧代码只 warning 后仍置
+            # _started=True,此后 add_task 跳过 add_job 却照写 Redis 并返 ok=True,
+            # 任务"创建成功"但永不触发。这里置空 scheduler + 不置 _started,
+            # 由 add_task 的 SCHEDULER_UNAVAILABLE 显式拒绝,并把日志升到 error。
+            logger.error("[scheduler_service] scheduler.start 失败,拒绝进入已启动态: %s", e)
+            self._scheduler = None
+            self._started = False
+            return
         if self._redis is not None:
             try:
                 await self._load_pending_tasks()
@@ -138,9 +169,17 @@ class TaskScheduler:
         trigger_config: dict[str, Any],
         callback: dict[str, Any],
         conversation_id: str | None = None,
+        is_admin: bool = False,
     ) -> dict[str, Any]:
         if self._is_stub():
             return {"ok": True, "task_id": "stub-" + uuid.uuid4().hex, "stub": True}
+        # BUG-34②:调度器没真正起来时绝不返 ok(否则任务落库却永不触发)。
+        if self._scheduler is None or not self._started:
+            return {
+                "ok": False,
+                "errorCode": "SCHEDULER_UNAVAILABLE",
+                "message": "调度器未启动,任务不会被触发",
+            }
         if trigger_type not in _VALID_TRIGGER_TYPES:
             return {
                 "ok": False,
@@ -153,6 +192,9 @@ class TaskScheduler:
                 "errorCode": "INVALID_TRIGGER",
                 "message": "callback 必须是含 type 的 dict",
             }
+        cb_err = _validate_callback(callback, is_admin)
+        if cb_err is not None:
+            return {"ok": False, "errorCode": "INVALID_CALLBACK", "message": cb_err}
         try:
             trigger = _build_trigger(trigger_type, trigger_config)
         except ValueError as e:
@@ -183,7 +225,13 @@ class TaskScheduler:
                 if isinstance(nrt, datetime):
                     task["next_run_at"] = nrt.isoformat()
             except Exception as e:
-                logger.warning("[scheduler_service] add_job 失败(%s): %s", tid, e)
+                # BUG-34②:add_job 失败必须错误传播,不能落库后照返 ok。
+                logger.error("[scheduler_service] add_job 失败(%s): %s", tid, e)
+                return {
+                    "ok": False,
+                    "errorCode": "ADD_JOB_FAILED",
+                    "message": f"调度任务注册失败: {e}",
+                }
         await self._persist_task(task)
         return {"ok": True, "task_id": tid, "next_run_at": task["next_run_at"]}
 
@@ -242,6 +290,7 @@ class TaskScheduler:
         trigger_config: dict[str, Any] | None = None,
         callback: dict[str, Any] | None = None,
         enabled: bool | None = None,
+        is_admin: bool = False,
     ) -> dict[str, Any]:
         if self._is_stub():
             return {"ok": True, "stub": True}
@@ -262,6 +311,10 @@ class TaskScheduler:
         new_trigger_config = (
             trigger_config if trigger_config is not None else current["trigger_config"]
         )
+        if callback is not None:
+            cb_err = _validate_callback(callback, is_admin)
+            if cb_err is not None:
+                return {"ok": False, "errorCode": "INVALID_CALLBACK", "message": cb_err}
         new_callback = callback if callback is not None else current["callback"]
         new_enabled = enabled if enabled is not None else current["enabled"]
         try:
@@ -298,6 +351,39 @@ class TaskScheduler:
         return {"ok": True, "task_id": task_id, "next_run_at": current.get("next_run_at", "")}
 
     # ===== 回调执行 =====
+
+    @staticmethod
+    async def _kill_shell_tree(proc: Any) -> None:
+        """杀掉 shell 外壳及其整棵子进程树(BUG-34③)。
+
+        旧实现只 proc.kill() 杀 sh -c / cmd /c 外壳,子孙进程继续持有管道 ⇒
+        Windows 下后续 await proc.communicate() 挂死,后台命令也继续跑。
+        POSIX 用 killpg(start_new_session 后 pgid==pid),Windows 用 taskkill /F /T。
+        """
+        pid = proc.pid
+
+        def _kill() -> None:
+            if os.name == "nt":
+                with contextlib.suppress(Exception):
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(pid)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        timeout=5,
+                        check=False,
+                    )
+            else:
+                with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+                    # POSIX-only 属性在 Windows 类型桩中不存在,用 getattr 动态取(运行时行为不变)。
+                    killpg = getattr(os, "killpg", None)
+                    getpgid = getattr(os, "getpgid", None)
+                    sigkill = getattr(signal, "SIGKILL", None)
+                    if killpg is not None and getpgid is not None and sigkill is not None:
+                        killpg(getpgid(pid), sigkill)
+
+        await asyncio.to_thread(_kill)
+        with contextlib.suppress(Exception):
+            proc.kill()
 
     async def _job_wrapper(self, task_id: str, callback: dict[str, Any]) -> None:
         try:
@@ -351,16 +437,26 @@ class TaskScheduler:
             if not command:
                 raise ValueError("shell callback 缺少 command")
             timeout = float(callback.get("timeout", 30))
+            # BUG-34③:让外壳进程独立成进程组,超时才能连子孙一起杀。
+            popen_kwargs: dict[str, Any] = {}
+            if os.name == "nt":
+                popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+            else:
+                popen_kwargs["start_new_session"] = True
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                **popen_kwargs,
             )
             try:
                 _stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
             except TimeoutError:
-                proc.kill()
-                await proc.communicate()
+                await self._kill_shell_tree(proc)
+                # 子孙进程可能仍持有 stdout/stderr 管道:旧实现无条件
+                # await proc.communicate() 在 Windows 会挂到管道关闭 ⇒ 短超时兜底。
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(proc.communicate(), timeout=1.0)
                 raise TimeoutError(f"shell 执行超时({timeout}s)")
             if proc.returncode != 0:
                 raise RuntimeError(

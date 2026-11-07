@@ -170,6 +170,20 @@ async def test_readonly_zero_mutation_with_real_lexical_leg(
     assert any(f["leg"] == "lexical" for f in result["findings"])
 
 
+async def test_unreadable_root_is_not_missing(tmp_path, monkeypatch):
+    (tmp_path / "keep.py").write_text("keep\n", encoding="utf-8")
+    from app.services import codebase_indexer as indexer
+
+    monkeypatch.setattr(indexer, "classify_fs_path", lambda _path: "unread")
+    result = await ci.investigate_codebase(
+        {"intent": "找 keep", "path": str(tmp_path)},
+        deps=_fake_deps(),
+    )
+    assert result["status"] == "unjudged"
+    assert result["legs"]["lexical"]["reason"].startswith("根目录读不到")
+    assert (tmp_path / "keep.py").read_text(encoding="utf-8") == "keep\n"
+
+
 async def test_lexical_leg_never_spawns_rg_by_default(tmp_path):
     """默认词法腿必须把 prefer_rg=False 传给既有出口(零子进程是只读契约的一部分)。"""
     recorder: dict[str, Any] = {}
@@ -263,6 +277,42 @@ async def test_semantic_exception_is_unjudged(tmp_path):
     assert result["legs"]["semantic"]["status"] == "failed"
     assert any("超时" in m or "未返回结论" in m for m in result["missing_inputs"])
     assert result["status"] == "ok"  # 词法腿有观察级结论,整体仍可判,但缺口必须点名
+
+
+async def test_unreadable_directory_is_not_an_empty_investigation(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+):
+    """子目录列不出来且零命中时,不能报成各腿都验证过的空结论。"""
+    root = tmp_path / "repo"
+    root.mkdir()
+    (root / "keep.py").write_text("x = 1\n", encoding="utf-8")
+    blocked = root / "blocked"
+    blocked.mkdir()
+    hidden = blocked / "hidden.py"
+    hidden.write_text("needle_token = 1\n", encoding="utf-8")
+    real_scandir = os.scandir
+
+    def deny(path: str) -> object:
+        if Path(path).name == "blocked":
+            raise PermissionError(13, "denied", str(path))
+        return real_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", deny)
+    result = await ci.investigate_codebase(
+        {
+            "intent": "needle_token",
+            "query": "needle_token",
+            "path": str(root),
+            "use_semantic": False,
+            "include_wiki": False,
+        },
+        deps=ci.build_default_deps(),
+    )
+    assert result["status"] == "unjudged"
+    assert result["ok"] is False
+    assert result["legs"]["lexical"]["status"] == "undetermined"
+    assert "不能把枚举说成完整" in result["legs"]["lexical"]["reason"]
+    assert hidden.read_text(encoding="utf-8") == "needle_token = 1\n"
 
 
 async def test_empty_confirmed_requires_all_legs_trustworthy(tmp_path):

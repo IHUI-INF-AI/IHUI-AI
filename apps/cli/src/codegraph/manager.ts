@@ -124,16 +124,22 @@ export class IndexManager {
    * 扫描并索引整个目录。
    * @param dir 相对 workspaceRoot 的子目录,缺省为 workspaceRoot 本身
    */
-  async indexDirectory(dir?: string): Promise<{ files: number; definitions: number; elapsedMs: number }> {
+  async indexDirectory(
+    dir?: string,
+    listDir?: (target: string) => fs.Dirent[],
+  ): Promise<{ files: number; definitions: number; elapsedMs: number }> {
     const start = Date.now()
     const targetDir = dir ? path.resolve(this.workspaceRoot, dir) : this.workspaceRoot
-    const files = this.scanFiles(targetDir)
-    for (const abs of files) {
+    const scan = this.scanFiles(targetDir, listDir)
+    if (scan.unreadDirs > 0) {
+      throw new Error(`有 ${scan.unreadDirs} 个目录读不到,不能把代码图说成完整`)
+    }
+    for (const abs of scan.files) {
       this.reindexFile(abs)
     }
     const stats = this.index.stats()
     return {
-      files: files.length,
+      files: scan.files.length,
       definitions: stats.definitions,
       elapsedMs: Date.now() - start,
     }
@@ -151,15 +157,25 @@ export class IndexManager {
   }
 
   /** 递归扫描目录,返回所有代码文件的绝对路径 */
-  private scanFiles(dir: string): string[] {
+  private scanFiles(
+    dir: string,
+    listDir?: (target: string) => fs.Dirent[],
+  ): { files: string[]; unreadDirs: number } {
+    const readDir = listDir ?? ((target: string) => fs.readdirSync(target, { withFileTypes: true }))
     const out: string[] = []
+    let unreadDirs = 0
     const stack: string[] = [dir]
     while (stack.length > 0) {
       const cur = stack.pop()!
       let entries: fs.Dirent[]
       try {
-        entries = fs.readdirSync(cur, { withFileTypes: true })
-      } catch {
+        entries = readDir(cur)
+      } catch (error) {
+        const code =
+          error !== null && typeof error === 'object' && 'code' in error
+            ? (error as { code?: string }).code
+            : undefined
+        if (code !== 'ENOENT') unreadDirs += 1
         continue
       }
       for (const e of entries) {
@@ -172,7 +188,7 @@ export class IndexManager {
         }
       }
     }
-    return out
+    return { files: out, unreadDirs }
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

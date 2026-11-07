@@ -14,16 +14,20 @@ import { tokens } from '../theme/active-tokens'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { fetchApi, getCommissionRates } from '@ihui/api-client'
-import { DistributionScreen as SharedDistributionScreen, type DistributionInfo } from '@ihui/rn-app'
-import EarningsStatisticsCard, { type EarningsStat } from '../components/EarningsStatisticsCard'
-import PersonalInformationCard from '../components/PersonalInformationCard'
-import { FunctionBlockColumn, type FunctionBlock } from '../components/FunctionBlockColumn'
+import {
+  DistributionScreen as SharedDistributionScreen,
+  type DistributionInfo,
+  type DistributionOverviewCard,
+  type DistributionEarningsCard,
+  type DistributionServiceFloat,
+  type DistributionFunctionBlock,
+  type DistributionQrSheet,
+} from '@ihui/rn-app'
 // 图标对齐历史 FunctionBlockColumn/index.vue iconSrc:
 // 公司团队/AI团队=tuandui-icon、我的名片=geren-icon、我的二维码=erweima-icon、分销订单=fenxiao-icon
 import { Bot, IdCard, Package, QrCode, Users } from 'lucide-react-native'
-import CommissionFloatingIcon from '../components/CommissionFloatingIcon'
 import { HandPlatePops } from '../components/HandPlatePops'
-import { appAlert, BottomPops } from '../components/BottomPops'
+import { appAlert } from '../components/BottomPops'
 import FloatBox, { type FloatBoxType } from '../components/FloatBox'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
@@ -31,6 +35,9 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
+
+/** 收益卡 Tab(注入共享屏 earningsCard;切换只回传 key) */
+type EarningsTabKey = 'today' | 'month' | 'total'
 
 /** 邀请链接域名(对齐 ProfileScreen WEBSITE_URL 'https://www.aizhs.top') */
 const INVITE_BASE_URL = 'https://www.aizhs.top'
@@ -57,7 +64,9 @@ export function DistributionScreen() {
   const [rates, setRates] = useState<{ level: string; rate: string }[]>([])
   // HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue)
   const [withdrawDetailVisible, setWithdrawDetailVisible] = useState(false)
-  // BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层)
+  // 收益卡 Tab(注入共享屏 earningsCard;点按只改本端 key)
+  const [earningsTab, setEarningsTab] = useState<EarningsTabKey>('total')
+  // 分享二维码弹层显隐(注入共享屏 qrSheet;对齐 Uniapp 分销页分享二维码弹层)
   const [shareQrVisible, setShareQrVisible] = useState<boolean>(false)
   // 二维码 View 引用(react-native-view-shot captureRef 截图保存到相册)
   const qrRef = useRef<View>(null)
@@ -153,24 +162,6 @@ export function DistributionScreen() {
    * 历史中被注释掉的「我的收入/公司业绩/领取企业资料/产品调查」不在对齐范围。
    * 5 项目标路由在 RN RootStack 均已注册,无需「功能开发中」降级。
    */
-  const functionBlocks: FunctionBlock[] = [
-    {
-      id: 'company_team',
-      title: t('dist.teamCompany'),
-      icon: Users,
-      description: t('dist.teamCompanyD'),
-    },
-    { id: 'ai_team', title: t('dist.teamAi'), icon: Bot, description: t('dist.teamAiD') },
-    { id: 'business_card', title: t('dist.card'), icon: IdCard, description: t('dist.cardD') },
-    { id: 'my_qrcode', title: t('dist.qr'), icon: QrCode, description: t('dist.qrD') },
-    {
-      id: 'distribution_orders',
-      title: t('dist.orders'),
-      icon: Package,
-      description: t('dist.ordersD'),
-    },
-  ]
-
   const onBlockPress = useCallback(
     (id: string) => {
       // 我的二维码:对齐历史 FunctionBlockColumn navigateTo 行 109「$emit pack」→ 打开二维码弹层
@@ -190,6 +181,49 @@ export function DistributionScreen() {
     },
     [navigation, showFloat, t],
   )
+
+  /**
+   * 功能宫格(注入共享屏 functionBlocks):图标节点 + 文案 + 点击,5 项与历史
+   * FunctionBlockColumn/index.vue functionList 行 39-104 的未注释项一一对应。
+   * 图标走 lucide 节点(iconNode),共享屏只负责网格渲染,不感知路由。
+   */
+  const functionBlocks: DistributionFunctionBlock[] = [
+    {
+      key: 'company_team',
+      label: t('dist.teamCompany'),
+      description: t('dist.teamCompanyD'),
+      iconNode: <Users size={22} color={tokens.text.medium} />,
+      onPress: () => onBlockPress('company_team'),
+    },
+    {
+      key: 'ai_team',
+      label: t('dist.teamAi'),
+      description: t('dist.teamAiD'),
+      iconNode: <Bot size={22} color={tokens.text.medium} />,
+      onPress: () => onBlockPress('ai_team'),
+    },
+    {
+      key: 'business_card',
+      label: t('dist.card'),
+      description: t('dist.cardD'),
+      iconNode: <IdCard size={22} color={tokens.text.medium} />,
+      onPress: () => onBlockPress('business_card'),
+    },
+    {
+      key: 'my_qrcode',
+      label: t('dist.qr'),
+      description: t('dist.qrD'),
+      iconNode: <QrCode size={22} color={tokens.text.medium} />,
+      onPress: () => onBlockPress('my_qrcode'),
+    },
+    {
+      key: 'distribution_orders',
+      label: t('dist.orders'),
+      description: t('dist.ordersD'),
+      iconNode: <Package size={22} color={tokens.text.medium} />,
+      onPress: () => onBlockPress('distribution_orders'),
+    },
+  ]
 
   const load = useCallback(
     async (refresh = false) => {
@@ -236,7 +270,7 @@ export function DistributionScreen() {
       )
       return
     }
-    // 实名校验(对齐 Uniapp PersonalInformationCard/index.vue withdrawalClick):
+    // 实名校验(对齐 Uniapp 个人信息卡组件的 withdrawalClick):
     // 未实名(后端 authStatus !== 'approved')→ 弹「提现前请先实名认证!」并引导去实名,不放行。
     // 说明:AuthUser 用户模型无 realName 字段,实名状态以 /auth/realname/my 接口为准。
     try {
@@ -280,45 +314,102 @@ export function DistributionScreen() {
     }
   }
 
-  // 收益卡 6 字段结构化统计(EarningsStat):仅「累计」Tab 有真实后端数据,
+  // 收益卡三段(注入共享屏 earningsCard):仅「累计」Tab 有真实后端数据,
   // 后端 /distribution/overview 无日/月佣金拆分,今日/本月 Tab 保持 0(不伪造)。
-  const sumStat: EarningsStat | undefined = info
-    ? {
-        amount: fenToYuan(info.totalCommission),
-        incomplete: fenToYuan(info.pendingCommission),
-        finish: fenToYuan(info.withdrawnCommission),
-        order: info.orderCount ?? 0,
-        strength: info.invitedCount,
-        endAmount: fenToYuan(info.withdrawnCommission),
-      }
-    : undefined
+  const earningsTabs = [
+    { key: 'today', label: t('earn.tabToday') },
+    { key: 'month', label: t('earn.tabMonth') },
+    { key: 'total', label: t('earn.tabTotal') },
+  ]
+  const earningsStat =
+    earningsTab === 'total'
+      ? {
+          amount: info ? fenToYuan(info.totalCommission) : 0,
+          pending: info ? fenToYuan(info.pendingCommission) : 0,
+          settled: info ? fenToYuan(info.withdrawnCommission) : 0,
+          orders: info?.orderCount ?? 0,
+          teamNew: info?.invitedCount ?? 0,
+          withdrawn: info ? fenToYuan(info.withdrawnCommission) : 0,
+        }
+      : { amount: 0, pending: 0, settled: 0, orders: 0, teamNew: 0, withdrawn: 0 }
+  const earningsTabLabel = t(
+    earningsTab === 'today'
+      ? 'earn.tabDayShort'
+      : earningsTab === 'month'
+        ? 'earn.tabMonthShort'
+        : 'earn.tabTotalShort',
+  )
+  const earningsCard: DistributionEarningsCard = {
+    tabs: earningsTabs,
+    activeTab: earningsTab,
+    onSelectTab: (key) => setEarningsTab(key as EarningsTabKey),
+    items: [
+      { label: '收益', value: `¥${earningsStat.amount.toFixed(2)}`, tone: 'primary' },
+      { label: '待结算', value: `¥${earningsStat.pending.toFixed(2)}` },
+      { label: '已结算', value: `¥${earningsStat.settled.toFixed(2)}` },
+    ],
+    footerItems: [
+      {
+        label: t('earn.promoOrders', { tab: earningsTabLabel }),
+        value: String(earningsStat.orders),
+      },
+      { label: t('earn.teamNew', { tab: earningsTabLabel }), value: String(earningsStat.teamNew) },
+      {
+        label: t('earn.withdrawAmount', { tab: earningsTabLabel }),
+        value: `¥${earningsStat.withdrawn.toFixed(2)}`,
+      },
+    ],
+  }
+
+  // 分销总览(注入共享屏 overviewCard):用户资料 + 分销身份,真值优先
+  const overviewCard: DistributionOverviewCard = {
+    avatar: user?.avatar || null,
+    nickname: user?.nickname || user?.username || '',
+    identity: info ? t('dist.dealer') : undefined,
+  }
+
+  // 分佣浮标(注入共享屏 serviceFloat):金额取 availableCommission(分→元),点击开提现详情
+  const serviceFloat: DistributionServiceFloat = {
+    amount: info ? fenToYuan(info.availableCommission) : 0,
+    label: t('commission.myLabel'),
+    onPress: () => setWithdrawDetailVisible(true),
+  }
+
+  /**
+   * 分享二维码弹层(注入共享屏 qrSheet):二维码节点由本端注入(保存相册需 ref 截图),
+   * 弹层壳/标题/链接/提示/按钮由共享屏渲染;分享走 RN Share API,小程序改注入微信按钮。
+   */
+  const qrSheet: DistributionQrSheet = {
+    visible: shareQrVisible,
+    title: t('dist.shareQrA11y'),
+    qrNode: inviteLink ? (
+      <View ref={qrRef} collapsable={false} style={shellStyles.qrNodeBox}>
+        <QRCode
+          value={inviteLink}
+          size={176}
+          color={tokens.gray.black}
+          backgroundColor={tokens.surface.light}
+          ecl="M"
+        />
+      </View>
+    ) : null,
+    emptyText: inviteLink ? undefined : '暂无邀请码',
+    linkText: inviteLink || undefined,
+    tips: ['扫描上方二维码,注册成为会员', '您将获得会员费 20% 的佣金收益'],
+    saveLabel: t('dist.saveQrA11y'),
+    savingLabel: t('dist.saving'),
+    saving: savingQr,
+    shareLabel: '分享给好友',
+    copyLabel: '复制邀请链接',
+    onClose: () => setShareQrVisible(false),
+    onSave: () => void handleSaveQrToAlbum(),
+    onShare: () => void handleShareToFriend(),
+    onCopy: handleCopyInviteLink,
+  }
 
   return (
     <View style={shellStyles.root}>
       <ScrollView style={shellStyles.scroll} contentContainerStyle={shellStyles.scrollContent}>
-        {/* PersonalInformationCard 个人信息卡片(对齐 Uniapp 分销页个人信息) */}
-        <View style={shellStyles.personalInfoWrap}>
-          <PersonalInformationCard
-            avatar={user?.avatar}
-            nickname={user?.nickname || user?.username}
-            inviteCode={user?.inviteCode}
-            level={info ? t('dist.dealer') : undefined}
-          />
-        </View>
-        <View style={shellStyles.statsWrap}>
-          <EarningsStatisticsCard
-            label={t('dist.earningsLabel')}
-            title={info ? fenToYuan(info.totalCommission) : 0}
-            todayAmount={0}
-            monthAmount={0}
-            totalAmount={info ? fenToYuan(info.totalCommission) : 0}
-            sumStatistics={sumStat}
-          />
-        </View>
-        {/* FunctionBlockColumn 分销工具入口(对齐 Uniapp FunctionBlockColumn/index.vue:双列网格) */}
-        <View style={shellStyles.functionBlocksWrap}>
-          <FunctionBlockColumn blocks={functionBlocks} columns={2} onBlockPress={onBlockPress} />
-        </View>
         {/* 分享二维码邀请按钮(对齐 Uniapp 分销页分享二维码入口)
             守门 131 改型:shareBtn 无边距定高自含 ⇒ 外层不设 style(父 wrap 默认拉伸,
             命中盒 = 原 Pressable 盒),可视盒 + pressed 淡出落内层数组形态。 */}
@@ -346,15 +437,17 @@ export function DistributionScreen() {
           onRefresh={() => void load(true)}
           onWithdraw={handleWithdraw}
           onBack={() => navigation.goBack()}
-          onRetry={() => { void load(); }}
+          onRetry={() => {
+            void load()
+          }}
           colorScheme={resolvedTheme}
+          overviewCard={overviewCard}
+          earningsCard={earningsCard}
+          serviceFloat={info ? serviceFloat : undefined}
+          functionBlocks={functionBlocks}
+          qrSheet={qrSheet}
         />
       </ScrollView>
-      {/* CommissionFloatingIcon 佣金悬浮按钮(对齐 Uniapp 分销佣金悬浮按钮) */}
-      <CommissionFloatingIcon
-        amount={info ? fenToYuan(info.availableCommission) : undefined}
-        onPress={() => setWithdrawDetailVisible(true)}
-      />
       {/* HandPlatePops 提现详情弹层(对齐 Uniapp hand-plate-pups/index.vue) */}
       <HandPlatePops
         visible={withdrawDetailVisible}
@@ -371,97 +464,6 @@ export function DistributionScreen() {
           <Text style={shellStyles.withdrawDetailText}>最低提现:¥{fenToYuan(WITHDRAW_MIN)}</Text>
         </View>
       </HandPlatePops>
-      {/* BottomPops 分享二维码弹层(对齐 Uniapp 分销页分享二维码弹层) */}
-      <BottomPops
-        visible={shareQrVisible}
-        onClose={() => setShareQrVisible(false)}
-        title={t('dist.shareQrA11y')}
-      >
-        <View style={shellStyles.qrContent}>
-          {inviteLink ? (
-            <>
-              <View ref={qrRef} collapsable={false} style={shellStyles.qrCodeBox}>
-                <QRCode
-                  value={inviteLink}
-                  size={176}
-                  color={tokens.gray.black}
-                  backgroundColor={tokens.surface.light}
-                  ecl="M"
-                />
-              </View>
-              {/* 守门 131 改型:以下四处函数形态 style 全部拆为「外层槽位 / 内层可视盒」。
-                  qrLinkBtn 无 alignSelf(靠居中容器按内容收缩,maxWidth 留内层照样生效);
-                  saveBtn/copyBtn 靠 alignSelf:'stretch' 占满弹层宽度 ⇒ 该槽位属性提到
-                  btnStretchWrap 留在外层,命中区与原 Pressable 全等;底色/边框/圆角随基档
-                  进内层,pressed 与 disabled 淡出同层叠加,观感逐像素不变。 */}
-              <Pressable
-                onPress={handleCopyInviteLink}
-                accessibilityRole="button"
-                accessibilityLabel={t('dist.copyLinkA11y')}
-              >
-                {({ pressed }) => (
-                  <View style={[shellStyles.qrLinkBtn, pressed ? shellStyles.pressed : null]}>
-                    <Text style={shellStyles.qrLinkText} numberOfLines={1}>
-                      {inviteLink}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-              <Text style={shellStyles.qrTip}>扫描上方二维码,注册成为会员</Text>
-              <Text style={shellStyles.qrTipSub}>您将获得会员费 20% 的佣金收益</Text>
-              <Pressable
-                style={shellStyles.btnStretchWrap}
-                onPress={handleSaveQrToAlbum}
-                disabled={savingQr}
-                accessibilityRole="button"
-                accessibilityLabel={t('dist.saveQrA11y')}
-              >
-                {({ pressed }) => (
-                  <View
-                    style={[
-                      shellStyles.saveBtn,
-                      pressed ? shellStyles.pressed : null,
-                      savingQr ? shellStyles.saveBtnDisabled : null,
-                    ]}
-                  >
-                    <Text style={shellStyles.saveBtnText}>
-                      {savingQr ? t('dist.saving') : t('dist.saveQrA11y')}
-                    </Text>
-                  </View>
-                )}
-              </Pressable>
-              <Pressable
-                style={shellStyles.btnStretchWrap}
-                onPress={handleShareToFriend}
-                accessibilityRole="button"
-                accessibilityLabel={t('dist.shareFriendA11y')}
-              >
-                {({ pressed }) => (
-                  <View style={[shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}>
-                    <Text style={shellStyles.copyBtnText}>分享给好友</Text>
-                  </View>
-                )}
-              </Pressable>
-              <Pressable
-                style={shellStyles.btnStretchWrap}
-                onPress={handleCopyInviteLink}
-                accessibilityRole="button"
-                accessibilityLabel={t('dist.copyLinkA11y')}
-              >
-                {({ pressed }) => (
-                  <View style={[shellStyles.copyBtn, pressed ? shellStyles.pressed : null]}>
-                    <Text style={shellStyles.copyBtnText}>复制邀请链接</Text>
-                  </View>
-                )}
-              </Pressable>
-            </>
-          ) : (
-            <View style={shellStyles.qrCodeBox}>
-              <Text style={shellStyles.qrPlaceholder}>暂无邀请码</Text>
-            </View>
-          )}
-        </View>
-      </BottomPops>
       {/* FloatBox 非阻断悬浮提示(对齐 Uniapp uni.showToast) */}
       <FloatBox
         visible={floatVisible}
@@ -477,9 +479,6 @@ const shellStyles = {
   root: { flex: 1 } as const,
   scroll: { flex: 1 } as const,
   scrollContent: { paddingBottom: rpx(32) } as const,
-  personalInfoWrap: { paddingHorizontal: rpx(32), paddingTop: rpx(24) } as const,
-  statsWrap: { paddingTop: rpx(24), paddingBottom: rpx(8) } as const,
-  functionBlocksWrap: { paddingHorizontal: rpx(32), paddingVertical: rpx(16) } as const,
   withdrawDetailContent: { gap: rpx(20), paddingVertical: rpx(16) } as const,
   withdrawDetailText: { fontSize: rnType.body.size, color: tokens.text.medium } as const,
   shareBtnWrap: { paddingHorizontal: rpx(32), paddingBottom: rpx(8) } as const,
@@ -495,12 +494,8 @@ const shellStyles = {
     fontWeight: '600',
     color: tokens.brand.ctaForeground,
   } as const,
-  qrContent: {
-    alignItems: 'center',
-    paddingVertical: rpx(40),
-    gap: rpx(24),
-  } as const,
-  qrCodeBox: {
+  // 共享屏 qrSheet 的二维码节点容器(保存相册 captureRef 的截图范围)
+  qrNodeBox: {
     width: 200,
     height: 200,
     borderRadius: rnRadius.xl,
@@ -510,65 +505,6 @@ const shellStyles = {
     alignItems: 'center',
     justifyContent: 'center',
   } as const,
-  qrPlaceholder: {
-    fontSize: rnType.title.size,
-    fontWeight: '600',
-    color: tokens.text.tertiary,
-  } as const,
-  qrLinkBtn: {
-    paddingHorizontal: rpx(24),
-    paddingVertical: rpx(12),
-    maxWidth: 260,
-  } as const,
-  qrLinkText: {
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-  } as const,
-  saveBtn: {
-    height: 44,
-    borderRadius: rnRadius.sm,
-    backgroundColor: tokens.brand.cta,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-  } as const,
-  saveBtnText: {
-    fontSize: rnType.body.size,
-    fontWeight: '600',
-    color: tokens.brand.ctaForeground,
-  } as const,
-  saveBtnDisabled: {
-    opacity: 0.5,
-  } as const,
-  copyBtn: {
-    height: 44,
-    borderRadius: rnRadius.sm,
-    borderWidth: 1,
-    borderColor: tokens.brandAccent.deep,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'stretch',
-  } as const,
-  copyBtnText: {
-    fontSize: rnType.body.size,
-    fontWeight: '600',
-    color: tokens.brand.DEFAULT,
-  } as const,
-  qrTip: {
-    fontSize: rnType.body.size,
-    color: tokens.text.primary,
-    textAlign: 'center',
-  } as const,
-  qrTipSub: {
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-    textAlign: 'center',
-  } as const,
-  // 守门 131 改型:弹层内按钮的「父容器槽位」档 —— 原基档里的 alignSelf:'stretch' 语义
-  // 必须由占父槽位的那一层承载(qrContent 是 alignItems:'center',缺它按钮会缩成内容宽),
-  // 故留在外层 Pressable;基档 saveBtn/copyBtn 原样进内层,不新建第二份视觉数值。
-  btnStretchWrap: { alignSelf: 'stretch' } as const,
   pressed: { opacity: 0.85 } as const,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

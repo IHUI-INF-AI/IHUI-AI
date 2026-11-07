@@ -96,7 +96,9 @@ export function RegistryItemCard({
               </Tooltip>
             </div>
             {item.description && (
-              <p className="line-clamp-2 text-sm text-muted-foreground">{item.description}</p>
+              <p className="font-[weight:inherit] line-clamp-2 text-body text-muted-foreground">
+                {item.description}
+              </p>
             )}
           </div>
           <span className={cn('shrink-0 rounded-md px-2 py-0.5 text-label font-medium', st.cls)}>
@@ -106,13 +108,13 @@ export function RegistryItemCard({
       </CardHeader>
 
       <CardContent className="flex-1 min-w-0 space-y-3 pb-3">
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] flex flex-wrap items-center gap-2 text-label text-muted-foreground">
           <span className={cn('rounded-md px-1.5 py-0.5 font-medium', src.cls)}>{src.label}</span>
           {item.version && <span>v{item.version}</span>}
           {item.author && <span className="truncate">· {item.author}</span>}
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="font-[weight:inherit] flex items-center gap-4 text-label text-muted-foreground">
           <span>下载 {formatCount(item.installCount)}</span>
           <span>热度 {formatCount(item.heatScore)}</span>
           <span>质量 {item.qualityScore > 0 ? item.qualityScore.toFixed(1) : '-'}</span>
@@ -123,7 +125,7 @@ export function RegistryItemCard({
             {item.tags.slice(0, 5).map((tag) => (
               <span
                 key={tag}
-                className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                className="font-[weight:inherit] rounded-md bg-muted px-1.5 py-0.5 text-label text-muted-foreground"
               >
                 {tag}
               </span>
@@ -155,7 +157,9 @@ export function RegistryItemCard({
           </Button>
         )}
         {installStatus === 'installed' && (
-          <span className="w-full text-center text-xs text-muted-foreground">已是最新版本</span>
+          <span className="font-[weight:inherit] w-full text-center text-label text-muted-foreground">
+            已是最新版本
+          </span>
         )}
       </CardFooter>
     </Card>

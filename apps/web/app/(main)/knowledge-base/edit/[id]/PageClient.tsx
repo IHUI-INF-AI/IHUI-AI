@@ -11,8 +11,9 @@ import { useTranslations } from 'next-intl'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Edit, Loader2 } from 'lucide-react'
 
+import { getKnowledgeBase, getKnowledgeBaseCategories, updateKnowledgeBase } from '@ihui/api-client'
 import { KBArticleForm } from '../KBArticleForm'
-import { EMPTY_KB_FORM, api, type KBCategory, type KBArticle, type KBForm } from '../helpers'
+import { EMPTY_KB_FORM, type KBCategory, type KBArticle, type KBForm } from '../helpers'
 
 export default function KBEditByIdPage() {
   const { id } = useParams<{ id: string }>()
@@ -27,12 +28,19 @@ export default function KBEditByIdPage() {
 
   const { data: categories = [] } = useQuery({
     queryKey: ['kb', 'categories'],
-    queryFn: () =>
-      api<{ list: KBCategory[] }>(`/api/knowledge-base/categories`).then((d) => d.list ?? []),
+    queryFn: async () => {
+      const res = await getKnowledgeBaseCategories<KBCategory>()
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data.list ?? []
+    },
   })
   const { data, isLoading, error } = useQuery({
     queryKey: ['kb', 'detail', id],
-    queryFn: () => api<{ article: KBArticle }>(`/api/knowledge-base/${id}`),
+    queryFn: async (): Promise<{ article: KBArticle }> => {
+      const res = await getKnowledgeBase<{ article: KBArticle }>(id)
+      if (!res.success) throw new Error(res.error || '加载失败')
+      return res.data
+    },
   })
 
   React.useEffect(() => {
@@ -50,17 +58,17 @@ export default function KBEditByIdPage() {
   }, [data, loaded])
 
   const saveMut = useMutation({
-    mutationFn: () =>
-      api(`/api/knowledge-base/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          title: form.title.trim(),
-          summary: form.summary.trim() || undefined,
-          content: form.content,
-          categoryId: form.categoryId || undefined,
-          tags: form.tags.length > 0 ? form.tags : undefined,
-        }),
-      }),
+    mutationFn: async () => {
+      const res = await updateKnowledgeBase(id, {
+        title: form.title.trim(),
+        summary: form.summary.trim() || undefined,
+        content: form.content,
+        categoryId: form.categoryId || undefined,
+        tags: form.tags.length > 0 ? form.tags : undefined,
+      })
+      if (!res.success) throw new Error(res.error || '保存失败')
+      return res.data
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kb'] })
       router.push(`/knowledge-base/${id}`)

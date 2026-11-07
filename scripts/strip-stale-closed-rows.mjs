@@ -89,6 +89,7 @@
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { parseTaskRows, keyOfRow } from './lib/plan-task-index.mjs'
@@ -122,9 +123,17 @@ import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 // 属另一个在批的半格(现读 `git ls-files` 为空、HEAD 版 lander 也没有这行 import)—— 静态 import 会让
 // 本器在**净检出**上直接 ERR_MODULE_NOT_FOUND 崩掉;那种失效方向是"清扫器整体消失",绝不能接受(§0.8)。
 // 取不到 ⇒ 归因恒落「未判定」(照旧 refused),与"没有复跑能力时行为一字不变"等价。
+//
+// 2026-11-06 订正:守卫从 `await import` 换成**同步 require**(createRequire)。顶层 await 会让本器
+// 所在的整张 ESM 图带 TLA ⇒ Node >= 22.13 的 require(esm) 一律抛 ERR_REQUIRE_ASYNC_MODULE,
+// 把 check-plan-dup-pointer-ratchet / plan-pointer-purge 两把尺从旁路落地链
+// (lib/post-merge-ledger-sync.mjs 的同步 require 通道)整族踢出:三维读数全变"未判定"、
+// runPurgeResettle 提前 return、§22c 镜像 16 例连锁崩。现读 land-gate-rerun.mjs 无 TLA 且
+// 同步 require 成功;净检出上取不到仍抛 MODULE_NOT_FOUND 被 catch 置 null ⇒ 守卫语义逐字不变。
+const require = createRequire(import.meta.url)
 let rerunAffectedGates = null
 try {
-  ;({ rerunAffectedGates } = await import('./lib/land-gate-rerun.mjs'))
+  ;({ rerunAffectedGates } = require('./lib/land-gate-rerun.mjs'))
 } catch {
   rerunAffectedGates = null
 }

@@ -2,56 +2,56 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+// 第 5 批部分薄壳:档位/权益/刷新/返回下沉共享 VipScreen;支付方式+CTA 留页内(RN 侧为本地 PricePlan/pay 段,缺段表登记)。
+
+import './upgrade.css'
 import { useTt, useI18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback } from 'react'
-import { getVipLevels, upgradeVip, createAlipayMiniappPayment, post, type VipPayInfo } from '@/api'
+import { getVipLevels, upgradeVip, type VipPayInfo } from '@ihui/api-client'
+import { unwrapApi } from '@/utils/api-bridge'
+import { createAlipayMiniappPayment, post } from '@/api'
 import { requestWxPayment, requestAliPayment, type AnyPayParams } from '@/utils/pay'
 import ThemeRoot from '@/components/ThemeRoot'
-import './upgrade.css'
+import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
+import { VipScreen as SharedVipScreen } from '@ihui/rn-app/features/vip/VipScreen'
+import { buildUpgradeLevels, buildUpgradeRights } from './upgrade-props'
+import type { TFunction, VipLevelItem2 } from '@ihui/types'
 
 type PayMethod = 'wechat' | 'alipay'
-
-interface Plan {
-  id: string
-  name: string
-  price: number
-  origin: number
-  tag: string
-}
 
 export default function UpgradePage() {
   const tt = useTt()
   const { t, tList } = useI18n()
-  const [plans, setPlans] = useState<Plan[]>([])
-  const [selected, setSelected] = useState(0)
+  const { resolvedTheme } = useTheme()
+  const [levels, setLevels] = useState<VipLevelItem2[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [payingId, setPayingId] = useState<string | null>(null)
   const [payMethod, setPayMethod] = useState<PayMethod>('wechat')
-
-  const rights = tList('vip.upgrade.rights')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    Taro.showLoading({ title: t('common.loading'), mask: true })
+    setLoading(true)
+    setError('')
     try {
-      const res = await getVipLevels()
-      const list: Plan[] = (res.items || []).map((l) => ({
-        id: String(l.id),
-        name: l.levelName,
-        price: l.price / 100,
-        origin: 0,
-        tag: '',
-      }))
-      setPlans(list)
-      if (list.length && selected >= list.length) setSelected(0)
+      const res = await unwrapApi(getVipLevels())
+      const list = buildUpgradeLevels(res.items || [])
+      setLevels(list)
+      setSelectedId((prev) =>
+        prev && list.some((l) => l.id === prev) ? prev : (list[0]?.id ?? null),
+      )
     } catch (e) {
       logger.error('vip/upgrade', t('vipUpgrade.q1'), e)
+      setError(t('vip.upgrade.loadFailed'))
       onToast(t('vip.upgrade.loadFailed'), { kind: 'error' })
     } finally {
-      Taro.hideLoading()
+      setLoading(false)
     }
-  }, [selected, t])
+  }, [t])
 
   const dispatchVipPay = useCallback(
     (payInfo: VipPayInfo, orderNo: string) => {
@@ -84,129 +84,129 @@ export default function UpgradePage() {
     [t],
   )
 
-  const onUpgrade = useCallback(async () => {
-    const plan = plans[selected]
-    if (!plan) return
-    if (payMethod === 'alipay') {
+  const pay = useCallback(
+    async (plan: VipLevelItem2) => {
+      if (payingId) return
+      setPayingId(plan.id)
       try {
-        // 2026-07-24 小程序支付链路修复:先 my.getAuthCode 拿 authCode,后端兑换 buyer_id
-        // 解决 40006 Insufficient Permissions(product_code=JSAPI_PAY 必传 buyer_id)
-        let buyerId: string | undefined
-        try {
-          // @ts-expect-error my.getAuthCode 是支付宝小程序全局 API,Taro 类型未含
-          const authRes = await my.getAuthCode({ scopes: 'auth_user' })
-          if (authRes?.authCode) {
-            // 2026-07-28 P0-2: 改用 post(走 fetchApi + 鉴权 header),消除 Taro.request 绕过鉴权
-            const exData = await post<{ userId?: string; openId?: string }>(
-              '/payments/alipay/miniapp/exchange-buyer-id',
-              { authCode: authRes.authCode },
-            )
-            buyerId = exData.userId ?? exData.openId
+        if (payMethod === 'alipay') {
+          try {
+            // 支付宝小程序:先 my.getAuthCode 换 buyer_id(40006 需 product_code=JSAPI_PAY)
+            let buyerId: string | undefined
+            try {
+              // @ts-expect-error my.getAuthCode 是支付宝小程序全局 API,Taro 类型未含
+              const authRes = await my.getAuthCode({ scopes: 'auth_user' })
+              if (authRes?.authCode) {
+                const exData = await post<{ userId?: string; openId?: string }>(
+                  '/payments/alipay/miniapp/exchange-buyer-id',
+                  { authCode: authRes.authCode },
+                )
+                buyerId = exData.userId ?? exData.openId
+              }
+            } catch (authErr) {
+              logger.warn(
+                'vip/upgrade',
+                tt('vipUpgrade.r1', 'my.getAuthCode 失败,降级 mock 模式'),
+                authErr instanceof Error ? authErr.message : String(authErr),
+              )
+            }
+            const res = await createAlipayMiniappPayment({
+              amount: plan.price,
+              subject: `${t('vip.upgrade.upgrade')} - ${plan.levelName}`,
+              productId: plan.id,
+              buyerId,
+            })
+            if (res.mock) {
+              onToast(t('vip.upgrade.configNotReady'), { kind: 'error' })
+              return
+            }
+            if (!res.tradeNo) {
+              onToast(t('vip.upgrade.configNotReady'), { kind: 'error' })
+              return
+            }
+            requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
+              .then(() =>
+                Taro.redirectTo({
+                  url: `/pkg-shop/pay/result/index?orderNo=${res.outTradeNo}&status=paid`,
+                }),
+              )
+              .catch(() =>
+                Taro.redirectTo({
+                  url: `/pkg-shop/pay/result/index?orderNo=${res.outTradeNo}&status=failed`,
+                }),
+              )
+          } catch (e) {
+            logger.error('vip/upgrade', t('vipUpgrade.q2'), e)
+            onToast(t('vip.upgrade.operationFailed'), { kind: 'error' })
           }
-        } catch (authErr) {
-          logger.warn(
-            'vip/upgrade',
-            tt('vipUpgrade.r1', 'my.getAuthCode 失败,降级 mock 模式'),
-            authErr instanceof Error ? authErr.message : String(authErr),
-          )
-        }
-        const res = await createAlipayMiniappPayment({
-          amount: plan.price,
-          subject: `${t('vip.upgrade.upgrade')} - ${plan.name}`,
-          productId: plan.id,
-          buyerId,
-        })
-        if (res.mock) {
-          onToast(t('vip.upgrade.configNotReady'), { kind: 'error' })
           return
         }
-        if (!res.tradeNo) {
-          onToast(t('vip.upgrade.configNotReady'), { kind: 'error' })
-          return
-        }
-        requestAliPayment({ tradeNO: res.tradeNo } as AnyPayParams)
-          .then(() =>
-            Taro.redirectTo({
-              url: `/pkg-shop/pay/result/index?orderNo=${res.outTradeNo}&status=paid`,
-            }),
-          )
-          .catch(() =>
-            Taro.redirectTo({
-              url: `/pkg-shop/pay/result/index?orderNo=${res.outTradeNo}&status=failed`,
-            }),
-          )
+        const res = await unwrapApi(upgradeVip(plan.id))
+        dispatchVipPay(res.payInfo, res.orderNo)
       } catch (e) {
-        logger.error('vip/upgrade', t('vipUpgrade.q2'), e)
+        logger.error('vip/upgrade', t('vipUpgrade.q3'), e)
         onToast(t('vip.upgrade.operationFailed'), { kind: 'error' })
+      } finally {
+        setPayingId(null)
       }
-      return
-    }
-    try {
-      const res = await upgradeVip(plan.id)
-      dispatchVipPay(res.payInfo, res.orderNo)
-    } catch (e) {
-      logger.error('vip/upgrade', t('vipUpgrade.q3'), e)
-      onToast(t('vip.upgrade.operationFailed'), { kind: 'error' })
-    }
-  }, [plans, selected, payMethod, dispatchVipPay, t, tt])
+    },
+    [dispatchVipPay, payingId, payMethod, t, tt],
+  )
 
   useDidShow(load)
 
+  const selectedPlan = levels.find((l) => l.id === selectedId) ?? null
+
   return (
-    <ThemeRoot>
-      <View className="page">
-        <View className="banner">
-          <View className="banner-title">{t('vip.upgrade.bannerTitle')}</View>
-          <View className="banner-desc">{t('vip.upgrade.bannerDesc')}</View>
-        </View>
-        <View className="plans">
-          {plans.map((p, i) => (
-            <View
-              key={p.id}
-              className={`plan${selected === i ? ' active' : ''}`}
-              hoverClass="opacity-60"
-              onClick={() => setSelected(i)}
-            >
-              {p.tag ? <View className="plan-tag">{p.tag}</View> : null}
-              <Text className="plan-name">{p.name}</Text>
-              <Text className="plan-price">¥{p.price}</Text>
-              {p.origin ? (
-                <Text className="plan-orig">{t('vip.upgrade.originalPrice', { n: p.origin })}</Text>
-              ) : null}
-            </View>
-          ))}
-        </View>
-        <View className="rights">
-          <View className="rights-title">{t('vip.upgrade.rightsTitle')}</View>
-          {rights.map((r, i) => (
-            <View key={i} className="rights-item">
-              · {r}
-            </View>
-          ))}
-        </View>
-        <View className="rights" style={{ marginTop: 'var(--spacing-md)' }}>
-          <View className="rights-title">{t('pay.selectMethod')}</View>
-          <View className="pay-methods">
-            <View
-              className={`pay-method${payMethod === 'wechat' ? ' active' : ''}`}
-              hoverClass="opacity-60"
-              onClick={() => setPayMethod('wechat')}
-            >
-              <Text className="pay-method-text">{t('wallet.recharge.methodWechat')}</Text>
-            </View>
-            <View
-              className={`pay-method${payMethod === 'alipay' ? ' active' : ''}`}
-              hoverClass="opacity-60"
-              onClick={() => setPayMethod('alipay')}
-            >
-              <Text className="pay-method-text">{t('wallet.recharge.methodAlipay')}</Text>
-            </View>
+    <ThemeRoot className="shell">
+      <View className="banner">
+        <View className="banner-title">{t('vip.upgrade.bannerTitle')}</View>
+        <View className="banner-desc">{t('vip.upgrade.bannerDesc')}</View>
+      </View>
+      <SharedVipScreen
+        t={t as unknown as TFunction}
+        levels={levels}
+        membership={null}
+        loading={loading}
+        refreshing={false}
+        error={error}
+        toast=""
+        purchasingId={payingId}
+        onRefresh={() => void load()}
+        onPurchase={(level: VipLevelItem2) => {
+          setSelectedId(level.id)
+          void pay(level)
+        }}
+        onBack={() => {
+          void Taro.navigateBack()
+        }}
+        colorScheme={resolvedTheme}
+        onNavigate={() => {}}
+        onToast={onToast}
+        features={buildUpgradeRights(tList('vip.upgrade.rights'))}
+      />
+      <View className="rights">
+        <View className="rights-title">{t('pay.selectMethod')}</View>
+        <View className="pay-methods">
+          <View
+            className={`pay-method${payMethod === 'wechat' ? ' active' : ''}`}
+            hoverClass="opacity-60"
+            onClick={() => setPayMethod('wechat')}
+          >
+            <Text className="pay-method-text">{t('wallet.recharge.methodWechat')}</Text>
+          </View>
+          <View
+            className={`pay-method${payMethod === 'alipay' ? ' active' : ''}`}
+            hoverClass="opacity-60"
+            onClick={() => setPayMethod('alipay')}
+          >
+            <Text className="pay-method-text">{t('wallet.recharge.methodAlipay')}</Text>
           </View>
         </View>
-        <Button className="btn" onClick={onUpgrade}>
-          {t('vip.upgrade.upgrade')} {plans[selected] ? `¥${plans[selected].price}` : ''}
-        </Button>
       </View>
+      <Button className="btn" onClick={() => selectedPlan && void pay(selectedPlan)}>
+        {t('vip.upgrade.upgrade')} {selectedPlan ? `¥${selectedPlan.price}` : ''}
+      </Button>
     </ThemeRoot>
   )
 }

@@ -87,7 +87,10 @@ export function LiveDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="v-status">{t('fieldStatus')}</Label>
-            <Select value={form.status} onValueChange={(v) => onFormChange({ status: v })}>
+            <Select
+              value={form.status}
+              onValueChange={(v) => onFormChange({ status: v as LForm['status'] })}
+            >
               <SelectTrigger className={selectClass} id="v-status">
                 <SelectValue />
               </SelectTrigger>

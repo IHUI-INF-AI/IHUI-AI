@@ -25,6 +25,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(HERE, '..')
 const API_DIR = path.join(ROOT, 'apps', 'api')
 const LOGIN_VERIFIED_TS = path.join(API_DIR, 'scripts', 'relay-login-local-verified.ts')
+const POOL_LIST_TS = path.join(API_DIR, 'scripts', 'relay-pool-account-list.ts')
 
 /** Trae SOLO 产品面字面量(与 switch-trae-client-with-chat.mjs 的 --product 取值同字面) */
 const TRAE_SOLO_PRODUCT = 'TRAE SOLO CN'
@@ -69,12 +70,15 @@ const SUPPORTED_PLATFORMS = Object.freeze([
 const TARGETS = Object.freeze({
   'trae-account': { scriptRel: 'scripts/switch-trae-client-account.mjs' },
   'trae-chat': { scriptRel: 'scripts/switch-trae-client-with-chat.mjs' },
+  // 非 Trae 平台的 --list:只读列池(零凭据投影);写回腿本来就通,缺的只是名单面
+  'pool-list': { scriptRel: 'apps/api/scripts/relay-pool-account-list.ts' },
 })
 
 const USAGE =
   '用法: node scripts/switch-client-account.mjs --list|--current [--provider <平台>] [--json]\n' +
   '      node scripts/switch-client-account.mjs --to <uid|名称> --provider <平台> [--dry-run] [--force] [--no-launch] [--product <名>] [--json]\n' +
-  '  --list       列出号池里该平台的账号(Trae 系转 switch-trae-client-account.mjs;--list/--current 缺省 --provider trae)\n' +
+  '  --list       列出号池里该平台的账号(Trae 系转 switch-trae-client-account.mjs;其余平台走只读列池 relay-pool-account-list;--list/--current 缺省 --provider trae)\n' +
+  '  --counts     与 --list 同用:列全池逐平台枚数概览(取数时刻一并回显;不与 --provider 同给)\n' +
   '  --current    本机登录号在该平台池里的状态\n' +
   '  --to         把池里的号写回本机客户端(Trae 系支持名称匹配;其它平台须精确 uid)\n' +
   `  --provider   平台名:${SUPPORTED_PLATFORMS.join(' | ')}\n` +
@@ -126,6 +130,7 @@ export function parseArgs(argv) {
     force: false,
     noLaunch: false,
     json: false,
+    counts: false,
   }
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -133,6 +138,8 @@ export function parseArgs(argv) {
       const action = a.slice(2)
       if (opts.action !== null && opts.action !== action) return fail('--list 与 --current 互斥')
       opts.action = action
+    } else if (a === '--counts') {
+      opts.counts = true
     } else if (a === '--to') {
       const r = readValue(argv, i, '--to')
       if (r.error) return fail(r.error)
@@ -166,6 +173,12 @@ export function parseArgs(argv) {
   if (opts.to !== null && opts.providerRaw === null) {
     return fail('--to 必须配 --provider(要写哪个平台的客户端不猜)')
   }
+  if (opts.counts && opts.action !== 'list') {
+    return fail('--counts 只与 --list 同用(--list 要的是逐平台枚数概览)')
+  }
+  if (opts.counts && opts.providerRaw !== null) {
+    return fail('--counts 与 --provider 互斥(要全池计数还是要单平台名单,不猜)')
+  }
   return { ok: true, opts }
 }
 
@@ -176,16 +189,30 @@ function unknownProvider(n) {
 
 /** --list / --current 分流:Trae 系转 account 入口;其它平台如实未判定 */
 function buildReadPlan(opts) {
+  // 全池概览与"某平台名单"是两档,前者不需要 provider(缺省 trae 的归一化在这里是噪声)
+  if (opts.counts) {
+    return {
+      ok: true,
+      action: 'list',
+      target: 'pool-list',
+      args: opts.json ? ['--counts', '--json'] : ['--counts'],
+    }
+  }
   const n = normalizeProvider(opts.providerRaw ?? 'trae')
   if (!n.ok) return unknownProvider(n)
   if (n.provider !== 'trae') {
+    // --list 已补只读列池出口(2026-11-05);--current 要读本机客户端登录态,各平台形态不同,仍不冒充
+    if (opts.action === 'list') {
+      const args = ['--provider', n.provider]
+      if (opts.json) args.push('--json')
+      return { ok: true, action: 'list', target: 'pool-list', args }
+    }
     return fail(
-      `${n.provider} 的 --${opts.action} 暂无单一入口:relay-login-local-verified.ts 只做写回,` +
-        '不支持 --list/--current(不编参数)。现有巡检入口:\n' +
+      `${n.provider} 的 --current 暂无单一入口:本机登录态形态各家不同,不猜(名单已可列:` +
+        ` node scripts/switch-client-account.mjs --list --provider ${n.provider})。现有巡检入口:\n` +
         `     node scripts/relay-account-pool.mjs --from ${n.provider} --json      # 取本机登录态入池/刷新并做健康检查\n` +
         `     pnpm relay:inspect -- --file <accounts.json> --provider ${n.provider}  # 账号体检(零 DB)\n` +
-        '     node scripts/check-relay-capacity-zero.mjs --json                    # 全池可调度容量只读哨兵\n' +
-        '   Trae 系全池名单:node scripts/switch-client-account.mjs --list --provider trae',
+        '     node scripts/check-relay-capacity-zero.mjs --json                    # 全池可调度容量只读哨兵',
     )
   }
   const args = [opts.action === 'list' ? '--list' : '--current']
@@ -271,16 +298,19 @@ function spawnAndWait(command, args, cwd) {
 }
 
 async function dispatch(plan) {
-  if (plan.target === 'login-verified') {
+  if (plan.target === 'login-verified' || plan.target === 'pool-list') {
     const tsx = resolveTsx()
     if (!tsx) {
       process.stderr.write('❌ 未找到 tsx(apps/api/node_modules/tsx);先在仓根 pnpm install\n')
       return 2
     }
-    // 形态照 apps/api/package.json 的 relay:login-local-verified(env 由 --env-file=.env 注入,不自动找)
+    // login-verified 形态照 apps/api/package.json 的 relay:login-local-verified(env 由 --env-file=.env 注入,不自动找);
+    // pool-list 自身 import dotenv 读 apps/api/.env,不再叠一层 env-file
+    const viaEnvFile = plan.target === 'login-verified'
+    const script = viaEnvFile ? LOGIN_VERIFIED_TS : POOL_LIST_TS
     return await spawnAndWait(
       process.execPath,
-      [tsx, '--env-file=.env', LOGIN_VERIFIED_TS, ...plan.args],
+      viaEnvFile ? [tsx, '--env-file=.env', script, ...plan.args] : [tsx, script, ...plan.args],
       API_DIR,
     )
   }
@@ -320,5 +350,6 @@ export const __test__ = {
   SUPPORTED_PLATFORMS,
   TRAE_SOLO_PRODUCT,
   TARGETS,
+  USAGE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
