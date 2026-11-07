@@ -41,8 +41,14 @@ from app.core.ai_code_attribution import (
 )
 from app.core.file_read_state import CHANGED_BY_EXTERNAL, VERDICT_STALE
 
-from .ai_code_attribution_git import detect_repo_root, git_blame
-from .ai_code_attribution_persistence import MAX_RECORDS, AiCodeAttributionStore, store
+from .ai_code_attribution_git import attach_checkpoint_note, detect_repo_root, git_blame
+from .ai_code_attribution_persistence import (
+    MAX_RECORDS,
+    AiCodeAttributionStore,
+    _path_key,
+    _path_matches,
+    store,
+)
 from .ttl_json_store import iso_now
 
 logger = logging.getLogger(__name__)
@@ -59,6 +65,7 @@ __all__ = [
     "list_checkpoint_log",
     "record_attribution",
     "backfill_commit_sha",
+    "mirror_checkpoints_to_notes",
     "list_records",
     "stats_for_path",
     "stats_for_session",
@@ -107,6 +114,36 @@ def note_host_edit(
 def backfill_commit_sha(commit_sha: str, files: list[str]) -> tuple[int, str]:
     """提交成功后回填。返回 (改了几条, 拒绝原因)。拒绝时一条都不写。"""
     return store.backfill_commit_sha(commit_sha, files)
+
+
+def mirror_checkpoints_to_notes(
+    repo_root: Path,
+    commit_sha: str,
+    files: list[str],
+    *,
+    namespace: str = "",
+) -> tuple[int, str]:
+    """把路径对上的检查点写进该仓库的 git notes。对不上或清单为空都不创建引用。"""
+    rows, refused = list_checkpoint_log()
+    if refused:
+        return 0, refused
+    keys = [key for key in (_path_key(path) for path in files) if key]
+    if not keys:
+        return 0, ""
+    written = 0
+    for row in rows:
+        paths = row.get("edited_filepaths")
+        if not isinstance(paths, list):
+            continue
+        matched = any(isinstance(path, str) and _path_matches(path, keys) for path in paths)
+        if not matched:
+            continue
+        status, reason = attach_checkpoint_note(repo_root, commit_sha, row, namespace=namespace)
+        if status == "refused":
+            return written, reason
+        if status == "appended":
+            written += 1
+    return written, ""
 
 
 def record_attribution(
