@@ -5,7 +5,7 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, ScrollView, StyleSheet } from 'react-native'
+import { Linking, View, Text, ScrollView, StyleSheet } from 'react-native'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IcpRecordScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
@@ -19,14 +19,18 @@ const ICP_NO = '吉ICP备2025027274号-7A'
  * 62b61b5816 在 label1 后插入公网安备号而没补标签,下标配对让 label1–label5 整体错位;
  * 显式成对后新增行只影响自己。公网安备号与备案时间都是合规要素,不得删。
  * 备案范围(icpRecord.label5)共享源没有对应值,本屏不渲染;web 侧保留该行。
+ *
+ * href 是行模型的可选字段,不是「只有一端会传的 prop」:
+ * 有 href 的行在本屏自己渲染成外链(web 走 react-native-web 的 Linking.openURL,
+ * RN/小程序走各自 Linking 实现),两端行为一致,不需要宿主动手补链接。
  */
-const ICP_ROWS = [
+const ICP_ROWS: { labelKey: string; value: string; href?: string }[] = [
   { labelKey: 'icpRecord.label0', value: ICP_NO },
   { labelKey: 'icpRecord.labelPublicSecurity', value: '吉公网安备22010502000999号' },
   { labelKey: 'icpRecord.label1', value: '吉林省爱智汇人工智能科技有限公司' },
   { labelKey: 'icpRecord.label2', value: '企业' },
   { labelKey: 'icpRecord.label3', value: '2026-01-15' },
-  { labelKey: 'icpRecord.label4', value: 'aizhs.top' },
+  { labelKey: 'icpRecord.label4', value: 'aizhs.top', href: 'https://beian.miit.gov.cn' },
 ]
 
 export function IcpRecordScreen({
@@ -57,10 +61,22 @@ export function IcpRecordScreen({
         ) : null}
 
         <View style={[styles.card, styles.tableCard]}>
-          {ICP_ROWS.map(({ labelKey, value }) => (
+          {ICP_ROWS.map(({ labelKey, value, href }) => (
             <View key={labelKey} style={styles.row}>
               <Text style={styles.rowLabel}>{t(labelKey)}</Text>
-              <Text style={styles.rowValue}>{value}</Text>
+              {href ? (
+                <Tappable
+                  accessibilityRole="link"
+                  onPress={() => {
+                    void Linking.openURL(href)
+                  }}
+                  style={styles.rowLinkWrap}
+                >
+                  <Text style={[styles.rowValue, styles.rowLink]}>{value}</Text>
+                </Tappable>
+              ) : (
+                <Text style={styles.rowValue}>{value}</Text>
+              )}
             </View>
           ))}
         </View>
@@ -114,6 +130,8 @@ function createStyles(tk: AppThemeTokens) {
       textAlign: 'right',
       flex: 1,
     },
+    rowLinkWrap: { flex: 1, alignItems: 'flex-end' },
+    rowLink: { color: tk.brandAccent.DEFAULT, textDecorationLine: 'underline' },
     queryButton: {
       height: 50,
       borderRadius: rnRadius.sm,
