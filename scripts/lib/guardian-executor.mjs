@@ -482,6 +482,14 @@ const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
 // 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
 // 绝不静默洗成通过。
 const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+// 预算来源必须可读:env-override 是"这一次命令"的临时放宽,default 才是常态;
+// 排障关闭(0)单列,免得日志里 0 被误读成"没有上限"。
+const gateTimeoutSource =
+  process.env.GUARDIAN_GATE_TIMEOUT_MS === undefined
+    ? 'default'
+    : Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0
+      ? 'env-override'
+      : 'env-disabled'
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -670,6 +678,18 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
   }
   // 先落实时进度(纯观测,不参与判据):调用方 stdout 被缓冲时,这是唯一能看出"跑到哪"的口子。
   appendGateProgress(check, r, elapsedNow)
+  // 四数留痕(waitMs/runMs/limitMs/limitSource):只在 env-override 时逐门打印,
+  // 常态不刷屏。waitMs = 从本批开始到该门启动(排队/装配等待),runMs = 门真实运行时长。
+  if (gateTimeoutSource === 'env-override') {
+    const waitMs = Math.max(0, Math.round(checkStart - startTime))
+    try {
+      process.stderr.write(
+        `  ⏱ ${check.id} waitMs=${waitMs} runMs=${elapsedNow} limitMs=${gateTimeoutMs} limitSource=${gateTimeoutSource}\n`,
+      )
+    } catch {
+      /* 观测行失败不影响判据 */
+    }
+  }
   const gateStderr = typeof r.stderr === 'string' ? r.stderr : ''
   if (showTiming) {
     // 三条出口(pass / blocking失败 / warn·info)统一在此记账,含被判红的门 ——
