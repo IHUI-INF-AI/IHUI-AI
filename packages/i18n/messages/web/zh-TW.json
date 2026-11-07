@@ -28279,7 +28279,10 @@
       "time": "執行時刻",
       "weekdays": "週幾",
       "errName": "請輸入名稱",
-      "errDays": "請至少選擇一個週幾"
+      "errDays": "請至少選擇一個週幾",
+      "rrule": "執行計畫",
+      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
+      "errRrule": "請填寫執行計畫"
     },
     "runs": {
       "title": "巡檢歷史",

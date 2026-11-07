@@ -28307,7 +28307,10 @@
       "time": "実行時刻",
       "weekdays": "曜日",
       "errName": "名前を入力してください",
-      "errDays": "曜日を 1 つ以上選択してください"
+      "errDays": "曜日を 1 つ以上選択してください",
+      "rrule": "実行スケジュール",
+      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
+      "errRrule": "実行スケジュールを入力してください"
     },
     "runs": {
       "title": "巡検履歴",

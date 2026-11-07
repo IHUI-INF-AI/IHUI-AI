@@ -28307,7 +28307,10 @@
       "time": "실행 시각",
       "weekdays": "요일",
       "errName": "이름을 입력하세요",
-      "errDays": "요일을 하나 이상 선택하세요"
+      "errDays": "요일을 하나 이상 선택하세요",
+      "rrule": "실행 일정",
+      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
+      "errRrule": "실행 일정을 입력하세요"
     },
     "runs": {
       "title": "순찰 기록",

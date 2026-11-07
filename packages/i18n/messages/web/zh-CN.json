@@ -28308,7 +28308,10 @@
       "time": "执行时刻",
       "weekdays": "周几",
       "errName": "请输入名称",
-      "errDays": "请至少选择一个周几"
+      "errDays": "请至少选择一个周几",
+      "rrule": "执行计划",
+      "rrulePlaceholder": "FREQ=DAILY;BYHOUR=9;BYMINUTE=0",
+      "errRrule": "请填写执行计划"
     },
     "runs": {
       "title": "巡检历史",
