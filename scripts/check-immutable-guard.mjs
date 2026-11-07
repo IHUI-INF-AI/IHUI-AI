@@ -78,6 +78,15 @@
  *   清单坏行 / 清单空 / 清单取不到 ⇒ 2；清单 reviewBy 到期 ⇒ 1（§0.7 豁免会到期）；
  *   未触及 ⇒ 0；触及但拿不到消息 ⇒ 2；触及且有有效声明 ⇒ 0；触及无声明/理由过短 ⇒ 1。
  *
+ * ## 判红之后的合法出路（2026-11-07 增具名追认档）
+ *
+ * 判红 ⇒ 先问 `scripts/data/immutable-guard-attestations.jsonl`：若有一行 `sha` 精确匹配、
+ * `paths` 与该枚**实际触发路径集合逐元素相等**、`sig` 验过、`reason` ≥40 字、`reviewer` 非空、
+ * `attestedAt` 不早于该枚提交日期 ⇒ `code=declared-attested`（exit 0），**单独计数**为「已追认 N」，
+ * 绝不并进 `declared`。任一红线不满足 ⇒ 保持红，并把成因（`attest-*`）带进读数点名。
+ * 它是"事后补发"通道：行由持钥方签，`reviewer` 与日期都写进行里，所以读数必须带人名，不能读成当时合规。
+ * 与旧 `immutable-guard-acks.jsonl`（a1/a2）并存但互不替代：acks 带 `expires` 会到期，本档不带。
+ *
  * 手动：
  *   node scripts/check-immutable-guard.mjs                    # HEAD 面（HEAD vs HEAD^）
  *   node scripts/check-immutable-guard.mjs --staged --message-file .git/COMMIT_EDITMSG
@@ -123,6 +132,9 @@ import {
   FULL_SHA_RE,
   signAck,
   parseAckLedger,
+  ATTEST_LEDGER_REL,
+  ATTEST_MIN_REASON_CHARS,
+  parseAttestLedger,
 } from './lib/immutable-guard.mjs'
 import {
   FACES,
@@ -273,6 +285,37 @@ export function readAckRows(root, { rev = 'HEAD' } = {}) {
   if (text === null) return { rows: [], problems: [], absent: true }
   const parsed = parseAckLedger(text)
   return { rows: parsed.rows, problems: parsed.problems, absent: false }
+}
+
+/**
+ * 具名追认台账取面：与被审面同轮（head 档取 `rev` 的 blob，不读工作树）。
+ * 文件不存在 ⇒ `rows=[] / absent=true`（= 还没有任何具名追认，不是"读不到"）；
+ * 坏行 ⇒ 进 `problems` 逐条点名，绝不静默当成"没有追认"。
+ */
+export function readAttestRows(root, { rev = 'HEAD' } = {}) {
+  let text
+  try {
+    text = readFaceText(root, 'head', ATTEST_LEDGER_REL, rev)
+  } catch (e) {
+    return {
+      rows: [],
+      problems: [{ why: `具名追认台账取不到（${e?.message ?? e}）⇒ 本轮没有可用追认` }],
+      absent: false,
+    }
+  }
+  if (text === null) return { rows: [], problems: [], absent: true }
+  const parsed = parseAttestLedger(text)
+  return { rows: parsed.rows, problems: parsed.problems, absent: false }
+}
+
+/** 该枚的提交日期（`%cs` ⇒ YYYY-MM-DD，与本机时区无关地按 git 记录值取）。取不到 ⇒ null（fail-closed）。 */
+export function commitDateOf(root, rev) {
+  try {
+    const s = String(gitRaw(['log', '-1', '--format=%cs', String(rev)], root) ?? '').trim()
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
+  } catch {
+    return null
+  }
 }
 
 /** head 面才有"被追认的那一枚"；解析不出 40 位 sha ⇒ null（不猜，也不拿 rev 字符串去比）。 */
@@ -659,6 +702,8 @@ export function runAudit(
     policyTextPre = undefined,
     changesPre = undefined,
     onOriginMainPre = undefined,
+    attestRows = [],
+    commitDate = undefined,
   } = {},
 ) {
   // 批档(judgeBatch)整批解析一次两把密钥再逐枚透传:密钥来源的**文字**必须与逐枚解析时一致,
@@ -808,6 +853,9 @@ export function runAudit(
   const blobs = blobMapFor(root, face, rev, [...blobPaths])
 
   const ackSha = ackShaOf(root, face, rev)
+  // 具名追认只在 head 面问得到（与 ack 同一边界）；提交日期取该枚自己的 `%cs`，取不到 ⇒ null ⇒ fail-closed。
+  const attestDate =
+    commitDate === undefined ? (face === 'head' ? commitDateOf(root, ackSha ?? rev) : null) : commitDate
   // a1 只对 origin/main 已入库枚保留：那些枚改不动历史、也不会再进推送区间；
   // 本地枚（区间里待推的那些）必须用 a2 独立追认，否则"作者拿提交钥自签一行"照样洗白。
   // `onOriginMainPre` = 批档一次 `rev-list origin/main` 的成员判定；`undefined` ⇒ 逐枚问（原路径）。
@@ -830,6 +878,8 @@ export function runAudit(
     legacyA1,
     hitsByBase,
     blobs,
+    attestRows,
+    commitDate: attestDate,
   })
   const result = {
     ...baseOut,
@@ -951,6 +1001,12 @@ export function formatReport(out) {
       lines.push(
         `      补签：${SIG_TRAILER} ${SIG_VERSION_CURRENT}:<base40>:<hex>（签发命令见 --help 的 --sign-staged）`,
       )
+    }
+    if (out.code === 'declared-attested') {
+      lines.push(
+        `   ℹ️ 已追认（提交当时${out.attest?.substitutedFor || '无有效声明'}）：由 ${out.attest?.row?.reviewer} 于 ${out.attest?.row?.attestedAt} 在 ${ATTEST_LEDGER_REL} 具名追认 ⇒ 不得读成当时就合规`,
+      )
+      for (const h of out.hits) lines.push(`      - ${h.path}（${h.entry.kind} / ${h.status}）`)
     }
   } else if (out.exit === 1) {
     lines.push(`❌ ${head} ${CODE_LABEL[out.code]}`)
@@ -1117,6 +1173,7 @@ const AUDIT_BASE = {
   skippedMerges: 0,
   declared: 0,
   retro: [],
+  attested: [],
   pending: 0,
   breaches: [],
   undetermined: [],
@@ -1131,18 +1188,21 @@ const AUDIT_BASE = {
 /**
  * 判一批提交并归桶（`--audit-new` 与 `--range` 共用同一份，判据不分叉）。
  * 归桶顺序：exit 1 ⇒ breach；exit 2 ⇒ undetermined；exit 0 ⇒ declared（签名验过）
- * 或 unsigned（迁移窗口内仅文字理由）。合并提交跳过并计数（理由见调用处注释）。
+ * 或 attested（具名追认台账验过）或 unsigned（迁移窗口内仅文字理由）。合并提交跳过并计数（理由见调用处注释）。
  */
 function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev = null } = {}) {
   const breaches = []
   const undetermined = []
   const unsigned = []
   const retro = []
+  const attested = []
   let declared = 0
   let skippedMerges = 0
   let judged = 0
   // 追认台账整批读一次(同一末端),逐枚只查自己的 sha;坏行带出去点名,不静默。
   const ack = readAckRows(root)
+  // 具名追认台账同样整批读一次：它在 HEAD 面，逐枚比对时用各自的实际触发路径。
+  const attest = readAttestRows(root)
   // 整批一次读齐父辈/标题/正文 + 一次解析两把密钥(2026-11-05;读不到就逐枚回落原路径,判定不变)
   const metas = batchCommitMeta(root, batch)
   const sharedKeyRes = resolveSigningKey(root)
@@ -1186,6 +1246,8 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
         policyTextPre,
         changesPre: useBatchChanges ? changesBatch.get(sha) : undefined,
         onOriginMainPre: originSet ? originSet.has(sha) : undefined,
+        attestRows: attest.rows,
+        commitDate: meta ? meta.commitDate : undefined,
       })
     } catch (e) {
       one = {
@@ -1219,10 +1281,17 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
         one.ack?.state === 'valid' ? `${one.ack.row.ackedBy}(到期 ${one.ack.row.expires})` : '',
       substitutedFor: one.ack?.substitutedFor ?? '',
       ackProblem: one.ack?.state === 'invalid' ? `${one.ack.code}:${one.ack.why}` : '',
+      // 具名追认读数：必须带 reviewer/attestedAt，绝不能并进 declared 悄悄消失。
+      reviewer: one.attest?.state === 'valid' ? one.attest.row.reviewer : '',
+      attestedAt: one.attest?.state === 'valid' ? one.attest.row.attestedAt : '',
+      attestStage: one.attest?.state === 'valid' ? one.attest.substitutedFor ?? '' : '',
+      admitProblem:
+        one.attest?.state === 'invalid' ? `${one.attest.code}:${one.attest.why}` : '',
     }
     if (one.exit === 1) breaches.push(brief)
     else if (one.exit === 2) undetermined.push(brief)
     else if (one.code === 'declared') declared += 1
+    else if (one.code === 'declared-attested') attested.push(brief)
     else if (one.code === 'retro-declared') retro.push(brief)
     else if (one.code === 'declared-unsigned') unsigned.push(brief)
   }
@@ -1231,11 +1300,14 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
     undetermined,
     unsigned,
     retro,
+    attested,
     declared,
     skippedMerges,
     judged,
     ackProblems: ack.problems,
     ackAbsent: ack.absent,
+    attestProblems: attest.problems,
+    attestAbsent: attest.absent,
   }
 }
 
@@ -1328,8 +1400,18 @@ export function auditNewCommits(
     }
   }
 
-  const { breaches, undetermined, unsigned, retro, declared, skippedMerges, judged, ackProblems } =
-    judgeBatch(root, batch, { today, record })
+  const {
+    breaches,
+    undetermined,
+    unsigned,
+    retro,
+    attested,
+    declared,
+    skippedMerges,
+    judged,
+    ackProblems,
+    attestProblems,
+  } = judgeBatch(root, batch, { today, record })
 
   const lastAudited = batch[batch.length - 1]
   // 判完 ⇒ 推进到本轮 HEAD；没判完 ⇒ 游标**原地不动**、本批已判 sha 进 `judged` 底账。
@@ -1352,6 +1434,10 @@ export function auditNewCommits(
     notes.push(
       `追认台账坏行 ${ackProblems.length} 条(逐条点名:${ackProblems.map((p) => `L${p.line ?? '?'} ${p.why}`).join(' | ')})⇒ 这些行一律不生效`,
     )
+  if (attestProblems.length)
+    notes.push(
+      `具名追认台账坏行 ${attestProblems.length} 条(逐条点名:${attestProblems.map((p) => `L${p.line ?? '?'} ${p.why}`).join(' | ')})⇒ 这些行一律不生效`,
+    )
   return {
     exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
     state,
@@ -1361,6 +1447,7 @@ export function auditNewCommits(
     skippedMerges,
     declared,
     retro,
+    attested,
     unsigned,
     pending,
     breaches,
@@ -1421,12 +1508,23 @@ export function auditRange(
       detail: `区间 ${range} 的基点解析失败：${e?.message ?? e} ⇒ 未判定，不记绿`,
     }
   }
-  const { breaches, undetermined, unsigned, retro, declared, skippedMerges, judged, ackProblems } =
-    judgeBatch(root, shas, {
-      today,
-      record,
-      policyRev: baseRev,
-    })
+  const {
+    breaches,
+    undetermined,
+    unsigned,
+    retro,
+    attested,
+    declared,
+    skippedMerges,
+    judged,
+    ackProblems,
+    attestProblems,
+  } = judgeBatch(root, shas, {
+    today,
+    record,
+    policyRev: baseRev,
+  })
+  const badLines = ackProblems.length + attestProblems.length
   return {
     ...base,
     exit: breaches.length > 0 ? 1 : undetermined.length > 0 ? 2 : 0,
@@ -1438,13 +1536,21 @@ export function auditRange(
     skippedMerges,
     declared,
     retro,
+    attested,
     unsigned,
     pending: 0,
     breaches,
     undetermined,
     cursorBefore: '',
     cursorAfter: '',
-    detail: ackProblems.length ? `追认台账坏行 ${ackProblems.length} 条 ⇒ 这些行一律不生效` : '',
+    detail: badLines
+      ? `${[
+          ackProblems.length ? `追认台账坏行 ${ackProblems.length} 条` : '',
+          attestProblems.length ? `具名追认台账坏行 ${attestProblems.length} 条` : '',
+        ]
+          .filter(Boolean)
+          .join('；')} ⇒ 这些行一律不生效`
+      : '',
   }
 }
 
@@ -1488,7 +1594,7 @@ function batchCommitMeta(root, shas) {
         [
           'log',
           '--no-walk=unsorted',
-          `--format=%H${META_FIELD_SEP}%P${META_FIELD_SEP}%s${META_FIELD_SEP}%B${META_RECORD_SEP}`,
+          `--format=%H${META_FIELD_SEP}%P${META_FIELD_SEP}%s${META_FIELD_SEP}%cs${META_FIELD_SEP}%B${META_RECORD_SEP}`,
           ...shas,
         ],
         root,
@@ -1498,12 +1604,14 @@ function batchCommitMeta(root, shas) {
       const body = rec.replace(/^\n/, '')
       if (!body.trim()) continue
       const parts = body.split(META_FIELD_SEP)
-      if (parts.length !== 4) continue
-      const [sha, parents, subject, message] = parts
+      if (parts.length !== 5) continue
+      const [sha, parents, subject, commitDate, message] = parts
       if (!/^[0-9a-f]{40}$/.test(sha.trim())) continue
       out.set(sha.trim(), {
         parentCount: parents.trim() === '' ? 0 : parents.trim().split(/\s+/).length,
         subject: subject.trim(),
+        // 提交日期（%cs）用于具名追认的"倒填"判定：追认日期早于这一枚 ⇒ 判红。
+        commitDate: /^\d{4}-\d{2}-\d{2}$/.test(commitDate.trim()) ? commitDate.trim() : null,
         // git 每条记录本来自带的收尾换行,被这里的记录分隔符 %x1e 顶掉了;
         // 逐枚读法(`git log -1 --format=%B`)会带那个换行。补回来才叫**逐字等值**,
         // 否则本枚的等价锁 ST49b 会差一个换行 —— 差别看着无害,但判据面不许"差不多"。
@@ -1598,12 +1706,21 @@ export function formatAuditReport(out) {
     for (const h of u.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
     for (const r of u.reasons) lines.push(`     · 追认理由：${r}`)
   }
+  // 具名追认档：逐枚点名 reviewer 与 attestedAt，单独计数，绝不并进 declared。
+  for (const u of out.attested ?? []) {
+    lines.push(
+      `   ℹ️ ${u.sha}「${u.subject}」已追认（提交当时${u.attestStage || '无有效声明'}，由 ${u.reviewer} 于 ${u.attestedAt} 具名追认 ⇒ 不得读成当时就合规）`,
+    )
+    for (const h of u.hits) lines.push(`     · ${h.path}（${h.kind} / ${h.status}）`)
+  }
   if (out.declared) lines.push(`   已声明且验签通过（--record 已留痕）：${out.declared} 枚`)
+  if ((out.attested ?? []).length)
+    lines.push(`   已追认（attestations 台账逐枚具名、按实际触发路径签）：${(out.attested ?? []).length} 枚`)
   if ((out.retro ?? []).length)
     lines.push(`   事后追认通过（台账逐枚具名，到期即回到红）：${(out.retro ?? []).length} 枚`)
   if (out.detail) lines.push(`   注：${out.detail}`)
   lines.push(
-    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
+    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 已追认 ${(out.attested ?? []).length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
   )
   return lines.join('\n')
 }
@@ -3272,6 +3389,7 @@ const USAGE = [
   '      node scripts/check-immutable-guard.mjs --audit-new [--limit 50] [--record]   # 巡检轮档（游标之后每枚判一次）',
   '      node scripts/check-immutable-guard.mjs --range origin/main..HEAD            # push 门档（逐枚判"本次要推的"）',
   '      node scripts/check-immutable-guard.mjs --ack <40位sha> --reason "<≥10字>" --by <席位> --expires <YYYY-MM-DD>  # 事后追认一档（详见 ACK 段）',
+  `      node scripts/sign-immutable-attestations.mjs --in <rows.json> --append     # 具名追认台账（${ATTEST_LEDGER_REL}，≥${ATTEST_MIN_REASON_CHARS} 字理由 + paths 逐元素相等）`,
   '      node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>" --reason "<理由>" [--paths <a,b,c>]  # 生成签名行（stdout 可直接贴进提交信息）',
   '      node scripts/check-immutable-guard.mjs --self-test',
   '',
@@ -3586,6 +3704,8 @@ export const __test__ = {
   signStaged,
   ackCommit,
   readAckRows,
+  readAttestRows,
+  commitDateOf,
   resolveSigningKey,
   formatAuditReport,
   selfTest,

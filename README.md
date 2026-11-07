@@ -82,30 +82,32 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
 | ---- | ---- | ------ |
-| 数据库表 | 618 | `dbTables` |
-| schema 文件 | 239 | `dbSchemaFiles` |
-| API 路由 | 4814 | `apiRoutes` |
-| 路由文件 | 661 | `apiRouteFiles` |
-| AI 服务路由 | 628 | `aiServiceRoutes` |
+| 数据库表 | 624 | `dbTables` |
+| schema 文件 | 241 | `dbSchemaFiles` |
+| API 路由 | 4720 | `apiRoutes` |
+| 路由文件 | 667 | `apiRouteFiles` |
+| AI 服务路由 | 652 | `aiServiceRoutes` |
 | WebSocket 端点 | 25 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 16 | `sharedPackages` |
-| CLI 命令文件 | 69 | `cliCommandFiles` |
-| CLI 工具文件 | 74 | `cliToolFiles` |
+| CLI 命令文件 | 75 | `cliCommandFiles` |
+| CLI 工具文件 | 95 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4084 | `testFiles` |
-| CI 工作流 | 53 | `ciWorkflows` |
+| 测试文件 | 4341 | `testFiles` |
+| CI 工作流 | 55 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 334 | `guardianGates` |
-| — blocking | 304 | `guardianBlocking` |
-| — warn | 32 | `guardianWarn` |
-| 跟踪文件 | 19087 | `trackedFiles` |
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-05。
+| 工程守门 | 351 | `guardianGates` |
+| — blocking | 322 | `guardianBlocking` |
+| — warn | 31 | `guardianWarn` |
+| 跟踪文件 | 19927 | `trackedFiles` |
+
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
+
 <!-- END GENERATED NUMBERS -->
 **一句话口径**:数字一律现读,文档里不写「约 N 个」——那种写法必然腐烂。
 ---
