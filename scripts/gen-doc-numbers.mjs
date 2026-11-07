@@ -37,7 +37,6 @@
  * 紧急跳过:无(本工具只读不判,不需要跳过通道;判据在 check-doc-numbers.mjs)
  */
 
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -513,7 +512,7 @@ export function makeFaceAccessors({ root = ROOT, face = 'worktree', paths, list 
     [...need].map((rel) => specOf(face, rel)),
     { maxBuffer: 64 << 20 },
   )
-  const get = (v) => (typeof v === 'string' ? v : v == null ? null : Buffer.isBuffer(v) ? v.toString('utf8') : null)
+  const get = (v) => (typeof v === 'string' ? v : v === null || v === undefined ? null : Buffer.isBuffer(v) ? v.toString('utf8') : null)
   return {
     face,
     list: ls,
@@ -631,9 +630,13 @@ function readArg(argv, name) {
 }
 
 function main(argv) {
-  // 本工具是"生成"侧,默认判**工作树**(人要看到自己刚改的东西);要审已入库面显式给面旗。
+  // 取数面唯一化(2026-11-07 票「doc-numbers 三面并存 ⇒ 两门互斥读数」):
+  // **默认面 = 索引面(staged)**,即"提交之后就会变成的 HEAD 面" —— 写 README/简介的人与
+  // 门 173 的两段判的是同一份内容,不再出现"写手按工作树算、门按索引/HEAD 判"的互斥读数。
+  // 工作树面仍可显式 `--face=worktree` 用于人工排查,但**不得作为入库数字的来源**:
+  // 未暂存 / 未跟踪的文件会抬高总量,产物谁也满足不了(实测同一刻 worktree 4623 vs head 4341)。
   // 面旗解析统一走 parseFaceArg:未知面/缺取值 ⇒ exit 2,**绝不静默落回默认面**。
-  const { face: wantFace, requested, error } = parseFaceArg(argv, { def: 'worktree' })
+  const { face: wantFace, requested, error } = parseFaceArg(argv, { def: 'staged' })
   if (error) {
     console.error(`❌ 无法判定:${error}`)
     return 2
