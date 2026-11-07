@@ -14,7 +14,7 @@ import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
-import { resolveSession, settleCliEntryFailure, runAgentAndExit } from '../src/index.js';
+import { CliUsageError, resolveSession, settleCliEntryFailure, runAgentAndExit } from '../src/index.js';
 import { getCompactionTimelineLedgerPath } from '../src/compaction-timeline-resume.js';
 import type * as SessionModule from '../src/commands/session.js';
 import { createSession, saveSession } from '../src/commands/session.js';
@@ -284,5 +284,63 @@ describe('I --goal-criteria 校验先于副作用', () => {
     expect(sessionCtl.createCalls).toBe(0);
     expect(errSpy).toHaveBeenCalled();
     sessionCtl.blockCreate = false;
+  });
+});
+
+/**
+ * J T6/T7/T8:矛盾/非法参数必须共用**同一段**入口校验,且早于任何副作用(建会话即副作用代理)。
+ * 修前这三种组合都是"静默择一"或悄悄回落 text:脚本拿到与预期不符的结果,退出码仍是 0。
+ */
+describe('J 入口参数互斥校验(T6/T7/T8)', () => {
+  async function runInvalid(opts: Record<string, unknown>): Promise<unknown> {
+    sessionCtl.blockCreate = true;
+    sessionCtl.createCalls = 0;
+    try {
+      await runAgentAndExit(
+        '任务',
+        opts as unknown as Parameters<typeof runAgentAndExit>[1],
+        false,
+      );
+      return null;
+    } catch (e) {
+      return e;
+    }
+  }
+
+  it('T6 --continue 与 --resume 同给 ⇒ exitCode 2 且 0 会话', async () => {
+    const err = await runInvalid({ continue: true, resume: 'sess-abc' });
+    expect(err).toBeInstanceOf(CliUsageError);
+    expect((err as CliUsageError).exitCode).toBe(2);
+    expect((err as Error).message).toContain('--continue 与 --resume 互斥');
+    expect(sessionCtl.createCalls).toBe(0);
+    sessionCtl.blockCreate = false;
+  });
+
+  it('T7 --json 与 --output-format text 冲突 ⇒ exitCode 2 且 0 会话', async () => {
+    const err = await runInvalid({ json: true, outputFormat: 'text' });
+    expect(err).toBeInstanceOf(CliUsageError);
+    expect((err as CliUsageError).exitCode).toBe(2);
+    expect((err as Error).message).toContain('--json 与 --output-format text 冲突');
+    expect(sessionCtl.createCalls).toBe(0);
+    sessionCtl.blockCreate = false;
+  });
+
+  it('T8 非法 --output-format ⇒ exitCode 2,文案列出合法枚举,0 会话', async () => {
+    const err = await runInvalid({ outputFormat: 'xml' });
+    expect(err).toBeInstanceOf(CliUsageError);
+    expect((err as CliUsageError).exitCode).toBe(2);
+    expect((err as Error).message).toContain('text | json | markdown | yaml');
+    expect(sessionCtl.createCalls).toBe(0);
+    sessionCtl.blockCreate = false;
+  });
+
+  it('T6-T8 的退出码经 settleCliEntryFailure 落为 2(不是 0/1)', async () => {
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await settleCliEntryFailure(() => Promise.reject(new CliUsageError('参数冲突')));
+    expect(process.exitCode).toBe(2);
+    // 纯参数错误打一行可读文案、不打栈(该文件有重试与其他用例噪声,只断言"存在正确那一行")
+    const usageLines = errSpy.mock.calls.filter((c) => String(c[0]).includes('参数冲突'));
+    expect(usageLines.length).toBeGreaterThan(0);
+    expect(String(usageLines[0]![0])).not.toContain('    at ');
   });
 });

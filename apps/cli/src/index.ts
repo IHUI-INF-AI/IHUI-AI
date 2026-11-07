@@ -43,6 +43,7 @@ import {
 } from './config/credentials.js';
 import { startREPL } from './commands/repl.js';
 import { runAgent, stopReasonToExitCode, parseOutputFormat, setupAgentTools } from './commands/agent.js';
+import { OUTPUT_FORMATS, isOutputFormat } from './headless-format.js';
 // G-814406:无头(--json / 非 TTY)退出前的有界排水 —— 结论五档可分辨,预算必有界。
 // 后台任务事实只读 HEAD 既有出口(listTasks/settleAllInFlight),本端不新增注册表语义。
 import { drainHeadlessBeforeExit } from './headless-drain.js';
@@ -113,6 +114,7 @@ import { t, setLocale } from './i18n/index.js';
 import type { Locale } from './i18n/index.js';
 import { parseToolList, type PermissionRules } from './tools/permissions.js';
 import { getTool } from './tools/index.js';
+import { killAllTerminalSessionsSync } from './tools/terminal.js';
 import { replayArgumentDeviations } from './tools/argument-validation-replay.js';
 import { notifyUpdates } from './updater.js';
 import { installCrashHandler } from './crash-handler.js';
@@ -200,7 +202,7 @@ program
   .option('--api-key <key>', t('cliEntry.apiKeyDesc'), process.env.IHUI_API_KEY || '')
   .option('--resume <session-id>', t('cliEntry.resumeDesc'))
   .option('--continue', t('cliEntry.continueDesc'))
-  .option('--json', t('cliEntry.jsonDesc'))
+  .option('--json', `${t('cliEntry.jsonDesc')} [schemaVersion=1]`)
   .option('--output-format <format>', t('cliEntry.outputFormatDesc'))
   .option('--mcp', t('cliEntry.mcpFlagDesc'))
   .option('--allow-dangerous', t('cliEntry.allowDangerousDesc'))
@@ -331,6 +333,36 @@ function resolveStructuredOutputMode(opts: OptionValues): boolean {
   return fmt === 'json' || fmt === 'markdown' || fmt === 'yaml';
 }
 
+/** 纯参数错误:退出码 2,且必须发生在任何副作用之前(不建会话/不写盘/不发云运行)。 */
+export class CliUsageError extends Error {
+  readonly exitCode = 2;
+  constructor(message: string) {
+    super(message);
+    this.name = 'CliUsageError';
+  }
+}
+
+/**
+ * 入口参数互斥/取值校验的**唯一**出口:四条(T6 --continue×--resume、T7 --json×text、
+ * T8 非法 output-format)共用这一处,避免散落在各 action 里出现"有的先校验、有的晚校验"。
+ */
+function assertAgentFlagConsistency(opts: OptionValues): void {
+  if (opts.continue === true && typeof opts.resume === 'string' && opts.resume.length > 0) {
+    throw new CliUsageError('--continue 与 --resume 互斥:请只保留一个,否则无法判断要恢复哪场会话');
+  }
+  if (opts.outputFormat !== undefined) {
+    const fmt = String(opts.outputFormat);
+    if (!isOutputFormat(fmt)) {
+      throw new CliUsageError(
+        `非法 --output-format 值: ${fmt}(合法值: ${OUTPUT_FORMATS.join(' | ')})`,
+      );
+    }
+    if (opts.json === true && fmt === 'text') {
+      throw new CliUsageError('--json 与 --output-format text 冲突:前者要求机器可读,后者要求人类文本');
+    }
+  }
+}
+
 export function readPromptFile(
   filePath: string,
 ): { ok: true; content: string } | { ok: false; error: string } {
@@ -383,6 +415,11 @@ export async function runAgentAndExit(
   // 它此前被塞在 runAgent 的参数表里,也就是会话文件已写、租约已授、云运行已发出之后才求值 ——
   // 一次纯参数错误会把已经开动的副作用留在半路(且 process.exit 跳过 finally 里的租约撤销
   // 与云会话收尾)。把它提到任何副作用之前:失败即退出,现场零落地。
+  // 互斥/取值校验先于一切:它比 --goal-criteria 的"读文件"更早,失败时现场零落地。
+  assertAgentFlagConsistency(opts);
+  const structuredOutput = jsonMode || resolveStructuredOutputMode(opts);
+  // 结构化输出下人类提示必须走 stderr:任何一行 console.info 都会插进 NDJSON/YAML 流。
+  const notice = structuredOutput ? console.error : console.info;
   const goalCriteria = resolveGoalCriteria(opts.goalCriteria);
   const cfg = resolveEffectiveConfig({
     cliApiUrl: typeof opts.apiUrl === 'string' ? opts.apiUrl : undefined,
@@ -408,20 +445,23 @@ export async function runAgentAndExit(
   const onSigint = (): void => {
     if (!abort.signal.aborted) {
       abort.abort();
-      if (session && !jsonMode) {
-        console.info(chalk.yellow(t('cliEntry.interruptSaving')));
+      if (session && !structuredOutput) {
+        notice(chalk.yellow(t('cliEntry.interruptSaving')));
       }
       return;
     }
     // 第二次 Ctrl-C:注册 SIGINT listener 后默认终止行为已被抑制,保存流程若卡住
-    // 用户将完全无出口。给一条真实可用的强退(128 + SIGINT 标准码 130)。
+    // 用户将完全无出口。给一条真实可用的强退(128 + SIGINT 标准码 130);
+    // 退出前先同步树杀所有存活终端会话 —— 否则 process.exit 直接跳过所有 finally,
+    // terminal Map 里的 ConPTY 子进程会整批变成孤儿。
+    killAllTerminalSessionsSync();
     process.exit(130);
   };
   process.on('SIGINT', onSigint);
   try {
     session = createSession(opts.workspace, cfg.model);
     // 如果 --resume/--continue,加载历史到 session.history
-    const resumed = resolveSession(opts, jsonMode || resolveStructuredOutputMode(opts));
+    const resumed = resolveSession(opts, structuredOutput);
     if (resumed.sessionId && resumed.history) {
       session.id = resumed.sessionId;
       session.history = resumed.history;
@@ -465,8 +505,8 @@ export async function runAgentAndExit(
       process.exitCode = 1;
       return;
     }
-    if (leaseOutcome.kind === 'granted' && !jsonMode) {
-      console.info(
+    if (leaseOutcome.kind === 'granted' && !structuredOutput) {
+      notice(
         chalk.yellow(
           t('cliEntry.permissionLeaseGranted', {
             tools: leaseOutcome.lease.capabilities.join(', '),
@@ -478,7 +518,7 @@ export async function runAgentAndExit(
       );
       // 档位开着时把"这是收紧"说清楚:生效值沿用上面那行的 ttl/轮次/到期,这里补语义与关闭出口。
       if (isDigestTrackedLease(leaseOutcome.lease)) {
-        console.info(chalk.yellow(t('cliEntry.permissionLeaseDigestGranted')));
+        notice(chalk.yellow(t('cliEntry.permissionLeaseDigestGranted')));
       }
     }
     // H4 云会话写入:CLI agent 运行记录写 ai-service(/api/cloud-runs,session_alias 绑定本会话),
@@ -989,7 +1029,7 @@ skillsCmd
   .command('shadow-report')
   .description(t('cliEntry.skillShadowReportDesc'))
   .option('--ledger <jsonl>', 'ledger file (default: the user state dir)')
-  .option('--json', 'machine-readable aggregate')
+  .option('--json', 'machine-readable aggregate (schemaVersion=1)')
   .option('--self-test', 'run the built-in assertion table; non-zero on any failure')
   .action((options: { ledger?: string; json?: boolean; selfTest?: boolean }) => {
     if (options.selfTest === true) {
@@ -1000,7 +1040,8 @@ skillsCmd
     const read = readShadowLedger(file);
     const agg = aggregateShadowLedger(read, file);
     if (options.json === true) {
-      process.stdout.write(`${JSON.stringify(agg, null, 2)}\n`);
+      // 契约版本与 headless NDJSON 同一口径(schemaVersion=1):字段只增不改。
+      process.stdout.write(`${JSON.stringify({ schemaVersion: 1, ...agg }, null, 2)}\n`);
     } else {
       console.info(formatShadowReport(agg));
     }
@@ -1418,6 +1459,12 @@ export function settleCliEntryFailure(run: () => Promise<unknown>): Promise<void
   return run().then(
     () => undefined,
     (err: unknown) => {
+      // 纯参数错误(互斥旗标/非法枚举):只打一行可读文案、退出码 2,不把栈糊给用户。
+      if (err instanceof CliUsageError) {
+        console.error(`ihui: ${err.message}`);
+        process.exitCode = err.exitCode;
+        return;
+      }
       const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
       console.error(`ihui: 命令执行失败\n${detail}`);
       if (typeof process.exitCode !== 'number' || process.exitCode === 0) {

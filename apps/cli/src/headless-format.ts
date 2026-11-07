@@ -16,7 +16,12 @@
 import type { AgentStopReason, TokenUsage } from './commands/agent.js'
 import type { ToolResultDisplaySource } from '@ihui/types'
 
-export type OutputFormat = 'text' | 'json' | 'markdown' | 'yaml'
+export const OUTPUT_FORMATS = ['text', 'json', 'markdown', 'yaml'] as const
+export type OutputFormat = (typeof OUTPUT_FORMATS)[number]
+/** 值域判据：入口校验用它拒绝非法格式，避免 parseOutputFormat 的"悄悄回落 text"。 */
+export function isOutputFormat(v: unknown): v is OutputFormat {
+  return typeof v === 'string' && (OUTPUT_FORMATS as readonly string[]).includes(v)
+}
 
 export type HeadlessEvent =
   | { type: 'start'; prompt: string; model: string; workspace: string }
@@ -157,15 +162,15 @@ export function eventToMarkdown(event: HeadlessEvent): string {
   }
 }
 
-/** 解析 outputFormat 字符串,非法值默认 text */
+/** 解析 outputFormat 字符串,非法值默认 text(入口已用 isOutputFormat 先行拒绝) */
 export function parseOutputFormat(v: unknown): OutputFormat {
-  if (v === 'text' || v === 'json' || v === 'markdown' || v === 'yaml') return v
-  return 'text'
+  return isOutputFormat(v) ? v : 'text'
 }
 
 /** 把单个事件序列化为指定格式的字符串(text 模式返回空字符串,由调用方走 chalk/ora 路径) */
 export function formatHeadlessEvent(event: HeadlessEvent, format: OutputFormat): string {
-  if (format === 'json') return JSON.stringify(event) + '\n'
+  // JSON 出口的契约版本：字段只增不改；消费方按 schemaVersion=1 锁定字段名与类型。
+  if (format === 'json') return JSON.stringify({ ...event, schemaVersion: 1 }) + '\n'
   if (format === 'markdown') return eventToMarkdown(event)
   if (format === 'yaml') return '---\n' + toYaml(event) + '\n'
   return '' // text

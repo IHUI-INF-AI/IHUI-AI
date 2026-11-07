@@ -244,12 +244,21 @@ describe('P1-5 formatHeadlessEvent 统一格式化', () => {
     expect(formatHeadlessEvent(sampleEvent, 'text')).toBe('')
   })
 
-  it('json 格式返回 NDJSON 单行(末尾换行)', () => {
+  it('json 格式返回 NDJSON 单行(末尾换行),并带契约版本 schemaVersion=1', () => {
     const out = formatHeadlessEvent(sampleEvent, 'json')
     expect(out.endsWith('\n')).toBe(true)
     const parsed = JSON.parse(out)
+    // T10 契约夹具:字段名与类型锁定;新增字段不得改这四项。
+    expect(parsed.schemaVersion).toBe(1)
+    expect(typeof parsed.schemaVersion).toBe('number')
     expect(parsed.type).toBe('start')
     expect(parsed.prompt).toBe('task')
+    expect(typeof parsed.prompt).toBe('string')
+    expect(typeof parsed.model).toBe('string')
+    expect(typeof parsed.workspace).toBe('string')
+    expect(Object.keys(parsed).sort()).toEqual(
+      ['model', 'prompt', 'schemaVersion', 'type', 'workspace'],
+    )
   })
 
   it('markdown 格式返回 eventToMarkdown 输出', () => {
