@@ -944,7 +944,7 @@ function parseLineEvent(line: string): SSEEvent | null {
         type: 'subagent_end',
         subagentEnd: {
           id: String(json.id),
-          status: json.status === 'failed' ? 'failed' : 'done',
+          status: json.status === 'failed' ? 'failed' : json.status === 'stub' ? 'stub' : 'done',
           failureReason: typeof json.failureReason === 'string' ? json.failureReason : undefined,
           timestamp: typeof json.timestamp === 'string' ? json.timestamp : new Date().toISOString(),
           messageId: typeof json.messageId === 'string' ? json.messageId : undefined,
