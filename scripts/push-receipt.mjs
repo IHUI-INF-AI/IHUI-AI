@@ -8,9 +8,12 @@
  * 本文件只负责进程退出码：0 = 凭据有效可直接推；非 0 = 调用方必须回落真跑门。
  */
 
-import { EXPECTED_GATES, resolveRootFromModule, verifyPushReceipt } from './lib/push-receipt.mjs'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { EXPECTED_GATES, verifyPushReceipt } from './lib/push-receipt.mjs'
 
-const root = resolveRootFromModule(import.meta.url)
+// 本文件在 scripts/ 下（不是 scripts/lib/），不能复用 lib 版 `../..` 的根推导（会多退一级）。
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const mode = process.argv[2]
 
 if (mode === '--verify') {
