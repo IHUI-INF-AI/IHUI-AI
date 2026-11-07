@@ -214,9 +214,12 @@ class TestParallel:
             agent_inputs=items, session_id="parallel-1",
         )
         assert len(result.steps) == 2
-        # 任一 agent 完成即可(并行可能因 event loop 共享有副作用,容忍部分失败)
+        # 无密钥时网关返回 stub,步骤和批次都不得再标 completed。
+        # 有密钥时仍可能是 completed;调度失败是 failed。
         statuses = {s.status for s in result.steps}
-        assert "completed" in statuses or "failed" in statuses
+        assert statuses <= {"completed", "failed", "stub"}
+        assert "stub" not in statuses or result.status == "stub"
+        assert "completed" not in statuses or result.status != "stub"
 
     @pytest.mark.asyncio
     async def test_parallel_partial_failure(self):

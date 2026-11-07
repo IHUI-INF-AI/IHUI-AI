@@ -1574,7 +1574,7 @@ export function createSendMessage(
         ...(() => {
           const agentTools = [
             ...new Set([
-              ...mergeAgentTools(chatStore),
+              ...mergeAgentTools(chatStore, modeStore.getState().currentMode),
               ...eduToolsFor(content),
               ...uiControlToolsFor(content),
               ...fileToolsFor(content),
