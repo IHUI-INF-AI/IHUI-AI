@@ -11446,6 +11446,24 @@ async def _tool_todo_read(arguments: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _tool_ask_user_question(arguments: dict[str, Any]) -> dict[str, Any]:
+    """ask_user_question 兜底 handler:无交互宿主的执行面**不等**答复。
+
+    真正的阻塞等待只发生在带交互宿主的执行面(主聊天流 llm.py 工具循环与
+    工作台 agent_loop_v2 的特例拦截位);直接 call_tool 的调用没有可送达前端的
+    SSE 通道,静默等待只会把调用挂到超时,因此显式拒绝并点名原因。
+    """
+    return {
+        "tool": "ask_user_question",
+        "ok": False,
+        "errorCode": "question_host_unsupported",
+        "error": (
+            "当前执行面没有交互宿主,无法向用户提问;"
+            "请在主聊天流或工作台 agent 会话中使用本工具"
+        ),
+    }
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -14048,6 +14066,42 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    MCPTool(
+        name="ask_user_question",
+        description=(
+            "向用户提一个结构化问题并**阻塞等待**答复(交互宿主会把问题帧下发到"
+            "当前会话,用户答复后本调用才返回)。schema 对齐 CLI AskUserQuestion:"
+            "单选默认、multiSelect=true 为多选、allowCustom=true 允许自由文本。"
+            "无交互宿主的执行面会直接返回 question_host_unsupported,不会等待。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "要问用户的完整问题文本(必填)"},
+                "header": {"type": "string", "description": "短标题(可选,≤12 字,用于问题卡片标题)"},
+                "options": {
+                    "type": "array",
+                    "description": "选项数组(1-8 项;每项 id/label 必填,description 可选)",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string", "description": "选项稳定标识(唯一)"},
+                            "label": {"type": "string", "description": "选项展示文本"},
+                            "description": {"type": "string", "description": "选项补充说明(可选)"},
+                        },
+                        "required": ["id", "label"],
+                        "additionalProperties": False,
+                    },
+                },
+                "multiSelect": {"type": "boolean", "description": "true=允许多选,默认 false(单选)"},
+                "allowCustom": {"type": "boolean", "description": "true=允许自由文本答复,默认 true"},
+            },
+            "required": ["question"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -14682,6 +14736,7 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "skill": _tool_skill,
     "todo_write": _tool_todo_write,
     "todo_read": _tool_todo_read,
+    "ask_user_question": _tool_ask_user_question,
 }
 
 
