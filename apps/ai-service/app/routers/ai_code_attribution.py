@@ -12,6 +12,8 @@ tags=["ai-code-attribution"])` 方式挂载,最终端点路径:
   GET /api/ai-code-attribution/records/{id}/trace   → 单条记录的回溯裁决(git blame)
   POST /api/ai-code-attribution/backfill            → 提交成功后给空锚回填提交号
   GET  /api/ai-code-attribution/checkpoints         → 编辑检查点日志(损坏时不说成没有)
+  GET  /api/ai-code-attribution/notes-health        → git notes 引用在不在(没量到不说成没有)
+  POST /api/ai-code-attribution/notes               → 把对得上的检查点写进该仓库的 notes
 
 存储:复用 app/services/ai_code_attribution_store(进程内 list + data/ai_code_attribution.json)。
 判据:app/core/ai_code_attribution(仓内只此一份);本路由只做读数与序列化,不判归属。
@@ -28,10 +30,12 @@ from fastapi import APIRouter, Depends
 
 from ..core.ai_code_attribution import AttributionRecord, AttributionStats
 from ..core.jwt_auth import get_current_user_id
+from ..services.ai_code_attribution_git import detect_repo_root, judge_notes_refs, list_notes_refs
 from ..services.ai_code_attribution_store import (
     backfill_commit_sha,
     list_checkpoint_log,
     list_records,
+    mirror_checkpoints_to_notes,
     stats_all,
     stats_for_path,
     stats_for_session,
@@ -185,4 +189,60 @@ async def list_attribution_checkpoints(
         refused or "-",
     )
     return {"code": 0, "message": refused or "ok", "data": {"checkpoints": rows, "refused": refused}}
+
+
+@router.get("/notes-health")
+async def attribution_notes_health(
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """notes 引用体检。仓库根或名单没量到时不把缺席说成健康。"""
+    root = detect_repo_root()
+    if root is None:
+        judged: dict[str, Any] = {"status": "unjudged", "message": "取不到 git 仓库根", "refs": []}
+    else:
+        judged = judge_notes_refs(list_notes_refs(root))
+    logger.info(
+        "ai-code-attribution notes-health user=%s status=%s",
+        user_id,
+        judged.get("status"),
+    )
+    return {"code": 0, "message": str(judged.get("message") or ""), "data": judged}
+
+
+@router.post("/notes")
+async def mirror_attribution_notes(
+    body: dict[str, Any],
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """只把账上已有、路径对得上的检查点写进当前仓库。写失败不改归属账。"""
+    sha = body.get("commit_sha")
+    raw_files = body.get("files")
+    raw_namespace = body.get("namespace")
+    namespace = raw_namespace if isinstance(raw_namespace, str) else ""
+    if (
+        not isinstance(sha, str)
+        or not isinstance(raw_files, list)
+        or any(not isinstance(item, str) for item in raw_files)
+    ):
+        return {
+            "code": 0,
+            "message": "提交号或文件清单形态不对",
+            "data": {"updated": 0, "refused": "提交号或文件清单形态不对"},
+        }
+    files = [item for item in raw_files if isinstance(item, str)]
+    root = detect_repo_root()
+    if root is None:
+        return {
+            "code": 0,
+            "message": "取不到 git 仓库根",
+            "data": {"updated": 0, "refused": "取不到 git 仓库根"},
+        }
+    updated, refused = mirror_checkpoints_to_notes(root, sha, files, namespace=namespace)
+    logger.info(
+        "ai-code-attribution notes user=%s updated=%s refused=%s",
+        user_id,
+        updated,
+        refused or "-",
+    )
+    return {"code": 0, "message": refused or "ok", "data": {"updated": updated, "refused": refused}}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
