@@ -148,3 +148,171 @@ def resolve_token_budget(
     except TokenBudgetConfigError:
         return configured
     return candidate
+
+
+USAGE_PURPOSES = ("compact", "summary", "request", "inputTokens")
+_USAGE_SEVERITY = ("preMessage", "warning", "critical", "emergency")
+
+
+def _usage_ratio(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if number != number or not 0 < number <= 1:
+        return None
+    return number
+
+
+def _model_override(overrides: object, model: str | None) -> object:
+    if not isinstance(overrides, dict) or not model:
+        return None
+    if model in overrides:
+        return overrides[model]
+    for key, value in overrides.items():
+        if isinstance(key, str) and (model.startswith(key + "-") or model.startswith(key + "/")):
+            return value
+    return None
+
+
+def classify_usage_pressure(
+    table: object,
+    purpose: str,
+    *,
+    used: object,
+    capacity: object,
+    model: str | None = None,
+) -> dict[str, str]:
+    """按用途桶判断上下文压力。表缺失、档位坏掉、用量量不到,都是未判定。
+
+    观察:对照程序把用量分成 compact / summary / request / inputTokens 四桶,
+    桶内是 0 到 1 的比例;compact 还可以按模型名覆盖 emergency。
+    本函数不抄那组比例。调用方给表。模型覆盖值非法时不退回桶内原值。
+    """
+    if purpose not in USAGE_PURPOSES or not isinstance(table, dict):
+        return {"disposition": "unjudged", "reason": "table-absent"}
+    bucket = table.get(purpose)
+    if not isinstance(bucket, dict):
+        return {"disposition": "unjudged", "reason": "purpose-absent"}
+    ratios: dict[str, float] = {}
+    for level in _USAGE_SEVERITY:
+        if level not in bucket:
+            continue
+        parsed = _usage_ratio(bucket[level])
+        if parsed is None:
+            return {"disposition": "unjudged", "reason": "level-invalid"}
+        ratios[level] = parsed
+    if "modelOverrides" in bucket and "emergency" in ratios:
+        override = _model_override(bucket.get("modelOverrides"), model)
+        if override is not None:
+            parsed = _usage_ratio(override)
+            if parsed is None:
+                return {"disposition": "unjudged", "reason": "override-invalid"}
+            ratios["emergency"] = parsed
+    if not ratios:
+        return {"disposition": "unjudged", "reason": "levels-absent"}
+    if isinstance(capacity, bool) or not isinstance(capacity, (int, float)) or float(capacity) <= 0:
+        return {"disposition": "unjudged", "reason": "capacity-invalid"}
+    if isinstance(used, bool) or not isinstance(used, (int, float)) or float(used) < 0:
+        return {"disposition": "unjudged", "reason": "used-invalid"}
+    share = float(used) / float(capacity)
+    hit = "clear"
+    for level in _USAGE_SEVERITY:
+        line = ratios.get(level)
+        if line is not None and share >= line:
+            hit = level
+    return {"disposition": hit, "reason": "measured"}
+
+
+def _measured_count(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    if number != number:
+        return None
+    return number
+
+
+def compact_decision(
+    tokens: object,
+    threshold: object,
+    table: object = None,
+    *,
+    capacity: object = None,
+    model: str | None = None,
+) -> dict[str, Any]:
+    """是否该压缩。绝对 token 上限仍是原来那条线。
+
+    没给用途表时只看绝对上限。给了表且 compact 桶到了 emergency 也压缩。
+    表在但判不出时,不把「判不出」当成已经越过比例线。
+    """
+    used = _measured_count(tokens)
+    limit = _measured_count(threshold)
+    absolute = used is not None and limit is not None and limit > 0 and used >= limit
+    if table is None:
+        return {"compact": absolute, "pressure": None}
+    verdict = classify_usage_pressure(
+        table,
+        "compact",
+        used=tokens,
+        capacity=capacity,
+        model=model,
+    )
+    before_message = classify_usage_pressure(
+        table,
+        "inputTokens",
+        used=tokens,
+        capacity=capacity,
+        model=model,
+    )
+    pre_hit = before_message["disposition"] in {"preMessage", "warning", "critical", "emergency"}
+    return {
+        "compact": absolute or verdict["disposition"] == "emergency" or pre_hit,
+        "pressure": verdict,
+        "preMessage": before_message,
+    }
+
+
+def apply_pre_message_compact_pct(table: object, pct: object) -> dict[str, Any]:
+    """把发消息前的压缩线写成调用方给的比例。不改入参。
+
+    比例必须在 0 到 1 之间,并且严格低于同一桶里已经有的 warning / critical / emergency。
+    写上去会打乱这四档次序时,原表不动。
+    """
+    ratio = _usage_ratio(pct)
+    if ratio is None:
+        return {
+            "ok": False,
+            "table": table if isinstance(table, dict) else None,
+            "reason": "pct-invalid",
+        }
+    if table is None:
+        base: dict[str, Any] = {}
+    elif isinstance(table, dict):
+        base = dict(table)
+    else:
+        return {"ok": False, "table": None, "reason": "table-invalid"}
+    current = base.get("inputTokens")
+    if current is None:
+        bucket: dict[str, Any] = {}
+    elif isinstance(current, dict):
+        bucket = dict(current)
+    else:
+        return {"ok": False, "table": base, "reason": "bucket-invalid"}
+    for level in ("warning", "critical", "emergency"):
+        if level not in bucket:
+            continue
+        existing = _usage_ratio(bucket[level])
+        if existing is None or ratio >= existing:
+            return {"ok": False, "table": base, "reason": "order-invalid"}
+    bucket["preMessage"] = ratio
+    base["inputTokens"] = bucket
+    return {"ok": True, "table": base, "reason": "applied"}
+
+
+def pre_message_compact_pct_of(table: object) -> float | None:
+    if not isinstance(table, dict):
+        return None
+    bucket = table.get("inputTokens")
+    if not isinstance(bucket, dict):
+        return None
+    return _usage_ratio(bucket.get("preMessage"))
