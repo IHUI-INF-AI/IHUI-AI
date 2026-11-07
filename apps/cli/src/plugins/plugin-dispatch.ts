@@ -30,10 +30,10 @@
 import type { PluginDefinition, PluginHookContext, PluginLogger, TurnContributorContext } from './types.js';
 
 /** 事件段与 matcher 的分隔符(清单里唯一一种写法;`types.ts` 的 schema 示例同形)。 */
-export const HOOK_DECLARATION_SEPARATOR = ':';
+const HOOK_DECLARATION_SEPARATOR = ':';
 
 /** 显式通配 matcher:声明「这个事件的每一次派发都要叫醒我」。 */
-export const HOOK_MATCHER_WILDCARD = '*';
+const HOOK_MATCHER_WILDCARD = '*';
 
 /** 一条 hook 声明拆成的两段。`matcher === null` 表示清单里**没有**分隔符(整档订阅)。 */
 export interface HookDeclarationParts {
@@ -174,5 +174,4 @@ export async function runCommandContributions(
   return invoked;
 }
 
-export const __test__ = { parseHookDeclaration, hookMatcherSatisfied, hookDeclarationMatches, pluginHookMatches, matcherUnreachableOnHost };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
