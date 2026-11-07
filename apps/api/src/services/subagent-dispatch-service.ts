@@ -36,6 +36,7 @@ import { logger } from '../utils/logger.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { releaseTaskLockByTaskId, toLockReleaseOutcome } from './workspace-lock-heartbeat.js'
 import { broadcastSSEEvent } from './agent-sse-bus.js'
+import { buildWorkerDispatchEnv } from './worker-dispatch-env.js'
 import { WORKER_SESSION_PREFIX } from '@ihui/shared/super-agent'
 // 活跃状态判据的唯一出口(2026-11-01,S-ACTIVE):listActive 与并发计数共用一份
 import { isActiveDispatchStatus } from '../utils/dispatch-status.js'
@@ -1026,6 +1027,19 @@ function evaluateCondition(condition: string | undefined, result: string): boole
 // ai-service 调用
 // ---------------------------------------------------------------------------
 
+/**
+ * 每次派发注入的工人执行上下文：cwd + 清理过的白名单 env。
+ *
+ * 环境现算不落盘（派单记录里不存环境快照）；cwd 来自已落地的绝对工人目录。
+ * 这是**护栏不是沙箱**：同 OS 用户下工人仍可绕过，详见 worker-dispatch-env.ts。
+ */
+function workerExecFields(cwd?: string): Record<string, unknown> {
+  return {
+    ...(cwd ? { cwd } : {}),
+    env: buildWorkerDispatchEnv(),
+  }
+}
+
 type AiCallResult =
   | { ok: true; finalOutput: string; data: AiOrchestrationResult | null }
   | { ok: false; reason: 'not_implemented'; message: string }
@@ -1048,13 +1062,17 @@ async function callAiService(
   agentRole: SubagentRole,
   prompt: string,
   sessionId?: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   let path = ''
   let body: Record<string, unknown> = {}
   // sessionId 只在宿主派发的工人上有值;有值就随编排请求下传(ai-service 三个入口都接受
   // session_id,用于执行会话/记忆归属),不再「收下就丢」。
-  const withSession = (extra: Record<string, unknown>): Record<string, unknown> =>
-    sessionId ? { ...extra, session_id: sessionId } : extra
+  const withSession = (extra: Record<string, unknown>): Record<string, unknown> => ({
+    ...extra,
+    ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
+  })
   if (mode === 'pipeline') {
     path = '/api/v1/ai/agent/pipeline'
     body = withSession({
@@ -1068,13 +1086,13 @@ async function callAiService(
     path = '/api/v1/ai/agent/run-decomposed'
     body = withSession({ task: prompt, strategy: 'dag' })
   } else if (mode === 'debate') {
-    return callAiServiceDebate(agentRole, prompt, sessionId)
+    return callAiServiceDebate(agentRole, prompt, sessionId, cwd)
   } else if (mode === 'vote') {
-    return callAiServiceVote(agentRole, prompt, sessionId)
+    return callAiServiceVote(agentRole, prompt, sessionId, cwd)
   } else if (mode === 'critique') {
-    return callAiServiceCritique(agentRole, prompt)
+    return callAiServiceCritique(agentRole, prompt, cwd)
   } else if (mode === 'with_communication') {
-    return callAiServiceWithCommunication(agentRole, prompt, undefined, sessionId)
+    return callAiServiceWithCommunication(agentRole, prompt, undefined, sessionId, cwd)
   } else {
     return {
       ok: false,
@@ -1149,10 +1167,12 @@ async function callAiServiceDebate(
   primaryRole: SubagentRole,
   prompt: string,
   sessionId?: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
     ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   }
   const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
@@ -1183,6 +1203,7 @@ async function callAiServiceDebate(
     task: arbitrationPrompt,
     strategy: 'dag',
     ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   })
   if (!arbiterRes.ok) return arbiterRes
 
@@ -1214,10 +1235,12 @@ async function callAiServiceVote(
   primaryRole: SubagentRole,
   prompt: string,
   sessionId?: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   const parallelBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: prompt })),
     ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   }
   const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', parallelBody)
   if (!parallelRes.ok) return parallelRes
@@ -1248,6 +1271,7 @@ async function callAiServiceVote(
   const voteBody = {
     items: ALL_ROLES.map((r) => ({ agent: r, input: votePromptBase })),
     ...(sessionId ? { session_id: sessionId } : {}),
+    ...workerExecFields(cwd),
   }
   const voteRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', voteBody)
   if (!voteRes.ok) return voteRes
@@ -1313,6 +1337,7 @@ async function callAiServiceVote(
 async function callAiServiceCritique(
   primaryRole: SubagentRole,
   prompt: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   // 尝试调 ai-service /agents/debate with mode=critique
   const debatePath = '/api/v1/ai/agents/debate'
@@ -1321,6 +1346,7 @@ async function callAiServiceCritique(
     agents: ALL_ROLES,
     topic: prompt,
     maxRounds: 3,
+    ...workerExecFields(cwd),
   }
 
   const controller = new AbortController()
@@ -1446,6 +1472,7 @@ async function callAiServiceWithCommunication(
   prompt: string,
   redisClient?: Redis | null,
   sessionId?: string,
+  cwd?: string,
 ): Promise<AiCallResult> {
   const roles = ALL_ROLES
   const messages: CommunicationMessage[] = []
@@ -1494,6 +1521,7 @@ async function callAiServiceWithCommunication(
     const parallelRes = await callAiServiceEndpoint('/api/v1/ai/agent/parallel', {
       items: agentInputs,
       ...(sessionId ? { session_id: sessionId } : {}),
+      ...workerExecFields(cwd),
     })
 
     if (!parallelRes.ok) {
@@ -2807,7 +2835,7 @@ export class SubagentDispatchService {
       const stepStart = Date.now()
 
       // 超时监控(用 Promise.race)
-      const callPromise = callAiService(mode, role, prompt, dispatch.sessionId)
+      const callPromise = callAiService(mode, role, prompt, dispatch.sessionId, dispatch.directory)
       const result =
         timeoutMs > 0
           ? await Promise.race([
@@ -3071,6 +3099,7 @@ export class SubagentDispatchService {
           node.agentRole,
           nodePrompt,
           dispatch.sessionId,
+          dispatch.directory,
         )
         const stepDuration = Date.now() - stepStart
         const tokenUsage = callResult.ok

@@ -30,6 +30,7 @@ import {
   setTenantConcurrencyLimitResolver,
   subagentDispatchService,
 } from './subagent-dispatch-service.js'
+import { assertWorkerGitConfigSafe } from './worker-dispatch-env.js'
 import { materializeWorkerDirectory } from './worker-workspace.js'
 
 const SUPER_AGENT_SNAPSHOT_KEY = 'state'
@@ -205,6 +206,18 @@ export async function dispatchWorkerWork(work: WorkerAssignment): Promise<{
     // 逻辑目录 → 服务端绝对目录,派发前落地。执行器拿到的是可写真实路径,
     // 而不是只写在 prompt 里的一句话;两个工人各写同名文件因此不会互相覆盖。
     const workerDirectory = materializeWorkerDirectory(work.directory)
+    // 起工人前的 git config 闸门：出现 credential.* / http.*extraheader 就拒绝启动。
+    // 只记键名与目录，不记配置值；失败走下方统一出口 deliveryFailed 记录原因。
+    try {
+      await assertWorkerGitConfigSafe(workerDirectory)
+    } catch (e) {
+      logger.warn('super-agent 工人启动被拒绝：目标目录 git config 不安全', {
+        sessionId: work.sessionId,
+        directory: workerDirectory,
+        reason: e instanceof Error ? e.message : String(e),
+      })
+      throw e
+    }
     const result = await subagentDispatchService.dispatch({
       goal: work.goal,
       affectedFiles: [],
