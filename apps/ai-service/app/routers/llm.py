@@ -1406,6 +1406,7 @@ def _form_pending_entry(session_id: str, request_id: str) -> dict[str, Any] | No
 _TOOL_DANGER_LEVELS: dict[str, str] = {
     # 命令执行:可执行任意命令,最高危
     "run_command": "high",
+    "sandbox_session": "high",
     "execute_command": "high",
     # 删除/移动/git:不可逆操作
     "delete_file": "high",
