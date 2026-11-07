@@ -318,7 +318,7 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
 >
 <p align="center">
   <sub>
-    <code>4722</code> API 路由 · <code>624</code> 张表 · <code>8</code> 端全覆盖 · <code>176</code> 模型 · <code>38</code> 平台发布 · <code>4349</code> 测试文件 · <code>87</code> 守门脚本 · <code>109 万</code>行代码
+    <code>4722</code> API 路由 · <code>624</code> 张表 · <code>8</code> 端全覆盖 · <code>176</code> 模型 · <code>38</code> 平台发布 · <code>4352</code> 测试文件 · <code>87</code> 守门脚本 · <code>109 万</code>行代码
   </sub><br/>
   <sub><strong>每一个数字都在替我说话 —— 不是 PPT,不是画饼,不是占位,每一个数字都能在代码里 grep 到</strong></sub>
 </p>
