@@ -638,3 +638,11 @@ deploy/win/.alert-quiet-ledger.jsonl
 
 # 非本仓交付物(别的项目的 PDF/HTML 产物)误落在仓根;§28 让被忽略的一级条目进只告警层,免得每席位提交都撞应急档
 /deliverables/
+
+# ============================================================================
+# 商店凭据元数据（2026-11-07 移出版本控制）
+# 该文件含内部密钥盘路径、法人主体与证据文件路径；仓库里只保留脱敏模板
+# scripts/data/app-store-credentials.example.json。守门：scripts/check-tracked-ignored.mjs。
+# 本机真实文件保留在磁盘，不入库；其他机器按 example 自行放置。
+# ============================================================================
+scripts/data/app-store-credentials.json
