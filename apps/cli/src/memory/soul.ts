@@ -10,6 +10,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { tryParseJson, isRecord } from '../util/json.js';
+// DBG-44:soul 画像是整份快照,裸写中断会留半截 JSON(load 侧 catch 会把它折成空画像)。
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export interface SoulProfile {
   preferences: string[];
@@ -99,7 +101,8 @@ export class SoulMemory {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(this.filePath, JSON.stringify(this.profile, null, 2), 'utf-8');
+    // DBG-44:改走唯一原子出口;失败语义不变(同步抛,调用方 addPreference/update 照旧冒泡)。
+    writeFileAtomicSync(this.filePath, JSON.stringify(this.profile, null, 2));
   }
 
   /** 文件路径(供外部诊断使用)。 */
