@@ -2085,4 +2085,105 @@ test('3b·端到端③: 非 lost-commit/* 的普通 tag ⇒ 不纳入新维度(�
     rmScratch(dir)
   }
 })
+
+// ─── 30a 结论缓存(2026-11-08):根因是"3b 有未清偿项 ⇒ 一律不写缓存",而本仓该条件恒假 ───
+// 三件套:①红/带缺口结论也必须落缓存且命中后同数同点名;②未清偿集合一变(路径被交付面补齐)
+// 指纹必变、缓存必失效、结论必须翻绿;③指纹本身要能区分"条数相同但成员不同"。
+
+test('30a 结论缓存·命中: 3b 有未清偿项也落缓存,第二轮复用同数同点名', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-cache-gap')
+    writeFileSync(join(dir, 'cache-gap.txt'), 'never-landed\n')
+    git('git add cache-gap.txt')
+    git('git commit -m "cache-gap-dangling"')
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-cache-gap')
+    git(`git tag lost-commit/cache-gap ${oid}`)
+
+    const first = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(first.status, 0, first.stdout)
+    assert.doesNotMatch(first.stdout, /复用 \d+ 分钟前的结论/, '首轮没有缓存件,不得显示复用')
+    assert.match(first.stdout, /↳ 逐路径覆盖:已清偿 0 \/ 未清偿 1/)
+    assert.match(first.stdout, new RegExp(oid.slice(0, 7)), '冷跑必须点名缺口')
+    assert.ok(
+      existsSync(join(dir, '.git', 'ihui-commit-loss-cache.json')),
+      '3b 有未清偿项时也必须落结论缓存(否则每次提交都全量重算 = 本单根因)',
+    )
+
+    const second = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(second.status, 0, second.stdout)
+    assert.match(second.stdout, /复用 \d+ 分钟前的结论/, '判据输入面未变 ⇒ 必须命中缓存')
+    assert.match(second.stdout, /3b 逐路径覆盖\(复用\):已清偿 0 \/ 未清偿 1/)
+    assert.match(second.stdout, /其中有未覆盖路径 1 \/ 无改动路径 merge或空提交 0/)
+    assert.match(second.stdout, new RegExp(oid.slice(0, 7)), '命中路径也必须点名同一枚缺口')
+    assert.match(second.stdout, /⚠/, '带缺口的结论命中时不得打印通过句')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('30a 结论缓存·失效: 未覆盖路径被交付面补齐 ⇒ 必重算且结论翻绿', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-cache-flip')
+    writeFileSync(join(dir, 'cache-flip.txt'), 'never-landed\n')
+    git('git add cache-flip.txt')
+    git('git commit -m "cache-flip-dangling"')
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-cache-flip')
+    git(`git tag lost-commit/cache-flip ${oid}`)
+
+    const warm = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(warm.status, 0, warm.stdout)
+    assert.match(warm.stdout, /↳ 逐路径覆盖:已清偿 0 \/ 未清偿 1/)
+
+    // 变异:把那条未覆盖路径以同路径同 blob 落到交付面 ⇒ 未清偿集合变了
+    writeFileSync(join(dir, 'cache-flip.txt'), 'never-landed\n')
+    git('git add cache-flip.txt')
+    git('git commit -m "land-cache-flip"')
+
+    const after = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(after.status, 0, after.stdout)
+    assert.doesNotMatch(
+      after.stdout,
+      /复用 \d+ 分钟前的结论/,
+      '交付面变了 ⇒ 输入面指纹必变 ⇒ 不得复用旧红结论',
+    )
+    assert.match(after.stdout, /↳ 逐路径覆盖:已清偿 1 \/ 未清偿 0/, '补齐后结论必须翻绿')
+    assert.match(after.stdout, /✅/, '全部清偿时必须仍判绿')
+
+    const hit = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.match(hit.stdout, /复用 \d+ 分钟前的结论/, '翻绿后的结论同样要能命中')
+    assert.match(hit.stdout, /3b 逐路径覆盖\(复用\):已清偿 1 \/ 未清偿 0/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('30a 缓存键·输入面指纹: 顺序无关、成员一一对应、tag 重指必变', () => {
+  const fp = __test__.sortedFingerprint
+  assert.equal(fp(['b', 'a']), fp(['a', 'b']), '同一集合换个顺序不得换指纹')
+  assert.notEqual(fp(['a', 'b']), fp(['a', 'c']), '成员不同必须换指纹')
+  // 条数相同、成员不同(一进一出)也必须不同 —— 否则"改过"会被读成"没改"
+  assert.notEqual(fp(['a', 'b']), fp(['b', 'c']))
+  const t = (hash) => __test__.tagTargetFingerprint([{ tag: 'lost-commit/x', hash }])
+  assert.notEqual(
+    t('a'.repeat(40)),
+    t('b'.repeat(40)),
+    'tag 名单不变但目标被重指 ⇒ 指纹必须变(否则 3b 会复用旧红)',
+  )
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
