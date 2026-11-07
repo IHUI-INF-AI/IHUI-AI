@@ -4536,7 +4536,9 @@ export function serviceHealCadence({
  * - 红经 `notifyGuardRed` 走邮件,沿用"身份 + 内容指纹 4h 去重",无总量封顶;
  * - 未判定**只写日志不喊人**(与 auditPublicPathProbe 同规矩),但必须报名。
  */
-export function auditOpsPatrol(opts = {}) {
+// 2026-11-07 起是 async:默认 runner 走 spawn + Promise(见下方长注),
+// 调用方必须 await —— 漏 await 会让"巡检还在跑"被当成"巡检已结束",把红档吞成静默。
+export async function auditOpsPatrol(opts = {}) {
   const {
     now = Date.now(),
     intervalMs = OPS_PATROL_INTERVAL_MS,
@@ -4567,26 +4569,52 @@ export function auditOpsPatrol(opts = {}) {
     writeFileSync(tickFile, new Date(now).toISOString(), 'utf8')
     const call =
       runner ||
-      (() => {
-        try {
-          const stdout = execFileSync(process.execPath, [script, '--json', '--apply'], {
+      (() =>
+        // 2026-11-07 修(实测生产事故):这条腿单轮 250~720s,原实现用 `execFileSync` ——
+        // 同步阻塞会在这整段时间里把事件循环占死,轮级锁心跳(`setInterval` 30s)一次都响不了。
+        // 后果不是"巡检慢"而是"守护被判死":A11 读到 `心跳停了 620s 未续 ⇒ 停在 main:post-feedback-loop`,
+        // 而真相是轮次正在正常巡检。改用 spawn + Promise 后事件循环空出来,心跳照常续,
+        // 让「腿耗时长」与「轮次是否活着」彻底解耦。
+        new Promise((resolve) => {
+          const child = spawn(process.execPath, [script, '--json', '--apply'], {
             cwd: WORKTREE,
             windowsHide: true, // §5b:漏此参数在计划任务/守护下必弹控制台窗
-            timeout: OPS_PATROL_TIMEOUT_MS, // 守门 80:热路径派生一律带上限
-            maxBuffer: 1 << 22,
             stdio: ['ignore', 'pipe', 'pipe'],
-            encoding: 'utf8',
           })
-          return { status: 0, stdout: String(stdout || ''), stderr: '' }
-        } catch (e) {
-          return {
-            status: typeof e.status === 'number' ? e.status : 2,
-            stdout: String(e.stdout || ''),
-            stderr: String(e.stderr || e.message || ''),
-          }
-        }
-      })
-    const r = call()
+          let out = ''
+          let errOut = ''
+          let timedOut = false
+          // 守门 80:热路径派生一律带上限。异步化之后超时仍是必需的 ——
+          // 只是它现在只掐子进程,不再顺带把整轮守护的判活一起掐掉。
+          const timer = setTimeout(() => {
+            timedOut = true
+            try {
+              child.kill('SIGKILL')
+            } catch {
+              /* 已自行退出 */
+            }
+          }, OPS_PATROL_TIMEOUT_MS)
+          child.stdout.on('data', (b) => {
+            if (out.length < 1 << 22) out += b
+          })
+          child.stderr.on('data', (b) => {
+            if (errOut.length < 1 << 20) errOut += b
+          })
+          // error 与 close 都会到,先到者定稿;resolve 幂等,不会被第二次覆盖。
+          child.on('error', (e) => {
+            clearTimeout(timer)
+            resolve({ status: 2, stdout: out, stderr: String(e?.message || e) })
+          })
+          child.on('close', (code) => {
+            clearTimeout(timer)
+            resolve({
+              status: timedOut ? 2 : typeof code === 'number' ? code : 2,
+              stdout: out,
+              stderr: timedOut ? `超时 ${Math.round(OPS_PATROL_TIMEOUT_MS / 1000)}s 被掐` : errOut,
+            })
+          })
+        }))
+    const r = await call()
     let parsed = null
     try {
       parsed = JSON.parse(String(r.stdout || ''))
@@ -13959,7 +13987,7 @@ async function main() {
     if (!CHECK_ONLY) checkConvergeAlignStall()
     // 元运维巡检(尺子 = scripts/check-ops-patrol.mjs):判"没发生"的那一族。它按设计不能进提交链
     // (判机器状态 ⇒ 恒红 ⇒ 每台每次 --no-verify),而本行就是它唯一的调度器。
-    if (!CHECK_ONLY) auditOpsPatrol()
+    if (!CHECK_ONLY) await auditOpsPatrol()
     // lint-staged stdio 三针盯针:与上一行同挂点语义(判机器状态 ⇒ 不进提交链,§12e),45 分钟节流。
     if (!CHECK_ONLY) auditLintStagedPins()
     // 反馈闭环断点(2026-10-28 立,尺子 = scripts/feedback-loop-status.mjs):闭环器件此前零自动
@@ -14232,7 +14260,10 @@ function startDaemon(bootGuard = null) {
   log(`守护模式启动(间隔 ${intervalMs}ms) — 监控 ${POINTER} + ${GITDIR}`)
   log(`git=${bin || '(未找到!)'} ${GIT_VERSION || ''} safe.directory=* (每次调用显式传入)`)
   log(`嵌套 ref 存续守护: 清单 ${REFS_MANIFEST}(缺失即离线重建 + packed-refs 固化)`)
-  const tick = () => {
+  // 2026-11-07 起是 async:元运维巡检腿改成 spawn + Promise(见 auditOpsPatrol 的长注),
+  // 不 await 就等于把那腿的结论与判红全部丢进虚空。await 之后 tick 的异常传播路径
+  // 由 uncaughtException 变为 unhandledRejection —— 两条都已被入口处的 crashExit 收口,语义不变。
+  const tick = async () => {
     // 锁覆盖整轮 tick:daemon 从启动起一直持有轮级锁,所有副作用都在锁内。
     // 每轮先续心跳;续不上(文件被挪走 / 易主)⇒ 先 release 清掉本进程 held 表里的旧条目,
     // 否则 acquire 会把"文件已不在"误判成可重入;重新取得失败则本轮不执行任何副作用。
@@ -14297,7 +14328,7 @@ function startDaemon(bootGuard = null) {
         checkConvergeAlignStall()
         // 元运维巡检:与 main() 单轮路径同一挂点语义,共用 .ihui-agent/state/ops-patrol-tick.ts 节流戳
         // ⇒ 双执行体并存时只有先到那一个真跑,不会翻倍发信。
-        auditOpsPatrol()
+        await auditOpsPatrol()
         // P5 公网路径探测(票 G-301):此前只挂 main() 单轮路径,而本机常驻载体是 `--daemon`
         // ⇒ tick 戳停在 2026-11-01T18:54Z,元运维巡检连续 400+ 分钟判「P5·公网路径探测过旧」。
         // 与 main() 同一挂点语义,共用 .ihui-agent/state/public-path-probe-tick.ts 节流戳(30min)
