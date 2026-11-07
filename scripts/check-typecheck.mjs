@@ -68,6 +68,11 @@ import { formatDuration, formatSummaryLine, readTimings, summarizeTimings } from
 // 通用判据 widenFilesOverDependents 已提升到 lib,本门固定 face='worktree' 薄封装)。
 import { buildFileGraph, widenFilesOverDependents } from './lib/import-graph.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
+// T1 超时预算棘轮的唯一判据实现住 lib;本门只消费。
+// 立因(2026-11-07 机主令):算术一致(base+margin)拦不住真正放水 —— 把 margin 从 15 万
+// 改到 30 万,derived 同步加 15 万,等式照样成立、门照绿。故 marginMs 变更必须同批在
+// evidence[] 追加一条「凭什么改」;只涨数字不加证据 ⇒ 本门判红。
+import { checkMarginRatchet } from './lib/gate-timeout-budget.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -648,6 +653,37 @@ if (_fast) {
   )
   process.exit(r.status ?? 1)
 }
+
+// ─── 超时预算棘轮(2026-11-07 机主令) ────────────────────────────────
+// 比对对象是「本次 HEAD」与「上一提交 HEAD^」的预算文件:marginMs 变了但 evidence[]
+// 没有增长 ⇒ 判红并给出改法。无 git / 浅克隆 / 首次引入该文件 ⇒ 不拦(不得因缺历史洗绿
+// 任何已存在的红点,也不得把正常开发判红)。
+function enforceTimeoutBudgetRatchet() {
+  const readAt = (ref) => {
+    const r = spawnSync('git', ['show', `${ref}:scripts/data/gate-timeout-budget.json`], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    if (r.status !== 0 || !r.stdout) return null
+    try {
+      return JSON.parse(r.stdout)
+    } catch {
+      return null
+    }
+  }
+  const cur = readAt('HEAD')
+  if (!cur) return
+  const prev = readAt('HEAD^')
+  const errors = checkMarginRatchet('T1', prev?.gates?.T1, cur?.gates?.T1)
+  if (errors.length === 0) return
+  console.error('[check-typecheck] ❌ T1 超时预算棘轮未通过 —— 拒绝把放水当预算:')
+  for (const e of errors) console.error(`  · ${e}`)
+  process.exit(1)
+}
+
+enforceTimeoutBudgetRatchet()
 
 console.log(
   `[check-typecheck] 运行全量 typecheck(node scripts/typecheck-full.mjs,实时透传输出)${scopeEnabled ? ` [${scopeLabel} 降级启用,${scopeFiles.length} 文件(原始 ${scopeFilesRaw.length} + 反向依赖新增 ${_widen.added.length})]` : ' [无可判定改动范围,无降级]'}...`,
