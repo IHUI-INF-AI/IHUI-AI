@@ -75,19 +75,37 @@ describe('email-templates — 验证码', () => {
 })
 
 // 邮件正文禁用 JS ⇒ 「一键复制」必须是真实 <a> 链接把码带到站点落地页,
-// 而不是邮件里写 navigator.clipboard。以下钉子同时钉住死链与参数注入两型回归。
+// 而不是邮件里写 navigator.clipboard。以下钉子同时钉住死链、参数注入、
+// 以及「按钮文案/位置」这条用户明确给的视觉契约三型回归。
 describe('email-templates — 验证码一键复制(落地页中转)', () => {
   it('四个发码场景都带防弹复制按钮,链接携带 code/scene/exp', () => {
     for (const scene of ['register', 'login', 'reset', 'bind'] as const) {
       const r = renderVerificationEmail('582914', scene)
-      expect(r.html).toContain('一键复制验证码')
+      expect(r.html).toContain('>一键复制</a>')
       expect(r.html).toContain(
         `href="${PUBLIC_FALLBACK}${VERIFY_CODE_COPY_PATH}?code=582914&amp;scene=${scene}&amp;exp=5"`,
       )
       expect(r.html).toContain('target="_blank"')
-      // 防弹按钮 = table bgcolor + <a>,QQ 邮箱剥字体后仍可点
-      expect(r.html).toContain('bgcolor="#B4FF00"')
+      // 细描边胶囊 = table bgcolor(深底) + 1px 酸绿边 + <a>,QQ 邮箱剥字体后仍可点
+      expect(r.html).toContain('border:1px solid #B4FF00')
+      expect(r.html).toContain('bgcolor="#0A0A0C"')
     }
+  })
+
+  it('按钮文案严格只有「一键复制」四字,且与验证码同一行、位于其右侧', () => {
+    const r = renderVerificationEmail('582914', 'register')
+    expect(r.html.match(/>一键复制<\/a>/g)).toHaveLength(1)
+    expect(r.html).not.toContain('一键复制验证码')
+    expect(r.html).not.toContain('一键复制 →')
+    expect(r.html).not.toContain('一键复制 ·')
+    const codeAt = r.html.indexOf('>582914</div>')
+    const btnAt = r.html.indexOf('>一键复制</a>')
+    expect(codeAt).toBeGreaterThan(-1)
+    expect(btnAt).toBeGreaterThan(codeAt)
+    // 两者之间不出现 </tr> ⇒ 同一个 <tr> 的两个 <td>,按钮不在下一行
+    const between = r.html.slice(codeAt, btnAt)
+    expect(between).not.toContain('</tr>')
+    expect(between).toContain('<td')
   })
 
   it('有效期分钟数同时注入文案与落地页 exp 参数', () => {
@@ -117,7 +135,7 @@ describe('email-templates — 验证码一键复制(落地页中转)', () => {
   it('一键复制按钮只属于验证码邮件,其它事务邮件不得混入', () => {
     const welcome = renderWelcomeEmail({ nickname: '李总', maskedId: 'x', initCredits: 1 })
     expect(welcome.html).not.toContain(VERIFY_CODE_COPY_PATH)
-    expect(welcome.html).not.toContain('一键复制验证码')
+    expect(welcome.html).not.toContain('一键复制')
     expect(welcome.html).toContain('href="https://aizhs.top/dashboard"')
   })
 
