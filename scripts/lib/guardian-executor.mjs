@@ -26,6 +26,9 @@ import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { gitRaw } from './face-reader.mjs'
+// 2026-11-07:按门预算从 scripts/data/land-gate-budgets.json 取(双键 gateId+script);
+// 取数实现只在 lib/gate-timeout-budget.mjs 一份,本文件不写第二套。
+import { DEFAULT_WAIT_TIMEOUT_MS, resolveGateTimeout } from './gate-timeout-budget.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
 // 独立 lib(执行逻辑逐字搬,闭包引用改 ctx 参数);本文件只保留调用点与数组本体。
 import { pushGateCacheEarlyExit, writePushGateCache } from './guardian-pushgate-cache.mjs'
@@ -481,15 +484,21 @@ const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
 // 挂住时整条提交链无界等待。并行与串行共用同一枚旋钮 GUARDIAN_GATE_TIMEOUT_MS(0 = 仅排障关闭),
 // 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
 // 绝不静默洗成通过。
-const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
-// 预算来源必须可读:env-override 是"这一次命令"的临时放宽,default 才是常态;
-// 排障关闭(0)单列,免得日志里 0 被误读成"没有上限"。
-const gateTimeoutSource =
-  process.env.GUARDIAN_GATE_TIMEOUT_MS === undefined
-    ? 'default'
-    : Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0
-      ? 'env-override'
-      : 'env-disabled'
+// 每门的预算(2026-11-07 起):在册门从 `scripts/data/land-gate-budgets.json` 取(双键 gateId+script),
+// 不在册回落表内 defaultTimeoutMs。env `GUARDIAN_GATE_TIMEOUT_MS` 仍是**覆盖式且优先**:设了就压掉
+// 表预算(已知行为 —— 用 300000 覆盖 T1 的 547650 仍会压回 300s);0 = 仅排障关闭。
+// 取数不许在本文件另写一套:在册与否只由 lib/gate-timeout-budget.mjs 判。
+function resolveGateBudget(check) {
+  const raw = process.env.GUARDIAN_GATE_TIMEOUT_MS
+  if (raw !== undefined) {
+    const n = Number(raw)
+    const on = Number.isFinite(n) && n > 0
+    return { ms: on ? n : 0, waitMs: DEFAULT_WAIT_TIMEOUT_MS, source: on ? 'env-override' : 'env-disabled', entry: null, warning: null }
+  }
+  const r = resolveGateTimeout({ gateId: check?.id, script: check?.script, root: process.cwd() })
+  return { ...r, source: r.entry ? 'table' : 'default' }
+}
+const budgetWarned = new Set()
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -620,12 +629,12 @@ async function dispatchPar(check, cmdArgs) {
   //   后果一项没减:这一族仍 failed++、仍非零退出、提交仍被拦 —— 改的只是"没判"不许写成"判过"(§0.3)。
   //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
   //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
-  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
-  // gateTimeoutMs 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
-  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
+  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用);常态预算按门取:在册门读预算表,其余 300s。
+  const budget = resolveGateBudget(check)
+  if (Number.isFinite(budget.ms) && budget.ms > 0) {
     gateTimer = setTimeout(() => {
       if (finished) return
-      const te = new Error(`守门脚本超时未退出(${gateTimeoutMs}ms)—— ${check.id} ${check.script}`)
+      const te = new Error(`守门脚本超时未退出(${budget.ms}ms)—— ${check.id} ${check.script}`)
       te.code = 'ETIMEDOUT'
       try {
         child.kill('SIGKILL')
@@ -637,7 +646,7 @@ async function dispatchPar(check, cmdArgs) {
         job.stdout = Buffer.concat(outChunks).toString('utf8')
         job.stderr = Buffer.concat(errChunks).toString('utf8')
       })
-    }, gateTimeoutMs)
+    }, budget.ms)
   }
 }
 
@@ -678,13 +687,18 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
   }
   // 先落实时进度(纯观测,不参与判据):调用方 stdout 被缓冲时,这是唯一能看出"跑到哪"的口子。
   appendGateProgress(check, r, elapsedNow)
-  // 四数留痕(waitMs/runMs/limitMs/limitSource):只在 env-override 时逐门打印,
-  // 常态不刷屏。waitMs = 从本批开始到该门启动(排队/装配等待),runMs = 门真实运行时长。
-  if (gateTimeoutSource === 'env-override') {
+  // 四数留痕(waitMs/runMs/limitMs/limitSource):env 覆盖与在册门逐门打印,其余常态不刷屏。
+  // waitMs = 从本批开始到该门启动(排队/装配等待),runMs = 门真实运行时长。
+  const budget = resolveGateBudget(check)
+  if (budget.warning && !budgetWarned.has(check.id)) {
+    budgetWarned.add(check.id)
+    console.warn(`  ⚠ [${check.id}] ${budget.warning}`)
+  }
+  if (budget.source === 'env-override' || budget.entry) {
     const waitMs = Math.max(0, Math.round(checkStart - startTime))
     try {
       process.stderr.write(
-        `  ⏱ ${check.id} waitMs=${waitMs} runMs=${elapsedNow} limitMs=${gateTimeoutMs} limitSource=${gateTimeoutSource}\n`,
+        `  ⏱ ${check.id} waitMs=${waitMs} runMs=${elapsedNow} limitMs=${budget.ms} limitSource=${budget.source}\n`,
       )
     } catch {
       /* 观测行失败不影响判据 */
@@ -983,6 +997,7 @@ for (const check of effectiveChecks) {
   await flushParBuffer()
   console.info(`[${check.id}] ${check.label}...`)
   const checkStart = Date.now()
+  const budget = resolveGateBudget(check)
 
   // 2026-09-29:执行改走 spawnSync —— 唯一理由是**要读到子进程 stderr**(崩溃指纹只在那里)。
   // execSync 在 stdio:'pipe' 下只回 stdout,成功门的 stderr 会被**吞掉**,那是比"分不清崩溃与判红"
@@ -996,8 +1011,8 @@ for (const check of effectiveChecks) {
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
     // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
-    // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
-    timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
+    // 与并行档共用同一套按门预算;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
+    timeout: Number.isFinite(budget.ms) && budget.ms > 0 ? budget.ms : 0,
   })
   applyGateResult(check, r, checkStart, cmdArgs)
 }

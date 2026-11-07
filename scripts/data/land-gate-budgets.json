@@ -1,0 +1,91 @@
+{
+  "$comment": [
+    "落地后置复跑的**按臂预算登记表**(2026-11-06 立)。",
+    "为什么要有这本表:注册表臂缺省预算 300s,而门 30a 静默态实测 506s(rc=0,判定是绿的),",
+    "于是它在旁路落地通道上**每轮都被掐死**,读数永远是 `rc=killed ⇒ 未判定`。",
+    "§0.3 的『取不到不记绿』是对的,但永远取不到就不是保守而是坏了 —— 它把每一次落地的自证拖一格,",
+    "而恒不可满足的读数与恒红门是同一类病(§12e)。",
+    "规矩:① 只登记**实测过**的臂,`measuredMs` + `note` 缺一即被判据剔出该行;",
+    "② 未被登记的臂行为与改前逐字相同(缺省 300s 不动,不为一格把全局抬高);",
+    "③ 超时一律落 `undetermined` 而不是判红,本表不改变这一条;",
+    "④ 抬高预算的理由必须是量出来的耗时,不能是『它最近老红』。"
+  ],
+  "defaultTimeoutMs": 300000,
+  "gates": [
+    {
+      "gateId": "30a",
+      "script": "check-commit-loss-guard.mjs",
+      "timeoutMs": 900000,
+      "measuredMs": 506000,
+      "measuredAt": "2026-11-06",
+      "note": "门 30a;静默态单跑 rc=0 / 506s(31 万对象级 reflog + fsck 可达性)。900s = 实测 ×1.8 余量,与并发无关。出处:scripts/lib/land-gate-rerun.mjs 头注同一读数。**不是历史残值**:2026-11-07 复核确认 30a 在用(=506s×1.8),勿按残值删除;注意全局 GUARDIAN_GATE_TIMEOUT_MS 是覆盖式,设 600000 会把这格压回 600s。另:**门 300 的分段计时实证**(2026-11-07,API 那批推送,本表暂无 300 条目故登记于此):waitMs=465602 / runMs=17303,整批 488.5s —— 95.4% 的时间在排队,真跑只有 17.3s。**拿墙钟比阈值等于把等锁算成门慢**:按墙钟这道 17 秒的门会被记成 8 分钟并诱导加预算;要动预算先量 runMs,不是先量墙钟。"
+    },
+    {
+      "gateId": "T1",
+      "script": "check-typecheck.mjs",
+      "timeoutMs": 547650,
+      "waitTimeoutMs": 600000,
+      "phaseProtocol": true,
+      "measuredMs": 365100,
+      "measuredAt": "2026-11-07",
+      "baseMs": 365100,
+      "marginMs": 182550,
+      "derivedMs": 547650,
+      "evidence": [
+        {
+          "date": "2026-11-07",
+          "marginMs": 182550,
+          "reason": "push 形态(清 .tsbuildinfo + 重建 11 包)空载实跑 365.1s / rc=0;这是钩子实际跑的形态,定为 baseMs。",
+          "sources": [
+            "D:\\IHUI-AI (main worktree)",
+            "pre-push-gate.log 2026-11-07 空载重推",
+            "单门实测 rc=0 365.1s"
+          ]
+        },
+        {
+          "date": "2026-11-07",
+          "marginMs": 182550,
+          "reason": "全量形态空载 565.6s / rc=0;更慢但不用于定阈值(钩子不跑全量),仅作上限记录。",
+          "sources": ["D:\\IHUI-AI (main worktree)", "全量单跑实测 rc=0 565.6s"]
+        },
+        {
+          "date": "2026-11-07",
+          "marginMs": 182550,
+          "reason": "真实推送被 300s 看门狗掐掉:300021ms,日志里「另一全量 typecheck 进行中(pid 39560),串行等待...」连续 7 行(整份 56 行),之后没有任何 pnpm/tsc 输出 ⇒ 300 秒全花在等锁,门没跑起来。",
+          "sources": [
+            "D:\\IHUI-AI",
+            ".ihui-agent/state/hook-logs/pre-push-gate.log 2026-11-07 那次被砍的推送"
+          ]
+        },
+        {
+          "date": "2026-11-07",
+          "marginMs": 182550,
+          "reason": "同门空载重推真跑 231.9s,整批 493.5s / 7 门全过 ⇒ 同一道门两次差一个数量级,差别来自排队不来自执行;waitTimeoutMs=600000 的来源是他人一次全量 365–565s,排队上限略高于它。",
+          "sources": [
+            "D:\\IHUI-AI",
+            "pre-push-gate.log 2026-11-07 空载重推",
+            "T1 真跑 231.9s / 整批 493.5s / rc=0"
+          ]
+        },
+        {
+          "date": "2026-11-07",
+          "marginMs": 182550,
+          "reason": "同日跨线复核(infra 独立读数 + 其他线墙钟):infra T1 非门内 WAIT_MS=12186 / RUN_MS=293757 / WALL_MS=305943 / EXIT=0,门是跑完的,纯粹墙钟越过 300s 缺省;同日其他线 105.7s、176.9s、231.9s、339.9s(峰值)。峰值 339.9s 仍低于 baseMs 365.1s ⇒ baseMs 继续成立、不抬高;这两笔并入证据,用于证明 300s 缺省不够而不是门变慢。",
+          "sources": [
+            "infra 线 T1 独立读数 RUN_MS=293757 / WALL_MS=305943 / EXIT=0",
+            "同日四线 T1 读数 105.7 / 176.9 / 231.9 / 339.9s"
+          ]
+        }
+      ],
+      "note": "push 门全量 typecheck。空载两形态都量过:push 形态(清 .tsbuildinfo + 重建 11 包)365.1s(rc=0)、全量形态 565.6s(rc=0);钩子里跑的是 push 形态。547650ms = push 形态 365.1s × 1.5 = 547.65s(不拿 565.6s 那档去凑)。排队等锁另计:waitTimeoutMs=600s 的依据是「别人一次全量 typecheck 实测 365.1–565.6s」,排队上限略高于他人单次最长,避免把一次正常排队判成超限;这两段时间分开计(waitMs / runMs),等锁超限只算可重试的未判定。phaseProtocol=true 表示该门会打 #ihui-gate-phase:run-start,执行器据此把计时起点移到真正开始执行处。实证对照:一次 300021ms 全等锁被砍(日志 7 行串行等待、无任何 tsc 输出) vs 一次空载真跑 231.9s 全过 —— 同门的数量级差别来自排队。2026-11-07 复核:infra 线独立读数 RUN_MS=293757 / WALL_MS=305943(EXIT=0,门跑完,只超墙钟),同日其他线 105.7/176.9/231.9/339.9s;峰值 339.9s 仍低于 baseMs 365.1s ⇒ baseMs 不抬高,derivedMs 维持 547.65s。"
+    },
+    {
+      "gateId": "98",
+      "script": "check-dangling-local-imports.mjs",
+      "timeoutMs": 600000,
+      "measuredMs": 201242,
+      "measuredAt": "2026-11-06",
+      "note": "门 98 的 --rev HEAD --anchor HEAD^ 两面全量审实测 201s(阶段剖析:auditTree 13,479 文件 = 93s/面)。缺省 300s 在并发 8 臂下不够,而落地器自己早已对同一条 CLI 用 10 分钟(IHUI_LAND_DANGLING_GATE_TIMEOUT_MS)⇒ 两通道同一条量纲取 600s,不各拍各的。"
+    }
+  ]
+}
