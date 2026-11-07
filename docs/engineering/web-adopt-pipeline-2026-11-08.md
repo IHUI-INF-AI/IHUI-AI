@@ -115,19 +115,64 @@
 `node scripts/web-adopt-shared-screen.mjs --survey`
 
 - 机判分母 **219**：总账 226 条 adopt − 10 条总账有、本门未纳入（9 条属别条产线屏按边界剔除，`exam/[id]` 已局部接共享屏）＋ 3 条总账未列 adopt 但本门认为可判（`live`、`articles`、`exam/[id]/result`）。
-- **宿主修正前**读数：62 条「共享屏已有能力覆盖」；**修正后重算：71 条**。原因是映射表在「已委托」行把 `rn` 指向共享屏，流水线把共享屏当 RN 壳读，导致 R1/R2 误报；改读跨端登记表的真壳后，9 条路由的能力缺口消失。219 条里 **118 条**（54%）的宿主路径原本读错。
-- **22 条**候选在登记表里查不到 RN 壳，现判「未判定」并以 exit 2 停下（不回退映射表 `rn`、不给错的宿主职责栏）。
-- **0 条**通过完整形态筛选（含 props 可从宿主现有状态映射）。
-- 拒绝原因分布（可重叠，修正后）：
+- **宿主修正前**读数:62 条「共享屏已有能力覆盖」;**修正后重算:71 条**。
+- **定性:这是读数口径修正,不是能力变多。** 62→71 的 9 条全部是 R1/R2 误报消失(旧判定把共享屏当 RN 壳,web 领域 API/领域工具在“壳”里当然找不到);另有 22 条从「拿共享屏顶替」退回诚实的「未判定」。合计 **118 条(54%)** 宿主路径原本读错。219 条里没有任何一条真的多出了能力。
+- **0 条**通过完整形态筛选(含 props 可从宿主现有状态映射)。
+- 拒绝原因分布(可重叠,修正后):
 
 | 规则 | 条数 | 含义 |
 | --- | --- | --- |
-| R5 结构 | 88 | 多导出组件 / 多顶层 return，机械替换不安全 |
-| R6 props | 72 | 能力齐平但 props 需宿主重新设计（含 `t` 命名空间映射） |
+| R5 结构 | 88 | 多导出组件 / 多顶层 return,机械替换不安全 |
+| R6 props | 72 | 能力齐平但 props 需宿主重新设计(含 `t` 命名空间映射) |
 | R3 平台能力 | 35 | 文件选择/剪贴板/分享/富文本/媒体在共享屏无注入点 |
 | R2 领域工具 | 26 | web 有 RN/共享屏没有的领域工具 |
 | R1 领域 API | 20 | web 有 RN 壳没有的领域接口 |
 | R4 多面板 | 8 | 共享屏只覆盖页面的一块 |
+
+### 5.1 被误判的 9 条(旧 R1/R2 → 新仅 R6)
+
+对比方法:`git show 75c8e01d93^:scripts/web-adopt-shared-screen.mjs`（原提交 `000ace2973^`）临时落盘,与修正后 `--survey --json` 逐条 diff;临时文件已删除,不入提交。
+
+| # | 路由 | 修正前规则 | 修正后规则 | 真实 RN 壳 |
+| --- | --- | --- | --- | --- |
+| 1 | `user/ask` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/AskListScreen.tsx` |
+| 2 | `account-pool` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/AccountPoolScreen.tsx` |
+| 3 | `exam` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/ExamScreen.tsx` |
+| 4 | `points` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/PointsScreen.tsx` |
+| 5 | `subscriptions` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/SubscriptionsScreen.tsx` |
+| 6 | `image-gen/gallery` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/ImageGenGalleryScreen.tsx` |
+| 7 | `image-gen/history` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/ImageGenHistoryScreen.tsx` |
+| 8 | `image-gen/templates` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/ImageGenTemplatesScreen.tsx` |
+| 9 | `student/wrong-book` | R1-领域API | R6-props | `apps/mobile-rn/src/screens/WrongQuestionsScreen.tsx` |
+
+### 5.2 22 条登记表缺 RN 行的路由(待办,不补登记行)
+
+全部满足:映射表 `status=aligned`,跨端登记表**查无此行**(shared/rn 都不命中);web 页自实现,未接共享屏。补一行等于宣布「这屏有 RN 壳」,那是判断不是填空,故只列待办。
+
+| # | 路由 | 登记表现状 | web 实现 | RN 实现(实壳) |
+| --- | --- | --- | --- | --- |
+| 1 | `login` | 缺行 | `apps/web/app/login/page.tsx` | `apps/mobile-rn/src/screens/LoginScreen.tsx`(映射表误指共享源) |
+| 2 | `mcp-store` | 缺行 | `apps/web/app/(main)/mcp-store/page.tsx` | `apps/mobile-rn/src/screens/McpStoreScreen.tsx`(映射表误指共享源) |
+| 3 | `edu/edu-management/grades` | 缺行 | `apps/web/app/(main)/edu/edu-management/grades/page.tsx` | `apps/mobile-rn/src/screens/EduGradesScreen.tsx` |
+| 4 | `edu/edu-management/enrollment` | 缺行 | `apps/web/app/(main)/edu/edu-management/enrollment/page.tsx` | `apps/mobile-rn/src/screens/EduEnrollmentScreen.tsx` |
+| 5 | `edu/edu-management/finance` | 缺行 | `apps/web/app/(main)/edu/edu-management/finance/page.tsx` | `apps/mobile-rn/src/screens/EduFinanceScreen.tsx` |
+| 6 | `edu/edu-management/meal` | 缺行 | `apps/web/app/(main)/edu/edu-management/meal/page.tsx` | `apps/mobile-rn/src/screens/EduMealScreen.tsx` |
+| 7 | `edu/edu-management/schedule` | 缺行 | `apps/web/app/(main)/edu/edu-management/schedule/page.tsx` | `apps/mobile-rn/src/screens/EduScheduleScreen.tsx` |
+| 8 | `edu/edu-management/scheduling` | 缺行 | `apps/web/app/(main)/edu/edu-management/scheduling/page.tsx` | `apps/mobile-rn/src/screens/EduSchedulingScreen.tsx` |
+| 9 | `edu/parent/bind` | 缺行 | `apps/web/app/(main)/edu/parent/bind/page.tsx` | `apps/mobile-rn/src/screens/EduParentBindScreen.tsx` |
+| 10 | `edu/parent/children/[childId]/courses` | 缺行 | `apps/web/app/(main)/edu/parent/children/[childId]/courses/page.tsx` | `apps/mobile-rn/src/screens/EduChildScheduleScreen.tsx` |
+| 11 | `edu/parent/children/[childId]/attendance` | 缺行 | `apps/web/app/(main)/edu/parent/children/[childId]/attendance/page.tsx` | `apps/mobile-rn/src/screens/EduChildAttendanceScreen.tsx` |
+| 12 | `edu/parent/children/[childId]/grades` | 缺行 | `apps/web/app/(main)/edu/parent/children/[childId]/grades/page.tsx` | `apps/mobile-rn/src/screens/EduChildGradesScreen.tsx` |
+| 13 | `edu/parent/children/[childId]/meals` | 缺行 | `apps/web/app/(main)/edu/parent/children/[childId]/meals/page.tsx` | `apps/mobile-rn/src/screens/EduChildMealsScreen.tsx` |
+| 14 | `edu/parent/children/[childId]/study-plans` | 缺行 | `apps/web/app/(main)/edu/parent/children/[childId]/study-plans/page.tsx` | `apps/mobile-rn/src/screens/EduChildStudyPlansScreen.tsx` |
+| 15 | `models/prompts` | 缺行 | `apps/web/app/(main)/models/prompts/page.tsx` | `apps/mobile-rn/src/screens/ModelsPromptsScreen.tsx` |
+| 16 | `agreement/[type]` | 缺行 | `apps/web/app/(main)/agreement/[type]/page.tsx` | `apps/mobile-rn/src/screens/AgreementByTypeScreen.tsx` |
+| 17 | `ai-career` | 缺行 | `apps/web/app/(main)/ai-career/page.tsx` | `apps/mobile-rn/src/screens/AiCareerScreen.tsx` |
+| 18 | `ai-world/history` | 缺行 | `apps/web/app/(main)/ai-world/history/page.tsx` | `apps/mobile-rn/src/screens/AiWorldHistoryScreen.tsx` |
+| 19 | `bi-dashboard` | 缺行 | `apps/web/app/(main)/bi-dashboard/page.tsx` | `apps/mobile-rn/src/screens/DashboardScreen.tsx` |
+| 20 | `registry` | 缺行 | `apps/web/app/(main)/registry/page.tsx` | `apps/mobile-rn/src/screens/McpStoreScreen.tsx`(映射表疑错位,无 `RegistryScreen`) |
+| 21 | `edu/attendance` | 缺行 | `apps/web/app/(main)/edu/attendance/page.tsx` | `apps/mobile-rn/src/screens/EduMyAttendanceScreen.tsx` |
+| 22 | `business-card` | 缺行 | `apps/web/app/(main)/business-card/page.tsx` | `apps/mobile-rn/src/screens/BusinessCardScreen.tsx` |
 
 ### 结论数字
 
@@ -139,7 +184,7 @@
 
 从 71 条能力齐平里挑，优先小面 + 无富文本 + 无多面板：
 
-1. `settings/icp-record`（props 5；宿主侧只需 `t` mapper 与 `onBack`，`onCopy/onQuery` 按决定不注入；卡在内容口径，见 `icp-record-content-diff-2026-11-08.md`）；
+1. `settings/icp-record`（props 5；共享屏 label 错位已按“补公网安备标签、撤无值范围行”修掉，复制卡改为无 `onCopy` 不渲染；宿主侧只需 `t` mapper 与带降级的 `onBack`；页面草案 `icp-record-adoption-2026-11-08.diff` 标内容待定，卡在三条事实口径与行内外链退让）；
 2. `member/feedback`（props 4）；
 3. `edu/progress`（props 5）。
 
@@ -155,4 +200,20 @@
 
 - `221c85c80a`（原提交 `b0bc712cb6`，291 修法）原提交信息未带 `immutable-exempt`；重落分支以 `221c85c80a` 补声明，原提交保留在旧分支、不删不改。
 - `trackedFiles` 是**按分支各自的树面**计算的（`staged` 面 = 该树 `git ls-files --cached`，不含未跟踪）；本分支读数只对本树成立，**合入时以目标分支重算为准，README 生成块冲突不手工挑边**。
+
+## 9. 已接屏 `colorScheme` 扫描（2026-11-08）
+
+判据：web 宿主把共享屏当子组件调用时，`colorScheme` 传的是字面量还是主题值。
+
+| 文件:行 | 现状 | 处理 |
+| --- | --- | --- |
+| `apps/web/app/(main)/wallet/withdraw/page.tsx:136` | `"light"` 字面量（暗色用户看到亮色页，已上线退化） | **本轮修**：改从 `apps/web/src/hooks/use-theme.ts` 的 `resolvedTheme` 注入，单独一枚提交 |
+| `apps/web/app/(pilot)/shared-pilot/page.tsx:120/128/131/159` | `"light"` 字面量 4 处 | 只报，不批量改 |
+| `apps/web/app/h5/share/[code]/PageClient.tsx:168` | `"light"` 字面量 | 只报，不批量改 |
+| `apps/web/app/(main)/exam/[id]/ExamIntro.tsx:49` | `"light"` 字面量 | 只报，不批量改 |
+| `apps/web/app/(main)/agents/categories/[id]/PageClient.tsx:136/165` | `resolvedTheme` 派生 | 合规，不改 |
+| `apps/web/app/(main)/live/page.tsx:152` | `resolvedTheme` 派生 | 合规，不改 |
+| `apps/web/app/layout.tsx:258` | 文档级 `style.colorScheme` | 不是组件 prop，不计 |
+
+合计字面量 **7 处**（withdraw 1 + 其余 6）。超过 5 处，按约束只修 withdraw、其余只报数。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
