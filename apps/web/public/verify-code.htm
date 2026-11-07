@@ -12,7 +12,7 @@
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="color-scheme" content="dark">
-<title>一键复制验证码 · 智汇AI</title>
+<title>一键复制 · 智汇AI</title>
 <!--
   邮件「一键复制验证码」落地页。
 
@@ -233,8 +233,8 @@
     <div class="box">
       <p class="box-label">VERIFICATION_CODE</p>
       <div id="code" class="code" role="button" tabindex="0" aria-label="点击复制验证码">------</div>
-      <p id="status" class="status" role="status" aria-live="polite">准备就绪 · 点击下方按钮一键复制</p>
-      <button id="copy" class="cta" type="button">一键复制验证码 →</button>
+      <p id="status" class="status" role="status" aria-live="polite">准备就绪 · 轻点页面任意处即可复制</p>
+      <button id="copy" class="cta" type="button">一键复制</button>
       <p class="hint">复制后返回登录 / 注册窗口,在验证码输入框按 Ctrl / Cmd + V 粘贴。</p>
     </div>
 
@@ -305,7 +305,7 @@
       copyBtn.textContent = '✓ 已复制 ' + code
     } else {
       copyBtn.removeAttribute('data-copied')
-      copyBtn.textContent = '一键复制验证码 →'
+      copyBtn.textContent = '一键复制'
     }
   }
 
@@ -415,15 +415,41 @@
   })
 
   /*
-   * 打开即尝试复制:从邮件客户端跳转过来的页面通常**没有** transient user activation,
-   * navigator.clipboard.writeText 会抛 NotAllowedError —— 所以自动复制只作 best-effort,
-   * 失败静默、绝不弹错误吓人;主按钮始终在,用户点一下就是真实手势,必定可用。
+   * 手机关键点(2026-11-07 二次改版):
+   * 从邮件 App 跳进来的页面通常**没有** transient user activation,iOS Safari /
+   * 微信 WebView / 邮件客户端内置浏览器会直接拒绝 navigator.clipboard.writeText,
+   * 所以「打开即自动复制」在真机上大概率失败。下面挂一个一次性的 capture 监听:
+   * 用户落地后**第一次触碰页面任意位置**(不必精准找到按钮)就带着真实手势再写一次。
+   * 命中 #copy / #code 时让位给它们自身的 click 处理,避免同一手势重复复制。
    */
+  var autoCopied = false
+  var firstGestureArmed = true
+  function detachFirstGesture() {
+    firstGestureArmed = false
+    document.removeEventListener('pointerdown', onFirstGesture, true)
+    document.removeEventListener('touchstart', onFirstGesture, true)
+    document.removeEventListener('mousedown', onFirstGesture, true)
+  }
+  function onFirstGesture(ev) {
+    if (!firstGestureArmed) return
+    detachFirstGesture()
+    if (autoCopied) return
+    var el = ev.target
+    if (el && el.closest && el.closest('#copy, #code')) return
+    copyByUser()
+  }
+  document.addEventListener('pointerdown', onFirstGesture, true)
+  document.addEventListener('touchstart', onFirstGesture, true)
+  document.addEventListener('mousedown', onFirstGesture, true)
+
+  /* 打开即尝试复制:best-effort,失败静默、绝不弹错误吓人。 */
   writeClipboard(code).then(function (ok) {
     if (ok) {
-      setStatus('✓ 已自动复制到剪贴板 · 可直接粘贴(或点下方按钮再复制一次)', 'ok')
+      autoCopied = true
+      setCopied(true)
+      setStatus('✓ 已复制到剪贴板 · 返回输入框粘贴即可', 'ok')
     } else {
-      setStatus('点击下方按钮一键复制 · 或点选上方数字手动复制', 'idle')
+      setStatus('轻点页面任意处即可复制 · 或点下方按钮', 'idle')
     }
   })
 })()
