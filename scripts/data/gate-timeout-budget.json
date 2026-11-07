@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-07",
+  "unit": "ms",
+  "rule": "阈值 = 实测基线(baseMs) + 固定余量(marginMs);derivedMs 必须等于两者之和。只有列在 gates 里的门拿专属预算,其余门仍走 GUARDIAN_GATE_TIMEOUT_MS 默认值。任何一次上调(derivedMs 变大)都必须在同批 ledger 里写明「新增了什么工作」——棘轮,不是橡皮筋。",
+  "gates": {
+    "T1": {
+      "label": "push 门全量 typecheck(21 个包)",
+      "script": "check-typecheck.mjs",
+      "runner": "scripts/typecheck-full.mjs",
+      "baseMs": 150000,
+      "marginMs": 150000,
+      "derivedMs": 300000,
+      "baselineEvidence": {
+        "measuredAt": "2026-11-07",
+        "machine": "同机同时窗对照(2026-11-07 09:2x~09:4x,本 worktree real node_modules)",
+        "packageCount": 21,
+        "concurrency": 4,
+        "dispatch": "LPT(按上一轮分包耗时降序)",
+        "warmWallMs": { "packages": 150000, "total": 163000 },
+        "coldNoTimingsWallMs": { "packages": 174512, "total": 183000 },
+        "serialWallMs": {
+          "total": 309000,
+          "note": "同分支串行 pnpm -r run typecheck(real node_modules)"
+        },
+        "slowest": { "name": "@ihui/api", "ms": 150000 },
+        "perPackage": {
+          "@ihui/api": 150000,
+          "@ihui/web": 120619,
+          "@ihui/mobile-rn": 50487,
+          "@ihui/miniapp-taro": 33793,
+          "@ihui/rn-app": 25418,
+          "@ihui/extension": 24561,
+          "@ihui/database": 22366,
+          "ihui-cli": 16021,
+          "@ihui/shared": 13337,
+          "@ihui/ui-react": 8053,
+          "@ihui/types": 7824,
+          "@ihui/api-client": 7157,
+          "@ihui/ui-native": 4534,
+          "@ihui/dom-actions": 4262,
+          "@ihui/auth": 4073,
+          "@ihui-ai/sdk": 3735,
+          "@ihui/context-compaction": 3598,
+          "@ihui/browser-platform": 3391,
+          "@ihui/i18n": 3257,
+          "@ihui/design-tokens": 3242,
+          "@ihui/ai-service": 2315,
+          "phase:e2e": 4495
+        }
+      },
+      "marginRationale": "固定 150s:先覆盖「首轮无上一轮读数 ⇒ LPT 退化为字典序」的最坏实测墙钟 183s(余量 117s),再留出 e2e/mypy 附加阶段与同机他席并发带来的抖动。",
+      "ledger": [
+        {
+          "date": "2026-11-07",
+          "action": "derive-nochange",
+          "fromMs": 300000,
+          "toMs": 300000,
+          "addedWork": "none",
+          "note": "阈值数字一行未改。300s 此前对串行 309s 只有 0.97x 余量(结构性不足);改用 c=4+LPT 派发后固有耗时降到 163s,余量变 1.84x。降的是成本,不是判据。"
+        }
+      ]
+    }
+  }
+}

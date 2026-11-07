@@ -50,6 +50,9 @@ import {
 // Error 只有 error.code、没有 status/signal,不传 code 就被读成"判据判红"(§0.3 把"没判"写成"判过");
 // 归 crash 档后后果一项不减(仍 failed++、仍非零退出、提交仍被拦)。判定与措辞单源都在该 lib。
 import { crashAdvisory, crashNextStep, decideGateOutcome, UNDETERMINED_EXIT_CODE } from './gate-failure-kind.mjs'
+// 单门超时预算(机器可读 scripts/data/gate-timeout-budget.json):只给在册的门(T1)专属阈值,
+// 其余门仍走全局默认。读取/棘轮校验/挑选三件事的唯一实现住 lib,本文件不复制魔法数。
+import { loadGateTimeoutBudget, pickGateTimeout } from './gate-timeout-budget.mjs'
 
 export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
 
@@ -459,7 +462,18 @@ const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
 // 挂住时整条提交链无界等待。并行与串行共用同一枚旋钮 GUARDIAN_GATE_TIMEOUT_MS(0 = 仅排障关闭),
 // 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
 // 绝不静默洗成通过。
+const gateTimeoutExplicit = process.env.GUARDIAN_GATE_TIMEOUT_MS !== undefined
 const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+// 专属预算只认 scripts/data/gate-timeout-budget.json 里在册的门(T1);环境旋钮显式设置时
+// (含 0 = 关闭)仍整批生效,保持排障口径不变。
+const gateTimeoutBudget = loadGateTimeoutBudget()
+function gateTimeoutFor(check) {
+  return pickGateTimeout(check, {
+    defaultMs: gateTimeoutMs,
+    explicit: gateTimeoutExplicit,
+    budget: gateTimeoutBudget,
+  })
+}
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -591,11 +605,13 @@ async function dispatchPar(check, cmdArgs) {
   //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
   //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
   // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
-  // gateTimeoutMs 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
-  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
+  // gateTimeoutMs 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处);
+  // 在册门(T1)按预算文件的 derivedMs 取专属阈值,其余门仍是全局默认。
+  const gateTimeout = gateTimeoutFor(check)
+  if (Number.isFinite(gateTimeout) && gateTimeout > 0) {
     gateTimer = setTimeout(() => {
       if (finished) return
-      const te = new Error(`守门脚本超时未退出(${gateTimeoutMs}ms)—— ${check.id} ${check.script}`)
+      const te = new Error(`守门脚本超时未退出(${gateTimeout}ms)—— ${check.id} ${check.script}`)
       te.code = 'ETIMEDOUT'
       try {
         child.kill('SIGKILL')
@@ -931,8 +947,12 @@ for (const check of effectiveChecks) {
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
     // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
-    // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
-    timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
+    // 与并行档共用同一枚解析器(在册门拿预算文件阈值,其余走全局默认);超时由 spawnSync
+    // 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
+    timeout: (() => {
+      const ms = gateTimeoutFor(check)
+      return Number.isFinite(ms) && ms > 0 ? ms : 0
+    })(),
   })
   applyGateResult(check, r, checkStart, cmdArgs)
 }
