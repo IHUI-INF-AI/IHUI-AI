@@ -40,3 +40,14 @@
 
 - 本票只登记，不实现、不改门、不放宽：cut9 的 4 个文件保持 staged 未提交，等待 4 道存量红另行收口（41 需分支卫生处置；57/204/70b 需各自存量修复或基线裁定）。
 - 改造方向（未实现）：两条入口共用同一份门注册表；存量门在提交面按「本笔是否触及」判——未触及只报数，不阻断无关改动，避免存量红顶住提速合并。
+
+## 处置回填（2026-11-08，独立 worktree，基线 d4e1621806）
+
+- [57] 复核结论：元素本就应当存在，且两端都已真实渲染，只是锚点在共享屏重构后漂移。`ai.chatMessageItem.errorCardTitle` 现于 `packages/app/src/features/chat/ChatMessageItem.tsx:284` 的 `t(...)` 调用中渲染；`<TaskStatusBar` 现于 `apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx:330` 渲染。已将 `scripts/data/chat-flow-elements.json` 两条锚点的 `file` 改指真实宿主（同条目锚点数不变），门 57 由红转绿。
+- [204] 复核结论：两处 `.message.includes(` 不是错误归因，而是「自己刚抛出的哨兵」身份判断；且哨兵文本与 catch 兜底文本逐字相同，该 `if` 分支完全冗余。已把 try 收窄到只包 `JSON.parse`，形状校验移到 catch 外，行为等价、零文本判定。门 204 `--worktree` 站点 2 → 0，红转绿。夹具：`apps/cli/tests/memory.test.ts` 增 `installed` 非数组、`apps/cli/tests/plugin-marketplace.test.ts` 增 `records` 非数组两条 fail-closed 断言。
+- [70b] 复核结论：两键确为 web 侧旧结果页残留，唯一同命名空间消费者 `PageClient.tsx` 已改读 shared 的 `exam.result.*`。五语言同步删除 `examResult.correct` / `examResult.wrongQuestions`，并按 KR 规则在 `scripts/data/i18n-key-removals.json` 逐文件声明（until 2027-11-08）。死键 2 → 0，红转绿；i18n parity 5 语言 OK。
+- [41] 仅清点，未删除任何分支。19 条超 48h 旁支分类（证据：`git cherry` + `rev-list --not --remotes=origin`）：
+  - 已全部并入 main（可删，命令按门内 A/B 档执行并先 tag 备份）：`fix/ai-service`（4/4）、`fix/cli-p0`（10/10）、`fix/desktop-cap`（6/6）、`fix/internal-ticket-verify`（2/2）、`fix/rls`（2/2）、`fix/web-p0`（2/2）、`land/g40`（1/1）、`wt-root-desktop-auto-refresh`（1/1）、`origin/fix/knip-unused-exports-1106`（tip 即 main 祖先）。
+  - 有未并入 main 的独有提交（必须保留，先走分支+PR 入库）：`fix/escape-test-samples`（+1）、`fix/internal-auth`（+1，另 2 已等价入库）、`fix/internal-xsecret-ticket`（+2）、`fix/plugin-path-failopen`（+1）、`fix/root-compose-hardening`（+1）、`wt-apiroutes`（+2）。
+  - 仅远程跟踪引用（远端真实存在，本地无同名分支；远端未合并者必须保留）：`origin/fix/knip-unused-exports-1105`（独有 +1）、`origin/fix/orphan-deletion-guard`（+2）、`origin/fix/plan-ledger-close-1106`（+2）、`origin/fix/test-python-qoder-midnight-1106`（+1）；其中 `origin/fix/knip-unused-exports-1106` 已并入，可由远端 owner 删分支。
+  - 本地未合并分支的独有提交同时是「未推送」提交（`rev-list --not --remotes=origin` 计数与 `git cherry` 的 `+` 数一致）。
