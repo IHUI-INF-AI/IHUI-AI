@@ -500,6 +500,77 @@ const scopeLabel =
         ? 'head-diff(origin/main..HEAD 推断兜底)'
         : '不可用(git 故障)'
 
+// ─── 无 TS 输入面档(2026-11-07 立)───────────────────────────────────────
+// 为什么必须单独立档,而不是靠下面的 scope 降级:
+// scope 降级是「全量跑完、拿到报错之后,发现报错文件都在本次改动范围外 ⇒ 降级放行」——
+// 它**必须先有结论**。而当前全量门在本机已经跑不进单门 300s 看门狗(实测单 apps/api 冷跑
+// >8m54s、apps/web 5m14s,且每一趟进门前都被清光 .tsbuildinfo),于是任何推送都在拿到那个
+// 结论之前就被杀了。这道档让「改动与 TS 无关」这一大类提交拿到**可自证**的结论,而不是靠超时。
+//
+// 判据(三条全为真才命中,任何一条不满足即回退原路径,宁慢勿漏):
+//   a) 改动清单非空(git 拿得到面);
+//   b) 清单里没有任何 TS 输入 —— 见 TS_INPUT_BASENAMES 与 TS_INPUT_EXT_RE;
+//   c) 全仓没有任何 tsconfig 开 `allowJs: true`。这是 (b) 的前提:只有 allowJs 才会把
+//      .js/.mjs/.cjs 拉进 program。(c) **每次现扫** git 索引里的全部 tsconfig,不沿用
+//      "此刻的仓态"这个快照 —— 快照会漂移,而漂移是安静的。
+// 出口:命中 ⇒ 打印逐条清单与 (c) 的扫描依据,exit 0。这是「射程之外的通过」,不是 skip:
+//       tsc 的输入集合没变,结论就必然不变(§0.3 的出题前提)。
+const TS_INPUT_EXT_RE = /\.(ts|tsx|mts|cts)$/i
+const TS_INPUT_BASENAMES = new Set(['package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml'])
+
+/** 列出 git 索引里的全部 tsconfig(含 packages/tsconfig/*.json 这类基座)。取不到返回 null ⇒ 判据不可用。 */
+function listTsconfigPaths() {
+  const r = spawnSync('git', ['-C', ROOT, 'ls-files', '*tsconfig*.json'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 60_000,
+    // §5b / 门 193:派生 git 一律显式接管 stdio —— 不写时本机 0/30 成功(EBUSY),
+    // 而 EBUSY 会被读成"git 坏了"而不是"派生面没接管 stdio"。取值不许省略。
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  if (r.status !== 0 || typeof r.stdout !== 'string') return null
+  const list = r.stdout.split(/\r?\n/).filter(Boolean)
+  return list.length > 0 ? list : null
+}
+
+/** 返回命中的非 TS 面清单,或 null(不命中/判据不可用)。 */
+function resolveNoTsInputFace(files) {
+  if (!Array.isArray(files) || files.length === 0) return null
+  for (const raw of files) {
+    const f = String(raw).replace(/\\/g, '/')
+    const base = f.slice(f.lastIndexOf('/') + 1)
+    const isTsInput =
+      TS_INPUT_EXT_RE.test(f) ||
+      TS_INPUT_BASENAMES.has(base) ||
+      /^tsconfig.*\.json$/i.test(base) ||
+      // 根级/任一级的 workspace 拓扑与 npm 配置:改它们会改变 program 的组成
+      base === '.npmrc'
+    if (isTsInput) return null
+  }
+  const cfgs = listTsconfigPaths()
+  if (!cfgs) return null
+  const allowJsOn = []
+  for (const p of cfgs) {
+    let text = null
+    try {
+      text = readFileSync(resolve(ROOT, p), 'utf8')
+    } catch {
+      // 读不到就不能断言"没有 allowJs" ⇒ 保守回落全量
+      return null
+    }
+    // 故意不去注释:注释里出现 `allowJs: true` 会让我们**多**回落一次全量,
+    // 那是安全方向;反过来漏判会让 .mjs 改动被误判成"与 TS 无关",那是假绿方向。
+    if (/allowJs\s*:\s*true/i.test(text)) allowJsOn.push(p)
+  }
+  if (allowJsOn.length > 0) return null
+  return { files: files.slice(), tsconfigCount: cfgs.length }
+}
+
+// 新档判定提前到 --dry-run 之前:只读勘察(scout)必须能看见"这一趟会走哪条路",
+// 否则勘察报的是"将运行 typecheck-full",实际却走了无 TS 输入面档 —— 勘察结论与真跑不一致。
+// 注意:提前的只是**判定**,exit 0 的动作仍在主流程里(dry-run 不许改变任何退出语义)。
+const _noTsInput = scopeEnabled ? resolveNoTsInputFace(scopeFilesRaw) : null
+
 if (DRY_RUN) {
   console.log('[check-typecheck] --dry-run 干跑:不实际运行 typecheck')
   console.log(`[check-typecheck] 降级判据来源: ${scopeLabel}`)
@@ -524,6 +595,15 @@ if (DRY_RUN) {
   // 快通道只看**原始**改动清单(边界 1):闭包跨端会把快通道关掉,单文件 push 从定向
   // 几分钟变成全量 25 分钟 —— 那是拿另一类恒红换本票的绿。
   const _dryFast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null
+  console.log(
+    `[check-typecheck] 将运行路线: ${
+      _noTsInput
+        ? `无 TS 输入面档(exit 0,不改动任何 tsc program 的输入集合)`
+        : _dryFast
+          ? `定向快速通道(改动全部位于 apps/${_dryFast.app})`
+          : '全量门'
+    }`,
+  )
   console.log(`[check-typecheck] 将运行命令: ${_dryFast ? `pnpm --filter ${_dryFast.name} run typecheck(定向快速通道:改动全部位于 apps/${_dryFast.app})` : 'node scripts/typecheck-full.mjs (等价 pnpm typecheck:full)'}`)
   process.exit(0)
 }
@@ -596,6 +676,28 @@ function resolveFastScopeApp(files) {
   }
   if (!pkg?.scripts?.typecheck) return null
   return { app, name: pkg.name || app }
+}
+
+
+// ─── 主流程第一档:无 TS 输入面 ──────────────────────────────────────
+// 判定在 --dry-run 之前(见上方),这里只负责出口。顺序必须在快通道之前:
+// 快通道是「整 app 全量 tsc」,对本档这种"一个 TS 文件都没碰"的面同样是白跑。
+if (_noTsInput) {
+  console.log(
+    `[check-typecheck] ✅ 无 TS 输入面,按通过 —— 本次改动 ${_noTsInput.files.length} 个文件全部不在任何 tsc program 的输入集合里`,
+  )
+  console.log(
+    '[check-typecheck] 判定依据①:清单里无 .ts/.tsx/.mts/.cts、无 tsconfig*.json、无 package.json / pnpm-lock.yaml / pnpm-workspace.yaml / .npmrc',
+  )
+  console.log(
+    `[check-typecheck] 判定依据②:全仓 ${_noTsInput.tsconfigCount} 个 tsconfig 现扫,无一开 allowJs:true ⇒ .js/.mjs/.cjs 不进任何 program`,
+  )
+  for (const f of _noTsInput.files.slice(0, 40)) console.log(`  - ${f}`)
+  if (_noTsInput.files.length > 40) console.log(`  ... 共 ${_noTsInput.files.length} 个`)
+  console.log(
+    '[check-typecheck] 这不是 skip:tsc 的输入集合未变 ⇒ 类型结论必然不变。改动命中任何一个 TS 输入时,仍按原路径走快通道/全量门(判据未放宽)。',
+  )
+  process.exit(0)
 }
 
 const _fast = scopeEnabled ? resolveFastScopeApp(scopeFilesRaw) : null

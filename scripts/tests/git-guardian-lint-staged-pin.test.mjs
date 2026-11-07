@@ -84,9 +84,15 @@ test('(a1)接线锁:函数存在且被调用(定义 1 + 调用 ≥1),并挂在 !
   assert.ok(all.length >= 2, `函数名至少出现 2 次(定义 1 + 调用 1),实得 ${all.length} —— 摘掉调用行即本测试翻红`)
   const mainHook = /^ {4}if \(!CHECK_ONLY\) auditLintStagedPins\(\)$/m
   assert.ok(mainHook.test(src), 'main() 挂点必须是 `if (!CHECK_ONLY) auditLintStagedPins()` —— 挂进 CHECK_ONLY 早退分支等于永不执行')
-  const opsIdx = src.indexOf('if (!CHECK_ONLY) auditOpsPatrol()')
-  const mineIdx = src.indexOf('if (!CHECK_ONLY) auditLintStagedPins()')
-  assert.ok(opsIdx > -1 && mineIdx > opsIdx, '挂点必须与 auditOpsPatrol 同段(顺序:元运维巡检之后)')
+  // 2026-11-07:同段锚点 `auditOpsPatrol` 改成 `await` 形态(它内部改成 spawn + await,
+  // 不再阻塞事件循环)。锚点只认死字面量 ⇒ opsIdx = -1 ⇒ 本来真正的「顺序」判据失效却报成
+  // "不同段"。这里两种形态同价:放宽的只是修饰词,摘掉这一行仍然必红。
+  const opsAnchor = /if \(!CHECK_ONLY\) (?:await )?auditOpsPatrol\(\)/.exec(src)
+  const mineAnchor = /if \(!CHECK_ONLY\) (?:await )?auditLintStagedPins\(\)/.exec(src)
+  assert.ok(
+    opsAnchor !== null && mineAnchor !== null && mineAnchor.index > opsAnchor.index,
+    '挂点必须与 auditOpsPatrol 同段(顺序:元运维巡检之后)',
+  )
   assert.ok(/^ {8}auditLintStagedPins\(\)$/m.test(src), 'daemon tick 那条腿也必须挂上(本机实际载体是 nssm 跑 --daemon)')
   assert.ok(/^const PIN_TICK = join\(WORKTREE, '\.ihui-agent', 'state', 'lint-staged-pin-tick\.json'\)$/m.test(src), '节流戳必须是常量路径')
   assert.ok(/export const __test__ = \{[\s\S]*?\n {2}auditLintStagedPins,/m.test(src), '派发点必须经 __test__ 暴露给镜像测试')

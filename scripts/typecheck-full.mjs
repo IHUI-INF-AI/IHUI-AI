@@ -251,7 +251,16 @@ function _pidAlive(pid) {
 // 锁落 os.tmpdir(),若自检也建锁,并发跑自检会在同一把锁上互等(累计 5s 轮询),
 // 而自检本身零派生 ⇒ 自检路径整段跳过锁(真实全量跑仍照旧独占)。
 const _SELF_TEST = process.argv.includes('--self-test')
+// 等锁上限(2026-11-07 立):这把锁的 stale 兜底是 20 分钟,而 push 门 [T1] 的单门看门狗只有 300s
+// ——两者相差 4 倍。于是"另一路 typecheck 正持锁"时,本进程会安静地空等到 20 分钟,被外层
+// 看门狗当"跑不起来"杀掉,而**日志里只剩一句被截断的'串行等待'**,没人知道它到底在等谁。
+// 实测(2026-11-07 08:4x):本机同时有 3 路 typecheck(本工作树 + .worktrees/main-gate-reds-1107 +
+// pre-commit 钩子)在跑,这道等待就不再是罕见路径,而是常态路径。
+// 定 180s 的依据:门预算 300s 要留出"起了 tsc 但没跑完"的判别空间;180s 内等不到就直接说清
+// "未判定及其原因",让看门狗之外的人拿到可读结论。手动/CI 全量跑可用环境变量放宽。
+const _LOCK_WAIT_MAX_MS = Number(process.env.IHUI_TYPECHECK_LOCK_WAIT_MS || 180_000)
 if (!_SELF_TEST) {
+  const _waitStart = Date.now()
   for (;;) {
     try {
       _mkLock(_lockDir, { recursive: false })
@@ -269,7 +278,28 @@ if (!_SELF_TEST) {
         _rmLock(_lockDir, { recursive: true, force: true })
         continue
       }
-      console.log(`[typecheck:full] 另一全量 typecheck 进行中(pid ${meta.pid}),串行等待...`)
+      const waitedMs = Date.now() - _waitStart
+      if (waitedMs > _LOCK_WAIT_MAX_MS) {
+        // 未判定 ≠ 通过(§0.3):这里绝不 exit 0。措辞要把三件事说全 —— 等谁、等了多久、怎么复现,
+        // 否则下一个人还得再花 20 分钟把我这段路重走一遍才能知道发生了什么。
+        const heldMs = Date.now() - (meta.ts ?? 0)
+        console.error(
+          `[typecheck:full] ❌ 等锁超时 ${Math.round(waitedMs / 1000)}s(上限 ${Math.round(_LOCK_WAIT_MAX_MS / 1000)}s):` +
+            `另一全量 typecheck 仍持有 ${_lockDir}(pid ${meta.pid},已持有 ${Math.round(heldMs / 1000)}s)`,
+        )
+        console.error(
+          '[typecheck:full] 这是**未判定**而不是判红 —— 本机有另一路全量 typecheck 在跑,当前无法给出结论。',
+        )
+        console.error(
+          '[typecheck:full] 复现:等对方结束后重跑 node scripts/check-typecheck.mjs;' +
+            '要放宽等待用 IHUI_TYPECHECK_LOCK_WAIT_MS=<毫秒>;确认持锁进程已死可删该目录',
+        )
+        process.exit(1)
+      }
+      console.log(
+        `[typecheck:full] 另一全量 typecheck 进行中(pid ${meta.pid},已持有 ${Math.round((Date.now() - (meta.ts ?? 0)) / 1000)}s),` +
+          `串行等待... (已等 ${Math.round(waitedMs / 1000)}s / 上限 ${Math.round(_LOCK_WAIT_MAX_MS / 1000)}s)`,
+      )
       spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},5000)'], {
         stdio: 'ignore',
         windowsHide: true,
