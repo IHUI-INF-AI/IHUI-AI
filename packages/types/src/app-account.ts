@@ -54,6 +54,7 @@ export type ThirdPartyPlatform =
   | 'alipay'
   | 'apple'
   | 'oidc'
+  | 'linuxdo'
   | 'app'
 
 /** 第三方登录配置项(wrapper 注入:平台 key + 文案 + 图标 + 是否启用) */
