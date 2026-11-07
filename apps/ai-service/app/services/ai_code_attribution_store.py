@@ -49,6 +49,7 @@ __all__ = [
     "host_session_id",
     "note_host_edit",
     "record_attribution",
+    "backfill_commit_sha",
     "list_records",
     "stats_for_path",
     "stats_for_session",
@@ -88,6 +89,11 @@ def note_host_edit(
         )
     except Exception as exc:
         logger.warning("归属记账失败(不影响已完成的写入): %s", exc)
+
+
+def backfill_commit_sha(commit_sha: str, files: list[str]) -> tuple[int, str]:
+    """提交成功后回填。返回 (改了几条, 拒绝原因)。拒绝时一条都不写。"""
+    return store.backfill_commit_sha(commit_sha, files)
 
 
 def record_attribution(
