@@ -21,6 +21,8 @@ import { dirname, join, resolve } from 'node:path'
 import { readCliPackage } from '../util/pkg-version.js'
 // runId 会直接当目录名(manifest/latest 落盘):收敛 + 根内断言统一走 util/path-guard。
 import { assertPathInside, safePathSegment } from '../util/path-guard.js'
+// DBG-42:manifest.json 与 latest.json 同属"随时被读者打开的观测件",必须同一份原子出口。
+import { writeFileAtomicSync } from '../util/atomic-write.js'
 
 export interface RunManifest {
   runId: string
@@ -117,7 +119,9 @@ export function writeRunManifest(options: RunManifestOptions = {}): { dir: strin
     // runId 已在 buildRunManifest 收敛为单段名,这里再补一次根内/realpath 断言。
     const dir = assertPathInside(root, join(root, manifest.runId), 'run 目录')
     mkdirSync(dir, { recursive: true })
-    writeFileSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, 'utf8')
+    // DBG-42:此处原为裸 writeFileSync —— 与下方 latest 的 tmp+rename 不同,崩溃/并发会让
+    // `ihui runs` 读到半截 manifest 并整片丢失这次运行记录。改走同一份原子出口。
+    writeFileAtomicSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
     // latest 用「临时文件 + rename」落盘:并发两个 CLI 进程同时启动时,直接覆写
     // 会让读者读到半截 JSON(rename 在同卷上是原子的)。临时名带 pid,互不踩。
     const latest = join(root, 'latest.json')
