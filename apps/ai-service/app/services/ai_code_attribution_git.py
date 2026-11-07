@@ -15,7 +15,9 @@ unresolved」的裁决也住在那儿(core 的 resolve_anchor);本模块只负�
 
 from __future__ import annotations
 
+import json
 import logging
+import re
 import subprocess
 from pathlib import Path
 
@@ -97,4 +99,104 @@ def git_blame(
     if not commits:
         return False, "git blame 未给出任何提交锚", ()
     return True, f"git blame 命中 {len(commits)} 个提交", tuple(commits)
+
+
+_SHA40 = re.compile(r"^[0-9a-fA-F]{40}$")
+_NAMESPACE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,40}$")
+NOTES_REF_DEFAULT = "refs/notes/ai"
+
+
+def notes_ref_for_namespace(namespace: str | None) -> str | None:
+    """空命名空间用默认 ref。带斜杠或其它形态的名字拒绝，不改写成默认。"""
+    if namespace is None:
+        return NOTES_REF_DEFAULT
+    token = namespace.strip()
+    if token == "" or token == "default":
+        return NOTES_REF_DEFAULT
+    if _NAMESPACE.fullmatch(token) is None:
+        return None
+    return f"refs/notes/ai-{token}"
+
+
+def judge_notes_refs(refs: list[str] | None) -> dict[str, object]:
+    """名单没量到就不说缺。一个都没有是缺。多于一个把全部点名，不取第一个。"""
+    if refs is None:
+        return {"status": "unjudged", "message": "notes 引用名单没量到", "refs": []}
+    family = [
+        ref
+        for ref in refs
+        if ref == NOTES_REF_DEFAULT or ref.startswith("refs/notes/ai-")
+    ]
+    if not family:
+        return {"status": "absent", "message": "Expected notes ref is present", "refs": []}
+    if len(family) > 1:
+        return {
+            "status": "multiple",
+            "message": "Multiple git-ai note namespaces detected",
+            "refs": family,
+        }
+    return {"status": "present", "message": "ok", "refs": family}
+
+
+def _git(repo_root: Path, args: list[str]) -> subprocess.CompletedProcess[str] | None:
+    try:
+        return subprocess.run(
+            ["git", "-C", str(repo_root), *args],
+            capture_output=True,
+            text=True,
+            timeout=GIT_TIMEOUT_S,
+            check=False,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        logger.warning("git notes 调用失败: %s", exc)
+        return None
+
+
+def list_notes_refs(repo_root: Path) -> list[str] | None:
+    """列出 refs/notes。命令失败返回 None，成功但没有引用返回空列表。"""
+    proc = _git(repo_root, ["for-each-ref", "--format=%(refname)", "refs/notes"])
+    if proc is None or proc.returncode != 0:
+        return None
+    return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
+
+
+def attach_checkpoint_note(
+    repo_root: Path,
+    commit_sha: str,
+    record: dict[str, object],
+    *,
+    namespace: str = "",
+) -> tuple[str, str]:
+    """把一条检查点追加到该提交的 notes。同一去重键不写第二次。失败不抛。"""
+    ref = notes_ref_for_namespace(namespace)
+    if ref is None:
+        return "refused", "notes 命名空间不能用"
+    sha = (commit_sha or "").strip().lower()
+    if _SHA40.fullmatch(commit_sha or "") is None:
+        return "refused", "提交号不是 40 位"
+    key = record.get("dedupe_key")
+    if not isinstance(key, str) or not key.strip():
+        return "refused", "检查点没有去重键"
+    shown = _git(repo_root, ["notes", "--ref", ref, "show", sha])
+    if shown is None:
+        return "refused", "git notes 读不到"
+    if shown.returncode == 0:
+        if key in shown.stdout:
+            return "duplicate", ""
+    else:
+        err = shown.stderr or ""
+        if "no note found" not in err.lower():
+            shown_lines = err.strip().splitlines()
+            return "refused", (shown_lines[0][:200] if shown_lines else "git notes 读不到")
+    message = json.dumps(record, ensure_ascii=False, separators=(",", ":"))
+    added = _git(repo_root, ["notes", "--ref", ref, "append", "-m", message, sha])
+    if added is None or added.returncode != 0:
+        reason = ""
+        if added is not None:
+            added_lines = (added.stderr or "").strip().splitlines()
+            reason = added_lines[0][:200] if added_lines else f"rc={added.returncode}"
+        return "refused", reason or "git notes 写不了"
+    return "appended", ""
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
