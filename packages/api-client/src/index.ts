@@ -11,6 +11,7 @@ export * from './endpoints/invitations.js'
 export * from './endpoints/circles-post.js'
 export * from './endpoints/news-category.js'
 export * from './endpoints/search-history.js'
+export * from './endpoints/super-agent.js'
 export * from './endpoints/sign-ups.js'
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
@@ -223,7 +224,11 @@ export type { CircuitState, CircuitBreakerOptions, CircuitBreakerStats } from '.
 export { repairJson, StreamingJsonRepair, createStreamingJsonRepair } from './json-repair.js'
 export type { RepairResult, StreamingRepairSnapshot } from './json-repair.js'
 // 工具调用入参解析（2026-11-05 立）:归一化任意上游 args 形态 + 增量 function.arguments 流式解析
-export { normalizeToolCallArgs, ToolCallArgsStreamer, createToolCallArgsStreamer } from './tool-call-args.js'
+export {
+  normalizeToolCallArgs,
+  ToolCallArgsStreamer,
+  createToolCallArgsStreamer,
+} from './tool-call-args.js'
 export type { ToolCallArgsState } from './tool-call-args.js'
 // OpenAI 兼容流式工具调用解析（2026-11-05 立,逆向-复现-超越:按 call index 增量累积 function.arguments,
 // 每片即出 partial/complete 态,残缺片经 json-repair 修复后解析,卡片不因截断崩）

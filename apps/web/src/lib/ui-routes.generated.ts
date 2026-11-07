@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: be99b07cfe3bd32c42dd7d4d62dec18b076ac4fc
-// inputsSha256: 9f4aeaad094fabf49829f50a85f08bbcc6775f390607f0ca0a6d0272c9686002
+// sourceCommit: 03251a8c130af4223e0f7709c37dcc6294204e26
+// inputsSha256: 5f93a677d66c2701fb7baa6ffd5aec04d1cf332c6e1caec3984dfd48424275e4
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -841,6 +841,7 @@
 // input: apps/web/app/(main)/subagents/page.tsx bea0a2df4d15de0b3e4d7c7538a583b6acf0584d2929d1605d54bef49cf7a13c
 // input: apps/web/app/(main)/subagents/topology/page.tsx 609fb6028d39528b8eff849ffe08e8c0cd2fe894edbb85080498cb2b431574f3
 // input: apps/web/app/(main)/subscriptions/page.tsx 38a402e76bc28c4dab478899929bf6dd228a0f4fcf3b325b922427bacaeb136e
+// input: apps/web/app/(main)/super-agent/page.tsx ece518f09d5f9c86ba4764fc7dbb8ad1296f2475f81723ad9a8699d6b558f982
 // input: apps/web/app/(main)/support/page.tsx 8a7fd053723f9f4b96773445a799b0f0b5e364887e422c8d2181ec3a6e3e4491
 // input: apps/web/app/(main)/tags/[slug]/page.tsx 93876ba68f8766c29fc1a08ffad8b2275c8bd4c1a93e8eb39c557ade8c4c7336
 // input: apps/web/app/(main)/tags/page.tsx 1d150f9dca48e30f4fb4a0a73090b701c6f6567697451b57ae9c0ff65b2e226b
@@ -936,7 +937,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-07T11:49:29.962Z
+// generatedAt: 2026-11-07T14:46:46.915Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
@@ -1779,6 +1780,7 @@ export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [
   { path: '/subagents/dispatch', param: false, group: 'subagents' },
   { path: '/subagents/topology', param: false, group: 'subagents' },
   { path: '/subscriptions', param: false, group: 'subscriptions' },
+  { path: '/super-agent', param: false, group: 'super-agent' },
   { path: '/support', param: false, group: 'support' },
   { path: '/tags', param: false, group: 'tags' },
   { path: '/tags/:slug', param: true, group: 'tags' },
