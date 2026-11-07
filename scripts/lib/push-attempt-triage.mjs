@@ -55,6 +55,7 @@ export const PUSH_TRIAGE_KINDS = Object.freeze([
   'secret-scan-blocked',
   'credentials-unavailable',
   'hook-failed',
+  'undetermined',
   'other',
 ])
 
@@ -153,6 +154,15 @@ export const CREDENTIALS_UNAVAILABLE_RE =
  */
 export const HOOK_TRACE_RE =
   /道 blocking 门失败|push 门校验失败|push 门被中断|守门脚本批量检查汇总|单独复现:node scripts\/|Cannot find module|pre-push hook/i
+
+/**
+ * push 门**未判定**(2026-11-07 立):`.husky/pre-push` 在 guardian 以 exit 2 收口时
+ * 打出 `❓ push 门未判定(exit 2):无结论...`。这一型必须**先于** HOOK_TRACE_RE 判:
+ * 后者认 `push 门校验失败`,而 `other`/`hook-failed` 档允许 --no-verify ——
+ * 把"机器没下结论"洗成"可跳门"正是本次要堵的洞。
+ * 只复用"带 hook 重试一次"的可重试支路;allowNoVerifyRetry 恒 false。
+ */
+export const PUSH_GATE_UNDETERMINED_RE = /push 门未判定/
 
 /**
  * 一趟 push 的分诊结果。
@@ -324,6 +334,18 @@ export function triagePushAttempt({
       allowNoVerifyRetry: false,
       terminalStatus: remoteEqualsLocal === true ? 'done' : 'failed',
       why: `退出码 ${status} 非零却回显 up-to-date ⇒ 两态矛盾,按验证结果落终态,不报成功`,
+    })
+  }
+  if (PUSH_GATE_UNDETERMINED_RE.test(text)) {
+    // 判序必须在 HOOK_TRACE_RE 之前:两档的可跳门权限相反(这里恒 false)。
+    return verdict({
+      kind: 'undetermined',
+      allowHookRetry: true,
+      allowNoVerifyRetry: false,
+      terminalStatus: 'failed',
+      why:
+        'push 门 exit 2 = 无结论(并发占用/取不到输入/门自身判不出)⇒ ' +
+        '允许同 marker 带 hook 重试一次拿真实结论,但绝不 --no-verify:未判定不得放行',
     })
   }
   if (HOOK_TRACE_RE.test(text)) {

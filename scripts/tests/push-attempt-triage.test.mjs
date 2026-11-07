@@ -125,6 +125,10 @@ test('T2 名单:remote-ref-race 已进封闭集,且每个成员都有命中它�
         "error: failed to execute prompt script (exit code 1)\nfatal: could not read Username for 'https://github.com': No such file or directory",
     },
     'hook-failed': { status: 1, stderr: '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项' },
+    undetermined: {
+      status: 2,
+      stderr: '❓ push 门未判定(exit 2):无结论,可原样重跑(2 = 无结论,不是失败也不是通过)',
+    },
     other: {
       status: 1,
       stderr: 'fatal: unable to access https://example.com: Could not resolve host',
@@ -135,6 +139,18 @@ test('T2 名单:remote-ref-race 已进封闭集,且每个成员都有命中它�
     assert.ok(fx, `名单成员 ${kind} 没有正向夹具(名单可以是张死表而门一路报绿)`)
     assert.equal(T.triagePushAttempt(fx).kind, kind, `${kind} 的夹具必须真命中该档`)
   }
+})
+
+test('T2b 未判定档:先于 hook-failed 判,且永不 --no-verify(未判定不得放行)', () => {
+  // 夹具同时含 hook 痕迹:判序错一位就会被 hook-failed 吃掉并允许跳门
+  const v = T.triagePushAttempt({
+    status: 2,
+    stderr: '❓ push 门未判定(exit 2):无结论\n❌ 4 道 blocking 门失败',
+  })
+  assert.equal(v.kind, 'undetermined', `实得 ${v.kind}(判序必须早于 HOOK_TRACE_RE)`)
+  assert.equal(v.allowHookRetry, true, '未判定应复用可重试支路(有界一次)')
+  assert.equal(v.allowNoVerifyRetry, false, '未判定绝不允许 --no-verify 放行')
+  assert.equal(v.terminalStatus, 'failed')
 })
 
 // ══════════════════════════════════════════════════════════════════════

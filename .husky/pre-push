@@ -278,6 +278,16 @@ EOF
     wscript //nologo scripts/hook-run-hidden.vbs pre-push-mark scripts/lib/push-gate-mark.mjs 75
     exit 75
   fi
+  if [ "$_gate_rc" -eq 2 ]; then
+    # 2026-11-07 未判定分类:2 = 无结论(并发占用/取不到输入/门自身判不出结果),
+    # 不是"代码不行"。与 75 一样写 marker 让 push guard 走可重试支路,但**绝不放行**:
+    # 重试后仍未判定 ⇒ 继续阻止推送,不允许 --no-verify 绕过。
+    tail -20 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
+    printf '%s\n' "❓ push 门未判定(exit 2):无结论,可原样重跑(2 = 无结论,不是失败也不是通过)" >&2
+    printf '%s\n' "   本次推送已阻止;未判定绝不放行(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)" >&2
+    wscript //nologo scripts/hook-run-hidden.vbs pre-push-mark scripts/lib/push-gate-mark.mjs 2
+    exit 2
+  fi
   if [ "$_gate_rc" -ne 0 ]; then
     tail -40 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
     printf '%s\n' "❌ push 门校验失败,推送已阻止(完整日志: .ihui-agent/state/hook-logs/pre-push-gate.log)" >&2

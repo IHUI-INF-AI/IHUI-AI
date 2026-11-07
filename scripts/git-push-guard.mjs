@@ -532,14 +532,15 @@ function assertDiskOk() {
   return true
 }
 
-/** push 门中断标记(2026-09-18):pre-push 在门被中断(exit 75)时写入。
- * 供 worker 区分「门被杀(临时失败,应带 hook 重试拿真实结论)」与
- * 「真实类型检查失败(按用户规则 --no-verify 兜底)」。15 分钟内的标记才采信。 */
+/** push 门中断/未判定标记:pre-push 在门被中断(exit 75)或未判定(exit 2)时写入。
+ * 供 worker 区分「门被杀/无结论(应带 hook 重试拿真实结论)」与
+ * 「真实类型检查失败(按用户规则 --no-verify 兜底)」。15 分钟内的标记才采信。
+ * 注意:2 只复用"可重试"这一支,绝不设置 allowNoVerifyRetry —— 未判定不得放行。 */
 const pushGateMarkerFile = resolve(process.cwd(), '.ihui-agent/state/push-gate-last-result.json')
 function readPushGateMarker() {
   try {
     const m = JSON.parse(readFileSync(pushGateMarkerFile, 'utf8'))
-    if (!m || typeof m.ts !== 'number' || m.code !== 75) return null
+    if (!m || typeof m.ts !== 'number' || (m.code !== 75 && m.code !== 2)) return null
     if (Date.now() - m.ts > 15 * 60 * 1000) return null
     return m
   } catch {
@@ -1089,7 +1090,8 @@ if (pushResult.status !== 0) {
     if (attempt.allowHookRetry) {
       const gateMarker = readPushGateMarker()
       if (gateMarker) {
-        log('info', '检测到 push 门「被中断(exit 75)」标记(非类型检查结论),先带 hook 重试...')
+        const markerKind = gateMarker.code === 2 ? '未判定(exit 2,无结论)' : '被中断(exit 75)'
+        log('info', `检测到 push 门「${markerKind}」标记(非类型检查结论),先带 hook 重试...`)
         pushResult = pushOnce(false)
         attempt = triageOf(pushResult)
         if (pushResult.status === 0) {
