@@ -57,6 +57,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 // 远端 tip 的唯一取法(§22c 单一真相源):判据住在 lib,本门不再各写一份
 import { resolveRemoteHead } from './lib/face-reader.mjs'
+import { PUSH_STATE_STALE_MS, judgeRunningState } from './lib/push-state-liveness.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -174,25 +175,12 @@ if (ahead === 0) {
 // 在每次 commit 后数分钟内是**常态**。此检查若照旧阻塞,会导致 pre-commit 首跑必败
 // → --no-verify 重试 → 80 项守门全跳过(实测今日每次 commit 都如此)。
 // 故:后台推送在途(running 且未过期)→ 放行;仅"无在途推送且 ahead>0"(真忘记 push)才阻塞。
-const PUSH_STATE_STALE_MS = 5 * 60 * 1000
-
 /** 读 `.ihui-agent/state/push-state.json`;缺文件/坏 JSON ⇒ null(回到原判据,不猜)。 */
 function readPushState() {
   try {
     return JSON.parse(readFileSync(resolve(repoRoot, '.ihui-agent/state/push-state.json'), 'utf8'))
   } catch {
     return null
-  }
-}
-
-/** pid 存活探测(signal 0)。`isPidAlive` 与 worker 侧同一语义:EPERM = 活着但不属于我。 */
-function isPidAlive(pid) {
-  if (!pid || Number(pid) === process.pid) return true
-  try {
-    process.kill(Number(pid), 0)
-    return true
-  } catch (e) {
-    return e.code === 'EPERM'
   }
 }
 
@@ -221,7 +209,9 @@ function isAncestorOfHead(sha, head) {
 function pushVerdict(st, { now, localHead, remoteHead }) {
   if (!st || typeof st.ts !== 'number') return { pass: false, why: '无 push-state(或形状不对)' }
   const fresh = now - st.ts < PUSH_STATE_STALE_MS
-  const alive = isPidAlive(st.pid)
+  // 2026-11-07:只"pid 活着"已不足采信 —— 同一 pid 被复用(启动时刻不符)/有凭据但核不上
+  // 都不算在途。唯一判据见 lib/push-state-liveness.mjs。
+  const running = judgeRunningState(st, { now })
   if (
     st.status === 'failed' &&
     (st.kind === 'protected-branch' || st.kind === 'remote-ref-race') &&
@@ -291,11 +281,14 @@ function pushVerdict(st, { now, localHead, remoteHead }) {
       why: `diverged 已 ${ageText(now, st.ts)}无人收敛(超过 ${Math.round(PUSH_STATE_STALE_MS / 60000)}min 窗口)⇒ 先跑 ${remedy} 再提交`,
     }
   }
-  if (st.status === 'running' && fresh && alive) {
-    return { pass: true, why: `后台推送在途(running,${ageText(now, st.ts)}前,pid ${st.pid} 存活)` }
+  if (st.status === 'running' && running.active) {
+    return {
+      pass: true,
+      why: `后台推送在途(running,${ageText(now, st.ts)}前,${running.why})`,
+    }
   }
-  if (st.status === 'running' && fresh && !alive) {
-    return { pass: false, why: `running 但持有者 pid ${st.pid} 已死 ⇒ 猝死残留,不算在途` }
+  if (st.status === 'running') {
+    return { pass: false, why: `running 但${running.why} ⇒ 猝死残留/身份不符,不算在途` }
   }
   // 2026-09-26 新增的一格:上一轮推送**已成功落终态(done)**,而本次 ahead 来自其后
   // 的新提交。实测成因:本机 12:53 / 12:57 两枚提交都因这一格被判红,而红之后

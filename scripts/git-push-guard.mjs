@@ -39,6 +39,7 @@ import {
   openSync,
   closeSync,
   statfsSync,
+  statSync,
 } from 'node:fs'
 import { resolve } from 'node:path'
 import {
@@ -50,6 +51,7 @@ import {
 } from './lib/face-reader.mjs'
 import { isAncestor } from './lib/bypass-git.mjs'
 import { triagePushAttempt, describeVerdict, CONVERGE_COMMAND } from './lib/push-attempt-triage.mjs'
+import { identityFieldsForPid, judgeRunningState } from './lib/push-state-liveness.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -481,7 +483,6 @@ if ((promisorCfg || filterCfg) && !process.env.GUARD_SKIP_PARTIAL_CLONE_CHECK) {
 //   (waitForPushState 的终态集合 —— 漏了它会白等 8 分钟才判 timeout)。
 const pushStateFile = resolve(process.cwd(), '.ihui-agent/state/push-state.json')
 const GUARD_ASYNC = process.env.GUARD_ASYNC !== '0' // 默认开;GUARD_ASYNC=0 强制同步
-const PUSH_STATE_STALE_MS = 5 * 60 * 1000
 
 function readPushState() {
   try {
@@ -491,15 +492,32 @@ function readPushState() {
   }
 }
 
-/** 检测进程是否存活(signal 0 探测;死 worker 的 running 状态应立即判失效) */
-function isPidAlive(pid) {
-  if (!pid || Number(pid) === process.pid) return true
+/** 主模式也要能往异步日志落一行:worker 被宿主清树强杀时它自己来不及写任何东西,
+ *  若父进程也不留痕,现场就只剩「0 字节日志 + running」这一种不可解释的组合。 */
+function appendAsyncLog(msg) {
   try {
-    process.kill(Number(pid), 0)
-    return true
-  } catch (e) {
-    return e.code === 'EPERM'
+    appendFileSync(
+      resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log'),
+      `[${new Date().toISOString()}] [dispatch ${process.pid}] ${msg}\n`,
+    )
+  } catch {
+    /* 日志失败不影响主流程 */
   }
+}
+
+/** 派发窗内等待 child 退出;超时返回 null(=仍活着)。用于识别"秒退 worker"。 */
+function waitChildExit(child, ms) {
+  return new Promise((done) => {
+    let settled = false
+    const finish = (v) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      done(v)
+    }
+    const timer = setTimeout(() => finish(null), ms)
+    child.once('exit', (code, signal) => finish({ code, signal }))
+  })
 }
 
 /**
@@ -513,14 +531,22 @@ function isPidAlive(pid) {
 function writePushState(status, headSha, extra) {
   try {
     mkdirSync(resolve(process.cwd(), '.ihui-agent', 'state'), { recursive: true })
+    const extraObj = extra && typeof extra === 'object' ? extra : {}
+    // 允许记录「别人的 pid」(主模式派发后记 worker 的 pid,而不是自己的 —— 自己马上就退了)。
+    const pid = Number.isInteger(extraObj.pid) && extraObj.pid > 0 ? extraObj.pid : process.pid
+    // 新档一律带身份凭据(host + 该 pid 的启动时刻);量不到就不写键 ⇒ 判读侧回落旧档口径,
+    // 绝不写 0/假值冒充"已记录"。有了这枚凭据,pid 被复用才判得出来。
+    // 只有 running 需要身份凭据(判读侧只判在途);终态不带,省一次现测启动时刻。
+    const identity = status === 'running' ? identityFieldsForPid(pid) : {}
     writeFileSync(
       pushStateFile,
       JSON.stringify({
         status,
         headSha,
         ts: Date.now(),
-        pid: process.pid,
-        ...(extra && typeof extra === 'object' ? extra : {}),
+        pid,
+        ...identity,
+        ...extraObj,
       }),
     )
   } catch {
@@ -593,7 +619,8 @@ if (process.argv.includes('--watchdog')) {
       process.exit(0)
     }
     const st = readPushState()
-    const workerAlive = st && st.status === 'running' && st.headSha === lh && isPidAlive(st.pid)
+    // 存活 + 启动时刻都要对得上才算在途;只看裸 pid 会把复用者当成 worker。
+    const workerAlive = st && judgeRunningState(st, { headSha: lh }).active
     if (workerAlive) continue
     log(
       'warn',
@@ -628,12 +655,9 @@ if (process.argv.includes('--watchdog')) {
 
 // running 状态必须"未过期 **且** 持有者存活"才算在途——worker 被强杀(CTRL_C/宿主清树)
 // 时来不及写终态,死 pid 的 running 状态若照常采信,推送会永远卡 PUSHING。
-const workerActive =
-  existingState &&
-  existingState.status === 'running' &&
-  existingState.headSha === localHead &&
-  Date.now() - existingState.ts < PUSH_STATE_STALE_MS &&
-  isPidAlive(existingState.pid)
+const workerActive = existingState
+  ? judgeRunningState(existingState, { headSha: localHead }).active
+  : false
 
 // 2026-09-18 自愈:死 worker 残留 running 状态(被强杀来不及写终态)→ 启动时顺手改写为
 // failed 终态,消费端(converge/check-push-sync)不再依赖 pid 推断,状态文件保持真实。
@@ -641,11 +665,29 @@ const workerActive =
 // 它每天落 353 次(实测 `grep -ac "发现死 worker" .ihui-agent/state/git-push-guard-async.log`),
 // 于是"现值 ahead + 状态 failed"常常与本次提交毫无因果。必须带 reason 落盘,
 // 让下游能分清"推送真的失败了"与"上一个 worker 没写完终态"(2026-09-26 补,守门 29 假红根因)。
-if (existingState && existingState.status === 'running' && !isPidAlive(existingState.pid)) {
-  log('warn', `发现死 worker 残留 running 状态(pid ${existingState.pid}),自愈为 failed`)
+// 2026-11-07 扩展:不止"pid 已死",同一 pid 被复用(启动时刻不符)/有凭据但核不上,
+// 都一并不再当在途 —— 判据见 lib/push-state-liveness.mjs 的 judgeRunningState。
+const holderVerdict = existingState ? judgeRunningState(existingState) : null
+// stale 也一并收口:活 worker 每 15s 心跳,超过 5 分钟没心跳只可能是死了/挂起了。
+// 只判"不 active"而不翻终态,会让状态文件永远说 running —— 正是本轮要消掉的假读数。
+const selfHealKinds = new Set(['dead', 'reused', 'unverifiable', 'stale'])
+if (existingState && existingState.status === 'running' && holderVerdict && selfHealKinds.has(holderVerdict.kind)) {
+  const workerLogSize = (() => {
+    try {
+      return statSync(resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log')).size
+    } catch {
+      return 0
+    }
+  })()
+  log('warn', `发现失效的 running 状态(pid ${existingState.pid},判据=${holderVerdict.kind}),自愈为 failed`)
+  // 死因必须可见:worker 被强杀时自己写不出日志,这一行是现场唯一的解释来源。
+  appendAsyncLog(
+    `判中止:running 的持有者 pid=${existingState.pid} 判据=${holderVerdict.kind}(${holderVerdict.why});` +
+      `worker 日志=${workerLogSize}字节${workerLogSize === 0 ? '(0 = worker 从未执行过任何一行代码)' : ''}`,
+  )
   writePushState('failed', existingState.headSha, {
     kind: 'dead-worker-self-heal',
-    reason: `残留 running 的持有者 pid ${existingState.pid} 已死,本进程只负责把它改成终态`,
+    reason: `残留 running 的持有者 pid ${existingState.pid} 判据=${holderVerdict.kind}(${holderVerdict.why}),本进程只负责把它改成终态`,
   })
   existingState = readPushState()
 }
@@ -662,8 +704,7 @@ if (isWorkerMode) {
       prev.status !== 'running' ||
       prev.headSha === localHead || // 自己的状态(主模式写入)
       prev.pid === process.pid ||
-      Date.now() - prev.ts > PUSH_STATE_STALE_MS ||
-      !isPidAlive(prev.pid) // 持有者已死(被强杀未写终态)→ 不等,直接接管
+      !judgeRunningState(prev).active // 持有者已死/pid 被复用/身份核不上 → 不等,直接接管
     ) {
       break
     }
@@ -673,7 +714,23 @@ if (isWorkerMode) {
     )
     await new Promise((r) => setTimeout(r, 10_000))
   }
+  // workerLog 必须先于首条状态写入定义:2026-11-07 现场是「running 已落盘、日志 0 字节」,
+  // 因此 worker 一进入自己的流程就写一行启动凭据 —— 有这行才谈得上"日志说清它活着"。
+  const workerLog = (msg) => {
+    try {
+      appendFileSync(
+        resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log'),
+        `[${new Date().toISOString()}] [worker ${process.pid}] ${msg}\n`,
+      )
+    } catch {
+      /* 日志失败不影响主流程 */
+    }
+  }
   writePushState('running', localHead)
+  workerLog(
+    `worker 启动: pid=${process.pid} head=${String(localHead).slice(0, 7)} branch=${branch || '(当前分支)'}` +
+      ` 状态=${JSON.stringify(readPushState())}`,
+  )
   // 磁盘水位自检(worker 上下文):满盘时立即 failed 终态 + 指向性报错,
   // 而不是继续跑到 git 写对象失败时无声崩死
   if (!assertDiskOk()) {
@@ -687,23 +744,14 @@ if (isWorkerMode) {
   // ③ts 只写一次,typecheck 门 270s+推送可超 5 分钟 stale 窗(误判 stale → 双 worker 竞态)。
   const workerStartedAt = Date.now()
   const WORKER_MAX_LIFETIME_MS = 25 * 60 * 1000 // 硬寿命上限:防网络挂起+心跳把 running 永远续下去
-  const workerLog = (msg) => {
-    try {
-      appendFileSync(
-        resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log'),
-        `[${new Date().toISOString()}] [worker ${process.pid}] ${msg}\n`,
-      )
-    } catch {
-      /* 日志失败不影响主流程 */
-    }
-  }
-  /** 终态写入:只改写「自己名下的 running」——别人的状态/已落终态绝不碰 */
-  const terminalize = (status) => {
+  /** 终态写入:只改写「自己名下的 running」——别人的状态/已落终态绝不碰。
+   *  extra 用来带 kind/reason:只看 status=failed 分不清"真推失败"与"worker 自己死了"。 */
+  const terminalize = (status, extra) => {
     try {
       clearInterval(heartbeat)
       const s = readPushState()
       if (s && s.status === 'running' && s.pid === process.pid) {
-        writePushState(status, s.headSha)
+        writePushState(status, s.headSha, extra)
       }
     } catch {
       /* 终态写失败不影响退出 */
@@ -728,7 +776,16 @@ if (isWorkerMode) {
   }, 15_000)
   // 任何 JS 可见的死法都先落终态:exit 钩子兜底所有 process.exit 路径;
   // uncaughtException/unhandledRejection 兜底运行时异常;信号兜底外部终止。
-  process.on('exit', (code) => terminalize(code === 0 ? 'done' : 'failed'))
+  process.on('exit', (code) => {
+    if (code === 0) {
+      workerLog('worker 正常完成(exit 0)')
+      terminalize('done')
+      return
+    }
+    // 非零码 + 日志:异常退出必须两样都留下,否则就是 2026-11-07 那种"running + 0 字节"。
+    workerLog(`worker 异常退出 exit=${code},写 failed 终态(日志上方为该退出路径的报错)`)
+    terminalize('failed', { kind: 'worker-exit-nonzero', reason: `worker 以退出码 ${code} 结束` })
+  })
   process.on('uncaughtException', (e) => {
     workerLog(`uncaughtException: ${e instanceof Error ? e.stack || e.message : String(e)}`)
     console.error('[worker] uncaughtException:', e)
@@ -785,9 +842,15 @@ if (isWorkerMode) {
     process.exit(1)
   }
   if (!recentSameHeadWorkerFailure) {
+    // 先落 running 挡并发派发,但持有者稍后必须改成 worker 自己的 pid ——
+    // 父进程写完就退,记父 pid 等于把"一个必然已死的 pid"留在状态里(07:48 假 running 的直接成因)。
     writePushState('running', localHead)
+    appendAsyncLog(
+      `dispatch: 主模式落 running(pid=${process.pid}),准备派发 worker(head=${String(localHead).slice(0, 7)} branch=${branch || '(当前分支)'})`,
+    )
     const logFile = resolve(process.cwd(), '.ihui-agent/state/git-push-guard-async.log')
     let spawned = false
+    let earlyExit = null
     try {
       const out = openSync(logFile, 'a')
       // 注意:openSync 返回 fd 整数,必须用 closeSync 关闭——此前误用 out.close()
@@ -810,8 +873,34 @@ if (isWorkerMode) {
       } catch {
         /* fd 由父进程退出兜底回收 */
       }
-      spawned = true
+      appendAsyncLog(`dispatch: worker pid=${child.pid} 已派生(head=${String(localHead).slice(0, 7)})`)
+      // 状态持有者改记 worker:pid 存活 + 启动时刻一致,下一轮才判得出"这只 worker 死没死/pid 有没有被复用"。
+      writePushState('running', localHead, { pid: child.pid })
+      appendAsyncLog(
+        `dispatch: running 持有者改记 worker pid=${child.pid} pidStart=${readPushState()?.pidStart ?? '(取不到,判读侧回落旧档口径)'}`,
+      )
+      // 秒退检测:宿主 job-object、杀软、脚本解析失败都会让 worker 在父进程退出前后立刻死。
+      // 1s 内拿到退出码且非 0 ⇒ 这次派发作废,直接回退同步推送;绝不把「running + 0 字节日志」
+      // 留给下一轮当成"还在推"。GUARD_CRASH_AFTER_STATE 是夹具缝,跳过检测以保留其原语义。
+      if (process.env.GUARD_CRASH_AFTER_STATE !== '1') {
+        earlyExit = await waitChildExit(child, 1000)
+        if (earlyExit) {
+          appendAsyncLog(
+            `dispatch: worker pid=${child.pid} 派发窗内退出(exit=${earlyExit.code},signal=${earlyExit.signal ?? '无'})`,
+          )
+          if (earlyExit.code !== 0) {
+            writePushState('failed', localHead, {
+              kind: 'worker-died-at-dispatch',
+              reason: `worker 派发后 1s 内退出(exit=${earlyExit.code},signal=${earlyExit.signal ?? '无'}),判本次派发作废`,
+            })
+          }
+        } else {
+          appendAsyncLog(`dispatch: worker pid=${child.pid} 存活超过 1s,交给后台`)
+        }
+      }
+      spawned = earlyExit === null || earlyExit.code === 0
     } catch (e) {
+      appendAsyncLog(`dispatch: 后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
       log('warn', `后台 spawn 失败(${e instanceof Error ? e.message : e}),回退同步推送`)
     }
     if (spawned) {
@@ -849,7 +938,11 @@ if (isWorkerMode) {
           /* 兜底派生失败不阻塞主流程:worker 自身兜底 + converge --heal 仍可用 */
         }
       }
-      log('ok', `推送已转入后台(HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
+      if (earlyExit && earlyExit.code === 0) {
+        log('ok', `后台 worker 已自行结束(exit 0,HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
+      } else {
+        log('ok', `推送已转入后台(HEAD ${localShort});核验: node scripts/git-push-converge.mjs`)
+      }
       process.exit(0)
     }
   }
