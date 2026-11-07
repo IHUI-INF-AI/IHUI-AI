@@ -52,7 +52,7 @@
     "dotenv": "^17.4.2",
     "inquirer": "^14.0.2",
     "ora": "^9.4.1",
-    "vscode-jsonrpc": "^9.0.1",
+    "vscode-jsonrpc": "^10.0.0",
     "vscode-languageserver-protocol": "^3.18.2",
     "ws": "^8.21.1"
   },
