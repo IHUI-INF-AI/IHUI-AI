@@ -976,9 +976,12 @@ iframe::-webkit-scrollbar {
 }
 @media (min-width: 640px) and (max-width: 1023px) {
   aside[data-viewport-collapsed='true'] {
-    width: 60px;
-    min-width: 60px;
-    max-width: 60px;
+    /* 折叠宽度取 tokens.css 的 --sidebar-collapsed-width(= 几何档 sidebarCollapsedWidth),
+       不再写死 60px —— 这一族曾三处各写一遍并实测漂成 54(2026-09-09 守门记录)。
+       改档只动 packages/design-tokens/src/geometry.js 一处。 */
+    width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+    max-width: var(--sidebar-collapsed-width);
   }
   /* 2026-09-09 修复(收回态按钮重叠/闪烁):
      SSR 输出展开态 HTML(footer 横排 + 展开 header),hydration 后 React 才切折叠态。
