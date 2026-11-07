@@ -13,6 +13,9 @@ import { z } from 'zod'
 import {
   SuperAgentHost,
   SuperAgentPump,
+  type SlowDecision,
+  type SlowJudgeCall,
+  type SlowJudgeInput,
   type TriggerSourcePort,
   type WorkerAssignment,
 } from '@ihui/shared/super-agent'
@@ -228,6 +231,56 @@ export async function dispatchStartedWork(
 }
 
 const pumpLog: { at: number; kind: string; source: string; note: string }[] = []
+
+/**
+ * 慢路径判定适配器:调 ai-service /api/super-agent/slow-path/judge。
+ * 动态 import 默认通道(测试注入 fake 时零 config 拉起,与 automations 执行器同法);
+ * 任何非 ok/形状不符 ⇒ throw,由 host.judgeRecorded 折成"未判定"保留积压(§0.3)。
+ */
+export function createSlowJudgeCall(
+  fetcher?: (path: string, init: RequestInit) => Promise<Response>,
+): SlowJudgeCall {
+  return async (inputs: SlowJudgeInput[]) => {
+    const call = fetcher ?? (await import('../utils/ai-service-fetch.js')).aiServiceSystemFetch
+    const body = {
+      items: inputs.map((i) => ({
+        id: i.id,
+        text: i.text,
+        observed_at: i.observedAt,
+        requesters: i.requesters,
+      })),
+    }
+    const resp = await call('/api/super-agent/slow-path/judge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    if (!resp.ok) {
+      throw new Error(
+        `slow-path judge → ${resp.status}: ${(await resp.text().catch(() => '')).slice(0, 160)}`,
+      )
+    }
+    const envelope = (await resp.json()) as {
+      code?: number
+      data?: { verdicts?: Record<string, { verdict?: string; reason?: string }> }
+    }
+    const verdicts = envelope.data?.verdicts
+    if (envelope.code !== 0 || !verdicts) throw new Error('slow-path judge envelope rejected')
+    const out: Record<string, SlowDecision> = {}
+    const at = Date.now()
+    for (const input of inputs) {
+      const row = verdicts[input.id]
+      if (!row) continue // 少一条=该条未判定,不回退猜
+      const v = row.verdict
+      if (v !== 'act' && v !== 'ignore' && v !== 'unclear') {
+        // 单条形状坏 ⇒ 整批不落（模型输出半可信 = 不判）。
+        throw new Error(`slow-path judge bad verdict for ${input.id}: ${String(v)}`)
+      }
+      out[input.id] = { verdict: v, reason: (row.reason ?? '').slice(0, 300), at }
+    }
+    return out
+  }
+}
 const PUMP_LOG_CAP = 200
 
 function logPumpRow(row: { at: number; kind: string; source: string; note: string }): void {
@@ -246,6 +299,10 @@ export const superAgentPump = new SuperAgentPump(
   {
     onLog: logPumpRow,
     onCycle: () => saveIfDirty(),
+    // 慢路径 env 门控:未开启 = 泵完全不碰推断积压（与持久腿同型"未开启零动作"）。
+    ...(process.env.IHUI_SUPER_AGENT_SLOW_PATH === 'true'
+      ? { slowJudge: createSlowJudgeCall() }
+      : {}),
   },
 )
 

@@ -12,6 +12,7 @@
  */
 
 import type { IncomingTrigger, PanelView, Speech, SuperAgentPolicy, SuperTicket } from './engine'
+import type { SlowDecision } from './slow-path'
 import type { WorkerAssignment } from './roles'
 
 export const SNAPSHOT_VERSION = 'super-agent-snapshot-v1'
@@ -21,7 +22,7 @@ export interface OwnerSlice {
   ticketIds: string[]
   tickets: SuperTicket[]
   triggers: IncomingTrigger[]
-  recordedTriggers: { triggerId: string; reason: string }[]
+  recordedTriggers: { triggerId: string; reason: string; decision?: SlowDecision }[]
   /** 订阅（线程→工单）结构化存三元组，重建走 host 内同一 threadKey。 */
   subscriptions: { sourceId: string; threadId: string; ticketIds: string[] }[]
   /** 上下文订阅：工单 id + 被订阅线程三元组。 */
