@@ -5,7 +5,7 @@
 // @ihui/auth - 自研认证体系
 //
 // 导出顺序: jwt → token-family → blacklist(Redis) → data-scope(6 级)
-//         → oauth2(含 PKCE) → ws-auth(socket.io) → providers(4 个社交登录)
+//         → oauth2(含 PKCE) → ws-auth(socket.io) → providers(5 个社交登录:oidc/discord/linuxdo/telegram/passkey)
 
 export * from './jwt'
 export * from './key-rotation'

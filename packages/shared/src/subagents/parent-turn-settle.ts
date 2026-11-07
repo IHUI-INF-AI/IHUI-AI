@@ -7,22 +7,28 @@
  *
  * 进行中、思考中、等待中都不是终态。父轮次的流已经结束、又没有单独的结束事件时，
  * 这些卡片落 cancelled，不能写成 completed。
- * completed / failed / cancelled 已经是终态，保持原状态。
+ * completed / failed / cancelled / stub 已经是终态，保持原状态。
+ * stub 是密钥未配置的模拟结果，收场时不能改写成 cancelled 或 completed。
  */
 
-const TERMINAL_SUBAGENT_STATUSES = new Set<string>(['completed', 'failed', 'cancelled'])
+const TERMINAL_SUBAGENT_STATUSES = new Set<string>(['completed', 'failed', 'cancelled', 'stub'])
 
 export function isSubagentTerminalStatus(status: string): boolean {
   return TERMINAL_SUBAGENT_STATUSES.has(status)
 }
 
 export interface ParentTurnSubagentSettle {
-  status: 'completed' | 'failed' | 'cancelled'
+  status: 'completed' | 'failed' | 'cancelled' | 'stub'
   streamingDone: true
 }
 
 export function settleSubagentOnParentTurnEnd(status: string): ParentTurnSubagentSettle {
-  if (status === 'completed' || status === 'failed' || status === 'cancelled') {
+  if (
+    status === 'completed' ||
+    status === 'failed' ||
+    status === 'cancelled' ||
+    status === 'stub'
+  ) {
     return { status, streamingDone: true }
   }
   return { status: 'cancelled', streamingDone: true }

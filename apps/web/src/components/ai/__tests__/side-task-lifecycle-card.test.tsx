@@ -30,10 +30,7 @@ vi.mock('next-intl', () => ({
 
 const T0 = 1_800_000_000_000
 
-const task = (
-  state: SideTaskState,
-  extra: Partial<Omit<SideTask, 'state'>> = {},
-): SideTask => ({
+const task = (state: SideTaskState, extra: Partial<Omit<SideTask, 'state'>> = {}): SideTask => ({
   id: `t-${state}`,
   title: `标题-${state}`,
   state,
@@ -123,7 +120,9 @@ describe('D75 SideTaskLifecycleCard / 四态与显式声明', () => {
   it('无 task 且无清理清单 ⇒ 渲染空态,不带任何状态属性', () => {
     const { container } = render(<SideTaskLifecycleCard />)
     expect(container.querySelector('[data-side-task-empty="true"]')).not.toBeNull()
-    expect(container.querySelector('[data-side-task-state]')?.getAttribute('data-side-task-state')).toBe('none')
+    expect(
+      container.querySelector('[data-side-task-state]')?.getAttribute('data-side-task-state'),
+    ).toBe('none')
   })
 })
 
@@ -153,7 +152,10 @@ describe('D75 SideTaskLifecycleCard / 文件变更计数与关闭确认', () => 
   })
 
   it('关闭确认判据落到 DOM:运行中 / 有产物必须确认,纯已完成**不打扰**', () => {
-    const flagOf = (extra: Partial<Omit<SideTask, 'state'>>, state: SideTaskState = 'completed') => {
+    const flagOf = (
+      extra: Partial<Omit<SideTask, 'state'>>,
+      state: SideTaskState = 'completed',
+    ) => {
       const { container, unmount } = render(<SideTaskLifecycleCard task={task(state, extra)} />)
       const flag = container
         .querySelector('[data-side-task-state]')
@@ -173,7 +175,9 @@ describe('D75 SideTaskLifecycleCard / 文件变更计数与关闭确认', () => 
     const { container } = render(
       <SideTaskLifecycleCard task={task('running')} confirmOpen onAction={onAction} />,
     )
-    expect(container.querySelector('[role="alertdialog"][data-side-task-confirm="open"]')).not.toBeNull()
+    expect(
+      container.querySelector('[role="alertdialog"][data-side-task-confirm="open"]'),
+    ).not.toBeNull()
     expect(container.querySelector('[data-side-task-confirm-title="true"]')).not.toBeNull()
     expect(container.querySelector('[data-side-task-confirm-desc="true"]')).not.toBeNull()
     ;(container.querySelector('[data-action="confirmClose"]') as HTMLButtonElement).click()
@@ -218,8 +222,7 @@ describe('D75 SideTaskLifecycleCard / 文件变更计数与关闭确认', () => 
 })
 
 describe('D75 SideTaskLifecycleCard / 与 /side 队列语义不冲突(W27 预备消息优先)', () => {
-  const readSrc = (rel: string): string =>
-    readFileSync(join(here, rel), 'utf8')
+  const readSrc = (rel: string): string => readFileSync(join(here, rel), 'utf8')
 
   it('W27 规则原文仍在,且**预备消息分支在前**:pendingMessages > 0 先出队,仅无预备消息才补答侧问', () => {
     const src = readSrc('../../chat/message-input.tsx')
@@ -232,6 +235,8 @@ describe('D75 SideTaskLifecycleCard / 与 /side 队列语义不冲突(W27 预备
     expect(src).toMatch(
       /if \(pendingMessages\.length > 0\) \{[\s\S]{0,120}?sendPendingMessage\(\)[\s\S]{0,120}?\} else if \(sideQueue && sideQueue\.length > 0\) \{[\s\S]{0,160}?answerCurrentSideQuestion\(\)/,
     )
+    expect(src).toContain('followUpAutoFlushAllowed(queuePaused)')
+    expect(src).toContain('if (!conversationId) return null')
   })
 
   it('/side 提交路径仍明文排除 W27 队列(侧问不进 pendingMessages)', () => {
@@ -280,7 +285,9 @@ describe('D75 SideTaskLifecycleCard / 与 /side 队列语义不冲突(W27 预备
 describe('D75 词包覆盖(读真实词包,不 mock)', () => {
   const flat = (obj: Record<string, unknown>, prefix = ''): string[] =>
     Object.entries(obj).flatMap(([k, v]) =>
-      v && typeof v === 'object' ? flat(v as Record<string, unknown>, `${prefix}${k}.`) : [`${prefix}${k}`],
+      v && typeof v === 'object'
+        ? flat(v as Record<string, unknown>, `${prefix}${k}.`)
+        : [`${prefix}${k}`],
     )
   const VAL = (obj: Record<string, unknown>, path: string): string => {
     const parts = path.split('.')
@@ -387,15 +394,33 @@ describe('D75 词包覆盖(读真实词包,不 mock)', () => {
     const ja = readSideTask('ja')
     const zh = readSideTask('zh-CN')
     // 简体特有字(台账点名的 协作/概览/绑定 及其同族)一律不得出现
-    const simplified = ['协', '务', '览', '绑', '临', '时', '关', '闭', '语', '档', '问', '机', '电', '车', '动']
+    const simplified = [
+      '协',
+      '务',
+      '览',
+      '绑',
+      '临',
+      '时',
+      '关',
+      '闭',
+      '语',
+      '档',
+      '问',
+      '机',
+      '电',
+      '车',
+      '动',
+    ]
     const flatKeys = flat(ja)
     for (const key of flatKeys) {
       const value = VAL(ja, key)
-      for (const ch of simplified) expect(value.includes(ch), `ja ${key} 含简体字 ${ch}`).toBe(false)
+      for (const ch of simplified)
+        expect(value.includes(ch), `ja ${key} 含简体字 ${ch}`).toBe(false)
     }
     // 除插值键本身(键名/占位相同是刻意的)外,取值必须与 zh-CN 不同
     for (const key of flatKeys) {
-      if (key === 'cleanedFrom' || key.startsWith('files.') || key.startsWith('closeConfirm.')) continue
+      if (key === 'cleanedFrom' || key.startsWith('files.') || key.startsWith('closeConfirm.'))
+        continue
       expect(VAL(ja, key), `ja ${key} 与 zh-CN 同值`).not.toBe(VAL(zh, key))
     }
   })

@@ -3,10 +3,11 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * 3 个社交登录 Provider(OIDC + Discord + Telegram)。
+ * 4 个社交登录 Provider(OIDC + Discord + LinuxDo + Telegram)。
  *
- * 设计目标:补齐 New API 已有但 IHUI-AI 缺失的 3 种登录方式,与现有 8 平台
+ * 设计目标:补齐 New API 已有但 IHUI-AI 缺失的登录方式,与现有 8 平台
  * (google/apple/dingtalk/enterpriseWechat/wechat/feishu/github/alipay)并列。
+ * LinuxDo(2026-11-07 立,机主授权"先写代码"):Discourse 自建 OAuth2,凭据到位即点亮。
  *
  * 后端集成位置:apps/api/src/routes/auth-extended.ts
  * (主 agent 后续在 routes/index.ts 已注册 auth-extended 自动生效,无需额外注册)
@@ -122,6 +123,11 @@ export {
   isDiscordConfigured,
   type DiscordProviderConfig,
 } from './discord.js'
+export {
+  createLinuxdoProvider,
+  isLinuxdoConfigured,
+  type LinuxdoProviderConfig,
+} from './linuxdo.js'
 export {
   createTelegramProvider,
   isTelegramConfigured,

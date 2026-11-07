@@ -368,9 +368,7 @@ export function backfillSteerNoticesFromMetadata<T extends SteerHistoryMessageLi
         toolCalls: m.aiCards?.toolCalls ?? [],
         terminalTasks: m.aiCards?.terminalTasks ?? [],
         // D64④:重建是整体替换,已持久化的子任务卡不透传就会被这一笔抹掉
-        ...(m.aiCards?.subagentTasks?.length
-          ? { subagentTasks: m.aiCards.subagentTasks }
-          : {}),
+        ...(m.aiCards?.subagentTasks?.length ? { subagentTasks: m.aiCards.subagentTasks } : {}),
         injections: m.aiCards?.injections ?? [],
         citations: m.aiCards?.citations ?? [],
         steerNotices: notices,
@@ -406,12 +404,14 @@ export interface SubagentTaskView {
  * (跨层备注:归并若再添新 wire 词汇应上移 shared 层,与 fromAgentStatus 同位;
  *  当前仅两值,端内桥接不构成第二套判定。)
  */
-export function subagentEndToTaskState(status: 'done' | 'failed'): BackgroundTaskState {
+export function subagentEndToTaskState(status: 'done' | 'failed' | 'stub'): BackgroundTaskState {
   switch (status) {
     case 'done':
       return 'completed'
     case 'failed':
       return 'failed'
+    case 'stub':
+      return 'stub'
   }
   return 'failed'
 }
@@ -427,10 +427,7 @@ export function upsertSubagentSpawn(
   if (!evt.id) return [...list]
   const prev = list.find((x) => x.id === evt.id)
   if (prev) return [...list]
-  return [
-    ...list,
-    { id: evt.id, role: evt.role, task: evt.task, status: 'running' },
-  ]
+  return [...list, { id: evt.id, role: evt.role, task: evt.task, status: 'running' }]
 }
 
 /**
@@ -453,7 +450,7 @@ export function applySubagentProgress(
  */
 export function applySubagentEnd(
   list: readonly SubagentTaskView[],
-  evt: { id: string; status: 'done' | 'failed'; failureReason?: string },
+  evt: { id: string; status: 'done' | 'failed' | 'stub'; failureReason?: string },
 ): SubagentTaskView[] {
   if (!evt.id) return [...list]
   if (!list.some((x) => x.id === evt.id)) return [...list]

@@ -7,7 +7,7 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { useTranslations } from 'next-intl'
-import { Building2, type LucideIcon } from 'lucide-react'
+import { Building2, MessagesSquare, type LucideIcon } from 'lucide-react'
 
 import { useThirdPartyAuth } from './use-third-party-auth'
 import type { ThirdPartyConfig, ThirdPartyPlatform, ThirdPartyProvider } from '@ihui/ui-react'
@@ -56,9 +56,15 @@ const PROVIDER_DEFS: ReadonlyArray<{
     forceDisabled: true,
   },
   { key: 'oidc', labelKey: 'oidcLogin', icon: Building2 },
+  // LinuxDo(2026-11-07 立,国内可达的 Discourse 社区):走后端代理闭环,入口见
+  // LINUXDO_CONFIG.proxyPath。图标暂用 lucide 描边标(与 oidc 同一手法)——
+  // 本机无网络取不到官方 favicon,按 §4「品牌图标必须官方真实图标 + 人工目检」的口径,
+  // 宁可先用统一图标库,也不伪造厂商标;官方标到位后换 /images/oauth-providers/linuxdo.svg。
+  { key: 'linuxdo', labelKey: 'linuxdoLogin', icon: MessagesSquare },
 ]
 
-/** URL 回调识别的 8 平台列表(与 useThirdPartyAuth.handleCallback 入参对齐) */
+/** URL 回调识别的 8 平台列表(与 useThirdPartyAuth.handleCallback 入参对齐)
+ *  ⚠️ 不含 oidc / linuxdo:这两条是后端浏览器闭环,厂商回调落在 API,不落 web /callback。 */
 const KNOWN_CALLBACK_PLATFORMS: readonly ThirdPartyPlatform[] = [
   'google',
   'apple',

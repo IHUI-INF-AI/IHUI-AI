@@ -49,9 +49,9 @@ export const AGENT_TOOLS = [
   'search_web',
   'vision_analyze',
   'knowledge_lookup',
-  // 2026-08-02 移除:dispatch_subagent 不应在默认 AGENT_TOOLS 中
-  // LLM 对简单问题也会调用 subagent,导致 subagent 执行失败(空输出/超时)→ 前端显示"执行失败"
-  // 改为按需启用:仅在用户明确选择"Agent 模式"时通过 mergeAgentTools 动态添加
+  // dispatch_subagent 不进默认 AGENT_TOOLS(2026-08-02)。
+  // 只在构建模式(ChatMode build,对标 Agent/Edit)由 mergeAgentTools 按模式开关追加。
+  // 问答(ask)与未传模式的普通路径不带它,避免每条闲聊都进工具循环。
   'summarize_artifacts',
   'proactive_suggestion',
   // 12 browser tools
@@ -379,20 +379,35 @@ export const PLUGIN_ID_TO_TOOLS: Record<string, readonly string[]> = {
  * 调用方不携带 agentTools 字段 → 后端直接走流式 astream()(逐 token)输出,恢复打字机效果。
  * 带工具场景仍携带 AGENT_TOOLS + 插件工具,后端 tool loop 已兜底流式,不影响打字机。
  */
+/** 构建模式才放进模型工具表的派工工具。不进 AGENT_TOOLS 常量,避免问答路径连带带上。 */
+export const DISPATCH_SUBAGENT_TOOL = 'dispatch_subagent'
+
+/**
+ * 现有对话模式开关(stores/mode.ts 的 ChatMode)里,只有 build 是 Agent/Edit 执行档。
+ * ask 是问答;plan/review 只读;spec 是规格文档。未传模式视为普通路径,不派工。
+ */
+function dispatchToolForMode(mode: string | null | undefined): readonly string[] {
+  return mode === 'build' ? [DISPATCH_SUBAGENT_TOOL] : []
+}
+
 export function mergeAgentTools(
   // 票60 步序四:工具选择面(selectedTools/webSearchEnabled)按调用方传入的 store
   // 实例读取(默认单例,零回归)—— 发送链路此前读根单例:窗格输入框(MessageInput
   // 已窗格寻址)写入的是窗格实例,组装请求时读根单例 ⇒ 窗格里选的工具静默不生效。
   chatStore: ChatStore = useChatStore,
+  // 第二参是现有 ChatMode,不是新模式。缺省保持「不带 dispatch_subagent」。
+  mode?: string | null,
 ): string[] {
   const { selectedTools: selected, webSearchEnabled } = chatStore.getState()
+  const dispatch = dispatchToolForMode(mode)
   // 2026-08-29:未显式启用任何插件工具(普通问答)时不携带工具,返回空数组
   // D22(2026-09-19 立):网页搜索开关打开时,普通问答也携带 web_search 最小工具集
   // (仅 web_search 单工具,不携带全套 AGENT_TOOLS,保住打字机流式效果)
-  if (selected.length === 0 && !webSearchEnabled) return []
-  if (selected.length === 0) return ['web_search']
+  // 构建模式即使没选插件,也只追加 dispatch_subagent,让多步任务能派到既有 worker。
+  if (selected.length === 0 && !webSearchEnabled) return [...dispatch]
+  if (selected.length === 0) return [...new Set(['web_search', ...dispatch])]
   const extra = selected.flatMap((id) => PLUGIN_ID_TO_TOOLS[id] ?? [])
-  return [...new Set([...AGENT_TOOLS, ...extra])]
+  return [...new Set([...AGENT_TOOLS, ...extra, ...dispatch])]
 }
 
 /**

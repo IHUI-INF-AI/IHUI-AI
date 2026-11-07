@@ -65,6 +65,7 @@ const STATUS_CLS: Record<TimelineEventStatus, string> = {
   running: 'text-primary',
   done: 'text-emerald-500',
   failed: 'text-destructive',
+  stub: 'text-muted-foreground',
 }
 
 const STATUS_ICON: Record<TimelineEventStatus, React.ComponentType<{ className?: string }>> = {
@@ -72,6 +73,7 @@ const STATUS_ICON: Record<TimelineEventStatus, React.ComponentType<{ className?:
   running: Loader2,
   done: ChevronRight,
   failed: AlertCircle,
+  stub: AlertCircle,
 }
 
 // ─── i18n 渲染(Phase 22,2026-07-29 立) ──────────────────────────

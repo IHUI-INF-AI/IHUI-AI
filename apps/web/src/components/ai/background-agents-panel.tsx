@@ -69,6 +69,7 @@ const TASK_STATE_ICON: Record<BackgroundTaskState, React.ReactNode> = {
   failed: <XCircle className="h-4 w-4 text-red-500" />,
   cancelled: <MinusCircle className="h-4 w-4 text-zinc-400" />,
   timeout: <Clock className="h-4 w-4 text-amber-500" />,
+  stub: <AlertTriangle className="h-4 w-4 text-muted-foreground" />,
 }
 
 /** 语义色档 → 徽章样式(与改造前 running/completed/failed/cancelled 四态逐字等价,零视觉回退) */
