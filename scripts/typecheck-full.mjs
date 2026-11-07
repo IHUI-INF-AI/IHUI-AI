@@ -22,20 +22,36 @@ import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+// 2026-11-07(T1 提速):并发执行 + 逐产物 dist 判据 + 内容寻址缓存。
+// 判据强度的唯一变化是**更严**:dist 陈旧判定从"整包最新 mtime"改为逐个产物对账
+// (见 lib/stale-dist.mjs 头注);其余(每包原脚本、rc、错误原文、整包失败)一字不动。
+import {
+  collectPackageState,
+  collectPackageStates,
+  pickStalePackages,
+  captureArtifactSnapshot,
+  verifyArtifactSnapshot,
+  fmtMtime,
+} from './lib/stale-dist.mjs'
+import { checkContentFresh, readManifest, writeManifest } from './lib/dist-content-cache.mjs'
+import {
+  discoverTypecheckProjects,
+  poolMap,
+  resolveConcurrency,
+  runOneProject,
+  runTypecheckProjects,
+  killActiveChildren,
+  topoLayers,
+  workspaceDependencyGraph,
+} from './lib/typecheck-concurrent.mjs'
+
+// §22c:判据必须能被直接审。实现住在 lib/stale-dist.mjs,这里保留同名导出(夹具按名审)。
+export { pickStalePackages }
 // G-611 产出侧:本脚本正是 check-typecheck:454 那套"族码 ⇒ 临时失败"集合的**被派生方**。
 // 装之前,POSIX 信号杀走默认动作(无码),消费侧集合判据对它结构上失明;装之后,
 // 可捕获的信号(SIGINT/SIGTERM/SIGPIPE/SIGBREAK)一律产出 128+N,父侧按同一把尺子归因。
 // 集合/分类的唯一实现住 scripts/lib/signal-exit.mjs —— 不得在本文件再写一份。
 import { installSignalExit } from './lib/signal-exit.mjs'
-// 陈旧 dist 判据/复核(逐产物对账)。本文件顶层是 CLI,夹具无法 import 它 ⇒ 判据必须住 lib,
-// 否则"判据有牙"这件事只能靠 spawn 脚本间接验,而构造面(单产物陈旧/整包 mtime 被拉新)验不了。
-import {
-  collectPackageStates,
-  pickStalePackages,
-  rebuildStalePackages,
-  formatRebuildSummary,
-  fmtMtime,
-} from './lib/stale-dist.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const ROOT = resolve(__dirname, '..')
@@ -68,26 +84,31 @@ const EXCLUDE_DIRS = new Set([
 // 一律 `未判定` exit 2(铁律:取不到输入面就不许给结论)。详见下面 staleDistPreflight 内的失败分支。
 const _PREFLIGHT_ONLY = process.argv.includes('--preflight-only')
 if (_PREFLIGHT_ONLY) {
-  staleDistPreflight()
+  await staleDistPreflight()
   process.exit(0)
 }
 
-// ─── 陈旧 dist 判定与复核(2026-11-07 原根因修法)─────────────────────────────
-// 判据/复核实现已整体搬到 scripts/lib/stale-dist.mjs,本文件只保留装配与退出语义。
-// 拆出的唯一目的:让夹具能直接 import 判据(本文件顶层就是 CLI,import 会清 .tsbuildinfo 并真跑 tsc)。
-//
-// 为什么需要前置:本脚本刻意用 `pnpm -r run typecheck` 而**不走 turbo**,`turbo.json` 里
-// `typecheck` 的 `dependsOn: ["^build"]` 也跟着被绕开 ⇒ 依赖包 `dist/` 不会因 typecheck 而重建,
-// 而消费方按包清单 `exports.types` 读 `packages/*/dist` ⇒ 类型结论可能来自本机旧产物快照。
-// 实测代价(2026-09-27):按 `tokens.brand.ctaForeground` 取配对前景被报 TS2339,源码侧早有该键。
-//
-// 2026-11-07 病根(实测):旧判据 `srcNewest > distNewest` 只看**整包最新**的 dist 文件。
-// `tsconfig.base.json` 开 incremental+composite,增量构建只重写内容变了的产物;只要 dist 里
-// 有一个新文件(embed-types 重写的 `ihui-types.d.ts`、或另一个刚重建的产物),整包 mtime
-// 就被拉新 ⇒ 真正陈旧的 `notification.d.ts` 永远不会被重建。本仓实测跨度:
-// `@ihui/shared` dist 最早 11-06 02:33、最新 11-07 20:30(42 小时)。
-// 现判据:逐产物对账(`src/foo.ts` ↔ `dist/foo.js` / `dist/foo.d.ts`),一个产物新不得替
-// 另一个产物担保;重建后逐产物复核 mtime/内容,没变 ⇒ **未判定 exit 2**(不静音、不放宽)。
+/**
+ * 陈旧 dist 前置重建(2026-09-27 立;2026-11-07 改为逐产物对账 + 内容寻址 + 按拓扑层并发)。
+ *
+ * 为什么需要它:typecheck 读的是各包 `dist/`(经包清单的 exports.types),dist 不入库,
+ * 所以"类型检查过/不过"可能来自本机旧产物,而不是 HEAD 源码。实测代价(2026-09-27):
+ * `tokens.brand.ctaForeground` 明明在源码里,却因旧 dist 报 TS2339。
+ *
+ * 判据(只看 packages/ 下带 build 的自建包,不碰 apps/):
+ *   1. `dist/` 不存在 ⇒ 陈旧;
+ *   2. **逐产物对账**:src 里每个 `.ts/.tsx/.mts/.cts` 应有产物只要缺失,或产物 mtime 不早于
+ *      其源文件 ⇒ 该包陈旧(比旧版"整包最新 mtime"更严:嵌套键/单文件变化不会被整包 mtime 掩盖);
+ *   3. 内容寻址短路(scripts/lib/dist-content-cache.mjs):源码指纹与产物 sha256 都与上次成功
+ *      构建的 manifest 一致 ⇒ 内容确实没变,即使 mtime 因 checkout 变新也**不重写** dist。
+ *      manifest 缺失/读坏 ⇒ 一律退回第 2 条,不静默跳过。
+ *
+ * 执行面(判据不变,只改顺序):按 workspace 依赖拓扑分层,层内并发、层间串行;并发上限由
+ * 核数/内存推导(scripts/lib/typecheck-concurrent.mjs)。原串行实现按包名字母序构建,在冷工作树上
+ * 会让 `@ihui-ai/sdk` 先于它依赖的 `@ihui/types` 构建而失败 —— 拓扑层顺带修掉这个结构缺陷。
+ * 失效方向不变:宁可多跑一次 build,不可让 typecheck 拿旧产物下结论;构建失败仍 `未判定`。
+ */
+/** (判据与 IO 已搬进 scripts/lib/stale-dist.mjs,便于夹具直接 import;本文件只留装配。) */
 
 /**
  * 递归查找并删除所有 .tsbuildinfo 文件（排除依赖与构建缓存目录）。
@@ -164,6 +185,10 @@ process.env.IHUI_TYPECHECK_FULL_CHILD = '1' // 传给 pnpm -r 子进程链
 // 不可捕获的强杀(TerminateProcess/taskkill /F)任何进程都产不出码 —— 与装本模块前一致,
 // 增益在于"可捕获的那一半现在必有码",而锁清理仍由既有 process.on('exit') 兜住。
 installSignalExit({ label: 'typecheck:full' })
+// 并发派生的子进程不在原 spawnSync 的组杀庇护下:信号/异常退出时必须整棵杀掉,
+// 否则 push 门看门狗超时后仍会留下一堆 tsc/pnpm 吃 CPU(与 check-typecheck 的 killChildTree 同语义)。
+process.on('exit', killActiveChildren)
+for (const sig of ['SIGINT', 'SIGTERM', 'SIGBREAK']) process.once(sig, killActiveChildren)
 
 function _pidAlive(pid) {
   if (!pid) return true
@@ -245,8 +270,8 @@ if (!_SELF_TEST) {
 /**
  * `--self-test`:只证 `pickStalePackages` 这一维判定,**必须跑在清 .tsbuildinfo 之前**
  * (那是破坏性动作;把自检挂在它后面等于每跑一次自检就清一次全量缓存)。
- * 本文件顶层就是 CLI 且无 §22d `isDirectRun` 守卫,所以镜像测试只能把脚本 spawn 起来验;
- * 逐产物夹具另住 scripts/tests/typecheck-stale-dist.test.mjs(那边直接 import lib,构造面齐全)。
+ * 本文件顶层就是 CLI 且无 §22d `isDirectRun` 守卫,所以镜像测试只能把脚本 spawn 起来验,
+ * 不能 import 判据函数(§22c 记过这一型)。
  */
 if (_SELF_TEST) {
   let ok = 0
@@ -263,28 +288,22 @@ if (_SELF_TEST) {
     hasBuildScript: true,
     distMissing: false,
     distFileCount: 10,
-    srcNewestMtimeMs: 100,
-    distNewestMtimeMs: 200,
+    artifactCount: 10,
     staleArtifacts: [],
     ...over,
   })
   t(
-    'S1 整包最新 mtime 被拉新(源比 dist 最新文件旧)且无单产物陈旧 ⇒ 不判陈旧(反向对照)',
+    'S1 逐产物对账无陈旧 ⇒ 不判陈旧(反向对照,证明不是"有 dist 就重建")',
     pickStalePackages([e({})]).length === 0,
   )
   t(
-    'S2 单产物陈旧 ⇒ 判陈旧(病根那一型:整包最新 mtime 不得替单产物担保)',
-    pickStalePackages([
-      e({
-        srcNewestMtimeMs: 100,
-        distNewestMtimeMs: 300,
-        staleArtifacts: [{ artifact: 'notification.d.ts', src: 'notification.ts' }],
-      }),
-    ]).join() === '@ihui/x',
+    'S2 某产物早于对应源码 ⇒ 判陈旧(本维要抓的那一型)',
+    pickStalePackages([e({ staleArtifacts: [{ artifact: 'a.d.ts', src: 'a.ts' }] })]).join() ===
+      '@ihui/x',
   )
   t(
     'S3 dist 整个不存在 ⇒ 判陈旧(消费者按 exports.types 解析 dist,缺就是不可信)',
-    pickStalePackages([e({ distMissing: true, distFileCount: 0 })]).length === 1,
+    pickStalePackages([e({ distMissing: true })]).length === 1,
   )
   t(
     'S3b dist 存在但 0 个文件 ⇒ 同样判陈旧(空目录不是"已构建")',
@@ -292,22 +311,35 @@ if (_SELF_TEST) {
   )
   t(
     'S4 没有 build 脚本的包不吃这条前置(纯类型包无产物)',
-    pickStalePackages([e({ hasBuildScript: false, staleArtifacts: [{}] })]).length === 0,
+    pickStalePackages([e({ hasBuildScript: false, staleArtifacts: [{ artifact: 'x' }] })]).length ===
+      0,
   )
   t(
-    'S5 同刻平手不判陈旧 —— 判据不得靠 >= 制造伪重建',
+    'S5 应有产物缺失(artifactMtime=-1)也判陈旧 —— 2026-11-07 补齐的一型',
+    pickStalePackages([
+      e({ staleArtifacts: [{ artifact: 'new.d.ts', src: 'new.ts', artifactMtimeMs: -1, missing: true }] }),
+    ]).length === 1,
+  )
+  t(
+    'S5b 同刻平手不判陈旧 —— 判据不得靠 >= 制造伪重建',
     pickStalePackages([e({ staleArtifacts: [] })]).length === 0,
   )
   t(
     'S6 多包时输出稳定有序(报告要能逐条核)',
     pickStalePackages([
-      e({ name: '@ihui/z', staleArtifacts: [{}] }),
-      e({ name: '@ihui/a', staleArtifacts: [{}] }),
+      e({ name: '@ihui/z', staleArtifacts: [{ artifact: 'z.d.ts' }] }),
+      e({ name: '@ihui/a', staleArtifacts: [{ artifact: 'a.d.ts' }] }),
     ]).join() === '@ihui/a,@ihui/z',
   )
   console.log(`--self-test:${ok} 通过 / ${bad} 失败`)
   process.exit(bad ? 1 : 0)
 }
+
+// 2026-11-07(T1 提速):前置重建**移到清缓存之前**。
+// 为什么顺序重要:build 走同一批 tsconfig 的 incremental/composite 缓存,先清 buildinfo 再 build
+// 等于每次强制整包重写 dist(冷工作树实测 59.1s 恰在这一档);先 build(可增量)再清,typecheck
+// 仍是全量冷跑(判据不变),而已变更包只需重写变化的产物 —— 内容寻址的第一层收益。
+await staleDistPreflight()
 
 console.log('[typecheck:full] 清除 .tsbuildinfo 增量缓存...')
 const removed = cleanTsbuildinfo(ROOT)
@@ -339,14 +371,13 @@ if (removed.length === 0) {
 
 /**
  * 前置:把陈旧的 packages 各包 dist 重建掉,再开始类型检查。
- * 重建失败 ⇒ 直接非零退出:此时任何"类型通过"的结论都不可信(要么拿着旧产物,要么产物残缺),
- * 而"安静地跳过重建"正是本格缺陷的表现形态。
- *
- * 2026-11-07 可观测性(不再只报"命中几个包"):逐包打印**包名 + rc + 重建前后整包最新 mtime
- * + 每个陈旧产物的 mtime 对比**;失败时原样打出逐包汇总,让日志能直接指认是哪个包/哪个产物
- * 没重建。复核不过 ⇒ exit 2 未判定(不许静音、不许放宽阈值)。
+ * 判据见文件头注 + lib/stale-dist.mjs + lib/dist-content-cache.mjs;这里只做装配:
+ *   逐包算"mtime 逐产物判据 / 内容寻址判据" → 按 workspace 依赖拓扑分层 → 层内并发重建
+ *   → 逐包复核(rc + 产物刷新 + 复扫) → 失败统一在全部层跑完后汇总(错误一个都不吞)。
+ * 重建失败 ⇒ 非零退出:此时任何"类型通过"的结论都不可信(要么拿着旧产物,要么产物残缺)。
  */
-function staleDistPreflight() {
+async function staleDistPreflight() {
+  const t0 = Date.now()
   if (process.env.IHUI_SKIP_STALE_DIST_PREFLIGHT === '1') {
     console.log(
       '[typecheck:full] ⚠️ 已用 IHUI_SKIP_STALE_DIST_PREFLIGHT=1 跳过陈旧 dist 前置重建。',
@@ -354,106 +385,168 @@ function staleDistPreflight() {
     console.log('[typecheck:full]    跳过后,下面这些类型结论可能来自本机旧产物(见文件头注)。')
     return
   }
-  const entries = collectPackageStates(join(ROOT, 'packages'))
-  const stale = pickStalePackages(entries)
-  if (stale.length === 0) {
-    console.log('[typecheck:full] 陈旧 dist 前置:packages 全部与源码同新,无需重建。')
+  const all = collectPackageStates(join(ROOT, 'packages')).filter((e) => e.hasBuildScript)
+  const need = []
+  const contentSkipped = []
+  const seeded = []
+  for (const e of all) {
+    const mtimeStale = e.distMissing || e.distFileCount === 0 || e.staleArtifacts.length > 0
+    const content = checkContentFresh(ROOT, e)
+    const manifest = readManifest(ROOT, e.name)
+    if (content.fresh) {
+      // 内容面已证未变:即使 mtime 判陈旧也不重写(这正是 checkout 刷新 mtime 的假重建)
+      if (mtimeStale) contentSkipped.push({ name: e.name, reason: content.reason })
+      continue
+    }
+    if (!mtimeStale && !manifest) {
+      // 首跑播种:逐产物 mtime 判定已新鲜 ⇒ 当前 dist 就是源码的对应产物,
+      // 把这份"内容快照"记下来;之后 checkout 只掀 mtime 时即可走内容寻址跳过。
+      // 播种只在 mtime 判据已绿时做,不替任何陈旧产物背书。
+      const w = writeManifest(ROOT, e)
+      if (w.ok) seeded.push(e.name)
+    }
+    // 有 manifest 但不新鲜(源码指纹变了/产物 hash 不符)⇒ 必须重建,不依赖 mtime 是否前进;
+    // 无 manifest ⇒ 沿用逐产物 mtime 判据(与旧口径同严,不静默放过)。
+    if (mtimeStale || manifest) need.push(e)
+  }
+  if (seeded.length > 0) {
+    console.log(`[typecheck:full] 内容寻址播种 ${seeded.length} 包(dist 已新鲜,记录内容指纹供后续跳过)`)
+  }
+  if (contentSkipped.length > 0) {
+    console.log(
+      `[typecheck:full] 内容寻址跳过 ${contentSkipped.length} 个包(mtime 看着旧、内容实为同一份):` +
+        contentSkipped.map((x) => x.name).join(', '),
+    )
+  }
+  if (need.length === 0) {
+    console.log(
+      `[typecheck:full] 陈旧 dist 前置:无需重建(扫描 ${all.length} 包,内容寻址跳过 ${contentSkipped.length} 包),耗时 ${Date.now() - t0}ms。`,
+    )
     return
   }
+  const { limit, basis } = resolveConcurrency()
   console.log(
-    `[typecheck:full] 检测到 ${stale.length} 个包的 dist 有**单产物**落后于源码(逐产物判据),先重建再 typecheck:`,
+    `[typecheck:full] 需重建 ${need.length}/${all.length} 包(其余内容未变已跳过);并发上限 ${limit}:${basis}`,
   )
-  for (const n of stale) {
-    const st = entries.find((e) => e.name === n)
+  const { layers, cycle } = topoLayers(
+    need.map((e) => e.name),
+    workspaceDependencyGraph(ROOT),
+  )
+  if (cycle.length > 0) {
+    console.log(`[typecheck:full] ⚠️ workspace 依赖成环,按单层兜底执行:${cycle.join(', ')}`)
+  }
+  for (let i = 0; i < layers.length; i++) {
+    console.log(`[typecheck:full] 重建拓扑层 ${i + 1}/${layers.length}:${layers[i].join(', ')}`)
+  }
+
+  const rebuildOne = async (name) => {
+    const state = need.find((e) => e.name === name)
+    const snap = captureArtifactSnapshot(state.dir, state)
+    const startedAt = Date.now()
+    const r = await runOneProject(
+      { name, command: `pnpm --filter ${name} build`, args: [], dir: ROOT },
+      { root: ROOT },
+    )
+    const after = collectPackageState(state.dir, name)
+    const verified = verifyArtifactSnapshot(state.dir, snap)
+    const unverified = verified.filter((v) => !v.refreshed)
+    const missingAfter = after.distMissing || after.distFileCount === 0
+    const postFresh = !missingAfter && after.artifactCount > 0 && after.staleArtifacts.length === 0
+    // 内容面复核:rc=0 且产物齐全后落 manifest,再按指纹+逐产物 hash 复读一遍。
+    // 为什么不是"mtime 必须前进":注释/格式这类源码改动可以合法地不改变任何产物字节,
+    // 此时 tsc 增量不重写文件,mtime 不动 —— 那不代表旧产物有错。改用 sha256 逐个复核,
+    // 比 mtime 更硬(产物缺失/被篡改/半份都会被抓到),没有放松。
+    let contentOk = false
+    if (r.rc === 0 && !missingAfter) {
+      const written = writeManifest(ROOT, state)
+      contentOk = written.ok && checkContentFresh(ROOT, state).fresh
+    }
+    const ok = r.rc === 0 && !missingAfter && ((unverified.length === 0 && postFresh) || contentOk)
     console.log(
-      `  - ${n}: 陈旧产物 ${st.staleArtifacts.length}/${st.artifactCount} 个,` +
-        ` 整包最新 mtime ${fmtMtime(st.distNewestMtimeMs)}(该包 src 最新 ${fmtMtime(st.srcNewestMtimeMs)})`,
+      `\n──── [typecheck:full] 重建 ${name} rc=${r.rc ?? '?'} ${Date.now() - startedAt}ms ` +
+        `(陈旧产物 ${snap.length},复核刷新 ${verified.length - unverified.length}/${verified.length},复扫 ${after.staleArtifacts.length}) ────`,
     )
-    for (const a of st.staleArtifacts.slice(0, 10)) {
+    if (r.stdout) process.stdout.write(r.stdout.endsWith('\n') ? r.stdout : `${r.stdout}\n`)
+    if (r.stderr) process.stderr.write(r.stderr.endsWith('\n') ? r.stderr : `${r.stderr}\n`)
+    for (const v of unverified) {
       console.log(
-        `      · ${a.artifact} ${fmtMtime(a.artifactMtimeMs)} < src/${a.src} ${fmtMtime(a.srcMtimeMs)}`,
+        `[typecheck:full]   ✗ ${name} 未刷新 ${v.artifact}: mtime ${fmtMtime(v.beforeMtimeMs)} → ${fmtMtime(v.afterMtimeMs)}(内容未变${contentOk ? ',按 sha256 复核视为正确' : ''})`,
       )
     }
-    if (st.staleArtifacts.length > 10) {
-      console.log(`      … 另有 ${st.staleArtifacts.length - 10} 个陈旧产物`)
+    return {
+      name,
+      rc: r.rc,
+      ok,
+      staleBefore: snap.length,
+      refreshed: verified.length - unverified.length,
+      unverified: unverified.length,
+      postStale: after.staleArtifacts.length,
+      contentOk,
     }
   }
-  const out = rebuildStalePackages({
-    entries,
-    staleNames: stale,
-    // 生产侧仍是同一条命令(stdio:inherit 保留构建日志),只是把 rc 交回判据面做复核。
-    buildPackage: (n) =>
-      spawnSync(`pnpm --filter ${n} build`, {
-        cwd: ROOT,
-        stdio: 'inherit',
-        shell: true,
-        windowsHide: true,
-      }),
-  })
-  if (out.failure === 'build') {
-    const failed = out.results[out.results.length - 1]
-    const n = failed?.name ?? '(未知包)'
-    const rc = failed?.status ?? '?'
-    console.error('\n[typecheck:full] 逐包重建汇总:')
-    console.error(formatRebuildSummary(out.results))
-    if (_PREFLIGHT_ONLY) {
-      // 前置档的铁律(AGENTS §0.3):产物面**取不到** ⇒ `未判定` exit 2,不给结论。
-      // 为什么不能沿用 build 的退出码(通常是 1):上层会把 exit 1 读成"类型检查有结论的失败"
-      // (=已入库红),把一次 **build 失败**冒充成类型缺陷,归因就指错人;
-      // 为什么更不能继续跑:旧 .d.ts 还在,结论来自旧产物 = 绿得没有依据。
-      // 两条都被禁 ⇒ 唯一正确出口是 2,并点名包名与 build 退出码,便于一键复现。
-      console.error(
-        `\n[typecheck:full] ❓ 未判定(exit 2):重建 ${n} 失败(build rc=${rc})—— 产物面取不到,不给类型结论。`,
-      )
-      console.error(`[typecheck:full]    复现: pnpm --filter ${n} build`)
-      process.exit(2)
-    }
-    console.error(`\n[typecheck:full] 重建 ${n} 失败(rc=${rc})—— 不带着旧产物继续跑类型检查。`)
-    process.exit(failed?.status ?? 1)
+  const rebuildStarted = Date.now()
+  const results = []
+  for (const layer of layers) {
+    results.push(
+      ...(await poolMap(layer, limit, async (name) => {
+        try {
+          return await rebuildOne(name)
+        } catch (e) {
+          console.error(`[typecheck:full] ❌ 重建 ${name} 抛错:${e?.stack || e}`)
+          return { name, rc: null, ok: false, staleBefore: 0, refreshed: 0, unverified: 0, postStale: 0 }
+        }
+      })),
+    )
   }
-  if (out.failure === 'unverified') {
-    // 复核不过 = 产物没被真正刷新(rc=0 也不够)。这不是 build 失败、更不是类型红,
-    // 而是**未判定**:取不到可信产物面就不得给类型结论。两种通道统一 exit 2。
-    const bad = out.results.filter((r) => !r.ok)
-    console.error('\n[typecheck:full] 逐包重建汇总:')
-    console.error(formatRebuildSummary(out.results))
-    for (const r of bad) {
-      console.error(
-        `[typecheck:full]    ${r.name}: rc=${r.status ?? '?'}, 未刷新产物 ${r.unverified.length} 个` +
-          `, 复扫仍有 ${r.postStale} 个陈旧产物`,
-      )
-      for (const v of r.unverified) {
-        console.error(
-          `[typecheck:full]      · ${v.artifact}: mtime ${fmtMtime(v.beforeMtimeMs)} → ${fmtMtime(v.afterMtimeMs)} 且内容未变`,
-        )
-      }
+  const failed = results.filter((r) => !r.ok)
+  console.log(
+    `[typecheck:full] 前置重建结束:${results.length - failed.length}/${results.length} 包 OK,` +
+      `总耗时 ${Date.now() - rebuildStarted}ms(整段含扫描 ${Date.now() - t0}ms)`,
+  )
+  for (const r of results) {
+    console.log(
+      `  - ${r.name}: rc=${r.rc ?? '?'}, 陈旧产物 ${r.staleBefore}, 已刷新 ${r.refreshed}` +
+        `${r.unverified ? `, 未刷新 ${r.unverified}` : ''}, 复扫 ${r.postStale}, ${r.ok ? 'OK' : 'NOT-OK'}`,
+    )
+  }
+  if (failed.length === 0) return
+  const nonzero = failed.find((r) => r.rc !== 0)
+  if (_PREFLIGHT_ONLY) {
+    // 前置档铁律(AGENTS §0.3):产物面取不到 ⇒ `未判定` exit 2,不给结论。
+    // 不能沿用 build 的 1:上层会把一次 build 失败误归因成"已入库类型红"。
+    console.error(
+      `\n[typecheck:full] ❓ 未判定(exit 2):${failed.length} 个包重建失败/未刷新 —— 产物面取不到,不给类型结论。`,
+    )
+    for (const r of failed) {
+      console.error(`[typecheck:full]    ${r.name}: build rc=${r.rc ?? '?'}, 复扫陈旧 ${r.postStale}`)
     }
-    console.error(
-      `\n[typecheck:full] ❓ 未判定(exit 2):${bad.map((r) => r.name).join(', ')} 重建后目标产物未刷新(mtime/内容都没变)—— 产物面不可信,不给类型结论。`,
-    )
-    console.error(
-      '[typecheck:full]    复现:删掉该包 dist 后重跑同一命令,或 pnpm --filter <包名> build 后人工核对产物 mtime',
-    )
+    console.error('[typecheck:full]    复现: pnpm --filter <包名> build')
     process.exit(2)
   }
-  console.log('[typecheck:full] 前置重建完成,继续全量 typecheck。')
+  console.error(
+    `\n[typecheck:full] 重建失败 ${failed.length} 个包 —— 不带着旧产物继续跑类型检查。`,
+  )
+  process.exit(nonzero && nonzero.rc ? nonzero.rc : 2)
 }
 
-staleDistPreflight()
-
-console.log('\n[typecheck:full] 运行 pnpm -r run typecheck（串行，避免 turbo 多进程竞态）...')
-// 使用 pnpm -r 递归串行运行，避免 turbo 并行/串行时的 .tsbuildinfo 与内存竞态
-const result = spawnSync('pnpm -r run typecheck', {
-  cwd: ROOT,
-  stdio: 'inherit',
-  shell: true,
-  windowsHide: true, // 根治:pnpm -r 给每个子包拉 cmd.exe,无此参数时控制台链断裂即弹可见窗口(实测一次 typecheck ~30 次闪窗)
+console.log('\n[typecheck:full] 并发运行各包 typecheck(原脚本原样,并发上限按机器推导)...')
+const _typecheckConcurrency = resolveConcurrency()
+console.log(`[typecheck:full] 并发上限 ${_typecheckConcurrency.limit}:${_typecheckConcurrency.basis}`)
+const _projects = discoverTypecheckProjects(ROOT)
+if (_projects.length === 0) {
+  console.error('[typecheck:full] ❌ 未发现任何带 typecheck 脚本的 workspace 包 —— 输入面为空,未判定(exit 2)')
+  process.exit(2)
+}
+const _typecheckRun = await runTypecheckProjects({
+  projects: _projects,
+  concurrency: _typecheckConcurrency.limit,
+  root: ROOT,
 })
-
-if (result.status !== 0) {
-  console.error(`\n[typecheck:full] 失败，退出码 ${result.status}`)
-  process.exit(result.status ?? 1)
+if (!_typecheckRun.ok) {
+  console.error(`\n[typecheck:full] 失败，退出码 ${_typecheckRun.exitCode}`)
+  process.exit(_typecheckRun.exitCode ?? 1)
 }
+console.log(`[typecheck:full] ✅ ${_projects.length} 个包 typecheck 全部通过`)
 
 // ─── Phase 1.5:e2e typecheck 阻断门(2026-07-26 立) ──
 // 背景:apps/web/e2e/ 有独立 tsconfig.json(extends tsconfig.base.json),
