@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -41,6 +42,14 @@ except ImportError:  # pragma: no cover
 # 类型别名(对齐 packages/types/src/agent-runtime.ts P3-3 契约)
 AgentMessageType = Literal["request", "response", "notification", "broadcast", "handoff"]
 
+# 2026-11-08 会话信箱语义(对齐 Trae inbox 信封的四枚开关):
+#   entersContext / triggersAgent / artifactRefs / priority + 链深防自激。
+# 上限取"够用即可":链深超过 3 跳的协作几乎一定是回环,宁可显式拒绝也不无限放大。
+_MAX_AGENT_HOP_DEPTH = 3
+_MAX_ARTIFACT_REFS = 20
+_MAX_SOURCE_EVENT_SEEN = 2000
+_SOURCE_EVENT_TTL_SECONDS = 600.0
+
 
 @dataclass
 class AgentMessage:
@@ -56,10 +65,42 @@ class AgentMessage:
     requireReply: bool = False
     ownerUserId: str | None = None
     sessionId: str | None = None
+    # ---- 2026-11-08 信箱语义(默认值 = 旧行为,老消息逐键不变)----
+    # entersContext=False:只记账,不注入收件方模型上下文;
+    # triggersAgent=True:应唤醒收件方起一个回合(而不是等它下次主动读);
+    # artifactRefs:产物引用(文件/截图/报告),用来替代大段正文;
+    # priority:越大越先处理(读取面按需排序,不改变队列 FIFO);
+    # hopDepth:协作链深度,超过 _MAX_AGENT_HOP_DEPTH 的转发一律拒绝;
+    # sourceEventId:来源事件幂等键,重复投递在总线上被去重。
+    entersContext: bool = True
+    triggersAgent: bool = False
+    artifactRefs: list[str] = field(default_factory=list)
+    priority: int = 0
+    hopDepth: int = 0
+    sourceEventId: str | None = None
 
     def __post_init__(self) -> None:
         if not self.timestamp:
             self.timestamp = datetime.now(UTC).isoformat()
+        self.entersContext = bool(self.entersContext)
+        self.triggersAgent = bool(self.triggersAgent)
+        try:
+            self.priority = int(self.priority or 0)
+        except (TypeError, ValueError):
+            self.priority = 0
+        try:
+            self.hopDepth = max(0, int(self.hopDepth or 0))
+        except (TypeError, ValueError):
+            self.hopDepth = 0
+        refs: list[str] = []
+        for item in self.artifactRefs or []:
+            text = _text(item)
+            if text and text not in refs:
+                refs.append(text)
+            if len(refs) >= _MAX_ARTIFACT_REFS:
+                break
+        self.artifactRefs = refs
+        self.sourceEventId = _text(self.sourceEventId) or None
 
     def to_dict(self) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -77,6 +118,19 @@ class AgentMessage:
             data["ownerUserId"] = self.ownerUserId
         if self.sessionId is not None:
             data["sessionId"] = self.sessionId
+        # 信箱语义同理:只有非默认值才出现在载荷里,旧消息/旧消费者不受影响。
+        if not self.entersContext:
+            data["entersContext"] = False
+        if self.triggersAgent:
+            data["triggersAgent"] = True
+        if self.artifactRefs:
+            data["artifactRefs"] = list(self.artifactRefs)
+        if self.priority:
+            data["priority"] = self.priority
+        if self.hopDepth:
+            data["hopDepth"] = self.hopDepth
+        if self.sourceEventId:
+            data["sourceEventId"] = self.sourceEventId
         return data
 
 
@@ -145,6 +199,9 @@ class AgentMessageBus:
         self._seats: dict[str, AgentSeat] = {}
         # 请求-回复 correlation:request.id -> Future
         self._pending_replies: dict[str, asyncio.Future[AgentMessage]] = {}
+        # 来源事件幂等窗口:sourceEventId -> 首次出现时间(monotonic)。
+        # 只存 id 不存正文;插入序即时间序,淘汰从最旧开始。
+        self._seen_source_events: dict[str, float] = {}
         # Redis(可选)
         self._redis: Any = None
         self._use_redis = bool(getattr(settings, "redis_url", None)) and aioredis is not None
@@ -172,6 +229,28 @@ class AgentMessageBus:
         """当前队列长度;agent 未注册返回 None(与"空队列"分得开)。"""
         q = self._queues.get(agent_name)
         return None if q is None else q.qsize()
+
+    def mark_source_event(self, source_event_id: str | None) -> bool:
+        """登记一次来源事件:首次出现返回 True,重复(窗口内)返回 False。
+
+        幂等窗口按"只存 id + 时间"实现,容量与 TTL 双上限;空 id 视为不去重
+        (旧调用方不传 sourceEventId 时行为与以前一致)。
+        """
+        key = _text(source_event_id)
+        if not key:
+            return True
+        now = time.monotonic()
+        cache = self._seen_source_events
+        while cache:
+            oldest_id, seen_at = next(iter(cache.items()))
+            expired = now - seen_at > _SOURCE_EVENT_TTL_SECONDS
+            if not expired and len(cache) < _MAX_SOURCE_EVENT_SEEN:
+                break
+            cache.pop(oldest_id, None)
+        if key in cache:
+            return False
+        cache[key] = now
+        return True
 
     # =========================================================================
     # 席位(点名投递与收件箱的身份边界)
@@ -452,6 +531,12 @@ async def send_to_agent(
     message_type: str = "notification",
     require_reply: bool = False,
     sub_task_id: str | None = None,
+    enters_context: bool = True,
+    triggers_agent: bool = False,
+    artifact_refs: list[str] | None = None,
+    priority: int = 0,
+    hop_depth: int = 0,
+    source_event_id: str | None = None,
     bus: AgentMessageBus | None = None,
 ) -> dict[str, Any]:
     """向指定同伴代理点名投递一条消息;身份取自承载层注入的 __session_id/__user_id。
@@ -459,11 +544,36 @@ async def send_to_agent(
     契约:sender 必须是调用方会话自己认领(或首次认领)的席位名,recipient 必须是
     已注册且有席位的具名 agent。返回 ok=False 时消息一定没进任何队列。
     `user_role` 只作契约对齐:任何角色都不构成越席读/投他人私信的资格。
+
+    2026-11-08 新增四枚信箱开关 + 两道防回环闸:
+    - enters_context / triggers_agent / artifact_refs / priority 原样落到信封;
+    - hop_depth > _MAX_AGENT_HOP_DEPTH ⇒ `hop_depth_exceeded`(链深失控按回环拒绝);
+    - 同一 source_event_id 在窗口内重复 ⇒ `duplicate_source_event`(幂等,零副作用)。
     """
     b = _bus_or_default(bus)
     sid, uid, err = _identity_or_error(session_id, user_id)
     if err is not None:
         return err
+
+    try:
+        depth = int(hop_depth or 0)
+    except (TypeError, ValueError):
+        depth = 0
+    if depth < 0 or depth > _MAX_AGENT_HOP_DEPTH:
+        return {
+            "ok": False,
+            "code": "hop_depth_exceeded",
+            "hopDepth": depth,
+            "maxHopDepth": _MAX_AGENT_HOP_DEPTH,
+            "detail": "协作链超过最大跳数,按回环处理,不再转发",
+        }
+    if source_event_id and not b.mark_source_event(source_event_id):
+        return {
+            "ok": False,
+            "code": "duplicate_source_event",
+            "sourceEventId": _text(source_event_id),
+            "detail": "同一来源事件已投递过,按幂等丢弃",
+        }
 
     to = _text(recipient)
     if not to:
@@ -544,6 +654,12 @@ async def send_to_agent(
         requireReply=bool(require_reply),
         ownerUserId=uid,
         sessionId=sid,
+        entersContext=bool(enters_context),
+        triggersAgent=bool(triggers_agent),
+        artifactRefs=list(artifact_refs or []),
+        priority=priority,
+        hopDepth=depth,
+        sourceEventId=_text(source_event_id) or None,
     )
     depth_before = b.queue_depth(to)
     await b.send(message)
@@ -564,6 +680,9 @@ async def send_to_agent(
         "toAgent": to,
         "timestamp": message.timestamp,
         "queueDepth": depth_after,
+        "entersContext": message.entersContext,
+        "triggersAgent": message.triggersAgent,
+        "hopDepth": message.hopDepth,
     }
 
 
@@ -633,6 +752,10 @@ async def read_agent_inbox(
         "agentName": name,
         "count": len(collected),
         "messages": collected,
+        # 2026-11-08:把"该不该起回合 / 该不该进上下文"的判定结果交给调用方,
+        # 不在读口里替它决定(读口只负责消费与归属校验)。
+        "contextEligible": sum(1 for item in collected if item.get("entersContext", True) is not False),
+        "triggersAgentCount": sum(1 for item in collected if item.get("triggersAgent")),
         "queueDepthRemaining": b.queue_depth(name),
     }
 
