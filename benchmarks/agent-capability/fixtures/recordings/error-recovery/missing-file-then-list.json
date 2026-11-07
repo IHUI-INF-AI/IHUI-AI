@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "model": "eval-replay",
+  "calls": [
+    {
+      "label": "read-missing-file",
+      "frames": [
+        {
+          "id": "chatcmpl-eval-rec-1",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "index": 0,
+                    "id": "call_eval_rec_missing_1",
+                    "type": "function",
+                    "function": { "name": "read_file", "arguments": "{\"path\":\"secret.md\"}" }
+                  }
+                ]
+              },
+              "finish_reason": null
+            }
+          ]
+        },
+        { "choices": [{ "index": 0, "delta": {}, "finish_reason": "tool_calls" }] }
+      ]
+    },
+    {
+      "label": "list-dir-after-failure",
+      "frames": [
+        {
+          "id": "chatcmpl-eval-rec-2",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "index": 0,
+                    "id": "call_eval_rec_list_1",
+                    "type": "function",
+                    "function": { "name": "list_dir", "arguments": "{\"path\":\".\"}" }
+                  }
+                ]
+              },
+              "finish_reason": null
+            }
+          ]
+        },
+        { "choices": [{ "index": 0, "delta": {}, "finish_reason": "tool_calls" }] }
+      ]
+    },
+    {
+      "label": "read-real-file",
+      "frames": [
+        {
+          "id": "chatcmpl-eval-rec-3",
+          "object": "chat.completion.chunk",
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "tool_calls": [
+                  {
+                    "index": 0,
+                    "id": "call_eval_rec_read_2",
+                    "type": "function",
+                    "function": { "name": "read_file", "arguments": "{\"path\":\"notes.md\"}" }
+                  }
+                ]
+              },
+              "finish_reason": null
+            }
+          ]
+        },
+        { "choices": [{ "index": 0, "delta": {}, "finish_reason": "tool_calls" }] }
+      ]
+    },
+    {
+      "label": "answer-after-recovery",
+      "frames": [
+        {
+          "choices": [
+            {
+              "index": 0,
+              "delta": {
+                "role": "assistant",
+                "content": "第一次读的 secret.md 不存在；列目录后发现真实文件是 notes.md，口令是 "
+              }
+            }
+          ]
+        },
+        {
+          "choices": [{ "index": 0, "delta": { "content": "WALRUS-77。" }, "finish_reason": null }]
+        },
+        { "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }] }
+      ]
+    }
+  ]
+}
