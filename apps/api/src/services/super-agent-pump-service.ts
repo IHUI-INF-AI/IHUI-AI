@@ -13,7 +13,9 @@ import { z } from 'zod'
 import {
   SuperAgentHost,
   SuperAgentPump,
+  type RuleAssessment,
   type SlowDecision,
+  type SlowDirection,
   type SlowJudgeCall,
   type SlowJudgeInput,
   type TriggerSourcePort,
@@ -76,10 +78,9 @@ function saveIfDirty(): void {
     .catch((e: unknown) => {
       lastPersistError = e instanceof Error ? e.message : String(e)
       persistStatus = 'degraded'
-      logger.warn(
-        { err: lastPersistError },
-        'super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入',
-      )
+      logger.warn('super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入', {
+        err: lastPersistError,
+      })
     })
 }
 
@@ -107,7 +108,7 @@ export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> 
     const { list } = await findUserPreferences(provider, USER_PREFERENCE_GROUPS.superAgent)
     const row = list.find((r) => r.key === SUPER_AGENT_SNAPSHOT_KEY)
     if (!row?.value) return { loaded: false, status: 'ok', rejectedReasons: [] }
-    const parsed = JSON.parse(row.value) as Parameters<typeof superAgentHost.restore>[0]
+    const parsed = JSON.parse(row.value) as { takenAt?: number }
     const report = superAgentHost.restore(parsed)
     if (!report.ok) {
       persistStatus = 'degraded'
@@ -248,6 +249,21 @@ export function createSlowJudgeCall(
         text: i.text,
         observed_at: i.observedAt,
         requesters: i.requesters,
+        enabled_rules: i.enabledRules,
+        companions: i.companions.map((c) => ({ id: c.id, text: c.text })),
+        related_tickets: i.relatedTickets.map((t) => ({
+          id: t.id,
+          title: t.title,
+          scope: t.scope,
+          strength: t.strength,
+          stage: t.stage,
+        })),
+        thread_window: i.threadWindow.map((m) => ({
+          actor_id: m.actorId,
+          from_bot: m.fromBot,
+          addressed: m.addressed,
+          text: m.text,
+        })),
       })),
     }
     const resp = await call('/api/super-agent/slow-path/judge', {
@@ -262,25 +278,130 @@ export function createSlowJudgeCall(
     }
     const envelope = (await resp.json()) as {
       code?: number
-      data?: { verdicts?: Record<string, { verdict?: string; reason?: string }> }
+      data?: {
+        model?: string
+        verdicts?: Record<
+          string,
+          {
+            decision?: string
+            confidence?: number
+            rule_assessments?: unknown
+            direction?: unknown
+            intent_evidence?: unknown
+            title?: unknown
+            scope?: unknown
+            worktree_name?: unknown
+            reason?: unknown
+          }
+        >
+      }
     }
     const verdicts = envelope.data?.verdicts
     if (envelope.code !== 0 || !verdicts) throw new Error('slow-path judge envelope rejected')
+    // 谁判的：模型名缺失 ⇒ 判不出身份，整批 fail-closed（不允许空串冒充）。
+    const model = envelope.data?.model
+    if (typeof model !== 'string' || model.trim().length === 0) {
+      throw new Error('slow-path judge missing model identity')
+    }
+    const judge = `ai-service:${model}`
     const out: Record<string, SlowDecision> = {}
     const at = Date.now()
     for (const input of inputs) {
       const row = verdicts[input.id]
       if (!row) continue // 少一条=该条未判定,不回退猜
-      const v = row.verdict
-      if (v !== 'act' && v !== 'ignore' && v !== 'unclear') {
+      const decision = row.decision
+      if (decision !== 'accept' && decision !== 'ignore' && decision !== 'unavailable') {
         // 单条形状坏 ⇒ 整批不落（模型输出半可信 = 不判）。
-        throw new Error(`slow-path judge bad verdict for ${input.id}: ${String(v)}`)
+        throw new Error(`slow-path judge bad decision for ${input.id}: ${String(decision)}`)
       }
-      out[input.id] = { verdict: v, reason: (row.reason ?? '').slice(0, 300), at }
+      const confidence = row.confidence
+      if (
+        typeof confidence !== 'number' ||
+        !Number.isFinite(confidence) ||
+        confidence < 0 ||
+        confidence > 1
+      ) {
+        throw new Error(`slow-path judge bad confidence for ${input.id}: ${String(confidence)}`)
+      }
+      const assessments = parseRuleAssessments(row.rule_assessments, input.id)
+      const direction = parseDirection(row.direction, input.id)
+      const intentEvidence = requireString(row.intent_evidence, 'intent_evidence', input.id)
+      const title = requireString(row.title, 'title', input.id)
+      const scope = requireString(row.scope, 'scope', input.id)
+      const worktreeName = parseOptionalString(row.worktree_name, 'worktree_name', input.id)
+      const reason = requireString(row.reason, 'reason', input.id)
+      out[input.id] = {
+        decision,
+        ruleAssessments: assessments,
+        direction,
+        confidence,
+        intentEvidence,
+        title,
+        scope,
+        ...(worktreeName === undefined ? {} : { worktreeName }),
+        reason: reason.slice(0, 300),
+        at,
+        judge,
+      }
     }
     return out
   }
 }
+
+function requireString(value: unknown, field: string, id: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`slow-path judge bad ${field} for ${id}: ${String(value)}`)
+  }
+  return value
+}
+
+function parseOptionalString(value: unknown, field: string, id: string): string | undefined {
+  if (value === undefined || value === null) return undefined
+  return requireString(value, field, id)
+}
+
+function parseRuleAssessments(value: unknown, id: string): RuleAssessment[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`slow-path judge bad rule_assessments for ${id}`)
+  }
+  return value.map((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error(`slow-path judge bad rule_assessment for ${id}`)
+    }
+    const e = entry as Record<string, unknown>
+    const ruleId = requireString(e.rule_id, 'rule_id', id)
+    if (typeof e.matched !== 'boolean') {
+      throw new Error(`slow-path judge bad matched for ${id}`)
+    }
+    const reason = requireString(e.reason, 'rule_reason', id)
+    return { ruleId, matched: e.matched, reason: reason.slice(0, 300) }
+  })
+}
+
+function parseDirection(value: unknown, id: string): SlowDirection {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`slow-path judge bad direction for ${id}`)
+  }
+  const d = value as Record<string, unknown>
+  if (typeof d.implementation_requested !== 'boolean') {
+    throw new Error(`slow-path judge bad implementation_requested for ${id}`)
+  }
+  if (typeof d.requires_design_decision !== 'boolean') {
+    throw new Error(`slow-path judge bad requires_design_decision for ${id}`)
+  }
+  const basis = d.target_basis
+  if (basis !== 'specified' && basis !== 'existing-standard' && basis !== 'undetermined') {
+    throw new Error(`slow-path judge bad target_basis for ${id}: ${String(basis)}`)
+  }
+  const evidence = requireString(d.evidence, 'direction_evidence', id)
+  return {
+    implementationRequested: d.implementation_requested,
+    targetBasis: basis,
+    requiresDesignDecision: d.requires_design_decision,
+    evidence,
+  }
+}
+
 const PUMP_LOG_CAP = 200
 
 function logPumpRow(row: { at: number; kind: string; source: string; note: string }): void {
