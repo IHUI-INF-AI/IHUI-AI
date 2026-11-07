@@ -12,7 +12,7 @@
  * - 禁蓝色系;品牌色 = 酸绿 #B4FF00,安全告警 = 信号红 #FF3B2F;
  * - 所有插值必须 escapeHtml,链接域名取 CORS_ORIGIN 首项(与 payment-gateway 同约定)。
  *
- * 「一键复制验证码」为什么不在邮件里写 JS(2026-11-07 立):
+ * 「一键复制」为什么不在邮件里写 JS(2026-11-07 立):
  * QQ 邮箱 / Gmail / Outlook / 163 一律剥离 <script>、内联 onclick 与 clipboard API,
  * 邮件正文里的「复制按钮」物理上不可能写剪贴板。唯一可达路径 = 按钮是真实 <a> 链接,
  * 把验证码带到站点落地页(apps/web/public/verify-code.htm),由落地页完成复制。
@@ -287,9 +287,29 @@ export function buildVerifyCodeCopyUrl(
 }
 
 /**
- * 渲染验证码邮件(真实文本验证码 + 一键复制按钮 + 点选全选 + 纯文本兜底,四层可达)。
+ * 验证码右侧的「一键复制」小按钮(2026-11-07 二次改版)。
+ *
+ * 用户明确要求:文案**只有「一键复制」四个字**、与验证码同一行且在其右侧、
+ * 不要大块实心色 —— 大酸绿块抢视觉重心,在手机上尤其笨重。
+ * 形态仍是防弹 `table + <a>`(邮件正文禁 JS,写不了剪贴板,只能靠真实链接中转),
+ * 但视觉改成深底 + 1px 酸绿细描边 + 酸绿小字 + 圆角胶囊,尺寸只够四字。
+ * `border-radius` 被 Outlook 桌面剥离时退化成直角,不影响可读性。
+ */
+function inlineCopyButton(href: string): string {
+  const t = DISPATCH_TOKENS
+  const aStyle =
+    `display:inline-block;padding:9px 13px;font-family:'Microsoft YaHei','SimHei',sans-serif;` +
+    `font-size:13px;line-height:13px;font-weight:bold;letter-spacing:1px;color:${t.accent};` +
+    `text-decoration:none;white-space:nowrap;`
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${t.cardBg}" align="center" valign="middle" style="border:1px solid ${t.accent};border-radius:4px;"><a href="${href}" target="_blank" style="${aStyle}">${escapeHtml('一键复制')}</a></td></tr></table>`
+}
+
+/**
+ * 渲染验证码邮件(真实文本验证码 + 右侧一键复制 + 点选全选 + 纯文本兜底,四层可达)。
  *
  * 覆盖 register / login / reset / bind 全部发码场景 —— 四个场景共用这一个渲染器。
+ * 布局铁律:验证码与复制按钮**同一个 <tr> 的两个 <td>**,按钮永远在右;
+ * 窄屏时靠缩小字号/字距给按钮留位,绝不退回「按钮堆在下方」的旧版式。
  */
 export function renderVerificationEmail(
   code: string,
@@ -302,19 +322,16 @@ export function renderVerificationEmail(
   // 昵称含用户输入 — 此处保留原文,由 renderDispatchEmail 统一转义(避免双重转义)
   const greeting = nickname ? `${nickname},` : ''
   const copyUrl = buildVerifyCodeCopyUrl(code, scene, expiresInMinutes)
-  // href/label 都先转义:escapeHtml(copyUrl) 把 query 分隔符 & 变成 &amp;,浏览器解析后仍是 &
-  const copyButton = bulletproofButton(
-    escapeHtml(copyUrl),
-    escapeHtml('一键复制验证码 →'),
-    'accent',
-    { compact: true, center: true },
-  )
+  // href 先转义:escapeHtml(copyUrl) 把 query 分隔符 & 变成 &amp;,浏览器解析后仍是 &
+  const copyButton = inlineCopyButton(escapeHtml(copyUrl))
   const body = `
     ${para(`您正在${sceneText}。输入以下验证码完成操作:`)}
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px dashed ${t.accent};margin:0 0 24px;"><tr><td align="center" style="padding:28px 10px 26px;">
-      <div style="font-family:Consolas,'Courier New',monospace;font-size:44px;font-weight:bold;letter-spacing:16px;text-indent:16px;color:${t.ink};user-select:all;-webkit-user-select:all;-moz-user-select:all;-ms-user-select:all;cursor:pointer;" title="单击全选验证码">${escapeHtml(code)}</div>
-      <div style="padding:20px 0 0;">${copyButton}</div>
-      <div style="font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:2px;margin-top:14px;">一键复制 · 或点选上方数字手动复制 · ${expiresInMinutes} 分钟内有效</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px dashed ${t.accent};margin:0 0 24px;"><tr><td align="center" style="padding:26px 10px 24px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto;"><tr>
+        <td align="center" valign="middle" style="padding-right:14px;"><div style="font-family:Consolas,'Courier New',monospace;font-size:40px;font-weight:bold;letter-spacing:10px;text-indent:10px;color:${t.ink};user-select:all;-webkit-user-select:all;-moz-user-select:all;-ms-user-select:all;-webkit-touch-callout:default;cursor:pointer;" title="单击全选验证码">${escapeHtml(code)}</div></td>
+        <td align="left" valign="middle">${copyButton}</td>
+      </tr></table>
+      <div style="font-family:Consolas,monospace;font-size:14px;color:${t.dim};letter-spacing:2px;margin-top:16px;">手机可长按数字复制 · ${expiresInMinutes} 分钟内有效</div>
     </td></tr></table>
     ${note(`· 这不是您的操作?<b style="color:${t.ink};">直接忽略本邮件</b>,账号不会有任何变动。<br>· 验证码<b style="color:${t.danger};">绝不会被任何客服索要</b>,请勿告知他人。<br>· 需要帮助:<a href="mailto:support@aizhs.top" style="color:${t.accent};text-decoration:none;">support@aizhs.top</a>`)}`
   return {
