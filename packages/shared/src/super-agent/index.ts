@@ -11,6 +11,12 @@ export {
 } from './engine'
 export { SuperAgentPump } from './pump'
 export type { PumpLogRow, TriggerSourcePort, WorkerDispatch } from './pump'
+export { SNAPSHOT_VERSION } from './persist'
+export type {
+  OwnerSlice,
+  RestoreReport,
+  SuperAgentSnapshot,
+} from './persist'
 export {
   ROUTER_TOOLS,
   WORKER_TOOLS,
