@@ -21,7 +21,7 @@ import { appendGateBatchRecord, indexTreeDigest, indexVsHeadPaths, stepLevelSkip
  * ranFullBatch:早退路径(逃生舱 stopOnFirst)为 false,跑完为 true。
  */
 export function attestGateBatchRun(
-  { C, checks, pushGateChecks, passStaged, effectiveChecks, failedGates, selfSkippedGates, notTriggeredGates, passed, warned, failed, skipped },
+  { C, checks, pushGateChecks, passStaged, effectiveChecks, failedGates, selfSkippedGates, notTriggeredGates, passed, warned, failed, skipped, crashed = 0, exempted = 0 },
   ranFullBatch,
 ) {
   try {
@@ -34,7 +34,9 @@ export function attestGateBatchRun(
     const w = appendGateBatchRecord({
       mode: passStaged ? 'staged' : 'full',
       totalChecks: effectiveChecks.length,
-      executed: passed + warned + failed + skipped,
+      // crashed 也是"跑过但没结论",必须计入 executed;否则台账会把跑过的门凭空少记。
+      // exempted 同理:门跑过了、判红了、有账放行 —— 它是"跑过",不是"通过"。
+      executed: passed + warned + failed + skipped + crashed + exempted,
       blockingFailed: failedGates.length,
       selfSkipped: selfSkippedGates,
       notTriggered: notTriggeredGates.map((g) => ({ ...g, reason: 'stagedTriggers 未触及' })),

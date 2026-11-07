@@ -192,14 +192,41 @@ try {
   process.exit(1)
 }
 
+/** 2/75 = 没有结论(未判定),不是"你的代码不行"。调用方据此保留 exit 2 语义。 */
+function isUndeterminedRc(rc) {
+  return rc === 2 || rc === 75
+}
+
+function statusOfError(error) {
+  if (typeof error?.status === 'number') return error.status
+  // 被信号杀掉 / 拿不到退出码 ⇒ 未判定(不得折成"失败")
+  return error?.signal ? 2 : 1
+}
+
 function run(label, cmd) {
   console.log(label)
   try {
     execSync(cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true })
     return true
-  } catch {
-    console.error(`❌ ${label}失败，提交已阻止`)
+  } catch (error) {
+    const rc = statusOfError(error)
+    console.error(
+      isUndeterminedRc(rc)
+        ? `❓ ${label}未判定(exit ${rc})，提交已阻止(未判定≠通过,可原样重跑)`
+        : `❌ ${label}失败，提交已阻止`,
+    )
     return false
+  }
+}
+
+/** 与 run 同形,但把退出码交回调用方(用于 exit 2 必须原样保留的场合)。 */
+function runStatus(label, cmd, timeoutMs) {
+  console.log(label)
+  try {
+    execSync(cmd, { stdio: 'inherit', cwd: process.cwd(), windowsHide: true, timeout: timeoutMs })
+    return { ok: true, status: 0 }
+  } catch (error) {
+    return { ok: false, status: statusOfError(error) }
   }
 }
 
@@ -256,15 +283,20 @@ function runCapturing(
       timeout: timeoutMs,
     })
     process.stdout.write(stdout)
-    return { ok: true, output: stdout || '' }
+    return { ok: true, status: 0, output: stdout || '' }
   } catch (error) {
     // execSync 失败时 stdout/stderr 挂在 error 上(stdio: 'pipe')；写出去再返回。
     const stdout = typeof error?.stdout === 'string' ? error.stdout : ''
     const stderr = typeof error?.stderr === 'string' ? error.stderr : ''
     process.stdout.write(stdout)
     process.stderr.write(stderr)
-    console.error(`\n❌ ${label}失败，提交已阻止`)
-    return { ok: false, output: stdout + '\n' + stderr }
+    const rc = statusOfError(error)
+    console.error(
+      isUndeterminedRc(rc)
+        ? `\n❓ ${label}未判定(exit ${rc})，提交已阻止(未判定≠通过,可原样重跑)`
+        : `\n❌ ${label}失败，提交已阻止`,
+    )
+    return { ok: false, status: rc, output: stdout + '\n' + stderr }
   }
 }
 
@@ -1043,7 +1075,8 @@ ROUND.failed = gateSummary.failed
 ROUND.total = gateSummary.total
 ROUND.gatesTimedOut = gateSummary.timedOut
 if (!gatesOk) {
-  process.exit(1)
+  // 未判定(2/75)必须原样保留 exit 2:折成 1 会让外壳把它印成"失败",与 guardian 的自述矛盾。
+  process.exit(isUndeterminedRc(gates.status) ? 2 : 1)
 }
 
 // 🌐 i18n 死 key 扫描挂 pre-commit 阻塞(2026-07-26 立,PROJECT_PLAN.md §1 后续任务收尾)
@@ -1080,14 +1113,15 @@ if (process.env.HUSKY_PRECOMMIT_I18N_INLINE === '1') {
     deadKeyStatus = typeof e.status === 'number' ? e.status : 1
   }
   if (deadKeyStatus === 2) {
-    console.error('❌ i18n 死 key 扫描【未判定】(exit 2):索引面取材失败,提交已阻止。')
+    console.error('❓ i18n 死 key 扫描未判定(exit 2):索引面取材失败,提交已阻止。')
     console.error(
       '   这不是"仓库有死 key",是这次判不了 —— 先修 git 取材(索引锁 / 对象库)再 commit;',
     )
     console.error(
       '   未判定 ≠ 通过。确属环境故障需应急时,用 HUSKY_SKIP_I18N_DEAD_KEY=1(会在账面留下跳门痕迹)。',
     )
-    process.exit(1)
+    // 保留 exit 2:未判定不得折成 1(否则外壳/CI 会把它印成"失败")
+    process.exit(2)
   }
   if (deadKeyStatus !== 0) {
     console.error(
@@ -1204,12 +1238,20 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_AUTH_REFRESH !== '1') {
 // 2026-10-22:staged typecheck 走全量 tsconfig include(实测 30s+),而它判的是 TS 业务代码;
 // 只改 scripts/lib 工具(JS)时结论恒为"无关",专项档下跳过。要全跑:IHUI_SPECIAL_SCOPE=full。
 if (!TOOL_ONLY && process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
-  if (
-    !run(
-      '🔍 staged typecheck 闸门(全量 include + 过滤非 staged 错误, 2026-08-18 根治)...',
-      'node scripts/check-staged-typecheck.mjs --staged',
-    )
-  ) {
+  // 2026-11-07:这里必须保留 exit 2 —— 并发安装/占用是"未判定",不是"staged 文件有错";
+  // 折成 1 会让下面那句"修复 staged 文件错误"变成误导,也会让外壳印成"失败"。
+  const stagedTc = runStatus(
+    '🔍 staged typecheck 闸门(全量 include + 过滤非 staged 错误, 2026-08-18 根治)...',
+    'node scripts/check-staged-typecheck.mjs --staged',
+  )
+  if (!stagedTc.ok) {
+    if (isUndeterminedRc(stagedTc.status)) {
+      console.error(
+        `❓ staged typecheck 未判定(exit ${stagedTc.status}),提交已阻止(未判定≠通过,可原样重跑)`,
+      )
+      console.error('   原因见上方点名(并发安装/并发占用);现场结束后原样重跑本次提交即可')
+      process.exit(2)
+    }
     console.error('❌ staged typecheck 失败,提交已阻止')
     console.error('   修复方法: 在对应 package 目录跑 pnpm typecheck 修复 staged 文件中的错误')
     console.error('   紧急跳过: HUSKY_SKIP_STAGED_TYPECHECK=1 git commit ...')

@@ -29,10 +29,21 @@ unset GIT_DIR GIT_WORK_TREE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIE
 #   wscript //nologo scripts/hook-run-hidden.vbs(GUI 子系统 + SW_HIDE)执行,
 #   输出转 .ihui-agent/state/hook-logs/pre-commit.log,退出码原样传播。
 # 成功回显日志末 5 行摘要;失败回显末 40 行定位原因。
-wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js "$@" || {
+wscript //nologo scripts/hook-run-hidden.vbs pre-commit scripts/lib/pre-commit-hook.js "$@"
+_husky_rc=$?
+# 2026-11-07 未判定分类:2/75 = 无结论(并发占用/取不到输入/被中断),不是"代码不行"。
+# 必须原样以 exit 2 收口:折成 1 会被上层印成"失败",且未判定本来就不该冒充失败的结论。
+# 无论哪种都照旧阻止提交 —— 未判定绝不放行。
+if [ "$_husky_rc" -eq 2 ] || [ "$_husky_rc" -eq 75 ]; then
+  printf '%s\n' "❓ Pre-commit 守门未判定(exit $_husky_rc,2 = 无结论,可原样重跑),提交已阻止(未判定≠通过) —— 日志末 40 行:" >&2
+  tail -40 .ihui-agent/state/hook-logs/pre-commit.log >&2 || true
+  printf '%s\n' "   (完整日志: .ihui-agent/state/hook-logs/pre-commit.log)" >&2
+  exit 2
+fi
+if [ "$_husky_rc" -ne 0 ]; then
   printf '%s\n' "❌ Pre-commit 守门失败,提交已阻止 —— 日志末 40 行:" >&2
   tail -40 .ihui-agent/state/hook-logs/pre-commit.log >&2 || true
   printf '%s\n' "   (完整日志: .ihui-agent/state/hook-logs/pre-commit.log)" >&2
   exit 1
-}
+fi
 tail -5 .ihui-agent/state/hook-logs/pre-commit.log >&2 || true

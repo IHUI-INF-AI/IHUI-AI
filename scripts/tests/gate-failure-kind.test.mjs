@@ -100,12 +100,18 @@ test('C6 装车:runner 必须真调这把尺子,并把崩溃单独成档(判函�
   const to = src.indexOf('failedGates.push(', from)
   assert.ok(from > 0 && to > from, '取不到崩溃分支或它后面没有判红支(结构变了?)')
   assert.doesNotMatch(src.slice(from, to), /failedGates\.push\(/, '崩溃被塞进判红名单 = 分流白做')
-  // 后果不变量:failed++ 必须在两个子支**之前**,不得演变成"未判定 ⇒ 放行"
-  assert.match(
-    src,
-    /if \(check\.mode === 'blocking'\) \{\s*\n\s*failed\+\+/,
-    '失败计数被挪进某一子支 ⇒ 未判定可能不被计失败',
+  // 后果不变量(2026-11-07 收紧):crash 不得再计 failed —— 同一枚门不能既被印成"失败: N"
+  // 又自称"跑不起来(未判定)"。failed++ 只许留在判红子支(真红仍必须计数,不得借分流放行)。
+  const crashIdx = src.indexOf("if (kind.kind === 'crash')")
+  const elseIdx = src.indexOf('} else {', crashIdx)
+  assert.ok(crashIdx > 0 && elseIdx > crashIdx, '取不到 crash 的 else 支(结构变了?)')
+  assert.match(src.slice(crashIdx, elseIdx), /crashed\+\+/, 'crash 必须计入独立的 crashed 计数')
+  assert.doesNotMatch(
+    src.slice(crashIdx, elseIdx),
+    /failed\+\+/,
+    'crash 仍被计进 failed ⇒ 汇总会同时把它算成"失败: 1"(本次裁定禁止)',
   )
+  assert.match(src.slice(elseIdx, elseIdx + 200), /failed\+\+/, '判红子支被削掉了 failed++ ⇒ 真红可能被放行')
 })
 
 test('C7 stderr 必须仍被吐回上游(改 pipe 之后,"子门的话看得见"靠的是这段代码)', () => {
@@ -269,7 +275,9 @@ test('F5 后果不变量:兜底码不被传播成 exit 75,且执行器真的把 
   }
   const here = resolve(fileURLToPath(import.meta.url), '../../..')
   const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
-  const from = src.indexOf('decideGateOutcome({')
+  // 只认 applyGateResult 的 kindPre 调用:旁边的进度台账旁路也调用了同一把尺子,
+  // 但它只传 status/signal/stderr(没有 code,也不需要 code)。
+  const from = src.indexOf('const kindPre = decideGateOutcome({')
   const to = src.indexOf('})', from)
   assert.ok(from > 0 && to > from, '取不到 decideGateOutcome 调用处(结构变了?)')
   assert.match(
@@ -335,16 +343,20 @@ test('F8 末行后果锁:crash 一支必须自己把批量顶成非零(2026-10-2
   const crashPrint = src.indexOf('if (crashedGates.length > 0) {', attest)
   const failedPrint = src.indexOf('if (failedGates.length > 0) {', crashPrint)
   const stopHint = src.indexOf('GUARDIAN_STOP_ON_FIRST=1)', failedPrint)
-  const failedExit = src.indexOf('process.exit(1)', stopHint)
+  // 2026-11-07:stop-on-first 早退改成"有 crash ⇒ exit 2,否则 exit 1"(不再硬编码 process.exit(1))
+  const failedExit = src.indexOf(
+    'process.exit(crashedGates.length > 0 ? UNDETERMINED_EXIT_CODE : 1)',
+  )
   const cacheWrite = src.indexOf('writePushGateCache(', failedPrint)
   assert.ok(
     attest > 0 && crashPrint > attest && failedPrint > crashPrint && stopHint > failedPrint && cacheWrite > stopHint,
     '汇总三段结构变了?(先查 attest/crash-print/failed-print/cache 的次序)',
   )
-  // 正向牙:判红支仍 exit(1)(不得被这次补牙反向削掉)
+  // 正向牙:stop-on-first 早退的退出码必须保留三态(判红 exit 1 / 有 crash exit 2)
+  assert.ok(failedExit > 0, 'stop-on-first 早退不见了 = 真红也放行(反向牙:摘掉它这条必须红)')
   assert.ok(
-    failedExit > stopHint && failedExit - stopHint < 160,
-    '判红支的 exit(1) 不见了或挪了地方 = 真红也放行(反向牙:摘掉它这条必须红)',
+    failedExit < src.indexOf('if (crashedGates.length > 0) {', failedExit),
+    'crash 兜底出口必须排在 stop-on-first 早退之后(两份名单都要点名完)',
   )
   // 反向牙:**判红支之后**必须另有一道 crash 兜底出口 —— 排在两段点名之后,两份名单都能打印完;
   // 排在缓存写入之前,免得"没结论"这一轮被写进 push-gate 缓存当成通过。
@@ -355,8 +367,8 @@ test('F8 末行后果锁:crash 一支必须自己把批量顶成非零(2026-10-2
   )
   assert.match(
     src.slice(crashGuard, cacheWrite),
-    /process\.exit\(1\)/,
-    'crash 兜底支只剩打印没有退出 ⇒ 汇总喊"不清偿不放行"却照样 exit 0',
+    /process\.exit\(UNDETERMINED_EXIT_CODE\)/,
+    'crash 兜底支只剩打印没有以 exit 2 收口 ⇒ 汇总喊"不清偿不放行"却照样 exit 0/1',
   )
   // 措辞锁:这条出口的文案必须明说"未判定不等于通过",免得后人把它当普通告警删掉
   assert.match(src.slice(crashGuard, cacheWrite), /未判定/, '兜底出口的文案没点名"未判定"')

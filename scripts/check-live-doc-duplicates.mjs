@@ -142,18 +142,15 @@ function main() {
   const docs = AUDITED_DOCS.filter((d) => {
     if (face === 'worktree') return existsSync(path.join(ROOT, d))
     // 枚举/存在性探测走面读取层(args 逐字保持原样,只换派生通道);git 非零退出 ⇒ 该文档不在这一面
+    // 2026-11-07 修:`ls-tree <tree-ish> <path>` 不接受裸 `:` 作 tree-ish(实测 exit 128
+    // "fatal: Not a valid object name :") ⇒ 索引面一直枚举到 0 份、整门判死。
+    // 索引面改用 `ls-files -- <path>`(只查索引里有没有这一条),git 面仍走 ls-tree。
     let out
     try {
-      out = gitRaw(
-        [
-          'ls-tree',
-          face === 'staged' ? '--name-only' : '-r',
-          '--name-only',
-          face === 'staged' ? ':' : 'HEAD',
-          d,
-        ],
-        ROOT,
-      )
+      out =
+        face === 'staged'
+          ? gitRaw(['ls-files', '--', d], ROOT)
+          : gitRaw(['ls-tree', '--name-only', 'HEAD', '-r', '--', d], ROOT)
     } catch {
       return false
     }

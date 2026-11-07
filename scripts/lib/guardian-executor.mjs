@@ -50,6 +50,7 @@ import {
 // Error 只有 error.code、没有 status/signal,不传 code 就被读成"判据判红"(§0.3 把"没判"写成"判过");
 // 归 crash 档后后果一项不减(仍 failed++、仍非零退出、提交仍被拦)。判定与措辞单源都在该 lib。
 import { crashAdvisory, crashNextStep, decideGateOutcome, UNDETERMINED_EXIT_CODE } from './gate-failure-kind.mjs'
+import { loadGateExemptions } from './gate-exemption-ledger.mjs'
 
 export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
 
@@ -138,6 +139,9 @@ let skipped = 0
 // §0.3「未判定」独成一档(2026-10-27):既不是 passed(没拿到"通过"这个结论)也不是 failed
 // (没有判出任何违规)。单独计数 ⇒ 汇总既能把它逐道点名出来,又不会把"没判"算进"失败"。
 let undetermined = 0
+// 崩溃/看门狗终止(2026-11-07 裁定):既不是"判出违规"(failed),也不是"取不到输入"(undetermined)。
+// 单列 crashed ⇒ 汇总不许把同一枚门同时印成"失败: 1"和"跑不起来(未判定)";批量以 exit 2 收口。
+let crashed = 0
 // info 门失败既不该拦提交,也**绝不许记绿**(把失败计成 passed 就是"没判写成判过")。
 // 单列一档:不计 passed/failed/undetermined,只逐道点名,退出码不变(info 门本就不拦)。
 let infoDegraded = 0
@@ -198,6 +202,18 @@ const crashedGates = []
  */
 const undeterminedGates = []
 
+// ─── 门级「有账豁免」(2026-11-07 裁定)───
+// 只收**基线上就红、且不在本线改动面内**的存量门;豁免写在 scripts/data/gate-exemptions.jsonl,
+// 跟着提交走、可审计、到期即回红。它**不产生通过**:单列 exempted 一档,不计 passed / 不计 failed。
+let exempted = 0
+const exemptedGates = []
+const gateExemptions = loadGateExemptions(process.cwd())
+if (gateExemptions.disabled) {
+  console.warn(
+    `⚠️ 门级豁免台账不可用(整份不生效,存量红仍按红处理):${gateExemptions.problems.join('; ')}`,
+  )
+}
+
 // ─── 批次留痕(G-1059139)───
 // 两类"没跑"必须分开记:`selfSkipped` 只收 **env 自跳**(条目声明了 skipEnv 且当次该变量为 1),
 // `notTriggered` 收"暂存区未触及声明路径所以没跑"—— 后者不是跳门,混进去就是把"没跑到"写成"跳过了",
@@ -221,6 +237,8 @@ function attestGateBatchRun(ranFullBatch) {
       passStaged,
       effectiveChecks,
       failedGates,
+      crashed,
+      exempted,
       selfSkippedGates,
       notTriggeredGates,
       passed,
@@ -254,7 +272,7 @@ function printSummary(useStderr) {
       /* 观测旁路:落盘失败不影响判据 */
     }
   }
-  const executed = passed + warned + failed + skipped + undetermined + infoDegraded
+  const executed = passed + warned + failed + skipped + undetermined + infoDegraded + crashed + exempted
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
   out('')
   out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
@@ -264,6 +282,10 @@ function printSummary(useStderr) {
   out(`  ${C.green}通过: ${passed}${C.reset}`)
   out(`  ${C.yellow}警告: ${warned}${C.reset}`)
   out(`  ${C.red}失败: ${failed}${C.reset}`)
+  // 跑不起来 ≠ 判红:单列一栏,不得混进上面的"失败: N"(2026-11-07 裁定)。
+  out(`  ${C.yellow}🛠 跑不起来(未判定): ${crashed}${C.reset}`)
+  // 有账豁免:判红但已登记在案(存量、非本线)。**不并入"通过"** —— 它没有得出通过结论。
+  out(`  ${C.yellow}🧾 有账豁免(未记通过): ${exempted}${C.reset}`)
   out(`  ${C.dim}跳过: ${skipped}${C.reset}`)
   // 刻意**不**写进"失败"那一行(那是判红计数),也不写进"通过"(没判);
   // 但必须占一行并进 executed —— 少算它会让上一行凭空打出"← 提前中止",把"没判"说成"没跑到"。
@@ -741,16 +763,15 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
       return
     }
     if (check.mode === 'blocking') {
-      failed++
       // 崩溃 ≠ 判红(纯函数与各分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
-      // 分流只改**说法与归类**,不改后果:仍然 failed、批量仍然非零退出 —— 把"跑不起来"洗成
-      // 通过,等于给一台瞎掉的尺子发合格证(本仓对"未判定"的一贯要求:大声、点名、不清偿不放行)。
+      // 2026-11-07 裁定:崩溃/看门狗终止**不计 failed、不进 failedGates** —— 同一枚门不得
+      // 既算"失败"又自称"跑不起来(未判定)"。它独成一档 crashed:汇总单列、批量以 exit 2 收口;
+      // 仍然阻止提交/推送,且 crashed 分支排在 writePushGateCache 之前 ⇒ 绝不写绿缓存。
       // code 必须一起传:兜底弄死(超时看门狗 / 输出超 20MB)那两个 Error 只有 code,
       // 没有 status/signal —— 少传这一个键,门就会被读成"判据判红"(2026-10-24 实测即此型)。
-      // 2026-10-27:这次调用提前到上面 kindPre(未判定要先于 failed++ 分流),此处直接复用同一个结果,
-      // 判定实现与"code 必须传"这条规矩都还在 gate-failure-kind 单源里,本文件不复制。
       const kind = kindPre
       if (kind.kind === 'crash') {
+        crashed++
         crashedGates.push({ id: check.id, label: check.label, script: check.script, reason: kind.reason })
         console.error(
           `${C.yellow}⚠️ [${check.id}] ${check.label} ${kind.reason}${C.reset} —— 跑不起来(未判定),不是检查结论;` +
@@ -758,18 +779,42 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
             `(单独复现:node scripts/${check.script})`,
         )
       } else {
-        failedGates.push({ id: check.id, label: check.label, script: check.script })
-        if (check.onFailHint) {
-          console.info(check.onFailHint)
+        // 门级「有账豁免」:判红成立,但该门是**他人存量**且本线未触碰(touched=否),台账未过期。
+        // 放行提交 ≠ 通过:单独计 exempted,不进 passed、不进 failedGates,汇总单列并逐道点名。
+        const exemption = gateExemptions.match(check.id)
+        if (exemption) {
+          exempted++
+          exemptedGates.push({
+            id: check.id,
+            label: check.label,
+            script: check.script,
+            object: exemption.object,
+            owner: exemption.owner,
+            baseline: exemption.baseline,
+            expires: exemption.expires,
+          })
+          console.warn(
+            `${C.yellow}🧾 [${check.id}] ${check.label} 判红但有账豁免(到期 ${exemption.expires} 回红)${C.reset}\n` +
+              `   判红对象: ${exemption.object}\n` +
+              `   归属线: ${exemption.owner}\n` +
+              `   基线证据: ${exemption.baseline}\n` +
+              `   **这不是通过**:该门在本次提交上没有给出通过结论,只是存量欠账不在本线改动面内。`,
+          )
+        } else {
+          failed++
+          failedGates.push({ id: check.id, label: check.label, script: check.script })
+          if (check.onFailHint) {
+            console.info(check.onFailHint)
+          }
+          console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
         }
-        console.error(`${C.red}❌ [${check.id}] ${check.label} 失败,提交已阻止${C.reset}`)
       }
       // 默认继续跑完(见 failedGates 声明处注释);逃生舱才早退。
       if (stopOnFirst) {
         printSummary(true)
         // 早退也是一轮"跑过一部分门"的批次:留痕照落,但 ranFullBatch:false(它没跑完全部)。
         attestGateBatchRun(false)
-        process.exit(1)
+        process.exit(crashedGates.length > 0 ? UNDETERMINED_EXIT_CODE : 1)
       }
     } else if (check.mode === 'warn') {
       warned++
@@ -994,13 +1039,19 @@ if (failedGates.length > 0) {
 // 半格,本次把兜底码接进 crash 档后射程变大(门 30c 那型不再进判红名单 ⇒ 单独靠判红支拦不住),
 // 所以必须同批补牙,否则"改归因"就真的演变成"改后果"。位置排在判红支之后:两道名单都要点名完
 // 再退出,不得因为先退而把另一段吞掉。
+// 2026-11-07 补:crash 已从 failed 分流为独立的 crashed 计数(不再 failed++),本支因此改为
+// exit 2「未判定」——文案与计数同一口径;仍排在 writePushGateCache 之前,绝不写 passed:true。
 if (crashedGates.length > 0) {
   console.error('')
   console.error(
-    `${C.bold}${C.red}⛔ 本批有 ${crashedGates.length} 道门**未判定**(没跑出结论)⇒ 批量按失败退出(不清偿不放行;` +
-      `未判定 ≠ 通过,§0.3)${C.reset}`,
+    `${C.bold}${C.yellow}⛔ 本批有 ${crashedGates.length} 道门**跑不起来(未判定)**(没跑出结论)⇒ ` +
+      `批量以 exit ${UNDETERMINED_EXIT_CODE}「未判定」收口(不清偿不放行;未判定 ≠ 通过,§0.3)${C.reset}`,
   )
-  process.exit(1)
+  console.error(
+    `   ${C.dim}这些门没有判出任何违规(请勿当缺陷派单),也没有拿到"通过"结论;` +
+      `排在 writePushGateCache 之前 ⇒ 不会写绿缓存。${C.reset}`,
+  )
+  process.exit(UNDETERMINED_EXIT_CODE)
 }
 // ── 未判定 ⇒ 批量以 §0.3 的**同一枚**退出码(2)收口(2026-10-27)────────────────
 // 不写第四个数,也不落到 0/1 两头:三档口径是全仓既有约定(AGENTS §0.3、§5c),执行器把同一把尺子
