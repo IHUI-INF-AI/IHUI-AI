@@ -20,6 +20,7 @@ import pytest
 
 from app.services import pgvector_store
 from app.services.pgvector_store import (
+    PgVectorSchemaUnavailable,
     _ensure_schema,
     _reset_circuit,
     _vec_literal,
@@ -130,11 +131,13 @@ async def test_search_dimension_filter_and_threshold() -> None:
     assert pool.fetch.await_args[0][3] == 2  # dims 参数 = 查询向量维度
 
 
-async def test_extension_missing_falls_back() -> None:
+async def test_extension_missing_upsert_fails_search_raises() -> None:
+    """扩展不可用:写路径返回 False(调用方降级),读路径必须明确失败,不能返回空。"""
     pool = _FakePool(extension_available=False)
     with patch("app.core.db_pool.get_shared_pool", new=AsyncMock(return_value=pool)):
         assert await upsert_chunk("ns", "s", "e1", "c", [0.1]) is False
-        assert await search_chunks("ns", [0.1]) == []
+        with pytest.raises(PgVectorSchemaUnavailable):
+            await search_chunks("ns", [0.1])
 
 
 async def test_hnsw_index_failure_logs_warning_with_sqlstate(
@@ -179,6 +182,44 @@ async def test_required_ddl_failure_is_visible_and_degrades(
     assert await _ensure_schema(pool) is False
     assert f"{what}失败" in caplog.text
     assert "sqlstate=42501" in caplog.text
+
+
+async def test_search_schema_failure_raises_and_counts_separately() -> None:
+    """建表失败 ⇒ search 明确失败;「schema 故障」与「真无匹配」必须是两个计数。"""
+    from app.services.telemetry_service import telemetry_service
+
+    metric = telemetry_service.registry.get_metric("pgvector_search_total")
+    assert metric is not None
+    before_bad = metric.get(outcome="schema_unavailable")
+    before_empty = metric.get(outcome="empty")
+
+    bad_pool = _FakePool(fail_sql=("CREATE TABLE", _DbError("permission denied", sqlstate="42501")))
+    with patch("app.core.db_pool.get_shared_pool", new=AsyncMock(return_value=bad_pool)):
+        with pytest.raises(PgVectorSchemaUnavailable):
+            await search_chunks("ns", [0.1, 0.2])
+    assert metric.get(outcome="schema_unavailable") == before_bad + 1
+
+    # schema 正常但查回 0 行:这是「真的没有匹配」,仍返回 [] 并单独计数。
+    ok_pool = _FakePool()
+    ok_pool.fetch = AsyncMock(return_value=[])
+    with patch("app.core.db_pool.get_shared_pool", new=AsyncMock(return_value=ok_pool)):
+        assert await search_chunks("ns", [0.1, 0.2]) == []
+    assert metric.get(outcome="empty") == before_empty + 1
+    assert metric.get(outcome="schema_unavailable") == before_bad + 1, "两类计数不能混"
+
+
+async def test_clear_schema_failure_raises_not_zero() -> None:
+    """建表失败 ⇒ clear 明确失败,不能返回 0 被读成「本来就没有可删的行」。"""
+    from app.services.telemetry_service import telemetry_service
+
+    metric = telemetry_service.registry.get_metric("pgvector_clear_total")
+    assert metric is not None
+    before = metric.get(outcome="schema_unavailable")
+    pool = _FakePool(fail_sql=("CREATE TABLE", _DbError("permission denied", sqlstate="42501")))
+    with patch("app.core.db_pool.get_shared_pool", new=AsyncMock(return_value=pool)):
+        with pytest.raises(PgVectorSchemaUnavailable):
+            await clear_chunks("ns")
+    assert metric.get(outcome="schema_unavailable") == before + 1
 
 
 async def test_circuit_breaker_after_repeated_fatal() -> None:

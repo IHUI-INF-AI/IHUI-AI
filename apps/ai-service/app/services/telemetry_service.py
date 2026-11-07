@@ -506,6 +506,19 @@ class TelemetryService:
             ["store", "shape"],
         )
 
+        # pgvector 检索/清空结果分类:schema_unavailable(故障) 与 empty(真无匹配)
+        # 必须是两个可分别告警的数,不能合成一个。
+        r.counter(
+            "pgvector_search_total",
+            "pgvector 检索调用数(outcome=hit/empty/schema_unavailable/error/skipped)",
+            ["outcome"],
+        )
+        r.counter(
+            "pgvector_clear_total",
+            "pgvector 清空调用数(outcome=ok/schema_unavailable/error/skipped)",
+            ["outcome"],
+        )
+
     # ---------- Redis ----------
 
     async def _ensure_redis(self) -> Any:

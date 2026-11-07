@@ -45,6 +45,29 @@ def _reset_circuit() -> None:
     _schema_ensured = False
 
 
+class PgVectorSchemaUnavailable(RuntimeError):
+    """pgvector schema 未就绪(建表/索引没建成功)。
+
+    与「查询成功但确实没有匹配」必须可区分:前者是故障,后者是空结果。
+    ``search_chunks`` / ``clear_chunks`` 在 schema 不可用时抛本异常,不再返回空。
+    """
+
+
+_SEARCH_METRIC = "pgvector_search_total"
+_CLEAR_METRIC = "pgvector_clear_total"
+
+
+def _record_pg_metric(name: str, outcome: str) -> None:
+    """把调用结果记到统一遥测;遥测不可用不影响主链路。"""
+    try:
+        from .telemetry_service import Counter, telemetry_service
+    except ImportError:
+        return
+    metric = telemetry_service.registry.get_metric(name)
+    if isinstance(metric, Counter):
+        metric.inc(1, outcome=outcome)
+
+
 def _vec_literal(embedding: list[float]) -> str:
     """把向量序列化为 pgvector 字面量(不依赖 pgvector Python 包)。"""
     return "[" + ",".join(f"{float(x):.7g}" for x in embedding) + "]"
@@ -214,8 +237,15 @@ async def search_chunks(
     top_k: int = 10,
     threshold: float = 0.7,
 ) -> list[tuple[str, dict[str, Any], float]]:
-    """pgvector 余弦检索。返回 [(ref_id, metadata, similarity)],失败返回 [](降级信号)。"""
+    """pgvector 余弦检索。返回 [(ref_id, metadata, similarity)]。
+
+    schema 不可用(建表/索引失败)时抛 :class:`PgVectorSchemaUnavailable`,**不返回
+    空列表** —— 否则「表建不出来」会被上层读成「没有匹配内容」。真实无匹配仍返回 ``[]``,
+    两者在遥测里分别记为 ``schema_unavailable`` / ``empty``。
+    其余运行时查询失败(超时等)保持 fail-open 返回 ``[]``,记为 ``error``。
+    """
     if _is_disabled() or not query_embedding:
+        _record_pg_metric(_SEARCH_METRIC, "skipped")
         return []
     try:
         from ..core.db_pool import get_shared_pool
@@ -223,7 +253,8 @@ async def search_chunks(
         pool = await get_shared_pool()
         if not await _ensure_schema(pool):
             _note_failure()
-            return []
+            _record_pg_metric(_SEARCH_METRIC, "schema_unavailable")
+            raise PgVectorSchemaUnavailable("pgvector schema 未就绪,检索不可用")
         rows = await pool.fetch(
             """
             SELECT ref_id, metadata::text AS metadata_json,
@@ -249,10 +280,14 @@ async def search_chunks(
             except Exception:  # noqa: BLE001
                 meta = {}
             results.append((str(row["ref_id"]), meta, sim))
+        _record_pg_metric(_SEARCH_METRIC, "hit" if results else "empty")
         return results
+    except PgVectorSchemaUnavailable:
+        raise
     except Exception as e:  # noqa: BLE001
         logger.debug("pgvector search 失败(降级): %s", e)
         _note_failure()
+        _record_pg_metric(_SEARCH_METRIC, "error")
         return []
 
 
@@ -278,15 +313,21 @@ async def delete_chunk(namespace: str, source: str, ref_id: str) -> bool:
 
 
 async def clear_chunks(namespace: str, session_id: str | None = None) -> int:
-    """清空 namespace(或其中某 session)的向量块,返回删除行数。"""
+    """清空 namespace(或其中某 session)的向量块,返回删除行数。
+
+    schema 不可用时抛 :class:`PgVectorSchemaUnavailable`,与「确实没有可删的行」
+    (返回 0)区分开;遥测分别记 ``schema_unavailable`` / ``ok`` / ``error``。
+    """
     if _is_disabled():
+        _record_pg_metric(_CLEAR_METRIC, "skipped")
         return 0
     try:
         from ..core.db_pool import get_shared_pool
 
         pool = await get_shared_pool()
         if not await _ensure_schema(pool):
-            return 0
+            _record_pg_metric(_CLEAR_METRIC, "schema_unavailable")
+            raise PgVectorSchemaUnavailable("pgvector schema 未就绪,清空不可用")
         if session_id:
             row = await pool.fetchrow(
                 """
@@ -304,8 +345,12 @@ async def clear_chunks(namespace: str, session_id: str | None = None) -> int:
                 "WITH del AS (DELETE FROM rag_chunks WHERE namespace = $1 RETURNING 1) SELECT count(*)::int AS n FROM del",
                 namespace,
             )
+        _record_pg_metric(_CLEAR_METRIC, "ok")
         return int(row["n"]) if row else 0
+    except PgVectorSchemaUnavailable:
+        raise
     except Exception as e:  # noqa: BLE001
         logger.debug("pgvector clear 失败(忽略): %s", e)
+        _record_pg_metric(_CLEAR_METRIC, "error")
         return 0
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
