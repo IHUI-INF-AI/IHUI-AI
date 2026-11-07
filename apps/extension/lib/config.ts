@@ -26,6 +26,27 @@ export function getBridgeBaseUrl(): string {
 }
 
 /**
+ * 2026-11-07 DBG-72 收口: ihui_api_base_url 读侧零校验 —— 任何能写 storage.local 的上下文
+ * 把该键改成 http://attacker 即等于把登录凭据(Authorization: Bearer)外送到第三方域。
+ * 白名单:仅允许 localhost/127.0.0.1/[::1] 的 http(s)(开发/自托管)与 https://*.aizhs.top
+ * (生产,与 manifest host_permissions 同域)。其余一律拒绝并告警,保持默认值。
+ * 若将来要支持其他自托管域名,应有意识地同时扩 host_permissions 与本白名单,而不是放开读侧。
+ */
+/** @internal 导出仅为回归测试;生产代码请走 initApiBaseUrl。 */
+export function isAllowedApiBaseUrl(raw: string): boolean {  try {
+    const u = new URL(raw)
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      const h = u.hostname
+      if (h === 'localhost' || h === '127.0.0.1' || h === '[::1]' || h === '::1') return true
+      if (u.protocol === 'https:' && (h === 'aizhs.top' || h.endsWith('.aizhs.top'))) return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
+/**
  * 从 chrome.storage.local 读取用户自定义 API 地址,初始化运行时配置。
  * 开发环境默认 localhost:8802(API server);生产环境可在设置页配置。
  * 必须在应用启动时(popup/sidepanel/background)调用。
@@ -34,7 +55,16 @@ export async function initApiBaseUrl(): Promise<void> {
   try {
     const customUrl = await platform.storage.localGet<string>('ihui_api_base_url')
     if (typeof customUrl === 'string' && customUrl.trim()) {
-      _apiBaseUrl = customUrl.trim().replace(/\/+$/, '')
+      const normalized = customUrl.trim().replace(/\/+$/, '')
+      // 2026-11-07 DBG-72: 先过白名单再采纳;非法值拒绝并保留默认,绝不带凭据外发。
+      if (isAllowedApiBaseUrl(normalized)) {
+        _apiBaseUrl = normalized
+      } else {
+        console.warn(
+          '[IHUI AI] ihui_api_base_url 非法(仅允许 localhost/http(s) 与 https://*.aizhs.top),已忽略:',
+          customUrl,
+        )
+      }
     }
   } catch {
     // chrome.storage 不可用时保留默认值
