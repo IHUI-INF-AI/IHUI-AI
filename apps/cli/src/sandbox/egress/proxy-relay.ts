@@ -32,7 +32,7 @@ const HEAD_CAP_BYTES = 16_384;
 const FORWARD_METHODS = new Set(['GET', 'POST', 'PUT', 'HEAD', 'DELETE', 'OPTIONS', 'PATCH']);
 
 /** 拨号注入缝:测试指回本地夹具服务器;默认走真 net.connect(relay 面才用得到)。 */
-export type Dial = (host: string, port: number) => Socket;
+type Dial = (host: string, port: number) => Socket;
 const defaultDial: Dial = (host, port) => connect({ host, port });
 
 export interface RelayRequestHead {
@@ -84,7 +84,7 @@ export function parseRequestHead(head: string): RelayRequestHead | null {
 }
 
 /** 名字裁决先行;策略要求地址证据时才向(注入的)异步解析器要地址,结果喂回同一把尺。 */
-export async function judgeRelayTarget(
+async function judgeRelayTarget(
   host: string,
   policy: EgressPolicy,
   lookup: AsyncHostLookup,
@@ -104,7 +104,7 @@ export interface EgressRelayOptions {
   readonly bindHost?: string;
 }
 
-export interface RelayActivity {
+interface RelayActivity {
   readonly connections: number;
   readonly lastActivityMs: number;
 }
@@ -221,5 +221,4 @@ async function handleConnection(socket: Socket, ctx: HandleCtx): Promise<void> {
   };
 }
 
-export const __test__ = { parseRequestHead, judgeRelayTarget, startEgressRelay };
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
