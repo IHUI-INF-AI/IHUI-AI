@@ -2604,6 +2604,18 @@ def _classify_existing_file(path: str) -> tuple[str, os.stat_result | None]:
     return "present", st
 
 
+def _note_ai_before(tool: str, path: str, hunk: str, arguments: Mapping[str, Any]) -> None:
+    """闸门已经放行、字节还没落地时记 before_edit。记失败不拦这次写入。"""
+    try:
+        from .ai_code_attribution_store import log_host_before_edit
+
+        log_host_before_edit(tool, path, hunk, arguments)
+    except Exception as exc:  # noqa: BLE001 - 检查点失败不得拦已经放行的写入
+        import logging
+
+        logging.getLogger(__name__).warning("写前检查点没记下(不拦写入): %s", exc)
+
+
 def _note_ai_edit(tool: str, path: str, hunk: str, arguments: Mapping[str, Any]) -> None:
     """写成功之后记归属。会话号只取宿主注入的 __session_id。"""
     try:
@@ -2676,6 +2688,7 @@ async def _tool_write_file(arguments: dict[str, Any]) -> dict[str, Any]:
                     ),
                     "concurrency": {"verdict": verdict, "forced": False},
                 }
+            _note_ai_before("write_file", resolved_path, content, arguments)
             with open(resolved_path, "w", encoding="utf-8") as f:
                 f.write(content)
             # 1-2:写盘后刷新 base(agent 视角最新内容)
@@ -2801,6 +2814,7 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                 str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),
                 readState=read_state_field(read_state),
             )
+        _note_ai_before("file_edit", resolved_path, old_string or "file_edit", arguments)
         try:
             with open(backup_path, "wb") as bf:
                 bf.write(raw)
@@ -2897,6 +2911,7 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
     backup_path = resolved_path + ".bak"
     # 票78 串行化:写回段持 per-path 锁(与 write_file/file_edit 写段互斥,缩竞态窗口)
     async with get_path_write_lock(resolved_path):
+        _note_ai_before("resolve_conflict", resolved_path, old_string or "resolve_conflict", arguments)
         try:
             with open(backup_path, "wb") as bf:
                 bf.write(raw)
@@ -2915,6 +2930,7 @@ async def _tool_resolve_conflict(arguments: dict[str, Any]) -> dict[str, Any]:
 
         # 1-2:写盘后刷新 base(冲突已解决,agent 视角最新内容;锁内刷新,时序同 file_edit)
         _record_file_base(resolved_path, final_content)
+    _note_ai_edit("resolve_conflict", resolved_path, old_string or "resolve_conflict", arguments)
     rejected = sum(1 for a in applied if a.get("choice") == "theirs")
     return {
         "tool": "resolve_conflict",

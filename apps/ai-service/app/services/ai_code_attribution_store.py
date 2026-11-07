@@ -50,6 +50,7 @@ __all__ = [
     "store",
     "host_session_id",
     "note_host_edit",
+    "log_host_before_edit",
     "log_host_edit_checkpoint",
     "list_checkpoint_log",
     "record_attribution",
@@ -227,6 +228,36 @@ def append_checkpoint(record: dict[str, object]) -> tuple[str, str]:
         return "appended", ""
 
 
+def _log_host_hook(
+    tool: str,
+    file: str,
+    hunk: str,
+    arguments: Mapping[str, object] | None,
+    hook_event_name: str,
+) -> tuple[str, str]:
+    planned, refused = plan_checkpoint(
+        tool,
+        file,
+        hunk,
+        arguments,
+        hook_event_name=hook_event_name,
+        session_id=host_session_id(arguments),
+    )
+    if planned is None:
+        return "refused", refused
+    return append_checkpoint(planned)
+
+
+def log_host_before_edit(
+    tool: str,
+    file: str,
+    hunk: str,
+    arguments: Mapping[str, object] | None,
+) -> tuple[str, str]:
+    """闸门放行、字节落地之前记一条 before_edit。写失败时不补 after_edit。"""
+    return _log_host_hook(tool, file, hunk, arguments, "before_edit")
+
+
 def log_host_edit_checkpoint(
     tool: str,
     file: str,
@@ -234,15 +265,5 @@ def log_host_edit_checkpoint(
     arguments: Mapping[str, object] | None,
 ) -> tuple[str, str]:
     """写成功之后记一条 after_edit。拒绝或重复都不改已经写完的文件。"""
-    planned, refused = plan_checkpoint(
-        tool,
-        file,
-        hunk,
-        arguments,
-        hook_event_name="after_edit",
-        session_id=host_session_id(arguments),
-    )
-    if planned is None:
-        return "refused", refused
-    return append_checkpoint(planned)
+    return _log_host_hook(tool, file, hunk, arguments, "after_edit")
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
