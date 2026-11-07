@@ -69,6 +69,7 @@ def tmp_store(tmp_path, monkeypatch):
 # ---------------------------------------------------------------------------
 def test_classify_ai_tool_positive():
     assert classify_attribution("file_edit", "a.py", "@@ -1 +1 @@\n+x") == ATTRIBUTION_AI
+    assert classify_attribution("resolve_conflict", "a.py", "@@ -1 +1 @@\n+x") == ATTRIBUTION_AI
 
 
 def test_classify_mcp_prefixed_tool_is_ai():
@@ -454,4 +455,63 @@ async def test_checkpoint_route_names_a_corrupt_log(tmp_store):
     note_host_edit("file_edit", "a.py", "diff", {"__session_id": "s"})
     assert checkpoint_log_path().read_text(encoding="utf-8").startswith("{not json")
     assert len(list_records(path="a.py")) == 1
+
+
+@pytest.mark.asyncio
+async def test_successful_write_pairs_before_and_after(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_write_file
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_write_path_in_workspace",
+        lambda p, extra_roots=None: (True, str(p)),
+    )
+    target = tmp_path / "out.py"
+    out = await _tool_write_file(
+        {"path": str(target), "content": "x = 1\n", "__session_id": "pair"}
+    )
+    assert out["ok"] is True
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert [row["hook_event_name"] for row in rows] == ["before_edit", "after_edit"]
+    assert rows[0]["path_hash"] == rows[1]["path_hash"]
+    assert rows[0]["dedupe_key"] != rows[1]["dedupe_key"]
+    assert rows[0]["kind"] == "ai"
+
+
+@pytest.mark.asyncio
+async def test_rejected_write_does_not_record_a_checkpoint(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_write_file
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_write_path_in_workspace",
+        lambda _p, extra_roots=None: (False, "拒绝"),
+    )
+    out = await _tool_write_file({"path": str(tmp_path / "no.py"), "content": "x\n", "__session_id": "s"})
+    assert out["ok"] is False
+    assert not checkpoint_log_path().exists()
+
+
+@pytest.mark.asyncio
+async def test_write_io_failure_keeps_before_without_after(tmp_path, monkeypatch, tmp_store):
+    from app.services.mcp_server import _tool_write_file
+
+    monkeypatch.setattr(
+        "app.services.mcp_server._validate_write_path_in_workspace",
+        lambda p, extra_roots=None: (True, str(p)),
+    )
+    target = tmp_path / "out.py"
+    target.write_text("old\n", encoding="utf-8")
+    real_open = open
+
+    def guarded(file, mode="r", *args, **kwargs):
+        if str(file) == str(target) and "w" in str(mode):
+            raise OSError(13, "denied")
+        return real_open(file, mode, *args, **kwargs)
+
+    monkeypatch.setattr("builtins.open", guarded)
+    out = await _tool_write_file({"path": str(target), "content": "new\n", "__session_id": "s"})
+    assert out["ok"] is False
+    rows, note = list_checkpoint_log()
+    assert note == ""
+    assert [row["hook_event_name"] for row in rows] == ["before_edit"]
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
