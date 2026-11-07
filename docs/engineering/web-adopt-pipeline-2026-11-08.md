@@ -234,6 +234,7 @@
 - **CI 有前置构建，不是 CI 缺口**：`.github/workflows/ci.yml` 在 `pnpm turbo run typecheck` 之前有 `pnpm --filter "@ihui/api-client..." run build`（L159；lint-typecheck-test job L563 同款）；`scripts/typecheck-full.mjs` 另带 `staleDistPreflight()`，可用 `--preflight-only` 单独补产物。
 - **缺口只在本地闸门**：`check-staged-typecheck.mjs` 按包直接跑 `tsc`，不跑 `staleDistPreflight()`，缺 dist 就以声明文件 TS2307 假红。**已修闸门（`7f4f5b01c9`，原提交 `6e4291a20d`）**：判据三分——`0` 通过 / `1` 声明集真错误 / `2` 用法或脚本异常、**依赖产物取不到**。开跑前只做确定性检查（依赖包 `package.json` 的 `types`/`typings`/`exports['.'].types`，无类型入口才退到 `main`/`exports` 运行时入口），缺失即 exit 2，打印缺哪些包、期望入口、`pnpm --filter "<pkg>..." run build` 与 `node scripts/typecheck-full.mjs --preflight-only`；不跑 tsc、不把 TS2307 归到改动文件。头注写明理由：本地裸跑 tsc 产生假红，假红逼人跳门，比假绿更坏。
 - **夹具**（`scripts/tests/check-staged-typecheck.test.mjs`）：有 dist → 干净文件 exit 0 / 写坏文件 exit 1；无 dist → exit 2 且带缺失包与补齐命令。`node --test scripts/tests/check-staged-typecheck.test.mjs` = 47/47 通过。
+- **夹具**（`scripts/tests/check-staged-typecheck.test.mjs`）：有 dist → 干净文件 exit 0 / 写坏文件 exit 1；无 dist → exit 2 且带缺失包与补齐命令；被审包 `node_modules` 缺失 → exit 2 且提示 `pnpm install --frozen-lockfile`。`node --test scripts/tests/check-staged-typecheck.test.mjs` = 48/48 通过。
 - **脱链复验（无 junction；`packages/api-client`、`@ihui/i18n` 等 dist 由 `node scripts/typecheck-full.mjs --preflight-only` 真实构建产出；`packages/app/node_modules` 由 `pnpm install --frozen-lockfile` 恢复的 pnpm 正常链接，非手工 junction）**：
 
   | 声明集 | 取数方式 | exit | 归因 |
@@ -243,7 +244,9 @@
   | `a611c577d1`（原提交 `d06e4b4404`，共享屏 HEAD） | `--files` 一文件 | 0 | `packages/app` 通过 |
 
   **绿来自真实构建产物与真实安装，不是软链**；本轮已无任何手工 junction。
-- **残存同类缺口（未并入判据，报机主决定）**：首次脱链复验在 `packages/app/node_modules` 缺失时，声明文件出现 `shared-pilot/page.tsx(141,13) TS2322: Property 't' does not exist`——`@ihui/rn-app` 以源码入口被消费，它自己的 `@ihui/types`/`react` 解析不到，基类退化造成假红；`pnpm install` 恢复后消失。新前置检查只看被审 package 的**直接** workspace 依赖入口，不覆盖「源码消费包」的传递解析。
+- **安装完整性检查（2026-11-08 补，`check-staged-typecheck.mjs`）**：被审包 `node_modules` 缺失、或其 `package.json` 声明的 workspace 依赖未在该目录下安装 ⇒ **exit 2**，提示 `pnpm install --frozen-lockfile`；不追传递解析、不按 tsc 报错文本反推。头注写明理由：判据宽到“任何解析失败都算取不到”，门就常驻 exit 2，等于取消守门，和假绿是同一性质的失败。
+- **该层两条读数（`52ff17b485` 三 web 文件声明集，原提交 `2a52ad3a87`）**：依赖齐全（真实构建产物 + `pnpm install` 链接）→ **exit 0**；临时移走 `apps/web/node_modules` → **exit 2**，输出“依赖未安装：缺少 `apps/web/node_modules` … `pnpm install --frozen-lockfile`”，本次不跑 tsc；移回后恢复 exit 0。
+- **同类缺口的处置（机主裁定，不扩）**：本次那个 `TS2322` 的具体路径（被审 `apps/web`、未安装的是源码消费包 `packages/app`）**不在本层判据内**——机主明确“不必覆盖该具体路径”。以后遇到来源不明的声明文件基类退化，先查被审包与源码消费包的 `node_modules` 是否齐全，再谈代码违规。
 - 以后本仓任何 staged typecheck 结论都必须带前提：**`packages/*/dist` 是否为真实构建产物、有无 junction、依赖安装是否完整**；junction 与手工补产物一律不算通过。
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
