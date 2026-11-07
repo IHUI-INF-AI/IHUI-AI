@@ -102,6 +102,8 @@ export const CODE_LABEL = Object.freeze({
   undeclared: '判红：触及受保护面但提交信息里没有可用的 immutable-exempt: 声明',
   'retro-declared':
     '通过（事后追认）：提交当时**没有**声明，由持钥方在台账里逐枚具名补了签名说明 ⇒ 读数必须打「追认@ackedBy」，不得当"当时就声明了"',
+  'declared-attested':
+    '通过（事后具名追认）：提交当时没有有效声明，持钥方在 attestations 台账里逐枚按实际触发路径签了说明 ⇒ 读数必须打「已追认@reviewer」，不得读成当时就合规',
   'undeclared-unsigned':
     '判红：触及受保护面且有文字理由，但缺少/验不过 immutable-exempt-sig（签名豁免未生效）',
   expired: '判红：受保护面清单里有 reviewBy 已到期的条目（清单腐烂，§0.7）',
@@ -589,6 +591,8 @@ export function decide({
   blobs = {},
   ackKey = null,
   legacyA1 = false,
+  attestRows = [],
+  commitDate = null,
 }) {
   const envelope = {
     hits: [],
@@ -633,10 +637,37 @@ export function decide({
     sha && rows.length > 0
       ? lookupAck({ rows, sha, hits: judged.hits, today, key, ackKey, legacyA1 })
       : { state: 'none', why: '' }
-  const ackOr = (substitutedFor, redCode) =>
-    ack.state === 'valid'
-      ? { ...out, exit: 0, code: 'retro-declared', ack: { ...ack, substitutedFor } }
-      : { ...out, exit: 1, code: redCode, ack: ack.state === 'invalid' ? ack : null }
+  // 具名追认台账（2026-11-07）：与 ack 同档，只在判红时兜底；命中面按**实际触发路径**逐个比。
+  // 它先于 ack 生效：attestations 是持钥方按"实际触发路径全集"逐枚签的，比旧 a1/a2 更贴着这一枚。
+  const attestRowList = Array.isArray(attestRows) ? attestRows : []
+  const attest =
+    sha && attestRowList.length > 0
+      ? lookupAttestation({
+          rows: attestRowList,
+          sha,
+          hits: judged.hits,
+          commitDate,
+          key,
+        })
+      : { state: 'none', why: '' }
+  const ackOr = (substitutedFor, redCode) => {
+    if (attest.state === 'valid')
+      return {
+        ...out,
+        exit: 0,
+        code: 'declared-attested',
+        attest: { ...attest, substitutedFor },
+      }
+    if (ack.state === 'valid')
+      return { ...out, exit: 0, code: 'retro-declared', ack: { ...ack, substitutedFor } }
+    return {
+      ...out,
+      exit: 1,
+      code: redCode,
+      ack: ack.state === 'invalid' ? ack : null,
+      attest: attest.state === 'invalid' ? attest : null,
+    }
+  }
   if (!judged.exempt.reasons.length) return ackOr('无 trailer 声明', 'undeclared')
   if (signature.ok) return { ...out, exit: 0, code: 'declared' }
   // 有签名行却验不过（含密钥取不到）⇒ 一律判红：它是对"已签名"的**正向声明**，
@@ -998,4 +1029,238 @@ export function lookupAck({
   }
   return { state: 'valid', code: 'ack-verified', row, why: '', ...extra }
 }
+
+/**
+ * ── 具名追认台账（attestations，2026-11-07 立）──────────────────────────────
+ *
+ * 与上面的 `immutable-guard-acks.jsonl`（a1/a2）是**两条不同通道**，不要混用：
+ *   - acks 是 2026-11-04 立的旧通道，带 `expires`（到期回到红），a1 只对 origin/main 已入库枚保留，
+ *     a2 要求"与提交签名钥不同的独立追认钥"；
+ *   - attestations 是本单立的通道：一行一条，`sha/paths/reason/reviewer/attestedAt/sig`，
+ *     **不带 expires**（是否续期由人工复核决定，不在本档自动收紧），签名钥 = 提交签名钥
+ *     （`ihui.immutableGuardKeyPath`，即"持钥方"这一控制点）。
+ *
+ * 判据红线（写死在这里，不靠调用方自觉）：
+ *  1. `paths` 必须与该枚**实际触发路径集合**逐元素相等（多一条 / 少一条 / 改写路径 ⇒ 判红）；
+ *  2. `sig` 必须验得过（载荷逐字节覆盖 sha/paths/reason/reviewer/attestedAt，改一处即失效）；
+ *  3. `reason` ≥ 40 字、`reviewer` 非空（空理由/空署名不算说明）；
+ *  4. 同一 sha 出现两条及以上 ⇒ 判红（不许重复追认，"最后一行覆盖"在追认语境下等于静默改写）；
+ *  5. `attestedAt` 必须 ≥ 该 sha 的提交日期（不许拿"未来的追认"给已落账的枚背书）。
+ * 台账本身登记在受保护面上（见 `immutable-guard.json` 的 `ATTEST_LEDGER_REL` 条目）：
+ * 往里加一行等于补发豁免，所以**改台账这件事本身也要显式声明**。
+ *
+ * 签名算法（与 `sign-immutable-attestations.mjs` 逐字一致，改动即两边同时改）：
+ *   payload = JSON.stringify({sha, paths, reason, reviewer, attestedAt})
+ *   键序固定为 sha → paths → reason → reviewer → attestedAt；paths 去重后按字典序升序；
+ *   sig      = HMAC-SHA256(key, payload) 的 64 位小写 hex（不带版本前缀，与 v1/v2/a1/a2 不同形）。
+ */
+export const ATTEST_LEDGER_REL = 'scripts/data/immutable-guard-attestations.jsonl'
+
+/** 追认理由最小长度：比 trailer 的 10 字更严——事后追认要交代"当时为什么没声明"，40 字是下限。 */
+export const ATTEST_MIN_REASON_CHARS = 40
+
+/** 追认签名形状：裸 64 hex（无版本前缀）。 */
+export const ATTEST_SIG_RE = /^[0-9a-f]{64}$/
+
+/**
+ * 追认签名载荷。**键序与 paths 排序是签名的一部分**：任何一处变化都会让已签行验不过。
+ * reason/reviewer/attestedAt 取原始字符串（调用方负责先 trim 再落盘），验签侧不再做二次归一，
+ * 这样"改一个空格"也会失效，而不是被归一化悄悄吃掉。
+ */
+export function attestPayload({ sha, paths, reason, reviewer, attestedAt }) {
+  const uniq = [...new Set((Array.isArray(paths) ? paths : []).map((p) => normalizeRel(p ?? '')))]
+    .filter(Boolean)
+    .sort()
+  return JSON.stringify({
+    sha: String(sha ?? '').trim().toLowerCase(),
+    paths: uniq,
+    reason: String(reason ?? ''),
+    reviewer: String(reviewer ?? ''),
+    attestedAt: String(attestedAt ?? ''),
+  })
+}
+
+/** 签发一条追认（只有持钥方能算出来）。形状/理由/署名不达标 ⇒ 抛，绝不产出"看起来能用"的假签名。 */
+export function signAttestation({ sha, paths, reason, reviewer, attestedAt, key }) {
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS)
+    throw new Error(`签名密钥长度不足 ${MIN_KEY_CHARS} 字符（按无效密钥处理）`)
+  if (!FULL_SHA_RE.test(String(sha ?? '').trim().toLowerCase()))
+    throw new Error(`sha 必须 40 位全量（收到 ${String(sha ?? '').slice(0, 20)}）`)
+  const list = Array.isArray(paths) ? paths.filter((p) => String(p ?? '').trim()) : []
+  if (!list.length) throw new Error('paths 必须逐条列出该枚实际触发的受保护路径（空数组不算说明）')
+  if ([...String(reason ?? '')].length < ATTEST_MIN_REASON_CHARS)
+    throw new Error(`reason 不足 ${ATTEST_MIN_REASON_CHARS} 字（追认必须交代当时为什么没声明）`)
+  if (!String(reviewer ?? '').trim()) throw new Error('reviewer 必填（谁追认的必须可追溯）')
+  if (!isValidDateStr(String(attestedAt ?? '')))
+    throw new Error(`attestedAt 必须是 YYYY-MM-DD：${String(attestedAt ?? '').slice(0, 20)}`)
+  return createHmac('sha256', k)
+    .update(attestPayload({ sha, paths, reason, reviewer, attestedAt }))
+    .digest('hex')
+}
+
+/**
+ * 逐行解析 attestations 台账。返回 `{rows, problems}`：
+ *  - 形状坏（非 JSON / 非对象 / 缺键 / sha 非 40 位 / paths 非非空字符串数组 / 日期非法 / sig 非 64hex）
+ *    ⇒ 进 `problems` 并带行号点名，**不进 rows**（这些行连"查得到"都不成立）；
+ *  - 语义问题（路径不齐 / 签名不对 / 理由过短 / 署名空 / 倒填日期 / 同 sha 重复）**保留在 rows**，
+ *    由 `lookupAttestation` 判 invalid 并点名成因——不能让它们静默变成"没有这条"。
+ */
+export function parseAttestLedger(text) {
+  const rows = []
+  const problems = []
+  const lines = String(text ?? '').split(/\r?\n/)
+  lines.forEach((line, i) => {
+    if (!line.trim()) return
+    let o
+    try {
+      o = JSON.parse(line)
+    } catch (e) {
+      problems.push({ line: i + 1, why: `不是合法 JSON：${e.message}` })
+      return
+    }
+    if (!o || typeof o !== 'object' || Array.isArray(o)) {
+      problems.push({ line: i + 1, why: '一行必须是对象' })
+      return
+    }
+    const missing = ['sha', 'paths', 'reason', 'reviewer', 'attestedAt', 'sig'].filter(
+      (k) => o[k] === undefined || o[k] === null || o[k] === '',
+    )
+    if (missing.length) {
+      problems.push({ line: i + 1, why: `缺必填键：${missing.join(',')}` })
+      return
+    }
+    if (!FULL_SHA_RE.test(String(o.sha))) {
+      problems.push({
+        line: i + 1,
+        why: `sha 必须 40 位全量（证据指针禁短写）：${String(o.sha).slice(0, 20)}`,
+      })
+      return
+    }
+    if (
+      !Array.isArray(o.paths) ||
+      o.paths.length === 0 ||
+      o.paths.some((p) => typeof p !== 'string' || !p.trim())
+    ) {
+      problems.push({
+        line: i + 1,
+        why: 'paths 必须是非空的路径字符串数组（空数组=模糊范围，不算说明）',
+      })
+      return
+    }
+    if (!isValidDateStr(String(o.attestedAt))) {
+      problems.push({
+        line: i + 1,
+        why: `attestedAt 必须是 YYYY-MM-DD：${String(o.attestedAt).slice(0, 20)}`,
+      })
+      return
+    }
+    if (!ATTEST_SIG_RE.test(String(o.sig))) {
+      problems.push({
+        line: i + 1,
+        why: `sig 形状坏（应为 64 位小写 hex）：${String(o.sig).slice(0, 8)}`,
+      })
+      return
+    }
+    rows.push({ ...o, sha: String(o.sha).toLowerCase(), line: i + 1 })
+  })
+  return { rows, problems }
+}
+
+/**
+ * 取该 sha 的追认并验签。四档：
+ *  - `none`     台账里没有这一枚（判定不变）；
+ *  - `valid`    路径集逐元素相等、签名验过、理由/署名/日期达标 ⇒ `declared-attested`；
+ *  - `invalid`  有这一枚但任一红线不满足 ⇒ 保持红，并把成因带出去点名；
+ *  - 重复行     同 sha ≥2 行 ⇒ 直接 invalid（不取"最后一行"，见台账红线 4）。
+ * `hits` 传该枚**实际触发路径**（判定输出的 `hits[].path`）；`commitDate` 是该枚提交日期（YYYY-MM-DD）。
+ */
+export function lookupAttestation({ rows, sha, hits = [], commitDate = null, key = null }) {
+  const target = String(sha ?? '').toLowerCase()
+  if (!target) return { state: 'none', why: '无 sha 可查' }
+  const mine = (Array.isArray(rows) ? rows : []).filter((r) => r.sha === target)
+  if (mine.length === 0) return { state: 'none', why: '' }
+  if (mine.length > 1)
+    return {
+      state: 'invalid',
+      code: 'attest-duplicate',
+      row: mine[mine.length - 1],
+      count: mine.length,
+      why: `同一 sha 有 ${mine.length} 条追认台账记录（不许重复追认）`,
+    }
+  const row = mine[0]
+  const hitPaths = [
+    ...new Set((Array.isArray(hits) ? hits : []).map((h) => normalizeRel(h?.path ?? h ?? ''))),
+  ]
+    .filter(Boolean)
+    .sort()
+  const rowPaths = [...new Set((row.paths || []).map((p) => normalizeRel(p)))].filter(Boolean).sort()
+  const extra = rowPaths.filter((p) => !hitPaths.includes(p))
+  const missing = hitPaths.filter((p) => !rowPaths.includes(p))
+  if (extra.length || missing.length)
+    return {
+      state: 'invalid',
+      code: 'attest-paths-mismatch',
+      row,
+      why: `paths 与该枚实际触发路径集不一致（多出：${extra.join('、') || '无'}；缺少：${missing.join('、') || '无'}）`,
+    }
+  if ([...String(row.reason ?? '')].length < ATTEST_MIN_REASON_CHARS)
+    return {
+      state: 'invalid',
+      code: 'attest-reason-short',
+      row,
+      why: `追认理由不足 ${ATTEST_MIN_REASON_CHARS} 字`,
+    }
+  if (!String(row.reviewer ?? '').trim())
+    return { state: 'invalid', code: 'attest-reviewer-empty', row, why: '追认人署名为空' }
+  if (!isValidDateStr(String(row.attestedAt)))
+    return {
+      state: 'invalid',
+      code: 'attest-date-bad',
+      row,
+      why: `attestedAt 非法：${String(row.attestedAt ?? '').slice(0, 20)}`,
+    }
+  if (!isValidDateStr(String(commitDate ?? '')))
+    return {
+      state: 'invalid',
+      code: 'attest-commit-date-unknown',
+      row,
+      why: '取不到该枚提交日期 ⇒ 无法判"追认早于提交"（fail-closed）',
+    }
+  if (String(row.attestedAt) < String(commitDate))
+    return {
+      state: 'invalid',
+      code: 'attest-backdated',
+      row,
+      why: `追认日期 ${row.attestedAt} 早于该枚提交日期 ${commitDate}`,
+    }
+  const k = String(key ?? '')
+  if (k.length < MIN_KEY_CHARS)
+    return {
+      state: 'invalid',
+      code: 'attest-key-unavailable',
+      row,
+      why: '密钥不可得 ⇒ 无法验签（fail-closed）',
+    }
+  const expected = createHmac('sha256', k)
+    .update(
+      attestPayload({
+        sha: row.sha,
+        paths: row.paths,
+        reason: row.reason,
+        reviewer: row.reviewer,
+        attestedAt: row.attestedAt,
+      }),
+    )
+    .digest('hex')
+  if (!hmacEqual(expected, String(row.sig)))
+    return {
+      state: 'invalid',
+      code: 'attest-sig-invalid',
+      row,
+      why: '追认签名验不过（内容被改 / 抄自别处 / 路径集不符）',
+    }
+  return { state: 'valid', code: 'attest-verified', row, why: '' }
+}
+
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
