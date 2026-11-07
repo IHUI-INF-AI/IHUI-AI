@@ -45,6 +45,7 @@ from ._load_lifecycle import (
     state_after_success as _state_after_success,
 )
 from .ttl_json_store import (
+    json_archive_blocks_replace,
     load_ttl_records,
     resolve_retention_days,
     write_json_atomic,
@@ -159,7 +160,7 @@ class AuditLogStore:
 
     def _persist(self) -> None:
         """全量写回 JSON(尽力,失败降级内存保留)。调用方须持锁。"""
-        if not self._loaded:
+        if not self._loaded or json_archive_blocks_replace(self._file, expect="array"):
             logger.warning("audit_log 读不到,不能把它覆盖成新记录")
             return
         try:

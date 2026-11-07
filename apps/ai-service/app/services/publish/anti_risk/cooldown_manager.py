@@ -32,6 +32,7 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 from app.core.logging import get_logger
+from app.services.ttl_json_store import json_archive_blocks_replace
 
 from ..._load_lifecycle import (
     DECISION_BACKOFF as _DECISION_BACKOFF,
@@ -226,6 +227,9 @@ class CooldownManager:
 
     def _persist(self) -> None:
         """持久化所有活跃冷却到文件(锁内调用,需持有 self._lock)。"""
+        if json_archive_blocks_replace(_COOLDOWNS_FILE, expect="object"):
+            logger.warning("[cooldown] 冷却文件损坏,不能把它覆盖成新冷却")
+            return
         try:
             _COOLDOWNS_FILE.parent.mkdir(parents=True, exist_ok=True)
             # 仅持久化活跃冷却(过滤已过期的 auto_release 项)

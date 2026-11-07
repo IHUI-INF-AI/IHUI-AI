@@ -243,13 +243,24 @@ class DbSyncScheduler:
     def _load_state(self) -> None:
         """读取调度水位(文件缺失/损坏时静默忽略,不拦调度)。"""
         p = self.state_path
-        if not p.exists():
+        try:
+            text = p.read_text(encoding="utf-8")
+        except FileNotFoundError:
             logger.info("[db_sync] 无调度水位文件(首次运行): %s", p)
             return
+        except OSError as exc:
+            self._state_blocks_save = True
+            logger.warning("[db_sync] 状态文件不可读(忽略,且不覆盖): %s: %s", p, exc)
+            return
         try:
-            data = json.loads(p.read_text(encoding="utf-8"))
-        except Exception as exc:  # noqa: BLE001 — 状态损坏不应拦住调度
-            logger.warning("[db_sync] 状态文件不可读(忽略): %s: %s", p, exc)
+            data = json.loads(text)
+        except ValueError as exc:
+            self._state_blocks_save = True
+            logger.warning("[db_sync] 状态文件不可读(忽略,且不覆盖): %s: %s", p, exc)
+            return
+        if not isinstance(data, dict):
+            self._state_blocks_save = True
+            logger.warning("[db_sync] 状态文件不是对象,不能把它覆盖成新水位: %s", p)
             return
         for key, attr in (
             ("last_interval_run", "_last_interval_run"),
@@ -275,6 +286,9 @@ class DbSyncScheduler:
 
     def _save_state(self) -> None:
         """原子落盘调度水位(失败只告警,不影响同步本身)。"""
+        if getattr(self, "_state_blocks_save", False):
+            logger.warning("[db_sync] 调度水位读不到,不能把它覆盖成新水位")
+            return
         p = self.state_path
 
         def _iso(v: datetime | None) -> str | None:
