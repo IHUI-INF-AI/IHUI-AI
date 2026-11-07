@@ -303,10 +303,10 @@ test('L8 ok / unjudged / 尺子抛 ⇒ 一律不寄信(失效方向是"少喊一
 /* ───────────────────────── C:镜像徽章自愈 ───────────────────────── */
 
 test('L9 门 238 --fix 的结论行按生产方形态解析:clean+0 静默,有改动/有拒落留痕,读不到=未判定', async () => {
-  const one = (stdout) => {
+  const one = async (stdout) => {
     const t = tick()
     const [logger, lines] = collector()
-    const r = healMirrorPurgeLeg({
+    const r = await healMirrorPurgeLeg({
       tickFile: t.file,
       logger,
       runner: () => ({ status: 0, stdout, stderr: '' }),
@@ -314,15 +314,15 @@ test('L9 门 238 --fix 的结论行按生产方形态解析:clean+0 静默,有�
     rmScratch(t.dir)
     return { r, lines }
   }
-  const quiet = one('MIRROR-PURGE-FIX-RESULT state=clean fixed=0 refused=0 clean=10\n')
+  const quiet = await one('MIRROR-PURGE-FIX-RESULT state=clean fixed=0 refused=0 clean=10\n')
   assert.equal(quiet.r.state, 'clean')
   assert.equal(quiet.lines.length, 0, '健康仓上每 30 分钟写一行等于噪声')
-  const acted = one('MIRROR-PURGE-FIX-RESULT state=fixed fixed=2 refused=0 clean=8\n')
+  const acted = await one('MIRROR-PURGE-FIX-RESULT state=fixed fixed=2 refused=0 clean=8\n')
   assert.equal(acted.r.state, 'fixed')
   assert.equal(acted.lines.length, 1, '真改了文档必须留痕')
-  const refused = one('MIRROR-PURGE-FIX-RESULT state=refused fixed=0 refused=3 clean=7\n')
+  const refused = await one('MIRROR-PURGE-FIX-RESULT state=refused fixed=0 refused=3 clean=7\n')
   assert.match(refused.lines.join('\n'), /refused=3/)
-  const none = one('随便一行没有结论后缀\n')
+  const none = await one('随便一行没有结论后缀\n')
   assert.equal(none.r.state, 'undetermined')
   assert.match(none.lines.join('\n'), /未判定/)
 })

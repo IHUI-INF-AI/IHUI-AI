@@ -56,7 +56,7 @@ const logsOf = () => {
   return { logs, logger: (m) => logs.push(m) }
 }
 
-test('T1 clean ⇒ 绿行并报读数', () => {
+test('T1 clean ⇒ 绿行并报读数', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndShellPages({
     ...fixture(),
@@ -73,7 +73,7 @@ test('T1 clean ⇒ 绿行并报读数', () => {
   assert.doesNotMatch(line, /⚠️/, '无缺口不该报警')
 })
 
-test('T2 landed ⇒ 绿行点名 blob 数', () => {
+test('T2 landed ⇒ 绿行点名 blob 数', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndShellPages({
     ...fixture(),
@@ -86,7 +86,7 @@ test('T2 landed ⇒ 绿行点名 blob 数', () => {
   assert.match(logs.find((l) => /跨端造页闭环/.test(l)), /blob 5/)
 })
 
-test('T3 blocked ⇒ ⚠️ 点名带原因,不到人', () => {
+test('T3 blocked ⇒ ⚠️ 点名带原因,不到人', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndShellPages({
     ...fixture(),
@@ -103,7 +103,7 @@ test('T3 blocked ⇒ ⚠️ 点名带原因,不到人', () => {
   assert.match(line, /接缝被他席占用/, '拒落原因必须进日志(§5e-1:能自己修的自己修,修不掉的留痕)')
 })
 
-test('T4 结论不可用 ⇒ 未判定,不记绿', () => {
+test('T4 结论不可用 ⇒ 未判定,不记绿', async () => {
   const { logs, logger } = logsOf()
   const r = sweepCrossEndShellPages({ ...fixture(), logger, runner: () => ({ ok: false, out: '', err: 'boom', status: 2 }) })
   assert.equal(r.ran, true)
@@ -112,7 +112,7 @@ test('T4 结论不可用 ⇒ 未判定,不记绿', () => {
   assert.match(logs.find((l) => /跨端造页闭环/.test(l)), /未判定/)
 })
 
-test('T5 节流窗口内不派生第二次', () => {
+test('T5 节流窗口内不派生第二次', async () => {
   const f = fixture()
   let calls = 0
   const counting = () => {
@@ -126,7 +126,7 @@ test('T5 节流窗口内不派生第二次', () => {
   assert.equal(calls, 1, '窗口内必须一次都不派生(造页器每轮会写 HEAD,重复派生即重复提交)')
 })
 
-test('T6 装车锁:定义 + 巡检轮内调用 + __test__ 出口 + env 节流', () => {
+test('T6 装车锁:定义 + 巡检轮内调用 + __test__ 出口 + env 节流', async () => {
   assert.match(HEAD_SRC, /export function sweepCrossEndShellPages\b/)
   const call = HEAD_SRC.match(/^\s*if \(!CHECK_ONLY\) sweepCrossEndShellPages\(\)$/m)
   assert.ok(call, '派发必须挂在 !CHECK_ONLY 分支(--check 档不写盘)')
@@ -155,7 +155,7 @@ test('T6 装车锁:定义 + 巡检轮内调用 + __test__ 出口 + env 节流', 
  * ReferenceError,守护每 30 分钟撞一次、连撞 8 小时,账面只有日志里同一行 ⚠️ —— **没有人被叫过**。
  * §5e-3 的原话:能看见的才谈得上修。所以"这一格瞎了"必须有存续性门槛 + 到人,而不是只写日志。
  */
-test('S1 未判定未跨门槛 ⇒ 只报名,不寄信', () => {
+test('S1 未判定未跨门槛 ⇒ 只报名,不寄信', async () => {
   const f = fixture()
   const { logger } = logsOf()
   const mails = []
@@ -170,7 +170,7 @@ test('S1 未判定未跨门槛 ⇒ 只报名,不寄信', () => {
   assert.equal(mails.length, 0, '单轮取不到多半是并发争用,不该把人叫来看一个已经好了的东西')
 })
 
-test('S2 连击跨门槛 ⇒ 到人,且同一场停摆的身份稳定(不放大成 N 个身份)', () => {
+test('S2 连击跨门槛 ⇒ 到人,且同一场停摆的身份稳定(不放大成 N 个身份)', async () => {
   const f = fixture()
   const { logger } = logsOf()
   const mails = []
@@ -196,7 +196,7 @@ test('S2 连击跨门槛 ⇒ 到人,且同一场停摆的身份稳定(不放大�
   assert.match(keys[0], /tier=/, '身份要带持续档(跨档才可重报,越拖越响是有意设计)')
 })
 
-test('S3 取到确定结论 ⇒ 撤掉在册起点(不背着旧账到人)', () => {
+test('S3 取到确定结论 ⇒ 撤掉在册起点(不背着旧账到人)', async () => {
   const f = fixture()
   const { logger } = logsOf()
   const mails = []
@@ -224,7 +224,7 @@ test('S3 取到确定结论 ⇒ 撤掉在册起点(不背着旧账到人)', () =
   assert.ok(!existsSync(f.undetFile), `在册起点应被撤掉(否则下一场停摆一开局就够格寄信):${f.undetFile}`)
 })
 
-test('S3b 常态(无连击在册)取到结论 ⇒ 不写日志(三腿每轮都清一次会把日志淹成噪声)', () => {
+test('S3b 常态(无连击在册)取到结论 ⇒ 不写日志(三腿每轮都清一次会把日志淹成噪声)', async () => {
   const f = fixture()
   const { logs, logger } = logsOf()
   sweepCrossEndShellPages({
@@ -240,7 +240,7 @@ test('S3b 常态(无连击在册)取到结论 ⇒ 不写日志(三腿每轮都�
   )
 })
 
-test('S4 未知腿 ⇒ 拒绝判定,既不寄信也不冒充已判', () => {
+test('S4 未知腿 ⇒ 拒绝判定,既不寄信也不冒充已判', async () => {
   const mails = []
   const r = noteCrossEndUndetermined('nonsense-leg', 'x', {
     logger: () => {},
@@ -253,7 +253,7 @@ test('S4 未知腿 ⇒ 拒绝判定,既不寄信也不冒充已判', () => {
   assert.equal(settleCrossEndLeg('nonsense-leg', { logger: () => {} }), false)
 })
 
-test('S5 装车锁:三条腿的"记连击"与"撤起点"必须在各自函数体内共位', () => {
+test('S5 装车锁:三条腿的"记连击"与"撤起点"必须在各自函数体内共位', async () => {
   for (const fn of ['auditCrossEndParityDrift', 'healCrossEndMirror', 'sweepCrossEndShellPages']) {
     const start = HEAD_SRC.search(new RegExp(`^(?:export )?(?:async )?function ${fn}\\b`, 'm'))
     assert.ok(start >= 0, `${fn} 定义消失(S5 要重写,而不是静默失配)`)
@@ -275,7 +275,7 @@ test('S5 装车锁:三条腿的"记连击"与"撤起点"必须在各自函数体
  * (c) 摘掉新分支(改回无条件 settle)⇒ 两断言同时翻红;配对正向对照:blocked 是确定结论,
  *     必须仍走 settle 清账(证明 (b) 不是"起点件永远擦不掉"的假锁)。
  */
-test('S6 造页器自报 undetermined ⇒ 记连击不清起点;blocked(确定结论)⇒ 照清(成对)', () => {
+test('S6 造页器自报 undetermined ⇒ 记连击不清起点;blocked(确定结论)⇒ 照清(成对)', async () => {
   const f = fixture()
   const { logger } = logsOf()
   const mails = []
@@ -320,7 +320,7 @@ test('S6 造页器自报 undetermined ⇒ 记连击不清起点;blocked(确定�
  * 分支连起点件都不写)、②"结论行解析不出"那一支一次都没记连击 —— 实测 08:49 起整轮
  * 「结论行解析不出 ⇒ 本轮未判定」而账面无声。本条用行为钉住注册与两分支(不抄源码判据,§22c)。
  */
-test('S7 手写页升级腿:解析不出⇒记连击到人;确定结论⇒清起点;未知腿对照臂不写起点', () => {
+test('S7 手写页升级腿:解析不出⇒记连击到人;确定结论⇒清起点;未知腿对照臂不写起点', async () => {
   const dir = mkScratch('hand-upgrade-leg-')
   const f = { tickFile: join(dir, 'tick.json'), undetFile: join(dir, 'undet.json') }
   const mails = []
@@ -333,7 +333,7 @@ test('S7 手写页升级腿:解析不出⇒记连击到人;确定结论⇒清起
     notify,
     undetHorizonMs: 0,
   }
-  const r = sweepHandMirrorUpgrades({
+  const r = await sweepHandMirrorUpgrades({
     ...base,
     now: 1_700_000_000_000,
     runner: () => 'not-json-at-all',
@@ -344,7 +344,7 @@ test('S7 手写页升级腿:解析不出⇒记连击到人;确定结论⇒清起
   assert.equal(mails.length, 1, '跨门槛必须走 note 寄信;腿名没登记进 CROSS_END_LEGS ⇒ 0 封,本条翻红')
   assert.match(String(mails[0].opts?.dedupKey), /hand-upgrade/, '身份要认得出是哪条腿')
   // 配对对照:下一轮取到确定结论(哪怕"零可落地")⇒ settle 必须清账(证明上一条不是"擦不掉"的假锁)
-  const r2 = sweepHandMirrorUpgrades({
+  const r2 = await sweepHandMirrorUpgrades({
     ...base,
     now: 1_700_000_000_000 + 31 * 60 * 1000,
     runner: () => JSON.stringify({ ok: true, upgradable: 0, batch: [], landed: null }),
@@ -362,7 +362,7 @@ test('S7 手写页升级腿:解析不出⇒记连击到人;确定结论⇒清起
   assert.ok(!existsSync(shadow), '未知腿那一臂不该写起点件(否则"在册"断言没有阳性对照)')
 })
 
-test('C1 契约锁:调度器读的 summary 键真存在于造页器 --json 现读出口', () => {
+test('C1 契约锁:调度器读的 summary 键真存在于造页器 --json 现读出口', async () => {
   const out = execFileSync(process.execPath, [LANDER, '--json', '--cap=1'], {
     encoding: 'utf8',
     maxBuffer: 1 << 26,
