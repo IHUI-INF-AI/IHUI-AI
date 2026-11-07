@@ -391,6 +391,132 @@ function Invoke-CapturedChild {
     }
 }
 
+# =============================================================================
+# 回滚退避(2026-11-07 立)
+#
+# 立因:金丝雀观察窗判死会调 ihui-deploy.ps1 -rollbackOnly。回滚本身是**合法结局**
+# (子脚本成功回滚 exit 0),所以部署环照旧 exit 0 契约、不把回滚记成失败。但同一条
+# 坏构建会被反复"部署→判死→回滚",退化成不响的死循环。这里补三条闸,且三条都必须
+# 落在**进程外的状态文件**上(环由 nssm 托管、每轮可能换进程,内存计数等于没有):
+#   ① 持久化:deploy\win\..\..\.ihui-agent\state\deploy-rollback-state.json;
+#   ② 有界:连续 N 次(max 默认 3)⇒ halted=true,本轮起**停止部署**并亮 FAIL,
+#      需人工确认后把 halted 置回 false(无限指数退避 = 安静地放弃);
+#   ③ 告警按原因指纹:指纹进状态并随日志点名;子脚本那侧的告警身份已按
+#      类别+归一化病因分槽(alert-dedup.ps1),新原因 = 新槽 = 首封立即寄出。
+# 退避底数刻意 ≥ MinDeployIntervalMin(默认 30),否则它比现有节流还短,等于没退避。
+# =============================================================================
+function Get-RollbackStatePath { Join-Path $Root '.ihui-agent\state\deploy-rollback-state.json' }
+
+function Get-RollbackState {
+    $def = [pscustomobject]@{ version = 1; consecutive = 0; halted = $false; lastReason = ''; lastFingerprint = ''; lastAt = ''; nextEligibleAt = '' }
+    $p = Get-RollbackStatePath
+    if (-not (Test-Path -LiteralPath $p)) { return $def }
+    try {
+        $o = Get-Content -LiteralPath $p -Raw -Encoding utf8 | ConvertFrom-Json
+        if ($null -eq $o) { return $def }
+        return [pscustomobject]@{
+            version        = 1
+            consecutive    = [int]$o.consecutive
+            halted         = [bool]$o.halted
+            lastReason     = [string]$o.lastReason
+            lastFingerprint = [string]$o.lastFingerprint
+            lastAt         = [string]$o.lastAt
+            nextEligibleAt = [string]$o.nextEligibleAt
+        }
+    } catch {
+        Log "WARN  回滚退避状态读不出($($_.Exception.Message))⇒ 按首轮处理(不冒充'没有回滚过')"
+        return $def
+    }
+}
+
+function Save-RollbackState {
+    param([Parameter(Mandatory = $true)]$State)
+    $p = Get-RollbackStatePath
+    $dir = Split-Path $p -Parent
+    if (-not (Test-Path -LiteralPath $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+    $tmp = "$p.tmp-$PID"
+    [System.IO.File]::WriteAllText($tmp, (ConvertTo-Json $State -Depth 4), [System.Text.UTF8Encoding]::new($false))
+    Move-Item -LiteralPath $tmp -Destination $p -Force
+}
+
+function Get-RollbackFingerprint {
+    # 把"每轮都会变"的读数(时刻/路径/hex/数字)折成占位符再取哈希 ⇒ 同一病因同槽,
+    # 新病因新槽。只用于去重与点名,不参与"是否回滚"的判定(判定仍只在 canary-verdict.mjs)。
+    param([string]$Reason)
+    $s = ($Reason -replace '\s+', ' ').Trim()
+    $s = [regex]::Replace($s, '\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}(:\d{2})?(\.\d+)?(Z|[+-]\d{2}:?\d{2})?', '<ts>')
+    $s = [regex]::Replace($s, '(?<![A-Za-z])[A-Za-z]:[\\/][^\s|,;)]*', '<path>')
+    $s = [regex]::Replace($s, '(?i)\b[0-9a-f]{7,40}\b', '<hex>')
+    $s = [regex]::Replace($s, '\d+(?:\.\d+)?', '<n>')
+    if (-not $s) { return '' }
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $h = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($s))
+        return ([System.BitConverter]::ToString($h) -replace '-', '').ToLowerInvariant().Substring(0, 12)
+    } finally { $sha.Dispose() }
+}
+
+function Register-RollbackEvent {
+    param([string]$Reason)
+    $s = Get-RollbackState
+    $max = if ($env:IHUI_DEPLOY_ROLLBACK_MAX) { [int]$env:IHUI_DEPLOY_ROLLBACK_MAX } else { 3 }
+    $base = if ($env:IHUI_DEPLOY_ROLLBACK_BASE_MIN) { [int]$env:IHUI_DEPLOY_ROLLBACK_BASE_MIN } else { 30 }
+    $cap = if ($env:IHUI_DEPLOY_ROLLBACK_CAP_MIN) { [int]$env:IHUI_DEPLOY_ROLLBACK_CAP_MIN } else { 120 }
+    if ($max -lt 1) { $max = 1 }
+    if ($base -lt 1) { $base = 1 }
+    if ($cap -lt $base) { $cap = $base }
+    $fp = Get-RollbackFingerprint -Reason $Reason
+    $now = Get-Date
+    $n = [int]$s.consecutive + 1
+    $backoff = [Math]::Min($cap, $base * [Math]::Pow(2, [Math]::Min($n - 1, 8)))
+    $newReason = ($fp -and $fp -ne $s.lastFingerprint)
+    $halted = ($n -ge $max)
+    $st = [pscustomobject]@{
+        version        = 1
+        consecutive    = $n
+        halted         = $halted
+        lastReason     = [string]$Reason
+        lastFingerprint = $fp
+        lastAt         = $now.ToString('o')
+        nextEligibleAt = $(if ($halted) { '' } else { $now.AddMinutes([int]$backoff).ToString('o') })
+    }
+    Save-RollbackState -State $st
+    $suffix = if ($newReason) { '新原因指纹 ⇒ 本次告警不受旧窗口抑制' } elseif ($fp) { '同因指纹 ⇒ 告警按同类去重窗口处理' } else { '原因取不到 ⇒ 指纹留空' }
+    if ($halted) {
+        Log ("FAIL  回滚退避:连续 {0} 次自动回滚 ≥ 上限 {1} ⇒ 部署环停止部署,需人工介入(指纹={2} 原因={3} 状态={4};{5})" -f $n, $max, $fp, $Reason, (Get-RollbackStatePath), $suffix)
+    } else {
+        Log ("ROLLBACK 退避:连续 {0} 次,下一轮最早 {1} 分钟后(上限 {2} 分钟;指纹={3} 原因={4};{5})" -f $n, [int]$backoff, $cap, $fp, $Reason, $suffix)
+    }
+}
+
+function Reset-RollbackState {
+    param([string]$Why)
+    $s = Get-RollbackState
+    if ([int]$s.consecutive -gt 0 -or [bool]$s.halted) {
+        $st = [pscustomobject]@{ version = 1; consecutive = 0; halted = $false; lastReason = ''; lastFingerprint = ''; lastAt = (Get-Date).ToString('o'); nextEligibleAt = '' }
+        Save-RollbackState -State $st
+        Log ("ROLLBACK 退避已清零({0};此前连续 {1} 次)" -f $Why, $s.consecutive)
+    }
+}
+
+function Test-RollbackGate {
+    $s = Get-RollbackState
+    if ([bool]$s.halted) {
+        Log ("HALT  部署环因连续回滚已停止(consecutive={0})⇒ 本轮不部署;人工确认后把 {1} 里的 halted 置回 false 再恢复" -f $s.consecutive, (Get-RollbackStatePath))
+        return $false
+    }
+    if ($s.nextEligibleAt) {
+        $t = $null
+        try { $t = [datetime]$s.nextEligibleAt } catch { $t = $null }
+        if ($t -and $t.ToUniversalTime() -gt (Get-Date).ToUniversalTime()) {
+            $left = [int][Math]::Ceiling(($t.ToUniversalTime() - (Get-Date).ToUniversalTime()).TotalMinutes)
+            Log ("BACKOFF 回滚退避中:连续 {0} 次,还需 {1} 分钟(最早 {2});本轮不部署" -f $s.consecutive, $left, $s.nextEligibleAt)
+            return $false
+        }
+    }
+    return $true
+}
+
 function Invoke-CanaryGate {
     param([Parameter(Mandatory = $true)][string]$Node)
     if ("$($env:IHUI_DEPLOY_CANARY)".Trim() -eq '0') {
@@ -549,6 +675,15 @@ function Invoke-CanaryGate {
     $dOut = (& $Node @dArgs 2>&1 | Out-String)
     $dRc = $LASTEXITCODE
     foreach ($ln in ($dOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [canary] $($ln.Trim())" } }
+    # 判死原因转传给子脚本:告警去重身份 = 类别+归一化病因(alert-dedup.ps1),传常量
+    # "canary-regression" 会让不同病因共用一个 4h 槽 ⇒ 新病因第一次被旧窗口压住。
+    # 判定实现仍只在 canary-verdict.mjs;本层只把它的结论行原样带下去,不自造原因。
+    $script:LastCanaryFailReason = ''
+    if ($dRc -eq 3) {
+        $tail = @($dOut -split "`r?`n" | Where-Object { $_.Trim() })
+        if ($tail.Count -gt 0) { $script:LastCanaryFailReason = ([string]$tail[$tail.Count - 1]).Trim() }
+        if (-not $script:LastCanaryFailReason) { $script:LastCanaryFailReason = '判定输出无原因行' }
+    }
 
     # ── 判定结论 → 档位推进(pass/fail/unknown 三态由 rc 现算,阈值判据不在这层)──────
     # fail ⇒ 契约比例归零 = 撤灰度流量(先于整包回滚:先把请求从候选身上拿走,再退包);
@@ -590,6 +725,7 @@ function Invoke-CanaryGate {
     Log $grayRealSplit
 
     if ($dRc -eq 0) {
+        Reset-RollbackState '金丝雀通过(本轮未回滚)'
         if ($graySampledFrom -eq 'canary') {
             # 灰度期放量未完:基线必须是"现网实测",不能拿灰度槽位的样本充当基线(否则下一轮
             # 拿候选跟自己比,回归判据自己漂);.rollback 同理保留 —— 它是撤灰度的退路。
@@ -625,7 +761,13 @@ function Invoke-CanaryGate {
         # Invoke-FailNotify(它只活在 ihui-deploy.ps1),在这里直调只会抛"命令不存在"被 catch 吞掉 ——
         # 看起来发过信,实际零投递(2026-10-26 现读发现),故告警一律留在子脚本那一条唯一出口。
         # 子脚本只有 -rollbackOnly 成功才 exit 0;失败走 Fail(自己发信)并 exit 非 0。
-        $rbOut = (& $PwshExe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $WinDir 'ihui-deploy.ps1') -rollbackOnly -CanaryRollback 2>&1 | Out-String)
+        $rbArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $WinDir 'ihui-deploy.ps1'), '-rollbackOnly', '-CanaryRollback')
+        # 只转传**原因指纹**(已把时刻/路径/hex/数字折成占位符):告警身份按它分槽。
+        # 直接传原始读数会让 5.2%/5.3% 各算一个新病因 ⇒ 每轮都发信,去重失效。
+        # 人类可读原文在上面 [canary] 行与决策台账里,不靠告警正文承载。
+        $rbFp = if ($script:LastCanaryFailReason) { Get-RollbackFingerprint -Reason $script:LastCanaryFailReason } else { '' }
+        if ($rbFp) { $rbArgs += @('-CanaryRollbackReason', $rbFp) }
+        $rbOut = (& $PwshExe @rbArgs 2>&1 | Out-String)
         $rbRc = $LASTEXITCODE
         foreach ($ln in ($rbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [rollback] $($ln.Trim())" } }
         if ($rbRc -ne 0) {
@@ -633,6 +775,9 @@ function Invoke-CanaryGate {
             return $true
         }
         Log "OK    金丝雀自动回滚完成,旧版本重新在线(告警与 canary-rollback 记账由子脚本出口完成)"
+        # 回滚成功仍保持 exit 0 契约,但连续次数必须进持久化状态:下一次部署前由
+        # Test-RollbackGate 判退避/停摆(见本文件"回滚退避"节)。
+        Register-RollbackEvent -Reason $script:LastCanaryFailReason
         return $true
     }
     Log "CANARY 未判定(rc=$dRc)⇒ 不回滚、不冒充通过;下一轮部署会重新观察"
@@ -727,6 +872,13 @@ function Invoke-PollOnce {
             Log "FAIL  成本熔断判不了(rc=$cbRc)⇒ 本轮不部署(fail-closed)"
             foreach ($ln in ($cbOut -split "`r?`n")) { if ($ln.Trim()) { Log "  $ln" } }
             if ($forceNow) { Log '[loop] 立即部署请求保留在队列(marker 未消费)⇒ 判据恢复后自动执行,不会丢' }
+            return
+        }
+        # ---- 1b2) 回滚退避闸(2026-11-07 立)----
+        # 排列位置刻意在 marker 消费之前:退避/停摆期间若消费了 marker,会话侧会读到
+        # "已受理"而部署根本没跑 —— 与 2026-10-28 那次吞请求同一型静默假成功。
+        if (-not (Test-RollbackGate)) {
+            if ($forceNow) { Log '[loop] 立即部署请求保留在队列(回滚退避/停摆中)⇒ 恢复后自动执行,不会丢' }
             return
         }
         # ---- 1c) 1b) 前置闸全过 ⇒ 本轮确定会部署,此刻才消费 marker ----
@@ -930,6 +1082,7 @@ function Invoke-PollOnce {
         }
         # 绿色态只在"本轮确实部署完成、且金丝雀没把这一轮撤掉"时刷新。
         if ($deployDoneThisRound -and -not $canaryRolledBack) {
+            Reset-RollbackState '部署完成且金丝雀未撤下本轮'
             $greenOut = (& $guardNode (Join-Path $Root 'scripts\green-state.mjs') --mark --apply --note "deploy-loop ok" 2>&1 | Out-String)
             foreach ($ln in ($greenOut -split "`r?`n")) { if ($ln.Trim()) { Log "  [green] $($ln.Trim())" } }
         } elseif ($canaryRolledBack) {

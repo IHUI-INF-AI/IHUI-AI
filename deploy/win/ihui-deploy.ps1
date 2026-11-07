@@ -32,6 +32,7 @@ param(
     [switch]$deployLatest,    # 忽略是否落后,强制部署到当前 origin/main
     [switch]$rollbackOnly,    # 仅用上次 .rollback 恢复
     [switch]$CanaryRollback,  # 配合 -rollbackOnly:本次回滚由 IHUI-DEPLOYLOOP 的金丝雀观察窗判死触发(记账/告警用词随之)
+    [string]$CanaryRollbackReason = '',  # 判死原因(由部署环转传):只进告警去重身份与正文,不改回滚行为
     [switch]$force            # 跳过健康门禁直接切流(谨慎)
 )
 
@@ -2671,7 +2672,7 @@ if ($rollbackOnly) {
         # Invoke-FailNotify(它只活在本文件),在那边直接调用只会抛"命令不存在"并被 catch 吞掉。
         if ($CanaryRollback) {
             [void](Write-DeployDecision -Action 'canary-rollback' -PrevSha $moSha -GateVerdict 'fail' -Reason '金丝雀观察窗判定异常,自动恢复上一可用包')
-            try { Invoke-FailNotify -Severity warning -m "金丝雀观察窗异常,已自动回滚:旧版本重新在线,需人工核查部署日志的 CANARY 行" -Detail "错误率/延迟比对明细见 .ihui-agent/deploy-decisions.jsonl 最近一条 action=canary-rollback" -Reason "canary-regression" } catch { Log "ALERT 金丝雀回滚告警发信异常(不影响已回滚):$_" }
+            try { Invoke-FailNotify -Severity warning -m "金丝雀观察窗异常,已自动回滚:旧版本重新在线,需人工核查部署日志的 CANARY 行" -Detail "错误率/延迟比对明细见 .ihui-agent/deploy-decisions.jsonl 最近一条 action=canary-rollback" -Reason $(if ($CanaryRollbackReason) { "canary-regression:$CanaryRollbackReason" } else { "canary-regression" }) } catch { Log "ALERT 金丝雀回滚告警发信异常(不影响已回滚):$_" }
         } else {
             [void](Write-DeployDecision -Action 'manual-rollback' -PrevSha $moSha -GateVerdict 'not-run' -Reason '人工执行 -rollbackOnly,已恢复上一可用包')
         }
