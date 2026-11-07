@@ -480,6 +480,47 @@ function splitFreshWorktreePaths(repoRoot, paths, guardMs) {
 }
 
 /**
+ * 每轮漂移判定的**采样上限**(2026-11-07 立,性能票)。默认 8;`IHUI_DRIFT_ANALYZE_MAX` 可覆盖,
+ * 非法值(非数/<=0)一律回落默认 —— 环境变量只该调档位,不该把判据改没。
+ *
+ * 为什么必须有上限:`analyze` 是逐路径全历史 `git log`(窗口用尽还会落一次不限深度的
+ * `git log --format=%H HEAD -- <path>`),现读 4.5–8.5s/条;真仓eligible 常年数百条,
+ * 一轮 30–55 分钟,而守护每 2 分钟一轮 ⇒ 旧实现**结构性跑不完**(单轮 20 分钟+ 的实测来源)。
+ * 采样只是"这一轮判哪些",判据本身一条没改;没进本轮的路径必须逐条点名(见 alignDrifts)。
+ */
+function driftAnalyzeMax(env = process.env) {
+  const raw = env.IHUI_DRIFT_ANALYZE_MAX
+  const n = Number(raw)
+  return raw !== undefined && raw !== '' && Number.isFinite(n) && n > 0 ? Math.floor(n) : 8
+}
+
+/**
+ * 按 mtime **最旧优先**取样:最陈旧的滞后副本离 HEAD 最远、也最可能是历轮遗留,先判它。
+ *
+ * 取不到 mtime(stat 失败 / 刚被删)按 **0** 排最前:"年龄读不出"不是"很新",让它先判比让它
+ * 永远排队更诚实(与 splitFreshWorktreePaths 里"取不到 mtime 仍进可判堆"同一条取向)。
+ * 未入选的路径**原样按 eligible 顺序**返回,调用方必须把它们逐条写进 driftUndetermined ——
+ * 判不出 ≠ 判过(§0.3);静默丢样本会让"没跑"与"无事"同形。
+ */
+function sampleDriftPaths(repoRoot, paths, max) {
+  if (paths.length <= max) return { sample: paths, deferred: [] }
+  const ranked = paths.map((p) => {
+    let ageMs = 0
+    try {
+      const m = statSync(resolve(repoRoot, p)).mtimeMs
+      if (Number.isFinite(m)) ageMs = m
+    } catch {
+      ageMs = 0
+    }
+    return { p, ageMs }
+  })
+  ranked.sort((a, b) => a.ageMs - b.ageMs) // 稳定排序:同龄按 eligible 原序
+  const sample = ranked.slice(0, max).map((x) => x.p)
+  const picked = new Set(sample)
+  return { sample, deferred: paths.filter((p) => !picked.has(p)) }
+}
+
+/**
  * 幻影漂移的**活工作二审**(2026-10-29 立,事故根治)。
  *
  * 立因是当日实测,不是假想:一个子任务"恢复被误删的历史功能",补回的内容**逐字节等于祖先
@@ -735,17 +776,40 @@ export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = i
    * `restoreBypassOrphans` 的父树签名判据④,只在 --align-drift 上下文执行。)
    */
   const orphanIndex = []
+  /**
+   * HEAD 面 path→oid(2026-11-07 换法):旧实现是**每个** `D ` / ` D` 路径一次
+   * `rev-parse HEAD:<p>`(现读 104 次;每次都要从根树逐级走),而同一张表一次
+   * `ls-tree -r` 就全有了(2.9s 量级,与 alignDrifts 建 headBlob 同形)。
+   * 懒建:没有这两种状态路径时一次也不跑 —— 常态轮不该为一格可能的开销付 3 秒。
+   * 表里查不到与旧实现 `rev-parse` 抛 fatal 同义(对下游都是"HEAD 里没有")。
+   */
+  let headOidMap = null
+  const headOidOf = (p) => {
+    if (!headOidMap) {
+      headOidMap = new Map()
+      try {
+        for (const rec of g(['ls-tree', '-r', '-z', 'HEAD', '--format=%(objectname) %(path)']).split(
+          '\0',
+        )) {
+          if (!rec) continue
+          const i = rec.indexOf(' ')
+          if (i <= 0) continue
+          headOidMap.set(rec.slice(i + 1), rec.slice(0, i))
+        }
+      } catch {
+        // 取不到 ⇒ 空表 ⇒ 与旧实现"逐条 rev-parse 都抛"同判(不会把缺失读成存在)
+        headOidMap = new Map()
+      }
+    }
+    return headOidMap.get(p) ?? ''
+  }
   for (const rec of st.split('\0')) {
     if (!rec) continue
     const xy = rec.slice(0, 2)
     const path = rec.slice(3).trim()
     if (xy === 'D ' && path) {
-      try {
-        g(['rev-parse', `HEAD:${path}`])
-        if (!existsSync(resolve(repoRoot, path))) orphanIndex.push(path)
-      } catch {
-        /* HEAD 也没有 ⇒ 不是本类,忽略 */
-      }
+      // 不在 HEAD 表里 ⇒ 不是本类,忽略(旧实现靠 `rev-parse` 抛 fatal 得到同一结论)
+      if (headOidOf(path) && !existsSync(resolve(repoRoot, path))) orphanIndex.push(path)
       continue
     }
     if (xy !== ' D' || !path) continue
@@ -755,15 +819,10 @@ export function findOrphanedDeletions(repoRoot, { now = Date.now(), ttlHours = i
     } catch {
       indexBlob = ''
     }
-    let headBlob = ''
-    try {
-      // 路径可能不在 HEAD 里(新增文件);git 的 fatal 不得漏进结论面 —— 本脚本每 2 分钟被守护
-      // 跑一次,stderr 噪音会淹掉真正的自愈审计行。接管 stdio 由共用层负责(gitRaw 把 stderr
-      // 收进异常对象而不是透给父进程),这里只需把异常吞成"取不到"。
-      headBlob = g(['rev-parse', `HEAD:${path}`]).trim()
-    } catch {
-      headBlob = ''
-    }
+    // 路径可能不在 HEAD 里(新增文件);git 的 fatal 不得漏进结论面 —— 本脚本每 2 分钟被守护
+    // 跑一次,stderr 噪音会淹掉真正的自愈审计行。取不到(不在表里)一律折成空串,与旧实现
+    // 把 `rev-parse` 的 fatal 吞成 '' 逐字同义。
+    const headBlob = headOidOf(path)
     if (indexBlob && indexBlob === headBlob && !existsSync(resolve(repoRoot, path))) {
       // G-1018292(2026-10-04):**恢复前的最后一道问句** —— 这枚删除的意图是否刚被
       // 共享索引的整批清空摘掉过?是则**只报数,不代裁**。
@@ -1727,15 +1786,21 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
       ...head(),
       ...bp,
     }
+  // 采样上限(2026-11-07 立,见 driftAnalyzeMax 头注):两条通道**都**只跑本轮入选的那几条。
+  // 采样点必须落在两条通道之前 —— 放在命中之后等于把全历史的钱照付一遍(与 T19 的护栏同理)。
+  // 未入选的路径在下面统一并入 driftUndetermined,一条都不许丢。
+  const driftMax = driftAnalyzeMax()
+  const budget = sampleDriftPaths(repoRoot, eligible, driftMax)
+  const sampledEligible = budget.sample
   // G-742:两条通道共用一个 windowLoss 收集口 —— "窗口用尽而没命中"必须逐条点名,
   // 不得和"真新工作"一起被读成"无需对齐"(旧账面就是这句)。
   const windowLoss = []
-  const hits = analyze(repoRoot, eligible, { source: 'worktree', windowLoss })
+  const hits = analyze(repoRoot, sampledEligible, { source: 'worktree', windowLoss })
   const whole = new Set(hits.map((h) => h.path))
   // 第二条通道:整块不等于任何祖先、但逐块都能对上(索引层重建的拼合旧基线)
   const composite = compositeDriftPaths(
     repoRoot,
-    eligible.filter((p) => !whole.has(p)),
+    sampledEligible.filter((p) => !whole.has(p)),
     { windowLoss },
   )
   // 同一路径可能由两条通道各点名一次 ⇒ 按路径只留第一条(计数与名单同源)
@@ -1745,6 +1810,13 @@ export function alignDrifts(repoRoot, { dryRun = false } = {}) {
     seenLoss.add(u.path)
     return true
   })
+  // 采样让路的这一族:不是"判过",是"本轮没轮到"—— 逐条点名并带上排队原因(§0.3)。
+  for (const p of budget.deferred)
+    driftUndetermined.push({
+      path: p,
+      channel: 'sample-budget',
+      reason: `本轮采样上限 ${driftMax} 条,排队待下轮`,
+    })
   // 活工作二审(2026-10-29 立):**只对两条通道已判为"内容==祖先"的路径**付这次 git log。
   // 恢复历史内容与陈旧副本在内容上同形,唯一能分开它们的证据是写入先后 —— 盘上那份晚于
   // HEAD 那一版被提交 ⇒ 是在飞编辑/正当恢复,不还原只点名(判据与代价见 splitLiveRestorePaths)。
@@ -2211,10 +2283,13 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
   // 零引用且无删除理由 ⇒ 才落"疑似 git rm"只报数桶。引用面取不到(未判定)同样不恢复(§0.3)。
   let referenced = []
   let refUndetermined = []
+  /** 引用面是否降级(批量读失败 ⇒ 逐条回退)。降级仍是"判过",但慢回小时级必须让上层看得见。 */
+  let refDegraded = null
   if (unproven.length) {
     const ref = findReferencersInRev({ root: repoRoot, rev: 'HEAD', paths: unproven })
     referenced = unproven.filter((p) => (ref.hits.get(p) || []).length > 0)
     refUndetermined = ref.undetermined ?? []
+    if (ref.degraded) refDegraded = ref.degradedReason || '引用面批量读取失败,已降级逐条'
   }
   const referencedSet = new Set(referenced)
   const restorableCandidates = [...proven, ...referenced]
@@ -2249,6 +2324,7 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
       heldDeclaredPaths: heldDeclared,
       referencedRestorable: referenced.length,
       referenceUndetermined: refUndetermined,
+      ...(refDegraded ? { referenceDegraded: refDegraded } : {}),
       skippedNotBlob,
       reason: heldDeclared.length
         ? `四判据成立但 ${heldDeclared.length} 个持有删除通知书(或台账坏档判不出)⇒ 只报数不恢复`
@@ -2267,6 +2343,7 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
       heldDeclaredPaths: heldDeclared,
       referencedRestorable: referenced.length,
       referenceUndetermined: refUndetermined,
+      ...(refDegraded ? { referenceDegraded: refDegraded } : {}),
       skippedNotBlob,
       dryRun: true,
       reason: '旁路提交孤儿路径,四判据成立,可恢复(未执行)',
@@ -2282,6 +2359,7 @@ function restoreBypassOrphansInner(g, repoRoot, dryRun) {
     heldDeclaredPaths: heldDeclared,
     referencedRestorable: referenced.length,
     referenceUndetermined: refUndetermined,
+    ...(refDegraded ? { referenceDegraded: refDegraded } : {}),
     skippedNotBlob,
     deferred,
     reason: deferred.length
@@ -2312,7 +2390,14 @@ function readBypassHeldDeclared(repoRoot) {
         paths: [],
         reason: `旁路孤儿层本轮让路(${r.lockSkip.state ?? r.lockSkip.kind})⇒ 该档未判,不是 0`,
       }
-    return { count: r.heldDeclared || 0, paths: r.heldDeclaredPaths || [], reason: null }
+    return {
+      count: r.heldDeclared || 0,
+      paths: r.heldDeclaredPaths || [],
+      // 引用面降级(批量读失败 ⇒ 逐条回退)必须冒到最外层:这一档不影响判据,但会把单轮
+      // 拉回小时级 —— 巡检面只看得见"慢",看不出"为什么慢"。
+      degraded: r.referenceDegraded || null,
+      reason: null,
+    }
   } catch (e) {
     return {
       count: 0,
@@ -2351,6 +2436,75 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       mergeInProgress: true,
     }
   }
+  /**
+   * 锁守卫(2026-11-07 立):**只在写盘档**生效。
+   *
+   * 立因:本函数的恢复动作(state A 的 `git restore`、reconcile 的 `update-index`)要写索引,
+   * 而改造前这一档只有"撞锁后归因"、没有"动手前预探" —— 撞上 safe-commit 那 30–62s 的写窗口
+   * 时整轮抛穿,连"这一轮没判"都留不下来(G-794 的同一失效形态)。判据与措辞照抄
+   * alignDrifts:1550(probeWriteLock → probeIndexLock,非 absent 即整轮让路),结论走
+   * layerSkips 带回:让路 ≠ 无事(§0.3),四档措辞由 skipFrom*Probe 统一给。
+   *
+   * 为什么 `dryRun` 档**不**让路(`--check` / `--dry-run`):这两档结构上进不到写循环
+   * (findOrphanedDeletions 只读、reconcile 收 dryRun),锁既不会让它们失败,也不该让它们少判。
+   * 这一格是既有契约、有牙:g794 的 T5 断言"dryRun 带锁不得报『本层跳过(锁被持有)』" ——
+   * 用一把只会挡住写的锁去关掉一次纯读判定,等于把"没判"伪装成"让路"(§0.3 的同一错)。
+   */
+  const g = makeGit(repoRoot)
+  if (!dryRun) {
+    const wlEntry = probeWriteLock(repoRoot, g)
+    if (wlEntry.state !== 'absent')
+      return {
+        restored: 0,
+        held: 0,
+        reconciled: 0,
+        orphanIndex: 0,
+        paths: [],
+        intentLost: 0,
+        intentLostPaths: [],
+        intentExpired: 0,
+        intentExpiredPaths: [],
+        intentDeclared: 0,
+        intentDeclaredPaths: [],
+        noticeUndetermined: 0,
+        noticeUndeterminedPaths: [],
+        bypassHeldDeclared: 0,
+        bypassHeldDeclaredPaths: [],
+        bypassHeldDeclaredReason: '整轮让路(项目逻辑写锁在位)⇒ 旁路孤儿层本轮未判(该档不是 0)',
+        layerSkips: [
+          {
+            layer: '工作区存续自愈整轮(存续恢复/陈旧索引孤儿对齐)',
+            ...skipFromWriteProbe(wlEntry),
+          },
+        ],
+      }
+    const ilEntry = probeIndexLock(repoRoot, g)
+    if (ilEntry.state !== 'absent')
+      return {
+        restored: 0,
+        held: 0,
+        reconciled: 0,
+        orphanIndex: 0,
+        paths: [],
+        intentLost: 0,
+        intentLostPaths: [],
+        intentExpired: 0,
+        intentExpiredPaths: [],
+        intentDeclared: 0,
+        intentDeclaredPaths: [],
+        noticeUndetermined: 0,
+        noticeUndeterminedPaths: [],
+        bypassHeldDeclared: 0,
+        bypassHeldDeclaredPaths: [],
+        bypassHeldDeclaredReason: '整轮让路(index.lock 在位)⇒ 旁路孤儿层本轮未判(该档不是 0)',
+        layerSkips: [
+          {
+            layer: '工作区存续自愈整轮(存续恢复/陈旧索引孤儿对齐)',
+            ...skipFromProbe(ilEntry),
+          },
+        ],
+      }
+  }
   const { safe, held, orphanIndex, intentLost, intentExpired, intentDeclared, noticeUndetermined } =
     findOrphanedDeletions(repoRoot)
   const bypassHeld = readBypassHeldDeclared(repoRoot)
@@ -2372,6 +2526,9 @@ export function heal(repoRoot, { dryRun = false } = {}) {
     bypassHeldDeclared: bypassHeld.count,
     bypassHeldDeclaredPaths: bypassHeld.paths,
     ...(bypassHeld.reason ? { bypassHeldDeclaredReason: bypassHeld.reason } : {}),
+    // 只在真的降级时出现(常态不带这一键):引用面退回逐文件 `git show` ⇒ 本轮判据仍成立,
+    // 但慢回小时级 —— 不点名的话,账面只剩"这一轮特别慢",没人知道下一步该修什么。
+    ...(bypassHeld.degraded ? { bypassReferenceDegraded: bypassHeld.degraded } : {}),
   }
   if (!safe.length)
     return {
@@ -2410,7 +2567,6 @@ export function heal(repoRoot, { dryRun = false } = {}) {
       dryRun: true,
       layerSkips,
     }
-  const g = makeGit(repoRoot)
   const { done, deferred, viaIndex } = restoreToHead(g, safe)
   // 2026-11-04:到期档不再回盘 ⇒ 这里没有"到期后要写回留痕"的动作了。
   // 旧实现会在落地成功后调 appendIntentExpiryLedger;现在 safe 里根本不含到期路径,
@@ -3570,10 +3726,22 @@ function printSkipsAndLoss(o) {
     console.log(`⚠️ [${s.layer}] ${s.reason}${advice ? ' —— ' + advice : ''}${more}`)
   }
   const lost = o.driftUndetermined || []
-  // 两族必须分开说:live-guard 是"证据取不到"(窗口/seen 这两个字段它根本没有),
+  // 三族必须分开说:live-guard 是"证据取不到"(窗口/seen 这两个字段它根本没有),sample-budget
+  // 是"本轮没轮到"(有采样上限以来才有这一族),剩下那族才是"祖先窗口确证用尽"。
   // 混进同一句会让读数去核对一个不存在的祖先窗口 —— 账面错认比报数更糟。
   const liveLost = lost.filter((u) => u.channel === 'live-guard')
-  const windowLost = lost.filter((u) => u.channel !== 'live-guard')
+  const sampledOut = lost.filter((u) => u.channel === 'sample-budget')
+  const windowLost = lost.filter((u) => u.channel !== 'live-guard' && u.channel !== 'sample-budget')
+  if (sampledOut.length) {
+    console.log(
+      `ℹ️ ${sampledOut.length} 个路径本轮**未进入漂移判定**(本轮采样上限 ${driftAnalyzeMax()} 条,${sampledOut[0]?.reason ?? ''})` +
+        '⇒ 既不算判过,也不算干净,排队待下一轮:',
+    )
+    for (const u of sampledOut.slice(0, 10)) console.log(`   ⏳ 排队 ${u.path}`)
+    console.log(
+      '   出口:等下一轮(按 mtime 最旧优先逐轮消化);要立刻判就 IHUI_DRIFT_ANALYZE_MAX=<n> node scripts/heal-worktree-tracked.mjs --align-drift --dry-run --json',
+    )
+  }
   if (liveLost.length) {
     console.log(
       `⚠️ ${liveLost.length} 个路径的**写入先后**判不出(mtime 或 HEAD 那一版的提交时刻取不到)⇒ 本轮不判不写(既不还原也不记绿):`,
@@ -3843,8 +4011,14 @@ async function main() {
           if (mergeSkips) parts.push(`${mergeSkips} 层本轮因合并未收口让路(MERGE_HEAD 在,提交或 abort 后自动补上)`)
           caveats.push(parts.join(';'))
         }
-        if (d.driftUndetermined?.length)
-          caveats.push(`${d.driftUndetermined.length} 处窗口用尽未判定`)
+        if (d.driftUndetermined?.length) {
+          // 采样排队与"窗口用尽"是两件事:合成一句"未判定"会让人去查祖先窗口,而真相是配额
+          // (见 driftAnalyzeMax)。逐族报数,总数仍等于 driftUndetermined.length。
+          const queued = d.driftUndetermined.filter((u) => u.channel === 'sample-budget').length
+          const rest = d.driftUndetermined.length - queued
+          if (rest) caveats.push(`${rest} 处窗口用尽未判定`)
+          if (queued) caveats.push(`${queued} 处排队待下轮(本轮采样上限 ${driftAnalyzeMax()} 条)`)
+        }
         if (d.ancestryUndetermined?.length)
           caveats.push(`${d.ancestryUndetermined.length} 处索引祖先判不出`)
         if (d.refreshDeferred?.length) caveats.push(`${d.refreshDeferred.length} 个索引刷新延后`)
