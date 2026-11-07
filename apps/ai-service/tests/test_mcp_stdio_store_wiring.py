@@ -56,6 +56,8 @@ def fake_npx_on_path(tmp_path, monkeypatch):
 def store_path(tmp_path, monkeypatch):
     p = tmp_path / "mcp_store.json"
     monkeypatch.setattr(mcp_store, "_STORE_PATH", p)
+    # 2026-11-07:install 入口新增可执行白名单(fail-closed),放行测试自造的 npx 入口。
+    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", "npx,npx.cmd,npx.exe,npx.bat")
     return p
 
 
@@ -112,7 +114,14 @@ def clean_pool():
 
 @pytest.fixture
 def api_client(store_path):
+    """2026-11-07:install 收成管理员专属,本文件测工具清单接线语义,故统一以管理员身份调。"""
     app = FastAPI()
+
+    @app.middleware("http")
+    async def _inject_admin_role(request, call_next):  # type: ignore[no-untyped-def]
+        request.state.role_id = 1
+        return await call_next(request)
+
     app.include_router(mcp_router.router, prefix="/api")
     return TestClient(app)
 
