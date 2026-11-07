@@ -1,15 +1,25 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
+<<<<<<< HEAD
   "sealedAt": "2026-11-07T12:39:07.179Z",
   "sealedBy": "root-guard --seal",
   "reason": "2026-11-07 20:26 全量收敛落地 cb36dc8519 后按 HEAD 现面重封:远端新版 git-guardian.mjs(派生腿 spawn+await/30s 心跳)随合并入库,清单绑定 hash 失效,重算重封解除部署环 fail-closed",
+=======
+  "sealedAt": "2026-11-07T07:16:05.129Z",
+  "sealedBy": "root-guard --seal",
+  "reason": "main 尖 a9897341d1 重封:47a298fc78/7978ca2773/e69651e43f 改了 guardian-runner 与 git-guardian,清单未同枚重封",
+>>>>>>> bd18236a92 (fix(guardian): 按 HEAD 面用官方 --seal 重封根护栏清单(追平 a9897341d1))
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
+<<<<<<< HEAD
       "sha256": "fafd5b95a8e266467c19049e7e8ba4c954044ec8c372e6c6758d90649525577d"
+=======
+      "sha256": "4b49cdee0f2c799309f87479b09b31ffba2e2ae38119a194ef1fb5c56e0a2cb5"
+>>>>>>> bd18236a92 (fix(guardian): 按 HEAD 面用官方 --seal 重封根护栏清单(追平 a9897341d1))
     },
     {
       "id": "judgement-libs",
@@ -28,7 +38,11 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
+<<<<<<< HEAD
       "sha256": "e7d49394c128bc484e3abc0e6fae68498bf3f947b8e4ef1f61bb8d99484043ce"
+=======
+      "sha256": "1470d41627c314c3c57b30f8dd4ca597d3d00b5515042fd06d2e3861e4f7e1ed"
+>>>>>>> bd18236a92 (fix(guardian): 按 HEAD 面用官方 --seal 重封根护栏清单(追平 a9897341d1))
     }
   ]
 }
