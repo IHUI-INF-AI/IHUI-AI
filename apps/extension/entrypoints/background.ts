@@ -501,6 +501,22 @@ function registerMessageListener(): void {
 }
 
 export default defineBackground(() => {
+  // 2026-11-07 DBG-61 收口: chrome.storage.session 默认访问级 TRUSTED_CONTEXTS ⇒ 内容脚本
+  // 上下文里 chrome.storage.session 整个为 undefined,content.ts 的
+  // `chrome.storage.session?.set(...)` 是静默 no-op(可选链吞掉 undefined 调用,不报错不写入)
+  // ⇒ ihui_pending_vocab / ihui_pending_prompt 写不进去,选区查词/发送到 AI 链路断。
+  // 放开为 TRUSTED_AND_UNTRUSTED_CONTEXTS 让内容脚本可写;写入的仅为用户选区文本,
+  // 不含 token 等凭据(token 走 chrome.storage.local,仍保持 TRUSTED_CONTEXTS 不外溢)。
+  try {
+    chrome.storage.session
+      ?.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })
+      ?.catch((err: unknown) => {
+        console.warn('[IHUI AI] storage.session setAccessLevel failed:', err)
+      })
+  } catch (err) {
+    console.warn('[IHUI AI] storage.session setAccessLevel threw:', err)
+  }
+
   // 2026-07-22 P0 Round 5 鲁棒性加固:全局未捕获 Promise rejection + error 监听
   // MV3 Service Worker 未捕获异常会被 Chrome 累计,达阈值后自动禁用扩展(工具栏图标变灰)
   // 监听后写 chrome.storage.local 日志,供 sidepanel 错误监控面板读取
