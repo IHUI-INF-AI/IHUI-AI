@@ -39,7 +39,8 @@ jobs:
 
       - name: 检查 NativeWind 升级就绪状态
         id: check
-        continue-on-error: true
+        # 2026-11-07:不再吞失败。脚本对「5.0 stable 已发布」主动 exit 1,exit 2(网络异常)已在
+        # 脚本内归一为 0;若某天 exit 1 不再出现于失败作业(被吞成 success),即是该步在吞错。
         run: |
           set +e
           node scripts/check-nativewind-status.mjs

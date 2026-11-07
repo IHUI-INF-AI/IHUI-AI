@@ -115,6 +115,8 @@ jobs:
       - name: 运行跨端级联(web→RN→小程序,自动落地)
         if: steps.can-write.outputs.can_write == 'true'
         id: apply
+        # 保留容错(可证伪):apply 只记录 apply_rc 供后续只读预览比对;若某次 apply_rc≠0
+        # 而预览仍报"无漂移",即本步在吞错 ⇒ 改为不吞。
         continue-on-error: true
         shell: bash
         run: |

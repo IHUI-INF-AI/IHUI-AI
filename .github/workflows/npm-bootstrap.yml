@@ -98,6 +98,8 @@ jobs:
           exit $ec
       - name: Upload evidence + encrypted secrets
         if: always()
+        # 保留容错(可证伪):证据包是附加物;若某次作业失败而 .github/scripts/shots/ 无包
+        # 且没有任何替代记录,即本步吞错 ⇒ 改为不吞。
         continue-on-error: true
         timeout-minutes: 4
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7

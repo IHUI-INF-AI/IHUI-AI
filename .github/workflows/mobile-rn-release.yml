@@ -79,6 +79,8 @@ jobs:
           OWNER: ihui-ai
 
       - name: 链路体检(现读每条腿的前置与卡点)
+        # 保留容错(可证伪):本步只体检、不发布;若体检报 blocked 而后续发布腿仍绿
+        # (结论未被任何后续步骤引用),即本步吞错 ⇒ 改为不吞。
         run: node scripts/release-mobile-rn.mjs
         continue-on-error: true
 

@@ -28,14 +28,14 @@
  *       逐包(含独立分包)超 2 MiB 即判红;恰好等于上限不判(微信口径是 `> 2 MiB`)。
  *
  * 退出码按**机器态 vs 内容态**三态分流(与守门 104 同一取向,不得回退):
- *   0 = 产物在预算内,**或**产物根本不在磁盘上(未判定 —— 逐条喊出原因与构建命令,绝不静默记绿)
+ *   0 = 产物在预算内
  *   1 = 内容态缺陷:超硬上限 / 破告警水位 / 命中已启用的 AB2 判据
- *   2 = 无法判定:未知 --target(不得回落默认档)/ 主包清单读不出 —— 既不冒红也不记绿
+ *   2 = **未判定**:未知 --target(不得回落默认档)/ 主包清单读不出 / 产物不在磁盘上 /
+ *       该档没有校准基线。既不冒红也不静默记绿 —— 「只报数」已经取消,见 2026-11-07 裁定。
  *
- * ⚠ 为什么产物缺失必须是 0 而不是 1:本门判的是**磁盘上的构建产物**,提交者结构上
- *   无法保证磁盘上有新鲜产物。挂进提交链 blocking 的结果是每一次提交都被拦,而恒红门
- *   的唯一结局是逼人 `--no-verify`,连带把其余 130+ 道守门一起作废(AGENTS §12e)。
- *   ⇒ 定级为**提交链 warn + CI blocking**(CI 上产物必然存在,在 CI 判红才是有效问责)。
+ * ⚠ 为什么产物缺失是 2 而不是 0:0 会被读成「判过且绿」。2026-11-07 裁定把「只报数」
+ *   统一换成「未判定」;提交链上本门是 warn 档,exit 2 不会拦提交,CI 上产物必然存在,
+ *   未判定就该红在 CI。恒红风险由「提交链 warn + CI blocking」的定级承担。
  *
  * ⚠ 新鲜度:本门与工作树/HEAD 无关(不适用"判 HEAD blob"那套取材面)。结论行必须
  *   打印产物 mtime 与年龄,并明写"这可能是上一次构建的产物",否则会把陈旧产物当本次交付。
@@ -71,11 +71,11 @@ const SUBPACKAGE_LIMIT_BYTES = 2_097_152
 
 /**
  * 预算表 —— 一处改,判据与打印同时动(不得把上限散进 if)。
- * `limitBytes: null` 的档是**未校准档**:只报数不判红,理由写在 `uncalibratedReason`,
- * 输出与 --json 里都会如实标 `calibrated:false`("判据存在而永不调用 = 没有",
- * 但"判据没校准却冒充红线"同样是假绿 —— 两头都得喊出来)。
+ * `limitBytes: null` 的档**必须**有入库基线(`scripts/artifact-budget-baselines/<target>.json`),
+ * 基线缺失时判 **未判定(exit 2)** —— "只报数"已于 2026-11-07 取消。基线由
+ * `scripts/gen-artifact-budget-baseline.mjs` 用最近一次真实构建产物生成,内含生成命令/时间/产物 sha。
  */
-const BUDGET = {
+export const BUDGET = {
   miniapp: {
     label: '微信小程序主包',
     artifactRel: 'apps/miniapp-taro/dist',
@@ -100,7 +100,8 @@ const BUDGET = {
     warnPct: 85,
     mainPackageScoped: false,
     ab2Judged: true,
-    buildHint: 'pnpm --filter @ihui/desktop build(本机无 updater 签名私钥时前置 DESKTOP_ALLOW_UNSIGNED=1,仅本地自测包,不得发布)',
+    buildHint:
+      'pnpm --filter @ihui/desktop build(本机无 updater 签名私钥时前置 DESKTOP_ALLOW_UNSIGNED=1,仅本地自测包,不得发布)',
     basis: '实测 ~6.17 MB 薄壳包,取 2x 余量;非平台硬限',
   },
   'web-static': {
@@ -140,8 +141,38 @@ const BUDGET = {
 
 const TARGET_NAMES = Object.keys(BUDGET)
 
+const BASELINE_DIR = process.env.IHUI_ARTIFACT_BUDGET_BASELINE_DIR
+  ? resolve(process.env.IHUI_ARTIFACT_BUDGET_BASELINE_DIR)
+  : join(ROOT, 'scripts', 'artifact-budget-baselines')
+
 class UnknownTargetError extends Error {}
 class UndeterminedError extends Error {}
+
+/**
+ * 校准基线:只有 `limitBytes: null` 的档才需要。基线文件由
+ * `node scripts/gen-artifact-budget-baseline.mjs --target <name>` 用**最近一次真实构建产物**
+ * 生成,文件内带生成命令/时间/产物 sha;生成即纳入判红。缺基线 ⇒ 未判定(exit 2)。
+ */
+function loadBaseline(target, spec) {
+  if (spec.limitBytes !== null && spec.limitBytes !== undefined) return null
+  const p = join(BASELINE_DIR, `${target}.json`)
+  if (!existsSync(p)) return null
+  let b
+  try {
+    b = JSON.parse(readFileSync(p, 'utf8'))
+  } catch (e) {
+    throw new UndeterminedError(`基线文件不可读:${toPosix(relative(ROOT, p))}(${e?.message ?? e})`)
+  }
+  if (b.target !== target) {
+    throw new UndeterminedError(
+      `基线文件 target 不符:${toPosix(relative(ROOT, p))} 写的是 "${b.target}"`,
+    )
+  }
+  if (!Number.isFinite(b.limitBytes) || b.limitBytes <= 0) {
+    throw new UndeterminedError(`基线文件缺少有效 limitBytes:${toPosix(relative(ROOT, p))}`)
+  }
+  return b
+}
 
 /** 未知/缺失 target 一律抛,绝不回落默认档(本仓刚在 sync-lost-commit-tags 上被静默兜底咬过)。 */
 function resolveTarget(name) {
@@ -269,8 +300,18 @@ function judgeBudget(measuredBytes, limitBytes, warnPct) {
 function judgeSubPackages(buckets, limitBytes = SUBPACKAGE_LIMIT_BYTES) {
   if (!buckets) return { limitBytes, judged: false, overs: [] }
   const all = [
-    ...Object.entries(buckets.sub ?? {}).map(([root, v]) => ({ root, kind: 'sub', bytes: v.bytes, files: v.files })),
-    ...Object.entries(buckets.independent ?? {}).map(([root, v]) => ({ root, kind: 'independent', bytes: v.bytes, files: v.files })),
+    ...Object.entries(buckets.sub ?? {}).map(([root, v]) => ({
+      root,
+      kind: 'sub',
+      bytes: v.bytes,
+      files: v.files,
+    })),
+    ...Object.entries(buckets.independent ?? {}).map(([root, v]) => ({
+      root,
+      kind: 'independent',
+      bytes: v.bytes,
+      files: v.files,
+    })),
   ]
   const overs = all.filter((e) => e.bytes > limitBytes)
   return { limitBytes, judged: true, overs }
@@ -345,16 +386,30 @@ function isoLocal(ms) {
 function evaluate({ target, artifactPath }) {
   const spec = resolveTarget(target)
   const dir = resolve(ROOT, artifactPath ?? spec.artifactRel)
+  const baseline = loadBaseline(target, spec)
+  const limitBytes = baseline ? baseline.limitBytes : spec.limitBytes
   const base = {
     target,
     label: spec.label,
     artifact: artifactPath ?? spec.artifactRel,
     artifactAbs: dir,
-    limitBytes: spec.limitBytes,
-    warnPct: spec.warnPct,
-    calibrated: spec.limitBytes !== null && spec.limitBytes !== undefined,
+    limitBytes,
+    warnPct: baseline?.warnPct ?? spec.warnPct,
+    calibrated: limitBytes !== null && limitBytes !== undefined,
     buildHint: spec.buildHint,
-    basis: spec.basis ?? null,
+    basis: baseline
+      ? `基线文件 scripts/artifact-budget-baselines/${target}.json · 生成 ${baseline.generatedAt} · ` +
+        `产物 sha ${baseline.artifactSha256} · 实测 ${baseline.measuredBytes} B / ${baseline.fileCount} 文件`
+      : (spec.basis ?? null),
+    baseline: baseline
+      ? {
+          generatedAt: baseline.generatedAt,
+          generatedBy: baseline.generatedBy,
+          artifactSha256: baseline.artifactSha256,
+          measuredBytes: baseline.measuredBytes,
+          fileCount: baseline.fileCount,
+        }
+      : null,
     uncalibratedReason: spec.uncalibratedReason ?? null,
     scoped: spec.mainPackageScoped,
   }
@@ -419,7 +474,9 @@ function evaluate({ target, artifactPath }) {
   const verdict = judgeBudget(measuredBytes, spec.limitBytes, spec.warnPct)
   const ab2 = measureAb2(dir, entries)
   const ab2Fail = spec.ab2Judged && ab2.dangling.length > 0
-  const ab3 = spec.subPackageJudged ? judgeSubPackages(buckets) : { limitBytes: SUBPACKAGE_LIMIT_BYTES, judged: false, overs: [] }
+  const ab3 = spec.subPackageJudged
+    ? judgeSubPackages(buckets)
+    : { limitBytes: SUBPACKAGE_LIMIT_BYTES, judged: false, overs: [] }
   const ab3Fail = ab3.overs.length > 0
   // AB4 整档总量:微信 20 MiB 上限。实测 2026-10-26 落完 219 屏后合计 18,016,705 B(86%),
   // 只判逐包会漏"每个包都还装得下、整档传不上去"这一型。
@@ -447,12 +504,14 @@ function evaluate({ target, artifactPath }) {
     ab3Fail,
     ab4: { ...ab4, limitBytes: spec.totalPackageLimitBytes ?? null },
     ab4Fail,
-    fail: verdict.status === 'over' || verdict.status === 'over-water' || ab2Fail || ab3Fail || ab4Fail,
+    fail:
+      verdict.status === 'over' || verdict.status === 'over-water' || ab2Fail || ab3Fail || ab4Fail,
   }
 }
 
 function decideExit(r) {
-  if (r.undetermined) return 0
+  if (r.undetermined) return 2
+  if (!r.calibrated) return 2
   return r.fail ? 1 : 0
 }
 
@@ -463,7 +522,7 @@ function printHuman(r) {
     console.log(`  未判定:${r.reason}`)
     console.log(`  下一步:${r.action}`)
     console.log(
-      '  说明:本门按磁盘产物判,"产物不在"属机器态而非内容缺陷 ⇒ exit 0,不冒红也不静默记绿。',
+      '  说明:本门按磁盘产物判,"产物不在"属机器态 ⇒ exit 2 未判定;不冒红,也不许静默记绿。',
     )
     return
   }
@@ -479,9 +538,16 @@ function printHuman(r) {
   }
   const head = r.calibrated
     ? `  AB1 尺寸: ${r.scoped ? '主包' : '产物'} 实测 ${fmtBytes(r.measuredBytes)} / 上限 ${fmtBytes(r.limitBytes)} / 余量 ${fmtBytes(r.marginBytes)}(已用 ${r.usedPct}%,告警水位 ${r.warnPct}%)`
-    : `  AB1 尺寸: 实测 ${fmtBytes(r.measuredBytes)} —— 该档未校准,只报数不判红`
+    : `  AB1 尺寸: 实测 ${fmtBytes(r.measuredBytes)} —— 该档未校准,未判定(exit 2)`
   console.log(head)
-  if (!r.calibrated && r.uncalibratedReason) console.log(`     未校准依据: ${r.uncalibratedReason}`)
+  if (!r.calibrated) {
+    console.log(
+      `     未判定依据:${r.uncalibratedReason ?? '该档没有入库基线'} —— ` +
+        '先跑 `node scripts/gen-artifact-budget-baseline.mjs --target=' +
+        r.target +
+        '` 生成基线',
+    )
+  }
   if (r.calibrated && r.basis) console.log(`     上限依据: ${r.basis}`)
   if (r.scoped && r.buckets) {
     const sub = Object.entries(r.buckets.sub)
@@ -513,7 +579,9 @@ function printHuman(r) {
         (r.ab3.overs.length === 0 ? '全部在限内' : `${r.ab3.overs.length} 个超限`),
     )
     for (const o of r.ab3.overs) {
-      console.log(`     - ${o.root}: ${fmtBytes(o.bytes)} / ${o.files} 文件(超 ${fmtBytes(o.bytes - r.ab3.limitBytes)})`)
+      console.log(
+        `     - ${o.root}: ${fmtBytes(o.bytes)} / ${o.files} 文件(超 ${fmtBytes(o.bytes - r.ab3.limitBytes)})`,
+      )
     }
   }
   if (r.ab4 && r.ab4.status !== 'unjudged' && r.ab4.limitBytes) {
@@ -527,13 +595,16 @@ function printHuman(r) {
     'over-water': `⛔ 结论:破告警水位(${r.warnPct}%)—— 尚未超硬上限,但余量只剩 ${fmtBytes(r.marginBytes)}`,
     over: `⛔ 结论:超硬上限 ${fmtBytes(-r.marginBytes)}`,
     uncalibrated: r.ab2Fail
-      ? '⛔ 结论:尺寸未校准(不计),命中 AB2 悬空 map 引用'
-      : 'ℹ️ 结论:尺寸未校准档,只报数',
+      ? '⛔ 结论:尺寸未判定(未校准),命中 AB2 悬空 map 引用'
+      : '❓ 结论:未判定(该档未校准)',
   }[r.status]
   // 三个尺寸维各说各话:主包 / 单分包 / 整档总量。哪一维红的都必须点名,
   // 否则"主包在预算内"这五个字会被读成"能上传"—— 而炸的是另外两维。
   const dims = []
-  if (r.ab3Fail) dims.push(`单分包超 2 MiB(${r.ab3.overs.map((o) => `${o.root} ${fmtBytes(o.bytes)}`).join('、')})`)
+  if (r.ab3Fail)
+    dims.push(
+      `单分包超 2 MiB(${r.ab3.overs.map((o) => `${o.root} ${fmtBytes(o.bytes)}`).join('、')})`,
+    )
   if (r.ab4Fail)
     dims.push(
       r.ab4.status === 'over'
@@ -667,8 +738,15 @@ function selfTest() {
   )
   ck('T5d 恰好等于上限不算超', judgeBudget(1000, 1000, 90).status === 'over-water')
   ck('T5e 未校准档不判', judgeBudget(9, null, 90).status === 'uncalibrated')
-  ck('T5f 未判定退出码 0', decideExit({ undetermined: true, fail: true }) === 0)
-  ck('T5g 内容态失败退出码 1', decideExit({ undetermined: false, fail: true }) === 1)
+  ck('T5f 未判定退出码 2(不再记绿)', decideExit({ undetermined: true, fail: true }) === 2)
+  ck(
+    'T5g 内容态失败退出码 1',
+    decideExit({ undetermined: false, calibrated: true, fail: true }) === 1,
+  )
+  ck(
+    'T5h 未校准退出码 2(只报数已取消)',
+    decideExit({ undetermined: false, calibrated: false, fail: false }) === 2,
+  )
 
   // T6 AB2 只拦"引用在而目标不在"
   const ab2 = findDanglingSourceMaps({
@@ -740,16 +818,22 @@ function selfTest() {
     ck('T8a 分包在限内不报', ab3ok.judged && ab3ok.overs.length === 0)
     ck(
       'T8b 恰好等于上限不超(微信口径:> 2 MiB 才拒)',
-      judgeSubPackages(b({ 'pkg-a': { bytes: SUBPACKAGE_LIMIT_BYTES, files: 1 } })).overs.length === 0,
+      judgeSubPackages(b({ 'pkg-a': { bytes: SUBPACKAGE_LIMIT_BYTES, files: 1 } })).overs.length ===
+        0,
     )
     const ab3over = judgeSubPackages(
-      b({ 'pkg-a': { bytes: SUBPACKAGE_LIMIT_BYTES + 1, files: 1 } }, { 'pkg-b': { bytes: SUBPACKAGE_LIMIT_BYTES + 9, files: 2 } }),
+      b(
+        { 'pkg-a': { bytes: SUBPACKAGE_LIMIT_BYTES + 1, files: 1 } },
+        { 'pkg-b': { bytes: SUBPACKAGE_LIMIT_BYTES + 9, files: 2 } },
+      ),
     )
     ck('T8c 超 1 B 即报,独立分包同判', ab3over.overs.length === 2, `实得 ${ab3over.overs.length}`)
     ck(
       'T8d 真磁盘夹具接进 AB3:把分包桶换成超限值即被抓到',
-      judgeSubPackages({ ...scopedMain.buckets, sub: { 'pkg-ai': { bytes: SUBPACKAGE_LIMIT_BYTES + 1, files: 1 } } }).overs
-        .length === 1,
+      judgeSubPackages({
+        ...scopedMain.buckets,
+        sub: { 'pkg-ai': { bytes: SUBPACKAGE_LIMIT_BYTES + 1, files: 1 } },
+      }).overs.length === 1,
     )
 
     // T9 AB4 整档总量(微信 20 MiB):逐包都绿也可能整档传不上去

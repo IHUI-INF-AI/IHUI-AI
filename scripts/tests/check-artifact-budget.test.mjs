@@ -117,14 +117,15 @@ test('C1b 缺 --target / 未知参数同样 exit 2(白名单开关)', () => {
   }
 })
 
-test('C2 产物目录不存在 ⇒ exit 0 + 逐条"未判定:<原因>" + 构建命令', () => {
+test('C2 产物目录不存在 ⇒ exit 2 未判定 + 逐条"未判定:<原因>" + 构建命令', () => {
   const dir = mkFakeRepo('ab-c2-')
   try {
     const r = run(dir, ['--target', 'miniapp'])
-    assert.equal(r.status, 0, `不该因机器态判红: ${r.stdout}${r.stderr}`)
+    assert.equal(r.status, 2, `未判定必须 exit 2(不许记绿): ${r.stdout}${r.stderr}`)
     assert.match(r.stdout, /未判定:产物目录不存在/)
     assert.match(r.stdout, /pnpm --filter @ihui\/miniapp-taro build/)
-    assert.match(r.stdout, /不冒红也不静默记绿/)
+    assert.match(r.stdout, /不冒红/)
+    assert.match(r.stdout, /静默记绿/)
     const j = JSON.parse(run(dir, ['--target', 'miniapp', '--json']).stdout)
     assert.equal(j.undetermined, true)
     assert.equal(j.exists, false)
@@ -228,7 +229,12 @@ test('C10 整档总量超 20 MiB ⇒ 判红并点名总量维(主包与逐包仍
       files[`pkg-b${i}/blob.js`] = per
       subs.push({ root: `pkg-b${i}`, pages: ['a'] })
     }
-    makeDist(dir, 'apps/miniapp-taro/dist', files, JSON.stringify({ pages: ['pages/index/index'], subpackages: subs }))
+    makeDist(
+      dir,
+      'apps/miniapp-taro/dist',
+      files,
+      JSON.stringify({ pages: ['pages/index/index'], subpackages: subs }),
+    )
     const r = run(dir, ['--target', 'miniapp'])
     assert.equal(r.status, 1, `总量超限没判红:\n${r.stdout}`)
     assert.match(r.stdout, /AB4 整档总量/)
@@ -253,7 +259,10 @@ test('C9 单个分包超 2 MiB ⇒ 判红,且文案点名是哪一包、超多�
       dir,
       'apps/miniapp-taro/dist',
       { 'pkg-user/blob.js': 2 * 1024 * 1024 + 4096 },
-      JSON.stringify({ pages: ['pages/index/index'], subpackages: [{ root: 'pkg-user', pages: ['a'] }] }),
+      JSON.stringify({
+        pages: ['pages/index/index'],
+        subpackages: [{ root: 'pkg-user', pages: ['a'] }],
+      }),
     )
     const r = run(dir, ['--target', 'miniapp'])
     assert.equal(r.status, 1, `分包超限没判红:\n${r.stdout}`)
@@ -268,7 +277,10 @@ test('C9 单个分包超 2 MiB ⇒ 判红,且文案点名是哪一包、超多�
     assert.equal(j.status, 'ok', '主包本身必须仍报 ok —— 两桶是分开判的')
 
     // 反向:同一份字节缩到限内(恰好等于上限)⇒ 必须转绿,否则这是恒红门
-    writeFileSync(join(dir, 'apps/miniapp-taro/dist/pkg-user/blob.js'), Buffer.alloc(2 * 1024 * 1024))
+    writeFileSync(
+      join(dir, 'apps/miniapp-taro/dist/pkg-user/blob.js'),
+      Buffer.alloc(2 * 1024 * 1024),
+    )
     const okRun = run(dir, ['--target', 'miniapp'])
     assert.equal(okRun.status, 0, `恰好等于上限不该判红:\n${okRun.stdout}`)
     assert.match(okRun.stdout, /全部在限内/)
@@ -353,14 +365,14 @@ test('C8 新鲜度必须如实报:结论区含产物 mtime 与"可能是上一�
   }
 })
 
-test('C9 未校准档只报数不判红,但必须把理由与 AB2 计数喊出来', () => {
+test('C9 未校准档不再只报数:exit 2 未判定,理由与 AB2 计数仍要喊出来', () => {
   const dir = mkFakeRepo('ab-c9-')
   try {
     makeDist(dir, 'apps/web/out', { 'index.html': 10, 'a.js': 10 })
     writeFileSync(join(dir, 'apps/web/out/a.js'), 'x\n//# sourceMappingURL=gone.js.map\n')
     const r = run(dir, ['--target', 'web-static'])
-    assert.equal(r.status, 0, `未校准档被判红:\n${r.stdout}`)
-    assert.match(r.stdout, /未校准依据/)
+    assert.equal(r.status, 2, `未校准必须 exit 2 未判定(不许只报数):\n${r.stdout}`)
+    assert.match(r.stdout, /未判定依据/)
     assert.match(r.stdout, /AB2 未启用判红/)
     assert.match(r.stdout, /a\.js -> gone\.js\.map/)
   } finally {
@@ -508,9 +520,8 @@ test('C12d 输入取不到时三档必须分得开:不冒红、不记绿,且点�
   const dir = mkScratch('g-artifact-budget-c12d')
   try {
     // 夹具只给一个空目录(没有 app.json,也可能整目录已被 mkScratch 的退出回收)。
-    // 本门这两档都属**机器态**:按 §12e 不得冒红(逼所有人跳门),也不得静默记绿 ——
-    // 要锁的性质是"未判定必须报名",而不是具体第几号退出码(第一版把它写成"必须 exit 2",
-    // 实测门对"产物目录不在"走的是 exit 0 + 未判定 + 下一步,那条臂判错了档 ⇒ 假红)。
+    // 本门这两档都属**机器态**:按 §12e 不得冒红(exit 1),也不得静默记绿 ——
+    // 2026-11-07 裁定统一为 **exit 2 未判定**("只报数"取消)。
     const r = spawnSync(
       process.execPath,
       [join(REPO, 'scripts', SCRIPT), '--target', 'miniapp', '--artifact', dir, '--staged'],
@@ -522,7 +533,12 @@ test('C12d 输入取不到时三档必须分得开:不冒红、不记绿,且点�
       },
     )
     const out = `${r.stdout ?? ''}${r.stderr ?? ''}`
-    assert.notEqual(r.status, 1, `输入不在却冒红 ⇒ 恒红门(§12e 唯一结局是逼人 --no-verify)\n${out.slice(-600)}`)
+    assert.notEqual(
+      r.status,
+      1,
+      `输入不在却冒红 ⇒ 恒红门(§12e 唯一结局是逼人 --no-verify)\n${out.slice(-600)}`,
+    )
+    assert.equal(r.status, 2, `未判定必须 exit 2(不许记绿):\n${out.slice(-600)}`)
     assert.match(out, /未判定/, `必须明写"未判定",不许把没判成写成判过(§0.3):\n${out.slice(-600)}`)
     assert.match(
       out,
@@ -542,22 +558,18 @@ test('C12b runner 的 110 注册块必须带 --target(args 为空就是本门的
   assert.match(
     block,
     /args: \[[^\]]*'--target'/,
-    "args 必须含 --target:空 args 让本门在链里恒 exit 2(它不回落默认档是对的,别让它没参数跑)",
+    'args 必须含 --target:空 args 让本门在链里恒 exit 2(它不回落默认档是对的,别让它没参数跑)',
   )
 })
 
 test('C12c 反向对照:未知参数仍必须 exit 2(证明 C12 的绿不是"什么都收"换来的)', () => {
-  const r = spawnSync(
-    process.execPath,
-    [join(REPO, 'scripts', SCRIPT), '--totally-unknown-flag'],
-    {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 120000,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    },
-  )
+  const r = spawnSync(process.execPath, [join(REPO, 'scripts', SCRIPT), '--totally-unknown-flag'], {
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   assert.equal(r.status, 2, `未知参数应仍判"无法判定",实得 ${r.status}`)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

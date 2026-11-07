@@ -288,6 +288,8 @@ jobs:
         # 2026-09-05: tauri-action 的产物收集按预期路径 existsSync 过滤,非 ASCII productName
         # (智汇AI)在 Linux/macOS 上预期路径与磁盘文件失配→"No artifacts were found"假失败
         # (产物实际已构建+签名成功,CI 日志实证);容错后由下一步兜底上传
+        # 保留容错(可证伪):若某次 tauri-action 真失败(构建/签名)而下一步仍成功上传并给绿结论,
+        # 即本步吞错 ⇒ 改为按失败码位区分后不吞。
         continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -814,6 +816,8 @@ jobs:
       - name: Download signed artifact
         id: fetch-signed
         # 缺产物是**预期内**的失败形态(凭据未配),不要在这里中断,留给下一步给出明确结论
+        # 保留容错(可证伪):下一步 assert-signed 断言产物存在;若 assert-signed 在缺产物时仍绿,
+        # 即本步吞错 ⇒ 改为不吞。
         continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:

@@ -1,0 +1,13 @@
+{
+  "target": "extension",
+  "artifact": "apps/extension/.output/chrome-mv3",
+  "generatedAt": "2026-11-07T06:20:52.649Z",
+  "generatedBy": "node scripts/gen-artifact-budget-baseline.mjs --target extension",
+  "artifactSha256": "69ab9753b945fa671d12c2372eb7776d238accbf35fb4f2e7b3b527b75ad88b5",
+  "fileCount": 17,
+  "measuredBytes": 4948643,
+  "newestMtime": "2026-11-06T17:15:46.197Z",
+  "limitBytes": 4948643,
+  "warnPct": 101,
+  "note": "limitBytes = 最近一次真实构建产物的实测总量(硬上限);warnPct=101 表示不设告警水位,任何超过该基线的增长都直接判红。换了构建配置/导出范围后必须重新生成本文件。"
+}

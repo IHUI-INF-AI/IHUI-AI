@@ -651,7 +651,47 @@ if (!run('🔍 检查 xxx...', 'node scripts/check-xxx.mjs --staged')) {
 
 ---
 
-## 相关文档
+## 附:守卫 warn 档清单与「为什么保持」(2026-11-07 裁定)
+
+2026-11-07 定级调整:**156(自检求值配对)与 261(lint-staged 三针)升为 blocking** —— 两者是元门,
+一旦被绕过,整层自检/三针的结论都不成立。其余 **27 道**保持 `warn`,逐条给出「当下可查的结构事实 +
+失效触发条件」;不接受"历史原因"。项数一律现读 `node scripts/guardian-runner.mjs --help`。
+
+| 门 | 脚本 | 结构事实(现读) | 为什么保持 | 失效触发(升 blocking 的唯一条件) |
+|---|---|---|---|---|
+| 3 | `check-db-schema-drift.mjs` | 触发面 `apps/web/src/`;判据读**实际数据库** schema | 机器上没有目标库时只能未判定,升 blocking 会变成与提交无关的恒红 | 判定不再依赖可连接数据库(或未判定码可被上游门 76 全量覆盖) |
+| 45 | `check-c-drive-paths.mjs --staged` | 只扫**暂存文本**里的 C 盘硬编码;与门 92 的实地扫描分工 | 真实落地由门 92 判,文本侧只是预警,重复判红会双罚 | 45 的文本面与 92 的实扫面可证明无重复命中 |
+| 13b | `check-project-plan-size.mjs` | 判 `PROJECT_PLAN.md` 体积上限 | 文档膨胀不导致错误,只有可读性代价 | 体积超限会破坏构建/发布(有硬上限而非建议值) |
+| 19 | `check-staged-pollution.mjs` | 触发 `PROJECT_PLAN.md`;提示暂存里混入的无关改动 | 归属判定需要人读 diff,机器只能提示 | 该脚本能对每个暂存文件给出确定归属 |
+| 21 | `check-multi-end-sync.mjs` | 全量触发;依赖跨端同步**台账** | 台账结论是人工裁定,机器只提示漂移 | 同步台账自动化到确定态(不再需人工裁定) |
+| 22 | `check-readme-sync.mjs` | 全量触发;提示 README 语义漂移 | 数字漂移由门 173 的 blocking 对账兜底,22 只补语义面 | 语义漂移可由确定性规则判定 |
+| 24b | `check-port-registry.mjs --all` | monorepo 全量注册表 | 端口/侧边栏的权威判定另有 blocking 门;24b 只核全量一致性 | 24b 与 blocking 端口门的输出可证明无重叠 |
+| 54 | `check-uncommitted-age.mjs` | 全量触发;判未提交改动的**年龄** | 与本次 diff 无关,属工作树卫生 | 判定范围能收窄到本次提交涉及的文件集 |
+| 76 | `check-migration-ledger-drift.mjs` | journal 序号全集 ↔ 账本行全集 | 判的是仓库存量缺口,不是本次改动引入 | 账本存量缺口归零 |
+| 92 | `check-c-drive-pollution.mjs` | 全量;**实扫磁盘**找 C 盘落地物 | 需要真实磁盘状态,失败常与提交无关 | 实扫能稳定给出「0 命中」且耗时可控 |
+| 96 | `check-home-junctions.mjs` | 全量;判家目录改道完整性 | label 明写「机器态与 diff 无关 ⇒ 不拦提交链」 | 机器态由安装/部署流程强制保证 |
+| 110 | `check-artifact-budget.mjs --target=miniapp` | 判磁盘上的构建产物;缺产物/未校准现为 **exit 2 未判定** | 提交者无法保证磁盘有新鲜产物;提交链恒红只会逼人跳门 | 所有档都有入库基线且 CI 每档都有真实产物可判 |
+| 114 | `check-test-collection-runs.mjs` | 判测试「收集」能否跑通,断言失败不混计 | 收集依赖构建/运行环境;本机未构建时只能未判定 | 收集失败可在无构建时确定性判定 |
+| 153 | `check-service-binary-paths.mjs` | nssm 各服务 `Application` 绝对路径存在性;三态不并桶 | 纯机器态,§12e 已写明只能 warn | 部署流程保证服务路径存在性可被上游断言 |
+| 154 | `check-scratch-root-no-nesting.mjs` | 临时夹具 scratch 根二阶嵌套;**只报不删** | 清理依赖机器态与人工,巡检不负责修 | scratch 根有自动回收,且回收后读数仍为 0 |
+| 155 | `check-fixture-tmpdir.mjs` | 镜像测试夹具落点;**默认只报名,`--strict` 才判红** | 存量落点未归零,默认判红即恒红 | 全仓夹具落点存量归零(以脚本报告为凭) |
+| 190 | `check-enum-default-widening.mjs` | 宽档集合从 TS/PY 两份注册表**现读推导** | 推导失败必须未判定,不能猜;而推导依赖被审面运行时 | 注册表解析在无 ai-service 运行时也确定 |
+| 191 | `check-test-judge-not-replicated.mjs` | 门体与镜像测试各写一份判据即点名;**存量 27 处只报数** | 门自身写明「升 blocking 前置 = 命中归零」 | 27 处命中归零 |
+| 210 | `check-line-split-parity.mjs` | TS/Python 行切分口径逐例同值 | 同值需要两端运行时与固化样例 | 两端样例固化进夹具后仍能确定性对账 |
+| 225 | `check-generator-resource-release.mjs` | async 生成器持有事务/句柄/订阅的释放 | 静态启发式存在未判定形态,判红会误伤 | 启发式对全部形态能给出确定结论 |
+| 250 | `check-e2e-coverage-gap.mjs` | 增量:新模块缺对应测试 | 票面定义「先 warn 观察」,避免误报阻断 | 观察窗内误报为 0 且 E2E 覆盖面达标 |
+| 276 | `check-relay-queue-db-isolation.mjs` | 增量:换 `DATABASE_URL` 未换 `REDIS_URL`/队列命名空间 | 同为观察期,隔离栈形态需实跑确认 | 观察窗内误报为 0 且脚本可确定性判定 |
+| 277 | `check-plugin-manifest-integrity.mjs` | 台账 `fileDigests` ↔ 装机盘三态 `ok/drift/unjudged`,drift 分三类 | 三类 drift 都要人工归因,不能机器定罪 | 三类 drift 全部可自动归因 |
+| 186 | `check-load-state-projection-parity.mjs` | LV1 四档字面量 + LV2 五族 `get_status` 键一致性 | 跨运行时投影对账,存量差异未归零 | 存量差异归零 |
+| 196 | `check-plan-sha-form.mjs` | 新增行裸短 sha 须走台账/声明前缀/文件名通道 | 通道合法性需要人核台账与文件名 | 全部通道可自动校验 |
+| 280 | `check-dev-db-rotation-window.mjs` | 非阻塞读数;超期 ∧ 8801/8802/8803 全空 ⇒ would-run | 设计即「默认不换」,判红会替人做轮换决定 | 轮换动作接自动化且口令轮换全程可审计 |
+| 286 | `check-metric-existence.mjs --staged` | 指标名打错/从未产生/样本过期 ⇒ 非零退出 | 依赖线上监控后端,本机只能未判定 | 指标规则可在本地确定性复算 |
+
+**110 的配套(同日裁定)**:`web-static` / `extension` 已用**最近一次真实构建产物**生成入库基线
+(`scripts/artifact-budget-baselines/*.json`,内含生成命令/时间/产物 sha,limitBytes = 实测总量)。
+基线缺失或产物不在磁盘 ⇒ **exit 2 未判定**,不再 exit 0。
+
+
 
 - [AGENTS.md 守门脚本速查](../AGENTS.md) — 守门脚本速查表(本文档的索引;项数与编号同样以 runner 现值为准)
 - [AGENTS.md §21](../AGENTS.md) — 任务完成硬定义 / git-push-guard 5 条标准

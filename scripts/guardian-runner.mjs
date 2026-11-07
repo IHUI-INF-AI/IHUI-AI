@@ -43,7 +43,6 @@ import { resolveGateScope, isMetaGate } from './lib/gate-scope.mjs'
 // 该调用恒失败被吞成 warn ⇒ 档位判定恒失败、退回全量档。改用绝对路径 git 二进制。
 import { resolveGitBin } from './lib/gitdir.mjs'
 
-
 // === 检查配置(按 mode 分组;项数与分级见 `--help`,勿在此写死数字——写死必然过期) ===
 
 const checks = [
@@ -54,7 +53,7 @@ const checks = [
     script: 'check-api-key-leak.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '2',
@@ -62,7 +61,7 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/", "apps/web/", "scripts/data/i18n-key-removals.json"],
+    stagedTriggers: ['packages/i18n/messages/', 'apps/web/', 'scripts/data/i18n-key-removals.json'],
     // 2026-09-21 补应急通道:[2] 与 [2n-web] 同用 check-i18n-keys.mjs,full 模式同样会跑
     // parity(见脚本 837 行 label 分支),因此与 2n-web 共用同一应急变量 —— 并发会话
     // 未提交的 i18n WIP 造成的 parity 漂移属"非本 commit 范畴"假阳性。
@@ -75,7 +74,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/web/zh-TW.json"],
+    stagedTriggers: ['packages/i18n/messages/web/zh-TW.json'],
   },
   {
     id: '2c',
@@ -83,7 +82,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/web/ko.json"],
+    stagedTriggers: ['packages/i18n/messages/web/ko.json'],
   },
   {
     id: '2e',
@@ -91,7 +90,7 @@ const checks = [
     script: 'check-i18n-broken-en.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/web/en.json"],
+    stagedTriggers: ['packages/i18n/messages/web/en.json'],
   },
   {
     // --- 2e-dupns (2026-09-08 新增,i18n 重复命名空间/重复键守门,blocking) ---
@@ -103,7 +102,7 @@ const checks = [
     script: 'check-i18n-duplicate-namespaces.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/"],
+    stagedTriggers: ['packages/i18n/messages/'],
     onFailHint: [
       '',
       '  💡 检测到 messages JSON 存在重复命名空间/重复键(last-wins 遮蔽风险):',
@@ -119,7 +118,7 @@ const checks = [
     script: 'i18n-diff.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/web/"],
+    stagedTriggers: ['packages/i18n/messages/web/'],
     onFailHint: [
       '',
       '  💡 zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
@@ -137,7 +136,7 @@ const checks = [
     script: 'i18n-diff.mjs',
     args: ['--target=miniapp-taro'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/miniapp-taro/"],
+    stagedTriggers: ['packages/i18n/messages/miniapp-taro/'],
     onFailHint: [
       '',
       '  💡 miniapp-taro zh-CN.ts 有改动但 i18n pending 非空,请先跑翻译流水线:',
@@ -149,14 +148,14 @@ const checks = [
       '',
     ].join('\n'),
   },
-// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l139(门 103 C1 收口)〉首意: --- 2g-web (2026-07-27 新增,i18n 命名空间传递守门,warn-only 起步) ---
+  // 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l139(门 103 C1 收口)〉首意: --- 2g-web (2026-07-27 新增,i18n 命名空间传递守门,warn-only 起步) ---
   {
     id: '2g-web',
     label: '🔍 i18n 命名空间传递(web→共享组件)',
     script: 'check-i18n-namespace-passing.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/src/"],
+    stagedTriggers: ['apps/web/src/'],
   },
   {
     id: '3',
@@ -174,7 +173,7 @@ const checks = [
     //   schema 定义)仍由该门自己持续喊话。升回 blocking 的前置 = chat_element_packs /
     //   rag_chunks / audit_logs_default / 26 处 extra columns 这批存量归零。
     mode: 'warn',
-    stagedTriggers: ["packages/database/"],
+    stagedTriggers: ['packages/database/'],
   },
   {
     id: '4',
@@ -182,7 +181,7 @@ const checks = [
     script: 'check-stale-dist.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/"],
+    stagedTriggers: ['packages/'],
   },
   {
     id: '4b',
@@ -190,7 +189,7 @@ const checks = [
     script: 'check-dist-encoding.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/", "apps/"],
+    stagedTriggers: ['packages/', 'apps/'],
   },
   {
     id: '4c',
@@ -198,7 +197,7 @@ const checks = [
     script: 'check-api-client-utf8.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/api-client/src/endpoints/"],
+    stagedTriggers: ['packages/api-client/src/endpoints/'],
   },
   {
     id: '6',
@@ -206,7 +205,7 @@ const checks = [
     script: 'check-sanitizer-bypass.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/routes/"],
+    stagedTriggers: ['apps/api/src/routes/'],
   },
   {
     id: '7',
@@ -214,7 +213,7 @@ const checks = [
     script: 'check-dedupe.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["pnpm-lock.yaml", "**/package.json"],
+    stagedTriggers: ['pnpm-lock.yaml', '**/package.json'],
   },
   {
     id: '8',
@@ -222,7 +221,7 @@ const checks = [
     script: 'check-api-routes.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '11',
@@ -230,7 +229,7 @@ const checks = [
     script: 'check-rounded-full.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '11b',
@@ -238,7 +237,7 @@ const checks = [
     script: 'check-rounded-overflow.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '11c',
@@ -246,7 +245,7 @@ const checks = [
     script: 'check-tagsview-visual.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/"],
+    stagedTriggers: ['apps/web/'],
     skipEnv: 'HUSKY_SKIP_TAGSVIEW_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_TAGSVIEW_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
@@ -260,7 +259,7 @@ const checks = [
     script: 'check-no-divider.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '11h',
@@ -268,7 +267,15 @@ const checks = [
     script: 'check-no-emoji-icons.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/", "apps/mobile-rn/", "apps/miniapp-taro/", "apps/extension/", "apps/desktop/", "packages/app/", "packages/ui-react/"],
+    stagedTriggers: [
+      'apps/web/',
+      'apps/mobile-rn/',
+      'apps/miniapp-taro/',
+      'apps/extension/',
+      'apps/desktop/',
+      'packages/app/',
+      'packages/ui-react/',
+    ],
   },
   {
     id: '11e',
@@ -276,7 +283,7 @@ const checks = [
     script: 'check-file-size.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/"],
+    stagedTriggers: ['apps/'],
   },
   {
     id: '11f',
@@ -284,7 +291,7 @@ const checks = [
     script: 'check-no-native-dialog.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '11g',
@@ -292,7 +299,7 @@ const checks = [
     script: 'check-no-mask-image.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '12',
@@ -300,7 +307,7 @@ const checks = [
     script: 'check-delivery-report-consistency.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*.md"],
+    stagedTriggers: ['**/*.md'],
   },
   // 13c(check-project-plan-archive)已退役(2026-10-16 机主令:完成即删,存档机制拆除):
   // 归档器/归档件不再存在,防误删语义由门 71 新判据("已勾行不进保护集,未勾行照旧拦")承接。
@@ -310,7 +317,7 @@ const checks = [
     script: 'check-api-migration-completeness.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '17',
@@ -318,7 +325,7 @@ const checks = [
     script: 'check-input-border-var.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     // 2026-10-03 立:门体此前**没有**任何逃生舱(脚本也不读跳过变量)。本门属"读 HEAD 面"的一族,
     // 批量跑 24–30 分钟期间并发会话推进 main ⇒ 拿过期基线报红(逐门单独复跑是绿的),
     // 而没有逃生舱就只剩 --no-verify 一条路 —— 那是最后手段,不该是唯一手段。
@@ -330,7 +337,7 @@ const checks = [
     script: 'check-native-title-tooltip.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '20',
@@ -338,7 +345,7 @@ const checks = [
     script: 'check-tailwind-class-conflict.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '24a',
@@ -346,7 +353,11 @@ const checks = [
     script: 'check-sidebar-width-consistency.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/design-tokens/", "apps/web/src/styles/design-tokens.css", "apps/web/src/components/sidebar.tsx"],
+    stagedTriggers: [
+      'packages/design-tokens/',
+      'apps/web/src/styles/design-tokens.css',
+      'apps/web/src/components/sidebar.tsx',
+    ],
   },
   {
     id: '25',
@@ -354,7 +365,7 @@ const checks = [
     script: 'check-workspace-hygiene.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '26',
@@ -362,7 +373,7 @@ const checks = [
     script: 'check-parent-pollution.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     // 2026-09-21 补应急通道(与其余 10+ 门惯例对齐,此前遗漏):
     // 本项巡查"项目父目录及其非项目子目录"的运行时产物,与 staged 内容无关 ——
     // 只要工作环境里存在**其他会话/其他任务**正在使用的项目外临时文件,本次提交即被
@@ -377,7 +388,13 @@ const checks = [
     script: 'check-z-index-guard.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/design-tokens/src/styles/tokens.css", "apps/web/app/globals.css", "apps/web/app/layout.tsx", "packages/ui-react/src/components/dialog.tsx", "apps/web/src/components/layout/GlobalTopBar.tsx"],
+    stagedTriggers: [
+      'packages/design-tokens/src/styles/tokens.css',
+      'apps/web/app/globals.css',
+      'apps/web/app/layout.tsx',
+      'packages/ui-react/src/components/dialog.tsx',
+      'apps/web/src/components/layout/GlobalTopBar.tsx',
+    ],
     // 2026-09-22 补:此前无应急通道,与其余门惯例对齐
     skipEnv: 'HUSKY_SKIP_Z_INDEX_GUARD',
     onFailHint: [
@@ -404,7 +421,7 @@ const checks = [
     // 脚本无 --staged 语义(全量扫 apps/web + packages/ui-react,实测 0 违规才接入)
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/", "packages/ui-react/src/"],
+    stagedTriggers: ['apps/web/', 'packages/ui-react/src/'],
     skipEnv: 'HUSKY_SKIP_OVERLAY_ZINDEX',
     onFailHint: [
       '',
@@ -423,7 +440,7 @@ const checks = [
     script: 'check-push-sync.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 本地有未 push 的 commit,本次 commit 已阻止。',
@@ -445,7 +462,7 @@ const checks = [
     script: 'validate-i18n-integrity.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/"],
+    stagedTriggers: ['packages/i18n/messages/'],
     onFailHint: [
       '',
       '  💡 staged 的 i18n JSON 文件行数异常减少(>50% 且 >100 行),',
@@ -466,7 +483,7 @@ const checks = [
     script: 'check-commit-loss-guard.mjs',
     args: ['--blocking', '--filter-stash'],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     // 2026-10-03 补齐:门体头注一直写着 `HUSKY_SKIP_COMMIT_LOSS_CHECK`,但 runner 从未声明该字段
     // ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
     // 照 TAGSVIEW_GUARD 的同一处修法补这一行即让承诺成真(runner 的分发循环统一 honors skipEnv)。
@@ -494,7 +511,7 @@ const checks = [
     script: 'check-stale-copy.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   // --- 30b (2026-09-08 新增,stash 滞留源码改动守门,AGENTS.md §12d 配套) ---
   // blocking:stash 是黑盒,滞留的已完成工作在并行合流下必然造成"功能被回滚"假象
@@ -507,7 +524,7 @@ const checks = [
     script: 'check-stale-stashes.mjs',
     args: ['--blocking'],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 存在滞留 ≥48h 的 stash 含源码改动且未做零损失备份,',
@@ -529,7 +546,10 @@ const checks = [
     script: 'check-staged-typecheck-mirror-sync.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["scripts/check-staged-typecheck.mjs", "scripts/tests/check-staged-typecheck.test.mjs"],
+    stagedTriggers: [
+      'scripts/check-staged-typecheck.mjs',
+      'scripts/tests/check-staged-typecheck.test.mjs',
+    ],
     // 本条目头注承诺 `HUSKY_SKIP_STAGED_TYPECHECK_MIRROR_SYNC=1` 可应急跳过,而 runner 分发
     // 循环只认注册块里的 skipEnv —— 不声明就是**假逃生舱**:唯一出路退化成 --no-verify,
     // 一次绕过等于全部守门对该提交作废(§12e 同型)。2026-09-24 全量审计:151 个 check 脚本
@@ -554,7 +574,7 @@ const checks = [
     // git 取面失败 / 文件读不到 = exit 2 未判定;空暂存区 = 0 不适用(对齐 check-file-size);warn 档不阻断。
     args: ['--staged'],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 staged 文件中检测到硬编码 C 盘写入路径(如 C:\\temp\\ / C:\\Users\\*\\AppData\\Local\\Temp\\)。',
@@ -566,14 +586,14 @@ const checks = [
       '',
     ].join('\n'),
   },
-// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l529(门 103 C1 收口)〉首意: --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
+  // 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l529(门 103 C1 收口)〉首意: --- 35 (2026-07-26 新增,mypy 防回归守门,防 ai-service Python 类型回退) ---
   {
     id: '35',
     label: '🐍 mypy 类型检查(防 ai-service Python 类型回退)',
     script: 'check-mypy.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/ai-service/"],
+    stagedTriggers: ['apps/ai-service/'],
     onFailHint: [
       '',
       '  💡 apps/ai-service 的 Python 代码有 mypy 类型错误,',
@@ -582,14 +602,17 @@ const checks = [
       '',
     ].join('\n'),
   },
-// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l552(门 103 C1 收口)〉首意: --- 36 (2026-07-27 新增,miniapp-taro token 同步守门,防 app.css 与 tokens.css 漂移) ---
+  // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l552(门 103 C1 收口)〉首意: --- 36 (2026-07-27 新增,miniapp-taro token 同步守门,防 app.css 与 tokens.css 漂移) ---
   {
     id: '36',
     label: '🎨 [miniapp-taro] design-tokens 同步(防 app.css 漂移)',
     script: 'check-miniapp-tokens-sync.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/design-tokens/src/styles/tokens.css", "apps/miniapp-taro/src/app.css"],
+    stagedTriggers: [
+      'packages/design-tokens/src/styles/tokens.css',
+      'apps/miniapp-taro/src/app.css',
+    ],
     onFailHint: [
       '',
       '  💡 apps/miniapp-taro/src/app.css 的**受管** --color-* 档与 packages/design-tokens/src/styles/tokens.css 不一致,',
@@ -611,7 +634,7 @@ const checks = [
     script: 'check-web-tokens-sync.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/app/globals.css", "packages/design-tokens/src/styles/tokens.css"],
+    stagedTriggers: ['apps/web/app/globals.css', 'packages/design-tokens/src/styles/tokens.css'],
     onFailHint: [
       '',
       '  💡 apps/web/app/globals.css 未 @import tokens.css 或顶层手抄 :root/.dark 变量,',
@@ -632,7 +655,13 @@ const checks = [
     script: 'check-solito-residue.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["package.json", "pnpm-workspace.yaml", "patches/", "packages/app/", "apps/*/package.json"],
+    stagedTriggers: [
+      'package.json',
+      'pnpm-workspace.yaml',
+      'patches/',
+      'packages/app/',
+      'apps/*/package.json',
+    ],
     onFailHint: [
       '',
       '  💡 检测到 solito 依赖被重新引入,本仓库已于 2026-07-28 移除 solito(commit f8c9a6630c)。',
@@ -663,7 +692,7 @@ const checks = [
     script: 'check-rn-app-migration.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/mobile-rn/src/screens/", "packages/app/src/"],
+    stagedTriggers: ['apps/mobile-rn/src/screens/', 'packages/app/src/'],
     onFailHint: [
       '',
       '  💡 发现 mobile-rn screen 未迁移到 @ihui/rn-app 共享层。',
@@ -681,7 +710,15 @@ const checks = [
     script: 'check-shared-layer-duplication.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/shared/src/", "packages/types/src/", "apps/web/src/", "apps/mobile-rn/src/", "apps/miniapp-taro/src/", "apps/extension/src/", "apps/cli/src/"],
+    stagedTriggers: [
+      'packages/shared/src/',
+      'packages/types/src/',
+      'apps/web/src/',
+      'apps/mobile-rn/src/',
+      'apps/miniapp-taro/src/',
+      'apps/extension/src/',
+      'apps/cli/src/',
+    ],
     onFailHint: [
       '',
       '  💡 发现端内(apps/*)独立实现了 packages/shared 已提供的 hook/util。',
@@ -693,14 +730,14 @@ const checks = [
       '',
     ].join('\n'),
   },
-// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l664(门 103 C1 收口)〉首意: --- 41 (2026-08-02 新增,单分支开发守门,AGENTS.md §9b 落地) ---
+  // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l664(门 103 C1 收口)〉首意: --- 41 (2026-08-02 新增,单分支开发守门,AGENTS.md §9b 落地) ---
   {
     id: '41',
     label: '🌿 单分支开发守门(blocking,AGENTS.md §9b)',
     script: 'check-single-branch.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     // onFailHint 与门体同形(G-331):门体自 aea810c81 起判"旁支长期滞留"而非"存在旁支",
     // 且对 in-flight / backup 两类豁免;旧 hint 教人 `git branch -D` / `git push origin --delete`,
     // 按它执行的人正是在删别的会话的在飞分支与 §5b 明令禁删的备份引用。条数一律由门现读报出,
@@ -733,7 +770,11 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ja'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/web/", "scripts/joyo-kanji.json", "scripts/brand-glossary.json"],
+    stagedTriggers: [
+      'packages/i18n/messages/web/',
+      'scripts/joyo-kanji.json',
+      'scripts/brand-glossary.json',
+    ],
   },
   // 2026-09-24 补 per-end ja 门:2d 只跑 web 口径(args 无 --target),
   // 而 shared / miniapp-taro / mobile-rn 三端 ja.json 同样承载界面文案,此前无人守。
@@ -744,7 +785,11 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ja', '--target=shared'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/shared/", "scripts/joyo-kanji.json", "scripts/brand-glossary.json"],
+    stagedTriggers: [
+      'packages/i18n/messages/shared/',
+      'scripts/joyo-kanji.json',
+      'scripts/brand-glossary.json',
+    ],
   },
   {
     id: '2o-miniapp-taro',
@@ -752,7 +797,11 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ja', '--target=miniapp-taro'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/miniapp-taro/", "scripts/joyo-kanji.json", "scripts/brand-glossary.json"],
+    stagedTriggers: [
+      'packages/i18n/messages/miniapp-taro/',
+      'scripts/joyo-kanji.json',
+      'scripts/brand-glossary.json',
+    ],
   },
   {
     id: '2o-mobile-rn',
@@ -760,7 +809,11 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ja', '--target=mobile-rn'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/mobile-rn/", "scripts/joyo-kanji.json", "scripts/brand-glossary.json"],
+    stagedTriggers: [
+      'packages/i18n/messages/mobile-rn/',
+      'scripts/joyo-kanji.json',
+      'scripts/brand-glossary.json',
+    ],
   },
   {
     id: '2f-ext',
@@ -768,7 +821,7 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: ['--target=extension'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/extension/", "packages/i18n/messages/shared/"],
+    stagedTriggers: ['packages/i18n/messages/extension/', 'packages/i18n/messages/shared/'],
   },
   {
     id: '2f-shared',
@@ -776,7 +829,7 @@ const checks = [
     script: 'check-i18n-keys.mjs',
     args: ['--target=shared'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/shared/"],
+    stagedTriggers: ['packages/i18n/messages/shared/'],
   },
   {
     id: '2g-ext',
@@ -784,7 +837,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=extension'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/extension/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/extension/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2h-ext',
@@ -792,7 +845,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=extension'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/extension/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/extension/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2i-ext',
@@ -800,7 +853,7 @@ const checks = [
     script: 'check-i18n-broken-en.mjs',
     args: ['--target=extension'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/extension/"],
+    stagedTriggers: ['packages/i18n/messages/extension/'],
   },
   // --- shared 守门(5 项,2026-07-26 i18n shared/ 抽取重构前置条件) ---
   // 与 2f-shared(已存在,跑 check-i18n-keys.mjs --target=shared)独立,不冲突
@@ -811,16 +864,16 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=shared'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/shared/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/shared/', 'scripts/brand-glossary.json'],
   },
-// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l779(门 103 C1 收口)〉首意: --- 2026-10-05 补:zh-TW / ko 的**分面射程** —— 此前这两个 blocking 档只守
+  // 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l779(门 103 C1 收口)〉首意: --- 2026-10-05 补:zh-TW / ko 的**分面射程** —— 此前这两个 blocking 档只守
   {
     id: '2p-api',
     label: '🔍 [api] zh-TW 简体字残留(blocking,2026-10-05 补分面射程)',
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=api'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/api/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/api/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2q-cli',
@@ -828,7 +881,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=cli'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/cli/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/cli/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2r-miniapp-taro',
@@ -836,7 +889,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=miniapp-taro'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/miniapp-taro/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/miniapp-taro/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2s-mobile-rn',
@@ -844,7 +897,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['zh-TW', '--target=mobile-rn'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/mobile-rn/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/mobile-rn/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2t-api',
@@ -852,7 +905,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=api'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/api/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/api/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2u-cli',
@@ -860,7 +913,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=cli'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/cli/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/cli/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2v-miniapp-taro',
@@ -868,7 +921,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=miniapp-taro'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/miniapp-taro/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/miniapp-taro/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2w-mobile-rn',
@@ -876,7 +929,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=mobile-rn'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/mobile-rn/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/mobile-rn/', 'scripts/brand-glossary.json'],
   },
   {
     id: '2k-shared',
@@ -884,7 +937,7 @@ const checks = [
     script: 'scan-i18n-zh-residue.mjs',
     args: ['ko', '--target=shared'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/shared/", "scripts/brand-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/shared/', 'scripts/brand-glossary.json'],
   },
   {
     // 原 `2l-shared`(warn,ja --target=shared)已于 2026-09-24 删除:2026-09-24 新增的 `2o-shared`
@@ -895,7 +948,7 @@ const checks = [
     script: 'check-i18n-broken-en.mjs',
     args: ['--target=shared'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/shared/"],
+    stagedTriggers: ['packages/i18n/messages/shared/'],
   },
   {
     id: '2f-shared-diff',
@@ -903,7 +956,7 @@ const checks = [
     script: 'i18n-diff.mjs',
     args: ['--target=shared'],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/shared/"],
+    stagedTriggers: ['packages/i18n/messages/shared/'],
     onFailHint: [
       '',
       '  💡 shared/zh-CN.json 有改动但 i18n pending 非空,请先跑翻译流水线:',
@@ -915,14 +968,14 @@ const checks = [
       '',
     ].join('\n'),
   },
-// 〈原 12 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l877(门 103 C1 收口)〉首意: --- 2n-web (2026-07-26 新增,web 端 5 语言 i18n parity 强制校验, warn-only 起步 1 周后升级 blocking) ---
+  // 〈原 12 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l877(门 103 C1 收口)〉首意: --- 2n-web (2026-07-26 新增,web 端 5 语言 i18n parity 强制校验, warn-only 起步 1 周后升级 blocking) ---
   {
     id: '2n-web',
     label: '🌐 [web] 5 语言 i18n parity 强制校验 (blocking,2026-08-02 升级,兜底 item 2 漏检场景)',
     script: 'check-i18n-keys.mjs',
     args: ['--parity-only'],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     // 2026-09-21 补应急通道(与其余 10+ 门的 HUSKY_SKIP_* 惯例对齐,此前遗漏):
     // 本项 --parity-only 是"每次 commit 都跑全量 parity",且 parity 漂移**没有** WIP 降级
     // 通道(check-i18n-keys.mjs 的 wipMissingKeyIssues 只覆盖 missing key,不覆盖 parity)。
@@ -931,14 +984,14 @@ const checks = [
     // 应急放行:HUSKY_SKIP_I18N_PARITY=1 git commit ...(commit message 写明责任归属)
     skipEnv: 'HUSKY_SKIP_I18N_PARITY',
   },
-// 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l903(门 103 C1 收口)〉首意: --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
+  // 〈原 8 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l903(门 103 C1 收口)〉首意: --- 2f-mobile-rn (2026-07-28 新增,mobile-rn 端 5 语言 i18n parity 守门) ---
   {
     id: '2f-mobile-rn',
     label: '🌐 mobile-rn i18n parity 守门(blocking,2026-09-28 由 warn 升档;立票 2026-07-28)',
     script: 'check-i18n-keys.mjs',
     args: ['--target=mobile-rn', '--parity-only'],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 mobile-rn 端 5 语言 i18n key 集合不一致。',
@@ -960,7 +1013,7 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_CLI_I18N_PARITY',
-    stagedTriggers: ["packages/i18n/messages/cli/"],
+    stagedTriggers: ['packages/i18n/messages/cli/'],
     onFailHint: [
       '',
       '  💡 cli 端 5 语言 i18n key 集合不一致。',
@@ -980,7 +1033,7 @@ const checks = [
     script: 'check-safe-parse.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/routes/"],
+    stagedTriggers: ['apps/api/src/routes/'],
     onFailHint: [
       '',
       '  💡 Fastify 路由存在 safeParse 静默忽略反模式(result.success === false 不返回/不日志)。',
@@ -995,7 +1048,7 @@ const checks = [
     script: 'check-project-plan-size.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["PROJECT_PLAN.md"],
+    stagedTriggers: ['PROJECT_PLAN.md'],
   },
   {
     id: '19',
@@ -1003,7 +1056,7 @@ const checks = [
     script: 'check-staged-pollution.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '21',
@@ -1011,7 +1064,7 @@ const checks = [
     script: 'check-multi-end-sync.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '22',
@@ -1019,7 +1072,7 @@ const checks = [
     script: 'check-readme-sync.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
   {
     id: '24b',
@@ -1030,7 +1083,7 @@ const checks = [
     //  否则历史遗留非 88xx 端口会持续漏检)
     args: ['--all'],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
   },
 
   // --- 31 (2026-07-26 新增,2026-08-19 删除) ---
@@ -1049,7 +1102,7 @@ const checks = [
     script: 'check-ts-ignore.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 @ts-ignore 是类型安全压制,本仓库刚清理 215 处历史遗留',
@@ -1084,14 +1137,14 @@ const checks = [
     ].join('\n'),
   },
 
-// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1051(门 103 C1 收口)〉首意: --- 42 (2026-08-12 新增,React SyntheticEvent 闭包陷阱守门,AGENTS.md §42 配套) ---
+  // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1051(门 103 C1 收口)〉首意: --- 42 (2026-08-12 新增,React SyntheticEvent 闭包陷阱守门,AGENTS.md §42 配套) ---
   {
     id: '42',
     label: '🛡️  React SyntheticEvent 闭包陷阱(防 popover 常驻显示复发)',
     script: 'check-event-closure-leak.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 在异步回调闭包内访问了 React SyntheticEvent 属性(如 e.currentTarget)。',
@@ -1120,7 +1173,7 @@ const checks = [
     // 把本机若干**未跟踪**目录算成本枚提交引入。没有逃生舱就只剩 --no-verify 一条路。
     skipEnv: 'HUSKY_SKIP_ROOT_DIR_GUARD',
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 一级目录存在白名单外条目,已阻断 commit。',
@@ -1146,7 +1199,7 @@ const checks = [
     script: 'check-inline-back-button.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/src/", "apps/web/app/"],
+    stagedTriggers: ['apps/web/src/', 'apps/web/app/'],
     skipEnv: 'HUSKY_SKIP_INLINE_BACK_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_INLINE_BACK_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
@@ -1180,7 +1233,7 @@ const checks = [
     script: 'check-watermark-coverage.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 已有跟踪文件缺失/损坏溯源水印,且自动补齐未能达标(通常 = 缺口 > 200 个, 或类型不可注入)。',
@@ -1200,7 +1253,8 @@ const checks = [
   //   跳过: HUSKY_SKIP_WORKFLOW_ORDER=1 git commit ...
   {
     id: '48',
-    label: '🧩 GitHub Actions workflow + deploy 构建文件守门(步骤顺序 + permissions + 安装逐字钉版 + 工具链版本对账)',
+    label:
+      '🧩 GitHub Actions workflow + deploy 构建文件守门(步骤顺序 + permissions + 安装逐字钉版 + 工具链版本对账)',
     script: 'check-workflow-step-order.mjs',
     args: [],
     mode: 'blocking',
@@ -1230,7 +1284,7 @@ const checks = [
     script: 'check-migration-bookkeeping.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/database/drizzle/", "**/*.sql"],
+    stagedTriggers: ['packages/database/drizzle/', '**/*.sql'],
     onFailHint: [
       '',
       '  💡 packages/database/drizzle 的 journal 与 .sql 记账结构漂移:',
@@ -1253,7 +1307,7 @@ const checks = [
     script: 'check-next-env-dist.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/next-env.d.ts"],
+    stagedTriggers: ['apps/web/next-env.d.ts'],
     skipEnv: 'HUSKY_SKIP_NEXT_ENV_DIST',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_NEXT_ENV_DIST=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
@@ -1286,7 +1340,11 @@ const checks = [
     script: 'check-capability-catalog.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/types/src/capability-catalog.ts", "packages/types/generated/capabilities.json", "apps/api/src/routes/"],
+    stagedTriggers: [
+      'packages/types/src/capability-catalog.ts',
+      'packages/types/generated/capabilities.json',
+      'apps/api/src/routes/',
+    ],
     onFailHint: [
       '',
       '  💡 对外端点未登记能力(或能力目录与产物漂移):',
@@ -1311,7 +1369,7 @@ const checks = [
     script: 'check-no-visible-spawn.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 检测到派生控制台程序但漏 windowsHide → 无控制台父进程下必弹可见黑窗。',
@@ -1334,7 +1392,7 @@ const checks = [
     script: 'check-admin-gate-consistency.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/", "packages/types/src/capability-catalog.ts"],
+    stagedTriggers: ['apps/api/src/', 'packages/types/src/capability-catalog.ts'],
     skipEnv: 'HUSKY_SKIP_ADMIN_GATE_GUARD',
     // 2026-09-24 补齐:本门头注一直写着「紧急跳过 HUSKY_SKIP_ADMIN_GATE_GUARD=1」,但 runner 从未声明该字段、
     // 脚本自己也不读 ⇒ 那是**假逃生舱**(设了毫无效果,只会逼人改用 --no-verify 连带废掉全部门)。
@@ -1352,14 +1410,24 @@ const checks = [
     ].join('\n'),
   },
 
-// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1316(门 103 C1 收口)〉首意: --- 54 (2026-09-21 新增,B14 未提交源码改动「年龄」守门,warn 级起步) ---
+  // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1316(门 103 C1 收口)〉首意: --- 54 (2026-09-21 新增,B14 未提交源码改动「年龄」守门,warn 级起步) ---
   {
     id: '54',
     label: '⏳ 未提交源码改动年龄守门(warn-only,B14 防工作树改动被并行 checkout 抹掉)',
     script: 'check-uncommitted-age.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "**/*.py", "**/*.css", "**/*.sql"],
+    stagedTriggers: [
+      '**/*.ts',
+      '**/*.tsx',
+      '**/*.js',
+      '**/*.jsx',
+      '**/*.mjs',
+      '**/*.cjs',
+      '**/*.py',
+      '**/*.css',
+      '**/*.sql',
+    ],
     onFailHint: [
       '',
       '  💡 有源码改动停留在未提交状态超过阈值(默认 45 分钟)。工作树不是暂存区:',
@@ -1384,7 +1452,11 @@ const checks = [
     script: 'check-tool-name-display-coverage.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/ai-service/app/services/mcp_server.py", "packages/shared/src/chat/tool-display.ts", "packages/i18n/messages/shared/"],
+    stagedTriggers: [
+      'apps/ai-service/app/services/mcp_server.py',
+      'packages/shared/src/chat/tool-display.ts',
+      'packages/i18n/messages/shared/',
+    ],
     skipEnv: 'HUSKY_SKIP_TOOL_NAME_COVERAGE',
     onFailHint: [
       '',
@@ -1404,7 +1476,7 @@ const checks = [
     script: 'check-icu-locale-support.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/"],
+    stagedTriggers: ['packages/i18n/messages/'],
     onFailHint: [
       '',
       '  💡 语言包里出现了某端渲染不了的 ICU 形态 —— 界面会直接显示 `{state, select, …}` 语法残,',
@@ -1420,11 +1492,12 @@ const checks = [
 
   {
     id: '57',
-    label: '🧩 对话流元素覆盖守门(blocking,D51/H13:①锚点漂移 ②契约事件两端不齐 ③清单条目倒退 ④锚点存续性倒退 ⑤注释式摘线)',
+    label:
+      '🧩 对话流元素覆盖守门(blocking,D51/H13:①锚点漂移 ②契约事件两端不齐 ③清单条目倒退 ④锚点存续性倒退 ⑤注释式摘线)',
     script: 'check-chat-element-coverage.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     onFailHint: [
       '',
       '  💡 三类违规各有解法:',
@@ -1446,7 +1519,7 @@ const checks = [
     script: 'check-zh-term-quality.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/", "scripts/data/zh-term-glossary.json"],
+    stagedTriggers: ['packages/i18n/messages/', 'scripts/data/zh-term-glossary.json'],
     onFailHint: [
       '',
       '  💡 判据是「键名英文词根 ∧ 值内高置信错误译法」双条件,单条件一律放过(宁漏不误报)。',
@@ -1467,7 +1540,11 @@ const checks = [
     script: 'check-tool-activity-coverage.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/shared/src/chat/tool-display.ts", "packages/i18n/messages/shared/", "scripts/data/tool-activity-coverage.json"],
+    stagedTriggers: [
+      'packages/shared/src/chat/tool-display.ts',
+      'packages/i18n/messages/shared/',
+      'scripts/data/tool-activity-coverage.json',
+    ],
     onFailHint: [
       '',
       '  💡 两类失败,处置不同:',
@@ -1493,7 +1570,12 @@ const checks = [
     script: 'check-tool-display-resolvable.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/shared/src/chat/", "packages/i18n/messages/", "scripts/gen-i18n-compressed.mjs", "apps/miniapp-taro/src/i18n/generated/"],
+    stagedTriggers: [
+      'packages/shared/src/chat/',
+      'packages/i18n/messages/',
+      'scripts/gen-i18n-compressed.mjs',
+      'apps/miniapp-taro/src/i18n/generated/',
+    ],
     skipEnv: 'HUSKY_SKIP_TOOL_DISPLAY_RESOLVABLE',
     onFailHint: [
       '',
@@ -1542,7 +1624,7 @@ const checks = [
     ].join('\n'),
   },
 
-// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1505(门 103 C1 收口)〉首意: --- 62 (2026-09-22 接入 pre-commit,NSIS 安装器模板漂移守门,blocking) ---
+  // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l1505(门 103 C1 收口)〉首意: --- 62 (2026-09-22 接入 pre-commit,NSIS 安装器模板漂移守门,blocking) ---
   {
     id: '62',
     label: '🧩 桌面 NSIS 安装器模板漂移(blocking,installer.nsi == 上游模板 + 已登记补丁)',
@@ -1869,7 +1951,8 @@ const checks = [
 
   {
     id: '73',
-    label: '🈲 端内绕过 @ihui/api-client 直连后端(blocking,裸 fetch/Taro.request 指向本仓后端即拦,存量走基线只减不增)',
+    label:
+      '🈲 端内绕过 @ihui/api-client 直连后端(blocking,裸 fetch/Taro.request 指向本仓后端即拦,存量走基线只减不增)',
     script: 'check-direct-backend-calls.mjs',
     args: [],
     mode: 'blocking',
@@ -1996,12 +2079,12 @@ const checks = [
     script: 'check-radius-single-source.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_RADIUS_GUARD',
     onFailHint: [
       '',
       '  💡 圆角档位唯一真相源 = packages/design-tokens/src/radius.js(xs2/sm4/md6/lg8/xl12/2xl16)。',
-      '     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from \'@ihui/design-tokens\')',
+      "     RN/内联 style : borderRadius: rnRadius.lg      (import { rnRadius } from '@ihui/design-tokens')",
       '     CSS/SCSS      : border-radius: var(--radius-lg)',
       '     类名          : rounded-lg(禁止 rounded-[24rpx] 这类任意值)',
       '     真圆/头像/胶囊: 用 size/2 几何表达式或等于档位值的档;项目不允许胶囊,也没有豁免标记 —— 写标记本门 B8 判红',
@@ -2023,7 +2106,7 @@ const checks = [
     script: 'check-cross-end-tokens.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_CROSS_END_TOKENS',
     // 不声明 stagedTriggers:R3 判的是"这次提交会带走的悬空引用",可能出现在任何端内文件
     // (mobile-rn / packages/app / ui-native …),收窄触发面等于给漏网留口;
@@ -2051,19 +2134,24 @@ const checks = [
       '',
     ].join('\n'),
   },
-// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2018(门 103 C1 收口)〉首意: 主题接线对账(2026-09-24 立)。起因是真机实测:广场页顶栏/底栏 #1a1a1a 而正文
+  // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2018(门 103 C1 收口)〉首意: 主题接线对账(2026-09-24 立)。起因是真机实测:广场页顶栏/底栏 #1a1a1a 而正文
   {
     id: '91',
     label: '🌗 主题接线对账(blocking,theme-driven 共享组件必须拿到调用方解析出的主题)',
     script: 'check-theme-prop-wiring.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/app/src/", "apps/mobile-rn/src/", "apps/desktop/src/", "apps/cli/src/"],
+    stagedTriggers: [
+      'packages/app/src/',
+      'apps/mobile-rn/src/',
+      'apps/desktop/src/',
+      'apps/cli/src/',
+    ],
     skipEnv: 'HUSKY_SKIP_THEME_PROP_WIRING',
     onFailHint: [
       '',
       '  💡 两类红:',
-      '     ① 漏传 colorScheme —— 共享组件形参默认值是 \'light\',漏传等于静默锁死浅色档案;',
+      "     ① 漏传 colorScheme —— 共享组件形参默认值是 'light',漏传等于静默锁死浅色档案;",
       '        正解 `<X colorScheme={resolvedTheme} />`,值须来自 useTheme()/主题 store。',
       '     ② 写死字面量 "light"/"dark" —— 永远错,后果同①(真机实测即此形)。',
       '     跨行元素要连属性一起看;`{...props}` 展开不算传值(实测 115 处即藏在这里)。',
@@ -2086,7 +2174,13 @@ const checks = [
     // 故摘掉硬编码:pre-commit 行为不变,全量/CI 口径从"跳过"变成真判。
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/routes/", "apps/api/src/server.ts", "apps/api/scripts/export-openapi.ts", "apps/api/openapi.json", "packages/types/generated/capabilities.json"],
+    stagedTriggers: [
+      'apps/api/src/routes/',
+      'apps/api/src/server.ts',
+      'apps/api/scripts/export-openapi.ts',
+      'apps/api/openapi.json',
+      'packages/types/generated/capabilities.json',
+    ],
   },
   // 整树删除事故的结构化拦截(2026-09-22 立)。同类事故已真实发生两次:
   //   1ec8c7f0f3 / 05f049ba09 各带着"被清空的索引"提交,一次删掉 11,607 / 11,640 个文件,
@@ -2100,7 +2194,7 @@ const checks = [
     script: 'check-mass-deletion.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_MASS_DELETION_GUARD',
     onFailHint: [
       '',
@@ -2124,7 +2218,13 @@ const checks = [
     script: 'check-brand-foreground.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/mobile-rn/src/", "packages/app/src/", "apps/web/", "packages/ui-react/", "apps/miniapp-taro/"],
+    stagedTriggers: [
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+      'apps/web/',
+      'packages/ui-react/',
+      'apps/miniapp-taro/',
+    ],
     skipEnv: 'HUSKY_SKIP_BRAND_FOREGROUND',
     onFailHint: [
       '',
@@ -2146,14 +2246,14 @@ const checks = [
       '     单独复验:node scripts/check-brand-foreground.mjs;自检:node scripts/check-brand-foreground.mjs --self-test',
     ].join('\n'),
   },
-// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2115(门 103 C1 收口)〉首意: 反回退守门(2026-09-23 立)。成因实测:共享工作区 + converge 只推进 HEAD/index 不 checkout,
+  // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2115(门 103 C1 收口)〉首意: 反回退守门(2026-09-23 立)。成因实测:共享工作区 + converge 只推进 HEAD/index 不 checkout,
   {
     id: '84',
     label: '🧬 反回退守门(blocking,暂存内容等于历史版本 = 静默回滚他人改动)',
     script: 'check-stale-revert.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_STALE_REVERT_GUARD',
     onFailHint: [
       '',
@@ -2181,7 +2281,7 @@ const checks = [
     script: 'check-workspace-dep-links.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/package.json", "pnpm-workspace.yaml"],
+    stagedTriggers: ['**/package.json', 'pnpm-workspace.yaml'],
     skipEnv: 'HUSKY_SKIP_WORKSPACE_DEP_LINKS',
     onFailHint: [
       '',
@@ -2204,20 +2304,20 @@ const checks = [
       '        验收一律实测命令本身(`node_modules/.bin/eslint --version` 与 `tsc --version` 都出版本号),',
       '        只看 node_modules/eslint 在不在等于没测。',
       '     单独复验:node scripts/check-workspace-dep-links.mjs(加 --strict 连 ②深扫 ③一并判红)',
-      "     自检:node scripts/check-workspace-dep-links.mjs --self-test(例数以末行「自检 N/N」为准,不写死防漂移)",
+      '     自检:node scripts/check-workspace-dep-links.mjs --self-test(例数以末行「自检 N/N」为准,不写死防漂移)',
       '     紧急跳过(不推荐):HUSKY_SKIP_WORKSPACE_DEP_LINKS=1 git commit ...',
       '',
     ].join('\n'),
   },
 
-// 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2183(门 103 C1 收口)〉首意: 热路径 git 只读调用超时封顶(2026-09-23 立,守门 80)。成因实测:check-port-registry 里
+  // 〈原 10 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2183(门 103 C1 收口)〉首意: 热路径 git 只读调用超时封顶(2026-09-23 立,守门 80)。成因实测:check-port-registry 里
   {
     id: '80',
     label: '⏱  热路径 git 只读调用必须带 timeout(blocking,拦无界挂起拖死守门链)',
     script: 'check-git-read-timeout.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: [".husky/", "scripts/"],
+    stagedTriggers: ['.husky/', 'scripts/'],
     skipEnv: 'HUSKY_SKIP_GIT_READ_TIMEOUT',
     onFailHint: [
       '',
@@ -2232,14 +2332,14 @@ const checks = [
     ].join('\n'),
   },
 
-// 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2213(门 103 C1 收口)〉首意: 提交内容含 Git 冲突标记(2026-09-23 立)。成因实测:.git 被宿主清除后的恢复期,某会话在
+  // 〈原 9 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2213(门 103 C1 收口)〉首意: 提交内容含 Git 冲突标记(2026-09-23 立)。成因实测:.git 被宿主清除后的恢复期,某会话在
   {
     id: '79',
     label: '🔀 提交内容含 Git 冲突标记(blocking,成对 <<<<====>>>> 标记一旦入树即拦)',
     script: 'check-no-conflict-markers.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_CONFLICT_MARKERS',
     onFailHint: [
       '',
@@ -2264,7 +2364,13 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_BRAND_MAIL_GUARD',
-    stagedTriggers: ['deploy/', 'scripts/', '.github/workflows/', 'monitoring/', 'apps/api/scripts/'],
+    stagedTriggers: [
+      'deploy/',
+      'scripts/',
+      '.github/workflows/',
+      'monitoring/',
+      'apps/api/scripts/',
+    ],
     onFailHint: [
       '',
       '  💡 ops 邮件出现了绕过品牌模板层的形态 —— 用户会收到无样式的纯文本邮件,',
@@ -2311,12 +2417,13 @@ const checks = [
   },
   {
     id: '86',
-    label: '🗂  一次性验证/探针脚本落点对账(verify-*.{mjs,ts} + tmp-*.{mjs,mts,ts,js},blocking,AGENTS §25 配套)',
+    label:
+      '🗂  一次性验证/探针脚本落点对账(verify-*.{mjs,ts} + tmp-*.{mjs,mts,ts,js},blocking,AGENTS §25 配套)',
     script: 'check-verify-tmp-files.mjs',
     args: ['--strict'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_VERIFY_TMP_FILES',
-    stagedTriggers: ["apps/"],
+    stagedTriggers: ['apps/'],
     // 升档留痕(2026-11-06,goal-b49 Z41):只翻档位字段(mode/skipEnv/args 的 --strict),
     //   判据、阈值、覆盖面(射程仍由门体 STRAY_FORMS 登记表决定)一字未动 —— §12e 不许为升档削判据。
     // 升档前置 = 现读实测存量 0:全量档 0 警告 + --strict exit 0 + --self-test 5 例全过 + 镜像 23 例全过;
@@ -2333,7 +2440,13 @@ const checks = [
     script: 'check-i18n-messages-exist.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/i18n/messages/", "apps/miniapp-taro/src/i18n/", "apps/mobile-rn/src/i18n/", "apps/extension/src/i18n/", "apps/cli/src/i18n/"],
+    stagedTriggers: [
+      'packages/i18n/messages/',
+      'apps/miniapp-taro/src/i18n/',
+      'apps/mobile-rn/src/i18n/',
+      'apps/extension/src/i18n/',
+      'apps/cli/src/i18n/',
+    ],
     skipEnv: 'HUSKY_SKIP_I18N_MESSAGES_EXIST',
     onFailHint: [
       '',
@@ -2377,7 +2490,15 @@ const checks = [
     script: 'check-gate-wiring.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["scripts/", ".husky/", "package.json", ".github/workflows/", "AGENTS.md", "README.md", "docs/"],
+    stagedTriggers: [
+      'scripts/',
+      '.husky/',
+      'package.json',
+      '.github/workflows/',
+      'AGENTS.md',
+      'README.md',
+      'docs/',
+    ],
     skipEnv: 'HUSKY_SKIP_GATE_WIRING',
     onFailHint: [
       '',
@@ -2395,21 +2516,21 @@ const checks = [
       '     ⚠️ 核查接线点时不要只看 .husky/pre-commit:它自 2026-09-22 起只是薄壳,',
       '        真实 pre-commit 逻辑在 scripts/lib/pre-commit-hook.js(只查薄壳会得出相反结论)。',
       '     单独复验:node scripts/check-gate-wiring.mjs',
-      "     自检:node scripts/check-gate-wiring.mjs --self-test(例数以末行「自检 N 例」为准,不写死防漂移)",
+      '     自检:node scripts/check-gate-wiring.mjs --self-test(例数以末行「自检 N 例」为准,不写死防漂移)',
       '           + node --test scripts/tests/check-gate-wiring.test.mjs',
       '     紧急跳过(不推荐):HUSKY_SKIP_GATE_WIRING=1 git commit ...',
       '',
     ].join('\n'),
   },
 
-// 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2379(门 103 C1 收口)〉首意: C 盘污染实地扫描(2026-09-23 立,守门 90,warn-only)。成因:§15/§26 的三道旧门没有
+  // 〈原 7 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l2379(门 103 C1 收口)〉首意: C 盘污染实地扫描(2026-09-23 立,守门 90,warn-only)。成因:§15/§26 的三道旧门没有
   {
     id: '92',
     label: '💽 C 盘污染实地扫描(warn,拦"源码没写死但东西真掉在 C 盘")',
     script: 'check-c-drive-pollution.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_C_DRIVE_POLLUTION',
     onFailHint: [
       '',
@@ -2512,7 +2633,7 @@ const checks = [
     script: 'check-watermark-syntax.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_WATERMARK_SYNTAX',
     onFailHint: [
       '',
@@ -2534,7 +2655,7 @@ const checks = [
     script: 'check-home-junctions.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_HOME_JUNCTIONS',
     onFailHint: [
       '',
@@ -2566,7 +2687,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 三类红,改法各一条:',
-      '     ① S1 单点被摘 —— 顶距唯一源是 `apps/mobile-rn/App.tsx` 的 <SafeAreaView edges={[\'top\']}>;',
+      "     ① S1 单点被摘 —— 顶距唯一源是 `apps/mobile-rn/App.tsx` 的 <SafeAreaView edges={['top']}>;",
       '        它没了就是全屏叠字回来(真机实测差 34dp)。恢复该单点,不要逐屏补。',
       '     ② S2 第二取值口 —— `StatusBar.currentHeight` 在 iOS 恒为 undefined(⇒ 0)见即红;',
       '        `statusBarHeight` 只拦"布局取值"(paddingTop/top/marginTop/= …),共享层"调用方注入、默认 0"的声明不判红。',
@@ -2597,7 +2718,13 @@ const checks = [
     rerunAnchor: true,
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_DANGLING_IMPORTS',
-    stagedTriggers: ['apps/**/*.ts', 'apps/**/*.tsx', 'packages/**/*.ts', 'packages/**/*.tsx', 'scripts/**/*.mjs'],
+    stagedTriggers: [
+      'apps/**/*.ts',
+      'apps/**/*.tsx',
+      'packages/**/*.ts',
+      'packages/**/*.tsx',
+      'scripts/**/*.mjs',
+    ],
     onFailHint: [
       '',
       '  💡 三类红,改法不同:',
@@ -2627,7 +2754,7 @@ const checks = [
     script: 'check-staged-deletions.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_STAGED_DELETIONS',
     onFailHint: [
       '',
@@ -2649,7 +2776,7 @@ const checks = [
     script: 'check-merge-addition-loss.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_MERGE_ADDITION_LOSS',
     onFailHint: [
       '',
@@ -2678,7 +2805,7 @@ const checks = [
     script: 'check-lock-manifest-consistency.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_LOCK_MANIFEST_GUARD',
     onFailHint: [
       '',
@@ -2717,7 +2844,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 三类红,改法各一条:',
-      '     ① GA1 整格字符箭头(› » → 》 或 {\'>\'})当 chevron 图标 —— 换矢量:RN/共享包用 MoreLink',
+      "     ① GA1 整格字符箭头(› » → 》 或 {'>'})当 chevron 图标 —— 换矢量:RN/共享包用 MoreLink",
       '        (lucide-react-native ChevronRight)、web 用 ViewMoreLink、小程序用 LineIcon',
       '        name="chevron-right"(icons.ts 已含,零新素材)。',
       '     ② GA2 「更多」类标签与同词干 *Arrow* 样式配对后**箭头字号 > 标签字号** —— 两者必须同一',
@@ -2746,7 +2873,7 @@ const checks = [
     script: 'check-architecture-policy.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_ARCH_POLICY',
     onFailHint: [
       '',
@@ -2780,7 +2907,7 @@ const checks = [
     script: 'check-prod-bundle-shadow.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_PROD_BUNDLE_SHADOW',
     onFailHint: [
       '',
@@ -2806,13 +2933,13 @@ const checks = [
 
   {
     id: '105',
-  // 105 check-miniapp-generated.mjs 的立门因由/事故史/定级史逐字归档:.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md#b3(§1 两步归档;C1 上限腾行,判据字段一字未动)
+    // 105 check-miniapp-generated.mjs 的立门因由/事故史/定级史逐字归档:.ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md#b3(§1 两步归档;C1 上限腾行,判据字段一字未动)
     label:
       '🧩 小程序+四端派生产物对账(blocking;离线语言包/图标/位图/四端 AI 可导航路由是否落后于源;孤儿与动态路径只报数不判红)',
     script: 'check-miniapp-generated.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_MINIAPP_GENERATED',
     onFailHint: [
       '',
@@ -2848,7 +2975,12 @@ const checks = [
     script: 'sync-extension-tokens.mjs',
     args: ['--check', '--staged'],
     mode: 'blocking',
-    stagedTriggers: ["packages/design-tokens/src/styles/tokens.css", "apps/extension/entrypoints/content.ts", "apps/extension/entrypoints/content/content-toolbar.tsx", "packages/ui-react/src/styles/auth-shell.css"],
+    stagedTriggers: [
+      'packages/design-tokens/src/styles/tokens.css',
+      'apps/extension/entrypoints/content.ts',
+      'apps/extension/entrypoints/content/content-toolbar.tsx',
+      'packages/ui-react/src/styles/auth-shell.css',
+    ],
     skipEnv: 'HUSKY_SKIP_EXTENSION_TOKENS',
     onFailHint: [
       '',
@@ -2868,11 +3000,12 @@ const checks = [
 
   {
     id: '107',
-    label: '🧾 第三方来源台账对账(blocking,嵌入/复制/覆盖三本账 + 机制来源账:roots 必须真实存在、盘上 vendored 件必须有条目、许可原文必须能自证)',
+    label:
+      '🧾 第三方来源台账对账(blocking,嵌入/复制/覆盖三本账 + 机制来源账:roots 必须真实存在、盘上 vendored 件必须有条目、许可原文必须能自证)',
     script: 'provenance-ledger.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_PROVENANCE_LEDGER',
     onFailHint: [
       '',
@@ -2898,7 +3031,7 @@ const checks = [
     script: 'check-exemption-expiry.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_EXEMPTION_EXPIRY',
     onFailHint: [
       '',
@@ -2921,7 +3054,8 @@ const checks = [
 
   {
     id: '109',
-    label: '🔒 任务认领租约对账(blocking,CL1 过期租约/CL2 缺持有者/CL3 翻勾未摘牌/CL4 新增裸「（进行中）」;四档同用 HEAD 存量棘轮,只拦本次带进来的)',
+    label:
+      '🔒 任务认领租约对账(blocking,CL1 过期租约/CL2 缺持有者/CL3 翻勾未摘牌/CL4 新增裸「（进行中）」;四档同用 HEAD 存量棘轮,只拦本次带进来的)',
     script: 'check-task-claims.mjs',
     args: ['--check-gate'],
     mode: 'blocking',
@@ -2950,13 +3084,15 @@ const checks = [
 
   {
     id: '110',
-    label: '📦 产物预算对账(warn,交付出去的产物第一次有上限表:主包口径 / 悬空 sourceMappingURL 引用)',
+    label:
+      '📦 产物预算对账(warn,交付出去的产物第一次有上限表:主包口径 / 悬空 sourceMappingURL 引用)',
     script: 'check-artifact-budget.mjs',
     // 必须带 --target:本门刻意「未知/缺 target 即 exit 2、不回落默认档」,空 args 会让它在提交链里
-    // 永远跑不起来(实测 G-176)。miniapp 是唯一已校准上限的档;其余档在 CI 里逐档 --target 问责。
+    // 永远跑不起来(实测 G-176)。miniapp 有微信硬限;web-static / extension 由入库基线(生成自最近一次
+    // 真实构建产物)校准;其余档在 CI 里逐档 --target 问责。
     args: ['--target', 'miniapp'],
     mode: 'warn',
-    stagedTriggers: ["apps/miniapp-taro/"],
+    stagedTriggers: ['apps/miniapp-taro/'],
     skipEnv: 'HUSKY_SKIP_ARTIFACT_BUDGET',
     onFailHint: [
       '',
@@ -2967,7 +3103,7 @@ const checks = [
       '     就能吃掉它而全程绿灯(构建本身 exit 0,炸的是上传微信那一步)。',
       '     为什么挂 warn 而不是 blocking:产物目录在不在本机是**机器状态**,提交者结构上',
       '     满足不了 ⇒ blocking 就是恒红门(§12e 同型)。判红问责放在 CI(build 之后必有产物)。',
-      '     缺产物不判红也不静默绿:exit 0 + 逐条打印"未判定:<原因>"并点名重建命令。',
+      '     缺产物不判红也不静默绿:exit 2 + 逐条打印"未判定:<原因>"并点名重建命令(2026-11-07 裁定,"只报数"取消)。',
       '     主包口径:分包与独立分包不得计入主包(镜像测试 C5/C5b 用同字节换个目录做正反对照)。',
       '     单独复验:node scripts/check-artifact-budget.mjs --target miniapp',
       '     自检:node scripts/check-artifact-budget.mjs --self-test(39 条断言,连跑两次须同结论)',
@@ -2982,7 +3118,8 @@ const checks = [
   },
   {
     id: '111',
-    label: '🧬 工具契约声明对账(blocking,注册进工具面却没有契约声明即红;棘轮锚点=该文件 HEAD 自身违规数)',
+    label:
+      '🧬 工具契约声明对账(blocking,注册进工具面却没有契约声明即红;棘轮锚点=该文件 HEAD 自身违规数)',
     script: 'check-tool-contract-declared.mjs',
     args: [],
     mode: 'blocking',
@@ -3010,11 +3147,12 @@ const checks = [
 
   {
     id: '112',
-    label: '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
+    label:
+      '📐 压缩分母对账(blocking,阈值分母必须经 effectiveContextWindow;存量 8 文件/12 处进棘轮)',
     script: 'check-compaction-denominator.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_COMPACTION_DENOMINATOR',
     onFailHint: [
       '',
@@ -3149,7 +3287,7 @@ const checks = [
     script: 'check-egress-facts.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/", "apps/cli/src/provider/"],
+    stagedTriggers: ['apps/api/src/', 'apps/cli/src/provider/'],
     skipEnv: 'HUSKY_SKIP_EGRESS_FACTS',
     onFailHint: [
       '',
@@ -3184,7 +3322,8 @@ const checks = [
   //   若哪天 HEAD 面重新出现未对齐(例:有人 --no-verify 塞进来),先清偿再提其它票,不得削判据。
   {
     id: '117',
-    label: '🔐 记忆端点属主绑定对账(blocking,收 user_id 的端点必须与令牌主体对齐;存量已归零⇒零容忍)',
+    label:
+      '🔐 记忆端点属主绑定对账(blocking,收 user_id 的端点必须与令牌主体对齐;存量已归零⇒零容忍)',
     script: 'check-memory-owner-binding.mjs',
     args: ['--strict'],
     mode: 'blocking',
@@ -3232,7 +3371,7 @@ const checks = [
       '     自检:node scripts/check-gate-face-discipline.mjs --self-test(16 例,含两层遮噪方向的反向锁)',
       '     镜像测试:node --test scripts/tests/check-gate-face-discipline.test.mjs',
       '',
-    ]
+    ],
   },
 
   {
@@ -3252,7 +3391,7 @@ const checks = [
       '     单独复验:node scripts/check-subagent-permission-inherited.mjs',
       '     自检:--self-test(39 例) 镜像:node --test scripts/tests/check-subagent-permission-inherited.test.mjs(12 例)',
       '',
-    ]
+    ],
   },
 
   {
@@ -3261,7 +3400,11 @@ const checks = [
     script: 'check-list-predicate-has-positive-proof.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["scripts/", "packages/shared/src/utils/ip-literal.ts", "apps/cli/tests/ssrf-outbound.test.ts"],
+    stagedTriggers: [
+      'scripts/',
+      'packages/shared/src/utils/ip-literal.ts',
+      'apps/cli/tests/ssrf-outbound.test.ts',
+    ],
     skipEnv: 'HUSKY_SKIP_LIST_POSITIVE_PROOF',
     onFailHint: [
       '',
@@ -3272,12 +3415,13 @@ const checks = [
       '     单独复验:node scripts/check-list-predicate-has-positive-proof.mjs',
       '     自检:--self-test(15 条) 镜像:node --test scripts/tests/check-list-predicate-has-positive-proof.test.mjs(6 例)',
       '',
-    ]
+    ],
   },
 
   {
     id: '121',
-    label: '🗑️ 声明策略必须有消费者(blocking,MAX_AGE/TTL/RETENTION/Contract 谓词/清理函数未接线即红,存量棘轮)',
+    label:
+      '🗑️ 声明策略必须有消费者(blocking,MAX_AGE/TTL/RETENTION/Contract 谓词/清理函数未接线即红,存量棘轮)',
     script: 'check-declared-policy-has-consumer.mjs',
     args: [],
     mode: 'blocking',
@@ -3295,7 +3439,7 @@ const checks = [
       '     问责档:node scripts/check-declared-policy-has-consumer.mjs --strict',
       '     自检:--self-test  镜像:node --test scripts/tests/check-declared-policy-has-consumer.test.mjs',
       '',
-    ]
+    ],
   },
 
   {
@@ -3315,7 +3459,7 @@ const checks = [
       '  单独复验:node scripts/check-file-write-safety.mjs',
       '  自检:--self-test(24 例) 镜像:node --test scripts/tests/check-file-write-safety.test.mjs(13 例)',
       '',
-    ]
+    ],
   },
 
   {
@@ -3334,12 +3478,13 @@ const checks = [
       '     单独复验:node scripts/check-tool-exec-budget.mjs',
       '     自检:--self-test(26 例) 镜像:node --test scripts/tests/check-tool-exec-budget.test.mjs(9 例)',
       '',
-    ]
+    ],
   },
 
   {
     id: '124',
-    label: '🎨 小程序原生 chrome 派生对账(blocking,theme.json + THEME_CHROME 必须是 tokens.css 的派生态)',
+    label:
+      '🎨 小程序原生 chrome 派生对账(blocking,theme.json + THEME_CHROME 必须是 tokens.css 的派生态)',
     script: 'check-miniapp-chrome.mjs',
     args: [],
     mode: 'blocking',
@@ -3358,12 +3503,13 @@ const checks = [
       '     已登记的唯一分歧(d2d80c1b23 对齐 rn gray.800)与"登记却已不冲突=清单腐烂"都由本门核。',
       '     单独复验:node scripts/check-miniapp-chrome.mjs(自检 --self-test,镜像 13 例)',
       '',
-    ]
+    ],
   },
 
   {
     id: '125',
-    label: '🧭 派生面登记表自洽对账(blocking,TOKEN_SYNC_TARGETS 每行的触发文件/写回出口/复核门三方必须在位)',
+    label:
+      '🧭 派生面登记表自洽对账(blocking,TOKEN_SYNC_TARGETS 每行的触发文件/写回出口/复核门三方必须在位)',
     script: 'check-token-sync-registry.mjs',
     args: [],
     mode: 'blocking',
@@ -3380,7 +3526,7 @@ const checks = [
       '     修复口径:改表与配门,不得为消红放宽本门判据或把行删掉(删行 = 关掉那端的自动同步)。',
       '     单独复验:node scripts/check-token-sync-registry.mjs(自检 25 例,镜像 11 例)',
       '',
-    ]
+    ],
   },
   {
     id: '126',
@@ -3409,7 +3555,7 @@ const checks = [
       '     共享面(§3 工厂模式),不得为消红去放宽判据或把可达文件改判成不可达。',
       '     单独复验:node scripts/check-shared-nonde-node-purity.mjs(自检 23 例,镜像 18 例)',
       '',
-    ]
+    ],
   },
 
   {
@@ -3418,7 +3564,7 @@ const checks = [
     script: 'check-declared-outbound-routes.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/", "apps/ai-service/app/"],
+    stagedTriggers: ['apps/api/src/', 'apps/ai-service/app/'],
     skipEnv: 'HUSKY_SKIP_DECLARED_OUTBOUND_ROUTES',
     onFailHint: [
       '',
@@ -3427,7 +3573,7 @@ const checks = [
       '     ② 处置二选一 —— 在对侧实现该路由,或删除这行硬编码声明;',
       '     ③ 禁止用基线文件/豁免清单遮红,禁止改阈值让它好看(台账会腐烂而这批是真缺陷)。',
       '',
-    ]
+    ],
   },
   {
     id: '128',
@@ -3453,7 +3599,7 @@ const checks = [
       '     ③ 禁止给单端补一个数字去凑平 —— 那只是把第二份真相挪了个位置,下次又漂;',
       '     ④ 确属平台导致(原生导航栏/输入法/状态栏):在台账 waivers 里写 reason,由守门 108 管到期,不得静默。',
       '',
-    ]
+    ],
   },
   {
     id: '237',
@@ -3482,7 +3628,7 @@ const checks = [
       '        把 rn 置 null 两条都不满足(门按缺键判红);禁止改判据绕开。棘轮锚点是 HEAD 面,确需放行时用 skipEnv 并把理由写进提交信息;',
       '     ④ 「小程序端没有这一页」≠ 缺口:本门把无标记的记为**未判定**,既不记已对齐也不判红。',
       '',
-    ]
+    ],
   },
   {
     id: '251',
@@ -3512,7 +3658,7 @@ const checks = [
       '     绝对零容忍:兼容层的缺口没有"存量合理"这一说 —— 补上即绿,禁止为消红放宽判据(§12e)。',
       '     自检:node scripts/check-rn-compat-coverage.mjs --self-test(6 例,含摘掉即翻红)',
       '',
-    ]
+    ],
   },
   {
     id: '252',
@@ -3522,21 +3668,17 @@ const checks = [
     args: ['--check'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PACKAGE_EXPORTS_CONDITIONS',
-    stagedTriggers: [
-      'packages/',
-      'apps/',
-      'scripts/fix-package-exports-conditions.mjs',
-    ],
+    stagedTriggers: ['packages/', 'apps/', 'scripts/fix-package-exports-conditions.mjs'],
     onFailHint: [
       '  💡 判的是 exports 条件覆盖:只写 types+import 的子路径,对 webpack(require/module/production)' +
-         '与 pnpm frozen install 都不可达(import 条件不等于 module/require)。',
+        '与 pnpm frozen install 都不可达(import 条件不等于 module/require)。',
       '     ① 看哪几条缺:node scripts/fix-package-exports-conditions.mjs --check;',
       '     ② 补(单向增覆盖面,不改既有条件、不删条目):node scripts/fix-package-exports-conditions.mjs --apply,',
       '     ② 补(单向增覆盖面,不改既有条件、不删条目):node scripts/fix-package-exports-conditions.mjs --apply,',
       '        并把所改 package.json 与本枚改动同提交;',
       '     ③ 判据本体:node scripts/fix-package-exports-conditions.mjs --self-test(5 例)。',
       '     禁止为消红放宽判据(§12e);存量已于 e91d8c38ed96 一次清零,故本门从第一天起绝对零容忍。',
-    ]
+    ],
   },
   {
     id: '253',
@@ -3556,7 +3698,7 @@ const checks = [
       '     ③ 判据本体:node scripts/check-mjs-export-resolution.mjs --self-test(现读 22 例;含 D2 正控/反向对照/新建面不判、D4 __test__ 键与命名空间属性取用正控)。',
       '     D4(2026-10-30 立):`import { __test__ as G }` + `G.x()` / `import * as Ns` + `Ns.x()` 的 x 不在目标出口面 ⇒ 红 —— 当日 15:41 合车洗掉 gen-miniapp-mirror 的 4 枚出口 + __test__ 同名键,消费方全是属性取用,D1/D2 双盲、5 件器物链接期即抛。',
       '     立因实测:9fdbc207ba2e 删 lib/gitdir.mjs 的 brokenRefsFromSnapshot 而 git-guardian.mjs 未动 ⇒ 守护实例化期抛、任何档起不来,巡检腿全停。',
-    ]
+    ],
   },
   {
     id: '254',
@@ -3566,10 +3708,7 @@ const checks = [
     args: ['--check', '--staged'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_TOKEN_DERIVATION',
-    stagedTriggers: [
-      'packages/design-tokens/',
-      'scripts/sync-rn-tokens.mjs',
-    ],
+    stagedTriggers: ['packages/design-tokens/', 'scripts/sync-rn-tokens.mjs'],
     onFailHint: [
       '  💡 判的是 rn-tokens.ts 的派生面落后于唯一源 packages/design-tokens/src/styles/tokens.css。',
       '     ① 看差在哪:node scripts/sync-rn-tokens.mjs --check;台账(逐档可派生/不可派生/拒绝/跳过):node scripts/sync-rn-tokens.mjs --list;',
@@ -3578,7 +3717,7 @@ const checks = [
       '        并把所改文件与本枚改动同提交;',
       '     ③ 判据本体:node scripts/sync-rn-tokens.mjs --self-test(41 例;J 族钉覆盖面块:遮蔽手抄档即跳 / 应用后幂等 / 源改值即落后 / 标记不齐拒写 / 水印仍在文件末)。',
       '     拒绝项(refusals)与语义分歧档属人工裁决,派生器不抹平;禁止为消红放宽判据(§12e)。',
-    ]
+    ],
   },
   {
     id: '256',
@@ -3605,10 +3744,7 @@ const checks = [
     args: ['--check', '--staged'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_COLOR_LITERAL_RATCHET',
-    stagedTriggers: [
-      'apps/mobile-rn/src/',
-      'packages/app/src/',
-    ],
+    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/'],
     onFailHint: [
       '  💡 判的是 packages/app 与 apps/mobile-rn 里「对象字面量属性值上写了个等于源档的色字面量」。',
       '     ① 看清单:node scripts/fix-rn-color-literals.mjs(只读报告,含歧义/需主题两类队列);',
@@ -3616,7 +3752,7 @@ const checks = [
       '     ③ 确实要留在端内的(比如与源档只是巧合同值、或语义就是本地常量):在同文件加一行 handcopy-token-exempt: <原因>(门 93 R8 同族豁免,须带原因);',
       '     ④ 判据本体:node scripts/fix-rn-color-literals.mjs --self-test(11 例,T10 是拦新增的正反控)。',
       '     禁止为消红放宽判据(§12e);存量只报数,不由本门代裁。',
-    ]
+    ],
   },
   {
     id: '129',
@@ -3635,7 +3771,7 @@ const checks = [
       '     ③ 裸宿主前缀 → 改走 apps/cli/src/utils/prompt-boundary.ts 的 frameSystemReminder,不得再产出 [系统提醒] 字样;',
       '     ④ 禁止为消红放宽判据或另立豁免清单(该门判据输入全部由被审面自身推导,不留会腐烂的白名单)。',
       '',
-    ]
+    ],
   },
   // --- 任务状态一致性 (1 项, 2026-09-26 立) ---
   {
@@ -3646,7 +3782,11 @@ const checks = [
     args: ['--gate'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PLAN_TASK_STATE',
-    stagedTriggers: ['PROJECT_PLAN.md', 'scripts/plan-tasks.mjs', 'scripts/lib/plan-task-index.mjs'],
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'scripts/plan-tasks.mjs',
+      'scripts/lib/plan-task-index.mjs',
+    ],
     onFailHint: [
       '',
       '  💡 本门拦的是"这次改动让状态分叉变多",不是"文档里有存量分叉"。存量(F1/F2/F3)默认只报数。',
@@ -3767,7 +3907,7 @@ const checks = [
       '     ① `web/ja :: aiChat.org` 整块是繁体中文、`web/zh-TW :: aiChat.org` 整块是谚文,',
       '     ② `web/ko :: chat.exportMenu.exportPdf` 是日文假名(三向轮转),',
       '     ③ `web/*:: aiChat.toast.orgSaved` 被机械写成 `{orgSaved:{orgSaved:"…"}}` 自套一层,',
-     '        `t()` 取到对象 ⇒ 功能成功但提示永远不响。三型当时五道门全绿。',
+      '        `t()` 取到对象 ⇒ 功能成功但提示永远不响。三型当时五道门全绿。',
       '     判据按**码位族**(han/hira/kata/hangul/latin,区间两两不相交由 lib 机器证明),',
       '     汉字族内部简繁**刻意不判**(日本新字体与中国简化字同码位),判不了就计"未判定"并点名。',
       '     ① 看清单:node scripts/check-i18n-locale-content-language.mjs --all',
@@ -3932,8 +4072,7 @@ const checks = [
   // --- V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)(1 项,blocking)---
   {
     id: '140',
-    label:
-      'V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)',
+    label: 'V3 #62/#63 对话流挂载与契约登记对账(拦「件在库而无人挂载」与「契约登记与消费点漂移」)',
     script: 'check-v3-62-conversation-mount.mjs',
     args: [],
     mode: 'blocking',
@@ -3970,8 +4109,7 @@ const checks = [
   // --- Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)(1 项,blocking)---
   {
     id: '142',
-    label:
-      'Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)',
+    label: 'Guardian 复核接线对账(拦「复核出口造好没人调」与「未复核被折叠成通过」)',
     script: 'check-guardian-review-wired.mjs',
     args: [],
     mode: 'blocking',
@@ -4037,8 +4175,7 @@ const checks = [
   // --- RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)(1 项,blocking)---
   {
     id: '145',
-    label:
-      'RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)',
+    label: 'RN 包装器双层页头对账(共享屏自带页头 × RN 屏又加 NavBar ⇒ 同屏两条返回键与两个标题)',
     script: 'check-rn-double-header.mjs',
     args: [],
     mode: 'blocking',
@@ -4057,8 +4194,7 @@ const checks = [
   // --- README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)(1 项,blocking)---
   {
     id: '146',
-    label:
-      'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
+    label: 'README 表格完整性对账(TI1 竖排续行判红/T-B 只报数/棘轮锚基线)',
     script: 'check-readme-table-integrity.mjs',
     args: [],
     mode: 'blocking',
@@ -4076,17 +4212,17 @@ const checks = [
   // --- 模型容量/推理档位跨语言对账(1 项,blocking)---
   {
     id: '147',
-    label:
-      '模型容量/推理档位跨语言对账',
+    label: '模型容量/推理档位跨语言对账',
     script: 'check-model-capacity-parity.mjs',
     args: ['--strict'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MODEL_CAPACITY_PARITY',
-    stagedTriggers: ['packages/api-client/src/', 'apps/ai-service/app/core/', 'apps/cli/src/subagents/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    stagedTriggers: [
+      'packages/api-client/src/',
+      'apps/ai-service/app/core/',
+      'apps/cli/src/subagents/',
+    ],
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 会话失效出口对账(1 项,blocking)---
@@ -4109,8 +4245,7 @@ const checks = [
   // --- 包入口 barrel 漏 re-export 对账(G-215)(1 项,blocking)---
   {
     id: '149',
-    label:
-      '包入口 barrel 漏 re-export 对账:端内从裸包名 import 的名字必须由包入口真的递出',
+    label: '包入口 barrel 漏 re-export 对账:端内从裸包名 import 的名字必须由包入口真的递出',
     script: 'check-package-barrel-export.mjs',
     args: [],
     mode: 'blocking',
@@ -4131,13 +4266,17 @@ const checks = [
   // --- 状态词汇对账(1 项,blocking)---
   {
     id: '151',
-    label:
-      '子智能体/后台任务状态词汇跨语言与端内抄本对账(六档是落库/REST/SSE 三重对外契约)',
+    label: '子智能体/后台任务状态词汇跨语言与端内抄本对账(六档是落库/REST/SSE 三重对外契约)',
     script: 'check-agent-status-vocabulary-parity.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_STATUS_VOCABULARY_PARITY',
-    stagedTriggers: ['packages/types/src/', 'apps/ai-service/app/services/', 'apps/web/src/components/', 'apps/cli/src/'],
+    stagedTriggers: [
+      'packages/types/src/',
+      'apps/ai-service/app/services/',
+      'apps/web/src/components/',
+      'apps/cli/src/',
+    ],
     onFailHint: [
       '',
       '成员集合的单一真相源 = packages/types/src/agent-runtime.ts 的 AGENT_TASK_STATUSES\\n端内一律 import 它(或由它派生);Python 侧改 KANBAN_TASK_STATUSES + Literal 两处同笔\\n六档值是对外契约:不得改名、不得删成员、不得为变绿放宽判据、不得写豁免清单消账\\n新增一档必须同枚提交补齐 agents.kanban.* 五语言(AGENTS §30)\\n判不出 ⇒ exit 2 报无法判定,不冒红也不记绿',
@@ -4184,7 +4323,7 @@ const checks = [
     script: 'check-service-binary-paths.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_SERVICE_BINARY_PATHS',
     onFailHint: [
       '',
@@ -4199,40 +4338,31 @@ const checks = [
   // --- 临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)(1 项,warn)---
   {
     id: '154',
-    label:
-      '临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)',
+    label: '临时夹具 scratch 根二阶嵌套巡检(只报不删,三态含未判定)',
     script: 'check-scratch-root-no-nesting.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_SCRATCH_NESTING',
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 镜像测试临时夹具落点对账(默认只报名,--strict 才判红)(1 项,warn)---
   {
     id: '155',
-    label:
-      '镜像测试临时夹具落点对账(默认只报名,--strict 才判红)',
+    label: '镜像测试临时夹具落点对账(默认只报名,--strict 才判红)',
     script: 'check-fixture-tmpdir.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_FIXTURE_TMPDIR',
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 自检登记求值配对(1 项,warn)---
   {
     id: '156',
-    label:
-      '自检用例登记侧的求值配对对账(登记不求值 ∧ 用例传函数 ⇒ 才判红;潜伏档只报数)',
+    label: '自检用例登记侧的求值配对对账(登记不求值 ∧ 用例传函数 ⇒ 才判红;潜伏档只报数)',
     script: 'check-selftest-registrant-evaluates.mjs',
     args: [],
     mode: 'warn',
@@ -4252,8 +4382,7 @@ const checks = [
   // --- 🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)(1 项,blocking)---
   {
     id: '157',
-    label:
-      '🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)',
+    label: '🔐 按凭据存在性豁免对账(blocking,G-459:头名在场即跳过安全判定必须逐条裁过)',
     script: 'check-credential-presence-bypass.mjs',
     args: [],
     mode: 'blocking',
@@ -4331,7 +4460,13 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_IMAGE_SOURCE_POOL',
-    stagedTriggers: ['packages/database/', 'apps/', 'packages/shared/', 'packages/app/', 'packages/ui-react/'],
+    stagedTriggers: [
+      'packages/database/',
+      'apps/',
+      'packages/shared/',
+      'packages/app/',
+      'packages/ui-react/',
+    ],
     onFailHint: [
       '',
       '',
@@ -4363,8 +4498,7 @@ const checks = [
   // --- 入站契约 .strict() 到达性对账(1 项,blocking)---
   {
     id: '161',
-    label:
-      '入站契约 .strict() 到达性对账',
+    label: '入站契约 .strict() 到达性对账',
     script: 'check-inbound-schema-strict.mjs',
     args: [],
     mode: 'blocking',
@@ -4382,8 +4516,7 @@ const checks = [
   // --- 维护性写归属对账(1 项,blocking)---
   {
     id: '163',
-    label:
-      '维护性写归属/CAS/回报计数三态对账(G-815920)',
+    label: '维护性写归属/CAS/回报计数三态对账(G-815920)',
     script: 'check-write-owner-predicate.mjs',
     args: [],
     mode: 'blocking',
@@ -4399,8 +4532,7 @@ const checks = [
   // --- 源码 U+FFFD 对账(合法编码承载损坏内容那一型)(1 项,blocking)---
   {
     id: '164',
-    label:
-      '源码替换符(U+FFFD)对账 —— 字节级 UTF-8 完整性的缺失维度',
+    label: '源码替换符(U+FFFD)对账 —— 字节级 UTF-8 完整性的缺失维度',
     script: 'check-replacement-chars.mjs',
     args: [],
     mode: 'blocking',
@@ -4421,17 +4553,13 @@ const checks = [
   // --- 🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)(1 项,blocking)---
   {
     id: '165',
-    label:
-      '🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)',
+    label: '🧾 教育欠费口径单一出口对账(blocking,AR1 出口外重写算式/AR2 裸写派生列)',
     script: 'check-edu-arrears-single-source.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/", "apps/web/", "apps/miniapp-taro/src/", "packages/app/src/"],
+    stagedTriggers: ['apps/api/src/', 'apps/web/', 'apps/miniapp-taro/src/', 'packages/app/src/'],
     skipEnv: 'HUSKY_SKIP_EDU_ARREARS_SINGLE_SOURCE',
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 活文档写回对账(1 项,blocking)---
@@ -4458,7 +4586,7 @@ const checks = [
   {
     id: '167',
     label:
-      '🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for(\'update\') 或 db.transaction;全量档只报数)',
+      "🔒 turn 序号分配点上锁(blocking,max(turnOrdinal) 与 insert(chatMessages) 同体 ⇒ 体内必须有 .for('update') 或 db.transaction;全量档只报数)",
     script: 'check-turn-ordinal-lock.mjs',
     args: [],
     mode: 'blocking',
@@ -4470,8 +4598,8 @@ const checks = [
       '     结构上不可用 ⇒ "读 max 再分配"的每一段都必须锁;真库实测无事务的"读 max → 插"',
       '     同会话并发双插撞号率 100%(60 对全撞,turn-ordinal-concurrency.test.ts)。',
       '     红点名的形态 = max(${chatMessages.turnOrdinal}) 与 insert(chatMessages) 落在同一个',
-      '     语句块里,块内既无 .for(\'update\') 也无 db.transaction。',
-      '     修法:把 max 读取与 insert 一并包进 db.transaction,并先对会话行 .for(\'update\')',
+      "     语句块里,块内既无 .for('update') 也无 db.transaction。",
+      "     修法:把 max 读取与 insert 一并包进 db.transaction,并先对会话行 .for('update')",
       '     —— 参照 apps/api/src/db/chat-queries.ts createMessage 与 routes/message.ts 的既有形态。',
       '     本门只咬本次改动动过的文件(apps/api/src);全量档存量红(patrol-scheduler.ts:198)',
       '     只报数 —— 改到它的那一刻必须顺手补锁,不得原样提交。',
@@ -4492,7 +4620,7 @@ const checks = [
     script: 'check-merge-deletion-resurrection.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_MERGE_DELETION_RESURRECTION',
     onFailHint: [
       '',
@@ -4517,7 +4645,10 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_AI_PANEL_MOUNT_GUARDS',
-    stagedTriggers: ['apps/web/src/components/layout/GlobalShell.tsx', 'apps/web/src/components/ai/ai-side-panel.tsx'],
+    stagedTriggers: [
+      'apps/web/src/components/layout/GlobalShell.tsx',
+      'apps/web/src/components/ai/ai-side-panel.tsx',
+    ],
     onFailHint: [
       '',
       '单独复现:node scripts/check-ai-panel-mount-guards.mjs --staged(或 --worktree 人工排查)',
@@ -4556,7 +4687,10 @@ const checks = [
     script: 'check-diagnostic-redaction.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/cli/src/subagents/worker-pool.ts", "apps/api/src/services/transcode-service.ts"],
+    stagedTriggers: [
+      'apps/cli/src/subagents/worker-pool.ts',
+      'apps/api/src/services/transcode-service.ts',
+    ],
     skipEnv: 'HUSKY_SKIP_DIAGNOSTIC_REDACTION',
     onFailHint: [
       '',
@@ -4575,7 +4709,12 @@ const checks = [
     script: 'check-process-exit-attribution.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/cli/src/subagents/worker-pool.ts", "apps/api/src/services/transcode-service.ts", "apps/api/src/services/terminal-service.ts", "apps/ai-service/app/services/command_streamer.py"],
+    stagedTriggers: [
+      'apps/cli/src/subagents/worker-pool.ts',
+      'apps/api/src/services/transcode-service.ts',
+      'apps/api/src/services/terminal-service.ts',
+      'apps/ai-service/app/services/command_streamer.py',
+    ],
     skipEnv: 'HUSKY_SKIP_PROCESS_EXIT_ATTRIBUTION',
     onFailHint: [
       '',
@@ -4594,7 +4733,7 @@ const checks = [
     script: 'check-capability-field-not-client-supplied.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_CAPABILITY_FIELD_NOT_CLIENT_SUPPLIED',
     onFailHint: [
       '',
@@ -4613,7 +4752,11 @@ const checks = [
     script: 'check-sse-frame-watermark.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/shared/src/sse/agent-events.ts", "packages/api-client/src/frame-watermark.ts", "packages/api-client/src/client.ts"],
+    stagedTriggers: [
+      'packages/shared/src/sse/agent-events.ts',
+      'packages/api-client/src/frame-watermark.ts',
+      'packages/api-client/src/client.ts',
+    ],
     skipEnv: 'HUSKY_SKIP_SSE_FRAME_WATERMARK',
     onFailHint: [
       '',
@@ -4632,7 +4775,10 @@ const checks = [
     script: 'check-list-cap-honesty.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/web/src/components/ai/progress-sections/", "packages/api-client/src/client.ts"],
+    stagedTriggers: [
+      'apps/web/src/components/ai/progress-sections/',
+      'packages/api-client/src/client.ts',
+    ],
     skipEnv: 'HUSKY_SKIP_LIST_CAP_HONESTY',
     onFailHint: [
       '',
@@ -4651,7 +4797,7 @@ const checks = [
     script: 'check-tool-schema-projection.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["packages/types/src/schema-projection.ts", "apps/cli/src/tools/"],
+    stagedTriggers: ['packages/types/src/schema-projection.ts', 'apps/cli/src/tools/'],
     skipEnv: 'HUSKY_SKIP_TOOL_SCHEMA_PROJECTION',
     onFailHint: [
       '',
@@ -4670,7 +4816,7 @@ const checks = [
     script: 'check-nested-additional-properties.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/cli/src/tools/"],
+    stagedTriggers: ['apps/cli/src/tools/'],
     skipEnv: 'HUSKY_SKIP_NESTED_ADDITIONAL_PROPERTIES',
     onFailHint: [
       '',
@@ -4689,7 +4835,7 @@ const checks = [
     script: 'check-error-message-bounded.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_ERROR_MESSAGE_BOUNDED',
     onFailHint: [
       '',
@@ -4708,7 +4854,7 @@ const checks = [
     script: 'check-wire-strictness.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/plugins/", "packages/shared/src/"],
+    stagedTriggers: ['apps/api/src/plugins/', 'packages/shared/src/'],
     skipEnv: 'HUSKY_SKIP_WIRE_STRICTNESS',
     onFailHint: [
       '',
@@ -4728,7 +4874,10 @@ const checks = [
     script: 'check-upload-budget.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["apps/api/src/routes/chunked-upload.ts", "apps/api/src/services/upload-integrity.ts"],
+    stagedTriggers: [
+      'apps/api/src/routes/chunked-upload.ts',
+      'apps/api/src/services/upload-integrity.ts',
+    ],
     skipEnv: 'HUSKY_SKIP_UPLOAD_BUDGET',
     onFailHint: [
       '',
@@ -4748,7 +4897,16 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_LIVE_DOC_REFERENCES',
-    stagedTriggers: ['PROJECT_PLAN.md', 'AGENTS.md', 'README', 'docs/', 'scripts/', 'apps/', 'packages/', 'config/'],
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'AGENTS.md',
+      'README',
+      'docs/',
+      'scripts/',
+      'apps/',
+      'packages/',
+      'config/',
+    ],
     onFailHint: [
       '',
       '红 = 这次提交面上,活文档正文反引号点名的仓内路径在索引里没了(HEAD 在位)—— 本次提交正把被点名的文件弄丢(D169 事故格)。',
@@ -4771,17 +4929,13 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MIGRATION_IMMUTABLE',
     stagedTriggers: ['packages/database/', 'apps/api/src/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- Python import 入库存续性对账(1 项,blocking)---
   {
     id: '189',
-    label:
-      'Python import 入库存续性对账',
+    label: 'Python import 入库存续性对账',
     script: 'check-python-import-landed.mjs',
     args: [],
     mode: 'blocking',
@@ -4823,10 +4977,7 @@ const checks = [
     mode: 'warn',
     skipEnv: 'HUSKY_SKIP_TEST_JUDGE_REPLICATED',
     stagedTriggers: ['scripts/check-', 'scripts/tests/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 注册表工作树超集对账(package.json / guardian-runner 的已入库入口被工作树副本整行写回旧态;今日 28 份注册表零存量 ⇒ blocking,只在 --staged 面问责)(1 项,blocking)---
@@ -4839,10 +4990,7 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_REGISTRY_WORKTREE_SUPERSET',
     stagedTriggers: ['package.json', 'scripts/guardian-runner.mjs'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- §22d 入口守卫对账(1 项,blocking)---
@@ -4856,20 +5004,19 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_DIRECT_RUN_GUARD',
     stagedTriggers: ['scripts/'],
     onFailHint: [
-      "本门判的是:scripts/**.mjs 顶层裸 main() 且全文没有 §22d 的 isDirectRun 双形态入口守卫。",
-      "复现与现读:node scripts/check-direct-run-guard.mjs(全量档判 HEAD blob 只报数,差值棘轮只拦本次新增)",
-      "修法只有一个:在文件末尾按 AGENTS.md §22d 那四行补守卫(main() 位置不动,只决定何时触发),",
-      "  并把判据单元 export 成 __test__ 供 §22c 镜像测试调用;禁止为变绿去删用例或放宽形态清单。",
-      "紧急跳过:HUSKY_SKIP_DIRECT_RUN_GUARD=1(跳过即放弃「新脚本必须可导入」这一不变量,须在提交信息写明理由与清偿票)",
-      "具名台账唯一出口:scripts/data/direct-run-guard-exemptions.json(逐条 path+reason+reviewBy,过期即回到队列)。",
+      '本门判的是:scripts/**.mjs 顶层裸 main() 且全文没有 §22d 的 isDirectRun 双形态入口守卫。',
+      '复现与现读:node scripts/check-direct-run-guard.mjs(全量档判 HEAD blob 只报数,差值棘轮只拦本次新增)',
+      '修法只有一个:在文件末尾按 AGENTS.md §22d 那四行补守卫(main() 位置不动,只决定何时触发),',
+      '  并把判据单元 export 成 __test__ 供 §22c 镜像测试调用;禁止为变绿去删用例或放宽形态清单。',
+      '紧急跳过:HUSKY_SKIP_DIRECT_RUN_GUARD=1(跳过即放弃「新脚本必须可导入」这一不变量,须在提交信息写明理由与清偿票)',
+      '具名台账唯一出口:scripts/data/direct-run-guard-exemptions.json(逐条 path+reason+reviewBy,过期即回到队列)。',
     ].join('\n'),
   },
 
   // --- 事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)(1 项,blocking)---
   {
     id: '195',
-    label:
-      '事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)',
+    label: '事务体内取消探测对账(db.transaction 回调体内不得 throwIfAborted/signal.aborted)',
     script: 'check-txn-cancel-boundary.mjs',
     args: [],
     mode: 'blocking',
@@ -4906,8 +5053,7 @@ const checks = [
   // --- provider 健康四档单一真相源对账(1 项,blocking)---
   {
     id: '200',
-    label:
-      'provider 健康四档单一真相源对账(值域并表后不得再分叉)',
+    label: 'provider 健康四档单一真相源对账(值域并表后不得再分叉)',
     script: 'check-provider-health-vocabulary.mjs',
     args: ['--strict'],
     mode: 'blocking',
@@ -4986,7 +5132,11 @@ const checks = [
     args: ['--ratchet'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PLAN_DUP_TITLE',
-    stagedTriggers: ['PROJECT_PLAN.md', 'scripts/check-plan-task-duplicates.mjs', 'scripts/live-doc-edit.mjs'],
+    stagedTriggers: [
+      'PROJECT_PLAN.md',
+      'scripts/check-plan-task-duplicates.mjs',
+      'scripts/live-doc-edit.mjs',
+    ],
     onFailHint: [
       '',
       '  ❌ 本门拦的是「同题多号」—— 同一件事在台账上挂着多个编号。复合主键(编号+题面前缀)',
@@ -5047,7 +5197,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 题面:未知枚举的兜底档必须是"不再产生副作用"那一档。兜到初始态等于把**已终态的账**',
-      '     放回可写集合(上游反例 session-inputs.ts:369-391:未知 status→\'admitted\',已终态行重新',
+      "     放回可写集合(上游反例 session-inputs.ts:369-391:未知 status→'admitted',已终态行重新",
       '     进入可 settle 集合,与状态前置 CAS 相互拆台)。',
       '  🔍 判据(结构/语义特征点名,不扫注释词面):候选 = 闭集状态集合的成员判定',
       '     `SET.includes(v)` / `SET.has(v)`(SET 须含 status/state 语义且是集合形),或唯一出口',
@@ -5067,7 +5217,7 @@ const checks = [
   {
     id: '206',
     label:
-      '🔢 错误码不得按文本判(blocking,新增分支按 err.message/includes(\'429\') 判身份 ⇒ 红;存量按该文件 HEAD 自身棘轮只报数)',
+      "🔢 错误码不得按文本判(blocking,新增分支按 err.message/includes('429') 判身份 ⇒ 红;存量按该文件 HEAD 自身棘轮只报数)",
     script: 'check-error-code-not-text-matching.mjs',
     args: [],
     mode: 'blocking',
@@ -5077,7 +5227,7 @@ const checks = [
       '',
       '  💡 判据与预筛**同源**(都由 TEXT_OPS 派生)—— 预筛漏一个算子,门就对该算子整型失明而账面报绿',
       '     (守门 102:预筛必须是判据字面量超集)。遮噪方向**刻意只遮注释、保留字符串**:本门要判的',
-      '     就是 `includes(\'429\')` 里那个字面量,整条遮字符串 = 对该形态全盲,而全盲的门报出来的是',
+      "     就是 `includes('429')` 里那个字面量,整条遮字符串 = 对该形态全盲,而全盲的门报出来的是",
       '     最贵的那种假绿(门 131 正是被自己写的解释判红的)。',
       '  🔍 射程 = apps/ 与 packages/ 的 .ts/.tsx/.js/.jsx;测试面不判红但**必须报名**(--all 逐文件量),',
       '     因为把"按文本判"当契约钉在测试里,会让缺陷从"实现里的一处疏忽"升级成"改了就红"的锁。',
@@ -5090,7 +5240,15 @@ const checks = [
     ].join('\n'),
   },
 
-  { id: '207', label: '📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注)', script: 'check-agents-doc-size.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_AGENTS_DOC_SIZE', stagedTriggers: ['AGENTS.md'] },
+  {
+    id: '207',
+    label: '📏 AGENTS.md 体积守门(逐字注入面尺寸,预算 96,000 字节;口径与定级依据见脚本头注)',
+    script: 'check-agents-doc-size.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_AGENTS_DOC_SIZE',
+    stagedTriggers: ['AGENTS.md'],
+  },
   // --- 工作区嵌套 git 仓零容忍(2026-10-14 幻影仓事故)(1 项,blocking)---
   {
     id: '208',
@@ -5117,12 +5275,11 @@ const checks = [
   // --- 行切分口径对账(1 项,warn)---
   {
     id: '210',
-    label:
-      '📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格)',
+    label: '📐 TS/Python 行切分口径逐例同值对账(warn;§0.9 造好没装车那一格)',
     script: 'check-line-split-parity.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["apps/web/src/lib/py-line-count.ts", "apps/ai-service/app/routers/llm.py"],
+    stagedTriggers: ['apps/web/src/lib/py-line-count.ts', 'apps/ai-service/app/routers/llm.py'],
     skipEnv: 'HUSKY_SKIP_LINE_SPLIT_PARITY',
     onFailHint: [
       '',
@@ -5137,8 +5294,7 @@ const checks = [
   // --- 号池对账(G-313 续,2026-10-15 立):机主裁定任务号池 1..99(2026-10-24 由三位数收紧为两位数),该硬上限原先只写在发号器里,活面无门拦"声明位号 >99"⇒ 绕开发号器用 usedIdsOfPrefix max+1 发出过两条七位号(已让号)。升 blocking 前置 = HEAD 面存量归零(§12e);2026-10-15 复注:原 209 号注册块被 80bfe30520 覆盖掉,现由正牌插入器重新占号(1 项,blocking;2026-10-22 HEAD 存量归零后升档)---
   {
     id: '211',
-    label:
-      '🧮 PROJECT_PLAN 号池对账(声明位号 >99 按重数差值棘轮;R2 发号路径点名)',
+    label: '🧮 PROJECT_PLAN 号池对账(声明位号 >99 按重数差值棘轮;R2 发号路径点名)',
     script: 'check-plan-id-pool.mjs',
     args: [],
     mode: 'blocking',
@@ -5156,7 +5312,16 @@ const checks = [
     ].join('\n'),
   },
 
-  { id: '212', label: '🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注)', script: 'check-input-focus-feedback.mjs', args: [], mode: 'blocking', skipEnv: 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK', stagedTriggers: ['apps/', 'packages/'] },
+  {
+    id: '212',
+    label:
+      '🎯 输入框聚焦反馈对账(描边输入/选择控件必须有聚焦反应,三端同尺;存量按该文件 HEAD 自身棘轮只报数,定级依据与取证窗见脚本头注)',
+    script: 'check-input-focus-feedback.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_INPUT_FOCUS_FEEDBACK',
+    stagedTriggers: ['apps/', 'packages/'],
+  },
   // --- 213 (2026-10-15 新增,盘根写入回归锁:从代码面杜绝新的盘根外流生产者) ---
   // blocking:只拦**本次提交新增**的盘根一级写入(差值棘轮,锚点 = 该文件 HEAD 自身 W1 数),
   //   存量只报数不判红(§12e 恒红门禁令);全量档按构造恒"新增 0",提交链走 --staged。
@@ -5168,7 +5333,7 @@ const checks = [
     script: 'check-disk-root-write.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_DISK_ROOT_WRITE',
   },
   // --- ApiKeyPermission 三面对账(1 项,blocking)---
@@ -5180,7 +5345,12 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_API_KEY_PERM_LABELS',
-    stagedTriggers: ['packages/types/src/api-key.ts', 'apps/web/app/(main)/admin/developer/DeveloperKeyDialog.tsx', 'apps/web/app/(main)/settings/api-keys/PermissionSelector.tsx', 'packages/i18n/messages/web'],
+    stagedTriggers: [
+      'packages/types/src/api-key.ts',
+      'apps/web/app/(main)/admin/developer/DeveloperKeyDialog.tsx',
+      'apps/web/app/(main)/settings/api-keys/PermissionSelector.tsx',
+      'packages/i18n/messages/web',
+    ],
     onFailHint: [
       '',
       '红线:不得为变绿把表改成 Partial<Record<...>> 或加 ! 断言 —— 那等于废掉编译期那把尺(镜像测试第 4 臂钉住)。',
@@ -5199,7 +5369,12 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_CI_TRIAGE_WIRING',
-    stagedTriggers: ['.github/workflows/', 'scripts/ci-failure-triage.sh', 'scripts/data/ci-triage-exempt-jobs.json', 'scripts/check-ci-failure-triage-wiring.mjs'],
+    stagedTriggers: [
+      '.github/workflows/',
+      'scripts/ci-failure-triage.sh',
+      'scripts/data/ci-triage-exempt-jobs.json',
+      'scripts/check-ci-failure-triage-wiring.mjs',
+    ],
     onFailHint: [
       '',
       '红线:不得为变绿去放宽 TRIAGE_IDS 匹配或删掉豁免台账条目;W1 覆盖面存量归各工作流持有人,判据只拦新增(§12e)。',
@@ -5210,7 +5385,19 @@ const checks = [
   },
 
   // --- 217/218(2026-10-15/16 立;原注 213/214→214/215 两度与上游撞号让位顺延:213 已归盘根写入门、214 已归 ApiKeyPermission 三面对账;病理五类实锤/hex 取材口径逐字归档 .ihui-agent/archive/guardian-runner-comments-pre-6000-2026-10-14.md §门214/215,2026-10-16 C1 腾行)---
-  { id: '217', label: '📐 mobile-rn sheet/弹窗 flex 弹性契约 + RN 百分比高度零容忍(bounded 容器内列表唯一弹性块 / R3 百分比只能走数值真相源)', script: 'check-sheet-flex-contract.mjs', args: [], mode: 'blocking', stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'scripts/lib/rn-percent-height-policy.mjs'] },
+  {
+    id: '217',
+    label:
+      '📐 mobile-rn sheet/弹窗 flex 弹性契约 + RN 百分比高度零容忍(bounded 容器内列表唯一弹性块 / R3 百分比只能走数值真相源)',
+    script: 'check-sheet-flex-contract.mjs',
+    args: [],
+    mode: 'blocking',
+    stagedTriggers: [
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+      'scripts/lib/rn-percent-height-policy.mjs',
+    ],
+  },
   {
     id: '218',
     label: '🎨 RN 端硬编码 hex 基线棘轮(基线之外新增 #hex 即 BLOCK,存量只减不增)',
@@ -5218,7 +5405,11 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_RN_STYLE_PARITY',
-    stagedTriggers: ['apps/mobile-rn/src/', 'packages/app/src/', 'scripts/rn-style-parity-baseline.json'],
+    stagedTriggers: [
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+      'scripts/rn-style-parity-baseline.json',
+    ],
     onFailHint: [
       '',
       '  改法:把 #hex 换成 @ihui/design-tokens(rnLightTokens/rnDarkTokens)的 token 引用,不要新造近似色。',
@@ -5248,17 +5439,20 @@ const checks = [
   // --- 监控大屏指标名对账(1 项,blocking)---
   {
     id: '220',
-    label:
-      '监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
+    label: '监控大屏指标名对账(大屏查询的每个指标必须有代码发射点或台账登记)',
     script: 'check-grafana-metric-exists.mjs',
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GRAFANA_METRIC_EXISTS',
-    stagedTriggers: ['monitoring', 'deploy', 'apps/ai-service/app', 'apps/api/src', 'packages', 'scripts/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    stagedTriggers: [
+      'monitoring',
+      'deploy',
+      'apps/ai-service/app',
+      'apps/api/src',
+      'packages',
+      'scripts/',
+    ],
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 监控大屏 ↔ 数据源 接线对账(1 项,blocking)---
@@ -5286,7 +5480,7 @@ const checks = [
     script: 'check-mjs-syntax.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*.mjs"],
+    stagedTriggers: ['**/*.mjs'],
     skipEnv: 'HUSKY_SKIP_MJS_SYNTAX',
     onFailHint: [
       '',
@@ -5321,7 +5515,8 @@ const checks = [
   // --- 生成器资源释放(1 项,warn;升 blocking 前置见门体头注)---
   {
     id: '225',
-    label: '生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
+    label:
+      '生成器资源释放对账(warn;持有事务/句柄/订阅的 async 生成器,消费方提前 break/抛错时不得只靠退出作用域与 GC)',
     script: 'check-generator-resource-release.mjs',
     args: [],
     mode: 'warn',
@@ -5364,8 +5559,7 @@ const checks = [
   // --- 钩子形态(1 项,blocking)---
   {
     id: '226',
-    label:
-      '钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib)',
+    label: '钩子装载形态对账(.husky 钩子必须 sh 薄壳,node 正文只能在 scripts/lib)',
     script: 'check-husky-hook-form.mjs',
     args: [],
     mode: 'blocking',
@@ -5387,7 +5581,10 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MINIAPP_TARO_DESIGN_TOKENS',
-    stagedTriggers: ['apps/miniapp-taro/src/app.css', 'packages/design-tokens/src/styles/tokens.css'],
+    stagedTriggers: [
+      'apps/miniapp-taro/src/app.css',
+      'packages/design-tokens/src/styles/tokens.css',
+    ],
     onFailHint: [
       '',
       '  💡 app.css 首块的 design-token 档与 packages/design-tokens/src/styles/tokens.css 不同值。',
@@ -5406,7 +5603,10 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_BPE_ENCODING_PARITY',
-    stagedTriggers: ['packages/context-compaction/', 'apps/ai-service/app/core/context_compaction.py'],
+    stagedTriggers: [
+      'packages/context-compaction/',
+      'apps/ai-service/app/core/context_compaction.py',
+    ],
     onFailHint: [
       '',
       '  💡 两端 BPE 表必须同是已批准的 cl100k_base;改 token-estimate.ts 或 context_compaction.py 后',
@@ -5426,10 +5626,7 @@ const checks = [
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_AUTH_COOKIE_DOMAIN_SCOPE',
     stagedTriggers: ['apps/api/'],
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 暖色描边禁令(1 项,blocking)---
@@ -5440,12 +5637,9 @@ const checks = [
     script: 'check-no-warm-border.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_WARM_BORDER',
-    onFailHint: [
-      '',
-      '',
-    ].join('\n'),
+    onFailHint: ['', ''].join('\n'),
   },
 
   // --- 嵌套仓豁免台账耐久性(1 项,blocking)---
@@ -5456,7 +5650,10 @@ const checks = [
     script: 'check-no-nested-git-sites-durability.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["scripts/data/no-nested-git-sites.jsonl", "scripts/data/no-nested-git-exemptions.json"],
+    stagedTriggers: [
+      'scripts/data/no-nested-git-sites.jsonl',
+      'scripts/data/no-nested-git-exemptions.json',
+    ],
     skipEnv: 'HUSKY_SKIP_NESTED_GIT_SITES_DURABILITY',
     onFailHint: [
       '',
@@ -5508,8 +5705,7 @@ const checks = [
   // --- 计划/台账(1 项,blocking)---
   {
     id: '234',
-    label:
-      '计划台账侧车字段一致性(新增行有侧车 ∧ 标头==侧车投影)',
+    label: '计划台账侧车字段一致性(新增行有侧车 ∧ 标头==侧车投影)',
     script: 'check-plan-fields.mjs',
     args: [],
     mode: 'blocking',
@@ -5525,8 +5721,7 @@ const checks = [
   // --- Button 档位收编(1 项,blocking)---
   {
     id: '235',
-    label:
-      '📏 Button 高度档位(三面取材:HEAD blob / 索引 blob / 工作区仅人工)',
+    label: '📏 Button 高度档位(三面取材:HEAD blob / 索引 blob / 工作区仅人工)',
     script: 'check-button-height.mjs',
     args: [],
     mode: 'blocking',
@@ -5544,12 +5739,11 @@ const checks = [
   // --- tracked-ignored(1 项,blocking)---
   {
     id: '236',
-    label:
-      'tracked-but-ignored 新增拦截(gitignored 的东西不得进版本控制)',
+    label: 'tracked-but-ignored 新增拦截(gitignored 的东西不得进版本控制)',
     script: 'check-tracked-ignored.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_TRACKED_IGNORED',
     onFailHint: [
       '',
@@ -5628,7 +5822,7 @@ const checks = [
     onFailHint: [
       '',
       '  💡 端侧没有 white-space,读数被压缩就折行。修法按宿主形态分五档(docs/UI_GUIDELINES.md §13.4):',
-      '     【等分格】1) 行加 flexWrap: \'wrap\'  —— 放不下就**整格换行**;',
+      "     【等分格】1) 行加 flexWrap: 'wrap'  —— 放不下就**整格换行**;",
       '                2) 格加 minWidth = 该格最坏读数的单行宽 —— 没有它 flexWrap 一次都不触发',
       '                   (flex:1 的 flexBasis 是 0,子项总宽永不超容器,只会等分压缩)。',
       '     【space-between 行】读数 Text 加 flexShrink: 0 —— 行内两个子项都没有 flex 时,',
@@ -5695,7 +5889,14 @@ const checks = [
     script: 'check-live-doc-duplicates.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ['README.md', 'README.en.md', 'README.ko.md', 'README.ja.md', 'AGENTS.md', 'PROJECT_PLAN.md'],
+    stagedTriggers: [
+      'README.md',
+      'README.en.md',
+      'README.ko.md',
+      'README.ja.md',
+      'AGENTS.md',
+      'PROJECT_PLAN.md',
+    ],
     skipEnv: 'HUSKY_SKIP_LIVE_DOC_DUPLICATES',
     onFailHint: [
       '',
@@ -5725,10 +5926,10 @@ const checks = [
       '     「今日签到(UTC 日)」并排,每天上海 00:00–08:00 签到格读成 0、连续天数断裂。',
       '     出口:apps/api/src/utils/biz-day.ts(bizDayStartUtc/bizDayKey/shiftBizDayKey);委托转发合法,自己再算不合法。',
       '     --staged 复验 / --self-test(9 例)/ 镜像 scripts/tests/check-biz-day-single-source.test.mjs。',
-       '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
-       '',
-     ].join('\n'),
-   },
+      '     紧急跳过(不推荐):HUSKY_SKIP_BIZ_DAY_SINGLE_SOURCE=1 git commit ...',
+      '',
+    ].join('\n'),
+  },
 
   // --- asyncio 后台任务强引用(2026-10-26 立;create_task 弱引用被 GC 族根治)---
   {
@@ -5784,7 +5985,12 @@ const checks = [
     script: 'check-money-display-single-source.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ['apps/web/', 'apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/'],
+    stagedTriggers: [
+      'apps/web/',
+      'apps/miniapp-taro/src/',
+      'apps/mobile-rn/src/',
+      'packages/app/src/',
+    ],
     skipEnv: 'HUSKY_SKIP_MONEY_DISPLAY_SINGLE_SOURCE',
     onFailHint: [
       '',
@@ -5796,7 +6002,6 @@ const checks = [
       '',
     ].join('\n'),
   },
-
 
   // --- 身份主体单一真相源(2026-10-25 立;crew/knowledge 匿名越权族根治)(1 项,blocking)---
   {
@@ -5837,7 +6042,18 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MIRROR_PURGE_INTACT',
-    stagedTriggers: ['README.md', 'README.en.md', 'README.ja.md', 'README.ko.md', 'AGENTS.md', 'docs/marketing/cn-launch-post.md', 'docs/marketing/multi-platform-distribution.md', 'docs/engineering/readme-01-positioning.md', 'docs/RELEASE.md', 'scripts/README.md'],
+    stagedTriggers: [
+      'README.md',
+      'README.en.md',
+      'README.ja.md',
+      'README.ko.md',
+      'AGENTS.md',
+      'docs/marketing/cn-launch-post.md',
+      'docs/marketing/multi-platform-distribution.md',
+      'docs/engineering/readme-01-positioning.md',
+      'docs/RELEASE.md',
+      'scripts/README.md',
+    ],
     onFailHint: [
       '',
       '  💡 射程内任何一面出现镜像 purge 内容 = 回潮(union 行合并不传播删除,2026-10-23 实测两例:AGENTS.md §5b 旧断言复活、README 徽章回归)。\\n  M1 gitcode.com/IHUI-AI 死仓 URL(该仓已删)/ M2 gitee.com/JLSLSSZWHYXGS_0/IHUI-AI 仓库根链接(/releases/ 资产路径豁免)/\\n  M3 同行含「国内镜像」且含 gitee|gitcode / M4 mirror-to-cn 无弃用标记(弃用|已删除|不再写回|退役|2026-10-23)。\\n  修法:把该行改回 purge 后形态(删徽章 / 删链接 / 补弃用标记),别想着加豁免 —— 射程 10 个文档是机主令永禁清单;\\n  PROJECT_PLAN.md 刻意不在射程(历史台账叙事,收进来即恒红)。\\n  单独复验:node scripts/check-mirror-purge-intact.mjs --staged\\n  自检:node scripts/check-mirror-purge-intact.mjs --self-test(19 例,正反成对);\\n  镜像:node --test scripts/tests/check-mirror-purge-intact.test.mjs(10 例,含 T1 方向锁)。\\n  紧急跳过:HUSKY_SKIP_MIRROR_PURGE_INTACT=1(必须在提交信息里写明理由与清偿票)',
@@ -5845,12 +6061,10 @@ const checks = [
     ].join('\n'),
   },
 
-
   // --- 新模块缺对应测试准入(增量)(1 项,warn)---
   {
     id: '250',
-    label:
-      '🧪 新模块缺对应测试(增量;票 E2E 自动补测·发现缺口那半,先 warn 观察)',
+    label: '🧪 新模块缺对应测试(增量;票 E2E 自动补测·发现缺口那半,先 warn 观察)',
     script: 'check-e2e-coverage-gap.mjs',
     args: [],
     mode: 'warn',
@@ -5934,8 +6148,7 @@ const checks = [
     // 本道在门体/测试/文档三面**从不带编号**(现读 grep 皆零命中)⇒ 让号牵连 0 处。
     // 空闲号取 265(现读 runner 内 265 零命中,264 为当前最大)。
     id: '265',
-    label:
-      '📄 .ps1 必须带 UTF-8 BOM(差值棘轮:只拦本次新增/弄掉的)',
+    label: '📄 .ps1 必须带 UTF-8 BOM(差值棘轮:只拦本次新增/弄掉的)',
     script: 'check-ps1-bom.mjs',
     args: [],
     mode: 'blocking',
@@ -5958,12 +6171,11 @@ const checks = [
   // --- lint-staged stdio 三针盯针(1 项,warn:判机器状态 ⇒ §12e 只能 warn,与门 153 同型)---
   {
     id: '261',
-    label:
-      '📌 lint-staged stdio 三针盯针(判机器状态:node_modules 里三针还在不在;§12e 只能 warn)',
+    label: '📌 lint-staged stdio 三针盯针(判机器状态:node_modules 里三针还在不在;§12e 只能 warn)',
     script: 'check-lint-staged-stdio-pin.mjs',
     args: [],
     mode: 'warn',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_LINT_STAGED_PIN',
     onFailHint: [
       '',
@@ -5981,8 +6193,7 @@ const checks = [
   // --- 门注册表射程声明(1 项,blocking)---
   {
     id: '262',
-    label:
-      '📌 门注册表射程声明完备性(新增门必须写 stagedTriggers;摘射程判红;存量只报数)',
+    label: '📌 门注册表射程声明完备性(新增门必须写 stagedTriggers;摘射程判红;存量只报数)',
     script: 'check-gate-triggers.mjs',
     args: [],
     mode: 'blocking',
@@ -5998,7 +6209,8 @@ const checks = [
   },
   {
     id: '263',
-    label: '🐍 Python ruff lint(拦 chore(auto)/旁路落地把 Python 欠账直带进 HEAD)—— 2026-10-27 补注册,接线与点名同批',
+    label:
+      '🐍 Python ruff lint(拦 chore(auto)/旁路落地把 Python 欠账直带进 HEAD)—— 2026-10-27 补注册,接线与点名同批',
     script: 'check-ruff-python.mjs',
     args: [],
     mode: 'blocking',
@@ -6015,7 +6227,8 @@ const checks = [
   // --- 跨端视觉原子 spec 覆盖率棘轮(阶段3,守门 264)---
   {
     id: '264',
-    label: '🔗 跨端视觉原子 spec 覆盖率棘轮(退化才拦;口径见 scripts/check-cross-end-spec-coverage.mjs)',
+    label:
+      '🔗 跨端视觉原子 spec 覆盖率棘轮(退化才拦;口径见 scripts/check-cross-end-spec-coverage.mjs)',
     script: 'check-cross-end-spec-coverage.mjs',
     args: ['--ratchet'],
     mode: 'blocking',
@@ -6261,15 +6474,11 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_PERMISSION_LEASE_BOUNDED',
-    stagedTriggers: [
-      'apps/cli/src/',
-      'packages/',
-      'scripts/check-permission-lease-bounded.mjs',
-    ],
+    stagedTriggers: ['apps/cli/src/', 'packages/', 'scripts/check-permission-lease-bounded.mjs'],
     onFailHint: [
       '',
       '  💡 权限放宽必须租约化:grantPermissionLease 调用点同笔带 (expiresAt|ttlMs) 与',
-      '     (expiresAfterTurns|maxCalls);引用租约符号的文件不得自写 \'ask\' 比较式放行。',
+      "     (expiresAfterTurns|maxCalls);引用租约符号的文件不得自写 'ask' 比较式放行。",
       '     唯一出口 = apps/cli/src/tools/permissions.ts 的 applyLeaseToDecision。',
       '     复验:node scripts/check-permission-lease-bounded.mjs --staged',
       '     自检:node scripts/check-permission-lease-bounded.mjs --self-test',
@@ -6312,8 +6521,7 @@ const checks = [
   // --- 角色档合规对账(元素类别→档位,77 不判的那一型)(1 项,blocking)---
   {
     id: '150',
-    label:
-      '角色档合规对账(元素类别→档位,77 不判的那一型)',
+    label: '角色档合规对账(元素类别→档位,77 不判的那一型)',
     script: 'check-radius-role-conformance.mjs',
     args: [],
     mode: 'blocking',
@@ -6339,7 +6547,7 @@ const checks = [
     script: 'check-bypass-landing-scope.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_BYPASS_LANDING_SCOPE',
     onFailHint: [
       '',
@@ -6357,11 +6565,12 @@ const checks = [
   //   假承诺集合做差值棘轮,只拦**新增**假承诺;存量只点名不判红(问责出口 --strict)。
   {
     id: '172',
-    label: '🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)',
+    label:
+      '🛡  跳门变量承诺/兑现对账(blocking,文档承诺的 HUSKY_SKIP_* 必须有真实读点;差值棘轮只拦新增)',
     script: 'check-skip-env-promise.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     skipEnv: 'HUSKY_SKIP_SKIP_ENV_PROMISE',
     onFailHint: [
       '',
@@ -6481,7 +6690,8 @@ const checks = [
   // --- 台账短 sha 出处指针防回潮(G-1079146,warn 起步)(1 项)---
   {
     id: '196',
-    label: '📎 PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn)',
+    label:
+      '📎 PROJECT_PLAN.md 短 sha 出处指针防回潮(新增行裸短 sha 须走台账/声明前缀/文件名通道,warn)',
     script: 'check-plan-sha-form.mjs',
     args: [],
     mode: 'warn',
@@ -6505,7 +6715,8 @@ const checks = [
   // --- 有界列表截断诚实 + 投递档位收口绊线(G-998100/G-998101,2026-11-05 升 blocking)---
   {
     id: '197',
-    label: '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,blocking;2026-11-05 由 warn 升档)',
+    label:
+      '📉 truncated 声明块计数伴随 + 投递档位收口绊线(DTO 类型层,blocking;2026-11-05 由 warn 升档)',
     script: 'check-truncation-accounting.mjs',
     args: [],
     mode: 'blocking',
@@ -6559,7 +6770,7 @@ const checks = [
     script: 'check-plan-dup-pointer-ratchet.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ["PROJECT_PLAN.md"],
+    stagedTriggers: ['PROJECT_PLAN.md'],
     // 2026-10-13 立(用户指令"彻底根治"):存量指针注记已由 scripts/plan-pointer-purge.mjs --apply 一次性清偿并对象空间落地(715d495a9b5)。差值棘轮(同门 130 F7/F8):只拦"本次提交让登记行注记变多",存量不担责 —— 与提交内容无关的恒红门只会逼人 --no-verify 连带废掉全部守门(§12e)。
   },
   {
@@ -6574,7 +6785,8 @@ const checks = [
   },
   {
     id: '268',
-    label: '🧹 PROJECT_PLAN.md 回捞件差值棘轮(拦"摘除台账已声明删除的行又被带回被审面";全量档只报数)',
+    label:
+      '🧹 PROJECT_PLAN.md 回捞件差值棘轮(拦"摘除台账已声明删除的行又被带回被审面";全量档只报数)',
     script: 'check-head-recall-stock.mjs',
     args: [],
     mode: 'blocking',
@@ -6591,7 +6803,8 @@ const checks = [
   },
   {
     id: '269',
-    label: '🧭 API 路由唯一性(同一 (method,path) 注册两次只在装配期抛;--staged 判索引 blob,差值棘轮只拦新增)',
+    label:
+      '🧭 API 路由唯一性(同一 (method,path) 注册两次只在装配期抛;--staged 判索引 blob,差值棘轮只拦新增)',
     script: 'check-api-route-uniqueness.mjs',
     args: [],
     mode: 'blocking',
@@ -6639,7 +6852,7 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_MODAL_KEYBOARD_AVOID',
     onFailHint: [
       '',
-      '  💡 把该 Modal 的唯一直接子容器就地换成 <KeyboardAvoidingView style={原容器} behavior={Platform.OS===\'ios\'?\'padding\':undefined}>;',
+      "  💡 把该 Modal 的唯一直接子容器就地换成 <KeyboardAvoidingView style={原容器} behavior={Platform.OS==='ios'?'padding':undefined}>;",
       '     那层若是带 onPress 的遮罩 Pressable,把遮罩点击下移一枚 StyleSheet.absoluteFill 的 Pressable(端内 5 处先例)。',
       '     别在外面新包一层:祖先插入会重排整棵子树缩进,在共享工作区等于改写他人行。',
       '     跨文件封装(children 由调用方传入的 BottomPops/Sheet)本门结构上看不到,那条腿由',
@@ -6736,7 +6949,7 @@ const checks = [
     script: 'scan-dead-i18n-keys.mjs',
     args: ['--exit', '1'],
     mode: 'blocking',
-    stagedTriggers: ["**/*"],
+    stagedTriggers: ['**/*'],
     // 2026-10-22 立:原先由 pre-commit-hook 用 execSync **串行**跑,独占 6.6s(实测)。
     // 移进并行池后与其他门重叠 ⇒ 这 6.6s 等于白得。判据、退出码、跳过开关一字未动。
     // 逃生:HUSKY_SKIP_I18N_DEAD_KEY=1(与原 pre-commit 段同一变量,语义不变)。
@@ -6901,7 +7114,7 @@ const checks = [
       '  💡 [D1 单源] 又长出一份本地 LIKE 转义实现。修复:改调 apps/api/src/utils/like-escape.ts 的',
       '     escapeLikeChars(只转义,给前缀/后缀/JSON 片段)或 asContainsTerm / asPrefixTerm(转义+包裹)。',
       '     需要第四种形态 = 先把它加进单源,不要在调用点抄。',
-      '  💡 [D2 新增] 本次把用户输入内插进了 `%${x}%` / \'%\' + x + \'%\'。修复:换成 asContainsTerm(x)。',
+      "  💡 [D2 新增] 本次把用户输入内插进了 `%${x}%` / '%' + x + '%'。修复:换成 asContainsTerm(x)。",
       '     存量 276 处只报数不拦(分档清偿中);故意吃通配符的面不要转义 —— 去登记台账。',
       '  💡 [D3 台账] 腐烂/到期的意思是:登记的"整值即模式"面已不再命中(要么被改了要么被删了),',
       '     或豁免到期未销账。修法是就地复核并更新 scripts/data/like-wildcard-intentional.json,不是删判据。',
@@ -6952,7 +7165,8 @@ const checks = [
   // 取号按「注册前现读」:数值 id 现读最大 284,285..300 全空 ⇒ 落 285。判据/档位/skipEnv 一字未动。
   {
     id: '285',
-    label: '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
+    label:
+      '📚 文档中心公开面健康对账(blocking;D1 hreflang 声明↔路由文件存在 / D2 sitemap 收录↔路由 / D3 docs 的 icon 字段禁 emoji)',
     script: 'check-docs-public-health.mjs',
     args: ['--staged'],
     mode: 'blocking',
@@ -7044,8 +7258,7 @@ const checks = [
   // --- 共享屏「至少被一枚 RN 壳直接 import」覆盖判据(P0-1,守门 283)---
   {
     id: '283',
-    label:
-      '🧩 共享屏 RN 薄壳覆盖(blocking;新增共享屏既无 RN 壳直接 import 又未在册认领 ⇒ 拦提交)',
+    label: '🧩 共享屏 RN 薄壳覆盖(blocking;新增共享屏既无 RN 壳直接 import 又未在册认领 ⇒ 拦提交)',
     script: 'check-rn-host-shell-coverage.mjs',
     args: ['--gate'],
     mode: 'blocking',
@@ -7085,8 +7298,7 @@ const checks = [
   // --- 跨端「声明承载 vs 真承载」差集棘轮(2026-11-03 立,守门 284)---
   {
     id: '284',
-    label:
-      '🪤 跨端声明承载 vs 真承载棘轮(blocking;差值只拦本次新增的假声明,存量逐条报数不拦)',
+    label: '🪤 跨端声明承载 vs 真承载棘轮(blocking;差值只拦本次新增的假声明,存量逐条报数不拦)',
     script: 'check-declared-carriage.mjs',
     args: ['--gate'],
     mode: 'blocking',
@@ -7146,7 +7358,11 @@ const checks = [
     script: 'check-miniapp-interaction-hygiene.mjs',
     args: [],
     mode: 'blocking',
-    stagedTriggers: ['apps/miniapp-taro/src/', 'scripts/check-miniapp-interaction-hygiene.mjs', 'scripts/data/miniapp-interaction-allowlist.json'],
+    stagedTriggers: [
+      'apps/miniapp-taro/src/',
+      'scripts/check-miniapp-interaction-hygiene.mjs',
+      'scripts/data/miniapp-interaction-allowlist.json',
+    ],
     skipEnv: 'HUSKY_SKIP_MINIAPP_INTERACTION_HYGIENE',
     onFailHint: [
       '  💡 A1 假可点:onClick/onLongClick/onTap 绑了空实现(() => {} / undefined / noop)或 className 带',
@@ -7182,7 +7398,7 @@ const checks = [
     skipEnv: 'HUSKY_SKIP_WEB_RN_COPY_PARITY',
     onFailHint: [
       '  💡 B1 红 = 同一句话被写了两遍:web 该屏已用 i18n 键,RN 还手写中文。改法是把 RN 那处换成',
-      '     同一个键(跨端共享屏由宿主注入 t,直接 t(\'全键\'))。代码字符串/日志/样式类名不在射程。',
+      "     同一个键(跨端共享屏由宿主注入 t,直接 t('全键'))。代码字符串/日志/样式类名不在射程。",
       '  💡 若确属存量未清(改键会动观感或跨包),往 scripts/data/web-rn-copy-diffs.json 逐屏登记',
       '     file(web 路由)/rule/count/owner/expires/evidence;到期即红,认领数少于现读即红。',
       '  💡 B2 同值异键只出 advisory(合并键空间动 i18n 结构,裁决权归人),记档即可,不阻提交。',
@@ -7289,7 +7505,8 @@ const pushGateChecks = [
   // 不碰 .husky/pre-push 的 tag 分支（另一席在改）；只在本注册表里加一条 blocking。
   {
     id: 'IG',
-    label: '🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判:未声明/签名缺失或验不过/清单到期 ⇒ 拦推)',
+    label:
+      '🧊  判据面不可变护栏(push 区间 origin/main..HEAD 逐枚判:未声明/签名缺失或验不过/清单到期 ⇒ 拦推)',
     script: 'check-immutable-guard.mjs',
     args: ['--range', 'origin/main..HEAD'],
     mode: 'blocking',
@@ -7484,6 +7701,13 @@ guardian-runner.mjs — 守门脚本批量执行器
   process.exit(0)
 }
 
-
-await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs })
+await runGuardianBatch({
+  checks,
+  pushGateChecks,
+  effectiveChecks,
+  passStaged,
+  pushGate,
+  showTiming,
+  cliArgs,
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

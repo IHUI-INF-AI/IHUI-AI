@@ -1,0 +1,13 @@
+{
+  "target": "web-static",
+  "artifact": "apps/web/out",
+  "generatedAt": "2026-11-07T06:20:52.348Z",
+  "generatedBy": "node scripts/gen-artifact-budget-baseline.mjs --target web-static",
+  "artifactSha256": "8c581b83e2c712d7ac8d7c34a2484ebba0e9e59dec463ff37ce212675f6ae33e",
+  "fileCount": 7487,
+  "measuredBytes": 383750723,
+  "newestMtime": "2026-09-14T15:48:37.268Z",
+  "limitBytes": 383750723,
+  "warnPct": 101,
+  "note": "limitBytes = 最近一次真实构建产物的实测总量(硬上限);warnPct=101 表示不设告警水位,任何超过该基线的增长都直接判红。换了构建配置/导出范围后必须重新生成本文件。"
+}

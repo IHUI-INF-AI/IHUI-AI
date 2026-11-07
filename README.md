@@ -77,7 +77,7 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 对外关键数字声明(与本页生成块同源,均现算):**624 张表 · 4703 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 测试文件数见生成块 · 336 道工程守门 · 54 CI workflows ·
+100 入库模型 · 38 平台自动发布 · 测试文件数见生成块 · 339 道工程守门 · 54 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
@@ -100,10 +100,10 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 测试文件 | 4260 | `testFiles` |
 | CI 工作流 | 54 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 336 | `guardianGates` |
+| 工程守门 | 339 | `guardianGates` |
 | — blocking | 309 | `guardianBlocking` |
 | — warn | 29 | `guardianWarn` |
-| 跟踪文件 | 19617 | `trackedFiles` |
+| 跟踪文件 | 19620 | `trackedFiles` |
 
 上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -867,7 +867,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - **客服支持**:工单系统 / WebSocket 在线客服 / 反馈中心
 ### ⚙️ 工程基建(一个人驾驭百万行代码的底气)
 - **规模**:624 张表 · 4703 API 路由 · 测试文件数与用例数见生成块
-- **质量**:336 道工程守门（244 blocking）· 54 CI workflows · 删水印即 CI 失败
+- **质量**:339 道工程守门（309 blocking）· 54 CI workflows · 删水印即 CI 失败
 - **可观测**:Prometheus + 大屏 + Loki + Jaeger + OpenTelemetry + Alertmanager
 - **部署**:Docker Compose 15 服务一键起全栈 · 蓝绿发布 · 自动备份 · 健康检查
 - **国际化**:5 语言 × 7 端 = 35 个语言包,parity 守门逐键对齐

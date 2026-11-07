@@ -39,13 +39,12 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const WAIVER_REL = 'scripts/data/i18n-cross-end-waivers.jsonl'
-const LANGS = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
 // 对账的两个端:小程序端 ↔ RN 端(用户口径"小程序端对齐 RN 端",这两端是同一批屏)
 const END_A = 'miniapp-taro'
 const END_B = 'mobile-rn'
@@ -262,7 +261,7 @@ export function run(argv = [], io = console) {
 /** 判据自检:构造面取证,不碰真仓。每条都成对跑正例与反例。 */
 function selfTest(io) {
   const cases = []
-  const add = (name, pass) => cases.push({ name, pass })
+  const add = (name, fn) => cases.push({ name, pass: typeof fn === 'function' ? fn() : fn })
   const today = '2026-06-30'
   const okW = {
     key: 'x.y',
