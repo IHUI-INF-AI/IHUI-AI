@@ -455,6 +455,8 @@
     "generate": "생성",
     "generating": "생성 중…",
     "needRepoName": "저장소 이름을 입력하세요",
+    "searchBtn": "조회",
+    "loadFailed": "문서 목록 불러오기 실패",
     "needFolder": "먼저 폴더를 선택하세요",
     "noTextFiles": "분석 가능한 텍스트 파일이 없습니다",
     "pickerUnsupported": "현재 브라우저는 폴더 선택을 지원하지 않습니다",

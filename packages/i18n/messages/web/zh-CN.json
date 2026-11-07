@@ -455,6 +455,8 @@
     "generate": "生成",
     "generating": "生成中…",
     "needRepoName": "请输入仓库名",
+    "searchBtn": "查询",
+    "loadFailed": "加载文档列表失败",
     "needFolder": "请先选择文件夹",
     "noTextFiles": "未找到可分析的文本文件",
     "pickerUnsupported": "当前浏览器不支持文件夹选择",
