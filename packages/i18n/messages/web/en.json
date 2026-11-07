@@ -11256,6 +11256,7 @@
     "invalidPassword": "Password must be at least 6 characters",
     "invalidPhone": "Please enter a valid phone number",
     "invalidUsername": "Please enter a valid username",
+    "linuxdoLogin": "LinuxDo",
     "loginBtn": "Sign In",
     "loggedInContinue": "You're already signed in, click the button below to continue",
     "continueToSite": "Continue to Site",

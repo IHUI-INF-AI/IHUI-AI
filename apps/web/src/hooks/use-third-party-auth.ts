@@ -49,6 +49,7 @@ const PLATFORM_DISPLAY_NAMES: Record<ThirdPartyPlatform, string> = {
   feishu: '飞书',
   alipay: '支付宝',
   oidc: '企业 SSO',
+  linuxdo: 'LinuxDo',
   app: '本站 App',
 }
 
@@ -60,10 +61,13 @@ const MAX_RETRY = 5
 
 /**
  * 不走通用 OAuth 回调(`POST /api/auth/:platform/callback`)的平台:
- * oidc 由后端自己 generateState 后 302 到 IdP、回跳到后端闭环;app 走扫码票据。
- * 二者不参与"发起期落同意记录"这道闸,也不在 recordOAuthConsent 的 OAuthPlatform 枚举内。
+ * oidc 由后端自己 generateState 后 302 到 IdP、回跳到后端闭环;app 走扫码票据;
+ * linuxdo(2026-11-07 立)与 oidc 同型 —— 后端 GET /api/auth/oauth/linuxdo/{redirect,callback}
+ * 自带 state 与 httpOnly cookie 闭环,回跳 `${webOrigin}/sso/login?sso=linuxdo`,
+ * 通用回调只覆盖 8 平台不含它。三者都不参与"发起期落同意记录"这道闸,
+ * 也不在 recordOAuthConsent 的 OAuthPlatform 枚举内。
  */
-const NON_OAUTH_CALLBACK_PLATFORMS: readonly ThirdPartyPlatform[] = ['oidc', 'app']
+const NON_OAUTH_CALLBACK_PLATFORMS: readonly ThirdPartyPlatform[] = ['oidc', 'linuxdo', 'app']
 
 /** OAuth 回调后端入口（按平台） */
 function callbackPath(platform: ThirdPartyPlatform): string {

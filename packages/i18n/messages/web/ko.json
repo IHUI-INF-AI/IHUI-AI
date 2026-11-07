@@ -11256,6 +11256,7 @@
     "invalidPassword": "비밀번호는 6자 이상이어야 합니다",
     "invalidPhone": "올바른 전화번호를 입력해주세요",
     "invalidUsername": "사용자명은 3자 이상이어야 합니다",
+    "linuxdoLogin": "LinuxDo",
     "loginBtn": "로그인",
     "loggedInContinue": "이미 로그인했습니다. 아래 버튼을 눌러 계속하세요",
     "continueToSite": "사이트로 이동",
