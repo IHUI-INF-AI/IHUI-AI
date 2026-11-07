@@ -498,7 +498,7 @@ function createStyles(tk: AppThemeTokens) {
     resultOutput: {
       marginTop: rnSpacing.xs, // mt-1
       fontSize: rnType.label.size, // text-xs
-      lineHeight: 16, // leading-4
+      lineHeight: rnType.label.lineHeight, // leading-4
       color: tk.text.primary, // text-gray-700 dark:text-neutral-200
     },
     /* 记录卡 */

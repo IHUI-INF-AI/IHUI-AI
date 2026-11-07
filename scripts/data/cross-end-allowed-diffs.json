@@ -1845,6 +1845,26 @@
       "expires": "2027-03-31",
       "reason": "RN 用 prompt 是否存在隐式切换聊天/按钮两种模式(RN:328-332),小程序用显式 variant(default/ai-home)。模式判别机制不同,能力齐全。",
       "evidence": "check-cross-end-component-props-parity --json: BottomActionBar mini 侧独有键 variant(2026-11-03 提案复核登记);提案证据 apps/mobile-rn/src/components/BottomActionBar.tsx:328"
+    },
+    {
+      "component": "VipScreen.methodBadge",
+      "key": "styleTier:radius:borderRadius:13",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-06-30",
+      "count": 1,
+      "reason": "RN 圆形徽标/头像尺寸,按尺寸一半写 borderRadius;web 侧用 rounded-full/类名档无同值像素档,登记为 RN 单侧展示必需项,零观感取值改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/vip/VipScreen.tsx 的 methodBadge 为 borderRadius=13(1 处,26×26 圆徽标);web 侧无 13px 同值。"
+    },
+    {
+      "component": "AppTopupScreen.userAvatar",
+      "key": "styleTier:radius:borderRadius:24",
+      "platform": "rn",
+      "owner": "cross-end-ui",
+      "expires": "2027-06-30",
+      "count": 1,
+      "reason": "RN 圆形徽标/头像尺寸,按尺寸一半写 borderRadius;web 侧用 rounded-full/类名档无同值像素档,登记为 RN 单侧展示必需项,零观感取值改动。",
+      "evidence": "check-web-rn-style-tiers --json: packages/app/src/features/app-topup/AppTopupScreen.tsx 的 userAvatar 为 borderRadius=24(1 处,48×48 头像);web 侧无 24px 同值。"
     }
   ]
 }

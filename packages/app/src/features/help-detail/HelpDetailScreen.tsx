@@ -27,7 +27,7 @@ export function HelpDetailScreen({
   error,
   onBack,
   onRetry,
-  colorScheme = 'light'
+  colorScheme = 'light',
 }: HelpDetailScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
@@ -112,7 +112,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.title.size,
       color: tk.text.medium,
-      lineHeight: 22,
+      lineHeight: rnType.strong.lineHeight,
     },
   })
 }

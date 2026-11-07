@@ -223,7 +223,7 @@ export function AssistantScreen({
       <FlatList
         data={list}
         keyExtractor={(i) => i.id}
-        contentContainerStyle={{ padding: 16 }}
+        contentContainerStyle={{ padding: rnSpacing.lg }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={

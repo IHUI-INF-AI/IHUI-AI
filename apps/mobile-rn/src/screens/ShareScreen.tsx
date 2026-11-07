@@ -344,7 +344,7 @@ export function ShareScreen() {
                   {/* 守门 131 改型:absolute 定位盒(position/top/right/24×24)是外层槽位,
                       底色圆角等可视档进满尺寸内层 face,pressed 淡出仍覆盖整颗圆钮。 */}
                   <Pressable
-                  hitSlop={6}
+                    hitSlop={6}
                     style={styles.clearBtn}
                     onPress={() => setImageUri('')}
                     accessibilityRole="button"
@@ -481,7 +481,7 @@ function createStyles(tk: RnThemeTokens) {
     voiceText: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
-      lineHeight: 20,
+      lineHeight: rnType.body.lineHeight,
       marginTop: rpx(8),
     } as TextStyle,
     pickerBox: {
@@ -539,7 +539,7 @@ function createStyles(tk: RnThemeTokens) {
     clearText: {
       fontSize: rnType.title.size,
       color: tk.surface.light,
-      lineHeight: 18,
+      lineHeight: rnType.bodySm.lineHeight,
     } as TextStyle,
     bottomBar: {
       paddingHorizontal: rpx(32),

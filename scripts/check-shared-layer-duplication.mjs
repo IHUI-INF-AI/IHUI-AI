@@ -24,6 +24,14 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Undetermined, assertRepoRoot, listFaceFiles, selectFace } from './lib/face-reader.mjs'
 import { addedLineNumbers, readSources } from './lib/face-scan.mjs'
+import {
+  PURITY_ROOTS,
+  firstSignalLine,
+  judgePlatformPurity,
+  platformPurityCounts,
+  readPurityLedger,
+  writePurityLedger,
+} from './lib/shared-layer-purity.mjs'
 
 /** ROOT 由脚本自身位置推导(AGENTS §15:不得用 process.cwd() 定根) */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -35,6 +43,9 @@ check-shared-layer-duplication.mjs — 共享层重复检测(端内不得重写 
   node scripts/check-shared-layer-duplication.mjs            全量档:判 HEAD blob
   node scripts/check-shared-layer-duplication.mjs --staged   提交档:判索引 blob
   node scripts/check-shared-layer-duplication.mjs --worktree 人工逃生舱:判磁盘(不作提交门禁)
+  node scripts/check-shared-layer-duplication.mjs --platform-purity S3 共享层平台纯度(独立判定维)
+  node scripts/check-shared-layer-duplication.mjs --platform-purity --json
+  node scripts/check-shared-layer-duplication.mjs --emit-purity-ledger 重固化 S3 台账(存量计数)
   node scripts/check-shared-layer-duplication.mjs --help     显示本帮助
 
 判定:
@@ -42,6 +53,9 @@ check-shared-layer-duplication.mjs — 共享层重复检测(端内不得重写 
   hook 维(use[A-Z] 同名):阻断档,与旧口径一致。
   util 维(非 hook 的 function/const 同名,G-880 加固):存量棘轮档 —— 全量面只报数,
     --staged 只拦本次提交新增行;shared 侧只认 function/const(类型同名是撞车不是重实现)。
+  S3 平台纯度(packages/app/src/features|components):裸 rpx / 内联 var(--) / hoverClass /
+    className 四信号按文件棘轮;平台专属资产须在 scripts/data/shared-layer-platform-purity.jsonl
+    登记 consumption 证据(带 owner/expires/why),未登记或上调即红。
   例外:re-export wrapper(命中 from '@ihui/shared' 且 < 50 行)、export 行自带 from、
         WHITELIST 登记的深度集成/平台 adapter(每条带 reviewBy,到期不再豁免、照计违规)
 `
@@ -341,6 +355,109 @@ function analyze({ root = ROOT, face = 'head' } = {}) {
   }
 }
 
+/** ===== S3 共享层平台纯度(2026-11-06 追加;独立判定维,不与门 291 文案/299 复制页/218 配色混用)=====
+ * 共享层(web/RN/小程序三方都 import 的 features/components)不得出现平台专属写法:
+ * 裸 `rpx` 字面量、内联 `var(--)`、`hoverClass`、以及 `className` 直接落盘。
+ * 设计稿裁定:平台专属资产(仅一端消费)可保留,但必须在台账登记 consumption 证据,
+ * 不硬改成"看起来纯"再回头在消费端打补丁。存量按文件计数棘轮:只降不升。
+ *
+ * 判据与台账读写全部下沉 `lib/shared-layer-purity.mjs`:本门既有形状锁要求门内零 `readFileSync`
+ * (取材只走 face-reader/face-scan 同一被审面),且纯判定可被单测直接调用。此处只留编排。
+ */
+
+function emitPurityLedger(face) {
+  let files
+  try {
+    files = listFaceFiles(ROOT, face, { paths: PURITY_ROOTS })
+      .map((p) => String(p).replace(/\\/g, '/'))
+      .filter((r) => /\.(tsx|ts)$/.test(r) && !/\.test\.[tj]sx?$/.test(r))
+  } catch (e) {
+    console.error(`❌ 未判定:取不到被审面(${e?.message ?? e})`)
+    return 2
+  }
+  let texts
+  try {
+    texts = readSources(ROOT, face, files).texts
+  } catch (e) {
+    console.error(`❌ 未判定:取不到正文(${e?.message ?? e})`)
+    return 2
+  }
+  const prev = readPurityLedger(ROOT)
+  const rows = []
+  for (const f of files) {
+    const counts = platformPurityCounts(texts.get(f) ?? '')
+    if (!Object.values(counts).some((n) => n > 0)) continue
+    const old = prev.ok ? prev.ledger[f] : null
+    const line = firstSignalLine(texts.get(f) ?? '')
+    if (old?.kind === 'platform-asset') {
+      // 平台专属资产的 consumption 证据是人写的,重固化只更新计数,不改证据
+      rows.push({ ...old, counts })
+      continue
+    }
+    rows.push({
+      file: f,
+      kind: 'legacy-ratchet',
+      owner: 'cross-end-style',
+      expires: '2027-06-30',
+      evidence: [`${f}:${line}`],
+      why: '存量登记(共享层平台杂质):待按平台专属资产处置或纯化;新增/上调由门 S3 拦截',
+      counts,
+    })
+  }
+  writePurityLedger(ROOT, rows)
+  console.log(`已固化共享层平台纯度台账:${rows.length} 个文件(含四信号计数)`)
+  return 0
+}
+
+async function platformPurityMain({ argv, face }) {
+  let files
+  try {
+    files = listFaceFiles(ROOT, face, { paths: PURITY_ROOTS })
+      .map((p) => String(p).replace(/\\/g, '/'))
+      .filter((r) => /\.(tsx|ts)$/.test(r) && !/\.test\.[tj]sx?$/.test(r))
+  } catch (e) {
+    console.error(`❌ 未判定:取不到共享层文件清单(${e?.message ?? e})`)
+    return 2
+  }
+  if (files.length === 0) {
+    console.error('❌ 未判定:共享层枚举到 0 个文件(不记绿)')
+    return 2
+  }
+  let texts
+  try {
+    texts = readSources(ROOT, face, files).texts
+  } catch (e) {
+    console.error(`❌ 未判定:取不到共享层正文(${e?.message ?? e})`)
+    return 2
+  }
+  const countsByFile = {}
+  for (const f of files) {
+    const c = platformPurityCounts(texts.get(f) ?? '')
+    if (Object.values(c).some((n) => n > 0)) countsByFile[f] = c
+  }
+  const read = readPurityLedger(ROOT)
+  if (!read.ok) {
+    console.error(`❌ 未判定:${read.why}`)
+    return 2
+  }
+  const judged = judgePlatformPurity({ countsByFile, ledger: read.ledger })
+  const out = { face, scanned: files.length, hitFiles: Object.keys(countsByFile).length, ...judged }
+  if (argv.includes('--json')) {
+    console.log(JSON.stringify(out, null, 2))
+  } else {
+    console.log(
+      `S3 共享层平台纯度:扫描 ${files.length} 文件,命中 ${Object.keys(countsByFile).length} 文件,台账 ${Object.keys(read.ledger).length} 条`,
+    )
+    for (const v of judged.violations) {
+      const tail =
+        v.type === 'increase' ? `${v.signal} ${v.base} → ${v.now}` : v.type === 'expired' ? `台账到期 ${v.expires ?? '(缺)'}` : '未在台账登记'
+      console.error(`  ❌ ${v.file} — ${tail}`)
+    }
+    for (const r of judged.rot) console.log(`  · 可回收台账 ${r.file}(当前已无信号,不阻断)`)
+  }
+  return judged.state === 'violated' ? 1 : 0
+}
+
 /** CLI 主流程。**返回退出码**而不是 process.exit —— 测试 import 不得打死宿主(§22d)。 */
 export async function main(argv = process.argv.slice(2)) {
   if (argv.includes('--help')) {
@@ -363,6 +480,8 @@ export async function main(argv = process.argv.slice(2)) {
     console.error(`❌ 无法判定:${e?.message ?? e}`)
     return 2
   }
+  if (argv.includes('--emit-purity-ledger')) return emitPurityLedger(face)
+  if (argv.includes('--platform-purity')) return platformPurityMain({ argv, face })
   let result
   try {
     result = analyze({ root: ROOT, face })

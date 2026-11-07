@@ -31,7 +31,11 @@ export function createAgreementStyles(tk: AppThemeTokens) {
     metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     metaLabel: { fontSize: rnType.label.size, color: tk.text.tertiary },
     metaValue: { fontSize: rnType.label.size, color: tk.text.secondary },
-    paragraph: { fontSize: 14, color: tk.text.medium, lineHeight: 22 },
+    paragraph: {
+      fontSize: rnType.body.size,
+      color: tk.text.medium,
+      lineHeight: rnType.strong.lineHeight,
+    },
     loadingText: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,
