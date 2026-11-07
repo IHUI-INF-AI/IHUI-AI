@@ -409,7 +409,7 @@ export function SidebarUserRow({
              内容宽度完全由子内容决定,父 `flex justify-center` 居中 → 左右空白 100% 对称。
           4) 几个字的名称(2-7 字)自适应宽度,row 永远按内容宽度收缩,
              不会出现"文字被截断贴到 button 右侧"的视觉问题。
-          5) 只有当 sidebar 拖到极窄(130px 最小)+ 长昵称(8 字+)时,span 才用 `min-w-0 truncate` 截断,
+          5) 只有当 sidebar 拖到极窄(SIDEBAR_MIN_WIDTH 最小)+ 长昵称(8 字+)时,span 才用 `min-w-0 truncate` 截断,
              截断时显示省略号,不会贴到 button(因为有 gap-2 + px-2 双重间距)。
         - 父容器 hover:bg-sidebar-item-hover-bg 出现弱色底(亮色纯白/暗色纯黑),
           与项目内其他导航项(NavLink/二级菜单)hover 行为完全一致,统一 hover 策略
