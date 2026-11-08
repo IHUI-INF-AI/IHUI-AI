@@ -31,8 +31,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const creationTypeParam = z.object({
     type: z.enum(['agent', 'workflow', 'plugin']),
   })
+  // F-06(2026-11-08):body.userId 不再入 schema,身份只取认证态 req.userId。
   const creationBody = z.object({
-    userId: z.string().optional(),
     page: z.coerce.number().int().min(1).optional().default(1),
     pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
     keyword: z.string().optional(),
@@ -48,7 +48,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { type, ...rest } = { type: paramParsed.data.type, ...bodyParsed.data }
-    const userId = rest.userId ?? req.userId
+    const userId = req.userId
     if (!userId) {
       return reply.status(401).send(error(401, '需要登录后查询'))
     }

@@ -314,6 +314,21 @@ export function __resetAiServiceStreamColdStartForTests(): void {
   aiServiceStreamConnectedOnce = false
 }
 
+/**
+ * F-03(2026-11-08):客户端传入的 `metadata.conversationId` 只表示"要操作哪个会话",
+ * 归属必须服务端查。不存在/非本人一律 false(调用方回 404),不得进入
+ * replaceMessages / createMessage / patchConversationMetadata / SSE 重放接管等写路径。
+ */
+async function isConversationOwnedBy(
+  conversationId: string | undefined,
+  userId: string | undefined,
+): Promise<boolean> {
+  if (!conversationId) return true
+  if (!userId) return false
+  const conversation = await findConversationById(conversationId)
+  return Boolean(conversation && conversation.userId === userId)
+}
+
 const chatStreamSchema = z.object({
   messages: z
     .array(
@@ -1412,6 +1427,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       } = parsed.data
       const resolvedModel = model ?? modelId
 
+      // F-03:先核会话归属(含 SSE 重放接管前的入口),非本人/不存在直接 404。
+      if (!(await isConversationOwnedBy(metadata?.conversationId, request.userId))) {
+        return reply.status(404).send(error(404, '会话不存在'))
+      }
+
       // G-165:把"这次对话绑哪个工作区"记进会话 metadata,供异步回调侧查**服务端自己的**
       // 权限记录给助手消息盖章(web 档位徽章因此可跨刷新/跨端存在)。
       // 幂等(值没变不写),且绝不阻塞流式主链路 —— 失败只 warn。
@@ -1687,6 +1707,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const resolvedModel = model ?? modelId
       const userId = request.userId
       const conversationId = metadata?.conversationId
+
+      // F-03:续答同样先核归属,避免 createMessage/patchConversationMetadata 写进他人会话。
+      if (!(await isConversationOwnedBy(conversationId, userId))) {
+        return reply.status(404).send(error(404, '会话不存在'))
+      }
 
       // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
       // 失败仅打日志,不影响续流(参考 persistMessageSafe 的容错策略)
