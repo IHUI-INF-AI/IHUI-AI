@@ -226,24 +226,33 @@ async def test_rpc_memory_status_roundtrip(tmp_path):
 
 
 async def test_rpc_memory_reset_requires_confirm(tmp_path):
-    """memory/reset 未确认:返回 confirmed=False 且不动数据。"""
+    """memory/reset 未确认:返回 confirmed=False 且不动数据(管理员通道)。"""
     engine = _rpc_engine(tmp_path)
     response = await engine.handle_message(
-        {"jsonrpc": "2.0", "id": 2, "method": "memory.reset", "params": {}}
+        {
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "memory.reset",
+            "params": {"roleId": 1},
+        }
     )
     result = response["result"]["result"]
     assert result["confirmed"] is False
 
 
 async def test_rpc_memory_reset_confirmed(tmp_path):
-    """memory/reset confirm=true:走完整链路清空并回计数。"""
+    """memory/reset confirm=true:走完整链路清空并回计数。
+
+    AIS-104 起本帧限管理员(roleId>=1):meta_learner lessons 是全局数据,
+    清空会影响全体租户,故补 roleId 后照旧验证清空链路。
+    """
     engine = _rpc_engine(tmp_path)
     response = await engine.handle_message(
         {
             "jsonrpc": "2.0",
             "id": 3,
             "method": "memory.reset",
-            "params": {"confirm": True},
+            "params": {"confirm": True, "roleId": 1},
         }
     )
     result = response["result"]["result"]
