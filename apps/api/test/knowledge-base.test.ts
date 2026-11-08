@@ -229,7 +229,7 @@ describe('knowledge-base routes', () => {
     })
 
     it('缺少 title 返回 400', async () => {
-      authAs()
+      authAs('admin-001', 1)
       const res = await app.inject({
         method: 'POST',
         url: '/api/knowledge-base',
@@ -240,7 +240,7 @@ describe('knowledge-base routes', () => {
     })
 
     it('title 过长(>200)返回 400', async () => {
-      authAs()
+      authAs('admin-001', 1)
       const res = await app.inject({
         method: 'POST',
         url: '/api/knowledge-base',
@@ -251,7 +251,7 @@ describe('knowledge-base routes', () => {
     })
 
     it('coverImage 过长(>500)返回 400', async () => {
-      authAs()
+      authAs('admin-001', 1)
       const res = await app.inject({
         method: 'POST',
         url: '/api/knowledge-base',
@@ -262,7 +262,7 @@ describe('knowledge-base routes', () => {
     })
 
     it('categoryId 非 UUID 返回 400', async () => {
-      authAs()
+      authAs('admin-001', 1)
       const res = await app.inject({
         method: 'POST',
         url: '/api/knowledge-base',
@@ -273,7 +273,7 @@ describe('knowledge-base routes', () => {
     })
 
     it('创建成功返回 201', async () => {
-      authAs()
+      authAs('admin-001', 1)
       enqueue([makeItem({ title: '新条目' })])
       const res = await app.inject({
         method: 'POST',
@@ -332,7 +332,7 @@ describe('knowledge-base routes', () => {
     })
 
     it('知识库不存在返回 404', async () => {
-      authAs()
+      authAs('admin-001', 1)
       enqueue([]) // dbRead.select 返回空
       const res = await app.inject({
         method: 'PUT',
@@ -344,9 +344,9 @@ describe('knowledge-base routes', () => {
       expect(res.json().message).toContain('知识库不存在')
     })
 
-    it('非作者编辑返回 403', async () => {
+    it('非管理员编辑返回 403', async () => {
+      // F-329:官方知识库写面收口为管理员,普通用户(含作者本人)一律 403
       authAs('user-002', 0)
-      enqueue([makeItem({ authorId: 'user-001' })]) // dbRead.select 返回已有
       const res = await app.inject({
         method: 'PUT',
         url: `/api/knowledge-base/${UUID}`,
@@ -354,11 +354,11 @@ describe('knowledge-base routes', () => {
         headers: { authorization: 'Bearer t' },
       })
       expect(res.statusCode).toBe(403)
-      expect(res.json().message).toContain('无权编辑')
+      expect(res.json().message).toContain('需要管理员权限')
     })
 
-    it('作者编辑成功返回 200', async () => {
-      authAs('user-001', 0)
+    it('管理员编辑成功返回 200', async () => {
+      authAs('admin-001', 1)
       enqueue([makeItem({ authorId: 'user-001' })]) // dbRead.select 返回已有
       enqueue([makeItem({ title: '新标题', authorId: 'user-001' })]) // db.update.returning
       const res = await app.inject({
@@ -372,7 +372,7 @@ describe('knowledge-base routes', () => {
     })
 
     it('title 空字符串返回 400(更新校验)', async () => {
-      authAs('user-001', 0)
+      authAs('admin-001', 1)
       const res = await app.inject({
         method: 'PUT',
         url: `/api/knowledge-base/${UUID}`,
