@@ -477,7 +477,7 @@ describe('removeWorktree', () => {
     fs.mkdirSync(path.join(wt, '.git'), { recursive: true })
     fs.writeFileSync(path.join(wt, 'file.txt'), 'x', 'utf-8')
 
-    await removeWorktree(wt, { withinRoot: tmpDir })
+    await removeWorktree(wt)
     expect(fs.existsSync(wt)).toBe(false)
   })
 
@@ -503,13 +503,13 @@ describe('removeWorktree', () => {
     expect(fs.existsSync(linkedWt)).toBe(true)
     expect(fs.statSync(path.join(linkedWt, '.git')).isFile()).toBe(true)
 
-    await removeWorktree(linkedWt, { withinRoot: tmpDir })
+    await removeWorktree(linkedWt)
     expect(fs.existsSync(linkedWt)).toBe(false)
   })
 
   it('不存在路径不抛错', async () => {
     const missing = path.join(tmpDir, 'never-existed')
-    await expect(removeWorktree(missing, { withinRoot: tmpDir })).resolves.toBeUndefined()
+    await expect(removeWorktree(missing)).resolves.toBeUndefined()
   })
 
   it('确认目录时读不到,不摘注册', () => {
