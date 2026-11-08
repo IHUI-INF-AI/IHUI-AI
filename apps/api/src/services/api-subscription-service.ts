@@ -344,12 +344,20 @@ export async function activateApiSubscription(
   // 配额(2026-09-16 调整):优先用 features 声明的配额(兼容存量方案);
   // 若套餐只配了窗口限额而未在 features 里声明总量,则取窗口限额最大值作为
   // Key 余额上限,避免"余额为 0 且未声明无限额度"导致订阅后仍被 checkQuota 拒绝。
+  // SDB-04 修复(2026-11-08):窗口语义 -1 = 不限,不能参与 Math.max ——
+  // 否则「日=-1 且周/月=0」会被算成 0,新 Key token_balance=0,relay 余额闸
+  // (tokenBalance !== -1 && < estimated) 恒拒,该配置的付费套餐 100% 不可用。
+  // 只要任一窗口为 -1,总量即 -1(无限);全部为 >0 时才取 max。
   const declaredQuota = parseTokenQuotaFromFeatures(planRow.features)
+  const windowQuotaUnlimited =
+    windowLimits.daily === -1 || windowLimits.weekly === -1 || windowLimits.monthly === -1
   const tokenQuota =
     declaredQuota !== 0
       ? declaredQuota
       : hasWindowLimits
-        ? Math.max(windowLimits.daily, windowLimits.weekly, windowLimits.monthly)
+        ? windowQuotaUnlimited
+          ? -1
+          : Math.max(windowLimits.daily, windowLimits.weekly, windowLimits.monthly)
         : 0
 
   // 模型白名单强制生效(2026-10-09 立,资损防线):
