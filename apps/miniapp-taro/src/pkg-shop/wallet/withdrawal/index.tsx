@@ -29,20 +29,23 @@ export default function WithdrawalPage() {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
+  // XUI-066:getDistributionInfo 失败曾被 catch 吞掉,余额显示 0 却仍可点提交。
+  const [loadError, setLoadError] = useState('')
   const availableRef = useRef(0)
 
   const methods = buildWithdrawMethods(tt)
   const texts = buildWithdrawTexts(tt)
 
   const load = useCallback(async () => {
+    setLoadError('')
     try {
       const info = await getDistributionInfo()
       setAvailable(info.available)
       availableRef.current = info.available
     } catch {
-      // ignore
+      setLoadError(tt('common.loadFailed'))
     }
-  }, [])
+  }, [tt])
 
   const fillAll = useCallback(() => {
     setAmount(formatWithdrawAmount(availableRef.current))
@@ -87,7 +90,7 @@ export default function WithdrawalPage() {
         t={tt as unknown as TFunction}
         amount={amount}
         loading={false}
-        error=""
+        error={loadError}
         success=""
         onAmountChange={setAmount}
         onSubmit={onSubmit}
