@@ -1769,11 +1769,22 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           messages: messages as CacheableMessage[],
         })
         if (!skip.skip) {
+          // F-180:缓存键必须与"真正发给上游的请求"同源 —— 用注入 json_schema 后的
+          // upstreamMessages,并把所有影响输出的采样参数(top_p/penalties/seed/response_format)
+          // 一起喂进去。只传 model/messages/temperature/max_tokens 会让 JSON 与纯文本请求
+          // 互撞、seed 失效,缓存统计也随之失真。
           cacheKey = computeCacheKey({
             model: resolvedModel,
-            messages: messages as CacheableMessage[],
+            messages: upstreamMessages as CacheableMessage[],
             temperature,
             max_tokens: maxTokens,
+            top_p,
+            presence_penalty,
+            frequency_penalty,
+            seed: upstreamSeed,
+            response_format: upstreamResponseFormat,
+            tools: (request.body as { tools?: unknown }).tools,
+            tool_choice: (request.body as { tool_choice?: unknown }).tool_choice,
           })
           const cached = await cache.get<V1ChatCompletionResponse>(cacheKey)
           if (cached.hit) {
