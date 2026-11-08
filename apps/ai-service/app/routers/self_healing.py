@@ -25,11 +25,12 @@ import logging
 import os
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
+from app.core.jwt_auth import resolve_request_role_id
 from app.services.self_healing import heal
 from app.services.self_healing_llm import (
     PytestSubprocessRunner,
@@ -39,7 +40,22 @@ from app.services.self_healing_llm import (
     read_failure_sources,
 )
 
-router = APIRouter(prefix="/self-healing", tags=["self-healing"])
+
+def _require_admin(request: Request) -> None:
+    """AIS-102:自愈端点管理员门。
+
+    该端点会在服务器工作区跑 pytest 并由 LLM **直接改写源码**,能力等价于
+    `mcp_server._ADMIN_ONLY_TOOLS` 中的写盘工具;此前只有
+    `AGENT_SELF_HEALING_ENABLED` 一个 env 开关,任意登录用户开启后即可绕过
+    Agent 引擎的工具审批链。角色只走 jwt_auth 单源(fail-closed,取不到按 0)。
+    """
+    if resolve_request_role_id(request) < 1:
+        raise HTTPException(status_code=403, detail="self-healing 仅管理员可用")
+
+
+router = APIRouter(
+    prefix="/self-healing", tags=["self-healing"], dependencies=[Depends(_require_admin)]
+)
 logger = logging.getLogger(__name__)
 
 ENV_ENABLED = "AGENT_SELF_HEALING_ENABLED"

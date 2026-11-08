@@ -114,7 +114,7 @@ def test_spawn_browser_builds_cdp_command_line(tmp_path):
 
 @pytest.mark.asyncio
 async def test_launch_rejects_unknown_platform():
-    r = await m.launch_chrome_for_import("not_a_platform")
+    r = await m.launch_chrome_for_import("not_a_platform", user_id="u-1")
     assert r["launched"] is False
     assert "不支持的平台" in (r["error"] or "")
 
@@ -123,7 +123,7 @@ async def test_launch_rejects_unknown_platform():
 async def test_launch_reports_missing_browser():
     platform = next(iter(PLATFORM_SCAN_CONFIG))
     with patch.object(m, "_find_browser_executable", return_value=(None, None)):
-        r = await m.launch_chrome_for_import(platform)
+        r = await m.launch_chrome_for_import(platform, user_id="u-1")
     assert r["launched"] is False
     assert "未找到" in (r["error"] or "")
 
@@ -146,7 +146,7 @@ async def test_launch_success_path(tmp_path):
          patch.object(m, "_pick_free_port", return_value=54321), \
          patch.object(m.subprocess, "Popen", side_effect=fake_popen), \
          patch.object(m, "_wait_for_cdp_ready", return_value=True) as wait_ready:
-        r = await m.launch_chrome_for_import(platform)
+        r = await m.launch_chrome_for_import(platform, user_id="u-1")
 
     assert r == {"launched": True, "port": 54321, "login_url": login_url,
                  "browser": "chrome", "error": None}
@@ -164,7 +164,7 @@ async def test_launch_ready_timeout_is_soft_failure(tmp_path):
          patch.object(m, "_pick_free_port", return_value=54322), \
          patch.object(m.subprocess, "Popen", return_value=type("P", (), {"pid": 1})()), \
          patch.object(m, "_wait_for_cdp_ready", return_value=False):
-        r = await m.launch_chrome_for_import(platform)
+        r = await m.launch_chrome_for_import(platform, user_id="u-1")
     assert r["launched"] is True
     assert r["port"] == 54322
     assert r["error"] and "稍候" in r["error"]

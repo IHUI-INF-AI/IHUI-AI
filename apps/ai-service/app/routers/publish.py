@@ -48,6 +48,10 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.db import get_db_conn
+from app.core.jwt_auth import (
+    require_request_user_id,
+    resolve_request_role_id,
+)
 from app.core.logging import get_logger
 from app.services.publish.account_state import (
     cookie_health_payload,
@@ -1315,7 +1319,7 @@ async def get_stats(
                 "scheduled": task_stats["scheduled"],
             },
             "platforms": platforms,
-            "runningTasks": publish_scheduler.list_running(),
+            "runningTasks": publish_scheduler.list_running(user_id),
         })
     finally:
         await conn.close()
@@ -1333,9 +1337,21 @@ async def gen_credentials_key() -> dict[str, Any]:
 
 
 @router.get("/running")
-async def list_running_tasks() -> dict[str, Any]:
-    """列出当前正在执行的任务(内存)。"""
-    return _wrap_ok({"running": publish_scheduler.list_running(), "history": publish_scheduler.list_history(limit=20)})
+async def list_running_tasks(request: Request) -> dict[str, Any]:
+    """列出当前正在执行的任务(内存)。
+
+    AIS-042:此前无主体直接回全站 `_running` 与历史(含他人 task_id/user_id/
+    published_url)。现在按主体过滤(未启用鉴权的本地开发走 jwt_auth 的
+    dev 匿名回落,生产缺身份即 401);管理员(role>=1)可看全站。
+    """
+    user_id = await require_request_user_id(request)
+    owner: str | None = None if resolve_request_role_id(request) >= 1 else user_id
+    return _wrap_ok(
+        {
+            "running": publish_scheduler.list_running(owner),
+            "history": publish_scheduler.list_history(limit=20, owner_user_id=owner),
+        }
+    )
 
 
 # ===== AI 辅助写作(2026-08-01 新增,暴露 ai_assistant.AiWritingService 单例)=====

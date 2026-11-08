@@ -198,6 +198,12 @@ class CloudRunStore:
         )
         with self._lock:
             self._load()
+            # AIS-095:run_id 由客户端自选,直接覆盖等于"凭 run_id 顶掉他人运行记录"
+            # (PATCH/GET 后续按属主校验会直接 404,原记录则被永久抹掉)。同属主可重入,
+            # 异属主一律拒绝(报错文案不回显既有属主,避免用户名枚举)。
+            existing = self._runs.get(run.run_id)
+            if existing is not None and existing.user_id != run.user_id:
+                raise ValueError("run_id 已被占用,不可覆盖")
             self._runs[run.run_id] = run
             if len(self._runs) > RUN_LIMIT:
                 self._trim_to_limit()
