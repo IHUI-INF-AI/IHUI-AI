@@ -66,7 +66,7 @@ const resumeSchema = z.object({
   metadata: z
     .object({
       conversationId: z.string().optional(),
-      userId: z.string().optional(),
+      // F-02(2026-11-08):客户端自报 userId 一律 strip,身份只认 request.userId。
       messageId: z.string().optional(),
     })
     .optional(),
@@ -205,7 +205,7 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
         )
 
         // P1-8(2026-09-13 立):读取「项目百科」总览(失败/未命中一律 null,不阻塞续流)
-        const wiki = await loadRepoWikiContext(metadata?.userId ?? request.userId ?? null, repoName)
+        const wiki = await loadRepoWikiContext(request.userId ?? null, repoName)
         const resp = await aiServiceFetchStream(request, '/api/llm/complete/stream', {
           method: 'POST',
           headers: {
@@ -228,7 +228,7 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
             contextLimit: contextLimit ?? 0,
             metadata: {
               conversationId,
-              userId: metadata?.userId ?? request.userId,
+              userId: request.userId,
               messageId,
               // 标记续接流:ai-service 可据此跳过重复落库/扣费前置动作(未知字段安全忽略)
               resumed: true,
