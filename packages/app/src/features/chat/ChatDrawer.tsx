@@ -22,7 +22,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native'
-import { rnGeometry, rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import type { TFunction } from '@ihui/types'
 
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
@@ -134,7 +134,7 @@ export function ChatDrawer({
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
                   >
-                    <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
+                    <Text style={[styles.chipText, active ? styles.chipActiveText : null]}>
                       {tab.label}
                     </Text>
                   </TouchableOpacity>
@@ -322,7 +322,7 @@ function createStyles(tokens: AppThemeTokens) {
       fontSize: rnType.bodySm.size,
       color: tokens.text.secondary,
     },
-    chipTextActive: {
+    chipActiveText: {
       color: tokens.brand.ctaForeground,
     },
     newChat: {
@@ -430,7 +430,7 @@ function createStyles(tokens: AppThemeTokens) {
     footerButton: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadiusFor.control,
       backgroundColor: tokens.surface.muted,
     },
     footerText: {

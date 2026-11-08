@@ -85,6 +85,7 @@ import { logger } from '@/utils/logger'
 import { ChatScreen as SharedChatScreen } from '@ihui/rn-app/features/chat/ChatScreen'
 import type { ChatScreenMessage } from '@ihui/rn-app'
 import { buildChatShellProps } from './chat-shell-extras'
+import TaskStatusBar from './task-status-bar'
 import { resolvePermissionTierText } from './permission-tier-text'
 // 台账票 68:流式中切换模型 → 先终止当前这一轮,再让本轮/下一轮自动带入新模型。
 // 终止动作只允许一份实现(「停止」按钮与换档 effect 共用 ./model-switch 的出口),判据表照 web。
@@ -1945,7 +1946,8 @@ export default function ChatPage() {
     historyDrawerVisible,
     imgsList,
     inputValue,
-    lastAssistantCards,
+    // 任务进度状态条:挂载位由端内壳 statusSlot 原样渲染(位置/条件与共享屏一致,零重复实例)
+    taskStatusBarNode: <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />,
     latestCacheTokens,
     // 批次 3:端内壳的上下文账本 / 压缩边界 / 预算停止终态(三个节点只消费这里传入的 state)
     contextLedger,

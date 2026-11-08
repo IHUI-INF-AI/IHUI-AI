@@ -329,7 +329,7 @@ export function DistributionScreen({
           accessibilityRole="button"
           accessibilityLabel={serviceFloat.label}
         >
-          <Wallet size={18} color={tk.surface.light} />
+          <Wallet size={18} color={tk.brand.ctaForeground} />
           <View style={styles.serviceFloatInfo}>
             <Text style={styles.serviceFloatLabel}>{serviceFloat.label}</Text>
             <Text style={styles.serviceFloatAmount}>{formatPrice(serviceFloat.amount)}</Text>
@@ -520,7 +520,7 @@ function createStyles(tk: AppThemeTokens) {
       flexGrow: 1,
       paddingVertical: rnSpacing.md,
       paddingHorizontal: rnSpacing.md,
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
       alignItems: 'center',
     },
@@ -530,7 +530,11 @@ function createStyles(tk: AppThemeTokens) {
       borderColor: tk.border.light,
     },
     qrActionDisabled: { opacity: 0.6 },
-    qrActionText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.surface.light },
+    qrActionText: {
+      fontSize: rnType.caption.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     qrActionGhostText: {
       fontSize: rnType.caption.size,
       fontWeight: '600',
@@ -560,7 +564,7 @@ function createStyles(tk: AppThemeTokens) {
     overviewAvatarText: {
       fontSize: rnType.title.size,
       fontWeight: '700',
-      color: tk.surface.light,
+      color: tk.brand.ctaForeground,
     },
     overviewInfo: { flex: 1, gap: rnSpacing['2xs'] },
     overviewName: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
@@ -583,7 +587,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     earningsTabActive: { backgroundColor: tk.brand.cta },
     earningsTabText: { fontSize: rnType.caption.size, color: tk.text.secondary },
-    earningsTabTextActive: { color: tk.surface.light, fontWeight: '600' },
+    earningsTabTextActive: { color: tk.brand.ctaForeground, fontWeight: '600' },
     earningsItems: { flexDirection: 'row', marginTop: rnSpacing.md },
     earningsItemValue: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
     earningsItemPrimary: { color: tk.brand.cta },
@@ -623,11 +627,11 @@ function createStyles(tk: AppThemeTokens) {
       elevation: 6,
     },
     serviceFloatInfo: { gap: 1 },
-    serviceFloatLabel: { fontSize: rnType.caption.size, color: tk.surface.light },
+    serviceFloatLabel: { fontSize: rnType.caption.size, color: tk.brand.ctaForeground },
     serviceFloatAmount: {
       fontSize: rnType.body.size,
       fontWeight: '700',
-      color: tk.surface.light,
+      color: tk.brand.ctaForeground,
     },
     errorText: {
       fontSize: rnType.body.size,
@@ -686,7 +690,11 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
     },
     withdrawBtnDisabled: { backgroundColor: tk.border.light },
-    withdrawBtnText: { fontSize: rnType.body.size, fontWeight: '600', color: tk.surface.light },
+    withdrawBtnText: {
+      fontSize: rnType.body.size,
+      fontWeight: '600',
+      color: tk.brand.ctaForeground,
+    },
     withdrawHint: {
       marginTop: rnSpacing.sm,
       fontSize: rnType.caption.size,
