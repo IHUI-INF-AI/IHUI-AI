@@ -12,7 +12,7 @@
  * i18n:共享屏按键经 PHONE_TEXT 映射到既有 user.phone.* / user.security.* 词条,
  *   不允许渲染裸 key(scripts/tests/miniapp-shell-form.test.mjs T12 断言)。
  */
-import { useState, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { replacePhone } from '@ihui/api-client'
 import { useCountdown } from '@ihui/shared'
@@ -52,6 +52,11 @@ export default function Phone() {
   const [newCode, setNewCode] = useState('')
   const newCodeCountdown = useCountdown(60)
   const [submitting, setSubmitting] = useState(false)
+  // 发码/绑定是写操作:倒计时只在请求返回后置 >0,同 tick 连点会重复发短信/重复绑定,故用 ref 互斥
+  const oldSendingRef = useRef(false)
+  const newSendingRef = useRef(false)
+  const submittingRef = useRef(false)
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -66,6 +71,14 @@ export default function Phone() {
     if (!p || p.length < 11) return tt('user.phone.unbound', '未绑定')
     return p.slice(0, 3) + '****' + p.slice(-4)
   })()
+
+  // 页面卸载时清掉延迟返回定时器,避免多退一层页面;双倒计时 interval 由 useCountdown 自身托管
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   useDidShow(() => {
     oldCodeCountdown.sync()
@@ -94,12 +107,13 @@ export default function Phone() {
   }
 
   const onSendOldCode = useCallback(async () => {
-    if (oldCodeCountdown.count > 0) return
+    if (oldCodeCountdown.count > 0 || oldSendingRef.current) return
     const p = (currentPhone || '').trim()
     if (!p || p.length !== 11) {
       onToast(tt('user.phone.noCurrent', '当前未绑定手机号'), { kind: 'error' })
       return
     }
+    oldSendingRef.current = true
     try {
       await sendSmsCode(p)
       onToast(tt('user.phone.codeSent', '验证码已发送'), { kind: 'success' })
@@ -107,11 +121,13 @@ export default function Phone() {
     } catch (e) {
       logger.error('user/phone', t('userPhone.q2'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
+    } finally {
+      oldSendingRef.current = false
     }
   }, [currentPhone, oldCodeCountdown.count, tt, t])
 
   const onSendCode = useCallback(async () => {
-    if (newCodeCountdown.count > 0) return
+    if (newCodeCountdown.count > 0 || newSendingRef.current) return
     const phone = (newPhone || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
       onToast(tt('user.phone.phoneInvalid', '手机号格式不正确'), { kind: 'error' })
@@ -121,30 +137,33 @@ export default function Phone() {
       onToast(tt('user.phone.sameAsCurrent', '新手机号不能与当前手机号相同'), { kind: 'error' })
       return
     }
+    newSendingRef.current = true
     try {
-      const exist = await pwdExist(phone)
-      if (exist) {
-        onToast(tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'), {
-          kind: 'error',
-        })
-        return
+      try {
+        const exist = await pwdExist(phone)
+        if (exist) {
+          onToast(tt('user.phone.alreadyRegistered', '该手机号已注册,请换用其他手机号'), {
+            kind: 'error',
+          })
+          return
+        }
+      } catch (e) {
+        logger.error('user/phone', t('userPhone.q3'), e)
+        // 查询失败不阻塞,继续发送
       }
-    } catch (e) {
-      logger.error('user/phone', t('userPhone.q3'), e)
-      // 查询失败不阻塞,继续发送
-    }
-    try {
       await sendSmsCode(phone)
       onToast(tt('user.phone.codeSent', '验证码已发送'), { kind: 'success' })
       startNewCountdown()
     } catch (e) {
       logger.error('user/phone', t('userPhone.q4'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
+    } finally {
+      newSendingRef.current = false
     }
   }, [currentPhone, newCodeCountdown.count, newPhone, tt, t])
 
   const onSubmit = useCallback(async () => {
-    if (submitting) return
+    if (submitting || submittingRef.current) return
     const phone = (newPhone || '').trim()
     const code = (newCode || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
@@ -159,6 +178,7 @@ export default function Phone() {
       onToast(tt('user.phone.codeLength', '请输入 6 位验证码'), { kind: 'info' })
       return
     }
+    submittingRef.current = true
     setSubmitting(true)
     try {
       // XUI-043:已绑定手机号时是「换绑」,必须带旧号验证码走 /api/users/change-phone;
@@ -174,11 +194,13 @@ export default function Phone() {
         await bindPhone(phone, code)
       }
       onToast(tt('user.phone.bindSuccess', '手机号绑定成功'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1000)
+      // 存引用以便卸载时取消:否则用户在 1s 内自行返回会多退一层页面
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/phone', t('user.phone.bindTitle'), e)
       onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }, [currentPhone, newCode, newPhone, oldCode, submitting, t, tt])
