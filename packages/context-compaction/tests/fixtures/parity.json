@@ -128,18 +128,19 @@
       "system",
       "user",
       "user",
+      "user",
       "assistant",
       "user",
       "assistant",
       "user",
       "assistant"
     ],
-    "summaryMarkerLine": "[上下文摘要 — 之前 19 条消息已压缩]",
-    "summaryBodyLineCount": 19,
+    "summaryMarkerLine": "[上下文摘要 — 之前 18 条消息已压缩]",
+    "summaryBodyLineCount": 18,
     "noOrphanToolMessages": true,
     "recentTierCount": 6,
     "recentTierFirst200CharsPresent": true,
-    "coveredCountTotal": 19
+    "coveredCountTotal": 18
   },
   "reasoningCases": {
     "_comment": "票 G-1058650(2026-10-07)新增的\"消息带 reasoning\"这一格,双端逐值对账。判定=分支 B(Python 镜像端\"少算 reasoning\"这一型不可达),依据四条可重跑取证:(1) apps/ai-service/app/core/context_compaction.py 全文零次出现 reasoning(git grep -c \"reasoning\" HEAD -- apps/ai-service/app/core/context_compaction.py → 无输出 rc=1,即 0 命中),估算入口 estimate_messages_tokens 只读 content/tool_calls/role/tool_call_id;(2) ai-service 内 92 处 messages.append(...) 写入面无一携带 reasoning 键;(3) 唯一上游发送方 apps/api 的 /chat/stream zod schema 为 {role, content}(apps/api/src/routes/ai-chat-stream.ts:136-143),zod 默认剥离未知键 ⇒ 客户端回传的 reasoning 进不了消息列表;(4) Python 侧携带 reasoning 的对象(llm_gateway.py:2318-2320 result[\"reasoning\"]、routers/llm.py:2838 accumulated)都是**响应/事件**字典,从不作为消息进入上下文。⇒ 按仓规\"加守卫前先证明坏状态可达\",不给 Python 加它永远拿不到输入的分支;可达性由 tests/reasoning-parity.test.ts 的按键名枚举哨兵实时重扫(写入点一旦非零即翻红,并要求把 pyCountsReasoning 翻 true 走同值对账)。数值取法:tokensTs/tokensTsReasoningBlind 由 packages/context-compaction/dist 的 estimateMessagesTokens 现跑,tokensPyAsShipped 由 apps/ai-service/.venv 解释器现跑 app.core.context_compaction.estimate_messages_tokens(2026-10-07)。",
