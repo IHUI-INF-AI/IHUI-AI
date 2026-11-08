@@ -32073,3 +32073,19 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 139C. **缺陷普查 F-121** [P3] playground compare --json 全失败仍退 0（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-121）
 - [ ] 140C. **缺陷普查 F-122** [P3] 注册表 32 位视图遗漏（删与审双盲）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-122）
 - [ ] 141C. **缺陷普查 F-123** [P3] browser_store / browser_settings 为未挂载的死模块（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-123）
+- [ ] 142C. **缺陷普查 F-124** [P3] MAX_TABS 检查与入列非原子（上限可越）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-124）
+- [ ] 143C. **缺陷普查 F-125** [P3] postToolCall 拿不到真实输出，审计钩子失明（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-125）
+- [ ] 144C. **缺陷普查 F-126** [P3] file_unchanged 短路判据可回旧内容（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-126）
+- [ ] 145C. **缺陷普查 F-127** [P2] 流式重试不回滚已输出的 delta（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-127）
+- [ ] 146C. **缺陷普查 F-128** [P2] SSE 收尾未 flush TextDecoder，且无换行尾行被丢弃（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-128）
+- [ ] 147C. **缺陷普查 F-129** [P2] 录音失败不清理半成品，且无超时/取消（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-129）
+- [ ] 148C. **缺陷普查 F-130** [P2] share 生成的 HTML 以默认权限落盘，含完整会话正文（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-130）
+- [ ] 149C. **缺陷普查 F-131** [P3] plan init 非原子写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-131）
+- [ ] 150C. **缺陷普查 F-132** [P2] 更新世代守卫不阻止旧世代真正安装（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-132）
+- [ ] 151C. **缺陷普查 F-133** [P3] 前端指纹抓取无限读取响应体（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-133）
+- [ ] 152C. **缺陷普查 F-134** [P3] delete_file 整文件读入内存并写入 undo 历史（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-134）
+- [ ] 153C. **缺陷普查 F-135** [P3] 未知模型回退到 gpt-4o-mini 定价（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-135）
+- [ ] 154C. **缺陷普查 F-136** [P3] 启动健康门到点无条件退出，晚到页面即被杀（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-136）
+- [ ] 155C. **缺陷普查 F-137** [P3] 本地 HTTP /message 请求体无大小上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-137）
+- [ ] 156C. **缺陷普查 F-138** [P3] hunk 撤销/恢复直接覆盖用户源文件，非原子（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-138）
+- [ ] 157C. **缺陷普查 F-139** [P3] rel.startsWith('..') 字符串判定误拒合法文件名（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-139）
