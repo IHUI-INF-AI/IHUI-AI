@@ -91,8 +91,15 @@ export async function createNotification(input: {
   return row
 }
 
-export async function findNotificationById(id: string): Promise<Notification | undefined> {
-  const rows = await db.select().from(notifications).where(eq(notifications.id, id)).limit(1)
+export async function findNotificationById(
+  id: string,
+  userId?: string,
+): Promise<Notification | undefined> {
+  // F-154(2026-11-08):详情读取必须带归属谓词;未传 userId 的内部调用保持旧形状。
+  const where = userId
+    ? and(eq(notifications.id, id), eq(notifications.userId, userId))
+    : eq(notifications.id, id)
+  const rows = await db.select().from(notifications).where(where).limit(1)
   return rows[0]
 }
 
