@@ -669,6 +669,30 @@ def test_unreadable_directory_is_not_listed_as_a_file(tmp_path, monkeypatch):
     assert hidden.read_text(encoding="utf-8") == "keep\n"
 
 
+def test_unreadable_path_guards_are_not_silently_dropped() -> None:
+    """防回潮:list_files / file_search 的读不到判定不得退回 isdir() 或静默空结果。
+
+    2026-11-08:faf9aa9ced 的修复在 V3 #75 枚举重构中丢失 —— list_files 用
+    os.path.isdir 把"读不到"说成"不是目录";file_search 在枚举降级且零命中时
+    仍报 ok=True 并给"放宽 pattern"的零结果指引。上面两条行为用例钉结论,
+    本条源级用例钉实现路径,避免下一次重构再丢一次。
+    """
+    import inspect
+
+    from app.services import mcp_server
+
+    list_src = inspect.getsource(mcp_server._tool_list_files)
+    search_src = inspect.getsource(mcp_server._tool_file_search)
+    list_code = "\n".join(line.split("#", 1)[0] for line in list_src.splitlines())
+    search_code = "\n".join(line.split("#", 1)[0] for line in search_src.splitlines())
+    # 只钉**根路径准入**那一处:子条目用 isdir 分类是合法的(读不到会记 unknown)。
+    assert "isdir(resolved)" not in list_code
+    assert "UNREADABLE" in list_code
+    assert "unread_files" in search_code
+    assert "不能把检索说成没有命中" in search_code
+    assert "not (incomplete and not matches)" in search_code
+
+
 def cleanup_fixtures() -> None:
     """供 -s 手动清理(不在 fixture 链上,避免被误当成判据)。"""
     parent = _scratch_parent()

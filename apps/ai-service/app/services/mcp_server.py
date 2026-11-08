@@ -2526,7 +2526,20 @@ async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "list_files", "path": path, "ok": False, "error": info}
     resolved = info
     import os as _os
-    if not _os.path.isdir(resolved):
+    import stat as _stat
+    # 读不到 ≠ 不存在 / 不是目录:os.path.isdir 会把 OSError 吞成 False,于是
+    # "目录读不到"被说成"不是目录",把排查方向带偏。stat 失败必须显式报 UNREADABLE。
+    try:
+        _mode = _os.stat(resolved).st_mode
+    except FileNotFoundError:
+        _mode = None
+    except OSError as exc:
+        return {
+            "tool": "list_files", "path": resolved, "ok": False,
+            "error": f"目录读不到,不能把它说成不是目录 ({getattr(exc, 'errno', None)})",
+            "errorCode": "UNREADABLE",
+        }
+    if _mode is None or not _stat.S_ISDIR(_mode):
         return {
             "tool": "list_files", "path": resolved, "ok": False,
             "error": f"{resolved} 不是目录,list_files 只能列出目录。请用 read_file 读取文件。",
@@ -5200,6 +5213,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
 
         query_lower = query.lower() if query else None
         count = 0
+        unread_files = 0
         # V3 #75:同一个工具的第二处遍历,现共用上面那一次枚举的结果(原先两份 os.walk)。
         for rel_path in searchable:
             fname = rel_path.rsplit("/", 1)[-1]
@@ -5235,6 +5249,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                             "preview": preview[:500],
                         })
                     except (OSError, UnicodeDecodeError):
+                        unread_files += 1
                         continue
                 else:
                     # 无 query,仅文件名匹配
@@ -5249,13 +5264,23 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                     })
                 count += 1
             except OSError:
+                unread_files += 1
                 continue
 
         message = (
             f"在 {path} 下找到 {len(matches)} 个匹配文件"
             + ("(已截断)" if count >= max_results else "")
         )
-        if not matches:
+        # 读不到 ≠ 没有命中:枚举降级或有文件读失败时,零结果不能报成"成功且为空"。
+        # 2026-11-08 回归:faf9aa9ced 的这一段在 V3 #75 枚举重构中丢失,这里恢复,
+        # 并在 test_file_search_ripgrep_v75.py 加源级防回潮用例。
+        incomplete = _enum_prov.degraded_reason or ""
+        if unread_files:
+            file_note = f"有 {unread_files} 个文件读不到,不能把检索说成没有命中"
+            incomplete = f"{incomplete};{file_note}" if incomplete else file_note
+        if incomplete:
+            message += f";{incomplete}"
+        elif not matches:
             # 零结果给可操作指引(第十四批:体验优化,避免模型盲目重试)
             message += (
                 ";建议:①放宽 pattern(如 '*.py' 或 '*');"
@@ -5273,7 +5298,8 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "enum_engine": _enum_prov.engine,
             "enum_degraded": _enum_prov.degraded_reason,
             "message": message,
-            "ok": True,
+            # 枚举不完整且零命中时,不能把这次检索报成"成功".
+            "ok": not (incomplete and not matches),
         }
     except Exception as e:
         return {
