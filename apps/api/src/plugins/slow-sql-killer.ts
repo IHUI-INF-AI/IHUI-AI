@@ -15,6 +15,12 @@ const SLOW_SQL_THRESHOLD_MS = parseInt(process.env.SLOW_SQL_THRESHOLD_MS ?? '100
  *
  * 通过订阅 sqlEventBus 自动捕获所有 SQL 查询事件(主库 + 读副本),
  * 无需在各业务代码手动调用 slowSqlStats.increment()。
+ *
+ * DB-29 明确降级为**告警面**:本插件只记录,不执行 pg_terminate_backend。
+ * 原因:sqlEventBus 事件里没有后端 PID(只有一个查询串与耗时),凭进程内
+ * 连接池无法安全定位"该杀哪条";误杀会命中同库其他实例的连接。
+ * 真正的"硬中断"由连接池的 statement_timeout(默认 30s,见
+ * packages/database/src/pool-options.ts)承担,本插件负责留痕与统计。
  */
 const slowSqlKillerPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   let slowQueryCount = 0
