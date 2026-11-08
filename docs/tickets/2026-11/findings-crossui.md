@@ -1103,19 +1103,26 @@ for (const rel of [
 - `packages/app/src/features/cards/CourseCard.tsx:55` `/100`：唯一消费方 `SharedDemoScreen`（演示屏），演示数据按分传入，自洽；生产业务未使用。
 - 类别 4 扫描：`Number(sum.toFixed(2))`（web procurement 汇总）、`amount.toLocaleString()`（`pkg-shop/vip-trader`、`pkg-user/bill`）均只在元域内展示/舍入，无单位反转；`formatPrice` 结果未被 `Number()/parseFloat` 回读。
 
-### 待确认（已按契约查证，结论见第九节）
+### 收口结论（2026-11-08 复核：本节两条均已定论）
 
-- `apps/web/app/(main)/admin/api-platform/packages/ApiPackageTable.tsx:68` `¥{p.price}`：**确证为缺陷**。`plans.price` 是 integer「分」（`packages/database/src/schema/billing.ts:30`；`admin-api-platform.ts` 写入 schema `price: z.number().int()`），表/回填/提交三腿都把分当元 ⇒ XUI-084，已修 `f219b27053`。
+- `apps/web/app/(main)/admin/api-platform/packages/ApiPackageTable.tsx:68` `¥{p.price}`：**确证为缺陷并已闭合**。`plans.price` 是 integer「分」（`packages/database/src/schema/billing.ts:30`；`admin-api-platform.ts` 写入 schema `price: z.number().int()`），旧表/回填/提交三腿都把分当元 ⇒ XUI-084，修 `f219b27053`，收口见第九节「XUI-084 已闭合」。
 - `apps/web/app/(main)/wallet/page.tsx:209,212` `formatPrice(it.quantity)` / `it.balanceAfter`：`/wallet/transactions` **不存在**（全仓 0 命中），实际端点是 `/finance/margin/flows`。`token_flows.quantity/balance_after` 在 op_type 0–5 是「分」，`formatPrice` 对钱腿正确；op_type 6 是 API 配额计数（同列两义）⇒ XUI-085，已让钱流水端点默认排除 `op_type=6`（`ec179dfd99`）。
 
 ## 九、2026-11-08 金额单位收尾（已推 `fix/crossui-p0-p1-1108`）
 
-### XUI-084 后台 API 套餐 price 分当元（三腿，已修 `f219b27053`）
+### XUI-084 后台 API 套餐 price 分当元（三腿，**已闭合** + 换算收口）
 
-- 文件：`apps/web/app/(main)/admin/api-platform/packages/ApiPackageTable.tsx:68`、`helpers.ts`（`packageToForm`）、`page.tsx`（提交体）。
-- 契约：`plans.price` = integer「分」；`admin-api-platform.ts` create/update schema 只收整数分。
-- 修复：表格 `¥{(p.price / 100).toFixed(2)}`；编辑回填 `String(p.price / 100)`；提交 `Math.round((Number(form.price) || 0) * 100)`。三腿同源（展示元 / 表单元 / 传输分）。
-- 夹具：`apps/web/tests/xui-admin-package-price.test.ts`（改前 3 红 → 改后 5 绿），含数值往返 2999 分 ⇄ 29.99 元 ⇄ 2999 分。
+- **量纲三段核定（同一结论：库里分、传输分、界面元）**
+  - 声明：`packages/database/src/schema/billing.ts:23`（注释「price 以分为单位（integer）」）、`:30`（`price: integer('price').notNull()`）。
+  - 传输：`apps/api/src/routes/admin-api-platform.ts:40`（create）、`:59`（update）`price: z.number().int().min(0)`，只收整数分。
+  - 展示/回填/提交：唯一换算点 `apps/web/app/(main)/admin/api-platform/packages/price-unit.ts:7-19`（`ADMIN_PACKAGE_PRICE_UNIT='fen'`、`priceCentsToYuanText`、`priceCentsToFormYuan`、`formYuanToPriceCents`、`packageToForm`）。
+- **消费点（仅三处，全部 import 该模块，不再自己算）**
+  - `.../packages/ApiPackageTable.tsx:19`（import）→ 单元格 `priceCentsToYuanText(p.price)`。
+  - `.../packages/helpers.ts:30`（`export { packageToForm } from './price-unit'`，自有实现已删）。
+  - `.../packages/page.tsx:16`（import）→ `:38` 提交 `price: formYuanToPriceCents(form.price)`。
+- **「只有一处换算」判据**：在 `.../packages/` 目录 grep `\*100|\* 100|/100|/ 100`，仅命中 `price-unit.ts:10,14,18`；三个消费文件 0 命中。
+- **首尾相等夹具**：`apps/web/tests/xui-admin-package-price.test.ts`（5 例绿）。真实生产函数链 `backendRow(cents) → packageToForm → priceCentsToYuanText → formYuanToPriceCents → 与原 cents 相等`，数值组 0/1/2999/19900/12345（如 2999 → `¥29.99` → 29.99 → 2999）。反例：`¥${2999}` ≠ `¥29.99`、`String(2999)` ≠ `29.99`（即 `f219b27053` 前的写法）。另锁 billing schema 注释与 route int schema。
+- **相邻（非量纲，未改）**：该页 `quota/period/status` 与本仓 `plans`（`interval/features/isActive`）不同源，属字段模型差异，不并入本条量纲结论。
 
 ### XUI-085 `token_flows` 字段定义（同列两义，已写清 + 端点拆分 `ec179dfd99`）
 
@@ -1146,7 +1153,7 @@ for (const rel of [
 
 ## 十、2026-11-08 opType 方向修正 + AI 计费腿判定（`fix/crossui-p0-p1-1108`）
 
-### XUI-086 钱包流水 opType 文案/符号/颜色（已修 `0b3724817a`）
+### XUI-086 钱包流水 opType 文案/符号/颜色（**已修**：shared 唯一表 + 三腿同源）
 
 权威枚举以写入点为准（`packages/database/src/schema/wallet.ts` 注释已同步）：
 
@@ -1160,9 +1167,19 @@ for (const rel of [
 | 5 | 管理员调整 | `quantity` 带符号 | ± |
 | 6 | `api-subscription-service` | API 配额发放（非金额，钱流水已排除） | 中性 |
 
-- 修复：新增 `apps/web/lib/wallet-flow-meta.ts` 作为唯一映射；页面文案、符号、颜色三处统一走它。未知值一律「其他变动」中性灰，**绝不显示成充值**。
-- i18n：5 个语言包 `wallet` 命名空间补 `flowDeduct`/`flowExpire`/`flowRecharge`/`flowRefund`/`flowRelayRecharge`/`flowAdminAdjust`/`flowOther`（此前 wallet 命名空间缺这些 key，页面标签实际是裸奔）。
-- 夹具：`apps/web/tests/xui-wallet-optype-display.test.ts`（改前 import 失败 → 改后 8 绿），覆盖 0/1/2/3/4/5±/6/99/-1 的文案+符号+颜色，并锁 schema 不得再写「4=佣金」。
+- **全仓唯一表**：`packages/shared/src/utils/wallet-flow-meta.ts:44-118`（`resolveWalletFlowMeta(opType, quantity)` → `{labelKey, sign, kind, isMoney, colorClass}`），经 `packages/shared/package.json` 的 `./utils/*` 子路径导出。**`apps/web/lib/wallet-flow-meta.ts` 已删除**（`git status` 为 `D`），不留第二份映射，也没有 re-export 壳。
+- **三腿调用点（全部指向唯一表）**
+  - web 钱包：`apps/web/app/(main)/wallet/page.tsx:25`（import）→ `:187`（resolve）→ `:191` 文案 / `:194` 颜色 / `:196-209` 符号与 `isMoney` 分支。
+  - web 分销 token：`apps/web/app/(main)/distribution/token/page.tsx:33`（import）→ `:59`（`useTranslations('wallet')`）→ `:150`（筛选标签）→ `:196-213`（文案/颜色/符号）。
+  - RN：渲染在共享屏 `packages/app/src/features/wallet/WalletScreen.tsx:16`（import）→ `:212`（resolve）→ `:213-218`（按 sign 取色）→ `:222-232`（`isMoney` 分支）→ `:324`（`flowNeutral` 样式）；宿主 `apps/mobile-rn/src/screens/WalletScreen.tsx:9`（引 `WalletScreen as SharedWalletScreen`）→ `:173`（只把 items 交出去），无 opType 判断。
+  - 小程序：`apps/miniapp-taro/src/pkg-shop/wallet/index.tsx:15`（`WalletScreen as WalletScreenShell`）→ `:17-22`（壳承载），为共享屏镜像，零本地映射。
+- **改前反例（同一病，两腿同时中招）**：共享屏原 `OP_TYPE_KEY`(1..5) 缺 0/6，`POSITIVE_OP_TYPES = new Set([1,4,5])` + `positive ? '+' : '-'` ⇒ 0 显示「0」+负号、1/4 显示 `+¥` 绿色、5 不看 `quantity` 符号、6 显示 `-¥` 红色并套金额色；未知值无兜底。web 原 `?? 'flowRecharge'` 同型。
+- **opType 6 判据**：`flowQuota` / `sign:'neutral'` / `kind:'quota'` / `isMoney:false` / `colorClass:'text-muted-foreground'`；三腿一律 `meta.isMoney ? ±¥金额 : 纯数量`，故 6 无 ±、无 ¥、无金额色。文案：`flowQuota` = 「配额类变动」。
+- **未知 opType 判据**：`flowOther` + neutral + 中性灰，不得默认收入/支出。
+- **钱包合计：证伪**。三腿钱包页（web `wallet/page.tsx`、共享屏 `WalletScreen.tsx`、RN/小程序宿主）均无按 opType 求和的金额合计；共享屏仅 `flows.total`（`:181`、`:193`）为分页条数，非金额。判据：在上述四文件搜索 `reduce(`/`totalAmount`/`sum(`，无金额累加命中。故「6 不进合计」无需额外代码，逻辑上也不可得。
+- **「无任何一腿保留自有正负号判断」依据**：在上述四目录（`apps/web/app`、`apps/mobile-rn/src`、`apps/miniapp-taro/src`、`packages/app/src`）grep `POSITIVE_OP_TYPES|OP_TYPE_KEY|opType\s*===\s*\d+\s*\?` ⇒ **0 命中**；仅测试断言字符串与历史文档残留。
+- i18n：shared + web 5 语言 `wallet` 补 `flowRecharge/flowDeduct/flowExpire/flowRefund/flowRelayRecharge/flowAdminAdjust/flowQuota/flowOther`（此前 wallet 命名空间缺这些 key，页面标签实际是裸奔）；mobile-rn 删除已成死键的 `wallet.opType1..5`；`gen:i18n` 同笔重生成 4 份 `*.b64.txt` + 3 份 `*.gen.ts`。
+- 夹具：`packages/shared/src/utils/wallet-flow-meta.test.ts`（5 绿：0/1-4/5±/6/未知）、`packages/app/tests/wallet-flow-optype.test.ts`（3 绿：共享屏 + RN 宿主 + 小程序镜像源码锁）、`apps/web/tests/xui-wallet-optype-display.test.ts`（web 两页 + 唯一表存在性 + 多语言键齐全）。
 
 ### XUI-087 AI 计费腿把 LLM token 数写入资金账（判定：污染；处置改 **B**，由 API 线统一修）
 
@@ -1178,5 +1195,5 @@ for (const rel of [
   - `apps/api/src/plugins/ai-cost.ts:449-512` —— `recordAiCost()` 未显式传 `cost` 时调用 `calculateCost()`，把成本落 `ai_cost_records.cost`（分），`totalTokens` 仅作审计；该链路**已经在用**。
   - 旁证同口径：`packages/database/src/schema/ai-config.ts:142-164` 的 `ai_model_configs.input_price_per_1k` / `output_price_per_1k`（分/千 token）+ `relay_price_multiplier`；`packages/database/seed/relay-pricing-seed.ts:126-127` 从 `ai_pricing` 回填；`apps/api/src/services/litellm-price-sync.ts:12-13` 注明同单位。
 - 正确修法（交 API 线）：扣费一律用 `calculateCost()` / `recordAiCost()` 得出的**分**值（或复用同一次 `recordAiCost` 的结果），`deductTokens` 收折算后的分；**禁止把原始 token 数当金额传**。两条铁律不变：`token_flows.quantity` 不再加第三种含义；钱流水只留 op_type 0–5，配额/计费量迁出资金列。
-- 本线边界：不改上述 4 个同型文件；已完成的钱包展示修复（opType 权威枚举、`wallet-flow-meta.ts` 唯一映射、五语言 key、8 例夹具）保留，不回滚。
+- 本线边界：不改上述 4 个同型文件；已完成的钱包展示修复（opType 权威枚举、shared `wallet-flow-meta.ts` 唯一表、五语言 key、三份夹具）保留，不回滚。
 - 待确认：已消解（B 已定；定价表存在，无「需产品定义费率」的缺口）。
