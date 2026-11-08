@@ -71,6 +71,9 @@ function toVipInfo(raw: VipInfo): VipInfo {
   }
 }
 
+/** /vip/my 无会员记录时返回 null(XUI-003 拆包后),页面必须落空态而非读 undefined 字段。 */
+const EMPTY_VIP_INFO: VipInfo = { level: 0, name: '' }
+
 function daysUntil(expire: string): number | null {
   const at = Date.parse(expire)
   if (!Number.isFinite(at)) return null
@@ -106,7 +109,7 @@ export default function VipIndexPage() {
     [tt],
   )
 
-  const [info, setInfo] = useState<VipInfo>({} as VipInfo)
+  const [info, setInfo] = useState<VipInfo>(EMPTY_VIP_INFO)
   const [levels, setLevels] = useState<VipLevel[]>([])
   const [levelsLoaded, setLevelsLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
@@ -158,7 +161,7 @@ export default function VipIndexPage() {
     Taro.showLoading({ title: t('common.loading'), mask: true })
     try {
       const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
-      setInfo(toVipInfo(i))
+      setInfo(i ? toVipInfo(i) : EMPTY_VIP_INFO)
       setLevels(lv.items || [])
       setLevelsLoaded(true)
       const list = (p.list || []).map((item) => ({
