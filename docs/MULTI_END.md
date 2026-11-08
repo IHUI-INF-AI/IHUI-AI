@@ -450,6 +450,63 @@ pnpm build:h5       # H5
 
 ---
 
+## 门 290 · pkg-shop/vip 两处空端口结案（2026-11-08）
+
+- 范围：`apps/miniapp-taro/src/pkg-shop/vip/index.tsx`、`apps/miniapp-taro/src/pkg-shop/vip/upgrade.tsx`
+- 判据：门 290 `scripts/check-miniapp-interaction-hygiene.mjs`（A2-empty-port）
+- 基线：`origin/main`（分支 `fix/gate290-vip-empty-port`，独立工作树 `D:/IHUI-AI-wt-vip-290`）
+
+### 结论
+
+两处命中不是「取不到宿主/数据」，而是**确证为空**：`onNavigate` 是共享屏 `VipScreen` 声明的必填端口，但屏内**零消费**，只有 `assertRequiredPort` 的断言。它只对某一个端（RN）有真实回调可传，另外两端（小程序两页）只能挂 `() => {}` 空实现来喂断言——正是「只有一个端会传的 prop」。
+
+按硬约束该端口**本不该存在**，处置为**删除死端口**，而不是给小程序补一条无人调用的假导航。删除后门 290 的 A2 从 2 处降为 0，且不产生任何行为变化。
+
+### 证据链（为什么是「确证为空」而不是「取不到宿主」）
+
+1. **屏内零消费**：`packages/app/src/features/vip/VipScreen.tsx` 改前 `onNavigate` 只出现两次——`L66` 解构、`L76` `assertRequiredPort('onNavigate', onNavigate)`，函数体再无任何调用点。
+2. **每个交互元素都有自己的专属回调**，无一需要通用导航：`L103` `BackChevron onPress={onBack}`；`L131` `introduce.onPress`；`L166` `viewBenefits.onPress`；`L211` `plans.onSelect`、`L227` `plans.onToggleAutoRenew`、`L236` `plans.onManage`；`L258` `buyBar.onPress`；`L271` `overlay.onClose`、`L317` `overlay.agree.onToggle`、`L332` `method.onPress`、`L345` `overlay.onPrimary`。共享屏没有任何「需要跳转到逻辑 target」的 UI，端口没有语义承载位。
+3. **RN 端传的是真回调，但用途都在共享屏之外**：`apps/mobile-rn/src/screens/VipScreen.tsx` `L219` 取 `useHostPorts()`，`onNavigate` 只在 `L445`（`navigateAfterVipPay`）、`L641`（`VipUpgrade`）、`L664`（`VipTrader`）使用；传给 `SharedVipScreen` 的那一份（改前 `L694`）没有任何消费方。
+4. **小程序两页只能挂空实现**：`pkg-shop/vip/index.tsx` 改前 `L356`、`upgrade.tsx` 改前 `L184` 均为 `onNavigate={() => {}}`。`assertRequiredPort` 在 dev 对「已知空实现」直接抛错（`packages/app/src/host/ports.ts`），即这两页在 dev 下本来就会崩，空实现不是合法补齐。
+5. **宿主端口其实存在，不是取不到**：`scripts/data/host-port-equivalence.json` 已把 `onNavigate` 映射到小程序侧 `apps/miniapp-taro/src/rn-compat/navigation.tsx`。小程序**具备**接真实导航的能力，但共享屏没有消费点，接上也无行为——问题在设计，不在宿主取不到。
+6. **web 端不渲染该屏**：全仓 `VipScreenProps` / `features/vip/VipScreen` 导入点中无 web 侧调用，三端里只有 RN 与小程序两端渲染该共享屏。
+
+### 判据语义分界（读不到 ≠ 通过）
+
+| 情形 | 处置 | 位置 |
+| --- | --- | --- |
+| 被审面文件读失败 | `exit 2` 并点名文件 | `scripts/check-miniapp-interaction-hygiene.mjs` `readTextSafe`（L102）+ `run()` 循环（L838） |
+| 端口表为空（A2 射程静默收缩） | `exit 2`，不得以零端口名判 A2 通过 | 同文件 L820 |
+| 确证为空（端口无消费方） | 删除端口后 `exit 0`，门打印 `A2 空端口:0(端口表已加载 N 名;…)` 作为依据 | 同文件 L894 |
+
+「确证为空」不接受白名单挂账：唯一合法处置是删端口；「取不到」不接受任何兜底放行。
+
+### 改动清单
+
+1. `packages/types/src/app-growth.ts`：`VipScreenProps` 删除 `onNavigate: OnNavigate` 字段（`L341` 接口内）。
+2. `packages/app/src/features/vip/VipScreen.tsx`：删除解构 `onNavigate` 与 `assertRequiredPort('onNavigate', onNavigate)`。
+3. `apps/mobile-rn/src/screens/VipScreen.tsx`：`<SharedVipScreen>` 移除 `onNavigate={onNavigate}`（本地 `onNavigate` 变量保留，`L445/L641/L664` 仍在用）。
+4. `apps/miniapp-taro/src/pkg-shop/vip/index.tsx`、`upgrade.tsx`：移除 `onNavigate={() => {}}` 空实现。
+5. `apps/miniapp-taro/src/constants/ui-routes.generated.ts`：生成器随源码变更重算的 pin 头（sourceCommit/inputsSha256/generatedAt + 两个 vip 页输入哈希）。
+6. `scripts/check-miniapp-interaction-hygiene.mjs`：新增 `readTextSafe`、端口表空闸、A2 读数行。
+7. `scripts/tests/check-miniapp-interaction-hygiene.test.mjs`：新增 T13（取不到 ⇒ 显式 error，不折成零违规）。
+
+未触碰：其它屏、跨端登记表数据文件、`check-staged-typecheck.mjs`。
+
+### 验证读数
+
+> 前提：本机当时有四条并发开发线同时跑门，下列耗时/读数受 CPU 争用影响；门本身是静态扫描，结论不随并发变化。
+
+- 门 290（改后）：`blocking:0`，`A2 空端口:0(端口表已加载 8 名…)`，`扫 707 文件 / 6576 标签`。
+- 门 290 镜像测试：`node --test scripts/tests/check-miniapp-interaction-hygiene.test.mjs` → `tests 13 / pass 13 / fail 0`。
+- 门 296（重试别名，default face=head）：**基线既有红**，与本次改动无关——`apps/miniapp-taro/src/pkg-ai/ai/history.tsx:788 onRetry={onRefresh}` 判为新增假重载；该文件不在本次改动面，HEAD 与 `origin/main` 同一 sha `6030e877`。归该文件所属并发线处理，本线不越界修改。
+- 门 299：`✅ 结论:无新增复制页;存量复制页逐条在册`，exit 0。
+- 宿主端口等价门：`entries=5 ports=onAudio,onNavigate,onToast`，exit 0。
+- `@ihui/rn-app typecheck`：exit 0。
+- `@ihui/mobile-rn typecheck`：exit 2，仅基线既有 2 处（`LoginScreen.tsx:279`、`chat-render-model.ts:554`），均不在本次改动面。
+- `@ihui/miniapp-taro typecheck`：exit 2，仅基线既有 4 处（`n8n-model/list-view.tsx` 缺 `./workflow-card`、`vip-trader/index` 缺 `@rn-shells/VipTraderScreen`、`streaming-recognizer.ts` 重复实现 ×2），均不在本次改动面。
+- 定向单测：rn-app `vip-levels-section` 6/6；miniapp `shop-vip-shell-render` 8/8 + `shop-vip-upgrade-details-shell` 6/6；mobile-rn `vip-purchase-order-contract` 3/3 + `vip-benefit-labels` 3/3。
+
 ## 相关文档
 
 - [AGENTS.md §9 多端同步开发强制规则](../AGENTS.md) — 全端连通 / 平台独占豁免 / 多 Subagent 派单
@@ -459,4 +516,42 @@ pnpm build:h5       # H5
 - [GATEKEEPERS.md 第 21 项](./GATEKEEPERS.md) — 多端同步守门
 - [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md) — 部署流程
 - [docs/port-management.md](./port-management.md) — 端口分配规则
+
+---
+
+## 附:22 条「缺 RN 行」核验与收口(2026-11-08)
+
+> 取材面 `origin/main@6030e87763`;判定口径:壳文件存在 + 从 `@ihui/rn-app` 导入共享屏 + 有 JSX 渲染点,三证齐备才算「这屏有 RN 壳」。结论同时覆盖两张账:映射表 `scripts/data/web-rn-screen-map.jsonl`(web→RN)与三端登记表 `scripts/data/cross-end-screen-registry.json`(shared→RN→小程序)。
+
+**结论**:映射表 22/22 路由原本已有 `aligned` 行,本次改 21 行 —— 2 行 `rn` 由共享源改指薄壳(`login`、`mcp-store`)、19 行补「导入行 + 渲染行」证据;`registry` **不改判**(无 RN 壳、路由对不上 ⇒ 按「无证据」列入保留清单,不改登记行:改判会触发 302p 承载面棘轮,须由跨端对齐线裁决并刷新基线)。三端登记表**可补 0 行**:A 通用屏 `ConsoleTableScreen` 不能按路由落槽(13 条 edu + `models/prompts`);B 一槽已占(`ai-world/history`、`agreement/[type]`);C 裁决台账已判 not-applicable(`login`/`mcp-store`/`bi-dashboard`/`ai-career`/`business-card`);D 无壳(`registry`,`apps/mobile-rn/src/screens` 零命中,`drawer-nav.ts:745-757` 的 `/registry→McpStore` 只是导航迁移,功能不等价,App 经 WebView 门户 `/registry` 承载 `packages/shared/src/constants/web-portal.ts:1017-1019`)。
+
+| # | web 路由 | RN 壳(导入行/渲染行) | 渲染的共享屏 | 三端登记表 |
+|---|---|---|---|---|
+| 1 | `login` | `LoginScreen.tsx:47`/`:1173` | `features/login/LoginScreen.tsx` | 不可补(C,裁决 `miniapp-mirror-verdicts.jsonl:71`) |
+| 2 | `mcp-store` | `McpStoreScreen.tsx:7`/`:191` | `features/mcp-store/McpStoreScreen.tsx` | 不可补(C,裁决 `:72`) |
+| 3 | `registry` | 无 RegistryScreen | 原指 `features/mcp-store/McpStoreScreen.tsx`(非同屏) | 不可补(D,保留清单;建议对齐线裁决 portal/gap) |
+| 4 | `bi-dashboard` | `DashboardScreen.tsx:8`/`:213` | `features/dashboard/DashboardScreen.tsx` | 不可补(C,裁决 `:45`) |
+| 5 | `ai-career` | `AiCareerScreen.tsx:14`/`:192` | `features/ai-career/AiCareerScreen.tsx` | 不可补(C,裁决 `:10`,registry 旧镜像对已删) |
+| 6 | `ai-world/history` | `AiWorldHistoryScreen.tsx:19`/`:69` | `features/ai-world/AiWorldCollectionScreen.tsx` | 不可补(B,已有槽 rn=`AiWorldFavoritesScreen.tsx`) |
+| 7 | `business-card` | `BusinessCardScreen.tsx:20`/`:231` | `features/business-card/BusinessCardScreen.tsx` | 不可补(C,裁决 `:119`) |
+| 8 | `models/prompts` | `ModelsPromptsScreen.tsx:12`/`:75` | `features/console-table/ConsoleTableScreen.tsx` | 不可补(A,通用杠杆屏) |
+| 9 | `agreement/[type]` | `AgreementByTypeScreen.tsx:10`/`:65` | `features/agreement/AgreementScreen.tsx` | 不可补(B,已有槽 rn=`AgreementScreen.tsx`) |
+| 10 | `edu/attendance` | `EduMyAttendanceScreen.tsx:21`/`:184` | `ConsoleTableScreen` | 不可补(A,小程序无硬路径镜像) |
+| 11 | `edu/edu-management/grades` | `EduGradesScreen.tsx:15`/`:101` | `ConsoleTableScreen` | 不可补(A) |
+| 12 | `edu/edu-management/enrollment` | `EduEnrollmentScreen.tsx:15`/`:80` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 13 | `edu/edu-management/finance` | `EduFinanceScreen.tsx:15`/`:108` | `ConsoleTableScreen` | 不可补(A) |
+| 14 | `edu/edu-management/meal` | `EduMealScreen.tsx:15`/`:90` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 15 | `edu/edu-management/schedule` | `EduScheduleScreen.tsx:17`/`:113` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 16 | `edu/edu-management/scheduling` | `EduSchedulingScreen.tsx:16`/`:101` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 17 | `edu/parent/bind` | `EduParentBindScreen.tsx:22`/`:168` | `ConsoleTableScreen` | 不可补(A,绑定段在 `edu-parent/index` 页内) |
+| 18 | `edu/parent/children/[childId]/courses` | `EduChildScheduleScreen.tsx:16`/`:91` | `ConsoleTableScreen` | 不可补(A) |
+| 19 | `edu/parent/children/[childId]/attendance` | `EduChildAttendanceScreen.tsx:19`/`:84` | `ConsoleTableScreen` | 不可补(A) |
+| 20 | `edu/parent/children/[childId]/grades` | `EduChildGradesScreen.tsx:19`/`:81` | `ConsoleTableScreen` | 不可补(A) |
+| 21 | `edu/parent/children/[childId]/meals` | `EduChildMealsScreen.tsx:19`/`:82` | `ConsoleTableScreen` | 不可补(A) |
+| 22 | `edu/parent/children/[childId]/study-plans` | `EduChildStudyPlansScreen.tsx:19`/`:94` | `ConsoleTableScreen` | 不可补(A) |
+
+> 壳路径前缀均为 `apps/mobile-rn/src/screens/`;共享屏前缀均为 `packages/app/src/`。A 类依据:`ConsoleTableScreen` 自述「通用控制台列表屏 —— 61 条控制台类页面的规模化杠杆」(`packages/app/src/features/console-table/ConsoleTableScreen.tsx:21-25`),裁决台账 `miniapp-mirror-verdicts.jsonl:32` 同判 not-applicable;小程序侧 `镜像 packages/app/src/features/console-table/ConsoleTableScreen.tsx` 命中 0。
+
+**门读数**(当时有其它线并发跑门,耗时只作参考):门 285p `check-web-rn-screen-parity`(HEAD 面)`alignedUnique 292→292`、`portalRows 88→88`(只改 2 行 `rn` 指向,不动承载面)、`rot/duplicateWebKeys/unmapped/contradictedRows` 均 0,exit 0,耗时约 2.7s;门 189p `check-web-mp-route-carriers` exit 0(`shared 275 / carried 252 / missingCarrier 0 / undetermined 0 / red 0`,login/mcp-store 仍判 legal-absence),耗时约 4.4s;门 302 `check-cross-end-parity-drift --gate` exit 0(`aligned 292 = 基线 292`,无 regression),耗时约 9.2s;门 301 三端登记表未动(`registryEntries 256 / mirrored 256 / coverageRed 0`);门 291 `check-web-rn-copy-parity` 在 HEAD 即 `SyntaxError: Identifier 'catBatch' has already been declared`(`scripts/check-web-rn-copy-parity.mjs:72`,merge `06927f16fa` 引入的重复 import),属存量红、与本线无关(提交期该门未拦,推送期需该线修复先落 main)。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

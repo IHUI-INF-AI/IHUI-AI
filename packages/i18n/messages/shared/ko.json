@@ -3122,6 +3122,7 @@
     "copyHint": "번호를 클릭하여 복사",
     "footer": "MIIT 신고 시스템 출처",
     "label0": "신고 번호",
+    "labelPublicSecurity": "공안 신고번호",
     "label1": "신고 주체",
     "label2": "주체 유형",
     "label3": "신고 시간",
