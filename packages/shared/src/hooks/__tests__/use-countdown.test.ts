@@ -101,4 +101,9 @@ describe('源码守卫 — 不得回退到 tick 自减', () => {
     expect(ticker).toMatch(/focus/)
     expect(ticker).toMatch(/setInterval/)
   })
+
+  it('返回体暴露 sync(供 Taro/RN 回前台显式对表)', () => {
+    expect(source).toMatch(/sync:\s*\(\)\s*=>\s*void/)
+    expect(source).toMatch(/return\s*\{[\s\S]*?sync\s*\}/)
+  })
 })
