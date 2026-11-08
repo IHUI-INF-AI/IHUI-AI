@@ -2875,8 +2875,8 @@ export class SubagentDispatchService {
   private async runDispatchDag(
     id: string,
     prompt: string,
-    _retry?: RetryConfig,
-    _quotas?: QuotaConfig,
+    retry?: RetryConfig,
+    quotas?: QuotaConfig,
   ): Promise<void> {
     const runtime = this.runtimes.get(id)
     if (!runtime || !runtime.dag) return
@@ -2913,6 +2913,7 @@ export class SubagentDispatchService {
     const checkpoints = await this._loadCheckpoints(id)
     const nodeMap = new Map(dag.nodes.map((n) => [n.id, n]))
     const results = new Map<string, string>()
+    let quotaErrorInDag: string | undefined
 
     for (let layerIdx = 0; layerIdx < layers.length; layerIdx++) {
       const layer = layers[layerIdx]!
@@ -2920,6 +2921,36 @@ export class SubagentDispatchService {
       const layerPromises = layer.map(async (nodeId) => {
         const node = nodeMap.get(nodeId)
         if (!node) return
+
+        // SDB-37:条件边在上层评估时已把本节点标记为 cancelled ⇒ 跳过执行并向下游传播。
+        // 旧实现只在 map 里写标记、层执行从不读,导致被跳过的节点照常调模型并进入最终结果。
+        if (runtime.dagNodeStatus.get(nodeId) === 'cancelled') {
+          for (const edge of dag.edges.filter((e) => e.from === nodeId)) {
+            runtime.dagNodeStatus.set(edge.to, 'cancelled')
+          }
+          await this._persistLog(id, {
+            ts: nowIso(),
+            level: 'info',
+            event: 'dag_node_skipped',
+            data: { nodeId, reason: 'edge_condition_false' },
+          })
+          return
+        }
+
+        // 上游已配额/超时收口 ⇒ 下游不再发起新调用(同单链:配额超限即终止本次派发)
+        if (quotaErrorInDag) {
+          runtime.dagNodeStatus.set(nodeId, 'cancelled')
+          for (const edge of dag.edges.filter((e) => e.from === nodeId)) {
+            runtime.dagNodeStatus.set(edge.to, 'cancelled')
+          }
+          await this._persistLog(id, {
+            ts: nowIso(),
+            level: 'warn',
+            event: 'dag_node_skipped',
+            data: { nodeId, reason: 'quota_aborted' },
+          })
+          return
+        }
 
         // checkpoint 命中 → 跳过
         const cp = checkpoints.get(nodeId)
@@ -2960,14 +2991,88 @@ export class SubagentDispatchService {
           ? `${prompt}\n\n${upstreamContext}\n\n请处理当前节点任务: ${node.task}`
           : `${prompt}\n\n请处理当前节点任务: ${node.task}`
 
-        const stepStart = Date.now()
-        const callResult = await callAiService('parallel', node.agentRole, nodePrompt)
-        const stepDuration = Date.now() - stepStart
-        const tokenUsage = callResult.ok
-          ? extractTokenUsage(callResult.data, callResult.finalOutput)
-          : emptyTokenUsage()
+        // SDB-38:与单链执行器同口径消费 retry / quotas(token 上限 + 超时 + 指数退避)。
+        // 旧实现形参改名 `_retry/_quotas` 后从不读取,DAG 会话配额与重试整体失效。
+        const maxAttempts =
+          (retry?.maxAttempts ?? quotas?.maxRetries)
+            ? Math.max(retry?.maxAttempts ?? 1, (quotas?.maxRetries ?? 0) + 1)
+            : 1
+        const delayMs = retry?.delayMs ?? 1000
+        const timeoutMs = quotas?.timeoutMs ?? 0
+        const tokenQuota = quotas?.tokenQuota ?? 0
 
-        if (callResult.ok) {
+        let attempt = 0
+        let callResult: AiCallResult | undefined
+        let tokenUsage = emptyTokenUsage()
+        let stepDuration = 0
+        while (attempt < maxAttempts) {
+          attempt++
+          const stepStart = Date.now()
+          const callPromise = callAiService('parallel', node.agentRole, nodePrompt)
+          callResult =
+            timeoutMs > 0
+              ? await Promise.race([
+                  callPromise,
+                  new Promise<AiCallResult>((resolve) =>
+                    setTimeout(
+                      () =>
+                        resolve({
+                          ok: false,
+                          reason: 'failed',
+                          message: `agent 超时(> ${timeoutMs}ms)`,
+                        }),
+                      timeoutMs,
+                    ),
+                  ),
+                ])
+              : await callPromise
+          stepDuration = Date.now() - stepStart
+          tokenUsage = callResult.ok
+            ? extractTokenUsage(callResult.data, callResult.finalOutput)
+            : emptyTokenUsage()
+
+          const tokenExceeded = tokenQuota > 0 && tokenUsage.total > tokenQuota
+          const timeoutExceeded = timeoutMs > 0 && stepDuration > timeoutMs
+          if (tokenExceeded || timeoutExceeded) {
+            const quotaError = tokenExceeded
+              ? `token 超限(${tokenUsage.total} > ${tokenQuota})`
+              : `超时(${stepDuration}ms > ${timeoutMs}ms)`
+            quotaErrorInDag = quotaError
+            runtime.dagNodeStatus.set(nodeId, 'quota_exceeded')
+            runtime.steps.push({
+              agent: node.agentRole,
+              durationMs: stepDuration,
+              tokenUsage,
+              attempt,
+              status: 'quota_exceeded',
+              error: quotaError,
+            })
+            await this._writeCheckpoint(id, {
+              stepId: nodeId,
+              agentRole: node.agentRole,
+              status: 'quota_exceeded',
+              timestamp: nowIso(),
+              tokenUsage: tokenUsage.total,
+              durationMs: stepDuration,
+            })
+            await this._persistLog(id, {
+              ts: nowIso(),
+              level: 'error',
+              event: 'dag_node_quota_exceeded',
+              data: { nodeId, attempt, error: quotaError },
+            })
+            return
+          }
+
+          if (callResult.ok) break
+          // not_implemented 与单链一致:不重试,直接记 failed
+          if (callResult.reason === 'not_implemented') break
+          if (attempt < maxAttempts) {
+            await sleep(delayMs * 2 ** (attempt - 1))
+          }
+        }
+
+        if (callResult?.ok) {
           results.set(nodeId, callResult.finalOutput)
           runtime.dagNodeStatus.set(nodeId, 'completed')
           // 写 checkpoint
@@ -2984,7 +3089,7 @@ export class SubagentDispatchService {
             agent: node.agentRole,
             durationMs: stepDuration,
             tokenUsage,
-            attempt: 1,
+            attempt,
             status: 'ok',
           })
         } else {
@@ -3001,9 +3106,9 @@ export class SubagentDispatchService {
             agent: node.agentRole,
             durationMs: stepDuration,
             tokenUsage,
-            attempt: 1,
+            attempt,
             status: 'failed',
-            error: callResult.message,
+            error: callResult?.message,
           })
         }
       })
@@ -3035,18 +3140,28 @@ export class SubagentDispatchService {
       .map(([nid, output]) => `[${nid}]: ${output}`)
       .join('\n')
     const hasFailed = Array.from(runtime.dagNodeStatus.values()).some((s) => s === 'failed')
+    const hasQuotaExceeded = Array.from(runtime.dagNodeStatus.values()).some(
+      (s) => s === 'quota_exceeded',
+    )
 
-    dispatch.status = hasFailed ? 'failed' : 'completed'
-    dispatch.result = allResults
+    // quota_exceeded 不在 DispatchStatus 内 ⇒ 经扩展域视图写回(同单链执行器);
+    // 结果面也取配额错误本身(空结果串会让调用方看不出是「超限」而不是「跑完了但没产出」)
+    if (hasQuotaExceeded) {
+      statusWriteView(dispatch).status = 'quota_exceeded'
+      dispatch.result = quotaErrorInDag ?? allResults
+    } else {
+      dispatch.status = hasFailed ? 'failed' : 'completed'
+      dispatch.result = allResults
+    }
     runtime.completedAt = Date.now()
-    runtime.hasFailed = hasFailed
+    runtime.hasFailed = hasFailed || hasQuotaExceeded
     runtime.outbox = undefined
     await this._persistDispatch(id)
     await this._persistLog(id, {
       ts: nowIso(),
       level: hasFailed ? 'error' : 'info',
       event: 'dag_completed',
-      data: { layers: layers.length, nodes: dag.nodes.length, hasFailed },
+      data: { layers: layers.length, nodes: dag.nodes.length, hasFailed, hasQuotaExceeded },
     })
   }
 

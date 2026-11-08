@@ -193,7 +193,9 @@ export async function findOrders(
     .select()
     .from(eduOrders)
     .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduOrders.id))
+    // 时间序 + 主键决胜:此前按 uuid v4 主键 desc,既是随机序也无法命中索引,
+    // 深页还会因排序不稳定出现重复/漏行(见 DB-23)。
+    .orderBy(desc(eduOrders.createdAt), desc(eduOrders.id))
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 

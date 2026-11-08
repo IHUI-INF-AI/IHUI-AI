@@ -23,7 +23,7 @@ import { aiRelayKeyPool } from '@ihui/database'
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { buildSchema } from '../../utils/swagger.js'
-import { getDailyUsage, getMonthlyUsage } from '../../services/channel-quota-service.js'
+import { getUsageSummaries } from '../../services/channel-quota-service.js'
 
 // ============================================================================
 // Schemas
@@ -57,38 +57,35 @@ const channelQuotaRoutes: FastifyPluginAsync = async (server) => {
         .from(aiRelayKeyPool)
         .orderBy(desc(aiRelayKeyPool.createdAt))
 
-      // 并行查每个 key_pool 的当日/当月用量
-      const listWithUsage = await Promise.all(
-        rows.map(async (row) => {
-          const [daily, monthly] = await Promise.all([
-            getDailyUsage(row.id).catch(() => ({
-              callCount: 0,
-              totalTokens: 0,
-              totalCostCents: 0,
-              errorCount: 0,
-            })),
-            getMonthlyUsage(row.id).catch(() => ({
-              callCount: 0,
-              totalTokens: 0,
-              totalCostCents: 0,
-            })),
-          ])
-          return {
-            id: row.id,
-            providerCode: row.providerCode,
-            weight: row.weight,
-            isEnabled: row.isEnabled,
-            dailyCallLimit: row.dailyCallLimit,
-            monthlyCallLimit: row.monthlyCallLimit,
-            dailyTokenLimit: row.dailyTokenLimit,
-            monthlyTokenLimit: row.monthlyTokenLimit,
-            dailyUsedCalls: daily.callCount,
-            dailyUsedTokens: daily.totalTokens,
-            monthlyUsedCalls: monthly.callCount,
-            monthlyUsedTokens: monthly.totalTokens,
-          }
-        }),
-      )
+      // DB-45:两条 GROUP BY 聚合全部渠道的当日/当月用量（原先每渠道 2 次查询 = 2N）。
+      const summaries = await getUsageSummaries(rows.map((row) => row.id))
+      const listWithUsage = rows.map((row) => {
+        const daily = summaries.get(row.id)?.daily ?? {
+          callCount: 0,
+          totalTokens: 0,
+          totalCostCents: 0,
+          errorCount: 0,
+        }
+        const monthly = summaries.get(row.id)?.monthly ?? {
+          callCount: 0,
+          totalTokens: 0,
+          totalCostCents: 0,
+        }
+        return {
+          id: row.id,
+          providerCode: row.providerCode,
+          weight: row.weight,
+          isEnabled: row.isEnabled,
+          dailyCallLimit: row.dailyCallLimit,
+          monthlyCallLimit: row.monthlyCallLimit,
+          dailyTokenLimit: row.dailyTokenLimit,
+          monthlyTokenLimit: row.monthlyTokenLimit,
+          dailyUsedCalls: daily.callCount,
+          dailyUsedTokens: daily.totalTokens,
+          monthlyUsedCalls: monthly.callCount,
+          monthlyUsedTokens: monthly.totalTokens,
+        }
+      })
 
       return reply.send(success({ list: listWithUsage }))
     } catch (err) {
