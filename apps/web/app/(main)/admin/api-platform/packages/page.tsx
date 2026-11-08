@@ -34,7 +34,8 @@ export default function AdminApiPlatformPackagesPage() {
     mutationFn: () => {
       const body = {
         name: form.name.trim(),
-        price: Number(form.price) || 0,
+        // 表单是「元」，服务端收「分」（z.number().int()）
+        price: Math.round((Number(form.price) || 0) * 100),
         quota: Number(form.quota) || 0,
         period: form.period,
         description: form.description,
