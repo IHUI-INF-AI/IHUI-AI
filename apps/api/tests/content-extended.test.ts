@@ -11,6 +11,12 @@ vi.hoisted(() => {
 })
 
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
+// 2026-11 安全加固:content-extended 全局 preHandler 改为 requireAdmin(此前仅 authenticate,
+// 任意注册用户可越权伪造活动/轮播)。本文件钉的是管理员路径,只需让闸门放行;
+// 鉴权主体仍由下方 @ihui/auth 的 verifyAccessToken mock 注入。
+vi.mock('../src/plugins/require-permission.js', () => ({
+  requireAdmin: async () => undefined,
+}))
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
   signRefreshToken: vi.fn().mockResolvedValue('mock-refresh-token'),
