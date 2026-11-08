@@ -24,11 +24,12 @@ import time
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.db import get_db_conn
+from app.core.jwt_auth import resolve_request_role_id
 from app.core.llm_gateway import llm_gateway
 from app.services.koubo_workflow import koubo_workflow_service
 
@@ -730,6 +731,18 @@ class TaskConfigUpdate(BaseModel):
     title_template: str | None = None
 
 
+def _require_automation_admin(request: Request) -> None:
+    """AIS-040:自动化任务的写端点仅管理员可用。
+
+    `self_media_scheduler` 是进程级单例、任务无 owner(固定两条全局任务)。普通
+    用户此前可 trigger/toggle/config —— 即直接对外发布或停用全站定时任务,
+    且审计里没有操作主体。读端点(list/get/history)不含操作用,保持开放。
+    角色只走 jwt_auth 单源(fail-closed,取不到按 0)。
+    """
+    if resolve_request_role_id(request) < 1:
+        raise HTTPException(status_code=403, detail="自助媒体定时任务仅管理员可操作")
+
+
 @router.get("/automation/tasks")
 async def automation_list_tasks() -> dict[str, Any]:
     """列出所有定时任务(含运行时配置 + 最后执行信息)。"""
@@ -750,8 +763,11 @@ async def automation_get_task(task_id: str) -> dict[str, Any]:
 
 
 @router.post("/automation/tasks/{task_id}/toggle")
-async def automation_toggle_task(task_id: str, enabled: bool = True) -> dict[str, Any]:
+async def automation_toggle_task(
+    task_id: str, request: Request, enabled: bool = True
+) -> dict[str, Any]:
     """启用/禁用任务。"""
+    _require_automation_admin(request)
     from app.services.self_media_scheduler import self_media_scheduler
 
     ok = self_media_scheduler.set_task_enabled(task_id, enabled)
@@ -762,9 +778,10 @@ async def automation_toggle_task(task_id: str, enabled: bool = True) -> dict[str
 
 @router.post("/automation/tasks/{task_id}/config")
 async def automation_update_config(
-    task_id: str, body: TaskConfigUpdate
+    task_id: str, body: TaskConfigUpdate, request: Request
 ) -> dict[str, Any]:
     """修改任务配置(hour/minute/dry_run/title_template/enabled)。"""
+    _require_automation_admin(request)
     from app.services.self_media_scheduler import self_media_scheduler
 
     ok = self_media_scheduler.set_task_config(
@@ -782,8 +799,9 @@ async def automation_update_config(
 
 
 @router.post("/automation/tasks/{task_id}/trigger")
-async def automation_trigger_task(task_id: str) -> dict[str, Any]:
+async def automation_trigger_task(task_id: str, request: Request) -> dict[str, Any]:
     """立即触发任务(异步执行,立即返回)。"""
+    _require_automation_admin(request)
     from app.services.self_media_scheduler import self_media_scheduler
 
     result = await self_media_scheduler.trigger_task(task_id)
