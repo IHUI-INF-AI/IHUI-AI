@@ -38,13 +38,20 @@ export function ActivityDetailScreen({
   }
 
   if (error || !item) {
+    // BUG-NEW-01:错误/空态也必须保留页头返回入口(2b43c08fe1 曾把页头整段换掉)。
+    // 重试与返回是两个独立 affordance:返回恒由页头 BackChevron 承担,重试只在调用方注入 onRetry 时出现。
     return (
-      <ErrorState
-        message={error || t('activities.notFound')}
-        onRetry={onRetry}
-        retryLabel={t('common.back')}
-        colorScheme={colorScheme}
-      />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+          <Text style={styles.title}>{t('activityDetail.title')}</Text>
+        </View>
+        <ErrorState
+          message={error || t('activities.notFound')}
+          onRetry={onRetry}
+          colorScheme={colorScheme}
+        />
+      </View>
     )
   }
 
