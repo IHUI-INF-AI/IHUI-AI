@@ -151,6 +151,9 @@ def test_tool_entry_reaches_every_real_executor(tmp_path: Path, monkeypatch) -> 
             {
                 "task": task_type, "arguments": args, "notify_on_done": False,
                 "timeout_s": 240, "idempotency_key": key,
+                # 2026-11-08 P0(AIS-031):long_running_command 已收进 admin 档,
+                # 本用例直接调 handler 绕过 call_tool,需显式补承载层注入的角色。
+                "__user_role": 1,
             }
         )
         assert ack["ok"] is True, f"{task_type} 从工具入口提交失败:{ack}"
