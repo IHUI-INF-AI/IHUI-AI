@@ -40,6 +40,7 @@ import {
   withGateCache,
 } from './lib/gate-cache.mjs'
 import { resolveGitdir, resolveGitBin } from './lib/gitdir.mjs'
+import { assertMaterializedGateBody } from './lib/gate-body-provenance.mjs'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
 import {
   listTreeEntries,
@@ -426,6 +427,17 @@ async function main(argv) {
     const fullTree = material.specs === 'full'
     const manifest = fullTree ? null : listTreeEntries(repo, tree.treeSha)
     const execute = (mat, { probe }) => {
+      // 2026-11-08:物化树没有 .git(cwd 在 scratch 外),不能装 gate-body preflight;
+      // 这里用 repo 侧的同一把尺子预校验:「物化出来的门体 == 被判树里那一份」。
+      // 不一致 ⇒ 该门未判定(rc=2 + 自称未判定),绝不拿错代门体作答 0/1。
+      try {
+        assertMaterializedGateBody({ repo, treeSha: tree.treeSha, script: gate.script })
+      } catch (e) {
+        if (e?.exitCode === 2) {
+          return { rc: 2, stdout: '', stderr: `${e.message}\n` }
+        }
+        throw e
+      }
       const env = { ...mat.isoEnv, TMPDIR: gateTmp, TMP: gateTmp, TEMP: gateTmp }
       if (probe) {
         env.NODE_OPTIONS = `${env.NODE_OPTIONS ? `${env.NODE_OPTIONS} ` : ''}--import ${pathToFileURL(join(HERE, 'lib', 'gate-read-probe.mjs')).href}`
