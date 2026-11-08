@@ -308,22 +308,17 @@ describe('Live Gifts API', () => {
   })
 
   describe('GET /api/live-gifts/records', () => {
-    it('返回打赏记录列表(含赠送人昵称)', async () => {
-      mockSelectResult
-        .mockResolvedValueOnce([{ record: makeRecord(), senderName: '测试用户' }])
-        .mockResolvedValueOnce([{ count: 1 }])
-
+    it('匿名读取全站打赏记录被拒绝(401)', async () => {
+      // F-199:该端点返回全站 senderId/receiverId/金额,属统计面,不再允许匿名读取。
       const res = await app.inject({
         method: 'GET',
         url: '/api/live-gifts/records?page=1&pageSize=20',
       })
 
-      expect(res.statusCode).toBe(200)
+      expect(res.statusCode).toBe(401)
       const body = JSON.parse(res.body)
-      expect(body.code).toBe(0)
-      expect(body.data.items).toHaveLength(1)
-      expect(body.data.items[0].senderName).toBe('测试用户')
-      expect(body.data.items[0].giftName).toBe('玫瑰')
+      expect(body.data).toBeUndefined()
+      expect(mockSelectResult).not.toHaveBeenCalled()
     })
   })
 })
