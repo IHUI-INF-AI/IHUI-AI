@@ -3289,9 +3289,6 @@
     "submit": "發佈需求",
     "contactLabel": "聯絡方式"
   },
-  "businessCard": {
-    "title": "我的名片"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "建立名片",
     "pageTitleEdit": "編輯名片",
@@ -3660,7 +3657,20 @@
     "lifetime": "終身有效",
     "openNow": "立即開通",
     "opened": "已開通",
-    "loadFailed": "載入交易者失敗"
+    "loadFailed": "載入交易者失敗",
+    "productName": "VIP 操盤手",
+    "teamCount": "團隊人數",
+    "activeTrend": "活躍 {n}",
+    "totalCommission": "累計佣金",
+    "rankTrend": "排名 #{n}",
+    "monthIncome": "本月收益",
+    "withdrawnTrend": "已提現 {v}",
+    "pendingIncome": "待結算",
+    "frozenTrend": "凍結 {v}",
+    "myInviteCode": "我的邀請碼",
+    "invitedTrend": "已邀請 {n} 人",
+    "distLevel": "分銷等級",
+    "rateTrend": "佣金比例 {n}%"
   },
   "wallet": {
     "points": "智匯值",
@@ -6065,7 +6075,8 @@
     "uploadFail": "名片圖片上傳失敗",
     "updated": "名片已更新",
     "submitFail": "名片提交失敗",
-    "customFail": "名片定製失敗，請重試"
+    "customFail": "名片定製失敗，請重試",
+    "title": "我的名片"
   },
   "model": {
     "type0": "全能",
@@ -6090,21 +6101,6 @@
     "officialFallback": "智匯社群-官方",
     "buyTime": "購買時間：{t0}",
     "expireTime": "　到期時間：{t1}"
-  },
-  "viptrader": {
-    "productName": "VIP 操盤手",
-    "teamCount": "團隊人數",
-    "activeTrend": "活躍 {n}",
-    "totalCommission": "累計佣金",
-    "rankTrend": "排名 #{n}",
-    "monthIncome": "本月收益",
-    "withdrawnTrend": "已提現 {v}",
-    "pendingIncome": "待結算",
-    "frozenTrend": "凍結 {v}",
-    "myInviteCode": "我的邀請碼",
-    "invitedTrend": "已邀請 {n} 人",
-    "distLevel": "分銷等級",
-    "rateTrend": "佣金比例 {n}%"
   },
   "contact": {
     "phoneLabel": "電話：",
@@ -7632,10 +7628,6 @@
   "businessCardEditPage": {
     "editTitle": "編輯名片",
     "bioLabel": "簡介"
-  },
-  "checkin": {
-    "colEnabled": "啟用",
-    "addAccount": "新增帳號"
   },
   "circles": {
     "title": "圈子"
