@@ -51,7 +51,9 @@ export function setFastify(fastify: FastifyLogInstance): void {
  * pino 把 meta 做 JSON 序列化,而 JSON.stringify(Error) === "{}"(name/message/stack
  * 均为非枚举自有属性)—— 本文件头注释推荐的写法 `{ error: err }` 在日志里就是一具
  * 空尸体。例外:`err` 保留键刻意不动 —— pino 对它自带标准错误序列化,覆盖反而会改变
- * 既有日志消费方看到的字段形状。其余键上的 Error 一律换成闭集结构;挂在 Error 上的
+ * 既有日志消费方看到的字段形状。注意这只是**本函数的**契约:落盘口 `log()` 会在之后
+ * 用 `redactCredentialStrings` 把 Error(含 `err`)换成打码影子(F-284)。
+ * 其余键上的 Error 一律换成闭集结构;挂在 Error 上的
  * 未知字段(请求体/凭据一类)不带出。无任何 Error 时返回原对象(零开销、零行为变化)。
  */
 export function serializeErrorFields(meta: object | undefined): object | undefined {

@@ -425,6 +425,8 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
   )
 
   // GET /visit-tracking/log/list - 访问日志列表（支持 userId/url/时间范围筛选）
+  // F-592:全站访问明细是取证面,默认 scope='all';管理员闸由插件级 requireAdmin 提供,
+  // 响应按白名单投影,永不交出 sessionId/userAgent(管理员同样隐去)。
   server.get(
     '/visit-tracking/log/list',
     {
@@ -489,7 +491,19 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
           .from(visitLogs)
           .where(where),
       ])
-      return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+      const publicList = list.map((row) => ({
+        id: row.id,
+        userId: row.userId,
+        ip: row.ip,
+        city: row.city,
+        url: row.url,
+        referer: row.referer,
+        visitDate: row.visitDate,
+        createdAt: row.createdAt,
+      }))
+      return reply.send(
+        success({ list: publicList, total: totalRows[0]?.count ?? 0, page, pageSize }),
+      )
     },
   )
 
@@ -787,6 +801,7 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /traces/export - 导出原始访问日志（JSON）
+  // F-592:导出面同样只给管理员(插件级 requireAdmin),且响应不得携带 sessionId/userAgent。
   server.get('/traces/export', async (request, reply) => {
     const parsed = logListQuery.safeParse(request.query)
     if (!parsed.success) {
@@ -813,7 +828,19 @@ export const adminVisitTrackingRoutes: FastifyPluginAsync = async (server) => {
         .from(visitLogs)
         .where(where),
     ])
-    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize }))
+    const publicList = list.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      ip: row.ip,
+      city: row.city,
+      url: row.url,
+      referer: row.referer,
+      visitDate: row.visitDate,
+      createdAt: row.createdAt,
+    }))
+    return reply.send(
+      success({ list: publicList, total: totalRows[0]?.count ?? 0, page, pageSize }),
+    )
   })
 
   // GET /traces/export-report - 导出汇总报告（PV/UV 趋势 + Top 页面 + Top IP）

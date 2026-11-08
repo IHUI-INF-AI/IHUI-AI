@@ -9,7 +9,8 @@
  * - 表名 `audit_logs_chain`(独立于现有 `audit_logs` 表,避免破坏既有审计链路)。
  *   主 agent 后续通过 migration 建表,字段对齐 AuditLogChainRow。
  * - 全部用 `db.execute(sql\`...\`)` 原生 SQL,不依赖 drizzle schema 声明,
- *   这样表未建时不会编译报错;运行期 catch 异常 → graceful degrade。
+ *   这样表未建时不会编译报错;**写路径**捕获异常降级(表未就绪时不影响主业务),
+ *   但**读路径**失败一律抛错(F-246):审计查询不能把"失败"写成"没有记录"。
  * - 写走 db(主库),读走 dbRead(读副本,无副本时回退主库)。
  *
  * 期望表结构(主 agent 建表参考):
@@ -34,6 +35,7 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import { logger } from '../utils/logger.js'
+import { AppError } from '../errors/AppError.js'
 
 /** 审计日志链行(对齐 DB 列,camelCase 映射)。 */
 export interface AuditLogChainRow {
@@ -77,6 +79,25 @@ export interface InsertAuditLogInput {
 
 const TABLE = 'audit_logs_chain'
 
+/**
+ * F-246(P2,2026-11-08):读查询失败必须显式失败,**不得** catch 成空结果。
+ *
+ * 旧形态把 DB 故障/表未迁移吞成 `{ list: [], total: 0 }` / `[]` / `0`,于是:
+ * 审计员把"查询失败"读成"没有记录",`/audit-logs/verify` 甚至对空输入判
+ * `valid:true`(等于向管理员出具"链完好"的假结论),导出侧再把空页当成末页静默截断。
+ * 表未就绪也属于失败 —— 审计面没有"降级成空"这一档。
+ */
+function auditQueryFailed(operation: string, error: unknown): never {
+  logger.error(`[audit-queries] ${operation} failed`, {
+    error: (error as Error).message,
+  })
+  throw new AppError(
+    '审计链查询失败:数据库不可用,本次结果不完整',
+    503,
+    'AUDIT_CHAIN_UNAVAILABLE',
+  )
+}
+
 const SELECT_COLS = sql.raw(
   'id, timestamp, user_id, action, resource_type, resource_id, ip, user_agent, result, metadata, prev_hash, current_hash',
 )
@@ -115,55 +136,6 @@ function toRows(raw: unknown): Record<string, unknown>[] {
     return (raw as { rows: Record<string, unknown>[] }).rows
   }
   return []
-}
-
-/**
- * 缺表判定(F-246)。**只有**"迁移还没应用"这一型允许降级成空结果 —— 它等价于"审计链尚未启用";
- * 权限不足、连接抖动、列缺失等其它失败都必须冒到路由层,否则审计员看到的 `{list:[],total:0}`
- * 与真的没有记录**完全同形**,SIEM 导出还会把它当末页静默截断。
- *
- * 沿 `cause` 链最多看四层:PG 客户端常把原始错误包一层再抛。
- */
-function isMissingTableError(error: unknown): boolean {
-  let cur: unknown = error
-  for (let depth = 0; depth < 4; depth++) {
-    if (cur === null || typeof cur !== 'object') return false
-    const rec = cur as { code?: unknown; message?: unknown; cause?: unknown }
-    if (rec.code === '42P01') return true // PostgreSQL undefined_table
-    const message = typeof rec.message === 'string' ? rec.message : ''
-    if (/relation .* does not exist/i.test(message) || /no such table/i.test(message)) return true
-    cur = rec.cause
-  }
-  return false
-}
-
-/**
- * 查询失败(非缺表)的统一错误型。路由层不需要认识 SQL,只需要知道"这次没查成,不能当空"。
- * 打点用 `operation` 区分具体查询,`originalError` 保留原始堆栈供日志排查。
- */
-export class AuditQueryError extends Error {
-  readonly code = 'AUDIT_QUERY_FAILED'
-  readonly operation: string
-  readonly originalError: unknown
-  constructor(operation: string, error: unknown) {
-    super(
-      `审计链查询失败(${operation}):${error instanceof Error ? error.message : String(error)}`,
-    )
-    this.name = 'AuditQueryError'
-    this.operation = operation
-    this.originalError = error
-  }
-}
-
-/** 缺表 ⇒ 降级(记 warn 返回调用方给的兜底值);其它错误 ⇒ 抛 AuditQueryError。 */
-function degradeOrThrow<T>(operation: string, error: unknown, fallback: () => T): T {
-  if (isMissingTableError(error)) {
-    logger.warn(`[audit-queries] ${operation} skipped (table not ready)`, {
-      error: error instanceof Error ? error.message : String(error),
-    })
-    return fallback()
-  }
-  throw new AuditQueryError(operation, error)
 }
 
 /** 动态构建 WHERE 子句(无过滤项时返回 TRUE,保持语法完整)。 */
@@ -231,7 +203,45 @@ export async function selectAuditLogs(
     const total = Number(cntRow?.['cnt'] ?? 0)
     return { list, total }
   } catch (e) {
-    return degradeOrThrow('selectAuditLogs', e, () => ({ list: [], total: 0 }))
+    auditQueryFailed('selectAuditLogs', e)
+  }
+}
+
+/** 导出专用键集游标:上一页最后一行的 (timestamp, id)。 */
+export interface AuditLogExportCursor {
+  timestamp: string
+  id: string
+}
+
+/**
+ * 导出专用查询:按 (timestamp, id) 升序 + 键集游标翻页。
+ *
+ * 为什么不复用 `selectAuditLogs`:展示面按 timestamp DESC + OFFSET 分页,导出面若沿用,
+ * ① 行序是降序,hash 链锚 `prevHash → currentHash` 无法生成;② 导出期间新写入会改变
+ * 偏移窗口,导致中间行被静默跳过。导出只需要"游标之后的下一批",不查总数。
+ *
+ * 游标比较用 `(timestamp, id) > (cursorTs, cursorId)` 双列元组,同一时间戳的兄弟行
+ * 也能稳定切分(与 `audit-evidence-retention.ts` 的 `ORDER BY timestamp ASC, id ASC` 同序)。
+ */
+export async function selectAuditLogsForExport(
+  filters: AuditLogFilters,
+  cursor: AuditLogExportCursor | null,
+  limit: number,
+): Promise<AuditLogChainRow[]> {
+  const filterWhere = buildWhere(filters)
+  const where = cursor
+    ? sql`${filterWhere} AND (timestamp, id) > (${new Date(cursor.timestamp)}::timestamptz, ${cursor.id}::uuid)`
+    : filterWhere
+  try {
+    const raw = await dbRead.execute(sql`
+      SELECT ${SELECT_COLS} FROM ${sql.raw(TABLE)}
+      WHERE ${where}
+      ORDER BY timestamp ASC, id ASC
+      LIMIT ${limit}
+    `)
+    return toRows(raw).map(mapRow)
+  } catch (e) {
+    auditQueryFailed('selectAuditLogsForExport', e)
   }
 }
 
@@ -249,7 +259,7 @@ export async function selectAuditLogChain(
     `)
     return toRows(raw).map(mapRow)
   } catch (e) {
-    return degradeOrThrow('selectAuditLogChain', e, () => [])
+    auditQueryFailed('selectAuditLogChain', e)
   }
 }
 
@@ -272,7 +282,7 @@ export async function selectAuditLogsRange(
     `)
     return toRows(raw).map(mapRow)
   } catch (e) {
-    return degradeOrThrow('selectAuditLogsRange', e, () => [])
+    auditQueryFailed('selectAuditLogsRange', e)
   }
 }
 
@@ -286,7 +296,7 @@ export async function countAuditLogs(filters: AuditLogFilters): Promise<number> 
     const row = toRows(raw)[0]
     return Number(row?.['cnt'] ?? 0)
   } catch (e) {
-    return degradeOrThrow('countAuditLogs', e, () => 0)
+    auditQueryFailed('countAuditLogs', e)
   }
 }
 
@@ -301,8 +311,7 @@ export async function getLastAuditLogHash(): Promise<string> {
     const h = row?.['current_hash']
     return h === null || h === undefined ? GENESIS : String(h)
   } catch (e) {
-    // 缺表 ⇒ 创世哈希(链尚未启用);其它失败 ⇒ 抛错,绝不能把"读不动链尾"伪装成创世。
-    return degradeOrThrow('getLastAuditLogHash', e, () => GENESIS)
+    auditQueryFailed('getLastAuditLogHash', e)
   }
 }
 
@@ -321,7 +330,7 @@ export async function groupByAction(
     `)
     return toRows(raw).map((r) => ({ action: String(r['action']), count: Number(r['cnt']) }))
   } catch (e) {
-    return degradeOrThrow('groupByAction', e, () => [])
+    auditQueryFailed('groupByAction', e)
   }
 }
 
@@ -344,7 +353,7 @@ export async function groupByUser(
       .map((r) => ({ userId: String(r['user_id']), count: Number(r['cnt']) }))
       .filter((r) => r.userId !== 'null' && r.userId !== '')
   } catch (e) {
-    return degradeOrThrow('groupByUser', e, () => [])
+    auditQueryFailed('groupByUser', e)
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

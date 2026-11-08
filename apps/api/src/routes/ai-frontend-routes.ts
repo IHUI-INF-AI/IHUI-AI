@@ -20,7 +20,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyInstance 
 import { z } from 'zod'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
-import { requireAdmin } from '../plugins/require-permission.js'
+import { requireAdmin, isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { db } from '../db/index.js'
@@ -317,7 +317,11 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 表为空时返回 [] 而非 404;ai-service 不可达时降级为无连接状态。
   server.get('/ai/mcp/servers', async (request, reply) => {
     try {
-      const rows = await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
+      // F-101(P1):mcp_servers 是全局表(无 owner 列),全局 MCP 配置只归管理员管理。
+      // 普通用户不再读全量行,避免跨租户读取端点 —— deny-by-default 返回空列表而非 404。
+      const rows = isSystemAdmin(request, { includeInternalChannel: false })
+        ? await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
+        : []
       try {
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/external/servers`, {
           headers: { Authorization: request.headers.authorization ?? '' },

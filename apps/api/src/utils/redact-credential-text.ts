@@ -80,13 +80,13 @@ export const LOG_REDACT_CENSOR = '***'
 /**
  * 递归打码字符串叶子;对象/数组形状保持不变。
  *
- * **只进普通对象与数组**,其余对象(尤其 Error)原样返回:调用方常见的写法是
- * `logger.error(msg, { err })`,pino 对 `err` 键自带标准错误序列化,把它 walk 成
- * 普通对象会得到 `{}`(Error 的 name/message/stack 都是非枚举自有属性)——那不是
- * 脱敏,那是把日志现场毁掉。
+ * Error 走 `redactErrorForLog`:它的 message/stack/自有可枚举字段都不在普通对象
+ * 枚举面内,直接原样返回就等于把凭据留给 pino 的标准错误序列化(F-284)。
+ * 该出口返回的仍是 Error 实例(原型保留),pino 的 `type` 不会走形。
  */
 export function redactCredentialStrings(value: unknown): unknown {
   if (typeof value === 'string') return redactCredentialText(value)
+  if (value instanceof Error) return redactErrorForLog(value)
   if (Array.isArray(value)) return value.map(redactCredentialStrings)
   if (value && typeof value === 'object' && isPlainObject(value)) {
     const out: Record<string, unknown> = {}
@@ -104,21 +104,38 @@ function isPlainObject(value: object): boolean {
 }
 
 /**
- * 造一个"落盘用"的 Error 影子:message / stack 打码,其余形状逐字保留。
+ * 造一个"落盘用"的 Error 影子:message / stack / 自有可枚举字段递归打码,其余形状逐字保留。
  *
- * 为什么需要它(2026-11-01):`redactCredentialStrings` 刻意**不 walk Error**
- * (见上),所以 `logger.error({ err })` 这条最常见的写法,凭据藏在 message 里就
- * 直接落盘。实测形态是上游 fetch 失败时 message 里带着
+ * 为什么需要它(2026-11-01):`redactCredentialStrings` 对普通对象的 walk 进不了
+ * Error 的 message/stack(非枚举自有属性),所以 `logger.error({ err })` 这条最常见
+ * 的写法,凭据藏在 message 里就直接落盘。实测形态是上游 fetch 失败时 message 里带着
  * `https://upstream/v1?api_key=sk-...`。而 `loggerConfig.redact` 只按字段名匹配,
  * 管不了字符串内容 —— 两道闸都够不着的地方就是这一格。
+ * F-284(2026-11-08)补齐:自有可枚举字段(上游 SDK 的 `err.config` / `err.response`)
+ * 也按同一规则递归打码,否则「message 盖住了、config.headers 还裸着」。
  *
  * 为什么不能就地改 `error.message`:调用方紧接着还要用同一个 error 生成响应体
  * (4xx 分支会把 message 回给客户端),就地改会连带改掉对外文案。
+ *
+ * 无凭据时**原样返回同一引用**(不白造影子、不改普通日志的对象身份)。
  *
  * 保留原型的意义:pino 的 stdSerializers.err 用 `err.constructor.name` 填 `type`,
  * 原型不动 ⇒ 日志里的错误类型名(如 AppError)不变,既有告警规则与检索口径不动。
  */
 export function redactErrorForLog<T extends Error>(error: T): T {
+  const originalMessage = error.message ?? ''
+  const safeMessage = redactCredentialText(originalMessage)
+  const safeStack = error.stack ? redactCredentialText(error.stack) : undefined
+  const source = error as unknown as Record<string, unknown>
+  let changed = false
+  const fields: Record<string, unknown> = {}
+  for (const key of Object.keys(source)) {
+    const value = redactCredentialStrings(source[key])
+    if (value !== source[key]) changed = true
+    fields[key] = value
+  }
+  if (!changed && safeMessage === originalMessage && safeStack === error.stack) return error
+
   const shadow = Object.create(Object.getPrototypeOf(error)) as T
   const define = (key: string, value: unknown) => {
     Object.defineProperty(shadow, key, {
@@ -128,12 +145,11 @@ export function redactErrorForLog<T extends Error>(error: T): T {
       configurable: true,
     })
   }
-  define('message', redactCredentialText(error.message ?? ''))
-  if (error.stack) define('stack', redactCredentialText(error.stack))
+  define('message', safeMessage)
+  if (safeStack !== undefined) define('stack', safeStack)
   define('name', error.name)
-  const source = error as unknown as Record<string, unknown>
   const target = shadow as unknown as Record<string, unknown>
-  for (const key of Object.keys(source)) target[key] = source[key]
+  for (const key of Object.keys(fields)) target[key] = fields[key]
   return shadow
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
