@@ -6,6 +6,8 @@
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
 import { normalizeVipMine, type VipMineRow } from './vip-mine'
+import { normalizeOrderDetail } from './order-normalize'
+import { normalizeDistributionOverview } from './distribution-normalize'
 import { BASE_URL } from '../utils/api-config'
 import { getMiniappVersion } from '../utils/app-version'
 import { t } from '../i18n'
@@ -1057,13 +1059,19 @@ export const getPayResult = async (orderNo: string) => {
  * 后端响应 `{ order: EduOrder }`,此处解包返回 Order 本体,保持调用方签名不变。
  */
 export const getOrderDetail = (id: string | number) =>
-  get<{ order: Order }>(`/orders/${id}`).then((r) => (r.order ?? (r as unknown as Order)) as Order)
+  get<{ order: Order }>(`/orders/${id}`).then((r) =>
+    normalizeOrderDetail((r.order ?? r) as unknown as Record<string, unknown>),
+  )
 /**
  * 申请退款 — 对接后端 POST /orders/:id/refund(参数 :id 必须是 UUID)。
  * 后端响应 `{ refund: EduRefund }`,此处仅返回 void(调用方不读取返回值)。
+ * refundAmount 以订单金额显式回传,保证与页面展示一致(后端另按订单金额封顶)。
  */
-export const refund = (data: { orderId: string; reason: string }) =>
-  post(`/orders/${data.orderId}/refund`, { reason: data.reason })
+export const refund = (data: { orderId: string; reason: string; refundAmount?: string }) =>
+  post(`/orders/${data.orderId}/refund`, {
+    reason: data.reason,
+    ...(data.refundAmount ? { refundAmount: data.refundAmount } : {}),
+  })
 /** 我的退款记录列表 — 对接后端 GET /refunds/me(返回 { list, total, page, pageSize }) */
 export const getRefundList = (params?: { page?: number; pageSize?: number; status?: string }) =>
   get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/refunds/me', params)
@@ -1107,23 +1115,21 @@ export interface DistributionInfo {
   level: number
   totalCommission: number
   available: number
+  pendingCommission: number
   withdrawn: number
   teamCount: number
+  inviteCode: string | null
 }
 export const getDistributionInfo = () =>
   get<{
     totalCommission: number
+    availableCommission: number
     pendingCommission: number
     withdrawnCommission: number
     inviteCode: string | null
-  }>('/distribution/overview').then((res) => ({
-    level: 0,
-    totalCommission: res.totalCommission,
-    available: res.pendingCommission,
-    withdrawn: res.withdrawnCommission,
-    teamCount: 0,
-    inviteCode: res.inviteCode,
-  })) as Promise<DistributionInfo & { inviteCode: string | null }>
+    level: number
+    invitedCount: number
+  }>('/distribution/overview').then((res) => normalizeDistributionOverview(res))
 export const getDistributionTeam = (params?: { page?: number; pageSize?: number }) =>
   get<{
     list: Array<{
