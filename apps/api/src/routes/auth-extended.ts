@@ -127,6 +127,7 @@ import {
   type OAuthConsentState,
 } from '../services/oauth-consent.js'
 import { resolveLoginRegion } from '../services/login-region.js'
+import { verifyAppleIdToken } from '../services/apple-id-token.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
   getCodeEntry,
@@ -3253,17 +3254,18 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
                   ),
                 )
             }
-            // 解码 id_token payload 获取 sub(Apple 用户唯一标识)与 email
-            const payloadB64 = tokenData.id_token.split('.')[1]
-            if (!payloadB64) {
-              return reply.status(400).send(error(400, 'Apple id_token 格式无效'))
+            // 2026-11-08 P0:Apple id_token 必须验签。旧实现只 base64 解 payload
+            // 取 sub,攻击者本地自签 JWT 即可冒充任意 Apple 账号。验签失败一律
+            // fail-closed,不得落到查/建用户与签发 token。
+            let appleClaims: { sub: string; email?: string }
+            try {
+              appleClaims = await verifyAppleIdToken(tokenData.id_token, appleClientId)
+            } catch (e) {
+              request.log.warn({ err: e }, '[oauth/apple] id_token 验签失败 ⇒ 拒绝登录')
+              return reply.status(400).send(error(400, 'Apple id_token 校验失败'))
             }
-            const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8')) as {
-              sub: string
-              email?: string
-            }
-            openId = payload.sub
-            email = payload.email
+            openId = appleClaims.sub
+            email = appleClaims.email
             break
           }
           // 框架返回:未配置私钥,仅确认收到回调
