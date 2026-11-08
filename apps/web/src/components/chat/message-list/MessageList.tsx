@@ -674,8 +674,7 @@ export function MessageList({
         loadingLabel={loadingLabel}
         emptyTitle={emptyTitle}
         emptyHint={emptyHint}
-        showTemplates={emptyKind !== 'anchor-unresolved'}
-        onTemplateSelect={onTemplateSelect}
+        onTemplateSelect={emptyKind === 'anchor-unresolved' ? undefined : onTemplateSelect}
         t={t}
       />
     )
