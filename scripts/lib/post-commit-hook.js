@@ -274,7 +274,9 @@ if (process.env.HUSKY_SKIP_DEFERRED_GATES !== '1') {
         // `git diff --cached --name-only` 为空,而执行器对带 stagedTriggers 的门在空集上恒 false
         // ⇒ 被延后的门在补跑里再次全跳(288 道 blocking 中 286 道带 stagedTriggers)。
         // 去掉 --staged 走全量档:passStaged=false ⇒ 条件触发分支不再生效,门真在新 HEAD 上判。
-        const child = spawn(process.execPath, ['scripts/guardian-runner.mjs'], {
+        // 全量档必须**显式**给 --full-face(2026-11-09):水印 47 在无面旗时按"未判定"exit 2,
+        // 不再默认猜整张 HEAD 面(那会把水印写进本次改动之外的文件)。其余门忽略该旗。
+        const child = spawn(process.execPath, ['scripts/guardian-runner.mjs', '--full-face'], {
           cwd: ROOT,
           detached: true,
           stdio: ['ignore', fd, fd],

@@ -1183,6 +1183,9 @@ const checks = [
     label: '💧 溯源水印覆盖守门(自愈式: 缺失/损坏自动补齐并回暂存区)',
     script: 'check-watermark-coverage.mjs',
     args: [],
+    // 显式全量面档(post-commit 补跑/显式整面检查):47 的门没有"隐式面"了,
+    // 由 runner --full-face 下发该面旗;不声明 fullFaceArgs 的门不受影响。
+    fullFaceArgs: ['--full-face'],
     mode: 'blocking',
     stagedTriggers: ["**/*"],
     onFailHint: [
@@ -7518,8 +7521,9 @@ const pushGateChecks = [
       '  💡 本次推送携带的某个文件在 HEAD blob 里水印缺失/损坏(常见于 commit-tree/私有索引落地绕过 pre-commit)。',
       '     修复:node scripts/watermark.mjs inject <file> → 随一枚新提交带进 HEAD → 重新 push。',
       '     push 档只写工作区、不碰索引:inject 完仍红属正常(HEAD 面欠账只能由真正的提交销账)。',
-      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES)。',
-      '     退出码 2 = 取不到判定面或 push scope 不可得时退回全量面,不是"没水印"。',
+      '     列出缺口:node scripts/watermark.mjs list-uncovered --files-from <清单>(清单即 PUSH_SCOPE_FILES 或 PUSH_SCOPE_MANIFEST)。',
+      '     退出码 2 = 未判定(范围凭据缺失/面不明),不是"没水印":本门不再退回整张 HEAD 面。',
+      '     补范围:正常走 .husky/pre-push(>300 文件它会写 PUSH_SCOPE_MANIFEST);确实要整面检查请显式 --full-face。',
       '',
     ].join('\n'),
   },
@@ -7687,6 +7691,7 @@ const cliArgs = process.argv.slice(2)
 // 失效方向只能是"当场报错",不能是"照默认跑一遍还让人觉得跑的是别的东西"。
 const KNOWN_CLI_FLAGS = new Set([
   '--staged',
+  '--full-face',
   '--timing',
   '--push-gate',
   '--no-cache',
@@ -7697,18 +7702,25 @@ const KNOWN_CLI_FLAGS = new Set([
 const unknownCliArgs = cliArgs.filter((a) => !KNOWN_CLI_FLAGS.has(a))
 if (unknownCliArgs.length) {
   console.error(`❌ 未知参数:${unknownCliArgs.join(' ')}`)
-  console.error('   本器只认:--staged / --timing / --push-gate / --no-cache / --self-test / --help / -h')
+  console.error('   本器只认:--staged / --full-face / --timing / --push-gate / --no-cache / --self-test / --help / -h')
   console.error('   未知参数不再被忽略,也不会跑任何门(exit 2)。')
   process.exit(2)
 }
 
 const passStaged = cliArgs.includes('--staged')
+/** 显式全量面档(2026-11-09):把面旗下发给声明了 fullFaceArgs 的门(目前仅 47);
+ *  post-commit 补跑用这一档 —— 它刻意不带 --staged(否则 stagedTriggers 在空集上全跳)。 */
+const fullFacePass = cliArgs.includes('--full-face')
 const showTiming = cliArgs.includes('--timing')
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
 const selfTest = cliArgs.includes('--self-test')
-if (selfTest && (passStaged || pushGate)) {
-  console.error('❌ --self-test 不能与 --staged / --push-gate 组合(自检不读暂存面、不跑判据)')
+if (selfTest && (passStaged || pushGate || fullFacePass)) {
+  console.error('❌ --self-test 不能与 --staged / --push-gate / --full-face 组合(自检不读暂存面、不跑判据)')
+  process.exit(2)
+}
+if (fullFacePass && (passStaged || pushGate)) {
+  console.error('❌ --full-face 不得与 --staged / --push-gate 组合(一个是显式整面,另一个已有更窄的面)')
   process.exit(2)
 }
 
@@ -7971,5 +7983,5 @@ if (selfTest) {
   process.exit(await runGateSelfTests(checks))
 }
 
-await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs })
+await runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, fullFace: fullFacePass, pushGate, showTiming, cliArgs })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
