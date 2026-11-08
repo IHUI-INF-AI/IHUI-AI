@@ -124,11 +124,33 @@ export async function fetchWithTimeout(
         signal: controller.signal,
         dispatcher,
       })
-      return res as unknown as Response
+      return bindBodyDeadline(res as unknown as Response, timer)
     }
-    return await fetch(url, { ...opts, signal: controller.signal })
-  } finally {
+    const res = await fetch(url, { ...opts, signal: controller.signal })
+    return bindBodyDeadline(res, timer)
+  } catch (err) {
     clearTimeout(timer)
+    throw err
   }
+}
+
+/**
+ * F-348:`fetch` 在响应头到达即 resolve;原来在 finally 里立刻 `clearTimeout`,正文读取完全无超时。
+ * 这里把正文消费包装成"读完才清定时器";调用方不读正文时,定时器到点 abort 也会释放 socket。
+ */
+function bindBodyDeadline(res: Response, timer: ReturnType<typeof setTimeout>): Response {
+  const finish = () => clearTimeout(timer)
+  const wrap = <T>(fn: () => Promise<T>) => async (): Promise<T> => {
+    try {
+      return await fn()
+    } finally {
+      finish()
+    }
+  }
+  res.json = wrap(res.json.bind(res))
+  res.text = wrap(res.text.bind(res))
+  res.arrayBuffer = wrap(res.arrayBuffer.bind(res))
+  res.blob = wrap(res.blob.bind(res))
+  return res
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
