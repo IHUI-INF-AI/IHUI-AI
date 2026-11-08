@@ -22,6 +22,8 @@ import { readN8nBaseUrl, n8nBaseHint } from '../../utils/n8n-env.js'
 // F-117:webhookPath 只允许站内相对路径;构造与复核住在唯一出口,禁止本文件再拼基址。
 import { buildN8nWebhookUrl, isSafeN8nWebhookPath } from '../../utils/n8n-webhook-url.js'
 import { db } from '../../db/index.js'
+import { resolveAiCost } from '../../plugins/ai-cost.js'
+import { resolveDefaultChatModel } from '../../utils/retired-providers.js'
 import {
   createVideoTask,
   findVideoTasksByUser,
@@ -996,15 +998,24 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         } catch {
           /* ignore */
         }
-        const estimatedTokens = body.text.length + answerContent.length
+        // F-203(口径 B):按定价把字符估算折算成成本(分),不再用 ceil(chars/1000) 当分。
+        // 费率来源:ai_pricing / pricing_rules(经 resolveAiCost);模型取 COZE_PRICING_MODEL,
+        // 未配置时沿用平台默认对话模型(与 crew 计费同一解析入口)。
+        const promptTokens = Math.ceil(body.text.length / 4)
+        const completionTokens = Math.ceil(answerContent.length / 4)
         try {
           const tokenBalance = server.tokenBalance
           if (tokenBalance) {
-            await tokenBalance.deductTokens(
-              userId,
-              Math.max(1, Math.ceil(estimatedTokens / 1000)),
-              'coze_workflow_chat',
-            )
+            const pricingModel = process.env.COZE_PRICING_MODEL?.trim() || resolveDefaultChatModel()
+            const actual = await resolveAiCost({
+              model: pricingModel,
+              promptTokens,
+              completionTokens,
+            })
+            const costCents = Math.ceil(actual.cost)
+            if (costCents > 0) {
+              await tokenBalance.deductTokens(userId, costCents, 'coze_workflow_chat')
+            }
           }
         } catch {
           /* 扣费失败不阻塞 */
