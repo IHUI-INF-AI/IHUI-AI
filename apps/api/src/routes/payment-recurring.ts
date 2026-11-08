@@ -677,18 +677,31 @@ export const paymentRecurringRoutes: FastifyPluginAsync = async (server) => {
                   .limit(1)
 
                 if (plan) {
-                  const order = await placeOrder({
-                    userId: existing.userId,
-                    amount: plan.price,
-                    orderType: 1,
-                    payType: 'wechat',
-                    description: `连续包月自动扣款 - ${plan.name}`,
-                  })
+                  // DB-02: 订单创建 + 完成必须加入本回调的外层事务。
+                  // 原实现 placeOrder/completeOrder 各自开独立事务并先提交，外层
+                  // 契约状态 UPDATE 失败时会留下「订单已 paid、契约未推进」的半提交，
+                  // 平台重试还会因契约未标记 success 而重复建单/重复发权益。
+                  const order = await placeOrder(
+                    {
+                      userId: existing.userId,
+                      amount: plan.price,
+                      orderType: 1,
+                      payType: 'wechat',
+                      description: `连续包月自动扣款 - ${plan.name}`,
+                    },
+                    null,
+                    tx,
+                  )
                   await tx
                     .update(orders)
                     .set({ planId: plan.id, updatedAt: now })
                     .where(eq(orders.id, order.id))
-                  await completeOrder(order.orderNo, transactionId)
+                  const completion = await completeOrder(order.orderNo, transactionId, tx)
+                  if (!completion.success) {
+                    throw new Error(
+                      `连续包月订单完成失败(${order.orderNo}): ${completion.reason ?? '未知原因'}`,
+                    )
+                  }
                 }
               }
 
