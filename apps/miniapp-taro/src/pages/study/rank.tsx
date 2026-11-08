@@ -29,9 +29,12 @@ export default function StudyRank() {
   const gate = useAuthReadyGate()
   const [items, setItems] = useState<RankingItem[]>([])
   const [loading, setLoading] = useState(true)
+  // XUI-066:加载失败曾被静默成空榜,现在如实上抛。
+  const [loadError, setLoadError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async () => {
+    setLoadError('')
     try {
       const res = await getStudyRank()
       setItems(
@@ -44,12 +47,12 @@ export default function StudyRank() {
         })),
       )
     } catch {
-      // 原页静默忽略;空态由共享屏承接
+      setLoadError(t('common.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [t])
 
   const refresh = useCallback(() => {
     setRefreshing(true)
@@ -75,7 +78,7 @@ export default function StudyRank() {
         onSelectRange={() => {}}
         loading={loading}
         refreshing={refreshing}
-        error=""
+        error={loadError}
         onRefresh={refresh}
         onBack={() => void Taro.navigateBack()}
         colorScheme={resolvedTheme}
