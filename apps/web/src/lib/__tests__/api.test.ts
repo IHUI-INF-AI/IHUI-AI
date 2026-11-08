@@ -81,7 +81,8 @@ describe('fetchApi', () => {
   it('成功请求返回 { success: true, data }', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ code: 0, message: 'ok', data: { id: 1 } }),
+      // 2026-11 fetchApi 改为 res.text() + JSON.parse(兼容非 JSON 的网关错误页),不再读 res.json()
+      text: async () => JSON.stringify({ code: 0, message: 'ok', data: { id: 1 } }),
     }) as unknown as typeof fetch
 
     const r = await fetchApi('/api/test')
@@ -92,7 +93,7 @@ describe('fetchApi', () => {
   it('code !== 0 返回失败', async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
-      json: async () => ({ code: 1001, message: '参数错误', data: null }),
+      text: async () => JSON.stringify({ code: 1001, message: '参数错误', data: null }),
     }) as unknown as typeof fetch
 
     const r = await fetchApi('/api/test')
@@ -229,7 +230,7 @@ describe('fetchApi', () => {
       .mockRejectedValueOnce(new Error('network down'))
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ code: 0, message: 'ok', data: { v: 1 } }),
+        text: async () => JSON.stringify({ code: 0, message: 'ok', data: { v: 1 } }),
       })
     global.fetch = fetchMock as unknown as typeof fetch
 
@@ -309,13 +310,17 @@ describe('401 → 登录弹窗接线', () => {
     expect(dialogMock.state.openCount).toBe(0)
   })
 
-  it('刷新中(isAuthenticated=true 且 token=null)不弹窗', async () => {
+  it('续期失败(共享层回调)先清会话再开且仅开一个弹窗(BUG-69)', async () => {
+    // 2026-11-06 BUG-69:三端 401 语义收敛 —— setUnauthorizedHandler 先 expireSession 再引导登录。
+    // 旧断言"isAuthenticated=true 且 token=null(刷新中)不弹窗"钉的是包装层内联逻辑时代;
+    // 现在这条 401 只在 api-client「续期一次已失败」后才回调,会话已判死,弹窗是正确终态。
     global.fetch = unauthorizedResponses() as unknown as typeof fetch
     useAuthStore.setState({ isAuthenticated: true, token: null })
 
     await fetchApi('/api/test', { method: 'POST', body: '{}' })
 
-    expect(dialogMock.state.openCount).toBe(0)
+    expect(useAuthStore.getState().isAuthenticated).toBe(false)
+    expect(dialogMock.state.openCount).toBe(1)
     useAuthStore.setState({ isAuthenticated: false })
   })
 })
