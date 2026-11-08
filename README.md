@@ -103,9 +103,9 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | 工程守门 | 348 | `guardianGates` |
 | — blocking | 319 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 19789 | `trackedFiles` |
+| 跟踪文件 | 19790 | `trackedFiles` |
 
-上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-07。
+上表由 `node scripts/gen-doc-numbers.mjs --markdown` 生成,最后核对日期 2026-11-08。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
 
 <!-- END GENERATED NUMBERS -->
