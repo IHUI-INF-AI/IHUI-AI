@@ -479,6 +479,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    // F-30:git/github 端点与 fs 系列同口径走 workspace_permissions 闸,
+    // 否则未配置权限的用户可绕过 setup 引导直接读任意登记工作区的仓库状态。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_status'))) return
     const runGit = async (args: string[], timeoutMs = 8000): Promise<string> => {
       const result = await fsBridge.run({
         command: buildGitCmd(args),
@@ -688,6 +691,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (body.target === 'commit' && !body.commit) {
       return reply.status(400).send(error(400, 'target=commit 时必须提供 commit(7-40 位 sha)'))
     }
+    // F-30:review-diff 会把工作区 diff 原文回传,必须先过 workspace_permissions 闸。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_review_diff'))) return
     const runGit = async (args: string[], timeoutMs = 15_000) =>
       fsBridge.run({
         command: buildGitCmd(args),
@@ -782,6 +787,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     try {
       const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+      // F-30:github/status 同样读工作区 git 元数据,补上权限闸。
+      if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'github_status'))) return
       const remote = await githubClient.detectRemote(body.workspacePath)
       const branchRaw = await fsBridge.run({
         command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
