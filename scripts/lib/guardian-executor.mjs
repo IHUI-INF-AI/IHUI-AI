@@ -36,6 +36,10 @@ import { attestGateBatchRun as attestGateBatchRunImpl } from './guardian-batch-a
 import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
 import { widenFilesOverDependents } from './import-graph.mjs'
 import { resolveGitBin } from './gitdir.mjs'
+// 2026-11-08 DG-06:门预算唯一来源按 gateId+script 双键取表;看门狗把「排队等锁」与「真跑」分段,
+// 避免把别人的排队时间记成这道门自己的墙钟(病灶与证据见两个 lib 的头注)。
+import { resolveGateTimeout } from './gate-timeout-budget.mjs'
+import { createGatePhaseWatchdog } from './gate-phase-watchdog.mjs'
 import { probeSubstrate } from './substrate-probe.mjs'
 // G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
 // 75 传播语义见执行段 catch)。此前本 runner 只认 status===75,子门被可捕获信号杀掉而
@@ -614,11 +618,27 @@ const parMaxRaw = Number.parseInt(process.env.GUARDIAN_PAR || '', 10)
 // 回到 8;达标靠"快档"而不是堆并发。
 const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
 // ─── 单门超时看门狗(并行档 2026-10-12 立;2026-11-06 BUG-43① 补到串行档)──────
-// 并行分支有 gateTimer + ETIMEDOUT 兜底,串行 spawnSync 此前**无 timeout** ⇒ 非并行池的写者门
-// 挂住时整条提交链无界等待。并行与串行共用同一枚旋钮 GUARDIAN_GATE_TIMEOUT_MS(0 = 仅排障关闭),
-// 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
-// 绝不静默洗成通过。
-const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+// 并行分支有看门狗兜底,串行 spawnSync 此前**无 timeout** ⇒ 非并行池的写者门挂住时整条提交链无界等待。
+// 2026-11-08 DG-06:预算不再用全局 300_000 一刀切,改按 gateId+script 双键取
+// scripts/data/land-gate-budgets.json;未在册/表坏时由 lib 回落缺省并告警(不静默)。
+// GUARDIAN_GATE_TIMEOUT_MS 仅保留为排障用的显式覆盖(0 = 关闭),不再是默认来源。
+const gateTimeoutEnvRaw = process.env.GUARDIAN_GATE_TIMEOUT_MS
+const gateTimeoutEnv = gateTimeoutEnvRaw === undefined ? null : Number(gateTimeoutEnvRaw)
+
+function resolveTimeBudget(check) {
+  if (Number.isFinite(gateTimeoutEnv)) {
+    return {
+      ms: gateTimeoutEnv > 0 ? gateTimeoutEnv : 0,
+      waitMs: 0,
+      source: `env GUARDIAN_GATE_TIMEOUT_MS / ${gateTimeoutEnvRaw}ms`,
+      entry: null,
+      warning: null,
+    }
+  }
+  const resolved = resolveGateTimeout({ gateId: check.id, script: check.script })
+  if (resolved.warning) console.warn(`⚠️ [${String(check.id)}] 预算回落:${resolved.warning}`)
+  return resolved
+}
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -686,10 +706,13 @@ async function dispatchPar(check, cmdArgs) {
   const CAP = 20 * 1024 * 1024
   const outChunks = []
   const errChunks = []
+  let watchdog = null
   let outBytes = 0
   let errBytes = 0
   let overCap = false
   child.stdout.on('data', (d) => {
+    // 阶段协议门:子门拿到执行权后打 run-start / wait-lock 标记,看门狗据此分段计时。
+    if (watchdog) watchdog.observe(d.toString('utf8'))
     outBytes += d.length
     if (outBytes <= CAP) outChunks.push(d)
     else overCap = true
@@ -707,6 +730,10 @@ async function dispatchPar(check, cmdArgs) {
     if (gateTimer) {
       clearTimeout(gateTimer)
       gateTimer = null
+    }
+    if (watchdog) {
+      watchdog.finish()
+      watchdog = null
     }
     job.runtime = Date.now() - spawnedAt
     parLive.delete(child)
@@ -749,12 +776,36 @@ async function dispatchPar(check, cmdArgs) {
   //   后果一项没减:这一族仍 failed++、仍非零退出、提交仍被拦 —— 改的只是"没判"不许写成"判过"(§0.3)。
   //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
   //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
-  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
-  // gateTimeoutMs 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
-  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
+  // 阈值来源见顶层 resolveTimeBudget;GUARDIAN_GATE_TIMEOUT_MS 仅作排障覆盖(0 = 关闭)。
+  // 2026-11-08 DG-06:登记 phaseProtocol 的门走阶段看门狗(排队/等锁与真跑分段);
+  // 其余门保持老的整段计时语义(行为逐字不变),只把阈值来源换成双键预算表。
+  const budget = resolveTimeBudget(check)
+  if (budget.entry?.phaseProtocol) {
+    watchdog = createGatePhaseWatchdog({
+      phase: true,
+      runLimitMs: budget.ms,
+      waitLimitMs: budget.waitMs,
+      spawnedAt,
+      onExpire: ({ code, message }) => {
+        try {
+          child.kill('SIGKILL')
+        } catch {
+          /* kill 失败也要 finish,不能把兜底本身变成新的挂起点 */
+        }
+        finish(() => {
+          const te = new Error(`[${check.id}] ${check.script} ${message}`)
+          te.code = code
+          job.error = te
+          job.stdout = Buffer.concat(outChunks).toString('utf8')
+          job.stderr = Buffer.concat(errChunks).toString('utf8')
+        })
+      },
+    })
+    watchdog.start()
+  } else if (Number.isFinite(budget.ms) && budget.ms > 0) {
     gateTimer = setTimeout(() => {
       if (finished) return
-      const te = new Error(`守门脚本超时未退出(${gateTimeoutMs}ms)—— ${check.id} ${check.script}`)
+      const te = new Error(`守门脚本超时未退出(${budget.ms}ms;${budget.source})—— ${check.id} ${check.script}`)
       te.code = 'ETIMEDOUT'
       try {
         child.kill('SIGKILL')
@@ -766,7 +817,7 @@ async function dispatchPar(check, cmdArgs) {
         job.stdout = Buffer.concat(outChunks).toString('utf8')
         job.stderr = Buffer.concat(errChunks).toString('utf8')
       })
-    }, gateTimeoutMs)
+    }, budget.ms)
   }
 }
 
@@ -1107,6 +1158,10 @@ for (const check of effectiveChecks) {
   await flushParBuffer()
   console.info(`[${check.id}] ${check.label}...`)
   const checkStart = Date.now()
+  const budget = resolveTimeBudget(check)
+  // 串行档 spawnSync 独占 stdio,无法像并行档那样实时观察 phase 标记;
+  // 阶段协议门按「排队上限 + 执行上限」合成一条硬上限,避免等锁时间吃掉执行预算。
+  const serialTimeoutMs = budget.entry?.phaseProtocol ? budget.ms + budget.waitMs : budget.ms
 
   // 2026-09-29:执行改走 spawnSync —— 唯一理由是**要读到子进程 stderr**(崩溃指纹只在那里)。
   // execSync 在 stdio:'pipe' 下只回 stdout,成功门的 stderr 会被**吞掉**,那是比"分不清崩溃与判红"
@@ -1120,9 +1175,9 @@ for (const check of effectiveChecks) {
     stdio: ['ignore', gateFace(check) === 'stock' ? 'pipe' : 'inherit', 'pipe'],
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
-    // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
-    // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
-    timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
+    // BUG-43①:串行档此前无 timeout(并行档有门看门狗),写者门挂住即整链无界等待。
+    // DG-06:超时值按 gateId+script 从预算表取(不再是全局 300s);超时回吐 ETIMEDOUT ⇒ 未判定分流,不洗绿。
+    timeout: Number.isFinite(serialTimeoutMs) && serialTimeoutMs > 0 ? serialTimeoutMs : 0,
   })
   // stock 面门 stdout 已改为 pipe(为了落台账),这里原样回放,保证现场观感不丢。
   if (gateFace(check) === 'stock' && typeof r.stdout === 'string' && r.stdout.length > 0) {

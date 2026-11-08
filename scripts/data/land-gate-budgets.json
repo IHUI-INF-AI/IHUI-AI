@@ -17,14 +17,44 @@
       "timeoutMs": 900000,
       "measuredMs": 506000,
       "measuredAt": "2026-11-06",
-      "note": "门 30a;静默态单跑 rc=0 / 506s(31 万对象级 reflog + fsck 可达性)。900s = 实测 ×1.8 余量,与并发无关。出处:scripts/lib/land-gate-rerun.mjs 头注同一读数。"
+      "note": "门 30a;静默态单跑 rc=0 / 506s(31 万对象级 reflog + fsck 可达性)。900s = 实测 ×1.8 余量,与并发无关。出处:scripts/lib/land-gate-rerun.mjs 头注同一读数。",
+      "gateId": "30a"
     },
     {
       "script": "check-dangling-local-imports.mjs",
       "timeoutMs": 600000,
       "measuredMs": 201242,
       "measuredAt": "2026-11-06",
-      "note": "门 98 的 --rev HEAD --anchor HEAD^ 两面全量审实测 201s(阶段剖析:auditTree 13,479 文件 = 93s/面)。缺省 300s 在并发 8 臂下不够,而落地器自己早已对同一条 CLI 用 10 分钟(IHUI_LAND_DANGLING_GATE_TIMEOUT_MS)⇒ 两通道同一条量纲取 600s,不各拍各的。"
+      "note": "门 98 的 --rev HEAD --anchor HEAD^ 两面全量审实测 201s(阶段剖析:auditTree 13,479 文件 = 93s/面)。缺省 300s 在并发 8 臂下不够,而落地器自己早已对同一条 CLI 用 10 分钟(IHUI_LAND_DANGLING_GATE_TIMEOUT_MS)⇒ 两通道同一条量纲取 600s,不各拍各的。",
+      "gateId": "98"
+    },
+    {
+      "gateId": "T1",
+      "script": "check-typecheck.mjs",
+      "phaseProtocol": true,
+      "baseMs": 365100,
+      "marginMs": 182550,
+      "derivedMs": 547650,
+      "timeoutMs": 547650,
+      "measuredMs": 365100,
+      "measuredAt": "2026-11-07",
+      "evidence": [
+        {
+          "measuredAt": "2026-11-06",
+          "form": "push",
+          "baseMs": 365100,
+          "marginMs": 182550,
+          "note": "push 形态实测 365.1s，取 ×1.5 余量"
+        },
+        {
+          "measuredAt": "2026-11-07",
+          "form": "push",
+          "baseMs": 365100,
+          "marginMs": 182550,
+          "note": "复核同读数，余量不变"
+        }
+      ],
+      "note": "门 T1；push 形态实测 365.1s（不拿全量 565.6s 那档去凑），×1.5 ⇒ 547650ms。phaseProtocol 要求执行器按 RUN_START/WAIT_LOCK 标记分段计时。"
     }
   ]
 }
