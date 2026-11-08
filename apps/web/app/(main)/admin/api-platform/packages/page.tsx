@@ -13,6 +13,7 @@ import { Button } from '@ihui/ui-react'
 import { ApiPackageTable } from './ApiPackageTable'
 import { ApiPackageDialog } from './ApiPackageDialog'
 import { api, EMPTY, packageToForm } from './helpers'
+import { formYuanToPriceCents } from './price-unit'
 import type { ApiPackage, ApiPackageForm } from './types'
 import { BackButton } from '@/components/common'
 
@@ -34,8 +35,8 @@ export default function AdminApiPlatformPackagesPage() {
     mutationFn: () => {
       const body = {
         name: form.name.trim(),
-        // 表单是「元」，服务端收「分」（z.number().int()）
-        price: Math.round((Number(form.price) || 0) * 100),
+        // 表单是「元」，服务端收「分」（z.number().int()）：换算只走 price-unit 一处。
+        price: formYuanToPriceCents(form.price),
         quota: Number(form.quota) || 0,
         period: form.period,
         description: form.description,

@@ -16,6 +16,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { PERIOD_LABEL_KEY } from './helpers'
+import { priceCentsToYuanText } from './price-unit'
 import type { ApiPackage } from './types'
 import { formatNumber } from '@/lib/date-utils'
 import { useConfirm } from '@/hooks/use-confirm'
@@ -66,7 +67,7 @@ export function ApiPackageTable({ list, isLoading, onEdit, onDelete }: Props) {
                   )}
                 </TableCell>
                 {/* plans.price 以「分」入库（billing.ts），此处按元展示 */}
-                <TableCell>¥{(p.price / 100).toFixed(2)}</TableCell>
+                <TableCell>{priceCentsToYuanText(p.price)}</TableCell>
                 <TableCell>{formatNumber(p.quota)}</TableCell>
                 <TableCell>{t(PERIOD_LABEL_KEY[p.period])}</TableCell>
                 <TableCell>
