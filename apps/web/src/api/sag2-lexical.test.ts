@@ -361,8 +361,8 @@ describe('sag2-lexical API 封装 · 4 端点成功返回值逐字段透传', ()
     expect(result.results[0]).toEqual({
       key: 'kb/a.txt#L1', path: 'kb/a.txt', content: 'CTO 是张三', score: 0.91, bm25: 4.2, hop: 1,
     })
-    expect(result.citations[0].byte_range).toEqual([0, 128])
-    expect(result.trace[0].terms[0]).toEqual({ term: 'CTO', score: 1.5, kind: 'seed' })
+    expect(result.citations[0]!.byte_range).toEqual([0, 128])
+    expect(result.trace[0]!.terms[0]).toEqual({ term: 'CTO', score: 1.5, kind: 'seed' })
     expect(result.judge).toEqual({ mode: 'heuristic', executed: false, reason: 'skipped' })
   })
 

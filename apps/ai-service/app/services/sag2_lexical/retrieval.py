@@ -29,7 +29,13 @@ from typing import Any
 
 from .diversity import diversify
 from .index import LexicalIndex, ScoredChunk
-from .judge import MODE_LEXICAL_ONLY, NO_MODEL_REASON, EvidenceJudge
+from .judge import (
+    JUDGE_EXECUTED_REASON,
+    MODE_LEXICAL_ONLY,
+    MODE_MODEL,
+    NO_MODEL_REASON,
+    EvidenceJudge,
+)
 from .text import casefold_tokens, match_query, name_phrases, sentence_spans
 
 MAX_HOPS = 2
@@ -326,6 +332,7 @@ async def retrieve(
     protected: dict[str, ScoredChunk] = {}
     latest: dict[str, ScoredChunk] = {}
     judge_executed_any = False
+    judge_degraded_hops = 0
     judge_reason = NO_MODEL_REASON
 
     for hop in range(options.max_hops + 1):
@@ -426,9 +433,17 @@ async def retrieve(
 
         verdict = await judge.score(query, list(pool.values()), evidence)
         result.judge_mode = verdict.mode
-        judge_executed_any = judge_executed_any or verdict.executed
-        if verdict.reason:
-            judge_reason = verdict.reason
+        if verdict.executed:
+            # 模型真跑过的轮次不得再把「未配置模型」留作最终结果理由。
+            # ModelJudge 成功路径 reason 为空（见 judge.py:196），故补中立说明。
+            judge_executed_any = True
+            judge_reason = verdict.reason or JUDGE_EXECUTED_REASON
+        else:
+            judge_degraded_hops += 1
+            # 尚未有真跑过的轮次时，保留最近一次具体降级原因
+            # （gateway 缺失 / provider 异常 / 空打分各不相同，不能压成一句）。
+            if verdict.reason and not judge_executed_any:
+                judge_reason = verdict.reason
 
         for key, candidate in pool.items():
             raw = verdict.scores.get(key)
@@ -469,6 +484,16 @@ async def retrieve(
         )
 
     result.judge_executed = judge_executed_any
+    # 形状锁：跨 hop 混合（部分轮次真跑、部分轮次降级）时，结果层三字段必须自洽。
+    # executed=True 却仍显示 lexical-only / NO_MODEL_REASON 会让调用方误判为「从未判定」。
+    if judge_executed_any:
+        result.judge_mode = MODE_MODEL
+        if judge_degraded_hops:
+            judge_reason = (
+                f"{JUDGE_EXECUTED_REASON};另有 {judge_degraded_hops} 轮诚实降级"
+            )
+        elif judge_reason == NO_MODEL_REASON:
+            judge_reason = JUDGE_EXECUTED_REASON
     result.judge_reason = judge_reason
 
     if not retained:
