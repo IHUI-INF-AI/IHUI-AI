@@ -32,6 +32,7 @@ function git(cwd, args) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败:${r.stderr || r.stdout}`)
   return r.stdout
@@ -68,7 +69,7 @@ function mkRepo() {
   return dir
 }
 
-function reset(dir) {
+function _reset(dir) {
   git(dir, ['reset', '--hard', '-q', 'HEAD'])
   git(dir, ['clean', '-fdq'])
 }
