@@ -529,6 +529,8 @@ class TestOwnership:
         # 同样不是身份字段 —— 它只决定"这行 checkpoint 要活多久",与"我是谁"无关。
         # 2026-10-25 「79 号票」:双轴(sandbox_mode / approval_policy)与 AgentResumeRequest
         # 同步落格 —— 三条 resume 出口的字段面必须同形;二者是策略轴,不是身份。
+        # 跨进程续跑的 resume_confirmations 按 tool_call_id 给处置,键是工具调用而不是人,
+        # 同样是行为字段,不是身份自报。
         assert set(AgentSessionResumeRequest.model_fields) == {
             "model",
             "max_iterations",
@@ -537,6 +539,7 @@ class TestOwnership:
             "sandbox_mode",
             "approval_policy",
             "durable_horizon_seconds",
+            "resume_confirmations",
         }
 
     def test_route_passes_token_principal_not_body(self) -> None:
