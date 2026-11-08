@@ -325,6 +325,7 @@
     }
   },
   "login": {
+    "platformLinuxdo": "LinuxDo",
     "platformWechat": "위챗",
     "platformLark": "페이스부(Lark)",
     "platformDingTalk": "딩톡",
@@ -634,6 +635,7 @@
     "later": "나중에"
   },
   "order": {
+    "pay": "설정즉시결제",
     "title": "주문",
     "searchPlaceholder": "주문 검색",
     "tab": {
@@ -1935,6 +1937,33 @@
     "loadFailed": "고객센터 불러오기 실패"
   },
   "artifacts": {
+    "navEntry": "산출물",
+    "title": "산출물",
+    "desc": "AI가 생성한 보고서, 슬라이드, 표, 문서를 다운로드하거나 미리 볼 수 있습니다.",
+    "empty": "아직 산출물이 없습니다. AI에게 보고서나 슬라이드를 생성하면 여기에 표시됩니다.",
+    "loginRequired": "로그인하면 산출물 목록을 볼 수 있습니다",
+    "colName": "이름",
+    "colKind": "유형",
+    "colVersion": "버전",
+    "colCreated": "생성 시간",
+    "colSession": "원본 세션",
+    "colActions": "작업",
+    "download": "다운로드",
+    "preview": "미리보기",
+    "viewSession": "세션 보기",
+    "kind_html_report": "HTML 보고서",
+    "kind_slides": "슬라이드",
+    "kind_sheet": "스프레드시트",
+    "kind_doc": "문서",
+    "kind_video_ref": "동영상 참조",
+    "justNow": "방금",
+    "secondsAgo": "{n}초 전",
+    "minutesAgo": "{n}분 전",
+    "hoursAgo": "{n}시간 전",
+    "daysAgo": "{n}일 전",
+    "loadMore": "더 불러오기",
+    "refresh": "새로고침",
+    "countSummary": "산출물 {total}개 중 {loaded}개 불러옴",
     "previewFailed": "미리보기 링크를 가져오지 못했습니다. 잠시 후 다시 시도하세요",
     "loading": "불러오는 중…",
     "loadFailed": "산출물 목록을 불러오지 못했습니다"
