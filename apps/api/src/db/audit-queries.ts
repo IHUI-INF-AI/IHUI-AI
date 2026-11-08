@@ -9,7 +9,8 @@
  * - 表名 `audit_logs_chain`(独立于现有 `audit_logs` 表,避免破坏既有审计链路)。
  *   主 agent 后续通过 migration 建表,字段对齐 AuditLogChainRow。
  * - 全部用 `db.execute(sql\`...\`)` 原生 SQL,不依赖 drizzle schema 声明,
- *   这样表未建时不会编译报错;运行期 catch 异常 → graceful degrade。
+ *   这样表未建时不会编译报错;**写路径**捕获异常降级(表未就绪时不影响主业务),
+ *   但**读路径**失败一律抛错(F-246):审计查询不能把"失败"写成"没有记录"。
  * - 写走 db(主库),读走 dbRead(读副本,无副本时回退主库)。
  *
  * 期望表结构(主 agent 建表参考):
@@ -34,6 +35,7 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import { logger } from '../utils/logger.js'
+import { AppError } from '../errors/AppError.js'
 
 /** 审计日志链行(对齐 DB 列,camelCase 映射)。 */
 export interface AuditLogChainRow {
@@ -76,6 +78,25 @@ export interface InsertAuditLogInput {
 }
 
 const TABLE = 'audit_logs_chain'
+
+/**
+ * F-246(P2,2026-11-08):读查询失败必须显式失败,**不得** catch 成空结果。
+ *
+ * 旧形态把 DB 故障/表未迁移吞成 `{ list: [], total: 0 }` / `[]` / `0`,于是:
+ * 审计员把"查询失败"读成"没有记录",`/audit-logs/verify` 甚至对空输入判
+ * `valid:true`(等于向管理员出具"链完好"的假结论),导出侧再把空页当成末页静默截断。
+ * 表未就绪也属于失败 —— 审计面没有"降级成空"这一档。
+ */
+function auditQueryFailed(operation: string, error: unknown): never {
+  logger.error(`[audit-queries] ${operation} failed`, {
+    error: (error as Error).message,
+  })
+  throw new AppError(
+    '审计链查询失败:数据库不可用,本次结果不完整',
+    503,
+    'AUDIT_CHAIN_UNAVAILABLE',
+  )
+}
 
 const SELECT_COLS = sql.raw(
   'id, timestamp, user_id, action, resource_type, resource_id, ip, user_agent, result, metadata, prev_hash, current_hash',
@@ -182,10 +203,7 @@ export async function selectAuditLogs(
     const total = Number(cntRow?.['cnt'] ?? 0)
     return { list, total }
   } catch (e) {
-    logger.warn('[audit-queries] selectAuditLogs failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return { list: [], total: 0 }
+    auditQueryFailed('selectAuditLogs', e)
   }
 }
 
@@ -223,10 +241,7 @@ export async function selectAuditLogsForExport(
     `)
     return toRows(raw).map(mapRow)
   } catch (e) {
-    logger.warn('[audit-queries] selectAuditLogsForExport failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return []
+    auditQueryFailed('selectAuditLogsForExport', e)
   }
 }
 
@@ -244,10 +259,7 @@ export async function selectAuditLogChain(
     `)
     return toRows(raw).map(mapRow)
   } catch (e) {
-    logger.warn('[audit-queries] selectAuditLogChain failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return []
+    auditQueryFailed('selectAuditLogChain', e)
   }
 }
 
@@ -270,10 +282,7 @@ export async function selectAuditLogsRange(
     `)
     return toRows(raw).map(mapRow)
   } catch (e) {
-    logger.warn('[audit-queries] selectAuditLogsRange failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return []
+    auditQueryFailed('selectAuditLogsRange', e)
   }
 }
 
@@ -287,10 +296,7 @@ export async function countAuditLogs(filters: AuditLogFilters): Promise<number> 
     const row = toRows(raw)[0]
     return Number(row?.['cnt'] ?? 0)
   } catch (e) {
-    logger.warn('[audit-queries] countAuditLogs failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return 0
+    auditQueryFailed('countAuditLogs', e)
   }
 }
 
@@ -304,8 +310,8 @@ export async function getLastAuditLogHash(): Promise<string> {
     const row = toRows(raw)[0]
     const h = row?.['current_hash']
     return h === null || h === undefined ? GENESIS : String(h)
-  } catch {
-    return GENESIS
+  } catch (e) {
+    auditQueryFailed('getLastAuditLogHash', e)
   }
 }
 
@@ -323,8 +329,8 @@ export async function groupByAction(
       ORDER BY cnt DESC
     `)
     return toRows(raw).map((r) => ({ action: String(r['action']), count: Number(r['cnt']) }))
-  } catch {
-    return []
+  } catch (e) {
+    auditQueryFailed('groupByAction', e)
   }
 }
 
@@ -346,8 +352,8 @@ export async function groupByUser(
     return toRows(raw)
       .map((r) => ({ userId: String(r['user_id']), count: Number(r['cnt']) }))
       .filter((r) => r.userId !== 'null' && r.userId !== '')
-  } catch {
-    return []
+  } catch (e) {
+    auditQueryFailed('groupByUser', e)
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

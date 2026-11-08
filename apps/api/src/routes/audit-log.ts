@@ -207,6 +207,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
       const controller = new AbortController()
       const onClose = () => controller.abort()
       request.raw.on('close', onClose)
+      let wroteAnyLine = false
 
       try {
         const stream = exportAuditLogs(
@@ -218,12 +219,21 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
           if (controller.signal.aborted) break // 客户端断开,提前退出
           if (!reply.raw.writableEnded) {
             reply.raw.write(line + '\n')
+            wroteAnyLine = true
           }
         }
       } catch (e) {
         logger.error('[audit-log route] export stream failed', {
           error: (e as Error).message,
         })
+        // F-246:一行都还没写出 ⇒ 查询在取数阶段就失败了,必须如实回 5xx;
+        // 旧形态写一行 "export failed" 后仍以 200 结束,客户端会把截断的导出当成成功。
+        if (!wroteAnyLine && !reply.raw.headersSent) {
+          return reply
+            .header('Content-Type', 'application/json; charset=utf-8')
+            .status(503)
+            .send(error(503, '审计链查询失败:数据库不可用,导出已中止', 'AUDIT_CHAIN_UNAVAILABLE'))
+        }
         if (!reply.raw.writableEnded) {
           reply.raw.write(
             JSON.stringify({ error: 'export failed', message: (e as Error).message }) + '\n',
@@ -231,7 +241,7 @@ export const auditLogRoutes: FastifyPluginAsync = async (server) => {
         }
       } finally {
         request.raw.off('close', onClose)
-        if (!reply.raw.writableEnded) {
+        if (!reply.sent && !reply.raw.writableEnded) {
           reply.raw.end()
         }
       }
