@@ -31932,4 +31932,24 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - `apps/web/src/lib/ui-routes.generated.ts` 是四端派生产物且三方各异（staged/HEAD/origin 各一版），本轮不覆盖他席在飞面；待其链上用 `generate-ui-routes.mjs` 重生成。
 - 并发分叉：本地 HEAD 另有他席 6 枚未推提交，已由 `refs/backup/local-tip-2026-11-08-sag2*` 钉住零信息损失；闭环判据 = 本轮交付 sha 落在 `origin/main` 链上，不强求此刻 remote==local。
 - 后续建议（P1–P5）：P1 依赖恢复后补前端三项验证；P2 给 `check-api-routes` 扩二级聚合挂载图后摘除 ignore 登记；P3 把内存倒排升级为 Postgres `tsvector`/`ts_rank_cd` 持久化面；P4 接真实模型判定 provider 并补 judge 执行率遥测；P5 为 51 万文档规模补延迟/召回基准与取消预算实测。
-
+- [ ] 1A. **缺陷普查 DG-01** [P1] gates-full 自动触发腿与 guardian-full 取材面不一致 ⇒ 结构上不可能绿的全量门（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-01）
+- [ ] 2A. **缺陷普查 DG-02** [P1] push 门缓存指纹漏掉「未提交的 scripts/ 与根配置」，60 分钟内可复用旧通过（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-02）
+- [ ] 3A. **缺陷普查 DG-03** [P1] 跳门证据错配：typecheck 的「范围外降级」证据被当成「任何钩子失败都可 --no-verify」的通行证（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-03）
+- [ ] 4A. **缺陷普查 DG-04** [P1] required 聚合器不依赖两个 preflight ⇒ 水印 / 冲突标记红不阻塞合并（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-04）
+- [ ] 5A. **缺陷普查 DG-05** [P1] 不可变护栏「跳过 merge」+ root-guard 只封 4 个目标 + IG 不在全量注册表 ⇒ evil merge 可改门判据/执行器而不被任（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-05）
+- [ ] 6A. **缺陷普查 DG-06** [P2] 同一道门 30a 存在两套超时口径，登记表只被落地通道消费（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-06）
+- [ ] 7A. **缺陷普查 DG-07** [P2] 守护单实例锁：只凭 process.kill(pid,0) 判活，pid 复用后死锁永不被回收（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-07）
+- [ ] 8A. **缺陷普查 DG-08** [P2] 部署轮次被杀后留下「标记=HEAD 但健康未证明」，下一轮不再走门禁（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-08）
+- [ ] 9A. **缺陷普查 DG-09** [P2] HUSKY_SKIP_TYPECHECK=1 名不副实：跳过的是整条 push 门链（13 道 blocking），不是 typecheck（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-09）
+- [ ] 10A. **缺陷普查 DG-10** [P2] format 门：显式给定的基线不可解析时静默回落 HEAD^，在更窄的面上判绿（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-10）
+- [ ] 11A. **缺陷普查 DG-11** [P2] gate-scope 文件头注与实现互斥：头注说「含 apps/packages ⇒ full」，实现恒 meta（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-11）
+- [ ] 12A. **缺陷普查 DG-12** [P3] 发布 tag 闸要求整树 porcelain 干净：多会话共享工作树下被他人 WIP 永久阻断（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-12）
+- [ ] 13A. **缺陷普查 DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）
+- [ ] 14A. **缺陷普查 DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
+- [ ] 15B. **缺陷普查 W-01** [P1] 考试倒计时用「每秒自减」而非截止时间戳，后台/锁屏可无限延长考试时间（证据 docs/tickets/2026-11/findings-web.md#W-01）
+- [ ] 16B. **缺陷普查 W-02** [P2] 管理端在线答题页存在同型倒计时缺陷（证据 docs/tickets/2026-11/findings-web.md#W-02）
+- [ ] 17B. **缺陷普查 W-03** [P3] 退款详情失败时降级为「列表前 100 条匹配」，且静默丢失订单与审核记录（证据 docs/tickets/2026-11/findings-web.md#W-03）
+- [ ] 18B. **缺陷普查 W-04** [P2] 提问弹窗未处理输入法组合态，中文按 Enter 选词会提前提交半截答案（证据 docs/tickets/2026-11/findings-web.md#W-04）
+- [ ] 19B. **缺陷普查 W-05** [P3] 会话组织弹窗的标签输入同样缺少输入法组合态判断（证据 docs/tickets/2026-11/findings-web.md#W-05）
+- [ ] 20B. **缺陷普查 W-06** [P3] 学习支付确认页对长期 pending 订单无上限、无退避轮询，且存在请求重叠（证据 docs/tickets/2026-11/findings-web.md#W-06）
+- [ ] 21B. **缺陷普查 W-07** [P2] 充值成功页把「支付二维码」和「金额」直接取自 URL 参数，可被构造链接用于支付钓鱼（证据 docs/tickets/2026-11/findings-web.md#W-07）
