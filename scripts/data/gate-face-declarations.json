@@ -357,6 +357,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-gate-body-direct-run-coverage.mjs": {
+      "face": "auto",
+      "reason": "按运行模式:--staged ⇒ 索引面与 registry/台账,否则 HEAD 面;本门只接受这两个面"
+    },
     "scripts/check-gate-face-discipline.mjs": {
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
