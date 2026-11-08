@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-08T15:17:28.777Z",
+  "sealedAt": "2026-11-08T23:32:02.156Z",
   "sealedBy": "root-guard --seal",
-  "reason": "B2 merge on 4bcff52cdc: reseal per merged tree",
+  "reason": "合并 fix/api-misc-p1-1108：guardian-runner.mjs 与 lib/guardian-executor.mjs 随门 47 面语义收口变更，按索引面重封以同枚提交",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "4f24ec0138bf71fc02cad78510a07eb430607eab6ca5af50b02f54690ba0787b"
+      "sha256": "64587cc1c8f249b3a3363beb33250425226871584fe760e9fd7d35c32ed19982"
     },
     {
       "id": "judgement-libs",
@@ -40,7 +40,7 @@
       "id": "guardian-executor",
       "path": "scripts/lib/guardian-executor.mjs",
       "mode": "file",
-      "sha256": "f39920d8994688b3d1e52d93f5be8aa42195ff70ff19fb2fdbfd178aaeccc305"
+      "sha256": "35dabeb4ea7e99a5a7d73a868300c99b67a39459d91b6bb19500ab02e97e7b94"
     },
     {
       "id": "gate-failure-kind",
