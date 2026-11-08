@@ -36,8 +36,11 @@ export function getExpiryLedgerPath(workspacePath: string): string {
   return path.join(workspacePath, EXPIRY_LEDGER_REL);
 }
 
-/** 容器性断言:`relativeTrashPath` 来自清单文本(可被改写),这条路要动 rm,不信它 */
-function isInsideDir(root: string, relative: string): boolean {
+/**
+ * 容器性断言:`relativeTrashPath` 来自清单文本(可被改写),凡要动文件系统就不得信它。
+ * 导出供恢复出口复用(同一判据一处实现,§0.6)。
+ */
+export function isInsideDir(root: string, relative: string): boolean {
   if (relative.length === 0 || path.isAbsolute(relative)) return false;
   const rootAbs = path.resolve(root);
   const targetAbs = path.resolve(rootAbs, relative);

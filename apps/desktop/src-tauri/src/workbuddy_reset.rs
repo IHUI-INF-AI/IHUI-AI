@@ -862,10 +862,22 @@ pub fn quarantine_list_impl(root: &std::path::Path) -> Result<Vec<WbQuarantineIn
     Ok(out)
 }
 
-/// 从隔离区恢复：按 manifest 逐条目 rename 回原位。护栏：目录名前缀 + manifest 可解析
-/// + 目标已存在则拒绝覆盖（绝不静默覆盖用户现有数据）。全空后删除隔离区壳。
+/// 条目名/相对路径必须是普通段(`..`、绝对路径、前缀一律拒)。
+fn wb_safe_rel_path(p: &str) -> bool {
+    if p.is_empty() || p.starts_with('/') || p.starts_with('\\') {
+        return false;
+    }
+    std::path::Path::new(p)
+        .components()
+        .all(|c| matches!(c, std::path::Component::Normal(_)))
+}
+
+/// 从隔离区恢复：按 manifest 逐条目 rename 回原位。护栏：目录名前缀 + 目录/清单
+/// 根都必须落在本次解析出的真实用户根及其父目录内 + 目标已存在拒绝覆盖。全空后删壳。
 pub fn quarantine_restore_impl(
     quarantine: &std::path::Path,
+    expected_parent: &std::path::Path,
+    expected_root: &std::path::Path,
 ) -> WbResetReport {
     let name = quarantine
         .file_name()
@@ -880,6 +892,20 @@ pub fn quarantine_restore_impl(
     if !quarantine.is_dir() {
         return fail(format!("隔离区不存在: {}", quarantine.display()));
     }
+    let canonical_q = match std::fs::canonicalize(quarantine) {
+        Ok(q) => q,
+        Err(e) => return fail(format!("隔离区解析失败: {e}")),
+    };
+    let ok_parent = canonical_q
+        .parent()
+        .map(|p| std::fs::canonicalize(expected_parent).map(|c| c == p).unwrap_or(false))
+        .unwrap_or(false);
+    if !ok_parent {
+        return fail(format!(
+            "护栏拒绝：隔离区不在预期父目录 {} 下",
+            expected_parent.display()
+        ));
+    }
     let body = match std::fs::read_to_string(quarantine.join(QUARANTINE_MANIFEST)) {
         Ok(b) => b,
         Err(e) => return fail(format!("manifest 读取失败: {e}")),
@@ -892,10 +918,24 @@ pub fn quarantine_restore_impl(
     if root.parent().is_none() {
         return fail(format!("manifest 记录的根目录非法: {}", manifest.root));
     }
+    let canonical_root = match std::fs::canonicalize(&root) {
+        Ok(r) => r,
+        Err(e) => return fail(format!("manifest.root 解析失败 {}: {e}", root.display())),
+    };
+    if std::fs::canonicalize(expected_root).map(|c| c == canonical_root).unwrap_or(false) == false {
+        return fail(format!(
+            "护栏拒绝：manifest.root {} 不是 WorkBuddy 用户根目录",
+            root.display()
+        ));
+    }
     let mut acted = 0usize;
     let mut errors: Vec<String> = Vec::new();
     for entry in &manifest.entries {
-        let target = root.join(&entry.original_path);
+        if !wb_safe_rel_path(&entry.name) || !wb_safe_rel_path(&entry.original_path) {
+            errors.push(format!("{}: 条目名/原路径越界", entry.original_path));
+            continue;
+        }
+        let target = canonical_root.join(&entry.original_path);
         if target.exists() {
             errors.push(format!("{}: 目标已存在,拒绝覆盖", entry.original_path));
         } else {
@@ -917,7 +957,7 @@ pub fn quarantine_restore_impl(
         leftover = rd.flatten().any(|e| e.file_name().to_string_lossy() != QUARANTINE_MANIFEST);
     }
     if !leftover {
-        let _ = std::fs::remove_dir_all(quarantine);
+        let _ = std::fs::remove_dir_all(&canonical_q);
     }
     WbResetReport {
         layers: vec![layer_from("quarantine_restore", 4, &errors, acted, "恢复")],
@@ -1200,10 +1240,26 @@ pub async fn workbuddy_quarantine_list() -> Result<Vec<WbQuarantineInfo>, IpcErr
 /// 从隔离区一键恢复（按 manifest 原样搬回;目标已存在拒绝覆盖）。
 #[tauri::command(async)]
 pub async fn workbuddy_quarantine_restore(
+    app: tauri::AppHandle,
     quarantine_path: String,
 ) -> Result<WbResetReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "WorkBuddy 隔离区恢复",
+        "将把隔离区条目移回 WorkBuddy 目录,可能覆盖未完成的重置现场。确认恢复?",
+    )?;
+    let root = resolve_user_dir().map_err(IpcError::internal)?;
+    sanity_check_root(&root).map_err(IpcError::permission)?;
+    let expected_parent = root
+        .parent()
+        .map(|p| p.to_path_buf())
+        .ok_or_else(|| IpcError::internal("用户根目录无父目录"))?;
     tauri::async_runtime::spawn_blocking(move || {
-        quarantine_restore_impl(&std::path::PathBuf::from(&quarantine_path))
+        quarantine_restore_impl(
+            &std::path::PathBuf::from(&quarantine_path),
+            &expected_parent,
+            &root,
+        )
     })
     .await
     .map_err(|e| IpcError::internal(format!("恢复任务异常退出: {e}")))
@@ -1480,7 +1536,11 @@ mod tests {
         assert!(m.entries.iter().any(|e| e.original_path == "app/session" && e.name == "session"));
         assert!(q.join("session/Local Storage/manifest").exists(), "登录态内容必须完好在隔离区");
         // 一键恢复:原样搬回 + 隔离区壳清掉
-        let rrep = quarantine_restore_impl(&q);
+        let rrep = quarantine_restore_impl(
+            &q,
+            fx.parent().expect("fixture root has parent"),
+            &fx,
+        );
         assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
         assert!(fx.join("app/session/Local Storage/manifest").exists(), "恢复后登录态必须原位");
         assert!(!q.exists(), "搬空后隔离区壳必须清除");
@@ -1495,7 +1555,11 @@ mod tests {
         assert!(!fx.join("device-id").exists(), "勾选后 device-id 必须隔离");
         assert!(rep.layers.last().unwrap().detail.contains("device-id"), "detail 必须披露设备身份处置");
         let q = find_quarantine(&fx);
-        let rrep = quarantine_restore_impl(&q);
+        let rrep = quarantine_restore_impl(
+            &q,
+            fx.parent().expect("fixture root has parent"),
+            &fx,
+        );
         assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
         assert!(fx.join("device-id").exists());
         assert_eq!(
@@ -1515,7 +1579,11 @@ mod tests {
         // 预先占位目标（模拟应用已重建 session）
         std::fs::create_dir_all(fx.join("app/session")).unwrap();
         std::fs::write(fx.join("app/session/sentinel"), "keep").unwrap();
-        let rrep = quarantine_restore_impl(&q);
+        let rrep = quarantine_restore_impl(
+            &q,
+            fx.parent().expect("fixture root has parent"),
+            &fx,
+        );
         assert!(!rrep.layers[0].ok, "目标已存在必须拒绝");
         assert!(rrep.layers[0].detail.contains("拒绝覆盖"));
         assert_eq!(
@@ -1556,7 +1624,11 @@ mod tests {
         assert_eq!(h.len(), 1);
         assert_eq!(h[0].mode, "factory");
         // 一键恢复:全部条目原样搬回 + 隔离区壳清掉
-        let rrep = quarantine_restore_impl(&q);
+        let rrep = quarantine_restore_impl(
+            &q,
+            fx.parent().expect("fixture root has parent"),
+            &fx,
+        );
         assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
         assert!(fx.join("MEMORY.md").exists() && fx.join("device-id").exists());
         assert!(fx.join("app/session/Local Storage/manifest").exists());

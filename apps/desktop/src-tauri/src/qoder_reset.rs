@@ -1035,8 +1035,23 @@ pub fn qoder_quarantine_list_impl(cn: &std::path::Path, roaming: &std::path::Pat
     Ok(out)
 }
 
+/// 条目名/相对路径必须是单段/嵌套普通段(`..`、绝对路径、前缀一律拒)。
+fn q_safe_rel_path(p: &str) -> bool {
+    if p.is_empty() || p.starts_with('/') || p.starts_with('\\') {
+        return false;
+    }
+    std::path::Path::new(p)
+        .components()
+        .all(|c| matches!(c, std::path::Component::Normal(_)))
+}
+
 /// 从隔离区恢复：按 manifest 原样搬回；目标已存在拒绝覆盖；搬空清壳。
-pub fn qoder_quarantine_restore_impl(quarantine: &std::path::Path) -> WbResetReport {
+/// 入参目录与 manifest.root 都必须落在 Qoder 两真实根/父目录的容器内(F-099)。
+pub fn qoder_quarantine_restore_impl(
+    quarantine: &std::path::Path,
+    expected_parents: &[std::path::PathBuf],
+    expected_roots: &[std::path::PathBuf],
+) -> WbResetReport {
     let name = quarantine
         .file_name()
         .map(|n| n.to_string_lossy().to_string())
@@ -1050,6 +1065,21 @@ pub fn qoder_quarantine_restore_impl(quarantine: &std::path::Path) -> WbResetRep
     if !quarantine.is_dir() {
         return fail(format!("隔离区不存在: {}", quarantine.display()));
     }
+    let canonical_q = match std::fs::canonicalize(quarantine) {
+        Ok(q) => q,
+        Err(e) => return fail(format!("隔离区解析失败: {e}")),
+    };
+    let ok_parent = canonical_q
+        .parent()
+        .map(|p| {
+            expected_parents.iter().any(|e| {
+                std::fs::canonicalize(e).map(|c| c == p).unwrap_or(false)
+            })
+        })
+        .unwrap_or(false);
+    if !ok_parent {
+        return fail("护栏拒绝：隔离区不在 Qoder 两根的父目录之下".into());
+    }
     let body = match std::fs::read_to_string(quarantine.join(Q_QUARANTINE_MANIFEST)) {
         Ok(b) => b,
         Err(e) => return fail(format!("manifest 读取失败: {e}")),
@@ -1062,10 +1092,26 @@ pub fn qoder_quarantine_restore_impl(quarantine: &std::path::Path) -> WbResetRep
     if root.parent().is_none() {
         return fail(format!("manifest 记录的根目录非法: {}", manifest.root));
     }
+    let canonical_root = match std::fs::canonicalize(&root) {
+        Ok(r) => r,
+        Err(e) => return fail(format!("manifest.root 解析失败 {}: {e}", root.display())),
+    };
+    if !expected_roots.iter().any(|r| {
+        std::fs::canonicalize(r).map(|c| c == canonical_root).unwrap_or(false)
+    }) {
+        return fail(format!(
+            "护栏拒绝：manifest.root {} 不是 Qoder 用户根目录",
+            root.display()
+        ));
+    }
     let mut acted = 0usize;
     let mut errors: Vec<String> = Vec::new();
     for entry in &manifest.entries {
-        let target = root.join(&entry.original_path);
+        if !q_safe_rel_path(&entry.name) || !q_safe_rel_path(&entry.original_path) {
+            errors.push(format!("{}: 条目名/原路径越界", entry.original_path));
+            continue;
+        }
+        let target = canonical_root.join(&entry.original_path);
         if target.exists() {
             errors.push(format!("{}: 目标已存在,拒绝覆盖", entry.original_path));
             continue;
@@ -1279,10 +1325,28 @@ pub async fn qoder_quarantine_list() -> Result<Vec<WbQuarantineInfo>, IpcError> 
 
 #[tauri::command(async)]
 pub async fn qoder_quarantine_restore(
+    app: tauri::AppHandle,
     quarantine_path: String,
 ) -> Result<WbResetReport, IpcError> {
+    crate::require_native_confirm(
+        &app,
+        "Qoder 隔离区恢复",
+        "将把隔离区条目移回 Qoder 目录,可能覆盖未完成的重置现场。确认恢复?",
+    )?;
+    let (cn, roaming) = q_resolve_both()?;
+    let expected_parents = [
+        cn.parent().map(|p| p.to_path_buf()),
+        roaming.parent().map(|p| p.to_path_buf()),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>();
     tauri::async_runtime::spawn_blocking(move || {
-        qoder_quarantine_restore_impl(&std::path::PathBuf::from(&quarantine_path))
+        qoder_quarantine_restore_impl(
+            &std::path::PathBuf::from(&quarantine_path),
+            &expected_parents,
+            &[cn, roaming],
+        )
     })
     .await
     .map_err(|e| IpcError::internal(format!("Qoder 恢复任务异常退出: {e}")))
@@ -1494,6 +1558,17 @@ mod tests {
         out
     }
 
+    fn restore_q(q: &std::path::Path, cn: &std::path::Path, roaming: &std::path::Path) -> WbResetReport {
+        let parents = [
+            cn.parent().map(|p| p.to_path_buf()),
+            roaming.parent().map(|p| p.to_path_buf()),
+        ]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
+        qoder_quarantine_restore_impl(q, &parents, &[cn.to_path_buf(), roaming.to_path_buf()])
+    }
+
     #[test]
     fn classify_slots_are_stable() {
         assert_eq!(classify_cn_top_level("logs"), "maintenance");
@@ -1595,7 +1670,7 @@ mod tests {
         }
         // 一键恢复:两个隔离区都搬回
         for q in &qs {
-            let rrep = qoder_quarantine_restore_impl(q);
+            let rrep = restore_q(q, &cn, &roaming);
             assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
         }
         assert!(cn.join(".auth/machine_id").exists());
@@ -1619,7 +1694,7 @@ mod tests {
         let qs = find_quarantines(&cn, &roaming);
         assert_eq!(qs.len(), 2);
         for q in &qs {
-            let rrep = qoder_quarantine_restore_impl(q);
+            let rrep = restore_q(q, &cn, &roaming);
             assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
         }
         assert!(cn.join("installation_id").exists());
@@ -1640,7 +1715,7 @@ mod tests {
             .iter()
             .find(|q| q.parent().map(|p| p == cn.parent().unwrap()).unwrap_or(false))
             .unwrap();
-        let rrep = qoder_quarantine_restore_impl(cn_q);
+        let rrep = restore_q(cn_q, &cn, &roaming);
         assert!(!rrep.layers[0].ok, "目标已存在必须拒绝");
         assert!(rrep.layers[0].detail.contains("拒绝覆盖"));
         assert_eq!(std::fs::read_to_string(cn.join(".auth/sentinel")).unwrap(), "keep");
@@ -1740,7 +1815,7 @@ mod tests {
         let qs = find_quarantines(&cn, &roaming);
         assert_eq!(qs.len(), 2);
         for q in &qs {
-            let rrep = qoder_quarantine_restore_impl(q);
+            let rrep = restore_q(q, &cn, &roaming);
             assert!(rrep.layers.iter().all(|l| l.ok), "{:?}", rrep.layers);
         }
         assert!(cn.join(".auth/machine_id").exists());

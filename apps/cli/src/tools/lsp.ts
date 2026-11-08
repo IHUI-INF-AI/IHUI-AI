@@ -17,6 +17,7 @@
  *   - 与 codegraph(正则解析,离线兜底)互补:LSP 精准(类型系统),codegraph 无需二进制
  */
 import { spawn, type ChildProcess } from 'node:child_process';
+import { killProcessTreeSync } from '../util/spawn-isolated.js';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { pathToFileURL, fileURLToPath } from 'node:url';
@@ -294,6 +295,8 @@ export class LspClient {
   private openedFiles = new Set<string>();
   private startPromise: Promise<void> | undefined;
   private started = false;
+  /** F-087:exit 监听必须可注销 —— 每次重启挂一个永久监听器=泄漏,且旧闭包持有旧 child。 */
+  private exitHandler: (() => void) | undefined;
 
   constructor(workspacePath: string, config: LspServerConfig) {
     this.workspacePath = workspacePath;
@@ -373,13 +376,16 @@ export class LspClient {
       this.startPromise = undefined;
       this.candidate = undefined;
       this.openedFiles.clear();
+      this.unregisterExitHandler();
     });
 
-    process.on('exit', () => {
-      if (this.child && !this.child.killed) {
-        this.child.kill();
-      }
-    });
+    // 先注销上一次的监听(重启路径),否则每个 workspace 每重启一次就多挂一个闭包。
+    this.unregisterExitHandler();
+    this.exitHandler = () => {
+      // 常驻 LSP 子进程不因父进程退出而自动回收 ⇒ 这里同步杀树,且 listener 可被移除。
+      if (this.child) killProcessTreeSync(this.child);
+    };
+    process.once('exit', this.exitHandler);
 
     this.conn.onNotification(PublishDiagnosticsNotification.type, (params: PublishDiagnosticsParams) => {
       this.diagnosticsCache.set(params.uri, params.diagnostics);
@@ -604,9 +610,17 @@ export class LspClient {
     return (result ?? []) as CodeAction[];
   }
 
+  private unregisterExitHandler(): void {
+    if (this.exitHandler) {
+      process.removeListener('exit', this.exitHandler);
+      this.exitHandler = undefined;
+    }
+  }
+
   dispose(): void {
-    if (this.child && !this.child.killed) {
-      this.child.kill();
+    this.unregisterExitHandler();
+    if (this.child) {
+      killProcessTreeSync(this.child);
     }
     this.conn?.dispose();
     this.conn = undefined;
