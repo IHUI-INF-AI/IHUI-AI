@@ -93,8 +93,18 @@ test('T5 全 runner 任何 id 不得出现两次(撞号由机器发现,不靠人
   assert.deepEqual(dup, [], `重复号:${dup.join(',')}`)
 })
 
-test('T6 AGENTS.md 点名本门(判据存在而通篇不提 = 没有)', () => {
-  assert.match(readFileSync(resolve(ROOT, 'AGENTS.md'), 'utf8'), /check-gate-face-discipline\.mjs/)
+test('T6 本门必须在文档面被点名(AGENTS.md ∪ 索引 README.md;通篇不提 = 没有)', () => {
+  // 2026-11-08:点名索引自 `8e99bd5626`/`c4afc6a953` 起迁进 README.md(AGENTS.md 有硬体积上限,
+  // 只保留「守门 118」这一条铁律名),而本条原先只读 AGENTS.md ⇒ 前提一变就恒红。
+  // 改与 `check-gate-wiring` R4 同一口径:文档面 = AGENTS.md ∪ README.md,任一处出现脚本名即算点名。
+  // 这**不是**为本条放宽判据 —— R4 本来就规定文档面是这两处("AGENTS.md/README.md 通篇没点名"才红)。
+  const docs = ['AGENTS.md', 'README.md'].map((f) => readFileSync(resolve(ROOT, f), 'utf8'))
+  assert.ok(
+    docs.some((t) => /check-gate-face-discipline\.mjs/.test(t)),
+    'AGENTS.md 与 README.md 通篇都没点名本门 ⇒ 文档看不见的门会被重复造或被绕过',
+  )
+  // 另一半不得因为上面改成并集就失守:AGENTS.md 里那条**铁律名**必须还在(§0.4 = 守门 118)。
+  assert.match(readFileSync(resolve(ROOT, 'AGENTS.md'), 'utf8'), /守门 118/)
 })
 
 test('T7 扫描面只认门脚本,不误咬端内代码', () => {
@@ -358,10 +368,14 @@ test('T19 真仓 HEAD 面:预拼常量的覆盖面逐名在册(收紧的覆盖�
   // 因为合取本来就不做就近配对,遮噪不再吞掉 token 之后它先接住了同一格。所以本条**不再按 why
   // 标签取名单**(那会把一条规则的覆盖面记成另一条的),改为逐名到盘上验明正身:
   // 该文件确实有一处读取调用,把**以 ROOT 为基参数**的常量当实参。
+  // ⚠️ 2026-11-08 `check-next-env-dist.mjs` 从名单移出:它 2026-11-04 起把判据面固定为 git 面,
+  //    内容靠 `git grep` 的**输出行**判(`NEXT_ENV` 只剩预拼常量、已无读取现场),按本条
+  //    "有常量 + 有读取现场"的口径它本来就不在册。它此前被判成 `no-content` 是**分类器盲区**
+  //    (旧 `gitContentReads` 只认 `grep -l` 为枚举、不认 git grep 的逐行正文),不是脚本缺口;
+  //    补 `grep` 之后它的档位改由下面第 2 段单独钉住,不得为了让它变绿去放宽 `no-content`。
   const expected = [
     'scripts/check-adapter-wiring.mjs',
     'scripts/check-db-schema-drift.mjs',
-    'scripts/check-next-env-dist.mjs',
   ].sort()
   const verdicts = analyze(ROOT, 'head').verdicts
   for (const f of expected) {
@@ -380,6 +394,21 @@ test('T19 真仓 HEAD 面:预拼常量的覆盖面逐名在册(收紧的覆盖�
     (f) => prejoinedRepoConsts(maskComments(g(['show', `HEAD:${f}`]))).size > 0,
   ).length
   assert.ok(anyQualifying > 0, '真仓 HEAD 面上预拼常量判据一条都不命中 ⇒ 判据可能已失效')
+  // 第 2 段:`check-next-env-dist` 不在预拼名单里,但它的档位必须仍被**量到** ——
+  // 它自己派生 `git grep` 读 blob 正文(未 -l),同时又 import 了取材层 ⇒ half-wired。
+  // 钉住的正是 2026-11-08 之前的读数盲区:旧分类器把它判成 `no-content`(等于"不读内容"),
+  // 而它的 grep 输出行就是判据对象。若有人把它改回 `readFileSync`/或让分类器重新忽略 `grep`,
+  // 本条会翻红 —— 修法应是让它真走层的读取入口,不是把 `no-content` 的判据放宽。
+  {
+    const f = 'scripts/check-next-env-dist.mjs'
+    const v = verdicts.find((x) => x.file === f)
+    assert.equal(
+      v.kind,
+      'half-wired',
+      `${f} 的档位变了:它用 git grep 读正文且引了层却没用层读 ⇒ 应判 half-wired(不得退回 no-content)`,
+    )
+    assert.match(v.why, /自己派生 git/, `${f} 的 why 必须点名"自己派生 git",否则红因说不清`)
+  }
 })
 
 test('T20 遮噪机必须认正则字面量(否则它对立项那一型全盲)', () => {

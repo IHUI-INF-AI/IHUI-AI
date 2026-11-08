@@ -138,8 +138,12 @@ const GIT_RAW_RE = /\bgitRaw\s*\(/
  * 它全部 git 调用是 `cat-file -e` / `ls-tree --name-only` / `rev-list`,**没有一处读 blob**。
  */
 const GIT_ENUM_ONLY_CALL_RE =
-  /'cat-file'\s*,\s*'-e'|'ls-tree'[^)]*?--name-only|'grep'[^)]*?-l|'rev-list'|'rev-parse'|'merge-base'|'symbolic-ref'|'name-rev'/g
-const GIT_BLOB_ARG_RE = /['"]cat-file['"]|['"]show['"]|--batch(?!-check)|'cat-file-prompt'/
+  /'cat-file'\s*,\s*'-e'|'ls-tree'[^)]*?--name-only|'grep'[^)]*?(?:-l|--files-with-matches|--name-only)|'rev-list'|'rev-parse'|'merge-base'|'symbolic-ref'|'name-rev'/g
+// 2026-11-08 补 `grep`:git grep 默认**逐行输出 blob 正文**(本仓 check-next-env-dist 正是用它判内容),
+// 旧版只把 `grep -l`(仅文件名)当枚举,于是「自己派生 git 读正文」的那道门被判成 no-content ——
+// 分类器的口径与它自己写的定义(loose-git = 取 blob 正文)不符。补这一格是**收紧**,不是放宽:
+// 带 -l/--files-with-matches/--name-only 的仍由上面那条枚举剔除,不产生正文。
+const GIT_BLOB_ARG_RE = /['"]cat-file['"]|['"]show['"]|--batch(?!-check)|'cat-file-prompt'|['"]grep['"]/
 /** 纯函数:遮噪后的源码里有没有"取 blob 正文"的 git 用法(枚举类调用先剔除)。 */
 export function gitContentReads(maskedCode) {
   return GIT_BLOB_ARG_RE.test(maskedCode.replace(GIT_ENUM_ONLY_CALL_RE, ' '))
@@ -381,7 +385,7 @@ export function classify(rel, src) {
   if (selfServesGit)
     return {
       kind: 'loose-git',
-      why: '自己派生 git **取 blob 正文**(cat-file / show / --batch)而未经取材层',
+      why: '自己派生 git **取 blob 正文**(cat-file / show / --batch / grep 未 -l)而未经取材层',
     }
   if (looseFs)
     return { kind: 'loose-fs', why: 'readFileSync + 仓库锚点(join/resolve(ROOT)) ⇒ 按磁盘判' }
@@ -716,6 +720,34 @@ function selfTest() {
     'G4 散写 cat-file blob ⇒ 仍 loose-git(收紧不得顺手放过真散写)',
     classify('scripts/check-g4.mjs', "execFileSync(GIT_BIN, ['cat-file', 'blob', oid])\n").kind,
     'loose-git',
+  )
+  // G6a/G6b:2026-11-08 补 `grep`。旧版只把 `grep -l` 认成枚举,于是「自己派生 git grep 取正文」的门
+  // 被判成 no-content(在本仓就是 check-next-env-dist:它靠 git grep 的**输出行**判内容)。
+  // 两条必须一起读:G6a 钉"无 -l 即正文",G6b 钉"有 -l 仍不产生正文",否则"补一格"可能顺手把枚举也判红。
+  eq(
+    'G6a git grep 未 -l ⇒ 逐行输出 blob 正文 ⇒ loose-git(不是 no-content)',
+    classify(
+      'scripts/check-g6a.mjs',
+      "execFileSync(GIT_BIN, ['grep', '-I', '-n', '-F', '-e', PAT, 'HEAD', '--'])\n",
+    ).kind,
+    'loose-git',
+  )
+  eq(
+    'G6b git grep -l ⇒ 只输出路径清单 ⇒ 仍 no-content(枚举不产生正文)',
+    classify(
+      'scripts/check-g6b.mjs',
+      "execFileSync(GIT_BIN, ['grep', '-l', '-F', '-e', PAT, 'HEAD', '--'])\n",
+    ).kind,
+    'no-content',
+  )
+  eq(
+    'G6c 引了层却自己 git grep 取正文 ⇒ half-wired(实战形态:check-next-env-dist)',
+    classify(
+      'scripts/check-g6c.mjs',
+      "import { gitRaw } from './lib/face-reader.mjs'\n" +
+        "function rows(f){ return String(gitRaw(['grep', '-I', '-n', '-F', '-e', PAT, f, '--'], ROOT)) }\n",
+    ).kind,
+    'half-wired',
   )
   // G5a/G5b 把"为什么不再放宽锚点"变成机器记录:一次放宽把 74 涨到 93,其中两格是假阳 ——
   // `check-merge-addition-loss.mjs` 读 gitignore 的运行台账、`check-prod-bundle-shadow.mjs` 读按设计
