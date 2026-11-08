@@ -1533,9 +1533,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     tags: z.array(z.string()).max(100).optional(),
   })
 
+  // F-364(P1):Persona 是全局共享资产(内置名单 + 单文件落盘),无 ownerId —— 任意登录
+  // 用户此前可直接改写 systemPrompt/tools/modelId/enabled 影响全体用户。止血做法:整组
+  // 写端点(增/改/删)收为管理员;属主列迁移后再按属主/管理员混合闸收窄。
   server.post('/personas', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createPersonaSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1548,9 +1551,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.patch('/personas/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = idParam.parse(request.params)
+    const existing = personaRegistry.get(id)
+    if (!existing) return reply.status(404).send(error(404, 'Persona 不存在'))
+    // 内置人格的 id/builtin/createdAt 已由 service 保护;此处把其余字段(systemPrompt/
+    // tools/enabled 等)也钉死 —— 内置身份对所有人共享,管理员也不改它。
+    if (existing.builtin) return reply.status(403).send(error(403, '内置 Persona 不允许修改'))
     const body = z.record(z.string(), z.unknown()).safeParse(request.body ?? {})
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     try {
@@ -1563,8 +1571,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/personas/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = idParam.parse(request.params)
     const deleted = personaRegistry.delete(id)
     if (!deleted) return reply.status(404).send(error(404, 'Persona 不存在或为内置'))
