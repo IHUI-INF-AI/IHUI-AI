@@ -85,8 +85,8 @@ Headline claims (same source as the table below, all live-computed): **624 table
 | 测试文件 | 4367 | `testFiles` |
 | CI 工作流 | 56 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
-| 工程守门 | 351 | `guardianGates` |
-| — blocking | 322 | `guardianBlocking` |
+| 工程守门 | 352 | `guardianGates` |
+| — blocking | 323 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
 | 跟踪文件 | 20060 | `trackedFiles` |
 
