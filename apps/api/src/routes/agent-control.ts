@@ -113,6 +113,11 @@ export interface PendingRequest {
   timer: NodeJS.Timeout
   startedAt: number
   /**
+   * 派发目标用户(端点属主,2026-11-08 F-08)。/result 的归属基准:
+   * 回执者必须与目标端点同属主,仅凭登录态不得结算他人的待处理动作。
+   */
+  userId: string
+  /**
    * 派发时写入的期望身份(2026-09-26 定址投递票)。回执身份校验的唯一基准:
    * 客户端只回显,不在两端各算一份。
    */
@@ -128,8 +133,15 @@ const _pending = new Map<string, PendingRequest>()
  * - instanceMismatch:token 对但应答者自报实例 ≠ 被指派实例(同用户另一端试图顶结果)
  * - unattributed:存量客户端不带 `responded` —— 按旧语义放行,但计数如实登记,
  *   这条数字归零之前,"回执身份"只覆盖已升级的端(报告第 6 条的"纸面/强制"分界)。
+ * - ownerMismatch:回执者与待处理动作的目标用户不同(F-08,2026-11-08)—— 一律 403,
+ *   不 resolve、不删 pending;真正被派发者稍后仍可回。
  */
-const _droppedResults = { tokenMismatch: 0, instanceMismatch: 0, unattributed: 0 }
+const _droppedResults = {
+  tokenMismatch: 0,
+  instanceMismatch: 0,
+  unattributed: 0,
+  ownerMismatch: 0,
+}
 
 /** token 定长比较(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏) */
 function tokenEquals(a: string, b: string): boolean {
@@ -438,6 +450,8 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
         reject,
         timer,
         startedAt: Date.now(),
+        // F-08:目标端点属主即唯一可回执者(取注册端点上的 userId,不采信请求体)。
+        userId: ep.userId,
         assignment,
       })
     })
@@ -466,6 +480,15 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     if (!pending) {
       // 已经超时或已被处理,静默丢弃
       return reply.send(success({ accepted: false, reason: 'request not found or timed out' }))
+    }
+
+    // 归属对账(F-08,2026-11-08):只认登录态是不够的 —— 知道 requestId 的任意用户
+    // 都能在 `responded` 缺省时走"存量客户端"分支直接 resolve 他人的动作。
+    // 归属校验必须在 responded 分支之前:身份令牌只证明"应答的是哪个端",
+    // 不证明"这个端属于谁"。不匹配 → 403 且保留 pending(不偷走真属主的结果通道)。
+    if (pending.userId !== request.userId) {
+      _droppedResults.ownerMismatch++
+      return reply.status(403).send(error(403, '无权回执他人的执行请求'))
     }
 
     // 回执身份对账(2026-09-26 定址投递票)——服务端强制的那一层:
