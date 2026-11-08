@@ -1452,3 +1452,7 @@
 {"key":"306G#缺陷普查APIF-306","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["6cd8bc5e1a","部分已修:失败状态+属主;计费/配额/并发上限待排期"]}
 {"key":"364G#缺陷普查APIF-364","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["de18e75902","由 fix/api-admin-rbac-p1-1108 修复,本线不重复修"]}
 {"key":"95G#缺陷普查APIF-95","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["9eb017a220","重复条目:与 F-154 同端点,已由 F-154 批次修复(通知/消息详情均带 (id,userId) 谓词并 404)"]}
+{"key":"18G#缺陷普查APIF-18","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:45:00+08:00","updatedBy":"msg-p1","evidence":["5d2cf741c9","apps/api/src/db/__tests__/file-queries-soft-delete.test.ts"]}
+{"key":"19G#缺陷普查APIF-19","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:45:00+08:00","updatedBy":"msg-p1","evidence":["2a7a74a671","apps/api/src/db/__tests__/file-queries-paging.test.ts"]}
+{"key":"41G#缺陷普查APIF-41","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:45:00+08:00","updatedBy":"msg-p1","evidence":["aa6d931b0b","apps/api/src/routes/__tests__/settings-export-store.test.ts"]}
+{"key":"113G#缺陷普查APIF-113","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:45:00+08:00","updatedBy":"msg-p1","evidence":["6face3f2c2","apps/api/src/plugins/__tests__/ws-notifications-publish-fail.test.ts"]}
