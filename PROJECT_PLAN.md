@@ -32141,7 +32141,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 5E. **缺陷普查 AIS AIS-005** [P1] Agent 流断线不取消 run，重连即双跑（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-005）
 - [ ] 6E. **缺陷普查 AIS AIS-006** [P3] 客户端断开时仍在 finally 里 yield usage 帧（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-006）
 - [ ] 7E. **缺陷普查 AIS AIS-007** [P2] 中断回调早于用量计算，断线落库用量恒 None（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-007）
-- [ ] 8E. **缺陷普查 AIS AIS-008** [P3] 命令流与进度流使用无界队列（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-008）
+- [x] 8E. **缺陷普查 AIS AIS-008** [P3] 命令流与进度流使用无界队列（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-008）（已修@2026-11-08/mcp-media-p1-1108@bcf50b3280）
 - [ ] 9E. **缺陷普查 AIS AIS-009** [P1] Gemini 原生 usage 键名未归一，token/成本恒为 0（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-009）
 - [ ] 10E. **缺陷普查 AIS AIS-010** [P2] Gemini 原生工具历史被降级成纯文本（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-010）
 - [ ] 11E. **缺陷普查 AIS AIS-011** [P2] Gemini 安全拦截（promptFeedback）被当成功空回复（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-011）
