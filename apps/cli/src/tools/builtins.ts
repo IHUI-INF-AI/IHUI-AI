@@ -432,6 +432,30 @@ function relativePath(ctx: ToolContext, absPath: string): string {
   return path.relative(ctx.workspacePath, absPath);
 }
 
+/** realpath 存在即解析(用于目录/文件搜索根的容器性判定;不存在返回原路径)。 */
+function realpathOrSelf(target: string): string {
+  try {
+    return fs.realpathSync(target);
+  } catch {
+    return path.resolve(target);
+  }
+}
+
+/** target 是否严格落在 root 之下(root 自身也算在内)。 */
+function isWithinRootPath(root: string, target: string): boolean {
+  const rel = path.relative(path.resolve(root), path.resolve(target));
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/**
+ * 读侧 ACL 的"这条路径能不能把正文交出去"单点判据(供 grep 通道逐文件复用)。
+ * 与 read_file 走同一份 `evaluateFileAccess`;此处只回答 enforce-deny 与否。
+ */
+function isReadAclBlocked(ctx: ToolContext, filePath: string): boolean {
+  const verdict = evaluateFileAccess('read', toAclPath(ctx.workspacePath, filePath), ctx.workspacePath);
+  return verdict.blocked;
+}
+
 const TYPE_EXT_MAP: Record<string, string[]> = {
   ts: ['.ts', '.tsx'], js: ['.js', '.jsx'], py: ['.py'],
   json: ['.json'], css: ['.css', '.scss'], md: ['.md', '.markdown'],
@@ -995,6 +1019,7 @@ export const list_dir: Tool = {
  * 属另一票的范围(已登记)。
  */
 function execJsWalkGrep(
+  ctx: ToolContext,
   pattern: string,
   opts: { cwd: string; searchPath: string; type?: string; glob?: string; max: number },
 ): { state: 'hits'; results: string[] } | { state: 'no-match' } | { state: 'incomplete'; results: string[] } | { state: 'failed'; reason: string } {
@@ -1007,6 +1032,8 @@ function execJsWalkGrep(
   const results: string[] = [];
   let scanComplete = true;
   function readMatchedFile(entryPath: string): void {
+    // 与 read_file 同一份读侧 ACL:凭据件不得经搜索通道把正文漏进结果。
+    if (isReadAclBlocked(ctx, entryPath)) return;
     try {
       const content = fs.readFileSync(entryPath, 'utf-8');
       const lines = content.split('\n');
@@ -1071,14 +1098,27 @@ export const grep: Tool = {
     if (!pattern) return { success: false, output: '', error: '缺少 pattern 参数' };
     const searchPath = (args.path as string) || '.';
     const abs = resolvePath(ctx, searchPath);
+
+    // 搜索根容器性断言(与 read_file 的凭据裁决互补):绝对路径 / `../../` 能把搜索
+    // 目标带到工作区外(如 ~/.ssh、别的项目),ACL 的根层单列族对越界形态打不中。
+    // 判定放在任何 fs 调用之前,越界即拒(fail closed;实路径解析封掉符号链接绕行)。
+    const wsReal = realpathOrSelf(ctx.workspacePath);
+    if (!isWithinRootPath(wsReal, realpathOrSelf(abs))) {
+      return { success: false, output: '', error: `搜索根必须位于工作区内: ${searchPath}` };
+    }
+    // 搜索根本身是文件时,先过读侧 ACL(目录根由逐文件过滤覆盖)。
+    let rootStat: fs.Stats;
     try {
-      fs.statSync(abs);
+      rootStat = fs.statSync(abs);
     } catch (err) {
       const code = (err as NodeJS.ErrnoException).code;
       if (code === 'ENOENT' || code === 'ENOTDIR') {
         return { success: false, output: '', error: `路径不存在: ${searchPath}` };
       }
       return { success: false, output: '', error: '路径读不到,不能把结果说成没有匹配' };
+    }
+    if (rootStat.isFile() && isReadAclBlocked(ctx, abs)) {
+      return { success: false, output: '', error: `按文件访问裁决禁止读取 ${searchPath}` };
     }
 
     const rgOpts = {
@@ -1093,7 +1133,12 @@ export const grep: Tool = {
     if (rg.state !== 'failed') {
       const note = engineNote(ENGINE_RIPGREP, null) + (rg.state === 'hits' && rg.warning ? `\n[ripgrep warning] ${rg.warning}` : '');
       if (rg.state === 'no-match') return { success: true, output: `未找到匹配${note}` };
-      const results = rg.matches.map((m) => `${m.file}:${m.line} ${m.text}`);
+      // 搜索命中的每个文件与 read_file 走同一份读侧 ACL:凭据件命中不得把正文漏进结果。
+      const visible = rg.matches.filter((m) => !isReadAclBlocked(ctx, m.file));
+      if (visible.length === 0) {
+        return { success: true, output: `未找到匹配${note}` };
+      }
+      const results = visible.map((m) => `${m.file}:${m.line} ${m.text}`);
       const truncated = results.length >= MAX_GREP_RESULTS ? `\n...(仅显示前 ${MAX_GREP_RESULTS} 条,用 rg)` : '';
       return { success: true, output: results.join('\n') + truncated + note };
     }
@@ -1104,7 +1149,7 @@ export const grep: Tool = {
     //   真能给出正确答案的;直接 success:false 会把一个本可服务的需求推回给用户。
     // 但降级不是无条件出路 —— 两条通道都答不上来时**必须如实失败**(见下面 failed 分支),
     // 否则就是"谁都没答,却回一句没有匹配",与本票立门的原病同形。
-    const walk = execJsWalkGrep(pattern, rgOpts);
+    const walk = execJsWalkGrep(ctx, pattern, rgOpts);
     if (walk.state === 'failed') {
       return {
         success: false,
