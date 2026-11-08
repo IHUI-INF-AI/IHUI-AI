@@ -115,13 +115,19 @@ export function SettingsScreen({
       return
     }
     setChangingPwd(true)
-    const ok = await onChangePassword(oldPwd, newPwd)
-    setChangingPwd(false)
-    if (ok) {
-      setPwdModalVisible(false)
-      onAlert(t('settings.pwdChanged'))
-    } else {
+    // XUI-020:修改密码请求失败/抛错时必须复位 changingPwd,否则按钮永久 loading 只能杀进程。
+    try {
+      const ok = await onChangePassword(oldPwd, newPwd)
+      if (ok) {
+        setPwdModalVisible(false)
+        onAlert(t('settings.pwdChanged'))
+      } else {
+        onAlert(t('settings.pwdChangeFailed'))
+      }
+    } catch {
       onAlert(t('settings.pwdChangeFailed'))
+    } finally {
+      setChangingPwd(false)
     }
   }
 
