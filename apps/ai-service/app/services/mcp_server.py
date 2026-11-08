@@ -10662,6 +10662,54 @@ def _bg_task_types_prose() -> str:
     return "/".join(RUN_IN_BACKGROUND_TASK_TYPES)
 
 
+# AIS-031(2026-11-08):任务类型**分派闸**。
+# `run_in_background` 与 `run_workflow` 都允许模型自填 task/agent,而 `task_executors`
+# 注册表里 `long_running_command`(任意 argv)与 `test_suite`(起 pytest)是"以服务账号
+# 执行代码"的同一档能力 —— 与 admin-only 的 `run_command` 同能力却低一档门槛:
+# 旧注释把 `run_in_background` 整只工具当"只读/低危"排除在 `_ADMIN_ONLY_TOOLS` 之外,
+# 于是 role=0 用 `{"task":"long_running_command","command":["python","-c","..."]}`
+# 即可起任意进程(`dangerous_command_match` 只判 rm 一类破坏性命令,`python -c` 判"安全")。
+#
+# 收口位置刻意在**分派之前**:拒绝时零副作用 —— 不 submit、不起进程、不落 checkpoint。
+# 角色只认宿主注入的 `__user_role`(`call_tool` 注入,LLM 不可控);缺失/畸形容一律按 0
+# (fail-closed)。特权类型之外(sleep/echo/patrol...)role=0 保持原样,对话链不断。
+_ADMIN_ONLY_DISPATCH_TASK_TYPES: frozenset[str] = frozenset(
+    {"long_running_command", "test_suite"}
+)
+
+
+def _dispatch_permission_denial(
+    tool: str, task_type: str, arguments: dict[str, Any]
+) -> dict[str, Any] | None:
+    """非 admin 把特权 task_type 交给 executor ⇒ PERMISSION_DENIED(留结构化告警)。
+
+    同一判据被 `run_in_background`(task)与 `run_workflow`(节点 agent)两扇门共用 ——
+    两张工具面都是 `task_executors.execute_task` 的分派入口,只堵一扇等于没堵。
+    """
+    if task_type not in _ADMIN_ONLY_DISPATCH_TASK_TYPES:
+        return None
+    try:
+        role = int(arguments.get("__user_role") or 0)
+    except (TypeError, ValueError):
+        role = 0
+    if role >= 1:
+        return None
+    logger.warning(
+        "[mcp] 越权任务分派被拒(AIS-031): tool=%s task=%s user_role=%s code=PERMISSION_DENIED",
+        tool,
+        task_type,
+        role,
+    )
+    return {
+        "ok": False,
+        "tool": tool,
+        "errorCode": "PERMISSION_DENIED",
+        "error": f"任务类型 '{task_type}' 需要 admin 权限(role >= 1),当前 role={role}",
+        "task_type": task_type,
+        "executed": False,
+    }
+
+
 async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     """run_in_background:提交后台任务并立即返回 task_id(不阻塞当前循环)。
 
@@ -10674,6 +10722,12 @@ async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     未知类型由那一层返回 `ok:False` + `supported_task_types` + `executed:False`,
     绝不伪装成执行成功。完成后若 notify_on_done,经 message_bus 的 IM 通道推送通知。
     """
+    denial = _dispatch_permission_denial(
+        "run_in_background", str(arguments.get("task", "")).strip(), arguments
+    )
+    if denial is not None:
+        return denial
+
     from .background_tasks import run_in_background
 
     return await run_in_background(arguments)
@@ -11389,6 +11443,19 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少宿主注入的调用者身份",
             "missingKeys": identity_error.get("missingKeys"),
         }
+    # AIS-031:节点 `agent` 就是 task_type —— 与 run_in_background 同一条分派出口的另一扇门。
+    # 放在身份校验之后、run_workflow 之前:拒绝时零节点执行(不落 checkpoint、不跑上游节点)。
+    nodes_raw = arguments.get("nodes")
+    if isinstance(nodes_raw, list):
+        for node in nodes_raw:
+            if not isinstance(node, dict):
+                continue
+            denial = _dispatch_permission_denial(
+                "run_workflow", str(node.get("agent") or "").strip(), arguments
+            )
+            if denial is not None:
+                return denial
+
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
     result = await run_workflow(
