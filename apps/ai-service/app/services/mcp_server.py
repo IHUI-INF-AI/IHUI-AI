@@ -3560,6 +3560,9 @@ _COMMAND_POLICY_DEFAULT: dict[str, Any] = {
         r"\bkill\b", r"\bkillall\b",
         r">\s*", r">>\s*", r"<\s*", r"\|\s*",
         r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
+        # AIS-081:cmd /c 内建分支的剩余元字符 —— 单 `&`(后台串联)、`^`(转义)、
+        # 换行(跨行串联)都会把一条白名单命令变成多条,与 ; && || | 同级闭锁。
+        r"&", r"\^", r"[\r\n]",
     ],
     "allowed_prefixes": [
         "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
