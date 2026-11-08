@@ -14,6 +14,7 @@ const q = vi.hoisted(() => ({
   findLessonById: vi.fn(),
   findLessonChapters: vi.fn(),
   findLessonSections: vi.fn(),
+  findLessonSectionsByChapterIds: vi.fn(),
   findRateList: vi.fn(),
   checkAuth: vi.fn(),
 }))
@@ -26,6 +27,8 @@ vi.mock('../src/db/learn-queries.js', () => ({
   findLessonById: q.findLessonById,
   findLessonChapters: q.findLessonChapters,
   findLessonSections: q.findLessonSections,
+  // 2026-11 目录改批量取小节(消 N+1):路由只调这个批量口。
+  findLessonSectionsByChapterIds: q.findLessonSectionsByChapterIds,
 }))
 
 vi.mock('../src/db/learn-extended-queries.js', () => ({
@@ -62,6 +65,13 @@ beforeEach(() => {
         ]
       : [],
   )
+  // 批量口是本轮新契约:按章集合一次取回 Map。夹具仍复用上面的单章桩,
+  // 让原有「c1 有小节、c2 为空」的用例保持同一份数据,而不是另造第二套预期。
+  q.findLessonSectionsByChapterIds.mockImplementation(async (chapterIds: readonly string[]) => {
+    const out = new Map<string, unknown[]>()
+    for (const id of chapterIds) out.set(id, await q.findLessonSections(id))
+    return out
+  })
 })
 
 describe('GET /api/courses/:id/catalog', () => {

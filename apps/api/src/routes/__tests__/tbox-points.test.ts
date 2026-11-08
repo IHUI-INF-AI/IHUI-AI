@@ -396,6 +396,7 @@ describe('TBox 设备积分路由', () => {
       const { data } = res.json()
       expect(data.deviceId).toBe(DEVICE_A)
       expect(data.total).toBe(25)
+      // GET /points 仍是 success({items}),不是 paginatedSuccess 的 list;分页口在 /devices、/commands。
       expect(data.items).toHaveLength(2)
       expect(data.items.map((i: { eventType: string }) => i.eventType).sort()).toEqual([
         'activity',
@@ -428,8 +429,8 @@ describe('TBox 设备积分路由', () => {
       expect(res.statusCode).toBe(200)
       const { data } = res.json()
       expect(data.total).toBe(1)
-      expect(data.items).toHaveLength(1)
-      expect(data.items[0].deviceNo).toBe('TBOX0001')
+      expect(data.list).toHaveLength(1)
+      expect(data.list[0].deviceNo).toBe('TBOX0001')
       expect(data.page).toBe(1)
       expect(data.pageSize).toBe(10)
     })
@@ -443,7 +444,7 @@ describe('TBox 设备积分路由', () => {
       expect(res.statusCode).toBe(200)
       const { data } = res.json()
       expect(data.total).toBe(1)
-      expect(data.items[0].command).toBe('reboot')
+      expect(data.list[0].command).toBe('reboot')
     })
   })
 })
