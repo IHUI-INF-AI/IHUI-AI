@@ -58,12 +58,15 @@ function getTargetFiles() {
       process.exit(2)
     }
   }
-  // 全量模式: 递归扫描 apps/web/src + packages/ui/src + apps/web/app
+  // 全量模式: 递归扫描 apps/web/src + apps/web/app + 现存 UI 包源码根
+  // (2026-11-08 修:旧根 packages/ui/src 在 2026-09 拆包后已不存在,恒被 existsSync 跳过 ⇒ 该维度空转)
   const roots = [
     'apps/web/src',
     'apps/web/app',
     // 注:apps/web/src/styles 已被 apps/web/src 递归覆盖,不再单独列出(避免双重扫描导致 violations 翻倍)
-    'packages/ui/src',
+    'packages/ui-react/src',
+    'packages/ui-native',
+    'packages/design-tokens/src',
   ]
   const files = []
   for (const root of roots) {
