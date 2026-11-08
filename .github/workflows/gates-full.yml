@@ -48,8 +48,11 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: 安装依赖
-        run: pnpm install --frozen-lockfile
+      - name: 公共取材面(依赖 + packages 构建 + python/uv)
+        # 与 guardian-full 腿共用同一份,禁止在此处另行拼装:此前本腿只 install 依赖,
+        # 缺 packages dist 与 uv 执行器 ⇒ 门 4/98/254 在两条全量腿上结论不同。
+        # 判据:scripts/check-workflow-step-order.mjs 的 [full-prep] 维。
+        uses: ./.github/actions/gate-prep
 
       - name: 全仓面守门(331 门)
         # 确切命令口径 —— 逐条对过 scripts/guardian-runner.mjs:7288-7328 与 scripts/lib/gate-scope.mjs:
