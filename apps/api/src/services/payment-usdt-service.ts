@@ -984,27 +984,34 @@ export async function confirmUsdtPayment(
       return { confirmed: false, userId: null as string | null, tokensCredited: 0 }
     }
 
-    // 2. 更新 wallet 余额(user_margins.tokenQuantity += tokens)
-    const [margin] = await tx
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, updated.userId))
-      .limit(1)
-
-    const newBalance = (margin?.tokenQuantity ?? 0) + tokensCredited
-    if (margin) {
-      await tx
-        .update(userMargins)
-        .set({ tokenQuantity: newBalance, updatedAt: now })
-        .where(eq(userMargins.userId, updated.userId))
-    } else {
-      await tx.insert(userMargins).values({
+    // 2. 更新 wallet 余额(user_margins.token_quantity += tokens)
+    //    DB-03 P1:原实现「事务内 SELECT 读快照 → 应用层相加 → UPDATE 写回」。
+    //    PostgreSQL 默认 READ COMMITTED 下两个并发入账事务会读到同一份旧余额,
+    //    后写者覆盖先写者 ⇒ 丢一笔充值。改为单条 INSERT ... ON CONFLICT DO UPDATE:
+    //    冲突时 PostgreSQL 对该行加锁并**基于最新行版本**重新计算 `token_quantity + n`,
+    //    并发入账因此串行化,后到者在前者结果上累加,不丢账。
+    //    balanceAfter 一律取 RETURNING 的落库值,不再用应用层算出的数。
+    const [credited] = await tx
+      .insert(userMargins)
+      .values({
         userId: updated.userId,
-        tokenQuantity: newBalance,
+        tokenQuantity: tokensCredited,
         frozenQuantity: 0,
         updatedAt: now,
       })
+      .onConflictDoUpdate({
+        target: userMargins.userId,
+        set: {
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${tokensCredited}`,
+          updatedAt: now,
+        },
+      })
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+    if (!credited) {
+      // 落库没回读到余额 ⇒ 流水上的 balanceAfter 不可信,整笔回滚(fail-closed)
+      throw new Error(`USDT 入账后未能回读用户 ${updated.userId} 的余额,拒绝写半截流水`)
     }
+    const newBalance = Number(credited.tokenQuantity)
 
     // 3. 记录流水(token_flows,opType=0 充值,幂等键 relatedOrderNo + opType)
     await tx.insert(tokenFlows).values({
