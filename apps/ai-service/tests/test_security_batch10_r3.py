@@ -46,7 +46,7 @@ class TestProxyFollowingRedirects:
             def build_request(self, method: str, url: str, headers: dict | None = None) -> tuple:
                 return (method, url)
 
-            async def send(self, req: tuple) -> httpx.Response:
+            async def send(self, req: tuple, **kwargs: Any) -> httpx.Response:
                 url = req[1]
                 sent.append(url)
                 if url.startswith("https://public.example"):
@@ -67,7 +67,7 @@ class TestProxyFollowingRedirects:
             def build_request(self, method: str, url: str, headers: dict | None = None) -> tuple:
                 return (method, url)
 
-            async def send(self, req: tuple) -> httpx.Response:
+            async def send(self, req: tuple, **kwargs: Any) -> httpx.Response:
                 raise AssertionError("首跳即被禁,请求不得发出")
 
         with pytest.raises(HTTPException) as exc:
@@ -98,7 +98,7 @@ class TestProxyFollowingRedirects:
             ) -> tuple:
                 return (method, url)
 
-            async def send(self, req: tuple) -> httpx.Response:
+            async def send(self, req: tuple, **kwargs: Any) -> httpx.Response:
                 url = req[1]
                 # 钉 IP 后连接 URL 的 host 是解析 IP(非域名),按路径判跳
                 if url.endswith("/a"):
