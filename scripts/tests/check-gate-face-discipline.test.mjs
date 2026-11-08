@@ -536,11 +536,17 @@ test('T22 白名单两处"已知漏报"的前提必须仍然成立(前提一变�
     !REPO_CONTENT_FILE_RE.test('.x-ignore.json') && REPO_CONTENT_FILE_RE.test('PROJECT_PLAN.md'),
     'FILE_RE 的方向必须仍是"挡点前缀、认非点前缀"',
   )
-  // ② 两跳(常量→遍历器→局部变量)**预拼规则**不追数据流。HEAD 面这两道门(check-tagsview-visual /
-  //    check-i18n-namespace-passing)原先整道门被判 no-content,那格**是遮噪机的失明给的,不是这条规则**;
-  //    遮噪修好后它们由整文件合取落到 loose-fs,所以这里断言的是"预拼规则仍然不追两跳" + 终档已是红。
-  //    **不得**为了让这条绿就把判据放宽到"任何含 ROOT 的 const"(§12 记过:那等于没有白名单)。
-  const twoHop = ['scripts/check-tagsview-visual.mjs', 'scripts/check-i18n-namespace-passing.mjs']
+  // ② 两跳(常量→遍历器→局部变量)**预拼规则**不追数据流。
+  //    2026-11-08:check-i18n-namespace-passing 已迁进取材层(--staged 用 catBatch 读索引 blob、
+  //    只判暂存集),于是两跳前提对它**不再成立** → 从"已知漏报"名单移出,改钉"必须仍是 face",
+  //    防止有人顺手把层读取改回 readFileSync(退回半接线 = 判据面又没换)。
+  //    check-tagsview-visual 仍保持两跳形态,原判据继续对它成立。
+  assert.equal(
+    kindOf('scripts/check-i18n-namespace-passing.mjs'),
+    'face',
+    '2g-web 已迁移取层;若退回 half-wired/loose-fs,请把本条与 T22 的说明一起改回',
+  )
+  const twoHop = ['scripts/check-tagsview-visual.mjs']
   for (const f of twoHop) {
     assert.equal(
       kindOf(f),
