@@ -20,14 +20,12 @@ import {
   createUserCertificate,
   deleteUserCertificate,
   getUserStatistics,
+  findUserByIdForUserCenter,
+  findUserByPhoneForUserCenter,
+  createUserForUserCenter,
+  updateUserForUserCenter,
 } from '../db/usercenter-queries.js'
-import {
-  findUserById,
-  findUserByPhone,
-  createUser,
-  updateUser,
-  revokeAllUserRefreshTokens,
-} from '../db/queries.js'
+import { findUserById, revokeAllUserRefreshTokens } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
 // =============================================================================
@@ -114,7 +112,9 @@ const createCertificateSchema = z.object({
 
 export const usercenterRoutes: FastifyPluginAsync = async (server) => {
   // 用户中心响应含 phone/email(admin 上下文),需跳过响应脱敏
-  // 防止 response-sanitizer 把敏感字段误伤为 '***'
+  // 防止 response-sanitizer 把敏感字段误伤为 '***'。
+  // F-245:密钥类列(passwordHash/twoFactorSecret/twoFactorBackupCodes)已由 db 层
+  // 显式投影剔除,不依赖本豁免,因此本豁免只承担 admin 展示 PII 的职责。
   server.addHook('onRequest', async (request) => {
     request.skipResponseSanitization = true
   })
@@ -150,9 +150,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const result = await findUsers(parsed.data)
-      // 剥离密码哈希，避免泄漏到客户端
-      const list = result.list.map(({ passwordHash: _ph, ...rest }) => rest)
-      return reply.send(success({ ...result, list }))
+      return reply.send(success(result))
     },
   )
 
@@ -175,12 +173,11 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const user = await findUserByPhone(parsed.data.phone)
+      const user = await findUserByPhoneForUserCenter(parsed.data.phone)
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      const { passwordHash: _ph, ...userPublic } = user
-      return reply.send(success({ user: userPublic }))
+      return reply.send(success({ user }))
     },
   )
 
@@ -199,12 +196,11 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const user = await findUserById(parsed.data.id)
+      const user = await findUserByIdForUserCenter(parsed.data.id)
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      const { passwordHash: _ph2, ...userPublic } = user
-      return reply.send(success({ user: userPublic }))
+      return reply.send(success({ user }))
     },
   )
 
@@ -250,20 +246,19 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const existing = await findUserByPhone(parsed.data.phone)
+      const existing = await findUserByPhoneForUserCenter(parsed.data.phone)
       if (existing) {
         return reply.status(409).send(error(409, '手机号已存在'))
       }
       const passwordHash = await hashPassword(parsed.data.password)
-      const user = await createUser({
+      const user = await createUserForUserCenter({
         phone: parsed.data.phone,
         nickname: parsed.data.nickname ?? undefined,
         passwordHash,
         email: parsed.data.email ?? undefined,
         status: parsed.data.status,
       })
-      const { passwordHash: _ph3, ...userPublic } = user
-      return reply.status(201).send(success({ user: userPublic }))
+      return reply.status(201).send(success({ user }))
     },
   )
 
@@ -295,20 +290,22 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const existing = await findUserById(idParsed.data.id)
+      const existing = await findUserByIdForUserCenter(idParsed.data.id)
       if (!existing) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      // 状态单独走 updateUserStatus；其余走 updateUser
+      // 状态单独走 updateUserStatus；其余走 updateUserForUserCenter
       if (parsed.data.status !== undefined) {
         await updateUserStatus(idParsed.data.id, parsed.data.status)
       }
-      const user = await updateUser(idParsed.data.id, {
+      const user = await updateUserForUserCenter(idParsed.data.id, {
         nickname: parsed.data.nickname ?? undefined,
         email: parsed.data.email ?? undefined,
       })
-      const { passwordHash: _ph4, ...userPublic } = user
-      return reply.send(success({ user: userPublic }))
+      if (!user) {
+        return reply.status(404).send(error(404, '用户不存在'))
+      }
+      return reply.send(success({ user }))
     },
   )
 
