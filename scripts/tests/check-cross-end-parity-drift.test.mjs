@@ -18,7 +18,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { __test__ as P } from '../check-cross-end-parity-drift.mjs'
+import { __test__ as P, GATE_DIRECTIONS } from '../check-cross-end-parity-drift.mjs'
 
 const results = []
 const test = (name, fn) => results.push({ name, fn })
@@ -39,14 +39,22 @@ const mkWeb = ({
   aligned = 150,
   alignedUnique = aligned,
   unmapped = 270,
+  judgedGap = 0,
   prefixContradicted = [],
   staleCountAssertions = [],
   missingExpiry = [],
   duplicateWebKeys = 0,
+  // 键级集合(2026-11-08 立):登记面与承载削减面靠它分开判,不能只看计数。
+  judgedGapKeys = null,
+  alignedKeys = null,
+  portalKeys = null,
   omit = [],
 } = {}) => {
-  const json = { rot: new Array(rot).fill({ line: 1 }), aligned, unmapped }
+  const json = { rot: new Array(rot).fill({ line: 1 }), aligned, unmapped, judgedGap }
   if (!omit.includes('alignedUnique')) json.alignedUnique = alignedUnique
+  if (judgedGapKeys !== null) json.judgedGapKeys = judgedGapKeys
+  if (alignedKeys !== null) json.alignedKeys = alignedKeys
+  if (portalKeys !== null) json.portalKeys = portalKeys
   if (!omit.includes('prefixContradicted')) json.prefixContradicted = prefixContradicted
   if (!omit.includes('staleCountAssertions')) json.staleCountAssertions = staleCountAssertions
   if (!omit.includes('missingExpiry')) {
@@ -301,6 +309,70 @@ test('D3 上轮基线没有去重口径(旧快照)⇒ 本维未判定:不产假�
   )
 })
 
+/* ---------- judgedGapWeb 拆两栏(2026-11-08 立):登记动作 ≠ 承载被拆 ---------- */
+
+test('D7 如实登记新 gap(承载面一枚未减)⇒ 不判红,只进登记面(advisory)', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({ judgedGap: 3, judgedGapKeys: ['old-gap', 'sag2', 'new-gap'] }),
+    doc: '',
+    prev: {
+      mirrored: 91,
+      alignedUnique: 150,
+      judgedGapWeb: 1,
+      judgedGapKeys: ['old-gap'],
+      alignedKeys: ['settings'],
+      portalKeys: ['admin/x'],
+    },
+  })
+  assert.equal(
+    j.state,
+    'ok',
+    `诚实登记 gap 不得被判红:实得 ${JSON.stringify((j.reasons || []).map((r) => r.dim))}`,
+  )
+  const a = (j.advisories || []).find((x) => x.dim === 'web-judged-gap-registered')
+  assert.ok(a, `登记动作必须只报数地被看见:实得 ${JSON.stringify(j.advisories)}`)
+  assert.match(a.detail, /sag2/)
+})
+
+test('D8 既有承载键被登记成 gap ⇒ regressed/web-judged-gap-regression 并点名该键', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({ judgedGap: 2, judgedGapKeys: ['old-gap', 'settings'] }),
+    doc: '',
+    prev: {
+      mirrored: 91,
+      alignedUnique: 150,
+      judgedGapWeb: 1,
+      judgedGapKeys: ['old-gap'],
+      alignedKeys: ['settings'],
+      portalKeys: [],
+    },
+  })
+  assert.equal(j.state, 'regressed')
+  const r = j.reasons.find((x) => x.dim === 'web-judged-gap-regression')
+  assert.ok(r, `承载键退化成 gap 必须判红:实得 ${JSON.stringify(j.reasons.map((x) => x.dim))}`)
+  assert.match(r.detail, /settings/, '必须点名被拆的 web 键')
+})
+
+test('D9 门户承载键被登记成 gap 也属承载被拆(不只 aligned 一档)', () => {
+  const j = J({
+    coverage: mkCov(),
+    webParity: mkWeb({ judgedGap: 1, judgedGapKeys: ['admin/x'] }),
+    doc: '',
+    prev: {
+      mirrored: 91,
+      alignedUnique: 150,
+      judgedGapWeb: 0,
+      judgedGapKeys: [],
+      alignedKeys: [],
+      portalKeys: ['admin/x'],
+    },
+  })
+  assert.equal(j.state, 'regressed')
+  assert.ok(j.reasons.some((r) => r.dim === 'web-judged-gap-regression' && /admin\/x/.test(r.detail)))
+})
+
 /* ---------- 段级豁免四维装车(2026-10-30 立):§0.9「造好没装车」= 没有 ---------- */
 
 test('D4 四维净增 ⇒ 各自出一条理由(带可执行出路),存量只报数不喊人', () => {
@@ -379,6 +451,58 @@ test('D6 上轮基线没有这一维 ⇒ 本轮首次量到**不是净增**(别�
   // 但本轮读到的数必须进快照面,下一轮起才可比
   assert.equal(j.extras.prefixContradicted, 3)
   assert.equal(j.extras.missingExpiry, 1)
+})
+
+/* ---------- 回归制(gate)同一拆法:基线面也只判承载被拆,不判登记动作 ---------- */
+
+test('G5 --gate:如实登记 gap(承载面与基线持平)⇒ ok,不得逼人刷基线', () => {
+  const baseline = {
+    dims: { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 0, judgedGapWeb: 0 },
+  }
+  const values = { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 0, judgedGapWeb: 1 }
+  const judged = P.judgeBaseline({ values, baseline, directions: GATE_DIRECTIONS })
+  assert.equal(
+    judged.state,
+    'ok',
+    `诚实登记不得判红:实得 ${JSON.stringify(judged.regressions.map((r) => r.dim))}`,
+  )
+})
+
+test('G6 --gate:既有承载被拆(alignedUnique 292→291)⇒ regressed,修后仍红', () => {
+  const baseline = {
+    dims: { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 0, judgedGapWeb: 0 },
+  }
+  const values = { mirrored: 256, aligned: 291, alignedUnique: 291, unmapped: 0, judgedGapWeb: 1 }
+  const judged = P.judgeBaseline({ values, baseline, directions: GATE_DIRECTIONS })
+  assert.equal(judged.state, 'regressed')
+  assert.ok(judged.regressions.some((r) => r.dim === 'alignedUnique'))
+})
+
+test('G7 键级判据:同一 web 键从 aligned/portal 退化为 gap ⇒ regression,并点名', () => {
+  assert.equal(
+    typeof P.judgeJudgedGapFaces,
+    'function',
+    '缺 judgeJudgedGapFaces ⇒ 登记面与承载面在键级上仍无法分开判',
+  )
+  const face = P.judgeJudgedGapFaces({
+    nowGapKeys: ['settings', 'sag2'],
+    baseGapKeys: ['old-gap'],
+    baseCarriedKeys: ['settings', 'admin/x'],
+  })
+  assert.equal(face.compared, true)
+  assert.deepEqual(face.regression, ['settings'], '承载键退化必须单独成面')
+  assert.deepEqual(face.registered, ['settings', 'sag2'], '新登记键只进登记面')
+})
+
+test('G8 键级判据:新登记 gap 不在基线承载集 ⇒ regression 为空(诚实登记不阻断)', () => {
+  const face = P.judgeJudgedGapFaces({
+    nowGapKeys: ['sag2'],
+    baseGapKeys: [],
+    baseCarriedKeys: ['settings'],
+  })
+  assert.equal(face.compared, true)
+  assert.deepEqual(face.regression, [])
+  assert.deepEqual(face.registered, ['sag2'])
 })
 
 test('E1 存续锁:这台尺的 self-test 必须整趟绿,且例数钉死(2026-11-05 实测它坏了 19/24 却无人发现)', () => {

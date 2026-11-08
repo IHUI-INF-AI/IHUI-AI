@@ -10,7 +10,7 @@
 
 # 票：302p 的两处结构缺陷 —— 登记面在提交期无人看守；judgedGapWeb 把"诚实缺屏"判成漂移
 
-状态：OPEN　　开票：2026-11-08　　开票人：收敛线
+状态：OPEN（缺陷②已修，缺陷①未动）　　开票：2026-11-08　　开票人：收敛线
 
 ## 缺陷① 新增 web 路由没有提交期登记门，302p 只在 push 面暴露
 
@@ -49,3 +49,20 @@
 
 - 两处都在跨端漂移门的判据面/登记面，不影响其它门。
 - 本票只记录缺陷与改造方向，不含实现。
+
+## 缺陷②修复落地（2026-11-08）
+
+**改法**（基线数值一个字未动）：
+- `GATE_DIRECTIONS` 移除 `['judgedGapWeb','up']`：登记动作不再进回归维。
+- 登记面 `judgedGapWebRegistered`：只进 `advisories`（人读面标「只报数不阻断」），不进 `state`/`reasons`/退出码；`--gate` 面同时报「基线 → 现读」与新增 gap 键。
+- 承载削减面 `judgedGapWebRegression`（blocking）：`judgedGapKeys ∩ 基线承载键(aligned ∪ portal)`，同一 web 键从承载退化为 gap 才阻断并点名该键；键集取不到 ⇒ 该面记「未判定」，不折成 0。
+- 键级参照来源：`readBaselineLedger()` 沿 `git log -1 -- scripts/data/cross-end-drift-gate-baseline.json` 找到基线落盘提交，读同树台账按 status 归堆（只做差集，不重算判定）；基线文件本身不改。
+- 非 `--gate` 面：`prev` 快照缺键集时登记面只按计数报数、不阻断；承载面另由 `web-aligned-decrease` / `alignedUnique` 兜底，新增 `web-portal-carried-decrease` 兜门户承载行减少。
+- 尺子 `check-web-rn-screen-parity.mjs --json` 新增 `alignedKeys` / `portalKeys` / `judgedGapKeys` 三个键（既有键名与类型未动，J1 锁）。
+
+**先红后绿夹具**：
+- 改前必红：`D7`（诚实登记 gap 曾被判 `web-judged-gap-increase`）、`G5`（基线 `judgedGapWeb 0→1` 曾被判 regressed）、`G7/G8`（键级分栏尚不存在）。
+- 修后仍红：`D8/D9`（aligned / portal 承载键被登记成 gap ⇒ `web-judged-gap-regression` 点名）、`G6`（`alignedUnique 292→291` ⇒ regressed）、`T26b`。
+- 读数：镜像测试 `28/28`、self-test `32/32`；真 HEAD `--gate --json` ⇒ `gateState=ok`、`judgedGapWeb=1`（sag2）无回归、`ledgerRef=1b984a2246`（基线提交点）。
+
+**未做**：缺陷①（提交期新增路由登记门）未动，仍按原票留在 OPEN。
