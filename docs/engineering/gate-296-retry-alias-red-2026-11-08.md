@@ -67,12 +67,18 @@ git grep -l onRetry --cached -- <dir>
 
 git 把 `--cached` 当 revision 解析，直接 `fatal: unable to resolve revision: --cached`。脚本按 §0.3 判「取不到输入」并 exit 2，属三分口径中的**未判定**，不是绿也不是红。本次按「取不到 → exit 2，不折成通过」的口径修正取数参数，让该面能真正读出索引面候选清单后再判定。
 
+### 3.3 修复后暴露的第三处：worktree 面把依赖目录符号链接当文件读
+
+worktree 面用 `walkDir('apps/web')` 穷举磁盘文件。装上依赖后 `apps/web/node_modules` 出现，`hls.js` 等条目是指向目录的符号链接，`readFileSync` 直接 `EISDIR`。旧代码的 `catch { return false }` 把它当「没有 onRetry」掩盖了；严格化后按 §0.3 抛 `Undetermined`（exit 2）——但这不是「取不到输入」，是**扫了不该扫的目录**。
+
+处置：`walkDir` 跳过 `node_modules` / `.next` / `dist` / `build` / `.turbo` / `.output`；候选过滤器先 `statSync`，非普通文件（符号链接目录/设备）直接排除，只有**普通文件读失败**才判 `Undetermined`。这样「取不到」只保留给真实读失败，依赖/产物不参与候选。
+
 ## 4. 改动
 
 | 文件 | 改动 |
 | --- | --- |
 | `apps/miniapp-taro/src/pkg-ai/ai/history.tsx:788` | `onRetry={onRefresh}` → `onRetry={() => { void load() }}`，与 RN 壳同形；下拉刷新仍走 `onRefresh` |
-| `scripts/check-retry-aliases.mjs` | 新增 `retryGrepArgs(face, dirPrefix)`：staged 面改为 `grep -l --cached -e onRetry -- <dir>`，head 面同步收口；worktree 面读文件失败由 `return false` 改为抛 `Undetermined`（取不到不得折成「没有」） |
+| `scripts/check-retry-aliases.mjs` | 新增 `retryGrepArgs(face, dirPrefix)`：staged 面改为 `grep -l --cached -e onRetry -- <dir>`，head 面同步收口；`walkDir` 跳过依赖/构建目录，非普通文件不参与候选；普通文件读失败由 `return false` 改为抛 `Undetermined`（取不到不得折成「没有」） |
 | `scripts/tests/check-retry-aliases.test.mjs` | 新增镜像测试：断言 staged 参数顺序；阴性对照证明改前写法必报 `unable to resolve revision`；阳性证明修正后只可能因「无命中」exit 1 |
 | `apps/miniapp-taro/src/constants/ui-routes.generated.ts` | 派生自动同步：origin/main 的生成钉是旧 `sourceCommit`（d2bf9bd），钩子按现源重生成（含本页新 sha），**仅注释钉/哈希与 generatedAt 变化，路由表零变化** |
 | `README.md` / `README.en.md` | `sync-readme-numbers.mjs` 刷新生成块：新增本文档 ⇒ `trackedFiles` 20059 → 20060（DN5 清单不变式） |
