@@ -43,8 +43,9 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
     if (agent.type === 3 || agent.type === 5) {
       return
     }
+    // XUI-018:旧 /pages/tools/* 路由已删除,改用 pkg-ai 分包在册路径。
     const targetUrl =
-      agent.source === 'n8n' ? '/pages/tools/ai_assistant_n8n' : '/pages/tools/ai_assistant'
+      agent.source === 'n8n' ? '/pkg-ai/ai-assistant-n8n/index' : '/pkg-ai/ai-assistant/index'
     const agentId = agent.agentId || agent.id
     Taro.navigateTo({
       url: `${targetUrl}?modelNamea=${encodeURIComponent(agent.agentName)}&pitcha=${idx}&agentId=${encodeURIComponent(agentId)}&type=${agent.type ?? ''}`,

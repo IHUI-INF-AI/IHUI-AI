@@ -461,8 +461,9 @@ export default function Community() {
   )
 
   function onAgentListSelect(agent: AgentInfo) {
+    // XUI-018:/pages/tools/ai_assistant 已删除,现行在册路径为 pkg-ai 分包。
     Taro.navigateTo({
-      url: `/pages/tools/ai_assistant?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.name)}`,
+      url: `/pkg-ai/ai-assistant/index?agentId=${agent.id}&modelNamea=${encodeURIComponent(agent.name)}`,
     })
   }
 
