@@ -74,7 +74,8 @@ function pendingOrder(network: 'TRC20' | 'ERC20', amount: number) {
     amountPaid: '0',
     txHash: null,
     status: 'pending',
-    expiresAt: new Date(T0 + 30 * 60 * 1000),
+    // 有效期按真实当前时刻计,避免固定 T0 让用例在 T0+30min 之后变成“已过期”而绕过到账检测
+    expiresAt: new Date(Date.now() + 30 * 60 * 1000),
     createdAt: new Date(T0),
     confirmedAt: null,
   }
