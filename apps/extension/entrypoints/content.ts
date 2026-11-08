@@ -26,6 +26,7 @@ import {
   detectLanguage,
 } from '../src/content/content-utils'
 import { sendMessage } from '../lib/message-router'
+import { isTrustedTopLevelExtensionSender, type RuntimeSenderLike } from '../lib/message-trust'
 import { ContentToolbar } from './content/content-toolbar'
 import { computePositionWithMemory, type RectLike } from '../src/content/position-memory'
 import { executeDomAction } from '../lib/agent-control'
@@ -512,8 +513,19 @@ export default defineContentScript({
     })
 
     // 接收 background 主动消息
-    chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((msg, sender: RuntimeSenderLike | undefined, sendResponse) => {
       if (!msg || typeof msg !== 'object') return false
+      // 2026-11-08 同型根因 D 类:内容脚本是唯一能直接改宿主 DOM 的执行端,消息只应由
+      // background 下发。sender.id === runtime.id 不够 —— 内容脚本自身也满足该条件,
+      // 因此要求 tab === undefined(排除内容脚本,只留顶层扩展上下文)。
+      if (!isTrustedTopLevelExtensionSender(sender, chrome.runtime.id)) {
+        console.warn(
+          '[IHUI AI] content: 丢弃非白名单来源的消息',
+          sender?.id ?? '(none)',
+          sender?.url ?? '(no-url)',
+        )
+        return false
+      }
       const m = msg as {
         type?: string
         payload?: {
