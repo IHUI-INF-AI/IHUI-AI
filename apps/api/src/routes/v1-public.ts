@@ -1030,8 +1030,15 @@ async function streamChatCompletion(
     // P0-5 中转站计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
       const promptTokens = Math.ceil((opts.promptText ?? '').length / 4)
+      // F-89:responseText 只累计真实产出文本(错误文案走 writeChunk 不计入)
       const completionTokens = Math.ceil(responseText.length / 4)
       const totalTokens = promptTokens + completionTokens
+      // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
+      const status: 'success' | 'partial' | 'error' = streamError
+        ? completionTokens > 0
+          ? 'partial'
+          : 'error'
+        : 'success'
       // 格②(2026-09-26):总耗时与 TTFT 各取一次独立样本、各自交叉校验;不可信样本落 0 并随行标真
       const latency = persistableLatency(opts.sw.stop())
       const ttft = ttftSample === null ? null : persistableLatency(ttftSample)
@@ -1047,13 +1054,14 @@ async function streamChatCompletion(
         cacheReadTokens: streamCacheReadTokens,
         cacheCreationTokens: streamCacheCreationTokens,
         latencyMs: latency.latencyMs,
-        status: streamError ? 'error' : 'success',
+        status,
         errorMessage: streamError,
         metadata: {
           stream: true,
           ...(opts.modelMappingMeta ?? {}),
           latencyTrusted: latency.latencyTrusted,
           ...(ttft ? { ttftTrusted: ttft.latencyTrusted } : {}),
+          ...(status === 'partial' ? { partialDelivery: true } : {}),
         },
         mode: opts.mode ?? 'relay',
         providerCode: opts.providerCode,
@@ -1789,7 +1797,12 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           const cached = await cache.get<V1ChatCompletionResponse>(cacheKey)
           if (cached.hit) {
             // 缓存命中:成本为 0,记录 cacheHit 标志供统计
+            // F-181 配额口径(用户裁定):token 配额按 0 计、请求次数照计。
+            // 这里显式给出可判标记,避免"有请求但没扣 token"看起来像漏账;
+            // 计费侧对应字段见 relay-billing-service 的 metadata.cacheSavedTokens /
+            // quotaBilledTokens / requestCounted。
             reply.header('X-Cache', 'HIT')
+            reply.header('X-Cache-Billing', 'hit;tokens=0;requests=1')
             if (apiKey) {
               const latency = persistableLatency(sw.stop())
               void recordCall({
