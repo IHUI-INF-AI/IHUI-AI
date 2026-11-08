@@ -13,6 +13,9 @@ export default [
   ...base,
   {
     ignores: [
+      // A 席 2026-11-08:同 apps/web 口径,剪枝 HEAD 整仓副本目录(18G / 29802 源码副本),
+      // 否则根级 eslint 的 files glob 同样会把它们收进枚举 ⇒ RC=124。
+      '**/.ihui-agent/**',
       'apps/*/dist/**',
       'apps/*/.next/**',
       'apps/*/.swc/**',

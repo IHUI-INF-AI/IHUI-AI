@@ -34,6 +34,11 @@ NO_MODEL_REASON = (
     "不得声称已完成语义证据判定"
 )
 
+# 结果层形状锁用：只要有一轮 verdict.executed=True，最终 judge_reason
+# 就不得再停留在 NO_MODEL_REASON（否则 executed=True 与「未配置模型」自相矛盾）。
+# ModelJudge 成功路径的 verdict.reason 刻意为空，故由调用方补这条中立说明。
+JUDGE_EXECUTED_REASON = "证据判断模型已执行;结果含模型 relevance 打分"
+
 JUDGE_ENABLED_ENV = "SAG2_JUDGE_ENABLED"
 JUDGE_MODEL_ENV = "SAG2_JUDGE_MODEL"
 GATEWAY_MISSING_REASON = (
