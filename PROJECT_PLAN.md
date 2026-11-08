@@ -32983,3 +32983,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 657G. **缺陷普查 API F-658** [P3] Qoder 桥接把访问密钥放进子进程 argv（证据 docs/tickets/2026-11/findings-api.md#F-658）
 - [ ] 658G. **缺陷普查 API F-659** [P3] canary-service.recordFailure 读改写丢更新，阈值回滚会漏计（证据 docs/tickets/2026-11/findings-api.md#F-659）
 - [ ] 659G. **缺陷普查 API F-660** [P1] 多模态任务退款把「成本分」加进「token 余额」列，成本余额永不回补（证据 docs/tickets/2026-11/findings-api.md#F-660）
+- [ ] 660G. **缺陷普查 API F-661** [P2] 预算告警把「成本（分）」与「月成本上限（元）」直接相除，花到上限 1% 即报 100%（证据 docs/tickets/2026-11/findings-api.md#F-661）
+- [ ] 661G. **缺陷普查 API F-662** [P3] 定价建议用 metadata.multiplier 反推成本，BYOK 行 multiplier 恒 1 且真实上游成本键被忽略（证据 docs/tickets/2026-11/findings-api.md#F-662）
+- [ ] 662G. **缺陷普查 API F-663** [P2] 财务统计 sum/avg ÷ 100.0（numeric）返回字符串，前端 .toFixed 崩整页（证据 docs/tickets/2026-11/findings-api.md#F-663）
+- [ ] 663G. **缺陷普查 API F-664** [P2] /api/admin/api-usage/top 的 errorRate（avg*100，numeric 字符串）被 .toFixed 调用（证据 docs/tickets/2026-11/findings-api.md#F-664）
+- [ ] 664G. **缺陷普查 API F-665** [P2] /api/admin/performance-dashboard/endpoints 同型 errorRate 崩页，且 avgLatency 未截断（证据 docs/tickets/2026-11/findings-api.md#F-665）
+- [ ] 665G. **缺陷普查 API F-666** [P3] 手写 count(*) filter/count(distinct) 返回 int8 字符串，接口契约声明 number（证据 docs/tickets/2026-11/findings-api.md#F-666）
+- [ ] 666G. **缺陷普查 API F-667** [P2] token 计数列 sum(...)::int 溢出：>2,147,483,647 tokens 即 22003 → 500（F-574 只覆盖金额列）（证据 docs/tickets/2026-11/findings-api.md#F-667）
+- [ ] 667G. **缺陷普查 API F-668** [P2] 兑换码 tokenAmount 无上限 + sum(token_amount)::bigint::int → 统计接口 500（证据 docs/tickets/2026-11/findings-api.md#F-668）
+- [ ] 668G. **缺陷普查 API F-669** [P3] agent_settlements 三个 int4 列对 admin 输入无约束：小数被静默取整、超限 500（证据 docs/tickets/2026-11/findings-api.md#F-669）
+- [ ] 669G. **缺陷普查 API F-670** [P1] 客户端断开被计为渠道 key 失败，3 次断连即熔断全部候选（账号池腿不记失败账）（证据 docs/tickets/2026-11/findings-api.md#F-670）
+- [ ] 670G. **缺陷普查 API F-671** [P1] 账号池腿响应头到达后摘掉 req.signal 且 tee 支路无取消，客户端断开后上游继续生成（证据 docs/tickets/2026-11/findings-api.md#F-671）
+- [ ] 671G. **缺陷普查 API F-672** [P2] 管理端参数覆盖（bodyOverride）只在渠道腿生效，账号池腿完全忽略（证据 docs/tickets/2026-11/findings-api.md#F-672）
+- [ ] 672G. **缺陷普查 API F-673** [P2] 非流式 /v1/chat/completions 重建响应：tool_calls/reasoning_content 丢失，finish_reason （证据 docs/tickets/2026-11/findings-api.md#F-673）
+- [ ] 673G. **缺陷普查 API F-674** [P2] 渠道腿只看 resp.ok 不校验协议体：200 HTML/错误 JSON 也记 key 健康并当成功透传（证据 docs/tickets/2026-11/findings-api.md#F-674）
+- [ ] 674G. **缺陷普查 API F-675** [P2] 异步生图链路零计费，worker 注释与实现相反（证据 docs/tickets/2026-11/findings-api.md#F-675）
+- [ ] 675G. **缺陷普查 API F-676** [P3] 429 的 Retry-After 只有账号池腿采用，渠道腿固定 60s 冷却（证据 docs/tickets/2026-11/findings-api.md#F-676）
+- [ ] 676G. **缺陷普查 API F-677** [P3] 账号池腿读流异常/提前 break 只 releaseLock 不 cancel（F-618 在另一条路径的对应缺失）（证据 docs/tickets/2026-11/findings-api.md#F-677）
+- [ ] 677G. **缺陷普查 API F-678** [P2] 两条腿都吞掉上游状态码：lastHttpStatus 无消费者，4xx/429 一律变 503（证据 docs/tickets/2026-11/findings-api.md#F-678）
+- [ ] 678G. **缺陷普查 API F-679** [P2] 流式计费用字符估算顶掉上游真实 usage（同函数 usage 帧却用真值）（证据 docs/tickets/2026-11/findings-api.md#F-679）
+- [ ] 679G. **缺陷普查 API F-680** [P1] 推送设备注册必然 500：UUID 写入 integer 列，且 ON CONFLICT (device_token) 无唯一索引可匹配（证据 docs/tickets/2026-11/findings-api.md#F-680）
+- [ ] 680G. **缺陷普查 API F-681** [P2] 错题入库从不初始化 SRS 到期日，“今日待复习”对全部用户恒为空（证据 docs/tickets/2026-11/findings-api.md#F-681）
+- [ ] 681G. **缺陷普查 API F-682** [P2] 个推鉴权 token 无缓存，且群发扇出无并发上限（证据 docs/tickets/2026-11/findings-api.md#F-682）
+- [ ] 682G. **缺陷普查 API F-683** [P2] 转码 resolution 参数被静默丢弃，请求 720p/1080p 实际输出原分辨率（证据 docs/tickets/2026-11/findings-api.md#F-683）
+- [ ] 683G. **缺陷普查 API F-684** [P3] 复习提交“读-算-写”无事务/无版本条件，并发或重试回退 SM-2 状态（证据 docs/tickets/2026-11/findings-api.md#F-684）
+- [ ] 684G. **缺陷普查 API F-685** [P3] 复习连续天数混用 DB 会话时区与 Node 本地时区，北京时间 0–8 点算错（证据 docs/tickets/2026-11/findings-api.md#F-685）
+- [ ] 685G. **缺陷普查 API F-686** [P3] 上传合并闸一次瞬时 Redis 故障即永久降级，直到进程重启（证据 docs/tickets/2026-11/findings-api.md#F-686）
+- [ ] 686G. **缺陷普查 API F-687** [P3] FCM data 值未转字符串，含数字/布尔/嵌套时整批推送 400（证据 docs/tickets/2026-11/findings-api.md#F-687）
+- [ ] 687G. **缺陷普查 API F-688** [P3] 直播回调解重 Map 无硬上限，超 1000 条后每次 insert 全表扫描且仅清过期项（证据 docs/tickets/2026-11/findings-api.md#F-688）
+- [ ] 688G. **缺陷普查 API F-689** [P2] 开发者套餐回调重放重复插入订阅（无幂等键）（证据 docs/tickets/2026-11/findings-api.md#F-689）
+- [ ] 689G. **缺陷普查 API F-690** [P2] 禁用（status=0）试卷仍出现在公开列表、可开考、可取题（证据 docs/tickets/2026-11/findings-api.md#F-690）
+- [ ] 690G. **缺陷普查 API F-691** [P3] 公开专题详情返回未发布（草稿）课程（证据 docs/tickets/2026-11/findings-api.md#F-691）
+- [ ] 691G. **缺陷普查 API F-692** [P3] 浏览记录读改写非原子：并发丢时长 + 首次并发直接 500（证据 docs/tickets/2026-11/findings-api.md#F-692）
+- [ ] 692G. **缺陷普查 API F-693** [P3] 含主观题提交即落 graded，人工阅卷后反写 submitted（状态机倒置）（证据 docs/tickets/2026-11/findings-api.md#F-693）
+- [ ] 693G. **缺陷普查 API F-694** [P3] 考试成绩指标被同一答题记录重复累加（提交 + 人工阅卷各一次）（证据 docs/tickets/2026-11/findings-api.md#F-694）
+- [ ] 694G. **缺陷普查 API F-695** [P3] 后台“总用户数”与用户列表 total 口径不一致（已注销用户）（证据 docs/tickets/2026-11/findings-api.md#F-695）
+- [ ] 695G. **缺陷普查 API F-696** [P3] 直播统计 total 含禁用频道，与其余三项口径不一致（证据 docs/tickets/2026-11/findings-api.md#F-696）
+- [ ] 696G. **缺陷普查 API F-697** [P3] 移动端设备分布把全部 distinct User-Agent 拉回进程再分三桶（证据 docs/tickets/2026-11/findings-api.md#F-697）
+- [ ] 697G. **缺陷普查 API F-698** [P1] 评论列表标量子查询 COUNT(*) 无 ::int，点赞后计数变成字符串拼接（证据 docs/tickets/2026-11/findings-api.md#F-698）
+- [ ] 698G. **缺陷普查 API F-699** [P1] 学习计划完成率 count(case) 无 ::int，聚合字符串拼接算出 442%（证据 docs/tickets/2026-11/findings-api.md#F-699）
+- [ ] 699G. **缺陷普查 API F-700** [P2] 管理端钱包统计 SUM(integer)::int，累计 token 超 2^31 即 22003 → 500（证据 docs/tickets/2026-11/findings-api.md#F-700）
+- [ ] 700G. **缺陷普查 API F-701** [P2] 中转账号 24h 用量 sum(...)::int 溢出被 catch 吞掉，整批账号降级为全 0（证据 docs/tickets/2026-11/findings-api.md#F-701）
+- [ ] 701G. **缺陷普查 API F-702** [P2] 渠道配额月度用量 coalesce(sum(...),0)::bigint::int，当月 token 超 2^31 抛错（证据 docs/tickets/2026-11/findings-api.md#F-702）
+- [ ] 702G. **缺陷普查 API F-703** [P3] 智能体详情 SUM(agentBillings.modelInputToken)::int 溢出 → 详情接口 500（证据 docs/tickets/2026-11/findings-api.md#F-703）
+- [ ] 703G. **缺陷普查 API F-704** [P2] 运营大屏当日 token ::bigint::int 溢出 → 业务纵深整块“不可用”（证据 docs/tickets/2026-11/findings-api.md#F-704）
+- [ ] 704G. **缺陷普查 API F-705** [P3] A/B 实验统计 exposureCount += SUM(int) 字符串拼接，返回 "0100"（证据 docs/tickets/2026-11/findings-api.md#F-705）
+- [ ] 705G. **缺陷普查 API F-706** [P3] API 用量 errorRate/avgLatency 为 numeric string，前端模板串渲染出 17 位小数（证据 docs/tickets/2026-11/findings-api.md#F-706）
+- [ ] 706G. **缺陷普查 API F-707** [P2] downloadFileFromUrl 校验后改用全局 fetch 且 redirect:'follow'，SSRF 可被重定向/重绑定绕过（证据 docs/tickets/2026-11/findings-api.md#F-707）
+- [ ] 707G. **缺陷普查 API F-708** [P2] 分布式锁 watchdog 遇到一次续约异常即永久停表，且不通知持有者（证据 docs/tickets/2026-11/findings-api.md#F-708）
+- [ ] 708G. **缺陷普查 API F-709** [P3] watchdog 以锁名（而非 token）为键：同进程重获取泄漏旧 interval 并误杀新锁续约（证据 docs/tickets/2026-11/findings-api.md#F-709）
+- [ ] 709G. **缺陷普查 API F-710** [P3] mTLS 降级模式下，把链校验失败的证书 CN 当成客户端身份注入（证据 docs/tickets/2026-11/findings-api.md#F-710）
+- [ ] 710G. **缺陷普查 API F-711** [P3] WS 跨实例限流 MAX_PER_WINDOW=30 完全失效，实际稳态上限为 BURST=50（证据 docs/tickets/2026-11/findings-api.md#F-711）
+- [ ] 711G. **缺陷普查 API F-712** [P3] WS 回放用毫秒时间戳做游标，同毫秒消息重连时被漏发（证据 docs/tickets/2026-11/findings-api.md#F-712）
+- [ ] 712G. **缺陷普查 API F-713** [P3] calendar-boundary.toDate 把无时区时间串按本地时区解析，日/周/月边界整体错一天（证据 docs/tickets/2026-11/findings-api.md#F-713）
+- [ ] 713G. **缺陷普查 API F-714** [P3] toAwareUtc 对斜杠格式按本地时区解析，UTC 兜底分支不可达（证据 docs/tickets/2026-11/findings-api.md#F-714）
+- [ ] 714G. **缺陷普查 API F-715** [P3] 死信队列只在 push 时清理：过期死信在 get/list 中仍可见且可重投（证据 docs/tickets/2026-11/findings-api.md#F-715）
+- [ ] 715G. **缺陷普查 API F-716** [P3] readNoProxy 首个已配置变量未命中即 return，注释声称“继续找另一个大小写档位”（证据 docs/tickets/2026-11/findings-api.md#F-716）
+- [ ] 716G. **缺陷普查 API F-717** [P1] 预扣金额按“扣除前读值 − 扣除后返回值”反推，并发下多退或少登记（证据 docs/tickets/2026-11/findings-api.md#F-717）
+- [ ] 717G. **缺陷普查 API F-718** [P1] 余额不足时 CASE 保持原值 + 准入只挡 0 ⇒ 1 分余额的 Key 永久免费，且返佣照提（证据 docs/tickets/2026-11/findings-api.md#F-718）
+- [ ] 718G. **缺陷普查 API F-719** [P1] 兑换码/单边 token 充值只加 tokenBalance，而准入要求 costBalanceCents≠0 ⇒ 付费充值不可用（证据 docs/tickets/2026-11/findings-api.md#F-719）
+- [ ] 719G. **缺陷普查 API F-720** [P2] Qoder 类积分上游的 credits 不进计费 ⇒ 该维度完全未计费（证据 docs/tickets/2026-11/findings-api.md#F-720）
