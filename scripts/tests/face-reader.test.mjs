@@ -613,10 +613,13 @@ const BARE_GIT_DEBT = [
   },
   {
     file: 'scripts/check-no-visible-spawn.mjs',
-    count: 20,
+    count: 25,
     addedBy: '',
     due: '2026-12-31',
-    why: '基线内存量(自检夹具大量样本)',
+    // 2026-11-08 复核:现读 25 处**全部**是该门自检夹具里的样本串(``src: `execSync('git …')` ``
+    // 这一族,用于验证"违规样本判红、合规样本判绿"),没有一处是可迁移的派生调用 ——
+    // 迁走就等于把判据的阳性对照删掉。这属于夹具增长,按 §0.7 用新证据重写本条,不是放宽产品面。
+    why: '基线内存量(自检夹具大量样本;2026-11-08 复核 20→25,全部为自检样本串)',
   },
   {
     file: 'scripts/check-spawn-stdio.mjs',
@@ -682,13 +685,6 @@ const BARE_GIT_DEBT = [
     why: '基线内存量',
   },
   {
-    file: 'scripts/lib/pre-commit-hook.js',
-    count: 4,
-    addedBy: '',
-    due: '2026-12-31',
-    why: '基线内存量(CJS 钩子层)',
-  },
-  {
     file: 'scripts/lib/staging-snapshot.js',
     count: 4,
     addedBy: '',
@@ -718,10 +714,10 @@ const BARE_GIT_DEBT = [
   },
   {
     file: 'scripts/safe-commit.mjs',
-    count: 9,
+    count: 8,
     addedBy: '',
     due: '2026-12-31',
-    why: '基线内存量(定基线时 8 处,后又加 1 处 —— 数字棘轮的盲区实例)',
+    why: '基线内存量(定基线时 8 处;2026-11-08 把 4 处只读探针迁到 gitRaw 后又回到 8,余项为 worktree add / commit 等写操作,层无对应形态)',
   },
   // ── 2026-10-26 之后新增的 24 枚(18 → 42),addedBy = 引入该处裸派生的提交 ──────────────
   {
