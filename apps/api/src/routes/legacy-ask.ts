@@ -18,8 +18,9 @@ import { error } from '../utils/response.js'
  */
 export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
   const idParam = z.object({ id: z.string() })
-  // F-04(2026-11-08):成员接口主体只取认证态 request.userId,客户端 query.userId 不再入 schema。
-  const paginatedQuery = z.object({
+  const userIdQuery = z.object({ userId: z.string() })
+  const paginatedUserIdQuery = z.object({
+    userId: z.string(),
     // P1 修复(2026-08-06): 分页 pageSize 补上限
     page: z.coerce.number().int().min(1).optional().default(1),
     pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
@@ -34,7 +35,7 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   fastify.get('/ask/member/question-count', { preHandler: authenticate }, async (request) => {
-    const userId = request.userId!
+    const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
     )
@@ -42,7 +43,7 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   fastify.get('/ask/member/answer-count', { preHandler: authenticate }, async (request) => {
-    const userId = request.userId!
+    const { userId } = userIdQuery.parse(request.query)
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM ask_answers WHERE user_id = ${userId}`,
     )
@@ -50,8 +51,7 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   fastify.get('/ask/member/questions', { preHandler: authenticate }, async (request) => {
-    const { page, pageSize } = paginatedQuery.parse(request.query)
-    const userId = request.userId!
+    const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
     const list = await db
       .select()
       .from(asks)
@@ -62,8 +62,7 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
   })
 
   fastify.get('/ask/member/answers', { preHandler: authenticate }, async (request) => {
-    const { page, pageSize } = paginatedQuery.parse(request.query)
-    const userId = request.userId!
+    const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
     const list = await db
       .select()
       .from(askAnswers)
