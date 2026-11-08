@@ -279,10 +279,25 @@ origin/main 73a6352a83   api 28 | miniapp 4 | mobile-rn 1 | rn-app 4 | web 1 | c
 | ② nssm 服务 `IHUI-GIT-GUARD`（`git-guardian.mjs --daemon`） | 承载①及工作区对齐 | 常驻 Auto | — |
 | ③ 计划任务 `\IHUI-AI git-guardian`（`wscript git-guardian-hidden.vbs`，**每 2 分钟**） | 会重新拉起守护 → 间接写 | 每 PT2M | — |
 | ④ `git-sync-converge.mjs` 全量模式 | 是（`--branch` 默认 `main`，不读当前分支名） | 被 push/heal 等显式全量调用时；`--align-only`（guardian 5 分钟 tick）在 L2203 退出、不动 ref | 有；old=`rev-parse HEAD` |
-| ⑤ union/plan 系列落地（`union-converge`、`plan-tasks-merge`、`plan-union-merge`、`live-doc-edit`、`plan-pointer-purge` 等） | 是（经 `bypass-git.casUpdateRef` 写 HEAD 所指 ref） | 被钩子/其他自动化显式调用 | 有；old=该 ref 当前值 |
+| ⑤a 写 HEAD 所指 ref 的落地器（`plan-tasks-merge`、`live-doc-edit`、`plan-pointer-purge`、清扫/object-space 系列） | 是（经 `bypass-git.casUpdateRef` 或 `update-ref HEAD`） | 被钩子/其他自动化显式调用 | 有；old=该 ref 当前值 |
+| ⑤b **硬编码 `refs/heads/main`** 的落地器（`union-converge` 4 处、`plan-union-merge`、`object-space-merge-cap`、`git-private-index-commit.sh`） | 是（**切 wip 也挡不住**） | 由 converge 冲突分支 `--apply` 自动派发，或会话手工调用 | 混：`union-converge` 2385/3730/3736 **无旧值（无 CAS）**，4778 与其余有 |
 | ⑥ `.husky/post-commit` 后台链（push-guard / plan-heal / plan-state-heal） | 否（提交由用户/工具发起；plan-heal 可能再落地） | 该工作树发生提交后 | 走各自落地器的 CAS |
 | ⑦ `D:/IHUI-AI-git-repo/hooks/{post-commit,post-checkout}` | 否 | 空 sh 壳，仅 `#!/bin/sh` | — |
 | ⑧ `IHUI-DEPLOYLOOP` / 计划任务 `auto-evolve` | 未发现直接 ref 写点 | 60s / 周期 | — |
 
-**一句可执行的话**：封口 = 停 `IHUI-GIT-GUARD` **并且 `schtasks /change /tn "\IHUI-AI git-guardian" /disable`**（否则 2 分钟内被拉回），再把 `D:/IHUI-AI` 切到 `wip/main-wt-dirty-20261109` 并在其上做一次快照提交（HEAD 与 main 分叉）——这样①只会写 wip 的 ref，④的 CAS 必然失败；两处一起才封死。
+**一句可执行的话**：封口 = ①`nssm stop IHUI-GIT-GUARD`；②`schtasks /change /tn "\IHUI-AI git-guardian" /disable`（否则 2 分钟内被拉回）；③把 `D:/IHUI-AI` 切到 `wip/main-wt-dirty-20261109` 并在其上做一次快照提交（HEAD 与 main 分叉），令①/⑤a 只写 wip 的 ref、④的 CAS 必然失败；④**切走并确认之前，不许在 `D:/IHUI-AI` 里运行** `git-sync-converge` 全量、`union-converge --apply`、`plan-union-merge`、`object-space-merge-cap`、`git-private-index-commit.sh`——⑤b 硬编码 `refs/heads/main`，一条都不受分支切换保护。①②③挡自动化，④挡“我们自己的救援工具”。
+
+### 10.6 两笔 `update-ref` 的区分与第 ⑨ 类通道（2026-11-09 补查）
+
+`git reflog main` 在 06:30:05 之前还有一笔同形态写入，两笔必须分开定：
+
+| reflog 时刻 | 新值 | message | 旧值 | 旧值是新值祖先？ |
+|---|---|---|---|---|
+| 06:25:33 | `73a6352a83` | 无（`update-ref`/直写） | `1e9f34aa34` | **否**（非快进，属改写） |
+| 06:30:05 | `2bb7c39959` | 无 | `73a6352a83` | 是（`73a` 是它的父） |
+
+- **06:30:05 已坐实为清扫腿**：`safe-commit-attestation.jsonl` 有 `bypass-landing` 条目 `headBefore=73a6352a83 / landedSha=2bb7c39959 / source=object-space-land / gatesRun=false`；作者 `智汇AGI社区 <ok502319984@gmail.com>` 正是 `lib/bypass-git.mjs#REPO_GIT_IDENTITY_ARGS`。即 commit-tree + CAS，与 §10.4 一致。
+- **06:25:33 不属于任何守护腿**：同窗口守护日志（22:25:15 / 22:25:38）无 ref 动作；`.ihui-agent/state` 在 06:23–06:32 之间无对应写盘（最早 06:27:06）；落点是**已存在的 origin tip**（该 commit 由用户身份 `AI智汇社` 于 04:18:01 造出，不是 commit-tree 新对象）；守护唯一的裸 ref 写入口 `writeLooseRef` 只重建嵌套 ref（`origin/main` 等），不写 `refs/heads/main`。且这次是**非快进改写**（`1e9f34aa34` 不是 `73a6352a83` 的祖先）。
+- **定性**：06:25:33 是**会话侧**（人/agent/IDE 终端）在 `D:/IHUI-AI` 里把本地 main 对到 origin tip 的一次裸 `update-ref`。它证明存在第 ⑨ 类通道：**任何在本机执行 git 的会话都能直接写 main**——这类关不掉，只能靠“HEAD 不在 main 上 + 封口期间不跑 ⑤b”把危害压到最低。
+- 附带结论：本地 `2bb7c39959` 不是当前 origin/main 的祖先（已核），即 `D:/IHUI-AI` 的 main 线已经是一条分叉；切 wip 不会丢它（已归档 `refs/heads/archive/local-plan-prune-2bb7c3995`），是否重放待排期。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
