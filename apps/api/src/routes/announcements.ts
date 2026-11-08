@@ -4,7 +4,12 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { findAnnouncements, findAnnouncementById } from '../db/content-queries.js'
+import {
+  findAnnouncementsLimited,
+  findAnnouncementsVersion,
+  findAnnouncementById,
+  isAnnouncementVisible,
+} from '../db/content-queries.js'
 import { success, error } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
 
@@ -15,7 +20,7 @@ import { isUuidString } from '../utils/uuid.js'
  * 提供 CLI 启动时拉取所需的精简字段(不含 content 正文)与版本探测端点(用于客户端缓存失效判断)。
  *
  * 灵感来源:参考行业 Agent 框架的 CLI 启动公告拉取。
- * 简化策略:复用现有 findAnnouncements 查询,仅在响应中精简字段 + 加 limit。
+ * 简化策略:列表走 SQL 层限额查询(不拉整段正文),版本走单次聚合(不拉全表)。
  */
 
 const latestQuerySchema = z.object({
@@ -33,19 +38,22 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const all = await findAnnouncements()
-      const limited = all.slice(0, parsed.data.limit)
+      // limit 下推到 SQL；total 由同一可见性谓词的 count(*) 聚合给出（两者都不拉全表正文）。
+      const [limited, version] = await Promise.all([
+        findAnnouncementsLimited(parsed.data.limit),
+        findAnnouncementsVersion(),
+      ])
       // 精简字段:仅返回 CLI 需要的(id/title/type/isPinned/publishedAt)
-      // summary 由 content 前 100 字符截取(避免拉取大段正文)
+      // summary 由 SQL left(content, 100) 截取,避免拉取大段正文
       const list = limited.map((a) => ({
         id: a.id,
         title: a.title,
         type: a.type,
         isPinned: a.isPinned,
         publishedAt: a.publishedAt ? a.publishedAt.toISOString() : null,
-        summary: a.content ? a.content.slice(0, 100) : null,
+        summary: a.summary ?? null,
       }))
-      return reply.send(success({ list, total: all.length }))
+      return reply.send(success({ list, total: version.count }))
     } catch {
       return reply.send(success({ list: [], total: 0 }))
     }
@@ -64,7 +72,7 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
     if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '公告不存在'))
     try {
       const a = await findAnnouncementById(parsed.data.id)
-      if (!a || !a.isPublished) {
+      if (!a || !isAnnouncementVisible(a)) {
         return reply.status(404).send(error(404, '公告不存在'))
       }
       return reply.send(
@@ -89,15 +97,11 @@ export const announcementsRoutes: FastifyPluginAsync = async (server) => {
   // 返回最新公告的 publishedAt 时间戳(客户端用于缓存失效判断)
   server.get('/cli/announcements/version', async (_request, reply) => {
     try {
-      const all = await findAnnouncements()
-      if (all.length === 0) {
-        return reply.send(success({ latestAt: null, count: 0 }))
-      }
-      const latest = all[0]
+      const { latestAt, count } = await findAnnouncementsVersion()
       return reply.send(
         success({
-          latestAt: latest?.publishedAt ? latest.publishedAt.toISOString() : null,
-          count: all.length,
+          latestAt: latestAt ? latestAt.toISOString() : null,
+          count,
         }),
       )
     } catch {
