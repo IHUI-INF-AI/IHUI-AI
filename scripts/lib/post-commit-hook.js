@@ -305,17 +305,20 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '0') {
   }
 }
 
-// ─── 9. README 自动同步(2026-10-22 从 pre-commit 移来)──────────────────────────
-// 这两段会 `git add` README,与 pre-commit 之后的 O43②「钩子运行期外来件」护栏**结构性冲突**
-// —— 护栏拒发"钩子窗口期新进索引、又不在本票声明集里"的文件,而这两段每轮都 add README,
-// 实测连续 4 次提交被同一道护栏拒发。移到这里后提交不再被拦;README 的更新落在工作区,
-// 随下一次触及 README 的提交带上。
+// ─── 9. README 自动同步(2026-10-22 从 pre-commit 移来;2026-11-08 数字块写手撤出)──────
+// 这段会 `git add` README,与 pre-commit 之后的 O43②「钩子运行期外来件」护栏**结构性冲突**
+// —— 护栏拒发"钩子窗口期新进索引、又不在本票声明集里"的文件。移到这里后提交不再被拦。
+//
+// 2026-11-08:数字块(`sync-readme-numbers.mjs`)的后台写入**已从此处移除**。
+// 病灶:提交已落定后再刷块,写的是"下一次提交才带上"的旧现场,还会与并发的
+// safe-commit / auto-commit / 人工写窗口重叠(历史上把 README 写成过 24841/4623)。
+// 收口后数字块只剩一个写入口:safe-commit Step 2b / auto-commit-quiet 在**提交前**调用
+// `sync-readme-numbers.mjs`(锁 + CAS + 固定 staged 面),或人工显式调用;门 173 只读不写。
+// 同时 push 档已改为"只判本轮改动带进来的块行",提交后不再刷块也不会让分支恒红。
+// 最近更新块是另一段功能(独立 REGION、自带块外计数 CAS),继续留在 post-commit。
 // 跳过:HUSKY_SKIP_POST_README=1(注意与 pre-commit 那个 HUSKY_SKIP_README_* 不是一回事:
 // 那两个是"是否在 pre-commit 跑",默认 1=不跑;这里是"是否在 post-commit 跑",默认跑)。
 if (process.env.HUSKY_SKIP_POST_README !== '1') {
-  runLogged('post-commit-readme-numbers', 'node scripts/sync-readme-numbers.mjs', {
-    timeout: 120000,
-  })
   runLogged('post-commit-readme-recent', 'node scripts/auto-update-readme-recent.mjs', {
     timeout: 120000,
   })
