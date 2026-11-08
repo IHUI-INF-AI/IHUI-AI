@@ -1,15 +1,11 @@
 {
-  "generatedAt": "2026-11-04T10:06:35.535Z",
-  "face": "staged",
+  "generatedAt": "2026-11-07T18:10:30.942Z",
+  "face": "head",
   "rule": "差值棘轮:在册集合只减不增;新键/新对未入账=红;undetermined=warn 点名(有效 not-applicable 裁决除外)。已能量出的整对不适用亦按 pair-level 裁决剔除存量。存差=未实现+未映射+未裁决,逐键 judged 台账仅移出存差、不入映射、逐条留审(owner/expires/evidence≥2/rationale),坏裁决/过期/一键两归/失效裁决=红且拒写。升绝对零前置=存差归零。",
   "pairs": {
     "AgentRuntimePanel": {
-      "state": "ok",
-      "onlyRn": [],
-      "onlyMini": [],
-      "reqDrift": [],
-      "mapped": [],
-      "driftTotal": 0
+      "state": "undetermined",
+      "reason": "rn=undetermined(props 类型不可解析(符号无声明,多为依赖模块在本编译面未解析):AgentRuntimePanelProps,AgentRuntimePanelProps ⇒ 空键集不冒充\"零 props\") mini=ok"
     },
     "BackChevron": {
       "state": "ok",
@@ -179,7 +175,7 @@
     },
     "ModelList": {
       "state": "ok",
-      "onlyRn": [],
+      "onlyRn": ["onContentSizeChange"],
       "onlyMini": [],
       "reqDrift": [],
       "mapped": [
@@ -194,7 +190,7 @@
           "kind": "event"
         }
       ],
-      "driftTotal": 0
+      "driftTotal": 1
     },
     "NavBar": {
       "state": "ok",
@@ -281,6 +277,11 @@
       "reqDrift": [],
       "mapped": [
         {
+          "ours": "onProgress",
+          "theirs": "onTimeUpdate",
+          "kind": "event"
+        },
+        {
           "ours": "url",
           "theirs": "src",
           "kind": "content"
@@ -288,11 +289,6 @@
         {
           "ours": "onComplete",
           "theirs": "onEnded",
-          "kind": "event"
-        },
-        {
-          "ours": "onProgress",
-          "theirs": "onTimeUpdate",
           "kind": "event"
         }
       ],
@@ -309,14 +305,14 @@
   },
   "counts": {
     "pairs": 18,
-    "drifted": 0,
-    "aligned": 16,
-    "undetermined": 0,
+    "drifted": 1,
+    "aligned": 14,
+    "undetermined": 1,
     "notApplicable": 2,
-    "maxKeyDrift": 0,
-    "driftKeysTotal": 0,
+    "maxKeyDrift": 1,
+    "driftKeysTotal": 1,
     "judgedKeysTotal": 0,
-    "rawDriftKeysTotal": 0,
+    "rawDriftKeysTotal": 1,
     "adjudicatedDriftKeys": 7,
     "mappedKeysTotal": 49,
     "equivalenceEntries": 27
