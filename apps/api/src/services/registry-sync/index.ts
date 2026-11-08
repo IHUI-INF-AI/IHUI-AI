@@ -43,33 +43,53 @@ export function calculateQualityScore(raw: RawRegistryItem): number {
   return hasDoc + maintenanceScore + compatibilityScore
 }
 
-/** 拉取所有源(或指定源)的条目,单源失败不影响其他源 */
+/** 单次 源×类型 拉取的失败明细。 */
+export interface RegistryFetchFailure {
+  source: RegistryUpstreamSource
+  type: RegistrySourceType
+  error: string
+}
+
+/** 聚合拉取结果:失败必须随结果返回,不能压成"上游没有数据"。 */
+export interface RegistryFetchResult {
+  items: RawRegistryItem[]
+  failures: RegistryFetchFailure[]
+  /** 实际尝试的 源×类型 组合数,用于把"全部失败"与"真的没数据"分开。 */
+  attempted: number
+}
+
+/** 拉取所有源(或指定源)的条目,单源失败不影响其他源;失败明细随结果返回 */
 export async function fetchAllRawItems(
   sourceType?: RegistrySourceType,
   source?: RegistryUpstreamSource,
   options?: SyncOptions,
-): Promise<RawRegistryItem[]> {
+): Promise<RegistryFetchResult> {
   const sources: RegistryUpstreamSource[] = source
     ? [source]
     : ['github', 'npm', 'mcp_marketplace', 'custom']
   const types: RegistrySourceType[] = sourceType ? [sourceType] : ['mcp', 'skill', 'plugin']
   const results: RawRegistryItem[] = []
+  const failures: RegistryFetchFailure[] = []
+  let attempted = 0
   for (const s of sources) {
     const adapter = ADAPTERS[s]
     if (!adapter) continue
     for (const t of types) {
+      attempted += 1
       try {
         const items = await adapter.fetch(t, options)
         results.push(...items)
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        failures.push({ source: s, type: t, error: message })
         console.warn(
           `[registry-sync] adapter ${s} fetch ${t} failed (force=${options?.force ?? false}):`,
-          err instanceof Error ? err.message : String(err),
+          message,
         )
       }
     }
   }
-  return results
+  return { items: results, failures, attempted }
 }
 
 /** 计算条目 payload 的 SHA-256(用于变更检测) */
