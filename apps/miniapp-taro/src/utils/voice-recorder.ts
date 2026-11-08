@@ -21,53 +21,80 @@ const DEFAULT_OPTIONS: Taro.RecorderManager.StartOption = {
   frameSize: 50,
 }
 
+/** onStop 回调不可靠时的兜底等待上限(以回调为准,此值只防回调彻底丢失) */
+const STOP_FALLBACK_MS = 5000
+
 class VoiceRecorder {
   private recorderManager: Taro.RecorderManager | null = null
   private innerAudioContext: Taro.InnerAudioContext | null = null
   private isRecording = false
   private tempFilePath = ''
+  /** 本次录音是否已被用户取消(由下一次 onStop/onError 消费,避免迟到回调写回旧路径) */
+  private discarded = false
+  private pendingStop: ((path: string) => void) | null = null
+  private stopTimer: ReturnType<typeof setTimeout> | null = null
 
   init(): void {
+    // 幂等:录音管理器是全局单例,重复 init 会累积 onStop/onError 回调与音频上下文
+    if (this.recorderManager) return
     this.recorderManager = Taro.getRecorderManager()
-    this.innerAudioContext = Taro.createInnerAudioContext()
-    this.innerAudioContext.autoplay = false
 
     this.recorderManager.onStop((res) => {
-      this.tempFilePath = res.tempFilePath
+      const path = this.discarded ? '' : res.tempFilePath
+      this.discarded = false
+      this.tempFilePath = path
       this.isRecording = false
+      this.settleStop(path)
     })
     this.recorderManager.onError(() => {
+      this.discarded = false
       this.isRecording = false
+      this.settleStop('')
     })
+  }
+
+  private settleStop(path: string): void {
+    if (this.stopTimer) {
+      clearTimeout(this.stopTimer)
+      this.stopTimer = null
+    }
+    const resolve = this.pendingStop
+    this.pendingStop = null
+    resolve?.(path)
   }
 
   startRecording(options: RecordOptions = {}): void {
     if (this.isRecording || !this.recorderManager) return
+    this.tempFilePath = ''
     this.isRecording = true
     this.recorderManager.start({ ...DEFAULT_OPTIONS, ...options })
   }
 
   stopRecording(): Promise<string> {
     if (!this.isRecording || !this.recorderManager) return Promise.resolve('')
-    this.recorderManager.stop()
     return new Promise((resolve) => {
-      setTimeout(() => resolve(this.tempFilePath), 500)
+      this.pendingStop = resolve
+      // 以 onStop 真回调为准;旧实现用固定 500ms 赌回调已到,慢机型会 resolve 空路径丢音
+      this.stopTimer = setTimeout(() => this.settleStop(''), STOP_FALLBACK_MS)
+      this.recorderManager?.stop()
     })
   }
 
   cancelRecording(): void {
-    if (this.isRecording && this.recorderManager) {
-      this.recorderManager.stop()
-      this.isRecording = false
-      this.tempFilePath = ''
-    }
+    if (!this.isRecording || !this.recorderManager) return
+    this.discarded = true
+    this.isRecording = false
+    this.tempFilePath = ''
+    this.recorderManager.stop()
+    this.settleStop('')
   }
 
   playRecording(filePath?: string): Promise<void> {
     return new Promise((resolve, reject) => {
+      // 播放能力当前无端内消费方;上下文按需创建,避免每次 init 都占一个小程序音频实例
       if (!this.innerAudioContext) {
-        reject(new Error('音频上下文未初始化'))
-        return
+        this.innerAudioContext = Taro.createInnerAudioContext()
+        this.innerAudioContext.autoplay = false
       }
       this.innerAudioContext.src = filePath || this.tempFilePath
       this.innerAudioContext.play()

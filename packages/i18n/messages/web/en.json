@@ -20473,7 +20473,7 @@
     "wizardAuditEntries": "View full scan details",
     "wizardAuditScope": "Scan scope: {cn} and {roaming}, {files} files in total."
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "Auto-run tasks",
     "taskPanelAutoTitle": "Auto sweep",
     "taskPanelAutoLoading": "Loading…",

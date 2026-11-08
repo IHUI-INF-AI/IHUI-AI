@@ -8,7 +8,7 @@ import { View, Text, Input } from '@tarojs/components'
 // 描边画在外层容器 `.email-input-box` 上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
 import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useCountdown } from '@ihui/shared'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getProfile, bindEmail, post } from '@/api'
@@ -38,6 +38,18 @@ export default function Email() {
   // 截止戳派生:后台被节流后返回前台仍按墙钟对表(useDidShow 里 sync)
   const codeCountdown = useCountdown(60)
   const [submitting, setSubmitting] = useState(false)
+  // 发码/绑定是写操作:count 只在 POST 返回后才置 true,连点会重复发码,故用 ref 做同 tick 互斥
+  const sendingRef = useRef(false)
+  const submittingRef = useRef(false)
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 页面卸载时清掉延迟返回定时器,避免多退一层页面;倒计时 interval 由 useCountdown 自身托管
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -81,7 +93,7 @@ export default function Email() {
   }
 
   async function sendCode() {
-    if (codeCountdown.count > 0) return
+    if (codeCountdown.count > 0 || sendingRef.current) return
     const target = (email || '').trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
       onToast(tt('user.email.emailInvalid', '邮箱格式不正确'), { kind: 'error' })
@@ -91,6 +103,7 @@ export default function Email() {
       onToast(tt('user.email.sameAsCurrent', '新邮箱不能与当前邮箱相同'), { kind: 'error' })
       return
     }
+    sendingRef.current = true
     try {
       // 发码与 /user/email/bind 同一份存储(identifier=邮箱),scene=bind 让邮件文案说真话
       // (旧写法打 /auth/email/send —— 全仓零注册,再降级 /auth/sms/send 把邮箱当 phone 传,
@@ -101,11 +114,13 @@ export default function Email() {
     } catch (e) {
       logger.error('user/email', '发送邮箱验证码', e)
       onToast(tt('user.email.codeSendFailed', '验证码发送失败'), { kind: 'error' })
+    } finally {
+      sendingRef.current = false
     }
   }
 
   async function onSubmit() {
-    if (submitting) return
+    if (submitting || submittingRef.current) return
     const target = (email || '').trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
       onToast(tt('user.email.emailInvalid', '邮箱格式不正确'), { kind: 'error' })
@@ -115,15 +130,18 @@ export default function Email() {
       onToast(tt('user.email.codeLength', '请输入 6 位验证码'), { kind: 'info' })
       return
     }
+    submittingRef.current = true
     setSubmitting(true)
     try {
       await bindEmail(target, code.trim())
       onToast(tt('user.email.bindSuccess', '邮箱绑定成功'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1000)
+      // 存引用以便卸载时取消:否则用户在 1s 内自行返回会多退一层页面
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
       logger.error('user/email', '绑定邮箱', e)
       onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -171,8 +189,13 @@ export default function Email() {
               value={code}
               onInput={(e) => setCode(e.detail.value)}
             />
-            <Text className={`email-code-btn ${codeCountdown.isRunning ? 'disabled' : ''}`} onClick={sendCode}>
-              {codeCountdown.isRunning ? `${codeCountdown.count}s` : tt('user.email.getCode', '获取验证码')}
+            <Text
+              className={`email-code-btn ${codeCountdown.isRunning ? 'disabled' : ''}`}
+              onClick={sendCode}
+            >
+              {codeCountdown.isRunning
+                ? `${codeCountdown.count}s`
+                : tt('user.email.getCode', '获取验证码')}
             </Text>
           </View>
         </View>

@@ -20476,7 +20476,7 @@
     "wizardAuditEntries": "전체 스캔 상세 보기",
     "wizardAuditScope": "스캔 범위: {cn} 및 {roaming}, 총 {files}개 파일."
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "작업 자동 실행",
     "taskPanelAutoTitle": "자동 순회",
     "taskPanelAutoLoading": "불러오는 중…",

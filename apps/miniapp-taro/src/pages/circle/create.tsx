@@ -83,6 +83,14 @@ export default function CircleCreatePage() {
   const [aigcOpen, setAigcOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // 发布成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   const loadHotTopics = useCallback(async () => {
     try {
@@ -210,7 +218,7 @@ export default function CircleCreatePage() {
       })
       Taro.removeStorageSync(DRAFT_KEY)
       onToast(tt('circle.createForm.published', '发布成功'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 1200)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 1200)
     } catch (e) {
       logger.error('circle/create', '发布动态', e)
       // 失败必须出声:原实现只写日志 ⇒ 用户点"发布"后按钮复位、页面原地不动,

@@ -11,7 +11,7 @@
 
 import { useI18n } from '@/i18n'
 import Taro, { useRouter } from '@tarojs/taro'
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { publishAigc, uploadByBase64 } from '@/api'
 import { safeDecodeURIComponent } from '@ihui/shared'
@@ -30,6 +30,14 @@ export default function AigcPublish() {
   const { t } = useI18n()
   const router = useRouter()
   const { resolvedTheme } = useTheme()
+  // 发布成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
   const params = useMemo(() => {
     const ctxId = (router.params.contextId as string) || ''
     let prompt = ''
@@ -206,7 +214,7 @@ export default function AigcPublish() {
         problem: (workType === 'text' ? textContent : prompt).trim(),
       })
       onToast(t('aigc.publish.published'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 800)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch {
       setSubmitError(t('aigc.publish.publishFail'))
       onToast(t('aigc.publish.publishFail'), { kind: 'error' })

@@ -1097,7 +1097,13 @@
     "previewHello": "Hello",
     "previewMine": "Created by me",
     "subtitle": "AI Group Assistant",
-    "searchPlaceholder": "Search AI assistants"
+    "searchPlaceholder": "Search AI assistants",
+    "q1": "Load AI team",
+    "r1": "Code",
+    "r2": "Program",
+    "r3": "Function",
+    "r4": "Frontend",
+    "r5": "Backend"
   },
   "aiCircle": {
     "title": "AI Circle",
@@ -1112,7 +1118,28 @@
     "guide": "Guide",
     "empty": "No content",
     "loadFailed": "Load failed",
-    "useCount": "{n} users"
+    "useCount": "{n} users",
+    "q1": "Interview",
+    "q2": "Interview",
+    "q3": "Resume",
+    "q4": "Resume",
+    "q5": "Career",
+    "q6": "Career planning",
+    "q7": "Planning",
+    "q8": "Career planning",
+    "q9": "Workplace",
+    "q10": "Workplace",
+    "q11": "Promotion",
+    "q12": "Promotion",
+    "q13": "Job hopping",
+    "q14": "Job hopping",
+    "q15": "Salary",
+    "q16": "Salary",
+    "q17": "Skill",
+    "q18": "Skill improvement",
+    "q19": "Communication",
+    "q20": "Communication",
+    "q21": "Load career guidance"
   },
   "aiChatDetail": {
     "title": "Chat history",
@@ -3040,7 +3067,45 @@
     "entryWithdraw": "Withdraw",
     "benefits": "Exclusive Benefits",
     "benefitCount": "{count} items",
-    "lifetime": "Lifetime access"
+    "lifetime": "Lifetime access",
+    "d1": "IHUI AI Community Trader",
+    "d2": "Senior Market Analyst / Platform Certified",
+    "d3": "Technical Analysis",
+    "d4": "Fundamentals",
+    "d5": "Risk Control",
+    "d6": "Stock Picking",
+    "d7": "Quant",
+    "d8": "Sentiment",
+    "d9": "Distribution Eligibility",
+    "d10": "Large-scale distribution eligibility, join the community service provider list",
+    "d11": "AI Courses",
+    "d12": "Free access to deep AI cognition / business / traffic courses",
+    "d13": "Founder Q&A",
+    "d14": "1-on-1 founder Q&A support anytime",
+    "d15": "Agent Beta",
+    "d16": "One year of beta access to the latest agents",
+    "d17": "Top Discounts",
+    "d18": "Max membership level with all top discounts",
+    "d19": "Custom Offers",
+    "d20": "Skip-the-line 20% off custom agent development",
+    "d21": "Account Incubation",
+    "d22": "Priority incubation for AI + vertical accounts",
+    "d23": "Compute Bonus",
+    "d24": "Traders receive 16M compute",
+    "d25": "Annualized Return",
+    "d26": "Win Rate",
+    "d27": "Max Drawdown",
+    "d28": "Monthly Coaching",
+    "d29": "30 days",
+    "d30": "Quarterly Strategy",
+    "d31": "90 days",
+    "d32": "365 days",
+    "d33": "Mr. Li",
+    "d34": "The trader explains clearly and the strategy is practical; following it really pays off.",
+    "d35": "Ms. Wang",
+    "d36": "The 1-on-1 Q&A is very attentive, and market views help with timing. Recommended.",
+    "q1": "Get trader price",
+    "r1": "IHUI AI Community certified trader with 10 years of A-share experience, skilled in combining technical and fundamental analysis, once managing portfolios over 500 million. Focused on trend strategy and risk control."
   },
   "vip": {
     "benefitList": {
@@ -3219,7 +3284,10 @@
     "teacher": "Instructor",
     "free": "Free",
     "rankEntry": "Study leaderboard",
-    "contactLabel": "Contact Mr. Li directly"
+    "contactLabel": "Contact Mr. Li directly",
+    "d1": "Frontend Engineer",
+    "d2": "AI Application Development",
+    "d3": "Data Analyst"
   },
   "settingPrivacy": {
     "systemPermissions": "System permissions",
@@ -3340,13 +3408,6 @@
     "loadFailed": "Failed to load invitation",
     "shareText": "Join ZHIHUI AI and let's learn together!"
   },
-  "qrcode": {
-    "loading": "QR Code Loading",
-    "from": "From: {name}",
-    "generating": "QR Code Generating",
-    "savedAlbum": "Saved to Album",
-    "saveFailed": "Save Failed"
-  },
   "model": {
     "configTitle": "Model Config",
     "temperature": "Temperature (0-2)",
@@ -3430,7 +3491,7 @@
     "phonePlaceholder": "Enter your phone number",
     "privacyPolicy": "Privacy Policy",
     "registerNow": "Sign up now",
-    "resendCode": "Resend",
+    "resendCode": "Resend in {seconds}s",
     "termsOfService": "Terms of Service",
     "loginFailed": "Login failed. Please try again."
   },
@@ -3686,46 +3747,6 @@
     "r1": "Ask again",
     "z3": "Level 0: Zhibin visitor. Upgrade membership for discounts covering all courses/compute/automation agents/knowledge base/custom services, with more features coming"
   },
-  "viptrader": {
-    "d1": "IHUI AI Community Trader",
-    "d2": "Senior Market Analyst / Platform Certified",
-    "d3": "Technical Analysis",
-    "d4": "Fundamentals",
-    "d5": "Risk Control",
-    "d6": "Stock Picking",
-    "d7": "Quant",
-    "d8": "Sentiment",
-    "d9": "Distribution Eligibility",
-    "d10": "Large-scale distribution eligibility, join the community service provider list",
-    "d11": "AI Courses",
-    "d12": "Free access to deep AI cognition / business / traffic courses",
-    "d13": "Founder Q&A",
-    "d14": "1-on-1 founder Q&A support anytime",
-    "d15": "Agent Beta",
-    "d16": "One year of beta access to the latest agents",
-    "d17": "Top Discounts",
-    "d18": "Max membership level with all top discounts",
-    "d19": "Custom Offers",
-    "d20": "Skip-the-line 20% off custom agent development",
-    "d21": "Account Incubation",
-    "d22": "Priority incubation for AI + vertical accounts",
-    "d23": "Compute Bonus",
-    "d24": "Traders receive 16M compute",
-    "d25": "Annualized Return",
-    "d26": "Win Rate",
-    "d27": "Max Drawdown",
-    "d28": "Monthly Coaching",
-    "d29": "30 days",
-    "d30": "Quarterly Strategy",
-    "d31": "90 days",
-    "d32": "365 days",
-    "d33": "Mr. Li",
-    "d34": "The trader explains clearly and the strategy is practical; following it really pays off.",
-    "d35": "Ms. Wang",
-    "d36": "The 1-on-1 Q&A is very attentive, and market views help with timing. Recommended.",
-    "q1": "Get trader price",
-    "r1": "IHUI AI Community certified trader with 10 years of A-share experience, skilled in combining technical and fundamental analysis, once managing portfolios over 500 million. Focused on trend strategy and risk control."
-  },
   "ModelConfigDialog": {
     "d1": "Long Xiaoxia",
     "d2": "Long Xiaoze",
@@ -3832,14 +3853,6 @@
     "q1": "Load agent list",
     "y1": "Go to {p1}"
   },
-  "aigroup": {
-    "q1": "Load AI team",
-    "r1": "Code",
-    "r2": "Program",
-    "r3": "Function",
-    "r4": "Frontend",
-    "r5": "Backend"
-  },
   "aiHistory": {
     "d1": "AI Image",
     "d2": "AI Voice",
@@ -3944,11 +3957,6 @@
     "title": "Create Circle",
     "nameRequired": "Please enter a name",
     "saveFailed": "Failed to create"
-  },
-  "learndevelop": {
-    "d1": "Frontend Engineer",
-    "d2": "AI Application Development",
-    "d3": "Data Analyst"
   },
   "plazaCover": {
     "d1": "What is the Developer Space?",
@@ -4071,29 +4079,6 @@
   "QrCodeShare": {
     "p1": "Share poster",
     "p2": "Scan to view"
-  },
-  "aicareer": {
-    "q1": "Interview",
-    "q2": "Interview",
-    "q3": "Resume",
-    "q4": "Resume",
-    "q5": "Career",
-    "q6": "Career planning",
-    "q7": "Planning",
-    "q8": "Career planning",
-    "q9": "Workplace",
-    "q10": "Workplace",
-    "q11": "Promotion",
-    "q12": "Promotion",
-    "q13": "Job hopping",
-    "q14": "Job hopping",
-    "q15": "Salary",
-    "q16": "Salary",
-    "q17": "Skill",
-    "q18": "Skill improvement",
-    "q19": "Communication",
-    "q20": "Communication",
-    "q21": "Load career guidance"
   },
   "platformAuth": {
     "q1": "WeChat login code is empty",
@@ -5548,7 +5533,12 @@
     "title": "My QR Code",
     "scanTip": "Scan the QR code to learn and grow with me",
     "share": "Share",
-    "loadFailed": "Failed to load QR code"
+    "loadFailed": "Failed to load QR code",
+    "loading": "QR Code Loading",
+    "from": "From: {name}",
+    "generating": "QR Code Generating",
+    "savedAlbum": "Saved to Album",
+    "saveFailed": "Save Failed"
   },
   "realNameAuth": {
     "title": "Real-Name Verification",
