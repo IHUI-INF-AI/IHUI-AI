@@ -31,9 +31,12 @@ import {
   pickStalePackages,
   captureArtifactSnapshot,
   verifyArtifactSnapshot,
+  judgeRebuildOutcome,
+  describeMissingArtifacts,
   fmtMtime,
 } from './lib/stale-dist.mjs'
 import { checkContentFresh, readManifest, writeManifest } from './lib/dist-content-cache.mjs'
+import { isolateBuildInfoForRebuild } from './lib/buildinfo-isolation.mjs'
 import {
   discoverTypecheckProjects,
   poolMap,
@@ -392,7 +395,7 @@ async function staleDistPreflight() {
   for (const e of all) {
     const mtimeStale = e.distMissing || e.distFileCount === 0 || e.staleArtifacts.length > 0
     const content = checkContentFresh(ROOT, e)
-    const manifest = readManifest(ROOT, e.name)
+    const manifest = readManifest(ROOT, e.name, e)
     if (content.fresh) {
       // 内容面已证未变:即使 mtime 判陈旧也不重写(这正是 checkout 刷新 mtime 的假重建)
       if (mtimeStale) contentSkipped.push({ name: e.name, reason: content.reason })
@@ -442,6 +445,18 @@ async function staleDistPreflight() {
   const rebuildOne = async (name) => {
     const state = need.find((e) => e.name === name)
     const snap = captureArtifactSnapshot(state.dir, state)
+    // 2026-11-08:门已判定该包要重建 ⇒ 先把这个包的 tsbuildinfo 移出共享面。
+    // 否则多 worktree 共享 node_modules 时,tsc 会读到别的根留下的 buildinfo,
+    // 认为"输入未变、产物已写出",rc=0 却一个产物都不写(复扫 122 NOT-OK 的假红病根)。
+    const isolation = isolateBuildInfoForRebuild({
+      root: ROOT,
+      pkgDir: state.dir,
+      name,
+      log: (line) => console.log(line),
+    })
+    if (!isolation.ok) {
+      console.error(`[typecheck:full] ❌ ${name} ${isolation.error}`)
+    }
     const startedAt = Date.now()
     const r = await runOneProject(
       { name, command: `pnpm --filter ${name} build`, args: [], dir: ROOT },
@@ -451,7 +466,6 @@ async function staleDistPreflight() {
     const verified = verifyArtifactSnapshot(state.dir, snap)
     const unverified = verified.filter((v) => !v.refreshed)
     const missingAfter = after.distMissing || after.distFileCount === 0
-    const postFresh = !missingAfter && after.artifactCount > 0 && after.staleArtifacts.length === 0
     // 内容面复核:rc=0 且产物齐全后落 manifest,再按指纹+逐产物 hash 复读一遍。
     // 为什么不是"mtime 必须前进":注释/格式这类源码改动可以合法地不改变任何产物字节,
     // 此时 tsc 增量不重写文件,mtime 不动 —— 那不代表旧产物有错。改用 sha256 逐个复核,
@@ -461,7 +475,8 @@ async function staleDistPreflight() {
       const written = writeManifest(ROOT, state)
       contentOk = written.ok && checkContentFresh(ROOT, state).fresh
     }
-    const ok = r.rc === 0 && !missingAfter && ((unverified.length === 0 && postFresh) || contentOk)
+    // 判据抽到 stale-dist.judgeRebuildOutcome(夹具可直接审"rc=0 但产物为空仍判红")。
+    const { ok } = judgeRebuildOutcome({ rc: r.rc, after, unverifiedCount: unverified.length, contentOk })
     console.log(
       `\n──── [typecheck:full] 重建 ${name} rc=${r.rc ?? '?'} ${Date.now() - startedAt}ms ` +
         `(陈旧产物 ${snap.length},复核刷新 ${verified.length - unverified.length}/${verified.length},复扫 ${after.staleArtifacts.length}) ────`,
@@ -473,6 +488,20 @@ async function staleDistPreflight() {
         `[typecheck:full]   ✗ ${name} 未刷新 ${v.artifact}: mtime ${fmtMtime(v.beforeMtimeMs)} → ${fmtMtime(v.afterMtimeMs)}(内容未变${contentOk ? ',按 sha256 复核视为正确' : ''})`,
       )
     }
+    let artifactDetail = null
+    if (!ok && after.staleArtifacts.length > 0) {
+      // 不再只报"复扫 122":点名缺哪些产物、缺在哪套 dist,并把跨根 buildinfo 的落点一并摊开。
+      artifactDetail = describeMissingArtifacts(after)
+      console.error(`[typecheck:full] ❌ ${name} ${artifactDetail.text}`)
+      if (isolation.inspected?.tsBuildInfoFile) {
+        console.error(
+          `[typecheck:full] ❌ ${name} 本次构建的 tsbuildinfo:${isolation.inspected.tsBuildInfoFile}` +
+            `(实际物理路径 ${isolation.inspected.physicalPath ?? '不存在'},` +
+            `${isolation.movedTo ? `已隔离到 ${isolation.movedTo}` : '未隔离'};` +
+            `${isolation.inspected.reason})`,
+        )
+      }
+    }
     return {
       name,
       rc: r.rc,
@@ -482,6 +511,9 @@ async function staleDistPreflight() {
       unverified: unverified.length,
       postStale: after.staleArtifacts.length,
       contentOk,
+      artifactDetail,
+      isolation: isolation.movedTo ? { movedTo: isolation.movedTo, inspected: isolation.inspected } : null,
+      isolationError: isolation.ok ? null : isolation.error,
     }
   }
   const rebuildStarted = Date.now()
@@ -519,9 +551,25 @@ async function staleDistPreflight() {
     )
     for (const r of failed) {
       console.error(`[typecheck:full]    ${r.name}: build rc=${r.rc ?? '?'}, 复扫陈旧 ${r.postStale}`)
+      if (r.artifactDetail?.sample?.length) {
+        console.error(
+          `[typecheck:full]      缺/旧产物示例(${r.artifactDetail.count} 个):` +
+            `${r.artifactDetail.sample.slice(0, 5).join(', ')}`,
+        )
+      }
+      if (r.isolationError) console.error(`[typecheck:full]      ${r.isolationError}`)
     }
     console.error('[typecheck:full]    复现: pnpm --filter <包名> build')
     process.exit(2)
+  }
+  for (const r of failed) {
+    if (r.artifactDetail?.sample?.length) {
+      console.error(
+        `[typecheck:full]   ${r.name} 缺/旧产物示例(${r.artifactDetail.count} 个):` +
+          `${r.artifactDetail.sample.slice(0, 5).join(', ')}`,
+      )
+    }
+    if (r.isolationError) console.error(`[typecheck:full]   ${r.name} ${r.isolationError}`)
   }
   console.error(
     `\n[typecheck:full] 重建失败 ${failed.length} 个包 —— 不带着旧产物继续跑类型检查。`,

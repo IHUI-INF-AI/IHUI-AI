@@ -634,12 +634,20 @@ test('T11 基线让路闸阳性对照:HEAD 是 origin/main 后代 ⇒ 照常收�
 })
 
 test('T12 readMainAncestry 三态:后代 / 落后 / 取不到远端', async () => {
+  // 远端 sha 必须由 ls-remote 给出(40 位 hex);跟踪 ref 只剩残值的场景单独在 T12b 钉。
+  const MAIN = 'a'.repeat(40)
   const fake = (over = {}) => (args) => {
     const a = args.join(' ')
     if (a === 'rev-parse --verify HEAD') return over.head ?? 'HEAD-SHA\n'
-    if (a === 'rev-parse --verify origin/main') return over.main === null ? null : (over.main ?? 'MAIN-SHA\n')
-    if (a === 'rev-list --count HEAD..origin/main') return `${over.behind ?? 0}\n`
-    if (a === 'merge-base --is-ancestor origin/main HEAD') {
+    if (a === 'ls-remote origin refs/heads/main') {
+      if (over.main === null) return null
+      if (over.main === 'throw') throw new Error('network down')
+      return `${over.main ?? MAIN}\trefs/heads/main\n`
+    }
+    if (a === 'rev-parse FETCH_HEAD') return null
+    if (a === 'rev-parse refs/remotes/origin/main') return over.tracking ?? `${'b'.repeat(40)}\n`
+    if (a === `rev-list --count HEAD..${over.main ?? MAIN}`) return `${over.behind ?? 0}\n`
+    if (a === `merge-base --is-ancestor ${over.main ?? MAIN} HEAD`) {
       if (over.ancestor === 'error') throw Object.assign(new Error('boom'), { status: 128 })
       if (over.ancestor === false) throw Object.assign(new Error('not ancestor'), { status: 1 })
       return ''
@@ -651,5 +659,9 @@ test('T12 readMainAncestry 三态:后代 / 落后 / 取不到远端', async () =
   assert.equal(readMainAncestry(fake({ ancestor: true, behind: 5 })).state, 'behind', '两条判据取严:落后枚数 >0 即让路')
   assert.equal(readMainAncestry(fake({ main: null })).state, 'unknown')
   assert.equal(readMainAncestry(fake({ ancestor: 'error' })).state, 'unknown', '判不出 ⇒ fail-closed')
+  // §5b:服务器问不到、只剩跟踪 ref 残值 ⇒ 必须 unknown(不许拿残值判"已同步")
+  const staleOnly = readMainAncestry(fake({ main: 'throw' }))
+  assert.equal(staleOnly.state, 'unknown', '跟踪 ref 残值不得落槌')
+  assert.equal(staleOnly.mainSha, null)
 })
 

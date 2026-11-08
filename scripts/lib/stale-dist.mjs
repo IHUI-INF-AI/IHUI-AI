@@ -271,6 +271,51 @@ export function fmtMtime(ms) {
 }
 
 /**
+ * 重建结果的**唯一判据**(2026-11-08 从 typecheck-full 内联表达式拆出,只为可被夹具直接审)。
+ * 关键:rc=0 **不等于**成功 —— tsc 在同源增量 buildinfo 下会 rc=0 且一个产物都不写
+ * (见 lib/buildinfo-isolation.mjs 头注)。因此仍要求:
+ *   - dist 目录存在且非空;
+ *   - 复扫逐产物零陈旧(`staleArtifacts.length === 0`);
+ *   - 重建前快照的每个目标产物 mtime 前进或内容 hash 变化(或被内容面 sha256 复核背书)。
+ * 三者缺一即 NOT-OK,调用方必须判红/未判定,不得因 rc=0 放行。
+ * @returns {{ok:boolean, missingAfter:boolean, postFresh:boolean}}
+ */
+export function judgeRebuildOutcome({ rc, after, unverifiedCount = 0, contentOk = false }) {
+  const missingAfter = after.distMissing || after.distFileCount === 0
+  const postFresh =
+    !missingAfter && after.artifactCount > 0 && after.staleArtifacts.length === 0
+  const ok =
+    rc === 0 && !missingAfter && ((unverifiedCount === 0 && postFresh) || contentOk)
+  return { ok, missingAfter, postFresh }
+}
+
+/**
+ * 把"复扫 N 个陈旧产物"落成**可排查的路径点名**:给出总数 + 前 N 个的绝对路径与原因。
+ * 只有数字的错误信息(如"复扫 122 NOT-OK")排查成本极高 —— 不知道缺的是哪些产物、
+ * 是缺失还是过期,也就不知道是哪套构建根/产物输出串了。
+ * @returns {{count:number, missing:number, outdated:number, sample:string[], text:string}}
+ */
+export function describeMissingArtifacts(state, { limit = 12 } = {}) {
+  const stale = Array.isArray(state?.staleArtifacts) ? state.staleArtifacts : []
+  const missing = stale.filter((a) => a.missing || a.artifactMtimeMs === -1)
+  const outdated = stale.filter((a) => !(a.missing || a.artifactMtimeMs === -1))
+  const distDir = join(state.dir, 'dist')
+  const sample = stale.slice(0, Math.max(0, limit)).map((a) => join(distDir, a.artifact))
+  const lines = []
+  lines.push(`产物面复核:共 ${stale.length} 个陈旧(缺失 ${missing.length} / 过期 ${outdated.length}),dist=${distDir}`)
+  for (const a of stale.slice(0, Math.max(0, limit))) {
+    lines.push(
+      a.missing || a.artifactMtimeMs === -1
+        ? `  ✗ 缺失 ${join(distDir, a.artifact)}(源:${a.src})`
+        : `  ✗ 过期 ${join(distDir, a.artifact)}(产物 ${fmtMtime(a.artifactMtimeMs)} < 源 ${fmtMtime(a.srcMtimeMs)})`,
+    )
+  }
+  if (stale.length > limit) lines.push(`  … 其余 ${stale.length - limit} 个省略(总数已给出)`)
+  return { count: stale.length, missing: missing.length, outdated: outdated.length, sample, text: lines.join('\n') }
+}
+
+
+/**
  * 重建被判陈旧的包,逐包打印 **包名 + rc + 重建前后 mtime + 复核结果**。
  * `buildPackage(name)` 必须返回 `{ status, signal? }` —— 生产侧是 spawnSync(`pnpm --filter ... build`)。
  * 返回 `{ results, exitCode }`;exitCode 非 0 时由调用方决定措辞后退出(本模块不 process.exit)。

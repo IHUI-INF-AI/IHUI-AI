@@ -33,6 +33,7 @@ const {
   analyze,
   REPO_CONTENT_DIRS,
   REPO_CONTENT_FILE_RE,
+  FACE_HELPER_MODULES,
 } = await import(pathToFileURL(resolve(ROOT, 'scripts/check-gate-face-discipline.mjs')).href)
 
 const g = (a) =>
@@ -710,6 +711,109 @@ test('T30 纯函数面:flagValue 四态 + resolveRootArg 三态(§22c:import 判
   const ok = resolveRootArg([])
   assert.equal(ok.root, ROOT, '不给 --root 时按脚本自身位置推导仓库根(与改前同形)')
   assert.deepEqual(ok.errorLines, [])
+})
+
+// ─── T31–T33 同面封装(2026-11-08):13 道门经 readSources / readFaceOne / cov.faceRead 读正文 ───
+// 立因:这 13 道门把正文读取收进同面封装(取哪一面由调用方 face 参数决定,封装内部走
+// catBatch / readWorktreeFile;末 1 道是 run→plan-tasks.readPlan 的薄壳二跳),单文件正则看不见
+// 封装内部 ⇒ 整批被误报成 no-content。
+// 补识别不是"放宽":T31 的 ④ 证明引了封装却不调用、自己读盘仍是 loose-fs(红),⑤ 证明引了在册
+// 模块的非读取出口仍是 no-content(不发通行证),⑥ 证明名字相近但未在册的模块不得误认。
+test('T31 同面封装:在册出口 ⇒ face;引而不调 + 自读盘 ⇒ 仍红;非读取出口 ⇒ 仍 no-content', () => {
+  const F = {
+    readSources:
+      "import { readSources } from './lib/face-scan.mjs'\nconst { texts } = readSources(ROOT, 'head', files)\n",
+    alias:
+      "import { readSources as rs } from '../lib/face-scan.mjs'\nconst { texts } = rs(ROOT, 'head', files)\n",
+    ns: "import * as scan from './lib/face-scan.mjs'\nconst { texts } = scan.readSources(ROOT, 'head', files)\n",
+    cov: "import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'\nconst t = cov.faceRead('head', rel)\n",
+    parity:
+      "import { __test__ as parity } from './check-web-rn-screen-parity.mjs'\nconst m = parity.loadMapDetailed('head')\n",
+    gateFace:
+      "import { readFaceBatch } from './lib/gate-face.mjs'\nconst m = readFaceBatch(ROOT, face, rels)\n",
+    shell: "import { run } from './lib/ledger-eaten-rows.mjs'\nconst got = run({ root, face })\n",
+    unused:
+      "import { readSources } from './lib/face-scan.mjs'\nimport { readFileSync } from 'node:fs'\nreadFileSync(join(ROOT, 'a.ts'), 'utf8')\n",
+    nonRead:
+      "import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'\nconst e = cov.evaluateMap(a, b, c, 'head')\n",
+  }
+  for (const k of ['readSources', 'alias', 'ns', 'cov', 'parity', 'gateFace', 'shell'])
+    assert.equal(classify(`scripts/check-${k}.mjs`, F[k]).kind, 'face', `${k} 必须认作 face`)
+  // ④ 引了封装 ≠ 走了封装:不调用 + 自己按磁盘读 ⇒ 仍判红
+  assert.equal(classify('scripts/check-unused.mjs', F.unused).kind, 'loose-fs')
+  // ⑤ 在册模块的纯函数出口不得成为通行证
+  assert.equal(classify('scripts/check-nonread.mjs', F.nonRead).kind, 'no-content')
+  // ⑥ 未在册的模块(名字相近)不得误认
+  assert.equal(
+    classify(
+      'scripts/check-lookalike.mjs',
+      "import { readSources } from './lib/not-face.mjs'\nconst { texts } = readSources(ROOT, 'head', files)\n",
+    ).kind,
+    'no-content',
+  )
+})
+
+test('T32 词汇表自证:每个在册模块当前源码仍含同面读取,且每个入口确有同名函数(死表不得背书)', () => {
+  // 一跳薄壳:模块自己只转调上游的同面取值入口,自证时把上游一起验 —— 任一跳漂了就红。
+  const TRANSITIVE_HELPERS = new Map([
+    ['lib/ledger-eaten-rows.mjs', { via: 'scripts/plan-tasks.mjs', call: /\breadPlan\s*\(/ }],
+  ])
+  for (const [mod, entries] of FACE_HELPER_MODULES) {
+    const src = g(['show', `HEAD:scripts/${mod}`])
+    const trans = TRANSITIVE_HELPERS.get(mod)
+    if (trans) {
+      assert.match(src, trans.call, `${mod} 已不再转调上游取值入口 ⇒ 词汇表不能再替它背书`)
+      assert.match(
+        g(['show', `HEAD:${trans.via}`]),
+        /(?:\bcatBatch\b|\breadWorktreeFile\b)/,
+        `${trans.via} 已不再含同面读取 ⇒ ${mod} 这条一跳背书失效`,
+      )
+    } else {
+      assert.match(
+        src,
+        /(?:\bcatBatch\b|\breadWorktreeFile\b|\bfaceRead\s*\()/,
+        `${mod} 已不再含同面读取 ⇒ 词汇表不能再替它背书(表项该删或封装该修)`,
+      )
+    }
+    for (const e of entries)
+      assert.match(
+        src,
+        new RegExp(`function\\s+${e}\\s*\\(`),
+        `${mod} 里找不到 ${e} 的函数定义 ⇒ 词汇表条目是死表`,
+      )
+  }
+})
+
+test('T33 真仓方向锁:19 道封装调用门在 HEAD 面必须判 face(名单该缩,或判据漂了)', () => {
+  // 前 12 条 = 原先被误报成 no-content;中间 6 条 = 同一失明造成的别的误档(unknown×4 /
+  // half-wired×1 / loose-fs×1),逐个看过:它们自带的磁盘读要么是显式 worktree 面,要么是
+  // 机器态台账(manual/registry JSON),判 face 是"判据面已换"而不是把红刷绿;末 1 条是薄壳二跳。
+  const expected = [
+    'scripts/check-no-divider.mjs',
+    'scripts/check-no-emoji-icons.mjs',
+    'scripts/check-no-mask-image.mjs',
+    'scripts/check-no-native-dialog.mjs',
+    'scripts/check-shared-layer-duplication.mjs',
+    'scripts/check-hairline-separator.mjs',
+    'scripts/check-web-mp-route-carriers.mjs',
+    'scripts/check-web-portal-label-keys.mjs',
+    'scripts/check-web-rn-parity.mjs',
+    'scripts/check-web-rn-screen-parity.mjs',
+    'scripts/check-api-endpoint-delta.mjs',
+    'scripts/check-miniapp-shell-form.mjs',
+    'scripts/check-docs-public-health.mjs',
+    'scripts/check-hover-lift-single-source.mjs',
+    'scripts/check-like-wildcard-escape.mjs',
+    'scripts/check-redirect-target-origin-pinned.mjs',
+    'scripts/check-retry-aliases.mjs',
+    'scripts/check-rn-host-shell-coverage.mjs',
+    'scripts/check-ledger-eaten-rows.mjs',
+  ]
+  const verdicts = analyze(ROOT, 'head').verdicts
+  for (const f of expected) {
+    const v = verdicts.find((x) => x.file === f)
+    assert.equal(v?.kind, 'face', `${f} 不再是 face ⇒ 名单该缩,或识别判据漂了`)
+  }
 })
 
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

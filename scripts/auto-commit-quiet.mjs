@@ -51,7 +51,7 @@ import {
 } from 'node:fs'
 import { basename, dirname, isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch, describeProbe, gitRaw, probeFaceSpec } from './lib/face-reader.mjs'
+import { catBatch, catBatchOids, catBatchTypes, describeProbe, gitRaw, probeFaceSpec } from './lib/face-reader.mjs'
 // 已结清行回退判据(§0.6 单一真相源):本器只 import,不抄第二份"什么算已结清/同一件事"。
 import { closedRowRegressions } from './lib/ledger-closed-rows.mjs'
 // 账本收编族(2026-11-03 新增)的唯一准入判据住在库里,本器不写第二份(§0.6):
@@ -950,15 +950,15 @@ function headBlobOidsOf(paths, root = ROOT) {
   const out = new Map()
   if (paths.length === 0) return out
   const specs = paths.map((p) => `HEAD:${normSlashes(p)}`)
-  const raw = String(
-    gitRaw(['cat-file', '--batch-check=%(objectname) %(objecttype)'], root, {
-      input: `${specs.join('\n')}\n`,
-    }),
+  // 型 C 尺子(2026-11-08):`cat-file --batch*` 一律走本层出口,不在调用方自拼 argv。
+  const oids = catBatchOids(root, specs)
+  const types = catBatchTypes(
+    root,
+    [...oids.values()].filter((v) => typeof v === 'string'),
   )
-  const lines = raw.split(/\r?\n/)
   paths.forEach((p, i) => {
-    const m = /^([0-9a-f]{40}) blob\b/.exec(lines[i] ?? '')
-    out.set(p, m ? m[1].toLowerCase() : null)
+    const oid = oids.get(specs[i]) ?? null
+    out.set(p, oid && types.get(oid.toLowerCase()) === 'blob' ? oid.toLowerCase() : null)
   })
   return out
 }
