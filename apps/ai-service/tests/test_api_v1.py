@@ -407,7 +407,6 @@ from app.core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL, require_request_user_id
 from app.services import mcp_server
 from app.services.conversation import SessionOwnershipError
 from app.services.hook_engine import HookEngine
-from app.services.memory import memory_store
 
 
 def _req(user_id: str = "alice", role_id: int = 0):
