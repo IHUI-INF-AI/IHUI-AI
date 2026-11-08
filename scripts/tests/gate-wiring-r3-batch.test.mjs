@@ -172,4 +172,24 @@ test('T4 未接的 19 枚仍在 R3 台账只报数,且不与已接 5 枚重叠',
     assert.equal(paths.has(`scripts/${want.script}`), false, `已接线的 scripts/${want.script} 仍留在 R3 台账会变成常驻 stale 报数`)
   }
 })
+
+test('T5 302 提交期两面:漂移门只拦承载面(blocking)、登记同步门只报数(warn)', () => {
+  const byId = new Map(registry.entries.map((e) => [String(e.id), e]))
+  const drift = byId.get('302')
+  assert.ok(drift, '302 未注册 ⇒ 承载削减在提交期没有阻断方')
+  assert.equal(drift.script, 'check-cross-end-parity-drift.mjs')
+  assert.equal(drift.mode, 'blocking', '302 必须是 blocking(只报数不拦等于没接);登记面由脚本内 commitFaceOf 降为 advisory')
+  const reg = byId.get('302r')
+  assert.ok(reg, '302r 未注册 ⇒ 新增未登记屏在提交期不可见')
+  assert.equal(reg.script, 'check-screen-registration-sync.mjs')
+  assert.equal(reg.mode, 'warn', '登记检测必须只报数(不阻断如实登记的提交)')
+  assert.ok(existsSync(join(ROOT, 'scripts', reg.script)), '302r 的脚本不存在')
+  const trig = normalizeTriggers(reg.stagedTriggers)
+  for (const p of ['apps/web/app/', 'apps/mobile-rn/src/screens/', 'scripts/data/web-rn-screen-map.jsonl']) {
+    assert.ok(
+      trig.some((t) => t === p || t.startsWith(p) || p.startsWith(t)),
+      `302r 射程缺 ${p} ⇒ 新屏提交不会触发登记检测`,
+    )
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
