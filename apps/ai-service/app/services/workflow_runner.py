@@ -31,6 +31,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Final
 
 from .task_executors import (
+    ADMIN_ONLY_TASK_TYPES,
     CheckpointStore,
     compute_idempotency_key,
     execute_task,
@@ -128,6 +129,7 @@ async def run_workflow(
     nodes: Any,
     *,
     principal: str,
+    user_role: int | None = None,
     resume_from_run_id: str | None = None,
     node_call: NodeCall | None = None,
     store: CheckpointStore | None = None,
@@ -139,6 +141,22 @@ async def run_workflow(
     ordered, err = _validate_script(nodes)
     if err is not None:
         return _undetermined(ERR_SCRIPT_INVALID, err)
+    # 2026-11-08 P0(AIS-052)根因收口:节点的 agent 是用户完全可控的 task_type,
+    # 若其中含 admin 专属类型(任意 argv 执行),role 0 必须先拒绝 —— 且在校验后、
+    # 执行前整体拒绝,保证"零节点执行"而不是跑到那一格才发现。
+    try:
+        role = int(user_role) if user_role is not None else 0
+    except (TypeError, ValueError):
+        role = 0
+    denied = [
+        node["id"] for node in ordered
+        if str(node["agent"]).strip() in ADMIN_ONLY_TASK_TYPES and role < 1
+    ]
+    if denied:
+        return _undetermined(
+            ERR_FORBIDDEN,
+            f"节点 {denied} 使用 admin 专属任务类型({sorted(ADMIN_ONLY_TASK_TYPES)}),当前 role={role}",
+        )
 
     st = store or get_checkpoint_store()
     if resume_from_run_id is not None and str(resume_from_run_id).strip():

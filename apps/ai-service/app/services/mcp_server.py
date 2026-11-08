@@ -11250,6 +11250,7 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     result = await run_workflow(
         arguments.get("nodes"),
         principal=_uid,
+        user_role=arguments.get("__user_role"),
         resume_from_run_id=resume,
     )
     return {"tool": "run_workflow", **result}
