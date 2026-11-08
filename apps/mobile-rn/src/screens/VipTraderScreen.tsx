@@ -21,7 +21,7 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 /** VIP 操盘手价格(分),对齐 SharedVipTraderScreen TRADER_PRICE ¥9980 */
 const TRADER_PRICE_CENTS = 998000
-const TRADER_PRODUCT_NAME_KEY = 'viptrader.productName'
+const TRADER_PRODUCT_NAME_KEY = 'vipTrader.productName'
 
 function formatYuan(n: number): string {
   return `¥${n.toLocaleString()}`
@@ -34,38 +34,38 @@ function buildStats(
 ): VipTraderStat[] {
   const base: VipTraderStat[] = [
     {
-      label: t('viptrader.teamCount'),
+      label: t('vipTrader.teamCount'),
       value: String(o.invitedCount),
-      trend: t('viptrader.activeTrend', { n: o.activeCount }),
+      trend: t('vipTrader.activeTrend', { n: o.activeCount }),
     },
     {
-      label: t('viptrader.totalCommission'),
+      label: t('vipTrader.totalCommission'),
       value: formatYuan(o.totalCommission),
-      trend: t('viptrader.rankTrend', { n: o.rank }),
+      trend: t('vipTrader.rankTrend', { n: o.rank }),
     },
     {
-      label: t('viptrader.monthIncome'),
+      label: t('vipTrader.monthIncome'),
       value: formatYuan(o.availableCommission),
-      trend: t('viptrader.withdrawnTrend', { v: formatYuan(o.withdrawnCommission) }),
+      trend: t('vipTrader.withdrawnTrend', { v: formatYuan(o.withdrawnCommission) }),
     },
     {
-      label: t('viptrader.pendingIncome'),
+      label: t('vipTrader.pendingIncome'),
       value: formatYuan(o.pendingCommission),
-      trend: t('viptrader.frozenTrend', { v: formatYuan(o.frozenCommission) }),
+      trend: t('vipTrader.frozenTrend', { v: formatYuan(o.frozenCommission) }),
     },
   ]
   // 邀请码 / 佣金比例 / 分销等级(对齐 Uniapp trader 页邀请信息展示)
   if (invite) {
     base.push(
       {
-        label: t('viptrader.myInviteCode'),
+        label: t('vipTrader.myInviteCode'),
         value: invite.inviteCode || '—',
-        trend: t('viptrader.invitedTrend', { n: invite.inviteCount }),
+        trend: t('vipTrader.invitedTrend', { n: invite.inviteCount }),
       },
       {
-        label: t('viptrader.distLevel'),
+        label: t('vipTrader.distLevel'),
         value: invite.level || '—',
-        trend: t('viptrader.rateTrend', { n: invite.commissionRate }),
+        trend: t('vipTrader.rateTrend', { n: invite.commissionRate }),
       },
     )
   }
@@ -181,7 +181,9 @@ export default function VipTraderScreen() {
       onRefresh={onRefresh}
       onOpen={onOpen}
       onBack={() => navigation.goBack()}
-      onRetry={() => { void load(); }}
+      onRetry={() => {
+        void load()
+      }}
       colorScheme={resolvedTheme}
       onToast={onToast}
     />
