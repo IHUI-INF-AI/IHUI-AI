@@ -16,7 +16,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { redactSecrets, redactObject } from './redact.js';
+import { redactSecrets, redactObjectDeepKeyed } from './redact.js';
 import { tryParseJson, isRecord } from './util/json.js';
 import { loadSettings } from './commands/settings.js';
 
@@ -91,7 +91,9 @@ export function auditLog(entry: AuditEntry): void {
 
   const record: AuditEntry = {
     ...entry,
-    input: redactObject(entry.input),
+    // F-006:审计是凭据落盘的最后一道;必须走"键名档 + 大文本档"深脱敏,
+    // 否则嵌套对象里的 apiKey/token 字段会原样进 append-only 审计文件。
+    input: redactObjectDeepKeyed(entry.input),
     output: entry.output ? truncate(redactSecrets(entry.output)) : undefined,
     error: entry.error ? redactSecrets(entry.error) : undefined,
   };

@@ -195,6 +195,10 @@ async function spawnPosix(
   return new Promise<SandboxExecResult>((resolve) => {
     const child = spawn(file, args, {
       cwd,
+      // F-004:让 shell 成为独立进程组 leader,超时才够得着它派生的孙子进程。
+      // 旧实现不 detached,只 `child.kill('SIGKILL')` shell;孙子继承 stdio 后
+      // close 永不触发 ⇒ Promise 悬挂、超时等于没超时(POSIX CI 实测)。
+      detached: true,
       // env-boundary-gap: POSIX 后端**未**过滤敏感变量。原注释"由策略层 blockedEnvVars 覆盖"不成立
       // —— 该过滤只在 Windows 后端实现(platform/windows.ts:213)，policy.ts:42 的字段在这一侧无人消费。
       // 本机为 Windows，bwrap/sandbox-exec 语义不可验证，故 2026-09-28 这票只把它钉成可见缺口;
@@ -209,9 +213,25 @@ async function spawnPosix(
     let timedOut = false;
     let settled = false;
 
+    /** 组杀 + 主动关管道:超时/超量后不再等孙子进程"自愿"退出。 */
+    const killTree = () => {
+      if (child.pid) {
+        try {
+          process.kill(-child.pid, 'SIGKILL');
+        } catch {
+          /* 组可能已退出 */
+        }
+      }
+      try { child.kill('SIGKILL'); } catch { /* ignore */ }
+      try { child.stdout?.destroy(); } catch { /* ignore */ }
+      try { child.stderr?.destroy(); } catch { /* ignore */ }
+    };
+
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill('SIGKILL');
+      killTree();
+      // 显式收敛:即使 detached 后代仍持有管道也不等 close(否则整个工具调用悬挂)。
+      finish(null, 'SIGKILL');
     }, timeoutMs);
 
     const finish = (code: number | null, signal: string | null) => {
@@ -234,7 +254,8 @@ async function spawnPosix(
       stdout += chunk.toString('utf8');
       if (Buffer.byteLength(stdout, 'utf8') > maxOutputBytes) {
         truncated = true;
-        child.kill('SIGKILL'); // 输出超限即终止,防内存打爆
+        killTree(); // 输出超限即终止(同样团灭,含后台孙进程),防内存/管道打爆
+        finish(null, 'SIGKILL');
       } else if (options.onOutput) {
         options.onOutput(chunk.toString('utf8'));
       }

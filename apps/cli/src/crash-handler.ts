@@ -237,9 +237,9 @@ export function handleCrash(source: CrashSource, err: unknown): void {
   const identity = identityKeyOf(err);
   if (identity && reportedErrors.has(identity)) {
     // 同一错误对象已由更早到达的通道落盘并打印:不再产第二条结论(不写文件、不再打印)。
-    // 但 uncaughtException 的退出码语义不属于"结论" —— 即使该路被去重也必须生效:
+    // 但退出码语义不属于"结论" —— 即使该路被去重也必须生效:
     // 真实异常经 monitor 先报后,仍要把 process.exitCode 钉成 1(与改动前逐字同语义)。
-    if (source === 'uncaughtException') {
+    if (source === 'uncaughtException' || source === 'unhandledRejection') {
       process.exitCode = 1;
     }
     return;
@@ -273,10 +273,10 @@ export function handleCrash(source: CrashSource, err: unknown): void {
   pruneOldCrashLogs();
   reportToStderr(error, logPath, source);
 
-  // uncaughtException:让 Node 默认退出行为生效(打印后退出码 1)
-  // unhandledRejection / monitor:不强制退出 —— monitor 之后 Node 仍会把该异常投递给
-  // uncaughtException 监听器,退出码在那一路统一落定,这里重复设置反而模糊归因。
-  if (source === 'uncaughtException') {
+  // 未捕获异常与未处理 rejection 都必须落到非零退出码(F-002:两条通道此前不对称,
+  // 只有 uncaughtException 写了 exitCode ⇒ async action 失败时进程退 0)。
+  // monitor 通道不设:它只是最早的观测点,Node 随后仍会投递到 uncaughtException。
+  if (source === 'uncaughtException' || source === 'unhandledRejection') {
     process.exitCode = 1;
   }
 }

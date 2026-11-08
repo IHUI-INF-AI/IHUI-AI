@@ -45,7 +45,8 @@ export function getSessionStatePath(id: string): string {
 }
 
 function ensureStateDir(): void {
-  fs.mkdirSync(getSessionStateDir(), { recursive: true });
+  // F-005:会话目录含完整对话/工具入参,默认 0755 可被同机他用户遍历 ⇒ 0700。
+  fs.mkdirSync(getSessionStateDir(), { recursive: true, mode: 0o700 });
 }
 
 export function newSessionId(): string {
@@ -169,7 +170,7 @@ export function saveSession(state: SessionState): void {
     ...state,
     updatedAt: monotonicUpdatedAt(current?.updatedAt, state.updatedAt),
   };
-  writeFileAtomicSync(p, JSON.stringify(next, null, 2));
+  writeFileAtomicSync(p, JSON.stringify(next, null, 2), { mode: 0o600 });
 }
 
 /**
@@ -205,7 +206,7 @@ export function patchSession(
     id: current.id,
     updatedAt: monotonicUpdatedAt(current.updatedAt, new Date().toISOString()),
   };
-  writeFileAtomicSync(getSessionStatePath(id), JSON.stringify(next, null, 2));
+  writeFileAtomicSync(getSessionStatePath(id), JSON.stringify(next, null, 2), { mode: 0o600 });
   return next;
 }
 
