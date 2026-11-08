@@ -15540,9 +15540,23 @@ class MCPServer:
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
             return _truncate_tool_output(result, tool_name=name, session_id=session_id)
         except TimeoutError:
-            return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
+            logger.warning(
+                "[mcp] 工具执行超时: tool=%s timeout=%ss", name, MCP_GLOBAL_TIMEOUT
+            )
+            return {
+                "ok": False,
+                "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)",
+                "errorCode": "TIMEOUT",
+            }
         except Exception as e:
-            return {"ok": False, "error": f"工具 {name} 执行失败: {e}"}
+            # AIS-057:原始异常只入日志,回执按 handler 契约给 errorCode 并脱敏,
+            # 避免内部路径/配置经 error 文本回灌模型或前端。
+            logger.warning("[mcp] 工具执行失败: tool=%s", name, exc_info=True)
+            return {
+                "ok": False,
+                "error": f"工具 {name} 执行失败(内部错误)",
+                "errorCode": "TOOL_FAILED",
+            }
 
     def list_resources(self) -> list[MCPResource]:
         """列出全部资源。"""
