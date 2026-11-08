@@ -32,7 +32,14 @@ import { checkAuth } from '../plugins/auth.js'
 import { verifyCode } from '../utils/code-store.js'
 import { db, dbRead } from '../db/index.js'
 import { deductToken } from '../db/commission-queries.js'
-import { findPublishedVideoFeed, findLatestStudyPlanId, findSignUp } from '../db/learn-queries.js'
+import {
+  findPublishedVideoFeed,
+  findLatestStudyPlanId,
+  findSignUp,
+  signUpLesson,
+} from '../db/learn-queries.js'
+import { createOrder, cancelOrder } from '../db/order-queries.js'
+import { updateOrderStatus } from '../db/payment-queries.js'
 import { buildSignedVideoUrl } from '../services/video-sign.js'
 import { USER_PREFERENCE_GROUPS } from '../db/user-preferences-queries.js'
 import {
@@ -2897,6 +2904,20 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     // 现复用仓内那份守卫式原子扣减（条件 UPDATE 内联 token_quantity >= quantity + RETURNING，
     // 同事务写流水），不再在本路由保留第二套算法（§0.6 单一真相源）。
     const priceCents = Math.round(coursePrice * 100)
+    // F-153:余额购买必须落一笔已支付课程订单(`edu_orders`),否则付费课播放/报名闸
+    // 找不到任何付费凭证(旧实现只扣余额,既不写订单也不写报名,付费用户反而看不了)。
+    const pendingOrder = await createOrder({
+      orderNo,
+      userId,
+      orderType: 'course',
+      targetId: course.id,
+      targetTitle: course.title,
+      quantity: 1,
+      originalPrice: coursePrice.toFixed(2),
+      discountAmount: '0.00',
+      payAmount: coursePrice.toFixed(2),
+      payType: 'balance',
+    })
     let paidBalance: number | null = null
     try {
       const deducted = await deductToken(userId, priceCents, `course buy: ${course.title}`, orderNo)
@@ -2908,7 +2929,26 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       }
       paidBalance = null
     }
-    if (paidBalance === null) return reply.status(402).send(error(402, '余额不足'))
+    if (paidBalance === null) {
+      // 扣款失败:取消刚落的 pending 订单,不把未付款的脏单留在账上
+      try {
+        await cancelOrder(pendingOrder.id)
+      } catch (e) {
+        request.log.error({ err: e, orderNo }, '课程购买失败后取消 pending 订单失败')
+      }
+      return reply.status(402).send(error(402, '余额不足'))
+    }
+    try {
+      await updateOrderStatus(orderNo, 'paid', 'pending', userId)
+      await signUpLesson(course.id, userId)
+    } catch (e) {
+      // 已扣款但权益落库失败:保留已支付订单线索并显式报错,不谎报成功
+      request.log.error(
+        { err: e, userId, courseId: course.id, orderNo },
+        '课程购买已扣款但权益落库失败',
+      )
+      return reply.status(500).send(error(500, '购买已扣款,但权益开通失败,请联系客服'))
+    }
     return reply.send(
       success({
         orderId: orderNo,

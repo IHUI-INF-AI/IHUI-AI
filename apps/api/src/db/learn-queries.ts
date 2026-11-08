@@ -19,6 +19,7 @@ import {
   lessonChapterSections,
   lessonSignUps,
   studyPlans,
+  eduOrders,
   users,
   type LearnCategory,
   type Lesson,
@@ -638,10 +639,7 @@ export async function findLatestStudyPlanId(userId: string): Promise<string | nu
  */
 export async function signUpLesson(lessonId: string, userId: string): Promise<void> {
   const studyPlanId = await findLatestStudyPlanId(userId)
-  await db
-    .insert(lessonSignUps)
-    .values({ lessonId, userId, studyPlanId })
-    .onConflictDoNothing()
+  await db.insert(lessonSignUps).values({ lessonId, userId, studyPlanId }).onConflictDoNothing()
 }
 
 /**
@@ -652,6 +650,38 @@ export async function isSignedUp(lessonId: string, userId: string): Promise<bool
     .select({ id: lessonSignUps.id })
     .from(lessonSignUps)
     .where(and(eq(lessonSignUps.lessonId, lessonId), eq(lessonSignUps.userId, userId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
+ * 课程是否免费(唯一判据):`isFree` 或价格 <= 0。价格非法(NaN/非数字)按付费处理,
+ * 宁可不放行也不白送(F-153)。
+ */
+export function isLessonFree(lesson: Pick<Lesson, 'isFree' | 'price'>): boolean {
+  if (lesson.isFree) return true
+  const price = Number(lesson.price)
+  return Number.isFinite(price) && price <= 0
+}
+
+/**
+ * 用户是否持有该课程的**已支付**订单(F-153)。
+ * 报名记录(`lesson_sign_ups`)可被任意登录用户自助创建,不能作为付费凭证;
+ * 唯一凭证是 `edu_orders` 里 orderType='course' + targetId=课程 + status='paid' 的订单
+ * (余额购买与在线支付两条链路最终都会写它)。
+ */
+export async function hasPaidCourseOrder(userId: string, lessonId: string): Promise<boolean> {
+  const rows = await db
+    .select({ id: eduOrders.id })
+    .from(eduOrders)
+    .where(
+      and(
+        eq(eduOrders.userId, userId),
+        eq(eduOrders.orderType, 'course'),
+        eq(eduOrders.targetId, lessonId),
+        eq(eduOrders.status, 'paid'),
+      ),
+    )
     .limit(1)
   return rows.length > 0
 }
@@ -861,7 +891,7 @@ export async function updateSignupStatus(
   const rows = await db
     .update(lessonSignUps)
     .set({ status })
-  // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
+    // status-guard-exempt: 通用状态 setter——目标值由调用方传入,终态合法性由服务层/路由层裁决,非固定出向终态写点
     .where(eq(lessonSignUps.id, id))
     .returning()
   return rows[0]
