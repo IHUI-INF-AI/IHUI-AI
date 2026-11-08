@@ -138,7 +138,7 @@ export class TaskExecutor extends EventEmitter {
 
     for (let i = 0; i < task.steps.length; i++) {
       // 取消后立即停止:不再跑后续步骤,也不允许把状态覆写成 completed/failed
-      if (task.status === 'cancelled') {
+      if ((task.status as string) === 'cancelled') {
         this.running.delete(taskId)
         const cancelled: TaskResult = {
           success: false,
@@ -180,7 +180,7 @@ export class TaskExecutor extends EventEmitter {
         const params = this.resolveParams(step.toolParams ?? {}, outputs)
         const result = await toolExecutor.execute(step.toolName, params, context)
         // 工具已产生副作用、但任务被取消:如实返回取消结果,不继续后续步骤
-        if (task.status === 'cancelled') {
+        if ((task.status as string) === 'cancelled') {
           this.running.delete(taskId)
           const cancelled: TaskResult = {
             success: false,
@@ -210,7 +210,7 @@ export class TaskExecutor extends EventEmitter {
     }
 
     // 最后一个步骤执行期间被取消:不能在循环结束后覆写成 completed
-    if (task.status === 'cancelled') {
+    if ((task.status as string) === 'cancelled') {
       this.running.delete(taskId)
       const cancelled: TaskResult = { success: false, outputs, error: '任务已取消', stepResults }
       task.result ??= cancelled

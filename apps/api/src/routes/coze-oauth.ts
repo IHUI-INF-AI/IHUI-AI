@@ -105,6 +105,7 @@ const refreshBodySchema = z.object({
   client_id: z.string().optional(),
   client_secret: z.string().optional(),
   user_uuid: z.string().nullable().optional(),
+  scope: z.string().optional(),
   base_url: baseUrlField,
 })
 

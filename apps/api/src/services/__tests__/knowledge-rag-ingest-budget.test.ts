@@ -74,7 +74,6 @@ vi.mock('../../db/index.js', async () => {
     }
   }
   const CHUNK = 'zhs_knowledge_chunk'
-  const DOC = 'zhs_knowledge_doc'
 
   type Buffer = { docs: Array<Record<string, unknown>>; chunks: Array<Record<string, unknown>> }
 

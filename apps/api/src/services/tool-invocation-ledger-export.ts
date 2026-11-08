@@ -63,8 +63,8 @@ export const TOOL_LEDGER_EXPORT_FORMAT = 'json' as const
 export interface ToolInvocationLedgerExportRow {
   id: string
   invocationId: string
-  /** 操作者身份(令牌主体,记录面落库时写入)。 */
-  userId: string
+  /** 操作者身份(令牌主体,记录面落库时写入);用户被删除时该列按 FK 置 NULL。 */
+  userId: string | null
   permissionDecision: string
   permissionCause: string | null
   inputDigest: string
