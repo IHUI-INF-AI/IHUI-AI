@@ -13684,6 +13684,7 @@
     "show": "显示",
     "delete": "删除",
     "save": "保存",
+    "saveFailed": "保存失败",
     "ok": "确定",
     "create": "创建",
     "agentKanban": "Agent 看板",

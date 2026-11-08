@@ -13683,6 +13683,7 @@
     "show": "表示",
     "delete": "削除",
     "save": "保存",
+    "saveFailed": "保存に失敗しました",
     "ok": "OK",
     "create": "作成",
     "agentKanban": "Agent 看板",

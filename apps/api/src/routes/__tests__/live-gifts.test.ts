@@ -20,14 +20,15 @@ vi.mock('../../config/index.js', () => ({
   },
 }))
 
-const { mockVerifyAccessToken, mockSelectResult, mockInsertValues, mockExecute } = vi.hoisted(
-  () => ({
+const { mockVerifyAccessToken, mockSelectResult, mockInsertValues, mockExecute, mockUpdateReturning } =
+  vi.hoisted(() => ({
     mockVerifyAccessToken: vi.fn(),
     mockSelectResult: vi.fn().mockResolvedValue([]),
     mockInsertValues: vi.fn().mockResolvedValue([]),
     mockExecute: vi.fn().mockResolvedValue([]),
-  }),
-)
+    // F-68 后扣款走 tx.update(userMargins)...returning({balance}):单独一根可编排的桩
+    mockUpdateReturning: vi.fn().mockResolvedValue([]),
+  }))
 
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-token'),
@@ -64,7 +65,7 @@ vi.mock('../../db/index.js', () => {
     update: vi.fn(() => ({
       set: vi.fn(() => ({
         where: vi.fn(() => ({
-          returning: vi.fn().mockResolvedValue([]),
+          returning: vi.fn(() => mockUpdateReturning()),
         })),
       })),
     })),
@@ -75,9 +76,16 @@ vi.mock('../../db/index.js', () => {
         cb: (tx: {
           select: unknown
           insert: unknown
+          update: unknown
           execute: typeof mockExecute
         }) => Promise<unknown>,
-      ) => cb({ select: dbMock.select, insert: dbMock.insert, execute: mockExecute }),
+      ) =>
+        cb({
+          select: dbMock.select,
+          insert: dbMock.insert,
+          update: dbMock.update,
+          execute: mockExecute,
+        }),
     ),
   }
   return { db: dbMock, dbRead: dbMock, dbClient: {} }
@@ -129,22 +137,6 @@ function makeRecord(overrides: Record<string, unknown> = {}) {
   }
 }
 
-/** 把 drizzle sql 模板对象还原为 SQL 文本(便于断言). */
-function sqlText(sqlObj: unknown): string {
-  const obj = sqlObj as { queryChunks?: unknown[] }
-  if (!obj?.queryChunks) return String(sqlObj)
-  return obj.queryChunks
-    .map((chunk) => {
-      if (typeof chunk === 'string') return chunk
-      const withValue = chunk as { value?: unknown[] }
-      if (Array.isArray(withValue.value)) {
-        return withValue.value.map((v) => (typeof v === 'string' ? v : '?')).join('')
-      }
-      return '?'
-    })
-    .join('')
-}
-
 describe('Live Gifts API', () => {
   let app: FastifyInstance
 
@@ -167,9 +159,11 @@ describe('Live Gifts API', () => {
     mockSelectResult.mockReset()
     mockInsertValues.mockReset()
     mockExecute.mockReset()
+    mockUpdateReturning.mockReset()
     mockSelectResult.mockResolvedValue([])
     mockInsertValues.mockResolvedValue([])
     mockExecute.mockResolvedValue([])
+    mockUpdateReturning.mockResolvedValue([])
   })
 
   describe('GET /api/live-gifts', () => {
@@ -184,10 +178,10 @@ describe('Live Gifts API', () => {
       expect(res.statusCode).toBe(200)
       const body = JSON.parse(res.body)
       expect(body.code).toBe(0)
-      expect(body.data.items).toHaveLength(1)
+      expect(body.data.list).toHaveLength(1)
       expect(body.data.total).toBe(1)
-      expect(body.data.items[0].name).toBe('玫瑰')
-      expect(body.data.items[0].price).toBe('10')
+      expect(body.data.list[0].name).toBe('玫瑰')
+      expect(body.data.list[0].price).toBe('10')
     })
   })
 
@@ -236,9 +230,8 @@ describe('Live Gifts API', () => {
       mockSelectResult
         .mockResolvedValueOnce([makeGift()]) // 礼物查询
         .mockResolvedValueOnce([makeUser()]) // 赠送人昵称
-      mockExecute
-        .mockResolvedValueOnce([{ balance: '100' }]) // 余额查询
-        .mockResolvedValueOnce({ count: 1 }) // 扣减
+      // F-68:条件 UPDATE 命中 ⇒ RETURNING 给出扣后余额
+      mockUpdateReturning.mockResolvedValueOnce([{ balance: 80 }])
       mockInsertValues.mockResolvedValueOnce([makeRecord()])
 
       const res = await app.inject({
@@ -256,12 +249,8 @@ describe('Live Gifts API', () => {
       expect(body.data.record.totalPrice).toBe(20)
       expect(body.data.balanceAfter).toBe(80)
 
-      // 验证执行了余额扣减 SQL
-      const sqlCalls = mockExecute.mock.calls.map((c) => sqlText(c[0]))
-      expect(sqlCalls.some((s) => s.includes('SELECT balance FROM user_token_balance'))).toBe(true)
-      expect(
-        sqlCalls.some((s) => s.includes('UPDATE user_token_balance') && s.includes('balance -')),
-      ).toBe(true)
+      // 钱包主账本扣减:条件 UPDATE 一次
+      expect(mockUpdateReturning).toHaveBeenCalledTimes(1)
       // 验证写入了打赏记录
       expect(mockInsertValues).toHaveBeenCalledTimes(1)
       const inserted = mockInsertValues.mock.calls[0]?.[0] as Record<string, unknown>
@@ -273,7 +262,8 @@ describe('Live Gifts API', () => {
       mockSelectResult
         .mockResolvedValueOnce([makeGift()]) // 礼物查询
         .mockResolvedValueOnce([makeUser()]) // 赠送人昵称
-      mockExecute.mockResolvedValueOnce([{ balance: '5' }]) // 余额 5 < 20
+      // 条件 UPDATE 未命中 ⇒ RETURNING 空数组 ⇒ 余额不足,不写流水/记录
+      mockUpdateReturning.mockResolvedValueOnce([])
 
       const res = await app.inject({
         method: 'POST',
@@ -286,8 +276,8 @@ describe('Live Gifts API', () => {
       const body = JSON.parse(res.body)
       expect(body.code).toBe(400)
       expect(body.message).toBe('余额不足')
-      // 只执行了余额查询,未执行扣减,也未写记录
-      expect(mockExecute).toHaveBeenCalledTimes(1)
+      // 条件 UPDATE 只发生一次,且未写打赏记录/流水
+      expect(mockUpdateReturning).toHaveBeenCalledTimes(1)
       expect(mockInsertValues).not.toHaveBeenCalled()
     })
 

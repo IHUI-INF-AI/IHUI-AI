@@ -45,7 +45,7 @@ export default function KBDetailPage() {
     queryKey: ['kb', 'detail', id],
     queryFn: async (): Promise<KBDetailData> => {
       const res = await getKnowledgeBase<KBDetailData>(id)
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tCommon('loadFailed'))
       return res.data
     },
   })
