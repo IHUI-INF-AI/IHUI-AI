@@ -14,6 +14,8 @@ interface PointRule {
   pointCode: string
   amount: number
   remark: string
+  /** 仅该状态码视为「首次成功」。缺省按 200/201 兼容旧规则。 */
+  requireStatus?: number
 }
 
 const POINT_RULES: { match: (method: string, url: string) => PointRule | null } = {
@@ -22,7 +24,15 @@ const POINT_RULES: { match: (method: string, url: string) => PointRule | null } 
     const path = url.split('?')[0] ?? ''
 
     if (m === 'POST' && /^\/api\/follows\/[a-f0-9-]{36}$/i.test(path)) {
-      return { channelCode: 'social', pointCode: 'follow', amount: 5, remark: '关注奖励' }
+      // F-205:重复关注应返回 200(幂等 no-op),只有首次建立关系(201)才发积分,
+      // 否则同一对用户反复 POST 可无限刷 +5。
+      return {
+        channelCode: 'social',
+        pointCode: 'follow',
+        amount: 5,
+        remark: '关注奖励',
+        requireStatus: 201,
+      }
     }
     if (m === 'POST' && path === '/api/checkin') {
       return { channelCode: 'sign', pointCode: 'signin', amount: 10, remark: '签到奖励' }
@@ -68,7 +78,11 @@ const pointAspectPlugin: FastifyPluginAsync = async (server: FastifyInstance) =>
     const rule = POINT_RULES.match(method, url)
     if (!rule) return
 
-    if (reply.statusCode !== 200 && reply.statusCode !== 201) return
+    if (rule.requireStatus !== undefined) {
+      if (reply.statusCode !== rule.requireStatus) return
+    } else if (reply.statusCode !== 200 && reply.statusCode !== 201) {
+      return
+    }
 
     const userId = request.userId ?? request.jwtPayload?.userId
     if (!userId) return

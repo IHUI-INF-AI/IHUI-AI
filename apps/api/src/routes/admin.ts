@@ -21,7 +21,12 @@ import {
   updateProjectAdmin,
   deleteProjectAdmin,
 } from '../db/admin-queries.js'
-import { createUser, isSystemAdminUser, type CreateUserInput } from '../db/queries.js'
+import {
+  createUser,
+  isSystemAdminUser,
+  revokeAllUserRefreshTokens,
+  type CreateUserInput,
+} from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { syncLiteLLMPricing } from '../services/litellm-price-sync.js'
 import { upsertPricing } from '../services/pricing-service.js'
@@ -663,6 +668,11 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
     }
     const user = await findUserByIdAdmin(paramParsed.data.id)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
+    // F-125:内置管理员只能改自己的密码。此前任意 admin 都能重置内置管理员密码,
+    // 等价于把「内置管理员不可删除/禁用」的保护从改密口子绕开,直接接管 root 账号。
+    if (request.userId !== paramParsed.data.id && (await isSystemAdminUser(paramParsed.data.id))) {
+      return reply.status(403).send(error(403, '不能重置系统内置管理员的密码'))
+    }
     const passwordHash = await hashPassword(bodyParsed.data.newPassword)
     const { db } = await import('../db/index.js')
     const { users } = await import('@ihui/database')
@@ -671,6 +681,8 @@ export const adminRoutes: FastifyPluginAsync = async (server) => {
       .update(users)
       .set({ passwordHash, updatedAt: new Date() })
       .where(eq(users.id, paramParsed.data.id))
+    // 改密后旧 refresh token 仍可续签,必须与自助改密(auth.ts)同一出口统一吊销。
+    await revokeAllUserRefreshTokens(paramParsed.data.id)
     return reply.send(success({ id: paramParsed.data.id, reset: true }))
   })
 

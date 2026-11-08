@@ -300,6 +300,16 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
           socket.close(4004, '会话不存在')
           return
         }
+        // F-109(2026-11-08):sessionId 来自客户端 query,必须校验会话属主。
+        // 否则任意登录用户可拿他人 sessionId 接管客服会话(读他人消息/冒充客户发消息)。
+        if (session.userId !== userId) {
+          server.log.warn(
+            { userId, sessionId: sessionIdParam },
+            'ws-customer-service 拒绝连接:会话不属于当前用户',
+          )
+          socket.close(4003, '无权访问该会话')
+          return
+        }
       } else {
         session = await createSession({ userId, source: 'web' })
       }

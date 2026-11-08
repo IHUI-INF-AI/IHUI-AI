@@ -91,6 +91,17 @@ export async function revokeAccessToken(token: string, expiresAt: Date): Promise
 }
 
 /**
+ * F-56(2026-11-08):OAuth 授权面(userinfo / authorize 的 Bearer 推断)只做 JWT 验签,
+ * 不经过 authenticate(),因此登出/踢下线后的 access token 仍能换 code、拉 userinfo。
+ * 这里复用同一份 Redis 黑名单做吊销判定,语义与 authenticate() 的内联检查一致。
+ */
+export async function isAccessTokenRevoked(token: string): Promise<boolean> {
+  const blacklist = getTokenBlacklist()
+  if (!blacklist) return false
+  return blacklist.has(token)
+}
+
+/**
  * 从 Authorization header 提取 Bearer token 并验证。
  * 使用 @ihui/auth 的 jose verifyAccessToken，拒绝 refresh token 被当作 access token 使用。
  * 失败时抛出带 statusCode 的错误，由全局错误处理器统一返回 401。

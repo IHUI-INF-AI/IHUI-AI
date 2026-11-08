@@ -26,13 +26,12 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // 1. POST /api/agent/creation/my/:type — 按类型查询我的创作
   //    旧 aiModels.js getMyCreation(data, type)
   //    type: 'agent' | 'workflow' | 'plugin'
-  //    body: { userId?, page?, pageSize?, keyword? }
+  //    body: { page?, pageSize?, keyword? }(归属恒取登录身份,不再接受 body.userId)
   // -------------------------------------------------------------------------
   const creationTypeParam = z.object({
     type: z.enum(['agent', 'workflow', 'plugin']),
   })
   const creationBody = z.object({
-    userId: z.string().optional(),
     page: z.coerce.number().int().min(1).optional().default(1),
     pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
     keyword: z.string().optional(),
@@ -48,7 +47,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { type, ...rest } = { type: paramParsed.data.type, ...bodyParsed.data }
-    const userId = rest.userId ?? req.userId
+    // P1 修复(F-06): 归属恒取认证身份,不采信 body.userId(否则可读他人创作)。
+    const userId = req.userId
     if (!userId) {
       return reply.status(401).send(error(401, '需要登录后查询'))
     }

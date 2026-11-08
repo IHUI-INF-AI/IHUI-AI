@@ -127,6 +127,7 @@ import {
   type OAuthConsentState,
 } from '../services/oauth-consent.js'
 import { resolveLoginRegion } from '../services/login-region.js'
+import { verifyAppleIdToken } from '../services/apple-id-token.js'
 import { sendVerificationEmail, type EmailCodeScene } from '../services/email-service.js'
 import {
   getCodeEntry,
@@ -399,10 +400,10 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   const stored = await findRefreshToken(rawRefreshToken)
   if (!stored) return { ok: false, status: 400, message: 'refresh_token 无效' }
   if (isRefreshTokenReused(stored)) {
-    // 三档裁决的唯一出口在 services/refresh-replay-policy.ts(与 routes/auth.ts 的
-    // /refresh 同一把尺子):race 放行轮转 / stale-sibling 也放行轮转 / reuse 吊销整族。
-    // 此前这里一律吊销整族,与 /refresh 的 30s 宽限期口径不同 —— 同一次竞态在两条
-    // 端点上一个放行一个全族打死,用户侧表现就是"关掉再打开要重新登录"(2026-10-20)。
+    // 两档裁决的唯一出口在 services/refresh-replay-policy.ts(与 routes/auth.ts 的
+    // /refresh 同一把尺子):race 放行轮转 / reuse 吊销整族。
+    // F-268:原 stale-sibling(超宽限但族内仍有活 token 就放行)已删除 —— 它让攻击者的
+    // 首次重放换到新的活 token,此后再也不会命中 reuse。
     const revokedAt = stored.revokedAt ? new Date(stored.revokedAt) : null
     if (revokedAt) {
       const replay = await assessRefreshReplay(revokedAt, payload.familyId)
@@ -414,9 +415,7 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
           message: 'refresh_token 已被重用,该 token family 已全部撤销',
         }
       }
-      // stale-sibling(超宽限但族内仍有活 token):2026-10-27 起放行正常轮转。
-      // 族还活着即会话未死,迟到的是旧副本;此前返回 400 会把调用方永久锁死
-      // (与 /auth/refresh 同尺,真正的攻击面由上面的 reuse 覆盖)。
+      // race(宽限期内并发重放):放行正常轮转。
     }
   }
   if (isRefreshTokenExpired(stored))
@@ -1174,6 +1173,18 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         birthday === undefined
       ) {
         return reply.status(400).send(error(400, '至少提供一个要更新的字段'))
+      }
+      // 安全加固(F-53):邮箱是登录凭据。本端点只做资料更新,若仅凭会话即可改绑,
+      // 会形成「改邮箱 → 邮箱验证码登录」的持久接管链(临时会话/XSS 即可完成)。
+      // 改绑统一收敛到 /api/auth/me:当前密码校验 + 唯一性校验 + 吊销全部 refresh token + 安全事件。
+      if (email !== undefined) {
+        const current = await findUserById(request.userId!)
+        if (!current) return reply.status(404).send(error(404, '用户不存在'))
+        if (email !== current.email) {
+          return reply
+            .status(403)
+            .send(error(403, '邮箱改绑需通过 /api/auth/me 校验当前密码后操作'))
+        }
       }
       // 基础字段走 users 表
       // P0 合规:昵称/简介等个人资料 UGC 敏感词过滤
@@ -1985,7 +1996,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         publicClient: client.publicClient,
       })
       if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-      await markSessionUsed(code)
+      if (!(await markSessionUsed(code))) {
+        return reply.status(400).send(error(400, '授权码无效或已被使用'))
+      }
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       // @token-issue-exempt: oauth-code-exchange: session 由 /auth/oauth/authorize 的已认证会话创建
@@ -2390,7 +2403,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       publicClient: client.publicClient,
     })
     if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-    await markSessionUsed(parsed.data.code)
+    if (!(await markSessionUsed(parsed.data.code))) {
+      return reply.status(400).send(error(400, '授权码无效或已被使用'))
+    }
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-web-token: 同上,凭一次性 session 换 token
@@ -2499,7 +2514,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       requirePkceForClient: true,
     })
     if (!pkce.ok) return reply.status(400).send(error(400, pkce.description))
-    await markSessionUsed(parsed.data.code)
+    if (!(await markSessionUsed(parsed.data.code))) {
+      return reply.status(400).send(error(400, '授权码无效或已被使用'))
+    }
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-pkce-token: 同上,PKCE 只证明发起方一致,不替代登录
@@ -2649,7 +2666,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       publicClient: client.publicClient,
     })
     if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-    await markSessionUsed(parsed.data.code)
+    if (!(await markSessionUsed(parsed.data.code))) {
+      return reply.status(400).send(error(400, '授权码无效或已被使用'))
+    }
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-access-token: authorization_code 换 token 的兼容路径
@@ -2690,7 +2709,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         publicClient: client.publicClient,
       })
       if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-      await markSessionUsed(parsed.data.code)
+      if (!(await markSessionUsed(parsed.data.code))) {
+        return reply.status(400).send(error(400, '授权码无效或已被使用'))
+      }
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       // @token-issue-exempt: oauth-token-exchange: 同上,令牌交换不是新登录
@@ -3233,17 +3254,18 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
                   ),
                 )
             }
-            // 解码 id_token payload 获取 sub(Apple 用户唯一标识)与 email
-            const payloadB64 = tokenData.id_token.split('.')[1]
-            if (!payloadB64) {
-              return reply.status(400).send(error(400, 'Apple id_token 格式无效'))
+            // 2026-11-08 P0:Apple id_token 必须验签。旧实现只 base64 解 payload
+            // 取 sub,攻击者本地自签 JWT 即可冒充任意 Apple 账号。验签失败一律
+            // fail-closed,不得落到查/建用户与签发 token。
+            let appleClaims: { sub: string; email?: string }
+            try {
+              appleClaims = await verifyAppleIdToken(tokenData.id_token, appleClientId)
+            } catch (e) {
+              request.log.warn({ err: e }, '[oauth/apple] id_token 验签失败 ⇒ 拒绝登录')
+              return reply.status(400).send(error(400, 'Apple id_token 校验失败'))
             }
-            const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString('utf8')) as {
-              sub: string
-              email?: string
-            }
-            openId = payload.sub
-            email = payload.email
+            openId = appleClaims.sub
+            email = appleClaims.email
             break
           }
           // 框架返回:未配置私钥,仅确认收到回调
@@ -4157,9 +4179,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .object({ provider: z.enum(['oidc', 'discord', 'linuxdo']) })
       .safeParse(request.params)
     if (!parsed.success)
-      return reply
-        .status(400)
-        .send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
+      return reply.status(400).send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
     const provider = parsed.data.provider
     const state = generateState()
 

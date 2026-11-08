@@ -30,6 +30,27 @@ import {
 } from '../db/queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 
+/**
+ * F-245:usercenter 是运营后台接口,但不得回传凭据字段。
+ * 此前只剥 passwordHash,twoFactorSecret / twoFactorBackupCodes 原样出网 ——
+ * 抓到一次响应即可给任意账号补 TOTP 或离线生成动态码。
+ */
+function toUserCenterView<
+  T extends {
+    passwordHash?: unknown
+    twoFactorSecret?: unknown
+    twoFactorBackupCodes?: unknown
+  },
+>(user: T): Omit<T, 'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes'> {
+  const {
+    passwordHash: _passwordHash,
+    twoFactorSecret: _twoFactorSecret,
+    twoFactorBackupCodes: _twoFactorBackupCodes,
+    ...view
+  } = user
+  return view
+}
+
 // =============================================================================
 // Zod schemas
 // =============================================================================
@@ -150,8 +171,8 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const result = await findUsers(parsed.data)
-      // 剥离密码哈希，避免泄漏到客户端
-      const list = result.list.map(({ passwordHash: _ph, ...rest }) => rest)
+      // 剥离密码哈希与 2FA 凭据，避免泄漏到客户端
+      const list = result.list.map(toUserCenterView)
       return reply.send(success({ ...result, list }))
     },
   )
@@ -179,7 +200,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      const { passwordHash: _ph, ...userPublic } = user
+      const userPublic = toUserCenterView(user)
       return reply.send(success({ user: userPublic }))
     },
   )
@@ -203,7 +224,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
       if (!user) {
         return reply.status(404).send(error(404, '用户不存在'))
       }
-      const { passwordHash: _ph2, ...userPublic } = user
+      const userPublic = toUserCenterView(user)
       return reply.send(success({ user: userPublic }))
     },
   )
@@ -262,7 +283,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
         email: parsed.data.email ?? undefined,
         status: parsed.data.status,
       })
-      const { passwordHash: _ph3, ...userPublic } = user
+      const userPublic = toUserCenterView(user)
       return reply.status(201).send(success({ user: userPublic }))
     },
   )
@@ -307,7 +328,7 @@ export const usercenterRoutes: FastifyPluginAsync = async (server) => {
         nickname: parsed.data.nickname ?? undefined,
         email: parsed.data.email ?? undefined,
       })
-      const { passwordHash: _ph4, ...userPublic } = user
+      const userPublic = toUserCenterView(user)
       return reply.send(success({ user: userPublic }))
     },
   )

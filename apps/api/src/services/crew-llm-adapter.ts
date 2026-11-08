@@ -17,6 +17,7 @@
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
+import { deductWalletTokens } from '../plugins/token-balance-service.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 
@@ -185,6 +186,24 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
       })
     } catch (e) {
       logger.warn({ err: e }, '[CrewLLM] recordAiCost 失败(不影响主流程)')
+    }
+
+    // 真实扣费:与其它 AI 路由一致,按 usage.totalTokens 从钱包扣减并写 token_flows。
+    // 统计表(ai_cost_records)只做成本核算,不能替代实际扣费。
+    try {
+      const deduction = await deductWalletTokens({
+        userId: opts.userId,
+        amount: result.usage.totalTokens,
+        reason: `crew_llm:${result.modelUsed}`,
+      })
+      if (!deduction.success) {
+        logger.warn(
+          { userId: opts.userId, tokens: result.usage.totalTokens },
+          '[CrewLLM] 钱包余额不足,扣费未完成',
+        )
+      }
+    } catch (e) {
+      logger.warn({ err: e }, '[CrewLLM] deductWalletTokens 失败(不影响主流程)')
     }
   }
 
