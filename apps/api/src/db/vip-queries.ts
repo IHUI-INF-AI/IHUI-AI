@@ -102,22 +102,31 @@ export async function purchaseVip(input: {
   userId: string
   vipLevelId: string
   orderId?: string
-}): Promise<void> {
+  /** 支付成功时刻(订单 paidAt)。权益起算与到期都锚定它,重放不会因“当前时间”漂移。 */
+  paidAt?: Date
+}): Promise<boolean> {
   const level = await findVipLevel(input.vipLevelId)
   if (!level) throw new Error('VIP 等级不存在')
-  const now = new Date()
-  const endTime = new Date(now.getTime() + level.durationDays * 86400_000)
-  await db.insert(userVips).values({
-    userId: input.userId,
-    vipLevelId: input.vipLevelId,
-    levelValue: level.levelValue,
-    startTime: now,
-    endTime,
-    status: 1,
-    orderId: input.orderId,
-  })
-  // 更新 users.isVip
+  const startTime = input.paidAt ?? new Date()
+  const endTime = new Date(startTime.getTime() + level.durationDays * 86400_000)
+  // F-689:同一订单只发一张卡。唯一约束 + ON CONFLICT DO NOTHING 让并发/回调重放幂等。
+  const rows = await db
+    .insert(userVips)
+    .values({
+      userId: input.userId,
+      vipLevelId: input.vipLevelId,
+      levelValue: level.levelValue,
+      startTime,
+      endTime,
+      status: 1,
+      orderId: input.orderId,
+    })
+    .onConflictDoNothing({ target: userVips.orderId })
+    .returning({ id: userVips.id })
+  if (rows.length === 0) return false
+  // 更新 users.isVip(仅首次落卡时执行,重放不重复写)
   await db.update(users).set({ isVip: level.levelValue }).where(eq(users.id, input.userId))
+  return true
 }
 
 export async function listUserVips(page: number, limit: number, filterUserId?: string) {
