@@ -251,6 +251,19 @@ const batchCapabilityGate = requireCapabilityRules([
   { pattern: /^\/v1\/messages\/batches(\/|$)/, scope: 'batches:read' },
 ])
 
+/**
+ * F-85:列表端点按 `_apiKeyId` 过滤,但 5 个单对象端点过去只判"任务存在",
+ * 持有 batches:read/write 的 A 租户拿到 B 租户的 id 就能读原文/结果、恶意取消。
+ * 归属不匹配一律按 404 返回(与不存在同形,不泄露他人任务是否存在)。
+ */
+function ownsBatchTask(
+  request: FastifyRequest,
+  task: OpenAIBatchTask | AnthropicBatchTask,
+): boolean {
+  const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+  return Boolean(apiKey && task._apiKeyId === apiKey.id)
+}
+
 const v1Batches: FastifyPluginAsync = async (server) => {
   const redis = server.redis
   const queueConnection = server.redisForQueue
@@ -334,7 +347,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<OpenAIBatchTask>(redis, id)
-      if (!task) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Batch not found'))
       }
       return reply.send(toOpenAIBatchResponse(task))
@@ -351,7 +364,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<OpenAIBatchTask>(redis, id)
-      if (!task) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Batch not found'))
       }
       const terminalStatuses: BatchTaskStatus[] = ['completed', 'failed', 'cancelled', 'expired']
@@ -377,7 +390,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<OpenAIBatchTask>(redis, id)
-      if (!task) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Batch not found'))
       }
       if (task.status !== 'completed') {
@@ -550,7 +563,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<AnthropicBatchTask>(redis, id)
-      if (!task) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Message batch not found'))
       }
       return reply.send(toAnthropicBatchResponse(task))
@@ -567,7 +580,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<AnthropicBatchTask>(redis, id)
-      if (!task) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Message batch not found'))
       }
       const endedStatuses: BatchTaskStatus[] = ['completed', 'failed', 'expired', 'cancelled']
