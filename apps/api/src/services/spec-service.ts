@@ -21,7 +21,7 @@ import type { FastifyRequest } from 'fastify'
 import { spawnSync } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
 import { readFile, readdir, writeFile, mkdir, stat } from 'node:fs/promises'
-import { join, resolve, basename, relative, isAbsolute, dirname } from 'node:path'
+import { join, resolve, basename, relative, isAbsolute, dirname, sep } from 'node:path'
 import type { SpecGenerateOutput } from '@ihui/types'
 import type { SpecGenerateInput, SpecScope, SpecTemplate } from '@ihui/shared'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
@@ -1644,9 +1644,27 @@ ${requirementPreview}
     backupDir: string
   }): Promise<SpecPipelineRollbackResult> {
     const root = assertRegisteredWorkspace(input.workspacePath)
+    const rootAbs = resolve(root)
+    // F-29:backupDir 来自请求体,曾允许绝对路径 —— 可读工作区外任意目录的 *.bak,
+    // 把内容搬进 .ihui-agent/specs 后再经 /workspace-ai/fs/read 取出(跨租户/主机文件泄露)。
+    // 只接受工作区内路径(含服务自己生成的 .ihui-agent/specs/backups/<pipelineId>)。
     const backupPath = isAbsolute(input.backupDir)
-      ? input.backupDir
+      ? resolve(input.backupDir)
       : resolve(root, input.backupDir)
+    const relBackup = relative(rootAbs, backupPath)
+    if (
+      relBackup === '' ||
+      relBackup === '..' ||
+      relBackup.startsWith(`..${sep}`) ||
+      isAbsolute(relBackup)
+    ) {
+      return {
+        rolled: 0,
+        errors: ['备份目录越出工作区,已拒绝'],
+        backupDir: input.backupDir,
+        error: '备份目录越出工作区',
+      }
+    }
 
     const errors: string[] = []
     let rolled = 0

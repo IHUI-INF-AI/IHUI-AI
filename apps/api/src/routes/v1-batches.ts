@@ -251,6 +251,19 @@ const batchCapabilityGate = requireCapabilityRules([
   { pattern: /^\/v1\/messages\/batches(\/|$)/, scope: 'batches:read' },
 ])
 
+/**
+ * F-85:列表端点按 `_apiKeyId` 过滤,但 5 个单对象端点过去只判"任务存在",
+ * 持有 batches:read/write 的 A 租户拿到 B 租户的 id 就能读原文/结果、恶意取消。
+ * 归属不匹配一律按 404 返回(与不存在同形,不泄露他人任务是否存在)。
+ */
+function ownsBatchTask(
+  request: FastifyRequest,
+  task: OpenAIBatchTask | AnthropicBatchTask,
+): boolean {
+  const apiKey = (request as FastifyRequest & { apiKey?: ApiKeyContext }).apiKey
+  return Boolean(apiKey && task._apiKeyId === apiKey.id)
+}
+
 const v1Batches: FastifyPluginAsync = async (server) => {
   const redis = server.redis
   const queueConnection = server.redisForQueue
@@ -334,9 +347,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<OpenAIBatchTask>(redis, id)
-      // F-85(2026-11-08):单对象端点必须按 API Key 归属过滤。列表本来就有 _apiKeyId
-      // 过滤,单对象只判存在性 ⇒ 拿到他人 batch id 即可跨租户读任务。404 不泄露存在性。
-      if (!task || task._apiKeyId !== request.apiKey?.id) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Batch not found'))
       }
       return reply.send(toOpenAIBatchResponse(task))
@@ -353,8 +364,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<OpenAIBatchTask>(redis, id)
-      // F-85:归属不符与不存在同档 404,避免枚举他人任务并恶意取消。
-      if (!task || task._apiKeyId !== request.apiKey?.id) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Batch not found'))
       }
       const terminalStatuses: BatchTaskStatus[] = ['completed', 'failed', 'cancelled', 'expired']
@@ -380,8 +390,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<OpenAIBatchTask>(redis, id)
-      // F-85:结果下载同样按 key 归属过滤。
-      if (!task || task._apiKeyId !== request.apiKey?.id) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Batch not found'))
       }
       if (task.status !== 'completed') {
@@ -554,8 +563,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<AnthropicBatchTask>(redis, id)
-      // F-85(2026-11-08):Anthropic 单对象端点补归属校验,同 OpenAI 侧。
-      if (!task || task._apiKeyId !== request.apiKey?.id) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Message batch not found'))
       }
       return reply.send(toAnthropicBatchResponse(task))
@@ -572,8 +580,7 @@ const v1Batches: FastifyPluginAsync = async (server) => {
     async (request, reply) => {
       const { id } = request.params as { id: string }
       const task = await getTask<AnthropicBatchTask>(redis, id)
-      // F-85:结果下载同样按 key 归属过滤。
-      if (!task || task._apiKeyId !== request.apiKey?.id) {
+      if (!task || !ownsBatchTask(request, task)) {
         return reply.status(404).send(error(404, 'Message batch not found'))
       }
       const endedStatuses: BatchTaskStatus[] = ['completed', 'failed', 'expired', 'cancelled']

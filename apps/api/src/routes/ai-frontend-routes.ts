@@ -199,6 +199,8 @@ async function proxyToAiService(
         Authorization: request.headers.authorization ?? '',
       },
       body: JSON.stringify(body),
+      // F-472:上游无响应时按时收口(超时后由 catch 统一转 502)
+      signal: AbortSignal.timeout(20_000),
     })
     const data = (await resp.json().catch(() => ({}))) as unknown
     if (!resp.ok) {
@@ -319,6 +321,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
       try {
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/external/servers`, {
           headers: { Authorization: request.headers.authorization ?? '' },
+          signal: AbortSignal.timeout(15_000),
         })
         if (resp.ok) {
           const data = (await resp.json().catch(() => ({}))) as {
@@ -404,6 +407,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     try {
       const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/tools`, {
         headers: { Authorization: request.headers.authorization ?? '' },
+        signal: AbortSignal.timeout(15_000),
       })
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
@@ -438,6 +442,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     try {
       const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/resources`, {
         headers: { Authorization: request.headers.authorization ?? '' },
+        signal: AbortSignal.timeout(15_000),
       })
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))
@@ -459,6 +464,7 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
     try {
       const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/prompts`, {
         headers: { Authorization: request.headers.authorization ?? '' },
+        signal: AbortSignal.timeout(15_000),
       })
       if (!resp.ok) {
         return reply.status(502).send(error(502, `ai-service 调用失败: ${resp.status}`))

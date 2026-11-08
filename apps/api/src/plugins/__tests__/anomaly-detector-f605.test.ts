@@ -14,7 +14,12 @@ import Fastify from 'fastify'
 import type { FastifyRequest } from 'fastify'
 
 const detect = vi.hoisted(() => ({
-  result: { score: 0, recommendation: 'allow', reasons: [], dimensions: [] },
+  result: {
+    score: 0,
+    recommendation: 'allow',
+    reasons: [] as string[],
+    dimensions: [] as unknown[],
+  },
   calls: [] as Array<Record<string, unknown>>,
 }))
 
@@ -42,7 +47,7 @@ describe('F-605 异常检测身份上下文', () => {
   it('钩子排在 authenticate 之后:检测器拿到真实 userId', async () => {
     const app = Fastify({ logger: false })
     app.decorateRequest('anomalyScore', 0)
-    app.decorateRequest('anomalyReasons', null)
+    app.decorateRequest('anomalyReasons', [] as string[])
     await app.register(anomalyDetectorPlugin)
     app.get(
       '/api/protected',
@@ -68,7 +73,7 @@ describe('F-605 异常检测身份上下文', () => {
     detect.result = { score: 70, recommendation: 'challenge', reasons: ['geo'], dimensions: [] }
     const app = Fastify({ logger: false })
     app.decorateRequest('anomalyScore', 0)
-    app.decorateRequest('anomalyReasons', null)
+    app.decorateRequest('anomalyReasons', [] as string[])
     await app.register(anomalyDetectorPlugin)
     let handlerRuns = 0
     app.get(

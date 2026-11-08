@@ -11,12 +11,13 @@ import {
 } from '@ihui/types'
 import type { FastifyReply, FastifyRequest, preHandlerAsyncHookHandler } from 'fastify'
 import { authenticateApiKey } from '../plugins/api-key-auth.js'
+import { MAX_CLIENT_KEY_LEN, MIN_CLIENT_KEY_LEN } from '../services/run-idempotency.js'
 
 declare module 'fastify' {
   interface FastifyRequest {
     /** 本请求命中的能力声明,由能力闸注入,供数据闸(scoped-guard)消费。 */
     capability?: CapabilityEntry
-    /** 客户端传入的 Idempotency-Key(已去空白、截断),供重放层消费。 */
+    /** 客户端传入的 Idempotency-Key(已去空白、已按长度校验),供重放层消费。 */
     idempotencyKey?: string
   }
 }
@@ -110,8 +111,14 @@ async function enforceCapability(
   // Idempotency-Key,强制要求会直接打断标准客户端的互操作性。
   if (entry.idempotencyRequired && !IDEMPOTENT_SAFE_METHODS.has(request.method)) {
     const key = request.headers['idempotency-key']
-    if (typeof key === 'string' && key.trim() !== '')
-      request.idempotencyKey = key.trim().slice(0, 200)
+    if (typeof key === 'string') {
+      const trimmed = key.trim()
+      // F-259:超长不截断 —— 截断会把两个不同的长键折进同一槽位。按"没带"处理(可选面),
+      // 强制面(agent-runs)会自行回 400。过短同理交给下游按"没带"判。
+      if (trimmed.length >= MIN_CLIENT_KEY_LEN && trimmed.length <= MAX_CLIENT_KEY_LEN) {
+        request.idempotencyKey = trimmed
+      }
+    }
   }
   request.capability = entry
   return true

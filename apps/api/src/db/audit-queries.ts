@@ -117,6 +117,55 @@ function toRows(raw: unknown): Record<string, unknown>[] {
   return []
 }
 
+/**
+ * 缺表判定(F-246)。**只有**"迁移还没应用"这一型允许降级成空结果 —— 它等价于"审计链尚未启用";
+ * 权限不足、连接抖动、列缺失等其它失败都必须冒到路由层,否则审计员看到的 `{list:[],total:0}`
+ * 与真的没有记录**完全同形**,SIEM 导出还会把它当末页静默截断。
+ *
+ * 沿 `cause` 链最多看四层:PG 客户端常把原始错误包一层再抛。
+ */
+function isMissingTableError(error: unknown): boolean {
+  let cur: unknown = error
+  for (let depth = 0; depth < 4; depth++) {
+    if (cur === null || typeof cur !== 'object') return false
+    const rec = cur as { code?: unknown; message?: unknown; cause?: unknown }
+    if (rec.code === '42P01') return true // PostgreSQL undefined_table
+    const message = typeof rec.message === 'string' ? rec.message : ''
+    if (/relation .* does not exist/i.test(message) || /no such table/i.test(message)) return true
+    cur = rec.cause
+  }
+  return false
+}
+
+/**
+ * 查询失败(非缺表)的统一错误型。路由层不需要认识 SQL,只需要知道"这次没查成,不能当空"。
+ * 打点用 `operation` 区分具体查询,`originalError` 保留原始堆栈供日志排查。
+ */
+export class AuditQueryError extends Error {
+  readonly code = 'AUDIT_QUERY_FAILED'
+  readonly operation: string
+  readonly originalError: unknown
+  constructor(operation: string, error: unknown) {
+    super(
+      `审计链查询失败(${operation}):${error instanceof Error ? error.message : String(error)}`,
+    )
+    this.name = 'AuditQueryError'
+    this.operation = operation
+    this.originalError = error
+  }
+}
+
+/** 缺表 ⇒ 降级(记 warn 返回调用方给的兜底值);其它错误 ⇒ 抛 AuditQueryError。 */
+function degradeOrThrow<T>(operation: string, error: unknown, fallback: () => T): T {
+  if (isMissingTableError(error)) {
+    logger.warn(`[audit-queries] ${operation} skipped (table not ready)`, {
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return fallback()
+  }
+  throw new AuditQueryError(operation, error)
+}
+
 /** 动态构建 WHERE 子句(无过滤项时返回 TRUE,保持语法完整)。 */
 function buildWhere(f: AuditLogFilters): SQL {
   const conds: SQL[] = []
@@ -182,10 +231,7 @@ export async function selectAuditLogs(
     const total = Number(cntRow?.['cnt'] ?? 0)
     return { list, total }
   } catch (e) {
-    logger.warn('[audit-queries] selectAuditLogs failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return { list: [], total: 0 }
+    return degradeOrThrow('selectAuditLogs', e, () => ({ list: [], total: 0 }))
   }
 }
 
@@ -203,10 +249,7 @@ export async function selectAuditLogChain(
     `)
     return toRows(raw).map(mapRow)
   } catch (e) {
-    logger.warn('[audit-queries] selectAuditLogChain failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return []
+    return degradeOrThrow('selectAuditLogChain', e, () => [])
   }
 }
 
@@ -229,10 +272,7 @@ export async function selectAuditLogsRange(
     `)
     return toRows(raw).map(mapRow)
   } catch (e) {
-    logger.warn('[audit-queries] selectAuditLogsRange failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return []
+    return degradeOrThrow('selectAuditLogsRange', e, () => [])
   }
 }
 
@@ -246,10 +286,7 @@ export async function countAuditLogs(filters: AuditLogFilters): Promise<number> 
     const row = toRows(raw)[0]
     return Number(row?.['cnt'] ?? 0)
   } catch (e) {
-    logger.warn('[audit-queries] countAuditLogs failed (table not ready?)', {
-      error: (e as Error).message,
-    })
-    return 0
+    return degradeOrThrow('countAuditLogs', e, () => 0)
   }
 }
 
@@ -263,8 +300,9 @@ export async function getLastAuditLogHash(): Promise<string> {
     const row = toRows(raw)[0]
     const h = row?.['current_hash']
     return h === null || h === undefined ? GENESIS : String(h)
-  } catch {
-    return GENESIS
+  } catch (e) {
+    // 缺表 ⇒ 创世哈希(链尚未启用);其它失败 ⇒ 抛错,绝不能把"读不动链尾"伪装成创世。
+    return degradeOrThrow('getLastAuditLogHash', e, () => GENESIS)
   }
 }
 
@@ -282,8 +320,8 @@ export async function groupByAction(
       ORDER BY cnt DESC
     `)
     return toRows(raw).map((r) => ({ action: String(r['action']), count: Number(r['cnt']) }))
-  } catch {
-    return []
+  } catch (e) {
+    return degradeOrThrow('groupByAction', e, () => [])
   }
 }
 
@@ -305,8 +343,8 @@ export async function groupByUser(
     return toRows(raw)
       .map((r) => ({ userId: String(r['user_id']), count: Number(r['cnt']) }))
       .filter((r) => r.userId !== 'null' && r.userId !== '')
-  } catch {
-    return []
+  } catch (e) {
+    return degradeOrThrow('groupByUser', e, () => [])
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
