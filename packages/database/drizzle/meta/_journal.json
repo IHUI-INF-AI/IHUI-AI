@@ -2629,6 +2629,13 @@
       "when": 1794132000000,
       "tag": "20261108180000_github_app_deliveries_payload",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 378,
+      "when": 1794132600000,
+      "tag": "20261108181000_point_transactions_redeem_unique",
+      "breakpoints": true
     }
   ]
 }
