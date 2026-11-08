@@ -11,6 +11,8 @@ export interface UseCountdownReturn {
   start: () => void
   pause: () => void
   reset: (seconds?: number) => void
+  /** 立即按墙钟对表(跨端返回前台时由调用端显式触发,不等下一次 interval) */
+  sync: () => void
 }
 
 /**
@@ -73,6 +75,9 @@ export function useCountdown(seconds: number): UseCountdownReturn {
   const [state, setState] = React.useState<CountdownState>(() => createCountdownState(seconds))
 
   const deadlineMs = state.deadlineMs
+  const sync = React.useCallback(() => {
+    setState((prev) => tickCountdown(prev))
+  }, [])
   useDeadlineTicker(deadlineMs, () => {
     setState((prev) => (prev.deadlineMs === deadlineMs ? tickCountdown(prev) : prev))
   })
@@ -84,6 +89,6 @@ export function useCountdown(seconds: number): UseCountdownReturn {
     [seconds],
   )
 
-  return { count: state.count, isRunning: state.isRunning, start, pause, reset }
+  return { count: state.count, isRunning: state.isRunning, start, pause, reset, sync }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
