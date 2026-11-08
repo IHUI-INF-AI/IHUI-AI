@@ -20,6 +20,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply, FastifyInstance 
 import { z } from 'zod'
 import { and, count, desc, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
+import { isSystemAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { config } from '../config/index.js'
 import { db } from '../db/index.js'
@@ -314,7 +315,11 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
   // 表为空时返回 [] 而非 404;ai-service 不可达时降级为无连接状态。
   server.get('/ai/mcp/servers', async (request, reply) => {
     try {
-      const rows = await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
+      // F-101(P1):mcp_servers 是全局表(无 owner 列),全局 MCP 配置只归管理员管理。
+      // 普通用户不再读全量行,避免跨租户读取端点 —— deny-by-default 返回空列表而非 404。
+      const rows = isSystemAdmin(request, { includeInternalChannel: false })
+        ? await db.select().from(mcpServers).orderBy(desc(mcpServers.createdAt))
+        : []
       try {
         const resp = await fetch(`${config.AI_SERVICE_URL}/api/mcp/external/servers`, {
           headers: { Authorization: request.headers.authorization ?? '' },
@@ -342,6 +347,10 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
 
   // POST /ai/mcp/servers — 创建 MCP 服务器
   server.post('/ai/mcp/servers', async (request, reply) => {
+    // F-101(P1):全局表无属主,创建(任意 endpoint 注入)只能由管理员执行。
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
     const parsed = mcpServerBody.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -373,6 +382,10 @@ export const aiFrontendRoutes: FastifyPluginAsync = async (server) => {
 
   // DELETE /ai/mcp/servers/:id — 删除 MCP 服务器
   server.delete('/ai/mcp/servers/:id', async (request, reply) => {
+    // F-101(P1):全局表无属主,删除任意服务器的能力只能由管理员持有。
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      return reply.status(403).send(error(403, '需要管理员权限'))
+    }
     const parsed = idParam.safeParse(request.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     // 形状闸(2026-09-28 普查收口):下面这些 :id 最终会被喂进 uuid 列,非 uuid 字面量让 Postgres
