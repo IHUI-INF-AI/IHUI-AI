@@ -33051,3 +33051,59 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 725G. **缺陷普查 API F-726** [P2] /v1/messages、/v1/responses 流式计费完全脱离上游 usage（且丢弃 tool/thinking 输出）（证据 docs/tickets/2026-11/findings-api.md#F-726）
 - [ ] 726G. **缺陷普查 API F-727** [P2] Batch 50% 折扣只写进 metadata，实际按全价扣费（证据 docs/tickets/2026-11/findings-api.md#F-727）
 - [ ] 727G. **缺陷普查 API F-728** [P2] 失败/中断调用只退金额不退 token，且 v1-responses 把错误文案计入输出 token（证据 docs/tickets/2026-11/findings-api.md#F-728）
+- [ ] 1H. **缺陷普查 SDB SDB-01** [P2] 推送令牌全局唯一 + upsert 直接改 user_id，任何登录用户可接管他人设备令牌（证据 docs/tickets/2026-11/findings-services-db.md#SDB-01）
+- [ ] 2H. **缺陷普查 SDB SDB-02** [P2] api_subscriptions.order_no 幂等键无唯一约束，先查后插（读副本）可并发重复建订阅（证据 docs/tickets/2026-11/findings-services-db.md#SDB-02）
+- [ ] 3H. **缺陷普查 SDB SDB-03** [P2] validityDays = 0（文档语义「不过期」）被静默改成 30 天（证据 docs/tickets/2026-11/findings-services-db.md#SDB-03）
+- [ ] 4H. **缺陷普查 SDB SDB-04** [P1] 仅配「不限」窗口（-1）时，Math.max 兜底把总配额算成 0，新 Key 被余额检查直接拒绝（证据 docs/tickets/2026-11/findings-services-db.md#SDB-04）
+- [ ] 5H. **缺陷普查 SDB SDB-05** [P3] 无限配额支路不写 token_flows 幂等流水，且 balanceAfter 恒写 0（证据 docs/tickets/2026-11/findings-services-db.md#SDB-05）
+- [ ] 6H. **缺陷普查 SDB SDB-06** [P3] RateLimiter 的 incr 与 expire 非原子，key 无 TTL 后计数永久累积（证据 docs/tickets/2026-11/findings-services-db.md#SDB-06）
+- [ ] 7H. **缺陷普查 SDB SDB-07** [P3] CodeArts / Qoder 刷新用「编造 TTL」兜底 expiresAt，违反 TokenRefreshResult 契约（证据 docs/tickets/2026-11/findings-services-db.md#SDB-07）
+- [ ] 8H. **缺陷普查 SDB SDB-08** [P2] usage 兜底只补 completion，input token 永久计 0（少计费）（证据 docs/tickets/2026-11/findings-services-db.md#SDB-08）
+- [ ] 9H. **缺陷普查 SDB SDB-09** [P3] registry 外部字段落库无长度截断、无 URL 协议校验（证据 docs/tickets/2026-11/findings-services-db.md#SDB-09）
+- [ ] 10H. **缺陷普查 SDB SDB-10** [P2] 上下文历史整体 reverse() 把每轮问答对顺序翻反（证据 docs/tickets/2026-11/findings-services-db.md#SDB-10）
+- [ ] 11H. **缺陷普查 SDB SDB-11** [P2] POST /command-acks 重放分支不校验 ownerKey，跨租户读取他人 fact（证据 docs/tickets/2026-11/findings-services-db.md#SDB-11）
+- [ ] 12H. **缺陷普查 SDB SDB-12** [P2] PayPal 下单只写 reference_id，webhook 却按 custom_id 找单号 ⇒ 异步对账永不命中（证据 docs/tickets/2026-11/findings-services-db.md#SDB-12）
+- [ ] 13H. **缺陷普查 SDB SDB-13** [P2] Qoder CLI 桥接未监听 stdin/child 的 error，一次 runner 崩溃会 process.exit(1)（证据 docs/tickets/2026-11/findings-services-db.md#SDB-13）
+- [ ] 14H. **缺陷普查 SDB SDB-14** [P2] D1 接码不检查 resp.ok，HTTP 错误页被当手机号/余额返回（证据 docs/tickets/2026-11/findings-services-db.md#SDB-14）
+- [ ] 15H. **缺陷普查 SDB SDB-15** [P2] cli-import 规则表顺序让 /settings\.json$/i 抢在所有专用解析器之前（证据 docs/tickets/2026-11/findings-services-db.md#SDB-15）
+- [ ] 16H. **缺陷普查 SDB SDB-16** [P2] 消息总线只看 HTTP 200，飞书/钉钉/企微业务码非 0 也报成功（证据 docs/tickets/2026-11/findings-services-db.md#SDB-16）
+- [ ] 17H. **缺陷普查 SDB SDB-17** [P2] recommend() 裸 insert + (user,content,strategy) 唯一键 ⇒ 第二次推荐直接 500（证据 docs/tickets/2026-11/findings-services-db.md#SDB-17）
+- [ ] 18H. **缺陷普查 SDB SDB-18** [P2] 切换前备份静默跳过缺失文件，仍返回成功 ⇒ 回滚闭环断裂（证据 docs/tickets/2026-11/findings-services-db.md#SDB-18）
+- [ ] 19H. **缺陷普查 SDB SDB-19** [P2] clawdbot 集成调用可用反斜杠改写主机，凭据被带到任意主机（SSRF）（证据 docs/tickets/2026-11/findings-services-db.md#SDB-19）
+- [ ] 20H. **缺陷普查 SDB SDB-20** [P2] 流式结束的 stop() 收尾无 signal/超时，上游卡住则 SSE 永不收尾（证据 docs/tickets/2026-11/findings-services-db.md#SDB-20）
+- [ ] 21H. **缺陷普查 SDB SDB-21** [P3] CTR 的 served 与 clicked 用同一条查询，命中即恒等于 1（证据 docs/tickets/2026-11/findings-services-db.md#SDB-21）
+- [ ] 22H. **缺陷普查 SDB SDB-22** [P3] Hook 日志时间过滤用字符串字典序比较（证据 docs/tickets/2026-11/findings-services-db.md#SDB-22）
+- [ ] 23H. **缺陷普查 SDB SDB-23** [P3] 工具调用台账导出：endDate 漏当天、limit 截断无标记（证据 docs/tickets/2026-11/findings-services-db.md#SDB-23）
+- [ ] 24H. **缺陷普查 SDB SDB-24** [P3] CREW_ROLES_JSON 全无效时不回落内置角色，编排静默空跑（证据 docs/tickets/2026-11/findings-services-db.md#SDB-24）
+- [ ] 25H. **缺陷普查 SDB SDB-25** [P3] 短信回调的空白/逗号配置使双闸同时失效（fail-open）（证据 docs/tickets/2026-11/findings-services-db.md#SDB-25）
+- [ ] 26H. **缺陷普查 SDB SDB-26** [P3] PR 审阅只取 files 首页且 truncated 在恰好 100 个文件时为 false（证据 docs/tickets/2026-11/findings-services-db.md#SDB-26）
+- [ ] 27H. **缺陷普查 SDB SDB-27** [P1] USDT 全站共用单一收款地址，检测只按「金额 ≥ 应收 + 时间窗」取首笔，他人同额付款会被记到先被轮询的订单（证据 docs/tickets/2026-11/findings-services-db.md#SDB-27）
+- [ ] 28H. **缺陷普查 SDB SDB-28** [P1] ERC20 链上复核固定 page=1&offset=100&sort=asc，地址累计超 100 笔后新交易永远查不到，已付款订单永不入账（证据 docs/tickets/2026-11/findings-services-db.md#SDB-28）
+- [ ] 29H. **缺陷普查 SDB SDB-29** [P1] 注销账号不吊销 developer API Key / 分享 token，凭据在账号删除后仍可调用并消耗余额（证据 docs/tickets/2026-11/findings-services-db.md#SDB-29）
+- [ ] 30H. **缺陷普查 SDB SDB-30** [P1] Crew 计费挂在终态事件、幂等键按 session：重跑已完成会话与取消型请求均不扣费（证据 docs/tickets/2026-11/findings-services-db.md#SDB-30）
+- [ ] 31H. **缺陷普查 SDB SDB-31** [P2] 团队记忆创建接口漏挂 scope 成员校验，任意登录用户可向他人团队写入记忆（证据 docs/tickets/2026-11/findings-services-db.md#SDB-31）
+- [ ] 32H. **缺陷普查 SDB SDB-32** [P2] 换票成功/失败均以「读副本快照 + 无条件 UPDATE」整列回写，旧 refreshToken 会覆盖新票（证据 docs/tickets/2026-11/findings-services-db.md#SDB-32）
+- [ ] 33H. **缺陷普查 SDB SDB-33** [P2] 支付宝 OAuth 的 timestamp 用 UTC 墙钟贴 +08:00 且格式不符协议，登录链路必被网关拒绝（证据 docs/tickets/2026-11/findings-services-db.md#SDB-33）
+- [ ] 34H. **缺陷普查 SDB SDB-34** [P2] 原文留存预热忽略偏好键名，任意 privacy 偏好为 true 即被当作「不留存原文」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-34）
+- [ ] 35H. **缺陷普查 SDB SDB-35** [P3] Prometheus 返回 NaN 被判为不健康，低流量金丝雀被自动回滚（证据 docs/tickets/2026-11/findings-services-db.md#SDB-35）
+- [ ] 36H. **缺陷普查 SDB SDB-36** [P3] promoteCanary / rollbackCanary 都按 name 无条件写，回滚可被并发升阶段撤销（证据 docs/tickets/2026-11/findings-services-db.md#SDB-36）
+- [ ] 37H. **缺陷普查 SDB SDB-37** [P2] DAG 条件边只写 cancelled 标记、层执行不消费，下游节点照跑并进入最终结果（证据 docs/tickets/2026-11/findings-services-db.md#SDB-37）
+- [ ] 38H. **缺陷普查 SDB SDB-38** [P2] DAG 模式静默丢弃 retry / tokenQuota，配额在 DAG 会话中不生效（证据 docs/tickets/2026-11/findings-services-db.md#SDB-38）
+- [ ] 39H. **缺陷普查 SDB SDB-39** [P2] searchSymbols 未传 ownerUuid，命中 fail-closed 1=0，符号检索永久为空且每次仍付 embedding 成本（证据 docs/tickets/2026-11/findings-services-db.md#SDB-39）
+- [ ] 40H. **缺陷普查 SDB SDB-40** [P3] 沙箱路径闸遗漏 ls/dir/wc/stat/test，受限模式可枚举任意目录（证据 docs/tickets/2026-11/findings-services-db.md#SDB-40）
+- [ ] 41H. **缺陷普查 SDB SDB-41** [P3] spec 流水线 git commit 无 pathspec，会把仓库里其他已暂存改动一并提交（证据 docs/tickets/2026-11/findings-services-db.md#SDB-41）
+- [ ] 42H. **缺陷普查 SDB SDB-42** [P2] cc-switch 导入两条路径均不可用：.db 被扩展名白名单拦截，JSON 被当作 SQLite 解析（证据 docs/tickets/2026-11/findings-services-db.md#SDB-42）
+- [ ] 43H. **缺陷普查 SDB SDB-43** [P2] 告警检查自身 DB 失败被吞成「0 条错误」，任务仍记 success（证据 docs/tickets/2026-11/findings-services-db.md#SDB-43）
+- [ ] 44H. **缺陷普查 SDB SDB-44** [P3] USDT 先判过期再查链，跨过 expiresAt 的已付款订单被置 expired 且 webhook 也无法补救（证据 docs/tickets/2026-11/findings-services-db.md#SDB-44）
+- [ ] 45H. **缺陷普查 SDB SDB-45** [P3] 签到同步把「对端根本没有该账号」当可重试失败，永久重推并误报升级告警（证据 docs/tickets/2026-11/findings-services-db.md#SDB-45）
+- [ ] 46H. **缺陷普查 SDB SDB-46** [P3] 共享标记/手机号补全：凭证取自读副本快照、版本号取自主库 RETURNING，向签到侧推「旧凭证 + 更高版本」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-46）
+- [ ] 47H. **缺陷普查 SDB SDB-47** [P3] 未配置任何推送通道时 sendPush 返回成功，管理端统计「全部成功」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-47）
+- [ ] 48H. **缺陷普查 SDB SDB-48** [P3] Key 用量按 userId 聚合，同一用户多个 API Key 显示同一份用量（证据 docs/tickets/2026-11/findings-services-db.md#SDB-48）
+- [ ] 49H. **缺陷普查 SDB SDB-49** [P3] ai-feed 分类批与摘要批并发写同一列，llm_summary 被原文/NULL 覆盖并重复付费（证据 docs/tickets/2026-11/findings-services-db.md#SDB-49）
+- [ ] 50H. **缺陷普查 SDB SDB-50** [P3] CodebaseIndexer.index 写索引前不建 .ihui，首次索引必 ENOENT（证据 docs/tickets/2026-11/findings-services-db.md#SDB-50）
+- [ ] 51H. **缺陷普查 SDB SDB-51** [P3] terminal_run 白名单含空格项，却只拿首个 token 全等比较，git status 等始终被拒（证据 docs/tickets/2026-11/findings-services-db.md#SDB-51）
+- [ ] 52H. **缺陷普查 SDB SDB-52** [P3] algorithm-record 同批出现重复 record_no 时整批 upsert 报错，整份文件数据丢失（证据 docs/tickets/2026-11/findings-services-db.md#SDB-52）
+- [ ] 53H. **缺陷普查 SDB SDB-53** [P3] resolved 统计的是「全历史 error 累计」，不是「已恢复」（证据 docs/tickets/2026-11/findings-services-db.md#SDB-53）
+- [ ] 54H. **缺陷普查 SDB SDB-54** [P3] 导入判据的正则比调度器 RRULE 解析更窄，合法周期计划被落成「启用但永不到期」的 once 行（证据 docs/tickets/2026-11/findings-services-db.md#SDB-54）
+- [ ] 55H. **缺陷普查 SDB SDB-55** [P3] Telegram 渠道固定 parse_mode:'HTML' 但正文不转义，含 </& 的消息必发失败（证据 docs/tickets/2026-11/findings-services-db.md#SDB-55）
+- [ ] 56H. **缺陷普查 SDB SDB-56** [P3] clawdbot /chat 只把 assistant 轮写入历史，用户上一轮提问永久丢失且内存无上限（证据 docs/tickets/2026-11/findings-services-db.md#SDB-56）
