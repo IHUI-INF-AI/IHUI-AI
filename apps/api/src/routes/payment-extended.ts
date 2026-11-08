@@ -59,6 +59,27 @@ const subscriptionRenewSchema = z.object({
 // =============================================================================
 
 export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
+  // F-16:微信 V3 验签必须对「原始报文字节」验签。本插件此前没有 rawBody 解析器,
+  // 只能退化成 JSON.stringify(body) —— 空白/转义/数字格式差异都会让真实回调验签失败,
+  // 等于把生产回调全部挡在 401。解析器只作用于本插件作用域(与 payment-gateway 同口径)。
+  // 必须先移除从主作用域继承的同名解析器(Fastify 5 重复注册抛 FST_ERR_CTP_ALREADY_PRESENT,
+  // 与 server.ts / routes/live.ts 的「先 remove 再 add」口径一致)。
+  server.removeContentTypeParser('application/json')
+  server.addContentTypeParser('application/json', { parseAs: 'buffer' }, (req, body, done) => {
+    const buf = body as Buffer
+    const raw = buf.toString('utf8')
+    ;(req as unknown as { rawBody?: string }).rawBody = raw
+    if (!raw) {
+      done(null, undefined)
+      return
+    }
+    try {
+      done(null, JSON.parse(raw))
+    } catch (err) {
+      done(err as Error)
+    }
+  })
+
   // ==========================================================================
   // 1. POST /payments/withdrawal/notify - 提现回调（微信转账到账通知）
   //
@@ -86,7 +107,8 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
         const nonce = request.headers['wechatpay-nonce'] as string
         const signature = request.headers['wechatpay-signature'] as string
 
-        const rawBody = JSON.stringify(request.body)
+        const rawBody =
+          (request as unknown as { rawBody?: string }).rawBody ?? JSON.stringify(request.body)
         // 无 body 的 POST(无 content-type 且 content-length 为 0)在 Fastify 里**根本不解析**
         // (handle-request.js:「Request has no body to parse」直接放行)⇒ request.body 是 undefined。
         // 原写法 `request.body as Record<string, unknown>` 把它当对象用,第一行属性访问就抛
@@ -114,21 +136,10 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
           return reply.code(400).send({ code: 'FAIL', message: '缺少必要回调头' })
         }
 
-        // 2026-10-30:报文级一次性去重。提现此前靠"事务 + SELECT FOR UPDATE + 只处理 status 0/1"
-        // 天然幂等,但那是业务层;这里补报文层,让同一份回调根本进不到第二遍。
-        // DEV 环境可能没有 wechatpay-* 头(上面已放行),此时跳过而不返回 500。
-        if (timestamp && nonce) {
-          const withdrawalNonceVerdict = await consumeNotifyNonce('withdrawal', timestamp, nonce)
-          if (withdrawalNonceVerdict === 'replayed') {
-            return reply.send({ code: 'SUCCESS', message: '重复通知' })
-          }
-          if (withdrawalNonceVerdict === 'unavailable') {
-            return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
-          }
-        }
-
-        // P2 并发安全修复(2026-08-02):原代码状态检查与更新无事务,并发回调可能同时通过
-        // status 检查导致重复处理。改为事务内 SELECT FOR UPDATE 行锁,保证检查与更新原子性。
+        // F-17:报文级去重标记(consumeNotifyNonce)必须在业务事务**成功之后**才落库。
+        // 原顺序是「先消费 nonce,失败仍 ACK SUCCESS」:事务一旦失败,微信收到 SUCCESS 不再重投,
+        // 流水永久停在 pending/processing、frozen 永不释放;而重投又会被 nonce 判成重复直接 SUCCESS。
+        // 幂等由事务内 SELECT FOR UPDATE + 仅处理 status 0/1 保证,不依赖 nonce 先落。
         await db.transaction(async (tx) => {
           // 根据 out_bill_no 查询提现流水（out_bill_no 对应 partnerTradeNo）
           const [flow] = await tx
@@ -199,11 +210,23 @@ export const paymentExtendedRoutes: FastifyPluginAsync = async (server) => {
           // ACCEPTED / TRANSFERING / WAIT_USER_CONFIRM 等中间状态不更新，等待最终状态回调
         })
 
+        // 业务已落库,再落报文去重标记:即便这里 replayed,也说明业务此前已成功,直接 SUCCESS。
+        if (timestamp && nonce) {
+          const withdrawalNonceVerdict = await consumeNotifyNonce('withdrawal', timestamp, nonce)
+          if (withdrawalNonceVerdict === 'replayed') {
+            return reply.send({ code: 'SUCCESS', message: '重复通知' })
+          }
+          if (withdrawalNonceVerdict === 'unavailable') {
+            return reply.code(500).send({ code: 'FAIL', message: '系统繁忙,请稍后重试' })
+          }
+        }
+
         return reply.send({ code: 'SUCCESS', message: 'OK' })
       } catch (e) {
         request.log.error({ err: e }, 'withdrawal notify processing failed')
-        // 即使出错也返回 SUCCESS，防止微信重复回调（错误已记录日志）
-        return reply.send({ code: 'SUCCESS', message: 'OK' })
+        // F-17:处理失败必须让微信重投(非 SUCCESS)。回复 SUCCESS 等于替微信关掉了重试,
+        // 资金流水会永久停在中间态;事务回滚后重投可安全重放。
+        return reply.code(500).send({ code: 'FAIL', message: '处理失败,请稍后重试' })
       }
     },
   )

@@ -87,7 +87,7 @@ vi.mock('../src/db/rbac-queries.js', () => ({
 }))
 
 vi.mock('../src/db/index.js', () => {
-  function createChain(result: unknown[] = [{ id: 'mock-id' }]) {
+  function createChain(result: unknown[] = [{ id: 'mock-id', price: 100, isFree: false }]) {
     const chain: {
       then: (resolve: (value: unknown[]) => unknown) => Promise<unknown>
       [m: string]: unknown
@@ -269,13 +269,16 @@ describe('G-536/G-431 畸形 uuid 直喂 uuid 列 ⇒ 400 而非 500，且闸在
 describe('反向对照 —— 闸不得把正当请求一起挡掉', () => {
   it.each(TARGETS)('$name ⇒ 合法 uuid 照常进 insert', async (t) => {
     mocks.dbInsert.mockClear()
-    mocks.dbInsert.mockReturnValue((() => {
-      const chain: Record<string, unknown> = {}
-      const methods = ['from', 'where', 'values', 'returning', 'onConflictDoUpdate', 'limit']
-      for (const m of methods) chain[m] = () => chain
-      chain.then = (resolve: (v: unknown[]) => unknown) => Promise.resolve([{ id: 'mock-id' }]).then(resolve)
-      return chain
-    })())
+    mocks.dbInsert.mockReturnValue(
+      (() => {
+        const chain: Record<string, unknown> = {}
+        const methods = ['from', 'where', 'values', 'returning', 'onConflictDoUpdate', 'limit']
+        for (const m of methods) chain[m] = () => chain
+        chain.then = (resolve: (v: unknown[]) => unknown) =>
+          Promise.resolve([{ id: 'mock-id' }]).then(resolve)
+        return chain
+      })(),
+    )
     const res = await t.app().inject({
       method: 'POST',
       url: t.url,
@@ -292,11 +295,36 @@ describe('③ 前置对账 —— 五个目标列现读必须仍是 uuid 类型'
   const REPO = join(HERE, '..', '..', '..')
 
   const COLUMN_OWNERS: Array<{ file: string; sym: string; col: string; label: string }> = [
-    { file: 'packages/database/src/schema/order.ts', sym: 'eduInvoiceTitles', col: 'userId', label: 'edu_invoice_titles.user_id' },
-    { file: 'packages/database/src/schema/user-auth-info.ts', sym: 'userAuthInfo', col: 'userUuid', label: 'user_auth_info.user_uuid' },
-    { file: 'packages/database/src/schema/wallet.ts', sym: 'userMargins', col: 'userId', label: 'user_margins.user_id' },
-    { file: 'packages/database/src/schema/learn.ts', sym: 'lessonChapters', col: 'lessonId', label: 'lesson_chapters.lesson_id' },
-    { file: 'packages/database/src/schema/agent-commerce.ts', sym: 'zhsAgentBuy', col: 'agentId', label: 'zhs_agent_buy.agent_id' },
+    {
+      file: 'packages/database/src/schema/order.ts',
+      sym: 'eduInvoiceTitles',
+      col: 'userId',
+      label: 'edu_invoice_titles.user_id',
+    },
+    {
+      file: 'packages/database/src/schema/user-auth-info.ts',
+      sym: 'userAuthInfo',
+      col: 'userUuid',
+      label: 'user_auth_info.user_uuid',
+    },
+    {
+      file: 'packages/database/src/schema/wallet.ts',
+      sym: 'userMargins',
+      col: 'userId',
+      label: 'user_margins.user_id',
+    },
+    {
+      file: 'packages/database/src/schema/learn.ts',
+      sym: 'lessonChapters',
+      col: 'lessonId',
+      label: 'lesson_chapters.lesson_id',
+    },
+    {
+      file: 'packages/database/src/schema/agent-commerce.ts',
+      sym: 'zhsAgentBuy',
+      col: 'agentId',
+      label: 'zhs_agent_buy.agent_id',
+    },
   ]
 
   it.each(COLUMN_OWNERS)('$label 仍是 uuid(否则 z.uuid() 会变成误拒)', ({ file, sym, col }) => {
@@ -305,7 +333,10 @@ describe('③ 前置对账 —— 五个目标列现读必须仍是 uuid 类型'
     expect(i, `${sym} 在 ${file} 里找不到 pgTable 定义（表/符号改名了？）`).toBeGreaterThan(-1)
     const win = src.slice(i, i + 1200)
     const re = new RegExp(`\\b${col}\\s*:\\s*uuid\\(`)
-    expect(re.test(win), `${sym}.${col} 已不是 uuid 列 —— z.uuid() 会误拒合法请求，请连带回退本处校验`).toBe(true)
+    expect(
+      re.test(win),
+      `${sym}.${col} 已不是 uuid 列 —— z.uuid() 会误拒合法请求，请连带回退本处校验`,
+    ).toBe(true)
   })
 })
 // ⁠‌‌‌‍‍‌‌‍‍‌‌‌‍‍‌‌‌‍‍‌‌‌‌‍‍‌‍‍‌‍‌‌‌‍‌‍‍‌‍‌‌‍‍‌‍‌‌‌‍‍‌‌‌‍‍‍‌‍‌‍‌‌‌‍‌‌‍‌‌‌‍‍‌‌‍‌‌‌‍‌‌‍‌‌‌‌‍‌‍‍‍‍‌‌‌‌‍‍‍‌‍‍‌‌‍‍‍‍‍‍‍‌‍‌‌‍‍‌‍‍‌‌‍‍‍‍‍‌‌‍‌‍‍‌‌‌‌‍‍‌‌‍‍‍‍‍‍‍‍‍‍‌‌‍‍‌‍‍‍‍‍‌‌‍‍‌‍‍‍‍‍‍‍‍‌‍‍‍‌‌‍‍‍‍‍‌‍‍‍‍‍‌‌‍‍‌‌‍‍‌‌‍‍‌‍‍‌‌‌‍‍‌‌‍‍‍‌‌‌‍‍‍‍‍‍‌‍‍‍‍‍‌‌‍‍‌‍‌‌‌‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‌‌‍‍‍‍‍‍‍‍‍‍‍‍‍‍‍‌‌‌‌‌‍‍‍‍‍‍‍‍‍‍‍‍‍‍‌‌‍‍‍‍‍‍‍‍‍‍‌‍‍‍‍‍‍‍‍‌‌‍‍‍‍‍‍‍‌‍‍‍‍‍‍‍‌‍‍‍‍‌‍‍‍‌‌‍‍‍‍‍‍‌‍‍‍‍‍‍‌‌‍‍‍‍‍‍‍‌‌‌‍‍‍‍‍‌‍‍‍‍‍‌‍‍‍‍‍‌‍‍‍‍‍‌‌‌‌‌‍‍‌‍‌‍‍‌‌‍‍‍‍‍‍‌‌‍‍‍‌‌‍‍‌‍‍‍‍‌‌‌‍‌‌‍‌‍‌‌‍‍‍‍‍‌‍‍‌‌‍‍‌‌‌‍‍‌‍‍‌‍‍‍‍‍‍‌‍‍‌‌‍‍‍‍‍‍‌‌‍‍‍‍‌‌‌‍‍‍‍‍‍‍‍‍‌‍‍‍‍‍‍‍‍‍‍﻿‌‌‍⁠

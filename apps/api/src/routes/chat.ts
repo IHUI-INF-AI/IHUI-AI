@@ -2148,7 +2148,7 @@ export const chatRoutes: FastifyPluginAsync = async (server) => {
     // ⑤ 原子性持久化压缩结果(与 /chat/stream 自动压缩同一套 replaceMessages 管线):
     //    删除旧消息 + 批量插入压缩后消息。失败视为压缩未生效,返回 500 由前端提示重试
     try {
-      await replaceMessages(conversationId, result.messages)
+      await replaceMessages(conversationId, result.messages, request.userId)
     } catch (e) {
       request.log.error({ err: e, conversationId }, '手动压缩持久化失败')
       return reply.status(500).send(error(500, '压缩结果持久化失败'))

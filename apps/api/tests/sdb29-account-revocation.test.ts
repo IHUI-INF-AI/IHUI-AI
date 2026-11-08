@@ -46,8 +46,8 @@ function fakeKeyRow(over: Record<string, unknown> = {}) {
   }
 }
 
-vi.mock('../src/db/index.js', () => ({
-  db: {
+vi.mock('../src/db/index.js', () => {
+  const dbMock: Record<string, unknown> = {
     // 鉴权:developer_api_keys INNER JOIN users → { key, userStatus }
     select: vi.fn(() => {
       const chain: Record<string, unknown> = {}
@@ -70,9 +70,11 @@ vi.mock('../src/db/index.js', () => ({
         where: vi.fn(() => ({ returning: vi.fn(async () => [{ id: 'user-1' }]) })),
       })),
     })),
-  },
-  dbRead: { select: vi.fn() },
-}))
+  }
+  // F-269:purgeUserPii 改为事务执行;测试替身直接把同一 mock 传进回调
+  dbMock.transaction = vi.fn(async (cb: (tx: unknown) => Promise<unknown>) => cb(dbMock))
+  return { db: dbMock, dbRead: { select: vi.fn() } }
+})
 
 vi.mock('@ihui/database', async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>()

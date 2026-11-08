@@ -143,6 +143,29 @@ async function synthesizeTTS(
 const MAX_ASR_BUFFER_BYTES = 50 * 1024 * 1024
 
 /**
+ * F-112(2026-11-08):把服务端解析出的身份合并进出站 metadata。
+ * 顺序必须「客户端值先、服务端值后」—— 反过来客户端就能用 metadata.userId 覆盖认证主体,
+ * 让 ai-service 以他人身份扣费/落库(同型缺陷见 /chat/stream 的 F-02)。
+ */
+export function mergeServerMetadata(
+  metadata: Record<string, unknown> | undefined,
+  serverValues: Record<string, unknown>,
+): Record<string, unknown> {
+  return { ...(metadata ?? {}), ...serverValues }
+}
+
+/**
+ * F-112:Coze 会话的 bot/user 只认连接态。客户端消息体里的 bot_id/user_id 可整写,
+ * 采信即等于允许把会话挂到任意 bot 或伪造任意用户身份。
+ */
+export function resolveCozeIdentity(ctx: { botId: string; userId: string }): {
+  botId: string
+  userId: string
+} {
+  return { botId: ctx.botId, userId: ctx.userId }
+}
+
+/**
  * WebSocket AI 能力插件:agent_stream / tts_stream / realtime_pcm.
  *
  * 三者均为 1:1 流式连接(单用户独占),不需要 Redis Pub/Sub 广播;
@@ -627,7 +650,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             body: JSON.stringify({
               messages: [{ role: 'user', content: prompt }],
               model,
-              metadata: { userId, ...metadata },
+              // F-112:服务端主体最后展开,客户端 metadata.userId 不得覆盖。
+              metadata: mergeServerMetadata(metadata, { userId }),
             }),
             signal: controller.signal,
           })
@@ -784,7 +808,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               body: JSON.stringify({
                 messages: [{ role: 'user', content: prompt }],
                 model,
-                metadata: { userId, provider, ...metadata },
+                // F-112:同上,主体与 provider 以服务端解析结果为准。
+                metadata: mergeServerMetadata(metadata, { userId, provider }),
               }),
               signal: controller.signal,
             })
@@ -1112,12 +1137,13 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
 
         // chat.start — 初始化会话
         if (eventType === 'chat.start') {
-          const reqBotId = (msg.bot_id as string) || botId
-          const reqUserId = (msg.user_id as string) || userId
+          // F-112:bot_id/user_id 以连接态为准(忽略消息体里的可写同名键)。
+          const { botId: reqBotId, userId: reqUserId } = resolveCozeIdentity({ botId, userId })
           send(socket, {
             code: 200,
             msg: 'success',
             event: 'chat.created',
+            // F-112(2026-11-08):Coze user_id 一律用服务端鉴权身份,不采信客户端自报。
             data: { bot_id: reqBotId, user_id: reqUserId, conversation_id: conversationId },
           })
           return
@@ -1126,8 +1152,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         // chat.message — 发送消息并流式接收回复
         if (eventType === 'chat.message') {
           const queryText = msg.content as string | undefined
-          const reqBotId = (msg.bot_id as string) || botId
-          const reqUserId = (msg.user_id as string) || userId
+          // F-112:同 chat.start,忽略消息体里的 bot_id/user_id。
+          const { botId: reqBotId, userId: reqUserId } = resolveCozeIdentity({ botId, userId })
           if (!queryText) {
             send(socket, { code: 400, event: 'error', message: '缺少 content' })
             return
@@ -1158,6 +1184,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               },
               body: JSON.stringify({
                 bot_id: reqBotId,
+                // F-112(2026-11-08):不向 Coze 透传客户端自报的 user_id。
                 user_id: reqUserId,
                 query: queryText,
                 conversation_id: conversationId,

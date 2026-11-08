@@ -53,9 +53,10 @@ vi.mock('jose', () => ({ decodeJwt: vi.fn(() => ({ type: 'access' })) }))
 vi.mock('../../db/usercenter-queries.js', () => ({ getUserStatus: vi.fn().mockResolvedValue(1) }))
 
 // mock db,聚焦路由逻辑(真实表操作走 mock 链式调用验证)
-const { mockDbInsert, mockDbDelete } = vi.hoisted(() => ({
+const { mockDbInsert, mockDbDelete, mockDbUpdate } = vi.hoisted(() => ({
   mockDbInsert: vi.fn(),
   mockDbDelete: vi.fn(),
+  mockDbUpdate: vi.fn(),
 }))
 
 vi.mock('../../db/index.js', () => ({
@@ -63,7 +64,7 @@ vi.mock('../../db/index.js', () => ({
     insert: mockDbInsert,
     delete: mockDbDelete,
     select: vi.fn(),
-    update: vi.fn(),
+    update: mockDbUpdate,
     execute: vi.fn(),
   },
   dbRead: { select: vi.fn(), execute: vi.fn() },
@@ -201,6 +202,59 @@ describe('小程序兼容路由空桩真实化(2026-08-31)', () => {
         expect(body).toHaveProperty('message')
       })
     }
+  })
+
+  // ==========================================================================
+  // F-166:课程/视频管理写端点必须 requireAdmin(checkAuth 只认证不授权)
+  // ==========================================================================
+  describe('F-166 课程/视频管理写端点仅管理员可写', () => {
+    const COURSE_ID = '00000000-0000-4000-8000-000000000001'
+    const VIDEO_ID = '00000000-0000-4000-8000-000000000002'
+    const ADMIN_ID = '00000000-0000-4000-8000-000000000099'
+
+    const writeEndpoints: Array<{
+      method: 'POST' | 'PUT' | 'DELETE'
+      url: string
+      payload?: object
+    }> = [
+      { method: 'POST', url: '/api/learn/group', payload: { title: 't' } },
+      { method: 'PUT', url: `/api/learn/course/${COURSE_ID}`, payload: { price: 0, isFree: true } },
+      { method: 'DELETE', url: `/api/learn/course/${COURSE_ID}` },
+      { method: 'POST', url: `/api/learn/course/${COURSE_ID}/issue` },
+      { method: 'POST', url: `/api/learn/course/${COURSE_ID}/delist` },
+      { method: 'POST', url: '/api/learn/video', payload: { title: 't' } },
+      { method: 'PUT', url: `/api/learn/video/${VIDEO_ID}`, payload: { isFree: true } },
+      { method: 'DELETE', url: `/api/learn/video/${VIDEO_ID}` },
+    ]
+
+    beforeEach(() => {
+      mockDbInsert.mockReset()
+      mockDbDelete.mockReset()
+      mockDbUpdate.mockReset()
+    })
+
+    it('普通登录用户 ⇒ 8 条写端点全部 403，且一条写语句都不发', async () => {
+      mockAuth() // roleId: 0
+      for (const { method, url, payload } of writeEndpoints) {
+        const res = await server.inject({ method, url, headers: AUTH_HEADERS, payload })
+        expect(res.statusCode, `${method} ${url}`).toBe(403)
+      }
+      expect(mockDbInsert).not.toHaveBeenCalled()
+      expect(mockDbUpdate).not.toHaveBeenCalled()
+      expect(mockDbDelete).not.toHaveBeenCalled()
+    })
+
+    it('对照:管理员仍可操作(不误伤运营)', async () => {
+      mockVerifyAccessToken.mockResolvedValue({ userId: ADMIN_ID, roleId: 1, type: 'access' })
+      mockDbUpdate.mockReturnValue({ set: () => ({ where: () => Promise.resolve() }) })
+      const res = await server.inject({
+        method: 'POST',
+        url: `/api/learn/course/${COURSE_ID}/issue`,
+        headers: AUTH_HEADERS,
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockDbUpdate).toHaveBeenCalledTimes(1)
+    })
   })
 
   // ==========================================================================

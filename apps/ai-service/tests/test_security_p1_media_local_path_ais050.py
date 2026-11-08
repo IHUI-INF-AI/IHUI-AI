@@ -108,8 +108,11 @@ async def test_voice_clone_upload_rejects_outside_path_without_upload(
     outside.write_bytes(b"RIFF-outside")
     stub = _install_stub(monkeypatch)
 
+    # 2026-11-08 合并波次:声纹上传已叠加 AIS-050 归属闸(stock-red 线),身份缺失会
+    # 先返回 IDENTITY_REQUIRED;这里如实带上宿主注入身份,继续钉住"路径判据先于上传"
+    # (路径/敏感文件判据与归属闸两者都保留,不选边)。
     out = await mcp_server._tool_token6688_voice_clone(
-        {"action": "upload", "path": str(outside)}
+        {"action": "upload", "path": str(outside), "__user_id": "u-050"}
     )
 
     assert out["ok"] is False
@@ -125,7 +128,7 @@ async def test_voice_clone_upload_rejects_dotenv(
     stub = _install_stub(monkeypatch)
 
     out = await mcp_server._tool_token6688_voice_clone(
-        {"action": "upload", "path": str(env)}
+        {"action": "upload", "path": str(env), "__user_id": "u-050"}
     )
 
     assert out["ok"] is False

@@ -702,6 +702,70 @@ async def _unused_loader(sid: str) -> AgentLoopCheckpoint:
     raise AssertionError("running 态应在触达存储之前就被拒")
 
 
+async def test_concurrent_resume_only_one_claims_the_paused_session() -> None:
+    """AIS-022:并发 resume 只允许一个真正续跑;第二次必须在慢 I/O 之前被拒。
+
+    旧实现把"置 running"放在 loader 之后:两个请求都能在慢 I/O 前通过
+    ``not rec.paused``,各自跑一遍 runner ⇒ 同一份消息历史跑两次(带副作用的工具
+    真的执行两次)。修复后第二个请求要么在临界区直接得到 NOT_PAUSED,
+    要么在占位后、慢 I/O 前被拒 —— 两种情况下 loader 都只应被调用 1 次。
+    """
+    session_id = "sess-65-resume-race"
+    fake = _FakeLoop(checkpoint_id="ck-65-race")
+    await run_control.register_run(session_id, owner_user_id=USER_A, loop=fake)  # type: ignore[arg-type]
+    run_ownership.record_ownership(session_id, USER_A)
+    paused = await run_control.pause_session(session_id, USER_A)
+    assert paused.outcome is run_control.PauseOutcome.PAUSED
+
+    checkpoint = AgentLoopCheckpoint(
+        checkpoint_id="ck-65-race",
+        session_id=session_id,
+        iteration=1,
+        messages=[{"role": "user", "content": "hi"}],
+        tool_state={},
+        status="paused",
+        created_at=time.time(),
+        expires_at=time.time() + 600,
+        metadata={"owner_user_id": USER_A},
+    )
+
+    entered = asyncio.Event()
+    loader_calls = {"n": 0}
+    runner_calls = {"n": 0}
+
+    async def slow_loader(sid: str) -> AgentLoopCheckpoint:
+        loader_calls["n"] += 1
+        entered.set()
+        await asyncio.sleep(0.2)
+        return checkpoint
+
+    class _CountingRunner:
+        async def __call__(
+            self, cp: AgentLoopCheckpoint, requester: str
+        ) -> dict[str, Any]:
+            runner_calls["n"] += 1
+            return {"stop_reason": "completed", "checkpoint_id": None}
+
+    first = asyncio.create_task(
+        run_control.resume_session(  # type: ignore[arg-type]
+            session_id, USER_A, load_latest=slow_loader, runner=_CountingRunner()
+        )
+    )
+    await asyncio.wait_for(entered.wait(), timeout=5)
+    # 第一次已占位且卡在慢 I/O;此时第二次并发 resume 必须直接 NOT_PAUSED
+    second = await run_control.resume_session(
+        session_id, USER_A, load_latest=slow_loader, runner=_CountingRunner()  # type: ignore[arg-type]
+    )
+    first_result = await first
+
+    assert first_result.outcome is run_control.ResumeOutcome.RESUMED
+    assert second.outcome is run_control.ResumeOutcome.NOT_PAUSED, (
+        f"并发第二次 resume 进了续跑(实得 {second.outcome})⇒ 同会话双跑"
+    )
+    assert loader_calls["n"] == 1, "第二次 resume 不应触达慢 I/O"
+    assert runner_calls["n"] == 1, "runner 只能起一次(否则副作用加倍)"
+
+
 # ===========================================================================
 # ⑥ 跨进程续跑:崩溃轮判不出 ⇒ 409 + 处置清单(会话仍暂停,处置后可再 resume)
 # ===========================================================================

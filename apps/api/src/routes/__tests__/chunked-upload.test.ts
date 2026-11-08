@@ -77,6 +77,7 @@ vi.mock('../../db/index.js', () => {
 })
 
 import { chunkedUploadRoutes } from '../chunked-upload.js'
+import { PROTOCOL_UPLOAD_LIMITS } from '../../services/upload-integrity.js'
 import { verifyAccessToken } from '@ihui/auth'
 
 const AUTH_HEADERS = { authorization: 'Bearer mock-access-token' }
@@ -179,6 +180,44 @@ describe('Chunked Upload API', () => {
         body: { fileName: 'test.txt' },
       })
       expect(res.statusCode).toBe(400)
+    })
+
+    // F-28(2026-11-08):totalChunks 无上限会把合并阶段的 1..totalChunks 线性遍历打爆。
+    it('POST init 的 totalChunks 超过上限 ⇒ 400(旧写法会 201 并建目录)', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/chunked-upload/init',
+        headers: AUTH_HEADERS,
+        body: {
+          fileName: 'oom.txt',
+          totalChunks: PROTOCOL_UPLOAD_LIMITS.maxTotalChunks + 1,
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST init 的 fileSize 超过上限 ⇒ 400(旧写法只有 min(0))', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/chunked-upload/init',
+        headers: AUTH_HEADERS,
+        body: {
+          fileName: 'huge.bin',
+          fileSize: PROTOCOL_UPLOAD_LIMITS.maxFileBytes + 1,
+          totalChunks: 1,
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('POST init 上限内的正常小块仍返回 201', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/chunked-upload/init',
+        headers: AUTH_HEADERS,
+        body: { fileName: 'small.txt', fileSize: 3 * 1024, totalChunks: 3 },
+      })
+      expect(res.statusCode).toBe(201)
     })
 
     it('POST /api/chunked-upload/merge uploadId 为空返回 400', async () => {
@@ -308,6 +347,62 @@ describe('Chunked Upload API', () => {
         headers: AUTH_HEADERS,
       })
       expect(res.statusCode).toBe(400)
+    })
+  })
+
+  // F-28(2026-11-08):缺失分片输出必须有界,否则 join('、') 会构造巨串并回灌内存。
+  describe('缺失分片输出截断', () => {
+    beforeEach(() => {
+      vi.mocked(verifyAccessToken).mockResolvedValue({
+        userId: '00000000-0000-4000-8000-000000000fee',
+        phone: '13800000000',
+        familyId: '11111111-1111-4111-8111-111111111111',
+        roleId: 0,
+      })
+      dbState.selectRows.length = 0
+    })
+
+    it('merge 缺失 100 片 ⇒ 400 且只列前 50 片(旧写法会列出 51)', async () => {
+      dbState.selectRows.push([
+        {
+          uploadId: 'truncate-missing-id',
+          userId: '00000000-0000-4000-8000-000000000fee',
+          status: 'uploading',
+          totalChunks: 100,
+          fileSize: 0,
+        },
+      ])
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/chunked-upload/merge',
+        headers: AUTH_HEADERS,
+        body: { uploadId: 'truncate-missing-id' },
+      })
+      expect(res.statusCode).toBe(400)
+      const message = res.json().message as string
+      expect(message).toContain('其余')
+      // 截断在 50:第 51 片不应出现在文案里(旧写法会逐个列到 100)
+      expect(message).not.toContain('51')
+    })
+
+    it('merge 历史超档会话(totalChunks > 上限)⇒ 400,不进入无界遍历', async () => {
+      dbState.selectRows.push([
+        {
+          uploadId: 'legacy-oversize-id',
+          userId: '00000000-0000-4000-8000-000000000fee',
+          status: 'uploading',
+          totalChunks: PROTOCOL_UPLOAD_LIMITS.maxTotalChunks + 1,
+          fileSize: 0,
+        },
+      ])
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/chunked-upload/merge',
+        headers: AUTH_HEADERS,
+        body: { uploadId: 'legacy-oversize-id' },
+      })
+      expect(res.statusCode).toBe(400)
+      expect(res.json().message).toContain('超出上限')
     })
   })
 })

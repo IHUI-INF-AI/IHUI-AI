@@ -2605,22 +2605,43 @@
     {
       "version": "7",
       "idx": 374,
+      "when": 1794110400001,
+      "tag": "20261108120000_agent_settlements_period_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 375,
       "when": 1794114000000,
       "tag": "20261108130000_named_unique_constraints",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 375,
+      "idx": 376,
+      "when": 1794114000001,
+      "tag": "20261108130000_subscription_order_id_uniq",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 377,
       "when": 1794124800000,
       "tag": "20261108160000_admin_password_replay_guard",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 376,
+      "idx": 378,
       "when": 1794128400000,
       "tag": "20261108170000_rls_bypass_scope_ihui_app",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 379,
+      "when": 1794132000000,
+      "tag": "20261108180000_tool_invocation_ledger_user_nullable",
       "breakpoints": true
     }
   ]
