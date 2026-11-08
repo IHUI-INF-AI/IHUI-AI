@@ -30,6 +30,8 @@ from ..services.mcp_client import (
     MCPClientConfig,
     get_mcp_client_manager,
 )
+from ..services.mcp_endpoint_policy import MCPEndpointRejected
+from ..services.mcp_endpoint_policy import resolve_endpoint as resolve_mcp_endpoint
 from ..services.mcp_server import mcp_server, sampling_handler
 from ..services.skills import skill_registry
 from ..services.slash_commands import slash_command_registry
@@ -535,46 +537,47 @@ async def register_external_server(
             )
         if transport == TRANSPORT_STDIO and not req.command.strip():
             return JSONResponse(status_code=400, content={"error": "stdio 模式缺少 command"})
+        if transport == TRANSPORT_SSE and not req.url.strip():
+            return JSONResponse(status_code=400, content={"error": "sse 模式缺少 url"})
+
+        # AIS-053:注册权收归 admin。两种 transport 都会让服务端替调用者出连
+        # (stdio 还会起进程),"普通用户可注册远程 MCP"本身就是原缺陷 ——
+        # 只封地址不封人没有意义。角色只经 resolve_request_role_id 那一份出口
+        # (缺失/非整数/负数一律归一到 0 ⇒ 取不到角色天然是"拒绝"而非"放开")。
+        if resolve_request_role_id(request) < 1:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "error": "注册外部 MCP Server 需要管理员权限(role >= 1)",
+                    "errorCode": "ROLE_DENIED",
+                },
+            )
         if transport == TRANSPORT_STDIO:
             # stdio 注册 = 让服务端 create_subprocess_exec 起一个由请求方指定的进程
             # (mcp_client.py 直接 exec(resolved_command, *args, env=proc_env)),
-            # 等同把服务端命令执行能力开放给调用者。两道闸缺一不可:
-            #   ① 角色:只有管理员能注册本地进程(角色只经 resolve_request_role_id 那一份出口,
-            #      它把缺失/非整数/负数一律归一到 0 ⇒ 取不到角色天然是"拒绝"而非"放开");
-            #   ② 可执行文件白名单:部署级给出,未配置即为空 ⇒ 该能力对所有人关闭。
-            if resolve_request_role_id(request) < 1:
-                return JSONResponse(
-                    status_code=403,
-                    content={"error": "stdio 传输的 MCP Server 只能由管理员注册"},
-                )
+            # 等同把服务端命令执行能力开放给调用者。除上面的角色闸外,还要部署级
+            # 可执行文件白名单:未配置即为空 ⇒ 该能力对所有人关闭(fail-closed)。
             if not stdio_command_allowed(req.command):
                 return JSONResponse(
                     status_code=403,
                     content={"error": "command 不在部署级允许清单(MCP_STDIO_COMMAND_ALLOWLIST)内"},
                 )
-        if transport == TRANSPORT_SSE and not req.url.strip():
-            return JSONResponse(status_code=400, content={"error": "sse 模式缺少 url"})
-        # 2026-11-01 安全强化(第 8 批的**更正**):那一批我在下面加过一道
-        # "url 型传输仅管理员可注册",把既有契约
-        # `tests/test_mcp_stdio_registration_gates.py::test_sse_register_untouched_by_stdio_gate`
-        # 打红了。那枚用例是更早一批(7a1c556d19)特意装的**反向牙**,钉的是
-        # "stdio 的两道闸只针对本地进程执行面,不得顺手扩到所有 transport ⇒ 普通用户仍能注册远程 MCP"
-        # —— 也就是说用户自登记远程连接器是本产品的设计能力(外部服务器另有归属鉴权),
-        # 我那道闸过粗,砍掉的是在用能力,故本枚撤销角色闸。
-        # 只保留协议族校验:非 http(s) 一律拒(对第一方内网服务零副作用,却挡掉 file/gopher 形态)。
-        #
-        # 如实登记的残余风险(不藏):普通用户可让服务端向任意可达地址发起 MCP 连接;
-        # 但"内网第一方 MCP(127.0.0.1:8803)"同样是设计内用法(证据:
-        # tests/test_mcp_client.py::test_sse_connect_success 连的就是它),
-        # 所以直接套 ssrf 端口封闭表同样打红在用面。正确收口 = 归属 + 可登记的落点策略
-        # (数据/配置面的活),单列一票推进,不用一刀切冒充修复。
-        if req.url.strip():
-            from urllib.parse import urlparse as _urlparse
-
-            if _urlparse(req.url.strip()).scheme.lower() not in ("http", "https"):
+        if transport == TRANSPORT_SSE:
+            # AIS-053:落点判定必须在 **DNS 解析后的实际 IP** 上 —— 只校验 URL 字面量
+            # 会被 DNS rebinding 绕过(短 TTL 交替返回公网/内网,校验期与连接期两次解析)。
+            # 默认 fail-closed:私网/回环/链路本地/云元数据(含 169.254.169.254 /
+            # 100.100.100.200 / fd00:ec2::254,IPv4 与 IPv6 同尺)全拒;本地开发要连
+            # 127.0.0.1:8803 这类第一方服务时经 MCP_ALLOW_PRIVATE_ENDPOINTS 显式放行。
+            # 连接点(mcp_client)用同一条判据再检一次:注册期放过的地址在连接期仍会复检。
+            try:
+                resolve_mcp_endpoint(req.url.strip())
+            except MCPEndpointRejected as e:
                 return JSONResponse(
                     status_code=403,
-                    content={"error": "外部 MCP 仅允许 http(s) 落点"},
+                    content={
+                        "error": f"外部 MCP 落点不被允许: {e.reason}",
+                        "errorCode": "ENDPOINT_BLOCKED",
+                    },
                 )
 
         manager = get_mcp_client_manager()

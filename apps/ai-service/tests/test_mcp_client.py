@@ -20,6 +20,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.core.config import settings
 from app.services.mcp_client import (
     DEFAULT_PROTOCOL_VERSION,
     DEFAULT_TIMEOUT,
@@ -432,8 +433,9 @@ async def test_list_tools_not_connected():
 # =============================================================================
 
 @pytest.mark.asyncio
-async def test_sse_connect_success():
-    """SSE 连接成功。"""
+async def test_sse_connect_success(monkeypatch: pytest.MonkeyPatch):
+    """SSE 连接成功(本地回环落点需显式开关,AIS-053 默认 fail-closed)。"""
+    monkeypatch.setattr(settings, "mcp_allow_private_endpoints", True, raising=False)
     config = MCPClientConfig(
         name="test_sse", transport=TRANSPORT_SSE,
         url="http://localhost:8803/sse", timeout=5.0,
@@ -459,8 +461,9 @@ async def test_sse_connect_success():
 
 
 @pytest.mark.asyncio
-async def test_sse_connect_bad_status():
-    """SSE 连接返回非 200 状态码。"""
+async def test_sse_connect_bad_status(monkeypatch: pytest.MonkeyPatch):
+    """SSE 连接返回非 200 状态码(回环落点需显式开关,AIS-053)。"""
+    monkeypatch.setattr(settings, "mcp_allow_private_endpoints", True, raising=False)
     config = MCPClientConfig(
         name="test_sse", transport=TRANSPORT_SSE,
         url="http://localhost:8800/sse", timeout=5.0,

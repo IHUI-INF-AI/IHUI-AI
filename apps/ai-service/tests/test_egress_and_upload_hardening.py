@@ -80,38 +80,38 @@ def test_anonymous_heavy_endpoints_are_rate_limited() -> None:
     assert window > 0
 
 
-def test_mcp_url_transport_keeps_user_access_but_checks_scheme() -> None:
-    """第 8 批的更正:远程 MCP 注册**不限管理员**,但协议族必须是 http(s)。
+def test_mcp_url_transport_requires_admin_and_endpoint_policy() -> None:
+    """AIS-053:远程 MCP 注册权收归 admin,落点按 DNS 解析后的真实 IP 判定。
 
-    为什么这条断言反过来写:普通用户自登记远程连接器是设计能力,由更早那批装的反向牙
-    `test_sse_register_untouched_by_stdio_gate` 钉着(第 8 批那道"仅管理员"把它打红了)。
-    所以这里两头都锁:
-      · 不得再出现"仅管理员可注册 url 型传输"的角色闸(那是砍在用能力);
-      · 协议族校验必须留着(非 http(s) 拒),摘掉即红。
-    行为侧由上面那枚既有契约用例覆盖;内网落点策略作为**已登记的开放项**写在 mcp.py 注记里。
+    更早的反向牙(`test_sse_register_untouched_by_stdio_gate`)钉的是"普通用户可注册
+    远程 MCP";AIS-053 的结论是"只封地址不封人没有意义",故契约翻面:
+      · 角色闸覆盖两种 transport(非管理员一律 403 ROLE_DENIED);
+      · 落点必须过 mcp_endpoint_policy(默认 fail-closed,私网/回环/链路本地/云元数据全拒);
+      · 注册期校验 + 连接期复检,重定向不跟随。
+    行为侧由 tests/test_ais053_mcp_endpoint_policy.py 与
+    tests/test_mcp_stdio_registration_gates.py 的用例覆盖。
     """
     src = inspect.getsource(mcp_router)
-    assert 'not in ("http", "https")' in src, "协议族校验被摘掉了"
-    assert "外部 MCP 仅允许 http(s) 落点" in src
-    # 只在 **url 传输那一段** 里查角色闸:stdio 段本来就有"stdio 的 MCP Server 只能由管理员注册"
-    # (那是第 3 批的正确结论),整文件 grep 会把它误读成回潮 —— 判据要按段判,不按全文撞字符串。
-    url_block = src[src.index("if req.url.strip():") : src.index("manager = get_mcp_client_manager()")]
-    assert "只能由管理员注册" not in url_block, (
-        "又给远程 MCP 加了角色闸 ⇒ 会打红 test_sse_register_untouched_by_stdio_gate"
-    )
+    assert "ROLE_DENIED" in src, "非管理员注册的角色闸被摘掉了"
+    assert "resolve_mcp_endpoint(req.url.strip())" in src, "注册期落点校验被摘掉了"
+    assert "ENDPOINT_BLOCKED" in src
 
 
-def test_mcp_client_connect_site_validates_scheme_only() -> None:
-    """连接点刻意**不**套端口封闭表:内网自研 MCP 是在用设计(见函数内注记)。
+def test_mcp_client_connect_site_uses_endpoint_policy() -> None:
+    """连接点必须走 `mcp_endpoint_policy`:判定在解析后的真实 IP 上,重定向不跟随。
 
-    这条断言锁的是"决策",不是实现细节 —— 将来谁要把 `_validate_url_ssrf` 接回这里,
-    必须先处理 test_sse_connect_success 那条连 127.0.0.1:8803 的在用能力。
+    刻意仍**不**套 screenshot 的 `_validate_url_ssrf`(那把尺子的端口封闭表会打死
+    第一方内网 MCP)。"内网落点是否放行"改由显式开关 MCP_ALLOW_PRIVATE_ENDPOINTS
+    控制(默认关),不再靠连接点自己放宽。
     """
     src = Path(mcp_client.__file__).read_text(encoding="utf-8")
-    assert 'parsed.scheme not in ("http", "https")' in src
+    assert "resolve_endpoint(self._config.url)" in src, "连接点未接落点策略"
+    assert "asyncio.open_connection(target.ip, target.port" in src, (
+        "连接目标没有钉到已校验 IP ⇒ 校验期与连接期仍可能被 DNS rebinding 换掉"
+    )
+    assert "follow_redirects=False" in src, "streamable-http 又允许跟随重定向了"
     assert "_validate_url_ssrf(" not in src, (
-        "连接侧又套上了 SSRF 端口表 —— 会打死第一方内网 MCP(test_sse_connect_success)。"
-        "注意判的是**调用形态**,注释里引用这个名字不算(散文不是回潮)。"
+        "连接侧又套上了 SSRF 端口表 —— 会打死第一方内网 MCP;放行改由显式开关控制。"
     )
 
 
