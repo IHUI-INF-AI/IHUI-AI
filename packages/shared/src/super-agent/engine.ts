@@ -137,6 +137,8 @@ export interface SuperTicket {
   ownerUserId: string
   sourceId: string
   threadId: string
+  /** 建单时刻（epoch ms）。RP-43：面板「创建时间」列的唯一来源；旧快照无此字段时为 null。 */
+  createdAt?: number
   scope: string
   strength: Strength
   policyVersion: string
@@ -173,6 +175,36 @@ export interface ReceiveResult {
   work?: WorkerAssignment
 }
 
+/**
+ * 面板工单行（RP-43）。
+ *
+ * `needsPerson` 只收「要人处理」的单；本字段是本主体的**全部**工单投影，
+ * 供 web 工单面板列出状态/领域/创建时间/所属主体/进度与详情。判据仍在引擎，
+ * 这里只做原样投影，不在端内复算阶段。
+ */
+export interface PanelTicket {
+  ticketId: string
+  /** 来源/领域（触发进来的那个来源）。 */
+  sourceId: string
+  scope: string
+  strength: Strength
+  /** 建单时刻（epoch ms）；旧快照缺该字段时为 null，端上按「未记录」渲染。 */
+  createdAt: number | null
+  ownerUserId: string
+  stage: TicketStage
+  sessionId: string
+  directory: string
+  assignment: { id: string; state: AssignmentState; leaseExpiresAt?: number } | null
+  report: { state: ReportState; text: string } | null
+  attention: string | null
+  deliveryError: string | null
+  ended: { by: 'person' | 'executor' | 'policy'; outcome: string } | null
+  /** 触发这张单的原始请求（含后续扇入的并单内容）。 */
+  inputs: { triggerId: string; text: string; fromPerson: boolean }[]
+  leaseLostAt: number | null
+  lostLeaseCount: number
+}
+
 export interface PanelView {
   needsPerson: {
     ticketId: string
@@ -182,6 +214,8 @@ export interface PanelView {
     sessionId: string
     directory: string
   }[]
+  /** 本主体全部工单（含 working/idle/ended），按建单先后稳定排列。 */
+  tickets: PanelTicket[]
   quietDrops: number
   recorded: number
   pendingRecords: {
@@ -816,17 +850,44 @@ export class SuperAgentHost {
   }
 
   panel(ownerUserId: string): PanelView {
-    const needsPerson = [...this.tickets.values()]
+    const tickets: PanelTicket[] = [...this.tickets.values()]
       .filter((ticket) => ticket.ownerUserId === ownerUserId)
-      .map((ticket) => ({ ticket, stage: ticketStage(ticket) }))
-      .filter((row) => row.stage.stage === 'person')
-      .map((row) => ({
-        ticketId: row.ticket.id,
-        stage: row.stage,
-        attention: row.ticket.attention,
-        scope: row.ticket.scope,
-        sessionId: row.ticket.execution.sessionId,
-        directory: row.ticket.execution.directory,
+      .map((ticket) => ({
+        ticketId: ticket.id,
+        sourceId: ticket.sourceId,
+        scope: ticket.scope,
+        strength: ticket.strength,
+        createdAt: typeof ticket.createdAt === 'number' ? ticket.createdAt : null,
+        ownerUserId: ticket.ownerUserId,
+        stage: ticketStage(ticket),
+        sessionId: ticket.execution.sessionId,
+        directory: ticket.execution.directory,
+        assignment: ticket.assignment
+          ? {
+              id: ticket.assignment.id,
+              state: ticket.assignment.state,
+              ...(ticket.assignment.leaseExpiresAt !== undefined
+                ? { leaseExpiresAt: ticket.assignment.leaseExpiresAt }
+                : {}),
+            }
+          : null,
+        report: ticket.report ? { state: ticket.report.state, text: ticket.report.text } : null,
+        attention: ticket.attention,
+        deliveryError: ticket.deliveryError,
+        ended: ticket.ended ? { by: ticket.ended.by, outcome: ticket.ended.outcome } : null,
+        inputs: ticket.inputs.map((input) => ({ ...input })),
+        leaseLostAt: ticket.leaseLostAt,
+        lostLeaseCount: ticket.lostLeaseCount,
+      }))
+    const needsPerson = tickets
+      .filter((ticket) => ticket.stage.stage === 'person')
+      .map((ticket) => ({
+        ticketId: ticket.ticketId,
+        stage: ticket.stage,
+        attention: ticket.attention,
+        scope: ticket.scope,
+        sessionId: ticket.sessionId,
+        directory: ticket.directory,
       }))
     const pendingRecords = [...this.recordedTriggers.values()]
       .filter((row) => row.trigger.actorId === ownerUserId)
@@ -851,6 +912,7 @@ export class SuperAgentHost {
           })),
       )
     return {
+      tickets,
       needsPerson,
       quietDrops: this.quietDrops,
       recorded: this.recorded,
@@ -949,6 +1011,7 @@ export class SuperAgentHost {
       ownerUserId,
       sourceId: trigger.sourceId,
       threadId: trigger.threadId,
+      createdAt: this.clock.now(),
       scope: trigger.text,
       strength,
       policyVersion: policy.version,

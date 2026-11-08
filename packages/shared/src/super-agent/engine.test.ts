@@ -155,6 +155,45 @@ describe('super-agent 控制面', () => {
     expect(agent.receive(trigger(), 'user-a').disposition).toBe('paused')
     expect(agent.panel('user-a').needsPerson).toHaveLength(0)
   })
+
+  it('面板投影全部工单：领域、创建时间、所属主体、进度与停单结局', () => {
+    const agent = host()
+    const opened = agent.receive(
+      trigger({ id: 'panel-1', sourceId: 'web', text: '给工单加面板' }),
+      'user-a',
+    )
+    const id = opened.ticketId!
+    agent.report(id, 'user-a', { state: 'progress', text: '正在接线' })
+    agent.report(id, 'user-a', { state: 'ready', text: '面板已可用' })
+
+    const panel = agent.panel('user-a')
+    expect(panel.tickets).toHaveLength(1)
+    const row = panel.tickets[0]!
+    expect(row).toMatchObject({
+      ticketId: id,
+      sourceId: 'web',
+      scope: '给工单加面板',
+      ownerUserId: 'user-a',
+      stage: { stage: 'person', action: 'review' },
+      report: { state: 'ready', text: '面板已可用' },
+      inputs: [{ triggerId: 'panel-1', text: '给工单加面板', fromPerson: true }],
+      ended: null,
+    })
+    expect(row.createdAt).toEqual(expect.any(Number))
+    expect(row.createdAt).toBeGreaterThan(0)
+
+    agent.stop(id, 'user-a', '用户停止')
+    const stopped = agent.panel('user-a').tickets[0]!
+    expect(stopped.stage).toEqual({ stage: 'ended' })
+    expect(stopped.ended).toEqual({ by: 'person', outcome: '用户停止' })
+    expect(agent.panel('user-a').needsPerson).toHaveLength(0)
+  })
+
+  it('别的主体的工单不进本主体面板', () => {
+    const agent = host()
+    agent.receive(trigger(), 'user-a')
+    expect(agent.panel('user-b').tickets).toHaveLength(0)
+  })
 })
 
 describe('super-agent 策略重验授权依据', () => {
