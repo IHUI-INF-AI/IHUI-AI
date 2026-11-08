@@ -16,8 +16,9 @@
  */
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
-import { recordAiCost } from '../plugins/ai-cost.js'
+import { recordAiCost, resolveAiCost } from '../plugins/ai-cost.js'
 import { getWalletBalance, settleWalletUsage } from '../plugins/token-balance-service.js'
+import { estimateTokens } from './context-manager-service.js'
 import { AppError } from '../errors/AppError.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
@@ -114,11 +115,18 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
   if (opts.tools && opts.tools.length > 0) body.tools = opts.tools
   if (opts.toolChoice) body.tool_choice = opts.toolChoice
 
-  // F-203 收紧:开工前预检真实余额。零余额直接拒绝,不发起上游调用 ——
-  // 「先给结果后算账」会把成本留给平台(与 F-228 pending 即写应付同型)。
+  // F-203(口径 B):开工前按「预估成本」预检,不是拿 token 数当分,也不是简单 > 0。
+  // 预估只算 prompt 侧成本;余额不足直接 402,不发起上游调用。
   if (opts.userId) {
     const balance = await getWalletBalance(opts.userId)
-    if (balance <= 0) {
+    const promptEstimate = estimateTokens(opts.messages.map((m) => m.content).join('\n'))
+    const estimated = await resolveAiCost({
+      model,
+      promptTokens: promptEstimate,
+      completionTokens: 0,
+    })
+    const estimatedCents = Math.ceil(estimated.cost)
+    if (balance <= 0 || estimatedCents > balance) {
       throw new AppError('余额不足,请充值后重试', 402, 'INSUFFICIENT_BALANCE')
     }
   }
@@ -184,20 +192,26 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
   if (opts.userId && !result.stub && result.usage.totalTokens > 0) {
     const provider = result.modelUsed.includes('/') ? result.modelUsed.split('/')[0]! : 'unknown'
 
-    // 上游成本已经发生,不能撤回:能扣多少扣多少(扣到 0 为止),
-    // 差额落进下面 ai_cost_records.metadata,形成可审计的欠额记录。
+    // 口径 B:先按真实 usage 解析成本(分),钱包扣的与 ai_cost_records 记的是同一个数。
+    // 上游成本已经发生,不能撤回:能扣多少扣多少(扣到 0 为止),差额落进 metadata 审计。
     let settlement: { deducted: number; remaining: number; shortfall: number } | null = null
+    const actual = await resolveAiCost({
+      model: result.modelUsed,
+      promptTokens: result.usage.promptTokens,
+      completionTokens: result.usage.completionTokens,
+    })
+    const costCents = Math.ceil(actual.cost)
     try {
       settlement = await settleWalletUsage({
         userId: opts.userId,
-        amount: result.usage.totalTokens,
+        amount: costCents,
         reason: `crew_llm:${result.modelUsed}`,
       })
       if (settlement.shortfall > 0) {
         logger.warn(
           {
             userId: opts.userId,
-            tokens: result.usage.totalTokens,
+            costCents,
             deducted: settlement.deducted,
             shortfall: settlement.shortfall,
           },
@@ -206,13 +220,13 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
       }
     } catch (e) {
       // 结算本身失败时整笔都是欠额,同样要落审计记录,不能只打日志。
-      logger.warn({ err: e }, '[CrewLLM] settleWalletUsage 失败,整笔用量记为欠额')
+      logger.warn({ err: e }, '[CrewLLM] settleWalletUsage 失败,整笔成本记为欠额')
     }
 
     const billing = {
-      walletDeductedTokens: settlement?.deducted ?? 0,
-      walletBalanceAfter: settlement?.remaining ?? null,
-      billingShortfallTokens: settlement?.shortfall ?? result.usage.totalTokens,
+      walletDeductedCents: settlement?.deducted ?? 0,
+      walletBalanceAfterCents: settlement?.remaining ?? null,
+      billingShortfallCents: settlement?.shortfall ?? costCents,
     }
 
     try {
@@ -224,6 +238,9 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
         completionTokens: result.usage.completionTokens,
         totalTokens: result.usage.totalTokens,
         requestType: opts.sessionId ? 'crew_session' : 'crew',
+        // 与钱包扣减同一个数,禁止 recordAiCost 内部再算一遍
+        cost: costCents,
+        currency: actual.currency,
         metadata: JSON.stringify({
           ...(opts.sessionId ? { sessionId: opts.sessionId } : {}),
           billing,
