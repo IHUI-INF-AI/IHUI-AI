@@ -17,6 +17,7 @@ import {
   queryPendingOrders,
   listPaidOrdersByDate,
   type CreateOrderInput,
+  type DbTx,
 } from '../db/payment-queries.js'
 import type { Order } from '@ihui/database'
 import type { FastifyInstance } from 'fastify'
@@ -65,8 +66,9 @@ export interface OrderOperationResult {
 export async function placeOrder(
   input: PlaceOrderInput,
   operatorId: string | null = null,
+  tx?: DbTx,
 ): Promise<Order> {
-  const order = await createOrderRow(input, operatorId)
+  const order = await createOrderRow(input, operatorId, tx)
   // ihui_payment_attempt_total:下单成功后按渠道计数(渠道中立收口)
   const payChannel = order.paymentMethod ?? 'unknown'
   recordPaymentAttempt(payChannel)
@@ -111,15 +113,16 @@ async function notifyPaymentSuccessSms(order: Order): Promise<void> {
 export async function completeOrder(
   orderNo: string,
   _tradeNo?: string,
+  tx?: DbTx,
 ): Promise<OrderOperationResult> {
-  const order = await findOrderByNo(orderNo)
+  const order = await findOrderByNo(orderNo, tx)
   if (!order) return { success: false, reason: '订单不存在' }
   if (order.status === 'pending') {
     // B3: 条件 UPDATE,返回 undefined 表示状态不匹配(并发竞态)
-    const updated = await updateOrderStatus(orderNo, 'paid', 'pending')
+    const updated = await updateOrderStatus(orderNo, 'paid', 'pending', null, tx)
     if (!updated) {
       // 竞态:另一并发回调刚把订单标记为 paid,重新查询走幂等路径
-      const refetched = await findOrderByNo(orderNo)
+      const refetched = await findOrderByNo(orderNo, tx)
       if (refetched && refetched.status === 'paid') {
         await rechargeIfTokenOrder(refetched)
         return { success: true, order: refetched }
