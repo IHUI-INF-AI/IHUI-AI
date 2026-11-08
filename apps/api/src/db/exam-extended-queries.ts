@@ -98,6 +98,36 @@ export async function findSectionList(chapterId: string): Promise<ExamChapterSec
     .orderBy(asc(examChapterSections.sort), asc(examChapterSections.createdAt))
 }
 
+/**
+ * 批量取多个章节的小节(DB-24,考试域)。
+ *
+ * /exam/papers/:examId/chapters 此前为每个 chapter 单独调 findSectionList,
+ * 章节数越多 SQL 条数线性增长。一条 IN 查询取回后按 chapter 分桶,
+ * 组内顺序与单章查询一致(sort, createdAt)。
+ */
+export async function findSectionListByChapterIds(
+  chapterIds: readonly string[],
+): Promise<Map<string, ExamChapterSection[]>> {
+  const out = new Map<string, ExamChapterSection[]>()
+  const ids = [...new Set(chapterIds)]
+  if (ids.length === 0) return out
+  for (const id of ids) out.set(id, [])
+
+  const rows = await db
+    .select()
+    .from(examChapterSections)
+    .where(inArray(examChapterSections.chapterId, ids))
+    .orderBy(
+      asc(examChapterSections.chapterId),
+      asc(examChapterSections.sort),
+      asc(examChapterSections.createdAt),
+    )
+  for (const row of rows) {
+    out.get(row.chapterId)?.push(row)
+  }
+  return out
+}
+
 export async function findSectionById(id: string): Promise<ExamChapterSection | undefined> {
   const rows = await db
     .select()

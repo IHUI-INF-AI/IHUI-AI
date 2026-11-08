@@ -377,6 +377,8 @@ services:
 
   # 数据库迁移(一次性服务:执行 drizzle-kit migrate 后退出)
   # api 服务依赖 migrate 成功完成(service_completed_successfully)才启动
+  # DB-08:命令显式走 db:migrate:fresh —— 先跑第一遍 migrate,再按需执行 fresh-db 形状守卫,
+  # 最后补跑第二遍;全新库(空 pgdata volume)因此能一次初始化完成,存量库行为不变。
   migrate:
     build:
       context: .
@@ -392,6 +394,7 @@ services:
           memory: 1G
     environment:
       - DATABASE_URL=postgres://${DB_USER:-ihui}:${DB_PASSWORD}@db:5432/${DB_NAME:-ihui}
+    command: ['pnpm', 'run', 'db:migrate:fresh']
     depends_on:
       db:
         condition: service_healthy

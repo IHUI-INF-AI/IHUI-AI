@@ -29,6 +29,7 @@ import {
   buildSchedulePlan,
   hasArrearsCond,
   loadEnrollmentLedger,
+  loadEnrollmentLedgers,
   loadUnattributedPayments,
   recomputeEnrollment,
   recordPayment,
@@ -3224,9 +3225,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       .where(and(eq(eduEnrollment.studentId, childId), isNull(eduEnrollment.deletedAt)))
       .orderBy(eduEnrollment.enrollDate)
 
-    const bills = await Promise.all(
-      enrollments.map(async (e) => ({ ...e, ledger: await loadEnrollmentLedger(e.enrollmentId) })),
-    )
+    const ledgers = await loadEnrollmentLedgers(enrollments.map((e) => e.enrollmentId))
+    const bills = enrollments.map((e) => ({ ...e, ledger: ledgers.get(e.enrollmentId) ?? null }))
     return reply.send(success({ childId, bills }))
   })
 
@@ -5586,14 +5586,12 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       )
     const enrollmentMap = new Map(enrollments.map((e) => [e.id, e]))
     // 欠费额逐条取自账目出口(与名单、汇总、定时催费同一把尺子),不再各自减一次。
-    // 批量上限 100,并发取数;取不到账目按 0 处理并落进 skipped 明细,不猜金额。
+    // 批量入口把 5N 次查询压成固定 5 次;取不到账目按 0 处理并落进 skipped 明细,不猜金额。
+    const ledgers = await loadEnrollmentLedgers(parsed.data.enrollmentIds)
     const arrearsById = new Map<string, number>()
-    await Promise.all(
-      parsed.data.enrollmentIds.map(async (id) => {
-        const l = await loadEnrollmentLedger(id)
-        arrearsById.set(id, l?.arrears ?? 0)
-      }),
-    )
+    for (const id of parsed.data.enrollmentIds) {
+      arrearsById.set(id, ledgers.get(id)?.arrears ?? 0)
+    }
     const skipped: Array<{ enrollmentId: string; reason: string }> = []
     const dueList = parsed.data.enrollmentIds
       .map((id) => {
@@ -5854,14 +5852,13 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     // 账期视图:学生/家长自助页要回答"哪一期、什么时候到期、还差多少",
     // 而这些数字必须由账目出口给,不得由前端拿 totalFee - paidAmount 自己算
     // (前端自算是第三个口径,本仓已因"三处各算一遍"出过一次催缴对象错人的事故)。
-    // 逐条查的代价:上面 enrollments 已 limit(50),最坏 50 次轻量查询,自助页可接受。
-    const ledgers = await Promise.all(
-      enrollments.map(async (e) => ({
-        enrollmentId: e.id,
-        ledger: await loadEnrollmentLedger(e.id),
-      })),
-    )
-    return reply.send(success({ enrollments, payments, ledgers }))
+    // 批量入口把 5N 次查询压成固定 5 次,不再随 enrollments(最多 50)线性放大。
+    const ledgers = await loadEnrollmentLedgers(enrollments.map((e) => e.id))
+    const ledgerRows = enrollments.map((e) => ({
+      enrollmentId: e.id,
+      ledger: ledgers.get(e.id) ?? null,
+    }))
+    return reply.send(success({ enrollments, payments, ledgers: ledgerRows }))
   })
 }
 

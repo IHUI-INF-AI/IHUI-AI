@@ -24,8 +24,9 @@
  *   psql 客户端定位同样复用 lib/psql-client-locate.mjs 的 locatePsqlClient(候选序唯一实现)。
  *
  * 落地定义(两路任一命中即算 landed):
- *   ① 存在库行 created_at == entry.when(drizzle 应用时写入的本人行)
- *   ② 存在库行 hash == sha256(该 .sql 的某合法比对形态)(when 漂移而内容确已应用的历史形态)
+ *   ① 存在库行 hash == sha256(该 .sql 的某合法比对形态)(内容身份,容忍 when 漂移;DB-14 起强制校验)
+ *   ② 取不到 .sql 正文时,存在库行 created_at == entry.when(弱兜底,不报错)
+ *   —— 正文可取时 when 命中但 hash 不符 ⇒ 判缺(exit 1),不再短路成 landed。
  *
  * 只读纪律:本器只发一条 `SELECT created_at||'|'||hash FROM drizzle.__drizzle_migrations`,
  * 不写库、不写盘、不跑迁移。取证/测试一律离线用替身注入行集,绝不连生产库(AGENTS §5 隔离铁律)。
@@ -121,15 +122,26 @@ export function missingEntries(entries, rows, sqlTextOf) {
   const hashes = new Set(rows.map((r) => String(r.hash).toLowerCase()))
   const missing = []
   for (const e of entries) {
-    if (createdAts.has(Number(e.when))) continue
     const text = typeof sqlTextOf === 'function' ? sqlTextOf(e.tag) : null
     if (typeof text === 'string') {
+      // DB-14:正文 hash 是内容身份;命中即落地(容忍 when 漂移)。
+      // when 命中但 hash 不符 ⇒ created_at 被复用/文件后改,必须判缺,不能短路放行。
       const hit = b11ComparableForms(text)
         .candidates.map((c) => sha256Hex(c))
         .some((h) => hashes.has(h))
       if (hit) continue
+      missing.push({
+        tag: e.tag,
+        idx: e.idx,
+        when: e.when,
+        note: createdAts.has(Number(e.when))
+          ? 'when 命中但文件 hash 与账本不符(内容漂移/身份复用)'
+          : '',
+      })
+      continue
     }
-    missing.push({ tag: e.tag, idx: e.idx, when: e.when, note: typeof text === 'string' ? '' : '无.sql文件可比对形态' })
+    if (createdAts.has(Number(e.when))) continue
+    missing.push({ tag: e.tag, idx: e.idx, when: e.when, note: '无.sql文件可比对形态' })
   }
   return missing
 }
@@ -236,9 +248,9 @@ function runSelfTest() {
     if (!cond) failed += 1
   }
   const E = (n) => Array.from({ length: n }, (_, i) => ({ idx: i, tag: `t${i}`, when: 1000 + i }))
-  const spy = { calls: [], writes: 0 }
-  const fakeRunner = (dsn, rawFor) => (d) => {
-    spy.calls.push({ dsn: d ?? dsn, sql: rawFor })
+  const _spy = { calls: [], writes: 0 }
+  const _fakeRunner = (dsn, rawFor) => (d) => {
+    _spy.calls.push({ dsn: d ?? dsn, sql: rawFor })
     return rawFor
   }
   // T1 全落地(when 逐一对上)
@@ -267,7 +279,7 @@ function runSelfTest() {
   const r7 = evaluate({ entries: E(3), dsn: 'x', runner: () => 'NOTICE: schema drizzle does not exist' })
   ok('T7 输出解析不出 ⇒ undetermined', r7.verdict === 'undetermined')
   // T8 只读纪律(副作用断言):runner 只收到 SELECT 文本;评估全程零 fs 写
-  const before = new Set(spy.calls.map((c) => c.sql))
+  const before = new Set(_spy.calls.map((c) => c.sql))
   ok('T8 审计对库只发 SELECT(替身侧断言;真 runner 的语句同样以 SELECT 开头)',
     [...before].every((s) => /^SELECT\s/i.test(s)) && defaultQuerySqlIsReadOnly())
   // T9 DSN 优先级:--dsn > env > 文件
