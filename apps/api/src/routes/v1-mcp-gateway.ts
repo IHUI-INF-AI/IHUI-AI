@@ -23,9 +23,10 @@
  * 错误码:
  * - 401:API Key 无效 / 取不到调用主体
  * - 1003:模型不在白名单(需用户添加 mcp-* 到 allowedModels)
- * - 5015:ai-service 不可用(网络错误 / 连接超时)
+ * - 5015:ai-service 不可用(网络错误 / 连接失败)
  * - 5016:内部凭据签发失败(JWT_SECRET 缺失等),本进程直接短路,不发空凭据出去
  * - 502:ai-service 返回错误(非 2xx 响应)
+ * - 504:ai-service 响应超时(显式 30s deadline,与 5015 区分:超时可重试)
  *
  * ai-service MCP 端点(参考 apps/ai-service/app/routers/mcp.py,**全部挂在 /api 前缀下**,
  * 见 app/main.py 的 `include_router(mcp.router, prefix="/api")`):
@@ -62,6 +63,17 @@ import { mintInternalJwt } from './v1-shared.js'
 // 后续可扩展为 per-tool 定价表,按 tool name 返回不同定价。
 // =============================================================================
 const MCP_TOOL_BASE_TOKENS = 1000
+
+/**
+ * F-49(2026-11-08):转发 ai-service 的显式 deadline。
+ * 与 `AI_SERVICE_TIMEOUT_MS`(30s)同档;超时映射 504,与「连不上 → 503」区分开。
+ */
+const MCP_FORWARD_TIMEOUT_MS = 30_000
+
+/** 是否为 AbortSignal.timeout 触发的超时(区别于客户端断开等其它 abort) */
+function isAbortTimeout(e: unknown): boolean {
+  return (e as { name?: string } | null | undefined)?.name === 'TimeoutError'
+}
 
 // =============================================================================
 // 类型定义
@@ -138,9 +150,21 @@ async function forwardToAiService(
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      // F-49(2026-11-08):无 deadline 的 fetch 在上游半开(不回 FIN)时会永久挂起,
+      // socket/内存随并发累积。给显式 deadline,并把「超时」与「上游不可用/5xx」区分开:
+      // 超时是上游慢(504,可重试),连不上/网络错误是上游不可用(503)。
+      signal: AbortSignal.timeout(MCP_FORWARD_TIMEOUT_MS),
     })
-  } catch {
-    // 网络错误 / 连接超时 → ai-service 不可用
+  } catch (e) {
+    if (isAbortTimeout(e)) {
+      return {
+        ok: false,
+        code: 504,
+        httpStatus: 504,
+        message: `ai-service 响应超时(${MCP_FORWARD_TIMEOUT_MS}ms)`,
+      }
+    }
+    // 网络错误 → ai-service 不可用
     return { ok: false, code: 5015, httpStatus: 503, message: 'ai-service 不可用' }
   }
 
