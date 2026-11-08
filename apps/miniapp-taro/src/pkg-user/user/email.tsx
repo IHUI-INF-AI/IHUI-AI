@@ -8,7 +8,8 @@ import { View, Text, Input } from '@tarojs/components'
 // 描边画在外层容器 `.email-input-box` 上 ⇒ 走 hook 文档的 WRAP 形态②:handlers 留 Input、focusStyle 铺容器。
 import { useFieldFocus } from '@/hooks/use-field-focus'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
+import { useCountdown } from '@ihui/shared'
 import { useUiField } from '@/lib/ui-field-registry'
 import { getProfile, bindEmail, post } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
@@ -34,10 +35,9 @@ export default function Email() {
   // 两个输入盒各自的运行时聚焦档(描边在容器上)
   const ffEmail = useFieldFocus()
   const ffCode = useFieldFocus()
-  const [counting, setCounting] = useState(false)
-  const [count, setCount] = useState(60)
+  // 截止戳派生:后台被节流后返回前台仍按墙钟对表(useDidShow 里 sync)
+  const codeCountdown = useCountdown(60)
   const [submitting, setSubmitting] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -57,6 +57,7 @@ export default function Email() {
   })()
 
   useDidShow(() => {
+    codeCountdown.sync()
     // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
     gate.waitUntilReady(() => {
       void (async () => {
@@ -75,21 +76,12 @@ export default function Email() {
   })
 
   function startCountdown() {
-    setCounting(true)
-    timerRef.current = setInterval(() => {
-      setCount((prev) => {
-        if (prev <= 1) {
-          if (timerRef.current) clearInterval(timerRef.current)
-          setCounting(false)
-          return 60
-        }
-        return prev - 1
-      })
-    }, 1000)
+    codeCountdown.reset(60)
+    codeCountdown.start()
   }
 
   async function sendCode() {
-    if (counting) return
+    if (codeCountdown.count > 0) return
     const target = (email || '').trim()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) {
       onToast(tt('user.email.emailInvalid', '邮箱格式不正确'), { kind: 'error' })
@@ -179,8 +171,8 @@ export default function Email() {
               value={code}
               onInput={(e) => setCode(e.detail.value)}
             />
-            <Text className={`email-code-btn ${counting ? 'disabled' : ''}`} onClick={sendCode}>
-              {counting ? `${count}s` : tt('user.email.getCode', '获取验证码')}
+            <Text className={`email-code-btn ${codeCountdown.isRunning ? 'disabled' : ''}`} onClick={sendCode}>
+              {codeCountdown.isRunning ? `${codeCountdown.count}s` : tt('user.email.getCode', '获取验证码')}
             </Text>
           </View>
         </View>
