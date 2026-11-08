@@ -68,6 +68,12 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "path": "scripts/data/immutable-guard-detached-signatures.jsonl",
+      "kind": "gate-registry",
+      "why": "分离签名台账（2026-11-07 立）：一行 = 给一枚已入库、提交信息里没有签名槽位的历史提交补一份「40 位 sha + 该枚实际路径全集 + 理由 + signedAt」的签名，用独立追认钥签。paths 逐条精确相等、sig 必须验得过、同一 sha 不许重复、钥不可用即未判定；它本身若不受保护，谁都能往里补一行把任意历史提交洗成「有有效签名」，通道就成了豁免名单",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": "scripts/git-guardian.mjs",
       "kind": "gate-registry",
       "why": "巡检调度器本体：auditImmutableGuardNewCommits 住这里，改掉它巡检就永远 return，而巡检仍由被改过的代码执行",
@@ -89,6 +95,12 @@
       "path": "scripts/object-space-land.mjs",
       "kind": "gate-body",
       "why": "旁路落地器：结构上不跑钩子，冲突标记/水印/落地后复跑判据全由它自带",
+      "reviewBy": "2027-06-30"
+    },
+    {
+      "path": "scripts/push-receipt.mjs",
+      "kind": "gate-registry",
+      "why": "推送门凭据 CLI 入口：把校验改成恒 true 即可用任意旧 tree 洗白任何提交（实现本体在 scripts/lib/push-receipt.mjs，同受保护）",
       "reviewBy": "2027-06-30"
     },
     {

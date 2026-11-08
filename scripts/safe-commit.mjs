@@ -1203,7 +1203,7 @@ const stagedBaselineAtStep3 = stagedFiles.map(normalize)
 const LIVE_DOCS = ['README.md', 'AGENTS.md', 'PROJECT_PLAN.md']
 // 两片**派生区**各有独占写入器,块内"少行/改值"是设计内收缩,不是谁的手写内容被吃掉:
 //   · `RECENT UPDATES` ← auto-update-readme-recent.mjs(按 MAX_GROUPS 封顶裁旧);
-//   · `GENERATED NUMBERS` ← gen-doc-numbers.mjs --markdown(数字由现算值覆盖,正确性归门 173)。
+//   · `GENERATED NUMBERS` ← sync-readme-numbers.mjs(唯一写入口;数字由现算值覆盖,正确性归门 173)。
 // 3e 只对**派生区之外**要求"工作树 ⊇ HEAD"。
 // (2026-10-22 实证:回写后的 README 每次裁旧/换代都会被原判据判红,自动收编因此每 3 分钟空转一轮。)
 const DERIVED_BLOCKS = [

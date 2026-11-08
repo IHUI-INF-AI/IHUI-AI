@@ -43,9 +43,9 @@
  *   node scripts/check-cross-end-parity-drift.mjs --gate --push  # 回归制 push 面(恶化即失败)
  *   node scripts/check-cross-end-parity-drift.mjs --self-test
  */
-import { execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 // 裁决台账单源(§0.6):镜像数减少的唯一豁免凭据,判据不在此复算。
 import { readVerdicts } from './lib/cross-end-verdicts.mjs'
@@ -110,35 +110,58 @@ export const GATE_DIRECTIONS = [
   ['conversionRefused', 'up', '预演拒绝转壳的页数'],
 ]
 
-/** 跑一道对账器取 JSON;非零退出也可能带完整结论(判红档),故 stdout 优先、状态另报 */
-function runRuler(script, args = ['--json']) {
-  const cmd = join(HERE, script)
-  if (!existsSync(cmd)) return { ok: false, why: `尺子不在位:${script}` }
-  try {
-    const out = execFileSync(process.execPath, [cmd, ...args], {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 10 * 60 * 1000,
-      maxBuffer: 1 << 24,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+/**
+ * 跑一道对账器取 JSON;非零退出也可能带完整结论(判红档),故 stdout 优先、状态另报。
+ * 六把尺只读同一面、互不写盘 ⇒ 并发派生;语义与改动前的同步实现逐条对齐(2026-11-07 提速时立):
+ * - 尺子不在位 ⇒ ok:false(不进并发);
+ * - 退出码非零但 stdout 是 JSON ⇒ 仍 ok:true(判红档的结论要照收);
+ * - 抛错/超时/maxBuffer 溢出且没有可解析 stdout ⇒ ok:false(整门因此未判定,不许被并发吞掉)。
+ * 子进程统一带 `IHUI_FACE_TREE_SNAPSHOT=1`:一轮只读扫描里 HEAD 树表只物化一次(见 face-reader)。
+ */
+function runRulerAsync(script, args = ['--json']) {
+  // 绝对路径只给测试用(临时夹具,不进仓库);生产一律相对 HERE 的尺子名。
+  const cmd = isAbsolute(script) ? script : join(HERE, script)
+  if (!existsSync(cmd)) return Promise.resolve({ ok: false, why: `尺子不在位:${script}` })
+  return new Promise((resolve) => {
     try {
-      return { ok: true, json: JSON.parse(out) }
-    } catch {
-      return { ok: false, why: `${script} 输出不是 JSON` }
+      execFile(
+        process.execPath,
+        [cmd, ...args],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 10 * 60 * 1000,
+          maxBuffer: 1 << 24,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { ...process.env, IHUI_FACE_TREE_SNAPSHOT: '1' },
+        },
+        (e, stdout) => {
+          const out = String(stdout ?? '')
+          if (!e) {
+            try {
+              resolve({ ok: true, json: JSON.parse(out) })
+            } catch {
+              resolve({ ok: false, why: `${script} 输出不是 JSON` })
+            }
+            return
+          }
+          if (out.trim()) {
+            try {
+              resolve({ ok: true, json: JSON.parse(out), status: e?.code ?? null })
+              return
+            } catch {
+              /* 落到下面 */
+            }
+          }
+          resolve({ ok: false, why: `${script} 跑不动:${String(e?.message ?? e).slice(0, 120)}` })
+        },
+      )
+    } catch (e) {
+      // 连派生都没成功(参数/环境级错误):同样折成 ok:false,绝不 resolve 成"没有这把尺"
+      resolve({ ok: false, why: `${script} 跑不动:${String(e?.message ?? e).slice(0, 120)}` })
     }
-  } catch (e) {
-    const out = String(e?.stdout ?? '')
-    if (out.trim()) {
-      try {
-        return { ok: true, json: JSON.parse(out), status: e?.status ?? null }
-      } catch {
-        /* 落到下面 */
-      }
-    }
-    return { ok: false, why: `${script} 跑不动:${String(e?.message ?? e).slice(0, 120)}` }
-  }
+  })
 }
 
 /** 从缺口账本文档自述行抽三个数(生成器写的是 `- 共享屏(真相源): **218**` 这种形) */
@@ -1275,13 +1298,9 @@ function selfTestMain() {
   process.exit(bad === 0 ? 0 : 1)
 }
 
-function main() {
-  const coverage = runRuler('check-cross-end-screen-coverage.mjs')
-  const webParity = runRuler('check-web-rn-screen-parity.mjs', ['--json', '--full'])
-  const fidelity = runRuler('check-miniapp-mirror-fidelity.mjs')
-  // 转换机会只跑**预演**(不带 --apply):器物自己说"落地还要同批改声明件",那一形态未装车,
-  // 所以这里只把机会喊出来并给全两条命令,不自作主张改端内源文件。
-  const conversion = runRuler('upgrade-miniapp-shell-pages.mjs')
+async function main() {
+  // 六把尺都只读 HEAD 面、互不写盘、互不消费对方输出 ⇒ 并发跑;单把失败仍由 runRulerAsync
+  // 折成 ok:false,judge 照旧把整门拖成未判定/判红,不因并发吞掉任何一把的异常。
   /**
    * 样式档位维(2026-11-03 接):`check-web-rn-style-tiers.mjs` 自己的头注写着
    * 「本尺只读,不进提交链;净增经 §5e 到人」—— 而这句话在本轮之前**没有兑现方**:
@@ -1289,29 +1308,44 @@ function main() {
    * web_off / pending 这四个读数。后果是"新增 100 处非档字面量"在提交链、驾驶舱、告警三处
    * 全都不出声(§0.9「造好没装车 = 没有」的同一条,§12f「判据失效的表现永远是安静」)。
    * 档位差是**存量 445 处**的现实:绝对值一进来就恒红(§12e),所以这里只比"本轮有没有变坏"。
-   */
-  const styleTiers = runRuler('check-web-rn-style-tiers.mjs')
-  /**
+   *
    * 小程序档位维(同日接):`check-miniapp-style-tiers.mjs` 此前**只出现在驾驶舱的只读档**
    * (parity-auto:258),既不在 runner 也无任何轮间比较 ⇒ 小程序偏离共享档位源
    * (defaulted / literal 两桶)同样静默增长。它自己已经把可比读数交出来
    * (defaulted / literal / projectPct / spaceLiteralHittable),这里只包成涨跌维(§0.6 零复算)。
    */
-  const miniappTiers = runRuler('check-miniapp-style-tiers.mjs')
-  const doc = (() => {
+  const rulerJobs = [
+    runRulerAsync('check-cross-end-screen-coverage.mjs'),
+    runRulerAsync('check-web-rn-screen-parity.mjs', ['--json', '--full']),
+    runRulerAsync('check-miniapp-mirror-fidelity.mjs'),
+    // 转换机会只跑**预演**(不带 --apply):器物自己说"落地还要同批改声明件",那一形态未装车,
+    // 所以这里只把机会喊出来并给全两条命令,不自作主张改端内源文件。
+    runRulerAsync('upgrade-miniapp-shell-pages.mjs'),
+    runRulerAsync('check-web-rn-style-tiers.mjs'),
+    runRulerAsync('check-miniapp-style-tiers.mjs'),
+  ]
+  // 文档同取 HEAD 面,与六把尺无数据依赖 ⇒ 同批派生,不再串行等一轮。
+  const docJob = new Promise((resolve) => {
     try {
-      return execFileSync('git', ['show', `HEAD:${DOC_PATH}`], {
-        cwd: ROOT,
-        encoding: 'utf8',
-        windowsHide: true,
-        timeout: 60000,
-        maxBuffer: 1 << 22,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
+      execFile(
+        'git',
+        ['show', `HEAD:${DOC_PATH}`],
+        {
+          cwd: ROOT,
+          encoding: 'utf8',
+          windowsHide: true,
+          timeout: 60000,
+          maxBuffer: 1 << 22,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+        (e, stdout) => resolve(e ? '' : String(stdout ?? '')),
+      )
     } catch {
-      return ''
+      resolve('')
     }
-  })()
+  })
+  const [coverage, webParity, fidelity, conversion, styleTiers, miniappTiers] = await Promise.all(rulerJobs)
+  const doc = await docJob
   const prev = readPrev()
   // 裁决台账取 HEAD 面(与其余各尺同面同轮,§0.4);取不到 ⇒ null ⇒ 豁免数记 0,不折成"全是新裁决"。
   let verdictRows = null
@@ -1400,5 +1434,5 @@ if (isDirectRun) {
   else main()
 }
 
-export const __test__ = { judge, notApplicableSince, docNumbers, DOC_PATH }
+export const __test__ = { judge, notApplicableSince, docNumbers, DOC_PATH, runRulerAsync }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

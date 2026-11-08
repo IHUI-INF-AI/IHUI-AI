@@ -566,6 +566,12 @@ describe('长期记忆和用户画像读不到', () => {
       fs.writeFileSync(skills, skillBody);
       expect(() => addInstalledSkill('new', skills)).toThrow(/不能把它覆盖成只剩新的一项/);
       expect(fs.readFileSync(skills, 'utf-8')).toBe(skillBody);
+      // 合法 JSON 但形状不对(installed 不是数组)与半截 JSON 同等 fail-closed:不得被改写成只剩新增项
+      const skillsShape = path.join(dir, 'ai-skills-shape.json');
+      const skillShapeBody = '{"installed":{}}';
+      fs.writeFileSync(skillsShape, skillShapeBody);
+      expect(() => addInstalledSkill('new', skillsShape)).toThrow(/不能把它覆盖成只剩新的一项 \(corrupt\)/);
+      expect(fs.readFileSync(skillsShape, 'utf-8')).toBe(skillShapeBody);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
