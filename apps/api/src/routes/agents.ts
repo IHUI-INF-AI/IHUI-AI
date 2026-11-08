@@ -683,25 +683,34 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/create - 创建分类
-  server.post('/categories/create', async (request, reply) => {
-    const body = z
-      .object({
-        name: z.string().optional(),
-        description: z.string().nullable().optional(),
-        icon: z.string().nullable().optional(),
-        sort: z.number().optional(),
-        status: z.string().optional(),
-        isPaid: z.boolean().optional(),
-      })
-      .parse(request.body)
-    if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'))
+  // F-359(2026-11-08):`agent_categories` 是平台运营资产(无属主列),DELETE 早已 requireAdmin,
+  // 写面却只挂登录闸 —— 任意登录用户可往全站分类树插节点。与同资源 DELETE 取同一判据;
+  // body 按 CreateCategoryInput 既有合法字段做 zod 白名单(.strict()),未声明键直接 400,
+  // 不做静默剥离,避免 ownerId/categoryId 之类经透传进 INSERT。
+  const createCategoryBody = z
+    .object({
+      name: z.string().optional(),
+      description: z.string().nullable().optional(),
+      icon: z.string().nullable().optional(),
+      sort: z.number().int().optional(),
+      status: z.string().max(1).optional(),
+      isPaid: z.boolean().optional(),
+    })
+    .strict()
+  server.post('/categories/create', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = createCategoryBody.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const name = parsed.data.name
+    if (!name) return reply.status(400).send(error(400, 'name 为必填项'))
     const category = await createCategory({
-      name: body.name,
-      description: body.description,
-      icon: body.icon,
-      sort: body.sort,
-      status: body.status,
-      isPaid: body.isPaid,
+      name,
+      description: parsed.data.description,
+      icon: parsed.data.icon,
+      sort: parsed.data.sort,
+      status: parsed.data.status,
+      isPaid: parsed.data.isPaid,
     })
     return reply.send(success(category))
   })
@@ -801,7 +810,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/:categoryId/enable - 启用付费
-  server.post('/categories/:categoryId/enable', async (request, reply) => {
+  // F-361(2026-11-08):付费开关属运营配置,与同资源 DELETE 同判据 requireAdmin。
+  server.post('/categories/:categoryId/enable', { preHandler: requireAdmin }, async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
     const category = await updateCategory(categoryId, { isPaid: true })
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
@@ -809,7 +819,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/:categoryId/disable - 禁用付费
-  server.post('/categories/:categoryId/disable', async (request, reply) => {
+  // F-361(2026-11-08):与 enable 同一把闸。
+  server.post('/categories/:categoryId/disable', { preHandler: requireAdmin }, async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
     const category = await updateCategory(categoryId, { isPaid: false })
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
@@ -840,7 +851,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/cache/reload - 重载缓存(从 DB 读取写入 Redis)
-  server.post('/categories/cache/reload', async (request, reply) => {
+  // F-362(2026-11-08):缓存运维面只对管理员开放(否则任意登录用户可反复制造 DB→Redis 写放大)。
+  server.post('/categories/cache/reload', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const { list } = await findCategoryList({ page: 1, pageSize: 1000 })
@@ -974,7 +986,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /categories/cache/clear - 清空缓存
-  server.delete('/categories/cache/clear', async (request, reply) => {
+  // F-362(2026-11-08):同上,只有管理员可清空全局分类缓存。
+  // 注:`redis.keys()` 全量扫描在大 key 空间有阻塞风险,改 `scan` 属后续性能项,本次只收权限口。
+  server.delete('/categories/cache/clear', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const keys = await redis.keys(`${CACHE_PREFIX}*`)
