@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const store = vi.hoisted(() => ({
   wallet: 0,
   flows: [] as Array<{ amount: number; balanceAfter: number }>,
-  costs: [] as Array<{ userId: string; totalTokens: number; requestType: string }>,
+  costs: [] as Array<{ userId: string; totalTokens: number; requestType: string; metadata?: string }>,
   usageQueue: [] as number[],
 }))
 
@@ -23,12 +23,19 @@ const mocks = vi.hoisted(() => ({
   recordAiCost: vi.fn(),
 }))
 
+const selectChain = () => {
+  const rows = [{ tokenQuantity: store.wallet }]
+  const p = Promise.resolve(rows)
+  const chain: Record<string, unknown> = {}
+  chain.from = () => chain
+  chain.where = () => chain
+  // 同时支持 await limit(1) 与 limit(1).for('update')(settleWalletUsage 走行锁)
+  chain.limit = () => ({ then: p.then.bind(p), for: () => p })
+  return chain
+}
+
 const TX = {
-  select: () => ({
-    from: () => ({
-      where: () => ({ limit: async () => [{ tokenQuantity: store.wallet }] }),
-    }),
-  }),
+  select: selectChain,
   update: () => ({
     set: (values: Record<string, unknown>) => ({
       where: () => ({
@@ -134,7 +141,56 @@ describe('F-203 Crew 子 LLM 计费', () => {
     // 统计表与扣费逐次对齐(3 次调用 = 3 条 cost + 3 条流水)
     expect(store.costs.map((c) => c.totalTokens)).toEqual([100, 150, 50])
     expect(store.costs).toHaveLength(store.flows.length)
-    // 改前 wallet 仍为 1000、flows 为 0 ⇒ 前两条断言红。
+    // 余额充足时每条成本记录都标注零欠额
+    expect(
+      store.costs.map((c) => JSON.parse(c.metadata!).billing.billingShortfallTokens),
+    ).toEqual([0, 0, 0])
+  })
+
+  it('零余额:预检直接 402,不发起上游调用、不落任何成本/流水', async () => {
+    store.wallet = 0
+
+    await expect(
+      callRealLlm({ messages: [{ role: 'user', content: '零余额' }], userId: 'u1', sessionId: 's1' }),
+    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
+
+    expect(mocks.aiServiceFetch).not.toHaveBeenCalled()
+    expect(store.costs).toHaveLength(0)
+    expect(store.flows).toHaveLength(0)
+    expect(store.wallet).toBe(0)
+  })
+
+  it('运行中耗尽:扣到 0 后欠额入 ai_cost_records,后续调用被预检拒绝', async () => {
+    store.wallet = 50
+    store.usageQueue = [100]
+
+    const first = await callRealLlm({
+      messages: [{ role: 'user', content: '刚够一半' }],
+      userId: 'u1',
+      sessionId: 's1',
+    })
+
+    // 上游已返回的结果照常交付,但钱包只能扣到 0
+    expect(first.content).toBe('ok')
+    expect(store.wallet).toBe(0)
+    expect(store.flows).toEqual([{ amount: 50, balanceAfter: 0 }])
+
+    // 欠额不是只打日志:必须落在可审计的成本记录里
+    expect(store.costs).toHaveLength(1)
+    const meta = JSON.parse(store.costs[0]!.metadata!)
+    expect(meta.sessionId).toBe('s1')
+    expect(meta.billing).toEqual({
+      walletDeductedTokens: 50,
+      walletBalanceAfter: 0,
+      billingShortfallTokens: 50,
+    })
+
+    // 第二次:预检拒绝,上游调用数仍为 1
+    store.usageQueue = [10]
+    await expect(
+      callRealLlm({ messages: [{ role: 'user', content: '再来一次' }], userId: 'u1', sessionId: 's1' }),
+    ).rejects.toMatchObject({ statusCode: 402, errorCode: 'INSUFFICIENT_BALANCE' })
+    expect(mocks.aiServiceFetch).toHaveBeenCalledTimes(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
