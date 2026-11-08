@@ -572,7 +572,12 @@ export async function activateOrderSubscription(order: Order): Promise<void> {
   if (!order.userId) return
   if (order.orderType === 2) {
     const { purchaseVip } = await import('../db/vip-queries.js')
-    await purchaseVip({ userId: order.userId, vipLevelId: order.productId, orderId: order.id })
+    await purchaseVip({
+      userId: order.userId,
+      vipLevelId: order.productId,
+      orderId: order.id,
+      paidAt: order.paidAt ?? undefined,
+    })
     // P0-2b: 订阅激活后自动应用 VIP 等级配额(upsert aiBudgets)
     try {
       const { applyPlanEntitlements } = await import('./plan-entitlement-service.js')
@@ -591,6 +596,7 @@ export async function activateOrderSubscription(order: Order): Promise<void> {
       pricingId: pricing.id,
       period: pricing.period ?? 'monthly',
       orderId: order.id,
+      paidAt: order.paidAt ?? undefined,
     })
   } else if (order.orderType === 6) {
     // P1 修复(2026-08-06):orderType=6(API 订阅)支付成功后此前未激活订阅——

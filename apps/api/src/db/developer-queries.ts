@@ -72,25 +72,28 @@ export async function activateDeveloperSubscription(input: {
   pricingId: string
   period: string
   orderId: string
-}): Promise<DeveloperSubscription> {
-  const now = new Date()
+  /** 支付成功时刻(订单 paidAt)。权益起算与到期都锚定它,重放不会因“当前时间”漂移。 */
+  paidAt?: Date
+}): Promise<DeveloperSubscription | null> {
+  const startTime = input.paidAt ?? new Date()
   const days = input.period === 'yearly' ? 365 : 30
-  const endTime = new Date(now.getTime() + days * 86400_000)
+  const endTime = new Date(startTime.getTime() + days * 86400_000)
+  // F-689:同一订单只发一条订阅。唯一约束 + ON CONFLICT DO NOTHING 让并发/回调重放幂等。
   const rows = await db
     .insert(developerSubscriptions)
     .values({
       userId: input.userId,
       pricingId: input.pricingId,
       period: input.period,
-      startTime: now,
+      startTime,
       endTime,
       status: 1,
       orderId: input.orderId,
     })
+    .onConflictDoNothing({ target: developerSubscriptions.orderId })
     .returning()
-  const row = rows[0]
-  if (!row) throw new Error('创建开发者订阅失败')
-  return row
+  // 冲突说明该订单已激活过(回调重放/并发),按幂等成功处理。
+  return rows[0] ?? null
 }
 
 export async function getMyDeveloperSubscription(
