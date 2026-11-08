@@ -49,6 +49,10 @@ _WIKI_SUBDIR = Path(".ihui") / "wiki"
 _STATEMENT_MAX_CHARS = 300
 
 
+class KnowledgeCardsUnread(Exception):
+    """卡片库存在但读不到(EACCES/EIO 等):绝不把它当成"没有"覆盖写。"""
+
+
 def slugify(project_id: str) -> str:
     """项目 id → 文件安全 slug:小写、非字母数字折叠为 -,空回退 'project'。"""
     s = re.sub(r"[^a-z0-9]+", "-", str(project_id or "").strip().lower()).strip("-")
@@ -306,14 +310,24 @@ async def compile_project(
 
     # 幂等盖章:既有卡库源指纹相同 ⇒ 沿用旧 compiled_at(重编译逐字节不变)。
     compiled_at = ""
-    if cards_path.exists():
+    try:
+        cards_path.stat()
+        cards_exists = True
+    except FileNotFoundError:
+        cards_exists = False
+    except OSError as exc:
+        # 读不到 ≠ 不存在:权限/IO 故障必须点名失败,否则会把旧卡库覆盖成空。
+        raise KnowledgeCardsUnread(f"知识卡片读不到:{cards_path}") from exc
+    if cards_exists:
         try:
             prev = json.loads(
                 await asyncio.to_thread(cards_path.read_text, encoding="utf-8")
             )
             if isinstance(prev, list) and prev and str(prev[0].get("source_hash") or "") == source_hash:
                 compiled_at = str(prev[0].get("compiled_at") or "")
-        except (OSError, ValueError):
+        except OSError as exc:
+            raise KnowledgeCardsUnread(f"知识卡片读不到:{cards_path}") from exc
+        except ValueError:
             compiled_at = ""
     if not compiled_at:
         compiled_at = datetime.now(UTC).isoformat()
