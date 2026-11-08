@@ -33,6 +33,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import { verifyCode } from '../utils/code-store.js'
 import { db, dbRead } from '../db/index.js'
 import { deductToken } from '../db/commission-queries.js'
+import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { findPublishedVideoFeed, findLatestStudyPlanId, findSignUp } from '../db/learn-queries.js'
 import { buildSignedVideoUrl } from '../services/video-sign.js'
 import { USER_PREFERENCE_GROUPS } from '../db/user-preferences-queries.js'
@@ -72,6 +73,9 @@ import { formatMediaTime } from '@ihui/shared'
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { ensureSafeFetchUrl, safeFetch } from '../utils/ssrf-guard.js'
 import { isUuidString } from '../utils/uuid.js'
+
+// F-167:购买/续费时长必须有上限,否则客户端可用超大 duration 换算出极远的 expiresAt。
+const MAX_AGENT_DURATION_DAYS = 3650
 
 /**
  * 内部路由转发:通过 server.inject 复用同进程已注册的主路由
@@ -2217,8 +2221,9 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         // 原为 z.string().min(1).max(64)，只约束长度不约束格式。
         agentId: z.uuid(),
         agentName: z.string().max(128).optional(),
-        price: z.number().min(0),
-        duration: z.number().int().min(1).default(30),
+        // F-167:价格必须由服务端 agents 表决定,故从入参中移除 price;
+        // duration 需有上限,避免客户端换算出极远的 expiresAt。
+        duration: z.number().int().min(1).max(MAX_AGENT_DURATION_DAYS).default(30),
         paymentMethod: z.string().max(32).optional(),
         paymentId: z.string().max(128).optional(),
         categoryId: z.number().int().optional(),
@@ -2226,13 +2231,22 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
         prologue: z.string().optional(),
       })
       .parse(request.body ?? {})
+    // F-167:原实现直接采信 body.price —— 客户端传 0 就能以 0 元买下付费智能体。
+    // agents.price 以"分"存储,zhs_agent_buy.price 以"元"的十进制字符串存储。
+    const [agent] = await dbRead
+      .select({ price: agents.price, isFree: agents.isFree })
+      .from(agents)
+      .where(eq(agents.agentId, body.agentId))
+      .limit(1)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    const priceCents = agent.isFree ? 0 : agent.price
     const expiresAt = new Date(Date.now() + body.duration * 86400000)
     const [created] = await db
       .insert(zhsAgentBuy)
       .values({
         agentId: body.agentId,
         userId,
-        price: body.price.toString(),
+        price: (priceCents / 100).toFixed(2),
         duration: body.duration,
         expiresAt,
         status: 'pending',
@@ -2283,7 +2297,48 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       request.log.error({ err: e, userId, quantity: body.quantity }, '支付历史扣减失败')
       return reply.status(500).send(error(500, message))
     }
-    return reply.send(success({ id: deducted.flowId, balanceAfter: deducted.balanceAfter }))
+    // F-167:本路由是仓内唯一权威的智能体扣币支付事件。修前扣完币就返回,
+    // zhs_agent_buy 永远停在 pending —— 用户付了钱拿不到权益,也不会生成任何结算。
+    // 因此扣币成功后激活该用户该智能体最新的一笔待支付订单,并由激活后的权威行同步结算。
+    let activeBuyId: string | undefined
+    if (body.agentId && isUuidString(body.agentId)) {
+      const [pending] = await dbRead
+        .select()
+        .from(zhsAgentBuy)
+        .where(
+          and(
+            eq(zhsAgentBuy.userId, userId),
+            eq(zhsAgentBuy.agentId, body.agentId),
+            eq(zhsAgentBuy.status, 'pending'),
+          ),
+        )
+        .orderBy(desc(zhsAgentBuy.createdAt))
+        .limit(1)
+      if (pending) {
+        // 条件 UPDATE 只允许 pending → active,并发重复回调不会二次激活/二次结算。
+        const [row] = await db
+          .update(zhsAgentBuy)
+          .set({
+            status: 'active',
+            paymentMethod: pending.paymentMethod ?? 'token',
+            paymentId: body.relatedOrderNo ?? pending.paymentId ?? deducted.flowId,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(zhsAgentBuy.id, pending.id), eq(zhsAgentBuy.status, 'pending')))
+          .returning()
+        if (row) {
+          activeBuyId = row.id
+          await syncAgentBuyToSettlement({ ...row, status: 'active' })
+        }
+      }
+    }
+    return reply.send(
+      success({
+        id: deducted.flowId,
+        balanceAfter: deducted.balanceAfter,
+        ...(activeBuyId ? { activeBuyId } : {}),
+      }),
+    )
   })
 
   server.put('/agents/charge', async (request, reply) => {
@@ -2292,11 +2347,10 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
     const body = z
       .object({
         id: z.string().min(1),
-        status: z.string().max(32).optional(),
+        // F-167:status/price/duration 不得由客户端整写 —— 否则可自封 active、
+        // 改价或无限延长时长。置 active 只发生在权威支付事件(上方 pay-history)。
         paymentMethod: z.string().max(32).optional(),
         paymentId: z.string().max(128).optional(),
-        price: z.number().min(0).optional(),
-        duration: z.number().int().min(1).optional(),
       })
       .parse(request.body ?? {})
     const [existing] = await dbRead
@@ -2308,18 +2362,12 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '收费记录不存在'))
     }
     const updates: Record<string, unknown> = { updatedAt: new Date() }
-    if (body.status) updates.status = body.status
     if (body.paymentMethod) updates.paymentMethod = body.paymentMethod
     if (body.paymentId) updates.paymentId = body.paymentId
-    if (body.price !== undefined) updates.price = body.price.toString()
-    if (body.duration !== undefined) {
-      updates.duration = body.duration
-      updates.expiresAt = new Date(Date.now() + body.duration * 86400000)
-    }
     const [updated] = await db
       .update(zhsAgentBuy)
       .set(updates)
-      .where(eq(zhsAgentBuy.id, body.id))
+      .where(and(eq(zhsAgentBuy.id, body.id), eq(zhsAgentBuy.userId, userId)))
       .returning()
     return reply.send(success(updated))
   })
