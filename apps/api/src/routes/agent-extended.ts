@@ -63,19 +63,123 @@ const ALLOWED_ORDERS: Record<string, string> = {
   updated_asc: '"updated_at" ASC',
 }
 
+/**
+ * DB-46:旧表的显式读列白名单。
+ *
+ * `SELECT *` 会在表新增内部列时自动把该列出参（且列宽漂移不可控）。列集合来自
+ * 各端点既有的写入/筛选契约；未迁入 Drizzle 的旧表以仓内代码列名为准。
+ * `zhs_agent_use_detail` 在仓内无 DDL/写入契约，这里只列筛选与排序真正用到的列。
+ */
+const READ_COLUMNS: Record<string, readonly string[]> = {
+  zhs_agent_need_task: [
+    'id',
+    'user_id',
+    'user_name',
+    'agent_id',
+    'agent_name',
+    'title',
+    'description',
+    'type',
+    'priority',
+    'budget',
+    'deadline',
+    'status',
+    'developer_id',
+    'developer_name',
+    'accept_time',
+    'complete_time',
+    'deliverable',
+    'remark',
+    'created_at',
+    'updated_at',
+  ],
+  agent_upload: [
+    'id',
+    'user_id',
+    'user_name',
+    'agent_id',
+    'agent_name',
+    'file_name',
+    'file_url',
+    'file_type',
+    'file_size',
+    'mime_type',
+    'ext',
+    'biz_type',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+  zhs_agent_use_detail: ['id', 'user_id', 'agent_id', 'biz_type'],
+  agent_rule_param: [
+    'id',
+    'agent_rule_id',
+    'param_name',
+    'param_code',
+    'param_type',
+    'param_value',
+    'description',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+  zhs_agent_buy: [
+    'id',
+    'agent_id',
+    'user_id',
+    'price',
+    'duration',
+    'expires_at',
+    'status',
+    'payment_method',
+    'payment_id',
+    'created_at',
+    'updated_at',
+  ],
+  zhs_developer_link: [
+    'id',
+    'user_id',
+    'user_name',
+    'creator_id',
+    'creator_name',
+    'type',
+    'count',
+    'order_no',
+    'expires_at',
+    'status',
+    'created_at',
+    'updated_at',
+  ],
+}
+
+/** 列表页码上限：page 只有下界时 (page-1)*pageSize 可无限大（DB-46）。 */
+const MAX_LIST_PAGE = 1000
+/** 列表单页上限（与 parsePaging 的 PAGE_SIZE_MAX 同口径）。 */
+const MAX_LIST_PAGE_SIZE = 100
+
+/** 取旧表的显式投影（缺列清单即失败，绝不回退 SELECT *）。 */
+function readProjection(table: string): string {
+  assertTable(table)
+  const cols = READ_COLUMNS[table]
+  if (!cols) throw new Error(`Table not in read-column allowlist: ${table}`)
+  return cols.map((c) => `"${c}"`).join(', ')
+}
+
 import { parsePaging } from '../utils/paging.js'
 
 async function rawList(
   table: string,
   opts: { page: number; pageSize: number; conds?: SQL[]; orderBy?: string },
 ) {
-  assertTable(table)
+  const projection = readProjection(table)
   const where =
     opts.conds && opts.conds.length > 0 ? sql`WHERE ${sql.join(opts.conds, sql` AND `)}` : sql``
   const order = (opts.orderBy ? ALLOWED_ORDERS[opts.orderBy] : undefined) ?? '"id" DESC'
-  const offset = (opts.page - 1) * opts.pageSize
+  const page = Math.min(Math.max(1, opts.page), MAX_LIST_PAGE)
+  const pageSize = Math.min(Math.max(1, opts.pageSize), MAX_LIST_PAGE_SIZE)
+  const offset = (page - 1) * pageSize
   const rows = await db.execute(
-    sql`SELECT * FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${opts.pageSize} OFFSET ${offset}`,
+    sql`SELECT ${sql.raw(projection)} FROM ${sql.raw(`"${table}"`)} ${where} ORDER BY ${sql.raw(order)} LIMIT ${pageSize} OFFSET ${offset}`,
   )
   const countRows = await db.execute(
     sql`SELECT count(*)::int AS count FROM ${sql.raw(`"${table}"`)} ${where}`,
@@ -84,8 +188,8 @@ async function rawList(
   return {
     list: rows as Record<string, unknown>[],
     total,
-    page: opts.page,
-    pageSize: opts.pageSize,
+    page,
+    pageSize,
   }
 }
 
@@ -110,9 +214,11 @@ function developerOwnerScope(request: FastifyRequest): SQL | undefined {
 }
 
 async function rawById(table: string, id: string, extraCond?: SQL) {
-  assertTable(table)
+  const projection = readProjection(table)
   const scope = extraCond ? sql`"id"::text = ${id} AND ${extraCond}` : sql`"id"::text = ${id}`
-  const rows = await db.execute(sql`SELECT * FROM ${sql.raw(`"${table}"`)} WHERE ${scope} LIMIT 1`)
+  const rows = await db.execute(
+    sql`SELECT ${sql.raw(projection)} FROM ${sql.raw(`"${table}"`)} WHERE ${scope} LIMIT 1`,
+  )
   return (rows as Record<string, unknown>[])[0]
 }
 
@@ -1045,7 +1151,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       }
       if (!row && orderNo) {
         const rows = await db.execute(
-          sql`SELECT * FROM ${sql.raw('"zhs_agent_buy"')} WHERE "payment_id" = ${orderNo} LIMIT 1`,
+          sql`SELECT ${sql.raw(readProjection('zhs_agent_buy'))} FROM ${sql.raw('"zhs_agent_buy"')} WHERE "payment_id" = ${orderNo} LIMIT 1`,
         )
         row = (rows as Record<string, unknown>[])[0]
       }
@@ -1561,7 +1667,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const { orderNo } = req.params as { orderNo: string }
     try {
       const rows = await db.execute(
-        sql`SELECT * FROM ${sql.raw('"zhs_developer_link"')} WHERE "order_no" = ${orderNo} AND ${
+        sql`SELECT ${sql.raw(readProjection('zhs_developer_link'))} FROM ${sql.raw('"zhs_developer_link"')} WHERE "order_no" = ${orderNo} AND ${
           developerOwnerScope(req) ?? sql`true`
         } LIMIT 1`,
       )
