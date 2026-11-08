@@ -589,13 +589,76 @@ function bindsSubject(params: readonly unknown[], subjectId: string): boolean {
   return params.some((p) => typeof p === 'string' && p === subjectId)
 }
 
-/** 语句文本是否引用了该表的 owner 列。 */
-function referencesOwnerColumn(sqlText: string, table: string): boolean {
+/** 位置参数 $n(n 从 1 起)对应的 params 值是否等于主体。 */
+function placeholderBindsSubject(
+  placeholder: string,
+  params: readonly unknown[],
+  subjectId: string,
+): boolean {
+  const m = /^\$(\d+)$/.exec(placeholder.trim())
+  if (!m) return false
+  return params[Number(m[1]) - 1] === subjectId
+}
+
+/**
+ * F-216(2026-11-08):select/update/delete 必须出现 `"<owner>" = $n` 且该参数等于主体。
+ * 旧判据只要求"文本里出现列名 + 参数数组里出现自己 ID",可被
+ * `where "name" = $1` + `$1=自己ID` 或 `... or true` 绕过。
+ */
+function ownerEqualityBindsSubject(
+  sqlText: string,
+  table: string,
+  params: readonly unknown[],
+  subjectId: string,
+): boolean {
   const column = ownerColumnOf(table)
-  if (!sqlText.includes(`"${column}"`)) return false
-  // users 的 owner 列是主键 "id",裸 "id" 到处出现 → 必须是被限定引用的形式
-  if (column === 'id') return /"[a-z_][a-z0-9$]*"\."id"/i.test(sqlText)
-  return true
+  const pattern =
+    column === 'id'
+      ? /"[a-z_][a-z0-9$]*"\."id"\s*=\s*\$(\d+)/gi
+      : new RegExp(`"${column.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"\\s*=\\s*\\$(\\d+)`, 'gi')
+  for (const m of sqlText.matchAll(pattern)) {
+    const idx = Number(m[1]) - 1
+    if (params[idx] === subjectId) return true
+  }
+  return false
+}
+
+/** 解析标准 `insert into "t" ("a","b") values ($1,$2)` 的列清单与值占位。 */
+function parseInsertColumnsAndValues(
+  sqlText: string,
+): { columns: string[]; values: string[] } | null {
+  const m = sqlText.match(
+    /^\s*insert\s+into\s+(?:"[^"]+"(?:\s*\.\s*"[^"]+")?|[a-zA-Z_][\w$]*(?:\.[a-zA-Z_][\w$]*)?)\s*\(([^)]*)\)\s*values\s*\(([^)]*)\)/is,
+  )
+  if (!m) return null
+  const splitList = (s: string): string[] =>
+    s
+      .split(',')
+      .map((x) => x.trim())
+      .filter(Boolean)
+  const columns = splitList(m[1]!).map((c) => c.replace(/^"|"$/g, ''))
+  const values = splitList(m[2]!)
+  if (columns.length === 0 || columns.length !== values.length) return null
+  return { columns, values }
+}
+
+/**
+ * F-216:insert 必须把主体 ID 写在 owner 列对应的**同一位置**。
+ * 旧判据只看"列清单含 owner 列 + 参数数组任意位置含主体",可被
+ * `insert into "notes" ("user_id","body") values ($1,$2)` 配 `[$1=受害者,$2=自己]` 冒名写。
+ */
+function insertOwnerColumnBindsSubject(
+  sqlText: string,
+  table: string,
+  params: readonly unknown[],
+  subjectId: string,
+): boolean {
+  const parsed = parseInsertColumnsAndValues(sqlText)
+  if (!parsed) return false
+  const column = ownerColumnOf(table)
+  const idx = parsed.columns.indexOf(column)
+  if (idx < 0) return false
+  return placeholderBindsSubject(parsed.values[idx]!, params, subjectId)
 }
 
 export interface OwnerPredicateEvidence {
@@ -608,8 +671,9 @@ export interface OwnerPredicateEvidence {
 
 /**
  * owner 谓词证据判定(证据式,非信任式):
- * - select/update/delete:必须有 WHERE、引用每张被访问表的 owner 列、并把主体 ID 绑定为参数;
- * - insert:列清单必须含 owner 列,且主体 ID 作为参数写入(机器凭据只能种自己的数据);
+ * - select/update/delete:必须有 WHERE、每张被访问表的 owner 列都以 `= $n` 绑定主体、
+ *   且语句级不得出现 OR(旧版的"文本含列名 + 参数任意位置含主体"可被冒名绕过);
+ * - insert:owner 列必须在列清单中,且**同一位置**的值参数等于主体;
  * - 其他语句类型 / 无表名 / 多表但未全覆盖 → false。
  */
 export function hasOwnerPredicate(evidence: OwnerPredicateEvidence): boolean {
@@ -617,8 +681,13 @@ export function hasOwnerPredicate(evidence: OwnerPredicateEvidence): boolean {
   if (tables.length === 0) return false
   if (kind === 'other') return false
   if (!bindsSubject(params, subjectId)) return false
-  if (kind !== 'insert' && !/\bwhere\b/i.test(sqlText)) return false
-  return tables.every((table) => referencesOwnerColumn(sqlText, table))
+  // F-216:语句级 OR 可让 owner 谓词短路(where owner=$1 or true),一律拒绝
+  if (/\bor\b/i.test(sqlText)) return false
+  if (kind === 'insert') {
+    return tables.every((table) => insertOwnerColumnBindsSubject(sqlText, table, params, subjectId))
+  }
+  if (!/\bwhere\b/i.test(sqlText)) return false
+  return tables.every((table) => ownerEqualityBindsSubject(sqlText, table, params, subjectId))
 }
 
 // ============================================================================
