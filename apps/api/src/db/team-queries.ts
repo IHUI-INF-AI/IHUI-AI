@@ -2,12 +2,14 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, desc, sql } from 'drizzle-orm'
+import { eq, and, or, inArray, desc, sql } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   teams,
   teamMembers,
   teamInvitations,
+  teamKnowledgeSpaceMembers,
+  teamKnowledgeSpaces,
   users,
   type Team,
   type TeamMember,
@@ -215,13 +217,36 @@ export async function findTeamMember(
  * 移除团队成员。
  * 返回库确认已删除的成员行 id 集合 —— where 除 teamId 还带 userId,
  * 跨团队/非成员的目标一律删不到,调用方据返回集合判 deleted 真假(未命中为空数组)。
+ *
+ * F-384:成员关系与知识空间授权是两套表,只删成员会让被踢的人靠残留的
+ * team_knowledge_space_members 行继续读写空间。这里在同一事务内先按**本团队**
+ * 的空间范围回收该用户的授权行,再删成员关系;任一步失败整体回滚(不放半截权限)。
  */
 export async function removeTeamMember(teamId: string, userId: string): Promise<string[]> {
-  const rows = await db
-    .delete(teamMembers)
-    .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
-    .returning({ id: teamMembers.id })
-  return rows.map((r) => r.id)
+  return db.transaction(async (tx) => {
+    const teamSpaces = await tx
+      .select({ id: teamKnowledgeSpaces.id })
+      .from(teamKnowledgeSpaces)
+      .where(eq(teamKnowledgeSpaces.teamId, teamId))
+    const spaceIds = teamSpaces.map((row) => row.id)
+
+    if (spaceIds.length > 0) {
+      await tx
+        .delete(teamKnowledgeSpaceMembers)
+        .where(
+          and(
+            inArray(teamKnowledgeSpaceMembers.spaceId, spaceIds),
+            eq(teamKnowledgeSpaceMembers.userId, userId),
+          ),
+        )
+    }
+
+    const rows = await tx
+      .delete(teamMembers)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)))
+      .returning({ id: teamMembers.id })
+    return rows.map((r) => r.id)
+  })
 }
 
 /**
