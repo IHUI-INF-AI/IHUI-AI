@@ -962,16 +962,17 @@ for (const rel of [
     42. `apps/miniapp-taro/src/rn-compat/platform.tsx` `f1d75668e67a → ee3a71a31c59`
     43. `apps/miniapp-taro/src/utils/save-album.ts` `54c51fe47bf5 → da89c69bc215`
 - **同批派生但一轮清单漏列的 4 个受控文件**：`apps/miniapp-taro/src/assets/remote-locales/{en,ja,ko,zh-TW}.b64.txt`。`gen-i18n-compressed.mjs:536-539` 每次生成都会重写它们，且当前文件字节数（146836/168572/160300/152308）与 manifest 里**旧钉**的 `bytes` 完全一致 ⇒ 它们与 #2/#3 同属陈旧批次，重生成后必然一并出 diff。
-- 对照组（已复算一致，**不要**一并重生成）：
-  - `apps/mobile-rn/src/constants/ui-routes.generated.ts`：2 输入 / 0 差异，钉 `e7f9dbfa0fdf5aec0036fc74aa447c4da050c369aeeba6e0db35d83023ca33e1`
-  - `apps/web/src/lib/ui-routes.generated.ts`：923 输入 / 0 差异，钉 `5a5c3099e578a6e82c973d55f2ea02ca65f99567409607928f990e7c073aa1e4`
+- 对照组（**不要**一并重生成；本次均未出 diff）：
+  - `apps/mobile-rn/src/constants/ui-routes.generated.ts`：2 输入，钉 `e7f9dbfa0fdf5aec0036fc74aa447c4da050c369aeeba6e0db35d83023ca33e1`
+  - `apps/web/src/lib/ui-routes.generated.ts`：923 输入，钉 `5a5c3099e578a6e82c973d55f2ea02ca65f99567409607928f990e7c073aa1e4`
+  - **2026-11-08 重生成后复核（重要）：两文件 `git diff` 为空、未出 diff（符合验收），但钉本身早已陈旧（非本次造成）**：RN 1 条输入已变（`apps/mobile-rn/src/navigation/RootNavigator.tsx`），现算 `fd754397…`；web 4 条输入已变（`apps/web/app/(main)/admin/api-platform/packages/page.tsx`、`agents/featured/page.tsx`、`agents/my/page.tsx`、`wallet/page.tsx`），现算 `d413f735…`。成因是本线早前 XUI 修复落在这些源码上、而 web/RN 自己的 ui-routes 未重生成。**「0 差异」只表示本次没碰它们，不代表钉自洽**；是否另开票据单独重生成，待用户决定。
 - 交接验收（修正后）：唯一写入者执行两条命令后，**只允许 8 个文件出 diff** —— #1–#4 四个 `.gen.ts/.generated.ts` + 上述 4 个 `*.b64.txt`；`git diff --stat` 应显示 8 files。若多出文件说明波次期间又有源码/语言包变更，按新钉重算再交。**禁止手改 `inputsSha256` / `generatedAt` / `version` / `bytes`**：重生成时由生成器从磁盘输入现算。对照组两个 `ui-routes.generated.ts`（mobile-rn/web）不得出 diff。
 - 重生成后必须复核：4 个 `.gen.ts/.generated.ts` 的钉 `inputsSha256` 应变为按磁盘输入复算值（#2/#3 相同）；#4 例外：重生成时补入 `apps/miniapp-taro/src/pkg-shop/vip/paid-verify.ts`（输入 725 → 726），终态为 `03af0632…`；4 个 b64 的字节数应与新 manifest 的 `bytes` 一致。
 - 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单此前落后于源码；4 个 CDN 载荷 `*.b64.txt` 与 manifest `version/bytes` 此前同样陈旧，2026-11-08 已一次性重生成（见执行记录）。
 - 当场可修：已完成（提交 `9fc8e895cb`）。
 - 状态（2026-11-08）：**已完成重生成**，提交 `9fc8e895cb`（8 文件，`+94 / −93`）；四个终态钉复算全部 `matched`。
 - 执行记录（2026-11-08，单一写入者一次）：`pnpm --filter @ihui/miniapp-taro gen:i18n`（更正：`gen:i18n` 注册在 `apps/miniapp-taro/package.json`，根目录没有该脚本）+ `node apps/miniapp-taro/scripts/generate-ui-routes.mjs`。
-  - `git diff --stat` = **8 files changed, 94 insertions(+), 93 deletions(-)**，与验收口径一致；对照组 `apps/web/src/lib/ui-routes.generated.ts`、`apps/mobile-rn/src/constants/ui-routes.generated.ts` 的 `git diff --stat` 输出为空（0 差异）。
+  - `git diff --stat` = **8 files changed, 94 insertions(+), 93 deletions(-)**，与验收口径一致；对照组 `apps/web/src/lib/ui-routes.generated.ts`、`apps/mobile-rn/src/constants/ui-routes.generated.ts` 的 `git diff --stat` 输出为空（0 差异）——**注意：其自身钉已陈旧，见上方「对照组」条，勿误读为自洽**。
   - 终态钉（复算 0 差异）：#1 `7197af7a…`（3 输入）、#2/#3 `00d7b63d…`（12 输入）、#4 `03af0632…`（**726** 输入——旧钉 725，重生成时补入 `apps/miniapp-taro/src/pkg-shop/vip/paid-verify.ts` 一条，故聚合值与二轮预期 `e12b25b8…` 不同，属预期）。
   - 4 个 b64 载荷终态：`en` `e40e6739…`/147192、`ja` `06d5cf81…`/169044、`ko` `4313da0e…`/160728、`zh-TW` `83f85a23…`/152716；逐个 SHA256 与 manifest `version` 完全相同，文件长度与 `bytes` 完全相同。
   - 未手改任何钉字段：`inputsSha256` / `generatedAt` / `version` / `bytes` 均由生成器写出，且与按磁盘输入复算值一致。
