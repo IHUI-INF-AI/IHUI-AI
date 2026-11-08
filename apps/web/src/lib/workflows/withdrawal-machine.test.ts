@@ -4,7 +4,11 @@
 
 import { describe, expect, it } from 'vitest'
 import { createActor } from 'xstate'
-import { withdrawalMachine, WITHDRAWAL_AUTO_APPROVE_THRESHOLD } from './withdrawal-machine'
+import {
+  withdrawalMachine,
+  WITHDRAWAL_AUTO_APPROVE_THRESHOLD,
+  WITHDRAWAL_MAX_RETRIES,
+} from './withdrawal-machine'
 
 const getStateValue = (
   snap: ReturnType<ReturnType<typeof createActor<typeof withdrawalMachine>>['getSnapshot']>,
@@ -84,6 +88,29 @@ describe('withdrawalMachine', () => {
     actor.start()
     actor.send({ type: 'CANCEL' })
     expect(getStateValue(actor.getSnapshot())).toBe('cancelled')
+  })
+
+  it(`XUI-035 打款重试不超过 ${WITHDRAWAL_MAX_RETRIES} 次,超限停在 failed`, () => {
+    const actor = createActor(withdrawalMachine)
+    actor.start()
+    actor.send({ type: 'AUTO_APPROVE', amount: 50 })
+    for (let i = 0; i < WITHDRAWAL_MAX_RETRIES + 2; i += 1) {
+      actor.send({ type: 'PAY_FAIL', error: `boom-${i}` })
+      actor.send({ type: 'RETRY' })
+    }
+    expect(getStateValue(actor.getSnapshot())).toBe('failed')
+    expect(actor.getSnapshot().context.retryCount).toBe(WITHDRAWAL_MAX_RETRIES)
+  })
+
+  it('XUI-035 打款成功后清空上一次遗留的 errorMessage', () => {
+    const actor = createActor(withdrawalMachine)
+    actor.start()
+    actor.send({ type: 'AUTO_APPROVE', amount: 50 })
+    actor.send({ type: 'PAY_FAIL', error: 'insufficient funds' })
+    actor.send({ type: 'RETRY' })
+    actor.send({ type: 'PAY_SUCCESS', transactionId: 'tx-ok', paidAt: '2026-07-20T00:00:00Z' })
+    expect(getStateValue(actor.getSnapshot())).toBe('paid')
+    expect(actor.getSnapshot().context.errorMessage).toBeUndefined()
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

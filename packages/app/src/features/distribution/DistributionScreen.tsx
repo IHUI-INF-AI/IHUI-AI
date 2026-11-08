@@ -48,6 +48,17 @@ export type {
 }
 
 /**
+ * 提现闸门(唯一口径):只看**可提现余额** availableCommission。
+ * pendingCommission 是待结算佣金,不可提;调用方(三端)不得各自另算。
+ */
+export function canWithdraw(
+  info: Pick<DistributionInfo, 'availableCommission' | 'withdrawMin'> | null,
+  withdrawing: boolean,
+): boolean {
+  return !!info && info.availableCommission > 0 && info.availableCommission >= (info.withdrawMin ?? 0) && !withdrawing
+}
+
+/**
  * 分销共享屏 — props 注入式跨端组件
  *
  * 平台无关:负责渲染 header(返回 + 标题 + 副标题)+ 错误提示 + loading 态
@@ -81,7 +92,7 @@ export function DistributionScreen({
 }: DistributionScreenProps & { onRetry?: () => void }) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
-  const canWithdraw = !!info && info.pendingCommission >= (info.withdrawMin ?? 0) && !withdrawing
+  const canWithdrawNow = canWithdraw(info, withdrawing)
   const overviewInitial = (overviewCard?.nickname ?? 'U').charAt(0) || 'U'
 
   return (
@@ -253,9 +264,9 @@ export function DistributionScreen({
               </View>
             </View>
             <TouchableOpacity
-              style={[styles.withdrawBtn, !canWithdraw && styles.withdrawBtnDisabled]}
+              style={[styles.withdrawBtn, !canWithdrawNow && styles.withdrawBtnDisabled]}
               onPress={onWithdraw}
-              disabled={!canWithdraw}
+              disabled={!canWithdrawNow}
             >
               <Text style={styles.withdrawBtnText}>
                 {withdrawing ? t('common.loading') : t('distribution.withdrawBtn')}
