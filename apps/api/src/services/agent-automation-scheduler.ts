@@ -361,6 +361,53 @@ export interface SseCapture {
    * 于是 401/403/400 被按成功落库 —— 状态码必须是结构化的返回值,不是文案。
    */
   upstreamStatus: number | null
+  /**
+   * F-252/F-253:流已**开始**但随后失败 —— 读异常/空闲超时/总超时/流内错误帧。
+   * 与 upstreamStatus 分开是因为它发生在"已收到 200 甚至已收到部分 content"之后:
+   * 只看 upstreamStatus 会把断流当成功、attempt 归零、不重试,而用户看到「执行完成」。
+   */
+  streamFailed: boolean
+}
+
+/** F-252:一次 SSE 消费的**总**时限(含建连与全部读取);到点无论如何收尾。 */
+export const AGENT_STREAM_TOTAL_TIMEOUT_MS = 10 * 60_000
+/** F-252:连续这么久没读到任何 chunk 即判定上游挂起;有内容在流动的长流不受影响。 */
+export const AGENT_STREAM_IDLE_TIMEOUT_MS = 120_000
+
+/** F-253:结构化失败判据 —— 非 2xx 或流内失败。成功分支不得只看 upstreamStatus。 */
+export function captureIsFailure(capture: SseCapture): boolean {
+  return capture.upstreamStatus !== null || capture.streamFailed
+}
+
+class AgentStreamTimeoutError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'AgentStreamTimeoutError'
+  }
+}
+
+/**
+ * 单次 `reader.read()` 的空闲超时。超时后 read 的 Promise 仍挂着,由调用方
+ * `reader.cancel()` 收尾 —— 既断 socket,也不会留下悬挂的读。
+ */
+async function readWithIdleTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  idleMs: number,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      reader.read(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new AgentStreamTimeoutError(`等待上游数据超过 ${idleMs}ms(无任何 chunk)`)),
+          idleMs,
+        )
+      }),
+    ])
+  } finally {
+    if (timer !== undefined) clearTimeout(timer)
+  }
 }
 
 const CONTENT_TAIL_LIMIT = 2000
@@ -382,73 +429,106 @@ export async function consumeAgentStream(
     contentTail: '',
     errorMessage: null,
     upstreamStatus: null,
+    streamFailed: false,
   }
-  const upstream = await aiServiceFetchStream(request, '/api/agent-runtime/execute/stream', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-    },
-    body: JSON.stringify({
-      message: params.message,
-      mode: 'auto',
-      sessionId: params.sessionId,
-      botId: params.botId,
-    }),
-  })
-
-  if (!upstream.ok || !upstream.body) {
-    capture.errorMessage = `上游服务异常(状态码 ${upstream.status})`
-    // G-669:状态码同时进结构化字段,调用方据此分流(permanent 缺凭据形状不再被当成功)
-    capture.upstreamStatus = upstream.status
-    return capture
-  }
-
-  const reader = upstream.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  const handleBlock = (block: string): void => {
-    let dataStr = ''
-    for (const rawLine of block.split('\n')) {
-      const line = rawLine.replace(/\r$/, '')
-      if (line.startsWith('data:')) dataStr += line.slice(5).replace(/^\s/, '')
-    }
-    if (!dataStr) return
-    let data: Record<string, unknown>
-    try {
-      data = JSON.parse(dataStr) as Record<string, unknown>
-    } catch {
-      return
-    }
-    if (typeof data.summary === 'string' && data.summary.trim()) {
-      capture.summary = data.summary
-    }
-    if (typeof data.content === 'string' && data.content) {
-      capture.contentTail = (capture.contentTail + data.content).slice(-CONTENT_TAIL_LIMIT)
-    }
-    if (typeof data.message === 'string' && data.message) {
-      capture.errorMessage = data.message
-    }
-  }
-
+  // F-252:总 deadline 从**建连之前**起算,并作为 signal 交给 fetch —— 上游连头都不回时
+  // 也能被 abort,不会把整轮 tick 挂在一次 fetch 上。
+  const controller = new AbortController()
+  const deadline = Date.now() + AGENT_STREAM_TOTAL_TIMEOUT_MS
+  const totalTimer = setTimeout(() => controller.abort(), AGENT_STREAM_TOTAL_TIMEOUT_MS)
   try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      let boundary: number
-      while ((boundary = buffer.indexOf('\n\n')) !== -1) {
-        const block = buffer.slice(0, boundary)
-        buffer = buffer.slice(boundary + 2)
-        if (block.trim()) handleBlock(block)
+    const upstream = await aiServiceFetchStream(request, '/api/agent-runtime/execute/stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify({
+        message: params.message,
+        mode: 'auto',
+        sessionId: params.sessionId,
+        botId: params.botId,
+      }),
+      signal: controller.signal,
+    })
+
+    if (!upstream.ok || !upstream.body) {
+      capture.errorMessage = `上游服务异常(状态码 ${upstream.status})`
+      // G-669:状态码同时进结构化字段,调用方据此分流(permanent 缺凭据形状不再被当成功)
+      capture.upstreamStatus = upstream.status
+      return capture
+    }
+
+    const reader = upstream.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    const handleBlock = (block: string): void => {
+      let dataStr = ''
+      for (const rawLine of block.split('\n')) {
+        const line = rawLine.replace(/\r$/, '')
+        if (line.startsWith('data:')) dataStr += line.slice(5).replace(/^\s/, '')
+      }
+      if (!dataStr) return
+      let data: Record<string, unknown>
+      try {
+        data = JSON.parse(dataStr) as Record<string, unknown>
+      } catch {
+        return
+      }
+      if (typeof data.summary === 'string' && data.summary.trim()) {
+        capture.summary = data.summary
+      }
+      if (typeof data.content === 'string' && data.content) {
+        capture.contentTail = (capture.contentTail + data.content).slice(-CONTENT_TAIL_LIMIT)
+      }
+      if (typeof data.message === 'string' && data.message) {
+        // F-253:流内错误帧即便前面已收到 content 也是失败,不能只记文案继续当成功。
+        capture.errorMessage = data.message
+        capture.streamFailed = true
       }
     }
-    if (buffer.trim()) handleBlock(buffer)
-  } catch (err) {
-    capture.errorMessage = capture.errorMessage ?? String(err)
-  }
 
-  return capture
+    try {
+      for (;;) {
+        const remaining = deadline - Date.now()
+        if (remaining <= 0) {
+          throw new AgentStreamTimeoutError(
+            `上游流总时长超过 ${AGENT_STREAM_TOTAL_TIMEOUT_MS}ms`,
+          )
+        }
+        // 空闲窗不得超过剩余总时限:总 deadline 是硬上限,不能被一次次 chunk 无限续命。
+        const { done, value } = await readWithIdleTimeout(
+          reader,
+          Math.min(AGENT_STREAM_IDLE_TIMEOUT_MS, remaining),
+        )
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let boundary: number
+        while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, boundary)
+          buffer = buffer.slice(boundary + 2)
+          if (block.trim()) handleBlock(block)
+        }
+      }
+      if (buffer.trim()) handleBlock(buffer)
+    } catch (err) {
+      // 断流时把已读到的最后一段也解析掉(不完整 JSON 会被 handleBlock 忽略),
+      // 让"已收到多少内容"成为可诊断证据,而不是白白丢掉。
+      if (buffer.trim()) handleBlock(buffer)
+      capture.streamFailed = true
+      capture.errorMessage = capture.errorMessage ?? (err instanceof Error ? err.message : String(err))
+      // 收尾:断 socket 并让挂起的 reader.read() 结束,不留悬挂读。
+      try {
+        await reader.cancel()
+      } catch {
+        /* 流可能已 errored/closed,cancel 失败不影响判定 */
+      }
+    }
+
+    return capture
+  } finally {
+    clearTimeout(totalTimer)
+  }
 }
 
 /** D12:解析 automation 执行会话——绑定会话优先,否则 auto_<id> 独立线程(旧行为) */
@@ -821,11 +901,16 @@ export async function executeAutomation(
       botId: automation.id,
     })
 
-    // B 格:非 ok 响应不再是"成功"。状态码与 errorMessage 一起进同一个分类器。
-    if (capture.upstreamStatus !== null) {
+    // B 格 + F-253:非 ok 响应、以及"流已开始但随后断了/流内错误帧"都按失败结算 ——
+    // 只看 upstreamStatus 会把后者当成功(attempt 归零、不重试、用户看到执行完成)。
+    if (captureIsFailure(capture)) {
       return await settleFailure({
         status: capture.upstreamStatus,
-        message: capture.errorMessage ?? `上游服务异常(状态码 ${capture.upstreamStatus})`,
+        message:
+          capture.errorMessage ??
+          (capture.streamFailed
+            ? '上游 SSE 流中断(未收到结束事件)'
+            : `上游服务异常(状态码 ${capture.upstreamStatus})`),
       })
     }
 
@@ -867,10 +952,9 @@ export async function executeAutomation(
         sessionId: resolveAutomationSessionId(automation),
         botId: automation.id,
       })
-      const verdict =
-        evalCapture.upstreamStatus !== null
-          ? null
-          : parseGoalVerdict(evalCapture.summary ?? evalCapture.contentTail)
+      const verdict = captureIsFailure(evalCapture)
+        ? null
+        : parseGoalVerdict(evalCapture.summary ?? evalCapture.contentTail)
       // 水位检查只在"未达标且预算内"时才打 —— 达标/预算用尽的路径不产生多余查询。
       const needBalance =
         verdict !== null && !verdict.met && goalState.runs + 1 < goalState.config.maxRuns
