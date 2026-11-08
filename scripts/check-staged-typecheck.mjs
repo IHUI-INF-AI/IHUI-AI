@@ -52,12 +52,15 @@
  * 退出码:
  *   0  通过 (staged 档无 .ts/.tsx / 本轮声明集全绿)
  *   1  失败 (任一 package typecheck 不通过, 打印错误文件路径)
- *   2  用法错误 / 脚本异常 / **依赖产物取不到** —— 被审 package 的 workspace 依赖没有可用的
- *      类型入口(types/typings/exports.types 或 main 指向的文件不存在)。此时一律不跑 tsc、不把
+ *   2  用法错误 / 脚本异常 / **依赖产物或安装取不到** —— 被审 package 的 workspace 依赖没有可用的
+ *      类型入口(types/typings/exports.types 或 main 指向的文件不存在); 或被审 package 的
+ *      node_modules 缺失、其声明的 workspace 依赖未在该目录下安装。此时一律不跑 tsc、不把
  *      TS2307 归到改动文件, 直接退出并打印缺哪些包和可执行的补齐命令。
  *      为什么单独一档: 本地裸跑 tsc 缺依赖产物时, 会把"取不到"伪装成"你改坏了文件"的假红;
  *      假红会逼人用 HUSKY_SKIP_STAGED_TYPECHECK 跳门, 比假绿更坏。判据只用 package.json
  *      声明与文件存在性这种确定性检查, 不解析 tsc 报错文本去猜。
+ *      同理不把判据放宽到"任何解析失败都算取不到": 那会让门常驻 exit 2, 等于取消守门,
+ *      与假绿是同一性质的失败。这里只做两层确定性检查 —— 依赖产物入口在位 + 安装完整性。
  *
  * 跳过(平台特性, 仅 staged 档 —— --files 档一律 exit 2 点名, 不把"审不到"报成"审过"):
  *   - apps/ai-service (Python, 用 mypy 而非 tsc, 不在 packages 列表)
@@ -341,6 +344,42 @@ function collectMissingWorkspaceDeps(groups) {
       }
       const st = typeEntryStatus(dep.dir)
       if (!st.ok) problems.push({ owner: pkg.prefix, name, expected: st.expected })
+    }
+  }
+  return problems
+}
+
+/**
+ * 安装完整性前置检查(确定性): 被审包的 node_modules 是否在, 以及 package.json 声明的
+ * workspace 依赖是否在它自己的 node_modules 下有入口。缺 → exit 2, 提示 pnpm install。
+ * 不追传递解析, 也不做"任何解析失败都算取不到"的兜底 —— 判据放宽会让门常驻 exit 2,
+ * 等于取消守门, 与假绿是同一性质的失败。
+ * @returns {Array<{owner: string, name: string, expected: string}>} 空数组 = 安装完整。
+ */
+function collectInstallProblems(groups) {
+  const problems = []
+  for (const [pkg] of groups) {
+    const nmDir = join(pkg.dir, 'node_modules')
+    if (!existsSync(nmDir)) {
+      problems.push({
+        owner: pkg.prefix,
+        name: pkg.name,
+        expected: `缺少 ${pkg.prefix}/node_modules(依赖未安装)`,
+      })
+      continue
+    }
+    const manifest = readManifest(pkg.dir)
+    if (!manifest) continue
+    const deps = { ...(manifest.dependencies ?? {}), ...(manifest.peerDependencies ?? {}) }
+    for (const [name, spec] of Object.entries(deps)) {
+      if (!String(spec).startsWith('workspace:')) continue
+      if (!existsSync(join(nmDir, name))) {
+        problems.push({
+          owner: pkg.prefix,
+          name,
+          expected: `未在 ${pkg.prefix}/node_modules 下安装`,
+        })
+      }
     }
   }
   return problems
@@ -800,6 +839,18 @@ function exitMissingDeps(problems) {
   process.exit(2)
 }
 
+function exitInstallProblems(problems) {
+  log.error(`${C.red}${C.bold}❌ 依赖未安装 (exit 2): 本次没有跑任何 typecheck${C.reset}`)
+  for (const p of problems) {
+    log.error(`${C.red}   ✗ ${p.owner}: ${p.name} -> ${p.expected}${C.reset}`)
+  }
+  log.error(`${C.dim}   出路: 在本仓库根目录跑 pnpm install --frozen-lockfile, 再重跑本闸门。${C.reset}`)
+  log.error(
+    `${C.dim}   缺安装属于"取不到", 不是改动文件的错: 不得据此判 1, 也不要用本地软链补 node_modules。${C.reset}`,
+  )
+  process.exit(2)
+}
+
 // ─── 两档共用的打印与判定出口 ─────────────────────────────
 function printGroups(groups) {
   log.info(`${C.bold}按 package 分组:${C.reset}`)
@@ -828,6 +879,9 @@ function runGroupsAndReport(groups, totalFiles, scope) {
   // 依赖产物前置检查: 取不到就 exit 2, 不跑 tsc —— 见头注"退出码 2"的假红说明。
   const depProblems = collectMissingWorkspaceDeps(groups)
   if (depProblems.length > 0) exitMissingDeps(depProblems)
+  // 安装完整性前置检查: node_modules 或 workspace 依赖入口缺失 → exit 2, 提示 pnpm install。
+  const installProblems = collectInstallProblems(groups)
+  if (installProblems.length > 0) exitInstallProblems(installProblems)
 
   let failedCount = 0
   const failedPkgs = []
