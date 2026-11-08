@@ -32684,3 +32684,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 750G. **缺陷普查 API F-358** [P3] orders 缺 paid_at / created_at 索引，财务与 BI 聚合每次全表扫（证据 docs/tickets/2026-11/findings-api.md#F-358）
 - [ ] 751G. **缺陷普查 API F-359** [P2] 任意登录用户可创建平台级智能体分类（证据 docs/tickets/2026-11/findings-api.md#F-359）
 - [ ] 752G. **缺陷普查 API F-360** [P1] 任意登录用户可改写任意分类（含付费标识）（证据 docs/tickets/2026-11/findings-api.md#F-360）
+- [ ] 753G. **缺陷普查 API F-361** [P2] 任意登录用户可切换分类付费开关（证据 docs/tickets/2026-11/findings-api.md#F-361）
+- [ ] 754G. **缺陷普查 API F-362** [P3] 任意登录用户可重载/清空全局分类缓存（证据 docs/tickets/2026-11/findings-api.md#F-362）
+- [ ] 755G. **缺陷普查 API F-363** [P2] 任意登录用户可写全局 Agent 规则参数（删除却要 admin）（证据 docs/tickets/2026-11/findings-api.md#F-363）
+- [ ] 756G. **缺陷普查 API F-364** [P1] 任意登录用户可改写全局人格（含内置）的 systemPrompt（证据 docs/tickets/2026-11/findings-api.md#F-364）
+- [ ] 757G. **缺陷普查 API F-365** [P2] 任意登录用户可强制刷新全局结算缓存并取回全平台财务汇总（证据 docs/tickets/2026-11/findings-api.md#F-365）
+- [ ] 758G. **缺陷普查 API F-366** [P2] 任意登录用户可为任意 agent 伪造审核台账（含自填 approved）（证据 docs/tickets/2026-11/findings-api.md#F-366）
+- [ ] 759G. **缺陷普查 API F-367** [P3] cli-import fallback 清理定时器在模块顶层启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-367）
+- [ ] 760G. **缺陷普查 API F-368** [P3] relay-channel-router 亲和性清理定时器在模块顶层 if 块内启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-368）
+- [ ] 761G. **缺陷普查 API F-369** [P1] 订阅发配额用事务外快照做绝对值写回，覆盖并发扣费（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-369）
+- [ ] 762G. **缺陷普查 API F-370** [P2] 订阅模型白名单在两条分支被跳过，套餐限制形同虚设（证据 docs/tickets/2026-11/findings-api.md#F-370）
+- [ ] 763G. **缺陷普查 API F-371** [P1] 退款只冲订单金额，不回收已发放的 VIP/订阅/配额（证据 docs/tickets/2026-11/findings-api.md#F-371）
+- [ ] 764G. **缺陷普查 API F-372** [P2] dailyCostLimit 只有告警没有执行点，日预算上限不生效（证据 docs/tickets/2026-11/findings-api.md#F-372）
+- [ ] 765G. **缺陷普查 API F-373** [P2] 无额度套餐叠加有效期无上限，重复激活可无限延长（证据 docs/tickets/2026-11/findings-api.md#F-373）
+- [ ] 766G. **缺陷普查 API F-374** [P2] subEndAt 缺失被写成 expiresAt: null，折扣变永久（证据 docs/tickets/2026-11/findings-api.md#F-374）
+- [ ] 767G. **缺陷普查 API F-375** [P2] 事务提交后的附属步骤无补偿，成功码下权益缺失（证据 docs/tickets/2026-11/findings-api.md#F-375）
+- [ ] 768G. **缺陷普查 API F-376** [P2] 预算告警 6 小时冷却为「先查后异步写」，并发下重复告警（证据 docs/tickets/2026-11/findings-api.md#F-376）
+- [ ] 769G. **缺陷普查 API F-377** [P1] 风控规则 R001/R003 依赖从未赋值的字段，永不命中（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-377）
+- [ ] 770G. **缺陷普查 API F-378** [P1] R004 自引用计数 + DB 异常 fail-open，风控整体失效（证据 docs/tickets/2026-11/findings-api.md#F-378）
+- [ ] 771G. **缺陷普查 API F-379** [P2] R002/R005 所需字段入口未提供，规则空转（证据 docs/tickets/2026-11/findings-api.md#F-379）
+- [ ] 772G. **缺陷普查 API F-380** [P2] merge 入口不校验会话状态，可对已完成/已取消会话反复合并（证据 docs/tickets/2026-11/findings-api.md#F-380）
+- [ ] 773G. **缺陷普查 API F-381** [P1] 内容被拒/校验失败的分片目录永不被回收，却计入 2GiB 全局预算（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-381）
+- [ ] 774G. **缺陷普查 API F-382** [P2] OSS 分片会话用进程内 Map 且 TTL 不 Abort，跨用户清理（证据 docs/tickets/2026-11/findings-api.md#F-382）
+- [ ] 775G. **缺陷普查 API F-383** [P3] 主体命中统计用 ruleId.includes(userId)，恒为空（证据 docs/tickets/2026-11/findings-api.md#F-383）
+- [ ] 776G. **缺陷普查 API F-384** [P2] 被移出团队的用户仍保留知识空间权限（证据 docs/tickets/2026-11/findings-api.md#F-384）
+- [ ] 777G. **缺陷普查 API F-385** [P1] 模型映射后不复检 allowedModels，绕过白名单与计费口径（P1）（证据 docs/tickets/2026-11/findings-api.md#F-385）
+- [ ] 778G. **缺陷普查 API F-386** [P2] RAG 知识块无边界拼入 system prompt，间接提示注入（证据 docs/tickets/2026-11/findings-api.md#F-386）
+- [ ] 779G. **缺陷普查 API F-387** [P2] ingestFile 用标题反查 docId，空文本仍返回成功（证据 docs/tickets/2026-11/findings-api.md#F-387）
+- [ ] 780G. **缺陷普查 API F-388** [P3] 关键词过滤在 LIMIT 之后内存执行，分页返回不足（证据 docs/tickets/2026-11/findings-api.md#F-388）
+- [ ] 781G. **缺陷普查 API F-389** [P2] 供应商模型缓存键不含 API Key 指纹，跨凭据串味（证据 docs/tickets/2026-11/findings-api.md#F-389）
+- [ ] 782G. **缺陷普查 API F-390** [P1] spec 全系列缺少用户级 ACL，可写他人仓库并提交（证据 docs/tickets/2026-11/findings-api.md#F-390）
+- [ ] 783G. **缺陷普查 API F-391** [P2] 创建 API Key / 充值缺少 2FA step-up（证据 docs/tickets/2026-11/findings-api.md#F-391）
+- [ ] 784G. **缺陷普查 API F-392** [P2] bootstrap 生成的配置只含 key 不含 secret，必然 401（证据 docs/tickets/2026-11/findings-api.md#F-392）
+- [ ] 785G. **缺陷普查 API F-393** [P2] 内容管理按 :id 操作不校验分类归属（证据 docs/tickets/2026-11/findings-api.md#F-393）
+- [ ] 786G. **缺陷普查 API F-394** [P2] token_flows 口径错误，统计与流水不一致（证据 docs/tickets/2026-11/findings-api.md#F-394）
+- [ ] 787G. **缺陷普查 API F-395** [P2] 商品保存「假成功」：返回 OK 但未落库（证据 docs/tickets/2026-11/findings-api.md#F-395）
+- [ ] 788G. **缺陷普查 API F-396** [P2] 兑换码核销未校验 apiKeyId 归属（证据 docs/tickets/2026-11/findings-api.md#F-396）
+- [ ] 789G. **缺陷普查 API F-397** [P2] 汇率表无唯一约束 + LIMIT 1 无排序 + real 精度（证据 docs/tickets/2026-11/findings-api.md#F-397）
+- [ ] 790G. **缺陷普查 API F-398** [P1] 唯一索引在 schema 中降级为普通索引，onConflict 必报 42P10（证据 docs/tickets/2026-11/findings-api.md#F-398）
+- [ ] 791G. **缺陷普查 API F-399** [P1] 周期扣款回调验签用 JSON.stringify(body)，无 rawBody（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-399）
+- [ ] 792G. **缺陷普查 API F-400** [P1] computer-use 整族仅 requireAuth，可驱动宿主机键鼠（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-400）
+- [ ] 793G. **缺陷普查 API F-401** [P2] codebase/vector/checkpoints 缺 workspace 权限校验（证据 docs/tickets/2026-11/findings-api.md#F-401）
+- [ ] 794G. **缺陷普查 API F-402** [P2] swarms 无属主模型，任意用户可操作他人 swarm（证据 docs/tickets/2026-11/findings-api.md#F-402）
+- [ ] 795G. **缺陷普查 API F-403** [P2] 删除角色只清菜单绑定，残留用户-角色绑定（证据 docs/tickets/2026-11/findings-api.md#F-403）
+- [ ] 796G. **缺陷普查 API F-404** [P1] 返佣基数取「被邀请人钱包总余额」而非本单 token 数，可反复放大（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-404）
+- [ ] 797G. **缺陷普查 API F-405** [P1] 提现冻结被「审批」与「回调」双释放，回调侧无下界守卫（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-405）
+- [ ] 798G. **缺陷普查 API F-406** [P2] 提现手续费只记账不扣余额，可反复提取（证据 docs/tickets/2026-11/findings-api.md#F-406）
+- [ ] 799G. **缺陷普查 API F-407** [P2] 退款不冲减佣金，退款单佣金仍可提现（证据 docs/tickets/2026-11/findings-api.md#F-407）
+- [ ] 800G. **缺陷普查 API F-408** [P2] 佣金入钱包不写 token_flows，账实断链（证据 docs/tickets/2026-11/findings-api.md#F-408）
+- [ ] 801G. **缺陷普查 API F-409** [P2] 佣金兜底校准路径 tokenQuantity 恒缺失，token 佣金永不补建且报成功（证据 docs/tickets/2026-11/findings-api.md#F-409）
+- [ ] 802G. **缺陷普查 API F-410** [P2] 开发者提现只冻结不扣余额，冻结额仍可被 relay 消费（证据 docs/tickets/2026-11/findings-api.md#F-410）
+- [ ] 803G. **缺陷普查 API F-411** [P3] 定时任务 errors 非空仍记 success（证据 docs/tickets/2026-11/findings-api.md#F-411）
+- [ ] 804G. **缺陷普查 API F-412** [P2] extract-assets 把私有文档内嵌图片写入匿名公开目录（证据 docs/tickets/2026-11/findings-api.md#F-412）
+- [ ] 805G. **缺陷普查 API F-413** [P2] 资产提取无总量上限，重复调用重复落盘（证据 docs/tickets/2026-11/findings-api.md#F-413）
+- [ ] 806G. **缺陷普查 API F-414** [P2] Workbook /open 无大小限制且按全局 FIFO 逐出，单用户可挤掉他人会话（证据 docs/tickets/2026-11/findings-api.md#F-414）
+- [ ] 807G. **缺陷普查 API F-415** [P3] Workbook /save 每次写新文件，无配额与生命周期（证据 docs/tickets/2026-11/findings-api.md#F-415）
+- [ ] 808G. **缺陷普查 API F-416** [P2] 批量 embedding 不分片，超上游上限后整批静默失败（证据 docs/tickets/2026-11/findings-api.md#F-416）
+- [ ] 809G. **缺陷普查 API F-417** [P3] xlsx 解析无条件生成 text 与 markdown 两份全量副本（证据 docs/tickets/2026-11/findings-api.md#F-417）
+- [ ] 810G. **缺陷普查 API F-418** [P3] anydoc 加载失败被进程级永久缓存（证据 docs/tickets/2026-11/findings-api.md#F-418）
+- [ ] 811G. **缺陷普查 API F-419** [P2] 权限授权「读-改-写」非原子，并发撤销可被复活（证据 docs/tickets/2026-11/findings-api.md#F-419）
+- [ ] 812G. **缺陷普查 API F-420** [P2] 生成队列把「已完成」作业当重复，静默丢新任务（证据 docs/tickets/2026-11/findings-api.md#F-420）
