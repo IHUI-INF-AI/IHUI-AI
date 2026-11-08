@@ -3289,9 +3289,6 @@
     "submit": "依頼を投稿",
     "contactLabel": "連絡先"
   },
-  "businessCard": {
-    "title": "マイ名刺"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "名刺を作成",
     "pageTitleEdit": "名刺を編集",
@@ -3616,7 +3613,7 @@
     "benefitsCount": "{count} 個の専用権益",
     "daysRemaining": "残り {count} 日",
     "loadFailed": "会員の読み込みに失敗",
-    "orderCreated": "注文が作成されました",
+    "orderCreated": "注文作成:{orderNo}",
     "purchase": "会員になる",
     "purchaseFailed": "購入に失敗",
     "title": "会員センター",
@@ -3660,7 +3657,20 @@
     "lifetime": "永久有効",
     "openNow": "今すぐ開通",
     "opened": "開通済み",
-    "loadFailed": "トレーダーの読み込みに失敗"
+    "loadFailed": "トレーダーの読み込みに失敗",
+    "productName": "VIP トレーダー",
+    "teamCount": "チーム人数",
+    "activeTrend": "アクティブ {n}",
+    "totalCommission": "累計コミッション",
+    "rankTrend": "ランク #{n}",
+    "monthIncome": "今月収益",
+    "withdrawnTrend": "出金済 {v}",
+    "pendingIncome": "未精算",
+    "frozenTrend": "凍結 {v}",
+    "myInviteCode": "招待コード",
+    "invitedTrend": "招待済み {n} 名",
+    "distLevel": "代理店ランク",
+    "rateTrend": "歩合 {n}%"
   },
   "wallet": {
     "points": "トークン",
@@ -3826,7 +3836,7 @@
     "registerFailed": "登録に失敗",
     "registerNow": "今すぐ登録",
     "registerSuccess": "登録が完了しました",
-    "resendCode": "再送",
+    "resendCode": "{seconds}sに",
     "termsOfService": "利用規約",
     "thirdPartyLogin": "他の方法でログイン",
     "ssoFailed": "Web認証ログインに失敗しました。再試行するか、アカウントとパスワードでログインしてください。",
@@ -3842,6 +3852,8 @@
   "bookmark": {
     "empty": "しおりがありません",
     "loadFailed": "読み込みに失敗",
+    "loadMore": "さらに読み込む",
+    "loadingMore": "読み込み中...",
     "remove": "削除",
     "title": "マイしおり",
     "type": {
@@ -6065,7 +6077,8 @@
     "uploadFail": "画像アップロード失敗",
     "updated": "名刺更新済み",
     "submitFail": "送信失敗",
-    "customFail": "名刺カスタマイズ失敗"
+    "customFail": "名刺カスタマイズ失敗",
+    "title": "マイ名刺"
   },
   "model": {
     "type0": "全能",
@@ -6090,21 +6103,6 @@
     "officialFallback": "智汇コミュニティ-公式",
     "buyTime": "購入時期：{t0}",
     "expireTime": "　有効期限：{t1}"
-  },
-  "viptrader": {
-    "productName": "VIP トレーダー",
-    "teamCount": "チーム人数",
-    "activeTrend": "アクティブ {n}",
-    "totalCommission": "累計コミッション",
-    "rankTrend": "ランク #{n}",
-    "monthIncome": "今月収益",
-    "withdrawnTrend": "出金済 {v}",
-    "pendingIncome": "未精算",
-    "frozenTrend": "凍結 {v}",
-    "myInviteCode": "招待コード",
-    "invitedTrend": "招待済み {n} 名",
-    "distLevel": "代理店ランク",
-    "rateTrend": "歩合 {n}%"
   },
   "contact": {
     "phoneLabel": "電話: ",
@@ -7632,10 +7630,6 @@
   "businessCardEditPage": {
     "editTitle": "名刺を編集",
     "bioLabel": "自己紹介"
-  },
-  "checkin": {
-    "colEnabled": "有効",
-    "addAccount": "アカウント追加"
   },
   "circles": {
     "title": "コミュニティ"
