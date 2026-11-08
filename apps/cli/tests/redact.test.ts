@@ -46,6 +46,26 @@ describe('redactSecrets', () => {
     expect(result).toContain('Basic ***REDACTED***')
   })
 
+  it('F-007:sk_ 前缀、短 Bearer、非 Basic/Bearer Authorization、x-api-key 都不再漏印', () => {
+    const sk = redactSecrets('token: sk_live_ABCDEFGH1234567890')
+    expect(sk).not.toContain('ABCDEFGH1234567890')
+    expect(sk).toContain('***REDACTED***')
+
+    const shortBearer = redactSecrets('Authorization: Bearer abcd1234')
+    expect(shortBearer).toBe('Authorization: Bearer abcd***REDACTED***')
+
+    const otherScheme = redactSecrets('Authorization: Token abcdefgh12345678')
+    expect(otherScheme).not.toContain('abcdefgh12345678')
+
+    const xApiKey = redactSecrets('x-api-key: abcdef1234567890')
+    expect(xApiKey).not.toContain('abcdef1234567890')
+    expect(xApiKey).toContain('***REDACTED***')
+
+    // 正证:普通文本与既有 Basic 档语义不被误改
+    expect(redactSecrets('normal text without secrets')).toBe('normal text without secrets')
+    expect(redactSecrets('Authorization: Basic dXNlcjpwYXNz')).toContain('Basic ***REDACTED***')
+  })
+
   it('不做修改非敏感字符串', () => {
     const text = 'normal text without secrets'
     expect(redactSecrets(text)).toBe(text)
