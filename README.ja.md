@@ -2227,6 +2227,9 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-08**
+- 📚 ドキュメント:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (2485323c91)
+
+**2026-11-08**
 - 🔧 その他:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
 - 📚 ドキュメント:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
 
@@ -3047,9 +3050,6 @@ IHUI-AI の誕生は以下のオープンソースプロジェクトのインス
 
 **2026-11-05**
 - 🐞 修正:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
-
-**2026-11-06**
-- 🚀 機能/改善:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
