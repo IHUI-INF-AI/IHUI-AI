@@ -195,7 +195,66 @@ origin/main 73a6352a83   api 28 | miniapp 4 | mobile-rn 1 | rn-app 4 | web 1 | c
 
 ### 8.4 收尾读数
 
-- 本波 push：`4ac7febf4a..ea54b6b9f8 merge/wave-1108 -> main`；随后票面落库提交 `38c8148278`（本文件所在提交）再推 `ea54b6b9f8..38c8148278`。`origin/main = 38c8148278`，`merge/wave-1108` 与 origin/main 同步、工作树干净。
+- 本波 push 链：`4ac7febf4a` → `ea54b6b9f8`（wave merge）→ `38c8148278`（票面落库）→ `51749a7075`（补最终 tip）。`origin/main = 51749a7075`，`merge/wave-1108` 与 origin/main 同步、工作树干净。
+- push 门 13/13 绿，`[T1]` 六包全 0。`[47p]` 的真实 push 面 = **75 文件**（`git diff --name-only 4ac7febf4a..ea54b6b9f8`），独立调用缺 `PUSH_SCOPE_FILES` 时退回 HEAD 全量面误报 = **190 文件**。两个数对得上：75 是本次推送实际携带的文件，190 是存量水印欠账被全量面兜进来的误报，不是本波新增。
 - 本波未取 archive 的任何一笔真增量（符合"审计段只审计、真增量先别合"）。
 - 归档分支保留：`archive/local-main-1e9f34aa34 @ 1e9f34aa34`，回看命令见 §5。
+
+## 9. 9 笔真增量排期方案（2026-11-09，只给方案、未执行）
+
+前提：main = `51749a7075`；§8.2 的 9 笔全部未合。
+
+### 9.1 撞车核对
+
+- T1 修复面：`e7b1139c57` 只动 `apps/cli/src/checkpoints/index.ts`、`apps/cli/src/context.ts`，与 9 笔零交集。
+- 相对归档基点 `edd55907b7` 的主线漂移：`worktree.ts` +19/-2、`guardian-executor.mjs` +129、`guardian-runner.mjs` +184、`push-receipt.mjs` 28 行、`land-gate-budgets.json` +23、`git-guardian.mjs` +20/-6、`cross-end-landing-dispatch.test.mjs` +18/-3；其余文件无漂移。
+- 结论：CLI 4 源文件里只有 `worktree.ts` 需手合；门基础设施 3 个文件必须"重做注册"，不能整补丁套用。
+
+### 9.2 批次、顺序与"必须同批"
+
+**批次 1（零风险，先落）**：`d2803d8614` `.gitignore` + `b8047903f5` 两篇文档 + `41f10908ff` 瘦身票。
+- 落前复核：`b804` 的 CI `continue-on-error` 清单是 11-07 快照；`41f109` 的证据路径已核存在（backup 目录、`rescue/main-wt-20261108`），但 `44e1de25ed` 是悬空提交，需先建 ref（见 §10.3）。
+
+**批次 2（CLI 原子写守卫，必须整批）**：`c23a27a36f` 的 types → `51c18c32ba` 的 4 源文件 → `7737e0c776` 的 7 测试 → `c23a27a36f` 的 soul 测试。
+- `c23a27a36f`：`soul-atomic-write.test.ts` 依赖 main 已有的 `memory/soul.ts` 原子实现；`tests/types/scripts-lib.d.ts` 影响整个 cli 测试的 tsc，必须先落。
+- `51c18c32ba`：只取 `discovery.ts` / `plan-build.ts` / `updater.ts` / `worktree.ts`；`undo-redo.ts`、`mcp-credentials.ts` 已在 main，弃。`worktree.ts` 主线已漂移（`withinRoot`），手合。
+- `7737e0c776`：**风险**——其中两个是"改名覆盖"，不是纯改名：`run-tests-windows-spawn.test.ts → plan-build-symlink.test.ts` 内容差 66/54 行，`hooks-trust-source-spoof.test.ts → worktree-cow-cache-swallow.test.ts` 差 73/54 行，而 main 上这两个旧文件仍在。建议**新增新文件、保留旧用例**（或先证明旧覆盖已被新用例吸收），不要直接删旧文件。
+- 原子性：C+B 必须同提交（测试断言的就是 C 的守卫）；A 的 types 必须先于 B。
+
+**批次 3（门基础设施，同一分支顺序落）**：D `1d885516e9` → E `4fbfcec92d`。
+- D：只取 phase 分段 + `BLOCKED_BY_CONCURRENCY`（`gate-phase-watchdog.mjs`、`gate-timeout-budget.mjs`、`guardian-executor.mjs`、`gate-failure-kind.mjs`、测试）；main 已有按门查表，双键取表不取；`land-gate-budgets.json` 只加新键，T1 保持 main 的 405000，不取 547650。
+- E：`check-hook-chain-refs.mjs` + 注册。300–312 已占用（305 空、313+ 空），建议新号 **305/305p**（305 从未使用）；`push-receipt.mjs` 的 EXPECTED_GATES 与预算表同提交。E 依赖 D 的预算表结构，必须后落。
+- 原子性：D 的 lib+接线+测试同提交；E 的门体+注册+预算+receipt 同提交。
+
+**批次 4（独立）**：`ea21e5efac` 跨端暂停开关（`git-guardian.mjs` + 测试）。主线漂移 +20/-6，手合；与其它批次无依赖。
+
+### 9.3 每批验证
+
+- 批次 1：`node scripts/check-doc-numbers.mjs --staged`；README 生成块由 `sync-readme-numbers.mjs` 重出。
+- 批次 2：`pnpm --filter @ihui/cli test` + `pnpm --filter @ihui/cli typecheck`；7 用例 + soul 用例全绿。
+- 批次 3：`node scripts/guardian-runner.mjs --push-gate`（新号注册后 EXPECTED_GATES 对账）+ `node scripts/tests/gate-timeout-budget.test.mjs`。
+- 批次 4：`node scripts/tests/cross-end-landing-dispatch.test.mjs`。
+
+## 10. `D:/IHUI-AI` 脏现场封口（盘点完成，动作受阻）
+
+### 10.1 现场盘点
+
+完整清单见 workspace `main-wt-dirty-inventory-20261109.md`（1425 行）。
+
+- HEAD = `2bb7c39959`：**本地 main 独有**的 `chore(plan)` 提交，只删 `PROJECT_PLAN.md` 75 行；`origin/main` 没有这 75 行删除（两边 blob 不同）——是一枚未推的自动化提交。
+- 共 1366 条：staged D 374（瘦身删除意图，main 仍有这些文件，未进主线）/ staged M 20 + A 14 + R 3（= 归档 14 笔的材料，含 §8.2 的 9 笔真增量）/ unstaged M 932（worktree 停在 `edd55907b7`，抽样 blob 全等，是旧快照不是新工作）/ untracked 24。
+- untracked 24：23 个与**悬空提交** `44e1de25ed` 逐字节相同（该提交不在任何分支/tag，有 GC 风险）；1 个 `docs/tickets/2026-11/remote-branch-inventory-1108.md` 不在任何 ref。
+- 结论：没有"真东西"只埋在 932 条 M 里；未落物 = 14 个 A/M（9 笔真增量）+ 24 个 untracked + 374 个删除意图（作废但需留证）+ 1 个本地 plan-prune 提交。
+
+### 10.2 阻塞：有常驻写进程
+
+- `git-guardian.mjs --da…`（PID 9628，2026-11-09 07:03 起）仍在跑；期间派生过 `gen-miniapp-mirror.mjs --all --write`、`gen-rn-compat.mjs --write`。源码里多处 `--write` 腿与常驻 `setInterval` 说明它会在 `D:/IHUI-AI` 周期性写生成物——这是工作区反复变脏的物理通道，也是 14 笔能在脏现场被写出的环境条件。
+- 按"有进程在写就先停手"的约束，**本次没有切分支、没有清理、没有动 index**。
+
+### 10.3 建议动作（待批准，不在本段执行）
+
+1. 停 `git-guardian` 常驻（先等正在跑的 `--write` 子进程退出；确认 `index.lock` 不存在）。
+2. 保全：`git update-ref refs/heads/preserve/index-unique-blobs-20261107 44e1de25ed`（让悬空快照可回收）；再对当前 index+worktree 做一次快照（`git stash push -u -m "main-wt 现场快照 20261109"` 或专用分支提交），把未保全的 inventory 票一并纳入。
+3. 摘 main：选**专用分支**而非 detach——`git switch -c wip/main-wt-dirty-20261109`。理由：worktree 还要留作复核面；命名分支可追溯、不会像 detached HEAD 那样让误提交失联；切走后 HEAD 不再指向 `refs/heads/main`，本工作树的提交不可能再直写 main。
+4. 本地 `2bb7c39959` 单独归档（`refs/heads/archive/local-plan-prune-2bb7c3995`），是否重放到 origin/main 由排期决定，别丢。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
