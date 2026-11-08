@@ -314,7 +314,7 @@ if (process.env.HUSKY_SKIP_I18N_DEAD_KEY_OTHER !== '0') {
 // safe-commit / auto-commit / 人工写窗口重叠(历史上把 README 写成过 24841/4623)。
 // 收口后数字块只剩一个写入口:safe-commit Step 2b / auto-commit-quiet 在**提交前**调用
 // `sync-readme-numbers.mjs`(锁 + CAS + 固定 staged 面),或人工显式调用;门 173 只读不写。
-// 同时 push 档已改为"只判本轮改动带进来的块行",提交后不再刷块也不会让分支恒红。
+// 数字块在提交前已由写入口对齐,故提交后不再刷块也不会让 push 档(head 面全判)恒红。
 // 最近更新块是另一段功能(独立 REGION、自带块外计数 CAS),继续留在 post-commit。
 // 跳过:HUSKY_SKIP_POST_README=1(注意与 pre-commit 那个 HUSKY_SKIP_README_* 不是一回事:
 // 那两个是"是否在 pre-commit 跑",默认 1=不跑;这里是"是否在 post-commit 跑",默认跑)。
