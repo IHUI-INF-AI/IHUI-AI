@@ -115,7 +115,7 @@ export async function findPublishedPapers(opts: {
   cidList?: string[]
   paperType?: string
 }): Promise<{ list: PaperWithCategory[]; total: number }> {
-  const conds = [eq(examPapers.isPublished, true)]
+  const conds = [eq(examPapers.isPublished, true), eq(examPapers.status, 1)]
   if (opts.search) {
     conds.push(
       sql`(${examPapers.title} ILIKE ${`%${opts.search}%`} OR ${examPapers.description} ILIKE ${`%${opts.search}%`})`,
@@ -195,7 +195,7 @@ export async function findPublishedPapersByIds(ids: string[]): Promise<PaperWith
     .select({ paper: examPapers, categoryName: examCategories.name })
     .from(examPapers)
     .leftJoin(examCategories, eq(examPapers.categoryId, examCategories.id))
-    .where(and(eq(examPapers.isPublished, true), sql`${examPapers.id} = ANY(${ids})`))
+    .where(and(eq(examPapers.isPublished, true), eq(examPapers.status, 1), sql`${examPapers.id} = ANY(${ids})`))
   const byId = new Map(rows.map((r) => [r.paper.id, { ...r.paper, categoryName: r.categoryName }]))
   return ids.map((id) => byId.get(id)).filter((p): p is PaperWithCategory => Boolean(p))
 }
