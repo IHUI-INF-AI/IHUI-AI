@@ -5242,6 +5242,7 @@
 - 影响面：极端价位存在分位取整偏差；对账/退款数据不可精确复现。
 - 建议修法：改 `numeric(12,2)` 或整数分。
 - 是否当场可修：否（需数据迁移）。
+- 复核结论：按域边界转资金/账本线（`amount/price: real` 属支付金额源头，不是教育/考试/考勤域缺陷），本域本轮不修。
 
 > 本轮 schema 模式化负结论（**零新增**，已全部覆盖或不成立）：① `onDelete:'set null'` + `.notNull()` 全扫 117 处，严格链式正则 0 命中，仅 F-433；② onConflict 174 处/90 文件、逐目标核对约 40 张表，除 F-448 外均有唯一约束/主键；③ 软删唯一约束 28 处/6 文件，`oauth`/`edu_attendance_record`/`edu_payment_record` 均已带 `WHERE deleted_at IS NULL`；④ `real/doublePrecision` 32 处/13 文件，除 F-449 外均为分数/评分/成本估算；⑤ 索引：`20261106150000_fix_missing_indexes_fks.sql` 已补 164 条，重点表索引齐全。
 
@@ -7874,6 +7875,7 @@
 - **证据**：`developer-queries.ts:79-90` 直接 `insert(developerSubscriptions).values({..., orderId})`；`developer.ts:71` `orderId: uuid('order_id').references(...)`；`payment-gateway.ts:737` 无条件调用。
 - **影响面**：同一订单多条订阅，续费剩余期/财务对账失真。
 - **建议修法**：`order_id` 唯一索引 + `onConflictDoNothing`，或先按 orderId 查重；激活与订单状态转换同事务。
+- **复核结论**：按域边界转资金线（开发者套餐订阅/支付回调，属资金线），本域本轮不修。
 - **是否当场可修**：否（只读轮次）。
 
 #### F-690 禁用（status=0）试卷仍出现在公开列表、可开考、可取题
@@ -7885,7 +7887,8 @@
 - **证据**：`exam-queries.ts:118` `const conds = [eq(examPapers.isPublished, true)]`；`:198` `.where(and(eq(examPapers.isPublished, true), ...))`；`routes/exam.ts:526` `if (!paper || !paper.isPublished)`。
 - **影响面**：下架对学员无效，可进入已禁用试卷答题并产生 `exam_records`。
 - **建议修法**：两处追加 `eq(examPapers.status, 1)`，路由判据补 `paper.status !== 1`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P2）。`exam-queries.ts:118,198` 只判 `is_published`；`routes/exam.ts:526,554,595` 只判 `isPublished`，`status=0` 仍可进列表/取题/开考并落 `exam_records`。已修，夹具 `tests/exam-disabled-paper-690.test.ts` 改前 5 红→改后 6 绿。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-691 公开专题详情返回未发布（草稿）课程
 
@@ -7896,7 +7899,9 @@
 - **证据**：`topic-queries.ts:91` `.where(and(inArray(lessons.id, ids), eq(lessons.status, 1)))`；`schema/learn.ts:75` `isPublished ... default(false)`。
 - **影响面**：草稿课程标题/价格/简介/封面被公开泄露。
 - **建议修法**：谓词追加 `eq(lessons.isPublished, true)`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，台账「否」为误标）。`topic-queries.ts:91` 只判 `status=1`；`schema/learn.ts:75` `isPublished` 默认 false。已修：公开面补 `isPublished`，管理员预览显式 `includeUnpublished`；夹具 `tests/topic-draft-lessons-691.test.ts` 改前红→改后 3 绿。
+- 验证缺口：`tests/topic-routes.real.test.ts` 因本机无 `.env.test`（`.real` 套件默认 exclude）未能执行 ⇒ **未判定**，不得据此转绿。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-692 浏览记录读改写非原子：并发丢时长 + 首次并发直接 500
 
@@ -7907,7 +7912,8 @@
 - **证据**：`behavior-queries.ts:48` `watchDuration: (row.watchDuration ?? 0) + watchDuration`；`routes/behavior.ts:166` 无 try/catch 直接 `await recordWatch(...)`。
 - **影响面**：观看时长少记；首次并发双双 INSERT，后者唯一冲突冒泡为 500。
 - **建议修法**：单条 `INSERT ... ON CONFLICT ... DO UPDATE SET watch_duration = behavior_watch_records.watch_duration + excluded.watch_duration`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，待修）。`behavior-queries.ts:31-53` 先 SELECT 再 UPDATE 覆盖写 `watchDuration`，并发丢增量；`:57-67` 首次插入无冲突兜底，唯一键冲突冒泡 500；`routes/behavior.ts:166` 无 try/catch，失败直接 500。
+- 是否当场可修：是（已坐实，P3 排期待修）。
 
 #### F-693 含主观题提交即落 `graded`，人工阅卷后反写 `submitted`（状态机倒置）
 
@@ -7918,7 +7924,8 @@
 - **证据**：`exam-queries.ts:541` `const finalStatus = hasSubjective ? 'graded' : 'submitted'`；`:608` `status: 'submitted', // 人工评分完成,最终状态`。
 - **影响面**：主观题未批改即处于 `graded`；按 `status` 拉“待批改/已批改”名单全部错位。
 - **建议修法**：提交时 `hasSubjective ? 'submitted' : 'graded'`，阅卷完成置 `graded`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，待修）。`exam-queries.ts:541` 提交即 `hasSubjective ? 'graded' : 'submitted'`；`:608` 人工阅卷完成反写 `'submitted'`，与 `exam-extended-queries.ts:489-495` 定义的状态机相反；`routes/exam.ts:1972` 同型。
+- 是否当场可修：是（已坐实，P3 排期待修）。
 
 #### F-694 考试成绩指标被同一答题记录重复累加（提交 + 人工阅卷各一次）
 
@@ -7929,7 +7936,8 @@
 - **证据**：`exam-queries.ts:612-613` `recordExamScore(totalScore)`；`routes/exam.ts:626` `server.recordExamScore(result.score)`。
 - **影响面**：`ihui_exam_score_sum` 偏大、平均分虚高；重复阅卷继续叠加。
 - **建议修法**：阅卷路径只累加 `totalScore - record.score`，或按记录首次终态打点一次。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，台账「否」为误标）。`routes/exam.ts:626` 提交打点一次；`exam-queries.ts:612-613` 阅卷按重汇总总分整笔再打点；`recordExamScore` 同时 sum+count 双累加（`business-metrics.ts:1174-1180`）。已修：新增 `adjustExamScore(delta)` 仅平移 sum，`gradeSubjectiveAnswers` 与 `gradeExam` 均按增量；夹具 `tests/exam-score-single-count-694.test.ts` 改前 `[50]`→改后 `[20]`。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-695 后台“总用户数”与用户列表 total 口径不一致（已注销用户）
 
