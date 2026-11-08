@@ -27048,9 +27048,7 @@
     "loadFailed": "加载失败",
     "passed": "已通过",
     "failed": "未通过",
-    "correct": "答对 {count}/{total}",
     "duration": "用时 {min} 分钟",
-    "wrongQuestions": "错题",
     "yourAnswer": "你的答案",
     "correctAnswer": "正确答案"
   },

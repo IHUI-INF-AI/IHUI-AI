@@ -22,7 +22,8 @@
 | `convergence-prefab-resolve-stale.md` | 预制解析件陈旧导致三方归并丢对侧独有行 | 未落库 |
 | `plan-sidecar-rp40-43-gap.md` | RP-40/41/42/43 待办行已入 `PROJECT_PLAN.md`，侧车 `plan-fields.jsonl` 未同批生成（对侧欠账） | 未落库 |
 | `gate-302-registration-blindspot.md` | 302p 两处结构缺陷：新增 web 路由无提交期登记门（只在 push 面暴露）；`judgedGapWeb` 把「新确认的缺屏」与「新引入的漂移」混为一维 | 89a5938f0c |
-| `gate-stock-red-blocks-cut9.md` | cut9 提速改动被 41/57/204/70b 四道存量门挡下（逐条判定为 HEAD 存量）；safe-commit 341 门全量批与 husky 38 门批门集不一致 | 未落库 |
+| `gate-stock-red-blocks-cut9.md` | cut9 提速改动被 41/57/204/70b 四道存量门挡下（逐条判定为 HEAD 存量）；safe-commit 341 门全量批与 husky 38 门批门集不一致 | `67721b7bcc` |
+| `face-reader-debt-ledger-gap.md` | `face-reader.test.mjs` 3 条存量红：裸 git 派生 / 自拼 `cat-file --batch` / 直读跟踪 ref 探远端，债务清单未随生产代码登记 | 未落库 |
 
 ## 事故
 
