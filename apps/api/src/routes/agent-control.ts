@@ -331,10 +331,12 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     // (密钥校验走唯一出口 isVerifiedAgentControlInternalCall,与 CSRF 钩子同一份实现;
     //  #23 修复前该形态的 Bearer 会被上游 CSRF 403 拦死,永远走不到这一行。)
     let authed = await isVerifiedAgentControlInternalCall(request)
+    let viaJwt = false
     if (!authed) {
       try {
         await authenticate(request)
         authed = true
+        viaJwt = true
       } catch {
         authed = false
       }
@@ -348,6 +350,18 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '执行参数无效'))
     }
     const req = result.data as AgentActionRequest
+
+    // 身份只认令牌主体(2026-11-08,与 F-07 同族):JWT 路径下 body.userId 不得决定
+    // 投递目标 —— 此前 `/execute` 直接把它交给 findEndpointByCategory,任何登录用户
+    // 换个 userId 就能把指令推到他人端(或省略 userId 时命中"最近活跃端")。
+    // 内部服务调用(持 AGENT_CONTROL_INTERNAL_SECRET)保留 body.userId:ai-service
+    // 本就是代用户派发,且该密钥不出服务端。
+    if (viaJwt) {
+      if (req.userId && req.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权代他人执行控制指令'))
+      }
+      req.userId = request.userId
+    }
 
     // computer-use 应用白名单(2026-11-04):
     // 调用方声明了目标应用(req.params.appName)时,必须命中授权记忆才放行 ——
