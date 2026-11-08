@@ -1175,6 +1175,14 @@
     "totalWithdraw": "累计提现",
     "recharge": "充值",
     "withdraw": "提现",
+    "flowRecharge": "充值",
+    "flowDeduct": "扣减",
+    "flowExpire": "过期",
+    "flowRefund": "退款扣回",
+    "flowRelayRecharge": "转账至 API Key",
+    "flowAdminAdjust": "管理员调整",
+    "flowQuota": "配额类变动",
+    "flowOther": "其他变动",
     "loadFailed": "加载钱包失败"
   },
   "courseCatalog": {
