@@ -391,6 +391,21 @@ export function foldHistoryPageIntoProjection<M>(
 ): HistoryProjection<M> {
   const merged = mergeHistoryTurnPages<M>(previous.turns, page.turns)
   const pageBoundary = deriveHistoryBoundary(page, direction)
+  // XUI-033:续读方向只更新本方向那一侧边。旧实现直接 `...pageBoundary`,
+  // 取 'newer' 时会把旧的 olderCursor/hasOlder 一并清成 null,上翻能力凭空丢失;
+  // 取 'older' 时同理会把 newerCursor 清掉。跨侧边必须沿用上一页的结论。
+  const boundary: HistoryBoundary =
+    direction === 'newer'
+      ? {
+          ...pageBoundary,
+          hasOlder: previous.boundary.hasOlder,
+          olderCursor: previous.boundary.olderCursor,
+        }
+      : {
+          ...pageBoundary,
+          hasNewer: previous.boundary.hasNewer,
+          newerCursor: previous.boundary.newerCursor,
+        }
   const first = merged.turns[0]
   const last = merged.turns[merged.turns.length - 1]
   return {
@@ -398,7 +413,7 @@ export function foldHistoryPageIntoProjection<M>(
     droppedUnordained: previous.droppedUnordained + merged.droppedUnordained,
     replacedTurns: previous.replacedTurns + merged.replacedTurns,
     boundary: {
-      ...pageBoundary,
+      ...boundary,
       oldestTurnOrdinal: first ? first.turnOrdinal : null,
       newestTurnOrdinal: last ? last.turnOrdinal : null,
     },
@@ -537,7 +552,8 @@ export function advanceHistoryPagingCursors(input: {
   /** 服务端断点结论(`isHistoryCursorStale(page.cursorState)`);缺省 = 未给结论 ⇒ 不拦。 */
   cursorStale?: boolean
 }): { cursors: HistoryPagingCursors; discardFolded: boolean } {
-  const discardFolded = input.cursorStale === true || (input.seed.rewritten && input.direction !== 'newest')
+  const discardFolded =
+    input.cursorStale === true || (input.seed.rewritten && input.direction !== 'newest')
   if (discardFolded) return { cursors: { older: null, newer: null }, discardFolded: true }
   // 整段重建('newest')后,右缘就是本页最大轮:此时"上一次的 newer"已无对应物
   // (rewritten 时序号全变;未 rewritten 时它至多等于本页某轮,断点种子更权威),

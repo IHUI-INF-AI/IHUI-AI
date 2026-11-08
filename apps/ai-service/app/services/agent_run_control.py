@@ -648,36 +648,64 @@ async def resume_session(
             _records.pop(session_id, None)
             rec = None
 
-    if rec is not None and rec.owner_user_id != requester:
-        return ResumeResult(
-            outcome=ResumeOutcome.FORBIDDEN,
-            changed=False,
-            detail="该会话不属于当前用户",
-        )
+        # AIS-022:属主/在飞判定与"占位为 running"必须在同一临界区完成。
+        # 旧实现把占位放到 loader 之后:两次并发 resume 都能在慢 I/O 之前通过
+        # `not rec.paused`,随后各起一个循环 —— 同一份消息历史跑两遍,带副作用的
+        # 工具就真的执行两次。占位之后的所有早退分支都必须翻回 paused。
+        if rec is not None and rec.owner_user_id != requester:
+            return ResumeResult(
+                outcome=ResumeOutcome.FORBIDDEN,
+                changed=False,
+                detail="该会话不属于当前用户",
+            )
 
-    if rec is not None and not rec.paused:
-        return ResumeResult(
-            outcome=ResumeOutcome.NOT_PAUSED,
-            changed=False,
-            detail="该会话正在执行中,无需续跑",
-        )
+        if rec is not None and not rec.paused:
+            return ResumeResult(
+                outcome=ResumeOutcome.NOT_PAUSED,
+                changed=False,
+                detail="该会话正在执行中,无需续跑",
+            )
+
+        if rec is not None:
+            rec.paused = False
+            rec.updated_at = now
+
+    async def _restore_paused() -> None:
+        """把记录翻回 paused。
+
+        为什么必须有:上面为了挡住并发第二次 resume 而先把状态置成 running,若续跑
+        随即失败却不翻回来,这条会话就永久卡在"正在执行中" —— 下一次 resume 得到
+        NOT_PAUSED、下一次 pause 得到 NOT_RUNNING,而它其实正静静躺在暂停点上。
+        一次失败把会话锁死,比原病更难查。未占位(rec 为 None)时是无操作。
+        """
+        if rec is None:
+            return
+        async with _lock:
+            back = _records.get(session_id)
+            if back is not None and back is rec and not back.paused:
+                back.paused = True
+                back.updated_at = _clock()
+                back.expires_at = back.updated_at + _PAUSED_RECORD_TTL_SECONDS
 
     loader = load_latest or _default_load_latest
     try:
         checkpoint = await loader(session_id)
     except SessionNotFoundError:
+        await _restore_paused()
         return ResumeResult(
             outcome=ResumeOutcome.NO_CHECKPOINT,
             changed=False,
             detail="该会话没有可续跑的检查点",
         )
     except CheckpointUnavailable as exc:
+        await _restore_paused()
         return ResumeResult(
             outcome=ResumeOutcome.RESUME_FAILED,
             changed=False,
             detail=str(exc),
         )
     except Exception as exc:  # noqa: BLE001 - 存储异常必须显式成结论,不得冒泡成空 500
+        await _restore_paused()
         return ResumeResult(
             outcome=ResumeOutcome.RESUME_FAILED,
             changed=False,
@@ -688,6 +716,7 @@ async def resume_session(
     # 唯一可追溯依据。有值且不符 → 403;无值 → 见下一格(不放行,等人工确认)。
     persistent_owner = checkpoint.owner_user_id
     if persistent_owner is not None and persistent_owner != requester:
+        await _restore_paused()
         return ResumeResult(
             outcome=ResumeOutcome.FORBIDDEN,
             changed=False,
@@ -701,6 +730,7 @@ async def resume_session(
     # 拍板口径:停在原地等人确认 —— 不调 runner、不置 running、不登记归属,只回报
     # "属主不可判定"这一型结论,由人在确认归属后再放行(跨实例租约另计一票,不在本条内)。
     if persistent_owner is None:
+        await _restore_paused()
         return ResumeResult(
             outcome=ResumeOutcome.OWNER_UNVERIFIABLE,
             changed=False,
@@ -711,6 +741,7 @@ async def resume_session(
         )
 
     if checkpoint.status != "paused":
+        await _restore_paused()
         return ResumeResult(
             outcome=ResumeOutcome.NOT_PAUSED,
             changed=False,
@@ -719,34 +750,15 @@ async def resume_session(
         )
 
     if runner is None:
+        await _restore_paused()
         return ResumeResult(
             outcome=ResumeOutcome.RESUME_FAILED,
             changed=False,
             detail="未注入续跑执行体:控制面不自行构造 AgentLoopV2(参数须与 execute/stream 同口径)",
         )
 
-    # 置回 running:并发的第二次 resume 会看到 NOT_PAUSED 而不是又起一个循环
-    # (同一次暂停被续跑两遍 = 同一份消息历史跑两次,是真实会造成重复副作用的形态)。
-    async with _lock:
-        live = _records.get(session_id)
-        if live is not None and live is rec:
-            live.paused = False
-            live.updated_at = _clock()
-
-    async def _restore_paused() -> None:
-        """把记录翻回 paused。
-
-        为什么必须有:上面为了挡住并发第二次 resume 而先把状态置成 running,若续跑
-        随即失败却不翻回来,这条会话就永久卡在"正在执行中" —— 下一次 resume 得到
-        NOT_PAUSED、下一次 pause 得到 NOT_RUNNING,而它其实正静静躺在暂停点上。
-        一次失败把会话锁死,比原病更难查。
-        """
-        async with _lock:
-            back = _records.get(session_id)
-            if back is not None and back is rec and not back.paused:
-                back.paused = True
-                back.updated_at = _clock()
-                back.expires_at = back.updated_at + _PAUSED_RECORD_TTL_SECONDS
+    # 占位已在上面的 `_lock` 临界区完成(AIS-022):走到这里时本条会话已是 running,
+    # 并发的第二次 resume 会在临界区内直接得到 NOT_PAUSED,不会再起一个循环。
 
     # V3 #84:续跑前把恢复点按**它自己声明的**耐久视野续期一次(只走既有 save_checkpoint
     # 出口,不落新表/新列)。这一格**不是**续跑的前提:未声明 / 不需要 / 开关关 / 存储

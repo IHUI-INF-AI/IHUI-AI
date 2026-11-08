@@ -69,8 +69,18 @@ export async function withTenant<T>(
  *   (`background` 于 2026-09-27 O13 第三格前置加入:worker / 定时器 / 维护脚本 / 导入导出
  *   等**非 HTTP 请求路径**的通道;请求路径的旁路由 apps/api 侧出口
  *   `src/db/background-context.ts` 的前置守卫拒绝,不在本包判据内)
+ *
+ * 2026-11-08 DB-39:数据库侧 `_bypass_rls` 策略已收窄到 `TO ihui_app`
+ * (迁移 20261108170000_rls_bypass_scope_ihui_app.sql)。本函数设置的 `app.bypass_rls`
+ * 只在 ihui_app 会话上生效;其它角色即使 SET 同一 GUC 也不会绕过 RLS。
  */
-const BYPASS_RLS_REASON_WHITELIST = new Set(['migration', 'seed', 'cleanup', 'test-cleanup', 'background'])
+const BYPASS_RLS_REASON_WHITELIST = new Set([
+  'migration',
+  'seed',
+  'cleanup',
+  'test-cleanup',
+  'background',
+])
 
 export async function withBypassRls<T>(
   db: Database,

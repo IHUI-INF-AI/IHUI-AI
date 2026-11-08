@@ -13,9 +13,10 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { execFileSync } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdirSync, writeFileSync, readFileSync, readdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { createRequire } from 'node:module'
 
 import { __test__ as L } from '../lib/land-derived-blobs.mjs'
 import { parseArgs as parseLandArgs } from '../object-space-land.mjs'
@@ -63,7 +64,7 @@ test('L1 LAND_PATHS 经落地器自己的解析器 round-trip:几条进去就要
 
 test('L2 清单为空 / blob 不是 40 位 oid ⇒ 拒绝,且一次都不派生落地器(空清单会把 undefined 当路径)', () => {
   let spawned = 0
-  const run = () => {
+  const _run = () => {
     spawned += 1
     return ''
   }
@@ -101,5 +102,120 @@ test('L3 hashText 走 stdin 且归一可比:同一段文本两次得到同一个
   } finally {
     rmScratch(dir)
   }
+})
+
+// ─── verifyDeclaredEntryInIndex 的 blob 契约(2026-11-08)─────────────────
+// 回归背景:ffda30adcf 起 pre-commit-hook 的派生产物腿调用本函数时漏传 blob,
+// `cur.blob !== undefined` 恒真 ⇒ design-tokens / ui-routes 只要真产出差异就必红,
+// 且文案与“真的被并跑写者改了内容”完全相同。以下四类断言必须同时成立:
+//   ① 正常写回不红;
+//   ② 真的不一致仍然红(不许为了绿放宽);
+//   ③ 漏传参数能被单测直接测出,且不得复用“与申报不符”的文案;
+//   ④ 所有调用点都显式传了 blob(防止再次漏传)。
+const require = createRequire(import.meta.url)
+const D = require('../lib/derived-artifacts.js')
+const SCRIPTS_ROOT = resolve(import.meta.dirname, '..')
+
+const cleanEnv = () => {
+  const env = { ...process.env }
+  delete env.GIT_INDEX_FILE
+  delete env.GIT_DIR
+  delete env.GIT_WORK_TREE
+  return env
+}
+
+const gitClean = (dir, args) => {
+  const r = spawnSync('git', args, {
+    cwd: dir,
+    encoding: 'utf8',
+    env: cleanEnv(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败:${r.stderr}`)
+  return r.stdout
+}
+
+const makeBlobRepo = () => {
+  const dir = mkScratch('derived-verify-')
+  gitClean(dir, ['init', '-b', 'main'])
+  gitClean(dir, ['config', 'user.email', 'gate-test@example.invalid'])
+  gitClean(dir, ['config', 'user.name', 'gate-test'])
+  gitClean(dir, ['config', 'core.autocrlf', 'false'])
+  writeFileSync(join(dir, 'product.ts'), 'export const a = 1\n')
+  gitClean(dir, ['add', '--', 'product.ts'])
+  return dir
+}
+
+test('V1 正常写回(索引 blob == 申报 blob)不红', () => {
+  const dir = makeBlobRepo()
+  try {
+    const blob = D.hashWorktreeBlob({ gitCwd: dir, relPath: 'product.ts' })
+    const check = D.verifyDeclaredEntryInIndex({ gitCwd: dir, relPath: 'product.ts', blob })
+    assert.deepEqual(check, { ok: true })
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('V2 真的不一致仍然红,且文案指向“不符”', () => {
+  const dir = makeBlobRepo()
+  try {
+    const oldBlob = D.hashWorktreeBlob({ gitCwd: dir, relPath: 'product.ts' })
+    writeFileSync(join(dir, 'product.ts'), 'export const a = 2\n')
+    gitClean(dir, ['add', '--', 'product.ts'])
+    const check = D.verifyDeclaredEntryInIndex({
+      gitCwd: dir,
+      relPath: 'product.ts',
+      blob: oldBlob,
+    })
+    assert.equal(check.ok, false)
+    assert.match(check.reason, /索引 blob 与申报不符/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('V3 漏传 blob 必须单独判红:不得返回 ok,也不得伪装成“与申报不符”', () => {
+  const dir = makeBlobRepo()
+  try {
+    const check = D.verifyDeclaredEntryInIndex({ gitCwd: dir, relPath: 'product.ts' })
+    assert.equal(check.ok, false)
+    assert.match(check.reason, /申报 blob 缺失|形状非法/)
+    assert.doesNotMatch(check.reason, /与申报不符/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('V4 所有调用点都显式传 blob(静态回归,防止再次漏传)', () => {
+  const skipDirs = new Set(['node_modules', 'tests', '.ihui-agent', '.git', 'dist', 'coverage'])
+  const files = []
+  const walk = (dir) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      if (ent.isDirectory()) {
+        if (!skipDirs.has(ent.name)) walk(join(dir, ent.name))
+        continue
+      }
+      if (/\.(?:js|mjs|cjs)$/.test(ent.name)) files.push(join(dir, ent.name))
+    }
+  }
+  walk(SCRIPTS_ROOT)
+  const definition = join(SCRIPTS_ROOT, 'lib', 'derived-artifacts.js')
+  let callCount = 0
+  for (const file of files) {
+    if (resolve(file) === resolve(definition)) continue
+    const src = readFileSync(file, 'utf8')
+    // 调用点形如 `verifyDeclaredEntryInIndex({ ... })`;取到第一个 `})` 为止的参数对象
+    for (const m of src.matchAll(/verifyDeclaredEntryInIndex\s*\(\s*\{([\s\S]*?)\}\s*\)/g)) {
+      callCount += 1
+      assert.match(
+        m[1],
+        /\bblob\b/,
+        `${file.slice(SCRIPTS_ROOT.length + 1)} 的 verifyDeclaredEntryInIndex 调用点没有传 blob`,
+      )
+    }
+  }
+  assert.ok(callCount >= 1, '至少应扫描到一个真实调用点(pre-commit-hook.js)')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

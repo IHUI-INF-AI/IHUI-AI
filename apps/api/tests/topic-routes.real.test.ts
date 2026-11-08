@@ -47,6 +47,8 @@ async function createLesson(data: {
       status: data.status ?? 1,
       isFree: data.isFree ?? false,
       price: data.price ?? '0',
+      // F-691:公开专题详情只返回已发布课程,本夹具的课程均代表对外可见课程。
+      isPublished: true,
     })
     .returning()
   if (!row) throw new Error('topic-routes.real.test.ts: 插入未返回行(row)')

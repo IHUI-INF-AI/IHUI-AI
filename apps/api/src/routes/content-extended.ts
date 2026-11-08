@@ -87,16 +87,16 @@ const updateBannerSchema = z.object({
 // =============================================================================
 
 export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
-  // BUG-3 根治:全局要求管理员权限,收口全部 12 个内容管理接口
-  // (此前仅 authenticate,任意注册用户可越权伪造活动/改写轮播/删全局文件)。
-  server.addHook('preHandler', requireAdmin)
+  // BUG-3 根治:10 个内容管理接口为单位收口 requireAdmin(此前仅 authenticate,
+  // 任意注册用户可越权伪造活动/改写轮播/删全局文件)。2026-11-08 复核修正:
+  // 不再用全局 addHook 把 AIGC 两个自助端点一起卷进 admin 面 —— /content/aigc 的
+  // 行级主体恒为 request.userId(小程序 getAigcList 即普通用户入口),登录即可。
   // ==========================================================================
   // activities — 活动管理（表 activities，尚未迁移为 Drizzle schema）
   // ==========================================================================
 
   // GET /content/activities/list - 活动列表
-  server.get('/content/activities/list', async (request, reply) => {
-    await authenticate(request)
+  server.get('/content/activities/list', { preHandler: requireAdmin }, async (request, reply) => {
     const q = z
       .object({
         page: z.string().optional(),
@@ -138,8 +138,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /content/activities - 创建活动
-  server.post('/content/activities', async (request, reply) => {
-    await authenticate(request)
+  server.post('/content/activities', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = createActivitySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -161,8 +160,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /content/activities/:id - 修改活动
-  server.put('/content/activities/:id', async (request, reply) => {
-    await authenticate(request)
+  server.put('/content/activities/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const paramParsed = idParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
       return reply.status(400).send(error(400, '无效的 ID'))
@@ -201,8 +199,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /content/activities/:id - 删除活动
-  server.delete('/content/activities/:id', async (request, reply) => {
-    await authenticate(request)
+  server.delete('/content/activities/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, '无效的 ID'))
@@ -227,8 +224,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   // GET /content/contacts/list - 联系方式列表
-  server.get('/content/contacts/list', async (request, reply) => {
-    await authenticate(request)
+  server.get('/content/contacts/list', { preHandler: requireAdmin }, async (request, reply) => {
     const q = z
       .object({
         page: z.string().optional(),
@@ -270,8 +266,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /content/contacts/:id - 修改联系方式
-  server.put('/content/contacts/:id', async (request, reply) => {
-    await authenticate(request)
+  server.put('/content/contacts/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const paramParsed = idParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
       return reply.status(400).send(error(400, '无效的 ID'))
@@ -312,8 +307,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   // GET /content/file-storage/list - 文件存储列表
-  server.get('/content/file-storage/list', async (request, reply) => {
-    await authenticate(request)
+  server.get('/content/file-storage/list', { preHandler: requireAdmin }, async (request, reply) => {
     const q = z
       .object({
         page: z.string().optional(),
@@ -355,27 +349,30 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /content/file-storage/:id - 删除文件
-  server.delete('/content/file-storage/:id', async (request, reply) => {
-    await authenticate(request)
-    const parsed = idParamSchema.safeParse(request.params)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, '无效的 ID'))
-    }
-    const { id } = parsed.data
-    try {
-      const rows = await db.execute(
-        sql`DELETE FROM content_file_storage WHERE "id"::text = ${id} RETURNING id, file_path, file_url`,
-      )
-      const row = (rows as Record<string, unknown>[])[0]
-      if (!row) return reply.status(404).send(error(404, '文件不存在'))
-      return reply.send(
-        success({ id, deleted: (rows as Record<string, unknown>[]).length > 0, ...row }),
-      )
-    } catch (e) {
-      request.log.error(e)
-      return reply.status(500).send(error(500, '删除文件失败'))
-    }
-  })
+  server.delete(
+    '/content/file-storage/:id',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const parsed = idParamSchema.safeParse(request.params)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, '无效的 ID'))
+      }
+      const { id } = parsed.data
+      try {
+        const rows = await db.execute(
+          sql`DELETE FROM content_file_storage WHERE "id"::text = ${id} RETURNING id, file_path, file_url`,
+        )
+        const row = (rows as Record<string, unknown>[])[0]
+        if (!row) return reply.status(404).send(error(404, '文件不存在'))
+        return reply.send(
+          success({ id, deleted: (rows as Record<string, unknown>[]).length > 0, ...row }),
+        )
+      } catch (e) {
+        request.log.error(e)
+        return reply.status(500).send(error(500, '删除文件失败'))
+      }
+    },
+  )
 
   // ==========================================================================
   // aigc — AIGC 内容管理（使用 Drizzle schema: aiGcContent）
@@ -450,8 +447,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   // ==========================================================================
 
   // GET /content/banners/list - 横幅列表
-  server.get('/content/banners/list', async (request, reply) => {
-    await authenticate(request)
+  server.get('/content/banners/list', { preHandler: requireAdmin }, async (request, reply) => {
     const q = z
       .object({
         page: z.string().optional(),
@@ -495,8 +491,7 @@ export const contentExtendedRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /content/banners/:id - 修改横幅
-  server.put('/content/banners/:id', async (request, reply) => {
-    await authenticate(request)
+  server.put('/content/banners/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const paramParsed = uuidIdParamSchema.safeParse(request.params)
     if (!paramParsed.success) {
       return reply.status(400).send(error(400, '无效的 ID'))

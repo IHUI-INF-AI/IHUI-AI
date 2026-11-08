@@ -9,6 +9,7 @@ import { requireAdmin } from '../plugins/require-permission.js'
 import {
   findAnnouncements,
   findAnnouncementById,
+  isAnnouncementVisible,
   createAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
@@ -263,14 +264,14 @@ export const contentRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
-  // GET /announcements/:id - 公开：公告详情（仅已发布）
+  // GET /announcements/:id - 公开：公告详情（已发布 + 已到发布时间 + 未过期）
   server.get('/announcements/:id', async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const announcement = await findAnnouncementById(parsed.data.id)
-    if (!announcement || !announcement.isPublished) {
+    if (!announcement || !isAnnouncementVisible(announcement)) {
       return reply.status(404).send(error(404, '公告不存在'))
     }
     return reply.send(success({ announcement }))

@@ -100,6 +100,18 @@ export default function WebviewIndex() {
   // 等结果的那一屏,这里静默等于"点了没反应",所以两条失败支路都必须显式提示;取词
   // login.loginFailed(五语言包已在位,不新增文案,AGENTS §19)。
   const ssoReturnInflightRef = useRef(false)
+  // XUI-044:600ms 后的 reLaunch 定时器必须可取消 —— 用户登录成功后立刻返回/切页时,
+  // 旧实现仍会把页面栈强行重置回首页。
+  const reLaunchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (reLaunchTimerRef.current) {
+        clearTimeout(reLaunchTimerRef.current)
+        reLaunchTimerRef.current = null
+      }
+    },
+    [],
+  )
   const handleWebviewMessage = (e: unknown) => {
     logger.info('webview', 'message', String(e))
     if (ssoReturnInflightRef.current) return
@@ -131,7 +143,11 @@ export default function WebviewIndex() {
               logger.warn('webview', 'sso 登录态同步 store 失败', String(err))
             }
           }
-          setTimeout(() => reLaunch({ url: '/pages/index/index' }), 600)
+          if (reLaunchTimerRef.current) clearTimeout(reLaunchTimerRef.current)
+          reLaunchTimerRef.current = setTimeout(() => {
+            reLaunchTimerRef.current = null
+            reLaunch({ url: '/pages/index/index' })
+          }, 600)
         } else {
           // 换票失败(code 过期/网络异常):如实提示,并释放防重锁允许用户回 H5 重试
           ssoReturnInflightRef.current = false

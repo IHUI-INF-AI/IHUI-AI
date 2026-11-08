@@ -24,8 +24,8 @@
 export interface TerminateStreamDeps {
   /** 在途流的控制器;「停止」按钮与「流式中切换模型」共用同一个 ref。 */
   abortRef: { current: AbortController | null }
-  /** 回收端内「思考中」进度态(= chat.tsx 的 `stopThinkingProgress`,不回收则浮层常驻)。 */
-  clearThinkingProgress: () => void
+  /** 回收端内「思考中」浮层态;端内若不再维护思考进度可省略。 */
+  clearThinkingProgress?: () => void
   /**
    * 面向用户的终止原因(例:「已切换到 X,本轮回答已终止」)。
    * 缺省 = 静默,即用户自己点「停止」的既有行为 —— 那条路径不需要额外解释。
@@ -49,7 +49,7 @@ export function terminateActiveStream(deps: TerminateStreamDeps): boolean {
   if (!controller) return false
 
   controller.abort()
-  deps.clearThinkingProgress()
+  deps.clearThinkingProgress?.()
   if (deps.notice && deps.showNotice) deps.showNotice(deps.notice)
   return true
 }

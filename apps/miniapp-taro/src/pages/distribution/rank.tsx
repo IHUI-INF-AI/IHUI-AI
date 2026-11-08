@@ -33,8 +33,11 @@ export default function DistributionRank() {
   const [items, setItems] = useState<RankingItem[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  // XUI-066:原页 catch 静默忽略,失败只剩空榜;现在如实上抛给共享屏。
+  const [loadError, setLoadError] = useState('')
 
   const load = useCallback(async () => {
+    setLoadError('')
     try {
       const res = await getDistributionRank()
       setItems(
@@ -47,12 +50,12 @@ export default function DistributionRank() {
         })),
       )
     } catch {
-      // 原页静默忽略;空态由共享屏承接
+      setLoadError(t('common.loadFailed'))
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [t])
 
   const refresh = useCallback(() => {
     setRefreshing(true)
@@ -78,7 +81,7 @@ export default function DistributionRank() {
         onSelectRange={() => {}}
         loading={loading}
         refreshing={refreshing}
-        error=""
+        error={loadError}
         onRefresh={refresh}
         onBack={() => void Taro.navigateBack()}
         colorScheme={resolvedTheme}

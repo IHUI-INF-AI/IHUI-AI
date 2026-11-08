@@ -9,7 +9,7 @@
 - index_repository 增量:首轮全量 → 零变更跳过 → 单文件重索引 → 删除清理
 - incremental=False 强制全量
 - 快照原子持久化(无 .tmp 残留)
-- _delete_files_from_api(DELETE /repo/:id/files,失败静默返 0)
+- _delete_files_from_api(DELETE /repo/:id/files,失败返回 None 与成功 0 可分)
 - 三层语义切片:module_summary / architecture_summary 生成条件与集成
 """
 
@@ -165,7 +165,8 @@ class TestDeleteFilesFromApi:
         assert await idx._delete_files_from_api("repo-1", [], None) == 0
 
     @pytest.mark.asyncio
-    async def test_api_error_returns_zero(self):
+    async def test_api_error_returns_none(self):
+        """AIS-027:删除失败必须与"成功删了 0 条"可分(返回 None),否则失败静默。"""
         idx = CodebaseIndexer.__new__(CodebaseIndexer)
         idx._api_base_url = "http://localhost:8801"
         mock_resp = MagicMock()
@@ -175,7 +176,70 @@ class TestDeleteFilesFromApi:
         mock_client.__aenter__.return_value = mock_client
         mock_client.request = AsyncMock(return_value=mock_resp)
         with patch("httpx.AsyncClient", return_value=mock_client):
-            assert await idx._delete_files_from_api("repo-1", ["x.py"], None) == 0
+            assert await idx._delete_files_from_api("repo-1", ["x.py"], None) is None
+
+
+class TestAis027CommitSemantics:
+    """AIS-027:快照只记"真正已索引"的状态,失败必须留待下轮重试。"""
+
+    @pytest.mark.asyncio
+    async def test_write_failure_is_retried_next_round(self, tmp_path):
+        """写库批次失败的文件不得按 unchanged 跳过,否则永久检索不到。"""
+        (tmp_path / "a.py").write_text("def foo():\n    return 1\n")
+        idx = _make_indexer()
+
+        calls = {"n": 0}
+
+        async def flaky_write(repo_id, batch, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("vector store down")
+            return {}
+
+        with patch.object(idx, "_generate_embeddings_batch", new=AsyncMock(return_value=1)):
+            with patch.object(idx, "_write_to_api", new=AsyncMock(side_effect=flaky_write)):
+                first = await idx.index_repository(str(tmp_path), "repo-retry")
+        assert first.errors, "写失败必须显式报错,不能被吞"
+        assert any("下轮重试" in e for e in first.errors)
+
+        embed = AsyncMock(return_value=0)
+        write = AsyncMock(return_value={})
+        with patch.object(idx, "_generate_embeddings_batch", new=embed):
+            with patch.object(idx, "_write_to_api", new=write):
+                second = await idx.index_repository(str(tmp_path), "repo-retry")
+        assert second.files_unchanged == 0, (
+            "写失败的文件被判 unchanged ⇒ 下一轮永远不会重写"
+        )
+        assert second.files_indexed == 1
+        assert embed.await_count == 1, "重试轮必须重新向量化该文件"
+
+    @pytest.mark.asyncio
+    async def test_delete_failure_keeps_entry_for_retry(self, tmp_path):
+        """删除失败路径必须留在快照里,否则幽灵切片永不清理。"""
+        (tmp_path / "a.py").write_text("def foo():\n    return 1\n")
+        idx = _make_indexer()
+        with patch.object(idx, "_generate_embeddings_batch", new=AsyncMock(return_value=1)):
+            with patch.object(idx, "_write_to_api", new=AsyncMock(return_value={})):
+                await idx.index_repository(str(tmp_path), "repo-del-retry")
+
+        (tmp_path / "a.py").unlink()
+        with patch.object(idx, "_generate_embeddings_batch", new=AsyncMock(return_value=0)):
+            with patch.object(idx, "_write_to_api", new=AsyncMock(return_value={})):
+                with patch.object(
+                    idx, "_delete_files_from_api", new=AsyncMock(return_value=None)
+                ):
+                    second = await idx.index_repository(str(tmp_path), "repo-del-retry")
+        assert any("删除幽灵切片失败" in e for e in second.errors)
+
+        delete_ok = AsyncMock(return_value=1)
+        with patch.object(idx, "_generate_embeddings_batch", new=AsyncMock(return_value=0)):
+            with patch.object(idx, "_write_to_api", new=AsyncMock(return_value={})):
+                with patch.object(idx, "_delete_files_from_api", new=delete_ok):
+                    third = await idx.index_repository(str(tmp_path), "repo-del-retry")
+        assert third.files_deleted == 1
+        delete_ok.assert_awaited_once()
+        _, deleted = delete_ok.await_args.args[0], delete_ok.await_args.args[1]
+        assert deleted == ["a.py"], "删除失败路径丢失 ⇒ 下一轮不会再尝试删除"
 
 
 class TestThreeLayerSemanticChunks:

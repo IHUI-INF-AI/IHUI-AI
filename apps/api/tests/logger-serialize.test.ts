@@ -26,9 +26,11 @@ interface Captured {
 
 function capturingSink(): { sink: Captured[]; instance: FastifyLogInstance } {
   const sink: Captured[] = []
-  const at = (level: string) => (meta: object, msg: string): void => {
-    sink.push({ level, meta, msg })
-  }
+  const at =
+    (level: string) =>
+    (meta: object, msg: string): void => {
+      sink.push({ level, meta, msg })
+    }
   const instance: FastifyLogInstance = {
     log: { debug: at('debug'), info: at('info'), warn: at('warn'), error: at('error') },
   }
@@ -78,6 +80,23 @@ describe('logger → pino 落笔前的序列化(经 setFastify 捕获面)', () =
     const meta = sink[0]?.meta as { error?: { message?: string; name?: string } }
     expect(meta.error?.message).toBe('upstream 502')
     expect(meta.error?.name).toBe('Error')
+  })
+
+  // F-284:err 保留键不能成为打码缺口
+  it('logger.error 的 err.message/stack 在落盘前打码,且仍是 Error 实例', () => {
+    const { sink, instance } = capturingSink()
+    setFastify(instance)
+    const err = new Error('GET https://upstream.example/v1?api_key=sk-live-abcdef123456 failed')
+    logger.error('upstream call failed', { err })
+    expect(sink).toHaveLength(1)
+    const meta = sink[0]?.meta as { err?: Error }
+    expect(meta.err).toBeInstanceOf(Error)
+    expect(meta.err?.name).toBe('Error')
+    expect(meta.err?.message).toContain('upstream.example')
+    expect(meta.err?.message).not.toContain('sk-live-abcdef123456')
+    expect(meta.err?.stack ?? '').not.toContain('sk-live-abcdef123456')
+    // 原错误对象不被就地改写(调用方可能还要拿它生成响应体)
+    expect(err.message).toContain('sk-live-abcdef123456')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -21541,9 +21541,12 @@
     "status": {
       "all": "전체",
       "cancelled": "취소됨",
+      "completed": "완료됨",
+      "failed": "실패",
       "paid": "결제 완료",
       "pending": "결제 대기",
       "refunded": "환불됨",
+      "refunding": "환불 처리 중",
       "unknown": "알 수 없음"
     },
     "statusLabel": "상태",

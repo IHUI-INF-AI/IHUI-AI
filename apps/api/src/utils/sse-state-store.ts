@@ -167,8 +167,12 @@ class RedisSseStateStore implements SseStateStore {
   /** 命令连接惰性单例(参照 ws-replay-buffer:自建独立连接 + 优雅退出)。 */
   private getRedis(): Redis {
     if (!this.commandClient) {
+      // F-285:Redis 不可达时命令必须快速 reject 走 catch/旁路降级,不得永久挂起。
       const client = new IORedis(config.REDIS_URL, {
-        maxRetriesPerRequest: null,
+        maxRetriesPerRequest: 1,
+        enableOfflineQueue: false,
+        commandTimeout: 1000,
+        connectTimeout: 1000,
         lazyConnect: false,
       })
       client.on('error', (err) => {
@@ -193,7 +197,7 @@ class RedisSseStateStore implements SseStateStore {
       sub.on('error', (err) => {
         logger.error('[sse-state-store] subscriber error', { error: err })
       })
-      void sub.subscribe(ABORT_CHANNEL)
+      void sub.subscribe(ABORT_CHANNEL).catch((err: unknown) => this.warnDegradedOnce(err))
       sub.on('message', (_channel: string, message: string) => {
         try {
           const broadcast = JSON.parse(message) as SseAbortBroadcast

@@ -24,17 +24,28 @@ const MAX_CACHE_SIZE = 1000
 // 合法 schema 名正则（小写字母/下划线开头，后跟小写字母/数字/下划线）
 const SCHEMA_NAME_RE = /^[a-z_][a-z0-9_]*$/
 
+// 合法租户标识：仅小写字母/数字/连字符（UUID 与 slug 子集）。
+// 旧实现用 `.replace(/[^a-zA-Z0-9_]/g,'_').toLowerCase()` 把 `a-b` 与 `a_b` 归一成同一个
+// schema；新口径把连字符单射映射为下划线，因此下划线/大写/点/冒号一律拒绝（fail-closed 400）。
+// UUID 例外：大小写不敏感地把 16 进制部分统一为小写，同一租户的不同大小写写法仍映射同一 schema。
+// 长度上限 56：`tenant_` 前缀 7 + 56 = 63，正好是 PostgreSQL identifier 上限。
+const TENANT_ID_RE = /^[a-z0-9-]{1,56}$/
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 function getTenantSchema(tenantId: string): string {
   // 从缓存获取
   const cached = schemaCache.get(tenantId)
   if (cached) return cached
 
-  // 生成 schema 名（tenant_id 转换为合法 schema 名：仅保留 [a-z0-9_]，小写化）
-  const sanitized = tenantId
-    .replace(/[^a-zA-Z0-9_]/g, '_')
-    .slice(0, 50)
-    .toLowerCase()
-  const schema = `tenant_${sanitized}`
+  const canonical = UUID_RE.test(tenantId) ? tenantId.toLowerCase() : tenantId
+  if (!TENANT_ID_RE.test(canonical)) {
+    const err = new Error(`Invalid tenant id: ${tenantId}`) as Error & { statusCode: number }
+    err.statusCode = 400
+    throw err
+  }
+
+  // 连字符 → 下划线；下划线在入参中已被拒绝，映射因此无碰撞。
+  const schema = `tenant_${canonical.replace(/-/g, '_')}`
   // 防御性校验：最终 schema 必须匹配合法 identifier 正则，否则拒绝（防止 sql.raw(schema) 注入）
   if (!SCHEMA_NAME_RE.test(schema)) {
     const err = new Error(`Invalid tenant schema: ${schema}`) as Error & { statusCode: number }
@@ -51,19 +62,23 @@ function getTenantSchema(tenantId: string): string {
   return schema
 }
 
-/** 在租户上下文中执行操作（自动设置 search_path） */
-export async function withTenant<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
+/** 租户事务句柄：SET LOCAL 与业务查询必须共用同一条连接。 */
+type TenantTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/** 在租户事务中执行操作（事务内设置 search_path） */
+export async function withTenant<T>(
+  tenantId: string,
+  fn: (tx: TenantTx) => Promise<T>,
+): Promise<T> {
   const schema = getTenantSchema(tenantId)
-  return tenantALS.run({ tenantId, schema }, async () => {
-    // 设置 search_path
-    await db.execute(sql`SET LOCAL search_path TO ${sql.raw(schema)}, public`)
-    try {
-      return await fn()
-    } finally {
-      // 恢复 search_path
-      await db.execute(sql`SET LOCAL search_path TO public`)
-    }
-  })
+  return tenantALS.run({ tenantId, schema }, () =>
+    db.transaction(async (tx) => {
+      // SET LOCAL 只在事务内生效（事务外只发 warning）。必须在**同一事务句柄**上设置，
+      // 业务回调也必须用该 tx：否则查询会落到池里的另一条连接，search_path 仍是默认值。
+      await tx.execute(sql`SET LOCAL search_path TO ${sql.raw(schema)}, public`)
+      return fn(tx)
+    }),
+  )
 }
 
 /** 获取当前租户上下文 */

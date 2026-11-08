@@ -4774,6 +4774,8 @@ const checks = [
     args: [],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_MIGRATION_IMMUTABLE',
+    exemptionNote:
+      'scripts/data/migration-rewrite-ledger.jsonl —— 修已入库正文的正规流程 = 登记(附从零 370/370 验证与夹具断言),不是 skipEnv;登记与正文不符/证据缺/过期一律 exit 2',
     stagedTriggers: ['packages/database/', 'apps/api/src/'],
     onFailHint: [
       '',
@@ -7452,6 +7454,31 @@ const checks = [
       '     应急放行:HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // 2026-11-08 DG-05:判据面不可变护栏的**全量腿**注册。push 门里已有同判据的 `IG`
+  // (id 不能重复,check-gate-wiring R5;push-receipt 的 EXPECTED_GATES 也逐项钉着 push 块),
+  // 但全量腿(CI guardian-full / 无钩子落地)原先一步都不判 —— 于是带 evil merge 的 PR 在
+  // 合并前没有任何门看判据面。这里用独立 id `IGf`,判同一个区间 origin/main..HEAD
+  // (与 push 门同面同尺:合并提交按逐父交集判,见 check-immutable-guard 2026-11-08 段)。
+  {
+    id: 'IGf',
+    label: '🧊  判据面不可变护栏(全量腿:origin/main..HEAD 逐枚判,合并按逐父交集)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    // 射程 = 受保护面本身(immutable-guard.json entries 的路径前缀):本笔碰到它们才需要在提交时判区间
+    stagedTriggers: ['scripts/', 'AGENTS.md', '.husky/'],
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 全量腿这一档补的是 push 门管不到的面(CI / 无钩子落地);判红形态与 push 档 IG 相同:',
+      '     ① 没有 immutable-exempt 理由;② 有理由但缺/验不过签名;③ 清单 reviewBy 到期。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  区间取不到(origin/main 未 fetch)⇒ exit 2 未判定,不记绿。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
@@ -7863,6 +7890,52 @@ async function runGateSelfTests(checkList) {
 
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
+
+// ── 显式跳过指定 push 门(DG-09:让 HUSKY_SKIP_TYPECHECK 名副其实)──────────────
+// 旧版 .husky/pre-push 把 `HUSKY_SKIP_TYPECHECK=1` 用作「整条 push 门链不跑」的开关,
+// 文案却说只跳过 typecheck ⇒ 47p/IG/299~308 等 12 道 blocking 门被静默放行。
+// 现由 hook 只导出 `IHUI_PUSH_GATE_SKIP_IDS=T1`,本器逐 id 过滤,其余门照跑。
+// 失效方向一律失败而非静默:未知/畸形 id、过滤后清单为空 ⇒ exit 2(绝不当作全绿)。
+if (pushGate) {
+  const skipEnvRaw = process.env.IHUI_PUSH_GATE_SKIP_IDS
+  if (typeof skipEnvRaw === 'string' && skipEnvRaw.trim() !== '') {
+    const skippedGates = [
+      ...new Set(
+        skipEnvRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ]
+    if (skippedGates.length === 0) {
+      console.error('❌ IHUI_PUSH_GATE_SKIP_IDS 已设置但解析不出任何门 id(畸形式空值,拒绝静默生效)')
+      process.exit(2)
+    }
+    const knownIds = new Set(effectiveChecks.map((c) => String(c.id)))
+    const unknownIds = skippedGates.filter((id) => !knownIds.has(id))
+    if (unknownIds.length > 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 含未知/畸形门 id:${unknownIds.join(',')}` +
+          `(在册 push 门:${[...knownIds].join(', ')})`,
+      )
+      process.exit(2)
+    }
+    effectiveChecks = effectiveChecks.filter((c) => !skippedGates.includes(String(c.id)))
+    if (effectiveChecks.length === 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 过滤后 push 门清单为空(skippedGates=[${skippedGates.join(',')}])` +
+          ' —— 拒绝把它当作「全部通过」',
+      )
+      process.exit(2)
+    }
+    // 跳过态必须禁用 push-gate 结果缓存(--no-cache 既有实现):否则旧缓存命中会把其余门一并短路。
+    if (!cliArgs.includes('--no-cache')) cliArgs.push('--no-cache')
+    console.warn(
+      `⚠️ 显式跳过 push 门:skippedGates=[${skippedGates.join(',')}];` +
+        `其余 ${effectiveChecks.length} 道照跑(--no-cache 已强制启用)`,
+    )
+  }
+}
 
 // ── 档位裁剪(2026-10-22 立,判据与理由全在 scripts/lib/gate-scope.mjs 头注)──────────
 // 只决定"这次改动该跑哪些门",**不碰任何门的判据**。含业务路径 / 含判据库 / 判不出

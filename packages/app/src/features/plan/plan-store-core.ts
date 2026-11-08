@@ -135,6 +135,7 @@ export function createPlanLocalStore(options: PlanLocalStoreOptions = {}) {
     async hydrate(): Promise<void> {
       if (hydrated || hydrating || storage === undefined) return
       hydrating = true
+      let recovered = true
       try {
         const raw = await storage.getItem(storageKey)
         if (!dirtyBeforeHydrate && raw !== null) {
@@ -146,14 +147,19 @@ export function createPlanLocalStore(options: PlanLocalStoreOptions = {}) {
           if (Array.isArray(list)) {
             plans = list.filter(isValidPlan)
             notify()
+          } else {
+            // 存储内容不是合法 plans 结构:按读取失败处理,不落盘覆盖。
+            recovered = false
           }
         }
       } catch {
-        /* 解析失败保持空列表,等同首次使用 */
+        // 读取/解析失败:保持未水合状态,后续写入留在内存,绝不用空列表覆盖原数据。
+        recovered = false
       } finally {
         hydrating = false
-        hydrated = true
       }
+      if (!recovered) return
+      hydrated = true
       if (dirtyBeforeHydrate) {
         void storage.setItem(storageKey, JSON.stringify({ plans })).catch(() => undefined)
       }

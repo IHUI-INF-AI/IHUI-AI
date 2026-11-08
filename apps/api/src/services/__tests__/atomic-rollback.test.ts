@@ -10,13 +10,18 @@
 import { describe, it, expect, afterAll } from 'vitest'
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   createAtomicCheckpoint,
   listAtomicCheckpoints,
   planAtomicRollback,
   executeAtomicRollback,
+  isSafeCheckpointId,
 } from '../atomic-rollback'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROUTE_FILE = resolve(HERE, '../../routes/workspace-ai.ts')
 
 const tmpRoots: string[] = []
 function makeWorkspace(): string {
@@ -144,6 +149,70 @@ describe('listAtomicCheckpoints', () => {
     const list = await listAtomicCheckpoints(ws)
     const ids = list.map((m) => m.id)
     expect(ids.indexOf(s2.meta.id)).toBeLessThan(ids.indexOf(s1.meta.id))
+  })
+})
+
+describe('F-27 checkpointId 与快照路径越界', () => {
+  it('checkpointId 只接受 [A-Za-z0-9_-]，`..` / 分隔符一律拒绝', () => {
+    expect(isSafeCheckpointId('ac-1750000000-abcd')).toBe(true)
+    expect(isSafeCheckpointId('../../x')).toBe(false)
+    expect(isSafeCheckpointId('..\\x')).toBe(false)
+    expect(isSafeCheckpointId('a/b')).toBe(false)
+    expect(isSafeCheckpointId('a b')).toBe(false)
+    expect(isSafeCheckpointId('')).toBe(false)
+  })
+
+  it('越界 checkpointId 在 plan/execute 都返回 null，不读外部 meta、不写外部文件', async () => {
+    const parent = makeWorkspace()
+    const ws = join(parent, 'ws')
+    mkdirSync(join(ws, 'x', 'files'), { recursive: true })
+    writeFileSync(join(parent, 'evil.txt'), 'SAFE', 'utf-8')
+    writeFileSync(join(ws, 'x', 'evil.txt'), 'PWNED', 'utf-8')
+    writeFileSync(
+      join(ws, 'x', 'meta.json'),
+      JSON.stringify({
+        id: 'x',
+        createdAt: new Date().toISOString(),
+        description: '',
+        tool: 'test',
+        files: [{ path: '../evil.txt', existed: true, hash: '0000', size: 4 }],
+        skipped: [],
+      }),
+      'utf-8',
+    )
+
+    expect(await planAtomicRollback(ws, '../../x')).toBeNull()
+    expect(await executeAtomicRollback(ws, '../../x', { confirm: true })).toBeNull()
+    expect(readFileSync(join(parent, 'evil.txt'), 'utf-8')).toBe('SAFE')
+  })
+
+  it('meta.files[].path 越界条目被拒绝：不 restore、不落盘，只记 uncovered', async () => {
+    const parent = makeWorkspace()
+    const ws = join(parent, 'ws')
+    mkdirSync(ws, { recursive: true })
+    writeFileSync(join(ws, 'a.txt'), 'v1', 'utf-8')
+    writeFileSync(join(parent, 'evil.txt'), 'SAFE', 'utf-8')
+
+    const snap = await createAtomicCheckpoint(ws, { description: 'd' })
+    const metaPath = join(snap.dir, 'meta.json')
+    const meta = JSON.parse(readFileSync(metaPath, 'utf-8'))
+    meta.files.push({ path: '../evil.txt', existed: true, hash: '0000', size: 5 })
+    writeFileSync(metaPath, JSON.stringify(meta), 'utf-8')
+    writeFileSync(join(snap.dir, 'evil.txt'), 'PWNED', 'utf-8')
+
+    const plan = await planAtomicRollback(ws, snap.meta.id)
+    expect(plan!.restore.some((r) => r.path.includes('..'))).toBe(false)
+    expect(plan!.uncovered.some((u) => u.path === '../evil.txt')).toBe(true)
+
+    const result = await executeAtomicRollback(ws, snap.meta.id, { confirm: true })
+    expect(result!.ok).toBe(true)
+    expect(readFileSync(join(parent, 'evil.txt'), 'utf-8')).toBe('SAFE')
+  })
+
+  it('路由 checkpointId schema 复用同一判据（源码锚点）', () => {
+    const src = readFileSync(ROUTE_FILE, 'utf-8')
+    expect(src).toContain('checkpointId: checkpointIdSchema')
+    expect(src).toContain('.refine(isSafeCheckpointId')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

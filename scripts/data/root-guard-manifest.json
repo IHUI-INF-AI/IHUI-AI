@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-07T13:42:14.576Z",
+  "sealedAt": "2026-11-08T12:12:38.278Z",
   "sealedBy": "root-guard --seal",
-  "reason": "第三刀合 cut3:guardian-runner 与生成块写入口更新,按索引面现读重封清单,与被审面同批提交",
+  "reason": "merge wave 1108：合入 fix/p1-gates-web-1108 后按索引面重封",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "acd9571a5c4524da847bd6df2727f01a3fc31e2cee25e27990e12c08f8cae0af"
+      "sha256": "a017c9947fc870548308dafee34185d6853ab03558d5b29a74a125365e67bf92"
     },
     {
       "id": "judgement-libs",
@@ -29,6 +29,42 @@
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
       "sha256": "e7d49394c128bc484e3abc0e6fae68498bf3f947b8e4ef1f61bb8d99484043ce"
+    },
+    {
+      "id": "gate-scope",
+      "path": "scripts/lib/gate-scope.mjs",
+      "mode": "file",
+      "sha256": "3829ff981a479c29bf33c03bdd6d9403a6b294239f575b40fc1606544d23caab"
+    },
+    {
+      "id": "guardian-executor",
+      "path": "scripts/lib/guardian-executor.mjs",
+      "mode": "file",
+      "sha256": "9a448b67e61a2dde58102735dba0c352d02fe49b2c649bd9da87f434330aae28"
+    },
+    {
+      "id": "gate-failure-kind",
+      "path": "scripts/lib/gate-failure-kind.mjs",
+      "mode": "file",
+      "sha256": "54417b7dc571de922853788ae878bf53689ad8daa7b91d9a6467324d4a3e7b22"
+    },
+    {
+      "id": "land-gate-rerun",
+      "path": "scripts/lib/land-gate-rerun.mjs",
+      "mode": "file",
+      "sha256": "15edbadc1b11617a4764002cccefd165b1aa8a01825541002869eb1c1a5b0576"
+    },
+    {
+      "id": "guardian-pushgate-cache",
+      "path": "scripts/lib/guardian-pushgate-cache.mjs",
+      "mode": "file",
+      "sha256": "599d65090cf04ad7bd943c9089535b76b732f97f63a238a411d358d86441042a"
+    },
+    {
+      "id": "push-attempt-triage",
+      "path": "scripts/lib/push-attempt-triage.mjs",
+      "mode": "file",
+      "sha256": "117aeb5d61689805c630b396c00437913cfeda08e1ebb6b2c600a39989c71784"
     }
   ]
 }

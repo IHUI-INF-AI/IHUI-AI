@@ -78,6 +78,14 @@ vi.mock('../src/db/system-queries.js', () => ({
 vi.mock('../src/db/content-queries.js', () => ({
   findAnnouncements: vi.fn(),
   findAnnouncementById: vi.fn(),
+  // F-488:公开详情改用 isAnnouncementVisible(唯一判据),mock 保持同语义,
+  // 否则「合法 UUID 且公告存在返回 200」会被缺失导出打成 500。
+  isAnnouncementVisible: vi.fn(
+    (a: { isPublished: boolean; publishedAt: Date | null; expiresAt: Date | null }) =>
+      a.isPublished === true &&
+      (a.publishedAt === null || a.publishedAt.getTime() <= Date.now()) &&
+      (a.expiresAt === null || a.expiresAt.getTime() > Date.now()),
+  ),
   createAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),
   deleteAnnouncement: vi.fn(),

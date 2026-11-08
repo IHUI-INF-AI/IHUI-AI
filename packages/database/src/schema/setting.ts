@@ -12,6 +12,7 @@ import {
   timestamp,
   jsonb,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 
@@ -43,7 +44,7 @@ export const eduSettings = pgTable(
   },
   (t) => ({
     groupIdx: index('edu_settings_group_idx').on(t.group),
-    groupKeyIdx: index('edu_settings_group_key_idx').on(t.group, t.key),
+    groupKeyUniqueIdx: uniqueIndex('edu_settings_group_key_uidx').on(t.group, t.key),
     publicIdx: index('edu_settings_public_idx').on(t.isPublic),
   }),
 )

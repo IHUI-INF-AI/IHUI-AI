@@ -107,6 +107,9 @@ export async function resolveTeacherCheckIn(params: {
   now: Date
 }): Promise<{ ok: true; checkInTime: Date; status: string } | { ok: false; message: string }> {
   const { classId, date, checkInTimeRaw, now } = params
+  // 日期形态先过闸:checkInSchema 的 date 只是 z.string(),不校验形态,
+  // 非法串传给下面同日比较会产生"看着像日期但语义不同"的误判。
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return { ok: false, message: '日期格式必须为 YYYY-MM-DD' }
   let checkInTime: Date
   if (checkInTimeRaw === undefined) {
     if (bizDayKey(now) !== date)
@@ -321,7 +324,10 @@ export async function checkInByStudent(params: {
   checkInMethod: 'self' | 'qrcode'
   operatedBy: string
   remark?: string | undefined
-}): Promise<{ ok: true; record: AttendanceRow } | { ok: false; reason: StudentCheckInFailure }> {
+}): Promise<
+  | { ok: true; record: AttendanceRow; created: boolean }
+  | { ok: false; reason: StudentCheckInFailure }
+> {
   const { studentId, classId, date, checkInMethod, operatedBy, remark } = params
 
   const [enrollment] = await db
@@ -349,19 +355,24 @@ export async function checkInByStudent(params: {
 
   try {
     const txResult = await db.transaction(async (tx) => {
-      const [existing] = await tx
-        .select()
-        .from(eduAttendanceRecord)
-        .where(
-          and(
-            eq(eduAttendanceRecord.studentId, studentId),
-            eq(eduAttendanceRecord.classId, classId),
-            eq(eduAttendanceRecord.date, date),
-            isNull(eduAttendanceRecord.deletedAt),
-          ),
-        )
-        .limit(1)
-      if (existing) return { state: 'duplicate' as const }
+      const readExisting = async (): Promise<AttendanceRow | undefined> => {
+        const [existing] = await tx
+          .select()
+          .from(eduAttendanceRecord)
+          .where(
+            and(
+              eq(eduAttendanceRecord.studentId, studentId),
+              eq(eduAttendanceRecord.classId, classId),
+              eq(eduAttendanceRecord.date, date),
+              isNull(eduAttendanceRecord.deletedAt),
+            ),
+          )
+          .limit(1)
+        return existing
+      }
+
+      const existing = await readExisting()
+      if (existing) return { state: 'existing' as const, record: existing }
       const inserted = await tx
         .insert(eduAttendanceRecord)
         .values({
@@ -376,14 +387,20 @@ export async function checkInByStudent(params: {
           operatedBy,
           remark,
         })
+        // 并发保护:表上已有部分唯一索引 uq_edu_att_student_class_date
+        // (student_id, class_id, date) where deleted_at is null ⇒ 后到者在此落空而不是写第二行。
         .onConflictDoNothing()
         .returning()
-      return { state: 'inserted' as const, rows: inserted }
+      const record = inserted[0]
+      if (record) return { state: 'inserted' as const, record }
+      // onConflictDoNothing 空集 = 与并发事务撞上唯一约束(它已提交,故复读必可见既有行)。
+      // 不得把这一格落成 'failed'/500 —— 那会把"已经签到成功"误报成服务端故障。
+      const conflictRow = await readExisting()
+      if (conflictRow) return { state: 'existing' as const, record: conflictRow }
+      return { state: 'missing' as const }
     })
-    if (txResult.state === 'duplicate') return { ok: false, reason: 'duplicate' }
-    const record = txResult.rows[0]
-    if (!record) return { ok: false, reason: 'failed' }
-    return { ok: true, record }
+    if (txResult.state === 'missing') return { ok: false, reason: 'failed' }
+    return { ok: true, record: txResult.record, created: txResult.state === 'inserted' }
   } catch (_err) {
     return { ok: false, reason: 'failed' }
   }

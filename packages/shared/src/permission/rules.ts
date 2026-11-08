@@ -889,8 +889,10 @@ export function applyAutoReview(
   if (!rule || !rule.autoReviewable) return base
 
   const context = request.context
-  const principal = context.agentId ?? context.userId
-  if (!principal) return base
+  // 自动复核必须能落到明确主体:历史记录只有 agentId 一个归属键,
+  // 缺 agentId 时无法证明"同主体",一律回到 ask(fail-closed)。
+  const agentId = context.agentId
+  if (!agentId) return base
   if (!context.workspaceId) return base
 
   const facts = computeFacts(request, options.commandRiskAnalyzer ?? AST_COMMAND_RISK_ANALYZER)
@@ -906,7 +908,7 @@ export function applyAutoReview(
       h.ruleId === base.matchedRule &&
       h.workspaceId === context.workspaceId &&
       h.scopeKey === scopeKey &&
-      (h.agentId ?? principal) === principal &&
+      h.agentId === agentId &&
       context.now - h.at <= windowMs,
   )
   if (matched.length < minRepeats) return base

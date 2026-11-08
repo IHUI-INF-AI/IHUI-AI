@@ -239,7 +239,32 @@ describe('WithdrawScreen 提现流程', () => {
     expect(url).toContain('/wallet/withdraw')
     expect(init.method).toBe('POST')
     const body = JSON.parse(init.body)
-    expect(body.amount).toBe(100)
+    // XUI-014:输入 100 元 ⇒ 后端分单位 10000 分(旧实现直接送 100,实提缩水 100 倍)
+    expect(body.amount).toBe(10000)
+  })
+
+  it('XUI-014:余额按分→元展示,提现金额按元→分提交', async () => {
+    // getBalance 的 balance 单位是分(与 WalletScreen.mockBalance 同源)
+    apiMocks.getBalance.mockResolvedValue({
+      success: true,
+      data: { balance: 100050, frozenBalance: 0, totalRecharge: 0, totalWithdraw: 0 },
+    })
+    apiMocks.fetchApi.mockResolvedValue({ success: true })
+
+    const { getByPlaceholderText, getByText } = render(<WithdrawScreen />)
+
+    // 改前:直接把 100050 当元显示成 "100050.00"
+    await waitFor(() => expect(getByText('1000.50')).toBeTruthy())
+
+    const input = getByPlaceholderText('withdraw.amountPlaceholder') as HTMLInputElement
+    fireEvent.change(input, { target: { value: '100' } })
+    fireEvent.click(getByText('withdraw.submit'))
+    await waitFor(() => expect(alertCallbacks.length).toBeGreaterThanOrEqual(1))
+    alertCallbacks[alertCallbacks.length - 1]!()
+
+    await waitFor(() => expect(getByText('withdraw.success')).toBeTruthy())
+    const [, init] = apiMocks.fetchApi.mock.calls.at(-1)!
+    expect(JSON.parse(init.body).amount).toBe(10000)
   })
 
   it('提现失败(HTTP 非 200):显示 failed', async () => {

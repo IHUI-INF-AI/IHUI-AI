@@ -12,7 +12,7 @@
 //  - getDeviceTasks(id) → GET /api/devices/:id/tasks  该设备的待办/历史任务
 // 会话数据源复用移动端既有 listConversations(与 ChatScreen/HomeScreen 同一接口)。
 // 屏体形态对齐 ApiKeysScreen:自包含 RN 组件 + tokens 样式表,不依赖共享层插槽。
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   ScrollView,
@@ -97,6 +97,8 @@ export default function DevicesScreen() {
   const [conversations, setConversations] = useState<ConversationDetail[]>([])
   const [convLoading, setConvLoading] = useState(false)
   const [delegating, setDelegating] = useState<string | null>(null)
+  // XUI-069:同一屏的三条异步链路共用一个请求序号,后到的旧响应一律丢弃。
+  const reqSeqRef = useRef(0)
 
   // —— 任务状态(按设备展开) ——
   const [tasksFor, setTasksFor] = useState<string | null>(null)
@@ -105,16 +107,19 @@ export default function DevicesScreen() {
   const [tasksError, setTasksError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
+    const seq = (reqSeqRef.current += 1)
     setLoading(true)
     setLoadError(null)
     try {
       const res = await listDevices()
+      if (seq !== reqSeqRef.current) return
       if (!res.success) setLoadError(res.error || t('devices.loadFailed'))
       else setDevices(res.data ?? [])
     } catch {
+      if (seq !== reqSeqRef.current) return
       setLoadError(t('devices.loadFailed'))
     } finally {
-      setLoading(false)
+      if (seq === reqSeqRef.current) setLoading(false)
     }
   }, [t])
 
@@ -184,16 +189,19 @@ export default function DevicesScreen() {
       setDelegateFor(null)
       return
     }
+    const seq = (reqSeqRef.current += 1)
     setDelegateFor(deviceId)
     setConversations([])
     setConvLoading(true)
     try {
       const res = await listConversations({ page: 1, pageSize: 50 })
+      if (seq !== reqSeqRef.current) return
       setConversations(res.success ? (res.data?.conversations ?? []) : [])
     } catch {
+      if (seq !== reqSeqRef.current) return
       setConversations([])
     } finally {
-      setConvLoading(false)
+      if (seq === reqSeqRef.current) setConvLoading(false)
     }
   }
 
@@ -219,18 +227,21 @@ export default function DevicesScreen() {
       setTasksFor(null)
       return
     }
+    const seq = (reqSeqRef.current += 1)
     setTasksFor(deviceId)
     setTasks([])
     setTasksError(null)
     setTasksLoading(true)
     try {
       const res = await getDeviceTasks(deviceId)
+      if (seq !== reqSeqRef.current) return
       if (!res.success) setTasksError(res.error || t('devices.tasksFailed'))
       else setTasks(res.data ?? [])
     } catch {
+      if (seq !== reqSeqRef.current) return
       setTasksError(t('devices.tasksFailed'))
     } finally {
-      setTasksLoading(false)
+      if (seq === reqSeqRef.current) setTasksLoading(false)
     }
   }
 

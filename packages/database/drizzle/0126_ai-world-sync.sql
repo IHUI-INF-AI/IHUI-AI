@@ -17,24 +17,46 @@ CREATE TABLE "ai_world_sync_log" (
 ALTER TABLE "ai_world_categories" ALTER COLUMN "icon" SET DATA TYPE varchar(100);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ALTER COLUMN "title" SET DATA TYPE varchar(500);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ALTER COLUMN "cover_image" SET DATA TYPE varchar(1000);--> statement-breakpoint
-ALTER TABLE "ai_world_categories" ADD COLUMN "slug" varchar(100) NOT NULL;--> statement-breakpoint
+-- BUG-85: 存量表新增 NOT NULL 列必须带 DEFAULT，否则非空表在 ADD COLUMN 处当场中断。
+ALTER TABLE "ai_world_categories" ADD COLUMN "slug" varchar(100) NOT NULL DEFAULT '';--> statement-breakpoint
 ALTER TABLE "ai_world_categories" ADD COLUMN "description" varchar(500);--> statement-breakpoint
 ALTER TABLE "ai_world_categories" ADD COLUMN "created_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
 ALTER TABLE "ai_world_categories" ADD COLUMN "updated_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
-ALTER TABLE "ai_world_items" ADD COLUMN "kind" varchar(32) NOT NULL;--> statement-breakpoint
+ALTER TABLE "ai_world_items" ADD COLUMN "kind" varchar(32) NOT NULL DEFAULT '';--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "slug" varchar(200);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "summary" varchar(1000);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "url" varchar(1000);--> statement-breakpoint
-ALTER TABLE "ai_world_items" ADD COLUMN "source" varchar(200) NOT NULL;--> statement-breakpoint
+ALTER TABLE "ai_world_items" ADD COLUMN "source" varchar(200) NOT NULL DEFAULT '';--> statement-breakpoint
+-- 2026-11-06 补:三个 DEFAULT '' 只为给存量行回填以放行重放;ai-world-items.ts 定义这三列
+-- 均为"NOT NULL 无默认",必须撤掉默认值,否则新写入会静默落 '' 并与 TS schema 漂开。
+ALTER TABLE "ai_world_categories" ALTER COLUMN "slug" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "ai_world_items" ALTER COLUMN "kind" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "ai_world_items" ALTER COLUMN "source" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "source_url" varchar(1000);--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "published_at" timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "fetched_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "metadata" jsonb DEFAULT '{}'::jsonb NOT NULL;--> statement-breakpoint
 ALTER TABLE "ai_world_items" ADD COLUMN "like_count" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-CREATE INDEX "ix_ai_world_sync_log_source" ON "ai_world_sync_log" USING btree ("source");--> statement-breakpoint
-CREATE INDEX "ix_ai_world_sync_log_started_at" ON "ai_world_sync_log" USING btree ("started_at");--> statement-breakpoint
-CREATE INDEX "ix_ai_world_items_kind" ON "ai_world_items" USING btree ("kind");--> statement-breakpoint
-CREATE INDEX "ix_ai_world_items_source" ON "ai_world_items" USING btree ("source");--> statement-breakpoint
-ALTER TABLE "ai_world_categories" ADD CONSTRAINT "ai_world_categories_slug_unique" UNIQUE("slug");--> statement-breakpoint
-ALTER TABLE "ai_world_items" ADD CONSTRAINT "uq_ai_world_items_kind_source_url" UNIQUE("kind","source_url");
+CREATE INDEX IF NOT EXISTS "ix_ai_world_sync_log_source" ON "ai_world_sync_log" USING btree ("source");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_ai_world_sync_log_started_at" ON "ai_world_sync_log" USING btree ("started_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_ai_world_items_kind" ON "ai_world_items" USING btree ("kind");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "ix_ai_world_items_source" ON "ai_world_items" USING btree ("source");--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ai_world_categories_slug_unique') THEN
+    BEGIN
+      ALTER TABLE "ai_world_categories" ADD CONSTRAINT "ai_world_categories_slug_unique" UNIQUE("slug");
+    EXCEPTION WHEN unique_violation THEN
+      RAISE NOTICE 'BUG-85: ai_world_categories 存量 slug 重复，跳过唯一约束(待清理后补建)';
+    END;
+  END IF;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_ai_world_items_kind_source_url') THEN
+    BEGIN
+      ALTER TABLE "ai_world_items" ADD CONSTRAINT "uq_ai_world_items_kind_source_url" UNIQUE("kind","source_url");
+    EXCEPTION WHEN unique_violation THEN
+      RAISE NOTICE 'BUG-85: ai_world_items 存量 (kind,source_url) 重复，跳过唯一约束(待清理后补建)';
+    END;
+  END IF;
+END $$;
 -- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
