@@ -27,6 +27,10 @@ describe('XUI-052/053:rn-compat 垫片如实回吐/补齐成员', () => {
     expect(platform).toContain('export const saveToLibraryAsync = MediaLibrary.saveToLibraryAsync')
   })
 
+  it('MediaTypeOptions 别名在册(XUI-051)', () => {
+    expect(platform).toContain('export const MediaTypeOptions = ImagePicker.MediaType')
+  })
+
   it('Linking.openSettings 走 Taro.openSetting', () => {
     expect(apis).toContain('openSettings: async () =>')
     expect(apis).toContain('Taro.openSetting()')
