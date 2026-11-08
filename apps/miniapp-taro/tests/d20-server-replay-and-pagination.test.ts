@@ -623,12 +623,14 @@ describe('④ 源码级反向锁', () => {
     expect(historySrc).toMatch(/setList\(snapshot\)[\s\S]{0,200}deleteFailed/)
   })
 
-  it('排序出口只落共享屏一处 —— 页面与续页都没有第二份排序', () => {
-    const sharedSrc = readFileSync(
-      resolve(__dirname, '../../../packages/app/src/features/chat/ConversationHistoryScreen.tsx'),
+  it('排序出口只落共享层一处 —— 页面与续页都没有第二份排序', () => {
+    // 2026-11-06:orderHistoryRows 的实现从 packages/app 会话历史屏上移到
+    // shared/chat/conversation-org,结构锁改为量真身里的唯一时间序比较器。
+    const orgSrc = readFileSync(
+      resolve(__dirname, '../../../packages/shared/src/chat/conversation-org.ts'),
       'utf8',
     )
-    expect(sharedSrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
+    expect(orgSrc.match(/itemTimestamp\(b\) - itemTimestamp\(a\)/g) ?? []).toHaveLength(1)
     expect(historySrc.match(/\.sort\(/g) ?? []).toHaveLength(0)
   })
 
