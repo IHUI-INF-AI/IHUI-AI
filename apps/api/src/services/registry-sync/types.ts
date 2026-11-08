@@ -147,10 +147,18 @@ function bindBodyDeadline(res: Response, timer: ReturnType<typeof setTimeout>): 
       finish()
     }
   }
-  res.json = wrap(res.json.bind(res))
-  res.text = wrap(res.text.bind(res))
-  res.arrayBuffer = wrap(res.arrayBuffer.bind(res))
-  res.blob = wrap(res.blob.bind(res))
+  // Response 的 json/text/arrayBuffer/blob 在 lib.dom 里是只读方法,运行时由 fetch 实现可写;
+  // 这里通过一次显式可写视图挂超时包装,不改响应本体形状。
+  const mutable = res as unknown as {
+    json: typeof res.json
+    text: typeof res.text
+    arrayBuffer: typeof res.arrayBuffer
+    blob: typeof res.blob
+  }
+  mutable.json = wrap(res.json.bind(res))
+  mutable.text = wrap(res.text.bind(res))
+  mutable.arrayBuffer = wrap(res.arrayBuffer.bind(res))
+  mutable.blob = wrap(res.blob.bind(res))
   return res
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

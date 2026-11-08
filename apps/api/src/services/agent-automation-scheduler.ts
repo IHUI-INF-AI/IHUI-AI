@@ -393,7 +393,7 @@ class AgentStreamTimeoutError extends Error {
 async function readWithIdleTimeout(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   idleMs: number,
-): Promise<ReadableStreamReadResult<Uint8Array>> {
+): Promise<Awaited<ReturnType<ReadableStreamDefaultReader<Uint8Array>['read']>>> {
   let timer: ReturnType<typeof setTimeout> | undefined
   try {
     return await Promise.race([

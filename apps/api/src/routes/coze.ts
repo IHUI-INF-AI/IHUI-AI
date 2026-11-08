@@ -200,7 +200,7 @@ async function streamCozeSse(
     for (;;) {
       // 每次读取都挂空闲超时:上游半开连接不会把请求线程永久占住
       const idleTimer = setTimeout(() => controller.abort(), COZE_SSE_IDLE_TIMEOUT_MS)
-      let chunk: ReadableStreamReadResult<Uint8Array>
+      let chunk: Awaited<ReturnType<typeof reader.read>>
       try {
         chunk = await reader.read()
       } finally {
