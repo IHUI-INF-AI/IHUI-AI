@@ -52,6 +52,7 @@ from .branch_generation import (
 )
 from .message_bus import ChannelType, Message, message_bus
 from .task_executors import (
+    ADMIN_ONLY_TASK_TYPES,
     IMPLEMENTED_TASK_TYPES,
     HttpGetter,
     LlmCall,
@@ -1029,6 +1030,26 @@ async def run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
             # 这里(同一个未知类型分支),但响应键名是对外的契约(test_background_tasks 把它
             # 当契约钉),所以**保留为同值别名**而不是让一次内部重构悄悄改掉调用方看到的东西。
             "available": available,
+        }
+
+    # 2026-11-08 P0(AIS-031)根因收口:long_running_command 可起任意 argv,
+    # 与 run_command 的 admin 档同能力,不得再由 role 0 经后台任务面直达。
+    # __user_role 由 MCP 层注入(LLM 不可控);缺失一律按 0(fail-closed)。
+    raw_role = arguments.get("__user_role")
+    try:
+        user_role = int(raw_role) if raw_role is not None else 0
+    except (TypeError, ValueError):
+        user_role = 0
+    if spec.task_type in ADMIN_ONLY_TASK_TYPES and user_role < 1:
+        return {
+            "ok": False,
+            "tool": "run_in_background",
+            "task_type": spec.task_type,
+            "error": f"后台任务类型 '{spec.task_type}' 需要 admin 权限(role >= 1),当前 role={user_role}",
+            "errorCode": "PERMISSION_DENIED",
+            "executed": False,
+            "stub": False,
+            "analysis_depth": "none",
         }
 
     submit_result = await background_task_manager.submit_typed(

@@ -4702,6 +4702,10 @@ class AgentLoopV2:
                 if cancel_event is not None:
                     cancel_event.set()
                 task.cancel()
+                # AIS-058:取消后必须等 task 真正退出,否则其 finally 资源清理
+                # (子进程 kill 等)会与下一次重试交错,并留下"pending task destroyed"。
+                with contextlib.suppress(BaseException):
+                    await task
 
     async def _llm_call_with_retry(
         self, messages: list[dict[str, Any]], tools_schema: list[dict[str, Any]],
@@ -5295,9 +5299,16 @@ class AgentLoopV2:
                 # (_cancel_requested/_pause_requested);压缩正常完成时包裹层原样返回
                 # 结果。_stream_retry_state/退避计数不经过此路径:压缩失败仍在
                 # _maybe_compact_context 内部降级为规则压缩,不触碰重试链路。
-                messages = await self._wait_interruptible(
+                # AIS-111:`_maybe_compact_context` 返回新列表时不能重绑局部变量 ——
+                # 调用方传进来的 `messages`、`self._messages` 与 checkpoint/引擎
+                # `_absorb_messages` 都持有旧列表引用,重绑会让本轮后续新消息静默丢失。
+                _compacted = await self._wait_interruptible(
                     self._maybe_compact_context(messages)
                 )
+                if _compacted is not messages:
+                    messages[:] = _compacted
+                    if self._messages is not None and self._messages is not messages:
+                        self._messages[:] = messages
                 # 批 40 接线:当前时间提醒(对标 codex maybe_record_current_time_reminder)。
                 # 每次推理前按节流状态机判定;投递则把 developer 片段追加进历史。
                 # time_provider 未注入 = 功能关闭,零行为变化;时钟失败降级注入
@@ -5493,6 +5504,10 @@ class AgentLoopV2:
 
                 # 2. 无 tool_calls → 循环完成
                 if not tool_calls_raw:
+                    # AIS-112:正常收尾也要把最终回答写回 messages —— 旧实现只在
+                    # tool-call 轮追加 assistant 消息,普通收尾则整轮答案不进历史,
+                    # 导致 thread.messages 缺每轮最终答复、checkpoint 恢复与在线不一致。
+                    messages.append({"role": "assistant", "content": content})
                     iteration.end_time = datetime.now(UTC).isoformat()
                     iteration.duration_ms = (
                         (datetime.now(UTC) - iter_start).total_seconds() * 1000
@@ -7846,12 +7861,22 @@ class AgentLoopV2:
         # run_command 数分钟)期间命中 cancel/pause 标志立即中断;
         # _LoopInterrupted 不进重试链(显式 raise 直通 _run_loop 优雅中断)。
         retry_count = 0
-        cancel_event = asyncio.Event()
         from .mcp_server import reset_tool_cancel_event, set_tool_cancel_event
 
+        # AIS-058:cancel_event 必须是**每次 attempt 新建**。`_wait_interruptible`
+        # 在外层 wait_for 超时取消时会把 event 置位(见其 finally);若重试复用同一个
+        # 已置位 event,新起的 run_command 里 `_kill_on_cancel` 立刻等到它并 kill 新进程
+        # ⇒ 一次超时后所有重试秒失败,超时永不恢复。
+        cancel_event = asyncio.Event()
         cancel_token = set_tool_cancel_event(cancel_event)
         try:
             while True:
+                if retry_count > 0:
+                    # 换新 event 前先把上一次的上下文令牌复位(同一 contextvar,后设覆盖前设)。
+                    with contextlib.suppress(Exception):
+                        reset_tool_cancel_event(cancel_token)
+                    cancel_event = asyncio.Event()
+                    cancel_token = set_tool_cancel_event(cancel_event)
                 try:
                     result = await asyncio.wait_for(
                         self._wait_interruptible(

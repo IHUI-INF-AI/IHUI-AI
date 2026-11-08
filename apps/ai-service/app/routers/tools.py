@@ -139,7 +139,7 @@ async def codebase_index(
 
     AIS-100:出域同意与索引归属的主体**只从承载层令牌取**(`require_request_user_id`
     解析的 principal),请求体不再接受 `user_id` —— 旧码直接读 body 字段,任意登录用户
-    可填受害者的 id 冒名恢复出域并把索引归属记到对方。
+    可填受害者的 id 冒名恢复出域并把索引归属记到对方;也不再提供"管理员代他人"入口。
     """
     root = _require_workspace(req.workspace_path)
     repo_id = req.repo_id or resolve_repo_id(root, codebase_indexer)

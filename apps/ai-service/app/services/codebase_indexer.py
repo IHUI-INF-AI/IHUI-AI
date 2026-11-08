@@ -1098,11 +1098,13 @@ class CodebaseIndexer:
         file_paths: list[str],
         api_token: str | None = None,
         internal_user_id: str | None = None,
-    ) -> int:
+    ) -> int | None:
         """批量删除已消失文件的旧切片(Merkle 增量同步,2026-09-07 立)。
 
         Returns:
             实际删除的切片数;端点不存在(旧版 api)时静默返回 0。
+            删除**失败**返回 None(与"成功删了 0 条"必须分得开:AIS-027 ——
+            删失败的路径必须留在快照里,下轮 `prev - new` 才会重试)。
         """
         if not file_paths:
             return 0
@@ -1120,13 +1122,42 @@ class CodebaseIndexer:
                     logger.warning(
                         "删除幽灵文件切片失败 HTTP %d: %s", resp.status_code, resp.text[:200]
                     )
-                    return 0
+                    return None
                 data = resp.json()
                 inner = data.get("data", data) if isinstance(data, dict) else {}
                 return int(inner.get("deleted", 0))
         except Exception as e:
             logger.warning("删除幽灵文件切片异常: %s", e)
-            return 0
+            return None
+
+    @staticmethod
+    def _hashes_to_commit(
+        new_hashes: dict[str, str],
+        *,
+        failed_batches: list[list[CodeChunk]] | None = None,
+        prev_hashes: dict[str, str] | None = None,
+        deleted_paths: list[str] | None = None,
+        deletion_failed: bool = False,
+    ) -> dict[str, str]:
+        """AIS-027:返回本轮**真正已索引**的 hash 集合,而不是磁盘现状本身。
+
+        两类失败必须与"已索引"状态分离,否则下轮按 hash 判 unchanged 永不重试:
+        - 写库批次失败:该批次涉及的真实文件从快照剔除 ⇒ 下轮无旧 hash,按新增/变更重做;
+        - 删除失败:被删路径保留上轮 hash ⇒ 下轮 `prev - new` 仍把它算进 deleted_paths 重试。
+        """
+        failed_rels: set[str] = set()
+        for batch in failed_batches or []:
+            for chunk in batch:
+                rel = getattr(chunk, "file_path", "") or ""
+                if rel in new_hashes:
+                    failed_rels.add(rel)
+        committed = {rel: h for rel, h in new_hashes.items() if rel not in failed_rels}
+        if deletion_failed:
+            for rel in deleted_paths or []:
+                old = (prev_hashes or {}).get(rel)
+                if old is not None:
+                    committed.setdefault(rel, old)
+        return committed
 
     # ==========================================================================
     # Merkle 快照持久化(2026-09-07 立)
@@ -1822,10 +1853,22 @@ class CodebaseIndexer:
                 f"近同改名判定本轮未做({rename_report.near_stage})⇒ 只判了精确改名,"
                 "差集里剩下的仍按「删除 + 新增」处理"
             )
+        deletion_failed = False
         if deleted_paths:
-            result.files_deleted = await self._delete_files_from_api(
+            deleted = await self._delete_files_from_api(
                 repo_id, deleted_paths, api_token, internal_user_id
             )
+            if deleted is None:
+                # AIS-027:删失败必须留在快照里,否则下一轮 prev-new 不再包含它 ⇒
+                # 幽灵切片永不清理,而响应仍显示"增量同步完成"。
+                deletion_failed = True
+                result.files_deleted = 0
+                result.errors.append(
+                    f"删除幽灵切片失败({len(deleted_paths)} 个路径):已保留在快照中,"
+                    "下轮删除重试(本轮文件检索仍可能召回已删除文件)"
+                )
+            else:
+                result.files_deleted = deleted
 
         result.merkle_root = _merkle_root(new_hashes)
 
@@ -1888,7 +1931,10 @@ class CodebaseIndexer:
         )
         if incremental:
             catalog = merge_catalog(
-                prev_catalog, changed_entries, deleted_paths, aliases=live_aliases
+                prev_catalog,
+                changed_entries,
+                [] if deletion_failed else deleted_paths,
+                aliases=live_aliases,
             )
             # 本轮新出现的零符号文件(被跳过切片/文档无符号)也要有文件级条目。
             for rel_path, lang in lang_by_rel.items():
@@ -1909,11 +1955,17 @@ class CodebaseIndexer:
                 if rel_path in new_hashes and rel_path not in catalog.files:
                     catalog.files[rel_path] = FileEntry(rel_path, lang, ())
         result.chunks_created = len(all_chunks)
+        committed_hashes = self._hashes_to_commit(
+            new_hashes,
+            prev_hashes=prev_snapshot,
+            deleted_paths=deleted_paths,
+            deletion_failed=deletion_failed,
+        )
         if not all_chunks:
             self._save_snapshot(
                 repo_id,
                 root,
-                new_hashes,
+                committed_hashes,
                 fingerprints=new_fingerprints,
                 aliases=live_aliases,
                 dir_rhashes=cur_dir_rhashes,
@@ -1926,18 +1978,33 @@ class CodebaseIndexer:
 
         # 分批写入 API(批次大小单源 = 模块常量,增量路径共用同一写通道)
         BATCH_WRITE = _WRITE_BATCH_SIZE
+        failed_batches: list[list[CodeChunk]] = []
         for i in range(0, len(all_chunks), BATCH_WRITE):
             batch = all_chunks[i : i + BATCH_WRITE]
             try:
                 await self._write_to_api(repo_id, batch, api_token, internal_user_id)
             except Exception as e:
                 result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
+                failed_batches.append(batch)
+
+        # AIS-027:写失败的文件不进快照 ⇒ 下轮按"新增/变更"重做(不再判 unchanged)。
+        committed_hashes = self._hashes_to_commit(
+            new_hashes,
+            failed_batches=failed_batches,
+            prev_hashes=prev_snapshot,
+            deleted_paths=deleted_paths,
+            deletion_failed=deletion_failed,
+        )
+        if failed_batches:
+            result.errors.append(
+                f"写入失败的 {len(failed_batches)} 个批次已从快照剔除,下轮重试"
+            )
 
         # 持久化快照(下轮增量对比基准;附指纹、改名别名、目录前像与文件符号目录)
         self._save_snapshot(
             repo_id,
             root,
-            new_hashes,
+            committed_hashes,
             fingerprints=new_fingerprints,
             aliases=live_aliases,
             dir_rhashes=cur_dir_rhashes,
