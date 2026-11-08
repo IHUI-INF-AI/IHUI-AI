@@ -25,7 +25,14 @@
  * - miniapp-taro register: useRegisterForm({ type: 'phone', registerApi: (v) => register({ phone: v.phone, code: v.code, password: v.password }), sendCodeApi: (v) => sendSmsCode(v.phone), ... })
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
+import { useDeadlineTicker } from './deadline-ticker'
+import {
+  resetCountdown,
+  startCountdown as startDeadlineCountdown,
+  tickCountdown,
+  type CountdownState,
+} from './use-countdown'
 
 /** 注册类型 */
 export type RegisterType = 'account' | 'email' | 'phone'
@@ -185,18 +192,14 @@ export function useRegisterForm(options: UseRegisterFormOptions): UseRegisterFor
   const [sendingCode, setSendingCode] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
-  const [countdown, setCountdown] = useState(initialCountdown)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  // 倒计时 effect
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-    }
-  }, [])
+  // 验证码倒计时:截止戳派生(2026-11-08)。后台被节流后按墙钟对表,不再按 tick 自减。
+  const [countdownState, setCountdownState] = useState<CountdownState>(() =>
+    resetCountdown(initialCountdown),
+  )
+  const countdown = countdownState.count
+  useDeadlineTicker(countdownState.deadlineMs, () => {
+    setCountdownState((prev) => (prev.deadlineMs !== null ? tickCountdown(prev) : prev))
+  })
 
   const setAccount = useCallback((v: string) => setValues((p) => ({ ...p, account: v })), [])
   const setEmail = useCallback((v: string) => setValues((p) => ({ ...p, email: v })), [])
@@ -210,22 +213,9 @@ export function useRegisterForm(options: UseRegisterFormOptions): UseRegisterFor
 
   const clearError = useCallback(() => setError(null), [])
 
-  /** 启动倒计时 */
+  /** 启动倒计时:每次发码都重置为满额,截止戳 = now + countdownSeconds */
   const startCountdown = useCallback(() => {
-    setCountdown(countdownSeconds)
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) {
-          if (timerRef.current) {
-            clearInterval(timerRef.current)
-            timerRef.current = null
-          }
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
+    setCountdownState(startDeadlineCountdown(resetCountdown(countdownSeconds)))
   }, [countdownSeconds])
 
   /** 本地校验,返回错误 key 或 null */

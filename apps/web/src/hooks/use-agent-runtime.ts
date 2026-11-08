@@ -400,6 +400,12 @@ export function useAgentRuntime(agentId: string | null): UseAgentRuntimeReturn {
       setAgentStatus(null)
       setLastMessageSend(null)
       setSessionDeliverables(null)
+      // 2026-11-08(W-09):切换 agentId 时一并清空事件派生状态。
+      // 漏掉这四项会让 A 的 token 流/工具链挂到 B 上(toolCallChain 还是追加写)。
+      setTokenStream([])
+      setToolCallChain([])
+      setHealEvents([])
+      setStreamError(null)
     }
     // streamNonce 变化 = 续期后要求重建这条流(见 es.onerror 的致命档分支)
   }, [agentId, streamNonce])

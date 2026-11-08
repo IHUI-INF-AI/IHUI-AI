@@ -32,6 +32,7 @@
  * mtime 在文件被挪走时会 `ENOENT`,恰好是"我已失去锁"的最硬证据。
  */
 
+import { execFileSync } from 'node:child_process'
 import { closeSync, mkdirSync, openSync, readFileSync, renameSync, statSync, unlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { randomBytes } from 'node:crypto'
 import { hostname } from 'node:os'
@@ -44,6 +45,8 @@ const REPO_ROOT = resolve(HERE, '..', '..')
 /** 默认锁落点:与 `git-guardian.log` / `git-guardian.pid` 同目录,便于验证脚本一把量完。 */
 export const DEFAULT_LOCK_PATH = join(REPO_ROOT, '.ihui-agent', 'state', 'git-guardian.lock')
 export const DEFAULT_STALE_MS = 5 * 60 * 1000
+/** 启动时刻比对容差(DG-07):Windows 取进程 StartTime 与本进程 uptime 推算有秒级抖动。 */
+export const DEFAULT_START_TIME_TOLERANCE_MS = 5_000
 export const DEFAULT_IO_RETRIES = 3
 export const DEFAULT_IO_RETRY_DELAY_MS = 25
 /** 回收门自己的陈旧判定:持有回收门的 pid 已死即可清;pid 读不出时按锁龄兜底。 */
@@ -103,6 +106,78 @@ export function isPidAlive(pid) {
 }
 
 /**
+ * 读**当前**进程的真实启动时刻(epoch ms)。DG-07 的解药:机器重启后 pid 会被无关进程复用,
+ * `kill(pid,0)` 判活就再也收不掉旧锁。读不出(平台不支持/进程消失/超时)一律返回 0,
+ * 调用方据此**保守维持旧行为**,绝不凭"读不到"判死。
+ */
+export function readPidStartTime(pid) {
+  const n = Number(pid)
+  if (!Number.isInteger(n) || n <= 0) return 0
+  try {
+    if (process.platform === 'win32') {
+      const out = execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `$ErrorActionPreference='Stop'; $p = Get-Process -Id ${n}; ([DateTimeOffset]$p.StartTime).ToUnixTimeMilliseconds()`,
+        ],
+        { encoding: 'utf8', windowsHide: true, timeout: 5_000, stdio: ['ignore', 'pipe', 'ignore'] },
+      )
+      const ms = Number(String(out).trim())
+      return Number.isFinite(ms) && ms > 0 ? ms : 0
+    }
+    if (process.platform === 'linux') {
+      const stat = readFileSync(`/proc/${n}/stat`, 'utf8')
+      const close = stat.lastIndexOf(')')
+      if (close < 0) return 0
+      // 第 22 字段(starttime,单位 tick);comm 可能含空格/括号,所以从最后一个 ')' 之后切。
+      const startTicks = Number(stat.slice(close + 2).split(/\s+/)[19])
+      if (!Number.isFinite(startTicks) || startTicks < 0) return 0
+      const bootLine = readFileSync('/proc/stat', 'utf8').split('\n').find((l) => l.startsWith('btime '))
+      const btime = Number(String(bootLine ?? '').trim().split(/\s+/)[1])
+      if (!Number.isFinite(btime) || btime <= 0) return 0
+      // CLK_TCK 按 100 约定换算:epoch ms = btime*1000 + starttime*10。
+      return btime * 1000 + Math.round((startTicks / 100) * 1000)
+    }
+    return 0
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * 判断锁里记录的 pid 是否**已被复用**(原持有者其实已死)。
+ * 只有三条件全满足才比对:记录里有 `pidStartTime>0`、`host` 等于当前主机、能读出当前 pid
+ * 启动时刻(>0)。任一不满足 ⇒ false(维持旧行为,不判死、不偷锁)。
+ */
+export function isPidStartTimeMismatched(
+  snapshot,
+  { readStartTime = readPidStartTime, startTimeToleranceMs = DEFAULT_START_TIME_TOLERANCE_MS } = {},
+) {
+  const recorded = Number(snapshot?.pidStartTime) || 0
+  if (!(recorded > 0)) return false
+  if (String(snapshot?.host ?? '') !== hostname()) return false
+  let current = 0
+  try {
+    current = Number(readStartTime(snapshot?.pid)) || 0
+  } catch {
+    current = 0
+  }
+  if (!(current > 0)) return false
+  const tolerance = Number(startTimeToleranceMs)
+  const limit = Number.isFinite(tolerance) && tolerance >= 0 ? tolerance : DEFAULT_START_TIME_TOLERANCE_MS
+  return Math.abs(current - recorded) > limit
+}
+
+/** 持有者是否仍活着且身份未被复用。acquire 与 reclaim 必须共用这一条判据。 */
+function lockHolderAlive(snapshot, startTimeOpts) {
+  if (!isPidAlive(snapshot?.pid)) return false
+  return !isPidStartTimeMismatched(snapshot, startTimeOpts)
+}
+
+/**
  * 读锁快照。三态:ok(读到并解析) / missing(文件不在) / error(读不出)。
  * `mtimeMs` 读不到时给 null —— 调用方不得把它当成"新鲜"。
  */
@@ -132,6 +207,7 @@ export function readLockSnapshot(path, { fs = nodeFs } = {}) {
     host: field('host'),
     role: field('role'),
     staleMs: Number(field('staleMs')) || null,
+    pidStartTime: Number(field('pidStartTime')) || 0,
     mtimeMs,
   }
 }
@@ -155,9 +231,12 @@ function tryCreate(path, { now, role, fs, staleMs = null }) {
   }
   const token = nonce()
   const createdAt = new Date(now()).toISOString()
+  // 本进程启动时刻(DG-07):`now() - uptime`。回收方据此识别"pid 被复用",不靠猜。
+  const startedAtMs = Math.round(Number(now()) - Math.round(process.uptime() * 1000))
   const content =
     `pid=${process.pid}\ntoken=${token}\nat=${createdAt}\nhost=${hostname()}\nrole=${role}\n` +
-    (Number(staleMs) > 0 ? `staleMs=${Number(staleMs)}\n` : '')
+    (Number(staleMs) > 0 ? `staleMs=${Number(staleMs)}\n` : '') +
+    (Number.isFinite(startedAtMs) && startedAtMs > 0 ? `pidStartTime=${startedAtMs}\n` : '')
   try {
     writeAll(fd, content, fs)
     fs.closeSync(fd)
@@ -222,7 +301,15 @@ function clearStaleReclaimGuard(guardPath, { now, fs }) {
 export function reclaimDeadLock(
   path,
   expected,
-  { staleMs = DEFAULT_STALE_MS, ioRetryDelayMs = DEFAULT_IO_RETRY_DELAY_MS, now = Date.now, fs = nodeFs, onAlert = null } = {},
+  {
+    staleMs = DEFAULT_STALE_MS,
+    ioRetryDelayMs = DEFAULT_IO_RETRY_DELAY_MS,
+    now = Date.now,
+    fs = nodeFs,
+    onAlert = null,
+    readStartTime = readPidStartTime,
+    startTimeToleranceMs = DEFAULT_START_TIME_TOLERANCE_MS,
+  } = {},
 ) {
   const guardPath = `${path}.reclaim`
   const guardToken = nonce()
@@ -256,7 +343,8 @@ export function reclaimDeadLock(
     const fresh = readLockSnapshot(path, { fs })
     if (!fresh.ok) return { kind: fresh.missing ? 'vanished' : 'io-error', why: fresh.code }
     if (fresh.pid !== expected.pid || fresh.token !== expected.token) return { kind: 'changed' }
-    if (isPidAlive(fresh.pid)) return { kind: 'alive-now' }
+    // DG-07:与 acquire 同一判据 —— pid 活着**且**身份未被复用才算活锁。
+    if (lockHolderAlive(fresh, { readStartTime, startTimeToleranceMs })) return { kind: 'alive-now' }
     const age = ageOf(fresh, now())
     // pid 读不出(半成品锁)时不能凭"没 pid"就秒回收:必须龄超 staleMs。
     if (!(fresh.pid > 0) && !(age !== null && age > staleMs)) return { kind: 'changed' }
@@ -359,6 +447,8 @@ export function acquireGuardianLock({
   failOpenOnIoError = false,
   onAlert = null,
   fs = nodeFs,
+  readStartTime = readPidStartTime,
+  startTimeToleranceMs = DEFAULT_START_TIME_TOLERANCE_MS,
 } = {}) {
   if (lockMode(env) === 'off') {
     return { ok: true, disabled: true, path: null, token: null, pid: process.pid, role }
@@ -396,7 +486,8 @@ export function acquireGuardianLock({
       return ioFailure({ path: lockPath, code: snap.code, error: snap.error, failOpenOnIoError })
     }
     const age = ageOf(snap, now())
-    const alive = isPidAlive(snap.pid)
+    // DG-07:pid 活着但启动时刻对不上 ⇒ 原持有者已死(pid 被复用)⇒ 走回收,不误判 held。
+    const alive = lockHolderAlive(snap, { readStartTime, startTimeToleranceMs })
     if (alive) {
       if (age !== null && age > staleMs) {
         const r = {
@@ -430,7 +521,15 @@ export function acquireGuardianLock({
       }
     }
 
-    const rec = reclaimDeadLock(lockPath, snap, { staleMs, ioRetryDelayMs, now, fs, onAlert })
+    const rec = reclaimDeadLock(lockPath, snap, {
+      staleMs,
+      ioRetryDelayMs,
+      now,
+      fs,
+      onAlert,
+      readStartTime,
+      startTimeToleranceMs,
+    })
     if (rec.kind === 'reclaimed' || rec.kind === 'vanished' || rec.kind === 'changed') continue
     if (rec.kind === 'alive-now') {
       return { ok: false, kind: 'held', path: lockPath, pid: snap.pid, ageMs: age, why: '回收门内复核发现持有者仍存活 ⇒ 放弃接管' }
@@ -588,6 +687,8 @@ export const __test__ = {
   sleepSync,
   readLockSnapshot,
   isPidAlive,
+  readPidStartTime,
+  isPidStartTimeMismatched,
   tryCreate,
   reclaimDeadLock,
   clearStaleReclaimGuard,

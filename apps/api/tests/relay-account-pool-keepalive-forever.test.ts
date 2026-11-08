@@ -294,73 +294,37 @@ describe('发信面判据(薄壳侧)', () => {
   })
 })
 
-describe('--once 心跳写入口:主键 id,不是 uid', () => {
+describe('心跳写入口:按主键 id 落库,不是 uid', () => {
   const AT = '2026-11-06T02:40:00.000Z'
   const ROW_A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
   const ROW_B = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb'
-  type FakeRow = { id: string; providerCode: string; uid: string; clientActiveAt: string | null }
 
-  /**
-   * 假表按 `where id = rowId` 的语义写:命中才计数。
-   * 旧实现把 uid 当 rowId 传 ⇒ 表里没有 id=uid 的行 ⇒ 恒 0;新实现传 UUID 主键 ⇒ 1。
-   */
-  const fakeTouch = (table: FakeRow[]) =>
-    vi.fn(async (rowIds: readonly string[], at: string | null | undefined, _dryRun?: boolean) => {
-      let n = 0
-      for (const id of rowIds) {
-        const row = table.find((r) => r.id === id)
-        if (row && at) {
-          row.clientActiveAt = at
-          n++
-        }
-      }
-      return n
-    })
+  // 2026-11-05 拆分:writeKeepAliveHeartbeats(table, at, touch) 已删除,
+  // 取主键的活归 heartbeatRowIdsOf(本文件下方已覆盖),落库只留 touchClientHeartbeat(ids, at, dryRun)。
+  // 旧三例钉的是已不存在的函数签名;这里改钉新写入口的守卫、dryRun 与落库载荷。
 
-  it('⑱ 人造 UUID 主键行 ⇒ heartbeated=1,且绝不把 uid 当主键传', async () => {
-    const { writeKeepAliveHeartbeats } = await import('../scripts/relay-account-keepalive.js')
-    const table: FakeRow[] = [
-      { id: ROW_A, providerCode: 'trae', uid: '815164347664028', clientActiveAt: null },
-      { id: ROW_B, providerCode: 'qoder', uid: 'qoder-uid', clientActiveAt: null },
-    ]
-    const touch = fakeTouch(table)
-    await expect(writeKeepAliveHeartbeats(table as never, AT, touch as never)).resolves.toBe(1)
-    expect(touch).toHaveBeenCalledWith([ROW_A], AT, false)
-    // uid 与 id 不一致 ⇒ 传给写入口的只能是主键;拿 uid 去写就是 0 行(旧缺陷现场)
-    expect(touch.mock.calls[0]?.[0]).not.toContain('815164347664028')
-    expect(table.find((r) => r.id === ROW_A)?.clientActiveAt).toBe(AT)
-    expect(table.find((r) => r.id === ROW_B)?.clientActiveAt).toBeNull()
+  it('⑱ 空 rowIds / 非法时刻 ⇒ 0 且完全不碰写库', async () => {
+    const { touchClientHeartbeat } = await import('../scripts/relay-trae-session-sync.js')
+    await expect(touchClientHeartbeat([], AT, false)).resolves.toBe(0)
+    await expect(touchClientHeartbeat([ROW_A], null, false)).resolves.toBe(0)
+    await expect(touchClientHeartbeat([ROW_A], '不是时刻', false)).resolves.toBe(0)
+    expect(updates).toHaveLength(0)
   })
 
-  it('⑲ 多枚 trae 行逐行按 id 写;uid 与 id 不一致的行不会被写错', async () => {
-    const { writeKeepAliveHeartbeats } = await import('../scripts/relay-account-keepalive.js')
-    const table: FakeRow[] = [
-      { id: ROW_A, providerCode: 'trae', uid: '815164347664028', clientActiveAt: null },
-      { id: ROW_B, providerCode: 'trae', uid: '2574430691145387', clientActiveAt: null },
-    ]
-    const touch = fakeTouch(table)
-    await expect(writeKeepAliveHeartbeats(table as never, AT, touch as never)).resolves.toBe(2)
-    expect(touch.mock.calls[0]?.[0]).toEqual([ROW_A, ROW_B])
-    expect(touch.mock.calls[0]?.[0]).not.toContain('815164347664028')
-    expect(touch.mock.calls[0]?.[0]).not.toContain('2574430691145387')
+  it('⑲ dryRun 只计数、不写库', async () => {
+    const { touchClientHeartbeat } = await import('../scripts/relay-trae-session-sync.js')
+    await expect(touchClientHeartbeat([ROW_A, ROW_B], AT, true)).resolves.toBe(2)
+    expect(updates).toHaveLength(0)
   })
 
-  it('⑳ 没探测到心跳 / 没有 trae 行 ⇒ 0 且不触发写库', async () => {
-    const { writeKeepAliveHeartbeats } = await import('../scripts/relay-account-keepalive.js')
-    const table: FakeRow[] = [
-      { id: ROW_A, providerCode: 'trae', uid: '815164347664028', clientActiveAt: null },
-    ]
-    const touch = fakeTouch(table)
-    await expect(writeKeepAliveHeartbeats(table as never, null, touch as never)).resolves.toBe(0)
-    await expect(
-      writeKeepAliveHeartbeats(
-        [{ id: ROW_B, providerCode: 'qoder', uid: 'qoder-uid' }] as never,
-        AT,
-        touch as never,
-      ),
-    ).resolves.toBe(0)
-    expect(touch).not.toHaveBeenCalled()
-    expect(table[0]?.clientActiveAt).toBeNull()
+  it('⑳ 非 dryRun:按传入的主键集合写 clientActiveAt(不把 uid 当主键)', async () => {
+    const { touchClientHeartbeat } = await import('../scripts/relay-trae-session-sync.js')
+    // 链桩的 update().set().where() 固定返回空数组 ⇒ 返回 0;这里验的是写入载荷本身:
+    // 心跳时刻写进 extraMetadata 的 jsonb 增量,不做整枚覆盖。
+    await expect(touchClientHeartbeat([ROW_A], AT, false)).resolves.toBe(0)
+    expect(updates).toHaveLength(1)
+    // 只写 jsonb 增量列,不做整枚覆盖 —— 载荷键集就是新契约的一部分。
+    expect(Object.keys(updates[0] ?? {})).toEqual(['extraMetadata'])
   })
 })
 

@@ -40,6 +40,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import {
   getHubStatus,
@@ -240,7 +241,9 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
   // LLM 预算治理
   // -----------------------------------------------------------------------
 
-  server.post('/orchestration/budget/record', { preHandler: authenticate }, async (req, reply) => {
+  // F-134(2026-11-08):记费用/改配置/重置降级是跨租户写操作,任意登录用户原先可直接调用
+  // (上游 ai-service 不校验角色)⇒ 收紧为管理员。
+  server.post('/orchestration/budget/record', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = recordUsageSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -286,7 +289,7 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
 
   server.post(
     '/orchestration/budget/pillar/:pillar/reset',
-    { preHandler: authenticate },
+    { preHandler: requireAdmin },
     async (req, reply) => {
       const { pillar } = req.params as { pillar: string }
       const data = await resetPillarDegradation(req, pillar)
@@ -295,7 +298,7 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  server.patch('/orchestration/budget/config', { preHandler: authenticate }, async (req, reply) => {
+  server.patch('/orchestration/budget/config', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = budgetConfigSchema.safeParse(req.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -350,9 +353,11 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
+  // F-134(2026-11-08):trace 里没有主体维度的过滤条件,普通用户会看到全站请求内容
+  // ⇒ 详情与列表都收紧为管理员(按主体过滤需上游先落 subject 字段)。
   server.get(
     '/orchestration/telemetry/traces',
-    { preHandler: authenticate },
+    { preHandler: requireAdmin },
     async (req, reply) => {
       const { limit } = req.query as { limit?: string }
       const data = await getRecentTraces(req, limit ? Math.min(parseInt(limit, 10) || 20, 100) : 20)
@@ -362,7 +367,7 @@ export const orchestrationRoutes: FastifyPluginAsync = async (server) => {
 
   server.get(
     '/orchestration/telemetry/traces/:trace_id',
-    { preHandler: authenticate },
+    { preHandler: requireAdmin },
     async (req, reply) => {
       const { trace_id } = req.params as { trace_id: string }
       const data = await getTraceDetail(req, trace_id)

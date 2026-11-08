@@ -15,7 +15,11 @@
  */
 
 import { serializeError } from '@ihui/types'
-import { redactCredentialStrings, redactCredentialText } from './redact-credential-text.js'
+import {
+  redactCredentialStrings,
+  redactCredentialText,
+  redactErrorForLog,
+} from './redact-credential-text.js'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -47,7 +51,9 @@ export function setFastify(fastify: FastifyLogInstance): void {
  * pino 把 meta 做 JSON 序列化,而 JSON.stringify(Error) === "{}"(name/message/stack
  * 均为非枚举自有属性)—— 本文件头注释推荐的写法 `{ error: err }` 在日志里就是一具
  * 空尸体。例外:`err` 保留键刻意不动 —— pino 对它自带标准错误序列化,覆盖反而会改变
- * 既有日志消费方看到的字段形状。其余键上的 Error 一律换成闭集结构;挂在 Error 上的
+ * 既有日志消费方看到的字段形状。注意这只是**本函数的**契约:落盘口 `log()` 会在之后
+ * 用 `redactCredentialStrings` 把 Error(含 `err`)换成打码影子(F-284)。
+ * 其余键上的 Error 一律换成闭集结构;挂在 Error 上的
  * 未知字段(请求体/凭据一类)不带出。无任何 Error 时返回原对象(零开销、零行为变化)。
  */
 export function serializeErrorFields(meta: object | undefined): object | undefined {
@@ -68,8 +74,26 @@ export function serializeErrorFields(meta: object | undefined): object | undefin
   return changed ? out : meta
 }
 
+/**
+ * F-284:`err` 键仍是 Error 时返回一个 message/stack 已打码的影子对象。
+ * 不是 Error 或无需打码时原对象返回(零额外分配)。
+ */
+function shadowRedactErr(meta: Record<string, unknown>): object {
+  const err = meta.err
+  if (!(err instanceof Error)) return meta
+  return { ...meta, err: redactErrorForLog(err) }
+}
+
 function log(level: LogLevel, msg: string, rawMeta?: object): void {
   const meta = serializeErrorFields(rawMeta)
+  // F-284:serializeErrorFields 刻意不碰 `err`(保留 pino 标准错误序列化),但这也让
+  // `err.message/stack` 绕过 redactCredentialStrings —— 带 `?token=`/`api_key=` 的
+  // 上游错误照样明文落盘。这里在唯一落盘口给 err 造一个已打码的影子对象
+  // (仍是 Error 实例,pino 序列化形状不变),message/stack 一并清洗。
+  const safeErrMeta =
+    meta && typeof meta === 'object' && !(meta instanceof Error)
+      ? shadowRedactErr(meta as Record<string, unknown>)
+      : meta
   // 2026-11-01 安全强化:落盘前打码凭据(出口在 utils/redact-credential-text.ts,
   // 规则单源仍是共享层 @ihui/shared/utils/redact)。
   //
@@ -79,7 +103,10 @@ function log(level: LogLevel, msg: string, rawMeta?: object): void {
   // `logger.info('[file-transfer] downloading: ' + url)`,而那条 url 带 `?token=`。
   // 闸住在唯一落盘口,而不是指望每个未来的调用方记得自己判一遍。
   const safeMsg = redactCredentialText(msg)
-  const safeMeta = meta === undefined || meta === null ? meta : redactCredentialStrings(meta)
+  const safeMeta =
+    safeErrMeta === undefined || safeErrMeta === null
+      ? safeErrMeta
+      : redactCredentialStrings(safeErrMeta)
   if (fastifyInstance) {
     // pino 签名：fastify.log.info(meta, msg)
     fastifyInstance.log[level](safeMeta ?? {}, safeMsg)

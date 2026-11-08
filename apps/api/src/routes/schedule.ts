@@ -215,8 +215,8 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ task }))
   })
 
-  // POST /schedule - 别名 /schedule/tasks（创建任务）
-  server.post('/schedule', async (request, reply) => {
+  // POST /schedule - 别名 /schedule/tasks（创建任务；F-636：写入口需管理员，与 adminScheduleRoutes 同口径）
+  server.post('/schedule', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = createTaskSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -225,8 +225,8 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ task }))
   })
 
-  // PUT /schedule/:id - 别名 /schedule/tasks/:id（更新任务）
-  server.put('/schedule/:id', async (request, reply) => {
+  // PUT /schedule/:id - 别名 /schedule/tasks/:id（更新任务；F-636：写入口需管理员）
+  server.put('/schedule/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const idParsed = uuidParamSchema.safeParse(request.params)
     if (!idParsed.success) {
       return reply.status(400).send(error(400, idParsed.error.issues[0]?.message ?? '参数错误'))
@@ -242,8 +242,8 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ task }))
   })
 
-  // DELETE /schedule/:id - 别名 /schedule/tasks/:id
-  server.delete('/schedule/:id', async (request, reply) => {
+  // DELETE /schedule/:id - 别名 /schedule/tasks/:id（F-636：写入口需管理员）
+  server.delete('/schedule/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -252,8 +252,8 @@ export const scheduleRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ deleted: removed.length > 0 }))
   })
 
-  // POST /schedule/:id/complete - 标记任务完成（复用 runScheduleTaskNow 并置 success）
-  server.post('/schedule/:id/complete', async (request, reply) => {
+  // POST /schedule/:id/complete - 标记任务完成（复用 runScheduleTaskNow 并置 success；F-636：需管理员）
+  server.post('/schedule/:id/complete', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = uuidParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))

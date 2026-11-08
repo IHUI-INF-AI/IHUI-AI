@@ -302,7 +302,7 @@ function createStyles(tk: AppThemeTokens) {
     payBtn: {
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.md,
+      borderRadius: rnRadius.sm,
       backgroundColor: tk.brand.cta,
     },
     payBtnText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.brand.ctaForeground },

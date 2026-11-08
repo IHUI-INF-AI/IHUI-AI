@@ -27,6 +27,9 @@
  * 不要再在端内写第四份时区算术 —— 守门 246(check-biz-day-single-source.mjs)按名字拦。
  */
 
+/** 业务时区 IANA 名;与 bizDayKey/bizDayStartUtc 的 UTC+8 口径同源。 */
+export const BIZ_TIMEZONE = 'Asia/Shanghai'
+
 /** 上海 = UTC+8(无夏令时,常量安全)。 */
 const SHANGHAI_OFFSET_MS = 8 * 3600 * 1000
 

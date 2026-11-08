@@ -390,14 +390,26 @@ function pickAny(ctx: RiskContext, key: string): unknown {
  * 统计某 IP 在最近窗口内的风控命中次数。
  *
  * 供批量注册检测等规则前置采集使用(auth register 等入口)。
- * 表未迁移 / DB 不可用时返回 0(不阻断主流程)。
+ * F-378:DB 不可用时抛 RiskDataUnavailableError,由入口降级为 503(fail-closed)。
  */
-export async function recentRiskHitsByIp(ip: string, windowSec = 3600): Promise<number> {
+export class RiskDataUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super(`risk data unavailable: ${(cause as Error).message}`)
+    this.name = 'RiskDataUnavailableError'
+    this.cause = cause
+  }
+}
+
+export async function recentRiskHitsByIp(
+  ip: string,
+  windowSec = 3600,
+  before: Date = new Date(),
+): Promise<number> {
   if (!ip) return 0
   try {
     const { db } = await import('../db/index.js')
     const { riskHits: riskHitsTable } = await import('@ihui/database')
-    const { count, gte, and, eq } = await import('drizzle-orm')
+    const { count, gte, lt, and, eq } = await import('drizzle-orm')
     const since = new Date(Date.now() - windowSec * 1000)
     const rows = await db
       .select({ c: count() })
@@ -406,16 +418,15 @@ export async function recentRiskHitsByIp(ip: string, windowSec = 3600): Promise<
         and(
           eq(riskHitsTable.ip, ip),
           gte(riskHitsTable.hitAt, since),
+          // F-378:窗口右界排除「本次请求开始之后」落库的记录,防止自引用计数
+          lt(riskHitsTable.hitAt, before),
           eq(riskHitsTable.ruleCode, 'R004_BATCH_REGISTER'),
         ),
       )
     return rows[0]?.c ?? 0
   } catch (err) {
-    logger.warn('risk-engine: recentRiskHitsByIp failed (default 0)', {
-      err: (err as Error).message,
-      ip,
-    })
-    return 0
+    // F-378:DB 异常不能 fail-open(默认 0 = 放行)。上抛由调用方降级为 503。
+    throw new RiskDataUnavailableError(err)
   }
 }
 

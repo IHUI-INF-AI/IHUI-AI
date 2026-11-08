@@ -65,4 +65,44 @@ node scripts/check-typecheck.mjs
 
 T1 是 push blocking 门。任何「包源码入库、dist 未重建」的干净检出都会在 T1 判红，
 而红的原因写在**消费者**（api-client）的文件上，不指向真正陈旧的包 —— 归因成本高。
+
+## 2026-11-08 增补：跨根 buildinfo 假红（`复扫 122 NOT-OK`）根治
+
+状态：FIXED（分支 `fix/typecheck-dist-cache-root-key-1108`，commit `0bfbc66476` / `62836eb12d`；未合 main）
+
+### 取证（可复核）
+
+- 真实 worktree（借主区 `node_modules`）里 `@ihui/ui-react` 的 tsbuildinfo：
+  - 逻辑路径：`D:\IHUI-AI-wt-typecheck-distcache-1108\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo`
+  - 实际物理路径：`D:\IHUI-AI\node_modules\.cache\tsbuildinfo\packages-ui-react.tsbuildinfo`（`outsideRoot=true`）
+  - 记录原文：`outDir="../../../packages/ui-react/dist"`、`rootDir="../../../packages/ui-react/src"`、`tsBuildInfoFile="./packages-ui-react.tsbuildinfo"`
+  - `fileNames[0]="../../../../ihui-ai/node_modules/.pnpm/typescript@5.9.3/.../lib.es5.d.ts"`
+  - 结论：buildinfo 全部按「相对 buildinfo 文件目录」存路径，读回时按**当前根**重新解析 ⇒ 两套根看到同一份「程序没变、产物已写出」的记录。
+- 隔离沙箱真跑 tsc：A 根构建正常；B 根共享同一份 buildinfo + 空 dist ⇒ `rc=0` 且 **0 产物**（只触 mtime 也一样，TS 按内容 hash 判未变）。
+- `122 = 61 个可编译源 × (.js + .d.ts)`；`packages/ui-react/src` 共 63 个文件，两个 `.d.ts` 输入不产出。
+
+### 修复
+
+- `scripts/lib/buildinfo-isolation.mjs`：`rootIdentity()`（realpath + win32 归一）、`inspectBuildInfo()`（物理落点不在本根 / outDir、rootDir 不符即判跨根，并带回原路径与记录值）、`isolateBuildInfoForRebuild()`（重建前把 buildinfo 隔离到 `os.tmpdir` 按根分桶，日志给原路径）。
+- `scripts/typecheck-full.mjs`：`rebuildOne` 在 `runOneProject` 之前隔离；判据抽到 `judgeRebuildOutcome`（rc=0 但 dist 空/有陈旧仍红）；失败用 `describeMissingArtifacts` 打印具体绝对路径。
+- `scripts/lib/dist-content-cache.mjs`：manifest 升 `schema=2` 并记 `buildIdentity`，键纳入 `root/outDir/tsBuildInfoFile`，身份不符拒绝复用且点名两套构建面。
+
+### 实测副作用（如实记录）
+
+- 在临时 worktree 直跑过一次 ui-react 的 `tsc`（用于尝试真包复现；因包级依赖缺失未形成 no-op），共享的 `node_modules/.cache/tsbuildinfo/packages-ui-react.tsbuildinfo` 因此被重写过一次。
+- **无害依据**：buildinfo 是增量缓存，不是产物；下次构建按源码内容重新判定；重写后的记录只让程序面变小（更保守），不会把任何产物误判为新鲜，也不影响其他根的正确性。
+- 临时 worktree 内产生的 `packages/ui-react/dist` 与包级 `node_modules` junction 已清理。
+
+### 夹具
+
+- `scripts/tests/typecheck-buildinfo-root.test.mjs` E1/E2/E3：真 tsc 复现跨根 no-op（修前红）→ 隔离后同命令真 emit；`rc=0 + 8 个孤儿 map + 122 缺失`仍判红；接线断言（隔离先于构建、失败必须路径点名）。
+
+## 2026-11-08 增补：`typecheck-stale-dist` 4 条既有失败归因与修复
+
+状态：FIXED（同一分支，commit `e5ab1c0f42`）
+
+- 失败项：A / C2 / D / E（B、C 本就通过）；已在 `origin/main` 原样检出复跑确认为既有失败。
+- **归因：夹具漂移，不是产品缺陷。** `07f89f627c`（11-07 提速）给 `collectPackageState` 加了「应有产物缺失即陈旧」；而 `89ddd4c08b` 写的夹具只放了 `.d.ts`，没放真实 tsc 必出的 `.js`，于是每次多算 1 个 `missing`，计数 / 退出码与断言不符。
+- 修法：只给夹具补齐成对的 `.js` 产物（A/C2/D/E），**一条断言都没删**；并新增 F 用例——应有产物缺失必须计入陈旧、重建 `rc=0` 仍缺必须 `exit 2 (unverified)`，锁死「不许把产物缺失判绿」。
+- 读数：修前 7 项中 4 红（A/C2/D/E），修后 **7/7 绿**；F 的「缺失仍红」路径保持有效。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

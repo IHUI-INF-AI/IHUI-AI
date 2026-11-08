@@ -1105,6 +1105,48 @@ export async function createRate(data: CreateRateInput): Promise<LessonRate> {
   return row
 }
 
+export interface CreateRateResult {
+  rate: LessonRate
+  created: boolean
+}
+
+/**
+ * 创建课程评价(幂等):同一用户对同一课程最多落一条。
+ *
+ * `lesson_rate` 表只有 lesson_id / user_id 两个普通索引,没有
+ * (lesson_id, user_id) 或 (sign_id) 唯一约束(schema 与 0052 迁移均已确认),
+ * 所以 onConflictDoNothing 无从生效。这里改用单条
+ * `INSERT ... SELECT ... WHERE NOT EXISTS`,把「查重 + 插入」收进同一条语句,
+ * 消除应用层 check-then-insert 的窗口;未落新行时返回存量记录(created=false)。
+ * 并发极端情况下该语句在 READ COMMITTED 仍可能双写,彻底杜绝需要唯一索引 ——
+ * 本次修复按约束不新增 migration。
+ */
+export async function createRateIfAbsent(data: CreateRateInput): Promise<CreateRateResult> {
+  const inserted = await db.execute(sql`
+    INSERT INTO lesson_rate (
+      lesson_id, user_id, sign_id, content,
+      content_utility_score, teacher_score, service_score, is_anonymous
+    )
+    SELECT
+      ${data.lessonId}, ${data.userId}, ${data.signId ?? null}, ${data.content ?? null},
+      ${data.contentUtilityScore ?? null}, ${data.teacherScore ?? null},
+      ${data.serviceScore ?? null}, ${data.isAnonymous ?? false}
+    WHERE NOT EXISTS (
+      SELECT 1 FROM lesson_rate
+      WHERE lesson_id = ${data.lessonId} AND user_id = ${data.userId}
+    )
+    RETURNING id
+  `)
+  const insertedRow = (inserted as unknown as { id: string }[])[0]
+  if (insertedRow) {
+    const rate = await findRateById(insertedRow.id)
+    if (rate) return { rate, created: true }
+  }
+  const existing = await findRateByUserLesson(data.userId, data.lessonId)
+  if (!existing) throw new Error('创建评价失败')
+  return { rate: existing, created: false }
+}
+
 export async function deleteRate(id: string): Promise<void> {
   await db.delete(lessonRate).where(eq(lessonRate.id, id))
 }

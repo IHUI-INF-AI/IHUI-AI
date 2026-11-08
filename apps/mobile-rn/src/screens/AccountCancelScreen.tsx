@@ -3,8 +3,8 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { AppState } from 'react-native'
 import { useTheme } from '../context/ThemeContext'
-import {} from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
@@ -12,6 +12,7 @@ import { useI18n } from '../i18n'
 import { AccountCancelScreen as SharedAccountCancelScreen } from '@ihui/rn-app'
 import { deleteAccountWithCode, sendSmsCode } from '@ihui/api-client'
 import { toUserFriendlyMessage } from '@ihui/shared/utils'
+import { useCountdown } from '@ihui/shared'
 import { useAuth } from '../context/AuthContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
@@ -28,30 +29,30 @@ export default function AccountCancelScreen() {
   const [inputPhone, setInputPhone] = useState(user?.phone ?? '')
   const [confirmText, setConfirmText] = useState('')
   const [smsCode, setSmsCode] = useState('')
-  const [countdown, setCountdown] = useState(0)
+  // 截止戳派生:App 从后台回前台时按墙钟对表(AppState 监听里 sync)
+  const smsCountdown = useCountdown(60)
+  const confirmCountdown = useCountdown(5)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [confirmCountdown, setConfirmCountdown] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   // 二次确认闸门的状态位:第一击开弹窗,弹窗内那一击才真发请求(见 onSubmit)
   const confirmGateRef = useRef(false)
 
   useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [countdown])
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        smsCountdown.sync()
+        confirmCountdown.sync()
+      }
+    })
+    return () => sub.remove()
+  }, [smsCountdown.sync, confirmCountdown.sync])
 
   useEffect(() => {
-    if (confirmCountdown > 0 && showConfirmModal) {
-      const timer = setTimeout(() => setConfirmCountdown(confirmCountdown - 1), 1000)
-      return () => clearTimeout(timer)
-    } else if (confirmCountdown === 0 && showConfirmModal) {
-      setShowConfirmModal(false)
-      // 关窗后归零:页级倒计时只对"无弹窗端"生效,RN 主按钮不应被它再锁 5 秒。
-      setConfirmCountdown(0)
-    }
-  }, [confirmCountdown, showConfirmModal])
+    if (confirmCountdown.count > 0 || !showConfirmModal) return
+    setShowConfirmModal(false)
+    // 自动关窗同样要复位二次确认闸门,否则下一次点击会跳过弹窗直接注销。
+    confirmGateRef.current = false
+  }, [confirmCountdown.count, showConfirmModal])
 
   const onSendSms = useCallback(async () => {
     const phone = inputPhone.trim()
@@ -67,7 +68,8 @@ export default function AccountCancelScreen() {
     const res = await sendSmsCode(phone, 'login')
     if (res.success) {
       appAlert(t('home.pubTip'), t('account.smsSent'))
-      setCountdown(60)
+      smsCountdown.reset(60)
+      smsCountdown.start()
     } else {
       appAlert(t('home.pubTip'), res.error ?? t('account.smsFailRetry'))
     }
@@ -94,7 +96,8 @@ export default function AccountCancelScreen() {
     // 5 秒倒计时闸门在 RN 端根本不出现。用这一位区分两击:第一击只开闸门。
     if (!confirmGateRef.current) {
       confirmGateRef.current = true
-      setConfirmCountdown(5)
+      confirmCountdown.reset(5)
+      confirmCountdown.start()
       setShowConfirmModal(true)
       return
     }
@@ -131,9 +134,9 @@ export default function AccountCancelScreen() {
       phone={inputPhone}
       confirmText={confirmText}
       smsCode={smsCode}
-      countdown={countdown}
+      countdown={smsCountdown.count}
       showConfirmModal={showConfirmModal}
-      confirmCountdown={confirmCountdown}
+      confirmCountdown={confirmCountdown.count}
       submitting={submitting}
       consequences={[
         t('settings.accountDeletionConsequence1'),

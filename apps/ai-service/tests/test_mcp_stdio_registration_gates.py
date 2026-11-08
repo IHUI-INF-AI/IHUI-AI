@@ -121,12 +121,13 @@ async def test_stdio_register_admin_still_needs_allowlist(
 
 
 @pytest.mark.asyncio
-async def test_sse_register_untouched_by_stdio_gate(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """正向对照:sse 档不经过 stdio 两道闸 ⇒ 普通用户仍能走到后面的逻辑。
+async def test_sse_register_requires_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AIS-053 收紧:sse 档同样只有管理员能注册(普通用户一律 403 ROLE_DENIED)。
 
-    这一枚存在的意义是把"把闸门装错到所有 transport"读成红 —— 断源只针对本地进程执行面。
+    更早的反向牙 `test_sse_register_untouched_by_stdio_gate` 钉的是"普通用户可注册远程
+    MCP";AIS-053 的结论是"只封地址不封人没有意义",故契约整体翻面 —— 注册权收归 admin,
+    落点另由 `mcp_endpoint_policy` 按 DNS 解析后的真实 IP 判定(见
+    tests/test_ais053_mcp_endpoint_policy.py)。
     """
     monkeypatch.delenv("MCP_STDIO_COMMAND_ALLOWLIST", raising=False)
 
@@ -140,6 +141,30 @@ async def test_sse_register_untouched_by_stdio_gate(
 
     res = await register_external_server(
         request=_request_with_role(0), req=req, user_id="user-plain"
+    )
+
+    assert getattr(res, "status_code", None) == 403
+    assert "ROLE_DENIED" in res.body.decode("utf-8")
+
+
+@pytest.mark.asyncio
+async def test_sse_register_admin_reaches_later_stage(monkeypatch: pytest.MonkeyPatch) -> None:
+    """正向对照:admin 不被角色闸挡下,继续走到落点策略/注册逻辑(判据不得恒 403)。"""
+    class _Target:
+        pass
+
+    monkeypatch.setattr(mcp_router, "resolve_mcp_endpoint", lambda _url: _Target())
+
+    async def _boom(*_a: object, **_k: object) -> object:
+        raise RuntimeError("sentinel-reached-later-stage")
+
+    monkeypatch.setattr(mcp_router, "get_mcp_client_manager", _boom)
+    req = ExternalServerRegisterRequest(
+        name="sse-ok", transport="sse", url="https://example.invalid/sse"
+    )
+
+    res = await register_external_server(
+        request=_request_with_role(1), req=req, user_id="admin-1"
     )
 
     # 走到 except 分支 ⇒ 说明没被 403 拦下(该分支把异常包成 500 文案)

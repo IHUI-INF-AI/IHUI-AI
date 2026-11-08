@@ -31,7 +31,6 @@ import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
 import { describeBudgetStopMeta } from './chat-cap-text'
 import type { BudgetStopView } from '@/lib/chat-budget-ledger-frames'
 import McpStatusStrip from './mcp-status-strip'
-import TaskStatusBar from './task-status-bar'
 import ToolApprovalCard from './tool-approval-card'
 import QueueInteractionBar from './queue-interaction-bar'
 import { ChatListHeader, ChatThinkingPlaceholder } from './chat-list-extras'
@@ -96,11 +95,10 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
     favoritedMsgs,
     toggleFavorite,
     thinking,
-    thinkingProgress,
     streamActivities,
     streamActivityExpanded,
     setStreamActivityExpanded,
-    lastAssistantCards,
+    taskStatusBarNode,
     goalNotice,
     approvalQueue,
     approvalRecords,
@@ -326,8 +324,9 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
         </View>
       ) : null}
 
-      {/* 任务进度状态条(plan_updated 驱动;共享派生层返回 null 时整体不挂载,零占位) */}
-      <TaskStatusBar cards={lastAssistantCards} isStreaming={thinking} />
+      {/* 任务进度状态条(plan_updated 驱动;共享派生层返回 null 时整体不挂载,零占位)。
+          实例由 chat.tsx 持有并注入,本壳只负责在原挂载位渲染 —— 同屏唯一实例。 */}
+      {taskStatusBarNode}
 
       {/*
         D154(2026-10-01 收口渲染面):MCP 连接状态行。数据源是共享层那一份 `mcpStatusLedger`
@@ -524,7 +523,7 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
             bottom: '96px',
             zIndex: 999,
             padding: '16px',
-            borderRadius: '12px',
+            borderRadius: rnRadius.xl,
             backgroundColor: '#ffffff',
             boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
           }}
@@ -542,7 +541,7 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
               style={{
                 marginTop: '10px',
                 padding: '10px',
-                borderRadius: '8px',
+                borderRadius: rnRadius.lg,
                 borderWidth: '1px',
                 borderColor: '#dddddd',
               }}
@@ -720,7 +719,7 @@ export function buildChatShellProps(ctx: ChatShellCtx): ChatScreenProps {
       scrollTop,
       scrollWithAnimation: true,
       showThinkingPlaceholder: true,
-      thinkingNode: <ChatThinkingPlaceholder t={t} progress={thinkingProgress} />,
+      thinkingNode: <ChatThinkingPlaceholder t={t} />,
       tailNodes: businessFormTails.tailNodes,
       orphanTailNode: businessFormTails.orphanTailNode,
     },

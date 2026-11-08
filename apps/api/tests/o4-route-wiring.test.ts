@@ -495,17 +495,20 @@ describe('O4b-B3 messages 的 owner 列映射是承重的(不是装饰)', () => 
     expect(fake.queries).toHaveLength(0)
   })
 
-  it('登记 receiver_id 为 owner 列后:接线形态(收件人=本人)放行,绑他人即拒', async () => {
+  it('登记 receiver_id 为 owner 列后:收件人=本人 放行,绑他人即拒;语句级 OR 一律拒', async () => {
     // 与 routes/other/v1-customer-service-routes.ts 顶部同一份登记
     configureDataScopeGuard({ ownerColumnByTable: { messages: 'receiver_id' } })
 
+    // 合波 1108 裁决:语句级 OR 一律拒绝(不上"OR 可证明才放行"的解析器)。
+    // 收件人/发件人 OR 若确需保留,应在路由侧拆成两条查询或改走显式 scope 声明。
     const mine = await attempt(machine('messages:read'), () =>
       scoped
         .select({ id: messages.id })
         .from(messages)
         .where(or(eq(messages.senderId, USER_ID), eq(messages.receiverId, USER_ID))),
     )
-    expect(mine.ok).toBe(true)
+    expectDenied(mine, DATA_SCOPE_ERROR_CODES.DATA_SCOPE_DENIED, 403)
+
     const unread = await attempt(machine('messages:read'), () =>
       scoped
         .select({ id: messages.id })

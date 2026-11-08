@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,63 @@ _ARTIFACT_DIRS: tuple[Path, ...] = (
 TOKEN_TTL_SECONDS = 30 * 60
 TOKEN_AUDIENCE = "ihui-artifacts"
 TOKEN_ISSUER = "ihui-ai"
+
+# 归属 sidecar 强制生效起点(AIS-096,2026-09-09 sidecar 落盘逻辑上线)。
+# 判定口径:
+# - chart_tools / report_tools 产物统一命名为 `YYYYMMDD_HHMM_slug_rand.html`。
+# - 文件名前缀日期 >= 该日 ⇒ **新产物**:缺 sidecar 一律 fail-closed(403)。
+# - 前缀日期早于该日 ⇒ **存量历史产物**(上线时无 sidecar 机制,无法重建归属),
+#   维持放行(兼容口径;这批文件生成时尚无随机段,枚举面另由 TTL 收敛)。
+# - 非时间戳命名(如 tmp/artifacts/<artifact_id>/v1.html 的版本化产物,归属由
+#   artifacts_store 会话元数据负责)不在本 sidecar 契约内,同样放行,避免误挡。
+_SIDECAR_REQUIRED_SINCE = "20260909"
+_PRODUCT_NAME_RE = re.compile(r"^(\d{8})_\d{4}(?:_|$)")
+
+
+def _requires_owner_sidecar(file_name: str) -> bool:
+    """该产物是否必须持有归属 sidecar(新产物 fail-closed,存量/非契约命名放行)。"""
+    name = file_name.replace("\\", "/").rsplit("/", 1)[-1]
+    m = _PRODUCT_NAME_RE.match(name)
+    if not m:
+        return False
+    return m.group(1) >= _SIDECAR_REQUIRED_SINCE
+
+
+async def enforce_artifact_owner(target: Path, user_id: str) -> None:
+    """校验产物归属;不通过抛 403。缺失 sidecar 按产物新老口径 fail-closed。
+
+    - sidecar 存在且 user_id 与当前用户不符 → 403;
+    - sidecar 存在但不可解析/无 user_id → 视为无归属凭证(按缺失处理);
+    - sidecar 缺失:新产物 → 403;存量/非契约命名 → 放行(见 `_requires_owner_sidecar`)。
+    """
+    owner_file = Path(str(target) + ".owner")
+    owner: str | None = None
+    if owner_file.is_file():
+        try:
+            payload = json.loads(
+                await asyncio.to_thread(owner_file.read_text, encoding="utf-8")
+            )
+            if isinstance(payload, dict) and payload.get("user_id"):
+                owner = str(payload["user_id"])
+        except (OSError, ValueError):
+            owner = None
+    if owner:
+        if owner != str(user_id):
+            logger.warning(
+                "[artifacts] 越权换取 token 拒绝: user=%s file=%s owner=%s",
+                user_id, target.name, owner,
+            )
+            raise HTTPException(status_code=403, detail="无权访问该产物")
+        return
+    if _requires_owner_sidecar(target.name):
+        logger.warning(
+            "[artifacts] 缺归属凭证拒绝(fail-closed): user=%s file=%s",
+            user_id, target.name,
+        )
+        raise HTTPException(status_code=403, detail="产物缺少归属凭证,拒绝访问")
+    logger.warning("[artifacts] 无 sidecar 存量产物放行: file=%s", target.name)
+
+
 # 签名 token 不再有任何兜底密钥(2026-11-01 安全强化)。
 # 此前这里有一个写死的开发常量 `_DEV_SIGNING_KEY = "ihui-artifacts-dev-key"`,并在
 # `_signing_key()` 里用 `settings.jwt_secret or _DEV_SIGNING_KEY` 静默回落。三重问题:
@@ -164,27 +222,14 @@ async def issue_artifact_token(
     注:响应脱敏中间件会把字段名含 "token" 的值替换为 ***,而此 token 本就是
     返回给调用方使用的短期签名凭证(非内部 secret),故跳过脱敏。
     2026-09-09 P2 越权修复:签发时校验产物归属(sidecar <file>.owner 内的 user_id
-    由 generate_chart 落盘);存在且与当前用户不符 → 403。无 sidecar 的历史产物
-    放行(存量兼容),新产物文件名含随机段不可枚举,双保险。
+    由 generate_chart 落盘);存在且与当前用户不符 → 403。
+    AIS-096(2026-11-08):sidecar 缺失不能再放行 —— 清扫曾把所有 sidecar 当孤儿
+    删光,持路径者可越权取他人图表。现按产物新老口径 fail-closed:新产物缺
+    sidecar → 403;sidecar 上线前的存量产物/非时间戳命名的版本化产物维持放行
+    (口径见 `_requires_owner_sidecar`)。
     """
     target = validate_and_resolve(file)
-    owner_file = Path(str(target) + ".owner")
-    if owner_file.is_file():
-        try:
-            owner = (
-                json.loads(
-                    await asyncio.to_thread(owner_file.read_text, encoding="utf-8")
-                )
-                or {}
-            ).get("user_id")
-        except (OSError, ValueError):
-            owner = None
-        if owner and str(owner) != str(user_id):
-            logger.warning(
-                "[artifacts] 越权换取 token 拒绝: user=%s file=%s owner=%s",
-                user_id, file, owner,
-            )
-            raise HTTPException(status_code=403, detail="无权访问该产物")
+    await enforce_artifact_owner(target, user_id)
     token = sign_artifact_token(file)
     request.state.skip_response_sanitization = True
     return {

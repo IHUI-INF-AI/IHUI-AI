@@ -4,42 +4,6 @@
     {
       "leg": "main",
       "method": "GET",
-      "path": "/api/ai/knowledge-graph/data",
-      "file": "apps/web/app/(main)/knowledge-graph/page.tsx",
-      "site": "apps/web/app/(main)/knowledge-graph/page.tsx:93",
-      "verdict": "alive",
-      "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:93 `apiOrThrow<GraphData>('/api/ai/knowledge-graph/data')`;apps/web/next.config.ts:488-489 `source: '/api/ai/knowledge-graph/:path*'` → `destination: ${IHUI_AI_PROXY_TARGET}/api/v1/ai/knowledge-graph/:path*`(规则排在 /api/:path* 兜底之前)",
-      "reason": "该前缀整体在 next rewrites 的 ai-service 转发面内 ⇒ 活(浏览器同源请求经 rewrite 命中 ai-service 8803,不经 apps/api 注册面)。**提取器盲区**(为什么它仍落前缀假设桶):主腿 policy REWRITE_EXEMPTION_CLAIMS 只登记 /api/llm/:path* 与 /api/voice/:path*,不含本条;假设面命中来自 compositePrefixes 的 /api/ai(apps/api/src/routes/index.ts:743 等)× v1-knowledge-tools 的 local /knowledge-graph/data(1323)笛卡尔拼接 —— 拼出的 /api/ai/... 是假路径;apps/api 真注册是 /api/v1/knowledge-graph/data(API Key 鉴权面,不适配页面登录态)。不改提取器(本席射程外)。到期复裁:rewrite 规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕〔reviewBy 错峰@2026-10-24:原 2026-12-23 → 2026-12-17,理由:alive 三条同压 2026-12-23 违反同档 ≥3 天错峰令(批11),本条取 54 天仍在本族 60 天窗内;三条复裁对象仍是同一条 rewrite,间隔只改日程不改结论。〕",
-      "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
-      "reviewBy": "2026-12-17"
-    },
-    {
-      "leg": "main",
-      "method": "POST",
-      "path": "/api/ai/knowledge-graph/build",
-      "file": "apps/web/app/(main)/knowledge-graph/page.tsx",
-      "site": "apps/web/app/(main)/knowledge-graph/page.tsx:100",
-      "verdict": "alive",
-      "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:100 `apiOrThrow<BuildResult>('/api/ai/knowledge-graph/build', { method: 'POST', ... })`;apps/web/next.config.ts:488-489 同一条 rewrite 覆盖 :path*",
-      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/build(1298)的笛卡尔拼接是假路径,apps/api 真注册 /api/v1/knowledge-graph/build 是 API Key 面)。到期复裁:规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕",
-      "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
-      "reviewBy": "2026-12-23"
-    },
-    {
-      "leg": "main",
-      "method": "DELETE",
-      "path": "/api/ai/knowledge-graph/data",
-      "file": "apps/web/app/(main)/knowledge-graph/page.tsx",
-      "site": "apps/web/app/(main)/knowledge-graph/page.tsx:119",
-      "verdict": "alive",
-      "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:119 `apiOrThrow<unknown>('/api/ai/knowledge-graph/data', { method: 'DELETE' })`;apps/web/next.config.ts:488-489 同一条 rewrite 覆盖 :path*",
-      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/data(1378)的笛卡尔拼接是假路径)。到期复裁:规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕〔reviewBy 错峰@2026-10-24:原 2026-12-23 → 2026-12-20,理由:alive 族同日错峰(批11),取 57 天仍在本族 60 天窗内,复裁对象仍是同一条 rewrite,间隔只改日程不改结论。〕",
-      "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
-      "reviewBy": "2026-12-20"
-    },
-    {
-      "leg": "main",
-      "method": "GET",
       "path": "/api/browser/ws",
       "file": "apps/web/e2e/annotation-flow.spec.ts",
       "site": "apps/web/e2e/annotation-flow.spec.ts:54",
@@ -72,6 +36,44 @@
       "reason": "结论(复裁 2026-10-23):裸根从不单独 fetch(全部 ${WITHDRAWAL_BASE}/...),且该组导出全仓源码零消费方(只有 packages/api-client/dist/*.d.ts 构建产物留名;src/index.ts:242 仍 export *)⇒ 非调用点、无 404 风险。不可裁原因:零消费方的正解是摘导出,但 agent.ts 不在本席允许清单。等 packages/api-client 端点持有人摘除或补消费方时复裁。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-11-27(自 2026-10-24 起 34 天)。为什么是这个窗:human-review 等的是端持有人动手(改 apps/** / packages/** 源文件,或给提取器加基址常量判据),本席与门都代做不了,所以比 dead 略长一档才不至于到期即无人能续;但「静态判据天然失明」这一格必须按月被重问,取 34 天 = 与本族已被前席收窗的两条(2026-11-27)同档,不放宽既有最严的一档。〕",
       "owner": "packages/api-client 端点持有人(票 G-962 续作代裁,复裁归该端)",
       "reviewBy": "2026-11-27"
+    }
+  ],
+  "resolved": [
+    {
+      "leg": "main",
+      "method": "GET",
+      "path": "/api/v1/ai/knowledge-graph/data",
+      "file": "apps/web/app/(main)/knowledge-graph/page.tsx",
+      "site": "apps/web/app/(main)/knowledge-graph/page.tsx:93",
+      "verdict": "alive",
+      "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:93 `apiOrThrow<GraphData>('/api/ai/knowledge-graph/data')`;apps/web/next.config.ts:488-489 `source: '/api/ai/knowledge-graph/:path*'` → `destination: ${IHUI_AI_PROXY_TARGET}/api/v1/ai/knowledge-graph/:path*`(规则排在 /api/:path* 兜底之前)",
+      "reason": "该前缀整体在 next rewrites 的 ai-service 转发面内 ⇒ 活(浏览器同源请求经 rewrite 命中 ai-service 8803,不经 apps/api 注册面)。**提取器盲区**(为什么它仍落前缀假设桶):主腿 policy REWRITE_EXEMPTION_CLAIMS 只登记 /api/llm/:path* 与 /api/voice/:path*,不含本条;假设面命中来自 compositePrefixes 的 /api/ai(apps/api/src/routes/index.ts:743 等)× v1-knowledge-tools 的 local /knowledge-graph/data(1323)笛卡尔拼接 —— 拼出的 /api/ai/... 是假路径;apps/api 真注册是 /api/v1/knowledge-graph/data(API Key 鉴权面,不适配页面登录态)。不改提取器(本席射程外)。到期复裁:rewrite 规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕〔reviewBy 错峰@2026-10-24:原 2026-12-23 → 2026-12-17,理由:alive 三条同压 2026-12-23 违反同档 ≥3 天错峰令(批11),本条取 54 天仍在本族 60 天窗内;三条复裁对象仍是同一条 rewrite,间隔只改日程不改结论。〕〔2026-11-08 收口·AJ3 了结〕因 P2 二级聚合扩图（buildPyIncludeMaps 支持 api_v1_router.include_router 二级聚合挂载），apps/ai-service/app/api/v1/knowledge_graph.py 的注册路径由裸 localPath 修正为 /api/v1/ai/knowledge-graph/*；本端点现由门以 via=py 精确识别、并经 apps/web/next.config.ts 的 rewrite（/api/ai/knowledge-graph/:path* → /api/v1/ai/knowledge-graph/:path*）派生转发面坐实，已退出「前缀假设」桶 ⇒ 本条按 AJ3「必须把这条了结」移出 items、转入本文件 resolved 数组留档；路径由 GET /api/ai/knowledge-graph/data（前缀假设键，非真实缺失）修正为 GET /api/v1/ai/knowledge-graph/data（真实注册路径）。**非豁免真实缺失**：端点真实在册、非空挂，未加 ignore、未放宽判据、未改判据面（scripts/lib/* / check-* 一字未动）。",
+      "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
+      "reviewBy": "2026-12-17"
+    },
+    {
+      "leg": "main",
+      "method": "POST",
+      "path": "/api/v1/ai/knowledge-graph/build",
+      "file": "apps/web/app/(main)/knowledge-graph/page.tsx",
+      "site": "apps/web/app/(main)/knowledge-graph/page.tsx:100",
+      "verdict": "alive",
+      "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:100 `apiOrThrow<BuildResult>('/api/ai/knowledge-graph/build', { method: 'POST', ... })`;apps/web/next.config.ts:488-489 同一条 rewrite 覆盖 :path*",
+      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/build(1298)的笛卡尔拼接是假路径,apps/api 真注册 /api/v1/knowledge-graph/build 是 API Key 面)。到期复裁:规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕〔2026-11-08 收口·AJ3 了结〕因 P2 二级聚合扩图（buildPyIncludeMaps 支持 api_v1_router.include_router 二级聚合挂载），apps/ai-service/app/api/v1/knowledge_graph.py 的注册路径由裸 localPath 修正为 /api/v1/ai/knowledge-graph/*；本端点现由门以 via=py 精确识别、并经 apps/web/next.config.ts 的 rewrite（/api/ai/knowledge-graph/:path* → /api/v1/ai/knowledge-graph/:path*）派生转发面坐实，已退出「前缀假设」桶 ⇒ 本条按 AJ3「必须把这条了结」移出 items、转入本文件 resolved 数组留档；路径由 POST /api/ai/knowledge-graph/build（前缀假设键，非真实缺失）修正为 POST /api/v1/ai/knowledge-graph/build（真实注册路径）。**非豁免真实缺失**：端点真实在册、非空挂，未加 ignore、未放宽判据、未改判据面（scripts/lib/* / check-* 一字未动）。",
+      "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
+      "reviewBy": "2026-12-23"
+    },
+    {
+      "leg": "main",
+      "method": "DELETE",
+      "path": "/api/v1/ai/knowledge-graph/data",
+      "file": "apps/web/app/(main)/knowledge-graph/page.tsx",
+      "site": "apps/web/app/(main)/knowledge-graph/page.tsx:119",
+      "verdict": "alive",
+      "evidence": "现读(2026-10-23):apps/web/app/(main)/knowledge-graph/page.tsx:119 `apiOrThrow<unknown>('/api/ai/knowledge-graph/data', { method: 'DELETE' })`;apps/web/next.config.ts:488-489 同一条 rewrite 覆盖 :path*",
+      "reason": "同 GET /api/ai/knowledge-graph/data:前缀在 next rewrites 的 ai-service 转发面内 ⇒ 活。提取器盲区同上(policy 只两条前缀;/api/ai × local /knowledge-graph/data(1378)的笛卡尔拼接是假路径)。到期复裁:规则删/改窄 ⇒ 本条即死。 〔窗档 2026-10-24 收窗(批8,票 G-962 续作):reviewBy 2027-01-22(+约 90 天) ⇒ 2026-12-23(自 2026-10-24 起 60 天)。为什么是这个窗:alive 成立与否只取决于 apps/web/next.config.ts:488-489 那条 rewrite 是否仍在册且没被人改窄 ——一份低频变更的稳定配置,复裁动作是「核对一次改写面」而不是补路由,所以取三档最长;但 rewrite 一旦被删这三条页面立刻变成真 404,窗也不得越过 60 天上限。〕〔reviewBy 错峰@2026-10-24:原 2026-12-23 → 2026-12-20,理由:alive 族同日错峰(批11),取 57 天仍在本族 60 天窗内,复裁对象仍是同一条 rewrite,间隔只改日程不改结论。〕〔2026-11-08 收口·AJ3 了结〕因 P2 二级聚合扩图（buildPyIncludeMaps 支持 api_v1_router.include_router 二级聚合挂载），apps/ai-service/app/api/v1/knowledge_graph.py 的注册路径由裸 localPath 修正为 /api/v1/ai/knowledge-graph/*；本端点现由门以 via=py 精确识别、并经 apps/web/next.config.ts 的 rewrite（/api/ai/knowledge-graph/:path* → /api/v1/ai/knowledge-graph/:path*）派生转发面坐实，已退出「前缀假设」桶 ⇒ 本条按 AJ3「必须把这条了结」移出 items、转入本文件 resolved 数组留档；路径由 DELETE /api/ai/knowledge-graph/data（前缀假设键，非真实缺失）修正为 DELETE /api/v1/ai/knowledge-graph/data（真实注册路径）。**非豁免真实缺失**：端点真实在册、非空挂，未加 ignore、未放宽判据、未改判据面（scripts/lib/* / check-* 一字未动）。",
+      "owner": "apps/web next.config.ts 知识图谱转发规则持有人",
+      "reviewBy": "2026-12-20"
     }
   ]
 }

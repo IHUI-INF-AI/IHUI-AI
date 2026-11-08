@@ -17,6 +17,9 @@ import {
   isSignedUp,
   findSignUp,
   updateProgress,
+  findLessonById,
+  isLessonFree,
+  hasPaidCourseOrder,
 } from '../../db/learn-queries.js'
 import { parsePagination, parseIdParam } from './_shared.js'
 
@@ -81,6 +84,12 @@ const courseRoutes: FastifyPluginAsync = async (server) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
     const userId = request.userId!
+    const lesson = await findLessonById(id)
+    if (!lesson) return reply.status(404).send(error(404, '课程不存在'))
+    // F-153:付费课报名不能成为绕过付费的入口;必须已有已支付课程订单
+    if (!isLessonFree(lesson) && !(await hasPaidCourseOrder(userId, id))) {
+      return reply.status(402).send(error(402, '请先购买该课程'))
+    }
     const already = await isSignedUp(id, userId)
     if (!already) await signUpLesson(id, userId)
     return reply.status(201).send(success({ success: true, enrolled: !already }))

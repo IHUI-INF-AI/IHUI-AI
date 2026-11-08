@@ -99,8 +99,10 @@ const H = vi.hoisted(() => {
     reads: 0,
     /** 写侧调用记录(insert/update/delete/execute/transaction)—— 只读端点必须恒空 */
     writes: [] as string[],
-    /** loadEnrollmentLedger 的入参序列(账目出口被问了几次、问的是谁) */
+    /** 账目出口收到的 enrollmentId 序列(批量口摊平后仍逐 id 记账) */
     ledgerIds: [] as string[],
+    /** loadEnrollmentLedgers 批量口被调用的次数(0 = 没走批量口) */
+    ledgerBatchCalls: 0,
     /** loadEnrollmentLedger 的返回脚本(按调用序取;取完补 null) */
     ledgerScript: [] as unknown[],
     /** users.status 覆盖表(缺省 1 = 正常);0 = 封禁、3 = 注销,用于锁承载层的账号状态腿 */
@@ -287,9 +289,12 @@ function safeJson(text: string): Record<string, unknown> | null {
 }
 
 /**
- * 账目出口只替掉 `loadEnrollmentLedger`(欠费额唯一来源),其余导出保持真身:
- * 契约是"欠费额只由账目出口给,这里不重算"(端点注释三条口径之二),
- * 所以既要能断言"逐条问过 enrollmentId",也要能断言"返回什么就透传什么"。
+ * 账目出口只替掉 `loadEnrollmentLedger(s)`(欠费额唯一来源),其余导出保持真身:
+ * 契约是"欠费额只由账目出口给,这里不重算"(端点注释三条口径之二)。
+ *
+ * 2026-11 端点改批量口 `loadEnrollmentLedgers(ids)`(消 N+1,见 edu-ledger.ts:358 注释),
+ * 旧夹具只桩单数口 ⇒ 批量调用落到真身、H.ledgerIds 恒空。这里同时桩两口:
+ * 批量口按入参一次摊平记账,继续复用同一份 ledgerScript,断言面不另起一套。
  */
 vi.mock('../src/services/edu-ledger.js', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>
@@ -299,6 +304,16 @@ vi.mock('../src/services/edu-ledger.js', async (importOriginal) => {
       const idx = H.ledgerIds.length
       H.ledgerIds.push(enrollmentId)
       return H.ledgerScript[idx] ?? null
+    }),
+    loadEnrollmentLedgers: vi.fn(async (enrollmentIds: string[]) => {
+      H.ledgerBatchCalls += 1
+      const out = new Map<string, unknown>()
+      for (const id of enrollmentIds) {
+        const idx = H.ledgerIds.length
+        H.ledgerIds.push(id)
+        out.set(id, H.ledgerScript[idx] ?? null)
+      }
+      return out
     }),
   }
 })
@@ -449,6 +464,7 @@ function resetWorld(script?: () => void): void {
   H.reads = 0
   H.writes.length = 0
   H.ledgerIds.length = 0
+  H.ledgerBatchCalls = 0
   H.ledgerScript.length = 0
   H.statusOverrides.clear()
   script?.()
@@ -650,9 +666,11 @@ describe('C 组 归属与账目契约(承载层显式注入身份)', () => {
     expect(bills).toHaveLength(2)
   })
 
-  it('C3 欠费额只由账目出口给:每行 ledger 与出口返回逐字节相等,且问的次数/入参都等于报名集合', async () => {
+  it('C3 欠费额只由账目出口给:每行 ledger 与出口返回逐字节相等,且一次批量问全报名集合', async () => {
     scriptHappyPath()
     const r = await getBills({ as: PARENT_A, childId: CHILD_X })
+    // 2026-11 契约:整个列表只允许一次批量调用(N+1 已消),入参仍必须覆盖每一行报名。
+    expect(H.ledgerBatchCalls).toBe(1)
     expect(H.ledgerIds).toEqual([ENROLLMENT_1, ENROLLMENT_2])
     const bills = r.body.data?.bills ?? []
     expect(bills[0]?.ledger).toEqual(ledgerOf(ENROLLMENT_1, 800))

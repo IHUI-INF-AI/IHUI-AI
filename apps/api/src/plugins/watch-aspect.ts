@@ -53,8 +53,20 @@ async function incrementViewCount(target: WatchTarget): Promise<void> {
  * 钩子失败不阻塞主请求(try/catch + logger.warn)。
  */
 const watchAspectPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
-  server.addHook('preHandler', async (request: FastifyRequest, _reply: FastifyReply) => {
+  // F-206:挂在根实例的 preHandler 早于路由级 authenticate,request.userId 恒空 ⇒
+  // 观看行为从不落库;且与路由自身的 +1 叠加成浏览双计。改到 onResponse:
+  // 此时 handler/preHandler 已跑完,身份可取,且只在 2xx 真正返回时计数。
+  //
+  // 合波 1108 裁决回归留痕:同批分支把钩子改挂 onRoute → 路由 preHandler 链末尾,
+  // 实测**不可用**(非注册顺序问题):本仓多数详情端点的身份是在 handler 内
+  // `authenticate(request, reply)` 写的,preHandler 阶段读不到 ⇒ 属主观看记录 0 条;
+  // 且 preHandler 先于 handler,404/403 也会先计一次浏览量,与 main 的
+  // 「非 2xx 不计数」直接冲突。故按裁决退回 onResponse 版。
+  // 「记录失败请求」的诉求在此显式处理:失败请求属于访问日志面(onResponse 已由
+  // request-log 落痕),不进浏览量/观看行为——把 404/401 自增 viewCount 只会造脏数据。
+  server.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
     if (request.method.toUpperCase() !== 'GET') return
+    if (reply.statusCode < 200 || reply.statusCode >= 300) return
     const url = request.url.split('?')[0] ?? ''
     const target = parseWatchTarget(url)
     if (!target) return

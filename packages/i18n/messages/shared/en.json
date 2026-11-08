@@ -39,6 +39,7 @@
     "toolBrowserCloseTabActivity": "{state, select, running {Closing browser tab} completed {Closed browser tab} other {Close browser tab}}",
     "toolBrowserSwitchTabActivity": "{state, select, running {Switching browser tab} completed {Switched browser tab} other {Switch browser tab}}",
     "toolReadFile": "Read file contents",
+    "toolReadToolOutput": "Read tool output",
     "toolEditFile": "Edit file",
     "toolWriteFile": "Write file",
     "toolCreateFile": "Create file",

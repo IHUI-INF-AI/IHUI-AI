@@ -118,7 +118,7 @@ const defaultAppender: RowAppender = (abs, line) => {
  * 台账落点:`IHUI_EGRESS_AUDIT_LOG` 优先(与 `IHUI_SANDBOX_AUDIT_LOG` 同一形态),
  * 否则仓库根下的状态目录。取不到仓库根 ⇒ null(调用方必须记 unjudged,不得静默丢)。
  */
-function resolveLedgerPath(
+export function resolveLedgerPath(
   startDir: string,
   env: Record<string, string | undefined> = process.env,
   stat?: (target: string) => Stats,

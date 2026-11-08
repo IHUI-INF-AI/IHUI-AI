@@ -117,7 +117,18 @@ test('C7 stderr 必须仍被吐回上游(改 pipe 之后,"子门的话看得见"
     /process\.stderr\.write\(gateStderr\)/,
     '没有把捕获到的 stderr 原样写回 ⇒ 判据输出被静默吞掉(比误报更难查)',
   )
-  assert.match(src, /stdio: \['ignore', 'inherit', 'pipe'\]/, 'stdio 形态变了要同时回头看那句 write')
+  // 2026-11-08(票 gate-failure-kind-stock-red-20261108):原断言钉的是 inherit,与本条标题
+  // "改 pipe 之后"自相矛盾 —— 执行器早已显式用 pipe 捕获(见并行档 spawn),回吐由上面那条
+  // write(gateStderr) 兜住。锚点改成真的 spawn 调用块,钉住"stderr 走 pipe"这一半;
+  // tripwire 不减:改回 inherit/漏掉 write 任一侧,这里与上一条各响一次。
+  const from = src.indexOf('spawn(process.execPath')
+  const to = src.indexOf('})', from)
+  assert.ok(from > 0 && to > from, '取不到并行档 spawn 调用处(结构变了?)')
+  assert.match(
+    src.slice(from, to),
+    /stdio: \['ignore', 'pipe', 'pipe'\]/,
+    '并行档子进程 stdio 不再显式钉 pipe ⇒ 崩溃指纹与回吐都失去输入(改形态必须同时回头看那句 write)',
+  )
 })
 
 test('C8 端到端:真派生一个 import 失败的子进程,走与 runner 同一套捕获 ⇒ crash', () => {
@@ -269,9 +280,12 @@ test('F5 后果不变量:兜底码不被传播成 exit 75,且执行器真的把 
   }
   const here = resolve(fileURLToPath(import.meta.url), '../../..')
   const src = readFileSync(resolve(here, 'scripts/lib/guardian-executor.mjs'), 'utf-8')
-  const from = src.indexOf('decideGateOutcome({')
+  // 2026-11-08(票 gate-failure-kind-stock-red-20261108):原锚点用 indexOf('decideGateOutcome({')
+  // 的首个出现,取到的是 appendGateProgress 的观测旁路(该支只在 r.error 为空时执行,本就不需要
+  // code)。真正要守的是 applyGateResult 里把 job.error.code 交给同一把尺子那一条 ⇒ 锚到 kindPre。
+  const from = src.indexOf('const kindPre = decideGateOutcome({')
   const to = src.indexOf('})', from)
-  assert.ok(from > 0 && to > from, '取不到 decideGateOutcome 调用处(结构变了?)')
+  assert.ok(from > 0 && to > from, '取不到 kindPre 的 decideGateOutcome 调用处(结构变了?)')
   assert.match(
     src.slice(from, to),
     /code: e\?\.code \?\? null/,

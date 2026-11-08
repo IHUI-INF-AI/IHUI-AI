@@ -127,7 +127,7 @@ function createStyles(tk: AppThemeTokens) {
       width: '100%',
       maxWidth: 360,
       padding: rnSpacing['2xl'],
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       gap: rnSpacing.md,
     } as ViewStyle,

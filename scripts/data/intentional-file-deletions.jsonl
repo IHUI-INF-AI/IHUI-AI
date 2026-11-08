@@ -167,7 +167,6 @@
 {"path":"monitoring/grafana/provisioning/datasources/datasources.yml","reason":"HEAD 删除历史重建:monitoring/grafana/provisioning/datasources/datasources.yml 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"packages/app/src/features/model-edit/__tests__/model-edit-save.test.ts","reason":"HEAD 删除历史重建:packages/app/src/features/model-edit/__tests__/model-edit-save.test.ts 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"packages/app/src/features/model-edit/model-edit-save.ts","reason":"HEAD 删除历史重建:packages/app/src/features/model-edit/model-edit-save.ts 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
-{"path":"packages/database/drizzle/20261106213000_agent_meta_lessons_indexes.sql","reason":"HEAD 删除历史重建:packages/database/drizzle/20261106213000_agent_meta_lessons_indexes.sql 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"packages/database/src/schema/chat-sync-rev.ts","reason":"HEAD 删除历史重建:packages/database/src/schema/chat-sync-rev.ts 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"packages/shared/src/share/share-intent.tsx","reason":"HEAD 删除历史重建:packages/shared/src/share/share-intent.tsx 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"packages/ui-react/src/lib/artifact-preview.ts","reason":"HEAD 删除历史重建:packages/ui-react/src/lib/artifact-preview.ts 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
@@ -175,7 +174,6 @@
 {"path":"scripts/check-grafana-metric-exists.mjs","reason":"HEAD 删除历史重建:scripts/check-grafana-metric-exists.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"scripts/data/grafana-external-metrics.json","reason":"HEAD 删除历史重建:scripts/data/grafana-external-metrics.json 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"scripts/sync-grafana-live-provisioning.mjs","reason":"HEAD 删除历史重建:scripts/sync-grafana-live-provisioning.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
-{"path":"scripts/tests/check-agent-meta-lessons-indexes-migration.test.mjs","reason":"HEAD 删除历史重建:scripts/tests/check-agent-meta-lessons-indexes-migration.test.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"scripts/tests/check-grafana-datasource-wiring.test.mjs","reason":"HEAD 删除历史重建:scripts/tests/check-grafana-datasource-wiring.test.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"scripts/tests/check-grafana-metric-exists.test.mjs","reason":"HEAD 删除历史重建:scripts/tests/check-grafana-metric-exists.test.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}
 {"path":"scripts/verify-grafana-logql-panels.mjs","reason":"HEAD 删除历史重建:scripts/verify-grafana-logql-panels.mjs 在 2026-11-01 起的提交历史中被删除,且当前 HEAD 树无此文件","until":null}

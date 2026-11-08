@@ -45,6 +45,8 @@ export default function HelpPage() {
   const [keyword, setKeyword] = useState('')
   const [opened, setOpened] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // XUI-066:加载失败曾被静默成空列表,现在如实上抛给共享屏。
+  const [loadError, setLoadError] = useState('')
   const [form, setForm] = useState<FeedbackForm>(DEFAULT_FORM)
   const [feedbackState, setFeedbackState] = useState<FeedbackState>('idle')
 
@@ -82,13 +84,16 @@ export default function HelpPage() {
   })
 
   const load = useCallback(async () => {
+    setLoadError('')
     try {
       const res = await getHelp()
       setList((res.list || []).map((h) => ({ id: h.id, question: h.title, answer: h.content })))
+    } catch {
+      setLoadError(t('common.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const toggle = useCallback((id: string) => {
     setOpened((prev) => (prev === id ? null : id))
@@ -132,7 +137,7 @@ export default function HelpPage() {
         items={list}
         loading={loading}
         refreshing={false}
-        error=""
+        error={loadError}
         expandedId={opened}
         onRefresh={() => {
           void load()

@@ -247,16 +247,22 @@ export const businessCardRoutes: FastifyPluginAsync = async (server) => {
   server.get('/business-card/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
+    // 可见性:公开名片任何人可见;私密名片仅属主可见。无权与不存在一律 404,不暴露存在性。
+    const visibleWhere = and(
+      eq(businessCards.id, id),
+      or(eq(businessCards.isPublic, true), eq(businessCards.userId, request.userId!)),
+    )
     const [card] = await dbRead
       .select()
       .from(businessCards)
-      .where(eq(businessCards.id, id))
+      .where(visibleWhere)
       .limit(1)
     if (!card) return reply.status(404).send(error(404, '名片不存在'))
+    // 浏览量原子自增:同一笔 UPDATE 内叠加可见性条件,避免读改写丢更新与越权写
     await db
       .update(businessCards)
-      .set({ viewCount: card.viewCount + 1, updatedAt: new Date() })
-      .where(eq(businessCards.id, id))
+      .set({ viewCount: sql`view_count + 1`, updatedAt: new Date() })
+      .where(visibleWhere)
     return reply.send(success({ ...card, viewCount: card.viewCount + 1 }))
   })
 

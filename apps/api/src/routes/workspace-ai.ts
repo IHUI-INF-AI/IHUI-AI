@@ -41,8 +41,16 @@ import {
   listAtomicCheckpoints,
   planAtomicRollback,
   executeAtomicRollback,
+  isSafeCheckpointId,
 } from '../services/atomic-rollback.js'
-import { resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
+import { requireAdmin, resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
+
+// F-27:checkpointId 只允许 [A-Za-z0-9_-],拒绝 `..` 与路径分隔符(防越出快照目录任意读写)。
+const checkpointIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(isSafeCheckpointId, 'checkpointId 只允许字母、数字、下划线、连字符')
 
 export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权：复用 workspace.ts 的模式
@@ -471,6 +479,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    // F-30:git/github 端点与 fs 系列同口径走 workspace_permissions 闸,
+    // 否则未配置权限的用户可绕过 setup 引导直接读任意登记工作区的仓库状态。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_status'))) return
     const runGit = async (args: string[], timeoutMs = 8000): Promise<string> => {
       const result = await fsBridge.run({
         command: buildGitCmd(args),
@@ -680,6 +691,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (body.target === 'commit' && !body.commit) {
       return reply.status(400).send(error(400, 'target=commit 时必须提供 commit(7-40 位 sha)'))
     }
+    // F-30:review-diff 会把工作区 diff 原文回传,必须先过 workspace_permissions 闸。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_review_diff'))) return
     const runGit = async (args: string[], timeoutMs = 15_000) =>
       fsBridge.run({
         command: buildGitCmd(args),
@@ -774,6 +787,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     try {
       const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+      // F-30:github/status 同样读工作区 git 元数据,补上权限闸。
+      if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'github_status'))) return
       const remote = await githubClient.detectRemote(body.workspacePath)
       const branchRaw = await fsBridge.run({
         command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
@@ -1088,27 +1103,48 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     workspacePath: z.string().optional(),
   })
 
-  server.post('/agent/run', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-    const parsed = agentRunSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const task = await agentLoop.run(parsed.data)
-    return reply.send(success(task))
-  })
+  server.post(
+    '/agent/run',
+    {
+      // F-306 契约面:执行链路未接入前只声明 501,不再挂 200 ——
+      // 旧契约只写 `200 Default Response`,等于对调用方谎报存在成功路径。
+      schema: {
+        response: {
+          501: {
+            type: 'object',
+            additionalProperties: true,
+            description: '该端点暂未接入执行层',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = agentRunSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      // F-306:此前 agentLoop.run 的 ai-service 调用缺 `/api` 前缀恒 404,却落伪成功分支,
+      // 任何登录用户都能拿到 200 + completed + 「Agent 第 N 轮思考」,实际零执行。
+      // 工具执行/计费/配额尚未接入该链路前显式 501,不再保留「200 但什么也没做」的路径。
+      // 恢复时须同时接回 agentLoop.run 并按调用用户身份接计费/配额。
+      return reply
+        .status(501)
+        .send(error(501, 'Workspace Agent 执行链路未接入 ai-service 计费/配额,已停用伪成功返回'))
+    },
+  )
 
   server.get('/agent/tasks', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ tasks: agentLoop.listRunning() }))
+    return reply.send(success({ tasks: agentLoop.listRunning(request.userId) }))
   })
 
   server.get('/agent/tasks/:taskId', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { taskId } = taskIdParam.parse(request.params)
-    const task = agentLoop.status(taskId)
+    const task = agentLoop.status(taskId, request.userId)
     if (!task) return reply.status(404).send(error(404, '任务不存在'))
     return reply.send(success(task))
   })
@@ -1117,7 +1153,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { taskId } = taskIdParam.parse(request.params)
-    const canceled = agentLoop.cancel(taskId)
+    const canceled = agentLoop.cancel(taskId, request.userId)
     if (!canceled) return reply.status(400).send(error(400, '任务不存在或不可取消'))
     return reply.send(success({ canceled: true }))
   })
@@ -1134,7 +1170,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const accepted = agentLoop.injectMessage(taskId, parsed.data.content)
+    const accepted = agentLoop.injectMessage(taskId, request.userId, parsed.data.content)
     if (!accepted) return reply.status(400).send(error(400, '任务不存在或已结束,无法插话'))
     return reply.send(success({ taskId, accepted: true }))
   })
@@ -1206,14 +1242,16 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/computer-use/status', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    // F-400(P1):宿主机级动作仅管理员可用。整族此前只过 requireAuth,任意登录用户
+    // 都能驱动宿主机键鼠/截屏;此处复用 requireAdmin(仅认人用 JWT,含 TOTP 闸)。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     return reply.send(success({ enabled: computerUse.isEnabled() }))
   })
 
   server.post('/computer-use/screenshot', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     try {
       const result = await computerUse.takeScreenshot()
       return reply.send(success(result))
@@ -1223,8 +1261,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/computer-use/mouse/click', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const body = z
       .object({ x: z.number(), y: z.number(), button: z.string().optional() })
       .parse(request.body)
@@ -1243,8 +1281,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/computer-use/keyboard/type', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const body = z.object({ text: z.string() }).parse(request.body)
     if (!body.text) return reply.status(400).send(error(400, 'text 不能为空'))
     try {
@@ -1256,8 +1294,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/computer-use/keyboard/key', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const body = z.object({ key: z.string() }).parse(request.body)
     if (!body.key) return reply.status(400).send(error(400, 'key 不能为空'))
     try {
@@ -1269,8 +1307,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/computer-use/screen-size', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     try {
       const size = await computerUse.getScreenSize()
       return reply.send(success(size))
@@ -1399,11 +1437,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 10. BackgroundAgents — 后台长时运行 Agent
   // ===========================================================================
 
+  // F-07:归属只认登录身份 —— 不再接受 body `userUuid`(此前可由客户端把 agent 记到他人名下)
   const startBgAgentSchema = z.object({
     prompt: z.string().min(1),
     workspacePath: z.string().min(1),
     modelId: z.string().optional(),
-    userUuid: z.string().optional(),
     maxIterations: z.number().int().min(1).max(100).optional(),
     systemPrompt: z.string().optional(),
   })
@@ -1414,9 +1452,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = startBgAgentSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    // F-07(2026-11-08):归属只取认证身份。此前 `userUuid` 可来自 body,
+    // 创建者能把 Agent 记到他人名下(反向也成立:他人随后按 id 冒充属主)。
     const agentId = backgroundAgentManager.start({
       ...parsed.data,
-      userUuid: parsed.data.userUuid ?? request.userId,
+      userUuid: request.userId,
     })
     return reply.status(201).send(success({ agentId }))
   })
@@ -1424,14 +1464,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/background-agents', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ agents: backgroundAgentManager.list() }))
+    return reply.send(success({ agents: backgroundAgentManager.list(request.userId) }))
   })
 
   server.get('/background-agents/:agentId', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { agentId } = agentIdParam.parse(request.params)
-    const agent = backgroundAgentManager.get(agentId)
+    const agent = backgroundAgentManager.get(agentId, request.userId)
     if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
     return reply.send(success(agent))
   })
@@ -1440,7 +1480,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { agentId } = agentIdParam.parse(request.params)
-    const canceled = backgroundAgentManager.cancel(agentId)
+    // F-07:先按归属取;不存在与不是自己的同一个 404(不泄漏 agentId 是否存在),
+    // 且取消只在归属匹配后才可能执行 —— 404 绝不返回 canceled:true。
+    const agent = backgroundAgentManager.get(agentId, request.userId)
+    if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
+    const canceled = backgroundAgentManager.cancel(agentId, request.userId)
     if (!canceled) return reply.status(400).send(error(400, 'Agent 不存在或不可取消'))
     return reply.send(success({ canceled: true }))
   })
@@ -1531,9 +1575,12 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     tags: z.array(z.string()).max(100).optional(),
   })
 
+  // F-364(P1):Persona 是全局共享资产(内置名单 + 单文件落盘),无 ownerId —— 任意登录
+  // 用户此前可直接改写 systemPrompt/tools/modelId/enabled 影响全体用户。止血做法:整组
+  // 写端点(增/改/删)收为管理员;属主列迁移后再按属主/管理员混合闸收窄。
   server.post('/personas', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const parsed = createPersonaSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1546,9 +1593,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.patch('/personas/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = idParam.parse(request.params)
+    const existing = personaRegistry.get(id)
+    if (!existing) return reply.status(404).send(error(404, 'Persona 不存在'))
+    // 内置人格的 id/builtin/createdAt 已由 service 保护;此处把其余字段(systemPrompt/
+    // tools/enabled 等)也钉死 —— 内置身份对所有人共享,管理员也不改它。
+    if (existing.builtin) return reply.status(403).send(error(403, '内置 Persona 不允许修改'))
     const body = z.record(z.string(), z.unknown()).safeParse(request.body ?? {})
     if (!body.success) return reply.status(400).send(error(400, '参数错误'))
     try {
@@ -1561,8 +1613,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.delete('/personas/:id', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const { id } = idParam.parse(request.params)
     const deleted = personaRegistry.delete(id)
     if (!deleted) return reply.status(404).send(error(404, 'Persona 不存在或为内置'))
@@ -1949,7 +2001,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const parsed = z
-      .object({ workspacePath: z.string().min(1), checkpointId: z.string().min(1).max(64) })
+      .object({ workspacePath: z.string().min(1), checkpointId: checkpointIdSchema })
       .safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1972,7 +2024,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = z
       .object({
         workspacePath: z.string().min(1),
-        checkpointId: z.string().min(1).max(64),
+        checkpointId: checkpointIdSchema,
         confirm: z.boolean().default(false),
       })
       .safeParse(request.body)

@@ -13,13 +13,41 @@ import { users } from '@ihui/database'
 import { eq, notInArray, ilike, desc, sql, and, or } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
 import { hashPassword } from '../../utils/password-crypto.js'
-import { isSystemAdminUser } from '../../db/queries.js'
+import { isSystemAdminUser, revokeAllUserRefreshTokens } from '../../db/queries.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { isUuidString } from '../../utils/uuid.js'
+
+/**
+ * 写操作响应的显式投影(与 GET 列表字段对齐)。
+ *
+ * F-131(2026-11-08):`.returning()` 不带投影会把 users 整行(含 passwordHash)回给前端。
+ * 白名单只放行可公开列,**绝不含 passwordHash/密码类列**。
+ */
+const memberUserResponseColumns = {
+  id: users.id,
+  username: users.username,
+  nickname: users.nickname,
+  phone: users.phone,
+  email: users.email,
+  roleId: users.roleId,
+  status: users.status,
+  level: users.level,
+  isVip: users.isVip,
+  isSystemAdmin: users.isSystemAdmin,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+}
+
 const memberUsersRoutes: FastifyPluginAsync = async (server) => {
   // admin 会员列表/详情含 phone/email,需跳过响应脱敏
   // 防止 response-sanitizer 把敏感字段误伤为 '***'
+  //
+  // F-131(2026-11-08):已复核本插件全部响应出口 —— 写面改用 memberUserResponseColumns(不含
+  // passwordHash 等密码类列),GET 列表/详情本就显式投影、不选 password_hash。但 GET 面**有意**
+  // 回传管理员所需的原样 phone/email;一旦移除本标志,response-sanitizer 会把 phone 打码成
+  // 191****xxxx、email 打码成 x***@域名,与既有响应值不一致且管理页不可用。故保留豁免,
+  // 仅以投影保证密码类列不出仓。
   server.addHook('onRequest', async (request) => {
     request.skipResponseSanitization = true
   })
@@ -129,7 +157,9 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     }
     const b = z
       .object({
-        status: z.number().int().optional(),
+        // F-131:status 收敛为 0=待审/1=正常/2=封禁/3=注销 的枚举(Zod 4 的 z.enum 只接受字符串,
+        // 数字枚举用字面量联合,拒绝 4/负数/字符串)。
+        status: z.literal([0, 1, 2, 3]).optional(),
         level: z.number().int().min(0).max(3).optional(),
       })
       .safeParse(request.body)
@@ -140,8 +170,17 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
     const sets: Record<string, unknown> = { updatedAt: new Date() }
     if (b.data.status !== undefined) sets.status = b.data.status
     if (b.data.level !== undefined) sets.level = b.data.level
-    const [row] = await db.update(users).set(sets).where(eq(users.id, p.data.id)).returning()
+    const [row] = await db
+      .update(users)
+      .set(sets)
+      .where(eq(users.id, p.data.id))
+      .returning(memberUserResponseColumns)
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    // F-127(2026-11-08):与单条 PUT /admin/users/:id 对齐 —— 改成非启用态必须吊销该用户
+    // 全部 refresh token,否则已发出的 refresh 仍能换新 access token。status=1 不吊销。
+    if (b.data.status !== undefined && b.data.status !== 1) {
+      await revokeAllUserRefreshTokens(p.data.id)
+    }
     return reply.send(success(row))
   })
   server.post('/member/users', async (request, reply) => {
@@ -152,7 +191,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
         email: z.email().optional(),
         password: z.string().min(6, '密码至少 6 位'),
         roleId: z.number().int().optional(),
-        status: z.number().int().optional(),
+        status: z.literal([0, 1, 2, 3]).optional(),
         level: z.number().int().min(0).max(3).optional(),
       })
       .safeParse(request.body)
@@ -170,7 +209,7 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
         status: b.data.status ?? 1,
         level: b.data.level ?? 0,
       })
-      .returning()
+      .returning(memberUserResponseColumns)
     if (!row) return reply.status(500).send(error(500, '创建失败'))
     return reply.status(201).send(success(row))
   })
@@ -188,8 +227,10 @@ const memberUsersRoutes: FastifyPluginAsync = async (server) => {
       .update(users)
       .set({ status: 3, updatedAt: new Date() })
       .where(eq(users.id, p.data.id))
-      .returning()
+      .returning(memberUserResponseColumns)
     if (!row) return reply.status(404).send(error(404, '用户不存在'))
+    // F-127(2026-11-08):软删除即置注销(3),与封禁同属非启用态,必须同步吊销 refresh token。
+    await revokeAllUserRefreshTokens(p.data.id)
     return reply.send(success({ user: row }))
   })
 }

@@ -388,4 +388,26 @@ export function splitMoney(total: Money, ratios: Array<number | string>): Money[
   parts.push(new Money(total.fen - allocated, total.currency))
   return parts
 }
+
+// ---------------------------------------------------------------------------
+// F-449:数据库金额列 -> 分 / 分 -> numeric 写库字符串
+//
+// 背景:zhs_course_video.amount / zhs_agent_developer.price 原为 real(float4),
+// 131072.01 落库读回 131072.015625,`Math.round(amount * 100)` 多收 1 分。
+// 列改 numeric(12,2) 后 postgres.js 读出字符串(如 "131072.01"),统一走
+// Money.fromYuan 的十进制解析,禁止再经过浮点乘 100。
+// ---------------------------------------------------------------------------
+
+/** 元(numeric 读回字符串或数值)→ 整数分;null/空串返回 null,由调用方决定回退。 */
+export function yuanToCents(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  const text = typeof value === 'number' ? String(value) : value.trim()
+  if (text === '') return null
+  return Money.fromYuan(text).toFenNumber()
+}
+
+/** 元(数值)→ numeric(12,2) 列写库字符串,固定两位小数,不经过 toFixed 浮点舍入。 */
+export function toYuanDecimal(value: number): string {
+  return Money.fromYuan(value).toYuan()
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

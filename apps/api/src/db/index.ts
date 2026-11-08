@@ -36,6 +36,7 @@ import {
   trackConnection,
   untrackConnection,
 } from '../utils/pool-leak-detector.js'
+import { samplePostgresPoolMetrics } from '../utils/pool-metrics.js'
 
 // 使用读写分离工厂创建主库(写)与读副本(读)
 // 无 DATABASE_READ_REPLICA_URL 时,dbReader 自动回退到主库
@@ -245,16 +246,25 @@ const poolClientsToSample: ReadonlyArray<readonly [typeof writerClient, string]>
       [scopedClient, 'app-scoped'],
     ]
   : [[writerClient, 'writer']]
+let poolTrackUnavailableLogged = false
 const poolTracker = setInterval(() => {
   try {
     for (const [client, poolLabel] of poolClientsToSample) {
-      // postgres.js 不公开 pool 内部状态,尝试读取内部属性(与 db-keepalive.ts 同模式)
+      // F-324:postgres.js 3.x 不公开 pool 内部状态。不可采样时显式告警一次,
+      // 不再静默 continue(否则泄漏跟踪永远没有数据且无人知道)。
+      const sample = samplePostgresPoolMetrics(client)
+      if (!sample.available) {
+        if (!poolTrackUnavailableLogged) {
+          poolTrackUnavailableLogged = true
+          console.warn(`[pool-tracker] 连接池内部状态不可采样,泄漏跟踪不可用: ${sample.reason}`)
+        }
+        continue
+      }
       const internal = client as unknown as {
         state?: { idle?: object[]; active?: object[] }
       }
-      if (!internal.state) continue
-      const activeConns = internal.state.active ?? []
-      const idleConns = internal.state.idle ?? []
+      const activeConns = internal.state?.active ?? []
+      const idleConns = internal.state?.idle ?? []
       // 新增 active 连接 → track(记录借出 + 调用栈)
       for (const conn of activeConns) {
         if (!trackedConns.has(conn)) {

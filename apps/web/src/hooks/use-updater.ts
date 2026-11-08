@@ -15,6 +15,7 @@ import {
   type UpdateProgress,
 } from '@/lib/tauri-bridge'
 import { isDesktopDevShell } from '@/lib/api-base-url'
+import { useDeadlineCountdown } from './use-deadline-countdown'
 import { useTauriIpcReady } from './use-desktop'
 
 /** 更新状态机:idle → checking → available → downloading → installing → done / up-to-date / error */
@@ -142,12 +143,10 @@ export function useUpdater() {
   const mountedRef = React.useRef(true)
   /** 自动重试计数(错误后自动重试,最多 3 次)。 */
   const [retryCount, setRetryCount] = React.useState(0)
-  /** 安装完成后距自动重启的剩余秒数(0 表示未进入等待重启倒计时)。 */
-  const [restartCountdown, setRestartCountdown] = React.useState(0)
+  /** 安装完成后自动重启的截止时间戳(null 表示未进入等待重启倒计时)。 */
+  const [restartDeadline, setRestartDeadline] = React.useState<number | null>(null)
   /** 自动重启倒计时定时器(到 0 时执行 restartApp)。 */
   const restartTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  /** 剩余秒数递减定时器(每秒 -1)。 */
-  const countdownTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null)
   /**
    * G-698:更新检查世代计数 —— 每次发起检查自增并领取本次 checkGeneration;
    * 异步结果(检查结果/下载进度/安装完成)只接受当前世代,旧世代迟到回调丢弃。
@@ -162,10 +161,6 @@ export function useUpdater() {
       clearTimeout(restartTimerRef.current)
       restartTimerRef.current = null
     }
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current)
-      countdownTimerRef.current = null
-    }
   }, [])
 
   /**
@@ -175,7 +170,8 @@ export function useUpdater() {
    */
   const startRestartCountdown = React.useCallback(() => {
     clearRestartTimers()
-    setRestartCountdown(RESTART_COUNTDOWN_SECONDS)
+    // 同型根因 S-01:剩余秒数由截止时间戳派生,后台节流不会把 60s 拖成更久
+    setRestartDeadline(Date.now() + RESTART_COUNTDOWN_SECONDS * 1000)
     if (typeof window !== 'undefined') {
       window.dispatchEvent(
         new CustomEvent(UPDATER_PENDING_EVENT, {
@@ -183,9 +179,6 @@ export function useUpdater() {
         }),
       )
     }
-    countdownTimerRef.current = setInterval(() => {
-      setRestartCountdown((c) => (c > 0 ? c - 1 : 0))
-    }, 1000)
     restartTimerRef.current = setTimeout(() => {
       if (isDevUpdateTest()) {
         setState(INITIAL_STATE)
@@ -194,6 +187,9 @@ export function useUpdater() {
       void restartApp()
     }, RESTART_COUNTDOWN_SECONDS * 1000)
   }, [])
+
+  // 同型根因 S-01:剩余秒数由截止时间戳派生(后台节流/暂停恢复后仍准)
+  const restartCountdown = useDeadlineCountdown(restartDeadline)
 
   React.useEffect(() => {
     mountedRef.current = true
@@ -436,7 +432,7 @@ export function useUpdater() {
   /** 立即重启应用(用户点击"立即重启"或倒计时结束前的主动重启)。 */
   const restartNow = React.useCallback(async () => {
     clearRestartTimers()
-    setRestartCountdown(0)
+    setRestartDeadline(null)
     setState(INITIAL_STATE)
     if (isDevUpdateTest()) return
     await restartApp()

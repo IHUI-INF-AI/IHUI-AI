@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import Fastify from 'fastify'
 import { sql, eq } from 'drizzle-orm'
 import { db } from '../src/db/index.js'
-import { users, userMargins, tokenFlows } from '@ihui/database'
+import { users, userMargins, tokenFlows, commissionFlows } from '@ihui/database'
 import {
   mockAuthenticate,
   setMockUser,
@@ -65,6 +65,19 @@ async function createFlow(data: {
   return row
 }
 
+async function createCommission(data: { userId: string; amount: number; status?: number }) {
+  const [row] = await db
+    .insert(commissionFlows)
+    .values({
+      beneficiaryId: data.userId,
+      amount: data.amount,
+      status: data.status ?? 1,
+    })
+    .returning()
+  if (!row) throw new Error('wallet-routes.real.test.ts: 插入未返回行(row)')
+  return row
+}
+
 describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
   const server = Fastify({ logger: false })
 
@@ -82,6 +95,7 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
     // 2026-09-10 real-db CI:withdraw 走 applyWithdrawal 会写 withdrawal_flows,
     // 必须先清(否则 DELETE FROM users 撞 FK)
     await db.execute(sql`DELETE FROM withdrawal_flows`)
+    await db.execute(sql`DELETE FROM commission_flows`)
     await db.execute(sql`DELETE FROM token_flows`)
     await db.execute(sql`DELETE FROM user_margins`)
     await db.execute(sql`DELETE FROM users WHERE is_system_admin = false`)
@@ -235,6 +249,8 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
   it('POST /api/wallet/withdraw — 余额充足时成功提现(冻结 actualAmount)', async () => {
     const user = await createUser('1001', '用户')
     await createMargin({ userId: user.id, tokenQuantity: 1000 })
+    // F-63:提现需同时满足"有可提现佣金"(事务内加锁复核)与 token 余额
+    await createCommission({ userId: user.id, amount: 300 })
     setMockUser(user.id)
     const res = await server.inject({
       method: 'POST',
@@ -265,6 +281,8 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
   it('POST /api/wallet/withdraw — 余额不足返回 400', async () => {
     const user = await createUser('1001', '用户')
     await createMargin({ userId: user.id, tokenQuantity: 100 })
+    // 佣金额度足够,确保 400 来自 token 冻结校验而不是资格门禁
+    await createCommission({ userId: user.id, amount: 200 })
     setMockUser(user.id)
     const res = await server.inject({
       method: 'POST',
@@ -279,6 +297,7 @@ describe('wallet-routes — 钱包需鉴权真实 DB 集成测试', () => {
   it('POST /api/wallet/withdraw — 冻结余额不影响可提现额度(仅校验 token_quantity)', async () => {
     const user = await createUser('1001', '用户')
     await createMargin({ userId: user.id, tokenQuantity: 500, frozenQuantity: 400 })
+    await createCommission({ userId: user.id, amount: 200 })
     setMockUser(user.id)
     const res = await server.inject({
       method: 'POST',

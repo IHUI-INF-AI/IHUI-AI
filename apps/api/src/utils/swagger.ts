@@ -10,7 +10,9 @@ const successSchema = {
   properties: {
     code: { type: 'number', example: 0 },
     message: { type: 'string', example: 'ok' },
-    data: { type: 'object', additionalProperties: true },
+    // F-323:data 不能声明 type。钉成 object 时数组会被 fast-json-stringify
+    // 序列化成 {"0":...,"1":...};这里只给描述,任意 JSON(对象/数组/标量)原样透传。
+    data: { description: '响应数据（任意 JSON：对象、数组、标量）' },
   },
 }
 

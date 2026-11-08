@@ -137,13 +137,21 @@ class SelfMediaScheduler:
         )
 
     async def stop(self) -> None:
-        """停止调度循环。"""
-        if self._task is None:
-            return
-        self._task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await self._task
-        self._task = None
+        """停止调度循环,并取消在途任务。"""
+        if self._task is not None:
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+            self._task = None
+        # AIS-030:只取消主循环时,已 spawn 的 _run_koubo/_run_wechat 仍在出网/写文件,
+        # 关停后产生孤儿输出。这里一并 cancel 并等到真正收尾(gather 吞取消异常)。
+        if self._pending_tasks:
+            pending = list(self._pending_tasks)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            self._pending_tasks.clear()
+        self._running_tasks.clear()
 
     # ===== 主循环 =====
 

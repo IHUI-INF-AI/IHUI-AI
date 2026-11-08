@@ -33,6 +33,12 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       .object({ beneficiaryId: z.string().optional() })
       .parse(request.query)
     const targetId = beneficiaryId ?? request.userId!
+    // P1 修复(F-05): 分销统计按 beneficiaryId 直读佣金/下级关系,指定他人必须过管理员闸
+    // (与此文件 /agent-withdrawal/list 同一判据)。
+    if (beneficiaryId && beneficiaryId !== request.userId) {
+      await requireAdmin(request, reply)
+      if (reply.sent) return
+    }
     try {
       const rows = await db
         .select({
@@ -77,6 +83,11 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const targetId = beneficiaryId ?? request.userId!
+    // P1 修复(F-05): 指定他人受益人必须过管理员闸(同上)。
+    if (beneficiaryId && beneficiaryId !== request.userId) {
+      await requireAdmin(request, reply)
+      if (reply.sent) return
+    }
     const offset = (page - 1) * pageSize
     try {
       const list = await db
@@ -119,6 +130,11 @@ export const financeExtendedRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const targetId = beneficiaryId ?? request.userId!
+    // P1 修复(F-05): 指定他人受益人必须过管理员闸(同上)。
+    if (beneficiaryId && beneficiaryId !== request.userId) {
+      await requireAdmin(request, reply)
+      if (reply.sent) return
+    }
     const conditions: SQL[] = [
       eq(commissionFlows.beneficiaryId, targetId),
       eq(commissionFlows.status, 1),

@@ -63,11 +63,12 @@ export function createStdioFrameDecoder(): StdioFrameDecoder {
   }
 
   function pushNdjson(messages: unknown[]): void {
-    const text = buffer.toString('utf8');
-    const nl = text.indexOf('\n');
+    // 必须按**字节**找换行再解码:先 `buffer.toString('utf8')` 会把被 chunk 边界切开的
+    // 多字节字符(典型是中文)变成 U+FFFD 替换符,再按"解码后文本长度"反推字节数就会
+    // 切错帧 —— 大结果/中文结果整段丢失或串行,正是 F-103 的现场。
+    const nl = buffer.indexOf(0x0a);
     if (nl < 0) return;
-    const lineBytes = Buffer.byteLength(text.slice(0, nl + 1), 'utf8');
-    const line = take(lineBytes).toString('utf8').replace(/\r?\n$/, '').trim();
+    const line = take(nl + 1).toString('utf8').replace(/\r?\n$/, '').trim();
     if (line.length === 0) return;
     try {
       messages.push(JSON.parse(line));

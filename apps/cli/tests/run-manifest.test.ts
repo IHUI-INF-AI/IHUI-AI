@@ -59,6 +59,26 @@ describe('run manifest', () => {
     }
   })
 
+  it('F-008:argv 中的密钥落盘前脱敏,普通参数原样保留', () => {
+    const root = mkScratch('run-manifest-')
+    try {
+      const deep = makeRepo(root)
+      const out = writeRunManifest({
+        cwd: deep,
+        argv: ['agent', '--api-key', 'sk-secret-1234567890abcdef', '--model', 'gpt-4'],
+        cliVersion: '1.0.0',
+      })
+      expect(out).not.toBeNull()
+      const manifestPath = join(root, '.ihui-agent', 'state', 'runs', out!.manifest.runId, 'manifest.json')
+      const saved = JSON.parse(readFileSync(manifestPath, 'utf8'))
+      expect(saved.argv.join(' ')).not.toContain('sk-secret-1234567890abcdef')
+      expect(saved.argv).toContain('--model')
+      expect(saved.argv).toContain('gpt-4')
+    } finally {
+      rmScratch(root)
+    }
+  })
+
   it('latest 指向最近一次运行', () => {
     const root = mkScratch('run-manifest-')
     try {

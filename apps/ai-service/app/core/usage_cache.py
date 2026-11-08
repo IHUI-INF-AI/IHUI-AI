@@ -36,6 +36,7 @@ _CACHE_READ_ALIASES = (
     "cached_tokens",                 # OpenAI prompt_tokens_details 内层键(平铺后)
     "cache_read_input_tokens",       # Anthropic 原生 / LiteLLM Usage 字段
     "prompt_cache_hit_tokens",       # DeepSeek 原生
+    "cachedContentTokenCount",       # AIS-009: Gemini usageMetadata(camelCase)
 )
 # 缓存写入 token 的厂商别名(Anthropic 专属;DeepSeek/OpenAI 写入免费但仍计量)
 _CACHE_WRITE_ALIASES = (
@@ -44,9 +45,11 @@ _CACHE_WRITE_ALIASES = (
 )
 
 # 输入 token 别名(OpenAI prompt_tokens 优先,Anthropic input_tokens 兜底)
-_INPUT_ALIASES = ("prompt_tokens", "input_tokens")
+# AIS-009:Gemini usageMetadata 是 camelCase(promptTokenCount/candidatesTokenCount/
+# totalTokenCount),此前只认 OpenAI/Anthropic 键 ⇒ Gemini 原生路径 token/成本恒 0。
+_INPUT_ALIASES = ("prompt_tokens", "input_tokens", "promptTokenCount")
 # 输出 token 别名
-_OUTPUT_ALIASES = ("completion_tokens", "output_tokens")
+_OUTPUT_ALIASES = ("completion_tokens", "output_tokens", "candidatesTokenCount")
 
 
 def _first_int(source: dict[str, Any], keys: tuple[str, ...]) -> int | None:
@@ -88,7 +91,7 @@ def normalize_usage(raw: Any) -> dict[str, Any]:
     prompt_tokens = _first_int(raw, _INPUT_ALIASES) or 0
     completion_tokens = _first_int(raw, _OUTPUT_ALIASES) or 0
     # total_tokens 缺省/非法时用 prompt+completion 回填(与 OpenAI 口径一致)
-    total_tokens = _first_int(raw, ("total_tokens",))
+    total_tokens = _first_int(raw, ("total_tokens", "totalTokenCount"))
     if total_tokens is None or total_tokens < prompt_tokens + completion_tokens:
         total_tokens = prompt_tokens + completion_tokens
 

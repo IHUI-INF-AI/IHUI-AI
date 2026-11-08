@@ -43,7 +43,7 @@
  * 落库由收编侧按「账本在册 ∧ blob 相符 ∧ 超静默期」处理;只读档(--list/--check/预演)零登记。
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -145,19 +145,27 @@ export function registerLandings(paths, { root = ROOT, leg = CROSS_END_LEG, at =
   }
 }
 
-/** 平台能当场注入的腿 → 生成时写进 JSX 的表达式。不在此表内的可注入腿一律算 needs-manual。 */
-const LEG_EXPR = {
-  t: 't',
-  colorScheme: 'resolvedTheme',
-  scheme: 'resolvedTheme',
-  resolvedTheme: 'resolvedTheme',
-  themeMode: 'resolvedTheme',
-  onBack: '() => navigation.goBack()',
-  onClose: '() => navigation.goBack()',
-  onDismiss: '() => navigation.goBack()',
+/**
+ * 平台能当场注入的腿 → 生成时写进 JSX 的表达式 + 该腿真正需要的平台 hook。
+ *
+ * 记 hook 依赖是为了「取出来就必须传进去」:旧模板无条件声明 useI18n/useTheme/useNavigation,
+ * 零腿或只含 t 的壳会留下三枚未使用变量(自动分支上那批空 props 壳正是这样坏的)。
+ * 不在此表内的可注入腿一律算 needs-manual。
+ */
+const LEG_WIRING = {
+  t: { expr: 't', hooks: ['i18n'] },
+  colorScheme: { expr: 'resolvedTheme', hooks: ['theme'] },
+  scheme: { expr: 'resolvedTheme', hooks: ['theme'] },
+  resolvedTheme: { expr: 'resolvedTheme', hooks: ['theme'] },
+  themeMode: { expr: 'resolvedTheme', hooks: ['theme'] },
+  onBack: { expr: '() => navigation.goBack()', hooks: ['nav'] },
+  onClose: { expr: '() => navigation.goBack()', hooks: ['nav'] },
+  onDismiss: { expr: '() => navigation.goBack()', hooks: ['nav'] },
 }
 
-export const SEEDABLE = new Set(Object.keys(LEG_EXPR))
+const LEG_EXPR = Object.fromEntries(Object.entries(LEG_WIRING).map(([leg, w]) => [leg, w.expr]))
+
+export const SEEDABLE = new Set(Object.keys(LEG_WIRING))
 
 const argv = process.argv.slice(2)
 const has = (name) => argv.some((a) => a === `--${name}` || a.startsWith(`--${name}=`))
@@ -227,35 +235,44 @@ function classify(specRel) {
 export function buildShell(specRel, legs) {
   const { component, shared } = symbolOf(specRel)
   const specs = specRel.split('/features/')[1] ?? specRel
-  const body = sortLegs(legs)
-    .map((l) => `      ${l}={${LEG_EXPR[l]}}`)
-    .join('\n')
+  const usable = sortLegs([...new Set(legs)].filter((l) => LEG_WIRING[l]))
+  const needs = new Set(usable.flatMap((l) => LEG_WIRING[l].hooks))
+  const body = usable.map((l) => `      ${l}={${LEG_EXPR[l]}}`).join('\n')
+  // 零腿壳必须写成单行自闭合,不能留一个空白 body 让读者以为「取了变量忘了传」。
+  const jsx = body ? `<${shared}\n${body}\n    />` : `<${shared} />`
+
+  const imports = []
+  if (needs.has('nav')) {
+    imports.push("import { useNavigation } from '@react-navigation/native'")
+    imports.push("import type { NativeStackNavigationProp } from '@react-navigation/native-stack'")
+  }
+  imports.push(`import { ${component} as ${shared} } from '@ihui/rn-app'`)
+  if (needs.has('i18n')) imports.push("import { useI18n } from '../i18n'")
+  if (needs.has('theme')) imports.push("import { useTheme } from '../context/ThemeContext'")
+  if (needs.has('nav')) imports.push("import type { RootStackParamList } from '../navigation/RootNavigator'")
+
+  const navType = needs.has('nav')
+    ? 'type NavigationProp = NativeStackNavigationProp<RootStackParamList>\n\n'
+    : ''
+  const hooks = []
+  if (needs.has('i18n')) hooks.push('  const { t } = useI18n()')
+  if (needs.has('theme')) hooks.push('  const { resolvedTheme } = useTheme()')
+  if (needs.has('nav')) hooks.push('  const navigation = useNavigation<NavigationProp>()')
+  const hookBlock = hooks.length ? `${hooks.join('\n')}\n\n` : ''
+
   return `// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // ${MARK} —— 本文件为生成物,勿手改结构;共享屏 props 变更后重跑:
 //   node scripts/gen-rn-host-shell.mjs --screen=${specRel} --write --force
 
-import { useNavigation } from '@react-navigation/native'
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { ${component} as ${shared} } from '@ihui/rn-app'
-import { useI18n } from '../i18n'
-import { useTheme } from '../context/ThemeContext'
-import type { RootStackParamList } from '../navigation/RootNavigator'
+${imports.join('\n')}
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>
-
-/**
+${navType}/**
  * RN 宿主薄壳 —— 真相源 ${specs}。
  * 端内不写布局、不写样式:视觉与结构全在共享屏,本屏只做平台注入(取词/主题/返回)。
  */
 export function ${component}() {
-  const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
-  const navigation = useNavigation<NavigationProp>()
-
-  return (
-    <${shared}
-${body}
-    />
+${hookBlock}  return (
+    ${jsx}
   )
 }
 `
@@ -273,16 +290,68 @@ export function brokenLinks(registry) {
   return (registry || []).filter((r) => r.rn && !existsSync(R(r.rn))).map((r) => r.rn)
 }
 
-/** R3: 已存在的生成物与重新生成的结果是否一致(被判"生成后被手改") */
-export function drifted(registry, classifyFn = classify) {
+/**
+ * R3: 已存在的生成物与重新生成的结果是否一致(被判"生成后被手改"或"契约已不可复现")。
+ *
+ * 旧口径只比 seedable:屏一旦涨出数据腿(needs-manual),它名下那枚空 props 旧壳就永远不被
+ * 复查 —— 自动分支上 Finance/Following/HelpDetail 三枚空壳正是这样活下来的。现在只要文件
+ * 仍带本器标记,就必须能按当前契约复现;复现不了(needs-manual)一律报陈旧,未判定不冒红。
+ */
+export function drifted(
+  registry,
+  classifyFn = classify,
+  readTarget = (rn) => (existsSync(R(rn)) ? readFileSync(R(rn), 'utf8') : null),
+) {
   const out = []
   for (const row of registry || []) {
-    if (!row.rn || !existsSync(R(row.rn))) continue
-    const text = readFileSync(R(row.rn), 'utf8')
-    if (!text.includes(MARK)) continue
+    if (!row.rn) continue
+    const text = readTarget(row.rn)
+    if (text === null || !text.includes(MARK)) continue
     const c = classifyFn(row.shared)
-    if (c.kind !== 'seedable') continue
-    if (text !== buildShell(row.shared, c.legs)) out.push({ rn: row.rn, shared: row.shared })
+    if (c.kind === 'undetermined') continue
+    const why =
+      c.kind !== 'seedable'
+        ? `屏已 ${c.kind}(缺腿 ${c.hard.join(', ') || '无'}),生成物不再可复现`
+        : text === buildShell(row.shared, c.legs)
+          ? null
+          : '生成后被手改'
+    if (why) out.push({ rn: row.rn, shared: row.shared, why })
+  }
+  return out
+}
+
+/**
+ * 孤儿生成物对账:不依赖登记表,直接扫 RN 屏目录里带本器标记的文件。
+ *
+ * 起因:自动分支上的 Finance/Following/HelpDetail 三枚空 props 壳既不在登记表里,所指向的
+ * 共享屏又早已被判 not-applicable(RN 路由删除),旧的 R3 只看登记表 ⇒ 永远扫不到它们。
+ * 这里从生成物自身的 `--screen=` 溯源行反查共享屏,契约不可复现即判陈旧。
+ */
+export function staleShells(
+  listShells = () => readdirSync(R(RN_DIR)).filter((f) => f.endsWith('.tsx')),
+  readShell = (name) => readFileSync(R(RN_DIR, name), 'utf8'),
+  classifyFn = classify,
+) {
+  const out = []
+  for (const name of listShells()) {
+    const text = readShell(name)
+    if (!text.includes(MARK)) continue
+    const rn = `${RN_DIR}/${name}`
+    const m = text.match(/--screen=(packages\/app\/src\/features\/[^\s'"]+)/)
+    if (!m) {
+      out.push({ rn, why: '缺 --screen 溯源行,无法复现' })
+      continue
+    }
+    const shared = m[1]
+    const c = classifyFn(shared)
+    if (c.kind === 'undetermined') continue
+    const why =
+      c.kind !== 'seedable'
+        ? `屏已 ${c.kind}(缺腿 ${c.hard.join(', ') || '无'}),生成物不再可复现`
+        : text === buildShell(shared, c.legs)
+          ? null
+          : '生成后被手改'
+    if (why) out.push({ rn, shared, why })
   }
   return out
 }
@@ -310,12 +379,14 @@ function main() {
       process.exit(2)
     }
     const broken = brokenLinks(registry)
-    const drift = drifted(registry)
+    const seen = new Set()
+    const drift = [...drifted(registry), ...staleShells()].filter((d) => !seen.has(d.rn) && seen.add(d.rn))
     console.log(
       `[gen-rn-host-shell --check] 登记表 ${registry.length} 条 · R1 断链 ${broken.length} · R3 生成物漂移 ${drift.length}`,
     )
     for (const b of broken) console.log('  R1 断链:', b)
-    for (const d of drift) console.log('  R3 漂移:', d.rn, '←', d.shared)
+    for (const d of drift)
+      console.log('  R3 漂移:', d.rn, d.shared ? `← ${d.shared}` : '', `(${d.why})`)
     process.exit(broken.length + drift.length > 0 ? 1 : 0)
   }
 
@@ -441,6 +512,7 @@ export const __test__ = {
   MARK,
   brokenLinks,
   drifted,
+  staleShells,
   // 写盘申报账本层(§22c:测试 import 生产出口,不复制判据)
   registerLandings,
   landedSkips,

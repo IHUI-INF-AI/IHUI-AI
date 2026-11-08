@@ -325,6 +325,7 @@
     "sourceDirs": "      よくあるエクスポート先: {dirs}",
     "backendDoesParsing": "\n  解析と保存はバックエンドで行います。CLI はアップロードとメタ情報表示のみ担当します。",
     "noneDiscovered": "  エクスポートファイルが見つかりません(スキャン先 {scanned})",
+    "scanIncomplete": "  スキャンが完了しませんでした({source} のディレクトリを読み取れません。「エクスポートファイルなし」とは扱いません)。権限を確認して再試行してください。",
     "hintParse": "\n  インポート: ihui import sessions parse <source> <ファイルパス>",
     "hintCommit": "  保存: ihui import sessions commit {source} \"{abs}\" --all(または --only 1,3)",
     "scopeRequired": "インポート範囲を明示してください: --all または --only <番号>。",

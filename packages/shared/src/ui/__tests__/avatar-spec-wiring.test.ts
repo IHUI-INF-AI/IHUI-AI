@@ -147,13 +147,17 @@ describe('Avatar 跨端唯一表接线', () => {
     expect(diffAgainstSpec(taro, 'taro')).toEqual([])
   })
 
-  it('②b 小程序缺席豁免具名生效:文件不存在 + 全 src 无 spec 取用;任一失效即红', () => {
-    if (!TARO_ABSENT) throw new Error(`Taro Avatar 已出现:${TARO};必须接回锁,不能继续用缺席豁免`)
-    expect(TARO_ABSENCE_REASON).toContain('不存在')
-    const offenders = sourceFiles(resolve(REPO, 'apps/miniapp-taro/src')).filter((p) =>
-      readFileSync(p, 'utf8').includes('@ihui/shared/ui/avatar-spec'),
-    )
-    expect(offenders, 'Taro 端已出现 avatar-spec 消费点,缺席豁免失效').toEqual([])
+  it('②b 小程序缺席豁免随组件到场退场:文件不存在才可豁免,在场必须接回共享规格锁', () => {
+    if (TARO_ABSENT) {
+      expect(TARO_ABSENCE_REASON).toContain('不存在')
+      const offenders = sourceFiles(resolve(REPO, 'apps/miniapp-taro/src')).filter((p) =>
+        readFileSync(p, 'utf8').includes('@ihui/shared/ui/avatar-spec'),
+      )
+      expect(offenders, 'Taro 端已出现 avatar-spec 消费点,缺席豁免失效').toEqual([])
+      return
+    }
+    // 2026-11 组件已入场:豁免不再适用,必须真的消费共享规格(否则 ②/③ 的 taro 腿是空跑)。
+    expect(readFileSync(resolve(REPO, TARO), 'utf8')).toMatch(/@ihui\/shared\/ui\/avatar-spec/)
   })
 
   it('③ 键集五档齐全(少一档会让该档调用点拿到 undefined 类名)', () => {

@@ -48,6 +48,10 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.db import get_db_conn
+from app.core.jwt_auth import (
+    require_request_user_id,
+    resolve_request_role_id,
+)
 from app.core.logging import get_logger
 from app.services.publish.account_state import (
     cookie_health_payload,
@@ -756,11 +760,47 @@ async def get_account_risk(account_id: int, request: Request) -> dict[str, Any]:
 
 # ===== 任务管理 =====
 
+async def _assert_targets_owned(
+    conn: asyncpg.Connection,
+    user_id: str,
+    targets: list[PublishTarget],
+) -> None:
+    """AIS-073: 校验 targets 内每个 account_id 均归属当前用户。
+
+    复用 publish_accounts 既有归属查询口径(`WHERE id=$1 AND user_id=$2`)。
+    任一账号不属于当前用户即整体拒绝(403),不做静默过滤。
+    """
+    account_ids = sorted({t.account_id for t in targets})
+    missing: list[int] = []
+    for account_id in account_ids:
+        row = await conn.fetchrow(
+            "SELECT id FROM publish_accounts WHERE id=$1 AND user_id=$2",
+            account_id,
+            user_id,
+        )
+        if not row:
+            missing.append(account_id)
+    if missing:
+        logger.warning(
+            "[publish] create_task rejected: user=%s targets 含非本人账号 %s",
+            user_id, missing,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "publish_account_not_owned",
+                "message": "targets 包含不属于当前用户的账号",
+                "account_ids": missing,
+            },
+        )
+
+
 @router.post("/tasks")
 async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     """创建发布任务(立即执行或定时)。
 
     IDOR 修复:user_id 从 JWT 取,不再信任请求体。
+    AIS-073:targets 的 account_id 必须归属当前用户,阻断跨租户冒名发布。
     """
     user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
 
@@ -771,6 +811,14 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     for t in body.targets:
         if get_adapter(t.platform) is None:
             raise HTTPException(status_code=400, detail=f"unsupported platform: {t.platform}")
+
+    # AIS-073 第一层:提交侧校验 target 账号归属,任一非本人账号即拒绝
+    conn = await _get_conn()
+    try:
+        await _ensure_accounts_table(conn)
+        await _assert_targets_owned(conn, user_id, body.targets)
+    finally:
+        await conn.close()
 
     # 构造 PublishContent
     content = PublishContent(
@@ -1271,7 +1319,7 @@ async def get_stats(
                 "scheduled": task_stats["scheduled"],
             },
             "platforms": platforms,
-            "runningTasks": publish_scheduler.list_running(),
+            "runningTasks": publish_scheduler.list_running(user_id),
         })
     finally:
         await conn.close()
@@ -1289,9 +1337,21 @@ async def gen_credentials_key() -> dict[str, Any]:
 
 
 @router.get("/running")
-async def list_running_tasks() -> dict[str, Any]:
-    """列出当前正在执行的任务(内存)。"""
-    return _wrap_ok({"running": publish_scheduler.list_running(), "history": publish_scheduler.list_history(limit=20)})
+async def list_running_tasks(request: Request) -> dict[str, Any]:
+    """列出当前正在执行的任务(内存)。
+
+    AIS-042:此前无主体直接回全站 `_running` 与历史(含他人 task_id/user_id/
+    published_url)。现在按主体过滤(未启用鉴权的本地开发走 jwt_auth 的
+    dev 匿名回落,生产缺身份即 401);管理员(role>=1)可看全站。
+    """
+    user_id = await require_request_user_id(request)
+    owner: str | None = None if resolve_request_role_id(request) >= 1 else user_id
+    return _wrap_ok(
+        {
+            "running": publish_scheduler.list_running(owner),
+            "history": publish_scheduler.list_history(limit=20, owner_user_id=owner),
+        }
+    )
 
 
 # ===== AI 辅助写作(2026-08-01 新增,暴露 ai_assistant.AiWritingService 单例)=====

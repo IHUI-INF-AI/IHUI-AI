@@ -31,6 +31,7 @@ import { dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { catBatch, gitRaw, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { buildGrepListArgs, RN_GREP_PATTERN } from './lib/git-grep-args.mjs'
 import { shellRefsOf, shellTargetRel, mismatchedShellBinding } from './lib/rn-shell-refs.mjs'
 // 路由解析复用造页器那一份(parseMiniappRoutes)—— 本门 C3 与 C8 判的都是"在册路由",
 // 自己再写一条正则就是第二份真相,而路由清单两头一漂,C3/C8 会各自读出不同的"在册"集合(§0.6)。
@@ -102,13 +103,10 @@ function makeReader(face) {
   const listFiles = (paths) => {
     // 只做**枚举**(哪些文件 import 了这两个包),正文一律走下面的 readMany() —— 枚举用 git grep,
     // 取正文用取材层:两者混在同一把尺里,就会出现"清单一个面、内容另一个面"的悬空判据(§0.4)。
-    // 选项必须排在 pattern 之前:`git grep -l -E <pat> --cached` 里 git 解析到的位置参数
-    // 已是 pattern ⇒ `--cached` 被当成 revision,直接 `fatal: unable to resolve revision: --cached`
-    // (实测 rc=128,staged 面恒落「未判定」)。pattern 另用 `-e` 显式传,免得以 `-` 开头时被当选项。
-    const args = ['grep', '-l', '-E', '-e', "from '(react-native|lucide-react-native)'"]
-    if (face === 'staged') args.push('--cached')
-    else if (face !== 'worktree') args.push('HEAD')
-    args.push('--', ...paths)
+    // git grep 的选项必须排在 pattern 之前(参数构造成一把共享尺,见 lib/git-grep-args.mjs):
+    // 旧写法 `git grep -l -E <pattern> --cached` 会把 `--cached` 当 revision 名 ⇒ rc=2,
+    // 结果是 staged 面**从未检查过任何东西**却一直是绿的。夹具锁住该反例必须 rc=2。
+    const args = buildGrepListArgs(face, RN_GREP_PATTERN, paths)
     const out = execFileSync('git', args, {
       cwd: ROOT,
       encoding: 'utf8',
@@ -206,7 +204,30 @@ function makeReader(face) {
     }
     return map
   }
-  return { face, label: face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工逃生舱)' : 'HEAD blob', listFiles, readMany }
+  /**
+   * 一次性列全该面的路径(2026-11-07 加)。
+   * 立因:闭包解析的"说明符 → 文件"探路原本每条说明符一轮 cat-file(--batch),600+ 说明符
+   * = 1200+ 子进程、按 1.4 进程/秒 head 面 50 分钟不收敛 —— 跑不完的门等于不存在(§0.9)。
+   * 一次 `ls-tree -r`(HEAD 面)/ `ls-files --cached`(索引面)把路径集合喂给算式的 `has`,
+   * 探路退化成内存查表;正文仍旧走 readMany 的整批 catBatch(同面同轮不变)。
+   */
+  let pathSet = null
+  const listPaths = () => {
+    if (face === 'worktree') return null
+    if (pathSet) return pathSet
+    const args = face === 'staged' ? ['ls-files', '--cached'] : ['ls-tree', '-r', '--name-only', 'HEAD']
+    const out = execFileSync('git', args, {
+      cwd: ROOT,
+      encoding: 'utf8',
+      maxBuffer: 1 << 26,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+    pathSet = new Set(out.split('\n').map((l) => l.trim()).filter(Boolean))
+    return pathSet
+  }
+  const has = face === 'worktree' ? null : (rel) => listPaths().has(rel)
+  return { face, label: face === 'staged' ? '索引 blob' : face === 'worktree' ? '工作树磁盘(人工逃生舱)' : 'HEAD blob', listFiles, listPaths, has, readMany }
 }
 
 /** cov 那把尺要的面上,与本门的 face 逐字同一档 */
@@ -555,6 +576,7 @@ export function judge(reader) {
           carried = carriedKeysFromRepo({
             readBatch: (rels) => rd.readMany(rels),
             listFiles: () => pageRoutes.flatMap((r) => PAGE_EXTS.map((e) => `${MP_SRC}/${r}${e}`)),
+            has: rd.has,
           })
         } catch (error) {
           return { undetermined: `闭包取面失败:${String(error?.message ?? error).slice(0, 80)}` }

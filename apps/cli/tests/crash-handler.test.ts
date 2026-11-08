@@ -136,10 +136,15 @@ describe('crash-handler', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('handleCrash unhandledRejection 不设置 exitCode', () => {
+  // F-002:改前这里的断言是 `expect(process.exitCode).toBeUndefined()` —— 它把缺陷本身
+  // 钉成了期望值:未处理 rejection 不设退出码,正是"所有子命令失败被 CI/脚本当成成功"
+  // 的成因,旧断言等于为该行为背书。正确判据是两通道对称:崩溃即退出码 1。
+  // 实测旧源码:本用例报 `expected undefined to be 1`(断言级红),新源码绿。
+  it('handleCrash unhandledRejection 也设置 process.exitCode = 1(F-002:两通道对称)', () => {
+    process.exitCode = undefined;
     installCrashHandler();
     process.emit('unhandledRejection', new Error('rejected'));
-    expect(process.exitCode).toBeUndefined();
+    expect(process.exitCode).toBe(1);
   });
 
   it('crash log LRU prune:保留最近 10 个,删除最旧的 2 个', () => {

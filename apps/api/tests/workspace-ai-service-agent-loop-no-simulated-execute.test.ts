@@ -20,10 +20,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const llmFetch = vi.hoisted(() => ({
+  // F-306 起,LLM 调用失败会落 failed;本文件只钉「不代为执行工具」,故给健康 LLM 响应。
+  // LLM 失败/404 的语义由 tests/workspace-agent-run-f306.test.ts 单独锁定。
   fetch: vi.fn(async (_path: string, _init: unknown) => ({
-    ok: false,
-    status: 503,
-    json: async () => ({}),
+    ok: true,
+    status: 200,
+    json: async () => ({ content: '演示路径思考' }),
   })),
 }))
 

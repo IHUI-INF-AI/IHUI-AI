@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   },
   text: {
     color: tk.gray[500],
-    fontSize: 13,
+    fontSize: rnType.bodySm.size,
   },
   uri: {
     color: tk.gray[400],

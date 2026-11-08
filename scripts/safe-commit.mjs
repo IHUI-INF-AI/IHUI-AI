@@ -653,13 +653,14 @@ const hookRetryDelayMs = (retry) => Math.min(HOOK_RETRY_BASE_MS * 2 ** (retry - 
 function describeLockHolders() {
   const lines = []
   try {
-    const r = spawnSync('git', ['-C', repoRoot, 'rev-parse', '--absolute-git-dir'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 30_000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    const gitDir = r.status === 0 ? String(r.stdout ?? '').trim() : ''
+    let gitDir = ''
+    try {
+      gitDir = String(
+        gitRaw(['rev-parse', '--absolute-git-dir'], repoRoot, { timeout: 30_000 }) ?? '',
+      ).trim()
+    } catch {
+      gitDir = ''
+    }
     if (!gitDir) {
       lines.push('git 目录取不到(rev-parse --absolute-git-dir 失败)—— 无法点名具体锁文件')
     } else {
@@ -718,14 +719,12 @@ const LOCK_EXHAUSTED_ADVICE =
   '(它不跑钩子,落地后自动复跑受影响门);本枚不落地、**不跳钩**。'
 /** 该路径是否已在索引里(= 已跟踪)。用于区分"已跟踪却被忽略"与"未跟踪的产物"。 */
 function isTrackedInIndex(p) {
-  return (
-    spawnSync('git', ['ls-files', '--error-unmatch', '--', p], {
-      cwd: repoRoot,
-      windowsHide: true,
-      // §12g:三个子进程通道一律显式给;探针不吃输出也不留"顺手删掉 stdio"的空间
-      stdio: ['ignore', 'ignore', 'ignore'],
-    }).status === 0
-  )
+  try {
+    gitRaw(['ls-files', '--error-unmatch', '--', p], repoRoot)
+    return true
+  } catch {
+    return false
+  }
 }
 
 // ─── 大批量路径的 argv 运输(2026-11-02 立)────────────────────────────────
@@ -1640,14 +1639,8 @@ const rejectIfForeignEnteredIndex = (phase) => {
 /** 只问 git 一句话:当前身份下取不取到 user.email(判据零复算,值取自唯一出口)。 */
 function gitIdentityResolvable() {
   try {
-    const r = spawnSync('git', ['-C', repoRoot, 'config', '--get', 'user.email'], {
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 15000,
-      stdio: ['ignore', 'pipe', 'pipe'], // §12g:派生 git 必须显式接管 stdio
-    })
-    if (r.status !== 0) return false
-    return String(r.stdout || '').trim().length > 0
+    const out = gitRaw(['config', '--get', 'user.email'], repoRoot, { timeout: 15_000 })
+    return String(out || '').trim().length > 0
   } catch {
     return true // 问不到 ⇒ 不代人署名,保持改动前行为
   }
@@ -2923,13 +2916,11 @@ if (newShas.length === 0) {
   // 改按内容级分类:clean / polluted-ours(我们那枚被灌了别人 staged 的东西)/ carried-by-other
   // (声明件被别家整索引提交带走)/ unlocated,建议与形态同处产出。
   const subjectOfCommit = (sha) => {
-    const r = spawnSync('git', ['show', '-s', '--format=%s', sha], {
-      cwd: repoRoot,
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-    return r.status === 0 ? String(r.stdout ?? '').trim() : ''
+    try {
+      return String(gitRaw(['show', '-s', '--format=%s', sha], repoRoot) ?? '').trim()
+    } catch {
+      return ''
+    }
   }
   const verdict = classifyConcurrentCommits({
     newShas,
