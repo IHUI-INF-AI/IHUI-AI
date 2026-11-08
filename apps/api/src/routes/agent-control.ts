@@ -117,6 +117,12 @@ export interface PendingRequest {
    * 客户端只回显,不在两端各算一份。
    */
   assignment: AgentActionAssignment
+  /**
+   * 这条待处理指令的属主(fixed 2026-11-08, F-08)。取被派发端点的 userId(服务端权威),
+   * 不取调用方 body:否则任何登录用户只要猜到 requestId 就能结算他人的待处理动作。
+   * /result 必须按此校验 request.userId —— 带不带 responded 都不得跨用户结算。
+   */
+  userId: string
 }
 
 /** requestId → PendingRequest */
@@ -128,8 +134,10 @@ const _pending = new Map<string, PendingRequest>()
  * - instanceMismatch:token 对但应答者自报实例 ≠ 被指派实例(同用户另一端试图顶结果)
  * - unattributed:存量客户端不带 `responded` —— 按旧语义放行,但计数如实登记,
  *   这条数字归零之前,"回执身份"只覆盖已升级的端(报告第 6 条的"纸面/强制"分界)。
+ * - ownerMismatch:回执的登录用户不是该 pending 的属主(F-08,2026-11-08)—— 一律拒,
+ *   且不得销毁 pending(真正的属主稍后仍可回)。
  */
-const _droppedResults = { tokenMismatch: 0, instanceMismatch: 0, unattributed: 0 }
+const _droppedResults = { tokenMismatch: 0, instanceMismatch: 0, unattributed: 0, ownerMismatch: 0 }
 
 /** token 定长比较(经全仓唯一比较出口 secretsEqual:定长散列,无长度泄漏) */
 function tokenEquals(a: string, b: string): boolean {
@@ -319,6 +327,9 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     // (密钥校验走唯一出口 isVerifiedAgentControlInternalCall,与 CSRF 钩子同一份实现;
     //  #23 修复前该形态的 Bearer 会被上游 CSRF 403 拦死,永远走不到这一行。)
     let authed = await isVerifiedAgentControlInternalCall(request)
+    // 调用通道(fixed 2026-11-08, F-08):内部密钥 = 机器通道(body.userId 由 ai-service 声明);
+    // 用户 JWT = 人通道,其 body.userId 不得指向他人,否则会把指令推到他人端点。
+    const internalCall = authed
     if (!authed) {
       try {
         await authenticate(request)
@@ -336,6 +347,15 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '执行参数无效'))
     }
     const req = result.data as AgentActionRequest
+
+    // 写入端归属(F-08):人通道只能派发给本人 —— body.userId 指向他人即 403;
+    // 未声明目标用户时固定为本人,避免择端落到他人端点。
+    if (!internalCall) {
+      if (req.userId && req.userId !== request.userId) {
+        return reply.status(403).send(error(403, '无权以他人身份派发控制指令'))
+      }
+      req.userId = request.userId
+    }
 
     // computer-use 应用白名单(2026-11-04):
     // 调用方声明了目标应用(req.params.appName)时,必须命中授权记忆才放行 ——
@@ -439,6 +459,8 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
         timer,
         startedAt: Date.now(),
         assignment,
+        // 属主取被派发端点的 userId(服务端已按 req.userId 过滤,是权威归属),不取调用方 body
+        userId: ep.userId,
       })
     })
 
@@ -466,6 +488,14 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
     if (!pending) {
       // 已经超时或已被处理,静默丢弃
       return reply.send(success({ accepted: false, reason: 'request not found or timed out' }))
+    }
+
+    // 归属校验(F-08,2026-11-08):只有 pending 的属主能结算。带不带 `responded` 都先过这一关;
+    // 不匹配不 resolve、不删 pending(真正的属主稍后仍可回)。对外与"不存在"同形(404),
+    // 不泄漏"他人有一条同名 pending"。
+    if (pending.userId !== request.userId) {
+      _droppedResults.ownerMismatch++
+      return reply.status(404).send(error(404, 'request 不存在或已失效'))
     }
 
     // 回执身份对账(2026-09-26 定址投递票)——服务端强制的那一层:
