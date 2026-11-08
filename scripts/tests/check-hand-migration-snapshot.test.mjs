@@ -29,11 +29,14 @@ import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import {
   GATE,
+  changedMigrationFiles,
+  evaluateStrictChanged,
   extractAddedObjects,
   migrationNumberOf,
   resolveSnapshotIdx,
   snapshotHasObject,
   snapshotIdxOf,
+  strictMissingSnapshotViolations,
 } from '../check-hand-migration-snapshot.mjs'
 
 const SCRIPT = fileURLToPath(new URL('../check-hand-migration-snapshot.mjs', import.meta.url))
@@ -307,6 +310,68 @@ test('--check 零写盘: 基线内容与字节不变', (t) => {
   const r = gateCheck(fx)
   assert.equal(r.code, 1)
   assert.equal(readFileSync(fx.baseline, 'utf8'), before)
+})
+
+// ---------------------------------------------------------------- 4b. DB-09 strict 门禁
+
+test('DB-09 --strict: 任一迁移缺同号快照 ⇒ exit 1（不被基线吞掉）', (t) => {
+  const fx = makeFixture({ columnInSnapshot: true })
+  cleanup(t, fx.root)
+  const r = runGate(['--check', '--strict', '--root', fx.root, '--baseline', fx.baseline])
+  assert.equal(r.code, 1, r.out)
+  assert.match(r.out, /strict/)
+  assert.match(r.out, /0002_hand_add/)
+})
+
+test('DB-09 strictMissingSnapshotViolations: 只点名缺同号快照的迁移', () => {
+  const entries = [
+    { idx: 1, tag: '0001_init', when: 1 },
+    { idx: 2, tag: '0002_hand_add', when: 2 },
+    { idx: 3, tag: '20261107150000_new', when: 3 },
+  ]
+  const got = strictMissingSnapshotViolations({ journalEntries: entries, snapshotIdxs: [1, 2] })
+  assert.deepEqual(got.map((v) => v.tag), ['20261107150000_new'])
+  assert.equal(got[0].expectedSnapshot, 3)
+})
+
+test('DB-09 changedMigrationFiles: 只认 drizzle/ 下新增/改动的 .sql', () => {
+  const diff = [
+    'packages/database/drizzle/0002_hand_add.sql',
+    'packages/database/drizzle/meta/0002_snapshot.json',
+    'packages/database/src/schema/x.ts',
+    'scripts/check-hand-migration-snapshot.mjs',
+    '',
+  ].join('\n')
+  assert.deepEqual(changedMigrationFiles(diff), ['0002_hand_add.sql'])
+})
+
+test('DB-09 evaluateStrictChanged: 仅新增/改动的迁移强制同号快照', () => {
+  const entries = [
+    { idx: 1, tag: '0001_init', when: 1 },
+    { idx: 2, tag: '0002_hand_add', when: 2 },
+  ]
+  const dirty = evaluateStrictChanged({
+    journalEntries: entries,
+    changedSqlNames: ['0002_hand_add.sql'],
+    snapshotIdxs: [1],
+  })
+  assert.equal(dirty.ok, false)
+  assert.deepEqual(dirty.violations.map((v) => v.tag), ['0002_hand_add'])
+  assert.match(dirty.violations[0].reason, /同号快照/)
+
+  const clean = evaluateStrictChanged({
+    journalEntries: entries,
+    changedSqlNames: ['0002_hand_add.sql'],
+    snapshotIdxs: [1, 2],
+  })
+  assert.equal(clean.ok, true)
+  // 未改动的 0001 缺快照不属于 changed 档射程
+  const onlyUnchanged = evaluateStrictChanged({
+    journalEntries: entries,
+    changedSqlNames: [],
+    snapshotIdxs: [1],
+  })
+  assert.equal(onlyUnchanged.ok, true)
 })
 
 // ---------------------------------------------------------------- 5. 三态

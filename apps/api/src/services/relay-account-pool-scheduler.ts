@@ -691,10 +691,11 @@ export async function refreshOne(
       .update(aiRelayAccountPool)
       .set({
         tokenEnc: encryptField(result.token),
-        refreshTokenEnc:
-          result.refreshToken !== undefined && result.refreshToken !== null
-            ? encryptField(result.refreshToken)
-            : row.refreshTokenEnc,
+        // 只写本次真实返回的 refreshToken(SDB-32,2026-11-08):上游未轮换时回写快照
+        // 旧票,会和并发路径刚写入的新票互相覆盖。
+        ...(result.refreshToken !== undefined && result.refreshToken !== null
+          ? { refreshTokenEnc: encryptField(result.refreshToken) }
+          : {}),
         // 平台扩展凭据整包回写(CodeArts 刷新轮转整套 STS 凭据;无 secrets 的平台保持原值)
         ...(result.secrets && Object.keys(result.secrets).length > 0
           ? { secretsEnc: encryptField(JSON.stringify(result.secrets)) }
@@ -712,7 +713,11 @@ export async function refreshOne(
         lastErrorMessage: null,
         updatedAt: now,
       })
-      .where(eq(aiRelayAccountPool.id, row.id))
+      // 写入侧 CAS(SDB-32):以快照 credVersion 为条件;别的路径(本机重登 / 管理面自愈 /
+      // 转发链路)已抢先换票时整笔作废,旧票绝不覆盖新票。
+      .where(
+        and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
+      )
     return true
   } catch (e) {
     const failures = row.refreshFailureCount + 1
@@ -753,7 +758,11 @@ export async function refreshOne(
             }
           : {}),
       })
-      .where(eq(aiRelayAccountPool.id, row.id))
+      // 失败计数同样走 CAS(SDB-32):快照之后已被别的路径换票成功的号,旧快照的
+      // 失败计数/摘除态不得把新票与健康度一起盖回旧值。
+      .where(
+        and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
+      )
     if (enteringRemove) {
       try {
         const { pushAlertWithResult } = await import('./alert-notification-service.js')
