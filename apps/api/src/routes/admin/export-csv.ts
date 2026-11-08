@@ -75,7 +75,8 @@ const exportRateLimiter = new Map<string, number[]>()
 function escapeCsvField(value: string): string {
   const safe = sanitizeCsvCell(value)
   if (safe === '') return ''
-  if (/[",\r\n]/.test(safe)) {
+  // F-288:TAB 也要进引号集 —— 它是分隔符候选,裸 TAB 在某些表格软件里会错列。
+  if (/[\t",\r\n]/.test(safe)) {
     return `"${safe.replace(/"/g, '""')}"`
   }
   return safe
