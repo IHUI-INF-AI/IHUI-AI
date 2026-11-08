@@ -57,14 +57,16 @@ export function OrderDetailScreen() {
     const res = await getOrderById(id)
     if (res.success) {
       // 端点已拆 { order } 包络;这里按共享屏字段契约做一次映射,不再把包络当订单本体。
+      // GET /orders/:no 返回的是 edu_orders 原始行：金额字段是 payAmount（元），没有 amount。
+      const row = res.data as typeof res.data & { payAmount?: string | number }
       const detail: OrderDetailItem = {
-        id: res.data.id,
-        orderNo: res.data.orderNo,
-        amount: res.data.amount,
-        status: res.data.status,
-        productName: res.data.targetTitle,
-        createdAt: res.data.createdAt,
-        paidAt: res.data.paidAt ?? undefined,
+        id: row.id,
+        orderNo: row.orderNo,
+        amount: Number(row.payAmount ?? row.amount ?? 0) || 0,
+        status: row.status,
+        productName: row.targetTitle,
+        createdAt: row.createdAt,
+        paidAt: row.paidAt ?? undefined,
       }
       setOrder(detail)
       // 已支付订单首次加载自动展示购买须知
@@ -88,9 +90,9 @@ export function OrderDetailScreen() {
       setActionLoading(action)
       try {
         let body: string | undefined
-        // refund 接口要求 refundAmount(对齐后端 applyRefundSchema)
+        // refund 接口要求 refundAmount 为两位小数的「元」字符串（对齐后端 applyRefundSchema）
         if (action === 'refund' && order) {
-          body = JSON.stringify({ refundAmount: order.amount })
+          body = JSON.stringify({ refundAmount: order.amount.toFixed(2) })
         }
         const res = await fetchApi(`/api/orders/${encodeURIComponent(id)}/${action}`, {
           method: 'POST',
