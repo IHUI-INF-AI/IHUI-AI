@@ -3852,6 +3852,8 @@
   "bookmark": {
     "empty": "북마크가 없습니다",
     "loadFailed": "불러오기 실패",
+    "loadMore": "더 보기",
+    "loadingMore": "불러오는 중...",
     "remove": "삭제",
     "title": "내 북마크",
     "type": {

@@ -6,6 +6,8 @@
 // Replaces the real package which transitively imports @ihui/design-tokens (now aliased)
 // and other packages with typeof type syntax.
 import { createElement } from 'react'
+import { BookmarkScreen as SharedBookmarkScreen } from '../../../../packages/app/src/features/bookmark/BookmarkScreen'
+import type { BookmarkScreenProps } from '../../../../packages/types/src/app-engagement'
 
 export const plazaScreenPropsCaptured: Array<Record<string, unknown>> = []
 export function PlazaScreen(props: Record<string, unknown>) {
@@ -262,3 +264,11 @@ export type {
   UserFansRowView,
   UserFansScreenProps,
 } from '../../../../packages/app/src/features/user-fans/UserFansScreen'
+// 2026-11-07 票 C:收藏薄壳接真实共享屏(分页 + 加载更多),同时捕获壳层注入的端口 ——
+// 「壳把 hasMore/loadingMore/onLoadMore 交给共享屏」这一格由本替身判。同上方纪律:
+// 渲染的是真实组件,不写假实现。
+export const bookmarkScreenPropsCaptured: BookmarkScreenProps[] = []
+export function BookmarkScreen(props: BookmarkScreenProps) {
+  bookmarkScreenPropsCaptured.push(props)
+  return createElement(SharedBookmarkScreen, props)
+}

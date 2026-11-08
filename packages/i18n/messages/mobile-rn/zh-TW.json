@@ -3852,6 +3852,8 @@
   "bookmark": {
     "empty": "暫無收藏",
     "loadFailed": "載入失敗",
+    "loadMore": "載入更多",
+    "loadingMore": "載入中...",
     "remove": "移除",
     "title": "我的收藏",
     "type": {
