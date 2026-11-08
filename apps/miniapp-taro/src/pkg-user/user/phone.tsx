@@ -14,6 +14,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
+import { replacePhone } from '@ihui/api-client'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useI18n } from '@/i18n'
@@ -182,7 +183,18 @@ export default function Phone() {
     }
     setSubmitting(true)
     try {
-      await bindPhone(phone, code)
+      // XUI-043:已绑定手机号时是「换绑」,必须带旧号验证码走 /api/users/change-phone;
+      // /user/phone/bind 是「无旧号」的首次绑定端点,跳过旧号校验会被后端按绑定处理。
+      if (currentPhone) {
+        await replacePhone({
+          oldPhone: currentPhone,
+          oldCode: oldCode.trim(),
+          newPhone: phone,
+          newCode: code,
+        })
+      } else {
+        await bindPhone(phone, code)
+      }
       onToast(tt('user.phone.bindSuccess', '手机号绑定成功'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
