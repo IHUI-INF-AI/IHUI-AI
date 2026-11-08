@@ -57,8 +57,23 @@ from .platform_rules import truncate_to_platform, validate_content
 
 logger = get_logger(__name__)
 
+
+def _command_tag_count(tag: str | None) -> int:
+    """解析 asyncpg 的 DML 命令标签("UPDATE 1"/"DELETE 0")里的行数;异常一律 0。
+
+    AIS-024:CAS 必须靠 rowcount 判定"谁抢到",不能把 execute 成功当命中 ——
+    `UPDATE ... WHERE status='scheduled'` 在竞态下会返回 `UPDATE 0`。
+    """
+    try:
+        return int(str(tag).split()[-1])
+    except (IndexError, TypeError, ValueError):
+        return 0
+
+
 # 同用户最大并发任务数
 _MAX_CONCURRENT_PER_USER = 3
+# AIS-024:running 行的租约。超过该时长仍未 finished 视为抢占方已崩溃,回收重排。
+_RUNNING_LEASE_SEC = 30 * 60
 # 调度器轮询间隔(秒)
 _POLL_INTERVAL_SEC = 60
 # DB 连接失败指数退避(2026-08-13 立,修复 Postgres 未启动时每 62s 空转重试)
@@ -259,6 +274,25 @@ class PublishScheduler:
         try:
             await self._ensure_tables(conn)
             now = datetime.now(UTC)
+            # AIS-024:租约回收 —— 抢占后进程被 kill(滚动重启/panic)会留下永久
+            # running 行,而启动只捞 scheduled,该定时任务从此不再被发布。超过租约
+            # 时限仍处于 running 的行视为悬挂,退回 scheduled 等待下一轮重新抢占。
+            tag = await conn.execute(
+                """
+                UPDATE publish_tasks
+                SET status = 'scheduled', started_at = NULL, updated_at = $1
+                WHERE status = 'running' AND started_at < $1 - ($2 * INTERVAL '1 second')
+                """,
+                now,
+                _RUNNING_LEASE_SEC,
+            )
+            reclaimed = _command_tag_count(tag)
+            if reclaimed:
+                logger.warning(
+                    "[publish.scheduler] 回收悬挂 running 任务 %dan(租约 %ds)",
+                    reclaimed,
+                    _RUNNING_LEASE_SEC,
+                )
             rows = await conn.fetch(
                 """
                 SELECT task_id, user_id, title, format, content, targets
@@ -287,15 +321,22 @@ class PublishScheduler:
                 )
                 targets = r["targets"] if isinstance(r["targets"], list) else []
                 # 标记为 running(AIS-023:落库失败要退掉已占的位,否则该任务永久悬挂)
+                # AIS-024:CAS —— 两个调度实例同时捞到同一行时,只有 UPDATE 命中
+                # (status 仍为 scheduled)的那个实例拿到所有权,另一个放弃并退位。
                 try:
-                    await conn.execute(
-                        "UPDATE publish_tasks SET status='running', started_at=$1, updated_at=$1 WHERE task_id=$2",
+                    tag = await conn.execute(
+                        "UPDATE publish_tasks SET status='running', started_at=$1, updated_at=$1 "
+                        "WHERE task_id=$2 AND status='scheduled'",
                         now,
                         task_id,
                     )
                 except Exception:
                     self._release_slot(task_id, user_id)
                     raise
+                if _command_tag_count(tag) == 0:
+                    logger.info("[publish.scheduler] 抢占失败(已被其他实例取走): %s", task_id)
+                    self._release_slot(task_id, user_id)
+                    continue
                 self._spawn_task(self._run_task(task_id, user_id, content, targets))
             return True
         finally:

@@ -846,6 +846,9 @@ def _get_agent_control_secret() -> str:
 # 内存 dict(resolved_path → content),上限 256 文件(超限淘汰最旧)。
 _FILE_BASE_CONTENT: dict[str, str] = {}
 _FILE_BASE_MAX = 256
+# AIS-082:read_file 单次读取上限,与写侧(write_file)的 10MB 门对齐。读侧此前
+# 无上限 → 整文件进内存并全量进 _FILE_BASE_CONTENT(最多 256 份),GB 级文件直接 OOM。
+_READ_FILE_MAX_BYTES = 10 * 1024 * 1024
 
 
 def _normalize_eol(text: str) -> str:
@@ -2548,6 +2551,21 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 "ok": False,
                 "error": f"{resolved_path} 是一个目录,read_file 只能读取文件。请改用 search_codebase 探索目录结构。",
                 "errorCode": "IS_A_DIRECTORY",
+            }
+        # AIS-082:读前先量大小(与写侧 10MB 门对齐),超限直接拒读,不进内存也不进 base 缓存
+        size = _os.path.getsize(resolved_path)
+        if size > _READ_FILE_MAX_BYTES:
+            return {
+                "tool": "read_file",
+                "path": resolved_path,
+                "content": "",
+                "size": size,
+                "ok": False,
+                "error": (
+                    f"文件 {size} 字节超过 read_file 单次上限 {_READ_FILE_MAX_BYTES} 字节;"
+                    "请改用 read_tool_output 分页读取或先缩小文件。"
+                ),
+                "errorCode": "FILE_TOO_LARGE",
             }
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
