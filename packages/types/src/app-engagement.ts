@@ -92,6 +92,12 @@ export interface BookmarkScreenProps {
   onPressItem: (item: BookmarkItem) => void
   /** 删除收藏回调,平台注入实际 API 调用 + 列表状态更新 */
   onRemove: (item: BookmarkItem) => void | Promise<void>
+  /** 是否还有下一页(后端 GET /api/favorites 为 page/pageSize 真分页,以 total 判到底) */
+  hasMore?: boolean
+  /** 正在加载下一页 —— 底部展示加载态并屏蔽重复触发 */
+  loadingMore?: boolean
+  /** 触底/点击「加载更多」时取下一页;平台注入真实分页请求 */
+  onLoadMore?: () => void
   onBack: () => void
   /** 已解析配色方案,驱动 tokens 明暗;默认 'light' */
   colorScheme?: 'light' | 'dark'

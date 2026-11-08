@@ -44,12 +44,6 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "path": "scripts/check-cross-end-parity-drift.mjs",
-      "kind": "direct-run-uncovered",
-      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-cross-end-parity-drift.mjs — 跨端对齐\"是否正在倒退\"的只读漂移尺(不进提交链)",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "path": "scripts/check-cross-end-spec-coverage.mjs",
       "kind": "direct-run-uncovered",
       "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:跨端 spec 覆盖率守门 + 棘轮(阶段1/2 自动化执行半边)—— 扫描共享视觉原子,报告哪些已下沉 spec 且被 web/RN 双端消费。",

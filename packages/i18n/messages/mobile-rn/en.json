@@ -3289,9 +3289,6 @@
     "submit": "Publish request",
     "contactLabel": "Contact"
   },
-  "businessCard": {
-    "title": "My Business Card"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "Create business card",
     "pageTitleEdit": "Edit business card",
@@ -3616,7 +3613,7 @@
     "benefitsCount": "{count} exclusive benefits",
     "daysRemaining": "{count} days remaining",
     "loadFailed": "Failed to load VIP",
-    "orderCreated": "Order created",
+    "orderCreated": "Order created: {orderNo}",
     "purchase": "Become VIP",
     "purchaseFailed": "Failed to purchase",
     "title": "VIP Center",
@@ -3660,7 +3657,20 @@
     "lifetime": "Lifetime access",
     "openNow": "Activate Now",
     "opened": "Activated",
-    "loadFailed": "Failed to load traders"
+    "loadFailed": "Failed to load traders",
+    "productName": "VIP Trader",
+    "teamCount": "Team size",
+    "activeTrend": "Active {n}",
+    "totalCommission": "Total commission",
+    "rankTrend": "Rank #{n}",
+    "monthIncome": "Month income",
+    "withdrawnTrend": "Withdrawn {v}",
+    "pendingIncome": "Unsettled",
+    "frozenTrend": "Frozen {v}",
+    "myInviteCode": "My invite code",
+    "invitedTrend": "Invited {n}",
+    "distLevel": "Commission tier",
+    "rateTrend": "Rate {n}%"
   },
   "wallet": {
     "points": "Points",
@@ -3826,7 +3836,7 @@
     "registerFailed": "Registration failed",
     "registerNow": "Sign up now",
     "registerSuccess": "Registration successful",
-    "resendCode": "Resend",
+    "resendCode": "Resend in {seconds}s",
     "termsOfService": "Terms of Service",
     "thirdPartyLogin": "Continue with",
     "ssoFailed": "Web authorization sign-in failed. Please retry or use your account and password.",
@@ -3842,6 +3852,8 @@
   "bookmark": {
     "empty": "No bookmarks",
     "loadFailed": "Failed to load",
+    "loadMore": "Load more",
+    "loadingMore": "Loading...",
     "remove": "Remove",
     "title": "My Bookmarks",
     "type": {
@@ -6065,7 +6077,8 @@
     "uploadFail": "Card image upload failed",
     "updated": "Business card updated",
     "submitFail": "Submit failed",
-    "customFail": "Card customization failed. Retry."
+    "customFail": "Card customization failed. Retry.",
+    "title": "My Business Card"
   },
   "model": {
     "type0": "All-round",
@@ -6090,21 +6103,6 @@
     "officialFallback": "IHUI community - Official",
     "buyTime": "Purchased: {t0}",
     "expireTime": "  Expires: {t1}"
-  },
-  "viptrader": {
-    "productName": "VIP Trader",
-    "teamCount": "Team size",
-    "activeTrend": "Active {n}",
-    "totalCommission": "Total commission",
-    "rankTrend": "Rank #{n}",
-    "monthIncome": "Month income",
-    "withdrawnTrend": "Withdrawn {v}",
-    "pendingIncome": "Unsettled",
-    "frozenTrend": "Frozen {v}",
-    "myInviteCode": "My invite code",
-    "invitedTrend": "Invited {n}",
-    "distLevel": "Commission tier",
-    "rateTrend": "Rate {n}%"
   },
   "contact": {
     "phoneLabel": "Tel: ",
@@ -7632,10 +7630,6 @@
   "businessCardEditPage": {
     "editTitle": "Edit Business Card",
     "bioLabel": "Bio"
-  },
-  "checkin": {
-    "colEnabled": "Enabled",
-    "addAccount": "Add Account"
   },
   "circles": {
     "title": "Circles"

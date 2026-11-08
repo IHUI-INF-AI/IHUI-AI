@@ -7,7 +7,7 @@ import { logger } from '@/utils/logger'
 import { View, Text, Button } from '@tarojs/components'
 import { FocusInput } from '@/components/FocusField'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useUiField } from '@/lib/ui-field-registry'
 import { updateUserNickname, getProfile } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
@@ -39,6 +39,14 @@ export default function Nickname() {
   const [nickname, setNickname] = useState('')
   const [original, setOriginal] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // 昵称保存成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
   // AI 操控通道(2026-09-21):昵称输入框交出它已绑定的 setter(onInput={onInput} 内部同样 setNickname);
   // 保存按钮不注册,由用户自己点。
   useUiField({
@@ -99,7 +107,7 @@ export default function Nickname() {
     try {
       await updateUserNickname(nickname.trim())
       onToast(t('user.nickname.saveSuccess'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 800)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch (e) {
       logger.error('user/nickname', t('userNickname.q2'), e)
       onToast(t('common.failed'), { kind: 'error' })
