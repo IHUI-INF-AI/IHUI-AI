@@ -5,6 +5,7 @@
 /**
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
+import { normalizeVipMine, type VipMineRow } from './vip-mine'
 import { BASE_URL } from '../utils/api-config'
 import { getMiniappVersion } from '../utils/app-version'
 import { t } from '../i18n'
@@ -893,7 +894,11 @@ export interface VipInfo {
   originalPrice?: number
 }
 
-export const getVipInfo = () => get<VipInfo>('/vip/my')
+/** 后端 user_vips 行(字段名与端内 VipInfo 不同,统一在此归一)。 */
+export const getVipInfo = async (): Promise<VipInfo | null> => {
+  const res = await get<{ vip: VipMineRow | null }>('/vip/my')
+  return normalizeVipMine(res?.vip)
+}
 export const getVipLevels = () => get<{ items: VipLevel[] }>('/vip/levels')
 /**
  * 会员权益清单 —— 打的是在册路由 GET /api/vip/benefits(misc-routes.ts 直出 vip_levels)。
