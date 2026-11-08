@@ -199,12 +199,22 @@ export function isBlockedTargetIp(ip: string): boolean {
     if (a === 0) return true // 0.0.0.0/8 本机网络
     if (a === 127) return true // 回环
     if (a === 169 && b === 254) return true // link-local(含云元数据 169.254.169.254)
+    if (a === 100 && b >= 64 && b <= 127) return true // CGNAT 100.64.0.0/10(含阿里云元数据 100.100.100.200)
     return LOCAL_IPS.includes(normalizedIp)
   }
 
   const lower = normalizedIp.toLowerCase()
   if (lower === '::1' || lower === '::') return true // v6 回环 / 未指定
-  if (lower.startsWith('fe8') || lower.startsWith('fb')) return true // v6 link-local 族
+  // ULA 是 fc00::/7(fc/fd 两个前缀);旧写法只认 `fb`(不存在该 ULA 前缀),
+  // 于是 fc00::1 / fd00:ec2::254(AWS IPv6 元数据)整族漏过。
+  if (lower.startsWith('fc') || lower.startsWith('fd')) return true
+  if (
+    lower.startsWith('fe8') ||
+    lower.startsWith('fe9') ||
+    lower.startsWith('fea') ||
+    lower.startsWith('feb')
+  )
+    return true // v6 link-local fe80::/10
   if (
     lower === 'localhost' ||
     lower.endsWith('.localhost') ||
