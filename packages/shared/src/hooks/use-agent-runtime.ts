@@ -39,11 +39,16 @@ export function useAgentRuntime(initialSessionId?: string): UseAgentRuntimeRetur
   const [error, setError] = React.useState<string | null>(null)
   const [permission, setPermission] = React.useState<AgentRuntimePermissionEvent | null>(null)
   const abortRef = React.useRef<AbortController | null>(null)
+  // XUI-023:每次 send 递增代次;旧流在 stop/新 send 之后到达的 delta/done/error
+  // 一律丢弃,否则会把新一轮的 running 状态改写成 completed/failed。
+  const runEpochRef = React.useRef(0)
 
   const handleSend = React.useCallback(async () => {
     const message = input.trim()
     if (!message || status === 'running') return
 
+    const epoch = ++runEpochRef.current
+    const isCurrent = () => epoch === runEpochRef.current
     setStatus('running')
     setPlan(null)
     setOutput('')
@@ -57,15 +62,25 @@ export function useAgentRuntime(initialSessionId?: string): UseAgentRuntimeRetur
       await executeAgentRuntimeStream(
         { message, mode: 'default', sessionId: sessionId ?? undefined },
         {
-          onSession: (data) => setSessionId(data.sessionId),
-          onPlan: (data) => setPlan(data.plan),
-          onDelta: (data) => setOutput((prev) => prev + data.content),
-          onPermission: (data) => setPermission(data),
+          onSession: (data) => {
+            if (isCurrent()) setSessionId(data.sessionId)
+          },
+          onPlan: (data) => {
+            if (isCurrent()) setPlan(data.plan)
+          },
+          onDelta: (data) => {
+            if (isCurrent()) setOutput((prev) => prev + data.content)
+          },
+          onPermission: (data) => {
+            if (isCurrent()) setPermission(data)
+          },
           onDone: (data) => {
+            if (!isCurrent()) return
             setStatus('completed')
             if (data.summary) setOutput(data.summary)
           },
           onError: (data) => {
+            if (!isCurrent()) return
             setError(data.message)
             setStatus('failed')
           },
@@ -73,6 +88,8 @@ export function useAgentRuntime(initialSessionId?: string): UseAgentRuntimeRetur
         { signal: controller.signal },
       )
     } catch (err) {
+      // 新一轮已接管:旧流即便抛错也不得改写当前状态。
+      if (!isCurrent()) return
       if (controller.signal.aborted) {
         setStatus('idle')
       } else {
@@ -80,7 +97,7 @@ export function useAgentRuntime(initialSessionId?: string): UseAgentRuntimeRetur
         setStatus('failed')
       }
     } finally {
-      abortRef.current = null
+      if (isCurrent()) abortRef.current = null
     }
   }, [input, status, sessionId])
 
