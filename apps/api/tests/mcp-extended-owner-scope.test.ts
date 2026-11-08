@@ -319,8 +319,9 @@ describe('mcp 项目/集成面:主体只住令牌,读写都带归属', () => {
     const { readFile } = await import('node:fs/promises')
     const src = await readFile(new URL('../src/routes/mcp-extended.ts', import.meta.url), 'utf8')
     const bare = src.split('\n').filter((l) => /^\s*await authenticate\(request\)$/.test(l)).length
-    // 只剩两条纯代理腿(reload / clear-auth)没有归属语义可接
-    expect(bare).toBe(2)
+    // 纯代理腿(reload / clear-auth / reconnect / store toggle)没有归属语义可接。
+    // 2026-11 新增 reconnect 与 store toggle 两条腿,合法 bare 数从 2 变 4。
+    expect(bare).toBe(4)
     expect((src.match(/const \{ userId \} = await authenticate\(request\)/g) || []).length).toBe(11)
     expect(src).not.toMatch(/DELETE FROM "system_configs" WHERE "id"::text = \$\{id\} RETURNING/)
   })
