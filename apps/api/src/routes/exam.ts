@@ -314,7 +314,8 @@ const submitExamSchema = z.object({
           answer: a.answer ?? a.userAnswer,
         })),
     )
-    .min(1, '答案不能为空'),
+    .min(1, '答案不能为空')
+    .max(500),
 })
 
 const randomQuestionsSchema = z.object({
@@ -530,7 +531,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const paper = await findPaperById(parsed.data.id)
-    if (!paper || !paper.isPublished) {
+    if (!paper || !paper.isPublished || paper.status !== 1) {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     return reply.send(success({ paper }))
@@ -558,7 +559,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const paper = await findPaperById(parsed.data.id)
-    if (!paper || !paper.isPublished) {
+    if (!paper || !paper.isPublished || paper.status !== 1) {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     const questions = await findQuestionsByPaperId(parsed.data.id)
@@ -599,7 +600,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const paper = await findPaperById(parsed.data.id)
-    if (!paper || !paper.isPublished) {
+    if (!paper || !paper.isPublished || paper.status !== 1) {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     const userId = request.userId!
@@ -1209,7 +1210,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '答题记录不存在'))
     }
     try {
-      const record = await startAnswering(parsed.data.recordId)
+      const record = await startAnswering(parsed.data.recordId, request.userId!)
       server.recordExamStarted()
       return reply.send(success({ record }))
     } catch (e) {
@@ -1233,7 +1234,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '答题记录不存在'))
     }
     try {
-      const record = await submitExam(parsed.data.recordId)
+      const record = await submitExam(parsed.data.recordId, request.userId!)
       server.recordExamSubmitted()
       return reply.send(success({ record }))
     } catch (e) {
@@ -1274,7 +1275,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       }
       try {
         const record = await gradeExam(parsed.data.recordId, bodyParsed.data.score)
-        server.recordExamScore(Number(record.score))
+        // 评分打点已下沉到 gradeExam(db 层):按相对上一终态的增量平移 sum,此处不再重复累计
         return reply.send(success({ record }))
       } catch (e) {
         if (isAppError(e)) {
@@ -1955,6 +1956,10 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     if (record.paperId !== paperId) {
       return reply.status(400).send(error(400, 'recordId 与 paperId 不匹配'))
     }
+    // F-693:自动重判仅允许「已提交待判」的记录,防止把 graded/completed 回退成 submitted
+    if (record.status !== 'submitted') {
+      return reply.status(409).send(error(409, `当前状态 ${record.status} 不可自动重判`))
+    }
     const questions = await findQuestionsByPaperId(paperId)
     const storedAnswers =
       (record.answers as Array<{ questionId: string; answer: unknown }> | null) ?? []
@@ -1987,7 +1992,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     })
     const paper = await findPaperById(paperId)
     const isPassed = totalScore >= Number(paper?.passScore ?? 60)
-    const finalStatus = hasSubjective ? 'graded' : 'submitted'
+    const finalStatus = hasSubjective ? 'submitted' : 'graded'
     const [updated] = await db
       .update(examRecords)
       .set({

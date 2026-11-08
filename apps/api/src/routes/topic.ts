@@ -114,7 +114,7 @@ export const adminTopicRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const topic = await findTopicDetail(parsed.data.id)
+    const topic = await findTopicDetail(parsed.data.id, { includeUnpublished: true })
     if (!topic) {
       return reply.status(404).send(error(404, '专题不存在'))
     }

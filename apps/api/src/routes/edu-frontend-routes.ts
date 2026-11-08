@@ -41,8 +41,7 @@ import {
   findTopicRowById,
   findHomeworkList,
   findRateList,
-  findRateByUserLesson,
-  createRate,
+  createRateIfAbsent,
   createHomeworkRecord,
   findPublishedMaps,
   findAllCommunityPosts,
@@ -94,7 +93,8 @@ const submitExamSchema = z.object({
         answer: z.unknown(),
       }),
     )
-    .min(1, '答案不能为空'),
+    .min(1, '答案不能为空')
+    .max(500),
 })
 
 const submitHomeworkSchema = z.object({
@@ -819,19 +819,25 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
     }
     const userId = request.userId!
-    const existing = await findRateByUserLesson(userId, parsed.data.id)
-    if (existing) {
-      return reply.status(409).send(error(409, '已评价过该课程'))
-    }
-    const rate = await createRate({
+    // F-503 同形漏洞:评价必须以「已报名」为前提,否则任意登录用户可给任意课程刷评价
+    const lesson = await findLessonById(parsed.data.id)
+    if (!lesson) return reply.status(404).send(error(404, '课程不存在'))
+    const signup = await findSignUp(parsed.data.id, userId)
+    if (!signup) return reply.status(403).send(error(403, '请先报名该课程'))
+    // 判重与插入收进单条语句,避免先查后插的并发双写
+    const { rate, created } = await createRateIfAbsent({
       lessonId: parsed.data.id,
       userId,
+      signId: signup.id,
       content: bodyParsed.data.content,
       contentUtilityScore: bodyParsed.data.contentUtilityScore,
       teacherScore: bodyParsed.data.teacherScore,
       serviceScore: bodyParsed.data.serviceScore,
       isAnonymous: bodyParsed.data.isAnonymous,
     })
+    if (!created) {
+      return reply.status(409).send(error(409, '已评价过该课程'))
+    }
     return reply.status(201).send(success({ rate }))
   })
 
