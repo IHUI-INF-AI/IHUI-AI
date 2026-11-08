@@ -31,6 +31,7 @@ import {
   clampUploadLimit,
   countUniqueReceivedChunks,
   findMissingChunkNumbers,
+  formatMissingChunkNumbers,
   hashFile,
   digestMatches,
   isPerUserSessionBudgetExceeded,
@@ -89,8 +90,10 @@ function resolvePublicUrl(fileId: string): string {
 
 const initBodySchema = z.object({
   fileName: z.string().min(1).max(255),
-  fileSize: z.coerce.number().int().min(0).default(0),
-  totalChunks: z.coerce.number().int().min(1),
+  // 2026-11-08 修 F-28:fileSize 与 totalChunks 都必须有上界。二者同源于协议档,
+  // 否则 totalChunks 可被写成 2^31,合并阶段的 1..totalChunks 线性遍历直接打爆进程。
+  fileSize: z.coerce.number().int().min(0).max(PROTOCOL_UPLOAD_LIMITS.maxFileBytes).default(0),
+  totalChunks: z.coerce.number().int().min(1).max(PROTOCOL_UPLOAD_LIMITS.maxTotalChunks),
   fileMd5: z.string().max(64).optional(),
   mimeType: z.string().max(128).optional(),
   chunkSize: z.coerce
@@ -365,6 +368,19 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
+    // 历史超档行(本修复前创建)一律拒绝合并:合并阶段会按 1..totalChunks 逐片读盘,
+    // 不设这道闸就等于把旧漏洞留在数据面上(2026-11-08 修 F-28)。
+    if (session.totalChunks > PROTOCOL_UPLOAD_LIMITS.maxTotalChunks) {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `会话分片数(${session.totalChunks})超出上限(${PROTOCOL_UPLOAD_LIMITS.maxTotalChunks}),请取消后重新初始化`,
+          ),
+        )
+    }
+
     // 完整性判定按"1..totalChunks 每一片是否真的在磁盘上",不是按计数相等。
     // 缺哪几片直接点名 —— 让客户端能补传,而不是回一句"不完整"再让它猜。
     const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
@@ -378,7 +394,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         .send(
           error(
             400,
-            `分片未收齐:缺第 ${missingChunks.join('、')} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
+            `分片未收齐:缺第 ${formatMissingChunkNumbers(missingChunks)} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
           ),
         )
     }

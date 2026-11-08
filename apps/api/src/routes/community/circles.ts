@@ -823,20 +823,59 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '帖子不存在'))
     }
     const userId = request.userId!
+    // F-332:回复对象校验 —— pid 必须属于本帖,replyUserId 必须等于父评论作者
+    // (或被省略后归一为父评论作者);无 pid 的顶级评论不允许指定 replyUserId。
+    let replyUserId: string | null = null
+    if (body.data.pid) {
+      const [parent] = await db
+        .select()
+        .from(circlePostComments)
+        .where(
+          and(
+            eq(circlePostComments.id, body.data.pid),
+            eq(circlePostComments.postId, parsed.data.id),
+          ),
+        )
+        .limit(1)
+      if (!parent) {
+        return reply.status(400).send(error(400, '父评论不存在或不属于本帖'))
+      }
+      if (body.data.replyUserId && body.data.replyUserId !== parent.userId) {
+        return reply.status(400).send(error(400, 'replyUserId 与父评论作者不一致'))
+      }
+      replyUserId = parent.userId
+    } else if (body.data.replyUserId) {
+      return reply.status(400).send(error(400, '顶级评论不能指定 replyUserId'))
+    }
+    // P0 合规:评论内容敏感词过滤
+    const filtered = await sanitizeUgcInput(
+      { content: body.data.content },
+      {
+        action: 'ugc.comment.create',
+        resourceType: 'comment',
+        userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      },
+    )
+    if (!filtered.ok) {
+      return reply.status(400).send(error(400, '评论含违规词,提交失败'))
+    }
     const [created] = await db
       .insert(circlePostComments)
       .values({
         postId: parsed.data.id,
         userId,
-        content: body.data.content,
+        content: filtered.fields.content!.text,
         pid: body.data.pid ?? null,
-        replyUserId: body.data.replyUserId ?? null,
+        replyUserId,
       })
       .returning()
     if (!created) return reply.status(500).send(error(500, '发表评论失败'))
+    // F-332:replyCount 原子自增,禁止读改写(post.replyCount + 1)造成并发丢更新
     await db
       .update(circlePosts)
-      .set({ replyCount: post.replyCount + 1, updatedAt: new Date() })
+      .set({ replyCount: sql`${circlePosts.replyCount} + 1`, updatedAt: new Date() })
       .where(eq(circlePosts.id, parsed.data.id))
     return reply.status(201).send(success({ comment: created }))
   })
