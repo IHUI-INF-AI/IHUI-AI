@@ -32997,7 +32997,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 686G. **缺陷普查 API F-687** [P3] FCM data 值未转字符串，含数字/布尔/嵌套时整批推送 400（证据 docs/tickets/2026-11/findings-api.md#F-687）
 - [ ] 687G. **缺陷普查 API F-688** [P3] 直播回调解重 Map 无硬上限，超 1000 条后每次 insert 全表扫描且仅清过期项（证据 docs/tickets/2026-11/findings-api.md#F-688）
 - [ ] 688G. **缺陷普查 API F-689** [P2] 开发者套餐回调重放重复插入订阅（无幂等键）（证据 docs/tickets/2026-11/findings-api.md#F-689）
-- [ ] 689G. **缺陷普查 API F-690** [P2] 禁用（status=0）试卷仍出现在公开列表、可开考、可取题（证据 docs/tickets/2026-11/findings-api.md#F-690）
 - [ ] 691G. **缺陷普查 API F-692** [P3] 浏览记录读改写非原子：并发丢时长 + 首次并发直接 500（证据 docs/tickets/2026-11/findings-api.md#F-692）
 - [ ] 692G. **缺陷普查 API F-693** [P3] 含主观题提交即落 graded，人工阅卷后反写 submitted（状态机倒置）（证据 docs/tickets/2026-11/findings-api.md#F-693）
 - [ ] 694G. **缺陷普查 API F-695** [P3] 后台“总用户数”与用户列表 total 口径不一致（已注销用户）（证据 docs/tickets/2026-11/findings-api.md#F-695）
