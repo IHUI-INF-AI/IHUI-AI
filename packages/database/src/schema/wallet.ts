@@ -30,7 +30,14 @@ export const userMargins = pgTable(
 
 /**
  * Token 流水表。
- * opType: 0=充值 1=扣减 2=过期 3=退款 4=佣金 5=管理员调整 6=API 订阅配额发放。
+ * opType: 0=充值 1=扣减(提现) 2=过期 3=退款 4=佣金 5=管理员调整 6=API 订阅配额发放。
+ *
+ * 单位（重要，同表两义）:
+ * - op_type 0–5: `quantity` / `balance_after` 是「分」，对应 user_margins.token_quantity
+ *   （充值落 orders.amount、买课扣 priceCents、提现落 amount，均为分）。
+ * - op_type 6: `quantity` 是「API 订阅配额计数」（个），`balance_after` 是
+ *   developer_api_keys.token_balance（配额余额，-1=不限），**不是钱**。
+ * 因此展示/汇总前必须先按 op_type 分支；钱流水端点默认排除 op_type 6。
  */
 export const tokenFlows = pgTable(
   'token_flows',
