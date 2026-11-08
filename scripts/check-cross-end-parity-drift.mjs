@@ -43,7 +43,7 @@
  *   node scripts/check-cross-end-parity-drift.mjs --gate --push  # 回归制 push 面(恶化即失败)
  *   node scripts/check-cross-end-parity-drift.mjs --self-test
  */
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -51,6 +51,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readVerdicts } from './lib/cross-end-verdicts.mjs'
 // 回归制判定单源(§0.6):本文件不自己比基线,只把现读值交给纯函数。
 import { describeRegressions, judgeBaseline, readBaseline } from './lib/cross-end-baseline-gate.mjs'
+// 取材层(§5a):绝对 git + stdio 接管 + timeout;本文件不自拼裸 git。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -818,16 +820,10 @@ function readPrev() {
  */
 function readBaselineLedger() {
   try {
-    const opts = {
-      cwd: ROOT,
-      encoding: 'utf8',
-      windowsHide: true,
-      timeout: 60000,
-      maxBuffer: 1 << 20,
-    }
-    const sha = execFileSync('git', ['log', '-1', '--format=%H', '--', GATE_BASELINE_REL], opts).trim()
+    const opts = { timeout: 60_000, maxBuffer: 1 << 20 }
+    const sha = gitRaw(['log', '-1', '--format=%H', '--', GATE_BASELINE_REL], ROOT, opts).trim()
     if (!sha) return null
-    const text = execFileSync('git', ['show', `${sha}:${WEB_RN_MAP_REL}`], opts)
+    const text = gitRaw(['show', `${sha}:${WEB_RN_MAP_REL}`], ROOT, opts)
     const alignedKeys = new Set()
     const portalKeys = new Set()
     const gapKeys = new Set()
