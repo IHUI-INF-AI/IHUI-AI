@@ -51,7 +51,7 @@ export default function WithdrawalPage() {
       setAvailable(info.available)
       availableRef.current = info.available
     } catch {
-      setLoadError(tt('common.loadFailed'))
+      setLoadError(tt('common.loadFailed', '加载失败'))
     }
   }, [tt])
 
