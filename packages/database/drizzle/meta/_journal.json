@@ -2587,6 +2587,13 @@
       "when": 1794106800000,
       "tag": "20261108110000_usdt_pending_amount_uniq",
       "breakpoints": true
+    },
+    {
+      "idx": 373,
+      "version": "7",
+      "when": 1794110400000,
+      "tag": "20261108120000_edu_settings_group_key_unique",
+      "breakpoints": true
     }
   ]
 }
