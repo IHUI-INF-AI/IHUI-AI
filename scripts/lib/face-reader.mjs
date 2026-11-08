@@ -40,7 +40,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { resolveGitBin } from './gitdir.mjs'
-import { assertGateBodyProvenance, findRepoRoot } from './gate-body-provenance.mjs'
+import {
+  GATE_FACE_ENV,
+  assertGateBodyProvenance,
+  declaredFaceFromRegistry,
+  findRepoRoot,
+  parseFaceFromArgv,
+} from './gate-body-provenance.mjs'
 
 export const FACES = ['staged', 'head', 'worktree']
 
@@ -1494,10 +1500,19 @@ function enforceGateBodyForFace(face) {
   }
   // 只判"执行门体所在仓库"的判面;夹具/异仓(门拿 --root 去判别的树)不适用本层。
   if (!root || !selfRoot || path.resolve(root) !== path.resolve(selfRoot)) return
+  const entryRel = path.relative(root, path.resolve(entry)).replace(/\\/g, '/')
+  // 本层管的是"门在哪个面上作答",而"门"的定义就是声明表里在册的那 321 道。
+  // scripts/check-*.mjs 里还有一批**不是门**的尺子(如被门 302p spawn 的
+  // check-web-rn-style-tiers.mjs):它们不为判面负责、也没有声明义务,只要没给显式判面旗,
+  // 就照原样走自己的缺省面 —— 否则"子尺被另一道门按缺省面调用"会被读成门体事故。
+  // 在册门一律有声明(实测 321 注册 = 321 声明),所以这条不会给在册门开口子。
+  if (!declaredFaceFromRegistry(root, entryRel) && !parseFaceFromArgv(process.argv.slice(2))) {
+    if (!process.env[GATE_FACE_ENV]) return
+  }
   try {
     const result = assertGateBodyProvenance({
       root,
-      entryRel: path.relative(root, path.resolve(entry)).replace(/\\/g, '/'),
+      entryRel,
       argv: process.argv.slice(2),
       env: process.env,
     })

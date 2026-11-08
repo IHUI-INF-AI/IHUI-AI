@@ -141,12 +141,18 @@
 
 | 参数 | 推荐值 | 说明 |
 |------|--------|------|
-| `max` | 10 | 单 API 实例连接池上限(2 实例 = 20,匹配 DB `max_connections`;`packages/database/src/client.ts` 默认值) |
-| `idle_timeout` | 30s | 空闲连接回收 |
-| `connection_timeout` | 5s | 排队等待上限,超时返回 503 |
+| `max` | 40（`DB_POOL_MAX` 可调） | 单池上限；默认 40，可用环境变量覆盖。**容量校验：`max × 副本实例数 ≤ DB max_connections` 扣除其他进程后的可用额度** |
+| `idle_timeout` | 30s | 空闲连接回收（postgres-js 单位为秒，旧代码误写 30000≈8.3h） |
+| `connect_timeout` | 5s | 建连/排队上限，超时返回错误而非无限等待 |
 | `max_lifetime` | 30min | 防止长连接累积 PostgreSQL 端 prepared statement |
+| `statement_timeout` | 30s（`DB_STATEMENT_TIMEOUT_MS` 可调） | 单条语句硬中断，慢查询不再永久占用一条连接 |
 
-配置位置:`packages/database/src/client.ts`。
+配置位置：`packages/database/src/pool-options.ts` 统一构造，主池（`client.ts`）、读写分离 writer/replica
+（`read-replica.ts`）、受控出口 scoped 池（`apps/api/src/db/index.ts`，固定 `max=8`）、租户池
+（`tenant-router.ts`，固定 `max=10`）共用，避免某条池漏配护栏。
+
+> 慢查询的"硬中断"由 `statement_timeout` 承担；`apps/api/src/plugins/slow-sql-killer.ts` 只做告警与统计，
+> 不执行 `pg_terminate_backend`（事件里没有后端 PID，误杀会波及其他实例连接）。
 
 ### 4.4 N+1 查询检测
 

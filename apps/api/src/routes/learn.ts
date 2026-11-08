@@ -28,6 +28,7 @@ import {
   updateChapter,
   deleteChapter,
   findLessonSections,
+  findLessonSectionsByChapterIds,
   findSectionById,
   createSection,
   updateSection,
@@ -686,26 +687,25 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     const origin = `${request.protocol ?? 'http'}://${host}`
     const canPlayPaid = Boolean(request.userId) && signedUp
     const chapters = await findLessonChapters(parsed.data.id)
-    const chaptersWithSections = await Promise.all(
-      chapters.map(async (c) => {
-        const sections = await findLessonSections(c.id)
-        return {
-          ...c,
-          sections: sections.map((s) => {
-            const adapted = adaptSection(s)
-            if (!adapted.videoUrl) return adapted
-            if (lesson.isFree || s.isFree) return adapted
-            if (!canPlayPaid) return { ...adapted, videoUrl: null }
-            const { url } = buildSignedVideoUrl({
-              baseUrl: `${origin}/api/learn/lessons/${parsed.data.id}/sections/${s.id}/play`,
-              userId: request.userId!,
-              resourceId: s.id,
-            })
-            return { ...adapted, videoUrl: url }
-          }),
-        }
-      }),
-    )
+    const sectionsByChapter = await findLessonSectionsByChapterIds(chapters.map((c) => c.id))
+    const chaptersWithSections = chapters.map((c) => {
+      const sections = sectionsByChapter.get(c.id) ?? []
+      return {
+        ...c,
+        sections: sections.map((s) => {
+          const adapted = adaptSection(s)
+          if (!adapted.videoUrl) return adapted
+          if (lesson.isFree || s.isFree) return adapted
+          if (!canPlayPaid) return { ...adapted, videoUrl: null }
+          const { url } = buildSignedVideoUrl({
+            baseUrl: `${origin}/api/learn/lessons/${parsed.data.id}/sections/${s.id}/play`,
+            userId: request.userId!,
+            resourceId: s.id,
+          })
+          return { ...adapted, videoUrl: url }
+        }),
+      }
+    })
     const adaptedLesson = {
       ...adaptLesson(lesson),
       signedUp,

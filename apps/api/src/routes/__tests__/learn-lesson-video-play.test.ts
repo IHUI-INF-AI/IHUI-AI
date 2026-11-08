@@ -34,16 +34,25 @@ vi.mock('../../plugins/auth.js', () => ({
   checkAuth: vi.fn().mockResolvedValue(true),
 }))
 
-vi.mock('../../db/learn-queries.js', () => ({
-  findPublishedLessons: vi.fn(),
-  findLessonById: vi.fn(),
-  incrementViewCount: vi.fn().mockResolvedValue(undefined),
-  findLessonChapters: vi.fn(),
-  findLessonSections: vi.fn(),
-  findSignUp: vi.fn(),
-  findSectionById: vi.fn(),
-  findChapterById: vi.fn(),
-}))
+vi.mock('../../db/learn-queries.js', () => {
+  const findLessonSections = vi.fn()
+  return {
+    findPublishedLessons: vi.fn(),
+    findLessonById: vi.fn(),
+    incrementViewCount: vi.fn().mockResolvedValue(undefined),
+    findLessonChapters: vi.fn(),
+    findLessonSections,
+    findSignUp: vi.fn(),
+    findSectionById: vi.fn(),
+    findChapterById: vi.fn(),
+    // DB-24:详情路由改为批量取小节,这里按章节转调同一个 mock。
+    findLessonSectionsByChapterIds: vi.fn(async (ids: string[]) => {
+      const map = new Map<string, unknown[]>()
+      for (const id of ids) map.set(id, await findLessonSections(id))
+      return map
+    }),
+  }
+})
 
 vi.mock('../../db/learn-extended-queries.js', () => ({
   findLessonAverageRating: vi.fn().mockResolvedValue(0),

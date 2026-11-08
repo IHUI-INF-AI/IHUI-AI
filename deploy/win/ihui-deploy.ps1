@@ -2701,6 +2701,33 @@ function Get-PendingMigrationCount {
     } catch { $script:PendingMigrationReason = "psql 调用异常:$_"; return $null }
 }
 
+function Invoke-PreMigrateConcurrentIndexes {
+    # DB-11:大表索引必须在 drizzle 单事务迁移**之前**用 CONCURRENTLY 建好。
+    # 迁移里的 CREATE INDEX IF NOT EXISTS 只是兜底:一旦真走到它,会持
+    # SHARE ROW EXCLUSIVE 锁 chat_messages 到 migrate 结束(阻塞在线写入)。
+    # 脚本幂等(只重建 INVALID 索引,正常索引不动),pending 轮次执行安全;
+    # 建索引耗时落在迁移预算(默认 180s)之外。
+    $scriptPath = Join-Path $Root 'packages\database\scripts\manual-sql\20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql'
+    if (-not (Test-Path $scriptPath)) {
+        Log "WARN  迁移前 CONCURRENTLY 索引脚本缺失,跳过(迁移内 IF NOT EXISTS 兜底可能锁写):$scriptPath"
+        return
+    }
+    $psql = Get-PsqlExe
+    if (-not $psql -or -not $env:DATABASE_URL) {
+        Log 'WARN  psql.exe 或 DATABASE_URL 不可用,跳过迁移前 CONCURRENTLY 索引(迁移内兜底可能锁写)'
+        return
+    }
+    Log 'MIG   迁移前先建大表索引(CONCURRENTLY,不阻塞写入):chat_messages / conversation_message_archives'
+    $out = (& $psql $env:DATABASE_URL -v ON_ERROR_STOP=1 -f $scriptPath 2>&1 | Out-String)
+    $code = $LASTEXITCODE
+    ($out -replace '\s+$', '') | Write-Host
+    if ($code -eq 0) {
+        Log 'MIG   大表索引已就绪(迁移内 IF NOT EXISTS 将转为 no-op)'
+    } else {
+        Log "WARN  迁移前 CONCURRENTLY 索引失败(exit=$code),继续 migrate;兜底语句可能持锁建索引"
+    }
+}
+
 function Test-MigrateOrphans {
     # 孤儿迁移记录检测(2026-09-21 加,实测教训):DB 里出现 created_at > journal 最大 when 的
     # 记录(如孤儿行 created_at=1790006400000 未来时间戳)时,drizzle 按「created_at desc limit 1」
@@ -3057,6 +3084,8 @@ function Invoke-DbMigrate {
             }
             $script:LastMigrationSnapshot = $snap.Path
             Log "MIG   快照可校验:$($snap.Path)($($snap.Detail))"
+            # DB-11:有 pending 才先建大表索引;迁移内 IF NOT EXISTS 仅兜底。
+            Invoke-PreMigrateConcurrentIndexes
         } else {
             Log "MIG   无待应用迁移 ⇒ 跳过迁移前快照(pg_dump 不在无变更轮次制造无用磁盘)"
         }

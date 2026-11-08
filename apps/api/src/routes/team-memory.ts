@@ -79,8 +79,7 @@ async function requireLogin(request: FastifyRequest, reply: FastifyReply): Promi
 
 const ADMIN_ROLE_ID = 1
 /** 团队作用域判定:scopeId 形如 team UUID 才走成员枚举,其余按密钥共享处理 */
-const TEAM_UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const TEAM_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * BUG-5 根治:校验调用者是否有权访问某 scope 下的记忆。
@@ -116,13 +115,7 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', { preHandler: requireLogin }, async (request, reply) => {
     const query = parseOrThrow(listQuerySchema, request.query)
     // BUG-5 连带:列表同样按 scope 成员权收敛,非成员访问团队作用域 ⇒ 404
-    if (
-      !(await isScopeMember(
-        query.scopeId,
-        request.userId,
-        request.jwtPayload?.roleId ?? 0,
-      ))
-    ) {
+    if (!(await isScopeMember(query.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))) {
       return reply.status(404).send(error(404, 'scope 不存在或无权限'))
     }
     const rows = await listTeamMemories({
@@ -141,6 +134,10 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
     const userId = request.userId
     if (!userId) {
       return reply.status(401).send(error(401, '请先登录'))
+    }
+    // BUG-5 同口径:创建面也要按 scope 成员权收敛(读/改/删已校验,唯独 POST 曾漏挂)
+    if (!(await isScopeMember(body.scopeId, userId, request.jwtPayload?.roleId ?? 0))) {
+      return reply.status(404).send(error(404, 'scope 不存在或无权限'))
     }
     const created = await createTeamMemory({
       scopeId: body.scopeId,
@@ -161,9 +158,7 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
     // BUG-5 根治:校验调用者对该记忆 scope 的访问权,非成员 ⇒ 404(不暴露存在性)
-    if (
-      !(await isScopeMember(row.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))
-    ) {
+    if (!(await isScopeMember(row.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))) {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
     return reply.send(success(row))
@@ -178,9 +173,7 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
     if (!existing) {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
-    if (
-      !(await isScopeMember(existing.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))
-    ) {
+    if (!(await isScopeMember(existing.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))) {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
     const patch: UpdateTeamMemoryInput = {}
@@ -203,9 +196,7 @@ export const teamMemoryRoutes: FastifyPluginAsync = async (app) => {
     if (!existing) {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
-    if (
-      !(await isScopeMember(existing.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))
-    ) {
+    if (!(await isScopeMember(existing.scopeId, request.userId, request.jwtPayload?.roleId ?? 0))) {
       return reply.status(404).send(error(404, '记忆不存在'))
     }
     const ok = await deleteTeamMemory(params.id)
