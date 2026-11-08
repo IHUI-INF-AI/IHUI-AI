@@ -107,9 +107,38 @@ function toPickerAsset(uri: string, tempFiles: readonly TempFileMeta[], index: n
   return { uri, name, fileName: name, mimeType, size, fileSize: size }
 }
 
+type ImagePickerPermission = {
+  granted: boolean
+  canAskAgain: boolean
+  status: 'granted' | 'denied' | 'undetermined'
+}
+
+/** XUI-050:权限状态如实取自 authSetting,不再恒返回 granted:true。 */
+function permissionFromAuth(auth: unknown): ImagePickerPermission {
+  if (auth === true) return { granted: true, canAskAgain: true, status: 'granted' }
+  if (auth === false) return { granted: false, canAskAgain: false, status: 'denied' }
+  return { granted: false, canAskAgain: true, status: 'undetermined' }
+}
+
+async function readAuthSetting(): Promise<Record<string, boolean>> {
+  try {
+    const res = await Taro.getSetting()
+    return (res.authSetting ?? {}) as Record<string, boolean>
+  } catch {
+    return {}
+  }
+}
+
 export const ImagePicker = {
-  requestMediaLibraryPermissionsAsync: async () => ({ granted: true, status: 'granted' }),
-  requestCameraPermissionsAsync: async () => ({ granted: true, status: 'granted' }),
+  // 微信没有「相册读取」scope(读图由 chooseImage 现场触发),如实给 undetermined,
+  // 不能让调用方以为已授权后静默失败。
+  requestMediaLibraryPermissionsAsync: async (): Promise<ImagePickerPermission> => ({
+    granted: false,
+    canAskAgain: true,
+    status: 'undetermined',
+  }),
+  requestCameraPermissionsAsync: async (): Promise<ImagePickerPermission> =>
+    permissionFromAuth((await readAuthSetting())['scope.camera']),
   launchImageLibraryAsync: async (options: Record<string, unknown> = {}) => {
     const count = Number(options.selectionLimit ?? 1)
     try {
