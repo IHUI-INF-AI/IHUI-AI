@@ -70,7 +70,7 @@ test('T3 去重 + 排序 + 过滤是确定性的(与输入顺序无关)', () => 
   assert.deepEqual(filterFormatTargets(['./x.md', 'x.md']), ['x.md'])
 })
 
-test('T4 全零 sha 判定 + 判定面四态(可解析/零 sha 回落/不可解析回落/两级都无=未判定)', () => {
+test('T4 全零 sha 判定 + 判定面四态(可解析/零 sha 显式降级/显式基线不可解析=未判定/两级都无=未判定)', () => {
   assert.equal(isZeroSha('0'.repeat(40)), true)
   assert.equal(isZeroSha('2b2bd94fae'), false)
   assert.equal(isZeroSha(''), false)
@@ -79,15 +79,26 @@ test('T4 全零 sha 判定 + 判定面四态(可解析/零 sha 回落/不可解�
     kind: 'diff',
     ref: 'abc123',
   })
+  // 全零 sha(新分支 push 的 before 占位)仍回落 HEAD^,但必须带显式降级标记(不许静默)
   assert.deepEqual(decideBaseRef({ envRef: '0'.repeat(40), canResolve: (r) => r === 'HEAD^' }), {
     kind: 'diff',
     ref: 'HEAD^',
+    degraded: 'zero-sha-synthesized-before',
+    reason: '全零 sha(新分支 push 的 before 占位),回落 HEAD^',
   })
+  // 显式基线取不到 ⇒ 显式失败,绝不回落 HEAD^
   assert.deepEqual(decideBaseRef({ envRef: 'gone', canResolve: (r) => r === 'HEAD^' }), {
-    kind: 'diff',
-    ref: 'HEAD^',
+    kind: 'unjudged',
+    ref: null,
+    reason: '显式基线 gone 不可解析(浅克隆/force-push?),不回落 HEAD^',
   })
   assert.deepEqual(decideBaseRef({ envRef: 'gone', canResolve: () => false }), {
+    kind: 'unjudged',
+    ref: null,
+    reason: '显式基线 gone 不可解析(浅克隆/force-push?),不回落 HEAD^',
+  })
+  // 全零 sha 且 HEAD^ 也取不到 ⇒ 未判定
+  assert.deepEqual(decideBaseRef({ envRef: '0'.repeat(40), canResolve: () => false }), {
     kind: 'unjudged',
     ref: null,
     reason: '取不到 diff 基线',
@@ -180,8 +191,8 @@ test('T10 接线形状锁:package.json 两条命令 + lint 作业同面(fetch-de
   const lintBlock = workflow.slice(start, end)
 
   assert.ok(
-    lintBlock.includes('fetch-depth: 2'),
-    'lint 作业 checkout 缺 fetch-depth: 2(HEAD^ 取不到)',
+    lintBlock.includes('fetch-depth: 0'),
+    'lint 作业 checkout 缺 fetch-depth: 0(显式 before 在浅克隆里取不到会让门恒 exit 2)',
   )
   assert.ok(lintBlock.includes('FORMAT_BASE_REF'), 'lint 作业缺 FORMAT_BASE_REF env')
   assert.ok(lintBlock.includes('github.event.before'), 'FORMAT_BASE_REF 应取 github.event.before')
