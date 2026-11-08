@@ -709,7 +709,7 @@ export const subagentsExtendedRoutes: FastifyPluginAsync = async (server) => {
     // S-ACL(2026-11-02):本端点此前按 id 直读 messages / dispatchStats —— 知道 id 就能跨租户
     // 读他人的协作消息与运行统计。闸必须在**读之前**,且与其余按 id 端点同源(ownsDispatchById):
     // 不存在与「不属于你」合并成同一个 404,不告诉调用方该 id 是否真实存在(防枚举,无 403)。
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 

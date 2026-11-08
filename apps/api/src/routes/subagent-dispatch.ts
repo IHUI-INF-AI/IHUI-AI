@@ -711,7 +711,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在或已结束(无法取消)'))
     }
 
@@ -734,7 +734,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
     // resume 会重置状态并重新执行 ⇒ 与 cancel 同级,闸在调用之前
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -767,7 +767,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
     // 写操作:归属闸必须先于 service 调用(返回 404 不得暗地里改他人记录)
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -913,7 +913,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -937,7 +937,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id || !stepId) {
       return reply.status(400).send(error(400, '派单 ID 与产物 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -959,7 +959,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在或无 DAG 配置'))
     }
 
@@ -981,7 +981,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     if (!id) {
       return reply.status(400).send(error(400, '派单 ID 不能为空'))
     }
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 
@@ -1005,7 +1005,7 @@ export const subagentDispatchRoutes: FastifyPluginAsync = async (server) => {
     }
     // 原实现对不存在/不可见的 id 都回 200 + 空数组(把「没有」与「不给你看」写成同一形状)
     // ⇒ 归属不符时明确 404,与其余 5 个按 id 端点同形。
-    if (!ownsDispatchById(id, userId, isAdminViewer(request))) {
+    if (!(await ownsDispatchById(id, userId, isAdminViewer(request)))) {
       return reply.status(404).send(error(404, '派单不存在'))
     }
 

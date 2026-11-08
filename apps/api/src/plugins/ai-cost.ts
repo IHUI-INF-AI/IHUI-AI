@@ -434,19 +434,20 @@ async function resolveTenantIdForUser(userId: string): Promise<string | undefine
 }
 
 /**
- * 记录一次 AI 调用的成本。
- * - 若 input.cost 未提供，则调用定价引擎 calculateCost() 自动计算（单位: 分）。
- * - 若模型无定价配置，回退 0 成本并记录 warning。
- * - 若 input.tenantId 未提供且 input.userId 存在，自动从 tenant_members 解析租户归属，
- *   保证 admin 配额页租户维度用量与 tenant 预算检查有真实数据（2026-08-06 修复）。
- * - **单点桥接 Prometheus `business_ai_*`**(2026-10-17 立):本函数是 AI 成本/用量的
- *   唯一收口(crew-llm-adapter / ai-user-model-chat / conversation-title /
- *   semantic-summary / ai-callback-worker 全走它),桥接放在这里 ⇒ 调用方自动受益、
- *   结构上不可能漏;散在每个路由里埋点必然漂移。观测写入永不抛(见 recordAiCallSample),
- *   且在落库**之前**记录 —— 一次调用是否发生过,与它最终有没有写成 ai_cost_records 是两件事,
- *   后者失败另有 business_ai_record_failures_total 单独看得见。
+ * 解析一次 AI 调用的成本(单位:分)。
+ *
+ * F-203 口径 B:扣钱包与 ai_cost_records 必须同源 —— 调用方先调本函数拿到 cost,
+ * 再把**同一个数**同时用于钱包扣减和 recordAiCost(显式传 cost),禁止两处各算一遍。
+ * 预检也可用本函数:只传 promptTokens、completionTokens=0 得到预估成本。
  */
-export async function recordAiCost(input: CostRecordInput): Promise<void> {
+export async function resolveAiCost(input: {
+  model: string
+  promptTokens: number
+  completionTokens: number
+  tier?: string | null
+  cost?: number
+  currency?: string
+}): Promise<{ cost: number; currency: string; pricing: ResolvedPrice | null }> {
   let cost = input.cost
   let costCurrency = input.currency
   // G4 计费弹性(2026-10-30 立):开关开且未手动传 cost 时,优先按 pricing_rules
@@ -485,6 +486,28 @@ export async function recordAiCost(input: CostRecordInput): Promise<void> {
       if (costCurrency === undefined) costCurrency = result.currency
     }
   }
+  return { cost, currency: costCurrency ?? 'CNY', pricing }
+}
+
+/**
+ * 记录一次 AI 调用的成本。
+ * - 若 input.cost 未提供，则调用定价引擎 calculateCost() 自动计算（单位: 分）。
+ * - 若模型无定价配置，回退 0 成本并记录 warning。
+ * - 若 input.tenantId 未提供且 input.userId 存在，自动从 tenant_members 解析租户归属。
+ * - **单点桥接 Prometheus `business_ai_*`**:本函数是 AI 成本/用量的唯一收口。
+ * - 返回值是与落库**完全相同**的 cost（分），供调用方扣钱包，禁止两处各算一遍。
+ */
+export async function recordAiCost(
+  input: CostRecordInput,
+): Promise<{ cost: number; currency: string }> {
+  const { cost, currency: costCurrency, pricing } = await resolveAiCost({
+    model: input.model,
+    promptTokens: input.promptTokens,
+    completionTokens: input.completionTokens,
+    tier: input.tier,
+    cost: input.cost,
+    currency: input.currency,
+  })
   const tenantId =
     input.tenantId ?? (input.userId ? await resolveTenantIdForUser(input.userId) : undefined)
 
@@ -525,6 +548,7 @@ export async function recordAiCost(input: CostRecordInput): Promise<void> {
     recordAiCostWriteFailure(input.provider, input.model)
     throw err
   }
+  return { cost, currency: costCurrency ?? 'CNY' }
 }
 
 /** 装饰 server: 提供 AI 成本治理辅助方法。 */

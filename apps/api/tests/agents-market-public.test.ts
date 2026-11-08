@@ -36,8 +36,9 @@ vi.mock('../src/plugins/auth.js', () => ({
 
 vi.mock('../src/plugins/require-permission.js', () => ({
   requireAdmin: vi.fn(),
-  // 2026-11 集中特权谓词新增导出;公开面用例按非管理员跑。
-  isSystemAdmin: vi.fn(() => false),
+  // agents 详情/管理分支直接调同步 isSystemAdmin(request);缺该导出 ⇒ 500。
+  // 必须返回同步 false —— 返回 Promise 恒真值是另一个坑(会走管理员全量行,绕过 allow-list)。
+  isSystemAdmin: () => false,
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
