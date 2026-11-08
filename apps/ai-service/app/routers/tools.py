@@ -11,9 +11,13 @@ import asyncio
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..core.jwt_auth import (
+    DEV_ANONYMOUS_PRINCIPAL,
+    require_request_user_id,
+)
 from ..services.codebase_index_status import check_freshness, ensure_fresh, resolve_repo_id
 from ..services.codebase_indexer import codebase_indexer
 from ..services.codebase_symbol_catalog import search_local_catalog
@@ -127,7 +131,11 @@ def _require_workspace(workspace_path: str) -> Path:
 
 
 @router.post("/tools/codebase-index")
-async def codebase_index(req: CodebaseIndexRequest) -> dict[str, Any]:
+async def codebase_index(
+    req: CodebaseIndexRequest,
+    request: Request,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """文件/符号级代码库索引能力(status / search / refresh)。
 
     准入复用 MCP 面同一守卫(`_validate_path_in_workspace`:白名单根 + path_guard),
@@ -168,10 +176,19 @@ async def codebase_index(req: CodebaseIndexRequest) -> dict[str, Any]:
             "catalog_symbols": catalog.symbol_count,
             "hits": hits,
         }
+    # AIS-100:refresh 的出域同意/归属主体不能由 body 指定。普通用户只能用 JWT
+    # 主体;管理员可代他人执行(roleId>=1)。dev 免鉴权路径保留 body 语义。
+    auth_user_id = None if principal == DEV_ANONYMOUS_PRINCIPAL else principal
+    role_id = getattr(request.state, "role_id", 0) or 0
+    effective_user_id = req.user_id
+    if auth_user_id is not None:
+        if req.user_id and req.user_id != auth_user_id and int(role_id) < 1:
+            raise HTTPException(status_code=403, detail="不能代他人刷新代码库索引")
+        effective_user_id = req.user_id if int(role_id) >= 1 and req.user_id else auth_user_id
     outcome = await ensure_fresh(
         str(root),
         repo_id=repo_id,
-        user_id=req.user_id,
+        user_id=effective_user_id,
         force=req.force,
         indexer=codebase_indexer,
     )

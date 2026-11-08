@@ -153,7 +153,8 @@ async def test_run_command_default_policy_adds_no_new_gate(
 def test_default_policy_document_keeps_legacy_semantics() -> None:
     """既有 `command_policy.json` 消费方回归:三段语义与多档默认档形状。"""
     policy = mcp_server._load_command_policy()
-    assert len(policy["dangerous_patterns"]) == 28
+    # AIS-081:28 → 31 —— 补单 `&`、`^`、换行三种 cmd 串联/转义元字符(只增不减)。
+    assert len(policy["dangerous_patterns"]) == 31
     assert len(policy["allowed_prefixes"]) == 31
     assert len(policy["sensitive_file_markers"]) == 6
     for key in ("red_list", "black_list", "immutable_paths", "allow", "ask"):

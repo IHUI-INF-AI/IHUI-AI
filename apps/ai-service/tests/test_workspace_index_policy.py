@@ -6,8 +6,11 @@
 
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
 import pytest
 
+from app.services import mcp_server as mcp_server_mod
 from app.services.mcp_server import _lazy_index_and_research, _tool_index_codebase
 from app.services.workspace_index_policy import (
     apply_workspace_index,
@@ -113,4 +116,49 @@ def test_one_bad_workspace_does_not_unlock_the_others(tmp_path) -> None:
     assert indexing_decision("ws-b").phase == "explicit-off"
 
 
-# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+# =============================================================================
+# AIS-080:索引根与搜索根同一把工作区尺
+# =============================================================================
+
+
+async def test_index_tool_rejects_existing_root_outside_workspace(
+    tmp_path, monkeypatch
+) -> None:
+    """旧路径:任意绝对路径不再能被索引/外传。"""
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.setattr(mcp_server_mod, "_get_workspace_roots", lambda: [str(ws)])
+    monkeypatch.setattr(mcp_server_mod, "_code_index_egress_allowed", lambda *_a, **_k: True)
+    indexer = MagicMock()
+    indexer.index_repository = AsyncMock()
+    monkeypatch.setattr(
+        "app.services.codebase_indexer.codebase_indexer.index_repository",
+        indexer.index_repository,
+    )
+    out = await _tool_index_codebase({"path": str(outside)})
+    assert out["ok"] is False
+    assert "路径不允许" in out["error"]
+    indexer.index_repository.assert_not_awaited()
+
+
+async def test_index_tool_allows_workspace_root(tmp_path, monkeypatch) -> None:
+    """正常路径:白名单内的索引根不被误挡。"""
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    monkeypatch.setattr(mcp_server_mod, "_get_workspace_roots", lambda: [str(ws)])
+    monkeypatch.setattr(mcp_server_mod, "_code_index_egress_allowed", lambda *_a, **_k: True)
+    result = MagicMock()
+    result.errors = []
+    fake = AsyncMock(return_value=result)
+    monkeypatch.setattr(
+        "app.services.codebase_indexer.codebase_indexer.index_repository", fake
+    )
+    out = await _tool_index_codebase({"path": str(ws)})
+    assert out["ok"] is True
+    fake.assert_awaited_once()
+    assert fake.await_args.args[0] == str(ws)
+
+
+# ​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
