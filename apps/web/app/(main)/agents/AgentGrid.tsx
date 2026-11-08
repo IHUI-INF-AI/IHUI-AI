@@ -107,7 +107,7 @@ export function AgentGrid({ agents, isLoading, error }: Props) {
                         : 'bg-primary/10 text-primary',
                     )}
                   >
-                    {a.isFree ? t('free') : priceFmt.format(a.price)}
+                    {a.isFree ? t('free') : priceFmt.format(a.price / 100)}
                   </span>
                 </div>
                 <span className="text-label text-primary opacity-0 transition-opacity group-hover:opacity-100">

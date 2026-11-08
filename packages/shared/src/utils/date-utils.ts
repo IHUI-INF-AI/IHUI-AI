@@ -163,19 +163,29 @@ export function localDayKey(input: string | number | Date | null | undefined): s
 }
 
 function relativeTimeFallback(diffSec: number, locale: string): string {
-  const zh = locale.toLowerCase().startsWith('zh')
+  const l = locale.toLowerCase()
+  const zh = l.startsWith('zh')
+  const ja = l.startsWith('ja')
+  const ko = l.startsWith('ko')
   const abs = Math.abs(diffSec)
   const n = (v: number) => String(Math.round(v))
-  const pick = (unit: string): string => {
-    if (zh) return `${unit}${diffSec < 0 ? '前' : '后'}`
-    return `${unit}${diffSec < 0 ? ' ago' : ' from now'}`
+  // ja/ko 也要有自己的兜底:RN(Hermes)没有 Intl.RelativeTimeFormat,只留英文会让日韩用户看到英文短语。
+  const pick = (zhUnit: string, jaUnit: string, koUnit: string, enUnit: string): string => {
+    if (zh) return `${zhUnit}${diffSec < 0 ? '前' : '后'}`
+    if (ja) return `${jaUnit}${diffSec < 0 ? '前' : '後'}`
+    if (ko) return `${koUnit}${diffSec < 0 ? ' 전' : ' 후'}`
+    return `${enUnit}${diffSec < 0 ? ' ago' : ' from now'}`
   }
-  if (abs < 60) return zh ? '刚刚' : 'just now'
-  if (abs < 3600) return pick(zh ? `${n(abs / 60)} 分钟` : `${n(abs / 60)} min`)
-  if (abs < 86400) return pick(zh ? `${n(abs / 3600)} 小时` : `${n(abs / 3600)} h`)
-  if (abs < 2592000) return pick(zh ? `${n(abs / 86400)} 天` : `${n(abs / 86400)} d`)
-  if (abs < 31536000) return pick(zh ? `${n(abs / 2592000)} 个月` : `${n(abs / 2592000)} mo`)
-  return pick(zh ? `${n(abs / 31536000)} 年` : `${n(abs / 31536000)} y`)
+  if (abs < 60) return zh ? '刚刚' : ja ? 'たった今' : ko ? '방금 전' : 'just now'
+  if (abs < 3600)
+    return pick(`${n(abs / 60)} 分钟`, `${n(abs / 60)} 分`, `${n(abs / 60)}분`, `${n(abs / 60)} min`)
+  if (abs < 86400)
+    return pick(`${n(abs / 3600)} 小时`, `${n(abs / 3600)} 時間`, `${n(abs / 3600)}시간`, `${n(abs / 3600)} h`)
+  if (abs < 2592000)
+    return pick(`${n(abs / 86400)} 天`, `${n(abs / 86400)} 日`, `${n(abs / 86400)}일`, `${n(abs / 86400)} d`)
+  if (abs < 31536000)
+    return pick(`${n(abs / 2592000)} 个月`, `${n(abs / 2592000)} ヶ月`, `${n(abs / 2592000)}개월`, `${n(abs / 2592000)} mo`)
+  return pick(`${n(abs / 31536000)} 年`, `${n(abs / 31536000)} 年`, `${n(abs / 31536000)}년`, `${n(abs / 31536000)} y`)
 }
 
 export function formatRelativeTime(

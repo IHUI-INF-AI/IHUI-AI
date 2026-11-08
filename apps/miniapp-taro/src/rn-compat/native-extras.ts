@@ -15,8 +15,8 @@
  *   · react-native-restart:小程序不能重启 JS 运行时 ⇒ 空实现。主题偏好已落盘,_下次冷启动_
  *     即生效;调用方本来就把重启失败当"下轮生效"处理。
  *   · expo-file-system:小程序无同步文件 API ⇒ 用本地 Storage 承载 `File.textSync/write`
- *     (主题偏好这种小文本语义等价)。二进制写入(音频临时文件)不落盘并告警一次 ——
- *     该场景的播放链在小程序端本来就走 Taro 自己的音频能力。
+ *     (主题偏好这种小文本语义等价)。**不支持的 API 一律显式抛 `NotSupportedError`**
+ *     (`code = ERR_NOT_SUPPORTED`)或显式 `null` 常量,绝不返回空值假装成功(XUI-054)。
  *   · nativewind:`colorScheme` store 只是"把 App 主题同步给 dark: 变体";小程序端主题由
  *     端内 store + Taro 导航栏负责,这里保留读回语义,不做窗口级副作用。
  *
@@ -87,12 +87,22 @@ export class File {
       fsWrite(this.uri, content)
       return
     }
-    warnOnce('fs-binary', '二进制写入在小程序端不落盘(媒体临时文件请走 Taro 播放/保存链)')
-    fsWrite(this.uri, '')
+    // 二进制落盘在小程序端没有等价能力:显式不支持,不让调用方以为写成功了。
+    unsupported('File.write(binary)')
   }
 
   create(): void {
     /* 懒创建:首次 write 即建 */
+  }
+
+  /** 分片/流式文件句柄在小程序端没有等价能力(多分片下载/续传只走 RN)。 */
+  open(..._args: unknown[]): never {
+    return unsupported('File.open')
+  }
+
+  /** 上传任务(createUploadTask)同样无等价能力;调用方应按 `code` 降级。 */
+  createUploadTask(..._args: unknown[]): never {
+    return unsupported('File.createUploadTask')
   }
 
   delete(): void {
@@ -119,6 +129,57 @@ export class Directory {
   create(): void {
     /* 小程序无显式目录概念 */
   }
+}
+
+/** 能力探测出口:调用方先判 `supported`,不要拿"没抛错"当能力存在。 */
+export const fileSystemSupport = {
+  supported: false,
+  reason: '小程序无原生文件系统:下载/上传/断点续传/内容 URI 均不支持',
+} as const
+
+export const NOT_SUPPORTED_CODE = 'ERR_NOT_SUPPORTED'
+
+/** 显式 not-supported:错误码固定,调用方按 `code` 判,不要匹配 message。 */
+export class NotSupportedError extends Error {
+  readonly code = NOT_SUPPORTED_CODE
+  constructor(api: string) {
+    super(`[rn-compat] expo-file-system.${api} 在小程序端不支持(无原生文件系统)`)
+    this.name = 'NotSupportedError'
+  }
+}
+
+function unsupported(api: string): never {
+  throw new NotSupportedError(api)
+}
+
+/**
+ * 枚举常量取值即抛:旧垫片缺这两个导出 ⇒ 调用方拿到 `undefined` 当参数传下去,
+ * 失败点被推到很远的地方;现在误用当场暴露。
+ */
+export const FileMode = new Proxy({} as Record<string, never>, {
+  get(_target, prop): never {
+    return unsupported(`FileMode.${String(prop)}`)
+  },
+}) as unknown as Record<string, never>
+
+export const UploadType = new Proxy({} as Record<string, never>, {
+  get(_target, prop): never {
+    return unsupported(`UploadType.${String(prop)}`)
+  },
+}) as unknown as Record<string, never>
+
+/**
+ * 目录常量:小程序没有这两个目录,显式 `null`(不是空串),调用方必须判空后降级。
+ */
+export const cacheDirectory: string | null = null
+export const documentDirectory: string | null = null
+
+export function createDownloadResumable(..._args: unknown[]): never {
+  return unsupported('createDownloadResumable')
+}
+
+export async function getContentUriAsync(..._args: unknown[]): Promise<never> {
+  return unsupported('getContentUriAsync')
 }
 
 /** nativewind 的 colorScheme store:保留读回语义,不做窗口级副作用 */

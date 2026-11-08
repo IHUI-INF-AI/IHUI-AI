@@ -91,7 +91,7 @@
     "loadFailed": "載入任務失敗"
   },
   "common": {
-    "backToTop": "回到頂部",
+    "gotIt": "我知道了",    "backToTop": "回到頂部",
     "hint": "提示",
     "goSettings": "去設定",
     "all": "全部",
@@ -395,6 +395,11 @@
         "contactService": "聯絡客服"
       },
       "tokenRate": "1元 = {n} 智匯值",
+      "title": "儲值",
+      "balance": "帳戶餘額",
+      "rate": "儲值比例",
+      "introTitle": "儲值說明",
+      "introBody": "儲值金額將立即到帳，可用於購買課程、服務等。",
       "guest": "遊客"
     },
     "withdrawal": {
@@ -2399,6 +2404,7 @@
       "tabDone": "已完成",
       "tabAll": "全部",
       "navSearch": "搜尋",
+      "loadFail": "載入失敗，請稍後重試",
       "navMenu": "選單",
       "navCategory": "分類",
       "searchPlaceholder": "搜尋需求",

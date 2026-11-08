@@ -325,6 +325,7 @@
     }
   },
   "login": {
+    "platformLinuxdo": "LinuxDo",
     "platformWechat": "WeChat",
     "platformLark": "Lark",
     "platformDingTalk": "DingTalk",
@@ -634,6 +635,7 @@
     "later": "Not now"
   },
   "order": {
+    "pay": "Pay Now",
     "title": "Orders",
     "searchPlaceholder": "Search my orders",
     "tab": {
@@ -1935,6 +1937,33 @@
     "loadFailed": "Failed to load customer service"
   },
   "artifacts": {
+    "navEntry": "Artifacts",
+    "title": "Artifacts",
+    "desc": "Reports, slides, sheets and docs delivered by AI — download or preview them here.",
+    "empty": "No artifacts yet. Ask AI to generate a report, slides or sheet and it will appear here.",
+    "loginRequired": "Sign in to view your artifacts",
+    "colName": "Name",
+    "colKind": "Type",
+    "colVersion": "Version",
+    "colCreated": "Created",
+    "colSession": "Source chat",
+    "colActions": "Actions",
+    "download": "Download",
+    "preview": "Preview",
+    "viewSession": "View chat",
+    "kind_html_report": "HTML report",
+    "kind_slides": "Slides",
+    "kind_sheet": "Sheet",
+    "kind_doc": "Document",
+    "kind_video_ref": "Video ref",
+    "justNow": "just now",
+    "secondsAgo": "{n}s ago",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago",
+    "loadMore": "Load more",
+    "refresh": "Refresh",
+    "countSummary": "Loaded {loaded} of {total} artifacts",
     "previewFailed": "Failed to get the preview link, please try again later",
     "loading": "Loading…",
     "loadFailed": "Failed to load artifacts"
@@ -3651,11 +3680,6 @@
     "flowsLoading": "Loading...",
     "flowBalanceAfter": "Balance",
     "flowRemarkEmpty": "No remark",
-    "opType1": "Top-up",
-    "opType2": "Deduction",
-    "opType3": "Expired",
-    "opType4": "Refund",
-    "opType5": "Commission",
     "loginRequiredHint": "Sign in to view fund flows",
     "goLogin": "Sign in",
     "rechargeFail": "Recharge Failed",
