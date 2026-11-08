@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-08T12:45:15.477Z",
+  "sealedAt": "2026-11-08T12:51:16.069Z",
   "sealedBy": "root-guard --seal",
-  "reason": "merge wave 1108: 合入 fix/typecheck-dist-cache-root-key-1108 后按索引面重封",
+  "reason": "merge wave 1108: 同步 origin/main 6ea56fc0d2 后按索引面重封",
   "targets": [
     {
       "id": "guardian-runner",

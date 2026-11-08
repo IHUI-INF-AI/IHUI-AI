@@ -17,9 +17,12 @@
 
 from __future__ import annotations
 
+import os
+import time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+from .metrics import judge_metrics
 from .text import token_set
 
 MODE_LEXICAL_ONLY = "lexical-only"
@@ -30,6 +33,14 @@ NO_MODEL_REASON = (
     "未配置证据判断模型(judge provider);本轮按纯词法打分,"
     "不得声称已完成语义证据判定"
 )
+
+JUDGE_ENABLED_ENV = "SAG2_JUDGE_ENABLED"
+JUDGE_MODEL_ENV = "SAG2_JUDGE_MODEL"
+GATEWAY_MISSING_REASON = (
+    "SAG2_JUDGE_ENABLED 已开启但未提供 gateway(llm_gateway 实例);"
+    "本轮诚实降级为纯词法打分,不得声称已完成模型证据判定"
+)
+_TRUTHY_FLAGS = frozenset({"1", "true", "yes", "on"})
 
 
 @dataclass
@@ -60,7 +71,21 @@ class LexicalOnlyJudge:
     ``executed`` 恒为 False，让调用方一眼看出没有模型参与。
     """
 
+    def __init__(self, reason: str = NO_MODEL_REASON) -> None:
+        self._reason = reason
+
     async def score(
+        self,
+        question: str,
+        candidates: list[Any],
+        evidence: list[Any],
+    ) -> JudgeVerdict:
+        started = time.perf_counter()
+        verdict = self._score_lexical(question, candidates, evidence)
+        _record_metrics(verdict, started)
+        return verdict
+
+    def _score_lexical(
         self,
         question: str,
         candidates: list[Any],
@@ -94,7 +119,7 @@ class LexicalOnlyJudge:
             scores=scores,
             mode=MODE_LEXICAL_ONLY,
             executed=False,
-            reason=NO_MODEL_REASON,
+            reason=self._reason,
         )
 
 
@@ -118,6 +143,17 @@ class ModelJudge:
         self._model = model
 
     async def score(
+        self,
+        question: str,
+        candidates: list[Any],
+        evidence: list[Any],
+    ) -> JudgeVerdict:
+        started = time.perf_counter()
+        verdict = await self._score_with_gateway(question, candidates, evidence)
+        _record_metrics(verdict, started)
+        return verdict
+
+    async def _score_with_gateway(
         self,
         question: str,
         candidates: list[Any],
@@ -165,6 +201,69 @@ class ModelJudge:
                 executed=False,
                 reason=f"judge provider 调用失败({type(exc).__name__});本轮未采信模型分",
             )
+
+
+def _env_flag(name: str) -> bool:
+    """读取布尔开关环境变量；仅 1 / true / yes / on（忽略大小写与空白）算开启。"""
+    raw = os.environ.get(name)
+    return raw is not None and raw.strip().lower() in _TRUTHY_FLAGS
+
+
+def _record_metrics(verdict: JudgeVerdict, started: float) -> None:
+    """埋点：判定结果一字不改；埋点自身异常绝不影响判定结果。"""
+    try:
+        judge_metrics.record(
+            verdict, duration_ms=(time.perf_counter() - started) * 1000.0
+        )
+    except Exception:  # noqa: BLE001 - 遥测失败绝不改变判定结果
+        pass
+
+
+def resolve_judge_from_settings(
+    gateway: Any | None = None,
+    model: str | None = None,
+    *,
+    enabled: bool | None = None,
+) -> EvidenceJudge:
+    """从环境变量选择 provider（默认关闭 ⇒ 仍 LexicalOnlyJudge，逐字兼容旧路径）。
+
+    - ``enabled`` 显式给出时优先于 ``SAG2_JUDGE_ENABLED``；否则读环境变量，
+      取值 1 / true / yes / on（大小写不敏感）才算开启，未设置或其它值一律关闭。
+    - ``model`` 显式给出时优先于 ``SAG2_JUDGE_MODEL``；否则读该环境变量。
+    - **gateway=None 时即使 enabled 也诚实降级**：返回带明确 reason 的
+      ``LexicalOnlyJudge``，绝不伪造 ``executed=True``。
+    """
+    active = _env_flag(JUDGE_ENABLED_ENV) if enabled is None else bool(enabled)
+    effective_model = model
+    if effective_model is None:
+        effective_model = os.environ.get(JUDGE_MODEL_ENV) or None
+    if not active:
+        return LexicalOnlyJudge()
+    if gateway is None:
+        return LexicalOnlyJudge(reason=GATEWAY_MISSING_REASON)
+    return ModelJudge(gateway, effective_model)
+
+
+def attach_gateway(target: Any, gateway: Any, model: str | None = None) -> ModelJudge:
+    """给「已构造但缺 gateway」的 provider / 门面接上真实 gateway，不改任何 __init__ 签名。
+
+    - ``target`` 为 ``ModelJudge``：就地写回 ``_gateway`` / ``_model`` 并返回它自身；
+    - ``target`` 为带可写 ``judge`` 属性的门面（如 ``Sag2LexicalService``）：把
+      ``target.judge`` 换成新 ``ModelJudge`` 并返回；
+    - ``target`` 为 ``None`` 或纯词法判定：仅返回新建 ``ModelJudge``，由调用方赋值。
+    ``gateway is None`` 直接抛 ``ValueError``：宁可显式失败，也绝不伪造已判定。
+    """
+    if gateway is None:
+        raise ValueError("attach_gateway 需要真实 gateway;None 会退回纯词法,拒绝伪造已执行")
+    if isinstance(target, ModelJudge):
+        target._gateway = gateway
+        if model is not None:
+            target._model = model
+        return target
+    judge = ModelJudge(gateway, model)
+    if target is not None and hasattr(target, "judge"):
+        target.judge = judge
+    return judge
 
 
 def resolve_judge(gateway: Any | None = None, model: str | None = None) -> EvidenceJudge:
