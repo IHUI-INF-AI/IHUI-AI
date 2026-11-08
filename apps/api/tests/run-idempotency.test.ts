@@ -468,7 +468,7 @@ describe('业务失败 ⇒ 释放槽位 / 成功 ⇒ 提交(G-814421 判据 3/4/
 })
 
 describe('readIdempotencyKey / fingerprint', () => {
-  it('缺失、非字符串、过短都算没带;首尾空白被去掉;超长截到 200', () => {
+  it('缺失、非字符串、过短、超长都算没带;首尾空白被去掉;超长不截断(F-259)', () => {
     expect(readIdempotencyKey({})).toBeNull()
     expect(readIdempotencyKey({ 'idempotency-key': 'short' })).toBeNull()
     // 数组头不是"非字符串":HTTP 多值头由 normalizeHeader 取首值,这是本仓既有约定,
@@ -476,9 +476,11 @@ describe('readIdempotencyKey / fingerprint', () => {
     expect(readIdempotencyKey({ 'idempotency-key': ['a'.repeat(12)] })).toBe('aaaaaaaaaaaa')
     expect(readIdempotencyKey({ 'idempotency-key': 42 as unknown as string })).toBeNull()
     expect(readIdempotencyKey({ 'idempotency-key': '  key-abcdefgh  ' })).toBe('key-abcdefgh')
-    expect(readIdempotencyKey({ 'idempotency-key': 'z'.repeat(500) })).toHaveLength(
+    // 超长不得截断:两个前 200 字符相同的长键曾落到同一槽位(错误回放/409)。
+    expect(readIdempotencyKey({ 'idempotency-key': 'z'.repeat(MAX_CLIENT_KEY_LEN) })).toHaveLength(
       MAX_CLIENT_KEY_LEN,
     )
+    expect(readIdempotencyKey({ 'idempotency-key': 'z'.repeat(MAX_CLIENT_KEY_LEN + 1) })).toBeNull()
     expect(MIN_CLIENT_KEY_LEN).toBeLessThan(MAX_CLIENT_KEY_LEN)
   })
 
