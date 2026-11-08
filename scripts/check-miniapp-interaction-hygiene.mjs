@@ -94,6 +94,19 @@ const NOOP_NAME_RE = /^(?:noop|_noop|NOOP|noOp)$/
 /** 从仓库根读文件(统一换行,便于行号与指纹跨平台一致)。 */
 const readText = (rel) => readFileSync(join(REPO, rel), 'utf8').replace(/\r\n/g, '\n')
 
+/**
+ * 取不到被审面时返回显式错误,由 `run()` 统一 exit 2(未判定)。
+ * 语义分界:读不到 = 未判定(exit 2),确证为空(端口无消费方)= 删端口后 exit 0 并打印依据;
+ * 禁止把「读不到」折成「零违规」放行。
+ */
+export function readTextSafe(rel) {
+  try {
+    return { text: readText(rel) }
+  } catch (e) {
+    return { error: String(e?.code || e?.message || e) }
+  }
+}
+
 /** 递归列出被审面 .ts/.tsx,跳过 rn-compat 垫片与测试文件。 */
 export function listSourceFiles(rootRel = SRC_REL) {
   const out = []
@@ -802,6 +815,12 @@ export async function run({ mode = 'full', json = false, strict = false } = {}) 
     console.error(`❌ 被审面取不到:${listed.missing} ⇒ 未判定`)
     process.exit(2)
   }
+  // 端口表是 A2 的唯一射程来源:为空时射程会静默收缩,必须 exit 2 而不是零违规放行。
+  // (模块导入失败会在加载期直接失败,不会走到这里;此闸守的是「表在但为空」这一折绿形态。)
+  if (PORT_NAMES.length === 0) {
+    console.error('❌ 端口表为空 ⇒ 未判定(不得以零端口名判 A2 通过)')
+    process.exit(2)
+  }
   let files = listed.files
   if (mode === 'staged') {
     const st = stagedFiles()
@@ -816,7 +835,12 @@ export async function run({ mode = 'full', json = false, strict = false } = {}) 
   let tagCount = 0
   const activeSelectors = buildActiveSelectors()
   for (const rel of files) {
-    const r = scanSource(readText(rel), { activeSelectors })
+    const read = readTextSafe(rel)
+    if (read.error) {
+      console.error(`❌ 取不到被审面:${rel} ⇒ 未判定(${read.error})`)
+      process.exit(2)
+    }
+    const r = scanSource(read.text, { activeSelectors })
     tagCount += r.tags
     for (const v of r.blocking) violations.push({ ...v, file: rel })
     for (const v of r.advisory) advisories.push({ ...v, file: rel })
@@ -865,6 +889,10 @@ export async function run({ mode = 'full', json = false, strict = false } = {}) 
     console.log(`🔍 小程序交互卫生门(290) 扫 ${files.length} 文件 / ${tagCount} 标签`)
     console.log(`  blocking:${violations.length}${violations.length ? ` ${JSON.stringify(byRule(violations))}` : ''}`)
     console.log(`  advisory:${advisories.length}${advisories.length ? ` ${JSON.stringify(byRule(advisories))}` : ''}(不进退出码)`)
+    // A2 的判定依据必须可见:端口表已加载 + 现读空端口数。确证为空时应删端口(而不是挂空实现)。
+    console.log(
+      `  A2 空端口:${byRule(violations)['A2-empty-port'] || 0}(端口表已加载 ${PORT_NAMES.length} 名;取不到宿主应 exit 2,确证为空应删端口)`,
+    )
     console.log(`  台账:${entries.length} 条;到期 ${ledger.expired.length} / 认领差额 ${ledger.red.length} / 缺字段 ${ledger.malformed.length}`)
     for (const v of violations.slice(0, 20)) console.log(`   ✗ ${v.file}:${v.line} [${v.rule}] ${v.port || v.tag || ''} ${v.detail}`)
     for (const line of blockingRed.slice(0, 20)) console.log(`   ✗ 台账:${line}`)
@@ -896,6 +924,7 @@ if (isDirectRun) {
 
 export const __test__ = {
   listSourceFiles,
+  readTextSafe,
   scanTags,
   scanTagTree,
   parseAttrs,

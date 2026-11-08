@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { fetchApi, apiOrThrow } from '@/lib/api'
 import { AuthGatePrompt } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { useTheme } from '@/hooks/use-theme'
 import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app/features/withdraw/WithdrawScreen'
 import type { TFunction } from '@ihui/types'
 
@@ -31,6 +32,7 @@ export default function WithdrawPage() {
   const t = useTranslations('wallet')
   const td = useTranslations('distribution')
   const router = useRouter()
+  const { resolvedTheme } = useTheme()
   const { allow } = useAuthGate()
   const [amount, setAmount] = React.useState('')
   const [method, setMethod] = React.useState('wechat')
@@ -133,7 +135,7 @@ export default function WithdrawPage() {
             onAmountChange={setAmount}
             onSubmit={onSubmit}
             onBack={() => router.push('/wallet')}
-            colorScheme="light"
+            colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
             balance={availableYuan}
             methods={methods}
             method={method}

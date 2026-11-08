@@ -181,7 +181,6 @@ export default function UpgradePage() {
           void Taro.navigateBack()
         }}
         colorScheme={resolvedTheme}
-        onNavigate={() => {}}
         onToast={onToast}
         features={buildUpgradeRights(tList('vip.upgrade.rights'))}
       />
