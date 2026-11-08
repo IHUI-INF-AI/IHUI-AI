@@ -212,7 +212,10 @@ export const srsRoutes: FastifyPluginAsync = async (server) => {
   // ===== SRS 服务器管理 =====
 
   server.get('/servers', async (request, reply) => {
-    await requireAuth(request, reply)
+    // F-195(P1):列表实体含 apiSecret(SRS HTTP API 管理密钥),旧写法只校验登录
+    // ⇒ 任意登录用户可接管直播面。apps/web 无 getSrsServers 调用方(管理面端点),
+    // 故收口为 requireAdmin:非管理员 403 且不触达查询,管理员保留完整字段供配置。
+    await requireAdmin(request, reply)
     if (reply.sent) return
     const list = await db.select().from(srsServers).orderBy(desc(srsServers.createdAt))
     return reply.send(success(list))
