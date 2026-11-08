@@ -85,8 +85,22 @@ test('41 refs 面:新建/重指旁支 ⇒ 阻断;只移动当前分支 ⇒ 不�
   assert.equal(refsTouched({ 'refs/heads/main': 'bbb' }, base, 'main'), false, '当前分支移动不算')
   assert.equal(refsTouched({ ...base, 'refs/heads/fix-x': 'ccc' }, base, 'main'), true, '新建旁支算触及')
   assert.equal(refsTouched({ ...base, 'refs/heads/fix-x': 'ddd' }, { ...base, 'refs/heads/fix-x': 'ccc' }, 'main'), true, '重指旁支算触及')
+  assert.equal(refsTouched({ ...base, 'refs/heads/fix-x': 'ccc' }, { ...base, 'refs/heads/fix-x': 'ccc' }, 'main'), false, '没动不算')
   assert.equal(decide({ touched: true }), 'block')
   assert.equal(decide({ touched: false }), 'advisory')
+})
+
+test('41 refs 面:快进前进不算重指,回退/改指向才算(且不注入后代尺 ⇒ 保守算触及)', () => {
+  const base = { 'refs/heads/main': 'old' }
+  const cur = { 'refs/heads/main': 'new' }
+  // 快进:main 被推着往前走 —— 每次 push 之后所有工作区都会看到,不能算"本笔重指"。
+  assert.equal(refsTouched(cur, base, 'other', (o, n) => o === 'old' && n === 'new'), false)
+  // 回退/改指向:不是快进 ⇒ 触及。
+  assert.equal(refsTouched(cur, base, 'other', () => false), true)
+  // 不注入后代尺 ⇒ 失效方向是阻断。
+  assert.equal(refsTouched(cur, base, 'other'), true)
+  // 删除 ref ⇒ 触及(没有后代关系可比)。
+  assert.equal(refsTouched({}, base, 'other', () => true), true)
 })
 
 test('存量台账:一行含门 id/读数/项目清单/HEAD/暂存面,且可按行累加', () => {
