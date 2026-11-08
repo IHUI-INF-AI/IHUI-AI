@@ -124,6 +124,14 @@ vi.mock('../src/services/risk-engine-service.js', () => ({
   recentRiskHitsByIp: mockRecentRiskHitsByIp,
 }))
 
+// F-377:登录风控上下文补全 —— IP 信誉/异地判断走固定夹具,避免真实 Redis/外部查询
+vi.mock('../src/services/ip-reputation.js', () => ({
+  getIpReputationService: () => ({
+    getIpReputation: async () => ({ score: 85, reasons: ['blacklisted'], source: 'live' }),
+  }),
+  isPrivateIp: () => false,
+}))
+
 vi.mock('../src/config/index.js', () => ({
   config: {
     NODE_ENV: 'test',
@@ -142,7 +150,7 @@ vi.mock('@ihui/shared', () => ({
   toUserFriendlyMessage: (e: unknown) => (e instanceof Error ? e.message : String(e ?? '')),
 }))
 
-import { authRoutes } from '../src/routes/auth.js'
+import { authRoutes, __test__ as authTest } from '../src/routes/auth.js'
 import {
   __test__ as codeStoreTest,
   putCodeEntry,
@@ -376,6 +384,48 @@ describe('G-876 register 验证码校验', () => {
       expect(res.statusCode).toBe(400)
       expect(res.json().errorCode).toBe('VALIDATION_FAILED')
       expect(mockCreateUser).not.toHaveBeenCalled()
+    })
+  })
+
+  // F-378:风控数据源(DB)不可用时注册必须 fail-closed,不能当成「0 条命中」放行。
+  describe('F-378 风控数据源不可用 ⇒ 503 fail-closed', () => {
+    beforeEach(() => {
+      process.env.SMS_API_BASE_URL = 'http://127.0.0.1:1'
+    })
+
+    it('recentRiskHitsByIp 抛错 ⇒ 503 且不落库', async () => {
+      await seedCode(PHONE, '246810')
+      mockRecentRiskHitsByIp.mockRejectedValueOnce(new Error('db down'))
+      const res = await postRegister({ phone: PHONE, password: 'password123', code: '246810' })
+      expect(res.statusCode).toBe(503)
+      expect(mockCreateUser).not.toHaveBeenCalled()
+    })
+  })
+
+  // F-377:登录风控上下文补齐 —— R001/R003 原为死规则,现在必须能拿到 ip 信誉与异地信号。
+  describe('F-377 登录风控上下文补齐', () => {
+    it('上下文含 ipRiskScore/ipBlacklisted/loginRegionChanged/deviceFingerprint', async () => {
+      const fakeRequest = {
+        ip: '203.0.113.9',
+        headers: { 'user-agent': 'ua', 'x-device-fingerprint': 'fp' },
+        // 上一次成功登录来自不同 /16 网段 ⇒ loginRegionChanged
+        server: { redis: { get: async () => '198.51.100.7' } },
+        log: { warn: vi.fn() },
+      }
+      const ctx = await authTest.buildLoginRiskContext(fakeRequest as never, 'user-001')
+      expect(ctx.userId).toBe('user-001')
+      expect(ctx.ipRiskScore).toBe(85)
+      expect(ctx.ipBlacklisted).toBe(true)
+      expect(ctx.loginRegionChanged).toBe(true)
+      expect(ctx.deviceFingerprint).toBe('fp')
+      expect(ctx.userAgent).toBe('ua')
+    })
+
+    it('ipRegionKey:IPv4 取 /16,IPv6 取前两个 hextet', () => {
+      expect(authTest.ipRegionKey('203.0.113.9')).toBe('203.0')
+      expect(authTest.ipRegionKey('2001:db8::1')).toBe('2001:db8')
+      // 同 /16 内换 IP 不误报异地
+      expect(authTest.ipRegionKey('198.51.100.7')).toBe('198.51')
     })
   })
 })

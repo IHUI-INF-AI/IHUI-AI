@@ -16,7 +16,6 @@ import {
   updateResourceCategory,
   deleteResourceCategory,
   findResources,
-  findResourceByIdAndIncrementView,
   findResourceById,
   findResourcesByIds,
   createResource,
@@ -323,7 +322,9 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const resource = await findResourceByIdAndIncrementView(parsed.data.id)
+      // F-206:浏览量统一由 watch-aspect(onResponse + Redis 去重)计数,
+      // 路由侧只读详情,避免同一请求被两处各 +1。
+      const resource = await findResourceById(parsed.data.id)
       if (!resource) return reply.status(404).send(error(404, '资源不存在'))
       return reply.send(success({ resource: toPublicResource(resource) }))
     },

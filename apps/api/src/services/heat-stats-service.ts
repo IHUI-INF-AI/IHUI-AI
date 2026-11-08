@@ -6,13 +6,16 @@
  * 热度统计聚合服务（backing service for heat-stats-hourly 定时任务）。
  * 迁移自旧架构 app/tasks/heat_stats_task.py。
  *
- * 每小时聚合 Agent 使用次数，写入 agent_heat_stats 表。
- * 使用 upsert 语义：同一 agent + 同一日期只保留一行，hitCount 累加。
+ * 每小时只做**读侧聚合**（返回当日 agent_heat_stats 汇总），不再回写 agents.usage_count。
+ * usage_count 的真值是 recordAgentUse 的逐次 +1；agent_heat_stats.hitCount 是它的当日快照，
+ * 每小时把当日全量再加一遍会形成 ×24 的复利膨胀（F-262，修复前当日每跑一次再涨一份）。
+ * 日键统一走 bizDayKey（Asia/Shanghai），不再用 UTC 的 toISOString().slice(0,10)。
  */
 
 import { sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { agentHeatStats } from '@ihui/database'
+import { bizDayKey } from '../utils/biz-day.js'
 
 export interface HeatStatsResult {
   dateStr: string
@@ -21,21 +24,21 @@ export interface HeatStatsResult {
 }
 
 /**
- * 聚合上一小时的 Agent 调用热度。
+ * 聚合当日的 Agent 调用热度（只读）。
  *
  * 实现策略：
- * 1. 以当前时间计算昨日日期字符串（YYYY-MM-DD）
- * 2. 从 audit_logs / 聊天记录等源头统计各 agent 的命中次数
- * 3. upsert 到 agent_heat_stats 表（按 agent_id + date_str 唯一）
+ * 1. 以 bizDayKey 计算上海当日日期（YYYY-MM-DD）
+ * 2. 从 agent_heat_stats 读当日汇总（agent 数 / 当日命中总数）
+ * 3. **不回写 agents.usage_count**：该列由 recordAgentUse 逐次维护，heat 表只是当日快照
  *
- * 由于新架构无独立的 agent_call_log 表，此处从 agent_heat_stats 自身
- * 做日级聚合（将同日多行合并为单行），并统计 agents 表的 usageCount 变化。
+ * F-262：此前这里每小时执行 `usage_count = usage_count + 当日 hit 总和`，
+ * 同一天每跑一次就再累加一份全量，数值按小时膨胀，且与 recordAgentUse 双重计数。
  */
 export async function aggregateHeatStats(): Promise<HeatStatsResult> {
   const now = new Date()
-  const dateStr = now.toISOString().slice(0, 10) // YYYY-MM-DD
+  const dateStr = bizDayKey(now)
 
-  // 统计 agents 表中 usageCount > 0 的 Agent 数量与总命中数
+  // 统计当日 agent_heat_stats 的 Agent 数量与总命中数
   const statsResult = await db
     .select({
       agentCount: sql<number>`count(*)::int`,
@@ -47,34 +50,10 @@ export async function aggregateHeatStats(): Promise<HeatStatsResult> {
   const aggregatedAgents = statsResult[0]?.agentCount ?? 0
   const totalHits = statsResult[0]?.totalHits ?? 0
 
-  // 同步 usage_count：将 agent_heat_stats 的日聚合命中数累加到 agents.usage_count
-  // 迁移自旧架构 tasks/agent_sync.py
-  await syncAgentUsageCount(dateStr)
-
   return {
     dateStr,
     aggregatedAgents,
     totalHits,
   }
-}
-
-/**
- * 将当日 agent_heat_stats 的命中数同步到 agents.usage_count 字段。
- * 使用 SQL UPSERT 语义：usage_count = usage_count + 当日 hit_count。
- */
-async function syncAgentUsageCount(dateStr: string): Promise<void> {
-  await db.execute(sql`
-    UPDATE "agents" SET "usage_count" = "usage_count" + (
-      SELECT coalesce(sum(${agentHeatStats.hitCount}), 0)
-      FROM ${agentHeatStats}
-      WHERE ${agentHeatStats.dateStr} = ${dateStr}
-        AND ${agentHeatStats.agentId} = "agents"."agent_id"
-    )
-    WHERE "agent_id" IN (
-      SELECT DISTINCT ${agentHeatStats.agentId}
-      FROM ${agentHeatStats}
-      WHERE ${agentHeatStats.dateStr} = ${dateStr}
-    )
-  `)
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

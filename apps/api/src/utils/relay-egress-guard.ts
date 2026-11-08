@@ -99,7 +99,12 @@ let directEgressAgent: Agent | null = null
  */
 export function directEgressDispatcher(): Agent {
   if (!directEgressAgent) {
-    directEgressAgent = new Agent({ connect: { lookup: relayGuardedLookup } })
+    // F-616:上游建连后不回响应头时,别只吃 undici 默认 300s(headersTimeout 只约束响应头,
+    // 不影响已开始的流式正文);正文 deadline 由各调用方的 AbortSignal 负责。
+    directEgressAgent = new Agent({
+      connect: { lookup: relayGuardedLookup },
+      headersTimeout: 120_000,
+    })
   }
   return directEgressAgent
 }
