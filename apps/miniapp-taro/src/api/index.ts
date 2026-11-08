@@ -6,7 +6,7 @@
  * API 接口定义 - 对接新架构后端 http://localhost:8801/api
  */
 import { normalizeVipMine, type VipMineRow } from './vip-mine'
-import { normalizeOrderDetail } from './order-normalize'
+import { normalizeOrderDetail, type OrderDetailRow } from './order-normalize'
 import { normalizeDistributionOverview } from './distribution-normalize'
 import { BASE_URL } from '../utils/api-config'
 import { getMiniappVersion } from '../utils/app-version'
@@ -298,8 +298,15 @@ export type Order = Pick<ApiOrder, 'orderNo' | 'amount'> & {
 }
 
 /** 我的订单列表 — 对接后端 GET /orders/me(返回 { list, total, page, pageSize }) */
-export const getOrderList = (params?: { page?: number; pageSize?: number; status?: string }) =>
-  get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/orders/me', params)
+export const getOrderList = async (params?: { page?: number; pageSize?: number; status?: string }) => {
+  const res = await get<{ list: OrderDetailRow[]; total: number; page?: number; pageSize?: number }>(
+    '/orders/me',
+    params,
+  )
+  // XUI-042:列表返回的是 edu_orders 原始行(payAmount/targetTitle/createdAt),
+  // 必须与详情同口径归一,否则标题空、时间 undefined、金额 0.00(金额另由 rawAmountRef 兜底)。
+  return { ...res, list: (res.list ?? []).map((row) => normalizeOrderDetail(row)) }
+}
 
 /* ============ AI 对话 ============ */
 
