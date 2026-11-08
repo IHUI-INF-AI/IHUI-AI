@@ -1317,9 +1317,23 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
   })
 }
 
-export async function findMessageById(id: string): Promise<ChatMessage | undefined> {
-  const rows = await db.select().from(chatMessages).where(eq(chatMessages.id, id)).limit(1)
-  return rows[0]
+export async function findMessageById(
+  id: string,
+  userId?: string,
+): Promise<ChatMessage | undefined> {
+  // F-154(2026-11-08):带 userId 时按会话归属过滤(chat_messages 无 sender/receiver 列,
+  // 归属在 chat_conversations);未传 userId 的内部调用保持旧形状。
+  if (!userId) {
+    const rows = await db.select().from(chatMessages).where(eq(chatMessages.id, id)).limit(1)
+    return rows[0]
+  }
+  const rows = await db
+    .select({ message: chatMessages })
+    .from(chatMessages)
+    .innerJoin(chatConversations, eq(chatConversations.id, chatMessages.conversationId))
+    .where(and(eq(chatMessages.id, id), eq(chatConversations.userId, userId)))
+    .limit(1)
+  return rows[0]?.message
 }
 
 /**
@@ -2226,10 +2240,7 @@ export async function setConversationShareToken(
 }
 
 // BUG-50:撤销分享。清空 token 与过期时间,使公开查看端点立即 404。
-export async function removeConversationShareToken(
-  id: string,
-  userId: string,
-): Promise<void> {
+export async function removeConversationShareToken(id: string, userId: string): Promise<void> {
   const existing = await findConversationById(id)
   if (!existing) throw new Error('对话不存在')
   if (existing.userId !== userId) throw new Error('无权操作该对话')
