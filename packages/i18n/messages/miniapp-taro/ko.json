@@ -91,7 +91,7 @@
     "loadFailed": "미션 로딩 실패"
   },
   "common": {
-    "backToTop": "맨 위로",
+    "gotIt": "알겠습니다",    "backToTop": "맨 위로",
     "hint": "알림",
     "goSettings": "설정으로",
     "all": "전체",
@@ -395,6 +395,11 @@
         "contactService": "고객센터 문의"
       },
       "tokenRate": "1위안 = {n} IHUI 포인트",
+      "title": "충전",
+      "balance": "계정 잔액",
+      "rate": "충전 비율",
+      "introTitle": "충전 안내",
+      "introBody": "충전 금액은 즉시 반영되며 강좌, 서비스 구매 등에 사용할 수 있습니다.",
       "guest": "게스트"
     },
     "withdrawal": {
@@ -2399,6 +2404,7 @@
       "tabDone": "완료",
       "tabAll": "전체",
       "navSearch": "검색",
+      "loadFail": "불러오기에 실패했습니다. 잠시 후 다시 시도해 주세요.",
       "navMenu": "메뉴",
       "navCategory": "분류",
       "searchPlaceholder": "수요 검색",
