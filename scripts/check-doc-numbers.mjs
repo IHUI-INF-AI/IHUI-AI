@@ -581,7 +581,7 @@ export function checkGeneratedBlock(text, numbers) {
   const b = text.indexOf(BLOCK_BEGIN)
   const e = text.indexOf(BLOCK_END)
   if (b < 0 || e < 0 || e < b) {
-    problems.push(`缺生成块(或块结束标记在开始标记之前):跑 \`node scripts/sync-readme-numbers.mjs\`(唯一写入口)生成并写入`)
+    problems.push(`缺生成块(或块结束标记在开始标记之前):跑 \`node scripts/gen-doc-numbers.mjs --markdown\` 生成后粘进 README`)
     return { ok: false, problems, checked: 0 }
   }
   const block = text.slice(b, e)
@@ -679,7 +679,7 @@ export function judgeTrackedInventory({ docText, numbers, inventory }) {
     return {
       applicable: true,
       ok: false,
-      problems: ['README.md 生成块里取不到 `trackedFiles` 行 ⇒ 本轮改了文件清单却无对账对象(跑 node scripts/sync-readme-numbers.mjs)'],
+      problems: ['README.md 生成块里取不到 `trackedFiles` 行 ⇒ 本轮改了文件清单却无对账对象(跑 node scripts/gen-doc-numbers.mjs --markdown)'],
     }
   const want = numbers.trackedFiles
   if (got !== want)
@@ -687,7 +687,7 @@ export function judgeTrackedInventory({ docText, numbers, inventory }) {
       applicable: true,
       ok: false,
       problems: [
-        `生成块 \`trackedFiles\` = ${got},现算 ${want}(本轮新增/删除/改名/复制 ${inventory.changed.length} 个路径)⇒ 跑 node scripts/sync-readme-numbers.mjs 刷新块`,
+        `生成块 \`trackedFiles\` = ${got},现算 ${want}(本轮新增/删除/改名/复制 ${inventory.changed.length} 个路径)⇒ 跑 node scripts/gen-doc-numbers.mjs --markdown 刷新块`,
       ],
     }
   return { applicable: true, ok: true, problems: [], note: `清单变化 ${inventory.changed.length} 个路径,trackedFiles 已同步(${want})` }
@@ -1355,7 +1355,7 @@ function main(argv) {
         `存量漂移 ${ratchetStock} 处只报数不判红(锚点 = ${baselineRef ? `${baselineRef} ∪ HEAD` : '基线快照(取不到 ⇒ 全判)'} 的命中集合)`,
     )
     for (const b of blockStock)
-      console.log(`ℹ ${b.rel}:生成块存量 ${b.n} 处(本轮未碰生成块):只报数不判红(要刷新块跑 node scripts/sync-readme-numbers.mjs)`)
+      console.log(`ℹ ${b.rel}:生成块存量 ${b.n} 处(本轮未碰生成块):只报数不判红(要刷新块跑 node scripts/gen-doc-numbers.mjs --markdown)`)
   }
 
   const descArg = readArg(argv, '--description')
@@ -1412,7 +1412,7 @@ function main(argv) {
   for (const u of undetermined) console.log(`⚠️ 未判定 ${u.key}:${u.reason}`)
   console.log(
     code === 0
-      ? `✅ 文档数字与现算值一致(${why})。要刷新 README 块:node scripts/sync-readme-numbers.mjs(唯一写入口)`
+      ? `✅ 文档数字与现算值一致(${why})。要刷新 README 块:node scripts/gen-doc-numbers.mjs --markdown`
       : `结论:${why}`,
   )
   return code

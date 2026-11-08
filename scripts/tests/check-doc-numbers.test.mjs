@@ -396,8 +396,7 @@ test('T11 差值棘轮接在裁决路径上,且盲区在结论行披露', () => 
  *  ① 三面各自由一条 git 原语驱动(head=ls-tree / staged=ls-files --cached / worktree=真实盘上枚举);
  *  ② 脏索引(暂存删除)下 head 不变、index/worktree 各自正确 → 三者给出**不同**的数;
  *  ③ 工作树多出未跟踪文件:worktree 变、head 不变;
- *  ④ 取不到 HEAD ⇒ exit 2;未知面 ⇒ exit 2;head 面带写手令牌的 `--markdown` 与 HEAD 树一致,
- *     工作树面 `--markdown` 一律 exit 2(产物不得入库,防"第二个写手")。
+ *  ④ 取不到 HEAD ⇒ exit 2;未知面 ⇒ exit 2;`--markdown` 在 head 面下与 HEAD 树一致。
  */
 function runGen(cwd, args) {
   try {
@@ -486,18 +485,13 @@ test('T12 面旗真换取材面:head 读 HEAD 树、index 读索引、worktree �
 
     // ④ head 面 --markdown 必须与 HEAD 树一致(工作树改了 schema,未入库 ⇒ head 不跟着动)
     writeFileSync(`${s}/packages/database/src/schema/a.ts`, 'export const t1 = pgTable("t1", {})\nexport const t2 = pgTable("t2", {})\n')
-    const headMd = runGen(s, ['--face=head', '--markdown', '--writer=sync-readme-numbers', '--root', s]).stdout.trimEnd()
+    const headMd = runGen(s, ['--face=head', '--markdown', '--root', s]).stdout.trimEnd()
     if (!headMd.includes('| 数据库表 | 1 |')) throw new Error(`head 面 markdown 读到工作树的表数:\n${headMd}`)
     if (!headMd.includes('| 跟踪文件 | 8 |')) throw new Error(`head 面 markdown 的 trackedFiles 不等于 HEAD 树:\n${headMd}`)
     if (headMd !== gen.toMarkdown(gen.collectNumbers({ root: s, face: 'head' })).trimEnd())
       throw new Error('--face=head --markdown 与库函数 head 面输出不一致')
-    // 工作树面 markdown 现在必须 fail-loud(产物不得入库,唯一写入口只按索引面取数);
-    // "worktree 面确实读盘"改由 --json(只读)验证,判据不放松。
-    const wtMd = runGen(s, ['--face=worktree', '--markdown', '--root', s])
-    if (wtMd.code !== 2) throw new Error(`worktree 面 --markdown 必须 exit 2,实得 ${wtMd.code}\n${wtMd.stdout}${wtMd.stderr}`)
-    if (!/拒绝输出可入库生成块/.test(wtMd.stderr)) throw new Error(`worktree 面 --markdown 未点名拒绝原因:${wtMd.stderr}`)
-    const wtJson = JSON.parse(runGen(s, ['--face=worktree', '--json', '--root', s]).stdout)
-    if (wtJson.numbers.dbTables !== 2) throw new Error(`worktree 面未读盘上改动:${JSON.stringify(wtJson.numbers)}`)
+    const wtMd = runGen(s, ['--face=worktree', '--markdown', '--root', s]).stdout
+    if (!wtMd.includes('| 数据库表 | 2 |')) throw new Error(`worktree 面 markdown 未读盘上改动:\n${wtMd}`)
 
     // ⑤ 未知面 ⇒ exit 2(绝不静默落回默认面)
     const bogus = runGen(s, ['--face=bogus', '--json', '--root', s])

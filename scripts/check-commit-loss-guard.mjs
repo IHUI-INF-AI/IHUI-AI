@@ -335,11 +335,13 @@ const SPAWN_DEFAULT_TIMEOUT_MS = 120_000
 
 /**
  * 逐路径覆盖取材的 git 上限(2026-11-04)。
- * 本仓实测:全量 `git log --all --raw` 约 18s;reflog 面(`git log -g --all --raw`)约 40s。
+ * 本仓实测:21 条路径的 `git log --all --raw` 约 12s;reflog 面(`git log -g`)走查约 55s。
  * 上限取 180s 而不是 LOCAL_GIT_TIMEOUT_MS(10s):这是**全历史**走查,与"批量取 subject"不同量级;
  * 超时 ⇒ 调用方按"未覆盖"判红(fail-closed),绝不静默放行。
  */
 const PATH_COVERAGE_TIMEOUT_MS = 180_000
+/** 一次 argv 里放多少路径字符(Windows CreateProcess 上限约 32KB;留一半余量)。 */
+const PATHSPEC_ARGV_BUDGET = 16_000
 /**
  * 缓存判据面版本:判据本体变化 ⇒ 旧缓存件不可复用(否则修复后仍被旧红结论卡住 ≤30min)。
  * 2026-11-04 升到 2:D 类判据从"任意删除记录"收紧为"old blob 相同 且 是该路径最新状态",
@@ -348,10 +350,8 @@ const PATH_COVERAGE_TIMEOUT_MS = 180_000
  * 可能是拿"git log 先到者"冒充"最新"得出的,同样不得复用。
  * 2026-11-05 升到 4:新增 3b 维(lost-commit tag 直接指向的提交也纳入逐路径覆盖)。旧缓存
  * 是按"看不见这些提交"的面算出的,不得复用 —— 否则新维度头 30 分钟仍是盲区。
- * 2026-11-08 升到 5:缓存键从"tag 名单指纹"升级为「判据输入面四指纹」,并允许复用
- * 红/带缺口结论(见 sortedFingerprint 头注)。旧缓存件没有新键,一律不可复用。
  */
-const COVERAGE_FACE_VERSION = 5
+const COVERAGE_FACE_VERSION = 4
 /**
  * 3b 维批量取材的 stdout 上限(2026-11-05)。
  * 本仓实测一次全历史 `git log --all --raw -z` 约 140MB(972,397 条记录),默认 64MB 会 ENOBUFS。
@@ -636,119 +636,6 @@ function backupTagFingerprint(lostTags, backups) {
   return createHash('sha256').update(joined).digest('hex').slice(0, 16)
 }
 
-/**
- * 判据输入面指纹(2026-11-08,30a 结构性跑不完的根因修复)。
- *
- * 旧写法只在「3b 全部清偿」时写结论缓存,而本仓 3b 恒有未清偿项(merge/空提交也落
- * uncovered)⇒ 缓存永不落地 ⇒ 每枚提交都全量重算(静默态实测 188s;并发态被 300s 看门狗
- * 连续杀掉 ⇒ 永远只能拿到"未判定")。
- *
- * 根因不是"3b 判得慢",而是"结论没有可证明其仍然成立的状态指纹":只要把**判定所依赖的
- * 三个面**逐字压成指纹,红结论与绿结论一样可以复用 —— 面一变指纹就变,缓存必然失效。
- *
- * 三个面(缺一不可,任何一面变化都可能改变 3b 的未清偿集合):
- *   ① tag 目标:`for-each-ref` 的 tag→commit 映射(新增/删除/重指都会变);
- *   ② 交付面:`rev-list --all`(去掉 lost-commit/backup tag)的提交集合 —— 新提交可能把
- *      某条未覆盖路径补齐,reset 也可能把它抽走;
- *   ③ reflog 面:`log -g --all` 的条目集合 —— 3b 对 ref 面没作证的路径会补查这一面,
- *      条目新增/过期都会改变判定。
- * 另加 ④ fsck 悬空集合:它决定 3b 候选的排除集,也决定第 2 节的计数。
- *
- * 指纹取"排序后逐行 sha256"而不是条数:与 backupTagFingerprint 同一条理由 —— 条数会撞
- * (add 一枚 + del 一枚),撞了就是把"改过"读成"没改"。
- */
-function sortedFingerprint(lines) {
-  const h = createHash('sha256')
-  for (const s of [...lines].sort()) h.update(s).update('\n')
-  return h.digest('hex').slice(0, 16)
-}
-
-function tagTargetFingerprint(reachability) {
-  return sortedFingerprint(reachability.map((r) => `${r.tag}\t${r.hash || ''}`))
-}
-
-function reflogEntryFingerprint() {
-  const raw = gitText(['log', '-g', '--all', '--format=%H'], {
-    timeout: PATH_COVERAGE_TIMEOUT_MS,
-  })
-  return sortedFingerprint(
-    String(raw || '')
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean),
-  )
-}
-
-/**
- * 交付面 / reflog 面的**原始读数**在进程内只取一次(2026-11-08)。
- *
- * 3b(标签指向的提交逐路径覆盖)与 §4(悬空提交逐路径覆盖)看的是同两条面、同一组
- * `--exclude`,差别只在各自的排除集(3b 还要排掉候选自己)—— 各自 absorb 时按自身
- * `excludedCommits` 过滤即可。旧实现里 §4 用 pathspec 分块重复走查(本仓实测 41 枚候选
- * ≈85s),与 3b 的全量扫描是重复劳动;共享后这一趟直接复用 3b 已取到的字符串。
- */
-const lossSurfaceRawCache = new Map()
-
-function rawLogArgs(base) {
-  return [
-    ...base,
-    '--raw',
-    '--no-abbrev',
-    '-z',
-    '--no-renames',
-    '--root',
-    `--format=${RAW_COMMIT_MARKER}%H:%ct`,
-  ]
-}
-
-function lossSurfaceRawArgs(kind) {
-  const base =
-    kind === 'reflog'
-      ? ['log', '-g', '--all']
-      : [
-          'log',
-          // 顺序敏感:`--exclude` 必须写在 `--all` 之前才作用于它。
-          '--exclude=refs/tags/lost-commit/*',
-          '--exclude=refs/tags/backup/*',
-          '--all',
-        ]
-  return rawLogArgs(base)
-}
-
-function lossSurfaceRaw(kind) {
-  if (!lossSurfaceRawCache.has(kind)) {
-    const raw = gitRaw(lossSurfaceRawArgs(kind), ROOT, {
-      timeout: PATH_COVERAGE_TIMEOUT_MS,
-      maxBuffer: BULK_RAW_MAX_BUFFER,
-    })
-    lossSurfaceRawCache.set(kind, String(raw ?? ''))
-  }
-  return lossSurfaceRawCache.get(kind)
-}
-
-/**
- * 取本轮判据输入面(③ 见下;① 由调用方从 reachability 取,④ 由 fsck 之后补)。
- * 任何一项取不到 ⇒ 返回 null:既不复用旧结论,也不写新结论 —— 无法证明"旧结论仍然成立"
- * 时宁算一遍(§0.3:拿不到读数不是"没风险")。
- * 只在 blocking 档且缓存启用时取;手动查询档不读不写缓存,取指纹纯属浪费 23s。
- */
-function collectLossCacheInputs(reachability) {
-  if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return null
-  if (isListUnbacked || isListOutOfWindow || isListCovered) return null
-  if (process.env.IHUI_COMMIT_LOSS_REMOTE === '1') return null
-  try {
-    const delivery = deliveryReachableCommits()
-    return {
-      delivery,
-      tagTargets: tagTargetFingerprint(reachability),
-      deliveryFingerprint: sortedFingerprint([...delivery]),
-      reflog: reflogEntryFingerprint(),
-    }
-  } catch {
-    return null
-  }
-}
-
 let LOSS_CACHE_FACE = null
 function setLossCacheFace(face) {
   LOSS_CACHE_FACE = face
@@ -779,12 +666,6 @@ function readLossCache() {
     if (j.face.strict !== face.strict) return null
     if (j.face.filterStash !== face.filterStash) return null
     if (j.face.tagFingerprint !== face.tagFingerprint) return null
-    // 判据输入面四指纹(2026-11-08):tag 目标 / 交付面 / reflog 面 / fsck 悬空集合。
-    // 缺任意一项(旧版缓存件、或本轮指纹取不到)⇒ 不复用:旧结论没有被证明仍然成立。
-    if (!face.tagTargets || j.face.tagTargets !== face.tagTargets) return null
-    if (!face.delivery || j.face.delivery !== face.delivery) return null
-    if (!face.reflog || j.face.reflog !== face.reflog) return null
-    if (!face.unreachable || j.face.unreachable !== face.unreachable) return null
     // 判据本体版本:改造后旧缓存件里的"红/绿"都是旧判据的结论,不得顶掉本轮重算。
     if (j.face.coverageVersion !== face.coverageVersion) return null
     return j
@@ -795,12 +676,8 @@ function readLossCache() {
 }
 function writeLossCache(obj) {
   if (!isBlocking || process.env.IHUI_COMMIT_LOSS_NO_CACHE === '1') return
-  const face = lossCacheFace()
-  // 指纹取不到时不写:写进去的结论下一轮也无法被证明仍然成立(读侧同样会拒收),
-  // 落盘只会制造"看起来有缓存"的假象。
-  if (!face || !face.tagTargets || !face.delivery || !face.reflog || !face.unreachable) return
   try {
-    writeFileSync(lossCachePath(), JSON.stringify({ ...obj, face }))
+    writeFileSync(lossCachePath(), JSON.stringify({ ...obj, face: lossCacheFace() }))
   } catch {
     /* 写不进去只是下次重算,不影响本次判定 */
   }
@@ -1184,6 +1061,25 @@ function splitByPathCoverage({
   return { covered, uncovered, undetermined }
 }
 
+/** 把路径按 argv 预算切块(`:(literal)` 前缀也计入),避免 Windows 32KB 命令行上限。 */
+function chunkPathspecs(paths) {
+  const chunks = []
+  let cur = []
+  let used = 0
+  for (const p of paths) {
+    const spec = `:(literal)${p}`
+    if (cur.length > 0 && used + spec.length + 1 > PATHSPEC_ARGV_BUDGET) {
+      chunks.push(cur)
+      cur = []
+      used = 0
+    }
+    cur.push(spec)
+    used += spec.length + 1
+  }
+  if (cur.length > 0) chunks.push(cur)
+  return chunks
+}
+
 /**
  * 单条 raw diff 记录 → 覆盖证据表 / 每路径最新可达改动表。
  * 候选自身(以及所有悬空 commit)必须排除,否则自证循环。
@@ -1286,59 +1182,21 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
       .split('\n')[0]
       .slice(0, 160)
 
-  // 2026-11-08:原为逐枚 `git diff-tree`(本机实测每个 spawn ~2.1s;211 枚候选 ⇒ ~440s,
-  // 是 30a 结构性跑不完的另一半根因)。改为与 3b 同一套批量取材:一次
-  // `log --no-walk=unsorted --stdin --raw` 拿全部候选的改动(本仓实测 <2s)。
-  // 批量失败时**回退**旧逐枚路径:单枚取不到只影响那一枚,不把整批判成未取到。
-  try {
-    const raw = gitRaw(
-      [
-        'log',
-        '--no-walk=unsorted',
-        '--stdin',
-        '--raw',
-        '--no-abbrev',
-        '-z',
-        '--no-renames',
-        '--root',
-        `--format=${RAW_COMMIT_MARKER}%H:%ct`,
-      ],
-      ROOT,
-      {
-        timeout: PATH_COVERAGE_TIMEOUT_MS,
-        maxBuffer: BULK_RAW_MAX_BUFFER,
-        input: candidates.join('\n') + '\n',
-      },
-    )
-    const entries = parseRawDiffZ(String(raw ?? ''), { withCommit: true })
-    for (const c of candidates) entriesByCommit.set(c, [])
-    for (const e of entries) {
-      if (!entriesByCommit.has(e.commit)) entriesByCommit.set(e.commit, [])
-      entriesByCommit.get(e.commit).push(e)
-    }
-    for (const entries of entriesByCommit.values()) {
+  for (const c of candidates) {
+    try {
+      const raw = gitText(
+        ['diff-tree', '--no-commit-id', '-r', '-z', '--raw', '--root', '--no-renames', c],
+        { timeout: SPAWN_DEFAULT_TIMEOUT_MS },
+      )
+      const entries = parseRawDiffZ(raw)
+      entriesByCommit.set(c, entries)
       for (const e of entries) {
         if (e.status === 'D') deletedPaths.add(e.path)
         else presentPaths.add(e.path)
       }
-    }
-  } catch {
-    for (const c of candidates) {
-      try {
-        const raw = gitText(
-          ['diff-tree', '--no-commit-id', '-r', '-z', '--raw', '--root', '--no-renames', c],
-          { timeout: SPAWN_DEFAULT_TIMEOUT_MS },
-        )
-        const entries = parseRawDiffZ(raw)
-        entriesByCommit.set(c, entries)
-        for (const e of entries) {
-          if (e.status === 'D') deletedPaths.add(e.path)
-          else presentPaths.add(e.path)
-        }
-      } catch (e) {
-        entriesByCommit.set(c, null)
-        problemsByCommit.set(c, `diff-tree 取不到:${firstLine(e)}`)
-      }
+    } catch (e) {
+      entriesByCommit.set(c, null)
+      problemsByCommit.set(c, `diff-tree 取不到:${firstLine(e)}`)
     }
   }
 
@@ -1348,18 +1206,36 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   if (queryPaths.length === 0)
     return { entriesByCommit, coverage, latestByPath, problemsByCommit, surfaceError: '', ambiguousPaths }
 
-  // 2026-11-08:原为 pathspec 分块重复走查(本仓实测 41 枚候选 ≈85s),改成与 3b 共享
-  // 同一趟全量面读数(见 lossSurfaceRaw 头注)。absorb 会过滤掉与候选无关的路径,
-  // 对 `latestByPath` / 覆盖键 / 同秒并列判定的结果逐字等价(只多出无人查询的键)。
+  const walk = (baseArgs, paths) => {
+    const out = []
+    for (const chunk of chunkPathspecs(paths)) {
+      const stdout = gitText(
+        // %ct 是 commit 的 committer 时刻,只用于**跨面**比较新旧(同面内按 git log 自身顺序)。
+        [...baseArgs, `--format=${RAW_COMMIT_MARKER}%H:%ct`, '--', ...chunk],
+        { timeout: PATH_COVERAGE_TIMEOUT_MS },
+      )
+      out.push(...parseRawDiffZ(stdout, { withCommit: true }))
+    }
+    return out
+  }
+
   try {
-    absorbRawCoverage(
-      parseRawDiffZ(lossSurfaceRaw('ref'), { withCommit: true }),
-      'ref',
-      coverage,
-      latestByPath,
-      excludedCommits,
-      ambiguousPaths,
+    const refEntries = walk(
+      [
+        'log',
+        // 顺序敏感:`--exclude` 必须写在 `--all` 之前才作用于它。
+        '--exclude=refs/tags/lost-commit/*',
+        '--exclude=refs/tags/backup/*',
+        '--all',
+        '--raw',
+        '--no-abbrev',
+        '-z',
+        '--no-renames',
+        '--root',
+      ],
+      queryPaths,
     )
+    absorbRawCoverage(refEntries, 'ref', coverage, latestByPath, excludedCommits, ambiguousPaths)
   } catch (e) {
     return {
       entriesByCommit,
@@ -1390,14 +1266,11 @@ function derivePathCoverage(candidates, { excludedCommits = new Set() } = {}) {
   const reflogPaths = [...new Set([...leftoverPresent, ...leftoverDeleted])].sort()
   if (reflogPaths.length > 0) {
     try {
-      absorbRawCoverage(
-        parseRawDiffZ(lossSurfaceRaw('reflog'), { withCommit: true }),
-        'reflog',
-        coverage,
-        latestByPath,
-        excludedCommits,
-        ambiguousPaths,
+      const reflogEntries = walk(
+        ['log', '-g', '--all', '--raw', '--no-abbrev', '-z', '--no-renames', '--root'],
+        reflogPaths,
       )
+      absorbRawCoverage(reflogEntries, 'reflog', coverage, latestByPath, excludedCommits, ambiguousPaths)
     } catch (e) {
       return {
         entriesByCommit,
@@ -1497,6 +1370,16 @@ function deriveTagBackupPathCoverage(candidates, excludedCommits) {
     ambiguousPaths,
   })
 
+  const rawLogArgs = (base) => [
+    ...base,
+    '--raw',
+    '--no-abbrev',
+    '-z',
+    '--no-renames',
+    '--root',
+    `--format=${RAW_COMMIT_MARKER}%H:%ct`,
+  ]
+
   try {
     const raw = gitRaw(
       rawLogArgs(['log', '--no-walk=unsorted', '--stdin']),
@@ -1518,8 +1401,19 @@ function deriveTagBackupPathCoverage(candidates, excludedCommits) {
   }
 
   try {
+    const raw = gitRaw(
+      rawLogArgs([
+        'log',
+        // 顺序敏感:`--exclude` 必须写在 `--all` 之前才作用于它。
+        '--exclude=refs/tags/lost-commit/*',
+        '--exclude=refs/tags/backup/*',
+        '--all',
+      ]),
+      ROOT,
+      { timeout: PATH_COVERAGE_TIMEOUT_MS, maxBuffer: BULK_RAW_MAX_BUFFER },
+    )
     absorbRawCoverage(
-      parseRawDiffZ(lossSurfaceRaw('ref'), { withCommit: true }),
+      parseRawDiffZ(String(raw ?? ''), { withCommit: true }),
       'ref',
       coverage,
       latestByPath,
@@ -1545,8 +1439,13 @@ function deriveTagBackupPathCoverage(candidates, excludedCommits) {
   }
   if (leftover.size > 0) {
     try {
+      const raw = gitRaw(
+        rawLogArgs(['log', '-g', '--all']),
+        ROOT,
+        { timeout: PATH_COVERAGE_TIMEOUT_MS, maxBuffer: BULK_RAW_MAX_BUFFER },
+      )
       absorbRawCoverage(
-        parseRawDiffZ(lossSurfaceRaw('reflog'), { withCommit: true }),
+        parseRawDiffZ(String(raw ?? ''), { withCommit: true }),
         'reflog',
         coverage,
         latestByPath,
@@ -1564,12 +1463,7 @@ function deriveTagBackupPathCoverage(candidates, excludedCommits) {
  * 3b 维入口:tag 指向 → 候选筛选 → 批量取材 → 同一套逐路径判定。
  * 取不到一律 `surfaceError`(调用方落「未判定 → exit 2」),绝不把空读数读成"全部已清偿"。
  */
-function computeTagBackupCoverage({
-  reachability,
-  lostTags,
-  rawUnreachable,
-  deliveryReachable: precomputedDelivery = null,
-}) {
+function computeTagBackupCoverage({ reachability, lostTags, rawUnreachable }) {
   const lostTagNames = new Set(lostTags)
   const tagPointed = tagPointedCommitSet(reachability, lostTagNames)
   const base = {
@@ -1582,13 +1476,11 @@ function computeTagBackupCoverage({
   }
   if (tagPointed.size === 0) return base
 
-  let deliveryReachable = precomputedDelivery
-  if (!deliveryReachable) {
-    try {
-      deliveryReachable = deliveryReachableCommits()
-    } catch (e) {
-      return { ...base, surfaceError: `交付面 rev-list 取不到:${firstErrorLine(e)}` }
-    }
+  let deliveryReachable
+  try {
+    deliveryReachable = deliveryReachableCommits()
+  } catch (e) {
+    return { ...base, surfaceError: `交付面 rev-list 取不到:${firstErrorLine(e)}` }
   }
   const unreachableSet = new Set(rawUnreachable)
   const candidates = selectTagCoverageCandidates({
@@ -2472,21 +2364,6 @@ async function main() {
   mark(`listLostCommitTags(${lostTags.length})`)
   const backups = listBackups()
   mark(`listBackups(${backups.length})`)
-  // 26k tag 的可达性表全程只算这一次:detectResets 的"reset 丢掉的那枚是否已备份"与后面
-  // §4 综合判定用的是同一张表。换掉 `%(refname:short)` 后这一趟实测 39s → 1.1s(见
-  // parseForEachRefTagInfo 头注),但"只算一次"仍然要保住——它现在是唯一一份。
-  const reachability = verifyAllTagReachability([...lostTags, ...backups])
-  mark(`verifyAllTagReachability(${reachability.length})`)
-
-  // 判据输入面(缓存键的 ①②③)。必须在读缓存**之前**取:缓存能否复用取决于它,而取它的
-  // 成本(本机实测 rev-list 0.6s + reflog 23s)远低于重算全量(静默态 188s)。
-  // 取不到 ⇒ null ⇒ 本轮不读也不写结论缓存(见 collectLossCacheInputs 头注)。
-  const lossCacheInputs = collectLossCacheInputs(reachability)
-  mark(`lossCacheInputs(${lossCacheInputs ? 'ok' : 'unavailable'})`)
-
-  const rawUnreachable = detectUnreachable()
-  mark(`detectUnreachable(${rawUnreachable.length})`)
-
   // 登记本轮判据面(缓存键的另一半,见 lossCacheFace 头注)
   setLossCacheFace({
     windowDays: winDim.days,
@@ -2495,10 +2372,6 @@ async function main() {
     filterStash: isFilterStash ? 1 : 0,
     tagFingerprint: backupTagFingerprint(lostTags, backups),
     coverageVersion: COVERAGE_FACE_VERSION,
-    tagTargets: lossCacheInputs ? lossCacheInputs.tagTargets : '',
-    delivery: lossCacheInputs ? lossCacheInputs.deliveryFingerprint : '',
-    reflog: lossCacheInputs ? lossCacheInputs.reflog : '',
-    unreachable: lossCacheInputs ? sortedFingerprint(rawUnreachable) : '',
   })
   console.log(
     `  ${C.dim}悬空 commit 量纲:${C.reset}` +
@@ -2508,40 +2381,28 @@ async function main() {
         : `${C.cyan}窗维已关闭${C.reset} ${C.dim}(全量语义:任何未备份悬空都拦)${C.reset}`),
   )
 
-  // 缓存命中即复用(2026-11-08 改造):只在 blocking 档生效,必须打印"复用了几分钟前的结论"
-  // 与 3b 读数。键已从「tag 名单」升级为「判据输入面四指纹」,红/带缺口结论同样可复用 ——
-  // 旧写法只在 3b 全清偿时写缓存,而本仓该条件恒假 ⇒ 每枚提交都全量重算。
+  // 缓存命中即秒回(2026-10-21):只在 blocking 档生效,且必须打印"复用了几分钟前的结论"。
   const cachedLoss = readLossCache()
   if (cachedLoss) {
     const ageMin = Math.round((Date.now() - cachedLoss.ts) / 60000)
     console.log(
-      `  ${C.dim}复用 ${ageMin} 分钟前的结论(判据输入面:tag 目标/交付面/reflog 面/fsck 悬空集合 逐字相同;强制重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
+      `  ${C.dim}复用 ${ageMin} 分钟前的结论(HEAD 未变;强制重算:IHUI_COMMIT_LOSS_NO_CACHE=1)${C.reset}`,
     )
-    if (cachedLoss.detail3b) {
-      const d = cachedLoss.detail3b
-      console.log(
-        `  ${C.dim}3b 逐路径覆盖(复用):已清偿 ${d.covered} / 未清偿 ${d.uncovered}` +
-          (d.uncovered > 0
-            ? `(其中有未覆盖路径 ${d.realGaps} / 无改动路径 merge或空提交 ${d.noDiff})`
-            : '') +
-          `${C.reset}`,
-      )
-      if (d.realGaps > 0 && Array.isArray(d.topHashes) && d.topHashes.length > 0) {
-        console.log(
-          `     ${C.dim}${d.topHashes.map((h) => h.slice(0, SHORT_HASH_LEN)).join(', ')}` +
-            `${d.realGaps > d.topHashes.length ? ` …另有 ${d.realGaps - d.topHashes.length} 枚` : ''}${C.reset}`,
-        )
-      }
-    }
-    const verdict = cachedLoss.verdict || (cachedLoss.blocking ? 'blocking' : 'green')
-    const verdictMark =
-      verdict === 'blocking' ? `${C.red}❌` : verdict === 'warn' ? `${C.yellow}⚠` : `${C.green}✅`
-    console.log(`  ${verdictMark} ${cachedLoss.summary}${C.reset}`)
+    console.log(
+      `  ${cachedLoss.blocking ? `${C.red}❌ ${cachedLoss.summary}` : `${C.green}✅ ${cachedLoss.summary}`}${C.reset}`,
+    )
     process.exit(cachedLoss.blocking ? 1 : 0)
   }
 
+  // 26k tag 的可达性表全程只算这一次:detectResets 的"reset 丢掉的那枚是否已备份"与后面
+  // §4 综合判定用的是同一张表。换掉 `%(refname:short)` 后这一趟实测 39s → 1.1s(见
+  // parseForEachRefTagInfo 头注),但"只算一次"仍然要保住——它现在是唯一一份。
+  const reachability = verifyAllTagReachability([...lostTags, ...backups])
+  mark(`verifyAllTagReachability(${reachability.length})`)
   const resets = detectResets(reachability)
   mark('detectResets')
+  const rawUnreachable = detectUnreachable()
+  mark(`detectUnreachable(${rawUnreachable.length})`)
   // --filter-stash: 过滤掉 stash-like 对象(WIP / On main / index on main)
   const unreachable = isFilterStash ? filterStashLike(rawUnreachable) : rawUnreachable
   mark(`filterStashLike(${unreachable.length})`)
@@ -2715,15 +2576,7 @@ async function main() {
   // 这一维独立于上面的「悬空分档」:分档统计的是 `fsck --unreachable` 的 200 枚,
   // 这里统计的是**被 tag 变成可达、因而 fsck 看不到**的那一批。两档不得混算。
   console.log(header('3b. lost-commit/* tag 备份提交的逐路径清偿核对'))
-  const tagBackup = computeTagBackupCoverage({
-    reachability,
-    lostTags,
-    rawUnreachable,
-    // 交付面已为本轮缓存键取过时直接复用,避免重复 rev-list(结果与 3b 内取法逐字同源)。
-    deliveryReachable: lossCacheInputs ? lossCacheInputs.delivery : null,
-  })
-  // 供结论缓存复用的 3b 读数(命中时不必再跑 3b)。标签未指向任何提交时为 null。
-  let tagBackupDetail = null
+  const tagBackup = computeTagBackupCoverage({ reachability, lostTags, rawUnreachable })
   if (tagBackup.tagPointedTotal === 0) {
     console.log(`  ${C.dim}(无 lost-commit/* tag 指向的提交)${C.reset}`)
   } else if (tagBackup.surfaceError) {
@@ -2739,24 +2592,6 @@ async function main() {
     // "无改动路径,逐路径面无法证明覆盖"),但它们没有"路径"可清偿,单独列,不和真缺口混算。
     const unpledgedGaps = tagBackup.uncovered.filter((u) => u.missing.length > 0)
     const unpledgedNoDiff = tagBackup.uncovered.length - unpledgedGaps.length
-    // 展示按 committer 时刻**新→旧**排序:缺口存量数千枚,按 oid 字母序取样只会永远
-    // 展示一批最老的（现案 b96a9dc2 这类"刚产生"的缺口反而看不到）。只影响展示,不改判定。
-    // 排序结果同时进缓存:命中时要能还原"冷跑点名的是哪 10 枚",否则两条路径的点名会漂开。
-    const gapTimes = unpledgedGaps.length
-      ? committerUnixFor(unpledgedGaps.map((u) => u.hash)).map
-      : new Map()
-    const shownGaps = unpledgedGaps.length
-      ? [...unpledgedGaps]
-          .sort((a, b) => (gapTimes.get(b.hash) || 0) - (gapTimes.get(a.hash) || 0))
-          .slice(0, 10)
-      : []
-    tagBackupDetail = {
-      covered: tagBackup.covered.length,
-      uncovered: tagBackup.uncovered.length,
-      realGaps: unpledgedGaps.length,
-      noDiff: unpledgedNoDiff,
-      topHashes: shownGaps.map((u) => u.hash),
-    }
     console.log(
       `  ${tagBackup.uncovered.length === 0 ? C.green : C.yellow}↳ 逐路径覆盖:已清偿 ${tagBackup.covered.length}` +
         ` / 未清偿 ${tagBackup.uncovered.length}` +
@@ -2769,8 +2604,14 @@ async function main() {
       console.log(
         `  ${C.yellow}⚠️  已备份但缺口仍在(tag 只防 gc,不等于内容已落地):${C.reset}`,
       )
-      const subj = subjectsForHashes(shownGaps.map((u) => u.hash))
-      for (const u of shownGaps) {
+      // 展示按 committer 时刻**新→旧**排序:缺口存量数千枚,按 oid 字母序取样只会永远
+      // 展示一批最老的（现案 b96a9dc2 这类"刚产生"的缺口反而看不到）。只影响展示,不改判定。
+      const times = committerUnixFor(unpledgedGaps.map((u) => u.hash)).map
+      const shown = [...unpledgedGaps]
+        .sort((a, b) => (times.get(b.hash) || 0) - (times.get(a.hash) || 0))
+        .slice(0, 10)
+      const subj = subjectsForHashes(shown.map((u) => u.hash))
+      for (const u of shown) {
         console.log(
           `     ${C.cyan}${u.hash.slice(0, SHORT_HASH_LEN)}${C.reset}  ${C.dim}${subj.get(u.hash) || '(空)'}${C.reset}`,
         )
@@ -3379,17 +3220,6 @@ async function main() {
   // 未判定项存在时**绝不打印通过句**:issues 为空不代表"判完了"(§0.3 未判定≠通过)。
   if (issues.length === 0 && undeterminedCoverage.size === 0) {
     console.log(`  ${C.green}✅ ${GREEN_MARKERS.noRisk}${C.reset}`)
-    // 3b 取材失败时不得把这一轮写成绿结论缓存(它没判成);其余情况缓存与冷跑同源。
-    if (!tagBackup.surfaceError) {
-      writeLossCache({
-        ts: Date.now(),
-        head: currentHeadSha(),
-        blocking: false,
-        verdict: 'green',
-        summary: `无 reset;悬空 commit ${unreachable.length} 枚均在窗外或已备份;tag 完整;3b 未覆盖路径 0`,
-        detail3b: tagBackupDetail,
-      })
-    }
     process.exit(0)
   }
 
@@ -3456,14 +3286,7 @@ async function main() {
     console.log(
       `   2. 紧急跳过(不推荐):${C.cyan}HUSKY_SKIP_COMMIT_LOSS_CHECK=1 git commit ...${C.reset}`,
     )
-    writeLossCache({
-      ts: Date.now(),
-      head: currentHeadSha(),
-      blocking: true,
-      verdict: 'blocking',
-      summary: issues.join('; '),
-      detail3b: tagBackupDetail,
-    })
+    writeLossCache({ ts: Date.now(), head: currentHeadSha(), blocking: true, summary: issues.join('; ') })
     process.exit(1)
   }
 
@@ -3484,17 +3307,16 @@ async function main() {
   console.log(`   - 备份悬空 commit:${C.cyan}git tag lost-commit/<name> <hash>${C.reset}`)
   console.log(`   - 查看丢失历史:${C.cyan}git tag -l "lost-commit/*" && git show <tag>${C.reset}`)
   console.log(`   - 详细规则见 AGENTS.md §22`)
-  // 3b 有未清偿项时**也写**结论缓存(2026-11-08 根因修复):本轮已判完(未判定档上面都 exit 2
-  // 了),缓存的复用条件是「判据输入面四指纹逐字相同」而不是"3b 缺口为 0" —— 后者在本仓
-  // 恒假(merge/空提交也落 uncovered),导致缓存永不落地、每枚提交都全量重算。
-  writeLossCache({
-    ts: Date.now(),
-    head: currentHeadSha(),
-    blocking: false,
-    verdict: 'warn',
-    summary: issues.join('; '),
-    detail3b: tagBackupDetail,
-  })
+  // 3b 有未清偿项时**不写结论缓存**:缓存只有"红/绿"两态,写进去等于把"已备份但缺口仍在"
+  // 在下一轮读成绿 —— 那正是本单要闭合的失明形态。
+  if (tagBackup.uncovered.length === 0) {
+    writeLossCache({
+      ts: Date.now(),
+      head: currentHeadSha(),
+      blocking: false,
+      summary: `无 reset;悬空 commit ${unreachable.length} 枚均在窗外或已备份;tag 完整;3b 已清偿`,
+    })
+  }
   process.exit(0)
 }
 
@@ -3597,9 +3419,6 @@ export const __test__ = {
   tagPointedCommitSet,
   selectTagCoverageCandidates,
   deriveTagBackupPathCoverage,
-  // 结论缓存键(2026-11-08):输入面指纹必须可被直接消费,免得测试另抄一份"排序后 sha256"
-  sortedFingerprint,
-  tagTargetFingerprint,
   // 时间窗量纲(2026-10-11):判据、取值、派生出口三者都必须可被测试直接消费,
   // 免得镜像那边再抄一份"cutoff = now - days*86400"的算术 —— 抄的那份不与源同步。
   WINDOW_DAYS_DEFAULT,

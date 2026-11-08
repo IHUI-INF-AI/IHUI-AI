@@ -29,7 +29,7 @@ import {
   type SuperAgentSnapshot,
 } from './persist'
 
-const { isPlainString, ticketShape, workerShape, ownerSliceShape } = __shape__
+const { isPlainString, ticketShape, workerShape } = __shape__
 
 export type AcceptMode = 'record' | 'auto'
 export type Strength = 'explicit' | 'inferred'
@@ -794,7 +794,7 @@ export class SuperAgentHost {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([key, ids]) => {
             const [, sourceId, threadId] = key.split('\u0000')
-            return { sourceId: sourceId ?? '', threadId: threadId ?? '', ticketIds: [...ids] }
+            return { sourceId, threadId, ticketIds: [...ids] }
           }),
         context: [...this.contextOf.entries()]
           .flatMap(([ticketId, keys]) =>
@@ -802,9 +802,8 @@ export class SuperAgentHost {
               .filter((k) => k.split('\u0000')[0] === ownerUserId)
               .sort()
               .map((k) => {
-                // threadKey 构造保证三段;split 结果 per TS 可能 undefined,兜回 string 不猜
                 const [, sourceId, threadId] = k.split('\u0000')
-                return { ticketId, sourceId: sourceId ?? '', threadId: threadId ?? '' }
+                return { ticketId, sourceId, threadId }
               }),
           )
           .filter((r) => this.tickets.get(r.ticketId)?.ownerUserId === ownerUserId),
@@ -813,11 +812,7 @@ export class SuperAgentHost {
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([key, rows]) => {
             const [, sourceId, threadId] = key.split('\u0000')
-            return {
-              sourceId: sourceId ?? '',
-              threadId: threadId ?? '',
-              speech: structuredClone(rows),
-            }
+            return { sourceId, threadId, speech: structuredClone(rows) }
           }),
       }
       owners.push({
@@ -857,35 +852,17 @@ export class SuperAgentHost {
     if (s.version !== SNAPSHOT_VERSION) {
       return { ok: false, rejected: [{ reason: 'version_mismatch' }], panels: {} }
     }
-    // 顶层逐字段形状守卫：缺任何一格都可能造"半恢复"，先验再灌（fail-closed）。
-    if (
-      typeof s.takenAt !== 'number' ||
-      !s.defaultPolicy ||
-      typeof s.defaultPolicy !== 'object' ||
-      !Array.isArray(s.owners) ||
-      !Array.isArray(s.policies) ||
-      !Array.isArray(s.correlations) ||
-      !Array.isArray(s.pendingStart)
-    ) {
-      return { ok: false, rejected: [{ reason: 'shape' }], panels: {} }
-    }
-    for (const owner of s.owners) {
-      if (
-        !owner ||
-        !isPlainString(owner.ownerUserId) ||
-        !owner.counters ||
-        !ownerSliceShape(owner.slice)
-      ) {
+    for (const owner of Array.isArray(s.owners) ? s.owners : []) {
+      if (!isPlainString(owner?.ownerUserId) || !owner.slice || !owner.counters) {
         rejected.push({ ownerUserId: owner?.ownerUserId, reason: 'shape' })
-        continue
       }
-      for (const t of owner.slice.tickets) {
+      for (const t of owner.slice?.tickets ?? []) {
         if (!ticketShape(t) || t.ownerUserId !== owner.ownerUserId) {
           rejected.push({ ownerUserId: owner.ownerUserId, reason: 'owner_mismatch' })
         }
       }
     }
-    if (rejected.length > 0) {
+    if (!Array.isArray(s.owners) || rejected.length > 0) {
       return { ok: false, rejected, panels: {} }
     }
     // —— 通过后整场替换 ——
@@ -944,7 +921,7 @@ export class SuperAgentHost {
     this.pendingStart = (s.pendingStart ?? []).filter(workerShape).map((w) => structuredClone(w))
     const panels: Record<string, PanelView> = {}
     for (const owner of s.owners) panels[owner.ownerUserId] = this.panel(owner.ownerUserId)
-    this.rebuildCounters(s.owners)
+    this.rebuildCounters(s)
     // 快照时刻比本机当前时钟还新 ⇒ 机器时钟倒退，不谎称干净恢复：拒绝读数进 rejected 点名。
     if (typeof s.takenAt === 'number' && this.clock.now() < s.takenAt) {
       return { ok: true, rejected: [{ reason: 'clock_behind' }], panels }
@@ -953,10 +930,10 @@ export class SuperAgentHost {
   }
 
   /** 恢复后全局面（非按主体）累计计数 = 各主体之和，面板读数以主体面为准。 */
-  private rebuildCounters(owners: SuperAgentSnapshot['owners']): void {
+  private rebuildCounters(s: SuperAgentSnapshot): void {
     let q = 0
     let r = 0
-    for (const owner of owners) {
+    for (const owner of s.owners) {
       q += owner.counters.quietDrops
       r += owner.counters.recorded
     }

@@ -102,10 +102,3 @@ scripts/data/cross-end-fork-decisions.json
 #   随即摘掉本行让格式门重新接管;② 按族拆分到每档 <250 行后逐档摘除。
 # 刻意**不**改判据本体(scripts/check-format-changed.mjs 与 lint-staged 一律未动,§12e/§0.2)。
 apps/cli/src/tools/command-policy/syntax-*.ts
-
-# Agent 能力评测基线(baseline/baseline.json 是 run.mjs --update-baseline 的生成物):
-# 序列化器按 stableStringify 输出,短数组刻意展开成多行;prettier 会折回单行 ⇒ 每次
-# 刷新基线都制造纯格式 diff,并把"基线变了"与"排版变了"混进同一次读数。
-# 形状以生成器为准(可比性由 compare.ts 逐字段判定,不靠 prettier)。results/ 已在
-# benchmarks/agent-capability/results/.gitignore 里,不进任何门禁。
-benchmarks/agent-capability/baseline/baseline.json

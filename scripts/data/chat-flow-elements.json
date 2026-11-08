@@ -261,7 +261,7 @@
           "mustMatch": "export function markStreamError"
         },
         {
-          "file": "packages/app/src/features/chat/ChatMessageItem.tsx",
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/ChatMessageItem.tsx",
           "mustMatch": "ai.chatMessageItem.errorCardTitle"
         },
         {
@@ -994,7 +994,7 @@
           "mustMatch": "deriveTaskStatusBar("
         },
         {
-          "file": "apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx",
+          "file": "apps/miniapp-taro/src/pkg-ai/ai/chat.tsx",
           "mustMatch": "<TaskStatusBar"
         },
         {

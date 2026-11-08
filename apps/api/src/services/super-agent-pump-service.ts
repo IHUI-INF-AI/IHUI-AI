@@ -76,9 +76,10 @@ function saveIfDirty(): void {
     .catch((e: unknown) => {
       lastPersistError = e instanceof Error ? e.message : String(e)
       persistStatus = 'degraded'
-      logger.warn('super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入', {
-        err: lastPersistError,
-      })
+      logger.warn(
+        { err: lastPersistError },
+        'super-agent 快照持久失败；账面仍在内存，供值/修库后自动恢复写入',
+      )
     })
 }
 
@@ -98,19 +99,6 @@ export interface LoadSnapshotResult {
   error?: string
 }
 
-/**
- * 从 restore() 已校验通过的快照里读 takenAt。
- * restore 的入参是 unknown（内部完整校验后 speak fail-closed），故此处做同口径窄化；
- * 读不到数值时回落 0，与旧 `parsed.takenAt ?? 0` 语义一致。
- */
-function restoredTakenAt(snap: unknown): number {
-  if (typeof snap === 'object' && snap !== null && 'takenAt' in snap) {
-    const { takenAt } = snap
-    if (typeof takenAt === 'number') return takenAt
-  }
-  return 0
-}
-
 /** 进程内一次:读回快照灌账面。版本/形状不匹配 ⇒ host 整场拒绝并点名。 */
 export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> {
   const provider = snapshotProvider()
@@ -119,7 +107,7 @@ export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> 
     const { list } = await findUserPreferences(provider, USER_PREFERENCE_GROUPS.superAgent)
     const row = list.find((r) => r.key === SUPER_AGENT_SNAPSHOT_KEY)
     if (!row?.value) return { loaded: false, status: 'ok', rejectedReasons: [] }
-    const parsed: unknown = JSON.parse(row.value)
+    const parsed = JSON.parse(row.value) as Parameters<typeof superAgentHost.restore>[0]
     const report = superAgentHost.restore(parsed)
     if (!report.ok) {
       persistStatus = 'degraded'
@@ -132,7 +120,7 @@ export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> 
         ),
       }
     }
-    savedTakenAt = restoredTakenAt(parsed)
+    savedTakenAt = parsed.takenAt ?? 0
     persistStatus = 'ok'
     lastPersistError = null
     dirty = false

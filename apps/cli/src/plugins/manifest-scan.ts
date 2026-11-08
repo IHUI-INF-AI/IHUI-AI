@@ -26,7 +26,7 @@ import type {
 } from './types.js';
 
 /** 候选清单文件名(按优先级排序,前者在位时后者被忽略并留一条 warning 诊断) */
-const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
+export const MANIFEST_FILES = ['plugin.json', 'plugin.config.json'];
 
 /**
  * 判别码 → 严重级的唯一映射。
@@ -55,7 +55,7 @@ const DIAGNOSTIC_SEVERITY: Record<PluginDiagnosticCode, PluginDiagnosticSeverity
 };
 
 /** 错误文本(unknown 收窄,零 any) */
-function errorText(err: unknown): string {
+export function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 

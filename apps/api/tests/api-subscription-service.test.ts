@@ -58,34 +58,19 @@ function insertChain(returnValue: unknown): { values: ReturnType<typeof vi.fn> }
 // Mock 声明
 // =============================================================================
 
-const { mockDbReadSelect, mockDbInsert, mockDbUpdate, mockTxSelect, mockTxFor, txSelectQueue } =
-  vi.hoisted(() => ({
-    mockDbReadSelect: vi.fn(),
-    mockDbInsert: vi.fn(),
-    mockDbUpdate: vi.fn(),
-    // db.transaction 内 tx.select 的 mock:按队列返回(默认空 = 无已发放流水)
-    mockTxSelect: vi.fn(),
-    // 记录 tx.select 是否用了 FOR UPDATE(DB-03 并发正确性关键)
-    mockTxFor: vi.fn(),
-    txSelectQueue: [] as unknown[],
-  }))
-
-/** 事务内链式查询:支持 .from().where().orderBy().limit().for('update') */
-function txChain(returnValue: unknown) {
-  const promise: any = Promise.resolve(returnValue)
-  promise.limit = vi.fn().mockReturnValue(promise)
-  promise.offset = vi.fn().mockReturnValue(promise)
-  promise.orderBy = vi.fn().mockReturnValue(promise)
-  promise.groupBy = vi.fn().mockReturnValue(promise)
-  promise.where = vi.fn().mockReturnValue(promise)
-  promise.leftJoin = vi.fn().mockReturnValue(promise)
-  promise.from = vi.fn().mockReturnValue(promise)
-  promise.for = vi.fn((mode: string) => {
-    mockTxFor(mode)
-    return promise
-  })
-  return promise
-}
+const { mockDbReadSelect, mockDbInsert, mockDbUpdate, mockTxSelect } = vi.hoisted(() => ({
+  mockDbReadSelect: vi.fn(),
+  mockDbInsert: vi.fn(),
+  mockDbUpdate: vi.fn(),
+  // db.transaction 内 tx.select 的 mock,默认返回空(无已发放流水)
+  mockTxSelect: vi.fn().mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+  }),
+}))
 
 vi.mock('../src/db/index.js', () => ({
   db: {
@@ -157,13 +142,6 @@ vi.mock('../src/utils/api-key-hash.js', () => ({
   hashSecret: () => 'sha256:hashed_secret',
 }))
 
-// SDB-04:窗口型套餐(任一 limit=-1)会在激活后创建订阅实例;这里替身化,
-// 让用例只聚焦"配额计算 + Key 余额落库",不连真实订阅库。
-vi.mock('../src/services/subscription-window-service.js', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>()
-  return { ...actual, createSubscriptionForOrder: vi.fn(async () => null) }
-})
-
 import {
   parseTokenQuotaFromFeatures,
   activateApiSubscription,
@@ -178,8 +156,6 @@ import {
 describe('api-subscription-service — API 订阅核心 service', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    txSelectQueue.length = 0
-    mockTxSelect.mockImplementation(() => txChain(txSelectQueue.shift() ?? []))
   })
 
   // ===========================================================================
@@ -248,8 +224,8 @@ describe('api-subscription-service — API 订阅核心 service', () => {
           },
         ]),
       )
-      // 第 2 次:事务内查用户 active Key(DB-03:必须带 FOR UPDATE 读最新余额)
-      txSelectQueue.push([{ id: 'key-1', tokenBalance: 1000 }])
+      // 第 2 次:查用户 active Key
+      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: 1000 }]))
       // db.update 链(事务内 tx.update)
       const updateResult = updateChain()
       mockDbUpdate.mockReturnValueOnce(updateResult)
@@ -258,8 +234,6 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(result.success).toBe(true)
       expect(result.keyId).toBe('key-1')
       expect(result.tokenQuota).toBe(500000)
-      // DB-03:余额必须在事务内锁定读取,不能用事务外快照
-      expect(mockTxFor).toHaveBeenCalledWith('update')
       // 验证 update 被调用(token_balance += 500000 → 501000)
       expect(updateResult.set).toHaveBeenCalledWith(
         expect.objectContaining({ tokenBalance: 501000 }),
@@ -271,7 +245,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
         chain([{ id: 'plan-1', name: 'API Pro', features: ['2000000 tokens/month'] }]),
       )
       // 查 active Key 返回空
-      txSelectQueue.push([])
+      mockDbReadSelect.mockReturnValueOnce(chain([]))
       // db.insert 链(事务内 tx.insert)
       const insertResult = insertChain([{ id: 'new-key-1' }])
       mockDbInsert.mockReturnValueOnce(insertResult)
@@ -307,7 +281,9 @@ describe('api-subscription-service — API 订阅核心 service', () => {
           { id: 'plan-ent', name: 'API Enterprise', features: ['unlimited tokens', '99.9% SLA'] },
         ]),
       )
-      txSelectQueue.push([{ id: 'key-1', tokenBalance: 1000 }])
+      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'order-1' }]))
+      mockDbReadSelect.mockReturnValueOnce(chain([{ c: 1 }]))
+      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: 1000 }]))
       const updateResult = updateChain()
       mockDbUpdate.mockReturnValueOnce(updateResult)
 
@@ -323,100 +299,13 @@ describe('api-subscription-service — API 订阅核心 service', () => {
         chain([{ id: 'plan-1', name: 'API Starter', features: ['500000 tokens/month'] }]),
       )
       // 查 active Key 返回 tokenBalance=-1
-      txSelectQueue.push([{ id: 'key-1', tokenBalance: -1 }])
+      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: -1 }]))
 
       const result = await activateApiSubscription('user-1', 'plan-1')
       expect(result.success).toBe(true)
       expect(result.keyId).toBe('key-1')
       // 已是无限额度,不调 update
       expect(mockDbUpdate).not.toHaveBeenCalled()
-    })
-
-    // =========================================================================
-    // SDB-04(2026-11-08):窗口语义 -1 = 不限,不得参与 Math.max
-    // 缺陷:日=-1 且周/月=0 时 tokenQuota 被算成 0 ⇒ 新 Key 余额 0 ⇒
-    // relay 余额闸恒拒(付费套餐 100% 不可用),且购买流程显示成功。
-    // =========================================================================
-    it('SDB-04:仅日窗口 = -1(不限)→ tokenQuota=-1,已有 Key 置为无限', async () => {
-      mockDbReadSelect.mockReturnValueOnce(
-        chain([
-          {
-            id: 'plan-unlimited',
-            name: 'API 不限量',
-            features: ['10 QPS'],
-            validityDays: 30,
-            dailyTokenLimit: -1,
-            weeklyTokenLimit: 0,
-            monthlyTokenLimit: 0,
-            modelWhitelist: null,
-            billingGroupCode: null,
-          },
-        ]),
-      )
-      txSelectQueue.push([{ id: 'key-1', tokenBalance: 1000 }])
-      const updateResult = updateChain()
-      mockDbUpdate.mockReturnValueOnce(updateResult)
-
-      const result = await activateApiSubscription('user-1', 'plan-unlimited')
-
-      expect(result.success).toBe(true)
-      expect(result.tokenQuota).toBe(-1)
-      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: -1 }))
-    })
-
-    it('SDB-04:仅月窗口 = -1(不限)→ tokenQuota=-1,新 Key token_balance=-1', async () => {
-      mockDbReadSelect.mockReturnValueOnce(
-        chain([
-          {
-            id: 'plan-unlimited-m',
-            name: 'API 月度不限',
-            features: [],
-            validityDays: 30,
-            dailyTokenLimit: 0,
-            weeklyTokenLimit: 0,
-            monthlyTokenLimit: -1,
-            modelWhitelist: null,
-            billingGroupCode: null,
-          },
-        ]),
-      )
-      txSelectQueue.push([]) // 无 active Key
-      const insertResult = insertChain([{ id: 'new-key-u' }])
-      mockDbInsert.mockReturnValueOnce(insertResult)
-
-      const result = await activateApiSubscription('user-2', 'plan-unlimited-m')
-
-      expect(result.success).toBe(true)
-      expect(result.tokenQuota).toBe(-1)
-      const valuesArg = insertResult.values.mock.calls[0]![0]
-      expect(valuesArg.tokenBalance).toBe(-1)
-    })
-
-    it('SDB-04 正向对照:窗口全为 >0 时仍取最大值(日=-1 的 -1 不得污染正常套餐)', async () => {
-      mockDbReadSelect.mockReturnValueOnce(
-        chain([
-          {
-            id: 'plan-capped',
-            name: 'API 日限',
-            features: [],
-            validityDays: 30,
-            dailyTokenLimit: 5000,
-            weeklyTokenLimit: 0,
-            monthlyTokenLimit: 0,
-            modelWhitelist: null,
-            billingGroupCode: null,
-          },
-        ]),
-      )
-      txSelectQueue.push([{ id: 'key-1', tokenBalance: 1000 }])
-      const updateResult = updateChain()
-      mockDbUpdate.mockReturnValueOnce(updateResult)
-
-      const result = await activateApiSubscription('user-1', 'plan-capped')
-
-      expect(result.success).toBe(true)
-      expect(result.tokenQuota).toBe(5000)
-      expect(updateResult.set).toHaveBeenCalledWith(expect.objectContaining({ tokenBalance: 6000 }))
     })
   })
 

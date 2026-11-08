@@ -37,7 +37,7 @@ export {
 } from './token-estimate.js'
 
 import { estimateMessagesTokens, estimateTokens } from './token-estimate.js'
-import { SUMMARY_MARKER, isSummaryMessage } from './markers.js'
+import { SUMMARY_MARKER } from './markers.js'
 import type { ChatMessage } from './types.js'
 
 export { SUMMARY_MARKER, isSummaryMessage } from './markers.js'
@@ -200,12 +200,6 @@ export interface CompressionResult {
    */
   truncatedCount?: number
   /**
-   * 本轮被**原文保留**(不折进摘要)的锚点消息条数(2026-11-06 立):
-   * 任务锚(head 首个 user 组)与 `pinned` 组会被原样留在 system 之后、摘要之前。
-   * 可选 ⇒ 旧调用方零改动;缺席时按 0 读(不具备该能力,不是"未知")。
-   */
-  anchoredCount?: number
-  /**
    * 压缩触发方式:
    *   - 'ratio':百分比阈值触发并压缩成功
    *   - 'absolute':绝对值阈值触发并压缩成功
@@ -316,67 +310,6 @@ function splitPairGroups(nonSystem: ChatMessage[]): ChatMessage[][] {
   }
   closeGroup()
   return groups
-}
-
-// ==================== 保留锚点(压缩原文保留策略,2026-11-06 立) ====================
-// 与 ai-service `app/core/context_compaction.py` 的 ANCHOR_* 段逐条对齐(跨端等价):
-//   - task_anchor:head 的第一个 user 组(会话最早的任务陈述);组内 token 超
-//     ANCHOR_MAX_TASK_TOKENS 时不保留(超长粘贴交给摘要,避免锚点吃掉压缩收益);
-//   - pinned:组内任一消息 pinned=true(或 metadata.pinned=true)的**整组**按原文保留,
-//     按组而非按条,是为了不拆散 assistant(tool_calls) 与 tool 结果的配对(拆开会 400)。
-// 锚点原文放在 system 之后、摘要之前,并从摘要输入中剔除:不重复计 token,也不会被摘要吞掉。
-export const ANCHOR_REASON_TASK = 'task_anchor'
-export const ANCHOR_REASON_PINNED = 'pinned'
-export const ANCHOR_MAX_TASK_TOKENS = 2000
-// 任务锚还必须 ≤ 窗口的 10%:在 1000 token 级的极小窗口里,一条 600 token 的
-// 任务陈述原样保留会让压缩永远达不到目标,这类窗口宁可不锚(与 ai-service 同策略)。
-export const ANCHOR_MAX_CONTEXT_RATIO = 0.1
-
-function taskAnchorBudget(contextLimit: number): number {
-  if (contextLimit <= 0) return ANCHOR_MAX_TASK_TOKENS
-  return Math.min(
-    ANCHOR_MAX_TASK_TOKENS,
-    Math.max(1, Math.floor(contextLimit * ANCHOR_MAX_CONTEXT_RATIO)),
-  )
-}
-
-function isPinnedMessage(msg: ChatMessage): boolean {
-  if (msg.pinned === true) return true
-  return msg.metadata?.pinned === true
-}
-
-function isPreviousSummaryGroup(group: ChatMessage[]): boolean {
-  if (group.length === 0) return false
-  return isSummaryMessage(group[0]!)
-}
-
-function splitAnchorGroups(
-  headGroups: ChatMessage[][],
-  contextLimit: number,
-): {
-  anchors: Array<{ group: ChatMessage[]; reason: string }>
-  rest: ChatMessage[][]
-} {
-  const taskBudget = taskAnchorBudget(contextLimit)
-  const anchors: Array<{ group: ChatMessage[]; reason: string }> = []
-  const rest: ChatMessage[][] = []
-  headGroups.forEach((group, idx) => {
-    if (group.length === 0 || isPreviousSummaryGroup(group)) {
-      rest.push(group)
-      return
-    }
-    if (group.some((m) => isPinnedMessage(m))) {
-      anchors.push({ group, reason: ANCHOR_REASON_PINNED })
-      return
-    }
-    const first = group[0]!
-    if (idx === 0 && first.role === 'user' && estimateMessagesTokens(group) <= taskBudget) {
-      anchors.push({ group, reason: ANCHOR_REASON_TASK })
-      return
-    }
-    rest.push(group)
-  })
-  return { anchors, rest }
 }
 
 // ==================== 结构化摘要 ====================
@@ -694,29 +627,12 @@ export function compressContext(
       trigger: 'none',
     }
   }
-  const headGroups = groups.slice(0, gi)
-  const { anchors, rest } = splitAnchorGroups(headGroups, maxTokens)
-  const toCompress = rest.flat()
+  const toCompress = groups.slice(0, gi).flat()
   const toKeep = groups.slice(gi).flat()
 
-  if (toCompress.length === 0) {
-    // 待压缩区全部是锚点 ⇒ 没有可摘要内容,不做"空摘要"压缩
-    return {
-      messages,
-      compressed: false,
-      originalTokens,
-      compressedTokens: originalTokens,
-      removedCount: 0,
-      anchoredCount: 0,
-      trigger: 'none',
-    }
-  }
-
-  const anchorMsgs = anchors.flatMap((a) => a.group)
   const summaryMsg = buildSummaryMessage(toCompress)
 
-  // system + 锚点原文 + 摘要 + 尾部保留(锚点都早于被摘要区间,时序正确)
-  const result = [...systemMsgs, ...anchorMsgs, summaryMsg, ...toKeep]
+  const result = [...systemMsgs, summaryMsg, ...toKeep]
   const compressedTokens = estimateMessagesTokens(result)
 
   return {
@@ -725,7 +641,6 @@ export function compressContext(
     originalTokens,
     compressedTokens,
     removedCount: toCompress.length,
-    anchoredCount: anchorMsgs.length,
     // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
     truncatedCount: 0,
     trigger: 'absolute',
@@ -799,12 +714,8 @@ export function compressContextIfNeeded(
       kept += groups[gi]!.length
     }
     if (gi <= 0) continue // 单组覆盖全部消息,无法在组边界切分(toCompress 为空)
-    const headGroups = groups.slice(0, gi)
-    const { anchors, rest } = splitAnchorGroups(headGroups, contextLimit)
-    const toCompress = rest.flat()
-    if (toCompress.length === 0) continue // 待压缩区全是锚点 ⇒ 本方案没有可摘要内容
+    const toCompress = groups.slice(0, gi).flat()
     const toKeep = groups.slice(gi).flat()
-    const anchorMsgs = anchors.flatMap((a) => a.group)
 
     // customSummary 仅用于首个(最大保留 kr)方案 —— 其压缩范围即"最大保留方案的压缩范围";
     // 更小 kr 的 fallback 方案仍用规则摘要(标记行两种方案都自动生成,格式一致)
@@ -812,7 +723,7 @@ export function compressContextIfNeeded(
       toCompress,
       customSummary.length > 0 && kr === krStart ? customSummary : undefined,
     )
-    const candidate = [...systemMsgs, ...anchorMsgs, summaryMsg, ...toKeep]
+    const candidate = [...systemMsgs, summaryMsg, ...toKeep]
     const candidateTokens = estimateMessagesTokens(candidate)
 
     if (candidateTokens <= targetThreshold) {
@@ -822,7 +733,6 @@ export function compressContextIfNeeded(
         originalTokens,
         compressedTokens: candidateTokens,
         removedCount: toCompress.length,
-        anchoredCount: anchorMsgs.length,
         // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
         truncatedCount: 0,
         trigger: 'ratio',
@@ -838,7 +748,6 @@ export function compressContextIfNeeded(
         originalTokens,
         compressedTokens: candidateTokens,
         removedCount: toCompress.length,
-        anchoredCount: anchorMsgs.length,
         // 摘要压缩路径不切任何人的内容:显式填 0,消费侧因此能把"0"读成事实而非未知
         truncatedCount: 0,
         trigger: 'ratio',

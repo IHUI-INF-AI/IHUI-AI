@@ -2,17 +2,14 @@
   "version": 1,
   "owner": "cross-end-parity",
   "expires": "2027-06-30",
-  "generatedAt": "2026-11-07T20:35:15.180Z",
+  "generatedAt": "2026-11-06T23:30:58.012Z",
   "face": "HEAD",
-  "why": "跨端漂移门的存量固化基线(回归制):存量只报数,只有相对基线新增/恶化才在 push 面阻断。owner 为跨端对齐线;到期须重新量并决定续期或清偿。 | 2026-11-08 定向刷新(仅 judgedGapWeb 0→1):/sag2 是 web 自有检索工作台,RN/小程序零承载 ⇒ 按门机制如实登记 gap(scripts/data/web-rn-screen-map.jsonl 新增行,提交 14e533b6f1);其余维度保持 2026-11-06 原值不动。",
+  "why": "跨端漂移门的存量固化基线(回归制):存量只报数,只有相对基线新增/恶化才在 push 面阻断。owner 为跨端对齐线;到期须重新量并决定续期或清偿。",
   "evidence": [
     "scripts/check-cross-end-parity-drift.mjs:1331-1341(--gate 现读取值口)",
     "scripts/check-web-rn-style-tiers.mjs:631-656(档位 kinds/处数与 forkAllowance 出口)",
     "docs/engineering/rn-miniapp-parity-matrix.md:1(镜像矩阵真源)",
-    "scripts/data/miniapp-key-retractions.jsonl:1(键级撤除台账)",
-    "apps/web/app/(main)/sag2/page.tsx:1-12(路由页 metadata.title=SAG2 词法多跳检索)",
-    "apps/web/app/(main)/sag2/PageClient.tsx:20-30(import @/api/sag2-lexical 六个方法)、:61/:89/:97/:107/:115/:121(六处调用点)",
-    "零承载取证(2026-11-08 现读):'sag2|Sag2|SAG2' 在 packages/app/src、apps/mobile-rn、apps/miniapp-taro/src 命中 0;packages/shared/src/constants/web-portal.ts 与 apps/miniapp-taro/src/constants/web-portal.ts 均无 sag2"
+    "scripts/data/miniapp-key-retractions.jsonl:1(键级撤除台账)"
   ],
   "refreshProcedure": {
     "trigger": "等其余各线全部落 main 后,在最终尖(origin/main 现读)上一次性刷新;严禁在旧尖或本特性分支上刷新",
@@ -61,7 +58,7 @@
     "missingExpiry": 0,
     "duplicateWebKeys": 1,
     "pendingWebPair": 1,
-    "judgedGapWeb": 1,
+    "judgedGapWeb": 0,
     "conversionRefused": 0
   },
   "advisoryDims": ["doc-stale"],

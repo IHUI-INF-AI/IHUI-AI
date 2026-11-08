@@ -15,10 +15,9 @@
  *     载荷只带标识,不带任务正文(断言键集就这两个)。
  *  ③ 信任清单路径单源(AGENTS §0.6)—— 取值实现全仓只剩 trust.ts 一份,configChange 载荷
  *     引用它而不是自己再拼一次。
- *  ④ cwdChanged 的唯一事件源(2026-11-06 第四笔接正)—— CLI 单进程从不切工作目录
- *     (`process.chdir` 在 apps/cli/src 零命中),真实事件源是编辑器客户端以不同 `cwd`
- *     反复 `newSession` 时的会话工作区切换;本册把证据钉在源码面:派发点全仓唯一、
- *     落在 acp/server.ts 且带 cwdFrom/cwdTo 两端。
+ *  ④ cwdChanged 的结构性裁决 —— 本仓 CLI 单进程、从不切工作目录(`process.chdir` 在
+ *     apps/cli/src 零命中),故该档**没有事件源**;本册把这条事实钉成判据,免得下一笔
+ *     为了"把枚举用满"硬造一个定时器出来。
  *
  * 运行链全走 spy(不真跑钩子进程、不真起子进程):本册判的是**派发**,执行面见
  * hook-async-rewake / hooks-trust-* 各册。
@@ -296,11 +295,10 @@ describe('③ 信任清单路径:取值实现全仓一份,configChange 载荷引
   });
 });
 
-// ─────────────── ④ cwdChanged 的唯一事件源:ACP 会话工作区切换 ───────────────
+// ─────────────── ④ cwdChanged 等档的结构性裁决(反向取证) ───────────────
 
-describe('④ cwdChanged:唯一事件源 = ACP newSession 的工作区切换(CLI 仍不 chdir)', () => {
-  /** 扫 apps/cli/src 全树,收集包含指定片段的文件(相对路径) */
-  function scanSrc(needle: string): string[] {
+describe('④ 未接档的裁决:证据钉在源码面上', () => {
+  it("cwdChanged 无事件源:apps/cli/src 全树 process.chdir 零命中", () => {
     const hits: string[] = [];
     const walk = (dir: string): void => {
       for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -308,29 +306,12 @@ describe('④ cwdChanged:唯一事件源 = ACP newSession 的工作区切换(CLI
         if (ent.isDirectory()) walk(p);
         else if (ent.name.endsWith('.ts')) {
           const text = fs.readFileSync(p, 'utf-8');
-          if (text.includes(needle)) hits.push(path.relative(cliSrc, p).replace(/\\/g, '/'));
+          if (text.includes('process.chdir')) hits.push(path.relative(cliSrc, p).replace(/\\/g, '/'));
         }
       }
     };
     walk(cliSrc);
-    return hits;
-  }
-
-  it('CLI 单进程仍从不切目录:apps/cli/src 全树 process.chdir 零命中', () => {
-    expect(scanSrc('process.chdir')).toEqual([]);
-  });
-
-  it("runHook('cwdChanged' 的派发点全仓唯一,在 acp/server.ts", () => {
-    expect(scanSrc("runHook('cwdChanged'")).toEqual(['acp/server.ts']);
-  });
-
-  it('派发点位于 newSession,载荷带 from/to 两端(不是只有新目录)', () => {
-    const src = fs.readFileSync(path.join(cliSrc, 'acp/server.ts'), 'utf-8');
-    expect(src).toContain("runHook('cwdChanged'");
-    expect(src).toContain('cwdFrom');
-    expect(src).toContain('cwdTo');
-    // 首个会话没有"变更前"⇒ 派发必须在 lastWorkspacePath 非空的分支内
-    expect(src).toContain('this.lastWorkspacePath !== null');
+    expect(hits).toEqual([]);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

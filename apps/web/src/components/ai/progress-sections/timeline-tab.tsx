@@ -137,9 +137,8 @@ function countByStatus(events: TimelineEvent[]): {
   failed: number
   running: number
   pending: number
-  stub: number
 } {
-  const c = { done: 0, failed: 0, running: 0, pending: 0, stub: 0 }
+  const c = { done: 0, failed: 0, running: 0, pending: 0 }
   for (const e of events) c[e.status]++
   return c
 }

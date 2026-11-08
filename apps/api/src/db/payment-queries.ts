@@ -48,15 +48,8 @@ export interface CreateOrderInput {
  * @param operatorId 操作者 userId(用于 createdBy + updatedBy 审计)。route handler 传 request.userId ?? null;系统异步任务传 null。
  * Phase 4: 事务内双写 orders + edu_orders（分→元 / int orderType→字符串），与 edu 入口互补。
  */
-/** 事务句柄（DB-02：让下单/完成订单可加入调用方事务，避免跨事务半提交）。 */
-export type DbTx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
-export async function createOrder(
-  input: CreateOrderInput,
-  operatorId: string | null,
-  outerTx?: DbTx,
-) {
-  const run = async (tx: DbTx) => {
+export async function createOrder(input: CreateOrderInput, operatorId: string | null) {
+  return db.transaction(async (tx) => {
     const outTradeNo = generateOutTradeNo(input.payType === 'alipay' ? 'ALI' : 'WX')
     const [order] = await tx
       .insert(orders)
@@ -101,12 +94,11 @@ export async function createOrder(
       remark: input.remark,
     })
     return order
-  }
-  return outerTx ? run(outerTx) : db.transaction(run)
+  })
 }
 
-export async function findOrderByNo(orderNo: string, tx?: DbTx) {
-  const rows = await (tx ?? db).select().from(orders).where(eq(orders.orderNo, orderNo)).limit(1)
+export async function findOrderByNo(orderNo: string) {
+  const rows = await db.select().from(orders).where(eq(orders.orderNo, orderNo)).limit(1)
   return rows[0]
 }
 
@@ -123,7 +115,6 @@ export async function updateOrderStatus(
   status: string,
   fromStatus?: string,
   operatorId: string | null = null,
-  outerTx?: DbTx,
 ): Promise<Order | undefined> {
   const values: Record<string, unknown> = {
     status,
@@ -133,7 +124,7 @@ export async function updateOrderStatus(
   if (status === 'cancelled') values.cancelTime = new Date()
   if (status === 'refunded') values.refundTime = new Date()
   values.updatedBy = operatorId
-  const run = async (tx: DbTx) => {
+  return db.transaction(async (tx) => {
     const conds = [eq(orders.orderNo, orderNo)]
     if (fromStatus) conds.push(eq(orders.status, fromStatus))
     const [updated] = await tx
@@ -155,8 +146,7 @@ export async function updateOrderStatus(
         .where(and(...eduConds))
     }
     return updated
-  }
-  return outerTx ? run(outerTx) : db.transaction(run)
+  })
 }
 
 export async function queryPendingOrders() {

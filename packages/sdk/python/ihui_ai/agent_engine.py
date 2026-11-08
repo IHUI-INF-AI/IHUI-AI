@@ -47,8 +47,6 @@ ENGINE_METHODS: tuple[str, ...] = (
     "thread.start",
     "thread.prompt",
     "thread.interrupt",
-    "thread.contextUsage",
-    "thread.seedReadState",
     "thread.resume",
     "thread.state",
     "thread.close",

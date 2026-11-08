@@ -3,12 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import {
-  buildVerifyCodeCopyUrl,
-  VERIFY_CODE_COPY_PATH,
   renderVerificationEmail,
   renderWelcomeEmail,
   renderSecurityLoginEmail,
@@ -71,103 +66,6 @@ describe('email-templates — 验证码', () => {
     const r = renderVerificationEmail('123456', 'login', '<script>alert(1)</script>')
     expect(r.html).not.toContain('<script>')
     expect(r.html).toContain('&lt;script&gt;')
-  })
-})
-
-// 邮件正文禁用 JS ⇒ 「一键复制」必须是真实 <a> 链接把码带到站点落地页,
-// 而不是邮件里写 navigator.clipboard。以下钉子同时钉住死链、参数注入、
-// 以及「按钮文案/位置」这条用户明确给的视觉契约三型回归。
-describe('email-templates — 验证码一键复制(落地页中转)', () => {
-  it('四个发码场景都带防弹复制按钮,链接携带 code/scene/exp', () => {
-    for (const scene of ['register', 'login', 'reset', 'bind'] as const) {
-      const r = renderVerificationEmail('582914', scene)
-      expect(r.html).toContain('>一键复制</a>')
-      expect(r.html).toContain(
-        `href="${PUBLIC_FALLBACK}${VERIFY_CODE_COPY_PATH}?code=582914&amp;scene=${scene}&amp;exp=5"`,
-      )
-      expect(r.html).toContain('target="_blank"')
-      // 细描边胶囊 = table bgcolor(深底) + 1px 酸绿边 + <a>,QQ 邮箱剥字体后仍可点
-      expect(r.html).toContain('border:1px solid #B4FF00')
-      expect(r.html).toContain('bgcolor="#0A0A0C"')
-    }
-  })
-
-  it('按钮文案严格只有「一键复制」四字,且与验证码同一行、位于其右侧', () => {
-    const r = renderVerificationEmail('582914', 'register')
-    expect(r.html.match(/>一键复制<\/a>/g)).toHaveLength(1)
-    expect(r.html).not.toContain('一键复制验证码')
-    expect(r.html).not.toContain('一键复制 →')
-    expect(r.html).not.toContain('一键复制 ·')
-    const codeAt = r.html.indexOf('>582914</div>')
-    const btnAt = r.html.indexOf('>一键复制</a>')
-    expect(codeAt).toBeGreaterThan(-1)
-    expect(btnAt).toBeGreaterThan(codeAt)
-    // 两者之间不出现 </tr> ⇒ 同一个 <tr> 的两个 <td>,按钮不在下一行
-    const between = r.html.slice(codeAt, btnAt)
-    expect(between).not.toContain('</tr>')
-    expect(between).toContain('<td')
-  })
-
-  it('有效期分钟数同时注入文案与落地页 exp 参数', () => {
-    const r = renderVerificationEmail('123456', 'login', undefined, 10)
-    expect(r.html).toContain('10 分钟内有效')
-    expect(r.html).toContain('exp=10')
-    expect(r.text).toContain('exp=10')
-  })
-
-  it('code 走 URL 编码 + HTML 属性转义,特殊字符不能截断 href 或注入属性', () => {
-    const r = renderVerificationEmail('12&34"x', 'login')
-    expect(r.html).toContain('code=12%2634%22x')
-    expect(r.html).not.toContain('code=12&34')
-    expect(r.html).not.toContain('12&34"x')
-    expect(r.html).not.toContain('<script>')
-  })
-
-  it('验证码文本可单击全选,纯文本兜底也带复制页链接', () => {
-    const r = renderVerificationEmail('582914', 'register')
-    expect(r.html).toContain('user-select:all')
-    expect(r.html).toContain('-webkit-user-select:all')
-    expect(r.text).toContain(
-      `${PUBLIC_FALLBACK}${VERIFY_CODE_COPY_PATH}?code=582914&scene=register&exp=5`,
-    )
-  })
-
-  it('一键复制按钮只属于验证码邮件,其它事务邮件不得混入', () => {
-    const welcome = renderWelcomeEmail({ nickname: '李总', maskedId: 'x', initCredits: 1 })
-    expect(welcome.html).not.toContain(VERIFY_CODE_COPY_PATH)
-    expect(welcome.html).not.toContain('一键复制')
-    expect(welcome.html).toContain('href="https://aizhs.top/dashboard"')
-  })
-
-  it('buildVerifyCodeCopyUrl 跟随 resolveWebOrigin 的公网原点裁决', () => {
-    process.env.CORS_ORIGIN = 'http://localhost:8801,https://api.aizhs.top'
-    expect(buildVerifyCodeCopyUrl('582914', 'login', 5)).toBe(
-      'https://api.aizhs.top/verify-code.htm?code=582914&scene=login&exp=5',
-    )
-    process.env.CORS_ORIGIN = ''
-    expect(buildVerifyCodeCopyUrl('582914', 'login', 5)).toBe(
-      'https://aizhs.top/verify-code.htm?code=582914&scene=login&exp=5',
-    )
-  })
-
-  it('模板里的落地页路径在 web public 下真实存在(防邮件按钮 404)', () => {
-    const here = dirname(fileURLToPath(import.meta.url))
-    const landing = resolve(here, '../../../apps/web/public/verify-code.htm')
-    expect(existsSync(landing)).toBe(true)
-  })
-
-  it('HTML 属性转义后的 href 可被浏览器解析,且 code 命中落地页白名单', () => {
-    const r = renderVerificationEmail('582914', 'bind', undefined, 8)
-    const href = r.html.match(/href="([^"]*\/verify-code\.htm[^"]*)"/)?.[1] ?? ''
-    expect(href).not.toBe('')
-    // 浏览器会把 &amp; 解回 &,落地页 URLSearchParams 才能读到完整 scene/exp
-    const parsed = new URL(href.replaceAll('&amp;', '&'))
-    expect(parsed.origin + parsed.pathname).toBe(`${PUBLIC_FALLBACK}${VERIFY_CODE_COPY_PATH}`)
-    expect(parsed.searchParams.get('code')).toBe('582914')
-    expect(parsed.searchParams.get('scene')).toBe('bind')
-    expect(parsed.searchParams.get('exp')).toBe('8')
-    // 与 apps/web/public/verify-code.htm 的白名单同一口径,防止邮件发得出去却复制不了
-    expect(parsed.searchParams.get('code')).toMatch(/^[A-Za-z0-9]{4,16}$/)
   })
 })
 

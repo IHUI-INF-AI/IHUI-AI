@@ -13,9 +13,8 @@
  *            （JS 对象字符串化按插入序输出；换序 ⇒ JSON 文本变 ⇒ 签名全废）
  *   paths    去重后按字典序升序（`.sort()`，Node 默认 UTF-16 码元序）；路径原样，不做大小写/斜杠改写
  *   sig      = HMAC-SHA256(key, payload)，输出 64 位小写 hex（不带版本前缀）
- *   key      **独立追认钥**（2026-11-07 钥分离，与提交签名钥必须是两把），来源优先级：
- *            `IHUI_IMMUTABLE_GUARD_ACK_KEY` → `IHUI_IMMUTABLE_GUARD_ACK_KEY_FILE`
- *            → `git config ihui.immutableGuardAckKeyPath`。缺钥 ⇒ 拒签（fail-closed）。
+ *   key      32 字节，来源优先级：`IHUI_IMMUTABLE_GUARD_KEY` → `IHUI_IMMUTABLE_GUARD_KEY_FILE`
+ *            → `git config ihui.immutableGuardKeyPath`（与提交签名钥同一把，见本单裁定）
  *
  * 注意：`reason` / `reviewer` / `attestedAt` **按落盘原值**参与签名，本工具不做 trim 归一；
  * 落盘前会把两端空白去掉并在校验阶段就拒绝空值，避免"签的和验的不是同一个字节"。
@@ -46,7 +45,7 @@ import {
   FULL_SHA_RE,
   signAttestation,
 } from './lib/immutable-guard.mjs'
-import { ROOT, resolveAckKey, resolveSigningKey } from './check-immutable-guard.mjs'
+import { ROOT, resolveSigningKey } from './check-immutable-guard.mjs'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -159,11 +158,8 @@ function main() {
     if (dup.length) fail(`台账里已有同 sha 记录，拒绝重复追认：${dup.map((r) => r.sha).join(', ')}`)
   }
 
-  const keyRes = resolveAckKey(opts.root)
-  if (!keyRes.key) fail(`取不到独立追认密钥（拒签，fail-closed）：${keyRes.why}`)
-  const submitRes = resolveSigningKey(opts.root)
-  if (submitRes.key && submitRes.key === keyRes.key)
-    fail('独立追认密钥与提交签名密钥是同一把 ⇒ 追认退化为作者自认，拒签（钥未分离）')
+  const keyRes = resolveSigningKey(opts.root)
+  if (!keyRes.key) fail(`取不到签名密钥：${keyRes.why}`)
 
   const outLines = rows.map((r) => {
     let sig

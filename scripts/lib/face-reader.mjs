@@ -1101,24 +1101,6 @@ function parseZLsFilesTable(out, { unmergedAsNull = true } = {}) {
 }
 
 /**
- * 单轮只读扫描的面快照:同一进程里 HEAD 树表只物化一次。
- * 为什么是 opt-in(`IHUI_FACE_TREE_SNAPSHOT=1`):face-reader 的镜像测试会在**同一进程**里
- * 连续造提交并移动 HEAD,默认缓存会让第二次读拿到上一棵树的 oid。门/尺子这类"一轮一面"
- * 的短命进程由调用方显式开启 —— 2026-11-07 302p 提速:六把尺各自重复跑 2~7 次全树 ls-tree,
- * 开启后每把尺只跑 1 次,读数不变(树在轮内是静止的,§0.4 同面同轮)。
- */
-const headTreeSnapshot = new Map()
-function headTableOf(root, timeout) {
-  if (process.env.IHUI_FACE_TREE_SNAPSHOT !== '1') {
-    return parseZPathOidTable(gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout }))
-  }
-  if (!headTreeSnapshot.has(root)) {
-    headTreeSnapshot.set(root, parseZPathOidTable(gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout })))
-  }
-  return headTreeSnapshot.get(root)
-}
-
-/**
  * 把一批 rev 规格解析成 oid。返回 `Map<spec, oid|null>`(null = 被审面上不存在)。
  * 无法离线解析的形态原样映射到自身,由 cat-file 自己去解释。
  */
@@ -1153,7 +1135,8 @@ export function resolveSpecOids(root, specs, opts = {}) {
   const timeout = opts.timeout ?? BATCH_TIMEOUT
   try {
     if (headPaths.length) {
-      const table = headTableOf(root, timeout)
+      const out = gitRaw(['ls-tree', '-r', '-z', 'HEAD'], root, { timeout })
+      const table = parseZPathOidTable(out)
       for (const [spec, rel] of headPaths) result.set(spec, table.has(rel) ? table.get(rel) : null)
     }
     if (indexPaths.length) {

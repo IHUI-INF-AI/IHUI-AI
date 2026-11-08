@@ -544,8 +544,6 @@ const KNOWLEDGE_CHILDREN: NavItem[] = [
   { href: '/knowledge-base', labelKey: 'knowledgeBase', icon: BookOpen },
   { href: '/knowledge-rag', labelKey: 'knowledgeRag', icon: Database },
   { href: '/knowledge-graph', labelKey: 'knowledgeGraph', icon: Network },
-  // 2026-11-08:SAG2 词法多跳检索工作台(零模型建库 / 查询时关联 / 引用直达)
-  { href: '/sag2', labelKey: 'sag2Lexical', icon: Database },
   // 2026-09-10 2-1a:Repo Wiki 页(2026-09-07 MVP)补挂侧边栏入口
   // 2026-10-20 简洁模式:`experimental` —— 代码仓库 Wiki,是研发资产不是用户内容
   { href: '/repo-wiki', labelKey: 'repoWiki', icon: FileText, advancedOnly: 'experimental' },

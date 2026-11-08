@@ -37,7 +37,7 @@ const UNKNOWN_ISSUES = new Set([
 const READ_ONLY: CommandEffect = 'read';
 
 /** 与旧实现同义的可执行文件名归一:去路径、去 Windows 后缀、转小写。 */
-function normalizeProgram(raw: string): string {
+export function normalizeProgram(raw: string): string {
   const unquoted = raw.replace(/^(['"])([\s\S]*)\1$/, '$2');
   const base = unquoted.split(/[/\\]/).pop() ?? unquoted;
   return base.replace(/\.(exe|cmd|bat|com)$/i, '').toLowerCase();
@@ -461,7 +461,7 @@ function singleSegmentArgv(command: string): readonly ArgToken[] | undefined {
  * `git status`、`pnpm -C dir run lint` ⇒ `pnpm run lint`(登记的全局选项连值一起跳过)。
  * 判不出/不可担保(未登记命令、未登记子命令、危险面、变量展开、复合、重定向、`--`)⇒ null。
  */
-function resolveStableCommandPrefix(command: string): string | null {
+export function resolveStableCommandPrefix(command: string): string | null {
   const input = (command ?? '').trim();
   if (!input) return null;
   const argv = singleSegmentArgv(input);

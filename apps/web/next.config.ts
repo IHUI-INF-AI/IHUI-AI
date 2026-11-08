@@ -625,13 +625,6 @@ const nextConfig: NextConfig = {
           source: '/api/v1/ai/eval/:path*',
           destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/eval/:path*`,
         },
-        // 2026-11-08 新增:SAG2 词法多跳检索通道转发到 ai-service 8803。
-        // router.py 把 sag2_lexical.router 挂在 prefix="/api/v1/ai/sag2";
-        // 必须排在 /api/:path* 之前,否则会被转发到 8802(api server)导致 404。
-        {
-          source: '/api/v1/ai/sag2/:path*',
-          destination: `${IHUI_AI_PROXY_TARGET}/api/v1/ai/sag2/:path*`,
-        },
         // 2026-08-11 新增:Prompt 管理 API 路由转发到 ai-service 8803
         // 原因:prompts router 注册在 ai-service(prefix="/api"),
         // 必须在 /api/:path* 通配符之前匹配,否则会被转发到 8802(api server)导致 404。

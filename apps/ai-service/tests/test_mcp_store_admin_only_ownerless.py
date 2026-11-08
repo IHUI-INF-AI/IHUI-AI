@@ -64,8 +64,6 @@ MCP_STORE_PATH = Path(__file__).resolve().parent.parent / "app" / "services" / "
 def store_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     p = tmp_path / "mcp_store.json"
     monkeypatch.setattr(mcp_store, "_STORE_PATH", p)
-    # 2026-11-07:install 入口新增可执行白名单(fail-closed),放行目录里用到的 npx 变体。
-    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", "npx,npx.cmd,npx.exe,npx.bat")
     return p
 
 
@@ -308,13 +306,12 @@ def test_role_absent_is_not_admin_fail_closed(
 def test_owner_can_still_toggle_positive_control(
     store_path: Path, bridge_spy, clean_registry
 ) -> None:
-    """喂"属主本人 + 角色 0" ⇒ 绿。少了这条,本票可能只是把功能整个改坏了。
-
-    2026-11-07:install 已收成管理员专属,故这里改用 `_seed` 落一条属主=PLAIN 的
-    记录 —— 收紧安装入口**不得**连带掐掉属主对自己记录的启停能力。
-    """
-    _seed("git", owner=PLAIN, enabled=True)
+    """喂"属主本人 + 角色 0" ⇒ 绿。少了这条,本票可能只是把功能整个改坏了。"""
     cli = _plain()
+    installed = cli.post("/api/mcp/store/install", json={"key": "git", "confirm_risk": True})
+    assert installed.status_code == 200, installed.text
+    assert mcp_store.owner_of("git") == PLAIN
+    bridge_spy["add"].clear()
 
     assert cli.post("/api/mcp/store/git/disable").status_code == 200
     assert cli.post("/api/mcp/store/git/enable").status_code == 200
@@ -377,11 +374,7 @@ def test_install_overwrite_ownerless_requires_admin(
 def test_install_overwrite_foreign_still_denied_for_third_party(
     store_path: Path, bridge_spy, clean_registry
 ) -> None:
-    """同名的别人记录:普通用户(含属主本人)一律被角色闸拦下;管理员可覆盖。
-
-    2026-11-07:install 收成管理员专属后,"属主可以覆盖自己那条"(旧档①)已被角色闸
-    前移覆盖 —— 这里改证管理员覆盖仍可行,属主本人的拒绝见上一条 install 用例。
-    """
+    """同名的别人记录:第三个普通用户不得覆盖(档③),属主自己则可以(档①)。"""
     _seed("git", owner=OTHER, enabled=False)
     before = _snapshot()
 
@@ -391,10 +384,6 @@ def test_install_overwrite_foreign_still_denied_for_third_party(
     assert bridge_spy == {"add": [], "remove": []}
 
     o = _client(OTHER).post("/api/mcp/store/install", json={"key": "git", "confirm_risk": True})
-    assert o.status_code == 403, o.text
-    assert _snapshot() == before
-
-    ok = _admin().post("/api/mcp/store/install", json={"key": "git", "confirm_risk": True})
-    assert ok.status_code == 200, ok.text
+    assert o.status_code == 200, o.text
     assert mcp_store.get_installed("git")["enabled"] is True
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

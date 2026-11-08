@@ -133,16 +133,16 @@ function loadInstalledSkills(filePath = getInstalledSkillsPath()): Set<string> {
     if (code === 'ENOENT' || code === 'ENOTDIR') return new Set();
     throw new Error(`已安装技能名单读不到,不能把它覆盖成只剩新的一项 (${code})`);
   }
-  let parsed: InstalledSkillsData;
   try {
-    parsed = JSON.parse(raw) as InstalledSkillsData;
-  } catch {
+    const parsed = JSON.parse(raw) as InstalledSkillsData;
+    if (!parsed || !Array.isArray(parsed.installed)) {
+      throw new Error('已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)');
+    }
+    return new Set(parsed.installed.filter((s): s is string => typeof s === 'string'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('已安装技能名单读不到')) throw error;
     throw new Error('已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)');
   }
-  if (!parsed || !Array.isArray(parsed.installed)) {
-    throw new Error('已安装技能名单读不到,不能把它覆盖成只剩新的一项 (corrupt)');
-  }
-  return new Set(parsed.installed.filter((s): s is string => typeof s === 'string'));
 }
 
 function saveInstalledSkills(ids: Set<string>, filePath = getInstalledSkillsPath()): void {

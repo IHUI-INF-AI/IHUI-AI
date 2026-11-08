@@ -599,7 +599,7 @@ describe('外部会话导入路由(D28)', () => {
       const dumped = JSON.stringify(store.insertValues)
       expect(dumped).not.toContain('SUPERSECRETVALUE99')
       expect(dumped).not.toContain('0 2 * * *')
-      const [skills = [], automations = [], memory = []] = store.insertValues as Array<
+      const [skills, automations, memory] = store.insertValues as Array<
         Array<Record<string, unknown>>
       >
       expect(skills[0]).toMatchObject({ userId: 'user-1', name: '审查', enabled: true })

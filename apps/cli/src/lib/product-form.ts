@@ -25,6 +25,7 @@
 import {
   evaluateProductFormCapability,
   isProductForm,
+  PRODUCT_CAPABILITIES,
   PRODUCT_FORMS,
   type ProductCapability,
   type ProductCapabilityVerdict,
@@ -34,10 +35,10 @@ import {
 export const PRODUCT_FORM_ENV = 'IHUI_PRODUCT_FORM';
 
 /** 缺省形态:CLI 自身形态(本仓唯一带本机执行面的产品形态)。 */
-const DEFAULT_PRODUCT_FORM = 'cli';
+export const DEFAULT_PRODUCT_FORM = 'cli';
 
 /** 形态取值的三种来源状态。 */
-type ProductFormSource = 'declared' | 'defaulted' | 'unknown';
+export type ProductFormSource = 'declared' | 'defaulted' | 'unknown';
 
 export interface ResolvedProductForm {
   /** 本次运行的形态取值(未登记时是原样取值,便于点名) */
@@ -96,7 +97,7 @@ export const PRODUCT_FORM_CAPABILITY_UNJUDGED = 'PRODUCT_FORM_CAPABILITY_UNJUDGE
  *
  * 文案必须点名「形态 · 能力」—— 只说"某个能力没开"等于没说(§0.9 静默 = 没判)。
  */
-function buildProductFormNotice(
+export function buildProductFormNotice(
   verdict: ProductCapabilityVerdict,
   site: string,
 ): string | null {
@@ -140,4 +141,9 @@ export function clearProductFormAnnouncements(): void {
   announcedProductFormGates.clear();
 }
 
+/** 供消费点引用:合法形态与合法能力的值域(出声文案里要点名)。 */
+export const PRODUCT_FORM_VALUE_HINTS = {
+  forms: PRODUCT_FORMS.join('|'),
+  capabilities: PRODUCT_CAPABILITIES.join('|'),
+} as const;
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

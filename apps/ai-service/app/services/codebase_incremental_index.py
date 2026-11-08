@@ -34,16 +34,14 @@ from .codebase_indexer import (
     SNAPSHOT_STATE_LEGACY,
     SNAPSHOT_STATE_OK,
     SNAPSHOT_STATE_TRUNCATED,
-    SUMMARY_SYMBOL_TYPES,
     CodebaseIndexer,
     CodeChunk,
     IndexResult,
     _default_repo_id,
+    classify_fs_path,
     _extract_document_markdown,
     _merkle_root,
-    classify_fs_path,
 )
-from .codebase_symbol_catalog import FileEntry, entry_from_chunks, merge_catalog
 from .dir_rhash import diff_dir_rhash, dir_rhash_map
 
 #: 可做增量判定的快照档(ok 自证通过;legacy 内容可用但无自证 —— 与全量路径同判)。
@@ -166,8 +164,6 @@ async def index_changed_paths(
     # --- 切片(函数层 + 模块层)+ 架构层:全部走全量路径同一批方法 ---
     all_chunks: list[CodeChunk] = []
     layer_inputs: list[tuple[str, str, int]] = []
-    #: 变更文件的目录条目(2026-11-06):未变文件沿用上一轮目录,与全量路径同判据。
-    changed_entries: dict[str, FileEntry] = {}
     for path, rel, lang, pre_text in to_reindex:
         try:
             if pre_text is None:
@@ -183,9 +179,6 @@ async def index_changed_paths(
             all_chunks.extend(file_chunks)
             result.files_indexed += 1
             layer_inputs.append((rel, lang, len(file_chunks)))
-            changed_entries[rel] = entry_from_chunks(
-                rel, lang, file_chunks, exclude_symbol_types=SUMMARY_SYMBOL_TYPES
-            )
             module_chunk = indexer._build_module_summary_chunks(rel, lang, file_chunks)
             if module_chunk:
                 all_chunks.append(module_chunk)
@@ -200,19 +193,11 @@ async def index_changed_paths(
     if to_reindex or deleted_paths:
         all_chunks.extend(indexer._build_architecture_summary_chunks(all_visible))
 
-    # --- 文件/符号目录:变更文件重建、删除文件摘除、未变文件沿用(2026-11-06) ---
-    prev_catalog = snapshot.catalog if snapshot.state in _USABLE_STATES else None
-    catalog = merge_catalog(prev_catalog, changed_entries, deleted_paths, aliases=live_aliases)
-    for rel in new_hashes:
-        if rel not in catalog.files:
-            catalog.files[rel] = FileEntry(rel, _EXT_TO_LANG.get(Path(rel).suffix.lower()), ())
-
     result.chunks_created = len(all_chunks)
     if not all_chunks:
         indexer._save_snapshot(
             repo_id, root, new_hashes,
             fingerprints=new_fingerprints, aliases=live_aliases, dir_rhashes=cur_dir_rhashes,
-            catalog=catalog,
         )
         return result
 
@@ -227,7 +212,6 @@ async def index_changed_paths(
     indexer._save_snapshot(
         repo_id, root, new_hashes,
         fingerprints=new_fingerprints, aliases=live_aliases, dir_rhashes=cur_dir_rhashes,
-        catalog=catalog,
     )
     return result
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

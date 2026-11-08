@@ -143,7 +143,6 @@
     "check:host-timezone": "node scripts/check-host-timezone.mjs --strict",
     "check:sequence-lag:fix": "node scripts/check-sequence-lag.mjs --fix",
     "doc:numbers": "node scripts/gen-doc-numbers.mjs",
-    "doc:numbers:sync": "node scripts/sync-readme-numbers.mjs",
     "check:doc-numbers": "node scripts/check-doc-numbers.mjs --strict",
     "check:desktop-cache-plaintext": "node scripts/check-desktop-cache-plaintext.mjs",
     "check:prompt-injection": "node scripts/check-prompt-injection-registry.mjs",
@@ -289,7 +288,7 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,mjs,cjs}": [
-      "eslint --fix --cache --cache-location node_modules/.cache/eslint/eslintcache --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/migration-audit-report/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'"
+      "eslint --fix --ignore-pattern '**/migration-final-review/**' --ignore-pattern '**/migration-audit/**' --ignore-pattern '**/migration-audit-report/**' --ignore-pattern '**/public/**' --ignore-pattern '**/e2e/**' --ignore-pattern '**/next-env.d.ts'"
     ],
     "*.{ts,tsx,js,jsx,json,md,yml,yaml,css,scss}": "prettier --write"
   }

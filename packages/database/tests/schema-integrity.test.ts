@@ -574,37 +574,3 @@ describe('funds schema', () => {
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-describe('手工迁移账本口径（DB-01）', () => {
-  it('hash 与 drizzle readMigrationFiles 的 sha256 完全一致，且 created_at 取 journal.when', async () => {
-    const { readFileSync } = await import('node:fs')
-    const { join } = await import('node:path')
-    const { fileURLToPath } = await import('node:url')
-    const { readMigrationFiles } = await import('drizzle-orm/migrator')
-    // @ts-expect-error 迁移脚本为 .mjs，无类型声明；此处只校验其与 drizzle 官方口径一致
-    const { computeMigrationHash, resolveJournalWhen } =
-      await import('../scripts/apply-migration.mjs')
-
-    const drizzleDir = fileURLToPath(new URL('../drizzle', import.meta.url))
-    const journal = JSON.parse(readFileSync(join(drizzleDir, 'meta', '_journal.json'), 'utf-8'))
-    const entries = journal.entries as Array<{ tag: string; when: number }>
-    const last = entries[entries.length - 1]!
-    const sql = readFileSync(join(drizzleDir, `${last.tag}.sql`), 'utf-8')
-    const drizzleMigrations = readMigrationFiles({ migrationsFolder: drizzleDir })
-
-    expect(computeMigrationHash(sql)).toBe(drizzleMigrations[drizzleMigrations.length - 1]!.hash)
-    expect(computeMigrationHash(sql)).not.toMatch(/^manual_/)
-    expect(resolveJournalWhen(join(drizzleDir, `${last.tag}.sql`), last.tag)).toBe(last.when)
-  })
-
-  it('journal 里没有的 tag 必须 fail-closed，不得伪造时间戳', async () => {
-    const { join } = await import('node:path')
-    const { fileURLToPath } = await import('node:url')
-    // @ts-expect-error 迁移脚本为 .mjs，无类型声明；此处只校验 fail-closed 口径
-    const { resolveJournalWhen } = await import('../scripts/apply-migration.mjs')
-    const drizzleDir = fileURLToPath(new URL('../drizzle', import.meta.url))
-    expect(() =>
-      resolveJournalWhen(join(drizzleDir, 'not_in_journal.sql'), 'not_in_journal'),
-    ).toThrow(/journal/)
-  })
-})

@@ -56,7 +56,6 @@ export type ThirdPartyPlatform =
   | 'apple'
   | 'oidc'
   | 'app'
-  | 'linuxdo'
 
 /** 8 平台静态列表,顺序与 web 端 ThirdPartyLoginButtons 一致(3 列网格按行铺) */
 export const ALL_THIRD_PARTY_PLATFORMS: readonly ThirdPartyPlatform[] = [

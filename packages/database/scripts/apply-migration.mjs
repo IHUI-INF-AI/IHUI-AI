@@ -6,38 +6,23 @@
  * 通用 migration 应用脚本
  * 用法: pnpm tsx scripts/apply-migration.mjs drizzle/00XX_xxx.sql
  */
-import { createHash } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
-import { basename, dirname, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import postgres from 'postgres'
 
-/**
- * DB-01 P1：账本口径必须与 drizzle 完全一致，否则 `drizzle-kit migrate`
- * 会因伪 hash / 被 Date.now() 抬高的 created_at 误判历史迁移已应用。
- * - hash = sha256(整份 SQL 文件内容) 的 hex；
- * - created_at = drizzle/meta/_journal.json 中对应 tag 的 `when`。
- */
-export function computeMigrationHash(view) {
-  return createHash('sha256').update(view).digest('hex')
+const url = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui'
+const sql = postgres(url, { max: 1 })
+
+const MIGRATION_FILE = process.argv[2]
+if (!MIGRATION_FILE) {
+  console.error('用法: pnpm tsx scripts/apply-migration.mjs <path-to-sql>')
+  process.exit(1)
 }
 
-/** 取不到 journal.when 时 fail-closed，绝不伪造时间戳。 */
-export function resolveJournalWhen(migrationFile, tag) {
-  const journalPath = join(dirname(migrationFile), 'meta', '_journal.json')
-  if (!existsSync(journalPath)) {
-    throw new Error(`找不到 drizzle journal: ${journalPath}，拒绝伪造迁移时间戳`)
-  }
-  const journal = JSON.parse(readFileSync(journalPath, 'utf-8'))
-  const entries = Array.isArray(journal?.entries) ? journal.entries : []
-  const entry = entries.find((e) => e?.tag === tag)
-  if (!entry || typeof entry.when !== 'number' || !Number.isFinite(entry.when)) {
-    throw new Error(
-      `drizzle journal 中找不到 tag=${tag} 的有效 when，拒绝伪造迁移时间戳（请先生成该迁移的 journal 条目）`,
-    )
-  }
-  return entry.when
-}
+const migrationFile = resolve(process.cwd(), MIGRATION_FILE)
+const migrationSql = readFileSync(migrationFile, 'utf-8')
+const tag = MIGRATION_FILE.split('/').pop()?.replace('.sql', '') ?? 'unknown'
+const hash = `manual_${tag}_${Date.now()}`
 
 /**
  * 手写 PL/pgSQL 语句分割器
@@ -94,28 +79,21 @@ function splitSqlStatements(input) {
   return result
 }
 
-function isSkippable(err, stmt) {
-  const msg = err instanceof Error ? err.message : String(err)
-  return msg.includes('already exists') || (msg.includes('does not exist') && stmt.includes('DROP'))
-}
+async function main() {
+  console.log(`[apply-migration] 开始应用 ${MIGRATION_FILE}...`)
 
-async function applyStatements(exec, statements) {
+  const statements = splitSqlStatements(migrationSql)
+  console.log(`[apply-migration] 解析出 ${statements.length} 条语句`)
+
   for (let i = 0; i < statements.length; i++) {
     const stmt = statements[i]
-    const firstLine = stmt.split('\n').find((l) => l.trim())?.trim()
     try {
-      if (typeof exec.savepoint === 'function') {
-        // 事务内用 SAVEPOINT 隔离可跳过的幂等错误；否则 PostgreSQL 会把整个事务置为 aborted。
-        await exec.savepoint(async (sp) => {
-          await sp.unsafe(stmt)
-        })
-      } else {
-        await exec.unsafe(stmt)
-      }
+      await sql.unsafe(stmt)
+      const firstLine = stmt.split('\n').find((l) => l.trim())?.trim()
       console.log(`[apply-migration] ✓ [${i + 1}/${statements.length}] ${firstLine?.slice(0, 70)}...`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (isSkippable(err, stmt)) {
+      if (msg.includes('already exists') || (msg.includes('does not exist') && stmt.includes('DROP'))) {
         console.log(`[apply-migration] ⊙ [${i + 1}/${statements.length}] 跳过: ${msg.slice(0, 80)}`)
       } else {
         console.error(`[apply-migration] ✗ [${i + 1}/${statements.length}] 错误: ${msg}`)
@@ -124,92 +102,27 @@ async function applyStatements(exec, statements) {
       }
     }
   }
-}
 
-/**
- * 写账本。DB-01: hash 必须是文件 sha256，created_at 必须是 journal.when；
- * 账本写不进去就报错退出，绝不「跳过 + 假成功」。
- * 账本唯一性由 created_at 判定（drizzle 本身以 created_at 水位比较），
- * 已存在同 created_at 时校验 hash 一致，不一致即 fail-closed。
- */
-async function recordLedger(exec, hash, when) {
-  const rows = await exec`
-    SELECT hash FROM drizzle."__drizzle_migrations"
-    WHERE created_at = ${when}
-    LIMIT 1
-  `
-  if (rows.length > 0) {
-    if (rows[0].hash !== hash) {
-      throw new Error(
-        `账本冲突: created_at=${when} 已存在但 hash 不一致(账本=${rows[0].hash}, 文件=${hash})，拒绝覆盖`,
-      )
-    }
-    console.log('[apply-migration] ⊙ 账本已存在同 hash 记录，跳过')
-    return
-  }
-  await exec`
-    INSERT INTO drizzle."__drizzle_migrations" (hash, created_at)
-    VALUES (${hash}, ${when})
-  `
-  console.log('[apply-migration] ✓ 迁移记录已写入 __drizzle_migrations')
-}
-
-async function main() {
-  const migrationArg = process.argv[2]
-  if (!migrationArg) {
-    console.error('用法: pnpm tsx scripts/apply-migration.mjs <path-to-sql>')
-    process.exitCode = 1
-    return
-  }
-
-  const migrationFile = resolve(process.cwd(), migrationArg)
-  const migrationSql = readFileSync(migrationFile, 'utf-8')
-  const tag = basename(migrationFile).replace(/\.sql$/i, '')
-  const hash = computeMigrationHash(migrationSql)
-  // 取不到 journal.when 直接抛错，不再用 Date.now() 抬高账本水位。
-  const when = resolveJournalWhen(migrationFile, tag)
-
-  console.log(`[apply-migration] 开始应用 ${migrationArg} (tag=${tag}, when=${when})...`)
-
-  const statements = splitSqlStatements(migrationSql)
-  console.log(`[apply-migration] 解析出 ${statements.length} 条语句`)
-
-  const url = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui'
-  const sql = postgres(url, { max: 1 })
+  // 记录到 __drizzle_migrations
   try {
-    // CREATE INDEX CONCURRENTLY 不能在事务块内执行；这类文件只能顺序执行后单独记账。
-    const hasConcurrently = statements.some((s) => /\bCONCURRENTLY\b/i.test(s))
-    if (hasConcurrently) {
-      console.log('[apply-migration] ⚠ 检测到 CONCURRENTLY，语句与账本无法同事务，改为顺序执行')
-      await applyStatements(sql, statements)
-      await recordLedger(sql, hash, when)
-    } else {
-      await sql.begin(async (tx) => {
-        // 同一 created_at 的并发手工执行串行化，避免无唯一索引的账本写双份。
-        await tx`SELECT pg_advisory_xact_lock(hashtext(${'ihui:migration:' + when}))`
-        await applyStatements(tx, statements)
-        await recordLedger(tx, hash, when)
-      })
-    }
-  } finally {
-    await sql.end()
+    await sql`
+      INSERT INTO drizzle."__drizzle_migrations" (hash, created_at)
+      VALUES (${hash}, ${Date.now()})
+      ON CONFLICT DO NOTHING
+    `
+    console.log('[apply-migration] ✓ 迁移记录已写入 __drizzle_migrations')
+  } catch (err) {
+    console.log(`[apply-migration] ⊙ 迁移记录写入跳过: ${err instanceof Error ? err.message : String(err)}`)
   }
 
   console.log('[apply-migration] ✅ 迁移完成')
 }
 
-const isMain =
-  typeof process.argv[1] === 'string' &&
-  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
-
-if (isMain) {
-  main()
-    .then(() => process.exit(process.exitCode ?? 0))
-    .catch((err) => {
-      console.error('[apply-migration] ❌ 迁移失败:', err)
-      process.exit(1)
-    })
-}
-
-export { splitSqlStatements }
+main()
+  .then(() => process.exit(0))
+  .catch((err) => {
+    console.error('[apply-migration] ❌ 迁移失败:', err)
+    process.exit(1)
+  })
+  .finally(() => sql.end())
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

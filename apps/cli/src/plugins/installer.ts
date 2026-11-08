@@ -270,20 +270,20 @@ export function loadInstallRegistry(): InstallRegistry {
     throw new Error(`插件登记表读不到,不能把它说成没有已装插件 (${code})`);
   }
   if (raw.trim() === '') return { records: [] };
-  let parsed: unknown;
   try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
+    }
+    const obj = parsed as Record<string, unknown>;
+    if (!Array.isArray(obj.records)) {
+      throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
+    }
+    return parsed as InstallRegistry;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('插件登记表读不到')) throw error;
     throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
   }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
-  }
-  const obj = parsed as Record<string, unknown>;
-  if (!Array.isArray(obj.records)) {
-    throw new Error('插件登记表读不到,不能把它说成没有已装插件 (corrupt)');
-  }
-  return parsed as InstallRegistry;
 }
 
 /**

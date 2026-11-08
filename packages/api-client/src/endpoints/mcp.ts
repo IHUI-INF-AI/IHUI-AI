@@ -251,12 +251,7 @@ export interface RegisterDirectoryServerInput {
   command: string
   /** stdio 命令参数(如 filesystem 的 workspace path) */
   args?: string[]
-  /**
-   * 环境变量覆盖(如 DATABASE_URL / GITHUB_PERSONAL_ACCESS_TOKEN)。
-   *
-   * 2026-11-07 收紧:只允许目录条目自己声明过的键(后端按 `env_required` 白名单校验),
-   * 未声明的键会返回 400 `ENV_OVERRIDE_DENIED` 并在 `error` 里列出允许键。
-   */
+  /** 环境变量覆盖(如 DATABASE_URL / GITHUB_PERSONAL_ACCESS_TOKEN) */
   env?: Record<string, string>
 }
 
@@ -267,13 +262,7 @@ export async function getMcpDirectory(): Promise<ApiResult<McpDirectoryResponse>
   return fetchApi<McpDirectoryResponse>('/api/mcp/directory')
 }
 
-/**
- * 目录一键注册:把内置条目转换为 MCP Server 并连接。
- *
- * 2026-11-07 收紧(安装/注册 MCP 服务器需要管理员):非管理员(role < 1)返回
- * 403 `ROLE_DENIED`;`env` 只允许条目声明过的键(400 `ENV_OVERRIDE_DENIED`);
- * 解析出的可执行文件必须落在部署级 `MCP_STDIO_COMMAND_ALLOWLIST`(403 `COMMAND_NOT_ALLOWED`)。
- */
+/** 目录一键注册:把内置条目转换为 MCP Server 并连接 */
 export async function registerDirectoryServer(
   key: string,
   input: RegisterDirectoryServerInput,
@@ -312,14 +301,7 @@ export async function getMcpStore(): Promise<ApiResult<McpStoreResponse>> {
   return fetchApi<McpStoreResponse>('/api/mcp/store')
 }
 
-/**
- * 商店安装:目录条目 → 官方 SDK stdio 热挂载 → 状态持久化。
- *
- * 2026-11-07 收紧(安装/注册 MCP 服务器需要管理员):非管理员(role < 1)返回
- * 403 `ROLE_DENIED`(提示「安装/注册 MCP 服务器需要管理员权限」);`env` 只允许
- * 条目声明过的键(400 `ENV_OVERRIDE_DENIED`);命令必须落在
- * `MCP_STDIO_COMMAND_ALLOWLIST`(403 `COMMAND_NOT_ALLOWED`)。
- */
+/** 商店安装:目录条目 → 官方 SDK stdio 热挂载 → 状态持久化 */
 export async function installStoreServer(
   key: string,
   input: InstallStoreServerInput,

@@ -10,8 +10,8 @@
  * 现有调用方的签名语义不动,想拿更强结论的调用方改读本入口。
  */
 
-export { evaluateArgv, evaluateCommand, isAlwaysConfirmCommand, isAutoApprovableCommand } from './evaluate.js';
-export { tokenizeCommand } from './tokenizer.js';
+export { evaluateArgv, evaluateCommand, isAlwaysConfirmCommand, isAutoApprovableCommand, normalizeProgram } from './evaluate.js';
+export { isFileRedirectTarget, tokenizeCommand } from './tokenizer.js';
 export type { ArgToken, TokenIssue, TokenIssueKind, TokenizeResult, TokenizedSegment } from './tokenizer.js';
 export { SYNTAX_TABLE } from './syntax-table.js';
 export type { CommandAssessment, CommandEffect, CommandFinding, CommandSpec, OperandGuard, OptionArity, OptionSpec, SubcommandSpec, SyntaxVerdict } from './types.js';

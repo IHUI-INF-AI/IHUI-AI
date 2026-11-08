@@ -49,8 +49,6 @@ ADMIN = "admin-root"
 def store_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     p = tmp_path / "mcp_store.json"
     monkeypatch.setattr(mcp_store, "_STORE_PATH", p)
-    # 2026-11-07:install 入口新增可执行白名单(fail-closed),放行目录里用到的 npx 变体。
-    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", "npx,npx.cmd,npx.exe,npx.bat")
     return p
 
 
@@ -111,12 +109,10 @@ def _client(owner: str, role_id: int | None = 0) -> TestClient:
 
 
 def _install(owner: str, key: str = "git") -> TestClient:
-    """安装本身必须管理员(2026-11-07 收紧);返回普通属主客户端供后续启停用。"""
-    r = _client(owner, role_id=1).post(
-        "/api/mcp/store/install", json={"key": key, "confirm_risk": True}
-    )
+    cli = _client(owner)
+    r = cli.post("/api/mcp/store/install", json={"key": key, "confirm_risk": True})
     assert r.status_code == 200, r.text
-    return _client(owner, role_id=0)
+    return cli
 
 
 def _records() -> list[dict[str, object]]:
@@ -129,7 +125,7 @@ def test_install_stamps_the_transport_layer_principal(store_path: Path, bridge_s
     assert len(recs) == 1
     assert recs[0][OWNER_FIELD] == USER_A
     # 请求体自报属主一律不采信:塞一个别的值,落盘的仍是承载层那个
-    cli = _client(USER_A, role_id=1)
+    cli = _client(USER_A)
     r = cli.post(
         "/api/mcp/store/install",
         json={"key": "filesystem", "owner_user_id": USER_B},
@@ -172,11 +168,7 @@ def test_owner_can_still_toggle(store_path: Path, bridge_spy) -> None:
 def test_disabled_record_of_another_user_cannot_be_overwritten(
     store_path: Path, bridge_spy
 ) -> None:
-    """install 撞到别人那条 disabled 记录 ⇒ 403,不得把别人的 env/args 整条换掉。
-
-    2026-11-07:install 已收成管理员专属 ⇒ 普通第三方现在**先**被角色闸拦下(仍是 403);
-    副作用未发生这条判据照旧成立(管理员越档允许,另有日志留痕)。
-    """
+    """install 撞到别人那条 disabled 记录 ⇒ 403,不得把别人的 env/args 整条换掉。"""
     _install(USER_A)
     a = _client(USER_A)
     assert a.post("/api/mcp/store/git/disable").status_code == 200
@@ -232,10 +224,7 @@ def test_ownerless_record_is_admin_only(store_path: Path, bridge_spy) -> None:
 
 
 def test_two_users_each_see_their_own_owner_value(store_path: Path, bridge_spy) -> None:
-    """同名 key 在两个主体下不能互相覆盖(安装面按 name 唯一 ⇒ 第二人只能 403/409)。
-
-    2026-11-07:install 收成管理员专属 ⇒ 第二个**普通**主体现在被角色闸拦下(403)。
-    """
+    """同名 key 在两个主体下不能互相覆盖(安装面按 name 唯一 ⇒ 第二人只能 403/409)。"""
     _install(USER_A)
     b = _client(USER_B)
     r = b.post("/api/mcp/store/install", json={"key": "git", "confirm_risk": True})

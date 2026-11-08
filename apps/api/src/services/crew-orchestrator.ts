@@ -62,8 +62,6 @@ export interface CrewStreamEvent {
   usage?: UsageAccumulator
   /** G7: complete/error 事件携带会话所属用户(用于路由层扣费) */
   userId?: string
-  /** SDB-30: 本次执行的唯一 runId —— 计费幂等键按 run 而非 session*/
-  runId?: string
 }
 
 export interface SessionConfig {
@@ -84,8 +82,6 @@ export interface UsageAccumulator {
 export interface SessionResult {
   success: boolean
   sessionId?: string
-  /** SDB-30: 本次执行的唯一 runId —— 计费幂等键按 run 而非 session,重跑同一会话须独立计费 */
-  runId: string
   result?: string
   error?: string
   /** G7: 本次会话的 LLM 用量汇总(用于路由层扣费) */
@@ -188,12 +184,10 @@ class CrewOrchestrator {
 
   /** 同步执行会话 */
   async executeSession(sessionId: string): Promise<SessionResult> {
-    // SDB-30:每次执行独立 runId —— 幂等键粒度必须是"单次 run",按 session 恒定会让重跑免费
-    const runId = randomUUID()
     const rows = await db.select().from(crewSession).where(eq(crewSession.id, sessionId)).limit(1)
     const session = rows[0]
-    if (!session) return { success: false, runId, error: '会话不存在' }
-    if (session.status === 'running') return { success: false, runId, error: '会话正在执行中' }
+    if (!session) return { success: false, error: '会话不存在' }
+    if (session.status === 'running') return { success: false, error: '会话正在执行中' }
 
     // G-787(2026-10-09):状态写收进条件写口(order-queries 同族模式,2026-08-02 P0 修复成例)。
     // 原写法 where 只按 id,先读后写的预检是 TOCTOU:并发双启动都能过预检,迟到的 running
@@ -204,7 +198,7 @@ class CrewOrchestrator {
       .set({ status: 'running' })
       .where(and(eq(crewSession.id, sessionId), ne(crewSession.status, 'running')))
       .returning({ id: crewSession.id })
-    if (startedRows.length === 0) return { success: false, runId, error: '会话正在执行中' }
+    if (startedRows.length === 0) return { success: false, error: '会话正在执行中' }
 
     const config = (session.config ?? {}) as SessionConfig
     this.initUsage(sessionId) // G7: 初始化 usage 累计
@@ -219,7 +213,6 @@ class CrewOrchestrator {
       return {
         success: true,
         sessionId,
-        runId,
         result,
         usage: this.clearUsage(sessionId),
         userId: session.userId,
@@ -229,7 +222,6 @@ class CrewOrchestrator {
       await this.updateSessionStatus(sessionId, 'failed', msg)
       return {
         success: false,
-        runId,
         error: msg,
         usage: this.clearUsage(sessionId),
         userId: session.userId,
@@ -239,16 +231,14 @@ class CrewOrchestrator {
 
   /** 流式执行会话 (AsyncGenerator) */
   async *executeSessionStreaming(sessionId: string): AsyncGenerator<StreamEvent> {
-    // SDB-30:本次 run 的唯一标识(计费幂等键),complete / error(取消、异常)事件都携带
-    const runId = randomUUID()
     const rows = await db.select().from(crewSession).where(eq(crewSession.id, sessionId)).limit(1)
     const session = rows[0]
     if (!session) {
-      yield { type: 'error', content: '会话不存在', runId }
+      yield { type: 'error', content: '会话不存在' }
       return
     }
     if (session.status === 'running') {
-      yield { type: 'error', content: '会话正在执行中', runId }
+      yield { type: 'error', content: '会话正在执行中' }
       return
     }
 
@@ -259,14 +249,14 @@ class CrewOrchestrator {
       .where(and(eq(crewSession.id, sessionId), ne(crewSession.status, 'running')))
       .returning({ id: crewSession.id })
     if (startedRows.length === 0) {
-      yield { type: 'error', content: '会话正在执行中', runId }
+      yield { type: 'error', content: '会话正在执行中' }
       return
     }
 
     const config = (session.config ?? {}) as SessionConfig
     this.initUsage(sessionId) // G7: 初始化 usage 累计
     this.clearCancelled(sessionId) // G9: 重置取消标记(允许重连后重新执行)
-    yield { type: 'start', content: '多智能体协作开始', sessionId, runId }
+    yield { type: 'start', content: '多智能体协作开始', sessionId }
 
     try {
       yield { type: 'planning', content: '正在分析任务并制定执行计划...' }
@@ -338,7 +328,6 @@ class CrewOrchestrator {
       }
 
       // G9: 区分正常完成 vs 客户端取消
-      // SDB-30:取消分支同样携带 usage + runId —— 已发生的 LLM 调用必须结算
       if (this.isCancelled(sessionId)) {
         await this.updateSessionStatus(sessionId, 'cancelled', '客户端断开连接,会话已取消')
         yield {
@@ -347,7 +336,6 @@ class CrewOrchestrator {
           sessionId,
           usage: this.clearUsage(sessionId),
           userId: session.userId,
-          runId,
         }
         return
       }
@@ -362,7 +350,6 @@ class CrewOrchestrator {
         sessionId,
         usage: this.clearUsage(sessionId),
         userId: session.userId,
-        runId,
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
@@ -373,7 +360,6 @@ class CrewOrchestrator {
         sessionId,
         usage: this.clearUsage(sessionId),
         userId: session.userId,
-        runId,
       }
     } finally {
       // G9: 兜底清理,避免客户端断连导致的 _sessionUsage / _cancelled 泄漏

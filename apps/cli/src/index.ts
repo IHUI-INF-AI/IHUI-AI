@@ -745,7 +745,7 @@ program
       console.info(chalk.yellow(t('cli.agentsMdExists')));
       process.exit(1);
     }
-    await writeAgentsMd(workspace);
+    writeAgentsMd(workspace);
     console.info(chalk.green(t('cli.agentsMdCreated', { path: join(workspace, 'AGENTS.md') })));
   });
 

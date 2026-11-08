@@ -50,11 +50,6 @@ export const usdtPayments = pgTable(
     txHashConfirmedUniq: uniqueIndex('usdt_payments_tx_hash_confirmed_uniq')
       .on(t.txHash)
       .where(sql`${t.status} = 'confirmed'`),
-    // SDB-27 同一收款地址下,同一网络同一应收金额只允许一个 pending 订单。
-    // 并发创建撞档时由本索引抛 23505,应用层换下一档尾差重试 ⇒ 订单金额唯一可归属。
-    pendingAmountUniq: uniqueIndex('usdt_payments_pending_amount_uniq')
-      .on(t.network, t.amount)
-      .where(sql`${t.status} = 'pending'`),
   }),
 )
 

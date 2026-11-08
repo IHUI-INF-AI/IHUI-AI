@@ -830,10 +830,7 @@ def test_compress_custom_summary_end_to_end():
     out, info = compress_messages_if_needed(msgs, context_limit=800, custom_summary="端到端LLM摘要")
     assert info["compressed"] is True
     assert info["trigger"] == "ratio"
-    # 2026-11-06:任务锚(head 首个 user 组)原文保留在 summary 之前
-    assert info["anchored_count"] == 1
-    assert out[1]["content"] == msgs[1]["content"]
-    summary = next(m for m in out if m["content"].startswith(SUMMARY_MARKER))
+    summary = out[1]
     assert summary["role"] == "user"
     assert "端到端LLM摘要" in summary["content"]
     assert "[user]" not in summary["content"]

@@ -2085,7 +2085,7 @@ async function handleInit(state: ReplState): Promise<void> {
     console.info(chalk.yellow('AGENTS.md 已存在'));
     return;
   }
-  await writeAgentsMd(wsPath);
+  writeAgentsMd(wsPath);
   console.info(chalk.green(`已创建: ${path.join(wsPath, 'AGENTS.md')}`));
 }
 

@@ -23,7 +23,7 @@ import { db, dbRead } from '../db/index.js'
 // NOTE:apiKeyShares 由本任务新增,主 agent 后续在 schema/index.ts 统一 export 后,
 // `@ihui/database` 会自动导出 apiKeyShares / ApiKeyShare(与 apiKeyGroups 模式一致)。
 // 当前 typecheck 会因 schema/index.ts 未注册而报 TS2305,主 agent 注册后即通过。
-import { apiKeyShares, developerApiKeys, users } from '@ihui/database'
+import { apiKeyShares, developerApiKeys } from '@ihui/database'
 import type { ApiKeyShare, DeveloperApiKey } from '@ihui/database'
 
 /** 创建分享入参(由 zod schema 校验后传入,字段均可空类型用 unknown 防御)。 */
@@ -59,8 +59,6 @@ export interface CreatedShare {
 export interface ShareWithSource extends ApiKeyShare {
   /** 源 API Key 完整记录(用于继承 allowedModels / tokenBalance 等配置) */
   sourceKey: DeveloperApiKey
-  /** 源 Key 所属账号状态(users.status: 0=禁用 1=正常 3=注销);SDB-29 鉴权判据 */
-  ownerStatus: number
 }
 
 /** 生成 64 字符 hex 的 share_token(crypto.randomBytes 32 字节)。 */
@@ -112,12 +110,9 @@ export async function getShareByToken(token: string): Promise<ShareWithSource | 
     .select({
       share: apiKeyShares,
       sourceKey: developerApiKeys,
-      // SDB-29:share token 也必须继承账号状态,否则注销用户的分享链接可继续白嫖
-      ownerStatus: users.status,
     })
     .from(apiKeyShares)
     .innerJoin(developerApiKeys, eq(apiKeyShares.sourceApiKeyId, developerApiKeys.id))
-    .innerJoin(users, eq(developerApiKeys.userId, users.id))
     .where(
       and(
         eq(apiKeyShares.shareToken, token),
@@ -128,7 +123,7 @@ export async function getShareByToken(token: string): Promise<ShareWithSource | 
     )
     .limit(1)
   if (!row) return null
-  return { ...row.share, sourceKey: row.sourceKey, ownerStatus: row.ownerStatus }
+  return { ...row.share, sourceKey: row.sourceKey }
 }
 
 /**

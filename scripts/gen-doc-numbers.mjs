@@ -16,9 +16,9 @@
  * 取材口径与仓内其它判据同形(AGENTS §"门脚本取材面纪律"):
  *   内容一律经 `scripts/lib/face-reader.mjs` 的 `catBatch`,**不散写 git 取内容**;
  *   清单/枚举用 `ls-tree` / `ls-files`(不产生正文,不算散写读内容);清单与内容**同面同轮**。
- *   对"门"来说默认面是 HEAD(`check-doc-numbers.mjs`);**本工具是生成侧**,默认索引面
- *   (`staged` = 提交之后就会变成的 HEAD 面),与写手、两道判据同面。
- *   工作树面只许 `--face=worktree` 人工排查,**产物不得入库**(未暂存/未跟踪会抬高总量)。
+ *   对"门"来说默认面是 HEAD(`check-doc-numbers.mjs`);**本工具是生成侧**,默认判工作树
+ *   (人要看到自己刚改的那一份),要生成已入库面的数就显式给 `--head` / `--staged`,
+ *   两面旗同给 ⇒ exit 2(选面自相矛盾,取哪一面都会让另一面成为假绿)。
  *
  * 三态纪律(本仓最高频失效型是"把没判写成判过了"):
  *   算得出的 ⇒ 出数;算不出来的(源文件取不到、正则一条不命中 ⇒ 判据失明)⇒
@@ -27,7 +27,7 @@
  * 手动:
  *   node scripts/gen-doc-numbers.mjs                 # 人读表(**索引面** = 提交后的 HEAD 面)
  *   node scripts/gen-doc-numbers.mjs --json          # 机器可读,可 JSON.parse
- *   node scripts/sync-readme-numbers.mjs             # **写 README 生成块的唯一入口**(本器的 --markdown 已收口)
+ *   node scripts/gen-doc-numbers.mjs --markdown      # README 生成块用的那一段
  *   node scripts/gen-doc-numbers.mjs --description    # 规范化的 GitHub 仓库简介一行
  *   node scripts/gen-doc-numbers.mjs --face=worktree --json # 仅供人工排查:未暂存/未跟踪会抬高总量,产物不得入库
  * 写 README / 简介一律只按**索引面**这一面(默认面):门 173 的 `--staged` 段判的也是索引面,
@@ -611,7 +611,7 @@ export function toMarkdown(result, { date = new Date().toISOString().slice(0, 10
     `| ---- | ---- | ------ |`,
     ...rows,
     ``,
-    `上表由 \`node scripts/sync-readme-numbers.mjs\`(唯一写入口,索引面取数)生成,最后核对日期 ${date}。`,
+    `上表由 \`node scripts/gen-doc-numbers.mjs --markdown\` 生成,最后核对日期 ${date}。`,
     `每个数的来源就写在取数键旁边的实现里(\`scripts/gen-doc-numbers.mjs\` 的 \`SOURCES\`),**不得手抄、不得另立第二份**。`,
     tail,
     BLOCK_END,
@@ -642,30 +642,6 @@ function main(argv) {
   if (error) {
     console.error(`❌ 无法判定:${error}`)
     return 2
-  }
-  // 写手唯一化(2026-11-07 票「写 README 生成块的进程不止一个」后半段):
-  // `--markdown` 产出的是**可入库的块**,历史上有多个进程各自取数再写盘,同一批数字以
-  // worktree/索引/HEAD 三份形态并存 ⇒ 门 173(判索引面)与 DN2(判 HEAD 面)互斥。
-  // 现在只认唯一写入口 `scripts/sync-readme-numbers.mjs` 的令牌;其它调用方 exit 2 并报错
-  // (fail-loud),不再给人肉"跑一下 --markdown 粘进 README"留静默覆盖的通道。
-  // 只读核对请用 `--json` / 人读表 / `--face=<面>`(都不产出可入库块)。
-  if (argv.includes('--markdown')) {
-    const writer = readArg(argv, '--writer') ?? process.env.IHUI_DOCNUM_WRITER ?? null
-    if (writer !== 'sync-readme-numbers') {
-      console.error(
-        '❌ 拒绝输出可入库生成块:唯一写入口是 node scripts/sync-readme-numbers.mjs\n' +
-          '   本器只提供取数与排版;直接取 --markdown 再写进 README 就是"第二个写手",会与唯一入口并发覆盖。\n' +
-          '   只读核对请用 --json 或人读表(--face=<面>),要写块请调用 sync-readme-numbers.mjs。',
-      )
-      return 2
-    }
-    if (wantFace === 'worktree') {
-      console.error(
-        '❌ 拒绝输出可入库生成块:工作树面(worktree)含未暂存/未跟踪文件,总量与提交后不一致,' +
-          '产物谁也满足不了 —— 唯一写入口固定用 --face=staged。',
-      )
-      return 2
-    }
   }
   const root = resolve(readArg(argv, '--root') ?? ROOT)
   let result

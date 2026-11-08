@@ -10,9 +10,10 @@
 //  ② configChange —— `ihui hooks trust/untrust` **写成功之后**各派发一次
 //     (added / modified / removed);写失败/幂等未写/目标不存在 ⇒ 一条都不派
 //     ("没发生的事不许报成事件",与 worktreeCreate 拒删不派发同纪律)。
-//  ③ 正向结构锁(2026-11-06 第四笔) —— 此前"无事件源"的四档全部接通,本格从
-//     "反向锁"翻转成**正向锁**:每档必须在指定的真实事件源文件里出现派发调用点。
-//     比反向锁更严:不只要求"没有假派发",还要求"真派发点就在那个结构位置上"。
+//  ③ 未接档反向锁 —— **尚未接通**的档(cwdChanged/setup/elicitation/elicitationResult)
+//     在仓库源码里不得出现假派发调用点(runHook('<档>' 零命中),防止"文档说接了、代码没有"
+//     的回潮。〔2026-10-31 第三笔收窄〕instructionsLoaded 与 teammateIdle 已真接线,
+//     从本锁名单移出,改由 hook-event-sources-third-leg.test.ts 正向钉住(锁只锁"没接的")。
 // 运行链走 spy(不真跑钩子进程):本册判的是**派发**,不是执行面(执行面见
 // hook-async-rewake / hooks-trust-* 各册)。
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -187,21 +188,33 @@ describe('② configChange:信任清单真实写入 ⇒ 恰好一次;没写 ⇒ 
   });
 });
 
-describe('③ 正向结构锁:此前无事件源的四档必须在真实事件源文件里出现派发点', () => {
-  // 2026-11-06 第四笔:这四档已全部接通(执行面用例见 hook-event-sources-fourth-leg.test.ts)。
-  // 反向锁"零命中"已失效,翻成更严的正向锁 —— 档名必须出现在**指定的那个文件**里,
-  // 防止派发点被挪到别处/删掉后又靠文档自称"已接"。
-  const wiredEvents: ReadonlyArray<readonly [string, string]> = [
-    ['cwdChanged', 'src/acp/server.ts'],
-    ['setup', 'src/commands/template.ts'],
-    ['elicitation', 'src/tools/ask-user.ts'],
-    ['elicitationResult', 'src/tools/ask-user.ts'],
-  ];
+describe('③ 反向锁:仍未接通的档不得出现假派发调用点', () => {
+  // 这四档的状态见第三笔交付报告:cwdChanged 结构上无事件源、setup/elicitation 两档的
+  // 真实点位在别席射程内 —— 接不了就不许装接了。已接的 instructionsLoaded / teammateIdle
+  // 不在本名单(它们的正向断言见 hook-event-sources-third-leg.test.ts)。
+  const unwiredEvents = [
+    'cwdChanged',
+    'setup',
+    'elicitation',
+    'elicitationResult',
+  ] as const;
 
-  it('每档的 runHook 调用点在指定事件源文件内', () => {
-    for (const [ev, rel] of wiredEvents) {
-      const text = fs.readFileSync(path.join(here, '..', rel), 'utf-8');
-      expect(text, `${ev} 的派发点必须落在 ${rel}`).toContain(`runHook('${ev}'`);
+  it('全仓 cli 源码中 runHook 未接档派发调用零命中', () => {
+    // 只扫 src(测试面出现档名字符串是本册自己的反向锁,不算派发)
+    const srcRoot = path.join(here, '../src');
+    const files: string[] = [];
+    const walk = (dir: string): void => {
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, ent.name);
+        if (ent.isDirectory()) walk(p);
+        else if (ent.name.endsWith('.ts')) files.push(p);
+      }
+    };
+    walk(srcRoot);
+    for (const ev of unwiredEvents) {
+      const call = `runHook('${ev}'`;
+      const hits = files.filter((f) => fs.readFileSync(f, 'utf-8').includes(call));
+      expect(hits, `event source not yet wired, but a dispatch call appeared: ${ev}`).toEqual([]);
     }
   });
 });

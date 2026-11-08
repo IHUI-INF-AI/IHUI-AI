@@ -2802,36 +2802,6 @@
       ],
       "reason": "三枚仅存在于 ko 的语言包残留键（其余 zh-CN/en/ja/zh-TW 均无，2026-11-05 i18n 键集实测）。全仓零消费：`devEnter.n8nModel.mockSuccess` 与 `devEnter.modelEdit.submitSuccess` 无 t()/tt() 字面量引用，dev-enter 页面实际用的是 `devEnter.modelEdit.saveSuccess`，n8n-model 页也无 mockSuccess 分支；`deventerModeledit` 为误写的小写命名空间，代码引用面只出现 `devEnter.modelEdit.*`/`modelEdit.*`，`deventerModeledit.q7` 所在的整个命名空间在实现侧零引用，且该命名空间其余键在其他语言仍存在（属另一条独立死键议题，本次只删 ko 多出的 q7 以恢复键集一致性）。回潮判据：若 dev-enter 恢复 mock 生成提交成功提示、或把 `deventerModeledit` 命名空间接回页面消费，须按当时措辞补回对应键，不得只补空键。",
       "until": "2027-11-05"
-    },
-    {
-      "file": "packages/i18n/messages/web/zh-CN.json",
-      "keys": ["examResult.correct", "examResult.wrongQuestions"],
-      "reason": "2026-11-07 web 死键审计实测两键全仓静态引用为 0：同命名空间唯一消费者 apps/web/app/(main)/exam/[id]/result/PageClient.tsx 已改读 shared 的 exam.result.*（经 adapter 映射），旧结果页实现里的「答对 {count}/{total}」与「错题」两键自迁移后无人再读。回潮判据：若结果页恢复答对计数或错题分节标题，须按当时措辞重新接入 t() 并同步五语言，不得只补空键。",
-      "until": "2027-11-08"
-    },
-    {
-      "file": "packages/i18n/messages/web/zh-TW.json",
-      "keys": ["examResult.correct", "examResult.wrongQuestions"],
-      "reason": "2026-11-07 web 死键审计实测两键全仓静态引用为 0：同命名空间唯一消费者 apps/web/app/(main)/exam/[id]/result/PageClient.tsx 已改读 shared 的 exam.result.*（经 adapter 映射），旧结果页实现里的「答對 {count}/{total}」与「錯題」两键自迁移后无人再读。回潮判据：若结果页恢复答对计数或错题分节标题，须按当时措辞重新接入 t() 并同步五语言，不得只补空键。",
-      "until": "2027-11-08"
-    },
-    {
-      "file": "packages/i18n/messages/web/en.json",
-      "keys": ["examResult.correct", "examResult.wrongQuestions"],
-      "reason": "2026-11-07 web 死键审计实测两键全仓静态引用为 0：同命名空间唯一消费者 apps/web/app/(main)/exam/[id]/result/PageClient.tsx 已改读 shared 的 exam.result.*（经 adapter 映射），旧结果页实现里的 Correct {count}/{total} 与 Wrong answers 两键自迁移后无人再读。回潮判据：若结果页恢复答对计数或错题分节标题，须按当时措辞重新接入 t() 并同步五语言，不得只补空键。",
-      "until": "2027-11-08"
-    },
-    {
-      "file": "packages/i18n/messages/web/ja.json",
-      "keys": ["examResult.correct", "examResult.wrongQuestions"],
-      "reason": "2026-11-07 web 死键审计实测两键全仓静态引用为 0：同命名空间唯一消费者 apps/web/app/(main)/exam/[id]/result/PageClient.tsx 已改读 shared 的 exam.result.*（经 adapter 映射），旧结果页实现里的「正解 {count}/{total}」与「誤答」两键自迁移后无人再读。回潮判据：若结果页恢复答对计数或错题分节标题，须按当时措辞重新接入 t() 并同步五语言，不得只补空键。",
-      "until": "2027-11-08"
-    },
-    {
-      "file": "packages/i18n/messages/web/ko.json",
-      "keys": ["examResult.correct", "examResult.wrongQuestions"],
-      "reason": "2026-11-07 web 死键审计实测两键全仓静态引用为 0：同命名空间唯一消费者 apps/web/app/(main)/exam/[id]/result/PageClient.tsx 已改读 shared 的 exam.result.*（经 adapter 映射），旧结果页实现里的「정답 {count}/{total}」与「오답」两键自迁移后无人再读。回潮判据：若结果页恢复答对计数或错题分节标题，须按当时措辞重新接入 t() 并同步五语言，不得只补空键。",
-      "until": "2027-11-08"
     }
   ]
 }

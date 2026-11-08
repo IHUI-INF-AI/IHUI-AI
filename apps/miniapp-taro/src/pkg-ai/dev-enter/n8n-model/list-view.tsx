@@ -2,26 +2,84 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-/**
- * 评测期 settings 注入点。
- *
- * 为什么需要单独一层：`runToolLoop` 内部调用 `loadSettings()`（apps/cli/src/commands/settings.ts），
- * 生产实现会读用户级配置文件（~/.ihui 等）。评测如果吃真实用户配置，同一提交在不同机器上
- * 会得到不同行为，"结果可比"直接失效。测试文件用 `vi.mock` 把 `loadSettings` 指向本模块，
- * 由用例显式声明本次被评测的配置组合。
- *
- * 实现用 globalThis 而不是模块级变量：`vi.mock` 工厂在模块图初始化前执行，引用同文件
- * 顶层 import 会踩 TDZ；globalThis 是唯一在工厂里一定可用的载体。
- */
-const KEY = '__IHUI_EVAL_SETTINGS__'
+import { useI18n, useTt } from '@/i18n'
+import { View, Text } from '@tarojs/components'
+import { FocusInput } from '@/components/FocusField'
+import WorkflowCard, { normalizeWorkflow, type WorkflowCardItem } from './workflow-card'
 
-type SettingsBag = Record<string, unknown>
-
-export function setEvalSettings(settings: SettingsBag): void {
-  ;(globalThis as Record<string, unknown>)[KEY] = settings
+interface N8nListViewProps {
+  list: Record<string, unknown>[]
+  keyword: string
+  loading: boolean
+  onKeywordChange: (value: string) => void
+  onCreate: () => void
+  onOpen: (item: WorkflowCardItem) => void
+  onToggle: (item: WorkflowCardItem) => void
+  onEdit: (item: WorkflowCardItem) => void
 }
 
-export function getEvalSettings(): SettingsBag {
-  return ((globalThis as Record<string, unknown>)[KEY] as SettingsBag | undefined) ?? {}
+/** 列表视图:对齐 RN N8nModelScreen 的 header / searchRow / FlatList 三段 */
+export default function N8nListView({
+  list,
+  keyword,
+  loading,
+  onKeywordChange,
+  onCreate,
+  onOpen,
+  onToggle,
+  onEdit,
+}: N8nListViewProps) {
+  const { t } = useI18n()
+  const tt = useTt()
+  // 搜索在本地过滤(名称 + 描述,大小写不敏感),与共享屏 keyword 语义一致
+  const keywordLower = keyword.trim().toLowerCase()
+  const visible = keywordLower
+    ? list.filter((it) =>
+        `${String(it.name ?? it.title ?? '')} ${String(it.description ?? '')}`
+          .toLowerCase()
+          .includes(keywordLower),
+      )
+    : list
+
+  return (
+    <>
+      <View className="nm-header">
+        <Text className="nm-title">{t('n8nModel.title')}</Text>
+        <Text className="nm-create-btn" onClick={onCreate}>
+          {tt('devEnter.n8nModel.create', '新建')}
+        </Text>
+      </View>
+      <View className="px-[20rpx]">
+        <FocusInput
+          className="nm-input"
+          placeholderClass="text-[var(--color-text-tertiary)]"
+          value={keyword}
+          placeholder={t('n8nModel.searchPlaceholder')}
+          onInput={(e) => onKeywordChange(e.detail.value)}
+        />
+      </View>
+      <View className="nm-content">
+        {loading ? (
+          <Text className="nm-empty">{t('common.loading')}</Text>
+        ) : visible.length ? (
+          visible.map((item, index) => {
+            const card = normalizeWorkflow(item)
+            return (
+              <WorkflowCard
+                key={card.id || card.name || String(index)}
+                item={card}
+                defaultName={t('devEnter.n8nModel.defaultName')}
+                onOpen={onOpen}
+                onToggle={onToggle}
+                onEdit={onEdit}
+              />
+            )
+          })
+        ) : (
+          <Text className="nm-empty">{t('devEnter.n8nModel.empty')}</Text>
+        )}
+      </View>
+    </>
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

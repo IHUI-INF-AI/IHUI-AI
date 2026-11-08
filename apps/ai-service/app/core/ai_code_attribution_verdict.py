@@ -46,9 +46,6 @@ AI_GENERATED_TOOLS: frozenset[str] = frozenset(
         "edit_file",
         "apply_patch",
         "patch_apply",
-        # 2026-11-06:模型化 Fast Apply 编辑(services/fast_apply.py)的落账工具名。
-        # 与 fast_apply.ATTRIBUTION_TOOL 逐字一致;不登记会被判成 unknown,归属面留缺口。
-        "fast_apply",
         "str_replace_editor",
         "multiedit",
         "create_file",

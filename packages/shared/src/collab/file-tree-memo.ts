@@ -30,8 +30,9 @@ function nonEmpty(value: unknown): value is string {
 }
 
 export function projectFileTree(input: unknown): FileTreeVerdict {
-  // FileTreeVerdict['reason'] 是三成员并集(paths-only/body-inlined/四个未判定值),
-  // 直接拿去构造 unjudged 会因收窄失败炸冷构建;这里只取 unjudged 分支自己的原因集。
+  // unread 只产出 disposition='unjudged' 的判定,入参必须收窄到该分支的 reason 子集;
+  // 取全量 FileTreeVerdict['reason'] 会把 projected/refused 的 reason 也放进来,
+  // 返回值就与 unjudged 分支不兼容(origin/main 95797ca265 起 tsc 由此报 TS2322)。
   const unread = (
     reason: Extract<FileTreeVerdict, { disposition: 'unjudged' }>['reason'],
   ): FileTreeVerdict => ({

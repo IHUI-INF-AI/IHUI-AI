@@ -577,7 +577,7 @@ async function main(argv) {
     console.log(`manual 全量清单(一行都不会自动动)⇒ ${MANUAL_LIST}`)
   }
   if (c.total === 0) {
-    console.log('✅ 本轮零改动:门 173 散文判据零违规(若门仍报红,红源在 DN1 生成块,跑 node scripts/sync-readme-numbers.mjs)')
+    console.log('✅ 本轮零改动:门 173 散文判据零违规(若门仍报红,红源在 DN1 生成块,跑 node scripts/gen-doc-numbers.mjs --markdown)')
     return 0
   }
   if (inScopeTotal === 0) {
@@ -585,7 +585,7 @@ async function main(argv) {
       scope
         ? `✅ 零改动:维护档 scope=${scope} 的处置范围内零违规(范围外 ${stockTotal} 处只报数、不写回)。`
         : `✅ 本轮零改动:本轮新增/改写的声明行零违规(HEAD 面存量 ${stockTotal} 处只报数、不写回 —— 门的新档也不要求清它;` +
-            `批量把历史快照改成今天的数字是反模式)。若门仍红,红源在 DN1 生成块或本轮改过的行,跑 node scripts/sync-readme-numbers.mjs`,
+            `批量把历史快照改成今天的数字是反模式)。若门仍红,红源在 DN1 生成块或本轮改过的行,跑 node scripts/gen-doc-numbers.mjs --markdown`,
     )
     return 0
   }
@@ -658,7 +658,7 @@ async function main(argv) {
   )
   if (c.manual > 0) console.log('⚠️ 门仍会红:manual 桶一行未动(需人工裁定,清单见上),本器不声称已清偿。')
   else if (c2.total > 0) console.log(`⚠️ 写回后仍有残余违规 ${c2.total} 处(exempt=${c2.exempt} manual=${c2.manual}),不声称已清偿。`)
-  else console.log('✅ 散文判据本轮清零(生成块 DN1 如需刷新:node scripts/sync-readme-numbers.mjs,唯一写入口)')
+  else console.log('✅ 散文判据本轮清零(生成块 DN1 如需刷新:node scripts/gen-doc-numbers.mjs --markdown)')
   return 0
 }
 

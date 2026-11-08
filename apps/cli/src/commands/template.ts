@@ -8,7 +8,6 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { runHook, surfaceHookOutcome } from '../hooks/index.js';
 
 function generateAgentsMdTemplate(projectName?: string): string {
   const name = projectName || 'Your Project';
@@ -67,15 +66,10 @@ export function agentsMdExists(
   }
 }
 
-export async function writeAgentsMd(workspacePath: string): Promise<boolean> {
+export function writeAgentsMd(workspacePath: string): boolean {
   const agentsPath = path.join(workspacePath, 'AGENTS.md');
   const existed = agentsMdExists(workspacePath);
   const content = generateAgentsMdTemplate(path.basename(workspacePath));
-  // setup 档的真实事件源:`ihui init` / REPL `/init` 真正写 AGENTS.md **之前**派发一次,
-  // 载荷带装载来源(setupSource='init')。派发在写入前,钩子看到的是"即将装载"而不是
-  // 事后补报;非成功终态由 surfaceHookOutcome 喊到 stderr,不静默。
-  const hookRes = await runHook('setup', { workspacePath, setupSource: 'init' });
-  surfaceHookOutcome('setup', hookRes);
   fs.writeFileSync(agentsPath, content, 'utf-8');
   return existed;
 }

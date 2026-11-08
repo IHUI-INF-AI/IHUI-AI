@@ -23,7 +23,7 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { appendFileSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { gitRaw } from './face-reader.mjs'
 // 2026-10-16 [11e] 余量拉开:push-gate 缓存(指纹/命中早退/写入)与批次留痕 attest 各自外置成
@@ -50,16 +50,6 @@ import {
 // Error 只有 error.code、没有 status/signal,不传 code 就被读成"判据判红"(§0.3 把"没判"写成"判过");
 // 归 crash 档后后果一项不减(仍 failed++、仍非零退出、提交仍被拦)。判定与措辞单源都在该 lib。
 import { crashAdvisory, crashNextStep, decideGateOutcome, UNDETERMINED_EXIT_CODE } from './gate-failure-kind.mjs'
-// 2026-11-08:门判据面(delta/stock)注册与"存量红降级"纯判定。分类面住独立 lib,
-// 不进 checks 注册表(门 192 按条目行逐字比对 HEAD↔索引,插字段会被判 P2 改写)。
-import {
-  buildStockLedgerEntry,
-  decideStockOutcome,
-  gateFace,
-  isRefsFace,
-  refsTouched,
-  stockFacePaths,
-} from './gate-face-registry.mjs'
 
 export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
 
@@ -84,14 +74,8 @@ const timingRows = []
 if (showTiming) {
   process.on('exit', () => {
     try {
-      // GUARDIAN_TIMING_FILE 允许调用方指定独立落盘路径（push-receipt worker 用），
-      // 避免与其他并发门批量的固定文件互相覆盖。
-      const out = process.env.GUARDIAN_TIMING_FILE
-        ? resolve(process.cwd(), process.env.GUARDIAN_TIMING_FILE)
-        : resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
-      const tmp = `${out}.tmp-${process.pid}`
-      writeFileSync(tmp, JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) + '\n')
-      renameSync(tmp, out)
+      const out = resolve(process.cwd(), '.ihui-agent/tmp/guardian-timing.json')
+      writeFileSync(out, JSON.stringify({ generatedAt: new Date().toISOString(), rows: timingRows }, null, 2) + '\n')
       process.stderr.write(`⏱  逐门耗时已落盘: ${out}(${timingRows.length} 行)\n`)
     } catch {
       /* 落盘失败不得影响守门结论 —— 只是少一份分析材料 */
@@ -203,139 +187,6 @@ let budgetBlown = false
 const gateContentCache = createGateContentCache({ cwd: process.cwd() })
 
 const stopOnFirst = process.env.GUARDIAN_STOP_ON_FIRST === '1'
-
-// ── stock 门降级开关(2026-11-08)──────────────────────────────────────────────
-// 显式 full / CI / 不带 --staged(手动全量审计、push 门)一律按原语义阻断;
-// 只有"普通提交路径(--staged、非显式 full)"才对未触及判据面的 stock 门降级为只报数。
-const explicitFull =
-  !passStaged ||
-  process.env.IHUI_GATE_SCOPE === 'full' ||
-  // 只认"真 CI"(GitHub Actions)。裸 CI=true 在 agent 宿主/本地也会被置上,
-  // 若把它当显式 full,普通提交路径的 stock 降级会被宿主环境整体关掉(2026-11-08 实测即此)。
-  process.env.GITHUB_ACTIONS === 'true'
-
-const STOCK_LEDGER_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'gate-stock-ledger.jsonl')
-const REFS_BASELINE_FILE = resolve(process.cwd(), '.ihui-agent', 'state', 'gate-face-refs-baseline.json')
-
-/** 读当前分支/远端跟踪引用快照(refs 面"触及"判定用)。 */
-function readRefsSnapshot() {
-  try {
-    const out = execFileSync(
-      resolveGitBin(),
-      ['-c', 'safe.directory=*', 'for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', 'refs/remotes'],
-      { encoding: 'utf8', cwd: process.cwd(), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 30_000 },
-    )
-    const snap = {}
-    for (const line of String(out || '').split(/\r?\n/)) {
-      const [name, sha] = line.trim().split(/\s+/)
-      if (name && sha) snap[name] = sha
-    }
-    return snap
-  } catch {
-    return null
-  }
-}
-
-function currentBranchName() {
-  try {
-    return execFileSync(
-      resolveGitBin(),
-      ['-c', 'safe.directory=*', 'rev-parse', '--abbrev-ref', 'HEAD'],
-      { encoding: 'utf8', cwd: process.cwd(), windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 15_000 },
-    ).trim()
-  } catch {
-    return ''
-  }
-}
-
-function loadRefsBaseline() {
-  try {
-    const o = JSON.parse(readFileSync(REFS_BASELINE_FILE, 'utf8'))
-    return o && typeof o.refs === 'object' ? o.refs : null
-  } catch {
-    return null
-  }
-}
-
-function saveRefsBaseline(snap) {
-  try {
-    mkdirSync(dirname(REFS_BASELINE_FILE), { recursive: true })
-    const tmp = `${REFS_BASELINE_FILE}.tmp-${process.pid}`
-    writeFileSync(tmp, JSON.stringify({ at: new Date().toISOString(), refs: snap }, null, 2) + '\n')
-    renameSync(tmp, REFS_BASELINE_FILE)
-  } catch {
-    /* 观测旁路:写失败不影响判据 */
-  }
-}
-
-const refsSnapshot = passStaged && !pushGate ? readRefsSnapshot() : null
-const refsBaseline = passStaged && !pushGate ? loadRefsBaseline() : null
-
-/** old 是否为 new 的祖先(快进前进)。读不了就当"不是",失效方向是阻断。 */
-function isFastForwardRef(oldSha, newSha) {
-  try {
-    gitRaw(['merge-base', '--is-ancestor', oldSha, newSha], process.cwd(), { timeout: 15_000 })
-    return true
-  } catch {
-    return false
-  }
-}
-
-const refsTouchedFlag =
-  !!(
-    refsSnapshot &&
-    refsBaseline &&
-    refsTouched(refsSnapshot, refsBaseline, currentBranchName(), isFastForwardRef)
-  )
-if (passStaged && !pushGate && refsSnapshot) {
-  // 本轮结束后把快照写成下一轮基线;refs 面"本笔新建/重指分支"= 相对上一轮基线发生变化。
-  process.on('exit', () => saveRefsBaseline(refsSnapshot))
-}
-
-/** 从门的输出里摘"被点名的存量项"落台账(输出未捕获时退回尾部几行)。 */
-function extractStockItems(r) {
-  const text = [r?.stdout, r?.stderr].filter((s) => typeof s === 'string').join('\n')
-  const lines = String(text || '')
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean)
-  const picked = lines.filter((l) =>
-    /^(✗|×|❌|🚫|⚠|-|\*)\s|^(红|失败|违规)|\.(ts|tsx|js|mjs|cjs|json|py|md):\d+/.test(l),
-  )
-  const uniq = [...new Set(picked)]
-  return (uniq.length ? uniq : lines.slice(-5)).slice(0, 20)
-}
-
-function appendStockLedger({ check, r, items, touched }) {
-  try {
-    mkdirSync(dirname(STOCK_LEDGER_FILE), { recursive: true })
-    const staged = stagedFilesOrNull() || []
-    let head = ''
-    try {
-      head = gitRaw(['rev-parse', 'HEAD'], process.cwd(), { timeout: 15_000 }).trim()
-    } catch {
-      /* HEAD 读不到不阻断记账 */
-    }
-    appendFileSync(
-      STOCK_LEDGER_FILE,
-      JSON.stringify(
-        buildStockLedgerEntry({
-          head,
-          check,
-          touched,
-          rc: r?.status,
-          items,
-          stagedCount: staged.length,
-          stagedSample: staged.slice(0, 10),
-          explicitFull,
-        }),
-      ) + '\n',
-    )
-  } catch {
-    /* 观测旁路:写失败不影响判据 */
-  }
-}
-
 /** blocking 失败门清单(末尾汇总用)。 */
 const failedGates = []
 /** 跑不起来的门(崩溃指纹 / 被兜底弄死的 error.code ⇒ 都是"未判定")。仍计入 failed(不放行),但**不进** failedGates,免得被当"判据判红"。 */
@@ -346,12 +197,6 @@ const crashedGates = []
  * 两档都**不等于通过**,但只有 `failedGates`(red)才是"判出了违规" —— 三者一个都不许并桶。
  */
 const undeterminedGates = []
-/**
- * stock 面门"本笔未触及"判红 → 只报数,不计失败(2026-11-08)。
- * 与 failedGates 分桶:它不是"本笔的违规",也不是"通过";读数进 .ihui-agent/state/gate-stock-ledger.jsonl。
- */
-const stockAdvisoryGates = []
-let stockAdvisory = 0
 
 // ─── 批次留痕(G-1059139)───
 // 两类"没跑"必须分开记:`selfSkipped` 只收 **env 自跳**(条目声明了 skipEnv 且当次该变量为 1),
@@ -409,7 +254,7 @@ function printSummary(useStderr) {
       /* 观测旁路:落盘失败不影响判据 */
     }
   }
-  const executed = passed + warned + failed + skipped + undetermined + infoDegraded + stockAdvisory
+  const executed = passed + warned + failed + skipped + undetermined + infoDegraded
   const totalTime = ((Date.now() - startTime) / 1000).toFixed(1)
   out('')
   out(`${C.bold}🛡️ 守门脚本批量检查汇总${C.reset}`)
@@ -420,10 +265,6 @@ function printSummary(useStderr) {
   out(`  ${C.yellow}警告: ${warned}${C.reset}`)
   out(`  ${C.red}失败: ${failed}${C.reset}`)
   out(`  ${C.dim}跳过: ${skipped}${C.reset}`)
-  out(
-    `  ${C.yellow}ℹ️ 存量红只报数(本笔未触及判据面): ${stockAdvisory}${C.reset}` +
-      (stockAdvisory > 0 ? `${C.dim}(台账:${STOCK_LEDGER_FILE})${C.reset}` : ''),
-  )
   // 刻意**不**写进"失败"那一行(那是判红计数),也不写进"通过"(没判);
   // 但必须占一行并进 executed —— 少算它会让上一行凭空打出"← 提前中止",把"没判"说成"没跑到"。
   out(`  ${C.yellow}❓ 未判定: ${undetermined}(取不到输入,§0.3 不记绿也不冒红,见下方逐道点名)${C.reset}`)
@@ -816,10 +657,7 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
       label: check.label,
       script: check.script,
       mode: check.mode,
-      args: cmdArgs.slice(),
       ms: Date.now() - checkStart,
-      rc: typeof r?.status === 'number' ? r.status : null,
-      signal: r?.signal || null,
       ok: !r.error && r.status === 0 && r.signal === null,
     })
   }
@@ -901,32 +739,6 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
           `${passStaged ? ' --staged' : ''})`,
       )
       return
-    }
-    // ── stock 面门"本笔未触及判据面"⇒ 只报数不阻断(2026-11-08)──────────────
-    // 放在未判定分流之后、failed++ 之前:只降级 kind==='red'(有结论的存量违规);
-    // 崩溃/未判定照旧走下面 blocking 支(未判定 ≠ 通过)。显式 full / CI / 无 --staged 由
-    // explicitFull 关掉降级,恒按原语义阻断。
-    if (check.mode === 'blocking' && gateFace(check) === 'stock') {
-      const touched = isRefsFace(check) ? refsTouchedFlag : stagedPathsTouch(stockFacePaths(check))
-      const decision = decideStockOutcome({ face: 'stock', touched, explicitFull, kind: kindPre.kind })
-      if (decision === 'advisory') {
-        const items = extractStockItems(r)
-        stockAdvisory += 1
-        stockAdvisoryGates.push({
-          id: check.id,
-          label: check.label,
-          script: check.script,
-          touched,
-          redCount: items.length,
-        })
-        appendStockLedger({ check, r, items, touched })
-        console.warn(
-          `${C.yellow}ℹ️ [${check.id}] ${check.label} 存量红(本笔未触及该判据面)⇒ 只报数不阻断:` +
-            `读数 ${items.length} 项,已记 ${STOCK_LEDGER_FILE}${C.reset}`,
-        )
-        if (showTiming) console.info(`  ${C.dim}⏱  ${elapsed}ms${C.reset}`)
-        return
-      }
     }
     if (check.mode === 'blocking') {
       failed++
@@ -1089,8 +901,7 @@ for (const check of effectiveChecks) {
       `⚡ [${check.id}] ${check.label} 命中指纹缓存(${Math.round(cacheHit.ageMs / 1000)}s 前通过,省 ${cacheHit.ms}ms)`,
     )
     if (showTiming) {
-      // cached=true 是关键标记：缓存命中行没有真实 rc，凭据签发必须拒绝这种行。
-      timingRows.push({ id: check.id, label: check.label, script: check.script, mode: check.mode, args: cmdArgs.slice(), ms: 0, rc: null, cached: true, ok: true })
+      timingRows.push({ id: check.id, label: check.label, script: check.script, mode: check.mode, ms: 0, ok: true })
     }
     continue
   }
@@ -1116,18 +927,13 @@ for (const check of effectiveChecks) {
   const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
     cwd: process.cwd(),
     windowsHide: true,
-    // stock 面门要把"被点名的存量项"落台账 ⇒ stdout 需要捕获后回放;其余门保持 inherit 实时输出。
-    stdio: ['ignore', gateFace(check) === 'stock' ? 'pipe' : 'inherit', 'pipe'],
+    stdio: ['ignore', 'inherit', 'pipe'],
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
     // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
     // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
     timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
   })
-  // stock 面门 stdout 已改为 pipe(为了落台账),这里原样回放,保证现场观感不丢。
-  if (gateFace(check) === 'stock' && typeof r.stdout === 'string' && r.stdout.length > 0) {
-    process.stdout.write(r.stdout)
-  }
   applyGateResult(check, r, checkStart, cmdArgs)
 }
 

@@ -187,23 +187,17 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
       if (!(await accessibleSession(req, id)))
         return reply.status(404).send(error(404, '会话不存在'))
       const result = await crewOrchestrator.executeSession(id)
-      // SDB-30: 计费幂等键改为单次 run(runId),重跑同一会话各自独立扣费;
-      // 失败分支同样按实际 usage 结算(LLM 已经真实调用了),不再用 result.success 作前置。
-      if (result.usage && result.usage.totalTokens > 0 && result.userId) {
-        if (!result.runId) {
-          // 拿不到 runId 就无法保证幂等,宁可漏扣并显式报错,也不退回 session 级恒定键
-          req.log.error({ sessionId: id }, '[crew] 缺少 runId,无法结算本次用量')
-        } else {
-          try {
-            await server.tokenBalance.deductTokens(
-              result.userId,
-              result.usage.totalTokens,
-              `crew_session:${id}`,
-              `crew_run:${result.runId}`,
-            )
-          } catch (e) {
-            req.log.error({ err: e }, '[crew] 扣费失败(不阻塞响应)')
-          }
+      // G7: 集中扣费(幂等键 crew:<sessionId>,重复执行不重复扣)
+      if (result.success && result.usage && result.usage.totalTokens > 0 && result.userId) {
+        try {
+          await server.tokenBalance.deductTokens(
+            result.userId,
+            result.usage.totalTokens,
+            `crew_session:${id}`,
+            `crew:${id}`,
+          )
+        } catch (e) {
+          req.log.error({ err: e }, '[crew] 扣费失败(不阻塞响应)')
         }
       }
       if (!result.success) {
@@ -262,30 +256,20 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       for await (const evt of crewOrchestrator.executeSessionStreaming(id)) {
-        // SDB-30: 结算先于写流 —— 客户端断连时 send 可能抛错,放在后面会漏扣;
-        // 终态不再限定 complete,取消/异常(error)分支携带的 usage 同样要结算。
-        if (
-          (evt.type === 'complete' || evt.type === 'error') &&
-          evt.usage &&
-          evt.usage.totalTokens > 0 &&
-          evt.userId
-        ) {
-          if (!evt.runId) {
-            req.log.error({ sessionId: id }, '[crew] 缺少 runId,无法结算本次流式用量')
-          } else {
-            try {
-              await server.tokenBalance.deductTokens(
-                evt.userId,
-                evt.usage.totalTokens,
-                `crew_session:${id}`,
-                `crew_run:${evt.runId}`,
-              )
-            } catch (e) {
-              req.log.error({ err: e }, '[crew] 流式扣费失败(不阻塞)')
-            }
+        send(evt.type, evt)
+        // G7: complete 事件集中扣费(幂等键 crew:<sessionId>,重连不重复扣)
+        if (evt.type === 'complete' && evt.usage && evt.usage.totalTokens > 0 && evt.userId) {
+          try {
+            await server.tokenBalance.deductTokens(
+              evt.userId,
+              evt.usage.totalTokens,
+              `crew_session:${id}`,
+              `crew:${id}`,
+            )
+          } catch (e) {
+            req.log.error({ err: e }, '[crew] 流式扣费失败(不阻塞)')
           }
         }
-        send(evt.type, evt)
         if (evt.type === 'complete' || evt.type === 'error') break
       }
     } catch (e) {
