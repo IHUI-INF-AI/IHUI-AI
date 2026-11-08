@@ -32,6 +32,13 @@
       "measuredMs": 163000,
       "measuredAt": "2026-11-07",
       "note": "T1 push 门全量 typecheck(21 包)实测旁证(integrate/release-20261106 分支同机、本 worktree real node_modules):LPT 4 并发 warm 163s(包内 150s)/ cold 183s(包内 174.5s)/ 同分支串行 309s。main 实现改为 resolveConcurrency() 按机器推导并发,阈值按该组实测仍取 300s(1.84× 余量,≤ 3× 上限)。分支原预算本的 base=150s + margin=150s 及其棘轮证据链并入本行,不再单列第二本账。"
+    },
+    {
+      "script": "check-merge-deletion-resurrection.mjs",
+      "timeoutMs": 900000,
+      "measuredMs": 478117,
+      "measuredAt": "2026-11-08",
+      "note": "门 168;2026-11-08 单跑 wall clock 478,117 ms(rc=0;输出全为「未判定」无一条判红),缺省预算 300,000 ms = 1.59×。预算低于真实耗时 ⇒ 这道门永远给不出结论,判据实际失效。取 900s = 478s ×1.88 余量(≤ 3× 上限);只登记本门预算,判据一个字未改。"
     }
   ]
 }
