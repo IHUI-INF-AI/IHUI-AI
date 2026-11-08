@@ -407,6 +407,28 @@ const multiChatSchema = z.object({
   message: z.string().min(1),
 })
 
+/** F-192:多厂商编排单请求最多 8 个厂商(去重后),防止一次请求放大成 N 次平台 Key 调用。 */
+export const MULTI_VENDOR_LIMIT = 8
+
+/** 解析 vendors 逗号串:trim → 去空 → 去重 → 限流。 */
+export function parseVendorList(
+  raw: string,
+): { ok: true; list: string[] } | { ok: false; error: string } {
+  const list = Array.from(new Set(raw.split(',').map((v) => v.trim()).filter(Boolean)))
+  if (list.length === 0) return { ok: false, error: 'vendors 不能为空' }
+  // F-192:条数/单个 id 长度超限在发起任何上游调用前直接拒绝。
+  if (list.length > MULTI_VENDOR_LIMIT || list.length > MAX_MULTI_VENDORS) {
+    return { ok: false, error: `最多支持 ${MULTI_VENDOR_LIMIT} 个厂商` }
+  }
+  if (list.some((v) => v.length > MAX_VENDOR_ID_LENGTH)) {
+    return {
+      ok: false,
+      error: `单个厂商名不超过 ${MAX_VENDOR_ID_LENGTH} 字符`,
+    }
+  }
+  return { ok: true, list }
+}
+
 const cozeMessageSchema = z.object({
   bot_id: z.string().min(1),
   message: z.string().min(1),
@@ -860,28 +882,12 @@ export const chatModelRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { vendors, model = 'gpt-3.5-turbo', message } = parsed.data
-    const vendorList = [
-      ...new Set(
-        vendors
-          .split(',')
-          .map((v) => v.trim())
-          .filter(Boolean),
-      ),
-    ]
-    // F-192(2026-11-08):条数/单个 id 长度超限在发起任何上游调用前直接拒绝。
-    if (
-      vendorList.length > MAX_MULTI_VENDORS ||
-      vendorList.some((v) => v.length > MAX_VENDOR_ID_LENGTH)
-    ) {
-      return reply
-        .status(400)
-        .send(
-          error(
-            400,
-            `vendors 最多 ${MAX_MULTI_VENDORS} 个,单个厂商名不超过 ${MAX_VENDOR_ID_LENGTH} 字符`,
-          ),
-        )
+    // F-192:去重 + 上限 8,避免 vendors 列表被放大成 N 次计费上游调用。
+    const normalized = parseVendorList(vendors)
+    if (!normalized.ok) {
+      return reply.status(400).send(error(400, normalized.error))
     }
+    const vendorList = normalized.list
 
     const results: Array<Record<string, unknown>> = []
     for (const v of vendorList) {

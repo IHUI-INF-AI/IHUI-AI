@@ -1547,7 +1547,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
           // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
           if (metadata?.conversationId) {
-            void replaceMessages(metadata.conversationId, result.messages)
+            void replaceMessages(metadata.conversationId, result.messages, request.userId)
             // 归档记忆(2026-09-01 立,代差能力 C):被压缩的原始消息落库归档,
             // 前端状态条"查看原始消息"弹层可查——压缩透明可逆而非黑箱有损。
             // 归档失败静默降级(console.warn),绝不影响压缩主流程。
@@ -1858,7 +1858,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
           // 原子性持久化压缩结果：删除旧消息 + 批量插入压缩后的消息
           if (conversationId) {
-            void replaceMessages(conversationId, result.messages)
+            void replaceMessages(conversationId, result.messages, request.userId)
             // 归档记忆:被压缩的原始消息落库,前端状态条可查(与 /chat/stream 一致)
             void persistMessageArchive(conversationId, messages)
           }

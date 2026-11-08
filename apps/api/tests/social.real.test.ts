@@ -46,8 +46,9 @@ describe('social-queries — 真实 DB 集成测试', () => {
       const a = await createTestUser('13900000003', '用户A')
       const b = await createTestUser('13900000004', '用户B')
 
-      await followUser(a.id, b.id)
-      await expect(followUser(a.id, b.id)).resolves.toBeUndefined()
+      await expect(followUser(a.id, b.id)).resolves.toBe(true)
+      // F-205:重复关注返回 false,调用方据此区分「首次」(201/发积分)与「幂等 no-op」
+      await expect(followUser(a.id, b.id)).resolves.toBe(false)
 
       expect(await countFollowing(a.id)).toBe(1)
     })

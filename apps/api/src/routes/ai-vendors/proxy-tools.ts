@@ -1033,6 +1033,28 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
 
   const KLING_BASE_URL = 'https://api-beijing.klingai.com'
 
+  // F-119:Kling 任务归属 + 按任务幂等扣费(与 taskStore 同进程生命周期)。
+  const klingTaskOwners = new Map<
+    string,
+    { userId: string; createdAt: number; charged: boolean }
+  >()
+  const KLING_TASK_TTL_MS = 24 * 60 * 60_000
+  const KLING_TASK_MAX = 2_000
+
+  function rememberKlingTask(taskId: string, userId: string): void {
+    const now = Date.now()
+    for (const [id, rec] of klingTaskOwners) {
+      if (now - rec.createdAt > KLING_TASK_TTL_MS) klingTaskOwners.delete(id)
+    }
+    if (klingTaskOwners.size >= KLING_TASK_MAX) {
+      const oldest = [...klingTaskOwners.entries()].sort(
+        (a, b) => a[1].createdAt - b[1].createdAt,
+      )[0]
+      if (oldest) klingTaskOwners.delete(oldest[0])
+    }
+    klingTaskOwners.set(taskId, { userId, createdAt: now, charged: false })
+  }
+
   async function klingJwt(): Promise<string | null> {
     const ak = process.env.KLING_ACCESS_KEY
     const sk = process.env.KLING_SECRET_KEY
@@ -1142,6 +1164,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
         const taskId = taskData.task_id as string | undefined
         if (!taskId) return reply.status(502).send(error(502, 'Kling 未返回 task_id'))
         const task = createTask(request.userId!, 'kling', 'lip-sync', { taskId })
+        rememberKlingTask(taskId, request.userId!)
         recordUsage(request.userId!, 'kling')
         return reply.send(success({ taskId, internalTaskId: task.taskId, status: 'pending' }))
       } catch (e) {
@@ -1164,6 +1187,10 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const { taskId } = taskIdParam.parse(request.params)
+      const owner = klingTaskOwners.get(taskId)
+      if (!owner || owner.userId !== request.userId) {
+        return reply.status(404).send(error(404, '任务不存在或不属于当前用户'))
+      }
       const jwt = await klingJwt()
       if (!jwt) return reply.status(503).send(error(503, 'Kling 服务未配置'))
       try {
@@ -1184,13 +1211,14 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
             ((taskData.task_result as Record<string, unknown> | undefined)?.videos as
               Array<Record<string, unknown>> | undefined) ?? []
           const videoUrl = videos[0]?.url as string | undefined
-          if (videoUrl) {
+          if (videoUrl && !owner.charged) {
+            owner.charged = true // 先占位,避免并发轮询重复扣费
             try {
               const tokenBalance = server.tokenBalance
               if (tokenBalance)
                 await tokenBalance.deductTokens(request.userId!, 1500, 'kling_lip_sync')
             } catch {
-              /* 扣费失败不阻塞 */
+              owner.charged = false // 扣费失败允许下次重试
             }
           }
         }

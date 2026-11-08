@@ -49,6 +49,7 @@ import {
   listActiveScopeMeta,
 } from '../db/oauth-queries.js'
 import { precheckAuthorizePkce, type OAuthAppRow } from './auth-extended.js'
+import { isAccessTokenRevoked } from '../plugins/auth.js'
 import { resolveIssuer } from '../utils/oauth-as.js'
 import { logger } from '../utils/logger.js'
 
@@ -294,8 +295,11 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
     const bearer = (request.headers.authorization ?? '').trim()
     let userId: string | null = null
     if (bearer.startsWith('Bearer ')) {
-      const info = await introspectAccessToken(bearer.slice(7).trim())
-      userId = info.active ? (info.sub ?? null) : null
+      const token = bearer.slice(7).trim()
+      const info = await introspectAccessToken(token)
+      // F-56(2026-11-08):验签通过不代表仍有效 —— 登出/踢下线只写 Redis 黑名单,
+      // 此处若不查,被吊销的 access token 仍能换 code 建立授权会话。
+      userId = info.active && !(await isAccessTokenRevoked(token)) ? (info.sub ?? null) : null
     }
     if (!userId) {
       const target = new URL(webAuthorizeUrl(request))
@@ -388,8 +392,10 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
         .header('www-authenticate', 'Bearer realm="ihui-ai"')
         .send({ error: 'invalid_token', error_description: '缺少 Bearer access token' })
     }
-    const info = await introspectAccessToken(header.slice(7).trim())
-    if (!info.active || !info.sub) {
+    const accessToken = header.slice(7).trim()
+    const info = await introspectAccessToken(accessToken)
+    // F-56:吊销后的 token 与过期/伪造同样按 invalid_token 拒绝。
+    if (!info.active || !info.sub || (await isAccessTokenRevoked(accessToken))) {
       return reply
         .status(401)
         .header('www-authenticate', 'Bearer error="invalid_token"')
