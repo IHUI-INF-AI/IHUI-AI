@@ -1608,6 +1608,10 @@ async def execute_agent_stream(
         owned_sessions: list[str] = []
         # V3 #65:登记进 run 控制面(agent_run_control)的会话标识,与上面同生命周期
         registered_sessions: list[str] = []
+        # AIS-005:后台 run 句柄必须在 finally 可见 —— 断线时只有生成器被 aclose,
+        # 不取消 run_task 的话 LLM/工具会在后台继续执行(改文件、发消息、耗额度),
+        # 客户端重连再起一轮即同会话双跑。
+        run_task: asyncio.Task[Any] | None = None
 
         # 断线重连: 先按**三态**判定续传(2026-09-27 修;病灶全文见 core/sse_buffer.py 头注)
         #   hit            ⇒ 锚点在缓冲内,只发其后的事件(与旧行为一致)
@@ -2000,6 +2004,12 @@ async def execute_agent_stream(
             eid = sse_buffer.append(task_id, err_event)
             yield _format_sse(eid, err_event)
         finally:
+            # AIS-005:断开/收尾都必须收敛后台 run。取消后 await 等它真正退出
+            # (return_exceptions 吃掉 CancelledError),避免取消信号滞后到
+            # detach_run 之后还在跑的窗口。
+            if run_task is not None and not run_task.done():
+                run_task.cancel()
+                await asyncio.gather(run_task, return_exceptions=True)
             # G9: 立即清理缓冲区,避免已完成会话的过期事件占内存(TTL 仍兜底重连场景)
             sse_buffer.clear(task_id)
             # V3 #65:解绑控制面里的 loop 引用。paused 记录**故意保留**
