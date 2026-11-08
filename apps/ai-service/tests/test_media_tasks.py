@@ -675,10 +675,23 @@ async def test_upload_file_missing_params():
     assert out["errorCode"] == "MISSING_PARAMS"
 
 
-async def test_upload_file_path_not_found():
-    out = await mcp_server._tool_token6688_upload_file({"path": "Z:/no/such/file.mp4"})
+async def test_upload_file_path_not_found(tmp_path, monkeypatch):
+    # AIS-050:先过工作区白名单;根内不存在的文件才是 FILE_NOT_FOUND。
+    root = tmp_path / "ws"
+    root.mkdir()
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(root))
+    out = await mcp_server._tool_token6688_upload_file(
+        {"path": str(root / "no-such-file.mp4")}
+    )
     assert out["ok"] is False
     assert out["errorCode"] == "FILE_NOT_FOUND"
+
+
+async def test_upload_file_outside_workspace_rejected():
+    # AIS-050:根外路径在任何 open/上传前就被拒,不再落到 FILE_NOT_FOUND。
+    out = await mcp_server._tool_token6688_upload_file({"path": "Z:/no/such/file.mp4"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "PATH_NOT_ALLOWED"
 
 
 async def test_upload_file_ssrf_blocked():
