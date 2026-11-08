@@ -56,6 +56,7 @@ import {
   PLAY_CERT_SOURCE,
 } from './lib/mobile-download-leg.mjs'
 import { resolveSecretsRoot } from './lib/key-dir.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 import { siteLegPlan } from './publish-mobile-apk.mjs'
 // 鸿蒙产物腿的五格现读单源在 scripts/harmony-build.mjs;本器只转述其读数,判据零复算(§0.6)。
 // 两文件互为 import(harmony-build 取 foldStatus、本器取 harmonyLeg),两侧都是函数声明 ⇒ ESM 环可解。
@@ -413,9 +414,23 @@ function takeEvidence({ withEas = true, withConfig = true }) {
   const easJson = JSON.parse(readFileSync(join(RN_DIR, 'eas.json'), 'utf8'))
   const submit = checkSubmitProfile(easJson, { packageName: appJson?.android?.package })
 
-  const ign = sh('git', ['check-ignore', '-v', join(RN_DIR, SA_SLOT_REL).replace(/\\/g, '/')], {
-    cwd: ROOT,
-  })
+  let ign
+  try {
+    ign = {
+      code: 0,
+      out: String(
+        gitRaw(['check-ignore', '-v', join(RN_DIR, SA_SLOT_REL).replace(/\\/g, '/')], ROOT, {
+          timeout: 60_000,
+          maxBuffer: 16 << 20,
+        }) ?? '',
+      ).trim(),
+    }
+  } catch (e) {
+    ign = {
+      code: typeof e?.status === 'number' ? e.status : 'null',
+      out: String(e?.stdout ?? '').trim(),
+    }
+  }
   const slot = {
     status: ign.code === 0 ? STATUS.FOUND : STATUS.MISSING,
     detail:
@@ -612,16 +627,10 @@ export function storeDimensionBasis({ root = ROOT, read = readFileSync } = {}) {
     journaled = hasTag(read(join(dir, 'meta/_journal.json'), 'utf8'))
     if (!journaled) {
       try {
-        const head = execFileSync(
-          'git',
+        const head = gitRaw(
           ['show', 'HEAD:packages/database/drizzle/meta/_journal.json'],
-          {
-            cwd: root,
-            encoding: 'utf8',
-            stdio: ['ignore', 'pipe', 'pipe'],
-            windowsHide: true,
-            timeout: 30000,
-          },
+          root,
+          { timeout: 30_000, maxBuffer: 16 << 20 },
         )
         if (hasTag(head)) {
           journaled = true

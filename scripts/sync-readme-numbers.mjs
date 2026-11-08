@@ -29,7 +29,7 @@
 // 退出码:0 = 成功(写盘或幂等无变化);2 = 拒绝(面不对 / 非唯一入口 / 锁被活进程持有);
 //        3 = 未判定(写入窗口内被并发改过,已放弃写入)。
 // ─────────────────────────────────────────────────────────────────────────
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -145,16 +145,13 @@ function indexBlob(f) {
 }
 /** 带 stdin 的 git(校验 git add 后的 blob 与写盘内容一致)。 */
 function gitInput(args, input) {
-  const r = spawnSync('git', args, {
-    cwd: ROOT,
-    encoding: 'utf8',
-    input,
-    windowsHide: true,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败:${r.stderr}`)
-  return r.stdout.trim()
+  try {
+    return String(
+      gitRaw(args, ROOT, { input, maxBuffer: 64 * 1024 * 1024 }) ?? '',
+    ).trim()
+  } catch (e) {
+    throw new Error(`git ${args.join(' ')} 失败:${String(e?.stderr ?? e?.message ?? e)}`)
+  }
 }
 
 function pidAlive(pid) {

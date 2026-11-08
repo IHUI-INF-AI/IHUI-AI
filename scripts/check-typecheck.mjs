@@ -520,16 +520,14 @@ const TS_INPUT_BASENAMES = new Set(['package.json', 'pnpm-lock.yaml', 'pnpm-work
 
 /** 列出 git 索引里的全部 tsconfig(含 packages/tsconfig/*.json 这类基座)。取不到返回 null ⇒ 判据不可用。 */
 function listTsconfigPaths() {
-  const r = spawnSync('git', ['-C', ROOT, 'ls-files', '*tsconfig*.json'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 60_000,
-    // §5b / 门 193:派生 git 一律显式接管 stdio —— 不写时本机 0/30 成功(EBUSY),
-    // 而 EBUSY 会被读成"git 坏了"而不是"派生面没接管 stdio"。取值不许省略。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  if (r.status !== 0 || typeof r.stdout !== 'string') return null
-  const list = r.stdout.split(/\r?\n/).filter(Boolean)
+  let out
+  try {
+    out = gitRaw(['ls-files', '*tsconfig*.json'], ROOT, { timeout: 60_000 })
+  } catch {
+    return null
+  }
+  if (typeof out !== 'string') return null
+  const list = out.split(/\r?\n/).filter(Boolean)
   return list.length > 0 ? list : null
 }
 

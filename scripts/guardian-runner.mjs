@@ -7335,19 +7335,19 @@ const checks = [
       '     应急放行:HUSKY_SKIP_PLAN_DEFERRED_EXPIRY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
-  // --- 跨端漂移回归制(2026-11-06 立)------------------------------------------------------
+  // --- 跨端漂移回归制(2026-11-06 立 / 2026-11-08 接提交期登记门)-------------------------
   // 立因:漂移尺/文案尺此前只有"只读体检"形态(存量非 0 ⇒ 恒 exit 1),只能靠人想起来跑,
   // 结构上不在提交链上 —— 于是"攒新漂移"是无人工区。改法不是把存量一次性洗白(§12e 禁止),
-  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,commit 面只 advisory、
-  // push 面只对"相对基线新增/恶化"blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
+  // 而是存量固化进 scripts/data/cross-end-drift-gate-baseline.json,提交面只让承载削减面阻断、
+  // push 面仍对"相对基线新增/恶化"全维 blocking。判据可复算:同一现读 + 同一基线 ⇒ 同一结论。
   // 取不到输入面(基线缺失/子对账器未判定/词包读不到)⇒ exit 2 未判定,不折 0、不记绿。
   {
     id: '302',
     label:
-      '🧪 跨端漂移回归门(commit advisory:存量只报数;相对基线新增/恶化才报。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
+      '🧪 跨端漂移回归门(commit blocking:只拦承载削减面 —— 镜像/登记行/aligned/承载面/壳承载/既有承载键被登记成 gap;登记新屏与其余维只报数不阻断。实际只覆盖 6 把子尺:页面覆盖 237·跨端几何 128·镜像保真 283·升级落地·RN↔web 样式档·小程序样式档,另报矩阵文档 doc-stale;不含 token 93·props 288·文案 291·薄壳 299·承载 301·生成物 105·文档数字 173)',
     script: 'check-cross-end-parity-drift.mjs',
     args: ['--gate'],
-    mode: 'warn',
+    mode: 'blocking',
     stagedTriggers: [
       'packages/app/src/',
       'apps/mobile-rn/src/',
@@ -7362,10 +7362,39 @@ const checks = [
     ],
     skipEnv: 'HUSKY_SKIP_CROSS_END_DRIFT',
     onFailHint: [
-      '  💡 红 = 本轮把某条跨端数字比基线做坏了(丢镜像/多腐烂/多未还原键/多非档值/多重复键)。',
-      '     先看点名维:掉下去的补回来,涨上去的查根因;确属新存量须改基线并在 PR 说明为何接受。',
-      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --json',
+      '  💡 红 = 承载削减面真的少了(镜像/登记行/aligned/承载面/壳承载,或既有承载键被登记成 gap)。',
+      '     先把承载补回来;「新增未登记屏」与「如实登记 gap」只会出现在 · [只报数] 行,不会拦提交。',
+      '     取证:node scripts/check-cross-end-parity-drift.mjs --gate --staged --json',
       '     应急放行:HUSKY_SKIP_CROSS_END_DRIFT=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
+  // --- 提交期屏/路由登记同步(2026-11-08 接)-----------------------------------------------
+  // 302p 只在 push 面兜"新增未登记屏";302 的 unmapped 维在提交面按「登记只报数」降为 advisory。
+  // 本门把登记检测本身挂进提交链(warn 档):失败时门自己的点名行走 stderr,原样出现在提交输出里,
+  // 不阻断、不写进日志了事。
+  {
+    id: '302r',
+    label:
+      '🧾 屏/路由登记同步(commit 只报数:新增 web page / RN 屏 / 小程序页必须在 web-rn-screen-map.jsonl 或 app.config.ts 有据可查)',
+    script: 'check-screen-registration-sync.mjs',
+    args: [],
+    mode: 'warn',
+    stagedTriggers: [
+      'apps/web/app/',
+      'packages/app/src/features/',
+      'apps/mobile-rn/src/screens/',
+      'apps/miniapp-taro/src/',
+      'scripts/data/web-rn-screen-map.jsonl',
+      'scripts/check-screen-registration-sync.mjs',
+      'scripts/check-web-rn-screen-parity.mjs',
+      'scripts/check-cross-end-screen-coverage.mjs',
+    ],
+    skipEnv: 'HUSKY_SKIP_SCREEN_REGISTRATION_SYNC',
+    onFailHint: [
+      '  💡 报数行 = 本笔新增的屏/路由还没登记:web page 要进 web-rn-screen-map.jsonl(rn 或 gap:原因),',
+      '     新增 RN *Screen.tsx 要被某行 rn 认领,小程序页要与 app.config.ts pages 双向一致。',
+      '     本门只报数不拦提交(push 面由 302p 兜底);取证:node scripts/check-screen-registration-sync.mjs --staged',
+      '     静音:HUSKY_SKIP_SCREEN_REGISTRATION_SYNC=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
   {

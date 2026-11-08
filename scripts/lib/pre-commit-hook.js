@@ -29,6 +29,8 @@ const derivedArtifacts = require('./derived-artifacts.js')
 const indexPinGuard = require('./index-pin-guard.js')
 const { runCapturing } = require('./hook-capture.js')
 const { buildToolPath } = require('./hook-tool-path.js')
+// 取材层(Node 26 的 require(esm) 可直接载入 .mjs):绝对 git + stdio 接管 + timeout。
+const { gitRaw } = require('./face-reader.mjs')
 const HOOK_ROOT = path.resolve(__dirname, '..', '..')
 
 /**
@@ -215,11 +217,7 @@ if (ISOLATED_SNAPSHOT) {
 // 因为改它们会让门静默失效,而 CI 是延迟发现。逃生:IHUI_SPECIAL_SCOPE=full。
 function stagedIsToolOnly() {
   try {
-    const out = execSync('git diff --cached --name-only', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+    const out = gitRaw(['diff', '--cached', '--name-only'], process.cwd(), {
       timeout: 30_000,
     })
     const paths = String(out)
@@ -1108,13 +1106,10 @@ const TOKEN_SYNC_TARGETS = [
 
 if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
   try {
-    const stagedForTokens = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const stagedForTokens = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      process.cwd(),
+    )
     const stagedList = stagedForTokens
       .split('\n')
       .filter(Boolean)
@@ -1256,12 +1251,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
 const I18N_INPUT_PREFIX = 'packages/i18n/messages/'
 const I18N_GENERATOR_REL = 'scripts/gen-i18n-compressed.mjs'
 try {
-  const stagedForI18n = execSync('git diff --cached --name-only', {
-    encoding: 'utf8',
-    cwd: process.cwd(),
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const stagedForI18n = gitRaw(['diff', '--cached', '--name-only'], process.cwd())
   const i18nStaged = stagedForI18n
     .split('\n')
     .map((f) => f.trim().replace(/\\/g, '/'))
@@ -1654,13 +1644,10 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_STAGED_TYPECHECK !== '1') {
 
 // 16b-16e: 条件守门(非 git 环境用 try/catch 兜底,跳过)
 try {
-  const stagedFiles = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-    encoding: 'utf8',
-    cwd: process.cwd(),
-    windowsHide: true,
-    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  const stagedFiles = gitRaw(
+    ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+    process.cwd(),
+  )
     .split('\n')
     .filter(Boolean)
 
@@ -1738,13 +1725,10 @@ try {
   // 跳过方法(紧急):HUSKY_SKIP_MINIAPP_ICU_CHECK=1 git commit ...
   // 仅 staged 涉及 apps/miniapp-taro/src/ 时跑,避免影响其他包 commit 速度
   if (process.env.HUSKY_SKIP_MINIAPP_ICU_CHECK !== '1') {
-    const stagedForIcu = execSync('git diff --cached --name-only --diff-filter=ACMR', {
-      encoding: 'utf8',
-      cwd: process.cwd(),
-      windowsHide: true,
-      // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+    const stagedForIcu = gitRaw(
+      ['diff', '--cached', '--name-only', '--diff-filter=ACMR'],
+      process.cwd(),
+    )
     const involvesMiniappIcu = stagedForIcu
       .split('\n')
       .filter(Boolean)
