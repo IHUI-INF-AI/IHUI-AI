@@ -198,13 +198,18 @@ async function streamAnthropicMessages(
   const state = createStreamState(opts.model)
   /** 累计响应文本用于估算 token(P0-5 流式无准确 usage) */
   let responseText = ''
+  /** F-89:只累计真实产出的文本(不含 `[error] ...` 文案),用于判 partial/error 与计费 */
+  let billableCompletionChars = 0
   let streamError: string | null = null
   /** P0 中转站造血能力批次(2026-08-01):TTFT + 上游 HTTP 状态码 */
   /** 格②(2026-09-26):首 token 时刻再取一次样本(不再拿两个墙钟读数相减) */
   let ttftSample: ElapsedSample | null = null
   let upstreamHttpStatus: number | null = null
 
-  const writeEvents = (events: ReturnType<typeof openAIStreamChunkToAnthropicEvents>) => {
+  const writeEvents = (
+    events: ReturnType<typeof openAIStreamChunkToAnthropicEvents>,
+    countTowardBilling = true,
+  ) => {
     for (const ev of events) {
       raw.write(serializeAnthropicSSEEvent(ev))
       // 累计 text_delta 文本用于计费估算
@@ -213,6 +218,8 @@ async function streamAnthropicMessages(
         // 格②(2026-09-26):改为在首 token 处 stop 一次,与总耗时各自独立成样本
         if (ttftSample === null) ttftSample = opts.sw.stop()
         responseText += ev.delta.text
+        // F-89:错误文案不计 token(否则上游 500 零产出也会被当成"已产出"而计费)
+        if (countTowardBilling) billableCompletionChars += ev.delta.text.length
       }
     }
   }
@@ -249,7 +256,7 @@ async function streamAnthropicMessages(
           },
         ],
       }
-      writeEvents(openAIStreamChunkToAnthropicEvents(errChunk, state))
+      writeEvents(openAIStreamChunkToAnthropicEvents(errChunk, state), false)
       // 关闭
       const stopChunk = {
         id: `chatcmpl-${randomUUID()}`,
@@ -262,7 +269,7 @@ async function streamAnthropicMessages(
           },
         ],
       }
-      writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state))
+      writeEvents(openAIStreamChunkToAnthropicEvents(stopChunk, state), false)
       return
     }
 
@@ -329,8 +336,15 @@ async function streamAnthropicMessages(
     // P0-5 中转站计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
       const promptTokens = Math.ceil(opts.promptText.length / 4)
-      const completionTokens = Math.ceil(responseText.length / 4)
+      // F-89:用真实产出文本估算;上游错误文案不计 token
+      const completionTokens = Math.ceil(billableCompletionChars / 4)
       const totalTokens = promptTokens + completionTokens
+      // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
+      const status: 'success' | 'partial' | 'error' = streamError
+        ? completionTokens > 0
+          ? 'partial'
+          : 'error'
+        : 'success'
       // 格②(2026-09-26):总耗时与 TTFT 各取一次独立样本、各自交叉校验;不可信样本落 0 并随行标真
       const latency = persistableLatency(opts.sw.stop())
       const ttft = ttftSample === null ? null : persistableLatency(ttftSample)
@@ -344,13 +358,14 @@ async function streamAnthropicMessages(
         completionTokens,
         totalTokens,
         latencyMs: latency.latencyMs,
-        status: streamError ? 'error' : 'success',
+        status,
         errorMessage: streamError,
         metadata: {
           stream: true,
           protocol: 'anthropic-messages',
           latencyTrusted: latency.latencyTrusted,
           ...(ttft ? { ttftTrusted: ttft.latencyTrusted } : {}),
+          ...(status === 'partial' ? { partialDelivery: true } : {}),
         },
         mode: opts.mode,
         providerCode: opts.providerCode,
