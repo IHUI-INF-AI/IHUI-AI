@@ -123,10 +123,13 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     // 本计数器只数"帧没送到人、并把那条陈旧连接摘掉"，不含客户端正常关连接。
     wsBroadcastDroppedFramesTotal: 0,
     // 新增：DB 连接池指标
-    dbPoolInUse: 0,
+    // F-324:usage 三态初值必须是 NaN(显式不可用),不能是 0 —— 采样不可得时
+    // 报 0 会造成"池打满仍 in_use=0"的假绿。db_pool_metrics_available 标明可用性。
+    dbPoolMetricsAvailable: false,
+    dbPoolInUse: NaN,
     dbPoolSize: 0,
-    dbPoolCheckedout: 0,
-    dbPoolOverflow: 0,
+    dbPoolCheckedout: NaN,
+    dbPoolOverflow: NaN,
     dbPoolConnectionsTotal: 0, // Counter
     dbPoolCheckoutTimeoutsTotal: 0, // Counter
     // 新增：SQL 指标
@@ -188,9 +191,23 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
   // 设置 DB 连接池 Gauge 指标（postgres.js 连接池状态采样，由于 Drizzle 封装，由外部定时采样调用）
   server.decorate(
     'setDbPoolMetrics',
-    (opts: { inUse?: number; size?: number; checkedOut?: number; overflow?: number }) => {
-      if (opts.inUse !== undefined) metrics.dbPoolInUse = opts.inUse
+    (opts: {
+      available?: boolean
+      inUse?: number
+      size?: number
+      checkedOut?: number
+      overflow?: number
+    }) => {
+      if (opts.available !== undefined) metrics.dbPoolMetricsAvailable = opts.available
       if (opts.size !== undefined) metrics.dbPoolSize = opts.size
+      if (opts.available === false) {
+        // 显式不可用:usage 三项一律 NaN,禁止沿用/伪造数值
+        metrics.dbPoolInUse = NaN
+        metrics.dbPoolCheckedout = NaN
+        metrics.dbPoolOverflow = NaN
+        return
+      }
+      if (opts.inUse !== undefined) metrics.dbPoolInUse = opts.inUse
       if (opts.checkedOut !== undefined) metrics.dbPoolCheckedout = opts.checkedOut
       if (opts.overflow !== undefined) metrics.dbPoolOverflow = opts.overflow
     },
@@ -314,7 +331,11 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     lines.push(`ws_broadcast_dropped_frames_total ${metrics.wsBroadcastDroppedFramesTotal}`)
 
     // ===== 新增：DB 连接池指标 =====
-    lines.push('# HELP db_pool_in_use DB connections currently in use')
+    lines.push('# HELP db_pool_metrics_available Whether live pool usage is samplable (0=unavailable, gauges are NaN)')
+    lines.push('# TYPE db_pool_metrics_available gauge')
+    lines.push(`db_pool_metrics_available ${metrics.dbPoolMetricsAvailable ? 1 : 0}`)
+
+    lines.push('# HELP db_pool_in_use DB connections currently in use (NaN when unavailable)')
     lines.push('# TYPE db_pool_in_use gauge')
     lines.push(`db_pool_in_use ${metrics.dbPoolInUse}`)
 
@@ -407,6 +428,7 @@ declare module 'fastify' {
       /** 广播丢帧 Counter：与 wsDisconnectsTotal 成对递增，只数"帧没送到人"那一件事。 */
       wsBroadcastDroppedFramesTotal: number
       // 新增：DB 连接池指标
+      dbPoolMetricsAvailable: boolean
       dbPoolInUse: number
       dbPoolSize: number
       dbPoolCheckedout: number
@@ -420,6 +442,8 @@ declare module 'fastify' {
     setWebsocketConnections: (count: number) => void
     /** 设置 DB 连接池 Gauge 指标（postgres.js pool 状态采样，由于 Drizzle 封装由外部定时调用）。 */
     setDbPoolMetrics: (opts: {
+      /** false 时 usage 三项落 NaN,并在 /metrics 暴露 db_pool_metrics_available 0 */
+      available?: boolean
       inUse?: number
       size?: number
       checkedOut?: number
