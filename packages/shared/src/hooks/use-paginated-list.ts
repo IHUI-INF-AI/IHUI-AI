@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { type PageData } from '@ihui/api-client'
 
 export type Fetcher<T> = (query: {
@@ -47,32 +47,50 @@ export function usePaginatedList<T>(fetcher: Fetcher<T>, pageSize = 20): Paginat
   /** 后端给不给 total 是两回事:给了就按累计条数判到底,不给就只能按"本页是否取满"自守。 */
   const [totalKnown, setTotalKnown] = useState(false)
   const [lastCount, setLastCount] = useState(0)
+  // XUI-032:loadMore 的门口锁必须同步生效(state 在闭包里滞后,同 tick 连点会并发取同一页);
+  // requestSeq 用于丢弃被刷新/新请求覆盖的过期响应,避免旧页数据后到把列表拼错。
+  const requestSeqRef = useRef(0)
+  const loadingMoreLockRef = useRef(false)
 
   const fetch = useCallback(
     async (nextPage: number, isRefresh: boolean) => {
+      const seq = ++requestSeqRef.current
       if (nextPage === 1) {
+        loadingMoreLockRef.current = false
         if (isRefresh) setRefreshing(true)
         else setLoading(true)
       } else {
+        loadingMoreLockRef.current = true
         setLoadingMore(true)
       }
       setError('')
-      const res = await fetcher({ page: nextPage, pageSize })
-      if (res.success) {
-        const list = Array.isArray(res.data) ? res.data : res.data.list
-        setItems((prev) => (nextPage === 1 ? list : [...prev, ...list]))
-        setLastCount(list.length)
-        if (!Array.isArray(res.data)) {
-          setTotal(res.data.total)
-          setTotalKnown(true)
+      try {
+        const res = await fetcher({ page: nextPage, pageSize })
+        if (seq !== requestSeqRef.current) return
+        if (res.success) {
+          const list = Array.isArray(res.data) ? res.data : res.data.list
+          setItems((prev) => (nextPage === 1 ? list : [...prev, ...list]))
+          setLastCount(list.length)
+          if (!Array.isArray(res.data)) {
+            setTotal(res.data.total)
+            setTotalKnown(true)
+          }
+          setPage(nextPage)
+        } else {
+          setError(res.error || '加载失败')
         }
-        setPage(nextPage)
-      } else {
-        setError(res.error || '加载失败')
+      } catch (err) {
+        if (seq !== requestSeqRef.current) return
+        setError(err instanceof Error ? err.message : '加载失败')
+      } finally {
+        // 只有最新请求才允许收尾,过期请求不得覆盖新一轮的 loading 状态。
+        if (seq === requestSeqRef.current) {
+          setLoading(false)
+          setRefreshing(false)
+          setLoadingMore(false)
+          loadingMoreLockRef.current = false
+        }
       }
-      setLoading(false)
-      setRefreshing(false)
-      setLoadingMore(false)
     },
     [fetcher, pageSize],
   )
@@ -88,9 +106,9 @@ export function usePaginatedList<T>(fetcher: Fetcher<T>, pageSize = 20): Paginat
   }, [fetch])
 
   const loadMore = useCallback(() => {
-    if (loadingMore || !hasMore) return
+    if (loadingMoreLockRef.current || !hasMore) return
     void fetch(page + 1, false)
-  }, [fetch, loadingMore, hasMore, page])
+  }, [fetch, hasMore, page])
 
   const removeItem = useCallback((predicate: (item: T) => boolean) => {
     setItems((prev) => prev.filter((item) => !predicate(item)))
