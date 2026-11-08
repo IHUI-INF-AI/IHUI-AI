@@ -183,6 +183,18 @@ function walkDir(dir, out = []) {
 }
 
 /**
+ * `git grep` 取候选清单的参数(git 的选项必须排在 pattern/rev 之前;
+ * 写成 `grep -l onRetry --cached -- <path>` 时 git 会把 --cached 当 revision,
+ * 报 "fatal: unable to resolve revision: --cached",实测 2026-11-07)。
+ */
+export function retryGrepArgs(face, dirPrefix) {
+  if (face === 'staged')
+    return ['grep', '-l', '--cached', '-e', 'onRetry', '--', dirPrefix]
+  if (face === 'head') return ['grep', '-l', '-e', 'onRetry', 'HEAD', '--', dirPrefix]
+  throw new Undetermined(`未知判定面 ${String(face)}`)
+}
+
+/**
  * 该面上含 `onRetry` 字样的候选文件(先按关键字收窄)。
  * 不能全量枚举 5000+ web 文件再逐份读:那等于每轮上千次 git 子进程(§0.4 性能教训)。
  * 取不到 git 派生结果 ⇒ Undetermined(§0.3),绝不折成空集冒绿。
@@ -197,16 +209,14 @@ function collectRetryCandidateFiles(face, surface) {
       .filter((rel) => {
         try {
           return /\bonRetry\b/.test(readFileSync(join(ROOT, rel), 'utf8'))
-        } catch {
-          return false
+        } catch (e) {
+          // 取不到正文 ≠ 正文里没有 onRetry;折成 false 会把候选面读小、进而冒绿(§0.3)。
+          throw new Undetermined(`取不到 worktree 面 ${rel} 正文: ${e?.message ?? e}`)
         }
       })
       .sort()
   }
-  const args =
-    face === 'staged'
-      ? ['grep', '-l', 'onRetry', '--cached', '--', dirPrefix]
-      : ['grep', '-l', 'onRetry', face === 'head' ? 'HEAD' : face, '--', dirPrefix]
+  const args = retryGrepArgs(face, dirPrefix)
   let out
   try {
     out = gitRaw(args, ROOT, { maxBuffer: 64 * 1024 * 1024 })
@@ -553,6 +563,7 @@ export const __test__ = {
   loadFace,
   loadRetrySites,
   collectRetryCandidateFiles,
+  retryGrepArgs,
   loadBaseline,
   classifyRetryExpr,
   judgeRetryText,
