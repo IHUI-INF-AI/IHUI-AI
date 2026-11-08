@@ -229,7 +229,7 @@ class TestRetrieveOnly:
         ) as mock_retrieve:
             await rag_service.retrieve_only("test query", top_k=7, session_id="s1")
         mock_retrieve.assert_awaited_once_with(
-            "test query", top_k=7, session_id="s1"
+            "test query", top_k=7, session_id="s1", user_id=None
         )
 
     async def test_retrieve_only_returns_list(self):
@@ -246,7 +246,7 @@ class TestRetrieveOnly:
             rag_service, "_retrieve", new=AsyncMock(return_value=[])
         ) as mock_retrieve:
             await rag_service.retrieve_only("q")
-        mock_retrieve.assert_awaited_once_with("q", top_k=5, session_id=None)
+        mock_retrieve.assert_awaited_once_with("q", top_k=5, session_id=None, user_id=None)
 
     async def test_retrieve_only_propagates_retrieve_results(self):
         """retrieve_only 返回 _retrieve 的结果(不改变内容)。"""

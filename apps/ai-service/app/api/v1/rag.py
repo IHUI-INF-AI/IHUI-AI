@@ -22,10 +22,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from ...core.jwt_auth import resolve_request_user_id
+from ...core.jwt_auth import (
+    DEV_ANONYMOUS_PRINCIPAL,
+    require_request_user_id,
+    resolve_request_user_id,
+)
 from ...services.rag import rag_service
 
 router = APIRouter()
@@ -57,8 +61,15 @@ class RAGDocumentRequest(BaseModel):
 
 
 @router.post("/rag")
-async def rag_query(req: RAGQueryRequest) -> dict[str, Any]:
+async def rag_query(req: RAGQueryRequest, request: Request) -> dict[str, Any]:
     """RAG 查询(retrieve + rerank + context + generate)。"""
+    # AIS-033:检索身份只取 JWT 主体,向量/关键词两路都按属主裁剪。
+    principal = await require_request_user_id(request)
+    user_id = None if principal == DEV_ANONYMOUS_PRINCIPAL else principal
+    if user_id and req.session_id and ":" in req.session_id:
+        head = req.session_id.split(":", 1)[0].strip()
+        if head and head != user_id:
+            raise HTTPException(status_code=403, detail="session_id 不属于当前用户")
     try:
         result = await rag_service.query(
             question=req.query,
@@ -67,6 +78,7 @@ async def rag_query(req: RAGQueryRequest) -> dict[str, Any]:
             score_threshold=req.score_threshold,
             max_context_chars=req.max_context_chars,
             model=req.model,
+            user_id=user_id,
         )
         return {
             "code": 0,
