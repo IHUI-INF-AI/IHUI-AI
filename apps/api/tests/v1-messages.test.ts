@@ -98,6 +98,7 @@ import {
   type OpenAIChatChunk,
 } from '../src/services/anthropic-adapter'
 import v1MessagesRoutes from '../src/routes/v1-messages'
+import { recordCall } from '../src/services/relay-billing-service.js'
 
 // =============================================================================
 // 1. anthropicRequestToOpenAI(5 用例)
@@ -627,6 +628,77 @@ describe('POST /v1/anthropic/messages 路由集成(Anthropic 适配层,生产前
     // 应包含流式文本
     expect(text).toContain('你好')
     expect(text).toContain(',世界')
+  })
+
+  it('F-89:流中断但已产出 token ⇒ recordCall 记 partial,按实际 token 结算', async () => {
+    const encoder = new TextEncoder()
+    // 先交付一个真实文本帧,再让下一次读失败(模拟上游断流/客户端断开)
+    const stream = new ReadableStream({
+      start(controller) {
+        controller.enqueue(encoder.encode('0:"你好"\n'))
+      },
+      pull(controller) {
+        controller.error(new Error('upstream reset'))
+      },
+    })
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: stream,
+      text: async () => '',
+    }) as unknown as typeof globalThis.fetch
+
+    await server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
+    await server.ready()
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/v1/anthropic/messages',
+      headers: { 'x-api-key': 'ihui_test_key' },
+      payload: {
+        model: 'claude-3-5-sonnet',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: '你好' }],
+        stream: true,
+      },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const call = vi.mocked(recordCall).mock.calls.at(-1)?.[0]
+    expect(call?.status).toBe('partial')
+    expect(call?.completionTokens).toBeGreaterThan(0)
+    expect(call?.metadata).toMatchObject({ partialDelivery: true })
+    expect(call?.errorMessage).toContain('upstream reset')
+  })
+
+  it('F-89:上游 500 且零产出 ⇒ recordCall 记 error,错误文案不计入 token', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      body: null,
+      text: async () => 'boom',
+    }) as unknown as typeof globalThis.fetch
+
+    await server.register(v1MessagesRoutes, { prefix: '/v1/anthropic' })
+    await server.ready()
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/v1/anthropic/messages',
+      headers: { 'x-api-key': 'ihui_test_key' },
+      payload: {
+        model: 'claude-3-5-sonnet',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: '你好' }],
+        stream: true,
+      },
+    })
+
+    expect(res.statusCode).toBe(200)
+    const call = vi.mocked(recordCall).mock.calls.at(-1)?.[0]
+    expect(call?.status).toBe('error')
+    expect(call?.completionTokens).toBe(0)
+    expect(call?.errorMessage).toContain('upstream 500')
   })
 
   it('参数校验失败返回 400', async () => {
