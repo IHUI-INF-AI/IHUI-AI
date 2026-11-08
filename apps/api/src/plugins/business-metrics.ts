@@ -1845,7 +1845,9 @@ const businessMetricsPlugin: FastifyPluginAsync = async (server: FastifyInstance
     const url = request.url.split('?')[0] ?? ''
     if (!url.startsWith('/api/')) return
     if (url === '/api/health' || url === '/api/metrics' || url === '/api/business-metrics') return
-    const route = request.routeOptions?.url ?? url
+    // 未匹配路由(Fastify 无 routeOptions.url)统一落有界标签:
+    // 直接用原始 URL 会把任意探测路径变成一条新序列,基数无上限(F-223)。
+    const route = request.routeOptions?.url || '__unmatched__'
     const key = `${route}|${reply.statusCode}`
     // 异步上报,不阻塞 onResponse 钩子链
     setImmediate(() => {
