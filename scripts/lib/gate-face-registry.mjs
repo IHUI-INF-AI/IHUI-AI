@@ -74,15 +74,29 @@ export function decideStockOutcome({ face, touched, explicitFull, kind }) {
 /**
  * refs 面"触及"判定:当前 refs 快照 vs 上次基线。
  * 排除当前分支自身(每次提交都会移动它,不是"新建/重指旁支")。
+ *
+ * "触及"= 新建 ref(基线里没有)/ 删除 ref / **非快进重指**(新值不是旧值的后代)。
+ * 快进前进(主线被推着往前走)不算"重指":那是同一开发线上正常推进,
+ * 若把它也算触及,则每次 push 之后**任何**工作区的下一笔提交都会被 41 假红一次。
+ * 判定所需的后代关系由调用方注入 `isFastForward(oldSha,newSha)`;不注入或读不了 ⇒ 按触及处理
+ * (失效方向是阻断,不是放行)。
  */
-export function refsTouched(current, baseline, currentBranch) {
+export function refsTouched(current, baseline, currentBranch, isFastForward) {
   if (!baseline || typeof baseline !== 'object') return false
   const branch = String(currentBranch || '')
   const branchRefs = new Set([branch, branch.startsWith('refs/') ? branch : `refs/heads/${branch}`])
-  const names = new Set([...Object.keys(current || {}), ...Object.keys(baseline || {})])
+  const cur = current || {}
+  const base = baseline || {}
+  const names = new Set([...Object.keys(cur), ...Object.keys(base)])
   for (const name of names) {
     if (branchRefs.has(name)) continue
-    if ((current || {})[name] !== (baseline || {})[name]) return true
+    const now = cur[name]
+    const was = base[name]
+    if (now === was) continue
+    // 新建 / 删除:没有可比的后代关系,直接算触及。
+    if (!now || !was) return true
+    if (typeof isFastForward === 'function' && isFastForward(was, now)) continue
+    return true
   }
   return false
 }
