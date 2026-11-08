@@ -27,6 +27,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.services import mcp_server, stage_telemetry
+from app.services.codebase_indexer import SymbolFilterUndetermined
 from app.services.mcp_server import _tool_search_codebase
 from app.services.stage_telemetry import (
     SEARCH_CODEBASE_STAGES,
@@ -38,6 +39,18 @@ from app.services.stage_telemetry import (
 from app.services.telemetry_service import telemetry_service
 
 _QUERY = "alpha_symbol_zz"
+
+
+@pytest.fixture(autouse=True)
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-080:search 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。"""
+    real = mcp_server._get_workspace_roots
+    monkeypatch.setattr(
+        mcp_server,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
+    )
+
 _LINE_RE = re.compile(rf"\[{STAGE_LOG_EVENT}\] (.*)")
 
 
@@ -79,6 +92,9 @@ def _install_fakes(
     fake = SimpleNamespace(search=search, index_repository=AsyncMock(return_value={"indexed": 0, "skipped": 0}))
     fake_module = ModuleType("app.services.codebase_indexer")
     fake_module.codebase_indexer = fake  # type: ignore[attr-defined]
+    # 生产装配层会在符号档懒导入该异常类;整模块替身必须也带上,否则语义腿会
+    # 以 ImportError 假失败(与本票遥测语义无关)。
+    fake_module.SymbolFilterUndetermined = SymbolFilterUndetermined  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.services.codebase_indexer", fake_module)
     monkeypatch.setattr(mcp_server, "_lazy_index_and_research", AsyncMock(return_value=_lazy_outcome()))
     return fake

@@ -793,6 +793,14 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-07-24 安全加固:screenshot_url 是 SSRF 入口(Playwright 访问任意 URL),
     # 即使有 _validate_url_ssrf 校验,仍限定 admin 调用,defense-in-depth
     "screenshot_url",
+    # AIS-051:两个浏览器自检工具与 screenshot_url 同等 SSRF 能力(任意 URL 拉页面
+    # + 截图),此前不在角色矩阵里 ⇒ role=0 的旁路。与 screenshot_url 同档收口。
+    "browser_selfcheck_screenshot", "browser_selfcheck",
+    # AIS-050 defense-in-depth:upload_file 把本地内容外传第三方存储。对话链的
+    # intend 路由与 tool 选择表都不含它(role=0 正常链路不依赖);本地路径分支已过
+    # 工作区+敏感文件判据,这里再加角色档。voice_clone 不能加:对话链 role=0 直接
+    # 依赖它(conversation._MEDIA_INTENT_PATTERNS["token6688_voice_clone"])。
+    "token6688_upload_file",
     # 2026-07-24 扩展工具(自研核心能力):
     # fetch_url:SSRF 入口 + 可探测内网;
     # review_pr:GitHub API + 可能暴露源代码;schedule_task:调度后台任务
@@ -1040,6 +1048,21 @@ def _is_sensitive_file(path: str, *, roots: list[str] | tuple[str, ...] | None =
         return True
     # 扩展名匹配
     return any(basename.endswith(ext) for ext in _SENSITIVE_FILE_EXTENSIONS)
+
+
+def _validate_media_local_path(path: str) -> tuple[bool, str, str]:
+    """媒体工具本地 path 分支的统一入口校验(AIS-050)。
+
+    与 ``read_file`` 同一套判据、同一份实现:先过 ``_validate_path_in_workspace``
+    (白名单根 + symlink 穿越),再判 ``_is_sensitive_file``(敏感目录/文件)。
+    调用方必须用返回的 resolved 路径去 open/上传,不得再用原始入参。
+    """
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    if _is_sensitive_file(info):
+        return False, sensitive_error_message(info), "SENSITIVE_FILE_BLOCKED"
+    return True, info, ""
 
 
 # ---------------------------------------------------------------------------
@@ -1528,6 +1551,16 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     internal_user_id = arguments.get("__user_id") or None
     if not path:
         return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    # AIS-080:与 read_file 同一套工作区白名单校验;根外目录不得进入索引 / embedding。
+    ok_path, path_info = _validate_path_in_workspace(path)
+    if not ok_path:
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "error": path_info,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = path_info
     from .workspace_index_policy import (
         apply_workspace_index,
         indexing_decision,
@@ -1907,6 +1940,34 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "搜索关键词为空",
             "ok": False,
         }
+    # AIS-080:与 read_file 同一套工作区白名单校验 —— 根外目录不得进入关键词扫描 /
+    # 懒索引 / 语义检索。相对路径也走这里;后续统一使用校验返回的 resolved 路径。
+    ok_path, path_info = _validate_path_in_workspace(path)
+    if not ok_path:
+        stages.record(
+            "validate", "failed",
+            duration_ms=validate_clock.elapsed_ms(),
+            count=0,
+            detail="路径不在工作区白名单",
+        )
+        stats["path_validation"] = "blocked"
+        return {
+            "tool": "search_codebase",
+            "query": query,
+            "path": path,
+            "matches": [],
+            "mode": "unjudged",
+            "degraded": True,
+            "reasons": [
+                {"leg": "path", "status": "blocked", "detail": path_info},
+            ],
+            "stats": stats,
+            "stages": stages.finalize(),
+            "message": "路径不在工作区白名单",
+            "ok": False,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = path_info
     stages.record(
         "validate",
         "ok",
@@ -3824,6 +3885,25 @@ def revoke_exec_prefix(prefix: list[str]) -> bool:
     return existed
 
 
+# AIS-081:Windows 内置命令分支把**原始整串**交给 `cmd /c`,因此必须在派生进程前
+# 对整串拒绝 shell 元字符。command_policy.json 只登记 `&&`/`|`/`;` 等模式,单 `&`、
+# `^`、CR/LF 都不命中 ⇒ 单个 `&` 即可拼接任意命令。
+# 本表是内置分支的第二道独立闸(不替代既有危险模式表);测试从本模块 import,不复制。
+# 刻意**不含** `%`:cmd 的 `%VAR%` 只是变量展开、不是命令分隔符,拒掉会误伤
+# `echo %PATH%` / `set X=%Y%` 这类合法内置用法;` 与 `$(` 同样只是字面量,无注入语义。
+WIN_BUILTIN_SHELL_METACHARACTERS: Final[tuple[str, ...]] = (
+    "&", "^", "|", "<", ">", ";", "\r", "\n",
+)
+
+
+def _first_builtin_shell_metacharacter(command: str) -> str | None:
+    """返回命令里第一个命中的内置分支 shell 元字符;没有则 None。"""
+    for metachar in WIN_BUILTIN_SHELL_METACHARACTERS:
+        if metachar in command:
+            return metachar
+    return None
+
+
 async def _tool_run_command(
     arguments: dict[str, Any], cancel: asyncio.Event | None = None
 ) -> dict[str, Any]:
@@ -4105,6 +4185,22 @@ async def _tool_run_command(
             "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
             "prompt", "title", "path", "assoc", "ftype",
         }
+        # AIS-081:内置命令分支整串交给 cmd /c ⇒ 派生进程前先拒绝 shell 元字符。
+        # 前缀白名单只看 first_token(=echo),这一步是整串判据,不可用 surface 阈值替代。
+        if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
+            _metachar = _first_builtin_shell_metacharacter(command)
+            if _metachar is not None:
+                return {
+                    "tool": "run_command", "command": command,
+                    "exit_code": -1, "stdout": "", "stderr": "",
+                    "ok": False, "streamed": True,
+                    "errorCode": "SHELL_METACHARACTER_BLOCKED",
+                    "matched": _metachar,
+                    "message": (
+                        f"命令包含禁止的 shell 元字符 {_metachar!r}"
+                        "(内置命令分支禁止拼接,安全限制)"
+                    ),
+                }
         args = shlex.split(command, posix=sys.platform != "win32")
         # 差距⑦(2026-10-30):原先 user_env 缺省时传 env=None 让子进程**裸继承**
         # os.environ —— vault 过滤与凭据/注入型变量剥离全部旁路,"不带 env 参数"
@@ -5841,6 +5937,19 @@ async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[
     url = arguments.get("url")
     if not url or not isinstance(url, str):
         return {"tool": "browser_selfcheck_screenshot", "ok": False, "error": "缺少 url 参数"}
+    # AIS-051:与 screenshot_url 同一份 SSRF 判据,命中私网/回环/链路本地/非 http(s)
+    # 就地拒绝,不发起任何页面访问。
+    from .screenshot_service import _validate_url_ssrf
+
+    ok_ssrf, ssrf_reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "browser_selfcheck_screenshot",
+            "ok": False,
+            "url": url,
+            "error": f"URL 不允许访问: {ssrf_reason}",
+            "errorCode": "SSRF_BLOCKED",
+        }
 
     viewport = arguments.get("viewport")
     if viewport is not None and not isinstance(viewport, dict):
@@ -5884,6 +5993,19 @@ async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
     url = arguments.get("url")
     if not url or not isinstance(url, str):
         return {"tool": "browser_selfcheck", "ok": False, "error": "缺少 url 参数"}
+    # AIS-051:同上,与 screenshot_url 同一份 SSRF 判据,拒绝时不得触发截图/视觉链路。
+    from .screenshot_service import _validate_url_ssrf
+
+    ok_ssrf, ssrf_reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "browser_selfcheck",
+            "ok": False,
+            "url": url,
+            "checks": [],
+            "error": f"URL 不允许访问: {ssrf_reason}",
+            "errorCode": "SSRF_BLOCKED",
+        }
 
     checks = arguments.get("checks") or []
     if not isinstance(checks, list):
@@ -8939,6 +9061,14 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
 
     try:
         if path:
+            ok_path, path_info, path_err = _validate_media_local_path(path)
+            if not ok_path:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": path_info, "errorCode": path_err,
+                    "file_url": None,
+                }
+            path = path_info
             if not os.path.isfile(path):
                 return {
                     "tool": "token6688_upload_file", "ok": False,
@@ -9268,10 +9398,12 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
 
 def _audio_source_from_args(
     arguments: dict[str, Any],
-) -> tuple[bytes, str, str | None]:
+) -> tuple[bytes, str, str | None, str | None]:
     """从工具入参解析音频字节:path / url / data URI 三选一。
 
-    Returns (audio_bytes, filename, error)。error 非 None 时前两者为空。
+    Returns (audio_bytes, filename, error, error_code)。error 非 None 时前两者为空;
+    error_code 是结构化错误码(path 分支被工作区/敏感文件判据拒绝时为
+    PATH_NOT_ALLOWED / SENSITIVE_FILE_BLOCKED)。
     """
     import base64 as _b64
     import os as _os
@@ -9281,56 +9413,60 @@ def _audio_source_from_args(
     data_uri = str(arguments.get("data_uri") or "").strip()
     sources = sum(bool(v) for v in (path, url, data_uri))
     if sources == 0:
-        return b"", "", "缺少入参:path / url / data_uri 至少传一个"
+        return b"", "", "缺少入参:path / url / data_uri 至少传一个", None
     if sources > 1:
-        return b"", "", "path / url / data_uri 只能传一个"
+        return b"", "", "path / url / data_uri 只能传一个", None
     if path:
+        ok_path, path_info, path_err = _validate_media_local_path(path)
+        if not ok_path:
+            return b"", "", path_info, path_err
+        path = path_info
         if not _os.path.isfile(path):
-            return b"", "", f"文件不存在: {path}"
+            return b"", "", f"文件不存在: {path}", None
         size = _os.path.getsize(path)
         if size >= 20 * 1024 * 1024:
-            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制"
+            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制", None
         try:
             with open(path, "rb") as _f:
-                return _f.read(), _os.path.basename(path) or "ref.wav", None
+                return _f.read(), _os.path.basename(path) or "ref.wav", None, None
         except OSError as e:
-            return b"", "", f"读取文件失败: {e}"
+            return b"", "", f"读取文件失败: {e}", None
     if url:
         from .screenshot_service import _validate_url_ssrf
 
         ok_ssrf, reason = _validate_url_ssrf(url)
         if not ok_ssrf:
-            return b"", "", f"URL 不允许访问: {reason}"
+            return b"", "", f"URL 不允许访问: {reason}", None
         import httpx as _httpx
 
         # 2026-10-31 安全强化第 32 批:走同步版 SSRF 安全下载单源(逐跳 + 钉 IP)。
         # 此前 follow_redirects=True ⇒ 公网 302 → 内网音频可被拉取。
         data = _download_url_ssrf_safe_sync(url, _httpx, timeout=60.0)
         if data is None:
-            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)"
+            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)", None
         if len(data) >= 20 * 1024 * 1024:
-            return b"", "", "远程音频超过官方 <20MiB 硬限制"
-        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None
+            return b"", "", "远程音频超过官方 <20MiB 硬限制", None
+        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None, None
     # data URI:data:audio/mpeg;base64,....
     # 2026-09-09 修复:partition 结果变量原命名为 _b64,遮蔽了 import base64 as _b64
     # 的模块引用,导致 b64decode 抛 AttributeError → 永远"解码失败"。改名 _b64payload。
     _head, _sep, _b64payload = data_uri.partition(",")
     if not _sep or not _b64payload:
-        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)"
+        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)", None
     try:
         data = _b64.b64decode(_b64payload)
     except Exception:  # noqa: BLE001
         data = b""
     if not data:
-        return b"", "", "data_uri base64 解码失败或内容为空"
+        return b"", "", "data_uri base64 解码失败或内容为空", None
     if len(data) >= 20 * 1024 * 1024:
-        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制"
+        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制", None
     ext = "mp3"
     if _head and "/" in _head:
         _mime = _head.split(";", 1)[0].split("/", 1)[-1]
         if _mime in ("wav", "wave", "m4a", "mp3"):
             ext = "wav" if _mime == "wave" else _mime
-    return data, f"ref.{ext}", None
+    return data, f"ref.{ext}", None, None
 
 
 async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -9394,11 +9530,11 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                 "hint": "声纹已删除" if result.get("ok") else f"删除失败(status={result.get('status')})",
             }
         # action == "upload"
-        audio, filename, err = _audio_source_from_args(arguments)
+        audio, filename, err, err_code = _audio_source_from_args(arguments)
         if err:
             return {
                 "tool": "token6688_voice_clone", "ok": False,
-                "error": err, "errorCode": "BAD_PARAMS",
+                "error": err, "errorCode": err_code or "BAD_PARAMS",
             }
         result = await inst.upload_voice(audio, filename)
         voice_id = ""
@@ -9565,6 +9701,14 @@ async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]
         # 本地路径(如 voice_tts save_path 落地的音频)
         from pathlib import Path as _Path
 
+        ok_path, path_info, path_err = _validate_media_local_path(audio_in)
+        if not ok_path:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": path_info, "errorCode": path_err,
+                "text": None,
+            }
+        audio_in = path_info
         p = _Path(audio_in)
         if not p.is_file():
             return {
