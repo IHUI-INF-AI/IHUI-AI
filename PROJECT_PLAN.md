@@ -32504,3 +32504,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 570G. **缺陷普查 API F-178** [P1] 渠道配额「检查已接线、用量从不写入」，日/月配额永不生效（证据 docs/tickets/2026-11/findings-api.md#F-178）
 - [ ] 571G. **缺陷普查 API F-179** [P2] 单个 Key 密文解密失败未被隔离，整条模型渠道路由直接失败（证据 docs/tickets/2026-11/findings-api.md#F-179）
 - [ ] 572G. **缺陷普查 API F-180** [P2] 响应缓存键只喂 4 个维度，response_format/seed/top_p 不同仍命中同一缓存（证据 docs/tickets/2026-11/findings-api.md#F-180）
+- [ ] 573G. **缺陷普查 API F-181** [P2] 缓存命中只把「钱」置 0，token 余额/订阅窗口仍按缓存用量扣（证据 docs/tickets/2026-11/findings-api.md#F-181）
+- [ ] 574G. **缺陷普查 API F-182** [P2] 短信退订回执写入失败被吞且仍回 200，退订永久丢失（证据 docs/tickets/2026-11/findings-api.md#F-182）
+- [ ] 575G. **缺陷普查 API F-183** [P2] 熔断计数器 Redis 读改写非原子，并发下连续失败计数丢失、熔断难触发（证据 docs/tickets/2026-11/findings-api.md#F-183）
+- [ ] 576G. **缺陷普查 API F-184** [P1] Hook PATCH 绕过「script 仅管理员」闸，任意登录用户可拿到服务账号命令执行（证据 docs/tickets/2026-11/findings-api.md#F-184）
+- [ ] 577G. **缺陷普查 API F-185** [P2] 分享 API Key 的 maxTotalTokens 与 sharedWithUserId 是死字段，从未执行（证据 docs/tickets/2026-11/findings-api.md#F-185）
+- [ ] 578G. **缺陷普查 API F-186** [P2] BYOK「连通性测试」丢弃用户 apiKey/baseUrl，改用系统身份打平台 Key（证据 docs/tickets/2026-11/findings-api.md#F-186）
+- [ ] 579G. **缺陷普查 API F-187** [P2] 用户自定义 baseUrl 在 v1/v2 均无 SSRF 校验，原样成为 ai-service 的 api_base（证据 docs/tickets/2026-11/findings-api.md#F-187）
+- [ ] 580G. **缺陷普查 API F-188** [P3] skills:<userId> 同一 Redis key 既当 String 又当 Hash，安装市场技能后用户技能库读取报 WRONGTYPE 变空（证据 docs/tickets/2026-11/findings-api.md#F-188）
+- [ ] 581G. **缺陷普查 API F-189** [P3] LLM 分组重命名不回写 provider_group，删除守卫失效并产生孤儿 provider（证据 docs/tickets/2026-11/findings-api.md#F-189）
+- [ ] 582G. **缺陷普查 API F-190** [P1] /v1/fine_tuning/jobs 全链路无租户隔离、用平台 Key 训练、任务缓存键全局共享（证据 docs/tickets/2026-11/findings-api.md#F-190）
+- [ ] 583G. **缺陷普查 API F-191** [P1] /v1/embeddings、/v1/chat/vision/moa、/v1/agents/* 系统 token 直连，零计费零配额（证据 docs/tickets/2026-11/findings-api.md#F-191）
+- [ ] 584G. **缺陷普查 API F-192** [P1] /api/chat/multi/multi 的 vendors 无数量上限，单请求可放大为数百次上游调用（证据 docs/tickets/2026-11/findings-api.md#F-192）
+- [ ] 585G. **缺陷普查 API F-193** [P2] /v1/threads/:threadId/runs 把开发者 API Key 当 Bearer 转发给 ai-service，请求恒定 401/502（证据 docs/tickets/2026-11/findings-api.md#F-193）
+- [ ] 586G. **缺陷普查 API F-194** [P2] 模型映射后计费口径不一致：预扣/缓存按 resolvedModel，成功结算按原始 model（证据 docs/tickets/2026-11/findings-api.md#F-194）
+- [ ] 587G. **缺陷普查 API F-195** [P1] SRS 服务器列表把 apiSecret 原样返回给任意登录用户（证据 docs/tickets/2026-11/findings-api.md#F-195）
+- [ ] 588G. **缺陷普查 API F-196** [P1] 任意登录用户可枚举全部推流地址与 streamKey，可盗播/顶替推流（证据 docs/tickets/2026-11/findings-api.md#F-196）
+- [ ] 589G. **缺陷普查 API F-197** [P2] /api/oss/resource/file 返回不存在的分片上传地址，且绕过 chunked-upload 的初始化闸门（证据 docs/tickets/2026-11/findings-api.md#F-197）
+- [ ] 590G. **缺陷普查 API F-198** [P2] 转码队列 FIFO 淘汰只删 Map 与输出目录，不杀子进程，产生孤儿 ffmpeg 与磁盘泄漏（证据 docs/tickets/2026-11/findings-api.md#F-198）
+- [ ] 591G. **缺陷普查 API F-199** [P2] GET /api/live-gifts/records 无鉴权，匿名可分页读取全站所有打赏流水（证据 docs/tickets/2026-11/findings-api.md#F-199）
+- [ ] 592G. **缺陷普查 API F-200** [P2] Crew 所有 LLM 步骤全部失败仍记 completed 且返回 success:true（证据 docs/tickets/2026-11/findings-api.md#F-200）
+- [ ] 593G. **缺陷普查 API F-201** [P2] 工作区锁抢到后状态落库失败不释放，心跳永久续期形成死锁（证据 docs/tickets/2026-11/findings-api.md#F-201）
+- [ ] 594G. **缺陷普查 API F-202** [P2] Subagent 取消只改内存，任务完成后又被覆写为 completed（证据 docs/tickets/2026-11/findings-api.md#F-202）
+- [ ] 595G. **缺陷普查 API F-203** [P2] Crew llm_generate 工具的子 LLM 用量只记成本不扣余额（证据 docs/tickets/2026-11/findings-api.md#F-203）
+- [ ] 596G. **缺陷普查 API F-204** [P2] Redis 故障时工作区锁静默降级为进程内锁，无 TTL、无跨实例互斥（证据 docs/tickets/2026-11/findings-api.md#F-204）
+- [ ] 597G. **缺陷普查 API F-205** [P0] 关注接口幂等恒返回 201，point-aspect 按状态码发分，导致无限刷积分（证据 docs/tickets/2026-11/findings-api.md#F-205）
+- [ ] 598G. **缺陷普查 API F-206** [P1] watch-aspect 根级 preHandler 早于鉴权执行，浏览量双计且观看行为从不落库（证据 docs/tickets/2026-11/findings-api.md#F-206）
+- [ ] 599G. **缺陷普查 API F-207** [P2] 审计日志解析畸形 percent-encoding 直接抛错，导致该请求审计行丢失（证据 docs/tickets/2026-11/findings-api.md#F-207）
+- [ ] 600G. **缺陷普查 API F-208** [P2] 连接数守卫的 UA 白名单客户端可伪造，绕过单 IP 连接上限（证据 docs/tickets/2026-11/findings-api.md#F-208）
+- [ ] 601G. **缺陷普查 API F-209** [P2] 分布式限流租户桶键取自客户端 x-tenant-id，可随意切换桶绕过限流（证据 docs/tickets/2026-11/findings-api.md#F-209）
+- [ ] 602G. **缺陷普查 API F-210** [P2] 学生自助签到接受任意 date，可补签/伪造全月考勤（证据 docs/tickets/2026-11/findings-api.md#F-210）
+- [ ] 603G. **缺陷普查 API F-211** [P2] /messages/rooms/:roomId/* 忽略 roomId，返回全站消息并清空全部未读（证据 docs/tickets/2026-11/findings-api.md#F-211）
+- [ ] 604G. **缺陷普查 API F-212** [P3] 通知偏好 PUT 的 z.record 无键数上限，配合 Promise.all 放大数据库往返（证据 docs/tickets/2026-11/findings-api.md#F-212）
+- [ ] 605G. **缺陷普查 API F-213** [P3] /learn/video/log 无「记录不存在则插入」分支，首次观看进度静默丢失（证据 docs/tickets/2026-11/findings-api.md#F-213）
+- [ ] 606G. **缺陷普查 API F-214** [P3] 5 个家长端 :childId 端点缺 UUID 校验，畸形路径返回 500（证据 docs/tickets/2026-11/findings-api.md#F-214）
+- [ ] 607G. **缺陷普查 API F-215** [P1] isBlockedTargetIp 漏拦 CGNAT 与 IPv6 ULA（fb 笔误），relay 放行档可命中云元数据（证据 docs/tickets/2026-11/findings-api.md#F-215）
+- [ ] 608G. **缺陷普查 API F-216** [P1] hasOwnerPredicate 用「SQL 文本含列名 + 参数含自己 ID」判定归属，insert/upsert 可写他人归属行（证据 docs/tickets/2026-11/findings-api.md#F-216）
+- [ ] 609G. **缺陷普查 API F-217** [P2] outbox 无原子认领：多实例并发重复投递，attempts 丢更新（证据 docs/tickets/2026-11/findings-api.md#F-217）
+- [ ] 610G. **缺陷普查 API F-218** [P2] getKey() 无 KDF、按字符截断且不校验字节长度（证据 docs/tickets/2026-11/findings-api.md#F-218）
+- [ ] 611G. **缺陷普查 API F-219** [P2] 内存兜底计数器按插入序 FIFO 淘汰且不清过期键，Redis 故障期可挤掉他人仍在窗口内的短信配额（证据 docs/tickets/2026-11/findings-api.md#F-219）
+- [ ] 612G. **缺陷普查 API F-220** [P1] 支付幂等把 Redis 故障压成 processing，回调侧据此 ACK SUCCESS，已付款订单永不履约（证据 docs/tickets/2026-11/findings-api.md#F-220）
+- [ ] 613G. **缺陷普查 API F-221** [P2] RLS 上下文复位不绑定连接：池化下清不到持值连接，会话变量残值跨请求（证据 docs/tickets/2026-11/findings-api.md#F-221）
+- [ ] 614G. **缺陷普查 API F-222** [P2] 调度器在装配期 await upsertJobScheduler，Redis 不可用时启动永久挂死（证据 docs/tickets/2026-11/findings-api.md#F-222）
+- [ ] 615G. **缺陷普查 API F-223** [P2] 业务指标 apiCallTotal 标签取自未匹配路由的原始 URL，无基数上限（证据 docs/tickets/2026-11/findings-api.md#F-223）
+- [ ] 616G. **缺陷普查 API F-224** [P2] 反自动化把可伪造 UA 当白名单前置返回，同时跳过扫描器判定、已有封禁与频率统计（证据 docs/tickets/2026-11/findings-api.md#F-224）
+- [ ] 617G. **缺陷普查 API F-225** [P2] cache-resilience 的 loaders Map 只增不减，loader 闭包永久驻留（证据 docs/tickets/2026-11/findings-api.md#F-225）
+- [ ] 618G. **缺陷普查 API F-226** [P3] /ws/relay/ops 的 error 与 close 各 release 一次，连接上限被低估（证据 docs/tickets/2026-11/findings-api.md#F-226）
+- [ ] 619G. **缺陷普查 API F-227** [P3] 限流兜底存储每路由一个 20000 条 Map 且 FIFO 淘汰，Redis 故障期 IP 轮换即绕过（证据 docs/tickets/2026-11/findings-api.md#F-227）
+- [ ] 620G. **缺陷普查 API F-228** [P1] 智能体结算丢弃月度切分：每期都按整单价全额入账，且未支付即生成结算（证据 docs/tickets/2026-11/findings-api.md#F-228）
+- [ ] 621G. **缺陷普查 API F-229** [P1] chargeOneContractNow 无占位竞态，用户连点即同一周期重复代扣（证据 docs/tickets/2026-11/findings-api.md#F-229）
+- [ ] 622G. **缺陷普查 API F-230** [P1] 自动关单无条件写 cancelled，可把并发支付的订单改成已取消（证据 docs/tickets/2026-11/findings-api.md#F-230）
+- [ ] 623G. **缺陷普查 API F-231** [P2] 对账日界错位 8 小时：北京自然日账单 vs UTC 自然日本地查询（证据 docs/tickets/2026-11/findings-api.md#F-231）
+- [ ] 624G. **缺陷普查 API F-232** [P2] VIP 到期降级 is_vip 无条件覆盖 + 全量/N+1，续费用户可被误降级（证据 docs/tickets/2026-11/findings-api.md#F-232）
+- [ ] 625G. **缺陷普查 API F-233** [P2] 订阅窗口配额「查不到就放行」，副本延迟/DB 抖动即免费超用且用量记到旧订阅（证据 docs/tickets/2026-11/findings-api.md#F-233）
+- [ ] 626G. **缺陷普查 API F-234** [P2] 佣金兜底校准 LIMIT 100 无排序无时间下界，永不返佣订单永久占满窗口（证据 docs/tickets/2026-11/findings-api.md#F-234）
+- [ ] 627G. **缺陷普查 API F-235** [P2] 模板短信发送失败不退配额，一次通道故障烧光当日通知/营销额度（证据 docs/tickets/2026-11/findings-api.md#F-235）
+- [ ] 628G. **缺陷普查 API F-236** [P1] 终端会话自然退出后永不回收，5 次 exit 后该用户永久无法再开终端（证据 docs/tickets/2026-11/findings-api.md#F-236）
+- [ ] 629G. **缺陷普查 API F-237** [P2] 错误透传未命中规则时把上游原始错误原文回给调用方（证据 docs/tickets/2026-11/findings-api.md#F-237）
+- [ ] 630G. **缺陷普查 API F-238** [P2] 洞察服务查询不存在的列 cost_used_total_cents，两个维度永久静默失效（证据 docs/tickets/2026-11/findings-api.md#F-238）
+- [ ] 631G. **缺陷普查 API F-239** [P2] 对账批次级失败仍清 pending 账本，断链重推记录被抹掉（证据 docs/tickets/2026-11/findings-api.md#F-239）
+- [ ] 632G. **缺陷普查 API F-240** [P2] 全局在途闸 INCR 成功但 PEXPIRE 失败时双计数并泄漏无 TTL 键（证据 docs/tickets/2026-11/findings-api.md#F-240）
