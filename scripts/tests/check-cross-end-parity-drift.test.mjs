@@ -505,8 +505,61 @@ test('G8 键级判据:新登记 gap 不在基线承载集 ⇒ regression 为空(
   assert.deepEqual(face.registered, ['sag2'])
 })
 
+/* ---------- 提交面分档(2026-11-08 302 接 blocking):只拦承载削减,登记只报数 ---------- */
+
+test('H1 提交面:新增未登记屏(unmapped 0→1)⇒ 只报数可见,不判红;push 面同数据仍红', () => {
+  assert.equal(
+    typeof P.commitFaceOf,
+    'function',
+    '缺 commitFaceOf ⇒ 提交面会按整表判红,重演「如实登记就被判倒退」的坑',
+  )
+  const baseline = { dims: { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 0 } }
+  const values = { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 1 }
+  const push = P.judgeBaseline({ values, baseline, directions: GATE_DIRECTIONS })
+  assert.equal(push.state, 'regressed', 'push 面不许被提交面分档放宽')
+  const commit = P.commitFaceOf(push)
+  assert.equal(commit.state, 'ok', '新增未登记屏在提交面只能报数')
+  assert.equal(commit.regressions.length, 0)
+  assert.ok(
+    commit.advisories.some((a) => a.dim === 'unmapped' && /只报数/.test(a.detail)),
+    '报数行必须进人读输出,不能只写日志',
+  )
+})
+
+test('H2 提交面:拆掉既有承载(alignedUnique 292→291)⇒ 提交面必须 regressed', () => {
+  const baseline = { dims: { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 0 } }
+  const values = { mirrored: 256, aligned: 292, alignedUnique: 291, unmapped: 0 }
+  const commit = P.commitFaceOf(
+    P.judgeBaseline({ values, baseline, directions: GATE_DIRECTIONS }),
+  )
+  assert.equal(commit.state, 'regressed', '承载被拆在提交面必须判红')
+  assert.ok(commit.regressions.some((r) => r.dim === 'alignedUnique'))
+})
+
+test('H3 提交面:既有承载键被登记成 gap ⇒ regressed(承载面同源,不许降成只报数)', () => {
+  const commit = P.commitFaceOf({
+    state: 'regressed',
+    regressions: [
+      { dim: 'judgedGapWebRegression', label: '既有承载键被登记成 gap', baseline: 0, current: 1, delta: 1 },
+    ],
+  })
+  assert.equal(commit.state, 'regressed')
+  assert.ok(commit.regressions.some((r) => r.dim === 'judgedGapWebRegression'))
+})
+
+test('H4 提交面:如实登记 gap、承载面一枚未减 ⇒ ok(不因"登记了"误红)', () => {
+  const baseline = { dims: { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 0 } }
+  const values = { mirrored: 256, aligned: 292, alignedUnique: 292, unmapped: 0 }
+  const commit = P.commitFaceOf(
+    P.judgeBaseline({ values, baseline, directions: GATE_DIRECTIONS }),
+  )
+  assert.equal(commit.state, 'ok')
+  assert.equal(commit.regressions.length, 0)
+})
+
 test('E1 存续锁:这台尺的 self-test 必须整趟绿,且例数钉死(2026-11-05 实测它坏了 19/24 却无人发现)', () => {
-  // 为什么必须有这一条:本尺刻意不进提交链(判机器状态,§12e),于是它自己的取证面坏了也不会被任何门拦。
+  // 为什么必须有这一条:本尺的取证面是自造的(六把子尺 + 基线 + 键集),
+  // 自检坏了不会有别的门替它发现(2026-11-05 实测它坏了 19/24 却连日无人发现)。
   // 现读复证:HEAD 版 --self-test 19/24 失败(坏例连实际 state 都不打印),而镜像用例此前只测纯函数,
   // 从不跑整趟自检 ⇒ "夹具落后于判据"这一型结构上无人守。这里把整趟自检与例数一起钉住:
   // 少一例(被删/被注释)⇒ 末行数字对不上即翻红;某一例坏 ⇒ rc=1 直接抛。
