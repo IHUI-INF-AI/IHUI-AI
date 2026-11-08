@@ -52,8 +52,12 @@
  * 退出码:
  *   0  通过 (staged 档无 .ts/.tsx / 本轮声明集全绿)
  *   1  失败 (任一 package typecheck 不通过, 打印错误文件路径)
- *   2  用法错误或脚本异常 —— 未声明旗标 / --files 没给路径或路径不存在 / --files 的
- *      声明集里没有一个可审文件 / 声明文件所在 package 不支持 typecheck / 脚本自身异常
+ *   2  用法错误 / 脚本异常 / **依赖产物取不到** —— 被审 package 的 workspace 依赖没有可用的
+ *      类型入口(types/typings/exports.types 或 main 指向的文件不存在)。此时一律不跑 tsc、不把
+ *      TS2307 归到改动文件, 直接退出并打印缺哪些包和可执行的补齐命令。
+ *      为什么单独一档: 本地裸跑 tsc 缺依赖产物时, 会把"取不到"伪装成"你改坏了文件"的假红;
+ *      假红会逼人用 HUSKY_SKIP_STAGED_TYPECHECK 跳门, 比假绿更坏。判据只用 package.json
+ *      声明与文件存在性这种确定性检查, 不解析 tsc 报错文本去猜。
  *
  * 跳过(平台特性, 仅 staged 档 —— --files 档一律 exit 2 点名, 不把"审不到"报成"审过"):
  *   - apps/ai-service (Python, 用 mypy 而非 tsc, 不在 packages 列表)
@@ -268,6 +272,78 @@ function getStagedFiles() {
   } catch {
     return []
   }
+}
+
+/** 读 package.json; 失败返回 null(判"取不到"由调用方决定, 不在这里 exit)。 */
+function readManifest(dir) {
+  try {
+    return JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 判定一个 workspace 依赖包是否有可用的类型入口 —— 确定性检查, 不解析 tsc 输出。
+ * 优先看 types/typings/exports['.'].types; 没声明类型入口才退到 main/exports 的运行时入口。
+ * @returns {{ok: boolean, expected: string}} expected 用于 exit 2 清单里的"期望入口"。
+ */
+function typeEntryStatus(depDir) {
+  const m = readManifest(depDir)
+  if (!m) return { ok: false, expected: 'package.json 不存在或不可读' }
+  const typeCands = []
+  if (typeof m.types === 'string') typeCands.push(m.types)
+  if (typeof m.typings === 'string') typeCands.push(m.typings)
+  const dot = typeof m.exports === 'string' ? m.exports : m.exports?.['.']
+  if (dot && typeof dot === 'object' && dot.types) {
+    if (typeof dot.types === 'string') typeCands.push(dot.types)
+    else if (typeof dot.types === 'object') {
+      for (const v of Object.values(dot.types)) if (typeof v === 'string') typeCands.push(v)
+    }
+  }
+  const runtimeCands = []
+  if (dot && typeof dot === 'object') {
+    if (typeof dot.import === 'string') runtimeCands.push(dot.import)
+    if (typeof dot.default === 'string') runtimeCands.push(dot.default)
+  }
+  if (typeof m.main === 'string') runtimeCands.push(m.main)
+
+  const cands = typeCands.length > 0 ? typeCands : runtimeCands
+  if (cands.length === 0) {
+    return { ok: false, expected: "package.json 未声明 types/typings/exports['.']/main" }
+  }
+  const missing = [...new Set(cands)].filter((c) => !existsSync(resolve(depDir, c)))
+  return missing.length === 0
+    ? { ok: true, expected: '' }
+    : { ok: false, expected: missing.join(' | ') }
+}
+
+/**
+ * 被审 package 的 workspace 依赖产物前置检查(在跑 tsc 之前)。
+ * @returns {Array<{owner: string, name: string, expected: string}>} 空数组 = 依赖齐全。
+ */
+function collectMissingWorkspaceDeps(groups) {
+  const byName = new Map(discoverPackages().map((p) => [p.name, p]))
+  const problems = []
+  for (const [pkg] of groups) {
+    const manifest = readManifest(pkg.dir)
+    if (!manifest) {
+      problems.push({ owner: pkg.prefix, name: pkg.name, expected: 'package.json 不存在或不可读' })
+      continue
+    }
+    const deps = { ...(manifest.dependencies ?? {}), ...(manifest.peerDependencies ?? {}) }
+    for (const [name, spec] of Object.entries(deps)) {
+      if (!String(spec).startsWith('workspace:')) continue
+      const dep = byName.get(name)
+      if (!dep) {
+        problems.push({ owner: pkg.prefix, name, expected: '工作树内找不到该 workspace 包' })
+        continue
+      }
+      const st = typeEntryStatus(dep.dir)
+      if (!st.ok) problems.push({ owner: pkg.prefix, name, expected: st.expected })
+    }
+  }
+  return problems
 }
 
 /**
@@ -708,6 +784,22 @@ function exitUndetermined(lines, guidance) {
   process.exit(2)
 }
 
+/** 依赖产物取不到 ⇒ exit 2: 不跑 tsc, 不按失败(1)记, 更不把 TS2307 归到改动文件。 */
+function exitMissingDeps(problems) {
+  log.error(`${C.red}${C.bold}❌ 依赖产物取不到 (exit 2): 本次没有跑任何 typecheck${C.reset}`)
+  for (const p of problems) {
+    log.error(`${C.red}   ✗ ${p.owner} 依赖 ${p.name}: 期望入口不存在 -> ${p.expected}${C.reset}`)
+  }
+  const names = [...new Set(problems.map((p) => p.name))]
+  log.error(`${C.dim}   出路(与 CI 同款, 先产出依赖产物再重跑本闸门):${C.reset}`)
+  for (const n of names) log.error(`${C.dim}     pnpm --filter "${n}..." run build${C.reset}`)
+  log.error(`${C.dim}     或一次性补齐: node scripts/typecheck-full.mjs --preflight-only${C.reset}`)
+  log.error(
+    `${C.dim}   缺产物属于"取不到", 不是改动文件的错: 不得据此判 1, 也不要用本地软链换绿(软链不算产物)。${C.reset}`,
+  )
+  process.exit(2)
+}
+
 // ─── 两档共用的打印与判定出口 ─────────────────────────────
 function printGroups(groups) {
   log.info(`${C.bold}按 package 分组:${C.reset}`)
@@ -733,6 +825,10 @@ function printDryRunTail(groups, auditLabel) {
 }
 
 function runGroupsAndReport(groups, totalFiles, scope) {
+  // 依赖产物前置检查: 取不到就 exit 2, 不跑 tsc —— 见头注"退出码 2"的假红说明。
+  const depProblems = collectMissingWorkspaceDeps(groups)
+  if (depProblems.length > 0) exitMissingDeps(depProblems)
+
   let failedCount = 0
   const failedPkgs = []
   for (const [pkg, files] of groups) {
