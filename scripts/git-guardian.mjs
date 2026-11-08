@@ -193,6 +193,9 @@ import { reapWorktrees } from './lib/git-guardian-worktree-reap.mjs'
 // (apps/cli/src/tools/trash-prune-entry.ts + packages/shared/src/delete-guard/),
 // 本层只负责 24h 节流地派生它、读它那一行结论、并把「自动退休」这一档寄到人通道。
 import { sweepTrashExpiry } from './lib/git-guardian-trash-expiry.mjs'
+// 「远端分支现在在哪」的唯一取法(ls-remote 当次真值);收编腿的基线让路判据不许拿
+// 会被宿主清理层删掉的跟踪 ref 落槌(§5b)。
+import { resolveRemoteHead } from './lib/face-reader.mjs'
 
 // 对外出口与搬出前保持一致(原先这些是 export function;实现已单源到 lib,这里只做原路径再导出)。
 export {
@@ -12701,26 +12704,31 @@ const CROSS_END_LANDING_INTERVAL_MS = Number(
  * 拒绝(`scripts/git-push-guard.mjs:220` 默认推 main),结果只堆本地旧提交。
  *
  * 判据:
- *   · `merge-base --is-ancestor origin/main HEAD` 退出 0 ⇒ `descendant`(允许收编);
+ *   · `merge-base --is-ancestor <远端 sha> HEAD` 退出 0 ⇒ `descendant`(允许收编);
  *   · 退出 1 ⇒ `behind`(落后或分叉)⇒ 让路;
- *   · 取不到 `origin/main` / HEAD / 判不出 ⇒ `unknown` ⇒ **一律让路**(fail-closed,§0.3:
+ *   · 取不到远端 / HEAD / 判不出 ⇒ `unknown` ⇒ **一律让路**(fail-closed,§0.3:
  *     不许把"忘了 fetch"读成"已同步")。
+ *
+ * 远端 sha 只许 `resolveRemoteHead`(ls-remote 当次真值);**不得** `rev-parse origin/main` ——
+ * 宿主清理层删掉松散 ref 后 packed-refs 的旧值会被读回来(§5b),那一刻跟踪 ref 是"上次同步时"
+ * 的答案,拿它判祖先关系会得出"已同步"的假绿。
  */
 export function readMainAncestry(run = (args, allowFail) => git(args, allowFail)) {
   const headSha = String(run(['rev-parse', '--verify', 'HEAD'], true) ?? '').trim() || null
-  const mainSha = String(run(['rev-parse', '--verify', 'origin/main'], true) ?? '').trim() || null
+  const remote = resolveRemoteHead('main', { run: (args) => run(args, true) })
+  const mainSha = remote.sha
   if (!headSha || !mainSha) {
     return {
       state: 'unknown',
       headSha,
       mainSha,
       behind: null,
-      why: !mainSha ? 'origin/main 取不到(未 fetch 或远端分支不存在)' : 'HEAD 取不到',
+      why: !mainSha ? `origin/main 取不到(${remote.reason ?? '未判定'})` : 'HEAD 取不到',
     }
   }
   let behind = null
   try {
-    behind = Number(String(run(['rev-list', '--count', 'HEAD..origin/main'])).trim())
+    behind = Number(String(run(['rev-list', '--count', `HEAD..${mainSha}`])).trim())
   } catch {
     behind = null
   }
@@ -12728,7 +12736,7 @@ export function readMainAncestry(run = (args, allowFail) => git(args, allowFail)
   // 用抛错对象上的 .status 判,而不是 allowFail 的 null —— null 会把"退出 1"与"真错误"折成同一档。
   let state = 'unknown'
   try {
-    run(['merge-base', '--is-ancestor', 'origin/main', 'HEAD'])
+    run(['merge-base', '--is-ancestor', mainSha, 'HEAD'])
     state = 'descendant'
   } catch (e) {
     state = e && typeof e.status === 'number' && e.status === 1 ? 'behind' : 'unknown'

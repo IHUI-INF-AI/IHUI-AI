@@ -15,7 +15,7 @@
 import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
-import { gitRaw } from './face-reader.mjs'
+import { catBatchOids, gitRaw, resolveRemoteHead } from './face-reader.mjs'
 
 export const RECEIPT_VERSION = 'ihui-push-receipt/v1'
 export const RUNNER_VERSION = 'push-receipt-runner/v1'
@@ -244,25 +244,25 @@ export function evaluateRefs(refs, headSha) {
 }
 
 export function gatherContext(root, pushRefsRaw = process.env.PUSH_REFS || '') {
-  const headOut = gitRaw(['rev-parse', 'HEAD', 'HEAD^{tree}', 'origin/main'], root)
+  const headOut = gitRaw(['rev-parse', 'HEAD', 'HEAD^{tree}'], root)
     .trim()
     .split(/\r?\n/)
-  if (headOut.length < 3) throw new Error('rev-parse 输出不足')
-  const [headSha, treeSha, originMainSha] = headOut.map((s) => s.trim())
+  if (headOut.length < 2) throw new Error('rev-parse 输出不足')
+  const [headSha, treeSha] = headOut.map((s) => s.trim())
+  // 远端基线位置只许走层(ls-remote 当次真值),不拿会被宿主清理层删掉的跟踪 ref 落槌;
+  // 取不到就抛 ⇒ 调用方回落真跑门,绝不用 null 混过 remote-base 比对。
+  const remote = resolveRemoteHead('main', { root })
+  if (!remote.sha) throw new Error(`origin/main 取不到: ${remote.reason ?? '未判定'}`)
+  const originMainSha = remote.sha
 
   const paths = [...RUNNER_CLOSURE, ...EXPECTED_GATES.map((g) => `scripts/${g.script}`)]
-  const blobOut = gitRaw(['cat-file', '--batch-check=%(objectname)'], root, {
-    input: paths.map((p) => `${headSha}:${p}`).join('\n') + '\n',
-  })
-  const blobLines = blobOut
-    .trim()
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-  if (blobLines.length !== paths.length) throw new Error('cat-file 行数不匹配')
+  const specs = paths.map((p) => `${headSha}:${p}`)
+  const oidMap = catBatchOids(root, specs)
   const blobs = {}
   paths.forEach((p, i) => {
-    if (!/^[0-9a-f]{40}$/.test(blobLines[i])) throw new Error(`blob 缺失: ${p}`)
-    blobs[p] = blobLines[i]
+    const oid = oidMap.get(specs[i]) ?? null
+    if (!oid || !/^[0-9a-f]{40}$/.test(oid)) throw new Error(`blob 缺失: ${p}`)
+    blobs[p] = oid
   })
 
   const parsedRefs = parsePushRefs(pushRefsRaw)
