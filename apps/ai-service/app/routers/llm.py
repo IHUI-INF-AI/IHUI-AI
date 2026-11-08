@@ -7357,6 +7357,12 @@ async def post_tool_approval_response(
     主对话流审批条目在 _approval_sessions,agent 任务流在 agent_loop_v2 注册表)。
     兼容 camelCase(approvalId,与网关 /agent/approval-response 同款双写法)。
 
+    2026-11-08(审批代答收口):条目在发帧时已记下发起主体 `owner_user_id`,本端点
+    此前**从不比对**它 —— 任何拿到 approval_id(且知道 session_id)的登录用户都能
+    替别人批准一次高危工具调用(shell 一类)。现在按承载层解析出的主体复核:
+    不匹配或"带身份撞无主条目"一律**与不存在同形**且零副作用(不写 decision、
+    不置 Event、不 pop 待决项),因此真属主迟到的应答仍然有效。
+
     D-07(2026-10-26):断线窗口里已失效的审批,应答经 `_approval_settle_rejection`
     **具名拒绝**(仅属主本人能听到具体原因),其余形态仍逐字回落原有两条通用文本;
     回包键集仍是 `{ok, error}` 一个没加 ⇒ 跨端零改动。live 条目的结算路径一字未动
@@ -7369,6 +7375,28 @@ async def post_tool_approval_response(
         return _approval_settle_rejection(session_id, approval_id, caller_uuid, "session not found or expired")
     entry = session.get(approval_id)
     if not entry or not isinstance(entry.get("event"), asyncio.Event):
+        return _approval_settle_rejection(
+            session_id, approval_id, caller_uuid, "approval not found or expired"
+        )
+    # 归属复核(顺序必须在这里:先于任何"写入 decision / 置 Event"的动作)。
+    # 零副作用 ⇒ 越权应答之后条目仍在待决表里,真属主随后的应答照常生效。
+    owner_uid = entry.get("owner_user_id")
+    if isinstance(owner_uid, str) and owner_uid:
+        if caller_uuid != owner_uid:
+            logger.warning(
+                "approval-response 越权尝试(session=%s approval=%s owner=%s caller=%s)已拒绝:未结算待决项",
+                session_id, approval_id, owner_uid, caller_uuid,
+            )
+            return _approval_settle_rejection(
+                session_id, approval_id, caller_uuid, "approval not found or expired"
+            )
+    elif caller_uuid is not None:
+        # 待决项发帧时没有主体(进程内/开发态路径),而调用方带身份:两条不同身份
+        # 通道的偶然相遇,不构成授权结论 —— fail-closed,不予结算。
+        logger.warning(
+            "approval-response 待决项无可证明属主(session=%s approval=%s caller=%s):未结算",
+            session_id, approval_id, caller_uuid,
+        )
         return _approval_settle_rejection(
             session_id, approval_id, caller_uuid, "approval not found or expired"
         )
