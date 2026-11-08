@@ -66,6 +66,8 @@ from ._load_lifecycle import (
 from ._load_lifecycle import (
     state_after_success as _state_after_success,
 )
+from .browser_hub import _same_owner
+from .browser_trace import OWNER_KEY, _record_owner
 from .ttl_json_store import (
     json_archive_blocks_replace,
     load_ttl_records,
@@ -374,18 +376,31 @@ class AgentStepRecorder:
 
     # ---------------- 写入 ----------------
 
-    def append_step(self, run_id: str, step: dict[str, Any]) -> dict[str, Any]:
+    def append_step(
+        self,
+        run_id: str,
+        step: dict[str, Any],
+        *,
+        owner_user_id: str | None = None,
+    ) -> dict[str, Any]:
         """追加一步(按时间序 append,与写入顺序一致)。返回归一化后的 step。
 
         run_id 为空 raise ValueError;step 缺省字段由 recorder 归一化填回。
+
+        AIS-101:归属只在**建记录的第一次**盖章(之后任何 append 都不改它),已存在的
+        记录续写前先过 `_same_owner` —— 写面不判等于读面白判:`run_id` 是会话级标识,
+        若允许他人续写,收紧读口也挡不住往别人录里灌步骤。
         """
         if not run_id:
             raise ValueError("run_id 不能为空")
         with self._lock:
             self._load()
-            if run_id not in self._data:
-                self._data[run_id] = {"steps": [], "started_at": _now_iso()}
-            record = self._data[run_id]
+            record = self._data.get(run_id)
+            if record is None:
+                record = {"steps": [], "started_at": _now_iso(), OWNER_KEY: owner_user_id}
+                self._data[run_id] = record
+            elif not _same_owner(_record_owner(record), owner_user_id):
+                raise ValueError(f"run 不可写: {run_id}")
             idx = len(record["steps"])
             normalized = _normalize_step(dict(step), idx)
             normalized["step_index"] = idx
@@ -453,18 +468,32 @@ class AgentStepRecorder:
 
     # ---------------- 读取 ----------------
 
-    def _steps_copy(self, run_id: str) -> list[dict[str, Any]]:
-        """取某 run 的步骤(深拷贝,避免调用方污染内部)。"""
+    def _steps_copy(
+        self, run_id: str, *, owner_user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """取某 run 的步骤(深拷贝,避免调用方污染内部)。
+
+        AIS-101 读面判据:`owner_user_id=None` 是系统级内部调用(时间线/回放链路),
+        不设过滤;带身份时只认已盖章且等值的记录 —— 未盖章(历史数据)与异主体
+        一律返回空,与"run 不存在"逐字同形(不做存在性预言机)。
+        """
         with self._lock:
             self._load()
             record = self._data.get(run_id)
+        if record and not _same_owner(_record_owner(record), owner_user_id):
+            return []
         return [dict(s) for s in record["steps"]] if record else []
 
     def get_run_steps(
-        self, run_id: str, *, page: int = 1, page_size: int = 20
+        self,
+        run_id: str,
+        *,
+        page: int = 1,
+        page_size: int = 20,
+        owner_user_id: str | None = None,
     ) -> dict[str, Any]:
         """按时间序分页列出某运行的步骤。空运行返回 0 条。"""
-        steps = self._steps_copy(run_id)
+        steps = self._steps_copy(run_id, owner_user_id=owner_user_id)
         total = len(steps)
         page = max(1, int(page or 1))
         page_size = min(max(1, int(page_size or 20)), PAGE_SIZE_MAX)
@@ -476,9 +505,15 @@ class AgentStepRecorder:
             "pageSize": page_size,
         }
 
-    def replay(self, run_id: str, step_index: int | None = None) -> dict[str, Any]:
+    def replay(
+        self,
+        run_id: str,
+        step_index: int | None = None,
+        *,
+        owner_user_id: str | None = None,
+    ) -> dict[str, Any]:
         """回放:含 step_index 取单步,否则取全量(时间序)。空运行返回空序列。"""
-        steps = self._steps_copy(run_id)
+        steps = self._steps_copy(run_id, owner_user_id=owner_user_id)
         if step_index is not None:
             idx = int(step_index)
             if idx < 0 or idx >= len(steps):
@@ -487,7 +522,11 @@ class AgentStepRecorder:
         return {"run_id": run_id, "steps": steps, "total": len(steps)}
 
     def get_steps_by_invocation_id(
-        self, invocation_id: str, *, limit: int = PAGE_SIZE_MAX
+        self,
+        invocation_id: str,
+        *,
+        limit: int = PAGE_SIZE_MAX,
+        owner_user_id: str | None = None,
     ) -> dict[str, Any]:
         """按账行编号反查录制步骤(B04 证据回指的查询面,2026-10-28 立)。
 
@@ -516,9 +555,11 @@ class AgentStepRecorder:
         with self._lock:
             self._load()
             # 只取引用快照,出锁后再拷 step,避免长持锁
+            # AIS-101:跨 run 扫描同样按属主过滤(未盖章/异主体 run 不计入 scanned_runs)
             runs = [
                 (run_id, record.get("started_at") or "", list(record.get("steps") or []))
                 for run_id, record in self._data.items()
+                if _same_owner(_record_owner(record), owner_user_id)
             ]
         runs.sort(key=lambda item: (item[1], item[0]))
         matches: list[dict[str, Any]] = []
@@ -538,9 +579,11 @@ class AgentStepRecorder:
             "scanned_runs": len(runs),
         }
 
-    def get_run_metrics(self, run_id: str) -> dict[str, Any]:
+    def get_run_metrics(
+        self, run_id: str, *, owner_user_id: str | None = None
+    ) -> dict[str, Any]:
         """聚合单运行指标:步数 / 成败 / 总 token / 总耗时 / 总成本。"""
-        steps = self._steps_copy(run_id)
+        steps = self._steps_copy(run_id, owner_user_id=owner_user_id)
         n = len(steps)
         ok = sum(1 for s in steps if s.get("status") == "ok")
         return {

@@ -40,7 +40,7 @@ import threading
 import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Final
@@ -90,6 +90,12 @@ MAX_CONCURRENT = max(1, int(os.environ.get("BACKGROUND_TASK_MAX_CONCURRENT", "10
 # 结果/错误摘要截断长度(防大对象撑爆内存与通知内容)
 _RESULT_TRUNCATE = 2000
 _ERROR_TRUNCATE = 1000
+
+# AIS-055:终态记录的保留上限与 TTL。原实现"已完成记录保留以支持 get_status 查询"
+# 且全文件无淘汰 —— `_tasks/_idempotency/_cancel_events/_handles` 随任务数线性增长,
+# arguments/result 明文长期驻留、每任务一个 Event,单进程跑几周即显著膨胀。
+_RETAIN_TERMINAL_MAX = 200
+_RETAIN_TERMINAL_TTL_SEC = 3600
 
 # G-244:run 状态变更 append-only journal 的默认落点(与本目录其他数据文件同形态,
 # 锚定模块位置而非 cwd;`apps/ai-service/data/` 已被 gitignore,运行态数据不入库)。
@@ -325,6 +331,49 @@ class BackgroundTaskManager:
         return self._active_count
 
     # ------------------------------------------------------------------
+    # AIS-055:终态记录保留有界(TTL + 容量上限)
+    # ------------------------------------------------------------------
+
+    def _drop_record(self, task_id: str) -> None:
+        """摘掉一条记录的四处引用(_tasks/_idempotency/_cancel_events/_handles)。
+
+        `_handles` 里的 asyncio.Task 在完成后仍持有结果/协程帧,同样必须摘除;
+        `_idempotency` 是反查表,按值清理(同 key 只可能指向一个 task_id)。
+        """
+        self._tasks.pop(task_id, None)
+        self._cancel_events.pop(task_id, None)
+        self._handles.pop(task_id, None)
+        for key, mapped in list(self._idempotency.items()):
+            if mapped == task_id:
+                self._idempotency.pop(key, None)
+
+    def _prune_retained(self) -> None:
+        """按 TTL + 上限淘汰终态记录;在途(pending/running)记录永不淘汰。
+
+        每次任务收尾调用一次(单事件循环内,无额外锁)。
+        """
+        now = _now()
+        cutoff = now - timedelta(seconds=_RETAIN_TERMINAL_TTL_SEC)
+        terminal = [
+            (task_id, record)
+            for task_id, record in self._tasks.items()
+            if record.state in _TERMINAL_STATES
+        ]
+        for task_id, record in terminal:
+            if record.finished_at is not None and record.finished_at < cutoff:
+                self._drop_record(task_id)
+        # 容量上限:按 finished_at 从旧到新淘汰,保留最新 N 条终态记录
+        remaining = [
+            (task_id, record)
+            for task_id, record in self._tasks.items()
+            if record.state in _TERMINAL_STATES
+        ]
+        if len(remaining) > _RETAIN_TERMINAL_MAX:
+            remaining.sort(key=lambda item: item[1].finished_at or now)
+            for task_id, _record in remaining[: len(remaining) - _RETAIN_TERMINAL_MAX]:
+                self._drop_record(task_id)
+
+    # ------------------------------------------------------------------
     # 提交
     # ------------------------------------------------------------------
 
@@ -483,6 +532,8 @@ class BackgroundTaskManager:
                     and not self._result_superseded(record)
                 ):
                     await self._notify(record)
+                # AIS-055:收尾后按 TTL/上限淘汰旧终态记录(在途记录不受影响)
+                self._prune_retained()
 
     @staticmethod
     def _summarize(result: Any) -> Any:
