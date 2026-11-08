@@ -69,13 +69,13 @@ describe('ws-rate-limit — WebSocket 消息限流', () => {
       expect(await checkWsRateLimit('u1', 'r1')).toBe(true)
     })
 
-    it('突发上限内（count=50）返回 true', async () => {
-      mockRedis.pipeline.mockReturnValueOnce(mockPipeline(50))
-      expect(await checkWsRateLimit('u1', 'r1')).toBe(true)
+    it('超出上限（count=31）返回 false（限流）', async () => {
+      mockRedis.pipeline.mockReturnValueOnce(mockPipeline(31))
+      expect(await checkWsRateLimit('u1', 'r1')).toBe(false)
     })
 
-    it('超突发上限（count=51）返回 false（限流）', async () => {
-      mockRedis.pipeline.mockReturnValueOnce(mockPipeline(51))
+    it('远超上限（count=50）返回 false（30 为硬上限，无突发豁免）', async () => {
+      mockRedis.pipeline.mockReturnValueOnce(mockPipeline(50))
       expect(await checkWsRateLimit('u1', 'r1')).toBe(false)
     })
 
