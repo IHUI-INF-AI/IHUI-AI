@@ -77,7 +77,7 @@ node scripts/gen-doc-numbers.mjs --markdown           # 重新生成下面这个
 node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 ```
 对外关键数字声明(与本页生成块同源,均现算):**624 张表 · 4725 API 路由 · 25 个 WebSocket 端点 ·
-100 入库模型 · 38 平台自动发布 · 4367 测试文件 · 351 道工程守门 · 56 CI workflows ·
+100 入库模型 · 38 平台自动发布 · 4367 测试文件 · 352 道工程守门 · 56 CI workflows ·
 5 语言 i18n parity · 9 个 app 包 · 16 共享包 · 15 Compose 服务**。
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |
@@ -865,7 +865,7 @@ IHUI-AI 不是要替代任何单一项目,而是把以下 6 类项目的能力**
 - **客服支持**:工单系统 / WebSocket 在线客服 / 反馈中心
 ### ⚙️ 工程基建(一个人驾驭百万行代码的底气)
 - **规模**:624 张表 · 4725 API 路由 · 4367 测试文件 · ~14839 测试用例
-- **质量**:351 道工程守门（244 blocking）· 56 CI workflows · 删水印即 CI 失败
+- **质量**:352 道工程守门（244 blocking）· 56 CI workflows · 删水印即 CI 失败
 - **可观测**:Prometheus + 大屏 + Loki + Jaeger + OpenTelemetry + Alertmanager
 - **部署**:Docker Compose 15 服务一键起全栈 · 蓝绿发布 · 自动备份 · 健康检查
 - **国际化**:5 语言 × 7 端 = 35 个语言包,parity 守门逐键对齐
