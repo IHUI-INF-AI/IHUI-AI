@@ -32341,8 +32341,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 15G. **缺陷普查 API F-15** [P2] 邀请码占用无 status 条件，同一码并发注册双发奖励（证据 docs/tickets/2026-11/findings-api.md#F-15）
 - [ ] 16G. **缺陷普查 API F-16** [P1] 提现回调验签用 JSON.stringify(request.body)，且无 scoped rawBody 解析器（证据 docs/tickets/2026-11/findings-api.md#F-16）
 - [ ] 17G. **缺陷普查 API F-17** [P1] 提现回调先消费 nonce、失败仍 ACK SUCCESS，事务失败后资金永久冻结（证据 docs/tickets/2026-11/findings-api.md#F-17）
-- [ ] 18G. **缺陷普查 API F-18** [P2] 文件搜索/最近/全局搜索漏软删除谓词，回收站文件泄漏（证据 docs/tickets/2026-11/findings-api.md#F-18）
-- [ ] 19G. **缺陷普查 API F-19** [P2] GET /files/search 无 LIMIT/分页，客户端可拉全库（证据 docs/tickets/2026-11/findings-api.md#F-19）
+- [x] 18G. **缺陷普查 API F-18** [P2] 文件搜索/最近/全局搜索漏软删除谓词，回收站文件泄漏（证据 docs/tickets/2026-11/findings-api.md#F-18）——已修 `5d2cf741c9`，file-queries/search-queries 四处 files 查询补 `isNull(files.deletedAt)`；夹具 `apps/api/src/db/__tests__/file-queries-soft-delete.test.ts`
+- [x] 19G. **缺陷普查 API F-19** [P2] GET /files/search 无 LIMIT/分页，客户端可拉全库（证据 docs/tickets/2026-11/findings-api.md#F-19）——已修 `2a7a74a671`，缺省 50、硬顶 100，querystring 接受 `limit`；夹具 `apps/api/src/db/__tests__/file-queries-paging.test.ts`
 - [ ] 20G. **缺陷普查 API F-20** [P2] 积分任务「今日/本周」区间用 UTC 午夜解释上海日键，整体错位 8 小时（证据 docs/tickets/2026-11/findings-api.md#F-20）
 - [ ] 21G. **缺陷普查 API F-21** [P2] 学费入账与排名快照用 UTC 日键写上海业务日列（证据 docs/tickets/2026-11/findings-api.md#F-21）
 - [ ] 22G. **缺陷普查 API F-22** [P2] 营收 sum(amount)::int 溢出，异常被吞成「全 0 看板」（证据 docs/tickets/2026-11/findings-api.md#F-22）
@@ -32364,7 +32364,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 38G. **缺陷普查 API F-38** [P2] aiServiceFetch 默认无 deadline，部分调用方未传 signal 导致请求长期挂起（证据 docs/tickets/2026-11/findings-api.md#F-38）
 - [x] 39G. **缺陷普查 API F-39** [P2] AgentLoopRuntime.tasks 只增不删，且任务列表跨用户全量返回（证据 docs/tickets/2026-11/findings-api.md#F-39）——已修 `6cd8bc5e1a`：任务按 userId 归属，list/status/cancel/inject 越权 404/400，终态 1h TTL 回收
 - [ ] 40G. **缺陷普查 API F-40** [P2] BackgroundAgentManager.agents/tasks 只增不删（证据 docs/tickets/2026-11/findings-api.md#F-40）
-- [ ] 41G. **缺陷普查 API F-41** [P2] exportContentStore 无 TTL 清扫，导出正文永久驻留（证据 docs/tickets/2026-11/findings-api.md#F-41）
+- [x] 41G. **缺陷普查 API F-41** [P2] exportContentStore 无 TTL 清扫，导出正文永久驻留（证据 docs/tickets/2026-11/findings-api.md#F-41）——已修 `aa6d931b0b`，写入前清扫过期项；夹具 `apps/api/src/routes/__tests__/settings-export-store.test.ts`
 - [ ] 42G. **缺陷普查 API F-42** [P2] /artifacts 列表在请求路径同步全目录扫描，分页在扫描之后（证据 docs/tickets/2026-11/findings-api.md#F-42）
 - [ ] 43G. **缺陷普查 API F-43** [P3] /artifacts/:id/download 整文件同步读入 + 同步 sha256 + 多份字符串副本（证据 docs/tickets/2026-11/findings-api.md#F-43）
 - [ ] 44G. **缺陷普查 API F-44** [P2] ai-vendors 的 taskStore / tencentActiveJobs 无删除路径，列表遍历全表（证据 docs/tickets/2026-11/findings-api.md#F-44）
@@ -32436,7 +32436,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 110G. **缺陷普查 API F-110** [P2] 客服 WS：坐席可向任意 sessionId 广播（越权写入他人会话）（证据 docs/tickets/2026-11/findings-api.md#F-110）
 - [ ] 111G. **缺陷普查 API F-111** [P2] 客服 WS：acquire 后早退不 release，且异步 IIFE 无 catch（证据 docs/tickets/2026-11/findings-api.md#F-111）
 - [x]（已修@2026-11-08/msg-p1） 112G. **缺陷普查 API F-112** [P1] ws-ai：客户端可控身份字段覆盖服务端 userId/provider，并直传 Coze user_id（证据 docs/tickets/2026-11/findings-api.md#F-112）
-- [ ] 113G. **缺陷普查 API F-113** [P2] ws-notifications：Redis publish fire-and-forget，拒绝未处理且降级路径不可达（证据 docs/tickets/2026-11/findings-api.md#F-113）
+- [x] 113G. **缺陷普查 API F-113** [P2] ws-notifications：Redis publish fire-and-forget，拒绝未处理且降级路径不可达（证据 docs/tickets/2026-11/findings-api.md#F-113）——已修 `6face3f2c2`，publish 失败回落本机直推；夹具 `apps/api/src/plugins/__tests__/ws-notifications-publish-fail.test.ts`
 - [ ] 114G. **缺陷普查 API F-114** [P2] ws-payment：归属校验失败即放行 + 无连接上限的 2 秒 DB 轮询（证据 docs/tickets/2026-11/findings-api.md#F-114）
 - [ ] 115G. **缺陷普查 API F-115** [P2] ws-chat：不存在的 roomId 可无限 join，rooms Map 与 Redis Set 无界增长（证据 docs/tickets/2026-11/findings-api.md#F-115）
 - [ ] 116G. **缺陷普查 API F-116** [P3] 广播链路无背压检查（bufferedAmount），慢消费者帧堆积；ws-notifications 发送失败不摘线（证据 docs/tickets/2026-11/findings-api.md#F-116）
