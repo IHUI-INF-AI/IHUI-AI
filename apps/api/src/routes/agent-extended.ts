@@ -14,10 +14,10 @@ import {
   agentRuleLink,
   agentRuleParam,
   agentHeatStats,
+  agents,
 } from '@ihui/database'
 import { isSystemAdmin, requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { requireActiveUser } from '../plugins/auth.js'
-import { syncAgentBuyToSettlement } from '../services/settlement-service.js'
 import { calculateAgentPermission } from '../services/agent-service.js'
 // requireStepUpForTwoFactorUser 的唯一消费点(/withdrawal/create)已在 2026-10-31
 // 安全强化第 10 批 R10 随该端点下线一并移除 —— 提现资金动作现只走 /api/wallet/withdraw,
@@ -27,6 +27,24 @@ import { generateOrderNumber } from '../utils/crypto-random.js'
 import { isUuidString } from '../utils/uuid.js'
 
 const idParamSchema = z.object({ id: z.string().min(1) })
+
+/** 购买/续费时长上限(天),防止用极小单价一次性买断十年以上权益。 */
+const MAX_AGENT_DURATION_DAYS = 3650
+
+/**
+ * F-135/F-136:智能体价格只能取服务端配置。
+ * agents.price 以"分"存储,zhs_agent_buy.price 以"元"的十进制字符串存储。
+ * 返回 null 表示智能体不存在。
+ */
+async function resolveAgentPriceCents(agentId: string): Promise<number | null> {
+  const [row] = await db
+    .select({ price: agents.price, isFree: agents.isFree })
+    .from(agents)
+    .where(eq(agents.agentId, agentId))
+    .limit(1)
+  if (!row) return null
+  return row.isFree ? 0 : row.price
+}
 
 // =============================================================================
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
@@ -263,7 +281,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const renewBody = z.object({
     agentId: z.string(),
     userId: z.string(),
-    duration: z.number(),
+    // F-136:续费时长同样必须有限,且不再立即延长权益(见下方改为待支付订单)
+    duration: z.number().int().min(1).max(MAX_AGENT_DURATION_DAYS),
   })
   const withdrawalListQuery = z.object({
     userId: z.string().optional(),
@@ -579,8 +598,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const agentBuySchema = z.object({
     agentId: z.uuid(),
     userId: z.uuid(),
-    price: z.number().min(0),
-    duration: z.number().int().min(1), // 购买时长（天）
+    // F-135:价格只能由服务端 agents 配置决定,客户端传价一律忽略
+    duration: z.number().int().min(1).max(MAX_AGENT_DURATION_DAYS), // 购买时长（天）
     paymentMethod: z.string().max(32).optional(),
   })
 
@@ -598,13 +617,17 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
         .code(403)
         .send({ code: 403, message: permission.reason ?? '无权购买', data: null })
     }
+    const priceCents = await resolveAgentPriceCents(body.agentId)
+    if (priceCents === null) {
+      return reply.code(404).send({ code: 404, message: '智能体不存在', data: null })
+    }
     const expiresAt = new Date(Date.now() + body.duration * 86400000)
     const [order] = await db
       .insert(zhsAgentBuy)
       .values({
         agentId: body.agentId,
         userId: body.userId,
-        price: body.price.toString(),
+        price: (priceCents / 100).toFixed(2),
         duration: body.duration,
         expiresAt,
         status: 'pending',
@@ -613,15 +636,8 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     if (!order) {
       return reply.code(500).send({ code: 1, message: '创建订单失败', data: null })
     }
-    // 同步到结算表(按月度切分生成结算记录,幂等,失败不影响主业务)
-    await syncAgentBuyToSettlement({
-      id: order.id,
-      agentId: order.agentId,
-      price: order.price,
-      createdAt: order.createdAt,
-      expiresAt: order.expiresAt,
-      paymentId: order.paymentId,
-    })
+    // F-135/F-228:订单此刻是 pending(未支付),不得生成结算记录;
+    // 结算在权威支付事件(扣币成功激活)后由 syncAgentBuyToSettlement 生成。
     return reply.code(201).send(order)
   })
 
@@ -683,19 +699,28 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       .limit(1)
     const existingRow = existing[0]
     if (!existingRow) return reply.code(404).send({ error: '无有效订阅记录' })
-    const newExpires = new Date(
-      Math.max(existingRow.expiresAt.getTime(), Date.now()) + duration * 86400000,
-    )
-    const [updated] = await db
-      .update(zhsAgentBuy)
-      .set({
-        expiresAt: newExpires,
-        duration: existingRow.duration + duration,
-        updatedAt: new Date(),
+    const priceCents = await resolveAgentPriceCents(agentId)
+    if (priceCents === null) {
+      return reply.code(404).send({ code: 404, message: '智能体不存在', data: null })
+    }
+    // F-136:原实现收到请求就直接延长 expiresAt —— 等于免费续期。
+    // 改为生成待支付续费订单(服务端定价),由支付成功事件激活后再延长权益。
+    const baseMs = Math.max(existingRow.expiresAt?.getTime() ?? Date.now(), Date.now())
+    const [renewal] = await db
+      .insert(zhsAgentBuy)
+      .values({
+        agentId,
+        userId,
+        price: (priceCents / 100).toFixed(2),
+        duration,
+        expiresAt: new Date(baseMs + duration * 86400000),
+        status: 'pending',
       })
-      .where(eq(zhsAgentBuy.id, existingRow.id))
       .returning()
-    return updated
+    if (!renewal) {
+      return reply.code(500).send({ code: 1, message: '创建续费订单失败', data: null })
+    }
+    return reply.code(201).send(renewal)
   })
 
   // 提现明细列表(管理员看所有;由 requireAdmin 守门)

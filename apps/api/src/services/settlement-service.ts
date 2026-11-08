@@ -245,9 +245,32 @@ export async function createSettlementRecordsForRange(
 ): Promise<AgentSettlement[]> {
   const { periods } = calculateMonthlyPeriods(from, to)
   const created: AgentSettlement[] = []
+  // F-228:原实现把整单金额复制到每一个周期(副本延迟时一次购买会生成 N 份全额结算),
+  // 且 orderNo 在各期相同,幂等检查只认一条 → 先插一期后其余全被跳过。
+  // 这里按各期实际天数占比摊分,余数补到最后一期,并给每期 orderNo 加 #issueNo 作为幂等键。
+  const totalAmount = options?.amount
+  const totalMs = periods.reduce((sum, p) => sum + (p.end.getTime() - p.start.getTime()), 0)
+  const baseOrderNo = options?.orderNo?.slice(0, 90)
+  let allocated = 0
 
-  for (const period of periods) {
-    const records = await createSettlementRecords(agentId, period, options)
+  for (let i = 0; i < periods.length; i++) {
+    const period = periods[i]!
+    const isLast = i === periods.length - 1
+    let periodAmount = totalAmount
+    if (totalAmount !== undefined) {
+      const periodMs = period.end.getTime() - period.start.getTime()
+      periodAmount = isLast
+        ? totalAmount - allocated
+        : totalMs > 0
+          ? Math.floor((totalAmount * periodMs) / totalMs)
+          : 0
+      allocated += periodAmount
+    }
+    const records = await createSettlementRecords(agentId, period, {
+      ...options,
+      amount: periodAmount,
+      orderNo: baseOrderNo ? `${baseOrderNo}#${period.issueNo}` : options?.orderNo,
+    })
     created.push(...records)
   }
 
@@ -364,7 +387,7 @@ function priceToCents(priceStr: string | number): number {
  *
  * 迁移自旧架构 app/utils/settlement_helper.py 的 sync_agent_buy_to_settlement。
  *
- * 幂等机制：按 orderNo 去重，已有结算记录则跳过。
+ * 幂等机制：按 orderNo#issueNo 逐期去重。
  * 失败处理：try/catch 静默捕获，返回 false，不抛异常（不影响主业务流程）。
  *
  * @param buyRecord 购买记录（zhsAgentBuy 行）
@@ -377,14 +400,15 @@ export async function syncAgentBuyToSettlement(buyRecord: {
   createdAt: Date
   expiresAt: Date
   paymentId?: string | null
+  status?: string
 }): Promise<boolean> {
   try {
-    const orderNo = buyRecord.paymentId ?? buyRecord.id
-    // 幂等检查：同订单号已存在结算记录则跳过
-    const alreadyExists = await hasSettlementForOrder(orderNo)
-    if (alreadyExists) {
-      return true
+    // F-228:未支付订单不得进入应付统计。仅 active(支付成功并激活)才生成结算;
+    // 调用方只能在权威支付事件之后调用本函数。
+    if (buyRecord.status !== undefined && buyRecord.status !== 'active') {
+      return false
     }
+    const orderNo = buyRecord.paymentId ?? buyRecord.id
 
     // P2 修复:用字符串处理避免浮点精度丢失(原 Math.round(Number(price)*100) 在边界值有 1 分级误差)
     const amountInCents = priceToCents(buyRecord.price)
