@@ -27,8 +27,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { NextIntlClientProvider } from 'next-intl'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-const apiOrThrowMock = vi.hoisted(() => vi.fn())
-vi.mock('@/lib/api', () => ({ apiOrThrow: apiOrThrowMock }))
+// 2026-11 实现侧变更(门 300 A 类):两面板改走共享出口 `@ihui/api-client`,
+// 不再经 web 包装层 `@/lib/api.apiOrThrow`。URL/动词唯一持有者为共享出口;
+// 本契约锁的语义(rule:null 不补零 / 后端 message 原样上屏 / 密钥不上屏)不变,
+// 夹具把假 fetch 层挂到五个出口函数上,handler 仍按"URL + method"分流。
+const api = vi.hoisted(() => ({
+  eduAttendanceRule: vi.fn(),
+  eduAttendanceRuleSave: vi.fn(),
+  eduAttendanceQrcode: vi.fn(),
+  eduAttendanceRuleRotateQrSecret: vi.fn(),
+  eduClassList: vi.fn(),
+}))
+vi.mock('@ihui/api-client', () => api)
 
 import { AttendanceRulePanel } from '../app/(main)/edu/edu-management/attendance/AttendanceRulePanel'
 import { CheckInQrPanel } from '../app/(main)/edu/edu-management/attendance/CheckInQrPanel'
@@ -60,18 +70,33 @@ function renderPanel(node: React.ReactElement) {
   )
 }
 
-/** 按 URL + method 分流的假 fetch 层(只喂 apiOrThrow,不发真请求) */
+/** 按 URL + method 分流的假 fetch 层(只喂共享出口,不发真请求) */
 function fakeApi(handler: (url: string, init?: RequestInit) => unknown): void {
-  apiOrThrowMock.mockImplementation(async (url: string, init?: RequestInit) => {
+  const BASE = '/api/edu-ai-management/attendance'
+  const invoke = async (url: string, init?: RequestInit) => {
     const result = handler(url, init)
     if (result instanceof Error) throw result
-    return result
-  })
+    return { success: true, data: result }
+  }
+  api.eduAttendanceRule.mockImplementation((p: { classId: string }) =>
+    invoke(`${BASE}/rule?classId=${p.classId}`),
+  )
+  api.eduAttendanceRuleSave.mockImplementation((body: unknown) =>
+    invoke(`${BASE}/rule`, { method: 'PUT', body: JSON.stringify(body) }),
+  )
+  api.eduAttendanceQrcode.mockImplementation((p: { classId: string }) =>
+    invoke(`${BASE}/qrcode?classId=${p.classId}`),
+  )
+  api.eduAttendanceRuleRotateQrSecret.mockImplementation((p: { classId: string }) =>
+    invoke(`${BASE}/rule/qr-secret/rotate`, { method: 'POST', body: JSON.stringify(p) }),
+  )
 }
 
 afterEach(() => {
   cleanup()
-  apiOrThrowMock.mockReset()
+  for (const fn of Object.values(api)) fn.mockReset()
+  // ClassSelect 的班级清单是本契约锁的旁路数据,不参与断言
+  api.eduClassList.mockResolvedValue({ success: true, data: { list: [] } })
 })
 
 describe('AttendanceRulePanel', () => {
@@ -109,7 +134,7 @@ describe('AttendanceRulePanel', () => {
     const { container } = renderPanel(
       React.createElement(AttendanceRulePanel, { classId: CLASS_ID }),
     )
-    await waitFor(() => expect(apiOrThrowMock).toHaveBeenCalled())
+    await waitFor(() => expect(api.eduAttendanceRule).toHaveBeenCalled())
 
     const late = container.querySelector('#att-rule-lateAfter') as HTMLInputElement
     await waitFor(() => expect(late.value).toBe('08:30'))
