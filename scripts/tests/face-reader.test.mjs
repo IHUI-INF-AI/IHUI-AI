@@ -732,13 +732,6 @@ const BARE_GIT_DEBT = [
     why: '门户批次器物化(2026-10-28)',
   },
   {
-    file: 'scripts/check-cross-end-parity-drift.mjs',
-    count: 1,
-    addedBy: '9fdbc207ba2ea5536812f8b965d7a9218bb28785',
-    due: '2026-12-31',
-    why: '跨端漂移哨兵:git show HEAD:<doc>(2026-10-25)',
-  },
-  {
     file: 'scripts/check-i18n-cross-end-wording.mjs',
     count: 1,
     addedBy: '1454b5a5ac38e7efb19668bac165c070f4484d81',
