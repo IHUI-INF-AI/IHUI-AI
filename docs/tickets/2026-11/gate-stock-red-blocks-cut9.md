@@ -130,3 +130,12 @@
 
 - 门 29（push 同步）：cut9 分支无远端对应 ref，原本 exit 2「未判定」；工作区切成 detached HEAD 后按门自身设计跳过并 rc=0（不是降级）。
 - 分支 ref：`feat/gate-302p-speed-1107` 从 `d1c270d694` CAS 前移到 `256be1a65c`；工作区保持 detached（避免上述 29 未判定），该提交未推送。
+
+### cut9 两文件测试的存量红（与本笔无关，另开票）
+
+- `node --test scripts/tests/face-reader.test.mjs`：main（`833071424e`）43 项 / 40 过 / 3 红；cut9（`256be1a65c`）45 项 / 42 过 / 3 红 —— **同一批 3 条**，新增 2 条（`IHUI_FACE_TREE_SNAPSHOT` 快照语义、漂移门路径面）全过。
+- 3 条存量红（债务清单未登记，非本笔引入）：
+  1. 裸 git 派生的生产文件数只减不增 —— 未登记的实参至少含 `scripts/git-guardian.mjs`、`scripts/lib/push-receipt.mjs`；
+  2. 自拼 `cat-file --batch` 却不走本层的门，数量只减不增；
+  3. 判「远端在哪」只许走层（跟踪 ref 会被清理层删掉）。
+- 处置：这 3 条属台账/债务面缺口，与 302p 提速无关；在 main 上同样红 ⇒ 不得记到本笔头上。
