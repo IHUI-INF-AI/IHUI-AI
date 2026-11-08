@@ -141,6 +141,10 @@ origin/main 73a6352a83   api 28 | miniapp 4 | mobile-rn 1 | rn-app 4 | web 1 | c
 
 - `node scripts/check-i18n-keys.mjs --target=mobile-rn`（非 parity）在 main 面有 6 个既有缺失键：`login.*` 5 个 + `conversationImport.noValidContent`；hook 实际跑 `--parity-only`，不阻塞。
 - 生成物钉变化（均由生成器重出，未手改）：miniapp `ui-routes.generated.ts` 两次、web `ui-routes.generated.ts` 一次、i18n 压缩载荷随输入重出、README 由 `sync-readme-numbers.mjs` 刷新。
+- 门 47 修复合入时观测到的 3 组**无关存量红**（仅记账，不在本波修）：
+  - `guardian-runner-cli`：断言读数 332 vs 341；
+  - `gate-failure-kind`：C7/F5 两组用例；
+  - `face-reader`：3 条。
 
 ## 8. `archive/local-main-1e9f34aa34` 14 笔定性审计（2026-11-09，只审计、未合任何一笔）
 
@@ -257,4 +261,28 @@ origin/main 73a6352a83   api 28 | miniapp 4 | mobile-rn 1 | rn-app 4 | web 1 | c
 2. 保全：`git update-ref refs/heads/preserve/index-unique-blobs-20261107 44e1de25ed`（让悬空快照可回收）；再对当前 index+worktree 做一次快照（`git stash push -u -m "main-wt 现场快照 20261109"` 或专用分支提交），把未保全的 inventory 票一并纳入。
 3. 摘 main：选**专用分支**而非 detach——`git switch -c wip/main-wt-dirty-20261109`。理由：worktree 还要留作复核面；命名分支可追溯、不会像 detached HEAD 那样让误提交失联；切走后 HEAD 不再指向 `refs/heads/main`，本工作树的提交不可能再直写 main。
 4. 本地 `2bb7c39959` 单独归档（`refs/heads/archive/local-plan-prune-2bb7c3995`），是否重放到 origin/main 由排期决定，别丢。
+
+> 2026-11-09 进展：第 2 步的 `refs/heads/preserve/index-unique-blobs-20261107`（→`44e1de25ed`）与第 4 步的 `refs/heads/archive/local-plan-prune-2bb7c3995`（→`2bb7c39959`）均已建好并复核，未动索引/工作区/服务。
+
+### 10.4 `2bb7c39959` 来源归因（2026-11-09，已查清）
+
+- 不是 converge、不是人、不是 IDE：是 guardian 的**「完成即删清扫」腿**。`git-guardian.mjs#sweepStaleClosedRows`（5 分钟节流，tick=`plan-closed-sweep-last.json`）调 `strip-stale-closed-rows.mjs`，落地唯一通道 `object-space-land.mjs` → `lib/bypass-git.mjs#casUpdateRef`：`git update-ref <HEAD 所指 ref> <new> <old>`（old 现读该 ref 当前值）。
+- 日志实证：`[2026-11-08T22:30:57Z]`（本地 06:30:57）「⚠️ 完成即删清扫轮:整批不落(refused:landing-rejected-2) … 本枚已在 HEAD 2bb7c3」。即 CAS 已把 `refs/heads/main` 从 `73a6352a83` 推到 `2bb7c39959`（reflog 06:30:05，无提交信息=update-ref），但落地后自检 exit 2、器物判定「整批不落」，于是**推进了 main 却当成没落地**——正是 strip 头注（L991）警示的错位。
+- 推送腿没成：06:31:08/10 的 `pre-push-receipt`/`pre-push-gate` 均因 `'"node.exe" 不是内部或外部命令'` rc=1，故 origin 没有这枚。
+- 通道性质：目标是 `resolveHeadRef()` 现读的 ref，不硬编码 main；CAS 旧值=该 ref 当前值。**在 main 上就会被写 main；一旦 HEAD 切到 wip 分支，它只会写 wip 的 ref。**
+
+### 10.5 写这个 gitdir 的通道清单（按危害排序）
+
+| 通道 | 是否写 `refs/heads/main` | 触发条件 | CAS / 旧值 |
+|---|---|---|---|
+| ① guardian「完成即删清扫」腿 | **是**（写 HEAD 所指 ref；在 main 上即 main） | 每 5 分钟节流一次，有跨枚滞留行即落地 | 有；old=该 ref 当前值 |
+| ② nssm 服务 `IHUI-GIT-GUARD`（`git-guardian.mjs --daemon`） | 承载①及工作区对齐 | 常驻 Auto | — |
+| ③ 计划任务 `\IHUI-AI git-guardian`（`wscript git-guardian-hidden.vbs`，**每 2 分钟**） | 会重新拉起守护 → 间接写 | 每 PT2M | — |
+| ④ `git-sync-converge.mjs` 全量模式 | 是（`--branch` 默认 `main`，不读当前分支名） | 被 push/heal 等显式全量调用时；`--align-only`（guardian 5 分钟 tick）在 L2203 退出、不动 ref | 有；old=`rev-parse HEAD` |
+| ⑤ union/plan 系列落地（`union-converge`、`plan-tasks-merge`、`plan-union-merge`、`live-doc-edit`、`plan-pointer-purge` 等） | 是（经 `bypass-git.casUpdateRef` 写 HEAD 所指 ref） | 被钩子/其他自动化显式调用 | 有；old=该 ref 当前值 |
+| ⑥ `.husky/post-commit` 后台链（push-guard / plan-heal / plan-state-heal） | 否（提交由用户/工具发起；plan-heal 可能再落地） | 该工作树发生提交后 | 走各自落地器的 CAS |
+| ⑦ `D:/IHUI-AI-git-repo/hooks/{post-commit,post-checkout}` | 否 | 空 sh 壳，仅 `#!/bin/sh` | — |
+| ⑧ `IHUI-DEPLOYLOOP` / 计划任务 `auto-evolve` | 未发现直接 ref 写点 | 60s / 周期 | — |
+
+**一句可执行的话**：封口 = 停 `IHUI-GIT-GUARD` **并且 `schtasks /change /tn "\IHUI-AI git-guardian" /disable`**（否则 2 分钟内被拉回），再把 `D:/IHUI-AI` 切到 `wip/main-wt-dirty-20261109` 并在其上做一次快照提交（HEAD 与 main 分叉）——这样①只会写 wip 的 ref，④的 CAS 必然失败；两处一起才封死。
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
