@@ -778,13 +778,26 @@ test('分诊·成对:真守门批汇总必判 hook-failed 且保留原重试链'
   )
   assert.match(v.why, /没有[\s\S]*显式证据/)
   assert.equal(v.terminalStatus, null, '钩子档不替验证段落终态')
-  // 成对正向:同型失败带上证据 ⇒ 兜底链仍然活着(收紧不是堵死)
-  const withEvidence = triagePushAttempt({
-    status: 1,
-    stderr: `${FIXTURES_BY_KIND['hook-failed'].stderr}\n[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)`,
-  })
+  // 成对正向:同型失败 + 证据 + 失败门仅为 T1 ⇒ 兜底链仍然活着(收紧不是堵死)
+  const t1Only = [
+    '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)',
+    '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:',
+    '   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)',
+    '     单独复现:node scripts/check-typecheck.mjs',
+  ].join('\n')
+  const withEvidence = triagePushAttempt({ status: 1, stderr: t1Only })
   assert.equal(withEvidence.kind, 'hook-failed')
-  assert.equal(withEvidence.allowNoVerifyRetry, true, '有显式证据时 §12 的兜底链不得被堵死')
+  assert.equal(withEvidence.allowNoVerifyRetry, true, '有显式证据且失败门仅 T1 时 §12 兜底链不得被堵死')
+  // DG-03 反向:同一份证据 + 别门真红([16] staged-typecheck)⇒ 证据不得外溢,必须拒绝
+  const foreignGate = triagePushAttempt({
+    status: 1,
+    stderr: `[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)\n${HOOK_SUMMARY_STDERR}`,
+  })
+  assert.equal(
+    foreignGate.allowNoVerifyRetry,
+    false,
+    '证据只覆盖 T1(check-typecheck);别的门真红时跳门 = DG-03 的假绿',
+  )
 })
 
 test('分诊·成对:Everything up-to-date 只在验证确实相等时才配 done', () => {
@@ -1025,7 +1038,8 @@ test('e2e:真 pre-push 钩子失败 → 原有"带 hook 重试 → --no-verify �
       [
         '#!/bin/sh',
         `printf '%s\\n' '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:' 1>&2`,
-        "printf '%s\\n' '     单独复现:node scripts/check-staged-typecheck.mjs --staged' 1>&2",
+        `printf '%s\\n' '   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)' 1>&2`,
+        "printf '%s\\n' '     单独复现:node scripts/check-typecheck.mjs' 1>&2",
         "printf '%s\\n' '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)' 1>&2",
         "printf '%s\\n' '❌ push 门校验失败,推送已阻止' 1>&2",
         'exit 1',
@@ -1108,6 +1122,55 @@ test('e2e:P4 钩子失败且无「范围外降级」证据 → 不跑 --no-verif
   }
 })
 
+// ─── 端到端②c:DG-03 —— T1 降级签名 + 47p 真红 ⇒ 不得借签名跳过 47p ───
+// 夹具逐字复现 DG-03 报告的现场:同一次 push 里 T1 因报错全在范围外而打印降级签名,
+// 而 47p(水印)真红。旧判据只看签名 ⇒ 后台自动 `--no-verify`,把 47p 一并跳过。
+test('e2e:DG-03 降级签名 + 47p 真红 → 不跑 --no-verify,保持失败且远端未动', () => {
+  const { work, origin } = createSyncedRepoWithOrigin()
+  try {
+    const hooksDir = join(work, '.githooks')
+    mkdirSync(hooksDir, { recursive: true })
+    writeFileSync(
+      join(hooksDir, 'pre-push'),
+      [
+        '#!/bin/sh',
+        "printf '%s\\n' '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)' 1>&2",
+        `printf '%s\\n' '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:' 1>&2`,
+        `printf '%s\\n' '   · [47p] 💧 溯源水印覆盖守门(push scope:只判本次推送涉及文件的 HEAD blob)' 1>&2`,
+        "printf '%s\\n' '     单独复现:node scripts/check-watermark-coverage.mjs --push-scope' 1>&2",
+        "printf '%s\\n' '❌ push 门校验失败,推送已阻止' 1>&2",
+        'exit 1',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    )
+    sh(`git config --local core.hooksPath "${hooksDir.replace(/\\/g, '/')}"`, work)
+    makeCommit(work, 'watermark-gap.txt', 'x\n', 'feat: commit behind a watermark gap')
+    const localSha = sh('git rev-parse HEAD', work).trim()
+    const remoteBefore = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
+
+    const r = runScript([], { cwd: work })
+    assert.match(r.stdout, /分诊=hook-failed/, `应被分诊成 hook-failed:${r.stdout}`)
+    assert.doesNotMatch(
+      r.stdout,
+      /--no-verify 重试成功/,
+      'T1 的降级签名不得当成 47p 的通行证(DG-03 的全部理由)',
+    )
+    assert.match(r.stdout, /本次\*\*不\*\*使用 --no-verify/, '必须把不跳门的原因打到人面前')
+    assert.equal(r.status, 1, `别门真红应保持失败,实际 ${r.status}\nstdout: ${r.stdout}`)
+    const remoteAfter = sh('git ls-remote origin refs/heads/main', work).split('\t')[0].trim()
+    assert.equal(remoteAfter, remoteBefore, '跳门被拒 ⇒ 远端 tip 不得被这一趟推进')
+    assert.notEqual(remoteAfter, localSha, '本地那枚带水印缺口的 commit 不得出现在远端')
+    const st = JSON.parse(
+      readFileSync(join(work, '.ihui-agent', 'state', 'push-state.json'), 'utf8'),
+    )
+    assert.equal(st.status, 'failed')
+  } finally {
+    rmScratch(work)
+    rmScratch(origin)
+  }
+})
+
 // ─── 端到端③:重试那一趟回显 Everything up-to-date ⇒ 不得报"push 成功"(事故第二段) ───
 // 事故里那一段是:首趟被钩子挡住 → --no-verify 重试 → 远端其实已被并发落地(回显
 // Everything up-to-date)→ guard 仍打 `✅ push 成功 + 验证通过`。
@@ -1125,9 +1188,11 @@ test('e2e:--no-verify 重试回显 Everything up-to-date → 措辞喊"未推送
         '# 先替"并发会话"把这枚 commit 落地(内部 --no-verify ⇒ 不再触发本钩子)',
         'git push --no-verify origin HEAD:refs/heads/main 1>&2',
         `printf '%s\\n' '🚫 1 道 blocking 门失败 —— 本轮已跑完全部 152 项,未提前中止:' 1>&2`,
-        // 2026-11-02 P4:这一格测的是"重试那趟回显 up-to-date 时不得冒充成功",前提仍是
-        // guard 真会去跑 --no-verify 那一趟 ⇒ 夹具必须带显式的范围外降级证据(否则 P4 会拦下,
-        // 走不到这一型)。无证据的那一半由下面新增的反向格钉住。
+        // 2026-11-02 P4 + 2026-11-08 DG-03:这一格测的是"重试那趟回显 up-to-date 时不得冒充成功",
+        // 前提仍是 guard 真会去跑 --no-verify 那一趟 ⇒ 夹具必须带显式证据 **且失败门仅为 T1**
+        // (否则证据门/归因门会拦下,走不到这一型)。无证据与别门真红两半由反向格钉住。
+        `printf '%s\\n' '   · [T1] 🔍 push 门全量 typecheck(staged-scope 降级)' 1>&2`,
+        "printf '%s\\n' '     单独复现:node scripts/check-typecheck.mjs' 1>&2",
         "printf '%s\\n' '[IHUI-SCOPE-DEGRADE] 全部报错文件均不在本次推送范围,降级为警告(exit 0)' 1>&2",
         "printf '%s\\n' '❌ push 门校验失败,推送已阻止' 1>&2",
         'exit 1',
