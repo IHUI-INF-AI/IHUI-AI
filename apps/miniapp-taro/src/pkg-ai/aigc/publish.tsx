@@ -59,6 +59,8 @@ export default function AigcPublish() {
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [submitting, setSubmitting] = useState(false)
+  // XUI-066:发布失败曾被写死为空串传进共享屏,只剩一次性 toast,屏内无失败留痕。
+  const [submitError, setSubmitError] = useState('')
   const seqRef = useRef(0)
   // AI 操控通道(2026-09-21):作品发布的三个文本字段(标题/简介/提示词)交出各自 setter。
   // 发布动作本身对外且不可撤回 → 不注册 onPress / submit,由用户自己点。
@@ -189,6 +191,7 @@ export default function AigcPublish() {
   const onSubmit = useCallback(async () => {
     if (!validate()) return
     setSubmitting(true)
+    setSubmitError('')
     try {
       await publishAigc({
         contextId: params.contextId,
@@ -205,6 +208,7 @@ export default function AigcPublish() {
       onToast(t('aigc.publish.published'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
+      setSubmitError(t('aigc.publish.publishFail'))
       onToast(t('aigc.publish.publishFail'), { kind: 'error' })
     } finally {
       setSubmitting(false)
@@ -236,7 +240,7 @@ export default function AigcPublish() {
         saving={submitting}
         uploading={uploading}
         uploadProgress={uploadProgress}
-        error=""
+        error={submitError}
         onWorkTypeChange={setWorkType}
         onTextContentChange={setTextContent}
         onTitleChange={setTitle}
