@@ -12,7 +12,7 @@ function makeStorage(initial: string | null) {
   return { storage: { getItem, setItem } as PlanStorage, setItem, getItem }
 }
 
-const input = { title: '新计划', goal: '目标', scope: '范围', constraints: [], steps: [] }
+const input = { title: '新计划', goal: '目标', scope: '范围', constraints: '', steps: [] }
 
 describe('XUI-029 plan store 水合失败保护', () => {
   it('JSON 损坏 → 不落盘覆盖,内存写入只留在内存', async () => {
