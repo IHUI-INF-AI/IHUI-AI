@@ -158,10 +158,21 @@ async def index_changed_paths(
         ]
 
     result.merkle_root = _merkle_root(new_hashes)
+    deletion_failed = False
     if deleted_paths:
-        result.files_deleted = await indexer._delete_files_from_api(
+        deleted = await indexer._delete_files_from_api(
             repo_id, deleted_paths, api_token, internal_user_id
         )
+        if deleted is None:
+            # AIS-027:删失败的路径必须留在快照里,下轮 prev-new 才会重试删除。
+            deletion_failed = True
+            result.files_deleted = 0
+            result.errors.append(
+                f"删除幽灵切片失败({len(deleted_paths)} 个路径):已保留在快照中,"
+                "下轮删除重试(本轮文件检索仍可能召回已删除文件)"
+            )
+        else:
+            result.files_deleted = deleted
 
     # --- 切片(函数层 + 模块层)+ 架构层:全部走全量路径同一批方法 ---
     all_chunks: list[CodeChunk] = []
@@ -202,30 +213,56 @@ async def index_changed_paths(
 
     # --- 文件/符号目录:变更文件重建、删除文件摘除、未变文件沿用(2026-11-06) ---
     prev_catalog = snapshot.catalog if snapshot.state in _USABLE_STATES else None
-    catalog = merge_catalog(prev_catalog, changed_entries, deleted_paths, aliases=live_aliases)
+    catalog = merge_catalog(
+        prev_catalog,
+        changed_entries,
+        [] if deletion_failed else deleted_paths,
+        aliases=live_aliases,
+    )
     for rel in new_hashes:
         if rel not in catalog.files:
             catalog.files[rel] = FileEntry(rel, _EXT_TO_LANG.get(Path(rel).suffix.lower()), ())
 
     result.chunks_created = len(all_chunks)
+    committed_hashes = indexer._hashes_to_commit(
+        new_hashes,
+        prev_hashes=snapshot.files,
+        deleted_paths=deleted_paths,
+        deletion_failed=deletion_failed,
+    )
     if not all_chunks:
         indexer._save_snapshot(
-            repo_id, root, new_hashes,
+            repo_id, root, committed_hashes,
             fingerprints=new_fingerprints, aliases=live_aliases, dir_rhashes=cur_dir_rhashes,
             catalog=catalog,
         )
         return result
 
     result.chunks_vectorized = await indexer._generate_embeddings_batch(all_chunks)
+    failed_batches: list[list[CodeChunk]] = []
     for i in range(0, len(all_chunks), _WRITE_BATCH_SIZE):
         batch = all_chunks[i : i + _WRITE_BATCH_SIZE]
         try:
             await indexer._write_to_api(repo_id, batch, api_token, internal_user_id)
         except Exception as e:  # noqa: BLE001 - 与全量同形:批次失败点名,快照照常收敛
             result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
+            failed_batches.append(batch)
+
+    # AIS-027:写失败的文件不进快照 ⇒ 下轮按"新增/变更"重做(不再判 unchanged)。
+    committed_hashes = indexer._hashes_to_commit(
+        new_hashes,
+        failed_batches=failed_batches,
+        prev_hashes=snapshot.files,
+        deleted_paths=deleted_paths,
+        deletion_failed=deletion_failed,
+    )
+    if failed_batches:
+        result.errors.append(
+            f"写入失败的 {len(failed_batches)} 个批次已从快照剔除,下轮重试"
+        )
 
     indexer._save_snapshot(
-        repo_id, root, new_hashes,
+        repo_id, root, committed_hashes,
         fingerprints=new_fingerprints, aliases=live_aliases, dir_rhashes=cur_dir_rhashes,
         catalog=catalog,
     )
