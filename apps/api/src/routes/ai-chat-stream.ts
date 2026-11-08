@@ -2199,6 +2199,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, messageId, order } = parsed.data
+    // F-03e:重排与 c/d 同款 —— 反查流之前先验会话归属,越权 404,不得排他人队列。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const session = findSession(`${conversationId}:${messageId}`)
     if (!session || session.finished || !session.upstreamSessionId) {
       // 与 withdraw 同闸门:活动流反查不到 ⇒ 404,不打到上游(队列随流消亡,无处可排)

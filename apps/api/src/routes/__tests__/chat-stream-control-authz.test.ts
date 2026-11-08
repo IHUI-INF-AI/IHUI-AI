@@ -210,6 +210,21 @@ describe('F-03 同链路:流控制端点以服务端会话归属为准', () => {
     expect(mocks.aiServiceFetch).not.toHaveBeenCalled()
   })
 
+  it('steer/reorder:他人会话 → 404 且不反查流/不打到上游', async () => {
+    mocks.findConversationById.mockResolvedValue({ id: CONV_B, userId: USER_B })
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/ai/chat/steer/reorder',
+      headers: AUTH_HEADERS,
+      payload: { conversationId: CONV_B, messageId: MSG, order: ['1730000000001', '1730000000000'] },
+    })
+
+    expect(res.statusCode).toBe(404)
+    expect(mocks.findSession).not.toHaveBeenCalled()
+    expect(mocks.aiServiceFetch).not.toHaveBeenCalled()
+  })
+
   it('本人会话:abort 仍可正常中止(防过度拦截)', async () => {
     mocks.findConversationById.mockResolvedValue({ id: CONV_A, userId: USER_A })
 
