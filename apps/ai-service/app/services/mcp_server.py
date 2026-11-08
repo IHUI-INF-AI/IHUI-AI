@@ -819,6 +819,11 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-11-01(G-NotebookEdit 补齐):notebook_edit 写盘(.ipynb 单元格级改写),
     # 与 write_file/file_edit/resolve_conflict 同档;写回腿复用 _tool_write_file。
     "notebook_edit",
+    # AIS-050/051:token6688 上传/克隆自带本地路径读取 + 第三方外传能力;与
+    # screenshot_url 同档,普通角色不得触达(audio_transcription 保留给对话链,
+    # 但其本地路径已与 read_file 同判据校验)。
+    "token6688_upload_file", "token6688_voice_clone",
+    "browser_selfcheck_screenshot", "browser_selfcheck",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -8939,20 +8944,34 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
 
     try:
         if path:
-            if not os.path.isfile(path):
+            # AIS-050:上传前的本地读取同样必须过工作区/敏感文件闸(同 read_file)。
+            ok_path, resolved_path = _validate_path_in_workspace(path)
+            if not ok_path:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": f"路径不允许: {resolved_path}", "errorCode": "PATH_BLOCKED",
+                    "file_url": None,
+                }
+            if _is_sensitive_file(resolved_path):
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": "拒绝读取敏感文件(可能含 API key/私钥/凭证)",
+                    "errorCode": "SENSITIVE_FILE_BLOCKED", "file_url": None,
+                }
+            if not os.path.isfile(resolved_path):
                 return {
                     "tool": "token6688_upload_file", "ok": False,
                     "error": f"文件不存在: {path}", "errorCode": "FILE_NOT_FOUND",
                     "file_url": None,
                 }
-            size = os.path.getsize(path)
+            size = os.path.getsize(resolved_path)
             if size > 50 * 1024 * 1024:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
                     "error": f"文件超过 50MB 上限({size} 字节)", "errorCode": "FILE_TOO_LARGE",
                     "file_url": None,
                 }
-            with open(path, "rb") as _f:
+            with open(resolved_path, "rb") as _f:
                 data = _f.read()
             filename = os.path.basename(path) or "file.bin"
         else:
@@ -9285,14 +9304,21 @@ def _audio_source_from_args(
     if sources > 1:
         return b"", "", "path / url / data_uri 只能传一个"
     if path:
-        if not _os.path.isfile(path):
+        # AIS-050:本地路径分支与 read_file 同一判据(工作区白名单 + 敏感文件),
+        # 防止把 data/sessions.db、.env、私钥等直接读出发往第三方。
+        ok, resolved = _validate_path_in_workspace(path)
+        if not ok:
+            return b"", "", f"路径不允许: {resolved}"
+        if _is_sensitive_file(resolved):
+            return b"", "", "拒绝读取敏感文件(可能含 API key/私钥/凭证)"
+        if not _os.path.isfile(resolved):
             return b"", "", f"文件不存在: {path}"
-        size = _os.path.getsize(path)
+        size = _os.path.getsize(resolved)
         if size >= 20 * 1024 * 1024:
             return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制"
         try:
-            with open(path, "rb") as _f:
-                return _f.read(), _os.path.basename(path) or "ref.wav", None
+            with open(resolved, "rb") as _f:
+                return _f.read(), _os.path.basename(resolved) or "ref.wav", None
         except OSError as e:
             return b"", "", f"读取文件失败: {e}"
     if url:
