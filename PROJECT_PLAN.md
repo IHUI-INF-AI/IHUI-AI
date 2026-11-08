@@ -32513,7 +32513,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 194G. **缺陷普查 API F-194** [P2] 模型映射后计费口径不一致：预扣/缓存按 resolvedModel，成功结算按原始 model（证据 docs/tickets/2026-11/findings-api.md#F-194）
 - [ ] 197G. **缺陷普查 API F-197** [P2] /api/oss/resource/file 返回不存在的分片上传地址，且绕过 chunked-upload 的初始化闸门（证据 docs/tickets/2026-11/findings-api.md#F-197）
 - [ ] 198G. **缺陷普查 API F-198** [P2] 转码队列 FIFO 淘汰只删 Map 与输出目录，不杀子进程，产生孤儿 ffmpeg 与磁盘泄漏（证据 docs/tickets/2026-11/findings-api.md#F-198）
-- [ ] 199G. **缺陷普查 API F-199** [P2] GET /api/live-gifts/records 无鉴权，匿名可分页读取全站所有打赏流水（证据 docs/tickets/2026-11/findings-api.md#F-199）
 - [ ] 200G. **缺陷普查 API F-200** [P2] Crew 所有 LLM 步骤全部失败仍记 completed 且返回 success:true（证据 docs/tickets/2026-11/findings-api.md#F-200）
 - [ ] 201G. **缺陷普查 API F-201** [P2] 工作区锁抢到后状态落库失败不释放，心跳永久续期形成死锁（证据 docs/tickets/2026-11/findings-api.md#F-201）
 - [ ] 202G. **缺陷普查 API F-202** [P2] Subagent 取消只改内存，任务完成后又被覆写为 completed（证据 docs/tickets/2026-11/findings-api.md#F-202）
@@ -32556,7 +32555,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 241G. **缺陷普查 API F-241** [P2] 组邀请码「一次性」未原子占用，并发可被多把 Key 同时兑换（证据 docs/tickets/2026-11/findings-api.md#F-241）
 - [ ] 242G. **缺陷普查 API F-242** [P3] 每个转发请求全量查一次参数覆盖规则表，无缓存（证据 docs/tickets/2026-11/findings-api.md#F-242）
 - [ ] 243G. **缺陷普查 API F-243** [P3] 队列隔离只看库名关键词，非主库但名字不含特征时仍抢主库队列（证据 docs/tickets/2026-11/findings-api.md#F-243）
-- [ ] 246G. **缺陷普查 API F-246** [P2] 审计链查询异常被吞成空结果，/audit-logs、导出与 SIEM 静默截断（证据 docs/tickets/2026-11/findings-api.md#F-246）
 - [ ] 247G. **缺陷普查 API F-247** [P2] 客服派单 TOCTOU：判 waiting 后按 sessionId 无条件更新，负载自增在事务外（证据 docs/tickets/2026-11/findings-api.md#F-247）
 - [ ] 248G. **缺陷普查 API F-248** [P2] 取消 VIP 只改 user_vips.status，不回写 users.isVip，被取消用户仍享 VIP 权益（证据 docs/tickets/2026-11/findings-api.md#F-248）
 - [ ] 249G. **缺陷普查 API F-249** [P2] closeSession 无幂等保护，重复关闭重复递减坐席负载（证据 docs/tickets/2026-11/findings-api.md#F-249）
@@ -32670,7 +32668,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 361G. **缺陷普查 API F-361** [P2] 任意登录用户可切换分类付费开关（证据 docs/tickets/2026-11/findings-api.md#F-361）
 - [ ] 362G. **缺陷普查 API F-362** [P3] 任意登录用户可重载/清空全局分类缓存（证据 docs/tickets/2026-11/findings-api.md#F-362）
 - [ ] 363G. **缺陷普查 API F-363** [P2] 任意登录用户可写全局 Agent 规则参数（删除却要 admin）（证据 docs/tickets/2026-11/findings-api.md#F-363）
-- [ ] 365G. **缺陷普查 API F-365** [P2] 任意登录用户可强制刷新全局结算缓存并取回全平台财务汇总（证据 docs/tickets/2026-11/findings-api.md#F-365）
 - [ ] 366G. **缺陷普查 API F-366** [P2] 任意登录用户可为任意 agent 伪造审核台账（含自填 approved）（证据 docs/tickets/2026-11/findings-api.md#F-366）
 - [ ] 367G. **缺陷普查 API F-367** [P3] cli-import fallback 清理定时器在模块顶层启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-367）
 - [ ] 368G. **缺陷普查 API F-368** [P3] relay-channel-router 亲和性清理定时器在模块顶层 if 块内启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-368）
