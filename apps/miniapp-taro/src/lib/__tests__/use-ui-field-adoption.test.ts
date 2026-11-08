@@ -49,7 +49,10 @@ const ADOPTED: readonly string[] = [
   // 页面转薄壳(列表=共享屏 N8nModelScreen,创建=端内 create-view),
   // 三个登记点随创建表单迁到 create-view.tsx,语义不变、setter 与输入事件同源。
   'pkg-ai/dev-enter/n8n-model/create-view.tsx',
-  'pkg-content/community/create/index.tsx',
+  // 'pkg-content/community/create/index.tsx' 2026-11 摘除:生成器转为壳承载形制
+  // (端内 23 行薄壳,渲染 = @rn-shells/PostCreateScreen → packages/app PostCreateScreen),
+  // 三个登记点随壳源走(shared 屏内已有 useUiField),端内不再有表单代码,移出本锁射程;
+  // 采纳语义由壳源负责(与 ApiSettings / feedback 同一条口径)。
   'pkg-shop/order/refund.tsx',
   'pkg-user/user/email.tsx',
   // 'pkg-user/user/feedback.tsx' 2026-10-31 摘除:c94567126c 把该页转为壳承载形制
