@@ -31953,3 +31953,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 19B. **缺陷普查 W-05** [P3] 会话组织弹窗的标签输入同样缺少输入法组合态判断（证据 docs/tickets/2026-11/findings-web.md#W-05）
 - [ ] 20B. **缺陷普查 W-06** [P3] 学习支付确认页对长期 pending 订单无上限、无退避轮询，且存在请求重叠（证据 docs/tickets/2026-11/findings-web.md#W-06）
 - [ ] 21B. **缺陷普查 W-07** [P2] 充值成功页把「支付二维码」和「金额」直接取自 URL 参数，可被构造链接用于支付钓鱼（证据 docs/tickets/2026-11/findings-web.md#W-07）
+- [ ] 22C. **缺陷普查 F-001** [P0] run_tests 在 Windows 恒失败（Node ≥20.12 禁止无 shell 直启 .cmd）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-001）
+- [ ] 23C. **缺陷普查 F-045** [P0] 远程 capability 仍授予 store:default，同时新的受限通道未被授权（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-045）
+- [ ] 24C. **缺陷普查 F-002** [P1] 子命令 action 未 await，失败时退出码为 0（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-002）
+- [ ] 25C. **缺陷普查 F-003** [P1] 杀进程树缺失（只杀 shell，不留子进程）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-003）
+- [ ] 26C. **缺陷普查 F-004** [P1] POSIX 沙箱超时可能永不返回（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-004）
+- [ ] 27C. **缺陷普查 F-005** [P1] 会话/子代理状态文件权限位为 0644（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-005）
+- [ ] 28C. **缺陷普查 F-006** [P1] 审计日志的入参脱敏只走"形状档"，键名类凭据整类失明（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-006）
+- [ ] 29C. **缺陷普查 F-007** [P1] 脱敏规则不覆盖本仓自己的凭据形态（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-007）
+- [ ] 30C. **缺陷普查 F-008** [P1] 凭据经 argv 明文落盘（崩溃日志与 runs manifest）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-008）
+- [ ] 31C. **缺陷普查 F-046** [P1] 冷启动 ihui:// 深链必然丢失（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-046）
+- [ ] 32C. **缺陷普查 F-047** [P1] take_pending_tray_actions 未进 capability，托盘菜单动作永不送达（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-047）
+- [ ] 33C. **缺陷普查 F-053** [P1] 隔离区恢复接受任意目录，落点由被读目录的 manifest 决定（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-053）
+- [ ] 34C. **缺陷普查 F-010** [P2] 错误写 stdout 且紧跟 process.exit（管道下丢输出）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-010）
+- [ ] 35C. **缺陷普查 F-011** [P2] --json 输出混入非 JSON 行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-011）
+- [ ] 36C. **缺陷普查 F-012** [P2] 无 prompt 的默认路径忽略 --json/非 TTY，直接进 REPL（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-012）
+- [ ] 37C. **缺陷普查 F-013** [P2] login 交互提示无 TTY 守卫（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-013）
+- [ ] 38C. **缺陷普查 F-014** [P2] mcp add 参数面两处漏洞（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-014）
+- [ ] 39C. **缺陷普查 F-015** [P2] serve 的 flush 与信号退出码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-015）
+- [ ] 40C. **缺陷普查 F-016** [P2] import / trash 失败路径退 0（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-016）
+- [ ] 41C. **缺陷普查 F-019** [P2] Windows 沙箱兜底超时留下孤儿进程树（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-019）
+- [ ] 42C. **缺陷普查 F-020** [P2] git 缺失/无权限被吞成"无输出"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-020）
+- [ ] 43C. **缺陷普查 F-021** [P2] git 输出路径被 core.quotepath 改写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-021）
+- [ ] 44C. **缺陷普查 F-022** [P2] worktree 族绕过统一的 git 封顶出口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-022）
+- [ ] 45C. **缺陷普查 F-023** [P2] 范围提交在 worktree/子模块内必失败（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-023）
+- [ ] 46C. **缺陷普查 F-024** [P2] execGitCapped 的 stdio 与仓库自家约定相反（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-024）
+- [ ] 47C. **缺陷普查 F-025** [P2] 取消 git 在 POSIX 无效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-025）
+- [ ] 48C. **缺陷普查 F-026** [P2] GBK 输出被硬解成 UTF-8（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-026）
+- [ ] 49C. **缺陷普查 F-027** [P2] .gitignore 按 UTF-8 读后整文件覆写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-027）
+- [ ] 50C. **缺陷普查 F-028** [P2] 凭据设置文件非原子写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-028）
+- [ ] 51C. **缺陷普查 F-029** [P2] checkpoint manifest 非原子 + 一次崩溃让 GC 永久停摆（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-029）
+- [ ] 52C. **缺陷普查 F-030** [P2] prompt-queue 固定 tmp 名、失败全吞、损坏即删（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-030）
+- [ ] 53C. **缺陷普查 F-031** [P2] 会话 JSON 损坏被静默当成"无此会话"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-031）
+- [ ] 54C. **缺陷普查 F-032** [P2] 回滚写工作区非原子，且 rmSync 递归删目录（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-032）
+- [ ] 55C. **缺陷普查 F-033** [P2] 快照版本号分配 TOCTOU（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-033）
+- [ ] 56C. **缺陷普查 F-036** [P2] redactUrl 遇畸形百分号编码直接抛异常（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-036）
+- [ ] 57C. **缺陷普查 F-037** [P2] 遥测默认开启并上报绝对工作区路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-037）
+- [ ] 58C. **缺陷普查 F-038** [P2] secret-scan 只是告警，不是闸门（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-038）
+- [ ] 59C. **缺陷普查 F-040** [P2] 三份能力回归钉未接入任何 runner（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-040）
+- [ ] 60C. **缺陷普查 F-041** [P2] artifact 收敛钩子把"没有产物"判绿（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-041）
+- [ ] 61C. **缺陷普查 F-048** [P2] 托盘创建失败时 close_behavior=hide 把窗口藏进虚空（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-048）
+- [ ] 62C. **缺陷普查 F-049** [P2] set_caption_button_theme 未进命令清单/能力，暗色下原生窗控不可读（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-049）
+- [ ] 63C. **缺陷普查 F-050** [P2] 清理旧实例只杀主进程，不杀 WebView2 子进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-050）
+- [ ] 64C. **缺陷普查 F-051** [P2] 第二次双击会杀掉仍在启动的合法首实例（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-051）
+- [ ] 65C. **缺陷普查 F-054** [P2] 脚本超时只放弃结果，不杀 powershell（线程 + 进程双泄漏）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-054）
+- [ ] 66C. **缺陷普查 F-055** [P2] 全盘索引走同步命令，阻塞主线程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-055）
+- [ ] 67C. **缺陷普查 F-056** [P2] 书签/历史非原子写，损坏即整份归零（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-056）
+- [ ] 68C. **缺陷普查 F-057** [P2] 快照备份递归跟随 junction，越界拷贝/成环（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-057）
+- [ ] 69C. **缺陷普查 F-058** [P2] 三处 .output() 无超时无 kill（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-058）
+- [ ] 70C. **缺陷普查 F-061** [P2] allow-clipboard-set 两端皆无（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-061）
+- [ ] 71C. **缺陷普查 F-017** [P3] 非法数值/枚举静默回落（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-017）
+- [ ] 72C. **缺陷普查 F-018** [P3] 全局 flag 位置敏感 + json 判据双源（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-018）
+- [ ] 73C. **缺陷普查 F-034** [P3] saveSession 无 CAS/锁，整份覆写丢并发更新（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-034）
+- [ ] 74C. **缺陷普查 F-035** [P3] update-check 缓存非原子，损坏后永久拒写（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-035）
+- [ ] 75C. **缺陷普查 F-039** [P3] 审计文件/目录未收紧权限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-039）
+- [ ] 76C. **缺陷普查 F-042** [P3] 未签名临时 config 单格并发互删，清理失败不改退出码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-042）
+- [ ] 77C. **缺陷普查 F-043** [P3] dev 配置漂移：csp:null、版本 0.1.53、9333 CDP（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-043）
+- [ ] 78C. **缺陷普查 F-044** [P3] shell open 运行时正则放行任意 localhost 端口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-044）
+- [ ] 79C. **缺陷普查 F-052** [P3] 第二实例/深链唤起不还原最小化窗口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-052）
+- [ ] 80C. **缺陷普查 F-059** [P3] 快照落地先删后换，失败即旧快照已毁（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-059）
+- [ ] 81C. **缺陷普查 F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
