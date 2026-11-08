@@ -6,7 +6,7 @@
  * 用户管理路由(从原 frontend-stub-admin-routes.ts 拆分)。
  * 路径前缀:/admin/users
  */
-import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { eq, and, desc, count, sum, inArray, gte, gt, sql } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
@@ -73,6 +73,51 @@ function auditCtx(request: FastifyRequest) {
     ip: request.ip,
     userAgent: typeof ua === 'string' ? ua.slice(0, 512) : undefined,
   }
+}
+
+/**
+ * 单条审核的共用实现(`POST /admin/users/:id/review` 与 `/audit` 语义相同:待审核 0 → 正常 1)。
+ *
+ * F-129(2026-11-08):旧写法 `.where(eq(users.id, id))` 只按主键过滤,没有"仅待审可放行"的前置 ——
+ * 对已封禁(2)/已注销(3)的用户再点一次"审核通过",会无条件写回 status=1(复活账号)。
+ * 现把「仅 status=0」写进 UPDATE 的 where(与 id 条件 and 串联,由数据库原子裁决,避免先查后写的
+ * TOCTOU);0 行被翻转时再查一次现状:
+ *  - 不存在 → 404;
+ *  - 已是 status=1 → 幂等 200(重复点击审核不报错;无状态变化,故不回写、不写审计);
+ *  - 2/3(封禁/注销) → 409,拒绝复活。
+ * 非 uuid 字面量在进 SQL 之前 400 —— 否则 Postgres 对 uuid 列抛 22P02 会变成 500,
+ * "不存在"与"服务坏了"在响应上无法区分。
+ */
+async function approvePendingUser(
+  request: FastifyRequest,
+  reply: FastifyReply,
+  auditAction: string,
+) {
+  const { id } = parseOrThrow(idParamSchema, request.params)
+  if (!isUuidString(id)) {
+    return reply.status(400).send(error(400, 'id 格式不正确'))
+  }
+  const [row] = await db
+    .update(users)
+    .set({ status: 1, updatedAt: new Date() })
+    .where(and(eq(users.id, id), eq(users.status, 0)))
+    .returning()
+  if (!row) {
+    const [existing] = await db.select().from(users).where(eq(users.id, id)).limit(1)
+    if (!existing) return reply.status(404).send(error(404, '用户不存在'))
+    if (existing.status === 1) return reply.send(success(existing))
+    return reply
+      .status(409)
+      .send(error(409, `用户当前状态为 ${existing.status},仅待审核(status=0)可审核通过`))
+  }
+  await logAction({
+    ...auditCtx(request),
+    action: auditAction,
+    resourceType: 'user',
+    resourceId: id,
+    details: { from: 0, to: 1 },
+  })
+  return reply.send(success(row))
 }
 
 export const userRoutes: FastifyPluginAsync = async (server) => {
@@ -152,26 +197,14 @@ export const userRoutes: FastifyPluginAsync = async (server) => {
     }
     return reply.send(success(row))
   })
-  server.post('/admin/users/:id/review', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    const [row] = await db
-      .update(users)
-      .set({ status: 1, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning()
-    if (!row) return reply.status(404).send(error(404, '用户不存在'))
-    return reply.send(success(row))
-  })
-  server.post('/admin/users/:id/audit', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = parseOrThrow(idParamSchema, request.params)
-    const [row] = await db
-      .update(users)
-      .set({ status: 1, updatedAt: new Date() })
-      .where(eq(users.id, id))
-      .returning()
-    if (!row) return reply.status(404).send(error(404, '用户不存在'))
-    return reply.send(success(row))
-  })
+  server.post('/admin/users/:id/review', { preHandler: requireAdmin }, async (request, reply) =>
+    approvePendingUser(request, reply, 'user.review'),
+  )
+  // /audit 与 /review 语义相同(审核通过 = 待审核 0 → 正常 1),共用同一判据:
+  // 只允许 status=0 放行,封禁/注销一律拒绝复活。动作名保留各自独立的审计键。
+  server.post('/admin/users/:id/audit', { preHandler: requireAdmin }, async (request, reply) =>
+    approvePendingUser(request, reply, 'user.audit'),
+  )
 
   // ===== GET /admin/users/stats — 用户活跃度统计聚合 =====
   server.get('/admin/users/stats', { preHandler: requireAdmin }, async (_request, reply) => {
