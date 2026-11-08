@@ -13668,6 +13668,7 @@
     "show": "顯示",
     "delete": "刪除",
     "save": "儲存",
+    "saveFailed": "儲存失敗",
     "ok": "確定",
     "create": "創建",
     "agentKanban": "Agent 看板",
