@@ -14,6 +14,7 @@ import { useTranslations } from 'next-intl'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { saveRechargeQr } from '@/lib/recharge-qr-session'
 import {
   Button,
   Input,
@@ -89,14 +90,10 @@ export default function RechargePage() {
         setServerError('支付通道暂未开通（商户配置缺失），订单未创建。请联系管理员配置支付商户。')
         return
       }
-      const params = new URLSearchParams({
-        orderNo: r.data.outTradeNo,
-        amount: String(values.amount),
-        method: values.method,
-      })
-      if (r.data.codeUrl) params.set('codeUrl', r.data.codeUrl)
-      if (r.data.payUrl) params.set('payUrl', r.data.payUrl)
-      router.push(`/wallet/recharge/success?${params.toString()}`)
+      // W-07:二维码凭据写入本标签页 sessionStorage(按 orderNo 键),URL 只允许携带 orderNo;
+      // 金额/支付方式由成功页向服务端订单详情核对,不再信任 URL 参数。
+      saveRechargeQr(r.data.outTradeNo, { codeUrl: r.data.codeUrl, payUrl: r.data.payUrl })
+      router.push(`/wallet/recharge/success?orderNo=${encodeURIComponent(r.data.outTradeNo)}`)
     } catch (err) {
       setServerError(err instanceof Error ? err.message : t('rechargeFailDesc'))
     } finally {
