@@ -1079,7 +1079,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /settlement/cache/info - 缓存信息
-  server.get('/settlement/cache/info', async (request, reply) => {
+  // 2026-11-08 F-365:缓存运维面(键名/TTL/存在性)与 force-check/force-refresh 同组,
+  // 只服务管理端排查;此前仅登录闸,任意用户可探测共享缓存状态。
+  server.get('/settlement/cache/info', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     const key = 'settlement:summary'
     const exists = await redis.exists(key)
@@ -1094,7 +1096,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /settlement/cache/force-check - 强制检查缓存
-  server.post('/settlement/cache/force-check', async (request, reply) => {
+  // 2026-11-08 F-365:缓存运维端点按"读缓存"处理,漏了 admin 闸。
+  server.post('/settlement/cache/force-check', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     const key = 'settlement:summary'
     const exists = await redis.exists(key)
@@ -1102,13 +1105,20 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /settlement/cache/force-refresh - 强制刷新缓存
-  server.post('/settlement/cache/force-refresh', async (request, reply) => {
-    const redis = request.server.redis
-    const summary = await findSettlementSummary()
-    const key = 'settlement:summary'
-    await redis.set(key, JSON.stringify(summary), 'EX', 300)
-    return reply.send(success({ refreshed: true, summary }))
-  })
+  // 2026-11-08 F-365:该端点执行全表 sum(findSettlementSummary)、写共享缓存键,
+  // 并把全平台财务汇总直接放进响应体 —— 等价于 admin-only 的 /settlement/summary,
+  // 必须同档位 admin,否则任意登录用户可读全平台成交/已结/未结金额与笔数。
+  server.post(
+    '/settlement/cache/force-refresh',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const redis = request.server.redis
+      const summary = await findSettlementSummary()
+      const key = 'settlement:summary'
+      await redis.set(key, JSON.stringify(summary), 'EX', 300)
+      return reply.send(success({ refreshed: true, summary }))
+    },
+  )
 
   // POST /settlement/create - 创建结算记录
   // 2026-10-31 第 14 批:agentId/金额/佣金/状态全由客户端定 ⇒ 任意登录用户可凭空造结算单,
@@ -1222,10 +1232,16 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /settlement/stats/income-overview - 收入概览
-  server.get('/settlement/stats/income-overview', async (_request, reply) => {
-    const summary = await findSettlementSummary()
-    return reply.send(success(summary))
-  })
+  // 2026-11-08 F-365:返回与 /settlement/summary 完全同源的全平台财务汇总
+  // (findSettlementSummary),同属 admin-only 读面。
+  server.get(
+    '/settlement/stats/income-overview',
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      const summary = await findSettlementSummary()
+      return reply.send(success(summary))
+    },
+  )
 
   // -------------------------------------------------------------------------
   // examine 审核
