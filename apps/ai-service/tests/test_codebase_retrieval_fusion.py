@@ -24,7 +24,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
+import os as _os
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -41,22 +41,25 @@ _QUERY = "alpha_symbol_zz"
 
 
 @pytest.fixture(autouse=True)
-def _register_tmp_workspace(tmp_path: Path) -> None:
-    """AIS-080:本文件的搜索根是 pytest 临时目录,登记为允许根,正常路径不被误挡。
+def _tmp_path_is_workspace_root(tmp_path):
+    """AIS-080:search 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。
 
-    刻意不走 `monkeypatch.setenv`:个别用例会调 `monkeypatch.undo()`(撤销懒索引
-    替身),那会连这条登记一起撤掉,于是正常路径被误判越界。这里自行保存/恢复。
+    注意本文件有 ``monkeypatch.undo()`` 的用例,故这里直接改 os.environ 并自行还原,
+    不能被 monkeypatch 的撤销一并抹掉。
     """
     key = "MCP_WORKSPACE_ROOTS"
-    old = os.environ.get(key)
-    os.environ[key] = f"{Path.cwd()}{os.pathsep}{tmp_path}"
+    old = _os.environ.get(key)
+    current = (old or "").strip()
+    _os.environ[key] = str(tmp_path.resolve()) + (
+        _os.pathsep + current if current else ""
+    )
     try:
         yield
     finally:
         if old is None:
-            os.environ.pop(key, None)
+            _os.environ.pop(key, None)
         else:
-            os.environ[key] = old
+            _os.environ[key] = old
 
 
 def _semantic_item(file_path: str, line: int, *, score: float = 0.5) -> dict[str, Any]:

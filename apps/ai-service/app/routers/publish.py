@@ -756,11 +756,47 @@ async def get_account_risk(account_id: int, request: Request) -> dict[str, Any]:
 
 # ===== 任务管理 =====
 
+async def _assert_targets_owned(
+    conn: asyncpg.Connection,
+    user_id: str,
+    targets: list[PublishTarget],
+) -> None:
+    """AIS-073: 校验 targets 内每个 account_id 均归属当前用户。
+
+    复用 publish_accounts 既有归属查询口径(`WHERE id=$1 AND user_id=$2`)。
+    任一账号不属于当前用户即整体拒绝(403),不做静默过滤。
+    """
+    account_ids = sorted({t.account_id for t in targets})
+    missing: list[int] = []
+    for account_id in account_ids:
+        row = await conn.fetchrow(
+            "SELECT id FROM publish_accounts WHERE id=$1 AND user_id=$2",
+            account_id,
+            user_id,
+        )
+        if not row:
+            missing.append(account_id)
+    if missing:
+        logger.warning(
+            "[publish] create_task rejected: user=%s targets 含非本人账号 %s",
+            user_id, missing,
+        )
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "publish_account_not_owned",
+                "message": "targets 包含不属于当前用户的账号",
+                "account_ids": missing,
+            },
+        )
+
+
 @router.post("/tasks")
 async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     """创建发布任务(立即执行或定时)。
 
     IDOR 修复:user_id 从 JWT 取,不再信任请求体。
+    AIS-073:targets 的 account_id 必须归属当前用户,阻断跨租户冒名发布。
     """
     user_id = _get_user_id(request)  # IDOR 修复:强制 JWT 身份
 
@@ -771,6 +807,14 @@ async def create_task(body: TaskCreate, request: Request) -> dict[str, Any]:
     for t in body.targets:
         if get_adapter(t.platform) is None:
             raise HTTPException(status_code=400, detail=f"unsupported platform: {t.platform}")
+
+    # AIS-073 第一层:提交侧校验 target 账号归属,任一非本人账号即拒绝
+    conn = await _get_conn()
+    try:
+        await _ensure_accounts_table(conn)
+        await _assert_targets_owned(conn, user_id, body.targets)
+    finally:
+        await conn.close()
 
     # 构造 PublishContent
     content = PublishContent(

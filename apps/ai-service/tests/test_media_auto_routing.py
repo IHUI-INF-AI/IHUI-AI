@@ -37,6 +37,18 @@ from app.services.mcp_server import (
     _tts_engine_chain,
 )
 
+
+@pytest.fixture(autouse=True)
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-050:audio_transcription 本地 path 分支现在过工作区白名单;造树根=tmp_path。"""
+    real = mcp_server._get_workspace_roots
+    monkeypatch.setattr(
+        mcp_server,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
+    )
+
+
 # =============================================================================
 # 模态预路由 _media_intent_tools
 # =============================================================================

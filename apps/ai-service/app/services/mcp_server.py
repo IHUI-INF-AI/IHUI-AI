@@ -16,8 +16,9 @@ import json
 import math
 import os
 import re
-import stat
 import shlex
+import stat
+import sys
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -793,6 +794,14 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-07-24 安全加固:screenshot_url 是 SSRF 入口(Playwright 访问任意 URL),
     # 即使有 _validate_url_ssrf 校验,仍限定 admin 调用,defense-in-depth
     "screenshot_url",
+    # AIS-051:两个浏览器自检工具与 screenshot_url 同等 SSRF 能力(任意 URL 拉页面
+    # + 截图),此前不在角色矩阵里 ⇒ role=0 的旁路。与 screenshot_url 同档收口。
+    "browser_selfcheck_screenshot", "browser_selfcheck",
+    # AIS-050 defense-in-depth:upload_file 把本地内容外传第三方存储。对话链的
+    # intend 路由与 tool 选择表都不含它(role=0 正常链路不依赖);本地路径分支已过
+    # 工作区+敏感文件判据,这里再加角色档。voice_clone 不能加:对话链 role=0 直接
+    # 依赖它(conversation._MEDIA_INTENT_PATTERNS["token6688_voice_clone"])。
+    "token6688_upload_file",
     # 2026-07-24 扩展工具(自研核心能力):
     # fetch_url:SSRF 入口 + 可探测内网;
     # review_pr:GitHub API + 可能暴露源代码;schedule_task:调度后台任务
@@ -819,11 +828,6 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-11-01(G-NotebookEdit 补齐):notebook_edit 写盘(.ipynb 单元格级改写),
     # 与 write_file/file_edit/resolve_conflict 同档;写回腿复用 _tool_write_file。
     "notebook_edit",
-    # AIS-050/051:token6688 上传/克隆自带本地路径读取 + 第三方外传能力;与
-    # screenshot_url 同档,普通角色不得触达(audio_transcription 保留给对话链,
-    # 但其本地路径已与 read_file 同判据校验)。
-    "token6688_upload_file", "token6688_voice_clone",
-    "browser_selfcheck_screenshot", "browser_selfcheck",
 }
 
 # agent_control 内部调用密钥(从 settings 读取,确保 .env 配置生效)
@@ -1045,6 +1049,21 @@ def _is_sensitive_file(path: str, *, roots: list[str] | tuple[str, ...] | None =
         return True
     # 扩展名匹配
     return any(basename.endswith(ext) for ext in _SENSITIVE_FILE_EXTENSIONS)
+
+
+def _validate_media_local_path(path: str) -> tuple[bool, str, str]:
+    """媒体工具本地 path 分支的统一入口校验(AIS-050)。
+
+    与 ``read_file`` 同一套判据、同一份实现:先过 ``_validate_path_in_workspace``
+    (白名单根 + symlink 穿越),再判 ``_is_sensitive_file``(敏感目录/文件)。
+    调用方必须用返回的 resolved 路径去 open/上传,不得再用原始入参。
+    """
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    if _is_sensitive_file(info):
+        return False, sensitive_error_message(info), "SENSITIVE_FILE_BLOCKED"
+    return True, info, ""
 
 
 # ---------------------------------------------------------------------------
@@ -1533,6 +1552,16 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     internal_user_id = arguments.get("__user_id") or None
     if not path:
         return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    # AIS-080:与 read_file 同一套工作区白名单校验;根外目录不得进入索引 / embedding。
+    ok_path, path_info = _validate_path_in_workspace(path)
+    if not ok_path:
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "error": path_info,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = path_info
     from .workspace_index_policy import (
         apply_workspace_index,
         indexing_decision,
@@ -1540,7 +1569,7 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
     keyed = workspace_key(path)
-    control = arguments.get("index_control", None)
+    control = arguments.get("index_control")
     if control is not None:
         if not isinstance(control, str) or not control:
             return {
@@ -1591,20 +1620,6 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 "embedding 服务。请在设置中授权后重试。"
             ),
         }
-    # AIS-080:索引会把源码切片发往外部 embedding ⇒ path 必须先过工作区守卫
-    # (与 search_codebase 同一判据),否则任意绝对路径都能被索引/外传。
-    # 位置在开关/同意闸之后:那两闸不碰文件(只是查开关与授权记录),
-    # 且"开关已关"必须如实报 explicit-off,不能被路径错误改写。
-    ok_path, resolved_path = _validate_path_in_workspace(path)
-    if not ok_path:
-        return {
-            "tool": "index_codebase",
-            "ok": False,
-            "phase": "unjudged",
-            "allowIndex": False,
-            "error": f"路径不允许: {resolved_path}",
-        }
-    path = resolved_path
     try:
         from .codebase_indexer import codebase_indexer
         result = await codebase_indexer.index_repository(
@@ -1854,28 +1869,6 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     pattern = arguments.get("pattern", "")
     max_results = int(arguments.get("max_results", 50))
     symbol_type = arguments.get("symbol_type", "").strip().lower()
-    # AIS-080:搜索根与索引根同一把尺;越界直接拒绝,不做"扫了再说"。
-    # 顺序固定:先判"存在且是目录",再判工作区。缺路径/非目录交由两条腿各自
-    # 如实报 `unavailable`(旧契约逐字节不变);不存在的路径本就读不到任何东西,
-    # 不能把"不存在"改写成"不允许"(§0.3)。
-    _root_probe = Path(path)
-    if _root_probe.exists() and _root_probe.is_dir():
-        ok_path, resolved_path = _validate_path_in_workspace(str(path))
-        if not ok_path:
-            return {
-                "tool": "search_codebase",
-                "query": query,
-                "path": path,
-                "pattern": pattern,
-                "matches": [],
-                "mode": "unjudged",
-                "degraded": True,
-                "reasons": [{"leg": "path", "status": "blocked", "detail": resolved_path}],
-                "stats": {"mode": "unjudged"},
-                "message": f"路径不允许: {resolved_path}",
-                "ok": False,
-            }
-        path = resolved_path
     # Z28 格 1:符号名精确过滤位(可选入参)。空 = 不发起,行为与旧实现逐字节相同。
     symbol_name = str(arguments.get("symbol_name", "") or "").strip()
     # 2026-11-01 票 #10:语义腿开关(默认 True)。False 是调用方的显式选择,
@@ -1948,6 +1941,34 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "搜索关键词为空",
             "ok": False,
         }
+    # AIS-080:与 read_file 同一套工作区白名单校验 —— 根外目录不得进入关键词扫描 /
+    # 懒索引 / 语义检索。相对路径也走这里;后续统一使用校验返回的 resolved 路径。
+    ok_path, path_info = _validate_path_in_workspace(path)
+    if not ok_path:
+        stages.record(
+            "validate", "failed",
+            duration_ms=validate_clock.elapsed_ms(),
+            count=0,
+            detail="路径不在工作区白名单",
+        )
+        stats["path_validation"] = "blocked"
+        return {
+            "tool": "search_codebase",
+            "query": query,
+            "path": path,
+            "matches": [],
+            "mode": "unjudged",
+            "degraded": True,
+            "reasons": [
+                {"leg": "path", "status": "blocked", "detail": path_info},
+            ],
+            "stats": stats,
+            "stages": stages.finalize(),
+            "message": "路径不在工作区白名单",
+            "ok": False,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = path_info
     stages.record(
         "validate",
         "ok",
@@ -2104,8 +2125,6 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     async def _keyword_leg() -> dict[str, Any]:
         """关键词腿(真实文件系统 regex 符号 + 引用扫描,不碰数据库)。"""
         try:
-            import fnmatch
-            import os
             from pathlib import Path
 
             root = Path(path).resolve()
@@ -3541,9 +3560,6 @@ _COMMAND_POLICY_DEFAULT: dict[str, Any] = {
         r"\bkill\b", r"\bkillall\b",
         r">\s*", r">>\s*", r"<\s*", r"\|\s*",
         r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
-        # AIS-081:cmd /c 内建分支的剩余元字符 —— 单 `&`(后台串联)、`^`(转义)、
-        # 换行(跨行串联)都会把一条白名单命令变成多条,与 ; && || | 同级闭锁。
-        r"&", r"\^", r"[\r\n]",
     ],
     "allowed_prefixes": [
         "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
@@ -3868,6 +3884,73 @@ def revoke_exec_prefix(prefix: list[str]) -> bool:
     return existed
 
 
+# AIS-081(2026-11-08 机制修订):元字符只有在**命令确实经 shell 解释**时才有注入语义。
+# 判据 = "谁在解释这串字符":
+#   · Windows 内置命令(echo/dir/set...)⇒ 整串交给 `cmd /c`,由 cmd 解释;
+#   · 显式 shell 壳 `cmd|cmd.exe /c|/k`、`sh|bash|zsh|dash -c|-lc` ⇒ 被调用的 shell
+#     会重新解释其后的整串(Python 侧只是 create_subprocess_exec);
+#   · 其余(argv 直传)⇒ `&`/`^`/`;` 只是某个可执行文件的**字面参数**,
+#     `git log --grep=a&b`、`find . -name a&b` 必须放行。
+# 旧实现不区分形态、对整串无差别扫描,把 `echo "a&b"`(引号内字面量)也误挡。
+# 引号语义:cmd/sh 下双引号内的 `&`/`^`/`|`/`<`/`>`/`;` 是字面量,扫描跳过引号段;
+# CR/LF 不因引号豁免(单行命令串里出现换行只可能是拼接)。
+# 本表是内置分支的第二道独立闸(不替代既有危险模式表);测试从本模块 import,不复制。
+# 刻意**不含** `%`:cmd 的 `%VAR%` 只是变量展开、不是命令分隔符,拒掉会误伤
+# `echo %PATH%` / `set X=%Y%` 这类合法内置用法;` 与 `$(` 同样只是字面量,无注入语义。
+WIN_BUILTIN_SHELL_METACHARACTERS: Final[tuple[str, ...]] = (
+    "&", "^", "|", "<", ">", ";", "\r", "\n",
+)
+
+WIN_SHELL_BUILTINS: Final[frozenset[str]] = frozenset({
+    "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
+    "prompt", "title", "path", "assoc", "ftype",
+})
+
+_SHELL_WRAPPER_FLAGS: Final[dict[str, frozenset[str]]] = {
+    "cmd": frozenset({"/c", "/k"}),
+    "cmd.exe": frozenset({"/c", "/k"}),
+    "sh": frozenset({"-c"}),
+    "bash": frozenset({"-c", "-lc"}),
+    "zsh": frozenset({"-c"}),
+    "dash": frozenset({"-c"}),
+}
+
+
+def _shell_interpretation_of(command: str, cmd_name: str) -> str | None:
+    """返回"这串字符会被哪层 shell 解释";None = argv 直传,不做元字符判据。"""
+    if sys.platform == "win32" and cmd_name in WIN_SHELL_BUILTINS:
+        return "cmd /c (Windows 内置命令)"
+    try:
+        tokens = shlex.split(command, posix=sys.platform != "win32")
+    except ValueError:
+        tokens = command.split()
+    if not tokens:
+        return None
+    head = tokens[0].rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
+    flags = _SHELL_WRAPPER_FLAGS.get(head)
+    if not flags:
+        return None
+    for token in tokens[1:3]:
+        if token.lower() in flags:
+            return f"{head} {token.lower()}"
+    return None
+
+
+def _first_shell_metacharacter(command: str) -> str | None:
+    """在会被 shell 解释的段里找第一个元字符;双引号内的字面量跳过。"""
+    in_quotes = False
+    for ch in command:
+        if ch == '"':
+            in_quotes = not in_quotes
+            continue
+        if ch in ("\r", "\n"):
+            return ch
+        if not in_quotes and ch in WIN_BUILTIN_SHELL_METACHARACTERS:
+            return ch
+    return None
+
+
+
 async def _tool_run_command(
     arguments: dict[str, Any], cancel: asyncio.Event | None = None
 ) -> dict[str, Any]:
@@ -4116,16 +4199,17 @@ async def _tool_run_command(
 
     # 危险字符/操作黑名单(Shell 注入 + 破坏性操作)—— 单一权威源 command_policy.json
     _policy = _load_command_policy()
-    _DANGEROUS_PATTERNS: list[str] = list(_policy.get("dangerous_patterns") or [])
-    for pat in _DANGEROUS_PATTERNS:
-        if re.search(pat, command):
-            return {
-                "tool": "run_command", "command": command,
-                "exit_code": -1, "stdout": "", "stderr": "",
-                "ok": False, "streamed": True,
-                "errorCode": "DANGEROUS_COMMAND",
-                "message": f"命令包含禁止的模式: {pat}(安全限制)",
-            }
+    if _is_dangerous_command_blocked():
+        _DANGEROUS_PATTERNS: list[str] = list(_policy.get("dangerous_patterns") or [])
+        for pat in _DANGEROUS_PATTERNS:
+            if re.search(pat, command):
+                return {
+                    "tool": "run_command", "command": command,
+                    "exit_code": -1, "stdout": "", "stderr": "",
+                    "ok": False, "streamed": True,
+                    "errorCode": "DANGEROUS_COMMAND",
+                    "message": f"命令包含禁止的模式: {pat}(安全限制)",
+                }
 
     # 命令前缀白名单 —— 单一权威源 command_policy.json
     _ALLOWED_PREFIXES: set[str] = set(_policy.get("allowed_prefixes") or [])
@@ -4142,14 +4226,25 @@ async def _tool_run_command(
     _killer: asyncio.Task[None] | None = None
     proc: asyncio.subprocess.Process | None = None
     try:
-        import shlex
-        import sys
-
-        _WIN_BUILTINS = {
-            "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
-            "prompt", "title", "path", "assoc", "ftype",
-        }
         args = shlex.split(command, posix=sys.platform != "win32")
+        # AIS-081(机制修订):只在真正经 shell 解释的形态下判元字符;argv 直传的
+        # `&`/`^` 是字面参数(引号内的字面量同样跳过),不再无差别误挡。
+        _shell_form = _shell_interpretation_of(command, cmd_name)
+        if _shell_form is not None:
+            _metachar = _first_shell_metacharacter(command)
+            if _metachar is not None:
+                return {
+                    "tool": "run_command", "command": command,
+                    "exit_code": -1, "stdout": "", "stderr": "",
+                    "ok": False, "streamed": True,
+                    "errorCode": "SHELL_METACHARACTER_BLOCKED",
+                    "matched": _metachar,
+                    "shell_form": _shell_form,
+                    "message": (
+                        f"命令经 {_shell_form} 解释,包含禁止的 shell 元字符 {_metachar!r}"
+                        "(拼接会改变语义,安全限制)"
+                    ),
+                }
         # 差距⑦(2026-10-30):原先 user_env 缺省时传 env=None 让子进程**裸继承**
         # os.environ —— vault 过滤与凭据/注入型变量剥离全部旁路,"不带 env 参数"
         # 反而成了消毒豁免面。改为恒走消毒出口(None 与 {} 同形,行为差异只有
@@ -4167,7 +4262,7 @@ async def _tool_run_command(
             terminal_interaction_enabled() and _terminal_id and _term_ctx.get("push")
         )
 
-        if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
+        if sys.platform == "win32" and cmd_name in WIN_SHELL_BUILTINS:
             proc = await asyncio.create_subprocess_exec(
                 "cmd", "/c", command,
                 cwd=cwd, env=env_for_proc,
@@ -5902,6 +5997,19 @@ async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[
     url = arguments.get("url")
     if not url or not isinstance(url, str):
         return {"tool": "browser_selfcheck_screenshot", "ok": False, "error": "缺少 url 参数"}
+    # AIS-051:与 screenshot_url 同一份 SSRF 判据,命中私网/回环/链路本地/非 http(s)
+    # 就地拒绝,不发起任何页面访问。
+    from .screenshot_service import _validate_url_ssrf
+
+    ok_ssrf, ssrf_reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "browser_selfcheck_screenshot",
+            "ok": False,
+            "url": url,
+            "error": f"URL 不允许访问: {ssrf_reason}",
+            "errorCode": "SSRF_BLOCKED",
+        }
 
     viewport = arguments.get("viewport")
     if viewport is not None and not isinstance(viewport, dict):
@@ -5945,6 +6053,19 @@ async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
     url = arguments.get("url")
     if not url or not isinstance(url, str):
         return {"tool": "browser_selfcheck", "ok": False, "error": "缺少 url 参数"}
+    # AIS-051:同上,与 screenshot_url 同一份 SSRF 判据,拒绝时不得触发截图/视觉链路。
+    from .screenshot_service import _validate_url_ssrf
+
+    ok_ssrf, ssrf_reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "browser_selfcheck",
+            "ok": False,
+            "url": url,
+            "checks": [],
+            "error": f"URL 不允许访问: {ssrf_reason}",
+            "errorCode": "SSRF_BLOCKED",
+        }
 
     checks = arguments.get("checks") or []
     if not isinstance(checks, list):
@@ -9010,34 +9131,28 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
 
     try:
         if path:
-            # AIS-050:上传前的本地读取同样必须过工作区/敏感文件闸(同 read_file)。
-            ok_path, resolved_path = _validate_path_in_workspace(path)
+            ok_path, path_info, path_err = _validate_media_local_path(path)
             if not ok_path:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
-                    "error": f"路径不允许: {resolved_path}", "errorCode": "PATH_BLOCKED",
+                    "error": path_info, "errorCode": path_err,
                     "file_url": None,
                 }
-            if _is_sensitive_file(resolved_path):
-                return {
-                    "tool": "token6688_upload_file", "ok": False,
-                    "error": "拒绝读取敏感文件(可能含 API key/私钥/凭证)",
-                    "errorCode": "SENSITIVE_FILE_BLOCKED", "file_url": None,
-                }
-            if not os.path.isfile(resolved_path):
+            path = path_info
+            if not os.path.isfile(path):
                 return {
                     "tool": "token6688_upload_file", "ok": False,
                     "error": f"文件不存在: {path}", "errorCode": "FILE_NOT_FOUND",
                     "file_url": None,
                 }
-            size = os.path.getsize(resolved_path)
+            size = os.path.getsize(path)
             if size > 50 * 1024 * 1024:
                 return {
                     "tool": "token6688_upload_file", "ok": False,
                     "error": f"文件超过 50MB 上限({size} 字节)", "errorCode": "FILE_TOO_LARGE",
                     "file_url": None,
                 }
-            with open(resolved_path, "rb") as _f:
+            with open(path, "rb") as _f:
                 data = _f.read()
             filename = os.path.basename(path) or "file.bin"
         else:
@@ -9351,12 +9466,156 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# AIS-050(2026-11-08 裁定):声纹克隆是贵资源,不能只靠路径校验 ——
+# 归属闸(谁克隆的只能谁 list/get/delete)+ 计费闸(克隆属计费动作)。
+# 归属存储沿用仓内 sidecar 思路(artifacts `<file>.owner` 同一授权契约):
+# 平台声纹库是共享账号、上游无属主概念,故本地维护 voice_id → user_id 账本。
+# 账本缺失(机制上线前的存量声纹)一律 fail-closed —— 无法证明归属就不许读删,
+# 与 AIS-096「新产物缺 sidecar 即 403」同一口径。账本读写失败同样 fail-closed,
+# 且必须留显式告警,不许静默当成"没有属主"。
+_VOICE_OWNER_STORE_ENV: Final[str] = "VOICE_OWNER_STORE"
+# 一次克隆(上游训练 + 挂载)按 100 积分报价:高于生图默认 floor(8),属"需要余额/批准"
+# 的贵资源档;宿主未盖章余额时维持旧路径不计量(与 gate_image_spend 同判据)。
+VOICE_CLONE_QUOTED_CREDITS: Final[int] = 100
+
+
+def _voice_owner_store_path() -> Path:
+    raw = os.getenv(_VOICE_OWNER_STORE_ENV, "").strip()
+    return Path(raw) if raw else Path(".uploads") / "voice_owners.json"
+
+
+def _load_voice_owners() -> dict[str, Any]:
+    path = _voice_owner_store_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        logger.warning(
+            "[mcp] 声纹归属账本读取失败(AIS-050 fail-closed): path=%s err=%s", path, exc
+        )
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _voice_owner_of(voice_id: str, owners: dict[str, Any] | None = None) -> str:
+    entry = (owners if owners is not None else _load_voice_owners()).get(voice_id)
+    if isinstance(entry, dict):
+        return str(entry.get("user_id") or "").strip()
+    if isinstance(entry, str):
+        return entry.strip()
+    return ""
+
+
+def _remember_voice_owner(voice_id: str, user_id: str) -> None:
+    """登记的失败不阻断克隆(上游已完成),但必须告警;后续 get/delete 会 fail-closed。"""
+    if not voice_id or not user_id:
+        return
+    path = _voice_owner_store_path()
+    owners = _load_voice_owners()
+    owners[voice_id] = {"user_id": user_id, "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(owners, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as exc:
+        logger.warning(
+            "[mcp] 声纹归属登记失败(AIS-050,后续 get/delete 将 fail-closed): voice=%s err=%s",
+            voice_id,
+            exc,
+        )
+
+
+def _voice_identity_denial(action: str) -> dict[str, Any] | None:
+    """列表/读/删/克隆都必须有宿主注入的身份;缺失按 fail-closed 拒。"""
+    logger.warning(
+        "[mcp] voice_clone 缺少宿主注入身份(AIS-050 归属闸): action=%s code=IDENTITY_REQUIRED",
+        action,
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": action,
+        "errorCode": "IDENTITY_REQUIRED",
+        "error": "声纹属于个人资产,必须携带宿主注入的用户身份后才能操作",
+    }
+
+
+def _voice_id_of(item: Any) -> str:
+    if not isinstance(item, dict):
+        return ""
+    return str(item.get("voice_id") or item.get("id") or "").strip()
+
+
+def _voice_owner_denial(
+    arguments: dict[str, Any], voice_id: str, action: str
+) -> dict[str, Any] | None:
+    user_id = str(arguments.get("__user_id") or "").strip()
+    if not user_id:
+        return _voice_identity_denial(action)
+    owner = _voice_owner_of(voice_id)
+    if owner == user_id:
+        return None
+    logger.warning(
+        "[mcp] voice_clone 归属校验失败(AIS-050): action=%s voice=%s caller=%s owner=%s code=VOICE_NOT_OWNED",
+        action, voice_id or "-", user_id, owner or "(无归属记录)",
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": action,
+        "voice_id": voice_id or None,
+        "errorCode": "VOICE_NOT_OWNED",
+        "error": "该声纹不属于当前用户(机制上线前的存量声纹无归属记录,同样拒绝)",
+    }
+
+
+def _voice_clone_credit_denial(arguments: dict[str, Any]) -> dict[str, Any] | None:
+    """克隆计费闸:复用生图的 decide_credit_spend 判据,拒绝发生在上游之前。"""
+    from app.core.mcp_tool_approval import (
+        HOST_APPROVAL_KEY,
+        HOST_BALANCE_KEY,
+        decide_credit_spend,
+    )
+
+    if HOST_BALANCE_KEY not in arguments or arguments.get(HOST_BALANCE_KEY) is None:
+        return None  # 宿主没盖章余额 ⇒ 不计量,维持旧路径
+    balance = arguments.get(HOST_BALANCE_KEY)
+    approval = arguments.get(HOST_APPROVAL_KEY)
+    if approval not in ("granted", "denied"):
+        approval = None if approval is None else "unrecognized"
+    if isinstance(balance, bool) or not isinstance(balance, int) or balance < 0:
+        quoted, disposition, reason = None, "unjudged", "balance-invalid"
+    else:
+        quoted = VOICE_CLONE_QUOTED_CREDITS
+        disposition, reason = decide_credit_spend(
+            quoted_credits=quoted, balance_credits=balance, approval=approval
+        )
+        if approval == "unrecognized":
+            disposition, reason = "unjudged", "approval-unrecognized"
+    if disposition == "allow":
+        return None
+    logger.warning(
+        "[mcp] 声纹克隆计费闸拒绝(AIS-050): disposition=%s reason=%s quoted=%s balance=%s code=CREDIT_APPROVAL_REQUIRED",
+        disposition, reason, quoted, balance,
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": "upload",
+        "errorCode": "CREDIT_APPROVAL_REQUIRED",
+        "error": "声纹克隆属于计费资源,当前余额/批准不足,已在调用上游前拦截",
+        "creditSpend": {
+            "disposition": disposition, "quotedCredits": quoted,
+            "balanceCredits": balance if isinstance(balance, int) else None,
+            "reason": reason,
+        },
+    }
+
+
 def _audio_source_from_args(
     arguments: dict[str, Any],
-) -> tuple[bytes, str, str | None]:
+) -> tuple[bytes, str, str | None, str | None]:
     """从工具入参解析音频字节:path / url / data URI 三选一。
 
-    Returns (audio_bytes, filename, error)。error 非 None 时前两者为空。
+    Returns (audio_bytes, filename, error, error_code)。error 非 None 时前两者为空;
+    error_code 是结构化错误码(path 分支被工作区/敏感文件判据拒绝时为
+    PATH_NOT_ALLOWED / SENSITIVE_FILE_BLOCKED)。
     """
     import base64 as _b64
     import os as _os
@@ -9366,63 +9625,60 @@ def _audio_source_from_args(
     data_uri = str(arguments.get("data_uri") or "").strip()
     sources = sum(bool(v) for v in (path, url, data_uri))
     if sources == 0:
-        return b"", "", "缺少入参:path / url / data_uri 至少传一个"
+        return b"", "", "缺少入参:path / url / data_uri 至少传一个", None
     if sources > 1:
-        return b"", "", "path / url / data_uri 只能传一个"
+        return b"", "", "path / url / data_uri 只能传一个", None
     if path:
-        # AIS-050:本地路径分支与 read_file 同一判据(工作区白名单 + 敏感文件),
-        # 防止把 data/sessions.db、.env、私钥等直接读出发往第三方。
-        ok, resolved = _validate_path_in_workspace(path)
-        if not ok:
-            return b"", "", f"路径不允许: {resolved}"
-        if _is_sensitive_file(resolved):
-            return b"", "", "拒绝读取敏感文件(可能含 API key/私钥/凭证)"
-        if not _os.path.isfile(resolved):
-            return b"", "", f"文件不存在: {path}"
-        size = _os.path.getsize(resolved)
+        ok_path, path_info, path_err = _validate_media_local_path(path)
+        if not ok_path:
+            return b"", "", path_info, path_err
+        path = path_info
+        if not _os.path.isfile(path):
+            return b"", "", f"文件不存在: {path}", None
+        size = _os.path.getsize(path)
         if size >= 20 * 1024 * 1024:
-            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制"
+            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制", None
         try:
-            with open(resolved, "rb") as _f:
-                return _f.read(), _os.path.basename(resolved) or "ref.wav", None
+            with open(path, "rb") as _f:
+                return _f.read(), _os.path.basename(path) or "ref.wav", None, None
         except OSError as e:
-            return b"", "", f"读取文件失败: {e}"
+            return b"", "", f"读取文件失败: {e}", None
     if url:
         from .screenshot_service import _validate_url_ssrf
 
         ok_ssrf, reason = _validate_url_ssrf(url)
         if not ok_ssrf:
-            return b"", "", f"URL 不允许访问: {reason}"
+            return b"", "", f"URL 不允许访问: {reason}", None
         import httpx as _httpx
 
         # 2026-10-31 安全强化第 32 批:走同步版 SSRF 安全下载单源(逐跳 + 钉 IP)。
         # 此前 follow_redirects=True ⇒ 公网 302 → 内网音频可被拉取。
         data = _download_url_ssrf_safe_sync(url, _httpx, timeout=60.0)
         if data is None:
-            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)"
+            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)", None
         if len(data) >= 20 * 1024 * 1024:
-            return b"", "", "远程音频超过官方 <20MiB 硬限制"
-        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None
+            return b"", "", "远程音频超过官方 <20MiB 硬限制", None
+        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None, None
     # data URI:data:audio/mpeg;base64,....
     # 2026-09-09 修复:partition 结果变量原命名为 _b64,遮蔽了 import base64 as _b64
     # 的模块引用,导致 b64decode 抛 AttributeError → 永远"解码失败"。改名 _b64payload。
     _head, _sep, _b64payload = data_uri.partition(",")
     if not _sep or not _b64payload:
-        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)"
+        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)", None
     try:
         data = _b64.b64decode(_b64payload)
     except Exception:  # noqa: BLE001
         data = b""
     if not data:
-        return b"", "", "data_uri base64 解码失败或内容为空"
+        return b"", "", "data_uri base64 解码失败或内容为空", None
     if len(data) >= 20 * 1024 * 1024:
-        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制"
+        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制", None
     ext = "mp3"
     if _head and "/" in _head:
         _mime = _head.split(";", 1)[0].split("/", 1)[-1]
         if _mime in ("wav", "wave", "m4a", "mp3"):
             ext = "wav" if _mime == "wave" else _mime
-    return data, f"ref.{ext}", None
+    return data, f"ref.{ext}", None, None
 
 
 async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -9453,10 +9709,16 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
         }
     try:
         if action == "list":
+            user_id = str(arguments.get("__user_id") or "").strip()
+            if not user_id:
+                return _voice_identity_denial("list")
             voices = await inst.list_voices()
+            owners = _load_voice_owners()
+            mine = [v for v in voices if _voice_owner_of(_voice_id_of(v), owners) == user_id]
             return {
                 "tool": "token6688_voice_clone", "ok": True, "action": "list",
-                "count": len(voices), "voices": voices,
+                "count": len(mine), "voices": mine,
+                "omitted": max(0, len(voices) - len(mine)),
                 "hint": "把某个 voice_id 传给 voice_tts(engine=token6688,voice=voice_id)即可克隆合成",
             }
         if action == "get":
@@ -9466,6 +9728,9 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                     "tool": "token6688_voice_clone", "ok": False,
                     "error": "缺少 voice_id(action=get 需要)", "errorCode": "MISSING_PARAMS",
                 }
+            denial = _voice_owner_denial(arguments, voice_id, "get")
+            if denial is not None:
+                return denial
             data = await inst.get_voice(voice_id)
             return {
                 "tool": "token6688_voice_clone", "ok": True, "action": "get",
@@ -9478,6 +9743,9 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                     "tool": "token6688_voice_clone", "ok": False,
                     "error": "缺少 voice_id(action=delete 需要)", "errorCode": "MISSING_PARAMS",
                 }
+            denial = _voice_owner_denial(arguments, voice_id, "delete")
+            if denial is not None:
+                return denial
             result = await inst.delete_voice(voice_id)
             return {
                 "tool": "token6688_voice_clone", "ok": bool(result.get("ok")), "action": "delete",
@@ -9485,12 +9753,18 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                 "error": result.get("error"), "raw": result.get("raw"),
                 "hint": "声纹已删除" if result.get("ok") else f"删除失败(status={result.get('status')})",
             }
-        # action == "upload"
-        audio, filename, err = _audio_source_from_args(arguments)
+        # action == "upload":贵资源 —— 身份 + 计费闸都必须在读音频/调上游之前。
+        user_id = str(arguments.get("__user_id") or "").strip()
+        if not user_id:
+            return _voice_identity_denial("upload")
+        credit_denial = _voice_clone_credit_denial(arguments)
+        if credit_denial is not None:
+            return credit_denial
+        audio, filename, err, err_code = _audio_source_from_args(arguments)
         if err:
             return {
                 "tool": "token6688_voice_clone", "ok": False,
-                "error": err, "errorCode": "BAD_PARAMS",
+                "error": err, "errorCode": err_code or "BAD_PARAMS",
             }
         result = await inst.upload_voice(audio, filename)
         voice_id = ""
@@ -9499,6 +9773,7 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
             voice_id = str(v.get("id") or v.get("voice_id") or "").strip()
         if not voice_id:
             voice_id = str(result.get("id") or result.get("voice_id") or "").strip()
+        _remember_voice_owner(voice_id, user_id)
         return {
             "tool": "token6688_voice_clone", "ok": True, "action": "upload",
             "voice_id": voice_id or None, "voice": v if isinstance(v, dict) else None,
@@ -9657,6 +9932,14 @@ async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]
         # 本地路径(如 voice_tts save_path 落地的音频)
         from pathlib import Path as _Path
 
+        ok_path, path_info, path_err = _validate_media_local_path(audio_in)
+        if not ok_path:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": path_info, "errorCode": path_err,
+                "text": None,
+            }
+        audio_in = path_info
         p = _Path(audio_in)
         if not p.is_file():
             return {
@@ -10610,6 +10893,54 @@ def _bg_task_types_prose() -> str:
     return "/".join(RUN_IN_BACKGROUND_TASK_TYPES)
 
 
+# AIS-031(2026-11-08):任务类型**分派闸**。
+# `run_in_background` 与 `run_workflow` 都允许模型自填 task/agent,而 `task_executors`
+# 注册表里 `long_running_command`(任意 argv)与 `test_suite`(起 pytest)是"以服务账号
+# 执行代码"的同一档能力 —— 与 admin-only 的 `run_command` 同能力却低一档门槛:
+# 旧注释把 `run_in_background` 整只工具当"只读/低危"排除在 `_ADMIN_ONLY_TOOLS` 之外,
+# 于是 role=0 用 `{"task":"long_running_command","command":["python","-c","..."]}`
+# 即可起任意进程(`dangerous_command_match` 只判 rm 一类破坏性命令,`python -c` 判"安全")。
+#
+# 收口位置刻意在**分派之前**:拒绝时零副作用 —— 不 submit、不起进程、不落 checkpoint。
+# 角色只认宿主注入的 `__user_role`(`call_tool` 注入,LLM 不可控);缺失/畸形容一律按 0
+# (fail-closed)。特权类型之外(sleep/echo/patrol...)role=0 保持原样,对话链不断。
+_ADMIN_ONLY_DISPATCH_TASK_TYPES: frozenset[str] = frozenset(
+    {"long_running_command", "test_suite"}
+)
+
+
+def _dispatch_permission_denial(
+    tool: str, task_type: str, arguments: dict[str, Any]
+) -> dict[str, Any] | None:
+    """非 admin 把特权 task_type 交给 executor ⇒ PERMISSION_DENIED(留结构化告警)。
+
+    同一判据被 `run_in_background`(task)与 `run_workflow`(节点 agent)两扇门共用 ——
+    两张工具面都是 `task_executors.execute_task` 的分派入口,只堵一扇等于没堵。
+    """
+    if task_type not in _ADMIN_ONLY_DISPATCH_TASK_TYPES:
+        return None
+    try:
+        role = int(arguments.get("__user_role") or 0)
+    except (TypeError, ValueError):
+        role = 0
+    if role >= 1:
+        return None
+    logger.warning(
+        "[mcp] 越权任务分派被拒(AIS-031): tool=%s task=%s user_role=%s code=PERMISSION_DENIED",
+        tool,
+        task_type,
+        role,
+    )
+    return {
+        "ok": False,
+        "tool": tool,
+        "errorCode": "PERMISSION_DENIED",
+        "error": f"任务类型 '{task_type}' 需要 admin 权限(role >= 1),当前 role={role}",
+        "task_type": task_type,
+        "executed": False,
+    }
+
+
 async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     """run_in_background:提交后台任务并立即返回 task_id(不阻塞当前循环)。
 
@@ -10622,6 +10953,12 @@ async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     未知类型由那一层返回 `ok:False` + `supported_task_types` + `executed:False`,
     绝不伪装成执行成功。完成后若 notify_on_done,经 message_bus 的 IM 通道推送通知。
     """
+    denial = _dispatch_permission_denial(
+        "run_in_background", str(arguments.get("task", "")).strip(), arguments
+    )
+    if denial is not None:
+        return denial
+
     from .background_tasks import run_in_background
 
     return await run_in_background(arguments)
@@ -11358,6 +11695,19 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少宿主注入的调用者身份",
             "missingKeys": identity_error.get("missingKeys"),
         }
+    # AIS-031:节点 `agent` 就是 task_type —— 与 run_in_background 同一条分派出口的另一扇门。
+    # 放在身份校验之后、run_workflow 之前:拒绝时零节点执行(不落 checkpoint、不跑上游节点)。
+    nodes_raw = arguments.get("nodes")
+    if isinstance(nodes_raw, list):
+        for node in nodes_raw:
+            if not isinstance(node, dict):
+                continue
+            denial = _dispatch_permission_denial(
+                "run_workflow", str(node.get("agent") or "").strip(), arguments
+            )
+            if denial is not None:
+                return denial
+
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
     result = await run_workflow(

@@ -28,12 +28,13 @@ def _granted_code_index_egress(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def _register_tmp_workspace(tmp_path, monkeypatch):
-    """AIS-080:本文件以 tmp_path 当索引/搜索根,登记为允许根,正常路径不被误挡。"""
-    import os
-
-    monkeypatch.setenv(
-        "MCP_WORKSPACE_ROOTS", f"{os.getcwd()}{os.pathsep}{tmp_path}"
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-080:index_codebase 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。"""
+    real = mcp_server._get_workspace_roots
+    monkeypatch.setattr(
+        mcp_server,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
     )
 
 
