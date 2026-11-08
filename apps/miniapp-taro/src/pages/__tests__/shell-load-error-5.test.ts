@@ -1,0 +1,24 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * XUI-066(第 3b 组):通知设置壳把加载失败写死成 error="",失败只剩一次性 toast,
+ * 屏内无失败留痕;共享屏已有 onRetry ⇒ 现在把 loadError 上抛让它可重试。
+ */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const APP_ROOT = join(__dirname, '..', '..', '..')
+const read = (p: string) => readFileSync(join(APP_ROOT, p), 'utf8')
+
+describe('XUI-066 组3b:通知设置壳必须把加载失败上抛', () => {
+  it('不再写死 error=""', () => {
+    const src = read('src/pages/setting/notification.tsx')
+    expect(src).not.toContain('error=""')
+    expect(src).toContain('const [loadError, setLoadError] = useState(')
+    expect(src).toContain('error={loadError}')
+    expect(src.match(/setLoadError\(/g)?.length).toBe(2)
+    expect(src).toMatch(/setLoadError\(tt\('common\.loadFailed'/)
+  })
+})
