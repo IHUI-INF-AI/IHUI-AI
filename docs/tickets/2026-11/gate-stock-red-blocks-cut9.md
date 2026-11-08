@@ -67,6 +67,17 @@
 1,10,102,103,105,106,107,108,109,11,111,112,113,115,116,119,11b,11d,11e,11f,11g,11h,12,120,121,123,124,131,135,136,137,138,139,141,144,145,146,147,15,157,159,160,161,167,168,17,170,171,177,18,189,195,197,198,199,2,20,200,201,205,206,207,209,212,213,214,217,218,219,224,227,228,231,232,235,238,240,249,24a,25,253,254,256,258,259,260,263,266,268,27,270,271,272,273,274,275,278,279,283,287,288,289,29,290,291,295,2b,2c,2d,2e,2f-ext,2f-miniapp-taro,2f-mobile-rn,2f-shared,2f-shared-diff,2f-web,2g-ext,2g-web,2h-ext,2i-ext,2j-shared,2k-shared,2m-shared,2n-web,2o-miniapp-taro,2o-mobile-rn,2o-shared,2p-api,2q-cli,2r-miniapp-taro,2s-mobile-rn,2t-api,2u-cli,2v-miniapp-taro,2w-mobile-rn,30,309,30c,310,34,35,36,38,39,42,46,50,51,52,53,55,56,6,60,63,67,69,7,70,72,73,74,77,78,8,81,83,84,87,90,91,93,97,98
 ```
 
+### 后续入口：174 道 pending 逐门确认
+
+- 清单常量：`scripts/lib/gate-face-registry.mjs` 的 `PENDING_DELTA_GATE_IDS`（174 项）。当前**先按 delta 保守处理 = 恒阻断**，所以这 174 道不会因为本票被放宽。
+- 每门只允许三选一，并在本票追加一行「门 id / 结论 / 依据」：
+  1. 归 `stock`：必须同时给出 `STOCK_FACE_PATHS` 的判据面，且过「引入即拦」夹具（触及即红 / 未触及只报数）；
+  2. 留 `delta`：写明「为什么它只看本笔」（读 `--staged`，或判据面只落在暂存面）；
+  3. 标 `refs`：走 41 同款「快进不算 / 非快进重指算」的后代尺。
+- 验收命令：`node --test scripts/tests/gate-face-stock.test.mjs`（面分类与降级语义夹具）、`node --test scripts/tests/gate-face-registry.test.mjs`（若后续新增数量/清单断言）。
+- 计数核对：`node -e "import('./scripts/lib/gate-face-registry.mjs').then(m=>console.log(m.PENDING_DELTA_GATE_IDS.size))"`。
+- 本小节即该清单的**唯一后续入口**：新开执行票时引用本小节，不再另起口径。
+
 ### 语义（`scripts/lib/guardian-executor.mjs`）
 
 - `delta` 门：meta 档常跑、全档必跑，判红即阻断（行为不变）。
@@ -138,4 +149,16 @@
   1. 裸 git 派生的生产文件数只减不增 —— 未登记的实参至少含 `scripts/git-guardian.mjs`、`scripts/lib/push-receipt.mjs`；
   2. 自拼 `cat-file --batch` 却不走本层的门，数量只减不增；
   3. 判「远端在哪」只许走层（跟踪 ref 会被清理层删掉）。
-- 处置：这 3 条属台账/债务面缺口，与 302p 提速无关；在 main 上同样红 ⇒ 不得记到本笔头上。
+- 处置：这 3 条属台账/债务面缺口，与 302p 提速无关；在 main 上同样红 ⇒ 不得记到本笔头上。已另开票：[`face-reader-debt-ledger-gap.md`](./face-reader-debt-ledger-gap.md)（本笔不修）。
+- 改造方向（未实现）——**已被上方「落地」节取代，仅留作决策留痕**：两条入口共用同一份门注册表；存量门在提交面按「本笔是否触及」判——未触及只报数，不阻断无关改动，避免存量红顶住提速合并。
+
+## 处置回填（2026-11-08，独立 worktree，基线 d4e1621806）
+
+- [57] 复核结论：元素本就应当存在，且两端都已真实渲染，只是锚点在共享屏重构后漂移。`ai.chatMessageItem.errorCardTitle` 现于 `packages/app/src/features/chat/ChatMessageItem.tsx:284` 的 `t(...)` 调用中渲染；`<TaskStatusBar` 现于 `apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx:330` 渲染。已将 `scripts/data/chat-flow-elements.json` 两条锚点的 `file` 改指真实宿主（同条目锚点数不变），门 57 由红转绿。
+- [204] 复核结论：两处 `.message.includes(` 不是错误归因，而是「自己刚抛出的哨兵」身份判断；且哨兵文本与 catch 兜底文本逐字相同，该 `if` 分支完全冗余。已把 try 收窄到只包 `JSON.parse`，形状校验移到 catch 外，行为等价、零文本判定。门 204 `--worktree` 站点 2 → 0，红转绿。夹具：`apps/cli/tests/memory.test.ts` 增 `installed` 非数组、`apps/cli/tests/plugin-marketplace.test.ts` 增 `records` 非数组两条 fail-closed 断言。
+- [70b] 复核结论：两键确为 web 侧旧结果页残留，唯一同命名空间消费者 `PageClient.tsx` 已改读 shared 的 `exam.result.*`。五语言同步删除 `examResult.correct` / `examResult.wrongQuestions`，并按 KR 规则在 `scripts/data/i18n-key-removals.json` 逐文件声明（until 2027-11-08）。死键 2 → 0，红转绿；i18n parity 5 语言 OK。
+- [41] 仅清点，未删除任何分支。19 条超 48h 旁支分类（证据：`git cherry` + `rev-list --not --remotes=origin`）：
+  - 已全部并入 main（可删，命令按门内 A/B 档执行并先 tag 备份）：`fix/ai-service`（4/4）、`fix/cli-p0`（10/10）、`fix/desktop-cap`（6/6）、`fix/internal-ticket-verify`（2/2）、`fix/rls`（2/2）、`fix/web-p0`（2/2）、`land/g40`（1/1）、`wt-root-desktop-auto-refresh`（1/1）、`origin/fix/knip-unused-exports-1106`（tip 即 main 祖先）。
+  - 有未并入 main 的独有提交（必须保留，先走分支+PR 入库）：`fix/escape-test-samples`（+1）、`fix/internal-auth`（+1，另 2 已等价入库）、`fix/internal-xsecret-ticket`（+2）、`fix/plugin-path-failopen`（+1）、`fix/root-compose-hardening`（+1）、`wt-apiroutes`（+2）。
+  - 仅远程跟踪引用（远端真实存在，本地无同名分支；远端未合并者必须保留）：`origin/fix/knip-unused-exports-1105`（独有 +1）、`origin/fix/orphan-deletion-guard`（+2）、`origin/fix/plan-ledger-close-1106`（+2）、`origin/fix/test-python-qoder-midnight-1106`（+1）；其中 `origin/fix/knip-unused-exports-1106` 已并入，可由远端 owner 删分支。
+  - 本地未合并分支的独有提交同时是「未推送」提交（`rev-list --not --remotes=origin` 计数与 `git cherry` 的 `+` 数一致）。
