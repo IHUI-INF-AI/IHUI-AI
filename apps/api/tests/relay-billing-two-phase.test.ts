@@ -136,6 +136,8 @@ import {
   recordCall,
   type PreDeduction,
 } from '../src/services/relay-billing-service.js'
+import { incrKeyRateWindows } from '../src/services/key-rate-window-service.js'
+import { consumeSubscriptionWindowUsage } from '../src/services/subscription-window-service.js'
 
 describe('relay-billing-service — 两段式计费(2026-09-12 立)', () => {
   beforeEach(() => {
@@ -340,16 +342,12 @@ describe('relay-billing-service — 两段式计费(2026-09-12 立)', () => {
       expect(setFn).toHaveBeenCalledTimes(2)
     })
 
-    it('缓存命中(cacheHit):成本 0,预扣全额退回(delta 全为正)', async () => {
-      mockDbReadSelect
-        .mockReturnValueOnce(chain([]))
-        .mockReturnValueOnce(chain([]))
-        .mockReturnValueOnce(chain([{ tokenBalance: 10000, costBalanceCents: 5000 }]))
-      mockDbInsert.mockReturnValue({
-        values: vi.fn().mockReturnValue({
-          returning: vi.fn().mockResolvedValue([{ id: 'log-tp-2' }]),
-        }),
+    it('缓存命中(cacheHit):token 配额按 0 计、请求次数照计,节省量另列不得与真实调用混算', async () => {
+      mockDbReadSelect.mockReturnValue(chain([{ tokenBalance: 10000, costBalanceCents: 5000 }]))
+      const valuesFn = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 'log-tp-2' }]),
       })
+      mockDbInsert.mockReturnValue({ values: valuesFn })
       flexibleUpdate()
 
       const result = await recordCall({
@@ -358,9 +356,10 @@ describe('relay-billing-service — 两段式计费(2026-09-12 立)', () => {
         model: 'gpt-test',
         prompt: 'hello',
         response: 'cached',
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
+        // 缓存里保留的是真实上游 usage:这笔是"被省下的量",不是本次实际消耗
+        promptTokens: 480,
+        completionTokens: 322,
+        totalTokens: 802,
         latencyMs: 5,
         status: 'success',
         mode: 'relay',
@@ -368,9 +367,116 @@ describe('relay-billing-service — 两段式计费(2026-09-12 立)', () => {
         preDeducted: { apiKeyId: 'key-1', userId: 'user-1', tokens: 500, cents: 50 },
       })
 
+      const row = valuesFn.mock.calls[0]![0] as Record<string, unknown>
+      // 命中不计 token:台账 token 列全 0,与真实上游调用区分开
+      expect([row.promptTokens, row.completionTokens, row.totalTokens]).toEqual([0, 0, 0])
+      expect(row.costCents).toBe(0)
+      expect(row.metadata).toMatchObject({
+        cacheHit: true,
+        cacheSavedTokens: 802,
+        quotaBilledTokens: 0,
+        requestCounted: true,
+      })
+      // 订阅窗口按 0/0 消费:命中不占 token 配额
+      expect(vi.mocked(consumeSubscriptionWindowUsage)).toHaveBeenCalledWith('user-1', 0, 0)
+      // 请求次数照计:防滥用
+      expect(vi.mocked(incrKeyRateWindows)).toHaveBeenCalledTimes(1)
       expect(result.costCents).toBe(0)
       expect(result.newTokenBalance).toBe(10000)
       expect(result.newCostBalanceCents).toBe(5000)
+    })
+
+    it('缓存命中且无预扣:请求次数仍计 1 次、token 列仍为 0', async () => {
+      mockDbReadSelect.mockReturnValue(chain([]))
+      const valuesFn = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 'log-tp-3' }]),
+      })
+      mockDbInsert.mockReturnValue({ values: valuesFn })
+      flexibleUpdate([{ tokenBalance: 10000, costBalanceCents: 5000 }])
+
+      await recordCall({
+        apiKeyId: 'key-1',
+        userId: 'user-1',
+        model: 'gpt-test',
+        prompt: 'hello',
+        response: 'cached',
+        promptTokens: 180,
+        completionTokens: 120,
+        totalTokens: 300,
+        latencyMs: 5,
+        status: 'success',
+        mode: 'relay',
+        metadata: { cacheHit: true },
+      })
+
+      expect(vi.mocked(incrKeyRateWindows)).toHaveBeenCalledTimes(1)
+      const row = valuesFn.mock.calls[0]![0] as Record<string, unknown>
+      expect([row.promptTokens, row.completionTokens, row.totalTokens]).toEqual([0, 0, 0])
+      expect(row.metadata).toMatchObject({ cacheSavedTokens: 300, requestCounted: true })
+    })
+
+    it('partial(流中断但已产出 token):按实际 token 计费,不再全额免单', async () => {
+      // ①calculateCost modelRow ②pricingRow ③结算后余额读取
+      mockDbReadSelect
+        .mockReturnValueOnce(chain([{ inputPricePer1k: 10, outputPricePer1k: 30 }]))
+        .mockReturnValueOnce(chain([]))
+        .mockReturnValueOnce(chain([{ tokenBalance: 9500, costBalanceCents: 4996 }]))
+      const valuesFn = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 'log-tp-partial' }]),
+      })
+      mockDbInsert.mockReturnValue({ values: valuesFn })
+      flexibleUpdate()
+
+      const result = await recordCall({
+        apiKeyId: 'key-1',
+        userId: 'user-1',
+        model: 'gpt-test',
+        prompt: 'hello',
+        response: 'half',
+        promptTokens: 100,
+        completionTokens: 100,
+        totalTokens: 200,
+        latencyMs: 5,
+        status: 'partial',
+        errorMessage: 'client disconnected',
+        mode: 'relay',
+        preDeducted: { apiKeyId: 'key-1', userId: 'user-1', tokens: 500, cents: 50 },
+      })
+
+      expect(result.costCents).toBe(4)
+      const row = valuesFn.mock.calls[0]![0] as Record<string, unknown>
+      expect(row.status).toBe('partial')
+      expect(row.metadata).not.toHaveProperty('noChargeReason')
+    })
+
+    it('error(零产出/上游失败):全额免单并写明 noChargeReason', async () => {
+      mockDbReadSelect
+        .mockReturnValueOnce(chain([{ inputPricePer1k: 10, outputPricePer1k: 30 }]))
+        .mockReturnValueOnce(chain([]))
+      const valuesFn = vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([{ id: 'log-tp-error' }]),
+      })
+      mockDbInsert.mockReturnValue({ values: valuesFn })
+      flexibleUpdate([{ tokenBalance: 10000, costBalanceCents: 5000 }])
+
+      const result = await recordCall({
+        apiKeyId: 'key-1',
+        userId: 'user-1',
+        model: 'gpt-test',
+        prompt: 'hello',
+        response: '',
+        promptTokens: 100,
+        completionTokens: 100,
+        totalTokens: 200,
+        latencyMs: 5,
+        status: 'error',
+        errorMessage: 'upstream 500',
+        mode: 'relay',
+      })
+
+      expect(result.costCents).toBe(0)
+      const row = valuesFn.mock.calls[0]![0] as Record<string, unknown>
+      expect(row.metadata).toMatchObject({ noChargeReason: 'status=error' })
     })
   })
 })
