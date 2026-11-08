@@ -65,10 +65,12 @@
  *                  `cursor..HEAD` 里的并行分支提交（不是游标后代）不会被新游标排除 ⇒
  *                  实测 2026-11-02 在 4 枚游标间循环 6 轮、pending 恒在 1833~1906 打转，
  *                  10-30 的存量永远判不完、告警每 4 小时重投一次。集合差集保证恰好一次且收敛。
- *   合并提交**跳过并计数**（`skippedMerges`）：它按第一父比 diff，命中就是父辈内容的并集，
- *                  而父辈那些枚自己已被判过 ⇒ 再判一遍是把同一件事记两回。残余缺口 =
- *                  恶意 merge 自己改判据面（两父都没有的形态）：那一格归 `root-guard --check`
- *                  的哈希封条（部署环 fail-closed），本档如实不覆盖。
+ *   合并提交**按逐父交集判**（2026-11-08 DG-05 更正）：取「与每个父的差异清单」的**交集**
+ *                  —— 那正是 merge 自己造出来、两父都没有的内容（evil merge）。与第一父比 diff
+ *                  会把父辈内容并集算成"本次改动"，所以旧实现整枚跳过并计数；跳过留下的缺口是
+ *                  恶意 merge 可无声改判据面（父辈各自都干净，merge 里塞第三版内容），本档此前
+ *                  不覆盖。现交集为空 ⇒ 干净合并不记红；交集非空且触及判据面 ⇒ 与普通提交同判
+ *                  （无声明即红）。交集取不到（git 派生失败）⇒ 该枚落 undetermined，不记绿(§0.3)。
  *
  * 判红不阻断任何提交（旁路检测档），但经 guardian 的到人通道按**稳定身份**去重上报
  * （`dedupKey='undeclared'`，明细与 sha 不进身份，§5e-3）：判据必须"看得见地响"。
@@ -638,6 +640,49 @@ export function listFaceChanges(root, face, rev = 'HEAD') {
     if (e instanceof Undetermined) throw e
     throw new Undetermined(`${face} 面取改动清单失败：${e?.message ?? e}`)
   }
+}
+
+/**
+ * 合并提交"自己引入"的改动面(DG-05):对每个父求 `<parent>..<merge>` 的改动清单并取 path 交集。
+ *
+ * 为什么是交集:与单父比 diff 得到的是"父辈内容 + 解决冲突时写下的第三版内容"的并集,
+ * 前者属于父辈那些提交(它们自己已被判过),后者才是 merge 提交独有的改动(evil merge)。
+ * 交集为空 = 干净合并(merge 树就是某一父或两父的无冲突拼接),不记红。
+ * 交集里的条目取"与第一父 diff"那一份 status/oldPath 读数(所有父都含该 path,形态一致即可)。
+ *
+ * 取不到父列表 / git diff 失败 ⇒ 抛 `Undetermined`(调用方落 undetermined,不记绿 §0.3)。
+ *
+ * @returns {Array<{status:string,path:string,oldPath?:string}>}
+ */
+export function mergeIntroductionChanges(root, sha) {
+  let parents
+  try {
+    parents = String(gitRaw(['rev-list', '--parents', '-n', '1', String(sha)], root))
+      .trim()
+      .split(/\s+/)
+      .slice(1)
+  } catch (e) {
+    throw new Undetermined(`${sha} 的父列表取不到:${e?.message ?? e}`)
+  }
+  if (parents.length < 2) {
+    throw new Undetermined(`${sha} 不是合并提交(父数 ${parents.length}),不应走逐父交集`)
+  }
+  let common = null
+  let firstChanges = null
+  for (const parent of parents) {
+    let changes
+    try {
+      changes = parseNameStatusZ(
+        gitRaw(['diff', '--name-status', '-M', '-z', String(parent), String(sha)], root),
+      )
+    } catch (e) {
+      throw new Undetermined(`${sha} 与父 ${String(parent).slice(0, 12)} 的差异取不到:${e?.message ?? e}`)
+    }
+    if (firstChanges === null) firstChanges = new Map(changes.map((c) => [c.path, c]))
+    const paths = new Set(changes.map((c) => c.path))
+    common = common === null ? paths : new Set([...common].filter((p) => paths.has(p)))
+  }
+  return [...common].map((p) => firstChanges.get(p)).filter(Boolean)
 }
 
 /**
@@ -1248,6 +1293,7 @@ const AUDIT_BASE = {
   audited: 0,
   judged: 0,
   skippedMerges: 0,
+  mergeJudged: 0,
   declared: 0,
   retro: [],
   attested: [],
@@ -1277,7 +1323,9 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
   const attested = []
   const detachedValid = []
   let declared = 0
-  let skippedMerges = 0
+  // 兼容读数:合并提交不再"跳过",该计数恒为 0;真正判定过的合并枚记在 mergeJudged。
+  const skippedMerges = 0
+  let mergeJudged = 0
   let judged = 0
   // 追认台账整批读一次(同一末端),逐枚只查自己的 sha;坏行带出去点名,不静默。
   const ack = readAckRows(root)
@@ -1303,9 +1351,39 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
   for (const sha of batch) {
     const meta = metas.get(sha) ?? null
     const parents = meta ? meta.parentCount : parentCount(root, sha)
+    // DG-05:合并提交按"与每个父的 diff 交集"判(交集 = merge 自己写下的第三版内容)。
+    // 取不到交集就落 undetermined —— 绝不能把"判不了"读成"干净合并"(§0.3)。
+    let mergeChanges
     if (parents > 1) {
-      skippedMerges += 1
-      continue
+      try {
+        mergeChanges = mergeIntroductionChanges(root, sha)
+      } catch (e) {
+        undetermined.push({
+          sha,
+          code: 'merge-face-missing',
+          subject: meta ? meta.subject : safeSubject(root, sha),
+          hits: [],
+          reasons: [],
+          problems: [],
+          signatureCode: '',
+          sigIssuedFor: null,
+          keySource: '',
+          windowUntil: null,
+          expired: [],
+          detail: String(e?.message ?? e),
+          ackedBy: '',
+          substitutedFor: '',
+          ackProblem: '',
+          reviewer: '',
+          attestedAt: '',
+          attestStage: '',
+          admitProblem: '',
+          detachedSignedAt: '',
+          detachedProblem: '',
+        })
+        continue
+      }
+      mergeJudged += 1
     }
     judged += 1
     // 根提交(0 父)不吃批表:`git log` 无父可差不吐差异,而逐枚档的 `rev^` 会失败 ⇒ `face-missing`。
@@ -1326,7 +1404,7 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
         ackKeyRes: sharedAckKeyRes,
         listTextPre,
         policyTextPre,
-        changesPre: useBatchChanges ? changesBatch.get(sha) : undefined,
+        changesPre: parents > 1 ? mergeChanges : useBatchChanges ? changesBatch.get(sha) : undefined,
         onOriginMainPre: originSet ? originSet.has(sha) : undefined,
         attestRows: attest.rows,
         detachedRows: detached.rows,
@@ -1393,6 +1471,7 @@ function judgeBatch(root, batch, { today = todayStr(), record = false, policyRev
     detachedValid,
     declared,
     skippedMerges,
+    mergeJudged,
     judged,
     ackProblems: ack.problems,
     ackAbsent: ack.absent,
@@ -1501,6 +1580,7 @@ export function auditNewCommits(
     detachedValid,
     declared,
     skippedMerges,
+    mergeJudged,
     judged,
     ackProblems,
     attestProblems,
@@ -1543,6 +1623,7 @@ export function auditNewCommits(
     audited: batch.length,
     judged,
     skippedMerges,
+    mergeJudged,
     declared,
     retro,
     attested,
@@ -1616,6 +1697,7 @@ export function auditRange(
     detachedValid,
     declared,
     skippedMerges,
+    mergeJudged,
     judged,
     ackProblems,
     attestProblems,
@@ -1635,6 +1717,7 @@ export function auditRange(
     audited: shas.length,
     judged,
     skippedMerges,
+    mergeJudged,
     declared,
     retro,
     attested,
@@ -1864,7 +1947,7 @@ export function formatAuditReport(out) {
     lines.push(`   事后追认通过（台账逐枚具名，到期即回到红）：${(out.retro ?? []).length} 枚`)
   if (out.detail) lines.push(`   注：${out.detail}`)
   lines.push(
-    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并跳过 ${out.skippedMerges ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 已追认 ${(out.attested ?? []).length} / 分离签名通过 ${(out.detachedValid ?? []).length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
+    `[immutable-guard:audit] 判 ${out.audited} 枚(其中合并按逐父交集判 ${out.mergeJudged ?? 0} 枚) / 红 ${out.breaches.length} / 未判定 ${out.undetermined.length} / 无签名 ${unsigned.length} / 已追认 ${(out.attested ?? []).length} / 分离签名通过 ${(out.detachedValid ?? []).length} / 待判 ${out.pending} / 游标 ${String(out.cursorBefore || '').slice(0, 12) || '(无)'} → ${String(out.cursorAfter || '').slice(0, 12) || '(无)'}`,
   )
   return lines.join('\n')
 }
@@ -2365,7 +2448,7 @@ export function selfTest() {
     )
   })
 
-  // ST26 合并提交不重复计（第一父 diff 是父辈内容的并集）：分支那枚判一次，merge 枚跳过并点名
+  // ST26 干净合并：分支那枚判一次(breach=1)，merge 枚逐父交集为空 ⇒ 判过但零命中(不记第二回)
   run((root) => {
     auditNewCommits(root) // 建点
     gitRaw(['checkout', '-q', '-b', 'feat'], root)
@@ -2375,18 +2458,58 @@ export function selfTest() {
     gitRaw(['merge', '-q', '--no-ff', 'feat', '-m', 'Merge branch feat'], root)
     const out = auditNewCommits(root)
     ok(
-      'ST26 分支枚判一次 ⇒ breach=1 且 merge 枚 skippedMerges=1（同一件事不记两回）',
+      'ST26 干净合并 ⇒ breach=1(只有分支枚) 且 merge 枚按逐父交集判(mergeJudged=1/零命中)',
       out.state === 'breach' &&
         out.breaches.length === 1 &&
-        out.skippedMerges === 1 &&
-        out.judged === 1 &&
+        out.skippedMerges === 0 &&
+        out.mergeJudged === 1 &&
+        out.judged === 2 &&
         out.audited === 2,
       JSON.stringify({
         state: out.state,
         breach: out.breaches.length,
         skippedMerges: out.skippedMerges,
+        mergeJudged: out.mergeJudged,
         judged: out.judged,
         audited: out.audited,
+      }),
+    )
+  })
+
+  // ST26b evil merge(DG-05):两父各自只改非判据面,merge 提交里手工写进判据面的第三版内容。
+  // 旧实现整枚跳过 ⇒ 这枚永远不被审;新判据按逐父交集 ⇒ 交集恰是该判据面,无声明必须判红。
+  run((root) => {
+    auditNewCommits(root) // 建点
+    gitRaw(['checkout', '-q', '-b', 'evil-side'], root)
+    writeIn(root, 'docs/x.md', '# side edit\n')
+    commitAll(root, 'docs: side edit')
+    gitRaw(['checkout', '-q', 'main'], root)
+    // 两父都只碰非判据面(否则父辈自己就会判红,evil merge 那一格分不出来)
+    writeIn(root, 'notes-main.txt', 'main\n')
+    commitAll(root, 'docs: main edit')
+    gitRaw(['merge', '--no-commit', '--no-ff', '-q', 'evil-side'], root)
+    // 这一步两父都没有:merge 自己写下的第三版内容(evil merge)
+    writeIn(root, 'scripts/lib/face-reader.mjs', '// evil merge third version\n')
+    gitRaw(['add', 'scripts/lib/face-reader.mjs'], root)
+    gitRaw(['commit', '-q', '--no-verify', '-m', 'Merge branch evil-side'], root)
+    const mergeSha = String(gitRaw(['rev-parse', 'HEAD'], root)).trim()
+    const out = auditNewCommits(root)
+    ok(
+      'ST26b evil merge 在合并枚写判据面第三版内容 ⇒ 无声明判红且点名 merge sha(旧实现会整枚跳过)',
+      out.state === 'breach' &&
+        out.breaches.length === 1 &&
+        out.breaches[0].sha === mergeSha &&
+        out.breaches[0].hits.some((h) => h.path === 'scripts/lib/face-reader.mjs') &&
+        out.skippedMerges === 0 &&
+        out.mergeJudged === 1 &&
+        out.judged === 3 &&
+        out.audited === 3,
+      JSON.stringify({
+        state: out.state,
+        breach: out.breaches.map((b) => ({ sha: b.sha.slice(0, 12), paths: b.hits.map((h) => h.path) })),
+        mergeJudged: out.mergeJudged,
+        judged: out.judged,
+        mergeSha: mergeSha.slice(0, 12),
       }),
     )
   })

@@ -7452,6 +7452,31 @@ const checks = [
       '     应急放行:HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // 2026-11-08 DG-05:判据面不可变护栏的**全量腿**注册。push 门里已有同判据的 `IG`
+  // (id 不能重复,check-gate-wiring R5;push-receipt 的 EXPECTED_GATES 也逐项钉着 push 块),
+  // 但全量腿(CI guardian-full / 无钩子落地)原先一步都不判 —— 于是带 evil merge 的 PR 在
+  // 合并前没有任何门看判据面。这里用独立 id `IGf`,判同一个区间 origin/main..HEAD
+  // (与 push 门同面同尺:合并提交按逐父交集判,见 check-immutable-guard 2026-11-08 段)。
+  {
+    id: 'IGf',
+    label: '🧊  判据面不可变护栏(全量腿:origin/main..HEAD 逐枚判,合并按逐父交集)',
+    script: 'check-immutable-guard.mjs',
+    args: ['--range', 'origin/main..HEAD'],
+    mode: 'blocking',
+    // 射程 = 受保护面本身(immutable-guard.json entries 的路径前缀):本笔碰到它们才需要在提交时判区间
+    stagedTriggers: ['scripts/', 'AGENTS.md', '.husky/'],
+    skipEnv: 'HUSKY_SKIP_IMMUTABLE_GUARD',
+    onFailHint: [
+      '',
+      '  💡 全量腿这一档补的是 push 门管不到的面(CI / 无钩子落地);判红形态与 push 档 IG 相同:',
+      '     ① 没有 immutable-exempt 理由;② 有理由但缺/验不过签名;③ 清单 reviewBy 到期。',
+      '  合法改法:先 `node scripts/check-immutable-guard.mjs --sign-staged --subject "<提交标题>"',
+      '     --reason "<同一句>" --paths <a,b,c>` 取签名行,再重写提交信息(会改 sha)。',
+      '  区间取不到(origin/main 未 fetch)⇒ exit 2 未判定,不记绿。',
+      '  单独复验:node scripts/check-immutable-guard.mjs --range origin/main..HEAD',
+      '',
+    ].join('\n'),
+  },
 ]
 
 // === push 门检查集(2026-08-31 新增) ===
