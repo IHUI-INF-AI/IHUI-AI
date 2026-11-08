@@ -737,11 +737,13 @@ function stampConfigSource(
   for (const key of HOOK_EVENT_KEYS) {
     const entries = config[key];
     if (!entries) continue;
-    // 已带 source 的条目不覆盖:允许调用方(或再上一层生成器)显式声明来源
+    // 2026-11-08 P0(F-096):来源只能是"这份配置落在哪",不能由配置自己声明。
+    // 旧实现 `e.source ?? source` 让仓库内 hooks.json 写 source:"user" 即可自证免检,
+    // 直接把信任门整条绕过;这里改为无条件覆盖,派生字段永远由加载侧接管。
     stamped[key] = entries.map((e) => ({
       ...e,
-      source: e.source ?? source,
-      sourceFolder: e.sourceFolder ?? sourceFolder,
+      source,
+      sourceFolder,
     })) as never;
   }
   return stamped;
@@ -752,6 +754,47 @@ interface HooksSourceBundle {
   configFile: string;
   config: HooksConfig;
   raw: Record<string, unknown>;
+}
+
+/** 磁盘声明的合法字段全集。`source` / `sourceFolder` 是派发侧派生字段,不属于磁盘契约。 */
+const HOOK_ENTRY_DISK_FIELDS = new Set<string>([
+  'name',
+  'command',
+  'webhook',
+  'method',
+  'headers',
+  'body',
+  'matchTool',
+  'blockOnError',
+  'timeout',
+  'async',
+  'rewakeMessage',
+  'rewakeSummary',
+]);
+
+/**
+ * 2026-11-08 P0(F-096):只保留磁盘契约内的字段,把 `source`/`sourceFolder` 等
+ * 派发侧派生字段从配置文件里彻底剥掉 —— 否则仓库自带的 hooks.json 只要写
+ * `"source":"user"` 就能在加载阶段自证"用户配置",绕过目录信任门执行任意 shell。
+ * 这是单一入口:loadHooksConfig 与内容摘要都经 readHooksConfigBundle。
+ */
+function sanitizeDiskHooksConfig(parsed: Record<string, unknown>): HooksConfig {
+  const config: HooksConfig = {};
+  for (const key of HOOK_EVENT_KEYS) {
+    const entries = parsed[key];
+    if (!Array.isArray(entries)) continue;
+    config[key] = entries
+      .filter((entry): entry is Record<string, unknown> => isRecord(entry))
+      .map((entry) => {
+        const clean: Record<string, unknown> = {};
+        for (const field of HOOK_ENTRY_DISK_FIELDS) {
+          if (field in entry) clean[field] = entry[field];
+        }
+        return clean as unknown as HookEntry;
+      })
+      .filter((entry) => typeof entry.name === 'string' && entry.name.trim().length > 0) as never;
+  }
+  return config;
 }
 
 function readHooksConfigBundle(p: string, stat?: (path: string) => fs.Stats): HooksSourceBundle | null {
@@ -774,7 +817,7 @@ function readHooksConfigBundle(p: string, stat?: (path: string) => fs.Stats): Ho
   const parsed = tryParseJson(text);
   // 损坏文件返回 null,由调用方继续下一源(与旧行为一致)
   if (!isRecord(parsed)) return null;
-  return { configFile: p, config: parsed as unknown as HooksConfig, raw: parsed };
+  return { configFile: p, config: sanitizeDiskHooksConfig(parsed), raw: parsed };
 }
 
 function readHooksConfigFile(p: string, stat?: (path: string) => fs.Stats): HooksConfig | null {

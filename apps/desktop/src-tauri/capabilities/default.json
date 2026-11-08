@@ -28,7 +28,6 @@
     "global-shortcut:default",
     "notification:default",
     "os:default",
-    "store:default",
     "updater:default",
     "log:default",
     {
@@ -47,6 +46,8 @@
       ]
     },
     "allow-get-app-info",
+    "allow-store-read-entry",
+    "allow-store-write-entry",
     "allow-git-authorize-workspace",
     "allow-git-workspace-status",
     "allow-git-channel-info",
