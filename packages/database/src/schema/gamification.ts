@@ -2,6 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
+import { sql } from 'drizzle-orm'
 import {
   pgTable,
   uuid,
@@ -11,6 +12,7 @@ import {
   date,
   jsonb,
   unique,
+  uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
@@ -60,6 +62,11 @@ export const pointTransactions = pgTable(
   },
   (t) => ({
     userCreatedAtIdx: index('ix_point_transactions_user_created_at').on(t.userId, t.createdAt),
+    // F-334:旧积分兑换端点的并发兜底 —— 同一用户同一兑换商品(source='redeem',
+    // reference_id='redeem:<itemId>')只允许一条 spend 流水。部分索引避免影响其他 source。
+    redeemUserRefUnique: uniqueIndex('ux_point_transactions_redeem_user_ref')
+      .on(t.userId, t.referenceId)
+      .where(sql`${t.source} = 'redeem' AND ${t.referenceId} IS NOT NULL`),
   }),
 )
 
