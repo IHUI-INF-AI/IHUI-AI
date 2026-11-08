@@ -32444,3 +32444,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 510G. **缺陷普查 API F-118** [P2] /azure/{chat,models,embeddings,images} 四个端点漏挂 requireAuth，且 images 完全不扣费（证据 docs/tickets/2026-11/findings-api.md#F-118）
 - [ ] 511G. **缺陷普查 API F-119** [P2] Kling 任务查询每轮询一次扣 1500 token，无幂等（证据 docs/tickets/2026-11/findings-api.md#F-119）
 - [ ] 512G. **缺陷普查 API F-120** [P2] ai-world-sync 无重入保护，且跨轮去重 Set 为模块级共享（证据 docs/tickets/2026-11/findings-api.md#F-120）
+- [ ] 513G. **缺陷普查 API F-121** [P2] syncOneSourceWithRetry 把 writeSyncLog 放进重试 try，一次写日志失败会中止整轮同步（证据 docs/tickets/2026-11/findings-api.md#F-121）
+- [ ] 514G. **缺陷普查 API F-122** [P2] startRankingScheduler / startTrendingScheduler 从未被调用，06:00 榜单与 4h 热度 cron 从未（证据 docs/tickets/2026-11/findings-api.md#F-122）
+- [ ] 515G. **缺陷普查 API F-123** [P2] 热搜 GitHub 采集 .each 里不 await 异步写库，失败被当成功、计数虚高（证据 docs/tickets/2026-11/findings-api.md#F-123）
+- [ ] 516G. **缺陷普查 API F-124** [P2] 审计证据保留任务在事务内持审计链全局锁做全尾扫描 + 逐行 UPDATE（长事务）（证据 docs/tickets/2026-11/findings-api.md#F-124）
+- [ ] 517G. **缺陷普查 API F-125** [P1] 任意管理员可重置「系统内置管理员」密码，直接接管 root 账号（证据 docs/tickets/2026-11/findings-api.md#F-125）
+- [ ] 518G. **缺陷普查 API F-126** [P1] admin 可把任意第三方 openId 绑到系统管理员 userId，再走第三方登录接管（证据 docs/tickets/2026-11/findings-api.md#F-126）
+- [ ] 519G. **缺陷普查 API F-127** [P2] 批量禁用 / 成员禁用删除不吊销 refresh token，「禁用」在会话面不生效（证据 docs/tickets/2026-11/findings-api.md#F-127）
+- [ ] 520G. **缺陷普查 API F-128** [P2] admin-sys 重置密码把明文密码写入 sys_operlog，并原样返回给任意管理员（证据 docs/tickets/2026-11/findings-api.md#F-128）
+- [ ] 521G. **缺陷普查 API F-129** [P2] 单条审核接口无条件置 status=1，可复活封禁/注销用户；缺 uuid 形状闸（证据 docs/tickets/2026-11/findings-api.md#F-129）
+- [ ] 522G. **缺陷普查 API F-130** [P2] DELETE /admin/orders/:id 硬删已支付订单并级联清空支付流水（证据 docs/tickets/2026-11/findings-api.md#F-130）
+- [ ] 523G. **缺陷普查 API F-131** [P3] member-users 整插件跳过响应脱敏 + returning() 全行，返回 passwordHash（证据 docs/tickets/2026-11/findings-api.md#F-131）
+- [ ] 524G. **缺陷普查 API F-132** [P3] POST /admin/users 请求契约自相矛盾：schema 要求 passwordHash，handler 只认 password（证据 docs/tickets/2026-11/findings-api.md#F-132）
+- [ ] 525G. **缺陷普查 API F-133** [P0] /api/agent-ext/personality/:agentId 无任何归属/管理员校验，任意登录用户可改写任意智能体系统提示词（证据 docs/tickets/2026-11/findings-api.md#F-133）
+- [ ] 526G. **缺陷普查 API F-134** [P1] 编排/LLM 预算治理面仅 authenticate，上游 ai-service 无角色校验：可改全局预算、伪造用量、重置降级并读全站 trace（证据 docs/tickets/2026-11/findings-api.md#F-134）
+- [ ] 527G. **缺陷普查 API F-135** [P1] /api/agent-ext/buy/create 订单金额与时长完全由客户端决定，并立即写入开发者结算表（证据 docs/tickets/2026-11/findings-api.md#F-135）
+- [ ] 528G. **缺陷普查 API F-136** [P1] /api/agent-ext/developer/renew 无支付环节，任意（含超长/负数）时长免费续费（证据 docs/tickets/2026-11/findings-api.md#F-136）
+- [ ] 529G. **缺陷普查 API F-137** [P2] /api/coze/variables 全局 Coze 变量表无租户隔离：任意登录用户可按名读值、改、删（证据 docs/tickets/2026-11/findings-api.md#F-137）
+- [ ] 530G. **缺陷普查 API F-138** [P3] POST /api/agent-ext/developer 采信 body 的 user_id/creator_id，可把记录写到他人名下（证据 docs/tickets/2026-11/findings-api.md#F-138）
+- [ ] 531G. **缺陷普查 API F-139** [P1] 知识库入库「先插 doc、再一次 bulk insert 全部 chunk」，大文件必失败并留下空壳文档（证据 docs/tickets/2026-11/findings-api.md#F-139）
+- [ ] 532G. **缺陷普查 API F-140** [P1] 无 embedding 时知识检索把该用户全部 chunk 拉进内存逐条打分，聊天每轮触发（证据 docs/tickets/2026-11/findings-api.md#F-140）
+- [ ] 533G. **缺陷普查 API F-141** [P2] 「会话导入知识库」幂等是纯 check-then-write，并发双请求重复入库 + 重复收 embedding 费（证据 docs/tickets/2026-11/findings-api.md#F-141）
+- [ ] 534G. **缺陷普查 API F-142** [P2] 团队知识修订的乐观锁是「先读后判」，UPDATE 不带 revision 条件；审计与正文非事务（证据 docs/tickets/2026-11/findings-api.md#F-142）
+- [ ] 535G. **缺陷普查 API F-143** [P2] 直播回调「先写去重缓存、再落库」，DB 失败后 10 分钟内重试被判重复，直播状态永久错（证据 docs/tickets/2026-11/findings-api.md#F-143）
+- [ ] 536G. **缺陷普查 API F-144** [P2] embedding provider 三处裸 fetch 无超时/无 AbortSignal，RAG 检索与入库可被上游挂起拖死（证据 docs/tickets/2026-11/findings-api.md#F-144）
+- [ ] 537G. **缺陷普查 API F-145** [P2] 删除文档「软删改状态」与「物理删 chunk」非事务，失败后已删内容仍被 RAG 召回（证据 docs/tickets/2026-11/findings-api.md#F-145）
+- [ ] 538G. **缺陷普查 API F-146** [P3] /files/:id/convert-markdown 对 100MB 文件同步全量读；资产提取读完才判 20MB（证据 docs/tickets/2026-11/findings-api.md#F-146）
+- [ ] 539G. **缺陷普查 API F-147** [P2] VIP/开发者订阅发卡无幂等键，注释误以为「有唯一约束」（证据 docs/tickets/2026-11/findings-api.md#F-147）
+- [ ] 540G. **缺陷普查 API F-148** [P2] VIP 按 quantity 收钱，但发卡只发一期（证据 docs/tickets/2026-11/findings-api.md#F-148）
+- [ ] 541G. **缺陷普查 API F-149** [P3] 企业学习报表汇总指标完全忽略时间范围与课程状态（证据 docs/tickets/2026-11/findings-api.md#F-149）
+- [ ] 542G. **缺陷普查 API F-150** [P3] 报表趋势按 UTC 切日、且 endDate 被截到当天 00:00（丢最后一天）（证据 docs/tickets/2026-11/findings-api.md#F-150）
+- [ ] 543G. **缺陷普查 API F-151** [P3] 插件安装/点击统计用 current_date 与裸 to_char，日界按 DB 时区（证据 docs/tickets/2026-11/findings-api.md#F-151）
+- [ ] 544G. **缺陷普查 API F-152** [P3] 评论软删除谓词缺失：已删评论仍可被回复/点赞，列表与计数含墓碑（证据 docs/tickets/2026-11/findings-api.md#F-152）
+- [ ] 545G. **缺陷普查 API F-153** [P1] 付费课程可零支付解锁（报名接口无支付校验，签名播放 URL 照发）（证据 docs/tickets/2026-11/findings-api.md#F-153）
+- [ ] 546G. **缺陷普查 API F-154** [P1] 私信 / 通知详情越权读取（无属主校验）（证据 docs/tickets/2026-11/findings-api.md#F-154）
+- [ ] 547G. **缺陷普查 API F-155** [P1] 圈子话题（circle_dynamic）任意用户可改/删，且可冒用他人 memberId 发帖（证据 docs/tickets/2026-11/findings-api.md#F-155）
+- [ ] 548G. **缺陷普查 API F-156** [P2] 名片详情不校验 isPublic，他人私密名片手机号/邮箱/二维码可读（证据 docs/tickets/2026-11/findings-api.md#F-156）
+- [ ] 549G. **缺陷普查 API F-157** [P2] 平台 Key 大模型调用无计量/无配额（绕过 token 扣费）（证据 docs/tickets/2026-11/findings-api.md#F-157）
+- [ ] 550G. **缺陷普查 API F-158** [P2] 圈子分类关系（全局配置表）任意登录用户可增删（证据 docs/tickets/2026-11/findings-api.md#F-158）
+- [ ] 551G. **缺陷普查 API F-159** [P3] 剧本（/drama）任意用户可改/删/批量删，含他人草稿（证据 docs/tickets/2026-11/findings-api.md#F-159）
+- [ ] 552G. **缺陷普查 API F-160** [P3] 工单评级无属主校验（对照同文件其他端点已校验）（证据 docs/tickets/2026-11/findings-api.md#F-160）
+- [ ] 553G. **缺陷普查 API F-161** [P2] 个人号池的「属主」边界完全未校验：任一管理员可共享/停用/删除其他管理员的账号（证据 docs/tickets/2026-11/findings-api.md#F-161）
+- [ ] 554G. **缺陷普查 API F-162** [P2] 数据清理声称「单批上限 50000 行」，实际 DELETE 无 LIMIT，可一次删光整表历史（证据 docs/tickets/2026-11/findings-api.md#F-162）
+- [ ] 555G. **缺陷普查 API F-163** [P2] 「定时任务」全链路无执行器，PUT /job/run 无动作却返回「任务已触发执行」（证据 docs/tickets/2026-11/findings-api.md#F-163）
+- [ ] 556G. **缺陷普查 API F-164** [P2] 返佣两级费率各自 ≤1，合计可达 200%，释放时直接给上级 Key 余额加钱（证据 docs/tickets/2026-11/findings-api.md#F-164）
+- [ ] 557G. **缺陷普查 API F-165** [P3] /admin/relay/capacity/call-trend 查询不存在的列，接口恒定 500（证据 docs/tickets/2026-11/findings-api.md#F-165）
+- [ ] 558G. **缺陷普查 API F-166** [P0] 课程/视频管理写接口只挂 checkAuth，任意登录用户可改价、上下架、删课（证据 docs/tickets/2026-11/findings-api.md#F-166）
+- [ ] 559G. **缺陷普查 API F-167** [P1] /agents/charge 价格与支付状态由客户端决定，可 0 元自助「已支付」（证据 docs/tickets/2026-11/findings-api.md#F-167）
+- [ ] 560G. **缺陷普查 API F-168** [P1] 考试答题记录 start / submit-exam / status 缺属主校验（BOLA）（证据 docs/tickets/2026-11/findings-api.md#F-168）
+- [ ] 561G. **缺陷普查 API F-169** [P1] /api/edu/certificates/:id 证书详情无属主校验（证据 docs/tickets/2026-11/findings-api.md#F-169）
+- [ ] 562G. **缺陷普查 API F-170** [P1] /api/self-media/records 返回全站用户自媒体记录与 payload（证据 docs/tickets/2026-11/findings-api.md#F-170）
+- [ ] 563G. **缺陷普查 API F-171** [P2] /api/edu/courses/:id/qa 先按全站分页再内存过滤，分页与 total 均失真（证据 docs/tickets/2026-11/findings-api.md#F-171）
+- [ ] 564G. **缺陷普查 API F-172** [P1] 考试判分按客户端 answers 逐项累加，重复 questionId 可无限刷分（证据 docs/tickets/2026-11/findings-api.md#F-172）
+- [ ] 565G. **缺陷普查 API F-173** [P2] 公开帮助文章列表未过滤 isPublished，草稿全文匿名可读（证据 docs/tickets/2026-11/findings-api.md#F-173）
+- [ ] 566G. **缺陷普查 API F-174** [P2] recordWatch 读改写累计时长：客户端可控且可致 int4 溢出永久 500（证据 docs/tickets/2026-11/findings-api.md#F-174）
+- [ ] 567G. **缺陷普查 API F-175** [P2] 技能同步 upsert 无唯一约束，并发 push 产生同 (author_id, slug) 重复行（证据 docs/tickets/2026-11/findings-api.md#F-175）
+- [ ] 568G. **缺陷普查 API F-176** [P2] 圈子帖 / 问答详情按 id 直查未过滤 status=1，已下架内容仍可读（证据 docs/tickets/2026-11/findings-api.md#F-176）
+- [ ] 569G. **缺陷普查 API F-177** [P3] 资讯推荐/排行批量取文章只过滤 isPublished，漏 status（下架仍被推荐）（证据 docs/tickets/2026-11/findings-api.md#F-177）
+- [ ] 570G. **缺陷普查 API F-178** [P1] 渠道配额「检查已接线、用量从不写入」，日/月配额永不生效（证据 docs/tickets/2026-11/findings-api.md#F-178）
+- [ ] 571G. **缺陷普查 API F-179** [P2] 单个 Key 密文解密失败未被隔离，整条模型渠道路由直接失败（证据 docs/tickets/2026-11/findings-api.md#F-179）
+- [ ] 572G. **缺陷普查 API F-180** [P2] 响应缓存键只喂 4 个维度，response_format/seed/top_p 不同仍命中同一缓存（证据 docs/tickets/2026-11/findings-api.md#F-180）
