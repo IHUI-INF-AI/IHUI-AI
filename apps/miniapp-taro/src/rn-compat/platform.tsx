@@ -430,6 +430,9 @@ export const launchCameraAsync = ImagePicker.launchCameraAsync
 export const requestMediaLibraryPermissionsAsync = ImagePicker.requestMediaLibraryPermissionsAsync
 export const requestCameraPermissionsAsync = ImagePicker.requestCameraPermissionsAsync
 export const MediaType = ImagePicker.MediaType
+// XUI-051:RN 侧用的是 MediaTypeOptions;旧垫片只导出 MediaType ⇒ 消费方拿到 undefined,
+// 选择器类型过滤被静默忽略。给同名别名即可。
+export const MediaTypeOptions = ImagePicker.MediaType
 export const ImageQuality = ImagePicker.ImageQuality
 
 export const requestPermissionsAsync = MediaLibrary.requestPermissionsAsync
