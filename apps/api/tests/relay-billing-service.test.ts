@@ -35,10 +35,11 @@ function chain(limitReturn: unknown[]) {
   return { from }
 }
 
-const { mockDbReadSelect, mockDbInsert, mockDbUpdate } = vi.hoisted(() => ({
+const { mockDbReadSelect, mockDbInsert, mockDbUpdate, mockIncrementUsage } = vi.hoisted(() => ({
   mockDbReadSelect: vi.fn(),
   mockDbInsert: vi.fn(),
   mockDbUpdate: vi.fn(),
+  mockIncrementUsage: vi.fn(),
 }))
 
 vi.mock('../src/db/index.js', () => ({
@@ -103,6 +104,9 @@ vi.mock('../src/services/relay-commission-service.js', () => ({
 vi.mock('../src/services/webhook-relay-notifier.js', () => ({
   notifyRelayEvent: vi.fn().mockResolvedValue(undefined),
 }))
+vi.mock('../src/services/api-key-share-service.js', () => ({
+  incrementUsage: mockIncrementUsage,
+}))
 
 import {
   isFreeProvider,
@@ -117,6 +121,7 @@ import { runWithRequestScope } from '../src/plugins/principal.js'
 describe('relay-billing-service — BYOK 计费链路', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockIncrementUsage.mockResolvedValue(undefined)
   })
 
   // ===========================================================================
@@ -478,6 +483,64 @@ describe('relay-billing-service — BYOK 计费链路', () => {
       const bad = { headers: { traceparent: '00-nope-1' } } as unknown as FastifyRequest
       await runWithRequestScope(bad, () => recordCall({ ...byokInput }))
       expect(firstValues(valuesFn)?.traceId).toBeNull()
+    })
+  })
+
+  // ===========================================================================
+  // 7. F-185(2026-11-08)— share 凭据的真实用量回写 used_total_tokens
+  // ===========================================================================
+  describe('F-185 share 用量回写', () => {
+    const shareInput = {
+      apiKeyId: 'key-1',
+      userId: 'user-1',
+      model: 'deepseek-chat',
+      prompt: 'hello',
+      response: 'world',
+      promptTokens: 100,
+      completionTokens: 100,
+      totalTokens: 200,
+      latencyMs: 50,
+      status: 'success',
+      mode: 'byok',
+      commissionRate: 0.1,
+    } as const
+
+    function stubBilling() {
+      mockDbReadSelect
+        .mockReturnValueOnce(chain([{ inputPricePer1k: 10, outputPricePer1k: 10 }]))
+        .mockReturnValueOnce(chain([]))
+      mockDbInsert.mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockResolvedValue([{ id: 'log-s' }]),
+        }),
+      })
+      mockDbUpdate.mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi.fn().mockResolvedValue([{ tokenBalance: 800, costBalanceCents: 500 }]),
+          }),
+        }),
+      })
+    }
+
+    it('share 凭据(apiKey.shareId)按 totalTokens 累加分享用量', async () => {
+      stubBilling()
+
+      await runWithRequestScope(
+        { headers: {}, apiKey: { shareId: 'share-1' } } as unknown as FastifyRequest,
+        () => recordCall({ ...shareInput }),
+      )
+
+      expect(mockIncrementUsage).toHaveBeenCalledWith('share-1', 200)
+      // 改前 incrementUsage 全仓零调用 ⇒ 本断言红,usedTotalTokens 永远是 0。
+    })
+
+    it('普通 API Key 不回写分享用量', async () => {
+      stubBilling()
+
+      await recordCall({ ...shareInput })
+
+      expect(mockIncrementUsage).not.toHaveBeenCalled()
     })
   })
 })

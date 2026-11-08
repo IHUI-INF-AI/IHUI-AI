@@ -53,6 +53,7 @@ import IORedis, { type Redis } from 'ioredis'
 import { db } from '../db/index.js'
 import { developerApiKeys, users } from '@ihui/database'
 import type { AuthenticatedApiKey, ApiKeyPermission } from '@ihui/types'
+import { verifyAccessToken } from '@ihui/auth'
 import { CAPABILITY_CATALOG, getCapability, isM2MAllowed, type CapabilityEntry } from '@ihui/types'
 import { verifySecret } from '../utils/api-key-hash.js'
 import { parseApiCredential } from '../utils/api-key-credential.js'
@@ -806,6 +807,37 @@ async function authenticateShareToken(
   const sourceExpiryCheck = checkExpiresAt(share.sourceKey.expiresAt)
   if (!sourceExpiryCheck.ok) throw unauthorized('Source API key expired')
 
+  // F-185:受众绑定。share token 本身是单因子凭据,声明了 sharedWithUserId 时必须
+  // 额外出示该用户的 access token(X-Share-User-Token),否则拿到链接的任何人都能用。
+  // 缺省(null)= 公开分享,保持历史行为。
+  if (share.sharedWithUserId) {
+    const audienceHeader = request.headers['x-share-user-token']
+    const audienceToken = Array.isArray(audienceHeader) ? audienceHeader[0] : audienceHeader
+    if (!audienceToken) {
+      throw forbidden('Share token requires the shared user access token')
+    }
+    let audienceUserId: string
+    try {
+      const payload = await verifyAccessToken(audienceToken)
+      audienceUserId = payload.userId
+    } catch {
+      throw forbidden('Invalid shared user token')
+    }
+    if (audienceUserId !== share.sharedWithUserId) {
+      throw forbidden('Share token not shared with this user')
+    }
+  }
+
+  // F-185:总额度前置判断。usedTotalTokens 由 recordCall 按真实 usage 原子累加,
+  // 到这里说明此前的消耗已达到上限就不再放行(并发在途请求可能有小幅超出)。
+  if (share.maxTotalTokens != null && share.usedTotalTokens >= share.maxTotalTokens) {
+    throw apiKeyAuthError(429, 'Share total token quota exceeded', {
+      code: 1008,
+      errorCode: 'SHARE_QUOTA_EXCEEDED',
+      retryAfter: 60,
+    })
+  }
+
   // P1 修复(2026-08-06):原实现未校验源 Key 的 IP 白名单,
   // 源 Key 的 IP 约束可被 share token 绕过。
   // O2 升级(2026-09-21):与主链路统一走 checkKeyIpAcl(黑名单优先于白名单,
@@ -877,6 +909,7 @@ async function authenticateShareToken(
   const ctx: AuthenticatedApiKey = {
     id: share.sourceApiKeyId,
     userId: share.sourceKey.userId,
+    shareId: share.id,
     key: share.sourceKey.key,
     permissions: narrowSharePermissions(
       (share.sourceKey.permissions as unknown[] | null as string[] | null) ?? [],
