@@ -16,6 +16,7 @@
 
 import { createHash, randomUUID } from 'node:crypto'
 import { mkdirSync, renameSync, statSync, writeFileSync, type Stats } from 'node:fs'
+import { redactSecrets } from '../redact.js'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { readCliPackage } from '../util/pkg-version.js'
@@ -108,7 +109,9 @@ export function buildRunManifest(options: RunManifestOptions = {}): RunManifest 
   return {
     runId: safePathSegment(options.runId ?? randomUUID()),
     startedAt: (options.now ?? (() => new Date()))().toISOString(),
-    argv: options.argv ?? process.argv.slice(2),
+    // F-008:argv 原样落盘会把 `--api-key` / `curl -H "Authorization: ..."` 这类
+    // 一次性凭据写进长期可读的运行清单;逐元素走同一份脱敏出口(URL query 也覆盖)。
+    argv: (options.argv ?? process.argv.slice(2)).map((arg) => redactSecrets(arg)),
     ppid: options.ppid === undefined ? (process.ppid ?? null) : options.ppid,
     envFlags: {
       ci: Boolean(env.CI),
@@ -138,15 +141,16 @@ export function writeRunManifest(options: RunManifestOptions = {}): { dir: strin
     const root = runsRootFor(manifest)
     // runId 已在 buildRunManifest 收敛为单段名,这里再补一次根内/realpath 断言。
     const dir = assertPathInside(root, join(root, manifest.runId), 'run 目录')
-    mkdirSync(dir, { recursive: true })
+    // 0600/0700:清单里含 argv/envFlags,默认 0644 会让同机其他用户可读。
+    mkdirSync(dir, { recursive: true, mode: 0o700 })
     // DBG-42:此处原为裸 writeFileSync —— 与下方 latest 的 tmp+rename 不同,崩溃/并发会让
     // `ihui runs` 读到半截 manifest 并整片丢失这次运行记录。改走同一份原子出口。
-    writeFileAtomicSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
+    writeFileAtomicSync(join(dir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`, { mode: 0o600 })
     // latest 用「临时文件 + rename」落盘:并发两个 CLI 进程同时启动时,直接覆写
     // 会让读者读到半截 JSON(rename 在同卷上是原子的)。临时名带 pid,互不踩。
     const latest = join(root, 'latest.json')
     const tmp = `${latest}.${process.pid}.tmp`
-    writeFileSync(tmp, `${JSON.stringify({ runId: manifest.runId, dir, startedAt: manifest.startedAt }, null, 2)}\n`, 'utf8')
+    writeFileSync(tmp, `${JSON.stringify({ runId: manifest.runId, dir, startedAt: manifest.startedAt }, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 })
     renameSync(tmp, latest)
     return { dir, manifest }
   } catch {
