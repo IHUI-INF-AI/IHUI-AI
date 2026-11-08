@@ -32804,3 +32804,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 870G. **缺陷普查 API F-478** [P3] 活动过期任务逐条 UPDATE（N+1）（证据 docs/tickets/2026-11/findings-api.md#F-478）
 - [ ] 871G. **缺陷普查 API F-479** [P1] /interactions/comment 评论别名层绕过敏感词过滤与父评论校验（证据 docs/tickets/2026-11/findings-api.md#F-479）
 - [ ] 872G. **缺陷普查 API F-480** [P2] 公开轮播忽略 startAt/endAt，未到/已过期素材照常下发（证据 docs/tickets/2026-11/findings-api.md#F-480）
+- [ ] 873G. **缺陷普查 API F-481** [P2] 协议查询未判生效日，未来协议提前生效（证据 docs/tickets/2026-11/findings-api.md#F-481）
+- [ ] 874G. **缺陷普查 API F-482** [P3] 应用版本发布先降级后插入且无事务（证据 docs/tickets/2026-11/findings-api.md#F-482）
+- [ ] 875G. **缺陷普查 API F-483** [P3] 评论列表 offset→page 折算丢失偏移（证据 docs/tickets/2026-11/findings-api.md#F-483）
+- [ ] 876G. **缺陷普查 API F-484** [P3] 点赞/关注不校验目标存在，外键冲突冒泡为 500（证据 docs/tickets/2026-11/findings-api.md#F-484）
+- [ ] 877G. **缺陷普查 API F-485** [P3] admin FAQ 分页排序无唯一兜底且 sortOrder 恒 0（证据 docs/tickets/2026-11/findings-api.md#F-485）
+- [ ] 878G. **缺陷普查 API F-486** [P3] 应用版本 PUT 不更新 updatedAt（证据 docs/tickets/2026-11/findings-api.md#F-486）
+- [ ] 879G. **缺陷普查 API F-487** [P2] 用户组列表与成员列表对全体登录用户开放，可跨组枚举（证据 docs/tickets/2026-11/findings-api.md#F-487）
+- [ ] 880G. **缺陷普查 API F-488** [P3] 公告详情不校验 expiresAt/publishedAt，过期公告与未来稿可读（证据 docs/tickets/2026-11/findings-api.md#F-488）
+- [ ] 881G. **缺陷普查 API F-489** [P3] CLI 公告接口全表拉取后在内存截断（证据 docs/tickets/2026-11/findings-api.md#F-489）
+- [ ] 882G. **缺陷普查 API F-490** [P2] 管理员用户写接口 .returning() 回传 password_hash（证据 docs/tickets/2026-11/findings-api.md#F-490）
+- [ ] 883G. **缺陷普查 API F-491** [P3] 创建用户未校验唯一性与列长，重复/超长入参直接 500（证据 docs/tickets/2026-11/findings-api.md#F-491）
+- [ ] 884G. **缺陷普查 API F-492** [P2] 生图 worker 无租约，多实例重复生图并互相覆写状态（证据 docs/tickets/2026-11/findings-api.md#F-492）
+- [ ] 885G. **缺陷普查 API F-493** [P2] 生图 worker 外部调用无超时，running 永不释放导致全队饿死（证据 docs/tickets/2026-11/findings-api.md#F-493）
+- [ ] 886G. **缺陷普查 API F-494** [P2] 批处理 worker 先占去重键后异步扣费，漏收/重扣（证据 docs/tickets/2026-11/findings-api.md#F-494）
+- [ ] 887G. **缺陷普查 API F-495** [P3] 批处理 worker 崩溃重跑无断点，重复消耗上游（证据 docs/tickets/2026-11/findings-api.md#F-495）
+- [ ] 888G. **缺陷普查 API F-496** [P2] 账号池 worker 把退出码 1/超时当成功，BullMQ 记 completed 不重试（证据 docs/tickets/2026-11/findings-api.md#F-496）
+- [ ] 889G. **缺陷普查 API F-497** [P2] registry-sync worker 全量 upsert 失败仍返回成功并标 processed（证据 docs/tickets/2026-11/findings-api.md#F-497）
+- [ ] 890G. **缺陷普查 API F-498** [P3] AI 回调 worker 先 DELETE … RETURNING 再落库，重试丢帧（证据 docs/tickets/2026-11/findings-api.md#F-498）
+- [ ] 891G. **缺陷普查 API F-499** [P1] server.ts 调用未导入的 super-agent 泵函数，开关一开服务起不来（证据 docs/tickets/2026-11/findings-api.md#F-499）
+- [ ] 892G. **缺陷普查 API F-500** [P2] ai-ext 插件 preHandler 白名单恒不命中，全部退化为 admin（证据 docs/tickets/2026-11/findings-api.md#F-500）
+- [ ] 893G. **缺陷普查 API F-501** [P3] clawdbot shutdown→initialize 竞态遗留双 socket（证据 docs/tickets/2026-11/findings-api.md#F-501）
+- [ ] 894G. **缺陷普查 API F-502** [P3] 学习心跳可伪造/溢出 watchDuration（证据 docs/tickets/2026-11/findings-api.md#F-502）
+- [ ] 895G. **缺陷普查 API F-503** [P3] 课程评价无报名校验、signId 可伪造（证据 docs/tickets/2026-11/findings-api.md#F-503）
+- [ ] 896G. **缺陷普查 API F-504** [P3] “我的收藏”返回全部已发布地图（证据 docs/tickets/2026-11/findings-api.md#F-504）
+- [ ] 897G. **缺陷普查 API F-505** [P3] /live/channels/by-ids 非法 id 直达 SQL（证据 docs/tickets/2026-11/findings-api.md#F-505）
+- [ ] 898G. **缺陷普查 API F-506** [P3] 腾讯云直播流两接口为桩成功（证据 docs/tickets/2026-11/findings-api.md#F-506）
+- [ ] 899G. **缺陷普查 API F-507** [P3] ToolRunner 超时不取消底层执行（证据 docs/tickets/2026-11/findings-api.md#F-507）
+- [ ] 900G. **缺陷普查 API F-508** [P2] USDT 链上 RPC 六处 fetch 无 AbortSignal，单次 poll 可挂数小时并阻塞分钟级队列（证据 docs/tickets/2026-11/findings-api.md#F-508）
+- [ ] 901G. **缺陷普查 API F-509** [P3] 链上 API 故障被吞成 pending，poll 的 failed 恒 0，job 永远记成功（证据 docs/tickets/2026-11/findings-api.md#F-509）
+- [ ] 902G. **缺陷普查 API F-510** [P3] scheduler 的 ai-feed-process / ai-feed-drain 全链路吞异常后仍记 success（证据 docs/tickets/2026-11/findings-api.md#F-510）
+- [ ] 903G. **缺陷普查 API F-511** [P3] notification-worker 邮件出口失败被吞，job 仍 completed（证据 docs/tickets/2026-11/findings-api.md#F-511）
+- [ ] 904G. **缺陷普查 API F-512** [P3] notification-worker 无幂等键，重投会重复落库 + 重复发信（证据 docs/tickets/2026-11/findings-api.md#F-512）
+- [ ] 905G. **缺陷普查 API F-513** [P3] relay-health-check 无全局互斥，且整块回写 extra_metadata 丢失并发更新（证据 docs/tickets/2026-11/findings-api.md#F-513）
+- [ ] 906G. **缺陷普查 API F-514** [P2] /api/langchain/chat/agent 用平台 DashScope 密钥调用却完全不扣积分（证据 docs/tickets/2026-11/findings-api.md#F-514）
+- [ ] 907G. **缺陷普查 API F-515** [P3] legacy-learn 三个学习统计接口按 query.userId 读任意用户数据（IDOR）（证据 docs/tickets/2026-11/findings-api.md#F-515）
+- [ ] 908G. **缺陷普查 API F-516** [P3] /mobile/circles/:id/messages 直插 circle_posts，绕过 createPost() 的 post_count（证据 docs/tickets/2026-11/findings-api.md#F-516）
+- [ ] 909G. **缺陷普查 API F-517** [P3] legacy-learn 专题详情/课时不过滤发布状态，草稿元数据匿名可读（证据 docs/tickets/2026-11/findings-api.md#F-517）
+- [ ] 910G. **缺陷普查 API F-518** [P3] 死路由：engine-control-frames.ts 的 /engine/rpc 从未注册（证据 docs/tickets/2026-11/findings-api.md#F-518）
+- [ ] 911G. **缺陷普查 API F-519** [P3] 死路由：admin/relay-switch-admin.ts 三个 relay 切换端点从未注册（证据 docs/tickets/2026-11/findings-api.md#F-519）
+- [ ] 912G. **缺陷普查 API F-520** [P3] 死路由：organization.ts 未注册，且其中 GET /organizations/list 无守卫（证据 docs/tickets/2026-11/findings-api.md#F-520）
+- [ ] 913G. **缺陷普查 API F-521** [P3] startAlgorithmRecordScheduler 启动了却永不停止，stopAlgorithmRecordScheduler 全仓零调用（证据 docs/tickets/2026-11/findings-api.md#F-521）
+- [ ] 914G. **缺陷普查 API F-522** [P3] startEdgeAccessProbe 只有启动函数，全仓不存在停止/清理路径（证据 docs/tickets/2026-11/findings-api.md#F-522）
+- [ ] 915G. **缺陷普查 API F-523** [P3] registry-queue 两个 BullMQ 生产者 Queue 无关闭出口，onClose 只关 Worker（证据 docs/tickets/2026-11/findings-api.md#F-523）
+- [ ] 916G. **缺陷普查 API F-524** [P3] worker 入口不执行 index 关停相位：auto-rollback 非 unref 定时器与 mock 网关在 worker 侧无停止路径（证据 docs/tickets/2026-11/findings-api.md#F-524）
+- [ ] 917G. **缺陷普查 API F-525** [P2] 会话导入去重四元组漏 collectionName，换集合导入被静默判重（证据 docs/tickets/2026-11/findings-api.md#F-525）
+- [ ] 918G. **缺陷普查 API F-526** [P2] embedding 失败全链路静默：空 catch + 按 NULL 入库 + 仍报成功（证据 docs/tickets/2026-11/findings-api.md#F-526）
+- [ ] 919G. **缺陷普查 API F-527** [P3] 团队知识修订流只有 limit 无 offset，且用 asc 取前 N 恰好排除最新版本（证据 docs/tickets/2026-11/findings-api.md#F-527）
+- [ ] 920G. **缺陷普查 API F-528** [P3] listSpaces 无分页参数、服务端固定 50 条上限（证据 docs/tickets/2026-11/findings-api.md#F-528）
+- [ ] 921G. **缺陷普查 API F-529** [P3] repo-wiki 生成忽略请求里的 model，始终用环境变量默认模型（证据 docs/tickets/2026-11/findings-api.md#F-529）
+- [ ] 922G. **缺陷普查 API F-530** [P3] repoName 写入不 trim、读取 trim，带空白生成的 wiki 永远不会被聊天注入（证据 docs/tickets/2026-11/findings-api.md#F-530）
+- [ ] 923G. **缺陷普查 API F-531** [P3] repo-wiki 提示词预算未计入文件清单，注释所称 ~120KB 可被撑到 ~320KB（证据 docs/tickets/2026-11/findings-api.md#F-531）
+- [ ] 924G. **缺陷普查 API F-532** [P3] createItem 主表插入与 create 审计写入不在同一事务（证据 docs/tickets/2026-11/findings-api.md#F-532）
+- [ ] 925G. **缺陷普查 API F-533** [P3] /api/knowledge/upload 采信客户端自报 MIME，无扩展名/魔数校验，sourceType 据此生成（证据 docs/tickets/2026-11/findings-api.md#F-533）
+- [ ] 926G. **缺陷普查 API F-534** [P3] 知识库文档列表无分页/上限，全量返回（证据 docs/tickets/2026-11/findings-api.md#F-534）
+- [ ] 927G. **缺陷普查 API F-535** [P2] 共享公式从格把「主格地址」当公式原文，read 返回假公式且受影响公式漏报（证据 docs/tickets/2026-11/findings-api.md#F-535）
+- [ ] 928G. **缺陷普查 API F-536** [P2] /workbook/open 的归属判据依赖只有 /save 会写的元数据，普通上传的 xlsx 恒 404（证据 docs/tickets/2026-11/findings-api.md#F-536）
+- [ ] 929G. **缺陷普查 API F-537** [P2] PDF 生成失败一律折叠成「空白 PDF + 200」，三处调用方均不检查 stub（证据 docs/tickets/2026-11/findings-api.md#F-537）
+- [ ] 930G. **缺陷普查 API F-538** [P2] relay 会话历史的写入口全仓无调用，会话 API 恒空（证据 docs/tickets/2026-11/findings-api.md#F-538）
+- [ ] 931G. **缺陷普查 API F-539** [P3] relay 会话/消息分页排序无 tie-breaker（证据 docs/tickets/2026-11/findings-api.md#F-539）
+- [ ] 932G. **缺陷普查 API F-540** [P3] workbook save 与 write 无会话级互斥，await writeBuffer() 期间可被并发改写（证据 docs/tickets/2026-11/findings-api.md#F-540）
