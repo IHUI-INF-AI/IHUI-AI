@@ -25,7 +25,9 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { spawnSync } = require('node:child_process')
+// 取材一律经 face-reader(守门 118):本模块不再自派生 git 管子。
+// Node ≥22.12 的 require(esm) 直接可读;本仓 Node 26 实测可用。
+const { gitRaw } = require('./face-reader.mjs')
 
 const LOST_PREFIX = '派生申报失败'
 
@@ -68,28 +70,28 @@ function writeDerivedManifest(file, entries) {
 
 /** 工作树内容(经 .gitattributes 过滤器)的 blob 号;与 `git add` 落进索引的写法同源。 */
 function hashWorktreeBlob({ gitCwd, relPath }) {
-  const r = spawnSync('git', ['hash-object', '--', relPath], {
-    cwd: gitCwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
-  if (r.status !== 0) throw new Error(`${LOST_PREFIX}:git hash-object ${relPath} 失败:${r.stderr}`)
-  return String(r.stdout || '').trim()
+  try {
+    return String(
+      gitRaw(['hash-object', '--', relPath], gitCwd, { timeout: 60_000, maxBuffer: 16 << 20 }) ?? '',
+    ).trim()
+  } catch (e) {
+    throw new Error(
+      `${LOST_PREFIX}:git hash-object ${relPath} 失败:${String(e?.stderr ?? e?.message ?? e)}`,
+    )
+  }
 }
 
 /** 索引里某路径的条目(stage 0);取不到返回 null。 */
 function indexEntry({ gitCwd, relPath }) {
-  const r = spawnSync('git', ['ls-files', '-s', '--', relPath], {
-    cwd: gitCwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
-  if (r.status !== 0) return null
-  const line = String(r.stdout || '')
-    .split(/\r?\n/)
-    .find(Boolean)
+  let out
+  try {
+    out = String(
+      gitRaw(['ls-files', '-s', '--', relPath], gitCwd, { timeout: 60_000, maxBuffer: 16 << 20 }) ?? '',
+    )
+  } catch {
+    return null
+  }
+  const line = out.split(/\r?\n/).find(Boolean)
   if (!line) return null
   const m = /^(\d+)\s+([0-9a-f]+)\s+(\d)\t(.+)$/.exec(line.trim())
   if (!m) return null

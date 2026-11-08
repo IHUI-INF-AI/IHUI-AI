@@ -36,7 +36,8 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { spawnSync } = require('node:child_process')
+// 派生 git 一律经 face-reader(守门 118);这里要自带 env(私有索引),走层里的底层原语。
+const { batchExecFileSync, gitBinary } = require('./face-reader.mjs')
 
 /** git 自建的 `--only` 临时索引名:这类索引的格式化回写是**预期行为**,不保护。 */
 const GIT_TEMP_INDEX_RE = /^next-index-\d+\.lock$/
@@ -75,14 +76,19 @@ function cleanGitEnv(env) {
 }
 
 function spawnGit(args, { cwd, env }, maxBuffer) {
-  return spawnSync('git', args, {
-    cwd,
-    env: cleanGitEnv(env),
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    ...(maxBuffer ? { maxBuffer } : {}),
-  })
+  return batchExecFileSync(
+    gitBinary(),
+    ['-c', 'safe.directory=*', '-C', cwd || process.cwd(), ...args],
+    {
+      cwd,
+      env: cleanGitEnv(env),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 60_000,
+      ...(maxBuffer ? { maxBuffer } : {}),
+    },
+  )
 }
 
 /** 本次要读的索引文件的绝对路径:优先 GIT_INDEX_FILE,否则问 git(输出极小,默认上界足够)。 */
