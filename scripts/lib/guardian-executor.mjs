@@ -622,11 +622,12 @@ const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
 // 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
 // 绝不静默洗成通过。
 //
-// 2026-11-08(DG-01):缺省预算改为**逐门查登记表**(scripts/data/land-gate-budgets.json),
-// 不再一律 300s。实测 30a check-commit-loss-guard 单独跑 506s ⇒ 恒被 300s 看门狗杀掉,
-// 全量腿结构上不可能绿("未判定"又不是通过)。登记表缺失/坏行时回落到 300s,并出声。
+// 2026-11-08(DG-01 / DG-06):缺省预算改为**逐门查登记表**(scripts/data/land-gate-budgets.json),
+// 不再一律 300s。实测 30a check-commit-loss-guard 2026-11-06 静默态 506s、2026-11-08 复测
+// 176–255s ⇒ 旧 300s 看门狗仍会把它杀死,全量腿结构上不可能绿("未判定"又不是通过)。
+// DG-06 起"缺省"也只有一处:表里的 defaultTimeoutMs —— 执行器不再自带第二枚 300s 字面量,
+// 与落地后置复跑共用 resolveGateBudget 同一处取数;表缺失/坏行时由该函数退回兜底并出声。
 // 显式 GUARDIAN_GATE_TIMEOUT_MS 仍整体覆盖(排障语义不变)。
-const GATE_TIMEOUT_DEFAULT_MS = 300_000
 const gateTimeoutOverrideRaw = process.env.GUARDIAN_GATE_TIMEOUT_MS
 
 function gateTimeoutFor(check) {
@@ -634,7 +635,7 @@ function gateTimeoutFor(check) {
     const n = Number(gateTimeoutOverrideRaw)
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
   }
-  return resolveGateBudget(check.script, { env: {} }) || GATE_TIMEOUT_DEFAULT_MS
+  return resolveGateBudget(check.script, { env: {} })
 }
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程

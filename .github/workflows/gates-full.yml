@@ -79,7 +79,8 @@ jobs:
           mkdir -p .ihui-agent/tmp
           node scripts/guardian-runner.mjs --timing 2>&1 | tee .ihui-agent/tmp/gates-full.log
         # 失败即 job 失败。**没有** continue-on-error,也不做任何降级:
-        #   · exit 1 = 有 blocking 门判红(或门崩溃 / 被 GUARDIAN_GATE_TIMEOUT_MS=300s 看门狗杀);
+        #   · exit 1 = 有 blocking 门判红(或门崩溃 / 被按门预算看门狗杀:预算登记在
+        #     scripts/data/land-gate-budgets.json,执行器与落地复跑共用这一处);
         #   · exit 2 = §0.3「未判定」(取不到输入,不记绿也不冒红;guardian-executor.mjs:924-943);
         #   两者都是非零 ⇒ 本 step 红 ⇒ job 红。禁止用 HUSKY_SKIP_* / continue-on-error 洗掉。
 
