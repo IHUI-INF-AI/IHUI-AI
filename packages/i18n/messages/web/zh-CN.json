@@ -23739,6 +23739,7 @@
     "icpRecordDesc": "查看平台ICP备案登记信息",
     "icpRecordEntity": "备案主体",
     "icpRecordEntityType": "主体类型",
+    "icpRecordFooter": "以上信息来自工信部备案查询系统",
     "icpRecordNotice": "本平台已依法完成ICP备案登记,备案信息以上述公示为准,如有疑问请联系客服。",
     "icpRecordNumber": "备案号",
     "icpRecordScope": "备案范围",
