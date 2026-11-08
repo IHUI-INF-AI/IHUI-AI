@@ -1413,6 +1413,8 @@ function RootNavigatorInner() {
               options={{ title: '修改手机号' }}
             />
             <RootStack.Screen name="ChangePwd" component={ChangePwdScreen} />
+            {/* XUI-068:忘记密码改走 WebView(复用 web /forgot-password),未登录分支也要能打开 */}
+            <RootStack.Screen name="WebView" component={WebViewScreen} />
           </>
         )}
       </RootStack.Navigator>
