@@ -79,6 +79,13 @@ def _install_fakes(
     fake = SimpleNamespace(search=search, index_repository=AsyncMock(return_value={"indexed": 0, "skipped": 0}))
     fake_module = ModuleType("app.services.codebase_indexer")
     fake_module.codebase_indexer = fake  # type: ignore[attr-defined]
+
+    # Z37 起 mcp_server 在语义腿内 `from .codebase_indexer import SymbolFilterUndetermined`;
+    # 整枚模块替身必须把这枚类型也补齐,否则语义腿会被导入错误顶掉(夹具跟上实现,非行为缺陷)。
+    class SymbolFilterUndetermined(Exception):
+        pass
+
+    fake_module.SymbolFilterUndetermined = SymbolFilterUndetermined  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "app.services.codebase_indexer", fake_module)
     monkeypatch.setattr(mcp_server, "_lazy_index_and_research", AsyncMock(return_value=_lazy_outcome()))
     return fake
