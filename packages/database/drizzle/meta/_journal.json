@@ -2587,6 +2587,13 @@
       "when": 1794106800000,
       "tag": "20261108110000_usdt_pending_amount_uniq",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 373,
+      "when": 1794110400000,
+      "tag": "20261108120000_agent_settlements_period_uniq",
+      "breakpoints": true
     }
   ]
 }

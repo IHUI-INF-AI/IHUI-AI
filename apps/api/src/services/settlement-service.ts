@@ -155,34 +155,42 @@ export function calculateMonthlyPeriodsForMonth(year: number, month: number): Pe
 // 结算记录生成
 // =============================================================================
 
+/** 账期标签(YYYY-MM):与 order_no 组成唯一键,同一订单每期只落一条。 */
+function formatPeriodLabel(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
 /**
  * 为指定 agent + 周期创建一条结算记录。
  *
  * 写入 agent_settlements 表，状态默认 unsettled。
+ * 幂等由库侧 (order_no, period) 唯一约束 + ON CONFLICT DO NOTHING 保证：
+ * 冲突时返回 null，调用方按“该期已结算”跳过。不得改成从库(dbRead)预读——
+ * 副本延迟时预读为空，会重复落行。
  *
  * @param input 结算记录入参
- * @returns 创建的结算记录
+ * @returns 创建的结算记录；冲突返回 null
  */
 export async function createSettlementRecord(
   input: CreateSettlementRecordInput,
-): Promise<AgentSettlement> {
+): Promise<AgentSettlement | null> {
   const rows = await db
     .insert(agentSettlements)
     .values({
       agentId: input.agentId,
       buyRecordId: input.buyRecordId ?? null,
       orderNo: input.orderNo ?? null,
+      period: formatPeriodLabel(input.period.start),
       amount: input.amount ?? 0,
       commissionRate: input.commissionRate ?? 0,
       commissionAmount: input.commissionAmount ?? 0,
       status: input.status ?? 'unsettled',
     })
+    .onConflictDoNothing({
+      target: [agentSettlements.orderNo, agentSettlements.period],
+    })
     .returning()
-  const row = rows[0]
-  if (!row) {
-    throw new Error(`Failed to create settlement record for agent ${input.agentId}`)
-  }
-  return row
+  return rows[0] ?? null
 }
 
 /**
@@ -200,20 +208,8 @@ export async function createSettlementRecords(
   period: MonthlyPeriod,
   options?: Omit<CreateSettlementRecordInput, 'agentId' | 'period'>,
 ): Promise<AgentSettlement[]> {
-  // 幂等检查：同一 agent + orderNo + issueNo 范围内已存在记录则跳过
-  if (options?.orderNo) {
-    const existing = await dbRead
-      .select({ id: agentSettlements.id })
-      .from(agentSettlements)
-      .where(
-        and(eq(agentSettlements.agentId, agentId), eq(agentSettlements.orderNo, options.orderNo)),
-      )
-      .limit(1)
-    if (existing.length > 0) {
-      return []
-    }
-  }
-
+  // F-228:幂等交由库侧 (order_no, period) 唯一约束 + ON CONFLICT DO NOTHING。
+  // 原实现先查 dbRead(从库)再插:副本延迟时读到空,重放/并发会重复落行。
   const record = await createSettlementRecord({
     agentId,
     period,
@@ -225,7 +221,7 @@ export async function createSettlementRecords(
     status: options?.status,
   })
 
-  return [record]
+  return record ? [record] : []
 }
 
 /**
