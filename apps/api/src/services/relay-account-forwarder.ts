@@ -329,10 +329,7 @@ async function selectAccountCandidates(
         eq(aiRelayAccountPool.ownerUserId, req.userId),
         eq(aiRelayAccountPool.sharedToOps, true),
       )
-    : or(
-        isNull(aiRelayAccountPool.ownerUserId),
-        eq(aiRelayAccountPool.sharedToOps, true),
-      )
+    : or(isNull(aiRelayAccountPool.ownerUserId), eq(aiRelayAccountPool.sharedToOps, true))
   const rows = await dbRead
     .select()
     .from(aiRelayAccountPool)
@@ -735,15 +732,15 @@ async function doRefreshRowInPlace(
     const result = await adapter.refreshToken!({ row, credentials }, { proxyUrl: row.proxyUrl })
     if (!result) return null
     const tokenEnc = encryptField(result.token)
-    const refreshTokenEnc =
-      result.refreshToken !== undefined && result.refreshToken !== null
-        ? encryptField(result.refreshToken)
-        : row.refreshTokenEnc
     await db
       .update(aiRelayAccountPool)
       .set({
         tokenEnc,
-        refreshTokenEnc,
+        // 只写本次真实返回的 refreshToken(SDB-32,2026-11-08):上游未轮换时回写快照
+        // 旧票,会和并发路径(巡检/本机重登/管理面自愈)刚写入的新票互相覆盖。
+        ...(result.refreshToken !== undefined && result.refreshToken !== null
+          ? { refreshTokenEnc: encryptField(result.refreshToken) }
+          : {}),
         tokenExpiresAt: result.expiresAt,
         lastRefreshAt: startedAt,
         refreshFailureCount: 0,
@@ -753,12 +750,19 @@ async function doRefreshRowInPlace(
         lastErrorMessage: null,
         updatedAt: startedAt,
       })
-      .where(eq(aiRelayAccountPool.id, row.id))
+      // 写入侧 CAS(SDB-32):快照 credVersion 之后别的路径已换过票 ⇒ 本次整笔作废。
+      .where(
+        and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
+      )
       .catch(() => {})
     return {
       ...row,
       tokenEnc,
-      refreshTokenEnc,
+      // 内存里的新行仍保留旧票(上游未轮换时它就是本次请求该带的那枚),落库则不动该列。
+      refreshTokenEnc:
+        result.refreshToken !== undefined && result.refreshToken !== null
+          ? encryptField(result.refreshToken)
+          : row.refreshTokenEnc,
       tokenExpiresAt: result.expiresAt,
       lastRefreshAt: startedAt,
       credVersion: (row.credVersion ?? 0) + 1,
@@ -780,7 +784,11 @@ async function doRefreshRowInPlace(
         ...(authRejected ? { tokenExpiresAt: new Date() } : {}),
         updatedAt: startedAt,
       })
-      .where(eq(aiRelayAccountPool.id, row.id))
+      // 失败落账同样走 CAS(SDB-32):快照之后已被别的路径换票成功的号,
+      // 旧快照的失败计数不得覆盖新票对应的健康态。
+      .where(
+        and(eq(aiRelayAccountPool.id, row.id), eq(aiRelayAccountPool.credVersion, row.credVersion)),
+      )
       .catch(() => {})
     return null
   }
@@ -1699,5 +1707,7 @@ export const __test__ = {
   // ── 选号(O93):策略管线接线入口(policy 与 rng 注入 ⇒ 用例无需碰 env/时钟)──
   selectAccountCandidates,
   readRelayPoolPolicy,
+  // ── 401 自愈换票回写(SDB-32):CAS 判据单测入口 ──
+  refreshRowInPlace,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

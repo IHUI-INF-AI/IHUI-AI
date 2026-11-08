@@ -254,6 +254,16 @@ export async function checkBackupFilesystemFreshness(now: Date): Promise<BackupF
  * 5. 巡检备份链目录的**每一个**在册库(现读:ihui_dev + keycloak),
  *    检测 备份缺失 / 空备份(0 字节)/ 超 24h 未更新;读不到目录按"无法判定"同样升级
  */
+/**
+ * 每日告警任务的执行结果映射(SDB-43):自身检查失败(errors 非空)必须判 failed。
+ * worker 统一调用本函数,禁止把「没判到」写成 success。
+ */
+export function alertCheckJobStatus(
+  result: Pick<AlertCheckResult, 'errors'>,
+): 'success' | 'failed' {
+  return result.errors.length > 0 ? 'failed' : 'success'
+}
+
 export async function checkDailyAlerts(): Promise<AlertCheckResult> {
   const errors: string[] = []
   const now = new Date()
@@ -294,8 +304,13 @@ export async function checkDailyAlerts(): Promise<AlertCheckResult> {
     alerts: backupAlerts,
   } = backupCheck
 
-  // 升级逻辑：最近 24h 错误数超过 50,或有备份缺失/空备份/过期/**无法判定** → 需升级通知
-  const escalated = checked > 50 || backupIssues.length > 0 || backupUndetermined.length > 0 ? 1 : 0
+  // 升级逻辑：最近 24h 错误数超过 50,或有备份缺失/空备份/过期/**无法判定**,
+  // 或本轮自身检查失败(errors 非空)**无法判定** → 需升级通知(SDB-43:
+  // 原先 errors 不进 escalated,DB 查询失效被读成「判过且 0 条」)。
+  const escalated =
+    checked > 50 || backupIssues.length > 0 || backupUndetermined.length > 0 || errors.length > 0
+      ? 1
+      : 0
 
   return {
     checked,

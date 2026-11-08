@@ -141,6 +141,9 @@ export const chatMessages = pgTable(
     // 票64:钉选只在会话内有意义(全局钉一条历史消息没有出口),取数形状 = 会话内按钉选时刻倒序;
     // 首列必须是 conversation_id,否则又退化成整表扫。
     convPinnedIdx: index('ix_chat_messages_conv_pinned').on(t.conversationId, t.pinnedAt),
+    // DB-21:会话内按 (created_at, id) 双向游标翻页/键集分页。单列 conversation_id
+    // 只能定位会话,会话内仍要回表排序;补上排序列可直接走上索引(待手工建,见 manual-sql)。
+    convCreatedIdx: index('ix_chat_messages_conv_created').on(t.conversationId, t.createdAt, t.id),
   }),
 )
 
