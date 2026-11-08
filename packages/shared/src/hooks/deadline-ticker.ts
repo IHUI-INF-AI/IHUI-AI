@@ -4,6 +4,19 @@
 import * as React from 'react'
 
 /**
+ * 事件宿主的最小结构面(不引用 DOM 的 `Window`/`Document` 类型):
+ * 本包 types 指向 src,会被 lib=ES2023(无 DOM)的 api 侧一起编译,引用 DOM 类型会连带报错。
+ */
+interface DeadlineTickerEventTarget {
+  addEventListener: (type: string, listener: () => void) => void
+  removeEventListener: (type: string, listener: () => void) => void
+}
+
+interface DeadlineTickerDocument extends DeadlineTickerEventTarget {
+  visibilityState: string
+}
+
+/**
  * 截止戳同步器:interval 只负责「触发重渲染」,剩余时间一律由调用方从截止戳派生。
  *
  * 为什么独立成 hook(2026-11-08):
@@ -29,8 +42,22 @@ export function useDeadlineTicker(deadlineMs: number | null, onSync: () => void)
     sync()
 
     const timer = setInterval(sync, 1000)
-    const doc = typeof document !== 'undefined' ? document : null
-    const win = typeof window !== 'undefined' ? window : null
+    // 环境判断必须是「能力存在」而不是「名字存在」:
+    // - shared 的 types 指向 src,api 侧用 lib=ES2023(无 DOM)编译本文件,直接写 `window`/`document`
+    //   会 TS2304;改用 globalThis 显式探针,任何 lib 下都能编译。
+    // - RN 会把 `global.window` 指向 global 本体,名字在但没有 addEventListener;
+    //   只判 `typeof window === 'undefined'` 仍会在 RN 上调用不存在的方法,故按能力判定。
+    const globalScope =
+      typeof globalThis === 'undefined'
+        ? null
+        : (globalThis as unknown as {
+            document?: DeadlineTickerDocument
+            window?: DeadlineTickerEventTarget
+          })
+    const rawDoc = globalScope?.document
+    const rawWin = globalScope?.window
+    const doc = rawDoc && typeof rawDoc.addEventListener === 'function' ? rawDoc : null
+    const win = rawWin && typeof rawWin.addEventListener === 'function' ? rawWin : null
 
     const onVisibility = () => {
       if (!doc || doc.visibilityState === 'visible') sync()
