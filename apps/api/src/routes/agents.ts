@@ -15,6 +15,7 @@ import { withPublicEdgeCache } from '../utils/public-edge-cache.js'
 import { sanitizeCsvCell } from '../utils/csv-utils.js'
 import { batchWriteOutcome } from '../utils/batch-outcome.js'
 import { isUuidString } from '../utils/uuid.js'
+import { clampPage, clampPageSize } from '../utils/paging.js'
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
 import { db, dbRead } from '../db/index.js'
@@ -94,6 +95,21 @@ function toInt(v: string | undefined): number | undefined {
   if (v === undefined || v === '') return undefined
   const n = parseInt(v, 10)
   return Number.isNaN(n) ? undefined : n
+}
+
+/**
+ * F-31(2026-11-08):分页参数必须走同一组边界,不能只排除 NaN。
+ * 旧 `toInt` 让 `page=0` 直接进 OFFSET(负值 PG 报错 500)、`pageSize=1e8` 全表载入;
+ * 保留 `undefined` 语义(由下层查询/本路由给缺省),有值时夹到 paging.ts 的边界。
+ */
+function toPage(v: string | undefined): number | undefined {
+  const n = toInt(v)
+  return n === undefined ? undefined : clampPage(n)
+}
+
+function toPageSize(v: string | undefined): number | undefined {
+  const n = toInt(v)
+  return n === undefined ? undefined : clampPageSize(n)
 }
 
 // =============================================================================
@@ -378,8 +394,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     // 并对响应脱敏。登录用户行为不变。
     const isGuest = !request.userId
     const result = await listAgents({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       status: isGuest ? 'published' : q.status,
       categoryId: q.categoryId,
       userId: isGuest ? undefined : q.userId,
@@ -412,8 +428,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const result = await listAgents({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       status: q.status,
       userId: request.userId,
     })
@@ -674,8 +690,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const result = await findCategoryList({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       status: q.status,
       isPaid: q.isPaid !== undefined ? q.isPaid === 'true' : undefined,
       keyword: q.keyword,
@@ -1015,8 +1031,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const result = await findSettlementList({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       agentId: q.agentId,
       status: q.status,
       orderNo: q.orderNo,
@@ -1053,8 +1069,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const result = await findSettlementList({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       agentId: q.agentId,
       status: 'unsettled',
     })
@@ -1226,8 +1242,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const result = await findExamineList({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       agentId: q.agentId,
       userId: q.userId,
       status: q.status,
@@ -1395,8 +1411,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
     const q = z
       .object({ page: z.string().optional(), limit: z.string().optional() })
       .parse(request.query)
-    const page = toInt(q.page) ?? 1
-    const limit = toInt(q.limit) ?? 20
+    const page = toPage(q.page) ?? 1
+    const limit = toPageSize(q.limit) ?? 20
     const result = await listOAuthApps(request.userId!, page, limit)
     return reply.send(success({ list: result.items, total: result.total }))
   })
@@ -1449,8 +1465,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const { items, total } = await findAuditLogList({
-      page: toInt(q.page) ?? 1,
-      limit: toInt(q.limit) ?? 20,
+      page: toPage(q.page) ?? 1,
+      limit: toPageSize(q.limit) ?? 20,
       clientId: q.clientId,
       event: q.event,
       status: q.status,
@@ -1617,8 +1633,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         status: z.string().optional(),
       })
       .parse(request.query)
-    const page = toInt(q.page) ?? 1
-    const pageSize = toInt(q.pageSize) ?? 20
+    const page = toPage(q.page) ?? 1
+    const pageSize = toPageSize(q.pageSize) ?? 20
     const conds = []
     if (q.agentId) conds.push(eq(zhsAgentNeedTask.agentId, q.agentId))
     if (q.status !== undefined) {
@@ -2515,8 +2531,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const result = await listAgents({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       status: q.status,
       categoryId: q.categoryId,
       userId: request.userId,
@@ -2538,8 +2554,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const result = await listAgents({
-      page: toInt(q.page),
-      pageSize: toInt(q.pageSize),
+      page: toPage(q.page),
+      pageSize: toPageSize(q.pageSize),
       status: q.status,
       categoryId: q.categoryId,
       userId: q.userId,
@@ -2558,8 +2574,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         eventId: z.string().optional(),
       })
       .parse(request.query)
-    const page = toInt(q.page) ?? 1
-    const pageSize = toInt(q.pageSize) ?? 20
+    const page = toPage(q.page) ?? 1
+    const pageSize = toPageSize(q.pageSize) ?? 20
     const conds = [eq(agentBillings.customConsumer, request.userId!)]
     if (q.eventId) conds.push(eq(agentBillings.eventId, q.eventId))
     const where = and(...conds)
@@ -2589,8 +2605,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         eventId: z.string().optional(),
       })
       .parse(request.query)
-    const page = toInt(q.page) ?? 1
-    const pageSize = toInt(q.pageSize) ?? 20
+    const page = toPage(q.page) ?? 1
+    const pageSize = toPageSize(q.pageSize) ?? 20
     const conds = [eq(agentBillings.customConsumer, request.userId!)]
     if (q.eventId) conds.push(eq(agentBillings.eventId, q.eventId))
     const where = and(...conds)
