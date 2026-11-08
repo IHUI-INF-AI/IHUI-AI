@@ -3110,12 +3110,15 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
             method: 'POST',
             headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify({ client_id: ghClientId, client_secret: ghSecret, code }),
+            // F-473:回调链路不能无限等待上游
+            signal: AbortSignal.timeout(10_000),
           })
           const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
           if (!tokenData.access_token)
             return reply.status(400).send(error(400, 'GitHub 授权码无效'))
           const userRes = await fetch('https://api.github.com/user', {
             headers: { Authorization: `Bearer ${tokenData.access_token}` },
+            signal: AbortSignal.timeout(10_000),
           })
           const ghUser = (await userRes.json()) as {
             id: number
@@ -3215,6 +3218,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
                 code,
                 grant_type: 'authorization_code',
               }),
+              signal: AbortSignal.timeout(10_000),
             })
             const tokenData = (await tokenRes.json()) as {
               access_token?: string
