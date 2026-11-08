@@ -1096,20 +1096,36 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     workspacePath: z.string().optional(),
   })
 
-  server.post('/agent/run', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
-    const parsed = agentRunSchema.safeParse(request.body)
-    if (!parsed.success)
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    // F-306:此前 agentLoop.run 的 ai-service 调用缺 `/api` 前缀恒 404,却落伪成功分支,
-    // 任何登录用户都能拿到 200 + completed + 「Agent 第 N 轮思考」,实际零执行。
-    // 工具执行/计费/配额尚未接入该链路前显式 501,不再保留「200 但什么也没做」的路径。
-    // 恢复时须同时接回 agentLoop.run 并按调用用户身份接计费/配额。
-    return reply
-      .status(501)
-      .send(error(501, 'Workspace Agent 执行链路未接入 ai-service 计费/配额,已停用伪成功返回'))
-  })
+  server.post(
+    '/agent/run',
+    {
+      // F-306 契约面:执行链路未接入前只声明 501,不再挂 200 ——
+      // 旧契约只写 `200 Default Response`,等于对调用方谎报存在成功路径。
+      schema: {
+        response: {
+          501: {
+            type: 'object',
+            additionalProperties: true,
+            description: '该端点暂未接入执行层',
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      await requireAuth(request, reply)
+      if (!request.userId) return
+      const parsed = agentRunSchema.safeParse(request.body)
+      if (!parsed.success)
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      // F-306:此前 agentLoop.run 的 ai-service 调用缺 `/api` 前缀恒 404,却落伪成功分支,
+      // 任何登录用户都能拿到 200 + completed + 「Agent 第 N 轮思考」,实际零执行。
+      // 工具执行/计费/配额尚未接入该链路前显式 501,不再保留「200 但什么也没做」的路径。
+      // 恢复时须同时接回 agentLoop.run 并按调用用户身份接计费/配额。
+      return reply
+        .status(501)
+        .send(error(501, 'Workspace Agent 执行链路未接入 ai-service 计费/配额,已停用伪成功返回'))
+    },
+  )
 
   server.get('/agent/tasks', async (request, reply) => {
     await requireAuth(request, reply)
