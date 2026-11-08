@@ -28,11 +28,8 @@ import { logger } from './logger.js'
 /** 窗口大小（毫秒），默认 1 秒。 */
 const WINDOW_MS = 1000
 
-/** 窗口内最大消息数（msg/sec）。 */
+/** 窗口内最大消息数（msg/sec），硬上限，超出即限流。 */
 const MAX_PER_WINDOW = 30
-
-/** 短时突发上限。 */
-const BURST = 50
 
 /** ZSET TTL（秒），空闲后自动清理。 */
 const KEY_TTL_SEC = 10
@@ -76,7 +73,7 @@ function rateKey(userId: string, roomId: string): string {
  * 检查 WS 消息发送频率是否超限（滑动窗口）。
  *
  * 基于 Redis ZSET：移除窗口外旧记录后统计当前计数，
- * 未超 MAX_PER_WINDOW 放行；允许短时突发至 BURST；超出则限流。
+ * 未超 MAX_PER_WINDOW 放行；超出则限流。
  *
  * Redis 不可用时降级为放行（返回 true），避免影响正常连接。
  *
@@ -107,10 +104,8 @@ export async function checkWsRateLimit(userId: string, roomId: string): Promise<
     if (!cardRes) return true
     const count = Number(cardRes[1])
     if (Number.isNaN(count)) return true
-    // 正常窗口内放行；突发上限内放行；超出限流
-    if (count <= MAX_PER_WINDOW) return true
-    if (count <= BURST) return true
-    return false
+    // 窗口计数含本条消息：未超上限放行，超出即限流
+    return count <= MAX_PER_WINDOW
   } catch {
     // Redis 异常时放行
     return true
