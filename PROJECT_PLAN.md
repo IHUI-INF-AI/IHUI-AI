@@ -33043,3 +33043,11 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 717G. **缺陷普查 API F-718** [P1] 余额不足时 CASE 保持原值 + 准入只挡 0 ⇒ 1 分余额的 Key 永久免费，且返佣照提（证据 docs/tickets/2026-11/findings-api.md#F-718）
 - [ ] 718G. **缺陷普查 API F-719** [P1] 兑换码/单边 token 充值只加 tokenBalance，而准入要求 costBalanceCents≠0 ⇒ 付费充值不可用（证据 docs/tickets/2026-11/findings-api.md#F-719）
 - [ ] 719G. **缺陷普查 API F-720** [P2] Qoder 类积分上游的 credits 不进计费 ⇒ 该维度完全未计费（证据 docs/tickets/2026-11/findings-api.md#F-720）
+- [ ] 720G. **缺陷普查 API F-721** [P1] refundTaskCall 退款非原子：并发或副本滞后会重复退款（凭空增余额）（证据 docs/tickets/2026-11/findings-api.md#F-721）
+- [ ] 721G. **缺陷普查 API F-722** [P2] 渠道流式“已写出帧后异常”就地 return，跳过结算 ⇒ 预扣永久沉淀、无流水（证据 docs/tickets/2026-11/findings-api.md#F-722）
+- [ ] 722G. **缺陷普查 API F-723** [P2] settlePreDeduction 重新解析组归属，退款/补扣可能落到错误账户（证据 docs/tickets/2026-11/findings-api.md#F-723）
+- [ ] 723G. **缺陷普查 API F-724** [P2] 限流计数与计费链路脱钩：窗口计数只在两段式 +1，TPM 计数从未写入（证据 docs/tickets/2026-11/findings-api.md#F-724）
+- [ ] 724G. **缺陷普查 API F-725** [P2] 订阅窗口用量只在两段式结算里累加 ⇒ /v1/messages、/v1/responses 永不消耗订阅额度（证据 docs/tickets/2026-11/findings-api.md#F-725）
+- [ ] 725G. **缺陷普查 API F-726** [P2] /v1/messages、/v1/responses 流式计费完全脱离上游 usage（且丢弃 tool/thinking 输出）（证据 docs/tickets/2026-11/findings-api.md#F-726）
+- [ ] 726G. **缺陷普查 API F-727** [P2] Batch 50% 折扣只写进 metadata，实际按全价扣费（证据 docs/tickets/2026-11/findings-api.md#F-727）
+- [ ] 727G. **缺陷普查 API F-728** [P2] 失败/中断调用只退金额不退 token，且 v1-responses 把错误文案计入输出 token（证据 docs/tickets/2026-11/findings-api.md#F-728）
