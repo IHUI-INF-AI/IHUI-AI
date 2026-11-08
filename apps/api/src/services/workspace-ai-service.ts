@@ -2137,16 +2137,24 @@ class BackgroundAgentManager {
     return agentId
   }
 
-  list(): BackgroundAgent[] {
-    return Array.from(this.agents.values())
+  /**
+   * F-07:后台 Agent 的读写面一律按调用者归属过滤。
+   * 修前 list/get/cancel 只认 agentId,任一登录用户都能列举、查看、取消他人的长任务
+   * (泄露 prompt/workspacePath/事件/结果,并能掐断他人运行)。`userUuid` 由路由层固定为
+   * 登录身份,不接受 body 自报,故这里的判据只有 `agent.userUuid === userId`。
+   */
+  list(userId: string): BackgroundAgent[] {
+    return Array.from(this.agents.values()).filter((agent) => agent.userUuid === userId)
   }
 
-  get(agentId: string): BackgroundAgent | null {
-    return this.agents.get(agentId) ?? null
+  get(agentId: string, userId: string): BackgroundAgent | null {
+    const agent = this.agents.get(agentId) ?? null
+    if (!agent || agent.userUuid !== userId) return null
+    return agent
   }
 
-  cancel(agentId: string): boolean {
-    const agent = this.agents.get(agentId)
+  cancel(agentId: string, userId: string): boolean {
+    const agent = this.get(agentId, userId)
     if (!agent || agent.status !== 'running') return false
     agent.status = 'cancelled'
     this.persist(agent)

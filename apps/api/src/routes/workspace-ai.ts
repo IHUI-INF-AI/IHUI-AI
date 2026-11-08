@@ -1414,11 +1414,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 10. BackgroundAgents — 后台长时运行 Agent
   // ===========================================================================
 
+  // F-07:归属只认登录身份 —— 不再接受 body `userUuid`(此前可由客户端把 agent 记到他人名下)
   const startBgAgentSchema = z.object({
     prompt: z.string().min(1),
     workspacePath: z.string().min(1),
     modelId: z.string().optional(),
-    userUuid: z.string().optional(),
     maxIterations: z.number().int().min(1).max(100).optional(),
     systemPrompt: z.string().optional(),
   })
@@ -1431,7 +1431,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     const agentId = backgroundAgentManager.start({
       ...parsed.data,
-      userUuid: parsed.data.userUuid ?? request.userId,
+      userUuid: request.userId,
     })
     return reply.status(201).send(success({ agentId }))
   })
@@ -1439,14 +1439,14 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   server.get('/background-agents', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ agents: backgroundAgentManager.list() }))
+    return reply.send(success({ agents: backgroundAgentManager.list(request.userId) }))
   })
 
   server.get('/background-agents/:agentId', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { agentId } = agentIdParam.parse(request.params)
-    const agent = backgroundAgentManager.get(agentId)
+    const agent = backgroundAgentManager.get(agentId, request.userId)
     if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
     return reply.send(success(agent))
   })
@@ -1455,7 +1455,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { agentId } = agentIdParam.parse(request.params)
-    const canceled = backgroundAgentManager.cancel(agentId)
+    // F-07:先按归属取;不存在与不是自己的同一个 404(不泄漏 agentId 是否存在),
+    // 且取消只在归属匹配后才可能执行 —— 404 绝不返回 canceled:true。
+    const agent = backgroundAgentManager.get(agentId, request.userId)
+    if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
+    const canceled = backgroundAgentManager.cancel(agentId, request.userId)
     if (!canceled) return reply.status(400).send(error(400, 'Agent 不存在或不可取消'))
     return reply.send(success({ canceled: true }))
   })
