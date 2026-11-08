@@ -15,14 +15,26 @@
  */
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
+  dependencyChangeOf,
   evaluateAudit,
+  judgeStagedDependencyCoverage,
   lintPolicy,
+  lockfileDigest,
   parseCache,
   parsePolicy,
   PolicyShapeError,
+  sha256,
 } from '../check-prod-dep-advisories.mjs'
+import { parseGateRegistry } from '../lib/land-gate-rerun.mjs'
+import { normalizeTriggers, triggersTouch } from '../lib/guardian-triggers.mjs'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const ROOT = join(HERE, '..', '..')
 
 const NOW = Date.parse('2026-10-29T00:00:00Z')
 const LATER = '2027-01-01'
@@ -262,5 +274,95 @@ test('expiringSoon 按剩余天数升序(最先到期的排最前)', () => {
     r.expiringSoon.map((x) => x.module),
     ['a', 'b'],
   )
+})
+
+// ── 8. 依赖触发面 + 暂存面真判(2026-11-08 补) ─────────────────────────────
+test('registry:260 的触发面覆盖 pnpm-lock.yaml 与任意 package.json', () => {
+  const registry = parseGateRegistry(readFileSync(join(ROOT, 'scripts', 'guardian-runner.mjs'), 'utf8'))
+  assert.ok(!registry.error, `registry parse error: ${registry.error}`)
+  const entry = registry.entries.find((e) => String(e.id) === '260')
+  assert.ok(entry, '注册表里必须有 260')
+  const triggers = normalizeTriggers(entry.stagedTriggers)
+  for (const p of ['pnpm-lock.yaml', 'apps/web/package.json', 'packages/shared/package.json']) {
+    assert.equal(triggersTouch([p], triggers), true, `依赖变更必须触发 260:${p}`)
+  }
+})
+
+test('dependencyChangeOf:锁文件 / 任意层级 package.json / 其它文件', () => {
+  const d = dependencyChangeOf(['pnpm-lock.yaml', 'apps/web/package.json', 'apps/web/src/a.tsx'])
+  assert.equal(d.lockfile, true)
+  assert.deepEqual(d.manifests, ['apps/web/package.json'])
+  const onlyManifest = dependencyChangeOf(['package.json'])
+  assert.equal(onlyManifest.lockfile, false)
+  assert.deepEqual(onlyManifest.manifests, ['package.json'])
+})
+
+test('暂存依赖树覆盖:指纹一致才算 covered,其余一律未判定', () => {
+  const digest = sha256('lockfile-staged\n')
+  const policy = basePolicy()
+  const cache = (extra = {}) => ({
+    fetchedAt: new Date(NOW - 1000).toISOString(),
+    fetchedTs: NOW - 1000,
+    rows: [],
+    lockfileSha256: digest,
+    ...extra,
+  })
+  assert.equal(
+    judgeStagedDependencyCoverage({ stagedLockfileDigest: digest, cache: cache(), policy, now: NOW }).status,
+    'covered',
+  )
+  // 方向锁:每一枚「看起来像覆盖」的反例都必须落 undetermined,不得判绿。
+  assert.equal(
+    judgeStagedDependencyCoverage({ stagedLockfileDigest: '', cache: cache(), policy, now: NOW }).status,
+    'undetermined',
+  )
+  assert.equal(
+    judgeStagedDependencyCoverage({ stagedLockfileDigest: digest, cache: null, policy, now: NOW }).status,
+    'undetermined',
+  )
+  assert.equal(
+    judgeStagedDependencyCoverage({
+      stagedLockfileDigest: digest,
+      cache: cache({ lockfileSha256: null }),
+      policy,
+      now: NOW,
+    }).status,
+    'undetermined',
+    '旧快照没有指纹 ⇒ 不能冒充覆盖',
+  )
+  const staleTs = NOW - 31 * 24 * 3600_000
+  assert.equal(
+    judgeStagedDependencyCoverage({
+      stagedLockfileDigest: digest,
+      cache: cache({ fetchedAt: new Date(staleTs).toISOString(), fetchedTs: staleTs }),
+      policy,
+      now: NOW,
+    }).status,
+    'undetermined',
+    '过期快照',
+  )
+  assert.equal(
+    judgeStagedDependencyCoverage({
+      stagedLockfileDigest: sha256('lockfile-from-other-tree\n'),
+      cache: cache(),
+      policy,
+      now: NOW,
+    }).status,
+    'undetermined',
+    '指纹不一致',
+  )
+})
+
+test('parseCache:旧快照无锁文件指纹 ⇒ null(不冒充覆盖)', () => {
+  const c = parseCache(JSON.stringify({ fetchedAt: new Date().toISOString(), rows: [] }))
+  assert.equal(c.lockfileSha256, null)
+  const c2 = parseCache(JSON.stringify({ fetchedAt: new Date().toISOString(), rows: [], lockfileSha256: 'abc' }))
+  assert.equal(c2.lockfileSha256, 'abc')
+})
+
+test('锁文件指纹忽略行尾/BOM(索引 LF vs Windows 工作树 CRLF)', () => {
+  assert.equal(lockfileDigest('a\nb\n'), lockfileDigest('a\r\nb\r\n'))
+  assert.equal(lockfileDigest('\uFEFFa\n'), lockfileDigest('a\n'))
+  assert.equal(lockfileDigest(null), null)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
