@@ -2024,6 +2024,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     if (!conversationId) {
       return reply.status(400).send(error(400, 'conversationId 必填'))
     }
+    // F-03 同链路:conversationId 只当"要中止哪个会话"的坐标,归属必须服务端查。
+    // 归还不属于当前用户 ⇒ 与"会话不存在"同码 404,不得中止他人流/注入 cancelled 帧。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const count = abortConversationStreams(conversationId, parsed.data.messageId)
     request.log.info(
       { conversationId, messageId: parsed.data.messageId, aborted: count },
@@ -2066,6 +2071,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, messageId, text } = parsed.data
+    // F-03 同链路:先验会话归属再反查流;越权一律 404,不得把引导文本注入他人会话。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const session = findSession(`${conversationId}:${messageId}`)
     if (!session || session.finished || !session.upstreamSessionId) {
       // 流不存在/已结束/未启用 steer(缺 metadata 的降级流):透传 ai-service 同义 404,
@@ -2136,6 +2145,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, messageId, queuedAt } = parsed.data
+    // F-03 同链路:撤回同样先验会话归属,越权一律 404,不得撤他人队列条目。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const session = findSession(`${conversationId}:${messageId}`)
     if (!session || session.finished || !session.upstreamSessionId) {
       // 与 /chat/steer 同闸门:活动流反查不到 ⇒ 404,不打到上游(条目随流消亡,无处可撤)
