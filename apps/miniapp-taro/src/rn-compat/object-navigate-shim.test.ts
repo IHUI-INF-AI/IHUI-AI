@@ -28,9 +28,9 @@ import { RN_ROUTE_MAP } from './route-map.generated'
 import { MINI_TAB_PATHS } from './navigation'
 import { createCompatNavigation } from './navigation'
 
-const entry =
-  Object.entries(RN_ROUTE_MAP).find(([, path]) => !MINI_TAB_PATHS.includes(path)) ??
-  Object.entries(RN_ROUTE_MAP)[0]
+const entries = Object.entries(RN_ROUTE_MAP)
+const entry = entries.find(([, path]) => !MINI_TAB_PATHS.includes(path)) ?? entries[0]
+if (!entry) throw new Error('RN_ROUTE_MAP 为空,无法取路由夹具')
 const [ROUTE_NAME, ROUTE_PATH] = entry
 
 const makeNav = () =>

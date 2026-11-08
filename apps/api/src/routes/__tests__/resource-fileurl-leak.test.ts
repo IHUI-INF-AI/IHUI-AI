@@ -129,6 +129,8 @@ describe('F-568 资源公开接口不泄露 fileUrl', () => {
     const res = await app.inject({ method: 'GET', url: '/api/resources' })
     expect(res.statusCode).toBe(200)
     const item = (res.json().data as { list: Array<Record<string, unknown>> }).list[0]
+    expect(item).toBeDefined()
+    if (!item) throw new Error('列表为空,无法验证 fileUrl 泄露')
     expectNoFileUrl(item)
   })
 
@@ -139,6 +141,8 @@ describe('F-568 资源公开接口不泄露 fileUrl', () => {
     })
     expect(res.statusCode).toBe(200)
     const item = (res.json().data as { list: Array<Record<string, unknown>> }).list[0]
+    expect(item).toBeDefined()
+    if (!item) throw new Error('列表为空,无法验证 fileUrl 泄露')
     expectNoFileUrl(item)
   })
 

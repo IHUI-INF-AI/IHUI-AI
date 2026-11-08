@@ -127,10 +127,10 @@ const metricsPluginInner: FastifyPluginAsync = async (server: FastifyInstance) =
     // 报 0 会造成"池打满仍 in_use=0"的假绿。db_pool_metrics_available 标明可用性;
     // 不可用时 /metrics **不输出**这三条 usage 序列(不写 NaN,避免污染消费端聚合)。
     dbPoolMetricsAvailable: false,
-    dbPoolInUse: null,
+    dbPoolInUse: null as number | null,
     dbPoolSize: 0,
-    dbPoolCheckedout: null,
-    dbPoolOverflow: null,
+    dbPoolCheckedout: null as number | null,
+    dbPoolOverflow: null as number | null,
     dbPoolConnectionsTotal: 0, // Counter
     dbPoolCheckoutTimeoutsTotal: 0, // Counter
     // 新增：SQL 指标

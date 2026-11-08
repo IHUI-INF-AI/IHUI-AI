@@ -122,12 +122,6 @@ export interface PendingRequest {
    * 客户端只回显,不在两端各算一份。
    */
   assignment: AgentActionAssignment
-  /**
-   * 这条待处理指令的属主(fixed 2026-11-08, F-08)。取被派发端点的 userId(服务端权威),
-   * 不取调用方 body:否则任何登录用户只要猜到 requestId 就能结算他人的待处理动作。
-   * /result 必须按此校验 request.userId —— 带不带 responded 都不得跨用户结算。
-   */
-  userId: string
 }
 
 /** requestId → PendingRequest */

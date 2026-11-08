@@ -15,6 +15,7 @@ import { BackButton, AuthGatePrompt } from '@/components/common'
 import { fetchApi } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth'
 import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
+import { useAuthGate } from '@/hooks/use-auth-gate'
 
 interface DeletionStatus {
   isScheduled: boolean
