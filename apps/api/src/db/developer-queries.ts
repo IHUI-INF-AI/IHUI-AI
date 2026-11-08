@@ -76,6 +76,8 @@ export async function activateDeveloperSubscription(input: {
   const now = new Date()
   const days = input.period === 'yearly' ? 365 : 30
   const endTime = new Date(now.getTime() + days * 86400_000)
+  // F-689：支付回调重放时同一 orderId 会再次调用本函数。以 order_id 唯一索引兜底，
+  // 冲突即 DO NOTHING，再回查既有订阅 —— 重放返回同一行，不重复授予权益、不冒泡 500。
   const rows = await db
     .insert(developerSubscriptions)
     .values({
@@ -87,10 +89,19 @@ export async function activateDeveloperSubscription(input: {
       status: 1,
       orderId: input.orderId,
     })
+    .onConflictDoNothing({ target: developerSubscriptions.orderId })
     .returning()
   const row = rows[0]
-  if (!row) throw new Error('创建开发者订阅失败')
-  return row
+  if (row) return row
+
+  const existing = await db
+    .select()
+    .from(developerSubscriptions)
+    .where(eq(developerSubscriptions.orderId, input.orderId))
+    .limit(1)
+  const replayRow = existing[0]
+  if (!replayRow) throw new Error(`开发者订阅幂等回查失败: orderId=${input.orderId}`)
+  return replayRow
 }
 
 export async function getMyDeveloperSubscription(
