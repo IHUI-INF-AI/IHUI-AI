@@ -40,13 +40,13 @@
 | 12A | DG-12 | —（报告未给行号，见正文） | P3 | 入册 |
 | 13A | DG-13 | deploy/win/ihui-deploy.ps1:900 | P3 | 入册 |
 | 14A | DG-14 | scripts/lib/gate-scope.mjs:89-150 | P3 | 入册 |
-| 1B | W-01 | apps/web/app/(main)/exam/[id]/PageClient.tsx:44,55-57,90-93,95-105,- | P1 | 入册 |
-| 2B | W-02 | apps/web/app/(main)/admin/edu/answer/online/page.tsx:36,77,105-108,111-115,- | P2 | 入册 |
+| 1B | W-01 | apps/web/app/(main)/exam/[id]/PageClient.tsx:44,55-57,90-93,95-105,- | P1 | 已修 fix/web-findings-1108 |
+| 2B | W-02 | apps/web/app/(main)/admin/edu/answer/online/page.tsx:36,77,105-108,111-115,- | P2 | 已修 fix/web-findings-1108 |
 | 3B | W-03 | apps/web/app/(main)/refund/[id]/PageClient.tsx:91-104 | P3 | 入册 |
-| 4B | W-04 | apps/web/src/components/chat/question-dialog.tsx:84-91,145,- | P2 | 入册 |
-| 5B | W-05 | apps/web/src/components/chat/conversation-org-dialog.tsx:77,142,- | P3 | 入册 |
+| 4B | W-04 | apps/web/src/components/chat/question-dialog.tsx:84-91,145,- | P2 | 已修 fix/web-findings-1108 |
+| 5B | W-05 | apps/web/src/components/chat/conversation-org-dialog.tsx:77,142,- | P3 | 已修 fix/web-findings-1108 |
 | 6B | W-06 | apps/web/app/(main)/learn/payment/confirm/PageClient.tsx:72-97,- | P3 | 入册 |
-| 7B | W-07 | apps/web/app/(main)/wallet/recharge/success/PageClient.tsx:29-34,77,89-100,121,155-161,161-173,- | P2 | 入册 |
+| 7B | W-07 | apps/web/app/(main)/wallet/recharge/success/PageClient.tsx:29-34,77,89-100,121,155-161,161-173,- | P2 | 已修 fix/web-findings-1108 |
 | 1C | F-001 | apps/cli/src/tools/run-tests.ts:149 | P0 | 入册 |
 | 2C | F-045 | apps/desktop/src-tauri/capabilities/default.json:31 | P0 | 入册 |
 | 3C | F-002 | apps/cli/src/index.ts:1408 | P1 | 入册 |

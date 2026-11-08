@@ -74,6 +74,8 @@ export function ConversationOrgDialog({
   }, [open, meta])
 
   const handleTagKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // W-05:输入法组合态的 Enter/逗号是候选词上屏,不能当成「加标签」,否则中文标签被截断
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
     if (e.key !== 'Enter' && e.key !== ',') return
     e.preventDefault()
     const value = tagInput.trim()

@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { fetchApi } from '@/lib/api'
+import { saveRechargeQr } from '@/lib/recharge-qr-session'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -97,14 +98,9 @@ export function TopupTab() {
         toast.error('支付通道暂未开通（商户配置缺失），请联系管理员。')
         return
       }
-      const params = new URLSearchParams({
-        orderNo: r.data.outTradeNo,
-        amount: String(amount),
-        method,
-      })
-      if (r.data.codeUrl) params.set('codeUrl', r.data.codeUrl)
-      if (r.data.payUrl) params.set('payUrl', r.data.payUrl)
-      router.push(`/wallet/recharge/success?${params.toString()}`)
+      // W-07:同 /wallet/recharge,二维码凭据只留在本标签页 sessionStorage,URL 只带 orderNo
+      saveRechargeQr(r.data.outTradeNo, { codeUrl: r.data.codeUrl, payUrl: r.data.payUrl })
+      router.push(`/wallet/recharge/success?orderNo=${encodeURIComponent(r.data.outTradeNo)}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t('submitFailed'))
     } finally {
