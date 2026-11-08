@@ -13,6 +13,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import { formatPrice } from '@ihui/shared/utils'
+import { resolveWalletFlowMeta } from '@ihui/shared/utils/wallet-flow-meta'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { WalletBalance, WalletFlowItem, WalletScreenProps } from '../../types'
 
@@ -22,18 +23,6 @@ import { ScreenSkeleton } from '../../components/ScreenStates'
 
 /** 钱包/Props 类型 re-export(单一来源 @ihui/types) */
 export type { WalletBalance, WalletScreenProps }
-
-/** opType → i18n 键(未知值按原数字展示) */
-const OP_TYPE_KEY: Record<number, string> = {
-  1: 'wallet.opType1',
-  2: 'wallet.opType2',
-  3: 'wallet.opType3',
-  4: 'wallet.opType4',
-  5: 'wallet.opType5',
-}
-
-/** 入账类型(与 web 一致:充值/退款/佣金为正,扣减/过期为负) */
-const POSITIVE_OP_TYPES = new Set([1, 4, 5])
 
 /** onFlowsPageChange 契约别名换算页码时的回落页大小(与 web / RN 宿主 PAGE_SIZE 一致) */
 const FALLBACK_FLOWS_PAGE_SIZE = 20
@@ -220,14 +209,26 @@ interface FlowRowProps {
 
 /** 窄屏卡片行:类型 + 金额(正负色) / 备注 / 时间 / 变动后余额 */
 function FlowRow({ item, t, styles }: FlowRowProps) {
-  const positive = POSITIVE_OP_TYPES.has(item.opType)
-  const typeKey = OP_TYPE_KEY[item.opType]
+  const meta = resolveWalletFlowMeta(item.opType, item.quantity)
+  const tone =
+    meta.sign === 'positive'
+      ? styles.flowIn
+      : meta.sign === 'negative'
+        ? styles.flowOut
+        : styles.flowNeutral
   return (
     <View style={styles.flowRow}>
       <View style={styles.flowTop}>
-        <Text style={styles.flowType}>{typeKey ? t(typeKey) : String(item.opType)}</Text>
-        <Text style={[styles.flowAmount, positive ? styles.flowIn : styles.flowOut]}>
-          {positive ? '+' : '-'}¥{fenToYuan(Math.abs(item.quantity))}
+        <Text style={styles.flowType}>{t('wallet.' + meta.labelKey)}</Text>
+        <Text style={[styles.flowAmount, tone]}>
+          {meta.isMoney ? (
+            <>
+              {meta.sign === 'positive' ? '+' : meta.sign === 'negative' ? '-' : ''}¥
+              {fenToYuan(Math.abs(item.quantity))}
+            </>
+          ) : (
+            <>{Math.abs(item.quantity)}</>
+          )}
         </Text>
       </View>
       <Text style={styles.flowMeta} numberOfLines={1}>
@@ -320,6 +321,7 @@ function createStyles(tk: AppThemeTokens) {
     flowAmount: { fontSize: rnType.body.size, fontWeight: '700' },
     flowIn: { color: tk.success.DEFAULT },
     flowOut: { color: tk.danger.DEFAULT },
+    flowNeutral: { color: tk.text.secondary },
     flowMeta: { fontSize: rnType.label.size, color: tk.text.secondary },
     flowState: { alignItems: 'center', paddingVertical: rnSpacing.lg, gap: rnSpacing.sm },
     flowErrorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, textAlign: 'center' },
