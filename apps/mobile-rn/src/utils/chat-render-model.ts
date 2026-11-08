@@ -520,7 +520,7 @@ export interface SubagentReplayItem {
   outputPreview?: string
   agentName?: string
   /** end 帧终态;缺失(只有 spawn/progress)⇒ undefined,渲染按进行中降级 */
-  status?: 'done' | 'failed'
+  status?: 'done' | 'failed' | 'stub'
   failureReason?: string
   /** progress 帧计数(回放里的活动量下限) */
   progressCount: number
@@ -561,7 +561,7 @@ export function foldElementPackFrames(frames: readonly ElementPackFrame[]): Suba
 
 /**
  * 回放行文案:任务名(agentName/id 兜底)+ 状态词包(复用 elementPack.backgroundTask
- * 八态里同族三态:done→completed / failed→failed / 无 end→running,不另造第二套状态词)+
+ * 八态里同族三态:done→completed / failed→failed / stub→stub / 无 end→running,不另造第二套状态词)+
  * 失败原因或最后工具。一行一代理,与既有 execRowText 行形态同族。
  */
 export function subagentReplayRow(item: SubagentReplayItem, t: (key: string) => string): string {
@@ -571,7 +571,9 @@ export function subagentReplayRow(item: SubagentReplayItem, t: (key: string) => 
       ? 'backgroundTask.state.failed'
       : item.status === 'done'
         ? 'backgroundTask.state.completed'
-        : 'backgroundTask.state.running'
+        : item.status === 'stub'
+          ? 'backgroundTask.state.stub'
+          : 'backgroundTask.state.running'
   const parts = [head, t(`${ELEMENT_PACK_NAMESPACE}.${statusKey}`)]
   if (item.failureReason !== undefined) parts.push(item.failureReason)
   else if (item.lastTool !== undefined) parts.push(item.lastTool)
