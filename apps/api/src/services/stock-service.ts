@@ -16,6 +16,7 @@ import { and, count, desc, eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { stockAnalyses } from '@ihui/database'
 import type { TokenBalanceService } from '../plugins/token-balance-service.js'
+import { resolveAiCost } from '../plugins/ai-cost.js'
 import { degradedMode, getBulkhead } from '../plugins/resilience-extended.js'
 import { logger } from '../utils/logger.js'
 
@@ -250,22 +251,30 @@ export async function executeStockAnalysis(
     }
   }
 
+  // F-203(口径 B):钱包单位是分,不能拿 token 估算数直接扣。
+  // 预估按 prompt 侧 token 折算成成本(分);预扣与失败退还都用这个分金额。
   const estimatedTokens = Math.ceil(req.question.length / 4) + 800 // 输入 + 输出估算
+  const estimated = await resolveAiCost({
+    model: cfg.modelId,
+    promptTokens: estimatedTokens,
+    completionTokens: 0,
+  })
+  const estimatedCents = Math.ceil(estimated.cost)
 
-  // 1. Token 余额校验 + 扣减
-  if (tokenBalance && req.userId) {
-    const ok = await checkTokenBalance(estimatedTokens, tokenBalance, req.userId)
+  // 1. 余额校验 + 预扣(单位:分)
+  if (tokenBalance && req.userId && estimatedCents > 0) {
+    const ok = await checkTokenBalance(estimatedCents, tokenBalance, req.userId)
     if (!ok) {
       const info = await tokenBalance.getBalance(req.userId).catch(() => ({ balance: 0 }))
-      throw new Error(`Token 余额不足: 需要 ${estimatedTokens}, 剩余 ${info.balance}`)
+      throw new Error(`余额不足: 需要 ${estimatedCents} 分, 剩余 ${info.balance} 分`)
     }
     const deduct = await tokenBalance.deductTokens(
       req.userId,
-      estimatedTokens,
+      estimatedCents,
       `stock_analysis:${req.symbol}`,
     )
     if (!deduct.success) {
-      throw new Error(`Token 扣减失败: 余额不足, 剩余 ${deduct.remaining}`)
+      throw new Error(`扣费失败: 余额不足, 剩余 ${deduct.remaining} 分`)
     }
   }
 
@@ -278,11 +287,11 @@ export async function executeStockAnalysis(
     fallbackAnalysis(req.symbol, req.question),
     (err) => {
       logger.error('[stock-service] AI 模型调用失败, 降级为本地分析', { error: err.message })
-      // AI 失败退还已扣 token;幂等键含 symbol + 时间戳,rechargeTokens 内部 unique 索引兜底
-      if (tokenBalance && req.userId) {
+      // AI 失败退还已预扣的分;幂等键含 symbol + 时间戳,rechargeTokens 内部 unique 索引兜底
+      if (tokenBalance && req.userId && estimatedCents > 0) {
         const refundReason = `stock_refund:${req.symbol}:${Date.now()}`
-        tokenBalance.rechargeTokens(req.userId, estimatedTokens, refundReason).catch((refundErr) =>
-          logger.error('[stock-service] token 退还失败', {
+        tokenBalance.rechargeTokens(req.userId, estimatedCents, refundReason).catch((refundErr) =>
+          logger.error('[stock-service] 预扣退还失败', {
             userId: req.userId,
             error: (refundErr as Error).message,
           }),
