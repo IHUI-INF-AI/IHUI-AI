@@ -219,9 +219,12 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
   server.get('/self-media/records', async (request, reply) => {
     const { category, limit } = request.query as { category?: string; limit?: string }
     const cat = category === 'wechat' || category === 'koubo' ? category : undefined
-    const lim = Math.min(Number(limit) || 50, HISTORY_LIMIT)
+    // F-170:limit 允许负数会导致 SQL LIMIT 负数 500,夹到 [1, HISTORY_LIMIT]。
+    const lim = Math.max(1, Math.min(Number(limit) || 50, HISTORY_LIMIT))
 
-    const conds = []
+    // F-170(2026-11-08):写入时盖了 authorId,读侧却只过滤 category,
+    // 任意登录用户可拉全站他人标题/关键词/payload。按本人收敛。
+    const conds = [eq(selfMediaPublished.authorId, request.userId!)]
     if (cat) conds.push(eq(selfMediaPublished.category, cat))
     const rows = await db
       .select()
