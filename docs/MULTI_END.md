@@ -450,6 +450,63 @@ pnpm build:h5       # H5
 
 ---
 
+## 门 290 · pkg-shop/vip 两处空端口结案（2026-11-08）
+
+- 范围：`apps/miniapp-taro/src/pkg-shop/vip/index.tsx`、`apps/miniapp-taro/src/pkg-shop/vip/upgrade.tsx`
+- 判据：门 290 `scripts/check-miniapp-interaction-hygiene.mjs`（A2-empty-port）
+- 基线：`origin/main`（分支 `fix/gate290-vip-empty-port`，独立工作树 `D:/IHUI-AI-wt-vip-290`）
+
+### 结论
+
+两处命中不是「取不到宿主/数据」，而是**确证为空**：`onNavigate` 是共享屏 `VipScreen` 声明的必填端口，但屏内**零消费**，只有 `assertRequiredPort` 的断言。它只对某一个端（RN）有真实回调可传，另外两端（小程序两页）只能挂 `() => {}` 空实现来喂断言——正是「只有一个端会传的 prop」。
+
+按硬约束该端口**本不该存在**，处置为**删除死端口**，而不是给小程序补一条无人调用的假导航。删除后门 290 的 A2 从 2 处降为 0，且不产生任何行为变化。
+
+### 证据链（为什么是「确证为空」而不是「取不到宿主」）
+
+1. **屏内零消费**：`packages/app/src/features/vip/VipScreen.tsx` 改前 `onNavigate` 只出现两次——`L66` 解构、`L76` `assertRequiredPort('onNavigate', onNavigate)`，函数体再无任何调用点。
+2. **每个交互元素都有自己的专属回调**，无一需要通用导航：`L103` `BackChevron onPress={onBack}`；`L131` `introduce.onPress`；`L166` `viewBenefits.onPress`；`L211` `plans.onSelect`、`L227` `plans.onToggleAutoRenew`、`L236` `plans.onManage`；`L258` `buyBar.onPress`；`L271` `overlay.onClose`、`L317` `overlay.agree.onToggle`、`L332` `method.onPress`、`L345` `overlay.onPrimary`。共享屏没有任何「需要跳转到逻辑 target」的 UI，端口没有语义承载位。
+3. **RN 端传的是真回调，但用途都在共享屏之外**：`apps/mobile-rn/src/screens/VipScreen.tsx` `L219` 取 `useHostPorts()`，`onNavigate` 只在 `L445`（`navigateAfterVipPay`）、`L641`（`VipUpgrade`）、`L664`（`VipTrader`）使用；传给 `SharedVipScreen` 的那一份（改前 `L694`）没有任何消费方。
+4. **小程序两页只能挂空实现**：`pkg-shop/vip/index.tsx` 改前 `L356`、`upgrade.tsx` 改前 `L184` 均为 `onNavigate={() => {}}`。`assertRequiredPort` 在 dev 对「已知空实现」直接抛错（`packages/app/src/host/ports.ts`），即这两页在 dev 下本来就会崩，空实现不是合法补齐。
+5. **宿主端口其实存在，不是取不到**：`scripts/data/host-port-equivalence.json` 已把 `onNavigate` 映射到小程序侧 `apps/miniapp-taro/src/rn-compat/navigation.tsx`。小程序**具备**接真实导航的能力，但共享屏没有消费点，接上也无行为——问题在设计，不在宿主取不到。
+6. **web 端不渲染该屏**：全仓 `VipScreenProps` / `features/vip/VipScreen` 导入点中无 web 侧调用，三端里只有 RN 与小程序两端渲染该共享屏。
+
+### 判据语义分界（读不到 ≠ 通过）
+
+| 情形 | 处置 | 位置 |
+| --- | --- | --- |
+| 被审面文件读失败 | `exit 2` 并点名文件 | `scripts/check-miniapp-interaction-hygiene.mjs` `readTextSafe`（L102）+ `run()` 循环（L838） |
+| 端口表为空（A2 射程静默收缩） | `exit 2`，不得以零端口名判 A2 通过 | 同文件 L820 |
+| 确证为空（端口无消费方） | 删除端口后 `exit 0`，门打印 `A2 空端口:0(端口表已加载 N 名;…)` 作为依据 | 同文件 L894 |
+
+「确证为空」不接受白名单挂账：唯一合法处置是删端口；「取不到」不接受任何兜底放行。
+
+### 改动清单
+
+1. `packages/types/src/app-growth.ts`：`VipScreenProps` 删除 `onNavigate: OnNavigate` 字段（`L341` 接口内）。
+2. `packages/app/src/features/vip/VipScreen.tsx`：删除解构 `onNavigate` 与 `assertRequiredPort('onNavigate', onNavigate)`。
+3. `apps/mobile-rn/src/screens/VipScreen.tsx`：`<SharedVipScreen>` 移除 `onNavigate={onNavigate}`（本地 `onNavigate` 变量保留，`L445/L641/L664` 仍在用）。
+4. `apps/miniapp-taro/src/pkg-shop/vip/index.tsx`、`upgrade.tsx`：移除 `onNavigate={() => {}}` 空实现。
+5. `apps/miniapp-taro/src/constants/ui-routes.generated.ts`：生成器随源码变更重算的 pin 头（sourceCommit/inputsSha256/generatedAt + 两个 vip 页输入哈希）。
+6. `scripts/check-miniapp-interaction-hygiene.mjs`：新增 `readTextSafe`、端口表空闸、A2 读数行。
+7. `scripts/tests/check-miniapp-interaction-hygiene.test.mjs`：新增 T13（取不到 ⇒ 显式 error，不折成零违规）。
+
+未触碰：其它屏、跨端登记表数据文件、`check-staged-typecheck.mjs`。
+
+### 验证读数
+
+> 前提：本机当时有四条并发开发线同时跑门，下列耗时/读数受 CPU 争用影响；门本身是静态扫描，结论不随并发变化。
+
+- 门 290（改后）：`blocking:0`，`A2 空端口:0(端口表已加载 8 名…)`，`扫 707 文件 / 6576 标签`。
+- 门 290 镜像测试：`node --test scripts/tests/check-miniapp-interaction-hygiene.test.mjs` → `tests 13 / pass 13 / fail 0`。
+- 门 296（重试别名，default face=head）：**基线既有红**，与本次改动无关——`apps/miniapp-taro/src/pkg-ai/ai/history.tsx:788 onRetry={onRefresh}` 判为新增假重载；该文件不在本次改动面，HEAD 与 `origin/main` 同一 sha `6030e877`。归该文件所属并发线处理，本线不越界修改。
+- 门 299：`✅ 结论:无新增复制页;存量复制页逐条在册`，exit 0。
+- 宿主端口等价门：`entries=5 ports=onAudio,onNavigate,onToast`，exit 0。
+- `@ihui/rn-app typecheck`：exit 0。
+- `@ihui/mobile-rn typecheck`：exit 2，仅基线既有 2 处（`LoginScreen.tsx:279`、`chat-render-model.ts:554`），均不在本次改动面。
+- `@ihui/miniapp-taro typecheck`：exit 2，仅基线既有 4 处（`n8n-model/list-view.tsx` 缺 `./workflow-card`、`vip-trader/index` 缺 `@rn-shells/VipTraderScreen`、`streaming-recognizer.ts` 重复实现 ×2），均不在本次改动面。
+- 定向单测：rn-app `vip-levels-section` 6/6；miniapp `shop-vip-shell-render` 8/8 + `shop-vip-upgrade-details-shell` 6/6；mobile-rn `vip-purchase-order-contract` 3/3 + `vip-benefit-labels` 3/3。
+
 ## 相关文档
 
 - [AGENTS.md §9 多端同步开发强制规则](../AGENTS.md) — 全端连通 / 平台独占豁免 / 多 Subagent 派单
