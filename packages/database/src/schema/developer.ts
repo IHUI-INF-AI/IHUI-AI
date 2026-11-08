@@ -12,6 +12,7 @@ import {
   jsonb,
   timestamp,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { users } from './users.js'
 import { orders } from './billing.js'
@@ -75,6 +76,9 @@ export const developerSubscriptions = pgTable(
   (t) => ({
     userIdx: index('ix_developer_subscriptions_user').on(t.userId),
     statusIdx: index('ix_developer_subscriptions_status').on(t.status),
+    // F-689：支付回调重放时按订单幂等，同一 order_id 只能激活一份订阅。
+    // order_id 可空，PostgreSQL 唯一索引允许多个 NULL，未带订单号的历史行不受影响。
+    orderIdUnique: uniqueIndex('developer_subscriptions_order_id_uidx').on(t.orderId),
   }),
 )
 
