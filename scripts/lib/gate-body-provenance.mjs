@@ -501,7 +501,8 @@ export function gateSpawnPlan({ root, script, args = [], env = process.env } = {
     throw new GateBodyProvenanceError(`派发点要跑的门体不存在:${entryRel}`)
   }
   // 未声明 ⇒ 当场 exit 2(派发器自己也不许猜)。声明表缺失同理。
-  resolveGateFace({ root, entryRel, argv: args, env: {} })
+  // env 要如实传入:否则 env 与 argv 判面冲突会在派发时被漏检。
+  resolveGateFace({ root, entryRel, argv: args, env })
   const preloadUrl = pathToFileURL(join(root, 'scripts/lib/gate-body-provenance.mjs')).href
   return {
     argv: ['--import', preloadUrl, entryRel, ...args],
