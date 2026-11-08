@@ -214,7 +214,11 @@ const updateRuleSchema = z.object({
 })
 
 // P1 安全修复(2026-08-02):personality update body schema
-const personalityUpdateSchema = z.object({ personality: z.string() })
+// F-133:人设直接作为下游 system prompt,限长避免超长注入体占满模型上下文/存储
+const personalityUpdateSchema = z.object({ personality: z.string().max(20_000) })
+
+// F-133:raw SQL 取回的 user_id 可能是 null;统一收敛成 string|null 再比对
+const asOwnerId = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null)
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // P0 安全修复:所有路由默认要求登录;admin-only 端点在路由级用 requireAdmin 覆盖
@@ -1617,10 +1621,20 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const { agentId } = req.params as { agentId: string }
     try {
       const rows = await db.execute(
-        sql`SELECT "agent_id", "agent_prompt" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
+        sql`SELECT "agent_id", "agent_prompt", "user_id", "status" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '智能体不存在'))
+      // F-133:未发布智能体的人设属私有配置,仅属主/系统管理员可读;
+      // 已发布的才对外公开(下游 mobile-chat / v1-public 以 system 使用)。
+      // 非授权一律 404,不暴露该 agentId 是否存在。
+      if (row['status'] !== 'published') {
+        const owner = asOwnerId(row['user_id'])
+        const privileged =
+          owner !== null &&
+          (owner === req.userId || isSystemAdmin(req, { includeInternalChannel: false }))
+        if (!privileged) return reply.status(404).send(error(404, '智能体不存在'))
+      }
       return reply.send(success({ agentId: row['agent_id'], personality: row['agent_prompt'] }))
     } catch (e) {
       req.log.error(e)
@@ -1635,8 +1649,20 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
     const { personality } = bodyParsed.data
     try {
+      // F-133:人设直接决定下游所有调用方的 system prompt,必须「属主或管理员」才可写。
+      const [existing] = (await db.execute(
+        sql`SELECT "user_id" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
+      )) as Record<string, unknown>[]
+      if (!existing) return reply.status(404).send(error(404, '智能体不存在'))
+      const owner = asOwnerId(existing['user_id'])
+      const isAdmin = isSystemAdmin(req, { includeInternalChannel: false })
+      if (owner !== req.userId && !isAdmin) {
+        return reply.status(403).send(error(403, '无权修改该智能体人设'))
+      }
+      // 管理面放行任意属主;普通用户把归属条件同时下推到 UPDATE,避免检查与写入之间的竞态。
+      const ownership = isAdmin ? sql`` : sql` AND "user_id"::text = ${req.userId!}`
       const rows = await db.execute(
-        sql`UPDATE ${sql.raw('"agents"')} SET "agent_prompt" = ${personality}, "updated_at" = NOW() WHERE "agent_id"::text = ${agentId} RETURNING "agent_id", "agent_prompt"`,
+        sql`UPDATE ${sql.raw('"agents"')} SET "agent_prompt" = ${personality}, "updated_at" = NOW() WHERE "agent_id"::text = ${agentId}${ownership} RETURNING "agent_id", "agent_prompt"`,
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '智能体不存在'))
