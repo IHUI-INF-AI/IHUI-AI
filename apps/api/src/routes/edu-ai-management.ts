@@ -2069,7 +2069,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const date = parsed.data.date ?? bizDayKey(new Date())
+    // F-210 姊妹面:学生自助签退与自签同一条纪律 —— 只允许"当日"。date 一律由服务端
+    // bizDayKey(Asia/Shanghai)生成;客户端显式传非当日日期直接 400 点名,**不静默改写**,
+    // 否则端上会以为补签成功(而 checkOutByStudent 写的是服务器 now,历史行会落进"今天的时刻")。
+    // 历史补签不属于学生自助能力,由教师代签 PUT /attendance/check-out 承担。
+    const serverDate = bizDayKey(new Date())
+    if (parsed.data.date !== undefined && parsed.data.date !== serverDate)
+      return reply
+        .status(400)
+        .send(error(400, '仅允许当日签退:date 必须为服务端当日(Asia/Shanghai)'))
+    const date = serverDate
     // 班级现取与自签同一出口:当日考勤行所属班 → 最近在册(enrolled)报名,两步皆无 ⇒ 409 点名原因
     const classId = await resolveSelfCheckInClassId(userId, date)
     if (!classId)
