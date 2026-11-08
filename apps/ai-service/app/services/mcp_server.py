@@ -6971,9 +6971,15 @@ def _prune_team_boards() -> None:
         team_board_evictions += 1
 
 
-def _team_task_board(team_id: str) -> dict[str, dict[str, Any]]:
+def _team_task_board(team_id: str, owner: str = "") -> dict[str, dict[str, Any]]:
+    """AIS-109:看板按**宿主主体**分命名空间 —— 旧码只用模型自报的 team_id 分键,
+    缺省 `default` 就是一张全平台共用的表,role=0 可枚举/篡改所有人的任务。宿主
+    注入的 `__user_id` 非空时拼进键;**展示与报错仍用 team_id**,不把主体 id 泄给
+    模型。无宿主身份(进程内/开发态)保持旧键,不改变既有调用方。
+    """
     _prune_team_boards()
-    return _TEAM_TASK_BOARD.setdefault(team_id, {})
+    key = f"{owner}::{team_id}" if owner else team_id
+    return _TEAM_TASK_BOARD.setdefault(key, {})
 
 
 def _team_task_now() -> str:
@@ -6983,9 +6989,11 @@ def _team_task_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _team_task_add(team_id: str, title: str, *, detail: str = "", created_by: str = "") -> dict[str, Any]:
+def _team_task_add(
+    team_id: str, title: str, *, detail: str = "", created_by: str = "", owner: str = ""
+) -> dict[str, Any]:
     """新增一条待办(进入 pending,谁都可领)。"""
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     if len(board) >= _TEAM_TASK_BOARD_LIMIT:
         return {
             "ok": False, "errorCode": "BOARD_FULL",
@@ -7009,14 +7017,14 @@ def _team_task_add(team_id: str, title: str, *, detail: str = "", created_by: st
     return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
 
 
-def _team_task_claim(team_id: str, task_id: str, agent_id: str) -> dict[str, Any]:
+def _team_task_claim(team_id: str, task_id: str, agent_id: str, *, owner: str = "") -> dict[str, Any]:
     """独占认领:已被他人领走则拒绝并回带持有者(调用方据此换领别条)。"""
     if not agent_id:
         return {
             "ok": False, "errorCode": "MISSING_PARAMS",
             "error": "claim 需要 agent_id(认领者身份)",
         }
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     entry = board.get(task_id)
     if entry is None:
         return {
@@ -7048,7 +7056,8 @@ def _team_task_claim(team_id: str, task_id: str, agent_id: str) -> dict[str, Any
 
 
 def _team_task_update(
-    team_id: str, task_id: str, agent_id: str, *, status: str | None = None, note: str | None = None
+    team_id: str, task_id: str, agent_id: str, *, status: str | None = None,
+    note: str | None = None, owner: str = "",
 ) -> dict[str, Any]:
     """更新条目:只有持有者可改;status 非法值整条拒绝(不静默吞掉)。"""
     if not agent_id:
@@ -7061,7 +7070,7 @@ def _team_task_update(
             "ok": False, "errorCode": "INVALID_STATUS",
             "error": f"status 必须是 {list(_TEAM_TASK_STATUS)} 之一,实得 {status!r}",
         }
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     entry = board.get(task_id)
     if entry is None:
         return {
@@ -7084,9 +7093,9 @@ def _team_task_update(
     return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
 
 
-def _team_task_list(team_id: str) -> dict[str, Any]:
+def _team_task_list(team_id: str, *, owner: str = "") -> dict[str, Any]:
     """整表快照(按创建序;只读,不改任何条目)。"""
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     return {
         "ok": True, "tool": "team_task", "team_id": team_id,
         "total": len(board),
@@ -7105,6 +7114,8 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
     team_id = str(arguments.get("team_id") or "default")
     agent_id = str(arguments.get("agent_id") or "")
     task_id = str(arguments.get("task_id") or "")
+    # AIS-109:看板归属取宿主注入的主体(LLM 不可控),模型自报的 team_id 只做展示分栏。
+    owner = str(arguments.get("__user_id") or "").strip()
     # 全表操作串行化:claim 的"读-判-写"必须原子,否则并发下两人都能领到同一条。
     async with _TEAM_TASK_LOCK:
         if action == "add":
@@ -7118,6 +7129,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                 team_id, title,
                 detail=str(arguments.get("detail") or ""),
                 created_by=agent_id,
+                owner=owner,
             )
         if action == "claim":
             if not task_id:
@@ -7125,7 +7137,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                     "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
                     "error": "claim 需要 task_id",
                 }
-            return _team_task_claim(team_id, task_id, agent_id)
+            return _team_task_claim(team_id, task_id, agent_id, owner=owner)
         if action == "update":
             if not task_id:
                 return {
@@ -7137,9 +7149,10 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                 team_id, task_id, agent_id,
                 status=str(_status) if _status is not None else None,
                 note=arguments.get("note"),
+                owner=owner,
             )
         if action == "list":
-            return _team_task_list(team_id)
+            return _team_task_list(team_id, owner=owner)
     return {
         "tool": "team_task", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": f"不支持的 action: {action}(add/claim/update/list)",
@@ -10437,7 +10450,29 @@ async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]
     通过 artifacts_store 读取(Redis hash 持久化,进程重启不丢;Redis 不可用降级进程内)。
     纯本地读取,不调外部 API(零算力)。
     """
-    conversation_id = arguments.get("conversation_id", "")
+    # AIS-108:旧码直接信任模型自报的 `conversation_id` —— 任意会话都能读别人的
+    # plans/sources/artifacts/tool_calls(提示注入还能指定受害者 id)。宿主注入的
+    # `__session_id` 才是唯一可信会话键:有宿主会话时一律以它为准,自报值与之不符
+    # 直接拒且零读取;无宿主会话(进程内/开发态)才回落自报值。
+    host_session = str(arguments.get("__session_id") or "").strip()
+    requested_cid = str(arguments.get("conversation_id") or "").strip()
+    if host_session:
+        if requested_cid and requested_cid != host_session:
+            logger.warning(
+                "[mcp] summarize_artifacts 跨会话读取被拒(AIS-108): requested=%s host=%s",
+                requested_cid, host_session,
+            )
+            return {
+                "tool": "summarize_artifacts", "ok": False,
+                "errorCode": "CONVERSATION_MISMATCH",
+                "error": "conversation_id 与当前会话不一致",
+                "conversation_id": requested_cid, "plans": [], "sources": [],
+                "artifacts": [], "tool_calls_summary": {"total": 0, "by_tool": {}},
+                "message": "",
+            }
+        conversation_id = host_session
+    else:
+        conversation_id = requested_cid
     include = arguments.get("include") or ["plans", "sources", "artifacts", "tool_calls"]
     max_items = int(arguments.get("max_items", 20))
 
