@@ -21,6 +21,12 @@ vi.mock('../src/db/index.js', () => ({
   db: {
     select: () => ({ from: () => ({ where: () => Promise.resolve(h.rows) }) }),
     update: () => ({ set: () => ({ where: () => Promise.resolve(undefined) }) }),
+    // F-346:F-346 认领走 store 的 claimDelivery;测试里首次插入恒成功。
+    insert: () => ({
+      values: () => ({
+        onConflictDoNothing: () => ({ returning: () => Promise.resolve([{ id: 'claimed' }]) }),
+      }),
+    }),
   },
 }))
 

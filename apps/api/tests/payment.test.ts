@@ -163,6 +163,7 @@ const { mockDbRows, mockDb } = vi.hoisted(() => {
 vi.mock('../src/db/index.js', () => ({ db: mockDb }))
 
 import { paymentGatewayRoutes } from '../src/routes/payment-gateway'
+import { zhsCourseVideo } from '@ihui/database'
 
 function makeOrder(overrides: Record<string, unknown> = {}) {
   return {
@@ -424,6 +425,27 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       })
       expect(res.statusCode).toBe(200)
       expect(mockPlaceOrder).toHaveBeenCalledWith(expect.objectContaining({ amount: 200 }))
+    })
+
+    // F-449:金额列精度。夹具按列的真实存储类型模拟「落库→读回」:
+    //   real(float4)    → Math.fround(131072.01) = 131072.015625,再 *100 取整多收 1 分
+    //   numeric(12,2)   → '131072.01' 精确十进制,应恰好 13107201 分
+    // 同一条夹具在改前(real)为红、改后(numeric)为绿,不靠改断言迁就实现。
+    it('F-449 131072.01 元不得因 float4 量化多收 1 分', async () => {
+      authAs()
+      const yuan = 131072.01
+      const stored = zhsCourseVideo.amount.dataType === 'string' ? yuan.toFixed(2) : Math.fround(yuan)
+      mockDbRows.push({ amount: stored, isPay: 1 })
+      mockPlaceOrder.mockResolvedValueOnce(makeOrder({ amount: 13107201, orderType: 1 }))
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/payments/wechat/course/create?amount=13107201&courseId=321',
+        headers: { authorization: 'Bearer t' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(mockPlaceOrder).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 13107201, orderType: 1, productId: '321' }),
+      )
     })
   })
 
