@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,6 +38,25 @@ from app.services import reranker as reranker_module
 from app.services.mcp_server import _tool_search_codebase
 
 _QUERY = "alpha_symbol_zz"
+
+
+@pytest.fixture(autouse=True)
+def _register_tmp_workspace(tmp_path: Path) -> None:
+    """AIS-080:本文件的搜索根是 pytest 临时目录,登记为允许根,正常路径不被误挡。
+
+    刻意不走 `monkeypatch.setenv`:个别用例会调 `monkeypatch.undo()`(撤销懒索引
+    替身),那会连这条登记一起撤掉,于是正常路径被误判越界。这里自行保存/恢复。
+    """
+    key = "MCP_WORKSPACE_ROOTS"
+    old = os.environ.get(key)
+    os.environ[key] = f"{Path.cwd()}{os.pathsep}{tmp_path}"
+    try:
+        yield
+    finally:
+        if old is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = old
 
 
 def _semantic_item(file_path: str, line: int, *, score: float = 0.5) -> dict[str, Any]:

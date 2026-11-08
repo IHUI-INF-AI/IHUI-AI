@@ -39,6 +39,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from ..core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL, require_request_user_id
+
 if TYPE_CHECKING:
     from ..providers.token6688_provider import Token6688Provider
 
@@ -136,7 +138,11 @@ async def _tts_via_token6688(text: str, voice: str) -> tuple[bytes, str]:
 
 
 @router.post("/voice/tts")
-async def synthesize_tts(req: TTSRequest) -> Response:
+async def synthesize_tts(
+    req: TTSRequest,
+    request: Request,
+    principal: str = Depends(require_request_user_id),
+) -> Response:
     """免费 TTS 合成(edge-tts,零 key)。返回 audio/mpeg 音频流。"""
     text = req.text.strip()
     if not text:
@@ -169,6 +175,15 @@ async def synthesize_tts(req: TTSRequest) -> Response:
             raise HTTPException(status_code=status, detail=str(e)) from None
     if req.engine != "token6688":
         raise HTTPException(status_code=400, detail=f"未知 engine: {req.engine}(允许 edge/token6688)")
+
+    # AIS-092:付费 engine 走平台共享 key(可指定声纹库 voice_id),只允许管理员;
+    # 未登录在生产由 require_request_user_id 直接 401。dev 免鉴权(无 role)保留旧行为。
+    role_id = getattr(request.state, "role_id", None)
+    if role_id is not None:
+        if int(role_id) < 1:
+            raise HTTPException(status_code=403, detail="token6688 TTS 仅管理员可用")
+    elif principal != DEV_ANONYMOUS_PRINCIPAL:
+        raise HTTPException(status_code=403, detail="token6688 TTS 仅管理员可用")
 
     audio, content_type = await _tts_via_token6688(text, req.voice)
     return Response(

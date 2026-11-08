@@ -27,6 +27,16 @@ def _granted_code_index_egress(monkeypatch):
     monkeypatch.setattr(mcp_server, "_code_index_egress_allowed", lambda *_a, **_kw: True)
 
 
+@pytest.fixture(autouse=True)
+def _register_tmp_workspace(tmp_path, monkeypatch):
+    """AIS-080:本文件以 tmp_path 当索引/搜索根,登记为允许根,正常路径不被误挡。"""
+    import os
+
+    monkeypatch.setenv(
+        "MCP_WORKSPACE_ROOTS", f"{os.getcwd()}{os.pathsep}{tmp_path}"
+    )
+
+
 def _make_indexer() -> CodebaseIndexer:
     idx = CodebaseIndexer.__new__(CodebaseIndexer)
     idx._tree_sitter_available = False

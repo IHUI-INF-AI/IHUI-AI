@@ -187,4 +187,62 @@ class TestVoiceDeleteAdminGuard:
         resp = await client.delete("/api/voice/voices/v-1")
         assert resp.status_code == 200
         p.delete_voice.assert_awaited_once_with("v-1")
+
+
+class TestToken6688TtsAdminOnly:
+    """AIS-092:付费 token6688 TTS 只允许管理员(JWT 在生产已强制登录)。"""
+
+    def _request(self, role_id):
+        from starlette.requests import Request
+
+        request = Request(
+            {"type": "http", "method": "POST", "path": "/api/voice/tts", "headers": []}
+        )
+        request.state.role_id = role_id
+        return request
+
+    async def test_non_admin_rejected_before_provider(self, monkeypatch):
+        from fastapi import HTTPException
+
+        p = _fake_provider(monkeypatch, tts=(b"ID3", "audio/mpeg"))
+        with pytest.raises(HTTPException) as exc:
+            await voice_tts.synthesize_tts(
+                voice_tts.TTSRequest(text="你好", engine="token6688"),
+                self._request(role_id=0),
+                principal="user-1",
+            )
+        assert exc.value.status_code == 403
+        p.tts.assert_not_awaited()
+
+    async def test_admin_allowed_to_paid_engine(self, monkeypatch):
+        p = _fake_provider(monkeypatch, tts=(b"ID3", "audio/mpeg"))
+        resp = await voice_tts.synthesize_tts(
+            voice_tts.TTSRequest(text="你好", engine="token6688"),
+            self._request(role_id=1),
+            principal="admin-1",
+        )
+        assert resp.body == b"ID3"
+        p.tts.assert_awaited_once()
+
+    async def test_free_edge_engine_not_blocked_for_non_admin(self, monkeypatch):
+        """正常路径不误挡:非管理员仍可用免费 edge 引擎。"""
+
+        class _FakeCommunicate:
+            def __init__(self, text, voice=None, rate=None):
+                pass
+
+            async def stream(self):
+                yield {"type": "audio", "data": b"ID3edge"}
+
+        import sys
+
+        fake_mod = MagicMock()
+        fake_mod.Communicate = _FakeCommunicate
+        monkeypatch.setitem(sys.modules, "edge_tts", fake_mod)
+        resp = await voice_tts.synthesize_tts(
+            voice_tts.TTSRequest(text="你好", engine="edge"),
+            self._request(role_id=0),
+            principal="user-1",
+        )
+        assert resp.body == b"ID3edge"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

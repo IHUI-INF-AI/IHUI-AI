@@ -62,7 +62,6 @@ KNOWN_PUBLIC_PATHS = (
     "/metrics",
     "/api/admin/news/status",
     "/api/voice/stt",
-    "/api/voice/tts",
     "/api/video/token6688-callback",
     "/api/media/tasks/callback",
     "/api/legacy/agents-v1",
