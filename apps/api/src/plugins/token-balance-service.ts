@@ -166,8 +166,10 @@ export async function settleWalletUsage(input: {
   userId: string
   amount: number
   reason?: string
+  /** 幂等键:队列重试时同一笔不重复结算(依赖 token_flows 唯一索引) */
+  idempotencyKey?: string
 }): Promise<{ deducted: number; remaining: number; shortfall: number }> {
-  const { userId, amount, reason } = input
+  const { userId, amount, reason, idempotencyKey } = input
   if (amount <= 0) {
     return { deducted: 0, remaining: await getWalletBalance(userId), shortfall: 0 }
   }
@@ -180,6 +182,18 @@ export async function settleWalletUsage(input: {
       .limit(1)
       .for('update')
     const balance = row?.tokenQuantity ?? 0
+
+    // 重试幂等:这笔已经结算过 ⇒ 不再扣,也不重复记欠额。
+    if (idempotencyKey) {
+      const existing = await tx.execute(sql`
+        SELECT 1 FROM "token_flows"
+        WHERE "related_order_no" = ${idempotencyKey} AND "op_type" = 1
+        LIMIT 1
+      `)
+      if (existing.length > 0) {
+        return { deducted: 0, remaining: balance, shortfall: 0 }
+      }
+    }
     const deducted = Math.min(balance, amount)
     const shortfall = amount - deducted
 
@@ -206,7 +220,7 @@ export async function settleWalletUsage(input: {
     const remaining = updated[0]!.tokenQuantity
     await tx.execute(sql`
       INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
-      VALUES (${userId}, 1, ${deducted}, ${remaining}, ${reason ?? 'api_call'}, ${null}, now())
+      VALUES (${userId}, 1, ${deducted}, ${remaining}, ${reason ?? 'api_call'}, ${idempotencyKey ?? null}, now())
       ON CONFLICT ("related_order_no", "op_type") DO NOTHING
     `)
     return { deducted, remaining, shortfall }
