@@ -687,9 +687,15 @@ def _validate_extra_directory(
     if not p.is_absolute():
         return False, f"附加目录必须是绝对路径: {path}"
     resolved = p.resolve(strict=False)
-    if not resolved.exists():
+    # 读不到 ≠ 不存在:Path.exists() 对 EACCES 等会重新抛出,直接泄漏成 500;
+    # 对能被吞掉的错误则会退化成"不存在"。这里显式分流:只有 ENOENT 才算没有。
+    try:
+        st = os.stat(resolved)
+    except FileNotFoundError:
         return False, f"附加目录不存在: {path}"
-    if not resolved.is_dir():
+    except OSError as exc:
+        return False, f"附加目录读不到: {path}({getattr(exc, 'errno', None)})"
+    if not stat.S_ISDIR(st.st_mode):
         return False, f"附加目录不是目录: {path}"
     if _is_system_root(resolved):
         return False, f"附加目录是系统根/伪文件系统,禁止登记: {path}"
@@ -912,7 +918,12 @@ def _validate_path_in_workspace(
                     candidate.relative_to(Path(root))
                 except ValueError:
                     continue
-                if candidate.exists():
+                # 读不到 ≠ 不存在:read 失败必须显式报"读不到",且不得因此换到下一个根。
+                try:
+                    candidate_exists = candidate.exists()
+                except OSError as exc:
+                    return False, f"路径读不到: {path}({getattr(exc, 'errno', None)})"
+                if candidate_exists:
                     resolved_str = str(candidate)
                     return True, resolved_str
         # resolve(strict=False) 解析 symlink + .. ,但不要求路径存在
