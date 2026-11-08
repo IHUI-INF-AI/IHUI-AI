@@ -1,0 +1,133 @@
+diff --git a/apps/web/app/(main)/settings/icp-record/page.tsx b/apps/web/app/(main)/settings/icp-record/page.tsx
+index 5c988ee3d2..d9a85f72fe 100644
+--- a/apps/web/app/(main)/settings/icp-record/page.tsx
++++ b/apps/web/app/(main)/settings/icp-record/page.tsx
+@@ -4,80 +4,64 @@
+ 
+ 'use client'
+ 
++// ⚠ 内容待定 / 勿合入主干:
++// 1) -7A、公网安备号、备案时间三条事实仍在机主手里,本草案不改写;
++// 2) 第 4 条口径:备案链接文本 aizhs.top 与目标 https://beian.miit.gov.cn 不一致;
++//    web 现状文本=完整 URL;甲=保文本 aizhs.top(web 文本变域名),乙=文本=完整 URL(RN 文本变长);
++// 3) 共享屏本次不渲染「备案范围」行,web 原行随之消失(内容待定的一部分);
++// 4) `备案链接` 外链由共享屏行模型的可选 href 承载(两端同一份数据都渲染,RN 走
++//    Linking.openURL),不再有「丢外链」让步;草案未落地只差内容口径。
++
+ import * as React from 'react'
++import { useRouter } from 'next/navigation'
+ import { useTranslations } from 'next-intl'
+-import { Globe, ShieldCheck } from 'lucide-react'
+ 
+-import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
+-import { BackButton } from '@/components/common'
++import type { IcpRecordScreenProps } from '@ihui/types'
++import { IcpRecordScreen as SharedIcpRecordScreen } from '@ihui/rn-app/features/icp-record/IcpRecordScreen'
++
++import { useTheme } from '@/hooks/use-theme'
+ 
+-interface IcpRecord {
+-  labelKey: string
+-  value: string
+-  link?: string
++/**
++ * 共享屏键 → web settings 键。
++ * labelPublicSecurity(公网安备号)暂无 web 键,内容待定,本草案不映射。
++ * label5(备案范围)共享屏本次不渲染,保留映射供后续使用。
++ */
++const KEY_MAP: Record<string, string> = {
++  'icpRecord.title': 'icpRecordTitle',
++  'icpRecord.label0': 'icpRecordNumber',
++  'icpRecord.label1': 'icpRecordEntity',
++  'icpRecord.label2': 'icpRecordEntityType',
++  'icpRecord.label3': 'icpRecordTime',
++  'icpRecord.label4': 'icpRecordUrl',
++  'icpRecord.label5': 'icpRecordScope',
++  'icpRecord.footer': 'icpRecordFooter',
+ }
+ 
+ export default function IcpRecordPage() {
+-  const t = useTranslations('settings')
++  const router = useRouter()
++  const ts = useTranslations('settings')
++  const root = useTranslations()
++  const { resolvedTheme } = useTheme()
+ 
+-  const records: IcpRecord[] = [
+-    { labelKey: 'icpRecordNumber', value: '吉ICP备2025027274号' },
+-    { labelKey: 'icpRecordEntity', value: '吉林省爱智汇人工智能科技有限公司' },
+-    { labelKey: 'icpRecordEntityType', value: '企业' },
+-    { labelKey: 'icpRecordTime', value: '2025-11-21' },
+-    {
+-      labelKey: 'icpRecordUrl',
+-      value: 'https://beian.miit.gov.cn',
+-      link: 'https://beian.miit.gov.cn',
+-    },
+-    { labelKey: 'icpRecordScope', value: t('icpRecordScopeValue') },
+-  ]
++  const t = React.useMemo<IcpRecordScreenProps['t']>(() => {
++    return ((key: string) => {
++      if (key === 'common.back') return root('common.back')
++      const mapped = KEY_MAP[key]
++      return mapped ? ts(mapped) : key
++    }) as IcpRecordScreenProps['t']
++  }, [root, ts])
+ 
+-  return (
+-    <div className="px-4 space-y-4 py-4">
+-      <BackButton />
+-      <Card>
+-        <CardHeader>
+-          <CardTitle className="flex items-center gap-2 text-base">
+-            <Globe className="h-4 w-4" />
+-            {t('icpRecordCardTitle')}
+-          </CardTitle>
+-        </CardHeader>
+-        <CardContent>
+-          <dl className="space-y-2">
+-            {records.map((item) => (
+-              <div
+-                key={item.labelKey}
+-                className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
+-              >
+-                <dt className="shrink-0 text-body text-muted-foreground">{t(item.labelKey)}</dt>
+-                <dd className="text-right text-body font-medium">
+-                  {item.link ? (
+-                    <a
+-                      href={item.link}
+-                      target="_blank"
+-                      rel="noopener noreferrer"
+-                      className="text-primary underline-offset-4 transition-colors hover:underline"
+-                    >
+-                      {item.value}
+-                    </a>
+-                  ) : (
+-                    item.value
+-                  )}
+-                </dd>
+-              </div>
+-            ))}
+-          </dl>
+-        </CardContent>
+-      </Card>
++  const onBack = React.useCallback(() => {
++    if (window.history.length > 1) router.back()
++    else router.push('/')
++  }, [router])
+ 
+-      <Card>
+-        <CardContent className="min-[640px]:p-3 flex items-start gap-3 p-3">
+-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+-          <p className="text-label leading-relaxed text-muted-foreground">{t('icpRecordNotice')}</p>
+-        </CardContent>
+-      </Card>
+-    </div>
++  return (
++    <SharedIcpRecordScreen
++      t={t}
++      onBack={onBack}
++      colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
++    />
+   )
+ }
+ // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

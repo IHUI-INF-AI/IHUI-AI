@@ -23738,6 +23738,7 @@
     "icpRecordDesc": "플랫폼 ICP 신고 등록 정보 보기",
     "icpRecordEntity": "신고 주체",
     "icpRecordEntityType": "주체 유형",
+    "icpRecordFooter": "MIIT 신고 시스템 출처",
     "icpRecordNotice": "본 플랫폼은 법에 따라 ICP 신고 등록을 완료하였으며, 신고 정보는 위에 공시된 내용을 따릅니다. 궁금한 점이 있으시면 고객 지원에 문의해 주세요.",
     "icpRecordNumber": "신고 번호",
     "icpRecordScope": "신고 범위",
