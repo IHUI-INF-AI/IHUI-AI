@@ -31,7 +31,7 @@
 
 ### F-324（`cc10014367`）
 - 新增 `utils/pool-metrics.ts`：postgres.js 3.x 无 `state` 时返回 `available:false`，size 仍取 `options.max`；不使用 `reserve()` 探测以免短暂耗尽生产池。
-- `metrics` 新增 `db_pool_metrics_available` gauge；不可用时 `db_pool_in_use/checkedout/overflow` 落 NaN 并只告警一次，不再静默报 0。
+- `metrics` 新增 `db_pool_metrics_available` gauge；不可用时 `db_pool_in_use/checkedout/overflow` **不输出**（不写 NaN，避免 Grafana `100*in_use/size` 与多实例 avg 聚合被污染），只告警一次，不再静默报 0。
 - 夹具 `tests/pool-metrics-f324.test.ts`。
 
 ### F-334（`7279e93b01`）
