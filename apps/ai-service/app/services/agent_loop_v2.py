@@ -166,6 +166,11 @@ from .agent_resume_semantics import (
     resolve_confirmations,
     result_digest,
 )
+from .ask_user_question import (
+    cancel_session_questions,
+    create_question,
+    wait_for_answer,
+)
 from .approval_generation_cas import (
     REASON_SNAPSHOT_MISMATCH,
     STATE_RESOLVED,
@@ -215,6 +220,20 @@ from ..core.mcp_tool_approval import (
 
 # A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
 from ..core.retry_after import hint_from_error, resolve_retry_delay_s
+
+# Qoder 行为对齐(2026-11-08):轮次预算提示层。默认档不变(AGENT_MAX_ITERATIONS
+# 仍是 check-doom-loop-parity 的登记基准);部署侧可用 IHUI_AGENT_MAX_ITERATIONS
+# 显式放宽。接线点只有两处:构造器归一 + 循环顶注入一次收尾提示。
+from ..core.turn_budget import (
+    build_budget_exhausted_error as _build_budget_exhausted_error,
+)
+from ..core.turn_budget import build_budget_nudge as _build_budget_nudge
+from ..core.turn_budget import resolve_turn_budget as _resolve_turn_budget
+from ..core.turn_budget import should_nudge as _should_nudge_budget
+
+# Qoder 行为对齐(2026-11-08):Skill 的 allowed-tools 是会话级**授权**(免审批),
+# 不是收窄。只在此处(审批门)消费,硬边界(角色矩阵/能力门/路径校验/沙箱)不受影响。
+from .skill_scope import scope_grants as _skill_scope_grants
 
 # P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
 from ..core.session_taint import TaintSource as _TaintSource
@@ -1737,6 +1756,37 @@ class AgentEventStream:
             payload[_APPROVAL_PROMPT_OPTIONS_KEY] = prompt_options
         await self.emit("tool.approval", payload)
 
+    async def question(
+        self,
+        *,
+        question: dict[str, Any],
+        session_id: str,
+        message_id: str | None = None,
+    ) -> None:
+        """question:AskUserQuestion 下行帧(形状同 question_parser.Question.to_dict())。"""
+        payload: dict[str, Any] = {"question": question, "session_id": session_id}
+        if message_id:
+            payload["message_id"] = message_id
+        await self.emit("question", payload)
+
+    async def question_resolved(
+        self,
+        *,
+        question_id: str,
+        status: str,
+        selected_option_ids: list[str],
+        custom_text: str,
+        session_id: str,
+    ) -> None:
+        """question-resolved:问题结局帧(answered/timeout/withdrawn/interrupted)。"""
+        await self.emit("question-resolved", {
+            "questionId": question_id,
+            "status": status,
+            "selectedOptionIds": selected_option_ids,
+            "customText": custom_text,
+            "session_id": session_id,
+        })
+
     async def permission_mode(
         self, *, mode: str, tool_name: str, decision: str, session_id: str
     ) -> None:
@@ -2598,7 +2648,11 @@ class AgentLoopV2:
         # —— 工具在飞时仍等终态路径处理。
         self._stream_text_snapshot: str = ""
         self._tools: dict[str, ToolDefinition] = {t.name: t for t in tools}
-        self.max_iterations = max_iterations
+        # Qoder 行为对齐(2026-11-08):env 显式放宽才生效,缺省与 AGENT_MAX_ITERATIONS
+        # 逐字一致(不破 check-doom-loop-parity 的基准登记)。
+        self.max_iterations = _resolve_turn_budget(max_iterations)
+        # 收尾提示只注入一次:预算窗口内每轮重发会让短预算回合被提示占满上下文。
+        self._budget_nudged: bool = False
         self.tool_timeout = tool_timeout
         self.parallel_tool_calls = parallel_tool_calls
 
@@ -5339,6 +5393,14 @@ class AgentLoopV2:
                 self._inject_context_fragments(messages)
                 self._inject_session_prefix(messages)
                 self._inject_instructional_fragments(messages)
+                # Qoder 行为对齐(2026-11-08):轮次预算提示。进入收尾窗口后注入一次,
+                # 让模型知道"还剩几轮"并自行收敛,而不是在最后一轮被突然截断成空回复。
+                # 只注入一次:短预算回合里每轮重发会把真正的工作上下文挤掉。
+                if not self._budget_nudged and _should_nudge_budget(
+                    i, self.max_iterations
+                ):
+                    self._budget_nudged = True
+                    messages.append(_build_budget_nudge(i, self.max_iterations))
                 # P0-B(2026-09-18):_wait_interruptible 包裹——长 LLM 调用期间命中
                 # cancel/pause 标志也能立即中断(抛 _LoopInterrupted 走优雅中断链路);
                 # iteration=i 透传使流式 thinking 增量帧携带轮次号。
@@ -5843,7 +5905,12 @@ class AgentLoopV2:
             ),
             total_tokens_used=total_tokens,
             stop_reason="max_iterations",
-            error=f"达到最大迭代数 {self.max_iterations}",
+            # 判据兼容:error 以 "达到最大迭代数 N" 开头(既有用例断言该子串),
+            # 其后追加"已完成多少工具调用 + 怎么续",不把空回复包装成成功。
+            error=_build_budget_exhausted_error(
+                self.max_iterations,
+                sum(len(getattr(it, "tool_results", ()) or ()) for it in iterations),
+            ),
         )
 
     def _resume_legacy_mark(self) -> None:
@@ -7383,6 +7450,126 @@ class AgentLoopV2:
             return executor(args, cancel=cancel_event)
         return executor(args)
 
+    async def _handle_ask_user_question(self, tc: ToolCall) -> ToolResult:
+        """AskUserQuestion 特例拦截(2026-11-08 立):发帧 → 阻塞 → 结局回填。
+
+        与 `_request_approval` 同型:登记问题 + 阻塞等待 + 结局分支;区别是不需要审批门
+        (提问无副作用),且等待期间自行轮询 cancel/pause 标志 —— 本方法在审批门之前
+        直接返回,不经过 `_wait_interruptible` 包裹,取消标志必须在这里读。
+        """
+        start = time.time()
+        session_id = self._session_id or str(uuid.uuid4())
+        args = tc.args if isinstance(tc.args, dict) else {}
+        item = create_question(
+            session_id=session_id,
+            user_id=self._user_id,
+            prompt=args.get("question", ""),
+            header=args.get("header"),
+            options=args.get("options"),
+            allow_custom=bool(args.get("allowCustom", True)),
+            allow_multiple=bool(args.get("multiSelect", False)),
+        )
+        if isinstance(item, dict):
+            return ToolResult(
+                tool_call_id=tc.id,
+                name=tc.name,
+                result={**item, "status": "invalid"},
+                error=str(item.get("error") or "提问参数非法"),
+                duration_ms=(time.time() - start) * 1000,
+                error_type="question_invalid",
+            )
+
+        await self._events.question(
+            question=item.to_dict(), session_id=session_id
+        )
+        status = "timeout"
+        try:
+            while True:
+                if self._cancel_requested or self._pause_requested:
+                    # 会话取消/暂停:该会话所有 pending 一律 interrupted,等待方一起醒。
+                    cancel_session_questions(session_id, reason="session_interrupted")
+                    status = "interrupted"
+                    break
+                remaining = (item.expires_at - datetime.now(UTC)).total_seconds()
+                if remaining <= 0:
+                    status = await wait_for_answer(item, timeout_s=0.0)
+                    break
+                try:
+                    await asyncio.wait_for(
+                        item.event.wait(), timeout=min(1.0, remaining)
+                    )
+                except TimeoutError:
+                    continue
+                status = item.status
+                break
+            await self._events.question_resolved(
+                question_id=item.question_id,
+                status=status,
+                selected_option_ids=list(item.selected_ids),
+                custom_text=item.custom_text,
+                session_id=session_id,
+            )
+        except (asyncio.CancelledError, GeneratorExit):
+            cancel_session_questions(session_id, reason="session_interrupted")
+            with contextlib.suppress(Exception):
+                await self._events.question_resolved(
+                    question_id=item.question_id,
+                    status="interrupted",
+                    selected_option_ids=[],
+                    custom_text="",
+                    session_id=session_id,
+                )
+            raise
+
+        labels = [
+            opt["label"] for opt in item.options if opt["id"] in item.selected_ids
+        ]
+        if status == "answered":
+            result: dict[str, Any] = {
+                "ok": True,
+                "status": "answered",
+                "selectedOptionIds": list(item.selected_ids),
+                "labels": labels,
+                "customText": item.custom_text,
+            }
+            error: str | None = None
+            error_type: str | None = None
+        elif status == "withdrawn":
+            result = {
+                "ok": False,
+                "status": "withdrawn",
+                "errorCode": "question_withdrawn",
+                "error": "问题已被撤回,未得到用户答复",
+            }
+            error = "question_withdrawn"
+            error_type = "question_withdrawn"
+        elif status == "interrupted":
+            result = {
+                "ok": False,
+                "status": "interrupted",
+                "errorCode": "question_interrupted",
+                "error": "会话中断,问题未得到用户答复",
+            }
+            error = "question_interrupted"
+            error_type = "question_interrupted"
+        else:
+            result = {
+                "ok": False,
+                "status": "timeout",
+                "errorCode": "question_timeout",
+                "error": "用户未在时限内答复",
+            }
+            error = "question_timeout"
+            error_type = "question_timeout"
+        return ToolResult(
+            tool_call_id=tc.id,
+            name=tc.name,
+            result=result,
+            error=error,
+            duration_ms=(time.time() - start) * 1000,
+            error_type=error_type,
+        )
+
     async def _execute_single(self, tc: ToolCall) -> ToolResult:
         """执行单个工具调用(含超时 + 错误处理 + L5-2 瞬时失败自动重试)。
 
@@ -7465,6 +7652,11 @@ class AgentLoopV2:
                 error_type="permission_denied",
             )
 
+        # 2026-11-08:AskUserQuestion 特例拦截(在角色矩阵/审批门之前 —— 提问无副作用,
+        # 任何 role 都可问;等待与结局由 `_handle_ask_user_question` 承办)。
+        if tc.name == "ask_user_question":
+            return await self._handle_ask_user_question(tc)
+
         # 角色矩阵(2026-09-26 V3 #47 第二格,立在审批门**之前**):
         # admin 专属能力对普通用户根本不该进审批弹窗 —— 审批是"用户可否批准自己无权
         # 做的事",而角色是"他有没有资格做这件事",两者是两道闸,顺序不能反。
@@ -7505,6 +7697,26 @@ class AgentLoopV2:
         # bypassPermissions 覆盖全部高危工具(与 cli 端同名档语义一致),且必留审计事件。
         gate_approved = False  # P0-3:审批门已批准 → exec_policy PROMPT 不再二次弹窗
         needs_approval = self._approval_enabled and self._is_high_risk_tool_instance(tc.name)
+        # Qoder 行为对齐(2026-11-08):Skill 的 allowed-tools 是**会话级授权**
+        # (Qoder 原文 "permission grant, not a restriction",见 skill_scope.py 头注)。
+        # 命中名单 ⇒ 本次免走审批。位置刻意在所有硬边界之后:角色矩阵/能力门/plan
+        # 拦截/路径校验已经在更早的出口判过,这里只替换"要不要问用户"这一步,
+        # 绝不增加可执行面。
+        if needs_approval and _skill_scope_grants(
+            user_id=self._user_id,
+            session_id=self._session_id,
+            tool_name=tc.name,
+        ):
+            logger.info(
+                "skill 授权免审批: tool=%s, session=%s",
+                tc.name,
+                self._session_id or "",
+            )
+            self._decision_hints[tc.id] = (
+                "skill_grant_skip_approval",
+                "skill 的 allowed-tools 已授权该工具,本次免审批",
+            )
+            needs_approval = False
         if _skips_approval_mode(self._permission_mode) and is_readonly_tool(tc.name):
             if needs_approval:
                 logger.info(

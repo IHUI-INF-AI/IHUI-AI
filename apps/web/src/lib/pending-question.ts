@@ -22,6 +22,8 @@ import { z } from 'zod'
 const QuestionOptionSchema = z.object({
   id: z.string(),
   label: z.string(),
+  /** 选项的一句话说明(新帧可选,旧 metadata 没有) */
+  description: z.string().optional(),
 })
 
 const PendingQuestionSchema = z.object({
@@ -30,6 +32,10 @@ const PendingQuestionSchema = z.object({
   options: z.array(QuestionOptionSchema),
   allowCustom: z.boolean(),
   allowMultiple: z.boolean(),
+  /** 卡片小标题(新帧可选,旧 metadata 没有) */
+  header: z.string().optional(),
+  /** 答复截止时间(ISO 字符串或毫秒时间戳,新帧可选,旧 metadata 没有) */
+  expiresAt: z.union([z.string(), z.number()]).optional(),
   /** 关联的 assistant 消息 ID,用户回答后追加到该消息上下文 */
   assistantMessageId: z.string().optional(),
 })
