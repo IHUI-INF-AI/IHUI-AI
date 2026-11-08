@@ -465,7 +465,12 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '圈子不存在'))
       }
       const { page, pageSize } = parsedQ.data
-      const { list, total } = await findCirclePosts(circle.id, { page, pageSize })
+      // F-335:圈子帖子流同样服从 visibility(匿名仅 public;作者/关注者按口径;管理员全见)。
+      const { list, total } = await findCirclePosts(circle.id, {
+        page,
+        pageSize,
+        viewer: { userId: request.userId, isAdmin },
+      })
       return reply.send(success({ list, total, page, pageSize }))
     },
   )
@@ -595,7 +600,13 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const post = await findPostById(parsed.data.id)
+      // F-335:详情按可见性读 —— public 所有人;followers 关注者与作者;private 仅作者;管理员全见。
+      // 非可见帖按"不存在"处理(404),不暴露其存在性。
+      const viewer = {
+        userId: request.userId,
+        isAdmin: isSystemAdmin(request, { includeInternalChannel: false }),
+      }
+      const post = await findPostById(parsed.data.id, viewer)
       if (!post) {
         return reply.status(404).send(error(404, '帖子不存在'))
       }
@@ -848,20 +859,60 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '帖子不存在'))
     }
     const userId = request.userId!
+    const pid = body.data.pid ?? null
+    const replyUserId = body.data.replyUserId ?? null
+    // F-332 回复归属校验:
+    //  - 带 pid:父评论必须存在且属于同一帖子;replyUserId 只能是父评论作者,
+    //    否则可伪造"被某人回复";
+    //  - 不带 pid 的 replyUserId 视为被 @ 用户:必须是该圈子在册成员(兼含存在性)。
+    if (pid) {
+      const [parent] = await db
+        .select({
+          id: circlePostComments.id,
+          postId: circlePostComments.postId,
+          userId: circlePostComments.userId,
+        })
+        .from(circlePostComments)
+        .where(eq(circlePostComments.id, pid))
+        .limit(1)
+      if (!parent || parent.postId !== parsed.data.id) {
+        return reply.status(400).send(error(400, '父评论不存在'))
+      }
+      if (replyUserId && replyUserId !== parent.userId) {
+        return reply.status(403).send(error(403, '回复对象与父评论作者不一致'))
+      }
+    } else if (replyUserId && !(await isCircleMember(post.circleId, replyUserId))) {
+      return reply.status(403).send(error(403, '回复对象必须是圈子成员'))
+    }
+    // P0 合规:评论内容敏感词过滤(与发帖/主题评论同一口径)
+    const filtered = await sanitizeUgcInput(
+      { content: body.data.content },
+      {
+        action: 'ugc.comment.create',
+        resourceType: 'circle_post',
+        resourceId: parsed.data.id,
+        userId: request.userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      },
+    )
+    if (!filtered.ok) {
+      return reply.status(400).send(error(400, '内容含违规词,评论失败'))
+    }
     const [created] = await db
       .insert(circlePostComments)
       .values({
         postId: parsed.data.id,
         userId,
-        content: body.data.content,
-        pid: body.data.pid ?? null,
-        replyUserId: body.data.replyUserId ?? null,
+        content: filtered.fields.content!.text,
+        pid,
+        replyUserId,
       })
       .returning()
     if (!created) return reply.status(500).send(error(500, '发表评论失败'))
     await db
       .update(circlePosts)
-      .set({ replyCount: post.replyCount + 1, updatedAt: new Date() })
+      .set({ replyCount: sql`${circlePosts.replyCount} + 1`, updatedAt: new Date() })
       .where(eq(circlePosts.id, parsed.data.id))
     return reply.status(201).send(success({ comment: created }))
   })

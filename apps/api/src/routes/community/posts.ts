@@ -9,10 +9,11 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../../plugins/auth.js'
+import { isSystemAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { db, dbRead } from '../../db/index.js'
-import { createPost } from '../../db/community-queries.js'
+import { createPost, postVisibilityCondition } from '../../db/community-queries.js'
 import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
 import { circlePosts, circles, users } from '@ihui/database'
 
@@ -43,6 +44,14 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
       .parse(request.query)
     const offset = (page - 1) * pageSize
     try {
+      // F-335:全局流必须服从 visibility —— public 所有人;followers 关注者与作者;
+      // private 仅作者;管理员绕过(管理端/审核口径)。此前只按 status=1,私密帖照样公开。
+      const viewer = {
+        userId: request.userId,
+        isAdmin: isSystemAdmin(request, { includeInternalChannel: false }),
+      }
+      const visCond = postVisibilityCondition(viewer)
+      const where = visCond ? and(eq(circlePosts.status, 1), visCond) : eq(circlePosts.status, 1)
       const [list, totalRows] = await Promise.all([
         dbRead
           .select({
@@ -52,6 +61,7 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
             title: circlePosts.title,
             content: circlePosts.content,
             images: circlePosts.images,
+            visibility: circlePosts.visibility,
             viewCount: circlePosts.viewCount,
             likeCount: circlePosts.likeCount,
             replyCount: circlePosts.replyCount,
@@ -63,14 +73,14 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
           })
           .from(circlePosts)
           .leftJoin(users, eq(users.id, circlePosts.userId))
-          .where(eq(circlePosts.status, 1))
+          .where(where)
           .orderBy(desc(circlePosts.createdAt))
           .limit(pageSize)
           .offset(offset),
         dbRead
           .select({ count: sql<number>`COUNT(*)` })
           .from(circlePosts)
-          .where(eq(circlePosts.status, 1)),
+          .where(where),
       ])
       return reply.send(success({ list, total: Number(totalRows[0]?.count ?? 0), page, pageSize }))
     } catch (e) {
@@ -186,6 +196,8 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
         title: filtered.fields.title!.text,
         content: filtered.fields.content!.text,
         images: body.data.cover ? [body.data.cover] : null,
+        // F-335:此前 visibility 被解析后丢弃 ⇒ 选了私密仍按 public 入全局流。
+        visibility: body.data.visibility ?? 'public',
       })
       return reply.status(201).send(
         success({
@@ -194,6 +206,7 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
           content: post.content,
           tags: body.data.tags ?? [],
           authorId: post.userId,
+          visibility: post.visibility,
           status: 'published',
           publishedAt: post.createdAt,
         }),
@@ -274,6 +287,8 @@ const postsRoutes: FastifyPluginAsync = async (server) => {
           content: filtered.fields.content!.text,
           images: body.data.cover ? [body.data.cover] : null,
           status: 0,
+          // 草稿本身仅本人可见;仍保留用户选择的可见性,发布时沿用。
+          visibility: body.data.visibility ?? 'public',
         })
         .returning()
       if (!post) return reply.status(500).send(error(500, '保存草稿失败'))
