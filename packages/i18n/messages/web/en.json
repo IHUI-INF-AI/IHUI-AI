@@ -23735,6 +23735,7 @@
     "icpRecordDesc": "View platform ICP record information",
     "icpRecordEntity": "Filing Entity",
     "icpRecordEntityType": "Entity Type",
+    "icpRecordFooter": "Sourced from MIIT filing system",
     "icpRecordNotice": "This platform has completed ICP record registration. The record information is as shown above. Contact customer service for any questions.",
     "icpRecordNumber": "Filing Number",
     "icpRecordScope": "Filing Scope",

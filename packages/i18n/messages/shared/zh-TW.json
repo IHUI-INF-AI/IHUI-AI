@@ -3122,6 +3122,7 @@
     "copyHint": "點擊編號即可複製",
     "footer": "以上資訊來自工信部備案查詢系統",
     "label0": "備案號",
+    "labelPublicSecurity": "公網安備號",
     "label1": "備案主體",
     "label2": "主體類型",
     "label3": "備案時間",
