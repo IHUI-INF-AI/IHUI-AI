@@ -240,6 +240,11 @@ class Settings(BaseSettings):
     # [{"name":"...", "transport":"stdio|sse", "command":"...", "args":[...], "url":"...",
     #   "timeout":30, "reconnect":true, "max_reconnect_attempts":3, "env":{...}}]
     mcp_client_configs: str = ""
+    # AIS-053:外部 MCP 落点是否允许私网/回环地址。默认 False(fail-closed)——
+    # 私网段、回环、链路本地、云元数据地址(含 169.254.169.254 / 100.100.100.200 /
+    # fd00:ec2::254,IPv4 与 IPv6 同尺)一律拒绝。本地开发要连 127.0.0.1:8803
+    # 这类第一方服务时显式置 true;**绝不以"未配置"当"放行"**。
+    mcp_allow_private_endpoints: bool = False
     # stdio MCP Server 工具接入(2026-09-01 立,P1-4):官方 MCP Python SDK(stdio 子进程
     # 传输)启动本机 MCP server,并把它 list_tools 暴露的工具注册进内部工具表 —
     # 即"本机 stdio MCP server 作为内部工具"接入。与 mcp_client_configs(出站客户端,
