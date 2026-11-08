@@ -19,6 +19,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
+import { hostname } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -29,6 +30,8 @@ import {
   heartbeatGuardianLock,
   inspectGuardianLock,
   lockMode,
+  readLockSnapshot,
+  reclaimDeadLock,
   releaseGuardianLock,
   startHeartbeatGuardianLock,
 } from '../lib/guardian-lock.mjs'
@@ -72,6 +75,15 @@ if (process.argv.includes('--child-acquire')) {
 
 function writeLiveLock(file, pid, token = 'live-token') {
   writeFileSync(file, `pid=${pid}\ntoken=${token}\nat=${new Date().toISOString()}\nhost=test\nrole=test\n`, 'utf8')
+}
+
+/** DG-07 夹具:pid 活着但「启动时刻」可注入 —— 用来模拟机器重启后 pid 被无关进程复用。 */
+function writeReuseLock(file, { pid, token, pidStartTime, host = hostname() }) {
+  writeFileSync(
+    file,
+    `pid=${pid}\ntoken=${token}\nat=${new Date().toISOString()}\nhost=${host}\nrole=test\npidStartTime=${pidStartTime}\n`,
+    'utf8',
+  )
 }
 
 function runChild(lockPath, holdMs, startAt) {
@@ -292,6 +304,78 @@ test('S12 心跳停 > 阈值且持有者活着 ⇒ stale-alive,不许静默接�
     assert.equal(existsSync(f), true, '锁必须还在,不许被静默回收')
     releaseGuardianLock(h)
     assert.equal(existsSync(f), false)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S13 锁 pid 活着但启动时刻不匹配(pid 被复用)⇒ 必须接管', () => {
+  const dir = mkScratch('guardian-lock')
+  try {
+    const f = join(dir, 'g13.lock')
+    writeReuseLock(f, { pid: process.ppid, token: 'reused-holder', pidStartTime: 1000 })
+    const r = acquireGuardianLock({
+      path: f,
+      env: {},
+      staleMs: 60_000,
+      readStartTime: () => 999999,
+    })
+    assert.equal(r.ok, true, `pid 复用的旧锁必须被回收,实得 kind=${r.kind}`)
+    const content = readFileSync(f, 'utf8')
+    assert.match(content, new RegExp(`pid=${process.pid}`))
+    assert.match(content, /pidStartTime=\d+/)
+    releaseGuardianLock(r)
+    assert.equal(existsSync(f), false, '接管后 release 必须删掉本进程的锁')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S14 同一把锁但启动时刻匹配 ⇒ 仍拒绝,不偷活锁', () => {
+  const dir = mkScratch('guardian-lock')
+  try {
+    const f = join(dir, 'g14.lock')
+    writeReuseLock(f, { pid: process.ppid, token: 'matched-holder', pidStartTime: 1000 })
+    const before = readFileSync(f, 'utf8')
+    const r = acquireGuardianLock({ path: f, env: {}, readStartTime: () => 1000 })
+    assert.equal(r.ok, false)
+    assert.equal(r.kind, 'held')
+    assert.equal(r.pid, process.ppid)
+    assert.equal(readFileSync(f, 'utf8'), before, '身份匹配的活锁一个字节都不许动')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S15 读不出当前 pid 启动时刻(返回 0)⇒ 保守拒绝', () => {
+  const dir = mkScratch('guardian-lock')
+  try {
+    const f = join(dir, 'g15.lock')
+    writeReuseLock(f, { pid: process.ppid, token: 'unknown-holder', pidStartTime: 1000 })
+    const before = readFileSync(f, 'utf8')
+    const r = acquireGuardianLock({ path: f, env: {}, readStartTime: () => 0 })
+    assert.equal(r.ok, false)
+    assert.equal(r.kind, 'held')
+    assert.equal(readFileSync(f, 'utf8'), before, '读不到启动时刻时按旧行为保守拒绝')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S16 reclaimDeadLock:活 pid + 启动时刻不匹配 ⇒ reclaimed;匹配 ⇒ alive-now', () => {
+  const dir = mkScratch('guardian-lock')
+  try {
+    const f = join(dir, 'g16.lock')
+    writeReuseLock(f, { pid: process.ppid, token: 'reclaim-holder', pidStartTime: 1000 })
+
+    const mismatched = reclaimDeadLock(f, readLockSnapshot(f), { readStartTime: () => 999999 })
+    assert.equal(mismatched.kind, 'reclaimed', `启动时刻不匹配必须回收,实得 ${mismatched.kind}`)
+    assert.equal(existsSync(f), false)
+
+    writeReuseLock(f, { pid: process.ppid, token: 'reclaim-holder', pidStartTime: 1000 })
+    const matched = reclaimDeadLock(f, readLockSnapshot(f), { readStartTime: () => 1000 })
+    assert.equal(matched.kind, 'alive-now', `启动时刻匹配必须认作活锁,实得 ${matched.kind}`)
+    assert.equal(existsSync(f), true, '匹配时不得挪走活锁')
   } finally {
     rmScratch(dir)
   }
