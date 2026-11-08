@@ -51,6 +51,7 @@ import {
   updateChapter,
   deleteChapter,
   findSectionList,
+  findSectionListByChapterIds,
   findSectionById,
   createSection,
   updateSection,
@@ -1373,15 +1374,16 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const chapterIds = rows.map((r) => r.id)
     const sectionCountByChapter = new Map<string, number>()
     if (chapterIds.length > 0) {
-      const sections = await Promise.all(chapterIds.map((cid) => findSectionList(cid))).then(
-        (arr) => arr.flat(),
-      )
-      for (const s of sections) {
-        const ids = Array.isArray(s.questionIds) ? (s.questionIds as string[]) : []
-        sectionCountByChapter.set(
-          s.chapterId,
-          (sectionCountByChapter.get(s.chapterId) ?? 0) + ids.length,
-        )
+      // DB-24:一条 IN 查询按章节分桶,替代逐章 findSectionList 的 N+1。
+      const sectionsByChapter = await findSectionListByChapterIds(chapterIds)
+      for (const cid of chapterIds) {
+        const sections = sectionsByChapter.get(cid) ?? []
+        let count = 0
+        for (const s of sections) {
+          const ids = Array.isArray(s.questionIds) ? (s.questionIds as string[]) : []
+          count += ids.length
+        }
+        sectionCountByChapter.set(cid, count)
       }
     }
     const result = rows.map((c) => ({

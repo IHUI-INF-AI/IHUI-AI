@@ -92,9 +92,7 @@ export async function exchangeGoogleCode(code: string): Promise<GoogleUserInfo> 
 
 /** 校验 id_token → 返回用户信息 */
 export async function verifyGoogleIdToken(idToken: string): Promise<GoogleUserInfo> {
-  const resp = await oauthFetch(
-    `${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`,
-  )
+  const resp = await oauthFetch(`${GOOGLE_TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`)
   if (!resp.ok) throw new Error(`Google tokeninfo failed: ${resp.status}`)
   const data = (await resp.json()) as {
     sub: string
@@ -502,7 +500,11 @@ export async function getDingtalkUserInfo(accessToken: string): Promise<Dingtalk
 // ============================================================================
 
 import { createSign } from 'node:crypto'
-import { isAlipayConfigured as isAlipayPayConfigured, resolveAlipayPrivateKey } from './alipay.js'
+import {
+  isAlipayConfigured as isAlipayPayConfigured,
+  resolveAlipayPrivateKey,
+  formatTimestamp,
+} from './alipay.js'
 
 export interface AlipayUserInfo {
   openId: string
@@ -524,6 +526,13 @@ function getPrivateKey(): string {
   return key
 }
 
+/** 支付宝 OAuth 的 `timestamp`:与签名配套的 GMT+8 `yyyy-MM-dd HH:mm:ss`(SDB-33)。
+ *  旧实现用 `toISOString()` 贴 `+08:00`,实际是 UTC 墙钟 —— 网关按北京时间校验必拒。
+ *  唯一出口复用 alipay.ts 的 formatTimestamp(与支付链路同一份时区规范)。 */
+export function alipayOAuthTimestamp(now: Date = new Date()): string {
+  return formatTimestamp(now)
+}
+
 /** 用 auth_code 调 alipay.system.oauth.token 换 access_token + user_id */
 export async function exchangeAlipayCode(authCode: string): Promise<{
   accessToken: string
@@ -536,7 +545,7 @@ export async function exchangeAlipayCode(authCode: string): Promise<{
     method: 'alipay.system.oauth.token',
     charset: 'utf-8',
     sign_type: 'RSA2',
-    timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+08:00'),
+    timestamp: alipayOAuthTimestamp(),
     version: '1.0',
     grant_type: 'authorization_code',
     code: authCode,
@@ -583,7 +592,7 @@ export async function getAlipayUserInfo(accessToken: string): Promise<AlipayUser
     method: 'alipay.user.info.share',
     charset: 'utf-8',
     sign_type: 'RSA2',
-    timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, '+08:00'),
+    timestamp: alipayOAuthTimestamp(),
     version: '1.0',
     auth_token: accessToken,
     biz_content: bizContent,

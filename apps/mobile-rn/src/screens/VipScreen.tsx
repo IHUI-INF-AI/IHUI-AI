@@ -691,7 +691,6 @@ export function VipScreen() {
           void load()
         }}
         colorScheme={resolvedTheme}
-        onNavigate={onNavigate}
         onToast={onToast}
         features={resolveVipIndexFeatures(tt)}
         viewBenefits={{

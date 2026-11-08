@@ -72,6 +72,23 @@ def store_path(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def stdio_allowlist(monkeypatch):
+    """部署级命令允许清单:未配置时安装闸 fail-closed 全拒(2026-11-07 收紧)。
+
+    这里只把被测两个条目真实解析出的 command 放进清单,不把"未配置"当成通过前提,
+    也不放宽 stdio_command_allowed 本身的判据。
+    """
+    from app.services.mcp_directory import to_client_config
+
+    commands = {
+        str(to_client_config(key)["command"])  # type: ignore[index]
+        for key in ("git", "time")
+    }
+    monkeypatch.setenv("MCP_STDIO_COMMAND_ALLOWLIST", ",".join(sorted(commands)))
+    return commands
+
+
+@pytest.fixture
 def bridge_mock(monkeypatch):
     """mock stdio bridge 的 add/remove,不真实拉起子进程。"""
     calls = {"add": [], "remove": []}
@@ -438,40 +455,52 @@ def test_store_list_has_scoring_and_review(api_client):
 # =============================================================================
 
 
-def test_install_high_risk_requires_confirm(api_client, bridge_mock, clean_registry):
-    """git 为 high 风险:不带 confirm_risk → 409 + errorCode;带 → 200。"""
-    r = api_client.post("/api/mcp/store/install", json={"key": "git"})
+def test_install_high_risk_requires_confirm(
+    admin_client, stdio_allowlist, bridge_mock, clean_registry
+):
+    """git 为 high 风险:不带 confirm_risk → 409 + errorCode;带 → 200。
+
+    安装端点自 2026-11-07 安全收紧后要求 role>=1(见 routers/mcp.py 的安装闸),
+    本条判的是"风险确认门",不是角色门,所以用 admin 主体跑。
+    """
+    r = admin_client.post("/api/mcp/store/install", json={"key": "git"})
     assert r.status_code == 409
     body = r.json()
     assert body["errorCode"] == "RISK_CONFIRM_REQUIRED"
     assert body["scoring"]["security_level"] == "high"
     assert bridge_mock["add"] == []  # 未热挂载
 
-    r2 = api_client.post(
+    r2 = admin_client.post(
         "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
     )
     assert r2.status_code == 200
     assert r2.json()["ok"] is True
 
 
-def test_install_low_risk_no_confirm_needed(api_client, bridge_mock, clean_registry):
-    """time 为 low 风险:无需 confirm_risk 直接安装。"""
-    r = api_client.post("/api/mcp/store/install", json={"key": "time"})
+def test_install_low_risk_no_confirm_needed(
+    admin_client, stdio_allowlist, bridge_mock, clean_registry
+):
+    """time 为 low 风险:无需 confirm_risk 直接安装(安装端点为 admin-only)。"""
+    r = admin_client.post("/api/mcp/store/install", json={"key": "time"})
     assert r.status_code == 200
     assert r.json()["ok"] is True
 
 
 def test_install_rejected_review_403(
-    api_client, admin_client, bridge_mock, clean_registry
+    admin_client, stdio_allowlist, bridge_mock, clean_registry
 ):
-    """管理员驳回后:安装(即使 confirm_risk)→ 403。"""
+    """管理员驳回后:安装(即使 confirm_risk)→ 403。
+
+    安装端点为 admin-only,本条判的是"驳回门"先于风险确认,故安装也用 admin 主体,
+    避免被角色闸提前拦成 403(那样断言"驳回"会变成假绿/假红)。
+    """
     r = admin_client.post(
         "/api/mcp/store/git/review", json={"action": "reject", "note": "风险过高"}
     )
     assert r.status_code == 200
     assert r.json()["status"] == "rejected"
 
-    r2 = api_client.post(
+    r2 = admin_client.post(
         "/api/mcp/store/install", json={"key": "git", "confirm_risk": True}
     )
     assert r2.status_code == 403

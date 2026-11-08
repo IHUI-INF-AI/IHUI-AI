@@ -1,3 +1,16 @@
+-- ⛔ 隔离待审(2026-11-06) · 已从 packages/database/drizzle/ 移出:不计入 meta/_journal.json,不参与任何环境迁移。
+-- 隔离原因:该件在生产部署中必失败(2026-11-06 20:21 起每轮 db:migrate exit 1,24h 部署额度 60/60 熔断)。
+--   生产实测:164 条 CREATE INDEX 只建成 10 个;28 个 FK 建成 0 个;drizzle.__drizzle_migrations 无 created_at=1793948400000 的行。
+-- 三处已定位的必失败语句(原文):
+--   CREATE INDEX IF NOT EXISTS "ix_api_subscriptions_plan_id" ON "api_subscriptions" ("plan_id");    -- api_subscriptions 表在迁移链中不存在
+--   CREATE INDEX IF NOT EXISTS "ix_api_subscriptions_order_id" ON "api_subscriptions" ("order_id");  -- 同上
+--   ALTER TABLE "resource_downloads" ADD CONSTRAINT "fk_resource_downloads_user_id_users" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+--     -- resource_downloads.user_id 为 integer,users.id 为 uuid,类型不兼容(DO 块内 EXCEPTION 吞掉,但同事务内失败会连带整包回滚/中断)
+-- 重新入链前置条件(缺一不得 renumber 回 journal):
+--   ① 按"包"分批(索引包 / 唯一索引包 / FK 包各拆一件),单件失败不得连坐其它件;
+--   ② 能在事务外并发建的索引一律 CREATE INDEX CONCURRENTLY,生产大表不得长锁;
+--   ③ 先在"生产库状态克隆"上把 pending 跑到 0 且 rc=0,再重新编号入 journal。
+-- 原文件正文(未改动)如下。
 -- © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 -- Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 -- [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

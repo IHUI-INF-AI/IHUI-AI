@@ -20,6 +20,10 @@
  *   T8  判死三态:无提交 / journal 空 entries / 面旗矛盾 / --root 没跟目录,都是 exit 2
  *   T9  decide 退出码三态(未判定 / IM2 / 存量各归各位,不得互相顶账)
  *   T10 本门未被串进 check:all 时不得谎称已串
+ *   F1–F5 登记台账五态(临时仓 --staged):未登记 ⇒ 1;登记+hash+证据齐 ⇒ 0;
+ *           hash 不符 ⇒ 2;verified 缺 ⇒ 2;过期 ⇒ 2
+ *   F6 新增未入库迁移不受登记约束(仍是"不可变性还不适用")
+ *   F7 真仓 10 笔全登记:IM1 存量 10 / 已登记 10 / 未登记 0,head 与 --strict 均 rc 0
  */
 import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -82,6 +86,37 @@ function makeFixtureRepo(dir, { tags = ['0000_fixture'], body = 'CREATE TABLE fi
   }
   return { git, sqlRel, journalAbs: join(dir, gate.JOURNAL_REL) }
 }
+
+/** 写一份台账到夹具仓(不动索引,由调用方 git add)。 */
+function writeLedger(dir, entries) {
+  const abs = join(dir, ...gate.LEDGER_REL.split('/'))
+  mkdirSync(dirname(abs), { recursive: true })
+  const body = Array.isArray(entries)
+    ? entries.map((e) => JSON.stringify(e)).join('\n') + '\n'
+    : entries
+  writeFileSync(abs, body)
+}
+
+/** 一条形状完整的登记(默认值合法,按需覆盖);hash 由调用方按正文口径算。 */
+function ledgerEntry(overrides = {}) {
+  return {
+    tag: '0000_fixture',
+    path: `${gate.MIG_DIR}/0000_fixture.sql`,
+    baseLanding: '0'.repeat(40),
+    rewrites: [{ commit: 'c0ffee', kind: 'fixture', reason: 'F1–F5 夹具:证明登记是判据的一部分' }],
+    acceptedSha256: '',
+    verified: {
+      fromZero: '370/370',
+      rc: 0,
+      gate: 'check-migration-from-zero#④',
+      at: '2026-11-06',
+    },
+    expires: '2099-12-31',
+    ...overrides,
+  }
+}
+
+const REWRITE_BODY = 'CREATE TABLE fixture (id int);\n-- 就地补一句\n'
 
 test('T1 接线一致性:头注声称的接线态必须与 runner 真值一致(两态都认)', () => {
   const src = readFileSync(SCRIPT, 'utf8')
@@ -171,8 +206,11 @@ test('T5 真仓 HEAD 面端到端:看不见存量不算通过(默认只报数,--
   // **与本票同族的教训**: 锚定**会变的量**的字面量, 等于给自己埋一颗定时炸弹。
   assert.match(plain.stdout, /\[判定面=head\][\s\S]*可比对 \d+/)
 
+  // 2026-11-06 变更:存量 10 笔已全部登记进 migration-rewrite-ledger.jsonl ⇒
+  // --strict 不再判红(登记 + 从零 370/370 + 夹具断言是正规通道,不是 skip)。
   const strict = runGate(['--strict'])
-  assert.equal(strict.status, 1, `--strict 下有存量不等必须判红,stdout=${strict.stdout}`)
+  assert.equal(strict.status, 0, `--strict 下已登记 10 笔必须放行,stdout=${strict.stdout} stderr=${strict.stderr}`)
+  assert.match(strict.stdout, /IM1 存量 10\/ 已登记 10\/ 未登记 0/, '已登记/未登记两桶必须如实报数')
 
   const json = runGate(['--json'])
   const parsed = JSON.parse(json.stdout)
@@ -180,6 +218,10 @@ test('T5 真仓 HEAD 面端到端:看不见存量不算通过(默认只报数,--
   assert.equal(parsed.exit, 0)
   assert.ok(parsed.counts.compared > 300, `可比对候选须覆盖 journal 全部 tag,实得 ${parsed.counts.compared}`)
   assert.equal(parsed.counts.undetermined, 0, '真仓 HEAD 面不该有未判定;有就是判据失明')
+  assert.equal(parsed.counts.stockReds, 10, '真仓存量改写应为登记册里的 10 笔')
+  assert.equal(parsed.counts.registeredIm1, 10, '10 笔存量改写必须全部命中台账登记')
+  assert.equal(parsed.counts.unregisteredIm1, 0, '未登记桶必须为空(否则 --strict 会红)')
+  assert.equal(parsed.counts.badRegistrations, 0, '登记与正文必须逐笔相符')
   for (const r of parsed.stockReds) assert.match(r.base, /^[0-9a-f]{40}$/, '基线必须点名到具体提交')
 })
 
@@ -339,5 +381,140 @@ test('T10 未被串进 check:all 时,头注不得声称已串', () => {
   if (!pkg.includes('check-migration-immutable')) {
     assert.doesNotMatch(src, /已串进\s*check:all|pnpm check:migration-immutable/, '不得声称有跑不通的问责入口')
   }
+})
+
+test('F1 改写无登记 ⇒ 未登记桶 ⇒ exit 1', () => {
+  const dir = mkScratch('g815952-f1-')
+  try {
+    const { git, sqlRel } = makeFixtureRepo(dir)
+    writeFileSync(join(dir, ...sqlRel.split('/')), REWRITE_BODY)
+    assert.equal(git(['add', '-A']).status, 0)
+    const r = runGate(['--root', dir, '--staged'])
+    assert.equal(r.status, 1, `未登记的改写必须 rc 1,stdout=${r.stdout} stderr=${r.stderr}`)
+    assert.match(r.stdout, /IM2 本次改写 1\/ 已登记 0\/ 未登记 1/, '未登记必须落进未登记桶')
+    assert.ok(r.stderr.includes(sqlRel), '红必须点名被改的迁移文件')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F2 改写 + hash 相符 + verified 齐全 ⇒ 已登记桶 ⇒ exit 0', () => {
+  const dir = mkScratch('g815952-f2-')
+  try {
+    const { git, sqlRel } = makeFixtureRepo(dir)
+    writeFileSync(join(dir, ...sqlRel.split('/')), REWRITE_BODY)
+    writeLedger(dir, [ledgerEntry({ acceptedSha256: gate.acceptedBodySha256(REWRITE_BODY) })])
+    assert.equal(git(['add', '-A']).status, 0)
+    const h = runGate(['--root', dir, '--staged'])
+    assert.equal(h.status, 0, `已登记的改写必须 rc 0,stderr=${h.stderr}`)
+    assert.match(h.stdout, /IM2 本次改写 1\/ 已登记 1\/ 未登记 0/, '登记命中必须落进已登记桶')
+    const j = JSON.parse(runGate(['--root', dir, '--staged', '--json']).stdout)
+    assert.equal(j.counts.registeredIm2, 1)
+    assert.equal(j.counts.unregisteredIm2, 0)
+    assert.equal(j.counts.badRegistrations, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F3 登记 hash 与正文不符 ⇒ exit 2(不得冒充已登记)', () => {
+  const dir = mkScratch('g815952-f3-')
+  try {
+    const { git, sqlRel } = makeFixtureRepo(dir)
+    writeFileSync(join(dir, ...sqlRel.split('/')), REWRITE_BODY)
+    // 故意用"首次入库那份原始正文"的 hash:正文改完没重新登记 ⇒ 必须判不符
+    writeLedger(dir, [ledgerEntry({ acceptedSha256: gate.acceptedBodySha256('CREATE TABLE fixture (id int);\n') })])
+    assert.equal(git(['add', '-A']).status, 0)
+    const r = runGate(['--root', dir, '--staged'])
+    assert.equal(r.status, 2, `hash 不符必须 exit 2,stdout=${r.stdout} stderr=${r.stderr}`)
+    assert.match(r.stderr, /与台账登记不符/)
+    const j = JSON.parse(runGate(['--root', dir, '--staged', '--json']).stdout)
+    assert.equal(j.counts.badRegistrations, 1)
+    assert.equal(j.counts.registeredIm2, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F4 登记缺 verified 证据 ⇒ exit 2', () => {
+  const dir = mkScratch('g815952-f4-')
+  try {
+    const { git, sqlRel } = makeFixtureRepo(dir)
+    writeFileSync(join(dir, ...sqlRel.split('/')), REWRITE_BODY)
+    writeLedger(dir, [
+      ledgerEntry({
+        acceptedSha256: gate.acceptedBodySha256(REWRITE_BODY),
+        verified: { fromZero: '370/370', at: '2026-11-06' },
+      }),
+    ])
+    assert.equal(git(['add', '-A']).status, 0)
+    const r = runGate(['--root', dir, '--staged'])
+    assert.equal(r.status, 2, `证据缺必须 exit 2(不得降级成 exit 1),stdout=${r.stdout} stderr=${r.stderr}`)
+    assert.match(r.stderr, /verified\.rc/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F5 登记已过期 ⇒ exit 2', () => {
+  const dir = mkScratch('g815952-f5-')
+  try {
+    const { git, sqlRel } = makeFixtureRepo(dir)
+    writeFileSync(join(dir, ...sqlRel.split('/')), REWRITE_BODY)
+    writeLedger(dir, [ledgerEntry({ acceptedSha256: gate.acceptedBodySha256(REWRITE_BODY), expires: '2020-01-01' })])
+    assert.equal(git(['add', '-A']).status, 0)
+    const r = runGate(['--root', dir, '--staged'])
+    assert.equal(r.status, 2, `过期必须 exit 2,stdout=${r.stdout} stderr=${r.stderr}`)
+    assert.match(r.stderr, /台账已过期/)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F6 新增未入库迁移不受登记约束 ⇒ rc 0 且进 notLanded', () => {
+  const dir = mkScratch('g815952-f6-')
+  try {
+    const { git, journalAbs } = makeFixtureRepo(dir)
+    const newRel = `${gate.MIG_DIR}/0001_new.sql`
+    writeFileSync(join(dir, ...newRel.split('/')), 'CREATE TABLE n (id int);\n')
+    writeFileSync(
+      journalAbs,
+      JSON.stringify({
+        version: '7',
+        dialect: 'postgresql',
+        entries: [
+          { idx: 1, tag: '0000_fixture', when: 1700000000000 },
+          { idx: 2, tag: '0001_new', when: 1700000000001 },
+        ],
+      }) + '\n',
+    )
+    assert.equal(git(['add', '-A']).status, 0)
+    const r = runGate(['--root', dir, '--staged', '--json'])
+    assert.equal(r.status, 0, `新增未入库迁移不该拦,stderr=${r.stderr}`)
+    const p = JSON.parse(r.stdout)
+    assert.deepEqual(p.notLanded, [newRel], '新增迁移必须进 notLanded 并报出,不得静默')
+    assert.equal(p.counts.commitReds, 0)
+    assert.equal(p.counts.badRegistrations, 0)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('F7 真仓 10 笔全登记:IM1 存量 10 / 已登记 10 / 未登记 0,head 与 --strict 均 rc 0', () => {
+  const plain = runGate([])
+  assert.equal(plain.status, 0, `全量档必须 rc 0,stdout=${plain.stdout} stderr=${plain.stderr}`)
+  assert.match(plain.stdout, /IM1 存量 10\/ 已登记 10\/ 未登记 0/)
+  assert.match(plain.stdout, /IM2 本次改写 0\/ 已登记 0\/ 未登记 0/)
+
+  const strict = runGate(['--strict'])
+  assert.equal(strict.status, 0, `--strict 必须 rc 0(有登记),stdout=${strict.stdout} stderr=${strict.stderr}`)
+  assert.match(strict.stdout, /IM1 存量 10\/ 已登记 10\/ 未登记 0/)
+
+  const j = JSON.parse(runGate(['--json']).stdout)
+  assert.equal(j.exit, 0)
+  assert.equal(j.counts.stockReds, 10)
+  assert.equal(j.counts.registeredIm1, 10, '目标读数:已登记 10')
+  assert.equal(j.counts.unregisteredIm1, 0, '目标读数:未登记 0')
+  assert.equal(j.counts.badRegistrations, 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

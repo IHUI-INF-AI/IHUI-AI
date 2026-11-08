@@ -1569,7 +1569,7 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     )
 
     keyed = workspace_key(path)
-    control = arguments.get("index_control", None)
+    control = arguments.get("index_control")
     if control is not None:
         if not isinstance(control, str) or not control:
             return {
@@ -1751,7 +1751,7 @@ def _search_codebase_keyword_sync(
 
     # ③ 逐文件按 ignored 过滤 + 读取 + 符号匹配
     for dirpath, filenames, file_rels in snapshots:
-        for fname, rel_posix in zip(filenames, file_rels):
+        for fname, rel_posix in zip(filenames, file_rels, strict=False):
             if count >= max_results:
                 return matches, count
             if rel_posix in ignored:
@@ -2125,19 +2125,27 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     async def _keyword_leg() -> dict[str, Any]:
         """关键词腿(真实文件系统 regex 符号 + 引用扫描,不碰数据库)。"""
         try:
-            import fnmatch
-            import os
             from pathlib import Path
 
             root = Path(path).resolve()
-            if not root.exists():
+            # 读不到 ≠ 不存在:Path.exists() 会把权限/IO 错误吞成 False。统一走
+            # _classify_path,权限问题显式报"读不到",不把排查方向带偏成"路径写错了"。
+            kind, st = _classify_path(str(root))
+            if kind == "unread":
+                return {
+                    "status": "unavailable",
+                    "matches": [],
+                    "truncated": False,
+                    "reason": f"路径读不到: {path}",
+                }
+            if kind == "missing":
                 return {
                     "status": "unavailable",
                     "matches": [],
                     "truncated": False,
                     "reason": f"路径不存在: {path}",
                 }
-            if not root.is_dir():
+            if st is not None and not stat.S_ISDIR(st.st_mode):
                 return {
                     "status": "unavailable",
                     "matches": [],
@@ -2513,6 +2521,18 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "error": "拒绝读取敏感文件(可能含 API key/私钥/凭证)",
             "errorCode": "SENSITIVE_FILE_BLOCKED",
+        }
+    # 读不到 ≠ 不存在:先量一次路径,权限/IO 错误单独报 UNREADABLE,不落到 open()
+    # 的模糊异常上(否则会被上游当成"文件不存在"或"内容为空")。
+    kind, _ = _classify_path(str(resolved_path))
+    if kind == "unread":
+        return {
+            "tool": "read_file",
+            "path": resolved_path,
+            "content": "",
+            "ok": False,
+            "error": f"{resolved_path} 读不到(无权限或 IO 错误),不能当成文件不存在。",
+            "errorCode": "UNREADABLE",
         }
     try:
         # 2026-08-06 生产修复:目录路径显式报错。
@@ -5228,7 +5248,19 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
         from pathlib import Path
 
         root = Path(path).resolve()
-        if not root.exists():
+        # 与 search_codebase 同一把尺子:读不到要明说,不能冒用"路径不存在"。
+        kind, st = _classify_path(str(root))
+        if kind == "unread":
+            return {
+                "tool": "file_search",
+                "query": query,
+                "path": path,
+                "pattern": pattern,
+                "matches": [],
+                "message": f"路径读不到: {path}",
+                "ok": False,
+            }
+        if kind == "missing":
             return {
                 "tool": "file_search",
                 "query": query,
@@ -5238,7 +5270,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"路径不存在: {path}",
                 "ok": False,
             }
-        if not root.is_dir():
+        if st is not None and not stat.S_ISDIR(st.st_mode):
             return {
                 "tool": "file_search",
                 "query": query,
@@ -5459,7 +5491,6 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
             }
 
     try:
-        import os
         import subprocess
 
         # 2026-11-01 安全强化:`repo` 是工具入参(模型可控),旧实现直接 abspath 就当 cwd,
@@ -5478,13 +5509,34 @@ async def _tool_git_operations(arguments: dict[str, Any]) -> dict[str, Any]:
                 "error": "PATH_NOT_IN_WORKSPACE",
             }
         repo_path = repo_resolved
-        if not os.path.isdir(repo_path):
+        # 仓库路径同样分三档:读不到 / 不存在 / 不是目录。权限错误报成"不存在"
+        # 会让调用方以为仓库被盗删,而不是"当前进程没权限看它"。
+        kind, st = _classify_path(str(repo_path))
+        if kind == "unread":
             return {
                 "tool": "git_operations",
                 "action": action,
                 "repo": repo,
                 "output": "",
-                "message": f"仓库路径不存在或不是目录: {repo}",
+                "message": f"仓库路径读不到: {repo}",
+                "ok": False,
+            }
+        if kind == "missing":
+            return {
+                "tool": "git_operations",
+                "action": action,
+                "repo": repo,
+                "output": "",
+                "message": f"仓库路径不存在: {repo}",
+                "ok": False,
+            }
+        if st is not None and not stat.S_ISDIR(st.st_mode):
+            return {
+                "tool": "git_operations",
+                "action": action,
+                "repo": repo,
+                "output": "",
+                "message": f"仓库路径不是目录: {repo}",
                 "ok": False,
             }
 
