@@ -17,7 +17,8 @@
 import { config } from '../config/index.js'
 import { logger } from './clawdbot/logger.js'
 import { recordAiCost } from '../plugins/ai-cost.js'
-import { deductWalletTokens } from '../plugins/token-balance-service.js'
+import { getWalletBalance, settleWalletUsage } from '../plugins/token-balance-service.js'
+import { AppError } from '../errors/AppError.js'
 import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { resolveDefaultChatModel } from '../utils/retired-providers.js'
 
@@ -113,6 +114,15 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
   if (opts.tools && opts.tools.length > 0) body.tools = opts.tools
   if (opts.toolChoice) body.tool_choice = opts.toolChoice
 
+  // F-203 收紧:开工前预检真实余额。零余额直接拒绝,不发起上游调用 ——
+  // 「先给结果后算账」会把成本留给平台(与 F-228 pending 即写应付同型)。
+  if (opts.userId) {
+    const balance = await getWalletBalance(opts.userId)
+    if (balance <= 0) {
+      throw new AppError('余额不足,请充值后重试', 402, 'INSUFFICIENT_BALANCE')
+    }
+  }
+
   const start = Date.now()
   logger.info(
     { model, msgs: opts.messages.length, tools: opts.tools?.length ?? 0, url },
@@ -172,8 +182,40 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
   // G7: 记录 AI 调用成本(独立函数,不依赖 server)
   // stub 响应无真实 LLM 调用,跳过记成本;userId 未传时跳过(系统侧调用)
   if (opts.userId && !result.stub && result.usage.totalTokens > 0) {
+    const provider = result.modelUsed.includes('/') ? result.modelUsed.split('/')[0]! : 'unknown'
+
+    // 上游成本已经发生,不能撤回:能扣多少扣多少(扣到 0 为止),
+    // 差额落进下面 ai_cost_records.metadata,形成可审计的欠额记录。
+    let settlement: { deducted: number; remaining: number; shortfall: number } | null = null
     try {
-      const provider = result.modelUsed.includes('/') ? result.modelUsed.split('/')[0]! : 'unknown'
+      settlement = await settleWalletUsage({
+        userId: opts.userId,
+        amount: result.usage.totalTokens,
+        reason: `crew_llm:${result.modelUsed}`,
+      })
+      if (settlement.shortfall > 0) {
+        logger.warn(
+          {
+            userId: opts.userId,
+            tokens: result.usage.totalTokens,
+            deducted: settlement.deducted,
+            shortfall: settlement.shortfall,
+          },
+          '[CrewLLM] 运行中余额不足:已扣至 0,欠额写入 ai_cost_records',
+        )
+      }
+    } catch (e) {
+      // 结算本身失败时整笔都是欠额,同样要落审计记录,不能只打日志。
+      logger.warn({ err: e }, '[CrewLLM] settleWalletUsage 失败,整笔用量记为欠额')
+    }
+
+    const billing = {
+      walletDeductedTokens: settlement?.deducted ?? 0,
+      walletBalanceAfter: settlement?.remaining ?? null,
+      billingShortfallTokens: settlement?.shortfall ?? result.usage.totalTokens,
+    }
+
+    try {
       await recordAiCost({
         userId: opts.userId,
         model: result.modelUsed,
@@ -182,28 +224,13 @@ export async function callRealLlm(opts: LlmCallOptions): Promise<LlmCallResult> 
         completionTokens: result.usage.completionTokens,
         totalTokens: result.usage.totalTokens,
         requestType: opts.sessionId ? 'crew_session' : 'crew',
-        metadata: opts.sessionId ? JSON.stringify({ sessionId: opts.sessionId }) : undefined,
+        metadata: JSON.stringify({
+          ...(opts.sessionId ? { sessionId: opts.sessionId } : {}),
+          billing,
+        }),
       })
     } catch (e) {
       logger.warn({ err: e }, '[CrewLLM] recordAiCost 失败(不影响主流程)')
-    }
-
-    // 真实扣费:与其它 AI 路由一致,按 usage.totalTokens 从钱包扣减并写 token_flows。
-    // 统计表(ai_cost_records)只做成本核算,不能替代实际扣费。
-    try {
-      const deduction = await deductWalletTokens({
-        userId: opts.userId,
-        amount: result.usage.totalTokens,
-        reason: `crew_llm:${result.modelUsed}`,
-      })
-      if (!deduction.success) {
-        logger.warn(
-          { userId: opts.userId, tokens: result.usage.totalTokens },
-          '[CrewLLM] 钱包余额不足,扣费未完成',
-        )
-      }
-    } catch (e) {
-      logger.warn({ err: e }, '[CrewLLM] deductWalletTokens 失败(不影响主流程)')
     }
   }
 

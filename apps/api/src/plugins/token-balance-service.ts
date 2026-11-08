@@ -142,6 +142,77 @@ export async function deductWalletTokens(input: {
   })
 }
 
+/**
+ * 读取用户钱包真实余额(主库)。
+ * 预检必须走主库:副本延迟会让「余额为 0 的用户」在预检时看到旧余额而放行。
+ */
+export async function getWalletBalance(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ tokenQuantity: userMargins.tokenQuantity })
+    .from(userMargins)
+    .where(eq(userMargins.userId, userId))
+    .limit(1)
+  return row?.tokenQuantity ?? 0
+}
+
+/**
+ * 结算一次「已经发生」的用量:余额够就全额扣,不够则扣到 0,差额作为欠额返回。
+ *
+ * 与 deductWalletTokens 的区别:后者余额不足时整笔不扣(适合调用前已预检的路径);
+ * 本函数用于上游调用已经产生成本、无法撤回的场景 —— 能扣多少扣多少,
+ * 欠额由调用方落可审计记录(不能只打日志,否则等于平台白送)。
+ */
+export async function settleWalletUsage(input: {
+  userId: string
+  amount: number
+  reason?: string
+}): Promise<{ deducted: number; remaining: number; shortfall: number }> {
+  const { userId, amount, reason } = input
+  if (amount <= 0) {
+    return { deducted: 0, remaining: await getWalletBalance(userId), shortfall: 0 }
+  }
+  return db.transaction(async (tx) => {
+    // FOR UPDATE 锁住该行:避免并发结算把同一笔余额重复扣掉。
+    const [row] = await tx
+      .select({ tokenQuantity: userMargins.tokenQuantity })
+      .from(userMargins)
+      .where(eq(userMargins.userId, userId))
+      .limit(1)
+      .for('update')
+    const balance = row?.tokenQuantity ?? 0
+    const deducted = Math.min(balance, amount)
+    const shortfall = amount - deducted
+
+    if (deducted <= 0) {
+      return { deducted: 0, remaining: balance, shortfall }
+    }
+
+    const updated = await tx
+      .update(userMargins)
+      .set({
+        tokenQuantity: sql`${userMargins.tokenQuantity} - ${deducted}`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${deducted}`),
+      )
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+    if (updated.length === 0) {
+      // 行锁下不应发生;真发生就按未扣处理,绝不写一条没发生的流水。
+      return { deducted: 0, remaining: balance, shortfall: amount }
+    }
+
+    const remaining = updated[0]!.tokenQuantity
+    await tx.execute(sql`
+      INSERT INTO "token_flows" ("user_id", "op_type", "quantity", "balance_after", "remark", "related_order_no", "created_at")
+      VALUES (${userId}, 1, ${deducted}, ${remaining}, ${reason ?? 'api_call'}, ${null}, now())
+      ON CONFLICT ("related_order_no", "op_type") DO NOTHING
+    `)
+    return { deducted, remaining, shortfall }
+  })
+}
+
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   const redis = server.redis
 
