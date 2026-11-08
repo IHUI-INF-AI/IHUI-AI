@@ -69,7 +69,6 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { maskComments } from './lib/code-mask.mjs'
 import { catBatch, gitBinary, readWorktreeFile } from './lib/face-reader.mjs'
-import { catBatch, readWorktreeFile } from './lib/face-reader.mjs'
 import {
   RETIRED_AT_RE,
   RETIRED_FROM_SHA_RE,
