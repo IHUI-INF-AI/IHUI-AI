@@ -214,7 +214,9 @@ const updateRuleSchema = z.object({
 })
 
 // P1 安全修复(2026-08-02):personality update body schema
-const personalityUpdateSchema = z.object({ personality: z.string() })
+// F-133:personality 是直接落进 prompt 的注入面,补 8000 字上限拒绝超大注入体
+// (只收紧上限,字段仍为原有可选/必填语义,不改变既有成功路径)。
+const personalityUpdateSchema = z.object({ personality: z.string().max(8000) })
 
 const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   // P0 安全修复:所有路由默认要求登录;admin-only 端点在路由级用 requireAdmin 覆盖
@@ -1323,7 +1325,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '查询规则参数失败'))
     }
   })
-  server.post('/rule-params', async (req, reply) => {
+  server.post('/rule-params', { preHandler: requireAdmin }, async (req, reply) => {
     const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, '参数校验失败'))
@@ -1339,7 +1341,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '创建规则参数失败'))
     }
   })
-  server.put('/rule-params/:id', async (req, reply) => {
+  server.put('/rule-params/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
@@ -1617,10 +1619,17 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     const { agentId } = req.params as { agentId: string }
     try {
       const rows = await db.execute(
-        sql`SELECT "agent_id", "agent_prompt" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
+        sql`SELECT "agent_id", "user_id", "agent_prompt" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
       )
       const row = (rows as Record<string, unknown>[])[0]
       if (!row) return reply.status(404).send(error(404, '智能体不存在'))
+      // F-133 归属闸:非属主且非管理员一律 404(与"不存在"同形)。
+      // 不回 403,否则等于承认这枚 agentId 存在;也绝不回显他人 prompt。
+      const ownerId = row['user_id']
+      const isOwner = typeof ownerId === 'string' && ownerId === req.userId
+      if (!isOwner && !isSystemAdmin(req, { includeInternalChannel: false })) {
+        return reply.status(404).send(error(404, '智能体不存在'))
+      }
       return reply.send(success({ agentId: row['agent_id'], personality: row['agent_prompt'] }))
     } catch (e) {
       req.log.error(e)
@@ -1635,6 +1644,17 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
     const { personality } = bodyParsed.data
     try {
+      const ownerRows = await db.execute(
+        sql`SELECT "agent_id", "user_id" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
+      )
+      const ownerRow = (ownerRows as Record<string, unknown>[])[0]
+      if (!ownerRow) return reply.status(404).send(error(404, '智能体不存在'))
+      // F-133 归属闸:与 GET 同口径 —— 非属主且非管理员一律 404,不暴露存在性。
+      const ownerId = ownerRow['user_id']
+      const isOwner = typeof ownerId === 'string' && ownerId === req.userId
+      if (!isOwner && !isSystemAdmin(req, { includeInternalChannel: false })) {
+        return reply.status(404).send(error(404, '智能体不存在'))
+      }
       const rows = await db.execute(
         sql`UPDATE ${sql.raw('"agents"')} SET "agent_prompt" = ${personality}, "updated_at" = NOW() WHERE "agent_id"::text = ${agentId} RETURNING "agent_id", "agent_prompt"`,
       )
