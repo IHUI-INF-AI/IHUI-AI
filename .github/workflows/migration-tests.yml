@@ -5,18 +5,24 @@
 name: Migration Tests
 
 # 数据库迁移测试工作流 — 验证 Drizzle migration 迁移正确性
-# 当 database 包 schema 或 migrations 变更时触发
+# 当 database 包迁移/迁移脚本/schema 变更时触发
 on:
   push:
     branches: [main, develop]
     paths:
+      - 'packages/database/drizzle/**'
+      - 'packages/database/scripts/**'
       - 'packages/database/src/**'
-      - 'packages/database/migrations/**'
+      - 'packages/database/drizzle.config.ts'
+      - '.github/workflows/migration-tests.yml'
   pull_request:
     branches: [main, develop]
     paths:
+      - 'packages/database/drizzle/**'
+      - 'packages/database/scripts/**'
       - 'packages/database/src/**'
-      - 'packages/database/migrations/**'
+      - 'packages/database/drizzle.config.ts'
+      - '.github/workflows/migration-tests.yml'
 
 # Security: least-privilege GITHUB_TOKEN (CWE-250). Third-party actions use @v tags — pin to commit SHA for stricter supply-chain security.
 permissions:
@@ -28,7 +34,9 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:18
+        # 全量迁移含 vector 列;postgres:18 官方镜像不带 pgvector 扩展 → 迁移在
+        # `type "vector" does not exist` 处回滚。与 db-from-zero-migrate.yml 同款镜像。
+        image: pgvector/pgvector:pg18
         env:
           POSTGRES_PASSWORD: test
           POSTGRES_DB: test
@@ -55,10 +63,42 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run migrations
-        run: cd packages/database && pnpm drizzle-kit push --force
+      # DB-10:不再用 `drizzle-kit push --force` 按 schema 现状建表 —— 那会绕过
+      # drizzle/*.sql 迁移链(索引/触发器/扩展全都不执行),给"已有迁移测试"的假保证。
+      # 改为与 test-real-db.yml / db-from-zero-migrate.yml 同款的两遍迁移 + 形状守卫:
+      # 全新库第一遍在 journal idx 325 失败属预期(1..324 已逐条提交),
+      # 守卫把 uuid 形状收敛成 bigserial 后第二遍通过;存量库第一遍直接通过。
+      - name: Run migrations (fresh DB, two-pass + guard)
+        working-directory: packages/database
         env:
           DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+        run: |
+          if ! npx drizzle-kit migrate; then
+            echo "::notice::第一遍 migrate 在 idx 325 处失败(从零库预期行为,1..324 已逐条提交)"
+          fi
+          node scripts/pre-migrate-fresh-db-guard.mjs
+          npx drizzle-kit migrate
+
+      # 迁移链必须真的把账本写进 drizzle.__drizzle_migrations,而不是"命令 exit 0 但库是空的"。
+      - name: Verify migration ledger is non-empty
+        working-directory: packages/database
+        env:
+          DATABASE_URL: postgresql://postgres:test@localhost:5432/test
+        run: |
+          node --input-type=module -e "
+            import postgres from 'postgres';
+            const sql = postgres(process.env.DATABASE_URL);
+            try {
+              const [row] = await sql\`select count(*)::int as n from drizzle.__drizzle_migrations\`;
+              if (!row || row.n === 0) {
+                console.error('迁移账本为空:迁移链没有真正落库');
+                process.exit(1);
+              }
+              console.log('drizzle.__drizzle_migrations rows=' + row.n);
+            } finally {
+              await sql.end();
+            }
+          "
 
       - name: Verify schema
         run: cd packages/database && npx tsc --noEmit
