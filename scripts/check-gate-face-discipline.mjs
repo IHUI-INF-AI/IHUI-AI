@@ -99,6 +99,54 @@ const LAYER_CLAUSE_RE = /import\s*\{([^}]*)\}\s*from\s*['"][^'"]*lib\/face-reade
 const LAYER_NS_RE =
   /import\s*\*\s*as\s*([A-Za-z_$][\w$]*)\s*from\s*['"][^'"]*lib\/face-reader\.mjs['"]/g
 
+/**
+ * 经**已认证的同面封装**取内容:单源词汇表(模块 → 读取入口)。
+ *
+ * 为什么需要(2026-11-08 现读):`usesLayerRead` 只认直接调用 face-reader 的读取入口。实测 HEAD 面
+ * 有 12 道门把正文读取收进了同面封装 —— `lib/face-scan.mjs` 的 `readSources`、`lib/gate-face.mjs`
+ * 的 `readFaceOne/readFaceBatch`、跨端尺子的 `faceRead/collect*`。这些封装**取哪一面由调用方的
+ * face 参数决定**,内部一律走 `readWorktreeFile` / `catBatch`;单文件正则看不见封装内部,于是这 12
+ * 道被误报成 no-content(另有 1 道薄壳二跳,见表末)。那是**漏报**(判据对"读内容"失明),不是
+ * "不读内容"。
+ *
+ * 收在**模块 → 入口**的白名单里,而不是"引了某个 lib 就算过":
+ *   · 只有真读正文的那几个出口在册;同模块的纯函数(`evaluateMap` / `faceList` 只拿现成文本或只列
+ *     路径)不在册 —— 引了它们不会变绿。
+ *   · 在册模块**自身**必须仍含同面读取(`catBatch(` / `readWorktreeFile(`);该自证在镜像测试里逐模块
+ *     读源执行(判据保持纯函数,不做跨文件 IO)。谁把封装改成按磁盘读,那条自证先红。
+ * 自检 V14–V18 与本表成对:命中在册出口 ⇒ face;引了封装却不调用 + 自己读盘 ⇒ 仍 loose-fs(红);
+ * 引了在册模块的非读取出口 ⇒ 仍 no-content。
+ */
+export const FACE_HELPER_MODULES = new Map([
+  ['lib/face-scan.mjs', new Set(['readSources'])],
+  ['lib/gate-face.mjs', new Set(['readFaceOne', 'readFaceBatch'])],
+  [
+    'check-cross-end-screen-coverage.mjs',
+    new Set(['faceRead', 'collectShared', 'collectRn', 'collectMiniapp']),
+  ],
+  [
+    'check-web-rn-screen-parity.mjs',
+    new Set([
+      'collectRnScreens',
+      'loadMap',
+      'loadMapDetailed',
+      'collectPortalRoutes',
+      'collectNavEntries',
+    ]),
+  ],
+  // 薄壳一跳:run({root, face}) 的正文读取住在 plan-tasks.readPlan(内部 catBatch/readWorktreeFile),
+  // 自证时连上游一起看(T32 的 TRANSITIVE_HELPERS)。
+  ['lib/ledger-eaten-rows.mjs', new Set(['run'])],
+])
+const HELPER_CLAUSE_RE = /import\s*\{([^}]*)\}\s*from\s*['"]([^'"]+)['"]/gs
+const HELPER_NS_RE = /import\s*\*\s*as\s+([A-Za-z_$][\w$]*)\s*from\s*['"]([^'"]+)['"]/g
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/** `./lib/x.mjs` / `../lib/x.mjs` 归一成表键 `lib/x.mjs`。 */
+const helperModuleKey = (spec) =>
+  String(spec)
+    .replace(/\\/g, '/')
+    .replace(/^(?:\.\.?\/)+/, '')
+
 /** 这道文件是否**真的**用层的读取入口取过内容(含别名 / 命名空间形态)。纯函数,构造面可证。 */
 export function usesLayerRead(code) {
   if (LAYER_READ_RE.test(code)) return true
@@ -117,6 +165,34 @@ export function usesLayerRead(code) {
   for (const ns of code.matchAll(LAYER_NS_RE)) {
     for (const e of LAYER_READ_ENTRIES)
       if (new RegExp(`${ns[1]}\\.${e}\\s*\\(`).test(code)) return true
+  }
+  // 同面封装的**已认证出口**:模块在表内且真被调用(命名导入含别名,`__test__ as X` 走对象形态)。
+  for (const m of code.matchAll(HELPER_CLAUSE_RE)) {
+    const entries = FACE_HELPER_MODULES.get(helperModuleKey(m[2]))
+    if (!entries) continue
+    for (const raw of m[1].split(',')) {
+      const spec = raw.trim()
+      if (!spec) continue
+      const parts = spec.split(/\s+as\s+/)
+      const imported = parts[0].trim()
+      const local = (parts[1] || parts[0]).trim()
+      if (imported === '__test__') {
+        for (const e of entries)
+          if (
+            new RegExp(`(?:^|[^.\\w$])${escapeRe(local)}\\.${escapeRe(e)}\\s*\\(`).test(code)
+          )
+            return true
+      } else if (entries.has(imported)) {
+        if (new RegExp(`(?:^|[^.\\w$])${escapeRe(local)}\\s*\\(`).test(code)) return true
+      }
+    }
+  }
+  for (const m of code.matchAll(HELPER_NS_RE)) {
+    const entries = FACE_HELPER_MODULES.get(helperModuleKey(m[2]))
+    if (!entries) continue
+    for (const e of entries)
+      if (new RegExp(`(?:^|[^.\\w$])${escapeRe(m[1])}\\.${escapeRe(e)}\\s*\\(`).test(code))
+        return true
   }
   return false
 }
@@ -328,7 +404,8 @@ export function readsPrejoinedConst(text, names) {
 
 /**
  * 单文件定性。返回 `{ kind, why }`:
- *  - `face`        调用过取材层的读取入口取内容 ⇒ 合规
+ *  - `face`        调用过取材层的读取入口取内容(**或**经 `FACE_HELPER_MODULES` 里已认证的同面封装
+ *                  转调同一层)⇒ 合规
  *  - `half-wired`  **引了这层却没用它读内容**,内容由自派生 git 或磁盘 readFileSync 取 ⇒ 判红
  *                  (2026-09-26 补:旧版把"import 了 face-reader"直接当合规,而实证门 36/124 就是这样
  *                   一边 import 一边默认读磁盘 —— 一门自称守取材面纪律,对半接线全盲)
@@ -345,7 +422,8 @@ export function readsPrejoinedConst(text, names) {
  *                  内容限定"的窄判据已被数据否决(见 REPO_ANCHOR_RE 之后那段:漏判目标、误伤 14 道
  *                  真盘判门),要收这一格必须认识 gitignore 语义(`check-prod-bundle-shadow` 的 S2
  *                  那一族),那是另一票。**不得**为此放宽合取,也不得拿豁免清单冒充修好。
- *  - `no-content`  根本不读仓库内容 ⇒ 不适用(不计违规也不计数)
+ *  - `no-content`  根本不读仓库内容 ⇒ 不适用(不计违规也不计数)。经同面封装读正文的**不算**这一档
+ *                  (2026-11-08 前误报过 12 道,见 FACE_HELPER_MODULES)
  *  - `unknown`     读文件但找不到仓库锚点 ⇒ 只报数(临时夹具这一型结构上判不了)
  */
 export function classify(rel, src) {
@@ -369,7 +447,12 @@ export function classify(rel, src) {
     if (names.size) constReads = readsPrejoinedConst(noStrings, names)
   }
   if (usesLayer)
-    return { kind: 'face', why: '调用取材层的读取入口(catBatchBinary / catBatch / readWorktreeFile)取内容' }
+    return {
+      kind: 'face',
+      why:
+        '调用取材层的读取入口(catBatchBinary / catBatch / readWorktreeFile)取内容,' +
+        '或经已认证的同面封装(readSources / readFaceOne / faceRead …)转调同一层',
+    }
   if (FACE_IMPORT_RE.test(code) && (selfServesGit || looseFs || constReads.length))
     return {
       kind: 'half-wired',
@@ -759,6 +842,75 @@ function selfTest() {
     'F9 只用层的非读取导出且不读内容 ⇒ no-content(不把门面函数当读取凭证,也不判红)',
     classify('scripts/check-f9.mjs', HELPER_ONLY).kind,
     'no-content',
+  )
+  // ─── V14–V18:同面封装(2026-11-08)─────────────────────────────────────────
+  // 立因:13 道门把正文读取收进 readSources / readFaceOne / cov.faceRead 这类**同面封装**
+  // (取哪一面由调用方 face 参数决定,封装内部走 catBatch / readWorktreeFile)。单文件正则看不见
+  // 封装内部,于是整批被误报成 no-content —— 那是漏报。四条要一起读才成立:
+  //   ① 命中在册出口 ⇒ face;② 引了封装却不调用、自己读盘 ⇒ 仍 red;③ 非读取出口 ⇒ 仍 no-content
+  //   (否则"引了模块"会被当成通行证,正是 2026-09-26 收紧过的那一型)。
+  const HELPER_READ_SOURCES =
+    "import { readSources } from './lib/face-scan.mjs'\nconst { texts } = readSources(ROOT, 'head', files)\n"
+  const HELPER_READ_SOURCES_ALIAS =
+    "import { readSources as rs } from '../lib/face-scan.mjs'\nconst { texts } = rs(ROOT, 'head', files)\n"
+  const HELPER_READ_SOURCES_NS =
+    "import * as scan from './lib/face-scan.mjs'\nconst { texts } = scan.readSources(ROOT, 'head', files)\n"
+  const HELPER_COV =
+    "import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'\nconst t = cov.faceRead('head', rel)\n"
+  const HELPER_PARITY =
+    "import { __test__ as parity } from './check-web-rn-screen-parity.mjs'\nconst m = parity.loadMapDetailed('head')\n"
+  const HELPER_GATE_FACE =
+    "import { readFaceBatch } from './lib/gate-face.mjs'\nconst m = readFaceBatch(ROOT, face, rels)\n"
+  const HELPER_UNUSED =
+    "import { readSources } from './lib/face-scan.mjs'\nimport { readFileSync } from 'node:fs'\nreadFileSync(join(ROOT, 'a.ts'), 'utf8')\n"
+  const HELPER_NON_READ_ENTRY =
+    "import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'\nconst e = cov.evaluateMap(a, b, c, 'head')\n"
+  const HELPER_SHELL =
+    "import { run } from './lib/ledger-eaten-rows.mjs'\nconst got = run({ root, face })\n"
+  eq(
+    'V14a 经 face-scan.readSources 取内容 ⇒ face(此前误报 no-content)',
+    classify('scripts/check-f14a.mjs', HELPER_READ_SOURCES).kind,
+    'face',
+  )
+  eq(
+    'V14b 别名导入 readSources as rs ⇒ face(不得只认字面导入名)',
+    classify('scripts/check-f14b.mjs', HELPER_READ_SOURCES_ALIAS).kind,
+    'face',
+  )
+  eq(
+    'V14c 命名空间导入 scan.readSources ⇒ face(同 LAYER_NS_RE 口径)',
+    classify('scripts/check-f14c.mjs', HELPER_READ_SOURCES_NS).kind,
+    'face',
+  )
+  eq(
+    'V15a __test__ as cov 后 cov.faceRead ⇒ face',
+    classify('scripts/check-f15a.mjs', HELPER_COV).kind,
+    'face',
+  )
+  eq(
+    'V15b __test__ as parity 后 parity.loadMapDetailed ⇒ face',
+    classify('scripts/check-f15b.mjs', HELPER_PARITY).kind,
+    'face',
+  )
+  eq(
+    'V15c gate-face.readFaceBatch ⇒ face',
+    classify('scripts/check-f15c.mjs', HELPER_GATE_FACE).kind,
+    'face',
+  )
+  eq(
+    'V16 引了封装却不调用、自己 readFileSync(join(ROOT…)) ⇒ 仍 loose-fs(引模块 ≠ 走了封装)',
+    classify('scripts/check-f16.mjs', HELPER_UNUSED).kind,
+    'loose-fs',
+  )
+  eq(
+    'V17 引了在册模块的**非读取**出口(cov.evaluateMap)⇒ 仍 no-content(不得发通行证)',
+    classify('scripts/check-f17.mjs', HELPER_NON_READ_ENTRY).kind,
+    'no-content',
+  )
+  eq(
+    'V18 薄壳 run({root, face}) ⇒ face(正文读取住在 plan-tasks.readPlan,仍按 face 参数取)',
+    classify('scripts/check-f18.mjs', HELPER_SHELL).kind,
+    'face',
   )
   // F10:half-wired 必须真的进判红集(staged 档),且单列计数 —— 只报总数等于没做这次收紧
   {
