@@ -47,6 +47,8 @@ import {
   deviceTokens,
   crashReports,
   visitLogs,
+  apiKeyShares,
+  developerApiKeys,
 } from '@ihui/database'
 import { revokeAllUserRefreshTokens } from '../db/queries.js'
 import type { Database } from '../db/index.js'
@@ -99,6 +101,11 @@ const USER_SCOPED_TABLES: Array<{ table: AnyPgTable; userCol: AnyPgColumn; label
   { table: deviceTokens, userCol: deviceTokens.userId, label: 'device_tokens' },
   { table: crashReports, userCol: crashReports.userId, label: 'crash_reports' },
   { table: visitLogs, userCol: visitLogs.userId, label: 'visit_logs' },
+  // SDB-29:开发者 API Key 与分享 token 是可直接调用付费接口的凭据,注销必须吊销。
+  // 先删 api_key_shares(其 created_by 为 RESTRICT、source_api_key_id 为 CASCADE),
+  // 再删 developer_api_keys,避免 RESTRICT 把 Key 留在 active 态。
+  { table: apiKeyShares, userCol: apiKeyShares.createdBy, label: 'api_key_shares' },
+  { table: developerApiKeys, userCol: developerApiKeys.userId, label: 'developer_api_keys' },
 ]
 
 interface PurgeResult {
