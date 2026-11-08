@@ -89,6 +89,7 @@
  */
 
 /* eslint-disable no-console -- 守门脚本是 CLI 工具,诊断信息必须打到 stdout/stderr */
+import { createHash } from 'node:crypto'
 import { readdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -117,6 +118,80 @@ export const SELF_SKIP = 'HUSKY_SKIP_MIGRATION_IMMUTABLE'
  */
 export const MIG_DIR = 'packages/database/drizzle'
 export const JOURNAL_REL = `${MIG_DIR}/meta/_journal.json`
+
+/**
+ * 「已接受的历史正文改写」登记载体(append-only;每行一条 JSON,`#` 开头为注释)。
+ * 判据只认 `acceptedSha256` —— 它必须是**本门 normalizeMigrationBody 归一后**的正文 sha256
+ * (与 judgePair 同一口径),不是原始文件字节 hash;口径不同源必然把合法登记判成不符。
+ * 字段:tag / path / baseLanding / rewrites[] / acceptedSha256 / verified / expires。
+ * 该文件在 `scripts/data/immutable-guard.json` 受保护面内:改动它本身要在提交信息里
+ * 写 `immutable-exempt:` 声明(正规通道,不是 skip)。
+ */
+export const LEDGER_REL = 'scripts/data/migration-rewrite-ledger.jsonl'
+
+/** 归一后正文的 sha256:复用本门 judgePair 的归一化,确保 hash 与判据同源。 */
+export function acceptedBodySha256(text) {
+  return createHash('sha256').update(normalizeMigrationBody(text).text, 'utf8').digest('hex')
+}
+
+/** 解析台账。坏行 / 缺 tag 视为"无法判定"(返回 problems,由调用方并入 undetermined ⇒ exit 2)。 */
+export function parseRewriteLedger(text) {
+  const byTag = new Map()
+  const problems = []
+  if (text === null || text === undefined) return { byTag, problems }
+  String(text)
+    .split('\n')
+    .forEach((line, i) => {
+      const raw = line.trim()
+      if (!raw || raw.startsWith('#')) return
+      let entry
+      try {
+        entry = JSON.parse(raw)
+      } catch {
+        problems.push(`第 ${i + 1} 行不是合法 JSON`)
+        return
+      }
+      if (!entry || typeof entry.tag !== 'string' || !entry.tag) {
+        problems.push(`第 ${i + 1} 行缺 tag`)
+        return
+      }
+      if (!byTag.has(entry.tag)) byTag.set(entry.tag, [])
+      byTag.get(entry.tag).push(entry)
+    })
+  return { byTag, problems }
+}
+
+/** 一条登记的"证据是否齐全"。返回第一个问题;齐返回 null。 */
+function registrationProblem(entry, now) {
+  if (!/^[0-9a-f]{64}$/.test(String(entry.acceptedSha256 ?? ''))) {
+    return 'acceptedSha256 不是 64 位小写 hex'
+  }
+  const v = entry.verified
+  if (!v || typeof v !== 'object') return '缺 verified 证据'
+  if (!/^\d+\/\d+$/.test(String(v.fromZero ?? ''))) return 'verified.fromZero 不是 "N/N"'
+  if (v.rc !== 0) return 'verified.rc 必须为 0'
+  if (!/^\d{4}-\d{2}-\d{2}/.test(String(v.at ?? ''))) return 'verified.at 不是 ISO 日期'
+  if (!/^\d{4}-\d{2}-\d{2}/.test(String(entry.expires ?? ''))) return 'expires 不是 ISO 日期'
+  if (new Date(`${entry.expires}T23:59:59Z`) < now) return `台账已过期(${entry.expires})`
+  return null
+}
+
+/**
+ * 把一条判红归类:registered(登记且与当前正文 hash 相符)/ bad(有该 tag 的登记但与正文
+ * 不符、证据缺或过期 ⇒ 必须 exit 2)/ absent(台账里没有该 tag ⇒ 未登记 ⇒ exit 1)。
+ */
+export function classifyRegistration(red, faceText, ledger, now = new Date()) {
+  const entries = ledger.byTag.get(red.tag) ?? []
+  if (!entries.length) return { status: 'absent' }
+  const sha = acceptedBodySha256(faceText ?? '')
+  const hits = entries.filter((e) => e.acceptedSha256 === sha)
+  if (!hits.length) {
+    return { status: 'bad', detail: `正文 hash ${sha.slice(0, 12)}… 与台账登记不符(改完正文必须重新登记)` }
+  }
+  const problems = hits.map((e) => registrationProblem(e, now)).filter(Boolean)
+  if (problems.length === hits.length) return { status: 'bad', detail: problems[0] }
+  return { status: 'registered', acceptedSha256: sha }
+}
 
 const GIT_TIMEOUT = 180000
 const GIT_MAX_BUFFER = 1 << 28
@@ -336,10 +411,20 @@ export function firstAdditionMap(root) {
  *   其余 ⇒ 0(存量红仍逐条点名,不静默)
  * 枚举到 0 个候选由 runAudit 直接抛 Undetermined,不走这一层。
  */
-export function decide({ commitReds, stockReds, undetermined, mode, strict }) {
+export function decide({
+  commitReds,
+  stockReds,
+  undetermined,
+  mode,
+  strict,
+  registered = [],
+  badRegistrations = [],
+}) {
   if (undetermined.length) return { exit: 2, reason: 'undetermined' }
-  if (mode === 'staged' && commitReds.length) return { exit: 1, reason: 'im2' }
-  if (strict && stockReds.length) return { exit: 1, reason: 'im1-stock-strict' }
+  if (badRegistrations.length) return { exit: 2, reason: 'registration-mismatch' }
+  const reg = new Set(registered.map((r) => r.file))
+  if (mode === 'staged' && commitReds.some((r) => !reg.has(r.file))) return { exit: 1, reason: 'im2' }
+  if (strict && stockReds.some((r) => !reg.has(r.file))) return { exit: 1, reason: 'im1-stock-strict' }
   return { exit: 0, reason: 'ok' }
 }
 
@@ -352,7 +437,7 @@ export function decide({ commitReds, stockReds, undetermined, mode, strict }) {
 export function runAudit(root, face, { strict = false } = {}) {
   // 1) 该面的 .sql 清单 + journal 内容:同面、同一轮批量取
   const faceFiles = listSqlOnFace(root, face)
-  const readSet = [...faceFiles.paths, JOURNAL_REL]
+  const readSet = [...faceFiles.paths, JOURNAL_REL, LEDGER_REL]
   const blobs = readFaceBlobs(root, face, readSet)
 
   const journalText = takeJournalText(blobs)
@@ -446,7 +531,36 @@ export function runAudit(root, face, { strict = false } = {}) {
     }
   }
 
-  const verdict = decide({ commitReds, stockReds, undetermined, mode: face, strict })
+  const ledger = parseRewriteLedger(blobs.get(LEDGER_REL) ?? null)
+  for (const p of ledger.problems) undetermined.push(`${LEDGER_REL} ${p}`)
+
+  const registered = []
+  const unregistered = []
+  const badRegistrations = []
+  const classified = new Set()
+  for (const red of [...commitReds, ...stockReds]) {
+    if (classified.has(red.file)) continue
+    classified.add(red.file)
+    const scope = commitReds.some((r) => r.file === red.file) ? 'im2' : 'im1'
+    const cls = classifyRegistration(red, blobs.get(red.file), ledger)
+    if (cls.status === 'registered') {
+      registered.push({ file: red.file, tag: red.tag, scope, acceptedSha256: cls.acceptedSha256 })
+    } else if (cls.status === 'bad') {
+      badRegistrations.push({ file: red.file, tag: red.tag, scope, detail: cls.detail })
+    } else {
+      unregistered.push({ file: red.file, tag: red.tag, scope })
+    }
+  }
+
+  const verdict = decide({
+    commitReds,
+    stockReds,
+    undetermined,
+    mode: face,
+    strict,
+    registered,
+    badRegistrations,
+  })
   return {
     exit: verdict.exit,
     reason: verdict.reason,
@@ -463,12 +577,22 @@ export function runAudit(root, face, { strict = false } = {}) {
       stockReds: stockReds.length,
       commitReds: commitReds.length,
       undetermined: undetermined.length,
+      registered: registered.length,
+      unregistered: unregistered.length,
+      badRegistrations: badRegistrations.length,
+      registeredIm2: registered.filter((r) => r.scope === 'im2').length,
+      unregisteredIm2: unregistered.filter((r) => r.scope === 'im2').length,
+      registeredIm1: registered.filter((r) => r.scope === 'im1').length,
+      unregisteredIm1: unregistered.filter((r) => r.scope === 'im1').length,
     },
     stockReds,
     commitReds,
     undetermined,
     notLanded,
     journalDup: journal.dup,
+    registered,
+    unregistered,
+    badRegistrations,
   }
 }
 
@@ -683,6 +807,8 @@ function main(argv) {
     }
     console.error('   出路:新建一枚迁移去修正它(add a new migration instead),不得回头改已入库的 .sql;')
     console.error('        确属撤回误入库的新迁移,走删除路径(守门 49/99/168),而不是改正文。')
+    console.error(`        确需就地修复正文:登记到 ${LEDGER_REL}(append-only)并附"从零 370/370"验证;`)
+    console.error('        登记与正文不符 / 证据缺 / 过期一律 exit 2 —— 不得用 skip 开关代替登记。')
   }
   if (out.stockReds.length) {
     console.error(
@@ -695,6 +821,13 @@ function main(argv) {
         `   ${r.file} ← 基线 ${r.base.slice(0, 10)} 首个不等行 ${r.firstDiffLine}:基线写「${r.baseLine}」/ 现面写「${r.faceLine}」`,
       )
     }
+  }
+  if (out.badRegistrations.length) {
+    console.error(
+      `❌ 登记与正文不符 / 证据缺 / 过期 ${out.badRegistrations.length} 条(exit 2,不得冒充"已登记"):`,
+    )
+    for (const r of out.badRegistrations) console.error(`   ${r.file} [${r.scope}] ${r.detail}`)
+    console.error(`   台账:${LEDGER_REL}(改完正文必须重新登记;登记不接受过期或缺 verified 证据)`)
   }
   if (out.notLanded.length) {
     const head = out.notLanded.slice(0, 5).join(', ')
@@ -712,7 +845,7 @@ function main(argv) {
   console.log(
     `${out.exit === 0 ? '✅' : out.exit === 2 ? '❌ 无法判定' : '❌ 判红'} [判定面=${out.face}${
       out.strict ? ' +strict' : ''
-    }] journal tag ${c.journalTags}(声明 ${c.journalDeclared})/ 该面 .sql ${c.faceSqlFiles}/ 可比对 ${c.compared}/ IM2 本次改写 ${c.commitReds}/ IM1 存量不等 ${c.stockReds}/ 未判定 ${c.undetermined}/ 未入库新增 ${c.notLanded}`,
+    }] journal tag ${c.journalTags}(声明 ${c.journalDeclared})/ 该面 .sql ${c.faceSqlFiles}/ 可比对 ${c.compared}/ IM2 本次改写 ${c.commitReds}/ 已登记 ${c.registeredIm2}/ 未登记 ${c.unregisteredIm2}/ IM1 存量 ${c.stockReds}/ 已登记 ${c.registeredIm1}/ 未登记 ${c.unregisteredIm1}/ 未判定 ${c.undetermined}/ 未入库新增 ${c.notLanded}`,
   )
   console.log(
     '   单独复现:node scripts/check-migration-immutable.mjs [--staged|--strict|--json]  自检:--self-test  镜像:node --test scripts/tests/check-migration-immutable.test.mjs',
@@ -730,6 +863,10 @@ export const __test__ = {
   SELF_SKIP,
   MIG_DIR,
   JOURNAL_REL,
+  LEDGER_REL,
+  acceptedBodySha256,
+  parseRewriteLedger,
+  classifyRegistration,
   faceRev,
   normalizeMigrationBody,
   judgePair,

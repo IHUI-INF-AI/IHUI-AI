@@ -74,6 +74,12 @@
       "reviewBy": "2027-06-30"
     },
     {
+      "path": "scripts/data/migration-rewrite-ledger.jsonl",
+      "kind": "gate-registry",
+      "why": "迁移正文改写登记册(append-only)：往里加一行就等于承认某次已入库迁移正文的改写合法，门 185 会据此把 IM2/IM1 的判红转绿——必须与受保护面清单同档，否则「悄悄补一行洗白一次改写」只需一次 append，且所有门全绿",
+      "reviewBy": "2027-06-30"
+    },
+    {
       "path": "scripts/git-guardian.mjs",
       "kind": "gate-registry",
       "why": "巡检调度器本体：auditImmutableGuardNewCommits 住这里，改掉它巡检就永远 return，而巡检仍由被改过的代码执行",

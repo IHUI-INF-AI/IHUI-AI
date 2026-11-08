@@ -2,7 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
- 
 /**
  * O18 空库重放守门的镜像测试(§22c / §22d)。
  * 跑法:node --test scripts/tests/check-migration-from-zero.test.mjs
@@ -11,9 +10,138 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 // §22d:源脚本 main() 受 isDirectRun 守护,被 import 时不得有任何副作用(不建库、不 spawn psql)。
 import { __test__ as src } from '../check-migration-from-zero.mjs'
+
+const DRIZZLE_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  'packages/database/drizzle',
+)
+
+/**
+ * 2026-11-06:8 个「21:05 批改写件」。0212 的简单 CASE 混进搜索型 WHEN 曾在空库重放时
+ * 42883 中断整链;这里把每件的改写意图钉成静态断言,防止"为跑通而删守卫/退默认值"式回退。
+ */
+const REWRITE_TAGS = [
+  '0085_exam_wrong_unique',
+  '0108_r83_supplement_27_tables',
+  '0115_r82_seed_unique_indexes',
+  '0125_knowledge_graph',
+  '0126_ai-world-sync',
+  '0212_phase2_refund_invoice_fk',
+  '20261018160000_agent_state_tables_runtime_reality',
+  '20261104120000_agent_team_collab',
+]
+
+function readMigration(tag) {
+  return readFileSync(join(DRIZZLE_DIR, `${tag}.sql`), 'utf8')
+}
+
+test('8 个改写件在 journal 中各出现一次,且门的 DB 回归断言只覆盖这 8 个 tag', () => {
+  const journal = JSON.parse(readFileSync(join(DRIZZLE_DIR, 'meta/_journal.json'), 'utf8'))
+  const tags = journal.entries.map((entry) => entry.tag)
+  for (const tag of REWRITE_TAGS) {
+    assert.equal(tags.filter((t) => t === tag).length, 1, `${tag} 必须且只能在 journal 出现一次`)
+    assert.ok(readMigration(tag).length > 0, `${tag}.sql 必须存在且非空`)
+  }
+  const covered = [...new Set(src.REWRITE_REGRESSIONS.map((item) => item.tag))].sort()
+  assert.deepEqual(covered, [...REWRITE_TAGS].sort(), '门的回归断言覆盖面必须与夹具清单一致')
+})
+
+test('0212 的 order_type 转换是自洽的搜索型 CASE(不再混简单 CASE,也不退回 COALESCE(CAST))', () => {
+  const sql = readMigration('0212_phase2_refund_invoice_fk')
+  assert.ok(
+    !/CASE\s+"order_type"\s*\n\s*WHEN/.test(sql),
+    '不得保留简单 CASE "order_type"(搜索型 WHEN 会让它编译成 varchar = boolean)',
+  )
+  assert.match(
+    sql,
+    /CASE\s*\n\s*WHEN "order_type" = 'course' THEN 7/,
+    'course 分支必须自带完整比较',
+  )
+  assert.match(sql, /WHEN "order_type" = 'card' THEN 8/, 'card 分支必须自带完整比较')
+  assert.ok(
+    sql.includes(`WHEN "order_type" ~ '^[0-9]+$' THEN "order_type"::integer`),
+    '数字串守卫必须在 CASE 内保留',
+  )
+  assert.match(sql, /ELSE 0\s*\n\s*END;/, '非数字/空值必须落到 0')
+  assert.ok(
+    !/COALESCE\s*\(\s*CAST\s*\(\s*"order_type"/.test(sql),
+    '不得退回 COALESCE(CAST(...))(22P02 捕获不到)',
+  )
+  assert.match(
+    sql,
+    /IF EXISTS \(\s*SELECT 1 FROM information_schema\.columns/,
+    '列类型守卫(幂等)必须保留',
+  )
+})
+
+test('0085 / 0115 / 0125 / 20261104120000 的守卫与 IF NOT EXISTS 未被回退', () => {
+  const sql0085 = readMigration('0085_exam_wrong_unique')
+  assert.match(
+    sql0085,
+    /IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'exam_wrong_question_user_question_unique'\)/,
+  )
+  assert.match(sql0085, /EXCEPTION WHEN unique_violation THEN/, '重复数据必须降级为告警而非中断')
+
+  const sql0115 = readMigration('0115_r82_seed_unique_indexes')
+  assert.equal(
+    (sql0115.match(/CREATE UNIQUE INDEX "/g) ?? []).length,
+    4,
+    '4 条唯一索引必须仍在 DO 守卫内(带名字的裸 CREATE)',
+  )
+  assert.equal((sql0115.match(/EXCEPTION WHEN unique_violation THEN/g) ?? []).length, 4)
+
+  const sql0125 = readMigration('0125_knowledge_graph')
+  assert.equal((sql0125.match(/CREATE UNIQUE INDEX IF NOT EXISTS/g) ?? []).length, 2)
+
+  const sql20261104 = readMigration('20261104120000_agent_team_collab')
+  assert.equal(
+    (sql20261104.match(/CREATE UNIQUE INDEX IF NOT EXISTS/g) ?? []).length,
+    3,
+    '3 条团队唯一索引必须 IF NOT EXISTS',
+  )
+})
+
+test('0108 / 0126 / 20261018160000 的重放放行 DEFAULT 已撤、空表重建分支不加默认', () => {
+  const sql0108 = readMigration('0108_r83_supplement_27_tables')
+  assert.match(sql0108, /ALTER COLUMN "client_id" DROP DEFAULT/)
+  assert.match(sql0108, /ALTER COLUMN "private_key" DROP DEFAULT/)
+
+  const sql0126 = readMigration('0126_ai-world-sync')
+  for (const [table, column] of [
+    ['ai_world_categories', 'slug'],
+    ['ai_world_items', 'kind'],
+    ['ai_world_items', 'source'],
+  ]) {
+    assert.match(
+      sql0126,
+      new RegExp(`ALTER TABLE "${table}" ALTER COLUMN "${column}" DROP DEFAULT`),
+      `${table}.${column} 的临时默认值必须撤掉`,
+    )
+  }
+
+  const sqlAgent = readMigration('20261018160000_agent_state_tables_runtime_reality')
+  assert.match(
+    sqlAgent,
+    /SELECT count\(\*\) INTO row_count FROM "agent_working_memory_compression"/,
+    '空表守卫必须保留',
+  )
+  assert.ok(
+    !/ADD COLUMN "original_messages" integer NOT NULL DEFAULT/.test(sqlAgent),
+    'row_count=0 分支不得留下默认值',
+  )
+  assert.ok(
+    !/ADD COLUMN "compressed_to" integer NOT NULL DEFAULT/.test(sqlAgent),
+    'row_count=0 分支不得留下默认值',
+  )
+})
 
 test('__test__ 导出形状齐全(§22c 锚点)', () => {
   for (const key of [
@@ -49,15 +177,27 @@ test('表集合差集:schema 有而库里没有 → missing;库里有而 schema 
     ['legacy_orphan_table', new Set(['id'])],
   ])
   const diff = src.diffSchemaMaps(expected, actual)
-  assert.deepEqual(diff.tables.missing, ['webhook_subscriptions'], '缺表必须命中 webhook_subscriptions')
+  assert.deepEqual(
+    diff.tables.missing,
+    ['webhook_subscriptions'],
+    '缺表必须命中 webhook_subscriptions',
+  )
   assert.deepEqual(diff.tables.extra, ['legacy_orphan_table'], '多表必须命中 legacy_orphan_table')
   assert.equal(diff.isEmpty(), false)
   // 整表缺失的表不再刷列噪音(避免一次失败产出上百行假差集)
-  assert.deepEqual(diff.columns.map((c) => c.table), [], '缺表不应连带报列差集')
+  assert.deepEqual(
+    diff.columns.map((c) => c.table),
+    [],
+    '缺表不应连带报列差集',
+  )
 })
 
 test('表集合差集:完全一致 → isEmpty 为真', () => {
-  const map = () => new Map([['users', new Set(['id', 'email'])], ['agents', new Set(['id'])]])
+  const map = () =>
+    new Map([
+      ['users', new Set(['id', 'email'])],
+      ['agents', new Set(['id'])],
+    ])
   const diff = src.diffSchemaMaps(map(), map())
   assert.equal(diff.isEmpty(), true, '相同 schema 必须判为空差集')
   assert.deepEqual(diff.columns, [])
@@ -143,12 +283,14 @@ test('第 N 个迁移失败的输入 → 报告含 tag 与错误首行(不 impor
       ],
     }),
   )
-  assert.deepEqual(entries.map((e) => e.tag), ['0000_naive_barracuda', '0110_skills_tombstone', '9999_after_the_hole'])
-  assert.deepEqual(entries.map((e) => e.file), [
-    '0000_naive_barracuda.sql',
-    '0110_skills_tombstone.sql',
-    '9999_after_the_hole.sql',
-  ])
+  assert.deepEqual(
+    entries.map((e) => e.tag),
+    ['0000_naive_barracuda', '0110_skills_tombstone', '9999_after_the_hole'],
+  )
+  assert.deepEqual(
+    entries.map((e) => e.file),
+    ['0000_naive_barracuda.sql', '0110_skills_tombstone.sql', '9999_after_the_hole.sql'],
+  )
 
   // 模拟:重放器把 psql 的噪声输出交给 firstErrorLine
   const noisy = [
@@ -162,24 +304,44 @@ test('第 N 个迁移失败的输入 → 报告含 tag 与错误首行(不 impor
   const report = src.formatReplayFailures(failures, entries.length).join('\n')
   assert.match(report, /0110_skills_tombstone/, '报告必须点出失败迁移 tag')
   assert.match(report, /#2\/3/, '报告必须点出是第几个迁移')
-  assert.match(report, /column "deleted_at" of relation "skills" already exists/, '报告必须带错误原因')
+  assert.match(
+    report,
+    /column "deleted_at" of relation "skills" already exists/,
+    '报告必须带错误原因',
+  )
   assert.ok(!/already exists/.test(src.firstErrorLine('')), '空输出不得伪造原因')
   assert.equal(src.firstErrorLine(''), '(无输出)')
 })
 
 test('journal 顺序按 idx 升序而非数组顺序(idx 乱序夹具)', () => {
   const entries = src.parseJournalEntries(
-    JSON.stringify({ entries: [{ idx: 3, tag: 'c' }, { idx: 1, tag: 'a' }, { idx: 2, tag: 'b' }, { idx: 9, tag: 42 }] }),
+    JSON.stringify({
+      entries: [
+        { idx: 3, tag: 'c' },
+        { idx: 1, tag: 'a' },
+        { idx: 2, tag: 'b' },
+        { idx: 9, tag: 42 },
+      ],
+    }),
   )
-  assert.deepEqual(entries.map((e) => e.tag), ['a', 'b', 'c'], '无 tag/无 idx 的条目被丢弃,其余按 idx 升序')
+  assert.deepEqual(
+    entries.map((e) => e.tag),
+    ['a', 'b', 'c'],
+    '无 tag/无 idx 的条目被丢弃,其余按 idx 升序',
+  )
 })
 
 test('psql 中文 locale 与无 ERROR 前缀的输出也能取到原因行', () => {
   assert.equal(
-    src.firstErrorLine('node:internal/child_process:110\nStack:\n错误:  关系 "__migrations" 不存在\nLINE 1: select 1'),
+    src.firstErrorLine(
+      'node:internal/child_process:110\nStack:\n错误:  关系 "__migrations" 不存在\nLINE 1: select 1',
+    ),
     '关系 "__migrations" 不存在',
   )
-  assert.equal(src.firstErrorLine('some random failure without prefix'), 'some random failure without prefix')
+  assert.equal(
+    src.firstErrorLine('some random failure without prefix'),
+    'some random failure without prefix',
+  )
   assert.match(src.firstErrorLine('Error: connect ETIMEDOUT 127.0.0.1:5432'), /ETIMEDOUT/)
 })
 
@@ -268,7 +430,10 @@ test(
     assert.ok(!src.redactSecrets(raw, pw).includes(encodeURIComponent(pw)), 'URL 编码口令必须打码')
     assert.equal(src.maskDatabaseUrl(`postgresql://ihui:${pw}@h/db`), `postgresql://ihui:***@h/db`)
     assert.equal(
-      src.readEnvValue('A=1\nexport DATABASE_URL="postgresql://u:p@h:5432/db"\nB=2', 'DATABASE_URL'),
+      src.readEnvValue(
+        'A=1\nexport DATABASE_URL="postgresql://u:p@h:5432/db"\nB=2',
+        'DATABASE_URL',
+      ),
       'postgresql://u:p@h:5432/db',
       '.env 取值需支持 export 前缀与引号包裹',
     )
