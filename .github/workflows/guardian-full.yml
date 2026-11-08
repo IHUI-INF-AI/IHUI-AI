@@ -99,31 +99,13 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - name: 安装依赖
-        run: pnpm install --frozen-lockfile
-
-      - name: 构建 packages(门 4/98 的 dist 取材面)
-        # check-stale-dist / check-dangling-local-imports 读 packages/*/dist;
-        # 干净 checkout 没有构建产物,不补就会把"未构建"判成"陈旧/悬空"。
-        # 只构建 packages,不构建 apps(门对 apps dist 缺失只跳过)。
-        run: pnpm -r --filter "./packages/*" build
-
-      - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+      - name: 公共取材面(依赖 + packages 构建 + python/uv)
+        # 与 gates-full 腿共用同一份,禁止在此处另行拼装:两条全量腿的取材面只要差一格,
+        # 同一枚提交就会在一条腿上"判红"、在另一条腿上"未判定",结论不可复现。
+        # 判据:scripts/check-workflow-step-order.mjs 的 [full-prep] 维。
+        uses: ./.github/actions/gate-prep
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-
-      - name: 安装 uv(门 254 ruff 的执行器)
-        # 门 254 判 Python lint,它只认 uvx。本 job 此前没有任何 python 面 ⇒ 干净 runner 上取不到
-        # 执行器,门会落 exit 2「未判定」并把整批守门顶红 —— 那正是 §12e 禁的恒红门,而 §0.3 又不许
-        # 把"没判"读成"判过"。装不上是本步当场红,原因一眼可见,不会混进守门汇总让人误读成
-        # Python 代码有了新问题。形态照 ci-monorepo / golden-e2e / e2e-browser-hub 同一条
-        # (setup-python 之后 pip install uv):不碰系统 python —— Ubuntu 24.04 是
-        # externally-managed 环境,在那里 `pip install --user` 会当场报 externally-managed-environment。
-        run: |
-          # uv 档钉死,完整理由见 .github/workflows/ci.yml 的 install-uv 那格
-          pip install uv==0.12.1
-          uvx --version
 
       - name: 全量守门(门集枚数以 runner --help 现读,报告档)
         # 刻意**不传** --staged:CI 的 checkout 是干净工作树,没有暂存区概念,
