@@ -1177,7 +1177,9 @@ async def test_server_call_tool_handler_exception_caught():
     try:
         out = await mcp_server.call_tool("web_search", {"query": "x"})
         assert out["ok"] is False
-        assert "boom" in out["error"]
+        # AIS-057:回执脱敏,原始异常只进日志,不再回灌模型/前端。
+        assert out["errorCode"] == "TOOL_FAILED"
+        assert "boom" not in out["error"]
     finally:
         _TOOL_HANDLERS["web_search"] = original
 

@@ -256,8 +256,12 @@ async def _fetch_history(category: str, limit: int = 50) -> list[dict[str, Any]]
     try:
         conn = await get_db_conn()
     except Exception as e:
-        logger.warning("self_media._fetch_history db pool acquire 失败: %s", e, exc_info=True)
-        return []
+        # AIS-049:连接池拿不到连接是 DB 故障,不能吞成"没有历史"。
+        logger.warning(
+            "self_media._fetch_history db pool acquire 失败(category=%s, limit=%s): %s",
+            category, limit, e, exc_info=True,
+        )
+        raise
     try:
         rows = await conn.fetch(
             """
@@ -273,9 +277,21 @@ async def _fetch_history(category: str, limit: int = 50) -> list[dict[str, Any]]
         )
         return [dict(r) for r in rows]
     except Exception as e:
-        logger.warning("self_media._fetch_history query 失败: %s", e, exc_info=True)
-        # 表不存在 / 列不匹配 → 降级返回空(不阻塞 ai-service 启动)
-        return []
+        import asyncpg
+
+        if isinstance(e, asyncpg.exceptions.UndefinedTableError):
+            # 表还没建(首次部署)才允许降级为空,不阻塞 ai-service 启动。
+            logger.warning(
+                "self_media._fetch_history 表缺失(category=%s, limit=%s),降级返回空: %s",
+                category, limit, e, exc_info=True,
+            )
+            return []
+        # 列不匹配/权限/DB 故障等必须冒泡成 500,否则前端把故障读成"无发布记录"。
+        logger.warning(
+            "self_media._fetch_history query 失败(category=%s, limit=%s): %s",
+            category, limit, e, exc_info=True,
+        )
+        raise
     finally:
         await conn.close()
 
