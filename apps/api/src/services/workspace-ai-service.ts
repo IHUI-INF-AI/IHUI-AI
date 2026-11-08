@@ -728,6 +728,8 @@ class AgentLoopRuntime {
     this.tasks.set(taskId, task)
 
     try {
+      // F-306:LLM 真实失败时禁止落伪成功分支(completed + 伪造「第 N 轮思考」)。
+      let llmError: string | null = null
       for (let i = 0; i < maxIter; i++) {
         if (task.status === 'canceled') break
         task.iterations = i + 1
@@ -742,10 +744,12 @@ class AgentLoopRuntime {
           injected.length > 0
             ? `\n用户中途插话(请优先响应):\n${injected.map((m) => `- ${m}`).join('\n')}`
             : ''
-        // LLM 思考步骤 — 调用 ai-service 的 /llm/chat 端点
+        // LLM 思考步骤 — F-306:ai-service 的 llm 路由只挂在 `/api` 前缀下
+        // (apps/ai-service/app/main.py include_router(pr_llm_router, prefix="/api")),
+        // 旧写法 `/llm/chat` 恒 404;404 又落伪成功分支,任务被置 completed。
         let llmContent: string
         try {
-          const llmResp = await aiServiceSystemFetch('/llm/chat', {
+          const llmResp = await aiServiceSystemFetch('/api/llm/complete', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -768,10 +772,12 @@ class AgentLoopRuntime {
             llmContent =
               llmData.content ?? llmData.choices?.[0]?.message?.content ?? `第 ${i + 1} 轮思考完成`
           } else {
-            llmContent = `Agent 第 ${i + 1} 轮思考: ${params.goal}`
+            llmError = `ai-service /api/llm/complete 返回 ${llmResp.status}`
+            llmContent = `[LLM 调用失败] ${llmError}`
           }
-        } catch {
-          llmContent = `Agent 第 ${i + 1} 轮思考: ${params.goal}`
+        } catch (e) {
+          llmError = `ai-service /api/llm/complete 调用异常: ${(e as Error).message}`
+          llmContent = `[LLM 调用失败] ${llmError}`
         }
         task.steps.push({ iteration: i + 1, type: 'llm', content: llmContent })
 
@@ -810,7 +816,15 @@ class AgentLoopRuntime {
         // 简化：单轮即完成（避免无限循环）
         break
       }
-      if (task.status !== 'canceled') task.status = 'completed'
+      if (task.status !== 'canceled') {
+        // F-306:LLM 未真正返回内容时置 failed;completed 只属于真实产出的一轮。
+        if (llmError) {
+          task.status = 'failed'
+          task.error = llmError
+        } else {
+          task.status = 'completed'
+        }
+      }
     } catch (e) {
       task.status = 'failed'
       task.error = (e as Error).message
