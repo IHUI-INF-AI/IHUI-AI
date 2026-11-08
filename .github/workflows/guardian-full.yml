@@ -129,12 +129,14 @@ jobs:
         # 刻意**不传** --staged:CI 的 checkout 是干净工作树,没有暂存区概念,
         # 门的判据面回落到"磁盘全量";同时本地那套元门档裁剪也不生效
         # (passStaged=false ⇒ 不裁剪),这正是我们要的全量。
+        # --full-face(2026-11-09 必传):水印门 47 不再"没给面就猜整张 HEAD 面",
+        # 无面旗会按「未判定」exit 2;本 job 是显式整面检查,面旗必须显式传下去。
         # `set -o pipefail` + tee:把逐门结果落盘成报告件(下面 artifact),同时**保留门的原结论退出码**
         # —— 无 pipefail 时管道尾部(tee)恒 0,会把整批判红洗成绿(§0.3 严禁"没判/判红"冒充"通过")。
         run: |
           set -o pipefail
           mkdir -p .ihui-agent/tmp
-          node scripts/guardian-runner.mjs --timing 2>&1 | tee .ihui-agent/tmp/guardian-full.log
+          node scripts/guardian-runner.mjs --full-face --timing 2>&1 | tee .ihui-agent/tmp/guardian-full.log
 
       - name: 上传全量原始日志(成败均上传,留存 28 天)
         # 报告档的核心:逐门结果(含每个门的原样回显与耗时)必须留得住,红不必被人当场看见也能事后取证。
