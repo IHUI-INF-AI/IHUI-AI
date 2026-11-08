@@ -75,7 +75,6 @@ import {
   findAgentSuggestions,
   updateAgentDetails,
   type UpdateAgentInput,
-  type UpdateCategoryInput,
   type CreateSettlementInput,
   type UpdateExamineInput,
 } from '../db/agents-queries.js'
@@ -763,10 +762,28 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /categories/:categoryId - 更新分类
-  server.put('/categories/:categoryId', async (request, reply) => {
+  // F-360(2026-11-08):此前 body 以 `as UpdateCategoryInput` 裸透传,且写面只走登录闸 ——
+  // 任意登录用户可改写任意分类(改名/下线/翻转 isPaid 付费开关)。分类是平台运营资产
+  // (agent_categories 无属主列),写面与同资源 DELETE 取同一判据 requireAdmin;
+  // 入参按 UpdateCategoryInput 可改字段做 zod 白名单(.strict()),多余/禁改键直接 400,
+  // 不做静默剥离 —— 否则 categoryId/createdAt 之类仍能经透传写进 SQL。
+  const updateCategoryBody = z
+    .object({
+      name: z.string().min(1).max(100).optional(),
+      description: z.string().nullable().optional(),
+      icon: z.string().nullable().optional(),
+      sort: z.number().int().optional(),
+      status: z.string().max(1).optional(),
+      isPaid: z.boolean().optional(),
+    })
+    .strict()
+  server.put('/categories/:categoryId', { preHandler: requireAdmin }, async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
-    const body = request.body as UpdateCategoryInput
-    const category = await updateCategory(categoryId, body)
+    const parsed = updateCategoryBody.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const category = await updateCategory(categoryId, parsed.data)
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
     return reply.send(success(category))
   })
