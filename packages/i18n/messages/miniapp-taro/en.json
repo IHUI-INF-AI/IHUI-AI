@@ -387,6 +387,7 @@
       "submit": "Recharge",
       "submitting": "Recharging…",
       "invalidAmount": "Please enter a valid amount",
+      "submitFailed": "Recharge submission failed. Please try again.",
       "success": {
         "shareFriend": "Share with a Friend"
       },

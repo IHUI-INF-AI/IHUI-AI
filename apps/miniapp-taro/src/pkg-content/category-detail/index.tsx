@@ -52,6 +52,8 @@ export default function CategoryDetailPage() {
   const { resolvedTheme } = useTheme()
   const [list, setList] = useState<AgentItem[]>([])
   const [loading, setLoading] = useState(true)
+  // XUI-066:加载失败曾被静默成空列表,现在如实上抛。
+  const [loadError, setLoadError] = useState('')
   const [activeTab, setActiveTab] = useState<string>('热门')
   const [categoryId, setCategoryId] = useState('')
 
@@ -61,16 +63,17 @@ export default function CategoryDetailPage() {
     const id = (current?.options?.id || current?.options?.categoryId || '') as string
     setCategoryId(id)
     setLoading(true)
+    setLoadError('')
     try {
       const res = await getAgentList()
       const agents: AgentItem[] = (res.list || []).map(toAgentItem)
       setList(sortItems(agents, activeTab))
     } catch {
-      // 对齐原页:失败保持空态;重试入口由共享屏 onRetry 提供
+      setLoadError(t('common.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [activeTab])
+  }, [activeTab, t])
 
   useDidShow(load)
 
@@ -92,7 +95,7 @@ export default function CategoryDetailPage() {
         ]}
         loading={loading}
         hasMore={false}
-        error=""
+        error={loadError}
         onTabChange={(tab) => {
           setActiveTab(tab)
           setList((prev) => sortItems(prev, tab))

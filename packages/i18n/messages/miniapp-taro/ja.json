@@ -387,6 +387,7 @@
       "submit": "チャージ",
       "submitting": "チャージ中…",
       "invalidAmount": "有効な金額を入力",
+      "submitFailed": "チャージの送信に失敗しました。もう一度お試しください。",
       "success": {
         "shareFriend": "友達にシェア"
       },

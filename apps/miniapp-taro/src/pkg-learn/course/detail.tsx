@@ -170,9 +170,13 @@ export default function CourseDetail() {
   // 三处原先都只弹"成功"toast、一个请求都不发 ⇒ 用户以为签到/评价/笔记已保存,
   // 实际什么都没落库(笔记尤其:写完的内容直接丢失)。接上后端真实端点。
   const handleSign = useCallback(async () => {
-    await post('/sign-in', {})
-    onToast(t('course.signSuccess'), { kind: 'success' })
-    onToast(t('common.failed'), { kind: 'error' })
+    // XUI-072:原先成功/失败两条 toast 无条件连发,用户看到「成功」后紧跟「失败」。
+    try {
+      await post('/sign-in', {})
+      onToast(t('course.signSuccess'), { kind: 'success' })
+    } catch {
+      onToast(t('common.failed'), { kind: 'error' })
+    }
   }, [t])
 
   const handleLessonClick = useCallback(

@@ -61,6 +61,7 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 import { rpx } from '../utils/rpx'
 import { FREE_RESOURCE_URL } from '../constants/links'
 import { NavChrome } from '../components/NavChrome'
+import { buildSharePayload } from './share-payload'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -215,11 +216,16 @@ export function ShareScreen() {
   }
 
   const doShare = async (): Promise<void> => {
-    const lines = [remark, voiceText, imageUri].filter(Boolean)
-    const message = lines.length > 0 ? lines.join('\n') : t('share.contentDefault')
+    // XUI-045:图片 URI 走 Share 的 url 字段,不再拼进文本消息。
+    const payload = buildSharePayload({
+      remark,
+      voiceText,
+      imageUri,
+      fallback: t('share.contentDefault'),
+    })
     setSharing(true)
     try {
-      const result = await Share.share({ title: t('share.title'), message })
+      const result = await Share.share({ title: t('share.title'), ...payload })
       if (result.action === Share.sharedAction) {
         setFloatBox({ visible: true, type: 'success', message: t('share.okSent') })
       } else {

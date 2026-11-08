@@ -5,7 +5,7 @@
 // P
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { Modal, StyleSheet, Text, View } from 'react-native'
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { appAlert } from '../BottomPops'
 import { ShieldAlert, ShieldCheck } from 'lucide-react-native'
 import type {
@@ -322,8 +322,16 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
         // 关闭只收起面板:不发任何 decision,条目留在待决队列(见文件头第 3 条)。
         onRequestClose={() => setPanelOpen(false)}
       >
-        <View style={styles.backdrop}>
-          <View style={styles.card}>
+        <KeyboardAvoidingView
+          style={styles.backdrop}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <ScrollView
+            style={styles.card}
+            contentContainerStyle={styles.cardContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <Text style={styles.title}>{t('toolApproval.title')}</Text>
             <Text style={styles.description}>{t('toolApproval.description')}</Text>
             {pending.length > 1 ? (
@@ -480,8 +488,8 @@ export function useToolApprovalQueue(): UseToolApprovalQueueResult {
             ) : (
               <Text style={styles.meta}>{t('toolApproval.empty')}</Text>
             )}
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* 已处理记录常驻在面板**外**:面板会随"无待决项"自动收起,把记录留在面板里就等于
@@ -605,6 +613,11 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: tokens.surface.card,
     borderRadius: rnRadius.xl,
+    maxHeight: '85%',
+    // 小屏/多工具参数时整卡滚动,按钮与原因输入不会被挤出屏幕
+    overflow: 'hidden',
+  },
+  cardContent: {
     padding: rpx(32),
     gap: rpx(16),
   },

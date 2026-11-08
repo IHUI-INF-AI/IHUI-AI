@@ -188,9 +188,6 @@ export default function ChatPage() {
   const [currentAgentId, setCurrentAgentId] = useState(routeAgentId)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [thinking, setThinking] = useState(false)
-  // 思考进度条(对标原 ai_assistant.vue thinkingProgress:120ms 定时器 +Math.random()*1,上限 99,完成时设 100)
-  const [thinkingProgress, setThinkingProgress] = useState(0)
-  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [scrollTop, setScrollTop] = useState(0)
   const [sessionId, setSessionId] = useState('')
   // 票59 小程序腿:版本切换态(rootId → 激活版本消息 id),与 web stores/chat.ts 的
@@ -479,34 +476,8 @@ export default function ChatPage() {
     setTimeout(() => setScrollTop((s) => (s === 99998 ? 99999 : 99998)), 50)
   }, [])
 
-  /** 启动思考进度定时器(对标原 ai_assistant.vue:120ms +Math.random()*1,上限 99) */
-  const startThinkingProgress = useCallback(() => {
-    setThinkingProgress(0)
-    if (progressTimerRef.current) clearInterval(progressTimerRef.current)
-    progressTimerRef.current = setInterval(() => {
-      setThinkingProgress((p) => (p < 99 ? p + Math.random() * 1 : p))
-    }, 120)
-  }, [])
-
-  /** 停止思考进度定时器(对标原 ai_assistant.vue:完成时设 100,然后清理) */
-  const stopThinkingProgress = useCallback(() => {
-    if (progressTimerRef.current) {
-      clearInterval(progressTimerRef.current)
-      progressTimerRef.current = null
-    }
-    setThinkingProgress(100)
-    setTimeout(() => setThinkingProgress(0), 500)
-  }, [])
-
-  // 组件卸载时清理定时器,避免内存泄漏
-  useEffect(() => {
-    return () => {
-      if (progressTimerRef.current) {
-        clearInterval(progressTimerRef.current)
-        progressTimerRef.current = null
-      }
-    }
-  }, [])
+  // XUI-新C:原先「思考进度 %」由随机数每秒递增伪造,是假指标冒充真实进度;
+  // 服务端未提供思考进度 ⇒ 不再显示百分比,只保留「生成中」文案。
 
   // 首次进入页面自动弹出智能体提示说明(对标原 ai_index.vue,localStorage 标记 ai_agent_tip_shown)
   useEffect(() => {
@@ -925,7 +896,6 @@ export default function ChatPage() {
       setBudgetStop(null)
       setCompactionBoundary(null)
       roundTraceIdRef.current = undefined
-      startThinkingProgress()
       scrollToBottom()
       const controller = new AbortController()
       abortRef.current = controller
@@ -1372,7 +1342,6 @@ export default function ChatPage() {
       } finally {
         abortRef.current = null
         setThinking(false)
-        stopThinkingProgress()
         scrollToBottom()
       }
     },
@@ -1381,8 +1350,6 @@ export default function ChatPage() {
       sessionId,
       messages,
       scrollToBottom,
-      startThinkingProgress,
-      stopThinkingProgress,
       currentModel,
       activeAgentId,
       selectedMaterial,
@@ -1425,7 +1392,6 @@ export default function ChatPage() {
     (notice?: string): boolean =>
       terminateActiveStream({
         abortRef,
-        clearThinkingProgress: stopThinkingProgress,
         ...(notice
           ? {
               notice,
@@ -1433,7 +1399,7 @@ export default function ChatPage() {
             }
           : {}),
       }),
-    [stopThinkingProgress],
+    [],
   )
 
   const stopGeneration = useCallback(() => {
@@ -2032,7 +1998,6 @@ export default function ChatPage() {
     t,
     terminateStream,
     thinking,
-    thinkingProgress,
     tierText,
     tishiShow,
     toggleFavorite,
