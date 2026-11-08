@@ -1445,3 +1445,5 @@
 {"key":"3G#缺陷普查APIF-03","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:12:00+08:00","updatedBy":"msg-p1","evidence":["3183046cf823b3ea20b04a8b6a98c075b21b70bc","apps/api/src/routes/__tests__/chat-conversation-ownership.test.ts"]}
 {"key":"4G#缺陷普查APIF-04","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:12:00+08:00","updatedBy":"msg-p1","evidence":["3183046cf823b3ea20b04a8b6a98c075b21b70bc","apps/api/src/routes/__tests__/legacy-ask-identity.test.ts"]}
 {"key":"6G#缺陷普查APIF-06","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:12:00+08:00","updatedBy":"msg-p1","evidence":["3183046cf823b3ea20b04a8b6a98c075b21b70bc","apps/api/src/routes/__tests__/agent-creation-identity.test.ts"]}
+{"key":"4G#缺陷普查APIF-04","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:45:00+08:00","updatedBy":"msg-p1","evidence":["e18899419a","移交:由 fix/api-p0-1108 修复,本分支 138bd5120a 已把 legacy-ask.ts 回退 origin/main 并删除对应夹具"]}
+{"key":"6G#缺陷普查APIF-06","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:45:00+08:00","updatedBy":"msg-p1","evidence":["e18899419a","移交:由 fix/api-p0-1108 修复,本分支 138bd5120a 已把 agent-creation.ts 回退 origin/main 并删除对应夹具"]}
