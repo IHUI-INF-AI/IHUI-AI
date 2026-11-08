@@ -19,9 +19,12 @@ Redis 8811,这里按构造即零依赖)。
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import time
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -344,4 +347,74 @@ def test_stream_reports_unknown_task_and_still_starts_fresh(
     assert start["event"]["resume"]["status"] == REPLAY_UNKNOWN_TASK
     assert start["event"]["resume"]["replayed_events"] == 0
     assert start["event"]["resume_from"] == "task-never-existed-7"
+
+
+# =============================================================================
+# AIS-005:客户端断开 ⇒ 后台 run task 必须被取消(否则 LLM/工具在后台继续烧钱)
+# =============================================================================
+
+
+def test_client_disconnect_cancels_background_run_task(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """aclose 生成器(客户端断开的真实路径)⇒ 后台 ``loop.run`` 收到取消并退出。
+
+    旧实现只置 ``sse_buffer.clear``,run_task 是生成器局部后台任务,断开后仍在跑:
+    继续改文件/发消息/耗额度,且重连再起一轮就是同会话双跑。
+    """
+    from app.routers import agents as agents_router
+    from app.routers.agents import AgentExecuteRequest, execute_agent_stream
+
+    monkeypatch.setenv("AGENT_EXECUTOR", "loop_v2")
+    # 与本用例无关的控制面/属主登记置空,只验 run_task 的取消收敛。
+    monkeypatch.setattr(agents_router, "record_ownership", lambda *a, **k: None)
+    monkeypatch.setattr(agents_router, "release_ownership", lambda *a, **k: None)
+    monkeypatch.setattr(agents_router, "register_run", AsyncMock())
+    monkeypatch.setattr(agents_router, "detach_run", AsyncMock())
+
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    class _StuckLoop:
+        async def run(self, messages: list[dict[str, Any]]) -> Any:
+            started.set()
+            try:
+                await asyncio.sleep(3600)
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+
+    async def _fake_new_v2_loop(**kwargs: Any) -> _StuckLoop:
+        return _StuckLoop()
+
+    monkeypatch.setattr(agents_router, "_new_v2_loop", _fake_new_v2_loop)
+
+    class _FakeRequest:
+        headers: dict[str, str] = {}
+        state = SimpleNamespace()
+
+    async def _go() -> tuple[bool, bool]:
+        resp = await execute_agent_stream(
+            AgentExecuteRequest(goal="长任务", session_id="sess-ais005"),
+            _FakeRequest(),  # type: ignore[arg-type]
+            current_user="user-ais005",
+        )
+        it = resp.body_iterator
+        await it.__anext__()  # start 帧
+
+        async def _drain() -> None:
+            async for _ in it:
+                pass
+
+        consumer = asyncio.create_task(_drain())
+        await asyncio.wait_for(started.wait(), timeout=5)
+        consumer.cancel()  # 模拟客户端断开:uvicorn 取消流式任务
+        with contextlib.suppress(asyncio.CancelledError):
+            await consumer
+        await asyncio.wait_for(cancelled.wait(), timeout=5)
+        return started.is_set(), cancelled.is_set()
+
+    was_started, was_cancelled = asyncio.run(_go())
+    assert was_started, "后台 run 从未启动 ⇒ 用例没走到被测路径"
+    assert was_cancelled, "客户端断开后 run_task 未被取消 ⇒ AIS-005 未修"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

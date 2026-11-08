@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 from app.core.context_fragments import build_recap_prompt, parse_recap_response
 from app.core.jwt_auth import get_current_user_id
-from app.routers.sessions import get_session_store
+from app.routers.sessions import _thread_or_404, get_session_store
 from app.services.session_store import ThreadNotFoundError
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,9 @@ async def generate_recap_handoff(
 ) -> dict[str, object]:
     """生成交接文档(有界补课说明)。身份只取承载层 user_id。"""
     store = get_session_store()
+    # AIS-074:thread_id 来自请求体 —— 必须先过与 sessions 只读面同一把属主尺,
+    # 否则任何登录用户可对任意 thread 生成交接文档(历史全文外带)。
+    _thread_or_404(store, req.thread_id, user_id)
     try:
         messages = store.resume(req.thread_id)
     except ThreadNotFoundError:

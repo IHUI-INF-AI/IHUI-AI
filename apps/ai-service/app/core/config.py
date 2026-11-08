@@ -156,6 +156,8 @@ class Settings(BaseSettings):
         # + 批量发布的 POST,移出白名单改为 JWT 保护(内部触发走 news_scheduler,
         # 全仓无匿名 HTTP 调用方)。/api/admin/news/status 为只读 GET 保留匿名。
         "/api/admin/news/status,"
+        # AIS-092:/api/voice/tts 可切换付费 token6688 engine,移出匿名白名单;
+        # 免费 edge 路径仍有路由层 JWT 依赖(不配置 JWT 时的本地 dev 例外)。
         "/api/voice/stt,"
         "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback,"
         # O11(2026-09-20)A2A 发现文档:标准规定 /.well-known/agent.json 必须可匿名抓取,

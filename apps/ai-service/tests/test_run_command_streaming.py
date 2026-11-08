@@ -289,6 +289,32 @@ async def test_error_code_dangerous_chain():
 
 
 # =============================================================================
+# AIS-081:cmd /c 内建分支的剩余串联/转义元字符
+# =============================================================================
+
+
+async def test_error_code_dangerous_single_ampersand():
+    """单 & 会把一条白名单命令串成两条(后台/顺序执行),必须闭锁。"""
+    out = await _tool_run_command({"command": "echo safe & echo pwned"})
+    assert out["errorCode"] == "DANGEROUS_COMMAND"
+    assert out["ok"] is False
+
+
+async def test_error_code_dangerous_caret_escape():
+    """^ 是 cmd 的转义符(可用它把 & 拼出来),必须闭锁。"""
+    out = await _tool_run_command({"command": "echo safe ^& echo pwned"})
+    assert out["errorCode"] == "DANGEROUS_COMMAND"
+    assert out["ok"] is False
+
+
+async def test_error_code_dangerous_newline_chain():
+    """换行是新的一条命令,不能借白名单首命令夹带。"""
+    out = await _tool_run_command({"command": "echo safe\necho pwned"})
+    assert out["errorCode"] == "DANGEROUS_COMMAND"
+    assert out["ok"] is False
+
+
+# =============================================================================
 # 超时:proc.kill + partial_output + errorCode=TIMEOUT
 # =============================================================================
 
