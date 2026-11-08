@@ -50,6 +50,9 @@
 | 8B | S-01 | apps/web/{app/sso/register,app/(main)/user/security,src/components/login,src/components/publish/CountdownTimer,src/hooks/use-updater}（6 文件） | P2 | 已修 fix/web-findings-1108（同型根因自查：按 tick 自减剩余时间） |
 | 9B | S-02 | apps/web/src/hooks/use-ime-composition-guard.ts + src/providers/global-hooks-provider.tsx | P2 | 已修 fix/web-findings-1108（同型根因自查：组合态 Enter/逗号误提交，全局捕获收口） |
 | 10B | S-03 | apps/web/app/**（全量扫描，0 新增实例） | P2 | 已修 fix/web-findings-1108（同型根因自查：URL 参数当金额/状态/凭据；W-07 已闭环，新增回归守卫） |
+| 11B | S-04 | packages/shared/src/hooks/{use-countdown,use-register-form,deadline-ticker}.ts | P2 | 已修 fix/web-findings-1108（同型根因自查：按 tick 自减剩余时间，改截止戳派生 + focus/visibility 对表） |
+| 12B | S-05 | packages/shared/src/pay/normalize.ts + src/chat/enter-submit.ts（守卫） | P2 | 已修 fix/web-findings-1108（同型根因自查：服务端凭据当字符串直穿 + IME 防回潮守卫；shared 信任类扫描 0 新增实例） |
+| 13B | S-06 | packages/api-client/src/{utils,payload-shape}.ts + endpoints/{admin-system,ai-world,legacy-public}.ts | P2 | 已修 fix/web-findings-1108（同型根因自查：数组/数值被当字符串或对象；查询数组双向可还原已验证） |
 | 1C | F-001 | apps/cli/src/tools/run-tests.ts:149 | P0 | 入册 |
 | 2C | F-045 | apps/desktop/src-tauri/capabilities/default.json:31 | P0 | 入册 |
 | 3C | F-002 | apps/cli/src/index.ts:1408 | P1 | 入册 |
