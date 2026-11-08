@@ -11,13 +11,10 @@ import asyncio
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..core.jwt_auth import (
-    DEV_ANONYMOUS_PRINCIPAL,
-    require_request_user_id,
-)
+from ..core.jwt_auth import require_request_user_id
 from ..services.codebase_index_status import check_freshness, ensure_fresh, resolve_repo_id
 from ..services.codebase_indexer import codebase_indexer
 from ..services.codebase_symbol_catalog import search_local_catalog
@@ -119,7 +116,6 @@ class CodebaseIndexRequest(BaseModel):
     top_k: int = Field(10, ge=1, le=50, description="search 命中上限")
     kind: str | None = Field(None, description="search 用:符号类型过滤(function/class/file…)")
     path_glob: str | None = Field(None, description="search 用:路径 glob 限定")
-    user_id: str | None = Field(None, description="refresh 用:出域同意与归属主体")
     force: bool = Field(False, description="refresh 用:即使 fresh 也收敛一轮")
 
 
@@ -133,7 +129,6 @@ def _require_workspace(workspace_path: str) -> Path:
 @router.post("/tools/codebase-index")
 async def codebase_index(
     req: CodebaseIndexRequest,
-    request: Request,
     principal: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """文件/符号级代码库索引能力(status / search / refresh)。
@@ -141,6 +136,9 @@ async def codebase_index(
     准入复用 MCP 面同一守卫(`_validate_path_in_workspace`:白名单根 + path_guard),
     不新造第二套判定。`refresh` 的出域同意闸在 `ensure_fresh` 内部,**未同意 ⇒
     一次远端调用都不发**,回执 action=`consent-required`。
+
+    AIS-100:出域同意与索引归属的主体**只从承载层令牌取**(`require_request_user_id`
+    解析的 principal),请求体不再接受 `user_id`;也不再提供"管理员代他人"入口。
     """
     root = _require_workspace(req.workspace_path)
     repo_id = req.repo_id or resolve_repo_id(root, codebase_indexer)
@@ -176,19 +174,10 @@ async def codebase_index(
             "catalog_symbols": catalog.symbol_count,
             "hits": hits,
         }
-    # AIS-100:refresh 的出域同意/归属主体不能由 body 指定。普通用户只能用 JWT
-    # 主体;管理员可代他人执行(roleId>=1)。dev 免鉴权路径保留 body 语义。
-    auth_user_id = None if principal == DEV_ANONYMOUS_PRINCIPAL else principal
-    role_id = getattr(request.state, "role_id", 0) or 0
-    effective_user_id = req.user_id
-    if auth_user_id is not None:
-        if req.user_id and req.user_id != auth_user_id and int(role_id) < 1:
-            raise HTTPException(status_code=403, detail="不能代他人刷新代码库索引")
-        effective_user_id = req.user_id if int(role_id) >= 1 and req.user_id else auth_user_id
     outcome = await ensure_fresh(
         str(root),
         repo_id=repo_id,
-        user_id=effective_user_id,
+        user_id=principal,
         force=req.force,
         indexer=codebase_indexer,
     )

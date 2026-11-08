@@ -288,10 +288,6 @@ async def test_catalog_only_repair_is_local(tmp_path):
 # =============================================================================
 
 
-def _request_with_role(role_id: int) -> SimpleNamespace:
-    return SimpleNamespace(state=SimpleNamespace(role_id=role_id))
-
-
 @pytest.fixture
 def _router_harness(tmp_path, monkeypatch):
     """把路由依赖换成可观测桩:只关心 user_id 去了哪里,不真的索引/出域。"""
@@ -312,54 +308,52 @@ def _router_harness(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_refresh_uses_principal_when_body_omits_user(_router_harness, tmp_path):
+    """body 不提供主体时,refresh 的出域/归属主体 = 承载层 principal。"""
     tools, captured = _router_harness
     await tools.codebase_index(
         tools.CodebaseIndexRequest(action="refresh", workspace_path=str(tmp_path)),
-        _request_with_role(0),
         principal="u-1",
     )
     assert captured["user_id"] == "u-1"
 
 
 @pytest.mark.asyncio
-async def test_refresh_rejects_cross_user_body_for_non_admin(_router_harness, tmp_path):
-    from fastapi import HTTPException
+async def test_refresh_body_cannot_carry_user_id(_router_harness, tmp_path):
+    """AIS-100:请求体不接受 user_id(extra="forbid") —— 主体只能来自 principal。"""
+    from pydantic import ValidationError
 
     tools, captured = _router_harness
-    with pytest.raises(HTTPException) as exc:
-        await tools.codebase_index(
-            tools.CodebaseIndexRequest(
-                action="refresh", workspace_path=str(tmp_path), user_id="u-2"
-            ),
-            _request_with_role(0),
-            principal="u-1",
+    with pytest.raises(ValidationError):
+        tools.CodebaseIndexRequest(
+            action="refresh", workspace_path=str(tmp_path), user_id="u-2"
         )
-    assert exc.value.status_code == 403
-    assert "user_id" not in captured  # 拦在入口,一次出域都没有
+    assert captured == {}  # 拦在模型层,一次出域都没有
 
 
 @pytest.mark.asyncio
-async def test_refresh_admin_may_delegate_body_user(_router_harness, tmp_path):
+async def test_refresh_admin_also_uses_principal(_router_harness, tmp_path):
+    """AIS-100:代他人能力已撤下 —— 管理员也按自己的 principal 落主体。"""
+    from pydantic import ValidationError
+
     tools, captured = _router_harness
-    await tools.codebase_index(
+    with pytest.raises(ValidationError):
         tools.CodebaseIndexRequest(
             action="refresh", workspace_path=str(tmp_path), user_id="u-2"
-        ),
-        _request_with_role(1),
+        )
+    await tools.codebase_index(
+        tools.CodebaseIndexRequest(action="refresh", workspace_path=str(tmp_path)),
         principal="admin-1",
     )
-    assert captured["user_id"] == "u-2"
+    assert captured["user_id"] == "admin-1"
 
 
 @pytest.mark.asyncio
-async def test_refresh_dev_bypass_keeps_body_semantics(_router_harness, tmp_path):
+async def test_refresh_dev_bypass_uses_principal_not_body(_router_harness, tmp_path):
+    """dev 免鉴权路径同样只认 principal(DEV_ANONYMOUS_PRINCIPAL),不读 body。"""
     tools, captured = _router_harness
     await tools.codebase_index(
-        tools.CodebaseIndexRequest(
-            action="refresh", workspace_path=str(tmp_path), user_id="u-2"
-        ),
-        _request_with_role(0),
+        tools.CodebaseIndexRequest(action="refresh", workspace_path=str(tmp_path)),
         principal=DEV_ANONYMOUS_PRINCIPAL,
     )
-    assert captured["user_id"] == "u-2"
+    assert captured["user_id"] == DEV_ANONYMOUS_PRINCIPAL
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -744,8 +744,10 @@ async def test_ais039_pillar_reset_requires_admin(monkeypatch):
 async def test_ais050_local_audio_path_outside_workspace_rejected(tmp_path, monkeypatch):
     outside = tmp_path / "secret.wav"
     outside.write_bytes(b"RIFF....")
-    data, _name, err = mcp_server._audio_source_from_args({"path": str(outside)})
-    assert data == b"" and err and "路径不允许" in err
+    data, _name, err, err_code = mcp_server._audio_source_from_args({"path": str(outside)})
+    assert data == b"" and err and err_code == "PATH_NOT_ALLOWED"
+    # 越界文案统一到 main 详细版:必须点明"不在工作区白名单"且带上被拒路径本身。
+    assert "不在工作区白名单" in err and str(outside) in err
 
 
 @pytest.mark.asyncio
@@ -753,8 +755,9 @@ async def test_ais050_local_audio_path_inside_workspace_still_works(tmp_path, mo
     ref = tmp_path / "ref.wav"
     ref.write_bytes(b"RIFF....")
     monkeypatch.setattr(mcp_server, "_get_workspace_roots", lambda: [str(tmp_path)])
-    data, name, err = mcp_server._audio_source_from_args({"path": str(ref)})
-    assert err is None and data == b"RIFF...." and name == "ref.wav"
+    data, name, err, err_code = mcp_server._audio_source_from_args({"path": str(ref)})
+    assert err is None and err_code is None
+    assert data == b"RIFF...." and name == "ref.wav"
 
 
 @pytest.mark.asyncio
@@ -762,8 +765,9 @@ async def test_ais050_sensitive_file_blocked_even_inside_workspace(tmp_path, mon
     env = tmp_path / ".env"
     env.write_text("OPENAI_API_KEY=sk-secret")
     monkeypatch.setattr(mcp_server, "_get_workspace_roots", lambda: [str(tmp_path)])
-    data, _name, err = mcp_server._audio_source_from_args({"path": str(env)})
-    assert data == b"" and err and "敏感文件" in err
+    data, _name, err, err_code = mcp_server._audio_source_from_args({"path": str(env)})
+    assert data == b"" and err and err_code == "SENSITIVE_FILE_BLOCKED"
+    assert "敏感" in err and str(env) in err
 
 
 @pytest.mark.asyncio
@@ -771,7 +775,7 @@ async def test_ais050_upload_file_blocks_outside_path_before_network(tmp_path):
     outside = tmp_path / "x.bin"
     outside.write_bytes(b"x")
     out = await mcp_server._tool_token6688_upload_file({"path": str(outside)})
-    assert out["ok"] is False and out["errorCode"] == "PATH_BLOCKED"
+    assert out["ok"] is False and out["errorCode"] == "PATH_NOT_ALLOWED"
 
 
 @pytest.mark.asyncio
