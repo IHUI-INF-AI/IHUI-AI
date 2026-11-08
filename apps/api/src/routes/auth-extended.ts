@@ -116,6 +116,7 @@ import {
   deleteUserSk,
   createAuditLog,
 } from '../db/oauth-queries.js'
+import { claimAuthorizationCode } from '../db/oauth-token-queries.js'
 import { sendSmsCode, isSmsConfigured, extractSmsSendGuard } from '../services/sms.js'
 import { sendNoticeSmsToUser } from '../services/sms-notify.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
@@ -2395,8 +2396,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const client = await authenticateOAuthClient(request, parsed.data)
     if (!client.ok)
       return reply.status(client.status).send(error(client.status, client.description))
-    const session = await findSessionByCode(parsed.data.code)
-    if (!session || session.isUsed || session.expiresAt < new Date())
+    // F-244:授权码一次性消费必须原子(条件 UPDATE ... WHERE is_used = FALSE RETURNING)。
+    // 先 SELECT 再无条件 UPDATE 的旧写法在并发下两请求都读到未使用 → 同一 code 换出两套 token。
+    // 现在只有真正抢到那一行(返回非 null)才继续签发;0 行一律 400,不吞错。
+    const session = await claimAuthorizationCode(parsed.data.code)
+    if (!session || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
     const pkce = gatePkceForSession({
       session: {
@@ -2408,7 +2412,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       publicClient: client.publicClient,
     })
     if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-    await markSessionUsed(parsed.data.code)
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-web-token: 同上,凭一次性 session 换 token
