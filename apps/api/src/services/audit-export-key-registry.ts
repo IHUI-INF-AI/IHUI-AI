@@ -601,11 +601,15 @@ export function registryArrayText(source: string): string {
   return source.slice(open)
 }
 
-/** 按对象块抠 `kid` + `status`(找不到块不算通过)。 */
-export function extractRegistryBlocks(source: string): Array<{ kid: string; status: string }> {
-  const text = registryArrayText(source)
-  if (text.length === 0) return []
+/** 扫描结果:`unparsed` = 顶层对象块里抠不出 kid/status 的块数(格式改动/换引号会命中)。 */
+interface RegistryBlockScan {
+  blocks: Array<{ kid: string; status: string }>
+  unparsed: number
+}
+
+function scanRegistryBlocks(text: string): RegistryBlockScan {
   const blocks: Array<{ kid: string; status: string }> = []
+  let unparsed = 0
   for (let i = 0; i < text.length; i++) {
     if (text[i] !== '{') continue
     let depth = 0
@@ -625,9 +629,32 @@ export function extractRegistryBlocks(source: string): Array<{ kid: string; stat
     const kid = /kid:\s*'([^']*)'/.exec(block)?.[1]
     const status = /status:\s*'([^']*)'/.exec(block)?.[1]
     if (kid && status) blocks.push({ kid, status })
+    else unparsed += 1
     i = end
   }
-  return blocks
+  return { blocks, unparsed }
+}
+
+/** 按对象块抠 `kid` + `status`(找不到块不算通过)。兼容旧调用方:解析失败只表现为空数组。 */
+export function extractRegistryBlocks(source: string): Array<{ kid: string; status: string }> {
+  const text = registryArrayText(source)
+  if (text.length === 0) return []
+  return scanRegistryBlocks(text).blocks
+}
+
+/**
+ * 严格版(上一面 R4 比对专用):数组声明找不到、或有对象块解析不出 kid/status ⇒ `null`
+ * (="未判定")。不能把"解析不到"读成"没有 retired 行"—— 一次无关的格式改动会让
+ * "退而被删"检查静默通过。
+ */
+export function extractRegistryBlocksStrict(
+  source: string,
+): Array<{ kid: string; status: string }> | null {
+  const text = registryArrayText(source)
+  if (text.length === 0) return null
+  const scan = scanRegistryBlocks(text)
+  if (scan.unparsed > 0) return null
+  return scan.blocks
 }
 
 /**
@@ -638,7 +665,10 @@ export function extractRegistryBlocks(source: string): Array<{ kid: string; stat
 function readPreviousFaceEntries(): readonly AuditExportKeyEntry[] | null {
   const text = readHeadFileText(REGISTRY_PATH_FROM_ROOT)
   if (text === null) return null
-  return extractRegistryBlocks(text)
+  // 找不到数组声明 / 有块解析不出 kid+status ⇒ 未判定,不得读成"没有 retired 行"
+  const blocks = extractRegistryBlocksStrict(text)
+  if (blocks === null) return null
+  return blocks
     .filter((block) => block.status === 'retired')
     .map((block) => ({
       kid: block.kid,
