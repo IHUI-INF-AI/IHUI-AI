@@ -25,9 +25,19 @@ vi.mock('@tarojs/taro', () => ({
   default: { eventCenter: { trigger: vi.fn() }, onAppShow: vi.fn(), onAppHide: vi.fn() },
 }))
 
+// 2026-11 桥层改直呼 api-client 的 reportAgentControl* 端点函数;真实函数内部走自己的
+// fetchApi 绑定,模块级 mock 拦不到,这里必须显式替换两个上报出口(旧夹具只 mock fetchApi)。
 vi.mock('@ihui/api-client', () => ({
   fetchApi: (url: string, opts: { body?: string }) => {
     h.posts.push({ url, body: JSON.parse(String(opts.body)) as Record<string, unknown> })
+    return Promise.resolve({ success: true })
+  },
+  reportAgentControlCapability: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/capability', body: payload })
+    return Promise.resolve({ success: true })
+  },
+  reportAgentControlResult: (payload: Record<string, unknown>) => {
+    h.posts.push({ url: '/api/agent-control/result', body: payload })
     return Promise.resolve({ success: true })
   },
   createNotificationClient: vi.fn(() => ({ connect: vi.fn(), disconnect: vi.fn() })),
