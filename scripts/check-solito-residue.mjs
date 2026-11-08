@@ -31,11 +31,15 @@
  *   1  发现 solito 残留(blocking,阻塞 commit)
  *
  * 守门集成:guardian-runner.mjs(blocking 模式,阻塞 commit)
+ *
+ * 取材面(2026-11-08 修):--staged 档的 package.json / pnpm-workspace.yaml 读**索引 blob**
+ * (清单与内容同面);规则 4(patches/ 目录)与规则 5(packages/app/src 源码)仍读工作树——
+ * 这两条是"存量面"扫描,不是本次提交行的判定,已在输出里点名(dataSource=worktree)。
  */
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const C = {
   red: '\x1b[31m',
@@ -287,29 +291,40 @@ async function main() {
 
   const violations = []
 
+  // 清单与内容同面:staged 档读索引 blob(不存在于索引的 target 跳过,与全量档的「文件不存在」同义)。
+  let stagedTexts = null
+  if (stagedMode) {
+    const rels = [...TARGET_PACKAGE_JSONS, PNPM_WORKSPACE_PATH]
+    try {
+      stagedTexts = catBatch(ROOT, rels.map((r) => `:${r}`))
+    } catch (e) {
+      console.error(`⚠️  索引 blob 取不到,无法判定:${e?.message ?? e}`)
+      process.exit(2)
+    }
+  }
+  const readRel = (rel) => {
+    if (stagedTexts) return stagedTexts.get(`:${rel}`) ?? null
+    const abs = path.join(ROOT, rel)
+    if (!existsSync(abs)) return null
+    try {
+      return readFileSync(abs, 'utf8')
+    } catch {
+      return null
+    }
+  }
+
   // 规则 1 + 2:扫描 package.json(根 + packages/app + apps/*)
   for (const rel of TARGET_PACKAGE_JSONS) {
-    const abs = path.join(ROOT, rel)
-    if (!existsSync(abs)) continue
-    let content
-    try {
-      content = readFileSync(abs, 'utf8')
-    } catch {
-      continue
-    }
+    const content = readRel(rel)
+    if (content === null) continue
     violations.push(...findSolitoInPackageJson(content, rel))
   }
 
   // 规则 3:pnpm-workspace.yaml 的 publicHoistPattern
   {
-    const abs = path.join(ROOT, PNPM_WORKSPACE_PATH)
-    if (existsSync(abs)) {
-      try {
-        const content = readFileSync(abs, 'utf8')
-        violations.push(...findSolitoInPnpmWorkspace(content, PNPM_WORKSPACE_PATH))
-      } catch {
-        // 读失败忽略,不阻塞
-      }
+    const content = readRel(PNPM_WORKSPACE_PATH)
+    if (content !== null) {
+      violations.push(...findSolitoInPnpmWorkspace(content, PNPM_WORKSPACE_PATH))
     }
   }
 
