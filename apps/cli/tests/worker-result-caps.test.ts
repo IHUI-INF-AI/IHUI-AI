@@ -173,4 +173,31 @@ describe('grep 型守门:subagents 域不得新增"无 truncated 位的静默 sl
     expect(offenders).toEqual([]);
   });
 });
+
+describe('F-098 默认 worker 出站/资源基线', () => {
+  it('默认配置必然自带出站策略与资源限制(不允许 undefined 直通)', () => {
+    const cfg = defaultWorkerPoolConfig({ maxWorkers: 1 });
+    expect(cfg.networkEgressPolicy).toBeDefined();
+    expect(['allowlist', 'blocklist']).toContain(cfg.networkEgressPolicy!.mode);
+    expect(cfg.networkEgressPolicy!.domains?.length ?? 0).toBeGreaterThan(0);
+    expect(cfg.resourceLimits).toBeDefined();
+    expect(cfg.resourceLimits!.maxOldGenerationSizeMb).toBeGreaterThan(0);
+    expect(cfg.resourceLimits!.memoryMb).toBeGreaterThan(
+      cfg.resourceLimits!.maxOldGenerationSizeMb!,
+    );
+  });
+
+  it('IHUI_SUBAGENT_MAX_HEAP_MB 可覆盖默认堆上限', () => {
+    const prev = process.env.IHUI_SUBAGENT_MAX_HEAP_MB;
+    process.env.IHUI_SUBAGENT_MAX_HEAP_MB = '1024';
+    try {
+      const cfg = defaultWorkerPoolConfig({ maxWorkers: 1 });
+      expect(cfg.resourceLimits!.maxOldGenerationSizeMb).toBe(1024);
+      expect(cfg.resourceLimits!.memoryMb).toBe(1024 + 64);
+    } finally {
+      if (prev === undefined) delete process.env.IHUI_SUBAGENT_MAX_HEAP_MB;
+      else process.env.IHUI_SUBAGENT_MAX_HEAP_MB = prev;
+    }
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
