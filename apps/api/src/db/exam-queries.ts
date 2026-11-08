@@ -488,6 +488,75 @@ export interface GradedAnswer {
   score: number
 }
 
+export interface ExamAnswerInput {
+  questionId: string
+  answer: unknown
+}
+
+export interface GradeExamResult {
+  gradedAnswers: GradedAnswer[]
+  totalScore: number
+  hasSubjective: boolean
+}
+
+/**
+ * 纯判分函数(不触 DB):客观题自动判分 + 逐题明细。
+ * - 按 questionId 去重,仅保留首次出现的答案(防止同一题重复计分)。
+ * - 不在本试卷 questions 内的答案按 0 分计,不参与得分。
+ * - single_choice/judgment: 直接比较答案。
+ * - multi_choice: 排序后比较数组。
+ * - fill_blank: 逐空比较(去空格)。
+ * - subjective: 不自动判分,isCorrect=false,score=0,需人工评分。
+ */
+export function gradeExamAnswers(
+  questions: readonly ExamQuestion[],
+  answers: readonly ExamAnswerInput[],
+): GradeExamResult {
+  const seen = new Set<string>()
+  let totalScore = 0
+  let hasSubjective = false
+  const gradedAnswers: GradedAnswer[] = []
+
+  for (const a of answers) {
+    if (seen.has(a.questionId)) continue
+    seen.add(a.questionId)
+
+    const q = questions.find((qq) => qq.id === a.questionId)
+    if (!q) {
+      gradedAnswers.push({
+        questionId: a.questionId,
+        answer: a.answer,
+        isCorrect: false,
+        score: 0,
+      })
+      continue
+    }
+
+    let isCorrect = false
+    if (q.type === 'single_choice' || q.type === 'judgment') {
+      isCorrect = contentEqual(a.answer, q.answer)
+    } else if (q.type === 'multi_choice') {
+      const ans = Array.isArray(a.answer) ? [...a.answer].sort() : []
+      const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
+      isCorrect = contentEqual(ans, correct)
+    } else if (q.type === 'fill_blank') {
+      const ans = Array.isArray(a.answer) ? a.answer : [a.answer]
+      const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
+      isCorrect =
+        ans.length === correct.length &&
+        ans.every((v, i) => String(v).trim() === String(correct[i]).trim())
+    } else if (q.type === 'subjective') {
+      // 主观题不自动判分,标记待人工评分
+      hasSubjective = true
+    }
+    const score = isCorrect ? Number(q.score) : 0
+    totalScore += score
+    gradedAnswers.push({ questionId: a.questionId, answer: a.answer, isCorrect, score })
+  }
+
+  return { gradedAnswers, totalScore, hasSubjective }
+}
+
 /**
  * 提交试卷并自动判分(客观题)。
  * - single_choice/judgment: 直接比较答案。
@@ -508,32 +577,7 @@ export async function submitExamRecord(
   if (record.status === 'submitted' || record.status === 'graded') throw new Error('该试卷已提交')
 
   const questions = await findQuestionsByPaperId(record.paperId)
-  let totalScore = 0
-  let hasSubjective = false
-  const gradedAnswers: GradedAnswer[] = answers.map((a) => {
-    const q = questions.find((qq) => qq.id === a.questionId)
-    if (!q) return { questionId: a.questionId, answer: a.answer, isCorrect: false, score: 0 }
-    let isCorrect = false
-    if (q.type === 'single_choice' || q.type === 'judgment') {
-      isCorrect = contentEqual(a.answer, q.answer)
-    } else if (q.type === 'multi_choice') {
-      const ans = Array.isArray(a.answer) ? [...a.answer].sort() : []
-      const correct = Array.isArray(q.answer) ? [...q.answer].sort() : []
-      isCorrect = contentEqual(ans, correct)
-    } else if (q.type === 'fill_blank') {
-      const ans = Array.isArray(a.answer) ? a.answer : [a.answer]
-      const correct = Array.isArray(q.answer) ? q.answer : [q.answer]
-      isCorrect =
-        ans.length === correct.length &&
-        ans.every((v, i) => String(v).trim() === String(correct[i]).trim())
-    } else if (q.type === 'subjective') {
-      // 主观题不自动判分,标记待人工评分
-      hasSubjective = true
-    }
-    const score = isCorrect ? Number(q.score) : 0
-    totalScore += score
-    return { questionId: a.questionId, answer: a.answer, isCorrect, score }
-  })
+  const { gradedAnswers, totalScore, hasSubjective } = gradeExamAnswers(questions, answers)
 
   const paper = await findPaperById(record.paperId)
   const isPassed = totalScore >= Number(paper?.passScore ?? 60)

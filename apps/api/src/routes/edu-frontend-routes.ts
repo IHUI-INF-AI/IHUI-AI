@@ -94,7 +94,8 @@ const submitExamSchema = z.object({
         answer: z.unknown(),
       }),
     )
-    .min(1, '答案不能为空'),
+    .min(1, '答案不能为空')
+    .max(500),
 })
 
 const submitHomeworkSchema = z.object({
@@ -169,6 +170,10 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
     }
     const cert = await findCertificateById(parsed.data.id)
     if (!cert) return reply.status(404).send(error(404, '证书不存在'))
+    // F-169:与 download 同一道归属闸;此前详情接口任何登录用户都能读他人证书
+    if (cert.userId !== request.userId) {
+      return reply.status(403).send(error(403, '无权查看此证书'))
+    }
     return reply.send(success({ certificate: cert }))
   })
 
