@@ -61,7 +61,7 @@ import {
   stockFacePaths,
 } from './gate-face-registry.mjs'
 
-export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, pushGate, showTiming, cliArgs }) {
+export async function runGuardianBatch({ checks, pushGateChecks, effectiveChecks, passStaged, fullFace = false, pushGate, showTiming, cliArgs }) {
 
 // === 颜色 ===
 const C = {
@@ -1077,6 +1077,11 @@ for (const check of effectiveChecks) {
   }
   const cmdArgs = [...check.args]
   if (passStaged) cmdArgs.push('--staged')
+  // 显式全量面档(2026-11-09):只有声明了 fullFaceArgs 的门(水印 47)需要面旗;
+  // post-commit 补跑走这一档 —— 它不带 --staged,若不显式给面,47 会按"面未判定"exit 2。
+  if (fullFace && Array.isArray(check.fullFaceArgs)) {
+    cmdArgs.splice(0, cmdArgs.length, ...check.fullFaceArgs)
+  }
   // (旧版这里拼一条 shell 字符串给 execSync;改 spawnSync 用 argv 数组后不再需要,
   //  顺带去掉 shell 一层。复现命令由汇总段按 `node scripts/<script>` 现拼,不在此处留变量。)
 
