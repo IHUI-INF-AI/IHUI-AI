@@ -307,7 +307,8 @@ const submitExamSchema = z.object({
           answer: a.answer ?? a.userAnswer,
         })),
     )
-    .min(1, '答案不能为空'),
+    .min(1, '答案不能为空')
+    .max(500),
 })
 
 const randomQuestionsSchema = z.object({
@@ -1197,7 +1198,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const record = await startAnswering(parsed.data.recordId)
+      const record = await startAnswering(parsed.data.recordId, request.userId!)
       server.recordExamStarted()
       return reply.send(success({ record }))
     } catch (e) {
@@ -1217,7 +1218,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const record = await submitExam(parsed.data.recordId)
+      const record = await submitExam(parsed.data.recordId, request.userId!)
       server.recordExamSubmitted()
       return reply.send(success({ record }))
     } catch (e) {
@@ -1235,7 +1236,15 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const record = await getExamRecordStatus(parsed.data.recordId)
+    let record: Awaited<ReturnType<typeof getExamRecordStatus>>
+    try {
+      record = await getExamRecordStatus(parsed.data.recordId, request.userId!)
+    } catch (e) {
+      if (isAppError(e)) {
+        return reply.status(e.statusCode).send(error(e.statusCode, e.message))
+      }
+      throw e
+    }
     if (!record) {
       return reply.status(404).send(error(404, '答题记录不存在'))
     }
