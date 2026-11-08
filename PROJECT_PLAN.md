@@ -32134,7 +32134,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 5E. **缺陷普查 AIS AIS-005** [P1] Agent 流断线不取消 run，重连即双跑（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-005）
 - [ ] 6E. **缺陷普查 AIS AIS-006** [P3] 客户端断开时仍在 finally 里 yield usage 帧（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-006）
 - [ ] 7E. **缺陷普查 AIS AIS-007** [P2] 中断回调早于用量计算，断线落库用量恒 None（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-007）
-- [ ] 8E. **缺陷普查 AIS AIS-008** [P3] 命令流与进度流使用无界队列（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-008）
+- [x] 8E. **缺陷普查 AIS AIS-008** [P3] 命令流与进度流使用无界队列（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-008）（已修@2026-11-08/mcp-media-p1-1108@bcf50b3280）
 - [ ] 9E. **缺陷普查 AIS AIS-009** [P1] Gemini 原生 usage 键名未归一，token/成本恒为 0（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-009）
 - [ ] 10E. **缺陷普查 AIS AIS-010** [P2] Gemini 原生工具历史被降级成纯文本（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-010）
 - [ ] 11E. **缺陷普查 AIS AIS-011** [P2] Gemini 安全拦截（promptFeedback）被当成功空回复（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-011）
@@ -32149,41 +32149,41 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 20E. **缺陷普查 AIS AIS-020** [P2] thread.export 的 turn 截断把目标回合切成首条（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-020）
 - [x] 21E. **缺陷普查 AIS AIS-021** [P1] 发布核验两处漏 await conn.close()，连接泄漏（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-021）（已修@2026-11-08/mcp-media-p1-1108@56dbb657ab）
 - [ ] 22E. **缺陷普查 AIS AIS-022** [P1] resume 并发闸非原子，同一暂停可续跑两遍（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-022）
-- [ ] 23E. **缺陷普查 AIS AIS-023** [P2] 发布立即提交绕过每用户并发上限与 task_id 去重（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-023）
-- [ ] 24E. **缺陷普查 AIS AIS-024** [P2] 定时发布抢占无 CAS，running 行崩溃后永久悬挂（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-024）
+- [x] 23E. **缺陷普查 AIS AIS-023** [P2] 发布立即提交绕过每用户并发上限与 task_id 去重（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-023）（已修@2026-11-08/mcp-media-p1-1108@134b439d76）
+- [x] 24E. **缺陷普查 AIS AIS-024** [P2] 定时发布抢占无 CAS，running 行崩溃后永久悬挂（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-024）（已修@2026-11-08/mcp-media-p1-1108@389dc8a096）
 - [ ] 25E. **缺陷普查 AIS AIS-025** [P2] DAG 队列持久化只写不读，重启即丢（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-025）
 - [ ] 26E. **缺陷普查 AIS AIS-026** [P2] sandbox 本地执行不处理取消，取消后子进程继续跑（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-026）
 - [x] 27E. **缺陷普查 AIS AIS-027** [P1] 增量索引写/删失败仍落快照，索引永久陈旧（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-027）（已修@2026-11-08/mcp-media-p1-1108@61369af5cc）
 - [ ] 28E. **缺陷普查 AIS AIS-028** [P2] sandbox 任务队列记录与句柄永不回收（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-028）
-- [ ] 29E. **缺陷普查 AIS AIS-029** [P2] browser_hub 会话无上限，失败路径只 close 不摘账（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-029）
-- [ ] 30E. **缺陷普查 AIS AIS-030** [P3] self_media 调度 stop 不取消在途任务（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-030）
+- [x] 29E. **缺陷普查 AIS AIS-029** [P2] browser_hub 会话无上限，失败路径只 close 不摘账（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-029）（已修@2026-11-08/mcp-media-p1-1108@680ccf0fd7）
+- [x] 30E. **缺陷普查 AIS AIS-030** [P3] self_media 调度 stop 不取消在途任务（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-030）（已修@2026-11-08/mcp-media-p1-1108@680ccf0fd7）
 - [x] 31E. **缺陷普查 AIS AIS-031** [P0] run_in_background 非管理员可执行任意 argv，等价 RCE（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-031）（已修@2026-11-08/mcp-media-p1-1108@acc6d80cbf）
 - [ ] 32E. **缺陷普查 AIS AIS-032** [P1] /api/v1/ai/chat 用客户端 session_id 反推身份（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-032）
 - [ ] 33E. **缺陷普查 AIS AIS-033** [P1] /api/v1/ai/rag 检索不传属主，跨用户返回文档内容（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-033）
 - [ ] 34E. **缺陷普查 AIS AIS-034** [P1] 知识图谱属主取客户端 X-Owner-Uuid，可读/写/删他人图谱（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-034）
-- [ ] 35E. **缺陷普查 AIS AIS-035** [P2] computer-use open 无 URL 校验，file:///内网经 extract-text 回读（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-035）
+- [x] 35E. **缺陷普查 AIS AIS-035** [P2] computer-use open 无 URL 校验，file:///内网经 extract-text 回读（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-035）（已修@2026-11-08/mcp-media-p1-1108@bc025ddb42）
 - [ ] 36E. **缺陷普查 AIS AIS-036** [P2] notify 动作以 channel="webhook" 绕过高危白名单并盲 SSRF（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-036）
 - [ ] 37E. **缺陷普查 AIS AIS-037** [P2] /api/spec/generate 的 workspacePath / scope.path 无工作区白名单（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-037）
 - [ ] 38E. **缺陷普查 AIS AIS-038** [P1] Hook PATCH 可绕过管理员校验改建 script 动作（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-038）
 - [ ] 39E. **缺陷普查 AIS AIS-039** [P1] 全局预算配置可被任意登录用户改写（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-039）
-- [ ] 40E. **缺陷普查 AIS AIS-040** [P2] 自助媒体全局发布任务管理端点无鉴权/归属（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-040）
+- [x] 40E. **缺陷普查 AIS AIS-040** [P2] 自助媒体全局发布任务管理端点无鉴权/归属（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-040）（已修@2026-11-08/mcp-media-p1-1108@134b439d76）
 - [ ] 41E. **缺陷普查 AIS AIS-041** [P2] 流会话 steer / tool-result 端点缺属主校验（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-041）
-- [ ] 42E. **缺陷普查 AIS AIS-042** [P2] /api/publish/running 无主体，回全站发布历史（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-042）
+- [x] 42E. **缺陷普查 AIS AIS-042** [P2] /api/publish/running 无主体，回全站发布历史（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-042）（已修@2026-11-08/mcp-media-p1-1108@134b439d76）
 - [ ] 43E. **缺陷普查 AIS AIS-043** [P2] SSO 回调不校验 state，且默认启用 mock provider（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-043）
 - [ ] 44E. **缺陷普查 AIS AIS-044** [P3] timeline 会话归属 fail-open（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-044）
 - [ ] 45E. **缺陷普查 AIS AIS-045** [P2] WorkBuddy task-run 无在途锁/幂等键（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-045）
 - [ ] 46E. **缺陷普查 AIS AIS-046** [P2] 审计双数据源 + 成功码不一致（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-046）
 - [ ] 47E. **缺陷普查 AIS AIS-047** [P2] HTTP 写审计无操作主体，落库列也丢 user_id（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-047）
 - [ ] 48E. **缺陷普查 AIS AIS-048** [P2] 路由异常被转成 HTTP 200 + body code:500，并回吐 str(e)（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-048）
-- [ ] 49E. **缺陷普查 AIS AIS-049** [P3] 自助媒体历史查询吞 DB 异常返回空列表（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-049）
+- [x] 49E. **缺陷普查 AIS AIS-049** [P3] 自助媒体历史查询吞 DB 异常返回空列表（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-049）（已修@2026-11-08/mcp-media-p1-1108@2b1f28b3d2）
 - [x] 50E. **缺陷普查 AIS AIS-050** [P1] 媒体工具按本地路径读任意文件并外传（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-050）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
 - [x] 51E. **缺陷普查 AIS AIS-051** [P1] 截图自检工具是 screenshot_url 的旁路（SSRF + 越权）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-051）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
 - [x] 52E. **缺陷普查 AIS AIS-052** [P0] run_workflow 节点可直达任意命令执行（绕过 run_command 档位）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-052）（已修@2026-11-08/mcp-media-p1-1108@acc6d80cbf）
-- [ ] 53E. **缺陷普查 AIS AIS-053** [P2] 外部 MCP server 注册按设计跳过 SSRF 校验（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-053）
-- [ ] 54E. **缺陷普查 AIS AIS-054** [P2] web_search 失败被包装成成功 + 空结果（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-054）
-- [ ] 55E. **缺陷普查 AIS AIS-055** [P2] 后台任务注册表只增不减（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-055）
-- [ ] 56E. **缺陷普查 AIS AIS-056** [P2] Windows 命令进程树不回收（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-056）
-- [ ] 57E. **缺陷普查 AIS AIS-057** [P3] 工具兜底回执缺 errorCode 且回吐异常原文（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-057）
+- [x] 53E. **缺陷普查 AIS AIS-053** [P2] 外部 MCP server 注册按设计跳过 SSRF 校验（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-053）（已修@2026-11-08/mcp-media-p1-1108@fdf457bd9a）
+- [x] 54E. **缺陷普查 AIS AIS-054** [P2] web_search 失败被包装成成功 + 空结果（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-054）（已修@2026-11-08/mcp-media-p1-1108@c2e723bf2d）
+- [x] 55E. **缺陷普查 AIS AIS-055** [P2] 后台任务注册表只增不减（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-055）（已修@2026-11-08/mcp-media-p1-1108@680ccf0fd7）
+- [x] 56E. **缺陷普查 AIS AIS-056** [P2] Windows 命令进程树不回收（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-056）（已修@2026-11-08/mcp-media-p1-1108@c2e723bf2d）
+- [x] 57E. **缺陷普查 AIS AIS-057** [P3] 工具兜底回执缺 errorCode 且回吐异常原文（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-057）（已修@2026-11-08/mcp-media-p1-1108@2b1f28b3d2）
 - [ ] 58E. **缺陷普查 AIS AIS-058** [P1] 工具超时重试复用已置位 cancel_event，重试必被立即杀死（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-058）
 - [ ] 59E. **缺陷普查 AIS AIS-059** [P2] 空响应/输出截断被上报为 completed（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-059）
 - [ ] 60E. **缺陷普查 AIS AIS-060** [P2] max_iterations 用裸字符串，与枚举判据不一致（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-060）
@@ -32208,10 +32208,10 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 79E. **缺陷普查 AIS AIS-079** [P3] 用量面缺角色门，自报用量无幂等（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-079）
 - [x] 80E. **缺陷普查 AIS AIS-080** [P1] search_codebase / index_codebase 不受工作区白名单约束（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-080）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
 - [x] 81E. **缺陷普查 AIS AIS-081** [P1] Windows 内置命令分支可用单个 & 拼接任意命令（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-081）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
-- [ ] 82E. **缺陷普查 AIS AIS-082** [P2] read_file 无大小上限，且全文件进 256 份 base 缓存（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-082）
-- [ ] 83E. **缺陷普查 AIS AIS-083** [P2] file_edit 的读-改-写未整体持锁，并发丢更新（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-083）
-- [ ] 84E. **缺陷普查 AIS AIS-084** [P2] fetch_readable / map_site / extract_web 绕过网络审批门（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-084）
-- [ ] 85E. **缺陷普查 AIS AIS-085** [P2] db_query 可借 pg_read_file 读 DB 主机任意文件（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-085）
+- [x] 82E. **缺陷普查 AIS AIS-082** [P2] read_file 无大小上限，且全文件进 256 份 base 缓存（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-082）（已修@2026-11-08/mcp-media-p1-1108@389dc8a096）
+- [x] 83E. **缺陷普查 AIS AIS-083** [P2] file_edit 的读-改-写未整体持锁，并发丢更新（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-083）（已修@2026-11-08/mcp-media-p1-1108@bc025ddb42）
+- [x] 84E. **缺陷普查 AIS AIS-084** [P2] fetch_readable / map_site / extract_web 绕过网络审批门（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-084）（已修@2026-11-08/mcp-media-p1-1108@781905ece0）
+- [x] 85E. **缺陷普查 AIS AIS-085** [P2] db_query 可借 pg_read_file 读 DB 主机任意文件（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-085）（已修@2026-11-08/mcp-media-p1-1108@c2e723bf2d）
 - [ ] 86E. **缺陷普查 AIS AIS-086** [P1] agent_runtime 取消只改状态，不终止在跑的 graph/SSE（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-086）
 - [ ] 87E. **缺陷普查 AIS AIS-087** [P2] thread.close 的 closed 状态被运行中的 finally 覆盖为 idle（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-087）
 - [ ] 88E. **缺陷普查 AIS AIS-088** [P2] Agent 主循环 total_tokens 只估算输出文本（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-088）
@@ -32219,19 +32219,19 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 90E. **缺陷普查 AIS AIS-090** [P2] agent_runtime 异常/断连不写终态（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-090）
 - [ ] 91E. **缺陷普查 AIS AIS-091** [P2] agent.exec(headless) 不复用线程关闭清理，泄漏 watcher/快照（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-091）
 - [x] 92E. **缺陷普查 AIS AIS-092** [P1] 匿名可达的付费 TTS 端点，且 voice 参数直通声纹库（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-092）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
-- [ ] 93E. **缺陷普查 AIS AIS-093** [P2] 媒体下载/上传代理全量缓冲，无字节上限（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-093）
-- [ ] 94E. **缺陷普查 AIS AIS-094** [P2] Chrome 导入端口无属主绑定，可导走他人登录态（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-094）
-- [ ] 95E. **缺陷普查 AIS AIS-095** [P2] cloud-runs 以客户端 run_id 覆盖他人运行记录（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-095）
+- [x] 93E. **缺陷普查 AIS AIS-093** [P2] 媒体下载/上传代理全量缓冲，无字节上限（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-093）（已修@2026-11-08/mcp-media-p1-1108@781905ece0）
+- [x] 94E. **缺陷普查 AIS AIS-094** [P2] Chrome 导入端口无属主绑定，可导走他人登录态（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-094）（已修@2026-11-08/mcp-media-p1-1108@781905ece0）
+- [x] 95E. **缺陷普查 AIS AIS-095** [P2] cloud-runs 以客户端 run_id 覆盖他人运行记录（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-095）（已修@2026-11-08/mcp-media-p1-1108@389dc8a096）
 - [x] 96E. **缺陷普查 AIS AIS-096** [P1] 图表 owner sidecar 每轮被误删，产物归属校验 fail-open（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-096）（已修@2026-11-08/mcp-media-p1-1108@56dbb657ab）
 - [x] 97E. **缺陷普查 AIS AIS-097** [P1] 在途媒体任务 30 分钟被强失败，官方视频 p90 55–75 分钟（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-097）（已修@2026-11-08/mcp-media-p1-1108@56dbb657ab）
 - [x] 98E. **缺陷普查 AIS AIS-098** [P3] 非图片响应被写成 .png 并上传图床（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-098）（已修@2026-11-08/mcp-media-p1-1108@d6bffcd978）
 - [x] 99E. **缺陷普查 AIS AIS-099** [P2] 外链图片下载全量缓冲无上限（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-099）（已修@2026-11-08/mcp-media-p1-1108@d6bffcd978）
 - [x] 100E. **缺陷普查 AIS AIS-100** [P1] codebase-index 的出域同意与归属主体取自请求体（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-100）（已修@2026-11-08/mcp-media-p1-1108@9479704a7f）
-- [ ] 101E. **缺陷普查 AIS AIS-101** [P2] step-recorder 运行记录无属主，任意 run_id 可读（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-101）
-- [ ] 102E. **缺陷普查 AIS AIS-102** [P2] self-healing 端点仅靠 env 开关，登录用户可让 LLM 改源码（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-102）
+- [x] 101E. **缺陷普查 AIS AIS-101** [P2] step-recorder 运行记录无属主，任意 run_id 可读（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-101）（已修@2026-11-08/mcp-media-p1-1108@77230b153b）
+- [x] 102E. **缺陷普查 AIS AIS-102** [P2] self-healing 端点仅靠 env 开关，登录用户可让 LLM 改源码（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-102）（已修@2026-11-08/mcp-media-p1-1108@d68423ddd6）
 - [x] 103E. **缺陷普查 AIS AIS-103** [P2] screenshot probe 的 Playwright 请求绕过逐跳 SSRF 防护（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-103）（已修@2026-11-08/mcp-media-p1-1108@df01268091）
-- [ ] 104E. **缺陷普查 AIS AIS-104** [P2] memory.reset 清空全局 lessons 且不重载（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-104）
-- [ ] 105E. **缺陷普查 AIS AIS-105** [P3] memory_sedimenter 计数表无淘汰（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-105）
+- [x] 104E. **缺陷普查 AIS AIS-104** [P2] memory.reset 清空全局 lessons 且不重载（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-104）（已修@2026-11-08/mcp-media-p1-1108@77230b153b）
+- [x] 105E. **缺陷普查 AIS AIS-105** [P3] memory_sedimenter 计数表无淘汰（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-105）（已修@2026-11-08/mcp-media-p1-1108@77230b153b）
 - [x] 106E. **缺陷普查 AIS AIS-106** [P1] file_search 不校验工作区，任意目录内容回传（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-106）（已修@2026-11-08/mcp-media-p1-1108@b19be35552）
 - [x] 107E. **缺陷普查 AIS AIS-107** [P1] investigate_codebase 以用户路径为仓根（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-107）（已修@2026-11-08/mcp-media-p1-1108@b19be35552）
 - [x] 108E. **缺陷普查 AIS AIS-108** [P2] summarize_artifacts 按客户端 conversation_id 读他人产物（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-108）（已修@2026-11-08/mcp-media-p1-1108@df01268091）

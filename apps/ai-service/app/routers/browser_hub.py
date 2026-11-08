@@ -159,7 +159,9 @@ async def create_session(
         # 于是 `Page.title` 抛 TargetClosedError → 未捕获 → 整个请求 500「服务内部错误」,
         # 而那个已经死掉的会话仍留在 hub 里(占着一个 context 直到超时)。
         # 现在:先关会话再如实报 502,并把"改走外部浏览器/手动导入"这条出路写进文案。
-        await session.close()
+        # AIS-029:必须走 hub.close_session(摘 _sessions/_tab_registry/去重表并关 context);
+        # 只调 session.close() 会留下一条死会话,list_sessions 虚高且占满 per-owner 名额。
+        await hub.close_session(session.session_id, owner_user_id=user_id)
         raise HTTPException(
             status_code=502,
             detail=f"登录页打开后被关闭({type(e).__name__}),请改用外部浏览器或手动导入 Cookie",

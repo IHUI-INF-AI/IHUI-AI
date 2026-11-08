@@ -846,6 +846,9 @@ def _get_agent_control_secret() -> str:
 # 内存 dict(resolved_path → content),上限 256 文件(超限淘汰最旧)。
 _FILE_BASE_CONTENT: dict[str, str] = {}
 _FILE_BASE_MAX = 256
+# AIS-082:read_file 单次读取上限,与写侧(write_file)的 10MB 门对齐。读侧此前
+# 无上限 → 整文件进内存并全量进 _FILE_BASE_CONTENT(最多 256 份),GB 级文件直接 OOM。
+_READ_FILE_MAX_BYTES = 10 * 1024 * 1024
 
 
 def _normalize_eol(text: str) -> str:
@@ -2549,6 +2552,21 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 "error": f"{resolved_path} 是一个目录,read_file 只能读取文件。请改用 search_codebase 探索目录结构。",
                 "errorCode": "IS_A_DIRECTORY",
             }
+        # AIS-082:读前先量大小(与写侧 10MB 门对齐),超限直接拒读,不进内存也不进 base 缓存
+        size = _os.path.getsize(resolved_path)
+        if size > _READ_FILE_MAX_BYTES:
+            return {
+                "tool": "read_file",
+                "path": resolved_path,
+                "content": "",
+                "size": size,
+                "ok": False,
+                "error": (
+                    f"文件 {size} 字节超过 read_file 单次上限 {_READ_FILE_MAX_BYTES} 字节;"
+                    "请改用 read_tool_output 分页读取或先缩小文件。"
+                ),
+                "errorCode": "FILE_TOO_LARGE",
+            }
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
         # 1-2:记录 base 版本(agent 视角),供 file_edit 3-way merge 判断并发修改
@@ -2818,113 +2836,114 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     resolved_path = info
 
     try:
-        presence, _st = _classify_existing_file(resolved_path)
-        if presence == "unread":
-            return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
-        if presence == "missing":
-            return _err("FILE_NOT_FOUND", "文件不存在")
-        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
-            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
-        with open(resolved_path, "rb") as f:
-            raw = f.read()
+        # AIS-083:读盘 → 匹配计数 → 3-way 合并 → 写回必须整体在同一把 per-path
+        # 锁内。锁只覆盖写回时,两个并发编辑会各自基于同一旧快照合并,后写者静默
+        # 覆盖先写者的改动。
+        async with get_path_write_lock(resolved_path):
+            presence, _st = _classify_existing_file(resolved_path)
+            if presence == "unread":
+                return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
+            if presence == "missing":
+                return _err("FILE_NOT_FOUND", "文件不存在")
+            if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+                return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+            with open(resolved_path, "rb") as f:
+                raw = f.read()
+
+            if b"\x00" in raw:
+                return _err("BINARY_FILE", "文件含 NUL 字节,判定为二进制文件")
+            try:
+                content = raw.decode("utf-8")
+            except UnicodeDecodeError as e:
+                return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+            count = content.count(old_string)
+            strategy = "direct"
+            if count == 0:
+                # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
+                # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
+                # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
+                # 由 resolve_conflict 工具按块决策(局部拒绝)。
+                base = _FILE_BASE_CONTENT.get(resolved_path)
+                if base is not None and old_string in base:
+                    # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并,
+                    # 避免 CRLF/LF 行尾差异导致整文件误判(合并结果写盘前按磁盘风格还原)
+                    current_lf = _normalize_eol(content)
+                    mr = merge3_for_edit(base, current_lf, old_string, new_string, replace_all=replace_all)
+                    if mr.clean:
+                        new_content = _restore_eol(mr.merged, content)
+                        strategy = "auto_merged_3way"
+                        replaced_count = base.count(old_string) if replace_all else 1
+                    else:
+                        return _err(
+                            "CONFLICT",
+                            (
+                                f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
+                                f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
+                                f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
+                                f"file_path/old_string/new_string 与 choices 数组"
+                                f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
+                            ),
+                            conflict_count=mr.conflict_count(),
+                            strategy="3way_merge",
+                        )
+                else:
+                    return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
+            elif not replace_all and count >= 2:
+                return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
+            elif replace_all:
+                new_content = content.replace(old_string, new_string)
+                replaced_count = count
+            else:
+                new_content = content.replace(old_string, new_string, 1)
+                replaced_count = 1
+
+            backup_path = resolved_path + ".bak"
+            # B 格编辑前脏判定(2026-10-31 接线):默认只在返回体点名(fresh/stale/never_read/
+            # undetermined 四档不并桶);显式严格档 ∧ stale 才拒写。判定层故障 ⇒ 不拦(§0.10)。
+            try:
+                read_state: Mapping[str, Any] | None = judge_read_state(
+                    arguments.get("__session_id"), resolved_path, arguments=arguments
+                )
+            except Exception:  # noqa: BLE001 - 判定层故障不得让编辑失败
+                read_state = None
+            try:
+                from .ai_code_attribution_store import note_measured_external_edit
+
+                note_measured_external_edit(resolved_path, arguments, read_state)
+            except Exception as exc:  # noqa: BLE001 - 人手改动记账失败不得拦编辑
+                import logging
+
+                logging.getLogger(__name__).warning("外部改动检查点没记下(不拦编辑): %s", exc)
+            if read_state is not None and read_state.get("blocking"):
+                return _err(
+                    "STALE_READ_CONFIRMATION_REQUIRED",
+                    str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),
+                    readState=read_state_field(read_state),
+                )
+            _note_ai_before("file_edit", resolved_path, old_string or "file_edit", arguments)
+            try:
+                with open(backup_path, "wb") as bf:
+                    bf.write(raw)
+                with open(resolved_path, "wb") as wf:
+                    wf.write(new_content.encode("utf-8"))
+            except OSError as e:
+                # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
+                try:
+                    with open(resolved_path, "wb") as rf:
+                        rf.write(raw)
+                except OSError:
+                    pass
+                with contextlib.suppress(OSError):
+                    os.remove(backup_path)
+                return _err("IO_ERROR", str(e))
+
+            diff = list(difflib.unified_diff(content.splitlines(keepends=True),
+                        new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+            # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
+            _record_file_base(resolved_path, new_content)
     except OSError as e:
         return _err("IO_ERROR", str(e))
-
-    if b"\x00" in raw:
-        return _err("BINARY_FILE", "文件含 NUL 字节,判定为二进制文件")
-    try:
-        content = raw.decode("utf-8")
-    except UnicodeDecodeError as e:
-        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
-
-    count = content.count(old_string)
-    strategy = "direct"
-    if count == 0:
-        # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
-        # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
-        # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
-        # 由 resolve_conflict 工具按块决策(局部拒绝)。
-        base = _FILE_BASE_CONTENT.get(resolved_path)
-        if base is not None and old_string in base:
-            # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并,
-            # 避免 CRLF/LF 行尾差异导致整文件误判(合并结果写盘前按磁盘风格还原)
-            current_lf = _normalize_eol(content)
-            mr = merge3_for_edit(base, current_lf, old_string, new_string, replace_all=replace_all)
-            if mr.clean:
-                new_content = _restore_eol(mr.merged, content)
-                strategy = "auto_merged_3way"
-                replaced_count = base.count(old_string) if replace_all else 1
-            else:
-                return _err(
-                    "CONFLICT",
-                    (
-                        f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
-                        f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
-                        f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
-                        f"file_path/old_string/new_string 与 choices 数组"
-                        f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
-                    ),
-                    conflict_count=mr.conflict_count(),
-                    strategy="3way_merge",
-                )
-        else:
-            return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
-    elif not replace_all and count >= 2:
-        return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
-    elif replace_all:
-        new_content = content.replace(old_string, new_string)
-        replaced_count = count
-    else:
-        new_content = content.replace(old_string, new_string, 1)
-        replaced_count = 1
-
-    backup_path = resolved_path + ".bak"
-    # 票78 串行化:写回段持 per-path 锁(读段在锁外,3-way base 检测兜底并发;
-    # 写段与 base 刷新入锁,与 write_file/resolve_conflict 的写段互斥,缩小竞态窗口)
-    async with get_path_write_lock(resolved_path):
-        # B 格编辑前脏判定(2026-10-31 接线):默认只在返回体点名(fresh/stale/never_read/
-        # undetermined 四档不并桶);显式严格档 ∧ stale 才拒写。判定层故障 ⇒ 不拦(§0.10)。
-        try:
-            read_state: Mapping[str, Any] | None = judge_read_state(
-                arguments.get("__session_id"), resolved_path, arguments=arguments
-            )
-        except Exception:  # noqa: BLE001 - 判定层故障不得让编辑失败
-            read_state = None
-        try:
-            from .ai_code_attribution_store import note_measured_external_edit
-
-            note_measured_external_edit(resolved_path, arguments, read_state)
-        except Exception as exc:  # noqa: BLE001 - 人手改动记账失败不得拦编辑
-            import logging
-
-            logging.getLogger(__name__).warning("外部改动检查点没记下(不拦编辑): %s", exc)
-        if read_state is not None and read_state.get("blocking"):
-            return _err(
-                "STALE_READ_CONFIRMATION_REQUIRED",
-                str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),
-                readState=read_state_field(read_state),
-            )
-        _note_ai_before("file_edit", resolved_path, old_string or "file_edit", arguments)
-        try:
-            with open(backup_path, "wb") as bf:
-                bf.write(raw)
-            with open(resolved_path, "wb") as wf:
-                wf.write(new_content.encode("utf-8"))
-        except OSError as e:
-            # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
-            try:
-                with open(resolved_path, "wb") as rf:
-                    rf.write(raw)
-            except OSError:
-                pass
-            with contextlib.suppress(OSError):
-                os.remove(backup_path)
-            return _err("IO_ERROR", str(e))
-
-        diff = list(difflib.unified_diff(content.splitlines(keepends=True),
-                    new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
-        # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
-        _record_file_base(resolved_path, new_content)
     _note_ai_edit("file_edit", resolved_path, "".join(diff[:20]), arguments)
     result_payload: dict[str, Any] = {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
@@ -3978,6 +3997,31 @@ def _first_shell_metacharacter(command: str) -> str | None:
     return None
 
 
+async def _terminate_process_tree(proc: Any) -> None:
+    """终止命令进程及其子进程树(AIS-056)。
+
+    Windows 下命令经 ``cmd /c`` 承载,``proc.kill()`` 只结束 cmd.exe,它拉起的
+    编译/测试/服务子进程会继续跑并占端口。统一先 ``taskkill /F /T /PID``,
+    taskkill 自身不可用时才回退单进程 kill;POSIX 维持原 kill 语义。
+    """
+    pid = getattr(proc, "pid", None)
+    if sys.platform == "win32" and pid is not None:
+        try:
+            killer = await asyncio.create_subprocess_exec(
+                "taskkill", "/F", "/T", "/PID", str(pid),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await killer.wait()
+            return
+        except Exception:
+            logger.warning(
+                "[mcp_server] taskkill /T 失败,回退单进程 kill: pid=%s", pid,
+                exc_info=True,
+            )
+    with contextlib.suppress(ProcessLookupError, OSError):
+        proc.kill()
+
 
 async def _tool_run_command(
     arguments: dict[str, Any], cancel: asyncio.Event | None = None
@@ -4243,7 +4287,10 @@ async def _tool_run_command(
     _ALLOWED_PREFIXES: set[str] = set(_policy.get("allowed_prefixes") or [])
     first_token = command.split()[0] if command.split() else ""
     cmd_name = first_token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
-    if cmd_name not in _ALLOWED_PREFIXES:
+    # Windows 可执行文件常带 .exe 后缀(sys.executable 就是 python.exe),而白名单
+    # 按无后缀名登记;判定前归一,避免把合法解释器/工具整类误挡。
+    cmd_lookup = cmd_name[:-4] if cmd_name.endswith(".exe") else cmd_name
+    if cmd_lookup not in _ALLOWED_PREFIXES:
         return {
             "tool": "run_command", "command": command,
             "exit_code": -1, "stdout": "", "stderr": "",
@@ -4316,8 +4363,7 @@ async def _tool_run_command(
 
             async def _kill_on_cancel() -> None:
                 await cancel_event.wait()
-                with contextlib.suppress(ProcessLookupError, OSError):
-                    proc.kill()
+                await _terminate_process_tree(proc)
 
             _killer = asyncio.create_task(_kill_on_cancel())
 
@@ -4353,6 +4399,7 @@ async def _tool_run_command(
             _watcher = asyncio.ensure_future(
                 _watch_terminal_input(proc, _activity, _inter_state, _terminal_id, _term_ctx, command)
             )
+        timed_out = False
         try:
             try:
                 timed_out = await _drain_with_input_grace(drain, float(timeout), _inter_state)
@@ -4360,8 +4407,10 @@ async def _tool_run_command(
                     await proc.wait()
             except TimeoutError:
                 timed_out = True
-                with contextlib.suppress(ProcessLookupError):
-                    proc.kill()
+            if timed_out:
+                # 超时既可能是 wait_for 抛错,也可能是 _drain_with_input_grace 返回 True;
+                # 两条都必须回收进程树,否则 cmd.exe 的子进程会继续跑(AIS-056)。
+                await _terminate_process_tree(proc)
                 # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
                 drain.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -4448,8 +4497,8 @@ async def _tool_run_command(
         if _killer is not None:
             _killer.cancel()
         if proc is not None:
-            with contextlib.suppress(ProcessLookupError, OSError):
-                proc.kill()
+            # 已处于取消态:等待会被再次打断,交给独立 task 发 taskkill 进程树。
+            asyncio.create_task(_terminate_process_tree(proc))
         raise
     except Exception as e:
         return {
@@ -4472,9 +4521,10 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     if not query:
         return {
             "tool": "web_search",
-            "ok": True,
+            "ok": False,
             "query": query,
             "results": [],
+            "errorCode": "MISSING_PARAMS",
             "message": "搜索关键词为空",
         }
 
@@ -4484,16 +4534,22 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
         "max_results": max_results,
     })
 
-    # 转换字段名(tool → web_search,保留 results)
-    return {
+    # 转换字段名(tool → web_search,保留 results);AIS-054:失败态必须透传,
+    # 不能把检索故障包装成"成功但无结果"。
+    ok = bool(sub_result.get("ok", True))
+    payload: dict[str, Any] = {
         "tool": "web_search",
-        "ok": True,
+        "ok": ok,
         "query": query,
         "max_results": max_results,
         "results": sub_result.get("results", []),
         "total": sub_result.get("total", 0),
         "message": sub_result.get("message", ""),
     }
+    if not ok:
+        payload["error"] = sub_result.get("error") or sub_result.get("message") or "搜索失败"
+        payload["errorCode"] = sub_result.get("errorCode") or "SEARCH_FAILED"
+    return payload
 
 
 async def _tool_image_search(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -5802,6 +5858,23 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
                 "rows": [],
                 "ok": False,
                 "message": f"SQL 含禁止关键词: {kw}",
+            }
+
+    # AIS-085:READ ONLY 事务只挡写,挡不住"读 DB 主机文件"的内置函数
+    # (`SELECT pg_read_file('/etc/passwd')` 是合法只读查询)。补函数名黑名单,
+    # 词边界避免误杀 `pg_read_file_audit` 这类标识符;在连库之前拒绝。
+    _FORBIDDEN_FUNCTIONS = [
+        "PG_READ_FILE", "PG_READ_BINARY_FILE", "PG_LS_DIR", "LO_IMPORT",
+    ]
+    for fn in _FORBIDDEN_FUNCTIONS:
+        if re.search(r"\b" + fn + r"\b", sql_upper):
+            return {
+                "tool": "db_query",
+                "sql": sql,
+                "rows": [],
+                "ok": False,
+                "errorCode": "SQL_FORBIDDEN_FUNCTION",
+                "message": f"SQL 含禁止函数: {fn}(不允许读取数据库主机文件)",
             }
 
     # 检查 database_url 配置
@@ -15467,9 +15540,23 @@ class MCPServer:
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
             return _truncate_tool_output(result, tool_name=name, session_id=session_id)
         except TimeoutError:
-            return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
+            logger.warning(
+                "[mcp] 工具执行超时: tool=%s timeout=%ss", name, MCP_GLOBAL_TIMEOUT
+            )
+            return {
+                "ok": False,
+                "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)",
+                "errorCode": "TIMEOUT",
+            }
         except Exception as e:
-            return {"ok": False, "error": f"工具 {name} 执行失败: {e}"}
+            # AIS-057:原始异常只入日志,回执按 handler 契约给 errorCode 并脱敏,
+            # 避免内部路径/配置经 error 文本回灌模型或前端。
+            logger.warning("[mcp] 工具执行失败: tool=%s", name, exc_info=True)
+            return {
+                "ok": False,
+                "error": f"工具 {name} 执行失败(内部错误)",
+                "errorCode": "TOOL_FAILED",
+            }
 
     def list_resources(self) -> list[MCPResource]:
         """列出全部资源。"""
