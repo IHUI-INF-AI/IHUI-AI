@@ -10,7 +10,7 @@
  *
  * 这里的契约是"不可采样就显式不可用",绝不返回伪造的 0:
  * - available=true  → inUse/checkedOut 来自真实内部状态;
- * - available=false → 调用方必须上报 `db_pool_metrics_available 0` 且 usage 为 NaN。
+ * - available=false → 调用方必须上报 `db_pool_metrics_available 0`,且 usage 三条序列不输出。
  *
  * 不采用 reserve() 探测:为测量 in_use 需同时占满 max 个连接,会在生产上
  * 短暂耗尽连接池并与真实查询互相阻塞,代价远高于"显式不可用"。
@@ -51,7 +51,7 @@ export type PoolMetricSink = (opts: {
 
 /**
  * 把一次采样写入 metrics。
- * 可采样 → 真实四元组;不可采样 → only available=false + size(usage 由 metrics 侧落 NaN)。
+ * 可采样 → 真实四元组;不可采样 → only available=false + size(usage 由 metrics 侧省略)。
  */
 export function reportPoolMetricsToSink(
   setMetrics: PoolMetricSink,
@@ -67,7 +67,7 @@ export function reportPoolMetricsToSink(
       overflow: sample.overflow,
     })
   } else {
-    // max 仍可读(options.max);usage 三项由 metrics 侧显式落 NaN
+    // max 仍可读(options.max);usage 三项由 metrics 侧省略(不输出 NaN)
     setMetrics({ available: false, size: sample.size })
   }
   return sample
