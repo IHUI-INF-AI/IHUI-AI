@@ -59,6 +59,9 @@
 | 17B | EXT-04 | apps/extension/entrypoints/sidepanel/components/AgentRuntimePanel.tsx:404-427 | P2 | 已修 fix/web-findings-1108（同型根因自查：IME 组合态 Enter 误提交；接共享 shouldSubmitOnEnter 三条腿 + 收尾闩锁，普通 Enter 回归） |
 | 18B | EXT-05 | apps/extension/lib/token-gate.ts + entrypoints/background.ts:509-526 | P2 | 已修 fix/web-findings-1108（同型根因自查：token.get/token.refresh 对内容脚本开放，凭据作用域收至顶层上下文） |
 | 19B | EXT-06 | apps/extension/lib/storage-access.ts + entrypoints/background.ts + content.ts + lib/message-router.ts | P2 | 已修 fix/web-findings-1108（同型根因自查：长期 refreshToken 明文存 storage.local 且默认对内容脚本可读；local 收紧 TRUSTED_CONTEXTS，locale 改走 locale.get；未采用伪加密，理由见 storage-access.ts 头注） |
+| 20B | S-07 | apps/web/src/lib/checkout-plan-levels.ts + app/(main)/payment/checkout/PageClient.tsx | P1 | 已修 fix/web-findings-1108（同型根因自查·复核未判定①：plan id 被当 vipLevelId 传，默认 uuid schema 下下单必 404；改服务端 /vip/levels 解析档位 + order.amount 校准展示） |
+| 21B | S-08 | apps/web/src/hooks/use-agent-runtime.ts:391-409 | P3 | 已修 fix/web-findings-1108（同型根因自查·复核未判定②：切换 agentId 残留 tokenStream/toolCallChain/healEvents/streamError；cleanup 补齐四项重置） |
+| 22B | S-09 | apps/web/src/lib/embed-message-trust.ts + components/work-panel/web-work-panel.tsx | P3 | 已修 fix/web-findings-1108（同型根因自查·复核未判定③：postMessage 无来源校验；加 e.source===iframe.contentWindow 闸，非白名单来源零副作用，url 仅 http(s)） |
 | 1C | F-001 | apps/cli/src/tools/run-tests.ts:149 | P0 | 入册 |
 | 2C | F-045 | apps/desktop/src-tauri/capabilities/default.json:31 | P0 | 入册 |
 | 3C | F-002 | apps/cli/src/index.ts:1408 | P1 | 入册 |
