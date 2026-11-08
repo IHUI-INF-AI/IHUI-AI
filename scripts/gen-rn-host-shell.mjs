@@ -43,7 +43,7 @@
  * 落库由收编侧按「账本在册 ∧ blob 相符 ∧ 超静默期」处理;只读档(--list/--check/预演)零登记。
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -320,6 +320,42 @@ export function drifted(
   return out
 }
 
+/**
+ * 孤儿生成物对账:不依赖登记表,直接扫 RN 屏目录里带本器标记的文件。
+ *
+ * 起因:自动分支上的 Finance/Following/HelpDetail 三枚空 props 壳既不在登记表里,所指向的
+ * 共享屏又早已被判 not-applicable(RN 路由删除),旧的 R3 只看登记表 ⇒ 永远扫不到它们。
+ * 这里从生成物自身的 `--screen=` 溯源行反查共享屏,契约不可复现即判陈旧。
+ */
+export function staleShells(
+  listShells = () => readdirSync(R(RN_DIR)).filter((f) => f.endsWith('.tsx')),
+  readShell = (name) => readFileSync(R(RN_DIR, name), 'utf8'),
+  classifyFn = classify,
+) {
+  const out = []
+  for (const name of listShells()) {
+    const text = readShell(name)
+    if (!text.includes(MARK)) continue
+    const rn = `${RN_DIR}/${name}`
+    const m = text.match(/--screen=(packages\/app\/src\/features\/[^\s'"]+)/)
+    if (!m) {
+      out.push({ rn, why: '缺 --screen 溯源行,无法复现' })
+      continue
+    }
+    const shared = m[1]
+    const c = classifyFn(shared)
+    if (c.kind === 'undetermined') continue
+    const why =
+      c.kind !== 'seedable'
+        ? `屏已 ${c.kind}(缺腿 ${c.hard.join(', ') || '无'}),生成物不再可复现`
+        : text === buildShell(shared, c.legs)
+          ? null
+          : '生成后被手改'
+    if (why) out.push({ rn, shared, why })
+  }
+  return out
+}
+
 function listAll(registry) {
   const specs = git(['ls-files', 'packages/app/src/features/**/*Screen.tsx'])
     .trim()
@@ -343,12 +379,14 @@ function main() {
       process.exit(2)
     }
     const broken = brokenLinks(registry)
-    const drift = drifted(registry)
+    const seen = new Set()
+    const drift = [...drifted(registry), ...staleShells()].filter((d) => !seen.has(d.rn) && seen.add(d.rn))
     console.log(
       `[gen-rn-host-shell --check] 登记表 ${registry.length} 条 · R1 断链 ${broken.length} · R3 生成物漂移 ${drift.length}`,
     )
     for (const b of broken) console.log('  R1 断链:', b)
-    for (const d of drift) console.log('  R3 漂移:', d.rn, '←', d.shared, `(${d.why})`)
+    for (const d of drift)
+      console.log('  R3 漂移:', d.rn, d.shared ? `← ${d.shared}` : '', `(${d.why})`)
     process.exit(broken.length + drift.length > 0 ? 1 : 0)
   }
 
@@ -474,6 +512,7 @@ export const __test__ = {
   MARK,
   brokenLinks,
   drifted,
+  staleShells,
   // 写盘申报账本层(§22c:测试 import 生产出口,不复制判据)
   registerLandings,
   landedSkips,

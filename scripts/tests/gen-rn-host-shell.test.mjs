@@ -7,7 +7,7 @@ import { test } from 'node:test'
 
 import { SEEDABLE, __test__, buildShell } from '../gen-rn-host-shell.mjs'
 
-const { MARK, symbolOf, classify, drifted } = __test__
+const { MARK, symbolOf, classify, drifted, staleShells } = __test__
 
 const ABOUT = 'packages/app/src/features/about/AboutScreen.tsx'
 
@@ -106,6 +106,29 @@ test('R3 反面:可 seedable 且逐字节可复现的生成物不报漂移', () 
   const legs = ['t', 'colorScheme', 'onBack']
   const fresh = buildShell(ABOUT, legs)
   const out = drifted(registry, () => ({ kind: 'seedable', legs, hard: [] }), () => fresh)
+  assert.equal(out.length, 0)
+})
+
+test('孤儿生成物:不在登记表、带标记但契约已 not-applicable 的空壳也必须被点名', () => {
+  const stale = buildShell(ABOUT, []) // 旧版产出的空 props 壳,仍带 @gen-rn-host-shell 标记与 --screen 溯源行
+  const out = staleShells(
+    () => ['AboutScreen.tsx', 'PlainScreen.tsx'],
+    (name) => (name === 'AboutScreen.tsx' ? stale : 'export function PlainScreen() { return null }\n'),
+    () => ({ kind: 'needs-manual', legs: ['t'], hard: ['items', 'onRefresh'] }),
+  )
+  assert.equal(out.length, 1, '只有带标记的生成物参与对账')
+  assert.equal(out[0].rn, 'apps/mobile-rn/src/screens/AboutScreen.tsx')
+  assert.match(out[0].why, /needs-manual/)
+})
+
+test('孤儿生成物反面:可 seedable 且逐字节可复现的壳不报陈旧', () => {
+  const legs = ['t', 'colorScheme', 'onBack']
+  const fresh = buildShell(ABOUT, legs)
+  const out = staleShells(
+    () => ['AboutScreen.tsx'],
+    () => fresh,
+    () => ({ kind: 'seedable', legs, hard: [] }),
+  )
   assert.equal(out.length, 0)
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
