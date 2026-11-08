@@ -83,7 +83,7 @@
 | 34C | F-033 | apps/cli/src/checkpoints/index.ts:128-135 | P2 | 入册 |
 | 35C | F-036 | apps/cli/src/redact.ts:67 | P2 | 入册 |
 | 36C | F-037 | apps/cli/src/config/defaults.ts:60 | P2 | 入册 |
-| 37C | F-038 | apps/cli/src/hooks/index.ts:1923-1924 | P2 | 入册 |
+| 37C | F-038 | apps/cli/src/hooks/index.ts:1923-1924 | P2 | 坐实-排期：warn-only 属设计变更（hooks/index.ts:1967-1968 明写永不 proceed=false）；调用点丢 additionalContext（tools/index.ts:1852）属文案/体验，排在其后 |
 | 38C | F-040 | —（报告未给行号，见正文） | P2 | 入册 |
 | 39C | F-041 | scripts/desktop-artifact-single.mjs:126 | P2 | 入册 |
 | 40C | F-048 | apps/desktop/src-tauri/src/desktop_prefs.rs:211-215 | P2 | 入册 |
@@ -98,7 +98,7 @@
 | 49C | F-061 | apps/desktop/src-tauri/capabilities/local-fs-io.json:6-13 | P2 | 入册 |
 | 50C | F-017 | apps/cli/src/index.ts:1072 | P3 | 入册 |
 | 51C | F-018 | apps/cli/src/index.ts:203 | P3 | 入册 |
-| 52C | F-034 | apps/cli/src/sessions/state-store.ts:164-172 | P3 | 入册 |
+| 52C | F-034 | apps/cli/src/sessions/state-store.ts:164-172 | P3 | 坐实-排期：saveSession 仅 updatedAt 单调（:162-173），其余列整份覆写；CAS 令牌是 updatedAt 字符串（:202），同毫秒双写均过 |
 | 53C | F-035 | apps/cli/src/updater.ts:174-190 | P3 | 入册 |
 | 54C | F-039 | apps/cli/src/audit.ts:90 | P3 | 入册 |
 | 55C | F-042 | scripts/desktop-build.mjs:64 | P3 | 入册 |
@@ -125,10 +125,10 @@
 | 76C | F-068 | apps/cli/src/index.ts:536-568 | P2 | 入册 |
 | 77C | F-071 | apps/cli/src/plugins/update-plan.ts:307-312 | P2 | 入册 |
 | 78C | F-076 | apps/cli/src/sandbox/egress/dns-adjudicator.ts:66-96 | P2 | 入册 |
-| 79C | F-077 | apps/cli/src/sandbox/egress/dns-adjudicator.ts:176-210 | P2 | 入册 |
+| 79C | F-077 | apps/cli/src/sandbox/egress/dns-adjudicator.ts:176-210 | P2 | 坐实-排期：默认 addressProof!==true 即放行（:164），:193 只判不存；需 DNS pinning/代理层，非单点可修 |
 | 80C | F-078 | apps/cli/src/sandbox/egress/audit-ledger.ts:105-171 | P2 | 入册 |
 | 81C | F-079 | apps/cli/src/tools/command-policy/tokenizer.ts:183-240 | P2 | 入册 |
-| 82C | F-081 | apps/desktop/src-tauri/src/lib.rs:1483-1531 | P2 | 入册 |
+| 82C | F-081 | apps/desktop/src-tauri/src/lib.rs:1483-1531 | P2 | 坐实-未判定：末段悬空链接走「创建场景」词法拼回（:1483 exists 跟随链接），三处 canonicalize 失败 fail-open（:1484/:1487/:1515/:1522）；本机无 MSVC/SDK，cargo 无法链接，夹具未跑，不计入已修 |
 | 83C | F-082 | apps/desktop/src-tauri/src/lib.rs:2463-2495 | P2 | 入册 |
 | 84C | F-083 | apps/desktop/src-tauri/src/lib.rs:1957-1994 | P2 | 入册 |
 | 85C | F-089 | apps/cli/src/commands/repl.ts:554 | P2 | 入册 |
@@ -232,7 +232,7 @@
 | 1E | AIS-001 | app/routers/llm.py:6868-6964 | P1 | 入册 |
 | 2E | AIS-002 | app/core/llm_gateway.py:3526-3605 | P1 | 入册 |
 | 3E | AIS-003 | app/providers/openrouter_provider.py:82-108 | P2 | 入册 |
-| 4E | AIS-004 | app/routers/llm.py:6854 | P2 | 入册 |
+| 4E | AIS-004 | app/routers/llm.py:6854 | P2 | 坐实-排期：单 async for 无 keepalive ticker，常量只服务审批/表单/队列（:834/:1395/:472）；需与取消作用域同改 |
 | 5E | AIS-005 | app/routers/agents.py:1748 | P1 | 入册 |
 | 6E | AIS-006 | app/routers/llm.py:7117-7240 | P3 | 入册 |
 | 7E | AIS-007 | app/routers/llm.py:7015-7027 | P2 | 入册 |
@@ -247,7 +247,7 @@
 | 16E | AIS-016 | app/core/context_compaction.py:240-260 | P2 | 入册 |
 | 17E | AIS-017 | app/services/context_engine.py:1541-1567 | P2 | 入册 |
 | 18E | AIS-018 | app/services/vector_memory.py:38 | P2 | 入册 |
-| 19E | AIS-019 | app/services/context_recall.py:145-159 | P2 | 入册 |
+| 19E | AIS-019 | app/services/context_recall.py:145-159 | P2 | 已修 e12f8a9550：否（需改查询接口）被证伪——vector_memory.py:494-509 早已支持 user_id；改为属主下推 search_chunks 在 LIMIT 前收窄，夹具 3 条旧红 |
 | 20E | AIS-020 | app/services/agent_engine.py:4470-4540 | P2 | 入册 |
 | 21E | AIS-021 | app/services/publish/metrics_collector.py:299 | P1 | 入册 |
 | 22E | AIS-022 | app/services/agent_run_control.py:570-600 | P1 | 入册 |
@@ -260,7 +260,7 @@
 | 29E | AIS-029 | app/services/browser_hub.py:1183 | P2 | 入册 |
 | 30E | AIS-030 | app/services/self_media_scheduler.py:97-104 | P3 | 入册 |
 | 31E | AIS-031 | app/services/mcp_server.py:10468-10473 | P0 | 入册 |
-| 32E | AIS-032 | app/services/conversation.py:456-468 | P1 | 入册 |
+| 32E | AIS-032 | app/services/conversation.py:456-468 | P1 | 销号（已修）：chat.py:56-58 取 JWT 主体传 user_id，conversation.py:459-466 仅旧调用方降级；匿名回落受 jwt_auth.py:243-255,291-338 双条件门控（AI_DEV_NO_AUTH=1 且 JWT_SECRET 空），生产不可达 |
 | 33E | AIS-033 | app/api/v1/rag.py:59-70 | P1 | 入册 |
 | 34E | AIS-034 | app/api/v1/knowledge_graph.py:49 | P1 | 入册 |
 | 35E | AIS-035 | app/routers/computer_use.py:567 | P2 | 入册 |
@@ -274,14 +274,14 @@
 | 43E | AIS-043 | app/routers/sso.py:74-90 | P2 | 入册 |
 | 44E | AIS-044 | app/routers/timeline.py:28-49 | P3 | 入册 |
 | 45E | AIS-045 | app/routers/checkin.py:499-527 | P2 | 入册 |
-| 46E | AIS-046 | app/routers/audit.py:40 | P2 | 入册 |
-| 47E | AIS-047 | app/middleware/audit.py:49-59 | P2 | 入册 |
+| 46E | AIS-046 | app/routers/audit.py:40 | P2 | 部分-已修 21bd5a2df1：成功码 main.py code:200→0（夹具旧红）；待办：双数据源（audit_service vs audit_log_store）合并属决策，未混入 |
+| 47E | AIS-047 | app/middleware/audit.py:49-59 | P2 | 部分-已修 21bd5a2df1：中间件传 request.state.user_id（夹具旧红）；待办：audit_logs INSERT 无 user_id 列，需迁移 |
 | 48E | AIS-048 | app/routers/hooks.py:230-231 | P2 | 入册 |
 | 49E | AIS-049 | app/routers/self_media.py:250-279 | P3 | 入册 |
 | 50E | AIS-050 | app/services/mcp_server.py:8918-8999 | P1 | 入册 |
 | 51E | AIS-051 | app/services/mcp_server.py:5836-5910 | P1 | 入册 |
 | 52E | AIS-052 | app/services/mcp_server.py:11233-11255 | P0 | 入册 |
-| 53E | AIS-053 | app/services/mcp_client.py:683-687 | P2 | 入册 |
+| 53E | AIS-053 | app/services/mcp_client.py:683-687 | P2 | 坐实-排期：routers/mcp.py:557-570 明写撤销角色闸，普通用户可注册远程 MCP；mcp_client.py:681-691 刻意不套 SSRF；需归属+落点策略 |
 | 54E | AIS-054 | app/services/mcp_server.py:4296-4329 | P2 | 入册 |
 | 55E | AIS-055 | app/services/background_tasks.py:241-249 | P2 | 入册 |
 | 56E | AIS-056 | app/services/mcp_server.py:4126-4136 | P2 | 入册 |
