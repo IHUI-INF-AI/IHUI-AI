@@ -351,8 +351,8 @@ describe('代码生成器路由', () => {
       expect(res.statusCode).toBe(200)
       const { data } = res.json()
       expect(data.total).toBe(1)
-      expect(data.items).toHaveLength(1)
-      expect(data.items[0].tableName).toBe('sys_user')
+      expect(data.list).toHaveLength(1)
+      expect(data.list[0].tableName).toBe('sys_user')
     })
   })
 

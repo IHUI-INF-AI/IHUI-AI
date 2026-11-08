@@ -87,7 +87,7 @@ describe('BaseClient 请求体拼装', () => {
     expect(headers['X-Api-Secret']).toBeUndefined()
   })
 
-  it('空响应体返回 null(实现显式判空,不再 undefined as T)', async () => {
+  it('空响应体返回 null(2xx 空体显式 null,不再 undefined as T)', async () => {
     const { fetchFn } = makeFetch([{ body: null }])
     const client = makeClient({ baseUrl: 'http://test.local', fetch: fetchFn })
     await expect(client.request('DELETE', '/user/models/m1')).resolves.toBeNull()

@@ -54,6 +54,7 @@ function SearchContent() {
   const locale = useLocale()
   const t = useTranslations('knowledgeBase.search')
   const tKb = useTranslations('knowledgeBase')
+  const tCommon = useTranslations('common')
   const tGate = useTranslations('chatHistory')
   const { allow } = useAuthGate()
   const q = searchParams.get('q') ?? ''
@@ -69,7 +70,7 @@ function SearchContent() {
         q,
         category !== 'all' ? { categoryId: category, pageSize: 50 } : { pageSize: 50 },
       )
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tCommon('loadFailed'))
       return res.data
     },
     enabled: allow && q.trim().length > 0,

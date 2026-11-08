@@ -28,6 +28,8 @@ interface Row {
 const read = (p: string) => readFileSync(resolve(__dirname, p), 'utf8')
 
 const SHARED = '../../../packages/app/src/features/chat/ConversationHistoryScreen.tsx'
+// 2026-11-06 排序实现上移到 shared/chat/conversation-org(共享屏只 re-export),结构锁随之量真身。
+const ORG = '../../../packages/shared/src/chat/conversation-org.ts'
 const PAGE = '../src/pkg-ai/ai/history.tsx'
 
 /** 薄壳前的页面表达式(逐字保留在测试里,作为等价基准) */
@@ -76,8 +78,8 @@ describe('A2 共享屏 props 驱动的阴性对照(结构锁)', () => {
     expect(read(SHARED).match(/styles\.groupLabel\}/g) ?? []).toHaveLength(1)
   })
 
-  it('排序出口只有共享屏一处,页面 0 处', () => {
-    expect(read(SHARED).match(/\.sort\(/g) ?? []).toHaveLength(1)
+  it('排序出口只有共享层一处,页面 0 处', () => {
+    expect(read(ORG).match(/itemTimestamp\(b\) - itemTimestamp\(a\)/g) ?? []).toHaveLength(1)
     expect(read(PAGE).match(/\.sort\(/g) ?? []).toHaveLength(0)
   })
 })

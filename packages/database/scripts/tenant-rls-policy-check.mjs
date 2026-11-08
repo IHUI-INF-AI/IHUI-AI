@@ -30,20 +30,20 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const PKG_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 /**
- * 同一批策略的**两枚**迁移,必须同时在场且正文一致:
- *   1) batch1 —— 2026-09-26 的原件,`when`=2026-09-27。保留它是为了不改写历史账本
+ * 同一批策略的**唯一**在册迁移:
+ *   batch1 —— 2026-09-26 的原件,`when`=2026-09-27。保留它是为了不改写历史账本
  *      (journal 的 when 必须恒升序);空库全链重放时它先装一遍。
- *   2) install —— F-01 的装车件,`when`=2026-11-05。晚于任何已应用账本 ⇒
- *      drizzle-kit migrate 下一次一定会跑它;正文是幂等的,对已装环境只是重刷。
- *
- * 只留 batch1 = 生产 lateGap 永远装不上;只留 install = 空库重放会丢掉 9/26 那一步的
- * 历史顺序(以及任何按 idx 定格的测试)。所以两枚都在,且正文必须逐字节等价。
+ *   install(2026-11-05)曾作为 F-01 装车件存在,但未登记 journal、正文与原件逐字节相同,
+ *   2026-11-07 已按重复孤儿整体删除(be99b07cfe);判据随之只对账这一枚。
  */
 const LEGACY_MIGRATION_TAG = '20260927100000_tenant_rls_policies_batch1'
-const MIGRATION_TAG = '20261105120000_tenant_rls_policies_batch1_install'
-const MIGRATION_TAGS = Object.freeze([LEGACY_MIGRATION_TAG, MIGRATION_TAG])
+// 2026-11-07 be99b07cfe:装车件 20261105120000_..._install.sql 与 rollback 同名 down.sql
+// 未登记 journal、正文与在册 20260927100000 逐字节相同(纯冗余孤儿),已整体删除。
+// 现存唯一真相是原件;继续钉装车件会把判据自己钉死(文件不存在 ⇒ 整个套件 readFileSync 红)。
+const MIGRATION_TAG = LEGACY_MIGRATION_TAG
+const MIGRATION_TAGS = Object.freeze([MIGRATION_TAG])
 const MIGRATION_PATH = resolve(PKG_DIR, 'drizzle', `${MIGRATION_TAG}.sql`)
-const LEGACY_MIGRATION_PATH = resolve(PKG_DIR, 'drizzle', `${LEGACY_MIGRATION_TAG}.sql`)
+const LEGACY_MIGRATION_PATH = MIGRATION_PATH
 const JOURNAL_PATH = resolve(PKG_DIR, 'drizzle', 'meta', '_journal.json')
 
 /**
@@ -281,8 +281,9 @@ export function checkTenantRlsMigration(migrationSql, journalJson) {
       if (whens.some((w, i) => i > 0 && !(w > whens[i - 1]))) {
         problems.push('_journal.json 的 when 不是严格递增:空库全链重放的顺序失去意义')
       }
-      if (!entries.every((e, i) => Number(e.idx) === i + 1)) {
-        problems.push('_journal.json 的 idx 与数组位置不一一对应')
+      // 2026-11 journal 重排为 0-based(first idx=0);旧判据 i+1 会把整本台账判成错位。
+      if (!entries.every((e, i) => Number(e.idx) === i)) {
+        problems.push('_journal.json 的 idx 与数组位置不一一对应(idx 应为 0-based)')
       }
     }
   }

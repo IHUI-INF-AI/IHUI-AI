@@ -4,16 +4,10 @@
 
 /**
  * Worktree 创建/账面/状态腿(goal-b49/Z30 自 worktree.ts 拆出,零行为变更)。
- *
- * 分层:本档只做「对某源仓库下 agent worktree 的创建与账面读写」——
- *   - `ensureWorktreeGitignore` / `createAgentWorktree` —— 创建腿(目录 + 分支 + .gitignore 登记)
- *   - `listAgentWorktrees` / `findAgentWorktree` —— 账面(git worktree list --porcelain 解析)
- *   - `pruneWorktrees` / `cleanupStaleWorktrees` —— 状态收敛(孤儿 worktree / 孤儿分支)
- *   - `diffWorktreeAgainstBase` —— 相对基线的改动输出
- * 判据与次序与拆分前**逐字一致**(§0.6 单一真相源:`WorktreeManager` 的对应方法是逐字转接,
- * 本层不留第二份实现,也不得 import 入口档以免成环)。
- * 删除腿不在本档:`WorktreeManager.remove()` 由既有用例的源码装车锁钉在入口,
- * 独立收尾腿住 `./worktree-cleanup.ts`。
+ * 本档只做「对某源仓库下 agent worktree 的创建与账面读写」:
+ * ensureWorktreeGitignore/createAgentWorktree(创建)、listAgentWorktrees/findAgentWorktree(账面)、
+ * pruneWorktrees/cleanupStaleWorktrees(状态收敛)、diffWorktreeAgainstBase(基线 diff)。
+ * 判据与次序与拆分前逐字一致(§0.6 单一真相源:WorktreeManager 方法逐字转接,本层不留第二份实现);删除腿不在本档,remove() 由源码装车锁钉在入口,收尾腿住 ./worktree-cleanup.ts。
  */
 
 import * as fs from 'node:fs';
