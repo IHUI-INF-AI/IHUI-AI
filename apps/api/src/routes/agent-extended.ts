@@ -352,8 +352,9 @@ const updateRuleSchema = z.object({
 })
 
 // P1 安全修复(2026-08-02):personality update body schema
-// F-133:人设直接作为下游 system prompt,限长避免超长注入体占满模型上下文/存储
-const personalityUpdateSchema = z.object({ personality: z.string().max(20_000) })
+// F-133:personality 是直接落进 prompt 的注入面,补 8000 字上限拒绝超大注入体
+// (只收紧上限,字段仍为原有可选/必填语义,不改变既有成功路径)。
+const personalityUpdateSchema = z.object({ personality: z.string().max(8000) })
 
 // F-133:raw SQL 取回的 user_id 可能是 null;统一收敛成 string|null 再比对
 const asOwnerId = (v: unknown): string | null => (typeof v === 'string' && v.length > 0 ? v : null)
@@ -1481,7 +1482,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '查询规则参数失败'))
     }
   })
-  server.post('/rule-params', async (req, reply) => {
+  server.post('/rule-params', { preHandler: requireAdmin }, async (req, reply) => {
     const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, '参数校验失败'))
@@ -1497,7 +1498,7 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(500).send(error(500, '创建规则参数失败'))
     }
   })
-  server.put('/rule-params/:id', async (req, reply) => {
+  server.put('/rule-params/:id', { preHandler: requireAdmin }, async (req, reply) => {
     const parsed = idParamSchema.safeParse(req.params)
     if (!parsed.success) return reply.status(400).send(error(400, '无效的 ID'))
     const bodyParsed = ruleParamCreateSchema.safeParse(req.body ?? {})
@@ -1737,7 +1738,14 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
       return reply.status(400).send(error(400, '参数校验失败'))
     }
     try {
-      const body = bodyParsed.data
+      // F-138 写归属(2026-11-08):developer_link 的 user_id/creator_id 一律取令牌主体。
+      // 同文件的 /upload、/need-task 也在插入前无条件覆盖 user_id(管理员侧同样按本人落库),
+      // 这里沿用同一口径;若采信 body,任意登录用户都能把绑定记录写到他人名下。
+      const body: Record<string, unknown> = {
+        ...bodyParsed.data,
+        user_id: req.userId,
+        creator_id: req.userId,
+      }
       const type = Number(body.type ?? 0)
       const count = Math.max(1, Number(body.count ?? 1))
       const now = new Date()
@@ -1803,15 +1811,17 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
     }
     const { personality } = bodyParsed.data
     try {
-      // F-133:人设直接决定下游所有调用方的 system prompt,必须「属主或管理员」才可写。
-      const [existing] = (await db.execute(
-        sql`SELECT "user_id" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
-      )) as Record<string, unknown>[]
-      if (!existing) return reply.status(404).send(error(404, '智能体不存在'))
-      const owner = asOwnerId(existing['user_id'])
+      // F-133 归属闸:与 GET 同口径 —— 非属主且非管理员一律 404,不暴露存在性。
+      const ownerRows = await db.execute(
+        sql`SELECT "agent_id", "user_id" FROM ${sql.raw('"agents"')} WHERE "agent_id"::text = ${agentId} LIMIT 1`,
+      )
+      const ownerRow = (ownerRows as Record<string, unknown>[])[0]
+      if (!ownerRow) return reply.status(404).send(error(404, '智能体不存在'))
+      const ownerId = ownerRow['user_id']
+      const isOwner = typeof ownerId === 'string' && ownerId === req.userId
       const isAdmin = isSystemAdmin(req, { includeInternalChannel: false })
-      if (owner !== req.userId && !isAdmin) {
-        return reply.status(403).send(error(403, '无权修改该智能体人设'))
+      if (!isOwner && !isAdmin) {
+        return reply.status(404).send(error(404, '智能体不存在'))
       }
       // 管理面放行任意属主;普通用户把归属条件同时下推到 UPDATE,避免检查与写入之间的竞态。
       const ownership = isAdmin ? sql`` : sql` AND "user_id"::text = ${req.userId!}`

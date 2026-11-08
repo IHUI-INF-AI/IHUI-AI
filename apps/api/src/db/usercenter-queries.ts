@@ -26,7 +26,40 @@ export interface FindUsersOpts {
   status?: number
 }
 
-export interface UserListItem extends User {
+/**
+ * 用户中心公开展示列(F-245):显式投影,永不 select passwordHash / twoFactorSecret /
+ * twoFactorBackupCodes(以及同表任何新增敏感列)。admin 接口据此直接下发,不再依赖
+ * "先查整行再删字段"的兜底剥壳。
+ */
+export const userCenterPublicFields = {
+  id: users.id,
+  phone: users.phone,
+  email: users.email,
+  username: users.username,
+  nickname: users.nickname,
+  avatar: users.avatar,
+  bio: users.bio,
+  gender: users.gender,
+  birthday: users.birthday,
+  familyId: users.familyId,
+  roleId: users.roleId,
+  deptId: users.deptId,
+  status: users.status,
+  isVip: users.isVip,
+  identityType: users.identityType,
+  level: users.level,
+  isSystemAdmin: users.isSystemAdmin,
+  inviteCode: users.inviteCode,
+  parentId: users.parentId,
+  createdAt: users.createdAt,
+  updatedAt: users.updatedAt,
+  twoFactorEnabled: users.twoFactorEnabled,
+  twoFactorEnabledAt: users.twoFactorEnabledAt,
+}
+
+export type UserCenterUser = Omit<User, 'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes'>
+
+export interface UserListItem extends UserCenterUser {
   departmentName: string | null
 }
 
@@ -44,7 +77,7 @@ export async function findUsers(
 
   const rows = await db
     .select({
-      user: users,
+      user: userCenterPublicFields,
       departmentName: departments.name,
     })
     .from(users)
@@ -66,6 +99,64 @@ export async function findUsers(
     .where(where)
   const total = countRows[0]?.count ?? 0
   return { list, total, page: opts.page, pageSize: opts.pageSize }
+}
+
+/** 按 ID 查用户中心公开视图(显式投影,不含任何密钥列)。 */
+export async function findUserByIdForUserCenter(id: string): Promise<UserCenterUser | undefined> {
+  const rows = await db.select(userCenterPublicFields).from(users).where(eq(users.id, id)).limit(1)
+  return rows[0]
+}
+
+/** 按手机号查用户中心公开视图(显式投影,不含任何密钥列)。 */
+export async function findUserByPhoneForUserCenter(
+  phone: string,
+): Promise<UserCenterUser | undefined> {
+  const rows = await db
+    .select(userCenterPublicFields)
+    .from(users)
+    .where(eq(users.phone, phone))
+    .limit(1)
+  return rows[0]
+}
+
+/** 更新用户资料并只回投影后的公开列(F-245:returning 也不再整行下发)。 */
+export async function updateUserForUserCenter(
+  id: string,
+  data: { nickname?: string; email?: string },
+): Promise<UserCenterUser | undefined> {
+  const rows = await db
+    .update(users)
+    .set({
+      ...(data.nickname !== undefined && { nickname: data.nickname }),
+      ...(data.email !== undefined && { email: data.email }),
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, id))
+    .returning(userCenterPublicFields)
+  return rows[0]
+}
+
+/** 创建用户并只回投影后的公开列(F-245:创建响应同样不得带密钥列)。 */
+export async function createUserForUserCenter(data: {
+  phone: string
+  nickname?: string
+  passwordHash: string
+  email?: string
+  status?: number
+}): Promise<UserCenterUser> {
+  const rows = await db
+    .insert(users)
+    .values({
+      phone: data.phone,
+      passwordHash: data.passwordHash,
+      ...(data.nickname !== undefined && { nickname: data.nickname }),
+      ...(data.email !== undefined && { email: data.email }),
+      ...(data.status !== undefined && { status: data.status }),
+    })
+    .returning(userCenterPublicFields)
+  const row = rows[0]
+  if (!row) throw new Error('创建用户失败')
+  return row
 }
 
 /**

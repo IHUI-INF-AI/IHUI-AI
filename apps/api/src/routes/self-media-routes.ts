@@ -216,6 +216,8 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /self-media/records — 直接读库查历史(备用,不走 ai-service)
+  // F-170(P1,数据外泄):读侧必须与写侧(authorId=request.userId)同口径,
+  // 只返回当前登录用户自己的记录;本路由无管理员全量路径,管理员亦仅见自己。
   server.get('/self-media/records', async (request, reply) => {
     const userId = request.userId
     if (!userId) return reply.status(401).send(error(401, '未登录'))

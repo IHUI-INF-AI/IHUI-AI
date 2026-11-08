@@ -9,6 +9,7 @@
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { authenticate } from '../../plugins/auth.js'
+import { requireAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../../db/index.js'
@@ -319,46 +320,54 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list, total: list.length }))
   })
 
-  // POST /circles/category-relation - 创建分类关系
-  server.post('/circles/category-relation', async (request, reply) => {
-    const body = z
-      .object({
-        childCategoryId: z.number().int().positive(),
-        fatherCategoryId: z.number().int().positive(),
-        directFatherCategoryId: z.number().int().positive(),
-        isSub: z.boolean().default(false),
-      })
-      .safeParse(request.body)
-    if (!body.success) {
-      return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
-    }
-    const [created] = await db
-      .insert(circleCategoryRelation)
-      .values({
-        childCategoryId: body.data.childCategoryId,
-        fatherCategoryId: body.data.fatherCategoryId,
-        directFatherCategoryId: body.data.directFatherCategoryId,
-        isSub: body.data.isSub,
-      })
-      .returning()
-    if (!created) return reply.status(500).send(error(500, '创建分类关系失败'))
-    return reply.status(201).send(success({ relation: created }))
-  })
+  // POST /circles/category-relation - 创建分类关系(全局类目树配置,仅管理员)
+  server.post(
+    '/circles/category-relation',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const body = z
+        .object({
+          childCategoryId: z.number().int().positive(),
+          fatherCategoryId: z.number().int().positive(),
+          directFatherCategoryId: z.number().int().positive(),
+          isSub: z.boolean().default(false),
+        })
+        .safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
+      }
+      const [created] = await db
+        .insert(circleCategoryRelation)
+        .values({
+          childCategoryId: body.data.childCategoryId,
+          fatherCategoryId: body.data.fatherCategoryId,
+          directFatherCategoryId: body.data.directFatherCategoryId,
+          isSub: body.data.isSub,
+        })
+        .returning()
+      if (!created) return reply.status(500).send(error(500, '创建分类关系失败'))
+      return reply.status(201).send(success({ relation: created }))
+    },
+  )
 
-  // DELETE /circles/category-relation/:rid - 删除分类关系
-  server.delete('/circles/category-relation/:rid', async (request, reply) => {
-    const { rid } = z.object({ rid: z.string() }).parse(request.params)
-    const ridNum = Number(rid)
-    if (!Number.isInteger(ridNum) || ridNum <= 0) {
-      return reply.status(400).send(error(400, '无效的关系 ID'))
-    }
-    const removed = await db
-      .delete(circleCategoryRelation)
-      .where(eq(circleCategoryRelation.id, ridNum))
-      .returning({ id: circleCategoryRelation.id })
-    if (removed.length === 0) return reply.status(404).send(error(404, '分类关系不存在'))
-    return reply.send(success({ id: ridNum, deleted: removed.length > 0 }))
-  })
+  // DELETE /circles/category-relation/:rid - 删除分类关系(全局类目树配置,仅管理员)
+  server.delete(
+    '/circles/category-relation/:rid',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const { rid } = z.object({ rid: z.string() }).parse(request.params)
+      const ridNum = Number(rid)
+      if (!Number.isInteger(ridNum) || ridNum <= 0) {
+        return reply.status(400).send(error(400, '无效的关系 ID'))
+      }
+      const removed = await db
+        .delete(circleCategoryRelation)
+        .where(eq(circleCategoryRelation.id, ridNum))
+        .returning({ id: circleCategoryRelation.id })
+      if (removed.length === 0) return reply.status(404).send(error(404, '分类关系不存在'))
+      return reply.send(success({ id: ridNum, deleted: removed.length > 0 }))
+    },
+  )
 
   // ===== 圈子类目关系（历史 circle_circle_category_relation，integer id） =====
 

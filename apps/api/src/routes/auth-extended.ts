@@ -116,6 +116,7 @@ import {
   deleteUserSk,
   createAuditLog,
 } from '../db/oauth-queries.js'
+import { claimAuthorizationCode } from '../db/oauth-token-queries.js'
 import { sendSmsCode, isSmsConfigured, extractSmsSendGuard } from '../services/sms.js'
 import { sendNoticeSmsToUser } from '../services/sms-notify.js'
 import { assessRefreshReplay } from '../services/refresh-replay-policy.js'
@@ -558,6 +559,11 @@ async function loginWithOAuthAccount(params: {
     const existing = await findUserById(binding.userId)
     if (!existing) throw new Error('用户不存在')
     if (existing.status !== 1) throw new Error('账号已被禁用')
+    // F-126 ③:内置管理员不认第三方登录 —— 即使库里存在历史绑定,也不得凭 openId 换取 token。
+    if (existing.isSystemAdmin) {
+      reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+      return { blocked: true }
+    }
     user = existing
   } else {
     // 同邮箱已注册用户 → 自动关联绑定(对齐邮箱验证码登录的既有语义,
@@ -572,6 +578,11 @@ async function loginWithOAuthAccount(params: {
         return { blocked: false, emailUnverified: true, email: email ?? '' }
       }
       if (existingByEmail.status !== 1) throw new Error('账号已被禁用')
+      // F-126 ③:同邮箱自动关联也不得落到内置管理员账号上(否则仍是一条提权入口)。
+      if (existingByEmail.isSystemAdmin) {
+        reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+        return { blocked: true }
+      }
       user = existingByEmail
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     } else {
@@ -1373,6 +1384,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    // F-126 ③:内置管理员不认第三方登录(含历史绑定),同一路径封死提权入口。
+    if (user.isSystemAdmin) {
+      return reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+    }
     // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
     // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
     const twoFactorReply = await twoFactorLoginGate(user, request, reply)
@@ -1694,6 +1709,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    // F-126 ③:内置管理员不认第三方登录(含历史绑定),同一路径封死提权入口。
+    if (user.isSystemAdmin) {
+      return reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+    }
     // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
     // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
     const twoFactorReply = await twoFactorLoginGate(user, request, reply)
@@ -2390,8 +2409,11 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const client = await authenticateOAuthClient(request, parsed.data)
     if (!client.ok)
       return reply.status(client.status).send(error(client.status, client.description))
-    const session = await findSessionByCode(parsed.data.code)
-    if (!session || session.isUsed || session.expiresAt < new Date())
+    // F-244:授权码一次性消费必须原子(条件 UPDATE ... WHERE is_used = FALSE RETURNING)。
+    // 先 SELECT 再无条件 UPDATE 的旧写法在并发下两请求都读到未使用 → 同一 code 换出两套 token。
+    // 现在只有真正抢到那一行(返回非 null)才继续签发;0 行一律 400,不吞错。
+    const session = await claimAuthorizationCode(parsed.data.code)
+    if (!session || session.expiresAt < new Date())
       return reply.status(400).send(error(400, '授权码无效或已过期'))
     const pkce = gatePkceForSession({
       session: {
@@ -2403,9 +2425,6 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       publicClient: client.publicClient,
     })
     if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-    if (!(await markSessionUsed(parsed.data.code))) {
-      return reply.status(400).send(error(400, '授权码无效或已被使用'))
-    }
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-web-token: 同上,凭一次性 session 换 token

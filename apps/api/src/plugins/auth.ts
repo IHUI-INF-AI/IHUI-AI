@@ -101,6 +101,7 @@ export async function revokeAccessToken(token: string, expiresAt: Date): Promise
  * 这里复用同一份 Redis 黑名单做吊销判定,语义与 authenticate() 的内联检查一致。
  */
 export async function isAccessTokenRevoked(token: string): Promise<boolean> {
+  if (!token) return false
   const blacklist = getTokenBlacklist()
   if (!blacklist) return false
   return blacklist.has(token)
