@@ -48,7 +48,12 @@ export interface SearchFilesOpts {
   projectId?: string
   mimeType?: string
   tag?: string
+  /** F-19: 单次返回上限，缺省 50，硬顶 100，避免一次拉全库 */
+  limit?: number
 }
+
+export const SEARCH_FILES_DEFAULT_LIMIT = 50
+export const SEARCH_FILES_MAX_LIMIT = 100
 
 /**
  * 搜索当前用户可访问的文件。
@@ -73,11 +78,13 @@ export async function searchFiles(opts: SearchFilesOpts): Promise<File[]> {
     conds.push(inArray(files.id, taggedFileIds))
   }
 
+  const limit = Math.min(opts.limit ?? SEARCH_FILES_DEFAULT_LIMIT, SEARCH_FILES_MAX_LIMIT)
   return db
     .select()
     .from(files)
     .where(and(...conds))
     .orderBy(desc(files.createdAt))
+    .limit(limit)
 }
 
 // =============================================================================
