@@ -22,6 +22,7 @@
  * 本文件不写第二把尺子。
  */
 
+import { BIZ_TIMEZONE } from '../utils/biz-day.js'
 import { normalizeHm } from './edu-schedule-conflict.js'
 
 /** 考勤四档封闭集(与 edu_attendance_record.status 词表对齐;leave 属请假流,不在本判据射程) */
@@ -47,15 +48,24 @@ export interface AttendanceJudgeResult {
 }
 
 /**
- * Date → 本地墙钟 `HH:MM`(补零);非法 Date 返回 null,不猜。
+ * Date → **业务时区(Asia/Shanghai)** 墙钟 `HH:MM`(补零);非法 Date 返回 null,不猜。
+ * 墙钟口径固定为上海,不读服务器本地时区 —— 服务器跑在 UTC 时,`getHours()` 会把
+ * 上海 09:xx 的签到读成 01:xx,迟到判定整段失效(F-263)。时区常量与 bizDayKey 同源。
  * 与 normalizeHm 配对使用:比较前两侧都必须归一化(§0.4 单源)。
  */
 export function hmOfLocalDate(d: Date | null | undefined): string | null {
   if (!(d instanceof Date)) return null
   const t = d.getTime()
   if (!Number.isFinite(t)) return null
-  const h = String(d.getHours()).padStart(2, '0')
-  const m = String(d.getMinutes()).padStart(2, '0')
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BIZ_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d)
+  const h = parts.find((p) => p.type === 'hour')?.value ?? ''
+  const m = parts.find((p) => p.type === 'minute')?.value ?? ''
+  if (h.length !== 2 || m.length !== 2) return null // 量不到 ⇒ 不猜
   return `${h}:${m}`
 }
 

@@ -109,11 +109,8 @@ import {
 } from '@ihui/database'
 import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
-import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
+import { bizDayKey, BIZ_TIMEZONE, shiftBizDayKey } from '../utils/biz-day.js'
 import { normalizeHm } from './edu-schedule-conflict.js'
-
-/** 业务时区:与 patrol/automation 调度器同源,不受宿主 TZ 漂移 */
-const BIZ_TIMEZONE = 'Asia/Shanghai'
 
 /**
  * 回溯天数(**不含当日**):默认 3 ⇒ 一轮判定 4 个业务日。
