@@ -1110,6 +1110,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
       // 旧契约只写 `200 Default Response`,等于对调用方谎报存在成功路径。
       schema: {
         response: {
+          400: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+            description: '请求体校验失败',
+          },
           501: {
             type: 'object',
             additionalProperties: true,

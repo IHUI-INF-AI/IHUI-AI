@@ -119,8 +119,16 @@ let app: FastifyInstance
 beforeAll(async () => {
   app = Fastify({ logger: false })
   app.decorateRequest('userId', '')
-  app.decorate('aiCost', { getUserBudgetUsage: mocks.getUserBudgetUsage })
-  app.decorate('pushNotification', vi.fn())
+  app.decorate('aiCost', {
+    checkBudget: vi.fn(),
+    getUserBudgetUsage: mocks.getUserBudgetUsage,
+    record: vi.fn(),
+    getCached: vi.fn(),
+    getCachedAsync: vi.fn(),
+    setCached: vi.fn(),
+    cachedStreamWrapper: vi.fn(),
+  })
+  app.decorate('pushNotification', (_userId: string, _payload: unknown) => {})
   await app.register(aiChatStreamRoutes, { prefix: '/api/ai' })
   await app.ready()
 })

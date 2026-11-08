@@ -69,7 +69,7 @@ export default function TeacherDetail() {
       setFollowed(Boolean(extra.isFollowed))
     } catch (e) {
       logger.error('teacher/detail', t('teacherDetail.q1'), e)
-      setLoadError(tt('common.loadFailed'))
+      setLoadError(tt('common.loadFailed', '加载失败'))
       onToast(tt('common.failed', '加载失败'), { kind: 'error' })
     } finally {
       setLoading(false)
