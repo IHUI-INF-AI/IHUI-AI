@@ -1,0 +1,40 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * 顶层数组形状收口夹具(2026-11-08,同型根因自查 api-client 形状类)。
+ *
+ * 缺陷形态:`fetchApi<X[]>` 只做编译期断言,运行时拿到数字键对象仍当数组用,
+ * 失败点在 `.map` 深处。红证(legacy 假设 `value as T[]`):非数组三条全红。
+ */
+import { describe, expect, it } from 'vitest'
+import { PayloadShapeError, toArrayPayload } from './payload-shape'
+
+describe('toArrayPayload — 数组与数字键对象都收敛成数组', () => {
+  it('真数组原样返回(同一引用,不复制)', () => {
+    const rows = [{ id: 'a' }, { id: 'b' }]
+    expect(toArrayPayload(rows)).toBe(rows)
+  })
+
+  it('数字键对象按索引升序还原(F-323 形状)', () => {
+    const shaped = { '1': { id: 'b' }, '0': { id: 'a' } }
+    expect(toArrayPayload(shaped)).toEqual([{ id: 'a' }, { id: 'b' }])
+  })
+
+  it('空对象视为空数组', () => {
+    expect(toArrayPayload({})).toEqual([])
+  })
+})
+
+describe('toArrayPayload — 不可还原的形状显式失败', () => {
+  it('非连续键对象抛 PayloadShapeError', () => {
+    expect(() => toArrayPayload({ foo: 1 })).toThrow(PayloadShapeError)
+    expect(() => toArrayPayload({ '0': 1, '2': 2 })).toThrow(PayloadShapeError)
+  })
+
+  it('null / 字符串 / 数字不被当成数组', () => {
+    for (const bad of [null, undefined, 'text', 42, true]) {
+      expect(() => toArrayPayload(bad)).toThrow(PayloadShapeError)
+    }
+  })
+})
