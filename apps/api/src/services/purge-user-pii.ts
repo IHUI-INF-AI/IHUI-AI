@@ -20,8 +20,8 @@
  *   误伤面大。匿名化（清空 phone/email/username/passwordHash/life PII + status=3）
  *   在满足「PII 不可再识别」的同时保持审计/业务引用一致，且 authenticate()
  *   对 status=3 用户立即拒绝（= JWT 实已失效）。
- * - 每个子表单独 try/catch：个别表在特定环境缺失（如最新的 crash_reports /
- *   device_tokens）不影响其余表清理，且重复调用安全。
+ * - 所有子表删除与 users 主行匿名化放在同一事务内；任一表失败整体回滚并抛出
+ *   (fail-closed)：不再吞掉单表错误后返回 erased:true，避免 PII 残留却被视为已清除。
  */
 
 import { eq } from 'drizzle-orm'
@@ -47,11 +47,15 @@ import {
   deviceTokens,
   crashReports,
   visitLogs,
+  userEmails,
+  securityLogs,
+  devices,
+  devicePairCodes,
+  deviceTasks,
 } from '@ihui/database'
 import { revokeAllUserRefreshTokens } from '../db/queries.js'
 import type { Database } from '../db/index.js'
 import type { AnyPgTable, AnyPgColumn } from 'drizzle-orm/pg-core'
-import { logger } from '../utils/logger.js'
 
 /** 用户在 users 主行上被彻底匿名化后的落库态。 */
 const ERASED_NICKNAME = '已注销用户'
@@ -99,6 +103,13 @@ const USER_SCOPED_TABLES: Array<{ table: AnyPgTable; userCol: AnyPgColumn; label
   { table: deviceTokens, userCol: deviceTokens.userId, label: 'device_tokens' },
   { table: crashReports, userCol: crashReports.userId, label: 'crash_reports' },
   { table: visitLogs, userCol: visitLogs.userId, label: 'visit_logs' },
+  // F-269 补齐:多邮箱 / 安全日志 / 跨设备互联三表此前完全漏删。
+  // device_tasks 没有 user_id 列,发起人归属列是 created_by。
+  { table: userEmails, userCol: userEmails.userId, label: 'user_emails' },
+  { table: securityLogs, userCol: securityLogs.userId, label: 'security_logs' },
+  { table: devices, userCol: devices.userId, label: 'devices' },
+  { table: devicePairCodes, userCol: devicePairCodes.userId, label: 'device_pair_codes' },
+  { table: deviceTasks, userCol: deviceTasks.createdBy, label: 'device_tasks' },
 ]
 
 interface PurgeResult {
@@ -110,49 +121,48 @@ interface PurgeResult {
  * 清除指定用户的全部 PII。幂等：可重复调用，返回本次实际清理的子表数量。
  */
 export async function purgeUserPii(userId: string, tx: Database = db): Promise<PurgeResult> {
+  // F-269：删除子表 + 匿名化 users 主行必须同事务；任一表失败整体回滚并抛出，
+  // 绝不再 try/catch 吞错后返回“已擦除”（否则 PII 残留而调用方以为清除成功）。
   let cleaned = 0
-  for (const { table, userCol, label } of USER_SCOPED_TABLES) {
-    try {
-      await (tx as Database).delete(table).where(eq(userCol, userId))
+  const anonymizedRows = await (tx as Database).transaction(async (inner) => {
+    for (const { table, userCol } of USER_SCOPED_TABLES) {
+      await inner.delete(table).where(eq(userCol, userId))
       cleaned++
-    } catch (err) {
-      // 单表失败不阻断整体清理；记录以便运维跟进（尤其缺失表/权限受限的情况）
-      logger.warn(`[purge-user-pii] ${label} 清理失败(已跳过): ${(err as Error).message}`)
     }
-  }
 
-  // 吊销该用户所有 refresh token（杜绝续期路径，配合 authenticate() 的 status=3 检查）
-  try {
-    await revokeAllUserRefreshTokens(userId)
-  } catch (err) {
-    logger.warn(`[purge-user-pii] refresh token 吊销失败: ${(err as Error).message}`)
-  }
+    // 彻底匿名化 users 主行（见文件头设计决策）。gender/birthday 也是 PII：
+    // gender 归零(0=未知)，birthday 置 NULL。
+    const baseUsername = `erased_${userId}`
+    // 2026-09-27 布尔删除 ack 清账(第四型):userRowAnonymized 此前是硬编码 true ——
+    // UPDATE 命中 0 行(用户行不存在/并发被删)时旧代码仍报"已匿名化"。
+    // 现由 RETURNING 命中集派生;响应侧键名与语义逐字不变,只允许值从常量变成库侧证据。
+    return inner
+      .update(users)
+      .set({
+        phone: null,
+        email: null,
+        username: baseUsername.slice(0, 64),
+        passwordHash: null,
+        nickname: ERASED_NICKNAME,
+        avatar: null,
+        bio: null,
+        gender: 0,
+        birthday: null,
+        inviteCode: null,
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        twoFactorBackupCodes: [],
+        twoFactorEnabledAt: null,
+        status: 3,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId))
+      .returning({ id: users.id })
+  })
 
-  // 彻底匿名化 users 主行（见文件头设计决策）
-  const baseUsername = `erased_${userId}`
-  // 2026-09-27 布尔删除 ack 清账(第四型):userRowAnonymized 此前是硬编码 true ——
-  // UPDATE 命中 0 行(用户行不存在/并发被删)时旧代码仍报"已匿名化"。
-  // 现由 RETURNING 命中集派生;响应侧键名与语义逐字不变,只允许值从常量变成库侧证据。
-  const anonymizedRows = await (tx as Database)
-    .update(users)
-    .set({
-      phone: null,
-      email: null,
-      username: baseUsername.slice(0, 64),
-      passwordHash: null,
-      nickname: ERASED_NICKNAME,
-      avatar: null,
-      bio: null,
-      inviteCode: null,
-      twoFactorEnabled: false,
-      twoFactorSecret: null,
-      twoFactorBackupCodes: [],
-      twoFactorEnabledAt: null,
-      status: 3,
-      updatedAt: new Date(),
-    })
-    .where(eq(users.id, userId))
-    .returning({ id: users.id })
+  // 吊销该用户所有 refresh token（杜绝续期路径，配合 authenticate() 的 status=3 检查）。
+  // F-269：失败不再吞掉，同样向上抛出。
+  await revokeAllUserRefreshTokens(userId)
 
   return { userPiiTableCount: cleaned, userRowAnonymized: anonymizedRows.length > 0 }
 }
