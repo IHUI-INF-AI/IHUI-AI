@@ -88,8 +88,37 @@ export async function getVipBenefits(
   return fetchApi<VipBenefit[]>(`/vip/benefits${buildQs(query)}`)
 }
 
-export async function getMembershipInfo(): Promise<ApiResult<MembershipInfo>> {
-  return fetchApi<MembershipInfo>('/api/vip/my')
+/** 后端 user_vips 行(字段名与 MembershipInfo 不同,必须在此归一)。 */
+interface VipMineRow {
+  userId?: string
+  levelValue?: number
+  levelName?: string
+  startTime?: string
+  endTime?: string | null
+  status?: number
+}
+
+export async function getMembershipInfo(): Promise<ApiResult<MembershipInfo | null>> {
+  const res = await fetchApi<{ vip: VipMineRow | null }>('/api/vip/my')
+  if (!res.success) return res
+  const row = res.data.vip
+  if (!row) return { ...res, data: null }
+  const end = row.endTime ? new Date(row.endTime) : null
+  const endMs = end && !Number.isNaN(end.getTime()) ? end.getTime() : null
+  const isActive = row.status === 1 && (endMs === null || endMs > Date.now())
+  return {
+    ...res,
+    data: {
+      userId: row.userId ?? '',
+      level: row.levelValue ?? 0,
+      levelName: row.levelName ?? '',
+      startTime: row.startTime ?? '',
+      expireTime: row.endTime ?? null,
+      isPermanent: false,
+      isActive,
+      daysRemaining: endMs === null ? 0 : Math.max(0, Math.ceil((endMs - Date.now()) / 86_400_000)),
+    },
+  }
 }
 
 export async function getPoints(): Promise<ApiResult<PointsInfo>> {
