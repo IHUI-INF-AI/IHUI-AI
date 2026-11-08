@@ -51,14 +51,46 @@ export function getPluginDataRoot(): string {
   return path.join(getIhuiRoot(), 'plugin-data');
 }
 
+/**
+ * 插件名安全判据:只允许单段目录名。
+ *
+ * `manifest.name` 是**源仓可控**的字符串,而它直接参与 `path.join(..., name)`:
+ * `../x` / `a/b` / 绝对路径都能把安装目录/数据目录派生到 ~/.ihui 之外(安装 =
+ * 任意目录写入,卸载 = 任意目录删除)。此判据在**路径派生的唯一出口**做 fail-closed,
+ * 不依赖任何调用方记得先校验。
+ */
+const SAFE_PLUGIN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+
+export class UnsafePluginNameError extends Error {
+  constructor(name: string) {
+    super(`插件名含非法字符,拒绝派生路径: ${JSON.stringify(name)}`);
+    this.name = 'UnsafePluginNameError';
+  }
+}
+
+/** 校验并返回插件名;不安全即抛错(路径不许派生)。 */
+export function assertSafePluginName(name: string): string {
+  if (
+    typeof name !== 'string' ||
+    name === '.' ||
+    name === '..' ||
+    !SAFE_PLUGIN_NAME.test(name) ||
+    name.includes('/') ||
+    name.includes('\\')
+  ) {
+    throw new UnsafePluginNameError(name);
+  }
+  return name;
+}
+
 /** ~/.ihui/plugin-data/<name>/ — 插件运行时数据目录 */
 export function getPluginDataDir(name: string): string {
-  return path.join(getPluginDataRoot(), name);
+  return path.join(getPluginDataRoot(), assertSafePluginName(name));
 }
 
 /** ~/.ihui/installed-plugins/<name>/ — 单个插件安装路径 */
 export function getPluginInstallPath(name: string): string {
-  return path.join(getInstalledPluginsDir(), name);
+  return path.join(getInstalledPluginsDir(), assertSafePluginName(name));
 }
 
 /** ~/.ihui/installed-plugins/registry.json — 安装注册表路径 */
