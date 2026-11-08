@@ -5457,6 +5457,9 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-08**
+- 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (2485323c91)
+
+**2026-11-08**
 - 🔧 工程/其他:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
 - 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
 
