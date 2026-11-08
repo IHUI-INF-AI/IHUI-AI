@@ -77,9 +77,7 @@ describe('DBG-30 useWechatPayment 未确认不得当成功', () => {
     const onSuccess = vi.fn()
     const onFail = vi.fn()
 
-    const { result } = renderHook(() =>
-      useWechatPayment({ orderType: 2, onSuccess, onFail }),
-    )
+    const { result } = renderHook(() => useWechatPayment({ orderType: 2, onSuccess, onFail }))
     await act(async () => {
       await result.current.pay(1000, '充值 10 元')
     })
@@ -97,9 +95,7 @@ describe('DBG-30 useWechatPayment 未确认不得当成功', () => {
     const onSuccess = vi.fn()
     const onFail = vi.fn()
 
-    const { result } = renderHook(() =>
-      useWechatPayment({ orderType: 2, onSuccess, onFail }),
-    )
+    const { result } = renderHook(() => useWechatPayment({ orderType: 2, onSuccess, onFail }))
     await act(async () => {
       await result.current.pay(1000, '充值 10 元')
     })
@@ -114,9 +110,7 @@ describe('DBG-30 useWechatPayment 未确认不得当成功', () => {
     const onSuccess = vi.fn()
     const onFail = vi.fn()
 
-    const { result } = renderHook(() =>
-      useWechatPayment({ orderType: 2, onSuccess, onFail }),
-    )
+    const { result } = renderHook(() => useWechatPayment({ orderType: 2, onSuccess, onFail }))
     await act(async () => {
       await result.current.pay(1000, '充值 10 元')
     })
@@ -133,9 +127,7 @@ describe('DBG-30 useWechatPayment 未确认不得当成功', () => {
     const onSuccess = vi.fn()
     const onFail = vi.fn()
 
-    const { result } = renderHook(() =>
-      useWechatPayment({ orderType: 2, onSuccess, onFail }),
-    )
+    const { result } = renderHook(() => useWechatPayment({ orderType: 2, onSuccess, onFail }))
     await act(async () => {
       await result.current.pay(1000, '充值 10 元')
     })
@@ -151,9 +143,7 @@ describe('DBG-30 useWechatPayment 未确认不得当成功', () => {
     const onSuccess = vi.fn()
     const onFail = vi.fn()
 
-    const { result } = renderHook(() =>
-      useWechatPayment({ orderType: 2, onSuccess, onFail }),
-    )
+    const { result } = renderHook(() => useWechatPayment({ orderType: 2, onSuccess, onFail }))
     await act(async () => {
       await result.current.pay(1000, '充值 10 元')
     })
@@ -164,34 +154,51 @@ describe('DBG-30 useWechatPayment 未确认不得当成功', () => {
     expect(alertMock).toHaveBeenCalledWith('提示', SUCCESS_TEXT)
   })
 
-  it('绿臂：DEV mock 订单（无微信配置）⇒ 仍按成功走', async () => {
+  it('XUI-008：DEV mock 订单（无微信配置）也必须回查服务端，查不到 paid 不得成功', async () => {
     payMocks.isWeChatInstalled.mockResolvedValue(true)
     apiMocks.createWechatAppPayment.mockResolvedValue({
       success: true,
       data: { outTradeNo: 'MOCK-1', mock: true },
     })
+    apiMocks.checkPaymentStatus.mockResolvedValue({ success: true, data: { paid: false } })
     const onSuccess = vi.fn()
     const onFail = vi.fn()
 
-    const { result } = renderHook(() =>
-      useWechatPayment({ orderType: 2, onSuccess, onFail }),
-    )
+    const { result } = renderHook(() => useWechatPayment({ orderType: 2, onSuccess, onFail }))
+    await act(async () => {
+      await result.current.pay(1000, '充值 10 元')
+    })
+
+    expect(apiMocks.checkPaymentStatus).toHaveBeenCalledWith('MOCK-1')
+    expect(onSuccess).not.toHaveBeenCalled()
+    expect(onFail).toHaveBeenCalledWith('PAYMENT_NOT_CONFIRMED')
+    expect(alertMock).toHaveBeenCalledWith('提示', CONFIRMING_TEXT)
+    expect(alertMock).not.toHaveBeenCalledWith('提示', SUCCESS_TEXT)
+  })
+
+  it('绿臂：DEV mock 订单且服务端确已 paid ⇒ 才允许成功', async () => {
+    payMocks.isWeChatInstalled.mockResolvedValue(true)
+    apiMocks.createWechatAppPayment.mockResolvedValue({
+      success: true,
+      data: { outTradeNo: 'MOCK-1', mock: true },
+    })
+    apiMocks.checkPaymentStatus.mockResolvedValue({ success: true, data: { paid: true } })
+    const onSuccess = vi.fn()
+    const onFail = vi.fn()
+
+    const { result } = renderHook(() => useWechatPayment({ orderType: 2, onSuccess, onFail }))
     await act(async () => {
       await result.current.pay(1000, '充值 10 元')
     })
 
     expect(onSuccess).toHaveBeenCalledWith('MOCK-1')
     expect(onFail).not.toHaveBeenCalled()
-    expect(apiMocks.checkPaymentStatus).not.toHaveBeenCalled()
   })
 
-  it('形状锁：onSuccess 调用点恒为 2 处，且 paid 判定之后无第三条出口', () => {
-    const src = readFileSync(
-      resolve(__dirname, '../src/hooks/useWechatPayment.ts'),
-      'utf8',
-    )
+  it('形状锁：onSuccess 调用点恒为 1 处（mock 与真实支付共用同一确认出口）', () => {
+    const src = readFileSync(resolve(__dirname, '../src/hooks/useWechatPayment.ts'), 'utf8')
     const callSites = src.match(/await onSuccess\?\.\(/g) ?? []
-    expect(callSites).toHaveLength(2)
+    expect(callSites).toHaveLength(1)
 
     // 状态回查那一段（从 checkPaymentStatus 到 catch）里只允许 paid 分支那一次**调用**
     // 注意只数调用点 `await onSuccess?.(`：本段注释里说明缺陷成因时会提到 onSuccess，
@@ -208,11 +215,11 @@ describe('DBG-30 useWechatPayment 未确认不得当成功', () => {
     // 两条非成功出口必须在场（防止有人只改文案、不改回调）
     expect(statusRegion).toContain("onFail?.('PAYMENT_NOT_CONFIRMED')")
     expect(src).toContain("onFail?.('MISSING_OUT_TRADE_NO')")
-    // 「支付成功」文案的出现次数恒为 2（DEV mock + paid 分支）。
-    // 修前是 4 次：两个 else 分支各自也弹了一次「支付成功」；文案与 onSuccess 成对出现，
-    // 数量本身就是「有没有把未确认说成成功」的可数信号 —— 比逐字比注释可靠。
+    // 「支付成功」文案只允许出现在 paid 判据之后（现为 1 次）。
+    // XUI-008 前 DEV mock 分支自带一次无条件成功文案（共 2 次）；数量本身就是
+    // 「有没有把未确认说成成功」的可数信号 —— 比逐字比注释可靠。
     // （不去断言注释文字：锁注释是假判据，改坏实现的人照样能改注释。）
-    expect(src.match(/messages\?\.paySuccess/g) ?? []).toHaveLength(2)
+    expect(src.match(/messages\?\.paySuccess/g) ?? []).toHaveLength(1)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

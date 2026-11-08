@@ -209,9 +209,13 @@ export async function getPaymentOrders(
   return fetchApi<PageData<PaymentOrder>>(`/api/payments/me${buildQs(query)}`)
 }
 
-/** 获取支付订单详情 */
+/** 获取支付订单详情 — 后端响应 `{ order }`,此处解包返回订单本体 */
 export async function getPaymentOrderDetail(orderNo: string): Promise<ApiResult<PaymentOrder>> {
-  return fetchApi<PaymentOrder>(`/api/payment/orders/${orderNo}`)
+  const res = await fetchApi<{ order: PaymentOrder }>(
+    `/api/payment/orders/${encodeURIComponent(orderNo)}`,
+  )
+  if (!res.success) return res
+  return { ...res, data: res.data.order }
 }
 
 // ===================== wechat-app（移动端 RN APP 支付） =====================
