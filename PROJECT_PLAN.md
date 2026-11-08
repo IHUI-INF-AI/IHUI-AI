@@ -32089,3 +32089,48 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 155C. **缺陷普查 F-137** [P3] 本地 HTTP /message 请求体无大小上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-137）
 - [ ] 156C. **缺陷普查 F-138** [P3] hunk 撤销/恢复直接覆盖用户源文件，非原子（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-138）
 - [ ] 157C. **缺陷普查 F-139** [P3] rel.startsWith('..') 字符串判定误拒合法文件名（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-139）
+- [ ] 158D. **缺陷普查 DB-01** [P1] 手工执行器写「伪账本」：manual_ 假 hash + Date.now() 抬高高水位（证据 docs/tickets/2026-11/findings-db.md#DB-01）
+- [ ] 159D. **缺陷普查 DB-04** [P2] 手工执行器仍只识别 $$，会切碎 $fn$/$con$/$ot_conv$（证据 docs/tickets/2026-11/findings-db.md#DB-04）
+- [ ] 160D. **缺陷普查 DB-05** [P2] 手工执行器逐语句自动提交，且按字符串子串吞错（证据 docs/tickets/2026-11/findings-db.md#DB-05）
+- [ ] 161D. **缺陷普查 DB-06** [P2] apply-all 不识别块注释，真实迁移被切碎；自检容差掩盖（证据 docs/tickets/2026-11/findings-db.md#DB-06）
+- [ ] 162D. **缺陷普查 DB-07** [P2] apply-all 不写账本、硬编码 localhost DSN、包含非幂等 DML（证据 docs/tickets/2026-11/findings-db.md#DB-07）
+- [ ] 163D. **缺陷普查 DB-08** [P2] 全新库路径未接 fresh-db 守卫，首启会断在 idx 325（证据 docs/tickets/2026-11/findings-db.md#DB-08）
+- [ ] 164D. **缺陷普查 DB-09** [P2] 371 条 journal 仅 67 个快照，最新 0371 无快照，db:generate 会重放 0371（证据 docs/tickets/2026-11/findings-db.md#DB-09）
+- [ ] 165D. **缺陷普查 DB-10** [P2] migration-tests.yml 监听不存在的目录，且用 push --force 代替迁移链（证据 docs/tickets/2026-11/findings-db.md#DB-10）
+- [ ] 166D. **缺陷普查 DB-11** [P2] 大表普通 CREATE INDEX 包在迁移事务内，叠加 180s 部署预算（证据 docs/tickets/2026-11/findings-db.md#DB-11）
+- [ ] 167D. **缺陷普查 DB-12** [P2] --repair 是高危写入通道：无 dry-run、无 schema 备份、应用与记账分事务（证据 docs/tickets/2026-11/findings-db.md#DB-12）
+- [ ] 168D. **缺陷普查 DB-36** [P3] manual-sql 的 CONCURRENTLY 脚本头注路径错误（证据 docs/tickets/2026-11/findings-db.md#DB-36）
+- [ ] 169D. **缺陷普查 DB-13** [P2] 空账本 / 空 journal 被判 ok（证据 docs/tickets/2026-11/findings-db.md#DB-13）
+- [ ] 170D. **缺陷普查 DB-14** [P2] 账本以 when 作唯一身份：同 when 不同 tag 被判已应用；hashDrift 不阻塞（证据 docs/tickets/2026-11/findings-db.md#DB-14）
+- [ ] 171D. **缺陷普查 DB-15** [P2] 账本表无业务唯一键，ON CONFLICT DO NOTHING 恒为空操作（证据 docs/tickets/2026-11/findings-db.md#DB-15）
+- [ ] 172D. **缺陷普查 DB-16** [P2] relay_conversations 多条 NOT NULL 在迁移链中丢失（首定义胜出）（证据 docs/tickets/2026-11/findings-db.md#DB-16）
+- [ ] 173D. **缺陷普查 DB-17** [P2] ab_tests 宽度/默认值/非空四处漂移（证据 docs/tickets/2026-11/findings-db.md#DB-17）
+- [ ] 174D. **缺陷普查 DB-18** [P2] 225 张表存在重复 CREATE TABLE IF NOT EXISTS，后定义意图被静默丢弃（证据 docs/tickets/2026-11/findings-db.md#DB-18）
+- [ ] 175D. **缺陷普查 DB-19** [P2] api_key_group_members 先 UNIQUE 后普通 INDEX 同名，后者被 IF NOT EXISTS 静默忽略（证据 docs/tickets/2026-11/findings-db.md#DB-19）
+- [ ] 176D. **缺陷普查 DB-37** [P3] 两处未命名 UNIQUE 约束，索引名与 TS 约定不符（证据 docs/tickets/2026-11/findings-db.md#DB-37）
+- [ ] 177D. **缺陷普查 DB-02** [P1] 自动续费回调在外层 FOR UPDATE 事务内调用「独立事务」创建/完成订单（证据 docs/tickets/2026-11/findings-db.md#DB-02）
+- [ ] 178D. **缺陷普查 DB-03** [P1] 余额读-改-写无行锁/非原子自增：USDT 充值与 API 订阅并发丢账（证据 docs/tickets/2026-11/findings-db.md#DB-03）
+- [ ] 179D. **缺陷普查 DB-20** [P2] 家长账单接口 N+1：每条报名 5 次查询且列表无上限（证据 docs/tickets/2026-11/findings-db.md#DB-20）
+- [ ] 180D. **缺陷普查 DB-21** [P2] chat_messages 缺 (conversation_id, created_at, id) 复合索引（证据 docs/tickets/2026-11/findings-db.md#DB-21）
+- [ ] 181D. **缺陷普查 DB-22** [P2] analytics_events 仅 user_id 索引，管理分析全表扫描/排序（证据 docs/tickets/2026-11/findings-db.md#DB-22）
+- [ ] 182D. **缺陷普查 DB-23** [P2] 订单列表按随机 UUID 主键排序，时间序错乱且索引不可用（证据 docs/tickets/2026-11/findings-db.md#DB-23）
+- [ ] 183D. **缺陷普查 DB-24** [P2] 课程详情/章节接口 N+1（每章一条小节查询）（证据 docs/tickets/2026-11/findings-db.md#DB-24）
+- [ ] 184D. **缺陷普查 DB-25** [P2] /statistics/overview 任意登录用户可触发 8 条全表 count(*)（证据 docs/tickets/2026-11/findings-db.md#DB-25）
+- [ ] 185D. **缺陷普查 DB-43** [P3] LiteLLM 价格同步：单事务内逐模型 SELECT + UPDATE/INSERT（证据 docs/tickets/2026-11/findings-db.md#DB-43）
+- [ ] 186D. **缺陷普查 DB-44** [P3] Agent 历史消息整段 JSONB 拉回应用层再分页（证据 docs/tickets/2026-11/findings-db.md#DB-44）
+- [ ] 187D. **缺陷普查 DB-45** [P3] /relay/channels 列表 N+1：每个 key_pool 2 条用量查询（证据 docs/tickets/2026-11/findings-db.md#DB-45）
+- [ ] 188D. **缺陷普查 DB-46** [P3] 旧表通用查询 SELECT * + 无界深 offset（证据 docs/tickets/2026-11/findings-db.md#DB-46）
+- [ ] 189D. **缺陷普查 DB-26** [P2] dbRead 无读己之写（RYW）屏障，组件是死代码（证据 docs/tickets/2026-11/findings-db.md#DB-26）
+- [ ] 190D. **缺陷普查 DB-27** [P2] 副本延迟用 SELECT 1 往返耗时冒充，MAX_LAG_SEC 失效（证据 docs/tickets/2026-11/findings-db.md#DB-27）
+- [ ] 191D. **缺陷普查 DB-28** [P2] 副本初始 healthy=true + 连续 3 次/15s 才摘除，故障窗口约 45s（证据 docs/tickets/2026-11/findings-db.md#DB-28）
+- [ ] 192D. **缺陷普查 DB-29** [P2] 四个池均无 statement_timeout/connect_timeout/max_lifetime（证据 docs/tickets/2026-11/findings-db.md#DB-29）
+- [ ] 193D. **缺陷普查 DB-30** [P2] 关闭钩子只关 scoped 池，主池/副本池无 .end()（证据 docs/tickets/2026-11/findings-db.md#DB-30）
+- [ ] 194D. **缺陷普查 DB-31** [P2] 池上限代码 40 与文档 10 严重漂移，且不可配置（证据 docs/tickets/2026-11/findings-db.md#DB-31）
+- [ ] 195D. **缺陷普查 DB-41** [P3] 租户池最坏 32×10=320 连接，退出无批量关闭（证据 docs/tickets/2026-11/findings-db.md#DB-41）
+- [ ] 196D. **缺陷普查 DB-42** [P3] dbReader/readerClient 固定第一个副本，旁路故障转移（证据 docs/tickets/2026-11/findings-db.md#DB-42）
+- [ ] 197D. **缺陷普查 DB-32** [P2] verify-schema.mjs 明文数据库口令（证据 docs/tickets/2026-11/findings-db.md#DB-32）
+- [ ] 198D. **缺陷普查 DB-33** [P2] test_verify_code_bypass 迁移种子 is_active=true，与自身头注矛盾（证据 docs/tickets/2026-11/findings-db.md#DB-33）
+- [ ] 199D. **缺陷普查 DB-34** [P2] 备份产物明文 .sql.gz/.dump，无静态加密，且可上传对象存储（证据 docs/tickets/2026-11/findings-db.md#DB-34）
+- [ ] 200D. **缺陷普查 DB-35** [P2] 多类敏感字段明文落库（PII 与第三方凭据）（证据 docs/tickets/2026-11/findings-db.md#DB-35）
+- [ ] 201D. **缺陷普查 DB-38** [P3] 0067/0071 幂等重放会把管理员口令重置回公开的 admin123（证据 docs/tickets/2026-11/findings-db.md#DB-38）
+- [ ] 202D. **缺陷普查 DB-39** [P3] _bypass_rls 策略对 PUBLIC 开放，GUC 任意会话可自行置真（证据 docs/tickets/2026-11/findings-db.md#DB-39）
