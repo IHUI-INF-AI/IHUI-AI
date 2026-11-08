@@ -23,6 +23,7 @@ import InputArea from '@/components/InputArea'
 import TitleSwitchScrollTitle from '@/components/TitleSwitchScrollTitle'
 import AgentListPanel from '@/components/AgentListPanel'
 import ThemeRoot from '@/components/ThemeRoot'
+import { getUserInfo } from '@/utils/auth'
 import { FloatBox, EmptyState, PayPopup } from '@/components'
 import type { PayInfo } from '@/components'
 import { requestPayment } from '@/platform/pay'
@@ -331,8 +332,7 @@ export default function Community() {
       void loadMyAgents()
     })
     try {
-      const userData = Taro.getStorageSync('data') as
-        { avatar?: string; userName?: string; nickname?: string } | undefined
+      const userData = getUserInfo()
       if (userData) {
         setDrawerUserinfo({
           avatar: userData.avatar || '',

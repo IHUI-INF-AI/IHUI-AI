@@ -12,6 +12,7 @@ import { useTt } from '@/i18n'
 import { useTheme } from '@/rn-compat/theme'
 import Taro from '@tarojs/taro'
 import { onToast } from '@/host/on-toast'
+import { getUserInfo } from '@/utils/auth'
 import { AgentMyApps } from '@ihui/rn-app/features/agent-screen/AgentMyApps'
 
 export interface MyAgent {
@@ -38,7 +39,7 @@ export default function MyAgents({ myAgents }: MyAgentsProps) {
   }
 
   function navigateTo(agent: MyAgent, idx: number) {
-    const userData = Taro.getStorageSync('data') as Record<string, unknown> | null
+    const userData = getUserInfo()
     if (!userData) {
       onToast(tt('ai.aiAssistant.pleaseLogin', '请先登录'), { kind: 'error' })
       return
