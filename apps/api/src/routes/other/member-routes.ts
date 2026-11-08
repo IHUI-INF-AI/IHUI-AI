@@ -9,13 +9,13 @@
  */
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { dbRead } from '../../db/index.js'
-import { levels, pointRedeemItems } from '@ihui/database'
+import { levels, pointRedeemItems, pointTransactions } from '@ihui/database'
 import { findUserPreferences, upsertUserPreference } from '../../db/user-preferences-queries.js'
 import { authenticate } from '../../plugins/auth.js'
-import { ensureUserPoints, findPointTransactions } from '../../db/gamification-queries.js'
+import { ensureUserPoints } from '../../db/gamification-queries.js'
 import { spendPoints } from '../../services/points-service.js'
 
 export const memberRoutes: FastifyPluginAsync = async (server) => {
@@ -120,22 +120,38 @@ export const memberRoutes: FastifyPluginAsync = async (server) => {
     if (!item) {
       return reply.status(404).send(error(404, '兑换商品不存在'))
     }
-    // 防重复兑换:description='redeem:<itemId>' 已有流水则拒绝
-    const { list } = await findPointTransactions({
-      userId,
-      page: 1,
-      pageSize: 20,
-      source: 'redeem',
-    })
-    if (list.some((t) => t.description === `redeem:${id}`)) {
+    // F-334:防重复兑换改为 referenceId 精确查询 —— 旧实现只看最近 20 条流水并按
+    // description 字符串匹配,兑换 21 个不同商品后第一个又能再兑。
+    const referenceId = `redeem:${id}`
+    const [duplicate] = await dbRead
+      .select({ id: pointTransactions.id })
+      .from(pointTransactions)
+      .where(
+        and(
+          eq(pointTransactions.userId, userId),
+          eq(pointTransactions.source, 'redeem'),
+          eq(pointTransactions.referenceId, referenceId),
+        ),
+      )
+      .limit(1)
+    if (duplicate) {
       return reply.status(409).send(error(409, '该商品已兑换过'))
     }
     const balance = await ensureUserPoints(userId)
     if (balance.points < item.points) {
       return reply.status(400).send(error(400, '积分余额不足'))
     }
-    const result = await spendPoints(userId, item.points, 'redeem', `redeem:${id}`, id)
-    return reply.send(success({ points: result.points, redeemed: item.points }))
+    try {
+      const result = await spendPoints(userId, item.points, 'redeem', referenceId, id)
+      return reply.send(success({ points: result.points, redeemed: item.points }))
+    } catch (e) {
+      // 并发兜底:唯一索引 ux_point_transactions_redeem_user_ref 拒绝第二条流水,
+      // 事务已回滚(积分不会被扣两次),这里映射成与串行重复一致的 409。
+      if ((e as { code?: string }).code === '23505') {
+        return reply.status(409).send(error(409, '该商品已兑换过'))
+      }
+      throw e
+    }
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

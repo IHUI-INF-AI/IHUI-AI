@@ -16,7 +16,10 @@ import { join } from 'node:path'
 import { pipeline } from 'node:stream/promises'
 import { Readable } from 'node:stream'
 import { randomUUID } from 'node:crypto'
+import { and, eq } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
+import { db } from '../db/index.js'
+import { agentRuntimeSessions } from '@ihui/database'
 import { attributeError } from '@ihui/shared/utils/error-attribution'
 import { validateUploadFile } from '../utils/file-type-validator.js'
 import {
@@ -170,6 +173,16 @@ function serializeFileVersion(v: FileVersion) {
 
 export const workspaceRoutes: FastifyPluginAsync = async (server) => {
   const idParam = z.object({ id: z.string() })
+
+  /** ACP 会话归属谓词(§5「认证不等于授权」):不存在与不属于本人同形返回 false */
+  const ownsAcpSession = async (sessionId: string, userId: string): Promise<boolean> => {
+    const [row] = await db
+      .select({ id: agentRuntimeSessions.id })
+      .from(agentRuntimeSessions)
+      .where(and(eq(agentRuntimeSessions.id, sessionId), eq(agentRuntimeSessions.userId, userId)))
+      .limit(1)
+    return Boolean(row)
+  }
   // 鉴权失败统一处理
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
@@ -790,6 +803,26 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
     const sessionId = randomUUID()
     const now = Date.now()
 
+    // F-432:会话必须真实落库后才能回 201。旧实现只生成 UUID,后续 begin/end
+    // 对任意 id 都回成功;现在以 agent_runtime_sessions 行为归属与存在性真相。
+    try {
+      await db.insert(agentRuntimeSessions).values({
+        id: sessionId,
+        botId: 'workspace-acp',
+        userId: request.userId,
+        status: 'active',
+        messages: [],
+        metadata: {
+          source: 'workspace-acp',
+          workspaceRoot: data.workspaceRoot,
+          ...(data.mode !== undefined ? { mode: data.mode } : {}),
+        },
+      })
+    } catch (e) {
+      request.log.error({ err: e, sessionId }, 'ACP 会话落库失败')
+      return reply.status(500).send(error(500, '会话创建失败,请稍后重试'))
+    }
+
     // wire 类型响应(adjacent tagging,与 ACP 协议对齐)
     const event: WorkspaceEvent = {
       type: 'session_created',
@@ -821,6 +854,10 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply
         .status(400)
         .send(error(400, `非法权限档: ${String(parsed.data.mode)}(manual 无落库/会话语义,不接受)`))
+    }
+    // F-432:任意 id 不得回 prompt_started —— 必须先证明会话存在且属于当前用户
+    if (!(await ownsAcpSession(id, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在或无权限'))
     }
     // 跨界前归一:BeginPromptData.mode 只允许 wire 拼写,日志/转发的 wireReq 同样不得带 camel
     const data: BeginPromptData = { ...parsed.data, mode: modeWire }
@@ -860,6 +897,10 @@ export const workspaceRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
 
+    // F-432:与 begin 同口径,结束任意 id 也不得假报 prompt_completed
+    if (!(await ownsAcpSession(id, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在或无权限'))
+    }
     const data: EndPromptData = parsed.data
     const promptId = (body.promptId as string | undefined) ?? randomUUID()
     const now = Date.now()
