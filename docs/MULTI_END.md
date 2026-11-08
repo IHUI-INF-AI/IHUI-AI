@@ -459,4 +459,42 @@ pnpm build:h5       # H5
 - [GATEKEEPERS.md 第 21 项](./GATEKEEPERS.md) — 多端同步守门
 - [DEPLOYMENT_RUNBOOK.md](./DEPLOYMENT_RUNBOOK.md) — 部署流程
 - [docs/port-management.md](./port-management.md) — 端口分配规则
+
+---
+
+## 附:22 条「缺 RN 行」核验与收口(2026-11-08)
+
+> 取材面 `origin/main@6030e87763`;判定口径:壳文件存在 + 从 `@ihui/rn-app` 导入共享屏 + 有 JSX 渲染点,三证齐备才算「这屏有 RN 壳」。结论同时覆盖两张账:映射表 `scripts/data/web-rn-screen-map.jsonl`(web→RN)与三端登记表 `scripts/data/cross-end-screen-registry.json`(shared→RN→小程序)。
+
+**结论**:映射表 22/22 路由原本已有 `aligned` 行,本次改 22 行 —— 2 行 `rn` 由共享源改指薄壳(`login`、`mcp-store`)、1 行按代码事实由 `aligned` 改判 `portal`(`registry`)、19 行补「导入行 + 渲染行」证据。三端登记表**可补 0 行**:A 通用屏 `ConsoleTableScreen` 不能按路由落槽(13 条 edu + `models/prompts`);B 一槽已占(`ai-world/history`、`agreement/[type]`);C 裁决台账已判 not-applicable(`login`/`mcp-store`/`bi-dashboard`/`ai-career`/`business-card`);D 无壳(`registry`,`apps/mobile-rn/src/screens` 零命中,`drawer-nav.ts:745-757` 的 `/registry→McpStore` 只是导航迁移,功能不等价,App 经 WebView 门户 `/registry` 承载 `packages/shared/src/constants/web-portal.ts:1017-1019`)。
+
+| # | web 路由 | RN 壳(导入行/渲染行) | 渲染的共享屏 | 三端登记表 |
+|---|---|---|---|---|
+| 1 | `login` | `LoginScreen.tsx:47`/`:1173` | `features/login/LoginScreen.tsx` | 不可补(C,裁决 `miniapp-mirror-verdicts.jsonl:71`) |
+| 2 | `mcp-store` | `McpStoreScreen.tsx:7`/`:191` | `features/mcp-store/McpStoreScreen.tsx` | 不可补(C,裁决 `:72`) |
+| 3 | `registry` | 无 RegistryScreen | 原指 `features/mcp-store/McpStoreScreen.tsx`(非同屏) | 不可补(D,改判 portal) |
+| 4 | `bi-dashboard` | `DashboardScreen.tsx:8`/`:213` | `features/dashboard/DashboardScreen.tsx` | 不可补(C,裁决 `:45`) |
+| 5 | `ai-career` | `AiCareerScreen.tsx:14`/`:192` | `features/ai-career/AiCareerScreen.tsx` | 不可补(C,裁决 `:10`,registry 旧镜像对已删) |
+| 6 | `ai-world/history` | `AiWorldHistoryScreen.tsx:19`/`:69` | `features/ai-world/AiWorldCollectionScreen.tsx` | 不可补(B,已有槽 rn=`AiWorldFavoritesScreen.tsx`) |
+| 7 | `business-card` | `BusinessCardScreen.tsx:20`/`:231` | `features/business-card/BusinessCardScreen.tsx` | 不可补(C,裁决 `:119`) |
+| 8 | `models/prompts` | `ModelsPromptsScreen.tsx:12`/`:75` | `features/console-table/ConsoleTableScreen.tsx` | 不可补(A,通用杠杆屏) |
+| 9 | `agreement/[type]` | `AgreementByTypeScreen.tsx:10`/`:65` | `features/agreement/AgreementScreen.tsx` | 不可补(B,已有槽 rn=`AgreementScreen.tsx`) |
+| 10 | `edu/attendance` | `EduMyAttendanceScreen.tsx:21`/`:184` | `ConsoleTableScreen` | 不可补(A,小程序无硬路径镜像) |
+| 11 | `edu/edu-management/grades` | `EduGradesScreen.tsx:15`/`:101` | `ConsoleTableScreen` | 不可补(A) |
+| 12 | `edu/edu-management/enrollment` | `EduEnrollmentScreen.tsx:15`/`:80` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 13 | `edu/edu-management/finance` | `EduFinanceScreen.tsx:15`/`:108` | `ConsoleTableScreen` | 不可补(A) |
+| 14 | `edu/edu-management/meal` | `EduMealScreen.tsx:15`/`:90` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 15 | `edu/edu-management/schedule` | `EduScheduleScreen.tsx:17`/`:113` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 16 | `edu/edu-management/scheduling` | `EduSchedulingScreen.tsx:16`/`:101` | `ConsoleTableScreen` | 不可补(A,小程序无对应页) |
+| 17 | `edu/parent/bind` | `EduParentBindScreen.tsx:22`/`:168` | `ConsoleTableScreen` | 不可补(A,绑定段在 `edu-parent/index` 页内) |
+| 18 | `edu/parent/children/[childId]/courses` | `EduChildScheduleScreen.tsx:16`/`:91` | `ConsoleTableScreen` | 不可补(A) |
+| 19 | `edu/parent/children/[childId]/attendance` | `EduChildAttendanceScreen.tsx:19`/`:84` | `ConsoleTableScreen` | 不可补(A) |
+| 20 | `edu/parent/children/[childId]/grades` | `EduChildGradesScreen.tsx:19`/`:81` | `ConsoleTableScreen` | 不可补(A) |
+| 21 | `edu/parent/children/[childId]/meals` | `EduChildMealsScreen.tsx:19`/`:82` | `ConsoleTableScreen` | 不可补(A) |
+| 22 | `edu/parent/children/[childId]/study-plans` | `EduChildStudyPlansScreen.tsx:19`/`:94` | `ConsoleTableScreen` | 不可补(A) |
+
+> 壳路径前缀均为 `apps/mobile-rn/src/screens/`;共享屏前缀均为 `packages/app/src/`。A 类依据:`ConsoleTableScreen` 自述「通用控制台列表屏 —— 61 条控制台类页面的规模化杠杆」(`packages/app/src/features/console-table/ConsoleTableScreen.tsx:21-25`),裁决台账 `miniapp-mirror-verdicts.jsonl:32` 同判 not-applicable;小程序侧 `镜像 packages/app/src/features/console-table/ConsoleTableScreen.tsx` 命中 0。
+
+**门读数**(当时有其它线并发跑门,耗时只作参考):门 285p `check-web-rn-screen-parity --worktree`:`alignedUnique 292→291`、`portalRows 88→89`、`rot/duplicateWebKeys/unmapped/contradicted` 均 0,exit 0;门 189p `check-web-mp-route-carriers --worktree` exit 0(`shared 275 / carried 252 / missingCarrier 0 / undetermined 0`,login/mcp-store 仍判 legal-absence);门 302 `--gate` 在 HEAD 面仍绿,提交后预期 `web-aligned-decrease 1`(302 advisory、302p push blocking,需跨端对齐线刷新 `scripts/data/cross-end-drift-gate-baseline.json`);门 291 `check-web-rn-copy-parity` 在 HEAD 即 `SyntaxError: Identifier 'catBatch' has already been declared`(`scripts/check-web-rn-copy-parity.mjs:72`,merge `06927f16fa` 引入的重复 import),属存量红、与本线无关,但会阻断命中映射表触发器的提交。
+
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
