@@ -1,0 +1,17 @@
+-- © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+-- Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+-- ============================================================================
+-- F-433: tool_invocation_ledger.user_id 放宽为可空
+--
+-- 背景:
+--   列上同时有 `NOT NULL` 与 `REFERENCES users(id) ON DELETE SET NULL`。
+--   删除用户时 FK 动作必须把 user_id 写成 NULL,而 NOT NULL 会拒绝该写入,
+--   于是整个删用户事务失败 —— 账本反而成了"用户不可删"的硬约束。
+--
+-- 回滚(执行前先确认没有 NULL 行,否则 SET NOT NULL 会失败):
+--   SELECT count(*) FROM "tool_invocation_ledger" WHERE "user_id" IS NULL;
+--   ALTER TABLE "tool_invocation_ledger" ALTER COLUMN "user_id" SET NOT NULL;
+-- ============================================================================
+
+ALTER TABLE "tool_invocation_ledger" ALTER COLUMN "user_id" DROP NOT NULL;
