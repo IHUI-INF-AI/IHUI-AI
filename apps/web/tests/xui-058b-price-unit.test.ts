@@ -24,4 +24,23 @@ describe('XUI-058b web 智能体价格按分转元', () => {
     expect(src).toMatch(/priceFmt\.format\(a\.price\s*\/\s*100\)/)
     expect(src).not.toMatch(/priceFmt\.format\(a\.price\)(?!\s*\/)/)
   })
+
+  // 金额单位全扫补充：同源字段（/api/agents/list 的 price，单位分）在另外三个可触发页面仍按元渲染。
+  it('智能体详情页价格两处都按分转元', () => {
+    const src = read('app', '(main)', 'agents', '[id]', 'PageClient.tsx')
+    expect(src).toMatch(/priceFmt\.format\(agent\.price\s*\/\s*100\)/)
+    expect(src).not.toMatch(/priceFmt\.format\(agent\.price\)(?!\s*\/)/)
+  })
+
+  it('精选智能体页 ¥ 前缀按分转元', () => {
+    const src = read('app', '(main)', 'agents', 'featured', 'page.tsx')
+    expect(src).toMatch(/agent\.price\s*\/\s*100/)
+    expect(src).not.toMatch(/¥\$\{agent\.price\}/)
+  })
+
+  it('分类智能体页 ¥ 前缀按分转元', () => {
+    const src = read('app', '(main)', 'agents', 'categories', '[id]', 'PageClient.tsx')
+    expect(src).toMatch(/agent\.price\s*\/\s*100/)
+    expect(src).not.toMatch(/¥\$\{agent\.price\}/)
+  })
 })
