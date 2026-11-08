@@ -875,23 +875,49 @@
 
 #### XUI-076 小程序派生产物钉陈旧（i18n 离线包 + ui-routes）
 - 严重度：P2（错误数据：端上可能读过期文案/路由白名单）
-- 状态：**只写清单，禁止本轮重生成**。合并波次正在跑，47 条分支里也有改 `ui-routes.generated.ts` / i18n 生成物的，两边同时写生成物必然打架。等波次收口后由**唯一写入者**跑一次，其他人不得手改这四个文件。
+- 状态：**已解冻、仍暂缓重生成**（2026-11-08 用户指令）。AI 计费改由 API 线统一按 B 方案修改（会碰钱包相关代码），本线**先不跑生成器**；等 API 线那批落地后，由**单一写入者**一次性跑 `pnpm gen:i18n` + `node apps/miniapp-taro/scripts/generate-ui-routes.mjs`，避免重生成结果被并行改动顶掉。其他人不得手改这些生成物。前置核对清单已交用户确认，未获批准前不执行。
 - 生成器与固定命令（两条，缺一不可）：
   - `pnpm gen:i18n` → `scripts/gen-i18n-compressed.mjs`
   - `node apps/miniapp-taro/scripts/generate-ui-routes.mjs` → `apps/miniapp-taro/scripts/generate-ui-routes.mjs`
 - 复算方法：`scripts/lib/generated-input-pin.mjs` 的 `parsePin` + `digestInputs` + `differingInputs`；逐条读取钉内 `input:` 行的磁盘当前内容复算，全程只读，未执行生成器。
 
-| # | 生成物 | 钉内输入数 | 不一致输入数 | 当前钉（`inputsSha256`） | 按磁盘输入复算 | 钉内 sourceCommit / generatedAt |
+| # | 生成物 | 钉内输入数 | 不一致输入数 | 当前钉（`inputsSha256`） | 按磁盘输入复算（2026-11-08 二轮） | 钉内 sourceCommit / generatedAt |
 |---|---|---|---|---|---|---|
-| 1 | `apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts` | 3 | 1 | `20c17b6079d21d55740baf172c135c6c24e65a3330f8ebfceb79da8103918c1b` | `edd02c9e2a989015a496d86a602f0eab471cc86bd1fd9c1dc8607212878b8afc` | `f5a4ce8f5b82` / `2026-11-07T10:02:27.124Z` |
-| 2 | `apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts` | 12 | 4 | `58e4c4e8730bd376ac6f83eb9d4fee4734f63834ac7e4c7b729cbe6f0ab4355c` | `ad4c9239ea74d8f194efaa539a8d91d312e1254ed9009de1b7b63042281554ac` | `f5a4ce8f5b82` / `2026-11-07T10:02:26.972Z` |
-| 3 | `apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts` | 12 | 4 | `58e4c4e8730bd376ac6f83eb9d4fee4734f63834ac7e4c7b729cbe6f0ab4355c` | `ad4c9239ea74d8f194efaa539a8d91d312e1254ed9009de1b7b63042281554ac` | 同 #2（同一批输入，两产物同钉） |
-| 4 | `apps/miniapp-taro/src/constants/ui-routes.generated.ts` | 725 | 37 | `4adbac89e83dfff613c289e935560349b381ee6e06b7c7af4632fe762bb8f2c9` | `d7c5520c9265f2e73b86b401eb4217d2eaf48d424ec0824c47011d40206fb240` | `b832d2a6dc0a` / `2026-11-08T06:52:09.584Z` |
+| 1 | `apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts` | 3 | 2 | `20c17b6079d21d55740baf172c135c6c24e65a3330f8ebfceb79da8103918c1b` | `7197af7a919af22a24c7e41154d57894675133c0d791bcc47c8ae45f08b53706` | `f5a4ce8f5b82` / `2026-11-07T10:02:27.124Z` |
+| 2 | `apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts` | 12 | 8 | `58e4c4e8730bd376ac6f83eb9d4fee4734f63834ac7e4c7b729cbe6f0ab4355c` | `00d7b63dcaa2eaa41d95aec27b3396e19947a06ac651ad1b8c04dc075f0489e9` | `f5a4ce8f5b82` / `2026-11-07T10:02:26.972Z` |
+| 3 | `apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts` | 12 | 8 | `58e4c4e8730bd376ac6f83eb9d4fee4734f63834ac7e4c7b729cbe6f0ab4355c` | `00d7b63dcaa2eaa41d95aec27b3396e19947a06ac651ad1b8c04dc075f0489e9` | 同 #2（同一批输入，两产物同钉） |
+| 4 | `apps/miniapp-taro/src/constants/ui-routes.generated.ts` | 725 | 43 | `4adbac89e83dfff613c289e935560349b381ee6e06b7c7af4632fe762bb8f2c9` | `e12b25b8b98daa563927c72b3d5204396962c3b1f6e7fd712e9ddb9211633502` | `b832d2a6dc0a` / `2026-11-08T06:52:09.584Z` |
+
+- 复算命令（只读，**不执行生成器**；仓库根运行）：
+
+```js
+// node --input-type=module
+import { readFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { parsePin, digestInputs, differingInputs } from './scripts/lib/generated-input-pin.mjs'
+const ROOT = '.'
+for (const rel of [
+  'apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts',
+  'apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts',
+  'apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts',
+  'apps/miniapp-taro/src/constants/ui-routes.generated.ts',
+]) {
+  const pin = parsePin(readFileSync(join(ROOT, rel), 'utf8'))
+  const computed = digestInputs(pin.perInput.map((i) => ({
+    rel: i.rel,
+    text: existsSync(join(ROOT, i.rel)) ? readFileSync(join(ROOT, i.rel), 'utf8') : null,
+  })))
+  const diff = differingInputs(pin, computed.perInput)
+  console.log(rel, { inputs: pin.perInput.length, diff: diff.length, pinned: pin.digest, actual: computed.digest, matched: pin.digest === computed.digest })
+}
+```
 
 - 输入对应关系（逐条）：
-  - **#1** 输入 3 条：`packages/i18n/messages/{miniapp-taro,mobile-rn,shared}/zh-CN.json`；仅 `miniapp-taro/zh-CN.json` 已变（`f53b21b04146 → ecf44d5c3896`），另 2 条未变。
-  - **#2/#3** 输入 12 条：`packages/i18n/messages/{miniapp-taro,mobile-rn,shared}/{en,ja,ko,zh-TW}.json`；已变 4 条全在 `miniapp-taro/`：`en.json`、`ja.json`、`ko.json`、`zh-TW.json`；`mobile-rn/` 与 `shared/` 的 8 条未变。
-  - **#4** 输入 725 条（`apps/miniapp-taro/src` 源码 + `app.config.ts` + `app.tsx`）；已变 37 条（12 位 sha 前缀，`pinned → actual`）：
+  - **#1** 输入 3 条：`packages/i18n/messages/{miniapp-taro,mobile-rn,shared}/zh-CN.json`；已变 2 条：`miniapp-taro`（`f53b21b04146 → 53f8aea5ea1a`）、`mobile-rn`（`052378aeb068 → e39a25c0280f`）；`shared` 未变。
+  - **#2/#3** 输入 12 条：`packages/i18n/messages/{miniapp-taro,mobile-rn,shared}/{en,ja,ko,zh-TW}.json`；已变 8 条，`shared/` 的 4 条未变：
+    - `miniapp-taro/`：`en` `3bf8b0052b6a → 3e2ccded610d`、`ja` `6105927852f3 → 8602129401d8`、`ko` `45e30551c544 → d539fe3fcf34`、`zh-TW` `2f9e20268870 → 8980d758445b`
+    - `mobile-rn/`：`en` `5968535898a4 → 1d7356fcbe2d`、`ja` `0564e7278384 → 929790b49f73`、`ko` `d9e8112520f8 → 0956ea74b2c9`、`zh-TW` `5e48b44c1f7d → 38096ee1a9ec`
+  - **#4** 输入 725 条（`apps/miniapp-taro/src` 源码 + `app.config.ts` + `app.tsx`）；已变 43 条（12 位 sha 前缀，`pinned → actual`）：
     1. `apps/miniapp-taro/src/api/index.ts` `440515d20c9e → 2c32067aa997`
     2. `apps/miniapp-taro/src/components/UserInfoCard.tsx` `7fa64862d686 → f3d01b9aa5f9`
     3. `apps/miniapp-taro/src/pages/community/components/MyAgents.tsx` `20495a0fedcb → 1525fc44a517`
@@ -899,43 +925,51 @@
     5. `apps/miniapp-taro/src/pages/community/index.tsx` `11144e88b0df → e491d20964d2`
     6. `apps/miniapp-taro/src/pages/distribution/commission-overview.tsx` `810005ec02c2 → 24fee0b1622f`
     7. `apps/miniapp-taro/src/pages/distribution/rank.tsx` `ce87ad53a453 → 13a356fe73c8`
-    8. `apps/miniapp-taro/src/pages/setting/index.tsx` `ca1e712b4c29 → 9ac06167c436`
-    9. `apps/miniapp-taro/src/pages/setting/notification.tsx` `b1a9156931ed → 993ffc1ff11c`
-    10. `apps/miniapp-taro/src/pages/setting/privacy.tsx` `edcb0d63a0fd → c78b472d909f`
-    11. `apps/miniapp-taro/src/pages/study/rank.tsx` `55fe773a4e8e → a7a38d15b6b2`
-    12. `apps/miniapp-taro/src/pages/user/index.tsx` `2e514383575c → 07f87bb75a66`
-    13. `apps/miniapp-taro/src/pages/webview/index.tsx` `ca3a99c4e24a → b8efb77d8879`
-    14. `apps/miniapp-taro/src/pkg-about/about-shared/index.tsx` `4f1c15535b37 → 4c3e6bf96e07`
-    15. `apps/miniapp-taro/src/pkg-about/about/help.tsx` `8e47f8f5e665 → 3ebd65629246`
-    16. `apps/miniapp-taro/src/pkg-ai/ai/chat-list-extras.tsx` `e69844ce7dbb → e14172ec9886`
-    17. `apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx` `56304872417d → 98cce26ed50f`
-    18. `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` `438fc079585a → 10dc02b18b0a`
-    19. `apps/miniapp-taro/src/pkg-ai/ai/model-switch.ts` `d9618f48e982 → e2a188a9b062`
-    20. `apps/miniapp-taro/src/pkg-ai/aigc/publish.tsx` `bcb3087f5798 → 8db5dc12a700`
-    21. `apps/miniapp-taro/src/pkg-content/category-detail/index.tsx` `3a87b1fc6328 → a99f00462225`
-    22. `apps/miniapp-taro/src/pkg-content/news/list.tsx` `6c746e9e340f → af2261a655e3`
-    23. `apps/miniapp-taro/src/pkg-learn/course/detail.tsx` `43a43e70681e → 0851965342b4`
-    24. `apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx` `d8225b552321 → 89cf4aed1a9d`
-    25. `apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx` `8cf48d814364 → faa17850f235`
-    26. `apps/miniapp-taro/src/pkg-shop/vip/index.tsx` `c2c9c2985014 → d5b0999f3e35`
-    27. `apps/miniapp-taro/src/pkg-shop/vip/privilege.tsx` `b6e92e460035 → 320be699c0ea`
-    28. `apps/miniapp-taro/src/pkg-shop/vip/success.tsx` `7802e8745b12 → 2bd8069f8647`
-    29. `apps/miniapp-taro/src/pkg-shop/wallet/recharge/index.tsx` `32903eedfb7a → 9437409649f2`
-    30. `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx` `a8e49cfdcf8d → 2aeaff4b5e63`
-    31. `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/withdrawal-props.ts` `f07b95d54e7e → 4ff9f8dabc00`（XUI-075 修复新增）
-    32. `apps/miniapp-taro/src/pkg-user/message/index.tsx` `ce21b8231520 → ee5cea777f6b`
-    33. `apps/miniapp-taro/src/pkg-user/user/phone.tsx` `098bdca7eeea → f4af5925bb64`
-    34. `apps/miniapp-taro/src/rn-compat/apis.ts` `3e8fcc812bac → b5b1fb26bfb0`
-    35. `apps/miniapp-taro/src/rn-compat/navigation.tsx` `3ad2f9eb0d82 → ac95743f46a4`
-    36. `apps/miniapp-taro/src/rn-compat/platform.tsx` `f1d75668e67a → ee3a71a31c59`
-    37. `apps/miniapp-taro/src/utils/save-album.ts` `54c51fe47bf5 → da89c69bc215`
+    8. `apps/miniapp-taro/src/pages/forgot-password/index.tsx` `36330202edbf → 46343e98cf80`（相对一轮清单**新增**）
+    9. `apps/miniapp-taro/src/pages/plaza/index/index.tsx` `bf8d55342b0a → 060556074c83`（**新增**）
+    10. `apps/miniapp-taro/src/pages/setting/index.tsx` `ca1e712b4c29 → 9ac06167c436`
+    11. `apps/miniapp-taro/src/pages/setting/notification.tsx` `b1a9156931ed → 993ffc1ff11c`
+    12. `apps/miniapp-taro/src/pages/setting/privacy.tsx` `edcb0d63a0fd → c78b472d909f`
+    13. `apps/miniapp-taro/src/pages/study/rank.tsx` `55fe773a4e8e → a7a38d15b6b2`
+    14. `apps/miniapp-taro/src/pages/user/index.tsx` `2e514383575c → 07f87bb75a66`
+    15. `apps/miniapp-taro/src/pages/webview/index.tsx` `ca3a99c4e24a → b8efb77d8879`
+    16. `apps/miniapp-taro/src/pkg-about/about-shared/index.tsx` `4f1c15535b37 → 4c3e6bf96e07`
+    17. `apps/miniapp-taro/src/pkg-about/about/help.tsx` `8e47f8f5e665 → 3ebd65629246`
+    18. `apps/miniapp-taro/src/pkg-ai/ai/chat-list-extras.tsx` `e69844ce7dbb → e14172ec9886`
+    19. `apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx` `56304872417d → 98cce26ed50f`
+    20. `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` `438fc079585a → 10dc02b18b0a`
+    21. `apps/miniapp-taro/src/pkg-ai/ai/model-switch.ts` `d9618f48e982 → e2a188a9b062`
+    22. `apps/miniapp-taro/src/pkg-ai/aigc/publish.tsx` `bcb3087f5798 → 8db5dc12a700`
+    23. `apps/miniapp-taro/src/pkg-content/category-detail/index.tsx` `3a87b1fc6328 → a99f00462225`
+    24. `apps/miniapp-taro/src/pkg-content/news/list.tsx` `6c746e9e340f → af2261a655e3`
+    25. `apps/miniapp-taro/src/pkg-learn/course/detail.tsx` `43a43e70681e → 0851965342b4`
+    26. `apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx` `d8225b552321 → 89cf4aed1a9d`
+    27. `apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx` `8cf48d814364 → faa17850f235`
+    28. `apps/miniapp-taro/src/pkg-shop/pay/index.tsx` `f39a893cd928 → 0ef41a5c5cfe`（**新增**）
+    29. `apps/miniapp-taro/src/pkg-shop/vip/index.tsx` `c2c9c2985014 → d5b0999f3e35`
+    30. `apps/miniapp-taro/src/pkg-shop/vip/privilege.tsx` `b6e92e460035 → 320be699c0ea`
+    31. `apps/miniapp-taro/src/pkg-shop/vip/success.tsx` `7802e8745b12 → 2bd8069f8647`
+    32. `apps/miniapp-taro/src/pkg-shop/wallet/recharge/index.tsx` `32903eedfb7a → 9437409649f2`
+    33. `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx` `a8e49cfdcf8d → b719bde17e6c`
+    34. `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/withdrawal-props.ts` `f07b95d54e7e → 4ff9f8dabc00`（XUI-075 修复新增）
+    35. `apps/miniapp-taro/src/pkg-user/account-cancel/index.tsx` `ce4c10bcf43b → ab14c9bef5c6`（**新增**）
+    36. `apps/miniapp-taro/src/pkg-user/message/index.tsx` `ce21b8231520 → ee5cea777f6b`
+    37. `apps/miniapp-taro/src/pkg-user/user/email.tsx` `68c11c87c076 → c647e0ea3b9e`（**新增**）
+    38. `apps/miniapp-taro/src/pkg-user/user/phone.tsx` `098bdca7eeea → aba399a9b5fb`
+    39. `apps/miniapp-taro/src/rn-compat/apis.ts` `3e8fcc812bac → b5b1fb26bfb0`
+    40. `apps/miniapp-taro/src/rn-compat/native-extras.ts` `34bf6ebbf142 → 466034484bab`（**新增**）
+    41. `apps/miniapp-taro/src/rn-compat/navigation.tsx` `3ad2f9eb0d82 → ac95743f46a4`
+    42. `apps/miniapp-taro/src/rn-compat/platform.tsx` `f1d75668e67a → ee3a71a31c59`
+    43. `apps/miniapp-taro/src/utils/save-album.ts` `54c51fe47bf5 → da89c69bc215`
+- **同批派生但一轮清单漏列的 4 个受控文件**：`apps/miniapp-taro/src/assets/remote-locales/{en,ja,ko,zh-TW}.b64.txt`。`gen-i18n-compressed.mjs:536-539` 每次生成都会重写它们，且当前文件字节数（146836/168572/160300/152308）与 manifest 里**旧钉**的 `bytes` 完全一致 ⇒ 它们与 #2/#3 同属陈旧批次，重生成后必然一并出 diff。
 - 对照组（已复算一致，**不要**一并重生成）：
   - `apps/mobile-rn/src/constants/ui-routes.generated.ts`：2 输入 / 0 差异，钉 `e7f9dbfa0fdf5aec0036fc74aa447c4da050c369aeeba6e0db35d83023ca33e1`
   - `apps/web/src/lib/ui-routes.generated.ts`：923 输入 / 0 差异，钉 `5a5c3099e578a6e82c973d55f2ea02ca65f99567409607928f990e7c073aa1e4`
-- 交接验收：唯一写入者执行两条命令后，只允许 #1–#4 四个文件出现 diff；`git diff --stat` 应显示 4 files；若多出文件说明波次期间又有源码/语言包变更，按新钉重算再交。禁止手改 `inputsSha256` 或 `generatedAt`。
-- 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单可能落后于源码。
-- 当场可修：否（本轮受协作约束冻结；`git diff` 体量大，按「不跑门」政策留待波次后单独提交）
-- 状态（2026-11-08）：按指令冻结，等合并波次收口后由唯一写入者重生成；本轮不动。
+- 交接验收（修正后）：唯一写入者执行两条命令后，**只允许 8 个文件出 diff** —— #1–#4 四个 `.gen.ts/.generated.ts` + 上述 4 个 `*.b64.txt`；`git diff --stat` 应显示 8 files。若多出文件说明波次期间又有源码/语言包变更，按新钉重算再交。**禁止手改 `inputsSha256` / `generatedAt` / `version` / `bytes`**：重生成时由生成器从磁盘输入现算。对照组两个 `ui-routes.generated.ts`（mobile-rn/web）不得出 diff。
+- 重生成后必须复核：4 个 `.gen.ts/.generated.ts` 的钉 `inputsSha256` 应变为上表「按磁盘输入复算」列的值（#2/#3 相同）；4 个 b64 的字节数应与新 manifest 的 `bytes` 一致。
+- 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单可能落后于源码；4 个 CDN 载荷 `*.b64.txt` 与 manifest `version/bytes` 同样陈旧。
+- 当场可修：否（受协作约束暂缓；`git diff` 体量大，按「不跑门」政策留待 API 线计费改完后单独提交）
+- 状态（2026-11-08）：解冻但暂缓重生成；前置核对已按二轮复算刷新（2 / 8 / 8 / 43 条输入不一致，另含 4 个 b64 载荷），等用户确认清单 + API 线计费落地后执行。
 
 ## 三、未判定（证据不足，未计入结论）
 
@@ -995,7 +1029,7 @@
 
 - **新增条数**：74 条（P0 14 / P1 33 / P2 27）。
 - **第 6 轮新增**：+2（XUI-075 提现千分位、XUI-076 派生产物陈旧钉）；复核坐实 1（N-3），复核维持否证 7（N-1/N-2/N-4/N-5/N-6 + XUI-011/XUI-012）。
-- **2026-11-08 补充**：XUI-076 已产出重生成清单（4 产物 / 50 条不一致输入 / 钉与复算 sha 全量），按协作约束冻结未重生成；N-6「格式化→再解析」族扫描零新增。
+- **2026-11-08 补充**：XUI-076 已产出重生成清单（4 产物 + 4 个 b64 载荷 / 二轮复算 2+8+8+43 条不一致输入 / 钉与复算 sha 全量），解冻但暂缓重生成，等 API 线 AI 计费落地后由单一写入者执行；N-6「格式化→再解析」族扫描零新增。
 - **覆盖清单**：三端入口与路由真值 · 共享包导出/types · 订单/会员/分销/退款/提现/充值/支付链 · RN 导航注册与登录态 · 小程序存储键与页面栈 · rn-compat 全量导出与消费交叉 · 共享 hook/状态机/SSE/通知/权限 · i18n 与共享屏契约 · 平台权限/键盘/SafeArea/后台切换 · 输入单位与时区。
 - **仍可深挖的方向**：见「未判定」U-1..U-7；另建议补两条静态面：(a) `apps/extension` UI 面（本次扫描范围外）；(b) api-client `dist` 产物与 `src` 逐符号差异（需构建，非只读）。
 
@@ -1119,16 +1153,19 @@
 - i18n：5 个语言包 `wallet` 命名空间补 `flowDeduct`/`flowExpire`/`flowRecharge`/`flowRefund`/`flowRelayRecharge`/`flowAdminAdjust`/`flowOther`（此前 wallet 命名空间缺这些 key，页面标签实际是裸奔）。
 - 夹具：`apps/web/tests/xui-wallet-optype-display.test.ts`（改前 import 失败 → 改后 8 绿），覆盖 0/1/2/3/4/5±/6/99/-1 的文案+符号+颜色，并锁 schema 不得再写「4=佣金」。
 
-### XUI-087 AI 计费腿把 LLM token 数写入资金账（判定：污染，待计费口径后迁出）
+### XUI-087 AI 计费腿把 LLM token 数写入资金账（判定：污染；处置改 **B**，由 API 线统一修）
 
-结论：**会污染资金账，须修；但不影响提现可用额。**
+结论：**会污染资金账，须修；但不影响提现可用额。** 2026-11-08 用户决定：撤销 A（止血），改 B（接真实成本），且整块由 API 线统一修改，本线**不动** `ai-callback*` / `crew*` / `stock-service` / `proxy-tools`，避免两边写同一批代码。
 
-- 事实链：`ai-callback.ts` 取 `tokens = usage.total_tokens`（LLM token 计数）→ `ai-callback-worker.ts:160-161` 调 `server.tokenBalance.deductTokens(userId, tokens, …)` → `token-balance-service.ts:169-260` 直接减 `user_margins.token_quantity`（该列是「分」充值余额），并写 `token_flows` op_type=1、quantity=tokens。
+- 事实链：`ai-callback.ts` 取 `tokens = usage.total_tokens`（LLM token 计数）→ `ai-callback-worker.ts:142-159` 先 `recordAiCost(...)`（真实成本、单位分，**正确**）→ 紧接着 `ai-callback-worker.ts:160-166` 仍 `server.tokenBalance.deductTokens(userId, tokens, …)`（**原始 tokens 当分**）→ `token-balance-service.ts:169-260` 直接减 `user_margins.token_quantity`，并写 `token_flows` op_type=1、quantity=tokens。**异步 worker 与 route 同错，只修其一无效**（API 线查证结论）。
 - 后果：一条 5,000 token 的回复会把余额扣掉 5,000 分 = ¥50.00；用户可在 `/finance/margin/flows`（钱流水）看到该笔「扣减」，量纲错得离谱。
 - 不受影响：`availableWithdrawal` 由 `commissionFlows` 汇总（`commission-queries.ts:674-682`），与 `token_quantity` 无关，**提现可用额不受污染**。
-- 同型调用点（同风险）：`proxy-tools.ts:992`（`text.length + answer.length` 当分）、`proxy-tools.ts:1180`（固定 1500）、`stock-service.ts:262`（`chars/4 + 800` 估算）、`crew.ts:198,277`。
-- 处置建议（**本批未改，等计费口径确认**）：
-  - A. 立即止血（推荐）：AI 用量只落 `ai_cost_records`（已存 `totalTokens` 审计），不再经 `deductTokens` 动 `user_margins` / `token_flows`；`token_flows` 只留真钱（0–5）。
-  - B. 继续收费：在定价规则新增「token → 分」换算（例如每 1,000 token 折算 X 分），`deductTokens` 只收折算后的分，禁止传原始 token 数。
-  - 两条都遵循「不再往 `quantity` 加第三种含义」：配额/计费量迁出资金列，不打补丁。
-- 待确认：按 A 还是 B；若 B，需给出 token→分 的费率（实现侧不臆造）。
+- 同型调用点（同风险，同批由 API 线处理）：`proxy-tools.ts:992`（`text.length + answer.length` 当分）、`proxy-tools.ts:1180`（固定 1500）、`stock-service.ts:262`（`chars/4 + 800` 估算）、`crew.ts:198,277`。
+- **「token → 分」定价表查证结论：仓内存在，B 方案有现成依据**（本线只读核实，未臆造费率）：
+  - `packages/database/src/schema/billing.ts:157-182` —— `ai_pricing` 表，字段 `input_token_price` / `output_token_price`，`numeric(18,6)`，注释明写单位「**分/千 token**（CNY）」；`billing_mode` 支持 token / per_call / per_image / per_video。
+  - `apps/api/src/services/pricing-service.ts:198-218` —— `calculateCost()`：`inputCost = roundCents((inputTokens / 1000) * inputTokenPrice)`，output 同式，返回单位「分」（6 位小数）。
+  - `apps/api/src/plugins/ai-cost.ts:449-512` —— `recordAiCost()` 未显式传 `cost` 时调用 `calculateCost()`，把成本落 `ai_cost_records.cost`（分），`totalTokens` 仅作审计；该链路**已经在用**。
+  - 旁证同口径：`packages/database/src/schema/ai-config.ts:142-164` 的 `ai_model_configs.input_price_per_1k` / `output_price_per_1k`（分/千 token）+ `relay_price_multiplier`；`packages/database/seed/relay-pricing-seed.ts:126-127` 从 `ai_pricing` 回填；`apps/api/src/services/litellm-price-sync.ts:12-13` 注明同单位。
+- 正确修法（交 API 线）：扣费一律用 `calculateCost()` / `recordAiCost()` 得出的**分**值（或复用同一次 `recordAiCost` 的结果），`deductTokens` 收折算后的分；**禁止把原始 token 数当金额传**。两条铁律不变：`token_flows.quantity` 不再加第三种含义；钱流水只留 op_type 0–5，配额/计费量迁出资金列。
+- 本线边界：不改上述 4 个同型文件；已完成的钱包展示修复（opType 权威枚举、`wallet-flow-meta.ts` 唯一映射、五语言 key、8 例夹具）保留，不回滚。
+- 待确认：已消解（B 已定；定价表存在，无「需产品定义费率」的缺口）。
