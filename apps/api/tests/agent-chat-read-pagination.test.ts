@@ -62,6 +62,9 @@ vi.mock('../src/db/agent-chat-queries.js', async () => {
       throw new Error('B2 读路径不得调用 appendMessages')
     },
     pageAgentMessages: (actual as { pageAgentMessages: unknown }).pageAgentMessages,
+    // 2026-11 v1 信封在返回前要过 visibleAgentMessages(messages, HISTORY_LIMIT) 过滤。
+    // 本文件喂的都是自己可见的会话,闸门按原样透传即可,过滤语义另有专门用例。
+    visibleAgentMessages: <T>(msgs: T[]) => msgs,
   }
 })
 
