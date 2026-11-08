@@ -970,6 +970,7 @@ for (const rel of [
 - 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单可能落后于源码；4 个 CDN 载荷 `*.b64.txt` 与 manifest `version/bytes` 同样陈旧。
 - 当场可修：否（受协作约束暂缓；`git diff` 体量大，按「不跑门」政策留待 API 线计费改完后单独提交）
 - 状态（2026-11-08）：解冻但暂缓重生成；前置核对已按二轮复算刷新（2 / 8 / 8 / 43 条输入不一致，另含 4 个 b64 载荷），等用户确认清单 + API 线计费落地后执行。
+- 执行前闸门（2026-11-08 复核，未执行生成）：API 线 F-203 口径 B 已推 `origin/fix/api-p0-1108`（`2492296e86` 异步 worker 改按定价成本、`cea6f4565e` 钱包扣减与 `ai_cost_records` 同源），但**未合入 main**；且 `crew.ts:198/277`、`stock-service.ts:262`、`proxy-tools.ts:995` 仍拿原始/估算 token 量调 `deductTokens`，同型四点尚未全部收口 ⇒ 按用户条件暂不执行重生成。该分支未触碰 `apps/miniapp-taro/src`、`packages/i18n/messages`、`apps/web`，故 XUI-076 输入未变，复算预期仍有效。
 
 ## 三、未判定（证据不足，未计入结论）
 
