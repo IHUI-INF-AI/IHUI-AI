@@ -448,17 +448,17 @@ describe('持久收件箱', () => {
     expect(b.entry.teamId).toBe(otherTeam.id)
   })
 
-  it('发送方不是团队成员被 403 NOT_TEAM_MEMBER', async () => {
+  it('伪造 fromMember 不生效:落库发送人为当前登录成员', async () => {
     const { service, team } = await createTeamWithAgents()
-    await expect(
-      service.sendInbox(owner, team.id, {
-        fromMember: { memberKind: 'agent', memberId: 'agent-ghost' },
-        toMember: agentA,
-        kind: 'message',
-        payload: {},
-        idempotencyKey: 'ghost-1',
-      }),
-    ).rejects.toMatchObject({ statusCode: 403, code: 'NOT_TEAM_MEMBER' })
+    const { entry } = await service.sendInbox(owner, team.id, {
+      fromMember: { memberKind: 'agent', memberId: 'agent-ghost' },
+      toMember: agentA,
+      kind: 'message',
+      payload: {},
+      idempotencyKey: 'ghost-1',
+    })
+    expect(entry.fromMemberKind).toBe('human')
+    expect(entry.fromMemberId).toBe(owner)
   })
 
   it('目标成员不是团队成员被 403 NOT_TEAM_MEMBER', async () => {
