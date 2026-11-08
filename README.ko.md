@@ -2227,6 +2227,9 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-08**
+- 📚 문서:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (2485323c91)
+
+**2026-11-08**
 - 🔧 기타:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
 - 📚 문서:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
 
@@ -3047,9 +3050,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-05**
 - 🐞 수정:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
-
-**2026-11-06**
-- 🚀 기능/개선:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
