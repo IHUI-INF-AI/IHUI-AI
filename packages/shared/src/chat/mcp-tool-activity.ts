@@ -116,6 +116,8 @@ const SERVER_ACTIVITY_KEYS: Readonly<Record<string, McpActivityKeys>> = {
     base: 'toolMcpServerBrowserActivity',
     withContext: 'toolMcpServerBrowserWithContextActivity',
   },
+  // 只配 base:带上下文时必须落回自身 base(同层档位回落),而不是掉到 tool 档
+  craft_anything: { base: 'toolMcpServerCraftAnythingActivity' },
 }
 
 /** 第 3 层:该 tool 的通用条目(跨 server;同一个 tool 名挂在任何未定制的 server 下都走这里) */
