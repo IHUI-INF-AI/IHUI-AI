@@ -10,9 +10,13 @@
  * - 没有"指标不可用"状态位,面板无法区分"0 连接"与"采样坏了"。
  *
  * 改后(绿):
- * - 无 state → available=false,size 仍可读(options.max),usage 落 NaN,
- *   /metrics 暴露 db_pool_metrics_available 0;
+ * - 无 state → available=false,size 仍可读(options.max),usage 三项**不输出**,
+ *   /metrics 只暴露 db_pool_metrics_available 0;
  * - 有真实 state → 上报真实 in_use/checkedout,available 1。
+ *
+ * 为什么不是 NaN:Grafana 面板 `100 * db_pool_in_use / clamp_min(db_pool_size,1)`
+ * 会把 NaN 一路传播成 NaN 面板;多实例 avg 聚合也会被单个 NaN 整条污染。故不可用时
+ * 直接省略 usage 序列,由 available 状态位承担「采样坏了」的表达。
  *
  * 零真实 DB:用形状对象模拟 postgres.js 的公开面。
  */
@@ -75,15 +79,17 @@ describe('F-324 连接池指标显式可用性', () => {
     expect(calls[0]).not.toHaveProperty('inUse')
   })
 
-  it('/metrics:不可采样 → db_pool_metrics_available 0 + usage NaN,而不是 in_use 0', async () => {
+  it('/metrics:不可采样 → 只留 db_pool_metrics_available 0,不输出 usage 序列', async () => {
     const body = await scrapeMetrics((server) => {
       server.setDbPoolMetrics({ available: false, size: 40 })
     })
     expect(body).toContain('db_pool_metrics_available 0')
-    expect(body).toMatch(/db_pool_in_use NaN/)
-    expect(body).toMatch(/db_pool_checkedout NaN/)
-    expect(body).not.toMatch(/db_pool_in_use 0/)
+    expect(body).not.toMatch(/db_pool_in_use/)
+    expect(body).not.toMatch(/db_pool_checkedout/)
+    expect(body).not.toMatch(/db_pool_overflow/)
     expect(body).toContain('db_pool_size 40')
+    // 整条 /metrics 不得出现 NaN/Inf 字面量(否则消费端聚合会被污染)
+    expect(body).not.toMatch(/\bNaN\b/)
   })
 
   it('/metrics:可采样 → available 1,真实 in_use/checkedout', async () => {
