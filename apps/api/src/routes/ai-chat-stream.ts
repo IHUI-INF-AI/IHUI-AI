@@ -405,7 +405,8 @@ const chatStreamSchema = z.object({
   metadata: z
     .object({
       conversationId: z.string().optional(),
-      userId: z.string().optional(),
+      // F-02(2026-11-08):不再声明 userId —— 客户端自报身份一律 zod strip,
+      // 归属/预算/准入/存储读全部只认 request.userId(认证主体)。
       messageId: z.string().optional(),
       // 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
       // 不在此声明会被 zod strip 静默丢弃(同 knowledgeContext 注记那一型):
@@ -893,7 +894,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     try {
       const mergedMetadata = {
         conversationId: opts.metadata?.conversationId,
-        userId: opts.metadata?.userId ?? request.userId,
+        // F-02:上游 metadata.userId 是回调扣费/配额主体,必须是认证主体而非客户端自报值。
+        userId: request.userId,
         messageId: opts.metadata?.messageId,
         // 票59(3/3):版本族坐标原样透传上游(ai-service metadata 是 dict[str, Any],
         // _fire_callback 整包回显)→ 回调端点提出进 job 顶层 → worker 落 createMessage 两列。
@@ -1538,7 +1540,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // G6 企业治理面(2026-10-30 立):模型准入检查点(/chat/stream)。
       // 组织 model_allowlist 命中禁用 ⇒ 403 errorCode='ORG_MODEL_BLOCKED',请求不进执行;
       // 开关关/无组织/无策略/治理面异常 ⇒ 直通(guardModelAdmission 返回 null),旧行为不变。
-      const admission = await guardModelAdmission(metadata?.userId ?? request.userId, resolvedModel)
+      const admission = await guardModelAdmission(request.userId, resolvedModel)
       if (admission) {
         return reply.code(admission.statusCode).send({
           code: admission.statusCode,
@@ -1553,7 +1555,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const budgetGate = await checkTokenBudget(
         request,
         reply,
-        metadata?.userId ?? request.userId,
+        request.userId,
         resolvedModel,
         {
           conversationId: metadata?.conversationId ?? null,
@@ -1684,7 +1686,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         answer,
       } = parsed.data
       const resolvedModel = model ?? modelId
-      const userId = metadata?.userId ?? request.userId
+      const userId = request.userId
       const conversationId = metadata?.conversationId
 
       // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
