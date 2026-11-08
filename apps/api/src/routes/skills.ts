@@ -70,20 +70,60 @@ function redisKey(userId: string): string {
   return `skills:${userId}`
 }
 
-async function readSkills(
-  redis: { get: (k: string) => Promise<string | null> },
+/** F-188:市场条目 → 用户库 SkillRecord。市场没有正文,用简介占位,避免空 content 破坏读取。 */
+function marketEntryToSkillRecord(entry: SkillMarketEntry): SkillRecord {
+  return {
+    name: entry.name,
+    description: entry.description,
+    content: entry.description,
+    version: entry.version,
+    license: entry.license,
+    source: entry.source ?? 'hub',
+    tags: entry.tags,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  }
+}
+
+/**
+ * F-188:读取用户私有库。历史上同一 `skills:<uid>` 既被 HSET 成 Hash(install),
+ * 又被 SET 成 JSON 数组(GET/POST /skills) —— 后写的一方必然 WRONGTYPE,安装项直接从列表消失。
+ * 这里在读到 WRONGTYPE 时尽量把历史 Hash 条目救回来,下次写入统一成 JSON 数组。
+ */
+export async function readSkills(
+  redis: {
+    get: (k: string) => Promise<string | null>
+    hvals?: (k: string) => Promise<string[]>
+  },
   key: string,
 ): Promise<SkillRecord[]> {
   try {
     const raw = await redis.get(key)
     if (!raw) return []
-    return JSON.parse(raw) as SkillRecord[]
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed) ? (parsed as SkillRecord[]) : []
   } catch {
+    if (typeof redis.hvals === 'function') {
+      try {
+        const values = await redis.hvals(key)
+        const rescued: SkillRecord[] = []
+        for (const value of values) {
+          try {
+            rescued.push(marketEntryToSkillRecord(JSON.parse(value) as SkillMarketEntry))
+          } catch {
+            /* 单条坏数据跳过,不拖垮整份用户库 */
+          }
+        }
+        if (rescued.length > 0) return rescued
+      } catch {
+        /* 不是 Hash / 读失败 ⇒ 落到进程内兜底 */
+      }
+    }
     return skillsFallback.get(key) ?? []
   }
 }
 
-async function writeSkills(
+export async function writeSkills(
   redis: { set: (k: string, v: string) => Promise<unknown> },
   key: string,
   skills: SkillRecord[],
@@ -793,14 +833,16 @@ export const skillsRoutes: FastifyPluginAsync = async (server) => {
     entry.updatedAt = new Date().toISOString()
     await writeMarket(server.redis, MARKET_KEY, entries)
 
-    // 写入用户私有库 Hash skills:<userId>,field=name,value=市场条目 JSON
-    // 让安装的 skill 真正落入用户库(刷新不丢 + 可被 Agent 调用)
-    // 失败不阻塞 install 响应(installCount++ 已生效),仅 warn
-    try {
-      await server.redis.hset(`skills:${userId}`, entry.name, JSON.stringify(entry))
-    } catch (e) {
-      request.log.warn({ err: e, userId, name: entry.name }, 'install: 写入用户私有库失败')
-    }
+    // F-188:与 GET/POST /skills 统一写 JSON 数组(String),不能再 HSET 成 Hash ——
+    // 同一 key 混用两种类型,后写方必然 WRONGTYPE,已安装条目会从用户库消失。
+    const userKey = `skills:${userId}`
+    const skills = await readSkills(server.redis, userKey)
+    const installed = marketEntryToSkillRecord(entry)
+    const userIdx = skills.findIndex((s) => s.name === installed.name)
+    if (userIdx >= 0) skills[userIdx] = installed
+    else skills.push(installed)
+    // writeSkills 自带进程内降级、不抛错,因此这里不必再吞异常(吞掉反而会把"没写进去"报成 installed:true)。
+    await writeSkills(server.redis, userKey, skills)
     // install ⇒ 立即可用:运行面按启用集白名单发放(见 filterRuntimeVisibleSkills),
     // 不在这里补一笔启用集,"安装后可被 Agent 调用"就永远不成立(装完即处于停用态)。
     // addEnabled 自带 Redis 降级,不抛错、不阻塞 install 响应。
