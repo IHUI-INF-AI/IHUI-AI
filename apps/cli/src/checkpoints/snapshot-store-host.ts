@@ -16,6 +16,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import { isRecord } from '../util/json.js';
+import { assertPathInside, segmentPathInside } from '../util/path-guard.js';
 import {
   readManifestChecked,
   type CorruptManifestEntry,
@@ -69,7 +70,12 @@ const GC_SIZE_SCAN_BUDGET = 2000;
 
 /** 会话快照根:`~/.ihui/checkpoints/<sessionId>`(存在与否由调用方的读动作判,不在此处猜) */
 export function snapshotRootDir(sessionId: string): string {
-  return path.join(os.homedir(), '.ihui', 'checkpoints', sessionId);
+  // sessionId 来自 `--session`,与检查点 id 同解:收敛成单段并断言在 checkpoints 根内。
+  return segmentPathInside(
+    path.resolve(os.homedir(), '.ihui', 'checkpoints'),
+    sessionId,
+    '会话检查点目录',
+  );
 }
 
 export type SnapshotRootProbe = 'missing' | 'present' | 'unreadable';
@@ -191,7 +197,10 @@ export function readSnapshotMeta(
   checkpointId: string,
   hooks: { onCorrupt: (entry: CorruptManifestEntry) => void; onQuarantined?: (entry: CorruptManifestEntry) => void },
 ): ManifestReadResult<CheckpointMeta> {
-  const manifestPath = path.join(baseDir, checkpointId, 'manifest.json');
+  // 清单路径是删除/回滚的锚点:根内 + realpath 断言;检查点 id 是内部序列名(含 `@vN`),
+  // 不做 sanitize 改写,否则落盘名与 id 不一致。
+  const cpDir = assertPathInside(baseDir, path.join(baseDir, checkpointId), '检查点目录');
+  const manifestPath = path.join(cpDir, 'manifest.json');
   return readManifestChecked(manifestPath, checkpointId, isCheckpointMeta, (entry) => {
     hooks.onQuarantined?.(entry);
     hooks.onCorrupt(entry);
