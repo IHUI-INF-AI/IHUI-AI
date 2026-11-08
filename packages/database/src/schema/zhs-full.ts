@@ -16,6 +16,7 @@ import {
   integer,
   timestamp,
   real,
+  numeric,
   bigint,
   boolean,
   index,
@@ -87,7 +88,8 @@ export const zhsAgentDeveloper = pgTable(
     bugTime: timestamp('bug_time', { withTimezone: true }),
     orderNo: varchar('order_no', { length: 64 }),
     status: integer('status').default(1).notNull(),
-    price: real('price'),
+    // F-449:real(float4) 会把 131072.01 量化成 131072.015625,改 numeric 保两位十进制。
+    price: numeric('price', { precision: 12, scale: 2 }),
     type: varchar('type', { length: 20 }),
     count: integer('count'),
     expirationDate: timestamp('expiration_date', { withTimezone: true }),
@@ -306,7 +308,8 @@ export const zhsCourseVideo = pgTable(
     duration: integer('duration'),
     adjunctUrl: varchar('adjunct_url', { length: 500 }),
     isPay: integer('is_pay').default(0).notNull(),
-    amount: real('amount'),
+    // F-449:同上,课程售价按 numeric(12,2) 存,读回字符串再精确换算为分。
+    amount: numeric('amount', { precision: 12, scale: 2 }),
     status: integer('status').default(1).notNull(),
     sort: integer('sort').default(0).notNull(),
     creator: varchar('creator', { length: 100 }),

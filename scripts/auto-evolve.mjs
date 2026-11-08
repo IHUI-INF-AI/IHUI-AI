@@ -31,6 +31,7 @@
  *   node scripts/auto-evolve.mjs --self-test   # 内置断言
  */
 import { spawnSync } from 'node:child_process'
+import { gitRaw } from './lib/face-reader.mjs'
 import {
   readFileSync,
   writeFileSync,
@@ -594,15 +595,16 @@ const SELF_REL = 'scripts/auto-evolve.mjs'
  */
 function readSelfFace() {
   const g = (args) => {
-    const r = spawnSync('git', args, {
-      cwd: ROOT,
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      encoding: 'utf8',
-      maxBuffer: 64 * 1024 * 1024,
-      timeout: 60_000,
-    })
-    return r.status === 0 ? String(r.stdout ?? '') : null
+    try {
+      return String(
+        gitRaw(args, ROOT, {
+          timeout: 60_000,
+          maxBuffer: 64 * 1024 * 1024,
+        }) ?? '',
+      )
+    } catch {
+      return null
+    }
   }
   // 接线修复(2026-11-05 实测):这里过去读的是受保护面清单 `immutable-guard.json`,
   // 而锚点在 `autonomy-invariants.json`(门 299 同一份,§0.6 不另声明第二个路径)。
@@ -2245,37 +2247,28 @@ function readArtifactManifest(ticketKey) {
  * 缓冲区不足被那样说出来,会把"我量不动"写成"它没改"(§0.3 的反面),所以把 ENOBUFS 点名出来。
  */
 function gitPorcelainOf(file) {
-  const r = spawnSync('git', ['status', '--porcelain', '--', file], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    cwd: ROOT,
-    windowsHide: true,
-    timeout: 60_000,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  const failMsg = !r.error
-    ? null
-    : r.error.code === 'ENOBUFS'
-      ? 'ENOBUFS(输出超缓冲区,不是"没有改动")'
-      : r.error.message
-  if (failMsg) throw new Error(String(failMsg))
-  if (r.status !== 0)
-    throw new Error(`git status 退出码 ${r.status}:${String(r.stderr ?? '').slice(-160)}`)
-  return String(r.stdout ?? '')
+  let out
+  try {
+    out = gitRaw(['status', '--porcelain', '--', file], ROOT, {
+      timeout: 60_000,
+      maxBuffer: 64 * 1024 * 1024,
+    })
+  } catch (e) {
+    if (e?.code === 'ENOBUFS') throw new Error('ENOBUFS(输出超缓冲区,不是"没有改动")')
+    if (typeof e?.status === 'number')
+      throw new Error(`git status 退出码 ${e.status}:${String(e.stderr ?? '').slice(-160)}`)
+    throw new Error(String(e?.message ?? e))
+  }
+  return String(out ?? '')
 }
 
 /** 仓内 git 只读取数:显式 stdio(§12g)+ 大 maxBuffer(ENOBUFS 实测会吞掉整段输出),取不到一律 null 不猜。 */
 function gitRead(args) {
-  const r = spawnSync('git', args, {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    cwd: ROOT,
-    windowsHide: true,
-    timeout: 60_000,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  if (r.error || r.status !== 0) return null
-  return String(r.stdout ?? '').trim()
+  try {
+    return String(gitRaw(args, ROOT, { timeout: 60_000, maxBuffer: 64 * 1024 * 1024 }) ?? '').trim()
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -2285,16 +2278,15 @@ function gitRead(args) {
  * 环会因此永远拿不到"该新建"这个结论。形状:`{status, stdout}`;派生失败 ⇒ null。
  */
 function gitProbe(args) {
-  const r = spawnSync('git', args, {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    cwd: ROOT,
-    windowsHide: true,
-    timeout: 60_000,
-    encoding: 'utf8',
-    maxBuffer: 16 * 1024 * 1024,
-  })
-  if (r.error || typeof r.status !== 'number') return null
-  return { status: r.status, stdout: String(r.stdout ?? '').trim() }
+  try {
+    return {
+      status: 0,
+      stdout: String(gitRaw(args, ROOT, { timeout: 60_000, maxBuffer: 16 * 1024 * 1024 }) ?? '').trim(),
+    }
+  } catch (e) {
+    if (typeof e?.status !== 'number') return null
+    return { status: e.status, stdout: String(e.stdout ?? '').trim() }
+  }
 }
 
 function headShaOf() {

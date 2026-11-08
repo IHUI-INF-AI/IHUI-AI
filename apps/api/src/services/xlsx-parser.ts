@@ -37,6 +37,42 @@ export class XlsxFileTooLargeError extends Error {
   }
 }
 
+/**
+ * F-260:单 sheet 坐标上限。
+ *
+ * `ws.rowCount` / `ws.columnCount` 是坐标**极值**而不是有值区域:一个 2KB 的稀疏表
+ * 只要含 `<c r="XFD1048576">`,两个循环就是 1.7e10 次对象分配,主线程直接卡死/OOM。
+ * 这里在遍历前先做预算断言,超限抛错误(不再降级到 xlsx 库 —— 那条路同样会按范围展开)。
+ */
+export const XLSX_MAX_SHEET_ROWS = 5000
+export const XLSX_MAX_SHEET_COLS = 5000
+export const XLSX_MAX_SHEET_CELLS = 4_000_000
+
+export class XlsxSheetTooLargeError extends Error {
+  readonly rows: number
+  readonly cols: number
+  constructor(sheetName: string, rows: number, cols: number) {
+    super(
+      `XLSX sheet "${sheetName}" too large: ${rows}×${cols} cells ` +
+        `(max ${XLSX_MAX_SHEET_ROWS} rows / ${XLSX_MAX_SHEET_COLS} cols / ${XLSX_MAX_SHEET_CELLS} cells)`,
+    )
+    this.name = 'XlsxSheetTooLargeError'
+    this.rows = rows
+    this.cols = cols
+  }
+}
+
+/** 遍历前断言 sheet 行列预算;超限抛出,避免按坐标极值展开 */
+function assertSheetBounds(sheetName: string, rows: number, cols: number): void {
+  if (
+    rows > XLSX_MAX_SHEET_ROWS ||
+    cols > XLSX_MAX_SHEET_COLS ||
+    rows * cols > XLSX_MAX_SHEET_CELLS
+  ) {
+    throw new XlsxSheetTooLargeError(sheetName, rows, cols)
+  }
+}
+
 export interface XlsxSheetInfo {
   name: string
   rows: number
@@ -168,6 +204,8 @@ function parseRange(
 function exceljsWorksheetToMatrix(ws: Worksheet): string[][] {
   const rowCount = ws.rowCount
   const colCount = ws.columnCount
+  // F-260:先按预算拦截坐标极值(稀疏表的 rowCount/columnCount 可能上百万)
+  assertSheetBounds(ws.name, rowCount, colCount)
   const matrix: string[][] = []
 
   for (let r = 1; r <= rowCount; r++) {
@@ -234,6 +272,12 @@ function parseWithXlsxLib(buffer: Buffer): Array<{ name: string; matrix: string[
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName]
     if (!sheet) continue
+    // F-260:xlsx 库的 sheet_to_json 同样按 !ref 范围展开,遍历前先做预算断言
+    const ref = (sheet as unknown as { '!ref'?: string })['!ref']
+    if (ref) {
+      const r = utils.decode_range(ref)
+      assertSheetBounds(sheetName, r.e.r - r.s.r + 1, r.e.c - r.s.c + 1)
+    }
     // header:1 → 返回数组 of 数组(每行是值数组,不取第一行作 key)
     const rows = utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' }) as unknown[][]
     const matrix: string[][] = rows.map((row) =>
@@ -355,6 +399,8 @@ export async function parseXlsx(buffer: Buffer): Promise<XlsxParseResult> {
   try {
     sheets = await parseWithExceljs(buffer)
   } catch (e) {
+    // F-260:预算超限是明确的拒绝,不得降级到 xlsx 库(它同样按范围展开)
+    if (e instanceof XlsxSheetTooLargeError) throw e
     // exceljs 解析失败(可能是 .xlsm 或非标准 OOXML)→ 降级 xlsx 库
     console.warn(
       '[xlsx-parser.parseXlsx] exceljs failed, fallback to xlsx lib:',

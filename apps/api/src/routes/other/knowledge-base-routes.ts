@@ -10,12 +10,13 @@
 import type { FastifyPluginAsync } from 'fastify'
 import type { SQL } from 'drizzle-orm'
 import { z } from 'zod'
-import { eq, asc, desc, sql } from 'drizzle-orm'
+import { eq, and, asc, desc, sql } from 'drizzle-orm'
 import { success, error } from '../../utils/response.js'
 import { db, dbRead } from '../../db/index.js'
 import { knowledgeBase, knowledgeBaseCategories, users } from '@ihui/database'
 import { parseIdParam } from './_shared.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { requireAdmin, isSystemAdmin } from '../../plugins/require-permission.js'
 
 /**
  * 列表筛选用的 categoryId 闸：knowledge_base.category_id 是 uuid 列，
@@ -50,6 +51,11 @@ export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
     const p = Math.max(1, Number(page) || 1)
     const ps = Math.min(100, Math.max(1, Number(pageSize) || 10))
     const conds: SQL[] = []
+    // 公开展示口径(schema: isPublished=已发布, status 1=启用 0=禁用):
+    // 普通用户只可见 isPublished=true 且 status=1 的条目;管理员(管理后台)保留查看草稿/下线。
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      conds.push(eq(knowledgeBase.isPublished, true), eq(knowledgeBase.status, 1))
+    }
     if (categoryId && categoryId !== 'all') conds.push(eq(knowledgeBase.categoryId, categoryId))
     if (search) conds.push(sql`(title ILIKE ${`%${search}%`} OR summary ILIKE ${`%${search}%`})`)
     const cond = conds.length
@@ -95,8 +101,8 @@ export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ list: rows }))
   })
 
-  // POST /knowledge-base — 创建知识库条目
-  server.post('/knowledge-base', async (request, reply) => {
+  // POST /knowledge-base — 创建知识库条目(仅管理员:官方知识库写面)
+  server.post('/knowledge-base', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z
       .object({
         title: z.string().min(1).max(200),
@@ -130,10 +136,16 @@ export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
   server.get('/knowledge-base/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
+    // 公开展示口径同列表;普通用户对草稿/下线按"不存在"处理(404,不泄漏存在性),管理员可看草稿。
+    const conds: SQL[] = [eq(knowledgeBase.id, id)]
+    if (!isSystemAdmin(request, { includeInternalChannel: false })) {
+      conds.push(eq(knowledgeBase.isPublished, true), eq(knowledgeBase.status, 1))
+    }
+    const cond = conds.length === 1 ? conds[0] : and(...conds)
     const [item] = await dbRead
       .select()
       .from(knowledgeBase)
-      .where(eq(knowledgeBase.id, id))
+      .where(cond)
       .limit(1)
     if (!item) return reply.status(404).send(error(404, '知识库不存在'))
     // 浏览量 +1
@@ -144,8 +156,8 @@ export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ item }))
   })
 
-  // PUT /knowledge-base/:id — 更新知识库
-  server.put('/knowledge-base/:id', async (request, reply) => {
+  // PUT /knowledge-base/:id — 更新知识库(仅管理员:官方知识库写面)
+  server.put('/knowledge-base/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
     const body = z
@@ -167,8 +179,8 @@ export const knowledgeBaseRoutes: FastifyPluginAsync = async (server) => {
       .where(eq(knowledgeBase.id, id))
       .limit(1)
     if (!existing) return reply.status(404).send(error(404, '知识库不存在'))
-    if (existing.authorId !== request.userId)
-      return reply.status(403).send(error(403, '无权编辑此知识库'))
+    // 写面已由 requireAdmin 收口为管理员运维;官方知识库条目由管理员统一维护,
+    // 不再叠加 authorId 归属判定(否则非作者管理员无法编辑他人在先创建的条目)。
     const [updated] = await db
       .update(knowledgeBase)
       .set({ ...body.data, updatedAt: new Date() })

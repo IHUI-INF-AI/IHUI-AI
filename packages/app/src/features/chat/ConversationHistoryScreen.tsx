@@ -193,7 +193,7 @@ export function ConversationHistoryScreen({
                 {f.iconSrc ? (
                   <Image source={{ uri: f.iconSrc }} style={styles.chipIcon} resizeMode="contain" />
                 ) : null}
-                <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
+                <Text style={[styles.chipText, active ? styles.chipActiveText : null]}>
                   {f.label}
                 </Text>
               </TouchableOpacity>
@@ -281,7 +281,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     // 聚焦态只换颜色(§4 唯一例外位),不改宽度 —— 固定高度下加粗会顶起文字
-    searchInputFocused: { borderColor: tk.brand.DEFAULT },
+    searchInputFocused: { borderColor: tk.brandAccent.DEFAULT },
     clearAll: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     importRow: {
       flexDirection: 'row',
@@ -324,13 +324,13 @@ function createStyles(tk: AppThemeTokens) {
       gap: 3,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.xs,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tk.surface.muted,
     },
     chipActive: { backgroundColor: tk.brand.DEFAULT },
     chipIcon: { width: 14, height: 14 },
     chipText: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    chipTextActive: { color: tk.brand.ctaForeground },
+    chipActiveText: { color: tk.brand.foreground },
     listContent: { paddingHorizontal: rnSpacing.lg, paddingVertical: rnSpacing.md },
     groupWrap: { marginBottom: rnSpacing.lg },
     groupLabel: {
@@ -367,7 +367,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     pinDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: tk.text.tertiary },
     pinDotButton: { width: 10, height: 10, borderRadius: 5 },
-    pinDotOn: { backgroundColor: tk.brand.DEFAULT },
+    pinDotOn: { backgroundColor: tk.brandAccent.DEFAULT },
     rowMetaLine: { flexDirection: 'row', gap: rnSpacing.sm },
     rowMeta: { fontSize: rnType.label.size, color: tk.text.tertiary },
     rowPreview: { fontSize: rnType.label.size, color: tk.text.secondary },

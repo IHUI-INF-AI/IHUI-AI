@@ -28,7 +28,9 @@ import {
   buildRateTiers,
   buildRechargeUser,
   buildRechargeTexts,
+  buildWechatPayParams,
   resolveRechargeAmount,
+  yuanToCents,
 } from './recharge-props'
 
 type PayMethod = 'wechat' | 'alipay'
@@ -94,21 +96,24 @@ export default function RechargePage() {
         }
         return
       }
-      const res = await createRecharge(amount, method)
+      // 微信下单 amount 单位是分(page 输入/展示是元);orderType=2 由 createRecharge 固定
+      const res = await createRecharge(yuanToCents(amount), method)
       const orderNo = res.outTradeNo || ''
-      if (res.payParams) {
-        try {
-          await requestWxPayment(res.payParams as AnyPayParams)
-          Taro.redirectTo({
-            url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&amount=${amount}&status=paid`,
-          })
-        } catch {
-          Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&status=failed` })
-        }
-      } else {
+      // 后端返回扁平签名(无 payParams 包络);mock/缺签名 ⇒ null,不得直跳 paid
+      const payParams = buildWechatPayParams(res)
+      if (!payParams) {
+        Taro.redirectTo({
+          url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&amount=${amount}&status=pending`,
+        })
+        return
+      }
+      try {
+        await requestWxPayment(payParams)
         Taro.redirectTo({
           url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&amount=${amount}&status=paid`,
         })
+      } catch {
+        Taro.redirectTo({ url: `/pkg-shop/pay/result/index?orderNo=${orderNo}&status=failed` })
       }
     },
     [tt],
@@ -123,7 +128,9 @@ export default function RechargePage() {
     try {
       await payOrder(finalAmount, payMethod)
     } catch {
-      Taro.redirectTo({ url: '/pkg-shop/pay/result/index?orderNo=&status=failed' })
+      // XUI-073:下单本身失败时根本没有 orderNo,不能跳到一个「单号为空」的结果页;
+      // 就地提示失败,留在充值页让用户重试。
+      onToast(tt('wallet.recharge.submitFailed', '充值提交失败,请重试'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }

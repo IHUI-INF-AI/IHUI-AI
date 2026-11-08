@@ -51,6 +51,22 @@ class MemoryStore:
         return self._redis
 
     @staticmethod
+    def scope_user_id(session_id: str | None, user_id: str | None) -> str | None:
+        """把已认证主体折算成 add/get 的 user_id 参数(幂等,不重复加前缀)。
+
+        `session_id` 已是 `{user_id}:{session}` 复合格式且首段与主体一致时返回 None
+        (继续使用旧 key `memory:{session_id}`,不破坏既有历史);其余情况返回主体,
+        由 `_key` 生成 `memory:{user_id}:{session_id}`。
+        """
+        if not user_id:
+            return None
+        if session_id and ":" in session_id:
+            head = session_id.split(":", 1)[0].strip()
+            if head and head == user_id:
+                return None
+        return user_id
+
+    @staticmethod
     def _key(session_id: str, user_id: str | None = None) -> str:
         """P1-6:复合 key,user_id 非空时加前缀(防跨用户读写)。
 

@@ -117,7 +117,9 @@ const adminRelayCapacityRoutes: FastifyPluginAsync = async (server) => {
           date: sql<string>`to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD')`,
           calls: sql<number>`count(*)::int`,
           failed: sql<number>`sum(CASE WHEN status = 'error' THEN 1 ELSE 0 END)::int`,
-          costCents: sql<number>`COALESCE(sum(cost_used_total_cents), 0)`,
+          // F-165:llm_call_logs 只有 cost_cents(见 packages/database schema);
+          // 查一个不存在的旧列名会让整条趋势恒 500,面板长期空白。
+          costCents: sql<number>`COALESCE(sum(cost_cents), 0)`,
           avgLatencyMs: sql<number>`COALESCE(AVG(latency_ms), 0)`,
         })
         .from(sql`llm_call_logs`)

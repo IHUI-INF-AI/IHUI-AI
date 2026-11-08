@@ -2598,6 +2598,16 @@ class LLMGateway:
                         used_model,
                         e,
                     )
+                except Exception as e:  # noqa: BLE001 - 原生适配器异常统一降级
+                    # AIS-065:原生适配器不只抛 ProviderError(httpx/JSON/取值错误
+                    # 会直接冒到路由成 500),旧实现只捕 ProviderError ⇒ fallback 失效。
+                    # 这里统一降级;CancelledError 属 BaseException 不会被吞。
+                    logger.warning(
+                        "厂商适配器异常(model=%s, %s): %s, fallback LiteLLM",
+                        used_model,
+                        type(e).__name__,
+                        e,
+                    )
 
         if self._is_stub_mode():
             db_result = await _resolve_from_db(used_model, owner_uuid)
@@ -3443,6 +3453,11 @@ class LLMGateway:
                 # 未测量首 token 耗时,导致 ihui_llm_ttft_seconds 在 stepfun/工具
                 # 原生路径上永不产出(与 LiteLLM 分支双标)。首个内容事件即记 TTFT。
                 _native_ttft: float | None = None
+                # AIS-002/003:终态信号显式记录。上游"已发内容后再报 error"与
+                # "从未发 done"都不是成功,不能按正常耗尽记账/落 success 流水。
+                _native_errored = False
+                _native_error_message = ""
+                _native_saw_done = False
                 # 借来的异步生成器必须"谁借谁关":下面 error→fallback 分支那句
                 # `yield …; return` 就是把 astream_iter 弃在半路的一型 —— 它此刻仍停在
                 # provider 的 `async with client.stream(...)` 内部(见
@@ -3471,6 +3486,10 @@ class LLMGateway:
                                     native_sent_content,
                                     str(evt.get("message", ""))[:300],
                                 )
+                                _native_errored = True
+                                _native_error_message = str(
+                                    evt.get("message", "") or ""
+                                )[:2000]
                             if (
                                 isinstance(evt, dict)
                                 and evt.get("type") == "error"
@@ -3539,8 +3558,10 @@ class LLMGateway:
                                 native_sent_content = True
                                 if _native_ttft is None:
                                     _native_ttft = time.perf_counter() - _native_metrics_t0
+                            if isinstance(evt, dict) and evt.get("type") == "done":
+                                _native_saw_done = True
                             if isinstance(evt, dict) and evt.get("usage"):
-                                _native_final_usage = evt["usage"]
+                                _native_final_usage = normalize_usage(evt["usage"])
                                 _native_usage_from_upstream = True
                             yield evt
                 finally:
@@ -3552,6 +3573,49 @@ class LLMGateway:
                 # 观测收口(2026-10-18):正常耗尽的出口统一补埋点(错误出口已由
                 # fallback/外层 except 各自记账,不在此重复);usage 取不到时
                 # litellm.token_counter 估算兜底,成本走 _estimate_cost_usd 同口径。
+                if _native_errored:
+                    # AIS-002:已发内容后上游报 error 仍是失败 —— 旧实现无条件按
+                    # "正常耗尽"记 status=ok 并落 success 流水,把失败请求计入
+                    # 可用性/健康度与成本口径。这里改为 error,且不再写 success 行。
+                    _native_err_usage = _native_final_usage or {}
+                    record_llm_outcome(
+                        _metrics_provider(used_model),
+                        used_model,
+                        status='error',
+                        usage=_native_err_usage,
+                        duration_seconds=time.perf_counter() - _native_metrics_t0,
+                        ttft_seconds=_native_ttft,
+                        cost_usd=_estimate_cost_usd(used_model, _native_err_usage),
+                    )
+                    _emit_llm_call_log(
+                        billing_user_id=billing_user_id,
+                        model=used_model,
+                        provider=_metrics_provider(used_model),
+                        status="error",
+                        messages=trimmed_messages,
+                        response_text=None,
+                        usage=_native_err_usage,
+                        duration_seconds=time.perf_counter() - _native_metrics_t0,
+                        ttft_seconds=_native_ttft,
+                        cost_usd=_estimate_cost_usd(used_model, _native_err_usage),
+                        cost_source="price_table",
+                        attempt=_pool_retry,
+                        call_route="native",
+                        leg_primary=_call_route_primary,
+                        combo_name=_combo_name,
+                        native_adapter=True,
+                        model_requested=model,
+                        conversation_id=conversation_id,
+                        error_message=_native_error_message or "native stream error",
+                    )
+                    if native_tool_acc:
+                        yield {
+                            "type": "tool_calls",
+                            "tool_calls": [
+                                native_tool_acc[k] for k in sorted(native_tool_acc)
+                            ],
+                        }
+                    return
                 if _native_final_usage is None:
                     try:
                         import litellm as _litellm_for_counter

@@ -20,15 +20,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from ...core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL, require_request_user_id
 from ...middleware.output_safety import (
     annotate_ai_generated,
     apply_disclaimers,
     scan_output,
 )
-from ...services.conversation import conversation_service
+from ...services.conversation import SessionOwnershipError, conversation_service
 
 router = APIRouter()
 
@@ -46,12 +47,15 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-async def chat(req: ChatRequest) -> dict[str, Any]:
+async def chat(req: ChatRequest, request: Request) -> dict[str, Any]:
     """对话端点(完整业务流)。
 
     Returns:
         统一 { code, message, data } 格式。
     """
+    # AIS-032:身份只取 JWT 主体(生产缺失即 401,绝不从 body/session_id 推断)。
+    principal = await require_request_user_id(request)
+    user_id = None if principal == DEV_ANONYMOUS_PRINCIPAL else principal
     try:
         result = await conversation_service.chat(
             user_input=req.message,
@@ -59,6 +63,7 @@ async def chat(req: ChatRequest) -> dict[str, Any]:
             model=req.model,
             allowed_tools=req.tools,
             max_iterations=req.max_iterations,
+            user_id=user_id,
         )
         data = conversation_service.result_to_dict(result)
         response_text = str(data.get("final_response", "") or "")
@@ -89,6 +94,10 @@ async def chat(req: ChatRequest) -> dict[str, Any]:
                 "rag_top_k": req.rag_top_k,
             },
         }
+    except SessionOwnershipError as e:
+        raise HTTPException(status_code=403, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
         return {
             "code": 500,

@@ -98,6 +98,11 @@ export const Linking = {
     return { remove() {} }
   },
   getInitialURL: async () => null,
+  // XUI-053:RN 侧「去设置」走 Linking.openSettings;垫片此前缺该成员 ⇒ 按钮 TypeError。
+  openSettings: async () => {
+    await Taro.openSetting()
+    return true
+  },
 }
 
 /**
@@ -189,6 +194,11 @@ export const Easing = {
   ease: EASE,
   quad: (t: number) => t * t,
   cubic: (t: number) => t * t * t,
+  // XUI-010:共享层 HomeScreen 直接调 Easing.sin;RN 的 Easing 也提供 exp/circle,
+  // 缺成员会让 `Easing.sin(...)` 变成 undefined 调用而崩溃。
+  sin: (t: number) => 1 - Math.cos((t * Math.PI) / 2),
+  exp: (t: number) => (t === 0 ? 0 : 2 ** (10 * (t - 1))),
+  circle: (t: number) => 1 - Math.sqrt(1 - t * t),
   in: (fn: (t: number) => number) => (t: number) => fn(t),
   out: (fn: (t: number) => number) => (t: number) => 1 - fn(1 - t),
   inOut: (fn: (t: number) => number) => (t: number) =>

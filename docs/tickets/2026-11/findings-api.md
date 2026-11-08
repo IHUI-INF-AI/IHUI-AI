@@ -5242,6 +5242,7 @@
 - 影响面：极端价位存在分位取整偏差；对账/退款数据不可精确复现。
 - 建议修法：改 `numeric(12,2)` 或整数分。
 - 是否当场可修：否（需数据迁移）。
+- 复核结论：按域边界转资金/账本线（`amount/price: real` 属支付金额源头，不是教育/考试/考勤域缺陷），本域本轮不修。
 
 > 本轮 schema 模式化负结论（**零新增**，已全部覆盖或不成立）：① `onDelete:'set null'` + `.notNull()` 全扫 117 处，严格链式正则 0 命中，仅 F-433；② onConflict 174 处/90 文件、逐目标核对约 40 张表，除 F-448 外均有唯一约束/主键；③ 软删唯一约束 28 处/6 文件，`oauth`/`edu_attendance_record`/`edu_payment_record` 均已带 `WHERE deleted_at IS NULL`；④ `real/doublePrecision` 32 处/13 文件，除 F-449 外均为分数/评分/成本估算；⑤ 索引：`20261106150000_fix_missing_indexes_fks.sql` 已补 164 条，重点表索引齐全。
 
@@ -6677,7 +6678,8 @@
 - 证据：`:421` `const wx = await sendWxToRecipient(...)`（无 channels 判断）；`:436` `if (channels.includes('sms')) { ... }`。
 - 影响面：运维关微信后仍对全体家长发送模板消息，触碰计费/频率/授权合规；渠道统计与配置不符。
 - 建议修法：微信分支加 `if (channels.includes('wechat'))`，投递留痕仅在真发时记录。
-- 是否当场可修：是。
+- 复核结论：坐实（P2）。已修 2026-11-08（commit 0bcf77a3a7）：`:421` 微信分支加 `channels.includes('wechat')` 守卫；夹具 `tests/edu-arrear-remind-583-584.test.ts` 改前 6 红→改后 7 绿。数字对照：sms-only、2 报名×2 收件人，改前外发 4 条微信+4 条短信=8 条，改后仅 4 条短信、微信 0 条。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-584 催费留痕“先记成功再投递”，失败当天也被去重永久跳过
 - 严重度：P2
@@ -6687,7 +6689,8 @@
 - 证据：`:401-407` 先 insert 后发送、`channel:'in_app', status:'sent'`；`:412` 发送前 `result.reminded += 1`；`:369` `.where(gte(eduFeeReminder.createdAt, beijingMidnightUtc()))` 不筛 status。
 - 影响面：瞬时故障使该报名整天不再提醒，面板却显示已提醒；按渠道统计全部失真。
 - 建议修法：先 `pending` 后投递置 `sent/failed`；去重加 `status IN ('sent','partial')`；`channel` 写实际渠道。
-- 是否当场可修：是。
+- 复核结论：坐实（P2）。已修 2026-11-08（commit 0bcf77a3a7）：留痕先 `pending`，投递后按实际送达落 `sent/failed`；去重只认 `status='sent'`（本批不产生 `partial`）；`channel` 写实际送达通道（wechat→sms→in_app）。数字对照：3 条欠费 100+200+300 全通道失败，改前仍占当日去重（skippedToday=3、补跑覆盖 0 元），改后补跑 3 条、覆盖 600 元。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-585 `completeOrder` 路径不发积分、不写 order.paid outbox
 - 严重度：P2
@@ -7874,7 +7877,8 @@
 - **证据**：`developer-queries.ts:79-90` 直接 `insert(developerSubscriptions).values({..., orderId})`；`developer.ts:71` `orderId: uuid('order_id').references(...)`；`payment-gateway.ts:737` 无条件调用。
 - **影响面**：同一订单多条订阅，续费剩余期/财务对账失真。
 - **建议修法**：`order_id` 唯一索引 + `onConflictDoNothing`，或先按 orderId 查重；激活与订单状态转换同事务。
-- **是否当场可修**：否（只读轮次）。
+- **复核结论**：坐实（P2）。已修 2026-11-08（commit ec2f95556f）：`order_id` 唯一索引 + `onConflictDoNothing` + 回查；迁移 `packages/database/drizzle/20261108130000_developer_subscription_order_unique.sql`（存量按 order_id 去重保留最早一条；事务内 DDL 持表级锁，建议低峰执行；回滚可恢复普通索引，但去重 DELETE 不可逆，需执行前备份）。夹具 `tests/developer-subscription-idempotent-689.test.ts` 改前 5 红→改后 6 绿。数字对照：199 元/30 天订单重放两次，改前 2 条订阅/60 天/等价计账 398 元，改后 1 条/30 天/计账 199 元。
+- **是否当场可修**：是（2026-11-08 已修）。
 
 #### F-690 禁用（status=0）试卷仍出现在公开列表、可开考、可取题
 
@@ -7885,7 +7889,8 @@
 - **证据**：`exam-queries.ts:118` `const conds = [eq(examPapers.isPublished, true)]`；`:198` `.where(and(eq(examPapers.isPublished, true), ...))`；`routes/exam.ts:526` `if (!paper || !paper.isPublished)`。
 - **影响面**：下架对学员无效，可进入已禁用试卷答题并产生 `exam_records`。
 - **建议修法**：两处追加 `eq(examPapers.status, 1)`，路由判据补 `paper.status !== 1`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P2）。`exam-queries.ts:118,198` 只判 `is_published`；`routes/exam.ts:526,554,595` 只判 `isPublished`，`status=0` 仍可进列表/取题/开考并落 `exam_records`。已修，夹具 `tests/exam-disabled-paper-690.test.ts` 改前 5 红→改后 6 绿。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-691 公开专题详情返回未发布（草稿）课程
 
@@ -7896,7 +7901,9 @@
 - **证据**：`topic-queries.ts:91` `.where(and(inArray(lessons.id, ids), eq(lessons.status, 1)))`；`schema/learn.ts:75` `isPublished ... default(false)`。
 - **影响面**：草稿课程标题/价格/简介/封面被公开泄露。
 - **建议修法**：谓词追加 `eq(lessons.isPublished, true)`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，台账「否」为误标）。`topic-queries.ts:91` 只判 `status=1`；`schema/learn.ts:75` `isPublished` 默认 false。已修：公开面补 `isPublished`，管理员预览显式 `includeUnpublished`；夹具 `tests/topic-draft-lessons-691.test.ts` 改前红→改后 3 绿。
+- 验证缺口：`tests/topic-routes.real.test.ts` 因本机无 `.env.test`（`.real` 套件默认 exclude）未能执行 ⇒ **未判定**，不得据此转绿。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-692 浏览记录读改写非原子：并发丢时长 + 首次并发直接 500
 
@@ -7907,7 +7914,9 @@
 - **证据**：`behavior-queries.ts:48` `watchDuration: (row.watchDuration ?? 0) + watchDuration`；`routes/behavior.ts:166` 无 try/catch 直接 `await recordWatch(...)`。
 - **影响面**：观看时长少记；首次并发双双 INSERT，后者唯一冲突冒泡为 500。
 - **建议修法**：单条 `INSERT ... ON CONFLICT ... DO UPDATE SET watch_duration = behavior_watch_records.watch_duration + excluded.watch_duration`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，待修）。`behavior-queries.ts:31-53` 先 SELECT 再 UPDATE 覆盖写 `watchDuration`，并发丢增量；`:57-67` 首次插入无冲突兜底，唯一键冲突冒泡 500；`routes/behavior.ts:166` 无 try/catch，失败直接 500。
+- 已修（`becc864f28`）：`behavior-queries.ts:26-75` 收敛为单条 `INSERT ... ON CONFLICT (user_id,topic_id,topic_type) DO UPDATE SET watch_duration = behavior_watch_records.watch_duration + excluded.watch_duration`，`RETURNING (xmax = 0)` 区分首插/更新；`routes/behavior.ts:161-176` 补 try/catch 但仍返回 500（不静音）。夹具 `tests/behavior-watch-atomic-692.test.ts` 覆盖空表并发首写、已有行并发各 +10（改前终值 10 → 改后 20）、重放 3×10；`tests/behavior-watch-route-692.test.ts` 改前裸冒泡「服务器错误」→ 改后业务 500。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-693 含主观题提交即落 `graded`，人工阅卷后反写 `submitted`（状态机倒置）
 
@@ -7918,7 +7927,10 @@
 - **证据**：`exam-queries.ts:541` `const finalStatus = hasSubjective ? 'graded' : 'submitted'`；`:608` `status: 'submitted', // 人工评分完成,最终状态`。
 - **影响面**：主观题未批改即处于 `graded`；按 `status` 拉“待批改/已批改”名单全部错位。
 - **建议修法**：提交时 `hasSubjective ? 'submitted' : 'graded'`，阅卷完成置 `graded`。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，待修）。`exam-queries.ts:541` 提交即 `hasSubjective ? 'graded' : 'submitted'`；`:608` 人工阅卷完成反写 `'submitted'`，与 `exam-extended-queries.ts:489-495` 定义的状态机相反；`routes/exam.ts:1972` 同型。
+- 已修（`becc864f28`）：改错侧 `exam-queries.ts:585`（有主观题→`submitted`，否则→`graded`）、`:652`（阅卷完成→`graded`）与 `routes/exam.ts:1981`；保留权威侧 `exam-extended-queries.ts:489-496`。判定依据：`checkAndUpdateStatus` 的调用面 `gradeExam`/`completeExam`，以及 `routes/exam-marking.ts:53-56` 只允许 `status='submitted'` 评分、web 端按 `submitted→reviewing / graded→completed` 展示。自动重判路由补 `status='submitted'` 守卫（409），禁止 `graded/completed` 回退。夹具 `tests/exam-status-machine-693.test.ts`（提交/阅卷/重放不回写）与 `tests/exam-status-route-693.test.ts`（路由含主观题落 `submitted`、已 `graded` 返回 409）。
+- 存量数据未回填：`graded` 且含主观题的记录既可能是旧码「提交即 graded」，也可能是扩展流程里管理员已阅卷；两者 `answers`/`score`/`submittedAt` 形态相同，自动迁移会误伤 ⇒ 标记「需运营确认」，不静默转绿。
+- 是否当场可修：是（2026-11-08 已修新写入；存量待运营确认）。
 
 #### F-694 考试成绩指标被同一答题记录重复累加（提交 + 人工阅卷各一次）
 
@@ -7929,7 +7941,8 @@
 - **证据**：`exam-queries.ts:612-613` `recordExamScore(totalScore)`；`routes/exam.ts:626` `server.recordExamScore(result.score)`。
 - **影响面**：`ihui_exam_score_sum` 偏大、平均分虚高；重复阅卷继续叠加。
 - **建议修法**：阅卷路径只累加 `totalScore - record.score`，或按记录首次终态打点一次。
-- **是否当场可修**：否。
+- 复核结论：坐实（P3，台账「否」为误标）。`routes/exam.ts:626` 提交打点一次；`exam-queries.ts:612-613` 阅卷按重汇总总分整笔再打点；`recordExamScore` 同时 sum+count 双累加（`business-metrics.ts:1174-1180`）。已修：新增 `adjustExamScore(delta)` 仅平移 sum，`gradeSubjectiveAnswers` 与 `gradeExam` 均按增量；夹具 `tests/exam-score-single-count-694.test.ts` 改前 `[50]`→改后 `[20]`。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-695 后台“总用户数”与用户列表 total 口径不一致（已注销用户）
 

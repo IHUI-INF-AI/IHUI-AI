@@ -24,6 +24,21 @@ from app.tools import web_crawl_tools as wc  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
+def _allow_network_gate(monkeypatch):
+    """AIS-084 后抓取族与 fetch_url 同走网络审批门;单元测试统一放行。
+
+    审批门在无审批通道的测试环境默认 deny,这里只钉门桩,不放宽任何 SSRF 断言
+    (用例自带的 _validate_ssrf 桩仍各自生效)。
+    """
+    import app.services.network_approval as _na
+    monkeypatch.setattr(
+        _na,
+        "evaluate_network_access_detailed",
+        lambda url, reason=None: ("allow", None),
+    )
+
+
+@pytest.fixture(autouse=True)
 def _no_js_render(monkeypatch):
     """单元测试默认不触发真实 headless chromium 渲染兜底(_try_js_render→None)。
 

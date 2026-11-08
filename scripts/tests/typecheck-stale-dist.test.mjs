@@ -67,6 +67,9 @@ test('A. 新文件拉高整包 mtime 但单产物陈旧 ⇒ 判陈旧;旧实现�
       },
       // 另一个产物今天刚重建 —— 把整包最新 mtime 拉到 11-07 03:00
       'dist/index.d.ts': { mtime: '2026-11-07T03:00:00Z' },
+      // 真实 tsc 产物是 js + d.ts 成对;补齐 js,避免把"应有产物缺失"混进本用例
+      'dist/index.js': { mtime: '2026-11-07T03:00:00Z' },
+      'dist/notification.js': { mtime: '2026-11-07T03:00:00Z' },
     })
     const entries = collectPackageStates(join(root, 'packages'))
     const st = entries.find((e) => e.name === '@fixture/types')
@@ -78,6 +81,10 @@ test('A. 新文件拉高整包 mtime 但单产物陈旧 ⇒ 判陈旧;旧实现�
 
     // 新判据必须抓到 notification.d.ts 这一份
     assert.equal(st.staleArtifacts.length, 1)
+    assert.ok(
+      !st.staleArtifacts.some((a) => a.missing),
+      '本用例只测 mtime 陈旧,不得让"产物缺失"混进计数(否则断言 1 就名不副实)',
+    )
     assert.equal(st.staleArtifacts[0].artifact, 'notification.d.ts')
     assert.equal(st.staleArtifacts[0].src, 'notification.ts')
     assert.deepEqual(pickStalePackages(entries), ['@fixture/types'])
@@ -150,6 +157,8 @@ test('C2. 真重建(mtime 前进)⇒ 复核通过,exit 0', () => {
     makePackage(root, 'really', '@fixture/really', {
       'src/a.ts': { mtime: '2026-11-07T00:00:00Z' },
       'dist/a.d.ts': { mtime: '2026-11-06T00:00:00Z' },
+      // 真实产物成对:补齐 a.js,本用例只构造 a.d.ts 这一份陈旧
+      'dist/a.js': { mtime: '2026-11-07T00:00:00Z' },
     })
     const entries = collectPackageStates(join(root, 'packages'))
     const dir = entries[0].dir
@@ -178,10 +187,12 @@ test('D. 逐包名 + 逐包 rc 必须打印(build 失败也要能指认包)', ()
     makePackage(root, 'aa', '@fixture/aa', {
       'src/a.ts': { mtime: '2026-11-07T00:00:00Z' },
       'dist/a.d.ts': { mtime: '2026-11-06T00:00:00Z' },
+      'dist/a.js': { mtime: '2026-11-07T00:00:00Z' },
     })
     makePackage(root, 'bb', '@fixture/bb', {
       'src/b.ts': { mtime: '2026-11-07T00:00:00Z' },
       'dist/b.d.ts': { mtime: '2026-11-06T00:00:00Z' },
+      'dist/b.js': { mtime: '2026-11-07T00:00:00Z' },
     })
     const entries = collectPackageStates(join(root, 'packages'))
     const logs = []
@@ -218,10 +229,43 @@ test('E. 同刻平手不判陈旧(严格 <,不得用 >= 制造伪重建)', () =>
     makePackage(root, 'tie', '@fixture/tie', {
       'src/a.ts': { mtime: '2026-11-07T00:00:00Z' },
       'dist/a.d.ts': { mtime: '2026-11-07T00:00:00Z' },
+      'dist/a.js': { mtime: '2026-11-07T00:00:00Z' },
     })
     const entries = collectPackageStates(join(root, 'packages'))
     assert.equal(entries[0].staleArtifacts.length, 0)
     assert.deepEqual(pickStalePackages(entries), [])
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('F. 应有产物缺失必须判陈旧;重建后仍缺 ⇒ NOT-OK(exit 2),不许把缺失判绿', () => {
+  const root = newRoot()
+  try {
+    // 真实 tsc 会同时产出 js + d.ts;这里故意缺 a.js,让"产物缺失"路径单独成立。
+    makePackage(root, 'gone', '@fixture/gone', {
+      'src/a.ts': { mtime: '2026-11-07T00:00:00Z' },
+      'dist/a.d.ts': { mtime: '2026-11-07T00:00:00Z' },
+    })
+    const entries = collectPackageStates(join(root, 'packages'))
+    const st = entries[0]
+    // 缺失必须计入陈旧(不能因为"文件不存在所以没有 mtime"就跳过)
+    assert.equal(st.staleArtifacts.length, 1)
+    assert.equal(st.staleArtifacts[0].artifact, 'a.js')
+    assert.equal(st.staleArtifacts[0].missing, true)
+    assert.deepEqual(pickStalePackages(entries), ['@fixture/gone'])
+
+    // 重建 rc=0 但产物仍然不出现 ⇒ 必须未判定 exit 2(旧产物不许放行)
+    const out = rebuildStalePackages({
+      entries,
+      staleNames: pickStalePackages(entries),
+      buildPackage: () => ({ status: 0 }),
+      log: () => {},
+    })
+    assert.equal(out.exitCode, 2)
+    assert.equal(out.failure, 'unverified')
+    assert.equal(out.results[0].ok, false)
+    assert.equal(out.results[0].unverified.length, 1)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

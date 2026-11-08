@@ -1217,4 +1217,58 @@ describe('O93 全局在途并发闸(maxInFlightGlobal)', () => {
     }
   })
 })
+
+// =============================================================================
+// F-671 断连语义:响应头之后 parent abort 仍生效;tap 支路可取消;提前 break 取消底层流
+// =============================================================================
+
+describe('F-671 上游正文阶段断连取消', () => {
+  it('响应头后 clear() 只清超时定时器,parent abort 仍能中止正文', () => {
+    const parent = new AbortController()
+    const timed = F.withUpstreamTimeout(parent.signal)
+    timed.clear()
+    parent.abort()
+    expect(timed.signal.aborted).toBe(true)
+  })
+
+  it('客户端 abort 后 tap 支路停止读取并以 interrupted 归还额度', async () => {
+    const enc = new TextEncoder()
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(
+          enc.encode('data: {"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'),
+        )
+      },
+      pull() {
+        /* 永不 close:模拟上游长流 */
+      },
+    })
+    const resp = new Response(stream, {
+      headers: { 'content-type': 'text/event-stream' },
+    })
+    const ac = new AbortController()
+    const outcomes: string[] = []
+    F.tapAccountUsage(resp, undefined, (_u, o) => outcomes.push(o), ac.signal)
+    ac.abort()
+    await vi.waitFor(() => expect(outcomes).toHaveLength(1))
+    expect(outcomes[0]).toBe('interrupted')
+  })
+
+  it('readSseDataLines 提前 break 时 cancel 底层流(不只 releaseLock)', async () => {
+    let cancelled = false
+    const stream = new ReadableStream<Uint8Array>({
+      start(c) {
+        c.enqueue(new TextEncoder().encode('data: {"a":1}\n\ndata: [DONE]\n\n'))
+      },
+      cancel() {
+        cancelled = true
+      },
+    })
+    for await (const line of F.readSseDataLines(stream)) {
+      expect(line).toContain('data:')
+      break
+    }
+    await vi.waitFor(() => expect(cancelled).toBe(true))
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

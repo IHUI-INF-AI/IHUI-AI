@@ -30,7 +30,9 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const crypto = require('node:crypto')
-const { spawnSync } = require('node:child_process')
+// 派生 git 一律经 face-reader(守门 118);本模块要自带 env(隔离索引),所以用层里的
+// 底层 spawn 原语而不是 gitRaw —— 仍不出现裸 `git` 字面量。
+const { batchExecFileSync, gitBinary } = require('./face-reader.mjs')
 
 const LOST_PREFIX = '索引上下文丢失'
 const ACTIVE_DIR_NAME = 'ihui-isolated-index'
@@ -54,13 +56,19 @@ function samePath(a, b) {
 function resolveGitPaths(cwd, entry) {
   const env = { ...process.env }
   for (const k of ['GIT_INDEX_FILE', 'GIT_DIR', 'GIT_WORK_TREE']) delete env[k]
-  const r = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-path', 'index'], {
-    cwd,
-    env,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
+  const r = batchExecFileSync(
+    gitBinary(),
+    ['-c', 'safe.directory=*', '-C', cwd, 'rev-parse', '--path-format=absolute', '--git-path', 'index'],
+    {
+      cwd,
+      env,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 60_000,
+      maxBuffer: 16 << 20,
+    },
+  )
   const sharedIndex = String(r.stdout || '').trim()
   if (r.status === 0 && sharedIndex) return { gitDir: path.dirname(sharedIndex), sharedIndex }
   const fallback = path.dirname(path.resolve(entry))
@@ -77,13 +85,19 @@ function fileUsable(file) {
 }
 
 function runGitLs(cwd, env, args) {
-  const r = spawnSync('git', ['-c', 'core.quotepath=false', ...args], {
-    cwd,
-    env,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
+  const r = batchExecFileSync(
+    gitBinary(),
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', '-C', cwd, ...args],
+    {
+      cwd,
+      env,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      timeout: 60_000,
+      maxBuffer: 16 << 20,
+    },
+  )
   return r.status === 0
     ? String(r.stdout || '')
     : `!!exit=${r.status}:${String(r.stderr || '').trim()}`

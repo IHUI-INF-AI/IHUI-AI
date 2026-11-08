@@ -5057,9 +5057,22 @@ class AgentEngine:
 
         双确认语义:confirm 缺省 False → 只返回确认提示不动数据;显式
         confirm=true 才清空(facade 层同样兜底)。
+
+        AIS-104:meta_learner 的 lessons 是**全局**(非用户维度),清空会影响全体租户,
+        因此本帧限管理员 `roleId>=1`。角色只取承载层(`routers/engine.py::
+        _bind_principal`)在鉴权后覆盖写的 `params["roleId"]`,不认请求自述值;
+        取不到即 0(fail-closed)。
         """
         from .memory_facade import memory_reset
 
+        if _coerce_role_id(params.get("roleId")) < 1:
+            return {
+                "result": {
+                    "confirmed": False,
+                    "error": "forbidden",
+                    "hint": "memory.reset 会清空全体租户共用的引擎记忆,仅管理员可用。",
+                }
+            }
         confirm = bool(params.get("confirm", False))
         return {"result": memory_reset(confirm=confirm)}
 

@@ -2,9 +2,9 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
-import {} from 'react-native'
+import { AppState } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { useNavigation } from '@react-navigation/native'
@@ -63,12 +63,42 @@ export function LiveHostScreen() {
   const [products, setProducts] = useState<LiveHostProduct[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [productsError, setProductsError] = useState('')
+  // XUI-046:卸载/切后台要真正结束推流;状态与 stream 用 ref 读,避免闭包拿到旧值。
+  const streamRef = useRef<StreamData | null>(null)
+  const statusRef = useRef<LiveHostStatus>('idle')
+
+  useEffect(() => {
+    streamRef.current = stream
+  }, [stream])
+
+  useEffect(() => {
+    statusRef.current = status
+  }, [status])
+
+  const teardownLive = useCallback(() => {
+    const current = streamRef.current
+    if (statusRef.current !== 'active' || !current) return
+    statusRef.current = 'inactive'
+    setStatus('inactive')
+    // 后台/卸载场景无法等回执,只发结束指令,失败也不再打扰用户。
+    void updateSrsStream(current.id, { status: 'inactive' }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') teardownLive()
+    })
+    return () => {
+      sub.remove()
+      teardownLive()
+    }
+  }, [teardownLive])
 
   useEffect(() => {
     if (status !== 'active') return
     const t = setInterval(() => {
       setDuration((d) => d + 1)
-      setViewers((v) => v + Math.floor(Math.random() * 5))
+      // 观众数不再用随机数臆造:接口未提供真实人数时保持 0。
     }, 1000)
     return () => clearInterval(t)
   }, [status])
@@ -113,7 +143,8 @@ export function LiveHostScreen() {
       setStream(res.data)
       setStatus('active')
       setDuration(0)
-      setViewers(Math.floor(Math.random() * 20) + 5)
+      // XUI-046:接口未返回真实观众数,不得用随机数臆造。
+      setViewers(0)
     } catch (e) {
       const msg = e instanceof Error ? e.message : t('liveHost.error.startFailed')
       setError(msg)

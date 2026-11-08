@@ -73,7 +73,7 @@ const anomalyDetectorPluginRaw: FastifyPluginAsync = async (server: FastifyInsta
   const redis: Redis | null = (server as unknown as { redis?: Redis }).redis ?? null
   const detector = getAnomalyDetector(redis)
 
-  server.addHook('onRequest', async (request: FastifyRequest, reply: FastifyReply) => {
+  const evaluate = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const path = (request.url.split('?')[0] ?? request.url).toLowerCase()
     if (HARMLESS_PATHS.some((p) => path === p || path.startsWith(p + '/'))) return
     if (SKIP_PREFIXES.some((p) => path.startsWith(p))) return
@@ -83,7 +83,10 @@ const anomalyDetectorPluginRaw: FastifyPluginAsync = async (server: FastifyInsta
     // 内网跳过(开发环境友好,与 threat-detector 同模式)
     if (isPrivateIp(ip)) return
 
-    // 提取请求上下文(userId 由 authPlugin 装饰,onRequest 阶段未登录时为 undefined)
+    // F-605:userId 只有路由级 authenticate(preHandler/preValidation)才写入。
+    // 原实现挂 onRequest,恒为 undefined,时间/地理/设备/基线四维全部短路
+    // (加权上限 48,永远到不了 challenge>60 / block>80)。改为 onRoute 把本钩子
+    // 追加到每条路由 preHandler 数组**末尾**,确保排在 authenticate 之后。
     const userId = request.userId
     const userAgent = pickHeader(request.headers['user-agent'])
     const deviceFingerprint = pickHeader(request.headers['x-device-fingerprint'])
@@ -143,6 +146,14 @@ const anomalyDetectorPluginRaw: FastifyPluginAsync = async (server: FastifyInsta
         })
         return
     }
+  }
+
+  // F-605:onRoute 把评估钩子追加到每条路由的 preHandler 末尾(与 openIdempotency 同招),
+  // 确保 authenticate 已经写好 request.userId;插件整体先于 registerRoutes 注册。
+  server.addHook('onRoute', (routeOptions) => {
+    const prev = routeOptions.preHandler
+    const hooks = Array.isArray(prev) ? prev : prev ? [prev] : []
+    routeOptions.preHandler = [...hooks, evaluate]
   })
 }
 

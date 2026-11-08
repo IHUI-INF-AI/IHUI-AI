@@ -79,6 +79,9 @@ const WIRED = [
       'scripts/check-retry-aliases.mjs',
       'scripts/lib/retry-reload.mjs',
       'scripts/data/retry-reload-baseline.jsonl',
+      // 2026-11-08 补触发面:门本体 L86 把该台账当豁免输入(faceRead(RESOLUTIONS))。
+      // 只改台账不改判据 ⇒ 漏了它,改豁免行的提交不会触发本门,conversionRefused 类的回退就溜过去了。
+      'scripts/data/retry-reload-resolutions.jsonl',
       'scripts/check-cross-end-screen-coverage.mjs',
       'scripts/check-rn-host-shell-coverage.mjs',
     ],
@@ -156,20 +159,48 @@ test('T3 元门档事实:只有 293 在元门档(本地 pre-commit 可跑);294-2
   }
 })
 
-test('T4 未接的 19 枚仍在 R3 台账只报数,且不与已接 5 枚重叠', () => {
+test('T4 R3 台账 64 枚 = CLI-tool 44 + should-wire 20(2026-11-08 对账),且无已接线/悬空条目', () => {
   const entries = allowlist.r3Register?.entries || []
   const states = entries.reduce((acc, e) => {
     acc[e.state] = (acc[e.state] || 0) + 1
     return acc
   }, {})
-  assert.equal(entries.length, 47, `R3 台账条目数应为 47(52 摘 5),实读 ${entries.length}`)
-  assert.equal(states['CLI-tool'], 28, 'CLI-tool 读数应保持 28')
-  assert.equal(states['should-wire'], 19, `未接的 should-wire 应剩 19 枚,实读 ${states['should-wire']}`)
+  // 52→64 的来源逐条记在 r3Register.$comment:2026-11-05 扩面 +15 CLI-tool / +2 should-wire,
+  // 删 1 枚已接线的 check-panel-datasource-wiring,unknown 1 枚(relay-reencrypt-keys)归位 CLI-tool。
+  // 禁止无账地改总数 —— 先对账再改数,数字只是对账结果的落款。
+  assert.equal(entries.length, 64, `R3 台账条目数应为 64(47 + 18 扩面/新增 - 1 陈旧),实读 ${entries.length}`)
+  assert.equal(states['CLI-tool'], 44, `CLI-tool 应为 44(28 + 15 扩面 + 1 归位),实读 ${states['CLI-tool']}`)
+  assert.equal(states['should-wire'], 20, `未接 should-wire 应剩 20 枚(19 + 2 扩面 - 1 陈旧),实读 ${states['should-wire']}`)
   assert.equal(states['deprecated'], undefined)
-  assert.equal(states['unknown'], undefined)
-  const paths = new Set(entries.map((e) => e.path))
-  for (const want of WIRED) {
-    assert.equal(paths.has(`scripts/${want.script}`), false, `已接线的 scripts/${want.script} 仍留在 R3 台账会变成常驻 stale 报数`)
+  assert.equal(states['unknown'], undefined, 'unknown 条目必须归位,不许悬空')
+  // 反向锁:不是只盯已接的 5 枚,而是全表逐条对照注册表 —— 任何"已接却还在台账"的条目都是常驻 stale 报数。
+  const wiredScripts = new Set(registry.entries.map((e) => e.script))
+  for (const e of entries) {
+    assert.equal(
+      wiredScripts.has((e.path || '').replace(/^scripts\//, '')),
+      false,
+      `已接线的 ${e.path} 仍留在 R3 台账会变成常驻 stale 报数`,
+    )
+  }
+})
+
+test('T5 302 提交期两面:漂移门只拦承载面(blocking)、登记同步门只报数(warn)', () => {
+  const byId = new Map(registry.entries.map((e) => [String(e.id), e]))
+  const drift = byId.get('302')
+  assert.ok(drift, '302 未注册 ⇒ 承载削减在提交期没有阻断方')
+  assert.equal(drift.script, 'check-cross-end-parity-drift.mjs')
+  assert.equal(drift.mode, 'blocking', '302 必须是 blocking(只报数不拦等于没接);登记面由脚本内 commitFaceOf 降为 advisory')
+  const reg = byId.get('302r')
+  assert.ok(reg, '302r 未注册 ⇒ 新增未登记屏在提交期不可见')
+  assert.equal(reg.script, 'check-screen-registration-sync.mjs')
+  assert.equal(reg.mode, 'warn', '登记检测必须只报数(不阻断如实登记的提交)')
+  assert.ok(existsSync(join(ROOT, 'scripts', reg.script)), '302r 的脚本不存在')
+  const trig = normalizeTriggers(reg.stagedTriggers)
+  for (const p of ['apps/web/app/', 'apps/mobile-rn/src/screens/', 'scripts/data/web-rn-screen-map.jsonl']) {
+    assert.ok(
+      trig.some((t) => t === p || t.startsWith(p) || p.startsWith(t)),
+      `302r 射程缺 ${p} ⇒ 新屏提交不会触发登记检测`,
+    )
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

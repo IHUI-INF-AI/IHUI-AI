@@ -109,6 +109,30 @@ _UA = (
 _IMAGE_TMP_DIR = Path(".ihui-agent/tmp/publish-images").resolve()
 _IMAGE_TMP_DIR.mkdir(parents=True, exist_ok=True)
 
+# AIS-099:外链图片是**不可信输入**。旧码 `resp.content` 全量缓冲 —— 一个 500MB 的
+# 响应先吃满内存再落盘,且没有任何上限。现在先看 Content-Length,再按 64KB 分块流式
+# 读,累计超限立刻断开(不落盘、不写半截文件)。
+_MAX_IMAGE_BYTES: int = 20 * 1024 * 1024
+_IMAGE_CHUNK_BYTES: int = 64 * 1024
+
+# AIS-098:Content-Type 只是对方自报。旧判据 `"image" not in content_type and not ext`
+# 在 URL 带 .png 时**完全不看 CT** —— 反代/错误页(HTML/JSON)会被写成 .png 再去上传。
+# 现在 CT 必须含 image,且落盘前用魔数复核真实格式。
+_IMAGE_MAGICS: tuple[bytes, ...] = (
+    b"\xff\xd8\xff",  # JPEG
+    b"\x89PNG\r\n\x1a\n",  # PNG
+    b"GIF87a",
+    b"GIF89a",
+    b"BM",  # BMP
+)
+
+
+def _looks_like_image(payload: bytes) -> bool:
+    if payload.startswith(_IMAGE_MAGICS):
+        return True
+    # WEBP: RIFF....WEBP
+    return payload[:4] == b"RIFF" and payload[8:12] == b"WEBP"
+
 
 # 外链图片正则(匹配 <img src="http...">,排除本地路径 / data URI)
 _EXTERNAL_IMG_PATTERN = re.compile(
@@ -261,7 +285,8 @@ async def download_image(url: str, timeout: float = 30.0) -> Path | None:
             for _hop in range(_MAX_HOPS + 1):
                 _assert_safe_image_url(current)
                 resp = await client.send(
-                    client.build_request("GET", current, headers=headers)
+                    client.build_request("GET", current, headers=headers),
+                    stream=True,
                 )
                 location = resp.headers.get("location")
                 if resp.is_redirect and location:
@@ -278,19 +303,52 @@ async def download_image(url: str, timeout: float = 30.0) -> Path | None:
                 )
                 return None
             content_type = resp.headers.get("content-type", "").lower()
-            if "image" not in content_type and not ext:
+            if "image" not in content_type:
                 logger.warning(
-                    "[image_uploader] 非图片类型 %s: %s",
+                    "[image_uploader] 非图片类型(AIS-098) %s: %s",
                     url, content_type,
+                )
+                await resp.aclose()
+                return None
+            declared = resp.headers.get("content-length")
+            if declared:
+                try:
+                    if int(declared) > _MAX_IMAGE_BYTES:
+                        logger.warning(
+                            "[image_uploader] 响应超上限(AIS-099) %s: content-length=%s",
+                            url, declared,
+                        )
+                        await resp.aclose()
+                        return None
+                except ValueError:
+                    pass
+            chunks: list[bytes] = []
+            total = 0
+            async for chunk in resp.aiter_bytes(_IMAGE_CHUNK_BYTES):
+                total += len(chunk)
+                if total > _MAX_IMAGE_BYTES:
+                    logger.warning(
+                        "[image_uploader] 流式超上限(AIS-099) %s: 已读 %d 字节即断开",
+                        url, total,
+                    )
+                    await resp.aclose()
+                    return None
+                chunks.append(chunk)
+            await resp.aclose()
+            payload = b"".join(chunks)
+            if not _looks_like_image(payload):
+                logger.warning(
+                    "[image_uploader] 内容非图片(AIS-098) %s: content-type=%s 前8字节=%r",
+                    url, content_type, payload[:8],
                 )
                 return None
             # 落点按 URL hash 命名 ⇒ 同一 URL 并发下载会撞同一路径。write_bytes 是
             # 截断+写,并发读者(upload 侧 read_bytes)可能读到半截文件。改走同目录
             # 临时件 + os.replace:读侧要么看到旧完整文件,要么看到新完整文件。
-            await asyncio.to_thread(_write_bytes_atomic, local_path, resp.content)
+            await asyncio.to_thread(_write_bytes_atomic, local_path, payload)
             logger.debug(
                 "[image_uploader] 下载成功 %s → %s (%d bytes)",
-                url, local_path, len(resp.content),
+                url, local_path, total,
             )
             return local_path
     except Exception as e:

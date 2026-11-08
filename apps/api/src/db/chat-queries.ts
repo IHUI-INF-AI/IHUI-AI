@@ -1317,9 +1317,23 @@ export async function createMessage(input: CreateMessageInput): Promise<ChatMess
   })
 }
 
-export async function findMessageById(id: string): Promise<ChatMessage | undefined> {
-  const rows = await db.select().from(chatMessages).where(eq(chatMessages.id, id)).limit(1)
-  return rows[0]
+export async function findMessageById(
+  id: string,
+  userId?: string,
+): Promise<ChatMessage | undefined> {
+  // F-154(2026-11-08):带 userId 时按会话归属过滤(chat_messages 无 sender/receiver 列,
+  // 归属在 chat_conversations);未传 userId 的内部调用保持旧形状。
+  if (!userId) {
+    const rows = await db.select().from(chatMessages).where(eq(chatMessages.id, id)).limit(1)
+    return rows[0]
+  }
+  const rows = await db
+    .select({ message: chatMessages })
+    .from(chatMessages)
+    .innerJoin(chatConversations, eq(chatConversations.id, chatMessages.conversationId))
+    .where(and(eq(chatMessages.id, id), eq(chatConversations.userId, userId)))
+    .limit(1)
+  return rows[0]?.message
 }
 
 /**
@@ -1937,8 +1951,21 @@ export async function replaceMessages(
     tokens?: number | null
     metadata?: Record<string, unknown> | null
   }>,
+  /**
+   * F-03(2026-11-08):调用方的认证主体。传入时先校验会话属主,
+   * 不属于本人则整体跳过(不删、不写),堵住按 conversationId 跨用户清空/覆写。
+   */
+  expectedUserId?: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    if (expectedUserId) {
+      const [owned] = await tx
+        .select({ id: chatConversations.id })
+        .from(chatConversations)
+        .where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, expectedUserId)))
+        .limit(1)
+      if (!owned) return
+    }
     await tx.delete(chatMessages).where(eq(chatMessages.conversationId, conversationId))
     if (messages.length > 0) {
       // D35(2026-09-24):重插流按 role 重算 turn 序号 —— user 消息开启新轮,
@@ -2226,10 +2253,7 @@ export async function setConversationShareToken(
 }
 
 // BUG-50:撤销分享。清空 token 与过期时间,使公开查看端点立即 404。
-export async function removeConversationShareToken(
-  id: string,
-  userId: string,
-): Promise<void> {
+export async function removeConversationShareToken(id: string, userId: string): Promise<void> {
   const existing = await findConversationById(id)
   if (!existing) throw new Error('对话不存在')
   if (existing.userId !== userId) throw new Error('无权操作该对话')

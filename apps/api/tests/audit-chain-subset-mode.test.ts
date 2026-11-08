@@ -36,6 +36,7 @@ const { mockSelectAuditLogChain } = vi.hoisted(() => ({
 vi.mock('../src/db/audit-queries.js', () => ({
   selectAuditLogChain: mockSelectAuditLogChain,
   selectAuditLogs: vi.fn(),
+  selectAuditLogsForExport: vi.fn(),
   selectAuditLogsRange: vi.fn(),
   countAuditLogs: vi.fn(),
   groupByAction: vi.fn(),
@@ -110,10 +111,7 @@ describe('审计链子集验证(G-300)', () => {
   it('② 子集档只放宽邻接,不放宽重算:改一行 metadata 仍判红', () => {
     const chain = buildGlobalChain()
     const subset = [chain[0]!, chain[2]!]
-    const tampered: AuditLogChainRow[] = [
-      subset[0]!,
-      { ...subset[1]!, metadata: { seq: 999 } },
-    ]
+    const tampered: AuditLogChainRow[] = [subset[0]!, { ...subset[1]!, metadata: { seq: 999 } }]
 
     const got = verifyAuditLogIntegrity(tampered, 'subset')
     expect(got.valid).toBe(false)

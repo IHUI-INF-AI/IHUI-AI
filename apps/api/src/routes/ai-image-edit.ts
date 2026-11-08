@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { sql, eq, desc, and } from 'drizzle-orm'
 import { db } from '../db/index.js'
@@ -11,8 +11,38 @@ import { success, error } from '../utils/response.js'
 import { authenticate } from '../plugins/auth.js'
 import { directEgressFetch, boundedOptionsFromRequestInit } from '../utils/proxy-dispatcher.js'
 import { MEDIA_BASE64_BODY_LIMIT } from '../config/body-limits.js'
+import {
+  ensurePointsAvailable,
+  chargeFlatPoints,
+  FLAT_POINTS,
+} from '../services/points-guard.js'
 
 const DASHSCOPE_BASE = process.env.DASHSCOPE_BASE ?? 'https://dashscope.aliyuncs.com/api/v1'
+
+// F-103(2026-11-08):平台 Key 图像生成只允许公开模型清单,避免客户端指定任意/高价模型。
+const DOUBAO_IMAGE_MODELS = new Set([
+  'doubao-seededit-3-0-i2i-250628',
+  'doubao-seedream-3-0-t2i-250415',
+  'doubao-image-edit-2.0',
+])
+const TONGYI_IMAGE_MODELS = new Set([
+  'wanx-v1',
+  'qwen-image',
+  'qwen-image-edit',
+  'wan2.5-t2i-preview',
+  'wan2.6-t2i',
+  'wan2.6-image',
+  'wanx-style-transfer',
+  'wanx-background-generation-v2',
+  'wanx-virtual-try-on-v1',
+])
+
+/** 模型不在清单内 → 400 并返回 true(调用方直接 return)。 */
+function rejectUnknownModel(model: string, allowed: Set<string>, reply: FastifyReply): boolean {
+  if (allowed.has(model)) return false
+  reply.status(400).send(error(400, `不支持的模型: ${model}`))
+  return true
+}
 
 // =============================================================================
 // 通用工具
@@ -176,12 +206,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       const { imageUrl, prompt, model, strength, size } = parsed.data
       const apiKey = process.env.DOUBAO_API_KEY
       const useModel = model ?? 'doubao-image-edit-2.0'
+      if (rejectUnknownModel(useModel, DOUBAO_IMAGE_MODELS, reply)) return
 
       if (!apiKey) {
         return reply
           .status(503)
           .send(error(503, '豆包图片编辑服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
       }
+      if (!(await ensurePointsAvailable(request, reply))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -208,6 +240,15 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
         const result = (await resp.json()) as Record<string, unknown>
         const outputImageUrl = (result.data as { url?: string }[])?.[0]?.url ?? ''
+        if (!outputImageUrl) {
+          return reply.status(502).send(error(502, '豆包图片编辑未返回图片地址'))
+        }
+        await chargeFlatPoints(
+          request,
+          FLAT_POINTS.image,
+          `图片编辑扣分(model=${useModel})`,
+          request.id,
+        )
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'doubao',
@@ -251,12 +292,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       const { imageUrl, maskUrl, prompt, model } = parsed.data
       const apiKey = process.env.DOUBAO_API_KEY
       const useModel = model ?? 'doubao-image-edit-2.0'
+      if (rejectUnknownModel(useModel, DOUBAO_IMAGE_MODELS, reply)) return
 
       if (!apiKey) {
         return reply
           .status(503)
           .send(error(503, '豆包图片修复服务未配置（需设置 DOUBAO_API_KEY 环境变量）'))
       }
+      if (!(await ensurePointsAvailable(request, reply))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -282,6 +325,15 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
         const result = (await resp.json()) as Record<string, unknown>
         const outputImageUrl = (result.data as { url?: string }[])?.[0]?.url ?? ''
+        if (!outputImageUrl) {
+          return reply.status(502).send(error(502, '豆包图片修复未返回图片地址'))
+        }
+        await chargeFlatPoints(
+          request,
+          FLAT_POINTS.image,
+          `图片修复扣分(model=${useModel})`,
+          request.id,
+        )
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'doubao',
@@ -325,12 +377,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       const { imageUrl, prompt, model, n, size } = parsed.data
       const apiKey = process.env.DASHSCOPE_API_KEY
       const useModel = model ?? 'wanx-v1'
+      if (rejectUnknownModel(useModel, TONGYI_IMAGE_MODELS, reply)) return
 
       if (!apiKey) {
         return reply
           .status(503)
           .send(error(503, '通义图片编辑服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
+      if (!(await ensurePointsAvailable(request, reply))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -363,6 +417,12 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         const result = (await resp.json()) as Record<string, unknown>
         const outputImages = ((result.output as { images?: { url?: string }[] })?.images ?? []).map(
           (img) => img.url ?? '',
+        )
+        await chargeFlatPoints(
+          request,
+          FLAT_POINTS.image,
+          `图片编辑扣分(model=${useModel})`,
+          request.id,
         )
         const historyId = await saveHistory({
           userId: request.userId!,
@@ -404,12 +464,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const { prompt, negativePrompt, model, n, size, steps, seed } = parsed.data
     const apiKey = process.env.DASHSCOPE_API_KEY
     const useModel = model ?? 'wanx-v1'
+    if (rejectUnknownModel(useModel, TONGYI_IMAGE_MODELS, reply)) return
 
     if (!apiKey) {
       return reply
         .status(503)
         .send(error(503, '通义文生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
+    if (!(await ensurePointsAvailable(request, reply))) return
 
     try {
       const resp = await fetchWithTimeout(
@@ -443,6 +505,12 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
       const result = (await resp.json()) as Record<string, unknown>
       const taskId = (result.output as { task_id?: string })?.task_id
+      await chargeFlatPoints(
+        request,
+        FLAT_POINTS.image,
+        `文生图扣分(model=${useModel})`,
+        request.id,
+      )
       const historyId = await saveHistory({
         userId: request.userId!,
         vendor: 'tongyi',
@@ -486,12 +554,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       const { imageUrl, prompt, model, strength, n, size } = parsed.data
       const apiKey = process.env.DASHSCOPE_API_KEY
       const useModel = model ?? 'wanx-v1'
+      if (rejectUnknownModel(useModel, TONGYI_IMAGE_MODELS, reply)) return
 
       if (!apiKey) {
         return reply
           .status(503)
           .send(error(503, '通义图生图服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
+      if (!(await ensurePointsAvailable(request, reply))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -524,6 +594,12 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
 
         const result = (await resp.json()) as Record<string, unknown>
         const taskId = (result.output as { task_id?: string })?.task_id
+        await chargeFlatPoints(
+          request,
+          FLAT_POINTS.image,
+          `图生图扣分(model=${useModel})`,
+          request.id,
+        )
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'tongyi',
@@ -746,12 +822,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       const { imageUrl, styleRefUrl, model } = parsed.data
       const apiKey = process.env.DASHSCOPE_API_KEY
       const useModel = model ?? 'wanx-style-transfer'
+      if (rejectUnknownModel(useModel, TONGYI_IMAGE_MODELS, reply)) return
 
       if (!apiKey) {
         return reply
           .status(503)
           .send(error(503, '通义风格迁移服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
+      if (!(await ensurePointsAvailable(request, reply))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -777,6 +855,12 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         }
         const result = (await resp.json()) as Record<string, unknown>
         const taskId = (result.output as { task_id?: string })?.task_id
+        await chargeFlatPoints(
+          request,
+          FLAT_POINTS.image,
+          `风格迁移扣分(model=${useModel})`,
+          request.id,
+        )
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'tongyi',
@@ -820,12 +904,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       const { imageUrl, prompt, model } = parsed.data
       const apiKey = process.env.DASHSCOPE_API_KEY
       const useModel = model ?? 'wanx-background-generation-v2'
+      if (rejectUnknownModel(useModel, TONGYI_IMAGE_MODELS, reply)) return
 
       if (!apiKey) {
         return reply
           .status(503)
           .send(error(503, '通义背景生成服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
       }
+      if (!(await ensurePointsAvailable(request, reply))) return
 
       try {
         const resp = await fetchWithTimeout(
@@ -851,6 +937,12 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
         }
         const result = (await resp.json()) as Record<string, unknown>
         const taskId = (result.output as { task_id?: string })?.task_id
+        await chargeFlatPoints(
+          request,
+          FLAT_POINTS.image,
+          `背景生成扣分(model=${useModel})`,
+          request.id,
+        )
         const historyId = await saveHistory({
           userId: request.userId!,
           vendor: 'tongyi',
@@ -891,12 +983,14 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
     const { personImageUrl, topGarmentUrl, bottomGarmentUrl, model } = parsed.data
     const apiKey = process.env.DASHSCOPE_API_KEY
     const useModel = model ?? 'wanx-virtual-try-on-v1'
+    if (rejectUnknownModel(useModel, TONGYI_IMAGE_MODELS, reply)) return
 
     if (!apiKey) {
       return reply
         .status(503)
         .send(error(503, '通义虚拟试衣服务未配置（需设置 DASHSCOPE_API_KEY 环境变量）'))
     }
+    if (!(await ensurePointsAvailable(request, reply))) return
 
     try {
       const inputData: Record<string, string> = { person_image_url: personImageUrl }
@@ -923,6 +1017,12 @@ export const aiImageEditRoutes: FastifyPluginAsync = async (server) => {
       }
       const result = (await resp.json()) as Record<string, unknown>
       const taskId = (result.output as { task_id?: string })?.task_id
+      await chargeFlatPoints(
+        request,
+        FLAT_POINTS.image,
+        `虚拟试衣扣分(model=${useModel})`,
+        request.id,
+      )
       const historyId = await saveHistory({
         userId: request.userId!,
         vendor: 'tongyi',

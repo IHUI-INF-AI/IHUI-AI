@@ -12,7 +12,12 @@ import { useTheme } from '@/rn-compat/theme'
 import { WithdrawScreen as SharedWithdrawScreen } from '@ihui/rn-app/features/withdraw/WithdrawScreen'
 import { onToast } from '@/host/on-toast'
 import type { TFunction } from '@ihui/types'
-import { buildWithdrawMethods, buildWithdrawTexts, formatWithdrawAmount } from './withdrawal-props'
+import {
+  buildWithdrawMethods,
+  buildWithdrawTexts,
+  formatWithdrawAmount,
+  parseWithdrawAmount,
+} from './withdrawal-props'
 
 /**
  * 薄壳(第 3 批):版面/输入/方式选择/记录入口全部交给共享屏 WithdrawScreen,本端只保留
@@ -29,27 +34,30 @@ export default function WithdrawalPage() {
   const [amount, setAmount] = useState('')
   const [method, setMethod] = useState('wechat')
   const [submitting, setSubmitting] = useState(false)
+  // XUI-066:getDistributionInfo 失败曾被 catch 吞掉,余额显示 0 却仍可点提交。
+  const [loadError, setLoadError] = useState('')
   const availableRef = useRef(0)
 
   const methods = buildWithdrawMethods(tt)
   const texts = buildWithdrawTexts(tt)
 
   const load = useCallback(async () => {
+    setLoadError('')
     try {
       const info = await getDistributionInfo()
       setAvailable(info.available)
       availableRef.current = info.available
     } catch {
-      // ignore
+      setLoadError(tt('common.loadFailed'))
     }
-  }, [])
+  }, [tt])
 
   const fillAll = useCallback(() => {
     setAmount(formatWithdrawAmount(availableRef.current))
   }, [])
 
   const onSubmit = useCallback(async () => {
-    const amt = Number(amount)
+    const amt = parseWithdrawAmount(amount)
     if (!amt || amt <= 0) {
       onToast(tt('distribution.withdraw.invalidAmount', '请输入有效金额'), { kind: 'error' })
       return
@@ -64,11 +72,12 @@ export default function WithdrawalPage() {
       onToast(tt('distribution.withdraw.submitted', '提现申请已提交'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
-      // ignore
+      // U-7:提现失败曾被静默吞掉,用户只看到按钮回弹;现在如实提示可重试。
+      onToast(tt('common.failed', '操作失败'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
-  }, [amount, method, tt])
+  }, [amount, method, tt, onToast])
 
   const goRecords = useCallback(() => {
     Taro.navigateTo({ url: '/pkg-ai/developer/withdrawal' })
@@ -87,7 +96,7 @@ export default function WithdrawalPage() {
         t={tt as unknown as TFunction}
         amount={amount}
         loading={false}
-        error=""
+        error={loadError}
         success=""
         onAmountChange={setAmount}
         onSubmit={onSubmit}

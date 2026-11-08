@@ -33,6 +33,12 @@ export type InsightType =
   | 'slow_calls'
   | 'free_usage'
   | 'health_summary'
+  /**
+   * 某个维度执行失败时的可见降级记录(F-238)。
+   * 逐维度隔离是为了"一个维度炸掉不影响其他维度",但隔离不等于把失败洗成"没发现问题":
+   * 少了成本/免费敞口维度的面板看上去一切正常,恰恰是最危险的形态。
+   */
+  | 'analysis_degraded'
 
 export interface Insight {
   type: InsightType
@@ -89,11 +95,11 @@ async function detectCostAnomaly(): Promise<Insight[]> {
   const out: Insight[] = []
   const result = await dbRead.execute(sql`
     SELECT
-      COALESCE(sum(CASE WHEN to_char(created_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') = to_char(now() AT TIME ZONE 'Asia/Shanghai' - interval '1 day','YYYY-MM-DD') THEN cost_used_total_cents ELSE 0 END), 0)::float8 AS yesterday_cents,
+      COALESCE(sum(CASE WHEN to_char(created_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') = to_char(now() AT TIME ZONE 'Asia/Shanghai' - interval '1 day','YYYY-MM-DD') THEN cost_cents ELSE 0 END), 0)::float8 AS yesterday_cents,
       COALESCE(avg(daily_total), 0)::float8 AS avg7_cents
     FROM (
       SELECT to_char(created_at AT TIME ZONE 'Asia/Shanghai','YYYY-MM-DD') AS d,
-             sum(cost_used_total_cents) AS daily_total,
+             sum(cost_cents) AS daily_total,
              max(created_at) AS latest
       FROM llm_call_logs
       WHERE created_at >= now() - interval '8 days'
@@ -208,7 +214,7 @@ async function detectFreeUsage(): Promise<Insight[]> {
     FROM llm_call_logs
     WHERE created_at >= now() - interval '24 hours' AND status = 'success'
     GROUP BY model
-    HAVING COALESCE(sum(cost_used_total_cents), 0) = 0 AND count(*) >= 5
+    HAVING COALESCE(sum(cost_cents), 0) = 0 AND count(*) >= 5
     ORDER BY calls DESC
     LIMIT 5
   `)
@@ -231,6 +237,15 @@ async function detectFreeUsage(): Promise<Insight[]> {
   return out
 }
 
+/** 维度的中文名(降级洞察里要让人一眼看出少了哪一块)。 */
+const DIMENSION_LABELS: Record<string, string> = {
+  detectErrorSpike: '错误率突增',
+  detectCostAnomaly: '成本异常',
+  detectCapacityWarning: '容量预警',
+  detectSlowCalls: '慢调用',
+  detectFreeUsage: '免费敞口',
+}
+
 /** 汇总生成全部洞察。 */
 export async function generateInsights(): Promise<InsightsResult> {
   const insights: Insight[] = []
@@ -245,9 +260,18 @@ export async function generateInsights(): Promise<InsightsResult> {
     try {
       insights.push(...(await fn()))
     } catch (e) {
-      logger.warn('[insights] 单维度分析失败(隔离)', {
-        fn: fn.name,
-        err: e instanceof Error ? e.message : String(e),
+      const message = e instanceof Error ? e.message : String(e)
+      const label = DIMENSION_LABELS[fn.name] ?? fn.name
+      logger.warn('[insights] 单维度分析失败(隔离)', { fn: fn.name, err: message })
+      // F-238:隔离是隔离,不静默 —— 失败维度必须作为一条 warning 洞察出现在面板上,
+      // 否则"成本异常/免费敞口查挂了"与"这两个维度一切正常"在响应里完全同形。
+      insights.push({
+        type: 'analysis_degraded',
+        severity: 'warning',
+        title: `洞察维度「${label}」分析失败,本次结果不完整`,
+        detail: `该维度执行时报错并被隔离:${message}。其余维度照常产出,但缺少「${label}」可能掩盖对应风险。`,
+        suggestion:
+          '按错误信息核对数据库表结构与列名(成本维度依赖 llm_call_logs.cost_cents)及只读库权限,修复后重新生成洞察。',
       })
     }
   }

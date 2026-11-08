@@ -2,7 +2,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTheme } from '../context/ThemeContext'
 import {} from 'react-native'
 import { appAlert } from '../components/BottomPops'
@@ -38,6 +38,16 @@ export default function AigcPublishScreen() {
   const [prompt, setPrompt] = useState('')
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
+  // XUI-070:选图/上传是同 tick 可连点的入口,state 来不及刷新 ⇒ 用 ref 上锁;
+  // 上传进度回调可能在卸载后到达 ⇒ mountedRef 拦掉。
+  const uploadingRef = useRef(false)
+  const mountedRef = useRef(true)
+  useEffect(
+    () => () => {
+      mountedRef.current = false
+    },
+    [],
+  )
   /** 真实上传进度端口:0-100,来自 expo UploadTask 的 bytesSent/totalBytes;undefined = 未知 */
   const [uploadProgress, setUploadProgress] = useState<number | undefined>(undefined)
   const [error, setError] = useState('')
@@ -59,9 +69,11 @@ export default function AigcPublishScreen() {
   }
 
   const pickImage = async () => {
-    if (uploading) return
+    if (uploadingRef.current) return
+    uploadingRef.current = true
     if (files.length >= 5) {
       setError(t('aigcPublish.errorMaxFiles'))
+      uploadingRef.current = false
       return
     }
     try {
@@ -69,6 +81,7 @@ export default function AigcPublishScreen() {
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
       if (perm.status !== 'granted') {
         appAlert(t('home.pubPermAlbumImage'))
+        uploadingRef.current = false
         return
       }
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -76,9 +89,15 @@ export default function AigcPublishScreen() {
         allowsMultipleSelection: false,
         quality: 0.8,
       })
-      if (result.canceled) return
+      if (result.canceled) {
+        uploadingRef.current = false
+        return
+      }
       const asset = result.assets?.[0]
-      if (!asset?.uri) return
+      if (!asset?.uri) {
+        uploadingRef.current = false
+        return
+      }
       setUploading(true)
       setUploadProgress(0)
       setError('')
@@ -89,8 +108,13 @@ export default function AigcPublishScreen() {
           type: asset.mimeType || (isVideo ? 'video/mp4' : 'image/jpeg'),
           name: asset.fileName || `upload-${Date.now()}.${isVideo ? 'mp4' : 'jpg'}`,
         },
-        { onUploadProgress: (percent) => setUploadProgress(percent) },
+        {
+          onUploadProgress: (percent) => {
+            if (mountedRef.current) setUploadProgress(percent)
+          },
+        },
       )
+      if (!mountedRef.current) return
       if (res.success && res.data) {
         const url = resolveFileUrl(res.data.path)
         setFiles((prev) => [...prev, { id: res.data!.id, url }])
@@ -98,10 +122,13 @@ export default function AigcPublishScreen() {
         setError(apiFailureToText(res, t('aigcPublish.errorUploadFailed')))
       }
     } catch {
-      setError(t('aigcPublish.errorPickFailed'))
+      if (mountedRef.current) setError(t('aigcPublish.errorPickFailed'))
     } finally {
-      setUploading(false)
-      setUploadProgress(undefined)
+      uploadingRef.current = false
+      if (mountedRef.current) {
+        setUploading(false)
+        setUploadProgress(undefined)
+      }
     }
   }
 

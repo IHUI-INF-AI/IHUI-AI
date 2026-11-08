@@ -39,7 +39,6 @@
  * 应急:`HUSKY_SKIP_TRACKED_IGNORED=1`(会进跳门留痕)。
  */
 
-import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
@@ -278,19 +277,16 @@ export function evaluate(argv = [], { root = ROOT, ledger = null } = {}) {
 
 /** 夹具用 git:显式 stdio(§12g),非零一律抛。 */
 function fixtureGit(cwd, args) {
-  const r = spawnSync('git', args, {
-    cwd,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  if (r.status !== 0)
+  try {
+    return String(gitRaw(args, cwd, { timeout: 60_000, maxBuffer: 16 << 20 }) ?? '')
+  } catch (e) {
+    if (typeof e?.status !== 'number') throw e
     throw new Error(
-      `git ${args.join(' ')} 失败:${String(r.stderr || r.stdout || '')
+      `git ${args.join(' ')} 失败:${String(e.stderr || e.stdout || '')
         .trim()
         .slice(0, 200)}`,
     )
-  return r.stdout
+  }
 }
 
 /**

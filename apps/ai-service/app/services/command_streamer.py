@@ -34,6 +34,10 @@ MAX_TIMEOUT = 1800
 # 超时后 SIGTERM 宽限期(SIGTERM → 等 5s → SIGKILL)
 _GRACE_PERIOD = 5.0
 
+# AIS-008:reader→SSE 的有界缓冲。reader 用 await put,队列满即把背压传回子进程
+# pipe,避免慢客户端时无界堆积(单帧内容已有 PROTOCOL_FRAME_LIMIT_BYTES 上限)。
+_STREAM_QUEUE_MAXSIZE = 512
+
 # ===========================================================================
 # 协议帧预算与超限三类结局分流 —— 全服务唯一实现(第三十三批)
 # ===========================================================================
@@ -447,7 +451,7 @@ async def stream_command(
         }
         return
 
-    queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+    queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(maxsize=_STREAM_QUEUE_MAXSIZE)
     stdout_task = asyncio.create_task(_read_stream(proc.stdout, "stdout", queue))
     stderr_task = asyncio.create_task(_read_stream(proc.stderr, "stderr", queue))
 

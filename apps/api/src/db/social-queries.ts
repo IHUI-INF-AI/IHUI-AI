@@ -28,13 +28,20 @@ import {
 // =============================================================================
 
 /**
- * 关注用户（幂等）。不允许关注自己。
+ * 关注用户(幂等,不允许关注自己)。
+ * F-205:返回本次是否真正新建了关注关系。原实现 onConflictDoNothing 后恒 201,
+ * 使积分切面无法区分「首次关注」与「重复提交」⇒ 反复 POST 可无限刷 +5 积分。
  */
-export async function followUser(followerId: string, followingId: string): Promise<void> {
+export async function followUser(followerId: string, followingId: string): Promise<boolean> {
   if (followerId === followingId) {
     throw Object.assign(new Error('不能关注自己'), { statusCode: 400 })
   }
-  await db.insert(userFollows).values({ followerId, followingId }).onConflictDoNothing()
+  const inserted = await db
+    .insert(userFollows)
+    .values({ followerId, followingId })
+    .onConflictDoNothing()
+    .returning({ id: userFollows.id })
+  return inserted.length > 0
 }
 
 export async function unfollowUser(followerId: string, followingId: string): Promise<void> {

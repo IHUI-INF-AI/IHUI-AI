@@ -34,6 +34,7 @@ from typing import Any
 
 import pytest
 
+from app.core.config import settings
 from app.services.mcp_client import (
     DEFAULT_PROTOCOL_VERSION,
     SUPPORTED_PROTOCOL_VERSIONS,
@@ -42,6 +43,12 @@ from app.services.mcp_client import (
     MCPClientConfig,
 )
 from app.services.mcp_oauth import MCPOAuthClient, MCPOAuthConfig, MCPOAuthToken
+
+
+@pytest.fixture(autouse=True)
+def _allow_loopback_endpoints(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AIS-053 落点策略默认 fail-closed;本文件的 mock server 在 127.0.0.1,显式开开关。"""
+    monkeypatch.setattr(settings, "mcp_allow_private_endpoints", True, raising=False)
 
 
 @dataclass

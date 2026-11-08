@@ -114,7 +114,7 @@ function createStyles(tk: AppThemeTokens) {
       maxWidth: 420,
       maxHeight: '78%',
       padding: rnSpacing['2xl'],
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius.xl,
       backgroundColor: tk.surface.light,
       gap: rnSpacing.md,
     } as ViewStyle,

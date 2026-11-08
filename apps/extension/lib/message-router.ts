@@ -24,6 +24,7 @@ export type ExtMessage =
   | { type: 'api.proxy'; payload: ApiProxyPayload; requestId: string }
   | { type: 'token.get'; payload: undefined; requestId: string }
   | { type: 'token.refresh'; payload: undefined; requestId: string }
+  | { type: 'locale.get'; payload: undefined; requestId: string }
   | { type: 'vocab.lookup'; payload: VocabLookupPayload; requestId: string }
   | { type: 'highlight.toggle'; payload: HighlightPayload; requestId: string }
   | { type: 'tab.queryActive'; payload: undefined; requestId: string }

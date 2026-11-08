@@ -13,8 +13,10 @@ import { useI18n } from '../../i18n'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Image,
+  KeyboardAvoidingView,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -469,7 +471,10 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={styles.root}>
+      <KeyboardAvoidingView
+        style={styles.root}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>标注图片</Text>
           <Tappable
@@ -713,7 +718,7 @@ export function ImageAnnotator({ visible, imageUri, onCancel, onSave }: ImageAnn
             <Text style={[styles.footerBtnText, styles.footerBtnPrimaryText]}>保存</Text>
           </Tappable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }

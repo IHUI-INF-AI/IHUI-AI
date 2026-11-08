@@ -3,19 +3,20 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
- * admin 批量导入的归属回显锁(2026-11-06 立)。
+ * admin 批量导入的归属回显锁(2026-11-06 立,2026-11-07 契约反转为强制个人池)。
  *
- * 立因:`POST /admin/relay/accounts/import` 把本批交给运营池(owner=null),而运营池的语义是
+ * 立因:`POST /admin/relay/accounts/import` 曾把本批交给运营池(owner=null),而运营池的语义是
  * 「对一切请求者可见可用」—— 与机主 2026-10-31 永久指令「我自己填入号池的账号只能跟着我的
- * 账号走」正好反方向;更要命的是响应面原先一声不吭,导入的人看不出号挂在哪一格,于是同一枚
- * 号被不同通道各导一次时(表上两条 partial unique 允许运营池 + 个人池各一行)谁都不知道自己
- * 造出了双行 —— 而 `chooseSyncTargetRow` 运营池优先,个人池那行从此拿不到客户端新票,
- * 保活与自动签到落在别处。2026-11-06 本机 Qoder 号就是这么踩上的。
+ * 账号走」正好反方向;同一枚号被不同通道各导一次时还会造出运营池 + 个人池双行,
+ * `chooseSyncTargetRow` 又运营池优先,个人池那行从此拿不到客户端新票。
  *
- * 本锁只钉三件事(默认语义一字未改,所以存量视图零变化):
- *  ① 落在哪一格必须回显,且必须把"别人也能用"这层后果写出来;
- *  ② 回显指出的两条出路必须是**仓里真存在、真能跑**的文件(§0.8 禁止文档写跑不通的出路);
- *  ③ 原 result 的统计字段不得被展开丢掉。
+ * 2026-11-07 起端点不再提供"静默落运营池"的语义:owner 一律取承载层注入的 request.userId,
+ * 首次导入强制落个人池;想对他人开放只能显式走 `POST /:id/share`(全局共享标记)。
+ * 因此本锁钉四件事:
+ *  ① 落个人池必须回显,并把"首次导入强制落个人池 / 可共享到运营池"写进措辞;
+ *  ② 回显指出的出路必须**仓里真存在、真能跑**(share/unshare 端点 + 跨归属检测脚本);
+ *  ③ 原 result 的统计字段不得被展开丢掉;
+ *  ④ 反向牙:端点不得再静默落运营池(默认语义改回就翻红)。
  * 同 uid 跨归属的**检测**判据不在本层复算 —— 它已由 scripts/check-pool-isolation.mjs 的
  * sameUidMultiRow 维承担(§0.6 单一真相源),这里只负责把人指向它。
  */
@@ -49,7 +50,13 @@ vi.mock('../src/db/index.js', () => {
   return { db: stub, dbRead: stub, dbScoped: stub, dbReadScoped: stub, sql: (s: unknown) => s }
 })
 
-vi.mock('../src/plugins/require-permission.js', () => ({ requireAdmin: async () => {} }))
+/** 承载层注入的管理员主体:2026-11-07 起 import 的 owner 只能来自 request.userId。 */
+const ADMIN_ID = '00000000-0000-4000-8000-00000000ad01'
+vi.mock('../src/plugins/require-permission.js', () => ({
+  requireAdmin: async (request: { userId?: string }) => {
+    request.userId = ADMIN_ID
+  },
+}))
 
 // 落库出口换成替身:本文件判的是"路由交出去的归属是哪一格 + 回显写了什么",
 // 不是 importAccounts 内部(那有自己的用例)。第三参 ownerUserId 被逐次记下来。
@@ -117,17 +124,17 @@ describe('admin 批量导入的归属回显', () => {
   }
 
   it(
-    '① 落在运营池必须回显,并把"一切请求者可见可用"写进措辞',
+    '① 落在个人池必须回显,并把"首次导入强制落个人池"写进措辞',
     async () => {
       const res = await app.inject({ method: 'POST', url: IMPORT_URL, payload })
       expect(res.statusCode).toBe(200)
       const data = res.json().data
       expect(data.ownership).toBeTruthy()
-      expect(data.ownership.pool).toBe('ops')
-      expect(data.ownership.label).toContain('运营池')
-      expect(data.ownership.label).toContain('一切请求者')
-      // 默认语义一字未改:交给落库出口的仍是 null(运营池)
-      expect(h.ownerArgs).toEqual([null])
+      expect(data.ownership.pool).toBe('personal')
+      expect(data.ownership.label).toContain('个人池')
+      expect(data.ownership.label).toContain('共享到运营池')
+      // 新契约:交给落库出口的 owner 是承载层注入的本人 id,不再是 null(运营池)
+      expect(h.ownerArgs).toEqual([ADMIN_ID])
     },
     TMO,
   )
@@ -139,22 +146,31 @@ describe('admin 批量导入的归属回显', () => {
       const data = res.json().data
       // HERE = apps/api/tests ⇒ 仓根在上一层之上(少跳一层会把路径指到 apps/ 下,自己验不出)
       const repoRoot = resolve(HERE, '..', '..', '..')
-      for (const field of ['toPersonalPool', 'detectSameUidAcrossOwners'] as const) {
-        const exit = data.ownership[field]
-        expect(typeof exit.cmd).toBe('string')
-        expect(typeof exit.script).toBe('string')
-        expect(typeof exit.cwd).toBe('string')
-        expect(exit.cmd).toContain(exit.script)
-        // cmd 里的执行目录必须与 cwd 字段同值(两口径分写就会漂成"照着 cmd 跑却找不到文件")
-        if (exit.cwd !== '.') expect(exit.cmd).toContain(`cd ${exit.cwd}`)
-        expect(
-          existsSync(resolve(repoRoot, exit.cwd, exit.script)),
-          `${field} 指的文件不在仓里: ${exit.cwd}/${exit.script}`,
-        ).toBe(true)
-        expect(exit.why.length, `${field} 没写为什么是这条出路`).toBeGreaterThan(4)
-      }
+
+      // 出路一:显式共享到运营池(端点,不是脚本)
+      expect(data.ownership.shareToOps.share).toMatch(/^POST \/admin\/relay\/accounts\/:id\/share$/)
+      expect(data.ownership.shareToOps.unshare).toMatch(
+        /^POST \/admin\/relay\/accounts\/:id\/unshare$/,
+      )
+      expect(data.ownership.shareToOps.why.length).toBeGreaterThan(4)
+
+      // 出路二:跨归属同 uid 检测脚本,必须在仓里真存在
+      const exit = data.ownership.detectSameUidAcrossOwners
+      expect(typeof exit.cmd).toBe('string')
+      expect(typeof exit.script).toBe('string')
+      expect(typeof exit.cwd).toBe('string')
+      expect(exit.cmd).toContain(exit.script)
+      if (exit.cwd !== '.') expect(exit.cmd).toContain(`cd ${exit.cwd}`)
+      expect(
+        existsSync(resolve(repoRoot, exit.cwd, exit.script)),
+        `detectSameUidAcrossOwners 指的文件不在仓里: ${exit.cwd}/${exit.script}`,
+      ).toBe(true)
+      expect(exit.why.length, 'detectSameUidAcrossOwners 没写为什么是这条出路').toBeGreaterThan(4)
       // .ts 出路不许被写成 node 直跑(本仓只有 .mjs 能 node 直执行)
-      expect(data.ownership.toPersonalPool.cmd).not.toMatch(/node \S+\.ts/)
+      expect(exit.cmd).not.toMatch(/node \S+\.ts/)
+
+      // 旧的"个人池出路"已随契约反转删除,不得再出现在响应里
+      expect(data.ownership.toPersonalPool).toBeUndefined()
     },
     TMO,
   )
@@ -173,12 +189,13 @@ describe('admin 批量导入的归属回显', () => {
   )
 
   it(
-    '④ 反向牙:本端点不擅自宣称落个人池(默认语义改了就翻红)',
+    '④ 反向牙:本端点必须落个人池,不得再静默落运营池(语义改回就翻红)',
     async () => {
       const res = await app.inject({ method: 'POST', url: IMPORT_URL, payload })
       const data = res.json().data
-      expect(data.ownership.pool).not.toBe('personal')
-      expect(JSON.stringify(data.ownership)).not.toContain('个人池 3076')
+      expect(data.ownership.pool).toBe('personal')
+      expect(h.ownerArgs).toEqual([ADMIN_ID])
+      expect(JSON.stringify(data.ownership)).not.toContain('一切请求者')
     },
     TMO,
   )

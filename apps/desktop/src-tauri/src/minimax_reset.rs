@@ -988,27 +988,110 @@ pub fn minimax_quarantine_list_impl(
     Ok(out)
 }
 
+/// 条目名/原路径首段是否是单段普通名(`..` / 分隔符一律拒)。
+fn mm_safe_segment(name: &str) -> bool {
+    !name.is_empty() && name != "." && name != ".." && !name.contains('/') && !name.contains('\\')
+}
+
+/// 恢复前的隔离区容器性校验:名字形态对 + 解析后父目录必须就是 home/roaming 的父目录。
+/// 旧实现直接信任入参路径与 manifest.root,任意目录都能被当作"隔离区"驱动 rename。
+fn mm_validate_quarantine_for_restore(
+    quarantine: &std::path::Path,
+    home: &std::path::Path,
+    roaming: &std::path::Path,
+) -> Result<std::path::PathBuf, String> {
+    let name = quarantine
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if !is_minimax_quarantine_dir_name(&name) {
+        return Err(format!("sanity 拒绝:{} 不是 MiniMax 隔离区", quarantine.display()));
+    }
+    let canonical_q = std::fs::canonicalize(quarantine)
+        .map_err(|e| format!("隔离区解析失败 {}: {e}", quarantine.display()))?;
+    let q_parent = canonical_q
+        .parent()
+        .ok_or_else(|| "隔离区无父目录".to_string())?;
+    let expected_parents: Vec<std::path::PathBuf> = [home, roaming]
+        .iter()
+        .filter_map(|r| r.parent().and_then(|p| std::fs::canonicalize(p).ok()))
+        .collect();
+    if !expected_parents.iter().any(|p| p == q_parent) {
+        return Err(format!(
+            "sanity 拒绝:{} 不在 MiniMax 根目录的父目录下",
+            canonical_q.display()
+        ));
+    }
+    Ok(canonical_q)
+}
+
 /// 恢复:按 manifest 逐条目 rename 回原根;目标已存在同名条目时报错不覆盖。
-pub fn minimax_quarantine_restore_impl(quarantine: &std::path::Path) -> WbResetReport {
+pub fn minimax_quarantine_restore_impl(
+    quarantine: &std::path::Path,
+    home: &std::path::Path,
+    roaming: &std::path::Path,
+) -> WbResetReport {
     let mut layers: Vec<WbLayerReport> = Vec::new();
-    let manifest = match mm_parse_manifest(quarantine) {
+    let canonical_q = match mm_validate_quarantine_for_restore(quarantine, home, roaming) {
+        Ok(q) => q,
+        Err(e) => {
+            layers.push(WbLayerReport { layer: 0, name: "restore", ok: false, detail: e });
+            return WbResetReport { layers };
+        }
+    };
+    let manifest = match mm_parse_manifest(&canonical_q) {
         Ok(m) => m,
         Err(e) => {
             layers.push(WbLayerReport { layer: 0, name: "restore", ok: false, detail: e });
             return WbResetReport { layers };
         }
     };
+    // manifest.root 也是文本:只认它等于本次解析出的两个真实根之一,否则拒绝整单。
     let root = std::path::PathBuf::from(&manifest.root);
+    let canonical_root = match std::fs::canonicalize(&root) {
+        Ok(r) => r,
+        Err(e) => {
+            layers.push(WbLayerReport {
+                layer: 0,
+                name: "restore",
+                ok: false,
+                detail: format!("manifest.root 解析失败 {}: {e}", root.display()),
+            });
+            return WbResetReport { layers };
+        }
+    };
+    let expected_roots: Vec<std::path::PathBuf> = [home, roaming]
+        .iter()
+        .filter_map(|r| std::fs::canonicalize(r).ok())
+        .collect();
+    if !expected_roots.iter().any(|r| r == &canonical_root) {
+        layers.push(WbLayerReport {
+            layer: 0,
+            name: "restore",
+            ok: false,
+            detail: format!("sanity 拒绝:manifest.root {} 不是 MiniMax 根目录", root.display()),
+        });
+        return WbResetReport { layers };
+    }
+    let root = canonical_root;
     let mut errors: Vec<String> = Vec::new();
     let mut restored = 0usize;
     for entry in &manifest.entries {
-        let src = quarantine.join(&entry.name);
+        if !mm_safe_segment(&entry.name) {
+            errors.push(format!("{}: 隔离区条目名不安全", entry.name));
+            continue;
+        }
+        let src = canonical_q.join(&entry.name);
         let name = entry
             .original_path
             .split(['/', '\\'])
             .next()
             .unwrap_or(&entry.original_path)
             .to_string();
+        if !mm_safe_segment(&name) {
+            errors.push(format!("{}: 原路径首段不安全", entry.original_path));
+            continue;
+        }
         let dst = root.join(&name);
         if !src.exists() {
             errors.push(format!("{}: 隔离区条目缺失", entry.name));
@@ -1024,7 +1107,7 @@ pub fn minimax_quarantine_restore_impl(quarantine: &std::path::Path) -> WbResetR
         }
     }
     if errors.is_empty() && restored > 0 {
-        let _ = std::fs::remove_dir_all(quarantine);
+        let _ = std::fs::remove_dir_all(&canonical_q);
     }
     layers.push(WbLayerReport {
         layer: 0,
@@ -1223,13 +1306,22 @@ pub async fn minimax_quarantine_list() -> Result<Vec<WbQuarantineInfo>, IpcError
 
 #[tauri::command(async)]
 pub async fn minimax_quarantine_restore(
+    app: tauri::AppHandle,
     quarantine: String,
     on_progress: tauri::ipc::Channel<WbProgressEvent>,
 ) -> Result<WbResetReport, IpcError> {
     mm_reset_gate().map_err(IpcError::internal)?;
     let _ = on_progress;
+    // F-053:入参路径来自前端,原实现零校验就 rename;恢复是写回 ~/.minimax 的动作,
+    // 必须人工确认 + 容器性校验(与删除腿同一档)。
+    crate::require_native_confirm(
+        &app,
+        "MiniMax 隔离区恢复",
+        "将把隔离区条目移回 MiniMax 原目录,可能覆盖未完成的重置现场。确认恢复?",
+    )?;
+    let (home, roaming) = mm_resolve_both()?;
     let q = std::path::PathBuf::from(quarantine);
-    tauri::async_runtime::spawn_blocking(move || minimax_quarantine_restore_impl(&q))
+    tauri::async_runtime::spawn_blocking(move || minimax_quarantine_restore_impl(&q, &home, &roaming))
         .await
         .map_err(|e| IpcError::internal(format!("MiniMax 隔离区恢复任务异常退出: {e}")))
 }
@@ -1404,7 +1496,7 @@ mod tests {
         (home, roaming)
     }
 
-    fn cleanup(home: &std::path::Path, roaming: &std::path::Path) {
+    fn cleanup(home: &std::path::Path, _roaming: &std::path::Path) {
         if let Some(c) = home.parent() {
             let _ = std::fs::remove_dir_all(c);
         }
@@ -1471,7 +1563,7 @@ mod tests {
             .iter()
             .find(|q| q.entries >= 1 && q.mode == "logout" && q.original_root.contains("home"))
             .unwrap();
-        let rep = minimax_quarantine_restore_impl(std::path::Path::new(&q_auth.path));
+        let rep = minimax_quarantine_restore_impl(std::path::Path::new(&q_auth.path), &home, &roaming);
         assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
         assert!(home.join("auth/prod/cn/mcode-public/auth.json").exists());
         cleanup(&home, &roaming);
@@ -1487,7 +1579,7 @@ mod tests {
         let list = minimax_quarantine_list_impl(&home, &roaming).unwrap();
         assert_eq!(list.len(), 2);
         for q in &list {
-            let rep = minimax_quarantine_restore_impl(std::path::Path::new(&q.path));
+            let rep = minimax_quarantine_restore_impl(std::path::Path::new(&q.path), &home, &roaming);
             assert!(rep.layers.iter().all(|l| l.ok), "{:?}", rep.layers);
         }
         assert!(home.join("auth/prod/cn/mcode-public/auth.json").exists());

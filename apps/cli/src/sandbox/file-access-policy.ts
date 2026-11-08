@@ -33,7 +33,7 @@
  *     绝对 / 越界回落对 `.env` / `id_rsa` 这类根层单列族打不中 `../..`,容器性断言只看
  *     "解析后仍在隔离区根之下",补上 ACL 的结构盲区(与 ACL 分职,不替代也不放宽)。
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, realpathSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { globMatches, normalizeWorkspacePath } from './glob-pattern.js';
 
@@ -81,12 +81,44 @@ export const CREDENTIAL_FILE_ACCESS_RULES: readonly FileAccessRule[] = [
     source: 'credential',
     why: '同上:模板件无凭据',
   },
+  // 子目录形态的例外族:模板件放行必须按同样的尾段形态声明,否则 `**/.env.*`
+  // 会把 `apps/web/.env.example` 一并拒掉(误伤合法读)。
+  {
+    pattern: '**/.env.example',
+    ops: {},
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '子目录下的模板件同样不含真实凭据',
+  },
+  {
+    pattern: '**/.env.template',
+    ops: {},
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '子目录下的模板件同样不含真实凭据',
+  },
   {
     pattern: '.env',
     ops: { read: 'deny', write: 'deny', delete: 'ask' },
     enforcement: 'enforce',
     source: 'credential',
     why: '工作区 .env 是明文键值容器,整份读出来就等于把凭据交出去',
+  },
+  // 子目录形态:旧表只有根层单列族,`apps/web/.env` 这类明文凭据件整片漏过
+  // (工作区越界/子目录/符号链接折出都靠尾段形态兜住,见 toAclPath)。
+  {
+    pattern: '**/.env',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '任意子目录下的 .env 同样是明文凭据容器',
+  },
+  {
+    pattern: '**/.env.*',
+    ops: { read: 'deny', write: 'deny', delete: 'ask' },
+    enforcement: 'enforce',
+    source: 'credential',
+    why: '任意子目录下的 .env.local / .env.production 等分档件',
   },
   {
     pattern: '.env.*',
@@ -500,11 +532,34 @@ function foldWindowsAbsUnderWorkspace(workspacePath: string, filePath: string): 
  * 靠尾段匹配,逃不出去 —— 不给"传绝对路径就绕过裁决"这条缝留口子。
  */
 export function toAclPath(workspacePath: string, filePath: string): string {
-  if (WINDOWS_ABS_RE.test(filePath)) return foldWindowsAbsUnderWorkspace(workspacePath, filePath);
-  if (!isAbsolute(filePath)) return normalizeWorkspacePath(filePath);
-  const rel = relative(resolve(workspacePath), resolve(filePath));
-  if (rel === '' || rel.startsWith(`..${sep}`) || rel === '..') return normalizeWorkspacePath(filePath);
+  const ws = resolve(workspacePath);
+  if (WINDOWS_ABS_RE.test(filePath)) {
+    return foldWindowsAbsUnderWorkspace(ws, realIfExists(filePath));
+  }
+  // 相对路径必须先按工作区**解析**再折回:旧实现直接把字面量交给 glob,
+  // `docs/../.env` / `./.env` 在字面形态下打不中根层 `.env` 规则,而 fs 侧
+  // resolve 后读到的正是根 .env —— 这是报告 F-074 的绕过路径。
+  // realpath 再折一次,封掉"工作区内符号链接指向工作区外凭据件"的绕行。
+  if (!isAbsolute(filePath)) {
+    const abs = realIfExists(resolve(ws, filePath));
+    const rel = relative(realIfExists(ws), abs);
+    if (rel === '' || rel.startsWith(`..${sep}`) || rel === '..') return normalizeWorkspacePath(abs);
+    return normalizeWorkspacePath(rel);
+  }
+  const rel = relative(realIfExists(ws), realIfExists(resolve(filePath)));
+  if (rel === '' || rel.startsWith(`..${sep}`) || rel === '..') {
+    return normalizeWorkspacePath(realIfExists(resolve(filePath)));
+  }
   return normalizeWorkspacePath(rel);
+}
+
+/** 路径存在时取 realpath,不存在则原样返回(裁决发生在 fs 调用之前,不能因"不存在"抛穿)。 */
+function realIfExists(target: string): string {
+  try {
+    return realpathSync(target);
+  } catch {
+    return target;
+  }
 }
 
 /**

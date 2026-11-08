@@ -68,6 +68,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'ACCOUNT_RESTRICTED.action',
     category: 'authForbidden',
   },
+  // —— 守门 94(R1)补录:ADD_JOB_FAILED 由 apps/ai-service/app/services/scheduler_service.py:232 真实产出
+  //   (APScheduler add_job 抛异常 ⇒ 注册失败)。任务没真正挂进调度器就不能回 ok,属服务端运行时失败
+  //   ⇒ 与 SCHEDULER_ERROR 同档(runtimeException);动作是重试/请管理员检查调度服务。
+  ADD_JOB_FAILED: {
+    titleKey: 'ADD_JOB_FAILED.title',
+    actionKey: 'ADD_JOB_FAILED.action',
+    category: 'runtimeException',
+  },
   // —— 守门 94(R1):PROVIDER_BUSY 由 apps/ai-service/app/services/mcp_server.py:7026 真实产出
   //   (agnes 排队类失败 → 工具层映射),必须进 catalog。语义为「服务提供商暂时繁忙/过载」,
   //   属后端侧瞬时不可用、建议稍后重试 ⇒ 分类取 backendTimeout(与 REQUEST_TIMEOUT 同档,
@@ -403,6 +411,13 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'INVALID_ARGUMENT.action',
     category: 'invalidResponse',
   },
+  // —— 守门 94(R1)补录:INVALID_CALLBACK 由 scheduler_service.py:197 产出(回调缺 type 或字段非法)。
+  //   与 INVALID_TRIGGER 同属"送进来的配置不合契约" ⇒ invalidResponse。
+  INVALID_CALLBACK: {
+    titleKey: 'INVALID_CALLBACK.title',
+    actionKey: 'INVALID_CALLBACK.action',
+    category: 'invalidResponse',
+  },
   INVALID_CHART_TYPE: {
     titleKey: 'INVALID_CHART_TYPE.title',
     actionKey: 'INVALID_CHART_TYPE.action',
@@ -685,6 +700,14 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     actionKey: 'SCHEDULER_ERROR.action',
     category: 'runtimeException',
   },
+  // —— 守门 94(R1)补录:SCHEDULER_UNAVAILABLE 由 scheduler_service.py:180 产出(调度器未启动,
+  //   任务不会被触发)。与 SCHEDULER_ERROR 同族(调度服务不可用) ⇒ runtimeException,
+  //   动作是稍后重试/请管理员启动调度服务。
+  SCHEDULER_UNAVAILABLE: {
+    titleKey: 'SCHEDULER_UNAVAILABLE.title',
+    actionKey: 'SCHEDULER_UNAVAILABLE.action',
+    category: 'runtimeException',
+  },
   SCHEME_REJECTED: {
     titleKey: 'SCHEME_REJECTED.title',
     actionKey: 'SCHEME_REJECTED.action',
@@ -779,6 +802,13 @@ export const ERROR_CODE_CATALOG: Readonly<Record<string, ErrorCatalogEntry>> = O
     titleKey: 'UNKNOWN_API_TOOL.title',
     actionKey: 'UNKNOWN_API_TOOL.action',
     category: 'resourceNotFound',
+  },
+  // —— 守门 94(R1)补录:UNREADABLE 由 apps/ai-service/app/services/file_editor.py:259 产出
+  //   (存在性探测为"读不到":既不能说成不存在,也不能新建覆盖)。属运行期读取失败 ⇒ runtimeException。
+  UNREADABLE: {
+    titleKey: 'UNREADABLE.title',
+    actionKey: 'UNREADABLE.action',
+    category: 'runtimeException',
   },
   UNSUPPORTED_FORMAT: {
     titleKey: 'UNSUPPORTED_FORMAT.title',

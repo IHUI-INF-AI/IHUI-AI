@@ -20,6 +20,7 @@
 - /execute/stream 多场景:default mode / plan mode / graph 失败 / Redis 不可用降级 / Redis 可用持久化
 """
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -515,4 +516,52 @@ async def test_personas_router_registered_returns_5(client):
     assert len(data["personas"]) == 5
     expected = {"researcher", "coder", "reviewer", "architect", "debugger"}
     assert {p["name"] for p in data["personas"]} == expected
+
+
+# =============================================================================
+# AIS-086:cancel 必须真正停掉在途 graph,而不是只改 Redis 状态
+# =============================================================================
+
+
+async def test_cancel_cancels_inflight_run_task(client):
+    """取消端点要把在途任务取消掉(旧实现只写 status=cancelled)。"""
+    resp = await client.post(
+        "/api/agent-runtime/execute", json={"message": "cancel me"}
+    )
+    session_id = resp.json()["sessionId"]
+    task = asyncio.create_task(asyncio.sleep(3600))
+    agent_runtime._run_tasks[session_id] = task
+    try:
+        cancel = await client.post(f"/api/agent-runtime/{session_id}/cancel")
+        assert cancel.status_code == 200
+        await asyncio.sleep(0)
+        assert task.cancelled()
+    finally:
+        agent_runtime._run_tasks.pop(session_id, None)
+        if not task.done():
+            task.cancel()
+
+
+async def test_cancelled_session_stops_stream_before_done(client, monkeypatch):
+    """流中途被取消 ⇒ 不再产出 delta / 不再写 completed / 不再发 done。"""
+
+    class _FakeGraph:
+        def astream(self, _payload):
+            async def _gen():
+                yield {"plan": {"plan": {"steps": ["s1"]}}}
+                for session in agent_runtime._sessions.values():
+                    session.status = "cancelled"
+                yield {"execute": {"execution_result": "SHOULD-NOT-APPEAR"}}
+                yield {"summarize": {"summary": "SHOULD-NOT-SUMMARIZE"}}
+
+            return _gen()
+
+    monkeypatch.setattr(agent_runtime, "get_agent_graph", lambda: _FakeGraph())
+    resp = await client.post(
+        "/api/agent-runtime/execute/stream", json={"message": "cancel me"}
+    )
+    assert resp.status_code == 200
+    assert "SHOULD-NOT-APPEAR" not in resp.text
+    assert "SHOULD-NOT-SUMMARIZE" not in resp.text
+    assert "event: done" not in resp.text
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -130,8 +130,12 @@ const multipartAbortBodySchema = z.object({
 
 export const ossRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
-    // /oss/callback 由 OSS 服务端调用,使用 RSA-SHA1 验签替代 JWT 鉴权
-    if (request.url.startsWith('/oss/callback')) return
+    // /oss/callback 由 OSS 服务端调用,使用 RSA-SHA1 验签替代 JWT 鉴权。
+    // 2026-11-08 修 F-69:路由注册带 /api 前缀,request.url 是完整路径;旧写法按
+    // '/oss/callback' 前缀匹配永远落空 ⇒ 回调实际被 JWT 挡住。这里按 path 段尾部匹配,
+    // 回调真正免 JWT,安全性由 storage-service 中硬化后的公钥 URL 白名单 + safeFetch 保证。
+    const callbackPath = request.url.split('?')[0] ?? ''
+    if (callbackPath.endsWith('/oss/callback')) return
     if (!(await checkAuth(request, reply))) return
   })
 

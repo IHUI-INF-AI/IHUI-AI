@@ -13,6 +13,7 @@ import { Loader2, CheckCircle2, XCircle, Clock, ArrowLeft } from 'lucide-react'
 
 import { fetchApi, apiOrThrow } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import { usePaymentStatusPoll } from '@/hooks/use-payment-status-poll'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 
@@ -69,32 +70,22 @@ function PaymentConfirmContent() {
     }
   }, [order, initialOrderStatus])
 
-  React.useEffect(() => {
-    if (!allow || !orderNo || !polling) return
-    let cancelled = false
-    const poll = async () => {
-      try {
-        const r = await fetchApi<PayStatus>(`/api/payments/wechat/status/${orderNo}`)
-        if (cancelled || !r.success || !r.data) return
-        const s = (r.data.status ?? '').toLowerCase()
-        if (r.data.paid || s === 'paid' || s === 'completed') {
-          setPayState('paid')
-          setPolling(false)
-        } else if (s === 'failed' || s === 'cancelled') {
-          setPayState(s as 'failed' | 'cancelled')
-          setPolling(false)
-        }
-      } catch {
-        // ignore transient polling errors
-      }
-    }
-    poll()
-    const tm = setInterval(poll, 3000)
-    return () => {
-      cancelled = true
-      clearInterval(tm)
-    }
-  }, [allow, orderNo, polling])
+  // W-06:setTimeout 链 + in-flight 闸门 + 指数退避 + 次数上限 + 后台暂停,替代无界 setInterval
+  const fetchPayStatus = React.useCallback(async (no: string) => {
+    const r = await fetchApi<PayStatus>(`/api/payments/wechat/status/${no}`)
+    if (!r.success || !r.data) throw new Error(r.error || 'poll failed')
+    return r.data
+  }, [])
+  const handlePollSettled = React.useCallback((s: 'paid' | 'failed' | 'cancelled') => {
+    setPayState(s)
+    setPolling(false)
+  }, [])
+  const { exhausted: pollExhausted } = usePaymentStatusPoll({
+    enabled: allow && !!orderNo && polling,
+    orderNo,
+    fetcher: fetchPayStatus,
+    onSettled: handlePollSettled,
+  })
 
   const dateFmt = new Intl.DateTimeFormat(locale, {
     year: 'numeric',
@@ -213,6 +204,12 @@ function PaymentConfirmContent() {
           </CardContent>
         )}
       </Card>
+
+      {pollExhausted && isPending && (
+        <p className="text-center text-label text-muted-foreground">
+          自动刷新已停止，请稍后手动刷新本页查看支付结果。
+        </p>
+      )}
 
       <div className="flex items-center justify-center gap-3">
         {isPaid ? (

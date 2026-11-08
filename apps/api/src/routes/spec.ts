@@ -29,9 +29,21 @@ export const specRoutes: FastifyPluginAsync = async (server) => {
   const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       await authenticate(request)
+      // F-390:spec 仓库读写统一按 (workspacePath, 当前 userId) 定位,非属主统一 404。
+      // 各端点的 workspacePath 都在 body/query 顶层;在此集中前置断言,
+      // 使读、写与 git commit 全部在进入服务层前完成属主校验。
+      const body = request.body as { workspacePath?: unknown } | null | undefined
+      const query = request.query as { workspacePath?: unknown } | null | undefined
+      const workspacePath = body?.workspacePath ?? query?.workspacePath
+      if (typeof workspacePath === 'string' && workspacePath.length > 0) {
+        await specService.assertRepoOwner(request.userId, workspacePath)
+      }
     } catch (e) {
       const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 401
       const message = (e as Error).message || '操作失败,请稍后重试'
+      // 失败后清空主体,让各 handler 既有的 `if (!request.userId) return` 生效;
+      // 否则属主断言 404 后 handler 仍会继续调用服务(写落盘 / 二次 reply)。
+      request.userId = undefined
       return reply.status(statusCode).send(error(statusCode, message))
     }
   }

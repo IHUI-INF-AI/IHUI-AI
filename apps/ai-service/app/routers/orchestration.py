@@ -37,8 +37,10 @@
 
 from typing import Any
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
+from ..core.jwt_auth import get_current_user_id
 
 from ..core.executor_switch import (
     LoopV2ConvergencePilotError,
@@ -50,6 +52,13 @@ from ..services.orchestration_hub import orchestration_hub
 from ..services.telemetry_service import telemetry_service
 
 router = APIRouter()
+
+
+def _require_admin(request: Request) -> None:
+    """AIS-039:全局预算/降级状态属于运维配置,只允许管理员修改。"""
+    role_id = getattr(request.state, "role_id", 0) or 0
+    if not isinstance(role_id, int) or role_id < 1:
+        raise HTTPException(status_code=403, detail="仅管理员可修改全局预算配置")
 
 # ---------------------------------------------------------------------------
 # emit 响应面的「结论三态」(第九轮 B2,additive)
@@ -431,8 +440,13 @@ async def get_pillar_budget(pillar: str) -> dict[str, Any]:
 
 
 @router.post("/orchestration/budget/pillar/{pillar}/reset")
-async def reset_pillar_degradation(pillar: str) -> dict[str, Any]:
+async def reset_pillar_degradation(
+    pillar: str,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
     """重置支柱降级状态。"""
+    _require_admin(request)
     try:
         success = await llm_budget_governor.reset_degradation(pillar=pillar)
         return {"code": 0, "message": "success", "data": {"success": success}}
@@ -441,8 +455,13 @@ async def reset_pillar_degradation(pillar: str) -> dict[str, Any]:
 
 
 @router.patch("/orchestration/budget/config")
-async def update_budget_config(body: BudgetConfigUpdateBody) -> dict[str, Any]:
-    """更新预算配置。"""
+async def update_budget_config(
+    body: BudgetConfigUpdateBody,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    """更新预算配置(仅管理员)。"""
+    _require_admin(request)
     try:
         # 过滤 None 字段
         config_update = {k: v for k, v in body.model_dump().items() if v is not None}

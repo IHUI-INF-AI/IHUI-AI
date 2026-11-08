@@ -84,6 +84,11 @@ IMPLEMENTED_TASK_TYPES: Final[tuple[str, ...]] = (
     "echo",
 )
 
+# 2026-11-08 P0(AIS-031/AIS-052):能执行**任意 argv**的任务类型必须 admin 档。
+# 这两个报告的绕过面(run_in_background / run_workflow 节点)都汇到本注册表,
+# 因此档位判据只在这里写一份,由各入口 import 复用(§0.6 单一真相源)。
+ADMIN_ONLY_TASK_TYPES: Final[frozenset[str]] = frozenset({"long_running_command"})
+
 # 演示/占位档:保留是为了不破坏既有调用方,但它们**必须**自证 stub。
 STUB_TASK_TYPES: Final[tuple[str, ...]] = ("sleep", "echo")
 
@@ -1302,9 +1307,7 @@ async def _exec_patrol(ctx: TaskContext) -> dict[str, Any]:
             worst = "critical"
         elif f["severity"] == "warning" and worst != "critical":
             worst = "warning"
-    if unread_dirs and worst == "ok":
-        worst = "warning"
-    elif unreadable and "unreadable_files" in checks and worst == "ok":
+    if unread_dirs and worst == "ok" or unreadable and "unreadable_files" in checks and worst == "ok":
         worst = "warning"
 
     artifact_path: str | None = None

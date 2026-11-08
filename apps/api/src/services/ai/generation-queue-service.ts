@@ -34,6 +34,16 @@ export interface GenerationJobData {
 
 export type GenerationPriority = 'high' | 'normal' | 'low'
 
+/** 仍可能被 Worker 消费/重试的状态(去重只在窗口内对这些状态生效)。 */
+const REUSABLE_JOB_STATES = new Set<string>([
+  'waiting',
+  'active',
+  'delayed',
+  'prioritized',
+  'paused',
+  'waiting-children',
+])
+
 const PRIORITY_MAP: Record<GenerationPriority, number> = {
   high: 10,
   normal: 5,
@@ -88,18 +98,31 @@ export async function enqueue(
   const q = getQueue()
   const dedupeId = dedupeWindowMs ? `${hash(JSON.stringify(data))}` : undefined
 
-  // 去重：相同指纹的任务在窗口期内不重复入队
+  // 去重：相同指纹的任务在窗口期内不重复入队。
+  // 只有仍会被消费的状态才算命中;completed/failed 的旧作业仍占着同一 jobId,
+  // q.add 遇到已存在的 jobId 会直接返回旧作业 ⇒ 新任务被静默丢弃。
+  let jobId = dedupeId
   if (dedupeId && dedupeWindowMs) {
     const existing = await q.getJob(dedupeId)
-    if (existing && (await existing.getState()) === 'waiting') {
-      const age = Date.now() - existing.timestamp
-      if (age < dedupeWindowMs) return existing.id ?? ''
+    if (existing) {
+      const state = await existing.getState()
+      if (REUSABLE_JOB_STATES.has(state)) {
+        const age = Date.now() - existing.timestamp
+        if (age < dedupeWindowMs) return existing.id ?? ''
+      } else {
+        try {
+          await existing.remove()
+        } catch {
+          // 移除不掉(锁/竞态)时用时间桶兜底,保证本次任务一定入队
+          jobId = `${dedupeId}-${Math.floor(Date.now() / 1000)}`
+        }
+      }
     }
   }
 
   const job = await q.add(QUEUE_NAME, data, {
     priority: PRIORITY_MAP[priority],
-    jobId: dedupeId,
+    jobId,
   })
   return job.id ?? ''
 }
@@ -133,15 +156,40 @@ export async function cancel(jobId: string): Promise<boolean> {
   return true
 }
 
-/** 列出某用户最近的生成任务。 */
+/** 用户任务列表的扫描页大小(BullMQ getJobs 区间查询) */
+const USER_LIST_PAGE_SIZE = 100
+
+/**
+ * 列出某用户最近的生成任务。
+ *
+ * F-424:旧实现先取全局 [0, limit-1] 再 filter(userId),队列前 N 条是他人任务时
+ * 自己的列表会返回空。这里改为分页扫描到队列尾,先按归属判定再截断输出,
+ * 并返回该用户的真实总数(而非本页长度)。
+ */
 export async function listByUser(
   userId: string,
   status?: JobState,
   limit = 50,
-): Promise<Job<GenerationJobData>[]> {
+): Promise<{ jobs: Job<GenerationJobData>[]; total: number }> {
   const q = getQueue()
-  const jobs = await q.getJobs(status ? [status] : undefined, 0, limit - 1)
-  return jobs.filter((j) => j.data?.userId === userId)
+  const states = status ? [status] : undefined
+  const jobs: Job<GenerationJobData>[] = []
+  let total = 0
+  let cursor = 0
+
+  while (true) {
+    const page = await q.getJobs(states, cursor, cursor + USER_LIST_PAGE_SIZE - 1)
+    if (page.length === 0) break
+    cursor += page.length
+    for (const job of page) {
+      if (job.data?.userId !== userId) continue
+      total += 1
+      if (jobs.length < limit) jobs.push(job)
+    }
+    if (page.length < USER_LIST_PAGE_SIZE) break
+  }
+
+  return { jobs, total }
 }
 
 /**

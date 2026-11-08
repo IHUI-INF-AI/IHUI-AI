@@ -20,7 +20,7 @@
  * 数据存储:packages/database 无 drama 表且本任务禁改 schema,
  * 采用进程内 Map 存储(与 services/ai/plot-advisor-service.js 的 createStory 一致)。
  */
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { inArray } from 'drizzle-orm'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
@@ -29,6 +29,7 @@ import { dbRead } from '../../db/index.js'
 import { users } from '@ihui/database'
 import { paginationSchema, parseIdParam } from './_shared.js'
 import { batchWriteOutcome } from '../../utils/batch-outcome.js'
+import { isSystemAdmin } from '../../plugins/require-permission.js'
 
 // ===== 类型定义 =====
 type DramaStatus = 'draft' | 'published' | 'archived'
@@ -92,6 +93,18 @@ const batchIdsSchema = z.object({
 })
 
 // ===== 辅助函数 =====
+
+/**
+ * 写操作属主判定(F-159)。
+ *
+ * `createdBy` 是创建入口经 withAuditBoth 写入的 `request.userId`,即创建者;
+ * 历史记录该字段可能为空(字段落地前落库的数据),此时只有管理员可操作,普通用户 403。
+ * 管理员判定统一走集中谓词,只认人用 JWT(internal 通道不得升格)。
+ */
+function canOperateDrama(request: FastifyRequest, record: DramaRecord): boolean {
+  if (isSystemAdmin(request, { includeInternalChannel: false })) return true
+  return record.createdBy !== null && record.createdBy === request.userId
+}
 
 /** 关联查询用户表,批量补齐 author / authorAvatar。 */
 async function enrichWithAuthor(records: DramaRecord[]) {
@@ -255,6 +268,20 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
     }
     const operatorId = request.userId ?? null
+    // 整批拒绝优先:批量删除不是"尽力而为"语义 —— 只要有一个 id 不属于当前用户(且非
+    // 管理员),整批零删除。逐条过滤会让调用方拿到"部分成功"却无法区分哪条被跳过是
+    // 因为无权限(而非不存在),故选择更安全的"全有权限才执行"。
+    const forbidden = body.data.ids.some((id) => {
+      const record = dramaStore.get(id)
+      return record !== undefined && !canOperateDrama(request, record)
+    })
+    if (forbidden) {
+      request.log.warn(
+        { operatorId, action: 'batch-delete-denied' },
+        'drama audit: batch-delete denied',
+      )
+      return reply.status(403).send(error(403, '无权操作该剧本'))
+    }
     const confirmedIds: string[] = []
     for (const id of body.data.ids) {
       if (dramaStore.delete(id)) confirmedIds.push(id)
@@ -289,6 +316,9 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
     }
     const existing = dramaStore.get(id)
     if (!existing) return reply.status(404).send(error(404, '剧本不存在'))
+    if (!canOperateDrama(request, existing)) {
+      return reply.status(403).send(error(403, '无权操作该剧本'))
+    }
     // 状态机校验(禁止跳跃,如 draft → archived)
     if (body.data.status && body.data.status !== existing.status) {
       if (!canTransition(existing.status, body.data.status)) {
@@ -325,6 +355,9 @@ export const dramaRoutes: FastifyPluginAsync = async (server) => {
     if (id === null) return
     const existing = dramaStore.get(id)
     if (!existing) return reply.status(404).send(error(404, '剧本不存在'))
+    if (!canOperateDrama(request, existing)) {
+      return reply.status(403).send(error(403, '无权操作该剧本'))
+    }
     const removed = dramaStore.delete(id)
     request.log.info(
       { id, operatorId: request.userId ?? null, action: 'delete', title: existing.title },

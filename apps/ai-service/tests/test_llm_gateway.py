@@ -1491,6 +1491,141 @@ async def test_astream_native_error_after_chunk_no_fallback(clean_fallback_route
     assert len(done_events) == 0
 
 
+async def test_astream_native_error_after_chunk_records_error_not_success(
+    clean_fallback_router, monkeypatch
+):
+    """AIS-002:已发 chunk 后上游报 error 仍是失败。
+
+    旧实现把它当"正常耗尽"记 status=ok 并落 success 流水,失败请求被计入
+    可用性/健康度与成本口径。修后必须只记 error、不写 success 行。
+    """
+    from unittest.mock import AsyncMock
+
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test", "api_base": "https://api.stepfun.com/step_plan/v1"}}))
+
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {"fallbacks": ["agnes/gpt-4o"]})
+
+    gw = LLMGateway()
+
+    class FakeNativeProvider:
+        """受控原生适配器:先发 chunk,再报 error(模拟中途断流)。"""
+        def astream(self, messages, model, *, tools=None, **kwargs):
+            async def _gen():
+                yield {"type": "chunk", "content": "partial native"}
+                yield {"type": "error", "message": "mid-stream native disconnect"}
+            return _gen()
+
+    monkeypatch.setattr(LLMGateway, "_get_provider", AsyncMock(return_value=FakeNativeProvider()))
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+
+    async def fake_acompletion(**kwargs):
+        raise AssertionError("已发送 chunk 后 error 不应触发 fallback")
+
+    fake_litellm.acompletion = fake_acompletion
+    fake_litellm.token_counter = lambda **kw: 10
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    outcomes: list[dict] = []
+    logs: list[dict] = []
+    monkeypatch.setattr(
+        "app.core.llm_gateway.record_llm_outcome",
+        lambda provider, model, **kw: outcomes.append({"provider": provider, "model": model, **kw}),
+    )
+    monkeypatch.setattr(
+        "app.core.llm_gateway._emit_llm_call_log",
+        lambda **kw: logs.append(kw),
+    )
+
+    events = [e async for e in gw.astream(
+        [{"role": "user", "content": "hi"}],
+        model="stepfun/step-3.7-flash",
+    )]
+
+    assert [e["content"] for e in events if e["type"] == "chunk"] == ["partial native"]
+    assert [e for e in events if e["type"] == "error"]
+    assert not [e for e in events if e["type"] == "done"]
+
+    assert [o["status"] for o in outcomes] == ["error"], (
+        f"失败流被记成 {[o['status'] for o in outcomes]}"
+    )
+    assert [lg["status"] for lg in logs] == ["error"], (
+        f"失败流流水应为单条 error,实得 {[lg['status'] for lg in logs]}"
+    )
+    assert "mid-stream native disconnect" in str(logs[0].get("error_message", ""))
+
+
+async def test_complete_native_non_provider_exception_falls_back_to_litellm(
+    clean_fallback_router, monkeypatch
+):
+    """AIS-065:原生适配器抛非 ProviderError(httpx/JSON/取值错误)也必须降级 LiteLLM。
+
+    旧实现只捕 ProviderError,其余异常直接冒到路由层 500,带 tools 的
+    function calling 主路径整条失效(且没有任何 fallback 记录)。
+    """
+    from unittest.mock import AsyncMock
+
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "llm_providers", json.dumps({"stepfun": {"api_key": "sk-test", "api_base": "https://api.stepfun.com/step_plan/v1"}}))
+
+    clean_fallback_router.configure("stepfun/step-3.7-flash", {})
+
+    gw = LLMGateway()
+
+    class FakeNativeProvider:
+        async def complete(self, messages, model, *, tools=None, **kwargs):
+            raise RuntimeError("native adapter boom (not ProviderError)")
+
+    monkeypatch.setattr(LLMGateway, "_get_provider", AsyncMock(return_value=FakeNativeProvider()))
+
+    import sys
+    from types import ModuleType
+    fake_litellm = ModuleType("litellm")
+    calls: list[dict] = []
+
+    async def fake_acompletion(**kwargs):
+        calls.append(kwargs)
+
+        class FakeUsage:
+            def model_dump(self):
+                return {"prompt_tokens": 4, "completion_tokens": 2, "total_tokens": 6}
+
+        class FakeMessage:
+            content = "litellm fallback content"
+
+        class FakeChoice:
+            message = FakeMessage()
+
+        class FakeResponse:
+            usage = FakeUsage()
+            choices = [FakeChoice()]
+            model = "stepfun/step-3.7-flash"
+
+        return FakeResponse()
+
+    fake_litellm.acompletion = fake_acompletion
+    fake_litellm.token_counter = lambda **kw: 10
+    monkeypatch.setitem(sys.modules, "litellm", fake_litellm)
+
+    result = await gw.complete(
+        [{"role": "user", "content": "用工具查天气"}],
+        model="stepfun/step-3.7-flash",
+        tools=[{
+            "type": "function",
+            "function": {
+                "name": "get_weather",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }],
+    )
+
+    assert len(calls) >= 1, "原生适配器非 ProviderError 后未降级 LiteLLM(AIS-065)"
+    assert result["content"] == "litellm fallback content"
+
+
 async def test_astream_no_fallback_when_configs_empty(monkeypatch):
     """astream 失败但无 fallback 配置 → 直接 yield error(不尝试 fallback)。
 

@@ -25,7 +25,9 @@
 
 const fs = require('node:fs')
 const path = require('node:path')
-const { spawnSync } = require('node:child_process')
+// 取材一律经 face-reader(守门 118):本模块不再自派生 git 管子。
+// Node ≥22.12 的 require(esm) 直接可读;本仓 Node 26 实测可用。
+const { gitRaw } = require('./face-reader.mjs')
 
 const LOST_PREFIX = '派生申报失败'
 
@@ -68,28 +70,28 @@ function writeDerivedManifest(file, entries) {
 
 /** 工作树内容(经 .gitattributes 过滤器)的 blob 号;与 `git add` 落进索引的写法同源。 */
 function hashWorktreeBlob({ gitCwd, relPath }) {
-  const r = spawnSync('git', ['hash-object', '--', relPath], {
-    cwd: gitCwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
-  if (r.status !== 0) throw new Error(`${LOST_PREFIX}:git hash-object ${relPath} 失败:${r.stderr}`)
-  return String(r.stdout || '').trim()
+  try {
+    return String(
+      gitRaw(['hash-object', '--', relPath], gitCwd, { timeout: 60_000, maxBuffer: 16 << 20 }) ?? '',
+    ).trim()
+  } catch (e) {
+    throw new Error(
+      `${LOST_PREFIX}:git hash-object ${relPath} 失败:${String(e?.stderr ?? e?.message ?? e)}`,
+    )
+  }
 }
 
 /** 索引里某路径的条目(stage 0);取不到返回 null。 */
 function indexEntry({ gitCwd, relPath }) {
-  const r = spawnSync('git', ['ls-files', '-s', '--', relPath], {
-    cwd: gitCwd,
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  })
-  if (r.status !== 0) return null
-  const line = String(r.stdout || '')
-    .split(/\r?\n/)
-    .find(Boolean)
+  let out
+  try {
+    out = String(
+      gitRaw(['ls-files', '-s', '--', relPath], gitCwd, { timeout: 60_000, maxBuffer: 16 << 20 }) ?? '',
+    )
+  } catch {
+    return null
+  }
+  const line = out.split(/\r?\n/).find(Boolean)
   if (!line) return null
   const m = /^(\d+)\s+([0-9a-f]+)\s+(\d)\t(.+)$/.exec(line.trim())
   if (!m) return null
@@ -132,8 +134,22 @@ function declareDerivedArtifact({
   return { declared: true, path: relPath, blob }
 }
 
-/** `git add -- <path>` 之后的内容钉核验:索引 blob 必须等于申报 blob。 */
+/**
+ * `git add -- <path>` 之后的内容钉核验:索引 blob 必须等于申报 blob。
+ *
+ * 2026-11-08 修复(ffda30adcf 起的假红):
+ *   旧实现只有 `cur.blob !== blob` 这一条比较,调用方漏传 `blob` 时右侧是 `undefined`,
+ *   比较恒真 ⇒ 推导出"索引 blob 与申报不符",与"真的被并跑写者改了内容"共用同一句文案。
+ *   这不只是文案问题:设计令牌 / UI 路由触发行只要真的产出差异并走到 `git add`,就必然判红,
+ *   排查者会去追一个并不存在的并发写者。参数缺失必须在取索引之前单独点名,且形状必须
+ *   是 40 位(sha1)或 64 位(sha256)十六进制 —— 这样"漏传参数"可被单测直接钉住。
+ */
 function verifyDeclaredEntryInIndex({ gitCwd, relPath, blob }) {
+  if (typeof blob !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(blob))
+    return {
+      ok: false,
+      reason: `${relPath || '(未知路径)'} 的申报 blob 缺失或形状非法(调用方必须显式传入 40/64 位十六进制 blob,不得省略)`,
+    }
   const cur = indexEntry({ gitCwd, relPath })
   if (!cur) return { ok: false, reason: `索引里没有 ${relPath}(git add 未生效)` }
   if (cur.stage !== 0)

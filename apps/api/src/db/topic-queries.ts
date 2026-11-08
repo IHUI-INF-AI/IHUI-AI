@@ -74,9 +74,13 @@ export interface TopicDetail extends EduLessonTopic {
 }
 
 /**
- * 查询专题详情，并按 lessonIds 顺序返回关联课程（仅 status=1 的课程）。
+ * 查询专题详情，并按 lessonIds 顺序返回关联课程（仅 status=1 且已发布的课程）。
+ * 管理员预览传 includeUnpublished=true：明确放行草稿课时，不走隐式 isSystemAdmin 判定。
  */
-export async function findTopicDetail(id: string): Promise<TopicDetail | undefined> {
+export async function findTopicDetail(
+  id: string,
+  opts: { includeUnpublished?: boolean } = {},
+): Promise<TopicDetail | undefined> {
   const topic = await findTopicById(id)
   if (!topic) return undefined
 
@@ -88,7 +92,11 @@ export async function findTopicDetail(id: string): Promise<TopicDetail | undefin
     const rows: Lesson[] = await db
       .select()
       .from(lessons)
-      .where(and(inArray(lessons.id, ids), eq(lessons.status, 1)))
+      .where(
+        opts.includeUnpublished
+          ? and(inArray(lessons.id, ids), eq(lessons.status, 1))
+          : and(inArray(lessons.id, ids), eq(lessons.status, 1), eq(lessons.isPublished, true)),
+      )
     const map = new Map<string, Lesson>(rows.map((l) => [l.id, l]))
     topicLessons = ids
       .map((lid) => map.get(lid))

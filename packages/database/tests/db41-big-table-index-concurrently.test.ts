@@ -37,7 +37,9 @@ describe('DB-11 大表索引走 CONCURRENTLY', () => {
 
   it('部署在 migrate 前执行 CONCURRENTLY 索引脚本', () => {
     expect(deploy).toContain('function Invoke-PreMigrateConcurrentIndexes')
-    expect(deploy).toContain('20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql')
+    expect(deploy).toContain(
+      '20261003103000_chat_messages_created_at_idx_CONCURRENTLY.sql',
+    )
     const defineAt = deploy.indexOf('function Invoke-PreMigrateConcurrentIndexes')
     const invokeAt = deploy.lastIndexOf('Invoke-PreMigrateConcurrentIndexes')
     const migrateAt = deploy.lastIndexOf('Invoke-MigrateWithBudget')

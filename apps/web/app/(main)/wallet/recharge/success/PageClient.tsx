@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 'use client'
 
@@ -15,10 +14,21 @@ import { CheckCircle2, Loader2 } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
 import { useAuthGate } from '@/hooks/use-auth-gate'
+import {
+  formatOrderAmount,
+  normalizePaymentMethod,
+  readRechargeQr,
+  type RechargeQrCredentials,
+} from '@/lib/recharge-qr-session'
 import { Button, Card, CardContent } from '@ihui/ui-react'
 
 interface OrderDetail {
-  order: { orderNo?: string; status?: string }
+  order: {
+    orderNo?: string
+    status?: string
+    amount?: number
+    paymentMethod?: string | null
+  }
 }
 
 const POLL_INTERVAL_MS = 3000
@@ -27,13 +37,17 @@ const MAX_POLLS = 200 // 3s * 200 = 10 分钟,超时后仍可手动刷新
 function SuccessContent() {
   const t = useTranslations('wallet')
   const searchParams = useSearchParams()
+  // W-07:URL 只接受 orderNo。金额/支付方式一律按服务端订单详情展示;
+  // 二维码凭据来自下单页写入本标签页 sessionStorage 的同源数据(攻击者构造的链接没有这份记录)。
   const orderNo = searchParams.get('orderNo') ?? ''
-  const amount = searchParams.get('amount')
-  const method = searchParams.get('method') ?? 'wechat'
-  const codeUrl = searchParams.get('codeUrl') ?? ''
-  const payUrl = searchParams.get('payUrl') ?? ''
 
   const [status, setStatus] = React.useState<'pending' | 'paid' | 'timeout'>('pending')
+  const [order, setOrder] = React.useState<OrderDetail['order'] | null>(null)
+  const qr: RechargeQrCredentials | null = React.useMemo(
+    () => (orderNo ? readRechargeQr(orderNo) : null),
+    [orderNo],
+  )
+
   // 2026-10-15 登录态门:/api/orders/:orderNo = 当前用户的订单,未就绪/未登录不发起轮询
   const { allow } = useAuthGate()
   // 支付成功必须让钱包缓存失效:全局 staleTime=5min 且不随窗口焦点重取,
@@ -52,7 +66,11 @@ function SuccessContent() {
         count++
         try {
           const r = await fetchApi<OrderDetail>(`/api/orders/${encodeURIComponent(orderNo)}`)
-          const s = r.success ? r.data.order.status : undefined
+          if (!r.success) continue
+          const next = r.data.order
+          if (stop) break
+          setOrder(next)
+          const s = next.status
           if (s === 'paid') {
             setStatus('paid')
             void qc.invalidateQueries({ queryKey: ['wallet'] })
@@ -74,7 +92,9 @@ function SuccessContent() {
     }
   }, [orderNo, allow, qc])
 
-  const isAlipay = method === 'alipay' && !!payUrl
+  const amountText = formatOrderAmount(order?.amount)
+  const method = normalizePaymentMethod(order?.paymentMethod)
+  const qrValue = method === 'alipay' ? qr?.payUrl : method === 'wechat' ? qr?.codeUrl : undefined
 
   if (status === 'paid') {
     return (
@@ -86,7 +106,7 @@ function SuccessContent() {
               <h1 className="text-display font-bold tracking-tight">{t('rechargeSuccess')}</h1>
               <p className="text-body text-muted-foreground">{t('rechargeSuccessDesc')}</p>
             </div>
-            {(orderNo || amount) && (
+            {(orderNo || amountText) && (
               <div className="w-full space-y-1 rounded-md bg-muted/40 px-4 py-3 text-body">
                 {orderNo && (
                   <div className="flex items-center justify-between gap-3">
@@ -94,10 +114,10 @@ function SuccessContent() {
                     <span className="font-mono text-label">{orderNo}</span>
                   </div>
                 )}
-                {amount && (
+                {amountText && (
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">{t('rechargeAmount')}</span>
-                    <span className="font-medium">{amount}</span>
+                    <span className="font-medium">¥{amountText}</span>
                   </div>
                 )}
               </div>
@@ -118,8 +138,8 @@ function SuccessContent() {
     )
   }
 
-  if (!orderNo || (!codeUrl && !payUrl)) {
-    // 无支付凭据(如直接访问本页):退化为只读状态页,轮询订单
+  if (!orderNo || !method || !qrValue) {
+    // 无支付凭据(直接访问/构造链接):退化为只读状态页,绝不渲染来源不明的二维码
     return (
       <div className="px-4 py-4 mx-auto w-full max-w-md">
         <Card>
@@ -150,18 +170,18 @@ function SuccessContent() {
       <Card>
         <CardContent className="flex flex-col items-center gap-5 px-4 py-6 text-center">
           <h1 className="text-heading font-bold tracking-tight">
-            {isAlipay ? '支付宝扫码支付' : '微信扫码支付'}
+            {method === 'alipay' ? '支付宝扫码支付' : '微信扫码支付'}
           </h1>
-          {amount && (
+          {amountText && (
             <p className="text-body text-muted-foreground">
-              金额：<span className="font-bold text-foreground">¥{amount}</span>
+              金额：<span className="font-bold text-foreground">¥{amountText}</span>
             </p>
           )}
           <div className="flex justify-center rounded-lg border border-border bg-white p-3">
-            <QRCodeCanvas value={isAlipay ? payUrl : codeUrl} size={240} level="M" />
+            <QRCodeCanvas value={qrValue} size={240} level="M" />
           </div>
           <p className="text-label text-muted-foreground">
-            {isAlipay
+            {method === 'alipay'
               ? '请用支付宝扫描二维码完成支付'
               : '请用微信扫描二维码完成支付，支付完成后本页自动更新'}
           </p>
@@ -197,4 +217,3 @@ export default function RechargeSuccessPage() {
     </Suspense>
   )
 }
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

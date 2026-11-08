@@ -41,7 +41,7 @@
  *       .husky/pre-push 本体不在本改动允许范围内,改由编排/手动走本包装)。
  */
 import { spawn, spawnSync } from 'node:child_process' // spawnSync:2026-09-20 超时杀进程树/定向快通道用
-import { dirname, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 // 硬超时上限(2026-09-20 根治推送挂起;定义前置是因为定向快通道也要用同一上限):
 // 事故实证:某次 push 挂起 62 分钟零产出 —— 本脚本原先对 typecheck 子进程既无 timeout
 // 也无 timer kill,只要 typecheck-full 内部卡住(pnpm -r 依赖解析失败 / worktree 各包
@@ -58,17 +58,69 @@ import {
   installSignalExit,
   TEMPFAIL_EXIT_CODE,
 } from './lib/signal-exit.mjs'
+// 未判定判据的唯一实现住 gate-failure-kind(exit 2 + 未判定标记),本文件只消费。
+// 机器级锁等不到时 typecheck-full 以 exit 2 交付「未判定(并发占用)」,必须原样透传:
+// 下方的 staged-scope 降级与「退出码非 0 但没解析到报错文件 ⇒ 按失败处理」都会把它折成红。
+import { detectUndetermined, UNDETERMINED_EXIT_CODE } from './lib/gate-failure-kind.mjs'
+import { formatDuration, formatSummaryLine, readTimings, summarizeTimings } from './lib/typecheck-timing.mjs'
 // G-406 ②:反向依赖闭包的门 103 已有那份文件级图(边解析只有这一份实现),
 // 本门只**消费** lib 的反向依赖闭包判据,不自己再实现一遍边判定(2026-10-18 L14546 后,
 // 通用判据 widenFilesOverDependents 已提升到 lib,本门固定 face='worktree' 薄封装)。
 import { buildFileGraph, widenFilesOverDependents } from './lib/import-graph.mjs'
 import { gitRaw } from './lib/face-reader.mjs'
+// T1 超时预算**不设第二本账**(2026-11-08 裁决):唯一取数处 = land-gate-budgets.json
+// (DG-06,执行器看门狗与落地复跑共用)。本门只校验 T1 那一行的证据链,见下方 enforceT1BudgetEntry。
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
 const DRY_RUN = process.argv.includes('--dry-run')
 const SELF_TEST = process.argv.includes('--self-test')
+
+// ─── T1 超时预算自检(2026-11-08 裁决:唯一账本 land-gate-budgets.json) ────────
+// 不再有 base+margin 第二本账:预算的唯一取数处是 scripts/data/land-gate-budgets.json
+// (DG-06,执行器看门狗与落地复跑共用同一处)。本门只校验 T1 那一行的证据链:
+// 缺行 / measuredMs·measuredAt·note 缺一 / timeoutMs 低于实测(误杀) / timeoutMs > 3×实测(放水)
+// 一律 exit 非 0,禁止回落默认 300s —— 「数据坏了 = 阈值消失」是同一族 fail-open。
+// 位置约束沿用(2026-11-07):必须在**任何可能 exit 0 的分支之前**(--self-test /
+// --dry-run / 定向快通道)执行,否则畸形预算能被任一早退分支绕过。
+const BUDGET_REL = 'scripts/data/land-gate-budgets.json'
+const T1_GATE_SCRIPT = 'check-typecheck.mjs'
+
+function enforceT1BudgetEntry() {
+  const abs = join(ROOT, BUDGET_REL)
+  let raw
+  try {
+    raw = JSON.parse(readFileSync(abs, 'utf8'))
+  } catch (e) {
+    console.error(`[check-typecheck] ❌ 读不到/解析不了 ${BUDGET_REL} —— 拒绝回落默认阈值: ${e.message}`)
+    process.exit(1)
+  }
+  const row = (Array.isArray(raw?.gates) ? raw.gates : []).find((g) => g?.script === T1_GATE_SCRIPT)
+  const problems = []
+  if (!row) {
+    problems.push(`表中没有 ${T1_GATE_SCRIPT} 的登记行`)
+  } else {
+    for (const k of ['timeoutMs', 'measuredMs']) {
+      if (!Number.isFinite(Number(row[k])) || Number(row[k]) <= 0) problems.push(`${k} 缺失或非正数`)
+    }
+    if (typeof row.measuredAt !== 'string' || !row.measuredAt) problems.push('measuredAt 缺失')
+    if (typeof row.note !== 'string' || !row.note) problems.push('note(凭什么给这个阈值)缺失')
+    if (problems.length === 0) {
+      const measured = Number(row.measuredMs)
+      const timeout = Number(row.timeoutMs)
+      if (timeout < measured) problems.push(`timeoutMs ${timeout} 低于实测 ${measured}(门会误杀)`)
+      if (timeout > 3 * measured) problems.push(`timeoutMs ${timeout} 超过 3×实测 ${measured}(放水超上限)`)
+    }
+  }
+  if (problems.length === 0) return
+  console.error('[check-typecheck] ❌ T1 超时预算自检未通过 —— 拒绝回落默认阈值:')
+  for (const p of problems) console.error(`  · ${p}`)
+  console.error(`  修法:只修 ${BUDGET_REL} 里 ${T1_GATE_SCRIPT} 那一行(本门不提供跳过开关)。`)
+  process.exit(1)
+}
+
+enforceT1BudgetEntry()
 
 /**
  * 无文件面档判据(2026-11-04 立)。env 契约的唯一产出方是 `.husky/pre-push`:
@@ -520,16 +572,14 @@ const TS_INPUT_BASENAMES = new Set(['package.json', 'pnpm-lock.yaml', 'pnpm-work
 
 /** 列出 git 索引里的全部 tsconfig(含 packages/tsconfig/*.json 这类基座)。取不到返回 null ⇒ 判据不可用。 */
 function listTsconfigPaths() {
-  const r = spawnSync('git', ['-C', ROOT, 'ls-files', '*tsconfig*.json'], {
-    encoding: 'utf8',
-    windowsHide: true,
-    timeout: 60_000,
-    // §5b / 门 193:派生 git 一律显式接管 stdio —— 不写时本机 0/30 成功(EBUSY),
-    // 而 EBUSY 会被读成"git 坏了"而不是"派生面没接管 stdio"。取值不许省略。
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  if (r.status !== 0 || typeof r.stdout !== 'string') return null
-  const list = r.stdout.split(/\r?\n/).filter(Boolean)
+  let out
+  try {
+    out = gitRaw(['ls-files', '*tsconfig*.json'], ROOT, { timeout: 60_000 })
+  } catch {
+    return null
+  }
+  if (typeof out !== 'string') return null
+  const list = out.split(/\r?\n/).filter(Boolean)
   return list.length > 0 ? list : null
 }
 
@@ -637,6 +687,44 @@ function killChildTree(child) {
     } catch {
       /* 忽略 */
     }
+  }
+}
+
+// 分包读数:typecheck-full 每跑完一个包就 append 一条,超时/被杀时这里仍能读出进度。
+const TIMINGS_FILE =
+  process.env.IHUI_TYPECHECK_TIMINGS_FILE ||
+  resolve(ROOT, 'node_modules', '.cache', 'ihui', 'typecheck-timings.jsonl')
+
+/** 超时现场把读数打出来:哪些包 Done、哪个包在飞(卡住候选)。超时仍是 undetermined,不折成 pass。 */
+function dumpTypecheckTimings() {
+  const records = readTimings(TIMINGS_FILE)
+  if (records.length === 0) {
+    console.error(`[check-typecheck] 📊 分包读数不可用(文件不存在或为空): ${TIMINGS_FILE}`)
+    return
+  }
+  const summary = summarizeTimings(records, Date.now())
+  console.error(`[check-typecheck] 📊 分包读数(超时现场): ${TIMINGS_FILE}`)
+  console.error(
+    `[check-typecheck]    ${formatSummaryLine(summary)};墙钟 ${formatDuration(summary.wallMs)}`,
+  )
+  for (const p of summary.packages) {
+    console.error(
+      `[check-typecheck]    ${p.done ? '✅' : '❌'} ${p.name}: ${formatDuration(p.elapsedMs)} ${p.done ? 'Done' : 'FAIL'}`,
+    )
+  }
+  if (summary.inFlight.length > 0) {
+    for (const p of summary.inFlight) {
+      console.error(
+        `[check-typecheck]    ⏳ ${p.name}: 已运行 ${formatDuration(p.elapsedMs)} 未完成(卡住候选)`,
+      )
+    }
+  } else {
+    console.error('[check-typecheck]    ⏳ 无在飞包(超时发生在包边界或读数未落盘)')
+  }
+  for (const ph of summary.phases) {
+    console.error(
+      `[check-typecheck]    ⏱ phase:${ph.phase}: ${formatDuration(ph.elapsedMs)} ${ph.done ? 'Done' : 'FAIL'}`,
+    )
   }
 }
 
@@ -848,6 +936,8 @@ const timeoutTimer = setTimeout(() => {
     '[check-typecheck] ⏭️ 按「环境挂起」处理(exit 1):不等第二次带 hook 重试,push guard 将直接降级重推',
   )
   console.error('   如需放宽上限:IHUI_TYPECHECK_TIMEOUT_MIN=40 git push ...')
+  // 先把已完成包/在飞包读出来,再杀;否则读数只剩文件,日志里看不出谁卡住
+  dumpTypecheckTimings()
   // G-611:内联 taskkill 块提成 killChildTree —— 与信号处理器的清场共用一份实现
   // (两处实现必漂移;语义与原逐字路径等值:win32 连树 taskkill /T /F,其余 SIGKILL)
   killChildTree(child)
@@ -893,6 +983,20 @@ child.on('close', (code, signal) => {
       `[check-typecheck] ⏭️ 按临时失败处理(exit ${TEMPFAIL_EXIT_CODE})—— push 侧将带 hook 重试以获取真实结论`,
     )
     process.exit(TEMPFAIL_EXIT_CODE)
+  }
+  // 机器级 typecheck 锁等不到 ⇒ 子进程 exit 2 + stderr「未判定(并发占用)」。
+  // 这一格**不是结论**:不许洗成 pass,也不许被下方降级/「未解析到报错文件 ⇒ 按失败处理」
+  // 折成红。按门体系同码透传 undetermined(guardian 逐道点名,不记绿也不判红)。
+  const undetermined = detectUndetermined({
+    status: code === null || code === undefined ? null : code,
+    signal: signal ?? null,
+    stderr: err,
+  })
+  if (undetermined) {
+    console.error(`[check-typecheck] ⏸️ ${undetermined}(并发占用)—— 这不是类型检查结论`)
+    console.error('[check-typecheck]    机器级 typecheck 锁被另一场全量检查持有,且等待已超上限;')
+    console.error('[check-typecheck]    并发占用下的耗时读数不可解释,等对方结束后重跑即可。')
+    process.exit(UNDETERMINED_EXIT_CODE)
   }
 
   // 2026-08-31:staged-scope 降级判定(改动原因见文件头注释)

@@ -37,6 +37,8 @@ interface DistributionProduct {
 interface DistributionOverview {
   level?: number
   totalCommission?: number
+  /** 可提现余额(分):提现按钮只看这个字段 */
+  availableCommission?: number
   pendingCommission?: number
   withdrawnCommission?: number
   products?: DistributionProduct[]
@@ -101,7 +103,7 @@ export default function CommissionOverview({ reloadTick }: { reloadTick: number 
   if (!info) return <EmptyState title={tt('distribution.empty', '暂无数据')} />
 
   const products = info.products ?? []
-  const canWithdraw = (info.pendingCommission ?? 0) >= WITHDRAW_MIN
+  const canWithdraw = (info.availableCommission ?? 0) >= WITHDRAW_MIN
   const onWithdraw = () => {
     if (!canWithdraw) return
     Taro.navigateTo({ url: WITHDRAW_PATH }).catch(() => {})

@@ -9,6 +9,9 @@
  *      + 认领转移;④ 守恒断言(A1 勾选态 / A3 注记归零 / A4 族级认领守恒)。
  */
 import { test } from 'node:test'
+import { spawnSync } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   ratchetVerdict,
   countPointerRows,
@@ -20,6 +23,9 @@ import {
   noteRedundancyVerdict,
   prefixTwinPairs,
   prefixTwinVerdict,
+  identicalRowGroups,
+  identicalRowExtraCount,
+  identicalRowVerdict,
   __test__ as T,
 } from '../check-plan-dup-pointer-ratchet.mjs'
 import { DUP_POINTER_RE } from '../lib/plan-task-index.mjs'
@@ -384,4 +390,59 @@ test('P12 维③「重复登记副本」族(2026-10-25 补):三形态叠两份�
   // §22c:测试取的是生产导出的 __test__,识别集只有一份
   if (typeof T.noteTokensInLine !== 'function' || !T.NOTE_TOKEN_SRC.includes('重复登记副本'))
     throw new Error('维③识别集未含「重复登记副本」族(补牙被摘掉?)')
+})
+
+test('P13 维⑤ 整行逐字重复棘轮(2026-11-08):逐字相同⇒红;相似但不同⇒绿;同题不同号仍归维②;取不到⇒未判定', () => {
+  const lease = '- [x] P89 〔千段租约〕 本机=m-1 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号)'
+  // ① 真的逐字重复(同一段被登记了两遍)⇒ 差值 grew,必须判红
+  const head = ['# 台账', lease, '- [x] P79 〔千段租约〕 本机=m-1 段=P70~P79(取号器专用行)。'].join('\n')
+  const staged = [head, lease].join('\n')
+  const grew = identicalRowVerdict(head, staged)
+  if (grew.undetermined) throw new Error('可判定面被读成未判定')
+  if (!grew.grew || grew.before !== 0 || grew.after !== 1)
+    throw new Error(`逐字重复新增应 grew(0→1),实得 ${JSON.stringify(grew)}`)
+  const groups = identicalRowGroups(staged)
+  if (groups.length !== 1 || groups[0].count !== 2 || groups[0].lines.join(',') !== '2,4')
+    throw new Error(`重复群定位不对:${JSON.stringify(groups.map((g) => g.lines))}`)
+  // 折成一条后必须判绿(收数据方向)
+  if (identicalRowVerdict(staged, head).grew) throw new Error('删掉多余副本后不得判红')
+
+  // ② 两行相似但不同(不同事项 / 不同段)⇒ 读数 0,不得判红
+  const near = [
+    '# 台账',
+    lease,
+    '- [x] P89 〔千段租约〕 本机=m-1 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号,但补了半句独有说明)',
+    '- [x] P79 〔千段租约〕 本机=m-1 段=P70~P79(取号器专用行)。',
+  ].join('\n')
+  if (identicalRowExtraCount(near) !== 0) throw new Error('相似但不同的行被算成逐字重复(假红)')
+  if (identicalRowVerdict('# 台账', near).grew) throw new Error('相似但不同不得判红')
+
+  // ③ 同一事项同题不同编号(可折)⇒ 本维不接管,维②原有口径行为不变
+  const twinHead = ['# 计划', '- [ ] G-601. 同一件事被并发登记成两个号:第一份登记,持有行,正文交代。'].join('\n')
+  const twinNext = [
+    twinHead,
+    '- [ ] G-602. 同一件事被并发登记成两个号',
+    '- [ ] G-603. 同一件事被并发登记成两个号:又一份登记,题面同、号不同。',
+  ].join('\n')
+  if (identicalRowExtraCount(twinNext) !== 0) throw new Error('同题不同号被维⑤误吞(越界)')
+  if (identicalRowVerdict(twinHead, twinNext).grew) throw new Error('同题不同号被维⑤判红(越界)')
+  if (!twinRatchetVerdict(twinHead, twinNext).grew) throw new Error('维②口径被改动(应仍判 grew)')
+
+  // ④ 索引/文件读不到 ⇒ 未判定,既不判绿也不冒红
+  if (identicalRowExtraCount(null) !== null) throw new Error('取不到输入必须读成 null(未判定)')
+  const und = identicalRowVerdict(null, staged)
+  if (!und.undetermined || und.grew) throw new Error('取不到 HEAD 面必须 undetermined,不得判绿/红')
+})
+
+test('P13b 维⑤ 入口三态:索引取不到 ⇒ exit 2 未判定,不冒充通过', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
+  const r = spawnSync(process.execPath, ['scripts/check-plan-dup-pointer-ratchet.mjs', '--staged'], {
+    cwd: root,
+    env: { ...process.env, GIT_INDEX_FILE: path.join(root, '.git', 'no-such-index') },
+    encoding: 'utf8',
+    timeout: 120000,
+  })
+  if (r.status !== 2) throw new Error(`索引取不到应 exit 2(未判定),实得 ${r.status}: ${r.stderr}`)
+  if (/✅/.test(r.stdout + r.stderr)) throw new Error('取不到索引时不得打印绿色通过')
+  if (!/无法判定/.test(r.stdout + r.stderr)) throw new Error('未判定必须点名,不得静默')
 })

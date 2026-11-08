@@ -32,7 +32,11 @@ const KEY_ID_ENV = 'AUDIT_EXPORT_SIGN_KEY_ID'
 
 // 本文件测的是"信封按 kid 查表可验",不是 SQL ⇒ 审计链查询面桩掉。
 const selectAuditLogsMock = vi.hoisted(() => vi.fn())
-vi.mock('../src/db/audit-queries.js', () => ({ selectAuditLogs: selectAuditLogsMock }))
+const selectAuditLogsForExportMock = vi.hoisted(() => vi.fn())
+vi.mock('../src/db/audit-queries.js', () => ({
+  selectAuditLogs: selectAuditLogsMock,
+  selectAuditLogsForExport: selectAuditLogsForExportMock,
+}))
 
 import {
   AuditExportSignatureError,
@@ -116,6 +120,22 @@ beforeAll(() => {
       }
     },
   )
+  selectAuditLogsForExportMock.mockImplementation(async () => [
+    {
+      id: 'aaaaaaaa-0000-0000-0000-000000000001',
+      timestamp: '2026-09-27T10:00:00.000Z',
+      userId: 'bbbbbbbb-0000-0000-0000-000000000002',
+      action: 'auth.login',
+      resourceType: 'session',
+      resourceId: 'cccccccc-0000-0000-0000-000000000003',
+      ip: '203.0.113.7',
+      userAgent: 'Mozilla/5.0 (test)',
+      result: 'success',
+      metadata: { zeta: 1, alpha: 'x' },
+      prevHash: '0'.repeat(64),
+      currentHash: 'a'.repeat(64),
+    },
+  ])
 })
 
 beforeEach(() => {

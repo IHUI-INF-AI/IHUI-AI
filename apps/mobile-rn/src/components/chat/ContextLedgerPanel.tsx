@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
     marginBottom: rpx(8),
     paddingHorizontal: rpx(20),
     paddingVertical: rpx(14),
-    borderRadius: rnRadius.sm,
+    borderRadius: rnRadius.lg,
     backgroundColor: tokens.surface.card,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: tokens.surface.muted,

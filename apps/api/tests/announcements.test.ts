@@ -22,16 +22,31 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 // Mock content-queries 以隔离数据库依赖
+// F-489:路由已改为 findAnnouncementsLimited / findAnnouncementsVersion(列表不再全表拉取),
+// 这里同步 mock 新依赖;isAnnouncementVisible 用与源码同语义的纯函数实现,
+// 否则「未发布 404 / 已发布 200」这两条既有断言会被 mock 恒真击穿。
 vi.mock('../src/db/content-queries.js', () => ({
   findAnnouncements: vi.fn().mockResolvedValue([]),
+  findAnnouncementsLimited: vi.fn().mockResolvedValue([]),
+  findAnnouncementsVersion: vi.fn().mockResolvedValue({ latestAt: null, count: 0 }),
   findAnnouncementById: vi.fn(),
+  isAnnouncementVisible: vi.fn(
+    (a: { isPublished: boolean; publishedAt: Date | null; expiresAt: Date | null }) =>
+      a.isPublished === true &&
+      (a.publishedAt == null || a.publishedAt.getTime() <= Date.now()) &&
+      (a.expiresAt == null || a.expiresAt.getTime() > Date.now()),
+  ),
   createAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),
   deleteAnnouncement: vi.fn(),
 }))
 
 import { announcementsRoutes } from '../src/routes/announcements'
-import { findAnnouncements, findAnnouncementById } from '../src/db/content-queries.js'
+import {
+  findAnnouncementsLimited,
+  findAnnouncementsVersion,
+  findAnnouncementById,
+} from '../src/db/content-queries.js'
 
 // announcements.id 是 uuid 主键(packages/database/src/schema/content.ts:25,
 // DDL 0043_neat_the_spike.sql "id" uuid PRIMARY KEY)。
@@ -40,8 +55,10 @@ import { findAnnouncements, findAnnouncementById } from '../src/db/content-queri
 //  "已发布 ⇒ 200" 得到 404;而两条 expect(404) 的用例只是**恰好**同码 —— 它们此前压根
 //  没走到 findAnnouncementById 的那两个分支(不存在 / 未发布)。换成合法 uuid 后,404 才真的
 //  来自被测分支,200 才真的走通整条读链。
-// 刻意不动:/latest 与 /version 那两条用例的列表夹具('a-1'/'a-2')喂的是无形状闸的读列表,
-//  改它们与本票无关,只会放大 diff。
+// 刻意不动:详情用例的 uuid 夹具与本票无关,只会放大 diff。
+// F-489 同步:路由依赖已从 findAnnouncements(全表)换成 findAnnouncementsLimited +
+// findAnnouncementsVersion,下面 /latest 与 /version 的夹具按新实现喂给新函数;
+// 断言强度不放宽(限额、summary、total、空列表逐条保留),并额外钉住 limit 下推。
 const ANNOUNCEMENT_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
 
 describe('announcements routes (CLI)', () => {
@@ -63,7 +80,7 @@ describe('announcements routes (CLI)', () => {
   server.ready()
 
   it('GET /api/cli/announcements/latest 空列表返回 200', async () => {
-    vi.mocked(findAnnouncements).mockResolvedValueOnce([])
+    vi.mocked(findAnnouncementsLimited).mockResolvedValueOnce([])
     const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/latest' })
     expect(res.statusCode).toBe(200)
     const body = res.json()
@@ -73,43 +90,31 @@ describe('announcements routes (CLI)', () => {
   })
 
   it('GET /api/cli/announcements/latest?limit=2 截断列表', async () => {
-    vi.mocked(findAnnouncements).mockResolvedValueOnce([
+    // limit 已下推到 SQL:查询只返回 1 条(与 ?limit=1 一致),断言强度不变。
+    vi.mocked(findAnnouncementsLimited).mockResolvedValueOnce([
       {
         id: 'a-1',
         title: '公告1',
-        content: '内容1',
         type: 'info',
         isPinned: true,
-        isPublished: true,
         publishedAt: new Date('2026-07-01T00:00:00Z'),
-        expiresAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: null,
-      },
-      {
-        id: 'a-2',
-        title: '公告2',
-        content: '内容2',
-        type: 'warning',
-        isPinned: false,
-        isPublished: true,
-        publishedAt: new Date('2026-07-02T00:00:00Z'),
-        expiresAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: null,
+        summary: '内容1',
       },
     ] as never)
+    vi.mocked(findAnnouncementsVersion).mockResolvedValueOnce({
+      latestAt: new Date('2026-07-02T00:00:00Z'),
+      count: 2,
+    })
     const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/latest?limit=1' })
     expect(res.statusCode).toBe(200)
     const body = res.json()
     expect(body.code).toBe(0)
+    expect(findAnnouncementsLimited).toHaveBeenCalledWith(1)
     expect(body.data.list.length).toBe(1)
     expect(body.data.list[0].id).toBe('a-1')
     expect(body.data.list[0].content).toBeUndefined() // 精简字段不含 content
-    expect(body.data.list[0].summary).toBe('内容1') // summary 由 content 截取
-    expect(body.data.total).toBe(2) // total 是后端实际总数(未截断)
+    expect(body.data.list[0].summary).toBe('内容1') // summary 由限额查询直接给出
+    expect(body.data.total).toBe(2) // total 来自 count(*) 聚合(未截断)
   })
 
   it('GET /api/cli/announcements/latest limit 非法时返回 400', async () => {
@@ -121,7 +126,7 @@ describe('announcements routes (CLI)', () => {
   })
 
   it('GET /api/cli/announcements/latest 后端抛错时返回空列表(不 500)', async () => {
-    vi.mocked(findAnnouncements).mockRejectedValueOnce(new Error('db down'))
+    vi.mocked(findAnnouncementsLimited).mockRejectedValueOnce(new Error('db down'))
     const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/latest' })
     expect(res.statusCode).toBe(200)
     const body = res.json()
@@ -131,7 +136,7 @@ describe('announcements routes (CLI)', () => {
   })
 
   it('GET /api/cli/announcements/version 空列表返回 latestAt null', async () => {
-    vi.mocked(findAnnouncements).mockResolvedValueOnce([])
+    vi.mocked(findAnnouncementsVersion).mockResolvedValueOnce({ latestAt: null, count: 0 })
     const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/version' })
     expect(res.statusCode).toBe(200)
     const body = res.json()
@@ -141,21 +146,10 @@ describe('announcements routes (CLI)', () => {
   })
 
   it('GET /api/cli/announcements/version 有数据时返回最新时间戳', async () => {
-    vi.mocked(findAnnouncements).mockResolvedValueOnce([
-      {
-        id: 'a-1',
-        title: '公告1',
-        content: '内容1',
-        type: 'info',
-        isPinned: true,
-        isPublished: true,
-        publishedAt: new Date('2026-07-15T00:00:00Z'),
-        expiresAt: null,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: null,
-      },
-    ] as never)
+    vi.mocked(findAnnouncementsVersion).mockResolvedValueOnce({
+      latestAt: new Date('2026-07-15T00:00:00Z'),
+      count: 1,
+    })
     const res = await server.inject({ method: 'GET', url: '/api/cli/announcements/version' })
     expect(res.statusCode).toBe(200)
     const body = res.json()

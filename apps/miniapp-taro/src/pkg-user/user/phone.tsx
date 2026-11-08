@@ -12,8 +12,10 @@
  * i18n:共享屏按键经 PHONE_TEXT 映射到既有 user.phone.* / user.security.* 词条,
  *   不允许渲染裸 key(scripts/tests/miniapp-shell-form.test.mjs T12 断言)。
  */
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import Taro, { useDidShow } from '@tarojs/taro'
+import { replacePhone } from '@ihui/api-client'
+import { useCountdown } from '@ihui/shared'
 import { getProfile, sendSmsCode, bindPhone, pwdExist } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import { useI18n } from '@/i18n'
@@ -44,13 +46,12 @@ export default function Phone() {
   const gate = useAuthReadyGate()
   const [currentPhone, setCurrentPhone] = useState('')
   const [oldCode, setOldCode] = useState('')
-  const [oldCodeMin, setOldCodeMin] = useState(0)
+  // 双冷却各自独立:截止戳派生,后台返回按墙钟对表
+  const oldCodeCountdown = useCountdown(60)
   const [newPhone, setNewPhone] = useState('')
   const [newCode, setNewCode] = useState('')
-  const [newCodeMin, setNewCodeMin] = useState(0)
+  const newCodeCountdown = useCountdown(60)
   const [submitting, setSubmitting] = useState(false)
-  const oldTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const newTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const tt = useCallback(
     (k: string, fb: string) => {
@@ -66,15 +67,9 @@ export default function Phone() {
     return p.slice(0, 3) + '****' + p.slice(-4)
   })()
 
-  useEffect(
-    () => () => {
-      if (oldTimerRef.current) clearInterval(oldTimerRef.current)
-      if (newTimerRef.current) clearInterval(newTimerRef.current)
-    },
-    [],
-  )
-
   useDidShow(() => {
+    oldCodeCountdown.sync()
+    newCodeCountdown.sync()
     // G-933 冷启动门控:GET /user/profile(checkAuth)需鉴权,落定前不发
     gate.waitUntilReady(() => {
       void (async () => {
@@ -89,33 +84,17 @@ export default function Phone() {
   })
 
   function startOldCountdown() {
-    setOldCodeMin(60)
-    oldTimerRef.current = setInterval(() => {
-      setOldCodeMin((prev) => {
-        if (prev <= 1) {
-          if (oldTimerRef.current) clearInterval(oldTimerRef.current)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+    oldCodeCountdown.reset(60)
+    oldCodeCountdown.start()
   }
 
   function startNewCountdown() {
-    setNewCodeMin(60)
-    newTimerRef.current = setInterval(() => {
-      setNewCodeMin((prev) => {
-        if (prev <= 1) {
-          if (newTimerRef.current) clearInterval(newTimerRef.current)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
+    newCodeCountdown.reset(60)
+    newCodeCountdown.start()
   }
 
   const onSendOldCode = useCallback(async () => {
-    if (oldCodeMin > 0) return
+    if (oldCodeCountdown.count > 0) return
     const p = (currentPhone || '').trim()
     if (!p || p.length !== 11) {
       onToast(tt('user.phone.noCurrent', '当前未绑定手机号'), { kind: 'error' })
@@ -129,10 +108,10 @@ export default function Phone() {
       logger.error('user/phone', t('userPhone.q2'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
     }
-  }, [currentPhone, oldCodeMin, tt, t])
+  }, [currentPhone, oldCodeCountdown.count, tt, t])
 
   const onSendCode = useCallback(async () => {
-    if (newCodeMin > 0) return
+    if (newCodeCountdown.count > 0) return
     const phone = (newPhone || '').trim()
     if (!/^1\d{10}$/.test(phone)) {
       onToast(tt('user.phone.phoneInvalid', '手机号格式不正确'), { kind: 'error' })
@@ -162,7 +141,7 @@ export default function Phone() {
       logger.error('user/phone', t('userPhone.q4'), e)
       onToast(tt('user.phone.codeSendFailed', '验证码发送失败'), { kind: 'error' })
     }
-  }, [currentPhone, newCodeMin, newPhone, tt, t])
+  }, [currentPhone, newCodeCountdown.count, newPhone, tt, t])
 
   const onSubmit = useCallback(async () => {
     if (submitting) return
@@ -182,7 +161,18 @@ export default function Phone() {
     }
     setSubmitting(true)
     try {
-      await bindPhone(phone, code)
+      // XUI-043:已绑定手机号时是「换绑」,必须带旧号验证码走 /api/users/change-phone;
+      // /user/phone/bind 是「无旧号」的首次绑定端点,跳过旧号校验会被后端按绑定处理。
+      if (currentPhone) {
+        await replacePhone({
+          oldPhone: currentPhone,
+          oldCode: oldCode.trim(),
+          newPhone: phone,
+          newCode: code,
+        })
+      } else {
+        await bindPhone(phone, code)
+      }
       onToast(tt('user.phone.bindSuccess', '手机号绑定成功'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1000)
     } catch (e) {
@@ -210,7 +200,7 @@ export default function Phone() {
         codeValue={newCode}
         phoneHead="+86"
         nationShow={false}
-        codeMin={newCodeMin}
+        codeMin={newCodeCountdown.count}
         sendCodeShow={false}
         tip=""
         submitting={submitting}
@@ -224,7 +214,7 @@ export default function Phone() {
         onBack={() => Taro.navigateBack()}
         oldPhone={currentPhone ? maskedPhone : undefined}
         oldCode={oldCode}
-        oldCodeMin={oldCodeMin}
+        oldCodeMin={oldCodeCountdown.count}
         onOldCodeChange={setOldCode}
         onSendOldCode={onSendOldCode}
         colorScheme={resolvedTheme}

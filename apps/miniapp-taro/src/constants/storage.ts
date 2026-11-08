@@ -24,6 +24,7 @@ import {
   VIP_ORDERS_KEY,
   VIP_PAID_STATUS_KEY,
 } from '@ihui/shared/constants'
+import { SESSION_LOGGED_OUT_STORAGE_KEY } from '@ihui/shared/auth/auto-login-policy'
 
 // 跨端共享(值一致,re-export 统一入口)
 export {
@@ -93,6 +94,9 @@ export const KEEP_KEYS_ON_CLEAR: readonly string[] = [
   USER_INFO_LEGACY_KEY, // 'ihui_user_info'
   LOCALE_KEY, // 'lang'
   THEME_KEY, // 'theme'
+  // XUI-006(2026-11-08):退出登录标记必须随"清除全部"保留,
+  // 否则清缓存会抹掉"用户已主动退出"的事实,下次冷启重新静默登录。
+  SESSION_LOGGED_OUT_STORAGE_KEY, // 'ihui-session-logged-out'
 ] as const
 
 /**

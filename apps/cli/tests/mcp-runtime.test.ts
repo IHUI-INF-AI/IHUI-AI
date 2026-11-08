@@ -313,4 +313,43 @@ describe('G-694 成对清理:超时路径与成功路径同样摘监听器 / 摘
     }
   });
 });
+
+/**
+ * F-103:ndjson 档的旧实现逐 `data` 块 `toString()+split('\n')`,**不留残帧** ——
+ * 一次 tools/call 的应答只要跨了 chunk 边界(>64KB 或含中文),前半截 JSON 被丢弃,
+ * 后半截单独也解析不了,pending 表项无人结算,只能熬满超时。
+ * 判据跑真子进程:假 server 把同一帧分两次写,第二次写故意切在"中"的 3 字节中间。
+ */
+const SPLIT_REPLY_SERVER = [
+  "'use strict';",
+  'process.stdin.on("data", function(chunk){',
+  '  String(chunk).split("\\n").forEach(function(raw){',
+  '    var line = raw.trim(); if (!line) return;',
+  '    var msg; try { msg = JSON.parse(line); } catch (e) { return; }',
+  '    if (msg.id === undefined) return;',
+  '    var body = JSON.stringify({ jsonrpc: "2.0", id: msg.id, result: { content: [{ type: "text", text: "中文结果" }] } }) + "\\n";',
+  '    var buf = Buffer.from(body, "utf8");',
+  '    var cut = Buffer.from(body.slice(0, body.indexOf("中")), "utf8").length + 1;',
+  '    process.stdout.write(buf.subarray(0, cut));',
+  '    setTimeout(function(){ process.stdout.write(buf.subarray(cut)); }, 60);',
+  '  });',
+  '});',
+].join(' ');
+
+describe('F-103 NDJSON 应答跨 chunk:残帧必须拼回(旧实现逐块 split 丢帧 ⇒ 只能等超时)', () => {
+  it('同一帧分两次写、且切在"中"的字节中间,仍能正常 resolve 并保留中文', async () => {
+    const proc = spawn(process.execPath, ['-e', SPLIT_REPLY_SERVER], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      windowsHide: true,
+    });
+    try {
+      const result = (await sendStdioRpc(proc, 'tools/call', { name: 'echo' }, 5_000)) as {
+        content?: Array<{ type: string; text?: string }>;
+      };
+      expect(result.content?.[0]?.text).toBe('中文结果');
+    } finally {
+      proc.kill();
+    }
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

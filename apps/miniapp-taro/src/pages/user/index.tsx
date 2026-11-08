@@ -897,7 +897,8 @@ export default function UserIndex() {
                   onWallet={() =>
                     Taro.navigateTo({
                       url: '/pkg-shop/token/balance',
-                      fail: () => Taro.navigateTo({ url: '/pagesA/top-up/index' }),
+                      // 同型根因B:XUI-018 后 /pagesA/* 分包已不存在,备用入口改指在册的充值页。
+                      fail: () => Taro.navigateTo({ url: '/pkg-shop/wallet/top-up/index' }),
                     })
                   }
                   onUnsubscribe={() =>

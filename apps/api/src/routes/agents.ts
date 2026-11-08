@@ -75,7 +75,6 @@ import {
   findAgentSuggestions,
   updateAgentDetails,
   type UpdateAgentInput,
-  type UpdateCategoryInput,
   type CreateSettlementInput,
   type UpdateExamineInput,
 } from '../db/agents-queries.js'
@@ -684,25 +683,34 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/create - 创建分类
-  server.post('/categories/create', async (request, reply) => {
-    const body = z
-      .object({
-        name: z.string().optional(),
-        description: z.string().nullable().optional(),
-        icon: z.string().nullable().optional(),
-        sort: z.number().optional(),
-        status: z.string().optional(),
-        isPaid: z.boolean().optional(),
-      })
-      .parse(request.body)
-    if (!body?.name) return reply.status(400).send(error(400, 'name 为必填项'))
+  // F-359(2026-11-08):`agent_categories` 是平台运营资产(无属主列),DELETE 早已 requireAdmin,
+  // 写面却只挂登录闸 —— 任意登录用户可往全站分类树插节点。与同资源 DELETE 取同一判据;
+  // body 按 CreateCategoryInput 既有合法字段做 zod 白名单(.strict()),未声明键直接 400,
+  // 不做静默剥离,避免 ownerId/categoryId 之类经透传进 INSERT。
+  const createCategoryBody = z
+    .object({
+      name: z.string().optional(),
+      description: z.string().nullable().optional(),
+      icon: z.string().nullable().optional(),
+      sort: z.number().int().optional(),
+      status: z.string().max(1).optional(),
+      isPaid: z.boolean().optional(),
+    })
+    .strict()
+  server.post('/categories/create', { preHandler: requireAdmin }, async (request, reply) => {
+    const parsed = createCategoryBody.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const name = parsed.data.name
+    if (!name) return reply.status(400).send(error(400, 'name 为必填项'))
     const category = await createCategory({
-      name: body.name,
-      description: body.description,
-      icon: body.icon,
-      sort: body.sort,
-      status: body.status,
-      isPaid: body.isPaid,
+      name,
+      description: parsed.data.description,
+      icon: parsed.data.icon,
+      sort: parsed.data.sort,
+      status: parsed.data.status,
+      isPaid: parsed.data.isPaid,
     })
     return reply.send(success(category))
   })
@@ -763,10 +771,28 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /categories/:categoryId - 更新分类
-  server.put('/categories/:categoryId', async (request, reply) => {
+  // F-360(2026-11-08):此前 body 以 `as UpdateCategoryInput` 裸透传,且写面只走登录闸 ——
+  // 任意登录用户可改写任意分类(改名/下线/翻转 isPaid 付费开关)。分类是平台运营资产
+  // (agent_categories 无属主列),写面与同资源 DELETE 取同一判据 requireAdmin;
+  // 入参按 UpdateCategoryInput 可改字段做 zod 白名单(.strict()),多余/禁改键直接 400,
+  // 不做静默剥离 —— 否则 categoryId/createdAt 之类仍能经透传写进 SQL。
+  const updateCategoryBody = z
+    .object({
+      name: z.string().min(1).max(100).optional(),
+      description: z.string().nullable().optional(),
+      icon: z.string().nullable().optional(),
+      sort: z.number().int().optional(),
+      status: z.string().max(1).optional(),
+      isPaid: z.boolean().optional(),
+    })
+    .strict()
+  server.put('/categories/:categoryId', { preHandler: requireAdmin }, async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
-    const body = request.body as UpdateCategoryInput
-    const category = await updateCategory(categoryId, body)
+    const parsed = updateCategoryBody.safeParse(request.body)
+    if (!parsed.success) {
+      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    const category = await updateCategory(categoryId, parsed.data)
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
     return reply.send(success(category))
   })
@@ -784,7 +810,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/:categoryId/enable - 启用付费
-  server.post('/categories/:categoryId/enable', async (request, reply) => {
+  // F-361(2026-11-08):付费开关属运营配置,与同资源 DELETE 同判据 requireAdmin。
+  server.post('/categories/:categoryId/enable', { preHandler: requireAdmin }, async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
     const category = await updateCategory(categoryId, { isPaid: true })
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
@@ -792,7 +819,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/:categoryId/disable - 禁用付费
-  server.post('/categories/:categoryId/disable', async (request, reply) => {
+  // F-361(2026-11-08):与 enable 同一把闸。
+  server.post('/categories/:categoryId/disable', { preHandler: requireAdmin }, async (request, reply) => {
     const { categoryId } = categoryIdParam.parse(request.params)
     const category = await updateCategory(categoryId, { isPaid: false })
     if (!category) return reply.status(404).send(error(404, '分类不存在'))
@@ -823,7 +851,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /categories/cache/reload - 重载缓存(从 DB 读取写入 Redis)
-  server.post('/categories/cache/reload', async (request, reply) => {
+  // F-362(2026-11-08):缓存运维面只对管理员开放(否则任意登录用户可反复制造 DB→Redis 写放大)。
+  server.post('/categories/cache/reload', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const { list } = await findCategoryList({ page: 1, pageSize: 1000 })
@@ -957,7 +986,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /categories/cache/clear - 清空缓存
-  server.delete('/categories/cache/clear', async (request, reply) => {
+  // F-362(2026-11-08):同上,只有管理员可清空全局分类缓存。
+  // 注:`redis.keys()` 全量扫描在大 key 空间有阻塞风险,改 `scan` 属后续性能项,本次只收权限口。
+  server.delete('/categories/cache/clear', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     if (!redis) return reply.status(503).send(error(503, 'Redis 不可用'))
     const keys = await redis.keys(`${CACHE_PREFIX}*`)
@@ -1062,7 +1093,9 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /settlement/cache/info - 缓存信息
-  server.get('/settlement/cache/info', async (request, reply) => {
+  // 2026-11-08 F-365:缓存运维面(键名/TTL/存在性)与 force-check/force-refresh 同组,
+  // 只服务管理端排查;此前仅登录闸,任意用户可探测共享缓存状态。
+  server.get('/settlement/cache/info', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     const key = 'settlement:summary'
     const exists = await redis.exists(key)
@@ -1077,7 +1110,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /settlement/cache/force-check - 强制检查缓存
-  server.post('/settlement/cache/force-check', async (request, reply) => {
+  // 2026-11-08 F-365:缓存运维端点按"读缓存"处理,漏了 admin 闸。
+  server.post('/settlement/cache/force-check', { preHandler: requireAdmin }, async (request, reply) => {
     const redis = request.server.redis
     const key = 'settlement:summary'
     const exists = await redis.exists(key)
@@ -1085,13 +1119,20 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /settlement/cache/force-refresh - 强制刷新缓存
-  server.post('/settlement/cache/force-refresh', async (request, reply) => {
-    const redis = request.server.redis
-    const summary = await findSettlementSummary()
-    const key = 'settlement:summary'
-    await redis.set(key, JSON.stringify(summary), 'EX', 300)
-    return reply.send(success({ refreshed: true, summary }))
-  })
+  // 2026-11-08 F-365:该端点执行全表 sum(findSettlementSummary)、写共享缓存键,
+  // 并把全平台财务汇总直接放进响应体 —— 等价于 admin-only 的 /settlement/summary,
+  // 必须同档位 admin,否则任意登录用户可读全平台成交/已结/未结金额与笔数。
+  server.post(
+    '/settlement/cache/force-refresh',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const redis = request.server.redis
+      const summary = await findSettlementSummary()
+      const key = 'settlement:summary'
+      await redis.set(key, JSON.stringify(summary), 'EX', 300)
+      return reply.send(success({ refreshed: true, summary }))
+    },
+  )
 
   // POST /settlement/create - 创建结算记录
   // 2026-10-31 第 14 批:agentId/金额/佣金/状态全由客户端定 ⇒ 任意登录用户可凭空造结算单,
@@ -1178,6 +1219,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '购买记录不存在'))
       }
 
+      // F-228 残留口:批量同步只取 status='active',但单条同步此前不判状态 ——
+      // 对 pending 订单补同步会凭空产生应付,回到「未支付先记账」。
+      if (buyRecord[0].status !== 'active') {
+        return reply.status(409).send(error(409, '购买记录尚未支付,不能生成应付结算'))
+      }
+
       await db.insert(agentSettlements).values({
         agentId: buyRecord[0].agentId,
         buyRecordId: buyRecord[0].id,
@@ -1205,16 +1252,24 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /settlement/stats/income-overview - 收入概览
-  server.get('/settlement/stats/income-overview', async (_request, reply) => {
-    const summary = await findSettlementSummary()
-    return reply.send(success(summary))
-  })
+  // 2026-11-08 F-365:返回与 /settlement/summary 完全同源的全平台财务汇总
+  // (findSettlementSummary),同属 admin-only 读面。
+  server.get(
+    '/settlement/stats/income-overview',
+    { preHandler: requireAdmin },
+    async (_request, reply) => {
+      const summary = await findSettlementSummary()
+      return reply.send(success(summary))
+    },
+  )
 
   // -------------------------------------------------------------------------
   // examine 审核
   // -------------------------------------------------------------------------
 
   // GET /examine/list - 审核列表
+  // F-366(2026-11-08):userId 过滤此前直接取自 query ⇒ 任意登录用户可读他人审核台账。
+  // 非管理员一律强制为令牌主体 request.userId(query 里的 userId 被忽略);管理员保持可查全部。
   server.get('/examine/list', async (request, reply) => {
     const q = z
       .object({
@@ -1225,11 +1280,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         status: z.string().optional(),
       })
       .parse(request.query)
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
     const result = await findExamineList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
       agentId: q.agentId,
-      userId: q.userId,
+      userId: isAdmin ? q.userId : request.userId,
       status: q.status,
     })
     return reply.send(success(result))
@@ -1242,6 +1298,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /examine/submit - 提交审核
+  // F-366(2026-11-08):此前 status 直接取 body(客户端可传 approved 伪造"已通过"),
+  // 且 agentId 不校验归属 ⇒ 任意登录用户可为任意智能体造审核台账。两处一并收紧:
+  //  1) status 恒为 pending(客户端传任何值都忽略;裁决只能走 admin 的 approve/reject 端点);
+  //  2) 只能为自己的智能体提交,管理员能力保留(agent 不存在按 404,不暴露存在性)。
   server.post('/examine/submit', async (request, reply) => {
     const body = z
       .object({
@@ -1251,20 +1311,32 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.body)
     if (!body?.agentId) return reply.status(400).send(error(400, 'agentId 为必填项'))
+    const agent = await findAgentByAgentId(body.agentId)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+    if (!agent.userId || agent.userId !== request.userId) {
+      if (!isAdmin) return reply.status(403).send(error(403, '无权为该智能体提交审核'))
+    }
     const record = await createExamine({
       agentId: body.agentId,
       userId: request.userId,
-      status: body.status ?? 'pending',
+      // 客户端自报 status 一律忽略:提交面只产生待审记录。
+      status: 'pending',
       reason: body.reason,
     })
     return reply.send(success(record))
   })
 
   // GET /examine/:recordId - 审核详情
+  // F-366(2026-11-08):此前对任意登录用户开放 ⇒ 可读他人审核记录(reason 等)。
+  // 仅提交人本人或管理员可见;非属主一律 404,不暴露记录存在性。
   server.get('/examine/:recordId', async (request, reply) => {
     const { recordId } = recordIdParam.parse(request.params)
     const record = await findExamineById(recordId)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    const isOwner = Boolean(request.userId) && record.userId === request.userId
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+    if (!isOwner && !isAdmin) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
   })
 

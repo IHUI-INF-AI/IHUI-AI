@@ -1036,6 +1036,10 @@ class BrowserHub:
     # 会话创建幂等窗口:同一 URL 在此窗口内的重复创建请求返回已有会话
     _DEDUP_WINDOW_SECONDS: float = 10.0
 
+    # AIS-029:单主体并存会话上限。`_sessions` 原本无上限 —— 单个登录用户反复
+    # POST /sessions 即可无限创建 Chromium BrowserContext(内存/句柄耗尽)。
+    _MAX_SESSIONS_PER_OWNER: int = 5
+
     def __init__(self) -> None:
         self._playwright: Any | None = None
         self._browser: Browser | None = None
@@ -1163,6 +1167,20 @@ class BrowserHub:
                         logger.info(f"[browser_hub] 幂等命中:复用 session {sid} (url={url})")
                         return candidate
                     logger.info(f"[browser_hub] 幂等窗口内但属主不同:为 {session_id or '新会话'} 另建会话")
+
+        # AIS-029:单主体并存会话上限(幂等复用不计)。超限即拒,提示先关不用的会话;
+        # 放在 _build_session 之前,避免先建 context 再拒造成泄漏。
+        if owner_user_id:
+            owned = sum(
+                1
+                for sid, registration in self._tab_registry.items()
+                if sid in self._sessions and _same_owner(registration.owner_user_id, owner_user_id)
+            )
+            if owned >= self._MAX_SESSIONS_PER_OWNER:
+                raise ValueError(
+                    f"同一账号并存浏览器会话已达上限 {self._MAX_SESSIONS_PER_OWNER},"
+                    "请先关闭不用的会话"
+                )
 
         self._main_loop = asyncio.get_running_loop()
         session_id = session_id or str(uuid.uuid4())

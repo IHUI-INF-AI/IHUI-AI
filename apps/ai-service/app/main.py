@@ -1440,7 +1440,9 @@ def create_app() -> FastAPI:
             )
         from app.services.audit_service import audit_service
         return {
-            "code": 200,
+            # AIS-046:成功码必须与 /api/audit/logs 及全站 code:0 约定一致。
+            # 原值 200 会让按 code===0 判成功的前端把"查到了"误判成失败。
+            "code": 0,
             "message": "ok",
             "data": audit_service.get_recent(limit=limit),
         }

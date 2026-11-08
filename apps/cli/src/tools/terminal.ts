@@ -26,6 +26,7 @@ import { runPreToolCall } from '../hooks/index.js';
 import { execSandboxed, precheckSandboxedCommand, type SandboxPolicy } from './sandbox/index.js';
 import { buildFilteredEnv, DEFAULT_BLOCKED_ENV_VARS, TERMINAL_CLI_CREDENTIAL_ALLOWLIST } from '../sandbox/index.js';
 import { loadSettings, type SandboxSettings } from '../commands/settings.js';
+import { killProcessTree } from '../util/spawn-isolated.js';
 
 // ==================== 沙箱接入(默认关闭,向后兼容) ====================
 
@@ -186,7 +187,13 @@ function spawnFallback(command: string, cwd: string, _cols: number, _rows: numbe
   });
   return {
     write: (data: string) => { child.stdin?.write(data); },
-    kill: (signal?: string) => { try { child.kill(signal as NodeJS.Signals); } catch { /* ignore */ } },
+    // F-003:降级路径是 shell:true,`child.kill` 只杀 shell,命令自己派生/后台化的
+    // 子进程(sleep、npm 起的 node、cmd 启动的 exe)继承 stdio 继续活着 —— 会话关掉
+    // 了进程还在。先给目标 shell 信号,再走进程树回收(Windows taskkill /T,F / POSIX 组)。
+    kill: (signal?: string) => {
+      try { child.kill(signal as NodeJS.Signals); } catch { /* ignore */ }
+      killProcessTree(child);
+    },
     onData: (cb) => {
       const h1 = (chunk: Buffer) => cb(chunk.toString('utf-8'));
       const h2 = (chunk: Buffer) => cb(chunk.toString('utf-8'));

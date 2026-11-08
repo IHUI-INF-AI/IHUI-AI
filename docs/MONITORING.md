@@ -476,6 +476,7 @@ route:
 | `ws_messages_received_total` | counter | - | WebSocket 接收消息总数 |
 | `ws_messages_sent_total` | counter | - | WebSocket 发送消息总数 |
 | `ws_disconnects_total` | counter | - | WebSocket 断开总数 |
+| `db_pool_metrics_available` | gauge | - | 池 usage 是否可采样(0=不可用,见下注) |
 | `db_pool_in_use` | gauge | - | DB 连接池使用中 |
 | `db_pool_size` | gauge | - | DB 连接池总大小 |
 | `db_pool_checkedout` | gauge | - | DB 连接池已检出 |
@@ -484,6 +485,8 @@ route:
 | `db_pool_checkout_timeouts_total` | counter | - | DB 连接池 checkout 超时 |
 | `sql_query_duration_seconds` | histogram | `table,operation,le` | SQL 查询耗时直方图 |
 | `sql_queries_total` | counter | `table,operation` | SQL 查询总数 |
+
+> **不可用语义(F-324)**:postgres.js 3.x 不暴露 pool `state`。`db_pool_metrics_available=0` 时,`db_pool_in_use` / `db_pool_checkedout` / `db_pool_overflow` **不输出**(不写 NaN,避免 Grafana 表达式与多实例 avg 聚合被污染);`db_pool_size` 与 `db_pool_metrics_available` 仍输出。面板用 `absent()` 或 `db_pool_metrics_available` 区分「采样坏了」与「值为 0」。
 
 **Map 大小保护**(P0 Round 3 鲁棒性):每个 Map 最多 2000 key,超过时清理最旧的 10%(LRU 近似),防 dynamic route params / table|operation 组合爆炸导致内存泄漏。
 

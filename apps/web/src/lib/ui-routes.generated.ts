@@ -11,8 +11,8 @@
  */
 // IHUI-GEN-PIN-BEGIN
 // generator: apps/web/scripts/generate-ui-routes.mjs
-// sourceCommit: 7fa784a9a3cdefa38c36286d9df352e3e8dff778
-// inputsSha256: 8c9901d842f7632ee14ea4f27d2acb70c8c4191f9a5f28737bab6ed698d5695d
+// sourceCommit: 3ab974a065e353e10ce83f0279c94b245e26e762
+// inputsSha256: 4bc3942a58b84b192084a26b8e393c331816d8d95d54043e61a63fdcf00ff562
 // input: apps/web/app/(auth)/apple/callback/page.tsx f328ceb139ed3b61c0e79bc671e93885a6c1e1b6b7c356febbc97f3255da2075
 // input: apps/web/app/(auth)/callback/page.tsx d17f249c8506951babf768ff47e0800dc7ed191a9c80ddb124142a8520bcd80e
 // input: apps/web/app/(auth)/forgot-password/page.tsx ebf3e4b50c09d9871131b9fbdc5cddb79c0f9c73bc5775c5ce56dd08a0fa2443
@@ -102,7 +102,7 @@
 // input: apps/web/app/(main)/admin/downloads/page.tsx b3500def9f12886e95a4940512c131801e862ad736eb0651c8f95ea30e5a601b
 // input: apps/web/app/(main)/admin/edu-settings/page.tsx 3573ecbbd89811672ef00d3ddf784c9a991eed44113764ef1a77e42ec54fdcb7
 // input: apps/web/app/(main)/admin/edu/answer/card/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
-// input: apps/web/app/(main)/admin/edu/answer/online/page.tsx 4a8e5d29db835d25de1693c7e6c0688a8f51e89548e9b4992d287ec6265d7022
+// input: apps/web/app/(main)/admin/edu/answer/online/page.tsx eb08490974554c85ce8b6b1d2336800dc506cb761d22ed3f5bea39c35b58c811
 // input: apps/web/app/(main)/admin/edu/answer/page.tsx 6c81013b5d68c42d4325bb962aa4b8658d4c2927621f80fd1cd0bad151534037
 // input: apps/web/app/(main)/admin/edu/answer/programming/page.tsx 00ac116a6e5f2ea35065480480bc9f7c96500847d4f05ff81906415ad053c979
 // input: apps/web/app/(main)/admin/edu/certificate/issued/page.tsx 5a4fdf46e3d24b2d0239da5d1611ca3f2acdbb939245c17d9e32777fcfbeeabd
@@ -315,7 +315,7 @@
 // input: apps/web/app/(main)/admin/skill-stats/page.tsx 991e25cff285e901c0c8bbabb82af26832e6570b578daf67686f407f320d8c51
 // input: apps/web/app/(main)/admin/skill-versions/page.tsx 2f508287b80cc679d5b7287b5f734724f51c677398981bd2efc36486f6738ace
 // input: apps/web/app/(main)/admin/skills/page.tsx ec133e44c28944baa809162c2c651d88b608a99ea26ae0c2e43e64775b718323
-// input: apps/web/app/(main)/admin/sms-receive/page.tsx 020cf25e55d18243b9ba5837068fbad09438f383f6d31e23a350014cec707bbe
+// input: apps/web/app/(main)/admin/sms-receive/page.tsx d922befc460f7b165c8488a8bd34a5138c5919ec150cccfa57cc70a2ff098ab6
 // input: apps/web/app/(main)/admin/sms/operations/page.tsx b8f3a6d37aca3a061361b806eaf5f80b7e29dff3157d283663f726a79356ca8a
 // input: apps/web/app/(main)/admin/sms/page.tsx 6df4260e6e5e9dc4b44ba8b4c4cd6e656a4491e6a7dade583ad26c9b480d48bc
 // input: apps/web/app/(main)/admin/statistics/page.tsx 4dce3da16b8dfe4fa96cf2086195ac30eb1588c04e30a2ecf44d9224336182e5
@@ -790,7 +790,7 @@
 // input: apps/web/app/(main)/self-media/koubo/page.tsx ef36a73376d8ad4784db041acb58033fa4d2bb5712a679f8e41f25f5314176ff
 // input: apps/web/app/(main)/self-media/wechat/page.tsx 26013635b79d6a515a8ebef8c5f396c3653440933a0007de863207fa62f4dfd3
 // input: apps/web/app/(main)/services/page.tsx b54ca5c46d6700ea0fd78c5cac5efde5d04098a2be51feba7d745667d6dc7c8b
-// input: apps/web/app/(main)/settings/account-deletion/page.tsx b59b4e906cfc507036cbe14f567bc8efd3ff51df4cb9f8e1a57bd320e6a27fc3
+// input: apps/web/app/(main)/settings/account-deletion/page.tsx 6e9dac8b685fcd00e10d2ec441a4f1556b261784425559534fe92f79ec9caa17
 // input: apps/web/app/(main)/settings/activity/page.tsx e01b30e9f2d8be4089a668bc58f192390b9d9b1d8f145f7f48fe0f8904c32859
 // input: apps/web/app/(main)/settings/agent-security/page.tsx 43c685aa16a4268f677b366eddd03370573e878a1c9d5b74faf161b7a2f6c620
 // input: apps/web/app/(main)/settings/api-keys/page.tsx 64eb416eb0f634d712d8ae232d5b8c03fb584b07493ec184f93ed7efc412ebe4
@@ -890,7 +890,7 @@
 // input: apps/web/app/(main)/user/qr-code/page.tsx 0449910812e78aad9b6555f8ff2a8adccde7788535406624ca0b1b5d752dfdb6
 // input: apps/web/app/(main)/user/realname/page.tsx eb8f7740121d35d50f610da70f2626b9f91385ec95ce4210addb1692dcb7adfe
 // input: apps/web/app/(main)/user/resource/page.tsx 8035b963b0f9257e50661e9cc94737bc71e32f16b16e650bd544f74986092e07
-// input: apps/web/app/(main)/user/security/page.tsx d50691f523947446c88f1b54d13c376d114564873f45a49b754dc5bf716b6a0a
+// input: apps/web/app/(main)/user/security/page.tsx 76a8952e14f28ab771f7b33e246ec9aa95d3c4fb1ad69b64f1de044652494616
 // input: apps/web/app/(main)/user/sign-up/page.tsx e0566d9d6f2166b98a99e831c8864ff1d81a15f710e63db92742aa1b32602396
 // input: apps/web/app/(main)/user/subscription/page.tsx 0a278195eb3beb4265d3fb29dd495f85cd7da1526ee4027996a797d9006e8513
 // input: apps/web/app/(main)/vip/details/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
@@ -899,7 +899,7 @@
 // input: apps/web/app/(main)/voices/page.tsx c68d2a84a3398bad4944fdef278c577f9f209c0b0511806544c49ba78f095124
 // input: apps/web/app/(main)/wallet/page.tsx b4781e27db81bdcff9f27107e6d1b7d3cba3c658878efa7f465c99c358a0eccd
 // input: apps/web/app/(main)/wallet/recharge/fail/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
-// input: apps/web/app/(main)/wallet/recharge/page.tsx 77292296d2d4384f8185a620ca156cddfbc849718326f08ab62234ebda340fa4
+// input: apps/web/app/(main)/wallet/recharge/page.tsx d8a6e5398125764a49e9f74049dd0405b5dd21735854e51628c8300254942d1c
 // input: apps/web/app/(main)/wallet/recharge/success/page.tsx 832f3347693415d4fce788faeffb0d9441afed480364754afa506b881ca5ceae
 // input: apps/web/app/(main)/wallet/withdraw/page.tsx f97032228a916964c08ed98f8373203c4bb433a05b13598d1ca539db92dc10ba
 // input: apps/web/app/(main)/wallet/withdraw/records/page.tsx 9477479de2bfbda133d82ce9ddf934aa364432cc7e37e2504236b1a6934a2a4e
@@ -937,7 +937,7 @@
 // input: apps/web/app/sso/wecom/page.tsx 35efcf616fc264c76204fb3d155f464682cd239b37965652b930391e0e7144b6
 // input: apps/web/app/status/page.tsx d28928c9d285ce3bbf41205bea01abc4d8eadce1762f269615846130b228510e
 // skipped: excludedTopSegments(sso|h5|api)=9 pages; duplicatePaths(保留先扫描到的)=0
-// generatedAt: 2026-11-08T07:12:39.214Z
+// generatedAt: 2026-11-08T14:50:25.863Z
 // IHUI-GEN-PIN-END
 
 export const UI_ROUTES: { path: string; param: boolean; group: string }[] = [

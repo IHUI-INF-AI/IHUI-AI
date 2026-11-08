@@ -194,8 +194,18 @@ function extractTokenUsage(data: unknown): TokenUsage {
   if (typeof usage === 'object' && usage !== null) {
     const u = usage as Record<string, unknown>
     return {
-      promptTokens: typeof u.prompt_tokens === 'number' ? u.prompt_tokens : 0,
-      completionTokens: typeof u.completion_tokens === 'number' ? u.completion_tokens : 0,
+      promptTokens:
+        typeof u.prompt_tokens === 'number'
+          ? u.prompt_tokens
+          : typeof u.input_tokens === 'number'
+            ? u.input_tokens
+            : 0,
+      completionTokens:
+        typeof u.completion_tokens === 'number'
+          ? u.completion_tokens
+          : typeof u.output_tokens === 'number'
+            ? u.output_tokens
+            : 0,
     }
   }
   // Gemini 格式:usageMetadata.promptTokenCount / candidatesTokenCount

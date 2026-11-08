@@ -108,7 +108,11 @@ vi.mock('@/i18n', () => ({
 }))
 vi.mock('@/utils/privacy', () => ({ initPrivacyGuard: vi.fn() }))
 vi.mock('@/utils/push-init', () => ({ initPushSubscription: vi.fn() }))
-vi.mock('@/utils/crash-report', () => ({ initCrashReport: vi.fn() }))
+vi.mock('@/utils/crash-report', () => ({
+  initCrashReport: vi.fn(),
+  // app.tsx 启动链新增失败兜底:初始化链抛错时调 reportCrash 留痕(不得整包白屏零上报)。
+  reportCrash: vi.fn(),
+}))
 vi.mock('@/lib/theme', () => ({ initTheme: vi.fn() }))
 vi.mock('@/lib/device-fingerprint', () => ({ taroDeviceFingerprintCollector: vi.fn() }))
 vi.mock('@/hooks/use-ui-control-bridge', () => ({ useUiControlBridge: vi.fn() }))

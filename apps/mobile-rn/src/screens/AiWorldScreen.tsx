@@ -144,6 +144,8 @@ export function AiWorldScreen() {
   const [filteredItems, setFilteredItems] = useState<AiWorldEntryDto[] | null>(null)
   const [filterLoading, setFilterLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // XUI-070:搜索/切 tab 的响应必须按序号判新旧,卸载后也不得再 setState。
+  const filterSeqRef = useRef(0)
 
   // —— 榜单 ——
   const [leaderboards, setLeaderboards] = useState<LeaderboardInfo[]>([])
@@ -238,6 +240,7 @@ export function AiWorldScreen() {
     if (debounceRef.current) clearTimeout(debounceRef.current)
     const kind = tab as Exclude<AiWorldTab, 'rankings'>
     debounceRef.current = setTimeout(() => {
+      const seq = (filterSeqRef.current += 1)
       setFilterLoading(true)
       void (async () => {
         try {
@@ -245,12 +248,14 @@ export function AiWorldScreen() {
           if (search.trim()) params.set('search', search.trim())
           if (activeCategorySlug) params.set('category', activeCategorySlug)
           const res = await fetchApi<PaginatedItems>(`${KIND_ENDPOINT[kind]}?${params.toString()}`)
+          if (seq !== filterSeqRef.current) return
           if (res.success) setFilteredItems(res.data.items)
           else setFilteredItems([])
         } catch {
+          if (seq !== filterSeqRef.current) return
           setFilteredItems([])
         } finally {
-          setFilterLoading(false)
+          if (seq === filterSeqRef.current) setFilterLoading(false)
         }
       })()
     }, SEARCH_DEBOUNCE_MS)

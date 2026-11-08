@@ -13,6 +13,11 @@ import { logger } from './logger.js'
 import { getToolExecutor, type ToolContext } from './tools.js'
 import { evaluateSafeCondition } from './safe-condition.js'
 
+/** wait 步骤单次最长等待,避免 `toolParams.ms = 2^31` 类输入把任务挂死。 */
+const MAX_WAIT_MS = 60_000
+/** 任务表上限:终态任务按创建时间淘汰,避免 tasks Map 无界增长。 */
+const MAX_TRACKED_TASKS = 1000
+
 export type TaskType = 'single' | 'sequential' | 'parallel' | 'conditional'
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'paused'
 export type TaskPriority = 'low' | 'normal' | 'high' | 'urgent'
@@ -93,6 +98,7 @@ export class TaskExecutor extends EventEmitter {
       dependsOn: params.dependsOn,
       parentTaskId: params.parentTaskId,
     }
+    this.pruneTerminalTasks()
     this.tasks.set(task.id, task)
     logger.info({ taskId: task.id, name: task.name }, '[Task] Created')
     this.emit('created', task)
@@ -128,8 +134,29 @@ export class TaskExecutor extends EventEmitter {
     const toolExecutor = getToolExecutor()
     const outputs: Record<string, unknown> = { ...task.context }
     const stepResults: TaskResult['stepResults'] = []
+    const deadline = task.timeout ? task.startedAt + task.timeout : null
 
     for (let i = 0; i < task.steps.length; i++) {
+      // 取消后立即停止:不再跑后续步骤,也不允许把状态覆写成 completed/failed
+      if ((task.status as string) === 'cancelled') {
+        this.running.delete(taskId)
+        const cancelled: TaskResult = {
+          success: false,
+          outputs,
+          error: '任务已取消',
+          stepResults,
+        }
+        task.result ??= cancelled
+        return task.result
+      }
+      if (deadline !== null && Date.now() >= deadline) {
+        task.status = 'failed'
+        task.completedAt = Date.now()
+        task.result = { success: false, outputs, error: '任务执行超时', stepResults }
+        this.running.delete(taskId)
+        this.emit('failed', task)
+        return task.result
+      }
       task.currentStepIndex = i
       const step = task.steps[i]
       if (!step) continue
@@ -141,7 +168,10 @@ export class TaskExecutor extends EventEmitter {
       }
 
       if (step.type === 'wait') {
-        await new Promise((resolve) => setTimeout(resolve, (step.toolParams?.ms as number) ?? 1000))
+        const requested = Number(step.toolParams?.ms ?? 1000)
+        const waitMs = Number.isFinite(requested) ? Math.max(0, requested) : 1000
+        const remaining = deadline !== null ? Math.max(0, deadline - Date.now()) : MAX_WAIT_MS
+        await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, MAX_WAIT_MS, remaining)))
         stepResults.push({ stepId: step.id, success: true })
         continue
       }
@@ -149,6 +179,18 @@ export class TaskExecutor extends EventEmitter {
       if (step.toolName) {
         const params = this.resolveParams(step.toolParams ?? {}, outputs)
         const result = await toolExecutor.execute(step.toolName, params, context)
+        // 工具已产生副作用、但任务被取消:如实返回取消结果,不继续后续步骤
+        if ((task.status as string) === 'cancelled') {
+          this.running.delete(taskId)
+          const cancelled: TaskResult = {
+            success: false,
+            outputs,
+            error: '任务已取消',
+            stepResults,
+          }
+          task.result ??= cancelled
+          return task.result
+        }
         stepResults.push({
           stepId: step.id,
           success: result.success,
@@ -167,6 +209,22 @@ export class TaskExecutor extends EventEmitter {
       }
     }
 
+    // 最后一个步骤执行期间被取消:不能在循环结束后覆写成 completed
+    if ((task.status as string) === 'cancelled') {
+      this.running.delete(taskId)
+      const cancelled: TaskResult = { success: false, outputs, error: '任务已取消', stepResults }
+      task.result ??= cancelled
+      return task.result
+    }
+    // wait 会被夹到剩余时限,恰好跑满 timeout 也算超时(否则超时形同虚设)
+    if (deadline !== null && Date.now() >= deadline) {
+      task.status = 'failed'
+      task.completedAt = Date.now()
+      task.result = { success: false, outputs, error: '任务执行超时', stepResults }
+      this.running.delete(taskId)
+      this.emit('failed', task)
+      return task.result
+    }
     task.status = 'completed'
     task.completedAt = Date.now()
     task.result = { success: true, outputs, stepResults }
@@ -195,6 +253,27 @@ export class TaskExecutor extends EventEmitter {
     if (filter?.status) tasks = tasks.filter((t) => t.status === filter.status)
     if (filter?.priority) tasks = tasks.filter((t) => t.priority === filter.priority)
     return tasks.sort((a, b) => b.createdAt - a.createdAt)
+  }
+
+  /** 任务表超过上限时按创建时间淘汰:先终态、再最老的 pending(不动 running)。 */
+  private pruneTerminalTasks(): void {
+    if (this.tasks.size < MAX_TRACKED_TASKS) return
+    const ordered = Array.from(this.tasks.values())
+      .filter((t) => t.status !== 'running')
+      .sort((a, b) => a.createdAt - b.createdAt)
+    const evictable = [
+      ...ordered.filter((t) => t.status !== 'pending'),
+      ...ordered.filter((t) => t.status === 'pending'),
+    ]
+    let overflow = this.tasks.size - MAX_TRACKED_TASKS + 1
+    for (const task of evictable) {
+      if (overflow <= 0) break
+      this.tasks.delete(task.id)
+      if (task.status === 'pending') {
+        logger.warn({ taskId: task.id }, '[Task] 任务表达上限,淘汰最老 pending 任务')
+      }
+      overflow--
+    }
   }
 
   private evaluateCondition(condition: string, context: Record<string, unknown>): boolean {

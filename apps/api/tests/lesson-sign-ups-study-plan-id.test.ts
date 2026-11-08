@@ -275,7 +275,7 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
       sql = readFileSync(resolve(REPO_ROOT, MIG_REL), 'utf8')
     })
 
-    it('迁移文件存在且已登记进 journal(idx 311,when 严格大于既有最大值)', () => {
+    it('迁移文件存在且已登记进 journal(idx 310,when 严格大于既有最大值)', () => {
       expect(sql.length).toBeGreaterThan(0)
       const journal = JSON.parse(
         readFileSync(resolve(REPO_ROOT, 'packages/database/drizzle/meta/_journal.json'), 'utf8'),
@@ -283,7 +283,9 @@ describe('lesson_sign_ups.study_plan_id 加列票', () => {
       const entries = journal.entries as JournalEntry[]
       const mine = entries.filter((e) => e.tag === MIG_TAG)
       expect(mine).toHaveLength(1)
-      expect(mine[0]!.idx).toBe(311)
+      // 2026-11 journal 重排为 0-based(first idx=0),绝对 idx 随之下移一位;
+      // 旧断言 311 钉的是 1-based 时代的位次,不再成立。
+      expect(mine[0]!.idx).toBe(310)
       // 追加序与"恰好一条"走同一个判据出口(见 journalProblems 的注释):
       // 旧形态在这里还写着"本条必须等于 entries.length - 1",那是快照不是不变量。
       expect(journalProblems(entries, MIG_TAG)).toEqual([])

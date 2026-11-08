@@ -25,7 +25,6 @@ import {
   createArticle,
   updateArticle,
   deleteArticle,
-  incrementArticleViewCount,
   findArticlesByIds,
 } from '../db/news-queries.js'
 import {
@@ -383,7 +382,7 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     if (!article || !article.isPublished) {
       return reply.status(404).send(error(404, '资讯不存在'))
     }
-    await incrementArticleViewCount(parsed.data.id)
+    // F-206:浏览量统一由 watch-aspect 计数(方案见该插件注释),路由侧不再 +1
     return reply.send(success({ article }))
   })
 

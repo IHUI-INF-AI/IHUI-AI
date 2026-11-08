@@ -24,6 +24,7 @@
 from __future__ import annotations
 
 import asyncio
+import os as _os
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -37,6 +38,28 @@ from app.services import reranker as reranker_module
 from app.services.mcp_server import _tool_search_codebase
 
 _QUERY = "alpha_symbol_zz"
+
+
+@pytest.fixture(autouse=True)
+def _tmp_path_is_workspace_root(tmp_path):
+    """AIS-080:search 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。
+
+    注意本文件有 ``monkeypatch.undo()`` 的用例,故这里直接改 os.environ 并自行还原,
+    不能被 monkeypatch 的撤销一并抹掉。
+    """
+    key = "MCP_WORKSPACE_ROOTS"
+    old = _os.environ.get(key)
+    current = (old or "").strip()
+    _os.environ[key] = str(tmp_path.resolve()) + (
+        _os.pathsep + current if current else ""
+    )
+    try:
+        yield
+    finally:
+        if old is None:
+            _os.environ.pop(key, None)
+        else:
+            _os.environ[key] = old
 
 
 def _semantic_item(file_path: str, line: int, *, score: float = 0.5) -> dict[str, Any]:

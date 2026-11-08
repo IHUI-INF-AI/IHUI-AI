@@ -31,7 +31,10 @@ jobs:
   # 全部**从未执行**,required check 的结论里只剩"水印"一条(本轮 lint 修复长期只有本地证据,正是此型)。
   # 拆出后三条结论互不掩盖:本 job 名 `lint-typecheck-test` 逐字未变 ⇒ required context
   # `CI / lint-typecheck-test (push)` 不变,仓库分支保护设置无需改动。
-  # 两个 preflight 不设 needs(与主 job 并行),主 job 也不 needs 它们 —— 前置检查"先跑"但不阻塞。
+  # 2026-11-08 DG-04 更正:两个 preflight 原先刻意"不设 needs、与主 job 并行",但分支保护只读
+  # required 聚合器 ⇒ 它们红掉/被跳过时 required 照样 success,水印被删、冲突标记入树都能带绿勾
+  # 进 main。现改为:聚合器 needs 收口两个 preflight,并逐项断言 `needs.<id>.result == success`
+  # (GitHub 的 skipped 视为满足分支保护,只列 needs 挡不住,断言必须逐项写)。
   # 各只有一条 run 步骤且不设 id:,刻意不装失败自述(TRIAGE_IDS 只认具名 id 的步骤,
   # 见 scripts/check-ci-failure-triage-wiring.mjs W4:无 id 步骤只报数)。
   preflight-watermark:
@@ -402,7 +405,7 @@ jobs:
   # 而 **skipped 算满足分支保护** —— 那会让"上游被跳过"伪装成绿。故用 `if: always()` +
   # 逐项断言 `result == 'success'`;failure / cancelled / skipped 三种都显式变红。
   lint-typecheck-test:
-    needs: [gate-build, gate-analyse, gate-test]
+    needs: [gate-build, gate-analyse, gate-test, preflight-watermark, preflight-conflict-markers]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -416,9 +419,11 @@ jobs:
           R_BUILD: ${{ needs.gate-build.result }}
           R_ANALYSE: ${{ needs.gate-analyse.result }}
           R_TEST: ${{ needs.gate-test.result }}
+          R_WATERMARK: ${{ needs.preflight-watermark.result }}
+          R_CONFLICT: ${{ needs.preflight-conflict-markers.result }}
         run: |
           node -e "
-          const results = { 'gate-build': process.env.R_BUILD, 'gate-analyse': process.env.R_ANALYSE, 'gate-test': process.env.R_TEST };
+          const results = { 'gate-build': process.env.R_BUILD, 'gate-analyse': process.env.R_ANALYSE, 'gate-test': process.env.R_TEST, 'preflight-watermark': process.env.R_WATERMARK, 'preflight-conflict-markers': process.env.R_CONFLICT };
           const bad = Object.entries(results).filter(([, v]) => v !== 'success');
           console.log('upstream results = ' + JSON.stringify(results));
           if (bad.length > 0) {

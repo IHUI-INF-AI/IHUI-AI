@@ -67,11 +67,15 @@ describe('危险族判据（与私网族分开）', () => {
     '::ffff:7f00:1',
     '::7f00:1',
     '[::ffff:a9fe:a9fe]',
+    // F-215:IPv6 ULA fc00::/7(含 AWS fd00:ec2::254 元数据)属危险族,与 IPv4 私网不同层
+    'fc00::5',
+    'fd12::1',
+    'fd00:ec2::254',
   ])('拦 %s', (ip) => {
     expect(isBlockedTargetIp(ip)).toBe(true)
   })
 
-  it.each(['192.168.1.20', '10.1.2.3', '172.16.5.6', 'fc00::5', 'fd12::1', '8.8.8.8'])(
+  it.each(['192.168.1.20', '10.1.2.3', '172.16.5.6', '8.8.8.8'])(
     '不拦 %s（私网/公网自托管属允许面）',
     (ip) => {
       expect(isBlockedTargetIp(ip)).toBe(false)

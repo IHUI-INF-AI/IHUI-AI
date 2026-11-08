@@ -696,12 +696,28 @@ class HookEngine:
         return hook
 
     def update_hook(
-        self, hook_id: str, patch: dict[str, Any], owner_id: str | None = None
+        self,
+        hook_id: str,
+        patch: dict[str, Any],
+        owner_id: str | None = None,
+        *,
+        allow_script: bool = False,
     ) -> dict[str, Any] | None:
         hook = self._hooks.get(hook_id)
         if hook is None:
             return None
         if owner_id is not None and not _owned_by(hook, owner_id):
+            return None
+        # AIS-038 第二道闸:路由层漏判时,引擎也拒绝把动作改成 script(默认拒绝)。
+        action = patch.get("action")
+        if (
+            isinstance(action, dict)
+            and action.get("type") == "script"
+            and not allow_script
+        ):
+            logger.warning(
+                "[hook_engine] 拒绝非管理员把 Hook 改为 script: id=%s", hook_id
+            )
             return None
         for k in ("name", "description", "event", "condition", "action", "enabled"):
             if k in patch:

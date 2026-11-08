@@ -151,7 +151,9 @@ describe('升级口径与调度侧接线(源码面:机制在位且真被调用)'
   )
 
   it('escalated 必须同时看 backupIssues 与 backupUndetermined', () => {
-    expect(svc).toMatch(/backupUndetermined\.length > 0 \? 1 : 0/)
+    // 新契约:escalated 是布尔聚合(checked/backupIssues/backupUndetermined/errors 任一成立),
+    // 不再是旧的三元计数。旧断言钉的是「只有 undetermined 单独 +1」的旧实现,语义反而更窄。
+    expect(svc).toMatch(/backupUndetermined\.length > 0/)
   })
 
   it('worker 按 backupAlerts 逐条发,标题取自服务(不在 worker 里再拼第二份)', () => {

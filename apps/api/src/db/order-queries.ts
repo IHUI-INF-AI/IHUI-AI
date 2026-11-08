@@ -76,6 +76,8 @@ export function genPaymentNo(): string {
 
 export interface CreateOrderInput {
   userId: string
+  /** 可选:复用调用方已生成的订单号(如余额扣减流水号),便于账实一致 */
+  orderNo?: string
   orderType: string
   targetId?: string | null
   targetTitle?: string | null
@@ -92,7 +94,7 @@ export async function createOrder(data: CreateOrderInput): Promise<EduOrder> {
     const rows = await tx
       .insert(eduOrders)
       .values({
-        orderNo: genOrderNo(),
+        orderNo: data.orderNo ?? genOrderNo(),
         userId: data.userId,
         orderType: data.orderType,
         targetId: data.targetId,
@@ -336,9 +338,7 @@ export interface ApplyRefundInput {
 }
 
 /** 申请退款：仅 paid 订单可申请。事务+行锁防并发重复申请。 */
-export async function applyRefund(
-  data: ApplyRefundInput,
-): Promise<{
+export async function applyRefund(data: ApplyRefundInput): Promise<{
   refund?: EduRefund
   reason?: 'order_not_found' | 'order_not_paid' | 'refund_already_exists'
 }> {
@@ -492,12 +492,12 @@ export async function handleRefund(
       await tx
         .update(eduOrders)
         .set({ status: 'refunded', refundTime: new Date(), updatedAt: new Date() })
-  // status-guard-exempt: 退款事务内同步订单为 refunded(入向);出向守卫在退款单状态推进处
+        // status-guard-exempt: 退款事务内同步订单为 refunded(入向);出向守卫在退款单状态推进处
         .where(eq(eduOrders.id, refund.orderId))
       await tx
         .update(orders)
         .set({ status: 'refunded', refundTime: new Date(), updatedAt: new Date() })
-  // status-guard-exempt: 退款事务内同步订单为 refunded(入向);出向守卫在退款单状态推进处
+        // status-guard-exempt: 退款事务内同步订单为 refunded(入向);出向守卫在退款单状态推进处
         .where(eq(orders.id, refund.orderId))
     }
     return refund

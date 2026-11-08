@@ -454,3 +454,73 @@ async def test_call_tool_overwrites_model_self_approval(
     assert out["errorCode"] == CREDIT_APPROVAL_ERROR
     assert out["creditSpend"]["balanceCredits"] == 1
     assert calls["chain"] == 0
+
+
+# =============================================================================
+# AIS-116:image_edit 与 image_generation 同源计费,同一预算闸
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_image_edit_requires_approval_before_upstream(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"edits": 0}
+
+    class _Provider:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def images_edits(self, *_args: object, **_kwargs: object) -> dict:
+            calls["edits"] += 1
+            return {"images": [{"url": "https://example.com/x.png"}]}
+
+    from app.providers import token6688_provider as t68
+
+    monkeypatch.setattr(t68, "Token6688Provider", _Provider)
+    monkeypatch.setenv("TOKEN6688_API_KEY", "sk-test")
+    out = await mcp_server_mod._tool_image_edit(
+        apply_host_credit_facts(
+            {"image": "https://example.com/in.png", "prompt": "改成猫", "size": "1024x1024"},
+            balance=1,
+            approval=None,
+        )
+    )
+    assert out["ok"] is False
+    assert out["errorCode"] == CREDIT_APPROVAL_ERROR
+    assert out["tool"] == "image_edit"
+    assert calls["edits"] == 0  # 拦在上游之前,一次付费调用都没发生
+
+
+@pytest.mark.asyncio
+async def test_image_edit_grant_reaches_provider_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = {"edits": 0}
+
+    class _Provider:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        async def images_edits(self, *_args: object, **_kwargs: object) -> dict:
+            calls["edits"] += 1
+            return {"images": [{"url": "https://example.com/x.png"}], "model": "stub"}
+
+    from app.providers import token6688_provider as t68
+
+    monkeypatch.setattr(t68, "Token6688Provider", _Provider)
+    monkeypatch.setenv("TOKEN6688_API_KEY", "sk-test")
+
+    async def fake_bytes(_src: object) -> tuple[bytes, None]:
+        return b"img", None
+
+    monkeypatch.setattr(mcp_server_mod, "_resolve_image_source_bytes", fake_bytes)
+    out = await mcp_server_mod._tool_image_edit(
+        apply_host_credit_facts(
+            {"image": "https://example.com/in.png", "prompt": "改成猫", "size": "1024x1024"},
+            balance=1,
+            approval="granted",
+        )
+    )
+    assert out["ok"] is True
+    assert calls["edits"] == 1
