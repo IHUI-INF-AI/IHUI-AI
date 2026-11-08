@@ -29,7 +29,8 @@ export { api }
 export function packageToForm(p: ApiPackage): ApiPackageForm {
   return {
     name: p.name,
-    price: String(p.price),
+    // 服务端 plans.price 是「分」，表单按元编辑
+    price: String(p.price / 100),
     quota: String(p.quota),
     period: p.period,
     description: p.description ?? '',
