@@ -113,6 +113,8 @@ export default function VipIndexPage() {
   const [levels, setLevels] = useState<VipLevel[]>([])
   const [levelsLoaded, setLevelsLoaded] = useState(false)
   const [loadFailed, setLoadFailed] = useState(false)
+  // XUI-066:加载失败曾被静默成空列表,现在如实上抛给共享屏。
+  const [loadError, setLoadError] = useState('')
   const [benefits, setBenefits] = useState<VipBenefit[]>([])
   const [priceOptions, setPriceOptions] = useState<PriceOption[]>(defaultPlans)
   const [selectedPlan, setSelectedPlan] = useState<PriceOption | null>(defaultPlans[0] ?? null)
@@ -159,6 +161,7 @@ export default function VipIndexPage() {
 
   const load = useCallback(async () => {
     Taro.showLoading({ title: t('common.loading'), mask: true })
+    setLoadError('')
     try {
       const [i, p, lv] = await Promise.all([getVipInfo(), getVipPrivilege(), getVipLevels()])
       setInfo(i ? toVipInfo(i) : EMPTY_VIP_INFO)
@@ -185,6 +188,7 @@ export default function VipIndexPage() {
       setPriceOptions(defaultPlans)
       setSelectedPlan((prev) => prev ?? defaultPlans[0] ?? null)
       setLoadFailed(true)
+      setLoadError(t('common.loadFailed'))
       onToast(t('common.failed'), { kind: 'error' })
     } finally {
       Taro.hideLoading()
@@ -347,7 +351,7 @@ export default function VipIndexPage() {
         }
         loading={!levelsLoaded && !loadFailed}
         refreshing={false}
-        error=""
+        error={loadError}
         toast={loadFailed ? t('common.failed') : ''}
         purchasingId={null}
         onRefresh={() => void load()}
