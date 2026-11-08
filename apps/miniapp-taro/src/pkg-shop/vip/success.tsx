@@ -13,12 +13,14 @@
 
 import Taro, { useRouter } from '@tarojs/taro'
 import { useState, useEffect, useCallback } from 'react'
+import { fetchApi } from '@ihui/api-client'
 import { useI18n } from '@/i18n'
 import { VIP_ORDERS_KEY, VIP_PAID_STATUS_KEY } from '@/constants/storage'
 import { formatDateByTemplate, safeDecodeURIComponent } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useTheme } from '@/rn-compat/theme'
 import { TopupSuccessScreen as SharedTopupSuccessScreen } from '@ihui/rn-app/features/topup-success/TopupSuccessScreen'
+import { confirmVipPaid } from './paid-verify'
 
 /** 安全 decode router 参数 */
 const decodeParam = (v: string | undefined): string => (v ? safeDecodeURIComponent(v) : '')
@@ -80,9 +82,26 @@ export default function VipSuccessPage() {
         ? tt('vip.success.quarterlyPlan', '季度会员')
         : tt('vip.success.monthlyPlan', '月度会员'))
 
-  // 记录支付状态到本地(对齐原 uniapp recordPayment 逻辑)
-  const recordPayment = useCallback(() => {
+  // XUI-039:落本地账本前先查服务端订单状态(仅 status=paid 才算已支付),
+  // 不再以客户端可伪造的 paid 标记为准。
+  const verifyServerPaid = useCallback(async () => {
+    if (!orderNo) return false
+    return confirmVipPaid(orderNo, async (no) => {
+      const res = await fetchApi<{ status?: string }>(
+        `/vip/order/${encodeURIComponent(no)}/payinfo`,
+      )
+      return { status: res.success ? res.data?.status : undefined }
+    })
+  }, [orderNo])
+
+  // 记录支付状态到本地(服务端确认已支付后才落盘)
+  const recordPayment = useCallback(async () => {
     if (saved) return
+    const paid = await verifyServerPaid()
+    if (!paid) {
+      Taro.showToast({ title: tt('vip.success.notPaid', '订单未支付,未记录会员'), icon: 'none' })
+      return
+    }
     try {
       const orderData = {
         orderNo,
@@ -103,11 +122,11 @@ export default function VipSuccessPage() {
     } catch {
       // 静默忽略本地存储失败
     }
-  }, [saved, orderNo, planType, displayPlanName, amount, payTime, payMethod, duration])
+  }, [saved, verifyServerPaid, tt, orderNo, planType, displayPlanName, amount, payTime, payMethod, duration])
 
   // 首次渲染时记录一次
   useEffect(() => {
-    recordPayment()
+    void recordPayment()
   }, [recordPayment])
 
   const copyOrderNo = () => {

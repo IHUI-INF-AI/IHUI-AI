@@ -265,8 +265,9 @@ export default function VipIndexPage() {
   }, [noticeAgreed, t])
   const onPayMethodConfirm = useCallback(() => {
     setShowPayMethod(false)
-    setShowSuccess(true)
-  }, [])
+    // XUI-038:选完支付方式必须走真实下单+requestPayment 链路,不能在本地直接置成功态。
+    void onConfirmPay()
+  }, [onConfirmPay])
   const onSuccessViewBenefits = useCallback(() => {
     setShowSuccess(false)
     setShowBenefits(true)
