@@ -407,6 +407,16 @@ test('P13 维⑤ 整行逐字重复棘轮(2026-11-08):逐字相同⇒红;相似�
   // 折成一条后必须判绿(收数据方向)
   if (identicalRowVerdict(staged, head).grew) throw new Error('删掉多余副本后不得判红')
 
+  // ①b 逐行键棘轮:新增一族副本、同时折掉另一族一份 ⇒ 总多余份数不变(抵消)也必须判红
+  const A = '- [x] P89 〔千段租约〕 本机=m-1 段=P80~P89(取号器专用行:占用面只取本行主键=段尾号)'
+  const B = '- [x] P79 〔千段租约〕 本机=m-1 段=P70~P79(取号器专用行:占用面只取本行主键=段尾号)'
+  const swapHead = ['# 台账', A, A, B, B].join('\n')
+  const swapNext = ['# 台账', A, B, B, B].join('\n')
+  const swap = identicalRowVerdict(swapHead, swapNext)
+  if (swap.before !== 2 || swap.after !== 2) throw new Error(`抵消夹具总份数应 2→2:${JSON.stringify(swap)}`)
+  if (!swap.grew || swap.grewGroups.length !== 1 || swap.grewGroups[0].raw !== B)
+    throw new Error('总数抵消的逐行键增生漏判(与 245 同类盲区)')
+
   // ② 两行相似但不同(不同事项 / 不同段)⇒ 读数 0,不得判红
   const near = [
     '# 台账',
