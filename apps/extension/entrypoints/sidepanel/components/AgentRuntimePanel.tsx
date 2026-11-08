@@ -20,6 +20,15 @@ import {
   fromAgentStatus,
   type ElementPackTone,
 } from '@ihui/shared/chat/element-pack'
+// 2026-11-08 B 类:Enter 提交判据走跨端唯一出口(三条 IME 腿 + 收尾闩锁 + 空内容)
+import {
+  INITIAL_COMPOSITION_LATCH,
+  noteCompositionEnd,
+  noteCompositionStart,
+  noteKeyDown,
+  shouldSubmitOnEnter,
+  type CompositionLatch,
+} from '@ihui/shared/chat/enter-submit'
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@ihui/ui-react'
 import { useI18n } from '../../../src/i18n'
 import { PlanStepsView, enumLabel, makeToolTranslate, toolDisplayName } from './MessageContent'
@@ -144,6 +153,9 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
   // D111:工作区权限档(null = 尚未取到/取数失败 → 整行隐藏,不假装知道档位)。
   const [workspaceTier, setWorkspaceTier] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  // 2026-11-08 B 类:组合期闩锁。此前 textarea 只判 Enter/shiftKey,中文输入法
+  // 「确认候选词」的那次 Enter 会直接把半截文本提交出去。
+  const compositionLatch = useRef<CompositionLatch>(INITIAL_COMPOSITION_LATCH)
 
   // D111:首屏交代当前权限档(档名 + 后果)。此前 extension 只有审批结果展示,
   // 用户看不到自己处于哪一档、也不知道那一档会导致什么。
@@ -390,10 +402,28 @@ export function AgentRuntimePanel({ agentId }: AgentRuntimePanelProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            const native = e.nativeEvent
+            const submit = shouldSubmitOnEnter({
+              key: e.key,
+              shiftKey: e.shiftKey,
+              defaultPrevented: e.defaultPrevented,
+              localComposing: compositionLatch.current.active,
+              nativeComposing: native.isComposing || native.keyCode === 229,
+              justEndedComposing: compositionLatch.current.justEnded,
+              hasContent: input.trim().length > 0,
+            })
+            // 先判定再消费:compositionend 后的第一次 keydown 必须看到 justEnded 才拦得住
+            compositionLatch.current = noteKeyDown(compositionLatch.current)
+            if (submit) {
               e.preventDefault()
               void handleSend()
             }
+          }}
+          onCompositionStart={() => {
+            compositionLatch.current = noteCompositionStart()
+          }}
+          onCompositionEnd={() => {
+            compositionLatch.current = noteCompositionEnd()
           }}
           placeholder={t('agent.inputTaskPlaceholder')}
           disabled={status === 'running'}

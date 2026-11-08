@@ -49,7 +49,6 @@ const CTX_POPUP_ID = 'ihui-ctx-popup'
 const CTX_POPUP_TTL_MS = 6000
 
 // ---- i18n(内容脚本) ----
-const LOCALE_STORAGE_KEY = 'ihui_locale'
 const DEFAULT_LOCALE: Locale = 'zh-CN'
 const contentMessages: Record<Locale, Messages> = {
   'zh-CN': mergeMessages(sharedZhCN, extZhCN),
@@ -60,16 +59,18 @@ const contentMessages: Record<Locale, Messages> = {
 }
 let activeLocale: Locale = DEFAULT_LOCALE
 
-/** 异步预加载用户语言(与 background.ts 读同一键),失败时保持默认 zh-CN。 */
+/** 异步预加载用户语言。2026-11-08 E 类第 2 条:storage.local 已收紧到 TRUSTED_CONTEXTS,
+ *  内容脚本不能再直读 `ihui_locale`;改由 background 读 local 后经消息回包。
+ *  background 不可用/超时 ⇒ 保持默认 zh-CN(不静默改写用户设置)。 */
 async function loadActiveLocale(): Promise<void> {
   try {
-    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
-      const result = await chrome.storage.local.get(LOCALE_STORAGE_KEY)
-      const value: unknown = result[LOCALE_STORAGE_KEY]
-      if (typeof value === 'string' && isLocale(value)) activeLocale = value
-    }
+    const value = await sendMessage<string>(
+      { type: 'locale.get', payload: undefined, requestId: `locale-${Date.now()}` },
+      3000,
+    )
+    if (typeof value === 'string' && isLocale(value)) activeLocale = value
   } catch {
-    // ignore and fall through
+    // ignore and fall through(保持默认 zh-CN)
   }
 }
 
