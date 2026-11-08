@@ -20,6 +20,9 @@ describe('同型根因 S-01:剩余时间一律截止戳派生,禁止按 tick 自
     ['../../src/components/publish/CountdownTimer.tsx', '发布倒计时', /setRemaining\(\(prev\) =>/],
     ['../../app/(main)/user/security/page.tsx', '安全中心换绑手机发码', /setCodeCountdown\(/],
     ['../../src/hooks/use-updater.ts', '桌面端自动重启倒计时', /setRestartCountdown/],
+    ['../../app/(main)/admin/sms-receive/page.tsx', '管理端历史查询冷却', /setCooldown\(/],
+    ['../../app/(main)/settings/account-deletion/page.tsx', '注销验证码冷却', /setCountdown\(/],
+    ['../../app/(main)/user/profile/ChangePhoneModal.tsx', '换绑手机双冷却', /set(Old|New)Countdown\(/],
   ]
 
   for (const [rel, name, forbidden] of cases) {
