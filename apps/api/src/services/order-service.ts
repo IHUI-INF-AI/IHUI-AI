@@ -649,22 +649,23 @@ export async function refundOrder(orderNo: string): Promise<OrderOperationResult
   if (!order) return { success: false, reason: '订单不存在' }
   if (order.status !== 'paid')
     return { success: false, reason: `订单状态(${order.status})不可退款` }
-  await updateOrderStatus(orderNo, 'refunded')
+  // F-33:先扣回 token,再落 refunded。
+  // 原实现先 updateOrderStatus('refunded') 再把扣回失败 try/catch 吞掉 —— 钱已退、token
+  // 还留在用户账上且调用方拿到 success,属于静默资金损失。现在扣回失败直接抛给调用方,
+  // 订单保持 paid 等待重试;refundTokenDeduct 按 refund:<orderNo> 幂等,重试不会二次扣减。
+  if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
+    await refundTokenDeduct(order.userId, order.amount, orderNo, '退款')
+  }
+  const refundedOrder = await updateOrderStatus(orderNo, 'refunded', 'paid')
+  if (!refundedOrder) {
+    return { success: false, reason: '订单状态已变更,退款未落库' }
+  }
   // ihui_payment_refund_total:退款状态落库成功后按渠道计数
   recordPaymentRefund(order.paymentMethod ?? 'unknown')
   // business_orders_total{type,status="refunded"} / business_payments_total{channel,status="refund"}:
   // 与上一行同一处收口(退款状态已落库),档口沿用既有 ihui_payment_refund_total 的语义。
   recordOrderSample(String(order.orderType), 'refunded')
   recordPaymentSample(order.paymentMethod ?? 'unknown', 'refund')
-  // B2: 退款时扣回 token 余额(token 充值订单/活动订单)
-  if ((order.orderType === 2 || order.orderType === 3) && order.userId) {
-    try {
-      await refundTokenDeduct(order.userId, order.amount, orderNo, '退款')
-    } catch (e) {
-      // 退还 token 失败不阻塞订单状态变更,需运营监控告警人工处理
-      logger.error(`[refundOrder] refund token deduct failed`, { err: e, orderNo })
-    }
-  }
   const updated = await findOrderByNo(orderNo)
   return { success: true, order: updated }
 }

@@ -985,26 +985,29 @@ export async function confirmUsdtPayment(
     }
 
     // 2. 更新 wallet 余额(user_margins.tokenQuantity += tokens)
+    // F-10:必须数据库原子增量。原实现 select→+→update 是读改写,并发确认两笔 USDT 入账时
+    // 后写覆盖前写(丢一笔充值)且两边流水都记了错误的 balanceAfter。
     const [margin] = await tx
-      .select()
-      .from(userMargins)
-      .where(eq(userMargins.userId, updated.userId))
-      .limit(1)
-
-    const newBalance = (margin?.tokenQuantity ?? 0) + tokensCredited
-    if (margin) {
-      await tx
-        .update(userMargins)
-        .set({ tokenQuantity: newBalance, updatedAt: now })
-        .where(eq(userMargins.userId, updated.userId))
-    } else {
-      await tx.insert(userMargins).values({
+      .insert(userMargins)
+      .values({
         userId: updated.userId,
-        tokenQuantity: newBalance,
+        tokenQuantity: tokensCredited,
         frozenQuantity: 0,
         updatedAt: now,
       })
+      .onConflictDoUpdate({
+        target: userMargins.userId,
+        set: {
+          tokenQuantity: sql`${userMargins.tokenQuantity} + ${tokensCredited}`,
+          updatedAt: now,
+        },
+      })
+      .returning({ tokenQuantity: userMargins.tokenQuantity })
+
+    if (!margin) {
+      throw new Error(`USDT 入账更新余额失败(orderId=${orderId})`)
     }
+    const newBalance = margin.tokenQuantity
 
     // 3. 记录流水(token_flows,opType=0 充值,幂等键 relatedOrderNo + opType)
     await tx.insert(tokenFlows).values({

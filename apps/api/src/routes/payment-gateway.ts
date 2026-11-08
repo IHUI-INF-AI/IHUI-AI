@@ -721,8 +721,21 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           // saga 编排 mark-order-paid + rechargeTokens + earnPoints + write-outbox(order.paid),
           // 任一步失败自动补偿(订单回滚 pending + 扣回 token/积分 + 写 compensated 事件)。
           const result = await completeOrderWithSaga(out_trade_no, transaction_id)
+          // F-32:saga 失败是**返回值** success=false(executeSaga 捕获异常后逆序补偿,不抛),
+          // 原实现只在 catch 里回 FAIL;返回失败时仍落 complete 并 ACK SUCCESS ⇒ 微信停止重投,
+          // 订单被补偿回 pending、权益未到账,只能人工补单。这里必须显式判返回值。
+          if (!result.success) {
+            await server.paymentIdempotency.fail(
+              out_trade_no,
+              idemKey,
+              result.reason ?? 'order complete failed',
+            )
+            recordWxpayCallbackFailed()
+            recordPaymentException('wechat', 'saga_failed')
+            return reply.code(500).send({ code: 'FAIL', message: '订单完成失败,待重试' })
+          }
           // 支付成功后触发返佣（失败不阻塞支付完成,但 log error 触发监控告警）
-          if (result.success && result.order) {
+          if (result.order) {
             // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
             await auditTopupBonus(
               out_trade_no,
@@ -1212,8 +1225,21 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         }
         try {
           const result = await completeOrder(outTradeNo, params.trade_no)
+          // F-32:与微信回调同口径 —— 返回 success:false 不得 ACK success,必须 fail 让支付宝重投。
+          if (!result.success) {
+            await server.paymentIdempotency.fail(
+              outTradeNo,
+              idemKey,
+              result.reason ?? 'order complete failed',
+            )
+            request.log.error(
+              { orderNo: outTradeNo, reason: result.reason },
+              'alipay callback order complete failed',
+            )
+            return reply.type('text/plain').send('fail')
+          }
           // 支付成功后触发返佣（失败不阻塞支付完成）
-          if (result.success && result.order) {
+          if (result.order) {
             // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
             await auditTopupBonus(
               outTradeNo,
@@ -1338,7 +1364,12 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         const result = await aliRefundOrder({ outTradeNo, refundAmount: amountYuan, reason })
         if (!result.success) return reply.status(500).send(error(500, '退款失败'))
       }
-      await refundOrder(outTradeNo)
+      // F-09:本地条件 UPDATE(paid→refunded)是退款落库的唯一闸门。并发双退时第二笔在这里
+      // 被判为"状态已变更",不能再返回成功(支付宝侧已用固定 out_request_no 幂等)。
+      const localResult = await refundOrder(outTradeNo)
+      if (!localResult.success) {
+        return reply.status(409).send(error(409, localResult.reason ?? '订单状态已变更,退款未落库'))
+      }
       return reply.send(success({ outTradeNo }))
     },
   )
@@ -1494,7 +1525,20 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       }
       try {
         const result = await completeOrder(outTradeNo, capture.id)
-        if (result.success && result.order) {
+        // F-32:返回 success:false 不得当成功处理,否则幂等键被标 complete、用户不会再被补单。
+        if (!result.success) {
+          await server.paymentIdempotency.fail(
+            outTradeNo,
+            idemKey,
+            result.reason ?? 'order complete failed',
+          )
+          request.log.error(
+            { orderNo: outTradeNo, reason: result.reason, paypalOrderId },
+            'paypal capture order complete failed',
+          )
+          return reply.status(500).send(error(500, 'order complete failed, will retry'))
+        }
+        if (result.order) {
           // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
           await auditTopupBonus(
             outTradeNo,
@@ -1643,7 +1687,20 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           return reply.send(success({ received: true, processing: true }))
         try {
           const result = await completeOrder(outTradeNo, captureId)
-          if (result.success && result.order) {
+          // F-32:同上,失败必须 500 让 PayPal 重投,不得落 complete + 200。
+          if (!result.success) {
+            await server.paymentIdempotency.fail(
+              outTradeNo,
+              captureId,
+              result.reason ?? 'order complete failed',
+            )
+            request.log.error(
+              { orderNo: outTradeNo, reason: result.reason, eventId: event.id },
+              'paypal webhook order complete failed',
+            )
+            return reply.status(500).send(error(500, 'order complete failed, will retry'))
+          }
+          if (result.order) {
             // P0-21 集成:充值阶梯折扣到账审计(实际入账待 order-service.ts 集成)
             await auditTopupBonus(
               outTradeNo,
@@ -1866,8 +1923,7 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         userId,
       )
       const finalAmountCents = dbAmountCents ?? amountCents
-      if (finalAmountCents <= 0)
-        return reply.status(400).send(error(400, '金额必须为正'))
+      if (finalAmountCents <= 0) return reply.status(400).send(error(400, '金额必须为正'))
       if (finalAmountCents > MAX_PAYMENT_AMOUNT_CENTS)
         return reply.status(400).send(error(400, '金额超过上限'))
       const order = await placeOrder({
