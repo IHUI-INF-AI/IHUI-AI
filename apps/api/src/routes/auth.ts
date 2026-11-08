@@ -1469,8 +1469,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         // 正常轮转;超出宽限期的重放维持家族吊销。业界先例:AWS Cognito 默认 115s、
         // Auth0 refresh rotation leeway。
         // 固定窗口:放行分支跳过重复 revoke(L1310),revokedAt 保持首次吊销时间,
-        // 避免"多次重放不断续窗"。三档裁决的唯一出口在
-        // services/refresh-replay-policy.ts(race / stale-sibling / reuse)。
+        // 避免"多次重放不断续窗"。两档裁决的唯一出口在
+        // services/refresh-replay-policy.ts(race / reuse)。
         const replay = await assessRefreshReplay(new Date(record.revokedAt), payload.familyId)
         if (replay.verdict === 'reuse') {
           if (payload.familyId) {
@@ -1491,33 +1491,15 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           }
           return reply.status(401).send(error(401, 'Invalid refresh token'))
         }
-        if (replay.verdict === 'stale-sibling') {
-          // 迟到的是陈旧副本(桌面 vault 旧值 / 停在旧页签的上下文 / 另一台设备 /
-          // 刷新响应被 API 重启打断后浏览器仍留着旧 cookie),这一族还有活 token。
-          // 2026-10-27 根治:此前这里 401 拒绝,把「凭据在、族也活着」的用户永久锁在门外
-          // (生产日志连续 [security] stale ... rejected without revoking,每次只能手登并
-          // 新建 family,年复一年累积上千条会话记录)。族还活着就说明会话没死,放行正常轮转:
-          // 旧 token 已是吊销态(下方第 4 步跳过重复 revoke,窗口不滑动),新 token 续在同一
-          // family。留 warn 便于观测旧副本的出现频率。
-          request.log.warn(
-            {
-              familyId: payload.familyId,
-              userId: payload.userId,
-              revokedAgeMs: replay.revokedAgeMs,
-            },
-            '[auth] stale refresh token replay recovered by rotation (family still alive)',
-          )
-        } else {
-          // race:宽限期内竞态放行,记 info 便于观测,不吊销家族,继续下方正常轮转流程
-          request.log.info(
-            {
-              familyId: payload.familyId,
-              userId: payload.userId,
-              revokedAgeMs: replay.revokedAgeMs,
-            },
-            '[auth] refresh token replay within leeway, treated as multi-context race',
-          )
-        }
+        // race:宽限期内竞态放行,记 info 便于观测,不吊销家族,继续下方正常轮转流程
+        request.log.info(
+          {
+            familyId: payload.familyId,
+            userId: payload.userId,
+            revokedAgeMs: replay.revokedAgeMs,
+          },
+          '[auth] refresh token replay within leeway, treated as multi-context race',
+        )
       }
 
       // 3. 确认用户仍然存在且启用

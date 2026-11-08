@@ -399,10 +399,10 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
   const stored = await findRefreshToken(rawRefreshToken)
   if (!stored) return { ok: false, status: 400, message: 'refresh_token 无效' }
   if (isRefreshTokenReused(stored)) {
-    // 三档裁决的唯一出口在 services/refresh-replay-policy.ts(与 routes/auth.ts 的
-    // /refresh 同一把尺子):race 放行轮转 / stale-sibling 也放行轮转 / reuse 吊销整族。
-    // 此前这里一律吊销整族,与 /refresh 的 30s 宽限期口径不同 —— 同一次竞态在两条
-    // 端点上一个放行一个全族打死,用户侧表现就是"关掉再打开要重新登录"(2026-10-20)。
+    // 两档裁决的唯一出口在 services/refresh-replay-policy.ts(与 routes/auth.ts 的
+    // /refresh 同一把尺子):race 放行轮转 / reuse 吊销整族。
+    // F-268:原 stale-sibling(超宽限但族内仍有活 token 就放行)已删除 —— 它让攻击者的
+    // 首次重放换到新的活 token,此后再也不会命中 reuse。
     const revokedAt = stored.revokedAt ? new Date(stored.revokedAt) : null
     if (revokedAt) {
       const replay = await assessRefreshReplay(revokedAt, payload.familyId)
@@ -414,9 +414,7 @@ export async function rotateRefreshTokenFlow(rawRefreshToken: string): Promise<R
           message: 'refresh_token 已被重用,该 token family 已全部撤销',
         }
       }
-      // stale-sibling(超宽限但族内仍有活 token):2026-10-27 起放行正常轮转。
-      // 族还活着即会话未死,迟到的是旧副本;此前返回 400 会把调用方永久锁死
-      // (与 /auth/refresh 同尺,真正的攻击面由上面的 reuse 覆盖)。
+      // race(宽限期内并发重放):放行正常轮转。
     }
   }
   if (isRefreshTokenExpired(stored))
@@ -1997,7 +1995,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         publicClient: client.publicClient,
       })
       if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-      await markSessionUsed(code)
+      if (!(await markSessionUsed(code))) {
+        return reply.status(400).send(error(400, '授权码无效或已被使用'))
+      }
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       // @token-issue-exempt: oauth-code-exchange: session 由 /auth/oauth/authorize 的已认证会话创建
@@ -2402,7 +2402,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       publicClient: client.publicClient,
     })
     if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-    await markSessionUsed(parsed.data.code)
+    if (!(await markSessionUsed(parsed.data.code))) {
+      return reply.status(400).send(error(400, '授权码无效或已被使用'))
+    }
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-web-token: 同上,凭一次性 session 换 token
@@ -2511,7 +2513,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       requirePkceForClient: true,
     })
     if (!pkce.ok) return reply.status(400).send(error(400, pkce.description))
-    await markSessionUsed(parsed.data.code)
+    if (!(await markSessionUsed(parsed.data.code))) {
+      return reply.status(400).send(error(400, '授权码无效或已被使用'))
+    }
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-pkce-token: 同上,PKCE 只证明发起方一致,不替代登录
@@ -2661,7 +2665,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       publicClient: client.publicClient,
     })
     if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-    await markSessionUsed(parsed.data.code)
+    if (!(await markSessionUsed(parsed.data.code))) {
+      return reply.status(400).send(error(400, '授权码无效或已被使用'))
+    }
     const user = await findUserById(session.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     // @token-issue-exempt: oauth-access-token: authorization_code 换 token 的兼容路径
@@ -2702,7 +2708,9 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
         publicClient: client.publicClient,
       })
       if (!pkce.ok) return reply.status(pkce.status).send(error(pkce.status, pkce.description))
-      await markSessionUsed(parsed.data.code)
+      if (!(await markSessionUsed(parsed.data.code))) {
+        return reply.status(400).send(error(400, '授权码无效或已被使用'))
+      }
       const user = await findUserById(session.userId)
       if (!user) return reply.status(404).send(error(404, '用户不存在'))
       // @token-issue-exempt: oauth-token-exchange: 同上,令牌交换不是新登录

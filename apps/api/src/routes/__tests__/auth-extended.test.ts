@@ -313,7 +313,7 @@ describe('Auth Extended API', () => {
 
     beforeEach(() => {
       pkceMocks.findSessionByCode.mockResolvedValue({ ...mockSession })
-      pkceMocks.markSessionUsed.mockResolvedValue(undefined)
+      pkceMocks.markSessionUsed.mockResolvedValue(true)
       pkceMocks.createAuditLog.mockResolvedValue(undefined)
       pkceMocks.findUserById.mockResolvedValue({ ...mockUser })
       pkceMocks.saveRefreshToken.mockResolvedValue(undefined)
