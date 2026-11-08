@@ -2580,6 +2580,13 @@
       "when": 1794034800000,
       "tag": "20261107150000_shared_to_ops_flag",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 372,
+      "when": 1794115200000,
+      "tag": "20261108000000_circle_posts_visibility",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, asc, sql, ilike, or } from 'drizzle-orm'
+import { eq, and, desc, asc, sql, ilike, or, type SQL } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import {
   circles,
@@ -11,6 +11,7 @@ import {
   asks,
   askAnswers,
   users,
+  userFollows,
   type Circle,
   type CirclePost,
   type Ask,
@@ -134,16 +135,53 @@ export async function updateCircleShowStatus(
 interface ListCirclePostsOpts {
   page: number
   pageSize: number
+  /** F-335:读面可见性口径。缺省(管理端/存量调用)保持旧的不加可见性条件。 */
+  viewer?: PostViewer
+}
+
+export type PostVisibility = 'public' | 'private' | 'followers'
+
+export interface PostViewer {
+  /** 匿名读面(GET /circles/:id/posts 允许匿名)可能没有登录主体。 */
+  userId?: string
+  /** 系统管理员绕过可见性(管理端/审核列表口径)。 */
+  isAdmin: boolean
+}
+
+/**
+ * 帖子可见性谓词(F-335):
+ * - public:所有人可见;
+ * - followers:仅关注者与作者可见(以 user_follows 存在关系判定);
+ * - private:仅作者;
+ * - 管理员返回 undefined(调用处不加条件,即全见);
+ * - 匿名主体只放 public。
+ */
+export function postVisibilityCondition(viewer: PostViewer): SQL | undefined {
+  if (viewer.isAdmin) return undefined
+  if (!viewer.userId) return eq(circlePosts.visibility, 'public')
+  return or(
+    eq(circlePosts.visibility, 'public'),
+    eq(circlePosts.userId, viewer.userId),
+    and(
+      eq(circlePosts.visibility, 'followers'),
+      // 关注关系用存在性子查询判定:仅 follower=当前主体 且 following=作者 时可见。
+      sql`EXISTS (SELECT 1 FROM ${userFollows} WHERE ${userFollows.followerId} = ${viewer.userId} AND ${userFollows.followingId} = ${circlePosts.userId})`,
+    ),
+  )
 }
 
 /**
  * 圈子帖子列表(仅 status=1 正常)，置顶在前，创建时间倒序。
+ * 传入 viewer 时叠加可见性过滤(F-335);不传则维持管理端/存量口径。
  */
 export async function findCirclePosts(
   circleId: string,
   opts: ListCirclePostsOpts,
 ): Promise<{ list: (CirclePost & { authorName: string | null })[]; total: number }> {
-  const where = and(eq(circlePosts.circleId, circleId), eq(circlePosts.status, 1))
+  const conds = [eq(circlePosts.circleId, circleId), eq(circlePosts.status, 1)]
+  const vis = opts.viewer ? postVisibilityCondition(opts.viewer) : undefined
+  if (vis) conds.push(vis)
+  const where = and(...conds)
   const cols = {
     id: circlePosts.id,
     circleId: circlePosts.circleId,
@@ -197,8 +235,17 @@ export async function isCircleMember(circleId: string, userId: string): Promise<
   return rows.length > 0
 }
 
-export async function findPostById(id: string): Promise<CirclePost | undefined> {
-  const rows = await dbRead.select().from(circlePosts).where(eq(circlePosts.id, id)).limit(1)
+/**
+ * 按 id 读帖。传 viewer 时叠加可见性过滤(F-335):作者/关注者/管理员/公开帖各有口径;
+ * 不传 viewer 保持旧口径(管理端审核、属主编辑/删除等内部路径)。
+ */
+export async function findPostById(
+  id: string,
+  viewer?: PostViewer,
+): Promise<CirclePost | undefined> {
+  const vis = viewer ? postVisibilityCondition(viewer) : undefined
+  const where = vis ? and(eq(circlePosts.id, id), vis) : eq(circlePosts.id, id)
+  const rows = await dbRead.select().from(circlePosts).where(where).limit(1)
   return rows[0]
 }
 
@@ -206,6 +253,7 @@ export interface CreatePostInput {
   title: string
   content: string
   images?: string[] | null
+  visibility?: PostVisibility
 }
 
 export async function createPost(
@@ -221,6 +269,7 @@ export async function createPost(
       title: data.title,
       content: data.content,
       images: data.images ?? null,
+      visibility: data.visibility ?? 'public',
     })
     .returning()
   const row = rows[0]
