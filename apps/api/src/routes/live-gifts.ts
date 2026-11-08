@@ -326,28 +326,36 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ----- 打赏记录列表(分页) -----
-  server.get('/live-gifts/records', async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = listQuerySchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { page, pageSize } = parsed.data
-    const [rows, totalRows] = await Promise.all([
-      db
-        .select({ record: liveGift, senderName: users.nickname })
-        .from(liveGift)
-        .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
-        .orderBy(desc(liveGift.createdAt))
-        .limit(pageSize)
-        .offset((page - 1) * pageSize),
-      db.select({ count: sql<number>`count(*)::int` }).from(liveGift),
-    ])
-    const items: (LiveGift & { senderName: string | null })[] = rows.map((r) => ({
-      ...r.record,
-      senderName: r.senderName,
-    }))
-    return reply.send(paginatedSuccess(items, totalRows[0]?.count ?? 0, { page, pageSize }))
-  })
+  // ----- 打赏记录列表(分页,管理端) -----
+  // F-199:本端点没有"我的记录"语义(无 userId/roomId 过滤参数),返回的是全站
+  // senderId/receiverId/amount/giftName 汇总 —— 属统计/审计面,必须管理员。
+  // 普通用户的"我的打赏"如要开放,应另设 /live-gifts/my-records 并按 request.userId 收口,
+  // 不得把这个跨用户列表放宽成登录即可读。
+  server.get(
+    '/live-gifts/records',
+    { preHandler: requireAdmin },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const parsed = listQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize } = parsed.data
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select({ record: liveGift, senderName: users.nickname })
+          .from(liveGift)
+          .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
+          .orderBy(desc(liveGift.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db.select({ count: sql<number>`count(*)::int` }).from(liveGift),
+      ])
+      const items: (LiveGift & { senderName: string | null })[] = rows.map((r) => ({
+        ...r.record,
+        senderName: r.senderName,
+      }))
+      return reply.send(paginatedSuccess(items, totalRows[0]?.count ?? 0, { page, pageSize }))
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
