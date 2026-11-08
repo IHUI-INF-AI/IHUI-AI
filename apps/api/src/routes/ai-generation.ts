@@ -147,7 +147,7 @@ const plugin: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, queryParsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const jobs = await listByUser(
+      const { jobs, total } = await listByUser(
         paramsParsed.data.userId,
         queryParsed.data.status,
         queryParsed.data.limit ?? 50,
@@ -159,7 +159,8 @@ const plugin: FastifyPluginAsync = async (server) => {
         result: j.returnvalue,
         failedReason: j.failedReason,
       }))
-      return reply.send(success({ list, total: list.length }))
+      // total 是该用户真实总数,不是本页条数(旧实现二者混同)
+      return reply.send(success({ list, total }))
     } catch (e) {
       req.log.error(e)
       return reply.status(500).send(error(500, '查询用户任务失败'))
