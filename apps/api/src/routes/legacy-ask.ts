@@ -2,8 +2,14 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyInstance, FastifyPluginAsync } from 'fastify'
+import type {
+  FastifyInstance,
+  FastifyPluginAsync,
+  FastifyRequest,
+  FastifyReply,
+} from 'fastify'
 import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { z } from 'zod'
 import { db } from '../db/index.js'
 import { sql, eq, and } from 'drizzle-orm'
@@ -26,6 +32,21 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     pageSize: z.coerce.number().int().min(1).max(100).optional().default(20),
   })
 
+  /**
+   * P1 修复(F-04): `userId` 来自 query,必须与登录身份一致或为管理员。
+   * 此前只判登录,任意用户换个 userId 就能枚举他人提问/回答(与 legacy-exam/legacy-live 同规)。
+   * @returns true = 放行;false = 已回包(401/403),调用方直接 return
+   */
+  const allowSelfOrAdmin = async (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    userId: string,
+  ): Promise<boolean> => {
+    if (userId === request.userId) return true
+    await requireAdmin(request, reply)
+    return !reply.sent
+  }
+
   // ========== D7: 问答分类/会员计数 (5端点) ==========
   fastify.get('/ask/categories', async () => {
     const rows = await db.execute(
@@ -34,24 +55,27 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     return { list: rows as Record<string, unknown>[] }
   })
 
-  fastify.get('/ask/member/question-count', { preHandler: authenticate }, async (request) => {
+  fastify.get('/ask/member/question-count', { preHandler: authenticate }, async (request, reply) => {
     const { userId } = userIdQuery.parse(request.query)
+    if (!(await allowSelfOrAdmin(request, reply, userId))) return
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
     )
     return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
   })
 
-  fastify.get('/ask/member/answer-count', { preHandler: authenticate }, async (request) => {
+  fastify.get('/ask/member/answer-count', { preHandler: authenticate }, async (request, reply) => {
     const { userId } = userIdQuery.parse(request.query)
+    if (!(await allowSelfOrAdmin(request, reply, userId))) return
     const rows = await db.execute(
       sql`SELECT count(*)::int AS count FROM ask_answers WHERE user_id = ${userId}`,
     )
     return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
   })
 
-  fastify.get('/ask/member/questions', { preHandler: authenticate }, async (request) => {
+  fastify.get('/ask/member/questions', { preHandler: authenticate }, async (request, reply) => {
     const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
+    if (!(await allowSelfOrAdmin(request, reply, userId))) return
     const list = await db
       .select()
       .from(asks)
@@ -61,8 +85,9 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     return { list, page: Number(page), pageSize: Number(pageSize) }
   })
 
-  fastify.get('/ask/member/answers', { preHandler: authenticate }, async (request) => {
+  fastify.get('/ask/member/answers', { preHandler: authenticate }, async (request, reply) => {
     const { userId, page, pageSize } = paginatedUserIdQuery.parse(request.query)
+    if (!(await allowSelfOrAdmin(request, reply, userId))) return
     const list = await db
       .select()
       .from(askAnswers)

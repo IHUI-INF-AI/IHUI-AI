@@ -170,8 +170,9 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 1. 统一 PII 清除：遍历删除 PII 子表 + 彻底匿名化 users 主行(status=3) + 吊销 refresh token
-    //    （含 user_auth_info / addresses / devices / chat / memory / notes / oauth / preferences / passkeys 等，幂等）
-    await purgeUserPii(userId)
+    //    （含 user_auth_info / addresses / devices / device_* / security_logs / user_emails /
+    //     chat / memory / notes / oauth / preferences / passkeys 等，幂等）
+    const purge = await purgeUserPii(userId)
 
     // 2. 清理搜索历史
     await clearSearchHistory(userId).catch(() => {

@@ -1951,8 +1951,21 @@ export async function replaceMessages(
     tokens?: number | null
     metadata?: Record<string, unknown> | null
   }>,
+  /**
+   * F-03(2026-11-08):调用方的认证主体。传入时先校验会话属主,
+   * 不属于本人则整体跳过(不删、不写),堵住按 conversationId 跨用户清空/覆写。
+   */
+  expectedUserId?: string,
 ): Promise<void> {
   await db.transaction(async (tx) => {
+    if (expectedUserId) {
+      const [owned] = await tx
+        .select({ id: chatConversations.id })
+        .from(chatConversations)
+        .where(and(eq(chatConversations.id, conversationId), eq(chatConversations.userId, expectedUserId)))
+        .limit(1)
+      if (!owned) return
+    }
     await tx.delete(chatMessages).where(eq(chatMessages.conversationId, conversationId))
     if (messages.length > 0) {
       // D35(2026-09-24):重插流按 role 重算 turn 序号 —— user 消息开启新轮,

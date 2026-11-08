@@ -107,18 +107,18 @@ const USER_SCOPED_TABLES: Array<{ table: AnyPgTable; userCol: AnyPgColumn; label
   { table: deviceTokens, userCol: deviceTokens.userId, label: 'device_tokens' },
   { table: crashReports, userCol: crashReports.userId, label: 'crash_reports' },
   { table: visitLogs, userCol: visitLogs.userId, label: 'visit_logs' },
+  // F-269(2026-11-08):补齐后建表 —— 注销后明文邮箱/安全日志/设备指纹仍会残留。
+  { table: userEmails, userCol: userEmails.userId, label: 'user_emails' },
+  { table: securityLogs, userCol: securityLogs.userId, label: 'security_logs' },
+  // device_tasks 先删(其 target_device_id 级联自 devices),再删配对码与设备。
+  { table: deviceTasks, userCol: deviceTasks.createdBy, label: 'device_tasks' },
+  { table: devicePairCodes, userCol: devicePairCodes.userId, label: 'device_pair_codes' },
+  { table: devices, userCol: devices.userId, label: 'devices' },
   // SDB-29:开发者 API Key 与分享 token 是可直接调用付费接口的凭据,注销必须吊销。
   // 先删 api_key_shares(其 created_by 为 RESTRICT、source_api_key_id 为 CASCADE),
   // 再删 developer_api_keys,避免 RESTRICT 把 Key 留在 active 态。
   { table: apiKeyShares, userCol: apiKeyShares.createdBy, label: 'api_key_shares' },
   { table: developerApiKeys, userCol: developerApiKeys.userId, label: 'developer_api_keys' },
-  // F-269:此前漏掉的 PII 残留面 —— 多邮箱、安全日志(含 ip/ua)、设备与配对码、
-  // 设备任务(含会话转录引用)。注销后必须一并清除。
-  { table: userEmails, userCol: userEmails.userId, label: 'user_emails' },
-  { table: securityLogs, userCol: securityLogs.userId, label: 'security_logs' },
-  { table: devices, userCol: devices.userId, label: 'devices' },
-  { table: devicePairCodes, userCol: devicePairCodes.userId, label: 'device_pair_codes' },
-  { table: deviceTasks, userCol: deviceTasks.createdBy, label: 'device_tasks' },
 ]
 
 interface PurgeResult {

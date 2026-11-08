@@ -140,8 +140,11 @@ export async function autoCloseExpiredOrders(): Promise<{
       ) {
         await wxCloseOrder(order.orderNo)
       }
-      await updateOrderStatus(order.orderNo, 'cancelled')
-      closed.push(order.orderNo)
+      // F-230:关渠道单与本地改状态之间隔着数百 ms~秒的外部调用,期间用户可能刚完成支付
+      // 并把订单置为 paid。必须用条件 UPDATE(fromStatus='pending')抢占:
+      // 返回 undefined = 状态已不是 pending(已支付/已处理),不得覆盖为 cancelled。
+      const updated = await updateOrderStatus(order.orderNo, 'cancelled', 'pending')
+      if (updated) closed.push(order.orderNo)
     } catch (e) {
       failed.push({ orderNo: order.orderNo, error: (e as Error).message })
     }

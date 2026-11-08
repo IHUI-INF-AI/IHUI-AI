@@ -4,9 +4,8 @@
 
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { randomUUID } from 'node:crypto'
 import { eq, sql, desc, and, inArray } from 'drizzle-orm'
-import { db, dbRead } from '../db/index.js'
+import { dbRead } from '../db/index.js'
 import {
   commissionFlows,
   withdrawalFlows,
@@ -22,6 +21,7 @@ import {
   getTeamMember,
   teamCenter,
   availableWithdrawal,
+  applyWithdrawal,
   listWithdrawals,
 } from '../db/commission-queries.js'
 import { requireStepUpForTwoFactorUser } from '../services/two-factor-step-up-store.js'
@@ -431,21 +431,28 @@ export const distributionRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 创建提现申请(status=0 待审核)
-    const [withdrawal] = await db
-      .insert(withdrawalFlows)
-      .values({
-        id: randomUUID(),
-        userId,
-        amount: body.data.amount,
-        originalAmount: body.data.amount,
-        fee: 0,
-        status: 0,
-        method: body.data.method ?? 'bank',
-      })
-      .returning()
-
-    if (!withdrawal) {
-      return reply.status(500).send(error(500, '创建提现申请失败'))
+    // P0 资金安全(F-61):必须走 applyWithdrawal —— 在同一事务内原子冻结
+    // (token_quantity -= actualAmount / frozen_quantity += actualAmount)、按 2% 收取手续费
+    // 并生成 partnerTradeNo,与 payment-extended 回调侧「成功只释放冻结 / 失败退还并释放」
+    // 严格配套。原实现只插流水不冻结不扣款:成功回调把 frozen 扣成负数,失败回调凭空铸币,
+    // 且申请期间余额未锁定可并发超额挂单。
+    let withdrawal
+    try {
+      withdrawal = await applyWithdrawal(
+        {
+          userId,
+          amount: body.data.amount,
+          method: body.data.method ?? 'bank',
+          accountInfo: {},
+        },
+        request.userId ?? null,
+      )
+    } catch (e) {
+      const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 500
+      if (statusCode >= 500) request.log.error({ err: e }, 'distribution withdraw failed')
+      return reply
+        .status(statusCode)
+        .send(error(statusCode, statusCode < 500 ? (e as Error).message : '操作失败,请稍后重试'))
     }
     return reply.status(201).send(success({ withdrawal }))
   })

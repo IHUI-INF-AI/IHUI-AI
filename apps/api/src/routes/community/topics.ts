@@ -16,6 +16,7 @@ import { circleCategoryRelation, circleCircleCategoryRelation, circleDynamic } f
 import { sanitizeUgcInput } from '../../db/sensitive-words-queries.js'
 import { getLegacyId } from '../../db/id-mapping-queries.js'
 import { ADMIN_ROLE_ID } from './_shared.js'
+import { requireAdmin } from '../../plugins/require-permission.js'
 import {
   countSubscribers,
   findTagById,
@@ -104,7 +105,11 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /circles/topic - 创建话题
-  server.post('/circles/topic', async (request, reply) => {
+  //
+  // F-155(2026-11-08):circle_dynamic.member_id 是旧会员号(integer),与 JWT 主体
+  // users.id(uuid)之间没有映射表,无法判定/盖章属主 ⇒ 写接口收紧为管理员专用。
+  // 普通用户的发帖走 uuid 域(/circles/topics/hot → tags)的既有链路,两条不混用。
+  server.post('/circles/topic', { preHandler: requireAdmin }, async (request, reply) => {
     const body = z
       .object({
         content: z.string().min(1),
@@ -149,8 +154,8 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     return reply.status(201).send(success({ topic: created }))
   })
 
-  // PUT /circles/topic/:tid - 修改话题
-  server.put('/circles/topic/:tid', async (request, reply) => {
+  // PUT /circles/topic/:tid - 修改话题(F-155:同因收紧为管理员,见上)
+  server.put('/circles/topic/:tid', { preHandler: requireAdmin }, async (request, reply) => {
     const { tid } = z.object({ tid: z.string() }).parse(request.params)
     const tidNum = Number(tid)
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
@@ -212,8 +217,8 @@ const topicsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ topic: updated }))
   })
 
-  // DELETE /circles/topic/:tid - 删除话题
-  server.delete('/circles/topic/:tid', async (request, reply) => {
+  // DELETE /circles/topic/:tid - 删除话题(F-155:同因收紧为管理员,见上)
+  server.delete('/circles/topic/:tid', { preHandler: requireAdmin }, async (request, reply) => {
     const { tid } = z.object({ tid: z.string() }).parse(request.params)
     const tidNum = Number(tid)
     if (!Number.isInteger(tidNum) || tidNum <= 0) {
