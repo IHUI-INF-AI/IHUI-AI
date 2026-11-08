@@ -199,8 +199,28 @@ async function renderLogin(): Promise<void> {
   })
 }
 
-const DOMESTIC = ['wechat', 'enterpriseWechat', 'dingtalk', 'feishu', 'alipay', 'google', 'github']
-const OVERSEAS = ['google', 'github', 'wechat', 'feishu', 'dingtalk', 'enterpriseWechat', 'alipay']
+// 端内成员集:核心 7 位在表内按区域换序;linuxdo 无原生 SDK,属"表外平台",
+// 按 ③ 的规则恒定落末尾(与 RN 独有的 apple 同档),不参与区域排序。
+const DOMESTIC = [
+  'wechat',
+  'enterpriseWechat',
+  'dingtalk',
+  'feishu',
+  'alipay',
+  'google',
+  'github',
+  'linuxdo',
+]
+const OVERSEAS = [
+  'google',
+  'github',
+  'wechat',
+  'feishu',
+  'dingtalk',
+  'enterpriseWechat',
+  'alipay',
+  'linuxdo',
+]
 
 describe('票 L28754 RN 端第三方登录优先级(共享判据)', () => {
   beforeEach(() => {

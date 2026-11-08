@@ -38,13 +38,20 @@ export function ActivityDetailScreen({
   }
 
   if (error || !item) {
+    // BUG-NEW-01:错误/空态必须与 loading / 成功态一样带页头返回键;onRetry 只在真注入时
+    // 才成为独立的「重试」affordance —— 不再把 retryLabel 借成「返回」的替身。
     return (
-      <ErrorState
-        message={error || t('activities.notFound')}
-        onRetry={onRetry}
-        retryLabel={t('common.back')}
-        colorScheme={colorScheme}
-      />
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <BackChevron onPress={onBack} label={t('common.back')} colorScheme={colorScheme} />
+          <Text style={styles.title}>{t('activityDetail.title')}</Text>
+        </View>
+        <ErrorState
+          message={error || t('activities.notFound')}
+          onRetry={onRetry}
+          colorScheme={colorScheme}
+        />
+      </View>
     )
   }
 

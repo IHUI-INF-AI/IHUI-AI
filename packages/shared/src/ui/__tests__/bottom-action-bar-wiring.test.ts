@@ -30,6 +30,10 @@ import type { ReactElement } from 'react'
 
 import { describe, expect, it } from 'vitest'
 
+// ⑦ 的 configEmoji 出处已从字面量 20 改指 design-tokens 的 rnType.body.lineHeight:
+// 锚点认得名字之后必须同时钉住 token 真值,否则"名实漂开"会从这把尺子底下溜过去。
+import { rnType } from '@ihui/design-tokens'
+
 import {
   BottomActionBarControl,
   BottomActionBarIconCardRow,
@@ -706,7 +710,8 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     dimension: 'geometry',
     owner: 'mobile-rn',
     kind: 'A',
-    anchor: /configEmoji:\s*\{[^}]*\blineHeight:\s*20,/,
+    // 出处从字面量 20 收编进 design-tokens(rnType.body.lineHeight=20):值未变、形态变了。
+    anchor: /configEmoji:\s*\{[^}]*\blineHeight:\s*rnType\.body\.lineHeight,/,
     otherAnchor: /configEmoji/,
     why: 'A 旧模式配置钮/辅助行行高:小程序模型条没有配置钮',
   },
@@ -951,6 +956,15 @@ describe('⑦ 差异档事实表与台账同批对账(12 门计数几何 + 1 小
     ).toBe(0)
     // 三类归属必须都在场(全 A 的"分类"没有信息量)
     expect([...new Set(ONE_SIDED_FACTS.map((f) => f.kind))].sort().join(',')).toBe('A,A/B,B,C')
+  })
+
+  it('⑦ token 出处的真值仍等于登记值(锚点改指 rnType.body.lineHeight 后不许名实漂开)', () => {
+    const fact = ONE_SIDED_FACTS.find((f) => f.value === 20 && f.owner === 'mobile-rn')
+    expect(fact, 'configEmoji 行高 20 未登记 ⇒ 本锁无对象可钉').toBeDefined()
+    expect(
+      rnType.body.lineHeight,
+      'configEmoji 行高出处换成 rnType.body.lineHeight 后 token 真值 ≠ 事实表 20',
+    ).toBe(fact?.value)
   })
 
   it('本锁有牙:把单端元素名搬进对侧 ⇒ 判据必须红(补引用凑平)', () => {

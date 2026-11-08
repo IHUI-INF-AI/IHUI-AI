@@ -61,6 +61,10 @@ import {
 import { rnGeometry, rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
 import {
   BOTTOM_ACTION_BAR_CHIP_FONT_PX,
+  // 行距:两端同值档(小程序经 core 的 InlineRow 取同一枚,RN 直取)。
+  // 2026-11-04 死腿删除后曾被误退成 rnSpacing.xs(4),2026-11-05 在 release/mobile-0.0.10
+  // 上已改回 8,但那条分支从未回流 main —— 2026-11-08 在此补回(还原,非新造值)。
+  BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   BOTTOM_ACTION_BAR_MODEL_BAR_FONT_PX,
   BOTTOM_ACTION_BAR_MODEL_BADGE_PX,
   BOTTOM_ACTION_BAR_TEXT_FONT_PX,
@@ -825,7 +829,7 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: rnSpacing.xs,
+    gap: BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX,
   } as ViewStyle,
   toggleChip: {
     borderRadius: rnRadius.md,

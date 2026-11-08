@@ -191,6 +191,17 @@ perf(web): code-generator 主题切换性能优化(同 markdown-stream 方案)
 - `scripts/check-agents.mjs` 在 pre-push 钩子中校验,改动跨 Agent 边界时需显式声明。
 - 详见 `server-docs/PRE_COMMIT_GUIDE.md`。
 
+### 4.3 `release/*` 是短命分支:修好即回流
+
+- `release/*` 只用于"冻结版本号 + 出包验证",存活期以**一次发版**为限。分支上的任何修复(门链对齐、构建配置、i18n 键、测试夹具、脚本)在出包成功后必须**当天回流 `main`**;当天回不了的要登记成待回流项,不许让分支长期领先。
+- 判据:一次发版收尾时 `git log --no-merges main..release/*` 必须为空。唯一允许留下的是**一次性版本号提交**,且它必须在 `main` 上以目标版本重新落(例如 `0.0.10` 分支上的版本号提交,在 `main` 上由 `1.1.0` 那次替代)。
+- 反例(2026-11-08 实测):`release/mobile-0.0.10` 上 11-05 的 `e7d2db656e`(出包门链对齐)从未回流 `main`,该分支比 `main` 多 16 个提交,直接导致 `main` 上 `mobile-release-gate` 连续红三天,而线上包照发——"线上能发版、`main` 流水线却红"就是这条规则缺位的症状。同类情形已出现两次(`0.0.10` 与 `0.0.12` 两个 release 都跑在 `main` 前面)。
+
+### 4.4 两条全仓硬规矩
+
+- **禁止 rebase 已推送或他人可见的提交,只许 merge。** 立因(2026-11-08):提交面 `30a` 被 77 枚悬空提交堵死,逐枚 patch-id 归类后确认根子是并行线反复 rebase 覆盖旧版;并行 rebase 还在继续 ⇒ 悬空持续增长,这道门在提交面上**结构性永远红**。已建的备份见 `refs/backup/rebase-2026-11-08/<短sha>`(真对象被 ref 指住,不是白名单)。
+- **同一时刻只允许一条线改共享文件**:`README.md` / `README.en.md`、版本号位点(`apps/*/package.json`、`app.json`、`app.config.js`、`android/app/build.gradle`、`tauri.conf.json`、`wxt.config.ts`)、`packages/app/src/index.ts` 桶、各类 `*.generated.*`。要改先声明;冲突就等,不许抢。版本号改动线进行中时,其他线不得动 README。
+
 ---
 
 ## 5. PR 流程

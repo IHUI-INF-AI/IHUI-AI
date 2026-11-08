@@ -107,10 +107,12 @@ const WEB = 'apps/web/src/components/data/Avatar.tsx'
 const TARO = 'apps/miniapp-taro/src/components/Avatar.tsx'
 
 /**
- * 小程序端缺席豁免(BUG-0038):锁的目标文件已不存在，且 mini src 全量扫描没有任何
+ * 小程序端缺席豁免(BUG-0038):锁的目标文件不存在，且 mini src 全量扫描没有任何
  * `@ihui/shared/ui/avatar-spec` 取用 ⇒ 该端确实没有可锁的 Avatar 组件。
- * 这不是 skip:②b 会同时断言「文件不存在 + 全 src 无 spec 取用」；任一条件失效，
- * ②b 立刻红，强制把该端接回锁，而不是让 readFileSync 抛 ENOENT。
+ * 这不是 skip:②b 在**豁免生效时**断言「文件不存在 + 全 src 无 spec 取用」;
+ * 文件一旦在场(a1c4c3b6b7 的 gen-ui-mirror 重生成过这份镜像),豁免随即失效,
+ * ②b 改判「② 的锁必须真的覆盖它」:五档类名表齐全且换算回唯一表 —— 两条支路都在断言,
+ * 没有一条是静默放行。
  */
 const TARO_ABSENT = !existsSync(resolve(REPO, TARO))
 const TARO_ABSENCE_REASON =
@@ -147,13 +149,22 @@ describe('Avatar 跨端唯一表接线', () => {
     expect(diffAgainstSpec(taro, 'taro')).toEqual([])
   })
 
-  it('②b 小程序缺席豁免具名生效:文件不存在 + 全 src 无 spec 取用;任一失效即红', () => {
-    if (!TARO_ABSENT) throw new Error(`Taro Avatar 已出现:${TARO};必须接回锁,不能继续用缺席豁免`)
-    expect(TARO_ABSENCE_REASON).toContain('不存在')
-    const offenders = sourceFiles(resolve(REPO, 'apps/miniapp-taro/src')).filter((p) =>
-      readFileSync(p, 'utf8').includes('@ihui/shared/ui/avatar-spec'),
-    )
-    expect(offenders, 'Taro 端已出现 avatar-spec 消费点,缺席豁免失效').toEqual([])
+  it('②b 缺席豁免具名生效;组件一旦在场,② 的锁必须真的覆盖它', () => {
+    if (TARO_ABSENT) {
+      expect(TARO_ABSENCE_REASON).toContain('不存在')
+      const offenders = sourceFiles(resolve(REPO, 'apps/miniapp-taro/src')).filter((p) =>
+        readFileSync(p, 'utf8').includes('@ihui/shared/ui/avatar-spec'),
+      )
+      expect(offenders, 'Taro 端已出现 avatar-spec 消费点,缺席豁免失效').toEqual([])
+      return
+    }
+    // 在场:不能再用"文件不存在"豁免,② 的读数必须真落在这一端上(档集齐全 + 换算等于唯一表)
+    const taro = classTable(stripComments(readFileSync(resolve(REPO, TARO), 'utf8')), 'SIZES')
+    expect(
+      Object.keys(taro).sort(),
+      'Taro Avatar 在场但档集 ≠ 唯一表 ⇒ ② 对它的覆盖是空转',
+    ).toEqual(Object.keys(AVATAR_PX).sort())
+    expect(diffAgainstSpec(taro, 'taro'), 'Taro Avatar 在场但类名换算 ≠ 唯一表').toEqual([])
   })
 
   it('③ 键集五档齐全(少一档会让该档调用点拿到 undefined 类名)', () => {
