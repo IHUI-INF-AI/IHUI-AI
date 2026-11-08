@@ -140,7 +140,11 @@ export const ImagePicker = {
   requestCameraPermissionsAsync: async (): Promise<ImagePickerPermission> =>
     permissionFromAuth((await readAuthSetting())['scope.camera']),
   launchImageLibraryAsync: async (options: Record<string, unknown> = {}) => {
-    const count = Number(options.selectionLimit ?? 1)
+    // XUI-055:只认 selectionLimit ⇒ 声明多选但没给上限时退化成单选。
+    // 微信 chooseImage 上限 9;未声明多选才落 1。
+    const count = Number(
+      options.selectionLimit ?? (options.allowsMultipleSelection === true ? 9 : 1),
+    )
     try {
       const res = await Taro.chooseImage({ count })
       const uris = (res.tempFilePaths ?? []) as string[]
