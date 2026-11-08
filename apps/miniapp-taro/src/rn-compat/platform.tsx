@@ -400,13 +400,12 @@ export const createAssetAsync = MediaLibrary.createAssetAsync
 export const saveToPhotosAsync = MediaLibrary.saveToPhotosAsync
 export const deleteAssetsAsync = MediaLibrary.deleteAssetsAsync
 
-export default {
-  Clipboard,
-  ImagePicker,
-  MediaLibrary,
-  SafeAreaView,
-  SafeAreaProvider,
-  useSafeAreaInsets,
-  useSafeAreaFrame,
-}
+/**
+ * XUI-013:默认导出必须是 Clipboard 本体。
+ * 共享层用法是 `import Clipboard from '@react-native-clipboard/clipboard'` 再
+ * `Clipboard.setString(...)`;旧默认导出是一个「成员袋」,调用方拿到的
+ * Clipboard.setString 为 undefined ⇒ 点击复制即 TypeError。
+ * ImagePicker / MediaLibrary / SafeArea* 等仍由上面的命名导出提供。
+ */
+export default Clipboard
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
