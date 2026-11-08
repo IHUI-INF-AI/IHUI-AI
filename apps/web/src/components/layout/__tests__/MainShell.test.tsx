@@ -15,17 +15,23 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 let capturedCloseMobile: (() => void) | null = null
 let capturedMobileOpen = false
 
-vi.mock('@/components/sidebar', () => ({
-  Sidebar: (props: { mobileOpen: boolean; onCloseMobile: () => void }) => {
-    capturedMobileOpen = props.mobileOpen
-    capturedCloseMobile = props.onCloseMobile
-    return <div data-testid="sidebar" data-open={String(props.mobileOpen)} />
-  },
-  // TagsView 经由 path-labels.ts 间接导入 FLAT_NAV_ITEMS,需要在 mock 中提供
-  FLAT_NAV_ITEMS: [],
-  ALL_NAV_HREFS: [],
-  NAV_GROUPS: [],
-}))
+// 2026-11-07 实现侧变更:GlobalShell 的侧栏 fallback 宽度引用 `SIDEBAR_WIDTH`
+// (几何档 rnGeometry.drawerWidth) —— mock 保留真实导出,避免渲染期常量 undefined。
+vi.mock('@/components/sidebar', async (importOriginal) => {
+  const actual = (await importOriginal()) as Record<string, unknown>
+  return {
+    ...actual,
+    Sidebar: (props: { mobileOpen: boolean; onCloseMobile: () => void }) => {
+      capturedMobileOpen = props.mobileOpen
+      capturedCloseMobile = props.onCloseMobile
+      return <div data-testid="sidebar" data-open={String(props.mobileOpen)} />
+    },
+    // TagsView 经由 path-labels.ts 间接导入 FLAT_NAV_ITEMS,需要在 mock 中提供
+    FLAT_NAV_ITEMS: [],
+    ALL_NAV_HREFS: [],
+    NAV_GROUPS: [],
+  }
+})
 vi.mock('@/components/common/PageSkeleton', () => ({
   PageSkeleton: () => null,
 }))

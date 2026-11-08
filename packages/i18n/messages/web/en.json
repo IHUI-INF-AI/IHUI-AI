@@ -13680,6 +13680,7 @@
     "show": "Show",
     "delete": "Delete",
     "save": "Save",
+    "saveFailed": "Save Failed",
     "ok": "OK",
     "create": "Create",
     "agentKanban": "Agent Kanban",

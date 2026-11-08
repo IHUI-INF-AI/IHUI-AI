@@ -83,7 +83,8 @@ describe('O13 迁移 20260921160000:应用角色 + owner 策略', () => {
     // 这比「排最后」更严:有人把迁移插到中间(导致 when 乱序)照样被拦下。
     const whens = journal.entries.map((e) => e.when)
     expect([...whens].sort((a, b) => a - b)).toEqual(whens)
-    expect(journal.entries.every((e, i) => e.idx === i + 1)).toBe(true)
+    // 2026-11 journal 重排为 0-based(first idx=0);旧断言 i+1 钉的是 1-based 时代。
+    expect(journal.entries.every((e, i) => e.idx === i)).toBe(true)
   })
 
   it('整份只有一个 dollar-quoted DO 块:任何语句分割器看到的都是单条语句', () => {

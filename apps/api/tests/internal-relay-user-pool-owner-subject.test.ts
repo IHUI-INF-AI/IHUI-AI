@@ -17,6 +17,7 @@
  * 会 TRUNCATE 全部业务表 = 摧毁在跑的开发数据,故 db 换成「写通道调用台账」的内存替身,
  * 断言的是「一条写语句都没发出」。补真库凭据后的命令见交付报告。
  */
+import { createHmac } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -27,16 +28,21 @@ import Fastify, { type FastifyInstance } from 'fastify'
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..')
 const ROUTE_FILE = 'apps/api/src/routes/internal-relay-user-pool.ts'
 
-const { SECRET, CALLS, PRINCIPAL } = vi.hoisted(() => ({
-  SECRET: { AI_CALLBACK_SECRET: '' },
+const { SECRET, CALLS, PRINCIPAL } = vi.hoisted(() => {
+  // 2026-11-05 档位默认收紧为 ticket-only;本文件测的是"主体只能来自承载层",
+  // 需要老通道可用 ⇒ 显式切 dual(纯代理/票档各有自己的用例)。
+  process.env.INTERNAL_SERVICE_AUTH_MODE = 'dual'
+  return {
+    SECRET: { AI_CALLBACK_SECRET: '' },
   // 「副作用」的可观测形态:有没有写语句走到 db 边界、服务被喂了哪个主体
   CALLS: {
     mutations: [] as string[],
     importOwner: [] as Array<string | null | undefined>,
   },
-  // injectVerifiedUser 查到的那枚用户(承载层主体的存在性/活跃性由此驱动)
-  PRINCIPAL: { id: '', status: 1, roleId: 0 },
-}))
+    // injectVerifiedUser 查到的那枚用户(承载层主体的存在性/活跃性由此驱动)
+    PRINCIPAL: { id: '', status: 1, roleId: 0 },
+  }
+})
 
 vi.mock('../src/config/index.js', () => ({ config: SECRET }))
 
@@ -83,13 +89,25 @@ const DELETE = '/api/internal/relay/user-pool/delete'
 const USER_A = '00000000-0000-4000-8000-0000000000a1'
 const USER_B = '00000000-0000-4000-8000-0000000000b2'
 
-/** 承载层凭据。如实建模「库里存在该主体」:承载层声明谁,替身就回填谁做主体。 */
+/**
+ * 承载层凭据。如实建模「库里存在该主体」:承载层声明谁,替身就回填谁做主体。
+ *
+ * 2026-11-05 身份头收口:光有常驻密钥不够,自报的 x-user-id 必须自带
+ * HMAC-SHA256(secret, "legacy-v1\n<userId>\n<timestamp>") 且在 ±300s 内;
+ * 旧夹具只发明文身份头 ⇒ 一律 401 "Invalid internal service identity signature"。
+ */
 const carrier = (userId: string) => {
   PRINCIPAL.id = userId
+  const timestamp = String(Math.floor(Date.now() / 1000))
+  const signature = createHmac('sha256', SECRET.AI_CALLBACK_SECRET)
+    .update(`legacy-v1\n${userId}\n${timestamp}`, 'utf8')
+    .digest('hex')
   return {
     'x-internal-secret': SECRET.AI_CALLBACK_SECRET,
     'x-internal-service-token': SECRET.AI_CALLBACK_SECRET,
     'x-user-id': userId,
+    'x-internal-service-timestamp': timestamp,
+    'x-internal-service-signature': signature,
   }
 }
 

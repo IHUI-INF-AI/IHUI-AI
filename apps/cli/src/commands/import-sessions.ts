@@ -177,60 +177,129 @@ export interface SessionFileCandidate {
   mtimeMs: number;
 }
 
-async function collectFromDir(
+/** 扫描 IO 注入面:null = 量不到(不是"不存在");抛 ENOENT/ENOTDIR = 不存在。 */
+export interface SessionScanIo {
+  readStat(p: string): Promise<SessionScanStat | null>;
+  readDir(dir: string): Promise<SessionScanEntry[]>;
+}
+
+export interface SessionScanStat {
+  isFile(): boolean;
+  isDirectory(): boolean;
+  mtimeMs: number;
+}
+
+export interface SessionScanEntry {
+  name: string;
+  isFile(): boolean;
+  isDirectory(): boolean;
+}
+
+export interface SessionScanResult {
+  candidates: SessionFileCandidate[];
+  /** false = 至少一处目录/文件读不到,"没扫到"不能当成"没有" */
+  scanComplete: boolean;
+}
+
+const DEFAULT_SCAN_IO: SessionScanIo = {
+  readStat: (p) => stat(p),
+  readDir: (dir) => readdir(dir, { withFileTypes: true }),
+};
+
+type Measured =
+  | { kind: 'stat'; stat: SessionScanStat }
+  | { kind: 'missing' }
+  | { kind: 'unmeasured' };
+
+function errnoCode(error: unknown): string {
+  return error !== null && typeof error === 'object' && 'code' in error && typeof (error as { code?: unknown }).code === 'string'
+    ? (error as { code: string }).code
+    : 'unknown';
+}
+
+async function measure(io: SessionScanIo, target: string): Promise<Measured> {
+  try {
+    const st = await io.readStat(target);
+    // 注入面显式返回 null ⇒ 量不到;绝不能补 0 当成"刚修改过"。
+    return st ? { kind: 'stat', stat: st } : { kind: 'unmeasured' };
+  } catch (error) {
+    const code = errnoCode(error);
+    if (code === 'ENOENT' || code === 'ENOTDIR') return { kind: 'missing' };
+    return { kind: 'unmeasured' };
+  }
+}
+
+function matchesSource(cfg: SessionSourceConfig, fileName: string): boolean {
+  return cfg.extensions.includes(path.extname(fileName).toLowerCase())
+    && (!cfg.namePattern || cfg.namePattern.test(fileName));
+}
+
+async function walkForCandidates(
+  io: SessionScanIo,
   dir: string,
   cfg: SessionSourceConfig,
   depth: number,
   out: SessionFileCandidate[],
   budget: { left: number },
+  state: { scanComplete: boolean },
 ): Promise<void> {
   if (depth < 0 || budget.left <= 0) return;
-  let entries;
+  let entries: SessionScanEntry[];
   try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-      // 不可读/不存在 → 静默跳过,由调用方统一给出 noFilesFound 提示
-      return;
+    entries = await io.readDir(dir);
+  } catch (error) {
+    // 不存在(被删走)不算"读不到";其它错误(EACCES 等)必须记成"扫描没有完成"。
+    if (errnoCode(error) !== 'ENOENT' && errnoCode(error) !== 'ENOTDIR') state.scanComplete = false;
+    return;
   }
   for (const entry of entries) {
     if (budget.left <= 0) return;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIR_NAMES.has(entry.name)) continue;
-      await collectFromDir(full, cfg, depth - 1, out, budget);
+      await walkForCandidates(io, full, cfg, depth - 1, out, budget, state);
       continue;
     }
-    if (!entry.isFile()) continue;
-    if (!cfg.extensions.includes(path.extname(entry.name).toLowerCase())) continue;
-    if (cfg.namePattern && !cfg.namePattern.test(entry.name)) continue;
+    if (!entry.isFile() || !matchesSource(cfg, entry.name)) continue;
+    const m = await measure(io, full);
+    if (m.kind === 'unmeasured') {
+      // 文件读不到/量不到修改时间:不收录、不写 0,并记"没扫完"。
+      state.scanComplete = false;
+      continue;
+    }
+    if (m.kind === 'missing') continue;
     budget.left -= 1;
-    const st = await stat(full).catch(() => null);
-    out.push({ file: full, mtimeMs: st?.mtimeMs ?? 0 });
+    out.push({ file: full, mtimeMs: m.stat.mtimeMs });
   }
 }
 
-/** 按来源发现候选导出文件(按修改时间倒序,最新的通常是用户想导入的那个) */
-export async function discoverSessionCandidates(
+/**
+ * 按来源扫描候选导出文件,并显式回答"这次扫描到底扫完没有"。
+ * 目录/文件读不到时绝不退化成"未发现导出文件"或 mtime=0。
+ */
+export async function scanSessionExports(
   source: ConversationImportSource,
   inputPath: string | undefined,
   limit: number,
-): Promise<SessionFileCandidate[]> {
+  io: SessionScanIo = DEFAULT_SCAN_IO,
+): Promise<SessionScanResult> {
   const cfg = SESSION_SOURCE_CONFIG[source];
   const roots = inputPath ? [path.resolve(expandTilde(inputPath))] : cfg.roots();
   const found: SessionFileCandidate[] = [];
   const budget = { left: MAX_WALK_ENTRIES };
+  const state = { scanComplete: true };
   for (const root of roots) {
-    const st = await stat(root).catch(() => null);
-    if (!st) continue;
-    if (st.isFile()) {
-      const extOk = cfg.extensions.includes(path.extname(root).toLowerCase());
-      const nameOk = !cfg.namePattern || cfg.namePattern.test(path.basename(root));
-      if (extOk && nameOk) {
-        found.push({ file: root, mtimeMs: st.mtimeMs });
-      }
+    const m = await measure(io, root);
+    if (m.kind === 'missing') continue;
+    if (m.kind === 'unmeasured') {
+      state.scanComplete = false;
       continue;
     }
-    await collectFromDir(root, cfg, MAX_WALK_DEPTH, found, budget);
+    if (m.stat.isFile()) {
+      if (matchesSource(cfg, path.basename(root))) found.push({ file: root, mtimeMs: m.stat.mtimeMs });
+      continue;
+    }
+    await walkForCandidates(io, root, cfg, MAX_WALK_DEPTH, found, budget, state);
   }
   const seen = new Set<string>();
   const unique: SessionFileCandidate[] = [];
@@ -239,7 +308,52 @@ export async function discoverSessionCandidates(
     seen.add(c.file);
     unique.push(c);
   }
-  return unique.slice(0, Math.max(1, limit));
+  return { candidates: unique.slice(0, Math.max(1, limit)), scanComplete: state.scanComplete };
+}
+
+/** 按来源发现候选导出文件(按修改时间倒序,最新的通常是用户想导入的那个) */
+export async function discoverSessionCandidates(
+  source: ConversationImportSource,
+  inputPath: string | undefined,
+  limit: number,
+): Promise<SessionFileCandidate[]> {
+  return (await scanSessionExports(source, inputPath, limit)).candidates;
+}
+
+/** 跨产品迁移的预演/拒写判定。source 只认三款已知产品;没量到/没迁入一律不许 sync。 */
+export type PeerMigrationSource = 'workbuddy' | 'codex' | 'qoder-work';
+
+export interface PeerMigrationInput {
+  source: string;
+  phase: 'discover' | 'migrate' | 'sync';
+  /** null = 发现阶段没量到(不是空清单) */
+  discovered: string[] | null;
+  migrated: boolean | null;
+  dryRun: boolean;
+}
+
+export interface PeerMigrationPlan {
+  disposition: 'planned' | 'refused';
+  reason: 'source-unrecognized' | 'discovery-unmeasured' | 'out-of-order' | 'dry-run' | 'ready';
+  writes: number;
+  items: string[];
+}
+
+export function planPeerMigration(input: PeerMigrationInput): PeerMigrationPlan {
+  const known: PeerMigrationSource[] = ['workbuddy', 'codex', 'qoder-work'];
+  if (!known.includes(input.source as PeerMigrationSource)) {
+    return { disposition: 'refused', reason: 'source-unrecognized', writes: 0, items: [] };
+  }
+  if (input.discovered === null) {
+    return { disposition: 'refused', reason: 'discovery-unmeasured', writes: 0, items: [] };
+  }
+  if (input.phase === 'sync' && input.migrated !== true) {
+    return { disposition: 'refused', reason: 'out-of-order', writes: 0, items: input.discovered };
+  }
+  if (input.dryRun) {
+    return { disposition: 'planned', reason: 'dry-run', writes: 0, items: input.discovered };
+  }
+  return { disposition: 'planned', reason: 'ready', writes: input.discovered.length, items: input.discovered };
 }
 
 export async function discoverSessionFiles(
@@ -521,6 +635,7 @@ export async function runSessionsSources(): Promise<boolean> {
 export async function runSessionsDiscover(
   sourceArg: string | undefined,
   opts: { path?: string; limit?: string },
+  io: SessionScanIo = DEFAULT_SCAN_IO,
 ): Promise<boolean> {
   let targets: ConversationImportSource[] = SESSION_SOURCE_VALUES;
   if (sourceArg) {
@@ -532,16 +647,26 @@ export async function runSessionsDiscover(
   const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : DEFAULT_DISCOVER_LIMIT;
 
   let totalFound = 0;
+  let allComplete = true;
   for (const source of targets) {
     const cfg = SESSION_SOURCE_CONFIG[source];
-    const candidates = await discoverSessionCandidates(source, opts.path, limit);
+    const scan = await scanSessionExports(source, opts.path, limit, io);
     console.info(chalk.cyan(`\n${source} ${chalk.dim(`(${cfg.label})`)}`));
-    if (candidates.length === 0) {
+    if (!scan.scanComplete) {
+      // 读不到 ≠ 没有:不打"未发现导出文件",并让命令整体失败。
+      allComplete = false;
+      console.error(chalk.red(t('cliImportSessions.scanIncomplete', {
+        source,
+        scanned: formatScanPaths(cfg, opts.path),
+      })));
+      continue;
+    }
+    if (scan.candidates.length === 0) {
       console.info(chalk.dim(t('cliImportSessions.noneDiscovered', { scanned: formatScanPaths(cfg, opts.path) })));
       continue;
     }
-    totalFound += candidates.length;
-    candidates.forEach((c, i) => {
+    totalFound += scan.candidates.length;
+    scan.candidates.forEach((c, i) => {
       console.info(`  ${String(i + 1).padStart(3)}. ${c.file} ${chalk.dim(formatTime(new Date(c.mtimeMs).toISOString()))}`);
     });
   }
@@ -549,7 +674,7 @@ export async function runSessionsDiscover(
     console.info(chalk.dim(t('cliImportSessions.hintParse')));
   }
   console.info('');
-  return true;
+  return allComplete;
 }
 
 export async function runSessionsParse(

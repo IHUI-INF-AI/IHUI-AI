@@ -253,10 +253,10 @@ describe('Certificate Serials API', () => {
       expect(res.statusCode).toBe(200)
       const body = JSON.parse(res.body)
       expect(body.code).toBe(0)
-      expect(body.data.items).toHaveLength(1)
+      expect(body.data.list).toHaveLength(1)
       expect(body.data.total).toBe(1)
-      expect(body.data.items[0].serialNumber).toBe('IHUI-20260831-AB12CD34')
-      expect(body.data.items[0].certificateTitle).toBe('优秀学员证书')
+      expect(body.data.list[0].serialNumber).toBe('IHUI-20260831-AB12CD34')
+      expect(body.data.list[0].certificateTitle).toBe('优秀学员证书')
     })
 
     it('按 status 筛选只查询指定状态', async () => {
@@ -272,7 +272,7 @@ describe('Certificate Serials API', () => {
 
       expect(res.statusCode).toBe(200)
       const body = JSON.parse(res.body)
-      expect(body.data.items[0].status).toBe('revoked')
+      expect(body.data.list[0].status).toBe('revoked')
     })
   })
 

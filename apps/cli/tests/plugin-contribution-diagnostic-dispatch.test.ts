@@ -141,7 +141,8 @@ describe('① 形状锁 — loader.ts 拆分前后导出集逐字不变', () => 
 
   it('装载器仍在 250 行以下(AGENTS §3 每页 <250 行)', () => {
     for (const file of ['loader.ts', 'contribution-audit.ts', 'manifest-scan.ts']) {
-      const lines = readSource('plugins', file).split('\n').length;
+      // 与 `wc -l` 同口径：去掉文件末尾那个换行产生的空元素，否则 249 行的文件会被数成 250。
+      const lines = readSource('plugins', file).replace(/\r?\n$/, '').split('\n').length;
       expect(lines, `apps/cli/src/plugins/${file} 现 ${lines} 行,超 §3 上限`).toBeLessThan(250);
     }
   });

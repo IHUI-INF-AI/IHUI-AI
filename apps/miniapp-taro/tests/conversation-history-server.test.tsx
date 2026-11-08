@@ -350,16 +350,21 @@ describe('④ 源码级反向锁:共享层优先 / 不另起炉灶 / 不直连�
     resolve(__dirname, '../src/components/ConversationHistoryItem.tsx'),
     'utf8',
   )
+  // 2026-11-06 排序实现上移到 shared/chat/conversation-org;共享屏只 re-export 出口。
+  const orgSrc = readFileSync(
+    resolve(__dirname, '../../../packages/shared/src/chat/conversation-org.ts'),
+    'utf8',
+  )
 
-  it('置顶动作仍在端内走共享包;排序出口整体落在共享屏', () => {
+  it('置顶动作仍在端内走共享包;排序出口整体落在共享层', () => {
     expect(src).toContain("@ihui/shared/chat/conversation-pin'")
     expect(src).toContain('togglePinnedItem(')
     expect(sharedSrc).toContain("@ihui/shared/chat/conversation-org'")
-    expect(sharedSrc).toContain('sortPinnedFirst(')
+    expect(orgSrc).toContain('sortPinnedFirstImpl(')
   })
 
-  it('全仓只允许共享屏那一处 .sort( 打底时间序 —— 端内出现即在自写置顶排序', () => {
-    expect(sharedSrc.match(/\.sort\(/g) ?? []).toHaveLength(1)
+  it('全仓只允许共享层那一处时间序排序 —— 端内出现即在自写置顶排序', () => {
+    expect(orgSrc.match(/itemTimestamp\(b\) - itemTimestamp\(a\)/g) ?? []).toHaveLength(1)
     expect(src.match(/\.sort\(/g) ?? []).toHaveLength(0)
   })
 
