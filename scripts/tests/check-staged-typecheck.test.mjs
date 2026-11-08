@@ -529,6 +529,8 @@ function runTool(argv, opts = {}) {
 function makeProbePkg(dir, { name = 'probe', withTypecheck = true } = {}) {
   const pkgDir = join(dir, 'apps', name)
   mkdirSync(join(pkgDir, 'src'), { recursive: true })
+  // 安装完整性前置检查要求被审包 node_modules 在位(即使没有依赖也要目录存在)
+  mkdirSync(join(pkgDir, 'node_modules'), { recursive: true })
   const manifest = { name: `@ihui/${name}`, version: '0.0.0' }
   if (withTypecheck) manifest.scripts = { typecheck: 'tsc --noEmit' }
   writeFileSync(join(pkgDir, 'package.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8')
@@ -626,8 +628,9 @@ const TEMP_TSCONFIG = 'tsconfig.staged-typecheck.json'
  * (验"取不到"必须 exit 2 并带清单, 不能记成改动文件的 TS2307)。
  * source 决定该夹具里唯一的源文件(clean/broken): 一个夹具只放一个源文件,
  * 避免同包内 broken 的错误被"只扫声明集"过滤后落进空输出分支。
+ * withNodeModules=false 用于验证"包 node_modules 缺失 → exit 2"。
  */
-function makeDepsFixture({ withDist, source = 'clean' }) {
+function makeDepsFixture({ withDist, source = 'clean', withNodeModules = true }) {
   const dir = mkScratch('ihui-deps-cst-')
   const depDir = join(dir, 'packages', 'dep')
   mkdirSync(join(depDir, 'dist'), { recursive: true })
@@ -686,6 +689,7 @@ function makeDepsFixture({ withDist, source = 'clean' }) {
       'utf8',
     )
     writeFileSync(join(pkgDir, 'src', srcFile), content, 'utf8')
+    if (withNodeModules) mkdirSync(join(pkgDir, 'node_modules', '@ihui', 'dep'), { recursive: true })
     return pkgDir
   }
   const pkgDir =
@@ -808,6 +812,26 @@ test('依赖产物缺失 → exit 2, 打印缺失包/期望入口/补齐命令, 
     )
     assert.ok(out.includes('本次没有跑任何 typecheck'), `必须明写本次没跑 tsc, 实得:\n${out}`)
     assert.ok(!/error TS\d+/.test(out), `缺产物不得被写成改动文件的 tsc 错误:\n${out}`)
+    assert.ok(!out.includes('全部通过'), `不得对没跑的检查出合格证:\n${out}`)
+  } finally {
+    rmScratch(fx.dir)
+  }
+})
+
+test('被审包 node_modules 缺失 → exit 2, 提示 pnpm install --frozen-lockfile', () => {
+  const fx = makeDepsFixture({ withDist: true, withNodeModules: false })
+  try {
+    const r = runTool(['--files', 'apps/probe/src/clean.ts', '--root', fx.dir], { env: fx.env })
+    assert.equal(r.status, 2, `缺 node_modules 应 exit 2, 实际 ${r.status}\n${r.stdout}\n${r.stderr}`)
+    const out = stripAnsi(r.stdout) + stripAnsi(r.stderr)
+    assert.ok(out.includes('apps/probe'), `必须点名未安装的包, 实得:\n${out}`)
+    assert.ok(out.includes('node_modules'), `必须点名缺的是 node_modules, 实得:\n${out}`)
+    assert.ok(
+      out.includes('pnpm install --frozen-lockfile'),
+      `必须给出可执行的安装命令, 实得:\n${out}`,
+    )
+    assert.ok(out.includes('本次没有跑任何 typecheck'), `必须明写本次没跑 tsc, 实得:\n${out}`)
+    assert.ok(!/error TS\d+/.test(out), `缺安装不得被写成改动文件的 tsc 错误:\n${out}`)
     assert.ok(!out.includes('全部通过'), `不得对没跑的检查出合格证:\n${out}`)
   } finally {
     rmScratch(fx.dir)
