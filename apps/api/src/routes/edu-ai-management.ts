@@ -1430,14 +1430,14 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         const items = await db
           .select({
             total: count(),
-            completed: sql<number>`count(case when ${eduPlanItem.completed} = true then 1 end)`,
+            completed: sql<number>`count(case when ${eduPlanItem.completed} = true then 1 end)::int`,
           })
           .from(eduPlanItem)
           .where(and(eq(eduPlanItem.planId, plan.id), isNull(eduPlanItem.deletedAt)))
           .limit(1)
 
-        const total = items[0]?.total ?? 0
-        const completed = items[0]?.completed ?? 0
+        const total = Number(items[0]?.total ?? 0)
+        const completed = Number(items[0]?.completed ?? 0)
         const rate = total > 0 ? Math.round((completed / total) * 100) : 0
 
         return {
@@ -1455,9 +1455,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     )
 
     // 汇总统计
-    const totalItems = stats.reduce((sum, s) => sum + s.totalItems, 0)
-    const totalCompleted = stats.reduce((sum, s) => sum + s.completedItems, 0)
-    const overallRate = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0
+    const { totalItems, totalCompleted, overallRate } = sumPlanCompletion(stats)
 
     return reply.send(
       success({
@@ -5917,6 +5915,21 @@ export function buildLegacySegment(
 }
 
 /**
+ * F-699:汇总各学习计划完成率。
+ * pg 的 `count()` 走 int8,驱动按字符串返回;直接 `sum + completedItems`
+ * 会变成字符串拼接(两个计划 5/6、3/6 → "053" → 53/12 = 442%)。
+ * 这里统一 Number() 归一化,与 SQL 侧 `::int` 双保险。
+ */
+export function sumPlanCompletion(
+  stats: ReadonlyArray<{ totalItems: number | string; completedItems: number | string }>,
+): { totalItems: number; totalCompleted: number; overallRate: number } {
+  const totalItems = stats.reduce((sum, s) => sum + Number(s.totalItems), 0)
+  const totalCompleted = stats.reduce((sum, s) => sum + Number(s.completedItems), 0)
+  const overallRate = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0
+  return { totalItems, totalCompleted, overallRate }
+}
+
+/**
  * 供测试 import 的判据出口(§22c)。
  * 为什么必须导出而不是"跑一次 HTTP 看看":缴费契约在 2026-09-29 从
  * 「studentId/classId 必填」翻成「enrollmentId 必填」—— 翻错或被人改回去时,
@@ -5937,6 +5950,8 @@ export const __test__ = {
   childAttendanceQuerySchema,
   // 2026-11-04 写面收口:status 已从入参删除 ⇒ 必须能被测试直接 import 钉住(不靠跑 HTTP 看形状)
   updateAttendanceSchema,
+  // 2026-11-08 F-699:完成率汇总必须能被直接 import 钉住(pg int8 以字符串返回时不得再拼接)
+  sumPlanCompletion,
 }
 
 export default eduAiManagementRoutes
