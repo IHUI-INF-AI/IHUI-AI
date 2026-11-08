@@ -44,6 +44,8 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { DENIED_HOST_NAMES, DENIED_HOST_SUFFIXES } from '@ihui/shared/utils/ssrf-guard';
+import { EGRESS_ENV } from '../sandbox/egress/policy.js';
 import { createWorktree, removeWorktree, type WorktreeInfo } from './worktree.js';
 import type {
   NetworkEgressPolicy,
@@ -1566,12 +1568,63 @@ export function formatExitEvidenceSuffix(evidence: WorkerExitEvidence): string {
 
 // ==================== 默认配置 ====================
 
+const DEFAULT_SUBAGENT_MAX_HEAP_MB = 512;
+const DEFAULT_SUBAGENT_MAX_YOUNG_MB = 64;
+
+function positiveIntFromEnv(raw: string | undefined, fallback: number): number {
+  if (raw === undefined) return fallback;
+  const n = Number(raw.trim());
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * F-098:默认配置必须真的注入出站策略/资源上限。
+ * 旧实现这两项恒为 undefined ⇒ worker-entry 的 installEgressGuard 永远拿不到 policy,
+ * memoryMb 的 OOM 监控分支也永远不触发 —— 两套"防护"实际是死代码。
+ * 取值与 CLI 其它出口同一组 env(IHUI_EGRESS_ALLOW/DENY_DOMAINS),未配置时用
+ * ssrf-guard 的内置拒绝名单(metadata/.local/.internal),至少把内网/metadata 挡住。
+ */
+function resolveDefaultWorkerEgressPolicy(env: NodeJS.ProcessEnv): NetworkEgressPolicy {
+  const allow = (env[EGRESS_ENV.allowDomains] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (allow.length > 0) {
+    return { mode: 'allowlist', domains: allow, allowLocalhost: true };
+  }
+  const deny = (env[EGRESS_ENV.denyDomains] ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const builtinDeny = [
+    ...(DENIED_HOST_NAMES as readonly string[]),
+    ...(DENIED_HOST_SUFFIXES as readonly string[]),
+  ];
+  return {
+    mode: 'blocklist',
+    domains: [...new Set([...builtinDeny, ...deny])],
+    allowLocalhost: true,
+  };
+}
+
+function resolveDefaultWorkerResourceLimits(env: NodeJS.ProcessEnv): WorkerResourceLimits {
+  const heapMb = positiveIntFromEnv(env.IHUI_SUBAGENT_MAX_HEAP_MB, DEFAULT_SUBAGENT_MAX_HEAP_MB);
+  return {
+    memoryMb: heapMb + DEFAULT_SUBAGENT_MAX_YOUNG_MB,
+    maxOldGenerationSizeMb: heapMb,
+    maxYoungGenerationSizeMb: DEFAULT_SUBAGENT_MAX_YOUNG_MB,
+  };
+}
+
 export function defaultWorkerPoolConfig(overrides?: Partial<WorkerPoolConfig>): WorkerPoolConfig {
+  const env = process.env;
   return {
     taskTimeoutSeconds: DEFAULT_TASK_TIMEOUT_SECONDS,
     maxQueueSize: DEFAULT_MAX_QUEUE_SIZE,
     idleWorkerTtlSeconds: 60,
     preemptive: false,
+    networkEgressPolicy: resolveDefaultWorkerEgressPolicy(env),
+    resourceLimits: resolveDefaultWorkerResourceLimits(env),
     ...overrides,
     maxWorkers: resolveMaxConcurrency(overrides?.maxWorkers),
   };
