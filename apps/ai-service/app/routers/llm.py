@@ -1698,6 +1698,34 @@ def _sse(evt: str, payload: Any) -> str:
     return f"event: {evt}\ndata: {json.dumps(frame_payload, ensure_ascii=False)}\n\n"
 
 
+# 子代理进度队列上限(AIS-008):256 帧足以覆盖前端一帧的进度面板。
+_PROGRESS_QUEUE_MAXSIZE = 256
+
+
+def _enqueue_progress_event(
+    queue: asyncio.Queue[dict[str, Any] | None],
+    evt: dict[str, Any],
+    dropped: list[int],
+) -> None:
+    """子代理进度入队(AIS-008)。
+
+    progress_callback 是同步函数,不能 await 背压;队列满时丢最旧并累计 dropped,
+    排水端把 dropped_before 挂到下一帧,显式标记"有进度帧被截断"。
+    """
+    try:
+        queue.put_nowait(evt)
+    except asyncio.QueueFull:
+        try:
+            queue.get_nowait()
+        except asyncio.QueueEmpty:
+            pass
+        dropped[0] += 1
+        try:
+            queue.put_nowait(evt)
+        except asyncio.QueueFull:
+            pass
+
+
 def _sse_contract_warn(msg: str) -> None:
     """契约漂移告警(warnings 通道,不阻断流式输出)。"""
     import warnings
@@ -6417,7 +6445,10 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                 # task_index → subagent_id 映射(并行模式多 task,单模式只有 1 个)
                                 _sub_id_by_index: dict[int, str] = dict(enumerate(_spawned_sub_ids))
                                 _single_sub_id = _spawned_sub_ids[0]
-                                _progress_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue()
+                                _progress_queue: asyncio.Queue[dict[str, Any] | None] = asyncio.Queue(
+                                    maxsize=_PROGRESS_QUEUE_MAXSIZE
+                                )
+                                _progress_dropped = [0]
 
                                 def _progress_cb(
                                     evt: dict[str, Any],
@@ -6453,7 +6484,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         _sse_evt["agentName"] = _agent_name
                                     if message_id:
                                         _sse_evt["messageId"] = message_id
-                                    _progress_queue.put_nowait(_sse_evt)
+                                    _enqueue_progress_event(
+                                        _progress_queue, _sse_evt, _progress_dropped
+                                    )
 
                                 try:
                                     # MCP 工具调用取消闭环:登记到本流追踪器,
@@ -6479,6 +6512,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                         try:
                                             _pevt = await asyncio.wait_for(_progress_queue.get(), timeout=0.05)
                                             if _pevt:
+                                                if _progress_dropped[0]:
+                                                    _pevt["dropped_before"] = _progress_dropped[0]
+                                                    _progress_dropped[0] = 0
                                                 yield _sse(SSE_SUBAGENT_PROGRESS, _pevt)
                                         except TimeoutError:
                                             continue
@@ -6486,6 +6522,9 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     while not _progress_queue.empty():
                                         _pevt = _progress_queue.get_nowait()
                                         if _pevt:
+                                            if _progress_dropped[0]:
+                                                _pevt["dropped_before"] = _progress_dropped[0]
+                                                _progress_dropped[0] = 0
                                             yield _sse(SSE_SUBAGENT_PROGRESS, _pevt)
                                     exec_result = await _dispatch_task
                                 except Exception as e:
