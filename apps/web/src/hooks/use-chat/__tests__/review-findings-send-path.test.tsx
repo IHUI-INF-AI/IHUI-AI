@@ -106,10 +106,16 @@ function finding(id: string, overrides: Partial<ReviewFindingEvent> = {}): Revie
 /** 真 createSendMessage 发一轮;mock 的 streamChat 在"流内"回调 onReviewFinding。 */
 async function sendRound(text: string, ...findings: ReviewFindingEvent[]): Promise<string> {
   mockStreamChat.mockImplementationOnce(async (opts: unknown) => {
-    const o = opts as { onReviewFinding?: (e: ReviewFindingEvent) => void }
+    const o = opts as {
+      onReviewFinding?: (e: ReviewFindingEvent) => void
+      onDone?: () => void
+    }
     // 首答路径必须注册该回调才能解析帧 —— 未注册时 api-client 直接不解析。
     expect(typeof o.onReviewFinding, '首答 streamChat 应注册 onReviewFinding').toBe('function')
     for (const f of findings) o.onReviewFinding?.(f)
+    // G-816008(2026-10-29 实现侧变更):onDone 是"这一轮走完了"的权威回执。
+    // 静默 return 的 mock = 没给准入回执 ⇒ 气泡撤回、send 返回 false,断言全落空。
+    o.onDone?.()
   })
   const send = createSendMessage(makeCtx(), useChatStore)
   await send(text)

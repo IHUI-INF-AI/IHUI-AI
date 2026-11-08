@@ -124,9 +124,14 @@ function capturedStream(): CapturedStream {
   return mockStreamChat.mock.calls[0]![0] as CapturedStream
 }
 
+// G-816008(2026-10-29 实现侧变更):onDone 是"这一轮走完了"的权威回执。
+// 静默 return 的 mock 等于"服务端没给准入回执" ⇒ 气泡被静默撤回、send 返回 false。
+// 本票只关心 sibling 投影,流一律按"正常走完"收束,故 mock 必须补 onDone。
 beforeEach(() => {
   vi.clearAllMocks()
-  mockStreamChat.mockImplementation(async () => {})
+  mockStreamChat.mockImplementation(async (opts: unknown) => {
+    ;(opts as { onDone?: () => void }).onDone?.()
+  })
   useAuthStore.setState({ isAuthenticated: true, user: { id: 'user-g59' } as never })
 })
 
