@@ -244,7 +244,7 @@ export default function PageClient() {
 
           {deep && !deep.judge.executed ? (
             <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
-              {t('judgeOff')} · {deep.judge.reason}
+              {t('judgeOff')} · {deep.judge.mode} · {deep.judge.reason}
             </p>
           ) : null}
 

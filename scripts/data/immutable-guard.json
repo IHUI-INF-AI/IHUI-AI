@@ -3,19 +3,19 @@
   "entries": [
     {
       "path": "scripts/auto-evolve.mjs",
-      "kind": "autonomy-executor",
+      "kind": "gate-registry",
       "why": "自主环执行体自身:实测两枚残骸均由环自己派出的会话留下(11-04 18:59Z 一份、11-05 03:52Z 一份 1661 行未提交改动),改坏它 ⇒ A14 停派、整环自我钉瘫;列入后落地腿对这类产物整批拒收(artifact-protected-face)",
       "reviewBy": "2027-06-30"
     },
     {
       "path": "scripts/cost-breaker.mjs",
-      "kind": "autonomy-cost",
+      "kind": "gate-body",
       "why": "成本熔断判据本体:它决定环当天还能不能派发;被静默放宽=熔断失效(§0.7 没验过就免那一型),收紧同样要留痕。本枚之前它连一次写盘夹具都没有(真跑第一次就崩在两处自伤)",
       "reviewBy": "2027-06-30"
     },
     {
       "path": "scripts/data/cost-caps.json",
-      "kind": "autonomy-cost",
+      "kind": "judgement-lib",
       "why": "熔断上限闭集:文件自述上调属人工阀、须人拍板,过去这条只靠散文约束;列入受保护面后,改它必须带理由与签名,散文承诺变成机器判据",
       "reviewBy": "2027-06-30"
     },
