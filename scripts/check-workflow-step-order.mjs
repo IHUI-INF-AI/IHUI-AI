@@ -111,9 +111,77 @@ export function judgeFullGatePreparation(text) {
 }
 
 /**
- * 规则 F 的占位(本笔不启用):required 聚合器的 needs 覆盖 preflight-* ——
- * 见 DG-04 那一笔,避免本笔在 ci.yml 尚未补齐时自检恒红。
+ * 规则 F(2026-11-08 新增,绝对零容忍):required 聚合器必须 needs 覆盖所有 `preflight-*` 作业,
+ * 且聚合器正文里真的逐项读 `needs.<id>.result` 断言非 success 即红。
+ *
+ * 立因(DG-04):分支保护只读 `CI / lint-typecheck-test (push)`,而两个 preflight(版权水印 /
+ * 冲突标记)原刻意"不设 needs、与主 job 并行"。于是它们红掉或被跳过时,聚合器照样只收三个
+ * gate 的结论 ⇒ required 依然 success:水印被删、冲突标记入树都可以带着绿勾进 main。
+ * 更隐蔽的是 GitHub 语义 —— job 被 skipped 时分支保护视为**满足**,所以只把 id 写进 needs
+ * 还不够,必须逐项断言 `result == 'success'`(failure/cancelled/skipped 一律红)。
+ *
+ * 判据只在本文件出现 required 聚合器时生效(其余 workflow 不误伤);找不到 preflight 也算
+ * 未判定,不记绿(§0.3):聚合器活着却没有任何 preflight 可收口,说明这一维被整体删掉了。
  */
+export const REQUIRED_AGGREGATOR_JOB = 'lint-typecheck-test'
+const PREFLIGHT_KEY_RE = /^preflight-/
+const NON_SUCCESS_ASSERT_RE = /!==\s*'success'/
+
+/** 读 job 的 needs:兼容内联 `[a, b]` 与块状 `- a` 两种 YAML 写法。 */
+function parseNeeds(body) {
+  const lines = body.split('\n')
+  const idx = lines.findIndex((l) => /^\s{2,}needs:/.test(l))
+  if (idx < 0) return null
+  const inline = lines[idx].match(/needs:\s*\[([^\]]*)\]/)
+  if (inline) {
+    return inline[1]
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  }
+  const out = []
+  for (let i = idx + 1; i < lines.length; i++) {
+    const m = lines[i].match(/^\s*-\s*([A-Za-z0-9_-]+)\s*$/)
+    if (!m) break
+    out.push(m[1])
+  }
+  return out
+}
+
+export function judgeRequiredAggregatorNeeds(text) {
+  const jobs = jobBlocks(text)
+  const agg = jobs.find((j) => j.key === REQUIRED_AGGREGATOR_JOB)
+  if (!agg) return []
+  const out = []
+  const preflights = jobs.filter((j) => PREFLIGHT_KEY_RE.test(j.key)).map((j) => j.key)
+  if (preflights.length === 0) {
+    return [
+      `${REQUIRED_AGGREGATOR_JOB} 存在却没有任何 preflight-* 作业可收口 ⇒ 未判定(§0.3),不记绿`,
+    ]
+  }
+  const needs = parseNeeds(agg.body) ?? []
+  for (const key of preflights) {
+    if (!needs.includes(key)) {
+      out.push(
+        `required 聚合器 ${REQUIRED_AGGREGATOR_JOB} 的 needs 未包含 ${key}` +
+          '(聚合器不 needs 它 ⇒ 它红/被跳过时 required 仍可能 success)',
+      )
+    }
+    if (!agg.body.includes(`needs.${key}.result`)) {
+      out.push(
+        `required 聚合器未断言 needs.${key}.result` +
+          '(只把 id 写进 needs 挡不住 skipped:GitHub 的 skipped 视为满足分支保护)',
+      )
+    }
+  }
+  if (!NON_SUCCESS_ASSERT_RE.test(agg.body)) {
+    out.push(
+      `required 聚合器未写"非 success 一律红"的断言(缺 !== 'success')` +
+        '(否则 failure/cancelled/skipped 都可能以非红结案)',
+    )
+  }
+  return out
+}
 
 function scan() {
   const violations = []
@@ -132,6 +200,10 @@ function scan() {
 
     // 规则 E:全量腿公共取材面(2026-11-08)
     for (const why of judgeFullGatePreparation(text)) violations.push(`${rel} [full-prep] ${why}`)
+
+    // 规则 F:required 聚合器的 needs / 断言收口(2026-11-08)
+    for (const why of judgeRequiredAggregatorNeeds(text))
+      violations.push(`${rel} [required-agg] ${why}`)
 
     // 规则 A:步骤顺序
     const lines = text.split('\n')
@@ -517,6 +589,99 @@ export function selfTest() {
       failures.push(`规则 E 反向自证不过:摘掉 gate-prep 后 ${file} 仍放行 ⇒ 本维是哑的`)
     }
   }
+  // 规则 F 的成对夹具:required 聚合器必须 needs 覆盖 preflight-*,并逐项读 needs.<id>.result。
+  const aggBody = ({ needs, readWatermark = true, readConflict = true, assert = true } = {}) =>
+    [
+      'jobs:',
+      '  preflight-watermark:',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - run: node scripts/watermark.mjs verify',
+      '  preflight-conflict-markers:',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - run: node scripts/check-no-conflict-markers.mjs --rev HEAD',
+      '  lint-typecheck-test:',
+      `    needs: [${needs.join(', ')}]`,
+      '    if: always()',
+      '    runs-on: ubuntu-latest',
+      '    steps:',
+      '      - name: Assert every upstream gate succeeded',
+      '        env:',
+      ...(readWatermark ? ['          R_WATERMARK: ${{ needs.preflight-watermark.result }}'] : []),
+      ...(readConflict
+        ? ['          R_CONFLICT: ${{ needs.preflight-conflict-markers.result }}']
+        : []),
+      '        run: |',
+      assert
+        ? `          node -e "if (process.env.R_WATERMARK !== 'success') process.exit(1)"`
+        : '          echo ok',
+    ].join('\n')
+  const FULL_NEEDS = [
+    'gate-build',
+    'gate-analyse',
+    'gate-test',
+    'preflight-watermark',
+    'preflight-conflict-markers',
+  ]
+  const aggCases = [
+    { name: 'F① needs 覆盖 preflight + 逐项断言 放行', text: aggBody({ needs: FULL_NEEDS }), want: 0 },
+    {
+      name: 'F② needs 漏 preflight-watermark 判红(DG-04 原状)',
+      text: aggBody({ needs: FULL_NEEDS.filter((k) => k !== 'preflight-watermark') }),
+      want: 1,
+    },
+    {
+      name: 'F③ needs 齐但没读 needs.preflight-conflict-markers.result 判红',
+      text: aggBody({ needs: FULL_NEEDS, readConflict: false }),
+      want: 1,
+    },
+    {
+      name: 'F④ 聚合器没写非 success 即红的断言 判红',
+      text: aggBody({ needs: FULL_NEEDS, assert: false }),
+      want: 1,
+    },
+    {
+      name: 'F⑤ 没有 required 聚合器的 workflow 不误伤',
+      text:
+        'jobs:\n  preflight-watermark:\n    runs-on: ubuntu-latest\n    steps:\n' +
+        '      - run: node scripts/watermark.mjs verify\n',
+      want: 0,
+    },
+    {
+      name: 'F⑥ 聚合器活着却没有任何 preflight-* ⇒ 未判定,判红',
+      text:
+        'jobs:\n  lint-typecheck-test:\n    needs: [gate-build]\n    if: always()\n' +
+        "    steps:\n      - run: node -e \"if (process.env.R !== 'success') process.exit(1)\"\n",
+      want: 1,
+    },
+  ]
+  for (const c of aggCases) {
+    const got = judgeRequiredAggregatorNeeds(c.text).length
+    if (got !== c.want) failures.push(`${c.name}: 期望 ${c.want} 条,实得 ${got} 条`)
+  }
+  // 真实文件成对自证:ci.yml 现读必须放行;摘掉 preflight 的 needs / result 断言后必须翻红。
+  const ciAggText = readFileSync(join(WF_DIR, 'ci.yml'), 'utf8')
+  if (judgeRequiredAggregatorNeeds(ciAggText).length !== 0) {
+    failures.push(
+      '真实样本 ci.yml 本应放行(required 聚合器已收口 preflight-*)⇒ 判据或该文件已变形',
+    )
+  }
+  const ciNoNeed = ciAggText.replace(
+    /^(\s*needs:\s*\[[^\]]*?), ?preflight-watermark,?/m,
+    '$1',
+  )
+  if (ciNoNeed === ciAggText) {
+    failures.push('规则 F 反向自证未取到样本:ci.yml 的 needs 里没摘掉 preflight-watermark')
+  } else if (judgeRequiredAggregatorNeeds(ciNoNeed).length === 0) {
+    failures.push('规则 F 反向自证不过:摘掉 preflight-watermark 后 ci.yml 仍放行 ⇒ 本维是哑的')
+  }
+  const ciNoAssert = ciAggText.replace(/^\s*R_WATERMARK:.*$/m, '')
+  if (ciNoAssert === ciAggText) {
+    failures.push('规则 F 反向自证未取到样本:ci.yml 里没摘掉 needs.preflight-watermark.result 断言')
+  } else if (judgeRequiredAggregatorNeeds(ciNoAssert).length === 0) {
+    failures.push('规则 F 反向自证不过:摘掉 watermark 结果断言后 ci.yml 仍放行 ⇒ 本维是哑的')
+  }
 
   return failures
 }
@@ -573,6 +738,7 @@ export const __test__ = {
   judgeInstallPins,
   judgeBuildToolPins,
   judgeFullGatePreparation,
+  judgeRequiredAggregatorNeeds,
   listBuildFiles,
   readPackageManagerPnpm,
   selfTest,
