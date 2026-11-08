@@ -38,23 +38,30 @@
  *   背(2026-10-14 悬留「暂存更改几千条没人提交」的直接成因;pre-commit 那轮 inject+add 紧接着
  *   就 commit,语义仍是对的,不许改坏)。
  *
- * 用法:
- *   node scripts/check-watermark-coverage.mjs            # 自愈模式,判 HEAD 面(push-gate 走这档)
- *   node scripts/check-watermark-coverage.mjs --push-scope # push-gate 收窄档:只判本次 push 涉及文件(读 PUSH_SCOPE_FILES)
+ * 用法(**无面旗=未判定,exit 2**;2026-11-09 起不再隐式退回整张 HEAD 面):
+ *   node scripts/check-watermark-coverage.mjs --push-scope # push-gate 收窄档:只判本次 push 涉及文件
+ *                                                          (凭据 PUSH_SCOPE_FILES 或 >300 时的 PUSH_SCOPE_MANIFEST)
  *   node scripts/check-watermark-coverage.mjs --staged   # 自愈 + add 回索引(pre-commit 由 runner 下发)
- *   node scripts/check-watermark-coverage.mjs --no-fix   # 纯判定, 不修改(CI / 审计用)
+ *   node scripts/check-watermark-coverage.mjs --full-face# **显式整面检查**:判整张 HEAD 面并打印"本次为显式全量面"
  *   node scripts/check-watermark-coverage.mjs --worktree # 人工逃生舱:判磁盘面(不得作提交门禁)
+ *   node scripts/check-watermark-coverage.mjs --no-fix   # 纯判定, 不修改(与上面任一面旗同用;CI / 审计)
  *   node scripts/check-watermark-coverage.mjs --self-test# 逻辑自检(零 git 调用、零副作用)
  * 紧急跳过: HUSKY_SKIP_WATERMARK_GUARD=1 git commit ...   (正常流程不再需要)
+ *
+ * 2026-11-09 事故与口径(实测,非推测):
+ *   拿不到 push scope 凭据时,旧实现静默退回整张 HEAD 面并自愈 ⇒ 把水印写进 190 个与本次推送
+ *   无关的工作区文件,只能 git restore 丢掉。根因不是"它写盘",而是"拿不到范围时它选择猜"。
+ *   现口径:**拿不到范围 = 未判定 = exit 2**,打印缺什么/怎么补;**只有显式 --full-face(或 push 侧
+ *   清单头声明 face=full)才允许全量面**;自愈写盘范围 **严格等于判定面**(越界 ⇒ exit 2 且零写盘)。
  */
 
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
 
-import { readWorktreeFile, catBatch, selectFace, Undetermined } from './lib/face-reader.mjs'
+import { readWorktreeFile, catBatch, Undetermined } from './lib/face-reader.mjs'
 import { createExclusionPredicate, LedgerUnavailable } from './lib/third-party-roots.mjs'
 import { coverageFileSetForFace } from './lib/watermark-scope.mjs'
 // G-1018220 口径②:自愈清单行的结构化豁免键从归因层 **import,不抄字面量**(与尺子导入
@@ -79,14 +86,21 @@ const STAGED = process.argv.includes('--staged')
 const WORKTREE = process.argv.includes('--worktree')
 /**
  * push-gate 的收窄档(2026-11-03):只判**本次 push 涉及的文件**,不跑全量 1.6 万+ 文件。
- * push scope 的**唯一来源**是 `.husky/pre-push` 在调用 `guardian-runner --push-gate` 前导出的
- * `PUSH_SCOPE_FILES`(由 `remote_sha..local_sha` 的 `git diff --name-only` 派生;与 `check-typecheck.mjs`
- * 消费的是同一份,本门不另造第二套推导)。取不到 ⇒ 如实退回 HEAD 全量面并打印告警,**绝不伪造空 scope**。
+ * 范围凭据有两个来源,都必须由 `.husky/pre-push` 在调用 `guardian-runner --push-gate` 前导出:
+ *   ① `PUSH_SCOPE_FILES`(由 `remote_sha..local_sha` 的 `git diff --name-only` 派生;与
+ *      `check-typecheck.mjs` 消费的是同一份,本门不另造第二套推导);
+ *   ② `PUSH_SCOPE_MANIFEST`(2026-11-09 补):变更 >300 文件时钩子不再**清空** scope
+ *      (清空正是 190 文件事故的直接触发点),改为把清单写进临时文件并导出路径;
+ *      清单首行可带 `# ihui-push-scope/v1 face=full` 申明"本次为显式全量面"。
+ * 两者都取不到 ⇒ **exit 2(未判定)**,打印缺什么/怎么补。**绝不退回整张 HEAD 面**:
+ * 退回的面上自愈会把水印写进本次改动之外的文件(2026-11-09 实测 190 个)。
  */
 const PUSH_SCOPE = process.argv.includes('--push-scope')
-const PUSH_SCOPE_RAW = process.env.PUSH_SCOPE_FILES
+/** 显式整面检查(2026-11-09):唯一允许判全量 HEAD 面的调用方式;无面旗一律未判定。 */
+const FULL_FACE = process.argv.includes('--full-face')
 // 安全闸: 一次性自动回写的文件数上限。超过则拒绝自愈并直接报错,
 // 避免"某个批量改写脚本把半个仓库打回未水印态"时被静默整体重写。
+// 该上限只在**判定面已确定**时才生效;面未判定直接 exit 2(上限不得当兜底)。
 const MAX_AUTOFIX = 200
 
 /**
@@ -98,7 +112,7 @@ const MAX_AUTOFIX = 200
  * 退回 HEAD 全量面,于是与本次推送毫无关系的存量欠账算成了这次的红。
  *
  * 本档只认**带依据**的那一对值:值不是 1 或缺依据 ⇒ 不启用,回到原路径(未取到 push scope
- * ⇒ 退回 HEAD 全量面 + 告警)。这一条是防"残留 env 把门变成静默 skip"的结构性闸门;
+ * ⇒ **exit 2 未判定**,既不退回整张 HEAD 面,也不伪造"无文件")。这一条是防"残留 env 把门变成静默 skip"的结构性闸门;
  * 因此它必须可被 --self-test 直接喂构造面,不能写成 main() 里的内联 if。
  * @returns {{ok:boolean, basis:string, reason?:string} | null} null = 本档未启用(走原路径)
  */
@@ -107,6 +121,131 @@ export function noFileFaceVerdict(env = process.env) {
   const basis = String(env.PUSH_NO_FILE_FACE_BASIS || '').trim()
   if (!basis) return { ok: false, basis: '', reason: 'PUSH_NO_FILE_FACE=1 但缺判定依据' }
   return { ok: true, basis }
+}
+
+/**
+ * 面意图解析(纯函数,2026-11-09 立)。
+ *
+ * 旧实现在**没有任何面旗**时默认判整张 HEAD 面 —— 那正是"拿不到范围就猜一个更大的面"的
+ * 同一个病:调用方少传一个旗,门就把整仓当成本次该动的面。现口径:
+ *   0 个面旗 ⇒ 未判定(exit 2),把选择权交回调用方;
+ *   ≥2 个面旗 ⇒ 未判定(两个面混判必错,历史上 --staged/--worktree 同给就是这么收的);
+ *   恰好 1 个 ⇒ 按该面判定。
+ * @param {{staged?:boolean, worktree?:boolean, pushScope?:boolean, fullFace?:boolean}} f
+ * @returns {{face:'head'|'staged'|'worktree'|null, explicitFull:boolean, error:string|null}}
+ */
+export function resolveFaceIntent(f = {}) {
+  const picked = [
+    f.staged === true ? 'staged' : null,
+    f.worktree === true ? 'worktree' : null,
+    f.pushScope === true ? 'push' : null,
+    f.fullFace === true ? 'full' : null,
+  ].filter(Boolean)
+  if (picked.length === 0) {
+    return {
+      face: null,
+      explicitFull: false,
+      error:
+        '未声明判定面(旧行为会默认整张 HEAD 面,已废止)。请显式给 --staged / --push-scope / --full-face / --worktree',
+    }
+  }
+  if (picked.length > 1) {
+    return { face: null, explicitFull: false, error: `面旗互斥,不得同用:${picked.join(' + ')}` }
+  }
+  const only = picked[0]
+  if (only === 'push' || only === 'full') return { face: 'head', explicitFull: only === 'full', error: null }
+  return { face: only, explicitFull: false, error: null }
+}
+
+/**
+ * 解析 push scope 清单文件(纯函数,便于自检直接喂构造面)。
+ * 首行 `# ihui-push-scope/v1 face=full` = 调用方**显式申明**"本次为显式全量面";
+ * 缺省(老清单/钩子写的 push 清单)= 收窄面。空行与 `#` 注释行不计入路径。
+ * @param {string} text
+ * @returns {{face:'push'|'full', paths:string[]}}
+ */
+export function parseScopeManifest(text) {
+  let face = 'push'
+  const paths = []
+  for (const raw of String(text).split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line) continue
+    if (line.startsWith('# ihui-push-scope/v1')) {
+      if (/\bface=full\b/.test(line)) face = 'full'
+      continue
+    }
+    if (line.startsWith('#')) continue
+    paths.push(line.replaceAll('\\', '/'))
+  }
+  return { face, paths }
+}
+
+/**
+ * 取 push scope 范围凭据(纯函数;文件读取由调用方注入,便于自检)。
+ *
+ * **取不到 = 未判定**,返回 error 由主流程 exit 2 —— 不再退回整张 HEAD 面。
+ * 清单文件存在但**路径为 0 条**同样算未判定:空清单不是"全部通过",也不是"可以猜一个面"。
+ * @param {{env?:Record<string,string|undefined>, readManifestFile?:(p:string)=>string}} opts
+ * @returns {{paths:string[]|null, source:'PUSH_SCOPE_FILES'|'PUSH_SCOPE_MANIFEST'|null, face:'push'|'full'|null, error:string|null}}
+ */
+export function readPushScope({ env = process.env, readManifestFile } = {}) {
+  const raw = env.PUSH_SCOPE_FILES
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    const paths = [
+      ...new Set(
+        raw
+          .split(/\r?\n/)
+          .map((s) => s.trim().replaceAll('\\', '/'))
+          .filter(Boolean),
+      ),
+    ]
+    if (paths.length > 0) return { paths, source: 'PUSH_SCOPE_FILES', face: 'push', error: null }
+  }
+  const manifestPath = String(env.PUSH_SCOPE_MANIFEST || '').trim()
+  if (manifestPath) {
+    if (typeof readManifestFile !== 'function') {
+      return { paths: null, source: 'PUSH_SCOPE_MANIFEST', face: null, error: '内部错误:未注入清单读取器' }
+    }
+    let text
+    try {
+      text = readManifestFile(manifestPath)
+    } catch (e) {
+      return {
+        paths: null,
+        source: 'PUSH_SCOPE_MANIFEST',
+        face: null,
+        error: `清单文件不可读:${manifestPath}(${String(e?.message ?? e).split('\n')[0]})`,
+      }
+    }
+    const parsed = parseScopeManifest(text)
+    if (parsed.face !== 'full' && parsed.paths.length === 0) {
+      return {
+        paths: null,
+        source: 'PUSH_SCOPE_MANIFEST',
+        face: null,
+        error: `清单文件里 0 条路径:${manifestPath}(空清单不是"全部通过",也不是"可以猜面")`,
+      }
+    }
+    return { paths: parsed.paths, source: 'PUSH_SCOPE_MANIFEST', face: parsed.face, error: null }
+  }
+  return {
+    paths: null,
+    source: null,
+    face: null,
+    error: 'PUSH_SCOPE_FILES 为空,且 PUSH_SCOPE_MANIFEST 未设置',
+  }
+}
+
+/**
+ * 自愈写盘边界断言(纯函数,2026-11-09 立)。
+ * 判定面是 75 文件就只许碰这 75 个;`MAX_AUTOFIX=200` 只在面内生效,不得扩大面。
+ * @param {string[]} missing 准备写盘的文件
+ * @param {Iterable<string>} face 本轮判定面的文件集合
+ * @returns {string[]} 越界文件(空数组 = 合规)
+ */
+export function autofixOutsideFace(missing, face) {
+  const set = face instanceof Set ? face : new Set(face)
+  return missing.filter((f) => !set.has(f))
 }
 
 /**
@@ -336,11 +475,59 @@ function selfTest() {
     const r = noFileFaceVerdict({ PUSH_NO_FILE_FACE: '1' })
     return r !== null && r.ok === false && /缺判定依据/.test(r.reason || '')
   })
-  t('N3 flag 不是 1 ⇒ 本档未启用(原路径:回退全量面/告警)', () => noFileFaceVerdict({}) === null)
+  t('N3 flag 不是 1 ⇒ 本档未启用(原路径:凭据缺失 ⇒ 未判定 exit 2,不猜面)', () => noFileFaceVerdict({}) === null)
   t('N4 反向对照:本档不放宽判红内核 —— 同一份欠账在有文件面时仍判红', () => {
     // 无文件面档只影响 main() 的早退分支;decideCoverage 对它一无所知。
     const r = decideCoverage({ scope: OK_SCOPE, uncovered: ['a.ts'], isExcluded: noExclusion })
     return r.verdict === 'gap' && r.missing.join() === 'a.ts'
+  })
+
+  // ── 组 6:范围凭据纪律(2026-11-09,190 文件事故的结构性锁)──
+  t('Q1 无面旗 ⇒ 未判定(不再默认整张 HEAD 面)', () => {
+    const r = resolveFaceIntent({})
+    return r.face === null && /未声明判定面/.test(r.error || '')
+  })
+  t('Q2 两面旗同给 ⇒ 未判定(--push-scope + --staged 混判不成立)', () => {
+    const r = resolveFaceIntent({ pushScope: true, staged: true })
+    return r.face === null && /互斥/.test(r.error || '')
+  })
+  t('Q3 单旗逐档解析正确,且只有 --full-face 标 explicitFull', () => {
+    const a = resolveFaceIntent({ staged: true })
+    const b = resolveFaceIntent({ worktree: true })
+    const c = resolveFaceIntent({ fullFace: true })
+    const d = resolveFaceIntent({ pushScope: true })
+    return (
+      a.face === 'staged' && !a.explicitFull &&
+      b.face === 'worktree' && !b.explicitFull &&
+      c.face === 'head' && c.explicitFull === true &&
+      d.face === 'head' && !d.explicitFull
+    )
+  })
+  t('Q4 凭据缺失(env 空、无清单)⇒ 返回 error(调用方据此 exit 2),不返回空面', () => {
+    const r = readPushScope({ env: { PUSH_SCOPE_FILES: '' } })
+    return r.paths === null && /PUSH_SCOPE_MANIFEST 未设置/.test(r.error || '')
+  })
+  t('Q5 清单文件可读且非空 ⇒ 取到收窄面;空清单 ⇒ 仍判未判定', () => {
+    const ok = readPushScope({
+      env: { PUSH_SCOPE_MANIFEST: 'm.txt' },
+      readManifestFile: () => 'a.ts\nb.ts\n',
+    })
+    const empty = readPushScope({ env: { PUSH_SCOPE_MANIFEST: 'm.txt' }, readManifestFile: () => '\n\n' })
+    return ok.face === 'push' && ok.paths.join() === 'a.ts,b.ts' && empty.paths === null && /0 条路径/.test(empty.error || '')
+  })
+  t('Q6 清单头 face=full ⇒ 显式全量面(路径为空也成立)', () => {
+    const r = readPushScope({
+      env: { PUSH_SCOPE_MANIFEST: 'm.txt' },
+      readManifestFile: () => '# ihui-push-scope/v1 face=full\n',
+    })
+    return r.face === 'full' && r.error === null
+  })
+  t('Q7 自愈边界:缺失集合越出判定面 ⇒ 必须报越界(190 文件事故的形状)', () => {
+    const out = autofixOutsideFace(['a.ts', 'z.ts'], ['a.ts', 'b.ts'])
+    return out.length === 1 && out[0] === 'z.ts'
+  })
+  t('Q8 边界内(含等号)⇒ 无越界,MAX_AUTOFIX 不改变面', () => {
+    return autofixOutsideFace(['a.ts', 'b.ts'], new Set(['a.ts', 'b.ts'])).length === 0
   })
 
   let bad = 0
@@ -579,20 +766,6 @@ function sweepDupBanners({ face, scope, isExcluded }) {
   return { dupBanner, dupSamples, swept: sweepFiles.length }
 }
 
-/**
- * 解析 `.husky/pre-push` 导出的 PUSH_SCOPE_FILES(本次 push 的变更文件清单)。
- *  - 返回数组 = 取到了 push scope(去重 + 反斜杠归一;可能为空数组,表示变更文件全是删除/非可判类型);
- *  - 返回 null = 环境变量缺失或空串 ⇒ **push scope 不可得**(pre-push 在变更 >300 文件时会主动清空,
- *    非标准调用也可能没有)。此时如实退回 HEAD 全量面,绝不把"没取到"写成"scope 为空所以全绿"。
- */
-function readPushScope() {
-  if (typeof PUSH_SCOPE_RAW !== 'string' || PUSH_SCOPE_RAW.trim() === '') return null
-  const paths = [
-    ...new Set(PUSH_SCOPE_RAW.split(/\r?\n/).map((s) => s.trim().replaceAll('\\', '/')).filter(Boolean)),
-  ]
-  return paths.length > 0 ? paths : null
-}
-
 /** 把收窄后的 HEAD 路径写成 watermark.mjs `--files-from` 能吃的临时清单(>300 文件也不撑命令行)。 */
 function writePushScopeManifest(paths) {
   const dir = mkdtempSync(join(tmpdir(), 'ihui-push-scope-'))
@@ -610,38 +783,20 @@ async function main() {
     return 0
   }
 
-  // --push-scope 只收窄批量 HEAD 面的分母;与 --staged/--worktree 换面旗互斥(两个面混判 = 未判定)。
-  if (PUSH_SCOPE && (STAGED || WORKTREE)) {
-    console.error('[watermark-coverage] ❌ 无法判定:--push-scope 只能判 HEAD 面,不得与 --staged/--worktree 同用')
+  // 面意图(2026-11-09):0 个面旗 / ≥2 个面旗 一律未判定。
+  // 旧行为在无面旗时默认整张 HEAD 面 —— 与"拿不到范围就猜一个更大的面"是同一个病。
+  const intent = resolveFaceIntent({
+    staged: STAGED,
+    worktree: WORKTREE,
+    pushScope: PUSH_SCOPE,
+    fullFace: FULL_FACE,
+  })
+  if (intent.error) {
+    console.error(`[watermark-coverage] ❌ 无法判定:${intent.error}`)
+    console.error('  本门不再"没给面就猜整张 HEAD 面"—— 那会把自愈写进本次改动之外的文件(2026-11-09 事故 190 个)。')
     return 2
   }
-
-  // 无文件面档(2026-11-04):本次推送只增删 ref、零 blob 变更 ⇒ 水印判定面是**空集**,
-  // 不是「取不到面」。按通过并**打印 hook 的推导依据**,不发红也不算静默 skip;
-  // 有文件变更时 PUSH_SCOPE_FILES 非空,走下面的 push scope 逐级推导,判据一字未改。
-  if (PUSH_SCOPE) {
-    const noFile = noFileFaceVerdict()
-    if (noFile && noFile.ok) {
-      console.log(`[watermark-coverage] ✅ 无文件面,按通过 —— 判定依据: ${noFile.basis}`)
-      console.log(
-        '[watermark-coverage] 判据:本次推送 ref 清单已逐条复核为 0 blob 变更 ⇒ 无 HEAD 面文件可判;有文件变更时仍走 push scope 逐级推导(未放宽)。',
-      )
-      return 0
-    }
-    if (noFile && !noFile.ok) {
-      console.warn(
-        `[watermark-coverage] ⚠️ ${noFile.reason} ⇒ 不启用无文件面档,按原路径判定(空 scope 仍退回 HEAD 全量面 + 告警)。`,
-      )
-    }
-  }
-
-  // 面选择:全量档判 HEAD、--staged 判索引、--worktree 读磁盘(仅人工);两面旗同给 ⇒ 未判定 exit 2。
-  const facePick = selectFace({ staged: STAGED, worktree: WORKTREE, def: 'head' })
-  if (facePick.error) {
-    console.error(`[watermark-coverage] ❌ 无法判定:${facePick.error}`)
-    return 2
-  }
-  const face = facePick.face
+  const face = intent.face
   const faceArgs = face === 'worktree' ? ['--worktree'] : face === 'staged' ? ['--staged'] : []
 
   /**
@@ -675,20 +830,43 @@ async function main() {
   let faceInfo
   let sweepScope
   let pushScopeNote = ''
+  /** 显式全量面(--full-face 或 push 侧清单头 face=full):唯一允许判整张 HEAD 面的两种调用。 */
+  let explicitFull = intent.explicitFull === true
   if (PUSH_SCOPE) {
+    // 范围凭据缺失 = 未判定。**不得**退回整张 HEAD 面:那个面上的自愈会写到本次改动之外。
+    const cred = readPushScope({ readManifestFile: (p) => readFileSync(p, 'utf8') })
+    if (cred.error) {
+      // 无文件面档(2026-11-04):本次推送只增删 ref、零 blob 变更 ⇒ 判定面是**真空集**,
+      // 不是「取不到面」。只有钩子逐条 ref 复核过并带上依据时才启用。
+      const noFile = noFileFaceVerdict()
+      if (noFile && noFile.ok) {
+        console.log(`[watermark-coverage] ✅ 无文件面,按通过 —— 判定依据: ${noFile.basis}`)
+        console.log(
+          '[watermark-coverage] 判据:本次推送 ref 清单已逐条复核为 0 blob 变更 ⇒ 无 HEAD 面文件可判;有文件变更时仍走 push scope 逐级推导(未放宽)。',
+        )
+        return 0
+      }
+      console.error(`[watermark-coverage] ❌ 无法判定:push 范围凭据缺失/不可用 —— ${cred.error}`)
+      if (noFile && !noFile.ok) console.error(`  另:PUSH_NO_FILE_FACE 档未启用 —— ${noFile.reason}`)
+      console.error('  缺的是:本次推送的变更文件清单(作用域凭据):PUSH_SCOPE_FILES 或 PUSH_SCOPE_MANIFEST')
+      console.error('  怎么补:')
+      console.error('    ① 正常路径:.husky/pre-push 调 `guardian-runner --push-gate` 时导出上述两者之一(勿手动裸跑)')
+      console.error('    ② 手动复跑:`PUSH_SCOPE_FILES=<路径逐个换行> node scripts/check-watermark-coverage.mjs --push-scope`')
+      console.error('    ③ 确实要整面检查:显式给 --full-face(输出写明"本次为显式全量面")')
+      console.error('  本门不再退回整张 HEAD 面 —— 那会把水印写进本次改动之外的文件(2026-11-09 实测 190 个)。')
+      return 2
+    }
     const headScope = trackedFiles('head')
-    const pushPaths = readPushScope()
-    if (pushPaths === null) {
-      console.warn(
-        '[watermark-coverage] ⚠️ 未取到 PUSH_SCOPE_FILES(非标准 .husky/pre-push 调用或变更 >300 文件) ⇒ 退回 HEAD 全量面;不伪造空 scope。',
-      )
+    if (cred.face === 'full') {
+      // push 侧清单头显式申明整面(= 定时任务 / push-receipt worker 的显式全量档)。
       scope = headScope
       uncovered = listUncovered([])
       sweepScope = headScope
-      faceInfo = '(push scope 不可得 ⇒ HEAD 全量面)'
-      pushScopeNote = 'push scope 不可得 ⇒ 按 HEAD 全量面判'
+      explicitFull = true
+      faceInfo = '(本次为显式全量面:push 侧范围清单 head=full)'
+      pushScopeNote = '本次为显式全量面(push 侧范围清单申明)'
     } else {
-      const pushSet = new Set(pushPaths)
+      const pushSet = new Set(cred.paths)
       const narrowed = (headScope.files ?? []).filter((f) => pushSet.has(f))
       let manifest = null
       try {
@@ -711,9 +889,16 @@ async function main() {
         error: headScope.error,
       }
       sweepScope = { indexFiles: narrowed, files: narrowed }
-      faceInfo = `(push scope:本次推送 ${pushPaths.length} 个变更文件 → HEAD 面交集 ${narrowed.length} 个)`
-      pushScopeNote = `push scope 面(变更 ${pushPaths.length} 个 → HEAD 交集 ${narrowed.length} 个)`
+      faceInfo = `(push scope 来源=${cred.source}:本次推送 ${cred.paths.length} 个变更文件 → HEAD 面交集 ${narrowed.length} 个)`
+      pushScopeNote = `push scope 面(变更 ${cred.paths.length} 个 → HEAD 交集 ${narrowed.length} 个)`
     }
+  } else if (FULL_FACE) {
+    // 显式整面检查:唯一的非 push 全量入口。输出必须写明"本次为显式全量面",
+    // 免得看日志的人把"整面跑"误读成"本次推送的面"。
+    scope = trackedFiles('head')
+    uncovered = listUncovered([])
+    sweepScope = scope
+    faceInfo = '(本次为显式全量面:--full-face)'
   } else {
     scope = trackedFiles(face)
     uncovered = listUncovered(faceArgs)
@@ -739,6 +924,25 @@ async function main() {
   }
   const { missing, untrackedGaps, untouchedGaps, drift } = decision
   const indexSet = new Set(scope.indexFiles)
+  // 自愈写盘范围必须**严格等于判定面**(2026-11-09 立):判定面是 75 文件就只碰这 75 个。
+  // 这一条是结构性闸门,防未来某次改动把 missing 的来源换成"更大的面"(190 文件事故的形状)。
+  // MAX_AUTOFIX 只在已判定的面内生效,绝不因为"缺口数没超上限"就扩大面。
+  const judgedFaceSet = new Set(
+    PUSH_SCOPE && !explicitFull
+      ? (scope.files ?? [])
+      : face === 'staged'
+        ? (carried.paths ?? [])
+        : (scope.indexFiles ?? []),
+  )
+  const outsideFace = autofixOutsideFace(missing, judgedFaceSet)
+  if (outsideFace.length > 0) {
+    console.error(
+      `[watermark-coverage] ❌ 无法判定:自愈面越界 —— ${outsideFace.length} 个待处理文件不在本轮判定面内`,
+    )
+    for (const f of outsideFace.slice(0, 30)) console.error('  - ' + f)
+    console.error('  判定面之外的文件一个字节都不写(MAX_AUTOFIX 只在已判定的面内生效)。')
+    return 2
+  }
   if (drift.length > 0) {
     console.warn(
       `[watermark-coverage] ⚠️ 排除面两侧不一致:${drift.length} 个已登记第三方文件被 list-uncovered 报成缺口(watermark.mjs 未走同一谓词?),已跳过不注入。示例: ${drift.slice(0, 5).join(', ')}`,
@@ -799,15 +1003,17 @@ async function main() {
     // 措辞必须与**判过的面**一致:提交档只判了本次携带的文件,不能声称"已跟踪文件水印完整"
     // —— 那会把"没判的那一格"写成"判过了"(本仓最高频失效型),也正好掩盖 untouchedGaps 那一档。
     console.log(
-      PUSH_SCOPE
-        ? `[watermark-coverage] ✅ ${pushScopeNote},已判文件水印完整`
-        : face === 'staged'
-          ? `[watermark-coverage] ✅ 本次提交携带的 ${carried.paths ? carried.paths.length : 0} 个文件水印完整` +
-              `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)` +
-              (untouchedGaps.length === 0 && carried.paths && carried.paths.length === 0
-                ? ' —— 暂存面为空,本次不携带任何文件'
-                : '')
-          : `[watermark-coverage] ✅ ${face === 'head' ? 'HEAD 面' : '工作树面(人工逃生舱)'}已枚举文件水印完整${face === 'worktree' ? '(未跟踪产物另列,不计入)' : ''}`,
+      explicitFull
+        ? `[watermark-coverage] ✅ ${faceInfo}已判文件水印完整`
+        : PUSH_SCOPE
+          ? `[watermark-coverage] ✅ ${pushScopeNote},已判文件水印完整`
+          : face === 'staged'
+            ? `[watermark-coverage] ✅ 本次提交携带的 ${carried.paths ? carried.paths.length : 0} 个文件水印完整` +
+                `(索引存量欠账 ${untouchedGaps.length} 个只报数,由全量档/其持有者问责)` +
+                (untouchedGaps.length === 0 && carried.paths && carried.paths.length === 0
+                  ? ' —— 暂存面为空,本次不携带任何文件'
+                  : '')
+            : `[watermark-coverage] ✅ ${face === 'head' ? 'HEAD 面' : '工作树面(人工逃生舱)'}已枚举文件水印完整${face === 'worktree' ? '(未跟踪产物另列,不计入)' : ''}`,
     )
     return 0
   }
@@ -899,8 +1105,17 @@ async function main() {
     return 0
   }
   console.log(
-    `[watermark-coverage] 💧 已 inject 到工作区,请随下一次提交带上(本档刻意不动索引 —— 工作区可回滚,索引不可)。`,
+    `[watermark-coverage] 💧 已 inject 到工作区 ${missing.length} 个(**全部在判定面内**),本档刻意不动索引:` +
+      '索引不可回滚,在永不 commit 的档位 add 会把改动悬在共享索引里等别人背。',
   )
+  // 同根因提示(2026-11-09):非 --staged 面"只写盘不暂存"本身是对的,但必须把"改了但没暂存"
+  // 这件事**显式喊出来**,否则下一次 `git status` 里那批改动会被当成"别人在飞"或干脆被忽略。
+  console.log(
+    '   ⚠️ 这批文件当前状态 = 已改工作区、**未暂存**。下一步必须自己 `git add` 并随一枚提交带上,' +
+      '否则盘上看起来已修好、HEAD 面欠账仍在(门照红,且改动会一直挂在共享工作区)。',
+  )
+  for (const f of missing.slice(0, 30)) console.log(`  - ${f}`)
+  if (missing.length > 30) console.log(`  ... 其余 ${missing.length - 30} 个`)
   reportGap(missing, '(HEAD 面欠账不会因写盘而销 —— 只有一枚把它带进 HEAD 的提交能修)', faceInfo, face)
   return 1
 }

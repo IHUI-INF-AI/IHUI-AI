@@ -24,7 +24,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync, cpSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, cpSync, existsSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -67,8 +67,8 @@ const runGate = (cwd, args, extraEnv = {}) => {
       timeout: 180_000,
       encoding: 'utf8',
       maxBuffer: 32 << 20,
-      // PUSH_SCOPE_FILES 必须显式清空:本机若带着上一轮 push 的清单,非 push 档测试会被它串味。
-      env: { ...process.env, HUSKY_SKIP_WATERMARK_GUARD: '', PUSH_SCOPE_FILES: '', ...extraEnv },
+      // PUSH_SCOPE_FILES / PUSH_SCOPE_MANIFEST 必须显式清空:本机若带着上一轮 push 的清单,非 push 档测试会被它串味。
+      env: { ...process.env, HUSKY_SKIP_WATERMARK_GUARD: '', PUSH_SCOPE_FILES: '', PUSH_SCOPE_MANIFEST: '', ...extraEnv },
     })
     return { rc: 0, out }
   } catch (e) {
@@ -250,8 +250,9 @@ test('T6 收窄有牙(G-1018220):存量欠账不在携带面 ⇒ 提交档放行
     assert.equal(readFileSync(join(dir, 'src', 'demo.mjs'), 'utf8'), before, '门不得替别人已入库的副本注入(污染 + 越权两型)')
     assert.ok(!String(indexBlob(dir, 'src/demo.mjs')).includes(BANNER), '不携带 ⇒ 不注入')
     assert.match(staged.out, /demo\.mjs/, '不判红也必须点名那一格,否则"放过"与"没看见"在账面上同形')
-    const full = runGate(dir, ['--no-fix'])
+    const full = runGate(dir, ['--no-fix', '--full-face'])
     assert.equal(full.rc, 1, `全量档必须继续判存量红,否则收窄等于把红洗成绿:${full.out}`)
+    assert.match(full.out, /本次为显式全量面/, '显式全量档必须在输出里写明"本次为显式全量面"(2026-11-09 口径)')
   } finally {
     rmScratch(dir)
   }
@@ -262,10 +263,12 @@ test('T7 乙档(全量/push-gate)自愈只写工作区、绝不碰索引(2026-10
   try {
     const before = readFileSync(join(dir, 'src', 'demo.mjs'), 'utf8')
     const idxBefore = String(indexBlob(dir, 'src/demo.mjs'))
-    const r = runGate(dir, [])
+    const r = runGate(dir, ['--full-face'])
     assert.equal(r.rc, 1, `HEAD 面欠账不因写盘而销,必须仍判红,实得 ${r.rc}:${r.out}`)
-    assert.match(r.out, /已 inject 到工作区,请随下一次提交带上/, '必须点名"写了盘"这件事与出路')
+    assert.match(r.out, /本次为显式全量面/, '显式全量档必须留痕,免得被误读成"本次推送的面"')
+    assert.match(r.out, /已 inject 到工作区/, '必须点名"写了盘"这件事与出路')
     assert.match(r.out, /本档刻意不动索引/, '必须写明本档不碰索引(工作区可回滚,索引不可)')
+    assert.match(r.out, /未暂存/, '必须显式喊出"改了但没暂存"(30 版权行文件事故的同根因提示)')
     const after = readFileSync(join(dir, 'src', 'demo.mjs'), 'utf8')
     assert.notEqual(after, before, '自愈确实写到了工作区')
     assert.ok(WM.payloadIntact(after), '写进工作区的水印必须经生产判据认可')
@@ -285,7 +288,7 @@ test('W9 三面分叉正控(换面的牙):HEAD 缺载荷而 index/盘完好 ⇒ 
     assert.ok(head.includes('[IHUI-AI-PROVENANCE]') && !WM.payloadIntact(head), '夹具前提:HEAD blob 必须是残迹态(有横幅文本、无可解码载荷)')
     assert.ok(WM.payloadIntact(idx) && WM.payloadIntact(disk), '夹具前提:索引与盘上副本必须已补齐(悬留形态)')
     // 正判:全量档判 HEAD 面 ⇒ 红且点名
-    const r = runGate(dir, ['--no-fix'])
+    const r = runGate(dir, ['--no-fix', '--full-face'])
     assert.equal(r.rc, 1, `HEAD 面缺载荷必须判红,实得 ${r.rc}:${r.out}`)
     assert.match(r.out, /src\/demo\.mjs/, '必须点名悬留的那枚文件')
     // 同码三面探针:逃生舱读盘 ⇒ 同一份代码在该面就是绿(证明红的来源是 HEAD,不是别的)
@@ -297,10 +300,10 @@ test('W9 三面分叉正控(换面的牙):HEAD 缺载荷而 index/盘完好 ⇒ 
     const MUT = "const DEFAULT_BATCH_FACE = 'head'"
     assert.ok(wmSrc.includes(MUT), '变异锚点必须存在(默认面常量被改名时先修这条锁,不得静默跳过变异)')
     writeFileSync(wmPath, wmSrc.replace(MUT, "const DEFAULT_BATCH_FACE = 'worktree'"), 'utf8')
-    const mutated = runGate(dir, ['--no-fix'])
+    const mutated = runGate(dir, ['--no-fix', '--full-face'])
     assert.equal(mutated.rc, 0, `摘掉换面(读盘)后该例必须翻回 0 —— 翻不回 0 说明红不是换面带来的,判据没装在位:${mutated.out}`)
     writeFileSync(wmPath, wmSrc, 'utf8')
-    const restored = runGate(dir, ['--no-fix'])
+    const restored = runGate(dir, ['--no-fix', '--full-face'])
     assert.equal(restored.rc, 1, '还原副本后必须重新判红(证明上面那次 0 是变异造成的,不是环境漂移)')
   } finally {
     rmScratch(dir)
@@ -312,7 +315,7 @@ test('W10 反控:三面一致且载荷完好 ⇒ 三档全部 exit 0(防恒红�
   try {
     git(['commit', '-m', 'seat-the-fix', '--no-verify'], dir) // 把补齐版提交进 HEAD ⇒ 三面一致
     assert.ok(WM.payloadIntact(String(headBlob(dir, 'src/demo.mjs'))), '夹具前提:提交后 HEAD 面载荷完好')
-    for (const args of [['--no-fix'], ['--no-fix', '--staged'], ['--no-fix', '--worktree']]) {
+    for (const args of [['--no-fix', '--full-face'], ['--no-fix', '--staged'], ['--no-fix', '--worktree']]) {
       const r = runGate(dir, args)
       assert.equal(r.rc, 0, `${args.join(' ')} 应判绿,实得 ${r.rc}:${r.out}`)
     }
@@ -338,10 +341,13 @@ test('P1 push scope 有牙(2026-11-03):HEAD 坏载荷在 scope 内必红点名;s
     const outScope = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: 'README.md' })
     assert.equal(outScope.rc, 0, `scope 外的存量坏 blob 不得替本次 push 挡路,实得 ${outScope.rc}:${outScope.out}`)
     assert.match(outScope.out, /push scope 面/, '通过行必须如实报出口径(不得让人误以为跑了全量)')
-    // 取不到 push scope ⇒ 如实退回 HEAD 全量面(不是空扫放行):同一夹具必须重新判红
+    // 取不到 push scope ⇒ **未判定 exit 2**(2026-11-09 口径):既不退回整张 HEAD 面,也不空扫放行
     const noScope = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: '' })
-    assert.equal(noScope.rc, 1, `push scope 不可得时必须退回全量面并判红,实得 ${noScope.rc}:${noScope.out}`)
-    assert.match(noScope.out, /退回 HEAD 全量面|push scope 不可得/, '回退必须显式留痕,不得静默')
+    assert.equal(noScope.rc, 2, `push scope 不可得必须 exit 2(未判定),实得 ${noScope.rc}:${noScope.out}`)
+    assert.match(noScope.out, /无法判定/, '必须显式喊「无法判定」,不得静默')
+    assert.match(noScope.out, /PUSH_SCOPE_FILES 或 PUSH_SCOPE_MANIFEST/, '必须点名缺的是哪份凭据')
+    assert.match(noScope.out, /怎么补/, '必须给出补齐路径,不能只报错')
+    assert.doesNotMatch(noScope.out, /✅/, '未判定绝不得写出通过样子的结论')
     // 纯删除(scope 里的路径已不在 HEAD)不是"判不了",不得因交集为空而误红
     const deletedOnly = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_FILES: 'src/gone.mjs' })
     assert.equal(deletedOnly.rc, 0, `删除路径不进 HEAD 分母,应绿,实得 ${deletedOnly.rc}:${deletedOnly.out}`)
@@ -408,10 +414,108 @@ test('W11 未判定:HEAD 面取不到(仓无任何提交)⇒ 报「无法判定�
     git(['init', '-b', 'main'], dir)
     git(['config', 'core.hooksPath', join(dir, '.no-hooks')], dir)
     git(['add', '.'], dir) // 有索引、无 HEAD:全量档的判定面根本不存在
-    const r = runGate(dir, ['--no-fix'])
+    const r = runGate(dir, ['--no-fix', '--full-face'])
     assert.equal(r.rc, 2, `面取不到必须是 exit 2(未判定),实得 ${r.rc}:${r.out}`)
     assert.match(r.out, /无法判定/, '必须显式喊「无法判定」,不得静默')
     assert.ok(!/✅/.test(r.out), '未判定绝不得同时写出通过样子的结论(把"没判"写成"判过"是本仓最高频失效型)')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S1 夹具①:PUSH_SCOPE_FILES 缺失 ⇒ exit 2 且**零写盘**(内容/mtime/索引三面不动)', () => {
+  // 事故同形:HEAD 面存在缺口,若门还保留"猜整张 HEAD 面 + 自愈"的旧路径,这里必然写盘。
+  const dir = makeRepo({ commit: true })
+  try {
+    const file = join(dir, 'src', 'demo.mjs')
+    const before = readFileSync(file, 'utf8')
+    const mtimeBefore = statSync(file).mtimeMs
+    const idxBefore = String(indexBlob(dir, 'src/demo.mjs'))
+    // 刻意不传 --no-fix:写盘闸必须由"面未判定"自己挡住,不能靠调用方自觉。
+    const r = runGate(dir, ['--push-scope'], { PUSH_SCOPE_FILES: '' })
+    assert.equal(r.rc, 2, `凭据缺失必须 exit 2(未判定),实得 ${r.rc}:${r.out}`)
+    assert.match(r.out, /无法判定/, '必须显式喊「无法判定」')
+    assert.equal(readFileSync(file, 'utf8'), before, '面未判定时一个字节都不许写')
+    assert.equal(statSync(file).mtimeMs, mtimeBefore, 'mtime 未变 = 确实没写过(内容相等可能是重写成同值)')
+    assert.equal(String(indexBlob(dir, 'src/demo.mjs')), idxBefore, '索引也必须原样')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S2 夹具②:范围齐全 ⇒ 只在该范围内自愈写盘,范围外文件 mtime/内容原样', () => {
+  const dir = makeRepo({ commit: true })
+  try {
+    // 再造一个同样缺水的存量文件,但**不在**本次 push scope 里。
+    writeFileSync(join(dir, 'src', 'other.mjs'), NO_BANNER_SRC, 'utf8')
+    git(['add', 'src/other.mjs'], dir)
+    git(['commit', '-m', 'gap-other', '--no-verify'], dir)
+    const demo = join(dir, 'src', 'demo.mjs')
+    const other = join(dir, 'src', 'other.mjs')
+    const demoBefore = readFileSync(demo, 'utf8')
+    const otherBefore = readFileSync(other, 'utf8')
+    const otherMtime = statSync(other).mtimeMs
+    const r = runGate(dir, ['--push-scope'], { PUSH_SCOPE_FILES: 'src/demo.mjs' })
+    assert.equal(r.rc, 1, `HEAD 面欠账写盘不销账,应仍判红:${r.out}`)
+    assert.match(r.out, /全部在判定面内/, '必须写明写盘范围 = 判定面')
+    const demoAfter = readFileSync(demo, 'utf8')
+    assert.notEqual(demoAfter, demoBefore, '范围内的缺口必须被自愈')
+    assert.ok(WM.payloadIntact(demoAfter), '自愈载荷必须经生产判据认可')
+    assert.equal(readFileSync(other, 'utf8'), otherBefore, '范围外的存量缺口一个字节都不许碰')
+    assert.equal(statSync(other).mtimeMs, otherMtime, '范围外文件 mtime 未变 = 没写过')
+    assert.doesNotMatch(r.out, /src\/other\.mjs/, '范围外文件不得出现在写盘清单里')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S3 夹具③:显式 --full-face 允许全量写盘,但必须写明"本次为显式全量面"', () => {
+  const dir = makeRepo({ commit: true })
+  try {
+    writeFileSync(join(dir, 'src', 'other.mjs'), NO_BANNER_SRC, 'utf8')
+    git(['add', 'src/other.mjs'], dir)
+    git(['commit', '-m', 'gap-other', '--no-verify'], dir)
+    const r = runGate(dir, ['--full-face'])
+    assert.equal(r.rc, 1, `HEAD 面欠账仍在,应 rc=1:${r.out}`)
+    assert.match(r.out, /本次为显式全量面/, '显式全量档必须在输出留痕')
+    assert.ok(WM.payloadIntact(readFileSync(join(dir, 'src', 'demo.mjs'), 'utf8')), '全量面第一个缺口应被写盘')
+    assert.ok(WM.payloadIntact(readFileSync(join(dir, 'src', 'other.mjs'), 'utf8')), '全量面第二个缺口应被写盘')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S3b 无面旗 = 未判定(旧行为默认整张 HEAD 面,已废止)⇒ exit 2 且零写盘', () => {
+  const dir = makeRepo({ commit: true })
+  try {
+    const file = join(dir, 'src', 'demo.mjs')
+    const before = readFileSync(file, 'utf8')
+    const mtimeBefore = statSync(file).mtimeMs
+    const r = runGate(dir, [])
+    assert.equal(r.rc, 2, `无面旗必须 exit 2,实得 ${r.rc}:${r.out}`)
+    assert.match(r.out, /未声明判定面/, '必须点名"没声明面",不能猜')
+    assert.equal(readFileSync(file, 'utf8'), before, '未判定时不得写盘')
+    assert.equal(statSync(file).mtimeMs, mtimeBefore, '未判定时 mtime 必须原样')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('S4 清单凭据:face=full 清单 ⇒ 显式全量面;单路径清单 ⇒ 收窄;清单缺失 ⇒ exit 2', () => {
+  const dir = makeRepo({ commit: true })
+  try {
+    const manifest = join(dir, 'scope.txt')
+    writeFileSync(manifest, 'src/demo.mjs\n', 'utf8')
+    const narrowed = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_MANIFEST: manifest })
+    assert.equal(narrowed.rc, 1, `清单收窄到坏 blob 必须判红:${narrowed.out}`)
+    assert.match(narrowed.out, /PUSH_SCOPE_MANIFEST/, '通过/报错行必须注明凭据来源')
+    writeFileSync(manifest, '# ihui-push-scope/v1 face=full\n', 'utf8')
+    const full = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_MANIFEST: manifest })
+    assert.equal(full.rc, 1, `face=full 应判整面:${full.out}`)
+    assert.match(full.out, /本次为显式全量面/, 'face=full 必须留痕')
+    const missing = runGate(dir, ['--push-scope', '--no-fix'], { PUSH_SCOPE_MANIFEST: join(dir, 'nope.txt') })
+    assert.equal(missing.rc, 2, `清单不可读必须 exit 2:${missing.out}`)
+    assert.match(missing.out, /清单文件不可读/, '必须点名清单读取失败,不得静默退回整面')
   } finally {
     rmScratch(dir)
   }
