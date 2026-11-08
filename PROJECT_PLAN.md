@@ -32421,7 +32421,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 98G. **缺陷普查 API F-98** [P3] 文章详情返回未发布/下线稿件，且对草稿也计浏览（证据 docs/tickets/2026-11/findings-api.md#F-98）
 - [ ] 99G. **缺陷普查 API F-99** [P3] /api/ai/career-advice 裸 fetch 不带凭证 → 必然 401，却把模板当成功返回（证据 docs/tickets/2026-11/findings-api.md#F-99）
 - [ ] 100G. **缺陷普查 API F-100** [P3] skills push/db-sync 串行最多次百次写，pull/db-sync 全量读无上限（N+1 + 无界内存）（证据 docs/tickets/2026-11/findings-api.md#F-100）
-- [ ] 101G. **缺陷普查 API F-101** [P1] /api/ai/mcp/servers 全局表无属主，任意登录用户可读全量、删任意、注入任意 endpoint（证据 docs/tickets/2026-11/findings-api.md#F-101）
 - [ ] 102G. **缺陷普查 API F-102** [P1] 回调关联键全部取自客户端 metadata：userId 可伪造替他人扣费，messageId 缺省使幂等键退化（证据 docs/tickets/2026-11/findings-api.md#F-102）
 - [ ] 103G. **缺陷普查 API F-103** [P1] 图片编辑 8 个生成端点使用平台 Key，零计费/零余额校验，model 客户端任意（证据 docs/tickets/2026-11/findings-api.md#F-103）
 - [ ] 104G. **缺陷普查 API F-104** [P1] 音频/声纹 5 个端点使用平台 DashScope Key，零计费/零余额校验（证据 docs/tickets/2026-11/findings-api.md#F-104）
@@ -32488,7 +32487,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 167G. **缺陷普查 API F-167** [P1] /agents/charge 价格与支付状态由客户端决定，可 0 元自助「已支付」（证据 docs/tickets/2026-11/findings-api.md#F-167）
 - [ ] 168G. **缺陷普查 API F-168** [P1] 考试答题记录 start / submit-exam / status 缺属主校验（BOLA）（证据 docs/tickets/2026-11/findings-api.md#F-168）
 - [ ] 169G. **缺陷普查 API F-169** [P1] /api/edu/certificates/:id 证书详情无属主校验（证据 docs/tickets/2026-11/findings-api.md#F-169）
-- [ ] 170G. **缺陷普查 API F-170** [P1] /api/self-media/records 返回全站用户自媒体记录与 payload（证据 docs/tickets/2026-11/findings-api.md#F-170）
 - [ ] 171G. **缺陷普查 API F-171** [P2] /api/edu/courses/:id/qa 先按全站分页再内存过滤，分页与 total 均失真（证据 docs/tickets/2026-11/findings-api.md#F-171）
 - [ ] 172G. **缺陷普查 API F-172** [P1] 考试判分按客户端 answers 逐项累加，重复 questionId 可无限刷分（证据 docs/tickets/2026-11/findings-api.md#F-172）
 - [ ] 173G. **缺陷普查 API F-173** [P2] 公开帮助文章列表未过滤 isPublished，草稿全文匿名可读（证据 docs/tickets/2026-11/findings-api.md#F-173）
@@ -32580,7 +32578,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 266G. **缺陷普查 API F-266** [P2] 合并隔离 hash 只有 HSET/HGETALL，无 HDEL/EXPIRE，Redis 单调增长且读侧全量传输（证据 docs/tickets/2026-11/findings-api.md#F-266）
 - [ ] 267G. **缺陷普查 API F-267** [P2] 自愈「依赖修复」命令 pnpm 命中管理员专用闸，100% 以 exitCode 126 失败（证据 docs/tickets/2026-11/findings-api.md#F-267）
 - [ ] 268G. **缺陷普查 API F-268** [P1] refresh token 重放检测被 stale-sibling 永久绕过，旧 refresh token 可无限续期（证据 docs/tickets/2026-11/findings-api.md#F-268）
-- [ ] 269G. **缺陷普查 API F-269** [P1] 注销擦除漏删 user_emails / security_logs / devices 等 5 表，gender/birthday 未清，单表失败静默（证据 docs/tickets/2026-11/findings-api.md#F-269）
 - [ ] 270G. **缺陷普查 API F-270** [P2] Coze access_token 全局单槽缓存不区分 userUuid，scope 被静默丢弃（证据 docs/tickets/2026-11/findings-api.md#F-270）
 - [ ] 271G. **缺陷普查 API F-271** [P2] 企微 suite 登录绑定只取 open_userid、丢弃 corpId，缺租户维度（证据 docs/tickets/2026-11/findings-api.md#F-271）
 - [ ] 272G. **缺陷普查 API F-272** [P2] 2FA step-up 未做 TOTP 一次性兑付，同一 6 位码可在窗口内重复刷新 step-up（证据 docs/tickets/2026-11/findings-api.md#F-272）
