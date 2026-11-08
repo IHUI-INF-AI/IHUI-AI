@@ -1266,7 +1266,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       }
       try {
         const record = await gradeExam(parsed.data.recordId, bodyParsed.data.score)
-        server.recordExamScore(Number(record.score))
+        // 评分打点已下沉到 gradeExam(db 层):按相对上一终态的增量平移 sum,此处不再重复累计
         return reply.send(success({ record }))
       } catch (e) {
         if (isAppError(e)) {

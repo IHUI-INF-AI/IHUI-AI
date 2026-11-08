@@ -21,6 +21,7 @@ import {
   type ExamWrongQuestion,
 } from '@ihui/database'
 import { AppError } from '../errors/AppError.js'
+import { adjustExamScore } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // Chapters - 试卷章节
@@ -654,6 +655,8 @@ export async function gradeExam(recordId: string, score: number): Promise<ExamRe
         })
         .where(eq(examRecords.id, recordId))
         .returning()
+      // 同一记录按终态分数只计一次:首次出分已计入 sum+count,管理阅卷只平移增量
+      if (updated) adjustExamScore(Number(score) - Number(record.score ?? 0))
       return updated ?? record
     },
   )

@@ -19,7 +19,7 @@ import {
   type ExamRecord,
 } from '@ihui/database'
 // ihui_exam_score_sum/count:db 层不持有 fastify 实例,走模块级桥接函数打点
-import { recordExamScore } from '../plugins/business-metrics.js'
+import { adjustExamScore } from '../plugins/business-metrics.js'
 
 // =============================================================================
 // Exam Categories
@@ -653,8 +653,9 @@ export async function gradeSubjectiveAnswers(
     })
     .where(eq(examRecords.id, recordId))
 
-  // ihui_exam_score_sum/score_count:与路由层判分收口同口径成对累加
-  recordExamScore(totalScore)
+  // ihui_exam_score_sum/count:提交判分时已按上一终态计过一次,人工阅卷只平移增量,
+  // 避免同一答题记录被整笔重复累计(sum 恰等于该记录终态分数,count 不再 +1)
+  adjustExamScore(totalScore - Number(record.score ?? 0))
   return { score: totalScore, isPassed, status: 'submitted' }
 }
 
