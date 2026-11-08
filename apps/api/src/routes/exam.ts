@@ -524,7 +524,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const paper = await findPaperById(parsed.data.id)
-    if (!paper || !paper.isPublished) {
+    if (!paper || !paper.isPublished || paper.status !== 1) {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     return reply.send(success({ paper }))
@@ -552,7 +552,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const paper = await findPaperById(parsed.data.id)
-    if (!paper || !paper.isPublished) {
+    if (!paper || !paper.isPublished || paper.status !== 1) {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     const questions = await findQuestionsByPaperId(parsed.data.id)
@@ -593,7 +593,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const paper = await findPaperById(parsed.data.id)
-    if (!paper || !paper.isPublished) {
+    if (!paper || !paper.isPublished || paper.status !== 1) {
       return reply.status(404).send(error(404, '试卷不存在'))
     }
     const userId = request.userId!
