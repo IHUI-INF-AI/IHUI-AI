@@ -91,7 +91,7 @@
     "loadFailed": "加载任务失败"
   },
   "common": {
-    "backToTop": "回到顶部",
+    "gotIt": "我知道了",    "backToTop": "回到顶部",
     "hint": "提示",
     "goSettings": "去设置",
     "all": "全部",
@@ -395,6 +395,11 @@
         "contactService": "联系客服"
       },
       "tokenRate": "1元 = {n} 智汇值",
+      "title": "充值",
+      "balance": "账户余额",
+      "rate": "充值比例",
+      "introTitle": "充值说明",
+      "introBody": "充值金额将立即到账，可用于购买课程、服务等。",
       "guest": "游客"
     },
     "withdrawal": {
@@ -2399,6 +2404,7 @@
       "tabDone": "已完成",
       "tabAll": "全部",
       "navSearch": "搜索",
+      "loadFail": "加载失败,请稍后重试",
       "navMenu": "菜单",
       "navCategory": "分类",
       "searchPlaceholder": "搜索需求",
