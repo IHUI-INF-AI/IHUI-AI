@@ -6,10 +6,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
+import json
 import re
+from collections.abc import AsyncIterator
+from typing import Any
 
 import pytest
+from starlette.requests import Request
 
 from app.routers.llm import _fire_callback, _interrupted_callback_flush
 
@@ -68,13 +73,14 @@ class TestInterruptedFlushDecision:
                 _interrupted_callback_flush(stream_exiting=True, error=None, content=blank) is False
             )
 
-    def test_in_stream_error_does_not_flush(self) -> None:
-        # 流内已判错(模型/供应商错)走的是另一条终态路径,不在这里冒充"半截回答"。
+    def test_in_stream_error_flushes_partial(self) -> None:
+        # AIS-001:流内 provider error 是终态,但正常回调路径显式跳过 error;
+        # 若这里不补,用户已看到的半截回答在历史上彻底消失 ⇒ 必须补发(interrupted)。
         assert (
             _interrupted_callback_flush(
                 stream_exiting=True, error="LLM_ERROR", content="半截回答"
             )
-            is False
+            is True
         )
 
     def test_normal_completion_not_flushed_here(self) -> None:
@@ -112,6 +118,119 @@ class TestFireCallbackInterruptedBody:
         body = await _fire()
         assert "interrupted" not in body
         assert "interruptReason" not in body
+
+
+# =============================================================================
+# AIS-001 端到端:流内 provider error 是终态,半截回答仍须交给回调落库
+# =============================================================================
+
+_STREAM_URL = "/api/llm/complete/stream"
+
+
+def _parse_sse_events(raw: str) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for block in raw.split("\n\n"):
+        if not block.strip():
+            continue
+        event_type: str | None = None
+        data: Any = None
+        for line in block.split("\n"):
+            if line.startswith("event:"):
+                event_type = line[6:].strip()
+            elif line.startswith("data:"):
+                try:
+                    data = json.loads(line[5:].strip())
+                except (json.JSONDecodeError, ValueError):
+                    data = line[5:].strip()
+        if event_type or data is not None:
+            events.append({"event": event_type, "data": data})
+    return events
+
+
+def _bare_request(body: dict[str, Any]) -> Request:
+    """裸 ASGI 请求(不经中间件链):端点内身份类辅助全走 getattr 兜底。"""
+    payload = json.dumps(body).encode()
+    scope: dict[str, Any] = {
+        "type": "http",
+        "asgi": {"version": "3.0", "spec_version": "2.3"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": _STREAM_URL,
+        "raw_path": _STREAM_URL.encode(),
+        "query_string": b"",
+        "root_path": "",
+        "headers": [
+            (b"host", b"test"),
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(payload)).encode()),
+        ],
+        "client": ("127.0.0.1", 123),
+        "server": ("test", 80),
+        "state": {},
+    }
+
+    async def receive() -> dict[str, Any]:
+        return {"type": "http.request", "body": payload, "more_body": False}
+
+    return Request(scope, receive)
+
+
+async def test_stream_error_event_still_flushes_partial_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """原生/上游中途 error → 前端收 error 终态,已到达的半截回答仍进回调(interrupted)。"""
+    from app.routers import llm as llm_router
+    from app.routers.llm import LLMCompleteRequest, complete_stream
+
+    async def fake_astream(
+        messages: list[dict[str, Any]],
+        model: str | None = None,
+        owner_uuid: str | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[dict[str, Any]]:
+        yield {"type": "chunk", "content": "半截回答"}
+        yield {
+            "type": "error",
+            "errorCode": "UPSTREAM_ERROR",
+            "message": "上游连接中断",
+        }
+
+    monkeypatch.setattr(llm_router.llm_gateway, "astream", fake_astream)
+
+    body: dict[str, Any] = {
+        "messages": [{"role": "user", "content": "你好"}],
+        "inputId": "ais-001-input",
+        "metadata": {
+            "conversationId": "conv-ais001",
+            "userId": "user-ais001",
+            "messageId": "msg-ais001",
+        },
+    }
+    resp = await complete_stream(LLMCompleteRequest(**body), _bare_request(body))
+    raw = "".join(
+        [
+            piece.decode("utf-8") if isinstance(piece, bytes) else piece
+            async for piece in resp.body_iterator
+        ]
+    )
+    events = _parse_sse_events(raw)
+
+    error_at = next(i for i, e in enumerate(events) if e["event"] == "error")
+    # error 是终态:其后不得再有 chunk/done(旧实现继续循环并按成功收尾)
+    trailing = [e for e in events[error_at + 1:] if e["event"] in ("chunk", "done")]
+    assert trailing == [], f"error 之后仍有 chunk/done: {trailing}"
+
+    # 半截回答必须交给回调落库(正常回调路径显式跳过 error,只有 interrupted 补发这一条)
+    for _ in range(20):
+        if _FakeClient.captured:
+            break
+        await asyncio.sleep(0)
+    assert _FakeClient.captured, "流内 error 后回调从未触发 ⇒ 用户已看到的半截回答丢失"
+    sent = _FakeClient.captured[-1]
+    assert sent.get("interrupted") is True
+    assert sent.get("interruptReason") == "user_cancelled"
+    assert sent.get("content") == "半截回答"
 
 
 # =============================================================================

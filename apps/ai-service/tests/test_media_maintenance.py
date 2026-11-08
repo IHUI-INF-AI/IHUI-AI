@@ -72,6 +72,26 @@ def test_sweep_deletes_fresh_orphan_owner(chart_dir: Path) -> None:
     assert not fresh.exists()
 
 
+def test_sweep_keeps_owner_paired_with_fresh_html(chart_dir: Path) -> None:
+    """AIS-096 回归:成对的 `x.html.owner` 不是孤儿。
+
+    旧实现用 `p.stem`(`x`)与 html 的 `stem` 比对,但 sidecar 名是 `x.html.owner`、
+    stem 为 `x.html`,配对恒不成立 ⇒ 每轮清扫都会把归属凭证删光,导致
+    /api/artifacts/token 因 sidecar 缺失而 fail-open 放行他人。
+    """
+    html = chart_dir / "20260908_1200_live_abcdef05.html"
+    html.write_text("<html></html>", encoding="utf-8")
+    owner = chart_dir / "20260908_1200_live_abcdef05.html.owner"
+    owner.write_text('{"user_id":"u5"}', encoding="utf-8")
+
+    from app.services.media_maintenance import sweep_chart_files
+
+    removed = sweep_chart_files()
+    assert removed == {"html": 0, "owner": 0}
+    assert html.exists()
+    assert owner.exists()
+
+
 class _FakeConn:
     def __init__(self, rows: list[dict] | None = None, raise_on_fetch: Exception | None = None):
         self.rows = rows or []
@@ -103,7 +123,10 @@ async def test_fail_stuck_tasks_uses_conditional_update(monkeypatch: pytest.Monk
     assert "status = ANY(" in sql and "updated_at < now()" in sql
     assert "RETURNING task_id" in sql
     assert params[1] == ["processing", "accepted", "submitted", "pending"]
-    assert params[2] == "30"
+    # AIS-097:按 kind 分档 —— 视频 120 分钟,其余维持 30 分钟
+    assert "kind = 'video'" in sql
+    assert params[2] == "120"
+    assert params[3] == "30"
 
 
 @pytest.mark.asyncio()

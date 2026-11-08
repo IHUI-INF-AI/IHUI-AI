@@ -39,6 +39,12 @@ _CHART_DIRS: tuple[Path, ...] = (
 
 _FILE_TTL_DAYS = int(os.getenv("MEDIA_MAINTENANCE_FILE_TTL_DAYS", "7"))
 _STUCK_MINUTES = int(os.getenv("MEDIA_MAINTENANCE_STUCK_MINUTES", "30"))
+# AIS-097:视频官方 p90 55~75 分钟,30 分钟一刀切会把正常长任务判死。
+# 非终态期间无 updated_at 心跳,因此按 kind 给视频更长的判定窗口(默认 120 分钟,
+# 覆盖 p90 且远离正常耗时),其余 kind 维持原阈值。
+_VIDEO_STUCK_MINUTES = int(
+    os.getenv("MEDIA_MAINTENANCE_VIDEO_STUCK_MINUTES", "120")
+)
 _INTERVAL_SECONDS = int(os.getenv("MEDIA_MAINTENANCE_INTERVAL_SECONDS", "3600"))
 
 # 与 services/media_tasks.py 的在途状态集合保持一致(不直接 import 避免循环依赖)
@@ -58,10 +64,13 @@ def sweep_chart_files(now: float | None = None) -> dict[str, int]:
         except OSError as e:  # noqa: BLE001
             logger.warning("[media_maintenance] 列目录失败 %s: %s", chart_dir, e)
             continue
-        html_stems: set[str] = set()
+        html_names: set[str] = set()
         for p in entries:
             if p.is_file() and p.suffix == ".html":
-                html_stems.add(p.stem)
+                # AIS-096:sidecar 名是 `x.html.owner`,比对基准必须是 `x.html`
+                # 全名;此前取 p.stem(`x`)所以配对判断恒不成立 ⇒ 每轮把全部
+                # 归属凭证当孤儿删掉(跨用户图表 token 换取因此 fail-open)。
+                html_names.add(p.name)
         for p in entries:
             if not p.is_file():
                 continue
@@ -74,7 +83,11 @@ def sweep_chart_files(now: float | None = None) -> dict[str, int]:
                 elif p.name.endswith(".owner"):
                     # 孤儿 sidecar:对应 html 已不存在 → 删;html 存在但超 TTL
                     # 会在上面分支配对删除,此处兜底
-                    if p.stem not in html_stems or p.stat().st_mtime < now - ttl_seconds:
+                    html_name = p.name.removesuffix(".owner")
+                    if (
+                        html_name not in html_names
+                        or p.stat().st_mtime < now - ttl_seconds
+                    ):
                         p.unlink(missing_ok=True)
                         removed["owner"] += 1
             except OSError as e:  # noqa: BLE001
@@ -92,7 +105,10 @@ async def fail_stuck_tasks() -> int:
         "UPDATE media_tasks SET status='failed', "
         "result=$1::jsonb, message='任务超时未收到终态回调/轮询结果(自动强失败)', "
         "updated_at=now() "
-        "WHERE status = ANY($2) AND updated_at < now() - ($3 || ' minutes')::interval "
+        "WHERE status = ANY($2) AND ("
+        "(kind = 'video' AND updated_at < now() - ($3 || ' minutes')::interval) "
+        "OR (kind <> 'video' AND updated_at < now() - ($4 || ' minutes')::interval)"
+        ") "
         "RETURNING task_id"
     )
     payload = json.dumps(
@@ -102,7 +118,13 @@ async def fail_stuck_tasks() -> int:
     try:
         conn = await get_db_conn()
         try:
-            rows = await conn.fetch(sql, payload, list(_IN_FLIGHT), str(_STUCK_MINUTES))
+            rows = await conn.fetch(
+                sql,
+                payload,
+                list(_IN_FLIGHT),
+                str(_VIDEO_STUCK_MINUTES),
+                str(_STUCK_MINUTES),
+            )
         finally:
             await conn.close()
     except Exception as e:  # noqa: BLE001
