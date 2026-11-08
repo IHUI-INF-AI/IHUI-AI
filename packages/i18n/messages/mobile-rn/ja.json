@@ -3289,9 +3289,6 @@
     "submit": "依頼を投稿",
     "contactLabel": "連絡先"
   },
-  "businessCard": {
-    "title": "マイ名刺"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "名刺を作成",
     "pageTitleEdit": "名刺を編集",
@@ -3660,7 +3657,20 @@
     "lifetime": "永久有効",
     "openNow": "今すぐ開通",
     "opened": "開通済み",
-    "loadFailed": "トレーダーの読み込みに失敗"
+    "loadFailed": "トレーダーの読み込みに失敗",
+    "productName": "VIP トレーダー",
+    "teamCount": "チーム人数",
+    "activeTrend": "アクティブ {n}",
+    "totalCommission": "累計コミッション",
+    "rankTrend": "ランク #{n}",
+    "monthIncome": "今月収益",
+    "withdrawnTrend": "出金済 {v}",
+    "pendingIncome": "未精算",
+    "frozenTrend": "凍結 {v}",
+    "myInviteCode": "招待コード",
+    "invitedTrend": "招待済み {n} 名",
+    "distLevel": "代理店ランク",
+    "rateTrend": "歩合 {n}%"
   },
   "wallet": {
     "points": "トークン",
@@ -6065,7 +6075,8 @@
     "uploadFail": "画像アップロード失敗",
     "updated": "名刺更新済み",
     "submitFail": "送信失敗",
-    "customFail": "名刺カスタマイズ失敗"
+    "customFail": "名刺カスタマイズ失敗",
+    "title": "マイ名刺"
   },
   "model": {
     "type0": "全能",
@@ -6090,21 +6101,6 @@
     "officialFallback": "智汇コミュニティ-公式",
     "buyTime": "購入時期：{t0}",
     "expireTime": "　有効期限：{t1}"
-  },
-  "viptrader": {
-    "productName": "VIP トレーダー",
-    "teamCount": "チーム人数",
-    "activeTrend": "アクティブ {n}",
-    "totalCommission": "累計コミッション",
-    "rankTrend": "ランク #{n}",
-    "monthIncome": "今月収益",
-    "withdrawnTrend": "出金済 {v}",
-    "pendingIncome": "未精算",
-    "frozenTrend": "凍結 {v}",
-    "myInviteCode": "招待コード",
-    "invitedTrend": "招待済み {n} 名",
-    "distLevel": "代理店ランク",
-    "rateTrend": "歩合 {n}%"
   },
   "contact": {
     "phoneLabel": "電話: ",
@@ -7632,10 +7628,6 @@
   "businessCardEditPage": {
     "editTitle": "名刺を編集",
     "bioLabel": "自己紹介"
-  },
-  "checkin": {
-    "colEnabled": "有効",
-    "addAccount": "アカウント追加"
   },
   "circles": {
     "title": "コミュニティ"

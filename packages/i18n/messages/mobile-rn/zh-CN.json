@@ -3289,9 +3289,6 @@
     "submit": "发布需求",
     "contactLabel": "联系方式"
   },
-  "businessCard": {
-    "title": "我的名片"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "创建名片",
     "pageTitleEdit": "编辑名片",
@@ -3660,7 +3657,20 @@
     "lifetime": "终身有效",
     "openNow": "立即开通",
     "opened": "已开通",
-    "loadFailed": "加载交易者失败"
+    "loadFailed": "加载交易者失败",
+    "productName": "VIP 操盘手",
+    "teamCount": "团队人数",
+    "activeTrend": "活跃 {n}",
+    "totalCommission": "累计佣金",
+    "rankTrend": "排名 #{n}",
+    "monthIncome": "本月收益",
+    "withdrawnTrend": "已提现 {v}",
+    "pendingIncome": "待结算",
+    "frozenTrend": "冻结 {v}",
+    "myInviteCode": "我的邀请码",
+    "invitedTrend": "已邀请 {n} 人",
+    "distLevel": "分销等级",
+    "rateTrend": "佣金比例 {n}%"
   },
   "wallet": {
     "points": "智汇值",
@@ -6065,7 +6075,8 @@
     "uploadFail": "名片图片上传失败",
     "updated": "名片已更新",
     "submitFail": "名片提交失败",
-    "customFail": "名片定制失败，请重试"
+    "customFail": "名片定制失败，请重试",
+    "title": "我的名片"
   },
   "model": {
     "type0": "全能",
@@ -6090,21 +6101,6 @@
     "officialFallback": "智汇社区-官方",
     "buyTime": "购买时间：{t0}",
     "expireTime": "　到期时间：{t1}"
-  },
-  "viptrader": {
-    "productName": "VIP 操盘手",
-    "teamCount": "团队人数",
-    "activeTrend": "活跃 {n}",
-    "totalCommission": "累计佣金",
-    "rankTrend": "排名 #{n}",
-    "monthIncome": "本月收益",
-    "withdrawnTrend": "已提现 {v}",
-    "pendingIncome": "待结算",
-    "frozenTrend": "冻结 {v}",
-    "myInviteCode": "我的邀请码",
-    "invitedTrend": "已邀请 {n} 人",
-    "distLevel": "分销等级",
-    "rateTrend": "佣金比例 {n}%"
   },
   "contact": {
     "phoneLabel": "电话：",
@@ -7632,10 +7628,6 @@
   "businessCardEditPage": {
     "editTitle": "编辑名片",
     "bioLabel": "简介"
-  },
-  "checkin": {
-    "colEnabled": "启用",
-    "addAccount": "添加账号"
   },
   "circles": {
     "title": "圈子"

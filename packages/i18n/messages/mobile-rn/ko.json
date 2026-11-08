@@ -3289,9 +3289,6 @@
     "submit": "의뢰 등록",
     "contactLabel": "연락처"
   },
-  "businessCard": {
-    "title": "내 명함"
-  },
   "businessCardEdit": {
     "pageTitleCreate": "명함 만들기",
     "pageTitleEdit": "명함 편집",
@@ -3660,7 +3657,20 @@
     "lifetime": "평생 유효",
     "openNow": "지금 개통",
     "opened": "개통 완료",
-    "loadFailed": "트레이더 불러오기 실패"
+    "loadFailed": "트레이더 불러오기 실패",
+    "productName": "VIP 트레이더",
+    "teamCount": "팀 규모",
+    "activeTrend": "활성 {n}",
+    "totalCommission": "누적 커미션",
+    "rankTrend": "순위 #{n}",
+    "monthIncome": "이번 달 수익",
+    "withdrawnTrend": "출금 {v}",
+    "pendingIncome": "정산 대기",
+    "frozenTrend": "동결 {v}",
+    "myInviteCode": "내 초대 코드",
+    "invitedTrend": "초대 {n}명",
+    "distLevel": "총판 등급",
+    "rateTrend": "수수료 {n}%"
   },
   "wallet": {
     "points": "포인트",
@@ -6065,7 +6075,8 @@
     "uploadFail": "이미지 업로드 실패",
     "updated": "명함 업데이트됨",
     "submitFail": "제출 실패",
-    "customFail": "명함 제작 실패, 재시도"
+    "customFail": "명함 제작 실패, 재시도",
+    "title": "내 명함"
   },
   "model": {
     "type0": "만능",
@@ -6090,21 +6101,6 @@
     "officialFallback": "IHUI 커뮤니티-공식",
     "buyTime": "구매 시점: {t0}",
     "expireTime": "　만료: {t1}"
-  },
-  "viptrader": {
-    "productName": "VIP 트레이더",
-    "teamCount": "팀 규모",
-    "activeTrend": "활성 {n}",
-    "totalCommission": "누적 커미션",
-    "rankTrend": "순위 #{n}",
-    "monthIncome": "이번 달 수익",
-    "withdrawnTrend": "출금 {v}",
-    "pendingIncome": "정산 대기",
-    "frozenTrend": "동결 {v}",
-    "myInviteCode": "내 초대 코드",
-    "invitedTrend": "초대 {n}명",
-    "distLevel": "총판 등급",
-    "rateTrend": "수수료 {n}%"
   },
   "contact": {
     "phoneLabel": "전화: ",
@@ -7632,10 +7628,6 @@
   "businessCardEditPage": {
     "editTitle": "명함 편집",
     "bioLabel": "소개"
-  },
-  "checkin": {
-    "colEnabled": "활성화",
-    "addAccount": "계정 추가"
   },
   "circles": {
     "title": "커뮤니티"
