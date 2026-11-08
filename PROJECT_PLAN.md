@@ -32234,11 +32234,11 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [x] 98E. **缺陷普查 AIS AIS-098** [P3] 非图片响应被写成 .png 并上传图床（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-098）（已修@2026-11-08/mcp-media-p1-1108@d6bffcd978）
 - [x] 99E. **缺陷普查 AIS AIS-099** [P2] 外链图片下载全量缓冲无上限（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-099）（已修@2026-11-08/mcp-media-p1-1108@d6bffcd978）
 - [x] 100E. **缺陷普查 AIS AIS-100** [P1] codebase-index 的出域同意与归属主体取自请求体（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-100）（已修@2026-11-08/mcp-media-p1-1108@9479704a7f）
-- [ ] 101E. **缺陷普查 AIS AIS-101** [P2] step-recorder 运行记录无属主，任意 run_id 可读（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-101）
+- [x] 101E. **缺陷普查 AIS AIS-101** [P2] step-recorder 运行记录无属主，任意 run_id 可读（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-101）（已修@2026-11-08/mcp-media-p1-1108@77230b153b）
 - [ ] 102E. **缺陷普查 AIS AIS-102** [P2] self-healing 端点仅靠 env 开关，登录用户可让 LLM 改源码（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-102）
 - [x] 103E. **缺陷普查 AIS AIS-103** [P2] screenshot probe 的 Playwright 请求绕过逐跳 SSRF 防护（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-103）（已修@2026-11-08/mcp-media-p1-1108@df01268091）
-- [ ] 104E. **缺陷普查 AIS AIS-104** [P2] memory.reset 清空全局 lessons 且不重载（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-104）
-- [ ] 105E. **缺陷普查 AIS AIS-105** [P3] memory_sedimenter 计数表无淘汰（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-105）
+- [x] 104E. **缺陷普查 AIS AIS-104** [P2] memory.reset 清空全局 lessons 且不重载（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-104）（已修@2026-11-08/mcp-media-p1-1108@77230b153b）
+- [x] 105E. **缺陷普查 AIS AIS-105** [P3] memory_sedimenter 计数表无淘汰（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-105）（已修@2026-11-08/mcp-media-p1-1108@77230b153b）
 - [x] 106E. **缺陷普查 AIS AIS-106** [P1] file_search 不校验工作区，任意目录内容回传（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-106）（已修@2026-11-08/mcp-media-p1-1108@b19be35552）
 - [x] 107E. **缺陷普查 AIS AIS-107** [P1] investigate_codebase 以用户路径为仓根（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-107）（已修@2026-11-08/mcp-media-p1-1108@b19be35552）
 - [x] 108E. **缺陷普查 AIS AIS-108** [P2] summarize_artifacts 按客户端 conversation_id 读他人产物（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-108）（已修@2026-11-08/mcp-media-p1-1108@df01268091）
