@@ -19,6 +19,8 @@ import { generateCompactId } from '../../utils/crypto-random.js'
 // utils/n8n-env.ts 顶部三条不可漂的写法)。
 // 禁止在本文件再直接写 process.env.N8N_DOMAIN / N8N_BASE_URL。
 import { readN8nBaseUrl, n8nBaseHint } from '../../utils/n8n-env.js'
+// F-117:webhookPath 只允许站内相对路径;构造与复核住在唯一出口,禁止本文件再拼基址。
+import { buildN8nWebhookUrl, isSafeN8nWebhookPath } from '../../utils/n8n-webhook-url.js'
 import { db } from '../../db/index.js'
 import {
   createVideoTask,
@@ -120,7 +122,11 @@ const N8N_ENV_PRIMARY = 'N8N_BASE_URL' as const
 
 const n8nWorkflowRunBody = z.object({
   workflowId: z.string().optional(),
-  webhookPath: z.string().optional(),
+  webhookPath: z
+    .string()
+    .max(2048)
+    .refine(isSafeN8nWebhookPath, 'webhookPath 必须是以 / 开头的站内相对路径')
+    .optional(),
   inputData: z.record(z.string(), z.unknown()).optional(),
 })
 
@@ -841,9 +847,14 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       // origin 已在唯一出口里去过尾斜杠并补好 scheme,这里不得再各自 replace。
       const key = requireVendorKey('n8n', reply)
       if (!key) return
-      const url = body.workflowId
-        ? `${base.origin}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
-        : `${base.origin}${body.webhookPath ?? '/webhook'}`
+      let url: string
+      try {
+        url = body.workflowId
+          ? `${base.origin}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
+          : buildN8nWebhookUrl(base.origin, body.webhookPath)
+      } catch (e) {
+        return reply.status(400).send(error(400, (e as Error).message))
+      }
       try {
         const resp = await fetchWithTimeout(
           url,
