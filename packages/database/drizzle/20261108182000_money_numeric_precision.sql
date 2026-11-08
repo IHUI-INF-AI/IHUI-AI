@@ -1,0 +1,19 @@
+-- F-449:课程售价 / Agent 开发者价格由 real(float4) 改为 numeric(12,2)。
+-- 背景:float4 只有 24 位尾数,131072.01 落库读回是 131072.015625,
+-- 支付侧 `Math.round(amount * 100)` 会多收 1 分;numeric 保留十进制精确值。
+--
+-- 存量转换说明:
+--   * 两列语义均为「元」,原样按 numeric(12,2) 两位小数四舍五入转换;
+--   * 已被 float4 量化的历史值无法从本迁移反推原始输入(131072.01 已变成
+--     131072.015625,转换后落 131072.02),本迁移只保证转换后不再继续漂移;
+--   * 受影响的历史课程/开发者定价需按业务真相源人工核对回填,迁移不猜测原值;
+--   * 只改列类型,不新建列、不改默认值;读侧字符串 → 分的精确换算在应用层
+--     (apps/api/src/utils/money.ts)完成。
+--
+-- 回滚(会重新引入精度问题,仅用于紧急回退):
+--   ALTER TABLE "zhs_course_video" ALTER COLUMN "amount" TYPE real USING "amount"::real;
+--   ALTER TABLE "zhs_agent_developer" ALTER COLUMN "price" TYPE real USING "price"::real;
+ALTER TABLE "zhs_course_video"
+  ALTER COLUMN "amount" TYPE numeric(12, 2) USING ROUND("amount"::numeric, 2);
+ALTER TABLE "zhs_agent_developer"
+  ALTER COLUMN "price" TYPE numeric(12, 2) USING ROUND("price"::numeric, 2);

@@ -18,6 +18,7 @@ import {
   zhsOperateTokenFlow,
 } from '@ihui/database'
 import { eq, sql, and, desc } from 'drizzle-orm'
+import { toYuanDecimal } from '../utils/money.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { error, success } from '../utils/response.js'
 
@@ -137,7 +138,7 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         duration: body.duration,
         adjunctUrl: body.adjunctUrl,
         isPay: body.isPay,
-        amount: body.amount,
+        amount: body.amount === undefined ? undefined : toYuanDecimal(body.amount),
         sort: body.sort,
         creator: body.creator,
         lecturer: body.lecturer,
@@ -203,7 +204,7 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         ...(body.duration !== undefined && { duration: body.duration }),
         ...(body.adjunctUrl !== undefined && { adjunctUrl: body.adjunctUrl }),
         ...(body.isPay !== undefined && { isPay: body.isPay }),
-        ...(body.amount !== undefined && { amount: body.amount }),
+        ...(body.amount !== undefined && { amount: toYuanDecimal(body.amount) }),
         ...(body.status !== undefined && { status: body.status }),
         ...(body.sort !== undefined && { sort: body.sort }),
         ...(body.lecturer !== undefined && { lecturer: body.lecturer }),
@@ -283,7 +284,7 @@ export const zhsLegacyRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         duration: body.duration,
         adjunctUrl: body.adjunctUrl,
         isPay: body.isPay,
-        amount: body.amount,
+        amount: body.amount === undefined ? undefined : toYuanDecimal(body.amount),
         sort: body.sort,
         creator: body.creator,
         lecturer: body.lecturer,

@@ -12,6 +12,7 @@ import { success, error } from '../../utils/response.js'
 import { zhsAgentDeveloper } from '@ihui/database'
 import { eq, ilike, desc, sql, or } from 'drizzle-orm'
 import { paginationSchema, idParamSchema } from './_shared.js'
+import { toYuanDecimal } from '../../utils/money.js'
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 
@@ -67,7 +68,7 @@ const taskDeveloperRoutes: FastifyPluginAsync = async (server) => {
         agentId: parsed.data.agentId,
         userId: parsed.data.userId,
         status: parsed.data.status,
-        price: parsed.data.price ?? null,
+        price: parsed.data.price === null || parsed.data.price === undefined ? null : toYuanDecimal(parsed.data.price),
         type: parsed.data.type ?? null,
       })
       .returning()
@@ -84,7 +85,9 @@ const taskDeveloperRoutes: FastifyPluginAsync = async (server) => {
       .update(zhsAgentDeveloper)
       .set({
         ...(parsed.data.status !== undefined && { status: parsed.data.status }),
-        ...(parsed.data.price !== undefined && { price: parsed.data.price ?? null }),
+        ...(parsed.data.price !== undefined && {
+          price: parsed.data.price === null ? null : toYuanDecimal(parsed.data.price),
+        }),
         updatedAt: new Date(),
       })
       .where(eq(zhsAgentDeveloper.id, Number(p.data.id)))
