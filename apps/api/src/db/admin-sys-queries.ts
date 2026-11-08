@@ -20,6 +20,8 @@ import {
   sysOperlog,
   adminRole,
   adminRoleDept,
+  adminRoleMenu,
+  adminUserRole,
   users,
   type SysMenu,
   type SysLogininfor,
@@ -173,7 +175,15 @@ export async function deleteMenuWithCascade(id: string): Promise<SysMenu | undef
 
 export async function deleteRoleMenuCascade(roleId: number): Promise<void> {
   await db.transaction(async (tx) => {
+    // F-403:菜单/部门/用户-角色绑定必须同事务清理,任一步失败整体回滚。
     await tx.delete(sysRoleMenu).where(eq(sysRoleMenu.roleId, roleId))
+    await tx.delete(adminRoleMenu).where(eq(adminRoleMenu.roleId, roleId))
+    await tx.delete(adminRoleDept).where(eq(adminRoleDept.roleId, roleId))
+    await tx.delete(adminUserRole).where(eq(adminUserRole.roleId, roleId))
+    await tx
+      .update(users)
+      .set({ roleId: 0, updatedAt: new Date() })
+      .where(eq(users.roleId, roleId))
   })
 }
 

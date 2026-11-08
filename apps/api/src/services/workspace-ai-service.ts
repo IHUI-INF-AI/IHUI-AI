@@ -3214,6 +3214,9 @@ class PersonaRegistry {
   ): Persona | null {
     const p = this.personas.get(id)
     if (!p) return null
+    // F-364 服务层兜底:内置人格是全局共享资产,任何字段都不可被改写。路由层已先返回
+    // 403,此处再拒一次,防止未来新增调用点绕过管理员闸/内置守卫改坏所有人的系统提示词。
+    if (p.builtin) return null
     const updated = {
       ...p,
       ...updates,

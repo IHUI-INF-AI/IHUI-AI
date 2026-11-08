@@ -85,6 +85,14 @@ vi.mock('../src/plugins/auth.js', () => ({
   }),
 }))
 
+// F-55 起 oauth-keys 全管理面挂 requireAdmin;本套件只测 /list 的读路径与压力闸,
+// 管理员闸在此放行(真实的 401/403 契约由 oauth-keys-admin-gate.test.ts 钉住)。
+vi.mock('../src/plugins/require-permission.js', () => ({
+  requireAdmin: vi.fn(async (request: FastifyRequest) => {
+    ;(request as { userId?: string }).userId = USER_ID
+  }),
+}))
+
 interface Row {
   id: string
   clientId: string

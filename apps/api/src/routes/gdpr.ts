@@ -172,12 +172,17 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
     // 1. 统一 PII 清除：遍历删除 PII 子表 + 彻底匿名化 users 主行(status=3) + 吊销 refresh token
     //    （含 user_auth_info / addresses / devices / device_* / security_logs / user_emails /
     //     chat / memory / notes / oauth / preferences / passkeys 等，幂等）
-    const purge = await purgeUserPii(userId)
-
-    // 2. 清理搜索历史
-    await clearSearchHistory(userId).catch(() => {
-      /* 搜索历史清理失败不阻断擦除主流程 */
-    })
+    //    F-269：任一环节失败即 fail-closed 返回 5xx + erased:false，不得静默报成功。
+    try {
+      await purgeUserPii(userId)
+      // 2. 清理搜索历史（失败同样不得吞掉，否则搜索词 PII 残留却被视为已擦除）
+      await clearSearchHistory(userId)
+    } catch (e) {
+      request.log.error({ err: e }, '[gdpr/erase] PII 清除失败')
+      return reply
+        .status(500)
+        .send({ code: 500, message: 'PII 清除失败，请稍后重试', data: { erased: false } })
+    }
 
     await addAuditLog({
       userId,

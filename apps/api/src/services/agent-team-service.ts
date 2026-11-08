@@ -34,6 +34,7 @@ export type AgentTeamErrorCode =
   | 'ARTIFACT_PATH_OUT_OF_SCOPE'
   | 'ARTIFACT_SHA256_MISMATCH'
   | 'INBOX_ENTRY_NOT_FOUND'
+  | 'INBOX_RECIPIENT_NOT_SELF'
   | 'TEAM_NAME_INVALID'
 
 export class AgentTeamError extends Error {
@@ -82,6 +83,23 @@ export interface InboxSendResult {
 
 function memberLabel(ref: AgentTeamMemberRef): string {
   return `${ref.memberKind}:${ref.memberId}`
+}
+
+/** 登录用户在本团队的成员身份:loadActiveTeam 只认 human 成员,故 actor 恒为 human:userId */
+function actorMemberRef(actorUserId: string): AgentTeamMemberRef {
+  return { memberKind: 'human', memberId: actorUserId }
+}
+
+/** 条目是否落在 actor 本人的人类收件箱里 */
+function isActorInboxEntry(entry: AgentTeamInboxEntry, actorUserId: string): boolean {
+  return entry.toMemberKind === 'human' && entry.toMemberId === actorUserId
+}
+
+/** actor 是否本团队 lead(仅 lead 可代管 agent 收件箱) */
+function isLeadOf(view: TeamView, actorUserId: string): boolean {
+  return view.members.some(
+    (m) => m.memberKind === 'human' && m.memberId === actorUserId && m.role === 'lead',
+  )
 }
 
 function isUniqueViolation(error: unknown): error is { code: string; constraint?: string } {
@@ -250,12 +268,21 @@ export function createAgentTeamService(options: AgentTeamServiceOptions = {}) {
       if (input.kind === 'handoff') {
         throw new AgentTeamError(400, 'HANDOFF_REQUIRES_ENDPOINT', '产物转交请走 handoff 端点')
       }
-      await requireActiveMember(teamId, input.fromMember)
+      // F-350:发送人只能是当前登录成员,忽略客户端传入的 fromMember,杜绝冒名。
+      const fromMember = actorMemberRef(actorUserId)
+      // 人类收件箱只允许投递给自己,防止向任意用户伪造/投递私信。
+      if (input.toMember.memberKind === 'human' && input.toMember.memberId !== actorUserId) {
+        throw new AgentTeamError(
+          403,
+          'INBOX_RECIPIENT_NOT_SELF',
+          '人类收件箱只能发送给当前登录成员本人',
+        )
+      }
       await requireActiveMember(teamId, input.toMember)
       return repo.insertInbox({
         teamId,
-        fromMemberKind: input.fromMember.memberKind,
-        fromMemberId: input.fromMember.memberId,
+        fromMemberKind: fromMember.memberKind,
+        fromMemberId: fromMember.memberId,
         toMemberKind: input.toMember.memberKind,
         toMemberId: input.toMember.memberId,
         kind: input.kind,
@@ -271,7 +298,11 @@ export function createAgentTeamService(options: AgentTeamServiceOptions = {}) {
       to?: AgentTeamMemberRef,
     ): Promise<AgentTeamInboxEntry[]> {
       await loadActiveTeam(actorUserId, teamId)
-      if (to) await requireActiveMember(teamId, to)
+      if (to) {
+        // F-350:人类收件箱只对本人可见,查他人收件箱按"不存在"返回空。
+        if (to.memberKind === 'human' && to.memberId !== actorUserId) return []
+        await requireActiveMember(teamId, to)
+      }
       return repo.listInbox(teamId, to)
     },
 
@@ -280,7 +311,14 @@ export function createAgentTeamService(options: AgentTeamServiceOptions = {}) {
       teamId: string,
       entryId: string,
     ): Promise<AgentTeamInboxEntry> {
-      await loadActiveTeam(actorUserId, teamId)
+      const view = await loadActiveTeam(actorUserId, teamId)
+      // F-350:本人人类收件箱可标记;agent 收件箱仅 lead 可代管;其余按不存在处理,不产生更新。
+      const entry = await repo.findInboxById(teamId, entryId)
+      const isOwnHumanInbox = entry ? isActorInboxEntry(entry, actorUserId) : false
+      const isLeadOnAgentInbox = entry?.toMemberKind === 'agent' && isLeadOf(view, actorUserId)
+      if (!entry || (!isOwnHumanInbox && !isLeadOnAgentInbox)) {
+        throw new AgentTeamError(404, 'INBOX_ENTRY_NOT_FOUND', '收件箱条目不存在')
+      }
       const row = await repo.markInboxRead(teamId, entryId, new Date())
       if (!row) throw new AgentTeamError(404, 'INBOX_ENTRY_NOT_FOUND', '收件箱条目不存在')
       return row

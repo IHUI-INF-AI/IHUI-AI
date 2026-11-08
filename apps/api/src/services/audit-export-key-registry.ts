@@ -553,8 +553,9 @@ export function checkAuditExportKeyRegistry(
     message,
   }))
   const issues = [...report.issues, ...loadIssues]
+  // 未判定(R4 判不动、时间维不可解析)同样不得给绿灯:默认 exitCode 0 就是"审计放行"。
   return {
-    exitCode: issues.length > 0 ? 1 : 0,
+    exitCode: issues.length > 0 || report.undetermined.length > 0 ? 1 : 0,
     issues,
     undetermined: report.undetermined,
     notices: report.notices,
@@ -575,20 +576,20 @@ const REPO_ROOT = resolve(HERE, '..', '..', '..', '..')
 export const REGISTRY_PATH_FROM_ROOT = 'apps/api/src/services/audit-export-key-registry.ts'
 
 /**
- * 只抠登记数组那一段(不抠判据里的 `kid:` 字面量)。括号配平;找不到声明 ⇒ 空串,
- * 由调用方报"未判定"而不是"表为空"。
+ * 只抠登记数组那一段(不抠判据里的 `kid:` 字面量)。括号配平;
+ * **找不到声明或配不平 ⇒ `null`**,由调用方报"未判定"而不是"表为空"。
  *
  * ⚠️ 锚点必须走"名字 → 赋值号 → 第一个左方括号"三步,不能直接找名字后的第一个 `[`:
  * 声明本身写着 `readonly AuditExportKeyEntry[] = [`,那个 `[` 属于**类型标注** —— 从它开始
  * 配平会拿到 `[]` 并让抽取器对整张表永久失明(含真实表情的自检用例抓到过一次)。
  */
-export function registryArrayText(source: string): string {
+export function registryArrayText(source: string): string | null {
   const declared = source.indexOf('AUDIT_EXPORT_KEY_REGISTRY: readonly AuditExportKeyEntry[]')
-  if (declared < 0) return ''
+  if (declared < 0) return null
   const assigned = source.indexOf('=', declared)
-  if (assigned < 0) return ''
+  if (assigned < 0) return null
   const open = source.indexOf('[', assigned)
-  if (open < 0) return ''
+  if (open < 0) return null
   let depth = 0
   for (let i = open; i < source.length; i++) {
     const ch = source[i]
@@ -598,18 +599,37 @@ export function registryArrayText(source: string): string {
       if (depth === 0) return source.slice(open, i + 1)
     }
   }
-  return source.slice(open)
+  return null
 }
 
-/** 扫描结果:`unparsed` = 顶层对象块里抠不出 kid/status 的块数(格式改动/换引号会命中)。 */
-interface RegistryBlockScan {
-  blocks: Array<{ kid: string; status: string }>
-  unparsed: number
+/**
+ * 抽取失败的标记:挂在结果数组上,而不是直接返回 `null`。
+ * 必须可分辨的原因:`[]` 本来就是**合法空表**(`AUDIT_EXPORT_KEY_REGISTRY = []` 是本仓当前
+ * 形态);若失败也返回 `[]`,调用方就会把"这段文本根本没看懂"读成"上一面没有 retired 行" ——
+ * 那正是 F-340 的静默失效。用不可枚举 symbol 标记,不影响既有数组读法(长度/遍历不变)。
+ */
+const REGISTRY_BLOCKS_PARSE_FAILED = Symbol('auditExportKeyRegistryBlocksParseFailed')
+
+export type AuditExportKeyRegistryBlocks = Array<{ kid: string; status: string }> & {
+  readonly [REGISTRY_BLOCKS_PARSE_FAILED]?: true
 }
 
-function scanRegistryBlocks(text: string): RegistryBlockScan {
-  const blocks: Array<{ kid: string; status: string }> = []
-  let unparsed = 0
+/** 该抽取结果是不是"没看懂"(而不是"确实没有块")。 */
+export function registryBlocksParseFailed(blocks: AuditExportKeyRegistryBlocks): boolean {
+  return blocks[REGISTRY_BLOCKS_PARSE_FAILED] === true
+}
+
+function failedRegistryBlocks(): AuditExportKeyRegistryBlocks {
+  const blocks: AuditExportKeyRegistryBlocks = []
+  Object.defineProperty(blocks, REGISTRY_BLOCKS_PARSE_FAILED, { value: true, enumerable: false })
+  return blocks
+}
+
+/** 按对象块抠 `kid` + `status`;数组没看懂或任一块解析不出 ⇒ 失败标记(不得丢块当没看见)。 */
+export function extractRegistryBlocks(source: string): AuditExportKeyRegistryBlocks {
+  const text = registryArrayText(source)
+  if (text === null) return failedRegistryBlocks()
+  const blocks: AuditExportKeyRegistryBlocks = []
   for (let i = 0; i < text.length; i++) {
     if (text[i] !== '{') continue
     let depth = 0
@@ -628,46 +648,25 @@ function scanRegistryBlocks(text: string): RegistryBlockScan {
     const block = text.slice(i, end + 1)
     const kid = /kid:\s*'([^']*)'/.exec(block)?.[1]
     const status = /status:\s*'([^']*)'/.exec(block)?.[1]
-    if (kid && status) blocks.push({ kid, status })
-    else unparsed += 1
+    if (!kid || !status) return failedRegistryBlocks()
+    blocks.push({ kid, status })
     i = end
   }
-  return { blocks, unparsed }
-}
-
-/** 按对象块抠 `kid` + `status`(找不到块不算通过)。兼容旧调用方:解析失败只表现为空数组。 */
-export function extractRegistryBlocks(source: string): Array<{ kid: string; status: string }> {
-  const text = registryArrayText(source)
-  if (text.length === 0) return []
-  return scanRegistryBlocks(text).blocks
+  return blocks
 }
 
 /**
- * 严格版(上一面 R4 比对专用):数组声明找不到、或有对象块解析不出 kid/status ⇒ `null`
- * (="未判定")。不能把"解析不到"读成"没有 retired 行"—— 一次无关的格式改动会让
- * "退而被删"检查静默通过。
- */
-export function extractRegistryBlocksStrict(
-  source: string,
-): Array<{ kid: string; status: string }> | null {
-  const text = registryArrayText(source)
-  if (text.length === 0) return null
-  const scan = scanRegistryBlocks(text)
-  if (scan.unparsed > 0) return null
-  return scan.blocks
-}
-
-/**
- * 上一面(HEAD)里的 retired 行;取不到 ⇒ `null`(R4 走未判定)。
+ * 上一面(HEAD)里的 retired 行;**取不到、为空、解析失败 ⇒ `null`(R4 走未判定)**。
  * 只问"哪些 kid 当时是 retired"—— 材料不参与这一维比对:把材料也比,一次无关的格式改动
- * 就会被读成"删了一行"。
+ * 就会被读成"删了一行"。`readText` 可注入仅用于构造面取证,生产默认只读 git。
  */
-function readPreviousFaceEntries(): readonly AuditExportKeyEntry[] | null {
-  const text = readHeadFileText(REGISTRY_PATH_FROM_ROOT)
-  if (text === null) return null
-  // 找不到数组声明 / 有块解析不出 kid+status ⇒ 未判定,不得读成"没有 retired 行"
-  const blocks = extractRegistryBlocksStrict(text)
-  if (blocks === null) return null
+export function readPreviousFaceEntries(
+  readText: (pathFromRoot: string) => string | null = readHeadFileText,
+): readonly AuditExportKeyEntry[] | null {
+  const text = readText(REGISTRY_PATH_FROM_ROOT)
+  if (text === null || text.trim().length === 0) return null
+  const blocks = extractRegistryBlocks(text)
+  if (registryBlocksParseFailed(blocks)) return null
   return blocks
     .filter((block) => block.status === 'retired')
     .map((block) => ({

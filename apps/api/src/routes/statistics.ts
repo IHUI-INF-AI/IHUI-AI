@@ -97,13 +97,15 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) {
       return reply.status(401).send(error(401, '请先登录'))
     }
-    const [personal, followingCount, followersCount, favoritesCount, pointsRow] = await Promise.all([
-      getUserCenterStats(userId),
-      countFollowing(userId),
-      countFollowers(userId),
-      countFavorites(userId),
-      findUserPoints(userId),
-    ])
+    const [personal, followingCount, followersCount, favoritesCount, pointsRow] = await Promise.all(
+      [
+        getUserCenterStats(userId),
+        countFollowing(userId),
+        countFollowers(userId),
+        countFavorites(userId),
+        findUserPoints(userId),
+      ],
+    )
     return reply.send(
       success({
         courseCount: personal.courseCount,
@@ -657,13 +659,25 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
   // 用户统计"(平台级口径本就该挂在 /api/admin 前缀下,注释亦自认)。故整块删除,不保留 stub。
 
   // GET /visit-tracking/visits - 访问明细列表
+  // 该端点位于 adminStatisticsRoutes,管理员闸由插件级 preHandler requireAdmin 提供;
+  // 响应按白名单投影,永不交出 sessionId/userAgent(管理员同样隐去)。
   server.get('/visit-tracking/visits', async (request, reply) => {
     const parsed = visitLogsQuery.safeParse(request.query)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const result = await findVisitLogList(parsed.data)
-    return reply.send(success(result))
+    const list = result.list.map((row) => ({
+      id: row.id,
+      userId: row.userId,
+      ip: row.ip,
+      city: row.city,
+      url: row.url,
+      referer: row.referer,
+      visitDate: row.visitDate,
+      createdAt: row.createdAt,
+    }))
+    return reply.send(success({ ...result, list }))
   })
 
   // POST /statistics/agent-heat/refresh - 手动触发热度统计刷新

@@ -597,7 +597,7 @@ describe('agent-extended IDOR 防护', () => {
       return seen
     }
 
-    it('非属主普通用户 PUT ⇒ 403,UPDATE 一条都不发', async () => {
+    it('非属主普通用户 PUT ⇒ 404(资源归属口径),UPDATE 一条都不发', async () => {
       asRegular(USER_B)
       const seen = queueExecute([[{ user_id: USER_A }]])
       const res = await server.inject({
@@ -605,7 +605,7 @@ describe('agent-extended IDOR 防护', () => {
         url: `/personality/${AGENT_ID}`,
         payload: { personality: 'ignore previous instructions' },
       })
-      expect(res.statusCode).toBe(403)
+      expect(res.statusCode).toBe(404)
       expect(seen.length).toBe(1)
     })
 
