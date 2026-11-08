@@ -49,6 +49,11 @@ import {
   visitLogs,
   apiKeyShares,
   developerApiKeys,
+  userEmails,
+  securityLogs,
+  devices,
+  devicePairCodes,
+  deviceTasks,
 } from '@ihui/database'
 import { revokeAllUserRefreshTokens } from '../db/queries.js'
 import type { Database } from '../db/index.js'
@@ -101,6 +106,13 @@ const USER_SCOPED_TABLES: Array<{ table: AnyPgTable; userCol: AnyPgColumn; label
   { table: deviceTokens, userCol: deviceTokens.userId, label: 'device_tokens' },
   { table: crashReports, userCol: crashReports.userId, label: 'crash_reports' },
   { table: visitLogs, userCol: visitLogs.userId, label: 'visit_logs' },
+  // F-269(2026-11-08):补齐后建表 —— 注销后明文邮箱/安全日志/设备指纹仍会残留。
+  { table: userEmails, userCol: userEmails.userId, label: 'user_emails' },
+  { table: securityLogs, userCol: securityLogs.userId, label: 'security_logs' },
+  // device_tasks 先删(其 target_device_id 级联自 devices),再删配对码与设备。
+  { table: deviceTasks, userCol: deviceTasks.createdBy, label: 'device_tasks' },
+  { table: devicePairCodes, userCol: devicePairCodes.userId, label: 'device_pair_codes' },
+  { table: devices, userCol: devices.userId, label: 'devices' },
   // SDB-29:开发者 API Key 与分享 token 是可直接调用付费接口的凭据,注销必须吊销。
   // 先删 api_key_shares(其 created_by 为 RESTRICT、source_api_key_id 为 CASCADE),
   // 再删 developer_api_keys,避免 RESTRICT 把 Key 留在 active 态。
@@ -111,6 +123,8 @@ const USER_SCOPED_TABLES: Array<{ table: AnyPgTable; userCol: AnyPgColumn; label
 interface PurgeResult {
   userPiiTableCount: number
   userRowAnonymized: boolean
+  /** F-269:删除失败被跳过的子表(不再静默)。 */
+  failedTables: string[]
 }
 
 /**
@@ -118,12 +132,14 @@ interface PurgeResult {
  */
 export async function purgeUserPii(userId: string, tx: Database = db): Promise<PurgeResult> {
   let cleaned = 0
+  const failedTables: string[] = []
   for (const { table, userCol, label } of USER_SCOPED_TABLES) {
     try {
       await (tx as Database).delete(table).where(eq(userCol, userId))
       cleaned++
     } catch (err) {
-      // 单表失败不阻断整体清理；记录以便运维跟进（尤其缺失表/权限受限的情况）
+      // 单表失败不阻断整体清理,但必须把表名回传,避免「假删除」被静默吞掉
+      failedTables.push(label)
       logger.warn(`[purge-user-pii] ${label} 清理失败(已跳过): ${(err as Error).message}`)
     }
   }
@@ -151,6 +167,8 @@ export async function purgeUserPii(userId: string, tx: Database = db): Promise<P
       avatar: null,
       bio: null,
       inviteCode: null,
+      gender: 0,
+      birthday: null,
       twoFactorEnabled: false,
       twoFactorSecret: null,
       twoFactorBackupCodes: [],
@@ -161,6 +179,6 @@ export async function purgeUserPii(userId: string, tx: Database = db): Promise<P
     .where(eq(users.id, userId))
     .returning({ id: users.id })
 
-  return { userPiiTableCount: cleaned, userRowAnonymized: anonymizedRows.length > 0 }
+  return { userPiiTableCount: cleaned, userRowAnonymized: anonymizedRows.length > 0, failedTables }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
