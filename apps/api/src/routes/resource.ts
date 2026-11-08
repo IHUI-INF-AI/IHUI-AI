@@ -43,6 +43,17 @@ import {
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { booleanStringSchemaOptional } from '../utils/parse-boolean.js'
 
+/**
+ * F-568:公开资源接口(列表/批量/详情)一律剔除 `fileUrl`。
+ * 下载地址只能经 `GET /resources/:id/download` 的 `checkDownloadPermission` 通过后
+ * 以 302 下发;DB 行里保留 fileUrl 供该端点使用,但不得随公开 JSON 泄露。
+ */
+function toPublicResource<T extends { fileUrl?: unknown }>(row: T): Omit<T, 'fileUrl'> {
+  const clone = { ...row }
+  delete clone.fileUrl
+  return clone
+}
+
 // 通用响应 schema(data 透传)
 const responseSchema = {
   200: {
@@ -279,7 +290,9 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
         isPublished: true,
         status: 1,
       })
-      return reply.send(success(result))
+      return reply.send(
+        success({ ...result, list: result.list.map((row) => toPublicResource(row)) }),
+      )
     },
   )
 
@@ -296,7 +309,7 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
-      const list = await findResourcesByIds(ids)
+      const list = (await findResourcesByIds(ids)).map((row) => toPublicResource(row))
       return reply.send(success({ list }))
     },
   )
@@ -312,7 +325,7 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
       }
       const resource = await findResourceByIdAndIncrementView(parsed.data.id)
       if (!resource) return reply.status(404).send(error(404, '资源不存在'))
-      return reply.send(success({ resource }))
+      return reply.send(success({ resource: toPublicResource(resource) }))
     },
   )
 
