@@ -8,7 +8,8 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../../plugins/auth.js'
+import { authenticate, hasHumanJwtCredential } from '../../plugins/auth.js'
+import { isSystemAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../../db/index.js'
@@ -20,6 +21,7 @@ import {
   findCirclePosts,
   findCircles,
   findPostById,
+  isCircleMember,
   updatePost,
 } from '../../db/community-queries.js'
 import {
@@ -56,6 +58,15 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         /^\/api\/circles\/[^/?]+\/posts$/.test(path) ||
         /^\/api\/circles\/[^/?]+\/posts\/[^/?]+\/comments$/.test(path)
       ) {
+        // 公开读保持匿名可用:未携带人用凭据直接放行;带了则尝试解析,仅用于让管理员
+        // 绕过 isPublished 可见性闸(凭据无效也不得把公开读变成 401,故失败按匿名处理)。
+        if (hasHumanJwtCredential(request)) {
+          try {
+            await authenticate(request)
+          } catch {
+            /* 公开读不因凭据无效而拒绝 */
+          }
+        }
         return
       }
     }
@@ -140,8 +151,11 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '圈子不存在'))
-      const circle = await findCircleByIdOrSlug(parsed.data.id)
-      if (!circle) {
+      // F-330 可见性闸:对外详情只认 isPublished=true 的圈子;管理员绕过以便管理端查看。
+      // 非管理员命中隐藏圈子一律 404(不暴露存在性);第二段判定防查询口径漂移。
+      const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+      const circle = await findCircleByIdOrSlug(parsed.data.id, { publishedOnly: !isAdmin })
+      if (!circle || (!isAdmin && !circle.isPublished)) {
         return reply.status(404).send(error(404, '圈子不存在'))
       }
       return reply.send(success({ circle }))
@@ -443,8 +457,11 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsedQ.success) {
         return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))
       }
-      const circle = await findCircleByIdOrSlug(parsedP.data.id)
-      if (!circle) {
+      // F-330 可见性闸:先判圈子可见性再查帖子 —— 隐藏圈子对非管理员直接 404,
+      // 不产生帖子查询(也不暴露圈子存在性);管理员绕过。
+      const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+      const circle = await findCircleByIdOrSlug(parsedP.data.id, { publishedOnly: !isAdmin })
+      if (!circle || (!isAdmin && !circle.isPublished)) {
         return reply.status(404).send(error(404, '圈子不存在'))
       }
       const { page, pageSize } = parsedQ.data
@@ -506,9 +523,17 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!body.success) {
         return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
       }
-      const circle = await findCircleByIdOrSlug(parsedP.data.id)
-      if (!circle) {
+      // F-330 发帖闸口径:
+      //  - 圈子隐藏/不存在 ⇒ 404(不暴露存在性),管理员绕过;
+      //  - 圈子表无 isPublic/joinType 一类"公开可加入/开放发帖"字段 ⇒ 已发布圈子
+      //    也仅 circle_members 在册成员(status=1)可发帖,非成员 403;管理员绕过。
+      const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+      const circle = await findCircleByIdOrSlug(parsedP.data.id, { publishedOnly: !isAdmin })
+      if (!circle || (!isAdmin && !circle.isPublished)) {
         return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      if (!isAdmin && !(await isCircleMember(circle.id, request.userId!))) {
+        return reply.status(403).send(error(403, '加入圈子后才能发帖'))
       }
       // P0 合规:发帖内容敏感词过滤
       const filtered = await sanitizeUgcInput(
