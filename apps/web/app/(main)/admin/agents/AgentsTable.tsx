@@ -105,7 +105,7 @@ export function AgentsTable({
                   {a.isFree ? (
                     <span className="text-emerald-600 dark:text-emerald-500">{t('free')}</span>
                   ) : (
-                    priceFmt.format(a.price)
+                    priceFmt.format(a.price / 100)
                   )}
                 </TableCell>
                 <TableCell className="px-4 py-2.5">
