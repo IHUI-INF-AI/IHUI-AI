@@ -5,11 +5,12 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema/index.js'
+import { buildPoolOptions } from './pool-options.js'
 
 export function createDb(url: string) {
-  // 2026-09-06 P0:连接池上限提升到 40。API 请求 + 5 个 worker×并发 + 余量共用同一池,
-  // 原 max=10 会被 worker 与并发请求瞬间占满,导致连接等待/超时。
-  const client = postgres(url, { max: 40, prepare: false })
+  // DB-29/DB-31:池选项统一由 buildPoolOptions 提供(connect/idle/max_lifetime/
+  // statement_timeout 四道护栏 + DB_POOL_MAX 可调),不再在此写死 max=40。
+  const client = postgres(url, buildPoolOptions())
   return drizzle(client, { schema })
 }
 
