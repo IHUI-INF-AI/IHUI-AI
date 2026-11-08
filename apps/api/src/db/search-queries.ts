@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, ilike, desc, sql, gt, gte, lte } from 'drizzle-orm'
+import { eq, and, or, ilike, desc, sql, gt, gte, lte, isNull } from 'drizzle-orm'
 import { db, dbRead } from './index.js'
 import {
   users,
@@ -210,7 +210,7 @@ async function searchFiles(
       .select(cols)
       .from(files)
       .innerJoin(projects, eq(files.projectId, projects.id))
-      .where(and(eq(projects.userId, userId), or(...conds)))
+      .where(and(eq(projects.userId, userId), isNull(files.deletedAt), or(...conds)))
       .limit(limit)) as SearchFileRow[]
   }
   try {
@@ -221,6 +221,7 @@ async function searchFiles(
       .where(
         and(
           eq(projects.userId, userId),
+          isNull(files.deletedAt),
           sql`"files".search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
         ),
       )
@@ -230,7 +231,7 @@ async function searchFiles(
       .select(cols)
       .from(files)
       .innerJoin(projects, eq(files.projectId, projects.id))
-      .where(and(eq(projects.userId, userId), ilike(files.name, like)))
+      .where(and(eq(projects.userId, userId), isNull(files.deletedAt), ilike(files.name, like)))
       .limit(limit)) as SearchFileRow[]
   }
 }
@@ -487,10 +488,12 @@ async function countFiles(
     chineseTokens.length > 0
       ? and(
           eq(projects.userId, userId),
+          isNull(files.deletedAt),
           or(...chineseTokens.map((t) => ilike(files.name, `%${t}%`))),
         )
       : and(
           eq(projects.userId, userId),
+          isNull(files.deletedAt),
           sql`"files".search_vector @@ plainto_tsquery('pg_catalog.simple', ${q})`,
         )
   try {
@@ -505,7 +508,7 @@ async function countFiles(
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(files)
       .innerJoin(projects, eq(files.projectId, projects.id))
-      .where(and(eq(projects.userId, userId), ilike(files.name, like)))
+      .where(and(eq(projects.userId, userId), isNull(files.deletedAt), ilike(files.name, like)))
     return Number(fallback[0]?.count ?? 0)
   }
 }
