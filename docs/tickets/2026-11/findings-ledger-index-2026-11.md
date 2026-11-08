@@ -56,6 +56,9 @@
 | 14B | EXT-01 | apps/extension/lib/agent-control-bridge.ts:251-270 | P1 | 已修 fix/web-findings-1108（同型根因自查：ws.notification 未校验 sender，伪造来源可执行浏览器动作；零副作用夹具） |
 | 15B | EXT-02 | apps/extension/entrypoints/sidepanel/ext-ui-listener.ts:26-39 | P1 | 已修 fix/web-findings-1108（同型根因自查：ext_ui 高权限动作未校验 sender；零副作用夹具） |
 | 16B | EXT-03 | apps/extension/entrypoints/content.ts:515-528 | P1 | 已修 fix/web-findings-1108（同型根因自查：agent.action.dom 未校验 sender，宿主 DOM 可被非背景来源驱动；源码接线锁） |
+| 17B | EXT-04 | apps/extension/entrypoints/sidepanel/components/AgentRuntimePanel.tsx:404-427 | P2 | 已修 fix/web-findings-1108（同型根因自查：IME 组合态 Enter 误提交；接共享 shouldSubmitOnEnter 三条腿 + 收尾闩锁，普通 Enter 回归） |
+| 18B | EXT-05 | apps/extension/lib/token-gate.ts + entrypoints/background.ts:509-526 | P2 | 已修 fix/web-findings-1108（同型根因自查：token.get/token.refresh 对内容脚本开放，凭据作用域收至顶层上下文） |
+| 19B | EXT-06 | apps/extension/lib/storage-access.ts + entrypoints/background.ts + content.ts + lib/message-router.ts | P2 | 已修 fix/web-findings-1108（同型根因自查：长期 refreshToken 明文存 storage.local 且默认对内容脚本可读；local 收紧 TRUSTED_CONTEXTS，locale 改走 locale.get；未采用伪加密，理由见 storage-access.ts 头注） |
 | 1C | F-001 | apps/cli/src/tools/run-tests.ts:149 | P0 | 入册 |
 | 2C | F-045 | apps/desktop/src-tauri/capabilities/default.json:31 | P0 | 入册 |
 | 3C | F-002 | apps/cli/src/index.ts:1408 | P1 | 入册 |

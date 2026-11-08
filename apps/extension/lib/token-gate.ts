@@ -1,0 +1,29 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * token.* 消息的作用域判据(2026-11-08,同型根因 E 类第 1 条)。
+ *
+ * `token.get` 会回 accessToken,`token.refresh` 能换出新 accessToken。二者只应由
+ * **扩展顶层上下文**(popup/sidepanel/options/SW)发起;内容脚本跑在宿主页面的隔离世界,
+ * 一旦页内代码链路上有可达路径,凭据就外溢到页面边界。判据独立成文件以便:
+ * ① 被单测直接问到;② background 只做接线,不再内联写布尔表达式。
+ */
+import { isTrustedTopLevelExtensionSender, type RuntimeSenderLike } from './message-trust'
+
+/** 需要受作用域限制的 token 类消息 */
+const TOKEN_MESSAGE_TYPES = new Set(['token.get', 'token.refresh'])
+
+/**
+ * 该 token 请求是否应被拒?
+ * - 非 token 类消息 ⇒ false(不归这条闸管,交给外层来源闸)
+ * - token 类 + 非顶层扩展上下文(内容脚本 / 外部扩展 / 缺失 sender)⇒ true
+ */
+export function isTokenRequestFromUntrustedSender(
+  msgType: string,
+  sender: RuntimeSenderLike | undefined | null,
+  runtimeId: string,
+): boolean {
+  if (!TOKEN_MESSAGE_TYPES.has(msgType)) return false
+  return !isTrustedTopLevelExtensionSender(sender, runtimeId)
+}

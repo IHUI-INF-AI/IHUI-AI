@@ -27,7 +27,12 @@ import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { dispatchAgentActionRequest } from '../lib/ext-ui-forwarder'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 import { registerWorkPanelMessageHandler } from '../lib/browser-tab'
-import { isTrustedExtensionSender, type RuntimeSenderLike } from '../lib/message-trust'
+import {
+  isTrustedExtensionSender,
+  type RuntimeSenderLike,
+} from '../lib/message-trust'
+import { isTokenRequestFromUntrustedSender } from '../lib/token-gate'
+import { restrictLocalStorageToTrustedContexts } from '../lib/storage-access'
 import { hydrateAuth } from '../src/stores/auth-store'
 import { createChromePlatform } from '@ihui/browser-platform'
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
@@ -327,6 +332,9 @@ async function routeMessage(msg: ExtMessage): Promise<ExtResponse> {
         const ok = await doRefresh()
         return reply(msg.requestId, { ok })
       }
+      case 'locale.get': {
+        return reply(msg.requestId, await getBackgroundLocale())
+      }
       case 'vocab.lookup': {
         const data = await handleVocabLookup(msg.payload)
         return reply(msg.requestId, data)
@@ -498,6 +506,24 @@ function registerMessageListener(): void {
       console.warn('[IHUI AI] 丢弃非本扩展来源的消息', msg.type, sender.id)
       return false
     }
+    // 2026-11-08 同型根因 E 类第 1 条:token.get 回 accessToken、token.refresh 能续期,
+    // 二者只应由扩展顶层上下文发起。内容脚本同样满足 sender.id === runtime.id,
+    // 却是跑在宿主页面隔离世界 —— 凭据作用域要收到 popup/sidepanel/options/SW。
+    if (
+      isTokenRequestFromUntrustedSender(
+        msg.type,
+        sender as RuntimeSenderLike | undefined,
+        chrome.runtime.id,
+      )
+    ) {
+      console.warn('[IHUI AI] 拒绝非顶层上下文的 token 请求', msg.type, msg.requestId)
+      sendResponse({
+        ok: false,
+        error: 'token.* 仅限扩展顶层上下文',
+        requestId: msg.requestId,
+      })
+      return false
+    }
     void routeMessage(msg).then(sendResponse)
     return true // 异步响应
   })
@@ -509,7 +535,11 @@ export default defineBackground(() => {
   // `chrome.storage.session?.set(...)` 是静默 no-op(可选链吞掉 undefined 调用,不报错不写入)
   // ⇒ ihui_pending_vocab / ihui_pending_prompt 写不进去,选区查词/发送到 AI 链路断。
   // 放开为 TRUSTED_AND_UNTRUSTED_CONTEXTS 让内容脚本可写;写入的仅为用户选区文本,
-  // 不含 token 等凭据(token 走 chrome.storage.local,仍保持 TRUSTED_CONTEXTS 不外溢)。
+  // 不含 token 等凭据。
+  //
+  // 2026-11-08 E 类第 2 条:上面"token 走 local,仍保持 TRUSTED_CONTEXTS 不外溢"曾是
+  // 错误结论 —— 全仓从未对 local 调用 setAccessLevel,默认对内容脚本可读。现于启动时
+  // 显式收紧,长期 refreshToken 不再落在页内上下文可读面。
   try {
     chrome.storage.session
       ?.setAccessLevel({ accessLevel: 'TRUSTED_AND_UNTRUSTED_CONTEXTS' })
@@ -519,6 +549,10 @@ export default defineBackground(() => {
   } catch (err) {
     console.warn('[IHUI AI] storage.session setAccessLevel threw:', err)
   }
+
+  // 2026-11-08 E 类第 2 条:把 storage.local 收到 TRUSTED_CONTEXTS ——
+  // 长期 refreshToken 所在 area 不再对内容脚本可读(内容脚本取语言已改走 locale.get 消息)。
+  void restrictLocalStorageToTrustedContexts()
 
   // 2026-07-22 P0 Round 5 鲁棒性加固:全局未捕获 Promise rejection + error 监听
   // MV3 Service Worker 未捕获异常会被 Chrome 累计,达阈值后自动禁用扩展(工具栏图标变灰)
