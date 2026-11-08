@@ -19,6 +19,7 @@ import {
 
 import { requireAdmin } from '../../plugins/require-permission.js'
 import { isUuidString } from '../../utils/uuid.js'
+import { isSystemAdminUser } from '../../db/queries.js'
 const authAccountsRoutes: FastifyPluginAsync = async (server) => {
   server.addHook('preHandler', requireAdmin)
   server.get('/auth-accounts', async (request, reply) => {
@@ -62,6 +63,11 @@ const authAccountsRoutes: FastifyPluginAsync = async (server) => {
   server.post('/auth-accounts', async (request, reply) => {
     const b = createAuthAccountSchema.safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, b.error.message))
+    // F-126:第三方登录直接把绑定行的 userId 当登录主体,给内置管理员绑一个可控 openId
+    // 就等于拿到 root 登录态 —— 绑定写入必须先拒绝受保护账号。
+    if (await isSystemAdminUser(b.data.userId)) {
+      return reply.status(403).send(error(403, '不能为系统内置管理员绑定第三方账号'))
+    }
     request.skipResponseSanitization = true
     const [row] = await db
       .insert(userThirdPartyAccounts)
@@ -83,6 +89,17 @@ const authAccountsRoutes: FastifyPluginAsync = async (server) => {
     if (!isUuidString(p.data.id)) return reply.status(400).send(error(400, 'id 格式不正确'))
     const b = updateAuthAccountSchema.safeParse(request.body)
     if (!b.success) return reply.status(400).send(error(400, b.error.message))
+    // F-126:改绑同一入口 —— 存量行若属于内置管理员,同样不允许在这里改 openId/platform,
+    // 否则 POST 的闸门可以被「先建普通绑定、再改绑到管理员」绕过。
+    const [existing] = await db
+      .select({ userId: userThirdPartyAccounts.userId })
+      .from(userThirdPartyAccounts)
+      .where(eq(userThirdPartyAccounts.id, p.data.id))
+      .limit(1)
+    if (!existing) return reply.status(404).send(error(404, '记录不存在'))
+    if (await isSystemAdminUser(existing.userId)) {
+      return reply.status(403).send(error(403, '不能修改系统内置管理员的第三方绑定'))
+    }
     const [row] = await db
       .update(userThirdPartyAccounts)
       .set({

@@ -11,7 +11,7 @@ import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { success, error, emptyToUndefined } from '../../utils/response.js'
 import { findNotificationById } from '../../db/notification-queries.js'
-import { findMessageById } from '../../db/chat-queries.js'
+import { findMessageById, findConversationById } from '../../db/chat-queries.js'
 import { findSiteCategories } from '../../db/site-categories-queries.js'
 import { listVipLevels } from '../../db/vip-queries.js'
 import { authenticate } from '../../plugins/auth.js'
@@ -148,16 +148,31 @@ const miscRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/notifications/:id', async (request, reply) => {
+    const userId = await requireUserId(request, reply)
+    if (!userId) return
     const id = parseIdParam(request, reply)
     if (id === null) return
     const notification = await findNotificationById(id)
+    // F-154:通知是私有数据(含订单/退款 data),非属主与不存在同档 404,不泄露存在性。
+    if (!notification || notification.userId !== userId) {
+      return reply.status(404).send(error(404, '通知不存在'))
+    }
     return reply.send(success({ notification }))
   })
 
   server.get('/messages/:id', async (request, reply) => {
+    const userId = await requireUserId(request, reply)
+    if (!userId) return
     const id = parseIdParam(request, reply)
     if (id === null) return
     const message = await findMessageById(id)
+    if (!message) return reply.status(404).send(error(404, '消息不存在'))
+    // F-154:chat_messages 无属主列,归属沿 conversationId → chat_conversations.userId;
+    // 与 chat.ts 的 DELETE /messages/:id 同一判据(读侧此前漏了这道)。
+    const conversation = await findConversationById(message.conversationId)
+    if (!conversation || conversation.userId !== userId) {
+      return reply.status(404).send(error(404, '消息不存在'))
+    }
     return reply.send(success({ message }))
   })
 
