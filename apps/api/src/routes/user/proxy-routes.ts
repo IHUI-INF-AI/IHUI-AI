@@ -8,6 +8,8 @@
  */
 import type { FastifyPluginAsync, FastifyReply } from 'fastify'
 import { success, error } from '../../utils/response.js'
+import { ensurePointsBalance, chargePointsForCall } from '../ai-vendors/proxy-llm.js'
+import { recordUsage } from '../ai-vendors/_shared.js'
 
 const VENDOR_BASES: Record<string, { base: string; keyEnv: string; name: string }> = {
   openrouter: {
@@ -21,41 +23,50 @@ async function proxyChatCompletion(
   vendor: string,
   body: Record<string, unknown>,
   reply: FastifyReply,
-): Promise<void> {
+): Promise<Record<string, unknown> | null> {
   const cfg = VENDOR_BASES[vendor]
   if (!cfg) {
     reply.status(400).send(error(400, `不支持的厂商: ${vendor}`))
-    return
+    return null
   }
   const key = process.env[cfg.keyEnv] ?? ''
   if (!key) {
     reply.status(503).send(error(503, `${cfg.name} 服务未配置`))
-    return
+    return null
   }
   try {
+    // F-93:补超时,避免上游无响应时连接长期挂起。
     const resp = await fetch(`${cfg.base}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
     })
     const data = await resp.json().catch(() => ({}))
     if (!resp.ok) {
-      reply
-        .status(502)
-        .send(error(502, `上游 ${resp.status}: ${JSON.stringify(data).slice(0, 500)}`))
-      return
+      // F-93:上游错误体不再原样回吐(可能含账号/配额细节),仅回状态码。
+      reply.status(502).send(error(502, `${cfg.name} 上游调用失败: ${resp.status}`))
+      return null
     }
-    reply.send(success(data))
+    return data as Record<string, unknown>
   } catch (e) {
     const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message
     reply.status(502).send(error(502, `调用异常: ${msg}`))
+    return null
   }
 }
 
 const proxyRoutes: FastifyPluginAsync = async (server) => {
   server.post('/openrouter-proxy/chat/completions', async (request, reply) => {
     const body = (request.body as Record<string, unknown> | null) ?? {}
-    await proxyChatCompletion('openrouter', body, reply)
+    const model = typeof body.model === 'string' ? body.model : ''
+    // F-93:此前直接拿平台 OpenRouter Key 透传,无余额闸、无结算、无超时。
+    if (!(await ensurePointsBalance(request, reply, model))) return
+    const data = await proxyChatCompletion('openrouter', body, reply)
+    if (data === null) return
+    recordUsage(request.userId!, 'openrouter')
+    await chargePointsForCall(request, model, data, request.id)
+    return reply.send(success(data))
   })
 
   server.get('/openrouter-proxy/models', async (_request, reply) => {
