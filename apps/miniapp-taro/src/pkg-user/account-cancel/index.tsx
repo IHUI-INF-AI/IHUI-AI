@@ -8,6 +8,7 @@ import { goToLogin } from '@/utils/auth'
 import { logger } from '@/utils/logger'
 import Taro, { useDidShow } from '@tarojs/taro'
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { useCountdown } from '@ihui/shared'
 import * as api from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -60,10 +61,9 @@ export default function AccountCancel() {
   const [submitting, setSubmitting] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [code, setCode] = useState('')
-  const [countdown, setCountdown] = useState(0)
-  const [confirmCountdown, setConfirmCountdown] = useState(5)
-  const codeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const confirmTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // 两个倒计时均为截止戳派生:后台节流后返回前台按墙钟对表(useDidShow 里 sync)
+  const codeCountdown = useCountdown(60)
+  const confirmCountdown = useCountdown(5)
   const codeSendingRef = useRef(false)
 
   const phone = (info?.phone as string) || ''
@@ -88,6 +88,8 @@ export default function AccountCancel() {
   }, [])
 
   useDidShow(() => {
+    codeCountdown.sync()
+    confirmCountdown.sync()
     // G-933 冷启动门控:资料自查 GET /user/profile(checkAuth)需鉴权
     gate.waitUntilReady(() => {
       void loadData()
@@ -96,57 +98,31 @@ export default function AccountCancel() {
 
   // 页级 5 秒强制阅读倒计时(进入页面即开始,结束前禁止提交;闸门留在本地页)
   useEffect(() => {
-    confirmTimerRef.current = setInterval(() => {
-      setConfirmCountdown((prev) => {
-        if (prev <= 1 && confirmTimerRef.current) {
-          clearInterval(confirmTimerRef.current)
-          confirmTimerRef.current = null
-        }
-        return prev <= 1 ? 0 : prev - 1
-      })
-    }, 1000)
-    return () => {
-      if (confirmTimerRef.current) clearInterval(confirmTimerRef.current)
-    }
-  }, [])
-
-  // 短信验证码倒计时清理
-  useEffect(() => {
-    return () => {
-      if (codeTimerRef.current) clearInterval(codeTimerRef.current)
-    }
-  }, [])
+    confirmCountdown.start()
+  }, [confirmCountdown.start])
 
   const onSendCode = useCallback(async () => {
-    if (countdown > 0 || !phone) return
-    // 2026-08-21 修复(双击重发竞态):countdown 在 await sendSmsCode 网络往返期间仍为 0,
-    // 快速双击会两次通过守卫 → 发两条短信 + 启动两个 interval。
+    if (codeCountdown.count > 0 || !phone) return
+    // 2026-08-21 修复(双击重发竞态):count 在 await sendSmsCode 网络往返期间仍为 0,
+    // 快速双击会两次通过守卫 → 发两条短信。
     // 用同步 ref 守卫覆盖整个 await 窗口。
     if (codeSendingRef.current) return
     codeSendingRef.current = true
     try {
       await api.sendSmsCode(phone)
       onToast(t('accountCancel.codeSent'), { kind: 'success' })
-      setCountdown(60)
-      codeTimerRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1 && codeTimerRef.current) {
-            clearInterval(codeTimerRef.current)
-            codeTimerRef.current = null
-          }
-          return prev <= 1 ? 0 : prev - 1
-        })
-      }, 1000)
+      codeCountdown.reset(60)
+      codeCountdown.start()
     } catch {
       // 错误已由 request 统一提示
     } finally {
       codeSendingRef.current = false
     }
-  }, [countdown, phone, t])
+  }, [codeCountdown.count, phone, t])
 
   const onSubmit = useCallback(async () => {
     if (submitting) return
-    if (confirmCountdown > 0) return
+    if (confirmCountdown.count > 0) return
     if (!phone) {
       onToast(t('accountCancel.noPhone'), { kind: 'error' })
       return
@@ -179,7 +155,7 @@ export default function AccountCancel() {
     } finally {
       setSubmitting(false)
     }
-  }, [submitting, confirmCountdown, phone, code, confirmText, t])
+  }, [submitting, confirmCountdown.count, phone, code, confirmText, t])
 
   return (
     // 对齐 RN 共享 AccountCancelScreen:header(返回+标题)由共享屏承载;
@@ -190,9 +166,9 @@ export default function AccountCancel() {
         phone={phone ? maskedPhone : ''}
         confirmText={confirmText}
         smsCode={code}
-        countdown={countdown}
+        countdown={codeCountdown.count}
         showConfirmModal={false}
-        confirmCountdown={confirmCountdown}
+        confirmCountdown={confirmCountdown.count}
         submitting={submitting}
         consequences={CONSEQUENCE_KEYS.map((k) => t(ACCOUNT_CANCEL_TEXT[k] ?? k))}
         phoneReadOnly={true}
