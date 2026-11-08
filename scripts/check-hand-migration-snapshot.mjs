@@ -336,7 +336,12 @@ export function evaluateStrictChanged({ journalEntries, changedSqlNames, snapsho
 }
 
 function gitDiffNames(args) {
-  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', timeout: 60_000 })
+  const r = spawnSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   if (r.status !== 0) throw new Unjudged(`git diff 失败:${String(r.stderr ?? '').trim().slice(0, 160)}`)
   return r.stdout ?? ''
 }
