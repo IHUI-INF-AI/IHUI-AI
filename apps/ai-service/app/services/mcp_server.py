@@ -14081,9 +14081,11 @@ def _edu_internal_headers(user_id: Any) -> dict[str, str]:
     request.userId 供 requireAnyPermission 的 RBAC 对真实用户兜底。
     凭证或身份缺失返回 {},调用方不发请求。"""
     uid = str(user_id or "").strip()
-    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
-    if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
+    if not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
         return {}
+    # 默认 ticket 档的凭据是短期票:旧 AI_CALLBACK_SECRET 只是兼容窗附加,不再是
+    # 出站前提。只配 JWT_SECRET 的纯票部署必须凭票出站(2026-11-08 回归修复)。
+    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
     return internal_service_headers(uid, "mcp-edu", legacy_token=secret)
 
 
