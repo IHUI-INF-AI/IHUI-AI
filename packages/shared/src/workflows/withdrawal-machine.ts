@@ -4,13 +4,16 @@
 
 import { setup, assign } from 'xstate'
 
+/** 打款失败后的重试上限:超限转人工,不允许无限重试。 */
+export const WITHDRAWAL_MAX_RETRIES = 3
+
 /**
  * 提现状态机
  *
  * 状态流:requested → {verifying | auto_approved}
  * - verifying → {approved | rejected}
  * - approved → paying → {paid | failed}
- * - failed 可重试(retry)回到 paying
+ * - failed 可重试(retry)回到 paying(最多 WITHDRAWAL_MAX_RETRIES 次)
  * - auto_approved(小额免审) → paying
  */
 
@@ -43,6 +46,7 @@ export const withdrawalMachine = setup({
     events: {} as WithdrawalEvent,
   },
   guards: {
+    canRetry: ({ context }) => context.retryCount < WITHDRAWAL_MAX_RETRIES,
     isBelowAutoApproveThreshold: ({ event }) =>
       event.type === 'AUTO_APPROVE' && event.amount < AUTO_APPROVE_THRESHOLD,
     isAboveAutoApproveThreshold: ({ event }) =>
@@ -62,6 +66,8 @@ export const withdrawalMachine = setup({
       transactionId: ({ event }) =>
         event.type === 'PAY_SUCCESS' ? event.transactionId : undefined,
       paidAt: ({ event }) => (event.type === 'PAY_SUCCESS' ? event.paidAt : undefined),
+      // 打款成功即清掉上一次失败遗留的错误文案。
+      errorMessage: undefined,
     }),
     recordError: assign({
       errorMessage: ({ event }) => (event.type === 'PAY_FAIL' ? event.error : undefined),
@@ -106,7 +112,7 @@ export const withdrawalMachine = setup({
     rejected: { type: 'final' },
     failed: {
       on: {
-        RETRY: { target: 'paying', actions: 'incrementRetry' },
+        RETRY: { target: 'paying', guard: 'canRetry', actions: 'incrementRetry' },
         CANCEL: 'cancelled',
       },
     },

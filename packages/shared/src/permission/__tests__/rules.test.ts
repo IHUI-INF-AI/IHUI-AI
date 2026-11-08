@@ -351,6 +351,24 @@ describe('自动复核:只动 ask,且必须同主体/同工作区/同规则/同�
     )
     expect(r.decision).toBe('ask')
   })
+
+  it('36b. 历史缺 agentId 不得被当前 agent 冒领 → 仍 ask', () => {
+    const r = decideApproval(
+      req('terminal_run', { command: 'npm test' }, { agentId: 'agent-1', userId: 'user-1' }),
+      { history: history({ agentId: null }) },
+    )
+    expect(r.decision).toBe('ask')
+    expect(r.autoReview).toBeUndefined()
+  })
+
+  it('36c. 请求只有 userId、历史缺 agentId → 无法证明同主体,仍 ask', () => {
+    const r = decideApproval(
+      req('terminal_run', { command: 'npm test' }, { agentId: null, userId: 'user-1' }),
+      { history: history({ agentId: null }) },
+    )
+    expect(r.decision).toBe('ask')
+    expect(r.autoReview).toBeUndefined()
+  })
 })
 
 describe('computer-use 应用白名单', () => {
