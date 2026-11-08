@@ -31,6 +31,7 @@ import { checkAuth } from '../plugins/auth.js'
 // 绑定手机/邮箱要在写库前消费验证码(与 auth-extended 的 /auth/change-phone/confirm 同一份验证码存储)
 import { verifyCode } from '../utils/code-store.js'
 import { db, dbRead } from '../db/index.js'
+import { findMessagesBetween, markMessagesReadWithPeer } from '../db/notification-queries.js'
 import { deductToken } from '../db/commission-queries.js'
 import { findPublishedVideoFeed, findLatestStudyPlanId, findSignUp } from '../db/learn-queries.js'
 import { buildSignedVideoUrl } from '../services/video-sign.js'
@@ -2109,38 +2110,33 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   server.get('/messages/rooms/:roomId/history', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
-    const { roomId } = z.object({ roomId: z.string().min(1) }).parse(request.params)
+    // F-211:messages 表无 roomId 列,roomId 按「对端用户 id」解释并要求 UUID;
+    // 非法 id 直接 400,禁止退化成「返回本人全量会话」。
+    const roomParam = z
+      .object({ roomId: z.string().uuid('roomId 须为对端用户 UUID') })
+      .safeParse(request.params)
+    if (!roomParam.success) {
+      return reply.status(400).send(error(400, roomParam.error.issues[0]?.message ?? 'roomId 非法'))
+    }
+    const { roomId } = roomParam.data
     const { page, pageSize } = pageQuerySchema.parse(request.query)
-    // 注:messages 表无 roomId 字段(仅 senderId/receiverId),用 userId 匹配发送方或接收方
-    const where = or(eq(messages.senderId, userId), eq(messages.receiverId, userId))
-    const offset = (page - 1) * pageSize
-    const [list, totalRows] = await Promise.all([
-      dbRead
-        .select()
-        .from(messages)
-        .where(where)
-        .orderBy(asc(messages.createdAt))
-        .limit(pageSize)
-        .offset(offset),
-      dbRead
-        .select({ count: sql<number>`count(*)::int` })
-        .from(messages)
-        .where(where),
-    ])
-    return reply.send(success({ list, total: totalRows[0]?.count ?? 0, page, pageSize, roomId }))
+    const { list, total } = await findMessagesBetween(userId, roomId, page, pageSize)
+    return reply.send(success({ list, total, page, pageSize, roomId }))
   })
 
   server.post('/messages/rooms/:roomId/read', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const userId = request.userId!
-    const { roomId } = z.object({ roomId: z.string().min(1) }).parse(request.params)
-    // 注:messages 表无 roomId 字段,标记该用户所有未读消息为已读
-    const updated = await db
-      .update(messages)
-      .set({ isRead: true })
-      .where(and(eq(messages.receiverId, userId), eq(messages.isRead, false)))
-      .returning()
-    return reply.send(success({ roomId, updated: updated.length, read: true }))
+    const roomParam = z
+      .object({ roomId: z.string().uuid('roomId 须为对端用户 UUID') })
+      .safeParse(request.params)
+    if (!roomParam.success) {
+      return reply.status(400).send(error(400, roomParam.error.issues[0]?.message ?? 'roomId 非法'))
+    }
+    const { roomId } = roomParam.data
+    // F-211:只清与 roomId 对端的未读,不再全量清空本人所有会话
+    const updated = await markMessagesReadWithPeer(userId, roomId)
+    return reply.send(success({ roomId, updated, read: true }))
   })
 
   // ==========================================================================

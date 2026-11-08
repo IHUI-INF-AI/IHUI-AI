@@ -299,6 +299,25 @@ export async function findMessagesBetween(
   return { list, total: Number(totalRows[0]?.count ?? 0) }
 }
 
+/**
+ * 只把「对端 peerId 发给本人」的未读消息置已读,返回实际更新条数(F-211)。
+ * 原实现按 userId 全量清未读,会把与其它会话的未读一并吞掉。
+ */
+export async function markMessagesReadWithPeer(userId: string, peerId: string): Promise<number> {
+  const updated = await db
+    .update(messages)
+    .set({ isRead: true })
+    .where(
+      and(
+        eq(messages.receiverId, userId),
+        eq(messages.senderId, peerId),
+        eq(messages.isRead, false),
+      ),
+    )
+    .returning({ id: messages.id })
+  return updated.length
+}
+
 export async function createMessage(
   senderId: string,
   receiverId: string,
