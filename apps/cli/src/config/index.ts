@@ -13,7 +13,7 @@
  *   5. env       — 环境变量(IHUI_ 前缀,大小写不敏感)
  *   6. cli       — 命令行参数(--key=value,. 分隔嵌套)
  *
- * 任一层加载失败不阻塞,降级到默认。
+ * 文件不存在时该层降级为默认;存在但读不到(EACCES/EIO 等)必须抛错,不得当成空配置。
  * 第 2 层 global 走运行时类型校验(config/validate.ts,BUG-0042):非法类型/越界数值
  * 回落默认层并逐键点名,不再把 `maxIterations: "abc"` 这类值静默合入。
  * 第 3 层 project 额外受可写键策略约束(G-408①,见 config/layer-policy.ts):
@@ -46,6 +46,8 @@ export interface LoadConfigOptions {
   cliArgs?: Record<string, unknown>
   /** 临时 session 配置(优先级高于 setSessionConfig 注入的模块级状态) */
   sessionOverrides?: Partial<Settings>
+  /** 磁盘探测注入(默认 fs.statSync);用于在测试里模拟读不到,不改变生产路径 */
+  stat?: (p: string) => fs.Stats
 }
 
 /** 全局配置路径:~/.ihui/settings.json */
@@ -82,8 +84,9 @@ function errorText(e: unknown): string {
  * 运行时零校验;注释说"安全加载",实际只保证"是对象"。现在改成显式的**结构 schema**
  * 判定 + 可读诊断:
  *  - 文件不存在 → 静默返回空层(正常态,不是错误);
- *  - 读失败 / JSON 语法错 / 根节点不是对象 → `console.warn` 点名**文件路径 + 实际形态 +
- *    底层错误**,该层按空处理(不阻塞启动,也不让脏值流进下游);
+ *  - 存在但读不到(EACCES/EIO 等)→ 抛错:权限/IO 故障不能被降级成"空配置";
+ *  - JSON 语法错 / 根节点不是对象 → `console.warn` 点名**文件路径 + 实际形态 +
+ *    底层错误**,该层按空处理(内容坏但不阻塞启动,也不让脏值流进下游);
  *  - 根对象原样返回 `Record<string, unknown>`,**不再冒充 `Partial<Settings>`** ——
  *    键级类型校验是另一层的事(global 见 `config/validate.ts`,project 见
  *    `config/layer-policy.ts`),那两张表是唯一判据,不在这里抄第三份。
@@ -91,15 +94,27 @@ function errorText(e: unknown): string {
  * 返回类型改为 `Record<string, unknown>` 是本次修复的要害:调用方必须先过校验才能
  * 拿到 `Partial<Settings>`,类型系统从此不再替脏文件背书。
  */
-function loadSettingsFile(p: string): Record<string, unknown> {
-  if (!fs.existsSync(p)) return {}
+function loadSettingsFile(
+  p: string,
+  stat: (target: string) => fs.Stats = fs.statSync,
+): Record<string, unknown> {
+  // 读不到 ≠ 不存在:ENOENT 才是"没有这份配置";EACCES/EIO 等必须抛,
+  // 否则权限错误会被静默当成空层,用户设过的 apiUrl 等键无声回落默认值。
+  try {
+    stat(p)
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return {}
+    throw new Error(`配置读不到 "${p}":${errorText(e)}`)
+  }
 
   let raw: string
   try {
     raw = fs.readFileSync(p, 'utf-8')
   } catch (e) {
-    console.warn(`[config] 读取 ${p} 失败,该层按空处理:${errorText(e)}`)
-    return {}
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return {}
+    throw new Error(`配置读不到 "${p}":${errorText(e)}`)
   }
 
   let parsed: unknown
@@ -150,7 +165,7 @@ interface ResolvedLayer {
 /**
  * 构建 6 层输入(优先级升序)。loadConfig 与 sourcesFor 共用这一份,保证
  * "出处查询"与实际合并读的是同一批源、同一优先级 —— 不存在第二套判定。
- * 任一层加载失败不阻塞,降级到默认(与 loadConfig 原语义一致)。
+ * 文件不存在时该层降级为默认;存在但读不到(EACCES/EIO 等)必须抛错。
  */
 function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
   const cwd = opts.cwd ?? process.cwd()
@@ -164,7 +179,7 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
   const defaults = DEFAULT_SETTINGS
   // Layer 2: global(~/.ihui/settings.json)—— BUG-0042:用户全局层此前只断言 isRecord,
   // 非法类型/越界数值会原样进主循环。这里过运行时类型校验:非法键回落默认层并点名。
-  const globalRaw = loadSettingsFile(globalPath)
+  const globalRaw = loadSettingsFile(globalPath, opts.stat)
   const globalCheck = validateSettingsValues(globalRaw)
   if (globalCheck.warnings.length > 0) {
     console.warn(
@@ -176,7 +191,7 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
   // Layer 3: project(<cwd>/.ihui/settings.json)—— G-408①:这一层是**仓库内容**,必须过
   // 可写键封闭表(config/layer-policy.ts):安全敏感键/未知键/非法枚举一律拒绝并点名。
   // 此前它零键过滤,防线只剩 .gitignore 的 `.ihui/*` 一行 —— ignore 不是判据。
-  const projectRaw = loadSettingsFile(projectPath)
+  const projectRaw = loadSettingsFile(projectPath, opts.stat)
   const projectFilter = filterProjectLayerSettings(projectRaw)
   if (projectFilter.rejected.length > 0) {
     // 拒绝必须可见:静默丢弃安全键等于让仓库作者可以"悄悄试",下一次换个键再来。
@@ -205,7 +220,7 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
 
 /**
  * 按 6 层优先级合并配置:defaults > global > project > session > env > cli。
- * 任一层加载失败不阻塞,降级到默认。
+ * 文件不存在时该层降级为默认;存在但读不到(EACCES/EIO 等)必须抛错,不得当成空配置。
  *
  * session 层来源优先级:opts.sessionOverrides > setSessionConfig 注入的模块级状态。
  */
