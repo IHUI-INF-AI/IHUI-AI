@@ -133,6 +133,36 @@ describe('② 反例:具名拒绝且断言副作用没发生', () => {
     expect(fs.existsSync(envAbs)).toBe(false); // 恢复未启动 ⇒ 没写 .env
     expect(fs.existsSync(path.join(trashDirOf('z2-acl-1'), '0-.env'))).toBe(true);
   });
+
+  it('清单里 relativeTrashPath 折出 trashId 目录 ⇒ restore-failed,目录外文件一字未动(F-095 反证)', () => {
+    const outside = path.join(trashDirOf('z2-escape-rel'), '..', 'outside.txt');
+    fs.mkdirSync(path.dirname(outside), { recursive: true });
+    fs.writeFileSync(outside, 'SECRET-OUTSIDE', 'utf-8');
+    plantTrash(
+      'z2-escape-rel',
+      { originalPath: path.resolve(ws, 'a.txt'), relativeTrashPath: '../../../../outside.txt', sizeBytes: 1, kind: 'file' },
+      Buffer.from('a', 'utf-8'),
+    );
+    const r = restoreFromTrash(ws, 'z2-escape-rel', 'a.txt');
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe('restore-failed');
+    expect(fs.existsSync(path.resolve(ws, 'a.txt'))).toBe(false); // 恢复未启动
+    expect(fs.readFileSync(outside, 'utf-8')).toBe('SECRET-OUTSIDE');
+  });
+
+  it('清单里 originalPath 落在工作区外 ⇒ restore-failed,工作区外不产生写入(F-095 反证)', () => {
+    const outsideTarget = path.join(path.dirname(ws), 'outside-ws-evil.txt');
+    fs.rmSync(outsideTarget, { force: true, recursive: true }); // 上一轮红读数若被旧实现落盘,先清现场
+    plantTrash(
+      'z2-escape-orig',
+      { originalPath: outsideTarget, relativeTrashPath: '0-x.txt', sizeBytes: 1, kind: 'file' },
+      Buffer.from('x', 'utf-8'),
+    );
+    const r = restoreFromTrash(ws, 'z2-escape-orig');
+    expect(r.ok).toBe(false);
+    expect(r.code).toBe('restore-failed');
+    expect(fs.existsSync(outsideTarget)).toBe(false);
+  });
 });
 
 describe('③ 未判定档:不删不写不冒充成功(§0.3)', () => {
