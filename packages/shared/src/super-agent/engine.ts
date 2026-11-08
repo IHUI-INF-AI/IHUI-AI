@@ -15,11 +15,15 @@
 
 import { executionFor, scopeFromRequest, workerAssignment, type WorkerAssignment } from './roles'
 import {
-  isSlowVerdict,
-  pickDecisions,
+  DEFAULT_MIN_CONFIDENCE,
+  DEFAULT_SLOW_PATH_RULES,
+  MAX_SLOW_JUDGE_ATTEMPTS,
+  classifyDecisions,
+  isSlowDecision,
   type SlowDecision,
   type SlowJudgeCall,
   type SlowJudgeInput,
+  type SlowUnjudgedReason,
 } from './slow-path'
 import {
   SNAPSHOT_VERSION,
@@ -184,6 +188,8 @@ export interface PanelView {
     id: string
     text: string
     reason: string
+    /** 已尝试判定的次数（首判 + 重排）；到 MAX_SLOW_JUDGE_ATTEMPTS 后停发并记 unavailable。 */
+    judgeAttempts: number
     decision?: SlowDecision
   }[]
   /** 命中规则被禁用/改写的工单，面板据此标出 policy-changed。 */
@@ -249,6 +255,8 @@ export class SuperAgentHost {
     string,
     { trigger: IncomingTrigger; reason: string; decision?: SlowDecision }
   >()
+  /** 每条积压的判定尝试次数：首判 + 最多 2 次重排，第 3 次未果记 unavailable（不再烧 token）。 */
+  private readonly judgeAttempts = new Map<string, number>()
   private readonly tickets = new Map<string, SuperTicket>()
   private readonly byThread = new Map<string, string[]>()
   private readonly contextOf = new Map<string, Set<string>>()
@@ -407,7 +415,7 @@ export class SuperAgentHost {
     let noted = 0
     let skippedNotRecorded = 0
     for (const { triggerId, decision } of rows) {
-      if (!isSlowVerdict(decision.verdict)) {
+      if (!isSlowDecision(decision)) {
         skippedNotRecorded += 1
         continue
       }
@@ -425,71 +433,161 @@ export class SuperAgentHost {
   }
 
   /**
-   * 慢路径批判定：取本主体推断积压（可按 verdict 过滤重判），交注入通道判定并回写注记。
-   * auto 档 ∧ act ∧ inferred ⇒ 走与人工同一条 acceptRecorded('model-slow-path') 语义通道开工；
-   * 通道异常 ⇒ 未判定不记绿，积压保留下轮可重试。
+   * 慢路径批判定：取本主体推断积压，交注入通道判定并回写注记。
+   * auto 档 ∧ decision=accept ∧ direction 已定 ∧ 至少一条启用规则命中 ∧ intentEvidence 非空
+   * ⇒ 才走与人工同一条 acceptRecorded 语义通道开工；未达标只落 wouldAccept 提案。
+   * 暂停 ⇒ 顺延不判；通道异常/漏回 ⇒ 未判定保留，首判 + 2 次重排后记 unavailable 停发。
    */
   async judgeRecorded(
     ownerUserId: string,
     judge: SlowJudgeCall,
-    options: { limit?: number; now?: number } = {},
+    options: {
+      limit?: number
+      now?: number
+      /** 置信度门槛（< 阈值即 fail-closed）；默认 DEFAULT_MIN_CONFIDENCE。 */
+      minConfidence?: number
+      /** 启用规则清单（每条恰一个 ruleAssessment）；默认内置慢路径规则。 */
+      rules?: readonly string[]
+    } = {},
   ): Promise<{
     judged: number
     unjudged: number
+    /** fail-closed 分档计数：每一档都点名，读不到 ≠ 不存在。 */
+    unjudgedReasons: Partial<Record<SlowUnjudgedReason, number>>
     autoAccepted: (ReceiveResult & { triggerId: string })[]
     error?: string
   }> {
     const limit = Math.max(1, options.limit ?? 20)
     const now = options.now ?? this.clock.now()
-    const entries: { triggerId: string; input: SlowJudgeInput }[] = []
+    const minConfidence = options.minConfidence ?? DEFAULT_MIN_CONFIDENCE
+    const enabledRules = options.rules ?? DEFAULT_SLOW_PATH_RULES
+    // 暂停时顺延：不判、不推进 attempt、不烧 token（恢复后从原积压继续）。
+    if (this.policyFor(ownerUserId).paused) {
+      return { judged: 0, unjudged: 0, unjudgedReasons: {}, autoAccepted: [] }
+    }
+    const entries: {
+      triggerId: string
+      trigger: IncomingTrigger
+      input: SlowJudgeInput
+    }[] = []
+    const exhausted: string[] = []
     for (const [triggerId, saved] of this.recordedTriggers) {
       if (saved.trigger.actorId !== ownerUserId) continue
-      if (saved.decision && saved.decision.verdict !== 'unclear') continue
+      // 已有落账判定（含模型 unavailable）不再重复烧 token。
+      if (saved.decision) continue
+      // 重排次数用尽：停发，按 unavailable 记，避免故障期间无限重试放大成本。
+      if ((this.judgeAttempts.get(triggerId) ?? 0) >= MAX_SLOW_JUDGE_ATTEMPTS) {
+        exhausted.push(triggerId)
+        continue
+      }
       entries.push({
         triggerId,
+        trigger: saved.trigger,
         input: {
           id: triggerId,
           text: saved.trigger.text,
           observedAt: now,
           requesters: [ownerUserId],
+          enabledRules: [...enabledRules],
+          companions: [],
+          relatedTickets: [],
+          threadWindow: [],
         },
       })
       if (entries.length >= limit) break
     }
-    if (entries.length === 0) return { judged: 0, unjudged: 0, autoAccepted: [] }
+    // 输入要带上下文：批内同伴、相关工单、有界线程窗口（各限量，避免 prompt 无界膨胀）。
+    for (const entry of entries) {
+      entry.input.companions = entries
+        .filter((e) => e.triggerId !== entry.triggerId)
+        .slice(0, 10)
+        .map((e) => ({ id: e.triggerId, text: e.trigger.text }))
+      entry.input.relatedTickets = [...this.tickets.values()]
+        .filter((t) => t.ownerUserId === ownerUserId && !t.ended && !t.mandateWithdrawn)
+        .slice(-5)
+        .map((t) => ({
+          id: t.id,
+          title: t.scope,
+          scope: t.scope,
+          strength: t.strength,
+          stage: ticketStage(t).stage,
+        }))
+      entry.input.threadWindow = [...this.triggers.values()]
+        .filter(
+          (t) => t.sourceId === entry.trigger.sourceId && t.threadId === entry.trigger.threadId,
+        )
+        .slice(-10)
+        .map((t) => ({
+          actorId: t.actorId,
+          fromBot: t.fromBot,
+          addressed: t.addressed,
+          text: t.text,
+        }))
+    }
+    const exhaustedCount = exhausted.length
+    if (entries.length === 0) {
+      return {
+        judged: 0,
+        unjudged: exhaustedCount,
+        unjudgedReasons: exhaustedCount > 0 ? { unavailable: exhaustedCount } : {},
+        autoAccepted: [],
+      }
+    }
+    // 发判前先记 attempt：通道抛错也算用掉一次，故障期不无限重试。
+    for (const e of entries) {
+      this.judgeAttempts.set(e.triggerId, (this.judgeAttempts.get(e.triggerId) ?? 0) + 1)
+    }
     let raw: Partial<Record<string, SlowDecision>>
     try {
       raw = await judge(entries.map((e) => e.input))
     } catch (e) {
-      // 未判定：不记绿、不动账（§0.3）；积压原地保留。
+      // 通道不可用/超时：未判定不记绿、不动账（§0.3）；积压原地保留。
       return {
         judged: 0,
-        unjudged: entries.length,
+        unjudged: entries.length + exhaustedCount,
+        unjudgedReasons: {
+          channel_error: entries.length,
+          ...(exhaustedCount > 0 ? { unavailable: exhaustedCount } : {}),
+        },
         autoAccepted: [],
         error: e instanceof Error ? e.message : String(e),
       }
     }
-    const picked = pickDecisions(
-      raw,
-      entries.map((e) => e.triggerId),
-    )
+    const ids = entries.map((e) => e.triggerId)
+    const { decided, unjudged } = classifyDecisions(raw, ids, {
+      minConfidence,
+      enabledRules,
+    })
     this.noteSlowDecisions(
       ownerUserId,
-      picked.map((r) => ({ triggerId: r.id, decision: r.decision })),
+      decided.map((r) => ({ triggerId: r.id, decision: r.decision })),
     )
+    // 拿到形状合法判定的条目销账 attempt；漏回/形状非法继续累计，到上限转 unavailable。
+    for (const r of decided) this.judgeAttempts.delete(r.id)
+    const unjudgedReasons: Partial<Record<SlowUnjudgedReason, number>> = {}
+    if (exhaustedCount > 0) unjudgedReasons.unavailable = exhaustedCount
+    for (const u of unjudged) {
+      const reason: SlowUnjudgedReason =
+        (this.judgeAttempts.get(u.id) ?? 0) >= MAX_SLOW_JUDGE_ATTEMPTS ? 'unavailable' : u.reason
+      unjudgedReasons[reason] = (unjudgedReasons[reason] ?? 0) + 1
+    }
+    const passRows = decided.filter((r) => r.decision.gate === 'pass')
     const autoAccepted: (ReceiveResult & { triggerId: string })[] = []
     if (this.policyFor(ownerUserId).acceptMode === 'auto') {
-      for (const r of picked) {
+      for (const r of passRows) {
         const saved = this.recordedTriggers.get(r.id)
         if (!saved || saved.trigger.fromBot) continue
-        if (r.decision.verdict !== 'act') continue
-        const res = this.acceptRecorded(ownerUserId, r.id, 'model-slow-path')
+        if (r.decision.decision !== 'accept') continue
+        const matched = r.decision.ruleAssessments.find((a) => a.matched)
+        if (!matched) continue
+        const res = this.acceptRecorded(ownerUserId, r.id, matched.ruleId)
         if (res.disposition === 'accepted') autoAccepted.push({ ...res, triggerId: r.id })
       }
     }
     return {
-      judged: picked.length,
-      unjudged: entries.length - picked.length,
+      judged: passRows.length,
+      unjudged: unjudged.length + exhaustedCount,
+      unjudgedReasons,
       autoAccepted,
     }
   }
@@ -736,6 +834,7 @@ export class SuperAgentHost {
         id: row.trigger.id,
         text: row.trigger.text,
         reason: row.reason,
+        judgeAttempts: this.judgeAttempts.get(row.trigger.id) ?? 0,
         ...(row.decision ? { decision: row.decision } : {}),
       }))
     const policyChanged = [...this.tickets.values()]
@@ -1146,7 +1245,7 @@ export class SuperAgentHost {
           this.recordedTriggers.set(r.triggerId, {
             trigger,
             reason: r.reason,
-            ...(r.decision && isSlowVerdict(r.decision.verdict) ? { decision: r.decision } : {}),
+            ...(r.decision && isSlowDecision(r.decision) ? { decision: r.decision } : {}),
           })
         }
       }
