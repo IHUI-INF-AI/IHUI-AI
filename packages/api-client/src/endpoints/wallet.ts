@@ -35,7 +35,7 @@ export async function getBalance(): Promise<ApiResult<WalletBalance>> {
  */
 export interface MarginFlowItem {
   id: string
-  /** 0 充值 / 1 扣减(提现) / 2 过期 / 3 退款 / 4 佣金 / 5 管理员调整 */
+  /** 0 充值 / 1 扣减(提现/消费) / 2 过期 / 3 退款扣回 / 4 Relay 转账至 API Key / 5 管理员调整(带符号) */
   opType: number
   /** 变动金额(分) */
   quantity: number
