@@ -42,11 +42,14 @@
 | 14A | DG-14 | scripts/lib/gate-scope.mjs:89-150 | P3 | 入册 |
 | 1B | W-01 | apps/web/app/(main)/exam/[id]/PageClient.tsx:44,55-57,90-93,95-105,- | P1 | 已修 fix/web-findings-1108 |
 | 2B | W-02 | apps/web/app/(main)/admin/edu/answer/online/page.tsx:36,77,105-108,111-115,- | P2 | 已修 fix/web-findings-1108 |
-| 3B | W-03 | apps/web/app/(main)/refund/[id]/PageClient.tsx:91-104 | P3 | 入册 |
+| 3B | W-03 | apps/web/app/(main)/refund/[id]/PageClient.tsx:91-104 | P3 | 已修 fix/web-findings-1108 |
 | 4B | W-04 | apps/web/src/components/chat/question-dialog.tsx:84-91,145,- | P2 | 已修 fix/web-findings-1108 |
 | 5B | W-05 | apps/web/src/components/chat/conversation-org-dialog.tsx:77,142,- | P3 | 已修 fix/web-findings-1108 |
-| 6B | W-06 | apps/web/app/(main)/learn/payment/confirm/PageClient.tsx:72-97,- | P3 | 入册 |
+| 6B | W-06 | apps/web/app/(main)/learn/payment/confirm/PageClient.tsx:72-97,- | P3 | 已修 fix/web-findings-1108 |
 | 7B | W-07 | apps/web/app/(main)/wallet/recharge/success/PageClient.tsx:29-34,77,89-100,121,155-161,161-173,- | P2 | 已修 fix/web-findings-1108 |
+| 8B | S-01 | apps/web/{app/sso/register,app/(main)/user/security,src/components/login,src/components/publish/CountdownTimer,src/hooks/use-updater}（6 文件） | P2 | 已修 fix/web-findings-1108（同型根因自查：按 tick 自减剩余时间） |
+| 9B | S-02 | apps/web/src/hooks/use-ime-composition-guard.ts + src/providers/global-hooks-provider.tsx | P2 | 已修 fix/web-findings-1108（同型根因自查：组合态 Enter/逗号误提交，全局捕获收口） |
+| 10B | S-03 | apps/web/app/**（全量扫描，0 新增实例） | P2 | 已修 fix/web-findings-1108（同型根因自查：URL 参数当金额/状态/凭据；W-07 已闭环，新增回归守卫） |
 | 1C | F-001 | apps/cli/src/tools/run-tests.ts:149 | P0 | 入册 |
 | 2C | F-045 | apps/desktop/src-tauri/capabilities/default.json:31 | P0 | 入册 |
 | 3C | F-002 | apps/cli/src/index.ts:1408 | P1 | 入册 |
