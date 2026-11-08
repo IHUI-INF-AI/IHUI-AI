@@ -29,10 +29,13 @@ export async function getBalance(): Promise<ApiResult<WalletBalance>> {
   return fetchApi<WalletBalance>('/api/wallet/balance')
 }
 
-/** 资金流水行(对齐 GET /api/finance/margin/flows;金额单位分) */
+/**
+ * 资金流水行（钱流水，只含 op_type 0–5；对齐 GET /api/finance/margin/flows）。
+ * 金额单位「分」。op_type 6 是 API 订阅配额计数（个），端点默认排除，不在此形状内。
+ */
 export interface MarginFlowItem {
   id: string
-  /** 1 充值 / 2 扣减 / 3 过期 / 4 退款 / 5 佣金 */
+  /** 0 充值 / 1 扣减(提现/消费) / 2 过期 / 3 退款扣回 / 4 Relay 转账至 API Key / 5 管理员调整(带符号) */
   opType: number
   /** 变动金额(分) */
   quantity: number

@@ -14,6 +14,7 @@ import { ChangePwdScreen as SharedChangePwdScreen } from '@ihui/rn-app'
 import { useI18n } from '../i18n'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 import { useHostPorts } from '../host/use-host-ports'
+import { WEB_BASE_URL } from '../lib/webview-portal-config'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
@@ -64,6 +65,14 @@ function ChangePwdScreen() {
 
   const { onNavigate, onToast } = useHostPorts()
 
+  // XUI-068:旧密码想不起来时同样走 web 找回页,不要在本屏兜圈。
+  const handleForgotOld = () => {
+    navigation.navigate('WebView', {
+      url: `${WEB_BASE_URL}/forgot-password`,
+      title: t('auth.forgotPassword'),
+    })
+  }
+
   return (
     <View style={{ flex: 1 }}>
       <SharedChangePwdScreen
@@ -83,6 +92,8 @@ function ChangePwdScreen() {
         onToggleNew={() => setShowNew((v) => !v)}
         onToggleConfirm={() => setShowConfirm((v) => !v)}
         onSubmit={onSubmit}
+        onForgotOld={handleForgotOld}
+        forgotLabel={t('auth.forgotPassword')}
         colorScheme={resolvedTheme}
         onNavigate={onNavigate}
         onToast={onToast}

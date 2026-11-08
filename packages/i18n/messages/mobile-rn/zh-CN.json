@@ -325,6 +325,7 @@
     }
   },
   "login": {
+    "platformLinuxdo": "LinuxDo",
     "platformWechat": "微信",
     "platformLark": "飞书",
     "platformDingTalk": "钉钉",
@@ -634,6 +635,7 @@
     "later": "再看看"
   },
   "order": {
+    "pay": "去支付",
     "title": "订单",
     "searchPlaceholder": "搜索我的订单",
     "tab": {
@@ -1935,6 +1937,33 @@
     "loadFailed": "加载客服失败"
   },
   "artifacts": {
+    "navEntry": "产物中心",
+    "title": "产物中心",
+    "desc": "AI 交付的报告、演示、表格与文档,可下载或在线预览。",
+    "empty": "还没有产物。让 AI 生成报告、演示或表格后,它们会出现在这里。",
+    "loginRequired": "登录后查看你的产物列表",
+    "colName": "名称",
+    "colKind": "类型",
+    "colVersion": "版本",
+    "colCreated": "创建时间",
+    "colSession": "来源会话",
+    "colActions": "操作",
+    "download": "下载",
+    "preview": "预览",
+    "viewSession": "查看会话",
+    "kind_html_report": "HTML 报告",
+    "kind_slides": "演示文稿",
+    "kind_sheet": "数据表格",
+    "kind_doc": "文档",
+    "kind_video_ref": "视频引用",
+    "justNow": "刚刚",
+    "secondsAgo": "{n} 秒前",
+    "minutesAgo": "{n} 分钟前",
+    "hoursAgo": "{n} 小时前",
+    "daysAgo": "{n} 天前",
+    "loadMore": "加载更多",
+    "refresh": "刷新",
+    "countSummary": "已加载 {loaded}/{total} 个产物",
     "previewFailed": "预览链接获取失败,请稍后重试",
     "loading": "加载中…",
     "loadFailed": "产物列表加载失败"
@@ -3651,11 +3680,6 @@
     "flowsLoading": "加载中...",
     "flowBalanceAfter": "余额",
     "flowRemarkEmpty": "无备注",
-    "opType1": "充值",
-    "opType2": "扣减",
-    "opType3": "过期",
-    "opType4": "退款",
-    "opType5": "佣金",
     "loginRequiredHint": "登录后查看资金流水",
     "goLogin": "去登录",
     "rechargeFail": "充值失败",
