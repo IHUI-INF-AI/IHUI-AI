@@ -48,7 +48,7 @@ async def launch_chrome(
     profile 的 CDP 封禁与运行中单例锁)。失败同样返回 code=0,由 data.error 携带
     原因(与 import-chrome 行为一致,前端靠 data.error 判断)。
     """
-    result = await launch_chrome_for_import(platform=body.platform)
+    result = await launch_chrome_for_import(platform=body.platform, user_id=user_id)
     return {"code": 0, "message": "ok", "data": result}
 
 
