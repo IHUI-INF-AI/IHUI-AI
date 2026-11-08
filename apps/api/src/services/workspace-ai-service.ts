@@ -2137,8 +2137,10 @@ class BackgroundAgentManager {
     return agentId
   }
 
-  list(): BackgroundAgent[] {
-    return Array.from(this.agents.values())
+  // F-07(2026-11-08):后台 Agent 列表按调用者归属过滤。此前 list() 直接把
+  // 全进程的表项交给任意登录用户,他人 prompt/workspacePath/事件/结果全量泄漏。
+  list(userId: string): BackgroundAgent[] {
+    return Array.from(this.agents.values()).filter((agent) => agent.userUuid === userId)
   }
 
   get(agentId: string): BackgroundAgent | null {
