@@ -627,7 +627,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
             body: JSON.stringify({
               messages: [{ role: 'user', content: prompt }],
               model,
-              metadata: { userId, ...metadata },
+              // F-112(2026-11-08):服务端身份必须最后写入,客户端 metadata 不得覆盖 userId。
+              metadata: { ...metadata, userId },
             }),
             signal: controller.signal,
           })
@@ -784,7 +785,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               body: JSON.stringify({
                 messages: [{ role: 'user', content: prompt }],
                 model,
-                metadata: { userId, provider, ...metadata },
+                // F-112(2026-11-08):userId/provider 由连接身份决定,客户端 metadata 仅补充。
+                metadata: { ...metadata, userId, provider },
               }),
               signal: controller.signal,
             })
@@ -1113,12 +1115,12 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         // chat.start — 初始化会话
         if (eventType === 'chat.start') {
           const reqBotId = (msg.bot_id as string) || botId
-          const reqUserId = (msg.user_id as string) || userId
           send(socket, {
             code: 200,
             msg: 'success',
             event: 'chat.created',
-            data: { bot_id: reqBotId, user_id: reqUserId, conversation_id: conversationId },
+            // F-112(2026-11-08):Coze user_id 一律用服务端鉴权身份,不采信客户端自报。
+            data: { bot_id: reqBotId, user_id: userId, conversation_id: conversationId },
           })
           return
         }
@@ -1127,7 +1129,6 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         if (eventType === 'chat.message') {
           const queryText = msg.content as string | undefined
           const reqBotId = (msg.bot_id as string) || botId
-          const reqUserId = (msg.user_id as string) || userId
           if (!queryText) {
             send(socket, { code: 400, event: 'error', message: '缺少 content' })
             return
@@ -1158,7 +1159,8 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               },
               body: JSON.stringify({
                 bot_id: reqBotId,
-                user_id: reqUserId,
+                // F-112(2026-11-08):不向 Coze 透传客户端自报的 user_id。
+                user_id: userId,
                 query: queryText,
                 conversation_id: conversationId,
                 stream: true,

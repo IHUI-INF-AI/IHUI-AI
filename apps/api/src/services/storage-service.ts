@@ -12,13 +12,7 @@
  * - 上传文件以 file_id 为名存储，支持元数据(sidecar .meta)与缩略图
  */
 
-import {
-  createHash,
-  createHmac,
-  createPublicKey,
-  createVerify,
-  randomUUID,
-} from 'node:crypto'
+import { createHash, createHmac, createPublicKey, createVerify, randomUUID } from 'node:crypto'
 import { secretsEqual } from '../plugins/internal-service-token.js'
 import {
   existsSync,
@@ -33,6 +27,7 @@ import { join, resolve } from 'node:path'
 import { env } from 'node:process'
 // ihui_oss_download_bytes_total:storage-service 不持有 fastify 实例,走模块级桥接
 import { recordOssDownloadBytes } from '../plugins/business-metrics.js'
+import { safeFetch } from '../utils/ssrf-guard.js'
 
 const BASE_DIR = env.STORAGE_DIR ?? 'storage'
 const UPLOADS_DIR = join(BASE_DIR, 'uploads')
@@ -465,6 +460,91 @@ const pubKeyCache = new Map<
   { key: ReturnType<typeof createPublicKey>; fetchedAt: number }
 >()
 const PUB_KEY_TTL_MS = 60 * 60 * 1000 // 1 小时
+/** 公钥响应体上限:正常 PEM 不足 1KB,8KB 已覆盖证书链;绝不把上游响应整包信任。 */
+const PUB_KEY_MAX_BYTES = 8 * 1024
+/** 公钥拉取超时:拦截指向慢端点的悬挂请求(内网盲 SSRF 的常见形态之一)。 */
+const PUB_KEY_FETCH_TIMEOUT_MS = 5000
+/** 缓存容量上限:FIFO 淘汰,防止"合法域名 + 随机路径"把内存撑大。 */
+const PUB_KEY_CACHE_MAX_ENTRIES = 32
+
+/** 阿里云公钥分发域(标签边界匹配,不是子串匹配)。 */
+const OSS_PUB_KEY_HOST_SUFFIXES = ['.alicdn.com', '.aliyuncs.com'] as const
+
+/**
+ * 公钥 URL 白名单(2026-11-08 修 F-69):
+ * 旧写法用 `startsWith` + `/\.alicdn\.com\//` 子串正则 —— 攻击者把 `.alicdn.com/`
+ * 放进 path/query(`https://evil.com/.alicdn.com/key.pem`)即可通过。现在先 `new URL()`
+ * 解析,强制 https,再按**主机名标签边界**放行 alicdn.com / aliyuncs.com 的合法主机。
+ */
+export function isAllowedOssPublicKeyUrl(rawUrl: string): boolean {
+  let parsed: URL
+  try {
+    parsed = new URL(rawUrl)
+  } catch {
+    return false
+  }
+  if (parsed.protocol !== 'https:') return false
+  const host = parsed.hostname.toLowerCase()
+  return OSS_PUB_KEY_HOST_SUFFIXES.some((suffix) => {
+    const bare = suffix.slice(1)
+    return host === bare || host.endsWith(suffix)
+  })
+}
+
+/** 有界读取响应体:超过 maxBytes 立即取消,不把攻击者可控的大响应读进内存。 */
+async function readLimitedResponseText(resp: Response, maxBytes: number): Promise<string | null> {
+  const declared = resp.headers.get('content-length')
+  if (declared !== null) {
+    const n = Number(declared)
+    if (!Number.isFinite(n) || n < 0 || n > maxBytes) return null
+  }
+  if (resp.body) {
+    const reader = resp.body.getReader()
+    const chunks: Uint8Array[] = []
+    let total = 0
+    try {
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+        total += value.byteLength
+        if (total > maxBytes) {
+          try {
+            await reader.cancel()
+          } catch {
+            // 取消失败不影响拒绝结论
+          }
+          return null
+        }
+        chunks.push(value)
+      }
+    } catch {
+      return null
+    } finally {
+      try {
+        reader.releaseLock()
+      } catch {
+        // 已 cancel 的流可能已释放锁
+      }
+    }
+    return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString('utf-8')
+  }
+  const text = await resp.text()
+  return Buffer.byteLength(text, 'utf-8') > maxBytes ? null : text
+}
+
+/** 写入公钥缓存并按容量 FIFO 淘汰。 */
+function cachePubKey(
+  url: string,
+  entry: { key: ReturnType<typeof createPublicKey>; fetchedAt: number },
+): void {
+  pubKeyCache.set(url, entry)
+  while (pubKeyCache.size > PUB_KEY_CACHE_MAX_ENTRIES) {
+    const oldest = pubKeyCache.keys().next().value
+    if (oldest === undefined) break
+    pubKeyCache.delete(oldest)
+  }
+}
 
 /** 验证 OSS 直传回调签名(RSA-SHA1)。验证通过返回 true。 */
 export async function verifyOssCallback(params: {
@@ -485,27 +565,25 @@ export async function verifyOssCallback(params: {
     return false
   }
 
-  // 2. 域名白名单校验(防止 SSRF)
-  //    阿里云公钥分发域:gosspublic.alicdn.com / *.aliyuncs.com
-  const allowedDomains = ['https://gosspublic.alicdn.com/', 'https://oss-document.aliyuncs.com/']
-  const isAllowed =
-    allowedDomains.some((d) => pubKeyUrl.startsWith(d)) ||
-    /\.alicdn\.com\//.test(pubKeyUrl) ||
-    /\.aliyuncs\.com\//.test(pubKeyUrl)
-  if (!isAllowed) return false
+  // 2. 严格白名单校验(防 SSRF):协议必须 https,主机名按标签边界匹配。
+  //    公钥地址完全由请求头控制,不能在解析前信任其任何部分。
+  if (!isAllowedOssPublicKeyUrl(pubKeyUrl)) return false
 
-  // 3. 获取公钥(带 1 小时缓存)
+  // 3. 获取公钥(带 1 小时缓存;走仓库统一的 safeFetch,含 DNS/内网/重定向守卫)
   let cached = pubKeyCache.get(pubKeyUrl)
   if (!cached || Date.now() - cached.fetchedAt > PUB_KEY_TTL_MS) {
     try {
-      const resp = await fetch(pubKeyUrl)
+      const resp = await safeFetch(pubKeyUrl, {
+        signal: AbortSignal.timeout(PUB_KEY_FETCH_TIMEOUT_MS),
+      })
       if (!resp.ok) return false
-      const pem = await resp.text()
+      const pem = await readLimitedResponseText(resp, PUB_KEY_MAX_BYTES)
+      if (pem === null) return false
       cached = {
         key: createPublicKey(pem),
         fetchedAt: Date.now(),
       }
-      pubKeyCache.set(pubKeyUrl, cached)
+      cachePubKey(pubKeyUrl, cached)
     } catch {
       return false
     }

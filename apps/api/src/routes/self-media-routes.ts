@@ -24,7 +24,7 @@
  * - /record 是 api 唯一自实现端点(直接写数据库,因为 ai-service 不写库)
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
-import { and, desc, eq } from 'drizzle-orm'
+import { and, desc, eq, type SQL } from 'drizzle-orm'
 import { z } from 'zod'
 
 import { selfMediaPublished } from '@ihui/database'
@@ -217,16 +217,21 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
 
   // GET /self-media/records — 直接读库查历史(备用,不走 ai-service)
   server.get('/self-media/records', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
     const { category, limit } = request.query as { category?: string; limit?: string }
     const cat = category === 'wechat' || category === 'koubo' ? category : undefined
-    const lim = Math.min(Number(limit) || 50, HISTORY_LIMIT)
+    // F-170(2026-11-08):limit 必须夹到 [1, HISTORY_LIMIT] —— 负数/0/超大值不再直接进 SQL。
+    const raw = Number(limit)
+    const lim = Number.isFinite(raw) ? Math.min(Math.max(Math.trunc(raw), 1), HISTORY_LIMIT) : 50
 
-    const conds = []
+    // F-170(2026-11-08):历史记录按当前登录用户过滤,不能把全站用户记录返回给任意人。
+    const conds: SQL[] = [eq(selfMediaPublished.authorId, userId)]
     if (cat) conds.push(eq(selfMediaPublished.category, cat))
     const rows = await db
       .select()
       .from(selfMediaPublished)
-      .where(conds.length ? and(...conds) : undefined)
+      .where(and(...conds))
       .orderBy(desc(selfMediaPublished.createdAt))
       .limit(lim)
 
