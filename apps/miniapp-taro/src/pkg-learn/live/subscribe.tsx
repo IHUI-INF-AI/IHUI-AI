@@ -40,10 +40,13 @@ export default function LiveSubscribe() {
 
   const [list, setList] = useState<Live[]>([])
   const [loading, setLoading] = useState(false)
+  // XUI-066:加载失败曾被静默成空列表,现在如实上抛给共享屏。
+  const [loadError, setLoadError] = useState('')
   const [reminder, setReminder] = useState<boolean>(Taro.getStorageSync(REMINDER_KEY) === 'true')
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const res = await getLiveSubscriptions()
       if (res.success) {
@@ -53,6 +56,7 @@ export default function LiveSubscribe() {
       }
     } catch (e) {
       logger.error('live/subscribe', '获取订阅列表', e)
+      setLoadError(tt('common.loadFailed', '加载失败'))
       onToast(tt('live.subscribe.loadFailed', '订阅操作失败'), { kind: 'error' })
     } finally {
       setLoading(false)
@@ -120,7 +124,7 @@ export default function LiveSubscribe() {
         loading={loading}
         refreshing={false}
         loadingMore={false}
-        error=""
+        error={loadError}
         onRefresh={() => {
           void load()
         }}

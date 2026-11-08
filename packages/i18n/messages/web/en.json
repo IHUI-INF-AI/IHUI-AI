@@ -21531,9 +21531,12 @@
     "status": {
       "all": "All",
       "cancelled": "Cancelled",
+      "completed": "Completed",
+      "failed": "Failed",
       "paid": "Paid",
       "pending": "Pending",
       "refunded": "Refunded",
+      "refunding": "Refunding",
       "unknown": "Unknown"
     },
     "statusLabel": "Status",

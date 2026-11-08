@@ -50,6 +50,8 @@ export default function TeacherDetail() {
   const [teacher, setTeacher] = useState<TeacherExtra | null>(null)
   const [courses, setCourses] = useState<TeacherCourse[]>([])
   const [loading, setLoading] = useState(true)
+  // XUI-066:详情加载失败只弹一次 toast,共享屏却收到空 error,屏内无失败出口。
+  const [loadError, setLoadError] = useState('')
   const [followed, setFollowed] = useState(false)
 
   const load = useCallback(async () => {
@@ -59,6 +61,7 @@ export default function TeacherDetail() {
       return
     }
     setLoading(true)
+    setLoadError('')
     try {
       const data = await getTeacherDetail(id)
       const extra = data as TeacherExtra
@@ -66,6 +69,7 @@ export default function TeacherDetail() {
       setFollowed(Boolean(extra.isFollowed))
     } catch (e) {
       logger.error('teacher/detail', t('teacherDetail.q1'), e)
+      setLoadError(tt('common.loadFailed'))
       onToast(tt('common.failed', '加载失败'), { kind: 'error' })
     } finally {
       setLoading(false)
@@ -171,7 +175,7 @@ export default function TeacherDetail() {
         courses={mappedCourses}
         reviews={REVIEWS}
         loading={loading}
-        error=""
+        error={loadError}
         onToggleFollow={onToggleFollow}
         onContact={onContact}
         onOpenCourse={onOpenCourse}

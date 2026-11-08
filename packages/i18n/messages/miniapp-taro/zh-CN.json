@@ -387,6 +387,7 @@
       "submit": "充值",
       "submitting": "充值中…",
       "invalidAmount": "请输入有效金额",
+      "submitFailed": "充值提交失败,请重试",
       "success": {
         "shareFriend": "分享给好友"
       },
