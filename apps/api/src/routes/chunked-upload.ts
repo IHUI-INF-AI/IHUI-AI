@@ -20,11 +20,16 @@ import {
   closeSync,
 } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
-import { uploadSessions, UPLOAD_SESSION_STATUS, type UploadSessionStatus } from '@ihui/database'
+import {
+  uploadSessions,
+  UPLOAD_SESSION_STATUS,
+  UPLOAD_SESSION_REAPABLE_STATUSES,
+  type UploadSessionStatus,
+} from '@ihui/database'
 import {
   CHUNKS_ROOT,
   PROTOCOL_UPLOAD_LIMITS,
@@ -292,7 +297,16 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     // 跨会话聚合预算·每片落盘处检(2026-09-30,票 b76-12c-3,对齐上游「追加分片检」半边):
     // 全局暂存字节超预算 = 429 拒收**新片**,fail closed 只挡增量 —— 既有会话一律不清
     // (清存量 = 把无辜用户的在途上传打掉,不误伤)。
-    const stagedBytes = measureStagedBytes(CHUNKS_ROOT)
+    // F-381:预算只统计仍在 uploading/merging 的活跃会话;失败终态目录已不再占预算,
+    // 否则少量 checksum_mismatch/content_rejected 大文件即可把预算长期占满。
+    const activeUploads = await db
+      .select({ uploadId: uploadSessions.uploadId })
+      .from(uploadSessions)
+      .where(inArray(uploadSessions.status, [...UPLOAD_SESSION_REAPABLE_STATUSES]))
+    const stagedBytes = measureStagedBytes(
+      CHUNKS_ROOT,
+      new Set(activeUploads.map((r) => r.uploadId)),
+    )
     if (wouldStagedBudgetOverflow(stagedBytes, buffer.byteLength)) {
       request.log.warn(
         { uploadId: uploadIdStr, stagedBytes, incoming: buffer.byteLength },
