@@ -187,25 +187,9 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
       if (!(await accessibleSession(req, id)))
         return reply.status(404).send(error(404, '会话不存在'))
       const result = await crewOrchestrator.executeSession(id)
-      // SDB-30: 计费幂等键改为单次 run(runId),重跑同一会话各自独立扣费;
-      // 失败分支同样按实际 usage 结算(LLM 已经真实调用了),不再用 result.success 作前置。
-      if (result.usage && result.usage.totalTokens > 0 && result.userId) {
-        if (!result.runId) {
-          // 拿不到 runId 就无法保证幂等,宁可漏扣并显式报错,也不退回 session 级恒定键
-          req.log.error({ sessionId: id }, '[crew] 缺少 runId,无法结算本次用量')
-        } else {
-          try {
-            await server.tokenBalance.deductTokens(
-              result.userId,
-              result.usage.totalTokens,
-              `crew_session:${id}`,
-              `crew_run:${result.runId}`,
-            )
-          } catch (e) {
-            req.log.error({ err: e }, '[crew] 扣费失败(不阻塞响应)')
-          }
-        }
-      }
+      // F-203(口径 B):计费已由 crew-llm-adapter 在每次 callRealLlm 内按真实成本结算
+      // (orchestrator 的所有调用都传了 userId)。路由不再按 run 的 totalTokens 扣一次,
+      // 否则同一 run 会「逐次成本 + run token 数」双扣。
       if (!result.success) {
         return reply.status(400).send(error(400, result.error ?? '执行失败'))
       }
@@ -262,29 +246,8 @@ export const crewRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       for await (const evt of crewOrchestrator.executeSessionStreaming(id)) {
-        // SDB-30: 结算先于写流 —— 客户端断连时 send 可能抛错,放在后面会漏扣;
-        // 终态不再限定 complete,取消/异常(error)分支携带的 usage 同样要结算。
-        if (
-          (evt.type === 'complete' || evt.type === 'error') &&
-          evt.usage &&
-          evt.usage.totalTokens > 0 &&
-          evt.userId
-        ) {
-          if (!evt.runId) {
-            req.log.error({ sessionId: id }, '[crew] 缺少 runId,无法结算本次流式用量')
-          } else {
-            try {
-              await server.tokenBalance.deductTokens(
-                evt.userId,
-                evt.usage.totalTokens,
-                `crew_session:${id}`,
-                `crew_run:${evt.runId}`,
-              )
-            } catch (e) {
-              req.log.error({ err: e }, '[crew] 流式扣费失败(不阻塞)')
-            }
-          }
-        }
+        // F-203(口径 B):流式同样不在此结算 —— crew-llm-adapter 已按每次调用的真实成本
+        // 扣费,这里再按 run 扣 totalTokens 就是双扣(error/cancelled 的 usage 也已被逐次结算)。
         send(evt.type, evt)
         if (evt.type === 'complete' || evt.type === 'error') break
       }
