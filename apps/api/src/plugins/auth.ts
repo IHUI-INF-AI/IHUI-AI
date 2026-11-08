@@ -62,7 +62,12 @@ declare module '@fastify/jwt' {
 let tokenBlacklist: ReturnType<typeof createBlacklist> | null = null
 let tokenBlacklistInitFailed = false
 
-function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
+/**
+ * 供 logout / OAuth 授权面等共享吊销视图。
+ * F-56:OAuth authorize/userinfo 过去只做 introspect(纯验签+过期),登出后仍能换新牌;
+ * 这里把同一份 Redis 黑名单出口暴露出去,避免第二套实现漂移。
+ */
+export function getTokenBlacklist(): ReturnType<typeof createBlacklist> | null {
   if (tokenBlacklist) return tokenBlacklist
   if (tokenBlacklistInitFailed) return null
   try {
