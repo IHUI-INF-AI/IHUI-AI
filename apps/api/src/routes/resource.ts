@@ -301,7 +301,7 @@ export const resourceRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // GET /resources/:id - 资源详情(自增浏览量)
+  // GET /resources/:id - 资源详情(浏览量由 plugins/watch-aspect 统一自增)
   server.get(
     '/resources/:id',
     { schema: { response: { ...responseSchema } } },
