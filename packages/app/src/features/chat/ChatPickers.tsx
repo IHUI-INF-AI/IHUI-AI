@@ -249,7 +249,7 @@ export function ChatPickers({
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
                       >
-                        <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
+                        <Text style={[styles.chipText, active ? styles.chipActiveText : null]}>
                           {category.label}
                         </Text>
                       </TouchableOpacity>
@@ -408,7 +408,7 @@ function createStyles(tokens: AppThemeTokens) {
       alignSelf: 'flex-start',
       paddingHorizontal: rnSpacing['2xs'],
       paddingVertical: 1,
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
       backgroundColor: tokens.surface.muted,
       fontSize: rnType.caption.size,
       color: tokens.text.tertiary,
@@ -441,7 +441,7 @@ function createStyles(tokens: AppThemeTokens) {
       fontSize: rnType.bodySm.size,
       color: tokens.text.secondary,
     },
-    chipTextActive: {
+    chipActiveText: {
       color: tokens.brand.ctaForeground,
     },
     removeButton: {

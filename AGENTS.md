@@ -157,6 +157,7 @@ pnpm dev                                      # 启动所有服务(端口见 doc
 - 落点 = 根直属 `.worktrees/`;收尾五步:①合并/裁决 → ②提交并推送 → ③回收检出 → ④删已并入分支 → ⑤`git worktree prune`。未合并的检出**不得静默删**:先打 `lost-commit/worktree-<名>-<sha7>` 标签保活;**合并与否由 agent 依证据自主裁决并执行**(能合即按五步合并→提交→推送,不能合则保活并在提交信息里写清理由),不再归人拍板。
 - 2026-10-21 撤装:自动回收器 reap-worktrees.mjs 与计划任务 IHUI-Worktree-Reap 已卸载;ensure-silent-tasks.mjs 的 ④ 回收链路监视段随之摘除,不得复活。
 - 2026-10-30 worktree 回收与 TEMP 清扫那一串补刀(①—④)属**已落地修复的取证叙述**,现判据住在 `scripts/lib/git-guardian-worktree-reap.mjs`、`scripts/scrub-temp-fixtures.mjs` 与各自镜像测试里;整区逐字在 `.ihui-agent/archive/AGENTS_trim-2026-11-04.md`。
+- worktree 共享 `node_modules` 的急救口径与迁移五步(2026-11-07 机主令,整段外置以守本文件体积上限)见 `docs/tickets/2026-11/ops-worktree-node-modules-20261107.md`。
 - **12h-补:提交 / 推送 / 合并 = agent 自主强制动作(2026-10-30 机主令,凌驾本仓一切"等机主确认 / 待拍板 / 你看要不要"惯例)**:每轮工作收尾**必须**自行走完提交→推送→回读(`local == remote`),需要合并的一律由 agent 依证据自主裁决并执行;**禁止**以"等你决定要不要提交/推送/合并"停手,也**禁止**把"未提交"当作可交付状态。`git push` 仍走本仓既有自动腿(post-commit `git-push-guard.mjs` 自动推送并回读 + `git-push-converge.mjs` 核验),不手写 push。唯一例外 = 与提交内容无关的不可逆破坏面(`reset --hard` / 回滚 / 强推),仍按 §7 / §22 的备份与人工口径。
 ## 13. 文件修改持久化强制规则(强制)
 写盘后必须 Read 验证修改生效,禁止只凭工具返回"成功"就声明完成(缓存/缓冲会让磁盘与预期不一致)。

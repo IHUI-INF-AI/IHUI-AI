@@ -294,7 +294,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       paddingHorizontal: rnSpacing['xs-loose'],
       paddingVertical: rnSpacing['2xs'],
-      borderRadius: rnRadius.sm,
+      borderRadius: rnRadius.md,
     },
     statusBadgeLiving: { backgroundColor: tk.danger.light },
     statusBadgeUpcoming: { backgroundColor: tk.warning.light },
