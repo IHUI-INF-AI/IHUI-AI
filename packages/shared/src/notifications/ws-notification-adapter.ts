@@ -52,7 +52,9 @@ export function transformWsNotification(
       ? (data.data as Record<string, unknown>)
       : undefined
   return {
-    id: str(data.id) ?? `${Date.now()}`,
+    // 同一毫秒的多条通知(尤其 message 直接透传无 id)不得共用 fallback id,
+    // 否则去重会把真实的新通知当成重复丢掉。
+    id: str(data.id) ?? `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     type: data.type,
     title: str(data.title) ?? (data.type === 'ai_response' ? 'AI 回复' : '新通知'),
     content: str(data.content) ?? str(data.message?.content) ?? '',
