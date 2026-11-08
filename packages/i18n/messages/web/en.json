@@ -27044,9 +27044,7 @@
     "loadFailed": "Failed to load",
     "passed": "Passed",
     "failed": "Failed",
-    "correct": "Correct {count}/{total}",
     "duration": "Duration {min} min",
-    "wrongQuestions": "Wrong answers",
     "yourAnswer": "Your answer",
     "correctAnswer": "Correct answer"
   },

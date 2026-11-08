@@ -27047,9 +27047,7 @@
     "loadFailed": "불러오기 실패",
     "passed": "합격",
     "failed": "불합격",
-    "correct": "정답 {count}/{total}",
     "duration": "소요 {min}분",
-    "wrongQuestions": "오답",
     "yourAnswer": "당신의 답변",
     "correctAnswer": "정답"
   },

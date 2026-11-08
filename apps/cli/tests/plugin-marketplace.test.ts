@@ -392,6 +392,15 @@ describe('Plugin Marketplace', () => {
       expect(fs.readFileSync(regPath, 'utf-8')).toBe(body);
     });
 
+    it('loadInstallRegistry 合法 JSON 但 records 不是数组时同样判 corrupt', () => {
+      const regPath = getRegistryPath();
+      fs.mkdirSync(path.dirname(regPath), { recursive: true });
+      const body = '{"records":{}}';
+      fs.writeFileSync(regPath, body);
+      expect(() => loadInstallRegistry()).toThrow(/插件登记表读不到.*corrupt/);
+      expect(fs.readFileSync(regPath, 'utf-8')).toBe(body);
+    });
+
     it('loadInstallRegistry 文件不存在返回空注册表', () => {
       const reg = loadInstallRegistry();
       expect(reg.records).toEqual([]);
