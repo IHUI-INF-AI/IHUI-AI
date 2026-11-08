@@ -92,15 +92,32 @@ export function isZeroSha(ref) {
 }
 
 /**
- * 判定面选择(纯函数):env 给的基线的不可解析/全零 ⇒ 回落 HEAD^;HEAD^ 也没有 ⇒ 未判定。
- * 无 FORMAT_BASE_REF ⇒ 本地默认面(工作树 vs HEAD + 未跟踪)。
+ * 判定面选择(纯函数):env 基线可解析 ⇒ 直接 diff;显式基线取不到 ⇒ 未判定(exit 2,绝不回落);
+ * 全零 sha(新分支 push 的 before 占位)才回落 HEAD^,但带 degraded 标记供 main() 显式告警;
+ * HEAD^ 也取不到 ⇒ 未判定。无 FORMAT_BASE_REF ⇒ 本地默认面(工作树 vs HEAD + 未跟踪)。
  */
 export function decideBaseRef({ envRef, canResolve }) {
   const raw = typeof envRef === 'string' ? envRef.trim() : ''
   if (!raw) return { kind: 'worktree', ref: null }
-  if (!isZeroSha(raw) && canResolve(raw)) return { kind: 'diff', ref: raw }
-  if (canResolve('HEAD^')) return { kind: 'diff', ref: 'HEAD^' }
-  return { kind: 'unjudged', ref: null, reason: '取不到 diff 基线' }
+  if (isZeroSha(raw)) {
+    if (canResolve('HEAD^')) {
+      return {
+        kind: 'diff',
+        ref: 'HEAD^',
+        degraded: 'zero-sha-synthesized-before',
+        reason: '全零 sha(新分支 push 的 before 占位),回落 HEAD^',
+      }
+    }
+    return { kind: 'unjudged', ref: null, reason: '取不到 diff 基线' }
+  }
+  if (!canResolve(raw)) {
+    return {
+      kind: 'unjudged',
+      ref: null,
+      reason: `显式基线 ${raw} 不可解析(浅克隆/force-push?),不回落 HEAD^`,
+    }
+  }
+  return { kind: 'diff', ref: raw }
 }
 
 /** prettier 退出码 → 三态。0=全过;1=有不合格式;其他(含 2、null、被信号打死)=自身异常。 */
@@ -285,6 +302,8 @@ async function main(argv = process.argv.slice(2)) {
     return unjudged(`git 不可用（${e?.message ?? e}）`)
   }
   if (decision.kind === 'unjudged') return unjudged(decision.reason)
+  // 全零 sha 回落 HEAD^ 属显式降级:必须告警,不许静默(缺陷 DG-10 硬性要求)。
+  if (decision.degraded) console.warn(`${TAG} 降级：${decision.reason}`)
 
   if (!existsSync(PRETTIER_BIN)) return unjudged('prettier 未安装')
 
@@ -355,18 +374,30 @@ function runSelfTest() {
     ref: 'abc123',
   })
   eq(
-    '全零 sha 回落 HEAD^',
+    '全零 sha 回落 HEAD^ 带 degraded 标记',
     decideBaseRef({ envRef: '0'.repeat(40), canResolve: (r) => r === 'HEAD^' }),
     {
       kind: 'diff',
       ref: 'HEAD^',
+      degraded: 'zero-sha-synthesized-before',
+      reason: '全零 sha(新分支 push 的 before 占位),回落 HEAD^',
     },
   )
-  eq('不可解析回落 HEAD^', decideBaseRef({ envRef: 'gone', canResolve: (r) => r === 'HEAD^' }), {
-    kind: 'diff',
-    ref: 'HEAD^',
+  eq(
+    '显式基线不可解析 = 未判定(不回落)',
+    decideBaseRef({ envRef: 'gone', canResolve: (r) => r === 'HEAD^' }),
+    {
+      kind: 'unjudged',
+      ref: null,
+      reason: '显式基线 gone 不可解析(浅克隆/force-push?),不回落 HEAD^',
+    },
+  )
+  eq('显式基线不可解析且 HEAD^ 也无 = 未判定', decideBaseRef({ envRef: 'gone', canResolve: () => false }), {
+    kind: 'unjudged',
+    ref: null,
+    reason: '显式基线 gone 不可解析(浅克隆/force-push?),不回落 HEAD^',
   })
-  eq('两级都取不到 = 未判定', decideBaseRef({ envRef: 'gone', canResolve: () => false }), {
+  eq('全零 sha 但 HEAD^ 取不到 = 未判定', decideBaseRef({ envRef: '0'.repeat(40), canResolve: () => false }), {
     kind: 'unjudged',
     ref: null,
     reason: '取不到 diff 基线',
