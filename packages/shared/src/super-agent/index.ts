@@ -6,6 +6,7 @@ export {
   DEFAULT_SUPER_AGENT_POLICY,
   SuperAgentHost,
   canRetry,
+  observationTier,
   ticketStage,
   waitsForPerson,
 } from './engine'
@@ -17,6 +18,7 @@ export { SNAPSHOT_VERSION } from './persist'
 export type { OwnerSlice, RestoreReport, SuperAgentSnapshot } from './persist'
 export {
   ROUTER_TOOLS,
+  WORKER_SESSION_PREFIX,
   WORKER_TOOLS,
   executionFor,
   scopeFromRequest,
@@ -28,13 +30,19 @@ export type {
   AssignmentState,
   Disposition,
   IncomingTrigger,
+  MandateBasis,
+  MandateRoute,
+  ObservationTier,
   PanelView,
+  PolicyEvent,
+  PolicyEventKind,
   ReceiveResult,
   ReportState,
   SpeakPurpose,
   Speech,
   Strength,
   SuperAgentPolicy,
+  SuperAgentRule,
   SuperTicket,
   TicketStage,
 } from './engine'

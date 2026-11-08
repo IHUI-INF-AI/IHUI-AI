@@ -57,6 +57,9 @@ export function workerAssignment(ticket: {
   }
 }
 
+/** 工人会话 id 前缀；下游（api 派发服务）据此识别「宿主已占执行槽」的派单。 */
+export const WORKER_SESSION_PREFIX = 'worker-'
+
 export function executionFor(
   ticketId: string,
   ownerUserId: string,
@@ -65,7 +68,7 @@ export function executionFor(
   directory: string
 } {
   return {
-    sessionId: `worker-${ticketId}`,
+    sessionId: `${WORKER_SESSION_PREFIX}${ticketId}`,
     directory: `super-agent/${ownerUserId}/${ticketId}`,
   }
 }
