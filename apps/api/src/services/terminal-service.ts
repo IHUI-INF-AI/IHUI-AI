@@ -416,7 +416,14 @@ function toSession(entry: PTYEntry): TerminalSession {
 
 /** 统计用户当前 session 数 */
 function countUserSessions(userId: string): number {
-  return userSessions.get(userId)?.size ?? 0
+  const set = userSessions.get(userId)
+  if (!set) return 0
+  // F-236(2026-11-08):只统计仍在运行的会话;已 exited/closed 的不再占用并发额度。
+  let active = 0
+  for (const sessionId of set) {
+    if (sessions.get(sessionId)?.status === 'active') active++
+  }
+  return active
 }
 
 /** 注册 sessionId 到 userId 映射 */
@@ -500,6 +507,10 @@ function handlePtyExit(entry: PTYEntry, e: { exitCode: number; signal?: number }
   }
   // 更新 Redis 元数据 exitCode(7 天 TTL 内可查询历史)
   void updateSessionMetaExit(entry.sessionId, e.exitCode, entry.lastActivityAt)
+  // F-236(2026-11-08):自然退出/SSH 断连同样回收内存引用与并发额度,
+  // 否则同一用户 exit 5 次后会永久撞「超过最大并发终端数」。
+  sessions.delete(entry.sessionId)
+  unregisterUserSession(entry.userId, entry.sessionId)
 }
 
 // ==================== 公共 API:createSession ====================

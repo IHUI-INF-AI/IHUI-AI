@@ -170,8 +170,9 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
     }
 
     // 1. 统一 PII 清除：遍历删除 PII 子表 + 彻底匿名化 users 主行(status=3) + 吊销 refresh token
-    //    （含 user_auth_info / addresses / devices / chat / memory / notes / oauth / preferences / passkeys 等，幂等）
-    await purgeUserPii(userId)
+    //    （含 user_auth_info / addresses / devices / device_* / security_logs / user_emails /
+    //     chat / memory / notes / oauth / preferences / passkeys 等，幂等）
+    const purge = await purgeUserPii(userId)
 
     // 2. 清理搜索历史
     await clearSearchHistory(userId).catch(() => {
@@ -183,12 +184,12 @@ export const gdprRoutes: FastifyPluginAsync = async (server) => {
       action: 'GDPR_ERASE',
       resourceType: 'gdpr',
       resourceId: userId,
-      details: { anonymized: true, status: 3 },
+      details: { anonymized: true, status: 3, failedTables: purge.failedTables },
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     })
 
-    return reply.send(success({ erased: true, userId }))
+    return reply.send(success({ erased: true, userId, failedTables: purge.failedTables }))
   })
 
   // POST /portability - 数据可携带性导出（结构化 JSON）
