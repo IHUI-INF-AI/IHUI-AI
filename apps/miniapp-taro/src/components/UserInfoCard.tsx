@@ -22,6 +22,8 @@ import {
   userInfoCardAvatarStyle,
 } from '@ihui/shared/ui/user-info-card-spec'
 import { rpx } from '@/utils/rpx'
+// XUI-065:智汇值格式化收敛到共享函数(与 RN 同表:万/亿 + 2 位小数),端内不再自留一套 w/k 规则。
+import { formatTokenValue } from '@ihui/shared/utils/format'
 import LineIcon from './LineIcon'
 import type { UserInfo, UserInfoCardMinimalProps } from '@ihui/types'
 
@@ -109,13 +111,6 @@ export interface UserInfoCardProps extends UserInfoCardMinimalProps {
    * 故暂仅声明、未接调用点;后手补 inviteCode 扁平属性 + 邀请码行后,在此接 onCopyInviteCode(code)。
    */
   onCopyInviteCode?: (code: string) => void
-}
-
-/** 智汇值格式化(对齐原项目 formatTokenValue:>=10000 显示 x.xw,>=1000 显示 x.xk) */
-function formatTokenValue(v: number): string {
-  if (v >= 10000) return (v / 10000).toFixed(1) + 'w'
-  if (v >= 1000) return (v / 1000).toFixed(1) + 'k'
-  return String(v)
 }
 
 export default function UserInfoCard({
