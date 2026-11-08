@@ -206,6 +206,21 @@ if (!orderNo || (!codeUrl && !payUrl)) { /* 兜底 */ }
 4. **服务端时间戳时区**：多处 `new Date(v)` / `Date.parse(v)` 直接解析接口返回值（如 `refund/[id]` L116、`agent-task-progress-pane` L876）。**未判定**：缺少接口返回格式（是否带 `Z`/偏移）证据，不能断言存在 8 小时偏差。
 5. **支付金额单位**：微信接口按「分」、支付宝按「元」（`wallet/recharge/page.tsx` L77/L81）。前端按注释分别传参，**未判定**为缺陷，需后端契约确认。
 
+### 复核结论（2026-11-08）
+
+| # | 结论 | 证据 | 处置 |
+|---|---|---|---|
+| 1 | **坐实，升 P1** | 前端 `PLAN_PRICES`（`payment/checkout/PageClient.tsx:28-34`）展示价；下单 `createOrder(planId)`（`:118`）把 `'pro'/'enterprise'` 当 `vipLevelId` 传给 `POST /vip/order`（`use-vip-payment.ts:59-62`）。服务端 `findVipLevel` 按 `vip_levels.id` 查（`vip.ts:329`），id 为 `uuid defaultRandom()`（`packages/database/src/schema/vip.ts:25`）→ 默认 schema 下必 404「VIP 等级不存在」。入口真实：`payment/page.tsx:23-26,105`。价目本身与 DB 种子等价（2900/9900/49900 分，`scripts/seed-vip-levels.ts:53,69,85`），但档位语义错位（pro=¥99 对应 `levelValue=2`）。 | S-07（`lib/checkout-plan-levels.ts` + 服务端档位下单） |
+| 2 | **坐实（潜在）P3** | cleanup（`use-agent-runtime.ts:391-403`）未重置 `tokenStream/toolCallChain/healEvents/streamError`；`toolCallChain` 追加写（`:268-279`）。当前消费方 `components/ai/agent-task-progress-pane.tsx:851-862` 不读三项，`agent-workbench/page.tsx:75` 整对象消费未见读取 → 无现网可见影响，但残留状态是后续接线隐患。 | S-08（cleanup 补齐四项重置） |
+| 3 | **坐实（安全）P3** | 监听 `web-work-panel.tsx:559-592` 只校验 `e.data`，未用 `e.source`。opaque origin 下 `e.origin='null'` 不可用，但 `e.source` 可精确比对 iframe。副作用大于注释所述：`ihui-embed-newtab` → `newTab(d.url)` 开任意 http(s) 内部标签；nav/loaded 改写地址栏与历史栈、置 `status=loading` 触发 20s 降级。 | S-09（`lib/embed-message-trust.ts` + `e.source` 闸） |
+| 4 | **证伪** | 退款接口返回 Drizzle `Date`，JSON 序列化为 ISO8601 带 Z（`refund-audit.ts:209-240`、`order-queries.ts:391-394/518-530`、`order.ts:669-694`）；kanban 流时间显式 `.toISOString()`（`agents-kanban.ts:97-109`）；agent-runtime 透传上游帧不改写。前端 `new Date(v)` 正确，无 8 小时偏差。**原判定为何误判**：把「前端未做格式防御」（仅防御缺口）与「服务端返回无时区字符串」（才是缺陷）捆成一条；又把退款接口时间与 SSE 时间当成同一数据源（后者由 `toKanbanTask` 显式 `toISOString()`）。 | 不修，避免伪修复 |
+| 5 | **证伪（契约一致）** | wechat native 入参分（`payment-gateway.ts:521-563`）；alipay 入参元、服务端 `Math.round(amountYuan*100)`（`:990`），回写 `(amountCents/100).toFixed(2)`（`:1020`）；前端 wechat `values.amount*100`、alipay 原值（`wallet/recharge/page.tsx:75-84`）。**原判定为何误判**：把「两渠道前端传参形态不同」（设计差异）与「同渠道前后端单位错配」（才是缺陷）捆成一条；实际各渠道契约闭合。 | 不修 |
+
+### 注释与事实不符（2026-11-08）
+
+- `web-work-panel.tsx:554-558` 原注释称 postMessage 影响面「仅地址栏显示/降级触发」，实际还含 `newTab()` 打开任意 http(s) 内部标签；已在 S-09 改注释。
+- 本清单第 3 条「需确认攻击窗口能否取得 postMessage 句柄」的未判定前提不成立：`e.source` 可直接校验。
+
 ---
 
 ## 覆盖清单

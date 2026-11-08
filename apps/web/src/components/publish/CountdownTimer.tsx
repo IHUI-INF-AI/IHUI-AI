@@ -18,6 +18,7 @@ import * as React from 'react'
 import { Timer } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 
 export interface CountdownTimerProps {
   readonly totalSeconds: number
@@ -41,31 +42,22 @@ export function CountdownTimer({
   showIcon = true,
 }: CountdownTimerProps) {
   const t = useTranslations('publish')
-  const [remaining, setRemaining] = React.useState(totalSeconds)
+  // 同型根因 S-01:倒计时以截止时间戳为准,后台节流/挂起不会把剩余时间拖长
+  const [deadline, setDeadline] = React.useState<number | null>(null)
   const expiredRef = React.useRef(false)
 
   React.useEffect(() => {
-    setRemaining(totalSeconds)
+    setDeadline(totalSeconds > 0 ? Date.now() + totalSeconds * 1000 : null)
     expiredRef.current = false
   }, [totalSeconds])
 
+  const remaining = useDeadlineCountdown(deadline)
+
   React.useEffect(() => {
-    if (totalSeconds <= 0) return
-    const id = setInterval(() => {
-      setRemaining((prev) => {
-        if (prev <= 1) {
-          clearInterval(id)
-          if (!expiredRef.current) {
-            expiredRef.current = true
-            onExpire?.()
-          }
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-    return () => clearInterval(id)
-  }, [totalSeconds, onExpire])
+    if (deadline === null || remaining > 0 || expiredRef.current) return
+    expiredRef.current = true
+    onExpire?.()
+  }, [deadline, remaining, onExpire])
 
   const isDanger = remaining <= DANGER_THRESHOLD_SECONDS
   const resolvedVariant = isDanger ? 'danger' : variant
