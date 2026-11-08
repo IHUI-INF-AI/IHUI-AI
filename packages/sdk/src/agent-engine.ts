@@ -665,7 +665,9 @@ class AgentEngineClient implements Agent {
         body = { requestId, error: (e as Error).message ?? String(e) }
       }
     }
-    await this.call<Record<string, unknown>>('tools.result', body).catch(() => undefined)
+    // 2026-11-08(packages 同型根因):回传失败必须上抛,不得静默吞掉 ——
+    // 引擎在等这个 tools.result,吞掉后只会挂到超时,调用方却拿到 success。
+    await this.call<Record<string, unknown>>('tools.result', body)
   }
 
   /** approval/request → 宿主裁决 → approval.respond 回填。 */
@@ -688,10 +690,11 @@ class AgentEngineClient implements Agent {
       }
     }
     if (!request.requestId) return
+    // 2026-11-08(packages 同型根因):同上,审批回填失败吞掉会让引擎的审批请求悬空。
     await this.call<Record<string, unknown>>('approval.respond', {
       approvalId: request.requestId,
       decision,
-    }).catch(() => undefined)
+    })
   }
 
   async interrupt(mode: 'cancel' | 'pause' = 'cancel'): Promise<Record<string, unknown>> {

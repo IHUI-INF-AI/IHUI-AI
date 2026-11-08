@@ -469,6 +469,33 @@ describe('createAgent 宿主工具回传', () => {
     await agent.run('跑')
     expect(handler.mock.calls[0][0].arguments).toEqual({ raw: 'not-json{' })
   })
+
+  it('tools.result 回传失败 → run() 抛错(不得静默吞掉,否则引擎等不到结果会挂起)', async () => {
+    const { fetchFn } = makeFetch([
+      { kind: 'json', body: START_RESULT },
+      { kind: 'json', body: { jsonrpc: '2.0', id: 2, result: { name: 'read_file' } } },
+      {
+        kind: 'sse',
+        frames: [
+          {
+            jsonrpc: '2.0',
+            method: 'tool/execute',
+            params: { requestId: 'req_drop', name: 'read_file', arguments: {}, timeoutMs: 1000 },
+          },
+          { jsonrpc: '2.0', id: 3, result: runResult() },
+        ],
+      },
+      // tools.result 回传失败(服务端 500)
+      { kind: 'json', body: { error: { code: 'internal', message: 'boom' } }, status: 500 },
+    ])
+    const agent = createAgent({
+      token: 't',
+      baseUrl: 'http://test.local',
+      fetch: fetchFn,
+      hostTools: { read_file: async () => 'ok' },
+    })
+    await expect(agent.run('读文件')).rejects.toBeInstanceOf(AgentEngineError)
+  })
 })
 
 describe('createAgent 审批回填', () => {
@@ -506,6 +533,31 @@ describe('createAgent 审批回填', () => {
     const agent = createAgent({ token: 't', baseUrl: 'http://test.local', fetch: spyFetch })
     await agent.run('跑')
     expect(captured[0]).toEqual({ approvalId: 'ap_1', decision: 'reject' })
+  })
+
+  it('approval.respond 回填失败 → run() 抛错(不得静默吞掉导致审批悬空)', async () => {
+    const { fetchFn } = makeFetch([
+      { kind: 'json', body: START_RESULT },
+      {
+        kind: 'sse',
+        frames: [
+          {
+            jsonrpc: '2.0',
+            method: 'approval/request',
+            params: { requestId: 'ap_drop', threadId: 'thr_1', toolName: 'rm_rf' },
+          },
+          { jsonrpc: '2.0', id: 2, result: runResult() },
+        ],
+      },
+      { kind: 'json', body: { error: { code: 'internal', message: 'boom' } }, status: 500 },
+    ])
+    const agent = createAgent({
+      token: 't',
+      baseUrl: 'http://test.local',
+      fetch: fetchFn,
+      onApproval: async () => 'approve',
+    })
+    await expect(agent.run('跑')).rejects.toBeInstanceOf(AgentEngineError)
   })
 
   it('onApproval 返回 approve → approval.respond 回填 approve 并带上请求上下文', async () => {
