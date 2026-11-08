@@ -150,14 +150,24 @@ const miscRoutes: FastifyPluginAsync = async (server) => {
   server.get('/notifications/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const notification = await findNotificationById(id)
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    // F-154(2026-11-08):查询带 userId 归属谓词,再在响应前比对一次;非本人一律 404。
+    const notification = await findNotificationById(id, userId)
+    if (!notification || notification.userId !== userId) {
+      return reply.status(404).send(error(404, '通知不存在'))
+    }
     return reply.send(success({ notification }))
   })
 
   server.get('/messages/:id', async (request, reply) => {
     const id = parseIdParam(request, reply)
     if (id === null) return
-    const message = await findMessageById(id)
+    const userId = request.userId
+    if (!userId) return reply.status(401).send(error(401, '未登录'))
+    // F-154(2026-11-08):只返回当前用户自有会话内的消息;会话属他人时按不存在处理。
+    const message = await findMessageById(id, userId)
+    if (!message) return reply.status(404).send(error(404, '消息不存在'))
     return reply.send(success({ message }))
   })
 

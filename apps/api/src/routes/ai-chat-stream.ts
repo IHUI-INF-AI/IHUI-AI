@@ -314,6 +314,21 @@ export function __resetAiServiceStreamColdStartForTests(): void {
   aiServiceStreamConnectedOnce = false
 }
 
+/**
+ * F-03(2026-11-08):客户端传入的 `metadata.conversationId` 只表示"要操作哪个会话",
+ * 归属必须服务端查。不存在/非本人一律 false(调用方回 404),不得进入
+ * replaceMessages / createMessage / patchConversationMetadata / SSE 重放接管等写路径。
+ */
+async function isConversationOwnedBy(
+  conversationId: string | undefined,
+  userId: string | undefined,
+): Promise<boolean> {
+  if (!conversationId) return true
+  if (!userId) return false
+  const conversation = await findConversationById(conversationId)
+  return Boolean(conversation && conversation.userId === userId)
+}
+
 const chatStreamSchema = z.object({
   messages: z
     .array(
@@ -405,7 +420,7 @@ const chatStreamSchema = z.object({
   metadata: z
     .object({
       conversationId: z.string().optional(),
-      userId: z.string().optional(),
+      // F-02:客户端自报 userId 不进入 schema,身份一律取服务端 request.userId。
       messageId: z.string().optional(),
       // 票59(消息级版本切换 3/3,2026-10-22):regenerate 新回复的版本族坐标。
       // 不在此声明会被 zod strip 静默丢弃(同 knowledgeContext 注记那一型):
@@ -893,7 +908,8 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     try {
       const mergedMetadata = {
         conversationId: opts.metadata?.conversationId,
-        userId: opts.metadata?.userId ?? request.userId,
+        // F-02:归属/预算/检索主体只取认证身份,metadata.userId 是客户端可写字段。
+        userId: request.userId,
         messageId: opts.metadata?.messageId,
         // 票59(3/3):版本族坐标原样透传上游(ai-service metadata 是 dict[str, Any],
         // _fire_callback 整包回显)→ 回调端点提出进 job 顶层 → worker 落 createMessage 两列。
@@ -1411,6 +1427,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       } = parsed.data
       const resolvedModel = model ?? modelId
 
+      // F-03:先核会话归属(含 SSE 重放接管前的入口),非本人/不存在直接 404。
+      if (!(await isConversationOwnedBy(metadata?.conversationId, request.userId))) {
+        return reply.status(404).send(error(404, '会话不存在'))
+      }
+
       // G-165:把"这次对话绑哪个工作区"记进会话 metadata,供异步回调侧查**服务端自己的**
       // 权限记录给助手消息盖章(web 档位徽章因此可跨刷新/跨端存在)。
       // 幂等(值没变不写),且绝不阻塞流式主链路 —— 失败只 warn。
@@ -1538,7 +1559,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       // G6 企业治理面(2026-10-30 立):模型准入检查点(/chat/stream)。
       // 组织 model_allowlist 命中禁用 ⇒ 403 errorCode='ORG_MODEL_BLOCKED',请求不进执行;
       // 开关关/无组织/无策略/治理面异常 ⇒ 直通(guardModelAdmission 返回 null),旧行为不变。
-      const admission = await guardModelAdmission(metadata?.userId ?? request.userId, resolvedModel)
+      const admission = await guardModelAdmission(request.userId, resolvedModel)
       if (admission) {
         return reply.code(admission.statusCode).send({
           code: admission.statusCode,
@@ -1553,7 +1574,7 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       const budgetGate = await checkTokenBudget(
         request,
         reply,
-        metadata?.userId ?? request.userId,
+        request.userId,
         resolvedModel,
         {
           conversationId: metadata?.conversationId ?? null,
@@ -1684,8 +1705,13 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
         answer,
       } = parsed.data
       const resolvedModel = model ?? modelId
-      const userId = metadata?.userId ?? request.userId
+      const userId = request.userId
       const conversationId = metadata?.conversationId
+
+      // F-03:续答同样先核归属,避免 createMessage/patchConversationMetadata 写进他人会话。
+      if (!(await isConversationOwnedBy(conversationId, userId))) {
+        return reply.status(404).send(error(404, '会话不存在'))
+      }
 
       // P2 多端同步:持久化 answer + 清挂起 + WS 广播(fire-and-forget,不阻塞 SSE 流)
       // 失败仅打日志,不影响续流(参考 persistMessageSafe 的容错策略)
@@ -1998,6 +2024,11 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
     if (!conversationId) {
       return reply.status(400).send(error(400, 'conversationId 必填'))
     }
+    // F-03 同链路:conversationId 只当"要中止哪个会话"的坐标,归属必须服务端查。
+    // 归还不属于当前用户 ⇒ 与"会话不存在"同码 404,不得中止他人流/注入 cancelled 帧。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const count = abortConversationStreams(conversationId, parsed.data.messageId)
     request.log.info(
       { conversationId, messageId: parsed.data.messageId, aborted: count },
@@ -2040,6 +2071,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, messageId, text } = parsed.data
+    // F-03 同链路:先验会话归属再反查流;越权一律 404,不得把引导文本注入他人会话。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const session = findSession(`${conversationId}:${messageId}`)
     if (!session || session.finished || !session.upstreamSessionId) {
       // 流不存在/已结束/未启用 steer(缺 metadata 的降级流):透传 ai-service 同义 404,
@@ -2110,6 +2145,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, messageId, queuedAt } = parsed.data
+    // F-03 同链路:撤回同样先验会话归属,越权一律 404,不得撤他人队列条目。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const session = findSession(`${conversationId}:${messageId}`)
     if (!session || session.finished || !session.upstreamSessionId) {
       // 与 /chat/steer 同闸门:活动流反查不到 ⇒ 404,不打到上游(条目随流消亡,无处可撤)
@@ -2160,6 +2199,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const { conversationId, messageId, order } = parsed.data
+    // F-03e:重排与 c/d 同款 —— 反查流之前先验会话归属,越权 404,不得排他人队列。
+    if (!(await isConversationOwnedBy(conversationId, request.userId))) {
+      return reply.status(404).send(error(404, '会话不存在'))
+    }
     const session = findSession(`${conversationId}:${messageId}`)
     if (!session || session.finished || !session.upstreamSessionId) {
       // 与 withdraw 同闸门:活动流反查不到 ⇒ 404,不打到上游(队列随流消亡,无处可排)
