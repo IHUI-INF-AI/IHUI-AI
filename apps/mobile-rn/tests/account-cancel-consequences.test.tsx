@@ -12,7 +12,7 @@
  * 双向阴性对照:phoneReadOnly=false 时输入框回归;showConfirmModal=false 时页级倒计时生效。
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 
 const { apiMocks, navMocks } = vi.hoisted(() => ({
   apiMocks: {
@@ -96,6 +96,36 @@ describe('AccountCancelScreen 注销后果与只读手机号(RN)', () => {
     fireEvent.click(screen.getByText('settings.accountDeletionSubmit'))
     expect(screen.getByText('settings.accountDeletionConfirmTitle')).toBeTruthy()
     expect(apiMocks.deleteAccountWithCode).not.toHaveBeenCalled()
+  })
+
+  it('弹窗自动关闭后二次确认闸门复位:再次点击仍先开弹窗,不直接注销', () => {
+    vi.useFakeTimers()
+    try {
+      render(<AccountCancelScreen />)
+      fireEvent.change(screen.getByPlaceholderText('settings.accountDeletionCodePlaceholder'), {
+        target: { value: '123456' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('settings.accountDeletionConfirm'), {
+        target: { value: '确认注销' },
+      })
+      fireEvent.click(screen.getByText('settings.accountDeletionSubmit'))
+      expect(screen.getByText('settings.accountDeletionConfirmTitle')).toBeTruthy()
+
+      // 5 秒倒计时走完 ⇒ 弹窗自动关闭
+      for (let i = 0; i < 6; i += 1) {
+        act(() => {
+          vi.advanceTimersByTime(1000)
+        })
+      }
+      expect(screen.queryByText('settings.accountDeletionConfirmTitle')).toBeNull()
+
+      // 再次点击:闸门已复位 ⇒ 重新开弹窗,不得直发注销请求
+      fireEvent.click(screen.getByText('settings.accountDeletionSubmit'))
+      expect(screen.getByText('settings.accountDeletionConfirmTitle')).toBeTruthy()
+      expect(apiMocks.deleteAccountWithCode).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('阴性对照:showConfirmModal=false + 倒计时读数 ⇒ 页级闸生效(仅无弹窗端)', () => {

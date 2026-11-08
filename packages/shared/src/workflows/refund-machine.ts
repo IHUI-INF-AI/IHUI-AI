@@ -4,12 +4,15 @@
 
 import { setup, assign } from 'xstate'
 
+/** 退款失败后的重试上限:超限必须人工介入,不允许无限重试。 */
+export const REFUND_MAX_RETRIES = 3
+
 /**
  * 退款状态机
  *
  * 状态流:pending → reviewing → {refunding | rejected}
  * - refunding → {refunded | failed}
- * - failed 可重试(retry)回到 refunding
+ * - failed 可重试(retry)回到 refunding(最多 REFUND_MAX_RETRIES 次)
  */
 
 export type RefundEvent =
@@ -34,6 +37,9 @@ export const refundMachine = setup({
     context: {} as RefundContext,
     events: {} as RefundEvent,
   },
+  guards: {
+    canRetry: ({ context }) => context.retryCount < REFUND_MAX_RETRIES,
+  },
   actions: {
     recordReviewer: assign({
       reviewerId: ({ event }) => (event.type === 'REVIEW' ? event.reviewerId : undefined),
@@ -44,6 +50,8 @@ export const refundMachine = setup({
     recordTransaction: assign({
       transactionId: ({ event }) =>
         event.type === 'REFUND_SUCCESS' ? event.transactionId : undefined,
+      // 成功即清掉上一次失败遗留的错误文案。
+      errorMessage: undefined,
     }),
     recordError: assign({
       errorMessage: ({ event }) => (event.type === 'REFUND_FAIL' ? event.error : undefined),
@@ -79,7 +87,7 @@ export const refundMachine = setup({
     rejected: { type: 'final' },
     failed: {
       on: {
-        RETRY: { target: 'refunding', actions: 'incrementRetry' },
+        RETRY: { target: 'refunding', guard: 'canRetry', actions: 'incrementRetry' },
         CANCEL: 'cancelled',
       },
     },

@@ -50,6 +50,8 @@ export default function AccountCancelScreen() {
       setShowConfirmModal(false)
       // 关窗后归零:页级倒计时只对"无弹窗端"生效,RN 主按钮不应被它再锁 5 秒。
       setConfirmCountdown(0)
+      // 自动关窗同样要复位二次确认闸门,否则下一次点击会跳过弹窗直接注销。
+      confirmGateRef.current = false
     }
   }, [confirmCountdown, showConfirmModal])
 

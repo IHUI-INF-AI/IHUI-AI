@@ -45,7 +45,10 @@ export async function getOrders(query: OrderListQuery = {}): Promise<ApiResult<P
 }
 
 export async function getOrderById(orderNo: string): Promise<ApiResult<Order>> {
-  return fetchApi<Order>(`/api/orders/${encodeURIComponent(orderNo)}`)
+  const res = await fetchApi<{ order: Order }>(`/api/orders/${encodeURIComponent(orderNo)}`)
+  // 后端统一返回 { order } 包络,端点在此拆包,调用方拿到的是 Order 本体。
+  if (!res.success) return res
+  return { ...res, data: res.data.order }
 }
 
 export async function createOrder(input: {

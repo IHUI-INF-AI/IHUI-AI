@@ -21534,9 +21534,12 @@
     "status": {
       "all": "すべて",
       "cancelled": "キャンセル済み",
+      "completed": "完了",
+      "failed": "失敗",
       "paid": "支払済み",
       "pending": "支払い待ち",
       "refunded": "返金済み",
+      "refunding": "返金処理中",
       "unknown": "不明"
     },
     "statusLabel": "ステータス",

@@ -38,7 +38,8 @@ export function WithdrawScreen() {
 
   useEffect(() => {
     void getBalance().then((res) => {
-      if (res.success) setBalance(res.data.balance)
+      // XUI-014:getBalance 的 balance 单位是分,共享屏按元展示 ⇒ 这里先除 100。
+      if (res.success) setBalance(res.data.balance / 100)
     })
   }, [])
 
@@ -52,7 +53,8 @@ export function WithdrawScreen() {
       const resp = await fetchApi<unknown>('/api/wallet/withdraw', {
         method: 'POST',
         body: JSON.stringify({
-          amount: Math.round(num),
+          // XUI-014:输入是元,后端 /api/wallet/withdraw 的 amount 单位是分 —— 必须乘 100。
+          amount: Math.round(num * 100),
           account: bankCardId,
           accountType: 'bank_card',
         }),

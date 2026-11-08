@@ -13,7 +13,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createElement } from 'react'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -58,9 +58,10 @@ vi.mock('../src/context/ThemeContext', () => ({ useTheme: () => ({ resolvedTheme
 vi.mock('../src/context/AuthContext', () => ({
   useAuth: () => ({ user: { nickname: '张三', username: 'zhangsan', avatar: 'a.png' } }),
 }))
-vi.mock('../src/i18n', () => ({
-  useI18n: () => ({ locale: 'zh-CN', t: (key: string) => key }),
-}))
+vi.mock('../src/i18n', () => {
+  const t = (key: string) => key
+  return { useI18n: () => ({ locale: 'zh-CN', t }) }
+})
 vi.mock('react-native-qrcode-svg', () => ({ default: () => null }))
 vi.mock('react-native-view-shot', () => ({ captureRef: vi.fn(async () => 'file://qr.png') }))
 vi.mock('expo-media-library', () => ({
@@ -80,6 +81,7 @@ const props = () => captured.dist as Record<string, unknown>
 
 describe('RN DistributionScreen 三段 props 真消费', () => {
   beforeEach(() => {
+    cleanup()
     captured.dist = null
     apiMocks.fetchApi.mockResolvedValue({ success: true, data: OVERVIEW })
     apiMocks.getCommissionRates.mockResolvedValue({ success: true, data: { rates: {} } })
@@ -138,6 +140,39 @@ describe('RN DistributionScreen 三段 props 真消费', () => {
     expect(typeof (props().serviceFloat as Record<string, unknown>).onPress).toBe('function')
     expect(RN_SOURCE).toContain('serviceFloat={info ? serviceFloat : undefined}')
     expect(RN_SOURCE).toContain('amount: info ? fenToYuan(info.availableCommission) : 0')
+  })
+
+  it('⑦ XUI-047 提现先上锁再走异步:二次点击不重复提交', async () => {
+    let withdrawCalls = 0
+    let lastWithdrawBody: { amount?: number } | undefined
+    apiMocks.fetchApi.mockImplementation(async (url: string, init?: { body?: string }) => {
+      if (url.includes('/auth/realname/my')) {
+        return { success: true, data: { authStatus: 'approved' } }
+      }
+      if (url.includes('/distribution/withdraw')) {
+        withdrawCalls += 1
+        lastWithdrawBody = JSON.parse(init?.body ?? '{}')
+        await new Promise((r) => setTimeout(r, 30))
+        return { success: true, data: {} }
+      }
+      return { success: true, data: OVERVIEW }
+    })
+    render(createElement(DistributionScreen))
+    await waitFor(() => {
+      const items = (props().earningsCard as { items?: Array<{ value: string }> }).items
+      expect(items?.[0]?.value).toBe('¥123.45')
+    })
+    // 同一渲染 tick 内连点两次:第一次入口同步置锁,第二次必须被挡(不能形成两次请求)。
+    act(() => {
+      const onWithdraw = props().onWithdraw as () => Promise<void>
+      void onWithdraw()
+      void onWithdraw()
+    })
+    await waitFor(() => expect(withdrawCalls).toBe(1))
+    await waitFor(() => expect(props().withdrawing).toBe(false))
+    expect(withdrawCalls).toBe(1)
+    // 提交金额必须是可提现余额 880,不能是待结算 500
+    expect(lastWithdrawBody?.amount).toBe(880)
   })
 
   it('⑤ 本地三组件 + 本地二维码弹层/宫格不得回潮(源码锁)', () => {

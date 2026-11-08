@@ -11,8 +11,8 @@ import { clearCache } from '@/api'
 import ThemeRoot from '@/components/ThemeRoot'
 import LineIcon from '@/components/LineIcon'
 import { onToast } from '@/host/on-toast'
+import { KEEP_KEYS_ON_CLEAR } from '@/constants/storage'
 
-const KEEP_KEYS = ['ihui_token', 'ihui_refresh_token', 'ihui_user_info', 'lang', 'theme']
 const IMAGE_KEYS = ['ihui_image_history', 'ihui_image_favorites']
 const FILE_KEYS = ['ihui_video_history', 'ihui_sso_code']
 
@@ -45,7 +45,7 @@ function getKeysByPattern(patterns: string[]): string[] {
 function getAllClearableKeys(): string[] {
   try {
     const info = Taro.getStorageInfoSync()
-    return info.keys.filter((k) => !KEEP_KEYS.includes(k))
+    return info.keys.filter((k) => !KEEP_KEYS_ON_CLEAR.includes(k))
   } catch {
     return []
   }

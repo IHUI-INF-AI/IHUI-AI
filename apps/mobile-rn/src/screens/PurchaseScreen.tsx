@@ -89,6 +89,8 @@ export default function PurchaseScreen() {
   const [subLoading, setSubLoading] = useState(true)
   const [subFailed, setSubFailed] = useState(false)
   const [subscribingId, setSubscribingId] = useState<string | null>(null)
+  // XUI-070:同一 tick 连点两次时 state 还未刷新,必须用 ref 做入口锁。
+  const subscribingRef = useRef(false)
 
   const [amountText, setAmountText] = useState(String(DEFAULT_YUAN))
   const [method, setMethod] = useState<PayMethod>('wechat')
@@ -134,6 +136,8 @@ export default function PurchaseScreen() {
   )
 
   const onSubscribe = async (plan: PlanInfo) => {
+    if (subscribingRef.current) return
+    subscribingRef.current = true
     setSubscribingId(plan.id)
     try {
       const res = await fetchApi<{ orderNo: string }>(
@@ -152,6 +156,7 @@ export default function PurchaseScreen() {
     } catch {
       appAlert(t('common.error'), t('purchase.submitFailed'))
     } finally {
+      subscribingRef.current = false
       setSubscribingId(null)
     }
   }

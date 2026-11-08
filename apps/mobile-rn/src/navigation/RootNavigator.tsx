@@ -1403,6 +1403,16 @@ function RootNavigatorInner() {
             <RootStack.Screen name="Register" component={RegisterScreen} />
             {/* P2-4(2026-09-02):AI 对话 / 工具 WebView 承载屏(未登录时空态可达) */}
             <RootStack.Screen name="ChatTools" component={ChatToolsScreen} />
+            {/* XUI-004(2026-11-08):登录/注册页会跳转的法律与改密类路由,未登录分支必须同步注册,
+                否则 navigate 到未注册路由直接崩。 */}
+            <RootStack.Screen name="Privacy" component={PrivacyScreen} />
+            <RootStack.Screen name="Agreement" component={AgreementScreen} />
+            <RootStack.Screen
+              name="ChangePhone"
+              component={ChangePhoneScreen}
+              options={{ title: '修改手机号' }}
+            />
+            <RootStack.Screen name="ChangePwd" component={ChangePwdScreen} />
           </>
         )}
       </RootStack.Navigator>

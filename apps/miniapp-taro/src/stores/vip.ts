@@ -15,7 +15,6 @@
 import { createStore } from 'zustand/vanilla'
 import { getStorageSync, setStorageSync } from '@tarojs/taro'
 import { getVipInfo } from '../api'
-import type { VipInfo } from '../api'
 import { createTaroZustandHook } from './helpers/create-taro-zustand-hook'
 import { VIP_STORAGE_KEY } from '@/constants/storage'
 import { migrateLegacyStorageKey, isVipActive, getVipStatusFromSnapshot } from '@ihui/shared'
@@ -62,7 +61,13 @@ const vipStoreApi = createStore<VipState>((set) => ({
   },
   checkVipStatus: async () => {
     try {
-      const info: VipInfo = await getVipInfo()
+      const info = await getVipInfo()
+      if (!info) {
+        // 无会员记录必须落空态,不能拿包络对象继续读字段。
+        setStorageSync(VIP_STORAGE_KEY, null)
+        set({ isVip: false, vipLevel: 0, vipExpireTime: '', vipName: '', privileges: [] })
+        return false
+      }
       const active = isVipActive(info.expireTime || '')
       const next = {
         isVip: active,

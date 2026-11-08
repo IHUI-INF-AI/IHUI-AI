@@ -12,6 +12,7 @@ import { useTt } from '@/i18n'
 import { useTheme } from '@/rn-compat/theme'
 import Taro from '@tarojs/taro'
 import { onToast } from '@/host/on-toast'
+import { getUserInfo } from '@/utils/auth'
 import { AgentRecentUsed } from '@ihui/rn-app/features/agent-screen/AgentRecentUsed'
 
 export interface RecentAgent {
@@ -34,7 +35,7 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
   const { resolvedTheme } = useTheme()
 
   function navigateTo(agent: RecentAgent, idx: number) {
-    const userData = Taro.getStorageSync('data') as Record<string, unknown> | null
+    const userData = getUserInfo()
     if (!userData) {
       onToast(tt('ai.aiAssistant.pleaseLogin', '请先登录'), { kind: 'error' })
       return
@@ -42,8 +43,9 @@ export default function RecentAgents({ recentAgents }: RecentAgentsProps) {
     if (agent.type === 3 || agent.type === 5) {
       return
     }
+    // XUI-018:旧 /pages/tools/* 路由已删除,改用 pkg-ai 分包在册路径。
     const targetUrl =
-      agent.source === 'n8n' ? '/pages/tools/ai_assistant_n8n' : '/pages/tools/ai_assistant'
+      agent.source === 'n8n' ? '/pkg-ai/ai-assistant-n8n/index' : '/pkg-ai/ai-assistant/index'
     const agentId = agent.agentId || agent.id
     Taro.navigateTo({
       url: `${targetUrl}?modelNamea=${encodeURIComponent(agent.agentName)}&pitcha=${idx}&agentId=${encodeURIComponent(agentId)}&type=${agent.type ?? ''}`,

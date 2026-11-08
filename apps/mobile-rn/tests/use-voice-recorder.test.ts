@@ -331,4 +331,67 @@ describe('useVoiceRecorder — STT 走凭据兜带 + 失败可归因', () => {
     expect(mocks.runWithFreshToken).not.toHaveBeenCalled()
   })
 })
+
+describe('XUI-048 录音中卸载必须清计时器并丢弃迟到续体', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.setAudioModeAsync.mockResolvedValue(undefined)
+    mocks.prepareToRecordAsync.mockResolvedValue(undefined)
+    mocks.stop.mockResolvedValue(undefined)
+    mocks.requestRecordingPermissionsAsync.mockResolvedValue({ granted: true })
+    mocks.voiceSttFromReactNative.mockResolvedValue('转写文本')
+    mocks.getToken.mockReturnValue('test-token')
+    mocks.runWithFreshToken.mockImplementation((run: (t: string | null) => Promise<string>) =>
+      run(mocks.getToken()),
+    )
+    mocks.isCredentialRejected.mockReturnValue(false)
+  })
+
+  it('录音态卸载 ⇒ clearInterval 被调用(计时器不再 tick)', async () => {
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+    const apiRef: { current: HarnessApi | null } = { current: null }
+    const { container, unmount } = render(createElement(Harness, { apiRef }))
+    await flushMicrotasks()
+    act(() => {
+      apiRef.current?.start()
+    })
+    await flushMicrotasks()
+    expect(recordingAttr(container)).toBe('true')
+
+    unmount()
+
+    expect(clearIntervalSpy).toHaveBeenCalled()
+    expect(mocks.stop).toHaveBeenCalled()
+    clearIntervalSpy.mockRestore()
+  })
+
+  it('授权 pending 中卸载 ⇒ 迟到授权按代次放弃,不 prepare/不 record/无回调', async () => {
+    let resolvePermission!: (value: { granted: boolean }) => void
+    mocks.requestRecordingPermissionsAsync.mockImplementation(
+      () =>
+        new Promise<{ granted: boolean }>((resolve) => {
+          resolvePermission = resolve
+        }),
+    )
+    const onComplete = vi.fn()
+    const onUnavailable = vi.fn()
+    const apiRef: { current: HarnessApi | null } = { current: null }
+    const { unmount } = render(createElement(Harness, { apiRef, onComplete, onUnavailable }))
+    await flushMicrotasks()
+
+    act(() => {
+      apiRef.current?.start()
+    })
+    await flushMicrotasks()
+    unmount()
+    resolvePermission({ granted: true })
+    await flushMicrotasks()
+    await flushMicrotasks()
+
+    expect(mocks.prepareToRecordAsync).not.toHaveBeenCalled()
+    expect(mocks.record).not.toHaveBeenCalled()
+    expect(onComplete).not.toHaveBeenCalled()
+    expect(onUnavailable).not.toHaveBeenCalled()
+  })
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

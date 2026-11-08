@@ -60,7 +60,8 @@ export function formatArtifactCreated(iso: string, t: TFunction): string {
   if (diff < 10_000) return t('artifacts.justNow')
   if (diff < 60_000) return t('artifacts.secondsAgo', { n: Math.floor(diff / 1000) })
   if (diff < 3_600_000) return t('artifacts.minutesAgo', { n: Math.floor(diff / 60_000) })
-  if (diff < 86_400_000) return t('artifacts.hoursAgo', { n: Math.floor(diff / 86_400_000) })
+  // XUI-030:小时档的除数必须是 3_600_000;旧实现用一天做除数,59 分钟~24 小时全部显示"0 小时"。
+  if (diff < 86_400_000) return t('artifacts.hoursAgo', { n: Math.floor(diff / 3_600_000) })
   return t('artifacts.daysAgo', { n: Math.floor(diff / 86_400_000) })
 }
 

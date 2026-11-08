@@ -14,7 +14,7 @@
 import { useI18n } from '@/i18n'
 import ThemeRoot from '@/components/ThemeRoot'
 import { WEB_BASE_URL } from '@/constants/web-portal'
-import { ABOUT_ENTRY_IDS } from '@ihui/shared/constants'
+import { ABOUT_MENUS } from '../about/aboutSections'
 import { AboutScreen as SharedAboutScreen } from '@ihui/rn-app/features/about/AboutScreen'
 import type { OnNavigate } from '@ihui/types'
 import Taro from '@tarojs/taro'
@@ -48,10 +48,14 @@ export default function AboutSharedScreen() {
         onOpenPortal={onOpenPortal}
         onNavigate={onNavigate}
         onToast={onToast}
-        entries={ABOUT_ENTRY_IDS.map((id: string) => ({
-          id,
-          label: t(`about.${id}`),
-          onPress: onOpenPortal,
+        entries={ABOUT_MENUS.map((menu) => ({
+          id: menu.key,
+          // XUI-017:label 必须是取词后的字符串;每条目走各自的在册页面,
+          // 不能所有条目都挂同一个 onOpenPortal。
+          label: t(menu.labelKey),
+          onPress: () => {
+            void Taro.navigateTo({ url: menu.url })
+          },
         }))}
       />
     </ThemeRoot>
