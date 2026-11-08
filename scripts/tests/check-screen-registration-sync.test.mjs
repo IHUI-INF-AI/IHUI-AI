@@ -32,6 +32,7 @@ function git(cwd, args) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败:${r.stderr || r.stdout}`)
   return r.stdout
@@ -66,11 +67,6 @@ function mkRepo() {
   git(dir, ['add', '-A'])
   git(dir, ['commit', '--no-verify', '-q', '-m', 'fixture: baseline'])
   return dir
-}
-
-function reset(dir) {
-  git(dir, ['reset', '--hard', '-q', 'HEAD'])
-  git(dir, ['clean', '-fdq'])
 }
 
 function runGate(dir) {
