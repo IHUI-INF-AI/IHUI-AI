@@ -78,6 +78,8 @@ const { store } = vi.hoisted(() => ({
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({
   subagentDispatchService: {
     findById: (id: string) => store.get(id) ?? null,
+    // F-255:归属闸改走 findByIdOrRestore(淘汰后从 Redis 重建);夹具内存档即终态聚合面
+    findByIdOrRestore: async (id: string) => store.get(id) ?? null,
     getMessages: (id: string) => store.get(id)?.messages ?? [],
     getDispatchStats: (id: string) => {
       const d = store.get(id)
@@ -222,15 +224,15 @@ describe('P0-2 ④ 无归属旧记录:fail-closed(仅管理面可见)', () => {
 })
 
 describe('P0-2 ⑤ 判据同源', () => {
-  it('ownsDispatchById 是同一份实现:B 的派单对 A 为 false,对 B 为 true', () => {
+  it('ownsDispatchById 是同一份实现:B 的派单对 A 为 false,对 B 为 true', async () => {
     seed('b-collab-4', { owner: 'tenant-b' })
-    expect(ownsDispatchById('b-collab-4', 'tenant-a')).toBe(false)
-    expect(ownsDispatchById('b-collab-4', 'tenant-b')).toBe(true)
-    expect(ownsDispatchById('missing-collab', 'tenant-a')).toBe(false)
+    expect(await ownsDispatchById('b-collab-4', 'tenant-a')).toBe(false)
+    expect(await ownsDispatchById('b-collab-4', 'tenant-b')).toBe(true)
+    expect(await ownsDispatchById('missing-collab', 'tenant-a')).toBe(false)
     // 无归属档同源:普通用户 false,管理员 true
     seed('legacy-collab-5', { status: 'running' })
-    expect(ownsDispatchById('legacy-collab-5', 'tenant-a')).toBe(false)
-    expect(ownsDispatchById('legacy-collab-5', 'tenant-admin', true)).toBe(true)
+    expect(await ownsDispatchById('legacy-collab-5', 'tenant-a')).toBe(false)
+    expect(await ownsDispatchById('legacy-collab-5', 'tenant-admin', true)).toBe(true)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
