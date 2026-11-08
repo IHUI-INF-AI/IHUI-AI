@@ -31,15 +31,23 @@
  *
  * 用法:
  *   node scripts/check-prod-dep-advisories.mjs            # 完整判定(guardian 全量档)
- *   node scripts/check-prod-dep-advisories.mjs --staged   # 提交链档:只判政策文件形态
+ *   node scripts/check-prod-dep-advisories.mjs --staged   # 提交链档:政策形态 + 暂存依赖面真判
  *   node scripts/check-prod-dep-advisories.mjs --refresh  # 重新抓审计快照(需官方 registry 可达)
  *   node scripts/check-prod-dep-advisories.mjs --self-test
  *   node scripts/check-prod-dep-advisories.mjs --json     # 机读输出
  *
+ * 提交链档(--staged,2026-11-08 补):
+ *   - 触发面:pnpm-lock.yaml 与任意 package.json(依赖变更必须跑到本门);
+ *   - 锁文件被暂存 ⇒ **读索引里的 pnpm-lock.yaml blob**(不读工作树),并要求审计快照记录过
+ *     同一指纹(快照刷新时按工作树锁文件现算);不一致/快照缺失/过期 ⇒ exit 2 未判定,
+ *     提示先 pnpm install 再 --refresh —— 拿旧快照判绿 = 新加的漏洞包根本不在 rows 里;
+ *   - 只有 package.json 变更而锁文件未动 ⇒ 依赖解析树不变,政策形态合格即绿。
+ *
  * 退出码:0 = 绿(含「只报数」的构建链存量);1 = 红(生产未豁免 critical/high 或 waiver 形态坏);
- *         2 = 未判定(快照缺失/过期且刷新失败/政策读不到)。
+ *         2 = 未判定(快照缺失/过期且刷新失败/政策读不到/暂存依赖树不被快照覆盖)。
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -48,10 +56,13 @@ import { parseAudit } from './dep-advisory-radar.mjs'
 // 取材面纪律(守门 118):政策文件是**仓库内容**,必须经统一取材层 ——
 // 全量判 HEAD blob、--staged 判索引 blob、取不到即 exit 2,绝不回落另一个面(§0.4)。
 // 审计快照(.ihui-agent/state/)是**运行时状态、不入库**,不在取材面内,按磁盘读。
-import { catBatch, readWorktreeFile, selectFace } from './lib/face-reader.mjs'
+import { catBatch, readWorktreeFile, selectFace, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const POLICY_REL = 'scripts/data/dep-audit-policy.json'
+const LOCKFILE_REL = 'pnpm-lock.yaml'
+/** 依赖清单:任意层级的 package.json 变更都算依赖面触及(依赖字段进锁文件、脚本字段不进)。 */
+const DEP_MANIFEST_RE = /(^|\/)package\.json$/
 const CACHE_PATH = join(ROOT, '.ihui-agent', 'state', 'dep-audit-cache.json')
 const DEFAULT_REGISTRY = 'https://registry.npmjs.org'
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -139,7 +150,75 @@ export function parseCache(text) {
   const fetchedTs = Date.parse(asText(doc.fetchedAt))
   if (!Number.isFinite(fetchedTs)) throw new PolicyShapeError('审计快照缺可解析的 fetchedAt')
   if (!Array.isArray(doc.rows)) throw new PolicyShapeError('审计快照缺 rows 数组')
-  return { fetchedAt: asText(doc.fetchedAt), fetchedTs, rows: doc.rows, counts: doc.counts ?? null }
+  return {
+    fetchedAt: asText(doc.fetchedAt),
+    fetchedTs,
+    rows: doc.rows,
+    counts: doc.counts ?? null,
+    // 快照覆盖的依赖树指纹(刷新时按工作树 pnpm-lock.yaml 现算)。旧快照没有这一项 ⇒ null,
+    // --staged 遇到依赖变更时据此判「未判定」而不是拿旧快照冒充覆盖。
+    lockfileSha256: asText(doc.lockfileSha256) || null,
+  }
+}
+
+/** 字符串 → sha256(依赖树指纹的单一算法,刷新与暂存面共用)。 */
+export function sha256(text) {
+  return createHash('sha256').update(String(text ?? ''), 'utf8').digest('hex')
+}
+
+/**
+ * 锁文件指纹前先做**行尾/BOM 归一**:同一份锁文件在索引里是 LF blob,在 Windows 工作树
+ * (core.autocrlf)可能是 CRLF;不归一 ⇒ 指纹恒不等 ⇒ 每次依赖提交都假「未判定」。
+ */
+export function normalizeLockfileText(text) {
+  return String(text ?? '')
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+}
+
+export function lockfileDigest(text) {
+  if (text === null || text === undefined) return null
+  return sha256(normalizeLockfileText(text))
+}
+
+/**
+ * 从「本次暂存的文件路径集」拆出依赖变更面。
+ * lockfile 变更 = 依赖树（解析结果）可能变了;只有 package.json 变更 = 树不变（脚本/元数据类改动）。
+ */
+export function dependencyChangeOf(files) {
+  const out = { lockfile: false, manifests: [] }
+  for (const p of Array.isArray(files) ? files : []) {
+    const s = String(p ?? '')
+    if (s === LOCKFILE_REL) out.lockfile = true
+    else if (DEP_MANIFEST_RE.test(s)) out.manifests.push(s)
+  }
+  return out
+}
+
+/**
+ * --staged 里「审计快照是否覆盖本次暂存的依赖树」。
+ * covered 才允许用快照的真判据;其余一律 undetermined(exit 2)—— 快照不对应暂存锁文件时
+ * 拿它判绿就是假绿:新加的漏洞包根本不在旧快照的 rows 里。
+ */
+export function judgeStagedDependencyCoverage({ stagedLockfileDigest, cache, policy, now = Date.now() }) {
+  if (!stagedLockfileDigest)
+    return { status: 'undetermined', why: '索引里取不到 pnpm-lock.yaml(删除/未入库)' }
+  if (!cache)
+    return { status: 'undetermined', why: '暂存了依赖变更(pnpm-lock.yaml),但本地没有审计快照' }
+  const ageMs = now - cache.fetchedTs
+  if (ageMs > policy.maxCacheAgeDays * DAY_MS)
+    return {
+      status: 'undetermined',
+      why: `审计快照已 ${Math.floor(ageMs / DAY_MS)} 天未更新(上限 ${policy.maxCacheAgeDays} 天)`,
+    }
+  if (!cache.lockfileSha256)
+    return { status: 'undetermined', why: '审计快照未记录锁文件指纹(旧快照,需 --refresh)' }
+  if (cache.lockfileSha256 !== stagedLockfileDigest)
+    return {
+      status: 'undetermined',
+      why: '审计快照覆盖的依赖树与本次暂存的 pnpm-lock.yaml 不一致',
+    }
+  return { status: 'covered', why: '' }
 }
 
 /**
@@ -308,6 +387,27 @@ function readCache() {
   return parseCache(readFileSync(CACHE_PATH, 'utf8'))
 }
 
+/**
+ * 读暂存面的依赖变更:文件清单与**索引里的锁文件 blob**(不读工作树 —— lint-staged 语义下
+ * 索引才是本次提交真正携带的内容)。git 取不到 ⇒ ok:false,调用方判未判定。
+ */
+function readStagedDependencyChange() {
+  try {
+    const out = gitRaw(['diff', '--cached', '--name-only', '-z'], ROOT, { timeout: 60_000 })
+    const files = out
+      .split('\0')
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const change = dependencyChangeOf(files)
+    if (!change.lockfile) return { ok: true, change, lockfileDigest: null }
+    const spec = `:${LOCKFILE_REL}`
+    const text = catBatch(ROOT, [spec]).get(spec) ?? null
+    return { ok: true, change, lockfileDigest: lockfileDigest(text) }
+  } catch (e) {
+    return { ok: false, error: `暂存面取不到(git diff --cached / 索引 blob):${e?.message ?? e}` }
+  }
+}
+
 /** 抓审计快照。返回 {ok, cache?, error?}。 */
 export function refreshCache({ registry = DEFAULT_REGISTRY, timeoutMs = 180_000 } = {}) {
   const isWin = process.platform === 'win32'
@@ -329,11 +429,20 @@ export function refreshCache({ registry = DEFAULT_REGISTRY, timeoutMs = 180_000 
   } catch (e) {
     return { ok: false, error: `审计输出不可解析:${e?.message ?? e}` }
   }
+  // 快照必须记下「它审计的是哪棵依赖树」,否则 --staged 无法判断本次暂存的锁文件是否被覆盖。
+  let lockfileSha256 = null
+  try {
+    const lock = readWorktreeFile(ROOT, LOCKFILE_REL)
+    if (lock !== null) lockfileSha256 = lockfileDigest(lock)
+  } catch {
+    /* 锁文件读不到 ⇒ 指纹留空(staged 档会据此判未判定,不会拿它冒充覆盖) */
+  }
   const cache = {
     fetchedAt: new Date().toISOString(),
     registry,
     counts: parsed.counts,
     rows: parsed.rows,
+    lockfileSha256,
   }
   mkdirSync(dirname(CACHE_PATH), { recursive: true })
   writeFileSync(CACHE_PATH, `${JSON.stringify(cache, null, 2)}\n`, 'utf8')
@@ -404,7 +513,10 @@ function main(argv) {
     return 2
   }
 
-  // 提交链档:只判「本次改动的政策文件」本身,不碰审计快照(不跑网络、不判存量)。
+  // 提交链档:先判政策形态;依赖面有变更时**真读暂存锁文件**,并要求审计快照覆盖同一棵树。
+  // 不跑网络(--refresh 由人显式触发):快照不对应暂存树 ⇒ exit 2 未判定,不拿旧快照判绿。
+  let stagedCache = null
+  let stagedCovered = false
   if (argv.includes('--staged')) {
     const problems = lintPolicy(policy, now)
     if (problems.length) {
@@ -415,36 +527,78 @@ function main(argv) {
       say(`结论[red] exit=1 政策形态问题 ${problems.length} 条(点名:${problems.length} 项)`)
       return 1
     }
-    emit('clean', { mode: 'staged', waivers: policy.waivers.length })
-    say(`结论[clean] exit=0 政策形态合格(waiver ${policy.waivers.length} 枚,均未过期)`)
-    return 0
-  }
 
-  // 完整档:读快照 → 过期则尝试刷新一次 → 仍不可用则未判定。
-  let cache = null
-  let cacheError = ''
-  try {
-    cache = readCache()
-  } catch (e) {
-    cacheError = e?.message ?? String(e)
-  }
+    const staged = readStagedDependencyChange()
+    if (!staged.ok) {
+      emit('unjudged', { mode: 'staged', why: staged.error })
+      say(`结论[undetermined] exit=2 [无法判定] ${staged.error}`)
+      return 2
+    }
+    if (!staged.change.lockfile) {
+      // 只有 package.json(脚本/元数据)或无依赖变更 ⇒ 锁文件未动,依赖解析树不变,快照无需覆盖。
+      const note = staged.change.manifests.length
+        ? `(package.json 变更 ${staged.change.manifests.length} 个,锁文件未动 ⇒ 依赖树不变)`
+        : ''
+      emit('clean', { mode: 'staged', waivers: policy.waivers.length, dependencyTree: 'unchanged' })
+      say(`结论[clean] exit=0 政策形态合格(waiver ${policy.waivers.length} 枚,均未过期)${note}`)
+      return 0
+    }
 
-  const maxAgeMs = policy.maxCacheAgeDays * DAY_MS
-  const ageMs = cache ? now - cache.fetchedTs : Infinity
-  if (!cache || ageMs > maxAgeMs) {
-    const why = !cache
-      ? `快照缺失${cacheError ? `(${cacheError})` : ''}`
-      : `快照已 ${Math.floor(ageMs / DAY_MS)} 天未更新(上限 ${policy.maxCacheAgeDays} 天)`
-    const r = refreshCache()
-    if (!r.ok) {
-      emit('unjudged', { why: `${why};自动刷新失败:${r.error}` })
-      console.error(`⚠️ ${why};自动刷新失败:${r.error}`)
+    let cache = null
+    let cacheError = ''
+    try {
+      cache = readCache()
+    } catch (e) {
+      cacheError = e?.message ?? String(e)
+    }
+    const cov = judgeStagedDependencyCoverage({
+      stagedLockfileDigest: staged.lockfileDigest,
+      cache,
+      policy,
+      now,
+    })
+    if (cov.status !== 'covered') {
+      const why = `${cov.why}${cacheError ? `(快照读取失败:${cacheError})` : ''}`
+      emit('unjudged', { mode: 'staged', why })
+      console.error(`⚠️ 依赖变更已暂存,但审计快照无法覆盖本次提交的依赖树:${cov.why}`)
       say(
-        `结论[undetermined] exit=2 [无法判定] ${why}且刷新失败 —— 复现:node scripts/check-prod-dep-advisories.mjs --refresh`,
+        `结论[undetermined] exit=2 [无法判定] ${why} —— 先 pnpm install 让依赖树就位,` +
+          '再 node scripts/check-prod-dep-advisories.mjs --refresh',
       )
       return 2
     }
-    cache = r.cache
+    stagedCache = cache
+    stagedCovered = true
+    say('ℹ️ 依赖变更已暂存:审计快照覆盖同一棵依赖树(锁文件指纹一致),按全量判据真判一次')
+  }
+
+  // 完整档(或 staged 且快照已覆盖暂存锁文件):读快照 → 过期则尝试刷新一次 → 仍不可用则未判定。
+  let cache = stagedCache
+  let cacheError = ''
+  if (!stagedCovered) {
+    try {
+      cache = readCache()
+    } catch (e) {
+      cacheError = e?.message ?? String(e)
+    }
+
+    const maxAgeMs = policy.maxCacheAgeDays * DAY_MS
+    const ageMs = cache ? now - cache.fetchedTs : Infinity
+    if (!cache || ageMs > maxAgeMs) {
+      const why = !cache
+        ? `快照缺失${cacheError ? `(${cacheError})` : ''}`
+        : `快照已 ${Math.floor(ageMs / DAY_MS)} 天未更新(上限 ${policy.maxCacheAgeDays} 天)`
+      const r = refreshCache()
+      if (!r.ok) {
+        emit('unjudged', { why: `${why};自动刷新失败:${r.error}` })
+        console.error(`⚠️ ${why};自动刷新失败:${r.error}`)
+        say(
+          `结论[undetermined] exit=2 [无法判定] ${why}且刷新失败 —— 复现:node scripts/check-prod-dep-advisories.mjs --refresh`,
+        )
+        return 2
+      }
+      cache = r.cache
+    }
   }
 
   const result = evaluateAudit({ rows: cache.rows }, policy, { now })
