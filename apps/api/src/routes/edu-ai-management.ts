@@ -29,6 +29,7 @@ import {
   buildSchedulePlan,
   hasArrearsCond,
   loadEnrollmentLedger,
+  loadPaymentIncomeSummary,
   loadUnattributedPayments,
   recomputeEnrollment,
   recordPayment,
@@ -4546,27 +4547,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const result = await db.transaction(async (tx) => {
-        const conds: SQL[] = [isNull(eduPaymentRecord.deletedAt)]
-        if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
-        const where = and(...conds)
-
-        // 总收入
-        const totalResult = await tx
-          .select({ total: sql<number>`COALESCE(SUM(${eduPaymentRecord.amount}), 0)` })
-          .from(eduPaymentRecord)
-          .where(and(where, eq(eduPaymentRecord.status, 'paid')))
-        const totalIncome = Number(totalResult[0]?.total ?? 0)
-
-        // 已缴费人数（去重）
-        const paidResult = await tx.select({ count: count() }).from(
-          tx
-            .select({ studentId: eduPaymentRecord.studentId })
-            .from(eduPaymentRecord)
-            .where(and(where, eq(eduPaymentRecord.status, 'paid')))
-            .groupBy(eduPaymentRecord.studentId)
-            .as('paid_students'),
+        // 总收入 = 已缴流水 - 已退费(只抵扣已通过/已完成的退费),否则退出去的钱还挂在收入上
+        const { totalIncome, paidStudentCount } = await loadPaymentIncomeSummary(
+          tx,
+          parsed.data.classId ?? null,
         )
-        const paidStudentCount = Number(paidResult[0]?.count ?? 0)
 
         // 欠费人数和欠费总额（从 enrollment 表计算）
         const enrollConds: SQL[] = [isNull(eduEnrollment.deletedAt)]
