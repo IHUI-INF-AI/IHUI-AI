@@ -60,6 +60,7 @@ import {
 } from '../services/paypal.js'
 import { applyWithdrawal, getBalance } from '../db/commission-queries.js'
 import { buildSchema, swaggerSchemas } from '../utils/swagger.js'
+import { yuanToCents } from '../utils/money.js'
 import { db } from '../db/index.js'
 import { zhsCourseVideo, vipLevels, developerPricing, plans } from '@ihui/database'
 import { eq, sql, and } from 'drizzle-orm'
@@ -597,7 +598,9 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       } else if (coursePrice.amount === null || coursePrice.isPay === 0) {
         request.log.warn({ courseId, amountCents, userId }, '课程为免费或无价格,使用客户端金额')
       } else {
-        const dbAmountCents = Math.round(coursePrice.amount * 100)
+        // F-449:amount 列已改 numeric(12,2),读回为字符串,按十进制精确换算为分;
+        // 不再用浮点乘 100(131072.01 的旧 float4 读回值会多收 1 分)。
+        const dbAmountCents = yuanToCents(coursePrice.amount) ?? amountCents
         if (dbAmountCents !== amountCents) {
           request.log.error(
             { courseId, clientAmount: amountCents, dbAmount: dbAmountCents, userId },

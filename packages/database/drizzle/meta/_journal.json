@@ -2636,6 +2636,13 @@
       "when": 1794132600000,
       "tag": "20261108181000_point_transactions_redeem_unique",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 379,
+      "when": 1794133200000,
+      "tag": "20261108182000_money_numeric_precision",
+      "breakpoints": true
     }
   ]
 }
