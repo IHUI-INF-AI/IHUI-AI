@@ -32744,3 +32744,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 810G. **缺陷普查 API F-418** [P3] anydoc 加载失败被进程级永久缓存（证据 docs/tickets/2026-11/findings-api.md#F-418）
 - [ ] 811G. **缺陷普查 API F-419** [P2] 权限授权「读-改-写」非原子，并发撤销可被复活（证据 docs/tickets/2026-11/findings-api.md#F-419）
 - [ ] 812G. **缺陷普查 API F-420** [P2] 生成队列把「已完成」作业当重复，静默丢新任务（证据 docs/tickets/2026-11/findings-api.md#F-420）
+- [ ] 813G. **缺陷普查 API F-421** [P2] TaskExecutor 无生命周期控制：取消不生效、timeout 不执行、wait 无上限、Map 无界（证据 docs/tickets/2026-11/findings-api.md#F-421）
+- [ ] 814G. **缺陷普查 API F-422** [P3] Qoder 桥关停竞态：stop 后仍可拉起 Electron（证据 docs/tickets/2026-11/findings-api.md#F-422）
+- [ ] 815G. **缺陷普查 API F-423** [P3] PairingService 过期请求与会话永不删除，Map 无界增长（证据 docs/tickets/2026-11/findings-api.md#F-423）
+- [ ] 816G. **缺陷普查 API F-424** [P3] listByUser 先取全局前 N 再过滤，用户任务会漏（证据 docs/tickets/2026-11/findings-api.md#F-424）
+- [ ] 817G. **缺陷普查 API F-425** [P3] workspace/admin-api-platform 的 :id 未做 UUID 形状闸，非法字面量直达 SQL → 500（证据 docs/tickets/2026-11/findings-api.md#F-425）
+- [ ] 818G. **缺陷普查 API F-426** [P3] /v1/agents 分页无 ORDER BY（证据 docs/tickets/2026-11/findings-api.md#F-426）
+- [ ] 819G. **缺陷普查 API F-427** [P3] /v1/agents/:id/call 缺同资源已有的 UUID 闸（证据 docs/tickets/2026-11/findings-api.md#F-427）
+- [ ] 820G. **缺陷普查 API F-428** [P3] /v1/files batch 分支错误路径泄漏 Redis 连接（证据 docs/tickets/2026-11/findings-api.md#F-428）
+- [ ] 821G. **缺陷普查 API F-429** [P2] API Key 更新/删除未接 step-up，与创建不一致（证据 docs/tickets/2026-11/findings-api.md#F-429）
+- [ ] 822G. **缺陷普查 API F-430** [P3] 推荐位 name 直接充当全局唯一 system_configs.key，可跨类目占键（证据 docs/tickets/2026-11/findings-api.md#F-430）
+- [ ] 823G. **缺陷普查 API F-431** [P3] 删除项目只清未删除文件，回收站 blob 永久成孤儿（证据 docs/tickets/2026-11/findings-api.md#F-431）
+- [ ] 824G. **缺陷普查 API F-432** [P3] ACP 会话端点无持久化、无归属校验，任意 id 返回「成功」（证据 docs/tickets/2026-11/findings-api.md#F-432）
+- [ ] 825G. **缺陷普查 API F-433** [P1] tool_invocation_ledger.user_id 的 NOT NULL 与 ON DELETE SET NULL 互斥，删除用户必失败（已复（证据 docs/tickets/2026-11/findings-api.md#F-433）
+- [ ] 826G. **缺陷普查 API F-434** [P2] customer_service_sessions.status 默认值 waiting 与「唯一真相源」枚举互斥（证据 docs/tickets/2026-11/findings-api.md#F-434）
+- [ ] 827G. **缺陷普查 API F-435** [P3] sys_config.config_key 无唯一约束且新增不查重（证据 docs/tickets/2026-11/findings-api.md#F-435）
+- [ ] 828G. **缺陷普查 API F-436** [P2] 事务内再开 db.transaction，注释的 savepoint 假设不成立（证据 docs/tickets/2026-11/findings-api.md#F-436）
+- [ ] 829G. **缺陷普查 API F-437** [P2] 剧情顾问内存态无界 + story 被无条件覆盖（证据 docs/tickets/2026-11/findings-api.md#F-437）
+- [ ] 830G. **缺陷普查 API F-438** [P3] 内部/自定义渠道「未发送」仍返回成功（证据 docs/tickets/2026-11/findings-api.md#F-438）
+- [ ] 831G. **缺陷普查 API F-439** [P3] /models/complete 未调用模型即返回成功（证据 docs/tickets/2026-11/findings-api.md#F-439）
+- [ ] 832G. **缺陷普查 API F-440** [P3] browser 页面缓存无上限、响应体无大小限制（证据 docs/tickets/2026-11/findings-api.md#F-440）
+- [ ] 833G. **缺陷普查 API F-441** [P3] enhance 单请求 4 次 LLM 且不记成本（证据 docs/tickets/2026-11/findings-api.md#F-441）
+- [ ] 834G. **缺陷普查 API F-442** [P2] GitHub 令牌为全站单文件，任意登录用户可覆盖/删除（证据 docs/tickets/2026-11/findings-api.md#F-442）
+- [ ] 835G. **缺陷普查 API F-443** [P2] 非流式成功流水按原始 model 计费，与流式/缓存不一致（证据 docs/tickets/2026-11/findings-api.md#F-443）
+- [ ] 836G. **缺陷普查 API F-444** [P2] GitHub PR/Issue 端点任意 owner/repo + 全站 PAT（证据 docs/tickets/2026-11/findings-api.md#F-444）
+- [ ] 837G. **缺陷普查 API F-445** [P3] /v1/models 全局缓存混入调用者私有 BYOK 模型（证据 docs/tickets/2026-11/findings-api.md#F-445）
+- [ ] 838G. **缺陷普查 API F-446** [P3] /admin/system/tasks 手动执行不执行却写「成功」日志（证据 docs/tickets/2026-11/findings-api.md#F-446）
+- [ ] 839G. **缺陷普查 API F-447** [P3] POST /v1/files 先落盘后入库，失败不回收（证据 docs/tickets/2026-11/findings-api.md#F-447）
+- [ ] 840G. **缺陷普查 API F-448** [P1] ab_test_results 唯一约束在 schema 与迁移间漂移，push/局部恢复后 upsert 必 42P10（证据 docs/tickets/2026-11/findings-api.md#F-448）
+- [ ] 841G. **缺陷普查 API F-449** [P3] 课程/开发者金额用 real 存，支付金额源头失真（证据 docs/tickets/2026-11/findings-api.md#F-449）
+- [ ] 842G. **缺陷普查 API F-450** [P1] 代扣回调外层事务内再开多个事务，幂等/回滚失效（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-450）
+- [ ] 843G. **缺陷普查 API F-451** [P2] 签约/解约事务内混用全局连接读写（证据 docs/tickets/2026-11/findings-api.md#F-451）
+- [ ] 844G. **缺陷普查 API F-452** [P1] 代理提现全链路不冻结、无单号、驳回无守卫（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-452）
+- [ ] 845G. **缺陷普查 API F-453** [P1] 第 5 条管理端写入口不释放冻结、不退款（已复核，P1）（证据 docs/tickets/2026-11/findings-api.md#F-453）
+- [ ] 846G. **缺陷普查 API F-454** [P2] finance-extended 审批允许 1→2 二次释放冻结（证据 docs/tickets/2026-11/findings-api.md#F-454）
+- [ ] 847G. **缺陷普查 API F-455** [P2] admin-shop 新增/删除提现单绕过资金（证据 docs/tickets/2026-11/findings-api.md#F-455）
+- [ ] 848G. **缺陷普查 API F-456** [P2] 退款审核 action 无运行时校验，可写任意状态（证据 docs/tickets/2026-11/findings-api.md#F-456）
+- [ ] 849G. **缺陷普查 API F-457** [P3] 状态码 3/4 语义分裂导致后台统计缺项（证据 docs/tickets/2026-11/findings-api.md#F-457）
+- [ ] 850G. **缺陷普查 API F-458** [P3] 金额 sum()::int 溢出扩散（新查询点）（证据 docs/tickets/2026-11/findings-api.md#F-458）
+- [ ] 851G. **缺陷普查 API F-459** [P3] 发票更新 userId 无 uuid 校验（证据 docs/tickets/2026-11/findings-api.md#F-459）
+- [ ] 852G. **缺陷普查 API F-460** [P2] maskIdCard 对 8-9 位值抛 RangeError，整包响应脱敏 fail-open（已复核，P2）（证据 docs/tickets/2026-11/findings-api.md#F-460）
+- [ ] 853G. **缺陷普查 API F-461** [P2] ws-auto-recovery 活动时间从不刷新，15 分钟后误恢复并耗尽配额（已复核，P2）（证据 docs/tickets/2026-11/findings-api.md#F-461）
+- [ ] 854G. **缺陷普查 API F-462** [P3] maskPhone 对 7-8 位号码近乎明文（证据 docs/tickets/2026-11/findings-api.md#F-462）
+- [ ] 855G. **缺陷普查 API F-463** [P3] DELETE /admin/roles/:roleId/users/:userId 的 roleId 漏 UUID 闸（证据 docs/tickets/2026-11/findings-api.md#F-463）
+- [ ] 856G. **缺陷普查 API F-464** [P3] /admin/shop/payments/:id/ship 无 UUID 闸、无发货状态机，且覆盖 remark（证据 docs/tickets/2026-11/findings-api.md#F-464）
+- [ ] 857G. **缺陷普查 API F-465** [P2] PUT /admin/orders/:id 状态机旁路，不写时间戳、不进履约链（已复核，P2）（证据 docs/tickets/2026-11/findings-api.md#F-465）
+- [ ] 858G. **缺陷普查 API F-466** [P3] ws/live-chat 独缺单用户连接上限，MAX_ROOMS 只回收空房（证据 docs/tickets/2026-11/findings-api.md#F-466）
+- [ ] 859G. **缺陷普查 API F-467** [P3] ws/live-chat close/error 无条件重置全局限流窗口，重连即绕过 60 条/分钟（证据 docs/tickets/2026-11/findings-api.md#F-467）
+- [ ] 860G. **缺陷普查 API F-468** [P3] 视频任务 task_id Zod 上限 100 > 列宽 36，超长即 500（证据 docs/tickets/2026-11/findings-api.md#F-468）
+- [ ] 861G. **缺陷普查 API F-469** [P3] 素材 file_url 允许 2000 字符，列宽 500（证据 docs/tickets/2026-11/findings-api.md#F-469）
+- [ ] 862G. **缺陷普查 API F-470** [P3] /ai/users 手机号允许 32 字符，users.phone 仅 20（证据 docs/tickets/2026-11/findings-api.md#F-470）
+- [ ] 863G. **缺陷普查 API F-471** [P3] 提现 method 允许 32 字符，withdrawal_flows.method 仅 16（证据 docs/tickets/2026-11/findings-api.md#F-471）
+- [ ] 864G. **缺陷普查 API F-472** [P2] ai-service 直连代理 fetch 无任何超时（证据 docs/tickets/2026-11/findings-api.md#F-472）
+- [ ] 865G. **缺陷普查 API F-473** [P2] OAuth 回调换 token/取用户无超时（证据 docs/tickets/2026-11/findings-api.md#F-473）
+- [ ] 866G. **缺陷普查 API F-474** [P2] Coze SSE 代理无超时、不随客户端断连取消（证据 docs/tickets/2026-11/findings-api.md#F-474）
+- [ ] 867G. **缺陷普查 API F-475** [P2] chat 历史内存表无上限且 model_name 无长度上限（已复核，P2）（证据 docs/tickets/2026-11/findings-api.md#F-475）
+- [ ] 868G. **缺陷普查 API F-476** [P3] 风控命中落库 fire-and-forget，首条失败即中断其余且只 warn（证据 docs/tickets/2026-11/findings-api.md#F-476）
+- [ ] 869G. **缺陷普查 API F-477** [P3] design 降级存储 Map 无上限（500KB/条）（证据 docs/tickets/2026-11/findings-api.md#F-477）
+- [ ] 870G. **缺陷普查 API F-478** [P3] 活动过期任务逐条 UPDATE（N+1）（证据 docs/tickets/2026-11/findings-api.md#F-478）
+- [ ] 871G. **缺陷普查 API F-479** [P1] /interactions/comment 评论别名层绕过敏感词过滤与父评论校验（证据 docs/tickets/2026-11/findings-api.md#F-479）
+- [ ] 872G. **缺陷普查 API F-480** [P2] 公开轮播忽略 startAt/endAt，未到/已过期素材照常下发（证据 docs/tickets/2026-11/findings-api.md#F-480）
