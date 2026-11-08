@@ -199,8 +199,10 @@ async function renderLogin(): Promise<void> {
   })
 }
 
-const DOMESTIC = ['wechat', 'enterpriseWechat', 'dingtalk', 'feishu', 'alipay', 'google', 'github']
-const OVERSEAS = ['google', 'github', 'wechat', 'feishu', 'dingtalk', 'enterpriseWechat', 'alipay']
+// linuxdo 于 2026-11-07 追加在两个排序档位末尾：它没有原生 SDK，走网页端 SSO 闭环，
+// 所以不参与「国内优先 / 海外优先」的原生渠道排序，恒落表尾。
+const DOMESTIC = ['wechat', 'enterpriseWechat', 'dingtalk', 'feishu', 'alipay', 'google', 'github', 'linuxdo']
+const OVERSEAS = ['google', 'github', 'wechat', 'feishu', 'dingtalk', 'enterpriseWechat', 'alipay', 'linuxdo']
 
 describe('票 L28754 RN 端第三方登录优先级(共享判据)', () => {
   beforeEach(() => {
