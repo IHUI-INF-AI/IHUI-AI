@@ -6678,7 +6678,8 @@
 - 证据：`:421` `const wx = await sendWxToRecipient(...)`（无 channels 判断）；`:436` `if (channels.includes('sms')) { ... }`。
 - 影响面：运维关微信后仍对全体家长发送模板消息，触碰计费/频率/授权合规；渠道统计与配置不符。
 - 建议修法：微信分支加 `if (channels.includes('wechat'))`，投递留痕仅在真发时记录。
-- 是否当场可修：是。
+- 复核结论：坐实（P2）。已修 2026-11-08（commit 0bcf77a3a7）：`:421` 微信分支加 `channels.includes('wechat')` 守卫；夹具 `tests/edu-arrear-remind-583-584.test.ts` 改前 6 红→改后 7 绿。数字对照：sms-only、2 报名×2 收件人，改前外发 4 条微信+4 条短信=8 条，改后仅 4 条短信、微信 0 条。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-584 催费留痕“先记成功再投递”，失败当天也被去重永久跳过
 - 严重度：P2
@@ -6688,7 +6689,8 @@
 - 证据：`:401-407` 先 insert 后发送、`channel:'in_app', status:'sent'`；`:412` 发送前 `result.reminded += 1`；`:369` `.where(gte(eduFeeReminder.createdAt, beijingMidnightUtc()))` 不筛 status。
 - 影响面：瞬时故障使该报名整天不再提醒，面板却显示已提醒；按渠道统计全部失真。
 - 建议修法：先 `pending` 后投递置 `sent/failed`；去重加 `status IN ('sent','partial')`；`channel` 写实际渠道。
-- 是否当场可修：是。
+- 复核结论：坐实（P2）。已修 2026-11-08（commit 0bcf77a3a7）：留痕先 `pending`，投递后按实际送达落 `sent/failed`；去重只认 `status='sent'`（本批不产生 `partial`）；`channel` 写实际送达通道（wechat→sms→in_app）。数字对照：3 条欠费 100+200+300 全通道失败，改前仍占当日去重（skippedToday=3、补跑覆盖 0 元），改后补跑 3 条、覆盖 600 元。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-585 `completeOrder` 路径不发积分、不写 order.paid outbox
 - 严重度：P2
@@ -7875,8 +7877,8 @@
 - **证据**：`developer-queries.ts:79-90` 直接 `insert(developerSubscriptions).values({..., orderId})`；`developer.ts:71` `orderId: uuid('order_id').references(...)`；`payment-gateway.ts:737` 无条件调用。
 - **影响面**：同一订单多条订阅，续费剩余期/财务对账失真。
 - **建议修法**：`order_id` 唯一索引 + `onConflictDoNothing`，或先按 orderId 查重；激活与订单状态转换同事务。
-- **复核结论**：按域边界转资金线（开发者套餐订阅/支付回调，属资金线），本域本轮不修。
-- **是否当场可修**：否（只读轮次）。
+- **复核结论**：坐实（P2）。已修 2026-11-08（commit ec2f95556f）：`order_id` 唯一索引 + `onConflictDoNothing` + 回查；迁移 `packages/database/drizzle/20261108130000_developer_subscription_order_unique.sql`（存量按 order_id 去重保留最早一条；事务内 DDL 持表级锁，建议低峰执行；回滚可恢复普通索引，但去重 DELETE 不可逆，需执行前备份）。夹具 `tests/developer-subscription-idempotent-689.test.ts` 改前 5 红→改后 6 绿。数字对照：199 元/30 天订单重放两次，改前 2 条订阅/60 天/等价计账 398 元，改后 1 条/30 天/计账 199 元。
+- **是否当场可修**：是（2026-11-08 已修）。
 
 #### F-690 禁用（status=0）试卷仍出现在公开列表、可开考、可取题
 
