@@ -32217,7 +32217,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [x] 81E. **缺陷普查 AIS AIS-081** [P1] Windows 内置命令分支可用单个 & 拼接任意命令（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-081）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
 - [x] 82E. **缺陷普查 AIS AIS-082** [P2] read_file 无大小上限，且全文件进 256 份 base 缓存（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-082）（已修@2026-11-08/mcp-media-p1-1108@389dc8a096）
 - [ ] 83E. **缺陷普查 AIS AIS-083** [P2] file_edit 的读-改-写未整体持锁，并发丢更新（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-083）
-- [ ] 84E. **缺陷普查 AIS AIS-084** [P2] fetch_readable / map_site / extract_web 绕过网络审批门（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-084）
+- [x] 84E. **缺陷普查 AIS AIS-084** [P2] fetch_readable / map_site / extract_web 绕过网络审批门（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-084）（已修@2026-11-08/mcp-media-p1-1108@781905ece0）
 - [ ] 85E. **缺陷普查 AIS AIS-085** [P2] db_query 可借 pg_read_file 读 DB 主机任意文件（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-085）
 - [ ] 86E. **缺陷普查 AIS AIS-086** [P1] agent_runtime 取消只改状态，不终止在跑的 graph/SSE（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-086）
 - [ ] 87E. **缺陷普查 AIS AIS-087** [P2] thread.close 的 closed 状态被运行中的 finally 覆盖为 idle（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-087）
@@ -32226,8 +32226,8 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 90E. **缺陷普查 AIS AIS-090** [P2] agent_runtime 异常/断连不写终态（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-090）
 - [ ] 91E. **缺陷普查 AIS AIS-091** [P2] agent.exec(headless) 不复用线程关闭清理，泄漏 watcher/快照（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-091）
 - [x] 92E. **缺陷普查 AIS AIS-092** [P1] 匿名可达的付费 TTS 端点，且 voice 参数直通声纹库（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-092）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
-- [ ] 93E. **缺陷普查 AIS AIS-093** [P2] 媒体下载/上传代理全量缓冲，无字节上限（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-093）
-- [ ] 94E. **缺陷普查 AIS AIS-094** [P2] Chrome 导入端口无属主绑定，可导走他人登录态（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-094）
+- [x] 93E. **缺陷普查 AIS AIS-093** [P2] 媒体下载/上传代理全量缓冲，无字节上限（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-093）（已修@2026-11-08/mcp-media-p1-1108@781905ece0）
+- [x] 94E. **缺陷普查 AIS AIS-094** [P2] Chrome 导入端口无属主绑定，可导走他人登录态（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-094）（已修@2026-11-08/mcp-media-p1-1108@781905ece0）
 - [x] 95E. **缺陷普查 AIS AIS-095** [P2] cloud-runs 以客户端 run_id 覆盖他人运行记录（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-095）（已修@2026-11-08/mcp-media-p1-1108@389dc8a096）
 - [x] 96E. **缺陷普查 AIS AIS-096** [P1] 图表 owner sidecar 每轮被误删，产物归属校验 fail-open（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-096）（已修@2026-11-08/mcp-media-p1-1108@56dbb657ab）
 - [x] 97E. **缺陷普查 AIS AIS-097** [P1] 在途媒体任务 30 分钟被强失败，官方视频 p90 55–75 分钟（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-097）（已修@2026-11-08/mcp-media-p1-1108@56dbb657ab）
