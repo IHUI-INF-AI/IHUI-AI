@@ -41,7 +41,10 @@ def _msgs(n: int = _N, *, head_secret: bool = True) -> list[dict[str, Any]]:
     """
     out: list[dict[str, Any]] = []
     for i in range(n):
-        in_head = head_secret and i < n - 16
+        # 2026-11-08 夹具校正:compress_messages_if_needed 自 12a6530e5a 起把 head
+        # 首个 user 组作为 task anchor 原样保留,事实落在 i=0 时会被保留锚点带过,
+        # 保留率恒为 1.0、永远不降级。事实只放在锚点之后的 head 段。
+        in_head = head_secret and 0 < i < n - 16
         fact = f"另有备注:{_SECRET}。" if in_head else ""
         out.append({"role": "user", "content": f"{_FILLER}{fact}"})
     return out
