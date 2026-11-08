@@ -187,8 +187,10 @@ describe('⑥ 形状锁:判据层零 fs + 声明确有消费者', () => {
     expect(gc).not.toMatch(/JSON\.parse/)
   })
   it('两个判据模块都被 CheckpointManager 真走到(命名分配 + 回收派发)', () => {
-    const index = sourceOf('index.ts')
-    const missing = ['planSnapshotGc(', 'allocateNextSnapshotSeriesRef(', 'formatSnapshotSeriesDirName(', 'seriesUuidFromSeedHex(', 'parseSnapshotSeriesDirName('].filter((call) => !index.includes(call))
+    // 结构拆分:身份推导/命名空间/候选枚举搬进 ./checkpoint-scan.ts;判据不降级 ——
+    // 把编排层与其只读判读层合起来看,五个入口仍必须都在。
+    const reachable = sourceOf('index.ts') + sourceOf('checkpoint-scan.ts')
+    const missing = ['planSnapshotGc(', 'allocateNextSnapshotSeriesRef(', 'formatSnapshotSeriesDirName(', 'seriesUuidFromSeedHex(', 'parseSnapshotSeriesDirName('].filter((call) => !reachable.includes(call))
     expect(missing).toEqual([])
   })
 })

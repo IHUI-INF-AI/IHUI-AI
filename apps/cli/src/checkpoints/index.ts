@@ -7,28 +7,24 @@
  * 分层(goal-b49 W3 拆分,落 AGENTS §3「每页 < 250 行」):
  *   - 本文件 = 编排:可寻址版本序列命名(./snapshot-series.ts)+ 三约束回收派发(./snapshot-gc.ts)
  *   - ./snapshot-store-host.ts = 唯一碰文件系统的适配层(存储形状 + 镜像读写);本文件不 import node:fs
+ *   - ./checkpoint-scan.ts = 只读判读:序列身份推导 + 命名空间 + 清单扫描 + 回收候选枚举(不碰盘)
  *   - ./manifest-integrity.ts = 清单完整性/损坏隔离的唯一出口(AGENTS §0.6,两处都不复算)
  * 做减法:不复制整个工作区,只快照"被指定的文件",按工作区相对路径镜像存储;
  * 原工作区不存在的文件标 'added',restore 时删除。回收 = 最近 N 版 ∧ 年龄窗 ∧ 总量上限,缺一不删(§0.3)。
  */
 
 import * as path from 'node:path';
-import * as crypto from 'node:crypto';
 import { type CorruptManifestEntry, type ManifestReadResult } from './manifest-integrity.js';
 // goal-b49 S3:版本化文件快照的可寻址序列 `<uuid>@vN` + 三约束回收判据(取证 Q1 §4 #16)
 import {
   allocateNextSnapshotSeriesRef,
   formatSnapshotSeriesDirName,
   isSnapshotSeriesDirName,
-  parseSnapshotSeriesDirName,
-  seriesUuidFromSeedHex,
-  SNAPSHOT_SERIES_SEED_HEX_LENGTH,
 } from './snapshot-series.js';
-import { assertPathInside, isPathInside, segmentPathInside } from '../util/path-guard.js';
+import { assertPathInside, isPathInside } from '../util/path-guard.js';
 import {
   DEFAULT_SNAPSHOT_GC_POLICY,
   planSnapshotGc,
-  type SnapshotGcCandidate,
   type SnapshotGcPolicy,
   type SnapshotGcPlan,
 } from './snapshot-gc.js';
@@ -37,17 +33,20 @@ import {
   diffSnapshotFiles,
   ensureHostDir,
   listEntryNames,
-  listSubDirNames,
-  measureSnapshotBytes,
   readSnapshotMeta,
   removeSnapshotDir,
   restoreSnapshotFiles,
-  probeSnapshotRoot,
   snapshotRootDir,
   writeSnapshotManifest,
   type CheckpointDiffEntry,
   type CheckpointMeta,
 } from './snapshot-store-host.js';
+import {
+  collectSeriesGcCandidates,
+  deriveSnapshotSeriesUuid,
+  readCheckpointMetaOrThrow,
+  scanCheckpointMetas,
+} from './checkpoint-scan.js';
 
 export * from './hunk-tracker.js';
 // 拆分前后 index 的对外导出集逐字不变(消费方只认 ./index.js)。isCheckpointMeta 在 HEAD 面已被
@@ -85,16 +84,7 @@ export class CheckpointManager {
     this.workspacePath = path.resolve(opts.workspacePath);
     this.maxCheckpoints = opts.maxCheckpoints ?? DEFAULT_MAX_CHECKPOINTS;
     this.baseDir = snapshotRootDir(this.sessionId);
-    const seedHex = crypto
-      .createHash('sha256')
-      .update(this.sessionId)
-      .digest('hex')
-      .slice(0, SNAPSHOT_SERIES_SEED_HEX_LENGTH);
-    const derived = seriesUuidFromSeedHex(seedHex);
-    if (!derived.ok) {
-      throw new RangeError(`检查点序列身份推导失败(${derived.reason}):${derived.detail}`);
-    }
-    this.seriesUuid = derived.uuid;
+    this.seriesUuid = deriveSnapshotSeriesUuid(this.sessionId);
     this.gcPolicy = {
       ...DEFAULT_SNAPSHOT_GC_POLICY,
       keepVersions: this.maxCheckpoints,
@@ -148,35 +138,16 @@ export class CheckpointManager {
     return meta;
   }
 
-  /** 本管理器自己的命名空间:版本序列(本会话 uuid)或历史 cp_ 前缀;别处写来的目录一概不碰 */
-  private inOwnNamespace(dirName: string): boolean {
-    if (dirName.startsWith('cp_')) return true;
-    const parsed = parseSnapshotSeriesDirName(dirName);
-    return parsed.ok && parsed.ref.uuid === this.seriesUuid;
-  }
-
   list(): CheckpointMeta[] {
-    // 快照根本就不存在 ⇒ 原样返回。读不到目录时抛错,不把清单说成空。
-    const root = probeSnapshotRoot(this.baseDir);
-    if (root === 'missing') return [];
-    if (root === 'unreadable') throw new Error('检查点目录读不到,不能把它说成没有检查点');
-    const metas: CheckpointMeta[] = [];
-    this.lastQuarantined = [];
-    for (const name of listSubDirNames(this.baseDir)) {
-      // goal-b49 S3:会话目录下与 HunkCheckpointManager 的 `hunk_*` 同居一处,其清单形状天然不满足
-      // isCheckpointMeta,旧实现会把它们判损坏并改名隔离(实测复现)⇒ 本管理器只扫自己的命名空间。
-      if (!this.inOwnNamespace(name)) continue;
-      // G-671:manifest 不存在 = 目录半成品(不算损坏);读不了/解析不了/形状不对 = 损坏,隔离并报名
-      const result = readSnapshotMeta(this.baseDir, name, {
-        onCorrupt: this.onCorrupt,
-        onQuarantined: (entry) => {
-          this.lastQuarantined.push(entry);
-        },
-      });
-      if (result.status === 'unreadable') throw new Error(result.detail);
-      if (result.status === 'ok') metas.push(result.meta);
-    }
-    return metas.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return scanCheckpointMetas(this.baseDir, this.seriesUuid, {
+      onCorrupt: this.onCorrupt,
+      beginScan: () => {
+        this.lastQuarantined = [];
+      },
+      quarantine: (entry) => {
+        this.lastQuarantined.push(entry);
+      },
+    });
   }
 
   get(checkpointId: string): CheckpointMeta | null {
@@ -195,13 +166,7 @@ export class CheckpointManager {
   }
 
   private readCheckpoint(checkpointId: string): CheckpointMeta {
-    const result = readSnapshotMeta(this.baseDir, checkpointId, { onCorrupt: this.onCorrupt });
-    if (result.status === 'ok') return result.meta;
-    if (result.status === 'unreadable') throw new Error(result.detail);
-    if (result.status === 'corrupt') {
-      throw new Error(`检查点 ${checkpointId} 清单读不到(${result.entry.reason}),不能把它说成不存在`);
-    }
-    throw new Error(`检查点 ${checkpointId} 不存在`);
+    return readCheckpointMetaOrThrow(this.baseDir, checkpointId, this.onCorrupt);
   }
 
   async restore(checkpointId: string): Promise<{ restored: string[]; removed: string[]; notRestored: string[] }> {
@@ -239,24 +204,13 @@ export class CheckpointManager {
     return this.lastGc;
   }
 
-  /** 本会话序列的候选清单:只收 `<seriesUuid>@vN`;hunk_ 与历史 cp_ 前缀的目录不入射程,免被误判畸形 */
-  private seriesCandidates(): SnapshotGcCandidate[] {
-    const candidates: SnapshotGcCandidate[] = [];
-    for (const name of listEntryNames(this.baseDir)) {
-      const parsed = parseSnapshotSeriesDirName(name);
-      if (!parsed.ok || parsed.ref.uuid !== this.seriesUuid) continue;
-      candidates.push({ dirName: name, bytes: measureSnapshotBytes(this.baseDir, name) });
-    }
-    return candidates;
-  }
-
   /**
    * goal-b49 S3:快照回收 = 三约束同时成立才删(保留最近 N 版 ∧ 年龄窗 ∧ 总量上限),
    * 判不出来(清单缺失/损坏、体积量不出、序列重号或回退)⇒ 整轮一枚不删并把原因留在 getLastGcNotes()。
    * 清单完整性自证只走 manifest-integrity 那份出口(§0.6);历史 cp_ 目录无版本档,仍按「超出 maxCheckpoints 即删」清账。
    */
   private pruneOldCheckpoints(): void {
-    const plan = planSnapshotGc(this.seriesCandidates(), this.gcPolicy, {
+    const plan = planSnapshotGc(collectSeriesGcCandidates(this.baseDir, this.seriesUuid), this.gcPolicy, {
       readManifest: (dirName): ManifestReadResult<CheckpointMeta> =>
         readSnapshotMeta(this.baseDir, dirName, { onCorrupt: this.onCorrupt }),
       nowMs: () => Date.now(),
