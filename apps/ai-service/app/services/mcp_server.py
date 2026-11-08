@@ -3908,6 +3908,9 @@ WIN_SHELL_BUILTINS: Final[frozenset[str]] = frozenset({
     "prompt", "title", "path", "assoc", "ftype",
 })
 
+# AIS-106:file_search 按内容回读的单文件上限(超限跳过,不读进内存)。
+_MAX_SEARCH_FILE_BYTES: Final[int] = 2 * 1024 * 1024
+
 _SHELL_WRAPPER_FLAGS: Final[dict[str, frozenset[str]]] = {
     "cmd": frozenset({"/c", "/k"}),
     "cmd.exe": frozenset({"/c", "/k"}),
@@ -5245,6 +5248,18 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"路径不是目录: {path}",
                 "ok": False,
             }
+        # AIS-106:搜索根必须落在工作区白名单(或 D201 会话附加根)内 —— 否则 role=0
+        # 能用 path=/ 枚举整机目录、再用 query 回读文件内容(与 read_file 同源缺口)。
+        # 放在"存在/是目录"之后:旧语义的两种报错保持原样,不变成存在性探针。
+        _ok_root, _root_info = _validate_path_in_workspace(str(path))
+        if not _ok_root:
+            return {
+                "tool": "file_search", "query": query, "path": path,
+                "pattern": pattern, "matches": [], "fuzzy": fuzzy,
+                "ok": False, "errorCode": "PATH_NOT_ALLOWED",
+                "message": _root_info,
+            }
+        root = Path(_root_info)
 
         # V3 #75:两处遍历收成一个出口(原先各写一遍 os.walk = 同一个工具两份实现)。
         # 扩展名沿用本工具的**黑名单**语义(跳二进制),所以给枚举层传 suffixes=None ——
@@ -5307,6 +5322,8 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 if query_lower:
                     try:
+                        if os.path.getsize(fpath) > _MAX_SEARCH_FILE_BYTES:
+                            continue
                         with open(fpath, encoding="utf-8", errors="ignore") as f:
                             content = f.read()
                         if query_lower not in content.lower():
@@ -8303,6 +8320,26 @@ async def _tool_image_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"save_path 校验失败: {err_code}",
             }
 
+    # AIS-116:改图与生图同属付费上游调用,必须共用同一计费闸 —— 旧实现只有
+    # image_generation 过 gate_image_spend,edits 漏了,宿主盖章余额为 0 也照扣费。
+    # 位置在 save_path 校验之后、任何上游/配置读取之前(拒绝零副作用)。
+    from ..core.mcp_tool_approval import gate_image_spend
+
+    credit_block = gate_image_spend(arguments)
+    if credit_block is not None:
+        _spend = credit_block.get("creditSpend") or {}
+        logger.warning(
+            "[mcp] image_edit 计费闸拒绝(AIS-116): disposition=%s reason=%s "
+            "quoted=%s balance=%s code=CREDIT_APPROVAL_REQUIRED",
+            _spend.get("disposition"), _spend.get("reason"),
+            _spend.get("quotedCredits"), _spend.get("balanceCredits"),
+        )
+        return {
+            **credit_block, "tool": "image_edit", "prompt": prompt,
+            "errorCode": "CREDIT_APPROVAL_REQUIRED",
+            "error": "这次改图消耗需要人批准后才会调用上游,当前没有放行",
+        }
+
     from ..core.config import settings
     from ..providers.base_provider import ProviderError
     from ..providers.token6688_provider import Token6688Provider
@@ -11260,7 +11297,21 @@ async def _tool_investigate_codebase(arguments: dict[str, Any]) -> dict[str, Any
     """investigate_codebase:只读代码库调查(三态 observed/inferred/unknown)。"""
     from .codebase_investigator import investigate_codebase
 
-    result: dict[str, Any] = await investigate_codebase(arguments)
+    # AIS-107:模型给的 path 不能直接当仓根 —— 否则 role=0 可指向任意目录(文件面/
+    # 大小/命名/结构一次性外泄,且被扫描内容会回灌给模型)。与 file_search 同一白名单判据,
+    # 下传的是**校验后**路径而非原文。
+    _ok_root, _root_info = _validate_path_in_workspace(
+        str(arguments.get("path") or ".")
+    )
+    if not _ok_root:
+        return {
+            "tool": "investigate_codebase", "ok": False,
+            "errorCode": "PATH_NOT_ALLOWED", "error": _root_info,
+            "findings": [], "anchors": [],
+        }
+    result: dict[str, Any] = await investigate_codebase(
+        {**arguments, "path": _root_info}
+    )
     return result
 
 
