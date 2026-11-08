@@ -11,9 +11,10 @@ import asyncio
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
+from ..core.jwt_auth import require_request_user_id
 from ..services.codebase_index_status import check_freshness, ensure_fresh, resolve_repo_id
 from ..services.codebase_indexer import codebase_indexer
 from ..services.codebase_symbol_catalog import search_local_catalog
@@ -115,7 +116,6 @@ class CodebaseIndexRequest(BaseModel):
     top_k: int = Field(10, ge=1, le=50, description="search 命中上限")
     kind: str | None = Field(None, description="search 用:符号类型过滤(function/class/file…)")
     path_glob: str | None = Field(None, description="search 用:路径 glob 限定")
-    user_id: str | None = Field(None, description="refresh 用:出域同意与归属主体")
     force: bool = Field(False, description="refresh 用:即使 fresh 也收敛一轮")
 
 
@@ -127,12 +127,19 @@ def _require_workspace(workspace_path: str) -> Path:
 
 
 @router.post("/tools/codebase-index")
-async def codebase_index(req: CodebaseIndexRequest) -> dict[str, Any]:
+async def codebase_index(
+    req: CodebaseIndexRequest,
+    principal: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
     """文件/符号级代码库索引能力(status / search / refresh)。
 
     准入复用 MCP 面同一守卫(`_validate_path_in_workspace`:白名单根 + path_guard),
     不新造第二套判定。`refresh` 的出域同意闸在 `ensure_fresh` 内部,**未同意 ⇒
     一次远端调用都不发**,回执 action=`consent-required`。
+
+    AIS-100:出域同意与索引归属的主体**只从承载层令牌取**(`require_request_user_id`
+    解析的 principal),请求体不再接受 `user_id` —— 旧码直接读 body 字段,任意登录用户
+    可填受害者的 id 冒名恢复出域并把索引归属记到对方。
     """
     root = _require_workspace(req.workspace_path)
     repo_id = req.repo_id or resolve_repo_id(root, codebase_indexer)
@@ -171,7 +178,7 @@ async def codebase_index(req: CodebaseIndexRequest) -> dict[str, Any]:
     outcome = await ensure_fresh(
         str(root),
         repo_id=repo_id,
-        user_id=req.user_id,
+        user_id=principal,
         force=req.force,
         indexer=codebase_indexer,
     )

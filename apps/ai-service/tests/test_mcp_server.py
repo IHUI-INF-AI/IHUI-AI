@@ -49,6 +49,20 @@ from app.services.mcp_server import (
     mcp_server,
 )
 
+
+@pytest.fixture(autouse=True)
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-080:search/index 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。"""
+    from app.services import mcp_server as _mcp_module
+
+    real = _mcp_module._get_workspace_roots
+    monkeypatch.setattr(
+        _mcp_module,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
+    )
+
+
 # =============================================================================
 # 数据模型
 # =============================================================================
@@ -128,10 +142,10 @@ async def test_tool_search_codebase_empty_query():
 
 
 async def test_tool_search_codebase_nonexistent_path():
-    """路径不存在返回 ok=False。"""
+    """根外路径(即使不存在)在 AIS-080 后先被工作区白名单拒绝。"""
     out = await _tool_search_codebase({"query": "foo", "path": "/nonexistent/xyz/abc"})
     assert out["ok"] is False
-    assert "路径不存在" in out["message"]
+    assert out["errorCode"] == "PATH_NOT_ALLOWED"
 
 
 async def test_tool_search_codebase_unreadable_path_is_not_missing(tmp_path, monkeypatch):
