@@ -326,28 +326,38 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
     },
   )
 
-  // ----- 打赏记录列表(分页) -----
-  server.get('/live-gifts/records', async (request: FastifyRequest, reply: FastifyReply) => {
-    const parsed = listQuerySchema.safeParse(request.query)
-    if (!parsed.success) {
-      return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    }
-    const { page, pageSize } = parsed.data
-    const [rows, totalRows] = await Promise.all([
-      db
-        .select({ record: liveGift, senderName: users.nickname })
-        .from(liveGift)
-        .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
-        .orderBy(desc(liveGift.createdAt))
-        .limit(pageSize)
-        .offset((page - 1) * pageSize),
-      db.select({ count: sql<number>`count(*)::int` }).from(liveGift),
-    ])
-    const items: (LiveGift & { senderName: string | null })[] = rows.map((r) => ({
-      ...r.record,
-      senderName: r.senderName,
-    }))
-    return reply.send(paginatedSuccess(items, totalRows[0]?.count ?? 0, { page, pageSize }))
-  })
+  // ----- 打赏记录列表(分页;F-199:需登录且只返回本人送出的记录) -----
+  server.get(
+    '/live-gifts/records',
+    { preHandler: requireAuth },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const userId = request.userId
+      if (!userId) return reply.status(401).send(error(401, '请先登录'))
+      const parsed = listQuerySchema.safeParse(request.query)
+      if (!parsed.success) {
+        return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+      }
+      const { page, pageSize } = parsed.data
+      const [rows, totalRows] = await Promise.all([
+        db
+          .select({ record: liveGift, senderName: users.nickname })
+          .from(liveGift)
+          .leftJoin(users, eq(liveGift.userId, sql`${users.id}::text`))
+          .where(eq(liveGift.userId, userId))
+          .orderBy(desc(liveGift.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(liveGift)
+          .where(eq(liveGift.userId, userId)),
+      ])
+      const items: (LiveGift & { senderName: string | null })[] = rows.map((r) => ({
+        ...r.record,
+        senderName: r.senderName,
+      }))
+      return reply.send(paginatedSuccess(items, totalRows[0]?.count ?? 0, { page, pageSize }))
+    },
+  )
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
