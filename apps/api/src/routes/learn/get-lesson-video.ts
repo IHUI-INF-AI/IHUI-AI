@@ -10,7 +10,8 @@ import {
   findLessonById,
   findSectionById,
   findChapterById,
-  isSignedUp,
+  isLessonFree,
+  hasPaidCourseOrder,
 } from '../../db/learn-queries.js'
 import { db } from '../../db/index.js'
 import { lessonChapters, lessonChapterSections } from '@ihui/database'
@@ -54,9 +55,9 @@ export const learnVideoRoutes: FastifyPluginAsync = async (server) => {
       if (!userId) return reply.status(401).send(error(401, '未登录'))
       const lesson = await findLessonById(params.id)
       if (!lesson) return reply.status(404).send(error(404, '课程不存在'))
-      if (!lesson.isFree) {
-        const signed = await isSignedUp(params.id, userId)
-        if (!signed) return reply.status(403).send(error(403, '请先报名该课程'))
+      // F-153:付费课以「已支付课程订单」为准,自助报名不再等同于已购买
+      if (!isLessonFree(lesson) && !(await hasPaidCourseOrder(userId, lesson.id))) {
+        return reply.status(403).send(error(403, '请先购买该课程'))
       }
       // 取课程下首个有视频的小节(按 chapter sortOrder、section sortOrder)
       const sections = await db
@@ -97,8 +98,12 @@ export const learnVideoRoutes: FastifyPluginAsync = async (server) => {
       // 小节通过 chapter 关联到 lesson
       const chapter = await findChapterById(section.chapterId)
       if (!chapter) return reply.status(404).send(error(404, '小节所属章节不存在'))
-      const signed = await isSignedUp(chapter.lessonId, userId)
-      if (!signed) return reply.status(403).send(error(403, '请先报名该课程'))
+      const lesson = await findLessonById(chapter.lessonId)
+      if (!lesson) return reply.status(404).send(error(404, '课程不存在'))
+      // F-153:小节与课程详情同一道付费闸
+      if (!isLessonFree(lesson) && !(await hasPaidCourseOrder(userId, lesson.id))) {
+        return reply.status(403).send(error(403, '请先购买该课程'))
+      }
       const signedUrl = signPlayUrl(request, chapter.lessonId, params.id, userId)
       return reply.send(
         success({

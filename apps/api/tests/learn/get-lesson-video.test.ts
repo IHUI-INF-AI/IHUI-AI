@@ -26,13 +26,15 @@ vi.hoisted(() => {
 const mockFindLessonById = vi.fn()
 const mockFindSectionById = vi.fn()
 const mockFindChapterById = vi.fn()
-const mockIsSignedUp = vi.fn()
+const mockIsLessonFree = vi.fn()
+const mockHasPaidCourseOrder = vi.fn()
 
 vi.mock('../../src/db/learn-queries.js', () => ({
   findLessonById: (...args: unknown[]) => mockFindLessonById(...args),
   findSectionById: (...args: unknown[]) => mockFindSectionById(...args),
   findChapterById: (...args: unknown[]) => mockFindChapterById(...args),
-  isSignedUp: (...args: unknown[]) => mockIsSignedUp(...args),
+  isLessonFree: (...args: unknown[]) => mockIsLessonFree(...args),
+  hasPaidCourseOrder: (...args: unknown[]) => mockHasPaidCourseOrder(...args),
 }))
 
 // 模拟 authenticate:从 Authorization Bearer 提取 userId,失败抛 401
@@ -109,7 +111,8 @@ describe('GET /api/learn/lesson/:id/video', () => {
     mockFindLessonById.mockReset()
     mockFindSectionById.mockReset()
     mockFindChapterById.mockReset()
-    mockIsSignedUp.mockReset()
+    mockIsLessonFree.mockReset()
+    mockHasPaidCourseOrder.mockReset()
     joinResult = []
   })
 
@@ -151,12 +154,14 @@ describe('GET /api/learn/lesson/:id/video', () => {
     expect(body.message).toBe('课程不存在')
   })
 
-  it('403 when not signed up and not free', async () => {
+  it('403 when not purchased and not free', async () => {
     mockFindLessonById.mockResolvedValueOnce({
       id: VALID_LESSON_UUID,
       isFree: false,
+      price: '99.00',
     })
-    mockIsSignedUp.mockResolvedValueOnce(false)
+    mockIsLessonFree.mockReturnValueOnce(false)
+    mockHasPaidCourseOrder.mockResolvedValueOnce(false)
     const res = await app.inject({
       method: 'GET',
       url: `/api/learn/lesson/${VALID_LESSON_UUID}/video`,
@@ -169,7 +174,9 @@ describe('GET /api/learn/lesson/:id/video', () => {
     mockFindLessonById.mockResolvedValueOnce({
       id: VALID_LESSON_UUID,
       isFree: true,
+      price: '0.00',
     })
+    mockIsLessonFree.mockReturnValueOnce(true)
     joinResult = []
     const res = await app.inject({
       method: 'GET',
@@ -183,7 +190,9 @@ describe('GET /api/learn/lesson/:id/video', () => {
     mockFindLessonById.mockResolvedValueOnce({
       id: VALID_LESSON_UUID,
       isFree: true,
+      price: '0.00',
     })
+    mockIsLessonFree.mockReturnValueOnce(true)
     joinResult = [
       {
         section: { id: FIRST_SECTION_UUID, videoUrl: 'https://cdn.example.com/v.mp4' },
@@ -210,16 +219,18 @@ describe('GET /api/learn/lesson/:id/video', () => {
     expect(body.data.sectionId).toBe(FIRST_SECTION_UUID)
     expect(body.data.mimeType).toBe('video/mp4')
     expect(typeof body.data.expiresAt).toBe('number')
-    // 免费课不应触发 isSignedUp
-    expect(mockIsSignedUp).not.toHaveBeenCalled()
+    // 免费课不应查付费订单
+    expect(mockHasPaidCourseOrder).not.toHaveBeenCalled()
   })
 
-  it('200 付费课已报名返回指向 /play 校验点的签名地址', async () => {
+  it('200 付费课已购买返回指向 /play 校验点的签名地址', async () => {
     mockFindLessonById.mockResolvedValueOnce({
       id: VALID_LESSON_UUID,
       isFree: false,
+      price: '99.00',
     })
-    mockIsSignedUp.mockResolvedValueOnce(true)
+    mockIsLessonFree.mockReturnValueOnce(false)
+    mockHasPaidCourseOrder.mockResolvedValueOnce(true)
     joinResult = [
       {
         section: { id: FIRST_SECTION_UUID, videoUrl: 'https://cdn.example.com/v2.mp4' },
@@ -256,10 +267,11 @@ describe('GET /api/learn/section/:id/video', () => {
   beforeEach(() => {
     mockFindSectionById.mockReset()
     mockFindChapterById.mockReset()
-    mockIsSignedUp.mockReset()
+    mockIsLessonFree.mockReset()
+    mockHasPaidCourseOrder.mockReset()
   })
 
-  it('403 when not signed up', async () => {
+  it('403 when not purchased', async () => {
     mockFindSectionById.mockResolvedValueOnce({
       id: VALID_SECTION_UUID,
       chapterId: VALID_CHAPTER_UUID,
@@ -269,7 +281,13 @@ describe('GET /api/learn/section/:id/video', () => {
       id: VALID_CHAPTER_UUID,
       lessonId: VALID_LESSON_UUID,
     })
-    mockIsSignedUp.mockResolvedValueOnce(false)
+    mockFindLessonById.mockResolvedValueOnce({
+      id: VALID_LESSON_UUID,
+      isFree: false,
+      price: '99.00',
+    })
+    mockIsLessonFree.mockReturnValueOnce(false)
+    mockHasPaidCourseOrder.mockResolvedValueOnce(false)
     const res = await app.inject({
       method: 'GET',
       url: `/api/learn/section/${VALID_SECTION_UUID}/video`,
@@ -278,7 +296,7 @@ describe('GET /api/learn/section/:id/video', () => {
     expect(res.statusCode).toBe(403)
   })
 
-  it('200 已报名返回指向 /play 校验点的签名地址,且不含 CDN 直链', async () => {
+  it('200 已购买返回指向 /play 校验点的签名地址,且不含 CDN 直链', async () => {
     mockFindSectionById.mockResolvedValueOnce({
       id: VALID_SECTION_UUID,
       chapterId: VALID_CHAPTER_UUID,
@@ -288,7 +306,13 @@ describe('GET /api/learn/section/:id/video', () => {
       id: VALID_CHAPTER_UUID,
       lessonId: VALID_LESSON_UUID,
     })
-    mockIsSignedUp.mockResolvedValueOnce(true)
+    mockFindLessonById.mockResolvedValueOnce({
+      id: VALID_LESSON_UUID,
+      isFree: false,
+      price: '99.00',
+    })
+    mockIsLessonFree.mockReturnValueOnce(false)
+    mockHasPaidCourseOrder.mockResolvedValueOnce(true)
     const res = await app.inject({
       method: 'GET',
       url: `/api/learn/section/${VALID_SECTION_UUID}/video`,
