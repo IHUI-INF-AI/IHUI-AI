@@ -6,7 +6,15 @@
  * 响应缓存服务(基于 Redis)——省钱大法。
  *
  * 待主 agent 在 v1-public.ts 集成:对非流式 /v1/chat/completions 请求启用缓存,
- * 命中缓存直接返回,不调用上游,不计费。
+ * 命中缓存直接返回,不调用上游。
+ *
+ * 命中计费口径(F-181,2026-11-08 用户裁定,勿改):
+ * - token 配额按 0 计:命中未调用上游,按全价扣 token 等于收没有发生过的成本;
+ * - 请求次数照计:命中仍消耗平台带宽/存储/调度,次数配额继续计以防滥用;
+ * - 可判标记:响应头 `X-Cache: HIT` + `X-Cache-Billing: hit;tokens=0;requests=1`;
+ * - 统计区分:`llm_call_logs` token 列写 0,被省下的真实 usage 写入
+ *   `metadata.cacheSavedTokens`,同时 `metadata.quotaBilledTokens=0`、`requestCounted=true`,
+ *   不与真实上游调用混成一个数。详见 relay-billing-service.ts 的 billableTokens。
  *
  * 设计:
  * - 仅缓存 stream:false 的非流式响应
