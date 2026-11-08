@@ -50,6 +50,7 @@ vi.mock('../src/plugins/require-permission.js', () => ({
 vi.mock('../src/services/subagent-dispatch-service.js', () => ({
   subagentDispatchService: {
     findById: () => null,
+    findByIdOrRestore: async () => null,
     getMessages: () => [],
     getDispatchStats: () => null,
   },
