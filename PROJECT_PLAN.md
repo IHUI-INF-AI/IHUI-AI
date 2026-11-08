@@ -32864,3 +32864,62 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 930G. **缺陷普查 API F-538** [P2] relay 会话历史的写入口全仓无调用，会话 API 恒空（证据 docs/tickets/2026-11/findings-api.md#F-538）
 - [ ] 931G. **缺陷普查 API F-539** [P3] relay 会话/消息分页排序无 tie-breaker（证据 docs/tickets/2026-11/findings-api.md#F-539）
 - [ ] 932G. **缺陷普查 API F-540** [P3] workbook save 与 write 无会话级互斥，await writeBuffer() 期间可被并发改写（证据 docs/tickets/2026-11/findings-api.md#F-540）
+- [ ] 933G. **缺陷普查 API F-541** [P3] 单元格地址校验超出 xlsx 规格（行 9,999,999 / 列 ZZZ），可产出 Excel 判损坏的工作簿（证据 docs/tickets/2026-11/findings-api.md#F-541）
+- [ ] 934G. **缺陷普查 API F-542** [P3] 转码 resolution 参数被静默丢弃，任务仍报 completed（证据 docs/tickets/2026-11/findings-api.md#F-542）
+- [ ] 935G. **缺陷普查 API F-543** [P3] 取消一个「已完成」任务会改状态为 cancelled 并 rm -rf 输出目录（证据 docs/tickets/2026-11/findings-api.md#F-543）
+- [ ] 936G. **缺陷普查 API F-544** [P3] stderrBuffer 无上限累积，且每 chunk 对全量缓冲做正则扫描（O(n²)）（证据 docs/tickets/2026-11/findings-api.md#F-544）
+- [ ] 937G. **缺陷普查 API F-545** [P3] callOss 的 fetch 无超时、无响应体大小上限，错误串拼接整段 OSS 响应（证据 docs/tickets/2026-11/findings-api.md#F-545）
+- [ ] 938G. **缺陷普查 API F-546** [P3] CompleteMultipartUpload 的 etag 原样拼进 XML（未转义、无上限），parts 数组无上限（证据 docs/tickets/2026-11/findings-api.md#F-546）
+- [ ] 939G. **缺陷普查 API F-547** [P3] 腾讯云/AWS 的 STS fetch 无超时、不判 HTTP 状态，响应体不限长（证据 docs/tickets/2026-11/findings-api.md#F-547）
+- [ ] 940G. **缺陷普查 API F-548** [P3] 大 xlsx 降级路径 Math.max(...rows) 参数溢出抛 RangeError，被吞成「解析结果为空」（证据 docs/tickets/2026-11/findings-api.md#F-548）
+- [ ] 941G. **缺陷普查 API F-549** [P1] 文件清理每小时递归删除 uploads 全目录 >24h 文件，命中持久化的 uploads/public 用户文件（证据 docs/tickets/2026-11/findings-api.md#F-549）
+- [ ] 942G. **缺陷普查 API F-550** [P2] 对账只比较订单号是否存在，完全不校验金额与交易状态（证据 docs/tickets/2026-11/findings-api.md#F-550）
+- [ ] 943G. **缺陷普查 API F-551** [P2] 支付宝账单下载不判 HTTP 状态/内容类型，错误页被当「平台无交易」，调度层仍记 success（证据 docs/tickets/2026-11/findings-api.md#F-551）
+- [ ] 944G. **缺陷普查 API F-552** [P2] 过期监听把「Redis 缓存写入失败」当作检测失败，连续 4 轮可触发生产 Canary 回滚（证据 docs/tickets/2026-11/findings-api.md#F-552）
+- [ ] 945G. **缺陷普查 API F-553** [P2] archiveDailyData 仍有 4 张表用单条 DELETE ... RETURNING 全量物化（证据 docs/tickets/2026-11/findings-api.md#F-553）
+- [ ] 946G. **缺陷普查 API F-554** [P2] 原子快照无保留期/配额/GC，且失败会留下不可见孤儿目录（证据 docs/tickets/2026-11/findings-api.md#F-554）
+- [ ] 947G. **缺陷普查 API F-555** [P3] 账户锁定在 Redis 故障期写进程内 Map，恢复后只读 Redis，累计失败与锁定瞬间失效（证据 docs/tickets/2026-11/findings-api.md#F-555）
+- [ ] 948G. **缺陷普查 API F-556** [P3] 锁定键按「原始账号字符串」分桶，用户名/手机号/邮箱三个可互换标识各占一份配额（证据 docs/tickets/2026-11/findings-api.md#F-556）
+- [ ] 949G. **缺陷普查 API F-557** [P3] INCR 与 EXPIRE 非原子：一次 EXPIRE 失败会留下永不过期的失败键（证据 docs/tickets/2026-11/findings-api.md#F-557）
+- [ ] 950G. **缺陷普查 API F-558** [P3] fallbackStore 无上限、无主动过期，Redis 故障期可被随机账号名撑爆内存（证据 docs/tickets/2026-11/findings-api.md#F-558）
+- [ ] 951G. **缺陷普查 API F-559** [P3] 过期监听的失败处理函数自身无保护，违反「不向调度层抛错」契约（证据 docs/tickets/2026-11/findings-api.md#F-559）
+- [ ] 952G. **缺陷普查 API F-560** [P3] 过期监听的 processed SET 只续期整键 TTL、成员永不过期（证据 docs/tickets/2026-11/findings-api.md#F-560）
+- [ ] 953G. **缺陷普查 API F-561** [P3] 清理目录写死相对路径，与 UPLOAD_DIR 配置不一致时静默空转（证据 docs/tickets/2026-11/findings-api.md#F-561）
+- [ ] 954G. **缺陷普查 API F-562** [P3] 清理遍历使用同步 fs 且每轮扫描两遍（证据 docs/tickets/2026-11/findings-api.md#F-562）
+- [ ] 955G. **缺陷普查 API F-563** [P3] 清理遍历跟随目录符号链接，可能删除 uploads 根目录之外的文件（证据 docs/tickets/2026-11/findings-api.md#F-563）
+- [ ] 956G. **缺陷普查 API F-564** [P3] 原子快照采集对 depth>10、readdir 失败、符号链接静默漏采，回滚仍返回 ok:true（证据 docs/tickets/2026-11/findings-api.md#F-564）
+- [ ] 957G. **缺陷普查 API F-565** [P3] planAtomicRollback 对「stat 可读但 readFile 失败」的文件无捕获，整体 500（证据 docs/tickets/2026-11/findings-api.md#F-565）
+- [ ] 958G. **缺陷普查 API F-566** [P3] autoCloseExpiredOrders 无 LIMIT、串行调用渠道关单（证据 docs/tickets/2026-11/findings-api.md#F-566）
+- [ ] 959G. **缺陷普查 API F-567** [P3] 登录 2FA 恢复码「先校验后更新数组」非原子，同一恢复码并发可兑付两次（证据 docs/tickets/2026-11/findings-api.md#F-567）
+- [ ] 960G. **缺陷普查 API F-568** [P1] 资源列表/详情/批量接口整行返回 fileUrl，付费资源下载权限被绕过（证据 docs/tickets/2026-11/findings-api.md#F-568）
+- [ ] 961G. **缺陷普查 API F-569** [P2] 资源详情与批量接口未过滤 isPublished/status，草稿/下线资源可读且被计浏览（证据 docs/tickets/2026-11/findings-api.md#F-569）
+- [ ] 962G. **缺陷普查 API F-570** [P3] 已撤销证书仍可由本人下载含官方信息的 PDF（证据 docs/tickets/2026-11/findings-api.md#F-570）
+- [ ] 963G. **缺陷普查 API F-571** [P3] acceptAnswer 未校验回答 status，已软删除回答可被采纳（证据 docs/tickets/2026-11/findings-api.md#F-571）
+- [ ] 964G. **缺陷普查 API F-572** [P3] 分页排序缺少唯一键兜底（F-356 同根因的新出口）（证据 docs/tickets/2026-11/findings-api.md#F-572）
+- [ ] 965G. **缺陷普查 API F-573** [P2] 逐行 ::int 再 sum：中转成本/平台费报表被系统性放大或归零（证据 docs/tickets/2026-11/findings-api.md#F-573）
+- [ ] 966G. **缺陷普查 API F-574** [P2] sum(金额)::int 溢出的 11 处新实例（F-22/F-458 未列）（证据 docs/tickets/2026-11/findings-api.md#F-574）
+- [ ] 967G. **缺陷普查 API F-575** [P3] 计费倍率 toFixed(2) 与 numeric(5,2) 舍入方向不一致（证据 docs/tickets/2026-11/findings-api.md#F-575）
+- [ ] 968G. **缺陷普查 API F-576** [P3] 充值成功邮件把「token 数」和「分」相加当金额（证据 docs/tickets/2026-11/findings-api.md#F-576）
+- [ ] 969G. **缺陷普查 API F-577** [P2] 月付签约 setMonth(+1) 月末溢出：1/31 签约 → 下次扣款 3/3，2 月整月不扣（证据 docs/tickets/2026-11/findings-api.md#F-577）
+- [ ] 970G. **缺陷普查 API F-578** [P3] /admin/stats/visit-trend 用 UTC 日串切窗口，而 visit_date 存的是上海日（证据 docs/tickets/2026-11/findings-api.md#F-578）
+- [ ] 971G. **缺陷普查 API F-579** [P3] 食堂验收入库单 procurementDate 用 UTC 日（证据 docs/tickets/2026-11/findings-api.md#F-579）
+- [ ] 972G. **缺陷普查 API F-581** [P1] 连续包月代扣成功但不发放任何会员权益（证据 docs/tickets/2026-11/findings-api.md#F-581）
+- [ ] 973G. **缺陷普查 API F-582** [P2] 教育账本“事务外读快照 + 绝对值写回”导致已收金额回退（证据 docs/tickets/2026-11/findings-api.md#F-582）
+- [ ] 974G. **缺陷普查 API F-583** [P2] 催费任务无视渠道配置，始终外发微信模板消息（证据 docs/tickets/2026-11/findings-api.md#F-583）
+- [ ] 975G. **缺陷普查 API F-584** [P2] 催费留痕“先记成功再投递”，失败当天也被去重永久跳过（证据 docs/tickets/2026-11/findings-api.md#F-584）
+- [ ] 976G. **缺陷普查 API F-585** [P2] completeOrder 路径不发积分、不写 order.paid outbox（证据 docs/tickets/2026-11/findings-api.md#F-585）
+- [ ] 977G. **缺陷普查 API F-586** [P2] 智能体购买判定忽略 status/expiresAt，未支付也显示“已购买”（证据 docs/tickets/2026-11/findings-api.md#F-586）
+- [ ] 978G. **缺陷普查 API F-587** [P2] 订阅实例的 orderNo 幂等靠副本读 + 非唯一索引，异常吞成 null（证据 docs/tickets/2026-11/findings-api.md#F-587）
+- [ ] 979G. **缺陷普查 API F-588** [P3] AI 预算 upsert 无唯一约束，并发激活产生重复预算行（证据 docs/tickets/2026-11/findings-api.md#F-588）
+- [ ] 980G. **缺陷普查 API F-589** [P3] 缺勤补判单条 INSERT 无分批，超大班/回溯会超参数上限并中断整轮（证据 docs/tickets/2026-11/findings-api.md#F-589）
+- [ ] 981G. **缺陷普查 API F-590** [P3] 计费组回退默认组时不校验 enabled（证据 docs/tickets/2026-11/findings-api.md#F-590）
+- [ ] 982G. **缺陷普查 API F-591** [P3] 团队成员可把他人收件箱条目标记为已读（无归属校验）（证据 docs/tickets/2026-11/findings-api.md#F-591）
+- [ ] 983G. **缺陷普查 API F-592** [P1] 任意登录用户可导出全站访问明细（IP/UA/URL/sessionId）（证据 docs/tickets/2026-11/findings-api.md#F-592）
+- [ ] 984G. **缺陷普查 API F-593** [P2] GET /api/agent/zhsAgent/:id 直出 agents 整行（含系统提示词/变量/Coze 账号）（证据 docs/tickets/2026-11/findings-api.md#F-593）
+- [ ] 985G. **缺陷普查 API F-594** [P2] 任意登录用户可触发 agent-heat/refresh，删改任意日期的全站热度（证据 docs/tickets/2026-11/findings-api.md#F-594）
+- [ ] 986G. **缺陷普查 API F-595** [P3] AI Feed 详情不过滤发布态，草稿可按 id 直读（证据 docs/tickets/2026-11/findings-api.md#F-595）
+- [ ] 987G. **缺陷普查 API F-596** [P3] 图形验证码 expiresAt 只写不校验，过期码最长约 24 小时仍有效（证据 docs/tickets/2026-11/findings-api.md#F-596）
+- [ ] 988G. **缺陷普查 API F-597** [P3] UGC 敏感词过滤按字段重复全表查询（N+1）（证据 docs/tickets/2026-11/findings-api.md#F-597）
+- [ ] 989G. **缺陷普查 API F-598** [P3] toggleLike 读改写竞态：并发/重试把已点赞反转为取消（证据 docs/tickets/2026-11/findings-api.md#F-598）
+- [ ] 990G. **缺陷普查 API F-599** [P3] deletePermission 三次删除无事务，中途失败产生“半删”（证据 docs/tickets/2026-11/findings-api.md#F-599）
+- [ ] 991G. **缺陷普查 API F-600** [P3] 多处分页缺稳定 tiebreaker（F-572 同根的新出口）（证据 docs/tickets/2026-11/findings-api.md#F-600）
