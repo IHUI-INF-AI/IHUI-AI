@@ -78,12 +78,7 @@ const csMessageSchemas = z.discriminatedUnion('type', [csMessageSchema, csTyping
 
 /** 入站控制面判定结论:通过 → 放行 zod 解析结果;拒绝 → 带可诊断原因 */
 export type CsInboundVerdict =
-  | {
-      ok: true
-      data:
-        | { type: 'cs_message'; data: { sessionId?: string; content: string; kind?: string } }
-        | { type: 'cs_typing'; data: { isTyping?: boolean } }
-    }
+  | { ok: true; data: { type: 'cs_message'; data: { sessionId?: string; content: string; kind?: string } } | { type: 'cs_typing'; data: { isTyping?: boolean } } }
   | { ok: false; reason: 'unrecognized_key' | 'malformed' }
 
 /** strict 边界拒绝计数(排障与测试观测面:被丢弃的非法入站消息条数) */
