@@ -18,7 +18,7 @@ import { generateCompactId } from '../../utils/crypto-random.js'
 // 故以它为主名、N8N_DOMAIN 只作别名兜底(主名优先 ⇒ 主名在位时现网指向不变,详见
 // utils/n8n-env.ts 顶部三条不可漂的写法)。
 // 禁止在本文件再直接写 process.env.N8N_DOMAIN / N8N_BASE_URL。
-import { readN8nBaseUrl, n8nBaseHint } from '../../utils/n8n-env.js'
+import { readN8nBaseUrl, n8nBaseHint, resolveN8nWebhookUrl } from '../../utils/n8n-env.js'
 import { db } from '../../db/index.js'
 import {
   createVideoTask,
@@ -843,7 +843,10 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
       if (!key) return
       const url = body.workflowId
         ? `${base.origin}/api/v1/workflows/${encodeURIComponent(body.workflowId)}/activate`
-        : `${base.origin}${body.webhookPath ?? '/webhook'}`
+        : resolveN8nWebhookUrl(base.origin, body.webhookPath ?? '/webhook')
+      // F-117:webhookPath 是用户可控输入,必须锁在同一 origin 内,否则会把
+      // X-N8N-API-KEY 发往攻击者(如 https://n8n.internal@evil.com/x)。
+      if (!url) return reply.status(400).send(error(400, 'webhookPath 非法'))
       try {
         const resp = await fetchWithTimeout(
           url,
