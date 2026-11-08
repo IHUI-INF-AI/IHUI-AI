@@ -61,8 +61,7 @@ the Chinese README, and blocks any stale value.
 
 Headline claims (same source as the table below, all live-computed): **database tables · API routes ·
 WebSocket endpoints · LLMs · multi-platform auto-publishing · test file counts in the generated table below ·
-336 engineering gates · CI workflows · 5-language i18n parity · app packages · 16 shared packages ·
-14 compose services**.
+engineering gates · CI workflows · i18n parity · app and shared packages · compose services**.
 
 <!-- BEGIN GENERATED NUMBERS (node scripts/gen-doc-numbers.mjs --markdown) -->
 | 指标 | 现值 | 取数键 |

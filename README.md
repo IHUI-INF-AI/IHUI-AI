@@ -333,7 +333,7 @@ git clone https://github.com/IHUI-INF-AI/IHUI-AI.git
   <sub><strong>开源 AI 商业级一体化超级平台</strong> · 8 端全覆盖 · 176 模型 · LangGraph+MCP+A2A 三栈 · P3 深度层 · 5 分钟 Fork 到上线</sub>
 </p>
 <p align="center">
-  <strong>数据库表 · API 路由 · WebSocket 端点 · 88 守门脚本 · 56+ pre-commit 项 · 测试文件 / ~14939+ 测试用例 · 67 e2e spec · CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
+  <strong>数据库表 · API 路由 · WebSocket 端点 · 工程守门 · 56+ pre-commit 项 · 测试文件 / ~14939+ 测试用例 · 67 e2e spec · CI workflows · 14 AI 引擎 GEO 文件</strong><br/>
   <sub>不是 PPT,不是画饼,不是占位 —— 每一个数字都能在代码里 grep 到(2026-07-31 Glob/Grep 实测)</sub>
 </p>
 <p align="center">
