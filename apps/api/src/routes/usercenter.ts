@@ -33,19 +33,24 @@ import { success, error, emptyToUndefined } from '../utils/response.js'
  * 此前只剥 passwordHash,twoFactorSecret / twoFactorBackupCodes 原样出网 ——
  * 抓到一次响应即可给任意账号补 TOTP 或离线生成动态码。
  */
-function toUserCenterView<
-  T extends {
-    passwordHash?: unknown
-    twoFactorSecret?: unknown
-    twoFactorBackupCodes?: unknown
-  },
->(user: T): Omit<T, 'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes'> {
+function toUserCenterView<T extends object>(
+  user: T,
+): Omit<T, 'passwordHash' | 'twoFactorSecret' | 'twoFactorBackupCodes'> {
+  // 本函数只负责「有就剥掉」:调用方传入的投影未必声明了这三个字段(UserCenterUser 就没有),
+  // 所以按可选字段窄化后再解构;约束写成 all-optional 会触发弱类型检查,反而拒掉合法入参。
   const {
     passwordHash: _passwordHash,
     twoFactorSecret: _twoFactorSecret,
     twoFactorBackupCodes: _twoFactorBackupCodes,
     ...view
-  } = user
+  } = user as T & {
+    passwordHash?: unknown
+    twoFactorSecret?: unknown
+    twoFactorBackupCodes?: unknown
+  }
+  void _passwordHash
+  void _twoFactorSecret
+  void _twoFactorBackupCodes
   return view
 }
 
