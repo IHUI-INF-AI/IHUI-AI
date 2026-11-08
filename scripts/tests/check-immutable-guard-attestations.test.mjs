@@ -14,14 +14,18 @@ import assert from 'node:assert/strict'
 import { createHmac } from 'node:crypto'
 import {
   ATTEST_MIN_REASON_CHARS,
+  EXEMPT_TRAILER,
+  SIG_TRAILER,
   attestPayload,
   decide,
   lookupAttestation,
   parseAttestLedger,
   signAttestation,
+  signExemption,
 } from '../lib/immutable-guard.mjs'
 
-const KEY = 'k'.repeat(32)
+const KEY = 'k'.repeat(32) // 独立追认钥
+const SUBMIT_KEY = 's'.repeat(32) // 提交签名钥（必须与追认钥不是同一把）
 const OTHER_KEY = 'z'.repeat(32)
 const SHA = 'b'.repeat(40)
 const COMMIT_DATE = '2026-11-07'
@@ -54,7 +58,8 @@ function judge(attestRows, changes = [{ status: 'M', path: HIT }], extra = {}) {
     sha: SHA,
     attestRows,
     commitDate: COMMIT_DATE,
-    key: KEY,
+    key: SUBMIT_KEY,
+    ackKey: KEY,
     ...extra,
   })
 }
@@ -136,8 +141,8 @@ test('A8 reviewer 为空 ⇒ 判红（空署名不算说明；签名本身是对
   assert.equal(out.attest.code, 'attest-reviewer-empty')
 })
 
-test('A9 取错钥验不过 ⇒ 判红（不是"有签名就放行"）', () => {
-  const out = judge([sign()], [{ status: 'M', path: HIT }], { key: OTHER_KEY })
+test('A9 取错追认钥验不过 ⇒ 判红（不是"有签名就放行"；提交钥换成另一把不影响追认判）', () => {
+  const out = judge([sign()], [{ status: 'M', path: HIT }], { ackKey: OTHER_KEY })
   assert.equal(out.exit, 1)
   assert.equal(out.attest.code, 'attest-sig-invalid')
 })
@@ -154,7 +159,7 @@ test('A10 台账坏行（sha 短写）⇒ parse 阶段就点名，不静默当�
 test('A11 签名载荷键序固定：换序/改一个字段 ⇒ 验签必失败', () => {
   const row = sign()
   assert.equal(
-    lookupAttestation({ rows: [row], sha: SHA, hits: [{ path: HIT }], commitDate: COMMIT_DATE, key: KEY })
+    lookupAttestation({ rows: [row], sha: SHA, hits: [{ path: HIT }], commitDate: COMMIT_DATE, ackKey: KEY })
       .code,
     'attest-verified',
   )
@@ -178,10 +183,96 @@ test('A11 签名载荷键序固定：换序/改一个字段 ⇒ 验签必失败'
       sha: SHA,
       hits: [{ path: HIT }],
       commitDate: COMMIT_DATE,
-      key: KEY,
+      ackKey: KEY,
     }).code,
     'attest-sig-invalid',
     '键序变了就是另一段 JSON，必须验不过',
   )
+})
+// ---------------------------------------------------------------------------
+// 钥分离（2026-11-07）：追认台账只用独立追认钥签/验，不做双钥并存；缺钥判未判定
+// ---------------------------------------------------------------------------
+
+test('A12 旧提交钥签的追认行 ⇒ 判红（旧钥不再被追认路径读取，不做双钥并存）', () => {
+  const row = {
+    sha: SHA,
+    paths: [HIT],
+    reason: REASON,
+    reviewer: '测试追认人 <reviewer@example.com>',
+    attestedAt: COMMIT_DATE,
+  }
+  const oldSig = signAttestation({ ...row, key: SUBMIT_KEY })
+  const out = judge([{ ...row, sig: oldSig }])
+  assert.equal(out.exit, 1)
+  assert.equal(out.attest.code, 'attest-sig-invalid')
+  // 同一行换成追认钥签 ⇒ 立刻变绿（证明夹具区分的是"哪把钥签的"，不是内容坏了）
+  const ok = judge([{ ...row, sig: signAttestation({ ...row, key: KEY }) }])
+  assert.equal(ok.exit, 0)
+  assert.equal(ok.code, 'declared-attested')
+})
+
+test('A13 追认钥与提交钥是同一把 ⇒ 判红（attest-self-key，退回作者自认）', () => {
+  const out = judge([sign()], [{ status: 'M', path: HIT }], { key: KEY })
+  assert.equal(out.exit, 1)
+  assert.equal(out.attest.code, 'attest-self-key')
+})
+
+test('A14 追认钥不可得 ⇒ 判未判定（exit 2），不静默放行', () => {
+  const out = judge([sign()], [{ status: 'M', path: HIT }], { ackKey: null })
+  assert.equal(out.exit, 2, '缺追认钥必须判未判定，不能绿')
+  assert.equal(out.code, 'attest-undetermined')
+  assert.equal(out.attest.state, 'unavailable')
+  assert.equal(out.attest.code, 'attest-key-unavailable')
+})
+
+test('A15 到期日边界（注入 2026-11-11）：11-10 仍放行、11-11 当天判红', () => {
+  const textOnly = {
+    entries: ENTRIES,
+    changes: [{ status: 'M', path: HIT }],
+    message: `refactor: text-only\n\n${EXEMPT_TRAILER} ${REASON}`,
+    key: SUBMIT_KEY,
+    ackKey: KEY,
+    signatureRequiredFrom: '2026-11-11',
+  }
+  const before = decide({ ...textOnly, today: '2026-11-10' })
+  assert.equal(before.exit, 0)
+  assert.equal(before.code, 'declared-unsigned')
+  const onDay = decide({ ...textOnly, today: '2026-11-11' })
+  assert.equal(onDay.exit, 1, '到期日当天必须收紧')
+  assert.equal(onDay.code, 'undeclared-unsigned')
+})
+
+test('A16 到期日当天签名有效 ⇒ 仍然放行（不是"到期一刀切红"）', () => {
+  const subject = 'refactor: signed'
+  const sig = signExemption({ subject, hits: [{ path: HIT }], reason: REASON, key: SUBMIT_KEY })
+  const out = decide({
+    entries: ENTRIES,
+    changes: [{ status: 'M', path: HIT }],
+    message: `${subject}\n\n${EXEMPT_TRAILER} ${REASON}\n${SIG_TRAILER} ${sig}`,
+    key: SUBMIT_KEY,
+    ackKey: KEY,
+    signatureRequiredFrom: '2026-11-11',
+    today: '2026-11-11',
+  })
+  assert.equal(out.exit, 0)
+  assert.equal(out.code, 'declared')
+  assert.equal(out.signature.code, 'sig-verified')
+})
+
+test('A17 到期日当天签名验不过 ⇒ 仍判红（日期到了但签名无效不许放行）', () => {
+  const subject = 'refactor: bad-sig'
+  const sig = signExemption({ subject, hits: [{ path: HIT }], reason: REASON, key: OTHER_KEY })
+  const out = decide({
+    entries: ENTRIES,
+    changes: [{ status: 'M', path: HIT }],
+    message: `${subject}\n\n${EXEMPT_TRAILER} ${REASON}\n${SIG_TRAILER} ${sig}`,
+    key: SUBMIT_KEY,
+    ackKey: KEY,
+    signatureRequiredFrom: '2026-11-11',
+    today: '2026-11-11',
+  })
+  assert.equal(out.exit, 1)
+  assert.equal(out.code, 'undeclared-unsigned')
+  assert.equal(out.signature.code, 'sig-invalid')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

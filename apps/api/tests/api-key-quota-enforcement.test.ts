@@ -58,6 +58,8 @@ interface FakeShareRow {
   rateLimitRpm: number | null
   rateLimitTpm: number | null
   sourceKey: FakeKeyRow
+  /** 源 Key 所属账号状态(SDB-29) */
+  ownerStatus: number
 }
 
 /** 窗口类型 → developer_api_keys 限额列名。 */
@@ -81,6 +83,8 @@ const fixture = vi.hoisted(() => ({
     /** true → checkTpmQuota 抛异常(模拟 TPM 后端故障) */
     tpmThrows: false,
     share: null as FakeShareRow | null,
+    /** 关联 users.status:1=正常 0=禁用 3=注销(SDB-29 鉴权判据) */
+    userStatus: 1,
     config: {
       REDIS_URL: 'redis://127.0.0.1:1/0',
       API_KEY_RATE_LIMIT_FAIL_MODE: 'close' as 'close' | 'open',
@@ -131,6 +135,7 @@ function fakeShareRow(sourceKey: FakeKeyRow, over: Partial<FakeShareRow> = {}): 
     rateLimitRpm: 60,
     rateLimitTpm: 100_000,
     sourceKey,
+    ownerStatus: 1,
     ...over,
   }
 }
@@ -140,13 +145,20 @@ function fakeShareRow(sourceKey: FakeKeyRow, over: Partial<FakeShareRow> = {}): 
 // ----------------------------------------------------------------------------
 vi.mock('../src/db/index.js', () => ({
   db: {
-    select: vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => (fixture.state.keyRow ? [fixture.state.keyRow] : [])),
-        })),
-      })),
-    })),
+    // SDB-29:鉴权改走 developer_api_keys INNER JOIN users,返回 { key, userStatus }
+    select: vi.fn(() => {
+      const chain: Record<string, unknown> = {}
+      chain.innerJoin = vi.fn(() => chain)
+      chain.from = vi.fn(() => chain)
+      chain.where = vi.fn(() => ({
+        limit: vi.fn(async () =>
+          fixture.state.keyRow
+            ? [{ key: fixture.state.keyRow, userStatus: fixture.state.userStatus }]
+            : [],
+        ),
+      }))
+      return chain
+    }),
     update: vi.fn(() => ({
       set: vi.fn(() => ({ where: vi.fn(() => ({ catch: vi.fn() })) })),
     })),
@@ -165,6 +177,7 @@ vi.mock('../src/db/index.js', () => ({
 
 vi.mock('@ihui/database', () => ({
   developerApiKeys: { id: 'id', key: 'key', userId: 'user_id' },
+  users: { id: 'id', status: 'status' },
   keyRateWindowCounts: {
     keyId: 'key_id',
     windowType: 'window_type',
@@ -343,6 +356,7 @@ beforeEach(() => {
   fixture.state.tpmAllowed = true
   fixture.state.tpmThrows = false
   fixture.state.share = null
+  fixture.state.userStatus = 1
   fixture.state.config.API_KEY_RATE_LIMIT_FAIL_MODE = 'close'
   fixture.state.config.API_KEY_REQUIRE_SECRET = true
   vi.mocked(verifySecret).mockReset().mockReturnValue(true)
@@ -568,7 +582,11 @@ describe('O2-4 限流后端不可用的降级形态(默认 close)', () => {
     fixture.state.keyRow = fakeKeyRow({ rateLimit1d: 100 })
     fixture.state.windowReadThrows = true
     const res = makeReply()
-    await requireApiKeyAuth.call(hookThis, makeRequest({ method: 'GET', url: '/v1/models' }), res.reply)
+    await requireApiKeyAuth.call(
+      hookThis,
+      makeRequest({ method: 'GET', url: '/v1/models' }),
+      res.reply,
+    )
     expect(res.status).toBeUndefined()
   })
 
@@ -661,7 +679,11 @@ describe('O2-5 `*` 通配只覆盖已登记且 thirdPartyEligible 的 scope', ()
     const request = makeRequest()
     request.apiKey = apiKeyCtx(['*'] as unknown as ApiKeyPermission[])
     const res = makeReply()
-    await requireApiKeyPermission('publish:operate' as ApiKeyPermission).call(hookThis, request, res.reply)
+    await requireApiKeyPermission('publish:operate' as ApiKeyPermission).call(
+      hookThis,
+      request,
+      res.reply,
+    )
     expect(res.status).toBe(403)
     expect(String(res.payload?.message)).toContain('publish:operate')
   })
@@ -916,7 +938,11 @@ describe('O2-8 rateLimit 已废弃(不参与判定);第 N+1 次 429 由窗口列
 
     // 第 2 次:used(1) >= limit(1) → 429
     const second = makeReply()
-    await requireApiKeyAuth.call(hookThis, makeRequest({ method: 'GET', url: '/v1/models' }), second.reply)
+    await requireApiKeyAuth.call(
+      hookThis,
+      makeRequest({ method: 'GET', url: '/v1/models' }),
+      second.reply,
+    )
     expect(second.status).toBe(429)
     expect(second.payload?.code).toBe(1010)
     expect(Number(second.headers['Retry-After'])).toBeGreaterThan(0)
@@ -930,7 +956,11 @@ describe('O2-8 rateLimit 已废弃(不参与判定);第 N+1 次 429 由窗口列
     // Redis eval 返回 [allowed=0, retryAfter=7]
     fixture.state.redisEvalResult = [0, 7]
     const res = makeReply()
-    await requireApiKeyAuth.call(hookThis, makeRequest({ method: 'POST', body: { model: 'gpt-test' } }), res.reply)
+    await requireApiKeyAuth.call(
+      hookThis,
+      makeRequest({ method: 'POST', body: { model: 'gpt-test' } }),
+      res.reply,
+    )
     expect(res.status).toBe(429)
     expect(res.payload?.code).toBe(1007)
     expect(Number(res.headers['Retry-After'])).toBe(7)
