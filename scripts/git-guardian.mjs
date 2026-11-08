@@ -12743,6 +12743,7 @@ export async function sweepCrossEndLandingLeg(opts = {}) {
     now = Date.now(),
     intervalMs = CROSS_END_LANDING_INTERVAL_MS,
     tickFile = join(dirname(LOG), 'cross-end-landing-last.json'),
+    pauseFile = join(dirname(LOG), 'cross-end-landing-paused.json'),
     logger = log,
     runner = null,
     ancestry = null,
@@ -12754,6 +12755,27 @@ export async function sweepCrossEndLandingLeg(opts = {}) {
   if (!existsSync(script)) {
     logger('ℹ️ 跨端落库:器物不在位(scripts/auto-commit-quiet.mjs)⇒ 本轮跳过,不记为已探测')
     return { ran: false, why: '器物不在位' }
+  }
+  // 多线并行期的显式暂停闸(2026-11-08 机主令)。
+  // 立因:收编器把工作树字节交给 safe-commit,多线并行时无法逐字节证明"这枚改动只属于守护腿";
+  // 用改 `attemptAt` 把节流窗推到未来只是压状态文件,下一轮谁清 state 就复活,故改为**开关文件**:
+  // 文件在场且 `paused !== false` ⇒ 本轮一律不派发。位置放在 ancestry/节流之前:
+  // 暂停轮不得消耗 15 分钟窗口,也不得写 attemptAt(否则恢复后还要空等一轮)。
+  // 读取口径:ENOENT = 没开;读不出/JSON 损坏 = **按暂停处理**(fail-closed,失效方向恒为少收编);
+  // 恢复 = 删文件,不靠任何时间戳。
+  let pause = null
+  try {
+    pause = JSON.parse(readFileSync(pauseFile, 'utf8'))
+  } catch (e) {
+    if (!e || e.code !== 'ENOENT') {
+      pause = { paused: true, reason: `开关文件读不出(${String(e?.code ?? e?.message ?? e).slice(0, 80)})` }
+    }
+  }
+  if (pause && pause.paused !== false) {
+    logger(
+      `⏸️ 跨端落库:多线并行期间暂停(开关 ${pauseFile}:${String(pause.reason ?? '未给原因').slice(0, 120)})⇒ 本轮不派 auto-commit-quiet,也不写节流戳;恢复=删开关文件`,
+    )
+    return { ran: false, why: '多线并行暂停', paused: true }
   }
   // 基线让路闸放在节流之前:让路轮不得消耗 15 分钟窗口,否则追上 origin/main 后还要空等一轮。
   const anc = typeof ancestry === 'function' ? ancestry() : readMainAncestry()
