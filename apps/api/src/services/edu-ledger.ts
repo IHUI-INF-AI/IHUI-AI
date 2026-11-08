@@ -39,10 +39,15 @@ import { db } from '../db/index.js'
 import { logger } from '../utils/logger.js'
 import { bizDayKey } from '../utils/biz-day.js'
 
+/** 同一事务内可执行的连接/事务句柄(读与写必须落在同一个 tx 上才不会读到旧快照)。 */
+type LedgerExecutor = Pick<typeof db, 'select' | 'update' | 'insert' | 'delete' | 'execute'>
+
 /** 计入"已收"的流水状态。pending/refunded/cancelled 一律不算已缴。 */
 export const PAYMENT_CREDIT_STATUSES: readonly string[] = ['paid']
 /** 已经真金白银退出去的退费状态。 */
 export const REFUND_SETTLED_STATUSES: readonly string[] = ['approved', 'completed']
+/** 计算"该流水还能退多少"时要扣掉的退费状态:驳回/撤销不算占用额度。 */
+export const REFUND_COUNTED_STATUSES: readonly string[] = ['pending', 'approved', 'completed']
 /** 到期前多少天算「即将到期」,与 edu_fee_schedule.grace_days 无关(那是逾期宽限)。 */
 export const DUE_SOON_LEAD_DAYS = 7
 /**
@@ -354,8 +359,11 @@ function todayIso(): string {
  * 把一个报名的原始行读齐后算账。
  * 退费经 payment_id 关联到流水,再取其 schedule_id;关联不上的按"未归属退费"处理。
  */
-export async function loadEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
-  const [enrollment] = await db
+export async function loadEnrollmentLedger(
+  enrollmentId: string,
+  executor: LedgerExecutor = db,
+): Promise<EnrollmentLedger | null> {
+  const [enrollment] = await executor
     .select({
       totalFee: eduEnrollment.totalFee,
       studentId: eduEnrollment.studentId,
@@ -374,7 +382,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
    * 而顶部注释写的是"仍计入报名级" —— 注释与实现分叉比两处都缺更坏,因为读代码的人会信注释)。
    * 两种情形都由 loadUnattributedPayments 点名,不静默。
    */
-  const [sibling] = await db
+  const [sibling] = await executor
     .select({ n: count() })
     .from(eduEnrollment)
     .where(
@@ -410,7 +418,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
     : eq(eduRefundRecord.enrollmentId, enrollmentId)
 
   const [payments, refunds, schedules] = await Promise.all([
-    db
+    executor
       .select({
         id: eduPaymentRecord.id,
         amount: eduPaymentRecord.amount,
@@ -419,7 +427,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
       })
       .from(eduPaymentRecord)
       .where(and(payOwner, isNull(eduPaymentRecord.deletedAt))),
-    db
+    executor
       .select({
         amount: eduRefundRecord.amount,
         status: eduRefundRecord.status,
@@ -428,7 +436,7 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
       .from(eduRefundRecord)
       .leftJoin(eduPaymentRecord, eq(eduRefundRecord.paymentId, eduPaymentRecord.id))
       .where(and(refundOwner, isNull(eduRefundRecord.deletedAt))),
-    db
+    executor
       .select({
         id: eduFeeSchedule.id,
         dueDate: eduFeeSchedule.dueDate,
@@ -453,34 +461,46 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
 /**
  * 重算并写回派生缓存:enrollment.paid_amount / next_due_date + 各账期摊派值。
  * 这是这两列**唯一的写入口**。读不到报名就返回 null 并留一行日志(不静默成功)。
+ *
+ * 原子性:先在同一事务内对报名行加 FOR UPDATE 行锁,再读账、再写回。
+ * 这样并发重算不会各自拿着旧快照互相覆盖(绝对值写回只有串行化后才安全)。
  */
 export async function recomputeEnrollment(enrollmentId: string): Promise<EnrollmentLedger | null> {
-  const ledger = await loadEnrollmentLedger(enrollmentId)
+  return db.transaction((tx) => recomputeEnrollmentTx(tx, enrollmentId))
+}
+
+/** 事务内版本:调用方已有 tx(如收退款)时复用它,避免嵌套事务/快照分叉。 */
+async function recomputeEnrollmentTx(
+  tx: LedgerExecutor,
+  enrollmentId: string,
+): Promise<EnrollmentLedger | null> {
+  await tx.execute(
+    sql`select id from edu_enrollment where id = ${enrollmentId} and deleted_at is null for update`,
+  )
+  const ledger = await loadEnrollmentLedger(enrollmentId, tx)
   if (!ledger) {
     logger.warn('账目重算跳过:报名不存在或已删除', { enrollmentId })
     return null
   }
-  await db.transaction(async (tx) => {
+  await tx
+    .update(eduEnrollment)
+    .set({
+      paidAmount: ledger.paidAmount,
+      nextDueDate: ledger.nextDueDate,
+      updatedAt: new Date(),
+    })
+    .where(eq(eduEnrollment.id, enrollmentId))
+  for (const o of ledger.schedules) {
     await tx
-      .update(eduEnrollment)
+      .update(eduFeeSchedule)
       .set({
-        paidAmount: ledger.paidAmount,
-        nextDueDate: ledger.nextDueDate,
+        paidAmount: o.paidAmount,
+        refundAmount: o.refundAmount,
+        status: o.status,
         updatedAt: new Date(),
       })
-      .where(eq(eduEnrollment.id, enrollmentId))
-    for (const o of ledger.schedules) {
-      await tx
-        .update(eduFeeSchedule)
-        .set({
-          paidAmount: o.paidAmount,
-          refundAmount: o.refundAmount,
-          status: o.status,
-          updatedAt: new Date(),
-        })
-        .where(eq(eduFeeSchedule.id, o.id))
-    }
-  })
+      .where(eq(eduFeeSchedule.id, o.id))
+  }
   return { ...ledger, enrollmentId }
 }
 
@@ -514,30 +534,33 @@ export async function recordPayment(input: {
   remark?: string | null
   operatorId?: string | null
 }): Promise<{ paymentId: string; ledger: EnrollmentLedger | null }> {
-  const [row] = await db
-    .insert(eduPaymentRecord)
-    .values({
-      studentId: input.studentId,
-      classId: input.classId,
-      enrollmentId: input.enrollmentId,
-      feeId: input.feeId ?? null,
-      scheduleId: input.scheduleId ?? null,
-      amount: input.amount,
-      paymentDate: input.paymentDate,
-      paymentMethod: input.paymentMethod,
-      status: input.status ?? 'paid',
-      receiptNo: input.receiptNo ?? null,
-      remark: input.remark ?? null,
-      operatorId: input.operatorId ?? null,
-    })
-    .returning({ id: eduPaymentRecord.id })
-  if (!row) {
-    // insert...returning 取不到行 = 写没落地,必须抛而不是继续算账
-    // (继续算会产出一个"已重算"的假结论,而那条缴费其实不存在)
-    throw new Error(`缴费写入未返回记录:报名 ${input.enrollmentId}`)
-  }
-  const ledger = await recomputeEnrollment(input.enrollmentId)
-  return { paymentId: row.id, ledger }
+  // 缴费落库与派生账目重算必须在同一事务:任一步失败整体回滚,重试才是可重放的。
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(eduPaymentRecord)
+      .values({
+        studentId: input.studentId,
+        classId: input.classId,
+        enrollmentId: input.enrollmentId,
+        feeId: input.feeId ?? null,
+        scheduleId: input.scheduleId ?? null,
+        amount: input.amount,
+        paymentDate: input.paymentDate,
+        paymentMethod: input.paymentMethod,
+        status: input.status ?? 'paid',
+        receiptNo: input.receiptNo ?? null,
+        remark: input.remark ?? null,
+        operatorId: input.operatorId ?? null,
+      })
+      .returning({ id: eduPaymentRecord.id })
+    if (!row) {
+      // insert...returning 取不到行 = 写没落地,必须抛而不是继续算账
+      // (继续算会产出一个"已重算"的假结论,而那条缴费其实不存在)
+      throw new Error(`缴费写入未返回记录:报名 ${input.enrollmentId}`)
+    }
+    const ledger = await recomputeEnrollmentTx(tx, input.enrollmentId)
+    return { paymentId: row.id, ledger }
+  })
 }
 
 /** 撤销一笔缴费(软删)后必须重算,否则欠费永远回不来。 */
