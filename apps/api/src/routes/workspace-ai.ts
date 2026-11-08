@@ -41,8 +41,16 @@ import {
   listAtomicCheckpoints,
   planAtomicRollback,
   executeAtomicRollback,
+  isSafeCheckpointId,
 } from '../services/atomic-rollback.js'
 import { resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
+
+// F-27:checkpointId 只允许 [A-Za-z0-9_-],拒绝 `..` 与路径分隔符(防越出快照目录任意读写)。
+const checkpointIdSchema = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(isSafeCheckpointId, 'checkpointId 只允许字母、数字、下划线、连字符')
 
 export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权：复用 workspace.ts 的模式
@@ -1949,7 +1957,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const parsed = z
-      .object({ workspacePath: z.string().min(1), checkpointId: z.string().min(1).max(64) })
+      .object({ workspacePath: z.string().min(1), checkpointId: checkpointIdSchema })
       .safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -1972,7 +1980,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = z
       .object({
         workspacePath: z.string().min(1),
-        checkpointId: z.string().min(1).max(64),
+        checkpointId: checkpointIdSchema,
         confirm: z.boolean().default(false),
       })
       .safeParse(request.body)
