@@ -3122,6 +3122,7 @@
     "copyHint": "点击编号可复制",
     "footer": "以上信息来自工信部备案查询系统",
     "label0": "备案号",
+    "labelPublicSecurity": "公网安备号",
     "label1": "备案主体",
     "label2": "主体类型",
     "label3": "备案时间",
