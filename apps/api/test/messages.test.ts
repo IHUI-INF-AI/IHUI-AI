@@ -154,6 +154,8 @@ vi.mock('@ihui/database', () => ({
     content: 'cm.content',
     createdAt: 'cm.createdAt',
   },
+  // BUG-79:GET /messages 现在批量补发件人昵称/头像,会 select users 三列。
+  users: { id: 'u.id', nickname: 'u.nickname', avatar: 'u.avatar' },
 }))
 
 import { messageRoutes, adminMessageRoutes } from '../src/routes/message.js'

@@ -36,6 +36,8 @@ vi.mock('../src/plugins/auth.js', () => ({
 
 vi.mock('../src/plugins/require-permission.js', () => ({
   requireAdmin: vi.fn(),
+  // 2026-11 集中特权谓词新增导出;公开面用例按非管理员跑。
+  isSystemAdmin: vi.fn(() => false),
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
