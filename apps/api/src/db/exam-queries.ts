@@ -563,6 +563,8 @@ export function gradeExamAnswers(
  * - multi_choice: 排序后比较数组。
  * - fill_blank: 逐空比较(去空格)。
  * - subjective: 不自动判分,isCorrect=false,score=0,需人工评分。
+ * - 状态:有主观题 ⇒ submitted(已提交待人工阅卷);无主观题 ⇒ graded(自动判分完成)。
+ *   与 exam-extended-queries.ts 状态机(answering→submitted→graded)一致。
  *
  * 返回判分结果(得分/是否通过/用时/逐题明细)。
  */
@@ -582,7 +584,7 @@ export async function submitExamRecord(
   const paper = await findPaperById(record.paperId)
   const isPassed = totalScore >= Number(paper?.passScore ?? 60)
   const duration = Math.floor((Date.now() - record.startedAt.getTime()) / 1000)
-  const finalStatus = hasSubjective ? 'graded' : 'submitted'
+  const finalStatus = hasSubjective ? 'submitted' : 'graded'
 
   await db
     .update(examRecords)
@@ -612,7 +614,8 @@ export interface ManualGradeItem {
 /**
  * 管理员对主观题进行人工评分。
  * - 仅更新主观题答案的 score/isCorrect,其余答案保持不变。
- * - 重新汇总总分与是否通过,将状态置为 'submitted'(全部判分完成)。
+ * - 重新汇总总分与是否通过,将状态置为 'graded'(全部判分完成),与
+ *   exam-extended-queries.ts 的 submitted→graded 流转一致,不得回写 submitted。
  */
 export async function gradeSubjectiveAnswers(
   recordId: string,
@@ -649,14 +652,14 @@ export async function gradeSubjectiveAnswers(
       answers: updatedAnswers,
       score: String(totalScore),
       isPassed,
-      status: 'submitted', // 人工评分完成,最终状态
+      status: 'graded', // 人工评分完成:submitted→graded,终态不得回写 submitted
     })
     .where(eq(examRecords.id, recordId))
 
   // ihui_exam_score_sum/count:提交判分时已按上一终态计过一次,人工阅卷只平移增量,
   // 避免同一答题记录被整笔重复累计(sum 恰等于该记录终态分数,count 不再 +1)
   adjustExamScore(totalScore - Number(record.score ?? 0))
-  return { score: totalScore, isPassed, status: 'submitted' }
+  return { score: totalScore, isPassed, status: 'graded' }
 }
 
 /** Admin: 删除答题记录。 */

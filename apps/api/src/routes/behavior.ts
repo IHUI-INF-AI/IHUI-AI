@@ -155,6 +155,10 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          500: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+          },
         },
       },
     },
@@ -163,8 +167,14 @@ export const behaviorRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const result = await recordWatch({ ...parsed.data, userId: request.userId! })
-      return reply.send(success(result))
+      try {
+        const result = await recordWatch({ ...parsed.data, userId: request.userId! })
+        return reply.send(success(result))
+      } catch (e) {
+        // 仍按 5xx 失败返回(不静音);并发首写冲突已由 upsert 收敛,走到这里的是真实故障
+        request.log.error({ err: e, userId: request.userId, ...parsed.data }, '记录浏览失败')
+        return reply.status(500).send(error(500, '记录浏览失败'))
+      }
     },
   )
 
