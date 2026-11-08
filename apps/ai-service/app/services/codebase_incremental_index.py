@@ -157,11 +157,33 @@ async def index_changed_paths(
             {"newPath": new_path, "oldPath": old_path} for new_path, old_path in sorted(dir_diff.moved.items())
         ]
 
-    result.merkle_root = _merkle_root(new_hashes)
     if deleted_paths:
         result.files_deleted = await indexer._delete_files_from_api(
             repo_id, deleted_paths, api_token, internal_user_id
         )
+        # 2026-11-08(AIS-027):删除没全成就不得把"没删掉"记成"已删除"。
+        # `deleted_paths` 已被 `scan_incremental_batch` 从 new_hashes 摘除;若这里静默落快照,
+        # 下一轮它们既不在快照、又不会再进 deleted_candidates ⇒ 幽灵切片永久留在向量库。
+        # 保守重放:未确认删除的条目按上轮 hash/指纹放回快照,下一轮仍会被判为删除候选并重试。
+        if result.files_deleted < len(deleted_paths):
+            result.errors.append(
+                f"删除未完成 {result.files_deleted}/{len(deleted_paths)} 条:"
+                "保留快照条目待下一轮重试(不把失败记成已删除)"
+            )
+            for rel in deleted_paths:
+                prev_hash = snapshot.files.get(rel)
+                if prev_hash is None:
+                    continue
+                new_hashes[rel] = prev_hash
+                prev_fingerprint = snapshot.fingerprints.get(rel)
+                if prev_fingerprint is not None:
+                    new_fingerprints[rel] = prev_fingerprint
+            cur_dir_rhashes = dir_rhash_map(new_hashes)
+    #: 只有确认删净的路径才允许从目录里摘除;未删净的一律按"仍在"处理。
+    effective_deleted_paths = (
+        deleted_paths if result.files_deleted >= len(deleted_paths) else []
+    )
+    result.merkle_root = _merkle_root(new_hashes)
 
     # --- 切片(函数层 + 模块层)+ 架构层:全部走全量路径同一批方法 ---
     all_chunks: list[CodeChunk] = []
@@ -202,7 +224,7 @@ async def index_changed_paths(
 
     # --- 文件/符号目录:变更文件重建、删除文件摘除、未变文件沿用(2026-11-06) ---
     prev_catalog = snapshot.catalog if snapshot.state in _USABLE_STATES else None
-    catalog = merge_catalog(prev_catalog, changed_entries, deleted_paths, aliases=live_aliases)
+    catalog = merge_catalog(prev_catalog, changed_entries, effective_deleted_paths, aliases=live_aliases)
     for rel in new_hashes:
         if rel not in catalog.files:
             catalog.files[rel] = FileEntry(rel, _EXT_TO_LANG.get(Path(rel).suffix.lower()), ())
@@ -217,12 +239,28 @@ async def index_changed_paths(
         return result
 
     result.chunks_vectorized = await indexer._generate_embeddings_batch(all_chunks)
+    write_failed_rels: set[str] = set()
     for i in range(0, len(all_chunks), _WRITE_BATCH_SIZE):
         batch = all_chunks[i : i + _WRITE_BATCH_SIZE]
         try:
             await indexer._write_to_api(repo_id, batch, api_token, internal_user_id)
         except Exception as e:  # noqa: BLE001 - 与全量同形:批次失败点名,快照照常收敛
+            # 2026-11-08(AIS-027):旧实现"点名后快照照常收敛"⇒ 失败批次的文件带着新 hash
+            # 进了快照,下一轮判 unchanged、永不重写,切片的空洞就这样静默留下。
+            # 只把这些文件从快照面上摘除(保留其余文件的收敛),下一轮它们必回 to_reindex。
+            failed_rels = {c.file_path for c in batch}
+            write_failed_rels |= failed_rels
             result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
+    if write_failed_rels:
+        result.errors.append(
+            f"写入失败 {len(write_failed_rels)} 个文件:本轮不推进其快照,下一轮重索引重试"
+        )
+        for rel in write_failed_rels:
+            new_hashes.pop(rel, None)
+            new_fingerprints.pop(rel, None)
+            catalog.files.pop(rel, None)
+        cur_dir_rhashes = dir_rhash_map(new_hashes)
+        result.merkle_root = _merkle_root(new_hashes)
 
     indexer._save_snapshot(
         repo_id, root, new_hashes,
