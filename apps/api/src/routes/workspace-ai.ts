@@ -1094,21 +1094,21 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     const parsed = agentRunSchema.safeParse(request.body)
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
-    const task = await agentLoop.run(parsed.data)
+    const task = await agentLoop.run({ ...parsed.data, userId: request.userId })
     return reply.send(success(task))
   })
 
   server.get('/agent/tasks', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
-    return reply.send(success({ tasks: agentLoop.listRunning() }))
+    return reply.send(success({ tasks: agentLoop.listRunning(request.userId) }))
   })
 
   server.get('/agent/tasks/:taskId', async (request, reply) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { taskId } = taskIdParam.parse(request.params)
-    const task = agentLoop.status(taskId)
+    const task = agentLoop.status(taskId, request.userId)
     if (!task) return reply.status(404).send(error(404, '任务不存在'))
     return reply.send(success(task))
   })
@@ -1117,7 +1117,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { taskId } = taskIdParam.parse(request.params)
-    const canceled = agentLoop.cancel(taskId)
+    const canceled = agentLoop.cancel(taskId, request.userId)
     if (!canceled) return reply.status(400).send(error(400, '任务不存在或不可取消'))
     return reply.send(success({ canceled: true }))
   })
@@ -1134,7 +1134,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
-    const accepted = agentLoop.injectMessage(taskId, parsed.data.content)
+    const accepted = agentLoop.injectMessage(taskId, request.userId, parsed.data.content)
     if (!accepted) return reply.status(400).send(error(400, '任务不存在或已结束,无法插话'))
     return reply.send(success({ taskId, accepted: true }))
   })
