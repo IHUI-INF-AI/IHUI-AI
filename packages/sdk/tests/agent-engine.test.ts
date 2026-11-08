@@ -684,6 +684,8 @@ describe('协议常量(与引擎 handler 表 parity)', () => {
       'thread.start',
       'thread.prompt',
       'thread.interrupt',
+      'thread.contextUsage',
+      'thread.seedReadState',
       'thread.resume',
       'thread.state',
       'thread.close',
