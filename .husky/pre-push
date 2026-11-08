@@ -117,6 +117,25 @@ EOF
 fi
 # <<< tag-ancestor-gate (end)
 
+# >>> push-receipt-gate (begin) ─────────────────────────────────────────────
+# 提交侧 worker 已对「完整 HEAD 树」跑完 13 门 + 文档数字门 + i18n 审计并签发签名凭据时,
+# 推送侧只做内容寻址校验(tree/commit/远端基线/门脚本 blob/签名)即可放行。
+# fail-closed:凭据缺失、树不符、缺一门、签名坏、门脚本被改、过期 ⇒ 一律不 exit 0,
+# 继续走下方**原样保留**的真跑门路径。此处绝不伪造通过。
+if [ -n "$PUSH_REFS" ]; then
+  export PUSH_REFS
+  wscript //nologo scripts/hook-run-hidden.vbs pre-push-receipt scripts/push-receipt.mjs --verify
+  _receipt_rc=$?
+  if [ "$_receipt_rc" -eq 0 ]; then
+    tail -n 2 .ihui-agent/state/hook-logs/pre-push-receipt.log >&2 || true
+    printf '%s\n' "✅ push 门凭据校验通过:提交侧已对完整 HEAD 树求值,本次推送不再重复跑门" >&2
+    exit 0
+  fi
+  tail -n 2 .ihui-agent/state/hook-logs/pre-push-receipt.log >&2 || true
+  printf '%s\n' "⏭️  push 门凭据不可用,回落真跑门(判据不降级)" >&2
+fi
+# <<< push-receipt-gate (end)
+
 # ─── 全量 typecheck 强制门 ────────────────────────────────────────────
 # 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
 #      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题
