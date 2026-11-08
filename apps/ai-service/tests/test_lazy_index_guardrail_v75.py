@@ -45,6 +45,18 @@ from app.services.rg_fallback_parity import (
     resolve_rg_binary,
 )
 
+
+@pytest.fixture(autouse=True)
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-080:search 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。"""
+    real = mcp_server._get_workspace_roots
+    monkeypatch.setattr(
+        mcp_server,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
+    )
+
+
 # 本机没装 ripgrep 时,"双通道对探测数字必须同形"取不到 rg 一侧的输入(生产侧在
 # provenance.degraded_reason 里已写明"本结果不可用于对账")。按 §0.3 如实 skip 并点名,
 # 不拿"应该也一致"冒充判过;装了 rg 的机器上照旧全跑。
