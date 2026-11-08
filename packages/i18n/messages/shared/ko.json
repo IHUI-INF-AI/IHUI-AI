@@ -1175,6 +1175,14 @@
     "totalWithdraw": "누적 출금",
     "recharge": "충전",
     "withdraw": "출금",
+    "flowRecharge": "충전",
+    "flowDeduct": "차감",
+    "flowExpire": "만료",
+    "flowRefund": "환불 회수",
+    "flowRelayRecharge": "API 키 이체",
+    "flowAdminAdjust": "관리자 조정",
+    "flowQuota": "할당량 변동",
+    "flowOther": "기타",
     "loadFailed": "지갑 로드 실패"
   },
   "courseCatalog": {

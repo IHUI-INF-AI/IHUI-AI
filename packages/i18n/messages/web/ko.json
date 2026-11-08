@@ -25366,6 +25366,7 @@
     "flowRefund": "환불 회수",
     "flowRelayRecharge": "API 키 이체",
     "flowAdminAdjust": "관리자 조정",
+    "flowQuota": "할당량 변동",
     "flowRemark": "비고",
     "flowTime": "시간",
     "flowType": "유형",

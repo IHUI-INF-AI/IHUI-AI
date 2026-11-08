@@ -25363,6 +25363,7 @@
     "flowRefund": "Refund clawback",
     "flowRelayRecharge": "Transfer to API key",
     "flowAdminAdjust": "Admin adjustment",
+    "flowQuota": "Quota change",
     "flowRemark": "Remark",
     "flowTime": "Time",
     "flowType": "Type",

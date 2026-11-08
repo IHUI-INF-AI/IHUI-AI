@@ -25366,6 +25366,7 @@
     "flowRefund": "返金取消",
     "flowRelayRecharge": "APIキーへ振替",
     "flowAdminAdjust": "管理者調整",
+    "flowQuota": "クォータ変更",
     "flowRemark": "備考",
     "flowTime": "時間",
     "flowType": "タイプ",

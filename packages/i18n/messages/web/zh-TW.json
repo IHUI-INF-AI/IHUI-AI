@@ -25338,6 +25338,7 @@
     "flowRefund": "退款扣回",
     "flowRelayRecharge": "轉帳至 API Key",
     "flowAdminAdjust": "管理員調整",
+    "flowQuota": "配額類變動",
     "flowRemark": "備注",
     "flowTime": "時間",
     "flowType": "類型",
