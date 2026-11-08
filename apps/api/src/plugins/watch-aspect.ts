@@ -53,8 +53,12 @@ async function incrementViewCount(target: WatchTarget): Promise<void> {
  * 钩子失败不阻塞主请求(try/catch + logger.warn)。
  */
 const watchAspectPlugin: FastifyPluginAsync = async (server: FastifyInstance) => {
-  server.addHook('preHandler', async (request: FastifyRequest, _reply: FastifyReply) => {
+  // F-206:挂在根实例的 preHandler 早于路由级 authenticate,request.userId 恒空 ⇒
+  // 观看行为从不落库;且与路由自身的 +1 叠加成浏览双计。改到 onResponse:
+  // 此时 handler/preHandler 已跑完,身份可取,且只在 2xx 真正返回时计数。
+  server.addHook('onResponse', async (request: FastifyRequest, reply: FastifyReply) => {
     if (request.method.toUpperCase() !== 'GET') return
+    if (reply.statusCode < 200 || reply.statusCode >= 300) return
     const url = request.url.split('?')[0] ?? ''
     const target = parseWatchTarget(url)
     if (!target) return

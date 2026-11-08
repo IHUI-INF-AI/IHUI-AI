@@ -68,10 +68,12 @@ export const toolInvocationLedger = pgTable(
     id: uuid('id').defaultRandom().primaryKey(),
     /** 调用编号(= CLI 账本 callId,`fingerprint#occurrence` 形态,长度上限与其 max(160) 同档)。全表唯一,重复摄入走 onConflictDoNothing 幂等。 */
     invocationId: varchar('invocation_id', { length: 160 }).notNull(),
-    /** 操作者身份:令牌主体,由承载层显式入参写入(见头注 §5 纪律);非 UUID 在入口即拒。 */
-    userId: uuid('user_id')
-      .references(() => users.id, { onDelete: 'set null' })
-      .notNull(),
+    /**
+     * 操作者身份:令牌主体,由承载层显式入参写入(见头注 §5 纪律);非 UUID 在入口即拒。
+     * 用户被删除时按 FK 动作置 NULL。F-433:此前多写了 `.notNull()`,与 `onDelete: 'set null'`
+     * 互斥 —— 外键动作要写 NULL,列约束却拒绝,NULL ⇒ 删用户整个事务失败。读侧按可空处理。
+     */
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     /** 权限决策(值域 = TOOL_APPROVAL_ROUTES 镜像):flag=免提示直通 / approved=人批 / denied=拒绝。 */
     permissionDecision: varchar('permission_decision', { length: 16 }).notNull(),
     /** fail-closed 拒绝成因(值域 = TOOL_APPROVAL_DENY_CAUSES 镜像);仅 decision='denied' 有意义。 */
