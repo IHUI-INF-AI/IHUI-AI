@@ -165,8 +165,22 @@ async function waitPending(requestId: string): Promise<void> {
   throw new Error(`pending 未登记 requestId=${requestId}(push 后应立即注册)`)
 }
 
-async function reportResult(body: Record<string, unknown>) {
-  return app.inject({ method: 'POST', url: `${PREFIX}/result`, payload: body })
+/**
+ * /result 的登录身份必须与 pending 属主一致(F-08,2026-11-08)。
+ * 默认 USER_A;⑱/⑲ 派发给 USER_B 的端,回执也必须以 USER_B 身份发出(端只会用自己的登录态回传)。
+ */
+async function reportResult(body: Record<string, unknown>, userId: string = USER_A) {
+  mockCheckAuth.mockImplementation(async (request) => {
+    request.userId = userId
+    return true
+  })
+  const res = await app.inject({ method: 'POST', url: `${PREFIX}/result`, payload: body })
+  mockCheckAuth.mockReset()
+  mockCheckAuth.mockImplementation(async (request) => {
+    request.userId = USER_A
+    return true
+  })
+  return res
 }
 
 describe('agent-control ui category — /api/agent-control/*', () => {
@@ -740,12 +754,15 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     expect(__test__.findEndpointByCategory('app_ui', USER_B)?.capability.instanceId).toBe('rn-1')
     expect(__test__.findEndpointByCategory('ui', USER_B)).toBeNull()
 
-    await reportResult({
-      requestId: 'req-rn-fill',
-      success: true,
-      durationMs: 8,
-      executedBy: 'rn',
-    })
+    await reportResult(
+      {
+        requestId: 'req-rn-fill',
+        success: true,
+        durationMs: 8,
+        executedBy: 'rn',
+      },
+      USER_B,
+    )
     const body = (await executePromise).json<{ data: AgentActionResponse }>().data
     expect(body.success).toBe(true)
     expect(body.executedBy).toBe('rn')
@@ -796,12 +813,15 @@ describe('agent-control ui category — /api/agent-control/*', () => {
     )
     expect(__test__.findEndpointByCategory('app_ui', USER_B)?.capability.instanceId).toBe('rn-1')
 
-    await reportResult({
-      requestId: 'req-mp-click',
-      success: true,
-      durationMs: 15,
-      executedBy: 'miniapp',
-    })
+    await reportResult(
+      {
+        requestId: 'req-mp-click',
+        success: true,
+        durationMs: 15,
+        executedBy: 'miniapp',
+      },
+      USER_B,
+    )
     expect((await executePromise).json<{ data: AgentActionResponse }>().data.executedBy).toBe(
       'miniapp',
     )
