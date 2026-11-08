@@ -30,6 +30,7 @@ import {
   hasArrearsCond,
   loadEnrollmentLedger,
   loadEnrollmentLedgers,
+  loadPaymentIncomeSummary,
   loadUnattributedPayments,
   recomputeEnrollment,
   recordPayment,
@@ -1457,10 +1458,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
 
-    // 汇总统计（F-699:计数先归一为 number,避免 int8 字符串参与 + 运算）
-    const totalItems = stats.reduce((sum, s) => sum + Number(s.totalItems), 0)
-    const totalCompleted = stats.reduce((sum, s) => sum + Number(s.completedItems), 0)
-    const overallRate = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0
+    // 汇总统计（F-699 的 int8 归一化由 sumPlanCompletion 统一做）
+    const { totalItems, totalCompleted, overallRate } = sumPlanCompletion(stats)
 
     return reply.send(
       success({
@@ -2013,7 +2012,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const date = parsed.data.date ?? bizDayKey(new Date())
+    // F-210:学生自助签到只允许"当日"。date 一律由服务端 bizDayKey(Asia/Shanghai)生成;
+    // 客户端若显式传了一个与当日不一致的日期,直接 400 点名 —— **不静默改写成当日**,
+    // 否则端上会以为补签成功。历史/未来补签不属于学生自助能力,由教师补签路径承担(带范围闸)。
+    const serverDate = bizDayKey(new Date())
+    if (parsed.data.date !== undefined && parsed.data.date !== serverDate)
+      return reply
+        .status(400)
+        .send(error(400, '仅允许当日签到:date 必须为服务端当日(Asia/Shanghai)'))
+    const date = serverDate
     // 客户端硬塞的 classId 已被 schema strip;生效班级只认服务端现取结果(本票②)。
     const classId = await resolveSelfCheckInClassId(userId, date)
     if (!classId)
@@ -2030,6 +2037,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       remark: parsed.data.remark,
     })
     if (!result.ok) return studentCheckInFailureReply(reply, result.reason)
+    // created=false = 并发下另一笔先落库(唯一索引挡住第二行):按既有契约仍回 409,
+    // 但不落 500、也不返回 201 让端上误以为新签到成功。
+    if (!result.created) return studentCheckInFailureReply(reply, 'duplicate')
     return reply.status(201).send(
       success({
         // 回显最终生效的班级与判定结果,学生端"签到到了哪个班"直接可显示(本票②契约)
@@ -2037,6 +2047,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         status: result.record.status,
         checkInTime: result.record.checkInTime,
         record: result.record,
+        created: result.created,
         // 判定来源如实点名:status 不是客户端传的,是规则 + judgeStatus 算出来的
         judgedBy: 'edu_attendance_rule.judgeStatus',
       }),
@@ -2062,7 +2073,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const date = parsed.data.date ?? bizDayKey(new Date())
+    // F-210 姊妹面:学生自助签退与自签同一条纪律 —— 只允许"当日"。date 一律由服务端
+    // bizDayKey(Asia/Shanghai)生成;客户端显式传非当日日期直接 400 点名,**不静默改写**,
+    // 否则端上会以为补签成功(而 checkOutByStudent 写的是服务器 now,历史行会落进"今天的时刻")。
+    // 历史补签不属于学生自助能力,由教师代签 PUT /attendance/check-out 承担。
+    const serverDate = bizDayKey(new Date())
+    if (parsed.data.date !== undefined && parsed.data.date !== serverDate)
+      return reply
+        .status(400)
+        .send(error(400, '仅允许当日签退:date 必须为服务端当日(Asia/Shanghai)'))
+    const date = serverDate
     // 班级现取与自签同一出口:当日考勤行所属班 → 最近在册(enrolled)报名,两步皆无 ⇒ 409 点名原因
     const classId = await resolveSelfCheckInClassId(userId, date)
     if (!classId)
@@ -2204,6 +2224,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       operatedBy: userId,
     })
     if (!result.ok) return studentCheckInFailureReply(reply, result.reason)
+    // 与自签同一口径:并发冲突落空(created=false)按既有 409 契约回,不落 500。
+    if (!result.created) return studentCheckInFailureReply(reply, 'duplicate')
     return reply.status(201).send(
       success({
         // 与自签同形:回显最终生效班级,端上能显示签到到了哪个班(本票②契约)
@@ -2211,6 +2233,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         status: result.record.status,
         checkInTime: result.record.checkInTime,
         record: result.record,
+        created: result.created,
         judgedBy: 'edu_attendance_rule.judgeStatus',
       }),
     )
@@ -4526,27 +4549,11 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
 
     try {
       const result = await db.transaction(async (tx) => {
-        const conds: SQL[] = [isNull(eduPaymentRecord.deletedAt)]
-        if (parsed.data.classId) conds.push(eq(eduPaymentRecord.classId, parsed.data.classId))
-        const where = and(...conds)
-
-        // 总收入
-        const totalResult = await tx
-          .select({ total: sql<number>`COALESCE(SUM(${eduPaymentRecord.amount}), 0)` })
-          .from(eduPaymentRecord)
-          .where(and(where, eq(eduPaymentRecord.status, 'paid')))
-        const totalIncome = Number(totalResult[0]?.total ?? 0)
-
-        // 已缴费人数（去重）
-        const paidResult = await tx.select({ count: count() }).from(
-          tx
-            .select({ studentId: eduPaymentRecord.studentId })
-            .from(eduPaymentRecord)
-            .where(and(where, eq(eduPaymentRecord.status, 'paid')))
-            .groupBy(eduPaymentRecord.studentId)
-            .as('paid_students'),
+        // 总收入 = 已缴流水 - 已退费(只抵扣已通过/已完成的退费),否则退出去的钱还挂在收入上
+        const { totalIncome, paidStudentCount } = await loadPaymentIncomeSummary(
+          tx,
+          parsed.data.classId ?? null,
         )
-        const paidStudentCount = Number(paidResult[0]?.count ?? 0)
 
         // 欠费人数和欠费总额（从 enrollment 表计算）
         const enrollConds: SQL[] = [isNull(eduEnrollment.deletedAt)]
@@ -5916,6 +5923,21 @@ export function buildLegacySegment(
 }
 
 /**
+ * F-699:汇总各学习计划完成率。
+ * pg 的 `count()` 走 int8,驱动按字符串返回;直接 `sum + completedItems`
+ * 会变成字符串拼接(两个计划 5/6、3/6 → "053" → 53/12 = 442%)。
+ * 这里统一 Number() 归一化,与 SQL 侧 `::int` 双保险。
+ */
+export function sumPlanCompletion(
+  stats: ReadonlyArray<{ totalItems: number | string; completedItems: number | string }>,
+): { totalItems: number; totalCompleted: number; overallRate: number } {
+  const totalItems = stats.reduce((sum, s) => sum + Number(s.totalItems), 0)
+  const totalCompleted = stats.reduce((sum, s) => sum + Number(s.completedItems), 0)
+  const overallRate = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0
+  return { totalItems, totalCompleted, overallRate }
+}
+
+/**
  * 供测试 import 的判据出口(§22c)。
  * 为什么必须导出而不是"跑一次 HTTP 看看":缴费契约在 2026-09-29 从
  * 「studentId/classId 必填」翻成「enrollmentId 必填」—— 翻错或被人改回去时,
@@ -5936,6 +5958,8 @@ export const __test__ = {
   childAttendanceQuerySchema,
   // 2026-11-04 写面收口:status 已从入参删除 ⇒ 必须能被测试直接 import 钉住(不靠跑 HTTP 看形状)
   updateAttendanceSchema,
+  // 2026-11-08 F-699:完成率汇总必须能被直接 import 钉住(pg int8 以字符串返回时不得再拼接)
+  sumPlanCompletion,
 }
 
 export default eduAiManagementRoutes

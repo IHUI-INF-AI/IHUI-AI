@@ -79,7 +79,7 @@ import {
   findRateList,
   findRateById,
   findRateByUserLesson,
-  createRate,
+  createRateIfAbsent,
   deleteRate,
   findAccessByLesson,
   updateLessonAccess,
@@ -467,6 +467,13 @@ const rateListQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 })
+
+// F-503 课程评价接口的判据文案(夹具从这里导入,避免复制字符串)
+export const LEARN_RATE_MESSAGES = {
+  lessonNotFound: '课程不存在',
+  notSignedUp: '请先报名该课程',
+  alreadyRated: '已评价过该课程',
+} as const
 
 const updateAccessSchema = z.object({
   accessType: z.enum(['all', 'tag', 'group', 'member']),
@@ -982,32 +989,41 @@ export const learnRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success(result))
   })
 
-  // POST /learn/lessons/:lessonId/rates - 创建课程评价（需登录）
+  // POST /learn/lessons/:lessonId/rates - 创建课程评价（需登录，需先报名）
   server.post('/learn/lessons/:lessonId/rates', async (request, reply) => {
     if (!(await checkAuth(request, reply))) return
     const parsed = lessonIdParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    const lesson = await findLessonById(parsed.data.lessonId)
+    if (!lesson) {
+      return reply.status(404).send(error(404, LEARN_RATE_MESSAGES.lessonNotFound))
+    }
     const bodyParsed = createRateSchema.safeParse(request.body)
     if (!bodyParsed.success) {
       return reply.status(400).send(error(400, bodyParsed.error.issues[0]?.message ?? '参数错误'))
     }
     const userId = request.userId!
-    const existing = await findRateByUserLesson(userId, parsed.data.lessonId)
-    if (existing) {
-      return reply.status(409).send(error(409, '已评价过该课程'))
+    // F-503:必须先有本人对该课的报名记录;signId 只取服务端查到的报名 id,
+    // body 里的 signId 一律忽略(客户端可伪造他人报名 id)。
+    const signup = await findSignUp(parsed.data.lessonId, userId)
+    if (!signup) {
+      return reply.status(403).send(error(403, LEARN_RATE_MESSAGES.notSignedUp))
     }
-    const rate = await createRate({
+    const { rate, created } = await createRateIfAbsent({
       lessonId: parsed.data.lessonId,
       userId,
-      signId: bodyParsed.data.signId,
+      signId: signup.id,
       content: bodyParsed.data.content,
       contentUtilityScore: bodyParsed.data.contentUtilityScore,
       teacherScore: bodyParsed.data.teacherScore,
       serviceScore: bodyParsed.data.serviceScore,
       isAnonymous: bodyParsed.data.isAnonymous,
     })
+    if (!created) {
+      return reply.status(409).send(error(409, LEARN_RATE_MESSAGES.alreadyRated))
+    }
     return reply.status(201).send(success({ rate }))
   })
 
