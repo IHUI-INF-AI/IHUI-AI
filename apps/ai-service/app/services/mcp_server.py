@@ -3996,6 +3996,31 @@ def _first_shell_metacharacter(command: str) -> str | None:
     return None
 
 
+async def _terminate_process_tree(proc: Any) -> None:
+    """终止命令进程及其子进程树(AIS-056)。
+
+    Windows 下命令经 ``cmd /c`` 承载,``proc.kill()`` 只结束 cmd.exe,它拉起的
+    编译/测试/服务子进程会继续跑并占端口。统一先 ``taskkill /F /T /PID``,
+    taskkill 自身不可用时才回退单进程 kill;POSIX 维持原 kill 语义。
+    """
+    pid = getattr(proc, "pid", None)
+    if sys.platform == "win32" and pid is not None:
+        try:
+            killer = await asyncio.create_subprocess_exec(
+                "taskkill", "/F", "/T", "/PID", str(pid),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await killer.wait()
+            return
+        except Exception:
+            logger.warning(
+                "[mcp_server] taskkill /T 失败,回退单进程 kill: pid=%s", pid,
+                exc_info=True,
+            )
+    with contextlib.suppress(ProcessLookupError, OSError):
+        proc.kill()
+
 
 async def _tool_run_command(
     arguments: dict[str, Any], cancel: asyncio.Event | None = None
@@ -4261,7 +4286,10 @@ async def _tool_run_command(
     _ALLOWED_PREFIXES: set[str] = set(_policy.get("allowed_prefixes") or [])
     first_token = command.split()[0] if command.split() else ""
     cmd_name = first_token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
-    if cmd_name not in _ALLOWED_PREFIXES:
+    # Windows 可执行文件常带 .exe 后缀(sys.executable 就是 python.exe),而白名单
+    # 按无后缀名登记;判定前归一,避免把合法解释器/工具整类误挡。
+    cmd_lookup = cmd_name[:-4] if cmd_name.endswith(".exe") else cmd_name
+    if cmd_lookup not in _ALLOWED_PREFIXES:
         return {
             "tool": "run_command", "command": command,
             "exit_code": -1, "stdout": "", "stderr": "",
@@ -4334,8 +4362,7 @@ async def _tool_run_command(
 
             async def _kill_on_cancel() -> None:
                 await cancel_event.wait()
-                with contextlib.suppress(ProcessLookupError, OSError):
-                    proc.kill()
+                await _terminate_process_tree(proc)
 
             _killer = asyncio.create_task(_kill_on_cancel())
 
@@ -4371,6 +4398,7 @@ async def _tool_run_command(
             _watcher = asyncio.ensure_future(
                 _watch_terminal_input(proc, _activity, _inter_state, _terminal_id, _term_ctx, command)
             )
+        timed_out = False
         try:
             try:
                 timed_out = await _drain_with_input_grace(drain, float(timeout), _inter_state)
@@ -4378,8 +4406,10 @@ async def _tool_run_command(
                     await proc.wait()
             except TimeoutError:
                 timed_out = True
-                with contextlib.suppress(ProcessLookupError):
-                    proc.kill()
+            if timed_out:
+                # 超时既可能是 wait_for 抛错,也可能是 _drain_with_input_grace 返回 True;
+                # 两条都必须回收进程树,否则 cmd.exe 的子进程会继续跑(AIS-056)。
+                await _terminate_process_tree(proc)
                 # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
                 drain.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -4466,8 +4496,8 @@ async def _tool_run_command(
         if _killer is not None:
             _killer.cancel()
         if proc is not None:
-            with contextlib.suppress(ProcessLookupError, OSError):
-                proc.kill()
+            # 已处于取消态:等待会被再次打断,交给独立 task 发 taskkill 进程树。
+            asyncio.create_task(_terminate_process_tree(proc))
         raise
     except Exception as e:
         return {
@@ -4490,9 +4520,10 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     if not query:
         return {
             "tool": "web_search",
-            "ok": True,
+            "ok": False,
             "query": query,
             "results": [],
+            "errorCode": "MISSING_PARAMS",
             "message": "搜索关键词为空",
         }
 
@@ -4502,16 +4533,22 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
         "max_results": max_results,
     })
 
-    # 转换字段名(tool → web_search,保留 results)
-    return {
+    # 转换字段名(tool → web_search,保留 results);AIS-054:失败态必须透传,
+    # 不能把检索故障包装成"成功但无结果"。
+    ok = bool(sub_result.get("ok", True))
+    payload: dict[str, Any] = {
         "tool": "web_search",
-        "ok": True,
+        "ok": ok,
         "query": query,
         "max_results": max_results,
         "results": sub_result.get("results", []),
         "total": sub_result.get("total", 0),
         "message": sub_result.get("message", ""),
     }
+    if not ok:
+        payload["error"] = sub_result.get("error") or sub_result.get("message") or "搜索失败"
+        payload["errorCode"] = sub_result.get("errorCode") or "SEARCH_FAILED"
+    return payload
 
 
 async def _tool_image_search(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -5820,6 +5857,23 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
                 "rows": [],
                 "ok": False,
                 "message": f"SQL 含禁止关键词: {kw}",
+            }
+
+    # AIS-085:READ ONLY 事务只挡写,挡不住"读 DB 主机文件"的内置函数
+    # (`SELECT pg_read_file('/etc/passwd')` 是合法只读查询)。补函数名黑名单,
+    # 词边界避免误杀 `pg_read_file_audit` 这类标识符;在连库之前拒绝。
+    _FORBIDDEN_FUNCTIONS = [
+        "PG_READ_FILE", "PG_READ_BINARY_FILE", "PG_LS_DIR", "LO_IMPORT",
+    ]
+    for fn in _FORBIDDEN_FUNCTIONS:
+        if re.search(r"\b" + fn + r"\b", sql_upper):
+            return {
+                "tool": "db_query",
+                "sql": sql,
+                "rows": [],
+                "ok": False,
+                "errorCode": "SQL_FORBIDDEN_FUNCTION",
+                "message": f"SQL 含禁止函数: {fn}(不允许读取数据库主机文件)",
             }
 
     # 检查 database_url 配置
