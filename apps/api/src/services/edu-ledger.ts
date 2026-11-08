@@ -350,64 +350,100 @@ function todayIso(): string {
   return bizDayKey()
 }
 
+const pairKeyOf = (studentId: string, classId: string) => `${studentId}|${classId}`
+
 /**
- * 把一个报名的原始行读齐后算账。
- * 退费经 payment_id 关联到流水,再取其 schedule_id;关联不上的按"未归属退费"处理。
+ * 批量读取多个报名的账目(DB-20)。
+ *
+ * 此前家长账单/批量催费/自助页都是"每条报名调一次 loadEnrollmentLedger",
+ * 而该函数单次要发 5 条 SQL ⇒ N 条报名 = 5N 次往返。这里把 5 条查询的过滤条件
+ * 扩成 IN / OR,一次取回后在内存里按报名分桶,口径与单条路径完全相同:
+ * - 兄弟计数仍按 `student×class` 全表口径算(不是只算本批,否则"续读两条报名"会被误判为唯一);
+ * - 无归属流水只在"该 student×class 只有一条有效报名"时认领。
  */
-export async function loadEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
-  const [enrollment] = await db
+export async function loadEnrollmentLedgers(
+  enrollmentIds: readonly string[],
+): Promise<Map<string, EnrollmentLedger>> {
+  const out = new Map<string, EnrollmentLedger>()
+  const ids = [...new Set(enrollmentIds)]
+  if (ids.length === 0) return out
+
+  const enrollments = await db
     .select({
+      id: eduEnrollment.id,
       totalFee: eduEnrollment.totalFee,
       studentId: eduEnrollment.studentId,
       classId: eduEnrollment.classId,
     })
     .from(eduEnrollment)
-    .where(and(eq(eduEnrollment.id, enrollmentId), isNull(eduEnrollment.deletedAt)))
-    .limit(1)
-  if (!enrollment) return null
+    .where(and(inArray(eduEnrollment.id, ids), isNull(eduEnrollment.deletedAt)))
+  if (enrollments.length === 0) return out
+
+  const studentIds = [...new Set(enrollments.map((e) => e.studentId))]
+  const classIds = [...new Set(enrollments.map((e) => e.classId))]
 
   /**
    * 该 student×class 下有几条有效报名 —— 决定"没有归属的流水/退费"能不能算到本报名头上。
    * 只有一条时可以确定地认领;有多条(续读)时**两边都不算**:
    * 算给本报名 = 同一笔钱在两个期次各出现一次(重复计钱,正是本模块要消灭的),
-   * 完全不算 = 学员已缴额凭空变小、又被催缴(我上一版按 enrollment_id 精确过滤就是这个形状,
-   * 而顶部注释写的是"仍计入报名级" —— 注释与实现分叉比两处都缺更坏,因为读代码的人会信注释)。
-   * 两种情形都由 loadUnattributedPayments 点名,不静默。
+   * 完全不算 = 学员已缴额凭空变小、又被催缴。
+   * 这里必须按全表口径计数,而不是只数本批 —— 否则本批只带一条续读报名时会被误判成唯一。
    */
-  const [sibling] = await db
-    .select({ n: count() })
+  const siblingRows = await db
+    .select({
+      studentId: eduEnrollment.studentId,
+      classId: eduEnrollment.classId,
+      n: count(),
+    })
     .from(eduEnrollment)
     .where(
       and(
-        eq(eduEnrollment.studentId, enrollment.studentId),
-        eq(eduEnrollment.classId, enrollment.classId),
+        inArray(eduEnrollment.studentId, studentIds),
+        inArray(eduEnrollment.classId, classIds),
         isNull(eduEnrollment.deletedAt),
       ),
     )
-  const adoptUnattributed = shouldAdoptUnattributed(Number(sibling?.n ?? 0))
+    .groupBy(eduEnrollment.studentId, eduEnrollment.classId)
+  const siblingCount = new Map(
+    siblingRows.map((r) => [pairKeyOf(r.studentId, r.classId), Number(r.n ?? 0)]),
+  )
+
+  const adoptByEnrollment = new Map<string, boolean>()
+  const unattributedOwner = new Map<string, string>()
+  for (const e of enrollments) {
+    const adopt = shouldAdoptUnattributed(
+      siblingCount.get(pairKeyOf(e.studentId, e.classId)) ?? 0,
+    )
+    adoptByEnrollment.set(e.id, adopt)
+    if (adopt) unattributedOwner.set(pairKeyOf(e.studentId, e.classId), e.id)
+  }
 
   // 归属条件:确定归属(enrollment_id 命中) always-in;无归属行只在"唯一报名"时认领。
   // 刻意各表写各表的列(不抽泛型 helper)—— 跨表混用列会生成坏 SQL,而这里两处条件不同形。
-  const payOwner = adoptUnattributed
-    ? or(
-        eq(eduPaymentRecord.enrollmentId, enrollmentId),
-        and(
-          isNull(eduPaymentRecord.enrollmentId),
-          eq(eduPaymentRecord.studentId, enrollment.studentId),
-          eq(eduPaymentRecord.classId, enrollment.classId),
-        ),
-      )
-    : eq(eduPaymentRecord.enrollmentId, enrollmentId)
-  const refundOwner = adoptUnattributed
-    ? or(
-        eq(eduRefundRecord.enrollmentId, enrollmentId),
-        and(
-          isNull(eduRefundRecord.enrollmentId),
-          eq(eduRefundRecord.studentId, enrollment.studentId),
-          eq(eduRefundRecord.classId, enrollment.classId),
-        ),
-      )
-    : eq(eduRefundRecord.enrollmentId, enrollmentId)
+  const payOwners = enrollments.map((e) =>
+    adoptByEnrollment.get(e.id)
+      ? or(
+          eq(eduPaymentRecord.enrollmentId, e.id),
+          and(
+            isNull(eduPaymentRecord.enrollmentId),
+            eq(eduPaymentRecord.studentId, e.studentId),
+            eq(eduPaymentRecord.classId, e.classId),
+          ),
+        )
+      : eq(eduPaymentRecord.enrollmentId, e.id),
+  )
+  const refundOwners = enrollments.map((e) =>
+    adoptByEnrollment.get(e.id)
+      ? or(
+          eq(eduRefundRecord.enrollmentId, e.id),
+          and(
+            isNull(eduRefundRecord.enrollmentId),
+            eq(eduRefundRecord.studentId, e.studentId),
+            eq(eduRefundRecord.classId, e.classId),
+          ),
+        )
+      : eq(eduRefundRecord.enrollmentId, e.id),
+  )
 
   const [payments, refunds, schedules] = await Promise.all([
     db
@@ -416,18 +452,24 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
         amount: eduPaymentRecord.amount,
         status: eduPaymentRecord.status,
         scheduleId: eduPaymentRecord.scheduleId,
+        enrollmentId: eduPaymentRecord.enrollmentId,
+        studentId: eduPaymentRecord.studentId,
+        classId: eduPaymentRecord.classId,
       })
       .from(eduPaymentRecord)
-      .where(and(payOwner, isNull(eduPaymentRecord.deletedAt))),
+      .where(and(or(...payOwners), isNull(eduPaymentRecord.deletedAt))),
     db
       .select({
         amount: eduRefundRecord.amount,
         status: eduRefundRecord.status,
         scheduleId: eduPaymentRecord.scheduleId,
+        enrollmentId: eduRefundRecord.enrollmentId,
+        studentId: eduRefundRecord.studentId,
+        classId: eduRefundRecord.classId,
       })
       .from(eduRefundRecord)
       .leftJoin(eduPaymentRecord, eq(eduRefundRecord.paymentId, eduPaymentRecord.id))
-      .where(and(refundOwner, isNull(eduRefundRecord.deletedAt))),
+      .where(and(or(...refundOwners), isNull(eduRefundRecord.deletedAt))),
     db
       .select({
         id: eduFeeSchedule.id,
@@ -435,19 +477,79 @@ export async function loadEnrollmentLedger(enrollmentId: string): Promise<Enroll
         graceDays: eduFeeSchedule.graceDays,
         amountDue: eduFeeSchedule.amountDue,
         status: eduFeeSchedule.status,
+        enrollmentId: eduFeeSchedule.enrollmentId,
       })
       .from(eduFeeSchedule)
-      .where(and(eq(eduFeeSchedule.enrollmentId, enrollmentId), isNull(eduFeeSchedule.deletedAt)))
+      .where(and(inArray(eduFeeSchedule.enrollmentId, ids), isNull(eduFeeSchedule.deletedAt)))
       .orderBy(asc(eduFeeSchedule.dueDate)),
   ])
 
-  return deriveEnrollmentLedger({
-    totalFee: enrollment.totalFee,
-    schedules,
-    payments,
-    refunds,
-    today: todayIso(),
-  })
+  const paymentsByEnrollment = new Map<string, PaymentLike[]>()
+  for (const p of payments) {
+    const owner =
+      p.enrollmentId ?? unattributedOwner.get(pairKeyOf(p.studentId, p.classId)) ?? null
+    if (!owner) continue
+    const list = paymentsByEnrollment.get(owner) ?? []
+    list.push({
+      id: p.id,
+      amount: Number(p.amount),
+      status: p.status,
+      scheduleId: p.scheduleId,
+    })
+    paymentsByEnrollment.set(owner, list)
+  }
+
+  const refundsByEnrollment = new Map<string, RefundLike[]>()
+  for (const r of refunds) {
+    const owner =
+      r.enrollmentId ?? unattributedOwner.get(pairKeyOf(r.studentId, r.classId)) ?? null
+    if (!owner) continue
+    const list = refundsByEnrollment.get(owner) ?? []
+    list.push({
+      amount: Number(r.amount),
+      status: r.status,
+      scheduleId: r.scheduleId,
+    })
+    refundsByEnrollment.set(owner, list)
+  }
+
+  const schedulesByEnrollment = new Map<string, ScheduleLike[]>()
+  for (const s of schedules) {
+    const list = schedulesByEnrollment.get(s.enrollmentId) ?? []
+    list.push({
+      id: s.id,
+      dueDate: s.dueDate,
+      graceDays: s.graceDays,
+      amountDue: s.amountDue,
+      status: s.status,
+    })
+    schedulesByEnrollment.set(s.enrollmentId, list)
+  }
+
+  const today = todayIso()
+  for (const e of enrollments) {
+    out.set(
+      e.id,
+      deriveEnrollmentLedger({
+        totalFee: e.totalFee,
+        schedules: schedulesByEnrollment.get(e.id) ?? [],
+        payments: paymentsByEnrollment.get(e.id) ?? [],
+        refunds: refundsByEnrollment.get(e.id) ?? [],
+        today,
+      }),
+    )
+  }
+  return out
+}
+
+/**
+ * 把一个报名的原始行读齐后算账。
+ * 退费经 payment_id 关联到流水,再取其 schedule_id;关联不上的按"未归属退费"处理。
+ * 单条路径复用批量入口,保证两条路径的归属判据只有一份实现。
+ */
+export async function loadEnrollmentLedger(enrollmentId: string): Promise<EnrollmentLedger | null> {
+  const ledgers = await loadEnrollmentLedgers([enrollmentId])
+  return ledgers.get(enrollmentId) ?? null
 }
 
 /**

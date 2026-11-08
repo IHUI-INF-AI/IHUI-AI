@@ -137,8 +137,24 @@ export interface OverviewStatistics {
 
 /**
  * 总览统计：聚合各业务模块核心指标。
+ *
+ * DB-25:/statistics/overview 每次请求都会打 8 条 count(*),而任意登录用户都能触发。
+ * 总览是聚合看板,60s 内的陈旧数据不影响决策,这里做进程内 TTL 缓存:
+ * 同一实例 60s 内只回落一次,重复请求直接读缓存。多实例各自缓存,最坏滞后仍为 60s。
  */
+const OVERVIEW_CACHE_TTL_MS = 60_000
+let overviewCache: { at: number; data: OverviewStatistics } | null = null
+
+/** 仅测试用:清空缓存,避免用例间串状态。 */
+export function __resetStatisticsOverviewCacheForTest(): void {
+  overviewCache = null
+}
+
 export async function getOverviewStatistics(): Promise<OverviewStatistics> {
+  const now = Date.now()
+  if (overviewCache && now - overviewCache.at < OVERVIEW_CACHE_TTL_MS) {
+    return overviewCache.data
+  }
   const [
     memberRows,
     lessonRows,
@@ -161,7 +177,7 @@ export async function getOverviewStatistics(): Promise<OverviewStatistics> {
     db.select({ count: sql<number>`count(*)::int` }).from(announcements),
     db.select({ count: sql<number>`count(*)::int` }).from(helpArticles),
   ])
-  return {
+  const data: OverviewStatistics = {
     memberTotal: memberRows[0]?.count ?? 0,
     lessonTotal: lessonRows[0]?.count ?? 0,
     examTotal: examRows[0]?.count ?? 0,
@@ -171,6 +187,8 @@ export async function getOverviewStatistics(): Promise<OverviewStatistics> {
     announcementTotal: announcementRows[0]?.count ?? 0,
     articleTotal: articleRows[0]?.count ?? 0,
   }
+  overviewCache = { at: Date.now(), data }
+  return data
 }
 
 // =============================================================================

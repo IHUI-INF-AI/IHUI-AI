@@ -159,3 +159,12 @@ test('T12 被审面口径:跳过 rn-compat 垫片与测试文件', () => {
   assert.ok(!files.some((f) => /\.(test|spec)\.(ts|tsx)$/.test(f)), '测试文件进了射程')
   assert.ok(files.every((f) => f.startsWith('apps/miniapp-taro/src/')), '射程越界到别端')
 })
+
+test('T13 取不到被审面 ⇒ 显式 error(由 run exit 2),不得折成零违规', () => {
+  const missing = G.readTextSafe('apps/miniapp-taro/src/__gate290_missing__.tsx')
+  assert.ok(missing.error, '读不到文件却返回了文本')
+  assert.equal(missing.text, undefined)
+  const ok = G.readTextSafe('apps/miniapp-taro/src/pkg-shop/vip/index.tsx')
+  assert.ok(ok.text.length > 0, '正常文件应读到文本')
+  assert.equal(ok.error, undefined)
+})

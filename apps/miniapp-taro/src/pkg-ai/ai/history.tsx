@@ -785,7 +785,10 @@ export default function HistoryPage() {
       onClearAll={source === 'server' ? () => void onClearServerAll() : onClearAll}
       onImport={goConversationImport}
       degraded={degraded}
-      onRetry={onRefresh}
+      // 失败态「重试」必须是真重载(与 RN 壳同形),不得复用下拉刷新的 onRefresh 别名(门 296)
+      onRetry={() => {
+        void load()
+      }}
       canPin={source === 'server'}
       onOpen={(row) => goChat(findRow(row))}
       onTogglePin={(row) => {

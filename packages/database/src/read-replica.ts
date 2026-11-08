@@ -6,6 +6,7 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import { performance } from 'node:perf_hooks'
 import * as schema from './schema/index.js'
+import { buildPoolOptions } from './pool-options.js'
 
 /**
  * SQL 查询日志事件。
@@ -33,6 +34,12 @@ export interface DatabaseConfig {
   replicas?: ReplicaConfig[]
   max?: number
   idleTimeoutMillis?: number
+  /** 连接排队等待上限（秒），默认 5。 */
+  connectTimeoutSec?: number
+  /** 连接最大存活时长（秒），默认 30 分钟。 */
+  maxLifetimeSec?: number
+  /** 单条语句超时（毫秒），默认 30s / DB_STATEMENT_TIMEOUT_MS。 */
+  statementTimeoutMs?: number
   /**
    * SQL 查询日志回调。设置后,主库与所有读副本的每次查询都会回调,
    * 携带 query/params/durationMs/timestamp。
@@ -64,6 +71,20 @@ export interface ReplicaStatus {
 const FAIL_THRESHOLD = 3
 /** 最大允许复制延迟（秒），超过则标记不健康。 */
 const MAX_LAG_SEC = 10
+
+/**
+ * DB-27:把副本上报的 WAL 回放时延(毫秒)规整为秒。
+ *
+ * - null/undefined/非有限值 ⇒ undefined(调用方保留上次读数,不得抹成 0);
+ * - 负值(两机时钟倒挂)⇒ 0,不产生负延迟;
+ * - 其余 ⇒ 毫秒 / 1000。
+ */
+export function normalizeReplicaLagSec(lagMs: number | null | undefined): number | undefined {
+  if (lagMs === null || lagMs === undefined) return undefined
+  if (!Number.isFinite(lagMs)) return undefined
+  if (lagMs < 0) return 0
+  return lagMs / 1000
+}
 
 /**
  * 包装 postgres-js client 的 unsafe 方法,测量每次查询耗时并回调 logger。
@@ -132,14 +153,15 @@ export function wrapClientWithLogger(client: postgres.Sql, logger: SqlLoggerFn):
  * 连续失败达阈值 → 标记不健康 → 选举优先级最高的健康从库。
  */
 export function createReadWriteDb(config: DatabaseConfig) {
-  // 2026-09-06 P0:主库/读副本共用连接池上限提升到 40(默认)。
-  // API 请求 + 5 个 worker×concurrency(5)=25 + 余量,原默认 max=20 易被并发打满
-  // 导致连接等待/超时。仍可通过 config.max 覆盖。
-  const poolOptions = {
-    max: config.max ?? 40,
-    idle_timeout: config.idleTimeoutMillis ?? 30_000,
-    prepare: false,
-  }
+  // DB-29/DB-31:主库与副本池走同一套护栏(statement/connect/idle/max_lifetime),
+  // max 由 config.max 或 DB_POOL_MAX 决定(默认 40)。
+  const poolOptions = buildPoolOptions({
+    max: config.max,
+    idleTimeoutMillis: config.idleTimeoutMillis,
+    connectTimeoutSec: config.connectTimeoutSec,
+    maxLifetimeSec: config.maxLifetimeSec,
+    statementTimeoutMs: config.statementTimeoutMs,
+  })
 
   const writerClient = config.logger
     ? wrapClientWithLogger(postgres(config.url, poolOptions), config.logger)
@@ -167,24 +189,19 @@ export function createReadWriteDb(config: DatabaseConfig) {
     replicaHealth.set(r.id, {
       id: r.id,
       priority: r.priority,
-      healthy: true,
+      // DB-28:初值 false —— 首轮探测成功前 getReader() 回退主库,
+      // 不让"进程刚启动/副本 TCP 不可达"的 30–45s 窗口把读接口打成 5xx。
+      healthy: false,
       lagSec: 0,
       failCount: 0,
     })
   }
 
-  // 默认 reader：第一个副本（向后兼容），无副本时回退到主库
-  const firstReplicaId = replicaConfigs[0]?.id
-  const readerClient = firstReplicaId
-    ? (replicaClients.get(firstReplicaId) ?? writerClient)
-    : writerClient
-  const dbReader = firstReplicaId ? (replicaDbs.get(firstReplicaId) ?? dbWriter) : dbWriter
-
   /**
-   * 获取当前最优健康读副本的 drizzle 实例。
-   * 优先返回优先级最高且健康的副本；全部不健康时回退到主库。
+   * 选举当前最优健康读副本的 ID（无健康副本时返回 null ⇒ 回退主库）。
+   * 优先返回优先级最高且健康的副本。
    */
-  function getReader(): Db {
+  function pickBestReplicaId(): string | null {
     let bestId: string | null = null
     let bestPriority = -1
     for (const [id, status] of replicaHealth) {
@@ -193,10 +210,22 @@ export function createReadWriteDb(config: DatabaseConfig) {
         bestId = id
       }
     }
-    if (bestId !== null) {
-      return replicaDbs.get(bestId) ?? dbWriter
-    }
-    return dbWriter
+    return bestId
+  }
+
+  /**
+   * 获取当前最优健康读副本的 drizzle 实例。
+   * 全部不健康时回退到主库。
+   */
+  function getReader(): Db {
+    const bestId = pickBestReplicaId()
+    return bestId !== null ? (replicaDbs.get(bestId) ?? dbWriter) : dbWriter
+  }
+
+  /** 获取当前最优健康读副本的 postgres 客户端（全部不健康时回退主库客户端）。 */
+  function getReaderClient(): postgres.Sql {
+    const bestId = pickBestReplicaId()
+    return bestId !== null ? (replicaClients.get(bestId) ?? writerClient) : writerClient
   }
 
   /**
@@ -231,15 +260,37 @@ export function createReadWriteDb(config: DatabaseConfig) {
     return Array.from(replicaHealth.values()).map((s) => ({ ...s }))
   }
 
+  /**
+   * DB-30:关闭主池与全部副本池，供进程优雅停机/测试收尾使用。
+   *
+   * 幂等（重复调用只 end 一次）；end() 默认等待在途查询完成，timeout 只约束
+   * "等待多久后放弃"，不截断正在执行的语句。单个池关闭失败不影响其余池。
+   */
+  let closed = false
+  async function close(): Promise<void> {
+    if (closed) return
+    closed = true
+    const targets = [writerClient, ...Array.from(replicaClients.values())]
+    await Promise.allSettled(targets.map((client) => client.end({ timeout: 5 })))
+  }
+
   return {
     /** 主库 drizzle 实例（写） */
     dbWriter,
-    /** 默认读副本 drizzle 实例（向后兼容；如需故障转移请用 getReader()） */
-    dbReader,
+    /**
+     * 默认读 drizzle 实例（向后兼容）。
+     * DB-42:getter 每次按健康状态选举 —— 不再固定为「第一个副本」，
+     * 副本失效后无需调用方改调 getReader() 也能自动转移。
+     */
+    get dbReader(): Db {
+      return getReader()
+    },
     /** 主库 postgres 客户端 */
     writerClient,
-    /** 默认读副本 postgres 客户端 */
-    readerClient,
+    /** 默认读 postgres 客户端（同 dbReader，按健康状态动态选举） */
+    get readerClient(): postgres.Sql {
+      return getReaderClient()
+    },
     /** 多副本 postgres 客户端（按 ID 索引） */
     replicaClients,
     /** 多副本 drizzle 实例（按 ID 索引） */
@@ -250,6 +301,8 @@ export function createReadWriteDb(config: DatabaseConfig) {
     reportReplicaHealth,
     /** 获取所有副本状态 */
     getReplicaStatuses,
+    /** 关闭主池 + 全部副本池（幂等，优雅停机用） */
+    close,
   }
 }
 

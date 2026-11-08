@@ -296,7 +296,7 @@ class ContextEngineService {
         result = await this.searchDatabaseTables(query, limit)
         break
       case 'symbol': {
-        const symbols = await this.searchSymbols(query, limit)
+        const symbols = await this.searchSymbols(query, limit, userId)
         result = symbols.map((s) => ({
           id: `symbol:${s.symbolName}:${s.filePath}:${s.lineStart ?? 0}`,
           type: 'symbol' as const,
@@ -408,16 +408,26 @@ class ContextEngineService {
     }
   }
 
-  /** symbol 检索:复用 codebaseIndexService 语义搜索(pgvector ANN) */
-  async searchSymbols(query: string, limit: number): Promise<SymbolSearchItem[]> {
+  /**
+   * symbol 检索:复用 codebaseIndexService 语义搜索(pgvector ANN)。
+   *
+   * ownerUuid 必填:codebaseIndexService 对无归属调用 fail-closed(谓词 `1=0`),
+   * 漏传等于符号检索永久返回空;缓存键也必须带 ownerUuid,否则会跨用户串结果。
+   */
+  async searchSymbols(
+    query: string,
+    limit: number,
+    ownerUuid: string,
+  ): Promise<SymbolSearchItem[]> {
     if (!query.trim()) return []
-    const cacheKey = `symbol:${query}:${limit}`
+    const cacheKey = `symbol:${ownerUuid}:${query}:${limit}`
     const cached = this.cache.get(cacheKey) as SymbolSearchItem[] | undefined
     if (cached) return cached
     try {
       const chunks = await codebaseIndexService.search({
         query,
         topK: limit,
+        ownerUuid,
       })
       const result: SymbolSearchItem[] = chunks
         .filter((c) => c.symbolName)
@@ -717,10 +727,7 @@ class ContextEngineService {
    *
    * 降级:ai-service 不可用时静默忽略(可视化数据非关键路径)。
    */
-  async trackVisualization(
-    opts: TrackVisualizationOptions,
-    userId: string = '',
-  ): Promise<boolean> {
+  async trackVisualization(opts: TrackVisualizationOptions, userId: string = ''): Promise<boolean> {
     try {
       const resp = await aiServiceFetch(null, '/api/context/visualization/track', {
         method: 'POST',

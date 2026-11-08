@@ -7,7 +7,9 @@ import postgres from 'postgres'
 // O13(2026-09-21):受控出口可以有**自己的一条连接**了 —— schema 与 Database 类型
 // 继续复用 @ihui/database,不在这里另起一套。
 import {
+  buildPoolOptions,
   createReadWriteDb,
+  normalizeReplicaLagSec,
   schema,
   wrapClientWithLogger,
   type Database,
@@ -15,7 +17,9 @@ import {
 } from '@ihui/database'
 import type { FastifyInstance } from 'fastify'
 import { config } from '../config/index.js'
+import { currentPrincipal } from '../plugins/principal.js'
 import { sqlEventBus } from './sql-event-bus.js'
+import { isWriteSql, RywReadBarrier } from '../utils/ryw-consistency.js'
 // O4 数据作用域闸:受控出口 dbScoped()/dbReadScoped() + 只读超级用户探针
 import {
   configureDataScopeGuard,
@@ -39,7 +43,14 @@ import {
 // slow-sql-killer 与 n1-detector 订阅消费(自动注入 ALS 中的 requestId)
 // O13 补齐①(2026-09-21):这个回调提取为共享 sqlLogger —— 主池与受控出口独立池
 // (DATABASE_APP_URL)走**同一条**观测口径,事件形状不变,不发明新事件名。
+// DB-26:写后读(RYW)屏障 —— 写 SQL 完成后按调用主体(subjectId)开启 2s 窗口,
+// 窗口内 dbRead 代理强制走主库,消除"创建后跳详情/列表刷新读到旧副本"。
+const rywBarrier = new RywReadBarrier()
+
 const sqlLogger: SqlLoggerFn = (event) => {
+  // 写语句在 promise resolve 时回调(wrapClientWithLogger 的 then 早于调用方 await),
+  // 因此下一次同主体读必然能看到标记。
+  if (isWriteSql(event.query)) rywBarrier.markWrite(currentPrincipal()?.subjectId)
   sqlEventBus.emit({
     query: event.query,
     params: event.params,
@@ -48,12 +59,18 @@ const sqlLogger: SqlLoggerFn = (event) => {
   })
 }
 
-const { dbWriter, writerClient, getReader, reportReplicaHealth, replicaClients } =
-  createReadWriteDb({
-    url: config.DATABASE_URL,
-    readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
-    logger: sqlLogger,
-  })
+const {
+  dbWriter,
+  writerClient,
+  getReader,
+  reportReplicaHealth,
+  replicaClients,
+  close: closeReadWriteDb,
+} = createReadWriteDb({
+  url: config.DATABASE_URL,
+  readReplicaUrl: config.DATABASE_READ_REPLICA_URL,
+  logger: sqlLogger,
+})
 
 // 主库(写) — insert/update/delete 必须使用此客户端
 export const db: Database = dbWriter
@@ -63,6 +80,10 @@ export const db: Database = dbWriter
 // 健康状态由下方探测循环通过 reportReplicaHealth 驱动。
 export const dbRead: Database = new Proxy(dbWriter, {
   get(target, prop, receiver) {
+    // DB-26:本主体刚写完 ⇒ RYW 窗口内读必须落主库(副本延迟再小也不保证读己之写)。
+    if (rywBarrier.mustReadPrimary(currentPrincipal()?.subjectId)) {
+      return Reflect.get(target, prop, receiver)
+    }
     const reader = getReader()
     if (reader === target) return Reflect.get(target, prop, receiver)
     const value = Reflect.get(reader, prop)
@@ -111,15 +132,24 @@ const SCOPED_POOL_MAX = 8
 // slow-sql / n+1 检测对开放面完全失明。现在与主池同口径包装(同一 sqlLogger)。
 const scopedClient: typeof writerClient | null = config.DATABASE_APP_URL
   ? wrapClientWithLogger(
-      postgres(config.DATABASE_APP_URL, {
-        max: SCOPED_POOL_MAX,
-        idle_timeout: 30_000,
-        prepare: false,
-      }),
+      // DB-29/DB-31:受控出口与主池同口径护栏(max 仍固定 8,不参与 DB_POOL_MAX)。
+      postgres(config.DATABASE_APP_URL, buildPoolOptions({ max: SCOPED_POOL_MAX })),
       sqlLogger,
     )
   : null
 const scopedDrizzle: Database | null = scopedClient ? drizzle(scopedClient, { schema }) : null
+
+/**
+ * DB-30:关闭本模块自建的全部写/读/受控出口连接池。
+ * 幂等由各池自己的 close()/end() 保证;所有池并行关闭且互不阻塞,
+ * 单个池失败不影响其余池完成收尾。
+ */
+export async function closeDbPools(): Promise<void> {
+  await Promise.allSettled([
+    closeReadWriteDb(),
+    ...(scopedClient ? [scopedClient.end({ timeout: 5 })] : []),
+  ])
+}
 
 if (scopedDrizzle) {
   console.info(
@@ -258,21 +288,52 @@ export function stopPoolTracker(): void {
 // P1-3 修复(2026-08-06):读副本健康探测循环。
 // 原 reportReplicaHealth/getReader 为死代码(从未被调用),dbRead 固定绑第一个副本,
 // 副本宕机/延迟超阈值不自动回退主库 → 700+ 处 dbRead 读路径雪崩。
-// 现在:每 15s 对每个副本执行 SELECT 1,成功 → reportReplicaHealth(id, true),
-// 失败 → reportReplicaHealth(id, false);连续失败 ≥3 次(或延迟 >10s)标记不健康,
-// getReader() 自动跳过并回退主库,故障恢复后探测成功自动恢复。
+// DB-27/DB-28:每 15s 探测每个副本的 WAL 回放时延(pg_last_xact_replay_timestamp,单次 8s 超时),
+// 成功 → reportReplicaHealth(id, true, 回放延迟秒);失败 → reportReplicaHealth(id, false);
+// 连续失败 ≥3 次或延迟 >10s 标记不健康,getReader() 自动跳过并回退主库,恢复后自动回读副本。
+// 副本健康初值 false(read-replica.ts),首轮探测成功前不会把读流量打到未就绪副本。
 // =============================================================================
 const REPLICA_PROBE_INTERVAL_MS = 15_000
+/** DB-28:单次副本探测的硬超时(避免半开连接把探测循环无限拖住)。 */
+const REPLICA_PROBE_TIMEOUT_MS = 8_000
+
+/** 给探测加有界超时;超时后仍挂起的 promise 已被 then 接住,不会产生 unhandled rejection。 */
+function withProbeTimeout<T>(work: () => Promise<T>, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), REPLICA_PROBE_TIMEOUT_MS)
+    timer.unref()
+    work().then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
 
 const replicaProbeTimer = (() => {
   if (replicaClients.size === 0) return null
   const probe = async (): Promise<void> => {
     for (const [id, client] of replicaClients) {
       try {
-        const start = Date.now()
-        await client`SELECT 1`
-        const lagSec = (Date.now() - start) / 1000
-        reportReplicaHealth(id, true, lagSec)
+        // DB-27:延迟取副本的 WAL 回放位点差(pg_last_xact_replay_timestamp),
+        // 不再用 SELECT 1 的网络 RTT 冒充 —— RTT 2ms 而真实复制延迟 30s 时旧实现永远判健康。
+        // 副本尚未回放任何事务时返回 NULL ⇒ normalizeReplicaLagSec 返回 undefined,
+        // reportReplicaHealth 保留上次读数(绝不抹成 0)。
+        const lagMs = await withProbeTimeout(async () => {
+          const rows = await client`
+            SELECT CASE
+              WHEN pg_last_xact_replay_timestamp() IS NULL THEN NULL
+              ELSE extract(epoch from (now() - pg_last_xact_replay_timestamp()))::float8 * 1000
+            END AS lag_ms
+          `
+          return (rows[0]?.lag_ms as number | null | undefined) ?? null
+        }, `副本 ${id} 探测超时(>${REPLICA_PROBE_TIMEOUT_MS}ms)`)
+        reportReplicaHealth(id, true, normalizeReplicaLagSec(lagMs))
       } catch (e) {
         // 连接失败 → 上报不健康(连续失败达阈值后 getReader 跳过该副本)
         console.warn(`[replica-probe] 副本 ${id} 探测失败:`, (e as Error).message)
@@ -293,10 +354,12 @@ const replicaProbeTimer = (() => {
  * O13:另需关掉受控出口自己的应用角色池(有配 DATABASE_APP_URL 时才存在)。
  */
 export function registerPoolTrackerCleanup(server: FastifyInstance): void {
-  server.addHook('onClose', () => {
+  server.addHook('onClose', async () => {
     clearInterval(poolTracker)
     if (replicaProbeTimer) clearInterval(replicaProbeTimer)
-    if (scopedClient) void scopedClient.end()
+    // DB-30:停机必须 await 主池 + 副本池 + 受控出口池的 end(),
+    // 不得硬退把在途事务/连接丢给 DB 侧超时回收。
+    await closeDbPools()
   })
 }
 

@@ -353,7 +353,6 @@ export default function VipIndexPage() {
         }}
         colorScheme={resolvedTheme}
         benefitItems={benefitItems}
-        onNavigate={() => {}}
         onToast={onToast}
         headerPrice={currentPrice}
         introduce={{ label: t('vip.index.introduce'), onPress: onIntroduceClick }}

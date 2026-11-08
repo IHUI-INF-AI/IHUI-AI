@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, or, not, lte, desc, asc, sql, ilike } from 'drizzle-orm'
+import { eq, and, or, not, lte, desc, asc, sql, ilike, inArray } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 // G-815966:百分比裁剪的具名唯一出口(子路径导入,与 @ihui/shared/utils/redact 同形;
 // HEAD 的 utils barrel 尚未递出该行,不得依赖它)。
@@ -435,6 +435,36 @@ export async function findLessonSections(chapterId: string): Promise<LessonChapt
     .from(lessonChapterSections)
     .where(eq(lessonChapterSections.chapterId, chapterId))
     .orderBy(asc(lessonChapterSections.sortOrder), asc(lessonChapterSections.createdAt))
+}
+
+/**
+ * 批量取多个章节的小节(DB-24)。
+ *
+ * 课程详情/章节接口此前为每个 chapter 单独调 findLessonSections,50 章 = 50 条 SQL。
+ * 这里一条 IN 查询取回后按 chapter 分桶,组内顺序与单章查询一致
+ * (sortOrder, createdAt),调用方无需再排序。
+ */
+export async function findLessonSectionsByChapterIds(
+  chapterIds: readonly string[],
+): Promise<Map<string, LessonChapterSection[]>> {
+  const out = new Map<string, LessonChapterSection[]>()
+  const ids = [...new Set(chapterIds)]
+  if (ids.length === 0) return out
+  for (const id of ids) out.set(id, [])
+
+  const rows = await db
+    .select()
+    .from(lessonChapterSections)
+    .where(inArray(lessonChapterSections.chapterId, ids))
+    .orderBy(
+      asc(lessonChapterSections.chapterId),
+      asc(lessonChapterSections.sortOrder),
+      asc(lessonChapterSections.createdAt),
+    )
+  for (const row of rows) {
+    out.get(row.chapterId)?.push(row)
+  }
+  return out
 }
 
 export async function findSectionById(id: string): Promise<LessonChapterSection | undefined> {

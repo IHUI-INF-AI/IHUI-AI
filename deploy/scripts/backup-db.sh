@@ -14,8 +14,9 @@ set -euo pipefail
 #   ./backup-db.sh --help                 显示帮助
 #
 # 备份文件命名:
-#   全量:    ihui-db-YYYYMMDD-HHmmss.sql.gz
-#   增量:    ihui-db-wal-YYYYMMDD-HHmmss.tar.gz
+#   全量:    ihui-db-YYYYMMDD-HHmmss.sql.gz[.age]
+#   增量:    ihui-db-wal-YYYYMMDD-HHmmss.tar.gz[.age]
+#   [.age] 后缀 = age 静态加密产物(默认形态,见下)
 #
 # 保留策略:
 #   - 每日备份保留 7 天
@@ -28,9 +29,14 @@ set -euo pipefail
 #   可选: OSS_PREFIX(默认 ihui-backup/db)
 #
 # 备份完整性校验:
-#   gzip -t <file> 校验,失败则删除并标记本次备份失败
+#   gzip -t <file> 校验 / 加密产物: age 文件头 + (有私钥时)解密后 gzip 校验,失败则删除并标记本次备份失败
 #
-# 依赖: pg_dump / psql / gzip / tar / (可选) ossutil 或 aws-cli
+# 静态加密(DB-34,默认强制):
+#   BACKUP_ENC_RECIPIENT=age1...  必填(age 公钥);缺失时脚本 fail-closed 不产出明文备份
+#   应急放行明文:BACKUP_ALLOW_PLAINTEXT=1(会打 WARN 并写入备份日志)
+#   恢复: age -d -i <私钥> <file>.age | gunzip | psql ...
+#
+# 依赖: pg_dump / psql / gzip / tar / age / (可选) ossutil 或 aws-cli
 # ============================================================
 
 # ── 配置 ──
@@ -58,6 +64,15 @@ RETAIN_MONTHLY_MONTHS=6
 OSS_BUCKET="${OSS_BUCKET:-}"
 OSS_ENDPOINT="${OSS_ENDPOINT:-oss-cn-hangzhou.aliyuncs.com}"
 OSS_PREFIX="${OSS_PREFIX:-ihui-backup/db}"
+
+# ── 静态加密(DB-34)──
+# 备份产物含全库明文(含 PII 与第三方凭据),落盘/上传前必须 age 加密。
+#   BACKUP_ENC_RECIPIENT   age 公钥(age1...),默认强制要求
+#   BACKUP_AGE_IDENTITY    可选:age 私钥文件,提供后落盘前解密自检(不提供则只校验文件头)
+#   BACKUP_ALLOW_PLAINTEXT 应急开关:设为 1 才允许明文备份(会打 WARN 并持久化记录)
+BACKUP_ENC_RECIPIENT="${BACKUP_ENC_RECIPIENT:-}"
+BACKUP_AGE_IDENTITY="${BACKUP_AGE_IDENTITY:-}"
+BACKUP_ALLOW_PLAINTEXT="${BACKUP_ALLOW_PLAINTEXT:-0}"
 
 LOG_FILE="/var/log/ihui-backup.log"
 
@@ -87,16 +102,48 @@ ensure_dirs() {
   mkdir -p "$(dirname "${LOG_FILE}")" 2>/dev/null || true
 }
 
+# 解析备份加密模式(fail-closed)
+# 返回 age|plain;既无公钥又未显式放行明文 ⇒ exit 1(不产出明文备份)
+backup_enc_mode() {
+  if [[ -n "${BACKUP_ENC_RECIPIENT}" ]]; then
+    if ! command -v age >/dev/null 2>&1; then
+      log_error "BACKUP_ENC_RECIPIENT 已配置但 age 不在位(apt/apk install age 或下载官方二进制)"
+      log_persist ERROR "backup FAILED at encryption-tool-missing"
+      exit 1
+    fi
+    echo "age"
+    return 0
+  fi
+  if [[ "${BACKUP_ALLOW_PLAINTEXT}" == "1" ]]; then
+    log_warn "⚠ BACKUP_ALLOW_PLAINTEXT=1:本次备份将明文落盘(含全库 PII/凭据),仅限应急"
+    log_persist WARN "backup running WITHOUT encryption (BACKUP_ALLOW_PLAINTEXT=1)"
+    echo "plain"
+    return 0
+  fi
+  log_error "拒绝明文备份:BACKUP_ENC_RECIPIENT 未配置(age 公钥,例:age-keygen 生成)"
+  log_error "应急放行:显式设置 BACKUP_ALLOW_PLAINTEXT=1(会记录 WARN),并尽快恢复加密"
+  log_persist ERROR "backup FAILED at encryption-not-configured"
+  exit 1
+}
+
 # 生成时间戳文件名
 # $1 = 类型(full|wal)
+# $2 = 加密模式(age|plain)
 gen_filename() {
   local type=$1
+  local mode=$2
   local ts
   ts=$(date +"%Y%m%d-%H%M%S")
+  local base
   if [[ "${type}" == "full" ]]; then
-    echo "ihui-db-${ts}.sql.gz"
+    base="ihui-db-${ts}.sql.gz"
   else
-    echo "ihui-db-wal-${ts}.tar.gz"
+    base="ihui-db-wal-${ts}.tar.gz"
+  fi
+  if [[ "${mode}" == "age" ]]; then
+    echo "${base}.age"
+  else
+    echo "${base}"
   fi
 }
 
@@ -114,22 +161,73 @@ verify_gzip() {
   fi
 }
 
+# 校验备份产物:加密产物先验 age 文件头;有私钥时完整解密 + gzip 完整性双检
+# $1 = 文件路径
+# $2 = 加密模式(age|plain)
+verify_artifact() {
+  local f=$1
+  local mode=$2
+
+  if [[ "${mode}" != "age" ]]; then
+    verify_gzip "${f}"
+    return $?
+  fi
+
+  if ! head -c 64 "${f}" | grep -q 'age-encryption.org/v1'; then
+    log_error "加密产物缺少 age 文件头,删除损坏文件: ${f}"
+    rm -f "${f}"
+    return 1
+  fi
+  log_info "age 文件头校验通过: ${f}"
+
+  if [[ -n "${BACKUP_AGE_IDENTITY}" ]]; then
+    if ! age -d -i "${BACKUP_AGE_IDENTITY}" "${f}" | gzip -t; then
+      log_error "解密/gzip 完整性校验失败,删除损坏文件: ${f}"
+      rm -f "${f}"
+      return 1
+    fi
+    log_info "解密 + gzip 完整性校验通过: ${f}"
+  else
+    log_warn "未提供 BACKUP_AGE_IDENTITY,跳过解密内容校验(仅验 age 文件头)"
+  fi
+  return 0
+}
+
 # ── 全量备份 ──
 cmd_full() {
-  local filename filepath
-  filename=$(gen_filename full)
+  local filename filepath enc_mode
+  enc_mode=$(backup_enc_mode) || exit 1
+  filename=$(gen_filename full "${enc_mode}")
   filepath="${BACKUP_DIR}/${filename}"
 
   log_step "开始全量备份"
   log_info "主机: ${PG_HOST}:${PG_PORT}  数据库: ${PG_DB}"
-  log_info "目标文件: ${filepath}"
+  log_info "目标文件: ${filepath}(加密模式: ${enc_mode})"
 
   # pg_dump 选项:
   #   --no-owner --no-privileges 避免恢复时 owner 不匹配
   #   --format=plain 纯文本 + gzip 兼容性更好
   # PGPASSWORD 通过环境变量传递(不写在命令行,避免 ps 泄露)
-  log_info "pg_dump | gzip 生成 ${filepath}"
-  if ! PGPASSWORD="${PGPASSWORD:-}" pg_dump \
+  # 加密链路: pg_dump | gzip -9 | age -r <公钥> ⇒ 明文不落盘
+  if [[ "${enc_mode}" == "age" ]]; then
+    log_info "pg_dump | gzip | age 生成 ${filepath}"
+  else
+    log_info "pg_dump | gzip 生成 ${filepath}"
+  fi
+  if [[ "${enc_mode}" == "age" ]]; then
+    if ! PGPASSWORD="${PGPASSWORD:-}" pg_dump \
+          -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" \
+          -d "${PG_DB}" \
+          --no-owner --no-privileges \
+          --format=plain \
+          2>/tmp/pgdump-err.$$ | gzip -9 | age -r "${BACKUP_ENC_RECIPIENT}" -o "${filepath}"; then
+      log_error "pg_dump | gzip | age 失败:"
+      cat /tmp/pgdump-err.$$ >&2 || true
+      rm -f /tmp/pgdump-err.$$ "${filepath}"
+      log_persist ERROR "full backup FAILED at pg_dump|gzip|age"
+      exit 1
+    fi
+  elif ! PGPASSWORD="${PGPASSWORD:-}" pg_dump \
         -h "${PG_HOST}" -p "${PG_PORT}" -U "${PG_USER}" \
         -d "${PG_DB}" \
         --no-owner --no-privileges \
@@ -144,7 +242,7 @@ cmd_full() {
   rm -f /tmp/pgdump-err.$$
 
   # 完整性校验
-  if ! verify_gzip "${filepath}"; then
+  if ! verify_artifact "${filepath}" "${enc_mode}"; then
     log_persist ERROR "full backup FAILED integrity check"
     exit 1
   fi
@@ -164,8 +262,9 @@ cmd_full() {
 
 # ── 增量备份(WAL 归档) ──
 cmd_incremental() {
-  local filename filepath
-  filename=$(gen_filename wal)
+  local filename filepath enc_mode
+  enc_mode=$(backup_enc_mode) || exit 1
+  filename=$(gen_filename wal "${enc_mode}")
   filepath="${BACKUP_DIR}/${filename}"
 
   log_step "开始增量备份(WAL 归档)"
@@ -203,7 +302,17 @@ cmd_incremental() {
   fi
 
   log_info "打包 ${wal_count} 个 WAL 文件 → ${filepath}"
-  if ! tar -czf "${filepath}" -C "${WAL_ARCHIVE_DIR}" . 2>/tmp/tar-err.$$; then
+  # WAL 段同样含全库明文变更 ⇒ 与全量同一条加密链路
+  if [[ "${enc_mode}" == "age" ]]; then
+    if ! tar -czf - -C "${WAL_ARCHIVE_DIR}" . 2>/tmp/tar-err.$$ \
+          | age -r "${BACKUP_ENC_RECIPIENT}" -o "${filepath}"; then
+      log_error "tar | age 打包/加密失败:"
+      cat /tmp/tar-err.$$ >&2 || true
+      rm -f /tmp/tar-err.$$ "${filepath}"
+      log_persist ERROR "incremental backup FAILED at tar|age"
+      exit 1
+    fi
+  elif ! tar -czf "${filepath}" -C "${WAL_ARCHIVE_DIR}" . 2>/tmp/tar-err.$$; then
     log_error "tar 打包失败:"
     cat /tmp/tar-err.$$ >&2 || true
     rm -f /tmp/tar-err.$$ "${filepath}"
@@ -212,8 +321,8 @@ cmd_incremental() {
   fi
   rm -f /tmp/tar-err.$$
 
-  # 完整性校验(tar.gz 也是 gzip)
-  if ! verify_gzip "${filepath}"; then
+  # 完整性校验
+  if ! verify_artifact "${filepath}" "${enc_mode}"; then
     log_persist ERROR "incremental backup FAILED integrity check"
     exit 1
   fi
@@ -246,8 +355,8 @@ apply_retention() {
   while IFS= read -r -d '' f; do
     local fname date_str epoch age_days
     fname=$(basename "${f}")
-    # 从文件名提取 YYYYMMDD
-    if [[ "${fname}" =~ ihui-db-(wal-)?([0-9]{8})-[0-9]{6}\.(sql|tar)\.gz ]]; then
+    # 从文件名提取 YYYYMMDD(明文 .sql.gz/.tar.gz,加密 .sql.gz.age/.tar.gz.age)
+    if [[ "${fname}" =~ ihui-db-(wal-)?([0-9]{8})-[0-9]{6}\.(sql|tar)\.gz(\.[a-z]+)?$ ]]; then
       date_str="${BASH_REMATCH[2]}"
     else
       continue
@@ -359,6 +468,9 @@ usage() {
   OSS_BUCKET        配置后启用 OSS 上传(默认空=不上传)
   OSS_ENDPOINT      OSS 端点(默认 oss-cn-hangzhou.aliyuncs.com)
   OSS_PREFIX        OSS 对象前缀(默认 ihui-backup/db)
+  BACKUP_ENC_RECIPIENT  age 公钥(默认强制加密,未配置则拒绝备份)
+  BACKUP_AGE_IDENTITY   age 私钥文件(可选,用于落盘后解密自检)
+  BACKUP_ALLOW_PLAINTEXT=1  应急放行明文备份(会记录 WARN)
 
 保留策略:
   每日备份保留 ${RETAIN_DAILY_DAYS} 天
@@ -376,8 +488,9 @@ usage() {
   PGPASSWORD=xxx OSS_BUCKET=my-bucket $0 full
 
 文件命名:
-  全量: ihui-db-YYYYMMDD-HHmmss.sql.gz
-  增量: ihui-db-wal-YYYYMMDD-HHmmss.tar.gz
+  全量: ihui-db-YYYYMMDD-HHmmss.sql.gz[.age]
+  增量: ihui-db-wal-YYYYMMDD-HHmmss.tar.gz[.age]
+  (默认加密;无 BACKUP_ENC_RECIPIENT 时拒绝产出明文)
 EOF
 }
 
