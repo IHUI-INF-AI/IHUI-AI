@@ -479,6 +479,9 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+    // F-30:git/github 端点与 fs 系列同口径走 workspace_permissions 闸,
+    // 否则未配置权限的用户可绕过 setup 引导直接读任意登记工作区的仓库状态。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_status'))) return
     const runGit = async (args: string[], timeoutMs = 8000): Promise<string> => {
       const result = await fsBridge.run({
         command: buildGitCmd(args),
@@ -688,6 +691,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (body.target === 'commit' && !body.commit) {
       return reply.status(400).send(error(400, 'target=commit 时必须提供 commit(7-40 位 sha)'))
     }
+    // F-30:review-diff 会把工作区 diff 原文回传,必须先过 workspace_permissions 闸。
+    if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'git_review_diff'))) return
     const runGit = async (args: string[], timeoutMs = 15_000) =>
       fsBridge.run({
         command: buildGitCmd(args),
@@ -782,6 +787,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     if (!request.userId) return
     try {
       const body = z.object({ workspacePath: z.string().min(1) }).parse(request.body ?? {})
+      // F-30:github/status 同样读工作区 git 元数据,补上权限闸。
+      if (!(await isAllowedWorkspace(request, reply, body.workspacePath, 'github_status'))) return
       const remote = await githubClient.detectRemote(body.workspacePath)
       const branchRaw = await fsBridge.run({
         command: buildGitCmd(['rev-parse', '--abbrev-ref', 'HEAD']),
@@ -1428,6 +1435,7 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 10. BackgroundAgents — 后台长时运行 Agent
   // ===========================================================================
 
+  // F-07:归属只认登录身份 —— 不再接受 body `userUuid`(此前可由客户端把 agent 记到他人名下)
   const startBgAgentSchema = z.object({
     prompt: z.string().min(1),
     workspacePath: z.string().min(1),
@@ -1461,11 +1469,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { agentId } = agentIdParam.parse(request.params)
-    const agent = backgroundAgentManager.get(agentId)
+    const agent = backgroundAgentManager.get(agentId, request.userId)
     if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
-    // F-07:非属主一律 403(与 F-04/F-05 同口径),不回落到"查不到"。
-    if (agent.userUuid !== request.userId)
-      return reply.status(403).send(error(403, '无权访问该后台 Agent'))
     return reply.send(success(agent))
   })
 
@@ -1473,12 +1478,11 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
     await requireAuth(request, reply)
     if (!request.userId) return
     const { agentId } = agentIdParam.parse(request.params)
-    const agent = backgroundAgentManager.get(agentId)
+    // F-07:先按归属取;不存在与不是自己的同一个 404(不泄漏 agentId 是否存在),
+    // 且取消只在归属匹配后才可能执行 —— 404 绝不返回 canceled:true。
+    const agent = backgroundAgentManager.get(agentId, request.userId)
     if (!agent) return reply.status(404).send(error(404, '后台 Agent 不存在'))
-    // F-07:取消他人长任务同样 403,先判归属再判状态。
-    if (agent.userUuid !== request.userId)
-      return reply.status(403).send(error(403, '无权取消该后台 Agent'))
-    const canceled = backgroundAgentManager.cancel(agentId)
+    const canceled = backgroundAgentManager.cancel(agentId, request.userId)
     if (!canceled) return reply.status(400).send(error(400, 'Agent 不存在或不可取消'))
     return reply.send(success({ canceled: true }))
   })
