@@ -1447,3 +1447,8 @@
 {"key":"6G#缺陷普查APIF-06","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:12:00+08:00","updatedBy":"msg-p1","evidence":["3183046cf823b3ea20b04a8b6a98c075b21b70bc","apps/api/src/routes/__tests__/agent-creation-identity.test.ts"]}
 {"key":"4G#缺陷普查APIF-04","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:45:00+08:00","updatedBy":"msg-p1","evidence":["e18899419a","移交:由 fix/api-p0-1108 修复,本分支 138bd5120a 已把 legacy-ask.ts 回退 origin/main 并删除对应夹具"]}
 {"key":"6G#缺陷普查APIF-06","owner":"机主","waiting":"none","updatedAt":"2026-11-08T17:45:00+08:00","updatedBy":"msg-p1","evidence":["e18899419a","移交:由 fix/api-p0-1108 修复,本分支 138bd5120a 已把 agent-creation.ts 回退 origin/main 并删除对应夹具"]}
+{"key":"39G#缺陷普查APIF-39","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["6cd8bc5e1a","apps/api/src/services/__tests__/agent-loop-ownership.test.ts"]}
+{"key":"211G#缺陷普查APIF-211","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["a6e89dab58","apps/api/src/routes/__tests__/miniapp-messages-room-scope.test.ts"]}
+{"key":"306G#缺陷普查APIF-306","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["6cd8bc5e1a","部分已修:失败状态+属主;计费/配额/并发上限待排期"]}
+{"key":"364G#缺陷普查APIF-364","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["de18e75902","由 fix/api-admin-rbac-p1-1108 修复,本线不重复修"]}
+{"key":"95G#缺陷普查APIF-95","owner":"机主","waiting":"none","updatedAt":"2026-11-08T19:10:00+08:00","updatedBy":"msg-p1","evidence":["9eb017a220","重复条目:与 F-154 同端点,已由 F-154 批次修复(通知/消息详情均带 (id,userId) 谓词并 404)"]}
