@@ -120,6 +120,8 @@ const mockRedisPlugin = fp(
 const USER_ID = '00000000-0000-4000-8000-000000000001'
 const RESOURCE_ID = '00000000-0000-4000-8000-000000000010'
 const TARGET_USER_ID = '00000000-0000-4000-8000-000000000099'
+// F-205:重复关注(已存在关系)的幂等响应用户
+const DUP_USER_ID = '00000000-0000-4000-8000-000000000098'
 const CHANNEL_ID = '00000000-0000-4000-8000-000000000020'
 const POINT_ID = '00000000-0000-4000-8000-000000000030'
 
@@ -143,7 +145,11 @@ const testRoutes: FastifyPluginAsync = async (server) => {
   })
   server.post('/api/follows/:userId', async (request, reply) => {
     request.userId = USER_ID
-    return reply.code(201).send({ code: 0, message: 'success', data: { followed: true } })
+    // F-205:重复关注是 200 幂等 no-op;只有首次建立关系才是 201
+    const duplicate = (request.params as { userId: string }).userId === DUP_USER_ID
+    return reply
+      .code(duplicate ? 200 : 201)
+      .send({ code: 0, message: 'success', data: { followed: true } })
   })
   server.post('/api/checkin', async (request, reply) => {
     request.userId = USER_ID
@@ -291,6 +297,21 @@ describe('AOP aspects (search / watch / point)', () => {
     expect(callArg.pointId).toBe(POINT_ID)
     expect(callArg.amount).toBe(5)
     expect(callArg.remark).toBe('关注奖励')
+  })
+
+  // 6b. F-205:重复关注返回 200(幂等 no-op),不得再发一次积分
+  it('重复关注(200)不触发积分奖励', async () => {
+    mockSelectResult
+      .mockResolvedValueOnce([{ id: CHANNEL_ID }])
+      .mockResolvedValueOnce([{ id: POINT_ID }])
+
+    const res = await server.inject({
+      method: 'POST',
+      url: `/api/follows/${DUP_USER_ID}`,
+    })
+    expect(res.statusCode).toBe(200)
+    await flushMicrotasks()
+    expect(mockIncreasePoints).not.toHaveBeenCalled()
   })
 
   // 7. 钩子失败不阻塞主请求(返回 200)
