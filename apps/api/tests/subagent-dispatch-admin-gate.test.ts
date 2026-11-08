@@ -53,6 +53,8 @@ vi.mock('../src/services/subagent-dispatch-service.js', () => ({
   subagentDispatchService: {
     setRedisClient: async () => undefined,
     findById: (id: string) => mocks.store.get(id) ?? null,
+    // F-255:归属闸改走 findByIdOrRestore(淘汰后从 Redis 重建);夹具内存档即终态聚合面
+    findByIdOrRestore: async (id: string) => mocks.store.get(id) ?? null,
     cancel: mocks.cancelMock,
     resume: mocks.resumeMock,
     setAttention: mocks.attentionMock,
@@ -201,8 +203,8 @@ describe('subagent 派单面 user-scoped 归属存续锁(结构层)', () => {
     // 主路由内也不许用 `dispatch.ownerUserId === userId` 另写一份归属表达
     expect(SRC).not.toMatch(/\.ownerUserId\s*[!=]==\s*userId/)
 
-    // 唯一出口自身必须仍然是导出实现
-    expect(OWNERSHIP_SRC).toMatch(/export function ownsDispatchById\(/)
+    // 唯一出口自身必须仍然是导出实现(F-255 起为 async:回退读要等 Redis)
+    expect(OWNERSHIP_SRC).toMatch(/export (?:async )?function ownsDispatchById\(/)
     expect(OWNERSHIP_SRC).toMatch(/export function isDispatchVisibleTo\(/)
 
     // 路由目录下任何文件都不得再定义一份(或直接比较 ownerUserId 另写表达)
@@ -329,10 +331,10 @@ describe('subagent 派单面 user-scoped 归属存续锁(跨租户行为层)', (
 
 describe('判据变异自证(同一函数跑变异体必须失败)', () => {
   it('删掉 cancel 的闸 ⇒ (a) 判据为 false', () => {
-    // 闸的第三参是管理员档(isAdminViewer),正则容忍该可选参数 —— 否则 D1 收紧后
-    // 变异体静默替换失败,这个反向例就变成永远绿的摆设。
+    // 闸的第三参是管理员档(isAdminViewer)、F-255 起判据为 async ⇒ 正则容忍 `await`
+    // 与包裹括号 —— 否则 D1 收紧 / F-255 改造后变异体静默替换失败,这个反向例就变成永远绿的摆设。
     const GATE_BLOCK =
-      /\n\s*if \(!ownsDispatchById\(id, userId(?:, [^\n]*)?\)\) \{\n\s*return reply\.status\(404\)\.send\(error\(404, [^\n]*\)\)\n\s*\}/
+      /\n\s*if \(!\(?(?:await )?ownsDispatchById\(id, userId(?:, [^\n]*)?\)\)\)? \{\n\s*return reply\.status\(404\)\.send\(error\(404, [^\n]*\)\)\n\s*\}/
     const withoutGate = SRC.replace(GATE_BLOCK, '\n')
     expect(withoutGate).not.toBe(SRC)
     const body = routeBody(withoutGate, '/subagents/:id/cancel')
