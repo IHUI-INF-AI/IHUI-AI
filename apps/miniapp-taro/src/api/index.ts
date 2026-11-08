@@ -1068,14 +1068,26 @@ export const refund = (data: { orderId: string; reason: string }) =>
 export const getRefundList = (params?: { page?: number; pageSize?: number; status?: string }) =>
   get<{ list: Order[]; total: number; page?: number; pageSize?: number }>('/refunds/me', params)
 
-/** 创建充值订单（对接 payments/wechat|alipay/create） */
+/**
+ * 创建充值订单（对接 payments/wechat/create）。
+ * 后端返回**扁平** JSAPI 签名字段,没有 `payParams` 包络;`amount` 单位为分。
+ * 充值固定 `orderType=2`(后端缺省会落 0 ⇒ 代币不入账)。
+ */
 export interface RechargeCreateResult {
   outTradeNo: string
+  amount?: number
   mock?: boolean
-  payParams?: Record<string, unknown>
+  timeStamp?: string
+  nonceStr?: string
+  package?: string
+  signType?: string
+  paySign?: string
 }
-export const createRecharge = (amount: number, payMethod: 'wechat' | 'alipay' = 'wechat') =>
-  post<RechargeCreateResult>(`/payments/${payMethod}/create?amount=${amount}`, {})
+export const createRecharge = (amountCents: number, payMethod: 'wechat' = 'wechat') =>
+  post<RechargeCreateResult>(
+    `/payments/${payMethod}/create?amount=${amountCents}&orderType=2&description=${encodeURIComponent('充值')}`,
+    {},
+  )
 
 /** 创建支付宝小程序支付订单 — POST /payments/alipay/miniapp/create (已迁移到 @ihui/api-client 共享端点) */
 export const createAlipayMiniappPayment = (params: {
