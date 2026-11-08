@@ -37,8 +37,10 @@ import {
   writeFileSync,
 } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { resolveGitBin } from './gitdir.mjs'
+import { assertGateBodyProvenance, findRepoRoot } from './gate-body-provenance.mjs'
 
 export const FACES = ['staged', 'head', 'worktree']
 
@@ -1463,9 +1465,51 @@ export function selectFace({ staged, worktree, def = 'head' }) {
   if (staged && worktree) {
     return { face: null, error: '--staged 与 --worktree 不得同用(两个判定面互斥)' }
   }
+  const face = staged ? 'staged' : worktree ? 'worktree' : def
+  // 2026-11-08:门在判定**之前**先自检"正在执行的这份门体 == 被判修订里那一份"。
+  // 这是直跑单门(`node scripts/check-x.mjs`)的唯一入口 —— 不走 selectFace 的门由派发层
+  // (guardian-executor / gate-worker)兜住。不同代 ⇒ exit 2,绝不以 0/1 作答。
+  enforceGateBodyForFace(face)
   if (staged) return { face: 'staged', error: null }
   if (worktree) return { face: 'worktree', error: null }
   return { face: def, error: null }
+}
+
+let gateBodyChecked = null
+
+function enforceGateBodyForFace(face) {
+  if (gateBodyChecked) return
+  const entry = process.argv[1]
+  // 只对门脚本(self-run)生效;测试/工具/被 import 的 lib 一律不拦。
+  if (!entry || !/[\\/]scripts[\\/]check-[^\\/]+\.mjs$/i.test(entry)) return
+  if (/[\\/]scripts[\\/](tests|lib)[\\/]/i.test(entry)) return
+  if (!face) return
+  let root
+  let selfRoot
+  try {
+    root = findRepoRoot(entry)
+    selfRoot = findRepoRoot(fileURLToPath(import.meta.url))
+  } catch {
+    return
+  }
+  // 只判"执行门体所在仓库"的判面;夹具/异仓(门拿 --root 去判别的树)不适用本层。
+  if (!root || !selfRoot || path.resolve(root) !== path.resolve(selfRoot)) return
+  try {
+    const result = assertGateBodyProvenance({
+      root,
+      entryRel: path.relative(root, path.resolve(entry)).replace(/\\/g, '/'),
+      argv: process.argv.slice(2),
+      env: process.env,
+    })
+    gateBodyChecked = result
+    if (result.escaped && result.note) process.stderr.write(`[gate-body] ${result.note}\n`)
+  } catch (e) {
+    if (e?.exitCode === 2) {
+      process.stderr.write(`${e.message}\n`)
+      process.exit(2)
+    }
+    throw e
+  }
 }
 
 /**
