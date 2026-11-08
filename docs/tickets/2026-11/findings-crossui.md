@@ -1117,9 +1117,9 @@ for (const rel of [
   - 传输：`apps/api/src/routes/admin-api-platform.ts:40`（create）、`:59`（update）`price: z.number().int().min(0)`，只收整数分。
   - 展示/回填/提交：唯一换算点 `apps/web/app/(main)/admin/api-platform/packages/price-unit.ts:7-19`（`ADMIN_PACKAGE_PRICE_UNIT='fen'`、`priceCentsToYuanText`、`priceCentsToFormYuan`、`formYuanToPriceCents`、`packageToForm`）。
 - **消费点（仅三处，全部 import 该模块，不再自己算）**
-  - `.../packages/ApiPackageTable.tsx:19`（import）→ 单元格 `priceCentsToYuanText(p.price)`。
+  - `.../packages/ApiPackageTable.tsx:19`（import）→ `:70` 单元格 `priceCentsToYuanText(p.price)`。
   - `.../packages/helpers.ts:30`（`export { packageToForm } from './price-unit'`，自有实现已删）。
-  - `.../packages/page.tsx:16`（import）→ `:38` 提交 `price: formYuanToPriceCents(form.price)`。
+  - `.../packages/page.tsx:16`（import）→ `:71` 编辑回填 `setForm(packageToForm(p))`、`:39` 提交 `price: formYuanToPriceCents(form.price)`。
 - **「只有一处换算」判据**：在 `.../packages/` 目录 grep `\*100|\* 100|/100|/ 100`，仅命中 `price-unit.ts:10,14,18`；三个消费文件 0 命中。
 - **首尾相等夹具**：`apps/web/tests/xui-admin-package-price.test.ts`（5 例绿）。真实生产函数链 `backendRow(cents) → packageToForm → priceCentsToYuanText → formYuanToPriceCents → 与原 cents 相等`，数值组 0/1/2999/19900/12345（如 2999 → `¥29.99` → 29.99 → 2999）。反例：`¥${2999}` ≠ `¥29.99`、`String(2999)` ≠ `29.99`（即 `f219b27053` 前的写法）。另锁 billing schema 注释与 route int schema。
 - **相邻（非量纲，未改）**：该页 `quota/period/status` 与本仓 `plans`（`interval/features/isActive`）不同源，属字段模型差异，不并入本条量纲结论。
