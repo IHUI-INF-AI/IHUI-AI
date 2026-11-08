@@ -6,10 +6,17 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { db, dbRead } from '../db/index.js'
-import { liveGift, liveGiftCatalog, users, type LiveGift } from '@ihui/database'
+import {
+  liveGift,
+  liveGiftCatalog,
+  users,
+  userMargins,
+  tokenFlows,
+  type LiveGift,
+} from '@ihui/database'
 import { requireAdmin, requireAuth } from '../plugins/require-permission.js'
 import { error, paginatedSuccess, success } from '../utils/response.js'
-// ihui_live_gift_income_total:单位 = 平台币(扣 user_token_balance 余额)
+// ihui_live_gift_income_total:单位 = 平台币(扣 user_margins.token_quantity 余额)
 import { recordLiveGiftIncome } from '../plugins/business-metrics.js'
 
 // =============================================================================
@@ -276,26 +283,24 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
         .limit(1)
       const nickname = userRows[0]?.nickname ?? null
 
-      // 余额校验(user_token_balance 为平台币/积分余额表)
-      const balanceRows = await dbRead.execute(
-        sql`SELECT balance FROM user_token_balance WHERE user_uuid = ${userId} LIMIT 1`,
-      )
-      const balanceRow = balanceRows[0] as { balance: string | number } | undefined
-      const currentBalance = balanceRow ? Number(balanceRow.balance) : 0
-      if (currentBalance < totalPrice) {
-        return reply.status(400).send(error(400, '余额不足'))
-      }
-
-      // 扣款 + 写打赏记录在同一事务(防止扣款成功但记录失败的资金丢失)
+      // F-68:礼物扣款统一走钱包主账本 user_margins.token_quantity。
+      // 原实现读/扣孤儿表 user_token_balance,但全仓没有任何入账写入点,余额恒 0,
+      // 钱包里有余额的用户送礼永远「余额不足」,且不产生 token_flows。
+      // 取舍:不做孤儿表→主账本的数据迁移——其余额没有任何入账来源,迁移等于凭空铸币;
+      // user_token_balance 仅保留只读用于历史审计,不再参与扣款判断。
       const result = await db.transaction(async (tx) => {
-        // 原子扣减(条件 UPDATE 兜底并发)
-        const updateResult = await tx.execute(
-          sql`UPDATE user_token_balance SET balance = balance - ${totalPrice}, updated_at = now() WHERE user_uuid = ${userId} AND balance >= ${totalPrice}`,
-        )
-        const affected = (updateResult as { count?: number }).count
-        if (typeof affected === 'number' && affected < 1) {
-          return { code: 400, message: '余额不足' } as const
-        }
+        // 条件 UPDATE 原子扣减:够才扣,并发下不会扣成负数
+        const [deducted] = await tx
+          .update(userMargins)
+          .set({
+            tokenQuantity: sql`${userMargins.tokenQuantity} - ${totalPrice}`,
+            updatedAt: new Date(),
+          })
+          .where(
+            and(eq(userMargins.userId, userId), sql`${userMargins.tokenQuantity} >= ${totalPrice}`),
+          )
+          .returning({ balance: userMargins.tokenQuantity })
+        if (!deducted) return { code: 400, message: '余额不足' } as const
 
         // 写打赏记录(live_gift 表)
         const inserted = await tx
@@ -312,7 +317,17 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
           .returning()
         const record = inserted[0]
         if (!record) return { code: 500, message: '写入打赏记录失败' } as const
-        return { code: 0, record } as const
+
+        // 与钱包扣款同事务写流水:opType=1 扣减,balanceAfter 取 RETURNING 的落库值
+        await tx.insert(tokenFlows).values({
+          userId,
+          opType: 1,
+          quantity: totalPrice,
+          balanceAfter: deducted.balance,
+          remark: `直播礼物 ${gift.name} x${quantity}`,
+        })
+
+        return { code: 0, record, balanceAfter: deducted.balance } as const
       })
 
       if (result.code !== 0) {
@@ -320,9 +335,7 @@ export const liveGiftsRoutes: FastifyPluginAsync = async (server) => {
       }
       // ihui_live_gift_income_total:扣款+写 live_gift 事务成功后累加(平台币,room_id=liveId)
       recordLiveGiftIncome(String(parsed.data.liveId ?? 0), totalPrice)
-      return reply.send(
-        success({ record: result.record, balanceAfter: Math.max(0, currentBalance - totalPrice) }),
-      )
+      return reply.send(success({ record: result.record, balanceAfter: result.balanceAfter }))
     },
   )
 
