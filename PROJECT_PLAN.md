@@ -32445,7 +32445,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 123G. **缺陷普查 API F-123** [P2] 热搜 GitHub 采集 .each 里不 await 异步写库，失败被当成功、计数虚高（证据 docs/tickets/2026-11/findings-api.md#F-123）
 - [ ] 124G. **缺陷普查 API F-124** [P2] 审计证据保留任务在事务内持审计链全局锁做全尾扫描 + 逐行 UPDATE（长事务）（证据 docs/tickets/2026-11/findings-api.md#F-124）
 - [ ] 127G. **缺陷普查 API F-127** [P2] 批量禁用 / 成员禁用删除不吊销 refresh token，「禁用」在会话面不生效（证据 docs/tickets/2026-11/findings-api.md#F-127）
-- [ ] 128G. **缺陷普查 API F-128** [P2] admin-sys 重置密码把明文密码写入 sys_operlog，并原样返回给任意管理员（证据 docs/tickets/2026-11/findings-api.md#F-128）
 - [ ] 129G. **缺陷普查 API F-129** [P2] 单条审核接口无条件置 status=1，可复活封禁/注销用户；缺 uuid 形状闸（证据 docs/tickets/2026-11/findings-api.md#F-129）
 - [ ] 130G. **缺陷普查 API F-130** [P2] DELETE /admin/orders/:id 硬删已支付订单并级联清空支付流水（证据 docs/tickets/2026-11/findings-api.md#F-130）
 - [ ] 131G. **缺陷普查 API F-131** [P3] member-users 整插件跳过响应脱敏 + returning() 全行，返回 passwordHash（证据 docs/tickets/2026-11/findings-api.md#F-131）
@@ -32473,7 +32472,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 153G. **缺陷普查 API F-153** [P1] 付费课程可零支付解锁（报名接口无支付校验，签名播放 URL 照发）（证据 docs/tickets/2026-11/findings-api.md#F-153）
 - [ ] 154G. **缺陷普查 API F-154** [P1] 私信 / 通知详情越权读取（无属主校验）（证据 docs/tickets/2026-11/findings-api.md#F-154）
 - [ ] 155G. **缺陷普查 API F-155** [P1] 圈子话题（circle_dynamic）任意用户可改/删，且可冒用他人 memberId 发帖（证据 docs/tickets/2026-11/findings-api.md#F-155）
-- [ ] 156G. **缺陷普查 API F-156** [P2] 名片详情不校验 isPublic，他人私密名片手机号/邮箱/二维码可读（证据 docs/tickets/2026-11/findings-api.md#F-156）
 - [ ] 157G. **缺陷普查 API F-157** [P2] 平台 Key 大模型调用无计量/无配额（绕过 token 扣费）（证据 docs/tickets/2026-11/findings-api.md#F-157）
 - [ ] 158G. **缺陷普查 API F-158** [P2] 圈子分类关系（全局配置表）任意登录用户可增删（证据 docs/tickets/2026-11/findings-api.md#F-158）
 - [ ] 159G. **缺陷普查 API F-159** [P3] 剧本（/drama）任意用户可改/删/批量删，含他人草稿（证据 docs/tickets/2026-11/findings-api.md#F-159）
@@ -32664,9 +32662,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 356G. **缺陷普查 API F-356** [P3] 多个分页查询仅按非唯一 createdAt 排序，LIMIT/OFFSET 翻页重复/漏行（证据 docs/tickets/2026-11/findings-api.md#F-356）
 - [ ] 357G. **缺陷普查 API F-357** [P3] findMyMember 未过滤 VIP 到期时间，且 hasVip 只看字段非空（证据 docs/tickets/2026-11/findings-api.md#F-357）
 - [ ] 358G. **缺陷普查 API F-358** [P3] orders 缺 paid_at / created_at 索引，财务与 BI 聚合每次全表扫（证据 docs/tickets/2026-11/findings-api.md#F-358）
-- [ ] 359G. **缺陷普查 API F-359** [P2] 任意登录用户可创建平台级智能体分类（证据 docs/tickets/2026-11/findings-api.md#F-359）
-- [ ] 361G. **缺陷普查 API F-361** [P2] 任意登录用户可切换分类付费开关（证据 docs/tickets/2026-11/findings-api.md#F-361）
-- [ ] 362G. **缺陷普查 API F-362** [P3] 任意登录用户可重载/清空全局分类缓存（证据 docs/tickets/2026-11/findings-api.md#F-362）
 - [ ] 363G. **缺陷普查 API F-363** [P2] 任意登录用户可写全局 Agent 规则参数（删除却要 admin）（证据 docs/tickets/2026-11/findings-api.md#F-363）
 - [ ] 366G. **缺陷普查 API F-366** [P2] 任意登录用户可为任意 agent 伪造审核台账（含自填 approved）（证据 docs/tickets/2026-11/findings-api.md#F-366）
 - [ ] 367G. **缺陷普查 API F-367** [P3] cli-import fallback 清理定时器在模块顶层启动，API 与 worker 双跑（证据 docs/tickets/2026-11/findings-api.md#F-367）
