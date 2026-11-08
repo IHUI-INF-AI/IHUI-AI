@@ -40,7 +40,9 @@ export async function getBalance(userId: string): Promise<number> {
  *  - 累计消耗 = op_type = 1
  * 其余 op_type(2=冻结/过期等既非净增也非净耗)刻意**两边都不计**,不得为凑数塞进任一侧。
  */
-export async function getTokenFlowTotals(userId: string): Promise<{ totalEarned: number; totalUsed: number }> {
+export async function getTokenFlowTotals(
+  userId: string,
+): Promise<{ totalEarned: number; totalUsed: number }> {
   const rows = await db
     .select({
       totalEarned: sql<number>`COALESCE(sum(CASE WHEN ${tokenFlows.opType} IN (0,3,4,5,6) THEN ${tokenFlows.quantity} ELSE 0 END)::int, 0)`,
@@ -127,8 +129,8 @@ export async function deductToken(
         quantity,
         balanceAfter: updated.tokenQuantity,
         remark: remark ?? '扣减',
-      // 关联单号透传:扣减流水若丢了订单号,支付历史就再也对不回那一单(下面这条链的调用方
-      // 正是"支付历史"路由,它此前自己写了一份读-改-写实现,现改复用本函数,单号必须留住)
+        // 关联单号透传:扣减流水若丢了订单号,支付历史就再也对不回那一单(下面这条链的调用方
+        // 正是"支付历史"路由,它此前自己写了一份读-改-写实现,现改复用本函数,单号必须留住)
         ...(relatedOrderNo ? { relatedOrderNo } : {}),
       })
       .returning({ id: tokenFlows.id })
@@ -474,6 +476,12 @@ export async function applyWithdrawal(
     amount: number
     method: string
     accountInfo: Record<string, unknown>
+    /**
+     * F-63:是否要求"仅佣金可提现"(与 availableWithdrawal 同口径)。
+     * 钱包提现入口必须传 true —— 否则充值/赠送/调整进 token_quantity 的余额也能按 98% 提走。
+     * 校验必须在同一事务、并先对 margin 行加锁,否则并发请求会各自读到旧额度(TOCTOU)。
+     */
+    requireCommissionEligibility?: boolean
   },
   operatorId: string | null,
 ): Promise<WithdrawalFlow> {
@@ -487,7 +495,28 @@ export async function applyWithdrawal(
     throw Object.assign(new Error('提现金额过小'), { statusCode: 400 })
   }
   return await db.transaction(async (tx) => {
-    // ① 原子冻结余额:DB 级 WHERE token_quantity >= actualAmount 防超发(绕过应用层竞态)
+    if (input.requireCommissionEligibility) {
+      // ① 先锁住该用户的 margin 行:同一用户的并发提现请求在此串行化,
+      //    后到的请求在锁释放后重新读到的 withdrawal_flows 已包含前一笔。
+      await tx.execute(sql`SELECT 1 FROM user_margins WHERE user_id = ${input.userId} FOR UPDATE`)
+      // ② 与 availableWithdrawal 同口径:活跃佣金(status=1) - 已完成/待处理提现。
+      const comm = await tx
+        .select({ total: sql<number>`coalesce(sum(${commissionFlows.amount}), 0)::int` })
+        .from(commissionFlows)
+        .where(and(eq(commissionFlows.beneficiaryId, input.userId), eq(commissionFlows.status, 1)))
+      const wd = await tx
+        .select({ total: sql<number>`coalesce(sum(${withdrawalFlows.amount}), 0)::int` })
+        .from(withdrawalFlows)
+        .where(
+          and(eq(withdrawalFlows.userId, input.userId), inArray(withdrawalFlows.status, [0, 1, 2])),
+        )
+      const available = (comm[0]?.total ?? 0) - (wd[0]?.total ?? 0)
+      if (input.amount > available) {
+        throw Object.assign(new Error('可提现余额不足'), { statusCode: 400 })
+      }
+    }
+
+    // ③ 原子冻结余额:DB 级 WHERE token_quantity >= actualAmount 防超发(绕过应用层竞态)
     const [updated] = await tx
       .update(userMargins)
       .set({

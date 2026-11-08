@@ -28,7 +28,7 @@ const DEFAULT_TTL_SEC = 86400
 // 平台下次重试可重新获取锁处理;completed 缓存仍保持 24h(支付争议周期)。
 const PROCESSING_TTL_SEC = 600
 
-export type IdempotencyStatus = 'new' | 'processing' | 'completed'
+export type IdempotencyStatus = 'new' | 'processing' | 'completed' | 'unknown'
 
 export interface IdempotencyResult {
   status: IdempotencyStatus
@@ -136,13 +136,16 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
         // 另一个并发请求已获取锁，返回 processing
         return { status: 'processing', retryAfterMs: 1000 }
       } catch (e) {
-        // B4: Redis 故障时 fail-closed，让支付平台重试，而非放行并发请求
+        // B4: Redis 故障时 fail-closed,让支付平台重试,而非放行并发请求。
+        // F-220:基础设施故障必须与"他方正在处理"区分开 —— 返回 unknown,
+        // 回调侧据此回 FAIL/500 触发平台重投;若压成 processing,回调侧会 ACK SUCCESS
+        // 导致平台停止重投,已扣款订单永不履约。
         server.log.error({ err: e }, 'payment idempotency redis failed, fail-closed')
-        return { status: 'processing', retryAfterMs: 5000 }
+        return { status: 'unknown', retryAfterMs: 5000 }
       }
     }
-    // B5: 重试上限耗尽，返回 processing 让支付平台稍后重试
-    return { status: 'processing', retryAfterMs: 1000 }
+    // B5: 重试上限耗尽,状态不可判定 → unknown(不得让回调侧当成"已处理"而 ACK 成功)
+    return { status: 'unknown', retryAfterMs: 1000 }
   }
 
   async function complete(
@@ -164,7 +167,10 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
         ttlSec,
       )
     } catch (e) {
-      server.log.warn({ err: e }, 'payment idempotency complete failed')
+      // F-220:complete 写失败不能只 warn —— 调用方会继续 ACK SUCCESS,但"已完成"的凭证
+      // 没有落库,平台停止重投后该订单再无补单机会。这里上抛,让调用方走 fail() 并回 FAIL。
+      server.log.error({ err: e }, 'payment idempotency complete failed')
+      throw e
     }
   }
 
@@ -204,6 +210,9 @@ const paymentIdempotencyPlugin: FastifyPluginAsync = async (server) => {
         reply.code(200).send({ code: 0, message: 'ok', data: result.cachedResult })
       } else if (result.status === 'processing') {
         reply.code(409).send({ code: 409, message: '请求处理中，请稍后重试' })
+      } else if (result.status === 'unknown') {
+        // F-220:Redis 故障/状态不可判定 → 503 让调用方重试,不能放行也不能当已完成。
+        reply.code(503).send({ code: 503, message: '幂等状态暂不可用，请稍后重试' })
       }
       // new：放行，handler 完成后需显式调用 complete()
     }

@@ -711,10 +711,18 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
           recordWxpayCallbackSuccess()
           return reply.send({ code: 'SUCCESS', message: 'OK (duplicate)' })
         }
-        if (idem.status === 'processing') {
-          // 上次回调仍在处理，ack SUCCESS 让微信停止重试
-          recordWxpayCallbackSuccess()
-          return reply.send({ code: 'SUCCESS', message: 'OK (processing)' })
+        if (idem.status !== 'new') {
+          // F-220:processing(并发在途)/unknown(Redis 故障)都不能 ACK SUCCESS。
+          // 原实现把 processing 直接回 SUCCESS 让微信停止重投;若在途 handler 最终失败
+          // 或丢失,已扣款订单再无补单机会。这里回 FAIL 让平台按退避重投,
+          // 重复回调由 acquire/saga 幂等吸收。
+          request.log.warn(
+            { orderNo: out_trade_no, idemStatus: idem.status },
+            'wechat callback idempotency not ready, ask retry',
+          )
+          recordWxpayCallbackFailed()
+          recordPaymentException('wechat', `idem_${idem.status}`)
+          return reply.code(503).send({ code: 'FAIL', message: '幂等锁未就绪,请稍后重试' })
         }
         try {
           // P0 安全修复(2026-08-02):用 completeOrderWithSaga 替代 completeOrder,
@@ -1220,8 +1228,16 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         // 支付幂等：用支付宝 trade_no 作幂等键，防止重复回调
         const idemKey = params.trade_no ?? outTradeNo
         const idem = await server.paymentIdempotency.acquire(outTradeNo, idemKey)
-        if (idem.status === 'completed' || idem.status === 'processing') {
+        if (idem.status === 'completed') {
           return reply.type('text/plain').send('success')
+        }
+        if (idem.status === 'processing' || idem.status === 'unknown') {
+          // F-220:只有 completed 才能 ack success;processing/unknown 让支付宝重投。
+          request.log.warn(
+            { orderNo: outTradeNo, idemStatus: idem.status },
+            'alipay callback idempotency not ready, ask retry',
+          )
+          return reply.type('text/plain').send('fail')
         }
         try {
           const result = await completeOrder(outTradeNo, params.trade_no)
@@ -1520,8 +1536,13 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
       if (idem.status === 'completed') {
         return reply.send(success({ outTradeNo, paypalOrderId, dup: true }))
       }
-      if (idem.status === 'processing') {
-        return reply.send(success({ outTradeNo, paypalOrderId, processing: true }))
+      if (idem.status === 'processing' || idem.status === 'unknown') {
+        // F-220:同微信回调 —— 非 completed 一律不 ack 成功,让 PayPal 重投。
+        request.log.warn(
+          { outTradeNo, idemStatus: idem.status },
+          'paypal capture idempotency not ready, ask retry',
+        )
+        return reply.status(503).send(error(503, 'idempotency not ready, will retry'))
       }
       try {
         const result = await completeOrder(outTradeNo, capture.id)
@@ -1683,8 +1704,14 @@ export const paymentGatewayRoutes: FastifyPluginAsync = async (server) => {
         }
         const idem = await server.paymentIdempotency.acquire(outTradeNo, captureId)
         if (idem.status === 'completed') return reply.send(success({ received: true, dup: true }))
-        if (idem.status === 'processing')
-          return reply.send(success({ received: true, processing: true }))
+        if (idem.status === 'processing' || idem.status === 'unknown') {
+          // F-220:同微信回调 —— 非 completed 一律不 ack 成功,让 PayPal 重投。
+          request.log.warn(
+            { outTradeNo, idemStatus: idem.status },
+            'paypal webhook idempotency not ready, ask retry',
+          )
+          return reply.status(503).send(error(503, 'idempotency not ready, will retry'))
+        }
         try {
           const result = await completeOrder(outTradeNo, captureId)
           // F-32:同上,失败必须 500 让 PayPal 重投,不得落 complete + 200。

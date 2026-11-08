@@ -683,7 +683,9 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
       expect(res.json().message).toContain('transaction_id')
     })
 
-    it('回调幂等(processing 状态返回 SUCCESS)', async () => {
+    // F-220:processing 表示并发回调仍在处理中,原实现 ACK SUCCESS 会让微信停止重投;
+    // 若在途处理最终失败,该笔已付款订单再无补单机会。必须回 FAIL 让平台重投。
+    it('回调幂等(processing 状态回 FAIL/503,不得 ACK SUCCESS)', async () => {
       mockVerifyCallbackSignature.mockReturnValueOnce(true)
       mockDecryptCallback.mockReturnValueOnce({
         out_trade_no: 'EDU001',
@@ -704,8 +706,8 @@ describe('payment gateway — 高风险安全路由(金额篡改/反查/提现/�
           'wechatpay-signature': 'ok',
         },
       })
-      expect(res.statusCode).toBe(200)
-      expect(res.json().message).toContain('processing')
+      expect(res.statusCode).toBe(503)
+      expect(res.json().code).toBe('FAIL')
       expect(mockCompleteOrder).not.toHaveBeenCalled()
     })
 
