@@ -535,7 +535,7 @@ export async function checkAndUpdateStatus(
   const [updated] = await db
     .update(examRecords)
     .set({ status: newStatus })
-  // status-guard-exempt: 服务层已先校验状态机合法性(非法迁移上方抛 AppError),此为校验后写点
+    // status-guard-exempt: 服务层已先校验状态机合法性(非法迁移上方抛 AppError),此为校验后写点
     .where(eq(examRecords.id, recordId))
     .returning()
   if (!updated) throw new AppError('状态更新失败', 500, 'INTERNAL_ERROR')
@@ -581,9 +581,12 @@ export async function enrollExam(userId: string, paperId: string): Promise<ExamR
 }
 
 /** 开始答题(enrolled→answering),同时记录开始时间。 */
-export async function startAnswering(recordId: string): Promise<ExamRecord> {
+export async function startAnswering(recordId: string, userId: string): Promise<ExamRecord> {
   const record = await findExamRecordByIdExtended(recordId)
-  if (!record) throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
+  // 归属校验必须早于状态机:他人记录按"不存在"处理,避免存在性泄漏
+  if (!record || record.userId !== userId) {
+    throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
+  }
   if (record.status !== EXAM_STATUS.ENROLLED) {
     throw new AppError(`状态流转非法:仅 enrolled 可开始答题,当前 ${record.status}`, 409, 'CONFLICT')
   }
@@ -600,9 +603,12 @@ export async function startAnswering(recordId: string): Promise<ExamRecord> {
 }
 
 /** 提交试卷(answering→submitted),记录提交时间 + 时间窗口守卫(超时拒绝)。 */
-export async function submitExam(recordId: string): Promise<ExamRecord> {
+export async function submitExam(recordId: string, userId: string): Promise<ExamRecord> {
   const record = await findExamRecordByIdExtended(recordId)
-  if (!record) throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
+  // 归属校验必须早于状态机:他人记录按"不存在"处理,避免存在性泄漏
+  if (!record || record.userId !== userId) {
+    throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
+  }
   if (record.status !== EXAM_STATUS.ANSWERING) {
     throw new AppError(`状态流转非法:仅 answering 可提交,当前 ${record.status}`, 409, 'CONFLICT')
   }
@@ -658,8 +664,19 @@ export async function completeExam(recordId: string): Promise<ExamRecord> {
   return checkAndUpdateStatus(recordId, EXAM_STATUS.GRADED, EXAM_STATUS.COMPLETED)
 }
 
-/** 查询答题记录当前状态。 */
-export async function getExamRecordStatus(recordId: string): Promise<ExamRecord | undefined> {
-  return findExamRecordByIdExtended(recordId)
+/**
+ * 查询答题记录当前状态。
+ * - 传 viewerId:校验归属,他人记录按"不存在"抛 404(用户侧读取)。
+ * - 不传 viewerId:保留管理员/系统读取能力(exam-marking 等内部调用)。
+ */
+export async function getExamRecordStatus(
+  recordId: string,
+  viewerId?: string,
+): Promise<ExamRecord | undefined> {
+  const record = await findExamRecordByIdExtended(recordId)
+  if (viewerId !== undefined && (!record || record.userId !== viewerId)) {
+    throw new AppError('答题记录不存在', 404, 'NOT_FOUND')
+  }
+  return record
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
