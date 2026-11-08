@@ -147,6 +147,10 @@
       "tier": "write"
     },
     {
+      "name": "rebuild_check",
+      "tier": "write"
+    },
+    {
       "name": "list_toolsets",
       "tier": "read"
     },
