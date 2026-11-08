@@ -31,7 +31,7 @@ import { findCertificates, findCertificateById } from '../db/certificate-queries
 import {
   findLessonById,
   findLessonChapters,
-  findLessonSections,
+  findLessonSectionsByChapterIds,
   findPublishedLessons,
   findMyLessons,
   findSignUp,
@@ -242,12 +242,11 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '课程不存在'))
     }
     const chapters = await findLessonChapters(parsed.data.id)
-    const chaptersWithSections = await Promise.all(
-      chapters.map(async (c) => ({
-        ...c,
-        sections: await findLessonSections(c.id),
-      })),
-    )
+    const sectionsByChapter = await findLessonSectionsByChapterIds(chapters.map((c) => c.id))
+    const chaptersWithSections = chapters.map((c) => ({
+      ...c,
+      sections: sectionsByChapter.get(c.id) ?? [],
+    }))
     return reply.send(success({ lesson, chapters: chaptersWithSections }))
   })
 
@@ -258,12 +257,11 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const chapters = await findLessonChapters(parsed.data.id)
-    const sections = await Promise.all(
-      chapters.map(async (c) => ({
-        chapter: c,
-        sections: await findLessonSections(c.id),
-      })),
-    )
+    const sectionsByChapter = await findLessonSectionsByChapterIds(chapters.map((c) => c.id))
+    const sections = chapters.map((c) => ({
+      chapter: c,
+      sections: sectionsByChapter.get(c.id) ?? [],
+    }))
     return reply.send(success({ list: sections, total: sections.length }))
   })
 

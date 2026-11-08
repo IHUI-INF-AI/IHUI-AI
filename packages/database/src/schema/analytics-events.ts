@@ -20,6 +20,10 @@ export const analyticsEvents = pgTable(
   },
   (t) => ({
     userIdx: index('analytics_events_user_idx').on(t.userId),
+    // DB-22:列表按 created_at DESC 分页;此前只有 user_id 索引,时间序分页退化为全表扫描 + 排序。
+    createdIdx: index('analytics_events_created_at_idx').on(t.createdAt),
+    // 事件筛选 + 时间序组合查询(WHERE event = ? ORDER BY created_at DESC)。
+    eventCreatedIdx: index('analytics_events_event_created_at_idx').on(t.event, t.createdAt),
   }),
 )
 
