@@ -966,11 +966,16 @@ for (const rel of [
   - `apps/mobile-rn/src/constants/ui-routes.generated.ts`：2 输入 / 0 差异，钉 `e7f9dbfa0fdf5aec0036fc74aa447c4da050c369aeeba6e0db35d83023ca33e1`
   - `apps/web/src/lib/ui-routes.generated.ts`：923 输入 / 0 差异，钉 `5a5c3099e578a6e82c973d55f2ea02ca65f99567409607928f990e7c073aa1e4`
 - 交接验收（修正后）：唯一写入者执行两条命令后，**只允许 8 个文件出 diff** —— #1–#4 四个 `.gen.ts/.generated.ts` + 上述 4 个 `*.b64.txt`；`git diff --stat` 应显示 8 files。若多出文件说明波次期间又有源码/语言包变更，按新钉重算再交。**禁止手改 `inputsSha256` / `generatedAt` / `version` / `bytes`**：重生成时由生成器从磁盘输入现算。对照组两个 `ui-routes.generated.ts`（mobile-rn/web）不得出 diff。
-- 重生成后必须复核：4 个 `.gen.ts/.generated.ts` 的钉 `inputsSha256` 应变为上表「按磁盘输入复算」列的值（#2/#3 相同）；4 个 b64 的字节数应与新 manifest 的 `bytes` 一致。
-- 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单可能落后于源码；4 个 CDN 载荷 `*.b64.txt` 与 manifest `version/bytes` 同样陈旧。
-- 当场可修：否（受协作约束暂缓；`git diff` 体量大，按「不跑门」政策留待 API 线计费改完后单独提交）
-- 状态（2026-11-08）：解冻但暂缓重生成；前置核对已按二轮复算刷新（2 / 8 / 8 / 43 条输入不一致，另含 4 个 b64 载荷），等用户确认清单 + API 线计费落地后执行。
-- 执行前闸门（2026-11-08 复核，未执行生成）：API 线 F-203 口径 B 已推 `origin/fix/api-p0-1108`（`2492296e86` 异步 worker 改按定价成本、`cea6f4565e` 钱包扣减与 `ai_cost_records` 同源），但**未合入 main**；且 `crew.ts:198/277`、`stock-service.ts:262`、`proxy-tools.ts:995` 仍拿原始/估算 token 量调 `deductTokens`，同型四点尚未全部收口 ⇒ 按用户条件暂不执行重生成。该分支未触碰 `apps/miniapp-taro/src`、`packages/i18n/messages`、`apps/web`，故 XUI-076 输入未变，复算预期仍有效。
+- 重生成后必须复核：4 个 `.gen.ts/.generated.ts` 的钉 `inputsSha256` 应变为按磁盘输入复算值（#2/#3 相同）；#4 例外：重生成时补入 `apps/miniapp-taro/src/pkg-shop/vip/paid-verify.ts`（输入 725 → 726），终态为 `03af0632…`；4 个 b64 的字节数应与新 manifest 的 `bytes` 一致。
+- 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单此前落后于源码；4 个 CDN 载荷 `*.b64.txt` 与 manifest `version/bytes` 此前同样陈旧，2026-11-08 已一次性重生成（见执行记录）。
+- 当场可修：已完成（提交 `9fc8e895cb`）。
+- 状态（2026-11-08）：**已完成重生成**，提交 `9fc8e895cb`（8 文件，`+94 / −93`）；四个终态钉复算全部 `matched`。
+- 执行记录（2026-11-08，单一写入者一次）：`pnpm --filter @ihui/miniapp-taro gen:i18n`（更正：`gen:i18n` 注册在 `apps/miniapp-taro/package.json`，根目录没有该脚本）+ `node apps/miniapp-taro/scripts/generate-ui-routes.mjs`。
+  - `git diff --stat` = **8 files changed, 94 insertions(+), 93 deletions(-)**，与验收口径一致；对照组 `apps/web/src/lib/ui-routes.generated.ts`、`apps/mobile-rn/src/constants/ui-routes.generated.ts` 的 `git diff --stat` 输出为空（0 差异）。
+  - 终态钉（复算 0 差异）：#1 `7197af7a…`（3 输入）、#2/#3 `00d7b63d…`（12 输入）、#4 `03af0632…`（**726** 输入——旧钉 725，重生成时补入 `apps/miniapp-taro/src/pkg-shop/vip/paid-verify.ts` 一条，故聚合值与二轮预期 `e12b25b8…` 不同，属预期）。
+  - 4 个 b64 载荷终态：`en` `e40e6739…`/147192、`ja` `06d5cf81…`/169044、`ko` `4313da0e…`/160728、`zh-TW` `83f85a23…`/152716；逐个 SHA256 与 manifest `version` 完全相同，文件长度与 `bytes` 完全相同。
+  - 未手改任何钉字段：`inputsSha256` / `generatedAt` / `version` / `bytes` 均由生成器写出，且与按磁盘输入复算值一致。
+- 执行前闸门（2026-11-08 复核，历史记录）：API 线 F-203 口径 B 已推 `origin/fix/api-p0-1108`（`2492296e86` 异步 worker 改按定价成本、`cea6f4565e` 钱包扣减与 `ai_cost_records` 同源），但**未合入 main**；且 `crew.ts:198/277`、`stock-service.ts:262`、`proxy-tools.ts:995` 仍拿原始/估算 token 量调 `deductTokens`，同型四点尚未全部收口 ⇒ 按用户条件暂不执行重生成。该分支未触碰 `apps/miniapp-taro/src`、`packages/i18n/messages`、`apps/web`，故 XUI-076 输入未变，复算预期仍有效。
 
 ## 三、未判定（证据不足，未计入结论）
 
