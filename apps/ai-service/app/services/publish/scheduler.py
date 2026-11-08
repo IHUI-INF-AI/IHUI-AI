@@ -460,8 +460,8 @@ class PublishScheduler:
             await self._write_history(task_id, user_id, result)
             return result
 
-        # 取凭证(从 publish_accounts 表解密)
-        credentials = await self._load_credentials(account_id, platform)
+        # 取凭证(从 publish_accounts 表解密;AIS-073:带任务 user_id 限定归属)
+        credentials = await self._load_credentials(account_id, platform, user_id)
         if credentials is None:
             result = PublishResult(
                 success=False, platform=platform,
@@ -1007,8 +1007,16 @@ class PublishScheduler:
 
         return result
 
-    async def _load_credentials(self, account_id: int | None, platform: str) -> dict[str, Any] | None:
-        """从 publish_accounts 表加载并解密凭证。"""
+    async def _load_credentials(
+        self,
+        account_id: int | None,
+        platform: str,
+        user_id: str | None,
+    ) -> dict[str, Any] | None:
+        """从 publish_accounts 表加载并解密凭证(AIS-073:须归属任务 user_id)。
+
+        查询口径带 user_id,防止调用链上游漏校验时用他人账号凭证代发。
+        """
         if account_id is None:
             return None
         conn = await self._get_conn()
@@ -1016,9 +1024,11 @@ class PublishScheduler:
             return None
         try:
             row = await conn.fetchrow(
-                "SELECT credentials_enc FROM publish_accounts WHERE id=$1 AND platform=$2",
+                "SELECT credentials_enc FROM publish_accounts "
+                "WHERE id=$1 AND platform=$2 AND user_id=$3",
                 account_id,
                 platform,
+                user_id,
             )
             if not row:
                 return None

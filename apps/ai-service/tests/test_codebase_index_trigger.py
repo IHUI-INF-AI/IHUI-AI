@@ -27,6 +27,17 @@ def _granted_code_index_egress(monkeypatch):
     monkeypatch.setattr(mcp_server, "_code_index_egress_allowed", lambda *_a, **_kw: True)
 
 
+@pytest.fixture(autouse=True)
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-080:index_codebase 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。"""
+    real = mcp_server._get_workspace_roots
+    monkeypatch.setattr(
+        mcp_server,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
+    )
+
+
 def _make_indexer() -> CodebaseIndexer:
     idx = CodebaseIndexer.__new__(CodebaseIndexer)
     idx._tree_sitter_available = False
