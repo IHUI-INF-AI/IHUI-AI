@@ -169,6 +169,11 @@ export const eduFrontendRoutes: FastifyPluginAsync = async (server) => {
     }
     const cert = await findCertificateById(parsed.data.id)
     if (!cert) return reply.status(404).send(error(404, '证书不存在'))
+    // F-169(2026-11-08):详情与下载必须同一套属主口径。原详情直出 cert,
+    // 任意登录用户可读他人姓名/证书编号/发证时间/来源课程;不匹配按不存在 404。
+    if (cert.userId !== request.userId) {
+      return reply.status(404).send(error(404, '证书不存在'))
+    }
     return reply.send(success({ certificate: cert }))
   })
 
