@@ -325,6 +325,7 @@
     }
   },
   "login": {
+    "platformLinuxdo": "LinuxDo",
     "platformWechat": "微信",
     "platformLark": "飛書",
     "platformDingTalk": "DingTalk",
@@ -634,6 +635,7 @@
     "later": "あとで考える"
   },
   "order": {
+    "pay": "い",
     "title": "注文",
     "searchPlaceholder": "注文を検索",
     "tab": {
@@ -1935,6 +1937,33 @@
     "loadFailed": "カスタマーサービスの読み込みに失敗"
   },
   "artifacts": {
+    "navEntry": "成果物",
+    "title": "成果物",
+    "desc": "AI が納品したレポート・スライド・表・ドキュメントをダウンロードまたはプレビューできます。",
+    "empty": "まだ成果物がありません。AI にレポートやスライドを生成させると、ここに表示されます。",
+    "loginRequired": "ログインすると成果物一覧を表示できます",
+    "colName": "名前",
+    "colKind": "種別",
+    "colVersion": "バージョン",
+    "colCreated": "作成日時",
+    "colSession": "元のセッション",
+    "colActions": "操作",
+    "download": "ダウンロード",
+    "preview": "プレビュー",
+    "viewSession": "セッションを見る",
+    "kind_html_report": "HTML レポート",
+    "kind_slides": "スライド",
+    "kind_sheet": "スプレッドシート",
+    "kind_doc": "ドキュメント",
+    "kind_video_ref": "動画参照",
+    "justNow": "たった今",
+    "secondsAgo": "{n} 秒前",
+    "minutesAgo": "{n} 分前",
+    "hoursAgo": "{n} 時間前",
+    "daysAgo": "{n} 日前",
+    "loadMore": "もっと読み込む",
+    "refresh": "更新",
+    "countSummary": "{total} 件中 {loaded} 件の成果物を読み込み済み",
     "previewFailed": "プレビューリンクの取得に失敗しました。後でもう一度お試しください",
     "loading": "読み込み中…",
     "loadFailed": "成果物一覧の読み込みに失敗しました"
