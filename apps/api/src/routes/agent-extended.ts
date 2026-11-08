@@ -46,6 +46,20 @@ async function resolveAgentPriceCents(agentId: string): Promise<number | null> {
   return row.isFree ? 0 : row.price
 }
 
+/**
+ * F-228:客户端不得传价。zod 默认会静默剥离未知字段,客户端无法得知 price 未生效;
+ * 这里显式识别并返回 400,避免“以为按 21000 计价、实际按服务端价下单价”的错觉。
+ */
+function rejectsClientPrice(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && 'price' in body
+}
+
+const CLIENT_PRICE_REJECTED = {
+  code: 400,
+  message: '不接受客户端传价:单价由服务端智能体定价决定',
+  data: null,
+} as const
+
 // =============================================================================
 // 通用 raw SQL 辅助（适用于尚未迁移到 Drizzle schema 的旧表）
 // =============================================================================
@@ -605,6 +619,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 创建购买订单
   server.post('/buy/create', async (request, reply) => {
+    if (rejectsClientPrice(request.body)) {
+      return reply.code(400).send(CLIENT_PRICE_REJECTED)
+    }
     const body = agentBuySchema.parse(request.body)
     // P0 安全修复:禁止用其他用户 ID 创建订单(IDOR)
     if (body.userId !== request.userId) {
@@ -688,6 +705,9 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
 
   // 续费
   server.post('/developer/renew', async (request, reply) => {
+    if (rejectsClientPrice(request.body)) {
+      return reply.code(400).send(CLIENT_PRICE_REJECTED)
+    }
     const { agentId, userId, duration } = renewBody.parse(request.body)
     // P0 安全修复:禁止为其他用户续费(IDOR)
     if (userId !== request.userId) {

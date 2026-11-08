@@ -131,21 +131,37 @@ describe('F-135/F-136 智能体购买与续费的服务端定价', () => {
     mocks.dbDelete.mockReturnValue(chain([]))
   })
 
-  it('F-135 购买价取服务端 agents.price,客户端传 price=0 无效', async () => {
+  it('F-135 购买价取服务端 agents.price', async () => {
     mocks.dbSelect.mockReturnValueOnce(chain([{ price: 9900, isFree: false }]))
     mocks.dbInsert.mockReturnValue(insertChain([{ id: ORDER_ID, status: 'pending' }], inserted))
 
     const res = await app.inject({
       method: 'POST',
       url: '/buy/create',
-      payload: { agentId: AGENT_ID, userId: USER_ID, duration: 30, price: 0 },
+      payload: { agentId: AGENT_ID, userId: USER_ID, duration: 30 },
     })
 
     expect(res.statusCode).toBe(201)
     expect(inserted).toHaveLength(1)
     expect(inserted[0]?.price).toBe('99.00')
     expect(inserted[0]?.status).toBe('pending')
-    // 变异自证:把 price 改回 body.price.toString() 后,这里会拿到 '0' 而翻红。
+    // 变异自证:把 price 改回 body.price.toString() 后,这里会拿到客户端价而翻红。
+  })
+
+  it('F-228 请求体带 price=21000 ⇒ 400 显式拒绝,不静默忽略、不落单', async () => {
+    mocks.dbSelect.mockReturnValueOnce(chain([{ price: 9900, isFree: false }]))
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/buy/create',
+      payload: { agentId: AGENT_ID, userId: USER_ID, duration: 30, price: 21000 },
+    })
+
+    expect(res.statusCode).toBe(400)
+    expect(mocks.dbInsert).not.toHaveBeenCalled()
+    expect(inserted).toHaveLength(0)
+    // 改前:zod 默认 strip 掉 price,返回 201 并静默按服务端价落单 ⇒ 本断言红。
+    // 改后:显式 400,客户端不可能以为 21000(2,100,000 分)参与了计价。
   })
 
   it('F-135 免费智能体按 0 元落库(以服务端 isFree 为准)', async () => {
@@ -155,7 +171,7 @@ describe('F-135/F-136 智能体购买与续费的服务端定价', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/buy/create',
-      payload: { agentId: AGENT_ID, userId: USER_ID, duration: 30, price: 9900 },
+      payload: { agentId: AGENT_ID, userId: USER_ID, duration: 30 },
     })
 
     expect(res.statusCode).toBe(201)
@@ -187,7 +203,8 @@ describe('F-135/F-136 智能体购买与续费的服务端定价', () => {
   })
 
   it('F-136 续费只生成待支付订单,不再直接延长原记录权益', async () => {
-    const oldExpiresAt = new Date(Date.now() + 10 * 86400000)
+    // 固定未来时刻,避免 Date.now() 在同一次断言里两次取值产生 1ms 抖动。
+    const oldExpiresAt = new Date('2027-06-01T00:00:00.000Z')
     mocks.dbSelect
       .mockReturnValueOnce(chain([{ id: ORDER_ID, agentId: AGENT_ID, expiresAt: oldExpiresAt }]))
       .mockReturnValueOnce(chain([{ price: 19800, isFree: false }]))
@@ -197,7 +214,7 @@ describe('F-135/F-136 智能体购买与续费的服务端定价', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/developer/renew',
-      payload: { agentId: AGENT_ID, userId: USER_ID, duration: 30, price: 0 },
+      payload: { agentId: AGENT_ID, userId: USER_ID, duration: 30 },
     })
 
     expect(res.statusCode).toBe(201)
