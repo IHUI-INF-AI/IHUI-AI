@@ -962,12 +962,15 @@ for (const rel of [
     42. `apps/miniapp-taro/src/rn-compat/platform.tsx` `f1d75668e67a → ee3a71a31c59`
     43. `apps/miniapp-taro/src/utils/save-album.ts` `54c51fe47bf5 → da89c69bc215`
 - **同批派生但一轮清单漏列的 4 个受控文件**：`apps/miniapp-taro/src/assets/remote-locales/{en,ja,ko,zh-TW}.b64.txt`。`gen-i18n-compressed.mjs:536-539` 每次生成都会重写它们，且当前文件字节数（146836/168572/160300/152308）与 manifest 里**旧钉**的 `bytes` 完全一致 ⇒ 它们与 #2/#3 同属陈旧批次，重生成后必然一并出 diff。
-- 对照组（**不要**一并重生成；本次均未出 diff）：
-  - `apps/mobile-rn/src/constants/ui-routes.generated.ts`：2 输入，钉 `e7f9dbfa0fdf5aec0036fc74aa447c4da050c369aeeba6e0db35d83023ca33e1`
-  - `apps/web/src/lib/ui-routes.generated.ts`：923 输入，钉 `5a5c3099e578a6e82c973d55f2ea02ca65f99567409607928f990e7c073aa1e4`
-  - **2026-11-08 重生成后复核（重要）：两文件 `git diff` 为空、未出 diff（符合验收），但钉本身早已陈旧（非本次造成）**：RN 1 条输入已变（`apps/mobile-rn/src/navigation/RootNavigator.tsx`），现算 `fd754397…`；web 4 条输入已变（`apps/web/app/(main)/admin/api-platform/packages/page.tsx`、`agents/featured/page.tsx`、`agents/my/page.tsx`、`wallet/page.tsx`），现算 `d413f735…`。成因是本线早前 XUI 修复落在这些源码上、而 web/RN 自己的 ui-routes 未重生成。**「0 差异」只表示本次没碰它们，不代表钉自洽**；是否另开票据单独重生成，待用户决定。
-- **web/RN 补生成（2026-11-08 第二轮）**：web 已重生成并提交 `ea1555d0cc`——输入 923 条（数量未变），4 条已变输入**全部来自本线**：`wallet/page.tsx` ← XUI-086 `0b3724817a`；`agents/featured/page.tsx`、`agents/my/page.tsx` ← XUI-075 `8f7b3b3036`；`admin/api-platform/packages/page.tsx` ← XUI-082 `f219b27053`；终态钉 `d413f735…`（复算 matched），diff 仅钉块 7 行，路由清单零变化。RN **已试生成但未提交**：唯一已变输入 `RootNavigator.tsx` 来自 XUI-004 `0ba309d2f7` + XUI-068 `d6306a65b3`，**不属于本线价格/钱包修复**；其 diff 除钉块外还含 `skipped: unauthedBranchScreens=7 → 8`，按用户规则停下待裁决（终态钉为 `fd754397…`，2 输入，路由清单 349 条未变）。小程序腿 `03af0632…` 字节未动。
-- 交接验收（修正后）：唯一写入者执行两条命令后，**只允许 8 个文件出 diff** —— #1–#4 四个 `.gen.ts/.generated.ts` + 上述 4 个 `*.b64.txt`；`git diff --stat` 应显示 8 files。若多出文件说明波次期间又有源码/语言包变更，按新钉重算再交。**禁止手改 `inputsSha256` / `generatedAt` / `version` / `bytes`**：重生成时由生成器从磁盘输入现算。对照组两个 `ui-routes.generated.ts`（mobile-rn/web）不得出 diff。
+- 对照组（第一轮未一并重生成；**2026-11-08 第二轮已补生成收口**）：
+  - `apps/mobile-rn/src/constants/ui-routes.generated.ts`：终态 **2 输入**，钉 `fd754397635545ffad8fbe8ff10be7ca96825c77e24a7bef062da1796bef0bd5`
+  - `apps/web/src/lib/ui-routes.generated.ts`：终态 **923 输入**，钉 `d413f735eb14192071e3279f2344a331b284f39e1a6e3493e7c93efcefe28c30`
+  - **陈旧成因（定论）**：两份都是「源码改了、生成物没重生成」——RN 的 `RootNavigator.tsx` 被 XUI-004 `0ba309d2f7` + XUI-068 `d6306a65b3` 改过；web 的 `wallet/page.tsx`（XUI-086 `0b3724817a`）、`agents/featured/page.tsx` 与 `agents/my/page.tsx`（XUI-075 `8f7b3b3036`）、`admin/api-platform/packages/page.tsx`（XUI-082 `f219b27053`）改过。**不是生成器缺陷，也不是外部输入混入**；下一轮普查不要再把它当新缺陷重复入册。
+- **web/RN 补生成（2026-11-08 第二轮，已完成）**：
+  - web：提交 `ea1555d0cc`；输入 923 条（数量未变），4 条已变输入全部来自本线（同上）；终态钉 `d413f735…`，复算 matched，diff 仅钉块 7 行，路由清单零变化。
+  - RN：提交 `23bfb6ca86`（用户裁决 A 纳入）；输入 2 条，1 条已变（`RootNavigator.tsx`，来源 XUI-004 + XUI-068）；终态钉 `fd754397…`，复算 matched，diff 为钉块 + `skipped: unauthedBranchScreens=7 → 8`，349 条路由清单未变。
+  - 小程序腿 `apps/miniapp-taro/src/constants/ui-routes.generated.ts` 未重生成：钉仍 `03af0632…`，字节与提交 `9fc8e895cb` 后一致。
+- 交接验收（修正后）：唯一写入者执行两条命令后，**只允许 8 个文件出 diff** —— #1–#4 四个 `.gen.ts/.generated.ts` + 上述 4 个 `*.b64.txt`；`git diff --stat` 应显示 8 files。若多出文件说明波次期间又有源码/语言包变更，按新钉重算再交。**禁止手改 `inputsSha256` / `generatedAt` / `version` / `bytes`**：重生成时由生成器从磁盘输入现算。对照组两个 `ui-routes.generated.ts`（mobile-rn/web）不得出 diff——**该约束仅限小程序轮**；web/RN 已在第二轮按用户批准单独重生成（见上两条）。
 - 重生成后必须复核：4 个 `.gen.ts/.generated.ts` 的钉 `inputsSha256` 应变为按磁盘输入复算值（#2/#3 相同）；#4 例外：重生成时补入 `apps/miniapp-taro/src/pkg-shop/vip/paid-verify.ts`（输入 725 → 726），终态为 `03af0632…`；4 个 b64 的字节数应与新 manifest 的 `bytes` 一致。
 - 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单此前落后于源码；4 个 CDN 载荷 `*.b64.txt` 与 manifest `version/bytes` 此前同样陈旧，2026-11-08 已一次性重生成（见执行记录）。
 - 当场可修：已完成（提交 `9fc8e895cb`）。
