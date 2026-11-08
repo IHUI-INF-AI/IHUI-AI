@@ -221,7 +221,7 @@ const ordersExportQuerySchema = z.object({
 const relayLogsExportQuerySchema = z.object({
   userId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   model: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
-  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error']).optional()),
+  status: z.transform(emptyToUndefined).pipe(z.enum(['success', 'error', 'partial']).optional()),
   apiKeyId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   provider: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
   clientIp: z.transform(emptyToUndefined).pipe(z.string().max(100).optional()),
