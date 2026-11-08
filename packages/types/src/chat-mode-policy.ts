@@ -62,6 +62,8 @@ export const CHAT_MODE_READONLY_TOOLS: readonly string[] = [
   'get_context_remaining',
   // 文件读
   'read_file',
+  // 工具输出工件续读(批次 2,与 Python plan_mode.READONLY_TOOLS 同笔):只读分页,无副作用
+  'read_tool_output',
   'list_files',
   'file_search',
   // 代码分析
