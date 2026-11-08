@@ -91,7 +91,7 @@
     "loadFailed": "タスクの読み込みに失敗しました"
   },
   "common": {
-    "gotIt": "わかりました",    "backToTop": "一番上へ",
+    "gotIt": "了解しました",    "backToTop": "一番上へ",
     "hint": "ヒント",
     "goSettings": "設定へ",
     "all": "すべて",
