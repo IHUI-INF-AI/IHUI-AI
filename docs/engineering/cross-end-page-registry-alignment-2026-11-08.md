@@ -17,6 +17,37 @@
 
 ---
 
+## 0. 门读数值前提与并发假红重试留痕
+
+### 0.1 并发前提
+
+本文所有门读数均在本工作树（`D:/IHUI-AI-wt-align-page`）单独执行、串行跑；当时主工作树另有 `git-guardian.mjs` 与 `check-commit-loss-guard.mjs --filter-stash --list-unbacked --list-out-of-window` 两个常驻进程，属基础设施守卫，不是其它线的门套。门 301 两次读数分别为 1865ms（改写前）与 2983ms（改写后），两次均无并发跑门。
+
+### 0.2 重试留痕（本笔唯一一次并发假红）
+
+| 项 | 现场证据 |
+| --- | --- |
+| 哪条门 | `[30a]` Commit 丢失防护（blocking，`scripts/check-commit-loss-guard.mjs`） |
+| 红在什么位置 | 首次提交的 pre-commit 批次第 1/38 项，该门单独 167042ms；红在「未备份悬空 commit」档（综合判定段只列悬空分档，未见 reset 告警） |
+| 红的原文 | `↳ 悬空分档:已备份 0 / 同内容副本 0 / 等价残留 0 / 待处置 2`；`↳ 未备份:201b051e570a fix(cross-end): 侧栏宽度守门补齐「五面载体 + 取面纪律」,小程序抽屉菜单改竖排`；同 subject 的 `e20cdc6e7189`；`❌ commit 丢失风险,阻塞 commit` |
+| 凭什么判 `not-ours`（本次现场，不引用旧例） | ① 被点的两枚 commit subject 是另一条线（侧栏宽度守门 / 小程序抽屉）的改动，与本笔 5 个文件零路径交集；② 本笔暂存集仅为 `README.md`、`README.en.md`、`apps/web/app/(main)/member/favorites/page.tsx`、`apps/web/src/lib/ui-routes.generated.ts`、本文档；③ 本席未对这两枚做任何动作（本笔唯一的 `git reset --mixed origin/main` 只回退本席自己那枚未推送提交，参数不是 `HEAD~`）；④ 该门判据面是仓级 refs/objects，不是暂存内容 |
+| 为什么第二次转绿（现场物证） | 同一工作树现查 `git tag --points-at 201b051e570a` / `e20cdc6e7189`，两枚均已带 `lost-commit/*` 备份 tag（后者为 `lost-commit/e20cdc6e7189a4a25fa7d25ca59b657b4c351cea`）；即两次尝试之间阻塞条件（未备份悬空）被外部守护补齐，第二次读数时该门 `ok:true` |
+| 重试几次 / 最终读数出自第几次 | **1 次**（脚本退避 3s 后重发带钩子的普通提交）；最终读数为第 **2** 次（`guardian-timing.json` 中 `30a` `ok:true`，166051ms） |
+| 是否跳门 | **无**。未使用 `--no-verify` / `*_ALLOW_*` / `HUSKY_SKIP_*` / `git add -A` |
+
+### 0.3 本树「靠重试变绿」的门清单
+
+- 仅 `[30a]` 一例（见 0.2）。其余 37 项首轮即绿；首轮的 `[19]` 是 warn-only 预警，不计红，也不构成重试理由。
+- 另记：本次改写前的旧提交 `36e2df42a2` 首轮被门 173（DN5 `trackedFiles` 清单不变式）阻塞，属**真实内容红**，处置是跑 `scripts/sync-readme-numbers.mjs` 同步后重交，不是"重试变绿"；该提交已被 `cbb5759b19` 取代。
+
+### 0.4 纪律（本席自守）
+
+- 同一条门**连续两次红即停**，不再重试，附两次原始输出上报。
+- 每次因并发假红重试，必须留下本次现场证据（门号、红的位置与原文、`not-ours` 依据、重试次数、最终读数出自第几次）。
+- 不以"上次也是这样"作为归因依据。
+
+---
+
 ## 1. 门 301：未映射 4 屏 —— 票作废
 
 ### 1.1 读数（原文）
