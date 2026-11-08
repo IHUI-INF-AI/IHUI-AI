@@ -41,6 +41,8 @@ vi.mock('../src/plugins/auth.js', () => ({
 
 vi.mock('../src/plugins/require-permission.js', () => ({
   requireAdmin: vi.fn(),
+  // agents 详情/管理分支调同步 isSystemAdmin(request);缺导出 ⇒ 500
+  isSystemAdmin: () => false,
 }))
 
 vi.mock('../src/db/rbac-queries.js', () => ({
