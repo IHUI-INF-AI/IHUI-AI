@@ -85,7 +85,10 @@ def test_05_truncation_still_happens_inside_the_frame() -> None:
 
     assert out.startswith(f'<{EXTERNAL_TAG} source="tool:read_file">')
     assert out.endswith(f"</{EXTERNAL_TAG}>")
-    assert "已截断" in out
+    # 批次 2 起超预算走落盘分页,截断说明由"已截断"改为"输出过长,已落盘…续读";
+    # 判据不变:说明必须仍在定界块内。
+    assert "输出过长" in out
+    assert "续读" in out
 
 
 def test_06_scan_failure_keeps_framing(monkeypatch: pytest.MonkeyPatch) -> None:
