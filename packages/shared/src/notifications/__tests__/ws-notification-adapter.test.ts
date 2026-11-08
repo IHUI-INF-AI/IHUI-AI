@@ -36,4 +36,12 @@ describe('XUI-022 transformWsNotification:无 id 通知不得互相覆盖', () =
     expect(transformWsNotification({ type: 'chat', data: { type: 'system' } })).toBeNull()
     expect(transformWsNotification(null)).toBeNull()
   })
+
+  it('data.type 非字符串 ⇒ 落到 notification,不把对象塞进 type', () => {
+    const entry = transformWsNotification({
+      type: 'notification',
+      data: { type: { nested: true }, title: '标题', content: '正文' },
+    } as unknown as Parameters<typeof transformWsNotification>[0])
+    expect(entry?.type).toBe('notification')
+  })
 })
