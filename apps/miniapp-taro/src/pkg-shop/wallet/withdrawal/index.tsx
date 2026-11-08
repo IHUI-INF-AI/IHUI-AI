@@ -37,6 +37,9 @@ export default function WithdrawalPage() {
   // XUI-066:getDistributionInfo 失败曾被 catch 吞掉,余额显示 0 却仍可点提交。
   const [loadError, setLoadError] = useState('')
   const availableRef = useRef(0)
+  // 共享屏 WithdrawScreen 的 balance 约定是「元」，而 getDistributionInfo().available
+  // 与 availableWithdrawal 同源、单位是「分」。
+  const availableYuan = available / 100
 
   const methods = buildWithdrawMethods(tt)
   const texts = buildWithdrawTexts(tt)
@@ -53,7 +56,7 @@ export default function WithdrawalPage() {
   }, [tt])
 
   const fillAll = useCallback(() => {
-    setAmount(formatWithdrawAmount(availableRef.current))
+    setAmount(formatWithdrawAmount(availableRef.current / 100))
   }, [])
 
   const onSubmit = useCallback(async () => {
@@ -62,13 +65,15 @@ export default function WithdrawalPage() {
       onToast(tt('distribution.withdraw.invalidAmount', '请输入有效金额'), { kind: 'error' })
       return
     }
-    if (amt > availableRef.current) {
+    if (Math.round(amt * 100) > availableRef.current) {
       onToast(tt('distribution.withdraw.insufficient', '可提现余额不足'), { kind: 'info' })
       return
     }
     setSubmitting(true)
     try {
-      await withdraw({ amount: amt, type: method })
+      // 服务端 /distribution/withdraw 收「分」（与 availableWithdrawal 直接比较），
+      // 而 parseWithdrawAmount 产出「元」，提交前必须转分。
+      await withdraw({ amount: Math.round(amt * 100), type: method })
       onToast(tt('distribution.withdraw.submitted', '提现申请已提交'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 800)
     } catch {
@@ -104,7 +109,7 @@ export default function WithdrawalPage() {
           void Taro.navigateBack()
         }}
         colorScheme={resolvedTheme}
-        balance={available}
+        balance={availableYuan}
         methods={methods}
         method={method}
         onMethodChange={setMethod}

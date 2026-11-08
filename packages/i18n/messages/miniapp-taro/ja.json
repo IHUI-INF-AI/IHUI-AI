@@ -91,7 +91,7 @@
     "loadFailed": "タスクの読み込みに失敗しました"
   },
   "common": {
-    "backToTop": "一番上へ",
+    "gotIt": "わかりました",    "backToTop": "一番上へ",
     "hint": "ヒント",
     "goSettings": "設定へ",
     "all": "すべて",
@@ -395,6 +395,11 @@
         "contactService": "カスタマーサービスに連絡"
       },
       "tokenRate": "1元 = {n} IHUIポイント",
+      "title": "チャージ",
+      "balance": "口座残高",
+      "rate": "チャージ比率",
+      "introTitle": "チャージについて",
+      "introBody": "チャージ金額は即時反映され、コースやサービスの購入にご利用いただけます。",
       "guest": "ゲスト"
     },
     "withdrawal": {
@@ -2399,6 +2404,7 @@
       "tabDone": "完了",
       "tabAll": "すべて",
       "navSearch": "検索",
+      "loadFail": "読み込みに失敗しました。しばらくしてから再度お試しください。",
       "navMenu": "メニュー",
       "navCategory": "カテゴリー",
       "searchPlaceholder": "ニーズを検索",

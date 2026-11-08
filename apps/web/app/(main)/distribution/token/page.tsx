@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
+import { resolveWalletFlowMeta } from '@ihui/shared/utils/wallet-flow-meta'
 
 interface BalanceData {
   balance: number
@@ -51,16 +52,11 @@ interface ListData {
 
 const PAGE_SIZE = 20
 
-const OP_TYPE_KEY: Record<number, string> = {
-  0: 'flowRecharge',
-  1: 'flowDeduct',
-  2: 'flowExpire',
-}
-
 const OP_TYPE_OPTIONS = [0, 1, 2]
 
 export default function TokenWalletPage() {
   const t = useTranslations('distribution')
+  const tw = useTranslations('wallet')
   const tc = useTranslations('common')
   const locale = useLocale()
   const [page, setPage] = React.useState(1)
@@ -151,7 +147,7 @@ export default function TokenWalletPage() {
                   <SelectItem value="all">{t('opTypeAll')}</SelectItem>
                   {OP_TYPE_OPTIONS.map((o) => (
                     <SelectItem key={o} value={String(o)}>
-                      {t(OP_TYPE_KEY[o] ?? String(o))}
+                      {tw(resolveWalletFlowMeta(o, 1).labelKey)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -197,21 +193,23 @@ export default function TokenWalletPage() {
                     </TableRow>
                   ) : (
                     items.map((it) => {
-                      const positive = it.opType === 0
+                      const meta = resolveWalletFlowMeta(it.opType, it.quantity)
                       return (
                         <TableRow key={it.id}>
                           <TableCell className="px-4 py-2.5 font-medium">
-                            {t(OP_TYPE_KEY[it.opType] ?? 'flowRecharge')}
+                            {tw(meta.labelKey)}
                           </TableCell>
                           <TableCell
                             className={cn(
                               'px-4 py-2.5 text-right font-medium',
-                              positive
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-red-600 dark:text-red-400',
+                              meta.colorClass,
                             )}
                           >
-                            {positive ? '+' : ''}
+                            {meta.sign === 'positive'
+                              ? '+'
+                              : meta.sign === 'negative'
+                                ? '-'
+                                : ''}
                             {it.quantity}
                           </TableCell>
                           <TableCell className="px-4 py-2.5 text-right text-muted-foreground">

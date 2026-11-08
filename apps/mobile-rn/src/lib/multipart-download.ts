@@ -44,6 +44,16 @@ const SPEED_WINDOW_MS = 4000
 const FLOOR_BYTES_PER_SECOND = 30 * 1024
 /** 官网签名 APK 的体积下限(与 apk-download-legs 的 APK_MIN_BYTES 同源,此处不 import 以保持模块可单测)。 */
 const MIN_TOTAL_BYTES = 50 * 1024 * 1024
+/**
+ * 单片声明上限 64 MiB。XHR 只能拿整片 ArrayBuffer(见 createXhrPartTransport),
+ * 单片多大就要先占多大内存;超过这条线不是"慢",而是低端机直接 OOM。
+ */
+export const MAX_PART_BYTES = 64 * 1024 * 1024
+/**
+ * 整包声明上限 256 MiB。8 路并发 × 单片上限的理论峰值由它收紧
+ * (真实发布包 85–200MB 在界内);超界一律判"清单不可用",退回单文件腿,不落盘、不降级。
+ */
+export const MAX_TOTAL_BYTES = 256 * 1024 * 1024
 const MANIFEST_TIMEOUT_MS = 10_000
 /** 清单协议名:发布脚本写同一串;读到别名或旧格式一律判不可用,不猜。 */
 export const PARTS_MANIFEST_SCHEMA = 'ihui-apk-parts/v1'
@@ -52,9 +62,12 @@ const GITEE_ORIGIN = 'https://gitee.com'
 
 /** 清单不可用 / 与本次要下的版本对不上 / 体积自相矛盾。属可降级,不是"下载失败"。 */
 export class PartsUnavailableError extends Error {
-  constructor(message: string) {
+  /** 机器可判错误码;`ERR_PARTS_OVER_LIMIT` = 声明体积越过内存上限,调用方必须退回单文件腿。 */
+  readonly code: string
+  constructor(message: string, code = 'ERR_PARTS_UNAVAILABLE') {
     super(message)
     this.name = 'PartsUnavailableError'
+    this.code = code
   }
 }
 
@@ -115,6 +128,12 @@ export function parsePartsManifest(
   if (!isPositiveInt(totalBytes) || totalBytes < minTotalBytes) {
     throw new PartsUnavailableError(`清单 totalBytes 非法:${String(totalBytes)}`)
   }
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    throw new PartsUnavailableError(
+      `清单 totalBytes ${totalBytes} 超过内存上限 ${MAX_TOTAL_BYTES}(分片腿整片驻留内存)`,
+      'ERR_PARTS_OVER_LIMIT',
+    )
+  }
   const versionCode = obj.versionCode
   if (versionCode !== undefined && versionCode !== null && !isPositiveInt(versionCode)) {
     throw new PartsUnavailableError(`清单 versionCode 非法:${String(versionCode)}`)
@@ -136,6 +155,12 @@ export function parsePartsManifest(
     if (seen.has(name)) throw new PartsUnavailableError(`分片名重复:${name}`)
     if (!isPositiveInt(size))
       throw new PartsUnavailableError(`分片 ${name} size 非法:${String(size)}`)
+    if (size > MAX_PART_BYTES) {
+      throw new PartsUnavailableError(
+        `分片 ${name} size ${size} 超过单片内存上限 ${MAX_PART_BYTES}`,
+        'ERR_PARTS_OVER_LIMIT',
+      )
+    }
     seen.add(name)
     parts.push({ name, size })
     sum += size
