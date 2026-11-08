@@ -34,6 +34,7 @@ from typing import Any
 
 from . import aider, chatgpt, claude_ai, claude_code, codex, cursor, wechat
 from .ir import ParseResult, finalize
+from .runtime_bundle import classify_runtime_bundle
 
 __all__ = ["SOURCES", "parse_conversation_file"]
 
@@ -63,5 +64,16 @@ def parse_conversation_file(
         raise ValueError(f"不支持的数据源: {source}(允许: {', '.join(SOURCES)})")
     if not data or data.isspace():
         raise ValueError("上传的文件内容为空")
+    # 运行时分维导出:先按命名空间拆开,会话交给既有 finalize,其余挂到 runtime。
+    # 2026-11-08 修复:classify_runtime_bundle 此前只有单测调用、生产从未接线,
+    # 结果这类导出被来源解析器当成普通会话文件 → conversations 为空、其余维度静默丢失。
+    bundle = classify_runtime_bundle(data)
+    if bundle is not None:
+        parsed, warnings, truncated = finalize(
+            ParseResult(conversations=bundle.conversations, warnings=bundle.warnings),
+            source=source,
+        )
+        parsed["runtime"] = bundle.as_runtime()
+        return parsed, warnings, truncated or bundle.truncated
     return finalize(parser(data, filename), source=source)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
