@@ -32,6 +32,9 @@ function git(cwd, args) {
     encoding: 'utf8',
     windowsHide: true,
     timeout: 60_000,
+    // 显式 stdio:与门 193 判据同族(不写 stdio 时派生 git 在本机 0/30 抛 EBUSY)。
+    // 本处是门 193 修好 check-hand-migration-snapshot.mjs:339 后暴露的第二处同病实例。
+    stdio: ['ignore', 'pipe', 'pipe'],
   })
   if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败:${r.stderr || r.stdout}`)
   return r.stdout
