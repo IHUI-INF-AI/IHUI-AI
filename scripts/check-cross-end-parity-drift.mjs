@@ -4,7 +4,7 @@
 
 /* eslint-disable no-console -- 只读尺子,需 console 输出结论 */
 /**
- * check-cross-end-parity-drift.mjs — 跨端对齐"是否正在倒退"的只读漂移尺(不进提交链)
+ * check-cross-end-parity-drift.mjs — 跨端对齐"是否正在倒退"的只读漂移尺(提交链 id 302 / push 链 id 302p)
  *
  * 立因:本仓三条对齐链(web→RN 功能映射 / RN→小程序镜像 / 样式 token 派生)各有对账器,
  * 但**没有任何一处回答"这一轮比上一轮好了还是坏了"**。登记数只能靠人想起来去跑,
@@ -32,15 +32,20 @@
  *
  * 回归制入口(2026-11-06 接提交链):`--gate` 不读上一轮本机快照,只比仓内基线
  * `scripts/data/cross-end-drift-gate-baseline.json` —— 存量只报数,只有"比基线更坏"才 exit 1。
- * `--push` 只改人读措辞(runner 侧登记为 push 面 blocking);退出码语义两面一致:
- * 0=未恶化 / 1=相对基线恶化 / 2=未判定。基线读不到、某维现读取不到 ⇒ 一律 2,**不折成 0**。
+ * 两面分档(2026-11-08 接线):提交面(id 302,blocking)**只让承载削减面判红** ——
+ * mirrored / registryEntries / aligned / alignedUnique / fidelityHosted / portalRows /
+ * judgedGapWebRegression;登记动作(新登记 gap、新增未登记屏 unmapped、mapRot 等)只进
+ * advisory 在线报数,绝不因"如实登记"判红。push 面(id 302p)判据一字不放宽:任一维恶化即 exit 1。
+ * `--staged`:提交面按索引 blob 取材(与将要提交的那份一致),绝不退回工作树。
+ * 退出码:0=未恶化 / 1=相对基线恶化 / 2=未判定。基线读不到、某维现读取不到 ⇒ 一律 2,**不折成 0**。
  *
  * Usage:
  *   node scripts/check-cross-end-parity-drift.mjs            # 现读并打印
  *   node scripts/check-cross-end-parity-drift.mjs --json     # 机读
  *   node scripts/check-cross-end-parity-drift.mjs --record   # 同时把本轮写进快照台账(守护轮用)
- *   node scripts/check-cross-end-parity-drift.mjs --gate     # 回归制:比仓内基线(commit 面 advisory)
- *   node scripts/check-cross-end-parity-drift.mjs --gate --push  # 回归制 push 面(恶化即失败)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate     # 回归制:比仓内基线(提交面:登记只报数)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate --staged  # 提交面按索引取材(guardian-runner 追加)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate --push  # 回归制 push 面(任一维恶化即失败)
  *   node scripts/check-cross-end-parity-drift.mjs --self-test
  */
 import { execFile } from 'node:child_process'
@@ -70,6 +75,11 @@ const recordMode = argv.includes('--record')
 const selfTest = argv.includes('--self-test')
 const gateMode = argv.includes('--gate')
 const pushMode = argv.includes('--push')
+/**
+ * 提交面取材(2026-11-08):guardian-runner 在提交链统一追加 `--staged`。
+ * 只认索引 blob —— 读工作树会把"没打算提交的改动"算进判据(提交的与判的不是同一份)。
+ */
+const stagedMode = argv.includes('--staged')
 
 /**
  * 变坏方向表(提交链判据原文)。'up' = 现读大于基线即恶化;'down' = 小于基线即恶化。
@@ -133,11 +143,14 @@ function runRulerAsync(script, args = ['--json']) {
   // 绝对路径只给测试用(临时夹具,不进仓库);生产一律相对 HERE 的尺子名。
   const cmd = isAbsolute(script) ? script : join(HERE, script)
   if (!existsSync(cmd)) return Promise.resolve({ ok: false, why: `尺子不在位:${script}` })
+  // 提交面统一按索引取材:子尺自己认识 `--staged`(face-reader 的 staged 面 = 索引 blob);
+  // 不认识的尺子只会忽略该旗,绝不因此退回工作树(--worktree 只留人工逃生)。
+  const rulerArgs = stagedMode && !args.includes('--staged') ? [...args, '--staged'] : args
   return new Promise((resolve) => {
     try {
       execFile(
         process.execPath,
-        [cmd, ...args],
+        [cmd, ...rulerArgs],
         {
           cwd: ROOT,
           encoding: 'utf8',
@@ -276,6 +289,50 @@ export function judgeJudgedGapFaces({ nowGapKeys, baseGapKeys, baseCarriedKeys }
     registered: baseGap ? now.filter((k) => !baseGap.includes(k)) : now,
     regression: now.filter((k) => baseCarried.includes(k)),
   }
+}
+
+/**
+ * 提交面只让「承载削减面」判红(2026-11-08 接线 id 302 blocking 时立)。
+ *
+ * 立因:302 从 warn 提到 blocking 后,若整张 GATE_DIRECTIONS 原样生效,「新增未登记屏」
+ * (unmapped 0→1)会把提交判红 —— 那正是"如实承认缺口"被当成倒退的老坑;反过来,
+ * 把 302 留在 warn 又等于承载被拆也不阻断。所以提交面只认"承载数量真的少了"这一面:
+ *   blocking  = mirrored / registryEntries / aligned / alignedUnique / fidelityHosted /
+ *               portalRows / judgedGapWebRegression(与 judgeJudgedGapFaces 的承载面同源)
+ *   advisory  = 其余维(unmapped 新增未登记屏、mapRot、fidelity*、tier* 等)—— 只报数,不进 exit 判据
+ *
+ * push 面(`--push`)不经过本函数:那里任一维恶化仍然 exit 1,判据一字不放宽。
+ * @param {{state?:string, regressions?:object[]}} judged
+ */
+export const COMMIT_BEARING_DIMS = new Set([
+  'mirrored',
+  'registryEntries',
+  'aligned',
+  'alignedUnique',
+  'fidelityHosted',
+  'portalRows',
+  'judgedGapWebRegression',
+])
+
+export function commitFaceOf(judged) {
+  const state = judged?.state ?? 'undetermined'
+  const regressions = Array.isArray(judged?.regressions) ? judged.regressions : []
+  if (state !== 'regressed') return { state, regressions, advisories: [] }
+  const bearing = []
+  const advisories = []
+  for (const r of regressions) {
+    if (COMMIT_BEARING_DIMS.has(r.dim)) {
+      bearing.push(r)
+      continue
+    }
+    advisories.push({
+      dim: r.dim,
+      detail:
+        `${r.label ?? r.dim} 基线 ${r.baseline} → 现读 ${r.current}` +
+        '(提交面只报数,不阻断;push 面仍按原判据拦)',
+    })
+  }
+  return { state: bearing.length > 0 ? 'regressed' : 'ok', regressions: bearing, advisories }
 }
 
 /**
@@ -1482,6 +1539,61 @@ function selfTestMain() {
     pass: judgeBaseline({ values: { mirrored: 256, mapRot: 2 }, baseline: gateBase, directions: dirs }).state === 'undetermined',
   })
 
+  // 提交面分档(2026-11-08 接线 id 302 blocking):只让承载削减面判红;
+  // 「新增未登记屏」与「如实登记 gap」都只报数 —— 两个方向各钉一例,另加 push 面不放宽的反向对照。
+  const commitBase = { dims: { ...gateBase.dims, unmapped: 0, alignedUnique: 292 } }
+  const commitDirs = [...dirs, ['alignedUnique', 'down', '承载面(去重 web 键)']]
+  cases.push({
+    name: 'H1 提交面:新增未登记屏(unmapped 0→1)⇒ 只报数可见,不判红(push 面同数据仍 regressed)',
+    pass: (() => {
+      const j = judgeBaseline({
+        values: { ...commitBase.dims, unmapped: 1 },
+        baseline: commitBase,
+        directions: commitDirs,
+      })
+      const c = commitFaceOf(j)
+      return (
+        j.state === 'regressed' &&
+        c.state === 'ok' &&
+        c.regressions.length === 0 &&
+        c.advisories.some((a) => a.dim === 'unmapped' && /只报数/.test(a.detail))
+      )
+    })(),
+  })
+  cases.push({
+    name: 'H2 提交面:拆掉既有承载(alignedUnique 292→291)⇒ regressed(提交必须判红)',
+    pass: (() => {
+      const c = commitFaceOf(
+        judgeBaseline({
+          values: { ...commitBase.dims, alignedUnique: 291 },
+          baseline: commitBase,
+          directions: commitDirs,
+        }),
+      )
+      return c.state === 'regressed' && c.regressions.some((r) => r.dim === 'alignedUnique')
+    })(),
+  })
+  cases.push({
+    name: 'H3 提交面:既有承载键被登记成 gap ⇒ regressed(承载面同源,不许只报数)',
+    pass: (() => {
+      const c = commitFaceOf({
+        state: 'regressed',
+        regressions: [
+          { dim: 'judgedGapWebRegression', label: '既有承载键被登记成 gap', baseline: 0, current: 1, delta: 1, keys: ['settings'] },
+        ],
+      })
+      return c.state === 'regressed' && c.regressions.some((r) => r.dim === 'judgedGapWebRegression')
+    })(),
+  })
+  cases.push({
+    name: 'H4 提交面:如实登记 gap、承载面一枚未减 ⇒ ok(不因"登记了"误红)',
+    pass: (() => {
+      const j = judgeBaseline({ values: { ...commitBase.dims }, baseline: commitBase, directions: commitDirs })
+      const c = commitFaceOf(j)
+      return j.state === 'ok' && c.state === 'ok' && c.regressions.length === 0
+    })(),
+  })
+
   let bad = 0
   for (const c of cases) {
     if (!c.pass) bad++
@@ -1504,8 +1616,10 @@ function selfTestMain() {
 }
 
 async function main() {
-  // 六把尺都只读 HEAD 面、互不写盘、互不消费对方输出 ⇒ 并发跑;单把失败仍由 runRulerAsync
-  // 折成 ok:false,judge 照旧把整门拖成未判定/判红,不因并发吞掉任何一把的异常。
+  // 六把尺互不写盘、互不消费对方输出 ⇒ 并发跑;单把失败仍由 runRulerAsync 折成 ok:false,
+  // judge 照旧把整门拖成未判定/判红,不因并发吞掉任何一把的异常。
+  // 取材面:默认 HEAD;guardian-runner 提交链追加 --staged 时,runRulerAsync 给每把子尺
+  // 转发 --staged(索引 blob),绝不退回工作树。
   /**
    * 样式档位维(2026-11-03 接):`check-web-rn-style-tiers.mjs` 自己的头注写着
    * 「本尺只读,不进提交链;净增经 §5e 到人」—— 而这句话在本轮之前**没有兑现方**:
@@ -1529,12 +1643,13 @@ async function main() {
     runRulerAsync('check-web-rn-style-tiers.mjs'),
     runRulerAsync('check-miniapp-style-tiers.mjs'),
   ]
-  // 文档同取 HEAD 面,与六把尺无数据依赖 ⇒ 同批派生,不再串行等一轮。
+  // 文档同取同一取材面(默认 HEAD;提交面取索引),与六把尺无数据依赖 ⇒ 同批派生,不再串行等一轮。
+  const docRev = stagedMode ? `:${DOC_PATH}` : `HEAD:${DOC_PATH}`
   const docJob = new Promise((resolve) => {
     try {
       execFile(
         'git',
-        ['show', `HEAD:${DOC_PATH}`],
+        ['show', docRev],
         {
           cwd: ROOT,
           encoding: 'utf8',
@@ -1591,7 +1706,7 @@ async function main() {
       : { state: 'undetermined', regressions: [], missing: [], why: read.why }
     result.gate = {
       ...judged,
-      face: pushMode ? 'push' : 'commit-advisory',
+      face: pushMode ? 'push' : 'commit',
       baseline: read.ok ? GATE_BASELINE_PATH.replace(/\\/g, '/').replace(`${ROOT.replace(/\\/g, '/')}/`, '') : null,
       docStale: result.stale ?? [],
       values,
@@ -1640,6 +1755,18 @@ async function main() {
           '取不到基线提交点的台账键集 ⇒「既有承载键被登记成 gap」这一面本轮未判(不冒红也不记绿)'
       }
       result.gate.ledgerRef = ledger?.sha ?? null
+    }
+    /**
+     * 提交面分档(2026-11-08):id 302 已是 blocking —— 但只让承载削减面拦提交。
+     * 登记动作(unmapped 新增未登记屏 / mapRot / fidelity* / tier* 等)降为 advisory,
+     * 必须在人读输出里逐行出现(「只报数」不是写进日志就算数)。
+     * push 面不经过这里:302p 仍是任一维恶化即 exit 1。
+     */
+    if (!pushMode) {
+      const commitFace = commitFaceOf(result.gate)
+      result.gate.state = commitFace.state
+      result.gate.regressions = commitFace.regressions
+      for (const a of commitFace.advisories) result.gate.advisories.push(a)
     }
   }
   if (jsonMode) {
@@ -1697,5 +1824,7 @@ export const __test__ = {
   runRulerAsync,
   judgeBaseline,
   judgeJudgedGapFaces,
+  commitFaceOf,
+  COMMIT_BEARING_DIMS,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
