@@ -20,7 +20,7 @@
 import { useCallback, useMemo, useState, type ReactElement } from 'react'
 import { Image, Text, View } from 'react-native'
 import { rnRadius, taroSpacing } from '@ihui/design-tokens'
-import { isErrorTurn } from '@ihui/shared/chat'
+import { AI_GENERATED_LABEL, isErrorTurn } from '@ihui/shared/chat'
 import { thinkingTitleView } from '@ihui/shared/chat/element-pack'
 import type {
   ChatMessageItemMessage,
@@ -493,12 +493,12 @@ export function ChatMessageItemView({
               style={{
                 opacity: answerHidden ? 0 : 1,
                 marginRight: '10rpx',
-                fontSize: '24rpx',
-                color: 'var(--color-muted-foreground)',
-                lineHeight: '40rpx',
+                fontSize: `${AI_GENERATED_LABEL.fontSizePx * 2}rpx`,
+                color: AI_GENERATED_LABEL.colorCssVar,
+                lineHeight: `${AI_GENERATED_LABEL.lineHeightPx * 2}rpx`,
               }}
             >
-              <T>{t('ai.chatMessageItem.aiGenerated')}</T>
+              <T>{t(AI_GENERATED_LABEL.i18nKey)}</T>
               {typeof msg.tokenCount === 'number' ? (
                 <T style={{ marginLeft: '10rpx' }}>
                   {t('ai.chatMessageItem.tokenCost', { n: formatTokenDisplay(msg.tokenCount) })}

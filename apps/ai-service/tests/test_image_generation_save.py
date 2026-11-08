@@ -1051,7 +1051,7 @@ async def test_image_gen_agnes_model_argument_overrides_default(
 
 
 async def test_image_gen_success_return_fields(token6688_configured, monkeypatch):
-    """成功返回结构钉死为 11 个字段,不多不少。
+    """成功返回结构钉死为 12 个字段,不多不少。
 
     为什么要 set(out) 相等而不是逐个 in:quality/style 自 2026-09-21 起既不进 payload
     也不再伪回显(mcp_server.py:4130 成型 payload + 4259-4267 返回体;旧实现用
@@ -1071,6 +1071,8 @@ async def test_image_gen_success_return_fields(token6688_configured, monkeypatch
     assert set(out) == {
         "tool", "ok", "prompt", "image_url", "size", "provider", "model",
         "saved_path", "file_size_bytes", "created_at", "message",
+        # 2026-11-08 AIGC 隐式标识:产物字节层写入证据随结果返回并落库
+        "aigc_implicit",
     }
     assert out["prompt"] == "test"
     assert out["image_url"].startswith("data:image/png;base64,")
