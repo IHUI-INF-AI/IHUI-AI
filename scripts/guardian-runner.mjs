@@ -6149,8 +6149,10 @@ const checks = [
     // 下一个人不会读。票族存在而源头空转,与 O65 第 0 期「派单白名单预留依赖族却没人看」同型。
     //
     // 两档刻意分开,因为它们的成本与失效方向完全不同:
-    //   · --staged(提交链):只判 scripts/data/dep-audit-policy.json 的形态(waiver 三要素 + 未过期),
-    //     毫秒级、不跑网络。它拦的是「有人写一枚永不到期的豁免」;
+    //   · --staged(提交链):政策形态 + **暂存依赖面真判**(2026-11-08 补)。锁文件被暂存时
+    //     读索引里的 pnpm-lock.yaml blob,与审计快照记录的锁文件指纹比对:一致才用快照真判,
+    //     不一致/缺失/过期 ⇒ exit 2 未判定(提示 pnpm install 后 --refresh)。毫秒级、不跑网络。
+    //     它拦的是「有人写一枚永不到期的豁免」与「拿旧快照给新依赖树判绿」;
     //   · 全量档:读 .ihui-agent/state/dep-audit-cache.json 判「生产可达 critical/high 是否全被覆盖」,
     //     快照过期先自动刷新一次(实测 pnpm audit --registry 6.8s),刷新失败 ⇒ exit 2 未判定。
     //
@@ -6164,6 +6166,8 @@ const checks = [
     // 均无 image-size)。混为一谈的门会恒红,恒红门的唯一结局是被 --no-verify 连带废掉(§0.2)。
     skipEnv: 'HUSKY_SKIP_PROD_DEP_ADVISORIES',
     stagedTriggers: [
+      'pnpm-lock.yaml',
+      '**/package.json',
       'scripts/data/dep-audit-policy.json',
       'scripts/check-prod-dep-advisories.mjs',
       'scripts/dep-advisory-radar.mjs',

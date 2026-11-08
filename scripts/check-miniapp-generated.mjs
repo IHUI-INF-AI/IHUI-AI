@@ -20,7 +20,10 @@
  *        B1 i18n:某 remote 语言整块不在离线包里
  *        B2 i18n:源 JSON 的叶子键在包里找不到(= 包过期,端上会回落远端取词或直接缺词)
  *        R1 资源:源码里写死的资源字面量在面里查无此文件(= 运行时 404/空白,<Image> 不报错)
- *        L1 注册表:icons/ 下有 .svg 而 icons.ts 没有对应键(= 生成器没跑)
+ *        L1 注册表:icons/ 下有 .svg 而 icons.ts 没有对应键(= 生成器没跑)。
+ *           2026-11-08 记账:图标源已「全量外置 CDN」,icons/ 现仅剩 1 个 svg(见 G3),
+ *           该维度实际只对那 1 个源有覆盖;若 svgs=0,则**如实记一条不可判**(不静默绿、不判红),
+ *           不再让「空转」看起来像「已覆盖」。
  *   G2 孤儿/死资源 = 产物里有但源里已无(**默认只报数,--strict 判红**;删文件属 §7 删除安全,须人工确认):
  *        B3 i18n:包里的叶子键在源 JSON 已不存在
  *        R2 资源:产物目录(icons/ 与 assets/tabbar/)里没有任何引用指向的文件
@@ -1062,6 +1065,19 @@ function runCheck({ face, root, strict, group }) {
     }
     const keys = registryKeys(reader.read(ICON_REGISTRY))
     counts.registryKeys = keys.size
+    counts.iconSources = svgs.length
+    if (svgs.length === 0) {
+      // 维度自述:源集为空 ⇒ L1「源有产物无」没有判据对象。如实记账(非阻塞),
+      // 不让空转维度冒充覆盖;G3 会同时报「N 个键无同名 svg」,两条一起读才是完整事实。
+      push(
+        'L1',
+        'unreproducible',
+        false,
+        ICON_ASSET_DIR,
+        `${ICON_ASSET_DIR}/ 下 0 个 .svg ⇒ L1「源有产物无」维度无判据对象(图标源已全量外置 CDN);` +
+          '本维度不计入覆盖,也不判红(判红=恒红=逼人 --no-verify)',
+      )
+    }
     for (const svg of svgs) {
       const name = svg.slice(ICON_ASSET_DIR.length + 1, -'.svg'.length)
       if (!keys.has(name)) push('L1', 'missing', true, svg, `icons/ 下有该源,但 ${ICON_REGISTRY} 没有对应键`)

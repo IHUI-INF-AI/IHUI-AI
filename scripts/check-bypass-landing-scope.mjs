@@ -39,7 +39,7 @@
  *
  * 用法:
  *   node scripts/check-bypass-landing-scope.mjs              # 审计留痕日志里未判过的 bypass 记录
- *   node scripts/check-bypass-landing-scope.mjs --strict     # 出现任何未判定 ⇒ exit 2
+ *   node scripts/check-bypass-landing-scope.mjs --strict     # 记录级未判定也升 exit 2(日志缺失恒 exit 2)
  *   node scripts/check-bypass-landing-scope.mjs --root <dir> # 换仓/夹具通道(自检与镜像测试用)
  *   node scripts/check-bypass-landing-scope.mjs --self-test  # 判据正反例取证
  * 镜像测试:node --test scripts/tests/check-bypass-landing-scope.test.mjs
@@ -205,6 +205,9 @@ export function audit(root, { strict = false, now = new Date().toISOString() } =
   if (!ledger.ok) {
     // 留痕日志在 .ihui-agent/state/(gitignored):干净检出/CI 结构上不存在 ⇒ 未判定,
     // 不是"审计通过";读得到但坏格式仍按 exit2(那是真问题)。
+    // 2026-11-08:未判定**一律 exit 2**(与头注「日志读不到 ⇒ exit 2」一致)。
+    // 旧实现对此返回 status='undetermined' 后 main 又 exit 0 —— 干净检出恒「静默放行」,
+    // 等于本门在 CI 上从未生效。未判定 ≠ 通过,故这里不再有 exit 0 分支。
     if (ledger.state === 'missing')
       return { status: 'undetermined', why: '留痕日志不存在(干净检出无本地状态面)' }
     return { status: 'exit2', why: `留痕日志不可读(${ledger.state}):${ledger.why}` }
@@ -281,7 +284,7 @@ export function audit(root, { strict = false, now = new Date().toISOString() } =
 
 function printReport(r) {
   if (r.status === 'undetermined') {
-    console.log(`⚪ 未判定:${r.why} —— 不记绿也不冒红(拿到留痕面后重跑)`)
+    console.error(`⚪ 未判定:${r.why} —— 未判定不是通过(exit 2,不放行)`)
     return
   }
   if (r.status === 'exit2') {
@@ -337,6 +340,21 @@ function selfTest() {
     console.log(`${cond ? 'ok' : 'FAIL'} —— ${name}${note ? ` (实得:${note})` : ''}`)
   }
   const GIT = gitBinary()
+  /** 以子进程跑本脚本(钉住 main 的退出码映射,而不只是 audit() 的 status)。 */
+  const runSelf = (dir) => {
+    try {
+      execFileSync(process.execPath, [fileURLToPath(import.meta.url), '--root', dir], {
+        cwd: dir,
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: 300_000,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      return 0
+    } catch (e) {
+      return typeof e.status === 'number' ? e.status : -1
+    }
+  }
   const repo = (prefix) => {
     const dir = mkScratch(prefix)
     const run = (...a) =>
@@ -622,6 +640,37 @@ function selfTest() {
       rmScratch(dir)
     }
   }
+  // 14 干净检出(无留痕日志)⇒ 子进程 exit 2:未判定不再静默放行(2026-11-08 修 fail-open)
+  {
+    const { dir, run } = repo('bypass-st-exit-clean-')
+    try {
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
+      const rc = runSelf(dir)
+      t('14 干净检出无留痕 ⇒ exit 2(不是 exit 0)', rc === 2, String(rc))
+    } finally {
+      rmScratch(dir)
+    }
+  }
+  // 15 有真红记录 ⇒ 子进程 exit 1:未判定收紧后红出口仍在(修后仍能红)
+  {
+    const { dir, run } = repo('bypass-st-exit-red-')
+    try {
+      put(dir, 'a.txt', 'v1\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c1')
+      put(dir, 'a.txt', 'v2\n')
+      run('add', '-A')
+      run('commit', '-qm', 'c2')
+      const sha = bypassCommit(dir, run, () => put(dir, 'a.txt', 'v1\n'))
+      writeJournal(dir, [rec(sha, ['nope.txt'])])
+      const rc = runSelf(dir)
+      t('15 写回旧态记录 ⇒ exit 1(红出口仍在)', rc === 1, String(rc))
+    } finally {
+      rmScratch(dir)
+    }
+  }
   const pass = results.filter(Boolean).length
   console.log(`--self-test:${pass} 通过 / ${results.length - pass} 失败(共 ${results.length} 例)`)
   return pass === results.length ? 0 : 1
@@ -642,8 +691,8 @@ function main() {
   // --staged:runner 统一追加;本门判的是已落地提交与留痕日志,与暂存面无关,接受并忽略。
   const r = audit(root, { strict })
   printReport(r)
-  if (r.status === 'exit2') process.exit(2)
-  if (r.status === 'undetermined') process.exit(0)
+  // 2026-11-08:未判定(含留痕日志缺失的干净检出)一律 exit 2,绝不 exit 0 静默放行。
+  if (r.status === 'exit2' || r.status === 'undetermined') process.exit(2)
   process.exit(r.reds.length > 0 ? 1 : 0)
 }
 

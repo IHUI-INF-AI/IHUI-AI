@@ -46,7 +46,7 @@
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { isExcludedDirName } from './lib/exclude-dirs.mjs'
-import { gitRaw } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = process.cwd()
 const isStaged = process.argv.includes('--staged')
@@ -212,7 +212,6 @@ function getStagedFiles() {
       .filter((f) => SCAN_EXTS.some((e) => f.endsWith(e)))
       .filter((f) => !EXCLUDE_DIRS.has(f.split('/')[0]) && !isExcludedDirName(f.split('/')[0]))
       .map((f) => join(ROOT, f))
-      .filter((f) => existsSync(f))
   } catch {
     return []
   }
@@ -251,8 +250,30 @@ if (isStaged) {
 let totalViolations = 0
 const fileReports = []
 
+// 清单与内容同面:--staged 的正文读索引 blob(与 addedLinesMap 的 diff 同源),不读工作树。
+let stagedSources = null
+if (isStaged) {
+  try {
+    const rels = files.map((f) => relative(ROOT, f).replace(/\\/g, '/'))
+    stagedSources = catBatch(ROOT, rels.map((r) => `:${r}`))
+  } catch (e) {
+    console.error(`⚠️  索引 blob 取不到,无法判定:${e?.message ?? e}`)
+    process.exit(2)
+  }
+}
+
 for (const file of files) {
-  const src = readFileSync(file, 'utf8')
+  const rel = relative(ROOT, file).replace(/\\/g, '/')
+  let src
+  if (isStaged) {
+    src = stagedSources.get(`:${rel}`)
+    if (src === null || src === undefined) {
+      console.error(`⚠️  索引里取不到 ${rel},无法判定`)
+      process.exit(2)
+    }
+  } else {
+    src = readFileSync(file, 'utf8')
+  }
   const lines = src.split('\n')
   lines._file = file // 给 findTemplateClassNames 用
   const findings = []
