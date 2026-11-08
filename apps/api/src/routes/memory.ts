@@ -157,6 +157,24 @@ async function writeEntries(
   }
 }
 
+/**
+ * 压缩计数的运行时容错：pg 可能把 integer 以字符串返回，字符串直接参与加法会变成拼接
+ * (`"5" + 3 === "53"`)。统一归一为有限数字，非法/缺失按 0。
+ */
+export function toFiniteCount(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+/** 压缩条目展示文案；计数一律先经 toFiniteCount 归一，避免类型漂移造成静默错值。 */
+export function formatWorkingCompression(
+  originalMessages: unknown,
+  compressedTo: unknown,
+  strategy: string | null,
+): string {
+  return `压缩 ${toFiniteCount(originalMessages)} 条 → ${toFiniteCount(compressedTo)}(${strategy ?? 'summary'})`
+}
+
 export const memoryRoutes: FastifyPluginAsync = async (server) => {
   // GET /memory — 查询当前用户记忆
   server.get('/memory', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -412,7 +430,7 @@ export const memoryRoutes: FastifyPluginAsync = async (server) => {
 
     const workingEntries: MemoryStatusEntry[] = workingRows.map((r) => ({
       id: r.id,
-      content: `压缩 ${r.originalMessages} 条 → ${r.compressedTo}(${r.strategy ?? 'summary'})`,
+      content: formatWorkingCompression(r.originalMessages, r.compressedTo, r.strategy),
       createdAt: toIso(r.createdAt),
       importance: 0,
     }))

@@ -219,6 +219,9 @@ function extractFields(block) {
     args: extractArgs(block.raw),
     mode: extractString(block.raw, 'mode'),
     onFailHint: extractOnFailHint(block.raw),
+    // 该门的**正规豁免通道**(登记台账路径等);没有这一格的项渲染成 `—`,
+    // 有则与 args 同格展示 —— 否则"该行只有 `—`"会被读成"没有正规出路,只能 skip"。
+    exemptionNote: extractString(block.raw, 'exemptionNote'),
     comment: block.comment,
   }
 }
@@ -386,25 +389,18 @@ function generateMarkdown(checks) {
   const today = new Date().toISOString().slice(0, 10)
   const withHint = checks.filter((c) => c.onFailHint)
 
+  /** Args 格:命令行参数与「正规豁免通道」同格——两样都没有时才落 `—`。 */
+  const argsCell = (c) => {
+    const args = c.args.length ? escapeTableCell(c.args.join(' ')) : ''
+    const note = c.exemptionNote ? `登记: ${escapeTableCell(c.exemptionNote)}` : ''
+    return [args, note].filter(Boolean).join('<br>') || '—'
+  }
+
   const tblBlocks = (arr) =>
-    arr
-      .map(
-        (c) =>
-          `| ${c.id} | ${escapeTableCell(c.label)} | ${c.script} | ${
-            c.args.length ? escapeTableCell(c.args.join(' ')) : '—'
-          } | ${c.onFailHint ? '有' : '—'} |`,
-      )
-      .join('\n')
+    arr.map((c) => `| ${c.id} | ${escapeTableCell(c.label)} | ${c.script} | ${argsCell(c)} | ${c.onFailHint ? '有' : '—'} |`).join('\n')
 
   const tblInfo = (arr) =>
-    arr
-      .map(
-        (c) =>
-          `| ${c.id} | ${escapeTableCell(c.label)} | ${c.script} | ${
-            c.args.length ? escapeTableCell(c.args.join(' ')) : '—'
-          } |`,
-      )
-      .join('\n')
+    arr.map((c) => `| ${c.id} | ${escapeTableCell(c.label)} | ${c.script} | ${argsCell(c)} |`).join('\n')
 
   const warnByTier = (tier) =>
     warn
@@ -461,20 +457,20 @@ function generateMarkdown(checks) {
 
 ### 1.1 blocking 项（${blocking.length} 项）
 
-| ID | Label | Script | Args | onFailHint |
-|----|-------|--------|------|------------|
+| ID | Label | Script | Args / 正规豁免通道 | onFailHint |
+|----|-------|--------|----------------------|------------|
 ${tblBlocks(blocking)}
 
 ### 1.2 warn 项（${warn.length} 项）
 
-| ID | Label | Script | Args | onFailHint |
-|----|-------|--------|------|------------|
+| ID | Label | Script | Args / 正规豁免通道 | onFailHint |
+|----|-------|--------|----------------------|------------|
 ${tblBlocks(warn)}
 
 ### 1.3 info 项（${info.length} 项）
 
-| ID | Label | Script | Args |
-|----|-------|--------|------|
+| ID | Label | Script | Args / 正规豁免通道 |
+|----|-------|--------|----------------------|
 ${tblInfo(info)}
 
 ### 1.4 失败提示详情（onFailHint）
@@ -608,7 +604,8 @@ node scripts/generate-guardian-docs.mjs --help
 
 1. 读取 \`scripts/guardian-runner.mjs\` 源码
 2. 字符级解析 \`const checks = [...]\` 数组（字符串/注释感知，避免误匹配）
-3. 对每个 check 对象提取 \`id\` / \`label\` / \`script\` / \`args\` / \`mode\` / \`onFailHint\`
+3. 对每个 check 对象提取 \`id\` / \`label\` / \`script\` / \`args\` / \`mode\` / \`onFailHint\` / \`exemptionNote\`
+   （\`exemptionNote\` = 该门的**正规豁免通道**说明，与 \`args\` 同格渲染；两样都没有才落 \`—\`）
 4. 同时提取对象前的 \`//\` 注释块（包含升级评估、设计原因等上下文）
 5. 与内置的 \`UPGRADE_TIMELINE\`（升级时间表）和 \`NAMESPACE_MAP\`（命名空间映射）合并
 6. 渲染 Markdown 模板，写入 \`docs/guardian-reference.md\`
