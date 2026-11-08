@@ -7,13 +7,8 @@
  * 注:POST /api/sign-in 已在 gamification.ts 中注册,POST /api/coupons/verify 已在 promotions.ts 中注册。
  */
 import type { FastifyPluginAsync } from 'fastify'
-import { z } from 'zod'
 import { success, error } from '../../utils/response.js'
 import { findMyMember } from '../../db/my-member-queries.js'
-import { findCozeChatHistory } from '../../db/coze-chat-queries.js'
-import { parsePagination } from './_shared.js'
-
-const botConversationParam = z.object({ botId: z.string(), conversationId: z.string() })
 
 const memberRoutes: FastifyPluginAsync = async (server) => {
   server.get('/members/me', async (request, reply) => {
@@ -21,15 +16,11 @@ const memberRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ member }))
   })
 
-  server.get('/coze/chat/history/:botId/:conversationId', async (request, reply) => {
-    const { botId, conversationId } = botConversationParam.parse(request.params)
-    if (!botId || !conversationId) return reply.status(400).send(error(400, '参数错误'))
-    const q = parsePagination(request, reply)
-    if (!q) return
-    const result = await findCozeChatHistory(botId, conversationId, q.page, q.pageSize)
-    return reply.send(
-      success({ list: result.list, total: result.total, page: q.page, pageSize: q.pageSize }),
-    )
+  // F-54(2026-11-08):coze_chat_history 只有 bot_id/conversation_id,没有 user_id 或
+  // 可关联的会话归属表,且全仓没有该表的写入方 —— 无法安全判定会话归属。
+  // 迁移补列前先下线端点(不臆造归属数据),避免任意登录用户按 conversationId 读他人全文。
+  server.get('/coze/chat/history/:botId/:conversationId', async (_request, reply) => {
+    return reply.status(404).send(error(404, '接口已下线'))
   })
 }
 
