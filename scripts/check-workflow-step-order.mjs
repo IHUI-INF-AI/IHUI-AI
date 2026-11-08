@@ -65,6 +65,56 @@ export function judgePermissionsDeclaration(text) {
   return []
 }
 
+/**
+ * 规则 E(2026-11-08 新增,绝对零容忍):全量守门腿的公共取材面必须走同一个 composite action。
+ *
+ * 立因(实测):gates-full 只 `pnpm install`,guardian-full 另加 packages 构建 / setup-python /
+ * uv ⇒ 同一枚提交在两条全量腿上取材面不同,门 4/98(读 packages 下的 dist)与门 254(只认 uvx)
+ * 的结论天然不可比:一条腿判红、另一条落"未判定",而"未判定"又不是通过(§0.3)。
+ *
+ * 判什么:任何 `node scripts/guardian-runner.mjs ... --timing` 且**不带 --staged** 的作业,
+ * 必须包含 `uses: ./.github/actions/gate-prep`;带 --staged 的档不是全量腿,不参与本维。
+ * 刻意不按"是否写了 pnpm install/build/python"逐条比对:那种判据可以被"多写一行"骗过,
+ * 而共用 action 在 YAML 语义上决定这一步一定被执行。
+ */
+const FULL_GATE_RUN_RE = /\bnode\s+scripts\/guardian-runner\.mjs\b/
+const GATE_PREP_USES_RE = /uses:\s*\.\/\.github\/actions\/gate-prep(?:@|\s|$)/
+
+function jobBlocks(text) {
+  const lines = text.split('\n')
+  const starts = []
+  lines.forEach((l, i) => {
+    if (JOB_RE.test(l)) starts.push(i)
+  })
+  return starts.map((s, k) => ({
+    key: JOB_RE.exec(lines[s])[1],
+    body: lines.slice(s, k + 1 < starts.length ? starts[k + 1] : lines.length).join('\n'),
+  }))
+}
+
+export function judgeFullGatePreparation(text) {
+  const out = []
+  for (const job of jobBlocks(text)) {
+    const runLines = job.body
+      .split('\n')
+      .filter((l) => FULL_GATE_RUN_RE.test(l) && /\s--timing\b/.test(l))
+    const fullLeg = runLines.some((l) => !/\s--staged\b/.test(l))
+    if (!fullLeg) continue
+    if (!GATE_PREP_USES_RE.test(job.body)) {
+      out.push(
+        `作业 ${job.key} 跑全量守门(--timing 且不带 --staged)却没走 ./.github/actions/gate-prep` +
+          '(两条全量腿的取材面必须逐格相同,否则同一枚提交会一条腿判红、另一条腿未判定)',
+      )
+    }
+  }
+  return out
+}
+
+/**
+ * 规则 F 的占位(本笔不启用):required 聚合器的 needs 覆盖 preflight-* ——
+ * 见 DG-04 那一笔,避免本笔在 ci.yml 尚未补齐时自检恒红。
+ */
+
 function scan() {
   const violations = []
 
@@ -79,6 +129,9 @@ function scan() {
 
     // 规则 C:安装命令逐字钉版(2026-11-01)
     for (const why of judgeInstallPins(text)) violations.push(`${rel} [install-pin] ${why}`)
+
+    // 规则 E:全量腿公共取材面(2026-11-08)
+    for (const why of judgeFullGatePreparation(text)) violations.push(`${rel} [full-prep] ${why}`)
 
     // 规则 A:步骤顺序
     const lines = text.split('\n')
@@ -431,6 +484,40 @@ export function selfTest() {
   } else if (judgeBuildToolPins(floatBack, '11.18.0').length === 0) {
     failures.push('规则 D 反向自证不过:摘掉版本钉后仍放行 ⇒ 本维是哑的')
   }
+  // 规则 E 的成对夹具:全量腿必须走 gate-prep;带 --staged 的档不误伤。
+  const fullLegBody = (prep) =>
+    'jobs:\n  full:\n    runs-on: ubuntu-latest\n    steps:\n' +
+    (prep ? '      - uses: ./.github/actions/gate-prep\n' : '') +
+    '      - run: node scripts/guardian-runner.mjs --timing\n'
+  const prepCases = [
+    { name: 'E① 全量腿走 gate-prep 放行', text: fullLegBody(true), want: 0 },
+    { name: 'E② 全量腿没走 gate-prep 判红(2026-11-08 现状)', text: fullLegBody(false), want: 1 },
+    {
+      name: 'E③ 只跑 --staged 的档不参与本维',
+      text:
+        'jobs:\n  staged:\n    runs-on: ubuntu-latest\n    steps:\n' +
+        '      - run: node scripts/guardian-runner.mjs --staged\n',
+      want: 0,
+    },
+  ]
+  for (const c of prepCases) {
+    const got = judgeFullGatePreparation(c.text).length
+    if (got !== c.want) failures.push(`${c.name}: 期望 ${c.want} 条,实得 ${got} 条`)
+  }
+  // 真实文件成对自证:两条全量腿现读都必须放行;摘掉 gate-prep 后必须翻红。
+  for (const file of ['gates-full.yml', 'guardian-full.yml']) {
+    const text = readFileSync(join(WF_DIR, file), 'utf8')
+    if (judgeFullGatePreparation(text).length !== 0) {
+      failures.push(`真实样本 ${file} 本应放行(已走 gate-prep)⇒ 判据或该文件已变形`)
+    }
+    const strippedPrep = text.replace(/^\s*-?\s*uses:\s*\.\/\.github\/actions\/gate-prep\s*$/m, '')
+    if (strippedPrep === text) {
+      failures.push(`规则 E 反向自证未取到样本:${file} 里没摘掉 gate-prep 步骤`)
+    } else if (judgeFullGatePreparation(strippedPrep).length === 0) {
+      failures.push(`规则 E 反向自证不过:摘掉 gate-prep 后 ${file} 仍放行 ⇒ 本维是哑的`)
+    }
+  }
+
   return failures
 }
 
@@ -485,6 +572,7 @@ export const __test__ = {
   judgePermissionsDeclaration,
   judgeInstallPins,
   judgeBuildToolPins,
+  judgeFullGatePreparation,
   listBuildFiles,
   readPackageManagerPnpm,
   selfTest,

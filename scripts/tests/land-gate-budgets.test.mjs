@@ -20,6 +20,7 @@ import { parseGateBudgets, resolveGateBudget } from '../lib/land-gate-rerun.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const LIB = join(ROOT, 'scripts/lib/land-gate-rerun.mjs')
+const EXECUTOR = join(ROOT, 'scripts/lib/guardian-executor.mjs')
 const LANDER = join(ROOT, 'scripts/object-space-land.mjs')
 const TABLE = join(ROOT, 'scripts/data/land-gate-budgets.json')
 const DEF = 300000
@@ -142,5 +143,32 @@ test('⑤ 形状锁:三处调用点都必须走按臂解析,读数必须带耗�
   )
   const lander = readFileSync(LANDER, 'utf8')
   assert.ok(lander.length > 1000, '落地器在场(形状锁读的是真文件)')
+})
+
+test('⑥ 执行器接线锁(DG-01):看门狗必须按门查同一张登记表,30a 不得再被 300s 掐死', () => {
+  const src = readFileSync(EXECUTOR, 'utf8')
+  assert.match(
+    src,
+    /resolveGateBudget\(check\.script, \{ env: \{\} \}\)/,
+    '执行器必须按门查登记表(且不吃落地器专用 env,避免两套旋钮互相串味)',
+  )
+  assert.ok(
+    (src.match(/gateTimeoutFor\(check\)/g) ?? []).length >= 2,
+    '并行与串行两档都必须走 gateTimeoutFor(check),不能只修一档',
+  )
+  assert.doesNotMatch(
+    src,
+    /const gateTimeoutMs = Number\(process\.env\.GUARDIAN_GATE_TIMEOUT_MS \?\? 300_000\)/,
+    '旧的全局 300s 常量必须已撤掉,否则 30a 仍会在全量腿被恒杀',
+  )
+  // 行为面:30a 现读预算必须严格大于旧缺省,否则"引入即拦"这条没落地。
+  assert.ok(
+    resolveGateBudget('scripts/check-commit-loss-guard.mjs', {
+      root: ROOT,
+      env: {},
+      reload: true,
+    }) > DEF,
+    '门 30a 的预算必须 > 300s(实测 506s)',
+  )
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
