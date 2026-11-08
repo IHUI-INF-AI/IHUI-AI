@@ -5457,6 +5457,10 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-08**
+- 🔧 工程/其他:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
+- 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
+
+**2026-11-08**
 - 📚 文档:同步 README 正文的测试文件现算数(4446) (eb11488487)
 - 📚 文档:同步 F-38 夹具后的 README 现算数字(testFiles 4446 / trackedFiles 20184) (82bd61611f)
 - 🐞 修复:F-38 aiServiceFetch 补默认 deadline 并抛可识别超时错误,与上游 5xx 区分 (0ef93c94b6)
