@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "namespace": "craft_anything",
+  "transport": "stdio",
+  "description": "Craft Anything: open-source clean-room reverse-engineering engine (MIT/Apache-2.0). Stdio MCP server via `craft-anything-cli mcp` (CLI must be on PATH); declares the default Essentials toolset only.",
+  "command": "craft-anything-cli",
+  "args": ["mcp"],
+  "tools": [
+    {
+      "name": "core_target_open",
+      "tier": "write"
+    },
+    {
+      "name": "core_target_close",
+      "tier": "write"
+    },
+    {
+      "name": "core_session_show",
+      "tier": "read"
+    },
+    {
+      "name": "core_targets_list",
+      "tier": "read"
+    },
+    {
+      "name": "core_target_select",
+      "tier": "write"
+    },
+    {
+      "name": "core_evidence_show",
+      "tier": "read"
+    },
+    {
+      "name": "core_evidence_export",
+      "tier": "write"
+    },
+    {
+      "name": "core_evidence_import",
+      "tier": "write"
+    },
+    {
+      "name": "core_unknowns_show",
+      "tier": "read"
+    },
+    {
+      "name": "core_unknown_add",
+      "tier": "write"
+    },
+    {
+      "name": "core_unknown_edit",
+      "tier": "write"
+    },
+    {
+      "name": "core_unknown_verify",
+      "tier": "read"
+    },
+    {
+      "name": "core_archive_show",
+      "tier": "write"
+    },
+    {
+      "name": "core_archive_extract",
+      "tier": "write"
+    },
+    {
+      "name": "core_archives_compare",
+      "tier": "write"
+    },
+    {
+      "name": "core_person_ask",
+      "tier": "write"
+    },
+    {
+      "name": "core_action_approve",
+      "tier": "write"
+    },
+    {
+      "name": "assets_image_generate",
+      "tier": "write"
+    },
+    {
+      "name": "assets_model_generate",
+      "tier": "write"
+    },
+    {
+      "name": "core_investigation_show",
+      "tier": "read"
+    },
+    {
+      "name": "core_brief_write",
+      "tier": "write"
+    },
+    {
+      "name": "core_plan_update",
+      "tier": "write"
+    },
+    {
+      "name": "core_hypothesis_record",
+      "tier": "write"
+    },
+    {
+      "name": "core_hypothesis_update",
+      "tier": "write"
+    },
+    {
+      "name": "core_finding_record",
+      "tier": "write"
+    },
+    {
+      "name": "core_finding_edit",
+      "tier": "write"
+    },
+    {
+      "name": "core_handoff_write",
+      "tier": "write"
+    },
+    {
+      "name": "core_journal_read",
+      "tier": "read"
+    },
+    {
+      "name": "core_report_save",
+      "tier": "write"
+    },
+    {
+      "name": "core_report_write",
+      "tier": "write"
+    },
+    {
+      "name": "core_overview_show",
+      "tier": "write"
+    },
+    {
+      "name": "native_function_study",
+      "tier": "write"
+    },
+    {
+      "name": "core_feature_find",
+      "tier": "write"
+    },
+    {
+      "name": "core_target_triage",
+      "tier": "write"
+    },
+    {
+      "name": "core_evidence_browse",
+      "tier": "write"
+    },
+    {
+      "name": "list_toolsets",
+      "tier": "read"
+    },
+    {
+      "name": "enable_toolset",
+      "tier": "write"
+    }
+  ]
+}

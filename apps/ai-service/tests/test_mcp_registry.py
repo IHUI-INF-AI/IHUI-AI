@@ -691,6 +691,185 @@ async def test_audit_loaded_records_source_and_tools_without_env_values(
     assert secret not in json.dumps(details, ensure_ascii=False)
 
 
+# ---------------------------------------------------------------------------
+# ④ craft-anything(github.com/storytold/craft-anything)stdio MCP 接入
+# ---------------------------------------------------------------------------
+
+CRAFT_MANIFEST = (
+    Path(__file__).resolve().parents[1] / "config" / "mcp" / "servers" / "craft-anything.json"
+)
+
+# 取自 craft-anything 引擎 Effects:只有 read_only_hint 为真的工具落 read。
+CRAFT_READ_TOOLS = {
+    "core_session_show",
+    "core_targets_list",
+    "core_evidence_show",
+    "core_unknowns_show",
+    "core_unknown_verify",
+    "core_investigation_show",
+    "core_journal_read",
+    "list_toolsets",
+}
+
+# Clean room(默认 Deep mode off)不列出的 Essentials 工具;清单仍声明,以便 Deep mode 重载后可用。
+CRAFT_DEEP_ONLY_TOOLS = {
+    "core_target_open",
+    "core_archive_show",
+    "core_archive_extract",
+    "core_archives_compare",
+    "core_overview_show",
+    "native_function_study",
+    "core_feature_find",
+    "core_target_triage",
+}
+
+
+def _craft_declaration() -> dict[str, Any]:
+    return json.loads(CRAFT_MANIFEST.read_text(encoding="utf-8"))
+
+
+def _craft_remote_tools(
+    *,
+    extra: tuple[str, ...] = (),
+    deep_mode: bool = False,
+    read_only: dict[str, bool] | None = None,
+) -> list[FakeTool]:
+    """按清单声明构造远端 tools/list:默认模拟 Clean room 的可见集。"""
+    overrides = read_only or {}
+    tools: list[FakeTool] = []
+    for decl in _craft_declaration()["tools"]:
+        name = decl["name"]
+        if not deep_mode and name in CRAFT_DEEP_ONLY_TOOLS:
+            continue
+        if name in overrides:
+            # 显式覆盖:远端真的带上了该 annotations(False 才构成"只能升级"的输入)
+            tools.append(
+                FakeTool(name, annotations=SimpleNamespace(readOnlyHint=overrides[name]))
+            )
+        elif decl["tier"] == "read":
+            tools.append(FakeTool(name, annotations=SimpleNamespace(readOnlyHint=True)))
+        else:
+            tools.append(FakeTool(name, annotations=None))
+    tools.extend(FakeTool(name, annotations=None) for name in extra)
+    return tools
+
+
+def _craft_registry(user: Path) -> McpRegistry:
+    # 真实仓库受控清单 + 显式 tracked=True(测试里不依赖 git 状态)。
+    return McpRegistry(
+        repo_dir=CRAFT_MANIFEST.parent,
+        user_dir=user,
+        tracked_checker=lambda _: True,
+    )
+
+
+def test_craft_anything_manifest_declares_core_and_meta_tools() -> None:
+    data = _craft_declaration()
+
+    assert data["schemaVersion"] == 1
+    assert data["namespace"] == "craft_anything"
+    assert data["transport"] == "stdio"
+    assert data["command"] == "craft-anything-cli"
+    assert data["args"] == ["mcp"]
+    assert len(data["description"]) <= 200
+
+    declared = {t["name"]: t["tier"] for t in data["tools"]}
+    # Essentials 35 + list_toolsets/enable_toolset 2
+    assert len(declared) == 37
+    assert {name for name, tier in declared.items() if tier == "read"} == CRAFT_READ_TOOLS
+    assert declared["enable_toolset"] == "write"
+    assert "core_target_open" in declared
+    assert "core_targets_list" in declared
+
+
+@pytest.mark.asyncio
+async def test_craft_anything_registers_and_calls_read_tool(
+    sources: tuple[Path, Path], sdk_mock: SimpleNamespace
+) -> None:
+    repo, user = sources
+    sdk_mock.tools = _craft_remote_tools()
+    registry = _craft_registry(user)
+
+    status = await registry.reload(actor="tester")
+
+    assert [s["namespace"] for s in status["loaded"]] == ["craft_anything"]
+    names = mcp_server.get_registered_tool_names()
+    assert "mcp__craft_anything__core_targets_list" in names
+    assert "mcp__craft_anything__core_report_write" in names
+    # 绝不按裸名注册,避免与内置工具冲突
+    assert "core_targets_list" not in names
+    # Clean room 默认不列出 Deep-only 工具
+    assert "mcp__craft_anything__core_target_open" not in names
+
+    result = await mcp_instance.call_tool(
+        "mcp__craft_anything__core_targets_list", {}, user_role=0, user_id="u"
+    )
+
+    assert result["ok"] is True
+    assert sdk_mock.sessions[0].calls == [("core_targets_list", {})]
+    assert "ok:core_targets_list" in result["content"]
+
+
+@pytest.mark.asyncio
+async def test_craft_anything_write_tool_needs_admin_then_approval(
+    sources: tuple[Path, Path], sdk_mock: SimpleNamespace
+) -> None:
+    repo, user = sources
+    sdk_mock.tools = _craft_remote_tools()
+    registry = _craft_registry(user)
+    await registry.reload(actor="tester")
+    tool_key = "mcp__craft_anything__core_report_write"
+
+    denied = await mcp_instance.call_tool(tool_key, {"value": "x"}, user_role=0, user_id="u")
+    assert denied["errorCode"] == "ROLE_DENIED"
+    assert all(session.calls == [] for session in sdk_mock.sessions)
+
+    pending = await mcp_instance.call_tool(tool_key, {"value": "x"}, user_role=1, user_id="admin")
+    assert pending["errorCode"] == "APPROVAL_REQUIRED"
+    assert all(session.calls == [] for session in sdk_mock.sessions)
+
+    registry.note_approved_write_call(tool_key, {"value": "x"})
+    allowed = await mcp_instance.call_tool(tool_key, {"value": "x"}, user_role=1, user_id="admin")
+    assert allowed["ok"] is True
+    assert sdk_mock.sessions[0].calls == [("core_report_write", {"value": "x"})]
+
+
+@pytest.mark.asyncio
+async def test_craft_anything_undeclared_remote_tool_rejects_whole_server(
+    sources: tuple[Path, Path], sdk_mock: SimpleNamespace
+) -> None:
+    repo, user = sources
+    # 清单只声明 Essentials + 元工具;远端多列一个未声明的 native 工具 ⇒ 整台拒绝
+    sdk_mock.tools = _craft_remote_tools(extra=("native_sections_list",))
+
+    status = await _reload_and_return(_craft_registry(user))
+
+    assert status["loaded"] == []
+    assert [r["code"] for r in status["rejected"]] == [ERR_UNDECLARED_REMOTE_TOOL]
+    assert not any(
+        name.startswith("mcp__craft_anything__")
+        for name in mcp_server.get_registered_tool_names()
+    )
+
+
+@pytest.mark.asyncio
+async def test_craft_anything_remote_annotation_only_upgrades_read(
+    sources: tuple[Path, Path], sdk_mock: SimpleNamespace
+) -> None:
+    repo, user = sources
+    # 清单声明 core_session_show 为 read;远端 readOnlyHint=false ⇒ 只能升级为 write
+    sdk_mock.tools = _craft_remote_tools(read_only={"core_session_show": False})
+    registry = _craft_registry(user)
+    await registry.reload(actor="tester")
+
+    result = await mcp_instance.call_tool(
+        "mcp__craft_anything__core_session_show", {}, user_role=0, user_id="u"
+    )
+
+    assert result["errorCode"] == "ROLE_DENIED"
+    assert all(session.calls == [] for session in sdk_mock.sessions)
+
+
 @pytest.mark.asyncio
 async def test_reload_is_idempotent_and_unloads_removed(
     sources: tuple[Path, Path], sdk_mock: SimpleNamespace, audit_spy: list[dict[str, Any]]
