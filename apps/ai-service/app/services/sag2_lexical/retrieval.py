@@ -411,7 +411,7 @@ async def retrieve(
         if len(pool) > options.judge_pool_budget:
             _path(
                 paths,
-                f"hop{hop}",
+                f"budget:hop{hop}",
                 status="budget",
                 raw_count=len(pool),
                 count=options.judge_pool_budget,

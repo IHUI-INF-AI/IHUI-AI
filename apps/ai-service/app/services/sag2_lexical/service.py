@@ -17,17 +17,25 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import time
 from collections.abc import Callable
 from typing import Any
 
+from .gateway_adapter import (
+    LlmGatewayJudgeAdapter,
+    get_last_resolve_reason,
+    resolve_sag2_gateway,
+)
 from .index import LexicalIndex
-from .judge import resolve_judge
+from .judge import JUDGE_MODEL_ENV, attach_gateway, resolve_judge_from_settings
+from .metrics import judge_metrics
 from .retrieval import (
     Sag2Options,
     Sag2Result,
     retrieve,
 )
+from .store_factory import build_store_with_status, resolve_store_status
 
 DEFAULT_RRF_K = 60
 
@@ -37,12 +45,14 @@ class Sag2LexicalService:
 
     def __init__(
         self,
-        index: LexicalIndex | None = None,
+        index: Any | None = None,
         gateway: Any | None = None,
         judge_model: str | None = None,
+        store_status: dict[str, Any] | None = None,
     ) -> None:
-        self.index = index or LexicalIndex()
-        self.judge = resolve_judge(gateway, judge_model)
+        self.index: Any = index or LexicalIndex()
+        self.judge = resolve_judge_from_settings(gateway, judge_model)
+        self._store_status = store_status
 
     # -- 索引 ---------------------------------------------------------------
 
@@ -78,8 +88,27 @@ class Sag2LexicalService:
         return {"removed": removed, "version": self.index.version}
 
     def status(self) -> dict[str, Any]:
-        data = self.index.status()
+        # 原有键逐字保留（含 index.status() 的 backend），仅新增降级自证字段。
+        data: dict[str, Any] = dict(self.index.status())
         data["judge_provider"] = type(self.judge).__name__
+        store_status = (
+            self._store_status
+            if self._store_status is not None
+            else resolve_store_status(self.index)
+        )
+        data["effective_backend"] = str(store_status.get("effective_backend", "memory"))
+        data["requested_backend"] = str(store_status.get("requested_backend", "memory"))
+        data["degraded"] = bool(store_status.get("degraded", False))
+        data["degrade_reason"] = str(store_status.get("degrade_reason", "") or "")
+        snap = judge_metrics.snapshot()
+        data["judge_metrics"] = snap
+        data["judge_execution_rate"] = snap["judge_execution_rate"]
+        data["judge_calls"] = snap["judge_calls"]
+        data["judge_executed"] = snap["judge_executed"]
+        data["judge_degraded"] = snap["judge_degraded"]
+        data["judge_last_mode"] = snap["last_mode"]
+        data["judge_last_reason"] = snap["last_reason"]
+        data["judge_gateway_reason"] = get_last_resolve_reason()
         return data
 
     # -- 快速搜索（零模型） -------------------------------------------------
@@ -186,4 +215,18 @@ class Sag2LexicalService:
         return fused
 
 
-sag2_lexical_service = Sag2LexicalService()
+def _build_default_service() -> Sag2LexicalService:
+    """零环境变量 ⇒ 纯内存单例；环境变量/降级态经工厂产物带入 status()。"""
+    store, store_status = build_store_with_status()
+    service = Sag2LexicalService(index=store, store_status=store_status)
+    gateway = resolve_sag2_gateway()
+    if gateway is not None:
+        attach_gateway(
+            service,
+            LlmGatewayJudgeAdapter(gateway),
+            model=os.environ.get(JUDGE_MODEL_ENV) or None,
+        )
+    return service
+
+
+sag2_lexical_service = _build_default_service()
