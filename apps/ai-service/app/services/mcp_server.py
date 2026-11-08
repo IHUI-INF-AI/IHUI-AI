@@ -14685,11 +14685,32 @@ async def _tool_edu_create_refund(args: dict[str, Any]) -> dict[str, Any]:
     return await _edu_api_request("POST", "/refund-record", user_id=args.get("__user_id"), json_body=body)
 
 
+_EDU_RESOURCE_ID_RE: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _edu_resource_id_denial(value: str, field: str) -> dict[str, Any] | None:
+    """AIS-110:edu 资源 id 直接拼进上游 URL 路径(`f"/refund-record/{refund_id}/approve"`)。
+
+    旧码只判空 ⇒ `refundId="../../admin/x"` 会把上游请求带到别的路径。id 只允许
+    字母/数字/`-`/`_`(退费号/学号形态),其余一律在本地拒绝,一次上游都不发。
+    """
+    if _EDU_RESOURCE_ID_RE.match(value):
+        return None
+    logger.warning("[mcp][edu] 非法资源 id 被拒(AIS-110): field=%s", field)
+    return {
+        "ok": False, "errorCode": "INVALID_ARGUMENT",
+        "error": f"{field} 只允许字母/数字/-/_ 且长度 ≤ 64",
+    }
+
+
 async def _tool_edu_approve_refund(args: dict[str, Any]) -> dict[str, Any]:
     """edu_approve_refund: 审批通过退费(pending → approved)。"""
     refund_id = str(args.get("refundId") or "").strip()
     if not refund_id:
         return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    denial = _edu_resource_id_denial(refund_id, "refundId")
+    if denial is not None:
+        return denial
     body = _edu_query_params(args, ("approveRemark",))
     return await _edu_api_request(
         "PUT", f"/refund-record/{refund_id}/approve", user_id=args.get("__user_id"), json_body=body
@@ -14701,6 +14722,9 @@ async def _tool_edu_reject_refund(args: dict[str, Any]) -> dict[str, Any]:
     refund_id = str(args.get("refundId") or "").strip()
     if not refund_id:
         return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    denial = _edu_resource_id_denial(refund_id, "refundId")
+    if denial is not None:
+        return denial
     body = _edu_query_params(args, ("approveRemark",))
     return await _edu_api_request(
         "PUT", f"/refund-record/{refund_id}/reject", user_id=args.get("__user_id"), json_body=body
