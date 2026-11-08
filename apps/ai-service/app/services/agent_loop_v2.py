@@ -7120,6 +7120,8 @@ class AgentLoopV2:
                         usage.get("cache_creation_tokens") or 0
                     ),
                 },
+                # AIS-101:首写盖章属主;录制读端按同一主体过滤(缺省 None=系统级内部写)
+                owner_user_id=self._user_id,
             )
         except Exception as e:
             logger.warning("agent LLM step 录制失败(降级,不阻塞): %s", e)
@@ -7298,6 +7300,8 @@ class AgentLoopV2:
                     "reason": reason,
                     **evidence,
                 },
+                # AIS-101:属主盖章与账行 operator_id 同源(循环侧算一次、两处引用)
+                owner_user_id=self._user_id,
             )
         except Exception as e:
             logger.warning("agent step 录制失败(降级,不阻塞): %s", e)
