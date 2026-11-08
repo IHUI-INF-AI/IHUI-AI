@@ -2008,7 +2008,15 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success)
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
 
-    const date = parsed.data.date ?? bizDayKey(new Date())
+    // F-210:学生自助签到只允许"当日"。date 一律由服务端 bizDayKey(Asia/Shanghai)生成;
+    // 客户端若显式传了一个与当日不一致的日期,直接 400 点名 —— **不静默改写成当日**,
+    // 否则端上会以为补签成功。历史/未来补签不属于学生自助能力,由教师补签路径承担(带范围闸)。
+    const serverDate = bizDayKey(new Date())
+    if (parsed.data.date !== undefined && parsed.data.date !== serverDate)
+      return reply
+        .status(400)
+        .send(error(400, '仅允许当日签到:date 必须为服务端当日(Asia/Shanghai)'))
+    const date = serverDate
     // 客户端硬塞的 classId 已被 schema strip;生效班级只认服务端现取结果(本票②)。
     const classId = await resolveSelfCheckInClassId(userId, date)
     if (!classId)
@@ -2025,6 +2033,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       remark: parsed.data.remark,
     })
     if (!result.ok) return studentCheckInFailureReply(reply, result.reason)
+    // created=false = 并发下另一笔先落库(唯一索引挡住第二行):按既有契约仍回 409,
+    // 但不落 500、也不返回 201 让端上误以为新签到成功。
+    if (!result.created) return studentCheckInFailureReply(reply, 'duplicate')
     return reply.status(201).send(
       success({
         // 回显最终生效的班级与判定结果,学生端"签到到了哪个班"直接可显示(本票②契约)
@@ -2032,6 +2043,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         status: result.record.status,
         checkInTime: result.record.checkInTime,
         record: result.record,
+        created: result.created,
         // 判定来源如实点名:status 不是客户端传的,是规则 + judgeStatus 算出来的
         judgedBy: 'edu_attendance_rule.judgeStatus',
       }),
@@ -2199,6 +2211,8 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       operatedBy: userId,
     })
     if (!result.ok) return studentCheckInFailureReply(reply, result.reason)
+    // 与自签同一口径:并发冲突落空(created=false)按既有 409 契约回,不落 500。
+    if (!result.created) return studentCheckInFailureReply(reply, 'duplicate')
     return reply.status(201).send(
       success({
         // 与自签同形:回显最终生效班级,端上能显示签到到了哪个班(本票②契约)
@@ -2206,6 +2220,7 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         status: result.record.status,
         checkInTime: result.record.checkInTime,
         record: result.record,
+        created: result.created,
         judgedBy: 'edu_attendance_rule.judgeStatus',
       }),
     )
