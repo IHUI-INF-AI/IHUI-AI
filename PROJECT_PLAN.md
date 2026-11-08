@@ -32312,3 +32312,15 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 378F. **缺陷普查 XUI-060** [P2] login.platformLinuxdo 缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-060）
 - [ ] 379F. **缺陷普查 XUI-061** [P2] 模块级 Intl 实例冻结时区（证据 docs/tickets/2026-11/findings-crossui.md#XUI-061）
 - [ ] 380F. **缺陷普查 XUI-062** [P2] 相对时间 ja/ko 回退英文（证据 docs/tickets/2026-11/findings-crossui.md#XUI-062）
+- [ ] 381F. **缺陷普查 XUI-063** [P2] 小程序 i18n key 漂移（证据 docs/tickets/2026-11/findings-crossui.md#XUI-063）
+- [ ] 382F. **缺陷普查 XUI-064** [P2] AppTopup 屏未接 texts（证据 docs/tickets/2026-11/findings-crossui.md#XUI-064）
+- [ ] 383F. **缺陷普查 XUI-065** [P2] token 数值格式化两端分歧（证据 docs/tickets/2026-11/findings-crossui.md#XUI-065）
+- [ ] 384F. **缺陷普查 XUI-066** [P2] 小程序镜像屏以空串掩盖错误（证据 docs/tickets/2026-11/findings-crossui.md#XUI-066）
+- [ ] 385F. **缺陷普查 XUI-067** [P2] 帮助页「返回」实为重试（证据 docs/tickets/2026-11/findings-crossui.md#XUI-067）
+- [ ] 386F. **缺陷普查 XUI-068** [P2] 改密屏「忘记密码」在 RN 为死路（证据 docs/tickets/2026-11/findings-crossui.md#XUI-068）
+- [ ] 387F. **缺陷普查 XUI-069** [P2] RN 设备列表请求竞态（证据 docs/tickets/2026-11/findings-crossui.md#XUI-069）
+- [ ] 388F. **缺陷普查 XUI-070** [P2] AiWorld / Purchase / AigcPublish 重复提交与卸载后回调（证据 docs/tickets/2026-11/findings-crossui.md#XUI-070）
+- [ ] 389F. **缺陷普查 XUI-071** [P2] multipart 下载无界缓冲、进度回调在卸载后（证据 docs/tickets/2026-11/findings-crossui.md#XUI-071）
+- [ ] 390F. **缺陷普查 XUI-072** [P2] 小程序课程详情成功与失败 toast 并存（证据 docs/tickets/2026-11/findings-crossui.md#XUI-072）
+- [ ] 391F. **缺陷普查 XUI-073** [P2] 小程序充值失败丢失 orderNo（证据 docs/tickets/2026-11/findings-crossui.md#XUI-073）
+- [ ] 392F. **缺陷普查 XUI-074** [P2] ToolApprovalSheet / ImageAnnotator 键盘与高度处理缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-074）
