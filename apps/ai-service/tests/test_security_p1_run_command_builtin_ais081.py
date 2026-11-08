@@ -97,4 +97,60 @@ async def test_legit_builtin_commands_still_run(
     expanded = await mcp_server._tool_run_command({"command": "echo %PATH%"})
     assert expanded["ok"] is True
     assert "PATH" not in expanded["stdout"] and len(expanded["stdout"]) > 0
+
+
+# ── AIS-081 机制修订(2026-11-08):元字符只在**确实经 shell 解释**时才判 ──────
+# 旧实现无差别整串扫描,`echo "a&b"`(引号内字面量)被误挡;而 cmd/sh 下引号内
+# 的 `&`/`^`/`;` 都是字面参数,必须放行。argv 直传形态(非内置命令)更是从不过闸。
+
+
+@pytest.mark.parametrize(
+    ("command", "literal"),
+    [
+        ('echo "a&b"', "a&b"),
+        ('echo "a^b"', "a^b"),
+    ],
+)
+async def test_quoted_metacharacter_in_builtin_is_literal(
+    monkeypatch: pytest.MonkeyPatch, command: str, literal: str
+) -> None:
+    """改前必红:引号内的 `&`/`^` 是字面参数,旧整串扫描会误判为注入。"""
+    _install_policy_off(monkeypatch)
+    out = await mcp_server._tool_run_command({"command": command})
+    assert out["ok"] is True, out
+    assert literal in out["stdout"]
+
+
+async def test_argv_literal_metacharacter_is_not_shell_judged(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """argv 直传形态:`&` 只是某个可执行文件的参数,不经 shell ⇒ 不得按注入拦。"""
+    _install_policy_off(monkeypatch)
+    out = await mcp_server._tool_run_command(
+        {"command": "git log --grep=a&b -1 --oneline"}
+    )
+    assert out.get("errorCode") != "SHELL_METACHARACTER_BLOCKED", out
+
+
+def test_shell_form_detection_only_for_real_shell_interpretation() -> None:
+    """判据只认"谁在解释这串字符":显式 shell 壳 ⇒ 判;argv 直传 ⇒ 不判。"""
+    assert mcp_server._shell_interpretation_of('bash -lc "echo a&b"', "bash") is not None
+    assert mcp_server._shell_interpretation_of("sh -c 'echo a&b'", "sh") is not None
+    assert mcp_server._shell_interpretation_of("cmd /c echo a&b", "cmd") is not None
+    assert mcp_server._shell_interpretation_of("python -c print('a&b')", "python") is None
+    assert mcp_server._shell_interpretation_of("find . -name a&b", "find") is None
+
+
+async def test_explicit_shell_wrapper_is_blocked_never_spawned(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """显式 `cmd /c` 壳即便绕到执行层,也必须零 spawn 拒绝(前缀白名单之外的双闸)。"""
+    _install_policy_off(monkeypatch)
+    spawned = _spy_spawn(monkeypatch)
+    out = await mcp_server._tool_run_command(
+        {"command": 'cmd /c echo x & whoami'}
+    )
+    assert out["ok"] is False, out
+    assert spawned == []
+
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
