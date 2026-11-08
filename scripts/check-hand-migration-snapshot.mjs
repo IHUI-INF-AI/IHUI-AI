@@ -336,7 +336,14 @@ export function evaluateStrictChanged({ journalEntries, changedSqlNames, snapsho
 }
 
 function gitDiffNames(args) {
-  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', timeout: 60_000 })
+  // 显式 stdio:不继承父进程的 stdin/stdout/stderr。继承时在管道/CI 下会把 git 的输出
+  // 混进本门的读数,门 193 在 push 门上因此红;固定为 ignore/pipe/pipe 后读数只来自这里。
+  const r = spawnSync('git', args, {
+    cwd: ROOT,
+    encoding: 'utf8',
+    timeout: 60_000,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
   if (r.status !== 0) throw new Unjudged(`git diff 失败:${String(r.stderr ?? '').trim().slice(0, 160)}`)
   return r.stdout ?? ''
 }
