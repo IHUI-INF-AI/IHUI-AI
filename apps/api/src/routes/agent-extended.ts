@@ -642,14 +642,17 @@ const plugin: FastifyPluginAsync = async (server: FastifyInstance) => {
   })
 
   // 查询用户对指定智能体的访问权限（VIP 专享/免费/付费/已购买）
-  server.get('/permission/:agentId', async (request) => {
+  server.get('/permission/:agentId', async (request, reply) => {
     const params = z.object({ agentId: z.string().min(1) }).parse(request.params)
     const query = z.object({ userId: z.uuid().optional() }).parse(request.query)
-    // 归属主体优先取承载层身份:本插件顶层已有 requireAuth preHandler,所以登录态下
-    // `?userId=` 一律不再参与判定 —— 客户端自报身份能决定"我看得到这个 Agent 吗"
-    // 就是 §5「身份不得住客户端可整写字段」那型。只有拿不到主体身份时才回落 query
-    // (给未挂 preHandler 的复用路径留出口,现状不会走到)。
-    const subjectId = request.userId ?? query.userId
+    // F-07 同族(2026-11-08):归属主体只取认证身份。此前 `request.userId ?? query.userId`
+    // 是客户端可整写的身份回落 —— 登录态缺失时 `?userId=` 能决定"我看得到什么";
+    // 现在显式 401,且指定他人一律 403(与 F-04/F-05 同口径)。
+    const subjectId = request.userId
+    if (!subjectId) return reply.status(401).send(error(401, '未授权'))
+    if (query.userId && query.userId !== subjectId) {
+      return reply.status(403).send(error(403, '无权查询他人的智能体权限'))
+    }
     const permission = await calculateAgentPermission(params.agentId, subjectId)
     return { code: 0, message: 'ok', data: permission }
   })
