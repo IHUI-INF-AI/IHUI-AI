@@ -23,9 +23,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from ...core.jwt_auth import require_request_user_id
 from ...services.knowledge_graph import graph_store, knowledge_graph_service
 
 router = APIRouter()
@@ -46,11 +47,11 @@ class BuildRequest(BaseModel):
 @router.post("/extract")
 async def extract_entities(
     req: ExtractRequest,
-    x_owner_uuid: str | None = Header(default=None, alias="X-Owner-Uuid"),
+    owner: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """从一段文本抽取实体 + 关系(不入库)。"""
     try:
-        result = await knowledge_graph_service.extract(req.text, owner_uuid=x_owner_uuid)
+        result = await knowledge_graph_service.extract(req.text, owner_uuid=owner)
         return {
             "code": 0,
             "message": "ok",
@@ -71,10 +72,9 @@ async def extract_entities(
 @router.post("/build")
 async def build_graph(
     req: BuildRequest,
-    x_owner_uuid: str | None = Header(default=None, alias="X-Owner-Uuid"),
+    owner: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """从一段文本抽取后入库(内存 store)。"""
-    owner = x_owner_uuid or "anonymous"
     try:
         result = await knowledge_graph_service.extract(req.text, owner_uuid=owner)
 
@@ -123,10 +123,9 @@ async def build_graph(
 
 @router.get("/data")
 async def get_graph_data(
-    x_owner_uuid: str | None = Header(default=None, alias="X-Owner-Uuid"),
+    owner: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """获取某 owner 的图谱数据(节点 + 边)。"""
-    owner = x_owner_uuid or "anonymous"
     graph = await graph_store.get_graph(owner)
     return {
         "code": 0,
@@ -148,10 +147,9 @@ async def get_graph_data(
 
 @router.delete("/data")
 async def clear_graph(
-    x_owner_uuid: str | None = Header(default=None, alias="X-Owner-Uuid"),
+    owner: str = Depends(require_request_user_id),
 ) -> dict[str, Any]:
     """清除某 owner 的图谱数据。"""
-    owner = x_owner_uuid or "anonymous"
     before = await graph_store.get_graph(owner)
     await graph_store.clear(owner)
     return {

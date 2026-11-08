@@ -315,10 +315,19 @@ async def update_hook(
         patch["condition"] = req.condition
     if req.action is not None:
         _validate_action(req.action)
+        # AIS-038:create 侧的 script 管理员闸必须在 update 同样成立,否则普通用户
+        # 可把自有 hook 从 log 改成 script,触发时以服务账号执行任意命令。
+        if req.action.type == "script" and not _is_admin(request):
+            raise HTTPException(status_code=403, detail="script 动作仅管理员可设置")
         patch["action"] = _to_hook_dict(req.action)
     if req.enabled is not None:
         patch["enabled"] = req.enabled
-    updated = hook_engine.update_hook(hook_id, patch, owner_id=_owner_filter(request))
+    updated = hook_engine.update_hook(
+        hook_id,
+        patch,
+        owner_id=_owner_filter(request),
+        allow_script=_is_admin(request),
+    )
     return {"code": 0, "message": "ok", "data": updated}
 
 

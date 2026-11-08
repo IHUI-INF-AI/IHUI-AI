@@ -28,6 +28,7 @@ vi.mock('../src/db/queries.js', () => ({
 }))
 
 import { publicSocketRoutes, _publicSocketInternal } from '../src/routes/public-socket.js'
+import { isSystemAdminUser } from '../src/db/queries.js'
 
 const U_ALL = 'bbbbbbbb-1111-4111-8111-111111111111'
 const U_MCP = 'cccccccc-1111-4111-8111-111111111111'
@@ -272,6 +273,53 @@ describe('G-201 public-socket register 角色经服务端身份判定出口', ()
     })
     expect(res.statusCode).toBe(200)
     expect(res.json().data).toMatchObject({ sent: 0, total: 1, gatedRole: 1 })
+    await app.close()
+  })
+})
+
+/**
+ * F-01:isSystemAdminUser 是 async 函数,历史实现漏了 await,
+ * Promise 恒真 ⇒ 403 分支永不执行,任意登录用户即可拿到全部运维端点。
+ * 判据:非管理员必须在 preHandler 被 403 挡住,且管理员正常放行。
+ */
+describe('F-01 public-socket 运维端点必须真正 await 管理员判定', () => {
+  beforeEach(() => {
+    _publicSocketInternal.activeConnections.clear()
+    _publicSocketInternal.eventHistory.length = 0
+    vi.mocked(isSystemAdminUser).mockReset()
+  })
+
+  it('非系统管理员 ⇒ stats/connections/send-message/broadcast/config 一律 403', async () => {
+    vi.mocked(isSystemAdminUser).mockResolvedValue(false)
+    const app = await buildApp()
+    const probes: Array<{ method: 'GET' | 'POST' | 'PUT'; url: string; payload?: object }> = [
+      { method: 'GET', url: '/public-socket/stats' },
+      { method: 'GET', url: '/public-socket/connections' },
+      {
+        method: 'POST',
+        url: '/public-socket/send-message',
+        payload: { userId: U_ALL, event: 'ops:custom', data: {} },
+      },
+      {
+        method: 'POST',
+        url: '/public-socket/broadcast',
+        payload: { event: 'ops:custom', data: {} },
+      },
+      { method: 'PUT', url: '/public-socket/config', payload: { maxConnectionsPerUser: 99 } },
+    ]
+    for (const probe of probes) {
+      const res = await app.inject(probe)
+      expect(res.statusCode, `${probe.method} ${probe.url}`).toBe(403)
+    }
+    expect(isSystemAdminUser).toHaveBeenCalledTimes(probes.length)
+    await app.close()
+  })
+
+  it('系统管理员 ⇒ 放行(stats 200)', async () => {
+    vi.mocked(isSystemAdminUser).mockResolvedValue(true)
+    const app = await buildApp()
+    const res = await app.inject({ method: 'GET', url: '/public-socket/stats' })
+    expect(res.statusCode).toBe(200)
     await app.close()
   })
 })

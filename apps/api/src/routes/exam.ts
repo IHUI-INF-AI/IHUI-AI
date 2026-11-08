@@ -77,6 +77,12 @@ import { aiServiceFetch } from '../utils/ai-service-fetch.js'
 import { isAppError } from '../errors/AppError.js'
 import { contentEqual } from '@ihui/shared'
 
+/** F-168:答题记录属主判定。查询函数只按 id,调用点必须显式比对 userId。 */
+async function isExamRecordOwner(recordId: string, userId: string): Promise<boolean> {
+  const record = await getExamRecordStatus(recordId)
+  return !!record && record.userId === userId
+}
+
 const QUESTION_TYPES = [
   'single_choice',
   'multi_choice',
@@ -1197,6 +1203,11 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
+    // F-168(2026-11-08):start/submit-exam/status 三个端点只判登录,凭他人 recordId
+    // 即可替人开考/交卷/看答题明细。入口先按属主收敛,不匹配与不存在同档 404。
+    if (!(await isExamRecordOwner(parsed.data.recordId, request.userId!))) {
+      return reply.status(404).send(error(404, '答题记录不存在'))
+    }
     try {
       const record = await startAnswering(parsed.data.recordId)
       server.recordExamStarted()
@@ -1216,6 +1227,10 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     const parsed = recordIdParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
+    }
+    // F-168:交卷同样必须验证记录属主。
+    if (!(await isExamRecordOwner(parsed.data.recordId, request.userId!))) {
+      return reply.status(404).send(error(404, '答题记录不存在'))
     }
     try {
       const record = await submitExam(parsed.data.recordId)
@@ -1237,7 +1252,8 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const record = await getExamRecordStatus(parsed.data.recordId)
-    if (!record) {
+    // F-168:状态查询同样按属主收敛,不匹配按不存在处理。
+    if (!record || record.userId !== request.userId) {
       return reply.status(404).send(error(404, '答题记录不存在'))
     }
     return reply.send(success({ status: record.status, record }))

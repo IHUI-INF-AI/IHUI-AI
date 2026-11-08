@@ -628,6 +628,8 @@ export interface AgentStep {
 
 export interface AgentTask {
   taskId: string
+  /** 任务发起人;list/status/cancel/inject 一律按此归属过滤(F-39) */
+  userId: string
   sessionId: string
   goal: string
   status: AgentTaskStatus
@@ -654,13 +656,31 @@ class AgentLoopRuntime {
   private tools = new Map<string, ToolHandler>()
   private injections = new Map<string, string[]>()
 
+  private static readonly TERMINAL_TTL_MS = 60 * 60 * 1000
+
+  /**
+   * 终态任务保留 1 小时后回收,连带清插话队列(F-39)。
+   * 原先 tasks/injections 只增不删,running 之外的任务永久占用内存。
+   */
+  private pruneTerminalTasks(now = Date.now()): void {
+    for (const [taskId, task] of this.tasks) {
+      if (task.status === 'running') continue
+      if (now - Date.parse(task.updatedAt) > AgentLoopRuntime.TERMINAL_TTL_MS) {
+        this.tasks.delete(taskId)
+        this.injections.delete(taskId)
+      }
+    }
+  }
+
   /**
    * P3 #44 阶段3 中途插话:向运行中的 task 注入用户消息,下一轮迭代
    * 由 run 循环消费拼进 prompt(内存队列,终态任务拒绝)。
+   * F-39:插话属于写操作,必须同时校验任务归属,禁止跨用户篡改他人队列。
    */
-  injectMessage(taskId: string, content: string): boolean {
+  injectMessage(taskId: string, userId: string, content: string): boolean {
+    this.pruneTerminalTasks()
     const task = this.tasks.get(taskId)
-    if (!task || task.status !== 'running') return false
+    if (!task || task.userId !== userId || task.status !== 'running') return false
     const trimmed = content.trim()
     if (!trimmed) return false
     const queue = this.injections.get(taskId) ?? []
@@ -684,17 +704,24 @@ class AgentLoopRuntime {
     return Array.from(this.tools.values())
   }
 
-  listRunning(): Record<string, AgentTask> {
-    return Object.fromEntries(this.tasks)
+  /** F-39:只返回调用者自己的任务,防止跨用户读全表 */
+  listRunning(userId: string): Record<string, AgentTask> {
+    this.pruneTerminalTasks()
+    return Object.fromEntries(Array.from(this.tasks).filter(([, task]) => task.userId === userId))
   }
 
-  status(taskId: string): AgentTask | null {
-    return this.tasks.get(taskId) ?? null
-  }
-
-  cancel(taskId: string): boolean {
+  /** F-39:非本人任务一律按不存在处理,调用方回 404 */
+  status(taskId: string, userId: string): AgentTask | null {
+    this.pruneTerminalTasks()
     const task = this.tasks.get(taskId)
-    if (!task || task.status !== 'running') return false
+    return task && task.userId === userId ? task : null
+  }
+
+  /** F-39:非本人任务不可取消 */
+  cancel(taskId: string, userId: string): boolean {
+    this.pruneTerminalTasks()
+    const task = this.tasks.get(taskId)
+    if (!task || task.userId !== userId || task.status !== 'running') return false
     task.status = 'canceled'
     task.updatedAt = nowIso()
     return true
@@ -702,6 +729,8 @@ class AgentLoopRuntime {
 
   async run(params: {
     goal: string
+    /** 任务发起人(F-39):写入任务并作为后续 list/status/cancel/inject 的归属键 */
+    userId: string
     sessionId?: string
     model?: string
     maxIterations?: number
@@ -713,6 +742,7 @@ class AgentLoopRuntime {
     const maxIter = params.maxIterations ?? 10
     const task: AgentTask = {
       taskId,
+      userId: params.userId,
       sessionId,
       goal: params.goal,
       status: 'running',
@@ -725,6 +755,7 @@ class AgentLoopRuntime {
       createdAt: nowIso(),
       updatedAt: nowIso(),
     }
+    this.pruneTerminalTasks()
     this.tasks.set(taskId, task)
 
     try {
@@ -743,36 +774,31 @@ class AgentLoopRuntime {
             ? `\n用户中途插话(请优先响应):\n${injected.map((m) => `- ${m}`).join('\n')}`
             : ''
         // LLM 思考步骤 — 调用 ai-service 的 /llm/chat 端点
-        let llmContent: string
-        try {
-          const llmResp = await aiServiceSystemFetch('/llm/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              messages: [
-                { role: 'system', content: `你是一个任务执行 Agent。目标: ${params.goal}` },
-                {
-                  role: 'user',
-                  content: `第 ${i + 1} 轮迭代，请思考下一步行动。已完成步骤: ${task.steps.map((s) => s.content).join('; ') || '无'}${injectionBlock}`,
-                },
-              ],
-              stream: false,
-            }),
-            signal: AbortSignal.timeout(60_000),
-          })
-          if (llmResp.ok) {
-            const llmData = (await llmResp.json()) as {
-              content?: string
-              choices?: { message?: { content?: string } }[]
-            }
-            llmContent =
-              llmData.content ?? llmData.choices?.[0]?.message?.content ?? `第 ${i + 1} 轮思考完成`
-          } else {
-            llmContent = `Agent 第 ${i + 1} 轮思考: ${params.goal}`
-          }
-        } catch {
-          llmContent = `Agent 第 ${i + 1} 轮思考: ${params.goal}`
+        // F-306:上游非 2xx / 网络异常必须抛错落到 failed,不得写"伪成功文案"再记 completed。
+        const llmResp = await aiServiceSystemFetch('/llm/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: `你是一个任务执行 Agent。目标: ${params.goal}` },
+              {
+                role: 'user',
+                content: `第 ${i + 1} 轮迭代，请思考下一步行动。已完成步骤: ${task.steps.map((s) => s.content).join('; ') || '无'}${injectionBlock}`,
+              },
+            ],
+            stream: false,
+          }),
+          signal: AbortSignal.timeout(60_000),
+        })
+        if (!llmResp.ok) {
+          throw new Error(`LLM 调用失败: HTTP ${llmResp.status}`)
         }
+        const llmData = (await llmResp.json()) as {
+          content?: string
+          choices?: { message?: { content?: string } }[]
+        }
+        const llmContent =
+          llmData.content ?? llmData.choices?.[0]?.message?.content ?? `第 ${i + 1} 轮思考完成`
         task.steps.push({ iteration: i + 1, type: 'llm', content: llmContent })
 
         // 工具调用登记（演示路径：只记轨迹、零执行。2026-10-26 摘掉"模拟执行腿"）
@@ -810,11 +836,13 @@ class AgentLoopRuntime {
         // 简化：单轮即完成（避免无限循环）
         break
       }
-      if (task.status !== 'canceled') task.status = 'completed'
+      if (task.status === 'running') task.status = 'completed'
     } catch (e) {
       task.status = 'failed'
       task.error = (e as Error).message
     }
+    // 终态即释放插话队列;任务本体按 TTL 由 pruneTerminalTasks 回收
+    this.injections.delete(taskId)
     task.updatedAt = nowIso()
     return task
   }
@@ -2092,6 +2120,7 @@ class BackgroundAgentManager {
       try {
         const result = await agentLoop.run({
           goal: params.prompt,
+          userId: params.userUuid ?? 'anonymous',
           workspacePath: params.workspacePath,
           model: params.modelId,
           maxIterations: params.maxIterations,
@@ -2137,8 +2166,10 @@ class BackgroundAgentManager {
     return agentId
   }
 
-  list(): BackgroundAgent[] {
-    return Array.from(this.agents.values())
+  // F-07(2026-11-08):后台 Agent 列表按调用者归属过滤。此前 list() 直接把
+  // 全进程的表项交给任意登录用户,他人 prompt/workspacePath/事件/结果全量泄漏。
+  list(userId: string): BackgroundAgent[] {
+    return Array.from(this.agents.values()).filter((agent) => agent.userUuid === userId)
   }
 
   get(agentId: string): BackgroundAgent | null {

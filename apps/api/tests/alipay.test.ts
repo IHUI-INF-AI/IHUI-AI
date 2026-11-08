@@ -12,10 +12,16 @@ vi.stubEnv('ALIPAY_PUBLIC_KEY', '')
 vi.stubEnv('ALIPAY_GATEWAY', 'https://openapi.alipay.com/gateway.do')
 vi.stubEnv('NODE_ENV', 'test')
 
-import { isAlipayConfigured, verifyNotify, buildSignedUrl } from '../src/services/alipay.js'
+import {
+  isAlipayConfigured,
+  verifyNotify,
+  buildSignedUrl,
+  refundOrder,
+} from '../src/services/alipay.js'
 
 describe('alipay — 支付宝支付服务', () => {
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.unstubAllEnvs()
     vi.stubEnv('ALIPAY_APP_ID', '')
     vi.stubEnv('ALIPAY_PRIVATE_KEY', '')
@@ -216,6 +222,46 @@ describe('alipay — 支付宝支付服务', () => {
     it('自定义 method', () => {
       const url = buildSignedUrl({}, 'alipay.trade.app.pay')
       expect(url).toContain('method=alipay.trade.app.pay')
+    })
+  })
+
+  describe('refundOrder — F-09 退款请求号必须可由订单号复现', () => {
+    it('同一订单两次退款使用同一个 out_request_no(并发/重试被支付宝判重)', async () => {
+      const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+      vi.stubEnv('ALIPAY_APP_ID', '2021000')
+      vi.stubEnv(
+        'ALIPAY_PRIVATE_KEY',
+        privateKey.export({ type: 'pkcs8', format: 'pem' }) as string,
+      )
+      // 证书模式关闭,避免读取本机 certs 目录
+      vi.stubEnv('ALIPAY_CERT_MODE', '')
+      vi.stubEnv('ALIPAY_APP_CERT_PATH', '')
+
+      const bodies: URLSearchParams[] = []
+      const fetchMock = vi.fn(async (_url: string, init?: { body?: string }) => {
+        bodies.push(new URLSearchParams(init?.body ?? ''))
+        return { json: async () => ({ alipay_trade_refund_response: { code: '10000' } }) }
+      })
+      vi.stubGlobal('fetch', fetchMock as unknown as typeof fetch)
+
+      const first = await refundOrder({
+        outTradeNo: 'ORD-F09',
+        refundAmount: 9.9,
+        reason: '用户申请退款',
+      })
+      const second = await refundOrder({
+        outTradeNo: 'ORD-F09',
+        refundAmount: 9.9,
+        reason: '用户申请退款',
+      })
+
+      expect(first.success).toBe(true)
+      expect(second.success).toBe(true)
+      const requestNos = bodies.map(
+        (b) => JSON.parse(b.get('biz_content') ?? '{}').out_request_no as string,
+      )
+      // 变异自证:改回 `r${Date.now()}${randomBytes(3)}` 时两次必定不等,本断言翻红。
+      expect(requestNos).toEqual(['refund_ORD-F09', 'refund_ORD-F09'])
     })
   })
 })

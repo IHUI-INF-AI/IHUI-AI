@@ -1431,14 +1431,16 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
         const items = await db
           .select({
             total: count(),
-            completed: sql<number>`count(case when ${eduPlanItem.completed} = true then 1 end)`,
+            // F-699:count(case ...) 在 PG 是 int8,驱动按字符串带回;不转 int 时
+            // 汇总 `0 + "5"` 变字符串拼接,完成率会算出 442%。
+            completed: sql<number>`count(case when ${eduPlanItem.completed} = true then 1 end)::int`,
           })
           .from(eduPlanItem)
           .where(and(eq(eduPlanItem.planId, plan.id), isNull(eduPlanItem.deletedAt)))
           .limit(1)
 
-        const total = items[0]?.total ?? 0
-        const completed = items[0]?.completed ?? 0
+        const total = Number(items[0]?.total ?? 0)
+        const completed = Number(items[0]?.completed ?? 0)
         const rate = total > 0 ? Math.round((completed / total) * 100) : 0
 
         return {
@@ -1455,9 +1457,9 @@ const eduAiManagementRoutes: FastifyPluginAsync = async (server) => {
       }),
     )
 
-    // 汇总统计
-    const totalItems = stats.reduce((sum, s) => sum + s.totalItems, 0)
-    const totalCompleted = stats.reduce((sum, s) => sum + s.completedItems, 0)
+    // 汇总统计（F-699:计数先归一为 number,避免 int8 字符串参与 + 运算）
+    const totalItems = stats.reduce((sum, s) => sum + Number(s.totalItems), 0)
+    const totalCompleted = stats.reduce((sum, s) => sum + Number(s.completedItems), 0)
     const overallRate = totalItems > 0 ? Math.round((totalCompleted / totalItems) * 100) : 0
 
     return reply.send(

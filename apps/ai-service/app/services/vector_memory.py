@@ -514,7 +514,7 @@ class VectorMemoryStore:
             from .pgvector_store import search_chunks
 
             pg_results = await asyncio.wait_for(
-                search_chunks("vector_memory", query_embedding, top_k, threshold),
+                search_chunks("vector_memory", query_embedding, top_k, threshold, user_id),
                 timeout=5,
             )
             if pg_results:

@@ -6961,6 +6961,28 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                             accumulated["content"] = _fallback
                             _fallback_evt = {"type": "chunk", "content": _fallback}
                             yield _sse(SSE_CHUNK, _fallback_evt)
+                elif event_type == "error":
+                    # AIS-001:provider 中途 error 已是终态。旧实现落入通用透传
+                    # (`yield _sse(event_type, event)`)后继续循环,provider 耗尽即
+                    # 按成功收尾落库。这里写 error 标记、透传归一化 errorCode 后
+                    # 立即 return,finally 走中断回调落半截 + errorCode。
+                    _err_msg = str(event.get("message") or "LLM 调用失败")
+                    _err_code = _normalize_provider_budget_error_code(
+                        event.get("errorCode"), _err_msg
+                    )
+                    accumulated["error"] = _err_msg
+                    accumulated["errorCode"] = _err_code
+                    if _is_budget_exhaustion_error(event.get("errorCode"), _err_msg):
+                        _budget_exhausted_this_turn = True
+                    yield _sse(
+                        SSE_ERROR,
+                        {
+                            "type": "error",
+                            "errorCode": _err_code,
+                            "message": _err_msg,
+                        },
+                    )
+                    return
                 yield _sse(event_type, event)
         except GeneratorExit:
             # G-815975:客户端断开 ⇒ 生成器被 aclose,finally 里不允许 yield,
@@ -8153,17 +8175,20 @@ def _interrupted_callback_flush(
 ) -> bool:
     """G-94:被"无消费者"关闭的流,是否仍要把已到达的半截回答交给回调落库。
 
-    三条判据同时成立才补发,缺一不补:
-    - stream_exiting:流正被 aclose/取消(GeneratorExit 或 CancelledError)——正常跑完
-      那一趟由 try 之后的原回调路径处理,不在这里发第二次(幂等键相同,但重复 POST
-      仍是无谓的额度与日志);
-    - not error:流内已判错(模型/供应商错)的不算"半截回答",那是另一条终态路径;
+    AIS-001(2026-11-08):判据从 `stream_exiting` 扩为 `stream_exiting or error`。
+    中途 provider error 是终态但**没有**第二条落库路径:下面的正常回调显式
+    `not accumulated.get("error")` 跳过,若这里也不补,则"用户已看到半截回答 +
+    上游报错"在历史上完全消失(旧实现的错误落库只覆盖异常抛出,不覆盖 error 帧)。
+
+    - stream_exiting|error:流正被 aclose/取消,或流内已收到 error 终态;
+      正常跑完且无 error 的那一趟仍由 try 之后的原回调路径处理,不在这里发
+      第二次(幂等键相同,但重复 POST 仍是无谓的额度与日志);
     - content 非空白:一个字都没到达本进程时**不写**空 assistant 气泡(与
       conversation.py 取消支路、上游 `if (!options.snapshot.text) return` 同一判据)。
 
     刻意只看正文不看工具载荷:给在飞工具补写半截 result 会造出"调用无回复"的历史。
     """
-    return bool(stream_exiting and not error and str(content or "").strip())
+    return bool((stream_exiting or error) and str(content or "").strip())
 
 
 def _is_allowed_callback_target(url: str) -> bool:

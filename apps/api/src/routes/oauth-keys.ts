@@ -6,7 +6,7 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { generateKeyPairSync } from 'node:crypto'
 import { z } from 'zod'
 import { and, desc, eq } from 'drizzle-orm'
-import { authenticate } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error } from '../utils/response.js'
 import { db, dbRead, type Database } from '../db/index.js'
 import { oauthPrivateKeys, type OauthPrivateKey } from '@ihui/database'
@@ -101,8 +101,9 @@ async function listKeysReplicaFirst(request: FastifyRequest): Promise<OauthPriva
 // =============================================================================
 
 export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
-  // 所有端点需要认证
-  server.addHook('preHandler', authenticate)
+  // F-55(2026-11-08):本插件管理的是平台级 OIDC 签名密钥(generate/rotate/revoke),
+  // 任意登录用户可吊销/轮转会让全站 ID Token 与 JWKS 失效 —— 整插件收为管理员。
+  server.addHook('preHandler', requireAdmin)
 
   // POST /generate - 生成新的 OAuth 私钥对
   server.post('/generate', async (request, reply) => {
@@ -216,7 +217,10 @@ export const oauthKeysRoutes: FastifyPluginAsync = async (server) => {
       config: {
         // 留一行 warn:以后查"这条路由为何没被 503"有据可依,不必再靠读插件源码倒推。
         pressureHandler: (request, _reply, type, value) => {
-          request.log.warn({ pressureType: type, pressureValue: value }, 'oauth-keys /list 压力闸豁免放行')
+          request.log.warn(
+            { pressureType: type, pressureValue: value },
+            'oauth-keys /list 压力闸豁免放行',
+          )
         },
       },
     },

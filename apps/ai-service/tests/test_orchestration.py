@@ -46,6 +46,14 @@ from app.routers.orchestration import (
 )
 
 
+def _admin_req():
+    from starlette.requests import Request
+
+    req = Request({"type": "http", "method": "POST", "path": "/", "headers": []})
+    req.state.role_id = 1
+    return req
+
+
 def _async_ret(value):
     async def _f(*a, **k):
         return value
@@ -298,7 +306,7 @@ async def test_budget_summary_trend_pillar_reset(_mock_services):
     assert (await get_budget_summary(period="week"))["code"] == 0
     assert (await get_budget_trend(days=14))["code"] == 0
     assert (await get_pillar_budget(pillar="rag"))["data"] == {"pillar": "rag"}
-    assert (await reset_pillar_degradation(pillar="rag"))["data"] == {"success": True}
+    assert (await reset_pillar_degradation(pillar="rag", request=_admin_req(), user_id="u1"))["data"] == {"success": True}
     assert (await get_cost_breakdown(period="month"))["code"] == 0
 
 
@@ -318,7 +326,7 @@ async def test_update_budget_config_filters_none_fields(_mock_services):
         warning_threshold=None,  # None → 过滤
         critical_threshold=0.9,
     )
-    resp = await update_budget_config(body)
+    resp = await update_budget_config(body, request=_admin_req(), user_id="u1")
     assert resp["code"] == 0
     assert captured["cfg"] == {"daily_token_limit": 100, "critical_threshold": 0.9}
 
@@ -332,7 +340,7 @@ async def test_update_budget_config_all_none_sends_empty(_mock_services):
         return types.SimpleNamespace(daily_token_limit=100)
 
     gov.update_config = _fake_update
-    resp = await update_budget_config(BudgetConfigUpdateBody())
+    resp = await update_budget_config(BudgetConfigUpdateBody(), request=_admin_req(), user_id="u1")
     assert resp["code"] == 0
     assert captured["cfg"] == {}
 

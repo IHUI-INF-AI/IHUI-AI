@@ -39,6 +39,7 @@ from app.services.mcp_server import (
     _tool_file_search,
     _tool_generate_test,
     _tool_git_operations,
+    _tool_investigate_codebase,
     _tool_knowledge_lookup,
     _tool_read_file,
     _tool_run_command,
@@ -2035,4 +2036,86 @@ class TestKnowledgeLookupG6SessionContext:
         _, kwargs = mock_kl.call_args
         assert kwargs.get("user_id") == "direct-u"
         assert kwargs.get("session_id") == "direct-s"
+
+
+# =============================================================================
+# AIS-080 / AIS-106 / AIS-107:代码工具的 root 一律同一把工作区尺
+# =============================================================================
+
+
+@pytest.fixture
+def ws_root(tmp_path, monkeypatch):
+    """允许根收敛到 tmp_path/ws;tmp_path/outside 保持不在白名单。"""
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.setattr(
+        "app.services.mcp_server._get_workspace_roots", lambda: [str(ws)]
+    )
+    return ws, outside
+
+
+async def test_search_codebase_rejects_existing_root_outside_workspace(ws_root):
+    """旧路径:存在的越界目录 ⇒ 路径不允许,判不出即 unjudged。"""
+    _, outside = ws_root
+    out = await _tool_search_codebase(
+        {"query": "x", "path": str(outside), "use_semantic": False}
+    )
+    assert out["ok"] is False
+    # AIS-080(裁决):越界一律 fail-closed 具名 PATH_NOT_ALLOWED,不再落 unjudged。
+    assert out["errorCode"] == "PATH_NOT_ALLOWED"
+    assert out["mode"] == "unjudged"
+
+
+async def test_search_codebase_allows_in_workspace_root(ws_root):
+    """正常路径:白名单内的搜索根不被误挡。"""
+    ws, _ = ws_root
+    (ws / "mod.py").write_text("def needle_symbol():\n    return 1\n", encoding="utf-8")
+    out = await _tool_search_codebase(
+        {"query": "needle_symbol", "path": str(ws), "use_semantic": False}
+    )
+    assert out["ok"] is True
+    assert any(m["file"] == "mod.py" for m in out["matches"])
+
+
+async def test_file_search_rejects_existing_root_outside_workspace(ws_root):
+    _, outside = ws_root
+    out = await _tool_file_search({"query": "needle", "path": str(outside)})
+    assert out["ok"] is False
+    # 裁决 #2:越界文案取 main 详细版,断言点「不在工作区白名单」+ 路径本身。
+    assert "不在工作区白名单" in out["message"]
+    assert str(outside) in out["message"]
+
+
+async def test_file_search_allows_in_workspace_root(ws_root):
+    ws, _ = ws_root
+    (ws / "mod.py").write_text("# needle\n", encoding="utf-8")
+    out = await _tool_file_search({"query": "needle", "path": str(ws)})
+    assert out["ok"] is True
+    assert out["total"] >= 1
+
+
+async def test_investigate_rejects_existing_root_outside_workspace(ws_root, monkeypatch):
+    _, outside = ws_root
+    called = AsyncMock()
+    monkeypatch.setattr(
+        "app.services.codebase_investigator.investigate_codebase", called
+    )
+    out = await _tool_investigate_codebase({"path": str(outside), "query": "q"})
+    assert out["ok"] is False
+    assert out["status"] == "unjudged"
+    assert "路径不允许" in out["message"]
+    called.assert_not_awaited()
+
+
+async def test_investigate_passes_resolved_workspace_root(ws_root, monkeypatch):
+    ws, _ = ws_root
+    fake = AsyncMock(return_value={"tool": "investigate_codebase", "ok": True})
+    monkeypatch.setattr(
+        "app.services.codebase_investigator.investigate_codebase", fake
+    )
+    out = await _tool_investigate_codebase({"path": str(ws), "query": "q"})
+    assert out["ok"] is True
+    assert fake.await_args.args[0]["path"] == str(ws)
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

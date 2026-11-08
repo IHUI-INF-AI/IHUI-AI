@@ -9,9 +9,46 @@
  */
 
 import { createHash } from 'node:crypto'
-import { readFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, openSync, readSync, closeSync } from 'node:fs'
 
 export type DiffType = 'add' | 'delete' | 'modify' | 'equal'
+
+/**
+ * F-261:差异计算的资源预算。
+ *
+ * LCS 是 `(m+1)×(n+1)` 的二维数组且原实现无上限:两 5MB 文本(约 10 万行)会申请
+ * 1e10 个槽位直接 OOM,而且 `isTextFile` 声称只采样 8KB,实际却 `readFileSync`
+ * 整文件读入。这里把「单文件字节 / 单侧行数 / LCS 单元格数」三档预算前置,
+ * 超限直接抛 `DiffTooLargeError`,不再让畸形输入拖死事件循环。
+ */
+export const MAX_DIFF_FILE_BYTES = 2 * 1024 * 1024
+export const MAX_DIFF_LINES = 5000
+export const MAX_DIFF_LCS_CELLS = 4_000_000
+
+export class DiffTooLargeError extends Error {
+  constructor(reason: string) {
+    super(`Diff too large: ${reason}`)
+    this.name = 'DiffTooLargeError'
+  }
+}
+
+function assertFileSize(filePath: string): void {
+  const size = statSync(filePath).size
+  if (size > MAX_DIFF_FILE_BYTES) {
+    throw new DiffTooLargeError(`${filePath} is ${size} bytes (max ${MAX_DIFF_FILE_BYTES})`)
+  }
+}
+
+function assertDiffBudget(fromLines: number, toLines: number): void {
+  if (fromLines > MAX_DIFF_LINES || toLines > MAX_DIFF_LINES) {
+    throw new DiffTooLargeError(`${fromLines}/${toLines} lines (max ${MAX_DIFF_LINES})`)
+  }
+  if (fromLines * toLines > MAX_DIFF_LCS_CELLS) {
+    throw new DiffTooLargeError(
+      `${fromLines}×${toLines}=${fromLines * toLines} LCS cells (max ${MAX_DIFF_LCS_CELLS})`,
+    )
+  }
+}
 
 export interface DiffLine {
   lineNumber: number
@@ -36,13 +73,25 @@ export function getFileHash(filePath: string): string {
 
 /** 判断是否为文本文件（采样前 8KB，含 \0 视为二进制）。 */
 export function isTextFile(filePath: string, sampleSize = 8192): boolean {
+  let fd: number | null = null
   try {
-    const fd = readFileSync(filePath, { encoding: null })
-    const chunk = fd.subarray(0, sampleSize)
+    // F-261:只读采样窗口,不再为「探测类型」把整个文件读进内存
+    fd = openSync(filePath, 'r')
+    const buf = Buffer.alloc(sampleSize)
+    const read = readSync(fd, buf, 0, sampleSize, 0)
+    const chunk = buf.subarray(0, read)
     if (chunk.includes(0)) return false
-    return Buffer.from(chunk).toString('utf8') !== ''
+    return chunk.toString('utf8') !== ''
   } catch {
     return false
+  } finally {
+    if (fd !== null) {
+      try {
+        closeSync(fd)
+      } catch {
+        /* ignore */
+      }
+    }
   }
 }
 
@@ -71,6 +120,7 @@ export function computeTextDiff(fromText: string, toText: string): DiffLine[] {
   const toLines = toText.split(/\r?\n/)
   const m = fromLines.length
   const n = toLines.length
+  assertDiffBudget(m, n)
 
   // LCS 动态规划表
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0))
@@ -111,6 +161,8 @@ export function computeTextDiff(fromText: string, toText: string): DiffLine[] {
 
 /** 比较两个文本文件。 */
 export function compareTextFiles(fromPath: string, toPath: string): DiffResult {
+  assertFileSize(fromPath)
+  assertFileSize(toPath)
   const { content: fromContent } = readFileContent(fromPath)
   const { content: toContent } = readFileContent(toPath)
 
@@ -176,6 +228,8 @@ export function getSimilarity(fromPath: string, toPath: string): number {
   if (!isTextFile(fromPath) || !isTextFile(toPath)) {
     return getFileHash(fromPath) === getFileHash(toPath) ? 1.0 : 0.0
   }
+  assertFileSize(fromPath)
+  assertFileSize(toPath)
   const { lines: fromLines } = readFileContent(fromPath)
   const { lines: toLines } = readFileContent(toPath)
   if (fromLines.length === 0 && toLines.length === 0) return 1.0
@@ -184,6 +238,7 @@ export function getSimilarity(fromPath: string, toPath: string): number {
   // LCS 长度 / 较大行数
   const m = fromLines.length
   const n = toLines.length
+  assertDiffBudget(m, n)
   const dp: number[][] = Array.from({ length: m + 1 }, () => new Array<number>(n + 1).fill(0))
   for (let i = m - 1; i >= 0; i--) {
     const row = dp[i]!

@@ -30,12 +30,15 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.jwt_auth import get_current_user_id
 from app.routers import recap as recap_router
-from app.services.session_store import LLMMessage, ThreadNotFoundError
+from app.services.session_store import LLMMessage, Thread, ThreadNotFoundError
 
 
 def _fake_store(messages: list[LLMMessage] | None = None, *, resume_error: Exception | None = None):
     """假 session store:resume 为同步方法(与 SessionStore.resume 签名同形),全程无 SQLite。"""
     store = MagicMock()
+    store.get_thread = MagicMock(
+        return_value=Thread(thread_id="t-1", metadata={"userId": "alice"})
+    )
     if resume_error is not None:
         store.resume = MagicMock(side_effect=resume_error)
     else:
@@ -148,6 +151,29 @@ async def test_llm_timeout_returns_504(api, client, monkeypatch):
     monkeypatch.setattr(litellm, "acompletion", _slow)
     res = await client.post("/api/agent/recap/handoff", json={"thread_id": "t-1"})
     assert res.status_code == 504
+
+
+@pytest.mark.asyncio
+async def test_foreign_thread_rejected_before_history_read(api, client, monkeypatch):
+    """AIS-074:thread 归属不符 → 404,且 resume 不被调用(历史全文不外带)。"""
+    _app, state = api
+    store = _fake_store([LLMMessage(role="user", content="victim 的私密对话")])
+    store.get_thread.return_value = Thread(thread_id="t-1", metadata={"userId": "bobby"})
+    state["store"] = store
+
+    called: list = []
+
+    async def _boom(**_kwargs):
+        called.append(True)
+        return _fake_llm_response('{"summary": "S", "next_action": "N"}')
+
+    monkeypatch.setattr(litellm, "acompletion", _boom)
+    res = await client.post(
+        "/api/agent/recap/handoff", json={"thread_id": "t-1"}
+    )
+    assert res.status_code == 404
+    store.resume.assert_not_called()
+    assert called == []
 
 
 @pytest.mark.asyncio
