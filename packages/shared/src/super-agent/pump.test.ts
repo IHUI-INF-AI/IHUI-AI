@@ -107,7 +107,14 @@ describe('super-agent pump 行为', () => {
       },
     )
     const r = await pump.runOnce()
-    expect(r).toEqual({ ingested: 1, accepted: 1, dispatched: 1, reclaimed: ['ticket-gone'] })
+    expect(r).toEqual({
+      ingested: 1,
+      accepted: 1,
+      dispatched: 1,
+      reclaimed: ['ticket-gone'],
+      slowJudged: 0,
+      slowUnjudged: 0,
+    })
     expect(dispatched).toEqual(['worker-ticket-1'])
     expect(p.calls).toContain('receive:t1:user-1')
   })
