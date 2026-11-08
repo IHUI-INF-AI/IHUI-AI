@@ -7913,7 +7913,8 @@
 - **影响面**：观看时长少记；首次并发双双 INSERT，后者唯一冲突冒泡为 500。
 - **建议修法**：单条 `INSERT ... ON CONFLICT ... DO UPDATE SET watch_duration = behavior_watch_records.watch_duration + excluded.watch_duration`。
 - 复核结论：坐实（P3，待修）。`behavior-queries.ts:31-53` 先 SELECT 再 UPDATE 覆盖写 `watchDuration`，并发丢增量；`:57-67` 首次插入无冲突兜底，唯一键冲突冒泡 500；`routes/behavior.ts:166` 无 try/catch，失败直接 500。
-- 是否当场可修：是（已坐实，P3 排期待修）。
+- 已修（`becc864f28`）：`behavior-queries.ts:26-75` 收敛为单条 `INSERT ... ON CONFLICT (user_id,topic_id,topic_type) DO UPDATE SET watch_duration = behavior_watch_records.watch_duration + excluded.watch_duration`，`RETURNING (xmax = 0)` 区分首插/更新；`routes/behavior.ts:161-176` 补 try/catch 但仍返回 500（不静音）。夹具 `tests/behavior-watch-atomic-692.test.ts` 覆盖空表并发首写、已有行并发各 +10（改前终值 10 → 改后 20）、重放 3×10；`tests/behavior-watch-route-692.test.ts` 改前裸冒泡「服务器错误」→ 改后业务 500。
+- 是否当场可修：是（2026-11-08 已修）。
 
 #### F-693 含主观题提交即落 `graded`，人工阅卷后反写 `submitted`（状态机倒置）
 
@@ -7925,7 +7926,9 @@
 - **影响面**：主观题未批改即处于 `graded`；按 `status` 拉“待批改/已批改”名单全部错位。
 - **建议修法**：提交时 `hasSubjective ? 'submitted' : 'graded'`，阅卷完成置 `graded`。
 - 复核结论：坐实（P3，待修）。`exam-queries.ts:541` 提交即 `hasSubjective ? 'graded' : 'submitted'`；`:608` 人工阅卷完成反写 `'submitted'`，与 `exam-extended-queries.ts:489-495` 定义的状态机相反；`routes/exam.ts:1972` 同型。
-- 是否当场可修：是（已坐实，P3 排期待修）。
+- 已修（`becc864f28`）：改错侧 `exam-queries.ts:585`（有主观题→`submitted`，否则→`graded`）、`:652`（阅卷完成→`graded`）与 `routes/exam.ts:1981`；保留权威侧 `exam-extended-queries.ts:489-496`。判定依据：`checkAndUpdateStatus` 的调用面 `gradeExam`/`completeExam`，以及 `routes/exam-marking.ts:53-56` 只允许 `status='submitted'` 评分、web 端按 `submitted→reviewing / graded→completed` 展示。自动重判路由补 `status='submitted'` 守卫（409），禁止 `graded/completed` 回退。夹具 `tests/exam-status-machine-693.test.ts`（提交/阅卷/重放不回写）与 `tests/exam-status-route-693.test.ts`（路由含主观题落 `submitted`、已 `graded` 返回 409）。
+- 存量数据未回填：`graded` 且含主观题的记录既可能是旧码「提交即 graded」，也可能是扩展流程里管理员已阅卷；两者 `answers`/`score`/`submittedAt` 形态相同，自动迁移会误伤 ⇒ 标记「需运营确认」，不静默转绿。
+- 是否当场可修：是（2026-11-08 已修新写入；存量待运营确认）。
 
 #### F-694 考试成绩指标被同一答题记录重复累加（提交 + 人工阅卷各一次）
 
