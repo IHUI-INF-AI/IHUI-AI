@@ -22,7 +22,7 @@ import {
   TableCell,
 } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
-import { resolveWalletFlowMeta } from '@/lib/wallet-flow-meta'
+import { resolveWalletFlowMeta } from '@ihui/shared/utils/wallet-flow-meta'
 import { formatPrice } from '@ihui/shared/utils/format'
 import { AnimatedNumber, AuthGatePrompt, BackButton } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -193,8 +193,20 @@ export default function WalletPage() {
                         <TableCell
                           className={cn('px-4 py-2.5 text-right font-medium', meta.colorClass)}
                         >
-                          {meta.sign === 'positive' ? '+' : meta.sign === 'negative' ? '-' : ''}
-                          {formatPrice(meta.sign === 'neutral' ? it.quantity : Math.abs(it.quantity))}
+                          {meta.isMoney ? (
+                            <>
+                              {meta.sign === 'positive'
+                                ? '+'
+                                : meta.sign === 'negative'
+                                  ? '-'
+                                  : ''}
+                              {formatPrice(
+                                meta.sign === 'neutral' ? it.quantity : Math.abs(it.quantity),
+                              )}
+                            </>
+                          ) : (
+                            <>{it.quantity}</>
+                          )}
                         </TableCell>
                         <TableCell className="px-4 py-2.5 text-right text-muted-foreground">
                           {formatPrice(it.balanceAfter)}
