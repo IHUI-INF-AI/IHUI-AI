@@ -34,6 +34,18 @@ export const CHUNKS_ROOT = join(UPLOAD_DIR, 'chunks')
 export const PROTOCOL_UPLOAD_LIMITS = {
   /** 单片字节上限:超过即拒收,不允许"先收下再说"。 */
   maxChunkBytes: 10 * 1024 * 1024,
+  /**
+   * 单会话分片数上限(2026-11-08,修 F-28)。
+   * 缺陷:totalChunks 只有 min(1),`findMissingChunkNumbers` 按 1..totalChunks 线性遍历并 push,
+   * 传 2^31 即把进程内存打满。上限取 4096(= 40GiB / 10MiB),覆盖 2GiB 文件按 1MiB 分片的
+   * 正常极端形态,同时把该循环的迭代次数钉死在可忽略量级。
+   */
+  maxTotalChunks: 4096,
+  /**
+   * 单文件声明字节上限(2026-11-08,修 F-28):= maxTotalChunks × maxChunkBytes,与两档自洽。
+   * 只约束 init 的声明值;真实占盘另由 maxStagedBytesGlobal 兜底,不靠这个声明值防磁盘。
+   */
+  maxFileBytes: 4096 * 10 * 1024 * 1024,
   /** 分片会话寿命:超时即由 reaper 回收行 + 磁盘目录。 */
   ttlMs: 24 * 60 * 60 * 1000,
   /** 合并阶段并发上限(2026-09-26 补上登记遗留的最后一格,消费者 = services/upload-merge-gate.ts)。
@@ -86,7 +98,10 @@ export function clampUploadLimit<K extends keyof typeof PROTOCOL_UPLOAD_LIMITS>(
       `clampUploadLimit(${String(name)}): 非有限或非正的传入值 ${String(incoming)} 直接抛(上限只可收紧不可放宽,0/NaN/负数均不合法)`,
     )
   }
-  return Math.min(Math.floor(incoming), PROTOCOL_UPLOAD_LIMITS[name]) as (typeof PROTOCOL_UPLOAD_LIMITS)[K]
+  return Math.min(
+    Math.floor(incoming),
+    PROTOCOL_UPLOAD_LIMITS[name],
+  ) as (typeof PROTOCOL_UPLOAD_LIMITS)[K]
 }
 
 /** 本仓 uploadId 由服务端 randomUUID() 生成;reaper 用它做"只删自己产的目录"的守卫。 */
@@ -132,7 +147,9 @@ export function measureStagedBytes(chunksRoot: string = CHUNKS_ROOT): number {
   let sessionDirs: string[]
   try {
     sessionDirs = readdirSync(chunksRoot)
-  } catch { return 0 }
+  } catch {
+    return 0
+  }
   let total = 0
   for (const dir of sessionDirs) {
     if (!isUploadSessionId(dir)) continue
@@ -146,7 +163,7 @@ export function measureStagedBytes(chunksRoot: string = CHUNKS_ROOT): number {
       if (!/^(\d+)\.part$/.test(name)) continue
       try {
         total += statSync(join(chunksRoot, dir, name)).size
-     } catch {
+      } catch {
         // 并发窗口内分片被合并/回收 = 贡献 0;宁可低估也不让度量本身把上传链打挂
       }
     }
@@ -171,13 +188,30 @@ export function wouldStagedBudgetOverflow(
   return currentStagedBytes + incomingChunkBytes > budget
 }
 
-/** 缺失分片编号(升序)。空数组 = 1..totalChunks 每一片都真的在磁盘上。 */
+/** 缺失分片编号(升序)。空数组 = 1..totalChunks 每一片都真的在磁盘上。
+ *  totalChunks 先被协议档钳住(修 F-28):即便库里有历史超档行,这里的线性遍历也不会失控。 */
 export function findMissingChunkNumbers(received: Iterable<number>, totalChunks: number): number[] {
+  const boundedTotal = Math.min(
+    Math.max(0, Math.floor(totalChunks)),
+    PROTOCOL_UPLOAD_LIMITS.maxTotalChunks,
+  )
   const set = new Set<number>()
-  for (const n of received) if (Number.isInteger(n) && n >= 1 && n <= totalChunks) set.add(n)
+  for (const n of received) if (Number.isInteger(n) && n >= 1 && n <= boundedTotal) set.add(n)
   const missing: number[] = []
-  for (let i = 1; i <= totalChunks; i++) if (!set.has(i)) missing.push(i)
+  for (let i = 1; i <= boundedTotal; i++) if (!set.has(i)) missing.push(i)
   return missing
+}
+
+/** 缺失分片在响应里的展示上限:超档时只列前 N 片,避免 `join('、')` 构造巨串(修 F-28)。 */
+export const MAX_REPORTED_MISSING_CHUNKS = 50
+
+/** 缺失分片编号 → 响应文案片段(超过展示上限时截断并给出剩余片数)。 */
+export function formatMissingChunkNumbers(
+  missing: readonly number[],
+  max: number = MAX_REPORTED_MISSING_CHUNKS,
+): string {
+  if (missing.length <= max) return missing.join('、')
+  return `${missing.slice(0, max).join('、')}…(其余 ${missing.length - max} 片略)`
 }
 
 /** 流式实算成品摘要:不把整份文件读进内存(成品可能是几百 MB)。 */
