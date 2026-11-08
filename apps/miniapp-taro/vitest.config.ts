@@ -6,6 +6,17 @@ import { defineConfig } from 'vitest/config'
 import path from 'path'
 
 export default defineConfig({
+  // Taro 运行时在 dom-external 里按构建期开关裁剪能力;测试侧此前没定义这些常量,
+  // 一旦用例的模块图引入 @tarojs/runtime(如 utils/time → 组件层)就整份 suite 收集失败
+  // (ReferenceError: ENABLE_INNER_HTML is not defined)。这里与 Taro 构建默认值对齐。
+  define: {
+    ENABLE_INNER_HTML: true,
+    ENABLE_ADJACENT_HTML: true,
+    ENABLE_SIZE_APIS: true,
+    ENABLE_CLONE_NODE: true,
+    ENABLE_CONTAINS: true,
+    ENABLE_TEMPLATE_CONTENT: true,
+  },
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(__dirname, 'src') },
