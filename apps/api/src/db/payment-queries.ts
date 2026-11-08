@@ -133,9 +133,12 @@ export async function updateOrderStatus(
   if (status === 'cancelled') values.cancelTime = new Date()
   if (status === 'refunded') values.refundTime = new Date()
   values.updatedBy = operatorId
+  // F-147:paid 只能从 pending 迁移。历史调用方(vip.ts 主动查单)不传 fromStatus,
+  // 曾出现 paid→paid 重放再次进入发卡链路;这里统一兜底为条件更新,0 行即视为已处理。
+  const effectiveFrom = fromStatus ?? (status === 'paid' ? 'pending' : undefined)
   const run = async (tx: DbTx) => {
     const conds = [eq(orders.orderNo, orderNo)]
-    if (fromStatus) conds.push(eq(orders.status, fromStatus))
+    if (effectiveFrom) conds.push(eq(orders.status, effectiveFrom))
     const [updated] = await tx
       .update(orders)
       .set(values)
@@ -148,7 +151,7 @@ export async function updateOrderStatus(
       if (status === 'cancelled') eduValues.cancelTime = new Date()
       if (status === 'refunded') eduValues.refundTime = new Date()
       const eduConds = [eq(eduOrders.orderNo, orderNo)]
-      if (fromStatus) eduConds.push(eq(eduOrders.status, fromStatus))
+      if (effectiveFrom) eduConds.push(eq(eduOrders.status, effectiveFrom))
       await tx
         .update(eduOrders)
         .set(eduValues)
