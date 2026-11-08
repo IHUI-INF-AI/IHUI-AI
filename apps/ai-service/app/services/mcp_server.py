@@ -16,8 +16,9 @@ import json
 import math
 import os
 import re
-import stat
 import shlex
+import stat
+import sys
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -3885,9 +3886,16 @@ def revoke_exec_prefix(prefix: list[str]) -> bool:
     return existed
 
 
-# AIS-081:Windows 内置命令分支把**原始整串**交给 `cmd /c`,因此必须在派生进程前
-# 对整串拒绝 shell 元字符。command_policy.json 只登记 `&&`/`|`/`;` 等模式,单 `&`、
-# `^`、CR/LF 都不命中 ⇒ 单个 `&` 即可拼接任意命令。
+# AIS-081(2026-11-08 机制修订):元字符只有在**命令确实经 shell 解释**时才有注入语义。
+# 判据 = "谁在解释这串字符":
+#   · Windows 内置命令(echo/dir/set...)⇒ 整串交给 `cmd /c`,由 cmd 解释;
+#   · 显式 shell 壳 `cmd|cmd.exe /c|/k`、`sh|bash|zsh|dash -c|-lc` ⇒ 被调用的 shell
+#     会重新解释其后的整串(Python 侧只是 create_subprocess_exec);
+#   · 其余(argv 直传)⇒ `&`/`^`/`;` 只是某个可执行文件的**字面参数**,
+#     `git log --grep=a&b`、`find . -name a&b` 必须放行。
+# 旧实现不区分形态、对整串无差别扫描,把 `echo "a&b"`(引号内字面量)也误挡。
+# 引号语义:cmd/sh 下双引号内的 `&`/`^`/`|`/`<`/`>`/`;` 是字面量,扫描跳过引号段;
+# CR/LF 不因引号豁免(单行命令串里出现换行只可能是拼接)。
 # 本表是内置分支的第二道独立闸(不替代既有危险模式表);测试从本模块 import,不复制。
 # 刻意**不含** `%`:cmd 的 `%VAR%` 只是变量展开、不是命令分隔符,拒掉会误伤
 # `echo %PATH%` / `set X=%Y%` 这类合法内置用法;` 与 `$(` 同样只是字面量,无注入语义。
@@ -3895,13 +3903,54 @@ WIN_BUILTIN_SHELL_METACHARACTERS: Final[tuple[str, ...]] = (
     "&", "^", "|", "<", ">", ";", "\r", "\n",
 )
 
+WIN_SHELL_BUILTINS: Final[frozenset[str]] = frozenset({
+    "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
+    "prompt", "title", "path", "assoc", "ftype",
+})
 
-def _first_builtin_shell_metacharacter(command: str) -> str | None:
-    """返回命令里第一个命中的内置分支 shell 元字符;没有则 None。"""
-    for metachar in WIN_BUILTIN_SHELL_METACHARACTERS:
-        if metachar in command:
-            return metachar
+_SHELL_WRAPPER_FLAGS: Final[dict[str, frozenset[str]]] = {
+    "cmd": frozenset({"/c", "/k"}),
+    "cmd.exe": frozenset({"/c", "/k"}),
+    "sh": frozenset({"-c"}),
+    "bash": frozenset({"-c", "-lc"}),
+    "zsh": frozenset({"-c"}),
+    "dash": frozenset({"-c"}),
+}
+
+
+def _shell_interpretation_of(command: str, cmd_name: str) -> str | None:
+    """返回"这串字符会被哪层 shell 解释";None = argv 直传,不做元字符判据。"""
+    if sys.platform == "win32" and cmd_name in WIN_SHELL_BUILTINS:
+        return "cmd /c (Windows 内置命令)"
+    try:
+        tokens = shlex.split(command, posix=sys.platform != "win32")
+    except ValueError:
+        tokens = command.split()
+    if not tokens:
+        return None
+    head = tokens[0].rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
+    flags = _SHELL_WRAPPER_FLAGS.get(head)
+    if not flags:
+        return None
+    for token in tokens[1:3]:
+        if token.lower() in flags:
+            return f"{head} {token.lower()}"
     return None
+
+
+def _first_shell_metacharacter(command: str) -> str | None:
+    """在会被 shell 解释的段里找第一个元字符;双引号内的字面量跳过。"""
+    in_quotes = False
+    for ch in command:
+        if ch == '"':
+            in_quotes = not in_quotes
+            continue
+        if ch in ("\r", "\n"):
+            return ch
+        if not in_quotes and ch in WIN_BUILTIN_SHELL_METACHARACTERS:
+            return ch
+    return None
+
 
 
 async def _tool_run_command(
@@ -4178,17 +4227,12 @@ async def _tool_run_command(
     _killer: asyncio.Task[None] | None = None
     proc: asyncio.subprocess.Process | None = None
     try:
-        import shlex
-        import sys
-
-        _WIN_BUILTINS = {
-            "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
-            "prompt", "title", "path", "assoc", "ftype",
-        }
-        # AIS-081:内置命令分支整串交给 cmd /c ⇒ 派生进程前先拒绝 shell 元字符。
-        # 前缀白名单只看 first_token(=echo),这一步是整串判据,不可用 surface 阈值替代。
-        if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
-            _metachar = _first_builtin_shell_metacharacter(command)
+        args = shlex.split(command, posix=sys.platform != "win32")
+        # AIS-081(机制修订):只在真正经 shell 解释的形态下判元字符;argv 直传的
+        # `&`/`^` 是字面参数(引号内的字面量同样跳过),不再无差别误挡。
+        _shell_form = _shell_interpretation_of(command, cmd_name)
+        if _shell_form is not None:
+            _metachar = _first_shell_metacharacter(command)
             if _metachar is not None:
                 return {
                     "tool": "run_command", "command": command,
@@ -4196,12 +4240,12 @@ async def _tool_run_command(
                     "ok": False, "streamed": True,
                     "errorCode": "SHELL_METACHARACTER_BLOCKED",
                     "matched": _metachar,
+                    "shell_form": _shell_form,
                     "message": (
-                        f"命令包含禁止的 shell 元字符 {_metachar!r}"
-                        "(内置命令分支禁止拼接,安全限制)"
+                        f"命令经 {_shell_form} 解释,包含禁止的 shell 元字符 {_metachar!r}"
+                        "(拼接会改变语义,安全限制)"
                     ),
                 }
-        args = shlex.split(command, posix=sys.platform != "win32")
         # 差距⑦(2026-10-30):原先 user_env 缺省时传 env=None 让子进程**裸继承**
         # os.environ —— vault 过滤与凭据/注入型变量剥离全部旁路,"不带 env 参数"
         # 反而成了消毒豁免面。改为恒走消毒出口(None 与 {} 同形,行为差异只有
@@ -4219,7 +4263,7 @@ async def _tool_run_command(
             terminal_interaction_enabled() and _terminal_id and _term_ctx.get("push")
         )
 
-        if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
+        if sys.platform == "win32" and cmd_name in WIN_SHELL_BUILTINS:
             proc = await asyncio.create_subprocess_exec(
                 "cmd", "/c", command,
                 cwd=cwd, env=env_for_proc,
@@ -9396,6 +9440,148 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# AIS-050(2026-11-08 裁定):声纹克隆是贵资源,不能只靠路径校验 ——
+# 归属闸(谁克隆的只能谁 list/get/delete)+ 计费闸(克隆属计费动作)。
+# 归属存储沿用仓内 sidecar 思路(artifacts `<file>.owner` 同一授权契约):
+# 平台声纹库是共享账号、上游无属主概念,故本地维护 voice_id → user_id 账本。
+# 账本缺失(机制上线前的存量声纹)一律 fail-closed —— 无法证明归属就不许读删,
+# 与 AIS-096「新产物缺 sidecar 即 403」同一口径。账本读写失败同样 fail-closed,
+# 且必须留显式告警,不许静默当成"没有属主"。
+_VOICE_OWNER_STORE_ENV: Final[str] = "VOICE_OWNER_STORE"
+# 一次克隆(上游训练 + 挂载)按 100 积分报价:高于生图默认 floor(8),属"需要余额/批准"
+# 的贵资源档;宿主未盖章余额时维持旧路径不计量(与 gate_image_spend 同判据)。
+VOICE_CLONE_QUOTED_CREDITS: Final[int] = 100
+
+
+def _voice_owner_store_path() -> Path:
+    raw = os.getenv(_VOICE_OWNER_STORE_ENV, "").strip()
+    return Path(raw) if raw else Path(".uploads") / "voice_owners.json"
+
+
+def _load_voice_owners() -> dict[str, Any]:
+    path = _voice_owner_store_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        logger.warning(
+            "[mcp] 声纹归属账本读取失败(AIS-050 fail-closed): path=%s err=%s", path, exc
+        )
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _voice_owner_of(voice_id: str, owners: dict[str, Any] | None = None) -> str:
+    entry = (owners if owners is not None else _load_voice_owners()).get(voice_id)
+    if isinstance(entry, dict):
+        return str(entry.get("user_id") or "").strip()
+    if isinstance(entry, str):
+        return entry.strip()
+    return ""
+
+
+def _remember_voice_owner(voice_id: str, user_id: str) -> None:
+    """登记的失败不阻断克隆(上游已完成),但必须告警;后续 get/delete 会 fail-closed。"""
+    if not voice_id or not user_id:
+        return
+    path = _voice_owner_store_path()
+    owners = _load_voice_owners()
+    owners[voice_id] = {"user_id": user_id, "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(owners, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as exc:
+        logger.warning(
+            "[mcp] 声纹归属登记失败(AIS-050,后续 get/delete 将 fail-closed): voice=%s err=%s",
+            voice_id,
+            exc,
+        )
+
+
+def _voice_identity_denial(action: str) -> dict[str, Any] | None:
+    """列表/读/删/克隆都必须有宿主注入的身份;缺失按 fail-closed 拒。"""
+    logger.warning(
+        "[mcp] voice_clone 缺少宿主注入身份(AIS-050 归属闸): action=%s code=IDENTITY_REQUIRED",
+        action,
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": action,
+        "errorCode": "IDENTITY_REQUIRED",
+        "error": "声纹属于个人资产,必须携带宿主注入的用户身份后才能操作",
+    }
+
+
+def _voice_id_of(item: Any) -> str:
+    if not isinstance(item, dict):
+        return ""
+    return str(item.get("voice_id") or item.get("id") or "").strip()
+
+
+def _voice_owner_denial(
+    arguments: dict[str, Any], voice_id: str, action: str
+) -> dict[str, Any] | None:
+    user_id = str(arguments.get("__user_id") or "").strip()
+    if not user_id:
+        return _voice_identity_denial(action)
+    owner = _voice_owner_of(voice_id)
+    if owner == user_id:
+        return None
+    logger.warning(
+        "[mcp] voice_clone 归属校验失败(AIS-050): action=%s voice=%s caller=%s owner=%s code=VOICE_NOT_OWNED",
+        action, voice_id or "-", user_id, owner or "(无归属记录)",
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": action,
+        "voice_id": voice_id or None,
+        "errorCode": "VOICE_NOT_OWNED",
+        "error": "该声纹不属于当前用户(机制上线前的存量声纹无归属记录,同样拒绝)",
+    }
+
+
+def _voice_clone_credit_denial(arguments: dict[str, Any]) -> dict[str, Any] | None:
+    """克隆计费闸:复用生图的 decide_credit_spend 判据,拒绝发生在上游之前。"""
+    from app.core.mcp_tool_approval import (
+        HOST_APPROVAL_KEY,
+        HOST_BALANCE_KEY,
+        decide_credit_spend,
+    )
+
+    if HOST_BALANCE_KEY not in arguments or arguments.get(HOST_BALANCE_KEY) is None:
+        return None  # 宿主没盖章余额 ⇒ 不计量,维持旧路径
+    balance = arguments.get(HOST_BALANCE_KEY)
+    approval = arguments.get(HOST_APPROVAL_KEY)
+    if approval not in ("granted", "denied"):
+        approval = None if approval is None else "unrecognized"
+    if isinstance(balance, bool) or not isinstance(balance, int) or balance < 0:
+        quoted, disposition, reason = None, "unjudged", "balance-invalid"
+    else:
+        quoted = VOICE_CLONE_QUOTED_CREDITS
+        disposition, reason = decide_credit_spend(
+            quoted_credits=quoted, balance_credits=balance, approval=approval
+        )
+        if approval == "unrecognized":
+            disposition, reason = "unjudged", "approval-unrecognized"
+    if disposition == "allow":
+        return None
+    logger.warning(
+        "[mcp] 声纹克隆计费闸拒绝(AIS-050): disposition=%s reason=%s quoted=%s balance=%s code=CREDIT_APPROVAL_REQUIRED",
+        disposition, reason, quoted, balance,
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": "upload",
+        "errorCode": "CREDIT_APPROVAL_REQUIRED",
+        "error": "声纹克隆属于计费资源,当前余额/批准不足,已在调用上游前拦截",
+        "creditSpend": {
+            "disposition": disposition, "quotedCredits": quoted,
+            "balanceCredits": balance if isinstance(balance, int) else None,
+            "reason": reason,
+        },
+    }
+
+
 def _audio_source_from_args(
     arguments: dict[str, Any],
 ) -> tuple[bytes, str, str | None, str | None]:
@@ -9497,10 +9683,16 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
         }
     try:
         if action == "list":
+            user_id = str(arguments.get("__user_id") or "").strip()
+            if not user_id:
+                return _voice_identity_denial("list")
             voices = await inst.list_voices()
+            owners = _load_voice_owners()
+            mine = [v for v in voices if _voice_owner_of(_voice_id_of(v), owners) == user_id]
             return {
                 "tool": "token6688_voice_clone", "ok": True, "action": "list",
-                "count": len(voices), "voices": voices,
+                "count": len(mine), "voices": mine,
+                "omitted": max(0, len(voices) - len(mine)),
                 "hint": "把某个 voice_id 传给 voice_tts(engine=token6688,voice=voice_id)即可克隆合成",
             }
         if action == "get":
@@ -9510,6 +9702,9 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                     "tool": "token6688_voice_clone", "ok": False,
                     "error": "缺少 voice_id(action=get 需要)", "errorCode": "MISSING_PARAMS",
                 }
+            denial = _voice_owner_denial(arguments, voice_id, "get")
+            if denial is not None:
+                return denial
             data = await inst.get_voice(voice_id)
             return {
                 "tool": "token6688_voice_clone", "ok": True, "action": "get",
@@ -9522,6 +9717,9 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                     "tool": "token6688_voice_clone", "ok": False,
                     "error": "缺少 voice_id(action=delete 需要)", "errorCode": "MISSING_PARAMS",
                 }
+            denial = _voice_owner_denial(arguments, voice_id, "delete")
+            if denial is not None:
+                return denial
             result = await inst.delete_voice(voice_id)
             return {
                 "tool": "token6688_voice_clone", "ok": bool(result.get("ok")), "action": "delete",
@@ -9529,7 +9727,13 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                 "error": result.get("error"), "raw": result.get("raw"),
                 "hint": "声纹已删除" if result.get("ok") else f"删除失败(status={result.get('status')})",
             }
-        # action == "upload"
+        # action == "upload":贵资源 —— 身份 + 计费闸都必须在读音频/调上游之前。
+        user_id = str(arguments.get("__user_id") or "").strip()
+        if not user_id:
+            return _voice_identity_denial("upload")
+        credit_denial = _voice_clone_credit_denial(arguments)
+        if credit_denial is not None:
+            return credit_denial
         audio, filename, err, err_code = _audio_source_from_args(arguments)
         if err:
             return {
@@ -9543,6 +9747,7 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
             voice_id = str(v.get("id") or v.get("voice_id") or "").strip()
         if not voice_id:
             voice_id = str(result.get("id") or result.get("voice_id") or "").strip()
+        _remember_voice_owner(voice_id, user_id)
         return {
             "tool": "token6688_voice_clone", "ok": True, "action": "upload",
             "voice_id": voice_id or None, "voice": v if isinstance(v, dict) else None,
