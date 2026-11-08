@@ -17,11 +17,12 @@
   工具本体仍合入,待用户决定是否 pip install websockets 并启动带
   --remote-debugging-port 的 Chrome。
 
-安全模型(本地开发自检工具):
+安全模型(AIS-051 起与生产 screenshot_url 同档):
 - 协议白名单:仅允许 http / https,禁止 file:// 及其它 scheme(防本地文件读取)。
-- 内网 / 云元数据(169.254.169.254 / 127.0.0.1)地址的 SSRF 拦截【本工具未启用】——
-  本地自检常需截图 127.0.0.1:PORT 的 dev server,故放行;若需与生产 screenshot_url
-  同级别防护,可复用 services.screenshot_service._validate_url_ssrf。
+- 内网 / 回环 / 链路本地 / 云元数据地址:capture 入口复用
+  services.screenshot_service._validate_url_ssrf 直接拒绝;成功路径再由 Playwright
+  route 守卫逐跳复检重定向与子资源。两个工具本身也已列入 _ADMIN_ONLY_TOOLS。
+- 因此本地 dev server 截图同样被拦;需要时由部署方显式放开 SSRF 判据。
 
 铁律:任何异常都绝不上抛到 agent 循环,统一收敛为 {ok: False, ...} 结构。
 """
@@ -66,6 +67,32 @@ def _validate_scheme(url: str) -> tuple[bool, str]:
     if not parsed.hostname:
         return False, "URL 缺少 hostname"
     return True, ""
+
+
+def _validate_url_ssrf_safe(url: str) -> tuple[bool, str]:
+    """复用 services.screenshot_service 的 SSRF 单源判据(AIS-051)。
+
+    延迟 import:本模块属 app.tools,由 mcp_server 惰性加载;screenshot_service 属
+    app.services。函数级 import 保证不改变模块加载顺序、不引入循环依赖。
+    """
+    from ..services.screenshot_service import _validate_url_ssrf
+
+    return _validate_url_ssrf(url)
+
+
+def _route_ssrf_guard(route: Any) -> bool:
+    """Playwright 逐跳路由守卫:每个请求(含重定向目标、子资源)都复检 SSRF。
+
+    返回 True 表示已处理(abort 或 continue)。Playwright 的路由回调必须显式
+    abort/continue/fulfill,否则请求会一直挂起到超时 —— 放行分支必须
+    ``route.continue_()``,不能只 return False。
+    """
+    ok, _reason = _validate_url_ssrf_safe(route.request.url)
+    if not ok:
+        route.abort()
+    else:
+        route.continue_()
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +146,8 @@ def _sync_capture(
                 locale="zh-CN",
                 timezone_id="Asia/Shanghai",
             )
+            # AIS-051 defense-in-depth:逐跳复检(首跳、302 目标、子资源都过同一判据)。
+            context.route("**/*", _route_ssrf_guard)
             page = context.new_page()
             page.on("console", _on_console)
             page.on("pageerror", _on_pageerror)
@@ -233,6 +262,22 @@ async def capture_screenshot(
             "finalUrl": url,
             "error": reason,
             "errorCode": "SCHEME_REJECTED",
+        }
+
+    # AIS-051:capture 层也过 SSRF 单源判据(screenshot_url 同款),私网/回环/链路本地
+    # 就地拒绝;成功路径再由 _sync_capture 的 route 守卫逐跳复检重定向与子资源。
+    ok_ssrf, ssrf_reason = _validate_url_ssrf_safe(url)
+    if not ok_ssrf:
+        return {
+            "ok": False,
+            "imageBase64": None,
+            "width": 0,
+            "height": 0,
+            "consoleErrors": [],
+            "title": "",
+            "finalUrl": url,
+            "error": f"URL 不允许访问: {ssrf_reason}",
+            "errorCode": "SSRF_BLOCKED",
         }
 
     try:
