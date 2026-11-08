@@ -20,7 +20,6 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const APP_ROOT = join(__dirname, '..', '..', '..')
-const REPO_ROOT = join(APP_ROOT, '..', '..')
 const read = (abs: string) => readFileSync(abs, 'utf8')
 
 const PAYMENT = read(join(APP_ROOT, 'src/screens/PaymentScreen.tsx'))
