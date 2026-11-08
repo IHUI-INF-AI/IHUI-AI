@@ -25,12 +25,14 @@ on:
       - 'packages/database/drizzle/**'
       - 'packages/database/src/schema/**'
       - 'scripts/check-migration-from-zero.mjs'
+      - 'scripts/check-hand-migration-snapshot.mjs'
       - '.github/workflows/db-from-zero-migrate.yml'
   pull_request:
     paths:
       - 'packages/database/drizzle/**'
       - 'packages/database/src/schema/**'
       - 'scripts/check-migration-from-zero.mjs'
+      - 'scripts/check-hand-migration-snapshot.mjs'
       - '.github/workflows/db-from-zero-migrate.yml'
   schedule:
     # 每天 03:17 UTC 兜底:即使无人改迁移,也能在发布前发现"链被别处带坏"
@@ -69,11 +71,26 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # DB-09 strict-changed 需要 diff PR base / push before,浅克隆取不到 base sha。
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: 22
+
+      # DB-09:手写迁移必须回写同号 drizzle snapshot(drizzle-kit generate 只对快照做差)。
+      # 存量 0371 条迁移里仍有缺失同号快照(由单独任务补齐),全量 --strict 会必然红;
+      # 因此本门禁只对本次新增/改动的迁移强制同号快照。**不得** continue-on-error:
+      # 真缺快照必须让 job 红,报错逐条点名 tag 与期望的快照文件名。
+      - name: Hand migration snapshot gate (strict changed)
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before || '' }}"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            BASE="HEAD~1"
+          fi
+          node scripts/check-hand-migration-snapshot.mjs --check --strict-changed --base "$BASE"
 
       - name: Install pnpm
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
