@@ -44,7 +44,7 @@
 .dist-qrpop-btn {
   flex-grow: 1;
   min-width: 200rpx;
-  height: 80rpx;
+  height: var(--spacing-4xl);
   line-height: 80rpx;
   text-align: center;
   font-size: var(--text-body);

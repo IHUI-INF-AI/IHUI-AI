@@ -81,7 +81,7 @@ export function SelfAttendanceTable({
                       <span className="text-muted-foreground">-</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-xs">
+                  <td className="font-[weight:inherit] px-4 py-3 text-label">
                     {r.checkOutTime ? (
                       <span className="inline-flex items-center gap-1">
                         <CheckCircle2 className="h-3 w-3 text-green-500" />
