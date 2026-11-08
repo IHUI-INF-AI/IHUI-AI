@@ -190,7 +190,12 @@ def test_j5b_timeline_meta_blank_when_not_dispatched() -> None:
 @pytest.fixture
 def api(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FastAPI:
     rec = AgentStepRecorder(file_path=tmp_path / "step_records.json")
-    rec.append_step("run-a", {"type": "tool", "tool_name": "shell", **_evidence()})
+    # AIS-101 起录制读端按主体过滤:夹具记录须与依赖覆盖的登录主体同属主
+    rec.append_step(
+        "run-a",
+        {"type": "tool", "tool_name": "shell", **_evidence()},
+        owner_user_id=USER,
+    )
     monkeypatch.setattr(step_recorder_router, "agent_step_recorder", rec)
     app = FastAPI()
     app.include_router(step_recorder_router.router, prefix="/api")

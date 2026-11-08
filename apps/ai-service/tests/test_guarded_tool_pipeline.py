@@ -99,7 +99,7 @@ class RaisingGovernor:
 class RaisingRecorder:
     """Step recorder whose append always raises."""
 
-    def append_step(self, run_id, step):
+    def append_step(self, run_id, step, *, owner_user_id=None):
         raise RuntimeError("record bug")
 
 
