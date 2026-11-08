@@ -12357,11 +12357,18 @@
     "providerHealthTip": "遅延 {latency}ms · {count} 個のモデルが利用可能",
     "question": {
       "customPlaceholder": "または自由入力...",
+      "expiresIn": "残り {seconds} 秒",
       "multiSelectHint": "複数選択可、終わったら送信",
+      "responseFailed": "回答の送信に失敗し、旧経路にフォールバックしました。反映されない場合は再試行してください",
       "selectHint": "一つ選んで続行",
       "skip": "質問をスキップ",
+      "statusAnswered": "回答済み",
+      "statusTimeout": "タイムアウト、送信できません",
+      "statusWithdrawn": "取り下げ済み",
       "submit": "回答を送信",
-      "title": "AIが回答を待っています"
+      "submitting": "送信中...",
+      "title": "AIが回答を待っています",
+      "withdraw": "質問を取り下げる"
     },
     "quotaExhaustedNotice": "このモデルを提供する事業者のアカウント利用枠を使い切ったため、プラットフォームは他のすべての経路への自動切り替えを試みましたが失敗しました。お客様のアカウントが原因ではありません。時間をおいて再度お試しいただくか、「無料」の表示があるモデルを選択してください。",
     "quotaExhaustedTitle": "モデル提供事業者のアカウント利用枠が上限に達しました",

@@ -111,6 +111,16 @@ from .tool_surface import filter_visible_tools as _filter_visible_tools
 from .tool_surface_budget import RoundContext as _SurfaceRoundContext
 from .tool_surface_budget import apply_tool_surface_budget as _apply_tool_surface_budget
 
+# Qoder 行为对齐(2026-11-08):会话级技能作用域 + 会话待办板。
+# 二者都是进程内会话状态(键 (user_id, session_id)),不是产品数据源;
+# 设计口径见各自模块头注(skill_scope.py / session_todo.py)。
+from .session_todo import format_todos as _format_todos
+from .session_todo import normalize_todos as _normalize_todos
+from .session_todo import todo_board as _todo_board
+from .skill_scope import activate_skill_scope as _activate_skill_scope
+from .skill_scope import describe_scope as _describe_skill_scope
+from .skill_scope import release_skill_scope as _release_skill_scope
+
 # 2026-07-22 P1 鲁棒性加固:MCP tool 全局超时,防 handler 无限挂起
 MCP_GLOBAL_TIMEOUT = 120
 
@@ -11307,6 +11317,205 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
     return {"tool": "run_workflow", **result}
 
 
+# ---------------------------------------------------------------------------
+# Qoder 行为对齐(2026-11-08):技能渐进披露 + 会话待办板
+#
+# 这两族工具的共同点:此前 IHUI 的服务端执行链里**没有模型可调用的实现**
+# (技能只有 UI 侧模板;任务板只有 CLI 侧 todo_write/todo_read)。接线口径
+# 见 skill_scope.py / session_todo.py 头注,这里只做参数校验与回执。
+# ---------------------------------------------------------------------------
+_SKILL_INSTRUCTIONS_MAX_CHARS = 12000
+
+
+def _session_identity_or_error(
+    arguments: dict[str, Any],
+) -> tuple[str, str, dict[str, Any] | None]:
+    """技能/任务板只需要会话;用户可缺省(缺省时键仍是 (``""``, session))。
+
+    与 ``agent_comm._identity_or_error`` 的差别:那里是"投递/收件资格",必须双身份;
+    这里是"本会话的工作记忆",会话在即成立。缺 session ⇒ fail-closed,
+    避免无会话调用把一处计划写成全进程共享。
+    """
+    sid = str(arguments.get("__session_id") or "").strip()
+    uid = str(arguments.get("__user_id") or "").strip()
+    if not sid:
+        return sid, uid, {
+            "ok": False,
+            "code": "missing_session",
+            "missingKeys": ["__session_id"],
+            "detail": "技能作用域/任务板按会话隔离,缺 __session_id 时拒绝写入",
+        }
+    return sid, uid, None
+
+
+async def _tool_skill(arguments: dict[str, Any]) -> dict[str, Any]:
+    """skill:按名加载一个技能(渐进披露),并激活其 allowed-tools 会话作用域。
+
+    与"把全部技能正文塞进系统提示"相反:模型先看到技能清单(``available_skills``
+    资源 / 技能名),需要时才调本工具拿到 SKILL.md 的 instructions。这样技能库
+    可以继续增长而不吃掉每轮上下文。
+    """
+    sid, uid, identity_error = _session_identity_or_error(arguments)
+    if identity_error is not None:
+        return {
+            "tool": "skill",
+            "ok": False,
+            "errorCode": "SESSION_REQUIRED",
+            "error": "skill 作用域按会话隔离,当前调用缺少 __session_id",
+            "missingKeys": identity_error.get("missingKeys"),
+        }
+
+    release = bool(arguments.get("release")) or str(arguments.get("action") or "").strip() == "release"
+    if release:
+        released = _release_skill_scope(user_id=uid, session_id=sid)
+        return {"tool": "skill", "ok": True, "data": {"released": released}}
+
+    name = str(arguments.get("name") or "").strip()
+    if not name:
+        return {
+            "tool": "skill",
+            "ok": False,
+            "errorCode": "INVALID_INPUT",
+            "error": (
+                "name 必填:传技能名加载;传 {release: true} 结束当前技能作用域。"
+                "可用技能见 resources/skills://available。"
+            ),
+        }
+
+    skill = skill_registry.get(name)
+    if skill is None:
+        return {
+            "tool": "skill",
+            "ok": False,
+            "errorCode": "SKILL_NOT_FOUND",
+            "error": f"未知 skill: {name}",
+            "available": sorted({s.name for s in skill_registry.list_skills()})[:120],
+        }
+
+    variables = arguments.get("arguments")
+    body = (
+        skill.render(variables)
+        if isinstance(variables, dict) and variables
+        else skill.prompt_template
+    )
+    truncated = False
+    if len(body) > _SKILL_INSTRUCTIONS_MAX_CHARS:
+        body = body[:_SKILL_INSTRUCTIONS_MAX_CHARS]
+        truncated = True
+
+    # allowed-tools 是**授权**(Qoder 原文:permission grant, not a restriction):
+    # 名单内工具在本会话免走高危审批。空声明也记录以便回执可读,但不授权任何工具。
+    allowed = skill.allowed_tools
+    scope = _activate_skill_scope(
+        user_id=uid,
+        session_id=sid,
+        skill=skill.name,
+        allowed_tools=list(allowed),
+        normalize=_normalize_tool_name,
+    )
+    return {
+        "tool": "skill",
+        "ok": True,
+        "data": {
+            "name": skill.name,
+            "description": skill.description,
+            "source": skill.source,
+            "instructions": body,
+            "truncated": truncated,
+            "scope": _describe_skill_scope(scope),
+            # 模型下一次调用就能看到"哪些工具已获授权",不必靠猜。
+            "note": (
+                "已将 allowed-tools 登记为本会话的免审批授权(只跳过审批门,"
+                "角色矩阵/能力门/路径校验/沙箱仍然生效);"
+                "需要收回授权时调用 skill({release: true})。"
+                if allowed
+                else "该 skill 未声明 allowed-tools,不产生会话级授权。"
+            ),
+        },
+    }
+
+
+async def _tool_todo_write(arguments: dict[str, Any]) -> dict[str, Any]:
+    """todo_write:整表替换本会话的任务板。"""
+    sid, uid, identity_error = _session_identity_or_error(arguments)
+    if identity_error is not None:
+        return {
+            "tool": "todo_write",
+            "ok": False,
+            "errorCode": "SESSION_REQUIRED",
+            "error": "任务板按会话隔离,当前调用缺少 __session_id",
+            "missingKeys": identity_error.get("missingKeys"),
+        }
+
+    items, error = _normalize_todos(arguments.get("todos"))
+    if error is not None:
+        # 拒绝时**不改**任务板:模型手里的计划与板上保持一致,否则它会以为自己写成功了。
+        return {
+            "tool": "todo_write",
+            "ok": False,
+            "errorCode": "INVALID_TODOS",
+            "error": error,
+            "board": _format_todos(_todo_board.get(user_id=uid, session_id=sid)),
+        }
+
+    assert items is not None  # normalize_todos 的返回契约:error 为 None 时 items 必在
+    _todo_board.set(user_id=uid, session_id=sid, items=items)
+    counts = {
+        "total": len(items),
+        "pending": sum(1 for i in items if i.status == "pending"),
+        "inProgress": sum(1 for i in items if i.status == "in_progress"),
+        "completed": sum(1 for i in items if i.status == "completed"),
+        "cancelled": sum(1 for i in items if i.status == "cancelled"),
+        "blocked": sum(1 for i in items if i.status == "blocked"),
+    }
+    return {
+        "tool": "todo_write",
+        "ok": True,
+        "data": {"counts": counts, "board": _format_todos(items), "note": "整表替换"},
+    }
+
+
+async def _tool_todo_read(arguments: dict[str, Any]) -> dict[str, Any]:
+    """todo_read:读回本会话当前任务板。"""
+    sid, uid, identity_error = _session_identity_or_error(arguments)
+    if identity_error is not None:
+        return {
+            "tool": "todo_read",
+            "ok": False,
+            "errorCode": "SESSION_REQUIRED",
+            "error": "任务板按会话隔离,当前调用缺少 __session_id",
+            "missingKeys": identity_error.get("missingKeys"),
+        }
+
+    items = _todo_board.get(user_id=uid, session_id=sid)
+    return {
+        "tool": "todo_read",
+        "ok": True,
+        "data": {
+            "todos": [item.as_dict() for item in items],
+            "board": _format_todos(items),
+        },
+    }
+
+
+async def _tool_ask_user_question(arguments: dict[str, Any]) -> dict[str, Any]:
+    """ask_user_question 兜底 handler:无交互宿主的执行面**不等**答复。
+
+    真正的阻塞等待只发生在带交互宿主的执行面(主聊天流 llm.py 工具循环与
+    工作台 agent_loop_v2 的特例拦截位);直接 call_tool 的调用没有可送达前端的
+    SSE 通道,静默等待只会把调用挂到超时,因此显式拒绝并点名原因。
+    """
+    return {
+        "tool": "ask_user_question",
+        "ok": False,
+        "errorCode": "question_host_unsupported",
+        "error": (
+            "当前执行面没有交互宿主,无法向用户提问;"
+            "请在主聊天流或工作台 agent 会话中使用本工具"
+        ),
+    }
+
+
 _TOOLS: list[MCPTool] = [
     MCPTool(
         name="search_codebase",
@@ -13838,6 +14047,113 @@ _TOOLS: list[MCPTool] = [
             "additionalProperties": False,
         },
     ),
+    # ---- Qoder 行为对齐(2026-11-08):skill / todo_write / todo_read ----
+    MCPTool(
+        name="skill",
+        description=(
+            "按名加载一个技能的 SKILL.md 指令(渐进披露)。返回 instructions 正文与其声明的"
+            " allowed-tools。该声明是**授权**不是限制:名单内工具在本会话免走高危审批"
+            "(角色矩阵/能力门/路径校验/沙箱不受影响),名单外工具照常可用。"
+            "传 {release: true} 收回授权。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "技能名(来自 available_skills 资源或 build_skill 产物)"},
+                "arguments": {
+                    "type": "object",
+                    "description": "可选:模板变量键值(如 {'path': 'src/app.ts'}),按 {key} 渲染",
+                    "additionalProperties": {"type": "string"},
+                },
+                "release": {"type": "boolean", "description": "true=结束当前会话的技能作用域(与 name 互斥)"},
+            },
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="todo_write",
+        description=(
+            "整表替换本会话的任务板(不是追加)。状态五档 pending/in_progress/completed/"
+            "cancelled/blocked;同一时刻最多一条 in_progress;最多 50 条,单条正文上限 200 字。"
+            "传入 [] 表示清空。校验失败时任务板保持原样。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "todos": {
+                    "type": "array",
+                    "description": "完整计划表(整表替换)",
+                    "maxItems": 50,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "content": {"type": "string", "description": "计划项正文(≤200 字)"},
+                            "status": {
+                                "type": "string",
+                                "enum": [
+                                    "pending",
+                                    "in_progress",
+                                    "completed",
+                                    "cancelled",
+                                    "blocked",
+                                ],
+                            },
+                            "activeForm": {"type": "string", "description": "进行中时的口语化描述(可选)"},
+                        },
+                        "required": ["content", "status"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            "required": ["todos"],
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="todo_read",
+        description="读回本会话当前任务板(按会话隔离、2 小时滑动过期)。",
+        input_schema={
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
+        },
+    ),
+    MCPTool(
+        name="ask_user_question",
+        description=(
+            "向用户提一个结构化问题并**阻塞等待**答复(交互宿主会把问题帧下发到"
+            "当前会话,用户答复后本调用才返回)。schema 对齐 CLI AskUserQuestion:"
+            "单选默认、multiSelect=true 为多选、allowCustom=true 允许自由文本。"
+            "无交互宿主的执行面会直接返回 question_host_unsupported,不会等待。"
+        ),
+        input_schema={
+            "type": "object",
+            "properties": {
+                "question": {"type": "string", "description": "要问用户的完整问题文本(必填)"},
+                "header": {"type": "string", "description": "短标题(可选,≤12 字,用于问题卡片标题)"},
+                "options": {
+                    "type": "array",
+                    "description": "选项数组(1-8 项;每项 id/label 必填,description 可选)",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string", "description": "选项稳定标识(唯一)"},
+                            "label": {"type": "string", "description": "选项展示文本"},
+                            "description": {"type": "string", "description": "选项补充说明(可选)"},
+                        },
+                        "required": ["id", "label"],
+                        "additionalProperties": False,
+                    },
+                },
+                "multiSelect": {"type": "boolean", "description": "true=允许多选,默认 false(单选)"},
+                "allowCustom": {"type": "boolean", "description": "true=允许自由文本答复,默认 true"},
+            },
+            "required": ["question"],
+            "additionalProperties": False,
+        },
+    ),
 ]
 
 
@@ -14467,6 +14783,12 @@ _TOOL_HANDLERS: dict[str, Any] = {
     "workbook_read_range": _tool_workbook_read_range,
     "workbook_write_cells": _tool_workbook_write_cells,
     "workbook_close": _tool_workbook_close,
+    # Qoder 行为对齐(2026-11-08):与上方三枚 _TOOLS 声明同批双射;
+    # 漏一侧即 test_tools_count_matches_registry 红。
+    "skill": _tool_skill,
+    "todo_write": _tool_todo_write,
+    "todo_read": _tool_todo_read,
+    "ask_user_question": _tool_ask_user_question,
 }
 
 
@@ -14779,6 +15101,9 @@ class MCPServer:
         _capability_denial = _tool_capability_denial(name)
         if _capability_denial is not None:
             return dict(_capability_denial)
+        # 注:Skill 的 allowed-tools 是**授权**不是收窄(Qoder 原文见 skill_scope.py
+        # 头注),消费点在 AgentLoopV2 的审批门;这里刻意不插任何拒绝分支 ——
+        # 角色矩阵/能力门/路径校验仍是硬边界,授权不许在工具出口改写它们。
         try:
             # Wave 8:注入 __user_role 供 handler 内的写操作权限校验使用
             # (git_operations 写操作在 handler 内部做 defense-in-depth 校验)

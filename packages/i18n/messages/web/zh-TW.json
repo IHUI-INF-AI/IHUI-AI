@@ -12357,11 +12357,18 @@
     "providerHealthTip": "延遲 {latency}ms · {count} 個模型可用",
     "question": {
       "customPlaceholder": "或輸入自定義回答...",
+      "expiresIn": "剩餘 {seconds} 秒",
       "multiSelectHint": "可多選,完成後點擊提交",
+      "responseFailed": "答覆傳送失敗,已嘗試回退舊鏈路;若未生效請重試",
       "selectHint": "選擇一項繼續",
       "skip": "跳過提問",
+      "statusAnswered": "已回答",
+      "statusTimeout": "已逾時,無法再提交",
+      "statusWithdrawn": "已撤回",
       "submit": "提交回答",
-      "title": "AI 需要你的回答"
+      "submitting": "提交中...",
+      "title": "AI 需要你的回答",
+      "withdraw": "撤回提問"
     },
     "quotaExhaustedNotice": "該模型所屬廠商的帳號額度已用完(不是你的帳戶問題),平臺已自動嘗試改道其他通道仍未成功。請稍後再試,或改選帶「免費」標識的模型。",
     "quotaExhaustedTitle": "廠商帳號額度已用盡",
