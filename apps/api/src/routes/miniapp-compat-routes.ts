@@ -28,6 +28,7 @@ import { z } from 'zod'
 import { eq, and, or, desc, asc, sql, ilike, gte, lt } from 'drizzle-orm' // 新增 gte/lt(2026-07-26 /study/calendar 范围查询)
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
+import { requireAdmin } from '../plugins/require-permission.js'
 // 绑定手机/邮箱要在写库前消费验证码(与 auth-extended 的 /auth/change-phone/confirm 同一份验证码存储)
 import { verifyCode } from '../utils/code-store.js'
 import { db, dbRead } from '../db/index.js'
@@ -330,8 +331,9 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /learn/group — 创建课程分组(lessons 表)
-  // 2026-10-12 P0 安全修复:课程/视频管理写端点补 checkAuth(文件头约定"写操作需 checkAuth",此 8 端点曾漏挂)
-  server.post('/learn/group', { preHandler: checkAuth }, async (request, reply) => {
+  // 2026-10-12 P0 安全修复:课程/视频管理写端点补鉴权(此 8 端点曾漏挂);
+  // 2026-11-08 F-166:仅登录不够(任意用户可改价/删课/上下架/增删视频),升级为管理员闸 requireAdmin
+  server.post('/learn/group', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = createGroupSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -349,7 +351,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /learn/course/:id — 更新课程
-  server.put('/learn/course/:id', { preHandler: checkAuth }, async (request, reply) => {
+  server.put('/learn/course/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -385,7 +387,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /learn/course/:id — 软删除课程(status=0, isPublished=false)
-  server.delete('/learn/course/:id', { preHandler: checkAuth }, async (request, reply) => {
+  server.delete('/learn/course/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -398,7 +400,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /learn/course/:id/issue — 发布课程(isPublished=true)
-  server.post('/learn/course/:id/issue', { preHandler: checkAuth }, async (request, reply) => {
+  server.post('/learn/course/:id/issue', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -411,7 +413,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /learn/course/:id/delist — 下架课程(isPublished=false)
-  server.post('/learn/course/:id/delist', { preHandler: checkAuth }, async (request, reply) => {
+  server.post('/learn/course/:id/delist', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -424,7 +426,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /learn/video — 创建视频小节(lessonChapterSections 表)
-  server.post('/learn/video', { preHandler: checkAuth }, async (request, reply) => {
+  server.post('/learn/video', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = createVideoSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -445,7 +447,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // PUT /learn/video/:id — 更新视频小节
-  server.put('/learn/video/:id', { preHandler: checkAuth }, async (request, reply) => {
+  server.put('/learn/video/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
@@ -473,7 +475,7 @@ export const miniappCompatRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // DELETE /learn/video/:id — 删除视频小节
-  server.delete('/learn/video/:id', { preHandler: checkAuth }, async (request, reply) => {
+  server.delete('/learn/video/:id', { preHandler: requireAdmin }, async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
