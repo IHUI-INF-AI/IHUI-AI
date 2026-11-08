@@ -216,17 +216,27 @@ export const selfMediaRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /self-media/records — 直接读库查历史(备用,不走 ai-service)
+  // F-170(P1,数据外泄):读侧必须与写侧(authorId=request.userId)同口径,
+  // 只返回当前登录用户自己的记录;本路由无管理员全量路径,管理员亦仅见自己。
   server.get('/self-media/records', async (request, reply) => {
+    const userId = request.userId
+    if (!userId) {
+      return reply.status(401).send(error(401, '需要登录'))
+    }
     const { category, limit } = request.query as { category?: string; limit?: string }
     const cat = category === 'wechat' || category === 'koubo' ? category : undefined
-    const lim = Math.min(Number(limit) || 50, HISTORY_LIMIT)
+    // 夹到 [1, HISTORY_LIMIT]:负数 / 0 归 1,超大值封顶 100,非数字回退默认 50。
+    const parsedLimit = Number(limit)
+    const lim = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(Math.trunc(parsedLimit), 1), HISTORY_LIMIT)
+      : 50
 
-    const conds = []
+    const conds = [eq(selfMediaPublished.authorId, userId)]
     if (cat) conds.push(eq(selfMediaPublished.category, cat))
     const rows = await db
       .select()
       .from(selfMediaPublished)
-      .where(conds.length ? and(...conds) : undefined)
+      .where(and(...conds))
       .orderBy(desc(selfMediaPublished.createdAt))
       .limit(lim)
 
