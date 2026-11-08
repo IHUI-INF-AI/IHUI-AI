@@ -52,13 +52,15 @@ from app.services.mcp_server import (
 
 
 @pytest.fixture(autouse=True)
-def _register_tmp_workspace(tmp_path, monkeypatch):
-    """AIS-080/AIS-106:本文件用 tmp_path 当搜索根,登记为允许根,正常路径不被误挡。
+def _tmp_path_is_workspace_root(monkeypatch, tmp_path):
+    """AIS-080:search/index 入口现在过工作区白名单;本模块用 tmp_path 造树,登记为根。"""
+    from app.services import mcp_server as _mcp_module
 
-    越界拒绝由专项用例(路径不在本集合内)负责,这里只保证"合法根"这条正向路径。
-    """
-    monkeypatch.setenv(
-        "MCP_WORKSPACE_ROOTS", f"{_os.getcwd()}{_os.pathsep}{tmp_path}"
+    real = _mcp_module._get_workspace_roots
+    monkeypatch.setattr(
+        _mcp_module,
+        "_get_workspace_roots",
+        lambda: [str(tmp_path.resolve()), *real()],
     )
 
 
@@ -141,10 +143,10 @@ async def test_tool_search_codebase_empty_query():
 
 
 async def test_tool_search_codebase_nonexistent_path():
-    """路径不存在返回 ok=False。"""
+    """根外路径(即使不存在)在 AIS-080 后先被工作区白名单拒绝。"""
     out = await _tool_search_codebase({"query": "foo", "path": "/nonexistent/xyz/abc"})
     assert out["ok"] is False
-    assert "路径不存在" in out["message"]
+    assert out["errorCode"] == "PATH_NOT_ALLOWED"
 
 
 async def test_tool_search_codebase_unreadable_path_is_not_missing(tmp_path, monkeypatch):
@@ -2061,7 +2063,8 @@ async def test_search_codebase_rejects_existing_root_outside_workspace(ws_root):
         {"query": "x", "path": str(outside), "use_semantic": False}
     )
     assert out["ok"] is False
-    assert "路径不允许" in out["message"]
+    # AIS-080(裁决):越界一律 fail-closed 具名 PATH_NOT_ALLOWED,不再落 unjudged。
+    assert out["errorCode"] == "PATH_NOT_ALLOWED"
     assert out["mode"] == "unjudged"
 
 

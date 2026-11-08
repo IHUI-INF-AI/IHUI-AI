@@ -27,8 +27,13 @@ from app.routers import voice_tts
 
 
 @pytest.fixture(autouse=True)
-def _bypass_jwt(monkeypatch):
-    """隔离 JWT 中间件:清空 jwt_secret → middleware 走跳过路径。"""
+def _bypass_jwt(monkeypatch, request):
+    """隔离 JWT 中间件:清空 jwt_secret → middleware 走跳过路径。
+
+    real_jwt 用例(真实验签/401 断言)自行钉死密钥,不走本放行档。
+    """
+    if request.node.get_closest_marker("real_jwt") is not None:
+        return
     from app.core.config import settings
 
     monkeypatch.setattr(settings, "jwt_secret", "")
@@ -43,8 +48,7 @@ def _fake_provider(
     p.api_key = api_key
     if tts is not None:
         p.tts = AsyncMock(return_value=tts)
-    if voices is not None:
-        p.list_voices = AsyncMock(return_value=voices)
+    p.list_voices = AsyncMock(return_value=voices if voices is not None else [])
     if upload is not None:
         p.upload_voice = AsyncMock(return_value=upload)
     if delete is not None:
@@ -118,7 +122,7 @@ class TestTtsToken6688Engine:
         p = _fake_provider(monkeypatch)
         p.tts = AsyncMock(side_effect=ProviderError("quota exceeded", 402))
         resp = await client.post(
-            "/api/voice/tts", json={"text": "你好", "engine": "token6688"},
+            "/api/voice/tts", json={"text": "你好", "engine": "token6688", "voice": "alloy"},
         )
         assert resp.status_code == 502
         assert "quota" in resp.json()["detail"]
@@ -189,60 +193,126 @@ class TestVoiceDeleteAdminGuard:
         p.delete_voice.assert_awaited_once_with("v-1")
 
 
-class TestToken6688TtsAdminOnly:
-    """AIS-092:付费 token6688 TTS 只允许管理员(JWT 在生产已强制登录)。"""
+# ---------------------------------------------------------------------------
+# AIS-092(2026-11-08):匿名可达的付费 TTS 收权 + token6688 voice 白名单
+# ---------------------------------------------------------------------------
 
-    def _request(self, role_id):
-        from starlette.requests import Request
 
-        request = Request(
-            {"type": "http", "method": "POST", "path": "/api/voice/tts", "headers": []}
+def _enable_real_jwt(monkeypatch, secret: str = "test-secret-voice-tts-092") -> str:
+    """real_jwt 用例自行钉死密钥并关掉开发放行档(conftest/本文件夹具均已跳过)。"""
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "jwt_secret", secret)
+    monkeypatch.setattr(settings, "ai_dev_no_auth", False)
+    return secret
+
+
+def _access_token(secret: str, sub: str = "user-1") -> str:
+    import time
+
+    import jwt
+
+    from app.core.config import settings
+
+    return jwt.encode(
+        {
+            "sub": sub,
+            "type": "access",
+            "roleId": 0,
+            "aud": "ihui-ai-users",
+            "iss": settings.jwt_issuer,
+            "exp": int(time.time()) + 300,
+        },
+        secret,
+        algorithm="HS256",
+    )
+
+
+def test_voice_tts_not_in_default_jwt_public_paths() -> None:
+    """根因 1:默认公开白名单不得再含 /api/voice/tts,且不得误伤 /api/voice/stt。"""
+    from app.core.config import Settings
+
+    raw = Settings(_env_file=None).jwt_public_paths
+    entries = tuple(p.strip() for p in raw.split(",") if p.strip())
+    assert "/api/voice/tts" not in entries
+    assert "/api/voice/stt" in entries
+
+
+@pytest.mark.real_jwt
+class TestVoiceTtsAuthzAis092:
+    """a–d 安全验证:匿名 401 / 非白名单 voice 拒绝且不落合成 / 白名单与在册声纹放行 / edge 不变。"""
+
+    async def test_a_unauthenticated_tts_is_401(self, client, monkeypatch):
+        _enable_real_jwt(monkeypatch)
+        resp = await client.post(
+            "/api/voice/tts",
+            json={"text": "你好", "engine": "token6688", "voice": "alloy"},
         )
-        request.state.role_id = role_id
-        return request
+        assert resp.status_code == 401
+        assert resp.json()["message"] == "Authentication required"
 
-    async def test_non_admin_rejected_before_provider(self, monkeypatch):
-        from fastapi import HTTPException
-
-        p = _fake_provider(monkeypatch, tts=(b"ID3", "audio/mpeg"))
-        with pytest.raises(HTTPException) as exc:
-            await voice_tts.synthesize_tts(
-                voice_tts.TTSRequest(text="你好", engine="token6688"),
-                self._request(role_id=0),
-                principal="user-1",
-            )
-        assert exc.value.status_code == 403
-        p.tts.assert_not_awaited()
-
-    async def test_admin_allowed_to_paid_engine(self, monkeypatch):
-        p = _fake_provider(monkeypatch, tts=(b"ID3", "audio/mpeg"))
-        resp = await voice_tts.synthesize_tts(
-            voice_tts.TTSRequest(text="你好", engine="token6688"),
-            self._request(role_id=1),
-            principal="admin-1",
+    async def test_b_authenticated_non_whitelist_voice_rejected(self, client, monkeypatch):
+        secret = _enable_real_jwt(monkeypatch)
+        calls = AsyncMock()
+        monkeypatch.setattr(voice_tts, "_tts_via_token6688", calls)
+        _fake_provider(monkeypatch, tts=(b"should-not-be-used", "audio/mpeg"), voices=[])
+        resp = await client.post(
+            "/api/voice/tts",
+            json={"text": "你好", "engine": "token6688", "voice": "voice_attacker_pick"},
+            headers={"Authorization": f"Bearer {_access_token(secret)}"},
         )
-        assert resp.body == b"ID3"
-        p.tts.assert_awaited_once()
+        assert resp.status_code == 403
+        assert "白名单" in resp.json()["detail"]
+        calls.assert_not_awaited()
 
-    async def test_free_edge_engine_not_blocked_for_non_admin(self, monkeypatch):
-        """正常路径不误挡:非管理员仍可用免费 edge 引擎。"""
+    async def test_c_authenticated_official_voice_succeeds(self, client, monkeypatch):
+        secret = _enable_real_jwt(monkeypatch)
+        upstream = AsyncMock(return_value=(b"ID3paid-ok", "audio/mpeg"))
+        monkeypatch.setattr(voice_tts, "_tts_via_token6688", upstream)
+        resp = await client.post(
+            "/api/voice/tts",
+            json={"text": "你好", "engine": "token6688", "voice": "alloy"},
+            headers={"Authorization": f"Bearer {_access_token(secret)}"},
+        )
+        assert resp.status_code == 200
+        assert resp.headers["x-tts-engine"] == "token6688"
+        assert resp.content == b"ID3paid-ok"
+        upstream.assert_awaited_once_with("你好", "alloy")
+
+    async def test_c2_authenticated_cloned_voice_in_library_succeeds(self, client, monkeypatch):
+        """防误挡:平台声纹库在册 voice_id 仍可合成(与 GET /voice/voices 同一数据源)。"""
+        secret = _enable_real_jwt(monkeypatch)
+        _fake_provider(monkeypatch, voices=[{"voice_id": "voice_mine_1"}])
+        upstream = AsyncMock(return_value=(b"ID3clone-ok", "audio/mpeg"))
+        monkeypatch.setattr(voice_tts, "_tts_via_token6688", upstream)
+        resp = await client.post(
+            "/api/voice/tts",
+            json={"text": "你好", "engine": "token6688", "voice": "voice_mine_1"},
+            headers={"Authorization": f"Bearer {_access_token(secret)}"},
+        )
+        assert resp.status_code == 200
+        assert resp.content == b"ID3clone-ok"
+
+    async def test_d_authenticated_edge_engine_unchanged(self, client, monkeypatch):
+        secret = _enable_real_jwt(monkeypatch)
+        import sys
 
         class _FakeCommunicate:
             def __init__(self, text, voice=None, rate=None):
                 pass
 
             async def stream(self):
-                yield {"type": "audio", "data": b"ID3edge"}
-
-        import sys
+                yield {"type": "audio", "data": b"ID3edge-free"}
 
         fake_mod = MagicMock()
         fake_mod.Communicate = _FakeCommunicate
         monkeypatch.setitem(sys.modules, "edge_tts", fake_mod)
-        resp = await voice_tts.synthesize_tts(
-            voice_tts.TTSRequest(text="你好", engine="edge"),
-            self._request(role_id=0),
-            principal="user-1",
+        resp = await client.post(
+            "/api/voice/tts",
+            json={"text": "你好", "engine": "edge", "voice": "zh-CN-XiaoxiaoNeural"},
+            headers={"Authorization": f"Bearer {_access_token(secret)}"},
         )
-        assert resp.body == b"ID3edge"
+        assert resp.status_code == 200
+        assert resp.headers["x-tts-engine"] == "edge-tts"
+        assert resp.content == b"ID3edge-free"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

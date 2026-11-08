@@ -151,8 +151,10 @@ def test_tool_entry_reaches_every_real_executor(tmp_path: Path, monkeypatch) -> 
             {
                 "task": task_type, "arguments": args, "notify_on_done": False,
                 "timeout_s": 240, "idempotency_key": key,
-                # 2026-11-08 P0(AIS-031):long_running_command 已收进 admin 档,
-                # 本用例直接调 handler 绕过 call_tool,需显式补承载层注入的角色。
+                # 本文件判的是**接线等价性**(工具面到得到注册表),不是权限;特权类型
+                # (long_running_command/test_suite)的分派闸(role=0 ⇒ PERMISSION_DENIED)
+                # 由 tests/test_background_command_privilege_ais031.py 钉住。这里声明
+                # 宿主注入的 admin 身份,与 call_tool 生产注入同一字段名。
                 "__user_role": 1,
             }
         )

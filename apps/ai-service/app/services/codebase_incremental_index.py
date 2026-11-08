@@ -163,13 +163,13 @@ async def index_changed_paths(
         deleted = await indexer._delete_files_from_api(
             repo_id, deleted_paths, api_token, internal_user_id
         )
-        if deleted is None:
-            # AIS-027:删失败的路径必须留在快照里,下轮 prev-new 才会重试删除。
+        if deleted is None or deleted < len(deleted_paths):
+            # AIS-027:删失败/删不满的路径必须留在快照里,下轮 prev-new 才会重试删除。
             deletion_failed = True
             result.files_deleted = 0
             result.errors.append(
-                f"删除幽灵切片失败({len(deleted_paths)} 个路径):已保留在快照中,"
-                "下轮删除重试(本轮文件检索仍可能召回已删除文件)"
+                f"删除未完成 {deleted if deleted is not None else 0}/{len(deleted_paths)} 条:"
+                "保留快照条目待下一轮重试(不把失败记成已删除)"
             )
         else:
             result.files_deleted = deleted
@@ -245,6 +245,9 @@ async def index_changed_paths(
         try:
             await indexer._write_to_api(repo_id, batch, api_token, internal_user_id)
         except Exception as e:  # noqa: BLE001 - 与全量同形:批次失败点名,快照照常收敛
+            # 2026-11-08(AIS-027):旧实现"点名后快照照常收敛"⇒ 失败批次的文件带着新 hash
+            # 进了快照,下一轮判 unchanged、永不重写,切片的空洞就这样静默留下。
+            # 只把这些文件从快照面上摘除(保留其余文件的收敛),下一轮它们必回 to_reindex。
             result.errors.append(f"写入批次 {i}-{i + len(batch)} 失败: {e}")
             failed_batches.append(batch)
 

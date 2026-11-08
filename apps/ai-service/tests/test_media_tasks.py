@@ -675,10 +675,23 @@ async def test_upload_file_missing_params():
     assert out["errorCode"] == "MISSING_PARAMS"
 
 
-async def test_upload_file_path_not_found():
-    out = await mcp_server._tool_token6688_upload_file({"path": "Z:/no/such/file.mp4"})
+async def test_upload_file_path_not_found(tmp_path, monkeypatch):
+    # AIS-050:先过工作区白名单;根内不存在的文件才是 FILE_NOT_FOUND。
+    root = tmp_path / "ws"
+    root.mkdir()
+    monkeypatch.setenv("MCP_WORKSPACE_ROOTS", str(root))
+    out = await mcp_server._tool_token6688_upload_file(
+        {"path": str(root / "no-such-file.mp4")}
+    )
     assert out["ok"] is False
     assert out["errorCode"] == "FILE_NOT_FOUND"
+
+
+async def test_upload_file_outside_workspace_rejected():
+    # AIS-050:根外路径在任何 open/上传前就被拒,不再落到 FILE_NOT_FOUND。
+    out = await mcp_server._tool_token6688_upload_file({"path": "Z:/no/such/file.mp4"})
+    assert out["ok"] is False
+    assert out["errorCode"] == "PATH_NOT_ALLOWED"
 
 
 async def test_upload_file_ssrf_blocked():
@@ -867,7 +880,9 @@ async def test_voice_clone_list(monkeypatch):
             return [{"voice_id": "v1", "name": "我的声音"}]
 
     monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    out = await mcp_server._tool_token6688_voice_clone({"action": "list"})
+    # AIS-050 归属闸:list 只回当前用户账本内的声纹(直调 handler 需自备宿主注入身份)。
+    monkeypatch.setattr(mcp_server, "_load_voice_owners", lambda: {"v1": {"user_id": "u-1"}})
+    out = await mcp_server._tool_token6688_voice_clone({"action": "list", "__user_id": "u-1"})
     assert out["ok"] is True
     assert out["action"] == "list"
     assert out["count"] == 1
@@ -886,7 +901,7 @@ async def test_voice_clone_upload_conflict(monkeypatch):
     """action=upload 同时传 path+url → BAD_PARAMS(三选一)。"""
     monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: object())
     out = await mcp_server._tool_token6688_voice_clone(
-        {"action": "upload", "path": "a.wav", "url": "http://x/a.wav"}
+        {"action": "upload", "path": "a.wav", "url": "http://x/a.wav", "__user_id": "u-1"}
     )
     assert out["ok"] is False
     assert out["errorCode"] == "BAD_PARAMS"
@@ -905,8 +920,11 @@ async def test_voice_clone_upload_data_uri(monkeypatch):
             return {"voice": {"id": "v-cloned"}}
 
     monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
+    monkeypatch.setattr(mcp_server, "_remember_voice_owner", lambda *_a, **_k: None)
     uri = "data:audio/wav;base64," + _b64.b64encode(wav).decode()
-    out = await mcp_server._tool_token6688_voice_clone({"action": "upload", "data_uri": uri})
+    out = await mcp_server._tool_token6688_voice_clone(
+        {"action": "upload", "data_uri": uri, "__user_id": "u-1"}
+    )
     assert out["ok"] is True
     assert out["voice_id"] == "v-cloned"
 
@@ -929,7 +947,8 @@ async def test_voice_clone_delete_ok(monkeypatch):
             return {"ok": True, "status": "deleted", "raw": {}}
 
     monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    out = await mcp_server._tool_token6688_voice_clone({"action": "delete", "voice_id": "v-del"})
+    monkeypatch.setattr(mcp_server, "_load_voice_owners", lambda: {"v-del": {"user_id": "u-1"}})
+    out = await mcp_server._tool_token6688_voice_clone({"action": "delete", "voice_id": "v-del", "__user_id": "u-1"})
     assert called.get("voice_id") == "v-del"
     assert out["ok"] is True
     assert out["action"] == "delete"
@@ -945,7 +964,8 @@ async def test_voice_clone_delete_failed(monkeypatch):
             return {"ok": False, "status": "unsupported", "error": "删除端点均不可用(官方未收录)"}
 
     monkeypatch.setattr("app.services.video_generation._instantiate", lambda p: _Inst() if p == "token6688" else None)
-    out = await mcp_server._tool_token6688_voice_clone({"action": "delete", "voice_id": "v-del"})
+    monkeypatch.setattr(mcp_server, "_load_voice_owners", lambda: {"v-del": {"user_id": "u-1"}})
+    out = await mcp_server._tool_token6688_voice_clone({"action": "delete", "voice_id": "v-del", "__user_id": "u-1"})
     assert out["ok"] is False
     assert out["status"] == "unsupported"
     assert "删除失败" in out["hint"]

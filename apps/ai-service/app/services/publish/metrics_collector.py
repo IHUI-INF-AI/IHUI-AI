@@ -296,7 +296,7 @@ async def persist_style_check(
                 int(result.get("images_loaded") or 0),
             )
         finally:
-            await conn.close()
+            await conn.close()  # AIS-021: 原句漏 await,close 协程从未执行(连接泄漏)
     except Exception as e:
         logger.warning("[metrics] persist_style_check failed: %s: %s", type(e).__name__, e)
 
@@ -324,7 +324,7 @@ async def latest_style_check(task_id: str, platform: str | None = None) -> dict[
                     task_id,
                 )
         finally:
-            await conn.close()
+            await conn.close()  # AIS-021: 原句漏 await,close 协程从未执行(连接泄漏)
         if not row:
             return None
         return {
