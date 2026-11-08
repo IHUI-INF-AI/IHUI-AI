@@ -453,12 +453,16 @@ def _media_artifact_summary(tool_calls: list[ToolCallRecord]) -> str:
     )[:1200]
 
 
-def _resolve_user_id(sid: str) -> str:
-    """从 session_id 保守解析 user_id,拿不到返回空串。
+class SessionOwnershipError(ValueError):
+    """会话键与已认证主体不符(跨用户冒用),由路由层转 403。"""
 
-    conversation.chat 签名不含 user_id(v1 兼容铁律),上层调用链也未透传;
-    仅当 session_id 为冒号分隔的复合格式(如 {user_id}:{session})时提取首段,
-    否则返回空串跳过注入(调用方 debug 日志后降级,绝不阻塞对话)。
+
+def _resolve_user_id(sid: str) -> str:
+    """**仅兼容旧调用方**的降级解析;HTTP 路由必须显式传 user_id。
+
+    当 session_id 为冒号分隔的复合格式(如 {user_id}:{session})时提取首段,
+    否则返回空串跳过注入。新调用链一律以 `chat(user_id=...)` 的显式主体为准,
+    本函数只用于 chat 未传 user_id 的进程内旧路径。
     """
     if sid and ":" in sid:
         head = sid.split(":", 1)[0].strip()
@@ -633,6 +637,7 @@ class ConversationService:
         model: str | None = None,
         allowed_tools: list[str] | None = None,
         max_iterations: int = 3,
+        user_id: str | None = None,
     ) -> ConversationResult:
         """完整对话流程:intent → tool select → LLM → tool exec → response。
 
@@ -649,6 +654,17 @@ class ConversationService:
         start = time.monotonic()
         # 等价替代弃用的 datetime.utcnow()（naive UTC 语义不变，2026-09-19 技术债清理）
         sid = session_id or f"conv-{int(datetime.now(UTC).replace(tzinfo=None).timestamp())}"
+        # AIS-032:HTTP 路由传入的已认证主体是唯一身份来源。session_id 只是会话键:
+        #   · 复合键首段与主体不符 ⇒ 拒绝(冒用他人 `{victim}:{session}`);
+        #   · 其余情况记忆读写按主体命名空间隔离(memory_store.scope_user_id)。
+        requester_id = (user_id or "").strip()
+        if requester_id and ":" in sid:
+            head = sid.split(":", 1)[0].strip()
+            if head and head != requester_id:
+                raise SessionOwnershipError("session_id 不属于当前用户")
+        # 未显式传主体的进程内旧路径才回落到 session_id 解析(保持既有测试/兼容)。
+        effective_user_id = requester_id or _resolve_user_id(sid)
+        memory_user_id = memory_store.scope_user_id(sid, requester_id)
         trace: list[dict[str, Any]] = []
         # Z28 格 2:段账的**登记处**改吃 stage_telemetry 单源(段清单/结论词表/结论行/
         # metrics 全在那一处落册);trace 的出参形状与数值口径一字未改。
@@ -696,7 +712,7 @@ class ConversationService:
         try:
             # 1. 写入用户消息到记忆
             try:
-                await memory_store.add(sid, "user", user_input)
+                await memory_store.add(sid, "user", user_input, user_id=memory_user_id)
             except Exception as e:
                 logger.warning("memory_store.add user 消息失败: %s", e)
 
@@ -737,7 +753,7 @@ class ConversationService:
                 # 教育管理自动路由(2026-09-19):催费/欠费/缴费/退费/账单强信号
                 edu_tools = self._edu_intent_tools(user_input)
                 # 本站操控自动路由(2026-09-20):"帮我操作这个程序"类强信号
-                app_tools = self._app_control_intent_tools(user_input, _resolve_user_id(sid))
+                app_tools = self._app_control_intent_tools(user_input, effective_user_id)
                 if media_tools or web_tools or edu_tools or app_tools:
                     tools = self._filter_tools(
                         media_tools + web_tools + edu_tools + app_tools
@@ -747,7 +763,7 @@ class ConversationService:
                 media_tools = self._media_intent_tools(user_input)
                 web_tools = self._web_intent_tools(user_input)
                 edu_tools = self._edu_intent_tools(user_input)
-                app_tools = self._app_control_intent_tools(user_input, _resolve_user_id(sid))
+                app_tools = self._app_control_intent_tools(user_input, effective_user_id)
                 existing = {t.get("function", {}).get("name") for t in tools}
                 extra = [
                     m for m in media_tools + web_tools + edu_tools + app_tools
@@ -770,7 +786,7 @@ class ConversationService:
             })
 
             # 4. 加载历史上下文
-            history = await memory_store.get(sid, limit=20)
+            history = await memory_store.get(sid, limit=20, user_id=memory_user_id)
             messages: list[dict[str, Any]] = []
             # 工具结果诚实报告指令:防止 LLM 在 tool 失败时幻觉"已完成"
             if tools:
@@ -804,7 +820,7 @@ class ConversationService:
             # P0:用户画像 + 跨会话记忆注入(孤岛能力打通,与 v2 的 L1-1 记忆闭环一致;
             # 失败/拿不到 user_id 均降级不阻塞对话)
             try:
-                user_id = _resolve_user_id(sid)
+                user_id = effective_user_id
                 if not user_id:
                     logger.debug(
                         "conversation 未解析到 user_id,跳过画像/长期记忆注入(sid=%s)", sid
@@ -1111,7 +1127,7 @@ class ConversationService:
             # 支路用中断标注补一条形状不同的记录 —— 把完整回答标成中断是新的事实错误。
             assistant_written = True
             try:
-                await memory_store.add(sid, "assistant", final_response)
+                await memory_store.add(sid, "assistant", final_response, user_id=memory_user_id)
             except Exception as e:
                 logger.warning("memory_store.add assistant 响应失败: %s", e)
             # 6.1 媒体产物记忆延续(2026-09-09 全模态深度适配):
@@ -1153,6 +1169,7 @@ class ConversationService:
                         # 中断标注落在 memory_store.add 已有的 metadata 参数(写进消息
                         # 记录既有的 metadata 字段)⇒ 零新增列、零迁移。
                         {"interrupted": True, "interrupt_reason": "user_cancelled"},
+                        user_id=memory_user_id,
                     )
                 except Exception as e:
                     # 落库失败不把取消路径炸成 500:与第 6 步同一形状,logger.warning

@@ -160,6 +160,15 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
           },
         },
         response: {
+          // F-205:重复关注为幂等 no-op,契约显式声明 200
+          200: {
+            type: 'object',
+            properties: {
+              code: { type: 'number' },
+              message: { type: 'string' },
+              data: { type: 'object', additionalProperties: true },
+            },
+          },
           201: {
             type: 'object',
             properties: {
@@ -193,13 +202,22 @@ export const socialRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
+      let created: boolean
       try {
-        await followUser(request.userId!, parsed.data.userId)
+        created = await followUser(request.userId!, parsed.data.userId)
       } catch (e) {
         const statusCode = (e as Error & { statusCode?: number }).statusCode ?? 400
         return reply
           .status(statusCode as 201 | 400 | 401 | 404 | 409)
           .send(error(statusCode, (e as Error).message ?? '关注失败'))
+      }
+      // F-205:重复关注是幂等 no-op,返回 200 且不产生任何副作用(不重发通知/邮件);
+      // 只有真正新建关系才返回 201 并触发一次下游奖励(积分切面按 201 判定)。
+      if (!created) {
+        const alreadyMutual = await isMutualFollowing(request.userId!, parsed.data.userId)
+        return reply
+          .status(200)
+          .send(success({ followed: true, alreadyFollowing: true, isMutual: alreadyMutual }))
       }
       // 关注成功后，检查互关并发送通知
       const isMutual = await isMutualFollowing(request.userId!, parsed.data.userId)

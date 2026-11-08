@@ -46,6 +46,10 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         # 异步记录(不阻塞响应)
         trace_id = audit_service.extract_trace_id(request.headers.get("traceparent"))
+        # AIS-047:落库主体。JWTAuthMiddleware 在更内层写入 request.state.user_id
+        # (jwt_auth.py:182),call_next 之后此处已就绪;此前固定 agent_id="system"
+        # 且不传 user_id ⇒ 事后无法定位"谁改了 hook/预算/发布任务"。
+        user_id = getattr(request.state, "user_id", None)
         audit_service.log_agent_action(
             agent_id="system",
             action=f"{request.method} {request.url.path}",
@@ -56,6 +60,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 "user_agent": request.headers.get("user-agent", ""),
             },
             trace_id=trace_id,
+            user_id=user_id if isinstance(user_id, str) and user_id else None,
         )
         # 用户级 LLM 指标(2026-10-19):非流式 complete 按 HTTP 状态码收口一次。
         # 2xx=ok(含 TRIAL_QUOTA 之外的正常返回),非 2xx=failed(额度墙/未配 key/

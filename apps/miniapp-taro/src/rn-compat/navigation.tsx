@@ -363,7 +363,11 @@ export function createFocusEffectController(): FocusEffectController {
 }
 
 export interface CompatNavigation {
-  navigate: (name: string, params?: RouteParams, options?: { tab?: boolean }) => void
+  navigate: (
+    target: string | { name: string; params?: RouteParams },
+    params?: RouteParams,
+    options?: { tab?: boolean },
+  ) => void
   push: (name: string, params?: RouteParams) => void
   replace: (name: string, params?: RouteParams) => void
   goBack: () => void
@@ -438,8 +442,16 @@ export interface CompatNavigationDeps {
  */
 export function createCompatNavigation(deps: CompatNavigationDeps): CompatNavigation {
   const { fail, focusListeners, blurListeners } = deps
-  const navigate = (name: string, params?: RouteParams, options?: { tab?: boolean }) => {
-    const path = buildRoutePath(name, params)
+  const navigate = (
+    target: string | { name: string; params?: RouteParams },
+    params?: RouteParams,
+    options?: { tab?: boolean },
+  ) => {
+    // XUI-056:React Navigation 允许对象形 navigate({ name, params });旧垫片只认字符串,
+    // 对象会被当路由名 ⇒ 解析成 [object Object] 后跳转静默失败。
+    const name = typeof target === 'string' ? target : String(target?.name ?? '')
+    const targetParams = typeof target === 'string' ? params : (target?.params ?? params)
+    const path = buildRoutePath(name, targetParams)
     if (!path) return fail(name, 'unmapped')
     const isTab = switchTabIfNeeded(path)
     if (options?.tab && !isTab) {

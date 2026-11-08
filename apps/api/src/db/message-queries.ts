@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { eq, and, desc, ilike, sql } from 'drizzle-orm'
+import { eq, and, desc, asc, ilike, sql, or, isNull, lte, type SQL } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   eduAnnouncements,
@@ -24,31 +24,58 @@ export interface FindAnnouncementsOpts {
   publishedOnly?: boolean
 }
 
+/**
+ * 构造公告列表查询的过滤条件与排序（纯函数，便于单测固定顺序/可见性口径）。
+ * - 对外(publishedOnly): 仅已发布启用，且 publishTime 为空或已到点（未来定时公告不提前可见）。
+ * - 后台: 不加上界过滤，未来公告仍需可见；sort 与对外同一排序。
+ */
+export function buildAnnouncementListQuery(
+  opts: FindAnnouncementsOpts,
+  now: Date = new Date(),
+): { conditions: SQL[]; orderBy: SQL[] } {
+  const { title, isPublished, status, publishedOnly } = opts
+  const conditions: SQL[] = []
+  if (publishedOnly) {
+    conditions.push(eq(eduAnnouncements.isPublished, true), eq(eduAnnouncements.status, 1))
+    const publishWindow = or(
+      isNull(eduAnnouncements.publishTime),
+      lte(eduAnnouncements.publishTime, now),
+    )
+    if (publishWindow) conditions.push(publishWindow)
+  } else {
+    if (isPublished !== undefined) conditions.push(eq(eduAnnouncements.isPublished, isPublished))
+    if (status !== undefined) conditions.push(eq(eduAnnouncements.status, status))
+  }
+  if (title) conditions.push(ilike(eduAnnouncements.title, `%${title}%`))
+
+  const orderBy: SQL[] = [
+    desc(eduAnnouncements.isTop),
+    asc(eduAnnouncements.sort),
+    desc(eduAnnouncements.publishTime),
+    desc(eduAnnouncements.id),
+  ]
+  return { conditions, orderBy }
+}
+
 export async function findAnnouncements(
   opts: FindAnnouncementsOpts,
 ): Promise<{ list: EduAnnouncement[]; total: number; page: number; pageSize: number }> {
-  const { page, pageSize, title, isPublished, status, publishedOnly } = opts
-  const conds = []
-  if (publishedOnly) {
-    conds.push(eq(eduAnnouncements.isPublished, true), eq(eduAnnouncements.status, 1))
-  } else {
-    if (isPublished !== undefined) conds.push(eq(eduAnnouncements.isPublished, isPublished))
-    if (status !== undefined) conds.push(eq(eduAnnouncements.status, status))
-  }
-  if (title) conds.push(ilike(eduAnnouncements.title, `%${title}%`))
+  const { page, pageSize } = opts
+  const { conditions, orderBy } = buildAnnouncementListQuery(opts)
+  const where = conditions.length ? and(...conditions) : undefined
 
   const rows = await db
     .select()
     .from(eduAnnouncements)
-    .where(conds.length ? and(...conds) : undefined)
-    .orderBy(desc(eduAnnouncements.isTop), desc(eduAnnouncements.id))
+    .where(where)
+    .orderBy(...orderBy)
     .limit(pageSize)
     .offset((page - 1) * pageSize)
 
   const countRows = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(eduAnnouncements)
-    .where(conds.length ? and(...conds) : undefined)
+    .where(where)
   const total = countRows[0]?.count ?? 0
 
   return { list: rows, total, page, pageSize }

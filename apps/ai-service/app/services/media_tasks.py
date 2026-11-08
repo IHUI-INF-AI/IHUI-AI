@@ -619,6 +619,40 @@ _MEDIA_POLL_INTERVAL = float(os.environ.get("MEDIA_TASK_POLL_INTERVAL", "60"))
 _MEDIA_POLL_MAX_BATCH = int(os.environ.get("MEDIA_TASK_POLL_MAX_BATCH", "10"))
 _MEDIA_POLL_MAX_AGE_HOURS = float(os.environ.get("MEDIA_TASK_POLL_MAX_AGE_HOURS", "24"))
 
+# 在途心跳(AIS-097):官方视频 p90 55~75 分钟,而在途期只有 INSERT/终态 update
+# 会写 updated_at ⇒ maintenance 的卡死判据会把正常长任务判死(上游回写又被
+# only_if_in_flight 拒绝,用户付费产物丢失)。poller 探测到上游**明确回仍在处理**
+# 时才刷新 updated_at;探测失败/无状态不刷新 —— 否则僵尸任务会被心跳永久续命,
+# maintenance 的强失败判据形同虚设。SQL 侧节流(距上次心跳 ≥ N 分钟才写)。
+# 只写 updated_at:不改 status/result,不引入新的状态迁移路径。
+_HEARTBEAT_MIN_INTERVAL_MINUTES = int(
+    os.environ.get("MEDIA_TASK_HEARTBEAT_MINUTES", "5")
+)
+_UPSTREAM_IN_FLIGHT: tuple[str, ...] = ("pending", "processing")
+_HEARTBEAT_SQL = (
+    "UPDATE media_tasks SET updated_at=now() "
+    "WHERE id = ANY($1) AND status = ANY($2) "
+    "AND updated_at < now() - ($3 || ' minutes')::interval"
+)
+
+
+async def _heartbeat_in_flight_tasks(conn: Any, ids: list[Any]) -> int:
+    """刷新在途任务 updated_at(节流,只写时间戳);失败仅告警,不影响本轮探测。"""
+    if not ids:
+        return 0
+    try:
+        await conn.execute(
+            _HEARTBEAT_SQL,
+            list(ids),
+            list(_STATUS_IN_FLIGHT),
+            str(_HEARTBEAT_MIN_INTERVAL_MINUTES),
+        )
+    except Exception as e:  # noqa: BLE001
+        logger.warning("[media_tasks] 在途心跳失败(忽略): %s", e)
+        return 0
+    return len(ids)
+
+
 _poller_task: asyncio.Task[Any] | None = None
 _poller_stop = asyncio.Event()
 
@@ -649,6 +683,7 @@ async def _poll_processing_batch() -> int:
         return 0
     provider = Token6688Provider(api_key=cfg.api_key, api_base=cfg.api_base)
     updated = 0
+    alive_ids: list[int] = []
     for r in rows:
         try:
             st = await provider.get_task_status(str(r["task_id"]))
@@ -656,6 +691,11 @@ async def _poll_processing_batch() -> int:
             logger.warning("[media_tasks] 探测失败 task=%s err=%s", r["task_id"], e)
             continue
         status = str(st.get("status") or "").lower()
+        if status in _UPSTREAM_IN_FLIGHT:
+            # 上游明确回「仍在处理」才续命;探测失败/无状态不刷新 updated_at,
+            # 交给 maintenance 卡死判据兜底(AIS-097)
+            alive_ids.append(r["id"])
+            continue
         if status in ("completed", "succeeded", "success"):
             url = str(st.get("video_url") or "").strip()
             payload = {_kind_url_field(r["kind"]): url, "completed": True, "via": "poller"}
@@ -679,6 +719,15 @@ async def _poll_processing_batch() -> int:
             if applied:
                 updated += 1
                 logger.info("[media_tasks] 轮询收尾失败: task=%s", r["task_id"])
+    if alive_ids:
+        try:
+            hb_conn = await get_db_conn()
+            try:
+                await _heartbeat_in_flight_tasks(hb_conn, alive_ids)
+            finally:
+                await hb_conn.close()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("[media_tasks] 心跳连接失败(忽略): %s", e)
     return updated
 
 

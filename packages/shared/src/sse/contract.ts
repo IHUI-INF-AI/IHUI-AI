@@ -1473,6 +1473,9 @@ export function classifyHttpFailureKind(status: number, errorCode?: string): Sse
   }
   if (status === 401 || status === 403) return 'credentials_rejected'
   if (status === 429) return 'rate_limited'
+  // XUI-027:408(Request Timeout)是可重试的瞬时失败,旧实现落进最后的
+  // contract_mismatch,会被当成"契约不符"直接放弃而不是退避重试。
+  if (status === 408) return 'transient'
   if (status === 404 || status === 502 || status === 503 || status === 504) {
     return 'endpoint_unavailable'
   }

@@ -105,6 +105,7 @@ export async function findEduSettingByGroupKey(
     .select()
     .from(eduSettings)
     .where(and(eq(eduSettings.group, group), eq(eduSettings.key, key)))
+    .orderBy(desc(eduSettings.updatedAt), desc(eduSettings.id))
     .limit(1)
   return decryptSettingCredentials(rows[0])
 }
@@ -116,7 +117,9 @@ export async function findEduSettingsByGroup(group: string): Promise<EduSettingP
   return db
     .select(publicFields)
     .from(eduSettings)
-    .where(and(eq(eduSettings.group, group), eq(eduSettings.status, 1), eq(eduSettings.isPublic, true)))
+    .where(
+      and(eq(eduSettings.group, group), eq(eduSettings.status, 1), eq(eduSettings.isPublic, true)),
+    )
     .orderBy(asc(eduSettings.sort), asc(eduSettings.key))
 }
 
@@ -155,6 +158,20 @@ export async function createEduSetting(
       sort: input.sort,
       status: input.status,
       updatedBy: input.updatedBy,
+    })
+    .onConflictDoUpdate({
+      target: [eduSettings.group, eduSettings.key],
+      set: {
+        ...(input.value !== undefined ? { value: input.value } : {}),
+        ...(input.type !== undefined ? { type: input.type } : {}),
+        ...(encryptedCredentials !== undefined ? { credentials: encryptedCredentials } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.isPublic !== undefined ? { isPublic: input.isPublic } : {}),
+        ...(input.sort !== undefined ? { sort: input.sort } : {}),
+        ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.updatedBy !== undefined ? { updatedBy: input.updatedBy } : {}),
+        updatedAt: new Date(),
+      },
     })
     .returning()
   return decryptSettingCredentials(rows[0])
@@ -297,12 +314,15 @@ export async function importEduSettings(
       skipped++
       continue
     }
-    const existing = existingMap.get(`${item.group}:${item.key}`)
+    const mapKey = `${item.group}:${item.key}`
+    const existing = existingMap.get(mapKey)
     if (existing) {
-      await updateEduSetting(existing.id, { ...item, updatedBy })
+      const saved = await updateEduSetting(existing.id, { ...item, updatedBy })
+      if (saved) existingMap.set(mapKey, saved)
       updated++
     } else {
-      await createEduSetting({ ...item, updatedBy })
+      const created = await createEduSetting({ ...item, updatedBy })
+      if (created) existingMap.set(mapKey, created)
       inserted++
     }
   }

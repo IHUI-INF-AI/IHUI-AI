@@ -42,6 +42,15 @@ const KEY_PREFIX = 'ws:rate:'
 
 let redisClient: Redis | null = null
 
+/** F-285:Redis 不可达时命令必须快速 reject 走 catch 降级,不得永久挂起。 */
+const REDIS_OPTIONS = {
+  maxRetriesPerRequest: 1,
+  enableOfflineQueue: false,
+  commandTimeout: 1000,
+  connectTimeout: 1000,
+  lazyConnect: false,
+} as const
+
 /**
  * 获取限流专用 Redis 客户端（惰性单例）。
  *
@@ -50,10 +59,7 @@ let redisClient: Redis | null = null
  */
 function getRedis(): Redis {
   if (!redisClient) {
-    redisClient = new IORedis(config.REDIS_URL, {
-      maxRetriesPerRequest: null,
-      lazyConnect: false,
-    })
+    redisClient = new IORedis(config.REDIS_URL, REDIS_OPTIONS)
     redisClient.on('error', (err) => {
       logger.error('[ws-rate-limit] redis error', { error: err })
     })

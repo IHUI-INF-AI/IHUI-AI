@@ -78,7 +78,12 @@ const csMessageSchemas = z.discriminatedUnion('type', [csMessageSchema, csTyping
 
 /** 入站控制面判定结论:通过 → 放行 zod 解析结果;拒绝 → 带可诊断原因 */
 export type CsInboundVerdict =
-  | { ok: true; data: { type: 'cs_message'; data: { sessionId?: string; content: string; kind?: string } } | { type: 'cs_typing'; data: { isTyping?: boolean } } }
+  | {
+      ok: true
+      data:
+        | { type: 'cs_message'; data: { sessionId?: string; content: string; kind?: string } }
+        | { type: 'cs_typing'; data: { isTyping?: boolean } }
+    }
   | { ok: false; reason: 'unrecognized_key' | 'malformed' }
 
 /** strict 边界拒绝计数(排障与测试观测面:被丢弃的非法入站消息条数) */
@@ -289,8 +294,20 @@ const wsCustomerServicePlugin: FastifyPluginAsync = async (server) => {
       let session
       if (sessionIdParam) {
         session = await findSessionBySessionId(sessionIdParam)
-        if (!session) {
+        // F-109(2026-11-08):会话存在不等于归属当前用户 —— 必须比对 userId,
+        // 且已关闭会话不可再接入。不泄露会话是否存在,统一按 4004 拒绝。
+        if (!session || session.userId !== userId || session.status === 'closed') {
           socket.close(4004, '会话不存在')
+          return
+        }
+        // F-109(2026-11-08):sessionId 来自客户端 query,必须校验会话属主。
+        // 否则任意登录用户可拿他人 sessionId 接管客服会话(读他人消息/冒充客户发消息)。
+        if (session.userId !== userId) {
+          server.log.warn(
+            { userId, sessionId: sessionIdParam },
+            'ws-customer-service 拒绝连接:会话不属于当前用户',
+          )
+          socket.close(4003, '无权访问该会话')
           return
         }
       } else {

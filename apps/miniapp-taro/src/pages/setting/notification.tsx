@@ -33,6 +33,8 @@ export default function NotificationPage() {
   const [list, setList] = useState<NotificationSettingItem[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  // XUI-066:加载失败曾只剩一次性 toast,屏内无失败留痕也无法重试。
+  const [loadError, setLoadError] = useState('')
   const tt = useCallback(
     (k: string, fb: string) => {
       const v = t(k)
@@ -43,11 +45,13 @@ export default function NotificationPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const res = await getNotificationSettings()
       setList(res.list || [])
     } catch (e) {
       logger.error('setting/notification', '获取通知设置', e)
+      setLoadError(tt('common.loadFailed', '加载失败'))
       onToast(tt('setting.operationFailed', '操作失败'), { kind: 'error' })
     } finally {
       setLoading(false)
@@ -155,7 +159,7 @@ export default function NotificationPage() {
         extraLinksTitle={tt('setting.notification.moreTitle', '更多')}
         loading={loading}
         saving={saving}
-        error=""
+        error={loadError}
         success=""
         onToggle={onToggle}
         onSave={() => void onSave()}

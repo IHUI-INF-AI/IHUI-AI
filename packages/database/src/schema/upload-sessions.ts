@@ -44,6 +44,17 @@ export const UPLOAD_SESSION_REAPABLE_STATUSES: readonly UploadSessionStatus[] = 
 ]
 
 /**
+ * 失败终态中的可回收子集(2026-11-08,修 F-381):这两态的合并产物已被删除,
+ * 留在 uploads/chunks 下的 .part 目录不构成交付物,只占盘并挤占全局暂存预算;
+ * 按独立短 TTL 回收。completed/cancelled 仍属"永不回收"(前者留给业务查文件,
+ * 后者目录已由 cancel 就地清过)。
+ */
+export const UPLOAD_SESSION_RECLAIMABLE_TERMINAL_STATUSES: readonly UploadSessionStatus[] = [
+  UPLOAD_SESSION_STATUS.checksumMismatch,
+  UPLOAD_SESSION_STATUS.contentRejected,
+]
+
+/**
  * 分片上传会话表。
  * 记录大文件分片上传的进度与最终合并产物。
  * status 取值见 `UPLOAD_SESSION_STATUS`(本文件导出),不得在此重复列一遍清单。

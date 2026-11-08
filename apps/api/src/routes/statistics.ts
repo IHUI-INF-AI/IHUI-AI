@@ -40,6 +40,7 @@ import { getUserCenterStats } from '../db/statistics-queries.js'
 import { countFavorites, countFollowers, countFollowing } from '../db/social-queries.js'
 import { findUserPoints } from '../db/gamification-queries.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
+import { bizDayKey } from '../utils/biz-day.js'
 
 // =============================================================================
 // Zod schemas
@@ -96,13 +97,15 @@ export const statisticsRoutes: FastifyPluginAsync = async (server) => {
     if (!userId) {
       return reply.status(401).send(error(401, '请先登录'))
     }
-    const [personal, followingCount, followersCount, favoritesCount, pointsRow] = await Promise.all([
-      getUserCenterStats(userId),
-      countFollowing(userId),
-      countFollowers(userId),
-      countFavorites(userId),
-      findUserPoints(userId),
-    ])
+    const [personal, followingCount, followersCount, favoritesCount, pointsRow] = await Promise.all(
+      [
+        getUserCenterStats(userId),
+        countFollowing(userId),
+        countFollowers(userId),
+        countFavorites(userId),
+        findUserPoints(userId),
+      ],
+    )
     return reply.send(
       success({
         courseCount: personal.courseCount,
@@ -669,9 +672,8 @@ export const adminStatisticsRoutes: FastifyPluginAsync = async (server) => {
   // 从 agents 表的 usageCount 同步到 agentHeatStats（按当天日期记录）
   server.post('/statistics/agent-heat/refresh', async (request, reply) => {
     const parsed = agentHeatRefreshSchema.safeParse(request.body)
-    const dateStr = parsed.success
-      ? (parsed.data.dateStr ?? new Date().toISOString().slice(0, 10))
-      : new Date().toISOString().slice(0, 10)
+    // F-262:与小时任务共用 bizDayKey(Asia/Shanghai) 同一把日键,不再用 UTC slice
+    const dateStr = parsed.success ? (parsed.data.dateStr ?? bizDayKey()) : bizDayKey()
 
     // 查询所有已发布的 Agent 当前 usage_count
     const agentRows = await db

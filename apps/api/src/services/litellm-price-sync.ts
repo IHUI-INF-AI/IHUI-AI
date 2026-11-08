@@ -26,7 +26,7 @@
  * env AI_LITELLM_PRICE_SYNC_ENABLED(默认 'true')总开关。
  * 所有异常只 log.warn,不影响启动。
  */
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { and, desc, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { aiPricing } from '@ihui/database'
 import { logger } from '../utils/logger.js'
@@ -181,36 +181,64 @@ export async function syncLiteLLMPricing(): Promise<SyncStats> {
     let inserted = 0
     let updated = 0
     const now = new Date()
+    // DB-43:模型数 400+ 时逐条 SELECT/UPDATE 是 800+ 次往返的长事务。
+    // 改为「一次预取 + 一次批量 INSERT + 一条 VALUES UPDATE」，事务内只 3 条语句。
+    const modelIds = mapped.map((m) => m.modelId)
     await db.transaction(async (tx) => {
+      if (modelIds.length === 0) return
+      // 同一模型可能有多条未过期行(历史重复),按 effectiveAt DESC 取最新一条。
+      const existingRows = await tx
+        .select({ id: aiPricing.id, modelId: aiPricing.modelId })
+        .from(aiPricing)
+        .where(and(inArray(aiPricing.modelId, modelIds), isNull(aiPricing.expiresAt)))
+        .orderBy(desc(aiPricing.effectiveAt))
+      const existingIds = new Map<string, string>()
+      for (const row of existingRows) {
+        if (!existingIds.has(row.modelId)) existingIds.set(row.modelId, row.id)
+      }
+
+      const inserts = mapped
+        .filter((m) => !existingIds.has(m.modelId))
+        .map((m) => ({
+          modelId: m.modelId,
+          inputTokenPrice: m.inputTokenPrice,
+          outputTokenPrice: m.outputTokenPrice,
+          currency: 'CNY',
+          effectiveAt: now,
+          expiresAt: null,
+        }))
+      const updates: Array<{ id: string; inputTokenPrice: number; outputTokenPrice: number }> = []
       for (const m of mapped) {
-        const [existing] = await tx
-          .select({ id: aiPricing.id })
-          .from(aiPricing)
-          .where(and(eq(aiPricing.modelId, m.modelId), isNull(aiPricing.expiresAt)))
-          .orderBy(desc(aiPricing.effectiveAt))
-          .limit(1)
-        if (existing) {
-          await tx
-            .update(aiPricing)
-            .set({
-              inputTokenPrice: m.inputTokenPrice,
-              outputTokenPrice: m.outputTokenPrice,
-              updatedAt: now,
-            })
-            .where(eq(aiPricing.id, existing.id))
-          updated++
-        } else {
-          await tx.insert(aiPricing).values({
-            modelId: m.modelId,
+        const id = existingIds.get(m.modelId)
+        if (id) {
+          updates.push({
+            id,
             inputTokenPrice: m.inputTokenPrice,
             outputTokenPrice: m.outputTokenPrice,
-            currency: 'CNY',
-            effectiveAt: now,
-            expiresAt: null,
           })
-          inserted++
         }
       }
+
+      if (inserts.length > 0) await tx.insert(aiPricing).values(inserts)
+      if (updates.length > 0) {
+        // 一条 UPDATE ... FROM (VALUES ...) 写回全部存量行(no-op 冲突仍保持 update 不新增版本)。
+        await tx.execute(sql`
+          UPDATE ${aiPricing} AS p
+          SET input_token_price = v.input_price,
+              output_token_price = v.output_price,
+              updated_at = ${now}
+          FROM (VALUES ${sql.join(
+            updates.map(
+              (u) =>
+                sql`(${u.id}::uuid, ${u.inputTokenPrice}::numeric, ${u.outputTokenPrice}::numeric)`,
+            ),
+            sql`, `,
+          )}) AS v(id, input_price, output_price)
+          WHERE p.id = v.id AND p.expires_at IS NULL
+        `)
+      }
+      inserted = inserts.length
+      updated = updates.length
     })
 
     logger.info(

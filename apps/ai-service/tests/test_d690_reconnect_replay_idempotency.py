@@ -135,7 +135,7 @@ def test_decided_approval_is_not_replayed_on_later_reconnect(bucket) -> None:
     entry = _entry()
     bucket[_APPR] = entry
     answered = asyncio.run(
-        post_tool_approval_response(_fake_request(), _SESSION, {"approval_id": _APPR, "decision": "approve"})
+        post_tool_approval_response(_fake_request(_OWNER), _SESSION, {"approval_id": _APPR, "decision": "approve"})
     )
     assert answered["ok"] is True
     assert entry["decision"] == "approve" and entry["event"].is_set()
@@ -184,14 +184,14 @@ def test_answering_after_repeated_reconnects_executes_exactly_once(bucket) -> No
         waiter = asyncio.create_task(_waiter())
         await asyncio.sleep(0)  # 让等待者先挂上 Event(与"断线前就已在下发帧后等待"同序)
         first = await post_tool_approval_response(
-            _fake_request(), _SESSION, {"approval_id": _APPR, "decision": "approve"}
+            _fake_request(_OWNER), _SESSION, {"approval_id": _APPR, "decision": "approve"}
         )
         executions = await asyncio.wait_for(waiter, timeout=1)
         # 生产 finally:决策/超时后条目由等待方摘除(防内存泄漏)
         bucket.pop(_APPR, None)
         # 迟到的第二次点击(用户对两张重放弹窗都点了)
         late = await post_tool_approval_response(
-            _fake_request(), _SESSION, {"approval_id": _APPR, "decision": "reject"}
+            _fake_request(_OWNER), _SESSION, {"approval_id": _APPR, "decision": "reject"}
         )
         return first, executions, late
 

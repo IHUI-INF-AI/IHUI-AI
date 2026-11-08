@@ -319,8 +319,16 @@ END $$;--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ALTER COLUMN "id" SET DEFAULT gen_random_uuid();--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ALTER COLUMN "key_type" SET DATA TYPE varchar(50);--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ALTER COLUMN "key_type" SET DEFAULT 'RSA';--> statement-breakpoint
-ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "client_id" varchar(100) NOT NULL;--> statement-breakpoint
-ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "private_key" text NOT NULL;--> statement-breakpoint
+-- BUG-89: oauth_private_keys 是 0038/0043 建的既有表，存量非空时 NOT NULL 无 DEFAULT
+-- 会在 ADD COLUMN 处当场中断；补空串 DEFAULT 让迁移可重放(真实密钥由外部 keystore 注入)。
+ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "client_id" varchar(100) NOT NULL DEFAULT '';--> statement-breakpoint
+ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "private_key" text NOT NULL DEFAULT '';--> statement-breakpoint
+-- 哨兵说明:上面的 '' 只是存量回填占位符(sentinel),不是业务合法值;真实 client_id/private_key
+-- 只能由外部 keystore 注入,读取侧不得把 '' 当作有效凭据使用。
+-- 2026-11-06 补:上面的 DEFAULT 只为给存量行回填空串以放行重放;schema(oauth-private-keys.ts)
+-- 定义这两列"NOT NULL 无默认",默认值必须撤掉,否则每次 INSERT 都会静默写入 '' 并与 TS 漂开。
+ALTER TABLE "oauth_private_keys" ALTER COLUMN "client_id" DROP DEFAULT;--> statement-breakpoint
+ALTER TABLE "oauth_private_keys" ALTER COLUMN "private_key" DROP DEFAULT;--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "public_key" text;--> statement-breakpoint
 ALTER TABLE "oauth_private_keys" ADD COLUMN IF NOT EXISTS "is_active" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
 ALTER TABLE "ai_model_config" ADD COLUMN IF NOT EXISTS "icon_svg" text;--> statement-breakpoint

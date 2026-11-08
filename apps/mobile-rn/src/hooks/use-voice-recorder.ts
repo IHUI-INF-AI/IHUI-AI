@@ -97,9 +97,15 @@ export function useVoiceRecorder({
     })()
   }, [])
 
-  // 卸载时停止录音
+  // 卸载时停止录音并清理计时器
   useEffect(
     () => () => {
+      // XUI-048:卸载后不得再 tick/回调;推进代次让仍在等待授权或 prepare 的 start 续体放弃。
+      startEpochRef.current += 1
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
       if (recordingRef.current) {
         recordingRef.current = false
         void recorder.stop().catch(() => {})

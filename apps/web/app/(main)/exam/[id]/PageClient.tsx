@@ -15,6 +15,7 @@ import { ExamResult } from './ExamResult'
 import { ExamAnswering } from './ExamAnswering'
 import { getExamById, getExamPaper, startExam, submitExamRecord } from '@ihui/api-client'
 import type { PaperDetail, Question, SubmitResult } from './types'
+import { remainingSeconds } from './helpers'
 
 export default function ExamTakePage() {
   const { id } = useParams<{ id: string }>()
@@ -53,12 +54,15 @@ export default function ExamTakePage() {
       setRecordId(d.record.id)
       setPhase('answering')
       const duration = data?.duration ?? 0
+      autoSubmitStartedRef.current = false
       if (duration > 0) {
-        setLeftSec(duration * 60)
-        hasTimerRef.current = true
+        // W-01:以截止时间戳为准,不再每秒自减(后台节流/锁屏会让自减冻住,考试被无声延长)
+        deadlineRef.current = Date.now() + duration * 60_000
+        setLeftSec(remainingSeconds(deadlineRef.current))
       } else {
         // 无限制时长,不启动倒计时
-        hasTimerRef.current = false
+        deadlineRef.current = null
+        setLeftSec(0)
       }
     },
   })
@@ -84,22 +88,40 @@ export default function ExamTakePage() {
   submitMutRef.current = submitMut
   const answersRef = React.useRef(answers)
   answersRef.current = answers
-  const hasTimerRef = React.useRef(false)
+  /** W-01:考试截止时间戳;null 表示不限时。所有倒计时读数都由它重算。 */
+  const deadlineRef = React.useRef<number | null>(null)
+  /** W-01:自动交卷一次性锁,避免 0 秒读数反复触发提交。 */
+  const autoSubmitStartedRef = React.useRef(false)
 
   React.useEffect(() => {
-    if (phase !== 'answering' || !hasTimerRef.current || leftSec <= 0) return
-    const tm = setInterval(() => setLeftSec((s) => s - 1), 1000)
-    return () => clearInterval(tm)
-  }, [phase, leftSec])
+    if (phase !== 'answering') return
+    const deadline = deadlineRef.current
+    if (deadline === null) return
+    // 每次都按截止戳重算;后台被节流/锁屏时定时器不走,回前台靠这三个事件立刻补回真实剩余时间
+    const tick = () => setLeftSec(remainingSeconds(deadline))
+    tick()
+    const tm = window.setInterval(tick, 1000)
+    document.addEventListener('visibilitychange', tick)
+    window.addEventListener('focus', tick)
+    window.addEventListener('pageshow', tick)
+    return () => {
+      window.clearInterval(tm)
+      document.removeEventListener('visibilitychange', tick)
+      window.removeEventListener('focus', tick)
+      window.removeEventListener('pageshow', tick)
+    }
+  }, [phase])
 
   React.useEffect(() => {
     if (
       phase === 'answering' &&
-      hasTimerRef.current &&
+      deadlineRef.current !== null &&
       leftSec === 0 &&
       recordId &&
+      !autoSubmitStartedRef.current &&
       !submitMutRef.current.isPending
     ) {
+      autoSubmitStartedRef.current = true
       submitMutRef.current.mutate({ answers: answersRef.current })
     }
   }, [leftSec, phase, recordId])

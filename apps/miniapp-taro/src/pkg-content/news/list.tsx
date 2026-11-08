@@ -95,6 +95,8 @@ export default function NewsListPage() {
 
   const [list, setList] = useState<NewsExt[]>([])
   const [loading, setLoading] = useState(false)
+  // XUI-066:加载失败曾被静默成空列表,现在如实上抛给共享屏。
+  const [loadError, setLoadError] = useState('')
   const [keyword, setKeyword] = useState('')
   const [hasMore, setHasMore] = useState(true)
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all')
@@ -118,6 +120,7 @@ export default function NewsListPage() {
       if (!reset && !hasMoreRef.current) return
       loadingRef.current = true
       setLoading(true)
+      setLoadError('')
       let curPage = pageRef.current
       if (reset) {
         curPage = 1
@@ -138,6 +141,7 @@ export default function NewsListPage() {
         pageRef.current = curPage + 1
       } catch (e) {
         logger.error('news/list', t('newsList.q4'), e)
+        setLoadError(t('common.loadFailed'))
         onToast(tt('common.failed', '操作失败'), { kind: 'error' })
       } finally {
         loadingRef.current = false
@@ -196,7 +200,7 @@ export default function NewsListPage() {
         items={visibleList.map(toArticleItem)}
         loading={loading}
         refreshing={false}
-        error=""
+        error={loadError}
         onRefresh={() => void load(true)}
         onPressItem={(item) => goDetail(item.id)}
         onBack={() => {

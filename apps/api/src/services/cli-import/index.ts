@@ -243,14 +243,52 @@ export function listSupportedSources(): Array<{
 }
 
 /**
- * 根据 source 选择第一个匹配的 parser(同 source 多 parser 时取第一个)。
+ * 上传配置文件的扩展名白名单(路由侧复用,单一真相源)。
+ *
+ * `.db` 是 cc-switch 官方 SQLite 库的扩展名(SDB-42):此前清单只有文本配置格式,
+ * 官方 `.db` 上传在路由层就被 400 拒掉,等同于 cc-switch 导入下线。
  */
-function pickParserBySource(source: CliConfigSource): ParserEntry {
-  const entry = PARSERS.find((p) => p.source === source)
-  if (!entry) {
+export const CONFIG_UPLOAD_ALLOWED_EXTS = [
+  '.json',
+  '.yaml',
+  '.yml',
+  '.toml',
+  '.ini',
+  '.conf',
+  '.db',
+] as const
+
+/** 按文件名判定是否允许上传;与旧路由判据逐字同形(无扩展名按放行处理)。 */
+export function isAllowedConfigUpload(fileName: string): boolean {
+  const ext = fileName.toLowerCase().slice(fileName.lastIndexOf('.'))
+  return !ext || (CONFIG_UPLOAD_ALLOWED_EXTS as readonly string[]).includes(ext)
+}
+
+/**
+ * 根据 source 选择 parser(同 source 多 parser 时按文件名特征分流)。
+ *
+ * SDB-42:cc-switch 有 SQLite 与 JSON 两个 parser,旧实现只取第一条(SQLite),
+ * 于是 `config.json` 从 HTTP 入口永远进不了 JSON 解析器。按 sourcePath 的
+ * 文件名特征先匹配,匹配不到才回退第一条。
+ */
+function pickParserBySource(source: CliConfigSource, sourcePath?: string): ParserEntry {
+  const candidates = PARSERS.filter((p) => p.source === source)
+  if (candidates.length === 0) {
     throw new Error(`不支持的导入来源: ${source}`)
   }
-  return entry
+  if (sourcePath && candidates.length > 1) {
+    const base = path.basename(sourcePath).toLowerCase()
+    const normalized = sourcePath.replace(/\\/g, '/').toLowerCase()
+    const matched = candidates.find((p) =>
+      p.filePatterns.some((re) => re.test(base) || re.test(normalized)),
+    )
+    if (matched) return matched
+  }
+  const fallback = candidates[0]
+  if (!fallback) {
+    throw new Error(`不支持的导入来源: ${source}`)
+  }
+  return fallback
 }
 
 /**
@@ -263,7 +301,7 @@ export async function parseBySource(
   source: CliConfigSource,
   input: Omit<ParserInput, 'sourcePath'> & { sourcePath: string },
 ): Promise<ImportPreview> {
-  const entry = pickParserBySource(source)
+  const entry = pickParserBySource(source, input.sourcePath)
   const fullInput: ParserInput = {
     ...input,
     sourcePath: input.sourcePath,

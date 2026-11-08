@@ -31,7 +31,7 @@
  * 19. POST   /v1/agents/parallel           — 并行执行(权限: agents:call)
  * 20. POST   /v1/agents/decompose          — 任务分解(权限: agents:call)
  */
-import type { FastifyPluginAsync, FastifyReply } from 'fastify'
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 // O4b 数据闸接线(2026-09-20):本文件里 `zhs_ai_user_model_chat_config`(用户自有模型
@@ -73,6 +73,46 @@ import { getUserId, maskKey, jsonInit, deriveModelCapabilities } from './v1-shar
 // /v1 网关专用:ai-service 调用注入系统 access token(2026-09-13 修 jwt_auth 401)
 import { aiServiceSystemFetch } from '../utils/ai-service-fetch.js'
 import { isUuidString } from '../utils/uuid.js'
+import { recordCall, modelToProviderCode } from '../services/relay-billing-service.js'
+
+/**
+ * F-191(2026-11-08):系统 token 转发的 AI 调用此前只限流、不记账。
+ * 这里按上游 usage 归账到发起调用的 Key/用户,避免白用平台系统 token。
+ */
+function recordAiCoreCall(
+  request: FastifyRequest,
+  endpoint: string,
+  model: string,
+  promptText: string,
+  responseText: string,
+  usage: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | undefined,
+  extra?: Record<string, unknown>,
+): void {
+  const key = (request as unknown as { apiKey?: { id: string; userId: string } }).apiKey
+  if (!key) return
+  const promptTokens = usage?.prompt_tokens ?? Math.max(1, Math.ceil(promptText.length / 4))
+  const completionTokens =
+    usage?.completion_tokens ?? Math.max(0, Math.ceil(responseText.length / 4))
+  const totalTokens = usage?.total_tokens ?? promptTokens + completionTokens
+  void recordCall({
+    apiKeyId: key.id,
+    userId: key.userId,
+    model,
+    prompt: promptText.slice(0, 5000),
+    response: responseText.slice(0, 5000),
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    latencyMs: 0,
+    status: 'success',
+    providerCode: modelToProviderCode(model),
+    clientIp: request.ip,
+    httpStatus: 200,
+    metadata: { endpoint, ...extra },
+  }).catch((e: unknown) => {
+    request.log.error({ err: e }, `[v1/${endpoint}] recordCall FAIL`)
+  })
+}
 
 // =============================================================================
 // Zod schemas
@@ -419,6 +459,11 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
             totalTokens: data.usage?.total_tokens ?? 0,
           },
         }
+        // F-191:按上游 usage 归账到调用者
+        recordAiCoreCall(request, 'embeddings', result.model, JSON.stringify(input), '', {
+          prompt_tokens: data.usage?.prompt_tokens,
+          total_tokens: data.usage?.total_tokens,
+        })
         return reply.send(result)
       } catch (e) {
         return reply
@@ -500,6 +545,15 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
             totalTokens: data.usage?.total_tokens ?? 0,
           },
         }
+        // F-191:按上游 usage 归账到调用者
+        recordAiCoreCall(
+          request,
+          'chat/vision',
+          result.model,
+          prompt,
+          result.description,
+          data.usage,
+        )
         return reply.send(result)
       } catch (e) {
         return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
@@ -592,6 +646,15 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           model: data.model ?? '',
           usage: { totalTokens: data.usage?.total_tokens ?? 0 },
         }
+        // F-191:按上游 usage 归账到调用者
+        recordAiCoreCall(
+          request,
+          'chat/moa',
+          result.model || (presetId ?? 'moa'),
+          JSON.stringify(messages),
+          result.output,
+          data.usage,
+        )
         return reply.send(result)
       } catch (e) {
         return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
@@ -1182,6 +1245,16 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           iterations: data.iterations ?? 0,
           usage: { totalTokens: data.usage?.total_tokens ?? 0 },
         }
+        // F-191:按上游 usage 归账到调用者
+        const agentReq = parsed.data as V1AgentExecuteRequest
+        recordAiCoreCall(
+          request,
+          'agents/execute',
+          String(agentReq.agentId ?? 'agent'),
+          String(agentReq.input ?? ''),
+          result.output,
+          { total_tokens: data.usage?.total_tokens },
+        )
         return reply.send(result)
       } catch (e) {
         return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))

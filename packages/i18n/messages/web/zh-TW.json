@@ -21513,9 +21513,12 @@
     "status": {
       "all": "全部",
       "cancelled": "已取消",
+      "completed": "已完成",
+      "failed": "失敗",
       "paid": "已支付",
       "pending": "待支付",
       "refunded": "已退款",
+      "refunding": "退款中",
       "unknown": "未知"
     },
     "statusLabel": "狀態",

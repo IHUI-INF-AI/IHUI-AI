@@ -128,10 +128,12 @@ class Settings(BaseSettings):
     # 2026-08-31 新增:/api/voice/stt - 语音转文字本地推理(浏览器录音上传,无敏感数据,
     # 仅接收音频返回文本;前端 voiceSttFromBlob 同时携带 Bearer token 双保险)。
     # 注意:本地 CPU 推理对未认证用户开放存在 DoS 风险,单机/内网部署可接受。
-    # 2026-09-01 新增:/api/voice/tts(免费 TTS,edge-tts 零 key)+ /api/mcp(官方 MCP
-    # 协议兼容层)— 匿名握手/工具调用,
+    # 2026-09-01 新增:/api/mcp(官方 MCP 协议兼容层)— 匿名握手/工具调用,
     # 高危工具由 mcp_server 权限矩阵兜底拒绝(user_role=0),安全默认;仅裸端点豁免,
     # /api/mcp/* 子路径鉴权状态不受影响。
+    # 2026-11-08 收权(AIS-092):/api/voice/tts 匿名可达且可经 engine=token6688
+    # 用平台 key 付费合成、voice 直通声纹库,已移出白名单改为 JWT 保护;
+    # 仅 /api/voice/stt 保持公开(本机 .env 的 JWT_PUBLIC_PATHS 亦须同步移除)。
     # 2026-09-20 O1 收权:上面 /api/mcp 匿名豁免**已移除** — 匿名 tools/call 是后门,
     # 官方 MCP 端点改由 routers/mcp_official.py 的 capability_gate.resolve_principal
     # 强制凭据(JWT / 内网 X-IHUI-Principal),并在 JWTAuthMiddleware 层同步要求认证。
@@ -154,7 +156,9 @@ class Settings(BaseSettings):
         # + 批量发布的 POST,移出白名单改为 JWT 保护(内部触发走 news_scheduler,
         # 全仓无匿名 HTTP 调用方)。/api/admin/news/status 为只读 GET 保留匿名。
         "/api/admin/news/status,"
-        "/api/voice/stt,/api/voice/tts,"
+        # AIS-092:/api/voice/tts 可切换付费 token6688 engine,移出匿名白名单;
+        # 免费 edge 路径仍有路由层 JWT 依赖(不配置 JWT 时的本地 dev 例外)。
+        "/api/voice/stt,"
         "/api/artifacts/f/,/api/video/token6688-callback,/api/media/tasks/callback,"
         # O11(2026-09-20)A2A 发现文档:标准规定 /.well-known/agent.json 必须可匿名抓取,
         # 否则严格 A2A 客户端在拿到凭据前无法发现本 agent 能力。卡片内容不含内网主机/密钥。

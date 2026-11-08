@@ -230,6 +230,7 @@ class RAGService:
         score_threshold: float = 0.0,
         max_context_chars: int = 6000,
         model: str | None = None,
+        user_id: str | None = None,
     ) -> RAGResult:
         """完整 RAG 流程:retrieve → rerank → context → generate。
 
@@ -256,7 +257,8 @@ class RAGService:
         retrieve_clock = stages.clock()
         recall_stats: dict[str, Any] = {}
         raw_sources = await self._retrieve(
-            question, top_k=top_k, session_id=session_id, stats=recall_stats
+            question, top_k=top_k, session_id=session_id, stats=recall_stats,
+            user_id=user_id,
         )
         settled = stages.record(
             "retrieve",
@@ -452,6 +454,7 @@ class RAGService:
         query: str,
         top_k: int = 5,
         session_id: str | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """仅检索(不生成),返回 RAGSource 列表。公有 API,替代直接调 _retrieve。
 
@@ -466,7 +469,9 @@ class RAGService:
         Returns:
             list[RAGSource],失败返回 []。
         """
-        return await self._retrieve(query, top_k=top_k, session_id=session_id)
+        return await self._retrieve(
+            query, top_k=top_k, session_id=session_id, user_id=user_id
+        )
 
     # =========================================================================
     # 私有:检索
@@ -478,6 +483,7 @@ class RAGService:
         top_k: int = 5,
         session_id: str | None = None,
         stats: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """双路召回 + RRF 融合(V3 #52「RAG 真重排」)。
 
@@ -499,12 +505,14 @@ class RAGService:
         # 双路并行启动:向量成功则两路融合,失败则关键词路独扛(任务已并行,零等待浪费)
         vec_task = asyncio.create_task(
             self._vector_retrieve(
-                query, top_k=recall_k, session_id=session_id, stats=stats
+                query, top_k=recall_k, session_id=session_id, stats=stats,
+                user_id=user_id,
             )
         )
         kw_task = asyncio.create_task(
             self._keyword_fallback(
-                query, top_k=recall_k, session_id=session_id, stats=stats
+                query, top_k=recall_k, session_id=session_id, stats=stats,
+                user_id=user_id,
             )
         )
         vec_sources = await vec_task
@@ -556,6 +564,7 @@ class RAGService:
         top_k: int = 10,
         session_id: str | None = None,
         stats: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """向量路召回(embed/检索失败降级返回 [],不抛,由 _retrieve 决定融合策略)。"""
         try:
@@ -564,6 +573,7 @@ class RAGService:
                 query_embedding=query_embedding,
                 top_k=top_k,
                 threshold=0.0,
+                user_id=user_id,
             )
         except Exception as e:
             logger.warning("rag._vector_retrieve 向量检索失败: %s", e, exc_info=True)
@@ -617,6 +627,7 @@ class RAGService:
         top_k: int = 5,
         session_id: str | None = None,
         stats: dict[str, Any] | None = None,
+        user_id: str | None = None,
     ) -> list[RAGSource]:
         """关键词召回路(V3 #52:从"向量空了才用"的兜底升为**常驻融合源**)。
 
@@ -626,7 +637,7 @@ class RAGService:
         """
         try:
             sessions = (
-                [session_id] if session_id else await memory_store.list_sessions()
+                [session_id] if session_id else await memory_store.list_sessions(user_id=user_id)
             )
         except Exception as e:
             logger.warning("rag._keyword_fallback 加载会话列表失败: %s", e, exc_info=True)
@@ -640,7 +651,11 @@ class RAGService:
         first_failure = ""
         for sid in sessions:
             try:
-                msgs = await memory_store.get(sid, limit=200)
+                msgs = await memory_store.get(
+                    sid,
+                    limit=200,
+                    user_id=memory_store.scope_user_id(sid, user_id),
+                )
             except Exception as e:
                 logger.warning("rag._keyword_fallback 加载会话消息失败(sid=%s): %s", sid, e, exc_info=True)
                 failed_sessions += 1

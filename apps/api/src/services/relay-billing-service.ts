@@ -64,6 +64,7 @@ import { apiKeyGroups } from '@ihui/database'
 //    所以不为此新增第三套上下文传递。
 import { traceIdFromRequest } from '../utils/trace-context.js'
 import { currentPrincipalScope } from '../plugins/principal.js'
+import { incrementUsage } from './api-key-share-service.js'
 
 // =============================================================================
 // 类型定义
@@ -1064,7 +1065,20 @@ export async function recordCall(input: RecordCallInput): Promise<RecordCallResu
   // 大量调用方使用 `void recordCall({...})` 模式(fire-and-forget),若内部 db 操作抛错
   // 会导致 unhandledRejection(Node 15+ 默认退出进程)。billing 埋点失败不应影响主链路。
   try {
-    return await recordCallInternal(input)
+    const result = await recordCallInternal(input)
+    // F-185:share token 的真实 token 消耗按同一份 usage 回写 used_total_tokens,
+    // 否则 maxTotalTokens 恒不生效。仅 share 凭据触发,普通 Key 零额外查询。
+    const shareId = currentPrincipalScope()?.request?.apiKey?.shareId
+    if (shareId && input.totalTokens > 0) {
+      void incrementUsage(shareId, input.totalTokens).catch((err) => {
+        logger.warn('[billing] share usage increment failed', {
+          shareId,
+          tokens: input.totalTokens,
+          error: err instanceof Error ? err.message : String(err),
+        })
+      })
+    }
+    return result
   } catch (err) {
     logger.error('[billing] recordCall failed', {
       apiKeyId: input.apiKeyId,

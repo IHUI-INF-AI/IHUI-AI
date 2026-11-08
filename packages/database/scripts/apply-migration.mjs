@@ -11,6 +11,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import postgres from 'postgres'
+import { splitSqlStatements } from './lib/split-sql.mjs'
+import {
+  describeSkippedObject,
+  planMigrationExecution,
+  shouldSkipStatement,
+} from './lib/migration-policy.mjs'
 
 /**
  * DB-01 P1：账本口径必须与 drizzle 完全一致，否则 `drizzle-kit migrate`
@@ -39,84 +45,24 @@ export function resolveJournalWhen(migrationFile, tag) {
   return entry.when
 }
 
-/**
- * 手写 PL/pgSQL 语句分割器
- * 正确处理 $$ ... $$ 块、单引号字符串、-- 单行注释
- */
-function splitSqlStatements(input) {
-  const result = []
-  let buffer = ''
-  let inDollarBlock = false
-  let inSingleQuote = false
-  let i = 0
-  while (i < input.length) {
-    const ch = input[i]
-    const next2 = input.slice(i, i + 2)
-    if (inSingleQuote) {
-      buffer += ch
-      if (ch === "'" && next2 !== "''") {
-        inSingleQuote = false
-      }
-      i++
-      continue
-    }
-    if (next2 === '$$') {
-      inDollarBlock = !inDollarBlock
-      buffer += next2
-      i += 2
-      continue
-    }
-    if (ch === "'" && !inDollarBlock) {
-      inSingleQuote = true
-      buffer += ch
-      i++
-      continue
-    }
-    if (ch === '-' && input[i + 1] === '-') {
-      const eol = input.indexOf('\n', i)
-      if (eol === -1) break
-      buffer += input.slice(i, eol)
-      i = eol
-      continue
-    }
-    if (ch === ';' && !inDollarBlock && !inSingleQuote) {
-      const trimmed = buffer.trim()
-      if (trimmed) result.push(trimmed)
-      buffer = ''
-      i++
-      continue
-    }
-    buffer += ch
-    i++
-  }
-  const last = buffer.trim()
-  if (last) result.push(last)
-  return result
-}
-
-function isSkippable(err, stmt) {
-  const msg = err instanceof Error ? err.message : String(err)
-  return msg.includes('already exists') || (msg.includes('does not exist') && stmt.includes('DROP'))
-}
-
 async function applyStatements(exec, statements) {
   for (let i = 0; i < statements.length; i++) {
     const stmt = statements[i]
     const firstLine = stmt.split('\n').find((l) => l.trim())?.trim()
     try {
-      if (typeof exec.savepoint === 'function') {
-        // 事务内用 SAVEPOINT 隔离可跳过的幂等错误；否则 PostgreSQL 会把整个事务置为 aborted。
-        await exec.savepoint(async (sp) => {
-          await sp.unsafe(stmt)
-        })
-      } else {
-        await exec.unsafe(stmt)
-      }
+      // 事务内用 SAVEPOINT 隔离可跳过的幂等错误；否则 PostgreSQL 会把整个事务置为 aborted。
+      await exec.savepoint(async (sp) => {
+        await sp.unsafe(stmt)
+      })
       console.log(`[apply-migration] ✓ [${i + 1}/${statements.length}] ${firstLine?.slice(0, 70)}...`)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
-      if (isSkippable(err, stmt)) {
-        console.log(`[apply-migration] ⊙ [${i + 1}/${statements.length}] 跳过: ${msg.slice(0, 80)}`)
+      // DB-05：只按 SQLSTATE 白名单 + 语句形态判可跳过的幂等错误，绝不按消息子串吞错。
+      if (shouldSkipStatement(err, stmt)) {
+        const object = describeSkippedObject(err, stmt)
+        console.log(
+          `[apply-migration] ⊙ [${i + 1}/${statements.length}] 跳过(${err.code} ${object}): ${msg.slice(0, 80)}`,
+        )
       } else {
         console.error(`[apply-migration] ✗ [${i + 1}/${statements.length}] 错误: ${msg}`)
         console.error(`[apply-migration] SQL: ${stmt.slice(0, 200)}`)
@@ -171,26 +117,27 @@ async function main() {
 
   console.log(`[apply-migration] 开始应用 ${migrationArg} (tag=${tag}, when=${when})...`)
 
-  const statements = splitSqlStatements(migrationSql)
+  const { statements, semicolonCount, balanced } = splitSqlStatements(migrationSql)
+  // 切割自检与 apply-all 保持一致：不平衡或语句数≠顶层分号数即拒绝执行。
+  if (!balanced || semicolonCount !== statements.length) {
+    throw new Error(
+      `SQL 切分自检失败 ${migrationArg}: balanced=${balanced}, topLevelSemicolons=${semicolonCount}, statements=${statements.length}`,
+    )
+  }
   console.log(`[apply-migration] 解析出 ${statements.length} 条语句`)
 
   const url = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/ihui'
   const sql = postgres(url, { max: 1 })
   try {
-    // CREATE INDEX CONCURRENTLY 不能在事务块内执行；这类文件只能顺序执行后单独记账。
-    const hasConcurrently = statements.some((s) => /\bCONCURRENTLY\b/i.test(s))
-    if (hasConcurrently) {
-      console.log('[apply-migration] ⚠ 检测到 CONCURRENTLY，语句与账本无法同事务，改为顺序执行')
-      await applyStatements(sql, statements)
-      await recordLedger(sql, hash, when)
-    } else {
-      await sql.begin(async (tx) => {
-        // 同一 created_at 的并发手工执行串行化，避免无唯一索引的账本写双份。
-        await tx`SELECT pg_advisory_xact_lock(hashtext(${'ihui:migration:' + when}))`
-        await applyStatements(tx, statements)
-        await recordLedger(tx, hash, when)
-      })
-    }
+    // DB-05：CONCURRENTLY 不能在事务块内执行，拒绝该文件，不再降级为逐语句自动提交。
+    planMigrationExecution(statements, migrationArg)
+    // DB-05：整份迁移文件 + 账本写入包进一个事务；失败由 sql.begin 回滚（ROLLBACK）。
+    await sql.begin(async (tx) => {
+      // 同一 created_at 的并发手工执行串行化，避免无唯一索引的账本写双份。
+      await tx`SELECT pg_advisory_xact_lock(hashtext(${'ihui:migration:' + when}))`
+      await applyStatements(tx, statements)
+      await recordLedger(tx, hash, when)
+    })
   } finally {
     await sql.end()
   }
