@@ -12,6 +12,8 @@ import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 // 动态导入 .js 模块(CommonJS → ESM 互操作)
 const { takeStagingSnapshot, restoreStaging } = await import('../lib/staging-snapshot.js')
+// 索引完整性检测(2026-11-08):captureIndexIntegrity / compareIndexIntegrity 需要命名空间整体引用
+const S = await import('../lib/staging-snapshot.js')
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 const STAGING_SNAPSHOT_PATH = join(__dirname, '..', 'lib', 'staging-snapshot.js').replace(/\\/g, '/')
@@ -804,6 +806,169 @@ test('auditStagingFiles: 非 git 环境 → 不报错', () => {
     assert.equal(result.status, 0, '非 git 环境应正常退出不报错')
   } finally {
     rmScratch(nonGitDir)
+  }
+})
+
+// ─── 索引完整性:识别“索引被并跑进程清空”的识别与 fail-closed(2026-11-08)──────
+// 回归背景:某次提交时 hook 日志写“已还原 staging area…剩余 897 个 staged 文件”,
+// 但同一时刻 `git ls-files` 返回 0、全仓 19592 个文件变成 staged-deleted,约 30 道
+// blocking 门集体判“枚举到 0 个源码文件”而假红。旧实现只比较 GIT_INDEX_FILE 路径
+// 字符串,索引在同路径被删除/重建为空时完全看不出。以下断言钉住:
+//   ① 正常索引的基线可读,且同一现场比较通过;
+//   ② 索引被清空 ⇒ compare 判 index-emptied,restore 判 undetermined 且不再打出“还原成功”;
+//   ③ 索引条目减少 ⇒ 判 index-shrunk(而不是伪装成“无新增”);
+//   ④ 在子目录采集时仍按仓库根统计(避免把“空前缀”误判成空索引);
+//   ⑤ 正常“unstage 非预期新增”的既有行为不被新校验破坏。
+const cleanIndexEnv = () => {
+  const env = { ...process.env }
+  delete env.GIT_INDEX_FILE
+  delete env.GIT_DIR
+  delete env.GIT_WORK_TREE
+  return env
+}
+
+const gitI = (dir, args) => {
+  const r = spawnSync('git', args, {
+    cwd: dir,
+    encoding: 'utf8',
+    env: cleanIndexEnv(),
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} 失败:${r.stderr}`)
+  return r.stdout
+}
+
+// restoreStaging / takeStagingSnapshot 读 process.env.GIT_INDEX_FILE,测试期间必须清掉,
+// 否则外层仓库的隔离索引会串进来。
+const withCleanIndexEnv = (fn) => {
+  const saved = process.env.GIT_INDEX_FILE
+  delete process.env.GIT_INDEX_FILE
+  delete process.env.GIT_DIR
+  delete process.env.GIT_WORK_TREE
+  try {
+    return fn()
+  } finally {
+    if (saved === undefined) delete process.env.GIT_INDEX_FILE
+    else process.env.GIT_INDEX_FILE = saved
+  }
+}
+
+const makeIndexRepo = () => {
+  const dir = mkScratch('staging-integrity-')
+  gitI(dir, ['init', '-b', 'main'])
+  gitI(dir, ['config', 'user.email', 'gate-test@example.invalid'])
+  gitI(dir, ['config', 'user.name', 'gate-test'])
+  gitI(dir, ['config', 'core.autocrlf', 'false'])
+  mkdirSync(join(dir, 'src'), { recursive: true })
+  writeFileSync(join(dir, 'src/a.ts'), 'a1\n')
+  writeFileSync(join(dir, 'src/b.ts'), 'b1\n')
+  gitI(dir, ['add', '--', 'src/a.ts', 'src/b.ts'])
+  gitI(dir, ['commit', '-m', 'init'])
+  return dir
+}
+
+test('I1 正常索引:基线条数与 HEAD 一致,同现场比较通过', () => {
+  const dir = makeIndexRepo()
+  try {
+    withCleanIndexEnv(() => {
+      const integrity = S.captureIndexIntegrity({ cwd: dir })
+      assert.equal(integrity.ok, true)
+      assert.equal(integrity.entries, 2)
+      assert.equal(integrity.headEntries, 2)
+      assert.deepEqual(S.compareIndexIntegrity(integrity, S.captureIndexIntegrity({ cwd: dir })), {
+        ok: true,
+      })
+    })
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('I2 索引被清空:判 index-emptied;restore 判 undetermined,不再给出“还原成功”假结论', () => {
+  const dir = makeIndexRepo()
+  try {
+    withCleanIndexEnv(() => {
+      writeFileSync(join(dir, 'src/a.ts'), 'a2\n')
+      gitI(dir, ['add', '--', 'src/a.ts'])
+      const snapshot = S.takeStagingSnapshot({ cwd: dir })
+      const before = S.captureIndexIntegrity({ cwd: dir })
+      assert.equal(before.entries, 2)
+
+      gitI(dir, ['read-tree', '--empty']) // 模拟被并跑进程清空索引
+      const after = S.captureIndexIntegrity({ cwd: dir })
+      assert.equal(after.entries, 0)
+      const drift = S.compareIndexIntegrity(before, after)
+      assert.equal(drift.ok, false)
+      assert.equal(drift.code, 'index-emptied')
+      assert.match(drift.detail, /HEAD 有 2 条/)
+
+      const result = S.restoreStaging(snapshot, { cwd: dir, silent: true })
+      assert.equal(result.undetermined, true)
+      assert.equal(result.restored.length, 0)
+      assert.deepEqual(result.emptyIndex, { entries: 0, headEntries: 2, indexFile: '' })
+    })
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('I3 索引条目减少(未清零):判 index-shrunk,而不是“无新增可还原”', () => {
+  const dir = makeIndexRepo()
+  try {
+    withCleanIndexEnv(() => {
+      const before = S.captureIndexIntegrity({ cwd: dir })
+      gitI(dir, ['rm', '--cached', '--', 'src/b.ts'])
+      const after = S.captureIndexIntegrity({ cwd: dir })
+      assert.equal(after.entries, 1)
+      const drift = S.compareIndexIntegrity(before, after)
+      assert.equal(drift.ok, false)
+      assert.equal(drift.code, 'index-shrunk')
+    })
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('I4 从子目录采集仍按仓库根统计,不会把“该前缀下没有文件”误判成空索引', () => {
+  const dir = makeIndexRepo()
+  try {
+    withCleanIndexEnv(() => {
+      mkdirSync(join(dir, 'empty-dir'), { recursive: true })
+      const integrity = S.captureIndexIntegrity({ cwd: join(dir, 'empty-dir') })
+      assert.equal(integrity.ok, true)
+      assert.equal(integrity.entries, 2)
+      assert.equal(integrity.headEntries, 2)
+    })
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('I5 正常 unstage 非预期新增的既有行为不被破坏', () => {
+  const dir = makeIndexRepo()
+  try {
+    withCleanIndexEnv(() => {
+      writeFileSync(join(dir, 'src/a.ts'), 'a3\n')
+      gitI(dir, ['add', '--', 'src/a.ts'])
+      const snapshot = S.takeStagingSnapshot({ cwd: dir })
+      assert.equal(snapshot.size, 1)
+
+      writeFileSync(join(dir, 'src/extra.ts'), 'extra\n')
+      gitI(dir, ['add', '--', 'src/extra.ts'])
+      const result = S.restoreStaging(snapshot, { cwd: dir, silent: true })
+      assert.equal(result.skipped, false)
+      assert.deepEqual(result.restored, ['src/extra.ts'])
+      assert.equal(result.undetermined, undefined)
+
+      // 非预期新增必须真的从索引里被拿掉,而不是只在返回值里“声称”还原
+      const staged = gitI(dir, ['diff', '--cached', '--name-only'])
+        .split('\n')
+        .filter(Boolean)
+      assert.deepEqual(staged, ['src/a.ts'])
+    })
+  } finally {
+    rmScratch(dir)
   }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -20,6 +20,8 @@ const {
   takeStagingSnapshot,
   setupRestoreOnExit,
   auditStagingFiles,
+  captureIndexIntegrity,
+  compareIndexIntegrity,
 } = require('./staging-snapshot.js')
 const { sanitizeGitEnv } = require('./hook-git-env.js')
 const indexContext = require('./index-context.js')
@@ -503,6 +505,34 @@ const INITIAL_STAGED_SNAPSHOT = takeStagingSnapshot()
 setupRestoreOnExit(INITIAL_STAGED_SNAPSHOT, {
   skip: process.env.HUSKY_SKIP_STAGING_RESTORE === '1',
 })
+
+// ─── 索引完整性入口自检(2026-11-08 立)──────────────────────────────────────
+// 真实事故:提交时索引在 hook 期间被并跑进程清空,`git ls-files` 返回 0、全仓显示
+// staged-deleted,于是约 30 道 blocking 门集体判“枚举到 0 个源码文件”而假红,与提交
+// 内容无关。门禁层无法把“索引读成空”与“本来就没有文件”区分开,必须在入口 fail-closed:
+//   - HEAD 有内容而索引 0 条 ⇒ 是索引被清空/删除,不是空的 staged 清单;
+//   - 索引读不出来 ⇒ 未判定,不允许在盲区里跑门禁。
+// 该判据不依赖任何 GIT_* 旁路,也不放宽任何门;恢复方式保持人工可控。
+const ENTRY_INDEX_INTEGRITY = captureIndexIntegrity({ cwd: process.cwd() })
+if (!ENTRY_INDEX_INTEGRITY.ok) {
+  console.error(
+    `\n❓ 索引完整性入口自检未判定:读取索引失败:${ENTRY_INDEX_INTEGRITY.error || '未知错误'}`,
+  )
+  console.error('   不能在读不到索引的情况下跑门禁(否则每道门都可能把 0 条当成事实)。')
+  console.error('   提交已阻止(exit 2)。')
+  process.exit(2)
+}
+if (ENTRY_INDEX_INTEGRITY.entries === 0 && ENTRY_INDEX_INTEGRITY.headEntries > 0) {
+  console.error(
+    `\n❌ 索引完整性入口自检失败:HEAD 有 ${ENTRY_INDEX_INTEGRITY.headEntries} 条,` +
+      `当前索引 ${ENTRY_INDEX_INTEGRITY.indexFile || '(默认 .git/index)'} 却只有 0 条。`,
+  )
+  console.error('   这是索引被清空/删除,不是本次提交内容的问题;')
+  console.error('   此时任何门禁都会“枚举到 0 个源码文件”并假红。')
+  console.error('   恢复索引(先确认工作树没有他人未提交改动): git read-tree HEAD && git add -A')
+  console.error('   提交已阻止(exit 2)。')
+  process.exit(2)
+}
 
 // ─── 定版索引退出网(2026-11-04 立)──────────────────────────────────────────
 // 位置:在 staging area 还原之后、`.lock` 回写之前 —— 前者可能按快照重排索引条目,
@@ -1150,6 +1180,11 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
         // 逐条核验索引 blob == 申报 blob;申报之外的条目仍按原样拒绝。
         // 只对"本次确实有变化"的产物申报 —— 生成器 warn 拒写时 continue 在上面,不会悬空申报。
         const productPaths = t.file.split(/\s+/).filter(Boolean)
+        // 2026-11-08:逐路径留住"要拿来核验的申报 blob"。申报成功的用申报值(它对应
+        // 生成器刚写完、即将 add 的字节);author-declared / 无 manifest 这两条 skipped 腿
+        // 不带 blob,必须在这里按工作树现算 —— 旧调用方一律没传,verify 里 `cur.blob !== undefined`
+        // 恒真,凡真产出差异就必红。
+        const productBlobs = new Map()
         const manifestFile = process.env.IHUI_ISOLATED_INDEX_DERIVED_MANIFEST
         for (const p of productPaths) {
           try {
@@ -1160,6 +1195,11 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
               declaredPaths: SHARED_VIEW_PATHS,
               gitCwd: process.cwd(),
             })
+            const declaredBlob = decl.declared
+              ? decl.blob
+              : derivedArtifacts.hashWorktreeBlob({ gitCwd: process.cwd(), relPath: p })
+            if (!declaredBlob) throw new Error(`取不到 ${p} 的申报 blob(hash-object 返回空)`)
+            productBlobs.set(p, declaredBlob)
             if (decl.declared)
               console.log(`  🧾 已申报派生产物:${p}(blob ${decl.blob.slice(0, 12)})`)
             else if (decl.skipped === 'author-declared')
@@ -1180,6 +1220,7 @@ if (!TOOL_ONLY && process.env.HUSKY_SKIP_TOKENS_SYNC !== '1') {
             const check = derivedArtifacts.verifyDeclaredEntryInIndex({
               gitCwd: process.cwd(),
               relPath: p,
+              blob: productBlobs.get(p),
             })
             if (!check.ok)
               throw new Error(`索引内容与刚写入的工作树不一致:${check.reason}(须先排查并发写者)`)
@@ -1413,6 +1454,20 @@ const gates = runCapturing(
   '🛡️ 运行守门脚本批量检查...',
   'node scripts/guardian-runner.mjs --staged --timing',
 )
+// ─── 索引完整性批后复核(2026-11-08 立)──────────────────────────────────────
+// 入口基线 vs 批后现场:正常 hook 只增加/改写索引条目(派生申报 add、lint-staged 回写),
+// 不会删条目、不会换 git dir。若条目减少或归零,说明批期间有并跑进程在同一索引上做了
+// reset/rm/覆盖 —— 这时各门的“枚举结果”已经不可信,必须整批判为未判定,而不是让某一门
+// 单独背“0 个源码文件”的假红。该检查只读,不改 GIT_* / 不放宽任何门。
+const FINAL_INDEX_INTEGRITY = captureIndexIntegrity({ cwd: process.cwd() })
+const INDEX_DRIFT = compareIndexIntegrity(ENTRY_INDEX_INTEGRITY, FINAL_INDEX_INTEGRITY)
+if (!INDEX_DRIFT.ok) {
+  console.error(`\n❌ 守门批期间索引完整性被破坏:${INDEX_DRIFT.code}`)
+  console.error(`   ${INDEX_DRIFT.detail}`)
+  console.error('   这不是本次提交内容的问题;各门在此索引上得到的枚举结果不可信。')
+  console.error('   本次判为未判定并阻止提交(exit 2);恢复索引: git read-tree HEAD && git add -A')
+  process.exit(2)
+}
 const gatesOk = gates.ok
 const gateSummary = parseGateSummary(gates.output)
 ROUND.gatesRan = true

@@ -13,11 +13,13 @@
  *  ② 守恒(A1 形态不缩 ∧ A3 只删不改 ∧ A4 横幅不动)—— 摘掉守卫即翻红;
  *  ③ 装车形状锁(读 runner 现值,不读文档)。
  */
-import { readFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { __test__ as G } from '../check-live-doc-duplicates.mjs'
 import { __test__ as D } from '../dedupe-live-doc.mjs'
+import { mkScratch } from '../lib/scratch-dir.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const cases = []
@@ -72,6 +74,67 @@ ok('枚举 0 份被审文档判死', /枚举到 0 份/.test(gate))
 
 // 本枚修复的落地面是 HEAD blob(工作树那几份是别席滞后副本,不能当判据面)——
 // 因此"修完是否真归零"由门体在 HEAD 面自证,本文件不读盘上副本。
+
+// ── 枚举三态锁:把"面读不到"、"枚举到 0 份"、"真的没有重复"钉成三个可区分的结论 ──
+// 立因:旧实现用裸 `:` 作 ls-tree 的 tree-ish,git 2.56 直接 fatal;catch 又把
+// "读不到"折成"这份不在该面",于是任何 staged 了 README 的提交都落到"枚举到 0 份 ⇒ 判死"。
+const CLEAN_ENV = { ...process.env }
+for (const k of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) delete CLEAN_ENV[k]
+const gitIn = (dir, args) =>
+  spawnSync(process.env.IHUI_GIT_BIN || 'git', args, {
+    cwd: dir,
+    env: CLEAN_ENV,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  })
+const mustGit = (dir, args) => {
+  const r = gitIn(dir, args)
+  if (r.status !== 0) throw new Error(`git ${args.join(' ')} rc=${r.status}: ${String(r.stderr).trim()}`)
+  return r
+}
+
+const repo = mkScratch('live-doc-face-')
+mustGit(repo, ['init', '-q'])
+mustGit(repo, ['config', 'user.email', 'test@example.invalid'])
+mustGit(repo, ['config', 'user.name', 'test'])
+writeFileSync(path.join(repo, 'README.md'), `# 活文档\n\n${UNIQUE}\n`, 'utf8')
+mustGit(repo, ['add', '--', 'README.md'])
+mustGit(repo, ['commit', '-q', '-m', 'init'])
+
+const headScan = G.scanFaceDocs({ root: repo, face: 'head', docs: ['README.md', 'AGENTS.md'] })
+ok('S1 HEAD 面读得到且在册的文档被枚举到', headScan.status === 'ok' && headScan.docs.join(',') === 'README.md')
+
+const noneScan = G.scanFaceDocs({ root: repo, face: 'head', docs: ['AGENTS.md'] })
+ok('S2 整面读完但文档都不在 ⇒ ok + 0 份(判死),不是"未判定"',
+  noneScan.status === 'ok' && noneScan.docs.length === 0)
+
+ok('S2b 门体把"面读不到"与"枚举到 0 份"分成两个出口',
+  /面读取失败 ⇒ 未判定/.test(gate) && /枚举到 0 份/.test(gate))
+
+const stagedScan = G.scanFaceDocs({ root: repo, face: 'staged', docs: ['README.md', 'README.en.md'] })
+ok('S4 索引面正常时按索引枚举(在册的算、不在册的不算)',
+  stagedScan.status === 'ok' && stagedScan.docs.join(',') === 'README.md')
+
+mustGit(repo, ['read-tree', '--empty'])
+const emptiedScan = G.scanFaceDocs({ root: repo, face: 'staged', docs: ['README.md'] })
+ok('S3 索引被清空 ⇒ 未判定(取不到 ≠ 干净 ≠ 枚举到 0 份)',
+  emptiedScan.status === 'undetermined' && /索引面枚举到 0 条/.test(String(emptiedScan.reason)))
+mustGit(repo, ['read-tree', 'HEAD'])
+
+const emptyRepo = mkScratch('live-doc-face-nohead-')
+mustGit(emptyRepo, ['init', '-q'])
+const noHeadScan = G.scanFaceDocs({ root: emptyRepo, face: 'head', docs: ['README.md'] })
+ok('S5 空仓 HEAD 不可解析 ⇒ 未判定,不写成"0 份"也不写成"干净"',
+  noHeadScan.status === 'undetermined' && /HEAD 不可解析/.test(String(noHeadScan.reason)))
+
+const headBlob = String(mustGit(repo, ['show', 'HEAD:README.md']).stdout)
+ok('S6 HEAD blob 读得到且副本读数为 0 ⇒ 该判绿(与"取不到"可区分)', G.duplicateCount(headBlob) === 0)
+
+ok('S7 门体不再出现裸 `:` 作 ls-tree 的 tree-ish',
+  !/ls-tree[\s\S]{0,120}?'\s*:\s*'/m.test(gate) &&
+    /ls-files', '--cached', '--error-unmatch'/.test(gate) &&
+    /ls-tree', '--name-only', 'HEAD', '--'/.test(gate))
 
 let rc = 0
 for (const c of cases) {
