@@ -58,6 +58,7 @@ export const EXPECTED_GATES = Object.freeze([
   { id: '306p', script: 'gen-knip-taro-entries.mjs', args: ['--check'], mode: 'blocking' },
   { id: '307p', script: 'gen-tool-name-sets.mjs', args: ['--check'], mode: 'blocking' },
   { id: '308p', script: 'gen-rn-shell-scaffold.mjs', args: ['--all'], mode: 'blocking' },
+  { id: '312p', script: 'check-hook-chain-refs.mjs', args: ['--strict'], mode: 'blocking' },
   { id: '173p', script: 'check-doc-numbers.mjs', args: ['--strict', '--push'], mode: 'blocking' },
   { id: 'i18n', script: 'scan-dead-i18n-keys.mjs', args: ['--dry-run'], mode: 'advisory' },
 ])

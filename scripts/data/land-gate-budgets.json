@@ -55,6 +55,22 @@
         }
       ],
       "note": "门 T1；push 形态实测 365.1s（不拿全量 565.6s 那档去凑），×1.5 ⇒ 547650ms。phaseProtocol 要求执行器按 RUN_START/WAIT_LOCK 标记分段计时。"
+    },
+    {
+      "gateId": "312",
+      "script": "check-hook-chain-refs.mjs",
+      "measuredMs": 4000,
+      "measuredAt": "2026-11-08",
+      "timeoutMs": 12000,
+      "note": "commit 档实测 3.8–4.0s（2753 个 JS 文件），取 3× 余量 12s。"
+    },
+    {
+      "gateId": "312p",
+      "script": "check-hook-chain-refs.mjs",
+      "measuredMs": 4000,
+      "measuredAt": "2026-11-08",
+      "timeoutMs": 12000,
+      "note": "push 档与 commit 档同脚本同参数，复用同一实测值。"
     }
   ]
 }
