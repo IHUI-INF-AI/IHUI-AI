@@ -10,9 +10,11 @@
 1. 磁盘清扫:删除项目根 tmp/charts(及 ai-service 本地 tmp/charts)中
    超过 MEDIA_MAINTENANCE_FILE_TTL_DAYS(默认 7 天)的 .html 与配对 .owner;
    反向孤儿(html 已删但 .owner 残留)一并清理。
-2. 僵尸任务强失败:updated_at 超过 MEDIA_MAINTENANCE_STUCK_MINUTES(默认
-   30 分钟)仍处于在途状态的任务,条件更新置 failed(带 only_if_in_flight
-   语义的 SQL,不会翻转已终态任务)。
+2. 僵尸任务强失败:updated_at 超过**按 kind 分档**的卡死阈值仍处于在途状态
+   的任务,条件更新置 failed(带 only_if_in_flight 语义的 SQL,不会翻转已终态任务)。
+   视频档默认 120 分钟(官方 p90 55~75 分钟 + 余量),音频/图片档默认 30 分钟;
+   在途期由 media_tasks._poll_processing_batch 在上游**确认仍在处理**时打节流
+   心跳刷新 updated_at(探测失败/无状态不续命,确保僵尸任务仍能被判死)。
 
 循环每 MEDIA_MAINTENANCE_INTERVAL_SECONDS(默认 3600s)执行一次;所有清理
 均 fail-open(异常记日志,不影响主服务)。
@@ -38,13 +40,23 @@ _CHART_DIRS: tuple[Path, ...] = (
 )
 
 _FILE_TTL_DAYS = int(os.getenv("MEDIA_MAINTENANCE_FILE_TTL_DAYS", "7"))
-_STUCK_MINUTES = int(os.getenv("MEDIA_MAINTENANCE_STUCK_MINUTES", "30"))
-# AIS-097:视频官方 p90 55~75 分钟,30 分钟一刀切会把正常长任务判死。
-# 非终态期间无 updated_at 心跳,因此按 kind 给视频更长的判定窗口(默认 120 分钟,
-# 覆盖 p90 且远离正常耗时),其余 kind 维持原阈值。
-_VIDEO_STUCK_MINUTES = int(
-    os.getenv("MEDIA_MAINTENANCE_VIDEO_STUCK_MINUTES", "120")
-)
+# 卡死判据按 kind 分档(AIS-097):此前全局 30 分钟一刀切,而官方视频 p90 55~75
+# 分钟、在途期又无 updated_at 心跳 ⇒ 正常长视频被静默判死。视频档 120 分钟
+# (p90 上限 + 45 分钟余量);音频(music/tts)与图片维持 30 分钟短档。
+# 单一来源:调用方(及测试)只从这里 import,禁止在别处写第二份数字。
+# `MEDIA_MAINTENANCE_STUCK_MINUTES` 仍作为基础档(与旧部署口径兼容),分档
+# 环境变量可单独覆盖;表外 kind(历史行 schema 默认 `media`)按基础档兜底,
+# 避免分档后被永久悬挂(旧代码会扫到它们)。
+_BASE_STUCK_MINUTES = int(os.getenv("MEDIA_MAINTENANCE_STUCK_MINUTES", "30"))
+_STUCK_MINUTES_BY_KIND: dict[str, int] = {
+    "video": max(
+        _BASE_STUCK_MINUTES,
+        int(os.getenv("MEDIA_MAINTENANCE_STUCK_MINUTES_VIDEO", "120")),
+    ),
+    "music": int(os.getenv("MEDIA_MAINTENANCE_STUCK_MINUTES_AUDIO", str(_BASE_STUCK_MINUTES))),
+    "tts": int(os.getenv("MEDIA_MAINTENANCE_STUCK_MINUTES_AUDIO", str(_BASE_STUCK_MINUTES))),
+    "image": int(os.getenv("MEDIA_MAINTENANCE_STUCK_MINUTES_IMAGE", str(_BASE_STUCK_MINUTES))),
+}
 _INTERVAL_SECONDS = int(os.getenv("MEDIA_MAINTENANCE_INTERVAL_SECONDS", "3600"))
 
 # 与 services/media_tasks.py 的在途状态集合保持一致(不直接 import 避免循环依赖)
@@ -64,13 +76,12 @@ def sweep_chart_files(now: float | None = None) -> dict[str, int]:
         except OSError as e:  # noqa: BLE001
             logger.warning("[media_maintenance] 列目录失败 %s: %s", chart_dir, e)
             continue
-        html_names: set[str] = set()
-        for p in entries:
-            if p.is_file() and p.suffix == ".html":
-                # AIS-096:sidecar 名是 `x.html.owner`,比对基准必须是 `x.html`
-                # 全名;此前取 p.stem(`x`)所以配对判断恒不成立 ⇒ 每轮把全部
-                # 归属凭证当孤儿删掉(跨用户图表 token 换取因此 fail-open)。
-                html_names.add(p.name)
+        # 用**文件名**而不是 stem 比对:owner sidecar 名为 `x.html.owner`,其 stem
+        # 是 `x.html`,而 html 的 stem 是 `x` —— 拿 stem 比恒不相等,会把所有
+        # sidecar 当孤儿删光(AIS-096 根因)。
+        html_files: set[str] = {
+            p.name for p in entries if p.is_file() and p.suffix == ".html"
+        }
         for p in entries:
             if not p.is_file():
                 continue
@@ -81,13 +92,10 @@ def sweep_chart_files(now: float | None = None) -> dict[str, int]:
                         Path(str(p) + ".owner").unlink(missing_ok=True)
                         removed["html"] += 1
                 elif p.name.endswith(".owner"):
-                    # 孤儿 sidecar:对应 html 已不存在 → 删;html 存在但超 TTL
-                    # 会在上面分支配对删除,此处兜底
-                    html_name = p.name.removesuffix(".owner")
-                    if (
-                        html_name not in html_names
-                        or p.stat().st_mtime < now - ttl_seconds
-                    ):
+                    # 孤儿 sidecar:还原对应 html 文件名后比对(TTL 配对删除由
+                    # html 分支负责,此处只清无主的;否则会误删刚产出的图表归属凭证)
+                    target_name = p.name.removesuffix(".owner")
+                    if target_name not in html_files:
                         p.unlink(missing_ok=True)
                         removed["owner"] += 1
             except OSError as e:  # noqa: BLE001
@@ -98,45 +106,72 @@ def sweep_chart_files(now: float | None = None) -> dict[str, int]:
 
 
 async def fail_stuck_tasks() -> int:
-    """把超时未收到终态的在途任务强失败(SQL 条件更新,不翻转已终态)。返回受影响行数。"""
+    """把超时未收到终态的在途任务强失败(SQL 条件更新,不翻转已终态)。返回受影响行数。
+
+    阈值按 kind 分档(见 `_STUCK_MINUTES_BY_KIND`),每条 SQL 只扫一个 kind,
+    传该档分钟数;视频长任务不会被音频/图片的短档误伤。
+    """
     from app.services.media_tasks import get_db_conn
 
     sql = (
         "UPDATE media_tasks SET status='failed', "
         "result=$1::jsonb, message='任务超时未收到终态回调/轮询结果(自动强失败)', "
         "updated_at=now() "
-        "WHERE status = ANY($2) AND ("
-        "(kind = 'video' AND updated_at < now() - ($3 || ' minutes')::interval) "
-        "OR (kind <> 'video' AND updated_at < now() - ($4 || ' minutes')::interval)"
-        ") "
+        "WHERE status = ANY($2) AND kind = $3 "
+        "AND updated_at < now() - ($4 || ' minutes')::interval "
+        "RETURNING task_id"
+    )
+    # 表外 kind(历史行/默认 'media')按基础档兜底,保留旧全局口径,不漏扫
+    sql_unmapped = (
+        "UPDATE media_tasks SET status='failed', "
+        "result=$1::jsonb, message='任务超时未收到终态回调/轮询结果(自动强失败)', "
+        "updated_at=now() "
+        "WHERE status = ANY($2) AND kind <> ALL($3) "
+        "AND updated_at < now() - ($4 || ' minutes')::interval "
         "RETURNING task_id"
     )
     payload = json.dumps(
         {"error": "任务超时未收到终态回调/轮询结果", "via": "maintenance"},
         ensure_ascii=False,
     )
+    total = 0
     try:
         conn = await get_db_conn()
         try:
+            for kind, minutes in _STUCK_MINUTES_BY_KIND.items():
+                rows = await conn.fetch(
+                    sql, payload, list(_IN_FLIGHT), kind, str(minutes)
+                )
+                if not rows:
+                    continue
+                total += len(rows)
+                logger.warning(
+                    "[media_maintenance] 强失败 %d 个超时任务(kind=%s, %dmin): %s",
+                    len(rows),
+                    kind,
+                    minutes,
+                    [str(r["task_id"])[:40] for r in rows[:10]],
+                )
             rows = await conn.fetch(
-                sql,
+                sql_unmapped,
                 payload,
                 list(_IN_FLIGHT),
-                str(_VIDEO_STUCK_MINUTES),
-                str(_STUCK_MINUTES),
+                sorted(_STUCK_MINUTES_BY_KIND),
+                str(_BASE_STUCK_MINUTES),
             )
+            if rows:
+                total += len(rows)
+                logger.warning(
+                    "[media_maintenance] 强失败 %d 个超时任务(kind=表外兜底, %dmin)",
+                    len(rows),
+                    _BASE_STUCK_MINUTES,
+                )
         finally:
             await conn.close()
     except Exception as e:  # noqa: BLE001
         logger.warning("[media_maintenance] 僵尸任务清扫失败: %s", e)
         return 0
-    if rows:
-        logger.warning(
-            "[media_maintenance] 强失败 %d 个超时任务: %s",
-            len(rows),
-            [str(r["task_id"])[:40] for r in rows[:10]],
-        )
-    return len(rows)
+    return total
 
 
 class _MediaMaintenance:
@@ -159,10 +194,10 @@ class _MediaMaintenance:
 
     async def _loop(self) -> None:
         logger.info(
-            "[media_maintenance] 启动: interval=%ds file_ttl=%dd stuck=%dmin dirs=%s",
+            "[media_maintenance] 启动: interval=%ds file_ttl=%dd stuck=%s dirs=%s",
             _INTERVAL_SECONDS,
             _FILE_TTL_DAYS,
-            _STUCK_MINUTES,
+            _STUCK_MINUTES_BY_KIND,
             [str(d) for d in _CHART_DIRS],
         )
         while True:

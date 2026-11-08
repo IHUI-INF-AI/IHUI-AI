@@ -460,7 +460,7 @@ class PublishScheduler:
             await self._write_history(task_id, user_id, result)
             return result
 
-        # 取凭证(从 publish_accounts 表解密;AIS-073:必须同时匹配账号归属)
+        # 取凭证(从 publish_accounts 表解密;AIS-073:带任务 user_id 限定归属)
         credentials = await self._load_credentials(account_id, platform, user_id)
         if credentials is None:
             result = PublishResult(
@@ -1008,14 +1008,16 @@ class PublishScheduler:
         return result
 
     async def _load_credentials(
-        self, account_id: int | None, platform: str, user_id: str | None = None
+        self,
+        account_id: int | None,
+        platform: str,
+        user_id: str | None,
     ) -> dict[str, Any] | None:
-        """从 publish_accounts 表加载并解密凭证。
+        """从 publish_accounts 表加载并解密凭证(AIS-073:须归属任务 user_id)。
 
-        AIS-073:查询必须带 `user_id`,否则持有 task_id 的普通用户可在发布任务的
-        `platform_config.account_id` 里塞他人账号 ID,用受害者凭证发布内容。
+        查询口径带 user_id,防止调用链上游漏校验时用他人账号凭证代发。
         """
-        if account_id is None or not user_id:
+        if account_id is None:
             return None
         conn = await self._get_conn()
         if conn is None:
@@ -1026,7 +1028,7 @@ class PublishScheduler:
                 "WHERE id=$1 AND platform=$2 AND user_id=$3",
                 account_id,
                 platform,
-                str(user_id),
+                user_id,
             )
             if not row:
                 return None
