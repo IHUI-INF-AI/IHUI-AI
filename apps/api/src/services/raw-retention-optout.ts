@@ -70,10 +70,7 @@ export function isRawRetentionOptedOut(userId: string | null | undefined): boole
  * "库与内存一致"。不在设置路由里直接 upsertUserPreference,是为了不出现
  * "库改了但内存没改"的窗口(那个窗口里用户以为自己已关闭,实际还在留存)。
  */
-export async function setRawRetentionOptOut(
-  userId: string,
-  optedOut: boolean,
-): Promise<void> {
+export async function setRawRetentionOptOut(userId: string, optedOut: boolean): Promise<void> {
   if (!userId) return
   if (optedOut) optOutCache.add(userId)
   else optOutCache.delete(userId)
@@ -115,7 +112,8 @@ export async function setRawRetentionOptOut(
       userId,
       optedOut,
       err: e as Error,
-    })  }
+    })
+  }
 }
 
 /**
@@ -129,7 +127,14 @@ export async function preloadRawRetentionOptOuts(): Promise<void> {
     const rows = await db
       .select({ userId: userPreferences.userId, value: userPreferences.value })
       .from(userPreferences)
-      .where(eq(userPreferences.group, GROUP_PRIVACY))
+      // 必须与写入口同口径:只看 privacy 组会把同组的匿名统计/广告开关
+      // (analyticsEnabled/adTracking)也当成「不留存原文」。
+      .where(
+        and(
+          eq(userPreferences.group, GROUP_PRIVACY),
+          eq(userPreferences.key, KEY_RAW_RETENTION_OPT_OUT),
+        ),
+      )
     optOutCache.clear()
     for (const r of rows) {
       const row = r as { userId?: string; value?: string | null }

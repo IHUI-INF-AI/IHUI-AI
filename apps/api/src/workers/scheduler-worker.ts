@@ -20,7 +20,7 @@ import { DistributedLock } from '../utils/distributed-lock.js'
 import { aggregateHeatStats } from '../services/heat-stats-service.js'
 import { refreshTrafficGauges } from '../services/traffic-stats-service.js'
 import { refreshRelayPoolGaugesSafely } from '../services/relay-pool-stats-service.js'
-import { checkDailyAlerts } from '../services/alert-check-service.js'
+import { alertCheckJobStatus, checkDailyAlerts } from '../services/alert-check-service.js'
 import { archiveDailyData } from '../services/data-archive-service.js'
 import { startExpirationMonitor } from '../services/expiration-monitor-service.js'
 import { runFileCleanup } from '../services/cleanup-service.js'
@@ -358,6 +358,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                 escalated: result.escalated,
                 backupIssues: result.backupIssues,
                 backupUndetermined: result.backupUndetermined,
+                errors: result.errors.length,
               },
               'daily alert check done',
             )
@@ -385,15 +386,25 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
                   })
                 }
                 if (result.backupAlerts.length === 0) {
+                  // SDB-43:自身检查失败(errors)时「0 条错误」不是健康读数,必须把原因带进正文。
                   await pushAlert({
                     title: '告警升级通知',
-                    message: `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
+                    message:
+                      result.errors.length > 0
+                        ? capAlertMessage(
+                            [
+                              `最近 24h 告警检查自身失败 ${result.errors.length} 项,无法判定:`,
+                              ...result.errors.map((e) => `- ${flattenUntrustedText(e)}`),
+                            ].join('\n'),
+                          )
+                        : `最近 24h 错误数 ${result.checked} 超过阈值,需要人工介入`,
                     severity: 'critical',
                     source: 'alert-check-daily',
                     metadata: {
                       checked: result.checked,
                       resolved: result.resolved,
                       escalated: result.escalated,
+                      errors: result.errors.length,
                     },
                   })
                 }
@@ -402,7 +413,8 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               }
             }
             try {
-              server.recordJobExecution(name, 'success')
+              // SDB-43:自身检查失败必须记 failed,不能写 success。
+              server.recordJobExecution(name, alertCheckJobStatus(result))
             } catch {
               /* 指标采集失败不影响业务 */
             }
