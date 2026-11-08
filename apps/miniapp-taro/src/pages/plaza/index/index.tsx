@@ -149,17 +149,17 @@ export default function PlazaIndex() {
             {[
               {
                 id: 'search',
-                label: tt('plaza.index.search', '搜索'),
+                label: tt('plaza.index.navSearch', '搜索'),
                 onClick: () => setShowSearch((v) => !v),
               },
               {
                 id: 'menu',
-                label: tt('plaza.index.menu', '菜单'),
+                label: tt('plaza.index.navMenu', '菜单'),
                 onClick: () => setIdentityVisible(true),
               },
               {
                 id: 'category',
-                label: tt('plaza.index.category', '分类'),
+                label: tt('plaza.index.navCategory', '分类'),
                 onClick: () => setTrackVisible(true),
               },
             ].map((action) => (
@@ -195,7 +195,7 @@ export default function PlazaIndex() {
             selectedId: track,
             onSelect: selectTrack,
             onVisibleChange: setTrackVisible,
-            panelTitle: tt('plaza.index.category', '分类'),
+            panelTitle: tt('plaza.index.navCategory', '分类'),
           }}
           identitySheet={{
             visible: identityVisible,

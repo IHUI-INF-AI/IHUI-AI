@@ -91,7 +91,7 @@
     "loadFailed": "Failed to load tasks"
   },
   "common": {
-    "backToTop": "Jump to top",
+    "gotIt": "Got it",    "backToTop": "Jump to top",
     "hint": "Notice",
     "goSettings": "Go to Settings",
     "all": "All",
@@ -395,6 +395,11 @@
         "contactService": "Contact customer service"
       },
       "tokenRate": "1 CNY = {n} IHUI points",
+      "title": "Recharge",
+      "balance": "Account balance",
+      "rate": "Recharge rate",
+      "introTitle": "Recharge notes",
+      "introBody": "The amount is credited immediately and can be used for courses and services.",
       "guest": "Guest"
     },
     "withdrawal": {
@@ -2399,6 +2404,7 @@
       "tabDone": "Done",
       "tabAll": "All",
       "navSearch": "Search",
+      "loadFail": "Failed to load. Please try again later.",
       "navMenu": "Menu",
       "navCategory": "Category",
       "searchPlaceholder": "Search needs",
