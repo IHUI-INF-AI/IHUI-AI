@@ -189,6 +189,47 @@ export async function selectAuditLogs(
   }
 }
 
+/** 导出专用键集游标:上一页最后一行的 (timestamp, id)。 */
+export interface AuditLogExportCursor {
+  timestamp: string
+  id: string
+}
+
+/**
+ * 导出专用查询:按 (timestamp, id) 升序 + 键集游标翻页。
+ *
+ * 为什么不复用 `selectAuditLogs`:展示面按 timestamp DESC + OFFSET 分页,导出面若沿用,
+ * ① 行序是降序,hash 链锚 `prevHash → currentHash` 无法生成;② 导出期间新写入会改变
+ * 偏移窗口,导致中间行被静默跳过。导出只需要"游标之后的下一批",不查总数。
+ *
+ * 游标比较用 `(timestamp, id) > (cursorTs, cursorId)` 双列元组,同一时间戳的兄弟行
+ * 也能稳定切分(与 `audit-evidence-retention.ts` 的 `ORDER BY timestamp ASC, id ASC` 同序)。
+ */
+export async function selectAuditLogsForExport(
+  filters: AuditLogFilters,
+  cursor: AuditLogExportCursor | null,
+  limit: number,
+): Promise<AuditLogChainRow[]> {
+  const filterWhere = buildWhere(filters)
+  const where = cursor
+    ? sql`${filterWhere} AND (timestamp, id) > (${new Date(cursor.timestamp)}::timestamptz, ${cursor.id}::uuid)`
+    : filterWhere
+  try {
+    const raw = await dbRead.execute(sql`
+      SELECT ${SELECT_COLS} FROM ${sql.raw(TABLE)}
+      WHERE ${where}
+      ORDER BY timestamp ASC, id ASC
+      LIMIT ${limit}
+    `)
+    return toRows(raw).map(mapRow)
+  } catch (e) {
+    logger.warn('[audit-queries] selectAuditLogsForExport failed (table not ready?)', {
+      error: (e as Error).message,
+    })
+    return []
+  }
+}
+
 /** 查询某用户最近 N 条日志(按时间升序,用于链完整性验证)。 */
 export async function selectAuditLogChain(
   userId: string,
