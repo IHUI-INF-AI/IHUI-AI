@@ -484,7 +484,33 @@ function computeUnifiedDiff(
   return { diff: diffLines.join('\n'), addedLines: added, removedLines: removed }
 }
 
+/**
+ * 仓库未找到统一错误(F-390):非属主与不存在同为 404,不泄漏仓库存在性。
+ */
+function specRepoNotFound(): Error & { statusCode: number } {
+  const err = new Error('规格仓库不存在') as Error & { statusCode: number }
+  err.statusCode = 404
+  return err
+}
+
 class SpecService {
+  /**
+   * 仓库属主断言(F-390,2026-11-08)。
+   *
+   * spec 仓库以 workspacePath 标识;代码库中唯一的「用户 ↔ 工作区」登记是
+   * workspace_permissions 的 (userId, workspacePath) 记录。只有登记过该工作区的
+   * 用户才被视为属主;读、写、git commit 全部由路由侧在调用本服务前统一断言。
+   * 非属主一律 404(不区分「不存在」,避免探测他人仓库)。
+   *
+   * 动态 import:老单测直接调本服务各方法、不触碰 DB,不应把 db 连接管线拖进模块加载。
+   */
+  async assertRepoOwner(userId: string | undefined, workspacePath: string): Promise<void> {
+    if (!userId) throw specRepoNotFound()
+    const { getPermission } = await import('../db/workspace-permission-queries.js')
+    const permission = await getPermission(userId, workspacePath)
+    if (!permission) throw specRepoNotFound()
+  }
+
   /**
    * 生成 spec 文档。
    *
