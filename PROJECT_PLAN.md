@@ -32185,7 +32185,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 49E. **缺陷普查 AIS AIS-049** [P3] 自助媒体历史查询吞 DB 异常返回空列表（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-049）
 - [x] 50E. **缺陷普查 AIS AIS-050** [P1] 媒体工具按本地路径读任意文件并外传（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-050）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
 - [x] 51E. **缺陷普查 AIS AIS-051** [P1] 截图自检工具是 screenshot_url 的旁路（SSRF + 越权）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-051）（已修@2026-11-08/mcp-media-p1-1108@1417646ce1）
-- [ ] 52E. **缺陷普查 AIS AIS-052** [P0] run_workflow 节点可直达任意命令执行（绕过 run_command 档位）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-052）
+- [x] 52E. **缺陷普查 AIS AIS-052** [P0] run_workflow 节点可直达任意命令执行（绕过 run_command 档位）（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-052）（已修@2026-11-08/mcp-media-p1-1108@acc6d80cbf）
 - [ ] 53E. **缺陷普查 AIS AIS-053** [P2] 外部 MCP server 注册按设计跳过 SSRF 校验（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-053）
 - [ ] 54E. **缺陷普查 AIS AIS-054** [P2] web_search 失败被包装成成功 + 空结果（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-054）
 - [ ] 55E. **缺陷普查 AIS AIS-055** [P2] 后台任务注册表只增不减（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-055）
