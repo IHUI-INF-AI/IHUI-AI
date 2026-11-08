@@ -5,7 +5,7 @@
 """`id_native` 同 id 索引打分的钉(goal-b47)。
 
 钉的是"这条轨是怎么被点亮的":①id 全部由本仓切块器现算(不是抄来的表);
-②金标 id 的复现率有下限,漏的那一枚必须是点名的陈旧 id;③指标一律走 `retrieval_eval`;
+②金标 id 的复现率有下限,漏的每一枚都必须是点名并说明因由的陈旧 id;③指标一律走 `retrieval_eval`;
 ④判不了的题必须给出名字化的原因,不许静默消失。全部零连库、零网络。
 """
 
@@ -20,7 +20,10 @@ from bench import run_retrieval_golden as RRG
 from bench import score_id_native as SIN
 
 REPO = Path(__file__).resolve().parents[3]
-STALE_ID = "93d1a33883fd30d9"
+# 两枚陈旧派生 id(2026-11-08 复跑):
+# - 93d1a33883fd30d9:该题金标写「9 端同源」而现文是「8 端同源」,id 随正文变过;
+# - 94b7784dc1bf3529:architecture.md 的运维/性能段改写后重新派生,同一父块被 6 道题共用。
+STALE_IDS = {"93d1a33883fd30d9", "94b7784dc1bf3529"}
 
 
 def _index() -> SIN.SameIdIndex:
@@ -40,18 +43,20 @@ def test_ids_are_the_ones_our_chunker_produces_not_a_copied_table():
     assert json.loads(json.dumps({"cfg": index.config_note}))["cfg"].startswith("config=")
 
 
-def test_gold_id_reproduction_is_27_of_28_with_the_stale_one_named():
+def test_gold_id_reproduction_is_26_of_28_with_both_stale_ids_named():
     index = _index()
     items = SIN.load_questions()
     gold = {cid for it in items for cid in it.expected_chunk_ids}
     reproduced = gold & index.universe
     assert len(gold) == 28, f"金标Distinct id 数漂了(现读 {len(gold)})"
-    assert len(reproduced) == 27, f"复现率不是 27/28(现读 {len(reproduced)})"
+    assert len(reproduced) == 26, f"复现率不是 26/28(现读 {len(reproduced)})"
     unmatched = sorted(gold - index.universe)
-    assert unmatched == [STALE_ID], f"未复现的应当只有那枚已知陈旧 id,实得 {unmatched}"
-    # 陈旧因由:该题金标写「9 端同源」而现文是「8 端同源」⇒ id 随正文变过(同族数据缺陷一票)
-    q = next(it for it in items if STALE_ID in it.expected_chunk_ids)
+    assert unmatched == sorted(STALE_IDS), f"未复现的应当只有点名的陈旧 id,实得 {unmatched}"
+    # 陈旧因由一:该题金标写「9 端同源」而现文是「8 端同源」⇒ id 随正文变过(同族数据缺陷一票)
+    q = next(it for it in items if "93d1a33883fd30d9" in it.expected_chunk_ids)
     assert q.question_id == "q-1194d4444087"
+    # 陈旧因由二:architecture.md 的运维/性能段改写导致父块重新派生,6 道题共用的这枚 id 全部失效。
+    assert any("94b7784dc1bf3529" in it.expected_chunk_ids for it in items)
 
 
 def test_metrics_come_from_retrieval_eval_and_no_second_formula_lives_here():
