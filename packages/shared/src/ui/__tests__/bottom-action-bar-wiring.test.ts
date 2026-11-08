@@ -549,8 +549,8 @@ const SPEC_TIER_SCOPES: ReadonlyArray<{ tier: string; scope: TierScope; why: str
   { tier: 'BOTTOM_ACTION_BAR_SEND_GLYPH_PX', scope: 'both-legs', why: '发送槽字形墨迹' },
   {
     tier: 'BOTTOM_ACTION_BAR_CHIP_ROW_GAP_PX',
-    scope: 'miniapp-via-core',
-    why: '行距:RN 直取,小程序经 core 的 InlineRow',
+    scope: 'miniapp-core-only',
+    why: '行距:RN 的 toggle chip 行已作为死腿删除(ca5429d33a),该档现只经 core 供小程序',
   },
   {
     tier: 'BOTTOM_ACTION_BAR_ICON_GLYPH_PX',
@@ -706,9 +706,9 @@ const ONE_SIDED_FACTS: ReadonlyArray<OneSidedFact> = [
     dimension: 'geometry',
     owner: 'mobile-rn',
     kind: 'A',
-    anchor: /configEmoji:\s*\{[^}]*\blineHeight:\s*20,/,
+    anchor: /configEmoji:\s*\{[^}]*\blineHeight:\s*rnType\.body\.lineHeight,/,
     otherAnchor: /configEmoji/,
-    why: 'A 旧模式配置钮/辅助行行高:小程序模型条没有配置钮',
+    why: 'A 旧模式配置钮/辅助行行高(rnType.body.lineHeight = 20,ba9f30fb4c 由裸值改 token):小程序模型条没有配置钮',
   },
   {
     value: 24,
