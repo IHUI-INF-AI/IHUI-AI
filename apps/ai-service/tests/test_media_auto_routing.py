@@ -646,14 +646,19 @@ class TestToken6688BalanceTool:
         assert out["currency"] == "USD"
 
     def test_new_tools_not_admin_only(self):
-        """只读工具:对话链 user_role=0 必须可用。"""
+        """只读工具:对话链 user_role=0 必须可用。
+
+        AIS-050/051 例外:`token6688_voice_clone` / `token6688_upload_file` 会读本地
+        文件并外传,已收进 admin 档;语音转写因本地路径走 workspace/敏感文件校验,保持可用。
+        """
         assert "audio_transcription" not in _ADMIN_ONLY_TOOLS
         assert "token6688_balance" not in _ADMIN_ONLY_TOOLS
         assert "vision_analyze" not in _ADMIN_ONLY_TOOLS
         assert "image_edit" not in _ADMIN_ONLY_TOOLS
         assert "token6688_cancel_task" not in _ADMIN_ONLY_TOOLS
         assert "token6688_model_info" not in _ADMIN_ONLY_TOOLS
-        assert "token6688_voice_clone" not in _ADMIN_ONLY_TOOLS
+        assert "token6688_voice_clone" in _ADMIN_ONLY_TOOLS
+        assert "token6688_upload_file" in _ADMIN_ONLY_TOOLS
 
 
 class TestImageEditTool:

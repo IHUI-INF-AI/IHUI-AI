@@ -416,7 +416,14 @@ function toSession(entry: PTYEntry): TerminalSession {
 
 /** 统计用户当前 session 数 */
 function countUserSessions(userId: string): number {
-  return userSessions.get(userId)?.size ?? 0
+  // F-236:只数仍挂在 sessions 里的 active 会话;退出后被回收的残留 id 不计入配额。
+  const ids = userSessions.get(userId)
+  if (!ids) return 0
+  let active = 0
+  for (const id of ids) {
+    if (sessions.get(id)?.status === 'active') active++
+  }
+  return active
 }
 
 /** 注册 sessionId 到 userId 映射 */
@@ -500,6 +507,18 @@ function handlePtyExit(entry: PTYEntry, e: { exitCode: number; signal?: number }
   }
   // 更新 Redis 元数据 exitCode(7 天 TTL 内可查询历史)
   void updateSessionMetaExit(entry.sessionId, e.exitCode, entry.lastActivityAt)
+  // F-236:自然退出(explicit `exit` / SSH 断连 / 硬超时)也必须从内存注销 ——
+  // 否则 sessions 与 userSessions 只增不减,同一用户自然退出 5 次后永久撞
+  // 「超过最大并发终端数(5)」;Redis 元数据仍留 7 天可查历史。
+  reclaimSessionEntry(entry)
+}
+
+/** 从内存注销一个已终止的会话(幂等;closeSession 与 handlePtyExit 共用) */
+function reclaimSessionEntry(entry: Pick<PTYEntry, 'sessionId' | 'userId'>): void {
+  if (sessions.get(entry.sessionId)?.sessionId === entry.sessionId) {
+    sessions.delete(entry.sessionId)
+  }
+  unregisterUserSession(entry.userId, entry.sessionId)
 }
 
 // ==================== 公共 API:createSession ====================
@@ -1109,5 +1128,18 @@ export function killAllSessions(): void {
 /** 获取活跃 session 总数(监控用) */
 export function getActiveSessionCount(): number {
   return sessions.size
+}
+
+/**
+ * F-236 回归夹具入口:直接驱动退出路径与配额计数,不依赖 node-pty。
+ * 只暴露测试需要的两个句柄,不改变运行时契约。
+ */
+export const __test__ = {
+  handlePtyExit,
+  countUserSessions,
+  reclaimSessionEntry,
+  registerUserSession,
+  sessions,
+  userSessions,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -694,8 +694,9 @@ function withUpstreamTimeout(parent: AbortSignal | undefined): {
     signal: controller.signal,
     timedOut: () => fired,
     clear: () => {
+      // F-671:只清「响应头阶段」的超时定时器;parent abort 监听必须保留到正文结束,
+      // 否则客户端断开后 controller 不再收到 abort,上游正文流会继续生成到 [DONE]。
       clearTimeout(timer)
-      parent?.removeEventListener('abort', onParentAbort)
     },
   }
 }
@@ -799,8 +800,18 @@ async function doRefreshRowInPlace(
 // =============================================================================
 
 /** 按行迭代上游 SSE 的 data: 行(跨 chunk 缓冲;\r 归一) */
-async function* readSseDataLines(body: ReadableStream<Uint8Array>): AsyncGenerator<string> {
+async function* readSseDataLines(
+  body: ReadableStream<Uint8Array>,
+  signal?: AbortSignal,
+): AsyncGenerator<string> {
   const reader = body.getReader()
+  const onAbort = (): void => {
+    void reader.cancel().catch(() => {})
+  }
+  if (signal) {
+    if (signal.aborted) onAbort()
+    else signal.addEventListener('abort', onAbort, { once: true })
+  }
   const decoder = new TextDecoder()
   let buffer = ''
   try {
@@ -819,7 +830,10 @@ async function* readSseDataLines(body: ReadableStream<Uint8Array>): AsyncGenerat
     const tail = buffer.replace(/\r$/, '').trimStart()
     if (tail.startsWith('data:')) yield tail
   } finally {
-    reader.releaseLock()
+    signal?.removeEventListener('abort', onAbort)
+    // F-671:提前 break(命中 [DONE])也必须 cancel —— 只 releaseLock 会让 tee 的另一支
+    // 持续缓冲;客户端断开时 reader.cancel() 才会真正停止上游读取。
+    await reader.cancel().catch(() => {})
   }
 }
 
@@ -1137,6 +1151,7 @@ function tapAccountUsage(
   resp: Response,
   terminal: StreamTerminal | undefined,
   onUsage: (u: UsagePair, outcome: StreamOutcome) => void,
+  signal?: AbortSignal,
 ): Response {
   const ct = resp.headers.get('content-type') ?? ''
   if (ct.includes('text/event-stream')) {
@@ -1149,7 +1164,7 @@ function tapAccountUsage(
       let last: UsagePair | null = null
       let tapError: unknown
       try {
-        for await (const line of readSseDataLines(tap)) {
+        for await (const line of readSseDataLines(tap, signal)) {
           if (isSseDone(line)) break
           const u = extractUsage(parseDataLine(line))
           if (u) last = u
@@ -1158,6 +1173,9 @@ function tapAccountUsage(
         // 断流证据(tap 支路抛错 = 主流同一处抛错);仍要回调一次,否则并发额度还不出去
         tapError = err
       }
+      // F-671:signal 触发的 cancel 会让循环「正常结束」,但那是客户端断开而不是上游说完;
+      // 显式补一个中断证据,避免断连被计成 clean 并回血。
+      if (tapError === undefined && signal?.aborted) tapError = new Error('client aborted')
       onUsage(last ?? ZERO_USAGE, judgeStreamOutcome(tapError, terminal))
     })()
     return new Response(pass, {
@@ -1592,7 +1610,10 @@ export async function forwardToAccountPool(
         if (proxy && !isStream) void reportProxySuccess(proxy)
         // 用量台账:tap 响应流提取 usage(恰好一次;无 usage 记 0/0),永不阻塞/影响主路径
         // 流式的成功/失败记账与代理上报一并落在这一格:判据 = 收尾结论,不是响应头
-        const response = tapAccountUsage(attempt.response, terminal, (u, outcome) => {
+        const response = tapAccountUsage(
+          attempt.response,
+          terminal,
+          (u, outcome) => {
           releaseOnce() // 流结束/断开时归还并发额度(tap 保证恰好一次)
           if (!isStream || outcome === 'clean') {
             if (isStream) {
@@ -1648,7 +1669,9 @@ export async function forwardToAccountPool(
             ok: false,
             latencyMs: attempt.latencyMs ?? 0,
           })
-        })
+          },
+          req.signal,
+        )
         const channel: SelectedChannelKey = {
           keyPoolId: row.id,
           apiKey: '',
@@ -1709,5 +1732,9 @@ export const __test__ = {
   readRelayPoolPolicy,
   // ── 401 自愈换票回写(SDB-32):CAS 判据单测入口 ──
   refreshRowInPlace,
+  // ── F-671 断连语义:响应头后仍保留 parent abort / tap 支路可取消 ──
+  withUpstreamTimeout,
+  tapAccountUsage,
+  readSseDataLines,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

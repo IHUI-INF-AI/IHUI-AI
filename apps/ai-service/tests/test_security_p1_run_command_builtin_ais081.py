@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -44,6 +45,7 @@ def _spy_spawn(monkeypatch: pytest.MonkeyPatch) -> list[tuple]:
     return spawned
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="cmd 内建命令分支仅 Windows 可达")
 async def test_single_ampersand_chaining_is_blocked_before_spawn(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -59,6 +61,7 @@ async def test_single_ampersand_chaining_is_blocked_before_spawn(
     assert spawned == []
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="cmd 内建命令分支仅 Windows 可达")
 @pytest.mark.parametrize("metachar", ["&", "^", "|", "<", ">", ";", "\r", "\n"])
 async def test_each_shell_metacharacter_is_blocked_before_spawn(
     monkeypatch: pytest.MonkeyPatch, metachar: str
@@ -81,6 +84,7 @@ async def test_all_declared_metacharacters_cover_required_set() -> None:
     assert required <= set(_metacharacters())
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="cmd 内建命令分支仅 Windows 可达")
 async def test_legit_builtin_commands_still_run(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -111,6 +115,7 @@ async def test_legit_builtin_commands_still_run(
         ('echo "a^b"', "a^b"),
     ],
 )
+@pytest.mark.skipif(sys.platform != "win32", reason="cmd 内建命令分支仅 Windows 可达")
 async def test_quoted_metacharacter_in_builtin_is_literal(
     monkeypatch: pytest.MonkeyPatch, command: str, literal: str
 ) -> None:

@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock, MagicMock
 
-from app.services.publish import notifications
+from app.services.publish import metrics_collector, notifications
 
 # =============================================================================
 # _get_db_conn 数据库连接获取
@@ -411,4 +411,45 @@ class TestNotifyProgress:
             "task-1", "user-1", "wechat", "success"
         )
         assert captured["data"]["message"] == ""
+
+
+# =============================================================================
+# AIS-021: metrics_collector 的 asyncpg 连接必须 await 关闭(否则池连接泄漏)
+# =============================================================================
+
+
+class TestMetricsConnClose:
+    """asyncpg ``conn.close()`` 是协程;不 await 就泄漏池连接(池耗尽后全站卡死)。"""
+
+    async def test_persist_style_check_awaits_close(self, monkeypatch):
+        conn = MagicMock()
+        conn.execute = AsyncMock()
+        conn.close = AsyncMock()
+
+        async def fake_get_conn():
+            return conn
+
+        monkeypatch.setattr(metrics_collector, "get_db_conn", fake_get_conn)
+        monkeypatch.setattr(metrics_collector, "_ensure_style_check_table", AsyncMock())
+
+        await metrics_collector.persist_style_check(
+            "task-1", "wechat", "content-1", {"passed": True, "issues": []}
+        )
+
+        assert conn.execute.await_count == 1
+        assert conn.close.await_count == 1, "asyncpg conn.close() 未 await ⇒ 池连接泄漏"
+
+    async def test_latest_style_check_awaits_close(self, monkeypatch):
+        conn = MagicMock()
+        conn.fetchrow = AsyncMock(return_value=None)
+        conn.close = AsyncMock()
+
+        async def fake_get_conn():
+            return conn
+
+        monkeypatch.setattr(metrics_collector, "get_db_conn", fake_get_conn)
+        monkeypatch.setattr(metrics_collector, "_ensure_style_check_table", AsyncMock())
+
+        assert await metrics_collector.latest_style_check("task-1") is None
+        assert conn.close.await_count == 1, "asyncpg conn.close() 未 await ⇒ 池连接泄漏"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

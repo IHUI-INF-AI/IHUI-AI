@@ -20,17 +20,23 @@ import {
   closeSync,
 } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { success, error } from '../utils/response.js'
 import { checkAuth } from '../plugins/auth.js'
-import { uploadSessions, UPLOAD_SESSION_STATUS, type UploadSessionStatus } from '@ihui/database'
+import {
+  uploadSessions,
+  UPLOAD_SESSION_STATUS,
+  UPLOAD_SESSION_REAPABLE_STATUSES,
+  type UploadSessionStatus,
+} from '@ihui/database'
 import {
   CHUNKS_ROOT,
   PROTOCOL_UPLOAD_LIMITS,
   clampUploadLimit,
   countUniqueReceivedChunks,
   findMissingChunkNumbers,
+  formatMissingChunkNumbers,
   hashFile,
   digestMatches,
   isPerUserSessionBudgetExceeded,
@@ -89,8 +95,10 @@ function resolvePublicUrl(fileId: string): string {
 
 const initBodySchema = z.object({
   fileName: z.string().min(1).max(255),
-  fileSize: z.coerce.number().int().min(0).default(0),
-  totalChunks: z.coerce.number().int().min(1),
+  // 2026-11-08 修 F-28:fileSize 与 totalChunks 都必须有上界。二者同源于协议档,
+  // 否则 totalChunks 可被写成 2^31,合并阶段的 1..totalChunks 线性遍历直接打爆进程。
+  fileSize: z.coerce.number().int().min(0).max(PROTOCOL_UPLOAD_LIMITS.maxFileBytes).default(0),
+  totalChunks: z.coerce.number().int().min(1).max(PROTOCOL_UPLOAD_LIMITS.maxTotalChunks),
   fileMd5: z.string().max(64).optional(),
   mimeType: z.string().max(128).optional(),
   chunkSize: z.coerce
@@ -289,7 +297,16 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
     // 跨会话聚合预算·每片落盘处检(2026-09-30,票 b76-12c-3,对齐上游「追加分片检」半边):
     // 全局暂存字节超预算 = 429 拒收**新片**,fail closed 只挡增量 —— 既有会话一律不清
     // (清存量 = 把无辜用户的在途上传打掉,不误伤)。
-    const stagedBytes = measureStagedBytes(CHUNKS_ROOT)
+    // F-381:预算只统计仍在 uploading/merging 的活跃会话;失败终态目录已不再占预算,
+    // 否则少量 checksum_mismatch/content_rejected 大文件即可把预算长期占满。
+    const activeUploads = await db
+      .select({ uploadId: uploadSessions.uploadId })
+      .from(uploadSessions)
+      .where(inArray(uploadSessions.status, [...UPLOAD_SESSION_REAPABLE_STATUSES]))
+    const stagedBytes = measureStagedBytes(
+      CHUNKS_ROOT,
+      new Set(activeUploads.map((r) => r.uploadId)),
+    )
     if (wouldStagedBudgetOverflow(stagedBytes, buffer.byteLength)) {
       request.log.warn(
         { uploadId: uploadIdStr, stagedBytes, incoming: buffer.byteLength },
@@ -365,6 +382,19 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '上传会话不存在'))
     }
 
+    // 历史超档行(本修复前创建)一律拒绝合并:合并阶段会按 1..totalChunks 逐片读盘,
+    // 不设这道闸就等于把旧漏洞留在数据面上(2026-11-08 修 F-28)。
+    if (session.totalChunks > PROTOCOL_UPLOAD_LIMITS.maxTotalChunks) {
+      return reply
+        .status(400)
+        .send(
+          error(
+            400,
+            `会话分片数(${session.totalChunks})超出上限(${PROTOCOL_UPLOAD_LIMITS.maxTotalChunks}),请取消后重新初始化`,
+          ),
+        )
+    }
+
     // 完整性判定按"1..totalChunks 每一片是否真的在磁盘上",不是按计数相等。
     // 缺哪几片直接点名 —— 让客户端能补传,而不是回一句"不完整"再让它猜。
     const chunkDir = join(UPLOAD_DIR, 'chunks', uploadId)
@@ -378,7 +408,7 @@ export const chunkedUploadRoutes: FastifyPluginAsync = async (server) => {
         .send(
           error(
             400,
-            `分片未收齐:缺第 ${missingChunks.join('、')} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
+            `分片未收齐:缺第 ${formatMissingChunkNumbers(missingChunks)} 片(共 ${session.totalChunks} 片,实收 ${session.totalChunks - missingChunks.length} 片)`,
           ),
         )
     }

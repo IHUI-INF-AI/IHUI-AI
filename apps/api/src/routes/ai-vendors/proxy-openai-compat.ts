@@ -306,12 +306,16 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
         },
         async (request, reply) => {
           const body = imageBody.parse(request.body ?? {})
+          // F-87:平台 Key 代理必须先做余额闸(与 chat/embeddings 同尺),
+          // 否则零积账号可无限调用付费文生图。
+          if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
           const data = await callVendor(vendor, `${baseUrl}/images/generations`, reply, {
             method: 'POST',
             body: JSON.stringify(body),
           })
           if (data === null) return
           recordUsage(request.userId!, vendor)
+          await chargePointsForCall(request, body.model ?? '', data, request.id)
           return reply.send(success(data))
         },
       )
@@ -346,6 +350,8 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = openaiSpeechBody.parse(request.body ?? {})
+      // F-87:TTS 走平台 Key,此前完全不计费 —— 至少先挡住零积账号。
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       const resp = await fetchWithTimeout(
@@ -412,6 +418,8 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const body = openaiTranscriptionBody.parse(request.body ?? {})
+      // F-87:STT 同样走平台 Key,余额闸先行。
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       const file = await request.file()
@@ -525,6 +533,8 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
           .status(400)
           .send(error(400, 'Responses API 流式请走 /v1 网关 SSE;本代理仅支持非流式'))
       }
+      // F-87:Responses API 走平台 Key,此前无余额闸也无结算。
+      if (!(await ensurePointsBalance(request, reply, body.model ?? ''))) return
       const key = requireVendorKey('openai', reply)
       if (!key) return
       try {
@@ -549,6 +559,7 @@ export const openaiCompatVendorRoutes: FastifyPluginAsync = async (server) => {
             )
         }
         recordUsage(request.userId!, 'openai')
+        await chargePointsForCall(request, body.model ?? '', data, request.id)
         return reply.send(success(data))
       } catch (e) {
         const msg = (e as Error).name === 'AbortError' ? '请求超时' : (e as Error).message

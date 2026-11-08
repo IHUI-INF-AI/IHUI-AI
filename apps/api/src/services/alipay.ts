@@ -23,7 +23,7 @@
  * - ALIPAY_PUBLIC_KEY: 支付宝公钥 PEM(或 ALIPAY_PUBLIC_KEY_PATH)
  */
 
-import { createSign, createVerify, createHash, X509Certificate, randomBytes } from 'node:crypto'
+import { createSign, createVerify, createHash, X509Certificate } from 'node:crypto'
 import { readFileSync, existsSync } from 'node:fs'
 import { env } from 'node:process'
 import { join } from 'node:path'
@@ -440,7 +440,10 @@ export async function refundOrder(params: {
   refundAmount: number
   reason: string
 }): Promise<{ success: boolean; response: Record<string, unknown> }> {
-  const outRequestNo = `r${Date.now()}${randomBytes(3).toString('hex')}`
+  // F-09:退款请求号必须由订单号确定,不能每次随机。支付宝以 (out_trade_no, out_request_no)
+  // 判重:随机号会把同一订单的并发/重试退款当成两笔独立退款,造成真实资金双出。
+  // 本接口只支持整单退款,固定 refund_<outTradeNo> 即可让重入变成幂等重放。
+  const outRequestNo = `refund_${params.outTradeNo}`
   const bizContent = {
     out_trade_no: params.outTradeNo,
     refund_amount: params.refundAmount.toFixed(2),
