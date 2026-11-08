@@ -32467,7 +32467,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 154G. **缺陷普查 API F-154** [P1] 私信 / 通知详情越权读取（无属主校验）（证据 docs/tickets/2026-11/findings-api.md#F-154）
 - [ ] 155G. **缺陷普查 API F-155** [P1] 圈子话题（circle_dynamic）任意用户可改/删，且可冒用他人 memberId 发帖（证据 docs/tickets/2026-11/findings-api.md#F-155）
 - [ ] 157G. **缺陷普查 API F-157** [P2] 平台 Key 大模型调用无计量/无配额（绕过 token 扣费）（证据 docs/tickets/2026-11/findings-api.md#F-157）
-- [ ] 158G. **缺陷普查 API F-158** [P2] 圈子分类关系（全局配置表）任意登录用户可增删（证据 docs/tickets/2026-11/findings-api.md#F-158）
 - [ ] 159G. **缺陷普查 API F-159** [P3] 剧本（/drama）任意用户可改/删/批量删，含他人草稿（证据 docs/tickets/2026-11/findings-api.md#F-159）
 - [ ] 160G. **缺陷普查 API F-160** [P3] 工单评级无属主校验（对照同文件其他端点已校验）（证据 docs/tickets/2026-11/findings-api.md#F-160）
 - [ ] 161G. **缺陷普查 API F-161** [P2] 个人号池的「属主」边界完全未校验：任一管理员可共享/停用/删除其他管理员的账号（证据 docs/tickets/2026-11/findings-api.md#F-161）
@@ -32626,9 +32625,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 326G. **缺陷普查 API F-326** [P3] 每相超时计时器 unref()，挂死且无活动句柄时 process.exit(1) 不可达，静默退出 0（证据 docs/tickets/2026-11/findings-api.md#F-326）
 - [ ] 327G. **缺陷普查 API F-327** [P3] scanLeaks 先删 outstanding，forceRelease/forceReleaseAllLeaked 对这些 connId 永远失（证据 docs/tickets/2026-11/findings-api.md#F-327）
 - [ ] 328G. **缺陷普查 API F-328** [P3] kill-verified 最终杀进程命令走 PATH 裸名 taskkill/kill，与自身绝对路径纪律矛盾（证据 docs/tickets/2026-11/findings-api.md#F-328）
-- [ ] 329G. **缺陷普查 API F-329** [P2] 任意登录用户可向官方知识库写入并自行置为已发布，读写均不过滤发布态（证据 docs/tickets/2026-11/findings-api.md#F-329）
-- [ ] 330G. **缺陷普查 API F-330** [P2] 圈子 isPublished 只作用于列表：已隐藏圈子可被详情/帖子列表读取，且任意用户可向其发帖（证据 docs/tickets/2026-11/findings-api.md#F-330）
-- [ ] 331G. **缺陷普查 API F-331** [P2] 三个 by-ids 批量端点不过滤 status，可枚举读取审核拒绝/已删内容（证据 docs/tickets/2026-11/findings-api.md#F-331）
 - [ ] 332G. **缺陷普查 API F-332** [P1] 圈子评论发表未过敏感词过滤（全站 UGC 唯一漏网点），且计数为非原子读改写（证据 docs/tickets/2026-11/findings-api.md#F-332）
 - [ ] 333G. **缺陷普查 API F-333** [P2] 管理端提现 PUT 无状态机守卫，可绕过审批改金额/改归属/直接置 approved（证据 docs/tickets/2026-11/findings-api.md#F-333）
 - [ ] 334G. **缺陷普查 API F-334** [P3] 旧积分兑换的"幂等"只看最近 20 条流水，判重与扣分跨两次往返（证据 docs/tickets/2026-11/findings-api.md#F-334）
