@@ -38,6 +38,9 @@ import {
   findSignUp,
   findSignUpById,
   updateSignUpById,
+  findLessonById,
+  isLessonFree,
+  hasPaidCourseOrder,
 } from '../../db/learn-queries.js'
 import { parsePagination, parseIdParam } from './_shared.js'
 
@@ -97,6 +100,12 @@ const studyRoutes: FastifyPluginAsync = async (server) => {
     const lessonId = body.data.lessonId ?? body.data.courseId
     if (!lessonId) {
       return reply.status(400).send(error(400, '缺少 lessonId/courseId'))
+    }
+    const lesson = await findLessonById(lessonId)
+    if (!lesson) return reply.status(404).send(error(404, '课程不存在'))
+    // F-153:与 /course/:id/enroll 同一道付费闸,防止从这里自助报名绕过付费
+    if (!isLessonFree(lesson) && !(await hasPaidCourseOrder(userId, lessonId))) {
+      return reply.status(402).send(error(402, '请先购买该课程'))
     }
     await signUpLesson(lessonId, userId)
     if (body.data.progress !== undefined) {
