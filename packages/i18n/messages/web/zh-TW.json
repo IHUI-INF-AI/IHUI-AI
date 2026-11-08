@@ -23710,6 +23710,7 @@
     "icpRecordDesc": "查看平臺ICP備案登記信息",
     "icpRecordEntity": "備案主體",
     "icpRecordEntityType": "主體類型",
+    "icpRecordFooter": "以上資訊來自工信部備案查詢系統",
     "icpRecordNotice": "本平臺已依法完成ICP備案登記,備案信息以上述公示為準,如有疑問請聯系客服。",
     "icpRecordNumber": "備案號",
     "icpRecordScope": "備案範圍",

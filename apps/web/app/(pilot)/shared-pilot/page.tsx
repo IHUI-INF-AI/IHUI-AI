@@ -5,6 +5,7 @@
 'use client'
 
 import { useCallback, useState } from 'react'
+import { useTheme } from '@/hooks/use-theme'
 import {
   AgreementScreen,
   AnnouncementDetailScreen,
@@ -88,6 +89,7 @@ const noop = () => {}
 const tt = (key: string, fallback: string) => readString(zhCN, key) ?? fallback
 
 export default function SharedPilotPage() {
+  const { resolvedTheme } = useTheme()
   const [active, setActive] = useState<PilotKey>('icp')
   const select = useCallback((key: PilotKey) => () => setActive(key), [])
 
@@ -117,7 +119,13 @@ export default function SharedPilotPage() {
         ))}
       </div>
       <section className="flex h-[640px] flex-col overflow-hidden rounded-lg border border-border">
-        {active === 'icp' && <IcpRecordScreen t={t} onBack={noop} colorScheme="light" />}
+        {active === 'icp' && (
+          <IcpRecordScreen
+            t={t}
+            onBack={noop}
+            colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          />
+        )}
         {active === 'announcement' && (
           <AnnouncementDetailScreen
             t={t}
@@ -125,10 +133,16 @@ export default function SharedPilotPage() {
             loading={false}
             error=""
             onBack={noop}
-            colorScheme="light"
+            colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           />
         )}
-        {active === 'agreement' && <AgreementScreen t={t} onBack={noop} colorScheme="light" />}
+        {active === 'agreement' && (
+          <AgreementScreen
+            t={t}
+            onBack={noop}
+            colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
+          />
+        )}
         {active === 'history' && (
           <ConversationHistoryScreen
             t={t}
@@ -156,7 +170,7 @@ export default function SharedPilotPage() {
             refreshing={false}
             onRefresh={noop}
             onStartNew={noop}
-            colorScheme="light"
+            colorScheme={resolvedTheme === 'dark' ? 'dark' : 'light'}
           />
         )}
       </section>
