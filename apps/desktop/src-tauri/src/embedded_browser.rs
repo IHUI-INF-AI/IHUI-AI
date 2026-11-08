@@ -367,6 +367,20 @@ pub enum SentinelAction {
     WbCheckinLogin,
 }
 
+/// 只有真正的线上签到页(https://aizhs.top/checkin*)才允许驱动 WorkBuddy 浏览器登录。
+/// F-100:哨兵导航只校验 host,任意第三方页都能 `location.href='https://browser.ihui.invalid/wb-checkin-login'`
+/// 触发登录并指定回跳地址 —— 登录看护把 WorkBuddy 真实 Cookie 拼进 `#wb_import=` 导航回
+/// 发起页,于是凭据被送到攻击者页面。这里把"发起页 origin"纳入裁决:
+/// 非签到页一律忽略;回跳址也只取可信发起页(否则退回固定线上地址)。
+fn is_trusted_checkin_origin(url: &Url) -> bool {
+    if url.scheme() != "https" || url.host_str() != Some("aizhs.top") {
+        return false;
+    }
+    // 只认 /checkin 与 /checkin/<子路径>;先前后缀匹配会把 /checkin-evil 也放进来。
+    let path = url.path();
+    path == "/checkin" || path.starts_with("/checkin/")
+}
+
 /// 把哨兵 URL 解析成动作;非哨兵(host 不符)返回 `None`。
 pub fn parse_sentinel(url: &Url) -> Option<SentinelAction> {
     if url.host_str() != Some(SENTINEL_HOST) {
@@ -931,6 +945,16 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
             // 签到页(内容页无 IPC)请求「浏览器登录 WorkBuddy」(2026-10-17 立):
             // 建登录页标签 + 起看护轮询,结果经 #wb_import= 导航回签到页
             // (见 run_wb_checkin_login_watch)。防重入:进行中再触发直接忽略。
+            // F-100:发起页必须是可信签到页;否则整条动作直接丢弃(不建窗、不轮询)。
+            let trusted_origin = active_wv()
+                .and_then(|wv| wv.url().ok())
+                .filter(is_trusted_checkin_origin);
+            if trusted_origin.is_none() {
+                log::warn!(
+                    "[embedded-browser] 拒绝非签到页发起的 wb-checkin-login(防 Cookie 外泄)"
+                );
+                return;
+            }
             if WB_LOGIN_POLLING.swap(true, Ordering::SeqCst) {
                 return;
             }
@@ -938,10 +962,9 @@ async fn handle_sentinel(app: AppHandle, action: SentinelAction) {
                 WB_LOGIN_POLLING.store(false, Ordering::SeqCst);
                 return;
             };
-            // 回跳地址 = 发起页当前 URL 去 fragment(2026-10-18):跟随发起页而不是
-            // 硬编码线上签到页,本地/测试环境的登录结果才回得了家。
-            let return_base = active_wv()
-                .and_then(|wv| wv.url().ok())
+            // 回跳地址 = 可信签到页当前 URL 去 fragment;不用发起页原始串兜底,
+            // 否则一个被劫持/伪造的页面能把 Cookie 回跳目标带到任意站点。
+            let return_base = trusted_origin
                 .map(|u| {
                     let mut u = u;
                     u.set_fragment(None);
@@ -1407,6 +1430,19 @@ mod tests {
         assert_eq!(parse_sentinel(&u("https://aizhs.top/back")), None);
         assert_eq!(parse_sentinel(&u("https://browser.ihui.invalid/nope")), None);
         assert_eq!(parse_sentinel(&u("https://example.com/")), None);
+    }
+
+    #[test]
+    fn wb_checkin_login_only_from_trusted_checkin_origin() {
+        // 正证:线上签到页(含子路径)允许发起
+        assert!(is_trusted_checkin_origin(&u("https://aizhs.top/checkin")));
+        assert!(is_trusted_checkin_origin(&u("https://aizhs.top/checkin/step2")));
+        // 反证:任意第三方页/伪造 host/http/相邻路径都不得成为回跳目标(F-100)
+        assert!(!is_trusted_checkin_origin(&u("https://evil.example/checkin")));
+        assert!(!is_trusted_checkin_origin(&u("https://aizhs.top.evil.example/checkin")));
+        assert!(!is_trusted_checkin_origin(&u("http://aizhs.top/checkin")));
+        assert!(!is_trusted_checkin_origin(&u("https://aizhs.top/checkin-evil")));
+        assert!(!is_trusted_checkin_origin(&u("https://aizhs.top/")));
     }
 
     #[test]

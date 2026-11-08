@@ -261,6 +261,17 @@ describe('④ unjudged 透出到消费点(cell 2:出声,但不改判据、不升
     expect(stderrText).toContain('immutable-guard.json'); // 下一步点名到可动手的地方
     expect(stderrText).not.toContain('[file-acl advisory] src/a.ts');
   });
+  it('消费点:路径折叠/子目录/越界形态都不能绕过凭据族拒绝;合法文件不误挡(F-074/101/102)', () => {
+    clearGuardRulesCache(repo);
+    const ctx = { workspacePath: repo } as never;
+    for (const p of ['docs/../.env', './.env', 'sub/.env', 'sub/.env.local', 'deep/nested/.env']) {
+      const r = checkPathWritePermission(p, ctx, 'write');
+      expect(r.allowed, p).toBe(false);
+    }
+    // 正证:模板样例与普通源码文件照常放行(不是一刀切禁 .env 前缀)
+    expect(checkPathWritePermission('.env.example', ctx, 'write').allowed).toBe(true);
+    expect(checkPathWritePermission('src/a.ts', ctx, 'write').allowed).toBe(true);
+  });
   it('advisory 默认档语义不动(§12e):严档仍由 IHUI_FILE_ACL_STRICT 单独决定', () => {
     expect(isStrictMode({})).toBe(false);
     expect(isStrictMode({ IHUI_FILE_ACL_STRICT: '1' })).toBe(true);

