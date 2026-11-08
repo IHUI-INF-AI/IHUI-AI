@@ -51,7 +51,7 @@ export default function AiGroup() {
         const res = (await api.getAgentList()) as { list?: Array<Record<string, unknown>> }
         setItems((res?.list || []).map(toItem))
       } catch (e) {
-        logger.error('unknown', t('aigroup.q1'), e)
+        logger.error('unknown', t('aiGroup.q1'), e)
         setError(true)
       } finally {
         if (mode === 'refresh') setRefreshing(false)
