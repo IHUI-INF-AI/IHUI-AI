@@ -57,6 +57,9 @@ export default function PrivacySettingPage() {
   const { resolved } = useAppTheme()
   // 系统权限状态:granted(已授权) / denied(已拒绝) / unknown(未请求)
   const [permStatus, setPermStatus] = useState<Record<string, string>>({})
+  // XUI-066:读权限状态失败曾被静默成「全部未知」;现在如实上抛给共享屏并可重试。
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   // 隐私设置开关
   const [mute, setMute] = useState(false)
   const [recommend, setRecommend] = useState(true)
@@ -64,6 +67,7 @@ export default function PrivacySettingPage() {
 
   // 读取系统权限状态
   const loadPermissions = useCallback(async () => {
+    setLoadError('')
     try {
       const setting = await Taro.getSetting()
       const status: Record<string, string> = {}
@@ -77,8 +81,11 @@ export default function PrivacySettingPage() {
       setPermStatus(status)
     } catch (e) {
       logger.error('setting/privacy', '获取权限状态', e)
+      setLoadError(t('common.loadFailed'))
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }, [t])
 
   // 读取本地隐私设置
   const loadPrivacy = useCallback(() => {
@@ -179,8 +186,8 @@ export default function PrivacySettingPage() {
         sections={sections}
         showHeader={false}
         footerLink={{ label: t('settingPrivacy.privacyPolicy'), onPress: onPrivacyPolicy }}
-        loading={false}
-        error=""
+        loading={loading}
+        error={loadError}
         onBack={onBack}
         colorScheme={resolved}
       />
