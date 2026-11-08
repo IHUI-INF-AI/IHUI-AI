@@ -64,13 +64,17 @@ async def create_cloud_run(
     user_id: str = Depends(get_current_user_id),
 ) -> dict[str, Any]:
     """创建一次云运行记录(状态 running)。CLI 在 agent 启动前调用。"""
-    run = cloud_run_store.start(
-        req.task,
-        run_id=req.run_id,
-        agent_type=req.agent_type,
-        session_alias=req.session_alias,
-        user_id=user_id,
-    )
+    try:
+        run = cloud_run_store.start(
+            req.task,
+            run_id=req.run_id,
+            agent_type=req.agent_type,
+            session_alias=req.session_alias,
+            user_id=user_id,
+        )
+    except ValueError as e:
+        # AIS-095:客户端自选 run_id 撞到他人记录 → 409,不覆盖
+        raise HTTPException(status_code=409, detail=str(e)) from e
     logger.info("cloud-runs start run=%s user=%s status=%s", run.run_id, user_id, run.status)
     # 审计示例接入(2026-09-06):云运行创建属于关键业务操作,落审计日志
     audit_log_store.record("cloud_run.create", str(user_id), run.run_id, {"task": run.task[:100]})
