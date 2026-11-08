@@ -72,7 +72,7 @@ describe('F-41 导出正文内存缓存必须随过期回收', () => {
 
   beforeAll(async () => {
     app = Fastify({ logger: false })
-    app.decorateRequest('userId', null)
+    app.decorateRequest('userId', '')
     app.addHook('preHandler', async (request) => {
       request.userId = 'u1'
     })
