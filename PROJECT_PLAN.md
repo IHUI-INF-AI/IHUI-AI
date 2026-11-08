@@ -32252,3 +32252,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 318E. **缺陷普查 AIS-116** [P1] image_edit 未过付费闸（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-116）
 - [ ] 319E. **缺陷普查 AIS-117** [P2] video_generation 的 save_path 在专用 provider 路径被静默丢弃（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-117）
 - [ ] 320E. **缺陷普查 AIS-118** [P2] voice_tts 非法 save_path 被静默跳过仍报成功（证据 docs/tickets/2026-11/findings-ai-service.md#AIS-118）
+- [ ] 321F. **缺陷普查 XUI-001** [P0] Web 订单详情状态图标取值崩溃（证据 docs/tickets/2026-11/findings-crossui.md#XUI-001）
+- [ ] 322F. **缺陷普查 XUI-002** [P0] 订单详情响应未拆 {order} 包络（RN + 小程序）（证据 docs/tickets/2026-11/findings-crossui.md#XUI-002）
+- [ ] 323F. **缺陷普查 XUI-003** [P0] 会员信息未拆 {vip} 包络（RN + 小程序）（证据 docs/tickets/2026-11/findings-crossui.md#XUI-003）
+- [ ] 324F. **缺陷普查 XUI-004** [P0] RN 未登录分支缺注册路由（隐私/协议/换绑/改密）（证据 docs/tickets/2026-11/findings-crossui.md#XUI-004）
+- [ ] 325F. **缺陷普查 XUI-005** [P0] 小程序 UserCard 读恒空存储键导致「请先登录」（证据 docs/tickets/2026-11/findings-crossui.md#XUI-005）
+- [ ] 326F. **缺陷普查 XUI-006** [P0] 小程序清缓存保留键用旧命名 → 清缓存后静默自动登录（证据 docs/tickets/2026-11/findings-crossui.md#XUI-006）
+- [ ] 327F. **缺陷普查 XUI-007** [P0] RN 支付结果页读错包络 → 永远「支付失败」（证据 docs/tickets/2026-11/findings-crossui.md#XUI-007）
+- [ ] 328F. **缺陷普查 XUI-008** [P0] RN 微信支付 mock 分支客户端直通成功（证据 docs/tickets/2026-11/findings-crossui.md#XUI-008）
+- [ ] 329F. **缺陷普查 XUI-009** [P0] 小程序充值未返回 payParams + orderType 默认 0（证据 docs/tickets/2026-11/findings-crossui.md#XUI-009）
+- [ ] 330F. **缺陷普查 XUI-010** [P0] RN 首页 Easing.sin 缺失 → 启动崩溃（证据 docs/tickets/2026-11/findings-crossui.md#XUI-010）
+- [ ] 331F. **缺陷普查 XUI-011** [P0] RN 导航 ref 工厂在小程序垫片缺失 → 模块初始化崩溃（证据 docs/tickets/2026-11/findings-crossui.md#XUI-011）
+- [ ] 332F. **缺陷普查 XUI-012** [P0] RN 登录页命名导入 WebView，垫片只有默认导出（证据 docs/tickets/2026-11/findings-crossui.md#XUI-012）
+- [ ] 333F. **缺陷普查 XUI-013** [P0] rn-compat 的 Clipboard 默认导出形状与消费方不符（证据 docs/tickets/2026-11/findings-crossui.md#XUI-013）
+- [ ] 334F. **缺陷普查 XUI-014** [P0] RN 提现页分/元混用（证据 docs/tickets/2026-11/findings-crossui.md#XUI-014）
+- [ ] 335F. **缺陷普查 XUI-015** [P1] 小程序注销账号路径多一段 /index（证据 docs/tickets/2026-11/findings-crossui.md#XUI-015）
+- [ ] 336F. **缺陷普查 XUI-016** [P1] 小程序退款页 order.amount 未定义（证据 docs/tickets/2026-11/findings-crossui.md#XUI-016）
+- [ ] 337F. **缺陷普查 XUI-017** [P1] 小程序关于页菜单项传对象、全部开 portal（证据 docs/tickets/2026-11/findings-crossui.md#XUI-017）
+- [ ] 338F. **缺陷普查 XUI-018** [P1] 小程序三个入口指向已删除 /pages/tools/*（证据 docs/tickets/2026-11/findings-crossui.md#XUI-018）
+- [ ] 339F. **缺陷普查 XUI-019** [P1] RN 注销二次确认闸门未复位 → 二次点击直接注销（证据 docs/tickets/2026-11/findings-crossui.md#XUI-019）
+- [ ] 340F. **缺陷普查 XUI-020** [P1] RN 修改密码无异常兜底 → 按钮永久 loading（证据 docs/tickets/2026-11/findings-crossui.md#XUI-020）
+- [ ] 341F. **缺陷普查 XUI-021** [P1] 小程序分销字段映射错位（证据 docs/tickets/2026-11/findings-crossui.md#XUI-021）
+- [ ] 342F. **缺陷普查 XUI-022** [P1] 共享通知 store 无限更新环（证据 docs/tickets/2026-11/findings-crossui.md#XUI-022）
+- [ ] 343F. **缺陷普查 XUI-023** [P1] use-agent-runtime 过期 abort 清掉新控制器（证据 docs/tickets/2026-11/findings-crossui.md#XUI-023）
+- [ ] 344F. **缺陷普查 XUI-024** [P1] use-articles 依赖环 → loadMore 立即回第 1 页（证据 docs/tickets/2026-11/findings-crossui.md#XUI-024）
+- [ ] 345F. **缺陷普查 XUI-025** [P1] use-load-more 无 finally → 失败后锁死（证据 docs/tickets/2026-11/findings-crossui.md#XUI-025）
+- [ ] 346F. **缺陷普查 XUI-026** [P1] WS 通知 id 用 Date.now() 兜底 → 冲突（证据 docs/tickets/2026-11/findings-crossui.md#XUI-026）
+- [ ] 347F. **缺陷普查 XUI-027** [P1] SSE 408 被归为契约不匹配（终态）（证据 docs/tickets/2026-11/findings-crossui.md#XUI-027）
+- [ ] 348F. **缺陷普查 XUI-028** [P1] 权限判定 fail-open 跨用户放行（证据 docs/tickets/2026-11/findings-crossui.md#XUI-028）
+- [ ] 349F. **缺陷普查 XUI-029** [P1] plan-store 水合失败后仍置 hydrated → 覆盖磁盘（证据 docs/tickets/2026-11/findings-crossui.md#XUI-029）
+- [ ] 350F. **缺陷普查 XUI-030** [P1] 产物页小时数恒 0（证据 docs/tickets/2026-11/findings-crossui.md#XUI-030）
+- [ ] 351F. **缺陷普查 XUI-031** [P1] SSE frame-ownership 单溢出槽 + 全局清空 → 丢帧（证据 docs/tickets/2026-11/findings-crossui.md#XUI-031）
+- [ ] 352F. **缺陷普查 XUI-032** [P1] use-paginated-list 用 state 作锁 → 重复页（证据 docs/tickets/2026-11/findings-crossui.md#XUI-032）
+- [ ] 353F. **缺陷普查 XUI-033** [P1] 历史投影：新方向边界把 olderCursor 置空（证据 docs/tickets/2026-11/findings-crossui.md#XUI-033）
+- [ ] 354F. **缺陷普查 XUI-034** [P1] redact 未保护 decodeURIComponent → URIError（证据 docs/tickets/2026-11/findings-crossui.md#XUI-034）
+- [ ] 355F. **缺陷普查 XUI-035** [P1] 退款/提现状态机 RETRY 无上限、errorMessage 不清（证据 docs/tickets/2026-11/findings-crossui.md#XUI-035）
+- [ ] 356F. **缺陷普查 XUI-036** [P1] formatPhone / formatAmount 边界错误（证据 docs/tickets/2026-11/findings-crossui.md#XUI-036）
+- [ ] 357F. **缺陷普查 XUI-037** [P1] 小程序保存相册无 hideLoading（证据 docs/tickets/2026-11/findings-crossui.md#XUI-037）
+- [ ] 358F. **缺陷普查 XUI-038** [P1] 小程序会员支付确认只弹成功（证据 docs/tickets/2026-11/findings-crossui.md#XUI-038）
+- [ ] 359F. **缺陷普查 XUI-039** [P1] 小程序支付成功页用本地 paid 标记（证据 docs/tickets/2026-11/findings-crossui.md#XUI-039）
+- [ ] 360F. **缺陷普查 XUI-042** [P1] 小程序订单列表标题/时间缺失、completed 页签永不命中（证据 docs/tickets/2026-11/findings-crossui.md#XUI-042）
+- [ ] 361F. **缺陷普查 XUI-043** [P1] 小程序换手机号：旧验证码只校验长度不提交（证据 docs/tickets/2026-11/findings-crossui.md#XUI-043）
+- [ ] 362F. **缺陷普查 XUI-044** [P1] 小程序 webview 页 reLaunch 定时器未清理（证据 docs/tickets/2026-11/findings-crossui.md#XUI-044）
+- [ ] 363F. **缺陷普查 XUI-045** [P1] RN 分享页把本地 file:// 当文本分享（证据 docs/tickets/2026-11/findings-crossui.md#XUI-045）
+- [ ] 364F. **缺陷普查 XUI-046** [P1] RN 直播主播页无 teardown、观众数随机（证据 docs/tickets/2026-11/findings-crossui.md#XUI-046）
+- [ ] 365F. **缺陷普查 XUI-047** [P1] RN 分销提现重复提交窗口（证据 docs/tickets/2026-11/findings-crossui.md#XUI-047）
+- [ ] 366F. **缺陷普查 XUI-048** [P1] RN 录音 hook 卸载未清计时器（证据 docs/tickets/2026-11/findings-crossui.md#XUI-048）
+- [ ] 367F. **缺陷普查 XUI-049** [P2] 登录态下重新登录仍停留在登录页（证据 docs/tickets/2026-11/findings-crossui.md#XUI-049）
+- [ ] 368F. **缺陷普查 XUI-050** [P2] rn-compat 图片选择权限硬编码 granted（证据 docs/tickets/2026-11/findings-crossui.md#XUI-050）
+- [ ] 369F. **缺陷普查 XUI-051** [P2] rn-compat 缺 MediaTypeOptions（证据 docs/tickets/2026-11/findings-crossui.md#XUI-051）
+- [ ] 370F. **缺陷普查 XUI-052** [P2] rn-compat MediaLibrary 成员缺失/返回形状不符（证据 docs/tickets/2026-11/findings-crossui.md#XUI-052）
+- [ ] 371F. **缺陷普查 XUI-053** [P2] rn-compat 缺 Linking.openSettings（证据 docs/tickets/2026-11/findings-crossui.md#XUI-053）
+- [ ] 372F. **缺陷普查 XUI-054** [P2] rn-compat expo-file-system 成员缺口（证据 docs/tickets/2026-11/findings-crossui.md#XUI-054）
+- [ ] 373F. **缺陷普查 XUI-055** [P2] rn-compat 多选数量只看 selectionLimit（证据 docs/tickets/2026-11/findings-crossui.md#XUI-055）
+- [ ] 374F. **缺陷普查 XUI-056** [P2] rn-compat 不支持对象形 navigate（证据 docs/tickets/2026-11/findings-crossui.md#XUI-056）
+- [ ] 375F. **缺陷普查 XUI-057** [P2] 小程序语音识别重复 configure 方法（证据 docs/tickets/2026-11/findings-crossui.md#XUI-057）
+- [ ] 376F. **缺陷普查 XUI-058** [P2] order.pay 文案缺失 + RN 智能体价格按分重复缩放（证据 docs/tickets/2026-11/findings-crossui.md#XUI-058）
+- [ ] 377F. **缺陷普查 XUI-059** [P2] RN 端 artifacts 系列 i18n key 缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-059）
+- [ ] 378F. **缺陷普查 XUI-060** [P2] login.platformLinuxdo 缺失（证据 docs/tickets/2026-11/findings-crossui.md#XUI-060）
+- [ ] 379F. **缺陷普查 XUI-061** [P2] 模块级 Intl 实例冻结时区（证据 docs/tickets/2026-11/findings-crossui.md#XUI-061）
+- [ ] 380F. **缺陷普查 XUI-062** [P2] 相对时间 ja/ko 回退英文（证据 docs/tickets/2026-11/findings-crossui.md#XUI-062）
