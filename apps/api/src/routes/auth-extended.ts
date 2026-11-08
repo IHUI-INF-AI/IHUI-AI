@@ -559,6 +559,11 @@ async function loginWithOAuthAccount(params: {
     const existing = await findUserById(binding.userId)
     if (!existing) throw new Error('用户不存在')
     if (existing.status !== 1) throw new Error('账号已被禁用')
+    // F-126 ③:内置管理员不认第三方登录 —— 即使库里存在历史绑定,也不得凭 openId 换取 token。
+    if (existing.isSystemAdmin) {
+      reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+      return { blocked: true }
+    }
     user = existing
   } else {
     // 同邮箱已注册用户 → 自动关联绑定(对齐邮箱验证码登录的既有语义,
@@ -573,6 +578,11 @@ async function loginWithOAuthAccount(params: {
         return { blocked: false, emailUnverified: true, email: email ?? '' }
       }
       if (existingByEmail.status !== 1) throw new Error('账号已被禁用')
+      // F-126 ③:同邮箱自动关联也不得落到内置管理员账号上(否则仍是一条提权入口)。
+      if (existingByEmail.isSystemAdmin) {
+        reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+        return { blocked: true }
+      }
       user = existingByEmail
       await createThirdPartyBinding({ userId: user.id, openId, unionId, platform })
     } else {
@@ -1362,6 +1372,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    // F-126 ③:内置管理员不认第三方登录(含历史绑定),同一路径封死提权入口。
+    if (user.isSystemAdmin) {
+      return reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+    }
     // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
     // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
     const twoFactorReply = await twoFactorLoginGate(user, request, reply)
@@ -1683,6 +1697,10 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
     const user = await findUserById(binding.userId)
     if (!user) return reply.status(404).send(error(404, '用户不存在'))
     if (user.status !== 1) return reply.status(403).send(error(403, '账号已被禁用'))
+    // F-126 ③:内置管理员不认第三方登录(含历史绑定),同一路径封死提权入口。
+    if (user.isSystemAdmin) {
+      return reply.status(403).send(error(403, '系统内置管理员不支持第三方账号登录'))
+    }
     // 2026-10-31 安全强化第 10 批 R10：第二因子闸（单源）。此前本支路直接发 token，
     // 已开 TOTP 的账号可被 IdP 会话/短信码失窃完全绕过 2FA。
     const twoFactorReply = await twoFactorLoginGate(user, request, reply)
@@ -4157,9 +4175,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .object({ provider: z.enum(['oidc', 'discord', 'linuxdo']) })
       .safeParse(request.params)
     if (!parsed.success)
-      return reply
-        .status(400)
-        .send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
+      return reply.status(400).send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
     const provider = parsed.data.provider
     const state = generateState()
 
