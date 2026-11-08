@@ -84,7 +84,8 @@ export function getSubagentStatePath(id: string): string {
 }
 
 function ensureStateDir(): void {
-  fs.mkdirSync(getSubagentStateDir(), { recursive: true });
+  // F-005:子代理状态含任务提示/结果,同样按私有目录落盘。
+  fs.mkdirSync(getSubagentStateDir(), { recursive: true, mode: 0o700 });
 }
 
 export function newSubagentId(): string {
@@ -125,7 +126,7 @@ export function saveSubagentState(state: SubagentState): void {
 function writeStateRow(state: SubagentState): void {
   ensureStateDir();
   const p = getSubagentStatePath(state.id);
-  writeFileAtomicSync(p, JSON.stringify(state, null, 2));
+  writeFileAtomicSync(p, JSON.stringify(state, null, 2), { mode: 0o600 });
 }
 
 /**

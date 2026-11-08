@@ -2691,6 +2691,12 @@
           "markdownDescription": "Enables the git_channel_info command without any pre-configured scope."
         },
         {
+          "description": "Enables the git_workspace_diff command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-git-workspace-diff",
+          "markdownDescription": "Enables the git_workspace_diff command without any pre-configured scope."
+        },
+        {
           "description": "Enables the git_workspace_status command without any pre-configured scope.",
           "type": "string",
           "const": "allow-git-workspace-status",
@@ -3051,6 +3057,12 @@
           "markdownDescription": "Enables the workbuddy_reset_probe command without any pre-configured scope."
         },
         {
+          "description": "Enables the workspace_index_scan command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-workspace-index-scan",
+          "markdownDescription": "Enables the workspace_index_scan command without any pre-configured scope."
+        },
+        {
           "description": "Enables the write_text_file command without any pre-configured scope.",
           "type": "string",
           "const": "allow-write-text-file",
@@ -3397,6 +3409,12 @@
           "type": "string",
           "const": "deny-git-channel-info",
           "markdownDescription": "Denies the git_channel_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the git_workspace_diff command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-git-workspace-diff",
+          "markdownDescription": "Denies the git_workspace_diff command without any pre-configured scope."
         },
         {
           "description": "Denies the git_workspace_status command without any pre-configured scope.",
@@ -3757,6 +3775,12 @@
           "type": "string",
           "const": "deny-workbuddy-reset-probe",
           "markdownDescription": "Denies the workbuddy_reset_probe command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the workspace_index_scan command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-workspace-index-scan",
+          "markdownDescription": "Denies the workspace_index_scan command without any pre-configured scope."
         },
         {
           "description": "Denies the write_text_file command without any pre-configured scope.",
