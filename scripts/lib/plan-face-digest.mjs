@@ -10,7 +10,7 @@
  * 刻意不放进任一侧脚本:两侧互相 import 会成环(实测 ReferenceError: Cannot access 'ROOT' before initialization)。
  */
 import { createHash } from 'node:crypto'
-import { spawnSync } from 'node:child_process'
+import { gitRaw } from './face-reader.mjs'
 
 /** 对台账文本取短指纹;取不到输入 ⇒ null(不猜、不返回空串冒充"一样")。 */
 export function planFaceDigest(lines) {
@@ -26,14 +26,13 @@ export function planFaceDigest(lines) {
  * 取不到 HEAD ⇒ null,由调用方按"未判定 ⇒ 保守重算"处理。
  */
 export function planFaceDigestFromHead(root, doc = 'PROJECT_PLAN.md') {
-  const r = spawnSync('git', ['show', `HEAD:${doc}`], {
-    cwd: root,
-    encoding: 'utf8',
-    windowsHide: true,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    maxBuffer: 1 << 26,
-  })
-  if (!r || r.status !== 0) return null
-  return planFaceDigest(String(r.stdout ?? '').split(/\r?\n/))
+  let out
+  try {
+    out = gitRaw(['show', `HEAD:${doc}`], root, { timeout: 60_000, maxBuffer: 1 << 26 })
+  } catch {
+    return null
+  }
+  if (typeof out !== 'string') return null
+  return planFaceDigest(out.split(/\r?\n/))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
