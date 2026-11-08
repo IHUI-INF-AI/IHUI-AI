@@ -32,6 +32,11 @@ import {
   type ServeSettingsConfig,
 } from '../config/credentials.js';
 import { DEFAULT_SANDBOX_PROFILE, type SandboxProfile } from '../config/sandbox-profile.js';
+import {
+  applyStoredMainCredentials,
+  migratePlaintextCredentials,
+  withoutMainCredentialFields,
+} from '../lib/main-credential-store.js';
 import type { ApprovalPolicySpec, SandboxModeId } from '@ihui/types';
 
 export interface SandboxSettings {
@@ -483,6 +488,11 @@ export function mergeSettingsFromCwd(
   const projectLayer = new Set(
     paths.slice(0, SETTINGS_SOURCE_DIRS.length).map((p) => path.resolve(p)),
   );
+  // 2026-11-06 安全债:主凭据(apiKey/refreshToken/apiSecret)不再允许明文留在 home 层 settings。
+  // 迁移必须在**读取之前**:先把明文搬进安全存储并从盘上剥掉,读循环才不会把旧明文合进内存。
+  // 传参按"低优先级 → 高优先级"(home 层顺序反转),后写者覆盖前写者,与下面的合并序一致。
+  const homePaths = paths.slice(SETTINGS_SOURCE_DIRS.length);
+  migratePlaintextCredentials([...homePaths].reverse());
   let acc: Settings = {};
   for (const p of [...paths].reverse()) {
     try {
@@ -509,6 +519,9 @@ export function mergeSettingsFromCwd(
             );
           }
           value = filter.accepted as Settings;
+        } else {
+          // 迁移失败时文件里可能仍有明文:内存侧一律剥离,绝不把明文交出去
+          value = withoutMainCredentialFields(value);
         }
         acc = deepMergeSettings(acc, value);
       }
@@ -519,7 +532,14 @@ export function mergeSettingsFromCwd(
       // 无 errno 的失败(坏 JSON 已由 tryParseJson 吞掉)仍忽略,继续下一源
     }
   }
-  return acc;
+  // 只从安全存储回填(home 层已剥净);解不开时字段保持缺失,故障由读取台账记下
+  return applyStoredMainCredentials(acc);
+}
+
+/** home 层 settings 路径(登出时要一并清理明文残留,含旧版 .claude/.cursor)。 */
+export function getHomeSettingsPaths(cwd: string = process.cwd()): string[] {
+  const paths = listSettingsConfigPaths(cwd);
+  return paths.slice(SETTINGS_SOURCE_DIRS.length);
 }
 
 export function saveSettingsTemplate(overwrite = false): boolean {

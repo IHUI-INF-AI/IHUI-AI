@@ -41,15 +41,27 @@ import { redactSecrets } from '@ihui/shared/utils/redact';
 import { promises as fs } from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { execFile } from 'node:child_process';
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  hkdfSync,
-  randomBytes,
-} from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { t } from '../i18n/index.js';
+// 信封/DPAPI/机器绑定的**唯一实现**在 lib/credential-vault.ts(2026-11 主凭据落安全存储时抽取)。
+// 本模块只保留 MCP 自己的档位策略/路径/迁移,不再持有第二份 AES/HKDF/DPAPI 代码。
+import {
+  OS_TIER_EVIDENCE,
+  VAULT_ENVELOPE_FIELD as ENVELOPE_FIELD,
+  VAULT_KEY_BYTES as KEY_BYTES,
+  chmodSafeAsync,
+  kidOfKey,
+  machineBindingFingerprint,
+  openKeyEnvelope as openVaultKeyEnvelope,
+  openVaultEnvelope,
+  parseKeyEnvelope as parseVaultKeyEnvelope,
+  parseVaultEnvelope,
+  probeDpapiAsync,
+  runDpapiAsync,
+  sealKeyEnvelope as sealVaultKeyEnvelope,
+  sealVaultEnvelope,
+  type CredentialEnvelopeBody,
+} from '../lib/credential-vault.js';
 import { captureWriteBaseline, commitAtomicWrite } from '../util/atomic-write.js';
 // G-709:整文件读-改-写要包在跨进程锁里。锁**复用** mcp-oauth.ts 已有的那一份实现
 // (acquireLock / releaseLock / getRefreshLockPath + mcp-refresh.lock),不新造第二把锁。
@@ -74,35 +86,12 @@ export const CRED_PLAINTEXT_ENV = 'IHUI_MCP_CRED_PLAINTEXT';
 /** 档位钉选(测试/特殊场景):只允许把档往**低**处钉,不认可"往高处钉"。 */
 export const CRED_BACKEND_ENV = 'IHUI_MCP_CRED_BACKEND';
 
-// ============ 信封常量(与 local-vault.ts 同形;跨包同族约束 §3,不抄第二份"语义"只对齐"结构") ============
-const ENVELOPE_FIELD = 'ihuiVaultV1';
+// ============ 信封常量(信封结构/加密原语全在 lib/credential-vault.ts;这里只管 MCP 的域标签) ============
 const KEY_ENVELOPE_FIELD = 'ihuiMcpKeyV1';
-const ALG = 'A256GCM';
-/** Object.keys().sort() 的比对基准 —— 必须是排好序的同一份名单 */
-const ENVELOPE_KEYS_SORTED: readonly string[] = ['alg', 'ct', 'iv', 'kid'];
-const KEY_ENVELOPE_KEYS_SORTED: readonly string[] = ['ct', 'iv', 'mb'];
 /** HKDF 域分隔:CLI 的 MCP 凭据与桌面端聊天正文各用一把互不通用的子密钥 */
 const DOMAIN_INFO = 'ihui-cli/mcp-credentials/v1';
 const KEY_WRAP_INFO = 'ihui-cli/mcp-credentials/key-wrap/v1';
-const KEY_BYTES = 32;
-const IV_BYTES = 12;
-const TAG_BYTES = 16;
-const KID_BYTES = 8;
 const MAX_UNWRAP_LAYERS = 4;
-/** OS 档单次 PowerShell 调用的硬超时:取"引擎冷启动"最差档的数倍,挂住不等于可用 */
-const DPAPI_TIMEOUT_MS = 15_000;
-
-/**
- * 档位①的可行性证据(2026-09-28 本机现读,取证经 `scripts/run-evidence.mjs` 落件):
- *   pwsh 7.6.4(`C:\Program Files\PowerShell\7\pwsh.exe`)
- *     → `PROBE A_ProtectedDataAssembly OK roundtrip=8bytes`
- *   powershell 5.1.26100(`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`)
- *     → `PROBE A_ProtectedDataAssembly FAIL 无法加载找到程序集…`(消息被 GBK 码页打乱,
- *        所以判据只认 ASCII 状态词,绝不解析本地化文案)
- * ⇒ 档位①**只**在能 `Add-Type -AssemblyName System.Security.Cryptography.ProtectedData`
- *   的引擎上启用;每次运行现探,不照抄本注释。
- */
-const OS_TIER_EVIDENCE = 'pwsh7=OK;windows-powershell5.1=FAIL(assembly-not-found;2026-09-28 实测)';
 
 /** 凭证文件路径解析:优先 IHUI_HOME,回退 ~/.ihui */
 export function getCredentialsPath(): string {
@@ -406,104 +395,12 @@ function readPinnedBackend(): CredentialStoreBackend | null {
   return null;
 }
 
-// ==================== 信封结构(结构级判据:恰一层,可判幂等) ====================
+// ==================== 信封结构(实现在 lib/credential-vault.ts;此处只钉 MCP 域标签) ====================
 
-export interface CredentialEnvelopeBody {
-  alg: typeof ALG;
-  kid: string;
-  iv: string;
-  ct: string;
-}
+export type { CredentialEnvelopeBody };
 
-function toBase64Url(bytes: Uint8Array): string {
-  return Buffer.from(bytes)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-function fromBase64Url(text: string): Uint8Array | null {
-  try {
-    const padded = text.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (text.length % 4)) % 4);
-    const buf = Buffer.from(padded, 'base64');
-    if (buf.length === 0) return null;
-    return new Uint8Array(buf);
-  } catch {
-    return null;
-  }
-}
-
-function sortedKeys(value: Record<string, unknown>): string[] {
-  return Object.keys(value).sort();
-}
-
-function hasExactKeys(value: Record<string, unknown>, expected: readonly string[]): boolean {
-  const got = sortedKeys(value);
-  if (got.length !== expected.length) return false;
-  return got.every((k, i) => k === expected[i]);
-}
-
-/**
- * 结构级判据:对象**有且仅有** `ihuiVaultV1` 一个键,其值**有且仅有** alg/kid/iv/ct 四个字段,
- * 且 iv/ct 能解出 base64url 字节。"存在即算"不够 —— 迁移幂等要求能判"恰一层",
- * 否则会把已加密的 blob 再包一层(照 local-vault.ts 的同一条判据)。
- */
 export function parseCredentialEnvelope(stored: string): CredentialEnvelopeBody | null {
-  let outer: unknown;
-  try {
-    outer = JSON.parse(stored);
-  } catch {
-    return null;
-  }
-  if (!isPlainObject(outer)) return null;
-  const record = outer as Record<string, unknown>;
-  const keys = Object.keys(record);
-  if (keys.length !== 1 || keys[0] !== ENVELOPE_FIELD) return null;
-  const inner = record[ENVELOPE_FIELD];
-  if (!isPlainObject(inner)) return null;
-  const body = inner as Record<string, unknown>;
-  if (!hasExactKeys(body, ENVELOPE_KEYS_SORTED)) return null;
-  if (body.alg !== ALG) return null;
-  if (typeof body.kid !== 'string' || body.kid.length === 0) return null;
-  if (typeof body.iv !== 'string' || typeof body.ct !== 'string') return null;
-  if (!fromBase64Url(body.iv) || !fromBase64Url(body.ct)) return null;
-  return { alg: ALG, kid: body.kid, iv: body.iv, ct: body.ct };
-}
-
-/** 主密钥的公开指纹:SHA-256(key) 前 8 字节 hex。用于判"密钥被换过",不是密钥。 */
-function kidOfKey(key: Uint8Array): string {
-  return createHash('sha256').update(key).digest().subarray(0, KID_BYTES).toString('hex');
-}
-
-function deriveDomainKey(master: Uint8Array, info: string): Uint8Array {
-  const label = Buffer.from(info, 'utf-8');
-  // hkdfSync 返回 ArrayBuffer;salt 与 info 同取域标签,与 local-vault.ts 的 deriveDomainKey 同形
-  return new Uint8Array(hkdfSync('sha256', master, label, label, KEY_BYTES));
-}
-
-/** AES-256-GCM 密封:ct 尾部含 16 字节 tag —— 与 WebCrypto 的产出字节同形。 */
-function aesGcmSeal(key: Uint8Array, plain: string): { iv: string; ct: string } {
-  const iv = new Uint8Array(randomBytes(IV_BYTES));
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
-  const enc = Buffer.concat([cipher.update(Buffer.from(plain, 'utf-8')), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return { iv: toBase64Url(iv), ct: toBase64Url(new Uint8Array(Buffer.concat([enc, tag]))) };
-}
-
-function aesGcmOpen(key: Uint8Array, iv: string, ct: string): string | null {
-  const ivBytes = fromBase64Url(iv);
-  const ctBytes = fromBase64Url(ct);
-  if (!ivBytes || !ctBytes || ctBytes.length <= TAG_BYTES) return null;
-  const tag = ctBytes.subarray(ctBytes.length - TAG_BYTES);
-  const body = ctBytes.subarray(0, ctBytes.length - TAG_BYTES);
-  try {
-    const decipher = createDecipheriv('aes-256-gcm', key, ivBytes);
-    decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(Buffer.from(body)), decipher.final()]).toString('utf-8');
-  } catch {
-    return null;
-  }
+  return parseVaultEnvelope(stored, ENVELOPE_FIELD);
 }
 
 /**
@@ -515,15 +412,11 @@ export function sealCredentialEnvelope(
   masterKey: Uint8Array,
   kid: string,
 ): string {
-  const key = deriveDomainKey(masterKey, DOMAIN_INFO);
-  const { iv, ct } = aesGcmSeal(key, plain);
-  return JSON.stringify({ [ENVELOPE_FIELD]: { alg: ALG, kid, iv, ct } });
+  return sealVaultEnvelope(plain, masterKey, kid, DOMAIN_INFO, ENVELOPE_FIELD);
 }
 
-function openCredentialEnvelope(body: CredentialEnvelopeBody, masterKey: Uint8Array): string | null {
-  if (kidOfKey(masterKey) !== body.kid) return null; // 密钥已换/异机封的:不解、不猜
-  const key = deriveDomainKey(masterKey, DOMAIN_INFO);
-  return aesGcmOpen(key, body.iv, body.ct);
+export function openCredentialEnvelope(body: CredentialEnvelopeBody, masterKey: Uint8Array): string | null {
+  return openVaultEnvelope(body, masterKey, DOMAIN_INFO);
 }
 
 // ==================== 档位①:OS 自带凭据能力(DPAPI) ====================
@@ -543,127 +436,12 @@ interface TierAttempt {
   engine?: string;
 }
 
-const DPAPI_PS_SCRIPT = [
-  "$ErrorActionPreference='Stop'",
-  '$mode=$args[0]',
-  'try {',
-  '  Add-Type -AssemblyName System.Security.Cryptography.ProtectedData -ErrorAction Stop',
-  '  $in=[Console]::In.ReadToEnd().Trim()',
-  '  $raw=[Convert]::FromBase64String($in)',
-  "  if ($mode -eq 'protect') {",
-  '    $out=[System.Security.Cryptography.ProtectedData]::Protect($raw,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser)',
-  '  } else {',
-  '    $out=[System.Security.Cryptography.ProtectedData]::Unprotect($raw,$null,[System.Security.Cryptography.DataProtectionScope]::CurrentUser)',
-  '  }',
-  '  [Console]::Out.Write([Convert]::ToBase64String($out))',
-  '  exit 0',
-  '} catch {',
-  '  exit 3',
-  '}',
-].join('\n');
-
-interface DpapiOutcome {
-  ok: boolean;
-  payload: string | null;
-  engine: string;
-  detail: string;
-}
-
-/** PowerShell 候选引擎(命中即缓存)。绝不写死盘符:ProgramFiles/SystemRoot 取自 env。 */
-function pwshCandidates(): string[] {
-  const out = ['pwsh'];
-  const programFiles = process.env.ProgramFiles || process.env['ProgramFiles(x86)'] || '';
-  if (programFiles) out.push(path.posix.join(programFiles.replace(/\\/g, '/'), 'PowerShell/7/pwsh.exe'));
-  const systemRoot = (process.env.SystemRoot || '').replace(/\\/g, '/');
-  if (systemRoot) {
-    out.push(path.posix.join(systemRoot, 'System32/WindowsPowerShell/v1.0/powershell.exe'));
-  }
-  return out;
-}
-
-let cachedEngine: string | null = null;
-/** 引擎都试过一遍的失败结论(进程内缓存,避免每次写盘都重跑一遍冷启动) */
-let osTierFailure: string | null = null;
-
-function runOneEngine(engine: string, mode: 'protect' | 'unprotect', payloadB64: string): Promise<DpapiOutcome> {
-  return new Promise((resolve) => {
-    const encoded = Buffer.from(DPAPI_PS_SCRIPT, 'utf16le').toString('base64');
-    const child = execFile(
-      engine,
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded, mode],
-      { encoding: 'utf8', timeout: DPAPI_TIMEOUT_MS, maxBuffer: 4 * 1024 * 1024, windowsHide: true },
-      (err, stdout) => {
-        if (err) {
-          resolve({
-            ok: false,
-            payload: null,
-            engine,
-            // 只取退出码与 ASCII 片段:PowerShell 的异常文案是本机码页下的本地化文本(实测被 GBK 打乱)
-            detail: `${engine} rc=${(err as { code?: number | string }).code ?? 'n/a'} ${String(err.message).replace(/[^\x20-\x7e]/g, '').slice(0, 80)}`,
-          });
-          return;
-        }
-        const last = stdout.split(/\r?\n/).filter((l) => l.trim().length > 0).pop() ?? '';
-        resolve({
-          ok: last.length > 0,
-          payload: last.length > 0 ? last.trim() : null,
-          engine,
-          detail: `roundtrip chars=${last.length}`,
-        });
-      },
-    );
-    // 载荷走 stdin,不进 argv(进程列表里看得见命令行参数)
-    if (child.stdin) {
-      child.stdin.end(payloadB64);
-    }
-  });
-}
-
-/** DPAPI 一次调用:按候选序试,首个成功者缓存为本次进程的引擎。 */
-async function runDpapi(mode: 'protect' | 'unprotect', bytes: Uint8Array): Promise<DpapiOutcome> {
-  const payloadB64 = Buffer.from(bytes).toString('base64');
-  const candidates = cachedEngine ? [cachedEngine, ...pwshCandidates().filter((e) => e !== cachedEngine)] : pwshCandidates();
-  const failures: string[] = [];
-  for (const engine of candidates) {
-    if (engine === 'pwsh' && process.platform !== 'win32') continue; // 'pwsh' 候选只在 Windows 侧试
-    const outcome = await runOneEngine(engine, mode, payloadB64);
-    if (outcome.ok && outcome.payload) {
-      cachedEngine = engine;
-      return outcome;
-    }
-    failures.push(outcome.detail);
-    if (process.platform === 'win32') break; // Windows 上"pwsh 不在 PATH"是常态,继续往下探
-  }
-  return { ok: false, payload: null, engine: '', detail: failures.join(' | ').slice(0, 240) };
-}
-
-/** 探针 = 真跑一次 protect 往返(不写盘),因此"探针通过"与"能力可用"是同一件事。 */
-async function probeOsTier(): Promise<{ ok: boolean; engine: string; detail: string }> {
-  if (process.platform !== 'win32') {
-    // 本票只在 Windows/DPAPI 上取过证(见 OS_TIER_EVIDENCE)。其它平台的 OS 档**未取证** ⇒ 不启用,
-    // 也不冒充:让 macOS/Linux 走档位②,档位与原因照实打印。
-    return { ok: false, engine: '', detail: 'non-win32: OS tier 未取证,不启用' };
-  }
-  if (osTierFailure) return { ok: false, engine: '', detail: osTierFailure };
-  const probe = await runDpapi('protect', new Uint8Array(Buffer.from('ihui-d146-os-tier-probe', 'utf-8')));
-  if (!probe.ok || !probe.payload) {
-    osTierFailure = probe.detail || 'all engines failed';
-    return { ok: false, engine: '', detail: osTierFailure };
-  }
-  const back = await runDpapi('unprotect', new Uint8Array(Buffer.from(probe.payload, 'base64')));
-  const roundtrip =
-    back.ok && back.payload && Buffer.from(back.payload, 'base64').toString('utf-8') === 'ihui-d146-os-tier-probe';
-  if (!roundtrip) {
-    osTierFailure = `protect ok 但 unprotect 往返不一致(${back.detail})`;
-    return { ok: false, engine: '', detail: osTierFailure };
-  }
-  return { ok: true, engine: probe.engine, detail: probe.detail };
-}
+// DPAPI 调用/探针/失败缓存全部在 lib/credential-vault.ts(与主凭据共享同一份能力判据)。
 
 const osWrappedCache = new Map<string, MasterKeyMaterial>();
 
 async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
-  const probe = await probeOsTier();
+  const probe = await probeDpapiAsync();
   if (!probe.ok) {
     return { ok: false, created: false, material: null, reasonCode: 'os-tier-unavailable', detail: probe.detail };
   }
@@ -683,7 +461,7 @@ async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
     }
   }
   if (existing !== null) {
-    const un = await runDpapi('unprotect', new Uint8Array(Buffer.from(existing.trim(), 'base64')));
+    const un = await runDpapiAsync('unprotect', new Uint8Array(Buffer.from(existing.trim(), 'base64')));
     if (!un.ok || !un.payload) {
       return { ok: false, created: false, material: null, reasonCode: 'os-wrapper-unreadable-on-this-machine', detail: `已有主密钥封套在本机解不开(${un.detail});不覆盖` };
     }
@@ -701,14 +479,14 @@ async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
   }
   // 生成 → 落盘 → **回读比对一致才认**(不承认落盘就不加密)
   const fresh = new Uint8Array(randomBytes(KEY_BYTES));
-  const prot = await runDpapi('protect', fresh);
+  const prot = await runDpapiAsync('protect', fresh);
   if (!prot.ok || !prot.payload) {
     return { ok: false, created: false, material: null, reasonCode: 'os-protect-failed', detail: prot.detail };
   }
   await fs.mkdir(path.dirname(p), { recursive: true });
   await fs.writeFile(p, prot.payload.trim(), 'utf-8');
-  await chmodSafe(p);
-  const verify = await runDpapi('unprotect', new Uint8Array(Buffer.from(prot.payload.trim(), 'base64')));
+  await chmodSafeAsync(p);
+  const verify = await runDpapiAsync('unprotect', new Uint8Array(Buffer.from(prot.payload.trim(), 'base64')));
   const same =
     verify.ok && !!verify.payload && Buffer.compare(Buffer.from(verify.payload, 'base64'), Buffer.from(fresh)) === 0;
   if (!same) {
@@ -720,58 +498,7 @@ async function tryOsTier(readOnly: boolean): Promise<TierAttempt> {
 }
 
 // ==================== 档位②:机器绑定口令文件 ====================
-
-function machineMaterialLabel(): string {
-  let user = '';
-  try {
-    user = os.userInfo().username;
-  } catch {
-    user = process.env.USERNAME || process.env.USER || '';
-  }
-  return `${os.hostname()}|${os.platform()}|${os.arch()}|${user}`;
-}
-
-/** 本机身份指纹(只出指纹,不出原料;它自身不是密钥) */
-function machineBindingFingerprint(): string {
-  return createHash('sha256').update(machineMaterialLabel(), 'utf-8').digest().subarray(0, 8).toString('hex');
-}
-
-function wrapKeyForMachine(): Uint8Array {
-  return deriveDomainKey(new Uint8Array(Buffer.from(machineMaterialLabel(), 'utf-8')), KEY_WRAP_INFO);
-}
-
-function parseKeyEnvelope(stored: string): { mb: string; iv: string; ct: string } | null {
-  let outer: unknown;
-  try {
-    outer = JSON.parse(stored);
-  } catch {
-    return null;
-  }
-  if (!isPlainObject(outer)) return null;
-  const record = outer as Record<string, unknown>;
-  const keys = Object.keys(record);
-  if (keys.length !== 1 || keys[0] !== KEY_ENVELOPE_FIELD) return null;
-  const inner = record[KEY_ENVELOPE_FIELD];
-  if (!isPlainObject(inner)) return null;
-  const body = inner as Record<string, unknown>;
-  if (!hasExactKeys(body, KEY_ENVELOPE_KEYS_SORTED)) return null;
-  if (typeof body.mb !== 'string' || typeof body.iv !== 'string' || typeof body.ct !== 'string') return null;
-  return { mb: body.mb, iv: body.iv, ct: body.ct };
-}
-
-function sealKeyEnvelope(master: Uint8Array): string {
-  const { iv, ct } = aesGcmSeal(wrapKeyForMachine(), toBase64Url(master));
-  return JSON.stringify({ [KEY_ENVELOPE_FIELD]: { mb: machineBindingFingerprint(), iv, ct } });
-}
-
-function openKeyEnvelope(env: { mb: string; iv: string; ct: string }): Uint8Array | null {
-  if (env.mb !== machineBindingFingerprint()) return null; // 换了机器/换了账号:解不开,不猜、不覆盖
-  const plain = aesGcmOpen(wrapKeyForMachine(), env.iv, env.ct);
-  if (plain === null) return null;
-  const key = fromBase64Url(plain);
-  if (!key || key.length !== KEY_BYTES) return null;
-  return key;
-}
+// 机器身份派生 / 信封形状 / 包裹解包全部在 lib/credential-vault.ts;此处只做 MCP 档位策略。
 
 const machineKeyCache = new Map<string, MasterKeyMaterial>();
 
@@ -791,11 +518,11 @@ async function tryMachineTier(readOnly: boolean): Promise<TierAttempt> {
     }
   }
   if (existing !== null) {
-    const env = parseKeyEnvelope(existing);
+    const env = parseVaultKeyEnvelope(existing, KEY_ENVELOPE_FIELD);
     if (!env) {
       return { ok: false, created: false, material: null, reasonCode: 'machine-key-envelope-shape', detail: '口令文件结构不符信封判据;不覆盖' };
     }
-    const key = openKeyEnvelope(env);
+    const key = openVaultKeyEnvelope(env, KEY_WRAP_INFO);
     if (!key) {
       return {
         ok: false,
@@ -814,10 +541,11 @@ async function tryMachineTier(readOnly: boolean): Promise<TierAttempt> {
   }
   const fresh = new Uint8Array(randomBytes(KEY_BYTES));
   await fs.mkdir(path.dirname(p), { recursive: true });
-  await fs.writeFile(p, sealKeyEnvelope(fresh), 'utf-8');
-  await chmodSafe(p);
+  await fs.writeFile(p, sealVaultKeyEnvelope(fresh, KEY_ENVELOPE_FIELD, KEY_WRAP_INFO), 'utf-8');
+  await chmodSafeAsync(p);
   const verifyRaw = await fs.readFile(p, 'utf-8').catch(() => null);
-  const verifyKey = verifyRaw === null ? null : openKeyEnvelope(parseKeyEnvelope(verifyRaw) ?? { mb: '', iv: '', ct: '' });
+  const verifyEnv = verifyRaw === null ? null : parseVaultKeyEnvelope(verifyRaw, KEY_ENVELOPE_FIELD);
+  const verifyKey = verifyEnv === null ? null : openVaultKeyEnvelope(verifyEnv, KEY_WRAP_INFO);
   if (!verifyKey || Buffer.compare(Buffer.from(verifyKey), Buffer.from(fresh)) !== 0) {
     return { ok: false, created: false, material: null, reasonCode: 'machine-key-readback-mismatch', detail: '回读比对不一致;不落任何密文' };
   }
@@ -826,14 +554,7 @@ async function tryMachineTier(readOnly: boolean): Promise<TierAttempt> {
   return { ok: true, created: true, material, reasonCode: 'machine-key-created-now', detail: 'created + verified' };
 }
 
-async function chmodSafe(p: string): Promise<void> {
-  try {
-    // 0o600 = rw-------;Windows 上 chmod 只影响 owner 位(group/other 被忽略)
-    await fs.chmod(p, 0o600);
-  } catch {
-    // 某些文件系统不支持 chmod:忽略(文件已写入),但**不**把它当成"加密已生效"
-  }
-}
+// chmod 实现已抽到 lib/credential-vault.ts(chmodSafeAsync)。
 
 // ==================== 读写主链路 ====================
 
@@ -1069,7 +790,7 @@ async function isolateUnreadableStore(
     }
   }
   // 证据里装的是别人的 token,权限位必须与主文件同档(0600),不能留默认 0644
-  await chmodSafe(evidencePath);
+  await chmodSafeAsync(evidencePath);
   return { evidencePath, failed: '' };
 }
 
@@ -1200,7 +921,7 @@ async function migratePlaintextStore(originalRaw: string, creds: McpCredentials)
   try {
     // 迁移写也走原子出口:一次"半截的密文"比一次半截的明文更难查(它读起来像密钥坏了)。
     commitAtomicWrite(captureWriteBaseline(p), sealed);
-    await chmodSafe(p);
+    await chmodSafeAsync(p);
   } catch (err) {
     const code = errCodeOf(err) ?? 'write-error';
     console.error(
@@ -1225,7 +946,7 @@ async function migratePlaintextStore(originalRaw: string, creds: McpCredentials)
       // 所以正常路径上必然校验通过;而不取基线、直接覆写会静默盖掉第三者在此期间写入的凭据。
       const currentOnDisk = await fs.readFile(p, 'utf-8').catch(() => null);
       commitAtomicWrite({ absPath: p, content: currentOnDisk }, originalRaw);
-      await chmodSafe(p);
+      await chmodSafeAsync(p);
       console.error(
         `❌ ${t('cli.mcpCredentials.migrationFailed', { reason: '落盘回读不一致;已把原明文文件还原,未覆盖' })}`,
       );
@@ -1273,7 +994,7 @@ async function persistCredentials(creds: McpCredentials): Promise<void> {
       ? sealCredentialEnvelope(plainText, plan.material.key, plan.material.kid)
       : plainText;
   commitAtomicWrite(captureWriteBaseline(p), body);
-  await chmodSafe(p);
+  await chmodSafeAsync(p);
   const desc = await describeCredentialStore();
   const at = await inspectCredentialFile();
   if (at.plaintextReadable) {

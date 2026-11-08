@@ -35,6 +35,11 @@ import { collectLayerContributions, deepMergeAll, type ConfigSourceEntry } from 
 import { parseEnvOverrides } from './env.js'
 import { parseCliOverrides } from './cli.js'
 import { filterProjectLayerSettings } from './layer-policy.js'
+import {
+  applyStoredMainCredentials,
+  migratePlaintextCredentials,
+  withoutMainCredentialFields,
+} from '../lib/main-credential-store.js'
 import { validateSettingsValues } from './validate.js'
 
 export interface LoadConfigOptions {
@@ -46,6 +51,8 @@ export interface LoadConfigOptions {
   cliArgs?: Record<string, unknown>
   /** 临时 session 配置(优先级高于 setSessionConfig 注入的模块级状态) */
   sessionOverrides?: Partial<Settings>
+  /** 测试注入。省略时用 fs.statSync。 */
+  stat?: (path: string) => fs.Stats
 }
 
 /** 全局配置路径:~/.ihui/settings.json */
@@ -91,15 +98,25 @@ function errorText(e: unknown): string {
  * 返回类型改为 `Record<string, unknown>` 是本次修复的要害:调用方必须先过校验才能
  * 拿到 `Partial<Settings>`,类型系统从此不再替脏文件背书。
  */
-function loadSettingsFile(p: string): Record<string, unknown> {
-  if (!fs.existsSync(p)) return {}
+function loadSettingsFile(p: string, stat?: (path: string) => fs.Stats): Record<string, unknown> {
+  // 读不到 ≠ 没有:只有 ENOENT/ENOTDIR 才是"文件不存在"的正常态;
+  // 其余 stat/read 失败必须抛错,不能默默按空层降级(否则下一层或写入会覆盖掉用户配置)。
+  const look = stat ?? ((q: string) => fs.statSync(q))
+  try {
+    look(p)
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return {}
+    throw new Error(`配置读不到,不能把它当成空配置 (${code ?? 'unknown'})`)
+  }
 
   let raw: string
   try {
     raw = fs.readFileSync(p, 'utf-8')
   } catch (e) {
-    console.warn(`[config] 读取 ${p} 失败,该层按空处理:${errorText(e)}`)
-    return {}
+    const code = (e as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return {}
+    throw new Error(`配置读不到,不能把它当成空配置 (${code ?? 'unknown'})`)
   }
 
   let parsed: unknown
@@ -162,9 +179,14 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
 
   // Layer 1: defaults(内置默认值,最低优先级)
   const defaults = DEFAULT_SETTINGS
-  // Layer 2: global(~/.ihui/settings.json)—— BUG-0042:用户全局层此前只断言 isRecord,
-  // 非法类型/越界数值会原样进主循环。这里过运行时类型校验:非法键回落默认层并点名。
-  const globalRaw = loadSettingsFile(globalPath)
+  // Layer 2: global(~/.ihui/settings.json)
+  // 2026-11-06 安全债:主凭据只从安全存储回填到 **global 层**(这样 env/cli 仍可覆盖),
+  // 且回填前先剥离文件里的明文;迁移在读之前完成,旧明文不会被合进内存。
+  // BUG-0042(origin/main):global 层此前只断言 isRecord,非法类型/越界数值会原样进主循环,
+  // 这里过运行时类型校验:非法键回落默认层并点名。校验对象是"剥掉凭据后的文件内容",
+  // 从安全存储回填的凭据不参与校验(它们不是用户可编辑的配置项)。
+  migratePlaintextCredentials([globalPath])
+  const globalRaw = withoutMainCredentialFields(loadSettingsFile(globalPath, opts.stat))
   const globalCheck = validateSettingsValues(globalRaw)
   if (globalCheck.warnings.length > 0) {
     console.warn(
@@ -172,11 +194,11 @@ function resolveLayers(opts: LoadConfigOptions): ResolvedLayer[] {
         globalCheck.warnings.map((w) => `  - ${w}`).join('\n'),
     )
   }
-  const globalConfig = globalCheck.value
+  const globalConfig = applyStoredMainCredentials(globalCheck.value)
   // Layer 3: project(<cwd>/.ihui/settings.json)—— G-408①:这一层是**仓库内容**,必须过
   // 可写键封闭表(config/layer-policy.ts):安全敏感键/未知键/非法枚举一律拒绝并点名。
   // 此前它零键过滤,防线只剩 .gitignore 的 `.ihui/*` 一行 —— ignore 不是判据。
-  const projectRaw = loadSettingsFile(projectPath)
+  const projectRaw = loadSettingsFile(projectPath, opts.stat)
   const projectFilter = filterProjectLayerSettings(projectRaw)
   if (projectFilter.rejected.length > 0) {
     // 拒绝必须可见:静默丢弃安全键等于让仓库作者可以"悄悄试",下一次换个键再来。
