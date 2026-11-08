@@ -373,17 +373,6 @@ export async function activateApiSubscription(
     }
   }
 
-  // 3. 找用户当前活跃 Key
-  const [activeKey] = await dbRead
-    .select({
-      id: developerApiKeys.id,
-      tokenBalance: developerApiKeys.tokenBalance,
-    })
-    .from(developerApiKeys)
-    .where(and(eq(developerApiKeys.userId, userId), eq(developerApiKeys.status, 'active')))
-    .orderBy(desc(developerApiKeys.lastUsedAt), desc(developerApiKeys.createdAt))
-    .limit(1)
-
   // 4. 事务内:写入配额 + 记录发放流水(流水唯一索引拦截并发重复回调)
   const result = await db.transaction(async (tx) => {
     // 4.1 事务内二次幂等检查(防 TOCTOU:查无流水 → 并发回调重复发放)
@@ -396,8 +385,25 @@ export async function activateApiSubscription(
       if (existingFlow) return { success: false, reason: 'already_activated' }
     }
 
+    // 4.2 事务内取活跃 Key 并锁行（DB-03 P1：原实现在事务外读快照）。
+    //     READ COMMITTED 下事务外读到的 token_balance 可能已被并发入账改掉，
+    //     应用层 `旧值 + quota` 写回会覆盖并发增量 ⇒ 丢账。
+    //     FOR UPDATE 让同一 Key 的配额发放串行：后到事务等前行提交后
+    //     再读取最新 token_balance，累加结果正确。
+    const [activeKey] = await tx
+      .select({
+        id: developerApiKeys.id,
+        tokenBalance: developerApiKeys.tokenBalance,
+      })
+      .from(developerApiKeys)
+      .where(and(eq(developerApiKeys.userId, userId), eq(developerApiKeys.status, 'active')))
+      .orderBy(desc(developerApiKeys.lastUsedAt), desc(developerApiKeys.createdAt))
+      .limit(1)
+      .for('update')
+
     let keyId: string
     let appliedQuota: number
+    let balanceAfter: number
     if (activeKey) {
       keyId = activeKey.id
       // 累加:quota=-1(无限) → 设为 -1;quota>0 → token_balance += quota(若已 -1 保持 -1)
@@ -407,16 +413,19 @@ export async function activateApiSubscription(
           .set({ tokenBalance: -1, updatedAt: new Date() })
           .where(eq(developerApiKeys.id, activeKey.id))
         appliedQuota = 0
+        balanceAfter = -1
       } else if (tokenQuota > 0) {
         // 已是无限额度则保持,否则累加
         if (Number(activeKey.tokenBalance) === -1) {
           // 已经无限,无需变更
           appliedQuota = 0
+          balanceAfter = -1
         } else {
+          balanceAfter = Number(activeKey.tokenBalance) + tokenQuota
           await tx
             .update(developerApiKeys)
             .set({
-              tokenBalance: Number(activeKey.tokenBalance) + tokenQuota,
+              tokenBalance: balanceAfter,
               allowedModels: keyAllowedModels,
               updatedAt: new Date(),
             })
@@ -425,6 +434,7 @@ export async function activateApiSubscription(
         }
       } else {
         appliedQuota = 0
+        balanceAfter = Number(activeKey.tokenBalance)
       }
     } else {
       // 5. 无 Key → 自动创建默认 Key
@@ -447,6 +457,8 @@ export async function activateApiSubscription(
       if (!newKey) return { success: false, reason: 'create_key_failed' }
       keyId = newKey.id
       appliedQuota = tokenQuota === -1 ? 0 : Math.max(tokenQuota, 0)
+      // DB-03:流水 balance_after 必须等于落库后的真实余额
+      balanceAfter = tokenQuota === -1 ? -1 : Math.max(tokenQuota, 0)
     }
 
     // 4.2 写配额发放流水作为幂等标记(仅当 orderNo 存在;op_type=6 避免与佣金 4 冲突)
@@ -455,7 +467,7 @@ export async function activateApiSubscription(
         userId,
         opType: 6,
         quantity: appliedQuota,
-        balanceAfter: 0,
+        balanceAfter,
         remark: `API 订阅配额发放:${planRow.name}`,
         relatedOrderNo: orderNo,
       })
