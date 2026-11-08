@@ -254,6 +254,12 @@ function loadInputs() {
   return { appJson, privacyText: paragraphs.join('\n'), company, email, effectDate, manifestText, gradleText, pkgJsonText, manifestPath: manifestPath.replace(/\\/g, '/') }
 }
 
+/**
+ * 隐私政策地址(所有商店表单共用字段的单一真源)。
+ * 2026-11-08 实测:https://aizhs.top/agreement/privacy ⇒ 200;旧地址 /privacy 反映 404,已全仓改除。
+ */
+export const PRIVACY_POLICY_URL = 'https://aizhs.top/agreement/privacy'
+
 /** listing 文案:一律取自仓内既有事实(名称/主体/隐私生效日),不新造宣传语。 */
 export function buildListing(appJson, meta) {
   const title = appJson?.name ?? 'IHUI AI'
@@ -263,7 +269,7 @@ export function buildListing(appJson, meta) {
     brief: `${title}(智汇AI)AI 对话与智能体平台,由${meta.company ?? '该主体'}提供。`,
     full: [`【${title}】`, 'AI 对话、智能体(Agent)与知识库应用能力;账号体系与 Web/桌面端互通。', '', '隐私政策生效日期:' + (meta.effectDate ?? '未在册'), '开发者主体:' + (meta.company ?? '未在册')].join('\n'),
     category: '工具',
-    privacyPolicyUrl: 'https://aizhs.top/privacy',
+    privacyPolicyUrl: PRIVACY_POLICY_URL,
     contact: meta.email ? { email: meta.email } : null,
     source: '本文件全部字段由 app.json 与 privacyPolicy.ts 现读派生;改文案请改这两处,不要在这里加分支(§0.6)。',
   }

@@ -6,13 +6,14 @@ import { useNavigation } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { IcpRecordScreen as SharedIcpRecordScreen, type IcpRecordScreenProps } from '@ihui/rn-app'
+import { ICP_MIIT_URL } from '@ihui/shared'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-const MIIT_QUERY_URL = 'https://beian.miit.gov.cn/'
+const MIIT_QUERY_URL = ICP_MIIT_URL
 
 export function IcpRecordScreen() {
   const { t } = useI18n()

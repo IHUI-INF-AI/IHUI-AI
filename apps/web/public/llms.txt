@@ -66,7 +66,7 @@
 ## 可选:法律与信任
 
 - [服务协议](/agreement)
-- [隐私政策](/privacy)
+- [隐私政策](/agreement/privacy)
 - [退款政策](/refund)
 - [积分规则](/points/rules)
 - 工信部 ICP 备案:见页脚

@@ -1,0 +1,14 @@
+{
+  "appFilingNumber": "吉ICP备2025027274号-7A",
+  "icpNumber": "吉ICP备2025027274号",
+  "websiteFilingNumber": "吉ICP备2025027274号-2",
+  "authority": "吉林省通信管理局",
+  "filingDate": "2025-08-13",
+  "filingDateRef": "packages/shared/src/constants/icp-record.ts#ICP_FILING_DATE",
+  "verifiedAt": "2026-11-07",
+  "entity": "吉林省爱智汇人工智能科技有限公司",
+  "appName": "AI丨智汇社",
+  "packageName": "zh.ai.sq",
+  "source": "应用宝官方应用页标注『备案号：吉ICP备2025027274号-7A』（主办者与主体一致）；主体号与网站服务号 -2 取自网盘 ICP备案号.png（2025-08-13 审核）",
+  "sourceUrl": "https://sj.qq.com/appdetail/zh.ai.sq"
+}

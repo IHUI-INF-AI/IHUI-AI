@@ -7,11 +7,12 @@
 import { useCallback } from 'react'
 import Taro from '@tarojs/taro'
 import { IcpRecordScreen as SharedIcpRecordScreen } from '@ihui/rn-app/features/icp-record/IcpRecordScreen'
+import { ICP_MIIT_URL } from '@ihui/shared'
 import { useI18n } from '@/i18n'
 import { useTheme } from '@/rn-compat/theme'
 import ThemeRoot from '@/components/ThemeRoot'
 
-const MIIT_QUERY_URL = 'https://beian.miit.gov.cn/'
+const MIIT_QUERY_URL = ICP_MIIT_URL
 
 export default function IcpRecord() {
   const { t } = useI18n()

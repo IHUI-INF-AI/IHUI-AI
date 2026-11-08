@@ -22,15 +22,18 @@ import { BackChevron } from '../../components/BackChevron'
 /** 营业执照/Props 类型 re-export(单一来源 @ihui/types) */
 export type { BusinessLicenseScreenProps }
 
-/** 与小程序 pkg-about/about/business-license 同一组工商信息(值按可核事实对齐,标签走 i18n) */
-const LICENSE_VALUES = [
-  '91440101MA9X0000X1',
-  '吉林省爱智汇人工智能科技有限公司',
-  '有限责任公司',
-  '1000万元人民币',
-  '2023-06-15',
-  '2023-06-15 至 长期',
-  '广州市市场监督管理局',
+/**
+ * 与小程序 pkg-about/about/business-license 同一组工商信息(值按可核事实对齐,标签走 i18n)。
+ *
+ * 统一社会信用代码与登记机关仓内没有真实值(营业执照原件在网盘),不展示形似占位的假值。
+ * 待补:原件上的信用代码与登记机关,见 docs/engineering/icp-filing-single-source-2026-11-08.md。
+ */
+const LICENSE_ROWS: { labelKey: string; value: string }[] = [
+  { labelKey: 'businessLicense.label1', value: '吉林省爱智汇人工智能科技有限公司' },
+  { labelKey: 'businessLicense.label2', value: '有限责任公司' },
+  { labelKey: 'businessLicense.label3', value: '1000万元人民币' },
+  { labelKey: 'businessLicense.label4', value: '2023-06-15' },
+  { labelKey: 'businessLicense.label5', value: '2023-06-15 至 长期' },
 ]
 
 /**
@@ -77,9 +80,9 @@ export function BusinessLicenseScreen({
         </View>
 
         <View style={[styles.card, styles.tableCard]}>
-          {LICENSE_VALUES.map((value, index) => (
-            <View key={index} style={styles.row}>
-              <Text style={styles.rowLabel}>{t(`businessLicense.label${index}`)}</Text>
+          {LICENSE_ROWS.map(({ labelKey, value }) => (
+            <View key={labelKey} style={styles.row}>
+              <Text style={styles.rowLabel}>{t(labelKey)}</Text>
               <Text style={styles.rowValue}>{value}</Text>
             </View>
           ))}

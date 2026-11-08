@@ -276,7 +276,7 @@ A: Hosted version: Free tier (limited credits), Pro ¥99/month, Enterprise custo
 
 ### Q10: Is my data safe?
 
-A: Hosted version: data in China (Aliyun) with full encryption at rest and in transit. Self-host: 100% on your infrastructure. We do not train models on customer data. See <https://aizhs.top/privacy>.
+A: Hosted version: data in China (Aliyun) with full encryption at rest and in transit. Self-host: 100% on your infrastructure. We do not train models on customer data. See <https://aizhs.top/agreement/privacy>.
 
 ---
 
@@ -365,7 +365,7 @@ All paid tiers include: all models, all 6 clients, Agent marketplace listing, AP
 ## 11. Legal & Trust
 
 - [Terms of Service](https://aizhs.top/agreement)
-- [Privacy Policy](https://aizhs.top/privacy)
+- [Privacy Policy](https://aizhs.top/agreement/privacy)
 - [Refund Policy](https://aizhs.top/refund)
 - [Credit Rules](https://aizhs.top/points/rules)
 - [Acceptable Use](https://aizhs.top/rules)

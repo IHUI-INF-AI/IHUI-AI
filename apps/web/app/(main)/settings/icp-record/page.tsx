@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl'
 import { Globe, ShieldCheck } from 'lucide-react'
 
 import { Card, CardHeader, CardTitle, CardContent } from '@ihui/ui-react'
+import { ICP_FILING_DATE, ICP_MIIT_URL } from '@ihui/shared'
 import { BackButton } from '@/components/common'
 
 interface IcpRecord {
@@ -24,11 +25,11 @@ export default function IcpRecordPage() {
     { labelKey: 'icpRecordNumber', value: '吉ICP备2025027274号' },
     { labelKey: 'icpRecordEntity', value: '吉林省爱智汇人工智能科技有限公司' },
     { labelKey: 'icpRecordEntityType', value: '企业' },
-    { labelKey: 'icpRecordTime', value: '2025-11-21' },
+    { labelKey: 'icpRecordTime', value: ICP_FILING_DATE },
     {
       labelKey: 'icpRecordUrl',
-      value: 'https://beian.miit.gov.cn',
-      link: 'https://beian.miit.gov.cn',
+      value: ICP_MIIT_URL,
+      link: ICP_MIIT_URL,
     },
     { labelKey: 'icpRecordScope', value: t('icpRecordScopeValue') },
   ]

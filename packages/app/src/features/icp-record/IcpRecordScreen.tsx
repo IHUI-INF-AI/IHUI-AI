@@ -10,10 +10,16 @@ import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import type { IcpRecordScreenProps } from '../../types'
 import { BackChevron } from '../../components/BackChevron'
 import { Tappable } from '@ihui/ui-native'
+import {
+  ICP_APP_FILING_NUMBER,
+  ICP_FILING_DATE,
+  ICP_MIIT_URL,
+  ICP_PUBLIC_SECURITY_NUMBER,
+} from '@ihui/shared'
 
 export type { IcpRecordScreenProps }
 
-const ICP_NO = '吉ICP备2025027274号-7A'
+const ICP_NO = ICP_APP_FILING_NUMBER
 /**
  * 标签键与值显式成对,不再用「数组下标 → label${index}」。
  * 62b61b5816 在 label1 后插入公网安备号而没补标签,下标配对让 label1–label5 整体错位;
@@ -26,11 +32,11 @@ const ICP_NO = '吉ICP备2025027274号-7A'
  */
 const ICP_ROWS: { labelKey: string; value: string; href?: string }[] = [
   { labelKey: 'icpRecord.label0', value: ICP_NO },
-  { labelKey: 'icpRecord.labelPublicSecurity', value: '吉公网安备22010502000999号' },
+  { labelKey: 'icpRecord.labelPublicSecurity', value: ICP_PUBLIC_SECURITY_NUMBER },
   { labelKey: 'icpRecord.label1', value: '吉林省爱智汇人工智能科技有限公司' },
   { labelKey: 'icpRecord.label2', value: '企业' },
-  { labelKey: 'icpRecord.label3', value: '2026-01-15' },
-  { labelKey: 'icpRecord.label4', value: 'aizhs.top', href: 'https://beian.miit.gov.cn' },
+  { labelKey: 'icpRecord.label3', value: ICP_FILING_DATE },
+  { labelKey: 'icpRecord.label4', value: 'aizhs.top', href: ICP_MIIT_URL },
 ]
 
 export function IcpRecordScreen({
