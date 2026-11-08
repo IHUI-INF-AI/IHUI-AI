@@ -30,7 +30,9 @@ export const userMargins = pgTable(
 
 /**
  * Token 流水表。
- * opType: 0=充值 1=扣减(提现) 2=过期 3=退款 4=佣金 5=管理员调整 6=API 订阅配额发放。
+ * opType（以写入点为准，不是从前端标签倒推）:
+ * 0=充值/入账 1=扣减(提现/消费) 2=过期清零 3=退款扣回
+ * 4=Relay 转账至 API Key(钱包扣款) 5=管理员调整(quantity 自带符号) 6=API 订阅配额发放。
  *
  * 单位（重要，同表两义）:
  * - op_type 0–5: `quantity` / `balance_after` 是「分」，对应 user_margins.token_quantity
