@@ -98,6 +98,11 @@ export const Linking = {
     return { remove() {} }
   },
   getInitialURL: async () => null,
+  // XUI-053:RN 侧「去设置」走 Linking.openSettings;垫片此前缺该成员 ⇒ 按钮 TypeError。
+  openSettings: async () => {
+    await Taro.openSetting()
+    return true
+  },
 }
 
 /**

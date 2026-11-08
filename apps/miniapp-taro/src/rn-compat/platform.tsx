@@ -176,12 +176,21 @@ export const ImagePicker = {
 export const MediaLibrary = {
   requestPermissionsAsync: async () => ({ granted: true, status: 'granted' }),
   getAsync: async () => ({ totalCount: 0, assets: [] }),
-  createAssetAsync: async (uri: string): Promise<void> => {
+  // XUI-052:调用方会读 `asset.uri` 再交给 saveToLibraryAsync;旧实现返回 void ⇒ uri 为 undefined,
+  // 保存相册静默失败。这里如实回吐落库后的本地 uri(尺寸微信不回吐,给 0 不臆造)。
+  createAssetAsync: async (
+    uri: string,
+  ): Promise<{ uri: string; width: number; height: number }> => {
     if (/\.(mp4|mov|m4v)$/i.test(uri)) await Taro.saveVideoToPhotosAlbum({ filePath: uri })
     else await Taro.saveImageToPhotosAlbum({ filePath: uri })
+    return { uri, width: 0, height: 0 }
   },
   saveToPhotosAsync: async (uris: string[]): Promise<void> => {
     for (const uri of uris) await MediaLibrary.createAssetAsync(uri)
+  },
+  // XUI-052:RN 侧 saveToLibraryAsync 是独立成员;垫片此前没有 ⇒ 调用即 TypeError。
+  saveToLibraryAsync: async (uri: string): Promise<void> => {
+    await MediaLibrary.createAssetAsync(uri)
   },
   deleteAssetsAsync: async (_ids: string[]): Promise<void> => {},
 }
@@ -426,6 +435,7 @@ export const ImageQuality = ImagePicker.ImageQuality
 export const requestPermissionsAsync = MediaLibrary.requestPermissionsAsync
 export const getAsync = MediaLibrary.getAsync
 export const createAssetAsync = MediaLibrary.createAssetAsync
+export const saveToLibraryAsync = MediaLibrary.saveToLibraryAsync
 export const saveToPhotosAsync = MediaLibrary.saveToPhotosAsync
 export const deleteAssetsAsync = MediaLibrary.deleteAssetsAsync
 
