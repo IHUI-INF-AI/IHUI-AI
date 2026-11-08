@@ -16,8 +16,12 @@
 //   1) 手动:    node apps/api/scripts/pg-backup.mjs
 //   (每日自动调度已移除)
 //
-// 输出: <仓库>/backups/pg/<db>-YYYYMMDD-HHmmss.sql.gz (gzip 压缩)
+// 输出: <仓库>/backups/pg/<db>-YYYYMMDD-HHmmss.sql.gz[.age] (gzip 压缩;默认 age 加密)
 // 保留: 最近 30 份, 老的自动删除
+// 加密(DB-34):备份含全库明文(含 PII/第三方凭据),默认必须 age 加密后落盘。
+//   BACKUP_ENC_RECIPIENT   age 公钥(age1...),必填;缺失即 fail-closed 拒绝产出明文
+//   BACKUP_AGE_IDENTITY    可选:age 私钥文件,用于落盘后解密自检
+//   BACKUP_ALLOW_PLAINTEXT=1  应急放行明文(打 WARN,仅限临时)
 // 自校: 落盘后完整解压校验 gzip 完整性 + 含建表语句 + 非空, 失败即终止轮转并 exit 1
 import { spawn } from 'node:child_process'
 import {
@@ -29,6 +33,9 @@ import {
   unlinkSync,
   createReadStream,
   createWriteStream,
+  openSync,
+  readSync,
+  closeSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createGzip, createGunzip } from 'node:zlib'
@@ -87,14 +94,30 @@ if (located.psql !== 'psql' && !existsSync(pgDumpExe)) {
 }
 console.log(`[pg-backup] 🔧 pg_dump = ${pgDumpExe}(psql 同源解析,候选清单见 psql-client-locate)`)
 
-// 3) 准备输出
+// 3) 备份加密配置(fail-closed)
+const envOr = (key) => (process.env[key] ?? env[key] ?? '').trim()
+const encRecipient = envOr('BACKUP_ENC_RECIPIENT')
+const ageIdentity = envOr('BACKUP_AGE_IDENTITY')
+const allowPlaintext = envOr('BACKUP_ALLOW_PLAINTEXT') === '1'
+const encrypted = encRecipient.length > 0
+if (!encrypted) {
+  if (!allowPlaintext) {
+    console.error('[pg-backup] ❌ 拒绝产出明文备份:未配置 BACKUP_ENC_RECIPIENT(age 公钥)')
+    console.error('[pg-backup]    生成密钥:age-keygen -o key.txt;填入 BACKUP_ENC_RECIPIENT=age1...')
+    console.error('[pg-backup]    应急放行:BACKUP_ALLOW_PLAINTEXT=1(会记录 WARN)')
+    process.exit(1)
+  }
+  console.warn('[pg-backup] ⚠ BACKUP_ALLOW_PLAINTEXT=1:本次为明文备份(含全库敏感数据),仅限应急')
+}
+
+// 4) 准备输出
 if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true })
 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-')
-const outFile = join(BACKUP_DIR, `${db}-${stamp}.sql.gz`)
+const outFile = join(BACKUP_DIR, `${db}-${stamp}.sql.gz${encrypted ? '.age' : ''}`)
 
 console.log(`[pg-backup] 📦 ${db}@${host}:${port} → ${outFile}`)
 
-// 4) pg_dump | gzip
+// 5) pg_dump | gzip[ | age]
 const pgDump = spawn(
   pgDumpExe,
   [
@@ -119,8 +142,27 @@ const pgDump = spawn(
 )
 
 const gzip = createGzip()
-const out = createWriteStream(outFile)
-pgDump.stdout.pipe(gzip).pipe(out)
+let out = null
+let ageProc = null
+let ageErr = ''
+if (encrypted) {
+  ageProc = spawn('age', ['-r', encRecipient, '-o', outFile], {
+    stdio: ['pipe', 'ignore', 'pipe'],
+  })
+  ageProc.stderr.on('data', (d) => (ageErr += d))
+  ageProc.on('error', (e) => {
+    console.error(
+      `[pg-backup] ❌ age 启动失败(${e.message}):请安装 age 并把 age/age.exe 放进 PATH,或临时设 BACKUP_ALLOW_PLAINTEXT=1`,
+    )
+    process.exit(1)
+  })
+  pgDump.stdout.pipe(gzip).pipe(ageProc.stdin)
+  // age 提前退出会让 stdin 报 EPIPE;错误已由 age 的退出码通道上报,这里只吞掉该事件避免崩栈
+  ageProc.stdin.on('error', () => {})
+} else {
+  out = createWriteStream(outFile)
+  pgDump.stdout.pipe(gzip).pipe(out)
+}
 
 let pgErr = ''
 pgDump.stderr.on('data', (d) => (pgErr += d))
@@ -143,25 +185,37 @@ await new Promise((resolve, reject) => {
     finished++
     check()
   })
-  out.on('finish', () => {
-    console.log('[pg-backup] ✓ gzip 压缩完成')
-    finished++
-    check()
-  })
-  out.on('error', reject)
+  if (encrypted) {
+    ageProc.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`[pg-backup] ❌ age 退出码 ${code}\n${ageErr}`)
+        return reject(new Error(`age exit ${code}`))
+      }
+      console.log('[pg-backup] ✓ age 加密完成')
+      finished++
+      check()
+    })
+  } else {
+    out.on('finish', () => {
+      console.log('[pg-backup] ✓ gzip 压缩完成')
+      finished++
+      check()
+    })
+    out.on('error', reject)
+  }
 })
 
-// 5) 自我完整性校验：完整解压一遍，验证 gzip 未被截断/损坏，并确认解压后非空含建表语句。
-//    pg_dump 干净退出(exit 0)通常够；但管道 SIGPIPE 或磁盘写满等仍可能产出损坏文件。
-//    此步让每次备份在轮转前自证"可被完整解压"，损坏则给出明确错误提示并终止轮转。
-try {
+// 6) 自我完整性校验:加密产物先验 age 文件头(有私钥则解密后完整解压),
+//    明文产物完整解压一遍;两者都要求解压后非空且含建表语句。
+//    pg_dump 干净退出(exit 0)通常够;但管道 SIGPIPE 或磁盘写满等仍可能产出损坏文件。
+//    此步让每次备份在轮转前自证"可被完整还原",损坏则给出明确错误提示并终止轮转。
+async function verifyDecompressed(readable) {
   let decompressedBytes = 0
   let sawCreateTable = false
   await new Promise((resolve, reject) => {
     const gunzip = createGunzip()
-    const rs = createReadStream(outFile)
-    rs.on('error', reject)
-    rs.pipe(gunzip)
+    readable.on('error', reject)
+    readable.pipe(gunzip)
     gunzip.on('data', (chunk) => {
       decompressedBytes += chunk.length
       if (!sawCreateTable && chunk.toString('utf8').includes('CREATE TABLE')) sawCreateTable = true
@@ -171,9 +225,45 @@ try {
   })
   if (decompressedBytes <= 0) throw new Error('解压后为空(0 字节)')
   if (!sawCreateTable) throw new Error('解压内容不含 CREATE TABLE,疑似非完整 SQL dump')
-  console.log(
-    `[pg-backup] 🔍 完整性校验通过: 解压 ${(decompressedBytes / 1024).toFixed(1)} KB, 含建表语句`,
-  )
+  return decompressedBytes
+}
+
+try {
+  if (encrypted) {
+    // 只读文件头 64 字节判 age 魔数,不把整份备份读进内存
+    const fd = openSync(outFile, 'r')
+    let head = ''
+    try {
+      const buf = Buffer.alloc(64)
+      const len = readSync(fd, buf, 0, 64, 0)
+      head = buf.subarray(0, len).toString('utf8')
+    } finally {
+      closeSync(fd)
+    }
+    if (!head.includes('age-encryption.org/v1')) throw new Error('缺少 age 文件头(产物非 age 密文)')
+    if (!ageIdentity) {
+      console.warn(
+        '[pg-backup] ⚠ 未提供 BACKUP_AGE_IDENTITY,仅校验 age 文件头(跳过解密内容校验)',
+      )
+    } else {
+      const decrypt = spawn('age', ['-d', '-i', ageIdentity, outFile], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+      let decErr = ''
+      decrypt.stderr.on('data', (d) => (decErr += d))
+      const bytes = await verifyDecompressed(decrypt.stdout).catch((e) => {
+        throw new Error(`解密自检失败:${e.message}${decErr ? `(${decErr.trim()})` : ''}`)
+      })
+      console.log(
+        `[pg-backup] 🔍 完整性校验通过(解密): 还原 ${(bytes / 1024).toFixed(1)} KB, 含建表语句`,
+      )
+    }
+  } else {
+    const bytes = await verifyDecompressed(createReadStream(outFile))
+    console.log(
+      `[pg-backup] 🔍 完整性校验通过: 解压 ${(bytes / 1024).toFixed(1)} KB, 含建表语句`,
+    )
+  }
 } catch (e) {
   console.error(
     `[pg-backup] ❌ 完整性校验失败: ${e.message} —— 本次备份不可信,终止轮转避免误删可用备份`,
@@ -181,9 +271,9 @@ try {
   process.exit(1)
 }
 
-// 6) 轮转: 只保留最近 KEEP 份
+// 7) 轮转: 只保留最近 KEEP 份(明文 .sql.gz 与加密 .sql.gz.age 一并计入)
 const files = readdirSync(BACKUP_DIR)
-  .filter((f) => f.endsWith('.sql.gz'))
+  .filter((f) => f.endsWith('.sql.gz') || f.endsWith('.sql.gz.age'))
   .map((f) => ({ f, m: statSync(join(BACKUP_DIR, f)).mtimeMs }))
   .sort((a, b) => b.m - a.m)
 const toDelete = files.slice(KEEP)

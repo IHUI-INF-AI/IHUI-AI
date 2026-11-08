@@ -27,7 +27,9 @@ const {
   classifyRetryExpr,
   judgeFakeRatchet,
   collectRetryCandidateFiles,
+  retryGrepArgs,
 } = __test__
+const { gitRaw } = await import(pathToFileURL(join(ROOT, 'scripts', 'lib', 'face-reader.mjs')).href)
 
 const shared = (name, text, spec = `packages/app/src/features/x/${name}.tsx`) => ({ name, spec, text })
 const shell = (name, text) => ({ file: `apps/mobile-rn/src/screens/${name}.tsx`, name, text })
@@ -166,6 +168,24 @@ test('扩面未判定:回调透传不折成真重载,也不折成 0', () => {
   const r = judgeFakeRatchet([site], [])
   assert.equal(r.newFake.length, 0, '未判定不进假重载棘轮')
   assert.equal(r.decided, 0, '未判定不计入已判定数')
+})
+
+test('扩面取材 staged:git grep 选项必须排在 pattern 前(原写法把 --cached 当成 revision)', () => {
+  const dir = 'apps/web/app'
+  assert.deepEqual(retryGrepArgs('staged', dir), ['grep', '-l', '--cached', '-e', 'onRetry', '--', dir])
+  // 阴性对照:把改前的写法原样作为夹具 —— git 必报 unable to resolve revision,而不是"零命中"
+  assert.throws(
+    () => gitRaw(['grep', '-l', 'onRetry', '--cached', '--', dir], ROOT, { maxBuffer: 8 * 1024 * 1024 }),
+    /unable to resolve revision|--cached/,
+  )
+  // 阳性:修正后的参数在索引面可执行;无命中只能是 exit 1(确证 0 份),不得是 revision 解析失败
+  try {
+    const out = gitRaw(retryGrepArgs('staged', dir), ROOT, { maxBuffer: 8 * 1024 * 1024 })
+    assert.equal(typeof out, 'string')
+  } catch (e) {
+    assert.equal(e.status, 1, `staged 面只能因"无命中"exit 1:${e.message}`)
+    assert.doesNotMatch(String(e.message), /unable to resolve revision/)
+  }
 })
 
 test('扩面取材:web/小程序候选清单只收产品文件,测试夹具不进射程', () => {

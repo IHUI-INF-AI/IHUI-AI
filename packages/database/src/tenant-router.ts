@@ -13,7 +13,8 @@
  * - LRU 上限(默认 32 个租户,env TENANT_CACHE_MAX_ENTRIES 可调):超限淘汰最久未访问的租户池。
  * - 租户数据库 URL 从 env 读取：TENANT_${TENANT_ID}_DATABASE_URL（tenantId 归一化为大写下划线）。
  * - 未配置租户专用 URL 时，fallback 到默认 Database（保持现有单租户行为）。
- * - 每个租户连接池 max=10；默认池由调用方配置（apps/api 用 max=20）。
+ * - 每个租户连接池 max=TENANT_POOL_MAX（env 可调，默认 10）；默认池由调用方配置。
+ * - 租户缓存条目数 × 单池 max 受 TENANT_TOTAL_CONNECTION_BUDGET 约束（DB-41）。
  * - 租户数据库不可达时（创建失败）降级到默认库 + console.warn。
  *
  * 用法：
@@ -28,22 +29,44 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 import * as schema from './schema/index.js'
 import type { Database } from './client.js'
+import { buildPoolOptions } from './pool-options.js'
 
-/** 每个租户连接池上限。 */
-const TENANT_POOL_MAX = 10
+/** 读取正整数 env；缺省/非法回落到 fallback。 */
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const raw = Number(process.env[name])
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : fallback
+}
+
+/**
+ * 每个租户连接池上限（env TENANT_POOL_MAX 可调，默认 10）。
+ *
+ * DB-41:不再把「每租 10」写死 —— 租户池 max 必须与全局预算一起核算。
+ */
+const TENANT_POOL_MAX = readPositiveIntEnv('TENANT_POOL_MAX', 10)
+
+/**
+ * 租户池全局连接预算（env TENANT_TOTAL_CONNECTION_BUDGET 可调，默认 320）。
+ *
+ * 口径：`租户缓存条目数 × 单池 max ≤ 预算`。预算本身必须与主池、读副本、
+ * 受控出口池一起落在 PostgreSQL max_connections 的可用额度内（见
+ * docs/PERFORMANCE.md §4.3）——本模块只保证自己这一份不超。
+ */
+const TENANT_CONNECTION_BUDGET = readPositiveIntEnv('TENANT_TOTAL_CONNECTION_BUDGET', 320)
 
 /**
  * 租户连接缓存上限（LRU）。
  *
- * 根治连接池无界增长:每个租户条目持有一个 max=10 的 postgres 连接池,
+ * 根治连接池无界增长:每个租户条目持有一个 max=TENANT_POOL_MAX 的 postgres 连接池,
  * 租户数无限增长会同时耗尽数据库连接数与内存。超过上限时淘汰最久未访问
  * 的租户条目并关闭其连接池(postgres 的 end() 默认等待在途查询完成,
  * 不会截断进行中的请求);该租户下次访问会重新懒加载建池。
- * 可通过环境变量 TENANT_CACHE_MAX_ENTRIES 覆盖(<=0 视为无限制,仅测试用)。
+ * 可通过环境变量 TENANT_CACHE_MAX_ENTRIES 覆盖,最终再按全局预算收敛:
+ * 条目数 = min(TENANT_CACHE_MAX_ENTRIES, floor(预算 / 单池 max))，至少 1。
  */
 const TENANT_CACHE_MAX = (() => {
-  const raw = Number(process.env.TENANT_CACHE_MAX_ENTRIES)
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : 32
+  const raw = readPositiveIntEnv('TENANT_CACHE_MAX_ENTRIES', 32)
+  const byBudget = Math.floor(TENANT_CONNECTION_BUDGET / TENANT_POOL_MAX)
+  return Math.max(1, Math.min(raw, byBudget))
 })()
 
 /** 租户连接池条目：drizzle 实例 + 底层 postgres 客户端（用于关闭）。 */
@@ -125,7 +148,8 @@ export function getTenantDatabase(tenantId: string | null | undefined): Database
 
   // 创建租户专用连接池
   try {
-    const client = postgres(tenantUrl, { max: TENANT_POOL_MAX, prepare: false })
+    // DB-29:租户池与主池同口径(四道超时护栏),不再只给 max。
+    const client = postgres(tenantUrl, buildPoolOptions({ max: TENANT_POOL_MAX }))
     const db = drizzle(client, { schema })
     evictLeastRecentlyUsed()
     tenantDbPool.set(tenantId, { db, client })
@@ -162,6 +186,22 @@ function evictLeastRecentlyUsed(): void {
 /** 获取当前已缓存的租户连接数量（监控用）。 */
 export function getTenantPoolSize(): number {
   return tenantDbPool.size
+}
+
+/**
+ * 租户池容量配置快照（监控/测试用）。
+ * cacheMax 已按 `min(TENANT_CACHE_MAX_ENTRIES, floor(预算/单池 max))` 收敛。
+ */
+export function getTenantPoolConfig(): {
+  poolMax: number
+  connectionBudget: number
+  cacheMax: number
+} {
+  return {
+    poolMax: TENANT_POOL_MAX,
+    connectionBudget: TENANT_CONNECTION_BUDGET,
+    cacheMax: TENANT_CACHE_MAX,
+  }
 }
 
 /** 列出已缓存的租户 ID（监控/调试用）。 */

@@ -356,8 +356,6 @@ export interface VipScreenProps {
    * 无则保持原有等级列表结构不变 —— 全部可选是为 RN 现有调用点零回归。
    */
   benefitItems?: VipBenefitCardItem[]
-  /** 宿主导航端口(逻辑 target 由宿主映射;屏内不得直接调用平台导航) */
-  onNavigate: OnNavigate
   /** 宿主轻提示端口(展示字段 toast 与本回调无关,不得复用) */
   onToast: OnToast
   /** 头部展示的当前价格(元);缺省则不渲染 */

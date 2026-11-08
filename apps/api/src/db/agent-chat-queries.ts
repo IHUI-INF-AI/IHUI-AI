@@ -179,6 +179,19 @@ export type AgentMessagesPageResult =
   { ok: true; page: AgentMessagesPage } | { ok: false; reason: 'cursor-out-of-range' }
 
 /**
+ * DB-44:屏侧历史只取「可见角色 + 最近 limit 条」。
+ *
+ * v1 原先整段返回 active 会话的 messages（含 system），长会话响应可无限大；
+ * 这里做纯读侧收敛，不改落库形状，也不影响 LLM 上下文（上下文由调用方另取）。
+ */
+export function visibleAgentMessages(
+  messages: readonly AgentRuntimeSessionMessage[],
+  limit: number,
+): AgentRuntimeSessionMessage[] {
+  return messages.filter((m) => m.role === 'user' || m.role === 'assistant').slice(-limit)
+}
+
+/**
  * 分页读(B2):`seq` 越大越新,`cursor` 指向"上一页最旧那条"的 seq。
  *
  * - 无 cursor:取最新 `limit` 条;

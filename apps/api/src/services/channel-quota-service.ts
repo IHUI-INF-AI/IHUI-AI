@@ -601,6 +601,99 @@ export async function getDailyUsage(
 }
 
 // =============================================================================
+// 4b. getUsageSummaries — 批量用量聚合（DB-45）
+// =============================================================================
+
+/** 单个渠道的当日 + 当月用量。 */
+export interface ChannelUsageSummary {
+  daily: DailyUsageResult
+  monthly: MonthlyUsageResult
+}
+
+const EMPTY_DAILY: DailyUsageResult = {
+  callCount: 0,
+  totalTokens: 0,
+  totalCostCents: 0,
+  errorCount: 0,
+}
+const EMPTY_MONTHLY: MonthlyUsageResult = { callCount: 0, totalTokens: 0, totalCostCents: 0 }
+/**
+ * DB-45:一次聚合多个渠道的当日/当月用量。
+ *
+ * admin 列表原先对每个渠道各查一次当日 + 一次当月 = 2N 次往返；
+ * 这里用两条 GROUP BY 查询（当日一次、当月一次）覆盖全部渠道。
+ * 返回 Map<keyPoolId, summary>；无数据的渠道不写入，调用方按 0 填充。
+ */
+export async function getUsageSummaries(
+  keyPoolIds: readonly string[],
+  targetDate?: Date,
+): Promise<Map<string, ChannelUsageSummary>> {
+  const summaries = new Map<string, ChannelUsageSummary>()
+  if (keyPoolIds.length === 0) return summaries
+  const ids = [...keyPoolIds]
+  const dateStr = targetDate ? getUtc8DateStr(targetDate) : getUtc8DateStr()
+  const monthStartStr = getUtc8MonthStartStr()
+
+  const [dailyRows, monthlyRows] = await Promise.all([
+    dbRead
+      .select({
+        keyPoolId: aiRelayChannelDailyUsage.keyPoolId,
+        callCount: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.callCount}), 0)::bigint::int`,
+        totalTokens: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalTokens}), 0)::bigint::int`,
+        totalCostCents: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalCostCents}), 0)::bigint::int`,
+        errorCount: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.errorCount}), 0)::bigint::int`,
+      })
+      .from(aiRelayChannelDailyUsage)
+      .where(
+        and(
+          inArray(aiRelayChannelDailyUsage.keyPoolId, ids),
+          eq(aiRelayChannelDailyUsage.usageDate, dateStr),
+        ),
+      )
+      .groupBy(aiRelayChannelDailyUsage.keyPoolId),
+    dbRead
+      .select({
+        keyPoolId: aiRelayChannelDailyUsage.keyPoolId,
+        callCount: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.callCount}), 0)::bigint::int`,
+        totalTokens: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalTokens}), 0)::bigint::int`,
+        totalCostCents: sql<number>`coalesce(sum(${aiRelayChannelDailyUsage.totalCostCents}), 0)::bigint::int`,
+      })
+      .from(aiRelayChannelDailyUsage)
+      .where(
+        and(
+          inArray(aiRelayChannelDailyUsage.keyPoolId, ids),
+          gte(aiRelayChannelDailyUsage.usageDate, monthStartStr),
+        ),
+      )
+      .groupBy(aiRelayChannelDailyUsage.keyPoolId),
+  ])
+
+  for (const id of keyPoolIds) {
+    summaries.set(id, { daily: { ...EMPTY_DAILY }, monthly: { ...EMPTY_MONTHLY } })
+  }
+  for (const row of dailyRows) {
+    const entry = summaries.get(row.keyPoolId)
+    if (!entry) continue
+    entry.daily = {
+      callCount: row.callCount,
+      totalTokens: row.totalTokens,
+      totalCostCents: row.totalCostCents,
+      errorCount: row.errorCount,
+    }
+  }
+  for (const row of monthlyRows) {
+    const entry = summaries.get(row.keyPoolId)
+    if (!entry) continue
+    entry.monthly = {
+      callCount: row.callCount,
+      totalTokens: row.totalTokens,
+      totalCostCents: row.totalCostCents,
+    }
+  }
+  return summaries
+}
+
+// =============================================================================
 // 5. resetDailyQuota — 定时清理任务(每天 0 点)
 // =============================================================================
 

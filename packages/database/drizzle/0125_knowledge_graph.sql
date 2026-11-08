@@ -19,7 +19,7 @@ CREATE TABLE "zhs_knowledge_entity" (
 );
 
 -- 同一 owner 下 (name, type) 唯一,防重复入库
-CREATE UNIQUE INDEX "ux_knowledge_entity_owner_name_type"
+CREATE UNIQUE INDEX IF NOT EXISTS "ux_knowledge_entity_owner_name_type"
   ON "zhs_knowledge_entity" ("owner_uuid", "name", "type");
 CREATE INDEX "ix_knowledge_entity_owner" ON "zhs_knowledge_entity" ("owner_uuid");
 CREATE INDEX "ix_knowledge_entity_type" ON "zhs_knowledge_entity" ("type");
@@ -38,7 +38,7 @@ CREATE TABLE "zhs_knowledge_relation" (
 );
 
 -- 同一 owner 下 (source, target, type) 唯一,防重复边
-CREATE UNIQUE INDEX "ux_knowledge_relation_edge"
+CREATE UNIQUE INDEX IF NOT EXISTS "ux_knowledge_relation_edge"
   ON "zhs_knowledge_relation" ("owner_uuid", "source_entity_id", "target_entity_id", "relation_type");
 CREATE INDEX "ix_knowledge_relation_owner" ON "zhs_knowledge_relation" ("owner_uuid");
 CREATE INDEX "ix_knowledge_relation_source" ON "zhs_knowledge_relation" ("source_entity_id");

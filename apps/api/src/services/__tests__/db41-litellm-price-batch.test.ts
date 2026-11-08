@@ -1,0 +1,31 @@
+// © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+// Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+
+/**
+ * DB-43 夹具（纯静态）。
+ *
+ * 缺陷：syncLiteLLMPricing 在事务内对每个模型一次 SELECT + 一次 UPDATE/INSERT，
+ * 400+ 模型 = 800+ 次往返，长事务+大量连接占用。
+ * 判据：事务内一次预取（inArray）、一次批量 INSERT、一次 VALUES UPDATE。
+ */
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { describe, expect, it } from 'vitest'
+
+const SRC = readFileSync(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'litellm-price-sync.ts'),
+  'utf8',
+)
+
+describe('DB-43 价表同步批处理', () => {
+  it('不在 mapped 循环内逐条 SELECT', () => {
+    expect(SRC).not.toMatch(/for \(const m of mapped\) \{[\s\S]*?await tx[\s\S]*?\.select\(/)
+  })
+
+  it('一次预取 + 批量 INSERT + VALUES UPDATE', () => {
+    expect(SRC).toContain('inArray(aiPricing.modelId')
+    expect(SRC).toMatch(/tx\.insert\(aiPricing\)\.values\(inserts\)/)
+    expect(SRC).toContain('FROM (VALUES')
+  })
+})

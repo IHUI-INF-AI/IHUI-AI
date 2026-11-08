@@ -60,6 +60,7 @@ import {
   findLatestSession,
   pageAgentMessages,
   readLatestSession,
+  visibleAgentMessages,
 } from '../db/agent-chat-queries.js'
 import { findCircleByIdOrSlug } from '../db/community-queries.js'
 import { sanitizeUgcInput } from '../db/sensitive-words-queries.js'
@@ -344,9 +345,11 @@ export const mobileChatRoutes: FastifyPluginAsync = async (server) => {
 
     return reply.send(
       success(
-        messages
-          .filter((m) => m.role === 'user' || m.role === 'assistant')
-          .map((m) => ({ id: m.id, role: m.role, content: m.content })),
+        visibleAgentMessages(messages, HISTORY_LIMIT).map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+        })),
       ),
     )
   })
