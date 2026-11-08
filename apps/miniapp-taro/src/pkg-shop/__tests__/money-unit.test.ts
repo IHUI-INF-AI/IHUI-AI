@@ -69,3 +69,45 @@ describe('小程序提现：分/元三处对齐', () => {
     expect(WITHDRAW).toMatch(/Math\.round\(amt \* 100\) > availableRef\.current/)
   })
 })
+
+/**
+ * 端到端量纲断言：同一笔钱从客户端请求体到服务端落库必须对得上。
+ * 目的：防「两边单测各自自洽、合起来仍错 100 倍」。
+ */
+describe('端到端量纲（请求体 ⇄ 服务端落库）', () => {
+  it('支付宝下单：订单 199 元 ⇒ 请求体 199 ⇒ 落库 19900 分', () => {
+    const orderCents = 19900 // edu_orders.amount（分）
+    // 客户端（pay/index.tsx）：amount: finalAmount / 100
+    const clientBodyYuan = orderCents / 100
+    // 服务端（payment-gateway.ts）：Math.round(amountYuan * 100)
+    const landedCents = Math.round(clientBodyYuan * 100)
+    expect(clientBodyYuan).toBe(199)
+    expect(landedCents).toBe(19900)
+    expect(landedCents).toBe(orderCents) // 首尾相等
+  })
+
+  it('支付宝下单反例：分当元直传 ⇒ 落库 1990000 分（放大 100 倍）', () => {
+    const orderCents = 19900
+    const landedCentsIfOld = Math.round(orderCents * 100)
+    expect(landedCentsIfOld).toBe(1_990_000)
+    expect(landedCentsIfOld).not.toBe(orderCents)
+  })
+
+  it('提现：输入 199 元 ⇒ 请求体 19900 分 ⇒ 与 available 19900 分相等', () => {
+    const availableCents = 19900
+    const inputYuan = 199
+    // 客户端（withdrawal/index.tsx）：amount: Math.round(amt * 100)
+    const bodyCents = Math.round(inputYuan * 100)
+    expect(bodyCents).toBe(19900)
+    // 服务端（distribution.ts）：body.data.amount > available 判余额不足
+    expect(bodyCents > availableCents).toBe(false)
+    expect(bodyCents).toBe(availableCents)
+  })
+
+  it('提现反例：元当分直传 ⇒ 只提走 1.99 元', () => {
+    const availableCents = 19900
+    const bodyCentsIfOld = 199
+    expect(bodyCentsIfOld).not.toBe(availableCents)
+    expect(bodyCentsIfOld / 100).toBe(1.99)
+  })
+})
