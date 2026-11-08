@@ -770,6 +770,7 @@ function unifiedDiff(origPath, newText) {
       raw = execFileSync('git', ['diff', '--no-index', '--no-color', '--', orig, tmp], {
         encoding: 'utf8',
         maxBuffer: 64 * 1024 * 1024,
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
     } catch (e) {
       // --no-index 有差异时退出码就是 1,不是失败;stdout 里才是补丁正文。
