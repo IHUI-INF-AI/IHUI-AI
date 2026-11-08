@@ -1,6 +1,5 @@
 // © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-// [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 /**
  * F-168 / F-169 / F-170 回归锁(2026-11-08,apps/api P1 越权组)。
@@ -81,10 +80,7 @@ vi.mock('../src/db/index.js', () => {
     return Promise.resolve([{ id: 'row-1' }])
   }
   chain.then = (resolve: (v: unknown) => void) => resolve([{ id: 'row-1' }])
-  return {
-    db: { select: () => chain, insert: vi.fn(), update: vi.fn() },
-    dbRead: { select: () => chain },
-  }
+  return { db: { select: () => chain, insert: vi.fn(), update: vi.fn() }, dbRead: { select: () => chain } }
 })
 
 import { examRoutes } from '../src/routes/exam.js'
@@ -98,9 +94,15 @@ function makeServer() {
   const server: Record<string, unknown> = {
     addHook: vi.fn(),
     decorate: vi.fn(),
-    get: vi.fn((path: string, a: unknown, b?: unknown) => handlers.set(path, (b ?? a) as Handler)),
-    post: vi.fn((path: string, a: unknown, b?: unknown) => handlers.set(path, (b ?? a) as Handler)),
-    put: vi.fn((path: string, a: unknown, b?: unknown) => handlers.set(path, (b ?? a) as Handler)),
+    get: vi.fn((path: string, a: unknown, b?: unknown) =>
+      handlers.set(path, (b ?? a) as Handler),
+    ),
+    post: vi.fn((path: string, a: unknown, b?: unknown) =>
+      handlers.set(path, (b ?? a) as Handler),
+    ),
+    put: vi.fn((path: string, a: unknown, b?: unknown) =>
+      handlers.set(path, (b ?? a) as Handler),
+    ),
     delete: vi.fn((path: string, a: unknown, b?: unknown) =>
       handlers.set(path, (b ?? a) as Handler),
     ),
@@ -204,4 +206,3 @@ describe('F-170 自媒体历史按 author 收敛且 limit 夹紧', () => {
     expect(state.limitArgs[0]).toBe(1)
   })
 })
-// ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
