@@ -32013,3 +32013,63 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 79C. **缺陷普查 F-052** [P3] 第二实例/深链唤起不还原最小化窗口（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-052）
 - [ ] 80C. **缺陷普查 F-059** [P3] 快照落地先删后换，失败即旧快照已毁（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-059）
 - [ ] 81C. **缺陷普查 F-060** [P3] Cookie 整串经 IPC 回传前端 + expect 建客户端（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-060）
+- [ ] 82C. **缺陷普查 F-062** [P1] WS 连接未挂 error 监听，单帧即可崩掉 serve 进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-062）
+- [ ] 83C. **缺陷普查 F-069** [P1] 插件清单 name 未校验 → 安装落点逃逸，可整目录替换 ~/.ihui（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-069）
+- [ ] 84C. **缺陷普查 F-070** [P1] 卸载 name 零校验 → 递归删除逃逸（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-070）
+- [ ] 85C. **缺陷普查 F-073** [P1] 沙箱命令白名单只看首个 token，shell 元字符直接放行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-073）
+- [ ] 86C. **缺陷普查 F-074** [P1] 文件访问 ACL 可被 .. / 绝对路径 / 软链绕过（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-074）
+- [ ] 87C. **缺陷普查 F-075** [P1] 出口策略 unjudged 一律不拦（fail-open）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-075）
+- [ ] 88C. **缺陷普查 F-080** [P1] write_text_file 无大小上限、非原子覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-080）
+- [ ] 89C. **缺陷普查 F-087** [P1] LSP initialize 失败后不回收子进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-087）
+- [ ] 90C. **缺陷普查 F-088** [P1] 长期记忆整文件重写无锁、非原子（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-088）
+- [ ] 91C. **缺陷普查 F-095** [P1] 回收站恢复信任 manifest 的 relativeTrashPath/originalPath，仓库可控任意文件搬移（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-095）
+- [ ] 92C. **缺陷普查 F-063** [P2] WS 断连不取消在飞回合、发送无背压（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-063）
+- [ ] 93C. **缺陷普查 F-064** [P2] HTTP 请求体无上限、SSE 无背压、无显式超时（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-064）
+- [ ] 94C. **缺陷普查 F-065** [P2] 同会话并发回合共享消息数组，abort 相互覆盖（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-065）
+- [ ] 95C. **缺陷普查 F-066** [P2] ACP 会话关闭 / SIGINT 不中止在飞 prompt（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-066）
+- [ ] 96C. **缺陷普查 F-067** [P2] 编辑器审批请求无超时，prompt 可永久挂起（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-067）
+- [ ] 97C. **缺陷普查 F-068** [P2] headless 封笔后仍追加事件行；headless-permission 兜底是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-068）
+- [ ] 98C. **缺陷普查 F-071** [P2] 更新计划 staged 目录用清单 name 拼接 → clone 写到 staging 之外且不清理（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-071）
+- [ ] 99C. **缺陷普查 F-076** [P2] 出口取词缺口：裸 localhost 与解释器内 URL 视为无目标（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-076）
+- [ ] 100C. **缺陷普查 F-077** [P2] DNS 判定与连接 TOCTOU / rebinding，默认无地址证据（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-077）
+- [ ] 101C. **缺陷普查 F-078** [P2] 出口台账可篡改、写失败静默放行（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-078）
+- [ ] 102C. **缺陷普查 F-079** [P2] Windows cmd.exe 与 POSIX 分词错配（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-079）
+- [ ] 103C. **缺陷普查 F-081** [P2] ensure_in_app_data 对"末段悬空链接"与 canonicalize 失败 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-081）
+- [ ] 104C. **缺陷普查 F-082** [P2] clipboard_set 图片解码无长度/像素上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-082）
+- [ ] 105C. **缺陷普查 F-083** [P2] clear_webview_cache 主线程递归删且"没删也报成功"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-083）
+- [ ] 106C. **缺陷普查 F-089** [P2] /memory search 丢弃向量通道（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-089）
+- [ ] 107C. **缺陷普查 F-090** [P2] 压缩缓存键不含模型（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-090）
+- [ ] 108C. **缺陷普查 F-092** [P2] TUI 转录无上限 + 每帧全量重排（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-092）
+- [ ] 109C. **缺陷普查 F-094** [P2] undo 历史持久化仍是裸 writeFileSync，且 stale 检测读了不用（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-094）
+- [ ] 110C. **缺陷普查 F-072** [P3] 技能包配额在整包读入内存之后才生效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-072）
+- [ ] 111C. **缺陷普查 F-084** [P3] 异步命令体内做同步大 IO（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-084）
+- [ ] 112C. **缺陷普查 F-085** [P3] 设置落盘失败只记日志，仍返回成功（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-085）
+- [ ] 113C. **缺陷普查 F-086** [P3] save_window_state 主线程同步写 + lock().unwrap()（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-086）
+- [ ] 114C. **缺陷普查 F-093** [P3] 终端能力判定漏登 TERM 黑名单（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-093）
+- [ ] 115C. **缺陷普查 F-096** [P0] 钩子信任门可被配置文件字段自证绕过 → 克隆仓库即执行任意 shell（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-096）
+- [ ] 116C. **缺陷普查 F-097** [P1] 钩子派发非全局，读取/子代理/MCP 类工具静默绕过（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-097）
+- [ ] 117C. **缺陷普查 F-098** [P1] 子代理网络与资源限制字段无生产写入方，防护是死代码（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-098）
+- [ ] 118C. **缺陷普查 F-099** [P1] qoder/workbuddy 隔离区恢复缺确认闸且信任 manifest 根/相对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-099）
+- [ ] 119C. **缺陷普查 F-100** [P1] 内嵌页可伪造哨兵 URL → 导出 WorkBuddy 会话 Cookie（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-100）
+- [ ] 120C. **缺陷普查 F-101** [P1] 读侧 ACL 对子目录/越界 .env 失效（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-101）
+- [ ] 121C. **缺陷普查 F-102** [P1] grep 完全绕过读侧 ACL，且接受任意绝对路径（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-102）
+- [ ] 122C. **缺陷普查 F-103** [P1] MCP stdio NDJSON 跨 chunk 帧被静默丢弃（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-103）
+- [ ] 123C. **缺陷普查 F-104** [P2] operator 审批可自批自跑（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-104）
+- [ ] 124C. **缺陷普查 F-105** [P2] 桌面 egress_gate 判定与执行分离、默认 fail-open（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-105）
+- [ ] 125C. **缺陷普查 F-106** [P2] 桌面 git 命令同步阻塞 + 输出无上限 + 只杀单进程（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-106）
+- [ ] 126C. **缺陷普查 F-107** [P2] 内嵌浏览器"元素点选"事件可被任意站点伪造（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-107）
+- [ ] 127C. **缺陷普查 F-108** [P2] 深度重置按子串枚举注册表并整树删除（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-108）
+- [ ] 128C. **缺陷普查 F-109** [P2] Cookie 库副本以明文落 %TEMP% 且 pid 目录复用（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-109）
+- [ ] 129C. **缺陷普查 F-110** [P2] 隔离动作计数失真（报告虚增）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-110）
+- [ ] 130C. **缺陷普查 F-111** [P2] 身份账本非原子写 → 审计给出假"0 残留"（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-111）
+- [ ] 131C. **缺陷普查 F-112** [P2] web_search 只校验首跳且响应体无上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-112）
+- [ ] 132C. **缺陷普查 F-113** [P2] MCP http transport 不处理会话头与 SSE 响应（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-113）
+- [ ] 133C. **缺陷普查 F-114** [P2] delete_file 为算行数整份读文件（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-114）
+- [ ] 134C. **缺陷普查 F-115** [P2] /config set 把多源合并结果写回全局（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-115）
+- [ ] 135C. **缺陷普查 F-117** [P2] tasks 基线捕获时机错，丢更新/ID 冲突（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-117）
+- [ ] 136C. **缺陷普查 F-118** [P2] sessionId 未收敛，可读写任意 .json（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-118）
+- [ ] 137C. **缺陷普查 F-119** [P3] share 的 includeFiles=false 是假保证（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-119）
+- [ ] 138C. **缺陷普查 F-120** [P3] report 覆盖无备份、输入无上限（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-120）
+- [ ] 139C. **缺陷普查 F-121** [P3] playground compare --json 全失败仍退 0（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-121）
+- [ ] 140C. **缺陷普查 F-122** [P3] 注册表 32 位视图遗漏（删与审双盲）（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-122）
+- [ ] 141C. **缺陷普查 F-123** [P3] browser_store / browser_settings 为未挂载的死模块（证据 docs/tickets/2026-11/findings-cli-desktop.md#F-123）
