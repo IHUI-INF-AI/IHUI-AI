@@ -7591,6 +7591,49 @@ async def _persist_video_to_disk(
         return False, "", 0, "WRITE_FAILED"
 
 
+async def _persist_video_for_save_path(
+    save_path: Any, video_url: str, provider: str, prompt: Any
+) -> tuple[str | None, int, dict[str, Any] | None]:
+    """AIS-117:视频三条分支(token6688 / agnes / 通用链)共用的 save_path 落盘。
+
+    旧码只有通用链做了校验+下载+落盘;token6688 与 agnes 两个专用分支在落盘块
+    之前就 return,agnes 载荷还硬编码 `saved_path: None` —— 调用方要求 save_path、
+    回执 ok=true,但盘上没有文件,也没做过白名单校验。
+
+    返回 (saved_path, file_size_bytes, error_payload);error_payload 非 None 时
+    调用方直接把它当失败回执返回(零上游副作用之外,失败语义与通用链一致)。
+    """
+    if not save_path:
+        return None, 0, None
+    import httpx
+
+    ok_path, resolved, err_code = _validate_video_save_path(str(save_path))
+    if not ok_path:
+        logger.warning("[mcp][video] save_path 校验失败(AIS-117): provider=%s code=%s", provider, err_code)
+        return None, 0, {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None, "errorCode": err_code,
+            "message": f"save_path 校验失败: {err_code}",
+        }
+    vid_bytes = await _download_media_bytes(video_url, httpx)
+    if vid_bytes is None:
+        logger.warning("[mcp][video] 落盘下载失败(AIS-117): provider=%s", provider)
+        return None, 0, {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None,
+            "errorCode": "VIDEO_FETCH_FAILED", "message": "视频下载失败",
+        }
+    ok_w, sp, sz, werr = await _persist_video_to_disk(vid_bytes, resolved)
+    if not ok_w:
+        logger.warning("[mcp][video] 落盘写失败(AIS-117): provider=%s code=%s", provider, werr)
+        return None, 0, {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None, "errorCode": werr,
+            "message": f"视频写入磁盘失败: {werr}",
+        }
+    return sp, sz, None
+
+
 def _validate_audio_save_path(save_path: str) -> tuple[bool, str, str | None]:
     """校验音频 save_path:工作区白名单 + 后缀(.mp3/.wav/.ogg/.flac)。"""
     if not save_path or not isinstance(save_path, str):
@@ -8672,12 +8715,19 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 }
             # while 内 break(拿到成片)→ 落到下方统一返回
             video_url = result.get("video_url", "")
+            _sp, _sz, _perr = await _persist_video_for_save_path(
+                save_path, video_url, "token6688", prompt
+            )
+            if _perr is not None:
+                return _perr
             return {
                 "tool": "video_generation", "ok": True, "prompt": prompt,
                 "provider": result.get("provider", "token6688"),
                 "model": result.get("model", ""), "task_id": result.get("task_id", ""),
                 "video_url": video_url, "duration": result.get("duration", duration),
-                "message": "视频生成完成",
+                "saved_path": _sp, "file_size_bytes": _sz,
+                "created_at": datetime.now(UTC).isoformat(),
+                "message": "视频生成完成" + (f", saved={_sp}" if _sp else ""),
             }
 
     # ---- agnes 专用路径:提交 + 限时窗口轮询 ----
@@ -8724,7 +8774,16 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "created_at": datetime.now(UTC).isoformat(),
         }
         if _url:
-            return {**_ok_payload, "video_url": _url, "message": "视频已生成(agnes)"}
+            _sp, _sz, _perr = await _persist_video_for_save_path(
+                save_path, _url, "agnes", prompt
+            )
+            if _perr is not None:
+                return _perr
+            return {
+                **_ok_payload, "video_url": _url,
+                "saved_path": _sp, "file_size_bytes": _sz,
+                "message": "视频已生成(agnes)" + (f", saved={_sp}" if _sp else ""),
+            }
         _wait_s = int(os.environ.get("VIDEO_TOOL_WAIT_S", "90") or 90)
         _deadline = time.monotonic() + max(0, _wait_s)
         while time.monotonic() < _deadline:
@@ -8735,7 +8794,16 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 continue  # 单次查询抖动不代表任务失败,继续等窗口
             _st = str(_rec.get("status") or "").lower()
             if _st in ("completed", "succeeded", "success") and _rec.get("video_url"):
-                return {**_ok_payload, "video_url": _rec["video_url"], "message": "视频已生成(agnes)"}
+                _sp, _sz, _perr = await _persist_video_for_save_path(
+                    save_path, _rec["video_url"], "agnes", prompt
+                )
+                if _perr is not None:
+                    return _perr
+                return {
+                    **_ok_payload, "video_url": _rec["video_url"],
+                    "saved_path": _sp, "file_size_bytes": _sz,
+                    "message": "视频已生成(agnes)" + (f", saved={_sp}" if _sp else ""),
+                }
             if _st in ("failed", "cancelled", "canceled"):
                 return {
                     "tool": "video_generation", "ok": False, "prompt": prompt,
@@ -8779,34 +8847,11 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     saved_path: str | None = None
     file_size_bytes: int = 0
     if save_path:
-        import httpx
-
-        ok_path, resolved, err_code = _validate_video_save_path(save_path)
-        if not ok_path:
-            return {
-                "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
-                "errorCode": err_code,
-                "message": f"save_path 校验失败: {err_code}",
-            }
-        vid_bytes = await _download_media_bytes(video_url, httpx)
-        if vid_bytes is None:
-            return {
-                "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
-                "errorCode": "VIDEO_FETCH_FAILED",
-                "message": "视频下载失败",
-            }
-        ok_w, sp, sz, werr = await _persist_video_to_disk(vid_bytes, resolved)
-        if not ok_w:
-            return {
-                "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
-                "errorCode": werr,
-                "message": f"视频写入磁盘失败: {werr}",
-            }
-        saved_path = sp
-        file_size_bytes = sz
+        saved_path, file_size_bytes, _perr = await _persist_video_for_save_path(
+            save_path, video_url, used_provider, prompt
+        )
+        if _perr is not None:
+            return _perr
 
     return {
         "tool": "video_generation", "ok": True, "prompt": prompt,
@@ -9369,6 +9414,21 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
             "errorCode": "BAD_PARAMS", "audio_url": None,
         }
     save_path = arguments.get("save_path")
+    # AIS-118:save_path 提前 fail-fast —— 旧码只在下游 `if ok_path:` 里落盘,校验
+    # 失败被丢弃,末尾照旧回 ok=true/saved_path=None,调用方分不清"没要求落盘"与
+    # "落盘被拒"。这里在合成前就判,非法路径一个上游都不调(与 image/video 一致)。
+    resolved_save: str | None = None
+    if save_path:
+        ok_path, resolved_save, err_code = _validate_audio_save_path(str(save_path))
+        if not ok_path:
+            logger.warning(
+                "[mcp][tts] save_path 校验失败(AIS-118): code=%s path=%s", err_code, save_path
+            )
+            return {
+                "tool": "voice_tts", "ok": False, "errorCode": err_code,
+                "error": f"save_path 校验失败: {err_code}", "audio_url": None,
+                "saved_path": None, "save_path": str(save_path),
+            }
 
     # ---- 超长文本(>2000):自动切 token6688 异步 TTS(免长连接;产物为公网 URL)----
     if len(text) > 2000:
@@ -9444,12 +9504,16 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
     # ---- save_path 落地(可选)----
     saved_path: str | None = None
     file_size_bytes = len(audio)
-    if save_path:
-        ok_path, resolved, err_code = _validate_audio_save_path(save_path)
-        if ok_path:
-            ok_w, sp, sz, werr = await _persist_audio_to_disk(audio, resolved)
-            if ok_w:
-                saved_path, file_size_bytes = sp, sz
+    if resolved_save:
+        ok_w, sp, sz, werr = await _persist_audio_to_disk(audio, resolved_save)
+        if not ok_w:
+            logger.warning("[mcp][tts] 音频落盘失败(AIS-118): code=%s", werr)
+            return {
+                "tool": "voice_tts", "ok": False, "errorCode": werr,
+                "error": f"音频写入磁盘失败: {werr}", "audio_url": None,
+                "saved_path": None, "save_path": str(save_path),
+            }
+        saved_path, file_size_bytes = sp, sz
 
     # data URI 直播给前端 <audio>(文本≤2000 字符,mp3 通常 <2MB)
     audio_url = f"data:{content_type or 'audio/mpeg'};base64,{_base64.b64encode(audio).decode()}"
