@@ -270,8 +270,23 @@ function saveRefsBaseline(snap) {
 
 const refsSnapshot = passStaged && !pushGate ? readRefsSnapshot() : null
 const refsBaseline = passStaged && !pushGate ? loadRefsBaseline() : null
+
+/** old 是否为 new 的祖先(快进前进)。读不了就当"不是",失效方向是阻断。 */
+function isFastForwardRef(oldSha, newSha) {
+  try {
+    gitRaw(['merge-base', '--is-ancestor', oldSha, newSha], process.cwd(), { timeout: 15_000 })
+    return true
+  } catch {
+    return false
+  }
+}
+
 const refsTouchedFlag =
-  !!(refsSnapshot && refsBaseline && refsTouched(refsSnapshot, refsBaseline, currentBranchName()))
+  !!(
+    refsSnapshot &&
+    refsBaseline &&
+    refsTouched(refsSnapshot, refsBaseline, currentBranchName(), isFastForwardRef)
+  )
 if (passStaged && !pushGate && refsSnapshot) {
   // 本轮结束后把快照写成下一轮基线;refs 面"本笔新建/重指分支"= 相对上一轮基线发生变化。
   process.on('exit', () => saveRefsBaseline(refsSnapshot))

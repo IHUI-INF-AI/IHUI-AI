@@ -98,3 +98,35 @@
 | 70b | 1 | `examResult.correct`、`examResult.wrongQuestions` |
 
 ⇒ 若强行恒跑 341 阻断，main 现有 HEAD 当场红在这四门（另 29 未判定、153/156 仅 warn）；而 cut1 的 `scripts/`+docs 改动在新语义下属「未触及这些面」，这四门只报数、rc=0。
+
+### refs 面的「本笔」口径收紧（2026-11-08，cut9 实跑后补）
+
+- 首轮 cut9 重提（基线 `78c3a05c47`）时只有 41 阻断：因为 cut1 刚把 `refs/heads/main` 从 `d4e1621806`/`d1c270d694` 快进到 `78c3a05c47`，旧判据把所有 ref 变化一律当「本笔重指」。这不是本笔 —— 每次 push 之后任何工作区的下一笔提交都会被 41 假红一次。
+- 收紧：`refsTouched` 增加「后代尺」入参 `isFastForward(old,new)`（执行器用 `git merge-base --is-ancestor` 注入）。
+  - 新建 ref / 删除 ref / **非快进重指**（回退、改指向别处）⇒ 触及 ⇒ 阻断；
+  - **快进前进**（主线被推着往前走）⇒ 不算触及，只进快照留痕；
+  - 读不了后代关系 / 不注入 ⇒ 按触及处理（失效方向 = 阻断）。
+- 夹具 11/11：新增「快进不算 / 回退算 / 删除算 / 不注入尺算」四条断言。
+
+### 宿主 `CI=true` 误判为显式 full（2026-11-08 修复）
+
+- 现象：cut9 首轮全量 341 里 41/57/204/70b 仍阻断，降级整体失效。
+- 根因：执行器把裸 `CI=true`（agent 宿主/本地也会置）当「显式 full」。改为只认 `GITHUB_ACTIONS=true`（真 CI）；显式 full 仍由 `IHUI_GATE_SCOPE=full`、不带 `--staged`、push 门承担。
+- 落地：`78c3a05c47`。
+
+### cut9 重提结果（2026-11-08）
+
+- 路径：`d1c270d694` → 推进到 `78c3a05c47`（带上宿主 CI 修复）→ 提交 `256be1a65c`。
+- 4 个文件 blob 逐字节未变：`05b0d96f18` / `e2703888b9` / `5c0e5d8687` / `e5bb254d1b`。
+- 门读数：除 41 外 **340 项全绿**（57/204/70b 已转为只报数，rc 不受影响）；41 在基线上推进到快进语义后同样只报数。
+- 存量台账（`.ihui-agent/state/gate-stock-ledger.jsonl`，只追加、可累加）：
+
+| 门 | redCount | 被点名项（摘） | touched | explicitFull |
+|---|---|---|---|---|
+| 41 | 5 | 陈旧旁支 / 远程跟踪引用 | false | false |
+| 57 | 1 | 对话流元素覆盖清单/锚点 2 处违规 | false | false |
+| 204 | 2 | `apps/cli/src/commands/ai-skills.ts:143`、`apps/cli/src/plugins/installer.ts:284` | false | false |
+| 70b | 19 | `examResult.correct`、`examResult.wrongQuestions` 等死 key | false | false |
+
+- 门 29（push 同步）：cut9 分支无远端对应 ref，原本 exit 2「未判定」；工作区切成 detached HEAD 后按门自身设计跳过并 rc=0（不是降级）。
+- 分支 ref：`feat/gate-302p-speed-1107` 从 `d1c270d694` CAS 前移到 `256be1a65c`；工作区保持 detached（避免上述 29 未判定），该提交未推送。
