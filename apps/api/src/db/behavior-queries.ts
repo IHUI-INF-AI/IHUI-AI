@@ -21,40 +21,16 @@ export interface RecordWatchInput {
 
 /**
  * 记录/更新浏览。同一用户对同一目标已有记录则累加时长并更新位置。
- * 返回 { id, updated }。
+ * 单条 upsert 完成读改写:并发首写由 ON CONFLICT 吃掉唯一冲突,已有行按
+ * `excluded.watch_duration` 原子累加,不做 SELECT 快照后覆盖写。
+ * 返回 { id, updated }(updated=false 表示本次为首次插入)。
  */
 export async function recordWatch(
   input: RecordWatchInput,
 ): Promise<{ id: string; updated: boolean }> {
   const watchDuration = input.watchDuration ?? 0
   const lastPosition = input.lastPosition ?? 0
-  const existing = await db
-    .select()
-    .from(behaviorWatchRecords)
-    .where(
-      and(
-        eq(behaviorWatchRecords.userId, input.userId),
-        eq(behaviorWatchRecords.topicId, input.topicId),
-        eq(behaviorWatchRecords.topicType, input.topicType),
-      ),
-    )
-    .limit(1)
-
-  const row = existing[0]
-  if (row) {
-    await db
-      .update(behaviorWatchRecords)
-      .set({
-        watchDuration: (row.watchDuration ?? 0) + watchDuration,
-        lastPosition,
-        ...(input.topicTitle ? { topicTitle: input.topicTitle } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(behaviorWatchRecords.id, row.id))
-    return { id: row.id, updated: true }
-  }
-
-  const rows = await db
+  const [row] = await db
     .insert(behaviorWatchRecords)
     .values({
       userId: input.userId,
@@ -64,10 +40,25 @@ export async function recordWatch(
       watchDuration,
       lastPosition,
     })
-    .returning()
-  const created = rows[0]
-  if (!created) throw new Error('记录浏览失败')
-  return { id: created.id, updated: false }
+    .onConflictDoUpdate({
+      target: [
+        behaviorWatchRecords.userId,
+        behaviorWatchRecords.topicId,
+        behaviorWatchRecords.topicType,
+      ],
+      set: {
+        watchDuration: sql`${behaviorWatchRecords.watchDuration} + excluded.watch_duration`,
+        lastPosition,
+        ...(input.topicTitle ? { topicTitle: input.topicTitle } : {}),
+        updatedAt: new Date(),
+      },
+    })
+    .returning({
+      id: behaviorWatchRecords.id,
+      inserted: sql<boolean>`(xmax = 0)`,
+    })
+  if (!row) throw new Error('记录浏览失败')
+  return { id: row.id, updated: !row.inserted }
 }
 
 /**

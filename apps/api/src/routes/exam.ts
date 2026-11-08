@@ -1946,6 +1946,10 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     if (record.paperId !== paperId) {
       return reply.status(400).send(error(400, 'recordId 与 paperId 不匹配'))
     }
+    // F-693:自动重判仅允许「已提交待判」的记录,防止把 graded/completed 回退成 submitted
+    if (record.status !== 'submitted') {
+      return reply.status(409).send(error(409, `当前状态 ${record.status} 不可自动重判`))
+    }
     const questions = await findQuestionsByPaperId(paperId)
     const storedAnswers =
       (record.answers as Array<{ questionId: string; answer: unknown }> | null) ?? []
@@ -1978,7 +1982,7 @@ export const examRoutes: FastifyPluginAsync = async (server) => {
     })
     const paper = await findPaperById(paperId)
     const isPassed = totalScore >= Number(paper?.passScore ?? 60)
-    const finalStatus = hasSubjective ? 'graded' : 'submitted'
+    const finalStatus = hasSubjective ? 'submitted' : 'graded'
     const [updated] = await db
       .update(examRecords)
       .set({
