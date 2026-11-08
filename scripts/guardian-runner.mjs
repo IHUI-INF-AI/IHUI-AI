@@ -6418,6 +6418,31 @@ const checks = [
       '',
     ].join('\n'),
   },
+  // --- 直跑面判面层覆盖 ratchet(1 项,blocking)---
+  {
+    id: '312',
+    label: '🧬 直跑面判面层覆盖 ratchet(注册门不接判面层且不在台账即红)',
+    script: 'check-gate-body-direct-run-coverage.mjs',
+    args: [],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_GATE_BODY_DIRECT_RUN_COVERAGE',
+    stagedTriggers: ['scripts/'],
+    onFailHint: [
+      '',
+      '  💡 立因:门体同代自检只覆盖「派发面」;人手 node scripts/check-x.mjs 直跑时,',
+      '     只有 import 判面层(face-reader / gate-body-provenance)的门才会触发自检。',
+      '     本门把存量 48 道变成可数的债,并让新增门再也长不进这条缝:',
+      '       R1 注册门未接判面层且不在 scripts/data/gate-body-direct-run-allowlist.json ⇒ 红',
+      '       R2 台账条目越出硬基线(新增抵账)⇒ 红;清单只许缩短',
+      '       R3 台账条目对应的门已接判面层 ⇒ 红(删条目 = 已迁移证据)',
+      '       R4 reviewBy 到期 ⇒ 红',
+      '     修复:新门加 import { selectFace } from \'./lib/face-reader.mjs\';',
+      '           手跑单门改走 node scripts/guardian-runner.mjs --only=<id|script>',
+      '     复验:node scripts/check-gate-body-direct-run-coverage.mjs --staged',
+      '     跳过:HUSKY_SKIP_GATE_BODY_DIRECT_RUN_COVERAGE=1(须人工确认并附定向说明)',
+      '',
+    ].join('\n'),
+  },
   // --- info (1 项) ---
   {
     id: '23',
@@ -7694,10 +7719,12 @@ const KNOWN_CLI_FLAGS = new Set([
   '--help',
   '-h',
 ])
-const unknownCliArgs = cliArgs.filter((a) => !KNOWN_CLI_FLAGS.has(a))
+const unknownCliArgs = cliArgs.filter(
+  (a) => !KNOWN_CLI_FLAGS.has(a) && !a.startsWith('--only='),
+)
 if (unknownCliArgs.length) {
   console.error(`❌ 未知参数:${unknownCliArgs.join(' ')}`)
-  console.error('   本器只认:--staged / --timing / --push-gate / --no-cache / --self-test / --help / -h')
+  console.error('   本器只认:--staged / --timing / --push-gate / --no-cache / --self-test / --only=<id|script> / --help / -h')
   console.error('   未知参数不再被忽略,也不会跑任何门(exit 2)。')
   process.exit(2)
 }
@@ -7707,8 +7734,19 @@ const showTiming = cliArgs.includes('--timing')
 const showHelp = cliArgs.includes('--help') || cliArgs.includes('-h')
 const pushGate = cliArgs.includes('--push-gate')
 const selfTest = cliArgs.includes('--self-test')
+// `--only=<id|script>`:单门直跑的唯一入口。走派发层 ⇒ 带门体同代自检(preflight),
+// 避免人手 `node scripts/check-x.mjs` 绕过自检(见 AGENTS.md「单门直跑」条)。
+const onlyList = (cliArgs.find((a) => a.startsWith('--only=')) || '')
+  .slice('--only='.length)
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean)
 if (selfTest && (passStaged || pushGate)) {
   console.error('❌ --self-test 不能与 --staged / --push-gate 组合(自检不读暂存面、不跑判据)')
+  process.exit(2)
+}
+if (selfTest && onlyList.length > 0) {
+  console.error('❌ --self-test 不能与 --only 组合(自检不跑判据,单门筛选请去掉 --self-test)')
   process.exit(2)
 }
 
@@ -7864,10 +7902,24 @@ async function runGateSelfTests(checkList) {
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
 
+// ── --only=<id|script>:单门直跑走派发层(2026-11-08 立)───────────────────────
+// 直跑 `node scripts/check-x.mjs` 会绕过判面层自检(只有 import 判面层的门例外)。
+// 这里把"只跑这道门"落到派发层:argv 仍带 --staged/--timing,spawn 仍走 gateSpawnPlan,
+// 因此门体同代自检照常生效。命中 0 道 ⇒ exit 2,绝不静默跑成"跑了但没跑"。
+if (onlyList.length > 0) {
+  const before = effectiveChecks.length
+  effectiveChecks = effectiveChecks.filter((c) => onlyList.includes(c.id) || onlyList.includes(c.script))
+  if (effectiveChecks.length === 0) {
+    console.error(`❌ --only=${onlyList.join(',')} 未命中任何注册门(${before} 道在册);按 id 或 script 名给`)
+    process.exit(2)
+  }
+  console.log(`🎯 --only:只跑 ${effectiveChecks.length}/${before} 道门(${onlyList.join(',')});仍走派发层与门体自检`)
+}
+
 // ── 档位裁剪(2026-10-22 立,判据与理由全在 scripts/lib/gate-scope.mjs 头注)──────────
 // 只决定"这次改动该跑哪些门",**不碰任何门的判据**。含业务路径 / 含判据库 / 判不出
 // 一律回落全量 —— 失效方向永远是"多跑",不是"少跑"。
-if (passStaged && !pushGate) {
+if (passStaged && !pushGate && onlyList.length === 0) {
   try {
     const stagedPaths = String(
       execFileSync(resolveGitBin(), ['-c', 'safe.directory=*', 'diff', '--cached', '--name-only'], {

@@ -123,6 +123,7 @@ pnpm turbo typecheck --filter=@ihui/web   # 前端(同上,"^build" 先重建 @ih
 cd apps/ai-service && mypy app --ignore-missing-imports --strict   # Python 类型
 pnpm check:pytest                             # Python 用例唯一入口(透传: pnpm check:pytest -- tests/test_x.py)
 pnpm dev                                      # 启动所有服务(端口见 docs/port-management.md)
+node scripts/guardian-runner.mjs --only=<id|script>   # 单门直跑的**唯一**入口:走派发层 ⇒ 带门体同代自检;直接 `node scripts/check-x.mjs` 只有 import 判面层的门才自检(存量 48 道见 scripts/data/gate-body-direct-run-allowlist.json,门 312 = check-gate-body-direct-run-coverage.mjs 只许收紧)
 ```
 ## 7. 删除/重构安全规则(强制)
 删除任何 git 对象(分支/stash/commit/文件)前必答三问:①承载什么功能?②有无等价实现?③无 ⇒ 不可删,先迁移/开发替代。禁止基于"路径不兼容""看起来是垃圾"擅自 drop;stash drop / branch -D 同样适用。

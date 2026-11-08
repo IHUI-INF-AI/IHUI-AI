@@ -33,7 +33,7 @@
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { dirname, join, posix, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { resolveGitBin } from './gitdir.mjs'
@@ -263,17 +263,51 @@ function importSpecsOf(text) {
   return out
 }
 
-function resolveLocalImport(fromAbs, spec) {
-  const base = resolve(dirname(fromAbs), spec)
-  const candidates = [base]
-  if (!BODY_EXTENSIONS.includes(String(base).slice(String(base).lastIndexOf('.')))) {
-    for (const ext of BODY_EXTENSIONS) candidates.push(`${base}${ext}`)
-    for (const ext of BODY_EXTENSIONS) candidates.push(join(base, `index${ext}`))
+function relCandidates(fromRel, spec) {
+  const base = posix.join(posix.dirname(fromRel), spec).replace(/\\/g, '/')
+  const out = [base]
+  const dot = base.lastIndexOf('.')
+  if (!BODY_EXTENSIONS.includes(dot >= 0 ? base.slice(dot) : '')) {
+    for (const ext of BODY_EXTENSIONS) out.push(`${base}${ext}`)
+    for (const ext of BODY_EXTENSIONS) out.push(posix.join(base, `index${ext}`))
   }
-  for (const candidate of candidates) {
-    if (existsSync(candidate) && statSync(candidate).isFile()) return candidate
+  return out
+}
+
+/**
+ * 门体闭包的「可注入取材」版本:ratchet 门按判面 blob 取内容时复用同一条遍历(§0.6)。
+ * readText(rel) ⇒ string | null(null = 该判面里不存在该文件,不追)。
+ */
+export function closureFromTexts(entryRel, readText) {
+  const entry = String(entryRel).replace(/\\/g, '/')
+  const seen = new Map()
+  const queue = [{ rel: entry, depth: 0 }]
+  while (queue.length > 0) {
+    const { rel, depth } = queue.shift()
+    if (seen.has(rel)) continue
+    if (!rel.startsWith('scripts/')) continue
+    const text = readText(rel)
+    if (text === null) continue
+    seen.set(rel, text)
+    if (depth >= MAX_BODY_DEPTH) continue
+    for (const spec of importSpecsOf(text)) {
+      // 只追相对路径('.'/'..' 开头)。'node:fs' / 裸包名 / 绝对路径一律不是门体闭包 ——
+      // 按判面取 blob 时每个候选都是一次 git 调用,不能拿外部包名去问 git。
+      if (!spec.startsWith('.')) continue
+      for (const cand of relCandidates(rel, spec)) {
+        if (!cand.startsWith('scripts/') || seen.has(cand)) continue
+        if (readText(cand) === null) continue
+        queue.push({ rel: cand, depth: depth + 1 })
+        break
+      }
+    }
+    if (seen.size > MAX_BODY_FILES) {
+      throw new GateBodyProvenanceError(
+        `门体闭包超过 ${MAX_BODY_FILES} 件(${entryRel})—— 疑似 import 环或误把数据目录当门体`,
+      )
+    }
   }
-  return null
+  return [...seen.keys()].sort()
 }
 
 /**
@@ -285,32 +319,11 @@ export function gateBodyClosure(root, entryRel) {
   if (!existsSync(entryAbs)) {
     throw new GateBodyProvenanceError(`门体不存在:${entryRel}(盘上找不到正在执行的门脚本)`)
   }
-  const seen = new Map()
-  const queue = [{ abs: entryAbs, depth: 0 }]
-  while (queue.length > 0) {
-    const { abs, depth } = queue.shift()
-    const rel = repoRelative(root, abs)
-    if (seen.has(rel)) continue
-    if (!rel.startsWith('scripts/')) continue
-    const text = readFileSync(abs, 'utf8')
-    seen.set(rel, text)
-    if (depth >= MAX_BODY_DEPTH) continue
-    for (const spec of importSpecsOf(text)) {
-      const target = resolveLocalImport(abs, spec)
-      if (!target) continue
-      const targetRel = repoRelative(root, target)
-      if (targetRel.startsWith('..') || isAbsolute(targetRel)) continue
-      if (!targetRel.startsWith('scripts/')) continue
-      if (seen.has(targetRel)) continue
-      queue.push({ abs: target, depth: depth + 1 })
-    }
-    if (seen.size > MAX_BODY_FILES) {
-      throw new GateBodyProvenanceError(
-        `门体闭包超过 ${MAX_BODY_FILES} 件(${entryRel})—— 疑似 import 环或误把数据目录当门体`,
-      )
-    }
+  const readText = (rel) => {
+    const abs = join(root, rel)
+    return existsSync(abs) && statSync(abs).isFile() ? readFileSync(abs, 'utf8') : null
   }
-  return [...seen.keys()].sort()
+  return closureFromTexts(repoRelative(root, entryAbs), readText)
 }
 
 /* ─────────────────────────────── 判面取 blob ─────────────────────────────── */
