@@ -25,7 +25,6 @@ import {
   createArticle,
   updateArticle,
   deleteArticle,
-  incrementArticleViewCount,
   findArticlesByIds,
 } from '../db/news-queries.js'
 import {
@@ -383,7 +382,8 @@ export const newsRoutes: FastifyPluginAsync = async (server) => {
     if (!article || !article.isPublished) {
       return reply.status(404).send(error(404, '资讯不存在'))
     }
-    await incrementArticleViewCount(parsed.data.id)
+    // 浏览量由 plugins/watch-aspect 在鉴权后的路由级 preHandler 统一自增,
+    // 这里不再自增(F-206:重复自增会让一次浏览计两次)。
     return reply.send(success({ article }))
   })
 
