@@ -37,6 +37,7 @@ import {
 import { PAGE_ACTIONS } from '@ihui/dom-actions'
 import { getToken } from './token'
 import { getBridgeBaseUrl } from './config'
+import { isTrustedExtensionPageSender, type RuntimeSenderLike } from './message-trust'
 import { dispatchAgentActionRequest } from './ext-ui-forwarder'
 import { EXT_UI_CONTROL_TOOLS } from './ui-control-tools'
 
@@ -247,12 +248,26 @@ function extractAgentEnvelope(payload: unknown): {
   return { request: req, ...(assignment ? { assignment } : {}) }
 }
 
-function onRuntimeMessage(msg: unknown): void {
+function onRuntimeMessage(msg: unknown, sender?: RuntimeSenderLike): void {
   const m = msg as { type?: string; payload?: unknown }
   if (m?.type !== 'ws.notification') return
   const envelope = extractAgentEnvelope(m.payload)
   if (!envelope) return
   const { request: req, assignment } = envelope
+  // 2026-11-08 同型根因 D 类:消息来源闸。此前只靠"扩展内只有本扩展能发消息"的隐式
+  // 假设 —— 内容脚本也满足 sender.id === runtime.id,却跑在宿主页面隔离世界。此处只认
+  // 本扩展顶层页面(sender.url 是 chrome-extension://<本 id>/)的广播;非白名单来源
+  // 一律不执行、不回执、不写去重集合(同一 requestId 后续仍可由可信来源执行)。
+  if (!isTrustedExtensionPageSender(sender, chrome.runtime.id)) {
+    console.warn(
+      '[IHUI AI] agent-control bridge: 丢弃非白名单来源的 ws.notification',
+      req.requestId,
+      sender?.id ?? '(none)',
+      sender?.url ?? '(no-url)',
+      sender?.tab ? '(content-script)' : '(top-level)',
+    )
+    return
+  }
   // 定址过滤(2026-09-26):非指派端不得执行;如实记日志,不得静默 return
   if (!shouldExecuteAssignment(assignment)) {
     console.warn(

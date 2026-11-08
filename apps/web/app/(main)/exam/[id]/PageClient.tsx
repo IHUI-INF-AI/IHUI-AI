@@ -14,8 +14,8 @@ import { ExamIntro } from './ExamIntro'
 import { ExamResult } from './ExamResult'
 import { ExamAnswering } from './ExamAnswering'
 import { getExamById, getExamPaper, startExam, submitExamRecord } from '@ihui/api-client'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import type { PaperDetail, Question, SubmitResult } from './types'
-import { remainingSeconds } from './helpers'
 
 export default function ExamTakePage() {
   const { id } = useParams<{ id: string }>()
@@ -42,7 +42,8 @@ export default function ExamTakePage() {
   const [recordId, setRecordId] = React.useState<string | null>(null)
   const [answers, setAnswers] = React.useState<Record<string, string | string[]>>({})
   const [result, setResult] = React.useState<SubmitResult | null>(null)
-  const [leftSec, setLeftSec] = React.useState(0)
+  // W-01:以截止时间戳建模,剩余秒数由墙钟派生(见 useDeadlineCountdown)
+  const [deadline, setDeadline] = React.useState<number | null>(null)
 
   const startMut = useMutation({
     mutationFn: async () => {
@@ -52,18 +53,11 @@ export default function ExamTakePage() {
     },
     onSuccess: (d: { record: { id: string } }) => {
       setRecordId(d.record.id)
+      autoSubmitRef.current = false
       setPhase('answering')
       const duration = data?.duration ?? 0
-      autoSubmitStartedRef.current = false
-      if (duration > 0) {
-        // W-01:以截止时间戳为准,不再每秒自减(后台节流/锁屏会让自减冻住,考试被无声延长)
-        deadlineRef.current = Date.now() + duration * 60_000
-        setLeftSec(remainingSeconds(deadlineRef.current))
-      } else {
-        // 无限制时长,不启动倒计时
-        deadlineRef.current = null
-        setLeftSec(0)
-      }
+      // 无限制时长时 deadline=null,不启动倒计时
+      setDeadline(duration > 0 ? Date.now() + duration * 60_000 : null)
     },
   })
 
@@ -88,43 +82,17 @@ export default function ExamTakePage() {
   submitMutRef.current = submitMut
   const answersRef = React.useRef(answers)
   answersRef.current = answers
-  /** W-01:考试截止时间戳;null 表示不限时。所有倒计时读数都由它重算。 */
-  const deadlineRef = React.useRef<number | null>(null)
-  /** W-01:自动交卷一次性锁,避免 0 秒读数反复触发提交。 */
-  const autoSubmitStartedRef = React.useRef(false)
+  // 自动交卷一次性锁:倒计时归零的那次渲染只提交一次,避免重复提交
+  const autoSubmitRef = React.useRef(false)
+
+  const leftSec = useDeadlineCountdown(deadline)
 
   React.useEffect(() => {
-    if (phase !== 'answering') return
-    const deadline = deadlineRef.current
-    if (deadline === null) return
-    // 每次都按截止戳重算;后台被节流/锁屏时定时器不走,回前台靠这三个事件立刻补回真实剩余时间
-    const tick = () => setLeftSec(remainingSeconds(deadline))
-    tick()
-    const tm = window.setInterval(tick, 1000)
-    document.addEventListener('visibilitychange', tick)
-    window.addEventListener('focus', tick)
-    window.addEventListener('pageshow', tick)
-    return () => {
-      window.clearInterval(tm)
-      document.removeEventListener('visibilitychange', tick)
-      window.removeEventListener('focus', tick)
-      window.removeEventListener('pageshow', tick)
-    }
-  }, [phase])
-
-  React.useEffect(() => {
-    if (
-      phase === 'answering' &&
-      deadlineRef.current !== null &&
-      leftSec === 0 &&
-      recordId &&
-      !autoSubmitStartedRef.current &&
-      !submitMutRef.current.isPending
-    ) {
-      autoSubmitStartedRef.current = true
-      submitMutRef.current.mutate({ answers: answersRef.current })
-    }
-  }, [leftSec, phase, recordId])
+    if (phase !== 'answering' || deadline === null || leftSec > 0 || !recordId) return
+    if (autoSubmitRef.current || submitMutRef.current.isPending) return
+    autoSubmitRef.current = true
+    submitMutRef.current.mutate({ answers: answersRef.current })
+  }, [leftSec, phase, deadline, recordId])
 
   const handleAnswer = (qid: string, val: string | string[]) =>
     setAnswers((a) => ({ ...a, [qid]: val }))

@@ -12,13 +12,28 @@
 import type { AliPayParams, AnyPayParams, WxPayParams } from '@ihui/types'
 
 /**
- * 从原始对象中按多命名约定选取首个非空值。
- * 返回 undefined 表示所有候选键均未提供有效值。
+ * 服务端下发的支付凭据只接受「标量」:字符串 / 有限数字 / 布尔。
+ * 数组、对象、函数一律按缺失处理(2026-11-08,同型根因自查 shared 信任类)。
+ *
+ * 为什么不能直接 `as string`:后端在某些序列化路径上会把数组/数值派成对象或数组
+ * (见 findings-api 的跨端形状类问题),`as` 会让 `[object Object]`、数组原样进入
+ * 支付 SDK 的签名参数 —— 失败方式从「明确缺字段」退化成「拿一个看起来有值的垃圾去签名」。
  */
-function pickFirst<T = unknown>(obj: Record<string, unknown>, keys: string[]): T | undefined {
+function toCredentialString(value: unknown): string | undefined {
+  if (typeof value === 'string') return value === '' ? undefined : value
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : undefined
+  if (typeof value === 'boolean') return String(value)
+  return undefined
+}
+
+/**
+ * 从原始对象中按多命名约定选取首个「标量」值,并统一成字符串。
+ * 返回 undefined 表示所有候选键均未提供可用凭据。
+ */
+function pickCredential(obj: Record<string, unknown>, keys: string[]): string | undefined {
   for (const k of keys) {
-    const v = obj[k]
-    if (v !== undefined && v !== null && v !== '') return v as T
+    const value = toCredentialString(obj[k])
+    if (value !== undefined) return value
   }
   return undefined
 }
@@ -29,13 +44,14 @@ function pickFirst<T = unknown>(obj: Record<string, unknown>, keys: string[]): T
  */
 export function normalizeWxPayParams(raw: Record<string, unknown>): WxPayParams {
   return {
-    appid: pickFirst<string>(raw, ['appid', 'appId', 'app_id']),
-    partnerid: pickFirst<string>(raw, ['partnerid', 'partnerId', 'partner_id']),
-    prepayid: pickFirst<string>(raw, ['prepayid', 'prepayId', 'prepay_id']),
-    package: (raw.package as string) ?? 'Sign=WXPay',
-    noncestr: pickFirst<string>(raw, ['noncestr', 'nonceStr', 'nonce_str']) ?? '',
-    timestamp: String(pickFirst(raw, ['timestamp', 'timeStamp']) ?? Math.floor(Date.now() / 1000)),
-    sign: raw.sign as string,
+    appid: pickCredential(raw, ['appid', 'appId', 'app_id']),
+    partnerid: pickCredential(raw, ['partnerid', 'partnerId', 'partner_id']),
+    prepayid: pickCredential(raw, ['prepayid', 'prepayId', 'prepay_id']),
+    package: toCredentialString(raw.package) ?? 'Sign=WXPay',
+    noncestr: pickCredential(raw, ['noncestr', 'nonceStr', 'nonce_str']) ?? '',
+    timestamp:
+      pickCredential(raw, ['timestamp', 'timeStamp']) ?? String(Math.floor(Date.now() / 1000)),
+    sign: toCredentialString(raw.sign),
   }
 }
 
@@ -44,11 +60,11 @@ export function normalizeWxPayParams(raw: Record<string, unknown>): WxPayParams 
  * orderInfo 优先级:显式 orderStr > string 类型 orderInfo。
  */
 export function normalizeAliPayParams(raw: Record<string, unknown>): AliPayParams {
-  const orderInfoStr = typeof raw.orderInfo === 'string' ? raw.orderInfo : undefined
+  const orderInfoStr = toCredentialString(raw.orderInfo)
   return {
-    tradeNO: raw.tradeNO as string | undefined,
-    orderStr: (raw.orderStr as string) ?? orderInfoStr,
-    orderInfo: raw.orderInfo as string | undefined,
+    tradeNO: toCredentialString(raw.tradeNO),
+    orderStr: toCredentialString(raw.orderStr) ?? orderInfoStr,
+    orderInfo: orderInfoStr,
   }
 }
 

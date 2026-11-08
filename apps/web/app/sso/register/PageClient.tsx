@@ -9,6 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useAuthStore } from '@/stores/auth'
 import { fetchApi } from '@/lib/api'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import { buildSsoRedirectUrl } from '@ihui/shared'
 import {
   ensureSsoRedirectAllowed,
@@ -50,15 +51,11 @@ export default function SsoRegisterPage() {
   const [loading, setLoading] = React.useState(false)
   const [exchanging, setExchanging] = React.useState(false)
   const [sendingCode, setSendingCode] = React.useState(false)
-  const [countdown, setCountdown] = React.useState(0)
+  // 同型根因 S-01:发码冷却改为截止时间戳派生,后台节流不再延长冷却
+  const [codeDeadline, setCodeDeadline] = React.useState<number | null>(null)
+  const countdown = useDeadlineCountdown(codeDeadline)
   const [registerSuccess, setRegisterSuccess] = React.useState(false)
   const [showAgreeErr, setShowAgreeErr] = React.useState(false)
-
-  React.useEffect(() => {
-    if (countdown <= 0) return
-    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000)
-    return () => clearTimeout(timer)
-  }, [countdown])
 
   const handleClose = React.useCallback(() => {
     // 2026-09-22:redirect 为受保护的同源路径时直接跳回必被登录守卫 307 弹回本页
@@ -92,7 +89,7 @@ export default function SsoRegisterPage() {
       })
       if (r.success) {
         toast.success(t('codeSent'))
-        setCountdown(60)
+        setCodeDeadline(Date.now() + 60_000)
       } else {
         toast.error(!r.success ? r.error : t('sendCodeFailed'))
       }

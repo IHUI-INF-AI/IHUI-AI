@@ -11,6 +11,7 @@ import { useLocale, useTranslations } from 'next-intl'
 import { Loader2, ArrowLeft, RotateCcw, Clock, CheckCircle, XCircle, Wallet } from 'lucide-react'
 
 import { fetchApi } from '@/lib/api'
+import { loadRefundDetail, REFUND_FALLBACK_PAGE_SIZE } from '@/lib/refund-detail'
 import { Card, CardContent } from '@ihui/ui-react'
 import { cn } from '@/lib/utils'
 import { useAuthGate } from '@/hooks/use-auth-gate'
@@ -48,6 +49,8 @@ interface RefundFullData {
   refund: RefundDetail
   order: unknown | null
   auditRecords: AuditRecord[]
+  /** W-03:详情端点 404 时由列表降级补齐;页面必须显式提示,不许静默 */
+  degraded?: boolean
 }
 
 interface RefundListData {
@@ -91,15 +94,31 @@ export default function RefundDetailPage() {
   const { data, isLoading, error } = useQuery({
     queryKey: ['refund', params.id],
     queryFn: async (): Promise<RefundFullData> => {
-      const detailRes = await fetchApi<RefundFullData>(`/api/refunds/${params.id}`)
-      if (detailRes.success) return detailRes.data
-
-      const listRes = await fetchApi<RefundListData>(`/api/refunds/me?page=1&pageSize=100`)
-      if (listRes.success && listRes.data) {
-        const found = listRes.data.list?.find((r) => r.id === params.id)
-        if (found) return { refund: found, order: null, auditRecords: [] }
+      // W-03:仅详情 404 才允许列表降级;5xx/401/网络错误原样抛出,不再静默兜底
+      const loaded = await loadRefundDetail<RefundDetail>({
+        id: params.id,
+        notFoundMessage: t('notFound'),
+        detail: async (id) => {
+          const r = await fetchApi<RefundFullData>(`/api/refunds/${id}`)
+          return r.success ? { ok: true, data: r.data } : { ok: false, status: r.status, error: r.error }
+        },
+        list: async (page) => {
+          const r = await fetchApi<RefundListData>(
+            `/api/refunds/me?page=${page}&pageSize=${REFUND_FALLBACK_PAGE_SIZE}`,
+          )
+          if (!r.success || !r.data) return { ok: false, error: r.error }
+          return {
+            ok: true,
+            data: { list: r.data.list ?? [], total: r.data.total ?? 0 },
+          }
+        },
+      })
+      return {
+        refund: loaded.refund,
+        order: null,
+        auditRecords: [],
+        degraded: loaded.degraded,
       }
-      throw new Error(detailRes.error || t('notFound'))
     },
     enabled: allow && !!params.id,
   })
@@ -179,6 +198,12 @@ export default function RefundDetailPage() {
         >
           <StatusIcon className="h-4 w-4" />
           {t(statusKey.labelKey)}
+        </div>
+      )}
+
+      {data?.degraded && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-body text-amber-700 dark:text-amber-500">
+          数据降级：退款详情接口暂不可用，以下信息来自退款列表，审核记录暂不可见。
         </div>
       )}
 

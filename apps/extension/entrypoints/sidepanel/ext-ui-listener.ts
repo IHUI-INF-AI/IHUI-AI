@@ -14,12 +14,29 @@
 import type { AgentActionRequest } from '@ihui/types'
 import { executeExtUiAction } from '../../lib/ui-action-registry'
 import { EXT_UI_FORWARD_MESSAGE_TYPE } from '../../lib/ext-ui-forwarder'
+import { isTrustedTopLevelExtensionSender, type RuntimeSenderLike } from '../../lib/message-trust'
 
 export function initExtUiListener(): void {
   chrome.runtime.onMessage.addListener(
-    (msg: unknown, _sender: unknown, sendResponse: (response: unknown) => void) => {
+    (
+      msg: unknown,
+      sender: RuntimeSenderLike | undefined,
+      sendResponse: (response: unknown) => void,
+    ) => {
       const m = msg as { type?: string; payload?: AgentActionRequest } | null
       if (!m || m.type !== EXT_UI_FORWARD_MESSAGE_TYPE || !m.payload) return false
+      // 2026-11-08 同型根因 D 类:ext_ui 能点/填/滚动宿主页面,属高权限入口。
+      // 只接受 background 转发(sender.tab === undefined 的顶层扩展上下文);
+      // 内容脚本的 sender 必带 tab,外部扩展/网页 id 不同 —— 一律不执行、不回执。
+      if (!isTrustedTopLevelExtensionSender(sender, chrome.runtime.id)) {
+        console.warn(
+          '[IHUI AI] ext_ui listener: 丢弃非白名单来源的动作',
+          m.payload.requestId,
+          sender?.id ?? '(none)',
+          sender?.url ?? '(no-url)',
+        )
+        return false
+      }
       const req = m.payload
       void executeExtUiAction(
         req.action as Parameters<typeof executeExtUiAction>[0],
