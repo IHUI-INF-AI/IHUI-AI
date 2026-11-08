@@ -191,7 +191,7 @@ export async function purgeUserPii(userId: string, tx?: Database): Promise<Purge
     return { userPiiTableCount: cleaned, userRowAnonymized: anonymizedRows.length > 0 }
   }
 
-  const result = tx ? await run(tx) : await db.transaction(async (t) => run(t as Database))
+  const result = tx ? await run(tx) : await db.transaction(async (t) => run(t as unknown as Database))
 
   // 吊销该用户所有 refresh token（杜绝续期路径，配合 authenticate() 的 status=3 检查）。
   // 放在事务外：token 表独立于 PII 事务；失败必须上抛，不能静默。
