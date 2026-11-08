@@ -7889,6 +7889,52 @@ async function runGateSelfTests(checkList) {
 // --push-gate 模式:仅执行 push 门检查集(不跑 pre-commit 的全部检查)
 let effectiveChecks = pushGate ? pushGateChecks : checks
 
+// ── 显式跳过指定 push 门(DG-09:让 HUSKY_SKIP_TYPECHECK 名副其实)──────────────
+// 旧版 .husky/pre-push 把 `HUSKY_SKIP_TYPECHECK=1` 用作「整条 push 门链不跑」的开关,
+// 文案却说只跳过 typecheck ⇒ 47p/IG/299~308 等 12 道 blocking 门被静默放行。
+// 现由 hook 只导出 `IHUI_PUSH_GATE_SKIP_IDS=T1`,本器逐 id 过滤,其余门照跑。
+// 失效方向一律失败而非静默:未知/畸形 id、过滤后清单为空 ⇒ exit 2(绝不当作全绿)。
+if (pushGate) {
+  const skipEnvRaw = process.env.IHUI_PUSH_GATE_SKIP_IDS
+  if (typeof skipEnvRaw === 'string' && skipEnvRaw.trim() !== '') {
+    const skippedGates = [
+      ...new Set(
+        skipEnvRaw
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      ),
+    ]
+    if (skippedGates.length === 0) {
+      console.error('❌ IHUI_PUSH_GATE_SKIP_IDS 已设置但解析不出任何门 id(畸形式空值,拒绝静默生效)')
+      process.exit(2)
+    }
+    const knownIds = new Set(effectiveChecks.map((c) => String(c.id)))
+    const unknownIds = skippedGates.filter((id) => !knownIds.has(id))
+    if (unknownIds.length > 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 含未知/畸形门 id:${unknownIds.join(',')}` +
+          `(在册 push 门:${[...knownIds].join(', ')})`,
+      )
+      process.exit(2)
+    }
+    effectiveChecks = effectiveChecks.filter((c) => !skippedGates.includes(String(c.id)))
+    if (effectiveChecks.length === 0) {
+      console.error(
+        `❌ IHUI_PUSH_GATE_SKIP_IDS 过滤后 push 门清单为空(skippedGates=[${skippedGates.join(',')}])` +
+          ' —— 拒绝把它当作「全部通过」',
+      )
+      process.exit(2)
+    }
+    // 跳过态必须禁用 push-gate 结果缓存(--no-cache 既有实现):否则旧缓存命中会把其余门一并短路。
+    if (!cliArgs.includes('--no-cache')) cliArgs.push('--no-cache')
+    console.warn(
+      `⚠️ 显式跳过 push 门:skippedGates=[${skippedGates.join(',')}];` +
+        `其余 ${effectiveChecks.length} 道照跑(--no-cache 已强制启用)`,
+    )
+  }
+}
+
 // ── 档位裁剪(2026-10-22 立,判据与理由全在 scripts/lib/gate-scope.mjs 头注)──────────
 // 只决定"这次改动该跑哪些门",**不碰任何门的判据**。含业务路径 / 含判据库 / 判不出
 // 一律回落全量 —— 失效方向永远是"多跑",不是"少跑"。
