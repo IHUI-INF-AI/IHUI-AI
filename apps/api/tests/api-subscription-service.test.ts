@@ -58,19 +58,34 @@ function insertChain(returnValue: unknown): { values: ReturnType<typeof vi.fn> }
 // Mock 声明
 // =============================================================================
 
-const { mockDbReadSelect, mockDbInsert, mockDbUpdate, mockTxSelect } = vi.hoisted(() => ({
-  mockDbReadSelect: vi.fn(),
-  mockDbInsert: vi.fn(),
-  mockDbUpdate: vi.fn(),
-  // db.transaction 内 tx.select 的 mock,默认返回空(无已发放流水)
-  mockTxSelect: vi.fn().mockReturnValue({
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        limit: vi.fn().mockResolvedValue([]),
-      }),
-    }),
-  }),
-}))
+const { mockDbReadSelect, mockDbInsert, mockDbUpdate, mockTxSelect, mockTxFor, txSelectQueue } =
+  vi.hoisted(() => ({
+    mockDbReadSelect: vi.fn(),
+    mockDbInsert: vi.fn(),
+    mockDbUpdate: vi.fn(),
+    // db.transaction 内 tx.select 的 mock:按队列返回(默认空 = 无已发放流水)
+    mockTxSelect: vi.fn(),
+    // 记录 tx.select 是否用了 FOR UPDATE(DB-03 并发正确性关键)
+    mockTxFor: vi.fn(),
+    txSelectQueue: [] as unknown[],
+  }))
+
+/** 事务内链式查询:支持 .from().where().orderBy().limit().for('update') */
+function txChain(returnValue: unknown) {
+  const promise: any = Promise.resolve(returnValue)
+  promise.limit = vi.fn().mockReturnValue(promise)
+  promise.offset = vi.fn().mockReturnValue(promise)
+  promise.orderBy = vi.fn().mockReturnValue(promise)
+  promise.groupBy = vi.fn().mockReturnValue(promise)
+  promise.where = vi.fn().mockReturnValue(promise)
+  promise.leftJoin = vi.fn().mockReturnValue(promise)
+  promise.from = vi.fn().mockReturnValue(promise)
+  promise.for = vi.fn((mode: string) => {
+    mockTxFor(mode)
+    return promise
+  })
+  return promise
+}
 
 vi.mock('../src/db/index.js', () => ({
   db: {
@@ -156,6 +171,8 @@ import {
 describe('api-subscription-service — API 订阅核心 service', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    txSelectQueue.length = 0
+    mockTxSelect.mockImplementation(() => txChain(txSelectQueue.shift() ?? []))
   })
 
   // ===========================================================================
@@ -224,8 +241,8 @@ describe('api-subscription-service — API 订阅核心 service', () => {
           },
         ]),
       )
-      // 第 2 次:查用户 active Key
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: 1000 }]))
+      // 第 2 次:事务内查用户 active Key(DB-03:必须带 FOR UPDATE 读最新余额)
+      txSelectQueue.push([{ id: 'key-1', tokenBalance: 1000 }])
       // db.update 链(事务内 tx.update)
       const updateResult = updateChain()
       mockDbUpdate.mockReturnValueOnce(updateResult)
@@ -234,6 +251,8 @@ describe('api-subscription-service — API 订阅核心 service', () => {
       expect(result.success).toBe(true)
       expect(result.keyId).toBe('key-1')
       expect(result.tokenQuota).toBe(500000)
+      // DB-03:余额必须在事务内锁定读取,不能用事务外快照
+      expect(mockTxFor).toHaveBeenCalledWith('update')
       // 验证 update 被调用(token_balance += 500000 → 501000)
       expect(updateResult.set).toHaveBeenCalledWith(
         expect.objectContaining({ tokenBalance: 501000 }),
@@ -245,7 +264,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
         chain([{ id: 'plan-1', name: 'API Pro', features: ['2000000 tokens/month'] }]),
       )
       // 查 active Key 返回空
-      mockDbReadSelect.mockReturnValueOnce(chain([]))
+      txSelectQueue.push([])
       // db.insert 链(事务内 tx.insert)
       const insertResult = insertChain([{ id: 'new-key-1' }])
       mockDbInsert.mockReturnValueOnce(insertResult)
@@ -281,9 +300,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
           { id: 'plan-ent', name: 'API Enterprise', features: ['unlimited tokens', '99.9% SLA'] },
         ]),
       )
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'order-1' }]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ c: 1 }]))
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: 1000 }]))
+      txSelectQueue.push([{ id: 'key-1', tokenBalance: 1000 }])
       const updateResult = updateChain()
       mockDbUpdate.mockReturnValueOnce(updateResult)
 
@@ -299,7 +316,7 @@ describe('api-subscription-service — API 订阅核心 service', () => {
         chain([{ id: 'plan-1', name: 'API Starter', features: ['500000 tokens/month'] }]),
       )
       // 查 active Key 返回 tokenBalance=-1
-      mockDbReadSelect.mockReturnValueOnce(chain([{ id: 'key-1', tokenBalance: -1 }]))
+      txSelectQueue.push([{ id: 'key-1', tokenBalance: -1 }])
 
       const result = await activateApiSubscription('user-1', 'plan-1')
       expect(result.success).toBe(true)
