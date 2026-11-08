@@ -36,8 +36,10 @@ const KEY_ID_ENV = 'AUDIT_EXPORT_SIGN_KEY_ID'
 
 // 审计链查询面桩掉:本票测的是"信封与链的锚定",不是 SQL。
 const selectAuditLogsMock = vi.hoisted(() => vi.fn())
+const selectAuditLogsForExportMock = vi.hoisted(() => vi.fn())
 vi.mock('../src/db/audit-queries.js', () => ({
   selectAuditLogs: selectAuditLogsMock,
+  selectAuditLogsForExport: selectAuditLogsForExportMock,
 }))
 
 import {
@@ -124,6 +126,14 @@ function mockRows(rows: AuditLogChainRow[]): void {
     async (_filters: unknown, page: number, pageSize: number) => {
       if (page > 1) return { list: [], total: rows.length }
       return { list: rows.slice(0, pageSize), total: rows.length }
+    },
+  )
+  // 导出链路现在走 ASC + (timestamp,id) 键集游标;按游标位置续页。
+  selectAuditLogsForExportMock.mockReset()
+  selectAuditLogsForExportMock.mockImplementation(
+    async (_filters: unknown, cursor: { timestamp: string; id: string } | null, limit: number) => {
+      const start = cursor ? rows.findIndex((r) => r.id === cursor.id) + 1 : 0
+      return rows.slice(start, start + limit)
     },
   )
 }
