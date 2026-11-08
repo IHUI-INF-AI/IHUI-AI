@@ -85,6 +85,67 @@ const adminUpdateFeedbackSchema = z.object({
 })
 
 // =============================================================================
+// 评论创建守卫(F-479:正文路由与 /interactions/comment 别名层共用同一份判据)
+// =============================================================================
+
+export interface GuardedCommentInput {
+  userId: string
+  resourceType: string
+  resourceId: string
+  parentId?: string | null
+  content: string
+  mentions?: string[] | null
+  ip?: string
+  userAgent?: string
+}
+
+export type GuardedCommentResult =
+  | { ok: true; comment: Awaited<ReturnType<typeof createComment>> }
+  | { ok: false; status: 400 | 404; message: string }
+
+/**
+ * 父评论存在/同资源校验 + 敏感词过滤 + 落库。别名入口与正文入口都只走这一处,
+ * 避免两套判据漂移(只做参数/响应适配的路由层不得绕开合规闸门)。
+ */
+export async function createGuardedComment(
+  input: GuardedCommentInput,
+): Promise<GuardedCommentResult> {
+  const parentId = input.parentId ?? null
+  if (parentId) {
+    const parent = await findCommentById(parentId)
+    if (!parent) {
+      return { ok: false, status: 404, message: '父评论不存在' }
+    }
+    if (parent.resourceType !== input.resourceType || parent.resourceId !== input.resourceId) {
+      return { ok: false, status: 400, message: '父评论资源不匹配' }
+    }
+  }
+  // P0 合规:评论内容敏感词过滤
+  const cf = await sanitizeUgcInput(
+    { content: input.content },
+    {
+      action: 'ugc.comment.create',
+      resourceType: 'comment',
+      userId: input.userId,
+      ip: input.ip,
+      userAgent: input.userAgent,
+    },
+  )
+  if (!cf.ok) {
+    return { ok: false, status: 400, message: '评论含违规词,提交失败' }
+  }
+  const comment = await createComment({
+    userId: input.userId,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    parentId,
+    content: cf.fields.content!.text,
+    mentions: input.mentions ?? null,
+  })
+  return { ok: true, comment }
+}
+
+// =============================================================================
 // 路由
 // =============================================================================
 
@@ -248,77 +309,40 @@ export const commentRoutes: FastifyPluginAsync = async (server) => {
         const mentions = Array.isArray(body.mentions)
           ? (body.mentions.filter((m) => typeof m === 'string') as string[])
           : null
-        if (parentId) {
-          const parent = await findCommentById(parentId)
-          if (!parent) {
-            return reply.status(404).send(error(404, '父评论不存在'))
-          }
-          if (parent.resourceType !== resourceType || parent.resourceId !== resourceId) {
-            return reply.status(400).send(error(400, '父评论资源不匹配'))
-          }
-        }
-        // P0 合规:评论内容敏感词过滤
-        const cf = await sanitizeUgcInput(
-          { content },
-          {
-            action: 'ugc.comment.create',
-            resourceType: 'comment',
-            userId: request.userId,
-            ip: request.ip,
-            userAgent: request.headers['user-agent'] as string | undefined,
-          },
-        )
-        if (!cf.ok) {
-          return reply.status(400).send(error(400, '评论含违规词,提交失败'))
-        }
-        const comment = await createComment({
+        const result = await createGuardedComment({
           userId: request.userId!,
           resourceType,
           resourceId,
           parentId,
-          content: cf.fields.content!.text,
+          content,
           mentions,
+          ip: request.ip,
+          userAgent: request.headers['user-agent'] as string | undefined,
         })
-        return reply.status(201).send(success({ comment }))
+        if (!result.ok) {
+          return reply.status(result.status).send(error(result.status, result.message))
+        }
+        return reply.status(201).send(success({ comment: result.comment }))
       }
       const parsed = createCommentSchema.safeParse(request.body)
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       const { resourceType, resourceId, parentId, content, mentions } = parsed.data
-      // 若指定 parentId，校验父评论存在且属于同一资源
-      if (parentId) {
-        const parent = await findCommentById(parentId)
-        if (!parent) {
-          return reply.status(404).send(error(404, '父评论不存在'))
-        }
-        if (parent.resourceType !== resourceType || parent.resourceId !== resourceId) {
-          return reply.status(400).send(error(400, '父评论资源不匹配'))
-        }
-      }
-      // P0 合规:评论内容敏感词过滤
-      const cf = await sanitizeUgcInput(
-        { content },
-        {
-          action: 'ugc.comment.create',
-          resourceType: 'comment',
-          userId: request.userId,
-          ip: request.ip,
-          userAgent: request.headers['user-agent'] as string | undefined,
-        },
-      )
-      if (!cf.ok) {
-        return reply.status(400).send(error(400, '评论含违规词,提交失败'))
-      }
-      const comment = await createComment({
+      const result = await createGuardedComment({
         userId: request.userId!,
         resourceType,
         resourceId,
         parentId,
-        content: cf.fields.content!.text,
+        content,
         mentions,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
       })
-      return reply.status(201).send(success({ comment }))
+      if (!result.ok) {
+        return reply.status(result.status).send(error(result.status, result.message))
+      }
+      return reply.status(201).send(success({ comment: result.comment }))
     },
   )
 

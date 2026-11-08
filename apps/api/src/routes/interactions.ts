@@ -19,7 +19,8 @@ import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { isUuidString } from '../utils/uuid.js'
 import { commentLikes } from '@ihui/database'
-import { findComments, createComment, likeComment, unlikeComment } from '../db/comment-queries.js'
+import { findComments, likeComment, unlikeComment } from '../db/comment-queries.js'
+import { createGuardedComment } from './comments.js'
 import { followUser, unfollowUser, isFollowing } from '../db/social-queries.js'
 
 // ============================================================================
@@ -48,8 +49,6 @@ const commentListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
   offset: z.coerce.number().int().min(0).optional().default(0),
 })
-
-
 
 // ============================================================================
 // Routes
@@ -137,22 +136,27 @@ export const interactionsRoutes: FastifyPluginAsync = async (server) => {
     return reply.send(success({ following, isMutual }))
   })
 
-  // POST /interactions/comment — 创建评论
+  // POST /interactions/comment — 创建评论(F-479:别名层复用正文入口的父评论校验与敏感词过滤)
   server.post('/comment', async (request, reply) => {
     const parsed = commentCreateSchema.safeParse(request.body)
     if (!parsed.success) {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     const data = parsed.data
-    const created = await createComment({
+    const result = await createGuardedComment({
       userId: request.userId!,
       resourceType: data.resourceType,
       resourceId: data.resourceId,
       content: data.content,
       parentId: data.parentId ?? null,
       mentions: data.mentions ?? [],
+      ip: request.ip,
+      userAgent: request.headers['user-agent'] as string | undefined,
     })
-    return reply.status(201).send(success(created))
+    if (!result.ok) {
+      return reply.status(result.status).send(error(result.status, result.message))
+    }
+    return reply.status(201).send(success(result.comment))
   })
 
   // GET /interactions/comment?resourceType=&resourceId=&limit=&offset=
