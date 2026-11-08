@@ -2227,6 +2227,10 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-08**
+- 🔧 기타:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
+- 📚 문서:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
+
+**2026-11-08**
 - 📚 문서:同步 README 正文的测试文件现算数(4446) (eb11488487)
 - 📚 문서:同步 F-38 夹具后的 README 现算数字(testFiles 4446 / trackedFiles 20184) (82bd61611f)
 - 🐞 수정:F-38 aiServiceFetch 补默认 deadline 并抛可识别超时错误,与上游 5xx 区分 (0ef93c94b6)
@@ -3046,9 +3050,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-06**
 - 🚀 기능/개선:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
-
-**2026-11-05**
-- 🐞 수정:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
