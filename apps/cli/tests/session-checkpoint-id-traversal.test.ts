@@ -14,6 +14,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // 夹具唯一落点(AGENTS §26):一律不写 os.tmpdir()。
 import { mkScratch, rmScratch } from '../../../scripts/lib/scratch-dir.mjs'; // arch-exempt: 测试夹具只能取 §26 唯一落点(禁 os.tmpdir/裸 mkdtemp),属测试面而非生产依赖边;正解=给"测试支持层"在策略表建档并降到 apps 之下 until 2026-12-28
@@ -28,6 +29,13 @@ import {
 } from '../src/sessions/index.js';
 import { CheckpointManager } from '../src/checkpoints/index.js';
 import { HunkCheckpointManager } from '../src/checkpoints/hunks.js';
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+/** 源级防回潮夹具:直接读生产源码钉入口(pytest 侧以 inspect.getsource 同形落盘) */
+const SRC = (f: string) =>
+  fs.readFileSync(path.join(HERE, '..', 'src', f), 'utf-8').replace(/\r\n/g, '\n');
+/** 现行代码行(剥行尾注释),避免把注释里的旧写法当现行写法 */
+const codeLines = (src: string) => src.split('\n').map((line) => line.replace(/\/\/.*$/, ''));
 
 let tmpHome: string;
 let tmpWorkspace: string;
@@ -238,6 +246,60 @@ describe('hunk 检查点 id 路径穿越', () => {
     expect(mgr.get(meta.id)?.hunks).toHaveLength(1);
     expect(mgr.delete(meta.id)).toBe(true);
     expect(mgr.get(meta.id)).toBeNull();
+  });
+});
+
+// 源级防回潮:与 `lazy_index` / `file_search` 同形 —— 不测行为,直接钉住生产源码里
+// "必须走的那个入口"。路径护栏(8c0b9bc075)在后续重构中被整段吞掉过一次,行为用例
+// 照样全绿,故此组只认源码:检查点 id 落盘/删除必须先过 util/path-guard。
+describe('源级防回潮:检查点 id 只许经根内断言入口落盘', () => {
+  const index = SRC('checkpoints/index.ts');
+  const host = SRC('checkpoints/snapshot-store-host.ts');
+  const hunks = SRC('checkpoints/hunks.ts');
+
+  it('会话根:host 的 snapshotRootDir 与 hunks 构造器都走 segmentPathInside,index 只调 snapshotRootDir', () => {
+    expect(host).toContain('return segmentPathInside(');
+    expect(host).toContain("'会话检查点目录'");
+    expect(hunks).toContain('this.baseDir = segmentPathInside(');
+    expect(index).toContain('this.baseDir = snapshotRootDir(this.sessionId)');
+    for (const src of [index, host, hunks]) expect(src).toContain("from '../util/path-guard.js'");
+  });
+
+  it('检查点目录唯一构造入口是 assertPathInside,措辞仍带档名', () => {
+    expect(index).toMatch(
+      /return assertPathInside\(this\.baseDir, path\.join\(this\.baseDir, checkpointId\), '检查点目录'\)/,
+    );
+    expect(host).toMatch(
+      /const cpDir = assertPathInside\(baseDir, path\.join\(baseDir, checkpointId\), '检查点目录'\)/,
+    );
+    expect(hunks).toMatch(
+      /assertPathInside\(this\.baseDir, path\.join\(this\.baseDir, (?:id|checkpointId)\), 'hunk 检查点目录'\)/,
+    );
+  });
+
+  it('删除先判 isPathInside 再走同一入口(根外 id 折成 false,不删)', () => {
+    expect(index).toMatch(
+      /if \(!isPathInside\(this\.baseDir, path\.join\(this\.baseDir, checkpointId\)\)\) return false/,
+    );
+    expect(hunks).toMatch(
+      /if \(!isPathInside\(this\.baseDir, path\.join\(this\.baseDir, checkpointId\)\)\) return false/,
+    );
+  });
+
+  it('反向锁:任何把 id 拼进 baseDir 的行都必须同带护栏,不许退回裸 path.join 落盘', () => {
+    const unguarded: string[] = [];
+    for (const [name, src] of [
+      ['index.ts', index],
+      ['snapshot-store-host.ts', host],
+      ['hunks.ts', hunks],
+    ] as const) {
+      codeLines(src).forEach((line, i) => {
+        if (!/path\.join\(\s*(?:this\.)?baseDir\s*,\s*(?:id|checkpointId)\s*\)/.test(line)) return;
+        if (/assertPathInside\(|isPathInside\(|segmentPathInside\(/.test(line)) return;
+        unguarded.push(`${name}:${i + 1}: ${line.trim()}`);
+      });
+    }
+    expect(unguarded).toEqual([]);
   });
 });
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
