@@ -75,6 +75,11 @@ class PublishScheduler:
         self._poll_task: asyncio.Task[None] | None = None
         self._running: dict[str, asyncio.Task[None]] = {}  # task_id -> asyncio.Task
         self._user_running: dict[str, int] = {}  # user_id -> 正在执行的任务数
+        # AIS-023:spawn 之后到协程真正启动之间存在窗口,仅靠 `_running` 去重会漏;
+        # `_reserved` 在提交侧同步占位,`_run_task` 起跑时摘掉并换成真实 task。
+        self._reserved: set[str] = set()
+        # AIS-042:task_id -> 属主。`_running` 里只有 Task 引用,运行/历史查询要按主体过滤
+        self._task_users: dict[str, str | None] = {}
         self._history: list[dict[str, Any]] = []  # 内存 LRU 历史
         self._started = False
         # 持有 spawn 出的 task 引用,避免 CPython GC 回收未完成的 task
@@ -86,6 +91,31 @@ class PublishScheduler:
         self._pending_tasks.add(task)
         task.add_done_callback(self._pending_tasks.discard)
         return task
+
+    def _reserve(self, task_id: str, user_id: str | None) -> bool:
+        """提交侧同步占位:task_id 去重 + 每用户并发上限(AIS-023)。
+
+        所有 spawn `_run_task` 的路径(轮询/立即/重试)都必须先占位;占位与
+        spawn 之间不许 await,否则同一 task_id 可重入。计数在 `_run_task`
+        的 finally 里统一释放,成功/失败/取消/崩溃都不会泄漏。
+        """
+        if task_id in self._running or task_id in self._reserved:
+            return False
+        user_key = user_id or "_anonymous"
+        if self._user_running.get(user_key, 0) >= _MAX_CONCURRENT_PER_USER:
+            return False
+        self._reserved.add(task_id)
+        self._task_users[task_id] = user_id
+        self._user_running[user_key] = self._user_running.get(user_key, 0) + 1
+        return True
+
+    def _release_slot(self, task_id: str, user_id: str | None) -> None:
+        """释放 `_reserve` 占的位(任务终态/落库失败兜底共用)。"""
+        user_key = user_id or "_anonymous"
+        self._user_running[user_key] = max(0, self._user_running.get(user_key, 1) - 1)
+        self._reserved.discard(task_id)
+        self._running.pop(task_id, None)
+        self._task_users.pop(task_id, None)
 
     # ===== 启停 =====
 
@@ -121,6 +151,8 @@ class PublishScheduler:
                     t.cancel()
         self._running.clear()
         self._user_running.clear()
+        self._reserved.clear()
+        self._task_users.clear()
 
     # ===== DB 连接 =====
 
@@ -239,10 +271,9 @@ class PublishScheduler:
             )
             for r in rows:
                 task_id = r["task_id"]
-                if task_id in self._running:
-                    continue
                 user_id = r["user_id"] or ""
-                if self._user_running.get(user_id, 0) >= _MAX_CONCURRENT_PER_USER:
+                # AIS-023:去重与每用户上限与立即提交分支同一份判据(_reserve),先占位后落库
+                if not self._reserve(task_id, user_id):
                     continue
                 content = PublishContent(
                     format=r["format"],
@@ -255,12 +286,16 @@ class PublishScheduler:
                     extra=r["content"].get("extra", {}) if isinstance(r["content"], dict) else {},
                 )
                 targets = r["targets"] if isinstance(r["targets"], list) else []
-                # 标记为 running
-                await conn.execute(
-                    "UPDATE publish_tasks SET status='running', started_at=$1, updated_at=$1 WHERE task_id=$2",
-                    now,
-                    task_id,
-                )
+                # 标记为 running(AIS-023:落库失败要退掉已占的位,否则该任务永久悬挂)
+                try:
+                    await conn.execute(
+                        "UPDATE publish_tasks SET status='running', started_at=$1, updated_at=$1 WHERE task_id=$2",
+                        now,
+                        task_id,
+                    )
+                except Exception:
+                    self._release_slot(task_id, user_id)
+                    raise
                 self._spawn_task(self._run_task(task_id, user_id, content, targets))
             return True
         finally:
@@ -318,7 +353,22 @@ class PublishScheduler:
         if scheduled_at:
             return {"ok": True, "task_id": task_id, "status": "scheduled", "scheduled_at": scheduled_at.isoformat()}
 
-        # 立即执行
+        # 立即执行(AIS-023:与轮询分支同款门 —— task_id 去重 + 每用户并发上限,
+        # 且先同步占位再 spawn,避免同一 task_id 双击/重放在启动窗口内并发两次)
+        if not self._reserve(task_id, user_id):
+            user_key = user_id or "_anonymous"
+            reason = (
+                "task already running"
+                if task_id in self._running or task_id in self._reserved
+                else "too many running tasks"
+            )
+            return {
+                "ok": False,
+                "task_id": task_id,
+                "status": "rejected",
+                "error": reason,
+                "running": self._user_running.get(user_key, 0),
+            }
         self._spawn_task(self._run_task(task_id, user_id, content, targets))
         return {"ok": True, "task_id": task_id, "status": "running"}
 
@@ -332,8 +382,8 @@ class PublishScheduler:
         targets: list[dict[str, Any]],
     ) -> None:
         """执行单个发布任务(并发多平台)。"""
-        user_key = user_id or "_anonymous"
-        self._user_running[user_key] = self._user_running.get(user_key, 0) + 1
+        # 计数/去重位已由提交侧 `_reserve` 占好;这里只把占位换成真实 task 句柄
+        self._reserved.discard(task_id)
         self._running[task_id] = asyncio.current_task()  # type: ignore[assignment]
 
         try:
@@ -431,9 +481,8 @@ class PublishScheduler:
             await self._finish_task_db(task_id, "failed", [], f"crashed: {e}")
             raise
         finally:
-            # 清理(无论成功/失败/崩溃都执行,防止计数器泄漏)
-            self._user_running[user_key] = max(0, self._user_running.get(user_key, 1) - 1)
-            self._running.pop(task_id, None)
+            # 清理(无论成功/失败/崩溃都执行:并发计数、去重位、running 句柄、属主映射)
+            self._release_slot(task_id, user_id)
 
     async def _run_single_platform(
         self,
@@ -1142,13 +1191,31 @@ class PublishScheduler:
 
     # ===== 公开 API =====
 
-    def list_running(self) -> list[str]:
-        """列出正在执行的 task_id。"""
-        return list(self._running.keys())
+    def list_running(self, owner_user_id: str | None = None) -> list[str]:
+        """列出正在执行的 task_id。
 
-    def list_history(self, limit: int = 50) -> list[dict[str, Any]]:
-        """列出最近 N 条历史(内存,倒序)。"""
-        return list(reversed(self._history))[:max(1, min(limit, _HISTORY_LIMIT))]
+        AIS-042:`owner_user_id=None` 是系统级/admin 视角(全站);带主体时只回该主体
+        的任务(历史条目里本就带 user_id,这里按 `_task_users` 映射对齐)。
+        """
+        if owner_user_id is None:
+            return list(self._running.keys())
+        return [
+            task_id
+            for task_id in self._running
+            if self._task_users.get(task_id) == owner_user_id
+        ]
+
+    def list_history(
+        self, limit: int = 50, owner_user_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """列出最近 N 条历史(内存,倒序)。
+
+        AIS-042:带主体时按条目 `user_id` 过滤,避免把他人 task_id/发布地址一并回出。
+        """
+        entries = list(reversed(self._history))
+        if owner_user_id is not None:
+            entries = [e for e in entries if e.get("user_id") == owner_user_id]
+        return entries[: max(1, min(limit, _HISTORY_LIMIT))]
 
     async def cancel_task(self, task_id: str) -> bool:
         """取消任务(只能取消正在执行的)。"""
@@ -1200,7 +1267,13 @@ class PublishScheduler:
             retry_task_id = f"{task_id}-retry-{int(datetime.now(UTC).timestamp())}"
             # 2026-08-17 修复:参数顺序错误 _run_task(task_id, user_id, content, targets),
             # 原代码把 user_id 当 task_id、retry_task_id 当 user_id 传入 → retry 任务身份错乱。
-            self._spawn_task(self._run_task(retry_task_id, row["user_id"] or "", content, new_targets))
+            # AIS-023:重试同样走 _reserve(spawn 的每条路径都必须先占位)
+            retry_user_id = row["user_id"] or ""
+            if not self._reserve(retry_task_id, retry_user_id):
+                return {"ok": False, "error": "too many running tasks"}
+            self._spawn_task(
+                self._run_task(retry_task_id, retry_user_id, content, new_targets)
+            )
             return {"ok": True, "retry_task_id": retry_task_id, "targets": len(new_targets)}
         except Exception as e:
             return {"ok": False, "error": f"{type(e).__name__}: {e}"}
