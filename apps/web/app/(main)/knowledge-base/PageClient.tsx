@@ -65,7 +65,7 @@ export default function KnowledgeBasePageClient() {
     enabled: allow,
     queryFn: async () => {
       const res = await getKnowledgeBaseCategories<KBCategory>()
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tCommon('loadFailed'))
       return res.data.list ?? []
     },
   })
@@ -80,7 +80,7 @@ export default function KnowledgeBasePageClient() {
         ...(categoryId !== 'all' ? { categoryId } : {}),
         ...(debounced ? { search: debounced } : {}),
       })
-      if (!res.success) throw new Error(res.error || '加载失败')
+      if (!res.success) throw new Error(res.error || tCommon('loadFailed'))
       return res.data
     },
   })
