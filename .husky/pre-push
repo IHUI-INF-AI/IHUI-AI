@@ -139,7 +139,8 @@ fi
 # ─── 全量 typecheck 强制门 ────────────────────────────────────────────
 # 背景:第 11-12 轮发现 subagent 报告"全绿"靠 .tsbuildinfo 缓存假象
 #      pre-push 强制清缓存 + 串行全量 typecheck 修复该问题
-# 跳过的方法:HUSKY_SKIP_TYPECHECK=1(紧急 push 时使用,但建议修复后正常 push)
+# 跳过的方法:HUSKY_SKIP_TYPECHECK=1(仅跳过 T1 全量 typecheck,其余 12 道 push 门照跑;
+#          紧急 push 时使用,但建议修复后正常 push)
 # 注意:用 printf >&2 替代 echo,避免 Windows git hooks stdout 关闭导致 Bad file descriptor
 #
 # 2026-08-31 改版:pnpm typecheck:full → guardian-runner --push-gate 编排
@@ -153,19 +154,25 @@ fi
 #   新行为:检测工作区是否干净,不干净时打印明确指引(3 个选项),再跑 typecheck
 #   不用 git stash 隔离方案:stash pop 在工作区被 lint-staged/IDE 等工具修改后会冲突,
 #   需手动恢复(实测踩坑),风险高于收益。保留全量 typecheck 闸门,加智能提示更稳妥。
+# 2026-11-08 DG-09 修正:旧版该判断的 else 分支一直包到 push 门调用结束 ⇒ 设变量等于
+#   「整条 push 门链(13 道 blocking)一道都不跑」,与文案「仅跳过 typecheck」不符。
+#   现改为:设变量 ⇒ 只导出 IHUI_PUSH_GATE_SKIP_IDS=T1(由 guardian-runner 逐 id 过滤并打印
+#   skippedGates),后面 PUSH_SCOPE_FILES 计算与 guardian-runner --push-gate 调用**照常执行**,
+#   其余 12 道 push 门不降级;runner 侧同时强制 --no-cache,避免缓存命中把其余门短路。
 if [ "${HUSKY_SKIP_TYPECHECK:-0}" = "1" ]; then
-  printf '%s\n' "⚠️  HUSKY_SKIP_TYPECHECK=1 — 已跳过全量 typecheck 验证(不推荐)" >&2
-else
-  printf '\n%s\n' "🔍 全量 typecheck 验证(清 .tsbuildinfo 缓存后)..." >&2
-  cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
+  printf '%s\n' "⚠️  HUSKY_SKIP_TYPECHECK=1 — 仅跳过 T1(全量 typecheck),其余 12 道 push 门照跑(不推荐)" >&2
+  export IHUI_PUSH_GATE_SKIP_IDS="T1"
+fi
+printf '\n%s\n' "🔍 全量 typecheck 验证(清 .tsbuildinfo 缓存后;HUSKY_SKIP_TYPECHECK=1 时 T1 由 runner 跳过)..." >&2
+cd "$(git rev-parse --show-toplevel)" || { printf '%s\n' "❌ 无法定位仓库根目录" >&2; exit 1; }
 
-  # 检测工作区是否有未提交改动(tracked)
-  if ! git diff --quiet HEAD --; then
+# 检测工作区是否有未提交改动(tracked)
+if ! git diff --quiet HEAD --; then
     printf '%s\n' "" >&2
     printf '%s\n' "⚠️  工作区有未提交改动,typecheck 将包含这些改动(可能阻塞 push)" >&2
     printf '%s\n' "    若 push 被阻塞,可选:" >&2
     printf '%s\n' "      1. 先 commit/stash 工作区改动,再 push" >&2
-    printf '%s\n' "      2. 用 HUSKY_SKIP_TYPECHECK=1 git push 跳过 typecheck(不推荐)" >&2
+    printf '%s\n' "      2. 用 HUSKY_SKIP_TYPECHECK=1 git push 仅跳过 T1(其余 12 道 push 门照跑)(不推荐)" >&2
     printf '%s\n' "      3. 修复 typecheck 错误后正常 push" >&2
     printf '%s\n' "" >&2
   fi
@@ -304,7 +311,6 @@ EOF
   fi
   tail -3 .ihui-agent/state/hook-logs/pre-push-gate.log >&2 || true
   printf '%s\n' "✅ push 门校验通过(push-scope/staged-scope 降级已启用)" >&2
-fi
 
 # ─── 文档数字对账(DN2 head 面全量,2026-11-05 挂 pre-push) ─────────────────────
 # 提交链只判"本轮触及 README 的那枚"(DN4 防恒红)⇒"只加测试不碰 README"会让正文静默过期;推送频次低 ⇒ 不恒红。
