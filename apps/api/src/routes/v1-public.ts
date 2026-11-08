@@ -2346,12 +2346,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
         const batchFileId = `file-${randomUUID()}`
         const content = buffer.toString('utf8')
+        let batchRedis: { disconnect: () => void } | null = null
         try {
           const { saveBatchInput } = await import('../queue/batch-queue.js')
           const IORedis = (await import('ioredis')).default
           const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 2 })
+          batchRedis = redis
           await saveBatchInput(redis, batchFileId, content)
-          redis.disconnect()
           return reply.status(201).send({
             id: batchFileId,
             object: 'file',
@@ -2363,6 +2364,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           })
         } catch {
           return reply.status(500).send(error(500, 'Batch file save failed'))
+        } finally {
+          // 无论保存成功/抛错都要断开:ioredis 默认自动重连,泄漏一条会持续占用连接与重连定时器
+          batchRedis?.disconnect()
         }
       }
 
