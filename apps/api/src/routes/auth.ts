@@ -3,9 +3,10 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { createHash, randomUUID } from 'node:crypto'
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import type { Redis } from 'ioredis'
+import { getIpReputationService } from '../services/ip-reputation.js'
 // 2026-07-24 国安级升级:argon2id 密码哈希(抗 GPU/ASIC),兼容老 bcrypt 透明升级
 import { hashPassword, verifyPassword } from '../utils/password-crypto.js'
 import { verifyLoginPassword } from '../utils/login-verify.js'
@@ -353,6 +354,74 @@ type QrLoginState =
 // 路由
 // =============================================================================
 
+// ── F-377:登录风控上下文补全 ──
+// 原实现只传 { userId, ip },R001(loginRegionChanged)/R003(ipBlacklisted/ipRiskScore)
+// 永远拿不到数据 ⇒ 两条规则是死规则。这里补齐:
+//   - ipRiskScore/ipBlacklisted 走 IP 信誉服务;
+//   - loginRegionChanged 与本次登录前最后一次成功登录 IP 的「网段」比较
+//     (/16 IPv4、前两个 hextet IPv6),避免同城动态 IP 误报。
+const LOGIN_LAST_IP_KEY = (userId: string): string => `login:last-ip:${userId}`
+const LOGIN_LAST_IP_TTL_SEC = 90 * 24 * 60 * 60
+
+function ipRegionKey(ip: string): string {
+  const v4 = /^(\d{1,3}\.\d{1,3})\./.exec(ip)
+  if (v4) return v4[1]!
+  if (ip.includes(':')) {
+    return ip
+      .split(':')
+      .slice(0, 2)
+      .join(':')
+      .toLowerCase()
+  }
+  return ip
+}
+
+function headerValue(request: FastifyRequest, name: string): string | undefined {
+  const raw = request.headers[name]
+  return Array.isArray(raw) ? raw[0] : raw
+}
+
+async function buildLoginRiskContext(
+  request: FastifyRequest,
+  userId: string,
+): Promise<Record<string, unknown>> {
+  const ip = request.ip
+  const ctx: Record<string, unknown> = {
+    userId,
+    ip,
+    userAgent: headerValue(request, 'user-agent'),
+    deviceFingerprint: headerValue(request, 'x-device-fingerprint'),
+  }
+  try {
+    const rep = await getIpReputationService(request.server.redis ?? null).getIpReputation(ip)
+    ctx.ipRiskScore = rep.score
+    ctx.ipBlacklisted = rep.reasons.includes('blacklisted')
+  } catch (e) {
+    request.log.warn({ err: e }, 'login risk: ip reputation unavailable')
+  }
+  try {
+    const lastIp = await request.server.redis.get(LOGIN_LAST_IP_KEY(userId))
+    if (lastIp) ctx.loginRegionChanged = ipRegionKey(lastIp) !== ipRegionKey(ip)
+  } catch (e) {
+    request.log.warn({ err: e }, 'login risk: last-login-ip lookup failed')
+  }
+  return ctx
+}
+
+/** 记录本次成功登录 IP(供下一次 R001 判断;Redis 不可用时降级为不判断) */
+async function rememberLoginIp(request: FastifyRequest, userId: string): Promise<void> {
+  try {
+    await request.server.redis.set(
+      LOGIN_LAST_IP_KEY(userId),
+      request.ip,
+      'EX',
+      LOGIN_LAST_IP_TTL_SEC,
+    )
+  } catch (e) {
+    request.log.warn({ err: e }, 'login risk: remember last-login-ip failed')
+  }
+}
+
 export const authRoutes: FastifyPluginAsync = async (server) => {
   // P0-30 配套(2026-08-01):登录端点 Turnstile 人机验证
   // 覆盖 /login /login/sms /login/email,未配置 TURNSTILE_SECRET_KEY 时 verifyTurnstile 内部放行
@@ -648,8 +717,10 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
 
       // P0 资金安全修复(2026-09-06):注册接入风控,注入 IP/设备指纹 +
       // R004 批量注册需要的 sameIpRegisterCount 上下文(统计同 IP 近期风控命中)
+      // F-378:窗口右界取请求进入时刻,排除本次刚落库的记录;DB 异常不再 fail-open
+      const riskStartedAt = new Date()
       try {
-        const sameIpRegisterCount = await recentRiskHitsByIp(request.ip)
+        const sameIpRegisterCount = await recentRiskHitsByIp(request.ip, 3600, riskStartedAt)
         const risk = evaluateRisk({
           ip: request.ip,
           deviceFingerprint: (request.headers['x-device-fingerprint'] as string) ?? undefined,
@@ -663,7 +734,9 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           request.log.info({ ip: request.ip, hits: risk.hits }, '注册进入人工复核(不阻断)')
         }
       } catch (e) {
-        request.log.warn({ err: e }, '注册风控评估失败(不阻断注册)')
+        // F-378:风控数据源不可用时必须 fail-closed(503),不能当作 0 条命中放行
+        request.log.error({ err: e }, '注册风控数据不可用,已拒绝本次注册(fail-closed)')
+        return reply.status(503).send(error(503, '风控服务暂不可用,请稍后重试'))
       }
       request.skipResponseSanitization = true
       const passwordHash = await hashPassword(password)
@@ -886,11 +959,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         log: request.log,
       })
 
-      // 风控评估：异常 IP / 异地登录检测（命中异地登录/异常 IP 时异步触发登录异常通知）
-      const risk = evaluateLoginRisk({
-        userId: String(user.id),
-        ip: request.ip,
-      })
+      // 风控评估：异常 IP / 异地登录检测（F-377:补齐 IP 信誉与异地上下文）
+      const risk = evaluateLoginRisk(await buildLoginRiskContext(request, String(user.id)))
       if (risk.action === 'DENY') {
         recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
@@ -903,6 +973,8 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
           '登录风控触发',
         )
       }
+      // 评估之后再写入,避免本次登录 IP 与自己比较
+      await rememberLoginIp(request, String(user.id))
 
       // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
       // 注意:必须 skipResponseSanitization,否则 challengeToken(JWT)会被响应脱敏层改写成 ***
@@ -1069,16 +1141,14 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
         log: request.log,
       })
 
-      // 风控评估（命中异地登录/异常 IP 时异步触发登录异常通知）
-      const risk = evaluateLoginRisk({
-        userId: String(user.id),
-        ip: request.ip,
-      })
+      // 风控评估（F-377:补齐 IP 信誉与异地上下文）
+      const risk = evaluateLoginRisk(await buildLoginRiskContext(request, String(user.id)))
       if (risk.action === 'DENY') {
         recordAuthLoginAnomaly('deny')
         request.log.warn({ userId: user.id, ip: request.ip, hits: risk.hits }, '登录被风控拒绝')
         return reply.status(403).send(error(403, '登录请求被风控拦截，请联系客服'))
       }
+      await rememberLoginIp(request, String(user.id))
 
       // 2FA 检查:若用户已启用 2FA,返回 challenge token(5min),前端走 /auth/2fa/login-verify 二次校验
       // 注意:必须 skipResponseSanitization,否则 challengeToken(JWT)会被响应脱敏层改写成 ***
@@ -2178,5 +2248,12 @@ export const authRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ confirmed: true, ticket }))
     },
   )
+}
+
+/** F-377 回归夹具入口:只暴露纯辅助,不改变运行时契约 */
+export const __test__ = {
+  buildLoginRiskContext,
+  ipRegionKey,
+  rememberLoginIp,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
