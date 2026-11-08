@@ -1591,6 +1591,20 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
                 "embedding 服务。请在设置中授权后重试。"
             ),
         }
+    # AIS-080:索引会把源码切片发往外部 embedding ⇒ path 必须先过工作区守卫
+    # (与 search_codebase 同一判据),否则任意绝对路径都能被索引/外传。
+    # 位置在开关/同意闸之后:那两闸不碰文件(只是查开关与授权记录),
+    # 且"开关已关"必须如实报 explicit-off,不能被路径错误改写。
+    ok_path, resolved_path = _validate_path_in_workspace(path)
+    if not ok_path:
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "phase": "unjudged",
+            "allowIndex": False,
+            "error": f"路径不允许: {resolved_path}",
+        }
+    path = resolved_path
     try:
         from .codebase_indexer import codebase_indexer
         result = await codebase_indexer.index_repository(
@@ -1840,6 +1854,28 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     pattern = arguments.get("pattern", "")
     max_results = int(arguments.get("max_results", 50))
     symbol_type = arguments.get("symbol_type", "").strip().lower()
+    # AIS-080:搜索根与索引根同一把尺;越界直接拒绝,不做"扫了再说"。
+    # 顺序固定:先判"存在且是目录",再判工作区。缺路径/非目录交由两条腿各自
+    # 如实报 `unavailable`(旧契约逐字节不变);不存在的路径本就读不到任何东西,
+    # 不能把"不存在"改写成"不允许"(§0.3)。
+    _root_probe = Path(path)
+    if _root_probe.exists() and _root_probe.is_dir():
+        ok_path, resolved_path = _validate_path_in_workspace(str(path))
+        if not ok_path:
+            return {
+                "tool": "search_codebase",
+                "query": query,
+                "path": path,
+                "pattern": pattern,
+                "matches": [],
+                "mode": "unjudged",
+                "degraded": True,
+                "reasons": [{"leg": "path", "status": "blocked", "detail": resolved_path}],
+                "stats": {"mode": "unjudged"},
+                "message": f"路径不允许: {resolved_path}",
+                "ok": False,
+            }
+        path = resolved_path
     # Z28 格 1:符号名精确过滤位(可选入参)。空 = 不发起,行为与旧实现逐字节相同。
     symbol_name = str(arguments.get("symbol_name", "") or "").strip()
     # 2026-11-01 票 #10:语义腿开关(默认 True)。False 是调用方的显式选择,
@@ -3505,6 +3541,9 @@ _COMMAND_POLICY_DEFAULT: dict[str, Any] = {
         r"\bkill\b", r"\bkillall\b",
         r">\s*", r">>\s*", r"<\s*", r"\|\s*",
         r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
+        # AIS-081:cmd /c 内建分支的剩余元字符 —— 单 `&`(后台串联)、`^`(转义)、
+        # 换行(跨行串联)都会把一条白名单命令变成多条,与 ; && || | 同级闭锁。
+        r"&", r"\^", r"[\r\n]",
     ],
     "allowed_prefixes": [
         "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
@@ -5110,6 +5149,23 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"路径不是目录: {path}",
                 "ok": False,
             }
+
+        # AIS-106:file_search 与 read_file/search_codebase 同一工作区判据。
+        # 放在存在性/目录判定之后:缺路径、非目录按旧契约如实报错,
+        # 只有"确实存在且可遍历"的目录才需要过工作区这一关。
+        ok_path, resolved_path = _validate_path_in_workspace(str(root))
+        if not ok_path:
+            return {
+                "tool": "file_search",
+                "query": query,
+                "path": path,
+                "pattern": pattern,
+                "matches": [],
+                "count": 0,
+                "ok": False,
+                "message": f"路径不允许: {resolved_path}",
+            }
+        path = resolved_path
 
         # V3 #75:两处遍历收成一个出口(原先各写一遍 os.walk = 同一个工具两份实现)。
         # 扩展名沿用本工具的**黑名单**语义(跳二进制),所以给枚举层传 suffixes=None ——
@@ -8142,6 +8198,16 @@ async def _tool_image_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"save_path 校验失败: {err_code}",
             }
 
+    # AIS-116:改图与生图同源计费(/v1/images/edits),付费调用前必须过同一预算闸。
+    from ..core.mcp_tool_approval import gate_image_spend
+
+    blocked = gate_image_spend(arguments)
+    if blocked:
+        blocked["tool"] = "image_edit"
+        blocked["prompt"] = prompt
+        blocked["error"] = "这次改图消耗需要人批准后才会调用上游,当前没有放行"
+        return blocked
+
     from ..core.config import settings
     from ..providers.base_provider import ProviderError
     from ..providers.token6688_provider import Token6688Provider
@@ -10881,6 +10947,27 @@ async def _tool_workflow_instance_status(arguments: dict[str, Any]) -> dict[str,
 # ---------------------------------------------------------------------------
 async def _tool_investigate_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """investigate_codebase:只读代码库调查(三态 observed/inferred/unknown)。"""
+    # AIS-107:只读 ≠ 可越界。root 与其它代码工具同一把尺,越界不进入遍历/读文件。
+    # 顺序与 search_codebase 一致:先判存在性,再判工作区 —— 不存在的路径由下游
+    # 三态如实回 unknown,不能把"不存在"改写成"不允许"(§0.3)。
+    _probe_path = str(arguments.get("path", "."))
+    if Path(_probe_path).exists():
+        ok_path, resolved_path = _validate_path_in_workspace(_probe_path)
+        if not ok_path:
+            return {
+                "tool": "investigate_codebase",
+                "ok": False,
+                "status": "unjudged",
+                "path": _probe_path,
+                "intent": arguments.get("intent"),
+                "query": arguments.get("query", ""),
+                "findings": [],
+                "legs": [],
+                "missing_inputs": [],
+                "read_only": True,
+                "message": f"路径不允许: {resolved_path}",
+            }
+        arguments = {**arguments, "path": resolved_path}
     from .codebase_investigator import investigate_codebase
 
     result: dict[str, Any] = await investigate_codebase(arguments)

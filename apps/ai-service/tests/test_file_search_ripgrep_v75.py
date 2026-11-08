@@ -61,6 +61,20 @@ from app.services.codebase_indexer import (  # noqa: E402
 FIXTURE_PREFIX = "ihui-v75-"
 
 
+@pytest.fixture(autouse=True)
+def _register_tmp_workspace(tmp_path):
+    """AIS-106:本文件以 tmp_path 当搜索根,登记为允许根,正常路径不被误挡。"""
+    monkeypatch_roots = os.environ.get("MCP_WORKSPACE_ROOTS")
+    os.environ["MCP_WORKSPACE_ROOTS"] = f"{Path.cwd()}{os.pathsep}{tmp_path}"
+    try:
+        yield
+    finally:
+        if monkeypatch_roots is None:
+            os.environ.pop("MCP_WORKSPACE_ROOTS", None)
+        else:
+            os.environ["MCP_WORKSPACE_ROOTS"] = monkeypatch_roots
+
+
 # ---------------------------------------------------------------------------
 # 夹具落点与反残留
 # ---------------------------------------------------------------------------

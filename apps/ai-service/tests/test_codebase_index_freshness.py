@@ -16,11 +16,13 @@ import gzip
 import json
 from collections.abc import Callable
 from pathlib import Path
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from app.core.jwt_auth import DEV_ANONYMOUS_PRINCIPAL
 from app.services import codebase_indexer
 from app.services.codebase_index_status import (
     FRESHNESS_EXPIRED,
@@ -279,4 +281,85 @@ async def test_catalog_only_repair_is_local(tmp_path):
     assert outcome.catalog_result is not None
     assert outcome.after.catalog_state == "ok"
     assert recorder.calls == []  # 目录补齐零远端、零 embedding
+
+
+# =============================================================================
+# AIS-100:/tools/codebase-index refresh 的出域主体只能来自认证主体
+# =============================================================================
+
+
+def _request_with_role(role_id: int) -> SimpleNamespace:
+    return SimpleNamespace(state=SimpleNamespace(role_id=role_id))
+
+
+@pytest.fixture
+def _router_harness(tmp_path, monkeypatch):
+    """把路由依赖换成可观测桩:只关心 user_id 去了哪里,不真的索引/出域。"""
+    from app.routers import tools
+
+    captured: dict[str, object] = {}
+
+    async def fake_ensure_fresh(root, *, repo_id, user_id, force, indexer):
+        captured["root"] = root
+        captured["user_id"] = user_id
+        return SimpleNamespace(action="refreshed", to_dict=lambda: {"action": "refreshed"})
+
+    monkeypatch.setattr(tools, "_require_workspace", lambda _p: tmp_path)
+    monkeypatch.setattr(tools, "resolve_repo_id", lambda *_a, **_k: "repo-1")
+    monkeypatch.setattr(tools, "ensure_fresh", fake_ensure_fresh)
+    return tools, captured
+
+
+@pytest.mark.asyncio
+async def test_refresh_uses_principal_when_body_omits_user(_router_harness, tmp_path):
+    tools, captured = _router_harness
+    await tools.codebase_index(
+        tools.CodebaseIndexRequest(action="refresh", workspace_path=str(tmp_path)),
+        _request_with_role(0),
+        principal="u-1",
+    )
+    assert captured["user_id"] == "u-1"
+
+
+@pytest.mark.asyncio
+async def test_refresh_rejects_cross_user_body_for_non_admin(_router_harness, tmp_path):
+    from fastapi import HTTPException
+
+    tools, captured = _router_harness
+    with pytest.raises(HTTPException) as exc:
+        await tools.codebase_index(
+            tools.CodebaseIndexRequest(
+                action="refresh", workspace_path=str(tmp_path), user_id="u-2"
+            ),
+            _request_with_role(0),
+            principal="u-1",
+        )
+    assert exc.value.status_code == 403
+    assert "user_id" not in captured  # 拦在入口,一次出域都没有
+
+
+@pytest.mark.asyncio
+async def test_refresh_admin_may_delegate_body_user(_router_harness, tmp_path):
+    tools, captured = _router_harness
+    await tools.codebase_index(
+        tools.CodebaseIndexRequest(
+            action="refresh", workspace_path=str(tmp_path), user_id="u-2"
+        ),
+        _request_with_role(1),
+        principal="admin-1",
+    )
+    assert captured["user_id"] == "u-2"
+
+
+@pytest.mark.asyncio
+async def test_refresh_dev_bypass_keeps_body_semantics(_router_harness, tmp_path):
+    tools, captured = _router_harness
+    await tools.codebase_index(
+        tools.CodebaseIndexRequest(
+            action="refresh", workspace_path=str(tmp_path), user_id="u-2"
+        ),
+        _request_with_role(0),
+        principal=DEV_ANONYMOUS_PRINCIPAL,
+    )
+    assert captured["user_id"] == "u-2"
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
