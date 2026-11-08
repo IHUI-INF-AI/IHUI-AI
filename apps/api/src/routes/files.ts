@@ -116,6 +116,8 @@ const searchQuerySchema = z.object({
   projectId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
   mimeType: z.transform(emptyToUndefined).pipe(z.string().max(128).optional()),
   tag: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
+  // F-19: 与 recent 保持一致的上限契约，避免一次拉全库
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
 const recentQuerySchema = z.object({
@@ -283,6 +285,7 @@ export const fileRoutes: FastifyPluginAsync = async (server) => {
         projectId: parsed.data.projectId,
         mimeType: parsed.data.mimeType,
         tag: parsed.data.tag,
+        limit: parsed.data.limit,
       })
       return reply.send(success({ files: list.map(serializeFile) }))
     },
