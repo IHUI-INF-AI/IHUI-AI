@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type { FastifyPluginAsync } from 'fastify'
+import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import type { WebSocket } from '@fastify/websocket'
 import fp from 'fastify-plugin'
 import { wsAuth, WS_CLOSE, WsUserConnectionLimiter, WsRateLimiter } from './ws-helpers.js'
@@ -10,7 +10,7 @@ import { cloneTimbre } from '../routes/ai-vendors.js'
 import { getWsAutoRecoveryManager } from './ws-auto-recovery.js'
 import { aiServiceFetch, aiServiceFetchStream } from '../utils/ai-service-fetch.js'
 import { toUserFriendlyMessage } from '@ihui/shared'
-import { DEFAULT_AI_SERVICE_URL } from '../constants.js'
+import { logger } from '../utils/logger.js'
 
 const send = (socket: WebSocket, obj: unknown): void => {
   try {
@@ -35,13 +35,43 @@ const FREE_TTS_VOICE_MAP: Record<string, string> = {
 /**
  * TTS 合成(2026-09-01 免费化改造):免费 edge-tts 优先(经 ai-service /api/voice/tts,
  * 零 key 零成本,用户决策),失败时降级 DashScope(需 DASHSCOPE_API_KEY 配置)。
+ *
+ * 2026-11-08(AIS-092 收口后的连带修复):`/api/voice/tts` 已移出 jwt 白名单并要求
+ * 已验证主体(`require_request_user_id`)。此前这里用裸 `fetch` 直连、不带任何凭证,
+ * **原来是靠该端点匿名可达才通的**;端点收口后必然 401,而失败又被 catch 静默吞掉、
+ * 直接落到 DashScope —— 线上看起来一切正常,实际免费引擎整段不可用。
+ *
+ * 修法:改走 `aiServiceFetch`(仓内既有服务间调用入口,webSocket 场景自动注入由共享
+ * `JWT_SECRET` 现签的系统服务凭证)。不退回匿名放行,也不硬编码 token。
+ * 降级策略显式化:任何免费引擎失败都先打结构化告警(带错误码/状态码/userId/降级去向),
+ * 再判定是否降级;`DASHSCOPE_API_KEY` 未配置时按失败抛出,不静默返回空音频。
  */
-async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal): Promise<Buffer> {
-  // 1. 免费 TTS 优先(edge-tts,零 key)
+type TtsCallContext = {
+  userId: string
+  /** 用于 aiServiceFetch 解析 traceparent 与注入服务凭证(WS 场景读 query.token)。 */
+  request: FastifyRequest | null
+}
+
+/** 免费引擎失败原因码(结构化日志的稳定字段,告警按它聚合)。 */
+type TtsFreeEngineFailureCode =
+  | 'TTS_FREE_ENGINE_AUTH_FAILED'
+  | 'TTS_FREE_ENGINE_UNAVAILABLE'
+  | 'TTS_FREE_ENGINE_UNREACHABLE'
+  | 'TTS_FREE_ENGINE_BAD_PAYLOAD'
+
+async function synthesizeTTS(
+  text: string,
+  voice: string,
+  signal: AbortSignal | undefined,
+  ctx: TtsCallContext,
+): Promise<Buffer> {
+  let freeFailureCode: TtsFreeEngineFailureCode | null = null
+  let freeFailureDetail = ''
+
+  // 1. 免费 TTS 优先(edge-tts,经 ai-service;凭证由 aiServiceFetch 注入)
   try {
-    const aiBase = (process.env.AI_SERVICE_URL ?? DEFAULT_AI_SERVICE_URL).replace(/\/$/, '')
     const freeVoice = FREE_TTS_VOICE_MAP[voice] ?? 'zh-CN-XiaoxiaoNeural'
-    const resp = await fetch(`${aiBase}/api/voice/tts`, {
+    const resp = await aiServiceFetch(ctx.request, '/api/voice/tts', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, voice: freeVoice, rate: '+0%' }),
@@ -52,18 +82,40 @@ async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal):
       if (ct.includes('audio')) {
         return Buffer.from(await resp.arrayBuffer())
       }
+      freeFailureCode = 'TTS_FREE_ENGINE_BAD_PAYLOAD'
+      freeFailureDetail = `status=200 content-type=${ct || '空'}`
+    } else {
+      // 401/403 = 服务间凭证缺失/过期/错误;其余按引擎不可用。两种都不得静默。
+      freeFailureCode =
+        resp.status === 401 || resp.status === 403
+          ? 'TTS_FREE_ENGINE_AUTH_FAILED'
+          : 'TTS_FREE_ENGINE_UNAVAILABLE'
+      freeFailureDetail = `status=${resp.status} ${(await resp.text().catch(() => '')).slice(0, 120)}`
     }
-    // 免费 TTS 不可用(503/网络)→ 降级 DashScope
-  } catch {
-    // 网络/超时 → 降级 DashScope
+  } catch (e) {
+    if ((e as Error)?.name === 'AbortError') throw e
+    freeFailureCode = 'TTS_FREE_ENGINE_UNREACHABLE'
+    freeFailureDetail = (e as Error)?.message ?? String(e)
   }
 
+  // 免费引擎失败:先告警再判降级,日志里必须能看出"降级了、为什么降级"
+  const dashscopeKey = process.env.DASHSCOPE_API_KEY
+  logger.warn('ws-ai TTS 免费引擎失败,进入降级判定', {
+    code: freeFailureCode,
+    endpoint: '/api/voice/tts',
+    userId: ctx.userId,
+    detail: freeFailureDetail,
+    degraded: Boolean(dashscopeKey),
+    fallback: dashscopeKey ? 'dashscope' : 'none',
+  })
+
   // 2. DashScope fallback(需 DASHSCOPE_API_KEY)
-  const apiKey = process.env.DASHSCOPE_API_KEY
-  if (!apiKey) throw new Error('DashScope 未配置(免费 TTS 亦不可用)')
+  if (!dashscopeKey) {
+    throw new Error(`TTS 不可用:免费引擎失败(${freeFailureCode ?? 'UNKNOWN'})且 DashScope 未配置`)
+  }
   const resp = await fetch(DASHSCOPE_TTS, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${dashscopeKey}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
       model: 'cosyvoice-v2',
       input: { text, voice },
@@ -76,6 +128,14 @@ async function synthesizeTTS(text: string, voice: string, signal?: AbortSignal):
     const err = await resp.text().catch(() => '')
     throw new Error(`TTS 失败 ${resp.status}: ${err.slice(0, 120)}`)
   }
+  // 降级成功同样留痕:免费引擎故障不能被"用户听到声音"掩盖
+  logger.warn('ws-ai TTS 已降级 DashScope(免费引擎不可用,产生付费成本)', {
+    code: 'TTS_DEGRADED_TO_DASHSCOPE',
+    endpoint: '/api/voice/tts',
+    userId: ctx.userId,
+    cause: freeFailureCode,
+    detail: freeFailureDetail,
+  })
   return Buffer.from(await resp.arrayBuffer())
 }
 
@@ -338,7 +398,15 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
         aborted = false
         send(socket, { code: 0, event: 'task.start', ts: Date.now() })
         try {
-          const audio = await synthesizeTTS(text, (msg.voice as string) ?? 'longxiaochun')
+          const audio = await synthesizeTTS(
+            text,
+            (msg.voice as string) ?? 'longxiaochun',
+            undefined,
+            {
+              userId,
+              request,
+            },
+          )
           const CHUNK = 8192
           for (let i = 0; i < audio.length; i += CHUNK) {
             if (aborted) {
@@ -452,6 +520,7 @@ const wsAiPlugin: FastifyPluginAsync = async (server) => {
               text,
               (msg.voice as string) ?? 'longxiaochun',
               ttsController.signal,
+              { userId, request },
             )
             const CHUNK = 4096
             for (let i = 0; i < audio.length; i += CHUNK) {
