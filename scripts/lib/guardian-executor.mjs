@@ -50,6 +50,11 @@ import {
 // Error 只有 error.code、没有 status/signal,不传 code 就被读成"判据判红"(§0.3 把"没判"写成"判过");
 // 归 crash 档后后果一项不减(仍 failed++、仍非零退出、提交仍被拦)。判定与措辞单源都在该 lib。
 import { crashAdvisory, crashNextStep, decideGateOutcome, UNDETERMINED_EXIT_CODE } from './gate-failure-kind.mjs'
+// 2026-11-08:门体同代自检与"重试变绿"判定。统一入口必须是**派发点** —— 任何一处 spawn
+// 自己拼 argv 都会绕过自检,所以两道 spawn 都走 gateSpawnPlan();未声明判面/门体不同代
+// 由子进程 exit 2(preflight)或此处合成的 exit 2 收口,绝不放行 0/1。
+import { gateSpawnPlan } from './gate-body-provenance.mjs'
+import { formatRetryReport, recordAndClassify } from './gate-attempt-ledger.mjs'
 // 2026-11-08:门判据面(delta/stock)注册与"存量红降级"纯判定。分类面住独立 lib,
 // 不进 checks 注册表(门 192 按条目行逐字比对 HEAD↔索引,插字段会被判 P2 改写)。
 import {
@@ -668,13 +673,34 @@ async function dispatchPar(check, cmdArgs) {
     markDone = ok
   })
   parPending.push(job)
+  let plan
+  try {
+    plan = gateSpawnPlan({
+      root: process.cwd(),
+      script: check.script,
+      args: cmdArgs,
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+    })
+  } catch (e) {
+    if (e?.exitCode === UNDETERMINED_EXIT_CODE) {
+      // 派发层自己就"没有资格回答":把同一段话作为该门的 stderr 送进 applyGateResult,
+      // 走既有的未判定分流(不记绿、不冒红、批量 exit 2),不在这里另造一套退出码。
+      job.status = UNDETERMINED_EXIT_CODE
+      job.stderr = `${e.message}\n`
+      job.runtime = 0
+      markDone()
+      return
+    }
+    markDone()
+    throw e
+  }
   await acquireParSlot()
   const spawnedAt = Date.now()
-  const child = spawn(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
+  const child = spawn(process.execPath, plan.argv, {
     cwd: process.cwd(),
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+    env: plan.env,
   })
   parLive.add(child)
   // 输出上限与 spawnSync maxBuffer 同档(≈20MB):超限合成 ENOBUFS error,与 spawnSync
@@ -792,6 +818,14 @@ async function flushParBuffer() {
 const totalGates = effectiveChecks.length
 let doneGates = 0
 
+function lastStderrLine(text) {
+  const lines = String(text ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+  return lines.length > 0 ? lines[lines.length - 1] : ''
+}
+
 function applyGateResult(check, r, checkStart, cmdArgs = []) {
   doneGates += 1
   const pct = totalGates > 0 ? Math.min(100, Math.round((doneGates / totalGates) * 100)) : 100
@@ -846,6 +880,29 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
         `${C.yellow}❓ [${check.id}] ${check.label} 交付未判定(被审面不在位)⇒ **不记绿**${C.reset}`,
       )
       return
+    }
+    // 2026-11-08:同一判面指纹下"先红 ≥2 次后转绿"不是通过,是读数不稳(§0.3 未判定)。
+    // 放在 passed++ 之前:这一格不记绿、不冒红,但批量必须以 exit 2 收口 —— 否则"红了就重试"
+    // 会被训练成拿绿灯的习惯,真 bug 永远浮不出来。
+    if (check.mode === 'blocking') {
+      const retry = recordAndClassify({
+        root: process.cwd(),
+        gateId: check.id,
+        script: check.script,
+        kind: 'pass',
+        summary: lastStderrLine(gateStderr),
+      })
+      if (retry.undetermined) {
+        undetermined++
+        undeterminedGates.push({
+          id: check.id,
+          label: check.label,
+          script: check.script,
+          reason: `同一判面指纹下先红 ${retry.reds.length} 次后转绿(读数不稳,不记绿)`,
+        })
+        console.error(`${C.yellow}❓ ${formatRetryReport({ gateId: check.id, label: check.label, reds: retry.reds })}${C.reset}`)
+        return
+      }
     }
     passed++
     if (showTiming) {
@@ -929,6 +986,16 @@ function applyGateResult(check, r, checkStart, cmdArgs = []) {
       }
     }
     if (check.mode === 'blocking') {
+      // 只记"真有结论的红":崩溃/未判定不入账(它们本来就不记绿,也不构成"两次红")。
+      if (kindPre.kind === 'red') {
+        recordAndClassify({
+          root: process.cwd(),
+          gateId: check.id,
+          script: check.script,
+          kind: 'red',
+          summary: lastStderrLine(gateStderr),
+        })
+      }
       failed++
       // 崩溃 ≠ 判红(纯函数与各分支的构造面证明在 scripts/lib/gate-failure-kind.mjs)。
       // 分流只改**说法与归类**,不改后果:仍然 failed、批量仍然非零退出 —— 把"跑不起来"洗成
@@ -1113,13 +1180,33 @@ for (const check of effectiveChecks) {
   // 更糟的回归(判据失效的表现永远是安静)。stdout 仍 'inherit' 实时输出,观感与逐门进度一字不变;
   // 失败路径合成一个带 status/signal 的 Error,使下方 shouldPropagateAsInterrupt(G-611 的中断传播)
   // 与所有旧分支的读法保持同形 —— 退出码语义不因这次改动而变化:崩溃仍然计失败,不静默放行。
-  const r = spawnSync(process.execPath, [`scripts/${check.script}`, ...cmdArgs], {
+  const plan = (() => {
+    try {
+      return gateSpawnPlan({
+        root: process.cwd(),
+        script: check.script,
+        args: cmdArgs,
+        env: process.env,
+      })
+    } catch (e) {
+      if (e?.exitCode === UNDETERMINED_EXIT_CODE) {
+        // 与并行档同口径:派发层没有资格回答 ⇒ 合成 exit 2 + 自称未判定的 stderr,
+        // 交给 applyGateResult 的既有分流(不记绿、不冒红、批量 exit 2)。
+        applyGateResult(check, { status: UNDETERMINED_EXIT_CODE, signal: null, stdout: '', stderr: `${e.message}\n`, error: null }, Date.now(), cmdArgs)
+        return null
+      }
+      throw e
+    }
+  })()
+  if (plan === null) continue
+  const r = spawnSync(process.execPath, plan.argv, {
     cwd: process.cwd(),
     windowsHide: true,
     // stock 面门要把"被点名的存量项"落台账 ⇒ stdout 需要捕获后回放;其余门保持 inherit 实时输出。
     stdio: ['ignore', gateFace(check) === 'stock' ? 'pipe' : 'inherit', 'pipe'],
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
+    env: plan.env,
     // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
     // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
     timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
