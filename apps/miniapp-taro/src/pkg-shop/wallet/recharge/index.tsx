@@ -128,7 +128,9 @@ export default function RechargePage() {
     try {
       await payOrder(finalAmount, payMethod)
     } catch {
-      Taro.redirectTo({ url: '/pkg-shop/pay/result/index?orderNo=&status=failed' })
+      // XUI-073:下单本身失败时根本没有 orderNo,不能跳到一个「单号为空」的结果页;
+      // 就地提示失败,留在充值页让用户重试。
+      onToast(tt('wallet.recharge.submitFailed', '充值提交失败,请重试'), { kind: 'error' })
     } finally {
       setSubmitting(false)
     }
