@@ -13,6 +13,7 @@ import { Button, Input, Label } from '@ihui/ui-react'
 import { Modal } from '@/components/feedback/Modal'
 import { fetchApi } from '@/lib/api'
 import { cn } from '@/lib/utils'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 
 const phoneRegex = /^1[3-9]\d{9}$/
 
@@ -39,8 +40,10 @@ export function ChangePhoneModal({ open, onClose, oldPhone, onSuccess }: Props) 
   const [oldCode, setOldCode] = React.useState('')
   const [newPhone, setNewPhone] = React.useState('')
   const [newCode, setNewCode] = React.useState('')
-  const [oldCountdown, setOldCountdown] = React.useState(0)
-  const [newCountdown, setNewCountdown] = React.useState(0)
+  const [oldDeadline, setOldDeadline] = React.useState<number | null>(null)
+  const [newDeadline, setNewDeadline] = React.useState<number | null>(null)
+  const oldCountdown = useDeadlineCountdown(oldDeadline)
+  const newCountdown = useDeadlineCountdown(newDeadline)
   const [sendingOld, setSendingOld] = React.useState(false)
   const [sendingNew, setSendingNew] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
@@ -51,8 +54,8 @@ export function ChangePhoneModal({ open, onClose, oldPhone, onSuccess }: Props) 
     setOldCode('')
     setNewPhone('')
     setNewCode('')
-    setOldCountdown(0)
-    setNewCountdown(0)
+    setOldDeadline(null)
+    setNewDeadline(null)
     setSendingOld(false)
     setSendingNew(false)
     setSubmitting(false)
@@ -60,33 +63,9 @@ export function ChangePhoneModal({ open, onClose, oldPhone, onSuccess }: Props) 
     onClose()
   }
 
-  // 2026-09-09 修复:倒计时 interval 登记到 ref,组件卸载时统一清理,
-  // 防止弹窗提前关闭后孤儿 interval 继续 setState(内存泄漏)。
-  const timersRef = React.useRef<ReturnType<typeof setInterval>[]>([])
-  React.useEffect(() => {
-    const timers = timersRef
-    return () => {
-      for (const t of timers.current) clearInterval(t)
-      timers.current = []
-    }
-  }, [])
-
-  const startCountdown = (setter: React.Dispatch<React.SetStateAction<number>>) => {
-    setter(60)
-    const timer = setInterval(() => {
-      setter((c) => {
-        if (c <= 1) {
-          clearInterval(timer)
-          return 0
-        }
-        return c - 1
-      })
-    }, 1000)
-    timersRef.current.push(timer)
-  }
-
-  const startOldCountdown = () => startCountdown(setOldCountdown)
-  const startNewCountdown = () => startCountdown(setNewCountdown)
+  // 2026-11-08 重构收敛:倒计时改由 useDeadlineCountdown 按墙钟派生,页面不再自建 interval
+  const startOldCountdown = () => setOldDeadline(Date.now() + 60_000)
+  const startNewCountdown = () => setNewDeadline(Date.now() + 60_000)
 
   const onSendOldCode = async () => {
     if (oldCountdown > 0 || sendingOld) return

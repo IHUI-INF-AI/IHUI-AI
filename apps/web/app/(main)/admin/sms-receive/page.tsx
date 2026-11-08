@@ -35,6 +35,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@ihui
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@ihui/ui-react'
 import { BackButton } from '@/components/common'
 import { useConfirm } from '@/hooks/use-confirm'
+import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'
 import {
   POLL_INTERVAL_MS,
   POLL_TIMEOUT_MS,
@@ -121,7 +122,8 @@ export default function SmsReceivePage() {
   const [usedLoading, setUsedLoading] = React.useState(false)
   // 快照累积流水(2026-10-09 攻破 24h+100 条):纯本地库读,无平台限频
   const [usedUnion, setUsedUnion] = React.useState<UsedUnionData | null>(null)
-  const [cooldown, setCooldown] = React.useState(0)
+  const [cooldownDeadline, setCooldownDeadline] = React.useState<number | null>(null)
+  const cooldown = useDeadlineCountdown(cooldownDeadline)
 
   // ── 号码台账(本地 sms_receive_history:这号接过什么码/是否注册过,不受平台 24h/100 条限制) ──
   const [phoneHistory, setPhoneHistory] = React.useState<PhoneHistoryItem[]>([])
@@ -373,12 +375,7 @@ export default function SmsReceivePage() {
     return stopPolling
   }, [phase, pollSeed, stopPolling, refreshPhoneHistory, advanceAutoRound])
 
-  // 历史记录 60s 冷却倒计时
-  React.useEffect(() => {
-    if (cooldown <= 0) return
-    const t = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000)
-    return () => clearInterval(t)
-  }, [cooldown])
+  // 历史记录 60s 冷却倒计时:按墙钟截止戳派生(useDeadlineCountdown),不再自建 interval
 
   React.useEffect(() => stopPolling, [stopPolling])
 
@@ -502,7 +499,7 @@ export default function SmsReceivePage() {
     try {
       setUsedItems(await fetchUsed())
       setUsedUnion(await fetchUsedUnion())
-      setCooldown(USED_COOLDOWN_SECONDS)
+      setCooldownDeadline(Date.now() + USED_COOLDOWN_SECONDS * 1000)
     } catch (e) {
       toast.error((e as Error).message)
     } finally {
