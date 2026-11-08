@@ -26,6 +26,41 @@ const TITLE_MAP: Record<string, string> = {
 }
 const METHOD_MAP: Record<string, number> = { POST: 1, PUT: 2, PATCH: 2, DELETE: 3 }
 
+// F-128:审计 body 里的凭据字段一律脱敏后再落库。
+// key 归一化(小写 + 去掉 _ / -)后比对,覆盖 password / newPassword / new_password /
+// accessToken / access_token / apiKey / api_key 等大小写与驼峰、下划线变体。
+const SENSITIVE_KEYS = new Set([
+  'password',
+  'newpassword',
+  'oldpassword',
+  'confirmpassword',
+  'pwd',
+  'token',
+  'accesstoken',
+  'refreshtoken',
+  'secret',
+  'clientsecret',
+  'appsecret',
+  'apikey',
+])
+
+function isSensitiveKey(key: string): boolean {
+  return SENSITIVE_KEYS.has(key.toLowerCase().replace(/[_-]/g, ''))
+}
+
+/** 递归复制并替换敏感字段值,不修改原 request.body。 */
+function redactSensitiveFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redactSensitiveFields)
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = isSensitiveKey(key) ? '[REDACTED]' : redactSensitiveFields(val)
+    }
+    return out
+  }
+  return value
+}
+
 export const operlogAuditOnResponse: onResponseAsyncHookHandler = async (request, reply) => {
   const method = request.method.toUpperCase()
   if (!WRITE_METHODS.has(method)) return
@@ -46,11 +81,12 @@ export const operlogAuditOnResponse: onResponseAsyncHookHandler = async (request
   const operUrl = url.slice(0, 255)
 
   // operParam:请求 body JSON 序列化(限长 2000 防止超大日志)
+  // F-128:先按 key 递归脱敏,避免 resetPwd 等端点的明文密码长期落库。
   let operParam: string | undefined
   try {
     const body = request.body
     if (body !== undefined && body !== null) {
-      operParam = JSON.stringify(body).slice(0, 2000)
+      operParam = JSON.stringify(redactSensitiveFields(body)).slice(0, 2000)
     }
   } catch {
     operParam = undefined
