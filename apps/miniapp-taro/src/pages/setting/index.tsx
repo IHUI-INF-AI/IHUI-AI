@@ -40,7 +40,9 @@ type NotifKey = keyof SharedNotificationToggles
 
 /** 菜单行:仅保留共享屏没有的入口(语言/主题/通知开关/修改密码/退出已在共享屏内)。 */
 const MENU_ROUTES: Readonly<Record<string, string>> = {
-  accountCancel: '/pkg-user/account-cancel/index/index',
+  // XUI-015:页面注册在 app.config.ts 子包 pkg-user 下为 'account-cancel/index',
+  // 旧值多了一段 '/index' 会跳转失败(注销入口不可用)。
+  accountCancel: '/pkg-user/account-cancel/index',
   notification: '/pages/setting/notification',
   cache: '/pages/setting/cache',
   feedback: '/pkg-user/user/feedback',
