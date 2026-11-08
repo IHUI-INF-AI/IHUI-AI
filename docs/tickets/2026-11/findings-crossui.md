@@ -1078,14 +1078,14 @@
 
 | op_type | 含义 | `quantity` 单位 | `balance_after` 单位 |
 |---|---|---|---|
-| 0 充值 / 1 扣减(提现) / 2 过期 / 3 退款 / 4 佣金 / 5 管理员调整 | 钱包金额流水 | **分** | `user_margins.token_quantity`，**分** |
+| 0 充值/入账 · 1 扣减(提现/消费) · 2 过期清零 · 3 退款扣回 · 4 Relay 转账至 API Key · 5 管理员调整(带符号) | 钱包金额流水 | **分** | `user_margins.token_quantity`，**分** |
 | 6 API 订阅配额发放 | API 配额流水 | **配额计数（个）** | `developer_api_keys.token_balance`，**配额余额（个，-1=不限）** |
 
 - 证据：充值落 `orders.amount`（分）；买课扣 `priceCents`；提现落 `amount`（分）；op_type 6 写 `appliedQuota` / `tokenBalance`（`api-subscription-service.ts`）。
 - 处置（按「先写清字段是什么」）：`packages/database/src/schema/wallet.ts` 注释写清两义；`/finance/margin/flows` 未显式指定 `opType` 时排除 `op_type=6`（显式 `opType=6` 仍可查，但返回值是配额计数）；`packages/api-client/src/endpoints/wallet.ts` 的 `MarginFlowItem` 注释改为「钱流水（op_type 0–5），金额单位分」。
 - 一致判定：web `/wallet` 的 `formatPrice(it.quantity)` / `formatPrice(it.balanceAfter)` 对钱腿（0–5）正确，**不改**；`/wallet/withdraw|recharge/records` 的 `amount` 同为分，未发现消费端错用。
 - 夹具：`apps/web/tests/xui-wallet-flow-unit.test.ts`（改前 3 红 → 改后 4 绿），含反例「配额 500000 当分格式化会显示 ¥5000.00」。
-- **新登记未修**：`apps/web/app/(main)/wallet/page.tsx` 的 opType 标签/正负号整体错位（代码把 1 当「充值」，实际 1=扣减/提现；`positive` 集合把提现标成流入），与金额单位无关，下一批修。
+- **已修（`0b3724817a`）**：`apps/web/app/(main)/wallet/page.tsx` 的 opType 标签/正负号整体错位（原代码把 1 当「充值」，实际 1=扣减/提现；`positive` 集合把提现标成流入）→ 见第十节 XUI-086。
 - **设计问题留档（未动）**：AI 计费腿把 LLM token 计数传入同一列（`token-balance-service` 的 `deductTokens(tokens)`），单位口径需专项确认；本次不改成计费规则。
 
 ### 端到端量纲断言（已加 `79eac0bbcf`）
@@ -1098,3 +1098,37 @@
 ### 台账位置
 
 - 本文件（仓库内 `docs/tickets/2026-11/findings-crossui.md`）为唯一真相，随提交推送；文档外工作副本已删除，不再维护第二份。
+
+## 十、2026-11-08 opType 方向修正 + AI 计费腿判定（`fix/crossui-p0-p1-1108`）
+
+### XUI-086 钱包流水 opType 文案/符号/颜色（已修 `0b3724817a`）
+
+权威枚举以写入点为准（`packages/database/src/schema/wallet.ts` 注释已同步）：
+
+| opType | 写入点 | 业务动作 | 方向 |
+|---|---|---|---|
+| 0 | `rechargeToken` | 充值/入账 | + |
+| 1 | `deductToken` / 提现 | 扣减 | − |
+| 2 | `expireToken` | 过期清零 | − |
+| 3 | `refundTokenDeduct` | 退款扣回 | − |
+| 4 | `relay-billing-service` | 钱包转账至 API Key | − |
+| 5 | 管理员调整 | `quantity` 带符号 | ± |
+| 6 | `api-subscription-service` | API 配额发放（非金额，钱流水已排除） | 中性 |
+
+- 修复：新增 `apps/web/lib/wallet-flow-meta.ts` 作为唯一映射；页面文案、符号、颜色三处统一走它。未知值一律「其他变动」中性灰，**绝不显示成充值**。
+- i18n：5 个语言包 `wallet` 命名空间补 `flowDeduct`/`flowExpire`/`flowRecharge`/`flowRefund`/`flowRelayRecharge`/`flowAdminAdjust`/`flowOther`（此前 wallet 命名空间缺这些 key，页面标签实际是裸奔）。
+- 夹具：`apps/web/tests/xui-wallet-optype-display.test.ts`（改前 import 失败 → 改后 8 绿），覆盖 0/1/2/3/4/5±/6/99/-1 的文案+符号+颜色，并锁 schema 不得再写「4=佣金」。
+
+### XUI-087 AI 计费腿把 LLM token 数写入资金账（判定：污染，待计费口径后迁出）
+
+结论：**会污染资金账，须修；但不影响提现可用额。**
+
+- 事实链：`ai-callback.ts` 取 `tokens = usage.total_tokens`（LLM token 计数）→ `ai-callback-worker.ts:160-161` 调 `server.tokenBalance.deductTokens(userId, tokens, …)` → `token-balance-service.ts:169-260` 直接减 `user_margins.token_quantity`（该列是「分」充值余额），并写 `token_flows` op_type=1、quantity=tokens。
+- 后果：一条 5,000 token 的回复会把余额扣掉 5,000 分 = ¥50.00；用户可在 `/finance/margin/flows`（钱流水）看到该笔「扣减」，量纲错得离谱。
+- 不受影响：`availableWithdrawal` 由 `commissionFlows` 汇总（`commission-queries.ts:674-682`），与 `token_quantity` 无关，**提现可用额不受污染**。
+- 同型调用点（同风险）：`proxy-tools.ts:992`（`text.length + answer.length` 当分）、`proxy-tools.ts:1180`（固定 1500）、`stock-service.ts:262`（`chars/4 + 800` 估算）、`crew.ts:198,277`。
+- 处置建议（**本批未改，等计费口径确认**）：
+  - A. 立即止血（推荐）：AI 用量只落 `ai_cost_records`（已存 `totalTokens` 审计），不再经 `deductTokens` 动 `user_margins` / `token_flows`；`token_flows` 只留真钱（0–5）。
+  - B. 继续收费：在定价规则新增「token → 分」换算（例如每 1,000 token 折算 X 分），`deductTokens` 只收折算后的分，禁止传原始 token 数。
+  - 两条都遵循「不再往 `quantity` 加第三种含义」：配额/计费量迁出资金列，不打补丁。
+- 待确认：按 A 还是 B；若 B，需给出 token→分 的费率（实现侧不臆造）。
