@@ -36,8 +36,10 @@ from app.services.mcp_registry import (
     AUDIT_LOADED,
     AUDIT_REJECTED,
     AUDIT_UNLOADED,
+    ERR_COMMAND_NOT_FOUND,
     ERR_DUPLICATE_NAMESPACE,
     ERR_ENV_REF_MISSING,
+    ERR_MANIFEST_INVALID,
     ERR_NOT_TRUSTED,
     ERR_SECRET_IN_REPO_CONFIG,
     ERR_TOOL_CONFLICT,
@@ -126,6 +128,8 @@ def sdk_mock(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
 
     monkeypatch.setattr(mcp_stdio_bridge, "stdio_client", fake_stdio_client)
     monkeypatch.setattr(mcp_stdio_bridge, "ClientSession", fake_client_session)
+    # 假下游也需要"二进制已安装"这一前提;真实解析留给专门的缺失诊断用例覆盖。
+    monkeypatch.setattr(registry_mod, "_which_command", lambda command: f"/fake/{command}")
     return state
 
 
@@ -770,6 +774,7 @@ def test_craft_anything_manifest_declares_core_and_meta_tools() -> None:
     assert data["namespace"] == "craft_anything"
     assert data["transport"] == "stdio"
     assert data["command"] == "craft-anything-cli"
+    assert data["commandEnv"] == "CRAFT_ANYTHING_CLI_PATH"
     assert data["args"] == ["mcp"]
     assert len(data["description"]) <= 200
 
@@ -783,6 +788,69 @@ def test_craft_anything_manifest_declares_core_and_meta_tools() -> None:
     assert declared["rebuild_check"] == "write"
     assert "core_target_open" in declared
     assert "core_targets_list" in declared
+
+
+def test_craft_anything_command_env_override(
+    sources: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, user = sources
+    override = r"C:\custom\craft-anything-cli.exe"
+    monkeypatch.setenv("CRAFT_ANYTHING_CLI_PATH", override)
+
+    manifest = _craft_registry(user)._load_manifest("repo", CRAFT_MANIFEST)
+
+    assert manifest.command == override
+    assert manifest.command_env == "CRAFT_ANYTHING_CLI_PATH"
+
+    monkeypatch.delenv("CRAFT_ANYTHING_CLI_PATH")
+    fallback = _craft_registry(user)._load_manifest("repo", CRAFT_MANIFEST)
+
+    assert fallback.command == "craft-anything-cli"
+    # 命令纳入指纹 ⇒ 换二进制路径后 reload 会重新激活,不会复用旧连接
+    assert manifest.fingerprint() != fallback.fingerprint()
+
+
+@pytest.mark.asyncio
+async def test_craft_anything_missing_binary_is_diagnosable(
+    sources: tuple[Path, Path],
+    sdk_mock: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    repo, user = sources
+    empty_bin = tmp_path / "empty-bin"
+    empty_bin.mkdir()
+    monkeypatch.setenv("PATH", str(empty_bin))
+    monkeypatch.delenv("CRAFT_ANYTHING_CLI_PATH", raising=False)
+    monkeypatch.setattr(registry_mod, "_which_command", lambda _command: None)
+
+    status = await _reload_and_return(_craft_registry(user))
+
+    assert status["loaded"] == []
+    assert [r["code"] for r in status["rejected"]] == [ERR_COMMAND_NOT_FOUND]
+    message = status["rejected"][0]["message"]
+    # 缺什么 / 查过哪里 / 怎么装 / 怎么覆盖 —— 四样都在,不能是裸 spawn 错误
+    assert "craft-anything-cli" in message
+    assert str(empty_bin) in message
+    assert "CRAFT_ANYTHING_CLI_PATH" in message
+    assert "https://github.com/storytold/craft-anything/releases" in message
+    assert "%LOCALAPPDATA%" in message
+    assert sdk_mock.connects == 0
+
+
+@pytest.mark.asyncio
+async def test_invalid_command_env_is_rejected(
+    sources: tuple[Path, Path], sdk_mock: SimpleNamespace
+) -> None:
+    repo, user = sources
+    payload = _stdio_manifest()
+    payload["commandEnv"] = "BAD-NAME"
+    _write(repo / "demo.json", payload)
+
+    status = await _reload_and_return(_registry(repo, user))
+
+    assert [r["code"] for r in status["rejected"]] == [ERR_MANIFEST_INVALID]
+    assert sdk_mock.connects == 0
 
 
 @pytest.mark.asyncio
