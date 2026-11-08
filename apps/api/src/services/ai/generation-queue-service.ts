@@ -34,6 +34,16 @@ export interface GenerationJobData {
 
 export type GenerationPriority = 'high' | 'normal' | 'low'
 
+/** 仍可能被 Worker 消费/重试的状态(去重只在窗口内对这些状态生效)。 */
+const REUSABLE_JOB_STATES = new Set<string>([
+  'waiting',
+  'active',
+  'delayed',
+  'prioritized',
+  'paused',
+  'waiting-children',
+])
+
 const PRIORITY_MAP: Record<GenerationPriority, number> = {
   high: 10,
   normal: 5,
@@ -88,18 +98,31 @@ export async function enqueue(
   const q = getQueue()
   const dedupeId = dedupeWindowMs ? `${hash(JSON.stringify(data))}` : undefined
 
-  // 去重：相同指纹的任务在窗口期内不重复入队
+  // 去重：相同指纹的任务在窗口期内不重复入队。
+  // 只有仍会被消费的状态才算命中;completed/failed 的旧作业仍占着同一 jobId,
+  // q.add 遇到已存在的 jobId 会直接返回旧作业 ⇒ 新任务被静默丢弃。
+  let jobId = dedupeId
   if (dedupeId && dedupeWindowMs) {
     const existing = await q.getJob(dedupeId)
-    if (existing && (await existing.getState()) === 'waiting') {
-      const age = Date.now() - existing.timestamp
-      if (age < dedupeWindowMs) return existing.id ?? ''
+    if (existing) {
+      const state = await existing.getState()
+      if (REUSABLE_JOB_STATES.has(state)) {
+        const age = Date.now() - existing.timestamp
+        if (age < dedupeWindowMs) return existing.id ?? ''
+      } else {
+        try {
+          await existing.remove()
+        } catch {
+          // 移除不掉(锁/竞态)时用时间桶兜底,保证本次任务一定入队
+          jobId = `${dedupeId}-${Math.floor(Date.now() / 1000)}`
+        }
+      }
     }
   }
 
   const job = await q.add(QUEUE_NAME, data, {
     priority: PRIORITY_MAP[priority],
-    jobId: dedupeId,
+    jobId,
   })
   return job.id ?? ''
 }

@@ -80,11 +80,12 @@ describe('G-998166:BackgroundAgentManager await 后身份复核', () => {
       const agentId = backgroundAgentManager.start({
         prompt: '夹具任务',
         workspacePath: process.cwd(),
+        userUuid: 'test-user',
       });
-      const agent = backgroundAgentManager.get(agentId)!;
+      const agent = backgroundAgentManager.get(agentId, 'test-user')!;
       expect(agent.status).toBe('running');
       // 运行中取消
-      expect(backgroundAgentManager.cancel(agentId)).toBe(true);
+      expect(backgroundAgentManager.cancel(agentId, 'test-user')).toBe(true);
       expect(agent.status).toBe('cancelled');
       // 上游迟到返回"成功" ⇒ 不得改写账面
       resolveRun({ result: 'late success' });
@@ -112,8 +113,9 @@ describe('G-998166:BackgroundAgentManager await 后身份复核', () => {
       const agentId = backgroundAgentManager.start({
         prompt: '夹具任务2',
         workspacePath: process.cwd(),
+        userUuid: 'test-user',
       });
-      const agent = backgroundAgentManager.get(agentId)!;
+      const agent = backgroundAgentManager.get(agentId, 'test-user')!;
       resolveRun({ result: 'done-text' });
       await vi.waitFor(() => {
         expect(agent.status).toBe('completed');

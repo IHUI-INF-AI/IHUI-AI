@@ -275,6 +275,13 @@ export async function maybePushAiFeedCollectAlert(deps: {
 }
 
 /**
+ * F-411:任务返回的 errors 非空 ⇒ 本次执行不是"成功"(局部失败/降级必须可见,不能只按"没抛错"判绿)。
+ */
+export function jobErrorsStatus(result: { errors: readonly unknown[] }): 'success' | 'failed' {
+  return result.errors.length > 0 ? 'failed' : 'success'
+}
+
+/**
  * 启动定时任务 Worker（消费 scheduler 队列的 repeatable jobs）。
  *
  * 多实例部署时，BullMQ 保证每个 delayed job 只被一个 worker 抢占执行，
@@ -490,7 +497,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               'VIP expire daily done',
             )
             try {
-              server.recordJobExecution(name, 'success')
+              server.recordJobExecution(name, jobErrorsStatus(result))
             } catch {
               /* 指标采集失败不影响业务 */
             }
@@ -525,7 +532,7 @@ export function startSchedulerWorker(server: FastifyInstance): Worker {
               'commission settle daily done',
             )
             try {
-              server.recordJobExecution(name, 'success')
+              server.recordJobExecution(name, jobErrorsStatus(result))
             } catch {
               /* 指标采集失败不影响业务 */
             }

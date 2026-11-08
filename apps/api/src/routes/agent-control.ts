@@ -122,6 +122,12 @@ export interface PendingRequest {
    * 客户端只回显,不在两端各算一份。
    */
   assignment: AgentActionAssignment
+  /**
+   * 这条待处理指令的属主(fixed 2026-11-08, F-08)。取被派发端点的 userId(服务端权威),
+   * 不取调用方 body:否则任何登录用户只要猜到 requestId 就能结算他人的待处理动作。
+   * /result 必须按此校验 request.userId —— 带不带 responded 都不得跨用户结算。
+   */
+  userId: string
 }
 
 /** requestId → PendingRequest */
@@ -133,8 +139,8 @@ const _pending = new Map<string, PendingRequest>()
  * - instanceMismatch:token 对但应答者自报实例 ≠ 被指派实例(同用户另一端试图顶结果)
  * - unattributed:存量客户端不带 `responded` —— 按旧语义放行,但计数如实登记,
  *   这条数字归零之前,"回执身份"只覆盖已升级的端(报告第 6 条的"纸面/强制"分界)。
- * - ownerMismatch:回执者与待处理动作的目标用户不同(F-08,2026-11-08)—— 一律 403,
- *   不 resolve、不删 pending;真正被派发者稍后仍可回。
+ * - ownerMismatch:回执的登录用户不是该 pending 的属主(F-08,2026-11-08)—— 一律拒(对外 404),
+ *   且不得销毁 pending(真正的属主稍后仍可回)。
  */
 const _droppedResults = {
   tokenMismatch: 0,
@@ -496,13 +502,12 @@ export const agentControlRoutes: FastifyPluginAsync = async (server) => {
       return reply.send(success({ accepted: false, reason: 'request not found or timed out' }))
     }
 
-    // 归属对账(F-08,2026-11-08):只认登录态是不够的 —— 知道 requestId 的任意用户
-    // 都能在 `responded` 缺省时走"存量客户端"分支直接 resolve 他人的动作。
-    // 归属校验必须在 responded 分支之前:身份令牌只证明"应答的是哪个端",
-    // 不证明"这个端属于谁"。不匹配 → 403 且保留 pending(不偷走真属主的结果通道)。
+    // 归属校验(F-08,2026-11-08):只有 pending 的属主能结算。带不带 `responded` 都先过这一关;
+    // 不匹配不 resolve、不删 pending(真正的属主稍后仍可回)。对外与"不存在"同形(404),
+    // 不泄漏"他人有一条同名 pending"。
     if (pending.userId !== request.userId) {
       _droppedResults.ownerMismatch++
-      return reply.status(403).send(error(403, '无权回执他人的执行请求'))
+      return reply.status(404).send(error(404, 'request 不存在或已失效'))
     }
 
     // 回执身份对账(2026-09-26 定址投递票)——服务端强制的那一层:

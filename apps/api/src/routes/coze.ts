@@ -161,8 +161,12 @@ async function readMultipart(request: FastifyRequest): Promise<{
   return { fields, file, tooLarge }
 }
 
+// F-474:上游长时间不吐数据时的最长等待;客户端断开则立刻 abort
+const COZE_SSE_IDLE_TIMEOUT_MS = 60_000
+
 /** SSE 流式代理:POST JSON 到 Coze 上游,逐行转发为 text/event-stream。 */
 async function streamCozeSse(
+  request: FastifyRequest,
   reply: FastifyReply,
   upstreamPath: string,
   payload: unknown,
@@ -175,11 +179,15 @@ async function streamCozeSse(
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
   })
+  const controller = new AbortController()
+  const onClientClose = () => controller.abort()
+  request.raw.on('close', onClientClose)
   try {
     const resp = await fetch(cozeBaseUrl() + upstreamPath, {
       method: 'POST',
       headers: cozeHeaders(),
       body: JSON.stringify(payload),
+      signal: controller.signal,
     })
     if (!resp.ok || !resp.body) {
       raw.write(`data: ${JSON.stringify({ error: `Coze ${resp.status}` })}\n\n`)
@@ -190,7 +198,15 @@ async function streamCozeSse(
     const decoder = new TextDecoder()
     let buf = ''
     for (;;) {
-      const { done, value } = await reader.read()
+      // 每次读取都挂空闲超时:上游半开连接不会把请求线程永久占住
+      const idleTimer = setTimeout(() => controller.abort(), COZE_SSE_IDLE_TIMEOUT_MS)
+      let chunk: Awaited<ReturnType<typeof reader.read>>
+      try {
+        chunk = await reader.read()
+      } finally {
+        clearTimeout(idleTimer)
+      }
+      const { done, value } = chunk
       if (done) break
       buf += decoder.decode(value, { stream: true })
       let idx: number
@@ -208,6 +224,9 @@ async function streamCozeSse(
     // 调用方路由层日志已覆盖请求面
     raw.write(`data: ${JSON.stringify({ error: '流式生成失败,请稍后重试' })}\n\n`)
     raw.end()
+  } finally {
+    request.raw.off('close', onClientClose)
+    controller.abort()
   }
 }
 
@@ -674,7 +693,7 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
     }
     if (b.data.conversation_id) payload.conversation_id = b.data.conversation_id
     if (b.data.voice_id) payload.voice_id = b.data.voice_id
-    return streamCozeSse(reply, '/v3/chat', payload)
+    return streamCozeSse(request, reply, '/v3/chat', payload)
   })
 
   server.post('/chat-audio/plugin', async (request, reply) => {
@@ -1062,7 +1081,7 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
-    return streamCozeSse(reply, '/v1/workflow/stream_run', {
+    return streamCozeSse(request, reply, '/v1/workflow/stream_run', {
       workflow_id: b.data.workflow_id,
       parameters: b.data.parameters ?? {},
     })
@@ -1079,7 +1098,7 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
-    return streamCozeSse(reply, '/v1/workflow/stream_run', {
+    return streamCozeSse(request, reply, '/v1/workflow/stream_run', {
       workflow_id: b.data.workflow_id,
       event_id: b.data.event_id,
       resume_data: b.data.resume_data,
@@ -1174,7 +1193,7 @@ export const cozeRoutes: FastifyPluginAsync = async (server) => {
       .safeParse(request.body)
     if (!b.success)
       return reply.status(400).send(error(400, b.error.issues[0]?.message ?? '参数错误'))
-    return streamCozeSse(reply, '/v1/workflow/stream_run', {
+    return streamCozeSse(request, reply, '/v1/workflow/stream_run', {
       workflow_id: b.data.workflow_id,
       parameters: b.data.input_data,
     })
