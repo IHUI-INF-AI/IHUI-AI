@@ -199,7 +199,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
     }
     const { q, limit } = parsed.data
     try {
-      const symbols = await contextEngineService.searchSymbols(q, limit)
+      const symbols = await contextEngineService.searchSymbols(q, limit, request.userId)
       return reply.send(success({ symbols, total: symbols.length }))
     } catch (e) {
       request.log.error(e)
@@ -286,10 +286,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
     }
     try {
-      const recorded = await contextEngineService.trackVisualization(
-        parsed.data,
-        request.userId,
-      )
+      const recorded = await contextEngineService.trackVisualization(parsed.data, request.userId)
       return reply.send(success({ recorded }))
     } catch (e) {
       request.log.error(e)
@@ -383,10 +380,7 @@ export const contextMentionRoutes: FastifyPluginAsync = async (server) => {
       if (!(await getConversationAccess(conversationId, request.userId))) {
         return reply.status(404).send(error(404, '会话记忆不存在'))
       }
-      const cleared = await contextEngineService.clearSessionMemory(
-        conversationId,
-        request.userId,
-      )
+      const cleared = await contextEngineService.clearSessionMemory(conversationId, request.userId)
       return reply.send(success({ cleared }))
     } catch (e) {
       request.log.error(e)
