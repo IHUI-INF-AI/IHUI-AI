@@ -27,6 +27,7 @@ import { PENDING_ROUTE_STORAGE_KEY } from '@ihui/shared/constants'
 import { dispatchAgentActionRequest } from '../lib/ext-ui-forwarder'
 import { initAgentControlBridge } from '../lib/agent-control-bridge'
 import { registerWorkPanelMessageHandler } from '../lib/browser-tab'
+import { isTrustedExtensionSender, type RuntimeSenderLike } from '../lib/message-trust'
 import { hydrateAuth } from '../src/stores/auth-store'
 import { createChromePlatform } from '@ihui/browser-platform'
 import { translate, mergeMessages, isLocale, type Locale, type Messages } from '@ihui/i18n'
@@ -491,7 +492,9 @@ function registerMessageListener(): void {
     // 才等价"来自本扩展自己的上下文"(popup/sidepanel/options 与已注入的 content script);
     // 外部扩展/被 externally_connectable 放开的网页其 sender.id 是**对方**的 id。
     // 这一格是纯收紧的来源闸,不改任何响应形状 ⇒ 既有功能面不受影响。
-    if (sender.id !== chrome.runtime.id) {
+    if (
+      !isTrustedExtensionSender(sender as RuntimeSenderLike | undefined, chrome.runtime.id)
+    ) {
       console.warn('[IHUI AI] 丢弃非本扩展来源的消息', msg.type, sender.id)
       return false
     }

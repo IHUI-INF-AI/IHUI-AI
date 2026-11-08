@@ -53,6 +53,9 @@
 | 11B | S-04 | packages/shared/src/hooks/{use-countdown,use-register-form,deadline-ticker}.ts | P2 | 已修 fix/web-findings-1108（同型根因自查：按 tick 自减剩余时间，改截止戳派生 + focus/visibility 对表） |
 | 12B | S-05 | packages/shared/src/pay/normalize.ts + src/chat/enter-submit.ts（守卫） | P2 | 已修 fix/web-findings-1108（同型根因自查：服务端凭据当字符串直穿 + IME 防回潮守卫；shared 信任类扫描 0 新增实例） |
 | 13B | S-06 | packages/api-client/src/{utils,payload-shape}.ts + endpoints/{admin-system,ai-world,legacy-public}.ts | P2 | 已修 fix/web-findings-1108（同型根因自查：数组/数值被当字符串或对象；查询数组双向可还原已验证） |
+| 14B | EXT-01 | apps/extension/lib/agent-control-bridge.ts:251-270 | P1 | 已修 fix/web-findings-1108（同型根因自查：ws.notification 未校验 sender，伪造来源可执行浏览器动作；零副作用夹具） |
+| 15B | EXT-02 | apps/extension/entrypoints/sidepanel/ext-ui-listener.ts:26-39 | P1 | 已修 fix/web-findings-1108（同型根因自查：ext_ui 高权限动作未校验 sender；零副作用夹具） |
+| 16B | EXT-03 | apps/extension/entrypoints/content.ts:515-528 | P1 | 已修 fix/web-findings-1108（同型根因自查：agent.action.dom 未校验 sender，宿主 DOM 可被非背景来源驱动；源码接线锁） |
 | 1C | F-001 | apps/cli/src/tools/run-tests.ts:149 | P0 | 入册 |
 | 2C | F-045 | apps/desktop/src-tauri/capabilities/default.json:31 | P0 | 入册 |
 | 3C | F-002 | apps/cli/src/index.ts:1408 | P1 | 入册 |
