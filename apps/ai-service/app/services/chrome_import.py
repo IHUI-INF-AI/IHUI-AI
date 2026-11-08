@@ -47,6 +47,34 @@ _CDP_READY_TIMEOUT_SECONDS = 10.0
 _CDP_POLL_INTERVAL_SECONDS = 0.5
 _HTTP_TIMEOUT_SECONDS = 3.0
 
+# AIS-094:launch-chrome 拉起端口 → 属主登记(进程内,一次性 TTL)。
+# 此前 import-chrome 的 port 由请求体任意指定,服务端不校验属主 —— 连续端口可猜中
+# 他人已拉起的 Chrome,把对方的平台登录 cookie 导入自己账号(账号接管)。
+# 现在只接受"当前账号经 launch-chrome 拉起且未过期"的端口。
+_LAUNCH_REGISTRY_TTL_SECONDS = 30 * 60
+_launch_registry: dict[int, tuple[str, float]] = {}
+
+
+def _register_launched_port(port: int, user_id: str) -> None:
+    """登记端口属主(顺带清过期项,注册表不随拉起次数无界增长)。"""
+    now = time.monotonic()
+    for p, (_owner, expires_at) in list(_launch_registry.items()):
+        if expires_at < now:
+            _launch_registry.pop(p, None)
+    _launch_registry[port] = (str(user_id), now + _LAUNCH_REGISTRY_TTL_SECONDS)
+
+
+def _port_owned_by(port: int, user_id: str) -> bool:
+    """端口是否由该账号通过 launch-chrome 拉起且仍在 TTL 内。"""
+    entry = _launch_registry.get(port)
+    if entry is None:
+        return False
+    owner, expires_at = entry
+    if expires_at < time.monotonic():
+        _launch_registry.pop(port, None)
+        return False
+    return owner == str(user_id)
+
 
 async def _wait_for_cdp_ready(port: int) -> bool:
     """轮询 CDP 调试端口是否就绪(静默重试,最多 10 秒)。
@@ -192,8 +220,11 @@ def _spawn_browser(chrome_path: str, port: int, login_url: str, profile_dir: str
         )
 
 
-async def launch_chrome_for_import(platform: str) -> dict[str, Any]:
+async def launch_chrome_for_import(platform: str, *, user_id: str) -> dict[str, Any]:
     """为本平台拉起一个带 CDP 调试端口的浏览器窗口,打开平台登录页。
+
+    ``user_id`` 用于登记端口属主(AIS-094):后续 import-chrome 只接受本账号
+    拉起的端口,防止他人猜中端口导走登录态。
 
     Returns:
         {"launched": bool, "port": int|None, "login_url": str|None,
@@ -226,6 +257,9 @@ async def launch_chrome_for_import(platform: str) -> dict[str, Any]:
         return {"launched": False, "port": port, "login_url": str(login_url),
                 "browser": browser_name, "error": f"拉起浏览器失败: {e}"}
 
+    # AIS-094:拉起成功后立即登记属主 —— 后续 import 只认这个账号的这个端口。
+    _register_launched_port(port, user_id)
+
     # 等调试端口真正就绪(浏览器冷启动可能要几秒),超时不算硬失败——
     # 窗口可能仍在起,前端轮询 import-chrome 时每次调用内部还会再探。
     ready = await _wait_for_cdp_ready(port)
@@ -253,7 +287,13 @@ async def import_chrome_cookies(port: int, platform: str, user_id: str) -> dict[
         return {"detected": False, "cookies_count": 0, "account_id": None,
                 "error": f"不支持的平台: {platform}"}
 
-    # 2. 等 CDP 就绪(最多 10 秒,每 0.5s 一次)
+    # 2. 端口属主校验(AIS-094):只接受当前账号经 launch-chrome 拉起的端口,
+    #    否则任意登录用户可猜端口连到他人 Chrome,把对方的登录 cookie 导进自己账号。
+    if not _port_owned_by(port, user_id):
+        return {"detected": False, "cookies_count": 0, "account_id": None,
+                "error": "该调试端口不是当前账号通过 launch-chrome 拉起的,已拒绝导入"}
+
+    # 3. 等 CDP 就绪(最多 10 秒,每 0.5s 一次)
     if not await _wait_for_cdp_ready(port):
         return {"detected": False, "cookies_count": 0, "account_id": None,
                 "error": "Chrome 调试端口未就绪"}

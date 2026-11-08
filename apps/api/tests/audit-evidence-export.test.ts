@@ -41,9 +41,11 @@ const KEY_ID_ENV = 'AUDIT_EXPORT_SIGN_KEY_ID'
 
 // 审计链查询面桩掉:本票测的是"导出信封的签名与验签",不是 SQL。
 const selectAuditLogsMock = vi.hoisted(() => vi.fn())
+const selectAuditLogsForExportMock = vi.hoisted(() => vi.fn())
 
 vi.mock('../src/db/audit-queries.js', () => ({
   selectAuditLogs: selectAuditLogsMock,
+  selectAuditLogsForExport: selectAuditLogsForExportMock,
 }))
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
@@ -146,6 +148,13 @@ beforeEach(() => {
     async (_filters: unknown, page: number, pageSize: number) => {
       if (page > 1) return { list: [], total: ROWS.length }
       return { list: ROWS.slice(0, pageSize), total: ROWS.length }
+    },
+  )
+  selectAuditLogsForExportMock.mockReset()
+  selectAuditLogsForExportMock.mockImplementation(
+    async (_filters: unknown, cursor: { timestamp: string; id: string } | null, limit: number) => {
+      const start = cursor ? ROWS.findIndex((r) => r.id === cursor.id) + 1 : 0
+      return ROWS.slice(start, start + limit)
     },
   )
   primeEnv()

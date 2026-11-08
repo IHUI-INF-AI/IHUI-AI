@@ -17,14 +17,13 @@ import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
-const dateTimeFormat = new Intl.DateTimeFormat()
-
 /** 下次运行时间文本:无效/空值统一显示 "—"(§3 时间用 Intl.DateTimeFormat) */
 function formatNextRun(value: string | null): string {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '—'
-  return dateTimeFormat.format(d)
+  // XUI-061:模块级 formatter 会在加载时冻结默认时区/语言;按调用时默认值创建。
+  return new Intl.DateTimeFormat().format(d)
 }
 
 /**

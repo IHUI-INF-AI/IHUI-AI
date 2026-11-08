@@ -314,6 +314,7 @@ export class JWTOAuthApp {
       userUuid: opts.userUuid ?? null,
       privateKey,
       forceRefresh: opts.forceRefresh ?? false,
+      scope: opts.scope ?? null,
     })
     if (!accessToken) throw new Error('获取 Coze access_token 失败')
     return {

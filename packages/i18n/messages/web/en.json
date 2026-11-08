@@ -9526,6 +9526,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "This workflow cannot be triggered right now",
           "action": "Confirm it exists, is enabled and has no running instance, then retry"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "Failed to register the scheduled task",
+          "action": "Retry later; if it keeps failing, ask an admin to check the scheduler"
+        },
+        "INVALID_CALLBACK": {
+          "title": "Task callback configuration is invalid",
+          "action": "Check the callback type and parameters, then retry"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "The scheduler is not running",
+          "action": "Retry later; if it keeps failing, ask an admin to start the scheduler"
+        },
+        "UNREADABLE": {
+          "title": "The file is unreadable",
+          "action": "Check the file permissions and locks, then retry"
         }
       },
       "worktree": {
@@ -13664,6 +13680,7 @@
     "show": "Show",
     "delete": "Delete",
     "save": "Save",
+    "saveFailed": "Save Failed",
     "ok": "OK",
     "create": "Create",
     "agentKanban": "Agent Kanban",
@@ -21531,9 +21548,12 @@
     "status": {
       "all": "All",
       "cancelled": "Cancelled",
+      "completed": "Completed",
+      "failed": "Failed",
       "paid": "Paid",
       "pending": "Pending",
       "refunded": "Refunded",
+      "refunding": "Refunding",
       "unknown": "Unknown"
     },
     "statusLabel": "Status",

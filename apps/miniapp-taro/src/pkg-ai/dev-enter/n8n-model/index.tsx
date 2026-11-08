@@ -18,7 +18,7 @@ import {
   type N8nModelItem,
   type N8nModelTab,
 } from '@ihui/rn-app/features/n8n-model/N8nModelScreen'
-import { newParam, renderCreateView, type Param } from './create-view'
+import { newParam, CreateView, type Param } from './create-view'
 import './index.css'
 import { onToast } from '@/host/on-toast'
 
@@ -299,28 +299,28 @@ export default function N8nModel() {
 
   const createViewNode =
     view === 'create'
-      ? renderCreateView({
-          t,
-          tt,
-          avatar,
-          name,
-          description,
-          n8nFileName,
-          n8nUrl,
-          inputParams,
-          outputParams,
-          submitting,
-          onChooseAvatar: chooseAvatar,
-          onChooseFile: chooseN8nFile,
-          onRemoveFile: removeN8nFile,
-          onNameChange: setName,
-          onDescriptionChange: setDescription,
-          onN8nUrlChange: setN8nUrl,
-          onUpdateParam: updateParam,
-          onAddParam: addParam,
-          onRemoveParam: removeParam,
-          onSubmit: () => void onSubmit(),
-        })
+      ? <CreateView
+          t={t}
+          tt={tt}
+          avatar={avatar}
+          name={name}
+          description={description}
+          n8nFileName={n8nFileName}
+          n8nUrl={n8nUrl}
+          inputParams={inputParams}
+          outputParams={outputParams}
+          submitting={submitting}
+          onChooseAvatar={chooseAvatar}
+          onChooseFile={chooseN8nFile}
+          onRemoveFile={removeN8nFile}
+          onNameChange={setName}
+          onDescriptionChange={setDescription}
+          onN8nUrlChange={setN8nUrl}
+          onUpdateParam={updateParam}
+          onAddParam={addParam}
+          onRemoveParam={removeParam}
+          onSubmit={() => void onSubmit()}
+        />
       : null
 
   return (

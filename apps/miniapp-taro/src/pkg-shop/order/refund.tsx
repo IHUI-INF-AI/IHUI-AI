@@ -105,7 +105,11 @@ export default function OrderRefund() {
       .join(' | ')
     setSubmitting(true)
     try {
-      await refund({ orderId: String(order.id), reason: composed })
+      await refund({
+        orderId: String(order.id),
+        reason: composed,
+        ...(refundAmount > 0 ? { refundAmount: refundAmount.toFixed(2) } : {}),
+      })
       onToast(tt('order.refund.submitted', '退款申请已提交'), { kind: 'success' })
       setTimeout(() => Taro.navigateBack(), 1500)
     } catch {

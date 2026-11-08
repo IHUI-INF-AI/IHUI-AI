@@ -50,7 +50,15 @@ interface WsSocketLike {
   on(event: 'error', listener: (err: Error) => void): void;
 }
 
-type WsServerCtor = new (options: { server: Server; path: string }) => WsServerLike;
+type WsServerCtor = new (options: {
+  server: Server;
+  path: string;
+  /** ws 默认 100MiB:单连接可白吃进程内存,桥务必显式封顶(F-062)。 */
+  maxPayload?: number;
+}) => WsServerLike;
+
+/** 单条 WS 帧上限:足够承载一条 agent 消息/工具输出,又不至于被一条帧打爆内存。 */
+const WS_MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
 
 export interface WsBridgeOptions {
   server: Server;
@@ -98,7 +106,7 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
     );
   }
 
-  const wss = new WsServer({ server: opts.server, path });
+  const wss = new WsServer({ server: opts.server, path, maxPayload: WS_MAX_PAYLOAD_BYTES });
   const clients = new Set<WsSocketLike>();
 
   wss.on('connection', (ws, req) => {
@@ -161,6 +169,17 @@ export async function attachWsBridge(core: AgentCore, opts: WsBridgeOptions): Pr
     });
     ws.on('close', () => {
       clients.delete(ws);
+    });
+    // F-062:超限帧/协议错误必须有人接。ws 的 error 事件无人监听会升级成
+    // 未捕获异常(直接打崩常驻 server),且超限连接必须清出可写集合。
+    ws.on('error', (err: Error) => {
+      clients.delete(ws);
+      console.warn('[ws-bridge] 连接错误(已隔离该连接):', err.message);
+      try {
+        ws.close(1009, 'MESSAGE_TOO_BIG');
+      } catch {
+        // 对端可能已断开
+      }
     });
   });
 

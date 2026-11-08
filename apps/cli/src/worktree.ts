@@ -19,6 +19,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { spawnSync } from 'node:child_process'
+import { assertPathInside } from './util/path-guard.js'
 
 // ============ 类型定义 ============
 
@@ -731,18 +732,34 @@ async function readModifiedFiles(repoDir: string): Promise<string[]> {
   }
 }
 
+/** 低层删除参数:withinRoot 必填,拒绝在无根约束下递归删除。 */
+export interface RemoveWorktreeOptions {
+  /** 删除目标必须严格位于该根内(缺省 fail-closed) */
+  withinRoot: string
+  /** stat 注入(测试用);默认 fs.statSync */
+  stat?: (target: string) => unknown
+}
+
 /**
  * 删除 worktree。
  * - linked worktree(.git 是文件)→ 调 git worktree remove --force,失败 fallback 到 rm -rf
  * - standalone worktree(.git 是目录)→ 直接 rm -rf
  * - 路径不存在 → 直接返回(不抛错)
  * - 删除失败记录到 stderr 但返回成功,避免阻塞清理流程
+ * - 删除前必须过 withinRoot 根内/realpath 断言;`..`、根外绝对路径、指向根外的符号链接一律拒绝。
+ * - 兼容旧函数形第二参:仅注入 stat(不带根约束,仅供旧测试使用)。
  */
 export async function removeWorktree(
   wtPath: string,
-  stat?: (target: string) => unknown,
+  optsOrStat?: RemoveWorktreeOptions | ((target: string) => unknown),
 ): Promise<void> {
-  const look = stat ?? fs.statSync
+  const legacyStat = typeof optsOrStat === 'function' ? optsOrStat : undefined
+  const opts = typeof optsOrStat === 'function' ? undefined : optsOrStat
+  if (legacyStat === undefined) {
+    if (!opts?.withinRoot) throw new Error('removeWorktree 需要显式 withinRoot,拒绝在无根约束下删除')
+    assertPathInside(opts.withinRoot, wtPath, 'worktree 删除目录')
+  }
+  const look = legacyStat ?? opts?.stat ?? fs.statSync
   try {
     look(wtPath)
   } catch (error) {

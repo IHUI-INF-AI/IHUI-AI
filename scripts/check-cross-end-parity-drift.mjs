@@ -4,7 +4,7 @@
 
 /* eslint-disable no-console -- 只读尺子,需 console 输出结论 */
 /**
- * check-cross-end-parity-drift.mjs — 跨端对齐"是否正在倒退"的只读漂移尺(不进提交链)
+ * check-cross-end-parity-drift.mjs — 跨端对齐"是否正在倒退"的只读漂移尺(提交链 id 302 / push 链 id 302p)
  *
  * 立因:本仓三条对齐链(web→RN 功能映射 / RN→小程序镜像 / 样式 token 派生)各有对账器,
  * 但**没有任何一处回答"这一轮比上一轮好了还是坏了"**。登记数只能靠人想起来去跑,
@@ -32,15 +32,20 @@
  *
  * 回归制入口(2026-11-06 接提交链):`--gate` 不读上一轮本机快照,只比仓内基线
  * `scripts/data/cross-end-drift-gate-baseline.json` —— 存量只报数,只有"比基线更坏"才 exit 1。
- * `--push` 只改人读措辞(runner 侧登记为 push 面 blocking);退出码语义两面一致:
- * 0=未恶化 / 1=相对基线恶化 / 2=未判定。基线读不到、某维现读取不到 ⇒ 一律 2,**不折成 0**。
+ * 两面分档(2026-11-08 接线):提交面(id 302,blocking)**只让承载削减面判红** ——
+ * mirrored / registryEntries / aligned / alignedUnique / fidelityHosted / portalRows /
+ * judgedGapWebRegression;登记动作(新登记 gap、新增未登记屏 unmapped、mapRot 等)只进
+ * advisory 在线报数,绝不因"如实登记"判红。push 面(id 302p)判据一字不放宽:任一维恶化即 exit 1。
+ * `--staged`:提交面按索引 blob 取材(与将要提交的那份一致),绝不退回工作树。
+ * 退出码:0=未恶化 / 1=相对基线恶化 / 2=未判定。基线读不到、某维现读取不到 ⇒ 一律 2,**不折成 0**。
  *
  * Usage:
  *   node scripts/check-cross-end-parity-drift.mjs            # 现读并打印
  *   node scripts/check-cross-end-parity-drift.mjs --json     # 机读
  *   node scripts/check-cross-end-parity-drift.mjs --record   # 同时把本轮写进快照台账(守护轮用)
- *   node scripts/check-cross-end-parity-drift.mjs --gate     # 回归制:比仓内基线(commit 面 advisory)
- *   node scripts/check-cross-end-parity-drift.mjs --gate --push  # 回归制 push 面(恶化即失败)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate     # 回归制:比仓内基线(提交面:登记只报数)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate --staged  # 提交面按索引取材(guardian-runner 追加)
+ *   node scripts/check-cross-end-parity-drift.mjs --gate --push  # 回归制 push 面(任一维恶化即失败)
  *   node scripts/check-cross-end-parity-drift.mjs --self-test
  */
 import { execFile } from 'node:child_process'
@@ -51,6 +56,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { readVerdicts } from './lib/cross-end-verdicts.mjs'
 // 回归制判定单源(§0.6):本文件不自己比基线,只把现读值交给纯函数。
 import { describeRegressions, judgeBaseline, readBaseline } from './lib/cross-end-baseline-gate.mjs'
+// 取材层(§5a):绝对 git + stdio 接管 + timeout;本文件不自拼裸 git。
+import { gitRaw } from './lib/face-reader.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(HERE, '..')
@@ -58,6 +65,9 @@ const STATE_FILE = join(ROOT, '.ihui-agent', 'state', 'cross-end-parity-last.jso
 const DOC_PATH = 'docs/engineering/rn-miniapp-parity-matrix.md'
 /** 存量固化基线(回归制:存量只报数,只有"比基线更坏"才在 push 面阻断) */
 const GATE_BASELINE_PATH = join(ROOT, 'scripts', 'data', 'cross-end-drift-gate-baseline.json')
+const GATE_BASELINE_REL = 'scripts/data/cross-end-drift-gate-baseline.json'
+/** 基线时刻的 web↔RN 台账(读基线提交点的那一版,§0.6:不改基线数值,只补键级参照) */
+const WEB_RN_MAP_REL = 'scripts/data/web-rn-screen-map.jsonl'
 
 const argv = process.argv.slice(2)
 const jsonMode = argv.includes('--json')
@@ -65,6 +75,11 @@ const recordMode = argv.includes('--record')
 const selfTest = argv.includes('--self-test')
 const gateMode = argv.includes('--gate')
 const pushMode = argv.includes('--push')
+/**
+ * 提交面取材(2026-11-08):guardian-runner 在提交链统一追加 `--staged`。
+ * 只认索引 blob —— 读工作树会把"没打算提交的改动"算进判据(提交的与判的不是同一份)。
+ */
+const stagedMode = argv.includes('--staged')
 
 /**
  * 变坏方向表(提交链判据原文)。'up' = 现读大于基线即恶化;'down' = 小于基线即恶化。
@@ -106,7 +121,13 @@ export const GATE_DIRECTIONS = [
   ['missingExpiry', 'up', '段级豁免缺期/到期'],
   ['duplicateWebKeys', 'up', '同一 web 键多行'],
   ['pendingWebPair', 'up', 'web↔RN 证据不足队列'],
-  ['judgedGapWeb', 'up', '判过确认 RN 缺屏数'],
+  /**
+   * 2026-11-08 拆两栏:判过确认「RN 缺这屏」是**登记动作**,不是恶化 —— 如实把一条 web 路由
+   * 登记成 gap,必然让这个数 +1;把它当 'up' 判红,诚实的登记也会翻红,人被逼去定向刷基线
+   * (实测 /sag2)。所以本届判据**不认** gap 总量:登记只进 advisories(只报数),
+   * 「既有承载是否被削减」由 alignedUnique(down)/aligned(down) 与键级面
+   * judgedGapWebRegression(同一 web 键从 aligned/portal 退化为 gap)判。
+   */
   ['conversionRefused', 'up', '预演拒绝转壳的页数'],
 ]
 
@@ -122,11 +143,14 @@ function runRulerAsync(script, args = ['--json']) {
   // 绝对路径只给测试用(临时夹具,不进仓库);生产一律相对 HERE 的尺子名。
   const cmd = isAbsolute(script) ? script : join(HERE, script)
   if (!existsSync(cmd)) return Promise.resolve({ ok: false, why: `尺子不在位:${script}` })
+  // 提交面统一按索引取材:子尺自己认识 `--staged`(face-reader 的 staged 面 = 索引 blob);
+  // 不认识的尺子只会忽略该旗,绝不因此退回工作树(--worktree 只留人工逃生)。
+  const rulerArgs = stagedMode && !args.includes('--staged') ? [...args, '--staged'] : args
   return new Promise((resolve) => {
     try {
       execFile(
         process.execPath,
-        [cmd, ...args],
+        [cmd, ...rulerArgs],
         {
           cwd: ROOT,
           encoding: 'utf8',
@@ -237,6 +261,78 @@ function countOrNull(items, undetermined) {
   if (!Array.isArray(items)) return null
   if (Array.isArray(undetermined) && undetermined.length > 0) return null
   return items.length
+}
+
+/**
+ * judgedGapWeb 拆两栏的纯判据(2026-11-08 立)。
+ *
+ * 立因:gap 是门许可的**诚实登记档**,登记动作必然让 gap 数 +1;旧判据把它当 'up' 判红,
+ * 于是「如实承认某屏 RN 零承载」与「把既有承载拆掉」在读数上无法区分,诚实登记被逼成刷基线。
+ *
+ * 两个方向明确的面(§0.6:只做差集,不重算"谁是承载"):
+ *   登记面 registered = 本轮 gap 键 - 基线 gap 键(只报数,不阻断)
+ *   承载面 regression = 本轮 gap 键 ∩ 基线承载键(aligned ∪ portal)⇒ 同一 web 键从承载退化为 gap
+ *
+ * 取不到键集 ⇒ compared=false(该面本轮不判,不冒红也不记绿,§0.3),由调用方折成"未判定"可追行。
+ * @param {{nowGapKeys?:string[]|null, baseGapKeys?:string[]|null, baseCarriedKeys?:string[]|null}} input
+ */
+export function judgeJudgedGapFaces({ nowGapKeys, baseGapKeys, baseCarriedKeys }) {
+  const clean = (v) =>
+    Array.isArray(v) ? [...new Set(v.filter((k) => typeof k === 'string' && k.length > 0))] : null
+  const now = clean(nowGapKeys)
+  const baseGap = clean(baseGapKeys)
+  const baseCarried = clean(baseCarriedKeys)
+  if (!now || !baseCarried) return { compared: false, registered: [], regression: [] }
+  return {
+    compared: true,
+    // 基线没有 gap 键集时只能报"本轮全部 gap",不假装都是新增。
+    registered: baseGap ? now.filter((k) => !baseGap.includes(k)) : now,
+    regression: now.filter((k) => baseCarried.includes(k)),
+  }
+}
+
+/**
+ * 提交面只让「承载削减面」判红(2026-11-08 接线 id 302 blocking 时立)。
+ *
+ * 立因:302 从 warn 提到 blocking 后,若整张 GATE_DIRECTIONS 原样生效,「新增未登记屏」
+ * (unmapped 0→1)会把提交判红 —— 那正是"如实承认缺口"被当成倒退的老坑;反过来,
+ * 把 302 留在 warn 又等于承载被拆也不阻断。所以提交面只认"承载数量真的少了"这一面:
+ *   blocking  = mirrored / registryEntries / aligned / alignedUnique / fidelityHosted /
+ *               portalRows / judgedGapWebRegression(与 judgeJudgedGapFaces 的承载面同源)
+ *   advisory  = 其余维(unmapped 新增未登记屏、mapRot、fidelity*、tier* 等)—— 只报数,不进 exit 判据
+ *
+ * push 面(`--push`)不经过本函数:那里任一维恶化仍然 exit 1,判据一字不放宽。
+ * @param {{state?:string, regressions?:object[]}} judged
+ */
+export const COMMIT_BEARING_DIMS = new Set([
+  'mirrored',
+  'registryEntries',
+  'aligned',
+  'alignedUnique',
+  'fidelityHosted',
+  'portalRows',
+  'judgedGapWebRegression',
+])
+
+export function commitFaceOf(judged) {
+  const state = judged?.state ?? 'undetermined'
+  const regressions = Array.isArray(judged?.regressions) ? judged.regressions : []
+  if (state !== 'regressed') return { state, regressions, advisories: [] }
+  const bearing = []
+  const advisories = []
+  for (const r of regressions) {
+    if (COMMIT_BEARING_DIMS.has(r.dim)) {
+      bearing.push(r)
+      continue
+    }
+    advisories.push({
+      dim: r.dim,
+      detail:
+        `${r.label ?? r.dim} 基线 ${r.baseline} → 现读 ${r.current}` +
+        '(提交面只报数,不阻断;push 面仍按原判据拦)',
+    })
+  }
+  return { state: bearing.length > 0 ? 'regressed' : 'ok', regressions: bearing, advisories }
 }
 
 /**
@@ -369,6 +465,17 @@ function judgeImpl({
     pendingWebPair: finiteOrNull(webParity?.json?.pending),
     judgedGapWeb: finiteOrNull(webParity?.json?.judgedGap),
     /**
+     * 键级三集合(2026-11-08 立):计数分不清「诚实登记 gap」与「把既有承载拆成 gap」,
+     * 差集才分得清。取不到 ⇒ null(该面本轮不判,不折成"没有退化",§0.3)。
+     */
+    alignedKeys: Array.isArray(webParity?.json?.alignedKeys) ? webParity.json.alignedKeys : null,
+    portalKeys: Array.isArray(webParity?.json?.portalKeys) ? webParity.json.portalKeys : null,
+    judgedGapKeys: Array.isArray(webParity?.json?.judgedGapKeys)
+      ? webParity.json.judgedGapKeys
+      : null,
+    /** 门户承载行数:与 aligned 一样是"既有承载"的一档,减少同样算承载被拆 */
+    portalRows: finiteOrNull(webParity?.json?.portalRows),
+    /**
      * 样式档位的「种类数」与到期豁免(2026-11-06 追加):
      * 处数只降一处的改善会被同时新增一种异档值抵消(net 0),只看处数会漏掉"按种扩面"这种恶化;
      * 分叉豁免到期不回红此前只由 style-tiers 自己 exit 1 表达,进提交链后必须单独成维。
@@ -394,6 +501,9 @@ function judgeImpl({
         }),
   }
   const reasons = []
+  // 只报数的面(不进 state/reasons/退出码):judgedGap 的**登记动作**走这里,
+  // 免得"如实承认缺屏"与"把既有承载拆掉"继续同向判红。
+  const advisories = []
   // 派生文档滞后档:点名、可追,但不算倒退(不进 state、不进退出码)。
   const stale = []
   const missing = []
@@ -413,6 +523,7 @@ function judgeImpl({
       cur,
       extras,
       reasons,
+      advisories,
       missing,
       why: `取不到输入:${missing.join(',')}(不记绿也不冒红)`,
     }
@@ -574,12 +685,6 @@ function judgeImpl({
       'web↔RN 配对里「证据不足、无人判成」的队列变长(每一枚都是"两端是否同一功能"没结论)',
       '逐枚读两端取数端点与渲染方,判 aligned/excluded/gap 后走具名出口:node scripts/apply-cross-end-verdicts.mjs --proposals=<裁决件> --apply(本尺不认手改台账;按名推断的弱证据只能开队列,不得猜成 aligned)',
     ],
-    [
-      'judgedGapWeb',
-      'web-judged-gap-increase',
-      '判过之后确认 RN 侧真缺这一屏(功能面缺口,不是文案/样式)',
-      'node scripts/check-web-rn-screen-parity.mjs 看 gap 行,能走门户承载的先登记 status:"portal"(零开发拿功能),确属要造屏的按 gap 行派单',
-    ],
   ]) {
     const a = finiteOrNull(prev?.[key])
     const b = finiteOrNull(extras[key])
@@ -589,6 +694,54 @@ function judgeImpl({
         detail: `${label} ${a} → ${b}(净增 ${b - a})⇒ 出路:${exit}`,
       })
   }
+  /**
+   * judgedGap 拆两栏(2026-11-08 立):旧判据把 gap 总量当 'up' 判红,于是「如实登记某屏 RN 零承载」
+   * 与「把既有承载拆掉」同向翻红,诚实登记被逼成定向刷基线(实测 /sag2)。
+   * 现按键级差集分开判:
+   *   · 登记面 —— 本轮新增的 gap 键(只进 advisories 报数,不阻断);
+   *   · 承载面 —— 本轮 gap 键里,上一轮快照仍记为 aligned/portal 的那些键(承载被拆 ⇒ 阻断)。
+   * 计数面「承载变少」另由 web-aligned-decrease / portalRows 减少两维兜底。
+   */
+  const prevCarriedKeys =
+    prev && (Array.isArray(prev.alignedKeys) || Array.isArray(prev.portalKeys))
+      ? [...(prev.alignedKeys ?? []), ...(prev.portalKeys ?? [])]
+      : null
+  const gapFace = judgeJudgedGapFaces({
+    nowGapKeys: extras.judgedGapKeys,
+    baseGapKeys: prev?.judgedGapKeys ?? null,
+    baseCarriedKeys: prevCarriedKeys,
+  })
+  if (gapFace.regression.length > 0)
+    reasons.push({
+      dim: 'web-judged-gap-regression',
+      detail: `${gapFace.regression.length} 个 web 键在上一轮快照里仍有承载(aligned/portal),本轮却登记成 gap(${gapFace.regression.slice(0, 12).join('、')})⇒ 这是把既有承载拆掉,不是诚实登记 ⇒ 出路:先恢复那条 aligned/portal 行;确属承载撤销,走裁决台账附证据(node scripts/apply-cross-end-verdicts.mjs)`,
+    })
+  if (gapFace.registered.length > 0)
+    advisories.push({
+      dim: 'web-judged-gap-registered',
+      detail: `新登记 gap ${gapFace.registered.length} 个(只报数,不阻断):${gapFace.registered.slice(0, 12).join('、')} ⇒ 登记是承认缺口的合法通道;承载是否被拆另由 web-aligned-decrease / alignedUnique 判`,
+    })
+  else if (
+    !gapFace.compared &&
+    Number.isFinite(prev?.judgedGapWeb) &&
+    Number.isFinite(extras.judgedGapWeb) &&
+    extras.judgedGapWeb > prev.judgedGapWeb
+  )
+    advisories.push({
+      dim: 'web-judged-gap-registered',
+      detail: `判过确认 RN 缺屏 ${prev.judgedGapWeb} → ${extras.judgedGapWeb}(登记面只报数,不阻断;上轮快照没有键级集合,分不清新增登记与承载被拆,承载面仍由 web-aligned-decrease 判)`,
+    })
+  if (
+    prev &&
+    Number.isFinite(prev.portalRows) &&
+    Number.isFinite(extras.portalRows) &&
+    extras.portalRows < prev.portalRows
+  )
+    reasons.push({
+      dim: 'web-portal-carried-decrease',
+      detail: `门户承载行 ${prev.portalRows} → ${extras.portalRows}(净减 ${prev.portalRows - extras.portalRows})⇒ 零开发拿功能的 WebView 承载被拆了一条 ⇒ 出路:node scripts/check-web-rn-screen-parity.mjs 看 portal 行,按 packages/shared/src/constants/web-portal.ts 恢复承载,或改判 gap 并附零承载取证`,
+    })
+
   if (
     prev &&
     Number.isFinite(prev.unmapped) &&
@@ -674,6 +827,7 @@ function judgeImpl({
   return {
     state: reasons.length > 0 ? 'regressed' : 'ok',
     stale,
+    advisories,
     cur,
     extras,
     prev: prev ?? null,
@@ -696,10 +850,59 @@ function readPrev() {
       duplicateWebKeys: o?.extras?.duplicateWebKeys ?? null,
       pendingWebPair: o?.extras?.pendingWebPair ?? null,
       judgedGapWeb: o?.extras?.judgedGapWeb ?? null,
+      // 键级集合(2026-11-08 立):旧快照没有这三项 ⇒ null ⇒ 该面本轮"未判定",不折成 0。
+      alignedKeys: Array.isArray(o?.extras?.alignedKeys) ? o.extras.alignedKeys : null,
+      portalKeys: Array.isArray(o?.extras?.portalKeys) ? o.extras.portalKeys : null,
+      judgedGapKeys: Array.isArray(o?.extras?.judgedGapKeys) ? o.extras.judgedGapKeys : null,
+      portalRows: o?.extras?.portalRows ?? null,
       unmapped: o?.cur?.unmapped ?? null,
       fidelityHosted: o?.cur?.fidelityHosted ?? null,
       fidelityMissing: o?.cur?.fidelityMissing ?? null,
       at: o?.at ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 读**基线提交点**那一版 web↔RN 台账的键级集合(2026-11-08 立)。
+ *
+ * 为什么不用基线文件里的数字反推:计数无法区分「新登记 gap」与「把既有承载键改成 gap」。
+ * 为什么不去改基线文件:基线数值是回归制的锚,一个字都不动才是纪律;这里只沿
+ * `git log -1 -- scripts/data/cross-end-drift-gate-baseline.json` 找到基线落盘的那个提交,
+ * 读同一棵树里的台账,按 status 归三堆(不重算判定,§0.6 只做差集)。
+ * 取不到(git 不可用 / 浅克隆 / 台账路径变了)⇒ null ⇒ 调用方把该面记为"未判定",
+ * 不折成"没有退化"(§0.3)。
+ */
+function readBaselineLedger() {
+  try {
+    const opts = { timeout: 60_000, maxBuffer: 1 << 20 }
+    const sha = gitRaw(['log', '-1', '--format=%H', '--', GATE_BASELINE_REL], ROOT, opts).trim()
+    if (!sha) return null
+    const text = gitRaw(['show', `${sha}:${WEB_RN_MAP_REL}`], ROOT, opts)
+    const alignedKeys = new Set()
+    const portalKeys = new Set()
+    const gapKeys = new Set()
+    for (const line of String(text).split(/\r?\n/)) {
+      const s = line.trim()
+      if (!s) continue
+      let row
+      try {
+        row = JSON.parse(s)
+      } catch {
+        continue
+      }
+      if (!row || typeof row.web !== 'string' || !row.web) continue
+      if (row.status === 'aligned') alignedKeys.add(row.web)
+      else if (row.status === 'portal') portalKeys.add(row.web)
+      else if (row.status === 'gap') gapKeys.add(row.web)
+    }
+    return {
+      sha,
+      alignedKeys: [...alignedKeys],
+      portalKeys: [...portalKeys],
+      gapKeys: [...gapKeys],
     }
   } catch {
     return null
@@ -711,7 +914,17 @@ function selfTestMain() {
   // 用例体在 push 的那一刻已经调过 judge ⇒ 这里把"当时那次判定"折进条目,不改 27 处调用点。
   const pushRaw = cases.push.bind(cases)
   cases.push = (c) => pushRaw({ ...c, observed: lastObserved })
-  const mk = (mirrored, reds, rot, aligned = 150, unmapped = 270, pending = 0, judgedGap = 0) => ({
+  const mk = (
+    mirrored,
+    reds,
+    rot,
+    aligned = 150,
+    unmapped = 270,
+    pending = 0,
+    judgedGap = 0,
+    // 键级集合:登记面/承载面分栏靠它;不传 ⇒ 旧快照形态(只报数,不分栏)。
+    keys = null,
+  ) => ({
     ok: true,
     json: {
       stats: { mirroredShared: mirrored, registryEntries: 90, sharedTotal: 218 },
@@ -725,6 +938,7 @@ function selfTestMain() {
       // web↔RN 功能面两只队列(2026-11-05 接维):尺子发的是数字,不是数组 ⇒ 夹具同形给数字。
       pending,
       judgedGap,
+      ...(keys || {}),
     },
   })
   /** 还原度尺的结论夹具(字段名与 check-miniapp-mirror-fidelity --json 逐字同形) */
@@ -1217,17 +1431,65 @@ function selfTestMain() {
     })(),
   })
   cases.push({
-    name: 'T26 判过之后确认 RN 缺这屏 ⇒ web-judged-gap-increase(功能缺口与文案缺口分开报)',
+    name: 'T26 如实登记新 gap(承载面一枚未减)⇒ 不判红,只进登记面 advisories',
     pass: (() => {
       const j = judge({
         conversion: mkConv(),
         fidelity: mkFid(),
         coverage: mk(91, 0, 0),
-        webParity: mk(91, 0, 0, 150, 270, 0, 3),
+        webParity: mk(91, 0, 0, 150, 270, 0, 3, {
+          judgedGapKeys: ['old', 'sag2', 'new'],
+          alignedKeys: ['settings'],
+          portalKeys: ['admin/x'],
+        }),
         doc: '',
-        prev: { mirrored: 91, alignedUnique: 150, judgedGapWeb: 1 },
+        prev: {
+          mirrored: 91,
+          alignedUnique: 150,
+          judgedGapWeb: 1,
+          judgedGapKeys: ['old'],
+          alignedKeys: ['settings'],
+          portalKeys: ['admin/x'],
+        },
       })
-      return j.reasons.some((r) => r.dim === 'web-judged-gap-increase' && /1 → 3/.test(r.detail))
+      const note = (j.advisories || []).find((a) => a.dim === 'web-judged-gap-registered')
+      return (
+        j.state === 'ok' &&
+        !j.reasons.some((r) => r.dim === 'web-judged-gap-regression') &&
+        !!note &&
+        /sag2/.test(note.detail) &&
+        /new/.test(note.detail)
+      )
+    })(),
+  })
+  cases.push({
+    name: 'T26b 既有承载键被登记成 gap ⇒ web-judged-gap-regression(计数未减也要点名拆承载)',
+    pass: (() => {
+      const j = judge({
+        conversion: mkConv(),
+        fidelity: mkFid(),
+        coverage: mk(91, 0, 0),
+        webParity: mk(91, 0, 0, 150, 270, 0, 2, {
+          judgedGapKeys: ['old', 'settings'],
+          alignedKeys: [],
+          portalKeys: ['admin/x'],
+        }),
+        doc: '',
+        prev: {
+          mirrored: 91,
+          alignedUnique: 150,
+          judgedGapWeb: 1,
+          judgedGapKeys: ['old'],
+          alignedKeys: ['settings'],
+          portalKeys: ['admin/x'],
+        },
+      })
+      return (
+        j.state === 'regressed' &&
+        j.reasons.some(
+          (r) => r.dim === 'web-judged-gap-regression' && /settings/.test(r.detail),
+        )
+      )
     })(),
   })
   cases.push({
@@ -1243,7 +1505,7 @@ function selfTestMain() {
       })
       return (
         !j.reasons.some((r) => r.dim === 'web-pending-increase') &&
-        !j.reasons.some((r) => r.dim === 'web-judged-gap-increase')
+        !j.reasons.some((r) => r.dim === 'web-judged-gap-regression')
       )
     })(),
   })
@@ -1277,6 +1539,61 @@ function selfTestMain() {
     pass: judgeBaseline({ values: { mirrored: 256, mapRot: 2 }, baseline: gateBase, directions: dirs }).state === 'undetermined',
   })
 
+  // 提交面分档(2026-11-08 接线 id 302 blocking):只让承载削减面判红;
+  // 「新增未登记屏」与「如实登记 gap」都只报数 —— 两个方向各钉一例,另加 push 面不放宽的反向对照。
+  const commitBase = { dims: { ...gateBase.dims, unmapped: 0, alignedUnique: 292 } }
+  const commitDirs = [...dirs, ['alignedUnique', 'down', '承载面(去重 web 键)']]
+  cases.push({
+    name: 'H1 提交面:新增未登记屏(unmapped 0→1)⇒ 只报数可见,不判红(push 面同数据仍 regressed)',
+    pass: (() => {
+      const j = judgeBaseline({
+        values: { ...commitBase.dims, unmapped: 1 },
+        baseline: commitBase,
+        directions: commitDirs,
+      })
+      const c = commitFaceOf(j)
+      return (
+        j.state === 'regressed' &&
+        c.state === 'ok' &&
+        c.regressions.length === 0 &&
+        c.advisories.some((a) => a.dim === 'unmapped' && /只报数/.test(a.detail))
+      )
+    })(),
+  })
+  cases.push({
+    name: 'H2 提交面:拆掉既有承载(alignedUnique 292→291)⇒ regressed(提交必须判红)',
+    pass: (() => {
+      const c = commitFaceOf(
+        judgeBaseline({
+          values: { ...commitBase.dims, alignedUnique: 291 },
+          baseline: commitBase,
+          directions: commitDirs,
+        }),
+      )
+      return c.state === 'regressed' && c.regressions.some((r) => r.dim === 'alignedUnique')
+    })(),
+  })
+  cases.push({
+    name: 'H3 提交面:既有承载键被登记成 gap ⇒ regressed(承载面同源,不许只报数)',
+    pass: (() => {
+      const c = commitFaceOf({
+        state: 'regressed',
+        regressions: [
+          { dim: 'judgedGapWebRegression', label: '既有承载键被登记成 gap', baseline: 0, current: 1, delta: 1, keys: ['settings'] },
+        ],
+      })
+      return c.state === 'regressed' && c.regressions.some((r) => r.dim === 'judgedGapWebRegression')
+    })(),
+  })
+  cases.push({
+    name: 'H4 提交面:如实登记 gap、承载面一枚未减 ⇒ ok(不因"登记了"误红)',
+    pass: (() => {
+      const j = judgeBaseline({ values: { ...commitBase.dims }, baseline: commitBase, directions: commitDirs })
+      const c = commitFaceOf(j)
+      return j.state === 'ok' && c.state === 'ok' && c.regressions.length === 0
+    })(),
+  })
+
   let bad = 0
   for (const c of cases) {
     if (!c.pass) bad++
@@ -1299,8 +1616,10 @@ function selfTestMain() {
 }
 
 async function main() {
-  // 六把尺都只读 HEAD 面、互不写盘、互不消费对方输出 ⇒ 并发跑;单把失败仍由 runRulerAsync
-  // 折成 ok:false,judge 照旧把整门拖成未判定/判红,不因并发吞掉任何一把的异常。
+  // 六把尺互不写盘、互不消费对方输出 ⇒ 并发跑;单把失败仍由 runRulerAsync 折成 ok:false,
+  // judge 照旧把整门拖成未判定/判红,不因并发吞掉任何一把的异常。
+  // 取材面:默认 HEAD;guardian-runner 提交链追加 --staged 时,runRulerAsync 给每把子尺
+  // 转发 --staged(索引 blob),绝不退回工作树。
   /**
    * 样式档位维(2026-11-03 接):`check-web-rn-style-tiers.mjs` 自己的头注写着
    * 「本尺只读,不进提交链;净增经 §5e 到人」—— 而这句话在本轮之前**没有兑现方**:
@@ -1324,12 +1643,13 @@ async function main() {
     runRulerAsync('check-web-rn-style-tiers.mjs'),
     runRulerAsync('check-miniapp-style-tiers.mjs'),
   ]
-  // 文档同取 HEAD 面,与六把尺无数据依赖 ⇒ 同批派生,不再串行等一轮。
+  // 文档同取同一取材面(默认 HEAD;提交面取索引),与六把尺无数据依赖 ⇒ 同批派生,不再串行等一轮。
+  const docRev = stagedMode ? `:${DOC_PATH}` : `HEAD:${DOC_PATH}`
   const docJob = new Promise((resolve) => {
     try {
       execFile(
         'git',
-        ['show', `HEAD:${DOC_PATH}`],
+        ['show', docRev],
         {
           cwd: ROOT,
           encoding: 'utf8',
@@ -1386,10 +1706,67 @@ async function main() {
       : { state: 'undetermined', regressions: [], missing: [], why: read.why }
     result.gate = {
       ...judged,
-      face: pushMode ? 'push' : 'commit-advisory',
+      face: pushMode ? 'push' : 'commit',
       baseline: read.ok ? GATE_BASELINE_PATH.replace(/\\/g, '/').replace(`${ROOT.replace(/\\/g, '/')}/`, '') : null,
       docStale: result.stale ?? [],
       values,
+      advisories: [],
+    }
+    /**
+     * judgedGap 的两栏在 --gate 面同样要分开(2026-11-08):
+     * 基线里的 judgedGapWeb 是**登记动作**的读数,不再进 GATE_DIRECTIONS —— 诚实登记
+     * (新增 gap 键,承载面一枚未减)不得判红;真正该红的是「既有承载键被登记成 gap」。
+     * 键级参照取基线提交点那版台账(见 readBaselineLedger),基线数值一字未改。
+     */
+    if (read.ok && result.gate.state !== 'undetermined') {
+      const ledger = readBaselineLedger()
+      const gapFace = judgeJudgedGapFaces({
+        nowGapKeys: result.extras?.judgedGapKeys,
+        baseGapKeys: ledger?.gapKeys ?? null,
+        baseCarriedKeys: ledger ? [...ledger.alignedKeys, ...ledger.portalKeys] : null,
+      })
+      const gapBase = finiteOrNull(read.baseline?.dims?.judgedGapWeb)
+      const gapNow = finiteOrNull(values.judgedGapWeb)
+      if (gapBase !== null && gapNow !== null && gapNow !== gapBase)
+        result.gate.advisories.push({
+          dim: 'judgedGapWebRegistered',
+          detail: `判过确认 RN 缺屏 ${gapBase} → ${gapNow}(登记面只报数,不阻断;承载面由 alignedUnique/aligned 与 judgedGapWebRegression 判)`,
+        })
+      if (gapFace.compared) {
+        if (gapFace.registered.length > 0)
+          result.gate.advisories.push({
+            dim: 'judgedGapWebRegistered',
+            detail: `新登记 gap 键 ${gapFace.registered.length} 个(只报数,不阻断):${gapFace.registered.slice(0, 12).join('、')}`,
+          })
+        if (gapFace.regression.length > 0) {
+          result.gate.regressions.push({
+            dim: 'judgedGapWebRegression',
+            label: '既有承载键被登记成 gap',
+            direction: 'up',
+            baseline: 0,
+            current: gapFace.regression.length,
+            delta: gapFace.regression.length,
+            keys: gapFace.regression.slice(0, 12),
+          })
+          result.gate.state = 'regressed'
+        }
+      } else {
+        result.gate.uncompared =
+          '取不到基线提交点的台账键集 ⇒「既有承载键被登记成 gap」这一面本轮未判(不冒红也不记绿)'
+      }
+      result.gate.ledgerRef = ledger?.sha ?? null
+    }
+    /**
+     * 提交面分档(2026-11-08):id 302 已是 blocking —— 但只让承载削减面拦提交。
+     * 登记动作(unmapped 新增未登记屏 / mapRot / fidelity* / tier* 等)降为 advisory,
+     * 必须在人读输出里逐行出现(「只报数」不是写进日志就算数)。
+     * push 面不经过这里:302p 仍是任一维恶化即 exit 1。
+     */
+    if (!pushMode) {
+      const commitFace = commitFaceOf(result.gate)
+      result.gate.state = commitFace.state
+      result.gate.regressions = commitFace.regressions
+      for (const a of commitFace.advisories) result.gate.advisories.push(a)
     }
   }
   if (jsonMode) {
@@ -1403,12 +1780,17 @@ async function main() {
     for (const r of result.reasons || []) console.log(gateMode ? `· [存量] ${r.dim} —— ${r.detail}` : `· ${r.dim} —— ${r.detail}`)
     for (const r of result.stale || [])
       console.log(`(派生文档滞后,不算倒退不喊人) ${r.dim} —— ${r.detail}`)
+    for (const r of result.advisories || [])
+      console.log(`(登记面,只报数不阻断) ${r.dim} —— ${r.detail}`)
     if (result.gate) {
       console.log(
         `GATE(${result.gate.face} · 基线 ${result.gate.baseline ?? '缺失'}) STATE=${result.gate.state} —— ${describeRegressions(result.gate)}`,
       )
       for (const r of result.gate.regressions || [])
         console.log(`  ✗ ${r.dim}(${r.label}) 基线 ${r.baseline} → 现读 ${r.current}`)
+      for (const r of result.gate.advisories || [])
+        console.log(`  · [只报数] ${r.dim} —— ${r.detail}`)
+      if (result.gate.uncompared) console.log(`  ⚠ ${result.gate.uncompared}`)
       if (result.gate.state === 'undetermined') console.log(`  ⚠ ${result.gate.why}`)
     }
   }
@@ -1434,5 +1816,15 @@ if (isDirectRun) {
   else main()
 }
 
-export const __test__ = { judge, notApplicableSince, docNumbers, DOC_PATH, runRulerAsync }
+export const __test__ = {
+  judge,
+  notApplicableSince,
+  docNumbers,
+  DOC_PATH,
+  runRulerAsync,
+  judgeBaseline,
+  judgeJudgedGapFaces,
+  commitFaceOf,
+  COMMIT_BEARING_DIMS,
+}
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

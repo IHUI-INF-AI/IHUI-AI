@@ -37,21 +37,24 @@ export default function PrivilegePage() {
   const { resolvedTheme } = useTheme()
   const [list, setList] = useState<Privilege[]>([])
   const [loading, setLoading] = useState(true)
+  // XUI-066:加载失败曾被静默成空列表,现在如实上抛。
+  const [loadError, setLoadError] = useState('')
   const [vipInfo, setVipInfo] = useState<VipInfo | null>(null)
   const [popup, setPopup] = useState<PopupType | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError('')
     try {
       const [privRes, info] = await Promise.all([getVipPrivilege(), getVipInfo().catch(() => null)])
       setList((privRes.list || []) as Privilege[])
       if (info) setVipInfo(info)
     } catch {
-      // 静默失败，列表留空
+      setLoadError(tt('common.loadFailed'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [tt])
 
   // G-933 冷启动门控：load 内 getVipInfo(需鉴权) 与 getVipPrivilege 共用一次状态事务，
   // 拆支会改加载态语义 ⇒ 整块延后到鉴权判定落定；游客在落定后仍会走一次（终态与改前一致）。
@@ -90,7 +93,7 @@ export default function PrivilegePage() {
         t={tt as unknown as TFunction}
         items={items}
         loading={loading}
-        error=""
+        error={loadError}
         onBack={() => {
           void Taro.navigateBack()
         }}

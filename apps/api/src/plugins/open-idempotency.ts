@@ -12,7 +12,7 @@ import type {
 import fp from 'fastify-plugin'
 import { config } from '../config/index.js'
 import { normalizeHeader } from '../utils/http-normalize.js'
-import { MAX_CLIENT_KEY_LEN, slotKeyOf } from '../services/run-idempotency.js'
+import { MAX_CLIENT_KEY_LEN, MIN_CLIENT_KEY_LEN, slotKeyOf } from '../services/run-idempotency.js'
 
 /**
  * O10 开放面通用幂等重放保护 —— 带 `Idempotency-Key` 的写请求只执行一次,重发拿到首次结果。
@@ -175,14 +175,20 @@ function credentialScopeOf(request: FastifyRequest): string | undefined {
 }
 
 /**
- * 客户端幂等键。首选 `request.idempotencyKey`(能力闸已 trim + 截断 200);
+ * 客户端幂等键。首选 `request.idempotencyKey`(能力闸已 trim + 长度校验);
  * 兜底自己读头 —— 走 `declareCapability` / `requireAnyCapability` 那几条族不经过
  * `enforceCapability`,那个字段没人写,不能因此让一个老实带 key 的客户端白跑。
+ *
+ * F-259:两条路径都**不截断**。超长键在可选面上按"没带"处理(不启用重放缓存),
+ * 而不是让前 200 字符相同的两个逻辑请求互相回放/409。
  */
 function clientKeyOf(request: FastifyRequest): string | undefined {
   if (request.idempotencyKey) return request.idempotencyKey
   const raw = normalizeHeader(request.headers['idempotency-key'])
-  return raw ? raw.slice(0, MAX_CLIENT_KEY_LEN) : undefined
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.trim()
+  if (trimmed.length < MIN_CLIENT_KEY_LEN || trimmed.length > MAX_CLIENT_KEY_LEN) return undefined
+  return trimmed
 }
 
 /** 流式请求不占槽:它压根不会走 onSend,锁只能干等自己烂到 TTL,反而把重试堵死。 */

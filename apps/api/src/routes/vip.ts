@@ -384,14 +384,16 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
         const wxResult = await queryOrder(order.orderNo)
         const tradeState = wxResult.trade_state as string | undefined
         if (tradeState === 'SUCCESS') {
-          await updateOrderStatus(order.orderNo, 'paid', undefined, null)
-          // 发卡(如果还没发过)
-          if (order.orderType === 2 && order.productId) {
+          // F-147:只有本次真正完成 pending→paid 的请求才发卡,并发查单不会双双进入发卡链路。
+          const paidOrder = await updateOrderStatus(order.orderNo, 'paid', 'pending', null)
+          // 发卡(如果还没发过;同一订单由 order_id 唯一约束兜底)
+          if (paidOrder && order.orderType === 2 && order.productId) {
             try {
               await purchaseVip({
                 userId: order.userId!,
                 vipLevelId: order.productId,
                 orderId: order.id,
+                paidAt: paidOrder.paidAt ?? new Date(),
               })
             } catch {
               // 已发过卡会唯一约束冲突,忽略
@@ -410,13 +412,15 @@ export const vipRoutes: FastifyPluginAsync = async (server) => {
         const aliResult = await queryAlipayOrder(order.orderNo)
         const tradeStatus = aliResult.trade_status as string | undefined
         if (tradeStatus === 'TRADE_SUCCESS' || tradeStatus === 'TRADE_FINISHED') {
-          await updateOrderStatus(order.orderNo, 'paid', undefined, null)
-          if (order.orderType === 2 && order.productId) {
+          // F-147:同上,只有真正完成状态迁移的请求才发卡。
+          const paidOrder = await updateOrderStatus(order.orderNo, 'paid', 'pending', null)
+          if (paidOrder && order.orderType === 2 && order.productId) {
             try {
               await purchaseVip({
                 userId: order.userId!,
                 vipLevelId: order.productId,
                 orderId: order.id,
+                paidAt: paidOrder.paidAt ?? new Date(),
               })
             } catch {
               // 已发过卡会唯一约束冲突,忽略

@@ -577,4 +577,22 @@ describe('长期记忆和用户画像读不到', () => {
     }
   });
 });
+
+describe('F-088 长期记忆原子落盘与去重', () => {
+  it('重复 dream 条目不再累积,落盘后无 tmp 残留,正常条目不被误挡', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-long-memory-atomic-'));
+    try {
+      const memory = new LongTermMemory(dir);
+      memory.append('同一件事', '项目');
+      memory.append('同一件事', '项目');
+      expect(memory.load().filter((e) => e.text === '同一件事')).toHaveLength(1);
+      const memoryDir = path.join(dir, '.ihui-agent', 'memory');
+      expect(fs.readdirSync(memoryDir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
+      memory.append('另一件事', '偏好');
+      expect(memory.load().map((e) => e.text).sort()).toEqual(['另一件事', '同一件事'].sort());
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -1405,7 +1405,18 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
     console.error(renderStartupLine(startupTracker.reading()));
     if (prewarmReading) console.error(renderPrewarmLine(prewarmReading));
   });
-  program.parse();
-  startupTracker.mark('commandParsed');
+  // F-002:commander 的 `parse()` 是同步 API,它把 `_parseCommand` 返回的 Promise
+  // 直接丢弃 —— async action 内抛错就只剩 unhandledRejection,旧代码又只在
+  // uncaughtException 分支落 exitCode,CI/脚本于是把失败读成成功。改 `parseAsync`
+  // 并把拒绝显式钉成非零退出码;错误仍重抛给 crash-handler 统一落盘/打印。
+  void (async () => {
+    try {
+      await program.parseAsync();
+      startupTracker.mark('commandParsed');
+    } catch (err) {
+      if (!process.exitCode) process.exitCode = 1;
+      throw err;
+    }
+  })();
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

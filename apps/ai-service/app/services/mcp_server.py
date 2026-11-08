@@ -18,6 +18,7 @@ import os
 import re
 import shlex
 import stat
+import sys
 import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -793,6 +794,14 @@ _ADMIN_ONLY_TOOLS: set[str] = {
     # 2026-07-24 安全加固:screenshot_url 是 SSRF 入口(Playwright 访问任意 URL),
     # 即使有 _validate_url_ssrf 校验,仍限定 admin 调用,defense-in-depth
     "screenshot_url",
+    # AIS-051:两个浏览器自检工具与 screenshot_url 同等 SSRF 能力(任意 URL 拉页面
+    # + 截图),此前不在角色矩阵里 ⇒ role=0 的旁路。与 screenshot_url 同档收口。
+    "browser_selfcheck_screenshot", "browser_selfcheck",
+    # AIS-050 defense-in-depth:upload_file 把本地内容外传第三方存储。对话链的
+    # intend 路由与 tool 选择表都不含它(role=0 正常链路不依赖);本地路径分支已过
+    # 工作区+敏感文件判据,这里再加角色档。voice_clone 不能加:对话链 role=0 直接
+    # 依赖它(conversation._MEDIA_INTENT_PATTERNS["token6688_voice_clone"])。
+    "token6688_upload_file",
     # 2026-07-24 扩展工具(自研核心能力):
     # fetch_url:SSRF 入口 + 可探测内网;
     # review_pr:GitHub API + 可能暴露源代码;schedule_task:调度后台任务
@@ -837,6 +846,9 @@ def _get_agent_control_secret() -> str:
 # 内存 dict(resolved_path → content),上限 256 文件(超限淘汰最旧)。
 _FILE_BASE_CONTENT: dict[str, str] = {}
 _FILE_BASE_MAX = 256
+# AIS-082:read_file 单次读取上限,与写侧(write_file)的 10MB 门对齐。读侧此前
+# 无上限 → 整文件进内存并全量进 _FILE_BASE_CONTENT(最多 256 份),GB 级文件直接 OOM。
+_READ_FILE_MAX_BYTES = 10 * 1024 * 1024
 
 
 def _normalize_eol(text: str) -> str:
@@ -1040,6 +1052,21 @@ def _is_sensitive_file(path: str, *, roots: list[str] | tuple[str, ...] | None =
         return True
     # 扩展名匹配
     return any(basename.endswith(ext) for ext in _SENSITIVE_FILE_EXTENSIONS)
+
+
+def _validate_media_local_path(path: str) -> tuple[bool, str, str]:
+    """媒体工具本地 path 分支的统一入口校验(AIS-050)。
+
+    与 ``read_file`` 同一套判据、同一份实现:先过 ``_validate_path_in_workspace``
+    (白名单根 + symlink 穿越),再判 ``_is_sensitive_file``(敏感目录/文件)。
+    调用方必须用返回的 resolved 路径去 open/上传,不得再用原始入参。
+    """
+    ok, info = _validate_path_in_workspace(path)
+    if not ok:
+        return False, info, "PATH_NOT_ALLOWED"
+    if _is_sensitive_file(info):
+        return False, sensitive_error_message(info), "SENSITIVE_FILE_BLOCKED"
+    return True, info, ""
 
 
 # ---------------------------------------------------------------------------
@@ -1528,6 +1555,16 @@ async def _tool_index_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     internal_user_id = arguments.get("__user_id") or None
     if not path:
         return {"tool": "index_codebase", "ok": False, "error": "path 不能为空"}
+    # AIS-080:与 read_file 同一套工作区白名单校验;根外目录不得进入索引 / embedding。
+    ok_path, path_info = _validate_path_in_workspace(path)
+    if not ok_path:
+        return {
+            "tool": "index_codebase",
+            "ok": False,
+            "error": path_info,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = path_info
     from .workspace_index_policy import (
         apply_workspace_index,
         indexing_decision,
@@ -1907,6 +1944,34 @@ async def _tool_search_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
             "message": "搜索关键词为空",
             "ok": False,
         }
+    # AIS-080:与 read_file 同一套工作区白名单校验 —— 根外目录不得进入关键词扫描 /
+    # 懒索引 / 语义检索。相对路径也走这里;后续统一使用校验返回的 resolved 路径。
+    ok_path, path_info = _validate_path_in_workspace(path)
+    if not ok_path:
+        stages.record(
+            "validate", "failed",
+            duration_ms=validate_clock.elapsed_ms(),
+            count=0,
+            detail="路径不在工作区白名单",
+        )
+        stats["path_validation"] = "blocked"
+        return {
+            "tool": "search_codebase",
+            "query": query,
+            "path": path,
+            "matches": [],
+            "mode": "unjudged",
+            "degraded": True,
+            "reasons": [
+                {"leg": "path", "status": "blocked", "detail": path_info},
+            ],
+            "stats": stats,
+            "stages": stages.finalize(),
+            "message": "路径不在工作区白名单",
+            "ok": False,
+            "errorCode": "PATH_NOT_ALLOWED",
+        }
+    path = path_info
     stages.record(
         "validate",
         "ok",
@@ -2487,6 +2552,21 @@ async def _tool_read_file(arguments: dict[str, Any]) -> dict[str, Any]:
                 "error": f"{resolved_path} 是一个目录,read_file 只能读取文件。请改用 search_codebase 探索目录结构。",
                 "errorCode": "IS_A_DIRECTORY",
             }
+        # AIS-082:读前先量大小(与写侧 10MB 门对齐),超限直接拒读,不进内存也不进 base 缓存
+        size = _os.path.getsize(resolved_path)
+        if size > _READ_FILE_MAX_BYTES:
+            return {
+                "tool": "read_file",
+                "path": resolved_path,
+                "content": "",
+                "size": size,
+                "ok": False,
+                "error": (
+                    f"文件 {size} 字节超过 read_file 单次上限 {_READ_FILE_MAX_BYTES} 字节;"
+                    "请改用 read_tool_output 分页读取或先缩小文件。"
+                ),
+                "errorCode": "FILE_TOO_LARGE",
+            }
         with open(resolved_path, encoding="utf-8") as f:
             content = f.read()
         # 1-2:记录 base 版本(agent 视角),供 file_edit 3-way merge 判断并发修改
@@ -2756,113 +2836,114 @@ async def _tool_file_edit(arguments: dict[str, Any]) -> dict[str, Any]:
     resolved_path = info
 
     try:
-        presence, _st = _classify_existing_file(resolved_path)
-        if presence == "unread":
-            return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
-        if presence == "missing":
-            return _err("FILE_NOT_FOUND", "文件不存在")
-        if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
-            return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
-        with open(resolved_path, "rb") as f:
-            raw = f.read()
+        # AIS-083:读盘 → 匹配计数 → 3-way 合并 → 写回必须整体在同一把 per-path
+        # 锁内。锁只覆盖写回时,两个并发编辑会各自基于同一旧快照合并,后写者静默
+        # 覆盖先写者的改动。
+        async with get_path_write_lock(resolved_path):
+            presence, _st = _classify_existing_file(resolved_path)
+            if presence == "unread":
+                return _err("UNREADABLE", "文件读不到,不能把它说成不存在")
+            if presence == "missing":
+                return _err("FILE_NOT_FOUND", "文件不存在")
+            if os.path.getsize(resolved_path) > 10 * 1024 * 1024:
+                return _err("FILE_TOO_LARGE", "文件大于 10MB,拒绝编辑")
+            with open(resolved_path, "rb") as f:
+                raw = f.read()
+
+            if b"\x00" in raw:
+                return _err("BINARY_FILE", "文件含 NUL 字节,判定为二进制文件")
+            try:
+                content = raw.decode("utf-8")
+            except UnicodeDecodeError as e:
+                return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
+
+            count = content.count(old_string)
+            strategy = "direct"
+            if count == 0:
+                # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
+                # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
+                # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
+                # 由 resolve_conflict 工具按块决策(局部拒绝)。
+                base = _FILE_BASE_CONTENT.get(resolved_path)
+                if base is not None and old_string in base:
+                    # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并,
+                    # 避免 CRLF/LF 行尾差异导致整文件误判(合并结果写盘前按磁盘风格还原)
+                    current_lf = _normalize_eol(content)
+                    mr = merge3_for_edit(base, current_lf, old_string, new_string, replace_all=replace_all)
+                    if mr.clean:
+                        new_content = _restore_eol(mr.merged, content)
+                        strategy = "auto_merged_3way"
+                        replaced_count = base.count(old_string) if replace_all else 1
+                    else:
+                        return _err(
+                            "CONFLICT",
+                            (
+                                f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
+                                f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
+                                f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
+                                f"file_path/old_string/new_string 与 choices 数组"
+                                f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
+                            ),
+                            conflict_count=mr.conflict_count(),
+                            strategy="3way_merge",
+                        )
+                else:
+                    return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
+            elif not replace_all and count >= 2:
+                return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
+            elif replace_all:
+                new_content = content.replace(old_string, new_string)
+                replaced_count = count
+            else:
+                new_content = content.replace(old_string, new_string, 1)
+                replaced_count = 1
+
+            backup_path = resolved_path + ".bak"
+            # B 格编辑前脏判定(2026-10-31 接线):默认只在返回体点名(fresh/stale/never_read/
+            # undetermined 四档不并桶);显式严格档 ∧ stale 才拒写。判定层故障 ⇒ 不拦(§0.10)。
+            try:
+                read_state: Mapping[str, Any] | None = judge_read_state(
+                    arguments.get("__session_id"), resolved_path, arguments=arguments
+                )
+            except Exception:  # noqa: BLE001 - 判定层故障不得让编辑失败
+                read_state = None
+            try:
+                from .ai_code_attribution_store import note_measured_external_edit
+
+                note_measured_external_edit(resolved_path, arguments, read_state)
+            except Exception as exc:  # noqa: BLE001 - 人手改动记账失败不得拦编辑
+                import logging
+
+                logging.getLogger(__name__).warning("外部改动检查点没记下(不拦编辑): %s", exc)
+            if read_state is not None and read_state.get("blocking"):
+                return _err(
+                    "STALE_READ_CONFIRMATION_REQUIRED",
+                    str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),
+                    readState=read_state_field(read_state),
+                )
+            _note_ai_before("file_edit", resolved_path, old_string or "file_edit", arguments)
+            try:
+                with open(backup_path, "wb") as bf:
+                    bf.write(raw)
+                with open(resolved_path, "wb") as wf:
+                    wf.write(new_content.encode("utf-8"))
+            except OSError as e:
+                # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
+                try:
+                    with open(resolved_path, "wb") as rf:
+                        rf.write(raw)
+                except OSError:
+                    pass
+                with contextlib.suppress(OSError):
+                    os.remove(backup_path)
+                return _err("IO_ERROR", str(e))
+
+            diff = list(difflib.unified_diff(content.splitlines(keepends=True),
+                        new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
+            # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
+            _record_file_base(resolved_path, new_content)
     except OSError as e:
         return _err("IO_ERROR", str(e))
-
-    if b"\x00" in raw:
-        return _err("BINARY_FILE", "文件含 NUL 字节,判定为二进制文件")
-    try:
-        content = raw.decode("utf-8")
-    except UnicodeDecodeError as e:
-        return _err("BINARY_FILE", f"文件非 UTF-8: {e}")
-
-    count = content.count(old_string)
-    strategy = "direct"
-    if count == 0:
-        # 1-2 3-way merge:old_string 在磁盘内容 0 命中,但在 base(agent 上次
-        # 看到的版本)中存在 → 快照后文件被外部修改。尝试三方合并:
-        # 干净合并 → 自动应用;双侧修改冲突 → 返回 CONFLICT(不写盘),
-        # 由 resolve_conflict 工具按块决策(局部拒绝)。
-        base = _FILE_BASE_CONTENT.get(resolved_path)
-        if base is not None and old_string in base:
-            # 1-2 EOL 归一化:base 统一 LF 存储,磁盘内容归一化后参与合并,
-            # 避免 CRLF/LF 行尾差异导致整文件误判(合并结果写盘前按磁盘风格还原)
-            current_lf = _normalize_eol(content)
-            mr = merge3_for_edit(base, current_lf, old_string, new_string, replace_all=replace_all)
-            if mr.clean:
-                new_content = _restore_eol(mr.merged, content)
-                strategy = "auto_merged_3way"
-                replaced_count = base.count(old_string) if replace_all else 1
-            else:
-                return _err(
-                    "CONFLICT",
-                    (
-                        f"检测到并发修改冲突:old_string 在磁盘当前内容中 0 命中,"
-                        f"但 base 版本存在,3-way merge 产生 {mr.conflict_count()} 个冲突块"
-                        f"(文件未修改)。可调用 resolve_conflict 工具,携带相同的 "
-                        f"file_path/old_string/new_string 与 choices 数组"
-                        f"(每冲突块 'ours'=采用本次修改 / 'theirs'=保留磁盘现状)按块决策。"
-                    ),
-                    conflict_count=mr.conflict_count(),
-                    strategy="3way_merge",
-                )
-        else:
-            return _err("NOT_FOUND", "未找到要替换的字符串", match_count=0)
-    elif not replace_all and count >= 2:
-        return _err("AMBIGUOUS_MATCH", f"找到 {count} 处匹配,需指定 replace_all=true 或提供更长上下文", match_count=count)
-    elif replace_all:
-        new_content = content.replace(old_string, new_string)
-        replaced_count = count
-    else:
-        new_content = content.replace(old_string, new_string, 1)
-        replaced_count = 1
-
-    backup_path = resolved_path + ".bak"
-    # 票78 串行化:写回段持 per-path 锁(读段在锁外,3-way base 检测兜底并发;
-    # 写段与 base 刷新入锁,与 write_file/resolve_conflict 的写段互斥,缩小竞态窗口)
-    async with get_path_write_lock(resolved_path):
-        # B 格编辑前脏判定(2026-10-31 接线):默认只在返回体点名(fresh/stale/never_read/
-        # undetermined 四档不并桶);显式严格档 ∧ stale 才拒写。判定层故障 ⇒ 不拦(§0.10)。
-        try:
-            read_state: Mapping[str, Any] | None = judge_read_state(
-                arguments.get("__session_id"), resolved_path, arguments=arguments
-            )
-        except Exception:  # noqa: BLE001 - 判定层故障不得让编辑失败
-            read_state = None
-        try:
-            from .ai_code_attribution_store import note_measured_external_edit
-
-            note_measured_external_edit(resolved_path, arguments, read_state)
-        except Exception as exc:  # noqa: BLE001 - 人手改动记账失败不得拦编辑
-            import logging
-
-            logging.getLogger(__name__).warning("外部改动检查点没记下(不拦编辑): %s", exc)
-        if read_state is not None and read_state.get("blocking"):
-            return _err(
-                "STALE_READ_CONFIRMATION_REQUIRED",
-                str(read_state.get("message") or "文件在读后被改过(严格档),已拒绝写入;请重新 read_file 后重试。"),
-                readState=read_state_field(read_state),
-            )
-        _note_ai_before("file_edit", resolved_path, old_string or "file_edit", arguments)
-        try:
-            with open(backup_path, "wb") as bf:
-                bf.write(raw)
-            with open(resolved_path, "wb") as wf:
-                wf.write(new_content.encode("utf-8"))
-        except OSError as e:
-            # 失败回滚:恢复原内容(raw),删除 .bak(不保留)
-            try:
-                with open(resolved_path, "wb") as rf:
-                    rf.write(raw)
-            except OSError:
-                pass
-            with contextlib.suppress(OSError):
-                os.remove(backup_path)
-            return _err("IO_ERROR", str(e))
-
-        diff = list(difflib.unified_diff(content.splitlines(keepends=True),
-                    new_content.splitlines(keepends=True), fromfile="old", tofile="new", n=2))
-        # 1-2:写盘后刷新 base(agent 视角最新内容;锁内刷新,防释放锁后他人写入把 base 记旧)
-        _record_file_base(resolved_path, new_content)
     _note_ai_edit("file_edit", resolved_path, "".join(diff[:20]), arguments)
     result_payload: dict[str, Any] = {"tool": "file_edit", "ok": True, "file_path": resolved_path,
             "replaced_count": replaced_count, "backup_path": backup_path,
@@ -3520,6 +3601,9 @@ _COMMAND_POLICY_DEFAULT: dict[str, Any] = {
         r"\bkill\b", r"\bkillall\b",
         r">\s*", r">>\s*", r"<\s*", r"\|\s*",
         r"`[^`]*`", r"\$\([^)]*\)", r"\$\{[^}]*\}",
+        # AIS-081:cmd /c 内建分支的剩余元字符 —— 单 `&`(后台串联)、`^`(转义)、
+        # 换行(跨行串联)都会把一条白名单命令变成多条,与 ; && || | 同级闭锁。
+        r"&", r"\^", r"[\r\n]",
     ],
     "allowed_prefixes": [
         "git", "ls", "cat", "echo", "python", "python3", "node", "npm", "npx",
@@ -3844,6 +3928,101 @@ def revoke_exec_prefix(prefix: list[str]) -> bool:
     return existed
 
 
+# AIS-081(2026-11-08 机制修订):元字符只有在**命令确实经 shell 解释**时才有注入语义。
+# 判据 = "谁在解释这串字符":
+#   · Windows 内置命令(echo/dir/set...)⇒ 整串交给 `cmd /c`,由 cmd 解释;
+#   · 显式 shell 壳 `cmd|cmd.exe /c|/k`、`sh|bash|zsh|dash -c|-lc` ⇒ 被调用的 shell
+#     会重新解释其后的整串(Python 侧只是 create_subprocess_exec);
+#   · 其余(argv 直传)⇒ `&`/`^`/`;` 只是某个可执行文件的**字面参数**,
+#     `git log --grep=a&b`、`find . -name a&b` 必须放行。
+# 旧实现不区分形态、对整串无差别扫描,把 `echo "a&b"`(引号内字面量)也误挡。
+# 引号语义:cmd/sh 下双引号内的 `&`/`^`/`|`/`<`/`>`/`;` 是字面量,扫描跳过引号段;
+# CR/LF 不因引号豁免(单行命令串里出现换行只可能是拼接)。
+# 本表是内置分支的第二道独立闸(不替代既有危险模式表);测试从本模块 import,不复制。
+# 刻意**不含** `%`:cmd 的 `%VAR%` 只是变量展开、不是命令分隔符,拒掉会误伤
+# `echo %PATH%` / `set X=%Y%` 这类合法内置用法;` 与 `$(` 同样只是字面量,无注入语义。
+WIN_BUILTIN_SHELL_METACHARACTERS: Final[tuple[str, ...]] = (
+    "&", "^", "|", "<", ">", ";", "\r", "\n",
+)
+
+WIN_SHELL_BUILTINS: Final[frozenset[str]] = frozenset({
+    "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
+    "prompt", "title", "path", "assoc", "ftype",
+})
+
+# AIS-106:file_search 按内容回读的单文件上限(超限跳过,不读进内存)。
+_MAX_SEARCH_FILE_BYTES: Final[int] = 2 * 1024 * 1024
+
+_SHELL_WRAPPER_FLAGS: Final[dict[str, frozenset[str]]] = {
+    "cmd": frozenset({"/c", "/k"}),
+    "cmd.exe": frozenset({"/c", "/k"}),
+    "sh": frozenset({"-c"}),
+    "bash": frozenset({"-c", "-lc"}),
+    "zsh": frozenset({"-c"}),
+    "dash": frozenset({"-c"}),
+}
+
+
+def _shell_interpretation_of(command: str, cmd_name: str) -> str | None:
+    """返回"这串字符会被哪层 shell 解释";None = argv 直传,不做元字符判据。"""
+    if sys.platform == "win32" and cmd_name in WIN_SHELL_BUILTINS:
+        return "cmd /c (Windows 内置命令)"
+    try:
+        tokens = shlex.split(command, posix=sys.platform != "win32")
+    except ValueError:
+        tokens = command.split()
+    if not tokens:
+        return None
+    head = tokens[0].rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
+    flags = _SHELL_WRAPPER_FLAGS.get(head)
+    if not flags:
+        return None
+    for token in tokens[1:3]:
+        if token.lower() in flags:
+            return f"{head} {token.lower()}"
+    return None
+
+
+def _first_shell_metacharacter(command: str) -> str | None:
+    """在会被 shell 解释的段里找第一个元字符;双引号内的字面量跳过。"""
+    in_quotes = False
+    for ch in command:
+        if ch == '"':
+            in_quotes = not in_quotes
+            continue
+        if ch in ("\r", "\n"):
+            return ch
+        if not in_quotes and ch in WIN_BUILTIN_SHELL_METACHARACTERS:
+            return ch
+    return None
+
+
+async def _terminate_process_tree(proc: Any) -> None:
+    """终止命令进程及其子进程树(AIS-056)。
+
+    Windows 下命令经 ``cmd /c`` 承载,``proc.kill()`` 只结束 cmd.exe,它拉起的
+    编译/测试/服务子进程会继续跑并占端口。统一先 ``taskkill /F /T /PID``,
+    taskkill 自身不可用时才回退单进程 kill;POSIX 维持原 kill 语义。
+    """
+    pid = getattr(proc, "pid", None)
+    if sys.platform == "win32" and pid is not None:
+        try:
+            killer = await asyncio.create_subprocess_exec(
+                "taskkill", "/F", "/T", "/PID", str(pid),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await killer.wait()
+            return
+        except Exception:
+            logger.warning(
+                "[mcp_server] taskkill /T 失败,回退单进程 kill: pid=%s", pid,
+                exc_info=True,
+            )
+    with contextlib.suppress(ProcessLookupError, OSError):
+        proc.kill()
+
+
 async def _tool_run_command(
     arguments: dict[str, Any], cancel: asyncio.Event | None = None
 ) -> dict[str, Any]:
@@ -4092,22 +4271,26 @@ async def _tool_run_command(
 
     # 危险字符/操作黑名单(Shell 注入 + 破坏性操作)—— 单一权威源 command_policy.json
     _policy = _load_command_policy()
-    _DANGEROUS_PATTERNS: list[str] = list(_policy.get("dangerous_patterns") or [])
-    for pat in _DANGEROUS_PATTERNS:
-        if re.search(pat, command):
-            return {
-                "tool": "run_command", "command": command,
-                "exit_code": -1, "stdout": "", "stderr": "",
-                "ok": False, "streamed": True,
-                "errorCode": "DANGEROUS_COMMAND",
-                "message": f"命令包含禁止的模式: {pat}(安全限制)",
-            }
+    if _is_dangerous_command_blocked():
+        _DANGEROUS_PATTERNS: list[str] = list(_policy.get("dangerous_patterns") or [])
+        for pat in _DANGEROUS_PATTERNS:
+            if re.search(pat, command):
+                return {
+                    "tool": "run_command", "command": command,
+                    "exit_code": -1, "stdout": "", "stderr": "",
+                    "ok": False, "streamed": True,
+                    "errorCode": "DANGEROUS_COMMAND",
+                    "message": f"命令包含禁止的模式: {pat}(安全限制)",
+                }
 
     # 命令前缀白名单 —— 单一权威源 command_policy.json
     _ALLOWED_PREFIXES: set[str] = set(_policy.get("allowed_prefixes") or [])
     first_token = command.split()[0] if command.split() else ""
     cmd_name = first_token.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
-    if cmd_name not in _ALLOWED_PREFIXES:
+    # Windows 可执行文件常带 .exe 后缀(sys.executable 就是 python.exe),而白名单
+    # 按无后缀名登记;判定前归一,避免把合法解释器/工具整类误挡。
+    cmd_lookup = cmd_name[:-4] if cmd_name.endswith(".exe") else cmd_name
+    if cmd_lookup not in _ALLOWED_PREFIXES:
         return {
             "tool": "run_command", "command": command,
             "exit_code": -1, "stdout": "", "stderr": "",
@@ -4118,14 +4301,25 @@ async def _tool_run_command(
     _killer: asyncio.Task[None] | None = None
     proc: asyncio.subprocess.Process | None = None
     try:
-        import shlex
-        import sys
-
-        _WIN_BUILTINS = {
-            "echo", "type", "ver", "dir", "set", "cd", "cls", "color",
-            "prompt", "title", "path", "assoc", "ftype",
-        }
         args = shlex.split(command, posix=sys.platform != "win32")
+        # AIS-081(机制修订):只在真正经 shell 解释的形态下判元字符;argv 直传的
+        # `&`/`^` 是字面参数(引号内的字面量同样跳过),不再无差别误挡。
+        _shell_form = _shell_interpretation_of(command, cmd_name)
+        if _shell_form is not None:
+            _metachar = _first_shell_metacharacter(command)
+            if _metachar is not None:
+                return {
+                    "tool": "run_command", "command": command,
+                    "exit_code": -1, "stdout": "", "stderr": "",
+                    "ok": False, "streamed": True,
+                    "errorCode": "SHELL_METACHARACTER_BLOCKED",
+                    "matched": _metachar,
+                    "shell_form": _shell_form,
+                    "message": (
+                        f"命令经 {_shell_form} 解释,包含禁止的 shell 元字符 {_metachar!r}"
+                        "(拼接会改变语义,安全限制)"
+                    ),
+                }
         # 差距⑦(2026-10-30):原先 user_env 缺省时传 env=None 让子进程**裸继承**
         # os.environ —— vault 过滤与凭据/注入型变量剥离全部旁路,"不带 env 参数"
         # 反而成了消毒豁免面。改为恒走消毒出口(None 与 {} 同形,行为差异只有
@@ -4143,7 +4337,7 @@ async def _tool_run_command(
             terminal_interaction_enabled() and _terminal_id and _term_ctx.get("push")
         )
 
-        if sys.platform == "win32" and cmd_name in _WIN_BUILTINS:
+        if sys.platform == "win32" and cmd_name in WIN_SHELL_BUILTINS:
             proc = await asyncio.create_subprocess_exec(
                 "cmd", "/c", command,
                 cwd=cwd, env=env_for_proc,
@@ -4169,8 +4363,7 @@ async def _tool_run_command(
 
             async def _kill_on_cancel() -> None:
                 await cancel_event.wait()
-                with contextlib.suppress(ProcessLookupError, OSError):
-                    proc.kill()
+                await _terminate_process_tree(proc)
 
             _killer = asyncio.create_task(_kill_on_cancel())
 
@@ -4206,6 +4399,7 @@ async def _tool_run_command(
             _watcher = asyncio.ensure_future(
                 _watch_terminal_input(proc, _activity, _inter_state, _terminal_id, _term_ctx, command)
             )
+        timed_out = False
         try:
             try:
                 timed_out = await _drain_with_input_grace(drain, float(timeout), _inter_state)
@@ -4213,8 +4407,10 @@ async def _tool_run_command(
                     await proc.wait()
             except TimeoutError:
                 timed_out = True
-                with contextlib.suppress(ProcessLookupError):
-                    proc.kill()
+            if timed_out:
+                # 超时既可能是 wait_for 抛错,也可能是 _drain_with_input_grace 返回 True;
+                # 两条都必须回收进程树,否则 cmd.exe 的子进程会继续跑(AIS-056)。
+                await _terminate_process_tree(proc)
                 # 取消 drain task 并等其退出(readline 会被 CancelledError 中断)
                 drain.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -4301,8 +4497,8 @@ async def _tool_run_command(
         if _killer is not None:
             _killer.cancel()
         if proc is not None:
-            with contextlib.suppress(ProcessLookupError, OSError):
-                proc.kill()
+            # 已处于取消态:等待会被再次打断,交给独立 task 发 taskkill 进程树。
+            asyncio.create_task(_terminate_process_tree(proc))
         raise
     except Exception as e:
         return {
@@ -4325,9 +4521,10 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
     if not query:
         return {
             "tool": "web_search",
-            "ok": True,
+            "ok": False,
             "query": query,
             "results": [],
+            "errorCode": "MISSING_PARAMS",
             "message": "搜索关键词为空",
         }
 
@@ -4337,16 +4534,22 @@ async def _tool_web_search(arguments: dict[str, Any]) -> dict[str, Any]:
         "max_results": max_results,
     })
 
-    # 转换字段名(tool → web_search,保留 results)
-    return {
+    # 转换字段名(tool → web_search,保留 results);AIS-054:失败态必须透传,
+    # 不能把检索故障包装成"成功但无结果"。
+    ok = bool(sub_result.get("ok", True))
+    payload: dict[str, Any] = {
         "tool": "web_search",
-        "ok": True,
+        "ok": ok,
         "query": query,
         "max_results": max_results,
         "results": sub_result.get("results", []),
         "total": sub_result.get("total", 0),
         "message": sub_result.get("message", ""),
     }
+    if not ok:
+        payload["error"] = sub_result.get("error") or sub_result.get("message") or "搜索失败"
+        payload["errorCode"] = sub_result.get("errorCode") or "SEARCH_FAILED"
+    return payload
 
 
 async def _tool_image_search(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -5137,6 +5340,35 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"路径不是目录: {path}",
                 "ok": False,
             }
+        # AIS-106:搜索根必须落在工作区白名单(或 D201 会话附加根)内 —— 否则 role=0
+        # 能用 path=/ 枚举整机目录、再用 query 回读文件内容(与 read_file 同源缺口)。
+        # 放在"存在/是目录"之后:旧语义的两种报错保持原样,不变成存在性探针。
+        _ok_root, _root_info = _validate_path_in_workspace(str(path))
+        if not _ok_root:
+            return {
+                "tool": "file_search", "query": query, "path": path,
+                "pattern": pattern, "matches": [], "fuzzy": fuzzy,
+                "ok": False, "errorCode": "PATH_NOT_ALLOWED",
+                "message": _root_info,
+            }
+        root = Path(_root_info)
+
+        # AIS-106:file_search 与 read_file/search_codebase 同一工作区判据。
+        # 放在存在性/目录判定之后:缺路径、非目录按旧契约如实报错,
+        # 只有"确实存在且可遍历"的目录才需要过工作区这一关。
+        ok_path, resolved_path = _validate_path_in_workspace(str(root))
+        if not ok_path:
+            return {
+                "tool": "file_search",
+                "query": query,
+                "path": path,
+                "pattern": pattern,
+                "matches": [],
+                "count": 0,
+                "ok": False,
+                "message": f"路径不允许: {resolved_path}",
+            }
+        path = resolved_path
 
         # V3 #75:两处遍历收成一个出口(原先各写一遍 os.walk = 同一个工具两份实现)。
         # 扩展名沿用本工具的**黑名单**语义(跳二进制),所以给枚举层传 suffixes=None ——
@@ -5199,6 +5431,8 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             try:
                 if query_lower:
                     try:
+                        if os.path.getsize(fpath) > _MAX_SEARCH_FILE_BYTES:
+                            continue
                         with open(fpath, encoding="utf-8", errors="ignore") as f:
                             content = f.read()
                         if query_lower not in content.lower():
@@ -5626,6 +5860,23 @@ async def _tool_db_query(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"SQL 含禁止关键词: {kw}",
             }
 
+    # AIS-085:READ ONLY 事务只挡写,挡不住"读 DB 主机文件"的内置函数
+    # (`SELECT pg_read_file('/etc/passwd')` 是合法只读查询)。补函数名黑名单,
+    # 词边界避免误杀 `pg_read_file_audit` 这类标识符;在连库之前拒绝。
+    _FORBIDDEN_FUNCTIONS = [
+        "PG_READ_FILE", "PG_READ_BINARY_FILE", "PG_LS_DIR", "LO_IMPORT",
+    ]
+    for fn in _FORBIDDEN_FUNCTIONS:
+        if re.search(r"\b" + fn + r"\b", sql_upper):
+            return {
+                "tool": "db_query",
+                "sql": sql,
+                "rows": [],
+                "ok": False,
+                "errorCode": "SQL_FORBIDDEN_FUNCTION",
+                "message": f"SQL 含禁止函数: {fn}(不允许读取数据库主机文件)",
+            }
+
     # 检查 database_url 配置
     from app.core.config import settings
     if not settings.database_url:
@@ -5893,6 +6144,19 @@ async def _tool_browser_selfcheck_screenshot(arguments: dict[str, Any]) -> dict[
     url = arguments.get("url")
     if not url or not isinstance(url, str):
         return {"tool": "browser_selfcheck_screenshot", "ok": False, "error": "缺少 url 参数"}
+    # AIS-051:与 screenshot_url 同一份 SSRF 判据,命中私网/回环/链路本地/非 http(s)
+    # 就地拒绝,不发起任何页面访问。
+    from .screenshot_service import _validate_url_ssrf
+
+    ok_ssrf, ssrf_reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "browser_selfcheck_screenshot",
+            "ok": False,
+            "url": url,
+            "error": f"URL 不允许访问: {ssrf_reason}",
+            "errorCode": "SSRF_BLOCKED",
+        }
 
     viewport = arguments.get("viewport")
     if viewport is not None and not isinstance(viewport, dict):
@@ -5936,6 +6200,19 @@ async def _tool_browser_selfcheck(arguments: dict[str, Any]) -> dict[str, Any]:
     url = arguments.get("url")
     if not url or not isinstance(url, str):
         return {"tool": "browser_selfcheck", "ok": False, "error": "缺少 url 参数"}
+    # AIS-051:同上,与 screenshot_url 同一份 SSRF 判据,拒绝时不得触发截图/视觉链路。
+    from .screenshot_service import _validate_url_ssrf
+
+    ok_ssrf, ssrf_reason = _validate_url_ssrf(url)
+    if not ok_ssrf:
+        return {
+            "tool": "browser_selfcheck",
+            "ok": False,
+            "url": url,
+            "checks": [],
+            "error": f"URL 不允许访问: {ssrf_reason}",
+            "errorCode": "SSRF_BLOCKED",
+        }
 
     checks = arguments.get("checks") or []
     if not isinstance(checks, list):
@@ -6840,9 +7117,15 @@ def _prune_team_boards() -> None:
         team_board_evictions += 1
 
 
-def _team_task_board(team_id: str) -> dict[str, dict[str, Any]]:
+def _team_task_board(team_id: str, owner: str = "") -> dict[str, dict[str, Any]]:
+    """AIS-109:看板按**宿主主体**分命名空间 —— 旧码只用模型自报的 team_id 分键,
+    缺省 `default` 就是一张全平台共用的表,role=0 可枚举/篡改所有人的任务。宿主
+    注入的 `__user_id` 非空时拼进键;**展示与报错仍用 team_id**,不把主体 id 泄给
+    模型。无宿主身份(进程内/开发态)保持旧键,不改变既有调用方。
+    """
     _prune_team_boards()
-    return _TEAM_TASK_BOARD.setdefault(team_id, {})
+    key = f"{owner}::{team_id}" if owner else team_id
+    return _TEAM_TASK_BOARD.setdefault(key, {})
 
 
 def _team_task_now() -> str:
@@ -6852,9 +7135,11 @@ def _team_task_now() -> str:
     return datetime.now(UTC).isoformat()
 
 
-def _team_task_add(team_id: str, title: str, *, detail: str = "", created_by: str = "") -> dict[str, Any]:
+def _team_task_add(
+    team_id: str, title: str, *, detail: str = "", created_by: str = "", owner: str = ""
+) -> dict[str, Any]:
     """新增一条待办(进入 pending,谁都可领)。"""
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     if len(board) >= _TEAM_TASK_BOARD_LIMIT:
         return {
             "ok": False, "errorCode": "BOARD_FULL",
@@ -6878,14 +7163,14 @@ def _team_task_add(team_id: str, title: str, *, detail: str = "", created_by: st
     return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
 
 
-def _team_task_claim(team_id: str, task_id: str, agent_id: str) -> dict[str, Any]:
+def _team_task_claim(team_id: str, task_id: str, agent_id: str, *, owner: str = "") -> dict[str, Any]:
     """独占认领:已被他人领走则拒绝并回带持有者(调用方据此换领别条)。"""
     if not agent_id:
         return {
             "ok": False, "errorCode": "MISSING_PARAMS",
             "error": "claim 需要 agent_id(认领者身份)",
         }
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     entry = board.get(task_id)
     if entry is None:
         return {
@@ -6917,7 +7202,8 @@ def _team_task_claim(team_id: str, task_id: str, agent_id: str) -> dict[str, Any
 
 
 def _team_task_update(
-    team_id: str, task_id: str, agent_id: str, *, status: str | None = None, note: str | None = None
+    team_id: str, task_id: str, agent_id: str, *, status: str | None = None,
+    note: str | None = None, owner: str = "",
 ) -> dict[str, Any]:
     """更新条目:只有持有者可改;status 非法值整条拒绝(不静默吞掉)。"""
     if not agent_id:
@@ -6930,7 +7216,7 @@ def _team_task_update(
             "ok": False, "errorCode": "INVALID_STATUS",
             "error": f"status 必须是 {list(_TEAM_TASK_STATUS)} 之一,实得 {status!r}",
         }
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     entry = board.get(task_id)
     if entry is None:
         return {
@@ -6953,9 +7239,9 @@ def _team_task_update(
     return {"ok": True, "tool": "team_task", "team_id": team_id, "task": dict(entry)}
 
 
-def _team_task_list(team_id: str) -> dict[str, Any]:
+def _team_task_list(team_id: str, *, owner: str = "") -> dict[str, Any]:
     """整表快照(按创建序;只读,不改任何条目)。"""
-    board = _team_task_board(team_id)
+    board = _team_task_board(team_id, owner)
     return {
         "ok": True, "tool": "team_task", "team_id": team_id,
         "total": len(board),
@@ -6974,6 +7260,8 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
     team_id = str(arguments.get("team_id") or "default")
     agent_id = str(arguments.get("agent_id") or "")
     task_id = str(arguments.get("task_id") or "")
+    # AIS-109:看板归属取宿主注入的主体(LLM 不可控),模型自报的 team_id 只做展示分栏。
+    owner = str(arguments.get("__user_id") or "").strip()
     # 全表操作串行化:claim 的"读-判-写"必须原子,否则并发下两人都能领到同一条。
     async with _TEAM_TASK_LOCK:
         if action == "add":
@@ -6987,6 +7275,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                 team_id, title,
                 detail=str(arguments.get("detail") or ""),
                 created_by=agent_id,
+                owner=owner,
             )
         if action == "claim":
             if not task_id:
@@ -6994,7 +7283,7 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                     "tool": "team_task", "ok": False, "errorCode": "MISSING_PARAMS",
                     "error": "claim 需要 task_id",
                 }
-            return _team_task_claim(team_id, task_id, agent_id)
+            return _team_task_claim(team_id, task_id, agent_id, owner=owner)
         if action == "update":
             if not task_id:
                 return {
@@ -7006,9 +7295,10 @@ async def _tool_team_task(arguments: dict[str, Any]) -> dict[str, Any]:
                 team_id, task_id, agent_id,
                 status=str(_status) if _status is not None else None,
                 note=arguments.get("note"),
+                owner=owner,
             )
         if action == "list":
-            return _team_task_list(team_id)
+            return _team_task_list(team_id, owner=owner)
     return {
         "tool": "team_task", "ok": False, "errorCode": "INVALID_PARAMS",
         "error": f"不支持的 action: {action}(add/claim/update/list)",
@@ -7458,6 +7748,49 @@ async def _persist_video_to_disk(
         return True, str(path_obj), len(video_bytes), None
     except OSError:
         return False, "", 0, "WRITE_FAILED"
+
+
+async def _persist_video_for_save_path(
+    save_path: Any, video_url: str, provider: str, prompt: Any
+) -> tuple[str | None, int, dict[str, Any] | None]:
+    """AIS-117:视频三条分支(token6688 / agnes / 通用链)共用的 save_path 落盘。
+
+    旧码只有通用链做了校验+下载+落盘;token6688 与 agnes 两个专用分支在落盘块
+    之前就 return,agnes 载荷还硬编码 `saved_path: None` —— 调用方要求 save_path、
+    回执 ok=true,但盘上没有文件,也没做过白名单校验。
+
+    返回 (saved_path, file_size_bytes, error_payload);error_payload 非 None 时
+    调用方直接把它当失败回执返回(零上游副作用之外,失败语义与通用链一致)。
+    """
+    if not save_path:
+        return None, 0, None
+    import httpx
+
+    ok_path, resolved, err_code = _validate_video_save_path(str(save_path))
+    if not ok_path:
+        logger.warning("[mcp][video] save_path 校验失败(AIS-117): provider=%s code=%s", provider, err_code)
+        return None, 0, {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None, "errorCode": err_code,
+            "message": f"save_path 校验失败: {err_code}",
+        }
+    vid_bytes = await _download_media_bytes(video_url, httpx)
+    if vid_bytes is None:
+        logger.warning("[mcp][video] 落盘下载失败(AIS-117): provider=%s", provider)
+        return None, 0, {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None,
+            "errorCode": "VIDEO_FETCH_FAILED", "message": "视频下载失败",
+        }
+    ok_w, sp, sz, werr = await _persist_video_to_disk(vid_bytes, resolved)
+    if not ok_w:
+        logger.warning("[mcp][video] 落盘写失败(AIS-117): provider=%s code=%s", provider, werr)
+        return None, 0, {
+            "tool": "video_generation", "ok": False, "prompt": prompt,
+            "provider": provider, "video_url": None, "errorCode": werr,
+            "message": f"视频写入磁盘失败: {werr}",
+        }
+    return sp, sz, None
 
 
 def _validate_audio_save_path(save_path: str) -> tuple[bool, str, str | None]:
@@ -8189,6 +8522,26 @@ async def _tool_image_edit(arguments: dict[str, Any]) -> dict[str, Any]:
                 "message": f"save_path 校验失败: {err_code}",
             }
 
+    # AIS-116:改图与生图同属付费上游调用,必须共用同一计费闸 —— 旧实现只有
+    # image_generation 过 gate_image_spend,edits 漏了,宿主盖章余额为 0 也照扣费。
+    # 位置在 save_path 校验之后、任何上游/配置读取之前(拒绝零副作用)。
+    from ..core.mcp_tool_approval import gate_image_spend
+
+    credit_block = gate_image_spend(arguments)
+    if credit_block is not None:
+        _spend = credit_block.get("creditSpend") or {}
+        logger.warning(
+            "[mcp] image_edit 计费闸拒绝(AIS-116): disposition=%s reason=%s "
+            "quoted=%s balance=%s code=CREDIT_APPROVAL_REQUIRED",
+            _spend.get("disposition"), _spend.get("reason"),
+            _spend.get("quotedCredits"), _spend.get("balanceCredits"),
+        )
+        return {
+            **credit_block, "tool": "image_edit", "prompt": prompt,
+            "errorCode": "CREDIT_APPROVAL_REQUIRED",
+            "error": "这次改图消耗需要人批准后才会调用上游,当前没有放行",
+        }
+
     from ..core.config import settings
     from ..providers.base_provider import ProviderError
     from ..providers.token6688_provider import Token6688Provider
@@ -8521,12 +8874,19 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 }
             # while 内 break(拿到成片)→ 落到下方统一返回
             video_url = result.get("video_url", "")
+            _sp, _sz, _perr = await _persist_video_for_save_path(
+                save_path, video_url, "token6688", prompt
+            )
+            if _perr is not None:
+                return _perr
             return {
                 "tool": "video_generation", "ok": True, "prompt": prompt,
                 "provider": result.get("provider", "token6688"),
                 "model": result.get("model", ""), "task_id": result.get("task_id", ""),
                 "video_url": video_url, "duration": result.get("duration", duration),
-                "message": "视频生成完成",
+                "saved_path": _sp, "file_size_bytes": _sz,
+                "created_at": datetime.now(UTC).isoformat(),
+                "message": "视频生成完成" + (f", saved={_sp}" if _sp else ""),
             }
 
     # ---- agnes 专用路径:提交 + 限时窗口轮询 ----
@@ -8573,7 +8933,16 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
             "created_at": datetime.now(UTC).isoformat(),
         }
         if _url:
-            return {**_ok_payload, "video_url": _url, "message": "视频已生成(agnes)"}
+            _sp, _sz, _perr = await _persist_video_for_save_path(
+                save_path, _url, "agnes", prompt
+            )
+            if _perr is not None:
+                return _perr
+            return {
+                **_ok_payload, "video_url": _url,
+                "saved_path": _sp, "file_size_bytes": _sz,
+                "message": "视频已生成(agnes)" + (f", saved={_sp}" if _sp else ""),
+            }
         _wait_s = int(os.environ.get("VIDEO_TOOL_WAIT_S", "90") or 90)
         _deadline = time.monotonic() + max(0, _wait_s)
         while time.monotonic() < _deadline:
@@ -8584,7 +8953,16 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
                 continue  # 单次查询抖动不代表任务失败,继续等窗口
             _st = str(_rec.get("status") or "").lower()
             if _st in ("completed", "succeeded", "success") and _rec.get("video_url"):
-                return {**_ok_payload, "video_url": _rec["video_url"], "message": "视频已生成(agnes)"}
+                _sp, _sz, _perr = await _persist_video_for_save_path(
+                    save_path, _rec["video_url"], "agnes", prompt
+                )
+                if _perr is not None:
+                    return _perr
+                return {
+                    **_ok_payload, "video_url": _rec["video_url"],
+                    "saved_path": _sp, "file_size_bytes": _sz,
+                    "message": "视频已生成(agnes)" + (f", saved={_sp}" if _sp else ""),
+                }
             if _st in ("failed", "cancelled", "canceled"):
                 return {
                     "tool": "video_generation", "ok": False, "prompt": prompt,
@@ -8628,34 +9006,11 @@ async def _tool_video_generation(arguments: dict[str, Any]) -> dict[str, Any]:
     saved_path: str | None = None
     file_size_bytes: int = 0
     if save_path:
-        import httpx
-
-        ok_path, resolved, err_code = _validate_video_save_path(save_path)
-        if not ok_path:
-            return {
-                "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
-                "errorCode": err_code,
-                "message": f"save_path 校验失败: {err_code}",
-            }
-        vid_bytes = await _download_media_bytes(video_url, httpx)
-        if vid_bytes is None:
-            return {
-                "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
-                "errorCode": "VIDEO_FETCH_FAILED",
-                "message": "视频下载失败",
-            }
-        ok_w, sp, sz, werr = await _persist_video_to_disk(vid_bytes, resolved)
-        if not ok_w:
-            return {
-                "tool": "video_generation", "ok": False, "prompt": prompt,
-                "provider": used_provider, "video_url": None,
-                "errorCode": werr,
-                "message": f"视频写入磁盘失败: {werr}",
-            }
-        saved_path = sp
-        file_size_bytes = sz
+        saved_path, file_size_bytes, _perr = await _persist_video_for_save_path(
+            save_path, video_url, used_provider, prompt
+        )
+        if _perr is not None:
+            return _perr
 
     return {
         "tool": "video_generation", "ok": True, "prompt": prompt,
@@ -8991,6 +9346,14 @@ async def _tool_token6688_upload_file(arguments: dict[str, Any]) -> dict[str, An
 
     try:
         if path:
+            ok_path, path_info, path_err = _validate_media_local_path(path)
+            if not ok_path:
+                return {
+                    "tool": "token6688_upload_file", "ok": False,
+                    "error": path_info, "errorCode": path_err,
+                    "file_url": None,
+                }
+            path = path_info
             if not os.path.isfile(path):
                 return {
                     "tool": "token6688_upload_file", "ok": False,
@@ -9210,6 +9573,21 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
             "errorCode": "BAD_PARAMS", "audio_url": None,
         }
     save_path = arguments.get("save_path")
+    # AIS-118:save_path 提前 fail-fast —— 旧码只在下游 `if ok_path:` 里落盘,校验
+    # 失败被丢弃,末尾照旧回 ok=true/saved_path=None,调用方分不清"没要求落盘"与
+    # "落盘被拒"。这里在合成前就判,非法路径一个上游都不调(与 image/video 一致)。
+    resolved_save: str | None = None
+    if save_path:
+        ok_path, resolved_save, err_code = _validate_audio_save_path(str(save_path))
+        if not ok_path:
+            logger.warning(
+                "[mcp][tts] save_path 校验失败(AIS-118): code=%s path=%s", err_code, save_path
+            )
+            return {
+                "tool": "voice_tts", "ok": False, "errorCode": err_code,
+                "error": f"save_path 校验失败: {err_code}", "audio_url": None,
+                "saved_path": None, "save_path": str(save_path),
+            }
 
     # ---- 超长文本(>2000):自动切 token6688 异步 TTS(免长连接;产物为公网 URL)----
     if len(text) > 2000:
@@ -9285,12 +9663,16 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
     # ---- save_path 落地(可选)----
     saved_path: str | None = None
     file_size_bytes = len(audio)
-    if save_path:
-        ok_path, resolved, err_code = _validate_audio_save_path(save_path)
-        if ok_path:
-            ok_w, sp, sz, werr = await _persist_audio_to_disk(audio, resolved)
-            if ok_w:
-                saved_path, file_size_bytes = sp, sz
+    if resolved_save:
+        ok_w, sp, sz, werr = await _persist_audio_to_disk(audio, resolved_save)
+        if not ok_w:
+            logger.warning("[mcp][tts] 音频落盘失败(AIS-118): code=%s", werr)
+            return {
+                "tool": "voice_tts", "ok": False, "errorCode": werr,
+                "error": f"音频写入磁盘失败: {werr}", "audio_url": None,
+                "saved_path": None, "save_path": str(save_path),
+            }
+        saved_path, file_size_bytes = sp, sz
 
     # data URI 直播给前端 <audio>(文本≤2000 字符,mp3 通常 <2MB)
     audio_url = f"data:{content_type or 'audio/mpeg'};base64,{_base64.b64encode(audio).decode()}"
@@ -9318,12 +9700,156 @@ async def _tool_voice_tts(arguments: dict[str, Any]) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+# AIS-050(2026-11-08 裁定):声纹克隆是贵资源,不能只靠路径校验 ——
+# 归属闸(谁克隆的只能谁 list/get/delete)+ 计费闸(克隆属计费动作)。
+# 归属存储沿用仓内 sidecar 思路(artifacts `<file>.owner` 同一授权契约):
+# 平台声纹库是共享账号、上游无属主概念,故本地维护 voice_id → user_id 账本。
+# 账本缺失(机制上线前的存量声纹)一律 fail-closed —— 无法证明归属就不许读删,
+# 与 AIS-096「新产物缺 sidecar 即 403」同一口径。账本读写失败同样 fail-closed,
+# 且必须留显式告警,不许静默当成"没有属主"。
+_VOICE_OWNER_STORE_ENV: Final[str] = "VOICE_OWNER_STORE"
+# 一次克隆(上游训练 + 挂载)按 100 积分报价:高于生图默认 floor(8),属"需要余额/批准"
+# 的贵资源档;宿主未盖章余额时维持旧路径不计量(与 gate_image_spend 同判据)。
+VOICE_CLONE_QUOTED_CREDITS: Final[int] = 100
+
+
+def _voice_owner_store_path() -> Path:
+    raw = os.getenv(_VOICE_OWNER_STORE_ENV, "").strip()
+    return Path(raw) if raw else Path(".uploads") / "voice_owners.json"
+
+
+def _load_voice_owners() -> dict[str, Any]:
+    path = _voice_owner_store_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError) as exc:
+        logger.warning(
+            "[mcp] 声纹归属账本读取失败(AIS-050 fail-closed): path=%s err=%s", path, exc
+        )
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def _voice_owner_of(voice_id: str, owners: dict[str, Any] | None = None) -> str:
+    entry = (owners if owners is not None else _load_voice_owners()).get(voice_id)
+    if isinstance(entry, dict):
+        return str(entry.get("user_id") or "").strip()
+    if isinstance(entry, str):
+        return entry.strip()
+    return ""
+
+
+def _remember_voice_owner(voice_id: str, user_id: str) -> None:
+    """登记的失败不阻断克隆(上游已完成),但必须告警;后续 get/delete 会 fail-closed。"""
+    if not voice_id or not user_id:
+        return
+    path = _voice_owner_store_path()
+    owners = _load_voice_owners()
+    owners[voice_id] = {"user_id": user_id, "createdAt": time.strftime("%Y-%m-%dT%H:%M:%S%z")}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        tmp.write_text(json.dumps(owners, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError as exc:
+        logger.warning(
+            "[mcp] 声纹归属登记失败(AIS-050,后续 get/delete 将 fail-closed): voice=%s err=%s",
+            voice_id,
+            exc,
+        )
+
+
+def _voice_identity_denial(action: str) -> dict[str, Any] | None:
+    """列表/读/删/克隆都必须有宿主注入的身份;缺失按 fail-closed 拒。"""
+    logger.warning(
+        "[mcp] voice_clone 缺少宿主注入身份(AIS-050 归属闸): action=%s code=IDENTITY_REQUIRED",
+        action,
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": action,
+        "errorCode": "IDENTITY_REQUIRED",
+        "error": "声纹属于个人资产,必须携带宿主注入的用户身份后才能操作",
+    }
+
+
+def _voice_id_of(item: Any) -> str:
+    if not isinstance(item, dict):
+        return ""
+    return str(item.get("voice_id") or item.get("id") or "").strip()
+
+
+def _voice_owner_denial(
+    arguments: dict[str, Any], voice_id: str, action: str
+) -> dict[str, Any] | None:
+    user_id = str(arguments.get("__user_id") or "").strip()
+    if not user_id:
+        return _voice_identity_denial(action)
+    owner = _voice_owner_of(voice_id)
+    if owner == user_id:
+        return None
+    logger.warning(
+        "[mcp] voice_clone 归属校验失败(AIS-050): action=%s voice=%s caller=%s owner=%s code=VOICE_NOT_OWNED",
+        action, voice_id or "-", user_id, owner or "(无归属记录)",
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": action,
+        "voice_id": voice_id or None,
+        "errorCode": "VOICE_NOT_OWNED",
+        "error": "该声纹不属于当前用户(机制上线前的存量声纹无归属记录,同样拒绝)",
+    }
+
+
+def _voice_clone_credit_denial(arguments: dict[str, Any]) -> dict[str, Any] | None:
+    """克隆计费闸:复用生图的 decide_credit_spend 判据,拒绝发生在上游之前。"""
+    from app.core.mcp_tool_approval import (
+        HOST_APPROVAL_KEY,
+        HOST_BALANCE_KEY,
+        decide_credit_spend,
+    )
+
+    if HOST_BALANCE_KEY not in arguments or arguments.get(HOST_BALANCE_KEY) is None:
+        return None  # 宿主没盖章余额 ⇒ 不计量,维持旧路径
+    balance = arguments.get(HOST_BALANCE_KEY)
+    approval = arguments.get(HOST_APPROVAL_KEY)
+    if approval not in ("granted", "denied"):
+        approval = None if approval is None else "unrecognized"
+    if isinstance(balance, bool) or not isinstance(balance, int) or balance < 0:
+        quoted, disposition, reason = None, "unjudged", "balance-invalid"
+    else:
+        quoted = VOICE_CLONE_QUOTED_CREDITS
+        disposition, reason = decide_credit_spend(
+            quoted_credits=quoted, balance_credits=balance, approval=approval
+        )
+        if approval == "unrecognized":
+            disposition, reason = "unjudged", "approval-unrecognized"
+    if disposition == "allow":
+        return None
+    logger.warning(
+        "[mcp] 声纹克隆计费闸拒绝(AIS-050): disposition=%s reason=%s quoted=%s balance=%s code=CREDIT_APPROVAL_REQUIRED",
+        disposition, reason, quoted, balance,
+    )
+    return {
+        "tool": "token6688_voice_clone", "ok": False, "action": "upload",
+        "errorCode": "CREDIT_APPROVAL_REQUIRED",
+        "error": "声纹克隆属于计费资源,当前余额/批准不足,已在调用上游前拦截",
+        "creditSpend": {
+            "disposition": disposition, "quotedCredits": quoted,
+            "balanceCredits": balance if isinstance(balance, int) else None,
+            "reason": reason,
+        },
+    }
+
+
 def _audio_source_from_args(
     arguments: dict[str, Any],
-) -> tuple[bytes, str, str | None]:
+) -> tuple[bytes, str, str | None, str | None]:
     """从工具入参解析音频字节:path / url / data URI 三选一。
 
-    Returns (audio_bytes, filename, error)。error 非 None 时前两者为空。
+    Returns (audio_bytes, filename, error, error_code)。error 非 None 时前两者为空;
+    error_code 是结构化错误码(path 分支被工作区/敏感文件判据拒绝时为
+    PATH_NOT_ALLOWED / SENSITIVE_FILE_BLOCKED)。
     """
     import base64 as _b64
     import os as _os
@@ -9333,56 +9859,60 @@ def _audio_source_from_args(
     data_uri = str(arguments.get("data_uri") or "").strip()
     sources = sum(bool(v) for v in (path, url, data_uri))
     if sources == 0:
-        return b"", "", "缺少入参:path / url / data_uri 至少传一个"
+        return b"", "", "缺少入参:path / url / data_uri 至少传一个", None
     if sources > 1:
-        return b"", "", "path / url / data_uri 只能传一个"
+        return b"", "", "path / url / data_uri 只能传一个", None
     if path:
+        ok_path, path_info, path_err = _validate_media_local_path(path)
+        if not ok_path:
+            return b"", "", path_info, path_err
+        path = path_info
         if not _os.path.isfile(path):
-            return b"", "", f"文件不存在: {path}"
+            return b"", "", f"文件不存在: {path}", None
         size = _os.path.getsize(path)
         if size >= 20 * 1024 * 1024:
-            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制"
+            return b"", "", f"声纹参考音频 {size} 字节超过官方 <20MiB 硬限制", None
         try:
             with open(path, "rb") as _f:
-                return _f.read(), _os.path.basename(path) or "ref.wav", None
+                return _f.read(), _os.path.basename(path) or "ref.wav", None, None
         except OSError as e:
-            return b"", "", f"读取文件失败: {e}"
+            return b"", "", f"读取文件失败: {e}", None
     if url:
         from .screenshot_service import _validate_url_ssrf
 
         ok_ssrf, reason = _validate_url_ssrf(url)
         if not ok_ssrf:
-            return b"", "", f"URL 不允许访问: {reason}"
+            return b"", "", f"URL 不允许访问: {reason}", None
         import httpx as _httpx
 
         # 2026-10-31 安全强化第 32 批:走同步版 SSRF 安全下载单源(逐跳 + 钉 IP)。
         # 此前 follow_redirects=True ⇒ 公网 302 → 内网音频可被拉取。
         data = _download_url_ssrf_safe_sync(url, _httpx, timeout=60.0)
         if data is None:
-            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)"
+            return b"", "", "拉取远程音频失败或被 SSRF 尺拒绝(重定向逐跳校验)", None
         if len(data) >= 20 * 1024 * 1024:
-            return b"", "", "远程音频超过官方 <20MiB 硬限制"
-        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None
+            return b"", "", "远程音频超过官方 <20MiB 硬限制", None
+        return data, url.rsplit("/", 1)[-1][:200] or "ref.wav", None, None
     # data URI:data:audio/mpeg;base64,....
     # 2026-09-09 修复:partition 结果变量原命名为 _b64,遮蔽了 import base64 as _b64
     # 的模块引用,导致 b64decode 抛 AttributeError → 永远"解码失败"。改名 _b64payload。
     _head, _sep, _b64payload = data_uri.partition(",")
     if not _sep or not _b64payload:
-        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)"
+        return b"", "", "data_uri 格式非法(应为 data:audio/xxx;base64,...)", None
     try:
         data = _b64.b64decode(_b64payload)
     except Exception:  # noqa: BLE001
         data = b""
     if not data:
-        return b"", "", "data_uri base64 解码失败或内容为空"
+        return b"", "", "data_uri base64 解码失败或内容为空", None
     if len(data) >= 20 * 1024 * 1024:
-        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制"
+        return b"", "", "data_uri 音频超过官方 <20MiB 硬限制", None
     ext = "mp3"
     if _head and "/" in _head:
         _mime = _head.split(";", 1)[0].split("/", 1)[-1]
         if _mime in ("wav", "wave", "m4a", "mp3"):
             ext = "wav" if _mime == "wave" else _mime
-    return data, f"ref.{ext}", None
+    return data, f"ref.{ext}", None, None
 
 
 async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, Any]:
@@ -9413,10 +9943,16 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
         }
     try:
         if action == "list":
+            user_id = str(arguments.get("__user_id") or "").strip()
+            if not user_id:
+                return _voice_identity_denial("list")
             voices = await inst.list_voices()
+            owners = _load_voice_owners()
+            mine = [v for v in voices if _voice_owner_of(_voice_id_of(v), owners) == user_id]
             return {
                 "tool": "token6688_voice_clone", "ok": True, "action": "list",
-                "count": len(voices), "voices": voices,
+                "count": len(mine), "voices": mine,
+                "omitted": max(0, len(voices) - len(mine)),
                 "hint": "把某个 voice_id 传给 voice_tts(engine=token6688,voice=voice_id)即可克隆合成",
             }
         if action == "get":
@@ -9426,6 +9962,9 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                     "tool": "token6688_voice_clone", "ok": False,
                     "error": "缺少 voice_id(action=get 需要)", "errorCode": "MISSING_PARAMS",
                 }
+            denial = _voice_owner_denial(arguments, voice_id, "get")
+            if denial is not None:
+                return denial
             data = await inst.get_voice(voice_id)
             return {
                 "tool": "token6688_voice_clone", "ok": True, "action": "get",
@@ -9438,6 +9977,9 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                     "tool": "token6688_voice_clone", "ok": False,
                     "error": "缺少 voice_id(action=delete 需要)", "errorCode": "MISSING_PARAMS",
                 }
+            denial = _voice_owner_denial(arguments, voice_id, "delete")
+            if denial is not None:
+                return denial
             result = await inst.delete_voice(voice_id)
             return {
                 "tool": "token6688_voice_clone", "ok": bool(result.get("ok")), "action": "delete",
@@ -9445,12 +9987,18 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
                 "error": result.get("error"), "raw": result.get("raw"),
                 "hint": "声纹已删除" if result.get("ok") else f"删除失败(status={result.get('status')})",
             }
-        # action == "upload"
-        audio, filename, err = _audio_source_from_args(arguments)
+        # action == "upload":贵资源 —— 身份 + 计费闸都必须在读音频/调上游之前。
+        user_id = str(arguments.get("__user_id") or "").strip()
+        if not user_id:
+            return _voice_identity_denial("upload")
+        credit_denial = _voice_clone_credit_denial(arguments)
+        if credit_denial is not None:
+            return credit_denial
+        audio, filename, err, err_code = _audio_source_from_args(arguments)
         if err:
             return {
                 "tool": "token6688_voice_clone", "ok": False,
-                "error": err, "errorCode": "BAD_PARAMS",
+                "error": err, "errorCode": err_code or "BAD_PARAMS",
             }
         result = await inst.upload_voice(audio, filename)
         voice_id = ""
@@ -9459,6 +10007,7 @@ async def _tool_token6688_voice_clone(arguments: dict[str, Any]) -> dict[str, An
             voice_id = str(v.get("id") or v.get("voice_id") or "").strip()
         if not voice_id:
             voice_id = str(result.get("id") or result.get("voice_id") or "").strip()
+        _remember_voice_owner(voice_id, user_id)
         return {
             "tool": "token6688_voice_clone", "ok": True, "action": "upload",
             "voice_id": voice_id or None, "voice": v if isinstance(v, dict) else None,
@@ -9617,6 +10166,14 @@ async def _tool_audio_transcription(arguments: dict[str, Any]) -> dict[str, Any]
         # 本地路径(如 voice_tts save_path 落地的音频)
         from pathlib import Path as _Path
 
+        ok_path, path_info, path_err = _validate_media_local_path(audio_in)
+        if not ok_path:
+            return {
+                "tool": "audio_transcription", "ok": False,
+                "error": path_info, "errorCode": path_err,
+                "text": None,
+            }
+        audio_in = path_info
         p = _Path(audio_in)
         if not p.is_file():
             return {
@@ -10039,7 +10596,29 @@ async def _tool_summarize_artifacts(arguments: dict[str, Any]) -> dict[str, Any]
     通过 artifacts_store 读取(Redis hash 持久化,进程重启不丢;Redis 不可用降级进程内)。
     纯本地读取,不调外部 API(零算力)。
     """
-    conversation_id = arguments.get("conversation_id", "")
+    # AIS-108:旧码直接信任模型自报的 `conversation_id` —— 任意会话都能读别人的
+    # plans/sources/artifacts/tool_calls(提示注入还能指定受害者 id)。宿主注入的
+    # `__session_id` 才是唯一可信会话键:有宿主会话时一律以它为准,自报值与之不符
+    # 直接拒且零读取;无宿主会话(进程内/开发态)才回落自报值。
+    host_session = str(arguments.get("__session_id") or "").strip()
+    requested_cid = str(arguments.get("conversation_id") or "").strip()
+    if host_session:
+        if requested_cid and requested_cid != host_session:
+            logger.warning(
+                "[mcp] summarize_artifacts 跨会话读取被拒(AIS-108): requested=%s host=%s",
+                requested_cid, host_session,
+            )
+            return {
+                "tool": "summarize_artifacts", "ok": False,
+                "errorCode": "CONVERSATION_MISMATCH",
+                "error": "conversation_id 与当前会话不一致",
+                "conversation_id": requested_cid, "plans": [], "sources": [],
+                "artifacts": [], "tool_calls_summary": {"total": 0, "by_tool": {}},
+                "message": "",
+            }
+        conversation_id = host_session
+    else:
+        conversation_id = requested_cid
     include = arguments.get("include") or ["plans", "sources", "artifacts", "tool_calls"]
     max_items = int(arguments.get("max_items", 20))
 
@@ -10570,6 +11149,54 @@ def _bg_task_types_prose() -> str:
     return "/".join(RUN_IN_BACKGROUND_TASK_TYPES)
 
 
+# AIS-031(2026-11-08):任务类型**分派闸**。
+# `run_in_background` 与 `run_workflow` 都允许模型自填 task/agent,而 `task_executors`
+# 注册表里 `long_running_command`(任意 argv)与 `test_suite`(起 pytest)是"以服务账号
+# 执行代码"的同一档能力 —— 与 admin-only 的 `run_command` 同能力却低一档门槛:
+# 旧注释把 `run_in_background` 整只工具当"只读/低危"排除在 `_ADMIN_ONLY_TOOLS` 之外,
+# 于是 role=0 用 `{"task":"long_running_command","command":["python","-c","..."]}`
+# 即可起任意进程(`dangerous_command_match` 只判 rm 一类破坏性命令,`python -c` 判"安全")。
+#
+# 收口位置刻意在**分派之前**:拒绝时零副作用 —— 不 submit、不起进程、不落 checkpoint。
+# 角色只认宿主注入的 `__user_role`(`call_tool` 注入,LLM 不可控);缺失/畸形容一律按 0
+# (fail-closed)。特权类型之外(sleep/echo/patrol...)role=0 保持原样,对话链不断。
+_ADMIN_ONLY_DISPATCH_TASK_TYPES: frozenset[str] = frozenset(
+    {"long_running_command", "test_suite"}
+)
+
+
+def _dispatch_permission_denial(
+    tool: str, task_type: str, arguments: dict[str, Any]
+) -> dict[str, Any] | None:
+    """非 admin 把特权 task_type 交给 executor ⇒ PERMISSION_DENIED(留结构化告警)。
+
+    同一判据被 `run_in_background`(task)与 `run_workflow`(节点 agent)两扇门共用 ——
+    两张工具面都是 `task_executors.execute_task` 的分派入口,只堵一扇等于没堵。
+    """
+    if task_type not in _ADMIN_ONLY_DISPATCH_TASK_TYPES:
+        return None
+    try:
+        role = int(arguments.get("__user_role") or 0)
+    except (TypeError, ValueError):
+        role = 0
+    if role >= 1:
+        return None
+    logger.warning(
+        "[mcp] 越权任务分派被拒(AIS-031): tool=%s task=%s user_role=%s code=PERMISSION_DENIED",
+        tool,
+        task_type,
+        role,
+    )
+    return {
+        "ok": False,
+        "tool": tool,
+        "errorCode": "PERMISSION_DENIED",
+        "error": f"任务类型 '{task_type}' 需要 admin 权限(role >= 1),当前 role={role}",
+        "task_type": task_type,
+        "executed": False,
+    }
+
+
 async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     """run_in_background:提交后台任务并立即返回 task_id(不阻塞当前循环)。
 
@@ -10582,6 +11209,12 @@ async def _tool_run_in_background(arguments: dict[str, Any]) -> dict[str, Any]:
     未知类型由那一层返回 `ok:False` + `supported_task_types` + `executed:False`,
     绝不伪装成执行成功。完成后若 notify_on_done,经 message_bus 的 IM 通道推送通知。
     """
+    denial = _dispatch_permission_denial(
+        "run_in_background", str(arguments.get("task", "")).strip(), arguments
+    )
+    if denial is not None:
+        return denial
+
     from .background_tasks import run_in_background
 
     return await run_in_background(arguments)
@@ -10907,9 +11540,44 @@ async def _tool_workflow_instance_status(arguments: dict[str, Any]) -> dict[str,
 # ---------------------------------------------------------------------------
 async def _tool_investigate_codebase(arguments: dict[str, Any]) -> dict[str, Any]:
     """investigate_codebase:只读代码库调查(三态 observed/inferred/unknown)。"""
+    # AIS-107:只读 ≠ 可越界。root 与其它代码工具同一把尺,越界不进入遍历/读文件。
+    # 顺序与 search_codebase 一致:先判存在性,再判工作区 —— 不存在的路径由下游
+    # 三态如实回 unknown,不能把"不存在"改写成"不允许"(§0.3)。
+    _probe_path = str(arguments.get("path", "."))
+    if Path(_probe_path).exists():
+        ok_path, resolved_path = _validate_path_in_workspace(_probe_path)
+        if not ok_path:
+            return {
+                "tool": "investigate_codebase",
+                "ok": False,
+                "status": "unjudged",
+                "path": _probe_path,
+                "intent": arguments.get("intent"),
+                "query": arguments.get("query", ""),
+                "findings": [],
+                "legs": [],
+                "missing_inputs": [],
+                "read_only": True,
+                "message": f"路径不允许: {resolved_path}",
+            }
+        arguments = {**arguments, "path": resolved_path}
     from .codebase_investigator import investigate_codebase
 
-    result: dict[str, Any] = await investigate_codebase(arguments)
+    # AIS-107:模型给的 path 不能直接当仓根 —— 否则 role=0 可指向任意目录(文件面/
+    # 大小/命名/结构一次性外泄,且被扫描内容会回灌给模型)。与 file_search 同一白名单判据,
+    # 下传的是**校验后**路径而非原文。
+    _ok_root, _root_info = _validate_path_in_workspace(
+        str(arguments.get("path") or ".")
+    )
+    if not _ok_root:
+        return {
+            "tool": "investigate_codebase", "ok": False,
+            "errorCode": "PATH_NOT_ALLOWED", "error": _root_info,
+            "findings": [], "anchors": [],
+        }
+    result: dict[str, Any] = await investigate_codebase(
+        {**arguments, "path": _root_info}
+    )
     return result
 
 
@@ -11297,11 +11965,25 @@ async def _tool_run_workflow(arguments: dict[str, Any]) -> dict[str, Any]:
             "error": "缺少宿主注入的调用者身份",
             "missingKeys": identity_error.get("missingKeys"),
         }
+    # AIS-031:节点 `agent` 就是 task_type —— 与 run_in_background 同一条分派出口的另一扇门。
+    # 放在身份校验之后、run_workflow 之前:拒绝时零节点执行(不落 checkpoint、不跑上游节点)。
+    nodes_raw = arguments.get("nodes")
+    if isinstance(nodes_raw, list):
+        for node in nodes_raw:
+            if not isinstance(node, dict):
+                continue
+            denial = _dispatch_permission_denial(
+                "run_workflow", str(node.get("agent") or "").strip(), arguments
+            )
+            if denial is not None:
+                return denial
+
     resume_raw = arguments.get("resume_from_run_id")
     resume = str(resume_raw).strip() if resume_raw is not None and str(resume_raw).strip() else None
     result = await run_workflow(
         arguments.get("nodes"),
         principal=_uid,
+        user_role=arguments.get("__user_role"),
         resume_from_run_id=resume,
     )
     return {"tool": "run_workflow", **result}
@@ -14206,11 +14888,32 @@ async def _tool_edu_create_refund(args: dict[str, Any]) -> dict[str, Any]:
     return await _edu_api_request("POST", "/refund-record", user_id=args.get("__user_id"), json_body=body)
 
 
+_EDU_RESOURCE_ID_RE: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _edu_resource_id_denial(value: str, field: str) -> dict[str, Any] | None:
+    """AIS-110:edu 资源 id 直接拼进上游 URL 路径(`f"/refund-record/{refund_id}/approve"`)。
+
+    旧码只判空 ⇒ `refundId="../../admin/x"` 会把上游请求带到别的路径。id 只允许
+    字母/数字/`-`/`_`(退费号/学号形态),其余一律在本地拒绝,一次上游都不发。
+    """
+    if _EDU_RESOURCE_ID_RE.match(value):
+        return None
+    logger.warning("[mcp][edu] 非法资源 id 被拒(AIS-110): field=%s", field)
+    return {
+        "ok": False, "errorCode": "INVALID_ARGUMENT",
+        "error": f"{field} 只允许字母/数字/-/_ 且长度 ≤ 64",
+    }
+
+
 async def _tool_edu_approve_refund(args: dict[str, Any]) -> dict[str, Any]:
     """edu_approve_refund: 审批通过退费(pending → approved)。"""
     refund_id = str(args.get("refundId") or "").strip()
     if not refund_id:
         return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    denial = _edu_resource_id_denial(refund_id, "refundId")
+    if denial is not None:
+        return denial
     body = _edu_query_params(args, ("approveRemark",))
     return await _edu_api_request(
         "PUT", f"/refund-record/{refund_id}/approve", user_id=args.get("__user_id"), json_body=body
@@ -14222,6 +14925,9 @@ async def _tool_edu_reject_refund(args: dict[str, Any]) -> dict[str, Any]:
     refund_id = str(args.get("refundId") or "").strip()
     if not refund_id:
         return {"ok": False, "error": "refundId 不能为空(可用 edu_list_refunds(status=pending) 查得)"}
+    denial = _edu_resource_id_denial(refund_id, "refundId")
+    if denial is not None:
+        return denial
     body = _edu_query_params(args, ("approveRemark",))
     return await _edu_api_request(
         "PUT", f"/refund-record/{refund_id}/reject", user_id=args.get("__user_id"), json_body=body
@@ -14834,9 +15540,23 @@ class MCPServer:
             # 0-2 出口统一输出护栏:token 上限截断(保持结构与控制字段完整)
             return _truncate_tool_output(result, tool_name=name, session_id=session_id)
         except TimeoutError:
-            return {"ok": False, "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)"}
+            logger.warning(
+                "[mcp] 工具执行超时: tool=%s timeout=%ss", name, MCP_GLOBAL_TIMEOUT
+            )
+            return {
+                "ok": False,
+                "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)",
+                "errorCode": "TIMEOUT",
+            }
         except Exception as e:
-            return {"ok": False, "error": f"工具 {name} 执行失败: {e}"}
+            # AIS-057:原始异常只入日志,回执按 handler 契约给 errorCode 并脱敏,
+            # 避免内部路径/配置经 error 文本回灌模型或前端。
+            logger.warning("[mcp] 工具执行失败: tool=%s", name, exc_info=True)
+            return {
+                "ok": False,
+                "error": f"工具 {name} 执行失败(内部错误)",
+                "errorCode": "TOOL_FAILED",
+            }
 
     def list_resources(self) -> list[MCPResource]:
         """列出全部资源。"""

@@ -9,8 +9,9 @@
  * 1. 扫描未删除、非退费状态、且欠费 > 0 的报名记录；欠费金额一律取自账目出口
  *    (edu-ledger)，不在这里重复写算式 —— 本文件的旧版自己写了一遍 totalFee-paidAmount,
  *    那是"8 处各自表达欠费"的其中一处。
- * 2. 幂等防重：同一报名记录当日（北京时间 0 点起）已有任意催费记录（含手动发送）则跳过。
- * 3. 落库 edu_fee_reminder 留痕（channel=in_app、operator 为空表示系统自动）。
+ * 2. 幂等防重：同一报名记录当日（北京时间 0 点起）已有 **sent** 催费记录（含手动发送）则跳过；
+ *    未送达（pending / failed）的行不占名额，同日可重放。
+ * 3. 落库 edu_fee_reminder 留痕：先 pending，投递完按实际送达落 sent / failed（operator 为空表示系统自动）。
  * 4. 站内信 + 微信订阅消息**逐个收件人**发：收件人 = 学员本人 + 已确认绑定的家长。
  *
  * ## 本版本修掉的三件事（旧版每一件事都表现为"安静"）
@@ -296,6 +297,16 @@ export function parseRemindChannels(raw: string | undefined): ExternalChannel[] 
 }
 
 /**
+ * 留痕行应记录的主通道:成功时由实际送达通道覆盖(wechat→sms→in_app),
+ * 失败时记录本次请求的主通道,便于按渠道统计"请求了但没送达"。
+ */
+export function primaryReminderChannel(channels: ExternalChannel[]): ExternalChannel {
+  if (channels.includes('wechat')) return 'wechat'
+  if (channels.includes('sms')) return 'sms'
+  return 'in_app'
+}
+
+/**
  * "这次催缴算不算外部触达失败"的判据,抽成纯函数。
  * 立因:任务此前只要站内信没抛异常就记 success,于是"微信压根没配置、一条都没发出去"
  * 与"全部送达"在运维面上完全同形 —— 而 §5e 那条"失败必须响"禁的就是这个。
@@ -362,11 +373,17 @@ export async function scanAndRemindArrears(options?: {
   result.scanned = arrears.length
   if (arrears.length === 0) return result
 
-  // 当日已提醒的报名（含手动发送）：同报名当日不重复打扰
+  // 当日已**送达**的报名（含手动发送）：同报名当日不重复打扰。
+  // 只认 status='sent' —— 未送达的 pending/failed 行若也挡重试，瞬时故障会让该报名整天不再提醒。
   const sentTodayRows = await db
     .select({ enrollmentId: eduFeeReminder.enrollmentId })
     .from(eduFeeReminder)
-    .where(gte(eduFeeReminder.createdAt, beijingMidnightUtc()))
+    .where(
+      and(
+        gte(eduFeeReminder.createdAt, beijingMidnightUtc()),
+        eq(eduFeeReminder.status, 'sent'),
+      ),
+    )
   const sentToday = new Set(
     sentTodayRows.map((r) => r.enrollmentId).filter((id): id is string => id !== null),
   )
@@ -398,14 +415,15 @@ export async function scanAndRemindArrears(options?: {
     )
 
     // 留痕（operator 为空 = 系统自动）。按报名留一条,欠费快照存这一行。
+    // 先 pending:投递结束后再按实际送达落 sent/failed —— 先记 sent 会让"未送达"也被当日去重挡住。
     const [row] = await db
       .insert(eduFeeReminder)
       .values({
         studentId: item.studentId,
         enrollmentId: item.enrollmentId,
         dueAmount,
-        channel: 'in_app',
-        status: 'sent',
+        channel: primaryReminderChannel(channels),
+        status: 'pending',
         message,
       })
       .returning({ id: eduFeeReminder.id })
@@ -416,30 +434,41 @@ export async function scanAndRemindArrears(options?: {
     result.parentRecipients += recipients.filter((r) => r.role === 'parent').length
     /** 逐收件人回执,随发送过程累积写回留痕行(见 attachReminderDelivery) */
     const deliveryEntries: DeliveryEntry[] = []
+    /** 本次报名是否真有通道送达:决定留痕终态,避免"零送达也记 sent" */
+    let wxDelivered = false
+    let smsDelivered = false
+    let inAppDelivered = false
 
     for (const recipient of recipients) {
-      const wx = await sendWxToRecipient(recipient, item.studentName ?? '学员', dueAmount)
-      if (wx.bucket === 'sent') result.wxSent += 1
-      else if (wx.bucket === 'no_openid') result.wxNoOpenid += 1
-      else if (wx.bucket === 'not_configured') result.wxNotConfigured += 1
-      else if (wx.bucket === 'user_refused') result.wxUserRefused += 1
-      else result.wxFailed += 1
-      deliveryEntries.push({
-        userId: recipient.userId,
-        role: recipient.role,
-        channel: 'wechat',
-        bucket: wx.bucket,
-        ...(wx.detail ? { detail: wx.detail } : {}),
-        at: new Date().toISOString(),
-      })
+      // 只在配置里请求了 wechat 才外发:否则运维关掉微信后仍会对全体家长发模板消息。
+      if (channels.includes('wechat')) {
+        const wx = await sendWxToRecipient(recipient, item.studentName ?? '学员', dueAmount)
+        if (wx.bucket === 'sent') {
+          result.wxSent += 1
+          wxDelivered = true
+        } else if (wx.bucket === 'no_openid') result.wxNoOpenid += 1
+        else if (wx.bucket === 'not_configured') result.wxNotConfigured += 1
+        else if (wx.bucket === 'user_refused') result.wxUserRefused += 1
+        else result.wxFailed += 1
+        deliveryEntries.push({
+          userId: recipient.userId,
+          role: recipient.role,
+          channel: 'wechat',
+          bucket: wx.bucket,
+          ...(wx.detail ? { detail: wx.detail } : {}),
+          at: new Date().toISOString(),
+        })
+      }
 
       if (channels.includes('sms')) {
         const sms = await sendArrearSmsToRecipient(recipient, {
           student: item.studentName ?? '学员',
           money: String(dueAmount),
         })
-        if (sms.bucket === 'sent') result.smsSent += 1
-        else if (sms.bucket === 'no_phone') result.smsNoPhone += 1
+        if (sms.bucket === 'sent') {
+          result.smsSent += 1
+          smsDelivered = true
+        } else if (sms.bucket === 'no_phone') result.smsNoPhone += 1
         else if (sms.bucket === 'not_configured') result.smsNotConfigured += 1
         else result.smsFailed += 1
         deliveryEntries.push({
@@ -475,14 +504,34 @@ export async function scanAndRemindArrears(options?: {
             overdueDays,
           },
         })
+        inAppDelivered = true
       } catch {
+        // 单人站内信失败只计数,不再把整行提前写 failed —— 其他通道可能已送达。
         result.notifyFailed += 1
-        if (row) {
-          await db
-            .update(eduFeeReminder)
-            .set({ status: 'failed', updatedAt: new Date() })
-            .where(eq(eduFeeReminder.id, row.id))
-        }
+      }
+    }
+
+    // 留痕终态:任一通道真实送达 ⇒ sent;全部零送达(含无收件人) ⇒ failed(不占当日去重,可重放)。
+    if (row) {
+      const delivered = wxDelivered || smsDelivered || inAppDelivered
+      const finalChannel = wxDelivered
+        ? 'wechat'
+        : smsDelivered
+          ? 'sms'
+          : delivered
+            ? 'in_app'
+            : primaryReminderChannel(channels)
+      try {
+        await db
+          .update(eduFeeReminder)
+          .set({
+            status: delivered ? 'sent' : 'failed',
+            channel: finalChannel,
+            updatedAt: new Date(),
+          })
+          .where(eq(eduFeeReminder.id, row.id))
+      } catch {
+        result.deliveryWriteFailed += 1
       }
     }
   }
@@ -575,6 +624,7 @@ export const __test__ = {
   beijingMidnightUtc,
   classifySmsAvailability,
   parseRemindChannels,
+  primaryReminderChannel,
   externalDeliveryMissed,
   aggregateDeliveries,
   WX_ERRCODE_NOT_SUBSCRIBED,

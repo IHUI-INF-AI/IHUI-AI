@@ -387,6 +387,7 @@
       "submit": "儲值",
       "submitting": "儲值中…",
       "invalidAmount": "請輸入有效金額",
+      "submitFailed": "儲值提交失敗,請重試",
       "success": {
         "shareFriend": "分享給好友"
       },

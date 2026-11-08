@@ -1769,11 +1769,22 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           messages: messages as CacheableMessage[],
         })
         if (!skip.skip) {
+          // F-180:缓存键必须与"真正发给上游的请求"同源 —— 用注入 json_schema 后的
+          // upstreamMessages,并把所有影响输出的采样参数(top_p/penalties/seed/response_format)
+          // 一起喂进去。只传 model/messages/temperature/max_tokens 会让 JSON 与纯文本请求
+          // 互撞、seed 失效,缓存统计也随之失真。
           cacheKey = computeCacheKey({
             model: resolvedModel,
-            messages: messages as CacheableMessage[],
+            messages: upstreamMessages as CacheableMessage[],
             temperature,
             max_tokens: maxTokens,
+            top_p,
+            presence_penalty,
+            frequency_penalty,
+            seed: upstreamSeed,
+            response_format: upstreamResponseFormat,
+            tools: (request.body as { tools?: unknown }).tools,
+            tool_choice: (request.body as { tool_choice?: unknown }).tool_choice,
           })
           const cached = await cache.get<V1ChatCompletionResponse>(cacheKey)
           if (cached.hit) {
@@ -2346,12 +2357,13 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
         }
         const batchFileId = `file-${randomUUID()}`
         const content = buffer.toString('utf8')
+        let batchRedis: { disconnect: () => void } | null = null
         try {
           const { saveBatchInput } = await import('../queue/batch-queue.js')
           const IORedis = (await import('ioredis')).default
           const redis = new IORedis(config.REDIS_URL, { maxRetriesPerRequest: 2 })
+          batchRedis = redis
           await saveBatchInput(redis, batchFileId, content)
-          redis.disconnect()
           return reply.status(201).send({
             id: batchFileId,
             object: 'file',
@@ -2363,6 +2375,9 @@ const v1PublicRoutes: FastifyPluginAsync = async (server) => {
           })
         } catch {
           return reply.status(500).send(error(500, 'Batch file save failed'))
+        } finally {
+          // 无论保存成功/抛错都要断开:ioredis 默认自动重连,泄漏一条会持续占用连接与重连定时器
+          batchRedis?.disconnect()
         }
       }
 

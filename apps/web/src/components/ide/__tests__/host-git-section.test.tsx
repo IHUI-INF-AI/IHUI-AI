@@ -13,8 +13,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { GitWorkspaceStatusReply } from '@/lib/tauri-bridge'
 import type { UseHostGitWorkspaceResult } from '@/hooks/use-host-git-workspace'
+import { TooltipProvider } from '@/components/feedback'
 // vitest 会把 vi.mock 提升到 import 之前求值,所以这里按正常位置 import 被测组件即可
 import { HostGitSection } from '../host-git-section'
+
+/**
+ * 2026-11 实现侧变更:变更清单的 kind 徽章包 `<Tooltip>`(a11y 统一),
+ * 真实应用由页面壳挂 TooltipProvider;渲染级单测必须自带 Provider,
+ * 否则 Radix 抛 "`Tooltip` must be used within `TooltipProvider`"
+ * (同 artifact-turn.test.tsx / task-kanban.test.tsx 的既有先例)。断言不变。
+ */
+const renderHost = () =>
+  render(
+    <TooltipProvider>
+      <HostGitSection />
+    </TooltipProvider>,
+  )
 
 vi.mock('next-intl', () => ({
   useTranslations: () => (key: string, values?: Record<string, unknown>) =>
@@ -82,7 +96,7 @@ beforeEach(() => {
 describe('V3 #72 / HostGitSection 三态不得混形', () => {
   it('浏览器(非宿主)⇒ 整块不渲染,而不是渲染一个"没有改动"', () => {
     hookState.inHost = false
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     expect(container.querySelector('[data-testid="host-git-section"]')).toBeNull()
   })
 
@@ -95,7 +109,7 @@ describe('V3 #72 / HostGitSection 三态不得混形', () => {
       entries: [],
       git_binary: '',
     })
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const el = line(container)
     expect(el?.getAttribute('data-state')).toBe('undetermined')
     expect(el?.textContent).toContain('找不到可用的 git 二进制')
@@ -106,14 +120,14 @@ describe('V3 #72 / HostGitSection 三态不得混形', () => {
 
   it('facts + clean ⇒ 明确说"干净",且不与 undetermined 共用档位', () => {
     hookState.status = reply({ verdict: 'clean', total: 0, entries: [] })
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     expect(line(container)?.getAttribute('data-state')).toBe('facts')
     expect(line(container)?.textContent).toContain('hostGit.clean')
   })
 
   it('facts + dirty ⇒ 列出变更清单,条目带 kind 与路径', () => {
     hookState.status = reply({})
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const entries = container.querySelectorAll('[data-testid="host-git-entry"]')
     expect(entries.length).toBe(1)
     expect(entries[0]?.getAttribute('data-kind')).toBe('modified')
@@ -128,7 +142,7 @@ describe('V3 #72 / HostGitSection 三态不得混形', () => {
       total: 0,
       entries: [],
     })
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const el = line(container)
     expect(el?.getAttribute('data-state')).toBe('command_failed')
     expect(el?.textContent).toContain('not a git repository')
@@ -137,14 +151,14 @@ describe('V3 #72 / HostGitSection 三态不得混形', () => {
 
   it('还没取得任何结论 ⇒ 画"尚未有结论",不画"干净"', () => {
     hookState.status = null
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     expect(line(container)?.getAttribute('data-state')).toBe('pending')
     expect(line(container)?.textContent).toContain('hostGit.noVerdict')
   })
 
   it('宿主拒绝 ⇒ 独立一格并带拒绝原因(不得压成"无结论"或"干净")', () => {
     hookState.error = { kind: 'host-rejected', message: 'root 不在允许的 base 内' }
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const el = line(container)
     expect(el?.getAttribute('data-state')).toBe('rejected')
     expect(el?.textContent).toContain('root 不在允许的 base 内')
@@ -152,7 +166,7 @@ describe('V3 #72 / HostGitSection 三态不得混形', () => {
 
   it('没有 workspacePath ⇒ 授权钮禁用并说明原因,而不是发了才报错', () => {
     workspaceState.workspacePath = ''
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const btn = container.querySelector<HTMLButtonElement>(
       '[data-testid="host-git-authorize-btn"]',
     )
@@ -164,7 +178,7 @@ describe('V3 #72 / HostGitSection 三态不得混形', () => {
 describe('V3 #72① / diff 与 index 两格同守三态纪律', () => {
   it('点条目 ⇒ 以该条路径发 getDiff(不整根刷)', async () => {
     hookState.status = reply({})
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const entry = container.querySelector('[data-testid="host-git-entry"]')
     expect(entry).not.toBeNull()
     entry!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -181,7 +195,7 @@ describe('V3 #72① / diff 与 index 两格同守三态纪律', () => {
       text: '',
       total_bytes: 0,
     }
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const panel = container.querySelector('[data-testid="host-git-diff-panel"]')
     expect(panel?.getAttribute('data-state')).toBe('undetermined')
     expect(panel?.textContent).toContain('尚未授权工作区根')
@@ -198,7 +212,7 @@ describe('V3 #72① / diff 与 index 两格同守三态纪律', () => {
       text: 'diff --git a/src/a.ts b/src/a.ts',
       total_bytes: 33,
     }
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const panel = container.querySelector('pre[data-testid="host-git-diff-panel"]')
     expect(panel?.textContent).toBe('diff --git a/src/a.ts b/src/a.ts')
     container
@@ -218,7 +232,7 @@ describe('V3 #72① / diff 与 index 两格同守三态纪律', () => {
       non_utf8_skipped: 0,
       delta: null,
     }
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     const el = container.querySelector('[data-testid="host-git-index-line"]')
     expect(el?.getAttribute('data-state')).toBe('undetermined')
     expect(el?.textContent).toContain('根目录不可读')
@@ -235,7 +249,7 @@ describe('V3 #72① / diff 与 index 两格同守三态纪律', () => {
       non_utf8_skipped: 1,
       delta: { basis: 'rel+size+mtime_ms', added: ['a'], removed: ['b'], changed: ['c'], unchanged: 9 },
     }
-    const { container } = render(<HostGitSection />)
+    const { container } = renderHost()
     let el = container.querySelector('[data-testid="host-git-index-line"]')
     expect(el?.getAttribute('data-state')).toBe('facts')
     expect(el?.textContent).toContain('12')
@@ -243,7 +257,7 @@ describe('V3 #72① / diff 与 index 两格同守三态纪律', () => {
     expect(el?.textContent).toContain('hostGit.indexSkipped')
 
     hookState.index = { ...hookState.index, total: 7, symlink_dirs_skipped: 0, non_utf8_skipped: 0, delta: null }
-    const { container: c2, unmount } = render(<HostGitSection />)
+    const { container: c2, unmount } = renderHost()
     el = c2.querySelector('[data-testid="host-git-index-line"]')
     expect(el?.textContent).toContain('hostGit.indexFirst')
     expect(el?.textContent).not.toContain('hostGit.indexSkipped')

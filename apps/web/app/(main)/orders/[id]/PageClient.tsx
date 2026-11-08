@@ -17,7 +17,8 @@ import { TruncatedText } from '@/components/common'
 import { useAuthGate } from '@/hooks/use-auth-gate'
 import { AuthGatePrompt } from '@/components/common'
 
-type OrderStatus = 'pending' | 'paid' | 'cancelled' | 'refunded'
+type OrderStatus =
+  'pending' | 'paid' | 'cancelled' | 'refunding' | 'refunded' | 'completed' | 'failed'
 
 interface Order {
   id: string
@@ -41,6 +42,8 @@ interface OrderDetailData {
   order: Order
 }
 
+type StatusView = { icon: React.ComponentType<{ className?: string }>; cls: string; key: string }
+
 const STATUS_CONFIG: Record<
   OrderStatus,
   { icon: React.ComponentType<{ className?: string }>; cls: string }
@@ -48,7 +51,16 @@ const STATUS_CONFIG: Record<
   pending: { icon: Clock, cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
   paid: { icon: CheckCircle, cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
   cancelled: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500' },
+  refunding: { icon: Clock, cls: 'bg-amber-500/10 text-amber-600 dark:text-amber-500' },
   refunded: { icon: Wallet, cls: 'bg-primary/10 text-primary' },
+  completed: { icon: CheckCircle, cls: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500' },
+  failed: { icon: XCircle, cls: 'bg-red-500/10 text-red-600 dark:text-red-500' },
+}
+
+const STATUS_FALLBACK: StatusView = {
+  icon: Clock,
+  cls: 'bg-muted text-muted-foreground',
+  key: 'status.unknown',
 }
 
 const TYPE_KEY: Record<string, string> = {
@@ -60,7 +72,17 @@ const ORDER_STATUS_KEYS: Record<OrderStatus, string> = {
   pending: 'status.pending',
   paid: 'status.paid',
   cancelled: 'status.cancelled',
+  refunding: 'status.refunding',
   refunded: 'status.refunded',
+  completed: 'status.completed',
+  failed: 'status.failed',
+}
+
+/** 状态展示的唯一出口:未知/历史状态一律落到 fallback,绝不因取值缺失抛异常。 */
+export function resolveOrderStatusView(status: string): StatusView {
+  const view = STATUS_CONFIG[status as OrderStatus] ?? STATUS_FALLBACK
+  const key = ORDER_STATUS_KEYS[status as OrderStatus] ?? STATUS_FALLBACK.key
+  return { icon: view.icon, cls: view.cls, key }
 }
 
 async function fetchOrder(id: string): Promise<Order> {
@@ -139,8 +161,7 @@ export default function OrderDetailPage() {
     )
   }
 
-  const sc = STATUS_CONFIG[order.status]
-  const StatusIcon = sc.icon
+  const { icon: StatusIcon, cls: statusCls, key: statusKey } = resolveOrderStatusView(order.status)
 
   return (
     <div className="px-4 py-4 mx-auto max-w-2xl space-y-4">
@@ -160,11 +181,11 @@ export default function OrderDetailPage() {
       <div
         className={cn(
           'inline-flex shrink-0 flex-nowrap items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-body font-medium',
-          sc.cls,
+          statusCls,
         )}
       >
         <StatusIcon className="h-4 w-4 shrink-0" />
-        {t(ORDER_STATUS_KEYS[order.status]!)}
+        {t(statusKey)}
       </div>
 
       <dl className="space-y-2 rounded-lg border p-2">

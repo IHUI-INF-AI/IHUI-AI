@@ -387,6 +387,7 @@
       "submit": "충전",
       "submitting": "충전 중…",
       "invalidAmount": "유효한 금액 입력",
+      "submitFailed": "충전 요청에 실패했습니다. 다시 시도해 주세요.",
       "success": {
         "shareFriend": "친구에게 공유"
       },

@@ -112,6 +112,13 @@ function fakeStore(): GithubAppStore & { recorded: Array<[string, string]>; call
       calls.push(`recordDelivery:${deliveryId}`)
       recorded.push([deliveryId, eventType])
     },
+    async claimDelivery(input) {
+      calls.push(`claimDelivery:${input.deliveryId}`)
+      return 'claimed' as const
+    },
+    async settleDelivery(deliveryId, status) {
+      calls.push(`settleDelivery:${deliveryId}:${status}`)
+    },
     async applyInstallationEvent() {
       calls.push('applyInstallationEvent')
     },

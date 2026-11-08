@@ -1129,7 +1129,7 @@ export async function confirmUsdtPayment(
     }
 
     // 2. 更新 wallet 余额(user_margins.token_quantity += tokens)
-    //    DB-03 P1:原实现「事务内 SELECT 读快照 → 应用层相加 → UPDATE 写回」。
+    //    DB-03 P1 / F-10:原实现「事务内 SELECT 读快照 → 应用层相加 → UPDATE 写回」。
     //    PostgreSQL 默认 READ COMMITTED 下两个并发入账事务会读到同一份旧余额,
     //    后写者覆盖先写者 ⇒ 丢一笔充值。改为单条 INSERT ... ON CONFLICT DO UPDATE:
     //    冲突时 PostgreSQL 对该行加锁并**基于最新行版本**重新计算 `token_quantity + n`,

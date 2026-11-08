@@ -8,7 +8,8 @@
  */
 import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
-import { authenticate } from '../../plugins/auth.js'
+import { authenticate, hasHumanJwtCredential } from '../../plugins/auth.js'
+import { isSystemAdmin } from '../../plugins/require-permission.js'
 import { success, error } from '../../utils/response.js'
 import { and, asc, desc, eq, sql } from 'drizzle-orm'
 import { db } from '../../db/index.js'
@@ -20,6 +21,7 @@ import {
   findCirclePosts,
   findCircles,
   findPostById,
+  isCircleMember,
   updatePost,
 } from '../../db/community-queries.js'
 import {
@@ -56,6 +58,15 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         /^\/api\/circles\/[^/?]+\/posts$/.test(path) ||
         /^\/api\/circles\/[^/?]+\/posts\/[^/?]+\/comments$/.test(path)
       ) {
+        // 公开读保持匿名可用:未携带人用凭据直接放行;带了则尝试解析,仅用于让管理员
+        // 绕过 isPublished 可见性闸(凭据无效也不得把公开读变成 401,故失败按匿名处理)。
+        if (hasHumanJwtCredential(request)) {
+          try {
+            await authenticate(request)
+          } catch {
+            /* 公开读不因凭据无效而拒绝 */
+          }
+        }
         return
       }
     }
@@ -140,8 +151,11 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
       if (!isUuidString(parsed.data.id)) return reply.status(404).send(error(404, '圈子不存在'))
-      const circle = await findCircleByIdOrSlug(parsed.data.id)
-      if (!circle) {
+      // F-330 可见性闸:对外详情只认 isPublished=true 的圈子;管理员绕过以便管理端查看。
+      // 非管理员命中隐藏圈子一律 404(不暴露存在性);第二段判定防查询口径漂移。
+      const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+      const circle = await findCircleByIdOrSlug(parsed.data.id, { publishedOnly: !isAdmin })
+      if (!circle || (!isAdmin && !circle.isPublished)) {
         return reply.status(404).send(error(404, '圈子不存在'))
       }
       return reply.send(success({ circle }))
@@ -443,12 +457,20 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsedQ.success) {
         return reply.status(400).send(error(400, parsedQ.error.issues[0]?.message ?? '参数错误'))
       }
-      const circle = await findCircleByIdOrSlug(parsedP.data.id)
-      if (!circle) {
+      // F-330 可见性闸:先判圈子可见性再查帖子 —— 隐藏圈子对非管理员直接 404,
+      // 不产生帖子查询(也不暴露圈子存在性);管理员绕过。
+      const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+      const circle = await findCircleByIdOrSlug(parsedP.data.id, { publishedOnly: !isAdmin })
+      if (!circle || (!isAdmin && !circle.isPublished)) {
         return reply.status(404).send(error(404, '圈子不存在'))
       }
       const { page, pageSize } = parsedQ.data
-      const { list, total } = await findCirclePosts(circle.id, { page, pageSize })
+      // F-335:圈子帖子流同样服从 visibility(匿名仅 public;作者/关注者按口径;管理员全见)。
+      const { list, total } = await findCirclePosts(circle.id, {
+        page,
+        pageSize,
+        viewer: { userId: request.userId, isAdmin },
+      })
       return reply.send(success({ list, total, page, pageSize }))
     },
   )
@@ -506,9 +528,17 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!body.success) {
         return reply.status(400).send(error(400, body.error.issues[0]?.message ?? '参数错误'))
       }
-      const circle = await findCircleByIdOrSlug(parsedP.data.id)
-      if (!circle) {
+      // F-330 发帖闸口径:
+      //  - 圈子隐藏/不存在 ⇒ 404(不暴露存在性),管理员绕过;
+      //  - 圈子表无 isPublic/joinType 一类"公开可加入/开放发帖"字段 ⇒ 已发布圈子
+      //    也仅 circle_members 在册成员(status=1)可发帖,非成员 403;管理员绕过。
+      const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+      const circle = await findCircleByIdOrSlug(parsedP.data.id, { publishedOnly: !isAdmin })
+      if (!circle || (!isAdmin && !circle.isPublished)) {
         return reply.status(404).send(error(404, '圈子不存在'))
+      }
+      if (!isAdmin && !(await isCircleMember(circle.id, request.userId!))) {
+        return reply.status(403).send(error(403, '加入圈子后才能发帖'))
       }
       // P0 合规:发帖内容敏感词过滤
       const filtered = await sanitizeUgcInput(
@@ -570,7 +600,13 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       if (!parsed.success) {
         return reply.status(400).send(error(400, parsed.error.issues[0]?.message ?? '参数错误'))
       }
-      const post = await findPostById(parsed.data.id)
+      // F-335:详情按可见性读 —— public 所有人;followers 关注者与作者;private 仅作者;管理员全见。
+      // 非可见帖按"不存在"处理(404),不暴露其存在性。
+      const viewer = {
+        userId: request.userId,
+        isAdmin: isSystemAdmin(request, { includeInternalChannel: false }),
+      }
+      const post = await findPostById(parsed.data.id, viewer)
       if (!post) {
         return reply.status(404).send(error(404, '帖子不存在'))
       }
@@ -823,20 +859,59 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
       return reply.status(404).send(error(404, '帖子不存在'))
     }
     const userId = request.userId!
+    // F-332:回复对象校验 —— pid 必须属于本帖,replyUserId 必须等于父评论作者
+    // (或被省略后归一为父评论作者);无 pid 的顶级评论不允许指定 replyUserId。
+    let replyUserId: string | null = null
+    if (body.data.pid) {
+      const [parent] = await db
+        .select()
+        .from(circlePostComments)
+        .where(
+          and(
+            eq(circlePostComments.id, body.data.pid),
+            eq(circlePostComments.postId, parsed.data.id),
+          ),
+        )
+        .limit(1)
+      if (!parent) {
+        return reply.status(400).send(error(400, '父评论不存在或不属于本帖'))
+      }
+      if (body.data.replyUserId && body.data.replyUserId !== parent.userId) {
+        return reply.status(400).send(error(400, 'replyUserId 与父评论作者不一致'))
+      }
+      replyUserId = parent.userId
+    } else if (body.data.replyUserId) {
+      return reply.status(400).send(error(400, '顶级评论不能指定 replyUserId'))
+    }
+    // P0 合规:评论内容敏感词过滤
+    const filtered = await sanitizeUgcInput(
+      { content: body.data.content },
+      {
+        action: 'ugc.comment.create',
+        resourceType: 'comment',
+        userId,
+        ip: request.ip,
+        userAgent: request.headers['user-agent'] as string | undefined,
+      },
+    )
+    if (!filtered.ok) {
+      return reply.status(400).send(error(400, '评论含违规词,提交失败'))
+    }
     const [created] = await db
       .insert(circlePostComments)
       .values({
         postId: parsed.data.id,
         userId,
-        content: body.data.content,
+        content: filtered.fields.content!.text,
         pid: body.data.pid ?? null,
-        replyUserId: body.data.replyUserId ?? null,
+        replyUserId,
       })
       .returning()
     if (!created) return reply.status(500).send(error(500, '发表评论失败'))
+    // F-332:replyCount 原子自增,禁止读改写(post.replyCount + 1)造成并发丢更新
     await db
       .update(circlePosts)
-      .set({ replyCount: post.replyCount + 1, updatedAt: new Date() })
+      .set({ replyCount: sql`${circlePosts.replyCount} + 1`, updatedAt: new Date() })
       .where(eq(circlePosts.id, parsed.data.id))
     return reply.status(201).send(success({ comment: created }))
   })

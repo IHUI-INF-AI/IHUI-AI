@@ -141,12 +141,20 @@ export function buildEgressEnvExit(input: EgressEnvExitInput): EgressEnvExit {
       .map((v) => v.target);
     if (cold.length > 0) {
       snapshot.prewarm(cold);
-      warnings.push(`egress: DNS snapshot cold for ${cold.length} host(s) -> unjudged by design, prewarmed async, next spawn within TTL is judged (${EGRESS_ENV.dnsTtl})`);
+      warnings.push(`egress: DNS snapshot cold for ${cold.length} host(s) -> unjudged ⇒ enforce-blocked (fail-closed), prewarmed async for next spawn within TTL (${EGRESS_ENV.dnsTtl})`);
     }
   }
   const aggregate = aggregateOf(verdicts);
 
-  const blocking = verdicts.filter((v) => v.decision === 'deny' && v.enforcement === 'enforce');
+  // F-075:地址证据模式下"无法判定"必须是阻断,不是放行。
+  // 旧实现只把 decision=deny 计入 blocking,DNS 冷启动/解析失败产生的 unjudged
+  // 即使 enforcement=enforce 也照常出网 —— 攻击者只要挑一个解析慢/被投毒的域名
+  // 就能让 fail-open 生效。这里按"enforce ∧ (deny ∨ (要求证据 ∧ unjudged))"统一裁决。
+  const blocking = verdicts.filter(
+    (v) =>
+      v.enforcement === 'enforce' &&
+      (v.decision === 'deny' || (policy.addressProof === true && v.decision === 'unjudged')),
+  );
   const blockReason =
     blocking.length > 0 ? `egress_denied: ${blocking.map((v) => v.target).join(',')}` : null;
 

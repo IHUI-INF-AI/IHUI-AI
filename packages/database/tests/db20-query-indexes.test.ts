@@ -45,7 +45,9 @@ describe('DB-21 chat_messages 复合索引', () => {
 describe('DB-22 analytics_events 时间/事件索引', () => {
   it('schema 声明 (created_at) 与 (event, created_at)', () => {
     const src = flat(readSchema('analytics-events.ts'))
-    expect(src).toContain("createdIdx: index('analytics_events_created_at_idx').on(t.createdAt)")
+    expect(src).toContain(
+      "createdIdx: index('analytics_events_created_at_idx').on(t.createdAt)",
+    )
     expect(src).toContain(
       "eventCreatedIdx: index('analytics_events_event_created_at_idx').on(t.event, t.createdAt)",
     )
@@ -66,7 +68,9 @@ describe('DB-23 edu_orders 时间序索引', () => {
     expect(src).toContain(
       "userCreatedIdx: index('edu_orders_user_created_at_idx').on(t.userId, t.createdAt)",
     )
-    expect(src).toContain("createdIdx: index('edu_orders_created_at_idx').on(t.createdAt)")
+    expect(src).toContain(
+      "createdIdx: index('edu_orders_created_at_idx').on(t.createdAt)",
+    )
   })
 
   it('建库脚本存在且走 CONCURRENTLY', () => {

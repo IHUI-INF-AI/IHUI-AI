@@ -9526,6 +9526,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "このワークフローは現在トリガーできません",
           "action": "存在・有効化・実行中のインスタンスなしを確認してから再試行"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "定期タスクの登録に失敗しました",
+          "action": "しばらくしてから再試行し、続く場合は管理者にスケジューラの点検を依頼"
+        },
+        "INVALID_CALLBACK": {
+          "title": "タスクのコールバック設定が無効です",
+          "action": "コールバックの種類と引数を確認して再試行"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "スケジューラが起動していません",
+          "action": "しばらくしてから再試行し、続く場合は管理者にスケジューラの起動を依頼"
+        },
+        "UNREADABLE": {
+          "title": "ファイルを読み取れません",
+          "action": "ファイルの権限とロックを確認して再試行"
         }
       },
       "worktree": {
@@ -13667,6 +13683,7 @@
     "show": "表示",
     "delete": "削除",
     "save": "保存",
+    "saveFailed": "保存に失敗しました",
     "ok": "OK",
     "create": "作成",
     "agentKanban": "Agent 看板",
@@ -21534,9 +21551,12 @@
     "status": {
       "all": "すべて",
       "cancelled": "キャンセル済み",
+      "completed": "完了",
+      "failed": "失敗",
       "paid": "支払済み",
       "pending": "支払い待ち",
       "refunded": "返金済み",
+      "refunding": "返金処理中",
       "unknown": "不明"
     },
     "statusLabel": "ステータス",

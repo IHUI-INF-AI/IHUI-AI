@@ -73,7 +73,11 @@ const PUBLIC_KEY_PATH_ENV = 'AUDIT_EXPORT_SIGN_PUBLIC_KEY_PATH'
 const KEY_ID_ENV = 'AUDIT_EXPORT_SIGN_KEY_ID'
 
 const selectAuditLogsMock = vi.hoisted(() => vi.fn())
-vi.mock('../src/db/audit-queries.js', () => ({ selectAuditLogs: selectAuditLogsMock }))
+const selectAuditLogsForExportMock = vi.hoisted(() => vi.fn())
+vi.mock('../src/db/audit-queries.js', () => ({
+  selectAuditLogs: selectAuditLogsMock,
+  selectAuditLogsForExport: selectAuditLogsForExportMock,
+}))
 vi.mock('jose', () => ({ decodeJwt: () => ({}) }))
 vi.mock('@ihui/auth', () => ({
   verifyAccessToken: vi
@@ -169,6 +173,8 @@ describe('86G-2 第二半:匿名/admin 公钥面按 kid 取钥匙(轮换期外�
       list: [makeRow({})],
       total: 1,
     }))
+    selectAuditLogsForExportMock.mockReset()
+    selectAuditLogsForExportMock.mockImplementation(async () => [makeRow({})])
     useCurrentKey()
   })
 

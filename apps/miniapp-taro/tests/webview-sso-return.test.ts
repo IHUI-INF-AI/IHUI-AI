@@ -161,7 +161,7 @@ describe('G-957 回传消费契约(consumeSsoCode,启动腿与回传腿共用)',
     const ok = await consumeSsoCode('valid-code', () => 'login.loginSuccess')
     expect(ok).toBe(true)
     expect(mockFetch).toHaveBeenCalledWith(
-      'http://localhost:8802/api/auth/sso/exchange',
+      'https://api.aizhs.top/api/auth/sso/exchange',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ code: 'valid-code', clientId: 'miniapp-taro' }),

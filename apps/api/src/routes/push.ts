@@ -5,11 +5,12 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { env } from 'node:process'
-import { sql } from 'drizzle-orm'
+import { sql, and, eq, inArray } from 'drizzle-orm'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { success, error, emptyToUndefined } from '../utils/response.js'
 import { db } from '../db/index.js'
+import { deviceTokens } from '@ihui/database'
 import { sendPushBatch, detectPushProvider, type PushMessage } from '../services/push-provider.js'
 
 // =============================================================================
@@ -29,8 +30,15 @@ const sendPushBodySchema = z.object({
   /** 指定设备 token 列表；若不提供则按 memberId 推送 */
   tokens: z.array(z.string().min(1).max(500)).max(100).optional(),
   /** 按 memberId 推送（需配合 admin 鉴权） */
-  memberIds: z.array(z.number().int().positive()).max(100).optional(),
+  memberIds: z.array(z.uuid()).max(100).optional(),
 })
+
+/** device_tokens 的 platform 列必填且长度 20:从 deviceType 归一,认不出时落 web。 */
+function resolveDevicePlatform(deviceType: string | undefined): 'ios' | 'android' | 'web' {
+  const value = deviceType?.toLowerCase()
+  if (value === 'ios' || value === 'android' || value === 'web') return value
+  return 'web'
+}
 
 // =============================================================================
 // 用户端路由（注册/注销设备 token）
@@ -38,7 +46,9 @@ const sendPushBodySchema = z.object({
 
 export const pushRoutes: FastifyPluginAsync = async (server) => {
   // POST /push/devices/register - 用户注册设备 token
-  // 当前用户系统无 memberId 映射，使用 userId 作为 memberId（兼容教育模块）
+  // 2026-11-08 修 F-680:改用 device_tokens(user_id uuid + token 唯一索引)。
+  // 旧实现把 users.id(UUID)写进教育域通知设备表的 member_id(integer) ⇒ 100% 22P02,
+  // 且 ON CONFLICT (device_token) 无唯一索引可匹配。
   server.post('/push/devices/register', async (request, reply) => {
     await authenticate(request)
     const parsed = registerDeviceSchema.safeParse(request.body)
@@ -47,13 +57,31 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
     }
     const userId = request.userId!
     const { deviceToken, deviceType } = parsed.data
-    // upsert：同 token 已存在则更新 updatedAt，否则插入
-    await db.execute(sql`
-      INSERT INTO edu_notification_device (member_id, device_type, device_token, is_active, created_at, updated_at)
-      VALUES (${userId}, ${deviceType ?? null}, ${deviceToken}, true, NOW(), NOW())
-      ON CONFLICT (device_token)
-      DO UPDATE SET is_active = true, updated_at = NOW()
-    `)
+    const now = new Date()
+    const platform = resolveDevicePlatform(deviceType)
+    // upsert：同 token 已存在（device_tokens.token 唯一索引）则刷新归属与状态
+    await db
+      .insert(deviceTokens)
+      .values({
+        userId,
+        token: deviceToken,
+        platform,
+        deviceType: deviceType ?? null,
+        isActive: true,
+        lastUsedAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: deviceTokens.token,
+        set: {
+          userId,
+          platform,
+          deviceType: deviceType ?? null,
+          isActive: true,
+          lastUsedAt: now,
+          updatedAt: now,
+        },
+      })
     return reply.send(success({ registered: true }))
   })
 
@@ -63,15 +91,13 @@ export const pushRoutes: FastifyPluginAsync = async (server) => {
     const { deviceToken } = z
       .object({ deviceToken: z.string().min(1).max(500) })
       .parse(request.body)
-    // 归属校验:WHERE 必须带 member_id,否则知道他人 device token 即可静默停掉对方推送
-    const rows = await db.execute(sql`
-      UPDATE edu_notification_device
-      SET is_active = false, updated_at = NOW()
-      WHERE device_token = ${deviceToken}
-        AND member_id = ${request.userId!}
-      RETURNING id
-    `)
-    const removed = (rows as Record<string, unknown>[]).length
+    // 归属校验:WHERE 必须同时带 token 与 user_id,否则知道他人 device token 即可静默停掉对方推送
+    const rows = await db
+      .update(deviceTokens)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(and(eq(deviceTokens.token, deviceToken), eq(deviceTokens.userId, request.userId!)))
+      .returning({ id: deviceTokens.id })
+    const removed = rows.length
     if (removed === 0) {
       return reply.status(404).send(error(404, '设备不存在或不属于当前用户'))
     }
@@ -134,24 +160,20 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
       )
     }
 
-    // 2. 按 memberIds 查询激活的设备 token
+    // 2. 按 memberIds(user uuid)查询激活的设备 token
     if (memberIds && memberIds.length > 0) {
-      const rows = await db.execute(sql`
-        SELECT device_token
-        FROM edu_notification_device
-        WHERE member_id = ANY(${memberIds}::int[])
-          AND is_active = true
-      `)
-      const deviceTokens = (rows as unknown as Array<{ device_token: string }>).map(
-        (r) => r.device_token,
-      )
-      if (deviceTokens.length === 0) {
+      const rows = await db
+        .select({ token: deviceTokens.token })
+        .from(deviceTokens)
+        .where(and(inArray(deviceTokens.userId, memberIds), eq(deviceTokens.isActive, true)))
+      const activeTokens = rows.map((r) => r.token)
+      if (activeTokens.length === 0) {
         return reply.send(
           success({ total: 0, success: 0, failed: 0, results: [], note: '指定用户无激活设备' }),
         )
       }
       const results = await sendPushBatch(
-        deviceTokens.map((t) => ({ token: t })),
+        activeTokens.map((t) => ({ token: t })),
         message,
       )
       const successCount = results.filter((r) => r.success).length
@@ -169,32 +191,35 @@ export const adminPushRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // GET /push/devices - 设备列表（分页 + 筛选）
+  // 2026-11-08 修 F-680:读取路径同样接到 device_tokens;member_id 作为兼容别名保留,
+  // 实际过滤列为 user_id(uuid)。
   server.get('/push/devices', async (request, reply) => {
     const { page, pageSize, memberId, isActive } = z
       .object({
         page: z.coerce.number().int().min(1).default(1),
         pageSize: z.coerce.number().int().min(1).max(100).default(20),
-        memberId: z.transform(emptyToUndefined).pipe(z.coerce.number().int().optional()),
+        memberId: z.transform(emptyToUndefined).pipe(z.uuid().optional()),
         isActive: z.transform(emptyToUndefined).pipe(z.enum(['true', 'false']).optional()),
       })
       .parse(request.query)
 
     const conds = []
-    if (memberId !== undefined) conds.push(sql`member_id = ${memberId}`)
+    if (memberId !== undefined) conds.push(sql`user_id = ${memberId}::uuid`)
     if (isActive !== undefined) conds.push(sql`is_active = ${isActive === 'true'}`)
     const where =
       conds.length > 0 ? sql.join(['WHERE', sql.join(conds, sql` AND `)], sql` `) : sql``
 
     const offset = (page - 1) * pageSize
     const listRows = await db.execute(sql`
-      SELECT id, member_id, device_type, device_token, is_active, created_at, updated_at
-      FROM edu_notification_device
+      SELECT id, user_id AS member_id, device_type, token AS device_token,
+             is_active, created_at, updated_at
+      FROM device_tokens
       ${where}
       ORDER BY updated_at DESC
       LIMIT ${pageSize} OFFSET ${offset}
     `)
     const countRows = await db.execute(sql`
-      SELECT count(*)::int AS count FROM edu_notification_device ${where}
+      SELECT count(*)::int AS count FROM device_tokens ${where}
     `)
     const total = (countRows as unknown as Array<{ count: number }>)[0]?.count ?? 0
     return reply.send(success({ list: listRows, total, page, pageSize }))

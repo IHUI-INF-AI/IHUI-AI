@@ -81,6 +81,8 @@ export function QuestionDialog({ question, onSubmit, onSkip }: QuestionDialogPro
   }
 
   const handleSubmitCustom = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // W-04:输入法组合态下按 Enter 是「上屏候选词」,不是提交;否则会把半截答案发给 Agent
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       const trimmed = customInput.trim()

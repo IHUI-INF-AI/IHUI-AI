@@ -145,6 +145,7 @@ const AI_PRE_CONVERGENCE_SNAPSHOT = [
   '/plan',
   '/registry',
   '/repo-wiki',
+  '/sag2',
   '/spec',
   '/subagents',
   '/team-knowledge',
@@ -303,7 +304,7 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
     expect(PERSONAL_HUB_ITEMS).toHaveLength(5)
   })
 
-  it('② href 多重集逐字守恒(AI 54 条 / 个人 22 条,不丢项不造新)', () => {
+  it('② href 多重集逐字守恒(AI 55 条 / 个人 22 条,不丢项不造新)', () => {
     expect(
       flattenNavItems(AI_HUB_ITEMS)
         .map((i) => i.href)
@@ -374,9 +375,9 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
       [],
       ['developer', 'relayOps', 'advancedAi', 'experimental'],
     )
-    expect(flattenNavItems(allHidden)).toHaveLength(13)
-    // 正向对照:不藏时 54 项全在 —— 否则上面的 not.toContain 会因为"项压根不在"而空过
-    expect(flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, false, [], []))).toHaveLength(54)
+    expect(flattenNavItems(allHidden)).toHaveLength(14)
+    // 正向对照:不藏时 55 项全在 —— 否则上面的 not.toContain 会因为"项压根不在"而空过
+    expect(flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, false, [], []))).toHaveLength(55)
     // role 层对两域无差别:admin 与普通用户看到的一样多(permission 层没被拿来当降噪用)
     expect(flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, true, ['*:*:*'], [])).length).toBe(
       flattenNavItems(sidebarStyleFilter(AI_HUB_ITEMS, false, [], [])).length,
@@ -419,8 +420,9 @@ describe('P2 收敛第二批:AI 域 / 个人域结构', () => {
     setPersona({ id: 'u1', roleId: 0, permissions: [] }, ['relayOps', 'advancedAi', 'experimental'])
     const simpleAi = domainHubHrefs(AI_HUB_ITEMS)
     expect(simpleAi.length).toBeLessThan(fullAi.length)
-    // 52 = flatten 54 去重后(两对"父项+子菜单"各少 1);〔2026-10-30〕随 `/account-pool` 同步 +1
-    expect(fullAi).toHaveLength(52)
+    // 53 = flatten 55 去重后(两对"父项+子菜单"各少 1);〔2026-10-30〕随 `/account-pool` +1,
+    //      〔2026-11-08〕随 `/sag2`(c20e4a5797)再 +1
+    expect(fullAi).toHaveLength(53)
     // 个人域在任何档位组合下都不该掉项(本域一项都没标档)
     setPersona({ id: 'u1', roleId: 0, permissions: [] }, [
       'developer',

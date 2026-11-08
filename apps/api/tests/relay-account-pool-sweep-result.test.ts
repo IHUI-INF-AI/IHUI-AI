@@ -105,7 +105,9 @@ function emittedKeys(result: object): string[] {
  * 找不到调用点 ⇒ 空集 ⇒ 调用方"防空转"断言当场判红,不静默放行。
  */
 function consumedKeys(source: string): string[] {
-  const from = source.indexOf('sweepAccountPool()')
+  // 2026-11 worker 改成带 provider 过滤回调的 sweepAccountPool((code)=>...),
+  // 旧锚点 'sweepAccountPool()' 不存在,消费键解析范围会整个为空。
+  const from = source.indexOf('sweepAccountPool(')
   const scope = from >= 0 ? source.slice(from) : ''
   const out = new Set<string>()
   for (const match of scope.matchAll(/\bresult\??\.([A-Za-z0-9_]+)/g)) {

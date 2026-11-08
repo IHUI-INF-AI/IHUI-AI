@@ -9526,6 +9526,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "該工作流目前無法觸發",
           "action": "確認工作流存在、已啟用且沒有實例正在執行後重試"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "定時任務註冊失敗",
+          "action": "稍後重試；持續失敗請聯絡管理員檢查排程服務"
+        },
+        "INVALID_CALLBACK": {
+          "title": "任務回呼設定無效",
+          "action": "檢查回呼類型與參數後重試"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "排程器未啟動",
+          "action": "稍後重試；持續失敗請聯絡管理員啟動排程服務"
+        },
+        "UNREADABLE": {
+          "title": "檔案不可讀",
+          "action": "檢查檔案權限與佔用後重試"
         }
       },
       "worktree": {
@@ -13668,6 +13684,7 @@
     "show": "顯示",
     "delete": "刪除",
     "save": "儲存",
+    "saveFailed": "儲存失敗",
     "ok": "確定",
     "create": "創建",
     "agentKanban": "Agent 看板",
@@ -21506,9 +21523,12 @@
     "status": {
       "all": "全部",
       "cancelled": "已取消",
+      "completed": "已完成",
+      "failed": "失敗",
       "paid": "已支付",
       "pending": "待支付",
       "refunded": "已退款",
+      "refunding": "退款中",
       "unknown": "未知"
     },
     "statusLabel": "狀態",

@@ -222,6 +222,11 @@ export interface AtomicWriteOptions {
   readonly sleep?: (ms: number) => void;
   /** rename 原语;默认 fs.renameSync(测试注入 EPERM/EBUSY 以证失败分支) */
   readonly rename?: (tmp: string, absPath: string) => void;
+  /**
+   * 目标权限位(POSIX)。显式给出时覆盖"沿用原文件/默认 0666"的旧路径 ——
+   * 凭据/状态类文件必须能钉成 0600,否则 umask 0644 会把内容暴露给同机其他用户。
+   */
+  readonly mode?: number;
 }
 
 /** 目标存在时取权限位;不存在/Windows 返回 null(与 commitAtomicWrite 原取舍一致)。 */
@@ -302,7 +307,7 @@ export function writeFileAtomicSync(
 ): void {
   assertNotReparsePoint(absPath);
   fs.mkdirSync(path.dirname(absPath), { recursive: true });
-  writeTempAndRename(absPath, content, existingMode(absPath), opts);
+  writeTempAndRename(absPath, content, opts.mode ?? existingMode(absPath), opts);
 }
 
 /**

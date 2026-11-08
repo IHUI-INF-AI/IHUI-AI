@@ -30,8 +30,15 @@ const SELF_INSTANCE_ID = `ext-${CHROME_PROFILE_ID}`
 const MANIFEST_VERSION = '9.9.9'
 
 // 捕获桥注册的 runtime.onMessage 监听器(init 幂等,只此一次)
-let onMessage: (msg: unknown) => void = () => {
+let onMessage: (msg: unknown, sender?: unknown) => void = () => {
   throw new Error('listener 未捕获')
+}
+
+// 2026-11-08 D 类来源闸:sidepanel/popup 广播 ws.notification 时 sender 是扩展顶层页面。
+// 夹具必须按真实发送方投递,否则测的就不再是生产链路。
+const SIDEPANEL_SENDER = {
+  id: CHROME_PROFILE_ID,
+  url: `chrome-extension://${CHROME_PROFILE_ID}/sidepanel.html`,
 }
 
 ;(globalThis as unknown as { chrome: unknown }).chrome = {
@@ -102,6 +109,7 @@ describe('扩展桥 assignment 定址(客户端自律层)', () => {
         instanceId: 'ext-x',
         token: 'tk-1',
       }),
+      SIDEPANEL_SENDER,
     )
     await new Promise((r) => setTimeout(r, 20))
     expect(dispatchMock).not.toHaveBeenCalled()
@@ -123,6 +131,7 @@ describe('扩展桥 assignment 定址(客户端自律层)', () => {
         instanceId: SELF_INSTANCE_ID,
         token,
       }),
+      SIDEPANEL_SENDER,
     )
     await vi.waitFor(() => expect(resultPosts()).toHaveLength(1))
     const body = JSON.parse((resultPosts()[0]?.[1] as { body: string }).body) as {
@@ -140,7 +149,7 @@ describe('扩展桥 assignment 定址(客户端自律层)', () => {
       durationMs: 1,
       executedBy: 'extension',
     })
-    onMessage(wsNotification('req-legacy'))
+    onMessage(wsNotification('req-legacy'), SIDEPANEL_SENDER)
     await vi.waitFor(() => expect(resultPosts()).toHaveLength(1))
     const body = JSON.parse((resultPosts()[0]?.[1] as { body: string }).body) as {
       responded?: unknown

@@ -26,6 +26,16 @@ import {
   WechatApiError,
 } from '../src/services/oauth-providers.js'
 
+// 2026-11 起 oauth 出网走 proxy-dispatcher(isProxiedUrl/proxiedFetch/directEgressFetch),
+// 不再直接读 globalThis.fetch。旧夹具只替换 globalThis.fetch,于是走到未初始化的
+// proxy 配置上(读 .get of undefined)。这里把出网闸门原样代回 globalThis.fetch,
+// 用例的假响应仍然只有一份来源。
+vi.mock('../src/utils/proxy-dispatcher.js', () => ({
+  isProxiedUrl: () => false,
+  proxiedFetch: (url: string, init?: RequestInit) => globalThis.fetch(url, init),
+  directEgressFetch: (url: string, init?: RequestInit) => globalThis.fetch(url, init),
+}))
+
 const json = (body: unknown, ok = true) =>
   ({ ok, status: ok ? 200 : 500, json: async () => body }) as unknown as Response
 

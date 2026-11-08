@@ -41,23 +41,21 @@
  *   node scripts/check-staged-resurrection.mjs --json   # 机器读,永远 exit 0
  *   node scripts/check-staged-resurrection.mjs --quiet  # 只在失败/未判定时说话
  */
-import { spawnSync } from 'node:child_process'
 import { judgeResurrection, readFileDeletionNotices } from './lib/intentional-file-deletion.mjs'
+import { gitRaw } from './lib/face-reader.mjs'
 
 const argv = process.argv.slice(2)
 const asJson = argv.includes('--json')
 const quiet = argv.includes('--quiet')
 
 function git(args) {
-  const r = spawnSync('git', args, {
-    encoding: 'utf8',
-    windowsHide: true,
-    maxBuffer: 64 << 20,
-    timeout: 120_000,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  if (r.error || r.status !== 0) return null
-  return r.stdout
+  try {
+    return String(
+      gitRaw(args, process.cwd(), { timeout: 120_000, maxBuffer: 64 << 20 }) ?? '',
+    )
+  } catch {
+    return null
+  }
 }
 
 /** 索引面相对 HEAD 的新增路径(`--no-renames`:改名的新侧也算 A,和 safe-commit 同口径)。 */
