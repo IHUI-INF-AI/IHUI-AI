@@ -24,6 +24,7 @@ import {
   uploadSessions,
   UPLOAD_SESSION_TERMINAL_STATUSES,
   UPLOAD_SESSION_REAPABLE_STATUSES,
+  UPLOAD_SESSION_RECLAIMABLE_TERMINAL_STATUSES,
 } from '@ihui/database'
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR ?? join(process.cwd(), 'uploads')
@@ -48,6 +49,12 @@ export const PROTOCOL_UPLOAD_LIMITS = {
   maxFileBytes: 4096 * 10 * 1024 * 1024,
   /** 分片会话寿命:超时即由 reaper 回收行 + 磁盘目录。 */
   ttlMs: 24 * 60 * 60 * 1000,
+  /**
+   * 失败终态(checksum_mismatch/content_rejected)的分片目录保留窗口(2026-11-08,修 F-381)。
+   * 合并产物已被删除,目录只用于短期取证/误判申诉;1h 后由同一 reaper 回收,不再占
+   * 24h 且不再计入全局暂存预算。
+   */
+  terminalTtlMs: 60 * 60 * 1000,
   /** 合并阶段并发上限(2026-09-26 补上登记遗留的最后一格,消费者 = services/upload-merge-gate.ts)。
    *  为什么是 2:合并 = 读全部 .part + 流式写最终文件 + md5/sha256 实算,全是磁盘 IO 与哈希
    *  CPU 工作,且与**全部业务请求同在一个 Node 进程**(nssm 单实例)—— 流式拷贝已不占整档
@@ -143,7 +150,10 @@ export function countUniqueReceivedChunks(received: Iterable<number>, totalChunk
  * 只认 uuid 形态目录与 `<正整数>.part` 文件(与 reaper 的删目录护栏同一口径,
  * 非本链产物不计入,也不能被它们撑爆预算);目录不存在 = 0,读不动 = 0(空集语义)。
  */
-export function measureStagedBytes(chunksRoot: string = CHUNKS_ROOT): number {
+export function measureStagedBytes(
+  chunksRoot: string = CHUNKS_ROOT,
+  onlyUploadIds?: ReadonlySet<string>,
+): number {
   let sessionDirs: string[]
   try {
     sessionDirs = readdirSync(chunksRoot)
@@ -153,6 +163,9 @@ export function measureStagedBytes(chunksRoot: string = CHUNKS_ROOT): number {
   let total = 0
   for (const dir of sessionDirs) {
     if (!isUploadSessionId(dir)) continue
+    // F-381:预算只统计仍在 uploading/merging 的活跃会话;失败终态目录按短 TTL 回收,
+    // 不得继续挤占 2GiB 预算(否则少量失败大文件即可把正常上传长期挡在门外)。
+    if (onlyUploadIds && !onlyUploadIds.has(dir)) continue
     let names: string[]
     try {
       names = readdirSync(join(chunksRoot, dir))
@@ -273,7 +286,12 @@ export const dbUploadReapPort: UploadReapPort = {
         updatedAt: uploadSessions.updatedAt,
       })
       .from(uploadSessions)
-      .where(inArray(uploadSessions.status, [...UPLOAD_SESSION_REAPABLE_STATUSES]))
+      .where(
+        inArray(uploadSessions.status, [
+          ...UPLOAD_SESSION_REAPABLE_STATUSES,
+          ...UPLOAD_SESSION_RECLAIMABLE_TERMINAL_STATUSES,
+        ]),
+      )
   },
   async removeSessions(ids) {
     if (ids.length === 0) return
@@ -281,19 +299,27 @@ export const dbUploadReapPort: UploadReapPort = {
   },
 }
 
-/** 终态永不回收:completed 行要留着给业务查文件,cancelled 的目录已由 cancel 清过,
- *  checksum_mismatch 是合并校验失败后的终态(清单取自 `@ihui/database`,不在这里重列)。 */
+/** 终态永不回收:completed 行要留着给业务查文件,cancelled 的目录已由 cancel 清过。
+ *  checksum_mismatch/content_rejected 例外:按 terminalTtlMs 短 TTL 回收(修 F-381),
+ *  清单取自 `@ihui/database`,不在这里重列。 */
 const TERMINAL_STATUSES = new Set<string>(UPLOAD_SESSION_TERMINAL_STATUSES)
+const RECLAIMABLE_TERMINAL_STATUSES = new Set<string>(UPLOAD_SESSION_RECLAIMABLE_TERMINAL_STATUSES)
 
 /** 单个会话是否该被回收。expiresAt 缺失的行(本票之前建的旧数据)退回 updatedAt + ttl。
+ *  失败终态用 updatedAt + terminalTtlMs(合并失败时刻起算),不沿用 24h 的 expiresAt。
  *  ttl 走钳制器:调用方传入值只可收紧,试图放宽(或传入 0/NaN)当场抛。 */
 export function isUploadSessionExpired(
   row: ExpirableUploadSession,
   now: Date = new Date(),
   ttlMs: number = PROTOCOL_UPLOAD_LIMITS.ttlMs,
+  terminalTtlMs: number = PROTOCOL_UPLOAD_LIMITS.terminalTtlMs,
 ): boolean {
-  const effectiveTtl = clampUploadLimit('ttlMs', ttlMs)
+  if (RECLAIMABLE_TERMINAL_STATUSES.has(row.status)) {
+    const effectiveTerminalTtl = clampUploadLimit('terminalTtlMs', terminalTtlMs)
+    return row.updatedAt.getTime() + effectiveTerminalTtl <= now.getTime()
+  }
   if (TERMINAL_STATUSES.has(row.status)) return false
+  const effectiveTtl = clampUploadLimit('ttlMs', ttlMs)
   const deadline = row.expiresAt ?? new Date(row.updatedAt.getTime() + effectiveTtl)
   return deadline.getTime() <= now.getTime()
 }
@@ -303,9 +329,17 @@ export function selectReapableUploadIds(
   rows: readonly ExpirableUploadSession[],
   now: Date = new Date(),
   ttlMs: number = PROTOCOL_UPLOAD_LIMITS.ttlMs,
+  terminalTtlMs: number = PROTOCOL_UPLOAD_LIMITS.terminalTtlMs,
 ): string[] {
   return rows
-    .filter((r) => isUploadSessionExpired(r, now, clampUploadLimit('ttlMs', ttlMs)))
+    .filter((r) =>
+      isUploadSessionExpired(
+        r,
+        now,
+        clampUploadLimit('ttlMs', ttlMs),
+        clampUploadLimit('terminalTtlMs', terminalTtlMs),
+      ),
+    )
     .map((r) => r.uploadId)
 }
 
