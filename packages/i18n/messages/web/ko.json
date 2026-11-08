@@ -13667,6 +13667,7 @@
     "show": "표시",
     "delete": "삭제",
     "save": "저장",
+    "saveFailed": "저장 실패",
     "ok": "확인",
     "create": "생성",
     "agentKanban": "칸반 요원",
