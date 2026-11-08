@@ -91,6 +91,20 @@ export async function revokeAccessToken(token: string, expiresAt: Date): Promise
 }
 
 /**
+ * 供不走 `authenticate()` 的鉴权面(根级 `/oauth/authorize`、`/oauth/userinfo`)复用的吊销判定。
+ *
+ * 同源同口径:复用同一个 `getTokenBlacklist()` 单例与 `TokenBlacklist.has`,
+ * Redis 不可用时仍按既有裁决 fail-open(理由见上方 2026-10-30 注释),
+ * 即"读过 blacklist 但读失败" ≠ "token 已吊销"。
+ */
+export async function isAccessTokenRevoked(token: string): Promise<boolean> {
+  if (!token) return false
+  const blacklist = getTokenBlacklist()
+  if (!blacklist) return false
+  return blacklist.has(token)
+}
+
+/**
  * 从 Authorization header 提取 Bearer token 并验证。
  * 使用 @ihui/auth 的 jose verifyAccessToken，拒绝 refresh token 被当作 access token 使用。
  * 失败时抛出带 statusCode 的错误，由全局错误处理器统一返回 401。

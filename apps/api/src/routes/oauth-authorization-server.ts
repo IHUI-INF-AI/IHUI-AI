@@ -49,6 +49,7 @@ import {
   listActiveScopeMeta,
 } from '../db/oauth-queries.js'
 import { precheckAuthorizePkce, type OAuthAppRow } from './auth-extended.js'
+import { isAccessTokenRevoked } from '../plugins/auth.js'
 import { resolveIssuer } from '../utils/oauth-as.js'
 import { logger } from '../utils/logger.js'
 
@@ -294,7 +295,16 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
     const bearer = (request.headers.authorization ?? '').trim()
     let userId: string | null = null
     if (bearer.startsWith('Bearer ')) {
-      const info = await introspectAccessToken(bearer.slice(7).trim())
+      const token = bearer.slice(7).trim()
+      // F-56:登出/踢下线后 access token 仍在签名有效期内,纯 introspect 看不出来;
+      // 与 plugins/auth.ts 的 authenticate 同源查一次黑名单,命中即拒绝,不发 code。
+      if (await isAccessTokenRevoked(token)) {
+        return reply
+          .status(401)
+          .header('www-authenticate', 'Bearer error="invalid_token"')
+          .send({ error: 'invalid_token', error_description: 'access token 已被吊销' })
+      }
+      const info = await introspectAccessToken(token)
       userId = info.active ? (info.sub ?? null) : null
     }
     if (!userId) {
@@ -388,7 +398,15 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
         .header('www-authenticate', 'Bearer realm="ihui-ai"')
         .send({ error: 'invalid_token', error_description: '缺少 Bearer access token' })
     }
-    const info = await introspectAccessToken(header.slice(7).trim())
+    const token = header.slice(7).trim()
+    // F-56:UserInfo 同样叠加吊销检查 —— 否则登出后的旧 token 还能持续读到 claims。
+    if (await isAccessTokenRevoked(token)) {
+      return reply
+        .status(401)
+        .header('www-authenticate', 'Bearer error="invalid_token"')
+        .send({ error: 'invalid_token', error_description: 'access token 已被吊销' })
+    }
+    const info = await introspectAccessToken(token)
     if (!info.active || !info.sub) {
       return reply
         .status(401)
