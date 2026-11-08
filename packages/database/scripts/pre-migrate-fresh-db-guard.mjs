@@ -31,6 +31,7 @@
 //   · 全部语句可重复执行(SEQUENCE IF NOT EXISTS / DEFAULT SET 覆盖)。
 // ============================================================================
 
+import { spawnSync } from 'node:child_process'
 import postgres from 'postgres'
 
 const url = process.env.DATABASE_URL
@@ -45,10 +46,11 @@ const TARGETS = [
   { table: 'agent_federated_lessons', seq: 'agent_federated_lessons_id_seq' },
 ]
 
-const sql = postgres(url, { max: 1 })
+async function runGuard() {
+  const sql = postgres(url, { max: 1 })
 
-let acted = 0
-try {
+  let acted = 0
+  try {
   for (const { table, seq } of TARGETS) {
     const col = await sql`
       SELECT data_type, column_default
@@ -158,7 +160,44 @@ try {
   }
 
   console.log(`[fresh-db-guard] 完成,收敛项数=${acted}`)
-} finally {
-  await sql.end()
+  } finally {
+    await sql.end()
+  }
 }
+
+/** 跑一遍 drizzle-kit migrate(与 package.json 的 db:migrate 同一入口,不另造执行器)。 */
+function runMigrate(label) {
+  console.log(`[fresh-db-guard] ${label} drizzle-kit migrate ...`)
+  const result = spawnSync('pnpm', ['run', 'db:migrate'], {
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+  })
+  if (result.error) {
+    console.error(`[fresh-db-guard] ${label} migrate 无法启动:`, result.error.message)
+    return 1
+  }
+  return result.status ?? 1
+}
+
+async function main() {
+  if (!process.argv.includes('--orchestrate')) {
+    await runGuard()
+    return
+  }
+
+  // 两遍链路(与 .github/workflows/db-from-zero-migrate.yml / test-real-db.yml 同款):
+  // 全新库第一遍在 journal idx 325 失败属预期(1..324 已逐条提交),守卫收敛形状后第二遍通过;
+  // 存量库第一遍直接通过,守卫完全不介入。三步均幂等,容器重启可安全重跑。
+  const first = runMigrate('第一遍')
+  if (first === 0) {
+    console.log('[fresh-db-guard] 第一遍 migrate 已通过(存量库/无需形状收敛),跳过守卫')
+    return
+  }
+  console.log('[fresh-db-guard] 第一遍 migrate 未通过:按从零库两遍约定执行形状守卫')
+  await runGuard()
+  const second = runMigrate('第二遍')
+  process.exitCode = second
+}
+
+await main()
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
