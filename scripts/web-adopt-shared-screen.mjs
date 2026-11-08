@@ -52,8 +52,7 @@
 import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { execFileSync } from 'node:child_process'
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 import { __test__ as cov } from './check-cross-end-screen-coverage.mjs'
 import { __test__ as parity } from './check-web-rn-screen-parity.mjs'
 
@@ -767,10 +766,8 @@ function unifiedDiff(origPath, newText) {
   try {
     let raw = ''
     try {
-      raw = execFileSync('git', ['diff', '--no-index', '--no-color', '--', orig, tmp], {
-        encoding: 'utf8',
+      raw = gitRaw(['diff', '--no-index', '--no-color', '--', orig, tmp], ROOT, {
         maxBuffer: 64 * 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'pipe'],
       })
     } catch (e) {
       // --no-index 有差异时退出码就是 1,不是失败;stdout 里才是补丁正文。

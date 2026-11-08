@@ -41,12 +41,11 @@
  *   node scripts/check-drizzle-journal-sync.mjs --self-test 门内自检(夹具落 mkScratch,§15b/§26)
  * 退出码:0=ok;1=drift(仅 HEAD 面);2=unjudged(含自检失败与 HEAD 面取不到)。
  */
-import { spawnSync } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { mkScratch, rmScratch } from './lib/scratch-dir.mjs'
-import { catBatch } from './lib/face-reader.mjs'
+import { catBatch, gitRaw } from './lib/face-reader.mjs'
 
 const ROOT = join(fileURLToPath(import.meta.url), '..', '..')
 export const GATE = 'check-drizzle-journal-sync.mjs'
@@ -160,12 +159,20 @@ export function readMigrationState({ repoRoot = ROOT, dirRel = MIGRATIONS_DIR_RE
  * §12g:派生 git 必须显式接管 stdio(不写稳定 EBUSY)。
  */
 export function readHeadMigrationState({ repoRoot = ROOT, ref = 'HEAD' } = {}) {
-  const git = (args) =>
-    spawnSync('git', ['-C', repoRoot, ...args], {
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
+  const git = (args) => {
+    try {
+      return {
+        status: 0,
+        stdout: String(gitRaw(args, repoRoot, { timeout: 60_000, maxBuffer: 64 << 20 }) ?? ''),
+      }
+    } catch (e) {
+      return {
+        status: typeof e?.status === 'number' ? e.status : null,
+        stdout: '',
+        stderr: String(e?.stderr ?? e?.message ?? e),
+      }
+    }
+  }
   const dirTree = git(['ls-tree', '--name-only', `${ref}:${MIGRATIONS_DIR_REL.split(/[\\/]/).join('/')}`])
   if (dirTree.status !== 0 || typeof dirTree.stdout !== 'string') {
     throw new Unjudged(
