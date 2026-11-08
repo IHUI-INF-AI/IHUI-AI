@@ -130,6 +130,10 @@ import {
 } from './services/automation-repair-service.js'
 // P0 第二批次(2026-07-31 立):响应缓存初始化(RELAY_CACHE_ENABLED=true 时启用)
 import { initRelayResponseCache } from './services/relay-response-cache.js'
+import {
+  startSuperAgentPumpLoop,
+  stopSuperAgentPumpLoop,
+} from './services/super-agent-pump-service.js'
 import searchAspectPlugin from './plugins/search-aspect.js'
 import watchAspectPlugin from './plugins/watch-aspect.js'
 import pointAspectPlugin from './plugins/point-aspect.js'
