@@ -133,15 +133,40 @@ export async function cancel(jobId: string): Promise<boolean> {
   return true
 }
 
-/** 列出某用户最近的生成任务。 */
+/** 用户任务列表的扫描页大小(BullMQ getJobs 区间查询) */
+const USER_LIST_PAGE_SIZE = 100
+
+/**
+ * 列出某用户最近的生成任务。
+ *
+ * F-424:旧实现先取全局 [0, limit-1] 再 filter(userId),队列前 N 条是他人任务时
+ * 自己的列表会返回空。这里改为分页扫描到队列尾,先按归属判定再截断输出,
+ * 并返回该用户的真实总数(而非本页长度)。
+ */
 export async function listByUser(
   userId: string,
   status?: JobState,
   limit = 50,
-): Promise<Job<GenerationJobData>[]> {
+): Promise<{ jobs: Job<GenerationJobData>[]; total: number }> {
   const q = getQueue()
-  const jobs = await q.getJobs(status ? [status] : undefined, 0, limit - 1)
-  return jobs.filter((j) => j.data?.userId === userId)
+  const states = status ? [status] : undefined
+  const jobs: Job<GenerationJobData>[] = []
+  let total = 0
+  let cursor = 0
+
+  while (true) {
+    const page = await q.getJobs(states, cursor, cursor + USER_LIST_PAGE_SIZE - 1)
+    if (page.length === 0) break
+    cursor += page.length
+    for (const job of page) {
+      if (job.data?.userId !== userId) continue
+      total += 1
+      if (jobs.length < limit) jobs.push(job)
+    }
+    if (page.length < USER_LIST_PAGE_SIZE) break
+  }
+
+  return { jobs, total }
 }
 
 /**
