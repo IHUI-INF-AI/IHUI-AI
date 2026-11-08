@@ -149,7 +149,9 @@ export const financeRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.query)
     const userId = request.userId!
-    const result = await listTokenFlows(userId, page, limit, opType)
+    // token_flows.quantity 在 op_type 0–5 是「分」，op_type 6 是 API 配额计数（个）。
+    // 本端点是钱流水，未显式指定 opType 时排除配额腿，避免被当金额展示。
+    const result = await listTokenFlows(userId, page, limit, opType, true)
     return reply.send(success(result))
   })
 

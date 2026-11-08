@@ -3,7 +3,7 @@
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
 import { randomUUID } from 'node:crypto'
-import { eq, and, gte, desc, sql, inArray } from 'drizzle-orm'
+import { eq, and, gte, desc, sql, inArray, ne } from 'drizzle-orm'
 import { db } from './index.js'
 import {
   userMargins,
@@ -243,9 +243,21 @@ export async function expireToken(
   })
 }
 
-export async function listTokenFlows(userId: string, page: number, limit: number, opType?: number) {
+/**
+ * 钱包流水查询。
+ * opType 显式传入时按该类型查（op_type=6 返回的是 API 配额计数，非金额）；
+ * moneyLedger=true 且未指定 opType 时排除 op_type=6，保证钱流水不含配额腿。
+ */
+export async function listTokenFlows(
+  userId: string,
+  page: number,
+  limit: number,
+  opType?: number,
+  moneyLedger = false,
+) {
   const conditions = [eq(tokenFlows.userId, userId)]
   if (opType !== undefined) conditions.push(eq(tokenFlows.opType, opType))
+  else if (moneyLedger) conditions.push(ne(tokenFlows.opType, 6))
   const where = conditions.length === 1 ? conditions[0] : and(...conditions)
   const rows = await db
     .select()
