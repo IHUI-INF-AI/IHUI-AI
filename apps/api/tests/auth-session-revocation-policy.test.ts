@@ -477,5 +477,29 @@ describe('会话吊销面 · 四条判据成对行为用例', () => {
       expect(m.revokeAllUserRefreshTokens).not.toHaveBeenCalled()
     })
   })
+
+  // ───────── E. PUT /auth/profile 邮箱改绑必须收敛到 /auth/me ─────────
+  // F-53:邮箱是登录凭据,仅凭会话改绑会形成「改邮箱 → 验证码登录」的持久接管链。
+  describe('E · PUT /auth/profile — 仅凭会话不得改绑邮箱', () => {
+    const putProfile = (body: Record<string, unknown>) =>
+      appExt.inject({ method: 'PUT', url: '/auth/profile', payload: body })
+
+    it('E-1 改成他人邮箱 ⇒ 403 且不写库', async () => {
+      const res = await putProfile({ email: 'attacker@evil.com' })
+      expect(res.statusCode).toBe(403)
+      expect(m.updateUser).not.toHaveBeenCalled()
+    })
+
+    it('E-2 对照:提交与当前值相同的邮箱 ⇒ 幂等放行', async () => {
+      const res = await putProfile({ email: baseUser.email })
+      expect(res.statusCode).toBe(200)
+      expect(m.updateUser).toHaveBeenCalledTimes(1)
+    })
+
+    it('E-3 对照:不含 email 的资料更新 ⇒ 原行为不变', async () => {
+      const res = await putProfile({ avatar: '/uploads/a.png' })
+      expect(res.statusCode).toBe(200)
+    })
+  })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
