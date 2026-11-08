@@ -325,6 +325,7 @@
     "sourceDirs": "      일반적인 내보내기 디렉터리: {dirs}",
     "backendDoesParsing": "\n  분석과 저장은 백엔드에서 수행합니다. CLI는 업로드와 메타 정보 표시만 담당합니다.",
     "noneDiscovered": "  내보내기 파일을 찾지 못했습니다(스캔 위치 {scanned})",
+    "scanIncomplete": "  스캔이 완료되지 않았습니다({source} 디렉터리를 읽을 수 없습니다. \"내보내기 파일 없음\"으로 처리하지 않습니다). 권한을 확인한 뒤 다시 시도하세요.",
     "hintParse": "\n  가져오기: ihui import sessions parse <source> <파일 경로>",
     "hintCommit": "  저장: ihui import sessions commit {source} \"{abs}\" --all(또는 --only 1,3)",
     "scopeRequired": "가져올 범위를 명시하세요: --all 또는 --only <번호>",

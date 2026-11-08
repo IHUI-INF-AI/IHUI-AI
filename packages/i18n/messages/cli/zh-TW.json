@@ -325,6 +325,7 @@
     "sourceDirs": "      常見導出目錄: {dirs}",
     "backendDoesParsing": "\n  解析/落庫由後端完成,CLI 只負責上傳與展示元信息。",
     "noneDiscovered": "  未發現導出文件(已掃描 {scanned})",
+    "scanIncomplete": "  掃描沒有完成({source} 的目錄讀不到,不能當成沒有匯出檔案);請檢查權限後重試。",
     "hintParse": "\n  導入:ihui import sessions parse <source> <文件路徑>",
     "hintCommit": "  落庫:ihui import sessions commit {source} \"{abs}\" --all(或 --only 1,3)\n",
     "scopeRequired": "請顯式指定導入範圍:--all 或 --only <序號>。",
