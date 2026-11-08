@@ -20,11 +20,6 @@
       "method": "DELETE",
       "pathPattern": "^/api/favorites/aiworld$",
       "reason": "分析器 params.id 误报:前端实际调用 /api/favorites/aiworld/${params.id}(PageClient.tsx:77),归一化丢失 :param;后端有 DELETE /api/favorites/:resourceType/:resourceId(social.ts:401)匹配,非真实 404。"
-    },
-    {
-      "method": "ANY",
-      "pathPattern": "^/api/v1/ai/sag2/(status|documents|search|retrieve|fuse)$",
-      "reason": "分析器二级聚合挂载盲区(假阳性,2026-11-08 SAG2 通道):真实注册链 = app/main.py app.include_router(api_v1_router,prefix=/api/v1) → app/api/v1/router.py api_v1_router.include_router(sag2_lexical.router,prefix=/ai/sag2) → app/api/v1/sag2_lexical.py 的 @router.get/post/delete 装饰器;buildPyIncludeMaps 既有已知边界不解析挂载对象非 app 的二级聚合(见 scripts/lib/route-registration-extract.mjs 头注),故静态面看不见该族,并非后端缺失。后端六端点已实装且有 pytest 回归;待门按 Fastify 侧 walk 扩图后可摘除本行。"
     }
   ]
 }
