@@ -173,6 +173,7 @@ function makeServer() {
   const handlers = new Map<string, Handler>()
   const register = (method: string) => (path: string, a: unknown, b?: unknown) =>
     handlers.set(`${method} ${path}`, (b ?? a) as Handler)
+  const pushNotification = vi.fn()
   const server: Record<string, unknown> = {
     addHook: vi.fn(),
     decorate: vi.fn(),
@@ -181,9 +182,10 @@ function makeServer() {
     put: vi.fn(register('PUT')),
     patch: vi.fn(register('PATCH')),
     delete: vi.fn(register('DELETE')),
+    pushNotification,
     log: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
   }
-  return { server, handlers }
+  return { server, handlers, pushNotification }
 }
 
 function makeReply(): Reply {
@@ -212,6 +214,7 @@ beforeEach(() => {
   h.startCalls.length = 0
   vi.mocked(calculateAgentPermission).mockClear()
   __test__.pending.clear()
+  __test__.endpoints.clear()
   for (const key of Object.keys(__test__.droppedResults) as Array<
     keyof typeof __test__.droppedResults
   >) {
@@ -374,6 +377,98 @@ describe('F-07 同族 agent-extended/permission 身份不得回退 query', () =>
     )
     expect((ownQuery as { data: { userId: string } }).data.userId).toBe(ME)
     expect(calculateAgentPermission).toHaveBeenLastCalledWith('a2', ME)
+  })
+})
+
+describe('F-07 同族 agent-control/execute 投递目标不得取 body.userId', () => {
+  function seedEndpoint(instanceId: string, userId: string) {
+    __test__.endpoints.set(instanceId, {
+      capability: { endpoint: 'extension', instanceId, version: '1.0.0' },
+      userId,
+      lastSeen: Date.now(),
+    } as never)
+  }
+
+  async function setupExecute() {
+    const { server, handlers, pushNotification } = makeServer()
+    await agentControlRoutes(server as never)
+    return { handlers, pushNotification }
+  }
+
+  function executeRequest(body: Record<string, unknown>) {
+    return { body, userId: ME, headers: {}, log: requestLog }
+  }
+
+  it('JWT 用户 body 指定他人 → 403,且不向他人端推送', async () => {
+    seedEndpoint('victim-ext', VICTIM)
+    const { handlers, pushNotification } = await setupExecute()
+
+    const reply = makeReply()
+    await handlers.get('POST /execute')!(
+      executeRequest({
+        requestId: 'r-cross',
+        category: 'browser',
+        action: 'click',
+        params: {},
+        userId: VICTIM,
+        timeout: 1000,
+      }),
+      reply,
+    )
+    expect(reply.code).toBe(403)
+    expect(pushNotification).not.toHaveBeenCalled()
+    expect(__test__.pending.size).toBe(0)
+  })
+
+  it('JWT 用户省略 userId → 不落到他人端(本人无端即 TARGET_NOT_CONNECTED)', async () => {
+    seedEndpoint('victim-ext', VICTIM)
+    const { handlers, pushNotification } = await setupExecute()
+
+    const reply = makeReply()
+    await handlers.get('POST /execute')!(
+      executeRequest({
+        requestId: 'r-nobody',
+        category: 'browser',
+        action: 'click',
+        params: {},
+        timeout: 1000,
+      }),
+      reply,
+    )
+    expect(reply.code).toBe(200)
+    expect(reply.body.data.errorCode).toBe('TARGET_NOT_CONNECTED')
+    expect(pushNotification).not.toHaveBeenCalled()
+    expect(__test__.pending.size).toBe(0)
+  })
+
+  it('JWT 用户本人端在线 → 正常投递并结算', async () => {
+    seedEndpoint('me-ext', ME)
+    const { handlers, pushNotification } = await setupExecute()
+
+    const reply = makeReply()
+    const call = handlers.get('POST /execute')!(
+      executeRequest({
+        requestId: 'r-own',
+        category: 'browser',
+        action: 'click',
+        params: {},
+        userId: ME,
+        timeout: 5000,
+      }),
+      reply,
+    )
+    await vi.waitFor(() => expect(__test__.pending.has('r-own')).toBe(true))
+    __test__.pending.get('r-own')!.resolve({
+      requestId: 'r-own',
+      success: true,
+      durationMs: 1,
+      executedBy: 'extension',
+    })
+    await call
+
+    expect(pushNotification).toHaveBeenCalledTimes(1)
+    expect(pushNotification.mock.calls[0]?.[0]).toBe(ME)
+    expect(reply.body.data.success).toBe(true)
   })
 })
 
