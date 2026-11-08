@@ -27,9 +27,13 @@ import * as path from 'node:path';
 import type { Command } from 'commander';
 import inquirer from 'inquirer';
 import chalk from 'chalk';
-import { loadSettings, getSettingsPath, readSettingsObjectForUpdate, type Settings } from './settings.js';
+import { loadSettings, getSettingsPath, getHomeSettingsPaths } from './settings.js';
 import { loginWithSso } from '../lib/sso.js';
-import { writePrivateFile } from '../lib/private-file.js';
+import {
+  clearMainCredentials,
+  stripPlaintextCredentialFile,
+  writeMainCredentials,
+} from '../lib/main-credential-store.js';
 
 interface LoginResponse {
   accessToken: string;
@@ -104,32 +108,40 @@ async function requestLogin(
 }
 
 /**
- * 写入 accessToken + refreshToken 到 settings.json(保留其他字段)。
+ * 写入 accessToken + refreshToken 到**安全存储**(settings.json 只保留非敏感字段)。
  * refreshToken 用于 access token 过期后自动续期,避免用户每 15min 手动重登录。
+ *
+ * 2026-11-06 安全债:此前直接写 settings.json 的 apiKey/refreshToken。安全存储写入失败时
+ * 这里**直接抛错**(fail-closed),不存在"退化为明文写盘"这一档。
  */
 function persistTokens(accessToken: string, refreshToken?: string): void {
+  writeMainCredentials(
+    { apiKey: accessToken, refreshToken: refreshToken ?? undefined },
+    { recoverCorrupt: true },
+  );
   const settingsPath = getSettingsPath();
   const dir = path.dirname(settingsPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const read = readSettingsObjectForUpdate(settingsPath);
-  if (read.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
-  const existing: Settings = read.state === 'ok' ? read.settings : {};
-  existing.apiKey = accessToken;
-  if (refreshToken) existing.refreshToken = refreshToken;
-  writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');
+  // 老版本可能把明文留在盘上:登录成功后立刻剥掉;本次失败只告警,下次加载会再迁移。
+  // main 侧"坏配置不得覆盖"的护栏由剥离函数本体保证:JSON 解析失败/非对象一律不动文件,
+  // 所以这里不会把 corrupt settings 覆盖成新内容(语义等价,且不再往 settings 写令牌)。
+  const stripped = stripPlaintextCredentialFile(settingsPath);
+  if (!stripped.ok) {
+    console.warn(`[credentials] settings 明文清理失败(${stripped.reason ?? 'unknown'});下次加载会重试`);
+  }
 }
 
 /**
- * 清除本地 token(settings.json 的 apiKey 字段置空)。
+ * 清除本地凭据(安全存储 + home 层 settings 明文残留,含旧版 .claude/.cursor)。
  */
 function clearLocalToken(): void {
-  const settingsPath = getSettingsPath();
-  const read = readSettingsObjectForUpdate(settingsPath);
-  if (read.state !== 'ok') return;
-  const settings = read.settings;
-  settings.apiKey = undefined;
-  settings.refreshToken = undefined;
-  writePrivateFile(settingsPath, JSON.stringify(settings, null, 2) + '\n');
+  clearMainCredentials();
+  for (const settingsPath of getHomeSettingsPaths()) {
+    const stripped = stripPlaintextCredentialFile(settingsPath);
+    if (!stripped.ok) {
+      console.warn(`[credentials] ${settingsPath} 明文清理失败(${stripped.reason ?? 'unknown'})`);
+    }
+  }
 }
 
 /**
