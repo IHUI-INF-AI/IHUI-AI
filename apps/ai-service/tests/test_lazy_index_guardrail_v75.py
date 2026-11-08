@@ -359,6 +359,23 @@ class TestLazyIndexAndResearchContract:
         assert "读不到" in out.reason
         assert (tmp_path / "keep.py").read_text(encoding="utf-8") == "keep\n"
 
+    def test_lazy_index_path_decision_routes_through_classify_path(self) -> None:
+        """防回潮:路径判定必须走 `_classify_path`,不得退回 `Path.exists()/is_dir()`。
+
+        2026-11-08:该 unread 分支在 faf9aa9ced 加入后于后续重构中丢失,结果
+        "目录读不到"被说成"不是目录"/"没有命中"。上面那条行为用例钉结论,
+        本条源级用例钉实现路径 —— 下一次重构若把判定换回 exists(),这里直接红。
+        """
+        import inspect
+
+        src = inspect.getsource(mcp_server._lazy_index_and_research)
+        # 只看可执行代码,注释里提到旧写法不算回潮。
+        code = "\n".join(line.split("#", 1)[0] for line in src.splitlines())
+        assert "_classify_path(" in code
+        assert "skipped-unreadable" in code
+        assert ".exists()" not in code
+        assert ".is_dir()" not in code
+
     @pytest.mark.asyncio
     async def test_nonexistent_dir_says_so(self) -> None:
         out = await mcp_server._lazy_index_and_research(self._indexer(), "q", "Z:/no/such/dir", 5)

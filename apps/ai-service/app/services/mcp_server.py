@@ -1229,6 +1229,7 @@ def lazy_index_file_limits(*, index_hard_cap: int, embedding_batch_size: int) ->
 LazyIndexStatus = Literal[
     "searched",                # 建了索引并重搜,拿到结果
     "empty-after-index",       # 真·没有语义命中(唯一允许空结果不带理由的一格)
+    "skipped-unreadable",      # 路径读不到:不能说成"不是目录",也不能建索引
     "skipped-not-a-dir",
     "skipped-cooldown",
     "skipped-no-code-files",
@@ -1396,7 +1397,18 @@ async def _lazy_index_and_research(
 
     try:
         root = Path(path).resolve()
-        if not root.exists() or not root.is_dir():
+        # 读不到 ≠ 不存在:Path.exists()/is_dir() 会把权限/IO 错误吞成 False,于是
+        # "目录读不到"被说成"不是目录",把排查方向带偏。统一走 _classify_path。
+        # 2026-11-08 回归:faf9aa9ced 加入的 unread 分支在后续重构中丢失,
+        # 这里恢复;并按用户口径补防回潮夹具(test_lazy_index_guardrail_v75.py)。
+        root_kind, root_stat = _classify_path(str(root))
+        if root_kind == "unread":
+            return LazyIndexOutcome(
+                results=[],
+                status="skipped-unreadable",
+                reason=f"传入的 path 读不到,不能把它说成不是目录({path}),未尝试建索引",
+            )
+        if root_kind != "present" or root_stat is None or not stat.S_ISDIR(root_stat.st_mode):
             return LazyIndexOutcome(
                 results=[],
                 status="skipped-not-a-dir",
