@@ -2227,6 +2227,24 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
 **2026-11-08**
+- 📚 문서:同步 README 正文的测试文件现算数(4446) (eb11488487)
+- 📚 문서:同步 F-38 夹具后的 README 现算数字(testFiles 4446 / trackedFiles 20184) (82bd61611f)
+- 🐞 수정:F-38 aiServiceFetch 补默认 deadline 并抛可识别超时错误,与上游 5xx 区分 (0ef93c94b6)
+- 📚 문서:同步 README 正文的测试文件现算数(4445) (bf72910261)
+- 📚 문서:同步 F-08 夹具后的 README 现算数字(testFiles 4445 / trackedFiles 20183) (f130b15a5e)
+- 🐞 수정:F-08 agent-control 待处理指令绑定属主,/result 与 /execute 双端校验归属 (92339429b8)
+- 📚 문서:同步 README 正文的测试文件现算数(4444) (0d24bd2a0b)
+- 📚 문서:同步 F-07 夹具后的 README 现算数字(testFiles 4444 / trackedFiles 20182) (b292f991f5)
+- 🐞 수정:F-07 后台 Agent 的 list/get/cancel 按登录归属过滤，创建归属不再接受 body userUuid (831f9fd268)
+- 🐞 수정:清偿全量 typecheck 存量红（14 处，含 F-270/F-252 遗留的类型回归） (e009f22742)
+- 📚 문서:同步 F-223 夹具后的 README 现算数字(testFiles 4443 / trackedFiles 20181) (3bbf54cc3c)
+- 🐞 수정:F-223 未匹配路由的 apiCallTotal 统一落 __unmatched__，消除无界标签基数 (c6730d06bc)
+- 📚 문서:同步新增夹具后的 README 现算数字(testFiles 4442 / trackedFiles 20180) (6414ce5494)
+- 🐞 수정:F-291 SSE 重放缓冲容量满时重注册不再误淘汰其他活跃流 (461bbae68a)
+- 📚 문서:同步 README 文档数字与最近提交面（testFiles/apiRoutes/trackedFiles 与现算对齐） (e179987387)
+- 🔧 기타:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (3eba6c71fd)
+
+**2026-11-08**
 - 🔧 기타:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (02d2f85062)
 
 **2026-11-08**
@@ -3031,9 +3049,6 @@ IHUI-AI의 탄생은 다음 오픈소스 프로젝트의 영감과 지원 없이
 
 **2026-11-05**
 - 🐞 수정:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
-
-**2026-11-06**
-- 🐞 수정:出站清洗补上射程第三格 —— 零宽藏在工具调用参数里时仪器全程报绿 (1b62d16ce2)
 <!-- END RECENT UPDATES -->
 
 <p align="center">
