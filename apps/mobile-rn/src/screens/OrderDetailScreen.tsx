@@ -8,7 +8,12 @@ import { StyleSheet, View } from 'react-native'
 import { appAlert } from '../components/BottomPops'
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
-import { checkPaymentStatus, createWechatAppPayment, fetchApi } from '@ihui/api-client'
+import {
+  checkPaymentStatus,
+  createWechatAppPayment,
+  fetchApi,
+  getOrderById,
+} from '@ihui/api-client'
 import { apiFailureToText } from '@ihui/shared/utils'
 import { OrderDetailScreen as SharedOrderDetailScreen, type OrderDetailItem } from '@ihui/rn-app'
 import { BottomActionBar, type BottomActionBarAction } from '../components/BottomActionBar'
@@ -49,11 +54,21 @@ export function OrderDetailScreen() {
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
-    const res = await fetchApi<OrderDetailItem>(`/api/orders/${encodeURIComponent(id)}`)
+    const res = await getOrderById(id)
     if (res.success) {
-      setOrder(res.data)
+      // 端点已拆 { order } 包络;这里按共享屏字段契约做一次映射,不再把包络当订单本体。
+      const detail: OrderDetailItem = {
+        id: res.data.id,
+        orderNo: res.data.orderNo,
+        amount: res.data.amount,
+        status: res.data.status,
+        productName: res.data.targetTitle,
+        createdAt: res.data.createdAt,
+        paidAt: res.data.paidAt ?? undefined,
+      }
+      setOrder(detail)
       // 已支付订单首次加载自动展示购买须知
-      if (res.data?.status === 'paid' && !noticeHandledRef.current) {
+      if (detail.status === 'paid' && !noticeHandledRef.current) {
         noticeHandledRef.current = true
         setNoticeVisible(true)
       }
@@ -251,7 +266,9 @@ export function OrderDetailScreen() {
           loading={loading}
           error={error}
           onBack={() => navigation.goBack()}
-          onRetry={() => { void load(); }}
+          onRetry={() => {
+            void load()
+          }}
           colorScheme={resolvedTheme}
         />
       </View>
