@@ -296,7 +296,7 @@ async def persist_style_check(
                 int(result.get("images_loaded") or 0),
             )
         finally:
-            conn.close()
+            await conn.close()
     except Exception as e:
         logger.warning("[metrics] persist_style_check failed: %s: %s", type(e).__name__, e)
 
@@ -324,7 +324,7 @@ async def latest_style_check(task_id: str, platform: str | None = None) -> dict[
                     task_id,
                 )
         finally:
-            conn.close()
+            await conn.close()
         if not row:
             return None
         return {
