@@ -174,7 +174,7 @@ export function ShareLandingScreen({
 
             <View style={styles.questionRow}>
               <View style={styles.questionBubble}>
-                <Text style={styles.questionText}>{content.question}</Text>
+                <Text style={styles.questionBubbleText}>{content.question}</Text>
               </View>
             </View>
           </View>
@@ -358,12 +358,12 @@ function createStyles(tk: AppThemeTokens) {
     questionRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: rnSpacing.xs },
     questionBubble: {
       maxWidth: '78%',
-      borderRadius: rnRadius.lg,
+      borderRadius: rnRadius['2xl'],
       backgroundColor: tk.brand.cta,
       paddingHorizontal: rnSpacing.md,
       paddingVertical: rnSpacing.sm,
     },
-    questionText: {
+    questionBubbleText: {
       fontSize: rnType.body.size,
       lineHeight: rnType.body.lineHeight,
       color: tk.brand.ctaForeground,

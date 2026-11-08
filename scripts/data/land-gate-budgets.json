@@ -25,6 +25,13 @@
       "measuredMs": 201242,
       "measuredAt": "2026-11-06",
       "note": "门 98 的 --rev HEAD --anchor HEAD^ 两面全量审实测 201s(阶段剖析:auditTree 13,479 文件 = 93s/面)。缺省 300s 在并发 8 臂下不够,而落地器自己早已对同一条 CLI 用 10 分钟(IHUI_LAND_DANGLING_GATE_TIMEOUT_MS)⇒ 两通道同一条量纲取 600s,不各拍各的。"
+    },
+    {
+      "script": "check-typecheck.mjs",
+      "timeoutMs": 300000,
+      "measuredMs": 163000,
+      "measuredAt": "2026-11-07",
+      "note": "T1 push 门全量 typecheck(21 包)实测旁证(integrate/release-20261106 分支同机、本 worktree real node_modules):LPT 4 并发 warm 163s(包内 150s)/ cold 183s(包内 174.5s)/ 同分支串行 309s。main 实现改为 resolveConcurrency() 按机器推导并发,阈值按该组实测仍取 300s(1.84× 余量,≤ 3× 上限)。分支原预算本的 base=150s + margin=150s 及其棘轮证据链并入本行,不再单列第二本账。"
     }
   ]
 }

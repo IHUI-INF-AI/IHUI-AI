@@ -48,7 +48,7 @@ export function fixText(text, numbers) {
 }
 
 if (process.argv[1]?.endsWith('fix-doc-numbers-prose.mjs') && !process.argv.includes('--self-test')) {
-  const numbers = JSON.parse(execFileSync('node', ['scripts/gen-doc-numbers.mjs', '--json'], { encoding: 'utf8' })).numbers
+  const numbers = JSON.parse(execFileSync('node', ['scripts/gen-doc-numbers.mjs', '--json'], { encoding: 'utf8', windowsHide: true })).numbers
   let total = 0
   for (const f of AUDITED_DOCS) {
     const r = fixText(readFileSync(f, 'utf8'), numbers)

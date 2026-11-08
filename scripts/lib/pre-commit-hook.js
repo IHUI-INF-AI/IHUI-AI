@@ -957,7 +957,10 @@ const TOKENS_CSS_REL = 'packages/design-tokens/src/styles/tokens.css'
 // END_SRC_DIRS 在它之外补上 apps/web/ 与 apps/extension/:四端 ui-routes 的输入面有两端落在
 // v3 三端之外,粗触发盖不住它们,那两行就过不了第一道筛(行在而永不触发 = 登记表最烂的一型)。
 const V3_USAGE_DIRS = ['apps/miniapp-taro/src/', 'apps/mobile-rn/src/', 'packages/app/src/']
-const END_SRC_DIRS = [...V3_USAGE_DIRS, 'apps/web/', 'apps/extension/']
+// 2026-11-06:粗触发面补 `apps/miniapp-taro/types/`(小程序端编译期契约派生件住在这里)。
+// 只扩粗触发;各行的有效面仍由自己的 pathTrigger 收窄,原有行一字未动
+// (ALPHA_USAGE 仍按引用钉回 V3_USAGE_DIRS,粗触发扩容的代价不由它付)。
+const END_SRC_DIRS = [...V3_USAGE_DIRS, 'apps/web/', 'apps/extension/', 'apps/miniapp-taro/types/']
 // 行的**精确**触发面:`pathTrigger`(空格分隔前缀,与 file 同形)在场就按它筛,不在场沿用粗触发。
 // 为什么要这一维:守门 125(check-token-sync-registry)对 trigger 字段是**闭合枚举** {tokens, v3-src},
 // 实测给它加第四个值 ⇒ 它当场 R1 判红(`trigger='ui-routes-src' 不在 {tokens, v3-src}`),而它自己的
@@ -1050,6 +1053,23 @@ const TOKEN_SYNC_TARGETS = [
     // 精确面 ⊆ 粗触发(守门 105 镜像 T21 的死行锁按这条判):本行只看两个消费面
     pathTrigger: 'packages/app/src/ apps/mobile-rn/src/',
     failMode: 'warn',
+    check: 'check-rn-compat-coverage.mjs',
+  },
+  {
+    // 2026-11-06 立:壳承载页的**编译期契约**派生件(rn-shells.generated.d.ts)。
+    // 病灶(实测):52505f20c3 把 49 行手写 declare 塞进受管块内部,而提交链上没有任何环节
+    // 重判这份派生件 —— 守门 251 C9 会判(判据在 check-rn-compat-coverage.mjs),但它的
+    // stagedTriggers 不含 apps/miniapp-taro/types/ ⇒ 该提交在门 251 的触发面上是"没跑"。
+    // 本行把同一把判据(生成器自己的 --check)挂进提交链,不在这里写第二份尺子。
+    // 面必须取**索引面**:HEAD 面看不见"只改索引、未进 HEAD"的手改(本仓实测那一型),
+    // 与 251 --staged 同面同轮;判据仍然只是"派生件是否落后",一个字节都不放宽。
+    label: 'rn-shell-types 编译期契约派生件',
+    file: 'apps/miniapp-taro/types/rn-shells.generated.d.ts',
+    cmd: 'node scripts/gen-rn-shell-types.mjs --check --staged',
+    trigger: 'v3-src',
+    // 精确面 ⊆ 粗触发(守门 105 镜像 T21 的死行锁):派生件自身 + 它的输入面(小程序页)。
+    pathTrigger: 'apps/miniapp-taro/types/ apps/miniapp-taro/src/',
+    failMode: 'block',
     check: 'check-rn-compat-coverage.mjs',
   },
   // ── 四端「AI 可导航路由」派生产物(2026-10-10 立,G-816040)────────────────────

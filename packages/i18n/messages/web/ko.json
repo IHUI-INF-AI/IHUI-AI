@@ -9526,6 +9526,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "이 워크플로는 현재 실행할 수 없습니다",
           "action": "존재 여부와 사용 설정, 실행 중인 인스턴스가 없음을 확인한 후 다시 실행"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "예약 작업 등록에 실패했습니다",
+          "action": "나중에 다시 시도하고, 계속 실패하면 관리자에게 스케줄러 점검을 요청"
+        },
+        "INVALID_CALLBACK": {
+          "title": "작업 콜백 설정이 잘못되었습니다",
+          "action": "콜백 유형과 매개변수를 확인한 후 재시도"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "스케줄러가 실행 중이 아닙니다",
+          "action": "나중에 다시 시도하고, 계속 실패하면 관리자에게 스케줄러 시작을 요청"
+        },
+        "UNREADABLE": {
+          "title": "파일을 읽을 수 없습니다",
+          "action": "파일 권한과 잠금을 확인한 후 재시도"
         }
       },
       "worktree": {
