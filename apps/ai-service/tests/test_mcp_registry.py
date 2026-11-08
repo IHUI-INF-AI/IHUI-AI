@@ -774,10 +774,13 @@ def test_craft_anything_manifest_declares_core_and_meta_tools() -> None:
     assert len(data["description"]) <= 200
 
     declared = {t["name"]: t["tier"] for t in data["tools"]}
-    # Essentials 35 + list_toolsets/enable_toolset 2
-    assert len(declared) == 37
+    # 0.5.0 真实 tools/list = 28 core/assets + rebuild_check + 2 元工具 = 30 可视;
+    # 清单在此基础上补齐 Deep-only 8 个,共 38
+    assert len(declared) == 38
     assert {name for name, tier in declared.items() if tier == "read"} == CRAFT_READ_TOOLS
     assert declared["enable_toolset"] == "write"
+    # rebuild_check 是 0.5.0 实测多出来的工具,远端 readOnlyHint=false ⇒ write
+    assert declared["rebuild_check"] == "write"
     assert "core_target_open" in declared
     assert "core_targets_list" in declared
 
