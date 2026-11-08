@@ -34,6 +34,7 @@ import type {
   Stopwatch,
 } from '../src/utils/elapsed-ms.js'
 import { persistableLatency } from '../src/utils/latency-persistence.js'
+import { getRelayResponseCache } from '../src/services/relay-response-cache.js'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -543,6 +544,52 @@ describe('取证 2b:v1-public 非流式落库形态', () => {
     expect(input?.latencyMs).toBe(0)
     expect(input?.metadata).toEqual({ latencyTrusted: false })
     expect(input?.status).toBe('success')
+  })
+})
+
+// ============================================================================
+// 取证 5(2026-11-08,F-181):缓存命中的配额口径必须可判,不得与真实调用混算
+// ============================================================================
+
+describe('取证 5:F-181 缓存命中标记', () => {
+  it('命中 ⇒ X-Cache=HIT + X-Cache-Billing;recordCall 保留真实 usage 并标 cacheHit', async () => {
+    const v1Public = await import('../src/routes/v1-public.js')
+    const server = await boot('/v1', v1Public)
+    const cachedPayload = {
+      id: 'chatcmpl-cache',
+      object: 'chat.completion',
+      created: 1,
+      model: 'gpt-4o',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: '好的' },
+          finish_reason: 'stop',
+        },
+      ],
+      usage: { prompt_tokens: 120, completion_tokens: 80, total_tokens: 200 },
+    }
+    vi.mocked(getRelayResponseCache).mockReturnValueOnce({
+      get: vi.fn(async () => ({ hit: true, data: cachedPayload })),
+      set: vi.fn(async () => {}),
+    } as never)
+
+    const res = await server.inject({
+      method: 'POST',
+      url: '/v1/chat/completions',
+      headers: { 'x-api-key': 'ihui_test_key' },
+      payload: { model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }] },
+    })
+    await server.close()
+
+    expect(res.statusCode).toBe(200)
+    // 响应可判:命中标记 + 配额口径(tokens=0, requests=1)
+    expect(res.headers['x-cache']).toBe('HIT')
+    expect(res.headers['x-cache-billing']).toBe('hit;tokens=0;requests=1')
+    // 路由把真实 usage 交给计费层(计费层据此算 cacheSavedTokens,但扣减按 0)
+    const input = captured.inputs.at(-1)
+    expect(input?.metadata?.cacheHit).toBe(true)
+    expect(input?.totalTokens).toBe(200)
   })
 })
 

@@ -277,6 +277,8 @@ async function streamResponses(
   const responseId = `resp-${randomUUID()}`
   /** 累计响应文本用于估算 token(流式无准确 usage) */
   let responseText = ''
+  /** F-89:只累计真实产出的文本(不含 `[error] ...` 文案),用于判 partial/error 与计费 */
+  let billableCompletionChars = 0
   let streamError: string | null = null
   /** 格②(2026-09-26):首 token 处再取一次样本(原为墙钟 epoch firstTokenTime) */
   let ttftSample: ElapsedSample | null = null
@@ -339,6 +341,8 @@ async function streamResponses(
         if (text) {
           if (ttftSample === null) ttftSample = opts.sw.stop()
           responseText += text
+          // F-89:真实文本才计入计费 token
+          billableCompletionChars += text.length
           writeEvent('response.output_text.delta', {
             type: 'response.output_text.delta',
             output_index: 0,
@@ -410,8 +414,15 @@ async function streamResponses(
     // 计费:流式结束后聚合 token 用量写入计费
     if (opts.apiKeyId && opts.userId) {
       const promptTokens = Math.ceil(opts.promptText.length / 4)
-      const completionTokens = Math.ceil(responseText.length / 4)
+      // F-89:用真实产出文本估算;上游错误文案不计 token
+      const completionTokens = Math.ceil(billableCompletionChars / 4)
       const totalTokens = promptTokens + completionTokens
+      // F-89:已产出 token 后中断记 partial(按实际结算),零产出才记 error(免单)
+      const status: 'success' | 'partial' | 'error' = streamError
+        ? completionTokens > 0
+          ? 'partial'
+          : 'error'
+        : 'success'
       // 格②(2026-09-26):总耗时与 TTFT 各取一次独立样本、各自交叉校验;不可信样本落 0 并随行标真
       const latency = persistableLatency(opts.sw.stop())
       const ttft = ttftSample === null ? null : persistableLatency(ttftSample)
@@ -425,13 +436,14 @@ async function streamResponses(
         completionTokens,
         totalTokens,
         latencyMs: latency.latencyMs,
-        status: streamError ? 'error' : 'success',
+        status,
         errorMessage: streamError,
         metadata: {
           stream: true,
           protocol: 'responses',
           latencyTrusted: latency.latencyTrusted,
           ...(ttft ? { ttftTrusted: ttft.latencyTrusted } : {}),
+          ...(status === 'partial' ? { partialDelivery: true } : {}),
         },
         providerCode: opts.providerCode,
         clientIp: opts.clientIp,
