@@ -300,8 +300,12 @@ export const userRoutes: FastifyPluginAsync = async (server) => {
         .set({ status, updatedAt: new Date() })
         .where(eq(users.id, id))
         .returning({ id: users.id })
-      if (row) updated++
-      else failed.push({ id, reason: '更新失败' })
+      if (row) {
+        updated++
+        // F-127(2026-11-08):与单条 PUT /admin/users/:id 对齐 —— 批量置非启用态时逐条吊销
+        // refresh token,否则封禁后旧的 refresh 仍能换 access token。status=1(放行)不吊销。
+        if (status !== 1) await revokeAllUserRefreshTokens(id)
+      } else failed.push({ id, reason: '更新失败' })
     }
     await logAction({
       ...auditCtx(request),
