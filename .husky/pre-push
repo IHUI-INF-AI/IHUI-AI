@@ -11,6 +11,22 @@ else
   printf '%s\n' "$PUSH_REFS" | git lfs pre-push "$@"
 fi
 
+# ─── 棘轮装死独立检查(2026-11-09 立;判据全部在 scripts/check-ref-ratchet-liveness.mjs)───
+# 为什么挂 pre-push,而不是计划任务/常驻进程:
+#   ① main 出本机必经 pre-push —— 它是"main 棘轮装死"最直接的卡口,判断时机与 ref 推进同步;
+#   ② 不新增常驻进程/计划任务:并行会话与自愈进程已把本机压得很重,再挂一个轮询器只会添乱;
+#   ③ 与"钩子自身异常 ⇒ 放行"的策略不冲突:钩子的放行逻辑一字未改,判据只活在这条独立检查里
+#      —— 放行可以,装死不行。
+# 位置必须在本文件最前段(tag 直通 / push 凭据直通之前):它是"钩子有没有在工作"的元检查,
+# 任何推送都不该绕开;一旦心跳过期或近期有 hook-error 就报红,不打印"看起来通过"的假绿。
+wscript //nologo scripts/hook-run-hidden.vbs ref-ratchet-liveness scripts/check-ref-ratchet-liveness.mjs
+_rl_rc=$?
+if [ "$_rl_rc" -ne 0 ]; then
+  tail -6 .ihui-agent/state/hook-logs/ref-ratchet-liveness.log >&2 || true
+  printf '%s\n' "❌ 棘轮装死检查报红,推送已阻止(日志: .ihui-agent/state/hook-logs/ref-ratchet-liveness.log)" >&2
+  exit 1
+fi
+
 # ─── tag-only 推送不跑代码质量门(2026-09-24 立,lost-commit 备份被拦死多天)─────
 # 判据:git 传入的每一行,其**存在的那一侧**都在 refs/tags/ 下(新建/推进 tag 看 local_ref,删除 tag
 # 时 local 侧是 `(nil)`,看 remote 侧)⇒ 本次推送**不新增也不推进任何分支**,

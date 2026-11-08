@@ -51,24 +51,70 @@ if [ "$1" = "committed" ]; then
 fi
 
 [ "$1" = "prepared" ] || exit 0
-[ "${IHUI_ALLOW_STASH:-0}" = "1" ] && exit 0
+
+# ── 递归闸门(第一道,最快)──────────────────────────────────────
+# 棘轮自身/其内部的派生调用若再触发引用事务,直接放行;node 侧还有第二道同名 env 守卫。
+[ "${IHUI_REF_TXN_MAIN_RATCHET:-0}" = "1" ] && exit 0
 
 ZERO=0000000000000000000000000000000000000000
-while read -r _old _new ref; do
-  [ "$ref" = "refs/stash" ] || continue
-  [ "$_new" = "$ZERO" ] && continue
-  # new 指向 stash reflog 中既有条目 = drop/pop 的收尾,放行
-  known=0
-  for entry in $(git reflog show refs/stash --format='%H' 2>/dev/null); do
-    [ "$entry" = "$_new" ] && { known=1; break; }
-  done
-  [ "$known" = "1" ] && continue
-  {
-    printf '\n'
-    printf '✋ stash-guard:已拦截 git stash —— 本项目禁止把改动放进 stash(AGENTS.md §12d)\n'
-    printf '   推了就是要生效:改动必须直接 commit(safe-commit.mjs)或用 worktree 隔离(§12d)\n'
-    printf '   清理存量 stash 属例外:IHUI_ALLOW_STASH=1 git stash drop|clear(先 tag 零损失备份)\n'
-  } >&2
-  exit 1
+R_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+[ -n "$R_ROOT" ] || exit 0
+# 脚本按**钩子自身所在仓**定位：core.hooksPath 可以指到共享的 .husky，而判定的仓由 --root 传入。
+# 生产里两者是同一个仓；测试/共享钩子场景里这条让 "钩子在哪、脚本就在哪" 成立。
+R_HOOK_ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." 2>/dev/null && pwd)
+[ -n "$R_HOOK_ROOT" ] || R_HOOK_ROOT=$R_ROOT
+RATCHET_REF=${IHUI_REF_TXN_RATCHET_REF:-refs/heads/main}
+RATCHET_NODE=
+command -v node >/dev/null 2>&1 && RATCHET_NODE=$(command -v node)
+
+# node 缺失时也要留痕:main 棘轮无法执行,必须写成 hook-error 让 liveness 检查点名,
+# 但**绝不因此阻断 main**(fail-open 与 node 侧异常策略一致)。
+record_hook_error() {
+  r_common=$(git rev-parse --git-common-dir 2>/dev/null) || return 0
+  [ -n "$r_common" ] || return 0
+  case "$r_common" in
+    /*) ;;
+    *:/*) ;;
+    *) r_common="$R_ROOT/$r_common" ;;
+  esac
+  r_dir="$r_common/ihui-ref-ratchet"
+  mkdir -p "$r_dir" 2>/dev/null || return 0
+  printf '{"ts":null,"kind":"%s","message":"%s","input":{"old":"%s","new":"%s","ref":"%s","via":"reference-transaction.sh"}}\n' \
+    "$1" "$2" "$3" "$4" "$5" >> "$r_dir/hook-error.log" 2>/dev/null || true
+}
+
+# 单趟读 stdin —— reference-transaction 的 stdin 只能消费一次,不允许再开第二个 while。
+while read -r t_old t_new t_ref; do
+  case "$t_ref" in
+    refs/stash)
+      [ "$t_new" = "$ZERO" ] && continue
+      [ "${IHUI_ALLOW_STASH:-0}" = "1" ] && continue
+      # new 指向 stash reflog 中既有条目 = drop/pop 的收尾,放行
+      known=0
+      for entry in $(git reflog show refs/stash --format='%H' 2>/dev/null); do
+        [ "$entry" = "$t_new" ] && { known=1; break; }
+      done
+      [ "$known" = "1" ] && continue
+      {
+        printf '\n'
+        printf '✋ stash-guard:已拦截 git stash —— 本项目禁止把改动放进 stash(AGENTS.md §12d)\n'
+        printf '   推了就是要生效:改动必须直接 commit(safe-commit.mjs)或用 worktree 隔离(§12d)\n'
+        printf '   清理存量 stash 属例外:IHUI_ALLOW_STASH=1 git stash drop|clear(先 tag 零损失备份)\n'
+      } >&2
+      exit 1
+      ;;
+    "$RATCHET_REF")
+      # main 引用棘轮:判 new OID 的对象面(不是 --staged!prepared 阶段 HEAD 仍旧树)。
+      # 判据在 node 里;这里只管"跑没跑"与退出码,不解释结果。
+      if [ -z "$RATCHET_NODE" ]; then
+        record_hook_error "node-missing" "node 不在 PATH,main 棘轮未执行" "$t_old" "$t_new" "$t_ref"
+        continue
+      fi
+      IHUI_REF_TXN_MAIN_RATCHET=0 "$RATCHET_NODE" "$R_HOOK_ROOT/scripts/ref-ratchet-main.mjs" \
+        --root "$R_ROOT" --old "$t_old" --new "$t_new" --ref "$t_ref" </dev/null
+      rc=$?
+      [ "$rc" -eq 0 ] || exit "$rc"
+      ;;
+  esac
 done
 exit 0

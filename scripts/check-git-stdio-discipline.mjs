@@ -1040,7 +1040,21 @@ export function exemptedBy(entries, rel, line) {
  * ⚠️ 清单与内容**必须同面**:用盘上清单配 HEAD 内容,或用索引清单配 HEAD 内容,都会把一个面的
  * 文件名掺进另一个面的正文里 —— 那正是门 80 `listPresent` 注释记的那一型。
  */
-export function listScoped(root, face) {
+export function listScoped(root, face, opts = {}) {
+  const rev = opts.rev ?? 'HEAD'
+  // 对象面（reference-transaction 的 prepared 阶段）：清单必须与内容同面。
+  // 索引里的 `ls-files` 是**旧树**，用它枚举 new OID 会漏掉新提交才有的文件；
+  // 因此 rev ≠ HEAD 时直接问 rev 的树，再按 SCAN_ROOTS 过滤。判据未改，只换枚举来源。
+  if (face === 'head' && rev !== 'HEAD') {
+    const all = gitRaw(['ls-tree', '-r', '--name-only', rev, '-z'], root, { timeout: GIT_TIMEOUT })
+      .split('\0')
+      .filter(Boolean)
+      .map(norm)
+      .filter((p) =>
+        SCAN_ROOTS.some((pre) => p === pre || p.startsWith(pre.endsWith('/') ? pre : `${pre}/`)),
+      )
+    return Array.from(new Set(all))
+  }
   const paths = SCAN_ROOTS.flatMap((prefix) =>
     gitRaw(['ls-files', '-z', '--', prefix], root, { timeout: GIT_TIMEOUT })
       .split('\0')
@@ -1067,14 +1081,14 @@ export function listScoped(root, face) {
  * 一次 `cat-file --batch` 预取整面正文。`read()` 对未预取路径**不给内容**(不偷偷补一次派生)。
  * worktree 面按盘面逐个读。
  */
-export function readFace(root, face, paths) {
+export function readFace(root, face, paths, opts = {}) {
   const map = new Map()
   if (!paths.length) return map
   if (face === 'worktree') {
     for (const p of paths) map.set(p, readWorktreeFile(root, p))
     return map
   }
-  const rev = face === 'staged' ? '' : 'HEAD'
+  const rev = face === 'staged' ? '' : (opts.rev ?? 'HEAD')
   const specs = paths.map((p) => `${rev}:${p}`)
   const got = catBatch(root, specs, { maxBuffer: 1 << 29, timeout: GIT_TIMEOUT })
   for (let i = 0; i < paths.length; i++) map.set(paths[i], got.get(specs[i]) ?? null)
@@ -1089,11 +1103,11 @@ export function readFace(root, face, paths) {
  * @returns {{files, sources, unread, bad, skippedByReason, misses, shellFlagged, libFiles, testFiles,
  *            inputBad, inputUndetermined, inputExempted}}
  */
-export function evaluate(root, face) {
-  const all = listScoped(root, face)
+export function evaluate(root, face, opts = {}) {
+  const all = listScoped(root, face, opts)
   const files = all.filter(isSourceFile)
   const skippedExt = all.length - files.length
-  const texts = readFace(root, face, files)
+  const texts = readFace(root, face, files, opts)
   const unread = files.filter((rel) => typeof texts.get(rel) !== 'string')
   const { entries, malformed, absent } = loadExemptions(root)
   const bad = []
