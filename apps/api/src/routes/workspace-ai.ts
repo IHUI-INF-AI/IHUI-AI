@@ -42,7 +42,7 @@ import {
   planAtomicRollback,
   executeAtomicRollback,
 } from '../services/atomic-rollback.js'
-import { resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
+import { requireAdmin, resolveAdminRoleId, ADMIN_ROLE_ID } from '../plugins/require-permission.js'
 
 export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // 鉴权：复用 workspace.ts 的模式
@@ -1206,14 +1206,16 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   // ===========================================================================
 
   server.get('/computer-use/status', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    // F-400(P1):宿主机级动作仅管理员可用。整族此前只过 requireAuth,任意登录用户
+    // 都能驱动宿主机键鼠/截屏;此处复用 requireAdmin(仅认人用 JWT,含 TOTP 闸)。
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     return reply.send(success({ enabled: computerUse.isEnabled() }))
   })
 
   server.post('/computer-use/screenshot', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     try {
       const result = await computerUse.takeScreenshot()
       return reply.send(success(result))
@@ -1223,8 +1225,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/computer-use/mouse/click', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const body = z
       .object({ x: z.number(), y: z.number(), button: z.string().optional() })
       .parse(request.body)
@@ -1243,8 +1245,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/computer-use/keyboard/type', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const body = z.object({ text: z.string() }).parse(request.body)
     if (!body.text) return reply.status(400).send(error(400, 'text 不能为空'))
     try {
@@ -1256,8 +1258,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.post('/computer-use/keyboard/key', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     const body = z.object({ key: z.string() }).parse(request.body)
     if (!body.key) return reply.status(400).send(error(400, 'key 不能为空'))
     try {
@@ -1269,8 +1271,8 @@ export const workspaceAiRoutes: FastifyPluginAsync = async (server) => {
   })
 
   server.get('/computer-use/screen-size', async (request, reply) => {
-    await requireAuth(request, reply)
-    if (!request.userId) return
+    await requireAdmin(request, reply)
+    if (reply.sent) return
     try {
       const size = await computerUse.getScreenSize()
       return reply.send(success(size))
