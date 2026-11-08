@@ -79,6 +79,8 @@ vi.mock('../src/services/subagent-dispatch-service.js', () => {
     subagentDispatchService: {
       setRedisClient: async () => undefined,
       findById: (id: string) => store.get(id) ?? null,
+    // F-255:归属闸改走 findByIdOrRestore(淘汰后从 Redis 重建);夹具内存档即终态聚合面
+    findByIdOrRestore: async (id: string) => store.get(id) ?? null,
       cancel: (id: string) => {
         calls.cancel.push(id)
         const d = store.get(id)
