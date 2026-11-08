@@ -1,9 +1,3 @@
-<!--
-  © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
-  Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
-  [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
--->
-
 # 跨端 UI 面缺陷普查报告（findings-crossui）
 
 > 基线：`D:\IHUI-AI-cut10`（干净工作树，HEAD `d5f5581a`）。
@@ -48,6 +42,7 @@
 - 影响面：Web 订单详情白屏（整页 React 渲染抛错）
 - 建议修法：改用 `packages/types` 的订单状态真值并给 `STATUS_CONFIG` 补齐 7 值 + 默认项
 - 当场可修：是
+- 修复：`81c4ff1ffe`（fix(web): XUI-001 订单状态视图补全 7 值并对未知状态兜底）
 
 #### XUI-002 订单详情响应未拆 `{order}` 包络（RN + 小程序）
 - 严重度：P0
@@ -58,6 +53,7 @@
 - 影响面：详情字段全 `undefined`、退款金额计算 NaN、页面空态
 - 建议修法：统一在 api-client 用 `unwrap('order')`，两端消费脱包结果
 - 当场可修：是
+- 修复：`5d668e9d2a`（fix(api): XUI-002 订单详情拆 {order} 包络并修正 RN 字段映射）
 
 #### XUI-003 会员信息未拆 `{vip}` 包络（RN + 小程序）
 - 严重度：P0
@@ -68,6 +64,7 @@
 - 影响面：会员等级、到期时间、权益全空；购买按钮状态错误
 - 建议修法：类型与脱包同时修正，避免三端各自 `as any`
 - 当场可修：是
+- 修复：`1576fe79aa`（fix(api): XUI-003 会员 /vip/my 拆 {vip} 包络并归一 user_vips 行）
 
 #### XUI-004 RN 未登录分支缺注册路由（隐私/协议/换绑/改密）
 - 严重度：P0
@@ -78,6 +75,7 @@
 - 影响面：注册前无法查看协议（合规风险）、找回密码死路
 - 建议修法：将 4 屏提到两分支共享注册；或按登录态条件渲染
 - 当场可修：是
+- 修复：`0ba309d2f7`（fix(mobile-rn): XUI-004 未登录分支补齐 Privacy/Agreement/ChangePhone/ChangePwd 四路由）
 
 #### XUI-005 小程序 UserCard 读恒空存储键导致「请先登录」
 - 严重度：P0
@@ -88,6 +86,7 @@
 - 影响面：已登录用户始终看到未登录卡片，头像/昵称/等级全丢
 - 建议修法：改读会话 store（或 `ihui_user_info`），并删除历史键依赖
 - 当场可修：是
+- 修复：`bf3d1e2bda`（fix(miniapp): XUI-005/006 登录态改用 getUserInfo 并让清缓存保留登出标记）
 
 #### XUI-006 小程序清缓存保留键用旧命名 → 清缓存后静默自动登录
 - 严重度：P0
@@ -98,6 +97,7 @@
 - 影响面：退出登录失效，跨账号串号风险
 - 建议修法：保留键从会话模块单一导出，清理时显式写 `logged-out` 标记
 - 当场可修：是
+- 修复：`bf3d1e2bda`（fix(miniapp): XUI-005/006 登录态改用 getUserInfo 并让清缓存保留登出标记）
 
 #### XUI-007 RN 支付结果页读错包络 → 永远「支付失败」
 - 严重度：P0
@@ -108,6 +108,7 @@
 - 影响面：真实付款成功却展示失败、金额 0，用户重复支付
 - 建议修法：脱包 `order` 后取 `order.status/order.amount`；补单次幂等提示
 - 当场可修：是
+- 修复：`c024572376`（fix(payment): XUI-007/008 支付订单详情拆包络且 DEV mock 不再直通成功）
 
 #### XUI-008 RN 微信支付 mock 分支客户端直通成功
 - 严重度：P0
@@ -118,6 +119,7 @@
 - 影响面：未真实支付即发放权益/订单置为已付
 - 建议修法：mock 仅限开发环境且必须走同一「服务端确认」接口
 - 当场可修：是
+- 修复：`c024572376`（fix(payment): XUI-007/008 支付订单详情拆包络且 DEV mock 不再直通成功）
 
 #### XUI-009 小程序充值未返回 payParams + orderType 默认 0
 - 严重度：P0
@@ -128,6 +130,7 @@
 - 影响面：充值无响应或付款后不到账
 - 建议修法：按后端契约取签名参数；`orderType` 由商品类型必填推导
 - 当场可修：是
+- 修复：`eb3bff76f7`（fix(miniapp): XUI-009/010/013 充值签名与 orderType、Easing.sin、Clipboard 默认导出）
 
 #### XUI-010 RN 首页 `Easing.sin` 缺失 → 启动崩溃
 - 严重度：P0
@@ -138,6 +141,7 @@
 - 影响面：首页渲染 TypeError，白屏
 - 建议修法：补 `sin`（及 `exp/circle` 等常用成员）或降级到 `ease`
 - 当场可修：是
+- 修复：`eb3bff76f7`（fix(miniapp): XUI-009/010/013 充值签名与 orderType、Easing.sin、Clipboard 默认导出）
 
 #### XUI-011 RN 导航 ref 工厂在小程序垫片缺失 → 模块初始化崩溃
 - 严重度：P0
@@ -168,6 +172,7 @@
 - 影响面：复制类操作全静默失败/抛错
 - 建议修法：默认导出改为 Clipboard 本体，其余成员走命名导出
 - 当场可修：是
+- 修复：`eb3bff76f7`（fix(miniapp): XUI-009/010/013 充值签名与 orderType、Easing.sin、Clipboard 默认导出）
 
 #### XUI-014 RN 提现页分/元混用
 - 严重度：P0
@@ -178,6 +183,26 @@
 - 影响面：余额显示放大 100 倍；实提金额缩小 100 倍（资金错误）
 - 建议修法：统一分单位，展示时 `formatPrice`，提交时 `Math.round(yuan*100)`
 - 当场可修：是
+- 修复：`cfa074991d`（fix(mobile-rn): XUI-014 提现余额按分转元展示、提交金额按元转分）
+
+### P0 复核否证（留痕，未改码）
+
+#### XUI-011 否证：小程序闭包不可达 `createNavigationContainerRef`
+- 复核结论：不成立，不改垫片。
+- 依据 1：`createNavigationContainerRef` 唯一使用点是 `apps/mobile-rn/src/navigation/navigation-ref.ts:5,14`，属 RN 端私有源码。
+- 依据 2：`grep -n "navigation-ref|createNavigationContainerRef" apps/miniapp-taro/src` 零命中；同二词在 `packages/app/src` 亦零命中 ⇒ 小程序别名层只消费 `packages/*` 共享屏，从不把 `apps/mobile-rn` 编进包。
+- 依据 3：小程序 `rn-compat` 对 `@react-navigation/native` 的别名只服务共享屏；共享屏无该调用，模块初始化期不会执行到该 import。
+- 处置：不改 `apps/miniapp-taro/src/rn-compat/*`。若未来把 RN 导航模块下沉进共享包，此条自动复活，需重开。
+- 复核（2026-11-08）：`grep -rn "createNavigationContainerRef|navigation-ref" apps/miniapp-taro/src` 仍零命中；`packages/app/src` 零命中。维持否证。
+
+#### XUI-012 否证：小程序端不会渲染命名导入 `WebView` 的 LoginScreen
+- 复核结论：不成立，不改垫片命名导出。
+- 依据 1：命名导入发生在 `apps/mobile-rn/src/screens/LoginScreen.tsx:31`，`<WebView>` 用法在同文件 `:1274`，属 RN 端私有屏。
+- 依据 2：小程序 `app.config.ts:14-17` 明记 login/register/forgot-password/webview 四页中的 `login` 整页已删，`:316` 再次登记 `pages/login` 移除；现网页面注册表无登录页。
+- 依据 3：`grep -n "react-native-webview|LoginScreen" apps/miniapp-taro/src` 只命中注释与本端 `<web-view>` 页面（`pages/webview/index.tsx:6`），无 `LoginScreen` 消费点；`packages/app` 亦无 `react-native-webview` 导入。
+- 依据 4：`rn-compat/native-webview.tsx:23-52` 是页面级最小替代（链接复制），仅默认导出；因无消费方，命名导出缺失不构成可达崩溃。
+- 处置：保持现状。若后续恢复小程序登录页并复用 RN LoginScreen，需同时补命名导出。
+- 复核（2026-11-08）：`LoginScreen` / `react-native-webview` 在 `apps/miniapp-taro/src` 仅命中注释与 `pages/webview/index.tsx`；`app.config.ts` 仍无登录页注册。维持否证。
 
 ### P1（功能静默失效 / 状态错乱）
 
@@ -190,6 +215,7 @@
 - 影响面：跳转失败，注销入口不可用
 - 建议修法：改路径或从生成路由表取值
 - 当场可修：是
+- 修复：`b5f1627643`（fix(miniapp/mobile-rn): XUI-015/037/044/048 注销路由、相册 loading、webview timer、录音卸载清理）
 
 #### XUI-016 小程序退款页 `order.amount` 未定义
 - 严重度：P1
@@ -200,6 +226,7 @@
 - 影响面：退款页崩溃或必失败
 - 建议修法：金额取自订单真值字段并做兜底校验
 - 当场可修：是
+- 修复：`7708c2c548`（fix(miniapp/mobile-rn): XUI-016/019/021 退款金额归一、注销闸门复位、分销字段映射）
 
 #### XUI-017 小程序关于页菜单项传对象、全部开 portal
 - 严重度：P1
@@ -210,6 +237,7 @@
 - 影响面：文案显示 `about.xxx`，条目功能全错
 - 建议修法：`label` 立即求值；按 id 分派目标
 - 当场可修：是
+- 修复：`b776154139`（about-shared 改 `ABOUT_MENUS.map`，逐条 `navigateTo(menu.url)`，label 按 labelKey 取词；夹具 `about-entries-wiring.test.ts` 3 条，旧码实测红）
 
 #### XUI-018 小程序三个入口指向已删除 `/pages/tools/*`
 - 严重度：P1
@@ -220,6 +248,7 @@
 - 影响面：跳转失败或白页
 - 建议修法：从 ui-routes 生成表取目标
 - 当场可修：是
+- 修复：`b776154139`（三处入口迁 `/pkg-ai/ai-assistant/index`、`/pkg-ai/ai-assistant-n8n/index`、`/pkg-ai/ai-group/index`，与 app.config 注册表对齐；夹具 `community-agent-routes.test.ts` 6 条，旧码实测红）
 
 #### XUI-019 RN 注销二次确认闸门未复位 → 二次点击直接注销
 - 严重度：P1
@@ -230,6 +259,7 @@
 - 影响面：无二次确认直接注销账号
 - 建议修法：关闭/取消路径统一复位
 - 当场可修：是
+- 修复：`7708c2c548`（fix(miniapp/mobile-rn): XUI-016/019/021 退款金额归一、注销闸门复位、分销字段映射）
 
 #### XUI-020 RN 修改密码无异常兜底 → 按钮永久 loading
 - 严重度：P1
@@ -240,6 +270,7 @@
 - 影响面：按钮卡死，只能杀进程
 - 建议修法：try/finally 复位状态并 toast
 - 当场可修：是
+- 修复：`3bf0fc4dcb`（fix(shared/app/miniapp): XUI-020/034/036/042 改密失败复位、脱敏容错、手机号/金额边界、订单列表归一）
 
 #### XUI-021 小程序分销字段映射错位
 - 严重度：P1
@@ -250,6 +281,7 @@
 - 影响面：可提现金额虚高（不可提部分被当可提），等级/团队数恒 0
 - 建议修法：按后端字段名一一映射
 - 当场可修：是
+- 修复：`7708c2c548`（fix(miniapp/mobile-rn): XUI-016/019/021 退款金额归一、注销闸门复位、分销字段映射）
 
 #### XUI-022 共享通知 store 无限更新环
 - 严重度：P1
@@ -260,6 +292,7 @@
 - 影响面：CPU 打满、通知列表抖动
 - 建议修法：`useCallback` + id 去重 + `useMemo` context
 - 当场可修：是
+- 修复：`b400751172`（fix(shared): XUI-022/025/032 通知订阅引用稳定、loadMore 失败解锁、分页同 tick 去重）
 
 #### XUI-023 `use-agent-runtime` 过期 abort 清掉新控制器
 - 严重度：P1
@@ -270,6 +303,7 @@
 - 影响面：新请求被误判为已结束，流式中断
 - 建议修法：每次启动自增 epoch，回调比对
 - 当场可修：是
+- 修复：`beb86a377f`（fix(shared/mobile-rn): XUI-023/024/031/045 运行时代次、分页依赖环、溢出作用域、分享图片 URI）
 
 #### XUI-024 `use-articles` 依赖环 → loadMore 立即回第 1 页
 - 严重度：P1
@@ -280,6 +314,7 @@
 - 影响面：永远只能看到第一页
 - 建议修法：拆 `loadPage` 与 `refresh`，依赖去 page
 - 当场可修：是
+- 修复：`beb86a377f`（fix(shared/mobile-rn): XUI-023/024/031/045 运行时代次、分页依赖环、溢出作用域、分享图片 URI）
 
 #### XUI-025 `use-load-more` 无 finally → 失败后锁死
 - 严重度：P1
@@ -290,6 +325,7 @@
 - 影响面：列表永久无法再加载
 - 建议修法：try/finally
 - 当场可修：是
+- 修复：`b400751172`（fix(shared): XUI-022/025/032 通知订阅引用稳定、loadMore 失败解锁、分页同 tick 去重）
 
 #### XUI-026 WS 通知 id 用 `Date.now()` 兜底 → 冲突
 - 严重度：P1
@@ -300,6 +336,7 @@
 - 影响面：通知被覆盖或丢条
 - 建议修法：UUID/自增序号兜底，`type` 显式 `str`
 - 当场可修：是
+- 修复：`f2df1e6ca3`（fix(shared/app): XUI-026/027/030/033 通知 type 兜底、408 归瞬时、小时除数、续读保留对侧游标）
 
 #### XUI-027 SSE 408 被归为契约不匹配（终态）
 - 严重度：P1
@@ -310,6 +347,7 @@
 - 影响面：弱网超时被当致命错误，流不重连
 - 建议修法：408/425 归 `transient`
 - 当场可修：是
+- 修复：`f2df1e6ca3`（fix(shared/app): XUI-026/027/030/033 通知 type 兜底、408 归瞬时、小时除数、续读保留对侧游标）
 
 #### XUI-028 权限判定 fail-open 跨用户放行
 - 严重度：P1
@@ -320,6 +358,7 @@
 - 影响面：越权自动批准
 - 建议修法：缺 `agentId` 一律拒绝或按显式 owner 字段
 - 当场可修：是
+- 修复：`c126e0892a`（fix(shared/app/mobile-rn/miniapp): XUI-028/029/035/047 权限 fail-closed、水合失败不落盘、重试上限、提现入口锁）
 
 #### XUI-029 `plan-store` 水合失败后仍置 hydrated → 覆盖磁盘
 - 严重度：P1
@@ -330,6 +369,7 @@
 - 影响面：用户计划数据被清空
 - 建议修法：失败时保持 `hydrated=false` 且不落盘
 - 当场可修：是
+- 修复：`c126e0892a`（fix(shared/app/mobile-rn/miniapp): XUI-028/029/035/047 权限 fail-closed、水合失败不落盘、重试上限、提现入口锁）
 
 #### XUI-030 产物页小时数恒 0
 - 严重度：P1
@@ -340,6 +380,7 @@
 - 影响面：时间文案全错
 - 建议修法：改除数
 - 当场可修：是
+- 修复：`f2df1e6ca3`（fix(shared/app): XUI-026/027/030/033 通知 type 兜底、408 归瞬时、小时除数、续读保留对侧游标）
 
 #### XUI-031 SSE frame-ownership 单溢出槽 + 全局清空 → 丢帧
 - 严重度：P1
@@ -350,6 +391,7 @@
 - 影响面：消息静默丢失
 - 建议修法：按订阅分槽，清理限定作用域
 - 当场可修：是
+- 修复：`beb86a377f`（fix(shared/mobile-rn): XUI-023/024/031/045 运行时代次、分页依赖环、溢出作用域、分享图片 URI）
 
 #### XUI-032 `use-paginated-list` 用 state 作锁 → 重复页
 - 严重度：P1
@@ -360,6 +402,7 @@
 - 影响面：重复数据、spinner 卡死
 - 建议修法：ref 锁 + 序号丢弃过期响应 + finally
 - 当场可修：是
+- 修复：`b400751172`（fix(shared): XUI-022/025/032 通知订阅引用稳定、loadMore 失败解锁、分页同 tick 去重）
 
 #### XUI-033 历史投影：新方向边界把 `olderCursor` 置空
 - 严重度：P1
@@ -370,6 +413,7 @@
 - 影响面：历史无法继续上翻
 - 建议修法：游标按方向独立存储
 - 当场可修：是
+- 修复：`f2df1e6ca3`（fix(shared/app): XUI-026/027/030/033 通知 type 兜底、408 归瞬时、小时除数、续读保留对侧游标）
 
 #### XUI-034 `redact` 未保护 `decodeURIComponent` → URIError
 - 严重度：P1
@@ -380,6 +424,7 @@
 - 影响面：日志/脱敏链路中断
 - 建议修法：try/catch 回退原串
 - 当场可修：是
+- 修复：`3bf0fc4dcb`（fix(shared/app/miniapp): XUI-020/034/036/042 改密失败复位、脱敏容错、手机号/金额边界、订单列表归一）
 
 #### XUI-035 退款/提现状态机 RETRY 无上限、errorMessage 不清
 - 严重度：P1
@@ -390,6 +435,7 @@
 - 影响面：死循环重试、成功后仍显示错误
 - 建议修法：最大重试次数 + 成功清错
 - 当场可修：是
+- 修复：`c126e0892a`（fix(shared/app/mobile-rn/miniapp): XUI-028/029/035/047 权限 fail-closed、水合失败不落盘、重试上限、提现入口锁）
 
 #### XUI-036 `formatPhone` / `formatAmount` 边界错误
 - 严重度：P1
@@ -400,6 +446,7 @@
 - 影响面：三端手机号/金额展示不一致
 - 建议修法：归一化后格式化；空值返回 `--`
 - 当场可修：是
+- 修复：`3bf0fc4dcb`（fix(shared/app/miniapp): XUI-020/034/036/042 改密失败复位、脱敏容错、手机号/金额边界、订单列表归一）
 
 #### XUI-037 小程序保存相册无 hideLoading
 - 严重度：P1
@@ -410,6 +457,7 @@
 - 影响面：loading 常驻遮罩
 - 建议修法：finally 关闭
 - 当场可修：是
+- 修复：`b5f1627643`（fix(miniapp/mobile-rn): XUI-015/037/044/048 注销路由、相册 loading、webview timer、录音卸载清理）
 
 #### XUI-038 小程序会员支付确认只弹成功
 - 严重度：P1
@@ -420,6 +468,7 @@
 - 影响面：会员未购买即显示成功
 - 建议修法：接支付流程后再置成功
 - 当场可修：是
+- 修复：`dd880eef4b`（fix(miniapp): XUI-038/039/043 会员支付走真实链路、成功页只认服务端 paid、换绑提交旧号验证码）
 
 #### XUI-039 小程序支付成功页用本地 paid 标记
 - 严重度：P1
@@ -430,6 +479,7 @@
 - 影响面：伪造成功、重复领权益
 - 建议修法：以服务端订单状态为准
 - 当场可修：是
+- 修复：`dd880eef4b`（fix(miniapp): XUI-038/039/043 会员支付走真实链路、成功页只认服务端 paid、换绑提交旧号验证码）
 
 #### XUI-042 小程序订单列表标题/时间缺失、`completed` 页签永不命中
 - 严重度：P1
@@ -440,6 +490,7 @@
 - 影响面：列表不可用、页签空
 - 建议修法：字段与枚举统一到 types 真值
 - 当场可修：是
+- 修复：`3bf0fc4dcb`（fix(shared/app/miniapp): XUI-020/034/036/042 改密失败复位、脱敏容错、手机号/金额边界、订单列表归一）
 
 #### XUI-043 小程序换手机号：旧验证码只校验长度不提交
 - 严重度：P1
@@ -450,6 +501,7 @@
 - 影响面：后端校验失败或绕过校验
 - 建议修法：随请求提交并等待服务端校验
 - 当场可修：是
+- 修复：`dd880eef4b`（fix(miniapp): XUI-038/039/043 会员支付走真实链路、成功页只认服务端 paid、换绑提交旧号验证码）
 
 #### XUI-044 小程序 webview 页 reLaunch 定时器未清理
 - 严重度：P1
@@ -460,6 +512,7 @@
 - 影响面：页面栈被强行重置、跳回首页
 - 建议修法：卸载清 timer；或改用回调驱动
 - 当场可修：是
+- 修复：`b5f1627643`（fix(miniapp/mobile-rn): XUI-015/037/044/048 注销路由、相册 loading、webview timer、录音卸载清理）
 
 #### XUI-045 RN 分享页把本地 file:// 当文本分享
 - 严重度：P1
@@ -470,6 +523,7 @@
 - 影响面：对方收到不可用的本地路径
 - 建议修法：走系统文件分享/上传后分享链接
 - 当场可修：是
+- 修复：`beb86a377f`（fix(shared/mobile-rn): XUI-023/024/031/045 运行时代次、分页依赖环、溢出作用域、分享图片 URI）
 
 #### XUI-046 RN 直播主播页无 teardown、观众数随机
 - 严重度：P1
@@ -480,6 +534,7 @@
 - 影响面：后台仍占用摄像头/流量；数据造假
 - 建议修法：卸载与后台停流；人数取服务端
 - 当场可修：是
+- 修复：`b776154139`（加 `AppState` 监听 + `teardownLive`（ref 读 stream/status）在切后台与卸载时发 `updateSrsStream(id,{status:'inactive'})`；观众数两处 `Math.random()` 全删置 0；夹具 `live-host-teardown.test.ts` 2 条，旧码实测红含 `fabricated viewer count`）
 
 #### XUI-047 RN 分销提现重复提交窗口
 - 严重度：P1
@@ -490,6 +545,7 @@
 - 影响面：重复提现请求
 - 建议修法：入口即刻置锁
 - 当场可修：是
+- 修复：`c126e0892a`（fix(shared/app/mobile-rn/miniapp): XUI-028/029/035/047 权限 fail-closed、水合失败不落盘、重试上限、提现入口锁）
 
 #### XUI-048 RN 录音 hook 卸载未清计时器
 - 严重度：P1
@@ -500,6 +556,7 @@
 - 影响面：卸载后回调、内存泄漏
 - 建议修法：清 timer + epoch 丢弃过期回调
 - 当场可修：是
+- 修复：`b5f1627643`（fix(miniapp/mobile-rn): XUI-015/037/044/048 注销路由、相册 loading、webview timer、录音卸载清理）
 
 ### P2（局部错误 / 体验与一致性问题）
 
@@ -512,6 +569,7 @@
 - 影响面：登录后无跳转
 - 建议修法：登录成功一律进入首页
 - 当场可修：是
+- 修复：`62a7967c9c`（令牌"无→有"那一次把停在 Login/Register 的人送回 Main,判据 `authArrivalAction` 纯函数 + 9 例对照）
 
 #### XUI-050 rn-compat 图片选择权限硬编码 granted
 - 严重度：P2
@@ -522,6 +580,7 @@
 - 影响面：无权限时静默失败且无法引导
 - 建议修法：接 `Taro.authorize/getSetting`
 - 当场可修：是
+- 修复：`95e1a0892e89`（`platform.tsx` ImagePicker 权限改为如实上报；夹具 `permission.test.ts` 5 条，旧码实测红）
 
 #### XUI-051 rn-compat 缺 `MediaTypeOptions`
 - 严重度：P2
@@ -532,6 +591,7 @@
 - 影响面：选择器类型参数失效
 - 建议修法：补枚举别名
 - 当场可修：是
+- 修复：`bcbd00572c`（`export const MediaTypeOptions = ImagePicker.MediaType`；夹具 `media-library-and-linking-shim.test.ts` 4 条，旧码 1 红）
 
 #### XUI-052 rn-compat MediaLibrary 成员缺失/返回形状不符
 - 严重度：P2
@@ -542,6 +602,7 @@
 - 影响面：保存相册失败
 - 建议修法：返回 `{uri,width,height}`；补 `saveToLibraryAsync`
 - 当场可修：是
+- 修复：`6db56b4765`（`createAssetAsync` 回吐 `{uri,width:0,height:0}`，补 `saveToLibraryAsync` 成员与命名导出；夹具 `media-library-and-linking-shim.test.ts` 3 条，旧码 3 红）
 
 #### XUI-053 rn-compat 缺 `Linking.openSettings`
 - 严重度：P2
@@ -552,6 +613,7 @@
 - 影响面：引导按钮 TypeError
 - 建议修法：补实现（跳小程序设置页/`Taro.openSetting`）
 - 当场可修：是
+- 修复：`6db56b4765`（`Linking.openSettings` 走 `Taro.openSetting`；夹具 `media-library-and-linking-shim.test.ts` 3 条，旧码 3 红）
 
 #### XUI-054 rn-compat expo-file-system 成员缺口
 - 严重度：P2
@@ -562,6 +624,7 @@
 - 影响面：下载更新链路不可用
 - 建议修法：补齐或显式降级并在 UI 提示
 - 当场可修：是
+- 修复：`d6306a65b3`（按「显式 not-supported」落地：`fileSystemSupport.supported=false`；`cacheDirectory/documentDirectory` 显式 `null`；`createDownloadResumable`/`getContentUriAsync`/`File.open`/`File.createUploadTask` 抛 `NotSupportedError(code=ERR_NOT_SUPPORTED)`；`FileMode`/`UploadType` 取值即抛；二进制 `File.write` 不再写空串假装成功。夹具 5 例。改前 5 红 → 5 绿。注：RN 侧这些成员本就走 RN 原生实现，小程序端无可达调用点，本改动是防御性契约，不是恢复某条链路）
 
 #### XUI-055 rn-compat 多选数量只看 selectionLimit
 - 严重度：P2
@@ -572,6 +635,8 @@
 - 影响面：批量选图受限
 - 建议修法：多选时给默认上限
 - 当场可修：是
+- 复核（2026-11-08，坐实）：`apps/mobile-rn/src/screens/CirclePostScreen.tsx:75-79` 传 `allowsMultipleSelection: true` 且无 `selectionLimit`；垫片旧逻辑只取 `selectionLimit ?? 1` ⇒ `chooseImage({count:1})`。属功能失效/错误数据，P2 上限。
+- 修复：`81b3fc2771`（`selectionLimit ?? (allowsMultipleSelection === true ? 9 : 1)`；夹具 `image-picker-multi-select.test.ts` 3 条，旧码 1 红，权限回归 5 条绿）
 
 #### XUI-056 rn-compat 不支持对象形 `navigate`
 - 严重度：P2
@@ -582,6 +647,7 @@
 - 影响面：跳转失败
 - 建议修法：垫片兼容对象形
 - 当场可修：是
+- 修复：`c6fc25f996`（`navigate` 接受 `{ name, params }` 并拆解；夹具 `object-navigate-shim.test.ts` 2 条，旧码 1 红；既有 `navigation.test.ts` 31 条回归绿）
 
 #### XUI-057 小程序语音识别重复 `configure` 方法
 - 严重度：P2
@@ -592,6 +658,7 @@
 - 影响面：类型检查红、后者覆盖前者
 - 建议修法：合并为一
 - 当场可修：是
+- 复核（2026-11-08，**否证/已消解**）：当前 `streaming-recognizer.ts` 全类仅 `configure` 一处定义（`:86`），`init` 在 `:67-68` 以 `this.configure(config)` 复用；录音回调有 `if (this.recorderManager) return` 幂等守卫（`:70`），不会随 `configure` 重复注册。票内 `:72-76,93-102` 的重复成员已不存在，TS2393 不成立。属历史版本残留描述，销号。
 
 #### XUI-058 `order.pay` 文案缺失 + RN 智能体价格按分重复缩放
 - 严重度：P2
@@ -602,6 +669,13 @@
 - 影响面：文案与金额错
 - 建议修法：补 key；明确单位
 - 当场可修：是
+- 复核结论（2026-11-08）：**「RN 智能体价格按分重复缩放」与否证不成立，price 单位实为「分」，RN 的 `formatPrice` 是唯一一次换算**。三段证据：
+  1. **写入面（证存储单位为分）**：`packages/database/src/schema/agents-extended.ts:42` `price: integer('price').default(0).notNull()`；后台写入点 `apps/api/src/routes/agents.ts:509` 直接落 `body.price`（无 ×100 换算）；服务端唯一换算点 `apps/api/src/services/agent-service.ts:194-195` `(agent.price / 100).toFixed(2) 元` —— 若存储为元则此处会再缩 100 倍，反证存储必为分。
+  2. **展示面（并非所有路径都走 formatPrice）**：`formatPrice`（`packages/shared/src/utils` 内 ÷100）调用者仅 `apps/mobile-rn/src/screens/MyAgentsScreen.tsx:50` 一处；web 端另走 `Intl.NumberFormat('currency','CNY')` 或裸 `` `¥${agent.price}` ``：`apps/web/app/(main)/agents/AgentGrid.tsx:27,110`、`.../agents/my/page.tsx:193`、`.../admin/agents/AgentsTable.tsx:53,108` —— 这些路径对同一整数**不再除 100**。
+  3. **排除重复缩放**：`GET /agents/my`（`apps/api/src/routes/agents.ts:405-414`）直接复用 `listAgents` 返回 DB 原始行，无 `priceText`/已格式化字段；web 编辑页 `admin/agents/page.tsx:100` 以 `String(agent.price)` 回填也证明接口给的是原始整数。故 RN 侧 `formatPrice(a.price)` 只发生一次 ÷100，不构成「已除过再除」。
+- 未修部分：`order.pay` i18n key 缺失位于 `packages/app`，不在本次 miniapp/RN 范围，仍未处理。
+- 新开条目（不并入本条）：**XUI-058b web 端把「分」当「元」显示**（`AgentGrid.tsx:110`、`agents/my/page.tsx:193`、`AgentsTable.tsx:108` 直接 format 原始整数，展示值放大 100 倍）。范围外（`apps/web`），仅留痕未改。
+- 复核（2026-11-08）：`order.pay` 五语缺 key 已补（`ffa7594775`）；分/元重复缩放部分已否证，无需改。
 
 #### XUI-059 RN 端 artifacts 系列 i18n key 缺失
 - 严重度：P2
@@ -612,6 +686,7 @@
 - 影响面：界面中英混杂
 - 建议修法：同步语言包
 - 当场可修：是
+- 修复：`ffa7594775`（mobile-rn 5 语 artifacts 命名空间对齐 web，补 27 key；共享屏不再回落原始点路径）
 
 #### XUI-060 `login.platformLinuxdo` 缺失
 - 严重度：P2
@@ -622,6 +697,7 @@
 - 影响面：文案破损
 - 建议修法：补 key
 - 当场可修：是
+- 修复：`ffa7594775`（补 `login.platformLinuxdo` 五语，值 LinuxDo）
 
 #### XUI-061 模块级 `Intl` 实例冻结时区
 - 严重度：P2
@@ -632,6 +708,8 @@
 - 影响面：时间显示错误
 - 建议修法：按需创建或缓存带 key
 - 当场可修：是
+- 复核（2026-11-08）：票内三处已消解 —— `MemoryScreen` 现无任何 `Intl`；`quick-notes-styles.ts`/`withdrawal-props.ts` 已不存在；`letter-time.ts` 是刻意固定 `zh-CN`（逐字复刻 web 口径，非缺陷）。同类残留真例在 `WorkflowsScreen.tsx:20`（票外），已一并修。
+- 修复：`0831c5f8a0`（`formatNextRun` 改为按调用时 `new Intl.DateTimeFormat()`，删除模块级实例；夹具 `intl-formatter-not-frozen.test.ts` 2 条，旧码 1 红）
 
 #### XUI-062 相对时间 ja/ko 回退英文
 - 严重度：P2
@@ -642,6 +720,7 @@
 - 影响面：本地化缺失
 - 建议修法：补 ja/ko 或走 Intl.RelativeTimeFormat
 - 当场可修：是
+- 修复：`c38ec4c9b4`（Hermes 分支补 ja/ko 单位与「たった今 / 방금 전」，zh/en 读数不变）
 
 #### XUI-063 小程序 i18n key 漂移
 - 严重度：P2
@@ -652,6 +731,7 @@
 - 影响面：文案缺失
 - 建议修法：统一 key 命名
 - 当场可修：是
+- 修复：`af15ecdcb5`（只补**源**文案并按规范名对齐：广场页 `search/menu/category` → 源里的 `navSearch/navMenu/navCategory`；源补 `plaza.index.loadFail`、`wallet.recharge.title/balance/rate/introTitle/introBody`、`common.gotIt` ×5 语。夹具 `xui-063-i18n-keys.test.ts` 只对 `packages/i18n/messages/{shared,miniapp-taro}` 断言、不碰 `.gen.ts`；产物重生成并入 XUI-076 同一次，不分两次动同一批文件）
 
 #### XUI-064 AppTopup 屏未接 `texts`
 - 严重度：P2
@@ -662,16 +742,18 @@
 - 影响面：界面空缺
 - 建议修法：传入完整 texts
 - 当场可修：是
+- 结论（2026-11-08，**不改**）：共享屏 `texts` 是**可选覆盖**、默认文案内置，容器不传不会出现空文案；原「文案空/默认」判断不成立，结案，后续勿重报。
 
 #### XUI-065 token 数值格式化两端分歧
 - 严重度：P2
-- 文件与行号：`packages/shared/src/utils/format.ts:83-90` vs `apps/miniapp-taro/src/pages/user/components/UserInfoCard.tsx:114-119`
+- 文件与行号：`packages/shared/src/utils/format.ts:98-105` vs `apps/miniapp-taro/src/components/UserInfoCard.tsx:114-119`
 - 触发路径：余额/代币展示
 - 根因：统一格式化与本地格式化两套规则（小数位/千分位）
 - 证据：同值不同展示
 - 影响面：三端数字不一致
 - 建议修法：收敛到共享函数
 - 当场可修：是
+- 修复：`a3021e99e5`（删除端内 w/k 实现，改 import `@ihui/shared/utils/format` 的 `formatTokenValue`（万/亿 + 2 位）；夹具 `user-token-format-single-source.test.ts` 2 条，旧码 1 红）
 
 #### XUI-066 小程序镜像屏以空串掩盖错误
 - 严重度：P2
@@ -682,6 +764,11 @@
 - 影响面：用户无法感知失败、无法重试
 - 建议修法：透传真实错误
 - 当场可修：是
+- 修复：`5fd91c5f27`（组1:help / category-detail / withdrawal / vip-privilege / study-rank，夹具 `shell-load-error-1.test.ts` 6 条，旧码 5 红）
+- 修复：`6c49f40763`（组2:aigc/publish + teacher/detail；`ai-chat-detail` 经查已有 `ErrorState`+`onRetry`，不属静默失败；夹具 `shell-load-error-2.test.ts` 3 条，旧码 2 红）
+- 修复：`27140b31c8`（组2b:news/list、vip/index、live/subscribe；夹具 `shell-load-error-3.test.ts` 4 条，旧码 4 红）
+- 修复：`d8e7efae39`（组3a:message/index、distribution/rank、setting/privacy；夹具 `shell-load-error-4.test.ts` 3 条，旧码 3 红）
+- 修复：`67f95aa05b`（组3b:setting/notification；夹具 `shell-load-error-5.test.ts` 1 条，旧码 1 红）
 
 #### XUI-067 帮助页「返回」实为重试
 - 严重度：P2
@@ -692,6 +779,7 @@
 - 影响面：用户误操作
 - 建议修法：文案/行为对齐
 - 当场可修：是
+- 复核（2026-11-08，**已消解**）：当前 `packages/app/src/features/category-detail/CategoryDetailScreen.tsx:99` 已为 `retryLabel={t('common.retry')}` + `onRetry`，票内「返回」文案绑定重试的写法已不存在。销号。
 
 #### XUI-068 改密屏「忘记密码」在 RN 为死路
 - 严重度：P2
@@ -702,6 +790,8 @@
 - 影响面：找回密码不可用
 - 建议修法：与 XUI-004 一并修
 - 当场可修：是
+- 复核（2026-11-08，**部分覆盖**）：XUI-004（`0ba309d2f7`）补了 ChangePwd 路由，但 RN 宿主 `apps/mobile-rn/src/screens/ChangePwdScreen.tsx` 仍未向共享屏传 `onForgotOld`，忘记密码入口不渲染，找回路径仍缺。
+- 修复：`d6306a65b3`（先查复用面：shared 无找回屏、miniapp 页是 Taro 原生给 RN 用不上、web 已有 `/forgot-password` ⇒ RN 用通用 `WebView` 复用 web 页，**不起第二套屏**；登录页忘记入口改跳该页，改密屏「忘记旧密码」也指同一处，**解开 Login→ChangePwd 死环**；未登录分支补注册 `WebView` 路由）
 
 #### XUI-069 RN 设备列表请求竞态
 - 严重度：P2
@@ -712,6 +802,7 @@
 - 影响面：列表回跳
 - 建议修法：序号丢弃过期响应
 - 当场可修：是
+- 修复：`981c44915bfc`（`reqSeqRef`/`filterSeqRef` + mounted ref 丢弃过期响应；夹具 `request-race-and-double-submit.test.ts` 5 条，旧码 5 红）
 
 #### XUI-070 AiWorld / Purchase / AigcPublish 重复提交与卸载后回调
 - 严重度：P2
@@ -722,6 +813,7 @@
 - 影响面：重复下单、告警
 - 建议修法：入口置锁 + mounted ref
 - 当场可修：是
+- 修复：`981c44915bfc`（入口 ref 置锁 + mounted 守卫；夹具 `request-race-and-double-submit.test.ts` 5 条，旧码 5 红）
 
 #### XUI-071 multipart 下载无界缓冲、进度回调在卸载后
 - 严重度：P2
@@ -732,6 +824,8 @@
 - 影响面：OOM / 告警
 - 建议修法：流式落盘 + 取消令牌
 - 当场可修：是
+- 降级方案（2026-11-08）：先有界、不一步跨到流式。**上限 = 单片 64 MiB / 整包 256 MiB**（真实包 85–200MB 在界内；XHR 整片驻留内存，超界即低端机 OOM）。**超限拒绝**（不落盘、不做无界缓冲）：清单解析期抛 `PartsUnavailableError`，`code = ERR_PARTS_OVER_LIMIT`；调用方（apk-update）据此退回单文件腿。真流式留给后续跨端分片契约。
+- 修复：`d6306a65b3`（`MAX_PART_BYTES`/`MAX_TOTAL_BYTES` + 解析期拒绝 + 错误码；夹具 3 例：单片超界 / 整包超界 / 恰好等于上限仍接受。改前 3 红 → 14/14 绿）
 
 #### XUI-072 小程序课程详情成功与失败 toast 并存
 - 严重度：P2
@@ -742,6 +836,7 @@
 - 影响面：误导用户
 - 建议修法：单一出口
 - 当场可修：是
+- 修复：`95e1a0892e89`（成功/失败 toast 互斥；夹具 `sign-toast.test.ts` 2 条，旧码实测红）
 
 #### XUI-073 小程序充值失败丢失 orderNo
 - 严重度：P2
@@ -752,6 +847,7 @@
 - 影响面：订单悬挂
 - 建议修法：保留并展示订单号
 - 当场可修：是
+- 修复：`b342856a45`（失败不再跳 `orderNo=` 空单号页；同批修同型死路由 `/pagesA/top-up/index` → `/pkg-shop/wallet/top-up/index`；夹具 `recharge-and-dead-route.test.ts` 4 条，旧码 2 红）
 
 #### XUI-074 ToolApprovalSheet / ImageAnnotator 键盘与高度处理缺失
 - 严重度：P2
@@ -762,8 +858,84 @@
 - 影响面：按钮不可达、无法输入
 - 建议修法：加 `maxHeight` + ScrollView/KAV
 - 当场可修：是
+- 修复：`ToolApprovalSheet` 卡片改 `ScrollView`（`maxHeight:'85%'` + `cardContent` 承载 padding/gap + `keyboardShouldPersistTaps="handled"`），外层套 `KeyboardAvoidingView`（iOS `padding`）；`ImageAnnotator` 全屏根容器改 `KeyboardAvoidingView`（iOS `padding`），保留 `autoFocus` 输入行。夹具 `apps/mobile-rn/src/lib/__tests__/xui-074-keyboard-panels.test.ts` 3 条，旧码实测 3 红、新码 3 绿。
 
 ---
+
+#### XUI-075 小程序提现「全部提现」写入千分位串导致金额解析为 NaN
+- 严重度：P1（错误数据 / 功能失效；机主 2026-11-08 复核上调：余额 ≥1000 用户永远提不出钱 + 失败静默）
+- 文件与行号：`apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/withdrawal-props.ts`（`priceFmt` 未关 `useGrouping`，输出 `1,234.56`）、`apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx`（原 `:52` `Number(amount)`；失败 `catch` 静默）
+- 触发路径：钱包 → 提现 → 点「全部提现」→ 提交
+- 根因：展示格式化与提交解析共用同一字符串，`Number('1,234.56') === NaN` ⇒ 守卫判「请输入有效金额」，余额 ≥ 1000 的用户永远提不出钱；另提交失败被 `// ignore` 吞掉，无任何提示。
+- 证据：`formatWithdrawAmount` 走 `Intl.NumberFormat` 默认分组；夹具 `withdrawal-amount-parse.test.ts` 用真实 formatter 输出回灌解析。
+- 影响面：小程序提现链路（≥1000 元必现）。
+- 建议修法：提交前剥离千分位/空白再转数；失败如实 toast。
+- 当场可修：是
+- 修复：`1a24120be2`（新增 `parseWithdrawAmount`，`onSubmit` 改用它；`catch` 补错误 toast；夹具 3 条，旧码 3 红）
+
+#### XUI-076 小程序派生产物钉陈旧（i18n 离线包 + ui-routes）
+- 严重度：P2（错误数据：端上可能读过期文案/路由白名单）
+- 状态：**只写清单，禁止本轮重生成**。合并波次正在跑，47 条分支里也有改 `ui-routes.generated.ts` / i18n 生成物的，两边同时写生成物必然打架。等波次收口后由**唯一写入者**跑一次，其他人不得手改这四个文件。
+- 生成器与固定命令（两条，缺一不可）：
+  - `pnpm gen:i18n` → `scripts/gen-i18n-compressed.mjs`
+  - `node apps/miniapp-taro/scripts/generate-ui-routes.mjs` → `apps/miniapp-taro/scripts/generate-ui-routes.mjs`
+- 复算方法：`scripts/lib/generated-input-pin.mjs` 的 `parsePin` + `digestInputs` + `differingInputs`；逐条读取钉内 `input:` 行的磁盘当前内容复算，全程只读，未执行生成器。
+
+| # | 生成物 | 钉内输入数 | 不一致输入数 | 当前钉（`inputsSha256`） | 按磁盘输入复算 | 钉内 sourceCommit / generatedAt |
+|---|---|---|---|---|---|---|
+| 1 | `apps/miniapp-taro/src/i18n/generated/zh-cn-pack.gen.ts` | 3 | 1 | `20c17b6079d21d55740baf172c135c6c24e65a3330f8ebfceb79da8103918c1b` | `edd02c9e2a989015a496d86a602f0eab471cc86bd1fd9c1dc8607212878b8afc` | `f5a4ce8f5b82` / `2026-11-07T10:02:27.124Z` |
+| 2 | `apps/miniapp-taro/src/i18n/generated/remote-locales.gen.ts` | 12 | 4 | `58e4c4e8730bd376ac6f83eb9d4fee4734f63834ac7e4c7b729cbe6f0ab4355c` | `ad4c9239ea74d8f194efaa539a8d91d312e1254ed9009de1b7b63042281554ac` | `f5a4ce8f5b82` / `2026-11-07T10:02:26.972Z` |
+| 3 | `apps/miniapp-taro/src/i18n/generated/remote-locale-manifest.gen.ts` | 12 | 4 | `58e4c4e8730bd376ac6f83eb9d4fee4734f63834ac7e4c7b729cbe6f0ab4355c` | `ad4c9239ea74d8f194efaa539a8d91d312e1254ed9009de1b7b63042281554ac` | 同 #2（同一批输入，两产物同钉） |
+| 4 | `apps/miniapp-taro/src/constants/ui-routes.generated.ts` | 725 | 37 | `4adbac89e83dfff613c289e935560349b381ee6e06b7c7af4632fe762bb8f2c9` | `d7c5520c9265f2e73b86b401eb4217d2eaf48d424ec0824c47011d40206fb240` | `b832d2a6dc0a` / `2026-11-08T06:52:09.584Z` |
+
+- 输入对应关系（逐条）：
+  - **#1** 输入 3 条：`packages/i18n/messages/{miniapp-taro,mobile-rn,shared}/zh-CN.json`；仅 `miniapp-taro/zh-CN.json` 已变（`f53b21b04146 → ecf44d5c3896`），另 2 条未变。
+  - **#2/#3** 输入 12 条：`packages/i18n/messages/{miniapp-taro,mobile-rn,shared}/{en,ja,ko,zh-TW}.json`；已变 4 条全在 `miniapp-taro/`：`en.json`、`ja.json`、`ko.json`、`zh-TW.json`；`mobile-rn/` 与 `shared/` 的 8 条未变。
+  - **#4** 输入 725 条（`apps/miniapp-taro/src` 源码 + `app.config.ts` + `app.tsx`）；已变 37 条（12 位 sha 前缀，`pinned → actual`）：
+    1. `apps/miniapp-taro/src/api/index.ts` `440515d20c9e → 2c32067aa997`
+    2. `apps/miniapp-taro/src/components/UserInfoCard.tsx` `7fa64862d686 → f3d01b9aa5f9`
+    3. `apps/miniapp-taro/src/pages/community/components/MyAgents.tsx` `20495a0fedcb → 1525fc44a517`
+    4. `apps/miniapp-taro/src/pages/community/components/RecentAgents.tsx` `0f30bec278c1 → 83875e98cf51`
+    5. `apps/miniapp-taro/src/pages/community/index.tsx` `11144e88b0df → e491d20964d2`
+    6. `apps/miniapp-taro/src/pages/distribution/commission-overview.tsx` `810005ec02c2 → 24fee0b1622f`
+    7. `apps/miniapp-taro/src/pages/distribution/rank.tsx` `ce87ad53a453 → 13a356fe73c8`
+    8. `apps/miniapp-taro/src/pages/setting/index.tsx` `ca1e712b4c29 → 9ac06167c436`
+    9. `apps/miniapp-taro/src/pages/setting/notification.tsx` `b1a9156931ed → 993ffc1ff11c`
+    10. `apps/miniapp-taro/src/pages/setting/privacy.tsx` `edcb0d63a0fd → c78b472d909f`
+    11. `apps/miniapp-taro/src/pages/study/rank.tsx` `55fe773a4e8e → a7a38d15b6b2`
+    12. `apps/miniapp-taro/src/pages/user/index.tsx` `2e514383575c → 07f87bb75a66`
+    13. `apps/miniapp-taro/src/pages/webview/index.tsx` `ca3a99c4e24a → b8efb77d8879`
+    14. `apps/miniapp-taro/src/pkg-about/about-shared/index.tsx` `4f1c15535b37 → 4c3e6bf96e07`
+    15. `apps/miniapp-taro/src/pkg-about/about/help.tsx` `8e47f8f5e665 → 3ebd65629246`
+    16. `apps/miniapp-taro/src/pkg-ai/ai/chat-list-extras.tsx` `e69844ce7dbb → e14172ec9886`
+    17. `apps/miniapp-taro/src/pkg-ai/ai/chat-shell-extras.tsx` `56304872417d → 98cce26ed50f`
+    18. `apps/miniapp-taro/src/pkg-ai/ai/chat.tsx` `438fc079585a → 10dc02b18b0a`
+    19. `apps/miniapp-taro/src/pkg-ai/ai/model-switch.ts` `d9618f48e982 → e2a188a9b062`
+    20. `apps/miniapp-taro/src/pkg-ai/aigc/publish.tsx` `bcb3087f5798 → 8db5dc12a700`
+    21. `apps/miniapp-taro/src/pkg-content/category-detail/index.tsx` `3a87b1fc6328 → a99f00462225`
+    22. `apps/miniapp-taro/src/pkg-content/news/list.tsx` `6c746e9e340f → af2261a655e3`
+    23. `apps/miniapp-taro/src/pkg-learn/course/detail.tsx` `43a43e70681e → 0851965342b4`
+    24. `apps/miniapp-taro/src/pkg-learn/live/subscribe.tsx` `d8225b552321 → 89cf4aed1a9d`
+    25. `apps/miniapp-taro/src/pkg-learn/teacher/detail.tsx` `8cf48d814364 → faa17850f235`
+    26. `apps/miniapp-taro/src/pkg-shop/vip/index.tsx` `c2c9c2985014 → d5b0999f3e35`
+    27. `apps/miniapp-taro/src/pkg-shop/vip/privilege.tsx` `b6e92e460035 → 320be699c0ea`
+    28. `apps/miniapp-taro/src/pkg-shop/vip/success.tsx` `7802e8745b12 → 2bd8069f8647`
+    29. `apps/miniapp-taro/src/pkg-shop/wallet/recharge/index.tsx` `32903eedfb7a → 9437409649f2`
+    30. `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx` `a8e49cfdcf8d → 2aeaff4b5e63`
+    31. `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/withdrawal-props.ts` `f07b95d54e7e → 4ff9f8dabc00`（XUI-075 修复新增）
+    32. `apps/miniapp-taro/src/pkg-user/message/index.tsx` `ce21b8231520 → ee5cea777f6b`
+    33. `apps/miniapp-taro/src/pkg-user/user/phone.tsx` `098bdca7eeea → f4af5925bb64`
+    34. `apps/miniapp-taro/src/rn-compat/apis.ts` `3e8fcc812bac → b5b1fb26bfb0`
+    35. `apps/miniapp-taro/src/rn-compat/navigation.tsx` `3ad2f9eb0d82 → ac95743f46a4`
+    36. `apps/miniapp-taro/src/rn-compat/platform.tsx` `f1d75668e67a → ee3a71a31c59`
+    37. `apps/miniapp-taro/src/utils/save-album.ts` `54c51fe47bf5 → da89c69bc215`
+- 对照组（已复算一致，**不要**一并重生成）：
+  - `apps/mobile-rn/src/constants/ui-routes.generated.ts`：2 输入 / 0 差异，钉 `e7f9dbfa0fdf5aec0036fc74aa447c4da050c369aeeba6e0db35d83023ca33e1`
+  - `apps/web/src/lib/ui-routes.generated.ts`：923 输入 / 0 差异，钉 `5a5c3099e578a6e82c973d55f2ea02ca65f99567409607928f990e7c073aa1e4`
+- 交接验收：唯一写入者执行两条命令后，只允许 #1–#4 四个文件出现 diff；`git diff --stat` 应显示 4 files；若多出文件说明波次期间又有源码/语言包变更，按新钉重算再交。禁止手改 `inputsSha256` 或 `generatedAt`。
+- 影响面：小程序离线文案（zh-CN 与 en/ja/ko/zh-TW）与 `ROUTE_NOT_ALLOWED` 白名单可能落后于源码。
+- 当场可修：否（本轮受协作约束冻结；`git diff` 体量大，按「不跑门」政策留待波次后单独提交）
+- 状态（2026-11-08）：按指令冻结，等合并波次收口后由唯一写入者重生成；本轮不动。
 
 ## 三、未判定（证据不足，未计入结论）
 
@@ -771,21 +943,37 @@
 |---|---|---|
 | U-1 | 小程序支付宝分支充值金额是否整体 ×100（仅观察到优惠券分支差异） | 需真机支付宝环境 + 服务端下单参数 |
 | U-2 | 小程序 `pay/index.tsx` 金额单位（展示为 1/100 真实值，支付宝疑似 100 倍） | 需支付宝沙箱实测 |
-| U-3 | 小程序权限硬编码 granted 是否会被 `wx.requirePrivacyAuthorize` 拦截 | 需微信隐私协议配置实测 |
-| U-4 | LiveHost 观众数随机是否为 mock 设计（可能是有意的演示数据） | 需产品口径确认 |
+| U-3 | 小程序权限硬编码 granted 是否会被 `wx.requirePrivacyAuthorize` 拦截 | 已消解：包装层不再硬编码，改为如实上报（XUI-050 `95e1a0892e89`）；真机拦截仍属平台行为 |
+| U-4 | LiveHost 观众数随机是否为 mock 设计（可能是有意的演示数据） | 需产品口径确认；已按「不臆造」处理（置 0），见 XUI-046 修复 `b776154139` |
 | U-5 | 构建产物 `dist` 与 `src` 逐符号差异（本轮只验证 exports 叶子存在） | 需构建后比对，超出只读静态面 |
 | U-6 | 小程序支付是否缺 `buyerId` 导致后端走 mock | 仅 `pkg-shop/vip/upgrade.tsx:117` 传了 `buyerId`，充值与普通支付路径未取证 |
-| U-7 | 小程序提现「千分位字符串 → NaN」 | `pkg-shop/wallet/withdrawal/index.tsx:52` 为 `Number(amount)`，输入源是否被格式化未取证 |
+| U-7 | 小程序提现「千分位字符串 → NaN」 | **复核坐实 → 升级 XUI-075，已修**：`withdrawal-props.ts` 的 `priceFmt` 默认 `useGrouping`，「全部提现」写入 `1,234.56`，旧 `Number(amount)` 得 NaN |
 
 ## 四、已否证（误报，附复核依据）
 
 | 编号 | 曾被怀疑 | 复核结论 |
 |---|---|---|
-| N-1 | RN 全仓无 `navigation.push` / 无 `Platform.select` | 否证：实际存在 `KnowledgeEntryReadingScreen.tsx:127-128`、`LettersScreen.tsx:96`、`ChatMessageList.tsx:230`、`ToolCallCard.tsx:73`、`ChatScreen.tsx:3952`、`AiAssistantN8nScreen.tsx:2395/2407/2414` |
-| N-2 | `packages/*` 的 exports 目标文件缺失 | 否证：10 个包全量 `Test-Path` 通过，零缺失 |
-| N-3 | 生成物 `inputsSha256` 与源码不符 | 否证：RN 349 / miniapp 329 / web 913 / extension 51 全部复算一致 |
-| N-4 | 三端订单/退款状态机真值漂移 | 否证：真值源一致；Web 本地 `STATUS_CONFIG` 收缩才是问题（已列 XUI-001） |
-| N-5 | rn-compat 缺 `Alert/Share/Keyboard/Animated/BackHandler/DeviceEventEmitter/InteractionManager/RefreshControl/KeyboardAvoidingView/NativeModules/useColorScheme` | 否证：均已在 `apis.ts`/`primitives.tsx`/`native-extras.ts` 导出 |
+| N-1 | RN 全仓无 `navigation.push` / 无 `Platform.select` | 否证（2026-11-08 复核维持）：`navigation.push`/`Platform.select` 在 `apps/mobile-rn/src` 命中 6 个文件，含 `KnowledgeEntryReadingScreen.tsx:127-128`、`LettersScreen.tsx:96`、`ChatMessageList.tsx:230`、`ToolCallCard.tsx:73`、`ChatScreen.tsx:3952`、`AiAssistantN8nScreen.tsx:2395/2407/2414` |
+| N-2 | `packages/*` 的 exports 目标文件缺失 | 否证（2026-11-08 复核，需限定）：脚本按通配展开复核 10 包 108 个目标，仅 `app` 的 `./features/*`（映射 `./src/features/*.tsx`）无直系文件（该目录 245 个全是子目录）；全仓 `@ihui/app/features` 零 import ⇒ 无消费面破坏，仍非缺陷 |
+| N-3 | 生成物 `inputsSha256` 与源码不符 | **判定纠正：现坐实（陈旧钉）**。2026-11-08 逐条复算 1678 条输入：`web ui-routes` 923 条、`mobile-rn ui-routes` 2 条、`extension` 1 条一致；miniapp 侧 50 条不一致 —— i18n 4 语言输入（`en/ja/ko/zh-TW.json`）与 `zh-cn-pack` 输入 `zh-CN.json` 已变而产物未重生成（`remote-locales.gen.ts`/`remote-locale-manifest.gen.ts` 聚合钉 `58e4c4e8→ad4c9239`）；`miniapp ui-routes` 37 个被本轮 P0/P1 编辑过的页面/组件输入也不再匹配（聚合 `4adbac89→d7c5520c`）。处置：`pnpm gen:i18n` + `node apps/miniapp-taro/scripts/generate-ui-routes.mjs` 重生成（本轮按「不跑门」政策未执行，列为 XUI-076） |
+| N-4 | 三端订单/退款状态机真值漂移 | 否证（2026-11-08 复核维持）：Web `PageClient.tsx:47-57` 的 `STATUS_CONFIG` 现含全部 7 个状态（pending/paid/cancelled/refunding/refunded/completed/failed）+ `STATUS_FALLBACK`；原「收缩」问题即 XUI-001，已修 |
+| N-5 | rn-compat 缺 `Alert/Share/Keyboard/Animated/BackHandler/DeviceEventEmitter/InteractionManager/RefreshControl/KeyboardAvoidingView/NativeModules/useColorScheme` | 否证（2026-11-08 复核维持）：`RefreshControl` `primitives.tsx:634`、`KeyboardAvoidingView` `primitives.tsx:986`、`NativeModules` `primitives.tsx:1122`；其余 8 个在 `apis.ts` 导出 |
+| N-6 | 「格式化 → 再解析」是一整族（千分位 / `toFixed` / `toLocaleString` 输出被 `Number()`/`parseFloat`/一元 `+` 再解析；`reduce` 字符串当数字累加） | **否证（范围内零新增）**：两端 + `packages/*/src` 全量扫描后，唯一真实可达仍是已修的 XUI-075；其余同型写法均无格式化输入路径，逐条依据见下 |
+
+### N-6 扫描明细（2026-11-08，只读）
+
+- 扫描面：`apps/miniapp-taro/src`、`apps/mobile-rn/src`、`packages/*/src`（排除 `*.test.*` 与 `node_modules`）。
+- 扫描三类：① 格式化调用（`toLocaleString` / `toFixed` / `Intl.NumberFormat` / `formatPrice` / `formatAmount` / `formatMoney` / `formatTokenValue` / `formatWithdrawAmount` / `priceFmt`）；② 再解析点（`Number(` / `parseFloat(` / `parseInt(` / 一元 `+` / `*` `/`）；③ `reduce` 累加。另做了「赋值变量 → 后续数值运算」与「格式化输出传入 JSX `value=` / 组件 prop → 下游解析」两条跨语句追踪。
+- 唯一真实命中（已修）：`apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/withdrawal-props.ts` 的 `onFillAll` 曾把 `formatWithdrawAmount(balance)`（`1,234.56`）写进输入框，提交时 `Number()` → `NaN`。修复 `1a24120be2` 新增 `parseWithdrawAmount`，夹具 3 条旧码 3 红。
+- 同型但不可达 / 非本族（逐条排除依据）：
+  1. `apps/mobile-rn/src/screens/WithdrawScreen.tsx:128` `Number(amount)`：共享屏 `onFillAll` 为可选，RN 壳未传（`packages/app/src/features/withdraw/WithdrawScreen.tsx` 仅回调），无「全部」把格式化余额写入输入框的路径；输入为原始键盘文本。
+  2. `apps/miniapp-taro/src/pkg-shop/pay/index.tsx:130`、`apps/miniapp-taro/src/pkg-shop/vip/success.tsx:51` `Number(router.params.amount)`：`pkg-shop/pay/index` 全部导航点（订单列表 `rawAmountRef`、课程详情 `amount`）传原始数值字符串；`vip/success` 由 `vip/index` 以数值跳转，均无 `toLocaleString`/千分位来源。
+  3. `apps/mobile-rn/src/screens/PurchaseScreen.tsx:194` `parseInt(amountText.replace(/[^\d]/g,''))`：`keyboardType="number-pad"` 只收整元，且该 `/[\d]/` 过滤器对粘贴 `1,000` 仍得 `1000`；无小数分单位设计，不属格式化输出再解析。
+  4. `apps/miniapp-taro/src/pkg-ai/developer/withdrawal.tsx:66` `reduce + Number(it.amount)`：`it.amount` 类型 `number`，上游 numeric 原文（`1234.56`）无分组分隔符；`apps/mobile-rn/src/screens/CartScreen.tsx:112` 同型，`normalizeCartGoods` 已 `Number()` 归一 `price/quantity`，累加起点为数字，不产生字符串拼接。
+  5. `packages/api-client/src/endpoints/agent-usage.ts:40-41` `Number(it.prompt) || 0`：上游为原始整数/数字串，无格式化；`|| 0` 只吞空值（与 API 侧 F-698/F-699 的 `int8 → string` 是另一族，且不在本次两端范围，未重复上报）。
+  6. `apps/mobile-rn/src/screens/AgentListPanel.tsx:61-65` `String(parseFloat((cents / 100).toFixed(2)))`：仅用于去尾零，roundtrip 无分组、无精度损失（分值最多 2 位）。
+  7. `packages/shared/src/utils/format.ts` 的 `formatPrice` / `formatAmount` / `formatMoney` / `formatTokenValue` 输出（含 `formatAmount` 的 `toLocaleString` 千分位）：两端消费点全部止于 JSX/文案，无 `Number()`/`parseFloat`/一元 `+` 消费；JSX `value={…format…}` 在两端与 `packages/app/src` 零命中，故不存在「格式化值预填表单 → 提交解析」入口。
+- 结论：该族在两端 + packages 内零新增；XUI-075 已是唯一实例并修复。若后续新增把格式化文案回灌输入框/接口的代码，按本清单第 1 条模式加夹具拦截。
 
 ## 五、与 `PROJECT_PLAN.md` / `plan-fields.jsonl` 的去重
 
@@ -805,8 +993,108 @@
 
 ## 六、收尾
 
-- **新增条数**：72 条（P0 14 / P1 32 / P2 26）。
-- **第 6 轮新增**：0 条 → 收敛。
+- **新增条数**：74 条（P0 14 / P1 33 / P2 27）。
+- **第 6 轮新增**：+2（XUI-075 提现千分位、XUI-076 派生产物陈旧钉）；复核坐实 1（N-3），复核维持否证 7（N-1/N-2/N-4/N-5/N-6 + XUI-011/XUI-012）。
+- **2026-11-08 补充**：XUI-076 已产出重生成清单（4 产物 / 50 条不一致输入 / 钉与复算 sha 全量），按协作约束冻结未重生成；N-6「格式化→再解析」族扫描零新增。
 - **覆盖清单**：三端入口与路由真值 · 共享包导出/types · 订单/会员/分销/退款/提现/充值/支付链 · RN 导航注册与登录态 · 小程序存储键与页面栈 · rn-compat 全量导出与消费交叉 · 共享 hook/状态机/SSE/通知/权限 · i18n 与共享屏契约 · 平台权限/键盘/SafeArea/后台切换 · 输入单位与时区。
 - **仍可深挖的方向**：见「未判定」U-1..U-7；另建议补两条静态面：(a) `apps/extension` UI 面（本次扫描范围外）；(b) api-client `dist` 产物与 `src` 逐符号差异（需构建，非只读）。
-<!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->
+
+## 七、2026-11-08 跨端二批（已推 `fix/crossui-p0-p1-1108`）
+
+- **XUI-077 倒计时自减 → shared `useCountdown`（截止戳派生）**：miniapp 4 文件（forgot-password、phone 双冷却、email、account-cancel 60s+5s 双计时）+ RN 1（AccountCancelScreen 60s+5s），后台跨截止回前台在 `useDidShow` / `AppState active` 里显式 `sync()`。`pkg-shop/pay:187` 核实为 `deadlineRef + Date.now()` 轮询计时，未动，夹具做守卫。
+- **XUI-078 自动分支空壳**：`scripts/gen-rn-host-shell.mjs` 旧模板无条件声明 `useI18n/useTheme/useNavigation`，零腿/部分腿壳留下未使用变量并产出空 props；已在 `legs=[]` 时不再声明任何 hook、按腿声明、零腿写单行自闭合。R3 旧口径只查 seedable，屏涨出数据腿后旧壳永不复查；现补「带标记但契约不可复现 ⇒ 陈旧」+ 孤儿扫描（按生成物自身 `--screen=` 溯源行反查，不依赖登记表）。
+- **三枚自动分支壳的定性**：`FinanceScreen`/`FollowingScreen`/`HelpDetailScreen` 在 `scripts/data/rn-host-shell-manual.json` 均为 `not-applicable`（RN 路由已删：并入 Wallet / Follow / Help 内联展开），且当前契约必填业务数据腿（classify=needs-manual），本器按「不产半成品」拒绝生成（写出=0，点名缺腿）。那三枚 `+28` 空壳是旧模板产物，应在合并侧丢弃而不是修壳；用真实分支文件实测 `--check` 能被 R3 点名（`屏已 needs-manual(缺腿 error, loading, summary)`）。
+
+## 八、2026-11-08 金额单位全扫（已推 `fix/crossui-p0-p1-1108`）
+
+> 起点：`ffa7594775` 把 web 三处「分」当「元」放大 100 倍；本批把同型错误在 web / RN / 小程序 / shared 全扫，并逐端点确认服务端收分还是收元。
+> 服务端契约基线见 `apps/api/src/routes/{order,payment-gateway,distribution,wallet,teacher}.ts` 与 `apps/api/src/db/{payment-queries,commission-queries,order-queries}.ts`（摘要：微信支付/提现/佣金/钱包收分；支付宝小程序下单/订单 payAmount/课程 lessons 收元；plans 表 price 为分；developerPricing 为元）。
+
+### A 档：实际扣错钱（已修）
+
+- **XUI-079 小程序支付宝下单分当元**（P0，已修 `2cd995ca5d`）
+  - 文件与行号：`apps/miniapp-taro/src/pkg-shop/pay/index.tsx:274-277`
+  - 根因：`finalAmount` 来自 `orders.amount`（分），原样传给 `POST /payments/alipay/miniapp/create`；服务端该端点收「元」并在内部 `Math.round(amountYuan*100)`（`payment-gateway.ts:1096,1110`）⇒ 实付放大 100 倍。
+  - 修复：`amount: finalAmount / 100`。
+  - 夹具：`apps/miniapp-taro/src/pkg-shop/__tests__/money-unit.test.ts`（含服务端契约锁）。
+- **XUI-080 小程序提现分/元三处错位**（P0，已修 `2cd995ca5d`）
+  - 文件与行号：`apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/index.tsx:71,107`（余额）/`:fillAll`/`:onSubmit`
+  - 根因：`getDistributionInfo().available` 与 `availableWithdrawal` 同源为「分」，但共享 `WithdrawScreen` 的 `balance` 约定为「元」；提交 `amount` 服务端收「分」，小程序把用户输入的「元」原样提交 ⇒ 余额放大 100 倍、实提缩 100 倍。
+  - 修复：`availableYuan = available/100`、`balance={availableYuan}`、`fillAll` 用 `available/100`、提交 `Math.round(amt*100)`、余额不足判断改分域比较。
+  - 三端对照：RN（XUI-014）与 web 均按元展示、元→分提交；仅小程序未转。
+
+### B 档：用户看到错数字（已修）
+
+- **XUI-081 web 智能体详情/精选/分类仍按元渲染分价格**（P1，已修 `8f7b3b3036`）
+  - 文件与行号：`apps/web/app/(main)/agents/[id]/PageClient.tsx:276,316`；`agents/featured/page.tsx:141`；`agents/categories/[id]/PageClient.tsx:182`
+  - 根因：同源 `/api/agents/list` 的 `agent.price` 为分；`AgentGrid`/`agents/my`/`AgentsTable` 已在 `ffa7594775` 修过，这三页漏网。
+  - 修复：统一 `/100`（详情用 `priceFmt.format(agent.price / 100)`，列表用 `¥${(agent.price/100).toFixed(2)}`）。
+  - 夹具：扩 `apps/web/tests/xui-058b-price-unit.test.ts`。
+- **XUI-082 RN 支付确认弹窗把元再除 100**（P1，已修 `a6413ea859`）
+  - 文件与行号：`apps/mobile-rn/src/screens/PaymentScreen.tsx:169-174`
+  - 根因：`pendingPurchase.amount` 来自 `/payments/me` 的 `payAmount`（元，`payment-queries.ts:98`），展示又 `/100`；而同文件 `:129` 发送时 `*100` 是正确的，同字段方向相反 ⇒ 弹窗显示 1/100。
+  - 修复：弹窗直接传元值（`ConfirmPurchasePopUp.formatPrice` 不做换算）。
+- **XUI-083 RN 订单详情映射不存在的 `amount`**（P1，已修 `a6413ea859`）
+  - 文件与行号：`apps/mobile-rn/src/screens/OrderDetailScreen.tsx:60-70,93-95`
+  - 根因：`GET /orders/:no` 返回 edu_orders 原始行，只有 `payAmount`（元），无 `amount`（`order.ts:486-494`）⇒ `amount=undefined`：详情金额空白、立即支付 `NaN`、退款体字段被丢弃（`refundAmount` 传 number 还会被 `priceSchema` 拒）。
+  - 修复：`amount: Number(row.payAmount ?? row.amount ?? 0) || 0`；退款 `refundAmount: order.amount.toFixed(2)`（后端要求两位小数字符串）。
+  - 夹具：`apps/mobile-rn/src/lib/__tests__/money-unit-rn.test.ts`。
+
+### 一致（复核过，不改码；下次再报先看这里）
+
+- `packages/app/src/features/course-tab/CourseTabScreen.tsx:75`（`more-course/MoreCourseScreen.tsx:47`、`course-enroll/CourseEnrollScreen.tsx:18` 同型）：不除 100 是**正确**的。数据源 `lessons.price` 为 `numeric(10,2)`「元」（`apps/api/src/routes/user/course-routes.ts:57`），RN `CourseScreen.tsx:63` 与小程序 `pkg-learn/course/list.tsx` 均直接传元。
+- `packages/app/src/features/plaza/PlazaScreen.tsx:59`：`lowestPrice/peakPrice` 是 DB `numeric(12,2)` 元，API 入参出参均元，不除正确。
+- `apps/miniapp-taro/src/pages/member/index.tsx:426,429,464,467`：`entryLevel/permanentLevel` 用原始 `VipLevel.price`（分）走共享 `formatPrice`（/100）正确；`toLevelItems` 另行 /100 喂按元渲染的 `VipLevelsSection`，**不是双除**。
+- `apps/miniapp-taro/src/pkg-shop/vip/upgrade.tsx`：`buildUpgradeLevels` 已 /100 产出元，展示与支付宝下单（收元）一致。
+- `apps/miniapp-taro/src/pkg-shop/wallet/recharge/index.tsx`：`resolveRechargeAmount` 返回元；支付宝传元、微信 `yuanToCents` 转分，两端一致。
+- `apps/web/app/(main)/developer/relay/subscriptions/page.tsx:30,134` 与 `apps/web/app/(main)/user/subscription/page.tsx:57,223`：`plans.price` 在 DB 是 integer 分（`packages/database/src/schema/billing.ts:30`，`payment-extended.ts:406` 亦按 /100 换元），故 `formatPrice` /100 正确。
+- `apps/web/app/(main)/learn/*`、`edu/shop`：`lessons.price` 为元，不除正确；`vip/**` 的 `formatCNY` 按分转元正确。
+- `apps/mobile-rn/src/screens/CartScreen.tsx` 与 `PaymentScreen.tsx:129`：元→分发送，正确。
+- `apps/miniapp-taro/src/pkg-shop/wallet/withdrawal/withdrawal-props.ts:51`：用户输入先剥千分位再转数（XUI-075 已修）。
+
+### 不可达 / 非缺陷（留痕，防重复上报）
+
+- `apps/mobile-rn/src/components/EarningsStatisticsCard.tsx:80` `formatAmount` 不除 100：全仓无业务导入（仅自身文件 + 测试断言 RN 源码不含该组件），实际不可达。若未来启用，amount 需按分处理。
+- `packages/app/src/features/cards/CourseCard.tsx:55` `/100`：唯一消费方 `SharedDemoScreen`（演示屏），演示数据按分传入，自洽；生产业务未使用。
+- 类别 4 扫描：`Number(sum.toFixed(2))`（web procurement 汇总）、`amount.toLocaleString()`（`pkg-shop/vip-trader`、`pkg-user/bill`）均只在元域内展示/舍入，无单位反转；`formatPrice` 结果未被 `Number()/parseFloat` 回读。
+
+### 待确认（已按契约查证，结论见第九节）
+
+- `apps/web/app/(main)/admin/api-platform/packages/ApiPackageTable.tsx:68` `¥{p.price}`：**确证为缺陷**。`plans.price` 是 integer「分」（`packages/database/src/schema/billing.ts:30`；`admin-api-platform.ts` 写入 schema `price: z.number().int()`），表/回填/提交三腿都把分当元 ⇒ XUI-084，已修 `f219b27053`。
+- `apps/web/app/(main)/wallet/page.tsx:209,212` `formatPrice(it.quantity)` / `it.balanceAfter`：`/wallet/transactions` **不存在**（全仓 0 命中），实际端点是 `/finance/margin/flows`。`token_flows.quantity/balance_after` 在 op_type 0–5 是「分」，`formatPrice` 对钱腿正确；op_type 6 是 API 配额计数（同列两义）⇒ XUI-085，已让钱流水端点默认排除 `op_type=6`（`ec179dfd99`）。
+
+## 九、2026-11-08 金额单位收尾（已推 `fix/crossui-p0-p1-1108`）
+
+### XUI-084 后台 API 套餐 price 分当元（三腿，已修 `f219b27053`）
+
+- 文件：`apps/web/app/(main)/admin/api-platform/packages/ApiPackageTable.tsx:68`、`helpers.ts`（`packageToForm`）、`page.tsx`（提交体）。
+- 契约：`plans.price` = integer「分」；`admin-api-platform.ts` create/update schema 只收整数分。
+- 修复：表格 `¥{(p.price / 100).toFixed(2)}`；编辑回填 `String(p.price / 100)`；提交 `Math.round((Number(form.price) || 0) * 100)`。三腿同源（展示元 / 表单元 / 传输分）。
+- 夹具：`apps/web/tests/xui-admin-package-price.test.ts`（改前 3 红 → 改后 5 绿），含数值往返 2999 分 ⇄ 29.99 元 ⇄ 2999 分。
+
+### XUI-085 `token_flows` 字段定义（同列两义，已写清 + 端点拆分 `ec179dfd99`）
+
+`token_flows.quantity` / `balance_after` 的**真实单位**：
+
+| op_type | 含义 | `quantity` 单位 | `balance_after` 单位 |
+|---|---|---|---|
+| 0 充值 / 1 扣减(提现) / 2 过期 / 3 退款 / 4 佣金 / 5 管理员调整 | 钱包金额流水 | **分** | `user_margins.token_quantity`，**分** |
+| 6 API 订阅配额发放 | API 配额流水 | **配额计数（个）** | `developer_api_keys.token_balance`，**配额余额（个，-1=不限）** |
+
+- 证据：充值落 `orders.amount`（分）；买课扣 `priceCents`；提现落 `amount`（分）；op_type 6 写 `appliedQuota` / `tokenBalance`（`api-subscription-service.ts`）。
+- 处置（按「先写清字段是什么」）：`packages/database/src/schema/wallet.ts` 注释写清两义；`/finance/margin/flows` 未显式指定 `opType` 时排除 `op_type=6`（显式 `opType=6` 仍可查，但返回值是配额计数）；`packages/api-client/src/endpoints/wallet.ts` 的 `MarginFlowItem` 注释改为「钱流水（op_type 0–5），金额单位分」。
+- 一致判定：web `/wallet` 的 `formatPrice(it.quantity)` / `formatPrice(it.balanceAfter)` 对钱腿（0–5）正确，**不改**；`/wallet/withdraw|recharge/records` 的 `amount` 同为分，未发现消费端错用。
+- 夹具：`apps/web/tests/xui-wallet-flow-unit.test.ts`（改前 3 红 → 改后 4 绿），含反例「配额 500000 当分格式化会显示 ¥5000.00」。
+- **新登记未修**：`apps/web/app/(main)/wallet/page.tsx` 的 opType 标签/正负号整体错位（代码把 1 当「充值」，实际 1=扣减/提现；`positive` 集合把提现标成流入），与金额单位无关，下一批修。
+- **设计问题留档（未动）**：AI 计费腿把 LLM token 计数传入同一列（`token-balance-service` 的 `deductTokens(tokens)`），单位口径需专项确认；本次不改成计费规则。
+
+### 端到端量纲断言（已加 `79eac0bbcf`）
+
+- 文件：`apps/miniapp-taro/src/pkg-shop/__tests__/money-unit.test.ts`（12 绿）。
+- 支付宝下单：订单 199 元（`orders.amount=19900` 分）⇒ 请求体 `199` ⇒ 服务端 `Math.round(199 * 100)=19900` 分 ⇒ **首尾相等**；反例：分当元直传 ⇒ 落库 1990000 分（放大 100 倍）。
+- 提现：输入 199 元 ⇒ 请求体 `19900` 分 ⇒ 与 `availableWithdrawal=19900` 分相等（余额不足判断同域）；反例：元当分直传 ⇒ 199 分 = ¥1.99（缩 100 倍）。
+- 目的：两端单测各自自洽仍可能合起来错 100 倍，此断言锁「请求体 ⇄ 服务端落库」首尾相等。
+
+### 台账位置
+
+- 本文件（仓库内 `docs/tickets/2026-11/findings-crossui.md`）为唯一真相，随提交推送；文档外工作副本已删除，不再维护第二份。
