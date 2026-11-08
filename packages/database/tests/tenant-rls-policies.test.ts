@@ -19,20 +19,16 @@ import {
 
 const {
   MIGRATION_TAG,
-  LEGACY_MIGRATION_TAG,
   MIGRATION_TAGS,
   MIGRATION_PATH,
-  LEGACY_MIGRATION_PATH,
   REQUIRED_POLICY_SUFFIXES,
   ALLOWED_GUCS,
   stripLineComments,
   parsePolicies,
   checkTenantRlsMigration,
-  checkMigrationPayloadParity,
 } = tenantRlsCheck
 
 const migrationSql = readFileSync(MIGRATION_PATH, 'utf8')
-const legacySql = readFileSync(LEGACY_MIGRATION_PATH, 'utf8')
 const journalJson = readFileSync(new URL('../drizzle/meta/_journal.json', import.meta.url), 'utf8')
 const verdict = checkTenantRlsMigration(migrationSql, journalJson)
 
@@ -177,7 +173,8 @@ describe('O13 迁移 20260927100000:租户面行级策略第一批', () => {
     const whens = entries.map((e) => e.when)
     expect([...whens].sort((a, b) => a - b)).toEqual(whens)
     for (let i = 1; i < whens.length; i += 1) expect(whens[i] > whens[i - 1]).toBe(true)
-    expect(entries.every((e, i) => e.idx === i + 1)).toBe(true)
+    // 2026-11 journal 重排为 0-based(first idx=0);旧断言 i+1 钉的是 1-based 时代。
+    expect(entries.every((e, i) => e.idx === i)).toBe(true)
     // **判"已登记",不判"排在最后"**:journal 是只追加台账,任何后来者追加一枚迁移都会把
     // "我必须末位"这条钉成恒红(2026-09-27 实测:point_transactions 一入库本用例即断言失败)。
     // 而真正的风险是"未登记 ⇒ drizzle-kit migrate 静默跳过"(见 tenant-rls-policy-check.mjs:238),
@@ -190,54 +187,9 @@ describe('O13 迁移 20260927100000:租户面行级策略第一批', () => {
     }
   })
 
-  it('F-01 装车件晚于任何已应用账本 ⇒ 生产 lateGap 会被补上(原件只是历史)', () => {
-    const entries = JSON.parse(journalJson).entries
-    const legacy = entries.find((e) => e.tag === LEGACY_MIGRATION_TAG)
-    const install = entries.find((e) => e.tag === MIGRATION_TAG)
-    if (!legacy || !install) throw new Error('两枚迁移必须都在 journal 里')
-    // 原件 when 早于其后 70+ 条迁移 ⇒ 账本一旦越过它就被永久跳过(这正是 F-01 的成因)。
-    // 装车件必须晚于**所有**其它条目,否则同样会变成下一个 lateGap。
-    const others = entries.filter((e) => e.tag !== MIGRATION_TAG).map((e) => Number(e.when))
-    expect(Math.max(...others)).toBeLessThan(Number(install.when))
-    // 装车件的 when 必须不早于其文件名的日期(2026-11-05 12:00 UTC+8),防止手改 when 倒退
-    expect(Number(install.when)).toBeGreaterThanOrEqual(Date.UTC(2026, 10, 5, 0, 0, 0))
-  })
-
-  it('F-01 双文本守卫:装车件与原件剥注释后逐行等价(不允许两份真相)', () => {
-    const parity = checkMigrationPayloadParity(migrationSql, legacySql)
-    expect(parity.problems, parity.problems.join('\n')).toEqual([])
-  })
-
-  it('F-01 回滚脚本必须完整可逆:8 表×5 策略 + DISABLE/NO FORCE + 4 函数,且不碰角色属性', () => {
-    const downSql = readFileSync(
-      new URL(
-        '../drizzle/rollback/20261105120000_tenant_rls_policies_batch1_install.down.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    )
-    const code = stripLineComments(downSql)
-    // 40 条策略一条不少
-    for (const t of TENANT_RLS_TABLES) {
-      for (const suffix of REQUIRED_POLICY_SUFFIXES) {
-        expect(code, `回滚缺 ${t.table}_${suffix}`).toContain(
-          `DROP POLICY IF EXISTS "${t.table}_${suffix}"`,
-        )
-      }
-    }
-    // 8 张表的 ENABLE/FORCE 都必须关回去,且是"先 NO FORCE 再 DISABLE"
-    for (const t of TENANT_RLS_TABLES) {
-      expect(code).toContain(`ALTER TABLE public."${t.table}" NO FORCE ROW LEVEL SECURITY;`)
-      expect(code).toContain(`ALTER TABLE public."${t.table}" DISABLE ROW LEVEL SECURITY;`)
-    }
-    // 4 个判定函数:必须在策略之后删(否则会被策略依赖挡住)
-    expect(code.match(/DROP FUNCTION IF EXISTS/g)?.length).toBe(4)
-    // 回滚不得反向引入角色 DDL —— 关 bypassrls 是需要单独授权的操作
-    expect(code).not.toMatch(/ALTER\s+ROLE/i)
-    expect(code).not.toMatch(/BYPASSRLS/i)
-    // 幂等:所有 DROP 都必须带 IF EXISTS
-    expect(code).not.toMatch(/DROP\s+POLICY\s+"/)
-  })
+  // F-01 的装车件 lateGap / 双文本等价 / 回滚脚本三例随 be99b07cfe 删除重复孤儿一起退场:
+  // 产物已不在仓里,继续断言等于把"红光"钉在不存在的东西上。现存迁移的幂等性与策略族
+  // 已由上面的正向用例(0 问题 + 4×N 策略 + 旁路)覆盖。
 
   it('本判据不判求值结果:未覆盖方向必须被打印出来(禁止"扫到 0 条"当成通过)', () => {
     expect(verdict.undetermined.length).toBeGreaterThanOrEqual(3)
