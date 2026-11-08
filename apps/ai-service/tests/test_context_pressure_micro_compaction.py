@@ -40,8 +40,10 @@ PRESSURE_KEYS = {
     "is_above_auto_compact",
     "is_at_blocking",
 }
-#: 批次 3:真正压缩成功时追加的边界字段(未压缩/不压缩的路径不带该键)
+#: 批次 3:真正压缩成功时追加的边界字段(未压缩/不压缩的路径不带该键)。
 BOUNDARY_KEYS = {"boundary"}
+#: 12a6530e5a 起锚点保留计数:只在压缩成功(ratio/summary)路径出现;截断降级不带。
+ANCHOR_KEYS = {"anchored_count"}
 #: 改动前 compress_messages_if_needed 的 info 键集(legacy 形态,一个都不许少/改名)
 LEGACY_INFO_KEYS = {
     "compressed",
@@ -164,10 +166,10 @@ def _head_heavy_messages() -> list[dict[str, Any]]:
 
 
 def test_compress_info_only_adds_pressure_keys():
-    """触发压缩:info 键集 = 旧六键 + 五判据 + boundary,一个不多一个不少。"""
+    """触发压缩:info 键集 = 旧六键 + 五判据 + boundary + anchored_count,一个不多一个不少。"""
     msgs = _head_heavy_messages()
     out, info = compress_messages_if_needed(msgs, context_limit=1000)
-    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS | BOUNDARY_KEYS
+    assert set(info) == LEGACY_INFO_KEYS | PRESSURE_KEYS | BOUNDARY_KEYS | ANCHOR_KEYS
     assert isinstance(out, list)
     assert info["compressed"] is True
     assert info["trigger"] == "ratio"
