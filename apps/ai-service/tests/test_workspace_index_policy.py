@@ -139,7 +139,8 @@ async def test_index_tool_rejects_existing_root_outside_workspace(
     )
     out = await _tool_index_codebase({"path": str(outside)})
     assert out["ok"] is False
-    assert "路径不允许" in out["error"]
+    # 越界文案统一到 main 详细版:必须点明"不在工作区白名单"并带上被拒路径本身。
+    assert "不在工作区白名单" in out["error"] and str(outside) in out["error"]
     indexer.index_repository.assert_not_awaited()
 
 
