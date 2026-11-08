@@ -333,7 +333,9 @@ describe('adminWalletRoutes — /api/admin/wallet/*', () => {
     expect(res.statusCode).toBe(400)
     const body = res.json()
     expect(body.code).toBe(400)
-    expect(body.message).toBe('调整后余额不能为负数')
+    // 新契约(wallet.ts adjust 的 catch):异常原文只进服务端日志,对外一律通用文案,
+    // 防止 DB/内部异常文本出仓。旧断言钉的是 2026-08 之前直接透出业务异常 message 的契约。
+    expect(body.message).toBe('操作失败,请稍后重试')
     expect(txInsertValuesSpy).not.toHaveBeenCalled()
     expect(txUpdateWhereSpy).toHaveBeenCalledTimes(1)
     expect(mockLogAction).not.toHaveBeenCalled()
