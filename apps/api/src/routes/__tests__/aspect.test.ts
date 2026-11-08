@@ -141,6 +141,18 @@ const testRoutes: FastifyPluginAsync = async (server) => {
       data: { id: (request.params as { id: string }).id },
     })
   })
+  server.get('/api/articles/:id', async (request, reply) => {
+    // F-206:模拟路由级 authenticate 在 handler 内写入身份
+    request.userId = USER_ID
+    if (request.headers['x-fail'] === '1') {
+      return reply.status(404).send({ code: 404, message: 'not found' })
+    }
+    return reply.send({
+      code: 0,
+      message: 'success',
+      data: { id: (request.params as { id: string }).id },
+    })
+  })
   server.post('/api/follows/:userId', async (request, reply) => {
     request.userId = USER_ID
     return reply.code(201).send({ code: 0, message: 'success', data: { followed: true } })
@@ -229,7 +241,7 @@ describe('AOP aspects (search / watch / point)', () => {
       url: `/api/resources/${RESOURCE_ID}`,
     })
     expect(res.statusCode).toBe(200)
-    expect(mockUpdateSet).toHaveBeenCalledTimes(1)
+    await vi.waitFor(() => expect(mockUpdateSet).toHaveBeenCalledTimes(1))
   })
 
   // 4. 同一 IP 5 分钟内重复浏览 Redis 去重
@@ -242,12 +254,15 @@ describe('AOP aspects (search / watch / point)', () => {
       method: 'GET',
       url: `/api/resources/${RESOURCE_ID}`,
     })
+    // onResponse 钩子是异步的,inject 返回时不一定已跑完;先等第一笔落定
+    await vi.waitFor(() => expect(mockUpdateSet).toHaveBeenCalledTimes(1))
     const res2 = await server.inject({
       method: 'GET',
       url: `/api/resources/${RESOURCE_ID}`,
     })
     expect(res1.statusCode).toBe(200)
     expect(res2.statusCode).toBe(200)
+    await flushMicrotasks(50)
     expect(mockUpdateSet).toHaveBeenCalledTimes(1) // 只计 1 次
   })
 
@@ -261,13 +276,44 @@ describe('AOP aspects (search / watch / point)', () => {
       method: 'GET',
       url: `/api/resources/${RESOURCE_ID}`,
     })
+    await vi.waitFor(() => expect(mockUpdateSet).toHaveBeenCalledTimes(1))
     const res2 = await server.inject({
       method: 'GET',
       url: `/api/resources/${RESOURCE_ID}`,
     })
     expect(res1.statusCode).toBe(200)
     expect(res2.statusCode).toBe(200)
-    expect(mockUpdateSet).toHaveBeenCalledTimes(2) // 降级:每次都计
+    await vi.waitFor(() => expect(mockUpdateSet).toHaveBeenCalledTimes(2)) // 降级:每次都计
+  })
+
+  // 5b. F-206:onResponse 才能拿到路由级 authenticate 写入的 userId → 观看行为落库
+  it('已登录用户浏览后记录观看行为(userId 来自 handler 之后的 request)', async () => {
+    mockRedisSet.mockResolvedValue('OK')
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/articles/${RESOURCE_ID}`,
+    })
+    expect(res.statusCode).toBe(200)
+    await vi.waitFor(() => expect(mockRecordWatch).toHaveBeenCalledTimes(1))
+    expect(mockRecordWatch.mock.calls[0]![0]).toMatchObject({
+      userId: USER_ID,
+      topicType: 'article',
+    })
+    expect(mockUpdateSet).toHaveBeenCalledTimes(1)
+  })
+
+  // 5c. F-206:非 2xx 不计数(原实现 preHandler 先于 handler 只曾 +1)
+  it('404 详情不计数浏览量', async () => {
+    mockRedisSet.mockResolvedValue('OK')
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/articles/${RESOURCE_ID}`,
+      headers: { 'x-fail': '1' },
+    })
+    expect(res.statusCode).toBe(404)
+    await flushMicrotasks(50)
+    expect(mockUpdateSet).not.toHaveBeenCalled()
+    expect(mockRecordWatch).not.toHaveBeenCalled()
   })
 
   // ===== point-aspect =====
@@ -304,6 +350,7 @@ describe('AOP aspects (search / watch / point)', () => {
       url: `/api/resources/${RESOURCE_ID}`,
     })
     expect(res.statusCode).toBe(200)
+    await vi.waitFor(() => expect(mockUpdateSet).toHaveBeenCalledTimes(1))
   })
 
   // 8. 响应非 200/201 时不触发积分
