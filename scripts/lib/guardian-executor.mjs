@@ -37,6 +37,9 @@ import { normalizeTriggers, triggersTouch } from './guardian-triggers.mjs'
 import { widenFilesOverDependents } from './import-graph.mjs'
 import { resolveGitBin } from './gitdir.mjs'
 import { probeSubstrate } from './substrate-probe.mjs'
+// 2026-11-08(DG-01):单门超时预算与旁路落地器共用同一张登记表(scripts/data/land-gate-budgets.json),
+// 避免"执行面一套 300s、落地面另一套"把 30a 在两条腿上判成两个结论。
+import { resolveGateBudget } from './land-gate-rerun.mjs'
 // G-611:子门"被信号杀死"与"检查结论失败"的分界用共享尺子判(集合/分类唯一实现在该 lib;
 // 75 传播语义见执行段 catch)。此前本 runner 只认 status===75,子门被可捕获信号杀掉而
 // 产出 128+N、或没装产出侧只留下 signal 时,都被计成"结论失败"—— 归因分叉的 runner 层。
@@ -618,7 +621,22 @@ const parMax = Number.isFinite(parMaxRaw) && parMaxRaw >= 1 ? parMaxRaw : 8
 // 挂住时整条提交链无界等待。并行与串行共用同一枚旋钮 GUARDIAN_GATE_TIMEOUT_MS(0 = 仅排障关闭),
 // 不各设一套阈值;超时由 spawnSync 回吐 error.code=ETIMEDOUT,走 applyGateResult 的未判定分流,
 // 绝不静默洗成通过。
-const gateTimeoutMs = Number(process.env.GUARDIAN_GATE_TIMEOUT_MS ?? 300_000)
+//
+// 2026-11-08(DG-01 / DG-06):缺省预算改为**逐门查登记表**(scripts/data/land-gate-budgets.json),
+// 不再一律 300s。实测 30a check-commit-loss-guard 2026-11-06 静默态 506s、2026-11-08 复测
+// 176–255s ⇒ 旧 300s 看门狗仍会把它杀死,全量腿结构上不可能绿("未判定"又不是通过)。
+// DG-06 起"缺省"也只有一处:表里的 defaultTimeoutMs —— 执行器不再自带第二枚 300s 字面量,
+// 与落地后置复跑共用 resolveGateBudget 同一处取数;表缺失/坏行时由该函数退回兜底并出声。
+// 显式 GUARDIAN_GATE_TIMEOUT_MS 仍整体覆盖(排障语义不变)。
+const gateTimeoutOverrideRaw = process.env.GUARDIAN_GATE_TIMEOUT_MS
+
+function gateTimeoutFor(check) {
+  if (gateTimeoutOverrideRaw !== undefined) {
+    const n = Number(gateTimeoutOverrideRaw)
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+  }
+  return resolveGateBudget(check.script, { env: {} })
+}
 const parPending = [] // 按派发序(checks 原序)排队的在途任务;flush 只消费队头
 const parLive = new Set() // 在飞子进程句柄;exit 钩子统一收割,防孤儿门进程
 let parSlots = parMax // 并发信号量:限制同时在飞的子进程数
@@ -749,12 +767,13 @@ async function dispatchPar(check, cmdArgs) {
   //   后果一项没减:这一族仍 failed++、仍非零退出、提交仍被拦 —— 改的只是"没判"不许写成"判过"(§0.3)。
   //   另:shouldPropagateAsInterrupt(lib/signal-exit.mjs)对这两个 code 实测返回 false
   //   (它只看 status/signal)⇒ 不会被误传播成 exit 75 重试,这正是"后果不变"要的那一格,**不得**扩。
-  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用),默认 300s(正常门实测均在秒级)。
-  // gateTimeoutMs 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
-  if (Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0) {
+  // 旋钮:GUARDIAN_GATE_TIMEOUT_MS=0 关闭(仅排障用);未显式设置时按门查登记表(缺省 300s)。
+  // gateTimeoutFor 已提升到函数外顶层(并行与串行共用同一枚旋钮,见 parMax 定义处)。
+  const timeoutMs = gateTimeoutFor(check)
+  if (timeoutMs > 0) {
     gateTimer = setTimeout(() => {
       if (finished) return
-      const te = new Error(`守门脚本超时未退出(${gateTimeoutMs}ms)—— ${check.id} ${check.script}`)
+      const te = new Error(`守门脚本超时未退出(${timeoutMs}ms)—— ${check.id} ${check.script}`)
       te.code = 'ETIMEDOUT'
       try {
         child.kill('SIGKILL')
@@ -766,7 +785,7 @@ async function dispatchPar(check, cmdArgs) {
         job.stdout = Buffer.concat(outChunks).toString('utf8')
         job.stderr = Buffer.concat(errChunks).toString('utf8')
       })
-    }, gateTimeoutMs)
+    }, timeoutMs)
   }
 }
 
@@ -1121,8 +1140,9 @@ for (const check of effectiveChecks) {
     maxBuffer: 20 * 1024 * 1024,
     encoding: 'utf8',
     // BUG-43①:串行档此前无 timeout(并行档有 gateTimer + ETIMEDOUT),写者门挂住即整链无界等待。
-    // 与并行档共用 gateTimeoutMs;超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
-    timeout: Number.isFinite(gateTimeoutMs) && gateTimeoutMs > 0 ? gateTimeoutMs : 0,
+    // 2026-11-08(DG-01):与并行档共用 gateTimeoutFor(逐门登记表,缺省 300s);
+    // 超时由 spawnSync 回吐 error.code=ETIMEDOUT ⇒ 未判定分流,不洗绿。
+    timeout: gateTimeoutFor(check),
   })
   // stock 面门 stdout 已改为 pipe(为了落台账),这里原样回放,保证现场观感不丢。
   if (gateFace(check) === 'stock' && typeof r.stdout === 'string' && r.stdout.length > 0) {
