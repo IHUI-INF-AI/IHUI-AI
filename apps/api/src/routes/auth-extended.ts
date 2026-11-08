@@ -1175,6 +1175,18 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       ) {
         return reply.status(400).send(error(400, '至少提供一个要更新的字段'))
       }
+      // 安全加固(F-53):邮箱是登录凭据。本端点只做资料更新,若仅凭会话即可改绑,
+      // 会形成「改邮箱 → 邮箱验证码登录」的持久接管链(临时会话/XSS 即可完成)。
+      // 改绑统一收敛到 /api/auth/me:当前密码校验 + 唯一性校验 + 吊销全部 refresh token + 安全事件。
+      if (email !== undefined) {
+        const current = await findUserById(request.userId!)
+        if (!current) return reply.status(404).send(error(404, '用户不存在'))
+        if (email !== current.email) {
+          return reply
+            .status(403)
+            .send(error(403, '邮箱改绑需通过 /api/auth/me 校验当前密码后操作'))
+        }
+      }
       // 基础字段走 users 表
       // P0 合规:昵称/简介等个人资料 UGC 敏感词过滤
       const toCheck: Record<string, string> = {}
@@ -4157,9 +4169,7 @@ export const authExtendedRoutes: FastifyPluginAsync = async (server) => {
       .object({ provider: z.enum(['oidc', 'discord', 'linuxdo']) })
       .safeParse(request.params)
     if (!parsed.success)
-      return reply
-        .status(400)
-        .send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
+      return reply.status(400).send(error(400, '不支持的 provider,仅支持 oidc/discord/linuxdo'))
     const provider = parsed.data.provider
     const state = generateState()
 
