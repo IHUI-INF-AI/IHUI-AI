@@ -1178,6 +1178,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         return reply.status(404).send(error(404, '购买记录不存在'))
       }
 
+      // F-228 残留口:批量同步只取 status='active',但单条同步此前不判状态 ——
+      // 对 pending 订单补同步会凭空产生应付,回到「未支付先记账」。
+      if (buyRecord[0].status !== 'active') {
+        return reply.status(409).send(error(409, '购买记录尚未支付,不能生成应付结算'))
+      }
+
       await db.insert(agentSettlements).values({
         agentId: buyRecord[0].agentId,
         buyRecordId: buyRecord[0].id,
