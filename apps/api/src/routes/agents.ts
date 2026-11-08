@@ -1262,6 +1262,8 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   // -------------------------------------------------------------------------
 
   // GET /examine/list - 审核列表
+  // F-366(2026-11-08):userId 过滤此前直接取自 query ⇒ 任意登录用户可读他人审核台账。
+  // 非管理员一律强制为令牌主体 request.userId(query 里的 userId 被忽略);管理员保持可查全部。
   server.get('/examine/list', async (request, reply) => {
     const q = z
       .object({
@@ -1272,11 +1274,12 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
         status: z.string().optional(),
       })
       .parse(request.query)
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
     const result = await findExamineList({
       page: toInt(q.page),
       pageSize: toInt(q.pageSize),
       agentId: q.agentId,
-      userId: q.userId,
+      userId: isAdmin ? q.userId : request.userId,
       status: q.status,
     })
     return reply.send(success(result))
@@ -1289,6 +1292,10 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
   })
 
   // POST /examine/submit - 提交审核
+  // F-366(2026-11-08):此前 status 直接取 body(客户端可传 approved 伪造"已通过"),
+  // 且 agentId 不校验归属 ⇒ 任意登录用户可为任意智能体造审核台账。两处一并收紧:
+  //  1) status 恒为 pending(客户端传任何值都忽略;裁决只能走 admin 的 approve/reject 端点);
+  //  2) 只能为自己的智能体提交,管理员能力保留(agent 不存在按 404,不暴露存在性)。
   server.post('/examine/submit', async (request, reply) => {
     const body = z
       .object({
@@ -1298,20 +1305,32 @@ export const agentsRoutes: FastifyPluginAsync = async (server) => {
       })
       .parse(request.body)
     if (!body?.agentId) return reply.status(400).send(error(400, 'agentId 为必填项'))
+    const agent = await findAgentByAgentId(body.agentId)
+    if (!agent) return reply.status(404).send(error(404, '智能体不存在'))
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+    if (!agent.userId || agent.userId !== request.userId) {
+      if (!isAdmin) return reply.status(403).send(error(403, '无权为该智能体提交审核'))
+    }
     const record = await createExamine({
       agentId: body.agentId,
       userId: request.userId,
-      status: body.status ?? 'pending',
+      // 客户端自报 status 一律忽略:提交面只产生待审记录。
+      status: 'pending',
       reason: body.reason,
     })
     return reply.send(success(record))
   })
 
   // GET /examine/:recordId - 审核详情
+  // F-366(2026-11-08):此前对任意登录用户开放 ⇒ 可读他人审核记录(reason 等)。
+  // 仅提交人本人或管理员可见;非属主一律 404,不暴露记录存在性。
   server.get('/examine/:recordId', async (request, reply) => {
     const { recordId } = recordIdParam.parse(request.params)
     const record = await findExamineById(recordId)
     if (!record) return reply.status(404).send(error(404, '审核记录不存在'))
+    const isOwner = Boolean(request.userId) && record.userId === request.userId
+    const isAdmin = isSystemAdmin(request, { includeInternalChannel: false })
+    if (!isOwner && !isAdmin) return reply.status(404).send(error(404, '审核记录不存在'))
     return reply.send(success(record))
   })
 
