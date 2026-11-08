@@ -587,6 +587,63 @@ describe('removeWorktree', () => {
   })
 })
 
+// ============ 源级防回潮:removeWorktree 必须走 withinRoot 根内断言 ============
+// 历史:3a4c395a72 的 withinRoot 修复在后续重构中丢失过一次。行为用例挡不住
+// "先 rmSync 再断言"的写法(删得掉就绿),故直接读生产源码钉住入口与顺序。
+describe('removeWorktree 根约束源级锁', () => {
+  const text = fs
+    .readFileSync(
+      path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'worktree.ts'),
+      'utf-8',
+    )
+    .replace(/\r\n/g, '\n')
+
+  it('入口声明 opts.withinRoot 必填,并保留拒绝无根调用的措辞', () => {
+    expect(text).toContain('export interface RemoveWorktreeOptions {')
+    expect(text).toMatch(/withinRoot: string/)
+    expect(text).toContain('removeWorktree 需要显式 withinRoot,拒绝在无根约束下删除')
+    expect(text).toContain("assertPathInside(opts.withinRoot, wtPath, 'worktree 删除目录')")
+  })
+
+  it('根内断言必须先于任何删除动作(顺序锁)', () => {
+    const guardAt = text.indexOf("assertPathInside(opts.withinRoot, wtPath, 'worktree 删除目录')")
+    const rmAt = text.indexOf('fs.rmSync(wtPath, { recursive: true, force: true })')
+    const gitRemoveAt = text.indexOf("'worktree', 'remove', '--force'")
+    expect(guardAt).toBeGreaterThan(-1)
+    expect(rmAt).toBeGreaterThan(guardAt)
+    expect(gitRemoveAt).toBeGreaterThan(guardAt)
+  })
+
+  it('无根调用直接拒绝,目标一个字节都不动', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wt-noroot-'))
+    const wt = path.join(root, 'victim')
+    fs.mkdirSync(wt)
+    fs.writeFileSync(path.join(wt, 'keep.txt'), 'keep\n', 'utf-8')
+    try {
+      await expect(
+        (removeWorktree as unknown as (p: string) => Promise<void>)(wt),
+      ).rejects.toThrow(/需要显式 withinRoot/)
+      expect(fs.readFileSync(path.join(wt, 'keep.txt'), 'utf8')).toBe('keep\n')
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  })
+
+  it('根外目标被拒,且不产生删除', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wt-root-'))
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'ihui-wt-outside-'))
+    try {
+      await expect(removeWorktree(outside, { withinRoot: root })).rejects.toThrow(
+        /拒绝worktree 删除目录/,
+      )
+      expect(fs.existsSync(outside)).toBe(true)
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+      fs.rmSync(outside, { recursive: true, force: true })
+    }
+  })
+})
+
 // ============ findGitRoot ============
 
 describe('findGitRoot', () => {
