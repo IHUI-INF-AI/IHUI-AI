@@ -60,8 +60,8 @@
     }
   ],
   "r3Register": {
-    "$comment": "R3(五处权威接线点零命中且无接线声称)的归属台账。本区块只做三件事:①逐枚登记 state(CLI-tool / deprecated / should-wire / unknown);②登记 reviewBy 到期日,过期条目由 check-gate-wiring 报 warning(仍不判红);③should-wire 条目给出 wireTo。它不改变 R3 的任何判红阈值 —— R3 仍按原口径逐枚计数,已登记与未登记都只报数。裁定依据一律来自脚本头注行号或实际调用点,不采信二手描述。〔2026-11-05 扩面(治理债②「接」的一半,S-D)〕**登记面**由门形脚本(check-/scan-/guard-)扩到 `scripts/` 直属全部 .mjs,由 `filterR3FacePaths` 枚举;档位不变 —— 未登记只报数、永不进 reds(§12e:现读未登记存量 218 枚 ≠ 0,装红即恒红门)。新增 `owner` 字段写明到期复评人(本批条目必填)。唯一升红的一支 = §0.7「验过才免」:`findR3RegisterRot` 判「条目指向的脚本不在被审面(HEAD scripts/ 直属)」⇒ 清单腐烂判红,前置 = 现读腐烂存量 0;条目仍在而已被接线仍只 warning(现读存量 1 枚 check-format-support-parity.mjs)。",
-    "updatedAt": "2026-11-05",
+    "$comment": "R3(五处权威接线点零命中且无接线声称)的归属台账。本区块只做三件事:①逐枚登记 state(CLI-tool / deprecated / should-wire / unknown);②登记 reviewBy 到期日,过期条目由 check-gate-wiring 报 warning(仍不判红);③should-wire 条目给出 wireTo。它不改变 R3 的任何判红阈值 —— R3 仍按原口径逐枚计数,已登记与未登记都只报数。裁定依据一律来自脚本头注行号或实际调用点,不采信二手描述。〔2026-11-05 扩面(治理债②「接」的一半,S-D)〕**登记面**由门形脚本(check-/scan-/guard-)扩到 `scripts/` 直属全部 .mjs,由 `filterR3FacePaths` 枚举;档位不变 —— 未登记只报数、永不进 reds(§12e:现读未登记存量 218 枚 ≠ 0,装红即恒红门)。新增 `owner` 字段写明到期复评人(本批条目必填)。唯一升红的一支 = §0.7「验过才免」:`findR3RegisterRot` 判「条目指向的脚本不在被审面(HEAD scripts/ 直属)」⇒ 清单腐烂判红,前置 = 现读腐烂存量 0;条目仍在而已被接线仍只 warning(现读存量 1 枚 check-format-support-parity.mjs)。〔2026-11-08 对账〕条目 52→64:①+15 CLI-tool / +2 should-wire 来自 2026-11-04~11-05 扩面(scripts/ 直属全部 .mjs)与同批新立脚本,逐条带头注依据,属真该在册;②删 `check-panel-datasource-wiring.mjs`(2026-11-04 已以门 293 批接进 runner,台账 should-wire 已陈旧);③`relay-reencrypt-keys.mjs` 由 unknown 归位 CLI-tool(需连库 ⇒ 机器态判据)。总数不是改成 65 了事,而是删 1 陈旧 + 归位 1 悬空后 = 64(CLI-tool 44 + should-wire 20)。",
+    "updatedAt": "2026-11-08",
     "entries": [
       {
         "path": "scripts/check-absorption-read-naming.mjs",
@@ -309,13 +309,6 @@
         "reviewBy": "2026-12-31"
       },
       {
-        "path": "scripts/check-panel-datasource-wiring.mjs",
-        "state": "should-wire",
-        "reason": "用法 L49 标注 --staged「索引面(提交链用)」,现读五处零命中",
-        "wireTo": "scripts/guardian-runner.mjs",
-        "reviewBy": "2026-12-31"
-      },
-      {
         "path": "scripts/check-plan-claims-vs-head.mjs",
         "state": "should-wire",
         "reason": "头注 L53「尚未接线……不在提交链上」,前置=基线随建门枚落地",
@@ -487,9 +480,9 @@
       },
       {
         "path": "scripts/relay-reencrypt-keys.mjs",
-        "state": "unknown",
+        "state": "CLI-tool",
         "owner": "S-D(2026-11-05 R3 扩面批)",
-        "reason": "中转站凭据重加密修复器(safe/idempotent/dry-run-by-default):「库中是否仍有旧密钥密文」现读未判定(需连库,按 §0.3 不拿 0 冒充没有)⇒ 先登记 unknown,到期连库量完再改判 deprecated 或 CLI-tool",
+        "reason": "中转站凭据重加密修复器(safe/idempotent/dry-run-by-default):「库中是否仍有旧密钥密文」需连库,按 §0.3 不拿 0 冒充没有 ⇒ 机器态/库态判据,结构上不进提交链。2026-11-08 对账:原 state=unknown 按「能判但必须连库 ⇒ CLI-tool」归位,不再悬空。",
         "reviewBy": "2026-12-12"
       }
     ]
