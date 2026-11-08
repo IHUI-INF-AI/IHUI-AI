@@ -51,6 +51,26 @@ import {
 import { precheckAuthorizePkce, type OAuthAppRow } from './auth-extended.js'
 import { resolveIssuer } from '../utils/oauth-as.js'
 import { logger } from '../utils/logger.js'
+import { getTokenBlacklist } from '../plugins/auth.js'
+
+/**
+ * F-56:OAuth 授权面(token 交换的根)必须与 `authenticate` 同口径检查吊销。
+ * `introspectAccessToken` 只验签 + 看过期,登出后进入 Redis 黑名单的 access token
+ * 依然能在这里换到全新 code/access/refresh —— 等于吊销对 OAuth 根路径完全失效。
+ * Redis 不可用时保持与 authenticate 一致的**放行**口径,不把全站打成 401。
+ */
+async function isBearerRevoked(token: string): Promise<boolean> {
+  const blacklist = getTokenBlacklist()
+  if (!blacklist) return false
+  try {
+    return await blacklist.has(token)
+  } catch (e) {
+    logger.warn('[oauth-as] blacklist check failed, treat as not revoked', {
+      err: e instanceof Error ? e.message : String(e),
+    })
+    return false
+  }
+}
 
 /**
  * OIDC 签名密钥在 oauth_private_keys 表里的归属标识(clientId 列 NOT NULL,
@@ -294,8 +314,12 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
     const bearer = (request.headers.authorization ?? '').trim()
     let userId: string | null = null
     if (bearer.startsWith('Bearer ')) {
-      const info = await introspectAccessToken(bearer.slice(7).trim())
-      userId = info.active ? (info.sub ?? null) : null
+      const bearerToken = bearer.slice(7).trim()
+      // F-56:先查吊销,再验签 —— 已登出的 token 一律按"未登录"重定向到 web 授权。
+      if (!(await isBearerRevoked(bearerToken))) {
+        const info = await introspectAccessToken(bearerToken)
+        userId = info.active ? (info.sub ?? null) : null
+      }
     }
     if (!userId) {
       const target = new URL(webAuthorizeUrl(request))
@@ -388,8 +412,10 @@ export const oauthAuthorizationServerRoutes: FastifyPluginAsync = async (server)
         .header('www-authenticate', 'Bearer realm="ihui-ai"')
         .send({ error: 'invalid_token', error_description: '缺少 Bearer access token' })
     }
-    const info = await introspectAccessToken(header.slice(7).trim())
-    if (!info.active || !info.sub) {
+    const token = header.slice(7).trim()
+    // F-56:黑名单优先于 introspect —— 登出/踢下线后 userinfo 必须立即 401。
+    const info = (await isBearerRevoked(token)) ? null : await introspectAccessToken(token)
+    if (!info || !info.active || !info.sub) {
       return reply
         .status(401)
         .header('www-authenticate', 'Bearer error="invalid_token"')
