@@ -16,6 +16,10 @@ import { describe, expect, it } from 'vitest'
 import { mmss, remainingSeconds } from '../helpers'
 
 const SRC = readFileSync(resolve(__dirname, '..', 'PageClient.tsx'), 'utf8')
+const HOOK_SRC = readFileSync(
+  resolve(__dirname, '../../../../../src/hooks/use-deadline-countdown.ts'),
+  'utf8',
+)
 
 describe('剩余时间按截止戳重算(不按 tick 次数自减)', () => {
   it('刚开始:截止戳减现在正好满额,显示与 duration:00 一致', () => {
@@ -43,23 +47,29 @@ describe('剩余时间按截止戳重算(不按 tick 次数自减)', () => {
   })
 })
 
-describe('PageClient 倒计时源码锁(回退即红)', () => {
+describe('PageClient 倒计时源码锁(改回页面内 listeners 即红)', () => {
   it('不得再每秒自减', () => {
     expect(SRC).not.toMatch(/setLeftSec\(\s*\(\s*s\s*\)\s*=>\s*s\s*-\s*1\s*\)/)
   })
 
-  it('必须以截止戳起算,并在回到前台时立刻补算', () => {
-    expect(SRC).toContain('deadlineRef.current = Date.now() + duration * 60_000')
-    expect(SRC).toContain('const tick = () => setLeftSec(remainingSeconds(deadline))')
-    expect(SRC).toContain("document.addEventListener('visibilitychange', tick)")
-    expect(SRC).toContain("window.addEventListener('focus', tick)")
-    expect(SRC).toContain("window.addEventListener('pageshow', tick)")
+  it('必须走共享 hook,页面内不得再注册补读事件', () => {
+    expect(SRC).toContain("import { useDeadlineCountdown } from '@/hooks/use-deadline-countdown'")
+    expect(SRC).toContain('useDeadlineCountdown(deadline)')
+    expect(SRC).not.toContain("document.addEventListener('visibilitychange'")
+    expect(SRC).not.toContain("window.addEventListener('focus'")
+    expect(SRC).not.toContain("window.addEventListener('pageshow'")
   })
 
-  it('自动交卷必须一次性(0 秒读数不得反复触发提交)', () => {
-    expect(SRC).toContain('autoSubmitStartedRef.current = true')
-    expect(SRC).toContain('!autoSubmitStartedRef.current')
-    expect(SRC).toContain('deadlineRef.current !== null')
+  it('hook 本身必须按墙钟重算并在回前台立即补算', () => {
+    expect(HOOK_SRC).toMatch(/deadlineMs - Date\.now\(\)/)
+    expect(HOOK_SRC).toContain("document.addEventListener('visibilitychange'")
+    expect(HOOK_SRC).toContain("window.addEventListener('focus'")
+  })
+
+  it('自动交卷必须一次性(复用同一枚 ref)', () => {
+    expect(SRC).toContain('autoSubmitRef.current = true')
+    expect(SRC).toContain('if (autoSubmitRef.current')
+    expect(SRC).not.toContain('autoSubmitStartedRef')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

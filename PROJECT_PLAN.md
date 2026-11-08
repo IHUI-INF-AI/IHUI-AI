@@ -31939,7 +31939,7 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] 12A. **缺陷普查 DG DG-12** [P3] 发布 tag 闸要求整树 porcelain 干净：多会话共享工作树下被他人 WIP 永久阻断（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-12）
 - [ ] 13A. **缺陷普查 DG DG-13** [P3] 部署门禁失败 → 回滚 → exit 0，按退出码记账的调用方会把失败轮记成成功（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-13）
 - [ ] 14A. **缺陷普查 DG DG-14** [P3] 元门档是「脚本名正则白名单」：新增门命名不命中即本地零通道，且没有门保证「每门至少一个阻断通道」（证据 docs/tickets/2026-11/findings-deploy-gates.md#DG-14）
-- [ ] 1B. **缺陷普查 WEB W-01** [P1] 考试倒计时用「每秒自减」而非截止时间戳，后台/锁屏可无限延长考试时间（证据 docs/tickets/2026-11/findings-web.md#W-01）
+- [ ] 1B. **缺陷普查 WEB W-01** [P1] 考试倒计时用「每秒自减」而非截止时间戳，后台/锁屏可无限延长考试时间（证据 docs/tickets/2026-11/findings-web.md#W-01）〔2026-11-08 复核:截止戳派生已在主线;`fix/web-findings-1108` 合并仅是把就地实现提取为 `useDeadlineCountdown` 的**重构收敛(行为不变,非缺陷修复)**,后续勿记作本次修掉 W-01〕
 - [ ] 2B. **缺陷普查 WEB W-02** [P2] 管理端在线答题页存在同型倒计时缺陷（证据 docs/tickets/2026-11/findings-web.md#W-02）
 - [ ] 3B. **缺陷普查 WEB W-03** [P3] 退款详情失败时降级为「列表前 100 条匹配」，且静默丢失订单与审核记录（证据 docs/tickets/2026-11/findings-web.md#W-03）
 - [ ] 4B. **缺陷普查 WEB W-04** [P2] 提问弹窗未处理输入法组合态，中文按 Enter 选词会提前提交半截答案（证据 docs/tickets/2026-11/findings-web.md#W-04）
