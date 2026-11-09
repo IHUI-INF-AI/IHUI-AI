@@ -4,9 +4,10 @@
 
 """WorkBuddy 成长任务自动驾驶 **MCP Server**(stdio,JSON-RPC 2.0,零第三方依赖)。
 
-2026-11-09 收口:此前能力只存在于仓库内部(服务层 + HTTP 端点 + CLI),外部 AI
-(WorkBuddy / Qoder / Claude 等任何支持 MCP 的客户端)无法即插即用。本文件把
-自动驾驶引擎封装为标准 MCP server —— 在客户端 mcp.json 里加一条 command 即接走。
+2026-11-09 收口:本文件是自动驾驶能力的**标准导出形态**(仓库内,属 IHUI-AI 项目
+资产)——本项目 agent 面走 HTTP 端点/CLI;任何外部支持 MCP 的 AI 客户端在其**自己的**
+mcp.json 加一条 command 即可接走。不注册到任何 AI 宿主配置(机主裁决:这是项目
+功能,不是某个 AI 客户端的插件)。
 
 协议:MCP stdio 传输 = 按行分隔的 JSON-RPC 2.0。实现 initialize / tools/list /
 tools/call 三个方法,ping 兼容;其余 method 回 -32601。日志只走 stderr(stdio 是协议通道)。
