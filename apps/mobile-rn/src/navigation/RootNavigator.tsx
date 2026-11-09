@@ -184,6 +184,8 @@ import { LiveListScreen } from '../screens/LiveListScreen'
 import { WorkflowsScreen } from '../screens/WorkflowsScreen'
 import { AutomationsScreen } from '../screens/AutomationsScreen'
 import { DashboardScreen } from '../screens/DashboardScreen'
+// 人事部 · 考勤(RN 员工自助骨架,2026-11-09 立)
+import { HrAttendanceScreen } from '../screens/HrAttendanceScreen'
 import { CouponScreen } from '../screens/CouponScreen'
 import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'
@@ -430,6 +432,8 @@ export type RootStackParamList = {
   Workflows: undefined
   Automations: { id?: string }
   Dashboard: undefined
+  /** 人事部 · 考勤(RN 员工自助骨架,2026-11-09 立) */
+  HrAttendance: { employeeId?: string; departmentId?: string } | undefined
   CourseDetail: { id: string }
   VideoPlayer: { courseId: string; lessonId: string; title?: string; videoUrl?: string }
   LiveDetail: { id: string }
@@ -1395,6 +1399,11 @@ function RootNavigatorInner() {
               name="Dashboard"
               component={DashboardScreen}
               options={{ title: t('dashboard.title') }}
+            />
+            <RootStack.Screen
+              name="HrAttendance"
+              component={HrAttendanceScreen}
+              options={{ title: t('hrAttendance.title') }}
             />
           </>
         ) : (
