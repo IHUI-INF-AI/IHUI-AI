@@ -513,11 +513,16 @@ test('T13 装车证明:本门自己必须真在 runner 里 blocking,且 R4 真�
   assert.doesNotMatch(self, /R4\([^)\n]*仅报数/, 'R4 结论行仍写「仅报数」,与实现相反')
 
   // 文档可见性:本门不得只靠 README 表格里的一枚 incidental 提及活着。
-  const docs =
-    readFileSync(join(root, 'AGENTS.md'), 'utf8') + readFileSync(join(root, 'README.md'), 'utf8')
+  // 2026-11-09 收口:AGENTS.md「守门脚本速查」整节已于 2026-11-04 逐字迁入
+  // docs/GATEKEEPERS.md §10,源脚本 DOC_FILES 也于 2026-11-05 扩成三份;
+  // 本夹具仍只取 AGENTS.md + README.md ⇒ 四面(工作树/HEAD/索引/远端)恒红的历史假红。
+  // 取材面与源脚本 DOC_FILES 对齐,不往 AGENTS.md 补重复条目(迁移设计明令本体只留指针)。
+  const docs = ['AGENTS.md', 'README.md', 'docs/GATEKEEPERS.md']
+    .map((f) => readFileSync(join(root, f), 'utf8'))
+    .join('\n')
   assert.ok(
     /^- \*\*.*\*\*\(89\)/m.test(docs) || /^## .*89/m.test(docs),
-    'AGENTS.md 速查须有本门专属条目(标题含 (89))',
+    '守门速查须有本门专属条目(标题含 (89);速查节现位于 docs/GATEKEEPERS.md)',
   )
 })
 
