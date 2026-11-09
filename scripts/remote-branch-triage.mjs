@@ -148,6 +148,9 @@ export function safetyCheck(row, ctx) {
 
 function git(args, repo, timeout = 180000) {
   const r = spawnSync(GIT, ['-C', repo, ...args], {
+    // 门 193:派生 git 必须显式接管 stdio,否则本机 EBUSY(30 组对照:不写 0/30 成功,补上 30/30)。
+    // 绝对路径 git 不是豁免,判据只认 options 内有 stdio 属性名。
+    stdio: ['ignore', 'pipe', 'pipe'],
     encoding: 'utf8',
     maxBuffer: 128 * 1024 * 1024,
     timeout,
