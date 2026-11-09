@@ -476,7 +476,7 @@ const OSS_PUB_KEY_HOST_SUFFIXES = ['.alicdn.com', '.aliyuncs.com'] as const
  * 放进 path/query(`https://evil.com/.alicdn.com/key.pem`)即可通过。现在先 `new URL()`
  * 解析,强制 https,再按**主机名标签边界**放行 alicdn.com / aliyuncs.com 的合法主机。
  */
-export function isAllowedOssPublicKeyUrl(rawUrl: string): boolean {
+function isAllowedOssPublicKeyUrl(rawUrl: string): boolean {
   let parsed: URL
   try {
     parsed = new URL(rawUrl)

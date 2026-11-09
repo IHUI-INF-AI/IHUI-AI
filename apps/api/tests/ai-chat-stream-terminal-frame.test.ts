@@ -99,7 +99,11 @@ vi.mock('../src/db/chat-queries.js', () => ({
   setConversationAdditionalDirectories: vi.fn(),
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
-  findConversationById: vi.fn(),
+  // F-03(2026-11-08):/chat/stream 写路径前先服务端核会话归属;本文件只造 CONV_ID,
+  // 它属认证用户 ⇒ 归属通过。其余 id 一律 null(不存在/他人),留给负控。
+  findConversationById: vi.fn(async (id: string) =>
+    id === CONV_ID ? { id, userId: USER_ID } : null,
+  ),
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),

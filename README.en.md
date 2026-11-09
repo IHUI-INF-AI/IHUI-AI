@@ -69,7 +69,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 数据库表 | 625 | `dbTables` |
 | schema 文件 | 241 | `dbSchemaFiles` |
 | API 路由 | 4729 | `apiRoutes` |
-| 路由文件 | 688 | `apiRouteFiles` |
+| 路由文件 | 687 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 29 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4799 | `testFiles` |
+| 测试文件 | 4800 | `testFiles` |
 | CI 工作流 | 57 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 356 | `guardianGates` |
 | — blocking | 327 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20685 | `trackedFiles` |
+| 跟踪文件 | 20664 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-09。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。

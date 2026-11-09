@@ -10,8 +10,8 @@
  * 仅当服务端返回 `status === 'paid'` 才允许落盘;`pending` 允许短暂重试(支付回调有延迟),
  * 其它终态(失败/关闭/退款)立即返回 false。
  */
-export const PAID_STATUS_POLL_ATTEMPTS = 3
-export const PAID_STATUS_POLL_DELAY_MS = 500
+const PAID_STATUS_POLL_ATTEMPTS = 3
+const PAID_STATUS_POLL_DELAY_MS = 500
 
 export type PaidStatusFetcher = (orderNo: string) => Promise<{ status?: string } | undefined>
 

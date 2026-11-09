@@ -43,6 +43,38 @@ vi.mock('../src/db/workspace-queries.js', () => {
   }
 })
 
+// F-432(744822836d):ACP 会话必须真落库才回 201,begin/end 先核会话归属。
+// 本文件仍是零真实 DB —— 用只认 agent_runtime_sessions 的进程内假库:
+// insert 收下即成功;select 的 where 经 PgDialect 编译取参($1=会话 id、$2=userId),
+// 只有已播种的 sess-1 属 user-1 才算命中 → begin-prompt 走 200 分支,
+// 其余 id 仍 404(与生产 ownsAcpSession 同判据)。
+vi.mock('../src/db/index.js', async () => {
+  const { PgDialect } = await import('drizzle-orm/pg-core')
+  const dialect = new PgDialect()
+  const seeded = new Set<string>(['sess-1'])
+  const db = {
+    insert: () => ({
+      values: async (row: Record<string, unknown>) => {
+        if (typeof row.id === 'string') seeded.add(row.id)
+        return []
+      },
+    }),
+    select: () => ({
+      from: () => ({
+        where: (expr: unknown) => {
+          const query = dialect.sqlToQuery(expr as never)
+          const [sessionId, userId] = query.params as [string, string]
+          const rows = seeded.has(sessionId) && userId === 'user-1' ? [{ id: sessionId }] : []
+          // 生产 ownsAcpSession 走 .where(...).limit(1) —— 夹具必须同形,
+          // 少这一环就是「夹具比真库更弱」,而不是被测代码错。
+          return { limit: async () => rows }
+        },
+      }),
+    }),
+  }
+  return { db, dbRead: db, dbClient: {} }
+})
+
 import { workspaceRoutes } from '../src/routes/workspace.js'
 
 /** 捕获 request.log 输出,验证 wireReq 里的 mode 已被归一成 kebab(而非入参原样)。 */

@@ -100,7 +100,7 @@ export function CreateView(props: CreateViewProps): ReactNode {
   return renderCreateView(props)
 }
 
-export function renderCreateView(props: CreateViewProps): ReactNode {
+function renderCreateView(props: CreateViewProps): ReactNode {
   const {
     t,
     tt,

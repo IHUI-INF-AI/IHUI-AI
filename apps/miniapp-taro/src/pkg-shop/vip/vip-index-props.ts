@@ -14,7 +14,7 @@ export type VipIndexTt = (
   params?: Record<string, string | number>,
 ) => string
 
-export interface VipIndexOverlayPlan {
+interface VipIndexOverlayPlan {
   name: string
   price: number
   period?: string

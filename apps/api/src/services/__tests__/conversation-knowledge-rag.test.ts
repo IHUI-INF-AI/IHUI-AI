@@ -139,35 +139,35 @@ const mem = vi.hoisted(() => ({
   },
 }))
 
-  /**
-   * 从向量路的 SQL 树里取回查询向量。
-   *
-   * 实测形状(apps/api 走 `sql\`...${vectorLiteral}::vector...\``,drizzle 把已
-   * 内插的模板片段拍成**普通字符串**),所以向量不在 Param 里,而是一个形如
-   * `[0.1,0.2,...]` 的字符串字面量。这里按方括号 + 逗号 + 数字解析它,
-   * 并**校验维度 === 1536** —— 维度不对就不认,宁可降级也不拿错向量算余弦。
-   */
-  function extractQueryVector(node: unknown): number[] | null {
-    if (node === null || node === undefined) return null
-    if (typeof node === 'string') {
-      const m = /^\[\s*(-?[\d.eE+-]+(?:\s*,\s*-?[\d.eE+-]+)*)\s*\]$/.exec(node.trim())
-      if (!m || !m[1]) return null
-      const parts = m[1].split(',').map((s) => Number(s.trim()))
-      if (parts.length !== EMBED_DIM || parts.some((n) => !Number.isFinite(n))) return null
-      return parts
-    }
-    if (Array.isArray(node)) {
-      for (const n of node) {
-        const found = extractQueryVector(n)
-        if (found) return found
-      }
-      return null
-    }
-    if (typeof node === 'object') {
-      return extractQueryVector((node as { queryChunks?: unknown }).queryChunks)
+/**
+ * 从向量路的 SQL 树里取回查询向量。
+ *
+ * 实测形状(apps/api 走 `sql\`...${vectorLiteral}::vector...\``,drizzle 把已
+ * 内插的模板片段拍成**普通字符串**),所以向量不在 Param 里,而是一个形如
+ * `[0.1,0.2,...]` 的字符串字面量。这里按方括号 + 逗号 + 数字解析它,
+ * 并**校验维度 === 1536** —— 维度不对就不认,宁可降级也不拿错向量算余弦。
+ */
+function extractQueryVector(node: unknown): number[] | null {
+  if (node === null || node === undefined) return null
+  if (typeof node === 'string') {
+    const m = /^\[\s*(-?[\d.eE+-]+(?:\s*,\s*-?[\d.eE+-]+)*)\s*\]$/.exec(node.trim())
+    if (!m || !m[1]) return null
+    const parts = m[1].split(',').map((s) => Number(s.trim()))
+    if (parts.length !== EMBED_DIM || parts.some((n) => !Number.isFinite(n))) return null
+    return parts
+  }
+  if (Array.isArray(node)) {
+    for (const n of node) {
+      const found = extractQueryVector(n)
+      if (found) return found
     }
     return null
   }
+  if (typeof node === 'object') {
+    return extractQueryVector((node as { queryChunks?: unknown }).queryChunks)
+  }
+  return null
+}
 
 vi.mock('../../db/index.js', async () => {
   // vi.mock 工厂被提升到 import 之前,不能用文件顶部的 import 绑定;
@@ -256,7 +256,8 @@ vi.mock('../../db/index.js', async () => {
       if ('name' in obj && typeof obj.name === 'string') {
         const op = chunks[i + 1]
         const param = chunks[i + 2]
-        const opText = op && typeof op === 'object' ? String((op as { value?: unknown }).value ?? '') : ''
+        const opText =
+          op && typeof op === 'object' ? String((op as { value?: unknown }).value ?? '') : ''
         if (opText.includes('=') && param && typeof param === 'object' && 'brand' in param) {
           const field = FIELD_ALIAS[obj.name] ?? obj.name
           const want = (param as { value: unknown }).value
@@ -324,22 +325,29 @@ vi.mock('../../db/index.js', async () => {
     insert: (table: unknown) => insertChain(table),
     update: (table: unknown) => insertChain(table),
     delete: () => selectChain(),
+    // F-139/F-140/F-236(1f051a19df):入库收进事务(doc + chunks 同生共死)。
+    // 夹具的 tx 与 db 同形:内存表本来就是单进程顺序写,事务语义由调用方 await 保证。
+    transaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => fn(dbMock),
     execute: async (sqlObj: unknown) => {
       // 向量路:从 SQL 树取回查询向量,对内存 chunk 算余弦并排序 —— 复刻 pgvector
       // `<=>` + ORDER BY 的语义,让"能否召回"成为真判定。
       const q = extractQueryVector(sqlObj)
       if (!q) return []
-      return mem.chunks
-        // 与真实 SQL 一致:向量路只召回 embedding 非 NULL 的行
-        .filter((c) => Array.isArray(c.embedding) && (c.embedding as number[]).length === EMBED_DIM)
-        .map((c) => ({
-          id: c.id,
-          doc_id: c.docId,
-          content: c.content,
-          chunk_index: c.chunkIndex,
-          score: cosine(q, c.embedding as number[]),
-        }))
-        .sort((a, b) => b.score - a.score)
+      return (
+        mem.chunks
+          // 与真实 SQL 一致:向量路只召回 embedding 非 NULL 的行
+          .filter(
+            (c) => Array.isArray(c.embedding) && (c.embedding as number[]).length === EMBED_DIM,
+          )
+          .map((c) => ({
+            id: c.id,
+            doc_id: c.docId,
+            content: c.content,
+            chunk_index: c.chunkIndex,
+            score: cosine(q, c.embedding as number[]),
+          }))
+          .sort((a, b) => b.score - a.score)
+      )
     },
   }
   return { db: dbMock, dbRead: dbMock }
@@ -355,10 +363,26 @@ const CONV_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 
 /** 微信解析器(wechat.py,已定稿)产出的形态:发言人写在正文前缀,时间归一到 UTC+8 */
 const WECHAT_MESSAGES = [
-  { role: 'user', content: '张伟：明天上午十点的产品评审改到下午三点了', createdAt: new Date('2026-09-20T02:00:00Z') },
-  { role: 'user', content: '李娜：收到,我把会议室改到 3 号会议室', createdAt: new Date('2026-09-20T02:01:00Z') },
-  { role: 'user', content: '张伟：另外王强负责的支付回调联调,这周必须提测', createdAt: new Date('2026-09-20T02:03:00Z') },
-  { role: 'user', content: '王强：支付回调已经联调完了,提测单我今天下午提', createdAt: new Date('2026-09-20T02:05:00Z') },
+  {
+    role: 'user',
+    content: '张伟：明天上午十点的产品评审改到下午三点了',
+    createdAt: new Date('2026-09-20T02:00:00Z'),
+  },
+  {
+    role: 'user',
+    content: '李娜：收到,我把会议室改到 3 号会议室',
+    createdAt: new Date('2026-09-20T02:01:00Z'),
+  },
+  {
+    role: 'user',
+    content: '张伟：另外王强负责的支付回调联调,这周必须提测',
+    createdAt: new Date('2026-09-20T02:03:00Z'),
+  },
+  {
+    role: 'user',
+    content: '王强：支付回调已经联调完了,提测单我今天下午提',
+    createdAt: new Date('2026-09-20T02:05:00Z'),
+  },
   { role: 'user', content: '李娜：[表情]', createdAt: new Date('2026-09-20T02:06:00Z') },
 ]
 
@@ -485,7 +509,11 @@ describe('导入会话入库(ingestConversation)', () => {
       source: 'wechat',
       messages: [
         ...WECHAT_MESSAGES,
-        { role: 'user', content: '张伟：补充一下,灰度先放 5% 流量', createdAt: new Date('2026-09-20T02:10:00Z') },
+        {
+          role: 'user',
+          content: '张伟：补充一下,灰度先放 5% 流量',
+          createdAt: new Date('2026-09-20T02:10:00Z'),
+        },
       ],
     })
     expect(r2.deduped).toBe(false)

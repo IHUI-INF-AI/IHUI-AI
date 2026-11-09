@@ -30,6 +30,14 @@ vi.mock('../src/db/usercenter-queries.js', () => ({
     page: 1,
     pageSize: 20,
   })),
+  // 路由已改用 *ForUserCenter 投影函数(仍返回含凭据的完整行,脱敏由路由的
+  // toUserCenterView 负责),故这里继续喂 secretUser,断言才真正覆盖脱敏。
+  findUserByIdForUserCenter: vi.fn(async () => state.user),
+  findUserByPhoneForUserCenter: vi.fn(async (phone: string) =>
+    phone === '13800000000' ? state.user : null,
+  ),
+  createUserForUserCenter: vi.fn(async () => state.user),
+  updateUserForUserCenter: vi.fn(async () => state.user),
   deleteUser: vi.fn(),
   updateUserPassword: vi.fn(),
   updateUserStatus: vi.fn(),
