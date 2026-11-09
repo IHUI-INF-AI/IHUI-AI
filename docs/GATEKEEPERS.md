@@ -134,6 +134,11 @@ git commit
 | 失败原因 | schema 新增表但未生成 migration,或 migration 改表名但 schema 未同步 |
 | 修复 | `pnpm --filter @ihui/database drizzle-kit generate` 生成新 migration |
 | 跳过 | `--no-verify`(不推荐) |
+| 检测(维度 5:外键名称级,2026-11-07 增补) | 迁移链终态(按 `packages/database/drizzle/meta/_journal.json` 顺序扫 `ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY` 与 `CREATE TABLE ... CONSTRAINT ... FOREIGN KEY`,并按序应用 `DROP/RENAME CONSTRAINT`)对 journal 末条 snapshot 的 `foreignKeys` 做名称级对照;身份键 = `name + columnsFrom 列序 + tableTo + columnsTo 列序`;未加引号标识符折小写、`public.` 前缀归一;迁移侧抽取复用门 350 `check-hand-migration-snapshot.mjs` 的 `extractAddedObjects` / `maskSql`,不复制第二份 SQL 解析 |
+| 失败原因(维度 5) | 迁移链声明过 FK,而 TS/snapshot 侧已不再声明(会掉约束的单向面);反向(声明有·迁移无)仅信息级 |
+| 退出码(维度 5) | 0 = 无差异或仅存量(本轮 warn-only 默认只打印不阻断);1 = `--strict` 下出现"迁移有·声明无";2 = journal / 末条 snapshot / `foreignKeys` 输入面取不到,不记绿 |
+| 未判定(维度 5) | `DO $$ ... EXECUTE format(...)`、分区自动建表等动态 SQL 解析不到记"未判定",不折红;本轮不新建基线文件、不冻结任何数字 |
+| 修复(维度 5) | 补 migration 与 snapshot 对齐(重生成 drizzle snapshot),或走显式允许差异登记;自测见 `node scripts/check-db-schema-drift.mjs --self-test`,CLI 夹具见 `scripts/tests/check-db-schema-drift.test.mjs` FK 名称级 5 例 |
 
 ### 第 4 项 check-stale-dist.mjs(阻塞)
 
