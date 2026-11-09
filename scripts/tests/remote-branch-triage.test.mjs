@@ -19,6 +19,7 @@ import assert from 'node:assert/strict'
 
 import {
   parseLsRemote, addedLines, mergeConflictFiles, classify, safetyCheck, markdownReport,
+  __test__,
 } from '../remote-branch-triage.mjs'
 
 const SHA_A = 'a'.repeat(40)
@@ -177,5 +178,75 @@ test('markdownReport: 必须同时含逐支行与三态计数,只报总数不算
   assert.match(md, /\| DISCARDABLE \| 2 \|/)
   assert.match(md, /`fix\/a`/)
   assert.match(md, /`fix\/b`/)
+})
+
+// ── contentLanded 生成块过滤反证(门 41 单分支守门口径统一)──────────────────────
+// 全部断言走 __test__ 的真实判据 splitStill / GENERATED_FILE 与 classify,零复制实现(§22c)。
+const { splitStill, GENERATED_FILE } = __test__
+const asText = (...files) => files.join('\n')
+const GEN_FILES = ['README.md', 'README.en.md', 'PROJECT_PLAN.md', 'x.generated.ts', 'pnpm-lock.yaml']
+const CODE_FILES = ['src/core.ts', 'apps/api/route.ts', 'scripts/lib/gitdir.mjs']
+
+// 只按 contentLanded 判定的中性 row:撤掉 merged / linesLanded,确保定性只由 splitStill 结果驱动。
+const contentRow = (s) => ({
+  ...base(), merged: false, linesLanded: false,
+  stillDiff: s.stillDiff, stillGenerated: s.stillGenerated, stillCode: s.stillCode,
+  contentLanded: s.contentLanded,
+})
+
+test('口径自检:用例里的生成块/真代码文件确实分别命中/不命中 GENERATED_FILE', () => {
+  for (const f of GEN_FILES) assert.equal(GENERATED_FILE.test(f), true, `${f} 应命中生成块`)
+  for (const f of CODE_FILES) assert.equal(GENERATED_FILE.test(f), false, `${f} 不应命中生成块`)
+})
+
+test('① 仅生成块落在 A∩B ⇒ 真代码差异=0,contentLanded=true,classify DISCARDABLE 且 reason 如实带过滤数', () => {
+  const t = asText(...GEN_FILES)
+  const s = splitStill(t, t)
+  assert.equal(s.stillDiff, GEN_FILES.length)
+  assert.equal(s.stillGenerated, GEN_FILES.length)
+  assert.equal(s.stillCode, 0)
+  assert.equal(s.contentLanded, true)
+  const v = classify(contentRow(s))
+  assert.equal(v.verdict, 'DISCARDABLE')
+  assert.match(v.reason, /真代码差异=0/)
+  assert.match(v.reason, /过滤生成块 5/)
+  assert.match(v.reason, /still=5/)
+})
+
+test('② 有真代码差异 ⇒ contentLanded=false,仍 NEEDS_WORK,reason 点名真代码数', () => {
+  const t = asText('src/core.ts')
+  const s = splitStill(t, t)
+  assert.equal(s.stillGenerated, 0)
+  assert.equal(s.stillCode, 1)
+  assert.equal(s.contentLanded, false)
+  const v = classify(contentRow(s))
+  assert.equal(v.verdict, 'NEEDS_WORK')
+  assert.match(v.reason, /真代码=1/)
+})
+
+test('③ 混合情形 ⇒ 只看真代码那部分:加/减生成块不改变 stillCode 与最终定性', () => {
+  const codeOnly = asText(...CODE_FILES)
+  const mixed = asText(...CODE_FILES, ...GEN_FILES)
+  const s1 = splitStill(codeOnly, codeOnly)
+  const s2 = splitStill(mixed, mixed)
+  assert.equal(s2.stillDiff, CODE_FILES.length + GEN_FILES.length)
+  assert.equal(s2.stillGenerated, GEN_FILES.length)
+  assert.equal(s2.stillCode, s1.stillCode)
+  assert.equal(s2.contentLanded, s1.contentLanded)
+  assert.equal(classify(contentRow(s2)).verdict, classify(contentRow(s1)).verdict)
+  assert.equal(classify(contentRow(s2)).verdict, 'NEEDS_WORK')
+  // 反向牙:混合里真代码那部分为空时,生成块再多也判绿(与 ① 互证)。
+  const s3 = splitStill(mixed, asText(...GEN_FILES))
+  assert.equal(s3.stillCode, 0)
+  assert.equal(s3.contentLanded, true)
+  assert.equal(classify(contentRow(s3)).verdict, 'DISCARDABLE')
+})
+
+test('③b splitStill 取的是 A∩B:A 有但 B 已无差异的文件不算未落地', () => {
+  const s = splitStill(asText('src/core.ts', 'README.md'), asText('README.md'))
+  assert.deepEqual(s.still, ['README.md'])
+  assert.equal(s.stillCode, 0)
+  assert.equal(s.contentLanded, true)
+  assert.equal(classify(contentRow(s)).verdict, 'DISCARDABLE')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

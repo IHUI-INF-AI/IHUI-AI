@@ -341,6 +341,7 @@ function gitDiffNames(args) {
     encoding: 'utf8',
     timeout: 60_000,
     stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
   })
   if (r.status !== 0) throw new Unjudged(`git diff 失败:${String(r.stderr ?? '').trim().slice(0, 160)}`)
   return r.stdout ?? ''

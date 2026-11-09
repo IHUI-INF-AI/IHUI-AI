@@ -117,7 +117,9 @@ export async function findEduSettingsByGroup(group: string): Promise<EduSettingP
   return db
     .select(publicFields)
     .from(eduSettings)
-    .where(and(eq(eduSettings.group, group), eq(eduSettings.status, 1), eq(eduSettings.isPublic, true)))
+    .where(
+      and(eq(eduSettings.group, group), eq(eduSettings.status, 1), eq(eduSettings.isPublic, true)),
+    )
     .orderBy(asc(eduSettings.sort), asc(eduSettings.key))
 }
 

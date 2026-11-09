@@ -82,25 +82,27 @@ vi.mock('../src/db/index.js', () => {
       },
       returning: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          const name = tableName(table)
-          state.events.push(`insert:${name}`)
-          if (name === 'edu_payment_record') {
-            const row: FakePayment = {
-              id: `p${state.payments.length + 1}`,
-              enrollmentId: values.enrollmentId as string,
-              studentId: values.studentId as string,
-              classId: values.classId as string,
-              amount: values.amount as number,
-              status: (values.status as string) ?? 'paid',
-              scheduleId: (values.scheduleId as string | null) ?? null,
-              deletedAt: null,
+        Promise.resolve()
+          .then(() => {
+            const name = tableName(table)
+            state.events.push(`insert:${name}`)
+            if (name === 'edu_payment_record') {
+              const row: FakePayment = {
+                id: `p${state.payments.length + 1}`,
+                enrollmentId: values.enrollmentId as string,
+                studentId: values.studentId as string,
+                classId: values.classId as string,
+                amount: values.amount as number,
+                status: (values.status as string) ?? 'paid',
+                scheduleId: (values.scheduleId as string | null) ?? null,
+                deletedAt: null,
+              }
+              state.payments.push(row)
+              return [{ id: row.id }]
             }
-            state.payments.push(row)
-            return [{ id: row.id }]
-          }
-          return []
-        }).then(res, rej),
+            return []
+          })
+          .then(res, rej),
     }
     return b
   }
@@ -114,15 +116,17 @@ vi.mock('../src/db/index.js', () => {
       },
       where: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          const name = tableName(table)
-          state.events.push(`update:${name}`)
-          if (name === 'edu_enrollment') {
-            state.enrollment.paidAmount = Number(set.paidAmount)
-            state.enrollment.nextDueDate = (set.nextDueDate as string | null) ?? null
-          }
-          return []
-        }).then(res, rej),
+        Promise.resolve()
+          .then(() => {
+            const name = tableName(table)
+            state.events.push(`update:${name}`)
+            if (name === 'edu_enrollment') {
+              state.enrollment.paidAmount = Number(set.paidAmount)
+              state.enrollment.nextDueDate = (set.nextDueDate as string | null) ?? null
+            }
+            return []
+          })
+          .then(res, rej),
     }
     return b
   }

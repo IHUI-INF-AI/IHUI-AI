@@ -34,6 +34,8 @@ import type {
 
 import { createApiRequest, extractData, handleError, printJson, resolveApiKeyAsync, resolveBaseUrl } from './http-utils.js';
 import { missingTokenHint } from './token-manager.js';
+import { LongTermMemory } from '../memory/long-term.js';
+import { distillMemoryEntries } from '../memory/distill.js';
 
 const API_PREFIX = '/api/memory';
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -91,6 +93,11 @@ interface ClearOptions {
   scope?: string;
   session?: string;
   project?: string;
+  json?: boolean;
+}
+
+interface DistillOptions {
+  dryRun?: boolean;
   json?: boolean;
 }
 
@@ -344,6 +351,53 @@ async function clearMemory(
   console.info(chalk.green(`✓ 已清空 ${cleared} 条记忆`));
 }
 
+// ==================== distill(本地只读预览) ====================
+
+/**
+ * 本地长期记忆蒸馏预览。
+ * MEMORY.md 不存时间戳,load 返回的 ts 恒为 0;这里用「文件内行序」近似新旧(后写更新),
+ * 让预算裁剪仍能体现「最近优先」。
+ * 当前只读:不写盘;真正的落盘由 dream/退出钩子异步完成,避免命令同步改写记忆。
+ */
+async function previewLocalMemoryDistill(
+  workspace: string,
+  asJson: boolean,
+  dryRun: boolean,
+): Promise<void> {
+  const longTerm = new LongTermMemory(workspace);
+  const stored = longTerm.load();
+  const entries = stored.map((entry, index) => ({
+    text: entry.text,
+    source: 'project',
+    createdAt: index,
+    kind: entry.category,
+  }));
+  const result = await distillMemoryEntries(entries);
+  const stats = {
+    total: stored.length,
+    kept: result.kept,
+    merged: result.merged,
+    dropped: result.dropped,
+  };
+
+  if (asJson) {
+    printJson({ success: true, data: { ...stats, text: result.text } });
+    return;
+  }
+
+  console.info('');
+  console.info(chalk.bold('本地长期记忆蒸馏预览'));
+  console.info(chalk.dim(longTerm.path));
+  console.info(
+    `  输入 ${stats.total} 条 → 保留 ${stats.kept} / 合并 ${stats.merged} / 裁剪 ${stats.dropped}`,
+  );
+  if (result.text) console.info(chalk.dim(result.text));
+  if (!dryRun) {
+    console.info(chalk.yellow('未指定 --dry-run:当前实现仍只做只读预览,不写盘。'));
+  }
+  console.info(chalk.dim('只读预览:未写盘(落盘由记忆沉淀流程负责)'));
+}
+
 // ==================== 命令注册 ====================
 
 /**
@@ -465,6 +519,25 @@ export function registerMemoryCommand(program: Command): void {
         await clearMemory(baseUrl, query, Boolean(opts.json), apiKey);
       } catch (err) {
         handleError('memory clear', err);
+      }
+    });
+
+  // 本地 MEMORY.md 的蒸馏预览:不依赖后端令牌,只读打印 kept/merged/dropped 统计。
+  memCmd
+    .command('distill')
+    .description('蒸馏本地长期记忆 (.ihui-agent/memory/MEMORY.md),只读预览')
+    .option('--dry-run', '只读预览,只打印 kept/merged/dropped 统计,不写盘', true)
+    .option('--json', '以 JSON 格式输出统计与蒸馏文本')
+    .action(async (opts: DistillOptions) => {
+      try {
+        const root = program.opts() as { workspace?: string };
+        const workspace =
+          typeof root.workspace === 'string' && root.workspace.trim() !== ''
+            ? root.workspace
+            : process.cwd();
+        await previewLocalMemoryDistill(workspace, Boolean(opts.json), Boolean(opts.dryRun));
+      } catch (err) {
+        handleError('memory distill', err);
       }
     });
 }

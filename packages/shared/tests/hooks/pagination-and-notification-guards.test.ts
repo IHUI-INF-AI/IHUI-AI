@@ -28,9 +28,7 @@ describe('XUI-025 useLoadMore:fetch 失败必须 finally 解锁', () => {
 
 describe('XUI-032 usePaginatedList:同 tick 连点只取一页', () => {
   it('loadMore 用 ref 同步锁,而不是 state loadingMore', () => {
-    expect(PAGINATED).toMatch(
-      /if \(loadingMoreLockRef\.current \|\| !hasMore\) return/,
-    )
+    expect(PAGINATED).toMatch(/if \(loadingMoreLockRef\.current \|\| !hasMore\) return/)
     expect(PAGINATED).toMatch(/const loadingMoreLockRef = useRef\(false\)/)
   })
 

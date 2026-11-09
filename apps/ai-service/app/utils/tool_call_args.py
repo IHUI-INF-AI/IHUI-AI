@@ -18,7 +18,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict
 
 from .json_repair import StreamingJsonRepair, create_streaming_json_repair, repair_json
 
@@ -87,8 +87,11 @@ def create_tool_call_args_streamer() -> ToolCallArgsStreamer:
     return ToolCallArgsStreamer()
 
 
-class ToolCallArgsState(dict[str, Any]):
+class ToolCallArgsState(TypedDict):
     """流式增量 args 解析态（dict 形态对齐 TS ``ToolCallArgsState``）。"""
+    complete: bool
+    partial: bool
+    args: Any
 
 
 def accumulate_tool_call_arguments(

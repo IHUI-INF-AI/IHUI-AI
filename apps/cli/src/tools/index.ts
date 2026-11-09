@@ -66,6 +66,7 @@ import {
   type ToolCallDenial,
 } from '../utils/tool-denial.js';
 import { injectHostSection } from '../utils/prompt-injection-registry.js';
+import { buildToolSurface, renderStablePrefix, renderToolSchema } from './tool-surface.js';
 import { BROWSER_TOOLS } from './browser.js';
 import { BROWSER_PAGE_TOOLS } from './browser-page.js';
 import {
@@ -327,6 +328,14 @@ export interface Tool extends ToolContractMount {
    * 缺省(省略)= 现状逐字不变。
    */
   strictSchema?: boolean;
+  /**
+   * 延迟装载自述位(2026-11 拍板):true = 参数 schema 默认不进常驻 prompt,只进延迟目录,
+   * 由 `tool_search` 按需揭示;false = 强制常驻。
+   * 缺省(省略)= 交给 `tools/defer-policy.ts` 按名字族判断 —— 注册点不必逐个改,
+   * 个别工具需要破例时在这里显式声明。`dangerous` 级工具即便声明 true 也仍常驻
+   * (危险动作必须让模型直接看到参数,不得先检索再确认)。
+   */
+  deferLoading?: boolean;
   execute(args: Record<string, unknown>, ctx: ToolContext): Promise<ToolResult>;
 }
 
@@ -872,19 +881,31 @@ const PLAN_FIRST_DIRECTIVE = `## 任务规划(必须先规划后执行)
 
 规划完成后再逐步执行工具调用。每完成一步,简要说明进度并继续下一步。若规划需调整,先输出新的 plan 块再继续。`;
 
-export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirst?: boolean): string {
-  const toolDescriptions = tools
-    .map((t) => {
-      const params = Object.entries(t.parameters)
-        .map(([name, p]) => {
-          const req = t.required.includes(name) ? ' (必填)' : '';
-          const enumStr = p.enum ? ` 可选值: ${p.enum.join('|')}` : '';
-          return `    - ${name}: ${p.type}${req} — ${p.description}${enumStr}`;
-        })
-        .join('\n');
-      return `### ${t.name}\n${t.description}\n参数:\n${params}`;
-    })
-    .join('\n\n');
+/** `buildSystemPrompt` 的可选装配参数。 */
+export interface BuildSystemPromptOptions {
+  /**
+   * 延迟工具目录文本(「名字 — 一句话描述」,不含参数 schema)。
+   * 显式给出(含空串)= 工具面已由调用方切好(典型:`prompts/compose.ts` 经 `buildToolSurface`),
+   * 本函数不再二次延迟;省略 = 由本函数按 `defer-policy` 自行切分。
+   */
+  deferredCatalogue?: string;
+  /** 会话级已揭示集合(仅在自行切分时生效;显式给出目录时调用方已并入 promptTools) */
+  revealed?: ReadonlySet<string>;
+}
+
+export function buildSystemPrompt(
+  tools: Tool[],
+  extraContext?: string,
+  planFirst?: boolean,
+  opts: BuildSystemPromptOptions = {},
+): string {
+  // 稳定前缀(与工具集合无关)+ 上下文 + 规划段 + 常驻 schema + 延迟目录 + 一句提示。
+  // 顺序刻意固定:工具集变化只影响"常驻 schema"及其后的段落,前缀字节不移动。
+  const surface = opts.deferredCatalogue !== undefined
+    ? { promptTools: tools, catalogueText: opts.deferredCatalogue }
+    : buildToolSurface(tools, { revealed: opts.revealed ?? new Set<string>() });
+
+  const toolDescriptions = surface.promptTools.map((t) => renderToolSchema(t)).join('\n\n');
 
   const contextSection = extraContext
     ? `\n\n## 项目上下文\n\n${extraContext}\n`
@@ -901,33 +922,21 @@ export function buildSystemPrompt(tools: Tool[], extraContext?: string, planFirs
     : '';
   const planSection = planFirstDirective ? `\n\n${planFirstDirective}` : '';
 
-  return `你是一个强大的编码助手。你可以使用以下工具来完成任务。
+  // 延迟目录同样是宿主指令:目录文本 + "先检索再调用"的提示一并经登记出口下发。
+  // 目录为空时**不记账**(无延迟工具是常态,不是降级)。
+  const catalogueDirective = surface.catalogueText
+    ? injectHostSection('tool_catalogue_deferred', `## 延迟工具目录(按需检索)\n\n${surface.catalogueText}\n\n需要某个未列出参数的工具时,先调用 tool_search(关键词或工具名),拿到完整参数后再调用该工具。`, { kind: 'host_directive' })
+    : '';
+  const catalogueSection = catalogueDirective ? `\n\n${catalogueDirective}` : '';
+
+  return `${renderStablePrefix()}
 ${contextSection}${planSection}
 
 ## 可用工具
 
-${toolDescriptions}
-
-## 工具调用格式
-
-当需要使用工具时,在回复中输出以下格式的代码块:
-
-\`\`\`tool_call
-{"name":"工具名","arguments":{"参数名":"参数值"}}
-\`\`\`
-
-可以连续调用多个工具(每个占一个代码块)。工具执行后,结果会以 user 消息形式返回,你可以继续处理。
-
-当任务完成或无需工具时,正常回复即可(不包含 tool_call 块)。
-
-## 注意事项
-
-- 优先使用工具获取信息,不要猜测文件内容
-- 文件路径相对于工作区根目录
-- 一次只调用必要的工具,避免冗余操作
-- 修改/创建文件必须使用 edit_file / write_file 工具,禁止通过 run_command 执行内嵌脚本(如 node -e / sed -i)改文件——跨 shell 引号转义极易失败且错误不易察觉
-- 声称完成前,用 read_file 复核关键改动确实落盘`;
+${toolDescriptions}${catalogueSection}`;
 }
+
 
 export interface ParsedToolCall {
   name: string;

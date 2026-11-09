@@ -63,9 +63,30 @@ const PEER_B = '00000000-0000-4000-8000-0000000000bb'
 const PEER_C = '00000000-0000-4000-8000-0000000000cc'
 const AUTH_HEADERS = { authorization: 'Bearer mock-token' }
 
-const MSG_A_B = { id: 'm-ab', senderId: MEMBER_ID, receiverId: PEER_B, content: 'A→B', isRead: true, createdAt: '2026-08-01T00:00:00Z' }
-const MSG_B_A = { id: 'm-ba', senderId: PEER_B, receiverId: MEMBER_ID, content: 'B→A', isRead: false, createdAt: '2026-08-01T00:01:00Z' }
-const MSG_A_C = { id: 'm-ac', senderId: MEMBER_ID, receiverId: PEER_C, content: 'A→C 其他会话', isRead: true, createdAt: '2026-08-01T00:02:00Z' }
+const MSG_A_B = {
+  id: 'm-ab',
+  senderId: MEMBER_ID,
+  receiverId: PEER_B,
+  content: 'A→B',
+  isRead: true,
+  createdAt: '2026-08-01T00:00:00Z',
+}
+const MSG_B_A = {
+  id: 'm-ba',
+  senderId: PEER_B,
+  receiverId: MEMBER_ID,
+  content: 'B→A',
+  isRead: false,
+  createdAt: '2026-08-01T00:01:00Z',
+}
+const MSG_A_C = {
+  id: 'm-ac',
+  senderId: MEMBER_ID,
+  receiverId: PEER_C,
+  content: 'A→C 其他会话',
+  isRead: true,
+  createdAt: '2026-08-01T00:02:00Z',
+}
 const ALL_MESSAGES = [MSG_A_B, MSG_A_C, MSG_B_A]
 
 function mockReadChain(rows: Record<string, unknown>[]): void {

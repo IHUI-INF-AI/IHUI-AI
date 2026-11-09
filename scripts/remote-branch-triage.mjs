@@ -85,6 +85,30 @@ export function addedLines(diffText) {
   return out
 }
 
+/**
+ * A∩B 落地判定的唯一真相源(§22c):A = diff --name-only base...tip(分支自己改过的文件),
+ * B = diff --name-only base tip(两棵树仍不同的文件),still = A∩B 即「改动尚未逐字节落地」的面。
+ * 与 addedLines() 同源口径:GENERATED_FILE 命中的 README 系、PROJECT_PLAN.md、
+ * 带 .generated. 的派生文件、pnpm-lock.yaml 等,只算生成块噪声,不计语义信号 ——
+ * 否则只改 README 的分支会因 base 侧 README 被后续提交动过而假红 NEEDS_WORK。
+ * 不静默丢弃:总数 / 生成块命中数 / 真代码差异数全部显式回传,contentLanded 只在真代码差异为 0 时成立。
+ * 入参直接吃 git --name-only 的原始文本,run() 与 executeDeletes() 二次校验共用此函数,零复制实现。
+ */
+export function splitStill(aText, bText) {
+  const as = new Set(String(aText ?? '').split(/\r?\n/).filter(Boolean))
+  const bs = new Set(String(bText ?? '').split(/\r?\n/).filter(Boolean))
+  const still = [...as].filter((f) => bs.has(f))
+  const stillGenerated = still.filter((f) => GENERATED_FILE.test(f)).length
+  const stillCode = still.length - stillGenerated
+  return {
+    still,
+    stillDiff: still.length,
+    stillGenerated,
+    stillCode,
+    contentLanded: stillCode === 0,
+  }
+}
+
 /** merge-tree --write-tree 输出 → 冲突文件路径集合(第一行是 tree oid,后续是 stage 行)。 */
 export function mergeConflictFiles(output) {
   const set = new Set()
@@ -124,10 +148,20 @@ export function classify(row, opts = {}) {
     return { verdict: 'HOLD_WORKTREE', reason: '内容零风险,但避让在飞检出 upstream' }
   }
   if (landed) {
-    const why = row.merged === true ? 'main 祖先' : row.contentLanded === true ? 'A∩B=∅' : '新增行 100% 落地'
+    let why
+    if (row.merged === true) {
+      why = 'main 祖先'
+    } else if (row.contentLanded === true) {
+      // A∩B 非空但全是被过滤的生成块时,不能谎称「A∩B=∅」,须如实带出过滤数(门 41)。
+      why = row.stillGenerated > 0
+        ? `A∩B 真代码差异=0(过滤生成块 ${row.stillGenerated}, still=${row.stillDiff})`
+        : 'A∩B=∅'
+    } else {
+      why = '新增行 100% 落地'
+    }
     return { verdict: 'DISCARDABLE', reason: why }
   }
-  return { verdict: 'NEEDS_WORK', reason: `仍有未落地内容(still=${row.stillDiff ?? '?'}, 独有行=${row.lineMiss ?? '?'})` }
+  return { verdict: 'NEEDS_WORK', reason: `仍有未落地内容(still=${row.stillDiff ?? '?'}, 真代码=${row.stillCode ?? '?'}, 过滤生成块=${row.stillGenerated ?? 0}, 独有行=${row.lineMiss ?? '?'})` }
 }
 
 /** 删除前的二次校验:任一项不符即整支跳过,绝不「差不多就删」。 */
@@ -337,7 +371,7 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
       name, sha, hasObject: git(['cat-file', '-e', `${sha}^{commit}`], o.repo).rc === 0,
       prState, prs: prByHead[name] ?? [], worktree: wtBranches.has(name),
       ahead: null, merged: null, contentLanded: null, linesLanded: null,
-      stillDiff: null, lineMiss: null, mergeConflicts: [],
+      stillDiff: null, stillGenerated: null, stillCode: null, lineMiss: null, mergeConflicts: [],
     }
     if (row.hasObject) {
       row.merged = git(['merge-base', '--is-ancestor', sha, o.base], o.repo).rc === 0
@@ -350,11 +384,11 @@ export async function run(argv = process.argv.slice(2), env = process.env) {
         const A = git(['diff', '--name-only', `${o.base}...${sha}`], o.repo)
         const B = git(['diff', '--name-only', o.base, sha], o.repo)
         if (A.rc === 0 && B.rc === 0) {
-          const as = new Set(A.out.split(/\r?\n/).filter(Boolean))
-          const bs = new Set(B.out.split(/\r?\n/).filter(Boolean))
-          const still = [...as].filter((f) => bs.has(f))
-          row.stillDiff = still.length
-          row.contentLanded = still.length === 0
+          const s = splitStill(A.out, B.out)
+          row.stillDiff = s.stillDiff
+          row.stillGenerated = s.stillGenerated
+          row.stillCode = s.stillCode
+          row.contentLanded = s.contentLanded
         }
         // 新增行深判只对「改动面小」的分支做:stillDiff 大时补丁本身就是几千行,
         // 逐行比对既慢又不可能判出 100% 落地,跳过比硬跑诚实。
@@ -425,8 +459,7 @@ export async function executeDeletes(cands, o, token, slug, meta = {}) {
     else if (r.contentLanded === true) {
       const A = git(['diff', '--name-only', `${o.base}...${r.sha}`], o.repo)
       const B = git(['diff', '--name-only', o.base, r.sha], o.repo)
-      const bs = new Set(B.out.split(/\r?\n/).filter(Boolean))
-      stillOk = A.rc === 0 && B.rc === 0 && !A.out.split(/\r?\n/).filter((f) => f && bs.has(f)).length
+      stillOk = A.rc === 0 && B.rc === 0 && splitStill(A.out, B.out).contentLanded
     } else stillOk = r.linesLanded === true
     if (!stillOk) { console.log(`  SKIP ${r.name} (LANDED_RECHECK_FAIL)`); continue }
     ok.push(r)
@@ -453,7 +486,7 @@ if (isMain) {
 }
 
 export const __test__ = {
-  parseLsRemote, addedLines, mergeConflictFiles, classify, safetyCheck, markdownReport,
+  parseLsRemote, addedLines, splitStill, mergeConflictFiles, classify, safetyCheck, markdownReport,
   PROTECT_PREFIX, BOT_AUTHORS, GENERATED_FILE,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

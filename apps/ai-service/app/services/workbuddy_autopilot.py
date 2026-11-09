@@ -234,7 +234,7 @@ async def run_autopilot(
     """
     desktop_runner = desktop_runner or wda.run_desktop_expert_task
 
-    async def _generic(task_code: str, ctx: dict[str, Any], http: httpx.AsyncClient, read_tasks) -> Any:
+    async def _generic(task_code: str, ctx: dict[str, Any], http: httpx.AsyncClient, read_tasks: Any) -> Any:
         if generic_runner is not None:
             return await generic_runner(task_code, ctx, http, read_tasks)
         return await wda.execute_task_code(task_code, ctx, http, read_tasks)

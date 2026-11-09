@@ -17,11 +17,7 @@ import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { success, error } from '../utils/response.js'
 import { requireAuth, callVendor, recordUsage, genId } from './ai-vendors/_shared.js'
-import {
-  ensurePointsAvailable,
-  chargeFlatPoints,
-  FLAT_POINTS,
-} from '../services/points-guard.js'
+import { ensurePointsAvailable, chargeFlatPoints, FLAT_POINTS } from '../services/points-guard.js'
 
 type StepName = 'script' | 'material' | 'compose' | 'subtitle'
 type StepStatus = 'pending' | 'running' | 'succeeded' | 'failed'

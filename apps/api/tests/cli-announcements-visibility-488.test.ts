@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest'
 import Fastify, { type FastifyError } from 'fastify'
+import type * as ContentQueries from '../src/db/content-queries.js'
 
 vi.mock('../src/config/index.js', () => ({
   config: {
@@ -32,7 +33,7 @@ vi.mock('../src/config/index.js', () => ({
 }))
 
 vi.mock('../src/db/content-queries.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../src/db/content-queries.js')>()
+  const actual = await importOriginal<typeof ContentQueries>()
   return {
     ...actual,
     findAnnouncementById: vi.fn(),
