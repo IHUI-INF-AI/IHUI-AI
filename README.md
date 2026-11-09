@@ -43837,5 +43837,9 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4719 
 A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | CLI 工具文件 | 98 | `cliToolFiles` |
+| 测试文件 | 4799 | `testFiles` |
+| 跟踪文件 | 20682 | `trackedFiles` |
+| AI 服务路由 | 676 | `aiServiceRoutes` |
+| CLI 工具文件 | 98 | `cliToolFiles` |
 | 测试文件 | 4798 | `testFiles` |
 | 跟踪文件 | 20680 | `trackedFiles` |

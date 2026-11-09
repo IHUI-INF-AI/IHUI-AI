@@ -17,7 +17,7 @@
 
 接入(任何 MCP 客户端):
 ```
-POST https://aizhs.top/api/mcp-public/wb-autopilot
+POST https://ai.aizhs.top/api/mcp-public/wb-autopilot
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
 {"jsonrpc":"2.0","id":2,"method":"tools/list"}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"wb_action_routes","arguments":{}}}
