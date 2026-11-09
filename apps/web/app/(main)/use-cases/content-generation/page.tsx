@@ -4,6 +4,7 @@
 
 import type { Metadata } from 'next'
 import { UseCaseContent } from '../UseCaseContent'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -94,10 +95,7 @@ export const metadata: Metadata = {
 export default function ContentGenerationPage() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
       <UseCaseContent useCaseId="content-generation" />
     </>
   )

@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2, Users, MessageSquare, Circle } from 'lucide-react'
 import { apiOrThrow } from '@/lib/api'
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from '@ihui/ui-react'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 interface CircleDetail {
   id: string
@@ -118,7 +119,7 @@ export default function CircleDetailPage() {
       <script
         type="application/ld+json"
         // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的用户输入会提前闭合脚本标签导致存储型 XSS
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(circleJsonLd).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(circleJsonLd) }}
       />
       <Button variant="ghost" size="sm" onClick={() => router.back()}>
         <ArrowLeft className="mr-1.5 h-4 w-4" />
