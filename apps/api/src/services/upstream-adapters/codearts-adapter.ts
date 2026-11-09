@@ -712,6 +712,63 @@ async function getQuota(
 }
 
 // =============================================================================
+// 手机号点查(2026-11-10 立)
+// =============================================================================
+
+/** 华为云 IAM「查询IAM用户详情」;末尾拼 userId(即导入侧的 account.id / domainId 同级 id) */
+const IAM_USER_DETAIL_URL = 'https://iam.myhuaweicloud.com/v3.0/OS-USER/users'
+
+/**
+ * 取 CodeArts 账号的手机号 —— 上游确实有,只是不在 STS 会话里。
+ *
+ * 实证(2026-11-10 本机实弹):`GET {IAM}/v3.0/OS-USER/users/{id}` 用 **AK/SK + STS
+ * security_token 的 SDK-HMAC-SHA256 签名**(`signRequest`)即可读,不需要 IAM token
+ * ——X-Auth-Token 走 STS 票会被 IAM 判 `APIG.0301 decrypt token fail`,签名头则返回
+ * `{"user":{...,"phone":"0086-18643389808","areacode":"0086",...}}`。
+ *
+ * 返回大陆 11 位全号(剥掉 `0086-` 国家码前缀);取不到/形状不符返回 null,
+ * 网络与 4xx/5xx 一律抛错由调用方决定是否降级为"未判定"(不静默当成没有)。
+ */
+export async function fetchCodeartsAccountPhone(input: {
+  accessKeyId: string
+  secretAccessKey: string
+  securityToken: string
+  userId: string
+  fetchImpl?: typeof fetch
+}): Promise<string | null> {
+  const userId = String(input.userId ?? '').trim()
+  if (!userId) return null
+  const url = `${IAM_USER_DETAIL_URL}/${encodeURIComponent(userId)}`
+  const headers = signRequest({
+    accessKeyId: input.accessKeyId,
+    secretAccessKey: input.secretAccessKey,
+    securityToken: input.securityToken,
+    method: 'GET',
+    url,
+    headers: { accept: 'application/json' },
+  })
+  const res = await (input.fetchImpl ?? fetch)(url, { method: 'GET', headers })
+  const text = await res.text().catch(() => '')
+  if (!res.ok) {
+    throw new Error(`IAM 用户详情 HTTP ${res.status}: ${text.slice(0, 200)}`)
+  }
+  let user: Record<string, unknown> | null = null
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const u = (parsed as Record<string, unknown>).user
+      if (u && typeof u === 'object' && !Array.isArray(u)) user = u as Record<string, unknown>
+    }
+  } catch {
+    /* 非 JSON ⇒ 下面按取不到处理 */
+  }
+  const raw = typeof user?.phone === 'string' ? user.phone.trim() : ''
+  // 华为云的 phone 带国家码前缀("0086-18643389808"),只认尾部大陆 11 位全号
+  const m = raw.match(/(1[3-9]\d{9})$/)
+  return m?.[1] ?? null
+}
+
+// =============================================================================
 // 导出
 // =============================================================================
 

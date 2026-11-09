@@ -137,7 +137,8 @@ export const RELAY_ACCOUNT_NAME_KEYS: Record<RelayProviderCode, readonly string[
   codearts: ['name', 'account.label', 'user_name'],
   qoder: ['nickname', 'name'],
   codex: ['name'],
-  opencode: ['name'],
+  // opencode 是 Google 账号登录(无手机号维度),账号名取登录邮箱
+  opencode: ['email', 'user.email', 'name'],
   minimax: ['name'],
   zcode: ['name'],
   loomy: ['name'],
