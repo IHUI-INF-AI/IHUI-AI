@@ -189,8 +189,10 @@ def _shorten_description(desc: str, limit: int = 80) -> str:
     first_line = desc.split("\n", 1)[0].strip()
     # 去除行首 markdown 前缀符号
     cleaned = re.sub(r"^[\s#*>`\-]+", "", first_line)
-    # 去除行内 ` * _ 包裹符号
-    cleaned = re.sub(r"[`*_]{1,2}", "", cleaned).strip()
+    # 去除行内 ` * 包裹符号。**保留下划线**:工具描述里 run_command / read_file /
+    # CONCURRENT_MODIFICATION 这类标识符极常见,把 _ 当 markdown 强调符号清掉会让
+    # 模型读不到真实工具名,反而削弱"什么时候该用它"。
+    cleaned = re.sub(r"[`*]{1,2}", "", cleaned).strip()
     if not cleaned:
         return placeholder[:limit]
     if len(cleaned) <= limit:
@@ -198,15 +200,60 @@ def _shorten_description(desc: str, limit: int = 80) -> str:
     return cleaned[: max(1, limit - 1)].rstrip() + "…"
 
 
-# deferral 模式下,精简工具描述尾部统一追加的"取完整参数"提示(配合内置
-# get_tool_schema 工具)。长度固定,供 _build_loop_v2_tools 预留尾部空间。
-_TOOL_DEFERRAL_SUFFIX = " 〔完整参数用 get_tool_schema 查询〕"
+# deferral 描述压缩上限(字符)。旧值是 80 - len(suffix) ≈ 63,模型只读得到半句话;
+# 放到 120 后「什么时候该用它」仍然读得出来,而首行截断保证了不成段展开。
+_TOOL_DEFERRAL_DESC_LIMIT = 120
+
+# api_tools_bridge 注册的 OpenAPI 长尾端点统一前缀(302 条那批机械名 api_*)。
+_API_TOOL_PREFIX = "api_"
+
+
+def _strip_param_descriptions(schema: dict[str, Any]) -> dict[str, Any]:
+    """递归删掉参数 schema 里的 description 文本,其余结构一律原样保留。
+
+    只用于 api_* 长尾:它们的每个字段 description 是 "path 参数 xxx" 这类由 OpenAPI
+    展开生成的模板文本,对"何时该用这个工具"没有增量信息,却占了参数面主要字节。
+    properties 键名 / type / required / items / enum **全部不动**,因此不会出现
+    "有 required 却没有对应 properties" 的畸形 schema。
+    """
+    if isinstance(schema, dict):
+        return {
+            k: _strip_param_descriptions(v)
+            for k, v in schema.items()
+            if k != "description"
+        }
+    if isinstance(schema, list):
+        return [_strip_param_descriptions(v) for v in schema]
+    return schema
+
+
+def _deferral_tool_parameters(
+    name: str, schema: dict[str, Any] | None
+) -> dict[str, Any]:
+    """deferral 下的分层参数策略(本函数的存在理由见 _build_loop_v2_tools 头注)。
+
+    - 内置 `_TOOLS` 与 UI/页面句柄桥接:**原样返回同一个对象,一条不裁** —— 模型必须
+      看得到 run_command 需要 `command`、write_file 需要 `path/content`,否则它会直接
+      判"我没有这个工具"并退化成纯文本。
+    - `api_*` 长尾:保留 properties/type/required,仅删字段级 description。
+    """
+    if not isinstance(schema, dict) or not schema:
+        return {"type": "object", "properties": {}}
+    if name.startswith(_API_TOOL_PREFIX):
+        return _strip_param_descriptions(schema)
+    return schema
+
+
+def _deferral_tool_description(desc: str) -> str:
+    """deferral 下的描述压缩:取首行并压到上限内,保留"何时使用"语义。"""
+    return _shorten_description(desc, limit=_TOOL_DEFERRAL_DESC_LIMIT)
 
 
 def _is_tool_deferral_enabled() -> bool:
     """工具定义 deferral 开关(env TOOL_DEFERRAL,默认 on)。
 
-    on/1/true/yes → 启用(只把短描述+占位参数放进上下文,完整 schema 按需反查);
+    on/1/true/yes → 启用:描述压到一行,参数面按分层策略瘦身
+    (内置/桥接保留完整 parameters;api_* 长尾只删字段 description);
     其他值(如 off)→ 关闭,行为与历史完全一致(完整 description + 完整 parameters)。
     """
     return os.environ.get("TOOL_DEFERRAL", "on").strip().lower() in (
@@ -354,14 +401,11 @@ def _supertool_tools_from_pool(
             return await agg.call_forward(pool, _key, args, invoke_fn=_invoke)
 
         if defer and key != "get_tool_schema":
-            short = _shorten_description(
-                pt.description, limit=80 - len(_TOOL_DEFERRAL_SUFFIX)
-            )
             tools.append(
                 ToolDefinition(
                     name=key,
-                    description=short + _TOOL_DEFERRAL_SUFFIX,
-                    parameters={"type": "object"},
+                    description=_deferral_tool_description(pt.description),
+                    parameters=_deferral_tool_parameters(key, pt.schema),
                     executor=_exec,
                     mcp_annotations=pt.annotations,
                 )
@@ -400,12 +444,15 @@ async def _build_loop_v2_tools(
     时,内置 _TOOLS 与外部工具经 MCPSuperToolAggregator 去重/仲裁后以统一 manifest
     暴露;无外部 server 或聚合异常时降级到下方现有路径(工具清单逐字节等价)。
 
-    工具定义 deferral(瘦身,默认开启):当 TOOL_DEFERRAL=on 时,除 get_tool_schema
-    自身外,所有工具的 description 替换为 ≤limit 的短描述、parameters 置为最小占位
-    ("type": "object"),并在描述尾部追加"用 get_tool_schema 查询完整参数"的提示,
-    从而大幅压低进入上下文的工具定义 token 占用(对标 Claude Code 的 deferral)。
+    工具定义 deferral(瘦身,默认开启):当 TOOL_DEFERRAL=on 时,描述压缩为一行 ≤120
+    字符(保留"何时使用"语义);参数面**分层**处理 —— 内置 `_TOOLS` 与 UI/页面桥接
+    **保留原始 parameters 一条不裁**,api_* 长尾保留 properties/type/required、仅删
+    字段级 description。此前一刀切把 parameters 置为最小占位("type": "object"),模型
+    看不到 run_command 需要 `command`,于是判"没有这个工具"退化成纯文本 —— 这是本
+    策略要修的病灶(注意:该病灶此前**不可观测**,因为 tools 从未进入模型请求,见
+    `_make_loop_v2_llm` 那条根因;两边都修好,瘦身才真正成立)。
     get_tool_schema 必须保持完整 schema 且无论 tool_names 过滤如何都强制纳入,
-    否则模型无法反查其他工具的完整参数。env 关闭时行为与历史完全一致。
+    模型仍可反查 api_* 被删掉的字段说明。env 关闭时行为与历史完全一致。
     """
     pool = await _build_supertool_pool(tool_names, user_id)
     if pool is not None:
@@ -438,14 +485,11 @@ async def _build_loop_v2_tools(
             )
 
         if defer and mt.name != "get_tool_schema":
-            short = _shorten_description(
-                mt.description, limit=80 - len(_TOOL_DEFERRAL_SUFFIX)
-            )
             tools.append(
                 ToolDefinition(
                     name=mt.name,
-                    description=short + _TOOL_DEFERRAL_SUFFIX,
-                    parameters={"type": "object"},
+                    description=_deferral_tool_description(mt.description),
+                    parameters=_deferral_tool_parameters(mt.name, mt.input_schema),
                     executor=_exec,
                 )
             )
@@ -551,9 +595,30 @@ def _make_loop_v2_llm(model: str | None) -> Any:
         # 行为与旧闭包逐零差异。
         _finish_sink = model_kwargs.pop("_finish_reason_sink", None)
 
+        # 【根因修复 2026-11-09】此前 `tools` 形参在本闭包**收了不用**:两条转发分支
+        # 都只带 messages/model,工具 schema 从未进入模型请求。后果是模型侧根本没有
+        # function calling 可用,于是它按训练习惯把调用写成**纯文本**的 tool_name /
+        # tool_args 片段,而 AgentLoopV2 只认结果里的 `tool_calls` 字段 ⇒ 一轮即止、
+        # status=completed、零工具执行、exitCode 永远取不到 —— 且这条失败**不报错**。
+        # 观察事实(2026-11-09 现读):同期在飞的另一支改动面落在 llm_gateway /
+        # key_pool_selector / model_sync / subagent-dispatch 上,而那支的 agents.py 里
+        # 本行这段转发**同样不存在** —— 即两侧都在绕着这根断线找原因;推断部分(他们
+        # 为何选那些文件)本注释不作答。本条与工具个数、schema 形态**无关**:全量 451
+        # 条与白名单 4 条两种实验都必然复现同一结果,因为线是断的。
+        #
+        # 判序:tools 为空 ⇒ **不注入该键**,无工具路径与历史逐字节等价(不因本修复顺带
+        # 改变网关的压缩/选路行为);非空 ⇒ 只透传 OpenAI function 形状的条目,网关据
+        # `has_tools=True` 自动跳过消息压缩并走厂商原生适配器分支。
+        tools_payload = [
+            t
+            for t in (tools or [])
+            if isinstance(t, dict) and isinstance(t.get("function"), dict)
+        ]
+        tools_kwargs: dict[str, Any] = {"tools": tools_payload} if tools_payload else {}
+
         if on_chunk is None:
             result = await llm_gateway.complete(
-                messages, model=model, **model_kwargs
+                messages, model=model, **tools_kwargs, **model_kwargs
             )
             _raise_if_gateway_error(result, stream=False)
             if _finish_sink is not None:
@@ -573,7 +638,9 @@ def _make_loop_v2_llm(model: str | None) -> Any:
         raw_tool_calls: list[dict[str, Any]] = []
         usage: dict[str, Any] | None = None
         model_used = ""
-        async for evt in llm_gateway.astream(messages, model=model, **model_kwargs):
+        async for evt in llm_gateway.astream(
+            messages, model=model, **tools_kwargs, **model_kwargs
+        ):
             evt_type = evt.get("type")
             if evt_type == "chunk":
                 text = evt.get("content") or ""

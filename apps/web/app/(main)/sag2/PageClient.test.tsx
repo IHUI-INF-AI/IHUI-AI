@@ -68,6 +68,10 @@ vi.mock('next-intl', () => {
     filter_text: '文本',
     filter_office: '文档',
     fromPalette: '来自全局检索',
+    extractRaster: '栅格化',
+    extractOcr: 'OCR',
+    extractAsr: '转写',
+    missing: '缺件',
   }
   return { useTranslations: () => (key: string) => dict[key] ?? key }
 })
@@ -190,6 +194,18 @@ const STATUS = {
   ready: true,
   backend: 'bm25',
   judge_provider: 'none',
+  extractors: {
+    asr: { engine: 'faster-whisper', installed: true },
+    // OCR 引擎缺件、栅格化在位：两种状态必须能分别看出来。
+    ocr: {
+      engine: 'none',
+      installed: false,
+      reason: 'missing-dep:rapidocr-onnxruntime|missing-dep:pytesseract',
+      engines: [],
+      pdf_rasterizer: 'pdfium',
+    },
+    pdf_rasterizer: { engine: 'pdfium', installed: true, version: '5.12.1' },
+  },
 }
 
 const CITATION = {
@@ -774,5 +790,34 @@ describe('SAG2 PageClient · 交互态错误不静默', () => {
       page: 1,
       per_page: 20,
     })
+  })
+})
+
+describe('SAG2 PageClient · 抽取能力如实上屏', () => {
+  it('栅格化在位显示 pdfium、OCR 缺件显示缺件，且 title 带具名原因', async () => {
+    installFetch([ok(STATUS)])
+    const { container } = render(<PageClient />)
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+
+    // 「栅格化在不在」与「OCR 引擎在不在」是两件事：前者必须显示 pdfium，
+    // 后者必须显示缺件 —— 都显示「缺件」会让用户不知道该装哪个。
+    const probes = Array.from(container.querySelectorAll('header span[title]'))
+    const raster = probes.find((el) => el.textContent?.startsWith('栅格化'))
+    const ocr = probes.find((el) => el.textContent?.startsWith('OCR'))
+    expect(raster?.textContent).toBe('栅格化 pdfium')
+    expect(ocr?.textContent).toBe('OCR 缺件')
+    expect(ocr?.getAttribute('title')).toContain('missing-dep:rapidocr-onnxruntime')
+    expect(raster?.getAttribute('title')).toBe('pdfium')
+  })
+
+  it('后端没上报 extractors 时不渲染这组徽标（不伪造能力）', async () => {
+    const { extractors: _drop, ...rest } = STATUS
+    installFetch([ok(rest)])
+    const { container } = render(<PageClient />)
+    await waitFor(() => expect(screen.getByText('索引就绪')).toBeTruthy())
+
+    const probes = Array.from(container.querySelectorAll('header span[title]'))
+    expect(probes.some((el) => el.textContent?.startsWith('栅格化'))).toBe(false)
+    expect(probes.some((el) => el.textContent?.startsWith('OCR'))).toBe(false)
   })
 })
