@@ -9,6 +9,16 @@
     "chunks": "チャンク",
     "terms": "語項",
     "judgeProvider": "判定器",
+    "foldersTitle": "ローカルフォルダ",
+    "folderPath": "フォルダのパス",
+    "folderPlaceholder": "例: D://docs または /Users/me/docs",
+    "registerFolder": "登録してスキャン",
+    "scanFolders": "すべてスキャン",
+    "foldersList": "登録済み",
+    "noFolders": "フォルダは未登録です",
+    "removeFolder": "登録解除",
+    "watchFolder": "自動監視",
+    "scanSummary": "{changed} 追加 · {unchanged} 変更なし · {unsupported} 非対応 · {failed} 失敗",
     "docsTitle": "文書登録",
     "docsPath": "パス",
     "docsContent": "本文",
@@ -9526,6 +9536,22 @@
         "WORKFLOW_NOT_TRIGGERABLE": {
           "title": "このワークフローは現在トリガーできません",
           "action": "存在・有効化・実行中のインスタンスなしを確認してから再試行"
+        },
+        "ADD_JOB_FAILED": {
+          "title": "定期タスクの登録に失敗しました",
+          "action": "しばらくしてから再試行し、続く場合は管理者にスケジューラの点検を依頼"
+        },
+        "INVALID_CALLBACK": {
+          "title": "タスクのコールバック設定が無効です",
+          "action": "コールバックの種類と引数を確認して再試行"
+        },
+        "SCHEDULER_UNAVAILABLE": {
+          "title": "スケジューラが起動していません",
+          "action": "しばらくしてから再試行し、続く場合は管理者にスケジューラの起動を依頼"
+        },
+        "UNREADABLE": {
+          "title": "ファイルを読み取れません",
+          "action": "ファイルの権限とロックを確認して再試行"
         }
       },
       "worktree": {
@@ -13667,6 +13693,7 @@
     "show": "表示",
     "delete": "削除",
     "save": "保存",
+    "saveFailed": "保存に失敗しました",
     "ok": "OK",
     "create": "作成",
     "agentKanban": "Agent 看板",
@@ -20459,7 +20486,7 @@
     "wizardAuditEntries": "スキャン詳細をすべて表示",
     "wizardAuditScope": "スキャン範囲：{cn} と {roaming}、合計 {files} ファイル。"
   },
-  "checkin": {
+  "checkinAssistant": {
     "taskPanelTitle": "タスク自動実行",
     "taskPanelAutoTitle": "自動巡回",
     "taskPanelAutoLoading": "読み込み中…",
@@ -21534,9 +21561,12 @@
     "status": {
       "all": "すべて",
       "cancelled": "キャンセル済み",
+      "completed": "完了",
+      "failed": "失敗",
       "paid": "支払済み",
       "pending": "支払い待ち",
       "refunded": "返金済み",
+      "refunding": "返金処理中",
       "unknown": "不明"
     },
     "statusLabel": "ステータス",
@@ -25357,6 +25387,14 @@
     "empty": "なし",
     "flowAmount": "Count",
     "flowBalance": "残高",
+    "flowDeduct": "減算",
+    "flowExpire": "期限切れ",
+    "flowOther": "その他",
+    "flowRecharge": "チャージ",
+    "flowRefund": "返金取消",
+    "flowRelayRecharge": "APIキーへ振替",
+    "flowAdminAdjust": "管理者調整",
+    "flowQuota": "クォータ変更",
     "flowRemark": "備考",
     "flowTime": "時間",
     "flowType": "タイプ",

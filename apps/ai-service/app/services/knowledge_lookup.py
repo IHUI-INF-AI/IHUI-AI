@@ -4,23 +4,26 @@
 
 """统一知识查询门面(PoC)。
 
-将五个独立的知识检索子系统聚合为一个统一入口,供 subagent / agent_loop 在
+将六个独立的知识检索子系统聚合为一个统一入口,供 subagent / agent_loop 在
 tool loop 里"一站式"查询外部知识,避免 hallucination + 减少重复 token 消耗:
 
 - codebase_indexer:  代码库语义检索(tree-sitter AST 切片 + embedding)
 - knowledge_cards:   仓库级知识卡片检索(2-1 任务经验沉淀,apps/api /search)
 - rag_service:       RAG 检索增强生成(向量检索 + rerank,本门面只取 retrieve 阶段)
+- sag2_lexical:      本地知识库词法多跳检索(零 LLM 建库,跨文件线索补齐)
 - graph:             知识图谱实体关系检索(NER 抽取 + 图谱匹配,语义关联补全)
 - long_term_memory:  跨会话历史摘要检索
 
 设计原则:
 1. 并发查询各源(asyncio.gather + return_exceptions=True),任一源失败不阻塞其他
 2. IO 失败降级返回空 hits,错误记入 errors 字段,不抛异常
-3. 按 source_priority 排序聚合,默认 [codebase, knowledge_cards, rag, graph, long_term_memory]
+3. 按 source_priority 排序聚合,默认 [codebase, knowledge_cards, rag, sag2, graph, long_term_memory]
 4. user_id 为空时跳过 long_term_memory(该源需要 user_id 才能查),
    graph 源按 owner 过滤同样依赖 user_id,为空时返回空 hits;
    knowledge_cards 源需要 api_token(用户 JWT,走 api 侧登录态校验),为空时跳过
-5. 返回统一 KnowledgeHit 列表,content 已格式化为可注入 prompt 的字符串
+5. sag2 源在索引未就绪(未登记任何文档)时**零成本短路**返回空,不算错误;
+   索引就绪但单次检索超时,记 errors 具名降级,不拖垮其他源
+6. 返回统一 KnowledgeHit 列表,content 已格式化为可注入 prompt 的字符串
 
 PoC 边界(§3 最小化):
 - 仅门面 + 单测 + README,不接入 agent_loop / spec_generator 等调用点
@@ -59,6 +62,7 @@ DEFAULT_PRIORITY: list[str] = [
     "codebase",
     "knowledge_cards",
     "rag",
+    "sag2",
     "graph",
     "long_term_memory",
 ]
@@ -68,9 +72,17 @@ _SUPPORTED_SOURCES: set[str] = {
     "codebase",
     "knowledge_cards",
     "rag",
+    "sag2",
     "graph",
     "long_term_memory",
 }
+
+#: SAG2 源单次检索的墙钟上限。词法多跳是 CPU 活,大库上超时必须具名降级,
+#: 不许把整个知识查询挂在一条腿上(与 rag 侧「失败必须响」同一条纪律)。
+SAG2_LOOKUP_TIMEOUT_S = 2.0
+
+#: SAG2 源单次注入上限:再多只会挤掉其他源的 token 预算。
+SAG2_LOOKUP_TOP_K_CAP = 10
 
 
 @dataclass
@@ -179,6 +191,10 @@ async def knowledge_lookup(
     if "rag" in priority:
         tasks["rag"] = asyncio.create_task(
             _query_rag(query, session_id=session_id, top_k=top_k_per_source)
+        )
+    if "sag2" in priority:
+        tasks["sag2"] = asyncio.create_task(
+            _query_sag2(query, top_k=top_k_per_source)
         )
     # graph 源默认参与并发查询(按 owner 过滤;owner_uuid 为空时返回空 hits)
     if "graph" in priority:
@@ -367,6 +383,64 @@ async def _query_rag(
         )
         for s in sources
     ]
+
+
+def _format_sag2_hit(citation: dict[str, Any]) -> str:
+    """把 SAG2 引用锚点格式化为可注入 prompt 的一段（带出处，便于模型标注）。"""
+    path = str(citation.get("path", ""))
+    byte_range = citation.get("byte_range") or [0, 0]
+    start = int(byte_range[0]) if len(byte_range) > 0 else 0
+    end = int(byte_range[1]) if len(byte_range) > 1 else 0
+    lines = f"{citation.get('start_line', 0)}-{citation.get('end_line', 0)}"
+    doc_hash = str(citation.get("doc_hash", ""))[:12]
+    passage = str(citation.get("passage", ""))
+    return (
+        f"[知识库: {path} · 字节 {start}-{end} · 行 {lines} · "
+        f"跳 {citation.get('hop', 0)} · hash {doc_hash}]\n{passage}"
+    )
+
+
+async def _query_sag2(query: str, *, top_k: int) -> list[KnowledgeHit]:
+    """查 SAG2 词法多跳通道，返回 list[KnowledgeHit]。
+
+    两条边界都要显式：
+    - 索引未就绪（没登记过任何文档）⇒ **零成本短路**返回空，不记错误 ——
+      没建库不是故障，把空索引当异常会让每轮对话都挂一条假警。
+    - 索引就绪但检索超时/抛错 ⇒ 交给 ``gather(return_exceptions=True)``
+      记进 errors，其他源照常返回（单腿失败不拖垮整轮）。
+    """
+    # 延迟导入：knowledge_lookup 是热点门面，不让 sag2 的重依赖进入模块顶层。
+    from .sag2_lexical import Sag2Options, sag2_lexical_service
+
+    if not sag2_lexical_service.status().get("ready"):
+        return []
+
+    limit = min(top_k, SAG2_LOOKUP_TOP_K_CAP)
+    options = Sag2Options(top_k=limit, max_hops=2)
+    result = await asyncio.wait_for(
+        sag2_lexical_service.retrieve(query, options),
+        timeout=SAG2_LOOKUP_TIMEOUT_S,
+    )
+
+    hits: list[KnowledgeHit] = []
+    for citation in result.citations[:limit]:
+        path = str(citation.get("path", ""))
+        byte_range = citation.get("byte_range") or [0, 0]
+        hits.append(
+            KnowledgeHit(
+                source="sag2",
+                score=float(citation.get("score", 0.0)),
+                content=_format_sag2_hit(citation),
+                raw={
+                    "citation": citation,
+                    "judge_mode": result.judge_mode,
+                    "judge_executed": result.judge_executed,
+                    "judge_reason": result.judge_reason,
+                },
+                citations=[f"{path} [{byte_range[0]}-{byte_range[1]}]"],
+            )
+        )
+    return hits
 
 
 async def _query_ltm(

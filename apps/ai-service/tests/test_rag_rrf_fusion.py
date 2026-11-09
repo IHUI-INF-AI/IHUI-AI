@@ -394,7 +394,9 @@ class TestRrfFusionIsReal:
         assert stats["fused_total"] >= stats["returned"]
         assert stats["dropped_by_top_k"] == stats["fused_total"] - _TOP_K
         paths = stats["paths"]
-        assert set(paths) == {"vector", "keyword"}, "两路都要留痕,不得只记一路"
+        # 2026-11-09 立:sag2 词法多跳作为第三路接入(索引未就绪也会以 skipped 具名留痕),
+        # 「两路都要留痕」升级为「三路都要留痕」。
+        assert set(paths) == {"vector", "keyword", "sag2"}, "三路都要留痕,不得只记一路"
         for label in ("vector", "keyword"):
             entry = paths[label]
             assert entry["status"] == "ok", entry
@@ -686,7 +688,7 @@ class TestWireFormatCarriesProvenance:
         assert d["rerank"]["executed"] is False
         assert d["recall"]["mode"] == "rrf-fusion"
         assert d["recall"]["rrf_k"] == DEFAULT_RRF_K
-        assert set(d["recall"]["paths"]) == {"vector", "keyword"}
+        assert set(d["recall"]["paths"]) == {"vector", "keyword", "sag2"}
         assert all("rrf_score" in s and "fused_from" in s for s in d["sources"])
         json.dumps(d, ensure_ascii=False)  # 可序列化,不抛
 
