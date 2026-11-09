@@ -491,6 +491,9 @@ export * from './long-term.js';
 export * from './soul.js';
 export * from './dream.js';
 export * from './vector-search.js';
+// === 写入触发 + 记忆蒸馏(平台独占:仅 cli)===
+export * from './write-triggers.js';
+export * from './distill.js';
 
 export type MemoryRotationPlan = {
   disposition: 'rotate' | 'unjudged' | 'refused';
@@ -566,7 +569,8 @@ export function planMemoryRotation(input: {
   };
 }
 
-const MEMORY_FILE_BYTE_CAP = 256 * 1024;
+// 导出给 distill 复用(字符预算按该字节上限折算),保持预算常量单源。
+export const MEMORY_FILE_BYTE_CAP = 256 * 1024;
 
 function commitMemoryFile(filePath: string, content: string, lease: MemoryWriteLease): MemoryRotationPlan {
   let previousBytes: number | null = null;
