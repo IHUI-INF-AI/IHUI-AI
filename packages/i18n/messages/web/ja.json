@@ -11575,6 +11575,8 @@
     "duplicatePendingTitle": "同じ指示がまだ確認待ちです",
     "duplicatePendingDesc": "サーバー側では既に実行された可能性があり、確認だけが届いていません。再送すると二重に実行される恐れがあります。",
     "emptyAnswerFallback": "今回の応答は内容を返しませんでした",
+    "modelRefresh": "モデル一覧を更新",
+    "modelRefreshRunning": "モデル一覧を更新中…",
     "favorite": "ブックマークに追加",
     "unfavorite": "ブックマークを解除",
     "activityExpandMore": "残り{n}件を表示",

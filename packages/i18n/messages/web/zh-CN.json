@@ -11575,6 +11575,8 @@
     "duplicatePendingTitle": "上一条相同指令尚未确认",
     "duplicatePendingDesc": "它可能已经在服务端执行了,只是确认还没回来。重复发送可能造成重复操作。",
     "emptyAnswerFallback": "本轮没有返回任何内容",
+    "modelRefresh": "刷新模型列表",
+    "modelRefreshRunning": "正在刷新模型列表…",
     "favorite": "添加收藏",
     "unfavorite": "取消收藏",
     "activityExpandMore": "展开其余 {n} 项",

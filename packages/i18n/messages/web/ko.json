@@ -11575,6 +11575,8 @@
     "duplicatePendingTitle": "동일한 지시가 아직 확인되지 않았습니다",
     "duplicatePendingDesc": "서버에서 이미 실행되었을 수 있으며 확인만 도착하지 않았습니다. 다시 보내면 중복 실행될 수 있습니다.",
     "emptyAnswerFallback": "이번 응답은 아무 내용도 반환하지 않았습니다",
+    "modelRefresh": "모델 목록 새로 고침",
+    "modelRefreshRunning": "모델 목록을 새로 고치는 중…",
     "favorite": "즐겨찾기 추가",
     "unfavorite": "즐겨찾기 해제",
     "activityExpandMore": "나머지 {n}개 표시",
