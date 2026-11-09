@@ -160,10 +160,7 @@ describe('F-04 legacy-ask 成员接口必须校验属主', () => {
     const handlers = await setup()
     for (const path of paths) {
       const reply = makeReply()
-      await handlers.get(path)!(
-        { query: { userId: VICTIM }, userId: ME, log: requestLog },
-        reply,
-      )
+      await handlers.get(path)!({ query: { userId: VICTIM }, userId: ME, log: requestLog }, reply)
       expect(reply.code, `${path} 应拒绝`).toBe(403)
       expect(reply.sent, `${path} 应已回包`).toBe(true)
     }

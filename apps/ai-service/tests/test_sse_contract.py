@@ -37,9 +37,10 @@ def test_sse_events_completeness() -> None:
     缺口,本票现读钉住,不是本票引入的行为变化。
     35 → 36 是差距①(2026-10-30)新增 `admission`(发送准入回执)一帧。
     36 → 37 是 2026-11-05 新增 `tool-call-args-delta`(工具入参逐分片直推)一帧。
+    37 → 38 是 2026-11-08 新增 `question-resolved`(AskUserQuestion 闭环结局)一帧。
     """
-    assert len(SSE_EVENTS) == 37
-    assert len(set(SSE_EVENTS)) == 37
+    assert len(SSE_EVENTS) == 38
+    assert len(set(SSE_EVENTS)) == 38
     # D151 的新帧必须真在集合里(光有计数会放过"删了别的、加了这个"):
     assert "terminal_interaction" in SSE_EVENTS
     # D152 同理 —— 计数只保证"没少",点名才保证"加的就是这一名":
@@ -52,6 +53,8 @@ def test_sse_events_completeness() -> None:
     assert "admission" in SSE_EVENTS
     # 2026-11-05:工具入参逐分片直推帧 —— 点名钉住(契约清单与集合由下一条用例看护)
     assert "tool-call-args-delta" in SSE_EVENTS
+    # 2026-11-08:AskUserQuestion 闭环结局帧 —— 点名钉住
+    assert "question-resolved" in SSE_EVENTS
 
 
 def test_sse_events_p4_d1_steer_members() -> None:

@@ -83,8 +83,8 @@ vi.mock('../src/db/content-queries.js', () => ({
   isAnnouncementVisible: vi.fn(
     (a: { isPublished: boolean; publishedAt: Date | null; expiresAt: Date | null }) =>
       a.isPublished === true &&
-      (a.publishedAt == null || a.publishedAt.getTime() <= Date.now()) &&
-      (a.expiresAt == null || a.expiresAt.getTime() > Date.now()),
+      (a.publishedAt === null || a.publishedAt.getTime() <= Date.now()) &&
+      (a.expiresAt === null || a.expiresAt.getTime() > Date.now()),
   ),
   createAnnouncement: vi.fn(),
   updateAnnouncement: vi.fn(),

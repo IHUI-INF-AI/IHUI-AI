@@ -2,12 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import type {
-  FastifyInstance,
-  FastifyPluginAsync,
-  FastifyRequest,
-  FastifyReply,
-} from 'fastify'
+import type { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify'
 import { authenticate } from '../plugins/auth.js'
 import { requireAdmin } from '../plugins/require-permission.js'
 import { z } from 'zod'
@@ -55,14 +50,18 @@ export const legacyAskRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     return { list: rows as Record<string, unknown>[] }
   })
 
-  fastify.get('/ask/member/question-count', { preHandler: authenticate }, async (request, reply) => {
-    const { userId } = userIdQuery.parse(request.query)
-    if (!(await allowSelfOrAdmin(request, reply, userId))) return
-    const rows = await db.execute(
-      sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
-    )
-    return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
-  })
+  fastify.get(
+    '/ask/member/question-count',
+    { preHandler: authenticate },
+    async (request, reply) => {
+      const { userId } = userIdQuery.parse(request.query)
+      if (!(await allowSelfOrAdmin(request, reply, userId))) return
+      const rows = await db.execute(
+        sql`SELECT count(*)::int AS count FROM asks WHERE user_id = ${userId}`,
+      )
+      return { count: (rows[0] as { count?: number } | undefined)?.count ?? 0 }
+    },
+  )
 
   fastify.get('/ask/member/answer-count', { preHandler: authenticate }, async (request, reply) => {
     const { userId } = userIdQuery.parse(request.query)

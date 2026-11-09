@@ -130,6 +130,11 @@ interface MessageListProps {
   stepBudget?: { used: number; total: number }
   /** 代码块默认折叠行数，<=0 表示不折叠 */
   codeCollapseLines?: number
+  /**
+   * 消息流尾部插槽(2026-11-08 立):渲染在滚动区内、最后一条消息之后,
+   * 供内联提问卡(InlineQuestionCard)等非模态卡片跟随消息流滚动,而非 fixed 浮层。
+   */
+  trailing?: React.ReactNode
 }
 
 export function MessageList({
@@ -154,6 +159,7 @@ export function MessageList({
   onClearFallbackNotice,
   subAgentActivities: subAgentActivitiesProp,
   codeCollapseLines,
+  trailing,
 }: MessageListProps) {
   const t = useTranslations('chat')
 
@@ -795,6 +801,8 @@ export function MessageList({
         <SessionBudgetStopNotice conversationId={conversationId} />
         <CompactionBoundaryReview conversationId={conversationId} />
         <TurnStatusLine />
+        {/* 内联提问卡等尾部插槽:跟随最后一条消息,处于滚动区之内(非浮层) */}
+        {trailing}
         <div ref={bottomRef} />
       </div>
     </div>

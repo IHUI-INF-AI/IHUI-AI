@@ -44,7 +44,7 @@ import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import suppress
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.core.sandbox_metrics import (
@@ -65,6 +65,7 @@ from app.core.sandbox_metrics import (
     record_block,
     record_decision,
 )
+from app.core.worker_exec_context import scrub_worker_env, worker_env_overrides
 
 __all__ = [
     "DEFAULT_POLICY_TIER",
@@ -1251,10 +1252,13 @@ class WinJobBackend:
                 RULE_PROCESS_PATH_VIOLATION_BLOCK, CATEGORY_PROCESS, backend=self.backend_name
             )
             raise SandboxError("命令路径越权: " + "; ".join(violations))
-        # 白名单过滤一切环境来源(继承 + 调用方传入),仅系统必需变量豁免
-        merged_env: dict[str, str] = dict(os.environ)
-        merged_env.update(env or {})
-        child_env, guard = guarded_child_env(build_child_env(self.policy, merged_env), cmd[0])
+        # 白名单过滤一切环境来源(继承 + 调用方传入),仅系统必需变量豁免。
+        # worker 请求级 env 在 build_child_env 的 extra 位合并(即 guarded_child_env 之前),
+        # 并先剥离宿主凭据继承键。护栏不是沙箱(同 OS 用户仍可绕过绝对路径)。
+        merged_env: dict[str, str] = scrub_worker_env({**os.environ, **(env or {})})
+        child_env, guard = guarded_child_env(
+            build_child_env(self.policy, merged_env, extra=worker_env_overrides()), cmd[0]
+        )
         start = time.monotonic()
         timed_out = False
         job = WinJob.create()
@@ -1630,14 +1634,24 @@ class LinuxSandboxBackend:
                 RULE_PROCESS_PATH_VIOLATION_BLOCK, CATEGORY_PROCESS, backend=self.backend_name
             )
             raise SandboxError("命令路径越权: " + "; ".join(violations))
+        # worker 请求级 env:bwrap 侧把白名单键并入策略白名单(值来自请求 env),
+        # child_env 侧走 build_child_env 的 extra(guarded_child_env 之前)。护栏不是沙箱。
+        _worker_env = worker_env_overrides()
+        _bwrap_policy = self.policy
+        if _worker_env:
+            _extra_keys = [k for k in _worker_env if k not in self.policy.env_whitelist]
+            _bwrap_policy = replace(
+                self.policy, env_whitelist=[*self.policy.env_whitelist, *_extra_keys]
+            )
         full = (
-            build_bwrap_argv(self.policy, cmd, env)
+            build_bwrap_argv(_bwrap_policy, cmd, {**(env or {}), **_worker_env})
             if shutil.which("bwrap")
             else list(cmd)
         )
-        merged_env: dict[str, str] = dict(os.environ)
-        merged_env.update(env or {})
-        child_env, guard = guarded_child_env(build_child_env(self.policy, merged_env), cmd[0])
+        merged_env: dict[str, str] = scrub_worker_env({**os.environ, **(env or {})})
+        child_env, guard = guarded_child_env(
+            build_child_env(self.policy, merged_env, extra=_worker_env), cmd[0]
+        )
         start = time.monotonic()
         timed_out = False
         try:

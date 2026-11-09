@@ -35,9 +35,11 @@ import { SSE_ADMISSION_EVENT } from '../../chat/send-admission'
 // ============ 1. 事件名集合完整性 ============
 
 describe('SSE_EVENTS 事件名集合', () => {
-  it('包含全部 37 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated;D115: + review-finding;G-87: + hook-failed;差距①: + admission;2026-11-05: + tool-call-args-delta)', () => {
-    expect(Object.keys(SSE_EVENTS)).toHaveLength(37)
-    expect(SSE_EVENT_NAMES).toHaveLength(37)
+  it('包含全部 38 个契约事件(V3 #48/#58:26 - token + terminal_delta + start + tool-approval;D113: + tool-delta;V3 #63: + form_request;D151: + terminal_interaction;D152: + goal_updated;D115: + review-finding;G-87: + hook-failed;差距①: + admission;2026-11-05: + tool-call-args-delta;2026-11-08: + question-resolved)', () => {
+    expect(Object.keys(SSE_EVENTS)).toHaveLength(38)
+    expect(SSE_EVENT_NAMES).toHaveLength(38)
+    // 2026-11-08:AskUserQuestion 结局帧点名在位(计数只保证"没少")
+    expect(SSE_EVENTS.QUESTION_RESOLVED).toBe('question-resolved')
     // 2026-11-05:工具入参逐分片直推帧点名在位(计数只保证"没少")
     expect(SSE_EVENTS.TOOL_CALL_ARGS_DELTA).toBe('tool-call-args-delta')
     // 光有计数会放过"删了别的、加了这个",新帧必须点名在位:
@@ -178,6 +180,8 @@ const PAYLOAD_TYPE_BY_KEY: Record<keyof typeof SSE_EVENTS, SSEEventName> = {
   REVIEW_FINDING: 'review-finding',
   // 差距①(2026-10-30 立):发送准入回执帧(载荷形状复用 chat/send-admission.ts)
   ADMISSION: 'admission',
+  // 2026-11-08:AskUserQuestion 闭环结局帧
+  QUESTION_RESOLVED: 'question-resolved',
   DONE: 'done',
   ERROR: 'error',
   COMPACTION: 'compaction',
@@ -248,6 +252,8 @@ const UNION_MEMBER_BY_NAME: Record<SSEEventName, SSEEventPayload['type']> = {
   // 差距①(2026-10-30 立):发送准入回执帧(判别联合成员见 contract.ts,形状复用
   // chat/send-admission.ts 的 SendAdmissionReceipt)
   admission: 'admission',
+  // 2026-11-08:AskUserQuestion 闭环结局帧(判别联合成员见 contract.ts)
+  'question-resolved': 'question-resolved',
 }
 
 describe('SSEEventPayload 判别联合对齐', () => {

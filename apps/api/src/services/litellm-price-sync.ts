@@ -211,7 +211,11 @@ export async function syncLiteLLMPricing(): Promise<SyncStats> {
       for (const m of mapped) {
         const id = existingIds.get(m.modelId)
         if (id) {
-          updates.push({ id, inputTokenPrice: m.inputTokenPrice, outputTokenPrice: m.outputTokenPrice })
+          updates.push({
+            id,
+            inputTokenPrice: m.inputTokenPrice,
+            outputTokenPrice: m.outputTokenPrice,
+          })
         }
       }
 

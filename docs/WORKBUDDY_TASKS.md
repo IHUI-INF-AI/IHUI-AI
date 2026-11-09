@@ -867,7 +867,7 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
 
 **公网远程 MCP 端点(2026-11-09 深夜:对外曝光面,任何 AI 一行 URL 接入)**——
 `app/routers/mcp_public.py` ⇒ `POST /api/mcp-public/wb-autopilot`(公网经 Cloudflared
-即 `https://aizhs.top/api/mcp-public/wb-autopilot`,零认证):
+即 `https://ai.aizhs.top/api/mcp-public/wb-autopilot`,零认证):
 
 - **只读白名单**:仅 `wb_server_info`(项目/引擎/纪律/自托管指引)与
   `wb_action_routes`(选路图);写侧工具远程面 -32602 不可达(安全边界,测试锁定);
@@ -882,6 +882,29 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
 - 协议单测 `tests/test_wb_autopilot_mcp.py` 9 例全绿(握手/工具清单/通知静默/
   -32601/-32602/-32603/坏行 -32700 不崩/EOF 退出/真动作表选路冒烟);
   真进程 stdio 端到端 smoke 通过(initialize + tools/list)。
+
+**公网真上线实录(2026-11-10 凌晨:生产部署 + 四面终验全通)**——
+
+- **正式对外 URL(以实测定准)**:`https://ai.aizhs.top/api/mcp-public/wb-autopilot`
+  (ai-service 专用子域;`aizhs.top`/`www.aizhs.top` 的 `/api/*` 实际由 web(8801)
+  承载,不达 ai-service——上一行 aizhs.top 写法作废)。
+- **JWT 放行**:`/api/mcp-public/wb-autopilot` 入 `jwt_auth._ALWAYS_PUBLIC`
+  (精确路径非目录前缀;代码级权威,不依赖部署 .env)。
+- **生产部署配方(实证)**:`ssh ssh.aizhs.top`(cloudflared access 隧道)→
+  `git -C D:/DevEnv/ihui-prod fetch origin main` → `git checkout FETCH_HEAD --
+  apps/ai-service/app apps/ai-service/mcp_server` → `sc stop` + `sc start
+  IHUI-AI-SERVICE`(NSSM;PAUSED 态=应用崩溃节流,查
+  `D:/DevEnv/logs/svc-ai-nssm-err.log`)。串行纪律:只动 AI-SERVICE,
+  不碰 IHUI-WEB/IHUI-API。
+- **部署教训(两坑)**:①`app/` 与 `mcp_server/` 必须同面更新(漏后者 ⇒
+  `AttributeError: PUBLIC_READ_ONLY_TOOLS` 启动即崩);②改动必须**先推 main
+  再部署**——jwt 白名单改动滞留工作树未提交,生产(=main 面)401、本地(=工作树
+  面)200,两面分叉白白耗一轮排障。
+- **终验四面全绿**:health 200 / tools/list 只回只读白名单 / 写侧 -32602 /
+  `wb_server_info` 宣传位正常。
+- **Sequential_Tasks_2 观察(2026-11-10 00:15 实测)**:解锁日远程任务表并未
+  出现该码(18 条全 claimed 且无它,非 locked/404)——上游未即时下发,非引擎
+  缺陷;调度器每轮自动扫,上游下发后下一轮自动 accept+执行+领奖(+200)。
 
 
 

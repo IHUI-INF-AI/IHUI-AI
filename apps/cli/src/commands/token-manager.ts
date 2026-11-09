@@ -29,6 +29,12 @@ import * as path from 'node:path';
 import { createHash } from 'node:crypto';
 import { getSettingsPath, loadSettings, readSettingsObjectForUpdate, type Settings } from './settings.js';
 import { writePrivateFile } from '../lib/private-file.js';
+import {
+  assertMainCredentialStoreUsable,
+  stripPlaintextCredentialFile,
+  withoutMainCredentialFields,
+  writeMainCredentials,
+} from '../lib/main-credential-store.js';
 import { classifyCredential, isMachineCredential, decodeJwtClaims } from '../config/credentials.js';
 import {
   InflightLedger,
@@ -63,7 +69,7 @@ export function isAccessTokenExpired(token: string | undefined): boolean {
 }
 
 /**
- * 持久化新 token 对到 settings.json(保留其他字段)。
+ * 持久化新 token 对到**安全存储**(settings.json 只保留 credentialKind 等非敏感字段)。
  *
  * O12 凭据种类显式化:
  *   - 既有 apiKey 是机器凭据(ihui_ 前缀)时**拒绝覆盖** —— 人的 JWT 不得挤掉机器凭据,
@@ -81,15 +87,22 @@ function persistTokens(accessToken: string, refreshToken: string): boolean {
   const read = readSettingsObjectForUpdate(settingsPath);
   if (read.state === 'corrupt') return false;
   const existing: Settings = read.state === 'ok' ? read.settings : {};
-  if (classifyCredential(existing.apiKey) === 'api_key') {
+  // 安全存储读出的值与盘上遗留明文都要判:任一是机器凭据都不得被 JWT 覆盖
+  if (classifyCredential(existing.apiKey) === 'api_key' || classifyCredential(loadSettings().apiKey) === 'api_key') {
     return false;
   }
-  existing.apiKey = accessToken;
-  existing.refreshToken = refreshToken;
+  // 安全存储写入失败会直接抛错(fail-closed);不会退化成明文写盘
+  writeMainCredentials({ apiKey: accessToken, refreshToken });
   if (existing.credentialKind === undefined || existing.credentialKind === 'auto') {
     existing.credentialKind = 'jwt';
+    writePrivateFile(settingsPath, JSON.stringify(withoutMainCredentialFields(existing), null, 2) + '\n');
+  } else {
+    // credentialKind 已显式:仍需清掉任何遗留明文(失败只告警,下次加载会再迁移)
+    const stripped = stripPlaintextCredentialFile(settingsPath);
+    if (!stripped.ok) {
+      console.warn(`[credentials] settings 明文清理失败(${stripped.reason ?? 'unknown'});下次加载会重试`);
+    }
   }
-  writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');
   return true;
 }
 
@@ -235,6 +248,8 @@ export async function ensureFreshAccessToken(
   }
 
   // 2. access token 过期,需要 refresh
+  // 安全存储不可用时显式失败(fail-closed):不能把"解不开凭据"静默折成"未登录"继续跑
+  assertMainCredentialStoreUsable();
   const refreshToken = settings.refreshToken;
   if (!refreshToken) {
     // 无 refresh token,无法续期
@@ -321,11 +336,13 @@ export function missingTokenHint(apiUrl: string, ledger?: InflightLedger<string>
  * 用于不需要自动续期的场景(如显示当前 token 状态)。
  */
 export function getAccessTokenSync(): string | undefined {
+  assertMainCredentialStoreUsable();
   return loadSettings().apiKey;
 }
 
 /** 同步获取 refresh token。 */
 export function getRefreshTokenSync(): string | undefined {
+  assertMainCredentialStoreUsable();
   return loadSettings().refreshToken;
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
