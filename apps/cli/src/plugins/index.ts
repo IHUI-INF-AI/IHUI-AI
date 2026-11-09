@@ -60,6 +60,26 @@ export { loadPlugins, loadPluginsWithDiagnostics, validateManifest } from './loa
  * 此前它只在 loader.ts 里定义、包口 0 命中、生产 0 调用方,即 AGENTS §0.9 的「造好没装车」。
  */
 export { loadPluginsWithContributionAudit } from './loader.js';
+
+/**
+ * 多版本共存通道(#12)。实现单源 = `./multi-version.ts`,本文件只做 re-export。
+ * 显式开启(settings.plugins.multiVersion / versionPins / disabledVersions)才走这条;
+ * 同名**同版本**仍判歧义,同名不同版本才共存 —— 严格通道(`loadPlugins*`)的判据一条没动。
+ */
+export {
+  comparePluginVersions,
+  loadPluginsWithVersionPolicy,
+  parsePluginVersion,
+  selectActivePluginVersions,
+} from './multi-version.js';
+export type {
+  MultiVersionLoadResult,
+  PluginVersionCandidate,
+  PluginVersionPolicy,
+  PluginVersionSelection,
+  ShadowedPluginVersion,
+  ShadowedVersionReason,
+} from './multi-version.js';
 export { classifyContributions, contributionDiagnosticsOf } from './contribution-audit.js';
 export type {
   ContributionFinding,
