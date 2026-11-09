@@ -2671,6 +2671,13 @@
       "when": 1794133800000,
       "tag": "20261108000000_circle_posts_visibility",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 384,
+      "when": 1794135600000,
+      "tag": "20261108190000_tool_call_empirical_capability",
+      "breakpoints": true
     }
   ]
 }
