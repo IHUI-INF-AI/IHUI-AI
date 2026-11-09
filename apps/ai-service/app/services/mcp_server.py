@@ -13769,8 +13769,8 @@ _TOOLS: list[MCPTool] = [
         name="get_tool_schema",
         description=(
             "返回指定工具的完整参数 schema(name/description/input_schema),只读。"
-            "当工具定义被 deferral 精简(上下文只放短描述+占位参数)后,模型用本工具"
-            "按工具名取回完整参数,再决定是否调用该工具。"
+            "当工具定义被 deferral 精简(上下文只放压缩描述;api_* 长尾还删掉了"
+            "字段级 description)后,模型用本工具按工具名取回完整参数说明。"
         ),
         input_schema={
             "type": "object",
@@ -14621,7 +14621,8 @@ def _normalize_tool_name(name: str) -> str:
 # 工具定义 deferral(瘦身)数据层(2026-09-02 立)
 # ---------------------------------------------------------------------------
 # 把"完整工具 schema"与"放进 LLM 上下文的精简定义"解耦:默认(TOOL_DEFERRAL=on)
-# 下,agent loop 只把"短描述 + 占位参数"塞进上下文,模型需要完整参数时通过内置
+# 下,agent loop 把"压缩描述 + 分层参数"(内置/桥接完整保留,api_* 长尾保留键名/类型/
+# required、只删字段 description)塞进上下文,模型需要被删掉的字段说明时通过内置
 # get_tool_schema 工具按需拉取,对标 Claude Code 的工具定义瘦身(上下文占比超阈值
 # 自动 deferral)。本注册表是两来源(内置 _TOOLS / 外部 register_external_tool)的统一落点。
 _DEFERRED_TOOL_SCHEMAS: dict[str, dict[str, Any]] = {}
