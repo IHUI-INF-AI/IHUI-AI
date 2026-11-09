@@ -219,6 +219,30 @@ export {
 export const WORKTREE = resolveWorktree()
 const GITDIR = resolveGitdir(WORKTREE)
 const BACKUP = resolveBackupDir(WORKTREE)
+// ── 守护暂停标记(P0-1 封口票 2026-11-09)──────────────────────────────────────────
+// 立因:守护只扫"启动它的那块盘"(WORKTREE=resolveWorktree()),此前没有任何跳过名单 ⇒
+// 要封一块盘只能停服务+禁任务,恢复时一重启就复活(交接实测:06:30 与 08:30 各抢落一次)。
+// 新增盘级标记:`.ihui-agent/state/guardian-pause.json` 存在 ⇒ 守护(一次性轮次与常驻 tick
+// 两个承载体)不执行任何副作用腿;删标记即恢复,零重启。标记内容供人读/审计,不参与判定;
+// 标记存在但读不懂 ⇒ 照停(fail-closed,绝不把"读不到"当"没暂停")。
+const GUARDIAN_PAUSE_FILE = join('.ihui-agent', 'state', 'guardian-pause.json')
+export function guardianPauseState(root) {
+  let raw
+  try {
+    raw = readFileSync(join(root, GUARDIAN_PAUSE_FILE), 'utf8')
+  } catch (e) {
+    if (e && e.code === 'ENOENT') return { paused: false, why: '' }
+    return { paused: true, why: `暂停标记读取异常(${e && e.code ? e.code : String(e)}) ⇒ fail-closed 停` }
+  }
+  let why = '暂停标记存在(内容不可解析 ⇒ fail-closed 停)'
+  try {
+    const j = JSON.parse(raw)
+    why = [j && j.reason, j && j.setBy, j && j.ts].filter(Boolean).join(' / ') || '暂停标记存在'
+  } catch {
+    /* 坏标记照停,措辞用上一行默认值 */
+  }
+  return { paused: true, why }
+}
 /** origin = GitHub SSH(仓库唯一权威源;严禁改回 https,见 AGENTS.md §5b 铁律) */
 const GITHUB_SSH_URL = 'ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git'
 // 〈原 6 行注释已逐字归档 .ihui-agent/archive/scripts-comment-archive-2026-10-26.md#guardian-l132(门 103 C1 收口)〉首意: 2026-10-23 机主令:GitCode/Gitee **代码镜像仓早已弃用**,此处不再保留任何镜像远端常量。
@@ -13832,6 +13856,16 @@ async function main() {
   }
   // 手工/只读入口不参与单实例闸:它们要么不写盘,要么是人在等结果
   const manual = process.argv.includes('--check') || process.argv.includes('--notify-test')
+  // 暂停标记(P0-1 封口票 2026-11-09):--status 已在上方返回(只读不受影响),--check/--notify-test
+  // 是人工只读入口 —— 三者都不拦;副作用轮次 ⇒ 标记存在即停(与 daemon tick 同一判据同一函数,§12g)。
+  if (!manual) {
+    const pause = guardianPauseState(WORKTREE)
+    if (pause.paused) {
+      log(`🛑 守护暂停标记存在 ⇒ 本轮零副作用(${pause.why})`)
+      console.error(`[git-guardian] paused by marker: ${pause.why}`)
+      return 0
+    }
+  }
   // 2026-11-02:一次性轮次也走轮级原子锁。旧的 acquireSingleInstance 是 pid 文件 read→write,
   // 两个进程都能先读到"没锁"再各自写进去;新锁用 O_CREAT|O_EXCL,只有一个能赢。
   // --check 保持零副作用;--notify-test 保持 manual —— 它是人工核验入口,不能被别的轮次
@@ -14426,6 +14460,17 @@ function startDaemon(bootGuard = null) {
         intervalMs: Number(process.env.IHUI_GUARDIAN_HEARTBEAT_MS || 30_000),
         onLost: (r) => log(`⚠️ daemon 轮级锁心跳丢失(${r.why || '未知'})⇒ 下轮 tick 重新 acquire`),
       })
+    }
+    // 暂停标记优先于一切副作用(P0-1 封口票)。daemon 的 setTimeout 链不重读本文件(见 :272 长注),
+    // 但这一查每轮都读磁盘 ⇒ 删标记即恢复,无需重启服务。日志 30 分钟最多一条(与 overlap 闸同款节流)。
+    {
+      const pause = guardianPauseState(WORKTREE)
+      if (pause.paused) {
+        if (legThrottle(join(dirname(LOG), 'guardian-pause-last.json'), 30 * 60 * 1000, Date.now(), log))
+          log(`🛑 守护暂停标记存在 ⇒ 本轮零副作用(${pause.why}) — 删除 ${GUARDIAN_PAUSE_FILE} 即恢复,无需重启服务`)
+        setTimeout(tick, intervalMs)
+        return
+      }
     }
     // 提交窗口期静默(2026-10-22,与 main() 同一判据 inCommitWindow):
     // daemon 常驻时同样要在提交链跑的时候让路,否则它每轮派生的 git 派生会与提交抢锁。
@@ -15689,6 +15734,8 @@ if (isDirectRun) {
 // §22c 镜像测试出口:通知层"是否应当发信"的全部判据(指纹/去重窗口/退避/状态归一/argv 契约)
 // 必须能在零副作用、零网络、零真收件人的前提下取证。
 export const __test__ = {
+  // 暂停标记判据(P0-1 封口票):镜像测试 import 这一份本体断言三态(无标记/好标记/坏标记)。
+  guardianPauseState,
   // 旧单实例闸(pid 文件 read→write)保留:main() 已改用轮级原子锁,但既有 S1–S4 镜像测试
   // 仍按名 import 这一份取证;不登记进本台账会让那组锁结构上打不到这一格。
   acquireSingleInstance,
