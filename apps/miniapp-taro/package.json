@@ -49,7 +49,7 @@
     "@tarojs/components": "4.2.1",
     "@tarojs/helper": "4.2.1",
     "@tarojs/plugin-framework-react": "4.2.1",
-    "@tarojs/plugin-html": "4.2.1",
+    "@tarojs/plugin-html": "4.3.2",
     "@tarojs/plugin-platform-alipay": "4.2.1",
     "@tarojs/plugin-platform-h5": "4.2.1",
     "@tarojs/plugin-platform-swan": "4.2.1",

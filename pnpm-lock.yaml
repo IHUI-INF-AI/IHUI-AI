@@ -633,8 +633,8 @@ importers:
         specifier: 4.2.1
         version: 4.2.1(cc55ee135b9aa279da55a9c7481e4cdc)
       '@tarojs/plugin-html':
-        specifier: 4.2.1
-        version: 4.2.1(@tarojs/helper@4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1))(@tarojs/runtime@4.2.1)(@tarojs/shared@4.2.1)
+        specifier: 4.3.2
+        version: 4.3.2(@tarojs/helper@4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1))(@tarojs/runtime@4.2.1)(@tarojs/shared@4.2.1)
       '@tarojs/plugin-platform-alipay':
         specifier: 4.2.1
         version: 4.2.1(@tarojs/service@4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1))(@tarojs/shared@4.2.1)
@@ -1752,7 +1752,7 @@ importers:
         version: 19.2.18
       react-native:
         specifier: ^0.86.0
-        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@react-native/metro-config@0.87.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
+        version: 0.86.2(@babel/core@7.29.7(supports-color@8.1.1))(@react-native-community/cli@13.6.9(supports-color@8.1.1))(@types/react@19.2.18)(react@19.2.8)(supports-color@8.1.1)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
@@ -9245,7 +9245,7 @@ packages:
   '@tailwindcss/vite@4.3.3':
     resolution: {integrity: sha512-yYU8cogLeSh/ms2jh8Fj7jaba/EWa7Ja6GoUqYZaraEuCI5YS6ms6ObZgjjedm+jm6XZjdNRWBpPP6Z86oOxcw==}
     peerDependencies:
-      vite: ^6.4.3
+      vite: ^6.4.4
 
   '@tanstack/query-core@5.101.4':
     resolution: {integrity: sha512-gNwcvOJcRbLWPOLG/2OBm+zM+Yv+MKsXKEOWC57USuZDEsI71hEErQsiEGx5wX9rzWWkfwM0fVSPoiIFSsxfiw==}
@@ -9508,13 +9508,13 @@ packages:
       webpack:
         optional: true
 
-  '@tarojs/plugin-html@4.2.1':
-    resolution: {integrity: sha512-GPB8P1OkmGvMfwtelOGiERVET5DoPpcpFobQVW7cgY4IyYvtPRUjV/jcIBRHmGE5J+LkF/r6uEPBSF8hioKN+Q==}
+  '@tarojs/plugin-html@4.3.2':
+    resolution: {integrity: sha512-ZSa9G23fMW2oSFd830J4DRGrO9UBWjlpw8hzMPTdFzUANPo3LrP5uxlg/nq82K4xC5RzC/lyfpXzVzOFTjc21A==}
     engines: {node: '>= 18'}
     peerDependencies:
-      '@tarojs/helper': 4.2.1
-      '@tarojs/runtime': 4.2.1
-      '@tarojs/shared': 4.2.1
+      '@tarojs/helper': 4.3.2
+      '@tarojs/runtime': 4.3.2
+      '@tarojs/shared': 4.3.2
 
   '@tarojs/plugin-platform-alipay@4.2.1':
     resolution: {integrity: sha512-/+AWN8uCaC8btkx7sD5ByoH8YpWWS1r0TkowQGkp+UEhO+xh2Fi42ujucFFDt2zsP5OxPN9WnN57exu2joogGg==}
@@ -10665,7 +10665,7 @@ packages:
     resolution: {integrity: sha512-Trr0hYO9CM3Wj6ksWHRhK9IZpIY6wTMO5u/MqXurMxT57sWBaOPEtP3Oq60ihZuh5JsiagKfz95OcxdEP6dBrA==}
     peerDependencies:
       msw: ^2.4.9
-      vite: ^6.4.3
+      vite: ^6.4.4
     peerDependenciesMeta:
       msw:
         optional: true
@@ -21813,7 +21813,7 @@ packages:
     resolution: {integrity: sha512-iwrrf+JupY4b9stBttRWzGHzZbeMjAHBhkrn67MNACXJVjEMRpCI10Q3AkxdBkl45IHaTfw/CNVevzQhP7yTwg==}
     engines: {node: ^18.0.0 || >=20.0.0}
     peerDependencies:
-      vite: ^6.4.3
+      vite: ^6.4.4
 
   vite@6.4.5:
     resolution: {integrity: sha512-4enwjFfi4IwtEh0w+jPzpLVOFQiPHmmzPxcHXQOyEur47o6u0jE573DmGpjA+7irXoMLYRZD5ZaFUEneS3abPg==}
@@ -31624,7 +31624,7 @@ snapshots:
       vite: 6.4.5(@types/node@26.1.2)(jiti@2.7.0)(less@4.9.0(supports-color@8.1.1))(lightningcss@1.33.0)(sass@1.102.0)(stylus@0.64.0(supports-color@8.1.1))(terser@5.50.0)(tsx@4.23.15)(yaml@2.9.0)
       webpack: 5.91.0(@swc/core@1.3.96(@swc/helpers@0.5.23))(clean-css@5.3.3)(cssnano@6.1.2(postcss@8.5.26))(csso@5.0.5)(esbuild@0.21.5)(html-minifier-terser@6.1.0)(lightningcss@1.33.0)(postcss@8.5.26)(uglify-js@3.19.3)
 
-  '@tarojs/plugin-html@4.2.1(@tarojs/helper@4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1))(@tarojs/runtime@4.2.1)(@tarojs/shared@4.2.1)':
+  '@tarojs/plugin-html@4.3.2(@tarojs/helper@4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1))(@tarojs/runtime@4.2.1)(@tarojs/shared@4.2.1)':
     dependencies:
       '@tarojs/helper': 4.2.1(@swc/helpers@0.5.23)(supports-color@8.1.1)
       '@tarojs/runtime': 4.2.1
