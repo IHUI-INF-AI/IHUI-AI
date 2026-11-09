@@ -697,10 +697,16 @@ def _validate_extra_directory(
     p = Path(path)
     if not p.is_absolute():
         return False, f"附加目录必须是绝对路径: {path}"
-    resolved = p.resolve(strict=False)
-    if not resolved.exists():
+    # 读不到 ≠ 不存在:exists()/is_dir() 在 EACCES 时按 OSError 上抛,
+    # 若落到"不存在"分支,用户会以为目录真的没了(登记流程会静默当它不存在)。
+    try:
+        resolved = p.resolve(strict=False)
+        resolved_stat = resolved.stat()
+    except FileNotFoundError:
         return False, f"附加目录不存在: {path}"
-    if not resolved.is_dir():
+    except OSError as exc:
+        return False, f"附加目录读不到,不能把它说成不存在: {path} ({exc.errno})"
+    if not stat.S_ISDIR(resolved_stat.st_mode):
         return False, f"附加目录不是目录: {path}"
     if _is_system_root(resolved):
         return False, f"附加目录是系统根/伪文件系统,禁止登记: {path}"
@@ -934,9 +940,17 @@ def _validate_path_in_workspace(
                     candidate.relative_to(Path(root))
                 except ValueError:
                     continue
-                if candidate.exists():
-                    resolved_str = str(candidate)
-                    return True, resolved_str
+                # 2026-11-09:读不到 ≠ 不存在。exists()/stat() 在 EACCES 时按 OSError
+                # 上抛;若当成"这个根里没有"继续试下一个根,就会把 blocked/keep.txt
+                # 静默换成 other/keep.txt —— 换的是文件,不是路径写法。
+                try:
+                    candidate.stat()
+                except FileNotFoundError:
+                    continue
+                except OSError:
+                    return False, "路径读不到,不能把它说成不在这个工作区里再换一个根"
+                resolved_str = str(candidate)
+                return True, resolved_str
         # resolve(strict=False) 解析 symlink + .. ,但不要求路径存在
         resolved = Path(path).resolve(strict=False)
         resolved_str = str(resolved)
@@ -1267,6 +1281,9 @@ LazyIndexStatus = Literal[
     "searched",                # 建了索引并重搜,拿到结果
     "empty-after-index",       # 真·没有语义命中(唯一允许空结果不带理由的一格)
     "skipped-not-a-dir",
+    # 读不到 ≠ 不存在:目录在但 stat 被拒(EACCES 等)时单列一格,
+    # 否则用户会把"权限挡住了"读成"这个目录本来就没有"。
+    "skipped-unreadable",
     "skipped-cooldown",
     "skipped-no-code-files",
     "skipped-over-limit",
@@ -1433,7 +1450,20 @@ async def _lazy_index_and_research(
 
     try:
         root = Path(path).resolve()
-        if not root.exists() or not root.is_dir():
+        # 读不到 ≠ 不存在:exists()/is_dir() 在 EACCES 时按 OSError 上抛,
+        # 若落到"不是目录"这一格,用户会以为该目录真的没有(与"不可读被当成空结果"同源)。
+        root_kind, root_stat = _classify_path(str(root))
+        if root_kind == "unread":
+            return LazyIndexOutcome(
+                results=[],
+                status="skipped-unreadable",
+                reason=f"传入的 path 读不到,不能把它说成不是目录({path}),未尝试建索引",
+            )
+        if (
+            root_kind != "present"
+            or root_stat is None
+            or not stat.S_ISDIR(root_stat.st_mode)
+        ):
             return LazyIndexOutcome(
                 results=[],
                 status="skipped-not-a-dir",
@@ -2604,12 +2634,25 @@ async def _tool_list_files(arguments: dict[str, Any]) -> dict[str, Any]:
         return {"tool": "list_files", "path": path, "ok": False, "error": info}
     resolved = info
     import os as _os
-    if not _os.path.isdir(resolved):
+    not_a_directory = {
+        "tool": "list_files", "path": resolved, "ok": False,
+        "error": f"{resolved} 不是目录,list_files 只能列出目录。请用 read_file 读取文件。",
+        "errorCode": "NOT_A_DIRECTORY",
+    }
+    # 读不到 ≠ 不是目录:isdir() 在 EACCES 时会吞成 False,把权限问题说成
+    # "这是文件",模型就会改用 read_file 去读一个目录。必须分开报。
+    try:
+        mode = _os.stat(resolved).st_mode
+    except FileNotFoundError:
+        return not_a_directory
+    except OSError as exc:
         return {
             "tool": "list_files", "path": resolved, "ok": False,
-            "error": f"{resolved} 不是目录,list_files 只能列出目录。请用 read_file 读取文件。",
-            "errorCode": "NOT_A_DIRECTORY",
+            "error": f"目录读不到,不能把它说成不是目录 ({getattr(exc, 'errno', None)})",
+            "errorCode": "UNREADABLE",
         }
+    if not stat.S_ISDIR(mode):
+        return not_a_directory
     try:
         names = sorted(_os.listdir(resolved))
         entries = []
@@ -5427,6 +5470,11 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 {"path": rp, "file": fn, "score": sc}
                 for sc, rp, fn in scored[:max_results]
             ]
+            fuzzy_message = (
+                f"模糊匹配 {len(scored)} 个候选,返回前 {len(matches)}(按相关度排序)"
+            )
+            if _enum_prov.degraded_reason:
+                fuzzy_message += f";{_enum_prov.degraded_reason}"
             return {
                 "tool": "file_search",
                 "query": query,
@@ -5440,13 +5488,13 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                 # "降级只是慢一点"不成立:两条通道的结果集必须等价,不等价时得有人能发现。
                 "enum_engine": _enum_prov.engine,
                 "enum_degraded": _enum_prov.degraded_reason,
-                "message": f"模糊匹配 {len(scored)} 个候选,返回前 {len(matches)}"
-                "(按相关度排序)",
-                "ok": True,
+                "message": fuzzy_message,
+                "ok": not (_enum_prov.degraded_reason and not matches),
             }
 
         query_lower = query.lower() if query else None
         count = 0
+        unread_files = 0
         # V3 #75:同一个工具的第二处遍历,现共用上面那一次枚举的结果(原先两份 os.walk)。
         for rel_path in searchable:
             fname = rel_path.rsplit("/", 1)[-1]
@@ -5484,6 +5532,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                             "preview": preview[:500],
                         })
                     except (OSError, UnicodeDecodeError):
+                        unread_files += 1
                         continue
                 else:
                     # 无 query,仅文件名匹配
@@ -5498,13 +5547,22 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
                     })
                 count += 1
             except OSError:
+                unread_files += 1
                 continue
 
         message = (
             f"在 {path} 下找到 {len(matches)} 个匹配文件"
             + ("(已截断)" if count >= max_results else "")
         )
-        if not matches:
+        # 「没找到」与「没查到」是两件事:枚举/读取有缺口时,零命中不能报成成功,
+        # 也不能再给"放宽 pattern"这类误导性建议(缺口不在 pattern 上)。
+        incomplete = _enum_prov.degraded_reason or ""
+        if unread_files:
+            file_note = f"有 {unread_files} 个文件读不到,不能把检索说成没有命中"
+            incomplete = f"{incomplete};{file_note}" if incomplete else file_note
+        if incomplete:
+            message += f";{incomplete}"
+        elif not matches:
             # 零结果给可操作指引(第十四批:体验优化,避免模型盲目重试)
             message += (
                 ";建议:①放宽 pattern(如 '*.py' 或 '*');"
@@ -5522,7 +5580,7 @@ async def _tool_file_search(arguments: dict[str, Any]) -> dict[str, Any]:
             "enum_engine": _enum_prov.engine,
             "enum_degraded": _enum_prov.degraded_reason,
             "message": message,
-            "ok": True,
+            "ok": not (incomplete and not matches),
         }
     except Exception as e:
         return {
@@ -11578,6 +11636,7 @@ async def _tool_investigate_codebase(arguments: dict[str, Any]) -> dict[str, Any
                 "tool": "investigate_codebase",
                 "ok": False,
                 "status": "unjudged",
+                "errorCode": "PATH_NOT_ALLOWED",
                 "path": _probe_path,
                 "intent": arguments.get("intent"),
                 "query": arguments.get("query", ""),
@@ -15133,14 +15192,17 @@ _EDU_API_BASE_URL = os.environ.get("API_SERVICE_URL", "http://localhost:8802").r
 
 def _edu_internal_headers(user_id: Any) -> dict[str, str]:
     """edu 工具调 api 的鉴权头:走 ``app/core/internal_ticket.py`` 的
-    ``internal_service_headers`` 唯一出口(默认 dual 档,旧 ``x-internal-service-token``
-    与新短期票 ``x-internal-service-ticket`` 同发);api 侧校验后把 X-User-Id 注入
+    ``internal_service_headers`` 唯一出口(默认 ticket 档发票;显式 dual/legacy 档才
+    同时带旧 ``x-internal-service-token``);api 侧校验后把 X-User-Id 注入
     request.userId 供 requireAnyPermission 的 RBAC 对真实用户兜底。
-    凭证或身份缺失返回 {},调用方不发请求。"""
+
+    票与常驻密钥是两把互不替代的凭据:默认 ticket 档下只要 ``JWT_SECRET`` 配好就能
+    发票,不再把 ``AI_CALLBACK_SECRET`` 当"发不发头"的前提(那会让纯票部署被判成
+    无凭据)。两者都拿不到、或身份不合法 ⇒ 返回 {},调用方不发请求。"""
     uid = str(user_id or "").strip()
-    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
-    if not secret or not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
+    if not uid or not re.fullmatch(r"[a-zA-Z0-9-]{1,128}", uid):
         return {}
+    secret = os.environ.get("AI_CALLBACK_SECRET", "").strip()
     return internal_service_headers(uid, "mcp-edu", legacy_token=secret)
 
 
@@ -15176,7 +15238,7 @@ async def _edu_api_request(
     """edu 工具统一 HTTP 出口:调 api 并剥 success() 壳({code,message,data})。
 
     2xx → {ok: True, **data};非 2xx → {ok: False, error, errorCode}。
-    鉴权头缺失(未配置 AI_CALLBACK_SECRET/无用户身份)时直接返回可读错误,
+    鉴权头缺失(既签不出内部票也没有旧密钥 / 无用户身份)时直接返回可读错误,
     不发请求。
     """
     import httpx
@@ -15185,7 +15247,7 @@ async def _edu_api_request(
     if not headers:
         return {
             "ok": False,
-            "error": "内部服务凭证未配置(AI_CALLBACK_SECRET)或用户身份缺失,无法调用教育管理接口",
+            "error": "内部服务凭证不可用(既签不出内部票,也没有旧密钥)或用户身份缺失,无法调用教育管理接口",
             "errorCode": "INTERNAL_AUTH_UNAVAILABLE",
         }
     url = f"{_EDU_API_BASE_URL}/api/edu-ai-management{path}"
