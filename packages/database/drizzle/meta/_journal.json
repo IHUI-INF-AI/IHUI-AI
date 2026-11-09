@@ -2568,7 +2568,7 @@
       "breakpoints": true
     },
     {
-      "idx": 370,
+      "idx": 369,
       "version": "7",
       "when": 1793996812693,
       "tag": "0370_equal_violations",
@@ -2576,112 +2576,112 @@
     },
     {
       "version": "7",
-      "idx": 371,
+      "idx": 370,
       "when": 1794034800000,
       "tag": "20261107150000_shared_to_ops_flag",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 372,
+      "idx": 371,
       "when": 1794106800000,
       "tag": "20261108110000_usdt_pending_amount_uniq",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 373,
+      "idx": 372,
       "when": 1794110400000,
       "tag": "20261108120000_relay_conversations_not_null",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 374,
+      "idx": 373,
       "when": 1794110400001,
       "tag": "20261108120000_agent_settlements_period_uniq",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 375,
+      "idx": 374,
       "when": 1794110400002,
       "tag": "20261108120000_edu_settings_group_key_unique",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 376,
+      "idx": 375,
       "when": 1794114000000,
       "tag": "20261108130000_named_unique_constraints",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 377,
+      "idx": 376,
       "when": 1794114000001,
       "tag": "20261108130000_subscription_order_id_uniq",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 378,
+      "idx": 377,
       "when": 1794124800000,
       "tag": "20261108160000_admin_password_replay_guard",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 379,
+      "idx": 378,
       "when": 1794128400000,
       "tag": "20261108170000_rls_bypass_scope_ihui_app",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 380,
+      "idx": 379,
       "when": 1794132000000,
       "tag": "20261108180000_tool_invocation_ledger_user_nullable",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 381,
+      "idx": 380,
       "when": 1794132000001,
       "tag": "20261108180000_github_app_deliveries_payload",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 382,
+      "idx": 381,
       "when": 1794132600000,
       "tag": "20261108181000_point_transactions_redeem_unique",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 383,
+      "idx": 382,
       "when": 1794133200000,
       "tag": "20261108182000_money_numeric_precision",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 384,
+      "idx": 383,
       "when": 1794133800000,
       "tag": "20261108000000_circle_posts_visibility",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 385,
+      "idx": 384,
       "when": 1794153600000,
       "tag": "20261109000000_hr_attendance",
       "breakpoints": true
     },
     {
       "version": "7",
-      "idx": 386,
+      "idx": 385,
       "when": 1794157200000,
       "tag": "20261109010000_hr_attendance_fix",
       "breakpoints": true
