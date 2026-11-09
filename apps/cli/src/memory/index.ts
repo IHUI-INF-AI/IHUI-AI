@@ -268,9 +268,7 @@ export function clearMemory(filePath: string, lease?: MemoryWriteLease): MemoryR
   return undefined;
 }
 
-export const MEMORY_OCCASIONS = ['session-start', 'identity-recall'] as const;
-
-export type MemoryOccasion = (typeof MEMORY_OCCASIONS)[number];
+type MemoryOccasion = 'session-start' | 'identity-recall';
 
 const MEMORY_OCCASION_ALIASES: Readonly<Record<string, MemoryOccasion>> = {
   'session-start': 'session-start',

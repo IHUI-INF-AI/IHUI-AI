@@ -122657,6 +122657,25 @@
               }
             }
           },
+          "403": {
+            "description": "非圈子成员或被禁言",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "非圈子成员或被禁言"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Default Response",
             "content": {
@@ -135113,6 +135132,17 @@
             "in": "query",
             "name": "tag",
             "required": false
+          },
+          {
+            "schema": {
+              "default": 50,
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "limit",
+            "required": true
           }
         ],
         "responses": {
@@ -172992,6 +173022,25 @@
     "/api/workspace/agent/run": {
       "post": {
         "responses": {
+          "400": {
+            "description": "请求体校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "number"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "description": "请求体校验失败"
+                }
+              }
+            }
+          },
           "501": {
             "description": "该端点暂未接入执行层",
             "content": {

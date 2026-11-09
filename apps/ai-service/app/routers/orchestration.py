@@ -40,13 +40,12 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from ..core.jwt_auth import get_current_user_id
-
 from ..core.executor_switch import (
     LoopV2ConvergencePilotError,
     guard_loop_v2_pilot,
     take_loop_v2_handoff,
 )
+from ..core.jwt_auth import get_current_user_id
 from ..services.llm_budget_governor import llm_budget_governor
 from ..services.orchestration_hub import orchestration_hub
 from ..services.telemetry_service import telemetry_service

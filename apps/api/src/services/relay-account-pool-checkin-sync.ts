@@ -928,7 +928,7 @@ export const CHECKIN_RECONCILE_MAX_PER_ROUND = 20
 /** 默认对账间隔(分钟):6 小时。低频是刻意的 —— 它是长尾兜底,不是实时同步 */
 export const CHECKIN_RECONCILE_DEFAULT_INTERVAL_MINUTES = 360
 /** 开关 + 间隔(分钟):`0`/`off`/`false` ⇒ 整腿关闭;缺省 = 6h(见下方缺省开的理由) */
-export const CHECKIN_RECONCILE_INTERVAL_ENV = 'RELAY_CHECKIN_STATE_RECONCILE_MINUTES'
+const CHECKIN_RECONCILE_INTERVAL_ENV = 'RELAY_CHECKIN_STATE_RECONCILE_MINUTES'
 
 /**
  * 对账间隔(毫秒);null = 关闭。
@@ -967,7 +967,7 @@ export interface CheckinReconcilePeer {
   poolAccountId: string | null
 }
 
-export type CheckinReconcileAction =
+type CheckinReconcileAction =
   | { kind: 'state'; row: CheckinReconcilePoolRow; state: 'enabled' | 'disabled' }
   | { kind: 'cred'; row: CheckinReconcilePoolRow }
 

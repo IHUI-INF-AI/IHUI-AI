@@ -110,7 +110,8 @@ describe('ai-generation IDOR 防护', () => {
     mockGetJobOwner.mockResolvedValue(null)
     mockGetStatus.mockResolvedValue(null)
     mockCancel.mockResolvedValue(false)
-    mockListByUser.mockResolvedValue([])
+    // listByUser 现契约返回 { jobs, total }(见 generation-queue-service.ts)。
+    mockListByUser.mockResolvedValue({ jobs: [], total: 0 })
   })
 
   // ===== 场景 4:未认证 → 401(覆盖全部 3 个端点) =====
@@ -294,7 +295,8 @@ describe('ai-generation IDOR 防护', () => {
 
     it('普通用户访问自己任务列表(URL userId === jwt userId)→ 200', async () => {
       mockRegularUser(USER_A)
-      mockListByUser.mockResolvedValue([])
+      // listByUser 现契约返回 { jobs, total }(见 generation-queue-service.ts)。
+      mockListByUser.mockResolvedValue({ jobs: [], total: 0 })
       const res = await server.inject({
         method: 'GET',
         url: `/ai/generation/user/${USER_A}`,
@@ -309,7 +311,8 @@ describe('ai-generation IDOR 防护', () => {
 
     it('管理员访问任意用户任务列表 → 200(特权放行)', async () => {
       mockAdmin(USER_A) // admin 自己是 USER_A
-      mockListByUser.mockResolvedValue([])
+      // listByUser 现契约返回 { jobs, total }(见 generation-queue-service.ts)。
+      mockListByUser.mockResolvedValue({ jobs: [], total: 0 })
       const res = await server.inject({
         method: 'GET',
         url: `/ai/generation/user/${USER_B}`, // admin 看任意用户
@@ -321,7 +324,8 @@ describe('ai-generation IDOR 防护', () => {
 
     it('管理员访问时 listByUser query 参数透传(limit=10)', async () => {
       mockAdmin(USER_A)
-      mockListByUser.mockResolvedValue([])
+      // listByUser 现契约返回 { jobs, total }(见 generation-queue-service.ts)。
+      mockListByUser.mockResolvedValue({ jobs: [], total: 0 })
       const res = await server.inject({
         method: 'GET',
         url: `/ai/generation/user/${USER_B}?limit=10`,
@@ -332,7 +336,8 @@ describe('ai-generation IDOR 防护', () => {
 
     it('普通用户访问自己 + 携带 status 过滤 → 200(透传 status)', async () => {
       mockRegularUser(USER_A)
-      mockListByUser.mockResolvedValue([])
+      // listByUser 现契约返回 { jobs, total }(见 generation-queue-service.ts)。
+      mockListByUser.mockResolvedValue({ jobs: [], total: 0 })
       const res = await server.inject({
         method: 'GET',
         url: `/ai/generation/user/${USER_A}?status=completed`,

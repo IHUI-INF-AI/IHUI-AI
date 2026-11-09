@@ -60,8 +60,9 @@ vi.mock('../src/config/index.js', () => ({
   },
 }))
 
-const { mockVerifyAccessToken } = vi.hoisted(() => ({
+const { mockVerifyAccessToken, mockFindConversationById } = vi.hoisted(() => ({
   mockVerifyAccessToken: vi.fn(),
+  mockFindConversationById: vi.fn(),
 }))
 vi.mock('@ihui/auth', () => ({
   signAccessToken: vi.fn().mockResolvedValue('mock-access-token'),
@@ -87,7 +88,7 @@ vi.mock('../src/db/chat-queries.js', () => ({
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
-  findConversationById: vi.fn(),
+  findConversationById: mockFindConversationById,
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),
@@ -119,14 +120,18 @@ import { aiChatStreamRoutes } from '../src/routes/ai-chat-stream.js'
 
 const USER_TOKEN = 'Bearer user-token'
 const INPUT_ID = 'input-019cfe1234567890abcdef'
+const USER_ID = '00000000-0000-4000-8000-000000000001'
 
 function mockUser() {
   mockVerifyAccessToken.mockResolvedValue({
-    userId: '00000000-0000-4000-8000-000000000001',
+    userId: USER_ID,
     phone: '13800000001',
     familyId: '00000000-0000-4000-8000-000000000002',
     roleId: 0,
   })
+  // F-03(2026-11-08):/chat/stream 先核会话归属,非本人/查不到一律 404。
+  // 归属查询走 chat-queries.findConversationById,本文件桩成"存在且属于当前用户"。
+  mockFindConversationById.mockResolvedValue({ id: 'conv-owned', userId: USER_ID })
 }
 
 /** 上游 admission 帧载荷(send-admission.ts 帧形状:事件名 admission,data 顶层平铺) */

@@ -23,7 +23,7 @@ import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { findProjectRoot } from '../../runs/manifest.js';
 import { EGRESS_ENV, type EgressDecision, type EgressJudgement } from './policy.js';
 
-export const EGRESS_LEDGER_REL_PATH = join('.ihui-agent', 'state', 'egress-decisions.jsonl');
+const EGRESS_LEDGER_REL_PATH = join('.ihui-agent', 'state', 'egress-decisions.jsonl');
 
 /** 绝不允许出现在台账行里的键名(值形态由 `rowIsSafe` 另行把守)。 */
 export const FORBIDDEN_LEDGER_KEYS: readonly string[] = [

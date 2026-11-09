@@ -16,7 +16,7 @@ import { announceGuardUnjudged, evaluateFileAccess, toAclPath } from '../sandbox
 import { tryParseJson } from '../util/json.js';
 import type { ScannedTrash, TrashPruneResetOutcome, TrashPruneSkip } from './trash-prune-types.js';
 
-export type { RowBuckets, ScannedTrash, TrashPruneRemoval, TrashPruneSkip } from './trash-prune-types.js';
+export type { ScannedTrash, TrashPruneSkip } from './trash-prune-types.js';
 
 /** 账目落点(与回收站分目录:清理器的生死不该和它要清的东西同生共死) */
 const EXPIRY_LEDGER_REL = path.join('.ihui', 'delete-guard', 'expiry-run.json');

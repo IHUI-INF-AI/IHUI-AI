@@ -20,7 +20,6 @@ vi.hoisted(() => {
 const fixture = vi.hoisted(() => {
   const FILE_URL = 'https://oss.example.com/files/paid.pdf'
   const makeResource = (overrides: Record<string, unknown> = {}) => ({
-
     id: '11111111-1111-4111-8111-111111111111',
     title: '付费资源',
     coverImage: null,
@@ -57,9 +56,15 @@ vi.mock('../../db/resource-queries.js', () => ({
   createResourceCategory: vi.fn(),
   updateResourceCategory: vi.fn(),
   deleteResourceCategory: vi.fn(),
-  findResources: vi.fn().mockResolvedValue({ list: [fixture.makeResource()], total: 1, page: 1, pageSize: 20 }),
-  findResourceByIdAndIncrementView: vi.fn().mockResolvedValue(fixture.makeResource({ categoryName: null })),
-  findResourceById: vi.fn().mockResolvedValue(undefined),
+  findResources: vi
+    .fn()
+    .mockResolvedValue({ list: [fixture.makeResource()], total: 1, page: 1, pageSize: 20 }),
+  findResourceByIdAndIncrementView: vi
+    .fn()
+    .mockResolvedValue(fixture.makeResource({ categoryName: null })),
+  // F-206 起详情改走 findResourceById(浏览量由 watch-aspect 统一计数);
+  // 这里必须给公开详情返回数据,否则测不到 fileUrl 收口。
+  findResourceById: vi.fn().mockResolvedValue(fixture.makeResource()),
   findResourcesByIds: vi.fn().mockResolvedValue([fixture.makeResource()]),
   createResource: vi.fn(),
   updateResource: vi.fn(),
@@ -90,10 +95,7 @@ vi.mock('../../plugins/auth.js', () => ({
   }),
 }))
 
-import {
-  findPublishedResourceById,
-  checkDownloadPermission,
-} from '../../db/resource-queries.js'
+import { findPublishedResourceById, checkDownloadPermission } from '../../db/resource-queries.js'
 import { resourceRoutes } from '../resource.js'
 
 let app: FastifyInstance

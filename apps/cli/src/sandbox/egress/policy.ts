@@ -33,7 +33,7 @@ import { globMatches } from '../glob-pattern.js';
 export type EgressDecision = 'allow' | 'deny' | 'unjudged';
 
 /** 命中层:`input`=输入本身不可判,`rule`=域名规则表,`ip-literal`=内网网段,`default`=兜底档,`dns`=地址证据。 */
-export type EgressLayer = 'input' | 'rule' | 'ip-literal' | 'default' | 'dns';
+type EgressLayer = 'input' | 'rule' | 'ip-literal' | 'default' | 'dns';
 
 /** enforce = 派生点据此拒绝拉起子进程;advisory = 出声 + 留痕但不拦(默认档,免得一刀切死既有工作流)。 */
 export type EgressEnforcement = 'enforce' | 'advisory';
@@ -79,7 +79,7 @@ export function domainLabelPath(host: string): string {
 }
 
 /** 作者形态模式 → 逆序标签路径;与 `domainLabelPath` 同一把尺,保证 `*`/`**` 语义不越层。 */
-export function domainPatternLabelPath(pattern: string): string {
+function domainPatternLabelPath(pattern: string): string {
   return domainLabelPath(pattern.trim().toLowerCase());
 }
 
@@ -132,7 +132,7 @@ function judgement(
 }
 
 /** 规则表匹配:按声明序取**首个**模式命中(`*` 单层 / `**` 递归,语义即 glob-pattern.ts)。 */
-export function matchEgressRule(host: string, rules: readonly EgressRule[]): EgressRule | null {
+function matchEgressRule(host: string, rules: readonly EgressRule[]): EgressRule | null {
   const labelPath = domainLabelPath(host);
   for (const rule of rules) {
     if (globMatches(domainPatternLabelPath(rule.domain), labelPath)) return rule;

@@ -10,7 +10,7 @@
  */
 import type { CompactBoundary, PreservedSegmentAnchor } from '@ihui/shared'
 
-export type CompactBoundarySlot = 'head' | 'anchor' | 'tail'
+type CompactBoundarySlot = 'head' | 'anchor' | 'tail'
 
 export interface CompactBoundaryAnchorLine {
   slot: CompactBoundarySlot

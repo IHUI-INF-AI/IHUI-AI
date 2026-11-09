@@ -101,7 +101,12 @@ vi.mock('../src/db/chat-queries.js', () => ({
   replaceMessages: vi.fn().mockResolvedValue(undefined),
   createConversation: vi.fn(),
   findConversationsByUser: vi.fn(),
-  findConversationById: vi.fn(),
+  // F-03:/chat/stream 入口先按会话归属收敛,非本人/不存在即 404。测试用户与
+  // beforeAll 中 verifyAccessToken 的 userId 一致。
+  findConversationById: vi.fn(async (id: string) => ({
+    id,
+    userId: '00000000-0000-4000-8000-000000000001',
+  })),
   updateConversation: vi.fn(),
   deleteConversation: vi.fn(),
   deleteConversationsBatch: vi.fn(),

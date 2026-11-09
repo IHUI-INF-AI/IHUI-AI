@@ -30,16 +30,18 @@ describe('F-433 tool_invocation_ledger.user_id 可空', () => {
   it('迁移 SQL 已落地：DROP NOT NULL', () => {
     expect(existsSync(MIGRATION)).toBe(true)
     const sql = readFileSync(MIGRATION, 'utf-8')
-    expect(sql).toContain('ALTER TABLE "tool_invocation_ledger" ALTER COLUMN "user_id" DROP NOT NULL')
+    expect(sql).toContain(
+      'ALTER TABLE "tool_invocation_ledger" ALTER COLUMN "user_id" DROP NOT NULL',
+    )
   })
 
-  it('journal 已登记该迁移（idx 377）', () => {
+  it('journal 已登记该迁移（idx 与 entries 实际位置一致）', () => {
     const journal = JSON.parse(readFileSync(JOURNAL, 'utf-8'))
-    const entry = journal.entries.find(
+    const pos = journal.entries.findIndex(
       (e: { tag: string }) => e.tag === '20261108180000_tool_invocation_ledger_user_nullable',
     )
-    expect(entry).toBeTruthy()
-    expect(entry.idx).toBe(377)
+    expect(pos).toBeGreaterThan(-1)
+    expect(journal.entries[pos].idx).toBe(pos)
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
