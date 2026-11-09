@@ -20,12 +20,22 @@
  *     当前真值是 manual —— 因为它判构建产物,提交者结构上未必满足,接成 blocking 只会逼人
  *     --no-verify 并连带废掉全部守门(§12e)。
  *  4. **转写比对收紧必须"有牙也不放水"** (§2b,2026-09-25):阳性对照与反向对照都在**同一次
- *     运行的同一份 landed** 上做 A/B(旧判据必命中不足 / 收紧后已知事实集全中 / 凭空名字仍判缺),
+ *     运行的同一份 landed** 上做 A/B(旧判据必命中不足 / 收紧后现场认领的事实集全中 / 凭空名字仍判缺),
  *     真 dist 不在位时显式 skip 并说原因 —— 自跳过要喊出来,不得静默计为通过。
+ *     (2026-11-09)事实集改为**现场从源码抽词 + 在真 dist 上认领**,不再硬编码产物快照;
+ *     采样空集 / 收紧零认回一律显式判红,不许退化成恒真空尺。
  */
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import test from 'node:test'
 
@@ -57,6 +67,38 @@ function mkTmp(tag) {
 }
 function rmTmp(p) {
   if (existsSync(p)) rmSync(p, { recursive: true, force: true })
+}
+
+/**
+ * 「真 dist 阳性对照」的**源码侧候选面**(2026-11-09 重判口径)。
+ * 只用门自己的 harvestClassNameTokens 抽词,不另写第二把尺;目录枚举仅负责把文本喂进去。
+ *
+ * 为什么不再硬编码类名:§2b/§2c 两组对照原先钉着 2026-09 的产物快照
+ * (dark:text-foreground / 长 pb-[calc(...)] / space-x-2 / space-x-3 …)。源码演进后其中若干
+ * 名字已不在真产物里,测试却仍拿它们当"已知落地事实",于是把「世界按设计变了」误报成判据回归
+ * —— 本文件 C4/C5 那组注释早已写明规矩:真 dist 只断**与轮次无关的守恒式**,方向性结论放构造面。
+ * 现在改为:现场从源码抽词 → 现场在真 dist 上认领事实 → 断守恒式,并把读数打出来当证据。
+ */
+function collectSourceClassTokens() {
+  const src = join(ROOT, 'apps', 'miniapp-taro', 'src')
+  const files = []
+  const walk = (d) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name)
+      if (e.isDirectory()) walk(p)
+      else if (/\.(tsx?|jsx?|css|scss|wxml)$/.test(e.name)) files.push(p)
+    }
+  }
+  walk(src)
+  const out = new Set()
+  for (const f of files) {
+    try {
+      for (const tok of G.harvestClassNameTokens(readFileSync(f, 'utf8'))) out.add(tok)
+    } catch {
+      // 构建中文件被换掉:这里只是取样面,跳过即可;空集由用例里的"前提钉死"兜住,不冒绿
+    }
+  }
+  return out
 }
 
 /* ─────────────── 1. 判据有牙:C1 算术(纯函数 + 构造面) ─────────────── */
@@ -121,8 +163,11 @@ test('裸类名(无规则体)不得算落地,注释里的假规则不得算定�
  * 旧 C1 拿源文件里的**原始类名**比产物里 harvest 到的名字 ⇒ 所有含标点的档整片被判"没落地"
  * (实测 505 条缺项里绝大多数是这把尺的噪声,而 `.bg-muted`/`.top-1_f2` 声明体真实在产物里)。
  * 本组证明三件事:
- *  ① **阳性对照(真 dist 对账)**:已知落地事实集在旧判据(只比原名)下明显命中不足、
- *    收紧后(原名 ∪ 转写名)全部命中 —— A/B 在同一次运行、同一份 landed 上做,不靠"改前跑一次"。
+ *  ① **阳性对照(真 dist 对账)**:源码侧"会被转写"的档在旧判据(只比原名)下明显命中不足、
+ *    收紧后(原名 ∪ 转写名)认回的那批全部命中 —— A/B 在同一次运行、同一份 landed 上做,
+ *    不靠"改前跑一次"。事实集现场认领而非硬编码类名:2026-09 那批快照里的
+ *    `dark:text-foreground` / 长 `pb-[calc(...)]` 已在源码演进中消失,继续钉着它们只会把
+ *    "世界按设计变了"报成判据回归(C4/C5 那组注释里立过的同一条规矩)。
  *  ② **反向对照(不得放水)**:产物里没有的名字,收紧后仍必判缺。加转写表只允许
  *    把"其实落了地的"认回来,不得让"真没落地的"更容易点头。
  *  ③ **表外标点不猜**:未在真产物实测到转写的 `* # @ > ~` 一律不进表,
@@ -164,7 +209,7 @@ test('转写函数:样本逐字取自 2026-09-25 真 weapp 构建产物(非立�
   assert.deepEqual(G.unmappedPunctIn('bg-muted'), [], '反向对照:普通名字不得被说成"含表外标点"')
 })
 
-test('阳性对照(真 dist):旧判据命中不足、收紧后已知落地事实集全部命中', (t) => {
+test('阳性对照(真 dist):旧判据命中不足、收紧后现场认领的落地事实集全部命中', (t) => {
   const dist = join(ROOT, 'apps', 'miniapp-taro', 'dist')
   const shape = G.classifyDist(dist)
   if (shape.kind !== 'weapp') {
@@ -178,29 +223,40 @@ test('阳性对照(真 dist):旧判据命中不足、收紧后已知落地事实
     t.skip(`产物读取失败(构建可能正在进行):${e.message}`)
     return
   }
-  const KNOWN_LANDED = [
-    '-top-[8rpx]',
-    'top-1/2',
-    'bg-[var(--color-black-50)]',
-    'dark:text-foreground',
-    'bg-[rgba(0,0,0,0.4)]',
-    'pb-[calc(20rpx+env(safe-area-inset-bottom,0))]',
-  ]
-  // A 臂 = 旧判据(只比原名);B 臂 = 收紧后(原名 ∪ 转写名)。同一份 landed,只差判据。
-  const oldHits = KNOWN_LANDED.filter((n) => landed.has(n))
-  const newHits = KNOWN_LANDED.filter((n) => landed.has(n) || landed.has(G.weappMangleClassName(n)))
+  // 候选面取自**源码**(与产物无关的独立一把尺):凡 weapp 转写会改名的档,
+  // 才可能只有转写形态的规则落在产物里。事实集由真 dist 现场认领,不写死类名清单。
+  const PUNCT = [...collectSourceClassTokens()]
+    .filter((n) => G.weappMangleClassName(n) !== n)
+    .sort()
+  // 前提钉死:采样为空 ⇒ 整组退化成恒真空尺,显式判红(不得 skip 冒绿)
   assert.ok(
-    oldHits.length < KNOWN_LANDED.length,
-    `旧判据竟把 ${oldHits.length}/${KNOWN_LANDED.length} 都判了命中 ⇒ 产物形态变了,本对照失去判别力,需人工复核`,
+    PUNCT.length >= 12,
+    `源码侧只取到 ${PUNCT.length} 条会被转写的类名 ⇒ 采样面失效,本对照失去判别力,需人工复核`,
   )
-  assert.equal(
-    newHits.length,
-    KNOWN_LANDED.length,
-    `收紧后仍有已知落地事实未命中:${KNOWN_LANDED.filter((n) => !newHits.includes(n)).join(', ')}`,
+  // A 臂 = 旧判据(只比原名);B 臂 = 收紧后(原名 ∪ 转写名)。同一份 landed,只差判据。
+  const oldHits = PUNCT.filter((n) => landed.has(n))
+  const KNOWN_LANDED = PUNCT.filter(
+    (n) => !landed.has(n) && landed.has(G.weappMangleClassName(n)),
   )
-  // 走门自己的算术:这些命中必须全部记在"转写后中"这一态上(表确实参与判定,不是直白的恒真)
+  assert.ok(
+    oldHits.length < PUNCT.length,
+    `旧判据竟把 ${oldHits.length}/${PUNCT.length} 含标点档都判了命中 ⇒ 产物形态变了,本对照失去判别力,需人工复核`,
+  )
+  assert.ok(
+    KNOWN_LANDED.length > 0,
+    '收紧判据一条都没认回来 ⇒ 转写表没参与真实产物,或产物形态变了,本对照不得空转',
+  )
+  t.diagnostic(
+    `[真 dist 读数] 源码含标点档 ${PUNCT.length} / 旧判据命中 ${oldHits.length} / 收紧后现场认领 ${KNOWN_LANDED.length}:${KNOWN_LANDED.slice(0, 8).join(', ')}${KNOWN_LANDED.length > 8 ? ' …' : ''}`,
+  )
+  // 走门自己的算术:现场认领的这批必须全部记在"转写后中"这一态上,零缺项。
+  // 断言与轮次无关 —— 只要 weapp 还在转写、产物里还有转写形态规则,它就该成立。
   const c = G.computeCoverage(KNOWN_LANDED, new Set(KNOWN_LANDED), landed)
-  assert.ok(c.hitMangledKinds > 0, 'hitMangledKinds=0 ⇒ 转写判据没参与真实产物,整组对照是摆设')
+  assert.equal(
+    c.hitMangledKinds,
+    KNOWN_LANDED.length,
+    '现场认领的落地事实没全部记在 hitMangledKinds ⇒ 转写表没参与判定或算术漂了',
+  )
   assert.equal(c.hitKinds + c.missKinds, c.demandedKinds)
   assert.equal(
     c.missKinds,
@@ -295,9 +351,12 @@ test('装车证明:转写判据真挂在 computeCoverage / runCheck / report 上
  * 那次把 92.49% 虚报成 99.89%)把它们整族误判"没落地"—— 判据只覆盖了 utility 产出形态的一半。
  * 修法:参考层自己的产出形状(bareNames 子集)决定产物该长成什么样;产物侧对"参考层本就复合"
  * 的名字要求**首族**命中,单列 hitCompoundKinds。
+ * (2026-11-09)正向对照不再钉死 space-x-2/space-x-3 这两个 2026-09 产物里才有的名字:
+ * 现在现场从「源码 space/divide 族 ∪ 产物首族同名族 ∪ 标准刻度」合成候选,由真 v4 参考层
+ * 判出哪些本就复合、再回产物认领首族(含转写名),断守恒式并把读数打出来。理由同 §2b。
  * 这组证明三件事,缺一不可:
  *  ① **装车**:分流集合(bareNames / compoundLeads)真被 runCheck 喂进判据、第三态真进报告;
- *  ② **正向**:真 dist 上 space-x-2/space-x-3/space-y-2 走第三态命中,且它们在参考层里确实
+ *  ② **正向**:真 dist 上现场认领的第三态名字全部走第三态命中,且它们在参考层里确实
  *     只有复合形态(bareNames 不含)—— 这条同时证明"开关接在参考层产出上",不是前缀猜;
  *  ③ **反向锁(本票重点)**:构造一份 dist 文本,里面只有 `.card-list .space-x-2{margin:0}`
  *     (后代手写,非首族)与 `.text-muted{color:red}` ⇒ space-x-2 **仍判缺**。
@@ -485,7 +544,7 @@ test('反向锁边界三条:多类紧随 `.a.b`、前缀名 `.space-x-20`、裸�
   )
 })
 
-test('阳性对照(真 dist + 真参考层):space-x-2/space-x-3/space-y-2 走第三态,且开关确实由参考层产出形状决定', async (t) => {
+test('阳性对照(真 dist + 真参考层):现场认领的复合族全部走第三态,且开关确实由参考层产出形状决定', async (t) => {
   const dist = join(ROOT, 'apps', 'miniapp-taro', 'dist')
   if (G.classifyDist(dist).kind !== 'weapp') {
     t.skip('本机当前无可信 weapp 产物 ⇒ 自跳过并明说,不冒绿')
@@ -498,42 +557,53 @@ test('阳性对照(真 dist + 真参考层):space-x-2/space-x-3/space-y-2 走第
     t.skip(`产物读取失败(构建可能正在进行):${e.message}`)
     return
   }
-  const SPACE = ['space-x-2', 'space-x-3', 'space-y-2']
-  for (const n of SPACE) {
-    assert.equal(
-      got.landed.has(n),
-      false,
-      `${n} 在产物里竟有裸类规则 —— 产物形态变了,本对照失去判别力,需人工复核`,
-    )
-    assert.equal(
-      got.compoundLeads.has(n),
-      true,
-      `${n} 在真产物里没有以它为**首族**的复合规则 —— 与本票立项实测矛盾,判据或产物之一变了`,
-    )
-  }
+  // 候选面现场合成,不再硬编码 2026-09 的那三个名字:
+  //  源码 space/divide 族 ∪ 产物首族同名族 ∪ 标准刻度(后者只是"参考层能力探针",
+  //  让参考层有东西可判,不是断言产物长什么样) ∪ 裸产出探针(撑起下面的反向臂)。
+  const SCALES = ['0.5', '1', '1.5', '2', '2.5', '3', '4', '5', '6', '8', '10', '12']
+  const STANDARD = []
+  for (const a of ['space-x', 'space-y', 'divide-x', 'divide-y'])
+    for (const s of SCALES) STANDARD.push(`${a}-${s}`)
+  const BARE_PROBES = ['flex', 'text-sm', 'p-4', 'bg-red-500', 'mt-2']
+  const CANDIDATES = [
+    ...new Set([
+      ...[...collectSourceClassTokens()].filter((n) => /^(space|divide)-[xy]-/.test(n)),
+      ...[...got.compoundLeads].filter((n) => /^(space|divide)-[xy]-/.test(n)),
+      ...STANDARD,
+      ...BARE_PROBES,
+    ]),
+  ].sort()
   // 关键一步:开关取自**真 v4 参考层的产出形状**(names 含它、bareNames 不含 ⇒ 参考层本就复合)。
   // 若参考层哪天把它改成裸产出,第三态自动失效、该名字回到裸类口径 —— 判什么恒等于写什么。
   const ref = await G.buildUtilityReferenceV4({
     root: ROOT,
     appDir: join(ROOT, 'apps', 'miniapp-taro'),
-    candidates: SPACE,
+    candidates: CANDIDATES,
   })
-  for (const n of SPACE) {
-    assert.equal(
-      ref.names.has(n),
-      true,
-      `${n} 不在参考层可选集 ⇒ 它根本进不了 C1 分母,本对照失去前提`,
-    )
-    assert.equal(
-      ref.bareNames.has(n),
-      false,
-      `${n} 在参考层竟是裸产出 ⇒ 第三态对它结构上不会开启,上面 landed.has=false 是真缺陷不是形状盲区`,
-    )
-  }
+  // 现场认领第三态名字,口径与 computeCoverage 第三态逐字一致(首族允许原名或转写名):
+  // 参考层判复合 ∧ 产物无裸类 ∧ 产物有以它为首族的复合规则。
+  const SPACE = CANDIDATES.filter(
+    (n) =>
+      ref.names.has(n) &&
+      !ref.bareNames.has(n) &&
+      !got.landed.has(n) &&
+      (got.compoundLeads.has(n) || got.compoundLeads.has(G.weappMangleClassName(n))),
+  )
+  // 前提钉死:认领不到 ⇒ 产物形态或参考层分流变了,显式判红,不 skip 冒绿
+  assert.ok(
+    SPACE.length >= 2,
+    `真 dist 上只认领到 ${SPACE.length} 个第三态名字 ⇒ 产物形态或参考层分流变了,本对照失去判别力,需人工复核`,
+  )
+  t.diagnostic(`[真 dist 读数] 第三态现场认领 ${SPACE.length} 名:${SPACE.join(', ')}`)
+  // 反向臂:参考层必须真的分流出"裸产出"子集,否则第三态等于对全体放水(不是前缀猜的旁证)。
+  assert.ok(
+    ref.bareNames.size > 0,
+    '参考层裸类子集为空 ⇒ 第三态开关没接在产出形状上(全是复合 = 放水),本对照失去前提',
+  )
   const c = G.computeCoverage(SPACE, ref.names, got.landed, ref.bareNames, got.compoundLeads)
   assert.deepEqual(
     [c.hitCompoundKinds, c.missKinds, c.pct],
-    [3, 0, 1],
+    [SPACE.length, 0, 1],
     '真 dist 上第三态没把这族认回来 ⇒ 判据没吃到产物首族集合,或分流开关接错了',
   )
 })
