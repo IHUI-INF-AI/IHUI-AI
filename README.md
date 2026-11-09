@@ -221,6 +221,7 @@ Windows 一键启动(9 个启动脚本)、环境变量逐项说明、REST/WebSoc
 ```bash
 node scripts/guardian-runner.mjs --staged     # pre-commit 全批
 node scripts/check-gate-wiring.mjs            # 「门造好了但没装车」对账
+node scripts/scan-api-routes.mjs              # API 端点清单(CLI 端点桥 api-endpoints.generated.ts 的生成源)
 ```
 新增一道门**必须**用 `node scripts/gate-registry-insert.mjs`(自己取空闲号、自己保住别人的注册块),
 不得手填编号;并同步在 `AGENTS.md` 点名。守门全表、执行语义与补登台账见
