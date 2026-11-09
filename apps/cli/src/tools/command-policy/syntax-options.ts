@@ -23,7 +23,7 @@ export const GIT_DIFF_OPTIONS: readonly OptionSpec[] = [
   opt('output', { arity: 'required', effects: ['write'], breaksReadonly: true }),
 ];
 
-export const NESTED_READ_ONLY: readonly string[] = ['ls', 'list', 'view', 'inspect', 'show', 'status', 'df', 'describe', 'diff', 'history', 'logs', 'ps', 'top', 'port', 'stats', 'wait', 'export', 'get', 'current-context', 'privileges', 'token'];
+const NESTED_READ_ONLY: readonly string[] = ['ls', 'list', 'view', 'inspect', 'show', 'status', 'df', 'describe', 'diff', 'history', 'logs', 'ps', 'top', 'port', 'stats', 'wait', 'export', 'get', 'current-context', 'privileges', 'token'];
 
 /** 二级命令族(docker volume ls / kubectl rollout status)共用的登记模板 */
 export function nestedSpec(mutating: readonly string[], extra: readonly OptionSpec[] = []): SubcommandSpec {

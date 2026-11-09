@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.sag2_lexical import LexicalIndex, Sag2Options, Sag2LexicalService
+from app.services.sag2_lexical import LexicalIndex, Sag2LexicalService, Sag2Options
 from app.services.sag2_lexical.bridge import (
     TermBridge,
     extract_paren_pairs,
@@ -20,7 +20,6 @@ from app.services.sag2_lexical.bridge import (
 from app.services.sag2_lexical.judge import LexicalOnlyJudge
 from app.services.sag2_lexical.retrieval import retrieve
 from app.services.sag2_lexical.text import casefold_tokens, match_query
-
 
 # ---------------------------------------------------------------------------
 # 纯函数层
@@ -31,7 +30,7 @@ class TestParenPairs:
     def test_cjk_first_and_latin_first_both_recognized(self):
         text = "我们做向量检索（vector retrieval），也做 RAG (检索增强生成)。"
         pairs = extract_paren_pairs(text)
-        cjk_side = {cjk: lat for cjk, lat in pairs}
+        cjk_side = dict(pairs)
         # CJK 侧允许带前导动词（注册时会展开后缀），这里断言的是「后缀能对上」。
         assert any(c.endswith("向量检索") and lat == "vector retrieval"
                    for c, lat in cjk_side.items()), pairs

@@ -166,7 +166,7 @@ interface SessionHistory {
 /** undoStack 最大容量,超过自动丢弃最老的 */
 const MAX_UNDO_STACK = 100;
 
-export function undoTargetKind(
+function undoTargetKind(
   target: string,
   stat: (file: string) => unknown = fs.statSync,
 ): { kind: 'present' } | { kind: 'missing' } | { kind: 'unread'; code: string } {

@@ -14,7 +14,7 @@
  * 会当斜杠）、`@`（userinfo 切换）与控制字符；随后仍按原拼接语义解析，并复核 origin
  * 与凭据字段，任何主机切换一律拒绝。
  */
-export class N8nWebhookPathError extends Error {
+class N8nWebhookPathError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'N8nWebhookPathError'

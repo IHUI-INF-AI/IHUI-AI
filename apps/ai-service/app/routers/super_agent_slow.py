@@ -50,12 +50,12 @@ class SlowPathJudgeRequest(BaseModel):
     items: list[JudgeItem] = Field(min_length=1, max_length=_BATCH_MAX)
 
 
-def _field(item: "JudgeItem | dict[str, object]", name: str) -> object:
+def _field(item: JudgeItem | dict[str, object], name: str) -> object:
     """兼容 pydantic 实例与 dict 两形态(端点路径给模型对象;判据直测可喂 dict)。"""
     return getattr(item, name, None) if not isinstance(item, dict) else item.get(name)
 
 
-def build_judge_prompt(items: "Sequence[JudgeItem | dict[str, object]]", user_id: str) -> str:
+def build_judge_prompt(items: Sequence[JudgeItem | dict[str, object]], user_id: str) -> str:
     """批量判定提示词:要求恰等长 JSON 数组，逐条三值 + 简短理由。"""
     lines = [
         "你是超级智能体的值守判员。以下是旁观到的消息，人未点名要求动手。",

@@ -295,9 +295,7 @@ def json_archive_blocks_replace(path: str | os.PathLike[str], *, expect: str | N
         return True
     if expect == "object" and not isinstance(data, dict):
         return True
-    if expect == "array" and not isinstance(data, list):
-        return True
-    return False
+    return expect == "array" and not isinstance(data, list)
 
 
 def read_json_file(path: str | os.PathLike[str]) -> Any | None:

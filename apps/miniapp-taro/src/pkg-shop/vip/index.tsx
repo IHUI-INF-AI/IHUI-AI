@@ -27,7 +27,8 @@ import { formatDateByTemplate } from '@ihui/shared'
 import ThemeRoot from '@/components/ThemeRoot'
 import { useTheme } from '@/rn-compat/theme'
 import { onToast } from '@/host/on-toast'
-import type { PriceOption, VipBenefit } from '@/components'
+import type { PriceOption } from '@/components/VipPriceSelector'
+import type { VipBenefit } from '@/components/VipBenefitsPopup'
 import { VipScreen as SharedVipScreen } from '@ihui/rn-app/features/vip/VipScreen'
 import {
   buildVipIndexFeatures,

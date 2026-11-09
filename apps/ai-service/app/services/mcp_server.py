@@ -15549,7 +15549,7 @@ class MCPServer:
                 "error": f"工具 {name} 执行超时({MCP_GLOBAL_TIMEOUT}s)",
                 "errorCode": "TIMEOUT",
             }
-        except Exception as e:
+        except Exception:
             # AIS-057:原始异常只入日志,回执按 handler 契约给 errorCode 并脱敏,
             # 避免内部路径/配置经 error 文本回灌模型或前端。
             logger.warning("[mcp] 工具执行失败: tool=%s", name, exc_info=True)

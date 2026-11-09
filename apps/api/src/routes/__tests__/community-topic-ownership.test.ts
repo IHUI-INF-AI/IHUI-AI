@@ -142,7 +142,10 @@ describe('F-155 /circles/topic 写操作归属', () => {
     expect(db.delete).not.toHaveBeenCalled()
   })
 
-  it('本人可修改,update 携带属主谓词', async () => {
+  it('管理员可修改,update 落库一次', async () => {
+    // 2026-11-08 F-155 收口:circle_dynamic 写面已收紧为管理员专用(见 topics.ts 注释),
+    // 普通用户即便本人也由 requireAdmin 先拒;管理员分支仍保留属主谓词。
+    state.roleId = 1
     state.tokenUserId = ME
     state.legacyIds = { [ME]: 7 }
     state.selectRows = [[{ id: 1, memberId: 7, content: '原话题' }]]
@@ -157,7 +160,8 @@ describe('F-155 /circles/topic 写操作归属', () => {
     expect(state.updatedSet?.content).toBe('已修改')
   })
 
-  it('创建时伪造 body.memberId 无效,落库为服务端解析的本人 memberId', async () => {
+  it('管理员创建时伪造 body.memberId 无效,落库为服务端解析的本人 memberId', async () => {
+    state.roleId = 1 // F-155 写面已收紧为管理员,见上
     state.tokenUserId = ME
     state.legacyIds = { [ME]: 7 }
     state.insertResult = [{ id: 1, memberId: 7, content: '新话题' }]

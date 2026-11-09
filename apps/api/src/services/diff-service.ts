@@ -22,8 +22,8 @@ export type DiffType = 'add' | 'delete' | 'modify' | 'equal'
  * 超限直接抛 `DiffTooLargeError`,不再让畸形输入拖死事件循环。
  */
 export const MAX_DIFF_FILE_BYTES = 2 * 1024 * 1024
-export const MAX_DIFF_LINES = 5000
-export const MAX_DIFF_LCS_CELLS = 4_000_000
+const MAX_DIFF_LINES = 5000
+const MAX_DIFF_LCS_CELLS = 4_000_000
 
 export class DiffTooLargeError extends Error {
   constructor(reason: string) {

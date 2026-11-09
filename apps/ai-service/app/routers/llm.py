@@ -6497,6 +6497,7 @@ async def complete_stream(req: LLMCompleteRequest, request: Request) -> Streamin
                                     _sub_id_by_index: dict[int, str] = _sub_id_by_index,
                                     _single_sub_id: str = _single_sub_id,
                                     _progress_queue: asyncio.Queue[dict[str, Any] | None] = _progress_queue,
+                                    _progress_dropped: list[int] = _progress_dropped,
                                 ) -> None:
                                     """进度回调:_run_agent 事件 → SSE progress 事件格式。"""
                                     _task_idx = evt.pop("task_index", None)
