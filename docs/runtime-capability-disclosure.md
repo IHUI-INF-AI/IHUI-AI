@@ -802,6 +802,12 @@ Ollama `http://localhost:11434`、LM Studio `http://localhost:1234`、llama.cpp
   回落链 SMTP → Resend，且经 `smtp.qq.com` 中继时 From 邮箱段必须等于登录账号
   （`resolveSmtpFrom` 注释）。**邮件语言按收件域名分流**：国内主流邮箱（`qq.com` / `163.com` 等
   `DOMESTIC_EMAIL_DOMAINS`）收中文，其余收英文；混合收件人按语言分组各发一封。
+  **主题与正文同源**：级别前缀 `[严重]/[警告]/[提示]` ↔ `[CRITICAL]/[WARNING]/[INFO]`，
+  缺省标题也按语言生成（`defaultAlertTitle(environment, locale)`：中文 `部署失败 — <env>`、
+  英文 `Deploy failed — <env>`），显式 `--title` 优先且不被翻译覆盖；
+  `--probe --probe-deliver` 的通道自测信同口径按语言各发一封（任一封投递成功即证明通道可用）。
+  CI 侧的零依赖兜底脚本 `.github/scripts/notify-deploy-failure-ci.mjs` 刻意不参与分流：
+  它只在主路径依赖缺失时发出，收件人是我方运维，正文保持极简事故四要素。
 - 运维告警收件人由 `apps/api/.env` 的 `ALERT_EMAIL_TO` 控制（AGENTS.md §5e）。
 - **无第三方产品遥测**：实测在 `apps/web/app`、`apps/web/src`、`apps/ai-service/app`、
   `apps/desktop/src`、`packages/shared/src` 检索
