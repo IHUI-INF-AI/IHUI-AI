@@ -107,6 +107,29 @@ describe('G-816030 api-client 侧帧归属屏障 = 判据源同形(判例表)', 
     expect(barrier.offer(f('chat-stream', 'sub-a'))).toBe('staged')
   })
 
+  // XUI-031(判据源同步):溢出清理必须按订阅隔离 —— 旧实现全局 clearStaged
+  // 会把别的订阅已暂存的帧一并清空(数据静默丢失、其 ACK 拿到空批)。本用例与
+  // packages/shared/src/sse/__tests__/frame-governance-scope.test.ts 同形。
+  it('XUI-031:sub-a 越界只清 sub-a,sub-b 已暂存帧保留并可正常 activate', () => {
+    const barrier = createFrameOwnershipBarrier<string>({ maxStagedFrames: 3 })
+    expect(barrier.offer(f('notify-stream', 'sub-b'))).toBe('staged')
+    expect(barrier.offer(f('notify-stream', 'sub-b'))).toBe('staged')
+
+    expect(barrier.offer(f('chat-stream', 'sub-a'))).toBe('staged')
+    expect(barrier.offer(f('chat-stream', 'sub-a'))).toBe('staged')
+    expect(barrier.offer(f('chat-stream', 'sub-a'))).toBe('staged')
+    expect(barrier.offer(f('chat-stream', 'sub-a'))).toBe('overflow')
+
+    expect(barrier.overflowOf('sub-a')).toBe(true)
+    expect(barrier.overflowOf('sub-b')).toBe(false)
+    // 旧实现全局 clearStaged 会在这里得到 0
+    expect(barrier.stagedCount()).toBe(2)
+
+    const flushed = barrier.activate({ subscriptionId: 'sub-b', topics: ['notify-stream'] })
+    expect(flushed).toHaveLength(2)
+    expect(barrier.stagedCount()).toBe(0)
+  })
+
   it('结构同形:判据源与本移植的上限常量/类型/错误构造/越界判定标记逐字同族(漂移即红)', () => {
     const local = readFileSync(
       resolve(REPO, 'packages/api-client/src/frame-ownership-barrier.ts'),
@@ -124,7 +147,8 @@ describe('G-816030 api-client 侧帧归属屏障 = 判据源同形(判例表)', 
       'stagedCount(): number',
       'stagedBytes(): number',
       'overflowOf(subscriptionId: string): boolean',
-      'staged.length + 1 > maxFrames || bytes + byteSizeOf(frame) > maxBytes',
+      'ownFrames.length + 1 > maxFrames || ownBytes + byteSizeOf(frame) > maxBytes',
+      'clearStagedFor(frame.subscriptionId)',
       'throw new FrameBarrierOverflowError(overflow.reason, overflow.droppedCount)',
       'unsubscribe?.()',
     ]) {
