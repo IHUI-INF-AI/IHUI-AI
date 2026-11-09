@@ -4,7 +4,7 @@
 
 import { useTt } from '@/i18n'
 import Taro, { useDidShow } from '@tarojs/taro'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { getDistributionInfo, withdraw } from '@/api'
 import { useAuthReadyGate } from '@/hooks/use-auth-ready-gate'
 import ThemeRoot from '@/components/ThemeRoot'
@@ -40,6 +40,14 @@ export default function WithdrawalPage() {
   // 共享屏 WithdrawScreen 的 balance 约定是「元」，而 getDistributionInfo().available
   // 与 availableWithdrawal 同源、单位是「分」。
   const availableYuan = available / 100
+  // 提现成功后的延迟返回定时器:存引用以便卸载时取消,否则用户自行返回会多退一层页面
+  const navigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (navigateTimerRef.current) clearTimeout(navigateTimerRef.current)
+    },
+    [],
+  )
 
   const methods = buildWithdrawMethods(tt)
   const texts = buildWithdrawTexts(tt)
@@ -51,7 +59,7 @@ export default function WithdrawalPage() {
       setAvailable(info.available)
       availableRef.current = info.available
     } catch {
-      setLoadError(tt('common.loadFailed'))
+      setLoadError(tt('common.loadFailed', '加载失败'))
     }
   }, [tt])
 
@@ -75,7 +83,7 @@ export default function WithdrawalPage() {
       // 而 parseWithdrawAmount 产出「元」，提交前必须转分。
       await withdraw({ amount: Math.round(amt * 100), type: method })
       onToast(tt('distribution.withdraw.submitted', '提现申请已提交'), { kind: 'success' })
-      setTimeout(() => Taro.navigateBack(), 800)
+      navigateTimerRef.current = setTimeout(() => Taro.navigateBack(), 800)
     } catch {
       // U-7:提现失败曾被静默吞掉,用户只看到按钮回弹;现在如实提示可重试。
       onToast(tt('common.failed', '操作失败'), { kind: 'error' })

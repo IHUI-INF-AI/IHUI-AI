@@ -471,11 +471,9 @@ export class UndoRedoManager {
         throw new Error(`撤销历史读不到,不能把它覆盖成新记录 (${code})`);
       }
     }
-    const dir = this.getHistoryDir();
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(file, JSON.stringify(history, null, 2), 'utf-8');
+    // 统一走 util/atomic-write:目标本身是符号链接时抛 SymlinkTargetError(DBG-43),
+    // 绝不穿透链接改真身、也不留 tmp。
+    commitAtomicWrite(captureWriteBaseline(file), JSON.stringify(history, null, 2));
   }
 
   /** 加载:从磁盘 JSON 读取 history 到内存缓存(已缓存则跳过) */

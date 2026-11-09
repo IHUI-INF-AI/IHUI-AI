@@ -25,6 +25,7 @@ import * as os from 'node:os';
 import { isRecord } from './util/json.js';
 import { readCliPackage } from './util/pkg-version.js';
 import { createApiRequest, resolveBaseUrl } from './commands/http-utils.js';
+import { writeFileAtomicSync, SymlinkTargetError } from './util/atomic-write.js';
 
 /**
  * 本模块所在目录。包是 ESM(`"type": "module"`),**没有** `__dirname` 这个全局 ——
@@ -181,11 +182,12 @@ function mergeWriteCache(cacheFile: string, patch: Record<string, unknown>): voi
     return;
   }
   try {
-    const dir = path.dirname(cacheFile);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(cacheFile, JSON.stringify({ ...base, ...patch }), 'utf-8');
-  } catch {
-    // 写入失败不影响启动,也不影响本次结论
+    writeFileAtomicSync(cacheFile, JSON.stringify({ ...base, ...patch }));
+  } catch (error) {
+    // 写入失败不影响启动,也不影响本次结论;但必须留痕 —— 吞掉写失败会让缓存状态无从追问(DBG-48)。
+    const code = error instanceof SymlinkTargetError ? error.code : (error as { code?: unknown })?.code;
+    const reason = typeof code === 'string' ? code : error instanceof Error ? error.message : String(error);
+    console.warn(`[updater] 更新缓存写失败,已跳过(${cacheFile}): ${reason}`);
   }
 }
 

@@ -659,3 +659,12 @@ deploy/win/.alert-quiet-ledger.jsonl
 # 前者是小程序端 ad-hoc 探针的临时目录,后者是 e2e 的一次性调试脚本,都不是交付物
 apps/miniapp-taro/probe-tmp/
 apps/web/e2e/tagsview-debug.ts
+
+# 2026-11-08 主工作区瘦身波处置:三类派生物不入库。
+# ① .worktrees-archive/ 是 2026-11-06 归档的 worktree 副本(实测 4914 文件 / 236.7 MB),
+#   留在仓根却未被任何规则覆盖,一次 `git add -A` 就会整包进历史。
+# ② e2e 截图是本地跑测产物,随用例变化,不是交付件。
+# ③ *.log.old 是轮转日志(既有 `*.log` 只盖以 .log 结尾,盖不住 .log.old 形态)。
+.worktrees-archive/
+apps/web/e2e/screenshots/**/*.png
+*.log.old

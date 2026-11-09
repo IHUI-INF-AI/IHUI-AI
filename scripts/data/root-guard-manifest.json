@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-08T15:17:28.777Z",
+  "sealedAt": "2026-11-09T04:08:07.434Z",
   "sealedBy": "root-guard --seal",
-  "reason": "B2 merge on 4bcff52cdc: reseal per merged tree",
+  "reason": "合并批次2/4入wave-1108:git-guardian双留合并面(P0-2暂停闸+批次4跨端开关)按merged树重封,清单与规则同枚",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "4f24ec0138bf71fc02cad78510a07eb430607eab6ca5af50b02f54690ba0787b"
+      "sha256": "64587cc1c8f249b3a3363beb33250425226871584fe760e9fd7d35c32ed19982"
     },
     {
       "id": "judgement-libs",
@@ -28,7 +28,7 @@
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "b17d9036244b379b7714be2a9f1c1f1c5a546cc005881beb752cb1cbe8bc39e5"
+      "sha256": "152465586c0787d3dbb82b02e3eea832beb3a6a40191a3843cbccfcf4aebc8bb"
     },
     {
       "id": "gate-scope",
@@ -40,7 +40,7 @@
       "id": "guardian-executor",
       "path": "scripts/lib/guardian-executor.mjs",
       "mode": "file",
-      "sha256": "f39920d8994688b3d1e52d93f5be8aa42195ff70ff19fb2fdbfd178aaeccc305"
+      "sha256": "35dabeb4ea7e99a5a7d73a868300c99b67a39459d91b6bb19500ab02e97e7b94"
     },
     {
       "id": "gate-failure-kind",

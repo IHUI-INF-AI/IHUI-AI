@@ -71,7 +71,7 @@ export function CourseEnrollScreen() {
     setEnrollingId(null)
     if (res.success) {
       setItems((prev) => prev.map((c) => (c.id === item.id ? { ...c, isEnrolled: true } : c)))
-      setToast(t('courseEnroll.enrollSuccess', { title: item.title }))
+      setToast(t('courseEnroll.enrollSuccess'))
     } else {
       setToast(res.error || t('courseEnroll.enrollFailed'))
     }

@@ -5,7 +5,7 @@
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 
 import { useMemo } from 'react'
-import { View, Text, TouchableOpacity, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import type { BookmarkItem, BookmarkScreenProps, BookmarkTargetType } from '../../types'
 import { getTokens, type AppThemeTokens } from '../../theme/tokens'
 import { BackChevron } from '../../components/BackChevron'
@@ -26,11 +26,16 @@ export function BookmarkScreen({
   onRefresh,
   onPressItem,
   onRemove,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
   onBack,
   colorScheme = 'light',
 }: BookmarkScreenProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
+  /** 触底/底部按钮两处入口共用同一道闸:到底或正在加载中都不再发请求。 */
+  const canLoadMore = hasMore && !loadingMore && !!onLoadMore
 
   const typeLabel = (targetType: BookmarkTargetType) => {
     switch (targetType) {
@@ -59,39 +64,56 @@ export function BookmarkScreen({
       {loading && items.length === 0 ? (
         <ScreenSkeleton variant="list" count={4} colorScheme={colorScheme} />
       ) : (
-        <ScrollView
+        <FlatList<BookmarkItem>
+          data={items}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listBody}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        >
-          {items.length === 0 ? (
-            <EmptyState title={t('bookmark.empty')} colorScheme={colorScheme} />
-          ) : (
-            items.map((item: BookmarkItem) => (
-              <View key={item.id} style={styles.card}>
-                <TouchableOpacity
-                  style={styles.cardBody}
-                  onPress={() => onPressItem(item)}
-                  hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                >
-                  <View style={styles.titleRow}>
-                    <Text style={styles.cardType}>{typeLabel(item.targetType)}</Text>
-                    <Text style={styles.cardTime}>{item.createdAt}</Text>
-                  </View>
-                  <Text style={styles.cardTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.removeBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => onRemove(item)}
-                >
-                  <Text style={styles.removeText}>{t('bookmark.remove')}</Text>
-                </TouchableOpacity>
-              </View>
-            ))
+          onEndReached={() => {
+            if (canLoadMore) onLoadMore!()
+          }}
+          onEndReachedThreshold={0.3}
+          ListEmptyComponent={<EmptyState title={t('bookmark.empty')} colorScheme={colorScheme} />}
+          ListFooterComponent={
+            loadingMore ? (
+              <Text style={styles.loadMoreText}>{t('bookmark.loadingMore')}</Text>
+            ) : hasMore ? (
+              <TouchableOpacity
+                style={styles.loadMoreBtn}
+                onPress={() => {
+                  if (canLoadMore) onLoadMore!()
+                }}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <Text style={styles.loadMoreText}>{t('bookmark.loadMore')}</Text>
+              </TouchableOpacity>
+            ) : null
+          }
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <TouchableOpacity
+                style={styles.cardBody}
+                onPress={() => onPressItem(item)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              >
+                <View style={styles.titleRow}>
+                  <Text style={styles.cardType}>{typeLabel(item.targetType)}</Text>
+                  <Text style={styles.cardTime}>{item.createdAt}</Text>
+                </View>
+                <Text style={styles.cardTitle} numberOfLines={2}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.removeBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                onPress={() => onRemove(item)}
+              >
+                <Text style={styles.removeText}>{t('bookmark.remove')}</Text>
+              </TouchableOpacity>
+            </View>
           )}
-        </ScrollView>
+        />
       )}
     </View>
   )
@@ -150,6 +172,14 @@ function createStyles(tk: AppThemeTokens) {
       backgroundColor: tk.danger.light,
     },
     removeText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
+    loadMoreBtn: {
+      alignItems: 'center',
+      paddingVertical: rnSpacing.md,
+      borderRadius: rnRadius.lg,
+      borderWidth: 1,
+      borderColor: tk.border.light,
+    },
+    loadMoreText: { fontSize: rnType.body.size, color: tk.text.secondary, textAlign: 'center' },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

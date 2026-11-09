@@ -895,6 +895,9 @@ async function run({ argv }) {
             badLines: ledger.badLines.length,
             why: ledger.why,
           },
+          // 票 2026-11-09「旁路是谁落的」:gatesRun:false 那一族按 source×operator 聚合。
+          // 2026-11-09 之前的留痕没有 operator 键 ⇒ 读侧 '' → 归"(无 operator)",这是事实不是缺陷。
+          bypassAttribution: attributeBypass(ledger.records),
           hook: {
             ok: hook.ok,
             state: hook.state ?? 'read',
@@ -1042,6 +1045,26 @@ async function run({ argv }) {
     )
   }
   return 0
+}
+
+/**
+ * 纯函数(票 2026-11-09):把 gatesRun:false 那一族(bypass-landing)按 source×operator 聚合。
+ * 只收 BYPASS_KIND —— `gates-then-commit` 正证与跳门留痕(not-ours/mine/…)不进这张表,
+ * 口径与 sums.bypassLanding 同一把尺。operator 空 ⇒ "(无 operator)"(旧留痕没有这一维,
+ * 读成空是事实,不得折成任何人名)。计数降序、同数按 source 再按 operator 升序(可复现)。
+ */
+export function attributeBypass(records = []) {
+  const map = new Map()
+  for (const r of records) {
+    if (r?.kind !== BYPASS_KIND) continue
+    const source = String(r.source ?? '') || '(无 source)'
+    const operator = String(r.operator ?? '') || '(无 operator)'
+    const key = `${source}\u0000${operator}`
+    const hit = map.get(key)
+    if (hit) hit.count++
+    else map.set(key, { source, operator, count: 1 })
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count || a.source.localeCompare(b.source) || a.operator.localeCompare(b.operator))
 }
 
 /** 自检:构造面 + 两条反假绿锁(硬要求④)。零写盘、零 git 派生。 */
@@ -1232,6 +1255,19 @@ function selfTest() {
       firstParty: { ok: true, state: 'read', rounds: [mk({})] },
     })
     ok('只有一方记录、没有回显 ⇒ 仍是 normal 且来源=round-record(脆判据的洞由它补上)', r.rows[0].normal === 1 && r.rows[0].normalByRecord === 1 && r.detail[0].proof === 'round-record', JSON.stringify(r.rows[0]))
+  }
+  // 锁(票 2026-11-09「旁路是谁落的」):归因只收 bypass-landing、按 source×operator 聚合、
+  // 缺 operator 归"(无 operator)" —— 2026-11-09 之前的留痕没有这一维,统计必须如实呈现。
+  {
+    const rows = attributeBypass([
+      { kind: BYPASS_KIND, source: 'union-converge', operator: 'a' },
+      { kind: BYPASS_KIND, source: 'union-converge', operator: 'a' },
+      { kind: BYPASS_KIND, source: 'object-space-land', operator: '' },
+      { kind: COMMITTED_KIND, source: 'x', operator: 'a' },
+      { kind: 'not-ours', source: 'x', operator: 'a' },
+    ])
+    ok('attributeBypass:只聚合 bypass-landing,source×operator 计数,缺 operator 归"(无 operator)"', rows.length === 2 && rows[0].source === 'union-converge' && rows[0].operator === 'a' && rows[0].count === 2 && rows[1].source === 'object-space-land' && rows[1].operator === '(无 operator)' && rows[1].count === 1, JSON.stringify(rows))
+    ok('attributeBypass:空账 ⇒ 空表(不许编一行 0 计数)', attributeBypass([]).length === 0)
   }
   console.log(`\n自检:${fails.length === 0 ? '全部通过' : `${fails.length} 条失败`}(组数按当次实跑,不钉数字)`)
   return fails.length === 0 ? 0 : 1
