@@ -86,7 +86,7 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | schema 文件 | 241 | `dbSchemaFiles` |
 | API 路由 | 4729 | `apiRoutes` |
 | 路由文件 | 688 | `apiRouteFiles` |
-| AI 服务路由 | 673 | `aiServiceRoutes` |
+| AI 服务路由 | 674 | `aiServiceRoutes` |
 | WebSocket 端点 | 29 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |

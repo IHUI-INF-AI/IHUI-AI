@@ -20,6 +20,8 @@ request.state.user_id,解析不到且全局鉴权未启用时回落 dev 身份)�
 - POST   /accounts/{id}/checkin 手动签到(尊重冷却与出站全局限流,命中 429)
 - GET    /accounts/{id}/tasks   O68 WorkBuddy growth 任务列表(只读)
 - POST   /accounts/{id}/task-run O68 执行任务族(growth/travel/activity/blackcat/redeem/lottery/all,dry_run 可选)
+- POST   /accounts/{id}/autopilot O68+ 全量自动驾驶一轮(全量选路:desktop 链/直连链/领奖,dry_run 可选;
+                                AI 会话与调度器共用同一引擎,留痕 action=task-run:autopilot)
                                 〔2026-10-31 上两条同补出站限流 + 账号冷却预检,命中 429〕
 - GET    /records               签到记录倒序分页
 - GET    /credits/history       积分流水(从 records 聚合 credits_delta)
@@ -53,6 +55,7 @@ from app.services import (
     checkin_store,
     checkin_user_pool_bridge,
     checkin_workbuddy,
+    workbuddy_autopilot,
     workbuddy_tasks,
 )
 from app.services import checkin_scheduler as checkin_scheduler_mod
@@ -120,6 +123,17 @@ class TaskRunIn(BaseModel):
 
     kind: Literal["growth", "travel", "activity", "blackcat", "redeem", "lottery", "all"]
     dry_run: bool = False
+
+
+class AutopilotIn(BaseModel):
+    """O68+ 全量自动驾驶入参(dry_run=true ⇒ 只出计划零写侧;claim=false 只执行不领奖)。
+
+    引擎单源 = workbuddy_autopilot.run_autopilot(与调度器 autopilot 腿、CLI 薄壳同一份),
+    AI 会话经本端点即可自主触发,无需读代码/写临时脚本。
+    """
+
+    dry_run: bool = False
+    claim: bool = True
 
 
 _DEVICE_MAP_MAX_BYTES = 16384
@@ -592,6 +606,88 @@ async def run_account_task(
     # 结果如何」。留痕是旁路,失败绝不影响路由返回。
     await _record_task_run(account_id, body.kind, body.dry_run, result)
     return result
+
+
+def _autopilot_message(dry_run: bool, summary: dict[str, Any]) -> str:
+    """人可读摘要:dry_run / 执行 / 领奖 / credit / 未领已领分布,≤500 字符。"""
+    text = (
+        f"autopilot dry_run={dry_run} "
+        f"total={summary.get('total_tasks')} "
+        f"claimed_already={len(summary.get('claimed_already') or [])} "
+        f"executed={len(summary.get('executed') or [])} "
+        f"claimed={len(summary.get('claimed') or [])} "
+        f"credits=+{summary.get('credits', 0)} "
+        f"unregistered={len(summary.get('unregistered') or [])} "
+        f"undone={len(summary.get('undone') or [])}"
+    )
+    if len(text) > _TASK_RUN_MESSAGE_MAX:
+        text = text[: _TASK_RUN_MESSAGE_MAX - 1] + "…"
+    return text
+
+
+async def _record_autopilot(
+    account_id: int, dry_run: bool, summary: dict[str, Any]
+) -> None:
+    """autopilot 执行留痕(旁路):action 复用 ``task-run`` 前缀 ⇒ _settled_today
+    早退自动生效(autopilot 落的 ok=true 不构成「今日已签到」),零新机制。
+    credits_delta 恒 None 不污染积分流水;失败只告警,不改路由返回。
+    """
+    try:
+        await checkin_store.insert_record(
+            account_id,
+            ok=summary.get("ok"),
+            action="task-run:autopilot:dry" if dry_run else "task-run:autopilot",
+            http_status=200,
+            code="autopilot",
+            message=_autopilot_message(dry_run, summary),
+            classified_error=None,
+            cooldown_until=None,
+            credits=None,
+            credits_delta=None,
+        )
+    except Exception as e:  # noqa: BLE001 — 留痕是旁路,不能变成新的故障点
+        logger.warning(
+            "[checkin] autopilot 留痕落库失败 account=%s: %s", account_id, e
+        )
+
+
+@router.post("/accounts/{account_id}/autopilot")
+async def run_account_autopilot(
+    account_id: int,
+    body: AutopilotIn,
+    current_user: str = Depends(require_request_user_id),
+) -> dict[str, Any]:
+    """O68+ 全量自动驾驶一轮(AI 会话与调度器共用的可编程入口)。
+
+    与 task-run 同口径:属主校验 404 / 非 workbuddy 拒绝 / 出站风控预检 429;
+    dry_run=true 只出计划零写侧。引擎单源 workbuddy_autopilot.run_autopilot,
+    幂等(全表 claimed 等价一次只读扫表,可任意复跑)。
+    """
+    account = await _wb_tasks_account_or_404(account_id, current_user)
+    if account.get("platform") != "workbuddy":
+        return {
+            "ok": False,
+            "reason": "autopilot 当前仅对 WorkBuddy 账号实现",
+            "dry_run": body.dry_run,
+            "total_tasks": 0,
+            "claimed_already": [],
+            "executed": [],
+            "claimed": [],
+            "credits": 0,
+            "undone": [],
+            "unregistered": [],
+            "read_failed": False,
+        }
+    await _outbound_risk_precheck(account_id)
+    device_map = dict(account.get("device_map") or {})
+    try:
+        summary = await workbuddy_autopilot.run_autopilot(
+            account["jwt"], device_map, dry_run=body.dry_run, claim=body.claim
+        )
+    except OutboundPaused as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    await _record_autopilot(account_id, body.dry_run, summary)
+    return summary
 
 
 @router.get("/records")
