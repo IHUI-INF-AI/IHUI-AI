@@ -36,7 +36,7 @@ if (!vitestEntry) {
 }
 
 const updateBaseline = process.argv.includes('--update-baseline')
-const commitResult = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' })
+const commitResult = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8', windowsHide: true })
 const commit = (commitResult.stdout ?? '').trim() || 'unknown'
 
 const currentPath = path.join(here, 'results', 'current.json')
@@ -50,6 +50,7 @@ const run = spawnSync(
   {
     cwd: repoRoot,
     stdio: 'inherit',
+    windowsHide: true,
     env: {
       ...process.env,
       IHUI_EVAL_COMMIT: commit,

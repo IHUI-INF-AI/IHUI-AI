@@ -16,7 +16,8 @@ const SRC = readFileSync(join(__dirname, '..', 'detail.tsx'), 'utf8')
 /** 判据:正反两面对同一实现 */
 export function detectSignToast(src: string): string[] {
   const missing: string[] = []
-  const fn = /const handleSign = useCallback\(async \(\) => \{[\s\S]*?\}, \[t\]\)/.exec(src)?.[0] ?? ''
+  const fn =
+    /const handleSign = useCallback\(async \(\) => \{[\s\S]*?\}, \[t\]\)/.exec(src)?.[0] ?? ''
   if (!fn) return ['handleSign']
   if (!/try \{[\s\S]*?await post\('/.test(fn)) missing.push('sign request inside try')
   if (!/try \{[\s\S]*?onToast\(t\('course\.signSuccess'\)/.test(fn)) {

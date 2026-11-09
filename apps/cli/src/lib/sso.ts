@@ -32,9 +32,11 @@
  */
 import * as http from 'node:http';
 import * as url from 'node:url';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import { writePrivateFile } from './private-file.js';
+import { getSettingsPath, loadSettings } from '../commands/settings.js';
+import {
+  stripPlaintextCredentialFile,
+  writeMainCredentials,
+} from './main-credential-store.js';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { DOC_TEXT_MUTED } from '@ihui/design-tokens';
@@ -46,7 +48,6 @@ import {
   type SsoTokenData,
 } from '@ihui/shared/auth/sso-core';
 import { SSO_CLIENT_IDS, WEB_BASE } from '@ihui/shared/constants';
-import { loadSettings, getSettingsPath, readSettingsObjectForUpdate, type Settings } from '../commands/settings.js';
 
 // 重新导出类型与工具(保持调用方 API 一致)
 export type { SsoTokenData } from '@ihui/shared/auth/sso-core';
@@ -209,18 +210,20 @@ export async function exchangeSsoCode(code: string): Promise<SsoTokenData | null
 }
 
 /**
- * 写入 accessToken + refreshToken 到 settings.json(复用 login.ts 的 persistTokens 模式)。
+ * 写入 accessToken + refreshToken 到**安全存储**(与 login.ts 同一套机制)。
+ * settings.json 只保留非敏感字段;写入失败直接抛错(fail-closed),不会退化为明文写盘。
  */
 function persistTokens(accessToken: string, refreshToken?: string): void {
+  writeMainCredentials(
+    { apiKey: accessToken, refreshToken: refreshToken ?? undefined },
+    { recoverCorrupt: true },
+  );
   const settingsPath = getSettingsPath();
-  const dir = path.dirname(settingsPath);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const read = readSettingsObjectForUpdate(settingsPath);
-  if (read.state === 'corrupt') throw new Error('配置读不到,不能把它覆盖成新内容 (corrupt)');
-  const existing: Settings = read.state === 'ok' ? read.settings : {};
-  existing.apiKey = accessToken;
-  if (refreshToken) existing.refreshToken = refreshToken;
-  writePrivateFile(settingsPath, JSON.stringify(existing, null, 2) + '\n');
+  // 剥离函数本体保证:坏 JSON/非对象一律不动文件 ⇒ 与 main 侧 corrupt guard 语义等价
+  const stripped = stripPlaintextCredentialFile(settingsPath);
+  if (!stripped.ok) {
+    console.warn(`[credentials] settings 明文清理失败(${stripped.reason ?? 'unknown'});下次加载会重试`);
+  }
 }
 
 /**

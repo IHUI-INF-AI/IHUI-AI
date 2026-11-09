@@ -12,7 +12,7 @@
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 const { mockLoggerWarn, mockInsert, mockUpdate, mockWhere, mockSet, mockSelectResult, mockFetch } =
   vi.hoisted(() => ({
@@ -81,25 +81,27 @@ vi.mock('../src/services/workspace-lock-heartbeat.js', () => {
     'deleted',
   ] as const
   return {
-  LOCK_HEARTBEAT_INTERVAL_MS: 30_000,
-  startLockHeartbeat: vi.fn(),
-  stopLockHeartbeat: vi.fn(),
-  releaseLockToken: vi.fn().mockResolvedValue(undefined),
-  releaseTaskLockFromRow: vi.fn().mockResolvedValue(undefined),
-  releaseTaskLockByTaskId: vi.fn().mockResolvedValue(undefined),
-  _resetLockHeartbeats: vi.fn(),
-  toLockReleaseOutcome: (status: string): LockHeartbeatModule.LockReleaseOutcome | null =>
-    (LOCK_RELEASE_OUTCOME_TABLE as readonly string[]).includes(status)
-      ? (status as LockHeartbeatModule.LockReleaseOutcome)
-      : null,
-}
+    LOCK_HEARTBEAT_INTERVAL_MS: 30_000,
+    startLockHeartbeat: vi.fn(),
+    stopLockHeartbeat: vi.fn(),
+    releaseLockToken: vi.fn().mockResolvedValue(undefined),
+    releaseTaskLockFromRow: vi.fn().mockResolvedValue(undefined),
+    releaseTaskLockByTaskId: vi.fn().mockResolvedValue(undefined),
+    _resetLockHeartbeats: vi.fn(),
+    toLockReleaseOutcome: (status: string): LockHeartbeatModule.LockReleaseOutcome | null =>
+      (LOCK_RELEASE_OUTCOME_TABLE as readonly string[]).includes(status)
+        ? (status as LockHeartbeatModule.LockReleaseOutcome)
+        : null,
+  }
 })
 
 import {
   SubagentDispatchService,
   aggregateDeliverables,
+  setTenantConcurrencyLimitResolver,
   subagentDispatchService,
 } from '../src/services/subagent-dispatch-service'
+import { SuperAgentHost, DEFAULT_SUPER_AGENT_POLICY } from '@ihui/shared/super-agent'
 
 const service = subagentDispatchService as unknown as {
   _createAgentTask: (
@@ -492,6 +494,95 @@ describe('with_communication 消息摘要(行为侧)', () => {
     expect(parsed.rounds).toBe(3)
     expect(parsed.finalResults).toHaveLength(ROLES.length)
     for (const r of parsed.finalResults) expect(r.output).toBe(longOutput(r.agent))
+  })
+})
+
+describe('并发闸单一真相源(宿主 maxWorkers ↔ 下游租户上限)', () => {
+  const parallelResponse = () => ({
+    status: 200,
+    ok: true,
+    statusText: 'OK',
+    json: async () => ({
+      code: 0,
+      message: '',
+      data: { final_output: 'ok', steps: [] },
+    }),
+  })
+
+  // 长延迟:同一测试内的多次 dispatch 都会处于 pending/running,容量判定不会被「跑完」打散。
+  const slowFetch = async () =>
+    new Promise((resolve) => setTimeout(() => resolve(parallelResponse()), 200))
+
+  afterEach(() => {
+    setTenantConcurrencyLimitResolver(null)
+  })
+
+  it('宿主放 2 个工人，下游按同一上限放行，第 3 个才判租户超限', async () => {
+    const now = 100
+    let seq = 0
+    const host = new SuperAgentHost(undefined, {
+      now: () => now,
+      id: (prefix: string) => `${prefix}-${++seq}`,
+    })
+    const owner = 'tenant-parity'
+    host.applyPolicy(owner, { ...DEFAULT_SUPER_AGENT_POLICY, maxWorkers: 2 })
+    setTenantConcurrencyLimitResolver((entryOwner) =>
+      entryOwner ? host.maxWorkersFor(entryOwner) : undefined,
+    )
+    mockFetch.mockReset()
+    mockFetch.mockImplementation(slowFetch)
+    const svc = new SubagentDispatchService()
+    const input = (): Parameters<SubagentDispatchService['dispatch']>[0] => ({
+      goal: 'parity',
+      affectedFiles: [],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
+      ownerUserId: owner,
+      sessionId: 'worker-parity',
+      directory: '/tmp/worker-parity',
+      capacityReserved: true,
+    })
+
+    // 宿主上限 2:前两个都被下游放行(不再被 normal 档 2 二次拦截,引擎/下游判定一致)
+    const first = await svc.dispatch(input())
+    const second = await svc.dispatch(input())
+    expect(first.dispatch!.status).not.toBe('queued')
+    expect(second.dispatch!.status).not.toBe('queued')
+    // 第 3 个:宿主侧 maxWorkers=2 也不会放行,下游同一上限判租户超限
+    const third = await svc.dispatch(input())
+    expect(third.dispatch!.status).toBe('queued')
+    expect(host.maxWorkersFor(owner)).toBe(2)
+  })
+
+  it('未占槽的通用派单仍受优先级档约束(收敛不改既有语义)', async () => {
+    const now = 200
+    let seq = 0
+    const host = new SuperAgentHost(undefined, {
+      now: () => now,
+      id: (prefix: string) => `${prefix}-${++seq}`,
+    })
+    const owner = 'tenant-priority'
+    // 租户上限放宽到 4,证明第 3 个是被「normal=2」挡住而不是租户闸
+    host.applyPolicy(owner, { ...DEFAULT_SUPER_AGENT_POLICY, maxWorkers: 4 })
+    setTenantConcurrencyLimitResolver((entryOwner) =>
+      entryOwner ? host.maxWorkersFor(entryOwner) : undefined,
+    )
+    mockFetch.mockReset()
+    mockFetch.mockImplementation(slowFetch)
+    const svc = new SubagentDispatchService()
+    const normal = (): Parameters<SubagentDispatchService['dispatch']>[0] => ({
+      goal: 'priority',
+      affectedFiles: [],
+      verifyCommands: [],
+      constraints: '',
+      deliverables: '',
+      ownerUserId: owner,
+    })
+    await svc.dispatch(normal())
+    await svc.dispatch(normal())
+    const third = await svc.dispatch(normal())
+    expect(third.dispatch!.status).toBe('queued')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

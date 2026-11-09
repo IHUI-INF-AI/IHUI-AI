@@ -1571,16 +1571,10 @@ export const aiChatStreamRoutes: FastifyPluginAsync = async (server) => {
 
       // Token 预算三态分档(2026-09-19 立):block 时 checkTokenBudget 已发 429 直接返回;
       // warning/critical 放行,经流首 budget 命名帧软提醒用量进度;allow 无动作。
-      const budgetGate = await checkTokenBudget(
-        request,
-        reply,
-        request.userId,
-        resolvedModel,
-        {
-          conversationId: metadata?.conversationId ?? null,
-          messageId: metadata?.messageId ?? null,
-        },
-      )
+      const budgetGate = await checkTokenBudget(request, reply, request.userId, resolvedModel, {
+        conversationId: metadata?.conversationId ?? null,
+        messageId: metadata?.messageId ?? null,
+      })
       if (budgetGate.decision === 'block') {
         return
       }

@@ -32,6 +32,11 @@ from ..core.sse_buffer import REPLAY_HIT, sse_buffer
 # D174/R3:帧级 traceId 的唯一注入点(与 llm 那条对话流共用一份实现,不在本路由再抄一遍判序)
 from ..core.sse_frames import with_frame_trace_id
 from ..core.turn_stop_reason import TurnStopReason, ensure_turn_stop_reason
+from ..core.worker_exec_context import (
+    WorkerExecContextError,
+    build_worker_exec_context,
+    worker_exec_scope,
+)
 from ..services.agent_checkpoint import AgentLoopCheckpoint
 from ..services.agent_deliverables import get_deliverables
 from ..services.agent_events import (
@@ -2831,20 +2836,28 @@ async def agent_debate(
     if len(agents) < 2:
         return {"code": 400, "message": "至少需要 2 个 Agent", "data": None}
 
-    if mode == "debate":
-        result = await agent_orchestrator.run_debate(
-            agents, topic, max_rounds, session_id, model_override
-        )
-    elif mode == "vote":
-        result = await agent_orchestrator.run_vote(
-            agents, topic, session_id, model_override
-        )
-    elif mode == "critique":
-        result = await agent_orchestrator.run_critique(
-            agents, topic, max_rounds, session_id, model_override
-        )
-    else:
-        return {"code": 400, "message": f"不支持的 mode: {mode}", "data": None}
+    # 请求级 cwd/env:debate/vote/critique 的内层 agent 调用全部继承该作用域。
+    # 护栏不是沙箱(同 OS 用户仍可绕过绝对路径),说明见 core/worker_exec_context.py。
+    try:
+        scope = worker_exec_scope(build_worker_exec_context(body.get("cwd"), body.get("env")))
+    except WorkerExecContextError as e:
+        return {"code": 400, "message": str(e), "data": None}
+
+    with scope:
+        if mode == "debate":
+            result = await agent_orchestrator.run_debate(
+                agents, topic, max_rounds, session_id, model_override
+            )
+        elif mode == "vote":
+            result = await agent_orchestrator.run_vote(
+                agents, topic, session_id, model_override
+            )
+        elif mode == "critique":
+            result = await agent_orchestrator.run_critique(
+                agents, topic, max_rounds, session_id, model_override
+            )
+        else:
+            return {"code": 400, "message": f"不支持的 mode: {mode}", "data": None}
 
     return {
         "code": 0,

@@ -67,6 +67,13 @@ export const AGENT_TOOLS = [
   'browser_select_option',
   'browser_switch_tab',
   'browser_close_tab',
+  // 2 browser observability tools(2026-11-08 立,后端 Browser Hub + CDP 执行;
+  // 与上面 12 个 extension 动作面不同,这两枚是读取面,故只进 AGENT_TOOLS,
+  // 不进 PLUGIN_ID_TO_TOOLS 的浏览器插件清单 —— 扩展端没有这两个能力)。
+  'browser_console_messages',
+  'browser_network_requests',
+  // 语言服务诊断(2026-11-08):复用 api/v1/lsp 判据,编辑后自检用。
+  'get_diagnostics',
   // 7 page-handle tools(2026-09-25 立,浏览器扩展执行的页面语义快照句柄族;与上面 12 个
   // browser_* 同 category、同执行端,但只认快照交回的活句柄而非 CSS 选择器。清单单一来源 =
   // BROWSER_PAGE_CONTROL_TOOLS,这里展开它而不是再抄一遍:两处名单必然漂移,漂移的结果是

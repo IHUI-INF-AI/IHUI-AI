@@ -1045,10 +1045,7 @@ export const toolsVendorRoutes: FastifyPluginAsync = async (server) => {
   const KLING_BASE_URL = 'https://api-beijing.klingai.com'
 
   // F-119:Kling 任务归属 + 按任务幂等扣费(与 taskStore 同进程生命周期)。
-  const klingTaskOwners = new Map<
-    string,
-    { userId: string; createdAt: number; charged: boolean }
-  >()
+  const klingTaskOwners = new Map<string, { userId: string; createdAt: number; charged: boolean }>()
   const KLING_TASK_TTL_MS = 24 * 60 * 60_000
   const KLING_TASK_MAX = 2_000
 

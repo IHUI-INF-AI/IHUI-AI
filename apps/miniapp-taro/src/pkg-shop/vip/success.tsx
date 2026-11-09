@@ -122,7 +122,18 @@ export default function VipSuccessPage() {
     } catch {
       // 静默忽略本地存储失败
     }
-  }, [saved, verifyServerPaid, tt, orderNo, planType, displayPlanName, amount, payTime, payMethod, duration])
+  }, [
+    saved,
+    verifyServerPaid,
+    tt,
+    orderNo,
+    planType,
+    displayPlanName,
+    amount,
+    payTime,
+    payMethod,
+    duration,
+  ])
 
   // 首次渲染时记录一次
   useEffect(() => {

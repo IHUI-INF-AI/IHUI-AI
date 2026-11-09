@@ -450,7 +450,7 @@ export function createCompatNavigation(deps: CompatNavigationDeps): CompatNaviga
     // XUI-056:React Navigation 允许对象形 navigate({ name, params });旧垫片只认字符串,
     // 对象会被当路由名 ⇒ 解析成 [object Object] 后跳转静默失败。
     const name = typeof target === 'string' ? target : String(target?.name ?? '')
-    const targetParams = typeof target === 'string' ? params : target?.params ?? params
+    const targetParams = typeof target === 'string' ? params : (target?.params ?? params)
     const path = buildRoutePath(name, targetParams)
     if (!path) return fail(name, 'unmapped')
     const isTab = switchTabIfNeeded(path)
