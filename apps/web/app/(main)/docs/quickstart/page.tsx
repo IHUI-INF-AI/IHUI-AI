@@ -16,6 +16,7 @@ import {
   Lightbulb,
 } from 'lucide-react'
 import { CodeBlock } from '@/components/docs/code-block'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -254,7 +255,7 @@ export default function QuickstartPage() {
     <main className="px-4 mx-auto w-full max-w-5xl py-4">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(quickstartJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(quickstartJsonLd) }}
       />
 
       {/* Hero */}

@@ -13,6 +13,7 @@ import { Badge, Card, CardContent } from '@ihui/ui-react'
 import { getBlogPost, listBlogPosts } from '@/lib/blog'
 import { BlogPostContent } from './BlogPostContent'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 interface PageProps {
   params: Promise<{ slug: string }>
@@ -77,7 +78,7 @@ export default async function BlogPostPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         // 安全转义:JSON.stringify 不转义 `<`,防止内容含 `</script>` 提前闭合脚本标签(Google/Next.js 官方推荐做法)
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(articleJsonLd) }}
       />
       <Link
         href="/blog"

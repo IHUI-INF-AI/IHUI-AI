@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import { getTranslations } from 'next-intl/server'
 import { UseCaseContent } from '../UseCaseContent'
 import { generateReviewSchema, type ReviewSchema } from '@/lib/seo/schema-review'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -115,14 +116,11 @@ export default async function CustomerSupportPage() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
       {reviewJsonLd ? (
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(reviewJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: jsonLdHtml(reviewJsonLd) }}
         />
       ) : null}
       <UseCaseContent useCaseId="customer-support" />

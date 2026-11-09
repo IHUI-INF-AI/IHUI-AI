@@ -21,6 +21,7 @@ import { NewsInteraction } from '@/components/news/NewsInteraction'
 import { NewsComments } from '@/components/news/NewsComments'
 import { formatDateOnly } from '@/lib/date-utils'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 interface NewsArticle {
   id: string
@@ -108,7 +109,7 @@ export default function NewsDetailPage() {
       <script
         type="application/ld+json"
         // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的输入会提前闭合脚本标签导致 XSS
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c') }}
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(articleJsonLd) }}
       />
       <BackButton />
       <Breadcrumb
