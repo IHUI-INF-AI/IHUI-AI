@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-09T04:08:07.434Z",
+  "sealedAt": "2026-11-09T04:33:31.588Z",
   "sealedBy": "root-guard --seal",
-  "reason": "合并批次2/4入wave-1108:git-guardian双留合并面(P0-2暂停闸+批次4跨端开关)按merged树重封,清单与规则同枚",
+  "reason": "批次3-1 看门狗阶段协议落地:guardian-executor 分段计时(等锁/真跑)+ gate-failure-kind BLOCKED_BY_CONCURRENCY,按 merged 树重封",
   "targets": [
     {
       "id": "guardian-runner",
@@ -40,13 +40,13 @@
       "id": "guardian-executor",
       "path": "scripts/lib/guardian-executor.mjs",
       "mode": "file",
-      "sha256": "35dabeb4ea7e99a5a7d73a868300c99b67a39459d91b6bb19500ab02e97e7b94"
+      "sha256": "366f646af6323c743646ed4b13282e93d646a88245277c8bde6d59cd804d21c1"
     },
     {
       "id": "gate-failure-kind",
       "path": "scripts/lib/gate-failure-kind.mjs",
       "mode": "file",
-      "sha256": "54417b7dc571de922853788ae878bf53689ad8daa7b91d9a6467324d4a3e7b22"
+      "sha256": "c7057c8ad8f0031a094518ab46c075ffbadc69458144b38c302b90d9874817fd"
     },
     {
       "id": "land-gate-rerun",
