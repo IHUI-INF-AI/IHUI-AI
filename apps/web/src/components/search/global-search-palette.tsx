@@ -202,7 +202,7 @@ export function GlobalSearchPalette() {
               key={key}
               type="button"
               onClick={() => setExt(key)}
-              className={`rounded px-2 py-0.5 text-xs transition-colors ${
+              className={`font-[weight:inherit] rounded px-2 py-0.5 text-label transition-colors ${
                 ext === key
                   ? 'bg-foreground text-background'
                   : 'text-muted-foreground hover:bg-muted'
@@ -211,7 +211,7 @@ export function GlobalSearchPalette() {
               {t(`filter_${key}` as 'filter_all')}
             </button>
           ))}
-          <span className="ml-auto text-xs text-muted-foreground">
+          <span className="font-[weight:inherit] ml-auto text-label text-muted-foreground">
             {busy ? t('loading') : `${total}`}
           </span>
         </div>
@@ -222,7 +222,7 @@ export function GlobalSearchPalette() {
           aria-label={t('globalSearchTitle')}
         >
           {emptyHint ? (
-            <p className="px-3 py-6 text-center text-sm text-muted-foreground">{emptyHint}</p>
+            <p className="font-[weight:inherit] px-3 py-6 text-center text-body text-muted-foreground">{emptyHint}</p>
           ) : (
             items.map((item, index) => (
               <button
@@ -238,14 +238,14 @@ export function GlobalSearchPalette() {
                 }`}
               >
                 <div className="flex items-baseline gap-2">
-                  <span className="truncate text-sm font-medium text-foreground">
+                  <span className="truncate text-body font-medium text-foreground">
                     {item.title || item.path}
                   </span>
                   <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
                     {item.bm25.toFixed(2)}
                   </span>
                 </div>
-                <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                <p className="font-[weight:inherit] line-clamp-2 text-label leading-relaxed text-muted-foreground">
                   <Highlighted text={item.snippet} spans={item.highlights} />
                 </p>
                 <p className="truncate text-[11px] text-muted-foreground">{item.path}</p>

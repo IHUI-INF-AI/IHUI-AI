@@ -153,7 +153,8 @@ async def _run_agent_node(
     try:
         result = await llm_gateway.complete(messages, model=_DEFAULT_MODEL)
         content = result.get("content", "") if isinstance(result, dict) else str(result)
-        return {"stdout": str(content).strip(), "exitCode": 0, "status": "success"}
+        # 未跑任何子进程:LLM 调用成功不等于进程退出成功,exitCode 必须为 None。
+        return {"stdout": str(content).strip(), "exitCode": None, "status": "success"}
     except Exception as e:
         logger.warning("canvas agent 节点 %s 执行失败: %s", node_id, e)
         return {
@@ -176,7 +177,8 @@ def _run_tool_node(
     upstream = str(state.get("stdout") or "").strip()
     payload = node_input or upstream
     stdout = f"[tool:{tool}] {name} 执行完成" + (f"\n输入: {payload}" if payload else "")
-    return {"stdout": stdout, "exitCode": 0, "status": "success"}
+    # 模拟输出,真实工具未执行:不得伪造进程退出码。
+    return {"stdout": stdout, "exitCode": None, "status": "success"}
 
 
 async def _run_review_node(
@@ -196,12 +198,14 @@ async def _run_review_node(
         decision = interrupt({"nodeId": node_id, "name": name, "prompt": prompt})
         return {
             "stdout": f"人工审核通过: {decision if decision is not None else 'approved'}",
-            "exitCode": 0,
+            # 审核结论来自人工,没有跑过任何进程:exitCode 留空。
+            "exitCode": None,
             "status": "success",
         }
     return {
         "stdout": f"自动放行(无 checkpointer,无法暂停): {prompt}",
-        "exitCode": 0,
+        # 自动放行同样是零进程执行,不得写 0。
+        "exitCode": None,
         "status": "success",
     }
 

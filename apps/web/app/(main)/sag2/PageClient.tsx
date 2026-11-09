@@ -243,10 +243,10 @@ export default function PageClient({
       <header className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-background px-4 py-3">
         <div className="mr-auto">
           <h1 className="text-base font-semibold text-foreground">{t('title')}</h1>
-          <p className="text-xs text-muted-foreground">{t('subtitle')}</p>
+          <p className="font-[weight:inherit] text-label text-muted-foreground">{t('subtitle')}</p>
         </div>
         <span
-          className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+          className={`font-[weight:inherit] rounded-md border px-2 py-1 text-label transition-colors ${
             status?.ready
               ? 'border-foreground bg-primary text-primary-foreground'
               : 'border-border bg-muted text-muted-foreground'
@@ -298,7 +298,7 @@ export default function PageClient({
       {error ? (
         <div
           role="alert"
-          className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground"
+          className="font-[weight:inherit] rounded-md border border-border bg-muted px-3 py-2 text-body text-foreground"
         >
           {t('error')}: {error}
         </div>
@@ -310,10 +310,10 @@ export default function PageClient({
             <button
               type="button"
               onClick={() => setFoldersOpen((value) => !value)}
-              className="flex items-center justify-between text-sm font-semibold text-foreground transition-colors hover:text-foreground/80"
+              className="flex items-center justify-between text-body font-semibold text-foreground transition-colors hover:text-foreground/80"
             >
               <span>{t('foldersTitle')}</span>
-              <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+              <span className="rounded bg-muted px-1.5 py-0.5 text-label font-normal text-muted-foreground">
                 {folders?.folders.length ?? 0}
               </span>
             </button>
@@ -332,7 +332,7 @@ export default function PageClient({
                     variant="primary"
                     disabled={busy || !folderRoot.trim()}
                     onClick={() => void addFolder()}
-                    className="rounded-md px-3 py-2 text-sm"
+                    className="font-[weight:inherit] rounded-md px-3 py-2 text-body"
                   >
                     {t('registerFolder')}
                   </Button>
@@ -340,22 +340,22 @@ export default function PageClient({
                     variant="outline"
                     disabled={busy || !(folders?.folders.length ?? 0)}
                     onClick={() => void scanAllFolders()}
-                    className="rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+                    className="font-[weight:inherit] rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
                   >
                     {t('scanFolders')}
                   </Button>
                 </div>
 
                 {scanStats ? (
-                  <p className="text-xs leading-relaxed text-muted-foreground">
+                  <p className="font-[weight:inherit] text-label leading-relaxed text-muted-foreground">
                     {summaryOf(scanStats)} · {scanStats.duration_ms}ms
                   </p>
                 ) : null}
 
-                <p className="text-xs text-muted-foreground">{t('foldersList')}</p>
+                <p className="font-[weight:inherit] text-label text-muted-foreground">{t('foldersList')}</p>
                 <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
                   {(folders?.folders ?? []).length === 0 ? (
-                    <p className="rounded border border-dashed border-border px-2 py-1.5 text-xs text-muted-foreground">
+                    <p className="font-[weight:inherit] rounded border border-dashed border-border px-2 py-1.5 text-label text-muted-foreground">
                       {t('noFolders')}
                     </p>
                   ) : null}
@@ -367,7 +367,7 @@ export default function PageClient({
                         className="flex flex-wrap items-center gap-1.5 rounded border border-border bg-background px-2 py-1.5"
                       >
                         <span
-                          className="mr-auto truncate text-xs text-foreground"
+                          className="font-[weight:inherit] mr-auto truncate text-label text-foreground"
                           title={folder.root}
                         >
                           {folder.root}
@@ -386,7 +386,7 @@ export default function PageClient({
                           variant={watching ? 'primary' : 'outline'}
                           disabled={busy}
                           onClick={() => void toggleWatch(folder.root, !watching)}
-                          className="rounded px-2 py-0.5 text-xs transition-colors hover:bg-accent"
+                          className="font-[weight:inherit] rounded px-2 py-0.5 text-label transition-colors hover:bg-accent"
                         >
                           {t('watchFolder')}
                         </Button>
@@ -394,7 +394,7 @@ export default function PageClient({
                           variant="outline"
                           disabled={busy}
                           onClick={() => void removeFolder(folder.root)}
-                          className="rounded px-2 py-0.5 text-xs transition-colors hover:bg-accent"
+                          className="font-[weight:inherit] rounded px-2 py-0.5 text-label transition-colors hover:bg-accent"
                         >
                           {t('removeFolder')}
                         </Button>
@@ -406,9 +406,9 @@ export default function PageClient({
             ) : null}
           </div>
 
-          <h2 className="text-sm font-semibold text-foreground">{t('docsTitle')}</h2>
+          <h2 className="text-body font-semibold text-foreground">{t('docsTitle')}</h2>
 
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+          <label className="font-[weight:inherit] flex flex-col gap-1 text-label text-muted-foreground">
             {t('docsPath')}
             <Input
               value={docPath}
@@ -418,7 +418,7 @@ export default function PageClient({
             />
           </label>
 
-          <label className="flex min-h-0 flex-1 flex-col gap-1 text-xs text-muted-foreground">
+          <label className="font-[weight:inherit] flex min-h-0 flex-1 flex-col gap-1 text-label text-muted-foreground">
             {t('docsContent')}
             <textarea
               value={docContent}
@@ -433,7 +433,7 @@ export default function PageClient({
               variant="primary"
               disabled={busy || !docPath.trim() || !docContent.trim()}
               onClick={() => void addDocument()}
-              className="rounded-md px-3 py-2 text-sm"
+              className="font-[weight:inherit] rounded-md px-3 py-2 text-body"
             >
               {t('add')}
             </Button>
@@ -441,26 +441,26 @@ export default function PageClient({
               variant="outline"
               disabled={busy || !docPath.trim()}
               onClick={() => void removeDocument()}
-              className="rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-2 text-body transition-colors hover:bg-accent"
             >
               {t('remove')}
             </Button>
           </div>
 
           {notice ? (
-            <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
+            <p className="font-[weight:inherit] rounded-md border border-border bg-muted px-3 py-2 text-label text-foreground">
               {notice} · {t('modelCalls')}
             </p>
           ) : null}
 
-          <p className="text-xs text-muted-foreground">
+          <p className="font-[weight:inherit] text-label text-muted-foreground">
             {t('documents')}: {status?.documents ?? 0} · {t('chunks')}: {status?.chunks ?? 0}
           </p>
         </section>
 
         <section className={`${CARD_CLASS} gap-3 p-4`}>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="mr-auto text-sm font-semibold text-foreground">{t('queryTitle')}</h2>
+            <h2 className="mr-auto text-body font-semibold text-foreground">{t('queryTitle')}</h2>
             <div className="flex items-center gap-1" role="group" aria-label={t('queryTitle')}>
               {(['all', 'text', 'office'] as ExtFilter[]).map((key) => (
                 <button
@@ -468,7 +468,7 @@ export default function PageClient({
                   type="button"
                   aria-pressed={extFilter === key}
                   onClick={() => setExtFilter(key)}
-                  className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                  className={`font-[weight:inherit] rounded-md border px-2 py-1 text-label transition-colors ${
                     extFilter === key
                       ? 'border-foreground bg-foreground text-background'
                       : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -482,7 +482,7 @@ export default function PageClient({
               variant={mode === 'quick' ? 'primary' : 'outline'}
               disabled={busy || !query.trim()}
               onClick={() => void runQuick()}
-              className="rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-1.5 text-body transition-colors hover:bg-accent"
             >
               {t('quick')}
             </Button>
@@ -490,7 +490,7 @@ export default function PageClient({
               variant={mode === 'deep' ? 'primary' : 'outline'}
               disabled={busy || !query.trim()}
               onClick={() => void runDeep()}
-              className="rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-1.5 text-body transition-colors hover:bg-accent"
             >
               {t('deep')}
             </Button>
@@ -498,7 +498,7 @@ export default function PageClient({
               variant="outline"
               disabled={busy || !deep?.results.length}
               onClick={() => void runFuse()}
-              className="rounded-md px-3 py-1.5 text-sm transition-colors hover:bg-accent"
+              className="font-[weight:inherit] rounded-md px-3 py-1.5 text-body transition-colors hover:bg-accent"
             >
               {t('fuse')}
             </Button>
@@ -512,26 +512,26 @@ export default function PageClient({
           />
 
           {initialPath ? (
-            <p className="truncate rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
+            <p className="font-[weight:inherit] truncate rounded-md border border-border bg-muted px-3 py-2 text-label text-foreground">
               {t('fromPalette')} · <span className="font-mono">{initialPath}</span>
             </p>
           ) : null}
 
           {deep && !deep.judge.executed ? (
-            <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
+            <p className="font-[weight:inherit] rounded-md border border-border bg-muted px-3 py-2 text-label text-foreground">
               {t('judgeOff')} · {deep.judge.mode} · {deep.judge.reason}
             </p>
           ) : null}
 
           {fused ? (
-            <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
+            <p className="font-[weight:inherit] rounded-md border border-border bg-muted px-3 py-2 text-label text-foreground">
               {fused.channels.join(' + ')} · {fused.results.length} · k={fused.rrf_k}
             </p>
           ) : null}
 
           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
             {rows.length === 0 ? (
-              <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+              <div className="font-[weight:inherit] flex h-full items-center justify-center rounded-lg border border-dashed border-border text-body text-muted-foreground">
                 {busy ? t('loading') : t('emptyResult')}
               </div>
             ) : null}
@@ -543,13 +543,13 @@ export default function PageClient({
                     className="rounded-lg border border-border bg-background p-3 transition-colors hover:bg-accent/50"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{item.path}</span>
+                      <span className="text-body font-medium text-foreground">{item.path}</span>
                       <span className={META_CLASS}>
                         {t('bm25')} {item.bm25}
                       </span>
                       <span className={META_CLASS}>{item.citation.doc_hash.slice(0, 12)}</span>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    <p className="font-[weight:inherit] mt-1 text-label leading-relaxed text-muted-foreground">
                       <Highlighted text={item.snippet} spans={item.highlights} />
                     </p>
                   </article>
@@ -560,7 +560,7 @@ export default function PageClient({
                     className="rounded-lg border border-border bg-background p-3 transition-colors hover:bg-accent/50"
                   >
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium text-foreground">{row.path}</span>
+                      <span className="text-body font-medium text-foreground">{row.path}</span>
                       <span className={META_CLASS}>
                         {t('score')} {row.score}
                       </span>
@@ -571,7 +571,7 @@ export default function PageClient({
                         {t('hop')} {row.hop}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    <p className="font-[weight:inherit] mt-1 text-label leading-relaxed text-muted-foreground">
                       {row.content}
                     </p>
                   </article>
@@ -579,7 +579,7 @@ export default function PageClient({
           </div>
 
           {deep ? (
-            <div className="max-h-40 shrink-0 space-y-1 overflow-y-auto rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
+            <div className="font-[weight:inherit] max-h-40 shrink-0 space-y-1 overflow-y-auto rounded-md border border-border bg-muted px-3 py-2 text-label text-foreground">
               <p className="font-medium">
                 {t('trace')} · {deep.status} · {deep.duration_ms}ms
               </p>
