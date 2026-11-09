@@ -17,6 +17,14 @@ import type { WorkerAssignment } from './roles'
 import type { SuperAgentSnapshot } from './persist'
 import type { SlowJudgeCall } from './slow-path'
 
+/**
+ * 慢路径判定节流间隔（默认 5 分钟）。
+ * 设计理由：泵每轮（默认 60s）都会看到同一批推断积压，若每轮都调模型，
+ * 成本随轮次线性增长且对同一条内容重复判定毫无信息增量；5 分钟既保证
+ * 疑似请求在可接受延迟内拿到判定，又把单主体的模型调用压到 ≤12 次/小时。
+ */
+export const DEFAULT_SLOW_JUDGE_INTERVAL_MS = 5 * 60 * 1000
+
 /** 一个来源 = 一个登录主体 + 一个可拉取事件的端口（webhook 落盘回放、轮询器都实现它）。 */
 export interface TriggerSourcePort {
   readonly sourceId: string
@@ -50,8 +58,13 @@ export class SuperAgentPump {
       onCycle?: (snapshot: SuperAgentSnapshot) => void
       /** 慢路径判定通道；不给=泵完全不碰推断积压（保持纯快路径既有行为）。 */
       slowJudge?: SlowJudgeCall
+      /** 慢路径节流间隔（毫秒）；默认 DEFAULT_SLOW_JUDGE_INTERVAL_MS。 */
+      slowJudgeMinIntervalMs?: number
     } = {},
   ) {}
+
+  /** 上一次真正调用慢路径判定的时刻；null＝本泵还没判过。 */
+  private lastSlowJudgeAt: number | null = null
 
   private get now(): number {
     return (this.options.now ?? Date.now)()
@@ -74,6 +87,8 @@ export class SuperAgentPump {
     reclaimed: string[]
     slowJudged: number
     slowUnjudged: number
+    /** 本轮是否因节流跳过了慢路径判定（可观测，不静默）。 */
+    slowThrottled: boolean
   }> {
     if (this.running) {
       this.options.onCycle?.(this.host.snapshot())
@@ -84,6 +99,7 @@ export class SuperAgentPump {
         reclaimed: [],
         slowJudged: 0,
         slowUnjudged: 0,
+        slowThrottled: false,
       }
     }
     this.running = true
@@ -92,6 +108,7 @@ export class SuperAgentPump {
     let dispatched = 0
     let slowJudged = 0
     let slowUnjudged = 0
+    let slowThrottled = false
     const reclaimed: string[] = []
     try {
       const owners = new Set<string>()
@@ -126,16 +143,26 @@ export class SuperAgentPump {
         }
       }
       // 慢路径：本轮涉及的 inferred 积压交注入判定器（无判定器=零动作，既有行为不变）。
+      // 节流：确定性过滤（receive 的 paused/actor_mismatch/bot 等）已经把绝大多数事件挡在
+      // recordedTriggers 之外；这里再加一道时间闸，避免同一批积压每轮重复烧 token。
+      // 节流戳只在真正调用时推进；判定通道抛错也算"调用过"，避免故障期间每轮重试放大成本
+      // （积压本身不动，下个窗口仍可重判）。
       if (this.options.slowJudge) {
-        for (const owner of owners) {
-          const judged = await this.host.judgeRecorded(owner, this.options.slowJudge)
-          slowJudged += judged.judged
-          slowUnjudged += judged.unjudged
-          if (judged.error) {
-            this.log('slow_judge_error', owner, judged.error)
-          }
-          for (const acc of judged.autoAccepted) {
-            this.log('slow_auto_accept', owner, `${acc.triggerId}:${acc.ticketId}`)
+        const interval = this.options.slowJudgeMinIntervalMs ?? DEFAULT_SLOW_JUDGE_INTERVAL_MS
+        if (this.lastSlowJudgeAt !== null && this.now - this.lastSlowJudgeAt < interval) {
+          slowThrottled = true
+        } else if (owners.size > 0) {
+          this.lastSlowJudgeAt = this.now
+          for (const owner of owners) {
+            const judged = await this.host.judgeRecorded(owner, this.options.slowJudge)
+            slowJudged += judged.judged
+            slowUnjudged += judged.unjudged
+            if (judged.error) {
+              this.log('slow_judge_error', owner, judged.error)
+            }
+            for (const acc of judged.autoAccepted) {
+              this.log('slow_auto_accept', owner, `${acc.triggerId}:${acc.ticketId}`)
+            }
           }
         }
       }
@@ -178,7 +205,15 @@ export class SuperAgentPump {
       this.running = false
       this.options.onCycle?.(this.host.snapshot())
     }
-    return { ingested, accepted, dispatched, reclaimed, slowJudged, slowUnjudged }
+    return {
+      ingested,
+      accepted,
+      dispatched,
+      reclaimed,
+      slowJudged,
+      slowUnjudged,
+      slowThrottled,
+    }
   }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

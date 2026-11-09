@@ -13,9 +13,12 @@ import { z } from 'zod'
 import {
   SuperAgentHost,
   SuperAgentPump,
+  type RuleAssessment,
   type SlowDecision,
+  type SlowDirection,
   type SlowJudgeCall,
   type SlowJudgeInput,
+  type SuperAgentSnapshot,
   type TriggerSourcePort,
   type WorkerAssignment,
 } from '@ihui/shared/super-agent'
@@ -25,7 +28,12 @@ import {
   upsertUserPreference,
 } from '../db/user-preferences-queries.js'
 import { logger } from '../utils/logger.js'
-import { subagentDispatchService } from './subagent-dispatch-service.js'
+import {
+  setTenantConcurrencyLimitResolver,
+  subagentDispatchService,
+} from './subagent-dispatch-service.js'
+import { assertWorkerGitConfigSafe } from './worker-dispatch-env.js'
+import { materializeWorkerDirectory } from './worker-workspace.js'
 
 const SUPER_AGENT_SNAPSHOT_KEY = 'state'
 /** 快照归属的保留主体 uuid；机主供值前持久腿如实降级（不谎称已持久）。 */
@@ -47,9 +55,20 @@ function markSuperAgentDirty(): void {
   dirty = true
 }
 
-export const superAgentHost = new SuperAgentHost(undefined, undefined, {
+export let superAgentHost = new SuperAgentHost(undefined, undefined, {
   onDirty: markSuperAgentDirty,
 })
+
+/**
+ * 并发闸单一真相源(2026-11-07 收敛):
+ * 下游 subagentDispatchService 的「单租户在跑上限」不再用自己那份默认值,改为读宿主当前
+ * policyFor(owner).maxWorkers —— 与接收/开工判据同一字段。改 maxWorkers 不会再出现
+ * 「引擎认为还有槽、下游却判超限」的两套账。未归属租户(owner 为空)不参与宿主策略,
+ * 返回 undefined 让下游回落到通用默认值。
+ */
+setTenantConcurrencyLimitResolver((ownerUserId) =>
+  ownerUserId ? superAgentHost.maxWorkersFor(ownerUserId) : undefined,
+)
 
 async function doSave(): Promise<void> {
   const provider = snapshotProvider()
@@ -98,19 +117,6 @@ export interface LoadSnapshotResult {
   error?: string
 }
 
-/**
- * 从 restore() 已校验通过的快照里读 takenAt。
- * restore 的入参是 unknown（内部完整校验后 speak fail-closed），故此处做同口径窄化；
- * 读不到数值时回落 0，与旧 `parsed.takenAt ?? 0` 语义一致。
- */
-function restoredTakenAt(snap: unknown): number {
-  if (typeof snap === 'object' && snap !== null && 'takenAt' in snap) {
-    const { takenAt } = snap
-    if (typeof takenAt === 'number') return takenAt
-  }
-  return 0
-}
-
 /** 进程内一次:读回快照灌账面。版本/形状不匹配 ⇒ host 整场拒绝并点名。 */
 export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> {
   const provider = snapshotProvider()
@@ -119,7 +125,7 @@ export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> 
     const { list } = await findUserPreferences(provider, USER_PREFERENCE_GROUPS.superAgent)
     const row = list.find((r) => r.key === SUPER_AGENT_SNAPSHOT_KEY)
     if (!row?.value) return { loaded: false, status: 'ok', rejectedReasons: [] }
-    const parsed: unknown = JSON.parse(row.value)
+    const parsed = JSON.parse(row.value) as SuperAgentSnapshot
     const report = superAgentHost.restore(parsed)
     if (!report.ok) {
       persistStatus = 'degraded'
@@ -132,7 +138,7 @@ export async function loadSuperAgentSnapshotOnce(): Promise<LoadSnapshotResult> 
         ),
       }
     }
-    savedTakenAt = restoredTakenAt(parsed)
+    savedTakenAt = parsed.takenAt ?? 0
     persistStatus = 'ok'
     lastPersistError = null
     dirty = false
@@ -199,6 +205,21 @@ export async function dispatchWorkerWork(work: WorkerAssignment): Promise<{
   const threadId = ticket?.threadId
   const conversationId = threadId ? conversationIdSchema.safeParse(threadId) : null
   try {
+    // 逻辑目录 → 服务端绝对目录,派发前落地。执行器拿到的是可写真实路径,
+    // 而不是只写在 prompt 里的一句话;两个工人各写同名文件因此不会互相覆盖。
+    const workerDirectory = materializeWorkerDirectory(work.directory)
+    // 起工人前的 git config 闸门：出现 credential.* / http.*extraheader 就拒绝启动。
+    // 只记键名与目录，不记配置值；失败走下方统一出口 deliveryFailed 记录原因。
+    try {
+      await assertWorkerGitConfigSafe(workerDirectory)
+    } catch (e) {
+      logger.warn('super-agent 工人启动被拒绝：目标目录 git config 不安全', {
+        sessionId: work.sessionId,
+        directory: workerDirectory,
+        reason: e instanceof Error ? e.message : String(e),
+      })
+      throw e
+    }
     const result = await subagentDispatchService.dispatch({
       goal: work.goal,
       affectedFiles: [],
@@ -207,6 +228,11 @@ export async function dispatchWorkerWork(work: WorkerAssignment): Promise<{
       deliverables: work.deliverables,
       agentRole: 'coder',
       ownerUserId,
+      // 隔离身份随派单全链下传:sessionId 落到下游执行会话,directory 落到派单记录 + prompt。
+      sessionId: work.sessionId,
+      directory: workerDirectory,
+      // 宿主已按 maxWorkers 给该工人占槽;下游不得再用优先级档二次拦它(租户/全局闸仍生效)。
+      capacityReserved: true,
       ...(conversationId?.success ? { conversationId: conversationId.data } : {}),
     })
     const outcome = (result as { outcome?: string }).outcome ?? 'ok'
@@ -260,6 +286,21 @@ export function createSlowJudgeCall(
         text: i.text,
         observed_at: i.observedAt,
         requesters: i.requesters,
+        enabled_rules: i.enabledRules,
+        companions: i.companions.map((c) => ({ id: c.id, text: c.text })),
+        related_tickets: i.relatedTickets.map((t) => ({
+          id: t.id,
+          title: t.title,
+          scope: t.scope,
+          strength: t.strength,
+          stage: t.stage,
+        })),
+        thread_window: i.threadWindow.map((m) => ({
+          actor_id: m.actorId,
+          from_bot: m.fromBot,
+          addressed: m.addressed,
+          text: m.text,
+        })),
       })),
     }
     const resp = await call('/api/super-agent/slow-path/judge', {
@@ -274,25 +315,130 @@ export function createSlowJudgeCall(
     }
     const envelope = (await resp.json()) as {
       code?: number
-      data?: { verdicts?: Record<string, { verdict?: string; reason?: string }> }
+      data?: {
+        model?: string
+        verdicts?: Record<
+          string,
+          {
+            decision?: string
+            confidence?: number
+            rule_assessments?: unknown
+            direction?: unknown
+            intent_evidence?: unknown
+            title?: unknown
+            scope?: unknown
+            worktree_name?: unknown
+            reason?: unknown
+          }
+        >
+      }
     }
     const verdicts = envelope.data?.verdicts
     if (envelope.code !== 0 || !verdicts) throw new Error('slow-path judge envelope rejected')
+    // 谁判的：模型名缺失 ⇒ 判不出身份，整批 fail-closed（不允许空串冒充）。
+    const model = envelope.data?.model
+    if (typeof model !== 'string' || model.trim().length === 0) {
+      throw new Error('slow-path judge missing model identity')
+    }
+    const judge = `ai-service:${model}`
     const out: Record<string, SlowDecision> = {}
     const at = Date.now()
     for (const input of inputs) {
       const row = verdicts[input.id]
       if (!row) continue // 少一条=该条未判定,不回退猜
-      const v = row.verdict
-      if (v !== 'act' && v !== 'ignore' && v !== 'unclear') {
+      const decision = row.decision
+      if (decision !== 'accept' && decision !== 'ignore' && decision !== 'unavailable') {
         // 单条形状坏 ⇒ 整批不落（模型输出半可信 = 不判）。
-        throw new Error(`slow-path judge bad verdict for ${input.id}: ${String(v)}`)
+        throw new Error(`slow-path judge bad decision for ${input.id}: ${String(decision)}`)
       }
-      out[input.id] = { verdict: v, reason: (row.reason ?? '').slice(0, 300), at }
+      const confidence = row.confidence
+      if (
+        typeof confidence !== 'number' ||
+        !Number.isFinite(confidence) ||
+        confidence < 0 ||
+        confidence > 1
+      ) {
+        throw new Error(`slow-path judge bad confidence for ${input.id}: ${String(confidence)}`)
+      }
+      const assessments = parseRuleAssessments(row.rule_assessments, input.id)
+      const direction = parseDirection(row.direction, input.id)
+      const intentEvidence = requireString(row.intent_evidence, 'intent_evidence', input.id)
+      const title = requireString(row.title, 'title', input.id)
+      const scope = requireString(row.scope, 'scope', input.id)
+      const worktreeName = parseOptionalString(row.worktree_name, 'worktree_name', input.id)
+      const reason = requireString(row.reason, 'reason', input.id)
+      out[input.id] = {
+        decision,
+        ruleAssessments: assessments,
+        direction,
+        confidence,
+        intentEvidence,
+        title,
+        scope,
+        ...(worktreeName === undefined ? {} : { worktreeName }),
+        reason: reason.slice(0, 300),
+        at,
+        judge,
+      }
     }
     return out
   }
 }
+
+function requireString(value: unknown, field: string, id: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`slow-path judge bad ${field} for ${id}: ${String(value)}`)
+  }
+  return value
+}
+
+function parseOptionalString(value: unknown, field: string, id: string): string | undefined {
+  if (value === undefined || value === null) return undefined
+  return requireString(value, field, id)
+}
+
+function parseRuleAssessments(value: unknown, id: string): RuleAssessment[] {
+  if (!Array.isArray(value)) {
+    throw new Error(`slow-path judge bad rule_assessments for ${id}`)
+  }
+  return value.map((entry) => {
+    if (!entry || typeof entry !== 'object') {
+      throw new Error(`slow-path judge bad rule_assessment for ${id}`)
+    }
+    const e = entry as Record<string, unknown>
+    const ruleId = requireString(e.rule_id, 'rule_id', id)
+    if (typeof e.matched !== 'boolean') {
+      throw new Error(`slow-path judge bad matched for ${id}`)
+    }
+    const reason = requireString(e.reason, 'rule_reason', id)
+    return { ruleId, matched: e.matched, reason: reason.slice(0, 300) }
+  })
+}
+
+function parseDirection(value: unknown, id: string): SlowDirection {
+  if (!value || typeof value !== 'object') {
+    throw new Error(`slow-path judge bad direction for ${id}`)
+  }
+  const d = value as Record<string, unknown>
+  if (typeof d.implementation_requested !== 'boolean') {
+    throw new Error(`slow-path judge bad implementation_requested for ${id}`)
+  }
+  if (typeof d.requires_design_decision !== 'boolean') {
+    throw new Error(`slow-path judge bad requires_design_decision for ${id}`)
+  }
+  const basis = d.target_basis
+  if (basis !== 'specified' && basis !== 'existing-standard' && basis !== 'undetermined') {
+    throw new Error(`slow-path judge bad target_basis for ${id}: ${String(basis)}`)
+  }
+  const evidence = requireString(d.evidence, 'direction_evidence', id)
+  return {
+    implementationRequested: d.implementation_requested,
+    targetBasis: basis,
+    requiresDesignDecision: d.requires_design_decision,
+    evidence,
+  }
+}
+
 const PUMP_LOG_CAP = 200
 
 function logPumpRow(row: { at: number; kind: string; source: string; note: string }): void {
@@ -304,19 +450,30 @@ export function readSuperAgentPumpLog(limit = 50) {
   return pumpLog.slice(-Math.max(1, Math.min(limit, PUMP_LOG_CAP)))
 }
 
-export const superAgentPump = new SuperAgentPump(
-  superAgentHost,
-  () => [...ports.values()],
-  dispatchWorkerWork,
-  {
+function createSuperAgentPump(): SuperAgentPump {
+  return new SuperAgentPump(superAgentHost, () => [...ports.values()], dispatchWorkerWork, {
     onLog: logPumpRow,
     onCycle: () => saveIfDirty(),
     // 慢路径 env 门控:未开启 = 泵完全不碰推断积压（与持久腿同型"未开启零动作"）。
     ...(process.env.IHUI_SUPER_AGENT_SLOW_PATH === 'true'
       ? { slowJudge: createSlowJudgeCall() }
       : {}),
-  },
-)
+  })
+}
+
+export let superAgentPump = createSuperAgentPump()
+
+/**
+ * 测试专用:替换宿主单例。
+ *
+ * 路由层用例需要一个确定性时钟(租约剩余/回收判据不依赖真实时间),而生产路径的宿主是
+ * 模块加载时创建的。这里把 host 与泵一并换掉,保证「路由 → 派发出口 → 泵」读到同一个实例;
+ * **生产代码不得调用**。
+ */
+export function __installSuperAgentHostForTests(next: SuperAgentHost): void {
+  superAgentHost = next
+  superAgentPump = createSuperAgentPump()
+}
 
 let interval: ReturnType<typeof setInterval> | null = null
 

@@ -85,6 +85,16 @@ const policySchema = z.object({
   maxWorkers: z.number().int().min(1).max(20),
   workerLeaseMs: z.number().int().min(0).max(3_600_000).optional(),
   sessionIsAllowlist: z.boolean(),
+  allowedActors: z.array(z.string().min(1).max(200)).optional(),
+  rules: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(120),
+        enabled: z.boolean(),
+        revision: z.string().min(1).max(120).optional(),
+      }),
+    )
+    .optional(),
 })
 
 export const superAgentRoutes: FastifyPluginAsync = async (server) => {
