@@ -1,6 +1,14 @@
 {
   "sag2Lexical": {
     "title": "SAG2 Lexical Multi-hop Retrieval",
+    "globalSearchTitle": "Global search",
+    "globalSearchPlaceholder": "Search the local knowledge base (Ctrl/Cmd + K)",
+    "globalSearchEmpty": "No hits: no indexed file contains these terms",
+    "globalSearchHint": "↑↓ select · Enter open · Esc close",
+    "filter_all": "All",
+    "filter_text": "Text",
+    "filter_office": "Documents",
+    "fromPalette": "From global search",
     "subtitle": "Zero-model indexing · query-time association · citations to source",
     "ready": "Index ready",
     "empty": "Index empty",

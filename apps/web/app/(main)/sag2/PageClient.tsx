@@ -12,7 +12,7 @@
  * 判定器未执行时显式展示「纯词法判定」，绝不把 BM25 分数伪装成模型证据。
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { Button, Input } from '@ihui/ui-react'
 
@@ -35,6 +35,7 @@ import {
   type Sag2SearchResult,
   type Sag2Status as Sag2StatusData,
 } from '@/api/sag2-lexical'
+import { Highlighted } from '@/components/search/highlighted'
 
 type Mode = 'quick' | 'deep'
 
@@ -45,17 +46,36 @@ const CARD_CLASS = 'flex min-h-0 flex-col rounded-lg border border-border bg-bac
 
 const META_CLASS = 'rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground'
 
+/** 扩展名快捷筛选：与全局检索面板同一套分组，避免两处口径不一致。 */
+type ExtFilter = 'all' | 'text' | 'office'
+
+const EXT_PRESETS: Record<ExtFilter, string[] | undefined> = {
+  all: undefined,
+  text: ['.md', '.txt', '.rst', '.log'],
+  office: ['.pdf', '.docx', '.xlsx', '.epub', '.html'],
+}
+
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e)
 }
 
-export default function PageClient() {
+export default function PageClient({
+  initialQuery = '',
+  initialPath = '',
+}: {
+  /** 从全局检索（Ctrl/Cmd+K）跳过来时带的问题。 */
+  initialQuery?: string
+  /** 从全局检索点选的具体文件（用于页内提示「你点的是这一份」）。 */
+  initialPath?: string
+} = {}) {
   const t = useTranslations('sag2Lexical')
   const [status, setStatus] = useState<Sag2StatusData | null>(null)
   const [docPath, setDocPath] = useState('')
   const [docContent, setDocContent] = useState('')
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(initialQuery)
   const [mode, setMode] = useState<Mode>('deep')
+  const [extFilter, setExtFilter] = useState<ExtFilter>('all')
+  const autoRan = useRef(false)
   const [quick, setQuick] = useState<Sag2SearchResult | null>(null)
   const [deep, setDeep] = useState<Sag2RetrieveResult | null>(null)
   const [fused, setFused] = useState<Sag2FuseResult | null>(null)
@@ -74,6 +94,18 @@ export default function PageClient() {
     } catch (e) {
       setError(errorMessage(e))
     }
+  }, [])
+
+  // 从全局检索跳过来：自动跑一次快速搜索，用户不必重打一遍问题。
+  useEffect(() => {
+    if (autoRan.current || !initialQuery.trim()) return
+    autoRan.current = true
+    void run(async () => {
+      setMode('quick')
+      setQuick(await sag2Search(initialQuery.trim(), 1, 20))
+    })
+    // 只在首挂载执行一次：initialQuery 是服务端传入的静态初值。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const refreshFolders = useCallback(async () => {
@@ -170,12 +202,18 @@ export default function PageClient() {
       await refreshFolders()
     })
 
+  const searchWithFilters = (text: string) => {
+    // all 时不传 filters：请求体保持 {query,page,per_page} 的原形状（既有回归断言）。
+    const ext = EXT_PRESETS[extFilter]
+    return sag2Search(text, 1, 20, ext ? { filters: { ext } } : {})
+  }
+
   const runQuick = () =>
     run(async () => {
       setMode('quick')
       setDeep(null)
       setFused(null)
-      setQuick(await sag2Search(query.trim()))
+      setQuick(await searchWithFilters(query.trim()))
     })
 
   const runDeep = () =>
@@ -307,6 +345,13 @@ export default function PageClient() {
                         <span className={META_CLASS}>
                           {folder.last_scan.changed ?? 0}/{folder.last_scan.scanned ?? 0}
                         </span>
+                        {watching ? (
+                          // 监听模式如实上屏：真有系统事件是 win32-rdc / linux-inotify，
+                          // 退化才显示 polling，不把两种情况都画成「已监听」。
+                          <span className={META_CLASS}>
+                            {folders?.watch_modes?.[folder.root] ?? 'polling'}
+                          </span>
+                        ) : null}
                         <Button
                           variant={watching ? 'primary' : 'outline'}
                           disabled={busy}
@@ -386,6 +431,23 @@ export default function PageClient() {
         <section className={`${CARD_CLASS} gap-3 p-4`}>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="mr-auto text-sm font-semibold text-foreground">{t('queryTitle')}</h2>
+            <div className="flex items-center gap-1" role="group" aria-label={t('queryTitle')}>
+              {(['all', 'text', 'office'] as ExtFilter[]).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  aria-pressed={extFilter === key}
+                  onClick={() => setExtFilter(key)}
+                  className={`rounded-md border px-2 py-1 text-xs transition-colors ${
+                    extFilter === key
+                      ? 'border-foreground bg-foreground text-background'
+                      : 'border-border text-muted-foreground hover:bg-accent hover:text-foreground'
+                  }`}
+                >
+                  {t(`filter_${key}`)}
+                </button>
+              ))}
+            </div>
             <Button
               variant={mode === 'quick' ? 'primary' : 'outline'}
               disabled={busy || !query.trim()}
@@ -418,6 +480,12 @@ export default function PageClient() {
             placeholder={t('queryPlaceholder')}
             className={FIELD_CLASS}
           />
+
+          {initialPath ? (
+            <p className="truncate rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
+              {t('fromPalette')} · <span className="font-mono">{initialPath}</span>
+            </p>
+          ) : null}
 
           {deep && !deep.judge.executed ? (
             <p className="rounded-md border border-border bg-muted px-3 py-2 text-xs text-foreground">
@@ -452,7 +520,7 @@ export default function PageClient() {
                       <span className={META_CLASS}>{item.citation.doc_hash.slice(0, 12)}</span>
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {item.snippet}
+                      <Highlighted text={item.snippet} spans={item.highlights} />
                     </p>
                   </article>
                 ))

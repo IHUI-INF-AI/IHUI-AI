@@ -25,6 +25,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import time
 import zipfile
@@ -35,8 +36,14 @@ from xml.etree import ElementTree as ET
 
 # 忽略目录：与 codebase_indexer 同一条判据（单源复用，不另抄一份常量）。
 from ..codebase_indexer import _IGNORED_DIRS as IGNORED_DIRS
+from .fs_watch import DirWatcher
 from .index import sha256_text
+from .media_text import MEDIA_SUFFIXES, transcribe_media
+from .ocr_text import IMAGE_SUFFIXES, ocr_image
+from .pdf_text import extract_pdf_text
 from .service import Sag2LexicalService
+
+logger = logging.getLogger(__name__)
 
 #: 默认可解析扩展名。PDF 需要 pdfplumber；epub/docx/xlsx 走标准库 zipfile。
 DEFAULT_INCLUDE: tuple[str, ...] = (
@@ -301,7 +308,11 @@ def _epub_text(path: str) -> str:
 
 
 def _pdf_text(path: str) -> str:
-    """PDF：需要 pdfplumber（可选依赖）；缺依赖抛 ImportError 由调用方具名登记。"""
+    """PDF 兜底：需要 pdfplumber（可选依赖）；缺依赖抛 ImportError 由调用方具名登记。
+
+    主路径是零依赖的 ``pdf_text.extract_pdf_text``：只有它判失败（加密 /
+    无 ToUnicode 的 CID 字体 / 对象流）时才走到这里再试一次。
+    """
     import pdfplumber  # noqa: PLC0415 - 可选依赖，按需导入
 
     pages: list[str] = []
@@ -309,6 +320,21 @@ def _pdf_text(path: str) -> str:
         for page in pdf.pages:
             pages.append(page.extract_text() or "")
     return "\n".join(pages)
+
+
+def _pdf_fail_reason(pdf_reason: str) -> str:
+    """PDF 抽取失败的最终原因。
+
+    「没有文本层」几乎就是扫描件，需要 OCR 才能读；而 OCR 要把页栅格化
+    （pymupdf/poppler），这两个不在本仓依赖面内 ⇒ 如实带上 ``needs-ocr:pdf``
+    标记，让上层能统计「这批文件读不到」，而不是当它不存在。
+    """
+    detail = pdf_reason or "empty"
+    if "needs-ocr" in detail:
+        return detail
+    if detail.startswith(("no-text-layer", "garbled")):
+        return f"{detail};needs-ocr:pdf"
+    return detail
 
 
 def extract_text(path: str) -> tuple[str | None, str, str]:
@@ -342,11 +368,26 @@ def extract_text(path: str) -> tuple[str | None, str, str]:
             text = _epub_text(path)
             return (text, "epub-zipfile", "") if text.strip() else (None, "none", "empty")
         if suffix == ".pdf":
+            # 主路径：标准库自带的抽取器（零依赖）。失败原因逐字保留，
+            # 再叠加 pdfplumber 的结果或缺失说明 —— 「为什么这份 PDF 进不来」
+            # 必须能从 reason 里直接读出来，而不是笼统的 missing-dep。
+            pdf_value, pdf_reason = extract_pdf_text(path)
+            if pdf_value is not None and pdf_value.strip():
+                return pdf_value, "pdf-builtin", ""
+            detail = _pdf_fail_reason(pdf_reason)
             try:
-                text = _pdf_text(path)
+                fallback = _pdf_text(path)
             except ImportError:
-                return None, "none", "missing-dep:pdfplumber"
-            return (text, "pdfplumber", "") if text.strip() else (None, "none", "empty")
+                return None, "none", f"{detail};no-fallback:pdfplumber 未安装"
+            except Exception as exc:  # noqa: BLE001 - 兜底失败也要报具体原因
+                return None, "none", f"{detail};pdfplumber-failed:{type(exc).__name__}"
+            if fallback.strip():
+                return fallback, "pdfplumber", ""
+            return None, "none", detail
+        if suffix in IMAGE_SUFFIXES:
+            return ocr_image(path)
+        if suffix in MEDIA_SUFFIXES:
+            return transcribe_media(path)
         return None, "none", f"unsupported:{suffix or '<noext>'}"
     except (OSError, zipfile.BadZipFile, ET.ParseError, ValueError) as exc:
         return None, "none", f"parse-error:{type(exc).__name__}"
@@ -366,6 +407,9 @@ class FolderIngest:
         #: path → (mtime_ns, size, doc_hash)：命中即**不读盘**，这是对照的预筛语义。
         self._seen: dict[str, tuple[int, int, str]] = {}
         self._watch_tasks: dict[str, Any] = {}
+        #: 真事件监听器（path → DirWatcher）；拿不到操作系统事件时为空，走 _watch_tasks 轮询。
+        self._watchers: dict[str, DirWatcher] = {}
+        self._watch_rescan: dict[str, Any] = {}
         self._load_state()
 
     # -- 登记面 -------------------------------------------------------------
@@ -414,11 +458,17 @@ class FolderIngest:
         return {"unregistered": True, "removed": removed, "persisted": bool(self.state_path)}
 
     def list_folders(self) -> dict[str, Any]:
+        watching = sorted(set(self._watch_tasks) | set(self._watchers))
         return {
             "folders": [entry.to_dict() for entry in self._folders.values()],
             "persisted": bool(self.state_path),
             "state_path": self.state_path,
-            "watching": sorted(self._watch_tasks),
+            "watching": watching,
+            # 每个根实际生效的监听模式：真事件 / 轮询，绝不笼统地都叫「监听中」。
+            "watch_modes": {
+                root: (self._watchers[root].mode if root in self._watchers else "polling")
+                for root in watching
+            },
         }
 
     # -- 扫描面 -------------------------------------------------------------
@@ -582,14 +632,46 @@ class FolderIngest:
         except ValueError:  # pragma: no cover - 不同盘符
             return False
 
-    # -- 轮询 watcher（默认关闭） -------------------------------------------
+    # -- 监听面：真事件优先，拿不到才退轮询 --------------------------------
 
-    def start_watch(self, root: str, *, interval_s: float = 30.0) -> dict[str, Any]:
-        """登记轮询式 watcher；同一根重复调用先停旧任务。**默认不启用**。"""
+    def start_watch(
+        self,
+        root: str,
+        *,
+        interval_s: float = 30.0,
+        real: bool = True,
+        debounce_ms: int = 600,
+    ) -> dict[str, Any]:
+        """开启监听；``real=True`` 优先走操作系统事件，失败才退轮询。
+
+        返回里的 ``mode`` 是**实际生效**的模式，不修饰：
+        ``win32-rdc`` / ``linux-inotify``（真事件）、``polling``（退而求其次）。
+        """
         abs_root = os.path.abspath(root)
         if abs_root not in self._folders:
             return {"watching": False, "reason": f"未登记: {abs_root}"}
         self._stop_watch(abs_root)
+        loop = asyncio.get_running_loop()
+
+        if real:
+            def _notify(paths: list[str]) -> None:
+                # 监听线程 → 事件循环：只做「叫醒」，扫描仍在 to_thread 里跑。
+                try:
+                    loop.call_soon_threadsafe(self._schedule_rescan, abs_root)
+                except RuntimeError:  # pragma: no cover - 循环已关（服务退出中）
+                    pass
+
+            watcher = DirWatcher(abs_root, _notify, debounce_ms=debounce_ms)
+            mode = watcher.start()
+            if mode != "unavailable":
+                self._watchers[abs_root] = watcher
+                return {
+                    "watching": True,
+                    "mode": mode,
+                    "root": abs_root,
+                    "debounce_ms": max(0, int(debounce_ms)),
+                }
+
         interval = max(5.0, float(interval_s))
 
         async def _loop() -> None:
@@ -600,8 +682,28 @@ class FolderIngest:
                 except Exception:  # noqa: BLE001 - watcher 不允许把服务拖崩
                     continue
 
-        self._watch_tasks[abs_root] = asyncio.get_running_loop().create_task(_loop())
-        return {"watching": True, "root": abs_root, "interval_s": interval}
+        self._watch_tasks[abs_root] = loop.create_task(_loop())
+        return {
+            "watching": True,
+            "mode": "polling",
+            "root": abs_root,
+            "interval_s": interval,
+            "reason": "操作系统事件不可用，已退化为轮询",
+        }
+
+    def _schedule_rescan(self, root: str) -> None:
+        """在事件循环里合并重扫请求：同一根同时只跑一次扫描。"""
+        running = self._watch_rescan.get(root)
+        if running is not None and not running.done():
+            return
+
+        async def _run() -> None:
+            try:
+                await asyncio.to_thread(self.scan, root)
+            except Exception:  # noqa: BLE001 - 监听不许把服务拖崩
+                logger.exception("监听到变化后重扫失败: %s", root)
+
+        self._watch_rescan[root] = asyncio.get_running_loop().create_task(_run())
 
     def stop_watch(self, root: str) -> dict[str, Any]:
         abs_root = os.path.abspath(root)
@@ -609,11 +711,19 @@ class FolderIngest:
         return {"watching": False, "stopped": stopped, "root": abs_root}
 
     def _stop_watch(self, root: str) -> bool:
+        stopped = False
+        watcher = self._watchers.pop(root, None)
+        if watcher is not None:
+            watcher.stop()
+            stopped = True
         task = self._watch_tasks.pop(root, None)
-        if task is None:
-            return False
-        task.cancel()
-        return True
+        if task is not None:
+            task.cancel()
+            stopped = True
+        rescan = self._watch_rescan.pop(root, None)
+        if rescan is not None:
+            rescan.cancel()
+        return stopped
 
     # -- 持久化（可选） -----------------------------------------------------
 
