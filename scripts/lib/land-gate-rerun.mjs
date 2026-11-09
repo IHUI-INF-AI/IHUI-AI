@@ -742,7 +742,7 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
               ? ' · 实测 ' +
                 secs(r.elapsedMs) +
                 's 撞预算 ' +
-                secs(r.budgetMs ?? GATE_TIMEOUT_MS) +
+                secs(r.budgetMs ?? GATE_TIMEOUT_FALLBACK_MS) +
                 's(表=' +
                 GATE_BUDGETS_REL +
                 ';被杀 ≠ 判红,但**每轮都被杀**就是预算没量过)'
@@ -752,7 +752,7 @@ export function rerunAffectedGates({ root = REPO_ROOT, paths = [], env = process
             rc: r.rc,
             out: r.out,
             elapsedMs: r.elapsedMs ?? null,
-            budgetMs: r.budgetMs ?? GATE_TIMEOUT_MS,
+            budgetMs: r.budgetMs ?? GATE_TIMEOUT_FALLBACK_MS,
             whyExtra,
           })
         }
