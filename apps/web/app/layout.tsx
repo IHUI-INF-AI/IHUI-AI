@@ -28,6 +28,7 @@ import { GlobalShell } from '@/components/layout/GlobalShell'
 import { MobileLoginGate } from '@/components/layout/MobileLoginGate'
 import { TooltipProvider, ConfirmServiceHost } from '@/components/feedback'
 import { DOC_BG, DOC_BG_DARK, rnGeometry } from '@ihui/design-tokens'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 // EDIX 拉丁字体仅在 h1-h6 标题 + .font-edix 工具类中显式使用(见 globals.css)。
 // 不再通过 next/font/local 挂载到 body,避免全站英文文本被强制走 EDIX 字体。
@@ -270,7 +271,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
+            __html: jsonLdHtml({
               '@context': 'https://schema.org',
               '@graph': [
                 {

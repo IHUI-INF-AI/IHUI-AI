@@ -15,6 +15,7 @@ import {
   Palette,
   Globe,
 } from 'lucide-react'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -215,10 +216,7 @@ const metrics = [
 export default function AiMarketingPage() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdHtml(jsonLd) }} />
       <main className="py-4 mx-auto w-full max-w-6xl px-4">
         {/* Hero */}
         <section className="space-y-5 text-center">

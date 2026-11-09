@@ -17,6 +17,7 @@ import { useAuthStore } from '@/stores/auth'
 import { Card, CardContent } from '@ihui/ui-react'
 import { SafeHtml } from '@/components/common'
 import { generateArticleSchema } from '@/lib/seo/schema-article'
+import { jsonLdHtml } from '@/lib/seo/json-ld'
 
 interface ArticleDetail {
   id: string
@@ -118,8 +119,8 @@ export default function ArticleDetailPage() {
     <div className="mx-auto w-full max-w-4xl space-y-4 px-4 py-4">
       <script
         type="application/ld+json"
-        // 安全转义:JSON.stringify 不转义 `<`,含 `</script>` 的用户输入会提前闭合脚本标签导致存储型 XSS
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd).replace(/</g, '\\u003c') }}
+        // 安全转义:走唯一出口 jsonLdHtml(`<` → \u003c);裸 JSON.stringify 不转义 `<`,含 `</script>` 的用户输入会提前闭合脚本导致 XSS
+        dangerouslySetInnerHTML={{ __html: jsonLdHtml(articleJsonLd) }}
       />
       <Link
         href="/articles"
