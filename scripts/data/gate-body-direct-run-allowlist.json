@@ -50,12 +50,6 @@
       "reviewBy": "2027-06-30"
     },
     {
-      "path": "scripts/check-db-schema-drift.mjs",
-      "kind": "direct-run-uncovered",
-      "why": "直跑面无判面声明:本门按工作树文件取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:packages/database schema drift 检测脚本。",
-      "reviewBy": "2027-06-30"
-    },
-    {
       "path": "scripts/check-dev-db-rotation-window.mjs",
       "kind": "direct-run-uncovered",
       "why": "直跑面无判面声明:本门按工作树文件/外部命令取材、不经 selectFace ⇒ 缺门体同代自检;派发面已由 gate-body-provenance 拦截。用途:check-dev-db-rotation-window.mjs — 本机 dev 库口令轮换的**窗口判定器**(票 O69,2026-11-01)。",
