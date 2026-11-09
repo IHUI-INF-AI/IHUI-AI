@@ -156,10 +156,12 @@ import {
   declarationDiagnosticsOf,
   dispatchPluginCommandContributors,
   loadPluginsWithContributionAudit,
+  loadPluginsWithVersionPolicy,
   type PluginDiagnostic,
   type PluginHookContext,
   type PluginHookEvent,
   type PluginLogger,
+  type PluginVersionPolicy,
 } from '../plugins/index.js';
 // 宿主在册命令名面(对账用):只读注册表出口,不在这里另立第二份命令名单。
 import { getAllSlashNames } from './slash-registry.js';
@@ -560,7 +562,22 @@ export async function setupAgentTools(opts: SetupAgentToolsOptions): Promise<Set
       // goal-b49/W2:换成带贡献审计的同一族出口。装载器对每份清单的 `contributes` 逐档裁决,
       // declined(本宿主无落点 / 默认拒)与 unknown-kind(不在词表内)**各占 diagnostics 一条**,
       // 所以人前可见靠的还是下面这条既有派发,不另开通道、不新增环境变量、不升任何档。
-      const { plugins: defs, diagnostics } = loadPluginsWithContributionAudit({ pluginsDir });
+      // #12 多版本共存:只有显式配置(multiVersion / versionPins / disabledVersions)才走共存通道,
+      // 否则保持原严格出口 —— 同名多份不分版本仍弃权,零回归。
+      const pins = settings.plugins.versionPins;
+      const disabledVersions = settings.plugins.disabledVersions;
+      const multiVersion =
+        settings.plugins.multiVersion === true ||
+        (pins !== undefined && Object.keys(pins).length > 0) ||
+        (disabledVersions !== undefined && disabledVersions.length > 0);
+      const policy: PluginVersionPolicy = {};
+      if (pins !== undefined) policy.pins = pins;
+      if (disabledVersions !== undefined) policy.disabled = disabledVersions;
+      const loaded = multiVersion
+        ? loadPluginsWithVersionPolicy({ pluginsDir, policy })
+        : loadPluginsWithContributionAudit({ pluginsDir });
+      const defs = loaded.plugins;
+      const diagnostics = loaded.diagnostics;
       // 派发放在 defs.length 判据**之前**:全部清单都坏时 defs 为空,旧形态下"一个都没装上"
       // 反而零行日志,那正是本票要消灭的静默。装载继续(永不抛穿),诊断逐条点名到 logger。
       if (!opts.silent) {

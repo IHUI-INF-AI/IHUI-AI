@@ -98,6 +98,15 @@ describe('回落链逐级命中(台账明写:无定制时回落通用名)', () =
     expect(hit.key).toBe('toolMcpServerGithubActivity')
   })
 
+  it('第 2 层:craft_anything 接入后同一规则命中自己的 server 档', () => {
+    const hit = resolveMcpToolActivityKey({
+      serverName: 'craft_anything',
+      toolName: 'core_targets_list',
+    })
+    expect(hit.level).toBe('server')
+    expect(hit.key).toBe('toolMcpServerCraftAnythingActivity')
+  })
+
   it('第 3 层:server 未登记而 tool 已登记 ⇒ 该 tool 的跨 server 通用条目', () => {
     const hit = resolveMcpToolActivityKey({ serverName: 'jira', toolName: 'create_issue' })
     expect(hit.level).toBe('tool')

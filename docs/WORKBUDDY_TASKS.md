@@ -864,6 +864,21 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
   checkin_store 解密,jwt/token 永不出 MCP 返回体;写侧工具只应接入可信本机客户端。
   **不注册到任何 AI 宿主的配置**(2026-11-09 机主裁决:这是项目功能,不是某个
   AI 客户端的插件;此前误注册 ~/.workbuddy/mcp.json 已撤销恢复原状)。
+
+**公网远程 MCP 端点(2026-11-09 深夜:对外曝光面,任何 AI 一行 URL 接入)**——
+`app/routers/mcp_public.py` ⇒ `POST /api/mcp-public/wb-autopilot`(公网经 Cloudflared
+即 `https://aizhs.top/api/mcp-public/wb-autopilot`,零认证):
+
+- **只读白名单**:仅 `wb_server_info`(项目/引擎/纪律/自托管指引)与
+  `wb_action_routes`(选路图);写侧工具远程面 -32602 不可达(安全边界,测试锁定);
+- **限流**:内存滑动窗口 30 次/分/IP(env `WB_MCP_PUBLIC_RATE` 可调,0 关);
+- 新增 `wb_server_info` 工具(stdio 全量面也有,共 4 工具);`_dispatch` 增
+  `allowed_tools` 白名单参数(传 None = stdio 全量,语义不变);
+- 目录收录:`smithery.yaml`(stdio 自托管配置模板)已入库;
+- 测试 `test_mcp_public.py` 6 例 + MCP 协议面 9 例全绿;TestClient 端到端
+  (tools/list 只回白名单 / 写侧 -32602)实证通过。
+- **曝光待办(需人工/账号,非代码)**:提交 Smithery / Glama / mcp.so / PulseMCP
+  收录(仓库须公开);README 徽章与公众号宣发材料可基于 `wb_server_info` 输出生成。
 - 协议单测 `tests/test_wb_autopilot_mcp.py` 9 例全绿(握手/工具清单/通知静默/
   -32601/-32602/-32603/坏行 -32700 不崩/EOF 退出/真动作表选路冒烟);
   真进程 stdio 端到端 smoke 通过(initialize + tools/list)。

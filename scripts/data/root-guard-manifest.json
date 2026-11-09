@@ -1,9 +1,9 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-09T04:46:23.957Z",
+  "sealedAt": "2026-11-09T16:00:37.778Z",
   "sealedBy": "root-guard --seal",
-  "reason": "批次3-2 钩子链引用完整性门(305/305p)落地:runner 两档注册+AGENTS.md 点名均为清单目标,按 merged 树重封",
+  "reason": "合入 fix/gate-193-168-1108:该分支修复 land-gate-rerun.mjs 门未判定分支引用未定义常量致旁路落地器崩溃(两处文件级兜底常量,行为不变;分支提交 e20e5b4100 已带 immutable-exempt 声明)。按 [267] 门指引重封清单,判据行为零改动。",
   "targets": [
     {
       "id": "guardian-runner",
@@ -52,7 +52,7 @@
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "15edbadc1b11617a4764002cccefd165b1aa8a01825541002869eb1c1a5b0576"
+      "sha256": "27f008049249259622e06d9b136630f0ed1fe815291cea70d49eddfd8f49081f"
     },
     {
       "id": "guardian-pushgate-cache",
