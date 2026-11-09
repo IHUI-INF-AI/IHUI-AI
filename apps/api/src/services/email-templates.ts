@@ -742,6 +742,14 @@ interface AlertCopy {
   /** 纯文本兜底里的字段名 */
   textSource: string
   textTime: string
+  /**
+   * 缺省主题(调用方没给 --title 时用它)。
+   *
+   * 2026-11-10:原先脚本里硬编码 `部署失败 — ${env}`,于是英文收件人收到
+   * `[CRITICAL] 部署失败 — production` —— 级别词翻成英文、标题仍中文,
+   * 半中半英比全中文更难读。标题同属可见文案,必须与 subjectPrefix 同源。
+   */
+  defaultTitle: (environment: string) => string
 }
 
 const ALERT_COPY: Record<MailLocale, AlertCopy> = {
@@ -755,6 +763,7 @@ const ALERT_COPY: Record<MailLocale, AlertCopy> = {
     footNote: '本邮件由系统自动派发,无需回复。请前往服务器日志定位根因后再恢复。',
     textSource: '来源',
     textTime: '时间',
+    defaultTitle: (environment) => `部署失败 — ${environment}`,
   },
   en: {
     subjectPrefix: { info: 'INFO', warning: 'WARNING', critical: 'CRITICAL' },
@@ -766,7 +775,16 @@ const ALERT_COPY: Record<MailLocale, AlertCopy> = {
     footNote: 'This mail is dispatched automatically; do not reply. Locate the root cause in the server logs before restoring service.',
     textSource: 'Source',
     textTime: 'Time',
+    defaultTitle: (environment) => `Deploy failed — ${environment}`,
   },
+}
+
+/**
+ * 取缺省主题(按语言)。调用方不传 --title 时用它,避免脚本里硬编码某一语言的标题。
+ * 显式 `--title` 始终优先——调查者手写的标题不该被翻译覆盖。
+ */
+export function defaultAlertTitle(environment: string, locale: MailLocale = 'zh'): string {
+  return ALERT_COPY[locale].defaultTitle(environment)
 }
 
 /** 多行纯文本 → 逐行 div(先整体转义,空行以 &nbsp; 保位) */

@@ -42,6 +42,7 @@ import {
   renderSystemAlertEmail,
   brandResendFrom,
   brandSmtpFrom,
+  defaultAlertTitle,
   extractMailAddress,
   localeForRecipient,
   type MailLocale,
@@ -68,6 +69,28 @@ const DEFAULT_SOURCE = 'github-actions/blue-green-deploy'
  */
 const DEFAULT_RESEND_FROM = '智汇AI <IHUI-AI@aizhs.top>'
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
+
+/**
+ * --probe --probe-deliver 的自测信文案(双语)。
+ *
+ * 独立于 ALERT_COPY:探针不是告警,正文是"这条通道验过没有"的技术说明,
+ * 与告警正文的措辞无关。但仍按收件人语言分流 —— 海外运维同样不该收到中文自测信。
+ */
+const PROBE_COPY: Record<MailLocale, { title: string; message: string }> = {
+  zh: {
+    title: '告警邮件通道活性自测(不是故障)',
+    message:
+      '本信由 apps/api/scripts/notify-deploy-failure.ts 的 --probe --probe-deliver 发出,' +
+      '用于确证"运维到人"这条唯一通道端到端可用。收到它说明通道正常,无需任何处置。',
+  },
+  en: {
+    title: 'Mail channel liveness self-test (not an incident)',
+    message:
+      'This message is sent by apps/api/scripts/notify-deploy-failure.ts with --probe --probe-deliver ' +
+      'to prove that the last-hop-to-human mail channel works end to end. ' +
+      'Receiving it means the channel is healthy and no action is required.',
+  },
+}
 /**
  * 处置标记(2026-11-02):stdout 上的一行机器可读令牌。
  * 「被 --alert-id 窗口压住」与「真投递」的退出码同为 0(退出码不能改:bridge / monitor /
@@ -1161,7 +1184,7 @@ function redactSecrets(text: string, secrets: readonly string[]): string {
 async function probeChannels(
   cfg: SendConfig,
   deps: { verifySmtp: SmtpVerifyFn; fetchResend: FetchLike; sendSmtp: SmtpSendFn },
-  opts: { deliver: boolean; probeMail: RenderedMail },
+  opts: { deliver: boolean; probeMails: readonly RenderedMail[] },
 ): Promise<ProbeReport> {
   const channels: ChannelProbe[] = []
 
@@ -1210,17 +1233,26 @@ async function probeChannels(
 
   let delivered = false
   if (opts.deliver) {
-    const r = await dispatchMail(cfg, opts.probeMail, {
-      sendSmtp: deps.sendSmtp,
-      fetchResend: deps.fetchResend,
-    })
-    delivered = r.ok
-    if (r.channel) {
-      const prev = channels.findIndex((c) => c.channel === r.channel)
-      const why = r.ok ? '真投递成功(--probe-deliver)' : r.reasons.join(' / ') || '投递失败'
-      const v: ProbeVerdict = r.ok ? 'ok' : 'fail'
-      if (prev >= 0) channels[prev] = { channel: r.channel, verdict: v, why }
-      else channels.push({ channel: r.channel, verdict: v, why })
+    /**
+     * 逐语言各发一封(与告警主链路同一分流口径)。
+     *
+     * 原先固定渲染一封中文探针发给全部收件人 —— 配了海外运维时,他会收到一封
+     * 看不懂的中文自测信,和"报警邮件本地化"是同一个洞。任一组投递成功即证明
+     * 通道端到端可用(探针的目的是验通道,不是验某一封信)。
+     */
+    for (const probeMail of opts.probeMails) {
+      const r = await dispatchMail(cfg, probeMail, {
+        sendSmtp: deps.sendSmtp,
+        fetchResend: deps.fetchResend,
+      })
+      delivered = delivered || r.ok
+      if (r.channel) {
+        const prev = channels.findIndex((c) => c.channel === r.channel)
+        const why = r.ok ? '真投递成功(--probe-deliver)' : r.reasons.join(' / ') || '投递失败'
+        const v: ProbeVerdict = r.ok ? 'ok' : 'fail'
+        if (prev >= 0) channels[prev] = { channel: r.channel, verdict: v, why }
+        else channels.push({ channel: r.channel, verdict: v, why })
+      }
     }
   }
 
@@ -1265,7 +1297,11 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
   const severity = normalizeSeverity(args.severity)
   const environment = args.environment || 'production'
   const source = args.source || DEFAULT_SOURCE
-  const title = args.title ?? `部署失败 — ${environment}`
+  /**
+   * 缺省标题**不在这里定**。它是可见文案的一部分,必须与级别前缀同语言——
+   * 否则英文收件人会收到 `[CRITICAL] 部署失败 — production`(半中半英)。
+   * 逐组渲染时按该组 locale 取 defaultAlertTitle();显式 --title 优先。
+   */
 
   let fileContent: string | undefined
   if (args.messageFile !== undefined) {
@@ -1299,7 +1335,7 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
       renderAlertEmail({
         severity,
         source,
-        title,
+        title: args.title ?? defaultAlertTitle(environment, g.locale),
         message,
         plain: args.plain,
         time,
@@ -1349,18 +1385,17 @@ async function runCore(argv: readonly string[], env: EnvLike, deps: RunDeps): Pr
       },
       {
         deliver: args.probeDeliver,
-        probeMail: renderAlertEmail({
-          severity: 'info',
-          source: args.source || 'mail-channel-probe',
-          title: '告警邮件通道活性自测(不是故障)',
-          message:
-            '本信由 apps/api/scripts/notify-deploy-failure.ts 的 --probe --probe-deliver 发出,' +
-            '用于确证"运维到人"这条唯一通道端到端可用。收到它说明通道正常,无需任何处置。',
-          plain: args.plain,
-          time,
-          // 探针邮件给运维本人看,固定中文(它的正文本身就是中文说明,翻成英文反而失真)
-          locale: 'zh',
-        }),
+        probeMails: groups.map((g) =>
+          renderAlertEmail({
+            severity: 'info',
+            source: args.source || 'mail-channel-probe',
+            title: PROBE_COPY[g.locale].title,
+            message: PROBE_COPY[g.locale].message,
+            plain: args.plain,
+            time,
+            locale: g.locale,
+          }),
+        ),
       },
     )
     const okChannel = report.channels.find((c) => c.verdict === 'ok')?.channel ?? null
