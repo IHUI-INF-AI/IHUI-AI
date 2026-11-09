@@ -696,7 +696,7 @@ export function VipScreen() {
         features={resolveVipIndexFeatures(tt)}
         viewBenefits={{
           label: tt('vip.viewAllBenefits', '查看全部权益'),
-          onPress: () => navigation.navigate('VipBenefit'),
+          onPress: () => onNavigate('VipBenefit'),
         }}
       />
       <PurchaseNoticePopUp

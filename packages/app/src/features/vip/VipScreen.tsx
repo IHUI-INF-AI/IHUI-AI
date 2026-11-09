@@ -549,7 +549,7 @@ function createStyles(tk: AppThemeTokens) {
       right: 0,
       bottom: 0,
       left: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)',
+      backgroundColor: rnCssLight.black50,
     },
     overlayCard: {
       borderRadius: rnRadius.xl,

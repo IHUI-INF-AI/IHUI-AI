@@ -16,12 +16,14 @@ export interface FileTreeEntry {
   size: number
 }
 
+export type FileTreeUnjudgedReason = 'key-unmeasured' | 'time-unmeasured' | 'files-unmeasured' | 'row-unmeasured'
+
 export type FileTreeVerdict =
   | { disposition: 'projected'; reason: 'paths-only'; entries: readonly FileTreeEntry[] }
   | { disposition: 'refused'; reason: 'body-inlined'; entries: null }
   | {
       disposition: 'unjudged'
-      reason: 'key-unmeasured' | 'time-unmeasured' | 'files-unmeasured' | 'row-unmeasured'
+      reason: FileTreeUnjudgedReason
       entries: null
     }
 
@@ -30,7 +32,7 @@ function nonEmpty(value: unknown): value is string {
 }
 
 export function projectFileTree(input: unknown): FileTreeVerdict {
-  const unread = (reason: FileTreeVerdict['reason']): FileTreeVerdict => ({
+  const unread = (reason: FileTreeUnjudgedReason): FileTreeVerdict => ({
     disposition: 'unjudged',
     reason,
     entries: null,

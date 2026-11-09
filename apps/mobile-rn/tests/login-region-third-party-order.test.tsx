@@ -199,8 +199,28 @@ async function renderLogin(): Promise<void> {
   })
 }
 
-const DOMESTIC = ['wechat', 'enterpriseWechat', 'dingtalk', 'feishu', 'alipay', 'google', 'github']
-const OVERSEAS = ['google', 'github', 'wechat', 'feishu', 'dingtalk', 'enterpriseWechat', 'alipay']
+// 成员集 = LoginScreen 当前实际提供的 8 项(linuxdo 于 2026-11-07 加入,表外 ⇒ 恒排末尾);
+// 这里钉的是「只改顺序不改成员」,不是把某个平台写死进判据。
+const DOMESTIC = [
+  'wechat',
+  'enterpriseWechat',
+  'dingtalk',
+  'feishu',
+  'alipay',
+  'google',
+  'github',
+  'linuxdo',
+]
+const OVERSEAS = [
+  'google',
+  'github',
+  'wechat',
+  'feishu',
+  'dingtalk',
+  'enterpriseWechat',
+  'alipay',
+  'linuxdo',
+]
 
 describe('票 L28754 RN 端第三方登录优先级(共享判据)', () => {
   beforeEach(() => {
