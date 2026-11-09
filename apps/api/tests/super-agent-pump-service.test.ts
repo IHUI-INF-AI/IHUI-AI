@@ -16,7 +16,6 @@ vi.mock('../src/db/user-preferences-queries.js', () => ({
 
 import { subagentDispatchService } from '../src/services/subagent-dispatch-service.js'
 import {
-  dispatchStartedWork,
   dispatchWorkerWork,
   registerTriggerSourcePort,
   unregisterTriggerSourcePort,

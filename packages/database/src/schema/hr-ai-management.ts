@@ -13,6 +13,9 @@ import {
   timestamp,
   index,
   uniqueIndex,
+  // 自引用外键(parent_id -> 本表)需要显式标注列类型,否则 TS 在定义完成前就要求推断 ⇒ 循环。
+  // 与 comments.ts / learn.ts 的既有写法同形,不用 any。
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 import { users } from './users.js'
@@ -37,7 +40,9 @@ export const hrDepartment = pgTable(
   {
     id: uuid('id').defaultRandom().primaryKey(),
     name: varchar('name', { length: 100 }).notNull(),
-    parentId: uuid('parent_id').references((): any => hrDepartment.id, { onDelete: 'set null' }),
+    parentId: uuid('parent_id').references((): AnyPgColumn => hrDepartment.id, {
+      onDelete: 'set null',
+    }),
     leaderEmployeeId: uuid('leader_employee_id'),
     sortOrder: integer('sort_order').default(0).notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

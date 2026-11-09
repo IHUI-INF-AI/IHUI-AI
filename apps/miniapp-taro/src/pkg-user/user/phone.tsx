@@ -48,9 +48,14 @@ export default function Phone() {
   const [oldCode, setOldCode] = useState('')
   // 双冷却各自独立:截止戳派生,后台返回按墙钟对表
   const oldCodeCountdown = useCountdown(60)
+  // reset/start 在 useCountdown 内是 useCallback 稳定的(空依赖 / 只依赖常量秒数),
+  // 解构后可直接做 useCallback 依赖 —— 见下方 startOldCountdown
+  const { reset: resetOldCodeCountdown, start: startOldCodeCountdown } = oldCodeCountdown
   const [newPhone, setNewPhone] = useState('')
   const [newCode, setNewCode] = useState('')
   const newCodeCountdown = useCountdown(60)
+  // 同上:解构出稳定方法,供 startNewCountdown 的依赖使用
+  const { reset: resetNewCodeCountdown, start: startNewCodeCountdown } = newCodeCountdown
   const [submitting, setSubmitting] = useState(false)
   // 发码/绑定是写操作:倒计时只在请求返回后置 >0,同 tick 连点会重复发短信/重复绑定,故用 ref 互斥
   const oldSendingRef = useRef(false)
@@ -96,15 +101,15 @@ export default function Phone() {
     })
   })
 
-  function startOldCountdown() {
-    oldCodeCountdown.reset(60)
-    oldCodeCountdown.start()
-  }
+  const startOldCountdown = useCallback(() => {
+    resetOldCodeCountdown(60)
+    startOldCodeCountdown()
+  }, [resetOldCodeCountdown, startOldCodeCountdown])
 
-  function startNewCountdown() {
-    newCodeCountdown.reset(60)
-    newCodeCountdown.start()
-  }
+  const startNewCountdown = useCallback(() => {
+    resetNewCodeCountdown(60)
+    startNewCodeCountdown()
+  }, [resetNewCodeCountdown, startNewCodeCountdown])
 
   const onSendOldCode = useCallback(async () => {
     if (oldCodeCountdown.count > 0 || oldSendingRef.current) return
@@ -124,7 +129,7 @@ export default function Phone() {
     } finally {
       oldSendingRef.current = false
     }
-  }, [currentPhone, oldCodeCountdown.count, tt, t])
+  }, [currentPhone, oldCodeCountdown.count, startOldCountdown, tt, t])
 
   const onSendCode = useCallback(async () => {
     if (newCodeCountdown.count > 0 || newSendingRef.current) return
@@ -160,7 +165,7 @@ export default function Phone() {
     } finally {
       newSendingRef.current = false
     }
-  }, [currentPhone, newCodeCountdown.count, newPhone, tt, t])
+  }, [currentPhone, newCodeCountdown.count, newPhone, startNewCountdown, tt, t])
 
   const onSubmit = useCallback(async () => {
     if (submitting || submittingRef.current) return

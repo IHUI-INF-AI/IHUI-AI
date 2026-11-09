@@ -32,6 +32,19 @@ export default function AccountCancelScreen() {
   // 截止戳派生:App 从后台回前台时按墙钟对表(AppState 监听里 sync)
   const smsCountdown = useCountdown(60)
   const confirmCountdown = useCountdown(5)
+  // 方法引用在 useCountdown 内部是 useCallback 稳定的(sync/start/pause 空依赖、reset 只依赖常量秒数),
+  // 所以解构出来可以直接做 effect/callback 依赖:既让 react-hooks/exhaustive-deps 看到真实依赖,
+  // 又不会因为 count 每秒变化而重建 AppState 监听、或让下游 memo 失效。
+  const {
+    sync: syncSmsCountdown,
+    reset: resetSmsCountdown,
+    start: startSmsCountdown,
+  } = smsCountdown
+  const {
+    sync: syncConfirmCountdown,
+    reset: resetConfirmCountdown,
+    start: startConfirmCountdown,
+  } = confirmCountdown
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   // 二次确认闸门的状态位:第一击开弹窗,弹窗内那一击才真发请求(见 onSubmit)
@@ -40,12 +53,12 @@ export default function AccountCancelScreen() {
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        smsCountdown.sync()
-        confirmCountdown.sync()
+        syncSmsCountdown()
+        syncConfirmCountdown()
       }
     })
     return () => sub.remove()
-  }, [smsCountdown.sync, confirmCountdown.sync])
+  }, [syncSmsCountdown, syncConfirmCountdown])
 
   useEffect(() => {
     if (confirmCountdown.count > 0 || !showConfirmModal) return
@@ -68,12 +81,12 @@ export default function AccountCancelScreen() {
     const res = await sendSmsCode(phone, 'login')
     if (res.success) {
       appAlert(t('home.pubTip'), t('account.smsSent'))
-      smsCountdown.reset(60)
-      smsCountdown.start()
+      resetSmsCountdown(60)
+      startSmsCountdown()
     } else {
       appAlert(t('home.pubTip'), res.error ?? t('account.smsFailRetry'))
     }
-  }, [inputPhone, t])
+  }, [inputPhone, resetSmsCountdown, startSmsCountdown, t])
 
   const validate = useCallback((): string => {
     if (!inputPhone.trim()) return t('account.phoneRequired')
@@ -96,8 +109,8 @@ export default function AccountCancelScreen() {
     // 5 秒倒计时闸门在 RN 端根本不出现。用这一位区分两击:第一击只开闸门。
     if (!confirmGateRef.current) {
       confirmGateRef.current = true
-      confirmCountdown.reset(5)
-      confirmCountdown.start()
+      resetConfirmCountdown(5)
+      startConfirmCountdown()
       setShowConfirmModal(true)
       return
     }
@@ -126,7 +139,7 @@ export default function AccountCancelScreen() {
     } finally {
       setSubmitting(false)
     }
-  }, [validate, logout, smsCode, t])
+  }, [resetConfirmCountdown, startConfirmCountdown, validate, logout, smsCode, t])
 
   return (
     <SharedAccountCancelScreen

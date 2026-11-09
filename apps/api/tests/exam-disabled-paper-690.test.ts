@@ -116,7 +116,8 @@ describe('F-690 禁用试卷不可公开访问', () => {
 
   beforeAll(async () => {
     server.setErrorHandler((err: FastifyError, _req, reply) => {
-      const code = err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
+      const code =
+        err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : 500
       reply.status(code).send({ code, message: code >= 500 ? '服务器错误' : err.message })
     })
     server.decorate('recordExamStarted', () => {})
@@ -133,7 +134,10 @@ describe('F-690 禁用试卷不可公开访问', () => {
 
   it('b) GET /exam/papers/:id/questions 对 status=0 返回 404', async () => {
     vi.mocked(mockedQueries.findPaperById).mockResolvedValue(disabledPaper as never)
-    const res = await server.inject({ method: 'GET', url: `/api/exam/papers/${PAPER_ID}/questions` })
+    const res = await server.inject({
+      method: 'GET',
+      url: `/api/exam/papers/${PAPER_ID}/questions`,
+    })
     expect(res.statusCode).toBe(404)
   })
 
@@ -154,9 +158,7 @@ describe('F-690 禁用试卷不可公开访问', () => {
 describe('F-690 公开列表查询按 status 过滤(查询级)', () => {
   it('e) findPublishedPapers 的 where 含 status 谓词', async () => {
     hoisted.captured.length = 0
-    const actual = await vi.importActual<typeof import('../src/db/exam-queries.js')>(
-      '../src/db/exam-queries.js',
-    )
+    const actual = await vi.importActual<typeof mockedQueries>('../src/db/exam-queries.js')
     await actual.findPublishedPapers({ page: 1, pageSize: 10 })
     expect(hoisted.captured.length).toBeGreaterThan(0)
     const sql = new PgDialect().sqlToQuery(hoisted.captured[0] as never).sql
@@ -165,9 +167,7 @@ describe('F-690 公开列表查询按 status 过滤(查询级)', () => {
 
   it('f) findPublishedPapersByIds 的 where 含 status 谓词', async () => {
     hoisted.captured.length = 0
-    const actual = await vi.importActual<typeof import('../src/db/exam-queries.js')>(
-      '../src/db/exam-queries.js',
-    )
+    const actual = await vi.importActual<typeof mockedQueries>('../src/db/exam-queries.js')
     await actual.findPublishedPapersByIds([PAPER_ID])
     expect(hoisted.captured.length).toBeGreaterThan(0)
     const sql = new PgDialect().sqlToQuery(hoisted.captured[0] as never).sql

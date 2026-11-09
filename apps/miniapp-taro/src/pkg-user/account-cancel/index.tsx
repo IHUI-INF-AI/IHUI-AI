@@ -64,6 +64,11 @@ export default function AccountCancel() {
   // 两个倒计时均为截止戳派生:后台节流后返回前台按墙钟对表(useDidShow 里 sync)
   const codeCountdown = useCountdown(60)
   const confirmCountdown = useCountdown(5)
+  // 方法引用在 useCountdown 内是 useCallback 稳定的(sync/start/pause 空依赖、reset 只依赖常量秒数),
+  // 解构出来可直接做 effect/callback 依赖:既让 exhaustive-deps 看到真实依赖,又不会因 count 每秒
+  // 变化重建监听或让下游 memo 失效。
+  const { start: startConfirmCountdown } = confirmCountdown
+  const { reset: resetCodeCountdown, start: startCodeCountdown } = codeCountdown
   const codeSendingRef = useRef(false)
 
   const phone = (info?.phone as string) || ''
@@ -98,8 +103,8 @@ export default function AccountCancel() {
 
   // 页级 5 秒强制阅读倒计时(进入页面即开始,结束前禁止提交;闸门留在本地页)
   useEffect(() => {
-    confirmCountdown.start()
-  }, [confirmCountdown.start])
+    startConfirmCountdown()
+  }, [startConfirmCountdown])
 
   const onSendCode = useCallback(async () => {
     if (codeCountdown.count > 0 || !phone) return
@@ -111,14 +116,14 @@ export default function AccountCancel() {
     try {
       await api.sendSmsCode(phone)
       onToast(t('accountCancel.codeSent'), { kind: 'success' })
-      codeCountdown.reset(60)
-      codeCountdown.start()
+      resetCodeCountdown(60)
+      startCodeCountdown()
     } catch {
       // 错误已由 request 统一提示
     } finally {
       codeSendingRef.current = false
     }
-  }, [codeCountdown.count, phone, t])
+  }, [codeCountdown.count, phone, resetCodeCountdown, startCodeCountdown, t])
 
   const onSubmit = useCallback(async () => {
     if (submitting) return

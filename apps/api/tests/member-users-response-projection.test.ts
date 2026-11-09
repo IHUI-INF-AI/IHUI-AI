@@ -17,7 +17,7 @@
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Fastify, { type FastifyInstance } from 'fastify'
-import { PgDialect } from 'drizzle-orm/pg-core'
+import type * as DrizzlePgCore from 'drizzle-orm/pg-core'
 
 const { mockAuthenticate, mockIsSystemAdmin, state } = vi.hoisted(() => ({
   mockAuthenticate: vi.fn(),
@@ -28,14 +28,12 @@ const { mockAuthenticate, mockIsSystemAdmin, state } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', async () => {
-  const { PgDialect } = await vi.importActual<typeof import('drizzle-orm/pg-core')>(
-    'drizzle-orm/pg-core',
-  )
+  const { PgDialect } = await vi.importActual<typeof DrizzlePgCore>('drizzle-orm/pg-core')
   const dialect = new PgDialect()
 
   function idFromWhere(whereArg: unknown): string | undefined {
     if (!whereArg) return undefined
-    const q = dialect.sqlToQuery(whereArg as Parameters<PgDialect['sqlToQuery']>[0])
+    const q = dialect.sqlToQuery(whereArg as Parameters<DrizzlePgCore.PgDialect['sqlToQuery']>[0])
     return q.params[0] as string | undefined
   }
 
@@ -364,7 +362,12 @@ describe('member-users 写操作响应脱敏(F-131)', () => {
         const res = await app.inject({
           method: 'POST',
           url: `${PREFIX}/member/users`,
-          payload: { nickname: '新会员', email: 'new@example.com', password: 'secret123', status: bad },
+          payload: {
+            nickname: '新会员',
+            email: 'new@example.com',
+            password: 'secret123',
+            status: bad,
+          },
         })
         expect(res.statusCode).toBe(400)
         expect(res.json().code).toBe(400)
