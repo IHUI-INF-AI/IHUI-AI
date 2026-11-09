@@ -71,7 +71,7 @@
   },
   "devDependencies": {
     "@ihui/eslint-config": "workspace:*",
-    "@tarojs/taro": "4.2.1",
+    "@tarojs/taro": "4.3.2",
     "typescript": "catalog:",
     "rimraf": "catalog:",
     "vitest": "catalog:"
