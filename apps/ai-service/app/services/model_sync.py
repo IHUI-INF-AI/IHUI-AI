@@ -161,15 +161,17 @@ def _is_placeholder_key(api_key: str) -> bool:
 # enabled 仍为 true ⇒ 上游已 EOL 的模型(如 nvidia_nim 一批 410、sambanova 404)
 # 依然可被前端选中,一调用就炸,且没有任何自动修复路径 —— 只能人工去库里改。
 # 现补上"自动替换":上游消失的旧模型在同族里找后继,找到就把引用点整体切过去
-# (is_default / ai_model_config.default_model_id / model_id_for_test),
-# 找不到才把旧行彻底停用,并留下可追溯的 replaced_by / retired_reason。
+# (is_default / ai_model_config.default_model_id / model_id_for_test),随后
+# **物理删除旧行**(2026-11-08 起;此前只置 enabled=false 残留占库,越积越多)。
+# 找不到后继也直接删除;上游若日后重新上架,下一轮同步走 INSERT 自然恢复。
 _AUTO_REPLACE_ENABLED = True
 
-# 安全阀:单轮下架数 / 该 provider 库内已有行数 超过此比例时,
-# 判定为"上游清单异常或部分返回",本轮**只下架不硬禁用**,避免整家被误伤。
+# 安全阀:单轮"公开模型"下架数 / 该 provider 库内公开行数 超过此比例时,
+# 判定为"上游清单异常或部分返回",公开行本轮**只下架不删除**,避免整家被误伤。
+# (未公开的历史停用/隐藏行不参与比例计算,始终按上游清单清理。)
 _AUTO_DISABLE_MAX_REMOVAL_RATIO = 0.5
 
-# 安全阀的绝对下限:下架条数 <= 该值时**不看比例**,一律执行替换/停用。
+# 安全阀的绝对下限:公开行下架条数 <= 该值时**不看比例**,一律执行替换/删除。
 # 2026-10-26 实测:小目录 provider(mimo 只有 3 行、下架 2 条 ⇒ 67%)会被 50% 比例
 # 误判成"上游清单异常",结果本该停用的模型只被摘下中继市场、enabled 仍为 true。
 # 目录小的时候比例天然失真,故用绝对条数兜底:2 条以内一律照常处理。
@@ -1859,81 +1861,60 @@ class ModelSyncService:
         provider_code: str,
         old_id: str,
         new_id: str | None,
-        has_metadata_column: bool,
     ) -> None:
-        """把"上游已下架"的旧模型及其引用点整体切到后继(2026-10-26)。
+        """上游已下架的旧模型:引用点交接后**物理删除**(2026-11-08)。
 
-        new_id 非空(找到后继):
-          - 旧行 enabled=false / is_relay_public=false,metadata 记 replaced_by
-          - 旧行的 is_default 转移给后继行
+        new_id 非空(找到同族后继):
+          - 旧行曾为 is_default ⇒ 后继接管默认
           - ai_model_config.default_model_id / model_id_for_test 指向旧 id 的改成新 id
-        new_id 为空(无后继):
-          - 旧行 enabled=false / is_relay_public=false,metadata 记 retired_reason
+        new_id 为空(无后继):无引用可交接,直接删。
 
-        为什么必须改 enabled 而不只是 is_relay_public:
-          is_relay_public=false 只摘出中继市场,模型行仍是 enabled=true,
-          前端 /api/llm/models 照样把它列为可选,用户一选就 410/404。
+        两种情况最终都 DELETE 旧行,不再以 enabled=false 残留在库里占位:
+          - 用户要求"上游已下架的不在数据库里占地方";
+          - 旧实现只停用不删除,历史停用行会越积越多;
+          - 删除后上游若重新上架,下一轮同步走 INSERT 自然恢复(等于重新上架)。
+
+        注意:安全阀在调用方生效 —— 判定上游清单异常时不会走到这里,
+        只做 is_relay_public=false,绝不硬删(避免整家被误删)。
         """
         now_iso = datetime.now(UTC).isoformat()
         if new_id:
             note = (
-                f"上游已下架 {old_id},自动替换为 {new_id}"
+                f"上游已下架 {old_id},自动替换为 {new_id} 并清理旧行"
                 f"(auto-replaced at {now_iso})"
             )
-            replace_meta = {
-                "replaced_by": new_id,
-                "replaced_at": now_iso,
-                "replace_reason": "upstream_absent",
-                "replace_source": "model_sync",
-            }
             outcome = "replaced"
         else:
             note = (
-                f"上游已下架 {old_id} 且未找到同族后继,自动停用"
+                f"上游已下架 {old_id} 且未找到同族后继,直接清理旧行"
                 f"(auto-retired at {now_iso})"
             )
-            replace_meta = {
-                "retired_reason": "upstream_absent_no_successor",
-                "retired_at": now_iso,
-                "replace_source": "model_sync",
-            }
             outcome = "retired"
 
-        # 1) 旧行停用 + 留痕
-        if has_metadata_column:
-            await conn.execute(
-                """UPDATE ai_model_config_models
-                      SET enabled = false,
-                          is_relay_public = false,
-                          metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb,
-                          updated_at = now()
-                    WHERE config_id = $1 AND model_id = $2""",
-                config_id, old_id, json.dumps(replace_meta),
+        # 1) 物理删除旧行,同时取回 is_default(只有曾为默认才让后继接管,
+        #    避免历史停用行被清理时凭空给后继造出默认标记)
+        deleted = await conn.fetchrow(
+            """DELETE FROM ai_model_config_models
+                WHERE config_id = $1 AND model_id = $2
+                RETURNING is_default""",
+            config_id, old_id,
+        )
+        if deleted is None:
+            logger.info(
+                "[ModelSyncService] %s/%s 上游已下架但行已不存在,跳过清理",
+                provider_code, old_id,
             )
-        else:
-            await conn.execute(
-                """UPDATE ai_model_config_models
-                      SET enabled = false,
-                          is_relay_public = false,
-                          updated_at = now()
-                    WHERE config_id = $1 AND model_id = $2""",
-                config_id, old_id,
-            )
+            return
 
         if new_id:
-            # 2) is_default 转移(旧行曾是默认 ⇒ 后继接管默认)
-            await conn.execute(
-                """UPDATE ai_model_config_models
-                      SET is_default = true, updated_at = now()
-                    WHERE config_id = $1 AND model_id = $2""",
-                config_id, new_id,
-            )
-            await conn.execute(
-                """UPDATE ai_model_config_models
-                      SET is_default = false
-                    WHERE config_id = $1 AND model_id = $2""",
-                config_id, old_id,
-            )
+            # 2) 默认标记交接(旧行曾是默认 ⇒ 后继接管默认)
+            if bool(deleted["is_default"]):
+                await conn.execute(
+                    """UPDATE ai_model_config_models
+                          SET is_default = true, updated_at = now()
+                        WHERE config_id = $1 AND model_id = $2""",
+                    config_id, new_id,
+                )
             # 3) provider 级引用点跟随
             await conn.execute(
                 """UPDATE ai_model_config
@@ -1948,6 +1929,22 @@ class ModelSyncService:
                           updated_at = now()
                     WHERE id = $1 AND model_id_for_test = $3""",
                 config_id, new_id, old_id,
+            )
+        else:
+            # 4) 无后继:引用点落空,清空避免悬空 id(前端默认模型/测试仍指向已删模型)
+            await conn.execute(
+                """UPDATE ai_model_config
+                      SET default_model_id = NULL,
+                          updated_at = now()
+                    WHERE id = $1 AND default_model_id = $2""",
+                config_id, old_id,
+            )
+            await conn.execute(
+                """UPDATE ai_model_config
+                      SET model_id_for_test = NULL,
+                          updated_at = now()
+                    WHERE id = $1 AND model_id_for_test = $2""",
+                config_id, old_id,
             )
 
         SYNC_REPLACED_MODELS.labels(provider_code=provider_code, outcome=outcome).inc()
@@ -1988,27 +1985,48 @@ class ModelSyncService:
                     logger.info("[ModelSyncService] %s 未在 DB 注册 config,跳过同步", provider_code)
                     return 0, 0, [], [], []
 
-                # 2. 查 DB 现有模型
-                existing_rows = await conn.fetch(
-                    """SELECT model_id, is_relay_public FROM ai_model_config_models
-                       WHERE config_id = $1""",
-                    config_id,
-                )
-                existing_map: dict[str, bool] = {
-                    r["model_id"]: bool(r["is_relay_public"]) for r in existing_rows
-                }
-
+                # 2. 列存在性探测(带缓存;先探测再查行,查询才能按列存在性降级)
                 # F3.4 查 tags 字段是否存在(带缓存)
                 tags_column_exists = await self._check_tags_column_exists(conn)
 
                 # F4.5 查新字段是否存在(带缓存)
+                # 2026-11-08:补 last_synced_at —— 此前 INSERT/UPDATE 虽写了该列,
+                # 但探测清单漏了它 ⇒ columns 里恒为 False,时间从未真正落库。
+                # 补上后每次同步都会刷新该列,后续排查"哪些行被同步写过"有据可查。
                 columns = await self._check_columns_exists(conn, [
                     "vendor", "max_output_tokens", "supports_tool_call", "supports_vision",
                     "description", "rate_limit_rpm", "rate_limit_tpd",
                     "release_date", "deprecation_date",
                     # v4(2026-09-08):token6688 富元数据落库列(param_schema 等)
                     "metadata",
+                    # 同步写入时间(INSERT/UPDATE 都会刷新)
+                    "last_synced_at",
                 ])
+
+                # 3. 查 DB 现有模型
+                #    metadata 用于识别"安全阀自动下架"标记(上游恢复后自动重新上架)。
+                _select_cols = "model_id, is_relay_public"
+                _select_cols += (
+                    ", metadata"
+                    if columns.get("metadata", False)
+                    else ", NULL::jsonb AS metadata"
+                )
+                existing_rows = await conn.fetch(
+                    f"SELECT {_select_cols} FROM ai_model_config_models "
+                    "WHERE config_id = $1",
+                    config_id,
+                )
+                existing_map: dict[str, bool] = {
+                    r["model_id"]: bool(r["is_relay_public"]) for r in existing_rows
+                }
+                # 安全阀自动下架标记(上游恢复返回后自动重新上架)
+                auto_delisted_ids: set[str] = set()
+                for r in existing_rows:
+                    if (
+                        self._row_metadata(r).get("auto_delisted_reason")
+                        == "anomalous_upstream_list"
+                    ):
+                        auto_delisted_ids.add(r["model_id"])
 
                 # F3.6 别名映射后的 upstream_ids(用于下架比对)
                 upstream_ids: set[str] = set()
@@ -2142,33 +2160,49 @@ class ModelSyncService:
                                 release_date=release_date,
                                 deprecation_date=deprecation_date,
                                 metadata=metadata_json,
+                                # 安全阀曾自动下架、本轮上游又返回的模型 ⇒ 自动恢复上架
+                                restore_relay_public=db_model_id in auto_delisted_ids,
                             )
 
-                # 4. 下架的模型(DB 有、上游不再返回)
-                #    2026-10-26 改为"自动更新替换":
-                #    ① 同族里找后继 → 旧行停用 + 引用点(is_default / default_model_id /
-                #       model_id_for_test)整体切到后继;
-                #    ② 找不到后继 → 旧行停用并留 retired_reason;
-                #    ③ 单轮下架比例超阈值 → 判定上游清单异常,只下架不硬禁用(安全阀)。
-                stale_ids = [
-                    mid for mid, is_public in existing_map.items()
-                    if mid not in upstream_ids and is_public
-                ]
+                # 4. 下架的模型(DB 有、上游不再返回)—— 2026-11-08 改为物理清理:
+                #    ① 清理范围 = 本轮成功拉取的上游清单之外的所有行:
+                #       公开行、历史停用/隐藏行全部清掉(早期版本只停用不删,导致
+                #       gemini 62 行 / openrouter 232 行这类僵尸行长期占库);
+                #    ② 同族找后继 → 引用点(is_default / default_model_id /
+                #       model_id_for_test)切到后继,随后 DELETE 旧行;
+                #    ③ 找不到后继 → 直接 DELETE;
+                #    ④ 安全阀只看"公开可见行":它们影响线上可用性,单轮消失比例超阈值
+                #       (上游清单异常/部分返回)时只置 is_relay_public=false 并打标记,
+                #       上游恢复后自动重新上架;未公开的历史行不受安全阀影响,照常清理。
+                stale_ids = [mid for mid in existing_map if mid not in upstream_ids]
                 if stale_ids:
-                    total_existing = max(len(existing_map), 1)
-                    ratio = len(stale_ids) / total_existing
+                    total_public = max(
+                        sum(1 for v in existing_map.values() if v), 1
+                    )
+                    stale_public_ids = [
+                        mid for mid in stale_ids if existing_map.get(mid, False)
+                    ]
+                    ratio = len(stale_public_ids) / total_public
                     # 绝对下限:2 条以内不看比例(小目录比例天然失真,见常量注释)
                     anomalous = (
-                        len(stale_ids) > _AUTO_DISABLE_ABS_FLOOR
+                        len(stale_public_ids) > _AUTO_DISABLE_ABS_FLOOR
                         and ratio > _AUTO_DISABLE_MAX_REMOVAL_RATIO
                     )
                     if anomalous:
                         logger.warning(
-                            "[ModelSyncService] %s 本轮下架 %d/%d(%.0f%%) 超过 %.0f%% 安全阀,"
-                            "判定上游清单异常或部分返回,本轮只置 is_relay_public=false 不硬禁用",
-                            provider_code, len(stale_ids), total_existing,
+                            "[ModelSyncService] %s 本轮公开模型下架 %d/%d(%.0f%%) 超过 %.0f%% 安全阀,"
+                            "判定上游清单异常或部分返回,公开行只置 is_relay_public=false 不删除",
+                            provider_code, len(stale_public_ids), total_public,
                             ratio * 100, _AUTO_DISABLE_MAX_REMOVAL_RATIO * 100,
                         )
+
+                    # 安全阀生效时的标记补丁:上游恢复返回后,_update_model 据此
+                    # 自动把模型重新上架(否则一次瞬态异常会让模型永久消失)
+                    _anomaly_meta = json.dumps({
+                        "auto_delisted_reason": "anomalous_upstream_list",
+                        "auto_delisted_at": datetime.now(UTC).isoformat(),
+                    })
+                    _has_metadata = bool(columns.get("metadata", False))
 
                     # 候选后继 = 本轮上游返回的、且库里此前没有的"新增"id,
                     # 再补上已存在但同族版本更高的 id(上游改名后旧行仍在的情况)
@@ -2181,23 +2215,33 @@ class ModelSyncService:
                             removed_count += 1
                             continue
                         removed_count += 1
+                        if anomalous and existing_map.get(mid, False):
+                            # 安全阀生效(仅公开行):本轮不删,只下架公开标记(不动 enabled)
+                            if _has_metadata:
+                                await conn.execute(
+                                    """UPDATE ai_model_config_models
+                                       SET is_relay_public = false,
+                                           metadata = COALESCE(metadata, '{}'::jsonb)
+                                                      || $3::jsonb,
+                                           updated_at = now()
+                                       WHERE config_id = $1 AND model_id = $2""",
+                                    config_id, mid, _anomaly_meta,
+                                )
+                            else:
+                                await conn.execute(
+                                    """UPDATE ai_model_config_models
+                                       SET is_relay_public = false, updated_at = now()
+                                       WHERE config_id = $1 AND model_id = $2""",
+                                    config_id, mid,
+                                )
+                            continue
                         successor: str | None = None
-                        if _AUTO_REPLACE_ENABLED and not anomalous:
+                        if _AUTO_REPLACE_ENABLED:
                             successor = self._find_successor(mid, candidate_ids, taken)
                             if successor:
                                 taken.add(successor)
-                        if anomalous:
-                            # 安全阀生效:保持原有只下架行为,不动 enabled
-                            await conn.execute(
-                                """UPDATE ai_model_config_models
-                                   SET is_relay_public = false, updated_at = now()
-                                   WHERE config_id = $1 AND model_id = $2""",
-                                config_id, mid,
-                            )
-                            continue
                         await self._apply_model_replacement(
                             conn, config_id, provider_code, mid, successor,
-                            bool(columns.get("metadata", False)),
                         )
 
         # v4:token6688 目录消费层(TTL 缓存)即时失效,新元数据立即可见
@@ -2351,9 +2395,12 @@ class ModelSyncService:
         release_date: str,
         deprecation_date: str,
         metadata: dict[str, Any] | None = None,
+        restore_relay_public: bool = False,
     ) -> None:
         """F4.5 动态构造 UPDATE SQL(根据列存在性决定更新哪些字段)。
         v4:metadata(jsonb,token6688 富元数据)。
+        restore_relay_public:安全阀曾自动下架的模型重新出现在上游清单时,
+        恢复 is_relay_public(仅 chat 模型;管理员手动下架的行没有该标记,不会被动恢复)。
         """
         set_parts = [
             "context_length = $3",
@@ -2392,6 +2439,12 @@ class ModelSyncService:
                 )
                 params.append(param_value)
                 idx += 1
+        # 安全阀自动下架标记的模型重新出现在上游 ⇒ 恢复上架(仅 chat 模型)
+        if restore_relay_public:
+            set_parts.append(f"is_relay_public = ${idx}")
+            params.append("chat" in model_tags)
+            idx += 1
+
         # last_synced_at(每次同步刷新,用 SQL now() 函数,不需要 placeholder)
         if columns.get("last_synced_at", False):
             set_parts.append("last_synced_at = now()")
@@ -2402,6 +2455,26 @@ class ModelSyncService:
             f"WHERE config_id = $1 AND model_id = $2"
         )
         await conn.execute(sql, *params)
+
+    @staticmethod
+    def _row_metadata(row: Any) -> dict[str, Any]:
+        """把 DB metadata 列规范成 dict(asyncpg 默认把 jsonb 返回成字符串)。
+
+        迁移未应用时 SELECT 用 `NULL::jsonb AS metadata` 降级,行里一定有该列;
+        但单测/调用方可能传只含 model_id + is_relay_public 的最小行(或列被
+        老版本查询裁掉),此时缺列不该让整轮同步炸掉 —— 按"无标记"处理即可。
+        """
+        try:
+            meta = row["metadata"]
+        except (KeyError, IndexError, TypeError):
+            return {}
+        if isinstance(meta, str):
+            try:
+                parsed = json.loads(meta)
+            except (ValueError, TypeError):
+                return {}
+            return parsed if isinstance(parsed, dict) else {}
+        return meta if isinstance(meta, dict) else {}
 
     async def _check_tags_column_exists(self, conn: Any) -> bool:
         """F3.4 查询 ai_model_config_models 表是否有 tags 字段(带缓存)。
