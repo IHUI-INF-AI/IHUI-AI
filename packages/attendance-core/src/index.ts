@@ -99,3 +99,28 @@ export const __test__ = {
 
 // 单源导出:normalizeHm 的唯一实现在此包,edu-schedule-conflict 改为 re-export 本符号。
 export { normalizeHm }
+
+// algorithm 面单源 re-export:services/hr-attendance.ts 按符号消费 buildBizDayWindow /
+// dayFloorOf / absentCandidatePairsForRule / resolveBackfillDays / weekdayOfBizDayKey / isPastHm;
+// barrel 漏 export 时它们在运行时是 not a function(2026-11-10 契约锁抓到的真缺陷)。
+export {
+  BIZ_TIMEZONE,
+  DEFAULT_BACKFILL_DAYS,
+  MAX_BACKFILL_DAYS,
+  isPastHm,
+  resolveBackfillDays,
+  buildBizDayWindow,
+  dayFloorOf,
+  absentCandidatePairsForRule,
+  weekdayOfBizDayKey,
+  buildScopeScheduleGates,
+  gateDueDates,
+} from './algorithm.js'
+export type {
+  AbsentRunOptions,
+  AbsentCandidate,
+  ScheduleGateState,
+  ScheduleScopeGate,
+  ScheduleGateSummary,
+  GatedDueDates,
+} from './algorithm.js'
