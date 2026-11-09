@@ -546,7 +546,14 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
           },
         }
         // F-191:按上游 usage 归账到调用者
-        recordAiCoreCall(request, 'chat/vision', result.model, prompt, result.description, data.usage)
+        recordAiCoreCall(
+          request,
+          'chat/vision',
+          result.model,
+          prompt,
+          result.description,
+          data.usage,
+        )
         return reply.send(result)
       } catch (e) {
         return reply.status(503).send(error(503, (e as Error).message || 'AI service unavailable'))
@@ -1230,11 +1237,21 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         if (data.error) {
           return reply.status(502).send(error(502, data.error_message ?? 'AI service error'))
         }
+        // 上游未返回 status(缺失或空串)时不得默认 completed:缺失即按 failed 记,并在 output 留痕。
+        // V1AgentExecuteResponse 无 error 字段,故只写 output,不硬造字段。
+        const upstreamStatus =
+          typeof data.status === 'string' && data.status.trim()
+            ? (data.status.trim() as V1AgentExecuteResponse['status'])
+            : undefined
+        const statusMissing = upstreamStatus === undefined
+        const rawOutput = data.output ?? ''
         const result: V1AgentExecuteResponse = {
           taskId: data.task_id ?? '',
           sessionId: data.sessionId ?? data.session_id ?? sessionId ?? '',
-          status: (data.status as V1AgentExecuteResponse['status']) ?? 'completed',
-          output: data.output ?? '',
+          status: upstreamStatus ?? 'failed',
+          output: statusMissing
+            ? `${rawOutput}${rawOutput ? '\n' : ''}upstream-status-missing: 上游未返回 status，不按完成计`
+            : rawOutput,
           iterations: data.iterations ?? 0,
           usage: { totalTokens: data.usage?.total_tokens ?? 0 },
         }
@@ -1669,11 +1686,20 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         }
         const result: V1AgentPipelineResponse = {
           pipelineId: data.pipeline_id ?? '',
-          results: (data.results ?? []).map((r) => ({
-            stepIndex: r.step_index ?? r.stepIndex ?? 0,
-            status: (r.status as 'completed' | 'failed') ?? 'completed',
-            output: r.output ?? '',
-          })),
+          results: (data.results ?? []).map((r) => {
+            // 上游未返回 status 时不得默认 completed:缺失即 failed,并在 output 留痕(该类型无 error 字段)。
+            const upstreamStatus =
+              typeof r.status === 'string' && r.status.trim() ? r.status.trim() : undefined
+            const rawOutput = r.output ?? ''
+            return {
+              stepIndex: r.step_index ?? r.stepIndex ?? 0,
+              status: (upstreamStatus as 'completed' | 'failed' | undefined) ?? 'failed',
+              output:
+                upstreamStatus === undefined
+                  ? `${rawOutput}${rawOutput ? '\n' : ''}upstream-status-missing: 上游未返回 status，不按完成计`
+                  : rawOutput,
+            }
+          }),
         }
         return reply.send(result)
       } catch (e) {
@@ -1752,11 +1778,20 @@ const v1AiCoreRoutes: FastifyPluginAsync = async (server) => {
         }
         const result: V1AgentParallelResponse = {
           batchId: data.batch_id ?? '',
-          results: (data.results ?? []).map((r) => ({
-            index: r.index ?? 0,
-            status: (r.status as 'completed' | 'failed') ?? 'completed',
-            output: r.output ?? '',
-          })),
+          results: (data.results ?? []).map((r) => {
+            // 上游未返回 status 时不得默认 completed:缺失即 failed,并在 output 留痕(该类型无 error 字段)。
+            const upstreamStatus =
+              typeof r.status === 'string' && r.status.trim() ? r.status.trim() : undefined
+            const rawOutput = r.output ?? ''
+            return {
+              index: r.index ?? 0,
+              status: (upstreamStatus as 'completed' | 'failed' | undefined) ?? 'failed',
+              output:
+                upstreamStatus === undefined
+                  ? `${rawOutput}${rawOutput ? '\n' : ''}upstream-status-missing: 上游未返回 status，不按完成计`
+                  : rawOutput,
+            }
+          }),
         }
         return reply.send(result)
       } catch (e) {
