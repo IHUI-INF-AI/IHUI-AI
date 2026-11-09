@@ -3587,6 +3587,11 @@ def _build_subprocess_env(user_env: dict[str, Any] | None) -> dict[str, str]:
             if k.upper() in ("PATH", "HOME", "USERPROFILE"):
                 continue  # 不允许覆盖 PATH/HOME
             env[k] = str(v)
+    # worker 请求级 env:在凭据保险库/注入型变量剥离之前合并,确保它走同一道守卫。
+    # 这是护栏不是沙箱(同 OS 用户仍可用绝对路径绕过),见 core/worker_exec_context.py。
+    from app.core.worker_exec_context import apply_worker_child_env
+
+    env = apply_worker_child_env(env)
     # P0-2 凭据保险库:剔除凭据形环境变量(绝不外带给子进程)
     env = _filter_vault_env(env, _get_vault_store())
     # 差距⑦:凭据/身份令牌与注入型变量在**出口**剥离(用户 override 也剥)
@@ -4246,6 +4251,14 @@ async def _tool_run_command(
             "message": "命令命中策略 ask 档,需要用户审批后方可执行",
         }
 
+    # worker 请求级 cwd:未传/相对路径收敛到工人目录;绝对路径仍交给下面的既有白名单校验。
+    # 这是护栏不是沙箱(同 OS 用户仍可用绝对路径绕过),见 core/worker_exec_context.py。
+    from app.core.worker_exec_context import effective_worker_cwd
+
+    _worker_cwd = effective_worker_cwd(cwd if isinstance(cwd, str) else None)
+    if _worker_cwd is not None:
+        cwd = _worker_cwd
+
     # cwd 校验(非默认 . 时需在工作区白名单内,防任意目录读写)
     if cwd and cwd != ".":
         ok_cwd, cwd_info = _validate_path_in_workspace(cwd)
@@ -4261,10 +4274,14 @@ async def _tool_run_command(
 
     # 非 local 后端:委托 sandbox_executor(Docker/SSH/预留后端)
     if sandbox_backend != "local":
+        from app.core.worker_exec_context import worker_env_overrides
+
         from .sandbox import sandbox_executor
+
         result = await sandbox_executor.execute(
             command, backend=sandbox_backend, timeout=timeout, workdir=cwd,
             docker_image=docker_image, ssh_host=ssh_host, ssh_user=ssh_user,
+            env=worker_env_overrides() or None,
         )
         # 与本地路径一致:沙箱后端输出同样出库脱敏(docker/ssh/modal 等)
         from app.core.output_cleaning import redact_secrets as _redact_secrets
