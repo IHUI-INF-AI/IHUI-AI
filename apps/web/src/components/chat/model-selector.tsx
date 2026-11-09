@@ -17,6 +17,7 @@ import {
   History,
   Loader2,
   Lock,
+  RefreshCw,
   Settings,
   Sparkles,
   TriangleAlert,
@@ -28,7 +29,14 @@ import { cn } from '@/lib/utils'
 import { MODEL_CATEGORY_META, normalizeCategory, normalizeTier } from '@ihui/shared'
 import { useAuthStore } from '@/stores/auth'
 import { Tooltip } from '@/components/feedback'
-import { fetchSelectorModels, fetchProvidersHealth, type ProviderHealth } from '@/lib/models-api'
+import {
+  fetchModelHealthRefreshStatus,
+  fetchProvidersHealth,
+  fetchSelectorModels,
+  triggerModelHealthRefresh,
+  type ProviderHealth,
+  type SelectorModel,
+} from '@/lib/models-api'
 // 2026-10-21 首屏瘦身:图标全集与纯函数分家(同 ai-side-panel.tsx:15-17 的既有口径)。
 // 本文件此前静态 `import { BrandIcon }`,而 message-input → AISidePanel → GlobalShell →
 // 根 layout 全是静态边,于是纯展示的营销页(/、/en、/pricing)也被迫下载整包
@@ -613,6 +621,40 @@ function createSeedOptions(): ModelOption[] {
   }))
 }
 
+/** /llm/models 响应 → 选择器选项(2026-11-07 从 effect 抽出:刷新按钮复用同一套映射) */
+function buildOptionsFromApi(models: SelectorModel[]): ModelOption[] {
+  const merged = new Map<string, ModelOption>()
+  for (const m of models) {
+    // 1. 已知模型查表(精确 / 子串)
+    const known = lookupKnownMeta(m.id)
+    // 2. 后端 tier → 显示小数
+    const tier =
+      typeof m.points_multiplier === 'number' ? m.points_multiplier : inferPointsMultiplier(m.id)
+    const display = tierToDisplayMultiplier(tier)
+    // 3. 已知模型的 pointsMultiplier 优先,否则用 tier 推导
+    const finalPoints =
+      typeof known.pointsMultiplier === 'number' ? known.pointsMultiplier : display.value
+    merged.set(m.id, {
+      value: m.id,
+      label: m.name || m.id,
+      vendor: m.provider || inferVendor(m.id),
+      // 已知元数据优先(包括 memberDiscountEligible / isOfficial / subsidy / locked)
+      ...known,
+      // 用 finalPoints 覆盖 known 内的 pointsMultiplier,确保后端 tier 推导也生效
+      pointsMultiplier: finalPoints,
+      locked: known.locked ?? display.locked,
+      // 2026-08-29 立:后端 model_catalog 产出的分类字段,驱动"默认展示 vs 历史模型折叠"
+      category: normalizeCategory(m.category),
+      tier: normalizeTier(m.model_tier),
+      family: m.family,
+      // 2026-09-19 D23 立:语义能力四布尔(后端 derive_capabilities 产出),
+      // 驱动历史模型区"按能力过滤"与行内能力徽章;缺失时按未知处理不误藏
+      capabilities: m.capabilities,
+    })
+  }
+  return Array.from(merged.values())
+}
+
 /** vendor 是否视为"已配置/有配额"(降级列表过滤 + ⚠/✅ 徽章判定用)
  *  - 后端内置免费 provider(无需配置 key)直接豁免
  *  - 其余:vendor 映射到平台模板且模板在已配置集合内 */
@@ -634,6 +676,8 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
   const authedWithToken = isAuthenticated && !!token
   const [options, setOptions] = React.useState<ModelOption[]>(createSeedOptions)
   const [loading, setLoading] = React.useState(true)
+  // 2026-11-07 立:手动"刷新模型状态"期间按钮转圈并轮询后端进度
+  const [refreshingModels, setRefreshingModels] = React.useState(false)
   const [healthByVendor, setHealthByVendor] = React.useState<Record<string, ProviderHealth>>({})
   // 2026-08-12 bugfix:升级权益 popover 状态已收敛到 MemberDiscountSection 内部,
   // 父组件不再持有 popoverAnchor / timer。hover 状态机完全自包含,
@@ -671,6 +715,10 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
   // effect 依赖仅 authedWithToken,当前选中值经 ref 读取,避免切换模型触发重复拉取
   const valueRef = React.useRef(value)
   valueRef.current = value
+  // 异步回调(刷新/重拉列表)里读最新的 onChange;
+  // 宿主传入的 onChange 多为内联箭头函数,若放进依赖会导致 effect 反复重跑。
+  const onChangeRef = React.useRef(onChange)
+  onChangeRef.current = onChange
 
   React.useEffect(() => {
     if (!authedWithToken) {
@@ -694,46 +742,17 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
           return
         }
         // 2026-08-27 修复:API 成功(后端已按可用性+配额过滤)→ 只展示后端返回的模型。
-        // 不再与 FALLBACK/DEMO 合并(原实现把 38 个硬编码 demo 模型混入列表,
-        // 含未配置厂商的 gpt-5/claude-opus 等,违反"可用且有配额才显示")。
-        const merged = new Map<string, ModelOption>()
-        for (const m of models) {
-          // 1. 已知模型查表(精确 / 子串)
-          const known = lookupKnownMeta(m.id)
-          // 2. 后端 tier → 显示小数
-          const tier =
-            typeof m.points_multiplier === 'number'
-              ? m.points_multiplier
-              : inferPointsMultiplier(m.id)
-          const display = tierToDisplayMultiplier(tier)
-          // 3. 已知模型的 pointsMultiplier 优先,否则用 tier 推导
-          const finalPoints =
-            typeof known.pointsMultiplier === 'number' ? known.pointsMultiplier : display.value
-          merged.set(m.id, {
-            value: m.id,
-            label: m.name || m.id,
-            vendor: m.provider || inferVendor(m.id),
-            // 已知元数据优先(包括 memberDiscountEligible / isOfficial / subsidy / locked)
-            ...known,
-            // 用 finalPoints 覆盖 known 内的 pointsMultiplier,确保后端 tier 推导也生效
-            pointsMultiplier: finalPoints,
-            locked: known.locked ?? display.locked,
-            // 2026-08-29 立:后端 model_catalog 产出的分类字段,驱动"默认展示 vs 历史模型折叠"
-            category: normalizeCategory(m.category),
-            tier: normalizeTier(m.model_tier),
-            family: m.family,
-            // 2026-09-19 D23 立:语义能力四布尔(后端 derive_capabilities 产出),
-            // 驱动历史模型区"按能力过滤"与行内能力徽章;缺失时按未知处理不误藏
-            capabilities: m.capabilities,
-          })
-        }
-        // 当前选中不在 API 列表时保留(trigger 与列表一致,切换后自然消失)
-        setOptions((prev) => {
-          const cur = prev.find((o) => o.value === valueRef.current)
-          if (cur && !merged.has(cur.value)) merged.set(cur.value, cur)
-          return Array.from(merged.values())
-        })
+        // 2026-11-07:映射逻辑抽到 buildOptionsFromApi,手动刷新复用同一套。
+        const next = buildOptionsFromApi(models)
+        setOptions(next)
         setUseApiOnly(true)
+        // 当前选中模型已不可用(不在 API 列表)→ 自动切回 auto,避免 trigger 指向死模型
+        if (
+          valueRef.current !== AUTO_OPTION.value &&
+          !next.some((o) => o.value === valueRef.current)
+        ) {
+          onChangeRef.current(AUTO_OPTION.value)
+        }
       })
       .catch(() => {
         // 静默:恢复 FALLBACK + DEMO 降级列表
@@ -767,6 +786,66 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
       cancelled = true
     }
   }, [authedWithToken])
+
+  /** 重拉模型列表(手动刷新 / 打开菜单节流复用) */
+  const reloadModels = React.useCallback(async () => {
+    try {
+      const models = await fetchSelectorModels()
+      if (models.length === 0) return
+      const next = buildOptionsFromApi(models)
+      setOptions(next)
+      setUseApiOnly(true)
+      // 刷新后当前模型若已被判死 → 自动切回 auto
+      if (
+        valueRef.current !== AUTO_OPTION.value &&
+        !next.some((o) => o.value === valueRef.current)
+      ) {
+        onChangeRef.current(AUTO_OPTION.value)
+      }
+    } catch {
+      // 静默:保留当前列表
+    }
+  }, [])
+
+  const reloadProvidersHealth = React.useCallback(async () => {
+    try {
+      const list = await fetchProvidersHealth()
+      const map: Record<string, ProviderHealth> = {}
+      for (const h of list) map[h.provider] = h
+      setHealthByVendor(map)
+    } catch {
+      // 静默
+    }
+  }, [])
+
+  /**
+   * 手动刷新模型可用性(2026-11-07 立):
+   * 触发后端逐模型复测 → 轮询进度 → 重拉列表。探测是异步的,
+   * 最多等 4 分钟;超时也重拉一次,剩余进度由后端继续跑完。
+   */
+  const refreshModels = React.useCallback(async () => {
+    if (refreshingModels) return
+    setRefreshingModels(true)
+    try {
+      const started = await triggerModelHealthRefresh()
+      if (started) {
+        // 全量探测最坏耗时 ≈ 457 × 20s ÷ 8 并发 ≈ 19 分钟,等待上限必须覆盖该场景;
+        // 正常网络下通常 1~2 分钟完成,status.running 变 false 即提前退出。
+        const deadline = Date.now() + 1_200_000
+        while (Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 1500))
+          const status = await fetchModelHealthRefreshStatus()
+          if (!status || !status.running) break
+        }
+      }
+      await reloadModels()
+      await reloadProvidersHealth()
+    } catch {
+      // 静默:失败时保留原列表
+    } finally {
+      setRefreshingModels(false)
+    }
+  }, [refreshingModels, reloadModels, reloadProvidersHealth])
 
   const isAuto = value === AUTO_OPTION.value
   const current = React.useMemo(
@@ -844,6 +923,14 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
   // Radix DropdownMenu 受控 open,trigger 常驻 DOM ⇒ 程序化置 true 时
   // content 仍以 trigger 为锚定位,无需额外坐标。
   const [menuOpen, setMenuOpen] = React.useState(false)
+  // 打开菜单时节流重拉(60s):重新打开能看到最新可用列表,又不至于每次都打接口
+  const lastMenuReloadRef = React.useRef(0)
+  React.useEffect(() => {
+    if (!menuOpen || !authedWithToken) return
+    if (Date.now() - lastMenuReloadRef.current < 60_000) return
+    lastMenuReloadRef.current = Date.now()
+    void reloadModels()
+  }, [menuOpen, authedWithToken, reloadModels])
   React.useEffect(() => {
     if (typeof window === 'undefined') return
     const onOpen = () => setMenuOpen(true)
@@ -908,6 +995,27 @@ export function ModelSelector({ value, onChange, disabled, label, footer }: Mode
                 <Settings className="h-3.5 w-3.5" />
               </div>
               <span className="flex-1 truncate font-medium">{t('manageModels')}</span>
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              onSelect={(e) => {
+                // preventDefault 保持菜单打开,便于看到进度文案变化
+                e.preventDefault()
+                void refreshModels()
+              }}
+              disabled={refreshingModels}
+              className={cn(
+                'flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-body outline-none',
+                'focus:bg-accent focus:text-accent-foreground',
+                '[&>span]:translate-y-[var(--text-vcenter-offset)]',
+                refreshingModels && 'cursor-default opacity-70',
+              )}
+            >
+              <div className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                <RefreshCw className={cn('h-3.5 w-3.5', refreshingModels && 'animate-spin')} />
+              </div>
+              <span className="flex-1 truncate font-medium">
+                {refreshingModels ? t('modelRefreshRunning') : t('modelRefresh')}
+              </span>
             </DropdownMenu.Item>
             {grouped.length > 0 && <DropdownMenu.Separator className="my-1 h-px bg-border/60" />}
           </DropdownMenu.Group>

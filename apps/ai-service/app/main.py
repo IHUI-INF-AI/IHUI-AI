@@ -748,6 +748,15 @@ async def lifespan(app: FastAPI) -> Any:
     except Exception as e:
         logger.warning("[mcp_client] 启动初始化失败(忽略): %s", e)
 
+    # 模型级连通探测(2026-11-07 立):每 30 分钟复测目录内每个模型,
+    # 探测失败的模型由 /llm/models 过滤掉(不显示接不通的模型)。
+    try:
+        from app.services.model_health import model_health
+
+        await model_health.initialize()
+    except Exception as e:
+        logger.warning("[model_health] 启动初始化失败(忽略): %s", e)
+
     # stdio MCP Server 工具接入(2026-09-01 立,P1-4):官方 MCP Python SDK(stdio 子进程
     # 传输)启动本机 MCP server,把 list_tools 暴露的工具注册进内部工具表,即"本机
     # stdio MCP server 作为内部工具"。配置来源 settings.mcp_stdio_servers(JSON 数组,
@@ -1016,6 +1025,11 @@ async def lifespan(app: FastAPI) -> Any:
 
         await get_mcp_client_manager().disconnect_all()
 
+    async def _s_model_health() -> None:
+        from app.services.model_health import model_health
+
+        await model_health.shutdown()
+
     async def _s_mcp_stdio() -> None:
         from app.services.mcp_stdio_bridge import shutdown_all
 
@@ -1052,7 +1066,8 @@ async def lifespan(app: FastAPI) -> Any:
 
     steps = [
         ("model_availability", _s_model_availability),
-        ("model_sync", _s_model_sync),
+        ("model_sync", _s_model_sync),        ("model_health", _s_model_health),
+
         # 关闭 IM 桥接服务(取消消费任务 + 关闭 Redis 连接,2026-07-31 立)
         ("im_bridge_service", lambda: im_bridge_service.shutdown()),
         ("dream_scheduler", _s_dream_scheduler),
