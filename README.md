@@ -86,24 +86,24 @@ node scripts/check-doc-numbers.mjs --worktree         # 工作树问责
 | schema 文件 | 242 | `dbSchemaFiles` |
 | API 路由 | 4743 | `apiRoutes` |
 | 路由文件 | 689 | `apiRouteFiles` |
-| AI 服务路由 | 675 | `aiServiceRoutes` |
+| AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 29 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
 | 发布平台 | 38 | `publishPlatforms` |
 | 端应用包 | 9 | `appPackages` |
 | 共享包 | 17 | `sharedPackages` |
 | CLI 命令文件 | 75 | `cliCommandFiles` |
-| CLI 工具文件 | 97 | `cliToolFiles` |
+| CLI 工具文件 | 100 | `cliToolFiles` |
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4780 | `testFiles` |
+| 测试文件 | 4800 | `testFiles` |
 | CI 工作流 | 57 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 356 | `guardianGates` |
 | — blocking | 327 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20659 | `trackedFiles` |
+| 跟踪文件 | 20701 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-09。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -5457,33 +5457,47 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - **已知缺口(deferred 不落盘)**:派发队列是进程内一次性内存队列(无常驻服务、无轮询、无持久化),投递记录要等任务跑完才写表。`dispatch:'async'` 已回 200、后台任务尚未跑完的窗口里若 API 进程崩溃或重启,内存任务与未写入的投递表一并丢失;GitHub 侧已记成功不会重投,进程内一级去重 LRU 也随之消失 ⇒ 该次投递的评审 / 评论回写静默丢失、无法重放、无从对账。当前实现未收口此窗口(积压满触发「就地执行」的兜底只防积压,不防进程退出)。
 ## 最近更新(自动维护)
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
+**2026-11-10**
+- 🔧 工程/其他:补 6 枚合并带入文件的溯源水印(仅新增水印头,零内容变更) (2ccd559d0a)
+
 **2026-11-09**
-- 🐞 修复:lint:strict 全包零告警 —— api 25 error/1 warning + database/rn/miniapp 收口 (694cc51d1f)
-- 🔧 工程/其他:收编守护落档产出(2 件,凭落点账本) (9a73536db8)
-- 🐞 修复:V1 工具闭环 + 非流式审批投递 + 退出码/状态诚实化 + 默认执行器纠正 (#217) (e6b7227099)
-- 📚 文档:trackedFiles 生成块 20612→20613 对齐新增三态判定票 (a533cb36e7)
-- 🐞 修复:跨端同步不再污染 bot PR 源分支并补远端分支逐支三态判定票 (fdcad5b70d)
-- 🐞 修复:清理工作流补 GH_REPO 使无 checkout 的 job 能跑 gh 命令 (55c417f202)
-- 🔧 工程/其他:README 生成块数字按合并后索引面现算刷新 (5d20008277)
-- 🔧 工程/其他:任务账本登记 HR-1 人事考勤板块 —— 一行一件事,编号 HR 前缀此前未占用 (9c167c8884)
-- 🐞 修复:撤销 build 面排除测试,改用 vitest 收集面收窄 —— T1 产物面复核要求 dist 与 src 逐产物对账 (0d3b73eb16)
-- 🐞 修复:消 11 处类型缺陷 —— apps/api 9 处 + RN 2 处(T1 全量档此前未判定,故逐包实跑才发现) (e3c70e8557)
-- 🐞 修复:段级豁免自述计数按现读刷新 336→337 —— 本票新增 apps/web/app/(main)/admin/hr-attendance/page.tsx 把 admin/** 页数推高一页 (9f93d1bedd)
-- 🐞 修复:补 sag2_lexical 顶层 Chunk 导出并修 CLI 测试 lint 两处 (6be381a784)
-- 🐞 修复:route-tools.ts 补溯源水印头 —— 本票新增文件唯一水印缺口(生成器配套文件漏注入),字节级对齐 design-tokens 源 (3be93a4da0)
-- 🐞 修复:四端 ui-routes 产物按 HEAD 面重算 —— 纳入 HR 新增页面/路由(web admin/hr-attendance、miniapp pkg-hr、RN RootNavigator、app.config),消门 105 G5 stale (c8ec556d80)
-- 🔧 工程/其他:结构锁改用 TypeScript AST，并让门 89 夹具取材面对齐 DOC_FILES (4b08fae461)
-- 🐞 修复:i18n 压缩产物按 HEAD 面重生成 —— 7 份产物纳入 hrAttendance 41 键(生成器 15 输入/承载层补 656 键/水印注入),消移植时取新基线版导致的 HR 文案缺失 (7d90730389)
-- 🚀 新功能/改进:人事考勤模块移植到最新 origin/main —— i18n 源已合并含 HR 键; 7 个 i18n 压缩产物取新基线版、待 pnpm 环境重生成以纳入 HR 键 (47324160a0)
-- 📚 文档:落自动腿 2026-11-09 维护区刷新与关键数字块空行,同步 last-sha 指针 (571e21be66)
-- 🐞 修复:C6 结构锁改为判函数体层级,并合流远端 tip 重算 README 生成块 (08d6cd408b)
+- 🚀 新功能/改进:autopilot 公网远程 MCP 端点 —— 对外曝光,任何 AI 一行 URL 接入 (225bbcec27)
+- 📚 文档:按对照实验钉死第 ② 组根因并补线上复验读数 (e3ab29982f)
+- 🐞 修复:第 ② 组改用不可变 sha 做 compare 并补 Dependabot 排除 (fb3283c6f2)
+- 📚 文档:生成块对齐合并树 HEAD 面现算 testFiles 4776 与 trackedFiles 20631 (ff820cf667)
+- 🐞 修复:MCP server 定位更正 —— 仓库内标准导出形态,不注册任何 AI 宿主配置 (d2327e58d2)
+- 🐞 修复:修复两份 README 生成块数字被写成空值 (fa7b946c7f)
+- 🐞 修复:按当前 HEAD 重生成 7 份离线派生包并销账 3 条陈旧豁免 (8d311c1679)
+- 🚀 新功能/改进:autopilot MCP Server 化 —— 任何 MCP 客户端可即插即用接走 (3ef4eb8a95)
+- 📚 文档:生成块对齐合并树 HEAD 面现算 第 1 轮 (77c81a1887)
+- 🚀 新功能/改进:autopilot HTTP 端点 —— AI 会话可编程自主调用入口 (d47c93b5c0)
+- 📚 文档:生成块对齐合并树 HEAD 面 testFiles 4774 与 trackedFiles 20626 (1952f3f8af)
+- 🚀 新功能/改进:WorkBuddy 全量自动驾驶闭环 —— Sequential族直连链放行 + 服务层选路引擎 + 调度器无人值守接线 (735c9e20c4)
+- 🔧 工程/其他:为他席 dfec4a76 补具名追认行以解 push 区间未声明 (0c19738ebf)
+- 🐞 修复:补 git 派生 stdio 显式接管并按 HEAD 面刷新两份 README 生成块 (209c6a9219)
+- 🚀 新功能/改进:desktop 计分链闭环 + 号池对账腿 + 产物自检 + 执行留痕 + 一键自动驾驶 (6a5966c184)
+- 📚 文档:trackedFiles 生成块 20613→20615 对齐新增判定器件与镜像测试 (ed0d522fb4)
+- 🚀 新功能/改进:远端分支三态判定器件化并补齐收尾闭环 (cdacbb2152)
+- 🐞 修复:门未判定分支引用未定义常量致旁路落地器崩溃 (e1a10dfe29)
+- 🐞 修复:剥掉 v4 参考层不执行的 classic 插件,恢复 C1/C8 判定面 (dfec4a7641)
+- 🐞 修复:补齐模型列表刷新文案键并清理 shared 重复键 (4f9fb284e9)
+- 🔧 工程/其他:test(sag2)+docs(sag2): 扫描件 OCR 真识别实测与断言放宽，规模同口径复测 (56d58c84dc)
+- 📚 文档:登记 sag2 round3-5 收口（监听/转写/OCR/建库提速/扫描件四级链/多跳等价/OCR 真识别实测与规模同口径复测） (24a4aa0db2)
+- 🔧 工程/其他:门 168 预算登记 900s(实测 478,117ms / 缺省 300,000ms = 1.59 倍,rc=0 全「未判定」) (6966a5e775)
+- 🐞 修复:屏/路由登记同步测试的 git 派生补 stdio (5602abab45)
+
+**2026-11-08**
+- 🚀 新功能/改进:craft-anything 支持命令环境变量覆盖并诊断二进制缺失 (ed2bb23421)
+- 🐞 修复:按真实 tools/list 补声明 rebuild_check (8cab3d4085)
+- 🐞 修复:P89 租约行收成一条 + 门13d 维⑤「逐行键」逐字重复棘轮 (5e4980b0f0)
+- 🚀 新功能/改进:接入 craft-anything 的 stdio MCP server (ca872d90e6)
+- 🚀 新功能/改进:插件多版本共存——同名多版本扫描/选择/禁用/pin(#12) (143fa971f9)
 
 **2026-11-09**
 - 📚 文档:合并面 0d503a4 数字按唯一写入口现算刷新(trackedFiles 20612/testFiles 4768) (1c27bda99a)
 - 🔧 工程/其他:perf(sag2)+feat(sag2): 扫描件 OCR 四级链落地；多跳检索等价提速 4.4×（召回结果逐条不变） (abd73298e4)
 - 📚 文档:trackedFiles 20577->20578 / testFiles 4753->4754(上一枚新增 tests/test_agent_loop_tools_wire.py) (fd62c925ce)
 - 🐞 修复:派工 tools 从未进入模型请求 —— 接上转发并把参数面改成分层瘦身 (fd5f2a1243)
-
 **2026-11-09**
 - 🔧 工程/其他:入库11-08远端分支只读清点工单+防火墙禁用滚动留痕(README数字块DN5同源刷新) (0646e1d290)
 - 🚀 新功能/改进:真文件监听 + 音视频转写 + 图片OCR，并修掉建库平方级开销（229×） (7d2e787bcf)
@@ -5531,7 +5545,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - ♻️ 重构:opType 展示语义收成全仓唯一表 (26122d8cfa)
 - 🐞 修复:API 套餐价格量纲收成唯一换算点并补首尾相等夹具 (97e1d135dc)
 - 🐞 修复:收口全部如实登记遗留项——真实PG/HTTP端到端、UI真测试、判定状态形状锁、工具链与门红根治 (29489c1165)
-
 **2026-11-08**
 - 📚 文档:收口 web/RN ui-routes 补生成——终态钉、输入条数与已变来源；定论为源码改了未重生成，非生成器缺陷 (09ddb6c586)
 - 🐞 修复:重生成 ui-routes 白名单（2 输入，1 条已变：RootNavigator.tsx ← XUI-004 0ba309d2f7 + XUI-068 d6306a65b3；终态钉 fd754397…；349 条路由未变，仅 skipped 7→8） (23bfb6ca86)
@@ -5910,7 +5923,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (616fb59a5a)
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (aec3023ba2)
 - 📚 文档:auto-triage 自动登记(api-logs;第 1 期感知层产线动作,O65) (d400a0e35b)
-
 **2026-11-07**
 - 🐞 修复:签到按钮同 tick 互斥与失败复位(票 F),并发两次只发一次请求 (125d3b1f3f)
 - 🐞 修复:签到助手回屏只刷新一次(票 D),复用 screen-reappear-adapter (29085fdd48)
@@ -5922,7 +5934,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:T1 预算棘轮补 margin 证据链,自包含复核判据入库 (6013b5e151)
 - 🐞 修复:T1 改并发4+LPT 派发(300s 让位于实测基线),门251 修 staged 参数序+批量取面并补夹具,worktree 自有 node_modules (a8ff738ce2)
 - 🐞 修复:提现状态五语言包补齐 processing(web 管理端映射同步) (7b95c067b2)
-
 **2026-11-06**
 - 🐞 修复:收口 push 门 typecheck 基线 —— 补齐测得出的契约缺口 (16d9e7721a)
 - 🐞 修复:skill_list 注入登记与生产出口对齐,补齐 frontmatter 三字段契约 (01f9dc5075)
@@ -5947,14 +5958,11 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 📚 文档:用 sync-readme-numbers 刷新 README 生成块(apiRoutes 4700 / testFiles 4226 / trackedFiles 19496) (9a8e6fb3e7)
 - 🔧 工程/其他:chat 页(BUG-67 浮层)按复制页重新在册,门 299 判绿 (5130247253)
 - 🐞 修复:rn-shell-types 派生件接入提交链,251 触发面补 types/ (5cc02e6c39)
-
 **2026-11-08**
 - 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (2485323c91)
-
 **2026-11-08**
 - 🔧 工程/其他:补齐门 47 自愈注入留下的隐形载荷缺口，无业务改动 (f3ae170b31)
 - 📚 文档:同步 RECENT UPDATES 生成块与 doc-autoupdate 基线 (8063d609f5)
-
 **2026-11-08**
 - 📚 文档:同步 README 正文的测试文件现算数(4446) (eb11488487)
 - 📚 文档:同步 F-38 夹具后的 README 现算数字(testFiles 4446 / trackedFiles 20184) (82bd61611f)
@@ -5972,10 +5980,8 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:F-291 SSE 重放缓冲容量满时重注册不再误淘汰其他活跃流 (461bbae68a)
 - 📚 文档:同步 README 文档数字与最近提交面（testFiles/apiRoutes/trackedFiles 与现算对齐） (e179987387)
 - 🔧 工程/其他:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (3eba6c71fd)
-
 **2026-11-08**
 - 🔧 工程/其他:补门 193 存量违规 —— check-hand-migration-snapshot 的 git diff 派生显式接管 stdio (02d2f85062)
-
 **2026-11-08**
 - 🐞 修复:F-290 WS 限流删除 BURST 死分支，30 条/秒为硬上限 (5828640196)
 - 🐞 修复:F-188 统一 skills:<uid> 为 JSON 数组，识别并救回历史 Hash，install 不再吞掉写入失败 (6a087b84c9)
@@ -6104,7 +6110,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:CLI 根推导退一级修正(scripts/ 入口不能复用 scripts/lib/ 的 ../..) (d365b725b3)
 - 🐞 修复:钥配置按 KeyPath 语义读取文件内容(不得把路径当密钥) (bab82b2299)
 - 🚀 新功能/改进:提交侧求值 + 推送侧凭据校验(13 门/文档数字/i18n 后台真跑, fail-closed 回落) (a78bee7f3d)
-
 **2026-11-07**
 - 🚀 新功能/改进:验证码复制按钮改为右侧细描边胶囊并上线落地页 (578c4caf4e)
 - 🚀 新功能/改进:门结果缓存 + 后台预跑(新增 gate-cache/gate-worker/夹具/注册表) (a49fd06f05)
@@ -6363,7 +6368,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:site-apk 增判 downloadUrl 指向自有站点腿,行在位不再当端内更新卡可用 (bddf6e5a59)
 - 🐞 修复:渠道登记面改为实读 0364+schema+路由,store 维度已落地不再长期报缺 (c53ddd7dbe)
 - 🔧 工程/其他:补 GitHub App CI 三类事件忽略应答与零 IO 判据 (7fab2d4079)
-
 **2026-11-06**
 - 🔧 工程/其他:rebase 到现读尖后重封根护栏 + 写入基线刷新规程 (3533025249)
 - 🐞 修复:固化生成器裁决与 S3 扫描面口径 (6a4edbdc3a)
@@ -6459,7 +6463,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
 - 🐞 修复:出站清洗补上射程第三格 —— 零宽藏在工具调用参数里时仪器全程报绿 (1b62d16ce2)
 - 🐞 修复:逃生邮件从来没发出去过 —— resolveMailTo 的正则少一个 m 档,还反指控"缺键" (fdc0253f83)
-
 **2026-11-05**
 - 🐞 修复:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
 - 🐞 修复:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
@@ -6628,7 +6631,6 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🐞 修复:门299 的面名从 selectFace 的 .face 取 —— 读数里那个 [object Object] 其实是 --staged 失效 (95a7653212)
 - 🐞 修复:密钥句柄不再可枚举 —— 一次整对象打印就会把签发钥送进记录 (85d1d00dd9)
 - 🐞 修复:事后核验与索引推进挪到放锁之后,并输出锁排队读数 (5c3465f85c)
-
 **2026-11-04**
 - 🔧 工程/其他:补齐 8 枚 HEAD 面缺载荷的溯源水印(门47 push scope 欠账) (86958e1b20)
 - 🐞 修复:同秒并列的删除判定改为未判定——git log 先到者不是拓扑结论 (ad8bf319a0)
@@ -6751,6 +6753,42 @@ H 桌面安装包不得回到 `offlineInstaller` —— 它守的不是版本号
 - 🚀 新功能/改进:自动臂按需加密(环开 4 分钟/轮,环合即回落) (0061164cdb)
 - 🐞 修复:判据面护栏在 commit-msg 加只报不拦的预警档 —— 未声明要在"还改得动"那一刻报出来 (facba1ab6a)
 - 🔧 工程/其他:再摘 plugins-data 死副本 14 枚并登记退役锁(逐字节同 @ihui/shared;9fdbc207ba 带回) (180c244014)
+**2026-11-06**
+- 🐞 修复:落地悬空副本里的两枚判据 fail-closed 与跳门降级证据(RP-67) (b7aa56e7f6)
+- 🐞 修复:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
+- 🐞 修复:取票腿被击穿时的可证复用 —— 三条安全条件缺一即拒绝,且必须说出是哪一条 (43bdd603e5)
+- 📚 文档:22 枚在飞票挂完整租约(HEAD 面⊕挂牌,不代他席落地) (1c4f42c0c6)
+**2026-11-06**
+- 🐞 修复:RP-91 旁路器物未知旗标守卫收口 + 修三枚烂牙测试 (09eeb36dcb)
+**2026-11-06**
+- 🐞 修复:健康尺 A15 同批认 cost-breaker-stop —— 新字面量不能变成"没人认领的动作" (c3076a1a36)
+**2026-11-06**
+- 🐞 修复:成本熔断不再冒充"日预算耗尽" —— 两种真因曾共用一个字面量 (f8213f5a4f)
+**2026-11-06**
+- 🐞 修复:日上限计数拿本地日键去比 UTC 时间戳 —— 本地 00:00-08:00 这段窗口日上限根本不生效 (b3cb1ec26b)
+**2026-11-05**
+- 🐞 修复:相对路径逃逸用例切盘根执行,消除 DevEnv 下假红 (2a333988c7)
+**2026-11-06**
+- 🚀 新功能/改进:出站体序列化那一刻的自查仪器 —— 把 400 的射程推到 CLI 之外 (3540974b85)
+**2026-11-05**
+- 🐞 修复:内部票优先收尾 —— 清掉最后一处旧密钥开关并加配置矩阵 (3b14d759f9)
+**2026-11-06**
+- 🐞 修复:出站清洗补上射程第三格 —— 零宽藏在工具调用参数里时仪器全程报绿 (1b62d16ce2)
+**2026-11-05**
+- 🐞 修复:消灭内部调用无凭据退化成裸 x-user-id,并加静态判据门 (3cfb981dc8)
+- 🐞 修复:内部服务鉴权默认收口到 ticket,老通道身份头强制签名 (32cf59c6f4)
+**2026-11-06**
+- 🐞 修复:逃生邮件从来没发出去过 —— resolveMailTo 的正则少一个 m 档,还反指控"缺键" (fdc0253f83)
+**2026-11-05**
+- 🐞 修复:重发 tenant RLS batch1 为幂等装车迁移 + 回滚脚本(F-01) (2725de663d)
+**2026-11-05**
+- 🐞 修复:请求出口复位 app.* 会话变量,闭合池化连接串租户(F-02) (ad4828bf26)
+**2026-11-05**
+- 🔧 工程/其他:落地 pre-commit 自动格式化(仅折行/合并,无逻辑变化) (a9a727aada)
+- 🐞 修复:内部票补齐 CSRF 非消耗式验签与 codebase 路由入口 (fc0e93c32f)
+- 🐞 修复:判据 3 收严为声明锚定 + 全集相等,补反例 (b84737901b)
+**2026-11-05**
+- 🔧 工程/其他:修正白名单切片定位到常量声明处 (9a302a22fb)
 <!-- END RECENT UPDATES -->
 同轮收口(2026-10-21 下午，五枚已入库)：把上一段里"只存不拦"的部分接成实链，并把跨端剩下的三处半截补齐。① **IP 白名单生效链**：判定唯一出口 `apps/api/src/routes/user/ip-whitelist-guard.ts`，挂在 18 条新登录腿的"凭据已验证之后、签发之前"；空表 = 未启用（不另开开关），已在线会话不受影响（换网不掉线），最后一次修改白名单的来源 IP 恒被放行（自救出口，否则清错一次就永久锁死）；被拒回 403 并落 `security_logs` 事件 `login_blocked_by_ip_allowlist`（登录前无主体，故 `recordSecurityEvent` 新增由承载层显式传主体的口子）。覆盖率由 `tests/ip-whitelist-issuance-coverage.test.ts` 机器守：全仓 6 个签发原语的每个调用点要么挂闸门、要么在具名豁免清单里带理由登记，将来新腿漏挂当场响。② **RN 安全中心接上这张卡**（`src/components/IpWhitelistPanel.tsx`，端内不复制 IP 文法校验，400 只翻本地化提示）。③ **五项 agent 护栏开关改为按登录主体生效**：`apps/ai-service/app/services/agent_security_prefs.py` 直连同库读 `user_preferences`（进程默认 ⊕ 该用户显式表态，缺省与改动前逐字一致），危险命令硬门与全局 kill switch 不受用户档影响。④ **小程序关于页补齐**为与 web/RN 同构的六段 + 保留 10 条合规入口（三端同脸，§4）。⑤ 删掉 PDF `print` / `sign` 两条零消费方的假 pending 端点（改成 404 断言留在原地），`openapi.json` 同步摘除两条 path。
 - **2026-10-21 公网提速批次的四件器物(点名义务在此,判据细节住器物头注;`§0.9` 的口径是"已接线而文档不点名 ⇒ 红")**:
@@ -43827,3 +43865,7 @@ A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4719 
 - **规模**:624 张表 · 4721 API 路由 · 测试文件数与用例数见生成块
 - **API(Fastify 5)**:4721 API 路由跨 288 路由文件 + 60 插件 + 8 Workers + 200+ services + 25 WebSocket 通道
 A: Yes. Test file and case counts: see the generated table / 67 e2e spec / 4721 API 路由 / 624 数据库表 / 多租户 RLS + RBAC + AES-256-GCM,3 大屏 仪表盘可观测。
+| AI 服务路由 | 676 | `aiServiceRoutes` |
+| CLI 工具文件 | 98 | `cliToolFiles` |
+| 测试文件 | 4798 | `testFiles` |
+| 跟踪文件 | 20680 | `trackedFiles` |

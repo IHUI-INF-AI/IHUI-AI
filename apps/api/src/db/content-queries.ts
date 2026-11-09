@@ -23,7 +23,6 @@ import {
 /**
  * 公告对外可见性判据（唯一一份）：已发布 + 已到发布时间 + 未过期。
  * 列表 SQL 谓词（announcementVisibilityWhere）与两个详情路由都以此为准。
- * 判空走真值判断(`!a.publishedAt`)：eqeqeq 定为 always，而 Date 实例恒为真 ⇒ 与 `== null` 等价。
  */
 export function isAnnouncementVisible(
   a: Pick<Announcement, 'isPublished' | 'publishedAt' | 'expiresAt'>,
@@ -31,8 +30,8 @@ export function isAnnouncementVisible(
 ): boolean {
   return (
     a.isPublished === true &&
-    (!a.publishedAt || a.publishedAt.getTime() <= now.getTime()) &&
-    (!a.expiresAt || a.expiresAt.getTime() > now.getTime())
+    (a.publishedAt === null || a.publishedAt.getTime() <= now.getTime()) &&
+    (a.expiresAt === null || a.expiresAt.getTime() > now.getTime())
   )
 }
 

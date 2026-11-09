@@ -15,7 +15,7 @@
  *   没有任何运行期行为测试能发现 —— 只能靠这里咬住。
  *
  * 判据分组:
- *   L1 8 个懒加载模块只出现在 import() 中,不得出现在静态 import 语句里
+ *   L1 7 个懒加载模块只出现在 import() 中,不得出现在静态 import 语句里
  *     (brand-icon 例外:允许 `import type` —— 类型导入编译期擦除,不会拖回图标集)
  *   L2 inferVendor 必须来自 @/components/ai/vendor-infer,不得改回从 brand-icon 导入
  *   L3 BrandIconDeferred 的 fallback 占位:aria-hidden + 按 size 设宽高
@@ -36,14 +36,13 @@ function readRepo(relPath: string): string {
 const HOST_REL = 'src/components/ai/ai-side-panel.tsx'
 const HOST_SRC = readRepo(HOST_REL)
 
-/** 懒加载边界内的模块(改动 2 点名的 8 个) */
+/** 懒加载边界内的模块(改动 2 点名的 8 个,2026-11-08 起 question-dialog 已退场 → 7 个) */
 const LAZY_MODULES = [
   '@/components/ai/agent-task-progress-pane',
   '@/components/ai/environment-info-popover',
   '@/components/ai/ai-side-panel-tools',
   '@/components/ai/ai-terminal-dock',
   '@/components/workspace/workspace-permission-dialog',
-  '@/components/chat/question-dialog',
   '@/components/chat/compaction-status-bar',
   '@/components/ai/brand-icon',
 ] as const
@@ -147,7 +146,7 @@ describe('AISidePanel 懒加载边界 · L0 判定器自证', () => {
   it('判定器抓到了足够多的 import 位点(防"静态分析空转导致后续断言恒绿")', () => {
     expect(IMPORTS.length, 'ai-side-panel.tsx 应有大量 import').toBeGreaterThan(20)
     const dynamics = IMPORTS.filter((s) => s.kind === 'dynamic')
-    expect(dynamics.length, '应有多个动态 import').toBeGreaterThanOrEqual(8)
+    expect(dynamics.length, '应有多个动态 import').toBeGreaterThanOrEqual(7)
   })
 
   it('注释里点名的模块路径不会被误判成静态 import', () => {
@@ -157,10 +156,10 @@ describe('AISidePanel 懒加载边界 · L0 判定器自证', () => {
   })
 })
 
-describe('AISidePanel 懒加载边界 · L1 八个模块不得改回静态 import', () => {
+describe('AISidePanel 懒加载边界 · L1 懒加载模块不得改回静态 import', () => {
   it.each(LAZY_MODULES)('%s 只出现在 import() 动态导入中', (mod) => {
     const dynamicSites = IMPORTS.filter((s) => s.kind === 'dynamic' && s.specifier === mod)
-    // 运行时静态 import(非 import type):8 个模块一律禁止
+    // 运行时静态 import(非 import type):懒加载模块一律禁止
     const runtimeStatic = IMPORTS.filter((s) => s.kind === 'static' && s.specifier === mod)
     // brand-icon 之外,连 type-only 静态导入也不许有(它们本该整体走 dynamic)
     const anyStatic =
@@ -228,7 +227,8 @@ describe('AISidePanel 懒加载边界 · L2 inferVendor 来自零依赖模块', 
       .split('\n')
       .map((l) => stripLineComment(l))
       .join('\n')
-    const bad = /import\s+(?!type\b)[^;\n]*\{[^}\n]*\binferVendor\b[^}\n]*\}[^;\n]*from\s*['"]@\/components\/ai\/brand-icon['"]/
+    const bad =
+      /import\s+(?!type\b)[^;\n]*\{[^}\n]*\binferVendor\b[^}\n]*\}[^;\n]*from\s*['"]@\/components\/ai\/brand-icon['"]/
     expect(code).not.toMatch(bad)
     expect(code).not.toMatch(/\binferVendor\b[^;\n]*from\s*['"]@\/components\/ai\/brand-icon['"]/)
   })

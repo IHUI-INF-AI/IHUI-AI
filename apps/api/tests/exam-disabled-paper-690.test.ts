@@ -5,6 +5,7 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest'
 import Fastify, { type FastifyError } from 'fastify'
 import { PgDialect } from 'drizzle-orm/pg-core'
+import type * as ExamQueries from '../src/db/exam-queries.js'
 
 // 2026-11-08 F-690:禁用(status!=1)试卷仍被公开列表/详情/题目/开考放行。
 // 本夹具同时钉两处根因:
@@ -158,7 +159,7 @@ describe('F-690 禁用试卷不可公开访问', () => {
 describe('F-690 公开列表查询按 status 过滤(查询级)', () => {
   it('e) findPublishedPapers 的 where 含 status 谓词', async () => {
     hoisted.captured.length = 0
-    const actual = await vi.importActual<typeof mockedQueries>('../src/db/exam-queries.js')
+    const actual = await vi.importActual<typeof ExamQueries>('../src/db/exam-queries.js')
     await actual.findPublishedPapers({ page: 1, pageSize: 10 })
     expect(hoisted.captured.length).toBeGreaterThan(0)
     const sql = new PgDialect().sqlToQuery(hoisted.captured[0] as never).sql
@@ -167,7 +168,7 @@ describe('F-690 公开列表查询按 status 过滤(查询级)', () => {
 
   it('f) findPublishedPapersByIds 的 where 含 status 谓词', async () => {
     hoisted.captured.length = 0
-    const actual = await vi.importActual<typeof mockedQueries>('../src/db/exam-queries.js')
+    const actual = await vi.importActual<typeof ExamQueries>('../src/db/exam-queries.js')
     await actual.findPublishedPapersByIds([PAPER_ID])
     expect(hoisted.captured.length).toBeGreaterThan(0)
     const sql = new PgDialect().sqlToQuery(hoisted.captured[0] as never).sql

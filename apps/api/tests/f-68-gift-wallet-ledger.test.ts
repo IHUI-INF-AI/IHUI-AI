@@ -106,9 +106,11 @@ const server = {
 
 mocks.execute.mockResolvedValue({})
 mocks.select.mockImplementation((fields?: Record<string, unknown>) =>
-  makeChain(fields && 'nickname' in fields ? [{ nickname: '送礼人' }] : [
-    { id: 1, name: '火箭', price: 10, status: 1 },
-  ]),
+  makeChain(
+    fields && 'nickname' in fields
+      ? [{ nickname: '送礼人' }]
+      : [{ id: 1, name: '火箭', price: 10, status: 1 }],
+  ),
 )
 await liveGiftsRoutes(server as never, {} as never)
 
@@ -138,10 +140,7 @@ beforeEach(() => {
 describe('F-68 礼物统一到钱包主账本', () => {
   it('钱包 100 的用户送礼成功:扣 user_margins 并写 token_flows(opType=1)', async () => {
     const reply = makeReply()
-    await SEND(
-      { userId: 'u1', params: { id: '1' }, body: { quantity: 1, liveId: 9 } },
-      reply,
-    )
+    await SEND({ userId: 'u1', params: { id: '1' }, body: { quantity: 1, liveId: 9 } }, reply)
 
     expect(reply.statusCode).toBe(200)
     expect(store.wallet).toBe(90)
@@ -159,10 +158,7 @@ describe('F-68 礼物统一到钱包主账本', () => {
   it('余额不足时 400 且不写 token_flows', async () => {
     store.wallet = 5
     const reply = makeReply()
-    await SEND(
-      { userId: 'u1', params: { id: '1' }, body: { quantity: 1, liveId: 9 } },
-      reply,
-    )
+    await SEND({ userId: 'u1', params: { id: '1' }, body: { quantity: 1, liveId: 9 } }, reply)
 
     expect(reply.statusCode).toBe(400)
     expect(store.giftFlows).toHaveLength(0)

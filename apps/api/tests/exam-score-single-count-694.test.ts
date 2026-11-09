@@ -162,7 +162,9 @@ describe('F-694 阅卷分数按终态只计一次', () => {
     // checkAndUpdateStatus: submitted→graded
     db.update.mockReturnValueOnce(chain([{ ...prev, status: 'graded' }]))
     // 写入最终分
-    db.update.mockReturnValueOnce(chain([{ ...prev, status: 'graded', score: '50', isPassed: false }]))
+    db.update.mockReturnValueOnce(
+      chain([{ ...prev, status: 'graded', score: '50', isPassed: false }]),
+    )
 
     const updated = await gradeExam(RECORD_ID, 50)
 

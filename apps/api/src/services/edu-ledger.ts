@@ -652,11 +652,7 @@ export async function recordRefund(input: {
         throw new AppError('退费关联的缴费流水不存在或已删除', 400, 'EDU_REFUND_PAYMENT_NOT_FOUND')
       }
       if (pay.studentId !== input.studentId || pay.classId !== input.classId) {
-        throw new AppError(
-          '退费学员/班级与关联缴费流水不一致',
-          400,
-          'EDU_REFUND_OWNER_MISMATCH',
-        )
+        throw new AppError('退费学员/班级与关联缴费流水不一致', 400, 'EDU_REFUND_OWNER_MISMATCH')
       }
       const [refunded] = await tx
         .select({ sum: sql<number>`COALESCE(SUM(${eduRefundRecord.amount}), 0)` })
@@ -721,10 +717,7 @@ export async function loadPaymentIncomeSummary(
   executor: LedgerExecutor,
   classId?: string | null,
 ): Promise<{ totalIncome: number; paidStudentCount: number }> {
-  const payConds: SQL[] = [
-    isNull(eduPaymentRecord.deletedAt),
-    eq(eduPaymentRecord.status, 'paid'),
-  ]
+  const payConds: SQL[] = [isNull(eduPaymentRecord.deletedAt), eq(eduPaymentRecord.status, 'paid')]
   const refundConds: SQL[] = [
     isNull(eduRefundRecord.deletedAt),
     inArray(eduRefundRecord.status, REFUND_SETTLED_STATUSES),
@@ -807,9 +800,7 @@ export async function settleRefund(input: {
       const [pay] = await tx
         .select({ amount: eduPaymentRecord.amount, status: eduPaymentRecord.status })
         .from(eduPaymentRecord)
-        .where(
-          and(eq(eduPaymentRecord.id, existing.paymentId), isNull(eduPaymentRecord.deletedAt)),
-        )
+        .where(and(eq(eduPaymentRecord.id, existing.paymentId), isNull(eduPaymentRecord.deletedAt)))
         .limit(1)
       if (pay && pay.status === 'paid') {
         const [total] = await tx

@@ -15,7 +15,10 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
-const ROUTE_SRC = readFileSync(join(HERE, '..', '..', 'routes', 'admin', 'channel-quota.ts'), 'utf8')
+const ROUTE_SRC = readFileSync(
+  join(HERE, '..', '..', 'routes', 'admin', 'channel-quota.ts'),
+  'utf8',
+)
 const SERVICE_SRC = readFileSync(join(HERE, '..', 'channel-quota-service.ts'), 'utf8')
 
 describe('DB-45 渠道用量批量聚合', () => {

@@ -108,6 +108,10 @@ READONLY_TOOLS: frozenset[str] = frozenset(
         "browser_select_option",
         "browser_switch_tab",
         "browser_close_tab",
+        # 运行时可观测 + 语言诊断(2026-11-08,均为只读)
+        "browser_console_messages",
+        "browser_network_requests",
+        "get_diagnostics",
     }
 )
 

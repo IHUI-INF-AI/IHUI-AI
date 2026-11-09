@@ -297,13 +297,17 @@ export function DistributionScreen() {
         }
       } catch {
         // 实名状态接口异常:按未实名拦截(与原项目「无认证信息则拦截」语义一致,fail-safe)
-        appAlert(t('distribution.withdrawNeedRealname'), t('distribution.withdrawNeedRealnameHint'), [
-          { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
-          {
-            text: t('distribution.withdrawRealnameGo'),
-            onPress: () => navigation.navigate('RealNameAuth' as never),
-          },
-        ])
+        appAlert(
+          t('distribution.withdrawNeedRealname'),
+          t('distribution.withdrawNeedRealnameHint'),
+          [
+            { text: t('distribution.withdrawRealnameCancel'), style: 'cancel' },
+            {
+              text: t('distribution.withdrawRealnameGo'),
+              onPress: () => navigation.navigate('RealNameAuth' as never),
+            },
+          ],
+        )
         return
       }
       // 提现只能用可提现余额(availableCommission),待结算佣金不可提。

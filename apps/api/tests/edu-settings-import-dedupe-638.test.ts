@@ -32,7 +32,10 @@ const {
 }))
 
 vi.mock('../src/db/index.js', () => {
-  const makeChain = (entry: 'select' | 'insert' | 'update' | 'delete', resolver: () => unknown[]) => {
+  const makeChain = (
+    entry: 'select' | 'insert' | 'update' | 'delete',
+    resolver: () => unknown[],
+  ) => {
     const step: Record<string, unknown> = {}
     for (const m of [
       'from',

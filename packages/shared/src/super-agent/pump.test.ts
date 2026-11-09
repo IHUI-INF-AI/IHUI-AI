@@ -114,6 +114,7 @@ describe('super-agent pump 行为', () => {
       reclaimed: ['ticket-gone'],
       slowJudged: 0,
       slowUnjudged: 0,
+      slowThrottled: false,
     })
     expect(dispatched).toEqual(['worker-ticket-1'])
     expect(p.calls).toContain('receive:t1:user-1')
@@ -170,6 +171,53 @@ describe('super-agent pump 行为', () => {
     const r = await pump.runOnce()
     expect(r.dispatched).toBe(0)
     expect(logs).toEqual(['dispatch_error:quota'])
+  })
+
+  it('慢路径节流：间隔内跳过判定且不静默，到点才真正调模型', async () => {
+    const c = fakeClock(0)
+    const host = new SuperAgentHost({ ...DEFAULT_SUPER_AGENT_POLICY, acceptMode: 'auto' }, c.clock)
+    host.receive(
+      {
+        id: 't1',
+        sourceId: 'src-1',
+        threadId: 'thread-1',
+        actorId: 'user-1',
+        addressed: false,
+        fromBot: false,
+        text: '疑似请求',
+      },
+      'user-1',
+    )
+    const port: TriggerSourcePort = {
+      sourceId: 'src-1',
+      ownerUserId: 'user-1',
+      fetchTriggers: async () => [],
+    }
+    let calls = 0
+    const pump = new SuperAgentPump(
+      host,
+      () => [port],
+      async () => ({ ok: true }),
+      {
+        now: c.clock.now,
+        slowJudge: async () => {
+          calls += 1
+          return {}
+        },
+        slowJudgeMinIntervalMs: 60_000,
+      },
+    )
+    const first = await pump.runOnce()
+    expect(calls).toBe(1)
+    expect(first.slowThrottled).toBe(false)
+    c.tick(30_000)
+    const second = await pump.runOnce()
+    expect(calls).toBe(1)
+    expect(second).toMatchObject({ slowJudged: 0, slowThrottled: true })
+    c.tick(30_000)
+    const third = await pump.runOnce()
+    expect(calls).toBe(2)
+    expect(third.slowThrottled).toBe(false)
   })
 
   it('与真控制面联动：租约到期由泵回收并重新派发（端到端语义钉）', async () => {
