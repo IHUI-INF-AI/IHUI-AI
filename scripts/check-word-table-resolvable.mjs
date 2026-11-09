@@ -93,6 +93,13 @@ import {
   decodeTaroBundle,
 } from './check-tool-display-resolvable.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+// 合并提交的“本次新增”判据(唯一一份):父集 = HEAD ∪ MERGE_HEAD;非合并时父集只有 HEAD。
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LANGS = ['zh-CN', 'zh-TW', 'en', 'ja', 'ko']
@@ -1132,18 +1139,45 @@ export function splitScatteredRatchet(pendingByFile, headCountOf) {
   return { fresh, tolerated }
 }
 
+/**
+ * 合并档的逐文件棘轮:锚点 = `结果面读数 − newOccurrences(...)`。
+ * 判据本身一个字不动(`list.length > tol`);只是把 tol 从「HEAD 自身存量」换成
+ * 「HEAD ∪ MERGE_HEAD 各父自身存量在多重集意义下的有效锚点」。非合并一律走
+ * `splitScatteredRatchet`(父集只有 HEAD),两者逐字等价。
+ */
+export function splitScatteredRatchetWithParents(pendingByFile, parentKeyListsOf) {
+  const fresh = []
+  let tolerated = 0
+  const anchors = new Map()
+  for (const [file, list] of pendingByFile) {
+    const resultKeys = list.map((v) => `${v.field}:${v.key}`)
+    const parentKeys = parentKeyListsOf(file) || []
+    const tol = effectiveAnchorCount(
+      resultKeys.length,
+      newOccurrences(resultKeys, parentKeys).length,
+    )
+    anchors.set(file, tol)
+    if (list.length > tol) fresh.push({ file, list, tol })
+    else tolerated += list.length
+  }
+  return { fresh, tolerated, anchors }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI
 // ─────────────────────────────────────────────────────────────────────────────
 
-function stagedFiles() {
+function stagedFiles(root = ROOT) {
   try {
-    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], ROOT)
+    return gitRaw(['diff', '--cached', '--name-only', '--diff-filter=ACMR'], root)
       .split('\n')
       .map((s) => s.trim().replace(/\\/g, '/'))
       .filter(Boolean)
-  } catch {
-    return null
+  } catch (e) {
+    // 取不到暂存清单 ≠ 暂存区为空。改前这里 return null,调用方把它当成
+    // "git 不可用 → 全表回归",于是用索引面读全表、却仍报成暂存面结论(§0.4 面混用);
+    // 真取不到必须落未判定,由 CLI 统一 exit 2。
+    throw new Undetermined(`暂存区清单取不到:${String(e?.message ?? e).split('\n')[0]}`)
   }
 }
 
@@ -1189,10 +1223,9 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
   if (staged) {
     mode = 'staged'
     const touchesCorpus =
-      st && (st.some((f) => f.startsWith('packages/i18n/messages/')) || st.includes(TARO_GEN))
-    const touchesCode = st && st.some((f) => f.startsWith('apps/') || f.startsWith('packages/'))
-    if (!st) scope = '暂存区读不到(git 不可用)→ 全表回归'
-    else if (touchesCorpus) scope = '暂存区触及消息语料或离线包 → 全表回归'
+      st.some((f) => f.startsWith('packages/i18n/messages/')) || st.includes(TARO_GEN)
+    const touchesCode = st.some((f) => f.startsWith('apps/') || f.startsWith('packages/'))
+    if (touchesCorpus) scope = '暂存区触及消息语料或离线包 → 全表回归'
     else if (touchesCode)
       // 只按"暂存文件里有没有词表"收窄会漏:新接线一个消费端(改 apps/**)就把原本无人消费的
       // 词表变成真缺口,而词表文件本身没动 —— 所以端内/包内任何源码改动都回归全表。
@@ -1269,15 +1302,55 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
     if (text === null) return 0
     return evaluateScatteredKeys({ file, text, universe: headUniverse }).length
   }
-  const { fresh: scatteredFresh, tolerated: scatteredTolerated } = splitScatteredRatchet(
-    pendingByFile,
-    headCountOf,
-  )
+  // 合并未收口时,索引面里由上游带进来的既有违规不该记本次新增:锚点面改为 HEAD ∪ MERGE_HEAD。
+  let mergeDelta = null
+  try {
+    const d = deltaParents({ root: ROOT, face })
+    if (d.applicable && d.merge) mergeDelta = d
+  } catch (e) {
+    throw new UndeterminedError(`合并父集取不到:${e?.message ?? e}`)
+  }
+  let scatteredFresh
+  let scatteredTolerated
+  let scatteredAnchors = null
+  if (mergeDelta && pendingByFile.size > 0) {
+    const parentTexts = readParentTexts({
+      root: ROOT,
+      rels: [...pendingByFile.keys(), ...corpusRelPaths()],
+      parents: mergeDelta.parents,
+    })
+    const parentUniverses = new Map()
+    for (const p of mergeDelta.parents) {
+      const map = parentTexts.get(p.label)
+      parentUniverses.set(
+        p.label,
+        buildKeyUniverse({ label: `${p.label} 语料`, read: (rel) => map.get(rel) ?? null }),
+      )
+    }
+    const parentKeyListsOf = (file) =>
+      mergeDelta.parents.map((p) => {
+        const text = parentTexts.get(p.label).get(file)
+        if (typeof text !== 'string') return []
+        return evaluateScatteredKeys({ file, text, universe: parentUniverses.get(p.label) }).map(
+          (v) => `${v.field}:${v.key}`,
+        )
+      })
+    const r = splitScatteredRatchetWithParents(pendingByFile, parentKeyListsOf)
+    scatteredFresh = r.fresh
+    scatteredTolerated = r.tolerated
+    scatteredAnchors = r.anchors
+  } else {
+    ;({ fresh: scatteredFresh, tolerated: scatteredTolerated } = splitScatteredRatchet(
+      pendingByFile,
+      headCountOf,
+    ))
+  }
+  const anchorFace = scatteredAnchors ? 'HEAD ∪ MERGE_HEAD' : 'HEAD'
   for (const { file, list, tol } of scatteredFresh) {
     for (const v of list)
       failures.push({
         ...v,
-        why: `${v.why}(该文件 HEAD 自身已有 ${tol} 处,本次 ${list.length} 处 —— 本门只拦超出的那部分)`,
+        why: `${v.why}(该文件${anchorFace} 自身已有 ${tol} 处,本次 ${list.length} 处 —— 本门只拦超出的那部分)`,
         table: { file, line: v.line, name: '散落取词(W6)' },
       })
   }
@@ -1311,7 +1384,7 @@ export function run({ staged = false, json = false, quiet = false, worktree = fa
         .map(([file, list]) => ({
           file,
           count: list.length,
-          headCount: headCountOf(file),
+          headCount: scatteredAnchors ? (scatteredAnchors.get(file) ?? 0) : headCountOf(file),
           keys: list.map((v) => `${v.key}@${v.line}`),
         }))
         .sort((a, b) => b.count - a.count || a.file.localeCompare(b.file)),
@@ -2001,6 +2074,7 @@ function selfTest() {
 }
 
 export const __test__ = {
+  stagedFiles,
   stripComments,
   scanObjectLiterals,
   discoverWordTables,

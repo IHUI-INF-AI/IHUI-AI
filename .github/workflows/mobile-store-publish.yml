@@ -1,0 +1,258 @@
+# © 2026 IHUI AI (智汇AI) · 版权所有者: 李春川 (Li Chunchuan) · https://aizhs.top
+# Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
+# [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
+
+name: Publish Android to Stores
+
+# 自动发布到应用商店(2026-11-08 立)
+#
+# 与 mobile-apk-build.yml 的分工:那边是 **dev 包**(debug 签名、禁发布、只做自装验证);
+# 本文件是 **正式包 + 商店提交**:正式签名(keystore 只从 Secrets 注入)、arm64 单 ABI(对齐体积基线)、
+# 产物验收用 release 档(验签 + 体积),发布腿交给 scripts/publish-stores.mjs。
+#
+# 双触发(用户 2026-11-08 选定):
+#   - push tag `v*`            ⇒ 立即 execute(无人值守);required 默认 google-play
+#   - workflow_dispatch        ⇒ 默认 dry-run(勾 execute 才真发)
+#
+# 需要配置的 Secrets(缺任何一个,正式构建会**在配置期失败**,不产出 debug 签名的冒牌货):
+#   IHUI_RELEASE_KEYSTORE_BASE64   正式 keystore 的 base64(整份文件)
+#   IHUI_RELEASE_STORE_PASSWORD    keystore 口令
+#   IHUI_RELEASE_KEY_ALIAS         密钥别名
+#   IHUI_RELEASE_KEY_PASSWORD      密钥口令
+#   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON  Play 服务账号 JSON 全文(androidpublisher v3 直连)
+#
+# 可选(各国内商店 + APKPure;缺哪家哪家落 blocked,不拖累被点名的其他店):
+#   HUAWEI_CONNECT_CLIENT_ID / HUAWEI_CONNECT_CLIENT_SECRET / HUAWEI_CONNECT_APP_ID
+#   XIAOMI_DEVUSER_EMAIL / XIAOMI_API_PRIVATE_KEY
+#   OPPO_CLIENT_ID / OPPO_CLIENT_SECRET / OPPO_SUBMIT_JSON(素材表单,整体 JSON 字符串)
+#   VIVO_ACCESS_KEY / VIVO_ACCESS_SECRET
+#   YYB_USER_ID / YYB_ACCESS_SECRET / YYB_APP_ID
+#   YYB_ASSUME_FIRST_PUBLISHED  仓库 Variable;=1 表示该包名已在应用宝后台人工上线(官方政策:API 不接首包)
+#   HONOR_CLIENT_ID / HONOR_CLIENT_SECRET / HONOR_APP_ID(仅 token+app-id 已核实,上传/提审仍零调用)
+#   RESEND_API_KEY / RESEND_FROM   APKPure 提交请求函的发信凭据;缺则 APKPure 落 blocked(不判红)
+#   APKPURE_DOWNLOAD_URL           APK 公网直链;缺省读 scripts/data/mobile-download-leg.json 的 downloadUrl
+#                                  (发信前请确认该直链已是本次构建,邮件里的 SHA-256 是本地产物实测值)
+#   APKPURE_CONTACT                开发者联系邮箱(邮件字段;缺则邮件不齐,不会硬发)
+#   APKPURE_RELEASE_NOTES          可选:官方公开页未列为必填;有则写入邮件 What's new,无则省略该行(不编造)
+#
+# APKPure 无公开上传 API;官方入口是登录型开发者控制台 developer.apkpure.com(公开页 apkpure.com/submit-apk 也导向它)。
+# support@apkpure.com / business@apkpure.com 是联系地址,邮件是"提交请求"而非官方提交入口;
+# 发送动作已机器化:--send 只打印计划,发布步骤带 --execute 才经 Resend 投出。
+#
+# Play 不再使用 EXPO_TOKEN / EAS Submit:服务账号私钥只在进程内存里签 JWT,不落工作树。
+#
+# 为什么跳过 expo prebuild:本仓 apps/mobile-rn/android 已入库,且含权限声明修复
+# (SYSTEM_ALERT_WINDOW 移除 / REQUEST_INSTALL_PACKAGES 保留)。prebuild 会重新生成清单,
+# 把这些已验收的修改冲掉 ⇒ 正式包只跑 gradle,清单以入库版本为准。
+#
+# 版本号:tag 构建走 release 口径(tag 里的语义版本);versionCode 由 UTC YYMMDDHH 派生
+# (与 app.config.js 同规则),也可用 workflow_dispatch 的 version_code 显式覆盖。
+# Play 拒绝同号重传 ⇒ 同一小时内重复发布必须手工填更大的 version_code。
+
+on:
+  workflow_dispatch:
+    inputs:
+      required:
+        description: '必须成功的商店(逗号分隔;未点名的商店只进可见清单,不判红)'
+        required: false
+        default: 'google-play'
+      execute:
+        description: '真正提交(不勾 = dry-run,零出网)'
+        type: boolean
+        default: false
+      version_code:
+        description: 'versionCode(留空 = 当前 UTC 时间派生 YYMMDDHH)'
+        required: false
+        default: ''
+  push:
+    tags: ['v*']
+
+concurrency:
+  # 发版不可被新提交挤掉:同 ref 串行,不取消在跑的那次
+  group: android-store-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # 生产基址必须覆盖到 gradle 的 createBundleReleaseJsAndAssets(见 mobile-apk-build.yml
+    # 2026-10-13 那次事故:只挂 prebuild 会让 localhost:8802 被内联进 JS)
+    env:
+      EXPO_PUBLIC_API_BASE_URL: https://www.aizhs.top
+      EXPO_PUBLIC_WS_BASE_URL: https://api.aizhs.top
+      EXPO_PUBLIC_WEB_URL: https://aizhs.top
+      STORE_EXECUTE: ${{ github.event_name == 'push' || inputs.execute }}
+      STORE_REQUIRED: ${{ inputs.required || 'google-play' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        # 不指定 version:仓库 packageManager=pnpm@11.18.0,action 自动读取
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Setup Java (Temurin 17)
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # runner 已预装 SDK;不引 android-actions/setup-android(其版本判定会把 cmdline-tools 16.0
+      # 读成 Wrong version,再去装已下架的 `tools` 包而失败 —— 2026-09-15 事故)。
+      - name: Setup Android SDK (runner 预装,仅接受 licenses)
+        run: |
+          SDK_ROOT="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -1)"
+          fi
+          "$SDKMANAGER" --version || true
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # 共享包 exports 指向 dist(产物不入库)⇒ gradle 的 JS 打包阶段需要它们先建好
+      - name: Build mobile-rn's workspace deps (topological closure)
+        run: pnpm --filter "@ihui/mobile-rn^..." run build
+
+      - name: Resolve version (tag ⇒ release 口径;versionCode = UTC YYMMDDHH 或显式覆盖)
+        run: |
+          KIND=nightly
+          TAG=""
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then KIND=release; TAG="$GITHUB_REF_NAME"; fi
+          VERSION=$(node scripts/resolve-mobile-version.mjs --app mobile-rn --kind "$KIND" --tag "$TAG" --emit stdout)
+          VC="${{ inputs.version_code }}"
+          if [ -z "$VC" ]; then VC=$(date -u +%y%m%d%H); fi
+          {
+            echo "IHUI_MOBILE_VERSION=$VERSION"
+            echo "EXPO_PUBLIC_IHUI_MOBILE_VERSION=$VERSION"
+            echo "IHUI_VERSION_CODE=$VC"
+            echo "IHUI_ARTIFACT_BASENAME=ihui-ai-$VERSION-$VC"
+          } >> "$GITHUB_ENV"
+          echo "versionName=$VERSION versionCode=$VC"
+
+      # 与本地 build-mobile-rn-release.ps1 共用同一份门链实现;任一红即中止,不产出可发布产物
+      - name: Release gate chain (typecheck → RN tests → version-code → base-bake)
+        run: node scripts/mobile-release-gate.mjs
+
+      # 正式签名凭据只从 Secrets 注入;落成 Gradle 与 artifact-check 都认的两种文件形态
+      # (~/.android/ihui-release.keystore + ~/.gradle/gradle.properties 四键)。
+      # 缺任何一枚就**显式失败**:绝不让 build.gradle 回退 debug.keystore 产出冒牌正式包。
+      - name: Stage signing credentials (Secrets → keystore + gradle.properties)
+        env:
+          KEYSTORE_B64: ${{ secrets.IHUI_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.IHUI_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.IHUI_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.IHUI_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for n in KEYSTORE_B64 STORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!n:-}" ]; then
+              echo "::error::Secrets 缺 $n —— 正式签名包拒绝在缺凭据时构建(§render 2026-11-04 签名纪律)"
+              missing=1
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then exit 1; fi
+          mkdir -p "$HOME/.android" "$HOME/.gradle"
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$HOME/.android/ihui-release.keystore"
+          chmod 600 "$HOME/.android/ihui-release.keystore"
+          {
+            echo "IHUI_RELEASE_STORE_FILE=$HOME/.android/ihui-release.keystore"
+            echo "IHUI_RELEASE_STORE_PASSWORD=$STORE_PASSWORD"
+            echo "IHUI_RELEASE_KEY_ALIAS=$KEY_ALIAS"
+            echo "IHUI_RELEASE_KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$HOME/.gradle/gradle.properties"
+          chmod 600 "$HOME/.gradle/gradle.properties"
+          echo "凭据已就位(keystore $(wc -c < "$HOME/.android/ihui-release.keystore") B)"
+
+      # 不加 -PallowDebugSigning:那面旗是 dev 包专用;正式包必须由上面的四键签出
+      - name: Build release APK + AAB (正式签名, arm64 单 ABI)
+        working-directory: apps/mobile-rn/android
+        run: >-
+          ./gradlew :app:assembleRelease :app:bundleRelease --no-daemon
+          -PversionCode="$IHUI_VERSION_CODE"
+          -PversionName="$IHUI_MOBILE_VERSION"
+          -PreactNativeArchitectures=arm64-v8a
+
+      - name: Prepare artifacts
+        run: |
+          cp apps/mobile-rn/android/app/build/outputs/apk/release/app-release.apk "./${IHUI_ARTIFACT_BASENAME}.apk"
+          cp apps/mobile-rn/android/app/build/outputs/bundle/release/app-release.aab "./${IHUI_ARTIFACT_BASENAME}.aab"
+          ls -lh ./*.apk ./*.aab
+
+      # release 档:比对正式证书 SHA-256 + 体积基线 + 版本号,三项任一红即中止
+      - name: Verify release APK/AAB (signature + size baseline + versionCode)
+        run: >-
+          node scripts/mobile-release-artifact-check.mjs --mode release
+          --apk "./${IHUI_ARTIFACT_BASENAME}.apk"
+          --aab "./${IHUI_ARTIFACT_BASENAME}.aab"
+          --version-code "$IHUI_VERSION_CODE"
+
+      # 材料包对账:权限 ⇄ 用途文案 ⇄ 隐私政策三方对账后才产出各厂商提交包。
+      # 对账不过时**不伪造就绪**,只让国内各店在发布步骤里各自报缺件(点名不进绿)。
+      - name: Prepare store submission bundles (materials reconciliation)
+        run: |
+          set -euo pipefail
+          node scripts/prepare-store-bundle.mjs --write || echo "::warning::材料对账未过 ⇒ 国内商店将各自报缺件(不伪造就绪)"
+
+      # 发布矩阵:能自动的自动(Play 直连 / 华为 / 小米 / OPPO / vivo / 应用宝 / APKPure 提交请求函),
+      # 不能的明说(荣耀上传与提审正文仍在登录墙内;APKPure 官方控制台需登录)
+      - name: Publish to stores (scripts/publish-stores.mjs)
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+          HUAWEI_CONNECT_CLIENT_ID: ${{ secrets.HUAWEI_CONNECT_CLIENT_ID }}
+          HUAWEI_CONNECT_CLIENT_SECRET: ${{ secrets.HUAWEI_CONNECT_CLIENT_SECRET }}
+          HUAWEI_CONNECT_APP_ID: ${{ secrets.HUAWEI_CONNECT_APP_ID }}
+          XIAOMI_DEVUSER_EMAIL: ${{ secrets.XIAOMI_DEVUSER_EMAIL }}
+          XIAOMI_API_PRIVATE_KEY: ${{ secrets.XIAOMI_API_PRIVATE_KEY }}
+          OPPO_CLIENT_ID: ${{ secrets.OPPO_CLIENT_ID }}
+          OPPO_CLIENT_SECRET: ${{ secrets.OPPO_CLIENT_SECRET }}
+          OPPO_SUBMIT_JSON: ${{ secrets.OPPO_SUBMIT_JSON }}
+          VIVO_ACCESS_KEY: ${{ secrets.VIVO_ACCESS_KEY }}
+          VIVO_ACCESS_SECRET: ${{ secrets.VIVO_ACCESS_SECRET }}
+          YYB_USER_ID: ${{ secrets.YYB_USER_ID }}
+          YYB_ACCESS_SECRET: ${{ secrets.YYB_ACCESS_SECRET }}
+          YYB_APP_ID: ${{ secrets.YYB_APP_ID }}
+          YYB_ASSUME_FIRST_PUBLISHED: ${{ vars.YYB_ASSUME_FIRST_PUBLISHED }}
+          HONOR_CLIENT_ID: ${{ secrets.HONOR_CLIENT_ID }}
+          HONOR_CLIENT_SECRET: ${{ secrets.HONOR_CLIENT_SECRET }}
+          HONOR_APP_ID: ${{ secrets.HONOR_APP_ID }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          APKPURE_DOWNLOAD_URL: ${{ vars.APKPURE_DOWNLOAD_URL }}
+          APKPURE_CONTACT: ${{ vars.APKPURE_CONTACT }}
+          APKPURE_RELEASE_NOTES: ${{ vars.APKPURE_RELEASE_NOTES }}
+          STORE_PACKAGE_NAME: zh.ai.sq
+          XIAOMI_SYNCHRO_TYPE: '1'
+        run: |
+          set -euo pipefail
+          export STORE_VERSION_CODE="${STORE_VERSION_CODE:-$IHUI_VERSION_CODE}"
+          args=(--apk "./${IHUI_ARTIFACT_BASENAME}.apk" --aab "./${IHUI_ARTIFACT_BASENAME}.aab" --json)
+          if [ -n "${STORE_REQUIRED}" ]; then args+=(--required "$STORE_REQUIRED"); fi
+          if [ "$STORE_EXECUTE" = "true" ]; then args+=(--execute); fi
+          echo "档位: execute=$STORE_EXECUTE required=$STORE_REQUIRED"
+          node scripts/publish-stores.mjs "${args[@]}"
+
+      - name: Upload artifacts (审计留档,不是商店发布)
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: ihui-ai-android-store-${{ github.run_number }}
+          path: |
+            ${{ env.IHUI_ARTIFACT_BASENAME }}.apk
+            ${{ env.IHUI_ARTIFACT_BASENAME }}.aab
+          if-no-files-found: warn
+# ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

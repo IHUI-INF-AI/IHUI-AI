@@ -343,6 +343,8 @@ export const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/roles', labelKey: 'roles', icon: Shield },
   { href: '/admin/permissions', labelKey: 'permissions', icon: Lock },
   { href: '/admin/workflows', labelKey: 'workflows', icon: Workflow },
+  // 人事部(HR,2026-11-09 立):部门/员工/考勤/请假独立板块,复用 @ihui/attendance-core 判定内核
+  { href: '/admin/hr-attendance', labelKey: 'dashboard', icon: Users, dynamicLabel: '人事部' },
   { href: '/admin/tags', labelKey: 'tags', icon: Tag },
   { href: '/admin/skills', labelKey: 'adminSkills', icon: Sparkles },
   { href: '/admin/skill-categories', labelKey: 'adminSkillCategories', icon: Tag },

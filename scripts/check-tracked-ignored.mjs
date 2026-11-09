@@ -29,6 +29,10 @@
  *    这也正是 AGENTS「tracked-but-ignored(236)…存量只报数」所写的口径。
  *  - **`--strict` 问责档(显式 opt-in,不进提交链、runner 也不追加)**:存量 > 0 ⇒ exit 1。
  *    人工清库存时用的尺子;默认档位里没有任何一条会因存量翻红。
+ *  - **保护名单档(2026-11-07 立,两档都查)**:`PROTECTED_TRACKED_PATHS` 里的路径只要**仍在索引里**
+ *    ⇒ 红(exit 1)并逐条点名。这一档判的是"是否仍被跟踪",与存量口径无关,不会因别的 ignored 存量恒红;
+ *    它补的是 `--staged`(`--diff-filter=A` 只看新增)与全量档(只报数)**都看不见**的那条回归路径 ——
+ *    从 HEAD 侧被合并/检出重新带回索引(那是 M,不是 A)。
  *
  * 为什么是"新增"而不是"全部":`.gitignore` 与既有意图本来就有一处不一致(见 README 里
  * `.ihui-agent/archive/` 那类"故意入库却整目录被忽略"的历史遗留),把存量判红就是恒红门,
@@ -157,6 +161,34 @@ function loadAdded(root) {
     .filter(Boolean)
 }
 
+/**
+ * 显式保护名单:这些路径**一旦仍被索引跟踪就必须判红**(2026-11-07 立)。
+ *
+ * 立因:商店凭据元数据 `scripts/data/app-store-credentials.json` 被一枚提交带进 HEAD 并推到远端
+ * (0feb8a8f16 / blob 90988a22)。实扫该 blob 无任何密钥模式,泄露面是内部密钥盘路径、法人主体与
+ * 证据文件路径,故处置是"移出版本控制 + 忽略 + 留脱敏模板",而非改历史。
+ *
+ * 为什么还要单列一条,而不是只靠 `.gitignore`:`--staged` 档只看 `--diff-filter=A` 的**新增**,
+ * 而这条路径可以从 HEAD 侧被合并/检出重新带回索引(那是 M 不是 A),靠 ignore 命不中;
+ * 全量档又只报数、永不判红。于是"重新被跟踪"这个真实回归路径没有任何一道门在看。
+ * 本档只判"是否仍被索引跟踪",与存量口径无关,不会因别的 ignored 存量而恒红。
+ */
+export const PROTECTED_TRACKED_PATHS = ['scripts/data/app-store-credentials.json']
+
+/** 纯判据:给定 tracked 路径集合,返回仍被跟踪的保护项(保序)。 */
+export function classifyProtectedTracked(trackedPaths, protectedPaths = PROTECTED_TRACKED_PATHS) {
+  const set = new Set(trackedPaths)
+  return protectedPaths.filter((p) => set.has(p))
+}
+
+/** 取索引里仍被跟踪的保护项。取不到就抛(调用方落 exit 2)。 */
+function loadProtectedTracked(root) {
+  const tracked = git(['ls-files', '-z', '--', ...PROTECTED_TRACKED_PATHS], {}, root)
+    .split('\0')
+    .filter(Boolean)
+  return classifyProtectedTracked(tracked)
+}
+
 /** 全量档名录打印上限(纯展示闸;超出的条数必须显式报出,不许静默截断)。 */
 const STOCK_PRINT_CAP = 50
 
@@ -177,8 +209,10 @@ export function evaluate(argv = [], { root = ROOT, ledger = null } = {}) {
   let added = []
   let bad = []
   let exempt = []
+  let protectedHits = []
   try {
     stock = loadStock(root)
+    protectedHits = loadProtectedTracked(root)
     if (staged) {
       added = loadAdded(root)
       bad = ignoredAmong(added, { root })
@@ -207,6 +241,26 @@ export function evaluate(argv = [], { root = ROOT, ledger = null } = {}) {
   }
 
   const stockNote = `存量(只报数)${stock.length} 条`
+
+  // ---- 显式保护名单:仍被索引跟踪 ⇒ 两档都判红(2026-11-07 立,见 PROTECTED_TRACKED_PATHS 注释)----
+  if (protectedHits.length > 0) {
+    return {
+      code: 1,
+      face,
+      added,
+      bad,
+      exempt,
+      stock,
+      protectedHits,
+      stdout: [],
+      stderr: [
+        `[tracked-ignored] 面=${face} 保护名单命中 ${protectedHits.length} 条 —— 这些路径不得被版本控制跟踪`,
+        ...protectedHits.map((p) => `  ✗ ${p} —— 仍在索引里`),
+        '  修法:git rm --cached <path> 后把路径写进 .gitignore;仓库内只保留脱敏模板',
+        '  (scripts/data/app-store-credentials.example.json)。不要用 git add -f 绕过。',
+      ],
+    }
+  }
 
   // ---- 全量/HEAD 档:只报数,exit 0(判存量 = 恒红门,§12e)----
   if (!staged) {
@@ -392,5 +446,5 @@ if (isDirectRun) {
   }
 }
 
-export const __test__ = { classifyAdded, ignoredAmong, classifyWithLedger, evaluate }
+export const __test__ = { classifyAdded, ignoredAmong, classifyWithLedger, classifyProtectedTracked, PROTECTED_TRACKED_PATHS, evaluate }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -36,6 +36,12 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, selectFace, assertRepoRoot, Undetermined } from './lib/face-reader.mjs'
 import { requireFlagValue } from './lib/flag-value.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import {
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+} from './lib/merge-delta.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -370,17 +376,42 @@ async function audit(root, face) {
       headCounts.set(rel, rec.text === null ? 0 : countBarePrefix(maskCode(rec.text, { strings: false })))
     }
   } else {
-    // 棘轮锚点恒取 HEAD(它是「这一族文件本来就有多少处」的定义,与被审面无关)
+    // 棘轮锚点 = 各**父提交**的同一文件违规数(非合并只有 HEAD;合并未收口时 HEAD ∪ MERGE_HEAD……)。
+    // 有效锚点 = 读数 − 本次真正新增数 ⇒ `读数 > 锚点 ⇔ 本次新增 > 0`,判据规则一个字不动。
     const rels = [...files.keys()].filter((r) => !isTestPath(r) && r !== BOUNDARY)
-    const specs = rels.map((rel) => `HEAD:${rel}`)
-    const blobs = specs.length ? catBatch(root, specs) : new Map()
-    rels.forEach((rel, i) => {
-      const t = blobs.get(specs[i])
-      headCounts.set(rel, t === null ? 0 : countBarePrefix(maskCode(t, { strings: false })))
-    })
+    const delta = deltaParents({ root, face })
+    const parentTexts = readParentTexts({ root, rels, parents: delta.parents })
+    const parentCounts = new Map(rels.map((rel) => [rel, []]))
+    for (const [, m] of parentTexts) {
+      for (const rel of rels) {
+        const t = m.get(rel)
+        parentCounts
+          .get(rel)
+          .push(t === null || t === undefined ? 0 : countBarePrefix(maskCode(t, { strings: false })))
+      }
+    }
+    for (const rel of rels) {
+      const rec = files.get(rel)
+      const cur = rec && rec.text !== null ? countBarePrefix(maskCode(rec.text, { strings: false })) : 0
+      headCounts.set(rel, anchorFromParents(cur, parentCounts.get(rel)))
+    }
   }
   void specOf
   return decide({ registryText, boundaryText, files, headCounts })
+}
+
+/**
+ * 计数型棘轮的有效锚点:`读数 − 本次真正新增数`(merge-delta 的唯一计数口径)。
+ * 非合并只有 HEAD 一枚父 ⇒ 新增数 = 结果 \ HEAD ⇒ 锚点与旧行为在判红上等价。
+ */
+export function anchorFromParents(currentCount, parentCounts) {
+  const n = Number(currentCount || 0)
+  if (!parentCounts || parentCounts.length === 0) return n
+  const fresh = newOccurrences(
+    new Array(n).fill('bare-prefix'),
+    parentCounts.map((c) => new Array(Number(c || 0)).fill('bare-prefix')),
+  )
+  return effectiveAnchorCount(n, fresh.length)
 }
 
 /* ------------------------------------------------------------------ 自检(纯构造面) */
@@ -586,6 +617,7 @@ export const __test__ = {
   countBarePrefix,
   usesOutlet,
   isTestPath,
+  anchorFromParents,
   BARE_PREFIX_RE,
   REGISTRY,
   BOUNDARY,

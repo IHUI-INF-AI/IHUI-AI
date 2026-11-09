@@ -1247,3 +1247,23 @@ test('形状锁:输入路径解析只有一份,门体必须两侧各按自己的
     )
   })
 }
+
+test('FA-1 MERGE_HEAD 存在但取不到合并父 ⇒ 未判定(不得按 cherry-pick 豁免判绿)', () => {
+  const { dir, run } = repo()
+  try {
+    put(dir, 'a.txt', 'one\n')
+    run('add', '-A')
+    run('commit', '-qm', 'base')
+    put(dir, 'a.txt', 'two\n')
+    run('add', '-A')
+    // 阴性对照:合并父指针存在但内容取不到(rev-parse 解不出)
+    writeFileSync(join(dir, '.git', 'MERGE_HEAD'), 'garbage\n', 'utf8')
+    const r = G.audit(dir, { staged: true })
+    const text = r.lines.join('\n')
+    assert.equal(r.code, 2, `合并父取不到必须落未判定,实际 code=${r.code}:${text}`)
+    assert.ok(text.includes('取不到合并父'), `必须点名根因:${text}`)
+    assert.ok(!text.includes('反回退守门通过'), '取不到合并父时不得判绿')
+  } finally {
+    rmScratch(dir)
+  }
+})

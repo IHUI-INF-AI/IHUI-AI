@@ -176,18 +176,69 @@ export function mask(v) {
   return `${s.slice(0, 4)}***${s.slice(-2)}(len=${s.length})`
 }
 
-/** 供各上传器共用:把"凭据/产物/材料包/通道"四格收成一行读数打印,并给退出码。 */
-export function gateStates({ creds, artifact, bundle, channel }) {
+/** 法定前置台账(唯一判据出口,§0.6):与 prepare-store-bundle.buildPlan 同一折叠顺序。 */
+export const LEGAL_LEDGER_REL = 'scripts/data/app-store-credentials.json'
+
+/** 每格 found 还必须带的证据字段(编号或证据件);缺 ⇒ 未判定,不记绿。 */
+export const LEGAL_EVIDENCE_FIELD = Object.freeze({
+  appIcpFiling: 'appFilingNumber',
+  softwareCopyright: 'certificateNumber',
+  securityAssessment: 'files',
+})
+
+/**
+ * 折出某店的法定前置三态。是否对本店生效,由台账每格自己的 requiredByStores 决定 ——
+ * 不在这里另抄一份"哪些店要软著"的表(抄一次就多一份真相)。
+ * - 台账读不到/解析失败/缺 legalPrereqs ⇒ 未判定(不判"没有资质")
+ * - statusNow=found 但证据字段空 ⇒ 未判定(账面 found 不等于在册)
+ * - missing / missing-evidence / missing-credential ⇒ 缺件
+ * - 该店不在任何格的 requiredByStores ⇒ 全绿且明说"本店无适用法定前置"
+ */
+export function resolveStoreLegalPrereqs({ store, root = ROOT, read = readFileSync, exists = existsSync } = {}) {
+  const p = join(root, LEGAL_LEDGER_REL)
+  if (!exists(p)) return { status: STATUS.UNJUDGED, detail: `${LEGAL_LEDGER_REL} 不存在 ⇒ 法定前置未判定`, cells: [] }
+  let j
+  try {
+    j = JSON.parse(read(p, 'utf8'))
+  } catch (e) {
+    return { status: STATUS.UNJUDGED, detail: `${LEGAL_LEDGER_REL} 解析失败(${e?.name ?? 'Error'})⇒ 未判定`, cells: [] }
+  }
+  const lp = j?.legalPrereqs
+  if (!lp || typeof lp !== 'object') return { status: STATUS.UNJUDGED, detail: `${LEGAL_LEDGER_REL} 无 legalPrereqs ⇒ 未判定`, cells: [] }
+  const rows = []
+  for (const [key, evidenceField] of Object.entries(LEGAL_EVIDENCE_FIELD)) {
+    const cell = lp[key]
+    if (!cell) {
+      rows.push({ key, status: STATUS.UNJUDGED, detail: `台账缺 legalPrereqs.${key} ⇒ 未判定` })
+      continue
+    }
+    if (!(Array.isArray(cell.requiredByStores) && cell.requiredByStores.includes(store))) continue
+    const now = String(cell.statusNow ?? '').trim()
+    const evidence = cell[evidenceField]
+    const hasEvidence = Array.isArray(evidence) ? evidence.length > 0 : String(evidence ?? '').trim().length > 0
+    if (now === 'found' && hasEvidence) rows.push({ key, status: STATUS.FOUND, detail: '在册' })
+    else if (now === 'found') rows.push({ key, status: STATUS.UNJUDGED, detail: `statusNow=found 但缺 ${evidenceField} ⇒ 未判定` })
+    else if (now === 'missing' || now === 'missing-evidence' || now === 'missing-credential') rows.push({ key, status: STATUS.MISSING, detail: `statusNow=${now} ⇒ 缺件` })
+    else rows.push({ key, status: STATUS.UNJUDGED, detail: `statusNow=${now || '(空)'} ⇒ 未判定` })
+  }
+  if (!rows.length) return { status: STATUS.FOUND, detail: `台账无任何一格把「${store}」列为 requiredByStores ⇒ 本店无适用法定前置`, cells: [] }
+  const exit = foldExit(rows.map((r) => r.status))
+  return { status: exit === 2 ? STATUS.UNJUDGED : exit === 1 ? STATUS.MISSING : STATUS.FOUND, detail: rows.map((r) => `${r.key}=${r.status}(${r.detail})`).join('; '), cells: rows }
+}
+
+/** 供各上传器共用:把"凭据/产物/材料包/通道"四格收成一行读数打印,并给退出码。法定前置有值时追加第五格。 */
+export function gateStates({ creds, artifact, bundle, channel, legal = null }) {
   const rows = [
     { k: '开发者凭据', ...creds },
     { k: '提交物', ...artifact },
     { k: '材料包(prepare-store-bundle 产物)', ...bundle },
     { k: '通道端点形态', ...channel },
+    ...(legal ? [{ k: '法定前置', status: legal.status, detail: legal.detail }] : []),
   ]
   return { rows, exit: foldExit(rows.map((r) => r.status)) }
 }
 
-export const __test__ = { STATUS, BUNDLE_DIR_REL, BUNDLE_FILES, channelOf, pickArtifact, loadBundle, resolveArtifact, unverifiedCall, buildDryRun, foldExit, describeStates, runSelfTest, mask, gateStates, fp }
+export const __test__ = { STATUS, BUNDLE_DIR_REL, BUNDLE_FILES, channelOf, pickArtifact, loadBundle, resolveArtifact, unverifiedCall, buildDryRun, foldExit, describeStates, runSelfTest, mask, gateStates, resolveStoreLegalPrereqs, LEGAL_LEDGER_REL, LEGAL_EVIDENCE_FIELD, fp }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {
@@ -213,6 +264,19 @@ if (isDirectRun) {
       { name: 'resolveArtifact stat 取不到 ⇒ UNJUDGED', fn: () => resolveArtifact({ file: '/x.apk', stat: () => { throw Object.assign(new Error('enoent'), { code: 'ENOENT' }) } }).status === STATUS.UNJUDGED },
       { name: 'buildDryRun 未核实段只出"零调用"字样,不出可执行 URL', fn: () => { const d = buildDryRun({ vendorId: 'x', calls: [{ intent: '上传', verified: false }] }); return d.calls.length === 1 && d.calls[0].includes('零调用') && !d.calls[0].includes('http') } },
       { name: 'gateStates 四格齐绿才 0,任一格未判定即 2', fn: () => { const cell = (status) => ({ status, detail: '' }); const ok = gateStates({ creds: cell(STATUS.FOUND), artifact: cell(STATUS.FOUND), bundle: cell(STATUS.FOUND), channel: cell(STATUS.FOUND) }).exit; const bad = gateStates({ creds: cell(STATUS.UNJUDGED), artifact: cell(STATUS.FOUND), bundle: cell(STATUS.FOUND), channel: cell(STATUS.FOUND) }).exit; return ok === 0 && bad === 2 } },
+      { name: 'gateStates legal 格参与折叠:缺件 ⇒ 1,未判定 ⇒ 2,缺省不添第五格', fn: () => { const cell = (status) => ({ status, detail: '' }); const base = { creds: cell(STATUS.FOUND), artifact: cell(STATUS.FOUND), bundle: cell(STATUS.FOUND), channel: cell(STATUS.FOUND) }; return gateStates({ ...base, legal: cell(STATUS.MISSING) }).exit === 1 && gateStates({ ...base, legal: cell(STATUS.UNJUDGED) }).exit === 2 && gateStates(base).rows.length === 4 && gateStates({ ...base, legal: cell(STATUS.FOUND) }).rows.some((r) => r.k === '法定前置') } },
+      { name: 'resolveStoreLegalPrereqs:三格齐 found ⇒ FOUND;安评缺 ⇒ MISSING;台账读不到 ⇒ 未判定', fn: () => {
+        const mk = (over = {}) => JSON.stringify({ legalPrereqs: {
+          appIcpFiling: { statusNow: 'found', appFilingNumber: '吉ICP备2025027274号-7A', requiredByStores: ['vivo'] },
+          softwareCopyright: { statusNow: 'found', certificateNumber: '2025SR1904590', requiredByStores: ['vivo'] },
+          securityAssessment: { statusNow: 'found', files: ['a.png'], requiredByStores: ['vivo'] },
+          ...over,
+        } })
+        const ok = resolveStoreLegalPrereqs({ store: 'vivo', read: () => mk() })
+        const noAssess = resolveStoreLegalPrereqs({ store: 'vivo', read: () => mk({ securityAssessment: { statusNow: 'missing-evidence', requiredByStores: ['vivo'] } }) })
+        const unread = resolveStoreLegalPrereqs({ store: 'vivo', read: () => { throw Object.assign(new Error('x'), { name: 'ENOENT' }) } })
+        return ok.status === STATUS.FOUND && noAssess.status === STATUS.MISSING && /securityAssessment/.test(noAssess.detail) && unread.status === STATUS.UNJUDGED
+      } },
     ]).then((code) => process.exit(code))
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

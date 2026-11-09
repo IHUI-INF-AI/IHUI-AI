@@ -14,6 +14,11 @@ browser_test_output/
 # 「收编未提交改动」的自动 git add 收进历史。与上面 .screenshots/ 同型:既已在守门 44
 # 白名单登记(scripts/check-root-dir-clean.mjs:335),也进忽略层,不搬不删。
 .runtime/
+# 商店截图打包副本的落点(2026-11-09):apps/mobile-rn/store-assets/_bundle-*/ 是脚本把
+# <vendor>/screenshots/ 汇成六店打包副本的中间目录,其 MANIFEST 明写「不可直接提审、未回流
+# 正式目录」。源图齐了之后精修、再复制进正式 screenshots/ 入库;副本本身永不入库。
+# 与上面 .screenshots/ 同型:只登记忽略层,不搬不删他人现场。
+apps/mobile-rn/store-assets/_bundle-*/
 # curl 导出的 Netscape cookie 文件(临时)
 cookies.txt
 apps/web/out/
@@ -654,6 +659,14 @@ deploy/win/.alert-quiet-ledger.jsonl
 
 # 非本仓交付物(别的项目的 PDF/HTML 产物)误落在仓根;§28 让被忽略的一级条目进只告警层,免得每席位提交都撞应急档
 /deliverables/
+
+# ============================================================================
+# 商店凭据元数据（2026-11-07 移出版本控制）
+# 该文件含内部密钥盘路径、法人主体与证据文件路径；仓库里只保留脱敏模板
+# scripts/data/app-store-credentials.example.json。守门：scripts/check-tracked-ignored.mjs。
+# 本机真实文件保留在磁盘，不入库；其他机器按 example 自行放置。
+# ============================================================================
+scripts/data/app-store-credentials.json
 
 # 并行会话探针残留落点(2026-11-05 现读:两者均未被任何既有规则命中、均未被跟踪):
 # 前者是小程序端 ad-hoc 探针的临时目录,后者是 e2e 的一次性调试脚本,都不是交付物

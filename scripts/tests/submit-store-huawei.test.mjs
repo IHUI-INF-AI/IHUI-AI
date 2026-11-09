@@ -11,6 +11,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
+import { createVerify, generateKeyPairSync, constants as cryptoConstants } from 'node:crypto'
 import { join } from 'node:path'
 
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
@@ -49,7 +50,7 @@ test('H2 resolveCredentials:env 优先且脱敏;文件只有 HMS 枚 ⇒ MISSING
     writeFileSync(join(dir, '华为appid 密钥.txt'), `应用ID:100000\n密钥:${SECRET}`, 'utf8')
     const legacy = H.resolveCredentials({ root: dir, env: {} })
     assert.equal(legacy.status, 'missing')
-    assert.match(legacy.detail, /Connect API/, '出路必须点名 AGC「用户与权限→Connect API」')
+    assert.match(legacy.detail, /服务账号凭证|API客户端凭证/, '出路必须点名 AGC 服务账号凭证或 API 客户端凭证')
     assert.equal(legacy.value, null, '类型不对时不得把凭据递下去')
     assert.ok(!JSON.stringify(legacy).includes(SECRET), '脱敏:整条结论不含原文')
     const dir2 = mkScratch('hw-cred2')
@@ -69,7 +70,8 @@ test('H3 buildPaths:端点形态逐字钉住(404 是路径错,不是对方拒绝
   assert.equal(P.appInfo('100000'), 'https://connect-api.cloud.huawei.com/api/publish/v2/app-info?appId=100000')
   assert.match(P.uploadUrl({ appId: '1', fileName: 'a.apk', contentLength: '2048' }), /upload-url\/for-obs\?appId=1&fileName=a\.apk&contentLength=2048&releaseType=1$/)
   assert.deepEqual(P.authHeaders('tok'), { Authorization: 'Bearer tok', client_id: 'cid-1' })
-  assert.equal(H.ENDPOINTS.submit.verified, false, '提交发布未核实 ⇒ 结构上不许有路径')
+  assert.equal(H.ENDPOINTS.submit.verified, true, '提交发布端点已核实才允许有路径')
+  assert.equal(H.ENDPOINTS.submit.path, '/api/publish/v2/app-submit', '提交发布路径必须逐字钉住')
 })
 
 test('H4 classifyRet:0/205524993/HTML/5xx 四态不并桶', () => {
@@ -148,8 +150,9 @@ test('H9 verify 段:四格齐才绿;缺格点名;MD5 不一致 MISSING', () => {
   const plan = { fileName: 'a.apk', contentLength: '1024', fileMd5: 'm1' }
   const up = { status: 'found', objectId: 'OBJ', fileMd5: 'm1' }
   const st = { status: 'found', releaseState: 4 }
-  assert.equal(H.mergeVerify({ plan, upload: up, status: st }).status, 'found')
-  assert.equal(H.mergeVerify({ plan, upload: up, status: st }).submit, 'endpoint-unverified-zero-call', '校验段不许顺手提交发布')
+  assert.equal(H.mergeVerify({ plan, upload: up, status: st }).status, 'missing', '缺提审回执不得报 found')
+  assert.equal(H.mergeVerify({ plan, upload: up, status: st }).submit, 'not-submitted', '校验段缺提审回执必须点名')
+  assert.equal(H.mergeVerify({ plan, upload: up, status: st, submit: { status: 'found', detail: 'ok' } }).status, 'found')
   assert.deepEqual(H.mergeVerify({ plan, upload: { status: 'unjudged' }, status: null }).gaps, ['上传回执(objectId)', '回读 releaseState'])
   assert.equal(H.mergeVerify({ plan, upload: { status: 'found', objectId: 'O', fileMd5: 'other' }, status: st }).status, 'missing')
 })
@@ -163,7 +166,7 @@ test('H10 登记腿 argv:store=huawei 恒在,dry-run 不带 --apply', () => {
 
 test('H11 parseArgs 与 dry-run:未知参数抛错、phase 白名单、默认档零调用', () => {
   assert.throws(() => H.parseArgs(['--nope']), /未知参数/)
-  assert.throws(() => H.parseArgs(['--phase', 'submit']), /status\|upload\|verify\|all/)
+  assert.throws(() => H.parseArgs(['--phase', 'nope']), /status\|upload\|submit\|verify\|all/)
   let touched = 0
   const orig = globalThis.fetch
   globalThis.fetch = async () => {
@@ -174,10 +177,46 @@ test('H11 parseArgs 与 dry-run:未知参数抛错、phase 白名单、默认档
     const d = H.dryRunPlan({ args: { phase: 'status', appId: '1' }, creds: { status: 'missing', detail: 'x', value: null }, plan: null })
     assert.equal(d.calls.length, 5)
     assert.match(d.calls[1], /app-info\?appId=1$/)
-    assert.match(d.calls[4], /endpoint-unverified ⇒ 零调用/)
+    assert.match(d.calls[4], /app-submit\?appId=1&releaseType=1/)
+    assert.match(d.calls[4], /不等于已上架/, 'dry-run 必须带提审边界,不得读成已上架')
   } finally {
     globalThis.fetch = orig
   }
   assert.equal(touched, 0, 'dry-run 结构上不发请求')
+})
+
+test('H12 服务账号 JSON 三态:齐字段 service-account;缺字段/非 JSON none', () => {
+  const sa = H.parseServiceAccountJson(JSON.stringify({ key_id: 'kid-1', private_key: 'PEM', sub_account: '100000001', token_uri: 'https://oauth-login.cloud.huawei.com/oauth2/v3/token' }))
+  assert.equal(sa.kind, 'service-account')
+  assert.equal(sa.keyId, 'kid-1')
+  assert.equal(sa.subAccount, '100000001')
+  assert.equal(H.parseServiceAccountJson('{"key_id":"k"}').kind, 'none', '缺 private_key/sub_account 不得冒充服务账号')
+  assert.equal(H.parseServiceAccountJson('client_id:1').kind, 'none', '文本凭据不得被 JSON 解析器截走')
+})
+
+test('H13 服务账号优先于 HMS 文本件;JWT 为 PS256 且签名可验', () => {
+  const kp = generateKeyPairSync('rsa', { modulusLength: 2048 })
+  const pem = kp.privateKey.export({ type: 'pkcs8', format: 'pem' })
+  const dir = mkScratch('hw-sa')
+  try {
+    writeFileSync(join(dir, '华为appid 密钥.txt'), `应用ID:100000\n密钥:${SECRET}`, 'utf8')
+    writeFileSync(join(dir, '华为服务账号.json'), JSON.stringify({ key_id: 'kid-1', private_key: pem, sub_account: '100000001' }), 'utf8')
+    const r = H.resolveCredentials({ root: dir, env: {} })
+    assert.equal(r.status, 'found')
+    assert.equal(r.value.kind, 'service-account', '同目录有服务账号件时不得退回 HMS 文本件')
+    assert.ok(!r.detail.includes(SECRET), '脱敏:不得含 HMS 原文')
+    assert.ok(!r.detail.includes('PRIVATE KEY'), '脱敏:不得含私钥原文')
+    const jwt = H.buildServiceAccountJwt(r.value, { now: 1700000000 })
+    const [h, p, s] = jwt.split('.')
+    const header = JSON.parse(Buffer.from(h, 'base64url'))
+    const payload = JSON.parse(Buffer.from(p, 'base64url'))
+    assert.equal(header.alg, 'PS256')
+    assert.equal(header.kid, 'kid-1')
+    assert.equal(payload.iss, '100000001')
+    assert.equal(payload.exp, 1700003600)
+    assert.equal(createVerify('sha256').update(`${h}.${p}`).verify({ key: kp.publicKey, padding: cryptoConstants.RSA_PKCS1_PSS_PADDING, saltLength: cryptoConstants.RSA_PSS_SALTLEN_DIGEST }, Buffer.from(s, 'base64url')), true)
+  } finally {
+    rmScratch(dir)
+  }
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -10,7 +10,7 @@ import { BackChevron } from '../../components/BackChevron'
 import { LegalDocScreen } from '../legal-doc/LegalDocScreen'
 import type { AgreementScreenProps, LegalDocSection } from '../../types'
 import { createAgreementStyles } from './agreement-styles'
-import { htmlToParagraphs } from './agreement-type'
+import { htmlToBlocks } from './agreement-type'
 
 /** 按类型取当前协议时注入的视图模型(字段对齐 web agreement/[type] 渲染的 Agreement)。 */
 export interface AgreementContentView {
@@ -27,6 +27,16 @@ export interface AgreementCurrentScreenProps extends AgreementScreenProps {
   loading?: boolean
   /** 加载中/未取到时的标题兜底(薄壳按类型 i18n 解析后注入)。 */
   fallbackTitle?: string
+}
+
+/**
+ * 标题的无障碍语义(层级 + header 角色)。
+ * RN 的 TS 类型面未收录 `aria-level`(ViewAccessibility.d.ts 只到 aria-valuetext 等),
+ * 直接写字面量会被 JSX 属性检查拒绝;经对象展开则绕过多余属性检查,原生端忽略该属性、
+ * RN Web 侧落到 aria-level —— 语义在 web 可取证,不因类型面缺项而丢。
+ */
+function headingA11y(level: number) {
+  return { accessibilityRole: 'header' as const, 'aria-level': level }
 }
 
 /** 生效日期格式化:与 web 端 fmt 同口径(YYYY-MM-DD),非法值回退 '-'。 */
@@ -85,12 +95,15 @@ export function AgreementScreen({
   }
 
   const title = agreement?.title || fallbackTitle || t('agreement.userAgreement')
+  const blocks = useMemo(() => (agreement ? htmlToBlocks(agreement.content) : []), [agreement])
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <BackChevron onPress={onBack} label={t('common.back')} colorScheme={scheme} />
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={styles.headerTitle} {...headingA11y(1)}>
+          {title}
+        </Text>
       </View>
       <ScrollView contentContainerStyle={styles.body}>
         <View style={styles.card}>
@@ -117,11 +130,38 @@ export function AgreementScreen({
               ) : null}
             </View>
             <View style={styles.card}>
-              {htmlToParagraphs(agreement.content).map((paragraph, index) => (
-                <Text key={`${index}-${paragraph.slice(0, 24)}`} style={styles.paragraph}>
-                  {paragraph}
-                </Text>
-              ))}
+              {blocks.map((block, index) => {
+                if (block.type === 'heading') {
+                  const levelStyle =
+                    block.level === 1
+                      ? styles.headingH1
+                      : block.level === 2
+                        ? styles.headingH2
+                        : styles.headingH3
+                  return (
+                    <Text
+                      key={`heading-${index}`}
+                      style={levelStyle}
+                      {...headingA11y(block.level)}
+                    >
+                      {block.text}
+                    </Text>
+                  )
+                }
+                if (block.type === 'listItem') {
+                  return (
+                    <View key={`list-${index}`} style={styles.listRow}>
+                      <Text style={styles.bullet}>{block.ordered ? `${block.index}.` : '•'}</Text>
+                      <Text style={[styles.paragraph, styles.listText]}>{block.text}</Text>
+                    </View>
+                  )
+                }
+                return (
+                  <Text key={`paragraph-${index}`} style={styles.paragraph}>
+                    {block.text}
+                  </Text>
+                )
+              })}
             </View>
           </>
         ) : (

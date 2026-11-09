@@ -463,7 +463,7 @@ test('T19 端到端(临时仓三档):不注册工具的文件不得被判红;摘
 test('T20 装车证明:TC3 必须真挂在 main 上并把读数打进输出与末行(判据在而没调用 = 没有)', () => {
   const src = readFileSync(SCRIPT, 'utf8')
   assert.match(src, /findDeclarationRemovals\(\{/, 'main 未调用身份台账 ⇒ TC3 只是死代码')
-  assert.match(src, /declarationLedgerOf\(rel, headTools\)/, '台账必须由 HEAD 现算,不得取手工清单')
+  assert.match(src, /declarationLedgerOf\(rel, m\.get\(rel\) \|\| \[\]\)/, '台账必须由父提交现算,不得取手工清单')
   assert.match(src, /声明身份台账\(TC3\)/, '输出必须打出已声明身份数与摘除数')
   assert.match(src, /契约摘除 \$\{removedTotal\}/, '结论/末行必须把摘除计数带出来')
   assert.match(src, /anchorTools,/, 'enumerationBlind 必须拿到 HEAD 侧工具数,否则又会误拦 helper')

@@ -14,7 +14,8 @@
  *
  * 取材面(全部现读,不复制第二份清单,§0.6):
  *   - 权限集合: apps/mobile-rn/app.json 的 expo.android.permissions
- *   - 用途说明: 同文件 expo.plugins 里各权限文案(cameraPermission/photosPermission/…)
+ *   - 用途说明: app.json 的 expo.plugins 与 app.config.js 的插件配置里各权限文案
+ *                (cameraPermission/photosPermission/installPackagesPermission/…)
  *   - 收集信息与第三方 SDK: apps/mobile-rn/src/constants/privacyPolicy.ts 的 PRIVACY_POLICY_PARAGRAPHS
  *   - 提交物: scripts/lib/rn-release-credentials.mjs 的 androidArtifacts() 出口(不自拼路径)
  *
@@ -33,6 +34,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 import { androidArtifacts, STATUS } from './lib/rn-release-credentials.mjs'
+import { loadIdentity, checkIdentityConsistency, readAndroidAppLabel, IDENTITY_REL } from './lib/app-identity.mjs'
 
 const ROOT = join(import.meta.dirname, '..')
 const RN_DIR = join(ROOT, 'apps', 'mobile-rn')
@@ -40,8 +42,8 @@ const OUT_ROOT = join(ROOT, '.ihui-agent', 'tmp', 'store-bundle')
 
 /**
  * 权限 → 所需用途说明键。
- * 这张表只负责"哪些权限必须有对应用途文案",文案本体仍从 app.json 现读 ——
- * 在此复制一份用途文字就会与 app.json 漂移(§22c)。
+ * 这张表只负责"哪些权限必须有对应用途文案",文案本体仍从 app.json / app.config.js 现读 ——
+ * 在此复制一份用途文字就会与配置漂移(§22c)。
  */
 const PERMISSION_EVIDENCE_KEYS = Object.freeze({
   'android.permission.CAMERA': ['cameraPermission'],
@@ -52,6 +54,9 @@ const PERMISSION_EVIDENCE_KEYS = Object.freeze({
   'android.permission.READ_MEDIA_VISUAL_USER_SELECTED': ['photosPermission'],
   'android.permission.READ_EXTERNAL_STORAGE': ['photosPermission'],
   'android.permission.WRITE_EXTERNAL_STORAGE': ['savePhotosPermission', 'photosPermission'],
+  // 应用内整包更新:Android 8(API 26)起,拉起系统安装器的调用方必须持有该权限。
+  // 用途键住在 app.config.js 的 withApkInstaller 插件配置里(详见该插件头注)。
+  'android.permission.REQUEST_INSTALL_PACKAGES': ['installPackagesPermission'],
 })
 
 /**
@@ -81,14 +86,14 @@ export const ICP_FILING_GATE =
  * 厂商表:apiMode 分三档,**不许把"没核到官方出处"写成"有 API"**。
  *   verified    端点已从官方文档核实
  *   manual-only 官方只有网页后台(魅族/努比亚/应用汇/酷安;三星虽 API verified 但**注册新应用必须走网页**)
- *   unverified  找不到官方开发者入口 ⇒ 不接入链路,不写假通路(ApkPure 即此档)
+ *   unverified  找不到官方开发者入口 ⇒ 不接入链路,不写假通路(现无厂家落此档;档位保留给新厂商)
  * 百度系(91 助手/安卓市场)已于 2025-09-27 停服,直接不列。
  */
 export const VENDOR_LIMITS = Object.freeze({
   google: { label: 'Google Play', briefMax: 80, fullMax: 4000, needsIcpFiling: false, needsCopyright: false, apiMode: 'verified' },
   huawei: { label: '华为 AppGallery', briefMax: 80, fullMax: 8000, needsIcpFiling: true, needsCopyright: true, apiMode: 'verified' },
   xiaomi: { label: '小米应用商店', briefMax: 200, fullMax: 4000, needsIcpFiling: true, needsCopyright: true, apiMode: 'verified' },
-  oppo: { label: 'OPPO 软件商店', briefMax: 100, fullMax: 4000, needsIcpFiling: true, needsCopyright: true, apiMode: 'unverified' },
+  oppo: { label: 'OPPO 软件商店', briefMax: 100, fullMax: 4000, needsIcpFiling: true, needsCopyright: true, apiMode: 'verified' },
   vivo: { label: 'vivo 应用商店', briefMax: 100, fullMax: 4000, needsIcpFiling: true, needsCopyright: true, apiMode: 'verified' },
   honor: { label: '荣耀应用市场', briefMax: 80, fullMax: 8000, needsIcpFiling: true, needsCopyright: true, apiMode: 'verified' },
   yyb: { label: '腾讯应用宝', briefMax: 120, fullMax: 4000, needsIcpFiling: true, needsCopyright: true, apiMode: 'verified' },
@@ -96,7 +101,9 @@ export const VENDOR_LIMITS = Object.freeze({
   meizu: { label: '魅族应用商店', briefMax: null, fullMax: null, needsIcpFiling: true, needsCopyright: true, apiMode: 'manual-only' },
   nubia: { label: '中兴/努比亚应用商店', briefMax: null, fullMax: null, needsIcpFiling: true, needsCopyright: true, apiMode: 'manual-only' },
   appchina: { label: '应用汇', briefMax: null, fullMax: null, needsIcpFiling: true, needsCopyright: true, apiMode: 'manual-only' },
-  apkpure: { label: 'ApkPure', briefMax: null, fullMax: null, needsIcpFiling: false, needsCopyright: false, apiMode: 'unverified' },
+  // 官方只有登录型开发者控制台 developer.apkpure.com(无公开提交 API);support@/business@ 是联系地址,
+  // 邮件只能发"提交请求",不等于官方受理 —— 本仓的机器腿在 publish-stores,不在本表的 apiMode 里。
+  apkpure: { label: 'ApkPure', briefMax: null, fullMax: null, needsIcpFiling: false, needsCopyright: false, apiMode: 'manual-only' },
 })
 
 const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('hex')
@@ -109,13 +116,37 @@ const sha256File = (p) => createHash('sha256').update(readFileSync(p)).digest('h
  */
 export function extractManifestPermissions(manifestText) {
   if (!manifestText) return { status: STATUS.UNJUDGED, perms: [], detail: 'AndroidManifest.xml 取不到(未 prebuild?)⇒ 包内权限面未知,不判对平' }
-  const perms = [...manifestText.matchAll(/<uses-permission\s+android:name="([^"]+)"/g)].map((m) => m[1])
-  if (!perms.length) return { status: STATUS.UNJUDGED, perms: [], detail: 'manifest 里枚举到 0 条 uses-permission ⇒ 判死不判绿(§0.3)' }
-  return { status: STATUS.FOUND, perms, detail: `manifest 内 ${perms.length} 条 uses-permission` }
+  // 必须按整条标签读:`tools:node="remove"` 条目里也写着同一个 android:name,
+  // 只按 name 抓会把"已被摘除"的权限读成"包内仍在"(2026-11-08 实测 SYSTEM_ALERT_WINDOW 就是这样假红)。
+  const pruned = []
+  const perms = []
+  for (const m of manifestText.matchAll(/<uses-permission\s+([^>]*?)\/?>/g)) {
+    const attrs = m[1]
+    const name = (attrs.match(/android:name\s*=\s*"([^"]+)"/) ?? [])[1]
+    if (!name) continue
+    if (/tools:node\s*=\s*["']remove["']/.test(attrs)) pruned.push(name)
+    else perms.push(name)
+  }
+  if (!perms.length) {
+    return {
+      status: STATUS.UNJUDGED,
+      perms: [],
+      detail: `manifest 里枚举到 0 条实际 uses-permission${pruned.length ? `(另有 ${pruned.length} 条 tools:node="remove" 摘除标记)` : ''} ⇒ 判死不判绿(§0.3)`,
+    }
+  }
+  return {
+    status: STATUS.FOUND,
+    perms,
+    detail: `manifest 内 ${perms.length} 条实际 uses-permission${pruned.length ? `;已摘除标记 ${pruned.length} 条不计(${pruned.join(', ')})` : ''}`,
+  }
 }
 
-/** 三方对账:包内权限 ⊆ 有用途说明的权限;缺项点名。返回三态,不猜。 */
-export function reconcilePermissions(appJson, privacyText, manifestText) {
+/**
+ * 三方对账:包内权限 ⊆ 有用途说明的权限;缺项点名。返回三态,不猜。
+ * `extraEvidence` 承载 app.config.js 这类非 JSON 配置面的原文:自定义插件的用途键住在那里
+ * (app.json 的插件配置会被 app.config.js 展开,两处都是声明面)。
+ */
+export function reconcilePermissions(appJson, privacyText, manifestText, extraEvidence = '') {
   const extracted = extractManifestPermissions(manifestText)
   if (extracted.status === STATUS.UNJUDGED) return { status: STATUS.UNJUDGED, detail: extracted.detail, gaps: [] }
   const perms = [...new Set(extracted.perms)]
@@ -130,7 +161,7 @@ export function reconcilePermissions(appJson, privacyText, manifestText) {
     else if (node && typeof node === 'object') for (const [k, v] of Object.entries(node)) { collected.push(k); walk(v) }
   }
   walk(appJson?.plugins ?? [])
-  const blob = collected.join('\n')
+  const blob = [collected.join('\n'), String(extraEvidence ?? '')].join('\n')
 
   const gaps = []
   const waived = []
@@ -251,21 +282,37 @@ function loadInputs() {
   const manifestText = readIfExists(manifestPath)
   const gradleText = readIfExists(join(RN_DIR, 'android', 'app', 'build.gradle'))
   const pkgJsonText = readIfExists(join(RN_DIR, 'package.json'))
-  return { appJson, privacyText: paragraphs.join('\n'), company, email, effectDate, manifestText, gradleText, pkgJsonText, manifestPath: manifestPath.replace(/\\/g, '/') }
+  // 自定义插件的用途键(如 withApkInstaller 的 installPackagesPermission)住在 app.config.js,
+  // 它是真正的 Expo 配置入口;不读它会把已声明的用途读成"缺映射"。
+  const configText = readIfExists(join(RN_DIR, 'app.config.js'))
+  return { appJson, privacyText: paragraphs.join('\n'), company, email, effectDate, manifestText, gradleText, pkgJsonText, configText, manifestPath: manifestPath.replace(/\\/g, '/') }
 }
 
-/** listing 文案:一律取自仓内既有事实(名称/主体/隐私生效日),不新造宣传语。 */
+/** listing 文案:一律取自仓内既有事实(名称/主体/隐私生效日/包名),不新造宣传语。 */
 export function buildListing(appJson, meta) {
-  const title = appJson?.name ?? 'IHUI AI'
+  // 名称/包名只从身份真源取;app.json 只是派生面(对账在 main 里做,漂移即拒跑)。
+  const title = meta?.identity?.displayName ?? appJson?.name ?? '未在册'
+  const pkg = meta?.identity?.applicationId ?? appJson?.android?.package ?? '未在册'
+  // 版本以**产物元数据**为准:构建期 IHUI_MOBILE_VERSION 会覆盖 displayVersion(见 app.config.js),
+  // app.json 的 version 是基座值,实测本机 APK 0.0.19 而 app.json 仍是 0.0.12。
+  // 商店与邮件都按包内 versionName 核对 ⇒ 取不到元数据时才回落到 app.json,并在值上留痕可辨。
+  const artifactVersion = String(meta?.versionName ?? '').trim()
   return {
     title,
+    // 邮件/表单通道按字段名取值:名称与 package 从 app.json 现读,版本优先取产物元数据(§0.6)
+    appName: title,
+    packageName: pkg,
+    versionName: artifactVersion || String(appJson?.version ?? '未在册'),
+    versionCode: Number.isInteger(meta?.versionCode) ? meta.versionCode : null,
     // 简述只用可核实的事实句:主体 + 平台定位来自 README/隐私政策的自述,不含比较级或承诺
     brief: `${title}(智汇AI)AI 对话与智能体平台,由${meta.company ?? '该主体'}提供。`,
     full: [`【${title}】`, 'AI 对话、智能体(Agent)与知识库应用能力;账号体系与 Web/桌面端互通。', '', '隐私政策生效日期:' + (meta.effectDate ?? '未在册'), '开发者主体:' + (meta.company ?? '未在册')].join('\n'),
     category: '工具',
     privacyPolicyUrl: 'https://aizhs.top/privacy',
     contact: meta.email ? { email: meta.email } : null,
-    source: '本文件全部字段由 app.json 与 privacyPolicy.ts 现读派生;改文案请改这两处,不要在这里加分支(§0.6)。',
+    // APKPure 邮件通道要求"提交授权声明";按主体与包名派生,不新造权利主张。
+    authorization: `开发者(${meta.company ?? '未在册'})确认:提交的 ${pkg} 为官方构建,授权 APKPure 在本平台展示与分发;APK 签名与提交函所列 SHA-256 一致。`,
+    source: '本文件全部字段由 app.json、app.config.js 与 privacyPolicy.ts 现读派生;改文案请改这些源,不要在这里加分支(§0.6)。',
   }
 }
 
@@ -302,16 +349,52 @@ export function resolveIcpFiling({ readLedger, env = process.env }) {
   return { status: STATUS.FOUND, detail: `备案号在册(发证:${authority},核验:${j.verifiedAt})`, filing: num }
 }
 
-export function buildPlan({ vendors = Object.keys(VENDOR_LIMITS), listing, reconcile, sdks, artifacts, privacyMeta, filing }) {
+/**
+ * 软著(计算机软件著作权登记证书 / 电子版权证书)在册性 —— 与备案同为法定前置,同表登记。
+ * 判据只读 `scripts/data/app-store-credentials.json` 的 legalPrereqs.softwareCopyright(§0.6 单一真相源),
+ * 不在这里另抄一份"我们有/没有软著"的散文。
+ */
+export const SOFTWARE_COPYRIGHT_GATE =
+  '软著(计算机软件著作权登记证书/电子版权证书)未在册 ⇒ vivo 官方明写必传『电子版权证书或版权证明其一』、应用宝审核侧必传软著 ⇒ 接口层面就提交不过去'
+
+export const COPYRIGHT_LEDGER_REL = 'scripts/data/app-store-credentials.json'
+
+export function resolveSoftwareCopyright({ readLedger, env = process.env } = {}) {
+  const raw = env.IHUI_SOFTWARE_COPYRIGHT
+  if (raw && raw.trim()) return { status: STATUS.FOUND, detail: `软著编号来自 env(长度 ${raw.trim().length})`, certificateNumber: raw.trim() }
+  let text = null
+  try {
+    text = readLedger?.(COPYRIGHT_LEDGER_REL) ?? null
+  } catch {
+    text = null
+  }
+  if (text === null || text === undefined) return { status: STATUS.UNJUDGED, detail: `${COPYRIGHT_LEDGER_REL} 取不到 ⇒ 软著在册性未判定`, certificateNumber: null }
+  let j
+  try {
+    j = JSON.parse(text)
+  } catch {
+    return { status: STATUS.UNJUDGED, detail: `${COPYRIGHT_LEDGER_REL} 不是合法 JSON ⇒ 未判定`, certificateNumber: null }
+  }
+  const sc = j?.legalPrereqs?.softwareCopyright
+  if (!sc) return { status: STATUS.UNJUDGED, detail: `${COPYRIGHT_LEDGER_REL} 无 legalPrereqs.softwareCopyright ⇒ 未判定`, certificateNumber: null }
+  const st = String(sc.statusNow ?? '').trim()
+  const num = String(sc.certificateNumber ?? '').trim()
+  if (st === 'found' && num) return { status: STATUS.FOUND, detail: `软著在册(编号长度 ${num.length})`, certificateNumber: num }
+  if (st === 'missing-evidence') return { status: STATUS.MISSING, detail: '软著不在册(登记处 missing-evidence)⇒ 国内店属于法定前置未落地', certificateNumber: num || null }
+  return { status: STATUS.UNJUDGED, detail: `软著登记处 statusNow=${st || '(空)'} ⇒ 未判定`, certificateNumber: num || null }
+}
+
+export function buildPlan({ vendors = Object.keys(VENDOR_LIMITS), listing, reconcile, sdks, artifacts, privacyMeta, filing, copyright }) {
   const filingStatus = filing?.status ?? STATUS.UNJUDGED
+  const copyrightStatus = copyright?.status ?? STATUS.UNJUDGED
   return vendors.map((v) => {
     const limits = VENDOR_LIMITS[v]
     const len = checkListingLimits(limits, listing)
     return {
       vendor: v,
       label: limits.label,
-      // 折叠必须把资质算进去:国内店在备案未证时最高只能到 unjudged,不许读成 ready
-      status: limits.needsIcpFiling && filingStatus !== STATUS.FOUND ? fold(reconcile.status, sdks.status, artifacts.status, len.status, STATUS.UNJUDGED) : fold(reconcile.status, sdks.status, artifacts.status, len.status, filingStatus),
+      // 折叠必须把资质算进去:国内店在备案/软著未证时最高只能到 unjudged,不许读成 ready
+      status: limits.needsIcpFiling && filingStatus !== STATUS.FOUND ? fold(reconcile.status, sdks.status, artifacts.status, len.status, STATUS.UNJUDGED) : fold(reconcile.status, sdks.status, artifacts.status, len.status, filingStatus, limits.needsCopyright ? copyrightStatus : STATUS.FOUND),
       blockers: [
         ...(reconcile.status === STATUS.MISSING ? [reconcile.detail] : []),
         ...(len.status === STATUS.MISSING ? [`文案长度超限:${len.detail}`] : []),
@@ -319,6 +402,7 @@ export function buildPlan({ vendors = Object.keys(VENDOR_LIMITS), listing, recon
         ...(sdks.serious?.length ? ['漏声明(包内有而隐私政策未写):' + sdks.serious.map((r) => r.sdk).join(', ')] : []),
         ...(sdks.stale?.length ? ['过度声明(政策写了而包内可证面查无):' + sdks.stale.map((r) => r.sdk).join(', ') + ' ⇒ 要么政策陈旧该改,要么存在未登记的取数通道该查'] : []),
         ...(limits.needsIcpFiling && filingStatus !== STATUS.FOUND ? [ICP_FILING_GATE, '备案在册性:' + filingStatus + ' — ' + (filing?.detail ?? '未取到备案台账(需 scripts/data/app-icp-filing.json 或 IHUI_APP_ICP_FILING)')] : []),
+        ...(limits.needsCopyright && copyrightStatus !== STATUS.FOUND ? [SOFTWARE_COPYRIGHT_GATE, '软著在册性:' + copyrightStatus + ' — ' + (copyright?.detail ?? '未取到软著登记处(需 ' + COPYRIGHT_LEDGER_REL + '.legalPrereqs.softwareCopyright 或 IHUI_SOFTWARE_COPYRIGHT)')] : []),
         ...(limits.apiMode === 'manual-only' ? ['官方只有网页后台 ⇒ 无自动上传通路,材料包供人工提交使用'] : []),
         ...(limits.apiMode === 'unverified' ? ['未找到官方开发者入口/API 出处 ⇒ 不写入自动链路(把博客说法当官方,正是上一轮把 vivo 端点搞错的那类型错误)'] : []),
         ...(limits.firstPublishManual ? ['API 已核实但官方明写**不支持注册新应用**:首次上架必须走 Seller Portal 网页'] : []),
@@ -326,7 +410,7 @@ export function buildPlan({ vendors = Object.keys(VENDOR_LIMITS), listing, recon
       files: {
         'listing.json': listing,
         'privacy-compliance.json': { permissions: reconcile.permissions ?? [], gaps: reconcile.gaps ?? [], thirdPartySdkReconciliation: sdks.rows, effectiveDate: privacyMeta.effectDate, company: privacyMeta.company },
-        'manifest.json': { package: 'zh.ai.sq', artifacts: artifacts.value ?? [], sha256: (artifacts.value ?? []).map((a) => ({ kind: a.kind, path: a.path, sha256: existsSync(a.path) ? sha256File(a.path) : null })) },
+        'manifest.json': { package: listing.packageName, artifacts: artifacts.value ?? [], sha256: (artifacts.value ?? []).map((a) => ({ kind: a.kind, path: a.path, sha256: existsSync(a.path) ? sha256File(a.path) : null })) },
       },
     }
   })
@@ -352,14 +436,42 @@ function main() {
     console.log(`未判定:输入取不到 —— ${String(e?.message).slice(0, 160)}`)
     return 2
   }
-  const reconcile = reconcilePermissions(inputs.appJson, inputs.privacyText, inputs.manifestText)
+  const reconcile = reconcilePermissions(inputs.appJson, inputs.privacyText, inputs.manifestText, inputs.configText)
+  // 身份真源对账:显示名/包名只认 scripts/data/app-identity.json,派生面(配置/资源/备案台账)不一致 ⇒ 拒跑
+  let identity
+  try {
+    identity = loadIdentity()
+  } catch (e) {
+    console.log(`未判定:身份真源取不到 —— ${String(e?.message).slice(0, 160)}`)
+    return 2
+  }
+  let ledger = null
+  const ledgerPath = join(ROOT, 'scripts/data/app-icp-filing.json')
+  if (existsSync(ledgerPath)) {
+    try { ledger = JSON.parse(readFileSync(ledgerPath, 'utf8')) } catch { ledger = null }
+  }
+  const identityDrift = checkIdentityConsistency({ identity, appJson: inputs.appJson, androidLabel: readAndroidAppLabel(), ledger })
+  if (identityDrift.length) {
+    console.log('身份漂移,拒绝产出(改名的正确姿势是改 ' + IDENTITY_REL + ',再同步派生面):\n  - ' + identityDrift.join('\n  - '))
+    return 1
+  }
   const sdks = reconcileSdks({ privacyText: inputs.privacyText, manifestText: inputs.manifestText, gradleText: inputs.gradleText, pkgJsonText: inputs.pkgJsonText })
   const artifacts = androidArtifacts({ dir: join(RN_DIR, 'android', 'app', 'build', 'outputs') })
-  const listing = buildListing(inputs.appJson, { company: inputs.company, effectDate: inputs.effectDate })
+  // 版本取 apk 产物元数据(邮件/SHA-256 都是这份 APK 的);AAB 元数据只作诊断,不改 listing。
+  const apkArtifact = (artifacts.value ?? []).find((a) => a.kind === 'apk') ?? null
+  const listing = buildListing(inputs.appJson, {
+    company: inputs.company,
+    effectDate: inputs.effectDate,
+    email: inputs.email,
+    identity,
+    versionName: apkArtifact?.versionName ?? null,
+    versionCode: apkArtifact?.versionCode ?? null,
+  })
   const filing = resolveIcpFiling({ readLedger: (rel) => (existsSync(join(ROOT, rel)) ? readFileSync(join(ROOT, rel), "utf8") : null), env: process.env })
-  const plan = buildPlan({ vendors, listing, reconcile, sdks, artifacts, privacyMeta: { company: inputs.company, effectDate: inputs.effectDate }, filing })
+  const copyright = resolveSoftwareCopyright({ readLedger: (rel) => (existsSync(join(ROOT, rel)) ? readFileSync(join(ROOT, rel), 'utf8') : null), env: process.env })
+  const plan = buildPlan({ vendors, listing, reconcile, sdks, artifacts, privacyMeta: { company: inputs.company, effectDate: inputs.effectDate }, filing, copyright })
 
-  if (json) console.log(JSON.stringify({ reconcile, sdks, artifacts, listing, plan }, null, 2))
+  if (json) console.log(JSON.stringify({ identity, reconcile, sdks, artifacts, listing, filing, copyright, plan }, null, 2))
   else {
     console.log(`对账: ${reconcile.status} ${reconcile.detail}`)
     for (const g of reconcile.gaps ?? []) console.log(`   ⚠ ${g.permission} ⇒ ${g.why}`)
@@ -384,7 +496,7 @@ function main() {
   return reconcile.status === STATUS.MISSING ? 1 : plan.every((p) => p.status === 'ready') ? 0 : 2
 }
 
-export const __test__ = { loadInputs, extractManifestPermissions, reconcilePermissions, resolveIcpFiling, ICP_FILING_GATE, ICP_FILING_LEDGER_REL, NORMAL_PERMISSIONS, reconcileSdks, SDK_WATCHLIST, checkListingLimits, buildListing, buildPlan, VENDOR_LIMITS, PERMISSION_EVIDENCE_KEYS, STATUS }
+export const __test__ = { loadInputs, extractManifestPermissions, reconcilePermissions, resolveIcpFiling, resolveSoftwareCopyright, ICP_FILING_GATE, SOFTWARE_COPYRIGHT_GATE, COPYRIGHT_LEDGER_REL, ICP_FILING_LEDGER_REL, NORMAL_PERMISSIONS, reconcileSdks, SDK_WATCHLIST, checkListingLimits, buildListing, buildPlan, VENDOR_LIMITS, PERMISSION_EVIDENCE_KEYS, STATUS, loadIdentity, checkIdentityConsistency, readAndroidAppLabel, IDENTITY_REL }
 
 const isDirectRun = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isDirectRun) {

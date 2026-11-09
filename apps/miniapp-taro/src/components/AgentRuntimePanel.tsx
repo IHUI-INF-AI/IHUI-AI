@@ -6,8 +6,12 @@ import { useI18n } from '@/i18n'
 import { View, Text, Button, ScrollView } from '@tarojs/components'
 import { FocusTextarea } from '@/components/FocusField'
 import { permissionDecisionWord, useAgentRuntime } from '@ihui/shared'
-import type { AgentRuntimePanelProps } from '@ihui/types'
 import LineIcon from '@/components/LineIcon'
+
+/** 小程序孪生只实现 sessionId:文案全部由本端 i18n 自行解析,不消费共享层 labels/t。 */
+interface AgentRuntimePanelProps {
+  sessionId?: string
+}
 
 export default function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
   const { t } = useI18n()
