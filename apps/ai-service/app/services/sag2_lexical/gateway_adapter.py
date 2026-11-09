@@ -54,6 +54,7 @@ from .judge import JUDGE_ENABLED_ENV
 
 __all__ = [
     "LlmGatewayJudgeAdapter",
+    "get_last_adapter_error",
     "get_last_resolve_reason",
     "resolve_sag2_gateway",
 ]
@@ -66,10 +67,21 @@ _TRUTHY_FLAGS = frozenset({"1", "true", "yes", "on"})
 # 模块级、可自证的「最近一次 resolve 结论」。status() 经 get_last_resolve_reason() 读。
 last_resolve_reason: str = DISABLED_REASON
 
+# 模块级、可自证的「最近一次适配器调用期降级根因」。K 席真跑实证：畸形 JSON /
+# HTTP 500 / 超时三种故障原先都收敛成同一句「模型返回空打分」,根因被吞掉、
+# 无法区分。这里保留具体异常类型与消息,但**不改返回契约**(仍 {"scores": []},
+# ModelJudge 仍走既有诚实降级),供排障与对外自证,零行为改变。
+last_adapter_error: str = ""
+
 
 def get_last_resolve_reason() -> str:
     """返回最近一次 resolve_sag2_gateway() 的降级原因；成功时为空串。"""
     return last_resolve_reason
+
+
+def get_last_adapter_error() -> str:
+    """返回最近一次 structured_completion 降级的具体异常；成功时为空串。"""
+    return last_adapter_error
 
 
 def _env_enabled() -> bool:
@@ -222,12 +234,15 @@ class LlmGatewayJudgeAdapter:
         任何异常 / 畸形返回都收敛为 ``{"scores": []}``，由 ModelJudge 走既有诚实降级路径，
         绝不伪造分数、绝不把异常抛成「已判定」。
         """
+        global last_adapter_error
         try:
             messages = _build_messages(payload)
             raw = await self._gateway.structured_completion(
                 messages, _SCORES_SCHEMA, model=model
             )
+            last_adapter_error = ""
             return _normalize(raw)
-        except Exception:  # 降级必须响，绝不把异常或畸形当成模型判定
+        except Exception as exc:  # 降级必须响，绝不把异常或畸形当成模型判定
+            last_adapter_error = f"{type(exc).__name__}: {exc}"
             return {"scores": []}
 # ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
