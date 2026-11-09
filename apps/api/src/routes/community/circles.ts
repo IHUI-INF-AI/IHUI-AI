@@ -511,6 +511,11 @@ const circlesRoutes: FastifyPluginAsync = async (server) => {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },
           },
+          403: {
+            type: 'object',
+            properties: { code: { type: 'number' }, message: { type: 'string' } },
+            description: '非圈子成员或被禁言',
+          },
           404: {
             type: 'object',
             properties: { code: { type: 'number' }, message: { type: 'string' } },

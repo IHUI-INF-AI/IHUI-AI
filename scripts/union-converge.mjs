@@ -2331,6 +2331,9 @@ function selfTest() {
   resetUnionCaches()
   const dir = mkScratch('ihui-union-')
   const run = (...a) => git(a, dir)
+  // 夹具也**不许示范无 CAS 的 update-ref**(2026-11-09 票):ref 名从 HEAD 推导,
+  // 旧值一律显式给;ZERO = git 的"必须不存在"(首建 ref 的唯一 CAS 形态)。
+  const ZERO = '0'.repeat(40)
   // 登记侧走共用出口 scripts/lib/selftest-registrant.mjs(R-EXIST):thunk 族 + 消费循环求值。
   const { t: ok, report } = makeRegistrar()
   // 旗标白名单完备性自检(RP-79 剩余面,2026-11-01):扫描器**只在这里**当漏项报警器。
@@ -2348,6 +2351,7 @@ function selfTest() {
     run('init', '-q', '-b', 'main')
     run('config', 'user.email', 't@t')
     run('config', 'user.name', 't')
+    const REF = run('symbolic-ref', '-q', 'HEAD')
     writeFileSync(join(dir, 'PROJECT_PLAN.md'), 'a\nb\n', 'utf8')
     writeFileSync(join(dir, 'keep.ts'), 'k\n', 'utf8')
     // 本侧会把它 mv 成 moved-to.ts(先 mv 后 add,不是 git mv)—— 这是"旧路径在合并树里消失"
@@ -2382,7 +2386,8 @@ function selfTest() {
     run('add', '-A')
     run('commit', '-qm', 'theirs')
     const theirs = run('rev-parse', 'HEAD')
-    run('update-ref', 'refs/heads/main', ours)
+    // 本处 main 刚被 `branch -D main` 删掉 ⇒ 旧值用 ZERO(必须不存在),而不是"无旧值盲写"。
+    run('update-ref', REF, ours, ZERO)
 
     const p = plan(ours, theirs, dir)
     ok('零丢失自证必须通过', p.bad.length === 0, p.bad.slice(0, 3).join(' / '))
@@ -2479,6 +2484,7 @@ function selfTest() {
       r2('config', 'user.email', 't@t')
       r2('config', 'user.name', 't')
       r2('config', 'core.autocrlf', 'false') // 结果按字节断言,行尾必须确定(本机实测 autocrlf=true)
+      const REF2 = r2('symbolic-ref', '-q', 'HEAD')
       writeFileSync(join(d2, 'clean.ts'), 'l1\nl2\nl3\nl4\nl5\n', 'utf8')
       writeFileSync(join(d2, 'clash.ts'), 'x1\nx2\nx3\n', 'utf8')
       writeFileSync(join(d2, 'only-theirs.ts'), 'ot-base\n', 'utf8')
@@ -2522,7 +2528,8 @@ function selfTest() {
       r2('add', '-A')
       r2('commit', '-qm', 'theirs')
       const t2 = r2('rev-parse', 'HEAD')
-      r2('update-ref', 'refs/heads/main', o2)
+      // 恢复 main 的旧值是 CAS 前像 o2(此时 main 还指着它)—— 显式给旧值,不盲写。
+      r2('update-ref', REF2, o2, o2)
 
       const q = plan(o2, t2, d2)
       ok(
@@ -3717,6 +3724,7 @@ function selfTest() {
         gF('init', '-q', '-b', 'main')
         gF('config', 'user.email', 't@t')
         gF('config', 'user.name', 't')
+        const REFF = gF('symbolic-ref', '-q', 'HEAD')
         writeFileSync(join(dF, 'PROJECT_PLAN.md'), '# 台账\nbase-line\n', 'utf8')
         writeFileSync(join(dF, 'keep.ts'), 'k\n', 'utf8')
         gF('add', '-A')
@@ -3727,13 +3735,13 @@ function selfTest() {
         gF('add', '-A')
         gF('commit', '-qm', 'ours')
         const oursF = gF('rev-parse', 'HEAD').trim()
-        gF('update-ref', 'refs/heads/main', baseF)
+        gF('update-ref', REFF, baseF, oursF)
         writeFileSync(join(dF, 'PROJECT_PLAN.md'), `# 台账\nbase-line\n${FOLD_B}\n`, 'utf8')
         writeFileSync(join(dF, 'theirs.ts'), 't\n', 'utf8')
         gF('add', '-A')
         gF('commit', '-qm', 'theirs')
         const theirsF = gF('rev-parse', 'HEAD').trim()
-        gF('update-ref', 'refs/heads/main', oursF)
+        gF('update-ref', REFF, oursF, baseF)
         const pF = plan(oursF, theirsF, dF)
         const shortRows = (list) => list.filter((s) => String(s).includes('未存活行'))
         ok(
@@ -4773,9 +4781,27 @@ async function main() {
           .join(' / ')})`
       : '')
   const sha = git(['commit-tree', p.tree, '-p', t.head, '-p', t.theirs, '-m', msg])
+  // 目标 ref **从当前 HEAD 推导**,不再硬编码 main(2026-11-09 票):在别的分支上跑 --apply
+  // 也可以,而且不会把 main 当默认落点。detached ⇒ 拒落(推不出"该写哪个 ref",不盲写)。
+  let targetRef = ''
+  try {
+    targetRef = git(['symbolic-ref', '-q', 'HEAD'], ROOT)
+  } catch {
+    targetRef = ''
+  }
+  if (!targetRef) {
+    backupOrphanCommit({ sha, kind: 'uni', why: 'union-converge 推不出目标 ref(detached)', root: ROOT, logger: (m) => console.log(m) })
+    console.log('❌ HEAD 处于 detached(推导不出目标 ref)⇒ 拒绝落地:先 checkout 到目标分支再跑 --apply')
+    process.exit(2)
+  }
+  if (!/^[0-9a-f]{40,64}$/.test(String(t.head ?? ''))) {
+    backupOrphanCommit({ sha, kind: 'uni', why: 'union-converge CAS 旧值不是完整 oid', root: ROOT, logger: (m) => console.log(m) })
+    console.log(`❌ CAS 旧值不是完整 oid(${String(t.head ?? '').slice(0, 20)})⇒ 拒绝落地(旧值缺失等于无 CAS)`)
+    process.exit(2)
+  }
   const cas = spawnSync(
     GIT,
-    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'update-ref', 'refs/heads/main', sha, t.head],
+    ['-c', 'safe.directory=*', '-c', 'core.quotepath=false', 'update-ref', targetRef, sha, t.head],
     {
       cwd: ROOT,
       windowsHide: true,

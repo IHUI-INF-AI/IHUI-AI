@@ -200,7 +200,7 @@ export function PaymentScreen() {
         <ConfirmPurchasePopUp
           visible={pendingPurchase !== null}
           title={t('payment.confirm')}
-          message={t('payment.orderNo', { no: pendingPurchase?.orderNo ?? '' })}
+          message={`${t('payment.orderNo')}: ${pendingPurchase?.orderNo ?? ''}`}
           product={pendingProduct}
           loading={purchaseLoading}
           cancelText={t('payment.later')}

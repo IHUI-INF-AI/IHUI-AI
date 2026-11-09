@@ -156,7 +156,6 @@ export const chatResumeRoutes: FastifyPluginAsync = async (server) => {
         systemPrompt,
         contextLimit,
         repoName,
-        metadata,
       } = parsed.data
 
       if (!(await assertOwnedConversation(request, conversationId))) {

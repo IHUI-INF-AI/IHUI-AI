@@ -20,6 +20,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { spawnSync } from 'node:child_process'
 import { assertPathInside } from './util/path-guard.js'
+import { writeFileAtomicSync, SymlinkTargetError } from './util/atomic-write.js'
 
 // ============ 类型定义 ============
 
@@ -259,15 +260,19 @@ function loadCachedCowKind(cachePath: string): CowKind | undefined {
   if (typeof kind === 'string' && (VALID_COW_KINDS as readonly string[]).includes(kind)) {
     return kind as CowKind
   }
-  throw new Error('CoW 缓存读不到,不能把它覆盖成新结论 (corrupt)')
+  // JSON 可解析但 kind 不在合法集合内 ⇒ 视为无缓存(旧版/手改留下的值),允许重新检测并回写;
+  // 只有读不到或 JSON 损坏才拒绝覆盖(见上方抛错分支)。
+  return undefined
 }
 
 function saveCachedCowKind(kind: CowKind, cachePath: string): void {
   try {
-    fs.mkdirSync(path.dirname(cachePath), { recursive: true })
-    fs.writeFileSync(cachePath, JSON.stringify({ kind, ts: Date.now() }), 'utf-8')
-  } catch {
-    // 持久化失败不抛异常
+    writeFileAtomicSync(cachePath, JSON.stringify({ kind, ts: Date.now() }))
+  } catch (error) {
+    // 持久化失败不抛异常,但必须留痕 —— 吞掉写失败会让 CoW 结论无从追问(DBG-49)。
+    const code = error instanceof SymlinkTargetError ? error.code : (error as { code?: unknown })?.code
+    const reason = typeof code === 'string' ? code : error instanceof Error ? error.message : String(error)
+    console.warn(`[worktree] CoW 缓存写失败,已跳过(${cachePath}): ${reason}`)
   }
 }
 

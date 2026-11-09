@@ -24,7 +24,7 @@ import {
   seriesUuidFromSeedHex,
   SNAPSHOT_SERIES_SEED_HEX_LENGTH,
 } from './snapshot-series.js';
-import { assertPathInside, isPathInside, segmentPathInside } from '../util/path-guard.js';
+import { assertPathInside, isPathInside } from '../util/path-guard.js';
 import {
   DEFAULT_SNAPSHOT_GC_POLICY,
   planSnapshotGc,
