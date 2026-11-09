@@ -39,6 +39,98 @@ import { __test__ as gateFail } from '../lib/gate-failure-kind.mjs'
 // 整条当场 ReferenceError)——补 import 对齐实现单源 scripts/lib/signal-exit.mjs,不复制判据(§22c)。
 import { shouldPropagateAsInterrupt } from '../lib/signal-exit.mjs'
 
+// ─── C6 结构锁 helpers(判函数体层级,不判相邻文本窗口) ───────────────────────
+// 把注释 / 字符串 / 模板字面量抹成**等长**空白,只留可执行字符与换行。
+// 不留这一层,executor 里 51/1161/1348/1354/1378/1427/1720 行的注释 `failed++`
+// 会让"真 failed++ 被删"也照样匹配 ⇒ 假绿。等长是关键:索引可与原文互用。
+function maskNonCode (s) {
+  const out = s.split('')
+  const blank = (i) => { if (out[i] !== '\n') out[i] = ' ' }
+  const n = s.length
+  let i = 0
+  while (i < n) {
+    const c = s[i], d = s[i + 1]
+    if (c === '/' && d === '/') { while (i < n && s[i] !== '\n') blank(i++); continue }
+    if (c === '/' && d === '*') {
+      blank(i++); blank(i++)
+      while (i < n && !(s[i] === '*' && s[i + 1] === '/')) blank(i++)
+      if (i < n) { blank(i++); blank(i++) }
+      continue
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      const q = c; blank(i++)
+      while (i < n) {
+        if (s[i] === '\\') { blank(i++); if (i < n) blank(i++); continue }
+        if (s[i] === q) { blank(i++); break }
+        blank(i++)
+      }
+      continue
+    }
+    i++
+  }
+  return out.join('')
+}
+
+function matchBrace (code, open) {
+  let d = 0
+  for (let i = open; i < code.length; i++) {
+    if (code[i] === '{') d++
+    else if (code[i] === '}') { d--; if (d === 0) return i }
+  }
+  return -1
+}
+
+// 返回 { ok, why }。锚点定位用原文(字符串/注释字面量还在),结构分析用等长 mask 代码。
+// 守三条:① 锚定 applyGateResult 里含 crash/red 分流的那个 blocking 计数支(不被 1295 pass 支骗);
+//        ② crash 子支内不得出现 failedGates.push(方向锁,替代原恒真的 doesNotMatch);
+//        ③ failed++ 必须是该支**直接子语句**(depth=0)且排在分流之前 ⇒ 挪进 red/crash/else 任一子支即红。
+function blockingCountVerdict (srcText) {
+  const code = maskNonCode(srcText)
+  const raw = srcText
+  const kindPreAt = raw.indexOf('const kindPre = decideGateOutcome(')
+  if (kindPreAt < 0) return { ok: false, why: '找不到 kindPre 判定点(结构变了?)' }
+  const headRe = /if \(check\.mode === 'blocking'\) \{/g
+  headRe.lastIndex = kindPreAt
+  let m, bodyStart = -1, braceEnd = -1
+  while ((m = headRe.exec(raw))) {
+    const open = m.index + m[0].length - 1
+    const close = matchBrace(code, open)
+    if (close < 0) continue
+    const b = code.slice(open + 1, close)
+    if (/crashedGates\.push\(/.test(b) && /failedGates\.push\(/.test(b)) {
+      bodyStart = open; braceEnd = close; break
+    }
+  }
+  if (bodyStart < 0) return { ok: false, why: '找不到含崩溃/判红分流的 blocking 计数支(锚错支或分流被拆)' }
+  const body = code.slice(bodyStart + 1, braceEnd)
+
+  // 方向锁(有牙):crash 子支里塞 failedGates.push ⇒ 崩溃被算成判红
+  const crashIf = raw.indexOf("if (kind.kind === 'crash')", bodyStart)
+  if (crashIf < 0 || crashIf > braceEnd) return { ok: false, why: '找不到 crash 子支(分流结构被拆)' }
+  const cOpen = code.indexOf('{', crashIf)
+  const cClose = matchBrace(code, cOpen)
+  if (/failedGates\.push\(/.test(code.slice(cOpen + 1, cClose)))
+    return { ok: false, why: 'crash 子支里塞了 failedGates.push ⇒ 崩溃被算成判红' }
+
+  // 后果不变量:failed++ 是该支直接子语句(depth=0),唯一,且在两个分流子支之前
+  const depthAt = new Array(body.length)
+  let d = 0
+  for (let k = 0; k < body.length; k++) {
+    if (body[k] === '}') d--
+    depthAt[k] = d
+    if (body[k] === '{') d++
+  }
+  const hits = [...body.matchAll(/failed\+\+/g)].map(x => ({ at: x.index, depth: depthAt[x.index] }))
+  if (hits.length !== 1) return { ok: false, why: `可执行 failed++ 命中 ${hits.length} 处(应为 1;注释/字符串里的不算)` }
+  if (hits[0].depth !== 0)
+    return { ok: false, why: `failed++ 被挪进子支(depth=${hits[0].depth}) ⇒ 未判定/崩溃可能漏计失败` }
+  const crashAt = body.indexOf('crashedGates.push(')
+  const redAt = body.indexOf('failedGates.push(')
+  const splitAt = Math.min(crashAt < 0 ? Infinity : crashAt, redAt < 0 ? Infinity : redAt)
+  if (!(hits[0].at < splitAt)) return { ok: false, why: 'failed++ 不在 crash/red 分流之前 ⇒ 后果不减被破坏' }
+  return { ok: true, why: `depth=0, failed++@${hits[0].at} < 分流@${splitAt}` }
+}
+
 const REAL_CRASH_STDERR =
   "Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'opencc-js' imported from G:\\IHUI-AI-wt-crash\\scripts\\scan-i18n-zh-residue.mjs\n" +
   '    at Object.getPackageJSONURL (node:internal/modules/package_json_reader:301:9)\n' +
@@ -97,17 +189,82 @@ test('C6 装车:runner 必须真调这把尺子,并把崩溃单独成档(判函�
   assert.match(src, /decideGateOutcome\(\{/, '引了却没调用 = 提交链上一路绿灯')
   assert.match(src, /crashedGates\.push\(/, '崩溃没被单独成档')
   assert.match(src, /crashAdvisory\(/, '汇总里没给处置动作')
-  // 方向锁:崩溃那一支不得把门塞进 failedGates(那才是"判红"名单)
-  const from = src.indexOf("if (kind.kind === 'crash')")
-  const to = src.indexOf('failedGates.push(', from)
-  assert.ok(from > 0 && to > from, '取不到崩溃分支或它后面没有判红支(结构变了?)')
-  assert.doesNotMatch(src.slice(from, to), /failedGates\.push\(/, '崩溃被塞进判红名单 = 分流白做')
-  // 后果不变量:failed++ 必须在两个子支**之前**,不得演变成"未判定 ⇒ 放行"
-  assert.match(
-    src,
-    /if \(check\.mode === 'blocking'\) \{\s*\n\s*failed\+\+/,
-    '失败计数被挪进某一子支 ⇒ 未判定可能不被计失败',
+  // 后果不变量 + 方向锁:不再用相邻文本窗口正则(2026-11-08 前置的 recordAndClassify 子支已证伪它),
+  // 改判 blocking 计数支的**函数体结构层级**。原 99-102 行的 doesNotMatch 恒真(to 就是首个
+  // failedGates.push 的位置,切片不含它),一并换成下面这条有牙的结构锁。
+  const v = blockingCountVerdict(src)
+  assert.equal(
+    v.ok,
+    true,
+    `失败计数的结构锁破了:${v.why} —— failed++ 必须是 blocking 支的直接子语句、在 crash/red 两个分流子支之前;` +
+      `被挪进任一子支 ⇒ 未判定/崩溃可能漏计失败`,
   )
+
+  // ── 成对正反例/反向牙:证明这条断言既非恒真也非恒假 ──
+  const shape = (inner) => `
+      const kindPre = decideGateOutcome({ status: e?.status ?? null, code: e?.code ?? null })
+      if (check.mode === 'blocking') {
+${inner}
+      }
+    } catch (e) {}`
+  const split = `        const kind = kindPre
+        if (kind.kind === 'crash') {
+          crashedGates.push({ id: check.id, reason: kind.reason })
+        } else {
+          failedGates.push({ id: check.id })
+        }`
+
+  // 正例:与现结构同形(前置 red 子支 + 顶层 failed++ + 两支分流)必须判绿
+  assert.equal(
+    blockingCountVerdict(shape(`        if (kindPre.kind === 'red') { recordAndClassify({ kind: 'red' }) }
+        failed++
+${split}`)).ok,
+    true,
+    '同形正例被判红 ⇒ 结构锁过于苛刻(会逼后人删断言)',
+  )
+
+  // 反例:任何一条被判绿都说明断言恒真,必须修
+  const bads = [
+    ['failed++ 挪进 kind===red 子支', `        if (kindPre.kind === 'red') {
+          recordAndClassify({ kind: 'red' })
+          failed++
+        }
+${split}`],
+    ['failed++ 挪进 crash 支', `        const kind = kindPre
+        if (kind.kind === 'crash') {
+          failed++
+          crashedGates.push({ id: check.id })
+        } else {
+          failedGates.push({ id: check.id })
+        }`],
+    ['failed++ 挪进 else 判红支', `        const kind = kindPre
+        if (kind.kind === 'crash') {
+          crashedGates.push({ id: check.id })
+        } else {
+          failed++
+          failedGates.push({ id: check.id })
+        }`],
+    ['真 failed++ 被删、只剩注释字样(注释剥离必须有牙)', `        // 注释里的 failed++ 不许算数
+        if (kindPre.kind === 'red') { recordAndClassify({ kind: 'red' }) }
+${split}`],
+    ['failed++ 挪到分流之后(后果不减被破坏)', `${split}
+        failed++`],
+    ['crash 支里塞 failedGates.push(方向锁有牙)', `        failed++
+        const kind = kindPre
+        if (kind.kind === 'crash') {
+          crashedGates.push({ id: check.id })
+          failedGates.push({ id: check.id })
+        } else {
+          failedGates.push({ id: check.id })
+        }`],
+  ]
+  for (const [name, inner] of bads) {
+    assert.equal(
+      blockingCountVerdict(shape(inner)).ok,
+      false,
+      `反向牙失效:「${name}」竟被判绿 ⇒ 断言恒真,锁不住真实回归`,
+    )
+  }
 })
 
 test('C7 stderr 必须仍被吐回上游(改 pipe 之后,"子门的话看得见"靠的是这段代码)', () => {
