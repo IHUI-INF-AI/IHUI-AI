@@ -31,6 +31,7 @@ import {
   EMAIL_LOGO_CID,
   EMAIL_QR_CID,
   escapeHtml,
+  defaultAlertTitle,
 } from '../src/services/email-templates.js'
 
 // email-templates 现为零副作用模块(不 import config),CORS_ORIGIN 直读 process.env。
@@ -366,6 +367,26 @@ describe('email-templates — 运维系统告警', () => {
     expect(r.html).toContain('SYSTEM // ALERT_WARNING')
     expect(r.html).toContain('do not reply') // 页脚说明同样是英文
     expect(r.html).not.toContain('严重级别')
+  })
+
+  it('缺省主题随语言走:英文主题里不得残留中文标题', () => {
+    // 2026-11-10 实测缺口:级别词已英文化,标题却仍是脚本里硬编码的
+    // 「部署失败 — production」⇒ 海外收件人收到 `[CRITICAL] 部署失败 — production`。
+    // 标题同属可见文案,必须与 subjectPrefix 同源。
+    expect(defaultAlertTitle('production', 'zh')).toBe('部署失败 — production')
+    expect(defaultAlertTitle('production', 'en')).toBe('Deploy failed — production')
+    expect(defaultAlertTitle('staging')).toBe('部署失败 — staging') // 缺省中文
+
+    const r = renderSystemAlertEmail({
+      severity: 'critical',
+      source: 'guardian-runner',
+      time: '2026-11-10 06:40:00',
+      title: defaultAlertTitle('production', 'en'),
+      message: 'boom',
+      locale: 'en',
+    })
+    expect(r.subject).toBe('[CRITICAL] Deploy failed — production')
+    expect(r.subject).not.toMatch(/[\u4e00-\u9fa5]/) // 主题里一个汉字都不许有
   })
 
   it('message 为真实文本(逐行 div,非 <pre>)且被转义(XSS 防护)', () => {

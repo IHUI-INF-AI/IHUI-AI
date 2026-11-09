@@ -479,7 +479,8 @@ describe('runCore(端到端,零网络)', () => {
     expect(o.dryRun).toBe(true)
     expect(o.sent).toBe(false)
     expect(o.channel).toBe('smtp')
-    expect(o.subject).toBe('[CRITICAL] 部署失败 — production')
+    // 收件人 op***@example.com 属海外 ⇒ 缺省标题也走英文
+    expect(o.subject).toBe('[CRITICAL] Deploy failed — production')
     expect(o.htmlBytes).toBeGreaterThan(0)
     expect(o.htmlHasDispatchBanner).toBe(true)
     expect(o.toMasked).toEqual(['op***@example.com'])
@@ -557,9 +558,11 @@ describe('runCore(端到端,零网络)', () => {
     expect(must(smtpCalls[0], 'smtpCalls[0]').mail.to).toBe('a@qq.com')
     expect(must(smtpCalls[0], 'smtpCalls[0]').mail.subject).toBe('[严重] 部署失败 — production')
     expect(must(smtpCalls[0], 'smtpCalls[0]').mail.html).toContain('严重级别')
-    // 海外收件人拿全英文版面
+    // 海外收件人拿全英文版面(含主题:标题也按语言生成,不再半中半英)
     expect(must(smtpCalls[1], 'smtpCalls[1]').mail.to).toBe('b@example.com')
-    expect(must(smtpCalls[1], 'smtpCalls[1]').mail.subject).toBe('[CRITICAL] 部署失败 — production')
+    expect(must(smtpCalls[1], 'smtpCalls[1]').mail.subject).toBe(
+      '[CRITICAL] Deploy failed — production',
+    )
     expect(must(smtpCalls[1], 'smtpCalls[1]').mail.html).toContain('SEVERITY')
     expect(o.sent).toBe(true)
     expect(o.localeGroups).toEqual([
@@ -567,6 +570,29 @@ describe('runCore(端到端,零网络)', () => {
       { locale: 'en', count: 1 },
     ])
     expect(writes).toHaveLength(1)
+  })
+
+  it('缺省标题按语言:海外主题零汉字,国内主题中文', async () => {
+    // 端到端守一眼「半中半英」:级别词英文化后,标题必须同步,否则出现
+    // `[CRITICAL] 部署失败 — production` 这种最难读的形态。
+    const en = makeDeps()
+    const oEn = await t.runCore(
+      ['--message', 'm'],
+      { ...SMTP_ENV, ALERT_EMAIL_TO: 'ops@example.com' },
+      en.deps,
+    )
+    expect(oEn.subject).toBe('[CRITICAL] Deploy failed — production')
+    expect(oEn.subject).not.toMatch(/[\u4e00-\u9fa5]/)
+    expect(must(en.smtpCalls[0], 'en.smtpCalls[0]').mail.subject).not.toMatch(/[\u4e00-\u9fa5]/)
+
+    const zh = makeDeps()
+    const oZh = await t.runCore(
+      ['--message', 'm'],
+      { ...SMTP_ENV, ALERT_EMAIL_TO: 'ops@qq.com' },
+      zh.deps,
+    )
+    expect(oZh.subject).toBe('[严重] 部署失败 — production')
+    expect(must(zh.smtpCalls[0], 'zh.smtpCalls[0]').mail.subject).toBe('[严重] 部署失败 — production')
   })
 
   it('混合收件人只成功一半 → 不落去重账(下一轮仍要重试那半边)', async () => {
@@ -591,10 +617,11 @@ describe('runCore(端到端,零网络)', () => {
     expect(o.reasons.join('\n')).toContain('[zh]')
   })
 
-  it('severity 白名单外 → [WARNING];默认标题 = 部署失败 — <environment>', async () => {
+  it('severity 白名单外 → [WARNING];缺省标题按收件人语言生成', async () => {
     const { deps, smtpCalls } = makeDeps()
+    // SMTP_ENV 的收件人是 ops@example.com(海外)⇒ 缺省标题走英文,与 [WARNING] 同语言
     const o = await t.runCore(['--severity', 'emergency', '--message', 'm'], SMTP_ENV, deps)
-    expect(o.subject).toBe('[WARNING] 部署失败 — production')
+    expect(o.subject).toBe('[WARNING] Deploy failed — production')
     const o2 = await t.runCore(
       [
         '--environment',
