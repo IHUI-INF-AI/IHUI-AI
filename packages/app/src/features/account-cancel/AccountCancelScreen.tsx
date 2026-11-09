@@ -297,7 +297,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.secondary,
       textAlign: 'center',
-      lineHeight: rnType.body.lineHeight,
+      lineHeight: 20,
     },
     modalActions: {
       flexDirection: 'row',

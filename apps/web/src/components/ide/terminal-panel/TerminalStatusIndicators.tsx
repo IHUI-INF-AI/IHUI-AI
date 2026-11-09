@@ -4,7 +4,6 @@
 
 import * as React from 'react'
 import { useTranslations } from 'next-intl'
-import { X } from 'lucide-react'
 import { Tooltip } from '@/components/feedback/Tooltip'
 import { cn } from '@/lib/utils'
 
@@ -82,9 +81,8 @@ export function TerminalStatusIndicators({
             type="button"
             onClick={onDismissError}
             className="pointer-events-auto shrink-0 rounded-sm px-1 text-label leading-none text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={t('terminalPanel.dismissErrorTitle')}
           >
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
+            ×
           </button>
         </Tooltip>
       )}

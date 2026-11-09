@@ -249,16 +249,13 @@ describe('考勤页接线', () => {
         checkOutTime: '2026-11-03T16:00:00Z',
       }),
     ).toEqual({ canCheckIn: false, canCheckOut: false })
-    // 判据体内不许出现签到方式这一维(射程取函数体,不取整页,免误伤载荷契约);
-    // 唯一实现落在 contract.ts,页面只 re-export —— 页面再长回第二份判据即红
-    const judge = CONTRACT_SRC.slice(
-      CONTRACT_SRC.indexOf('export function actionAvailability'),
-      CONTRACT_SRC.indexOf('export function buildSelfCheckOutPayload'),
+    // 判据体内不许出现签到方式这一维(射程取函数体,不取整页,免误伤载荷契约)
+    const judge = PAGE_SRC.slice(
+      PAGE_SRC.indexOf('export function actionAvailability'),
+      PAGE_SRC.indexOf('export default function Page'),
     )
     expect(judge.length).toBeGreaterThan(0)
     expect(judge).not.toContain('checkInMethod')
-    expect(PAGE_SRC).toContain('export { actionAvailability }')
-    expect(PAGE_SRC).not.toContain('export function actionAvailability')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

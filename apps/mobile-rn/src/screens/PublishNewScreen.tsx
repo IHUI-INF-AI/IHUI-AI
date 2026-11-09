@@ -425,11 +425,7 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    hint: {
-      fontSize: rnType.caption.size,
-      color: tokens.text.tertiary,
-      lineHeight: rnType.label.lineHeight,
-    },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     notice: {

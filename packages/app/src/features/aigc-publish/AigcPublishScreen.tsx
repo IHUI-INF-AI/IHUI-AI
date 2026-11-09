@@ -405,11 +405,7 @@ function createStyles(tk: AppThemeTokens) {
       justifyContent: 'center',
       backgroundColor: tk.surface.muted,
     },
-    fileAddIcon: {
-      fontSize: rnType.display.size,
-      color: tk.text.tertiary,
-      lineHeight: rnType.subtitle.lineHeight,
-    },
+    fileAddIcon: { fontSize: rnType.display.size, color: tk.text.tertiary, lineHeight: 26 },
     fileAddText: {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,

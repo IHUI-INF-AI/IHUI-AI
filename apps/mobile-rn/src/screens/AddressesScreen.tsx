@@ -425,7 +425,7 @@ function makeStyles() {
       backgroundColor: tokens.surface.muted,
     },
     badgeText: { fontSize: rnType.caption.size, color: tokens.text.secondary },
-    itemAddress: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
+    itemAddress: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     actions: {
       flexDirection: 'row',
       justifyContent: 'flex-end',

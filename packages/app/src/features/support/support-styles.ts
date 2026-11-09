@@ -181,7 +181,7 @@ export function createSupportStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     descLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
-    descText: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
+    descText: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
     commentsBox: {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: tk.border.light,

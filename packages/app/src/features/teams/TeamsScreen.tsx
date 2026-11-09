@@ -306,11 +306,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing.sm,
     },
     emptyText: { fontSize: rnType.body.size, color: tk.text.tertiary },
-    listBody: {
-      padding: rnSpacing['md-loose'],
-      paddingTop: rnSpacing.none,
-      paddingBottom: rnSpacing['3xl'],
-    },
+    listBody: { padding: rnSpacing['md-loose'], paddingTop: 0, paddingBottom: rnSpacing['3xl'] },
     separator: { height: 8 },
     card: {
       padding: rnSpacing['md-loose'],

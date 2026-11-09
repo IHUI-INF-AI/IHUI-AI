@@ -286,11 +286,7 @@ function createStyles(tk: AppThemeTokens) {
       borderWidth: 1,
       borderColor: tk.border.light,
     },
-    bubbleText: {
-      fontSize: rnType.title.size,
-      lineHeight: rnType.strong.lineHeight,
-      color: tk.text.primary,
-    },
+    bubbleText: { fontSize: rnType.title.size, lineHeight: 22, color: tk.text.primary },
     errorWrap: { paddingHorizontal: rnSpacing.lg, paddingBottom: rnSpacing.sm },
     errorText: { fontSize: rnType.body.size, color: tk.danger.DEFAULT },
     pickerOverlay: { flex: 1, backgroundColor: rnCssLight.black20 },

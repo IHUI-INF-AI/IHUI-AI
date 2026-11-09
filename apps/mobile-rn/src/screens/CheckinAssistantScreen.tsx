@@ -327,11 +327,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   summary: { fontSize: rnType.body.size, fontWeight: '600', color: tokens.text.primary },
-  muted: {
-    fontSize: rnType.label.size,
-    color: tokens.text.secondary,
-    lineHeight: rnType.bodySm.lineHeight,
-  },
+  muted: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 18 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
   badge: {
     fontSize: rnType.caption.size,

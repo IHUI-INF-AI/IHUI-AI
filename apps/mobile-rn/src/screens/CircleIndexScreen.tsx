@@ -552,7 +552,7 @@ const createStyles = (tk: RnThemeTokens) =>
       color: tk.text.primary,
     },
     content: {
-      fontSize: rnType.bodySm.size,
+      fontSize: 13,
       lineHeight: 19,
       color: tk.text.secondary,
     },

@@ -295,7 +295,6 @@ async function pressModeShortcut(page: Page, digit: string, expectedMode: Mode) 
   await closeComposerMenu(page)
   for (let i = 0; i < 40; i++) {
     await page.keyboard.press(`Control+${digit}`)
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(500)
     await openComposerTools(page)
     const mode = await page
@@ -403,7 +402,7 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       const modalHit = await isLoginModalOpen(authenticatedPage)
       if (modalHit) {
         console.log(`[slash-debug] ${SLASH_CMDS[mode]}: ${modalHit}`)
-        test.skip(true, '登录模态框弹出,跳过 send 触发的 slash 命令测试 [SKIP:SKIP-0032]')
+        test.skip(true, '登录模态框弹出,跳过 send 触发的 slash 命令测试')
       }
       // 2026-08-27 修复:dev server 冷编译期 React hydration 可能晚于 fill ——
       // onKeyDown 未挂载时 fill 的文本不进 React state,Enter 静默丢失且输入框稍后
@@ -425,7 +424,6 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
             switched = true
             break
           }
-          // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
           await authenticatedPage.waitForTimeout(250)
         }
         if (!switched) await closeComposerMenu(authenticatedPage)
@@ -493,11 +491,10 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
       const textarea = authenticatedPage.locator('textarea').first()
       await textarea.fill(input)
       await textarea.press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await authenticatedPage.waitForTimeout(1000)
       // 登录弹窗检测
       if (await isLoginModalOpen(authenticatedPage)) {
-        test.skip(true, '登录模态框弹出,跳过 send 触发的关键词测试 [SKIP:SKIP-0033]')
+        test.skip(true, '登录模态框弹出,跳过 send 触发的关键词测试')
       }
       // 2026-11-04:send 后再开抽屉,轮询读徽标 data-mode(轮询预算 16×500ms 不变)
       await openComposerTools(authenticatedPage)
@@ -510,11 +507,10 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
           matched = true
           break
         }
-        // WAIT-POLICY:TIMING-0005 外部服务响应等待,本地没有可观察信号
         await authenticatedPage.waitForTimeout(500)
       }
       if (!matched) {
-        test.skip(true, 'AI 关键词判定未触发(本地无 LLM 配额),跳过 [SKIP:SKIP-0034]')
+        test.skip(true, 'AI 关键词判定未触发(本地无 LLM 配额),跳过')
         return
       }
       await expect(badge).toHaveAttribute('data-mode', expected, { timeout: 3000 })
@@ -580,14 +576,13 @@ test.describe('ChatModeBadge + 3 通道模式切换', () => {
     // 导致 hover 重试至 90s 超时(实测 run3 现场快照);弹出则 skip。
     await waitForAuthResolved(authenticatedPage)
     if (await isLoginModalOpen(authenticatedPage)) {
-      test.skip(true, '登录模态框弹出,跳过 tooltip 测试 [SKIP:SKIP-0035]')
+      test.skip(true, '登录模态框弹出,跳过 tooltip 测试')
     }
     // 2026-11-04:徽标在「+ → 更多工具」抽屉内 —— 抽屉打开状态下 hover 徽标,
     // tooltip 语义(模式名 + 切换提示)不变
     await openComposerTools(authenticatedPage)
     const badge = authenticatedPage.locator(PROGRESS_TRIGGER)
     await badge.hover()
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(400)
     // 找 tooltip(由 @radix-ui/react-tooltip 或 sonner 提供)
     const tooltip = authenticatedPage.locator('[role="tooltip"]').first()

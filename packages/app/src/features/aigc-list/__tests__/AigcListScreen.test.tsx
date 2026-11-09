@@ -14,12 +14,6 @@ const t = (key: string): string => key
 
 const AUDIO_URL = 'https://cdn.example.com/audio.mp3'
 
-/**
- * 测试桩:共享屏只消费调用方解析好的明暗档案(真机值来自 ThemeContext.resolvedTheme);
- * 单测固定浅色,避免组件静默落回形参默认值。
- */
-const TEST_COLOR_SCHEME: 'light' | 'dark' = 'light'
-
 const audioItem: AigcListItem = {
   id: 'aigc-audio-1',
   title: '音频作品',
@@ -47,7 +41,6 @@ function renderScreen(overrides: Partial<AigcListScreenProps> = {}) {
     onPublish: vi.fn(),
     onBack: vi.fn(),
     onToast,
-    colorScheme: TEST_COLOR_SCHEME,
     ...overrides,
   }
   // 守门 theme-prop-wiring：渲染点显式接线，用变量不写字面量。

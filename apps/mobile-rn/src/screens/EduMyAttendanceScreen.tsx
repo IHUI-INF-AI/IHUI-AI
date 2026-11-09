@@ -26,7 +26,6 @@ import {
 import { Tappable } from '@ihui/ui-native'
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
 import { appAlert } from '../components/BottomPops'
-import { SelfCheckOutAction } from '../components/SelfCheckOutAction'
 import { useAuth } from '../context/AuthContext'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
@@ -114,9 +113,7 @@ function EduMyAttendanceScreen() {
     [records, statusLabel],
   )
 
-  // 自签不依赖 classId(班级由后端现取);签退资格只看服务端回读行(已签到且未签退),端上不自报状态
-  const todayRecord = records.find((r) => r.date === attendanceBizDay()) ?? null
-  const canCheckOut = !!todayRecord?.checkInTime && !todayRecord?.checkOutTime
+  // 新契约:自签不依赖 classId(班级由后端按在册学籍现取),此处仅保留读路径的本人行过滤。
 
   const selfCheckIn = useCallback(async () => {
     if (busy) return
@@ -170,7 +167,6 @@ function EduMyAttendanceScreen() {
         <Text style={styles.ctaBtnText}>{t('eduMyAttendance.selfCheckIn')}</Text>
       </Tappable>
       <Text style={styles.ctaHint}>{t('eduMyAttendance.classByBackendHint')}</Text>
-      <SelfCheckOutAction date={attendanceBizDay()} enabled={canCheckOut} onDone={load} />
       {/* 扫码签到:出码方是教师屏(RN/Web),本屏只负责扫载荷 → POST qrcode-check-in {token} */}
       <Tappable
         onPress={() => navigation.navigate('EduAttendanceScan')}

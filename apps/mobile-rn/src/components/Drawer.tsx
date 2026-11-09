@@ -31,7 +31,7 @@
  *   (我的/会员/消息/设置/主题/领取资料/退出登录;未登录显登录入口 → Login 路由)
  *
  * 左侧滑入,半透明遮罩(收口到 --color-black-40 同一档:0.4,与小程序端同值),
- * 0.66 屏宽、封顶取几何档 rnGeometry.drawerWidth(160,与小程序 320rpx 同源)。
+ * 0.66 屏宽、封顶取几何档 rnGeometry.drawerWidth(250,与小程序 500rpx 同源)。
  * 左滑操作(收藏+删除)用 Animated + PanResponder 自定义实现(无 react-native-gesture-handler 依赖)。
  *
  * 平台特有:依赖 RN Animated/PanResponder/Modal/SafeAreaContext,不适合共享。
@@ -154,10 +154,8 @@ export interface DrawerProps {
 
 // ── 常量 ──
 
-// 抽屉宽度封顶收进几何档 rnGeometry.drawerWidth(160,与小程序 320rpx 同源) ——
+// 抽屉宽度封顶收进几何档 rnGeometry.drawerWidth(250,与小程序 500rpx 同源) ——
 // 端内不再留 MAX_DRAWER_WIDTH 这个第二数字;0.66 是窄屏自适应比例,属平台机制不是档。
-// 2026-11-07 档由 250 收到 160 后,`0.66 × 屏宽` 对任何 ≥243dp 的屏都大于 160 ⇒ 比例分支
-// 实际只在 242dp 以下的极窄屏生效,常态恒取 160(与 web 常驻侧栏同宽)。
 const DRAWER_WIDTH_RATIO = 0.66
 const ANIM_DURATION_MS = 250
 // 遮罩不透明度对齐 --color-black-40(0.4):此前 RN 写 0.5、小程序走 token 0.4,两端反极。

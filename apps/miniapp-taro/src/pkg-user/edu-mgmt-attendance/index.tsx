@@ -18,7 +18,6 @@ import { formatDate, nowDate } from '@/utils/time'
 import { ChildRecordsView, type ChildRecordRow } from '../edu-child/records-page'
 import DayBar from './day-bar'
 import {
-  actionAvailability,
   TONE_CLASS,
   backfillBlocked,
   buildBatchPayload,
@@ -50,9 +49,20 @@ interface BatchOutcome {
 }
 
 /**
- * 行内动作可见性判据(唯一实现落在 ./contract.ts;此处 re-export 保持既有调用方与用例的导入面)。
+ * 行内动作可见性判据(唯一实现,用例直接钉它)。
+ * 签到只看「无 checkInTime」,签退只看「有 checkInTime ∧ 无 checkOutTime」——
+ * 签退**绝不按 checkInMethod 挡**:学生自签过的行教师同样必须能签退
+ * (web 侧踩过该缺陷并已修,此处不得回潮)。
  */
-export { actionAvailability }
+export function actionAvailability(r: {
+  checkInTime: string | null
+  checkOutTime: string | null
+}): { canCheckIn: boolean; canCheckOut: boolean } {
+  return {
+    canCheckIn: !r.checkInTime,
+    canCheckOut: Boolean(r.checkInTime) && !r.checkOutTime,
+  }
+}
 
 export default function Page() {
   const { t } = useI18n()

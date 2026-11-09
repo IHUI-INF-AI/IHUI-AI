@@ -11,6 +11,8 @@ export interface EmptyStateProps {
   loadingLabel?: string
   emptyTitle: string
   emptyHint: string
+  /** 深链锚点失败的空态不展示「开始新任务」模板,避免看起来像另起一段会话。 */
+  showTemplates?: boolean
   onTemplateSelect?: (content: string) => void
   t: (key: string) => string
 }
@@ -21,20 +23,22 @@ export function EmptyState({
   loadingLabel,
   emptyTitle,
   emptyHint,
+  showTemplates = true,
   onTemplateSelect,
   t,
 }: EmptyStateProps) {
   // 空状态引导模板与附加栏 Popover 共用同一组 5 个核心模板(i18n key 一致)。
   // category 字段已废弃(PromptTemplates 不再分组),做减法移除。
-  const templates = onTemplateSelect
-    ? [
-        { id: 'summary', name: t('tplSummary'), content: t('tplSummaryContent') },
-        { id: 'translate', name: t('tplTranslate'), content: t('tplTranslateContent') },
-        { id: 'explain', name: t('tplExplain'), content: t('tplExplainContent') },
-        { id: 'code', name: t('tplCode'), content: t('tplCodeContent') },
-        { id: 'polish', name: t('tplPolish'), content: t('tplPolishContent') },
-      ]
-    : []
+  const templates =
+    showTemplates && onTemplateSelect
+      ? [
+          { id: 'summary', name: t('tplSummary'), content: t('tplSummaryContent') },
+          { id: 'translate', name: t('tplTranslate'), content: t('tplTranslateContent') },
+          { id: 'explain', name: t('tplExplain'), content: t('tplExplainContent') },
+          { id: 'code', name: t('tplCode'), content: t('tplCodeContent') },
+          { id: 'polish', name: t('tplPolish'), content: t('tplPolishContent') },
+        ]
+      : []
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 p-3 text-center">
       {/* 与 LoginDialog / 全站统一:纯图标版 logo.png(蝴蝶结 + IHUI INF 弧形,无横向文字),非左上角位置统一资产。

@@ -22,6 +22,7 @@ import {
   View,
   Pressable,
   Text,
+  Image,
   StyleSheet,
   type ImageStyle,
   type ViewStyle,
@@ -43,6 +44,7 @@ import {
 } from '@ihui/api-client'
 import {
   PlazaScreen as SharedPlazaScreen,
+  CategoryDropdown,
   type CategoryItem,
   type PlazaScreenProps,
 } from '@ihui/rn-app'
@@ -66,6 +68,7 @@ import { navigateDrawerTab } from '../navigation/tab-utils'
 import { rpx } from '../utils/rpx'
 import { Search, User, LayoutGrid, X } from 'lucide-react-native'
 import { PanelLeftRounded } from '../components/PanelLeftRounded'
+import FloatingActionButton from '../components/FloatingActionButton'
 
 import { rnRadius, rnRadiusFor, rnType, rnCssLight } from '@ihui/design-tokens'
 import { NavChrome } from '../components/NavChrome'
@@ -187,8 +190,6 @@ export function PlazaScreen() {
   const [identityVisible, setIdentityVisible] = useState(false)
   // 开发者须知弹窗(对齐原项目 L110-150:开发者须知 Modal,5 条规则)
   const [noticeVisible, setNoticeVisible] = useState(false)
-  // 详情居中弹层(2026-11-05:与小程序共用共享屏实现;弹层内「查看详情」再跳详情页)
-  const [detailItem, setDetailItem] = useState<PlazaScreenProps['items'][number] | null>(null)
   const { resolvedTheme } = useTheme()
   const trackCategoryItems = useMemo<CategoryItem[]>(
     () => trackCategories.map((cat) => ({ id: cat.id, label: cat.name })),
@@ -280,8 +281,7 @@ export function PlazaScreen() {
   }
 
   const showDetail = (item: PlazaScreenProps['items'][number]) => {
-    // 2026-11-05:先开共享「详情居中弹层」(与小程序同屏);弹层内「查看详情」再导航。
-    setDetailItem(item)
+    navigation.navigate('PostDetail', { id: String(item.id) })
   }
 
   // ── 需求赛道加载(对齐原项目 plaza/index.vue category(1) → categorySaidao) ──
@@ -512,60 +512,14 @@ export function PlazaScreen() {
           onPressItem={showDetail}
           onPublish={onPublish}
           contentBottomPadding={tabBarScrollReserve(insets.bottom)}
-          trackFilter={{
-            visible: categoryVisible,
-            items: trackCategoryItems,
-            selectedId: selectedCategory,
-            onSelect: onSelectCategory,
-            onVisibleChange: setCategoryVisible,
-            panelTitle: t('plaza.index.trackPanelTitle'),
-          }}
-          identitySheet={{
-            visible: identityVisible,
-            title: t('plaza.index.identityTitle'),
-            items: [
-              { id: 'demander', label: t('plaza.index.identityFindDemander') },
-              { id: 'developer', label: t('plaza.index.identityImDev') },
-            ],
-            user: {
-              avatar: user?.avatar,
-              name: user?.nickname || user?.username || t('plaza.index.notLoggedInUser'),
-              subtext: t('plaza.index.identitySub'),
-            },
-            footer: {
-              title: t('plaza.index.devNoticeTitle'),
-              text: t('plaza.index.footerDesc'),
-              onPress: () => {
-                setIdentityVisible(false)
-                setNoticeVisible(true)
-              },
-            },
-            onSelect: (id: string) => {
-              setIdentityVisible(false)
-              if (id === 'developer') {
-                void AsyncStorage.setItem('userStatus', 'developer').then(() => {
-                  navigation.navigate('Developer', { id: 'self' })
-                })
-              } else {
-                void AsyncStorage.setItem('userStatus', 'nomal')
-              }
-            },
-            onClose: () => setIdentityVisible(false),
-          }}
-          detail={{
-            item: detailItem,
-            onClose: () => setDetailItem(null),
-            onOpenDetail: (item) => {
-              setDetailItem(null)
-              navigation.navigate('PostDetail', { id: String(item.id) })
-            },
-          }}
           onRetry={() => {
             void load()
           }}
           colorScheme={resolvedTheme}
         />
       </BlurTargetView>
+      {/* 悬浮发布按钮(对齐历史 plaza/index.vue floating-publish-btn):点击跳转需求发布页 */}
+      <FloatingActionButton onPress={onPublish} accessibilityLabel="发布需求" />
       <FloatBox
         visible={floatBox.visible}
         type={floatBox.type}
@@ -588,6 +542,96 @@ export function PlazaScreen() {
         onGoHome={handleDrawerGoHome}
         onNavigateExtra={handleNavigateExtra}
       />
+      {/* 需求赛道筛选(对齐原项目 plaza/index.vue 顶栏分类按钮 → categorySaidao 赛道弹层):
+       *  改走统一 CategoryDropdown —— 顶栏分类钮(LayoutGrid,2026-10-28 去 FolderOpen)受控开合,选中即刷新列表(语义未变) */}
+      <CategoryDropdown
+        items={trackCategoryItems}
+        selectedId={selectedCategory}
+        onSelect={onSelectCategory}
+        colorScheme={resolvedTheme}
+        visible={categoryVisible}
+        onVisibleChange={setCategoryVisible}
+        hideTrigger
+        panelTitle={t('plaza.index.trackPanelTitle')}
+        backdropA11yLabel={t('plaza.index.closeTrackFilter')}
+        testID="plaza-track-dropdown"
+      />
+      {/* 身份切换弹窗(对齐原项目 plaza/index.vue L78-108:
+       *  切换身份 → 找大佬开发(普通身份) / 我是开发者(跳开发者页);footer 打开开发者须知) */}
+      <Modal
+        visible={identityVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIdentityVisible(false)}
+      >
+        <Tappable
+          style={styles.categoryMask}
+          onPress={() => setIdentityVisible(false)}
+          accessibilityLabel={t('plaza.index.closeIdentity')}
+        >
+          <Pressable style={styles.identityCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.identityTitle}>{t('plaza.index.identityTitle')}</Text>
+            {/* 身份用户区(对齐原项目 plaza/index.vue identity-user:头像 + 昵称 + 副文案) */}
+            <View style={styles.identityUser}>
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.identityAvatar} />
+              ) : (
+                <View style={[styles.identityAvatar, styles.identityAvatarFallback]}>
+                  <User size={28} color={tokens.text.secondary} />
+                </View>
+              )}
+              <View style={styles.identityUserInfo}>
+                <Text style={styles.identityNickname}>
+                  {user?.nickname || user?.username || t('plaza.index.notLoggedInUser')}
+                </Text>
+                <Text style={styles.identitySubtext}>{t('plaza.index.identitySub')}</Text>
+              </View>
+            </View>
+            <View style={styles.identityButtons}>
+              <Tappable
+                style={[styles.identityBtn, styles.identityBtnOutline]}
+                onPress={() => {
+                  // 对齐原项目 toSet:写身份 userStatus='nomal' + 关弹窗(切换发布路径视图)
+                  setIdentityVisible(false)
+                  void AsyncStorage.setItem('userStatus', 'nomal')
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t('plaza.index.identityFindDemander')}
+              >
+                <Text style={styles.identityBtnTextOutline}>
+                  {t('plaza.index.identityFindDemander')}
+                </Text>
+              </Tappable>
+              <Tappable
+                style={[styles.identityBtn, styles.identityBtnOutline, styles.identityBtnPrimary]}
+                onPress={() => {
+                  setIdentityVisible(false)
+                  // 对齐原项目 toDev:先写身份 userStatus='developer' 再跳开发者页
+                  void AsyncStorage.setItem('userStatus', 'developer').then(() => {
+                    navigation.navigate('Developer', { id: 'self' })
+                  })
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={t('plaza.index.identityImDev')}
+              >
+                <Text style={styles.identityBtnTextPrimary}>{t('plaza.index.identityImDev')}</Text>
+              </Tappable>
+            </View>
+            <Tappable
+              style={styles.identityFooter}
+              onPress={() => {
+                setIdentityVisible(false)
+                setNoticeVisible(true)
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('plaza.index.devNoticeTitle')}
+            >
+              <Text style={styles.identityFooterTitle}>{t('plaza.index.devNoticeTitle')}</Text>
+              <Text style={styles.identityFooterText}>{t('plaza.index.footerDesc')}</Text>
+            </Tappable>
+          </Pressable>
+        </Tappable>
+      </Modal>
       {/* 开发者须知弹窗(对齐原项目 plaza/index.vue L110-150,5 条规则文案逐字) */}
       <Modal
         visible={noticeVisible}
@@ -704,7 +748,7 @@ const styles = StyleSheet.create({
     color: tokens.gray[900],
     marginBottom: rpx(8),
   } as TextStyle,
-  identitySubtext: { fontSize: rnType.bodySm.size, color: tokens.text.tertiary },
+  identitySubtext: { fontSize: 13, color: tokens.text.tertiary },
   identityButtons: { flexDirection: 'row', gap: rpx(24), width: '100%' },
   identityBtn: {
     flex: 1,
@@ -738,11 +782,7 @@ const styles = StyleSheet.create({
   },
   identityFooterText: { fontSize: rnType.label.size, color: tokens.text.tertiary },
   noticeList: { width: '100%', marginTop: rpx(24), gap: rpx(24) },
-  noticeItem: {
-    fontSize: rnType.bodySm.size,
-    color: tokens.text.medium,
-    lineHeight: rnType.body.lineHeight,
-  },
+  noticeItem: { fontSize: 13, color: tokens.text.medium, lineHeight: 20 },
   noticeBold: { fontWeight: '700', color: tokens.gray[900] },
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

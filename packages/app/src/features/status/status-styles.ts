@@ -73,7 +73,7 @@ export function createStatusStyles(tk: AppThemeTokens) {
     rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     rowMeta: { alignItems: 'flex-end', gap: rnSpacing['2xs'] },
     incidentRow: { gap: rnSpacing['xs-loose'], paddingVertical: rnSpacing.sm },
-    incidentDesc: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
+    incidentDesc: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
     incidentTime: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     noticeBox: {
       flexDirection: 'row',

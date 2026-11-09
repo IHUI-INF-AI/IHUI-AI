@@ -21,7 +21,6 @@ import {
   Brain,
 } from 'lucide-react'
 import { ManualNav, chapters } from '../_manual-nav'
-import { ManualFigure } from '@/components/docs/manual-figure'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -70,11 +69,6 @@ export default function ManualAiChatPage() {
             每个对话独立保存,可同时开多个对话,互不影响。建议每个话题一个对话,AI 回答更准。
           </p>
         </div>
-        <ManualFigure
-          src="/images/docs/manual/ai-chat-workbench.png"
-          alt="智汇 AI 的 AI 对话工作台整屏实拍:最左是主导航(新建任务、插件市场、自动化、产物中心、任务列表、首页、热门、生态市场、AI 智能体、AI 教育、内容、交易、个人),其右一列顶部为「会话」与「新建会话」及关键词搜索框,主体标题「AI 对话工作台」下写明「在下方直接输入即可开新会话,或从左侧选择会话继续任务」,再往下是计划 / 构建 / 添加为上下文引用 / 调用命令与技能(/)四张快捷动作卡、总结任务 / 翻译为英文 / 解释概念 / 生成代码 / 润色文本五枚快捷按钮,底部输入框占位文案为「详细描述需求,输入 / 调用技能、插件、MCP(如 /goal /loop /plan)」,输入框左下角是一个加号按钮、右下角是模型选择器(当前显示「自动」)与发送按钮"
-          caption="实拍 aizhs.top AI 对话工作台(/chat/workbench),2026-11-06 无头浏览器 1440×900 抓取,界面状态为未登录会话失效态:工作台骨架、会话列表、输入框、加号按钮与模型选择器均已渲染,左侧任务列表显示「加载失败」、发送需先登录。本节三种新建对话入口里的两枚(顶部「新建任务」、会话列「新建会话」)就是图中的按钮,快捷键 Ctrl/Cmd + K 是同一入口的键盘形式;2.3 的加号按钮与 2.4 的模型选择器也都在这一屏。"
-        />
       </section>
 
       {/* 发送消息 */}
@@ -179,11 +173,6 @@ export default function ManualAiChatPage() {
             </li>
           </ul>
         </div>
-        <ManualFigure
-          src="/images/docs/manual/ai-chat-playground.png"
-          alt="智汇 AI 在线测试(API Playground)页实拍:顶部标题「API Playground」与说明「用你的 API Key 直接调用 /v1/chat/completions,支持流式渲染、参数调节与代码生成,无需跳转到 /chat」,其下是「发送」「清空」两枚按钮与「POST /v1/chat/completions · SSE」字样;左列依次为「消息列表 1 条」(system 角色下拉 + You are a helpful assistant. 文本框 + 添加消息)、「API Key」输入框、「模型」输入框与刷新图标、temperature 0.7 / max_tokens 2048 / top_p 1 三条滑杆、stream(流式)开关;右列是响应 / 代码 / 历史(0) 三个页签"
-          caption="实拍 aizhs.top 在线测试(/playground),2026-11-06 无头浏览器 1440×900 抓取,界面状态为未登录游客态(表单为空、响应区提示「点击「发送」查看响应」)。这是与工作台并行的另一条对话入口:模型在这里用输入框加刷新按钮取列表,而非工作台的「自动」下拉;2.2 的发送、2.4 的选模型与流式开关在这一屏可逐项对照,需在 API Key 栏填入第 6 章 6.4 生成的密钥后才能发出请求。"
-        />
       </section>
 
       {/* 历史对话 */}

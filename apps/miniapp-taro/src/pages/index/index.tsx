@@ -9,7 +9,7 @@
  * 视觉规则:`.ihui-agent/tmp/miniapp-taro-style-align/home-spec.md`
  *
  * 结构:7 层嵌套(根 → 容器 → 输入区 → 定位 → 滚动 → 按钮组 → 按钮内容)
- * - DrawerComponent(side='left',320rpx 宽抽屉〔= 几何档 drawerWidth 160px〕 + 历史对话 + 用户信息)
+ * - DrawerComponent(side='left',500rpx 宽抽屉 + 历史对话 + 用户信息)
  * - NavBar(variant='ai-home',sticky + 标题"智汇AI社区" + 菜单 + 加入社区群)
  * - top_box(消息列表区:share-image 缩为右上角 80rpx 图标 + ScrollView 流式对话渲染)
  * - input_box_content(position: fixed bottom)
@@ -1270,7 +1270,7 @@ export default function Index() {
         {/* ===== PushNotification 推送通知弹窗(对齐原项目) ===== */}
         <PushNotification />
 
-        {/* ===== DrawerComponent (左侧抽屉,320rpx = 几何档 drawerWidth) ===== */}
+        {/* ===== DrawerComponent (左侧抽屉,500rpx) ===== */}
         <DrawerComponent
           side="left"
           visible={state.drawerVisible}

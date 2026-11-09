@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   AppState,
   LogBox,
+  Modal,
   Platform,
+  Pressable,
   Text,
   TextInput,
   View,
@@ -45,6 +47,8 @@ import { GlobalFloatBox } from './src/components/GlobalFloatBox'
 import { HostToastLayer } from './src/host/HostToastLayer'
 import { PrivacyPolicyModal } from './src/components/PrivacyPolicyModal'
 import { AppConfirmHost } from './src/components/BottomPops'
+import { usePush } from './src/hooks/use-push'
+import { useBiometrics } from './src/hooks/use-biometrics'
 import { PRIVACY_POLICY_STORAGE_KEY } from './src/constants/privacyPolicy'
 import './src/lib/web-shell'
 
@@ -263,6 +267,34 @@ async function applyOAuthResult(result: OAuthRedirectResult): Promise<void> {
 function AppContent() {
   const { resolvedTheme } = useTheme()
 
+  // 推送注册:冷启动后把本机 expo push token 注册到后端(/push/devices/register),
+  // 否则后端 edu_notification_device 表无此设备记录,推送链路断裂。
+  const { register: registerPush } = usePush()
+  useEffect(() => {
+    void registerPush()
+  }, [registerPush])
+
+  // 生物识别解锁门(冷启动):仅当本机支持且已录入指纹/面容时启用,
+  // 提供「指纹解锁」与「密码解锁」双通道,后者等同跳过,不强制生物识别。
+  const {
+    supported: bioSupported,
+    enrolled: bioEnrolled,
+    probe: probeBio,
+    authenticate: authenticateBio,
+  } = useBiometrics()
+  const [bioGate, setBioGate] = useState(false)
+  const [bioPassed, setBioPassed] = useState(false)
+  useEffect(() => {
+    void probeBio()
+  }, [probeBio])
+  useEffect(() => {
+    if (bioSupported && bioEnrolled) setBioGate(true)
+  }, [bioSupported, bioEnrolled])
+  const onBioUnlock = useCallback(async () => {
+    const r = await authenticateBio('请验证身份以解锁应用')
+    if (r.success) setBioPassed(true)
+  }, [authenticateBio])
+
   // 初始化微信 SDK + OAuth deep link 监听(ihui://oauth/callback?platform=xxx&code=xxx&state=xxx)
   // 与 SSO deep link(ihui://sso/callback)互不干扰,后者由 AuthContext 监听
   useEffect(() => {
@@ -396,6 +428,53 @@ function AppContent() {
           <PrivacyPolicyModal visible={privacyVisible} onAgree={handlePrivacyAgree} />
         </I18nProvider>
         <StatusBar style="auto" />
+        {/* 生物识别解锁门(冷启动):仅当本机支持且已录入指纹/面容时弹出,
+            双通道解锁,提供「密码解锁」兜底,不强制生物识别。 */}
+        {bioGate && !bioPassed ? (
+          <Modal visible transparent animationType="fade">
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0,0,0,0.45)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <View
+                style={{
+                  width: 280,
+                  backgroundColor: tokens.surface.card,
+                  borderRadius: 16,
+                  padding: 24,
+                  alignItems: 'center',
+                  gap: 16,
+                }}
+              >
+                <Text style={{ fontSize: 17, fontWeight: '700', color: tokens.text.primary }}>
+                  应用锁
+                </Text>
+                <Pressable
+                  onPress={onBioUnlock}
+                  style={{
+                    width: '100%',
+                    height: 44,
+                    borderRadius: 10,
+                    backgroundColor: tokens.brand.cta,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text style={{ color: tokens.brand.ctaForeground, fontWeight: '600' }}>
+                    使用指纹 / 面容解锁
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => setBioPassed(true)} hitSlop={8}>
+                  <Text style={{ color: tokens.text.secondary, fontSize: 14 }}>使用密码解锁</Text>
+                </Pressable>
+              </View>
+            </View>
+          </Modal>
+        ) : null}
       </SafeAreaProvider>
     </View>
   )

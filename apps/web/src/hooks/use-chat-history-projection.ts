@@ -44,6 +44,9 @@ import {
   isHistoryCursorStale,
   projectHistoryPage,
   resolveHistoryRolloutSeed,
+  planDurableSessionReplay,
+  chatMessageToDurableItem,
+  createToolInputParser,
 } from '@ihui/shared/chat'
 import type {
   HistoryBoundary,
@@ -51,6 +54,8 @@ import type {
   HistoryProjection,
   HistoryTurnWire,
 } from '@ihui/shared/chat'
+
+export { planDurableSessionReplay, chatMessageToDurableItem, createToolInputParser }
 
 /** 服务端一页在本钩子里的形态(与 api-client 的 ConversationHistoryResult 同构)。 */
 type HistoryPage = HistoryPageWire<ConversationMessage>

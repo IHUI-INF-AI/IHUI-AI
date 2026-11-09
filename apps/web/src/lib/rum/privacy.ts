@@ -16,6 +16,8 @@
 export const RUM_ALLOWED_PROP_KEYS = [
   'app_start_ms',
   'first_paint_ms',
+  'startup_mark_disposition',
+  'startup_marks_missing',
   'first_token_ms',
   'stream_ms',
   'duration_ms',
@@ -209,6 +211,16 @@ export function sanitizeRumProps(input: Record<string, unknown> | null | undefin
     }
     if (key === 'app_version') {
       if (typeof value === 'string' && /^[0-9A-Za-z._-]{1,20}$/.test(value)) out[key] = value
+      continue
+    }
+    if (key === 'startup_mark_disposition') {
+      if (value === 'complete' || value === 'incomplete' || value === 'unjudged') out[key] = value
+      continue
+    }
+    if (key === 'startup_marks_missing') {
+      if (typeof value !== 'string' || value.length === 0 || value.length > 200) continue
+      const parts = value.split(',')
+      if (parts.every((part) => /^[a-z0-9][a-z0-9-]{0,40}$/.test(part))) out[key] = value
       continue
     }
     if (key === 'message') {

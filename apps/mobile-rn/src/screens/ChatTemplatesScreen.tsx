@@ -405,14 +405,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: tokens.text.primary,
   },
-  cardDesc: {
-    fontSize: rnType.label.size,
-    lineHeight: rnType.bodySm.lineHeight,
-    color: tokens.text.secondary,
-  },
+  cardDesc: { fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.secondary },
   cardContent: {
     fontSize: rnType.label.size,
-    lineHeight: rnType.bodySm.lineHeight,
+    lineHeight: 18,
     fontFamily: 'monospace',
     color: tokens.text.secondary,
     paddingHorizontal: rnSpacing.sm,
@@ -458,11 +454,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
     maxHeight: 260,
   },
-  sheetContent: {
-    fontSize: rnType.bodySm.size,
-    lineHeight: rnType.body.lineHeight,
-    color: tokens.text.primary,
-  },
+  sheetContent: { fontSize: 13, lineHeight: 20, color: tokens.text.primary },
   notice: { fontSize: rnType.label.size, color: tokens.text.secondary },
   button: {
     height: 44,

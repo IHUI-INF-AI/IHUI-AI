@@ -29,7 +29,7 @@ import { useI18n } from '../i18n'
  * - onUpgrade? / onUpgradeTrader?:升级入口回调(跳会员/操盘手介绍弹窗)
  */
 import { currentRnTheme, tokens } from '../theme/active-tokens'
-import { withAlpha, rnRadius, rnSpacing } from '@ihui/design-tokens'
+import { withAlpha, rnRadius } from '@ihui/design-tokens'
 import {
   LOGIN_POPUP_AVATAR_BOX_PX,
   LOGIN_POPUP_AVATAR_HINT_GAP_PX,
@@ -866,7 +866,7 @@ const styles = StyleSheet.create({
     height: '100%',
     fontSize: LOGIN_POPUP_BODY_FONT_PX,
     color: tokens.text.primary,
-    padding: rnSpacing.none,
+    padding: 0,
   },
   roleText: {
     flex: 1,

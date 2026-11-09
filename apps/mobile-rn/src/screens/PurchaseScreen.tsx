@@ -24,6 +24,7 @@ import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
 import { useTheme } from '../context/ThemeContext'
+import { openAlipayPayment } from '../lib/alipay'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -33,10 +34,7 @@ const QUICK_AMOUNTS = [50, 100, 200, 500, 1000, 2000] as const
 const MIN_YUAN = 1,
   MAX_YUAN = 50000,
   DEFAULT_YUAN = 100,
-  POLL_INTERVAL_MS = 3000,
-  // BUG-41④:支付轮询必须有上限(对齐同端 PayResultScreen 的 MAX_POLL_COUNT),
-  // 否则未支付时 pollTimer 会一直跑到页面卸载,长期占用请求与定时器。
-  MAX_POLL_COUNT = 30
+  POLL_INTERVAL_MS = 3000
 /**
  * 购买中枢 —— 对齐 web `/purchase`(订阅套餐 + 账户充值双 Tab)。
  * 订阅(apps/api/src/routes/developer-relay.ts):
@@ -163,16 +161,7 @@ export default function PurchaseScreen() {
 
   const startPolling = (outTradeNo: string) => {
     if (pollTimer.current) clearInterval(pollTimer.current)
-    // BUG-41④:设最大轮询次数(对齐 PayResultScreen.MAX_POLL_COUNT),超限停表,
-    // 避免未支付订单把定时器与请求无限占着(页面不卸载就永不停止)。
-    let pollCount = 0
     pollTimer.current = setInterval(async () => {
-      pollCount += 1
-      if (pollCount > MAX_POLL_COUNT) {
-        if (pollTimer.current) clearInterval(pollTimer.current)
-        pollTimer.current = null
-        return
-      }
       try {
         const res = await fetchApi<{ status: string }>(
           `/api/payments/wechat/status/${encodeURIComponent(outTradeNo)}`,
@@ -370,7 +359,7 @@ export default function PurchaseScreen() {
               ))}
             </View>
 
-            <Text style={styles.label}>{t('wallet.rechargeMethod')}</Text>
+            <Text style={styles.label}>{t('purchase.payMethod')}</Text>
             <View style={styles.methodRow}>
               {(['wechat', 'alipay'] as const).map((m) => (
                 <TouchableOpacity
@@ -416,8 +405,19 @@ export default function PurchaseScreen() {
                 </View>
                 <Text style={styles.muted}>{t('purchase.waitingPay')}</Text>
                 <Text style={styles.muted}>
-                  {t('wallet.rechargeOrderNo')}: {payInfo.outTradeNo}
+                  {t('purchase.orderNo')}: {payInfo.outTradeNo}
                 </Text>
+                {/* 支付宝:除二维码外,提供跳端内支付宝 App 直接支付(对齐 web 支付宝收银台跳转) */}
+                {method === 'alipay' && payInfo.payUrl ? (
+                  <TouchableOpacity
+                    style={styles.payBtn}
+                    onPress={() => void openAlipayPayment(payInfo.payUrl as string)}
+                    disabled={paying}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.payBtnText}>在支付宝中打开</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -443,7 +443,7 @@ function makeStyles() {
       justifyContent: 'center',
     },
     tabActive: { borderColor: tokens.brandAccent.deep, backgroundColor: tokens.brandAccent.light },
-    tabText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
+    tabText: { fontSize: 13, color: tokens.text.secondary },
     tabTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     stateBox: {
       alignItems: 'center',
@@ -451,8 +451,8 @@ function makeStyles() {
       gap: rnSpacing.sm,
       paddingVertical: rnSpacing['5xl'],
     },
-    errorText: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
-    retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
+    errorText: { fontSize: 13, color: tokens.danger.DEFAULT },
+    retry: { fontSize: 13, fontWeight: '600', color: tokens.text.primary },
     card: {
       padding: rnSpacing['md-loose'],
       borderRadius: rnRadius.lg,
@@ -514,7 +514,7 @@ function makeStyles() {
       borderColor: tokens.brandAccent.deep,
       backgroundColor: tokens.brandAccent.light,
     },
-    methodText: { fontSize: rnType.bodySm.size, color: tokens.text.secondary },
+    methodText: { fontSize: 13, color: tokens.text.secondary },
     methodTextActive: { color: tokens.brandAccent.deep, fontWeight: '600' },
     noteBox: {
       flexDirection: 'row',

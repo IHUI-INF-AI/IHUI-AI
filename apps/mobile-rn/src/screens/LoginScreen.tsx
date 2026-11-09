@@ -110,8 +110,7 @@ import { Tappable } from '@ihui/ui-native'
  * - 注入 3 tab:email/phone/password(2026-08-04 移除 qr:App 端自己就是手机,无法扫自己)
  * - email/phone 验证码登录:本地 state 管理 + 调 @ihui/api-client 新增的 loginByEmailCode
  *   + 现有 loginBySms / sendEmailCode / sendSmsCode 方法
- * - 第三方登录区:9 平台配置(wechat/google/github/feishu/dingtalk/enterpriseWechat/alipay/apple
- *   + linuxdo;linuxdo 无原生 SDK,按下方「引导走网页端 SSO」那一档处理),
+ * - 第三方登录区:8 平台配置(wechat/google/github/feishu/dingtalk/enterpriseWechat/alipay/apple),
  *   apple forceDisabled(对齐 web use-third-party-config)
  * - 协议同意:onAgreedChange + onOpenTerms(onNavigate('Agreement')) + onOpenPrivacy(navigate('Privacy'))
  * - 忘记密码:WebView 复用 web `/forgot-password`(XUI-068 起不再跳改密屏 —— 改密屏要旧密码,是死环)
@@ -267,19 +266,6 @@ function buildThirdPartyOptions(
       iconNode: THIRD_PARTY_ICON_NODES.alipay,
       enabled: true,
       brandColor: OAUTH_BRAND_COLORS.alipay,
-    },
-    // LinuxDo(2026-11-07 立,国内可达的 Discourse 社区):后端只有 GET
-    // /api/auth/oauth/linuxdo/{redirect,callback} 这一条**浏览器闭环**(state 与 httpOnly cookie
-    // 都由后端接管,回跳固定落 `${webOrigin}/sso/login?sso=linuxdo`),不会把 code 交回 App,
-    // 所以 RN 不能像 GitHub 那样自构造授权 URL —— 走本文件下方「其余未知平台:引导走网页端 SSO」
-    // 那一档(login.sdkPending + 前往网页端),那条路是真的能登进来的,不是死按钮。
-    // 图标暂不给 iconNode(本机无网络取不到官方标,§4「品牌图标必须官方真实图标 + 人工目检」
-    // 禁止伪造厂商标)⇒ 共享层按 label 首字母 + 中性底兜底渲染;OAUTH_BRAND_COLORS 同样
-    // 不加未取证的档位,等官方素材到位再同批改。
-    {
-      platform: 'linuxdo',
-      label: t('login.platformLinuxdo'),
-      enabled: true,
     },
   ]
   // Apple 登录仅 iOS 提供(expo-apple-authentication 原生能力):

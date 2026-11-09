@@ -135,17 +135,6 @@ const menus: ReadonlyArray<{ icon: string; key: string; path: string; fallback?:
     key: 'userFans.title',
     path: '/pkg-user/fans/index',
   },
-  // 家长端(票 B72 移动端入口腿,2026-11-06):`pkg-user/edu-parent/index` 此前只在
-  // app.config 注册、全端无任何跳转 ⇒ 页在、链断,而它内部那条指向
-  // `pkg-user/edu-my-attendance/index`(学生自签页)的跳转因此也永远走不到。
-  // 与 RN 侧同一条入口(RN 挂 navigation/domain-hub 教育域,对齐 web nav-data 的 /edu/parent);
-  // 图标复用既有 LineIcon 'users'(web 同条用 UsersRound,本端图标集无该档,不新开素材),
-  // 文案复用五语言已有的 eduParent.title ⇒ 零 i18n 增量。
-  {
-    icon: 'users',
-    key: 'eduParent.title',
-    path: '/pkg-user/edu-parent/index',
-  },
   // 扫一扫:PC 端「App 扫码登录」的移动端一半(扫 ticket → /auth/qr/confirm)。
   // path 用伪协议 'scan-login' 走本页 handler,不新开页面;ticket 判据走 @ihui/shared。
   {
@@ -302,8 +291,6 @@ export default function UserIndex() {
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string>('')
   // 登录弹窗
   const [showLoginPopup, setShowLoginPopup] = useState<boolean>(false)
-  // 登录弹窗协议勾选态(受控回传 LoginPopUp,与 RN 端 agreeChecked 同槽)
-  const [agreeChecked, setAgreeChecked] = useState<boolean>(false)
   // 侧边栏抽屉
   const [showDrawer, setShowDrawer] = useState<boolean>(false)
   // 历史对话分组数据（对齐原项目 groupedData，实际由 API 填充）
@@ -988,8 +975,6 @@ export default function UserIndex() {
               : undefined
           }
           onClose={() => setShowLoginPopup(false)}
-          agreeChecked={agreeChecked}
-          onAgreeChange={setAgreeChecked}
           onUpgrade={goVipDetail}
           onWebAuthLogin={() => {
             // 网页授权登录(G-957):打开 web 中转页 /sso/login(client_id=miniapp-taro),
@@ -1382,7 +1367,7 @@ export default function UserIndex() {
               <Text className="flex-1 ml-[20rpx] text-strong text-foreground">
                 {item.fallback ? tt(item.key, item.fallback) : t(item.key)}
               </Text>
-              <Text className="text-body-sm leading-[normal] text-[var(--color-brand-accent-deep)]">
+              <Text className="text-[length:26rpx] text-[var(--color-brand-accent-deep)]">
                 {'>'}
               </Text>
             </View>

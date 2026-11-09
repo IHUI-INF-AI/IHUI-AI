@@ -394,7 +394,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.title.size,
       color: tk.text.secondary,
       textAlign: 'center',
-      lineHeight: rnType.strong.lineHeight,
+      lineHeight: 22,
     },
     modalClose: {
       height: 44,

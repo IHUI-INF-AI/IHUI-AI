@@ -296,8 +296,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   imageToggleIcon: {
-    fontSize: rnType.subtitle.size,
-    lineHeight: rnType.strong.lineHeight,
+    fontSize: 18,
+    lineHeight: 22,
     color: tokens.text.secondary,
   } as TextStyle,
   voiceBtn: {
@@ -357,8 +357,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   } as ViewStyle,
   clearIcon: {
-    fontSize: rnType.title.size,
-    lineHeight: rnType.bodySm.lineHeight,
+    fontSize: 16,
+    lineHeight: 18,
     color: tokens.text.secondary,
     fontWeight: '600',
   } as TextStyle,
@@ -388,8 +388,8 @@ const styles = StyleSheet.create({
     paddingVertical: rnSpacing['xs-loose'],
   } as ViewStyle,
   popupEmoji: {
-    fontSize: rnType.heading.size,
-    lineHeight: rnType.title.lineHeight,
+    fontSize: 20,
+    lineHeight: 24,
   } as TextStyle,
   popupLabel: {
     fontSize: rnType.caption.size,

@@ -49,7 +49,6 @@ test.describe('认证流程', () => {
       .getByRole('button', { name: /登录|登 录|sign in/i })
       .click()
       .catch(() => {})
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(1000)
 
     // 填写表单(账号 + 密码两个输入框)

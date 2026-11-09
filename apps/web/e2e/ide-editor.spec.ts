@@ -103,11 +103,11 @@ test.describe('IDE 编辑器工作区', () => {
 
     // 交互预热:切一次终端再回来,覆盖主要挂载/卸载路径
     await page.keyboard.press('Control+`')
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(1000)
     await page.keyboard.press('Control+`')
 
     // 留出异步错误收集窗口
+    await page.waitForTimeout(2000)
     expect(pageErrors, `pageerror 收集: ${pageErrors.join(' | ')}`).toHaveLength(0)
   })
 })

@@ -19,7 +19,6 @@ import {
   TextCursorInput,
   TextWrap,
   Maximize2,
-  X,
 } from 'lucide-react'
 import { useTranslations } from 'next-intl'
 import { useTheme } from 'next-themes'
@@ -296,7 +295,7 @@ function CodeRunOutput({ result, onClose }: { result: RunResult; onClose: () => 
           className="inline-flex h-6 w-6 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-label={t('codeRun.close')}
         >
-          <X className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="text-label leading-none">×</span>
         </button>
       </div>
       <div className="max-h-[240px] overflow-auto p-2">

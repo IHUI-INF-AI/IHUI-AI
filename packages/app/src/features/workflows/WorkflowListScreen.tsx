@@ -391,7 +391,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       fontWeight: '600',
       color: tk.text.primary,
     },
-    descText: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 17 },
+    descText: { fontSize: 12, color: tk.text.secondary, lineHeight: 17 },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,

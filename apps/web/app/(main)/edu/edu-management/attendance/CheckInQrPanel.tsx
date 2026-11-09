@@ -10,10 +10,7 @@ import { useTranslations } from 'next-intl'
 import { Loader2, QrCode, RefreshCw, KeyRound } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
-import {
-  eduAttendanceQrcode,
-  eduAttendanceRuleRotateQrSecret,
-} from '@ihui/api-client'
+import { apiOrThrow } from '@/lib/api'
 import { Alert } from '@/components/feedback'
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@ihui/ui-react'
 import { ClassSelect } from './ClassSelect'
@@ -60,11 +57,10 @@ export function CheckInQrPanel({
 
   const qrQuery = useQuery({
     queryKey: ['edu-attendance-qrcode', selectedClassId, nonce],
-    queryFn: async () => {
-      const r = await eduAttendanceQrcode<AttendanceQrDto>({ classId: selectedClassId })
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
+    queryFn: () =>
+      apiOrThrow<AttendanceQrDto>(
+        `/api/edu-ai-management/attendance/qrcode?classId=${encodeURIComponent(selectedClassId)}`,
+      ),
     enabled: Boolean(selectedClassId),
     retry: false,
   })
@@ -90,11 +86,11 @@ export function CheckInQrPanel({
   }, [qr, remainSec])
 
   const rotateMutation = useMutation({
-    mutationFn: async () => {
-      const r = await eduAttendanceRuleRotateQrSecret<RotateDto>({ classId: selectedClassId })
-      if (!r.success) throw new Error(r.error)
-      return r.data
-    },
+    mutationFn: () =>
+      apiOrThrow<RotateDto>('/api/edu-ai-management/attendance/rule/rotate-qr-secret', {
+        method: 'POST',
+        body: JSON.stringify({ classId: selectedClassId }),
+      }),
     onSuccess: (data) => {
       setFingerprint(data.fingerprint)
       void qc.invalidateQueries({ queryKey: ['edu-attendance-rule', selectedClassId] })
@@ -130,7 +126,7 @@ export function CheckInQrPanel({
         ) : qr ? (
           <>
             <div
-              className="rounded-md border border-border bg-popover p-3"
+              className="rounded-lg border border-border bg-popover p-3"
               data-testid="attendance-qr"
             >
               <QRCodeSVG value={qr.payload} size={QR_SIZE} level="M" />

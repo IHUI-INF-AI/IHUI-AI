@@ -479,8 +479,8 @@ const styles = StyleSheet.create({
     width: '100%',
   } as ViewStyle,
   benefitText: {
-    fontSize: rnType.bodySm.size,
-    lineHeight: rnType.body.lineHeight,
+    fontSize: 13,
+    lineHeight: 20,
     color: tokens.text.secondary,
   } as TextStyle,
   benefitTextHighlight: {
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   agreementText: {
     fontSize: rnType.caption.size,
-    lineHeight: rnType.label.lineHeight,
+    lineHeight: 16,
     color: tokens.text.tertiary,
   } as TextStyle,
   buttonRow: {

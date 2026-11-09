@@ -480,7 +480,6 @@ async function scrollToMessageTop(page: Page, pane: string, messageId: string): 
     el.scrollTop = top
     return el.scrollTop
   }, messageId)
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(250)
   return scrollTopOf(page, pane)
 }
@@ -748,7 +747,6 @@ test.describe('G-935 片③④ 工具面板窗格化 / 跳转总线门控 / 缓�
     const settleScrollTop = async (pane: string): Promise<number> => {
       let last = await scrollTopOf(page, pane)
       for (let i = 0; i < 30; i += 1) {
-        // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
         await page.waitForTimeout(100)
         const next = await scrollTopOf(page, pane)
         if (Math.abs(next - last) <= 1) return next

@@ -7,7 +7,7 @@
 import * as React from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Plus, Trash2, Save, Calculator, Loader2, AlertCircle, RefreshCw, X } from 'lucide-react'
+import { Plus, Trash2, Save, Calculator, Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import { fetchApi } from '@/lib/api'
 import {
   Card,
@@ -342,7 +342,7 @@ export default function AdminTopupConfigPage() {
                     className="text-muted-foreground hover:text-destructive"
                     aria-label={'移除 ' + n + ' 元选项'}
                   >
-                    <X className="h-3 w-3" aria-hidden="true" />
+                    ×
                   </button>
                 </Badge>
               ))

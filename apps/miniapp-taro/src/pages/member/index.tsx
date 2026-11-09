@@ -36,15 +36,6 @@ interface LevelTier {
   perks: string
 }
 
-/**
- * 划线原价读取:后端 vip_levels 暂无 original_price 列,`VipLevel` 也未声明该字段;
- * 与共享屏 VipScreen overlayPlan.originalPrice 同形,只有真带值才渲染,取不到返回 null。
- */
-function readOriginalPrice(level: VipLevel | null): number | null {
-  const raw = (level as (VipLevel & { originalPrice?: number }) | null)?.originalPrice
-  return typeof raw === 'number' && raw > 0 ? raw : null
-}
-
 /** 等级成长值阈值(与 levelTiers 一一对应) */
 const GROWTH_THRESHOLDS: Record<string, number> = {
   normal: 0,
@@ -219,10 +210,6 @@ export default function MemberIndexPage() {
   // 0037_vip_captcha.sql 种子)⇒ 写死价就是可见错误文案。取不到档位时整块不渲染,不拿 0 或常量冒充。
   const entryLevel = useMemo(() => pickEntryLevel(vipLevels), [vipLevels])
   const permanentLevel = useMemo(() => pickPermanentLevel(vipLevels), [vipLevels])
-  // 划线原价:与共享屏 VipScreen overlayPlan.originalPrice 同形——档位带 originalPrice 才渲染,
-  // 取不到即不渲染。后端 vip_levels 暂无 original_price 列(见 member-index-props.ts:44),不伪造值。
-  const entryOriginalPrice = readOriginalPrice(entryLevel)
-  const permanentOriginalPrice = readOriginalPrice(permanentLevel)
   // 共享段按元渲染,这里做 分→元 + benefits 归一(纯函数在 member-index-props.ts)
   const levelItems = useMemo(() => toLevelItems(vipLevels), [vipLevels])
   // 共享段 t 契约为 TFunction(key, options?);小程序 useTt 是 (key, fallback, params)
@@ -376,9 +363,9 @@ export default function MemberIndexPage() {
         {/* ===== 会员特权列表 ===== */}
         <View className="member-card">
           <Text className="member-card-title">
-            {/* 标题取共享屏同一词条(vip.privileges):与 RN VipScreen featuresSection 同键,
-                不再用 vip.details.benefitsTitle —— 该键不是共享屏此块的标题源 */}
-            {tt('vip.privileges', '会员权益')} ·{' '}
+            {/* 标题取共享屏同一词条(vip.details.benefitsTitle):此前端内写「会员特权」,
+                RN 写「权益详情」—— 同一块内容两个说法,改一端另一端不跟 */}
+            {tt('vip.details.benefitsTitle', '权益详情')} ·{' '}
             {tt('vip.benefitsCount', '{count} 项专属权益', { count: benefits.length })}
           </Text>
           <View className="member-benefits">
@@ -424,11 +411,6 @@ export default function MemberIndexPage() {
               {entryLevel ? (
                 <View className="member-vip-price">
                   <Text className="member-current-price">¥{formatPrice(entryLevel.price)}</Text>
-                  {entryOriginalPrice ? (
-                    <Text className="member-price-label">
-                      {tt('pay.originalPrice', '原价')} ¥{formatPrice(entryOriginalPrice)}
-                    </Text>
-                  ) : null}
                 </View>
               ) : null}
             </View>
@@ -462,11 +444,6 @@ export default function MemberIndexPage() {
               {permanentLevel ? (
                 <View className="member-price-display">
                   <Text className="member-current-price">¥{formatPrice(permanentLevel.price)}</Text>
-                  {permanentOriginalPrice ? (
-                    <Text className="member-price-label">
-                      {tt('pay.originalPrice', '原价')} ¥{formatPrice(permanentOriginalPrice)}
-                    </Text>
-                  ) : null}
                 </View>
               ) : null}
             </View>

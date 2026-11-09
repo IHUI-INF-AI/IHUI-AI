@@ -342,12 +342,8 @@ function makeStyles() {
     paidText: { fontSize: rnType.badge.size, fontWeight: '600', color: tokens.warning.amberText },
     desc: { fontSize: rnType.label.size, color: tokens.text.secondary, lineHeight: 17 },
     meta: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
-    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
-    hint: {
-      fontSize: rnType.caption.size,
-      color: tokens.text.tertiary,
-      lineHeight: rnType.label.lineHeight,
-    },
+    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
+    hint: { fontSize: rnType.caption.size, color: tokens.text.tertiary, lineHeight: 16 },
     errorText: { fontSize: rnType.label.size, color: tokens.danger.DEFAULT },
     retry: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tokens.text.primary },
     stateBox: {

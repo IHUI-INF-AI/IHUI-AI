@@ -494,11 +494,7 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       marginBottom: rnSpacing.xs,
     },
-    memberDescText: {
-      fontSize: rnType.label.size,
-      lineHeight: rnType.body.lineHeight,
-      color: tk.text.secondary,
-    },
+    memberDescText: { fontSize: rnType.label.size, lineHeight: 20, color: tk.text.secondary },
     buyBar: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -514,7 +510,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.label.size,
       fontWeight: '700',
       color: baseTokens.vip.gold,
-      marginBottom: rnSpacing.xs,
+      marginBottom: 4,
     },
     buyPriceNumber: {
       fontSize: rnType.display.size,
@@ -566,7 +562,7 @@ function createStyles(tk: AppThemeTokens) {
     overlayLine: {
       marginBottom: rnSpacing.sm,
       fontSize: rnType.body.size,
-      lineHeight: rnType.strong.lineHeight,
+      lineHeight: 22,
       color: tk.text.secondary,
     },
     successIcon: { alignItems: 'center', paddingVertical: rnSpacing.lg },
@@ -627,7 +623,7 @@ function createStyles(tk: AppThemeTokens) {
       height: 26,
       borderRadius: 13,
       textAlign: 'center',
-      lineHeight: rnType.subtitle.lineHeight,
+      lineHeight: 26,
       overflow: 'hidden',
       backgroundColor: tk.surface.muted,
       fontSize: rnType.caption.size,
@@ -698,11 +694,7 @@ function createStyles(tk: AppThemeTokens) {
     benefitIcon: { marginTop: rnSpacing['2xs'] },
     benefitTextWrap: { flex: 1, gap: rnSpacing.xs },
     benefitTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    benefitDesc: {
-      fontSize: rnType.label.size,
-      lineHeight: rnType.body.lineHeight,
-      color: tk.text.secondary,
-    },
+    benefitDesc: { fontSize: rnType.label.size, lineHeight: 20, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

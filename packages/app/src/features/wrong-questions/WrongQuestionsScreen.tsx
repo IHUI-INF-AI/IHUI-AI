@@ -344,7 +344,7 @@ function createStyles(tk: AppThemeTokens) {
       fontSize: rnType.body.size,
       fontWeight: '600',
       color: tk.text.primary,
-      lineHeight: rnType.body.lineHeight,
+      lineHeight: 20,
     },
     badge: {
       paddingHorizontal: rnSpacing['xs-loose'],
@@ -354,11 +354,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     badgeText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     badgeTextOk: { color: tk.success.DEFAULT },
-    meta: {
-      fontSize: rnType.label.size,
-      color: tk.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    meta: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 18 },
     actions: { flexDirection: 'row', gap: rnSpacing.lg, paddingTop: rnSpacing.xs },
     actionBtn: {
       flexDirection: 'row',
@@ -396,11 +392,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     sheetHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     sheetTitle: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    explainText: {
-      fontSize: rnType.body.size,
-      lineHeight: rnType.strong.lineHeight,
-      color: tk.text.secondary,
-    },
+    explainText: { fontSize: rnType.body.size, lineHeight: 22, color: tk.text.secondary },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

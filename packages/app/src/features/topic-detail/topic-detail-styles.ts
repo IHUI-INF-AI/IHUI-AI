@@ -80,7 +80,7 @@ export function createTopicDetailStyles(tk: AppThemeTokens) {
     author: { fontSize: rnType.bodySm.size, fontWeight: '500', color: tk.text.primary },
     time: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     postTitle: { fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    postContent: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tk.text.secondary },
+    postContent: { fontSize: 13, lineHeight: 19, color: tk.text.secondary },
     imgRow: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
     postImg: {
       width: 100,

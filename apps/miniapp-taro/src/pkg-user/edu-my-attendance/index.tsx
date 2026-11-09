@@ -15,10 +15,7 @@ import ThemeRoot from '@/components/ThemeRoot'
 import { Button } from '@/components/Button'
 import { EmptyState, ScreenSkeleton } from '@/components/ScreenStates.taro'
 import { get, post } from '@/api'
-import { nowDate } from '@/utils/time'
 import { isLoggedIn } from '@/utils/auth'
-import { actionAvailability } from '../edu-mgmt-attendance/contract'
-import { SelfCheckOutAction } from './checkout-action'
 
 /**
  * 签到二维码载荷 → token:教师端(RN/Web)出的是 JSON 字符串
@@ -51,7 +48,7 @@ interface SelfCheckInResult {
 
 export default function Page() {
   const { t } = useI18n()
-  const today = nowDate()
+  const today = new Date().toISOString().slice(0, 10)
   const st = (s: string) => {
     const k = `eduAttendance.status.${s}`
     const v = t(k)
@@ -65,9 +62,6 @@ export default function Page() {
   const [remark, setRemark] = useState('')
   // 自签成功后由后端回显的生效信息(班级/状态),仅用于展示"班级由后端决定",不做本地乐观改行
   const [echo, setEcho] = useState<SelfCheckInResult | null>(null)
-  // 签退资格只由服务端回读行的 actionAvailability(contract.ts 单源)现算,端上不自报状态
-  const todayRow = rows.find((r) => (r.date ?? '').slice(0, 10) === today) ?? null
-  const canCheckOut = todayRow ? actionAvailability(todayRow).canCheckOut : false
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -164,8 +158,6 @@ export default function Page() {
             <Button size="sm" loading={signing} onClick={() => void onSelfCheckIn()}>
               {t('eduMyAttendance.selfCheckIn')}
             </Button>
-            {/* 签退:今日已签到且未签退才出现;成功/失败都以后端回执为准 */}
-            <SelfCheckOutAction date={today} canCheckOut={canCheckOut} onDone={load} />
             {/* 扫码签到:教师端出示二维码后,学生在本页扫码完成签到(同一端点、同一载荷) */}
             <Button
               size="sm"

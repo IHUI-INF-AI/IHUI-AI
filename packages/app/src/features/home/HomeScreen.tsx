@@ -404,7 +404,7 @@ function createStyles(tk: AppThemeTokens) {
       fontWeight: '600',
       color: tk.success.DEFAULT,
     },
-    mutedText: { fontSize: rnType.bodySm.size, lineHeight: 19, color: tk.text.secondary },
+    mutedText: { fontSize: 13, lineHeight: 19, color: tk.text.secondary },
     progressBar: {
       marginTop: rnSpacing['sm-loose'],
       height: 6,
@@ -433,7 +433,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingHorizontal: rnSpacing['xs-loose'],
       gap: rnSpacing.sm,
     },
-    menuIcon: { fontSize: 22, lineHeight: rnType.subtitle.lineHeight },
+    menuIcon: { fontSize: 22, lineHeight: 26 },
     menuLabel: { fontSize: rnType.bodySm.size, color: tk.text.secondary, textAlign: 'center' },
   })
 }

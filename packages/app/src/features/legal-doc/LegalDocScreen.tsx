@@ -137,12 +137,7 @@ function createStyles(tk: AppThemeTokens) {
     subtitle: { fontSize: rnType.body.size, color: tk.text.secondary },
     updatedAt: { marginTop: rnSpacing.sm, fontSize: rnType.caption.size, color: tk.text.tertiary },
     sectionTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
-    sectionBody: {
-      marginTop: rnSpacing.sm,
-      fontSize: rnType.body.size,
-      color: tk.text.medium,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    sectionBody: { marginTop: rnSpacing.sm, fontSize: 14, color: tk.text.medium, lineHeight: 18 },
     docTitle: { fontSize: rnType.subtitle.size, fontWeight: '700', color: tk.text.primary },
     introText: {
       fontSize: rnType.body.size,
@@ -151,7 +146,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     groupIntro: {
       marginTop: rnSpacing['xs-loose'],
-      fontSize: rnType.label.size,
+      fontSize: 12,
       color: tk.text.secondary,
       lineHeight: 17,
     },

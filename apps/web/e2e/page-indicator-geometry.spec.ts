@@ -136,7 +136,6 @@ test.describe('PageIndicator 几何守门', () => {
     const idx = firstInactive.index
     await btns.nth(idx).hover()
     // 等 transition 稳定(duration-300 + DPR)
-    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(500)
     // 2026-09-23:button 即圆点,直接量 button
     const hoveredBtn = btns.nth(idx)

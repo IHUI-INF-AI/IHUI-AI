@@ -35,7 +35,7 @@ import { useToast } from '@/hooks/use-toast'
  * - badge:仅健康徽章(按钮由页面放到其他位置)
  * - button:仅刷新按钮
  */
-type CookieHealthVariant = 'badge+button' | 'badge' | 'button'
+export type CookieHealthVariant = 'badge+button' | 'badge' | 'button'
 
 export interface CookieHealthIndicatorProps {
   readonly accountId: number

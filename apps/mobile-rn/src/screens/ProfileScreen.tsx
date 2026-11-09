@@ -2,8 +2,6 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
-import { useDialogHeightStyle } from '../lib/use-dialog-height'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   FlatList,
@@ -163,18 +161,15 @@ const REALNAME_BADGE_STATUS: Record<string, RealnameBadgeStatus | undefined> = {
  * 真机:滚到底时末几项仍被胶囊压住,实测差额不在呼吸量):
  *  · 胶囊几何占高 = TAB_BAR_HEIGHT 62 + TAB_BAR_GAP_TOP 6 + max(8, inset/2+4);
  *    tabBarScrollReserve 本身就等于「占高 + 16 呼吸」,与 TAB_BAR_FLOAT_RESERVE 同值 ⇒ 呼吸量没缺。
- *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:渐变段高 90(2026-11-04 机主两次点名「太高」,
- *    160 → 120 → 90)、渐变段底边贴胶囊顶沿(本体自 2026-11-04 起继续铺到屏幕底,把胶囊下方的
- *    悬浮间距一并盖住)、顶部 22% 完全透明、55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..70.2 依次压上
- *    1.0..0 的页面底色。末项底边若只高出胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里
- *    —— 观感正是「被压住」。
+ *  · 真正的遮挡件是 TabBar 自带的 BottomFadeMask:高 160、底边贴胶囊顶沿、顶部 22% 完全透明、
+ *    55% 处已达 0.7 ⇒ 胶囊顶沿上方 0..124.8 依次压上 1.0..0 的页面底色。末项底边若只高出
+ *    胶囊顶沿 22(6 顶隙 + 16 呼吸),就落在 ≈0.91 不透明带里 —— 观感正是「被压住」。
  *    该遮罩 2026-10-29 落地(同日加强),而预留定档于 10-16/18,从未把它计入。
- *  · 取值:末项底边须越过遮罩全透明起点 90×(1−22%) = 70.2,现有预留只给到 22 ⇒ 补 48
- *    (≥48.2,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测停在胶囊顶沿上方约 120 处,已越过
- *    这一档,且首页输入框另有 inputLayer 压在遮罩之上,不随本值联动。
+ *  · 取值:末项底边须越过遮罩全透明起点 160×(1−22%) = 124.8,现有预留只给到 22 ⇒ 补 104
+ *    (≥103,取 8 的倍数)。HomeScreen 的 dockHeight + 16 实测也停在胶囊顶沿上方约 120 处,同一档。
  *  · 若 BottomFadeMask 的高度/透明带比例再变,本值须同步(它只有这一个消费点)。
  */
-const TAB_BAR_FADE_CLEARANCE_PX = 48
+const TAB_BAR_FADE_CLEARANCE_PX = 104
 
 /** 会员权益 3 项(对齐 Uniapp memberBenefitsData 行 297-310;title/desc 存 i18n 键,消费处 t 解析) */
 const MEMBERSHIP_BENEFITS: readonly {
@@ -676,7 +671,6 @@ export function ProfileScreen() {
                     onLogin={() => rootNav?.navigate('Login')}
                     onUnsubscribe={() => setUnsubscribeVisible(true)}
                     onLevelIntro={() => setLevelIntroVisible(true)}
-                    onOpenVip={() => rootNav?.navigate('VipTrader')}
                   />
                   {/* 等级介绍按钮(对齐 Uniapp level-intro popup,UserInfoCard 内部仅有简化等级 Modal,
                       此处为完整 3 级体系介绍入口) */}
@@ -749,22 +743,12 @@ export function ProfileScreen() {
                 colorScheme={resolvedTheme}
                 realnameStatus={realnameBadge}
                 onToast={onToast}
-                identityTags={
-                  user
-                    ? [
-                        user.isVip === 1
-                          ? { text: t('profile.levelVip'), tone: 'vip' as const }
-                          : { text: t('profile.levelRegular'), tone: 'normal' as const },
-                      ]
-                    : undefined
-                }
                 menuSections={menuSections}
                 onNavigate={(key) => {
                   const item = MENU_SECTIONS.flatMap((s) => s.items).find((m) => m.key === key)
                   if (item) onNavigate(item)
                 }}
                 onLogout={() => void logout()}
-                onAvatarPress={() => setEditProfileVisible(true)}
                 onBack={() => navigation.goBack()}
               />
             </>
@@ -1118,12 +1102,11 @@ const LEVEL_INTRO_DATA: readonly {
  * 对齐 Uniapp user/index.vue 等级介绍弹层,在 UserInfoCard 下方独立按钮触发。
  */
 function LevelIntroModal({ visible, onClose }: LevelIntroModalProps): React.JSX.Element {
-  const dialogHeightStyle = useDialogHeightStyle(DIALOG_HEIGHT_RATIOS.tall)
   const { t } = useI18n()
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.levelIntroOverlay}>
-        <View style={[styles.levelIntroCard, dialogHeightStyle]}>
+        <View style={styles.levelIntroCard}>
           <Text style={styles.levelIntroTitle}>{t('profile.levelIntro')}</Text>
           <ScrollView style={styles.levelIntroScroll} showsVerticalScrollIndicator={false}>
             {LEVEL_INTRO_DATA.map((item) => (
@@ -1538,20 +1521,12 @@ interface VideoTabProps {
   onPlay: (url: string) => void
 }
 
-/**
- * 视频画面 16:9 的单一真相源:列表封面与点开后的播放器共用同一比例,
- * 避免「宽随视口变、高写死 200」在平板/折叠屏压成扁带、点开后比例突变。
- */
-function videoHeightFor(width: number): number {
-  return Math.round((width * 9) / 16)
-}
-
 function VideoTabContent({ list, onPlay }: VideoTabProps): React.JSX.Element {
   const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
-  // 视频封面宽度 = screenWidth - 32(容器 padding),高度与播放器同源取 16:9
+  // 视频封面宽度 = screenWidth - 32(容器 padding),高度默认 200(对齐 Uniapp 400rpx ≈ 200)
   const posterWidth = screenWidth - 32
-  const posterHeight = videoHeightFor(posterWidth)
+  const posterHeight = 200
 
   if (list.length === 0) {
     return <Empty text={t('profile.emptyVideoCat')} icon={Film} />
@@ -1951,9 +1926,9 @@ interface VideoPlayerModalProps {
 function VideoPlayerModal({ url, visible, onClose }: VideoPlayerModalProps): React.JSX.Element {
   const { t } = useI18n()
   const screenWidth = useAppFrameWidth()
-  // 视频容器宽度 = screenWidth - 32,高度与封面同源取 16:9
+  // 视频容器宽度 = screenWidth - 32,高度按 16:9
   const videoWidth = screenWidth - 32
-  const videoHeight = videoHeightFor(videoWidth)
+  const videoHeight = Math.round((videoWidth * 9) / 16)
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -2364,7 +2339,7 @@ const styles = StyleSheet.create({
   sharePopupCloseText: {
     fontSize: 22,
     color: tokens.text.secondary,
-    lineHeight: rnType.strong.lineHeight,
+    lineHeight: 22,
   },
   sharePopupTitle: {
     fontSize: rnType.title.size,
@@ -2535,7 +2510,7 @@ const styles = StyleSheet.create({
     gap: rpx(12),
   },
   editProfileLabel: {
-    fontSize: rnType.bodySm.size,
+    fontSize: 13,
     color: tokens.text.secondary,
   },
   editProfileInput: {
@@ -2605,7 +2580,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: rnRadiusFor.panel,
     padding: rpx(40),
     paddingBottom: rpx(64),
-    maxHeight: undefined,
+    maxHeight: '80%',
   },
   levelIntroTitle: {
     fontSize: rnType.subtitle.size,
@@ -2649,7 +2624,7 @@ const styles = StyleSheet.create({
     // 对齐 Uniapp 28rpx(≈14px)benefit-item 字号
     fontSize: rnType.body.size,
     color: tokens.text.secondary,
-    lineHeight: rnType.body.lineHeight,
+    lineHeight: 20,
   },
   levelIntroCloseBtn: {
     backgroundColor: tokens.brand.DEFAULT,
@@ -2692,19 +2667,19 @@ const styles = StyleSheet.create({
   unsubscribeIcon: {
     fontSize: 28,
     color: tokens.danger.DEFAULT,
-    lineHeight: rnType.heading.lineHeight,
+    lineHeight: 28,
   },
   unsubscribeTitle: {
-    fontSize: rnType.title.size,
+    fontSize: 17,
     fontWeight: '700',
     color: tokens.text.primary,
     marginBottom: rpx(16),
   },
   unsubscribeDesc: {
-    fontSize: rnType.bodySm.size,
+    fontSize: 13,
     color: tokens.text.secondary,
     textAlign: 'center',
-    lineHeight: rnType.body.lineHeight,
+    lineHeight: 20,
     marginBottom: rpx(32),
   },
   unsubscribeBtnRow: {

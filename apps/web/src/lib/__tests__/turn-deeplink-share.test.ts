@@ -14,6 +14,8 @@ import {
   markPageTurnOrdinals,
   parseTurnParam,
   projectTurnOrdinals,
+  admitShareIntake,
+  fieldsFromShareParts,
   stampCompletePageTurnOrdinals,
 } from '@/lib/turn-deeplink'
 
@@ -125,6 +127,83 @@ describe('projectTurnOrdinals · id→序号投影(三态)', () => {
   it('会话开头即 assistant 的 live 行归第 1 轮(Math.max 兜底)', () => {
     const map = projectTurnOrdinals([{ id: 'a1', role: 'assistant' }])
     expect(map.get('a1')).toBe(1)
+  })
+})
+
+describe('系统分享只收声明过的字段', () => {
+  it('文件数没量到不写成 0，多出来的字段拒绝', () => {
+    expect(
+      admitShareIntake({
+        method: 'POST',
+        fields: { title: '笔记', text: '正文', url: 'https://example.invalid/a', fileCount: 1 },
+      }),
+    ).toMatchObject({ disposition: 'accept', fileCount: 1, title: '笔记' })
+    expect(
+      admitShareIntake({
+        method: 'POST',
+        fields: { title: '笔记', text: '正文', url: '', fileCount: null },
+      }),
+    ).toMatchObject({ disposition: 'unjudged', reason: 'files-unmeasured', fileCount: null })
+    expect(
+      admitShareIntake({
+        method: 'GET',
+        fields: { title: '笔记', text: '正文', url: '', fileCount: 0 },
+      }),
+    ).toMatchObject({ disposition: 'refused', reason: 'method-invalid' })
+    expect(
+      admitShareIntake({
+        method: 'POST',
+        fields: { title: '', text: '', url: '', fileCount: 0, token: 'x' },
+      }).reason,
+    ).toBe('field-undeclared')
+  })
+
+  it('文件只计数，读不出大小就不接受，两份清单的分享入口一致', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const manifest = (await import('../../../app/manifest')).default
+    const disk = JSON.parse(readFileSync(join(process.cwd(), 'public/manifest.json'), 'utf8')) as {
+      share_target?: { action?: string }
+    }
+    const generated = manifest()
+    expect(generated.share_target).toEqual(disk.share_target)
+    expect(generated.share_target.action).toBe('/share/incoming')
+    expect(
+      admitShareIntake({
+        method: 'POST',
+        fields: fieldsFromShareParts([
+          { name: 'title', kind: 'text', value: '笔记' },
+          { name: 'text', kind: 'text', value: '正文' },
+          { name: 'url', kind: 'text', value: '' },
+          { name: 'files', kind: 'file', size: Number.NaN },
+        ]),
+      }),
+    ).toMatchObject({ disposition: 'unjudged', reason: 'files-unmeasured', fileCount: null })
+
+    const { POST } = await import('../../../app/share/incoming/route')
+    const body = new FormData()
+    body.set('title', '笔记')
+    body.set('text', '正文')
+    body.set('url', 'https://example.invalid/a')
+    body.append('files', new File(['abcd'], 'secret-name.txt'))
+    const response = await POST(
+      new Request('https://aizhs.top/share/incoming', { method: 'POST', body }),
+    )
+    const plan = (await response.json()) as { fileCount: number; disposition: string }
+    expect(response.status).toBe(200)
+    expect(plan).toMatchObject({ disposition: 'accept', fileCount: 1 })
+    expect(JSON.stringify(plan)).not.toContain('secret-name')
+
+    const hidden = new FormData()
+    hidden.set('title', '笔记')
+    hidden.set('text', '正文')
+    hidden.set('url', '')
+    hidden.set('token', 'x')
+    const refused = await POST(
+      new Request('https://aizhs.top/share/incoming', { method: 'POST', body: hidden }),
+    )
+    expect(refused.status).toBe(400)
+    expect(await refused.json()).toMatchObject({ reason: 'field-undeclared', fileCount: null })
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

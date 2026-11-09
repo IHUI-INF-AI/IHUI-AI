@@ -109,7 +109,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     },
     cardTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     cardSub: { fontSize: rnType.label.size, color: tk.text.secondary },
-    cardBody: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
+    cardBody: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     rowMain: { flex: 1, gap: rnSpacing['2xs'] },
     row: { flexDirection: 'row', alignItems: 'center', gap: 5 },
     rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
@@ -187,12 +187,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
     section: { gap: rnSpacing['xs-loose'] },
     sectionTitle: { fontSize: rnType.body.size, fontWeight: '700', color: tk.text.primary },
     sectionItem: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing['xs-loose'] },
-    sectionItemText: {
-      flex: 1,
-      fontSize: rnType.bodySm.size,
-      color: tk.text.secondary,
-      lineHeight: 19,
-    },
+    sectionItemText: { flex: 1, fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     marker: { fontSize: rnType.bodySm.size, fontWeight: '700' },
     fieldBox: {
       backgroundColor: tk.surface.muted,
@@ -201,7 +196,7 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       gap: rnSpacing.xs,
     },
     fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
-    fieldValue: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
+    fieldValue: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
     linkRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
     linkText: { flex: 1, fontSize: rnType.label.size, color: tk.brandAccent.DEFAULT },
     textarea: {
@@ -269,22 +264,14 @@ export function createEduAiStyles(tk: AppThemeTokens) {
       gap: rnSpacing['xs-loose'],
     },
     stepLabel: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    stepError: {
-      fontSize: rnType.label.size,
-      color: EDU_AI_PALETTE.rose.fg,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    stepError: { fontSize: 12, color: EDU_AI_PALETTE.rose.fg, lineHeight: 18 },
     resultBox: {
       backgroundColor: tk.surface.muted,
       borderRadius: rnRadius.md,
       padding: rnSpacing['sm-loose'],
       gap: rnSpacing['xs-loose'],
     },
-    resultText: {
-      fontSize: rnType.label.size,
-      color: tk.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    resultText: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     historyRow: {
       flexDirection: 'row',
       alignItems: 'center',

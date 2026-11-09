@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   cardDesc: {
     fontSize: rnType.label.size,
     color: tokens.text.medium,
-    lineHeight: rnType.bodySm.lineHeight,
+    lineHeight: 18,
     marginTop: rnSpacing.xs,
   } as TextStyle,
   cardFooter: {

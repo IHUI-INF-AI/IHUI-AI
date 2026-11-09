@@ -38,10 +38,6 @@ const UNIAPP_TEXT: Record<string, string> = {
 }
 
 export function FollowScreen() {
-  // tab 语义(nav-B):
-  // - 路由级 Follow 是 stack 屏(RN_UI_ROUTES 中 Follow.tab=false),进入走 navigate,不用 tab 端口;
-  // - 屏内「关注/粉丝」是本地 tab 状态,切换走 onSelectTab,不产生 navigate;
-  // - 返回属于栈行为,由 navigation.goBack() 承担。
   const { t } = useI18n()
   const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
@@ -112,7 +108,9 @@ export function FollowScreen() {
       onLoadMore={loadMore}
       onUnfollow={onUnfollow}
       onBack={() => navigation.goBack()}
-      onRetry={() => { void refresh(); }}
+      onRetry={() => {
+        void refresh()
+      }}
       colorScheme={resolvedTheme}
       onNavigate={onNavigate}
       onToast={onToast}

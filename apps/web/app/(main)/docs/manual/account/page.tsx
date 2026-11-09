@@ -4,7 +4,6 @@
 
 import type { Metadata } from 'next'
 import { AlertTriangle, Lock, Lightbulb } from 'lucide-react'
-import { ManualFigure } from '@/components/docs/manual-figure'
 import { ManualNav, chapters } from '../_manual-nav'
 
 const SITE_URL = 'https://aizhs.top'
@@ -133,11 +132,6 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
             泄露后立即在设置中禁用并重新生成。
           </p>
         </div>
-        <ManualFigure
-          src="/images/docs/manual/account-api-keys.png"
-          alt="智汇 AI 设置页的 API 密钥管理屏:左列是设置导航(概览、账户、安全、偏好、开发者分组),右列标题为「API 密钥管理」,右上角为「创建密钥」按钮"
-          caption="实拍 aizhs.top 设置 → 开发者 → API 密钥(/settings/api-keys)。本节第 1 步的「创建 Key」就是右上角那枚按钮;左列同时给出 6.1-6.7 各入口在设置页里的真实位置。"
-        />
       </section>
 
       {/* 主题与语言 */}
@@ -164,11 +158,6 @@ curl -X POST https://api.aizhs.top/v1/chat/completions \\
             <li>影响全局文字 + 对话气泡</li>
           </ul>
         </div>
-        <ManualFigure
-          src="/images/docs/manual/account-settings-overview.png"
-          alt="智汇 AI 设置页外观屏:顶部「设置 / 外观 / 安全中心」三个页签,主体含「主题」卡(浅色、深色、跟随系统)、「语言」卡(中文、English、日本語、한국어、繁體中文)、「侧边栏」开关卡与「小程序码」卡,下方还有「主题备份与同步」"
-          caption="实拍 aizhs.top 设置 → 概览 → 外观(/settings)。主题三档与五种界面语言就是本节所列的那些;切换即时生效,无需刷新。"
-        />
       </section>
 
       {/* 通知偏好 */}

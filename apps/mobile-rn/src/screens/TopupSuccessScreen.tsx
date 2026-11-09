@@ -28,12 +28,11 @@ const TOPUP_FAQ_ITEMS: readonly string[] = [
 
 export default function TopupSuccessScreen() {
   const { resolvedTheme } = useTheme()
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const route = useRoute<Route>()
   const navigation = useNavigation<NavigationProp>()
   const { amount, orderId } = route.params
-  // 2026-11-07 DBG-36 收口: 原 toLocaleString('zh-CN') 硬编码中文,改随应用当前语言。
-  const time = new Date().toLocaleString(locale)
+  const time = new Date().toLocaleString('zh-CN')
   const [faqVisible, setFaqVisible] = useState(false)
 
   const goOrder = () => navigation.navigate('Order')

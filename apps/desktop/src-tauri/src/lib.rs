@@ -49,9 +49,6 @@ mod window_chrome;
 // 2026-10-26 立:屏幕即手(Hands)operator——截屏 → 界面状态 → 纯决策 → 键鼠执行的最小可用回路。
 // 判据纯函数(decide_actions)可独立单测,执行层才碰 enigo/screenshots;Tauri 胶水只注册两条命令。
 mod operator;
-// plugin-store 路径越权修复:远程面只保留 store_read_entry/store_write_entry,
-// 路径经 resolve_store_path 拒绝对路径/`..` 并 canonicalize 断言落在 app_data_dir(见模块文档)。
-mod store_path;
 
 use serde::{Deserialize, Serialize};
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
@@ -4342,11 +4339,7 @@ pub fn run() {
     // 2026-10-26 立:屏幕即手 operator。operator_decide=纯决策预览(不碰屏幕);
     // operator_execute=真实截屏→决策→键鼠执行。判据纯函数见 operator.rs。
     operator::operator_decide,
-    operator::operator_execute,
-    // 2026-11-05 立(桌面 store 越权 P0):远程面唯一的两条 store 通道,
-    // 文件/key 白名单 + 路径守卫,替代此前的 store:default 全局授权。
-    store_path::store_read_entry,
-    store_path::store_write_entry
+    operator::operator_execute
         ])
         .run(context)
         .unwrap_or_else(|e| {

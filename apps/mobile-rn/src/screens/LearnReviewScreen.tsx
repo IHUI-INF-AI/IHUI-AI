@@ -421,11 +421,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.surface.bg,
   },
   questionLabel: { fontSize: rnType.caption.size, color: tokens.text.tertiary },
-  questionText: {
-    fontSize: rnType.strong.size,
-    lineHeight: rnType.strong.lineHeight,
-    color: tokens.text.primary,
-  },
+  questionText: { fontSize: rnType.strong.size, lineHeight: 22, color: tokens.text.primary },
   answerArea: { gap: rnSpacing.sm },
   answerLabel: { fontSize: rnType.label.size, color: tokens.text.secondary },
   qualityRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },

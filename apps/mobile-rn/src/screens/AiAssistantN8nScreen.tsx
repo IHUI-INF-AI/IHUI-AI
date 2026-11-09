@@ -2259,7 +2259,7 @@ const bubbleStyles = StyleSheet.create({
   },
   bubbleUser: { backgroundColor: tokens.brand.DEFAULT },
   bubbleAi: { backgroundColor: tokens.surface.card },
-  text: { fontSize: rnType.body.size, lineHeight: rnType.body.lineHeight },
+  text: { fontSize: rnType.body.size, lineHeight: 20 },
   textUser: { color: tokens.surface.light },
   textAi: { color: tokens.text.primary },
   // 回复内图片网格(对齐 Uniapp agent-content-item-img)
@@ -2285,7 +2285,7 @@ const bubbleStyles = StyleSheet.create({
     paddingHorizontal: rnSpacing.md,
     paddingVertical: rnSpacing.sm,
     fontSize: rnType.body.size,
-    lineHeight: rnType.body.lineHeight,
+    lineHeight: 20,
     color: tokens.error.text,
   },
   errorRetry: {
@@ -2326,7 +2326,7 @@ const bubbleStyles = StyleSheet.create({
   },
   thinkingText: {
     fontSize: rnType.label.size,
-    lineHeight: rnType.bodySm.lineHeight,
+    lineHeight: 18,
     color: tokens.text.secondary,
   },
   // 操作按钮行(对齐 Uniapp action-buttons:左消耗文案 + 右按钮组)
@@ -2369,7 +2369,7 @@ const bubbleStyles = StyleSheet.create({
   },
   blockHint: {
     fontSize: rnType.label.size,
-    lineHeight: rnType.bodySm.lineHeight,
+    lineHeight: 18,
     color: tokens.text.secondary,
   },
   // 卡片(工具调用 / 终端任务共用外壳)
@@ -2406,7 +2406,7 @@ const bubbleStyles = StyleSheet.create({
   monoText: {
     fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
     fontSize: rnType.caption.size,
-    lineHeight: rnType.label.lineHeight,
+    lineHeight: 16,
     color: tokens.text.medium,
   },
   terminalCommand: {
@@ -2426,12 +2426,7 @@ const bubbleStyles = StyleSheet.create({
     fontSize: rnType.caption.size,
     color: tokens.text.tertiary,
   },
-  planText: {
-    flex: 1,
-    fontSize: rnType.label.size,
-    lineHeight: rnType.bodySm.lineHeight,
-    color: tokens.text.primary,
-  },
+  planText: { flex: 1, fontSize: rnType.label.size, lineHeight: 18, color: tokens.text.primary },
   // 状态徽标(pending/active/done/failed 四态:底色 + 文字色成对)
   badge: {
     paddingHorizontal: rpx(8),
@@ -2476,7 +2471,7 @@ const pickerStyles = StyleSheet.create({
   close: {
     fontSize: rnType.display.size,
     color: tokens.text.tertiary,
-    lineHeight: rnType.subtitle.lineHeight,
+    lineHeight: 26,
   },
   // sheet 已有确定高度,flex:1 占满 header 之外的剩余空间(不再手写比例)
   listWrap: {

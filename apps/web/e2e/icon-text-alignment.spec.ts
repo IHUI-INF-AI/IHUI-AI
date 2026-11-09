@@ -220,7 +220,6 @@ test.describe('icon + 文字垂直对齐守门', () => {
       // 测 hover 态(先滚到 sticky 头之下的安全位置,见 scrollIntoNavSafeSpot 注释)
       await scrollIntoNavSafeSpot(page, `aside#main-sidebar [data-testid="${testid}"]`)
       await link.hover()
-      // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
       await page.waitForTimeout(200) // 等 transition-colors 完成
       const hoverResult = await measureAlignment(
         page,
@@ -233,14 +232,12 @@ test.describe('icon + 文字垂直对齐守门', () => {
 
       // 移开鼠标,避免影响下一个测试
       await page.mouse.move(0, 0)
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(100)
     }
 
     // active 态:点个人域入口(P2 收敛后 myLearning 所在域的顶层项)触发
     await scrollIntoNavSafeSpot(page, 'aside#main-sidebar [data-testid="nav-user"]')
     await page.locator('aside#main-sidebar [data-testid="nav-user"]').click()
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
     const activeResult = await measureAlignment(page, 'aside#main-sidebar [data-testid="nav-user"]')
     expect(
@@ -255,7 +252,6 @@ test.describe('icon + 文字垂直对齐守门', () => {
       document.documentElement.classList.add('dark')
       localStorage.setItem('theme', 'dark')
     })
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await page.waitForTimeout(200)
 
     const testid = 'nav-user' // 2026-10-31:原 nav-myLearning 已随 P2 收敛移出主侧边栏
@@ -282,7 +278,6 @@ test.describe('icon + 文字垂直对齐守门', () => {
     // 触发 AI 面板打开
     const aiButton = page.locator('aside button[aria-pressed]').first()
     await aiButton.click()
-    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await page.waitForTimeout(400) // 面板滑入动画
 
     // 找到 AI 面板 header 内的 svg + span

@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: rnType.body.size,
     color: tokens.text.primary,
-    paddingVertical: rnSpacing.none,
+    paddingVertical: 0,
   },
   empty: {
     paddingVertical: rnSpacing['2xl'],

@@ -668,7 +668,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     },
     headTexts: { flex: 1, gap: rnSpacing.xs },
     wfTitle: { fontSize: rnType.title.size, fontWeight: '700', color: tk.text.primary },
-    wfDesc: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 17 },
+    wfDesc: { fontSize: 12, color: tk.text.secondary, lineHeight: 17 },
     metaRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -727,8 +727,8 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.md,
       backgroundColor: tk.danger.light,
     },
-    confirmText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, lineHeight: 17 },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, lineHeight: 17 },
+    confirmText: { fontSize: 12, color: tk.danger.DEFAULT, lineHeight: 17 },
+    errorText: { fontSize: 12, color: tk.danger.DEFAULT, lineHeight: 17 },
     errorBox: {
       flex: 1,
       alignItems: 'center',
@@ -840,7 +840,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
     stepIndex: { fontSize: rnType.caption.size, color: tk.text.tertiary, width: 26 },
     stepBody: { flex: 1, gap: rnSpacing['2xs'] },
     stepName: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
-    stepInput: { fontSize: rnType.caption.size, color: tk.text.secondary, lineHeight: 15 },
+    stepInput: { fontSize: 11, color: tk.text.secondary, lineHeight: 15 },
   })
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

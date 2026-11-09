@@ -347,7 +347,7 @@ function createStyles(tk: ReturnType<typeof getTokens>) {
       borderRadius: rnRadius.md,
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
-    errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT, lineHeight: 17 },
+    errorText: { fontSize: 12, color: tk.danger.DEFAULT, lineHeight: 17 },
     errorBox: {
       flex: 1,
       alignItems: 'center',

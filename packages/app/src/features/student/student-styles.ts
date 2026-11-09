@@ -145,7 +145,7 @@ export function createStudentStyles(tk: AppThemeTokens) {
     rowMain: { flex: 1, gap: rnSpacing.xs },
     rowTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
     rowSub: { fontSize: rnType.caption.size, color: tk.text.tertiary },
-    rowBody: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
+    rowBody: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     rowMeta: {
       flexDirection: 'row',
       flexWrap: 'wrap',

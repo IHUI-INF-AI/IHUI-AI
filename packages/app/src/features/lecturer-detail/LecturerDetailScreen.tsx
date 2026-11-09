@@ -515,8 +515,8 @@ function createStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
     },
     introText: {
-      fontSize: rnType.bodySm.size,
-      lineHeight: rnType.body.lineHeight,
+      fontSize: 13,
+      lineHeight: 20,
       color: tk.text.secondary,
     },
     expandText: {
@@ -599,7 +599,7 @@ function createStyles(tk: AppThemeTokens) {
       gap: rnSpacing['2xs'],
     },
     reviewContent: {
-      fontSize: rnType.bodySm.size,
+      fontSize: 13,
       lineHeight: 19,
       color: tk.text.secondary,
     },

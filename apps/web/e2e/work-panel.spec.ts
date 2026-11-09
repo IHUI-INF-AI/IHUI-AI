@@ -60,7 +60,7 @@ test('P3-1: openPanel 后 panel exists + tab 渲染', async ({ page }) => {
       firstTabState: s.tabs[0]?.state,
     }
   })
-  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0180]')
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(result.open).toBe(true)
   expect(result.tabsCount).toBe(1)
   expect(result.activeTabId).toBeTruthy()
@@ -89,7 +89,7 @@ test('P3-2: newTab 创建多 Tab + 切换 active', async ({ page }) => {
       })(),
     }
   })
-  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0181]')
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(result.tabsCount).toBe(3)
   expect(result.tabs[0]?.url).toBe('https://example.com')
   expect(result.tabs[2]?.url).toBe('https://github.com')
@@ -114,12 +114,11 @@ test('P3-3: addFavorite 收藏 + Star 按钮 amber-500 class', async ({ page }) 
       firstFavorite: s.favorites[0],
     }
   })
-  test.skip(storeResult.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0182]')
+  test.skip(storeResult.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(storeResult.favoritesCount).toBe(1)
   expect(storeResult.firstFavorite?.url).toBe('https://github.com')
 
   // 2. 等 UI 渲染后验证 Star 按钮 amber-500 class
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(500)
   const domResult = await page.evaluate(() => {
     // 2026-10-21:ToolbarButton 从不写原生 title(本仓禁 title),它把 title 转成 **aria-label**
@@ -150,7 +149,7 @@ test('P3+: dropdown 展开(点击 ChevronDown 按钮 + dialog 出现)', async ({
   const storeExists = await page.evaluate(
     () => typeof (window as any).__workPanelStore !== 'undefined',
   )
-  test.skip(storeExists === false, 'window.__workPanelStore 未暴露(build 版),跳过 [SKIP:SKIP-0183]')
+  test.skip(storeExists === false, 'window.__workPanelStore 未暴露(build 版),跳过')
   await page.evaluate(() => {
     const store = (window as any).__workPanelStore
     if (!store) return
@@ -158,7 +157,6 @@ test('P3+: dropdown 展开(点击 ChevronDown 按钮 + dialog 出现)', async ({
     store.getState().addFavorite('https://github.com', 'GitHub')
     store.getState().navigate('https://github.com', 'user')
   })
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(500)
 
   // 2. 点击 ChevronDown 按钮
@@ -166,7 +164,6 @@ test('P3+: dropdown 展开(点击 ChevronDown 按钮 + dialog 出现)', async ({
   //  故定位从 [title=] 换到 [aria-label=])
   const chevronBtn = page.locator('button[aria-label="收藏和历史"]')
   await chevronBtn.click()
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(300)
 
   // 3. 验证 dialog 出现 + 收藏 tab 默认激活
@@ -190,7 +187,6 @@ test('P3+: dropdown 展开(点击 ChevronDown 按钮 + dialog 出现)', async ({
 
   // 4. 切换到历史 tab
   await page.locator('[role="dialog"][aria-label="收藏和历史"] button', { hasText: '历史' }).click()
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(200)
   const historyState = await page.evaluate(() => {
     const dialog = document.querySelector('[role="dialog"][aria-label="收藏和历史"]')
@@ -220,7 +216,7 @@ test('P3++: 拖拽排序(reorderTabs API 验证 + DOM 顺序)', async ({ page })
       tabs: s.tabs.map((t: any) => ({ id: t.id, url: t.url })),
     }
   })
-  test.skip(initial.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0184]')
+  test.skip(initial.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(initial.tabs.length).toBe(3)
 
   // 2. 调 reorderTabs:把第一个 tab 移到第三个位置
@@ -262,7 +258,7 @@ test('P4-2: closeTab 关闭非 active tab', async ({ page }) => {
       activeUrl: after.tabs.find((t: any) => t.id === after.activeTabId)?.url,
     }
   })
-  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0185]')
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(result.tabsCount).toBe(2)
   expect(result.remaining).toEqual(['https://b.example.com', 'https://c.example.com'])
   expect(result.activeUrl).toBe('https://c.example.com')
@@ -288,7 +284,7 @@ test('P4-2: closeTab 关闭 active 中间 tab,切到右邻', async ({ page }) =>
       addressInput: after.addressInput,
     }
   })
-  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0186]')
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(result.tabsCount).toBe(2)
   expect(result.remaining).toEqual(['https://a.example.com', 'https://c.example.com'])
   // 关掉 idx=1 的 active 后,应切到原 idx=1(现在是 c)
@@ -311,7 +307,7 @@ test('P4-2: closeTab 关闭最后一个 tab,active 变 null + addressInput 清�
       addressInput: after.addressInput,
     }
   })
-  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0187]')
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(result.tabsCount).toBe(0)
   expect(result.activeTabId).toBeNull()
   expect(result.addressInput).toBe('')
@@ -330,7 +326,7 @@ test('P4-2: closeTab 未知 id no-op(不抛错)', async ({ page }) => {
       before,
     }
   })
-  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0188]')
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(result.tabsCount).toBe(result.before)
 })
 
@@ -348,7 +344,7 @@ test('P4-5: reorderTabs position=before 把 a 移到 c 之前', async ({ page })
       urls: store.getState().tabs.map((t: any) => t.url),
     }
   })
-  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0189]')
+  test.skip(result.skipped === true, 'window.__workPanelStore 未暴露,跳过')
   expect(result.urls).toEqual([
     'https://b.example.com',
     'https://a.example.com',
@@ -370,7 +366,6 @@ test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) 
   // 2026-09-22:改为自动等待 3 颗 pill 落 DOM(原定值 waitForTimeout(500) 在冷 dev 下
   // 会拿到 0×0 的 boundingBox → clientX 判到 after 位 → 首 tab 无 after 指示线 → 假红)
   await expect(page.locator('[data-testid="work-panel-tab"]')).toHaveCount(3)
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(500)
 
   // 2. 用 Playwright 的 dispatchEvent 触发 React 17+ 合成事件链路
@@ -378,11 +373,11 @@ test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) 
   // pill 容器整体是 dragover/dragleave 的宿主(改造前即整颗 button 的 rect,逐像素等价)
   const firstTab = page.locator('[data-testid="work-panel-tab"]').first()
   const firstTabCount = await firstTab.count()
-  test.skip(firstTabCount === 0, 'tab buttons 未渲染,跳过 [SKIP:SKIP-0190]')
+  test.skip(firstTabCount === 0, 'tab buttons 未渲染,跳过')
 
   // 3. 拿到第一个 tab 的中心点,模拟鼠标在左半边(dragover → before)
   const box = await firstTab.boundingBox()
-  test.skip(!box, 'tab bounding box 不可用,跳过 [SKIP:SKIP-0191]')
+  test.skip(!box, 'tab bounding box 不可用,跳过')
   await firstTab.dispatchEvent('dragover', {
     dataTransfer: await page.evaluateHandle(() => new DataTransfer()),
     clientX: box!.x + box!.width * 0.25,
@@ -390,7 +385,6 @@ test('P4-5: drop indicator DOM 渲染(before/after position)', async ({ page }) 
   })
 
   // 4. 等 React 状态更新 + 动画
-  // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
   await page.waitForTimeout(300)
 
   // 5. 验证 drop indicator 存在(pointer-events-none 的 div,带 aria-label)
@@ -417,7 +411,7 @@ test('P4-6: tab pill 合法内容模型 + 关闭钮聚焦显形(2026-09-22 非�
   const storeReady = await page.evaluate(
     () => typeof (window as any).__workPanelStore !== 'undefined',
   )
-  test.skip(!storeReady, 'window.__workPanelStore 未暴露,跳过 [SKIP:SKIP-0192]')
+  test.skip(!storeReady, 'window.__workPanelStore 未暴露,跳过')
   await page.evaluate(() => {
     const store = (window as any).__workPanelStore
     store.getState().openPanel({ url: 'https://a.example.com' })
@@ -493,7 +487,7 @@ test('D50-1: 跨会话 Tab 分桶 — 切换隔离、切回恢复、无会话退
   const storeReady = await page.evaluate(
     () => typeof (window as any).__workPanelStore !== 'undefined',
   )
-  test.skip(!storeReady, 'window.__workPanelStore 未暴露(build 版),跳过 [SKIP:SKIP-0193]')
+  test.skip(!storeReady, 'window.__workPanelStore 未暴露(build 版),跳过')
   const result = await page.evaluate(() => {
     const store = (window as any).__workPanelStore
     // 全局作用域开 1 个 tab
@@ -533,13 +527,12 @@ test('D50-2: 分桶持久化 — 顶层仍全局形态,会话桶进 conversation
   const storeReady = await page.evaluate(
     () => typeof (window as any).__workPanelStore !== 'undefined',
   )
-  test.skip(!storeReady, 'window.__workPanelStore 未暴露(build 版),跳过 [SKIP:SKIP-0194]')
+  test.skip(!storeReady, 'window.__workPanelStore 未暴露(build 版),跳过')
   await page.evaluate(() => {
     const store = (window as any).__workPanelStore
     store.getState().setConversationScope('conv-persist')
     store.getState().newTab('https://p1.d50.example.com')
   })
-  // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
   await page.waitForTimeout(200) // persist 写入落盘
   const disk = await page.evaluate(() => {
     const raw = localStorage.getItem('ihui-work-panel')

@@ -67,11 +67,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     scroll: { padding: rnSpacing.md, paddingBottom: rnSpacing['3xl'], gap: rnSpacing.md },
     hero: { gap: rnSpacing.xs },
     heroTitle: { fontSize: rnType.heading.size, fontWeight: '700', color: tk.text.primary },
-    heroSubtitle: {
-      fontSize: rnType.label.size,
-      color: tk.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    heroSubtitle: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing['xs-loose'] },
     filterChip: {
       flexDirection: 'row',
@@ -111,18 +107,14 @@ export function createPlanStyles(tk: AppThemeTokens) {
       color: tk.text.primary,
       flexShrink: 1,
     },
-    cardSub: {
-      fontSize: rnType.label.size,
-      color: tk.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    cardSub: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     badge: {
       paddingHorizontal: rnSpacing.sm,
       paddingVertical: 3,
       borderRadius: rnRadius.md,
     },
     badgeText: { fontSize: rnType.caption.size, fontWeight: '600' },
-    goalText: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
+    goalText: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     progressRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },
     progressTrack: {
       flex: 1,
@@ -171,7 +163,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: rnSpacing.md },
     metaText: { fontSize: rnType.caption.size, color: tk.text.tertiary },
     fieldLabel: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.tertiary },
-    fieldContent: { fontSize: rnType.bodySm.size, color: tk.text.primary, lineHeight: 19 },
+    fieldContent: { fontSize: 13, color: tk.text.primary, lineHeight: 19 },
     emptyBox: {
       alignItems: 'center',
       gap: rnSpacing.sm,
@@ -249,11 +241,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
     },
     stepIndexText: { fontSize: rnType.caption.size, fontWeight: '600', color: tk.text.secondary },
     stepTitle: { flex: 1, fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    stepDesc: {
-      fontSize: rnType.label.size,
-      color: tk.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    stepDesc: { fontSize: 12, color: tk.text.secondary, lineHeight: 18 },
     stepBadges: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -314,12 +302,7 @@ export function createPlanStyles(tk: AppThemeTokens) {
       padding: rnSpacing.md,
       borderRadius: rnRadius.md,
     },
-    confirmText: {
-      flex: 1,
-      fontSize: rnType.label.size,
-      color: ROSE.fg,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    confirmText: { flex: 1, fontSize: 12, color: ROSE.fg, lineHeight: 18 },
     confirmActions: { flexDirection: 'row', gap: rnSpacing['xs-loose'] },
     skeletonTitle: {
       height: 20,

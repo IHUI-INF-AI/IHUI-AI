@@ -598,7 +598,7 @@ function ChatInputBar(props: BottomActionBarProps) {
       {images !== undefined && images.length > 0 ? (
         <View style={styles.imageRow}>
           {images.map((uri, index) => (
-            <View key={`img-${index}-${uri}`} style={styles.imagePreview}>
+            <View key={index} style={styles.imagePreview}>
               <Image source={{ uri }} style={styles.imagePreviewImg} resizeMode="cover" />
               {onRemoveImage !== undefined ? (
                 <Tappable
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   configEmoji: {
     fontSize: rnType.title.size,
-    lineHeight: rnType.body.lineHeight,
+    lineHeight: 20,
   } as TextStyle,
 
   // ── 新模式:图片预览 ──
@@ -997,7 +997,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   voiceEmoji: {
     fontSize: rnType.subtitle.size,
-    lineHeight: rnType.strong.lineHeight,
+    lineHeight: 22,
   } as TextStyle,
   // ── 2026-10-16 录音态覆盖层(简约黑白:surface.card 底 + text.primary 波形)──
   recordingOverlay: {

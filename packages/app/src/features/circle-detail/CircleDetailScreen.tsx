@@ -126,7 +126,7 @@ function createStyles(tk: AppThemeTokens) {
     statText: { fontSize: rnType.body.size, color: tk.text.secondary },
     description: {
       fontSize: rnType.title.size,
-      lineHeight: rnType.strong.lineHeight,
+      lineHeight: 22,
       color: tk.text.primary,
     },
     actions: {

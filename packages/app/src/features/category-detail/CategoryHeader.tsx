@@ -110,10 +110,6 @@ function createStyles(tk: AppThemeTokens) {
     badgePaidText: { color: tk.warning.amberText },
     meta: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.xs },
     metaText: { fontSize: rnType.label.size, color: tk.text.tertiary },
-    description: {
-      fontSize: rnType.body.size,
-      lineHeight: rnType.strong.lineHeight,
-      color: tk.text.secondary,
-    },
+    description: { fontSize: rnType.body.size, lineHeight: 22, color: tk.text.secondary },
   })
 }

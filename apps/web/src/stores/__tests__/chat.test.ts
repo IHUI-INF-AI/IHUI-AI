@@ -10,7 +10,7 @@ import {
   type MessagePatchedEvent,
   type MessageTerminalEvent,
 } from '@ihui/types'
-import { useChatStore } from '../chat'
+import { planColdStartRestore, useChatStore } from '../chat'
 
 describe('useChatStore', () => {
   beforeEach(() => {
@@ -459,6 +459,25 @@ describe('useChatStore', () => {
 
     it('shiftSideQuestion 未知会话返回 null', () => {
       expect(useChatStore.getState().shiftSideQuestion('conv-none')).toBeNull()
+    })
+
+    it('暂停后立即发只取出点名的那条,其余留在暂停队列里', () => {
+      useChatStore.getState().enqueueSideQuestion('conv-1', '甲')
+      useChatStore.getState().enqueueSideQuestion('conv-1', '乙')
+      const ids = useChatStore.getState().sideQueueByConversation['conv-1']!.map((q) => q.id)
+      const paused = useChatStore.getState().applyCapacityQueueOp('conv-1', 'pause')
+      expect(paused.plan.reason).toBe('paused')
+      const sent = useChatStore.getState().applyCapacityQueueOp('conv-1', 'sendNow', ids[1])
+      expect(sent.released?.text).toBe('乙')
+      expect(useChatStore.getState().capacityQueuePausedByConversation['conv-1']).toBe(true)
+      expect(useChatStore.getState().sideQueueByConversation['conv-1']?.map((q) => q.text)).toEqual(
+        ['甲'],
+      )
+      const again = useChatStore.getState().applyCapacityQueueOp('conv-1', 'pause')
+      expect(again.plan.reason).toBe('already-paused')
+      expect(useChatStore.getState().sideQueueByConversation['conv-1']?.map((q) => q.text)).toEqual(
+        ['甲'],
+      )
     })
   })
 
@@ -1295,6 +1314,45 @@ describe('useChatStore', () => {
       expect(useChatStore.getState()).not.toBe(before)
       expect(useChatStore.getState().memoryUpdateNotices).toHaveLength(2)
     })
+  })
+})
+
+describe('冷启动先显示列表再对深链', () => {
+  const now = Date.parse('2026-11-06T05:10:00.000Z')
+  const snapshot = {
+    version: 1,
+    savedAt: '2026-11-06T05:09:00.000Z',
+    items: [{ id: 'c1', title: '进行中', titleMode: 'user', spaceName: 'G:/IHUI-AI' }],
+  }
+
+  it('数字标题档不折成用户标题,深链不在快照里只留列表', () => {
+    expect(
+      planColdStartRestore({
+        now,
+        snapshot,
+        route: { path: '/conversation/c1', savedAt: '2026-11-06T05:09:30.000Z' },
+      }),
+    ).toMatchObject({ disposition: 'restore', routeId: 'c1' })
+    expect(
+      planColdStartRestore({
+        now,
+        snapshot: {
+          ...snapshot,
+          items: [{ id: 'c1', title: '进行中', titleMode: 2, spaceName: 'G:/IHUI-AI' }],
+        },
+        route: null,
+      }).reason,
+    ).toBe('item-unreadable')
+    expect(
+      planColdStartRestore({
+        now,
+        snapshot,
+        route: { path: '/conversation/missing', savedAt: '2026-11-06T05:09:30.000Z' },
+      }),
+    ).toMatchObject({ disposition: 'list-only', reason: 'route-absent', routeId: null })
+    expect(planColdStartRestore({ now, snapshot: null, route: null }).reason).toBe(
+      'snapshot-unmeasured',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

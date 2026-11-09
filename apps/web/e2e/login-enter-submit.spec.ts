@@ -168,7 +168,6 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
 
       await page.locator('#login-form-account').fill('admin')
       await page.locator('#login-form-account').press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -183,7 +182,6 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await page.locator('#login-form-account').fill('admin')
       await page.getByTestId('login-password-input').fill(ADMIN_USER.password)
       await page.getByTestId('login-password-input').press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -219,7 +217,6 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
 
       // 焦点在方框 span(tabIndex=0,agreement-checkbox.tsx:64)上,按 Enter → onKeyDown form.requestSubmit()
       await page.keyboard.press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -239,7 +236,6 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
 
       await page.locator('#login-form-phone').fill('13800138000')
       await page.locator('#login-form-phone').press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -254,7 +250,6 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await page.locator('#login-form-phone').fill('13800138000')
       await page.getByTestId('login-phone-code-input').fill('123456')
       await page.getByTestId('login-phone-code-input').press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -270,7 +265,6 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
 
       await page.locator('#login-form-email').fill('[REDACTED-EMAIL]')
       await page.locator('#login-form-email').press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)
@@ -285,7 +279,6 @@ test.describe('Enter 触发 form submit 守门(3 种登录 tab)', () => {
       await page.locator('#login-form-email').fill('[REDACTED-EMAIL]')
       await page.getByTestId('login-email-code-input').fill('123456')
       await page.getByTestId('login-email-code-input').press('Enter')
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await page.waitForTimeout(500)
 
       const count = await getCapturedSubmitsCount(page)

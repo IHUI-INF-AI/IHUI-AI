@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   } as TextStyle,
   secondaryButtonText: {
     fontSize: rnType.body.size,
-    lineHeight: rnType.body.lineHeight,
+    lineHeight: 20,
     color: tokens.text.secondary,
     fontWeight: '500',
   } as TextStyle,

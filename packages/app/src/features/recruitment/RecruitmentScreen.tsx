@@ -221,7 +221,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     intro: {
       fontSize: rnType.body.size,
-      lineHeight: rnType.body.lineHeight,
+      lineHeight: 20,
       fontWeight: '600',
       textAlign: 'center',
       color: tk.danger.DEFAULT,

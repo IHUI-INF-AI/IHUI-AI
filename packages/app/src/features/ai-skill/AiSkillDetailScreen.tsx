@@ -426,7 +426,7 @@ function createStyles(tk: AppThemeTokens) {
     /* 详情内容 */
     description: {
       fontSize: rnType.body.size, // text-sm
-      lineHeight: rnType.title.lineHeight, // leading-6
+      lineHeight: 24, // leading-6
       color: tk.text.secondary,
     },
     tagRow: {
@@ -533,7 +533,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     resultText: {
       fontSize: rnType.body.size,
-      lineHeight: rnType.strong.lineHeight,
+      lineHeight: 22,
       color: tk.text.medium,
     },
     errorText: {
@@ -581,7 +581,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     promptText: {
       fontSize: rnType.body.size, // text-sm
-      lineHeight: rnType.title.lineHeight, // leading-6
+      lineHeight: 24, // leading-6
       color: tk.text.medium,
     },
     sourceText: {

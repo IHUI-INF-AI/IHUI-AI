@@ -109,11 +109,7 @@ export function PaymentScreen({
       <FlatList
         data={orders}
         keyExtractor={(item) => item.orderNo}
-        contentContainerStyle={{
-          gap: rnSpacing['sm-loose'],
-          padding: rnSpacing['sm-loose'],
-          paddingBottom: rnSpacing['3xl'],
-        }}
+        contentContainerStyle={{ gap: 10, padding: 10, paddingBottom: rnSpacing['3xl'] }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           loading ? (

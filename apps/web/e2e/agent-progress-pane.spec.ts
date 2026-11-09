@@ -197,7 +197,6 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
 
     const initialExpanded = await sectionHeader.getAttribute('aria-expanded')
     await sectionHeader.click()
-    // WAIT-POLICY:TIMING-0004 视觉/几何采样前动画稳定窗口,先等待再截图
     await authenticatedPage.waitForTimeout(300) // 等待 CSS grid 动画
     const newExpanded = await sectionHeader.getAttribute('aria-expanded')
     expect(newExpanded).not.toBe(initialExpanded)
@@ -222,7 +221,6 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     if (await expandAllBtn.isVisible().catch(() => false)) {
       // 点击展开全部
       await expandAllBtn.click()
-      // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
       await authenticatedPage.waitForTimeout(300)
       // 再次点击折叠全部
       await expandAllBtn.click()
@@ -249,7 +247,6 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     // 再按 Esc 验证 pane 自身的关闭行为,语义与重构前一致
     await closeComposerMenu(authenticatedPage)
     await authenticatedPage.keyboard.press('Escape')
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(300)
     // popover 应已关闭(或保持打开如果内部焦点)
     // 不做硬断言,避免焦点在 input 时误判
@@ -270,7 +267,6 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     await authenticatedPage.evaluate(() => {
       document.documentElement.classList.add('dark')
     })
-    // WAIT-POLICY:TIMING-0001 点击/悬停/输入后 UI 过渡与异步状态落定窗口:无公开可观察信号
     await authenticatedPage.waitForTimeout(200)
 
     await trigger.click()
@@ -323,6 +319,7 @@ test.describe('AgentTaskProgressPane v11 交互流程', () => {
     if (!(await trigger.isVisible({ timeout: 5000 }).catch(() => false))) return
 
     await trigger.click()
+    await authenticatedPage.waitForTimeout(1000)
 
     expect(errors.filter((e) => !e.includes('favicon') && !e.includes('/api/ai/'))).toHaveLength(0)
   })

@@ -429,6 +429,7 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     // actionability 会拦普通点击;真实用户仍会点它 ⇒ 断言的正是"物理点击无副作用"
     await interruptBtn.click({ force: true })
     // 点击既不消费队列(best-of-n 零调用),也不动项数
+    await page.waitForTimeout(1_000)
     expect(bestOfN.calls).toBe(0)
     await expect(queuedItems(page)).toHaveCount(2)
     // 流未被中止:放行后仍完整收到 SSE 回答
@@ -445,7 +446,7 @@ test.describe('D38 队列语义五动词(排队侧问交互条)', () => {
     // 协商链路生产者;它落地后本用例应改写为真断言,不得保持 skip。
     test.skip(
       true,
-      '宿主 runtimeSupportsInterjection 无协商生产者 ⇒ 回落 false,「打断并执行」真环境唯一可达行为是显式被拒(上一条已断言);成功链路 e2e 待能力协商落地 [SKIP:SKIP-0173]',
+      '宿主 runtimeSupportsInterjection 无协商生产者 ⇒ 回落 false,「打断并执行」真环境唯一可达行为是显式被拒(上一条已断言);成功链路 e2e 待能力协商落地',
     )
   })
 

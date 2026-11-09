@@ -92,7 +92,6 @@ export default function CourseDetailPage() {
   if (error || !data) {
     return (
       <div className="mx-auto w-full max-w-4xl space-y-4">
-        {/* back-label-exempt: 返回箭头已由同一按钮内的 <ArrowLeft /> 矢量图标承担,此处「返回」只是紧随其后的文案标签,不存在"箭头位放文字"的图标 affordance */}
         <button
           type="button"
           onClick={() => router.push('/learn')}
@@ -123,7 +122,6 @@ export default function CourseDetailPage() {
 
   return (
     <div className="px-4 py-4 mx-auto w-full max-w-6xl space-y-4">
-      {/* back-label-exempt: 返回箭头已由同一链接内的 <ArrowLeft /> 矢量图标承担,此处「返回」只是紧随其后的文案标签,不存在"箭头位放文字"的图标 affordance */}
       <Link
         href="/learn"
         className="inline-flex items-center gap-1.5 text-body text-muted-foreground transition-colors hover:text-foreground"

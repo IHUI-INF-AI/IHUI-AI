@@ -41,24 +41,10 @@ export interface ApkLeg {
 /** 国内腿固定 tag:发布脚本每次替换同名附件,URL 恒定(与站点腿 latest 指针同形)。 */
 export const APK_CN_LEG_TAG = 'mobile-apk-latest'
 export const APK_CN_LEG_ASSET = 'ihui-ai-latest.apk'
-/** 固定 tag 下所有附件共用的直链前缀(单文件腿与多分片清单都挂在它下面)。 */
-export const APK_CN_LEG_BASE = `https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/${APK_CN_LEG_TAG}`
-export const APK_CN_LEG_URL = `${APK_CN_LEG_BASE}/${APK_CN_LEG_ASSET}`
-/**
- * 多分片清单的固定附件名(2026-11-05 立)。
- * 单文件腿仍是同 tag 下的整包;清单只描述"这次这个包切成了哪几份",分片名由清单自带,
- * 客户端不构造名字 ⇒ 发版换份数/切法都不需要改客户端。
- * ⚠️ 与 scripts/publish-mobile-apk-gitee.py 的 PARTS_MANIFEST_ASSET 逐字一致(发布侧写、客户端读)。
- */
-export const APK_PARTS_MANIFEST_ASSET = 'ihui-ai-parts.json'
-export const APK_PARTS_MANIFEST_URL = `${APK_CN_LEG_BASE}/${APK_PARTS_MANIFEST_ASSET}`
+export const APK_CN_LEG_URL = `https://gitee.com/JLSLSSZWHYXGS_0/IHUI-AI/releases/download/${APK_CN_LEG_TAG}/${APK_CN_LEG_ASSET}`
 
 /** 字面量白名单,与 desktop-download-leg.ts 的 RELEASE_TARGET_ALLOWED_ORIGINS 同源纪律。 */
 export const APK_LEG_ALLOWED_ORIGINS: readonly string[] = [
-  // 2026-11-06: 快腿 = 阿里云 OSS 北京节点(CNAME apk.aizhs.top,签名直链)。
-  // 实测单流 38–48MB/s,而站点腿(EdgeOne)单流 0.28MB/s、12 路并发封顶 3.87MB/s。
-  // 服务端 latest 的 downloadUrl 指向它;Gitee 仍是国内兜底腿。
-  'https://apk.aizhs.top',
   'https://www.aizhs.top',
   'https://gitee.com',
   'https://github.com',
@@ -92,27 +78,11 @@ export function buildLegCandidates(primaryUrl: string): ApkLeg[] {
   return legs
 }
 
-/**
- * `bytes 0-262143/84915649` → 84915649。
- * 没有 Content-Range 时才允许退到 Content-Length —— Gitee Release 不认 Range(实测 200 整包,
- * 没有 Content-Range),总量只能取它;此前的"绝不猜"针对的是未跟随 302 时的跳转体长度,
- * 而探针的 XHR 已跟随到最终资源,status=200 的 Content-Length 就是资源长度。
- * Content-Range 存在但读不懂 ⇒ 仍然返回 null,不拿分片长度冒充总量。
- */
-export function parseProbeTotal(
-  contentRange: string | null,
-  contentLength: string | null = null,
-): number | null {
-  const rawRange = String(contentRange ?? '').trim()
-  if (rawRange) {
-    const m = /\/\s*(\d+)\s*$/.exec(rawRange)
-    if (!m) return null
-    const n = Number(m[1])
-    return Number.isFinite(n) && n > 0 ? n : null
-  }
-  const rawLength = String(contentLength ?? '').trim()
-  if (!/^\d+$/.test(rawLength)) return null
-  const n = Number(rawLength)
+/** `bytes 0-262143/84915649` → 84915649;读不懂返回 null,绝不用 Content-Length 猜。 */
+export function parseProbeTotal(contentRange: string | null): number | null {
+  const m = /\/\s*(\d+)\s*$/.exec(String(contentRange ?? ''))
+  if (!m) return null
+  const n = Number(m[1])
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
@@ -188,21 +158,11 @@ export type LegProbeTransport = (
   timeoutMs: number,
 ) => Promise<Omit<LegProbe, 'id' | 'url'>>
 
-/**
- * 默认探针:RN XHR + arraybuffer,真读到 256KB 就撤单。
- * 两条腿的形态都要量:
- *   - 认 Range 的腿 ⇒ 206 + Content-Range,onload 后按整片结算;
- *   - 不认 Range 的腿(Gitee Release 实测如此)⇒ 200 整包,没有 Content-Range,
- *     靠 onprogress 数真实到货字节,到 256KB 主动 abort,总量取最终资源的 Content-Length。
- * 不 abort 的话,85MB 会整包进 JS 堆 —— 探针不该比下载本身更重。
- */
+/** 默认探针:RN XHR + arraybuffer,真读 256KB,超时由 XHR 自己撤单。 */
 export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
   new Promise((resolve) => {
     const started = Date.now()
     let settled = false
-    let progressBytes = 0
-    let probeAborted = false
-    let seenStatus = 0
     const finish = (out: Omit<LegProbe, 'id' | 'url'>) => {
       if (settled) return
       settled = true
@@ -221,51 +181,19 @@ export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
       })
       return
     }
-    /** 头只在 readyState>=2 后可见;abort/timeout 路径上读不到就退回 null,不猜。 */
-    const readTotal = (): number | null => {
-      try {
-        return parseProbeTotal(
-          xhr.getResponseHeader('Content-Range'),
-          xhr.getResponseHeader('Content-Length'),
-        )
-      } catch {
-        return null
-      }
-    }
     xhr.responseType = 'arraybuffer'
     xhr.timeout = timeoutMs
-    xhr.onprogress = (e) => {
-      const loaded = Number(e?.loaded)
-      if (Number.isFinite(loaded) && loaded > progressBytes) progressBytes = loaded
-      if (xhr.status) seenStatus = xhr.status
-      if (!probeAborted && progressBytes >= APK_PROBE_BYTES) {
-        probeAborted = true
-        try {
-          xhr.abort()
-        } catch {
-          /* abort 失败就让 onload/timeout 收尾,不在这里结算 */
-        }
-      }
-    }
     xhr.onload = () => {
       const body = xhr.response
-      const received = body instanceof ArrayBuffer ? body.byteLength : progressBytes
+      const received = body instanceof ArrayBuffer ? body.byteLength : 0
       finish({
         status: xhr.status,
-        totalBytes: readTotal(),
+        totalBytes: parseProbeTotal(xhr.getResponseHeader('Content-Range')),
         receivedBytes: received,
         elapsedMs: 0,
         error: null,
       })
     }
-    xhr.onabort = () =>
-      finish({
-        status: xhr.status || seenStatus || (probeAborted ? 200 : 0),
-        totalBytes: readTotal(),
-        receivedBytes: progressBytes,
-        elapsedMs: 0,
-        error: probeAborted ? null : 'XHR abort',
-      })
     xhr.onerror = () =>
       finish({
         status: 0,
@@ -274,20 +202,7 @@ export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
         elapsedMs: 0,
         error: 'XHR onerror',
       })
-    xhr.ontimeout = () => {
-      // 已经真读到字节、且总量可读 ⇒ 如实按"慢腿"结算,让 pickLeg 用实测吞吐比;
-      // 一个字节都没到 ⇒ 仍按超时淘汰。
-      const totalBytes = readTotal()
-      if (progressBytes > 0 && totalBytes !== null) {
-        finish({
-          status: xhr.status || seenStatus || 200,
-          totalBytes,
-          receivedBytes: progressBytes,
-          elapsedMs: 0,
-          error: null,
-        })
-        return
-      }
+    xhr.ontimeout = () =>
       finish({
         status: 0,
         totalBytes: null,
@@ -295,7 +210,6 @@ export const xhrLegProbe: LegProbeTransport = (leg, timeoutMs) =>
         elapsedMs: 0,
         error: `探针 ${timeoutMs}ms 超时`,
       })
-    }
     try {
       xhr.open('GET', leg.url, true)
       xhr.setRequestHeader('Range', `bytes=0-${APK_PROBE_BYTES - 1}`)

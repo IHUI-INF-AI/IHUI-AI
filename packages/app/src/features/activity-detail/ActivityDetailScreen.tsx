@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
     content: {
       marginTop: rnSpacing.md,
       fontSize: rnType.title.size,
-      lineHeight: rnType.strong.lineHeight,
+      lineHeight: 22,
       color: tk.text.primary,
     },
   })

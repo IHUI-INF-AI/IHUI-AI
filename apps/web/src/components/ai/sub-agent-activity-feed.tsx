@@ -99,6 +99,32 @@ const EXPERT_LANES: Array<{
   { key: 'general', icon: Users },
 ]
 
+/** 子代理职责类型的本地化名白名单。未知类型一律留空,绝不把英文原始码暴露给普通用户。 */
+const AGENT_TYPE_KEYS = new Set([
+  'architect',
+  'coder',
+  'debugger',
+  'general',
+  'researcher',
+  'reviewer',
+  'worker',
+])
+
+function agentTypeLabel(
+  type: string | undefined,
+  translate: (key: string) => string,
+): string | undefined {
+  const key = String(type ?? '')
+    .trim()
+    .toLowerCase()
+  return AGENT_TYPE_KEYS.has(key) ? translate(`lane.${key}`) : undefined
+}
+
+/** 子代理标题:name 若恰好是已知职责代码(researcher/worker…),改用本地化职责名 */
+function agentDisplayName(agent: SubAgentActivity, translate: (key: string) => string): string {
+  return agentTypeLabel(agent.name, translate) || agent.name || translate('defaultName')
+}
+
 /** 未知/worker 类型归入 general 兜底泳道;按 name/type 关键词匹配五类专家 */
 function resolveLane(agent: SubAgentActivity): ExpertLaneKey {
   const hay = `${agent.type} ${agent.name}`.toLowerCase()
@@ -139,7 +165,7 @@ function SubAgentCard({ agent, testIdPrefix = 'subagent-card' }: SubAgentCardPro
   const statusLabel = useStreamStatusLabel()
   const elapsedMs = useLiveElapsed(active, stepSpanMs(agent))
   const steps = agent.completedSteps.length
-  const name = agent.name || t('defaultName')
+  const name = agentDisplayName(agent, t)
   const tags =
     agent.progressIteration !== undefined && agent.progressIteration > 1
       ? [tStatus('roundNumber', { n: agent.progressIteration })]
@@ -150,8 +176,8 @@ function SubAgentCard({ agent, testIdPrefix = 'subagent-card' }: SubAgentCardPro
       ? tStatus('toolCallCount', { n: agent.toolCallsCount })
       : null,
   ].filter((part): part is string => part !== null)
-  const rowAriaLabel = [name, agent.type, statusLabel(status), ...metaParts]
-    .filter((part) => part !== '')
+  const rowAriaLabel = [name, agentTypeLabel(agent.type, t), statusLabel(status), ...metaParts]
+    .filter((part): part is string => Boolean(part))
     .join(' · ')
 
   return (
@@ -159,7 +185,7 @@ function SubAgentCard({ agent, testIdPrefix = 'subagent-card' }: SubAgentCardPro
       <StreamRow
         status={status}
         title={name}
-        subject={agent.type || undefined}
+        subject={agentTypeLabel(agent.type, t)}
         subjectKind="name"
         meta={metaParts.join(' · ')}
         tags={tags}
@@ -346,13 +372,13 @@ export function SubAgentActivityFeed({
                           <StreamRow
                             key={agent.agentId}
                             status={agentStreamStatus(agent)}
-                            title={agent.name || t('defaultName')}
+                            title={agentDisplayName(agent, t)}
                             subject={
                               // 进行中的子代理把"此刻在做什么"顶到对象位(单行截断),
                               // 空闲/已结束的显示职责类型
                               isAgentActive(agent) && agent.currentStep
                                 ? humanizeToolText(agent.currentStep, tStatus)
-                                : agent.type
+                                : agentTypeLabel(agent.type, t)
                             }
                             subjectKind="name"
                             metricKind="none"

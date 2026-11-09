@@ -17,7 +17,6 @@ import {
   Lightbulb,
 } from 'lucide-react'
 import { ManualNav, chapters } from '../_manual-nav'
-import { ManualFigure } from '@/components/docs/manual-figure'
 
 const SITE_URL = 'https://aizhs.top'
 
@@ -104,11 +103,6 @@ export default function ManualKnowledgeBasePage() {
             <li>点击"创建",跳转到知识库详情页</li>
           </ol>
         </div>
-        <ManualFigure
-          src="/images/docs/manual/knowledge-base-list.png"
-          alt="智汇 AI 知识库列表页实拍:最左是主导航(新建任务、插件市场、自动化、产物中心、任务列表、首页、热门、生态市场、AI 智能体、AI 教育、内容、交易、个人),其右一列为空工作区并提示「请先登录」,主体标题「知识库」下写明「浏览、搜索与管理知识库文章」,再往下是「全部分类 0」下拉与「搜索知识库文章…」输入框,正文区只有「请先登录」图标与按钮"
-          caption="实拍 aizhs.top 知识库列表页(/knowledge-base),2026-11-06 无头浏览器 1440×900 抓取,界面状态为未登录游客态:页面骨架、分类下拉与搜索框已渲染,分类计数为 0、正文区要求登录,知识库卡片与右上角「+ 新建知识库」按钮要登录后才出现。本节第 1 步说的「左侧栏知识库」入口就是图中主体标题这一页。"
-        />
       </section>
 
       {/* 上传文档 */}
@@ -148,11 +142,6 @@ export default function ManualKnowledgeBasePage() {
             <strong>大小限制</strong>:单文件 100MB,单个知识库总容量 1GB(免费)/ 10GB(Pro)/ 100GB(团队)。
           </p>
         </div>
-        <ManualFigure
-          src="/images/docs/manual/knowledge-base-edit.png"
-          alt="智汇 AI 新建知识库文章页实拍:最左是主导航(新建任务、插件市场、自动化、产物中心、任务列表、首页、热门、生态市场、AI 智能体、AI 教育、内容、交易、个人),其右一列为空工作区并提示「请先登录」,主体标题「新建知识库文章」下写明「撰写新的知识库文章并发布」并有「返回列表」链接,表单区「文章信息」依次是标题、摘要、分类下拉、标签输入框加「添加」按钮、正文(Markdown)多行文本域,右下角为「取消」与「发布」两枚按钮"
-          caption="实拍 aizhs.top 新建知识库文章页(/knowledge-base/edit,顶栏页签「编辑知识」),2026-11-06 无头浏览器 1440×900 抓取,界面状态为未登录游客态:表单字段完整可见,「发布」需登录后才生效。这是与 4.3 上传文件并列的第二条入库路径(手写 Markdown 正文);上传区与处理进度在知识库详情页,须登录后才出。"
-        />
       </section>
 
       {/* 检索测试 */}

@@ -321,7 +321,7 @@ function makeStyles() {
       flex: 1,
       fontSize: rnType.label.size,
       color: tokens.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
+      lineHeight: 18,
     },
     applyBtn: {
       flexDirection: 'row',

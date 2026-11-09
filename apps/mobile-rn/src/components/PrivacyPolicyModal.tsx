@@ -32,7 +32,7 @@ import { Shield, Lock, CornerDownLeft } from 'lucide-react-native'
 import { tokens } from '../theme/active-tokens'
 import { PRIVACY_POLICY_PARAGRAPHS, PRIVACY_POLICY_TITLE } from '../constants/privacyPolicy'
 
-import { rnRadius, rnRadiusFor, rnSpacing, rnType } from '@ihui/design-tokens'
+import { rnRadius, rnRadiusFor, rnSpacing } from '@ihui/design-tokens'
 import { useI18n } from '../i18n'
 import { Tappable } from '@ihui/ui-native'
 import { DIALOG_HEIGHT_RATIOS } from '../lib/dialog-geometry'
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: SUBTITLE_FONT_SIZE,
-    lineHeight: rnType.bodySm.lineHeight,
+    lineHeight: 18,
     color: tokens.text.secondary,
     textAlign: 'center',
   },
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   } as ViewStyle,
   safeBarText: {
     fontSize: SAFE_BAR_FONT_SIZE,
-    lineHeight: rnType.label.lineHeight,
+    lineHeight: 16,
     color: tokens.text.secondary,
   },
   // 关键:flex:1 独占 header/safeBar 与 buttonRow 之间的所有剩余空间,

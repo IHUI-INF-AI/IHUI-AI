@@ -2,7 +2,7 @@
 // Provenance-watermarked. 未授权商用可被溯源追责 (Apache-2.0 须保留本声明与 NOTICE)。
 // [IHUI-AI-PROVENANCE]:⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
 
-import { useI18n, getCurrentLocale } from '../i18n'
+import { useI18n } from '../i18n'
 
 /**
  * UserInfoCard 用户信息卡片 (mobile-rn 端)
@@ -81,9 +81,7 @@ function formatDateTime(dateStr: string): string {
   try {
     const date = new Date(dateStr)
     if (Number.isNaN(date.getTime())) return dateStr
-    // 2026-11-07 DBG-37 收口: 原 Intl.DateTimeFormat('zh-CN') 硬编码中文 locale。
-    // 改读 i18n 模块镜像(Provider 渲染期同步),跟随应用当前语言。
-    return new Intl.DateTimeFormat(getCurrentLocale(), {
+    return new Intl.DateTimeFormat('zh-CN', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -679,7 +677,7 @@ const newStyles = StyleSheet.create({
     color: tokens.text.secondary,
     textAlign: 'center',
     marginBottom: rnSpacing.md,
-    lineHeight: rnType.body.lineHeight,
+    lineHeight: 20,
   },
   modalBenefitList: {
     alignSelf: 'stretch',

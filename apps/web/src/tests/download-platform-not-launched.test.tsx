@@ -63,7 +63,16 @@ import {
   getLaunchedPlatforms,
   getPlatformMetaMap,
   isDownloadPlatform,
+  type DownloadPlatform,
+  type PlatformMeta,
 } from '@/config/downloads.config'
+
+/** G 面夹具适配:他席在飞把 DownloadDetailContent 的 props 收窄为
+ *  { platform: DownloadPlatform; meta: PlatformMeta }(meta 必填),
+ *  而本档要钉的正是「清单外平台段」;不改在飞组件,只在测试侧补最小夹具。
+ *  运行时值仍是原始字符串/空 meta,断言语义不变;对象空间落地应还原本段。 */
+const asPlatform = (p: string): DownloadPlatform => p as DownloadPlatform
+const stubMeta: PlatformMeta = { platform: 'desktop', assets: [] }
 
 /** 已上线端的 href(详情页只该有 /download/<端> 这一类内部入口) */
 function platformHrefs(): string[] {
@@ -75,14 +84,14 @@ function platformHrefs(): string[] {
 
 describe('下载中心 /download/[platform] 的未上线平台必须走显式态', () => {
   it('harmony(清单外的端)⇒ 渲染「尚未上线」标题并回显所请求的平台段', () => {
-    render(<DownloadDetailContent platform="harmony" />)
+    render(<DownloadDetailContent platform={asPlatform('harmony')} meta={stubMeta} />)
 
     expect(screen.getByText('downloadNotLaunchedTitle[harmony]')).toBeTruthy()
     expect(screen.getByText('downloadNotLaunchedHint[harmony]')).toBeTruthy()
   })
 
   it('清单外的端不得被静默折成 desktop:desktop 详情内容一条都不出现', () => {
-    render(<DownloadDetailContent platform="harmony" />)
+    render(<DownloadDetailContent platform={asPlatform('harmony')} meta={stubMeta} />)
 
     // 旧实现在这里渲染的就是 desktop 页:资源列表标题 + 安装包链接 + 安装指南 + 系统要求
     expect(screen.queryByText('downloadAssets')).toBeNull()
@@ -98,7 +107,7 @@ describe('下载中心 /download/[platform] 的未上线平台必须走显式态
   })
 
   it('显式态给出「已上线平台」入口,且绝不把未知平台自己列进去', () => {
-    render(<DownloadDetailContent platform="harmony" />)
+    render(<DownloadDetailContent platform={asPlatform('harmony')} meta={stubMeta} />)
 
     expect(screen.getByText('downloadAvailablePlatforms')).toBeTruthy()
     const hrefs = platformHrefs()
@@ -111,7 +120,7 @@ describe('下载中心 /download/[platform] 的未上线平台必须走显式态
   })
 
   it('已登记的端仍按自己的详情页渲染,不被新早退分支误伤', () => {
-    render(<DownloadDetailContent platform="desktop" />)
+    render(<DownloadDetailContent platform="desktop" meta={stubMeta} />)
 
     expect(screen.getByText('downloadAssets')).toBeTruthy()
     expect(screen.queryByText(/^downloadNotLaunchedTitle/)).toBeNull()
@@ -119,7 +128,7 @@ describe('下载中心 /download/[platform] 的未上线平台必须走显式态
   })
 
   it('已登记但尚未配置资源的端(ios)保持既有「即将上线」形态,且把平台名传进占位符', () => {
-    render(<DownloadDetailContent platform="ios" />)
+    render(<DownloadDetailContent platform="ios" meta={stubMeta} />)
 
     // downloadComingSoonTitle 的取值带 {platform} 占位;旧调用漏传 vars ⇒ 端上拿到的是裸键
     expect(screen.getByText(/^downloadComingSoonTitle\[/)).toBeTruthy()
@@ -127,7 +136,12 @@ describe('下载中心 /download/[platform] 的未上线平台必须走显式态
   })
 
   it('用户可控的平台段只回显安全字符(越界字符与超长串不进页面)', () => {
-    render(<DownloadDetailContent platform={'<img src=x>:' + 'a'.repeat(80)} />)
+    render(
+      <DownloadDetailContent
+        platform={asPlatform('<img src=x>:' + 'a'.repeat(80))}
+        meta={stubMeta}
+      />,
+    )
 
     const title = screen.getByText(/^downloadNotLaunchedTitle\[/).textContent ?? ''
     const token = title.slice('downloadNotLaunchedTitle['.length, -1)
@@ -138,7 +152,7 @@ describe('下载中心 /download/[platform] 的未上线平台必须走显式态
   // 2026-11-03 把 InstallGuideContent / DownloadAssetCard / DownloadDetailHeader 拆成同目录
   // 组件以满足"每页面 < 250 行",拆完必须有断言钉住"装回去还在原位",否则只是搬文件。
   it('cli 详情仍渲染安装指南与 npm 命令(拆出的 InstallGuideContent 接线未断)', () => {
-    render(<DownloadDetailContent platform="cli" />)
+    render(<DownloadDetailContent platform="cli" meta={stubMeta} />)
 
     expect(screen.getByText('downloadInstallGuide')).toBeTruthy()
     expect(screen.getByText('npm install -g ihui-cli')).toBeTruthy()
@@ -146,7 +160,7 @@ describe('下载中心 /download/[platform] 的未上线平台必须走显式态
   })
 
   it('desktop 详情仍渲染头部徽章与资源卡片(拆出的 Header/AssetCard 接线未断)', () => {
-    render(<DownloadDetailContent platform="desktop" />)
+    render(<DownloadDetailContent platform="desktop" meta={stubMeta} />)
 
     expect(screen.getByText('downloadAvailable')).toBeTruthy()
     expect(screen.getByText('downloadDesktop')).toBeTruthy()

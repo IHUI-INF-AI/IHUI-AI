@@ -221,7 +221,7 @@ function makeStyles() {
       fontWeight: '700',
       color: tokens.brand.ctaForeground,
     },
-    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
+    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },

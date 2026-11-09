@@ -313,7 +313,7 @@ function createStyles(tk: AppThemeTokens) {
     popupDesc: {
       marginTop: rnSpacing.md,
       fontSize: rnType.caption.size,
-      lineHeight: rnType.body.lineHeight,
+      lineHeight: 20,
       color: tk.text.secondary,
     },
     popupIntro: {

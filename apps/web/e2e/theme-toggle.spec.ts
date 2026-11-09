@@ -74,7 +74,7 @@ async function createPage(
   await page.goto('/')
   // 等 hydration 完成:用户行 trigger 出现
   await expect(page.locator(USER_TRIGGER).first()).toBeVisible({ timeout: 30000 })
-  await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {})
+  await page.waitForTimeout(800)
   return page
 }
 

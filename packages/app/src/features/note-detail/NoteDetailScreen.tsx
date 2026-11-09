@@ -128,11 +128,7 @@ function createStyles(tk: AppThemeTokens) {
       paddingVertical: rnSpacing['2xs'],
       borderRadius: rnRadius.md,
     },
-    content: {
-      fontSize: rnType.title.size,
-      lineHeight: rnType.strong.lineHeight,
-      color: tk.text.medium,
-    },
+    content: { fontSize: 16, lineHeight: 22, color: tk.text.medium },
     statRow: { flexDirection: 'row', gap: rnSpacing.md, marginTop: rnSpacing.lg },
     stat: {
       flexDirection: 'row',

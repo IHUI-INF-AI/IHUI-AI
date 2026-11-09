@@ -559,7 +559,7 @@ function makeStyles() {
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
     loading: { paddingVertical: rnSpacing.lg },
-    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
+    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     scoreRow: {
       flexDirection: 'row',
       alignItems: 'baseline',

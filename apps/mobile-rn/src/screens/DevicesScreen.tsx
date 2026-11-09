@@ -459,7 +459,7 @@ function makeStyles() {
     },
     cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { fontSize: rnType.title.size, fontWeight: '600', color: tokens.text.primary },
-    muted: { fontSize: rnType.bodySm.size, color: tokens.text.secondary, lineHeight: 19 },
+    muted: { fontSize: 13, color: tokens.text.secondary, lineHeight: 19 },
     error: { fontSize: rnType.bodySm.size, color: tokens.danger.DEFAULT },
     loading: { paddingVertical: rnSpacing.lg },
     centerBox: { alignItems: 'center', gap: rnSpacing.sm, paddingVertical: rnSpacing.lg },

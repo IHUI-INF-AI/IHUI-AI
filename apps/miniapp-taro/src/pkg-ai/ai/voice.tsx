@@ -63,7 +63,6 @@ export default function VoicePage() {
   const recorderRef = useRef<RecorderManager | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const durationRef = useRef(0)
-  const audioRef = useRef<Taro.InnerAudioContext | null>(null)
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -166,51 +165,21 @@ export default function VoicePage() {
     recorderRef.current?.stop()
   }, [recording, stopTimer])
 
-  const destroyCurrentAudio = useCallback(() => {
-    const audio = audioRef.current
-    if (!audio) return
-    try {
-      audio.stop()
-      audio.destroy()
-    } catch (e) {
-      logger.error('ai/voice', 'destroy audio failed', e)
-    }
-    audioRef.current = null
-  }, [])
-
   const onPlayAudio = useCallback(
     (msg: VoiceMessage, idx: number) => {
       if (!msg.audio || playingIdx === idx) {
-        destroyCurrentAudio()
         setPlayingIdx(-1)
         return
       }
-      destroyCurrentAudio()
       const audio = Taro.createInnerAudioContext()
-      audioRef.current = audio
       audio.src = msg.audio
       setPlayingIdx(idx)
-      audio.onEnded(() => {
-        // 迟到事件不得误杀已切换的新 context
-        if (audioRef.current !== audio) return
-        destroyCurrentAudio()
-        setPlayingIdx(-1)
-      })
-      audio.onError(() => {
-        if (audioRef.current !== audio) return
-        destroyCurrentAudio()
-        setPlayingIdx(-1)
-      })
+      audio.onEnded(() => setPlayingIdx(-1))
+      audio.onError(() => setPlayingIdx(-1))
       audio.play()
     },
-    [playingIdx, destroyCurrentAudio],
+    [playingIdx],
   )
-
-  useEffect(() => {
-    return () => {
-      destroyCurrentAudio()
-    }
-  }, [destroyCurrentAudio])
 
   const onClear = useCallback(() => {
     Taro.showModal({

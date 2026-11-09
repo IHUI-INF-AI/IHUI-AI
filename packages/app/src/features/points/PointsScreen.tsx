@@ -438,11 +438,7 @@ function createStyles(tk: AppThemeTokens) {
     },
     cardHead: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing['xs-loose'] },
     cardTitle: { flex: 1, fontSize: rnType.strong.size, fontWeight: '600', color: tk.text.primary },
-    cardMuted: {
-      fontSize: rnType.label.size,
-      color: tk.text.secondary,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    cardMuted: { fontSize: rnType.label.size, color: tk.text.secondary, lineHeight: 18 },
     button: {
       height: 44,
       borderRadius: rnRadius.sm,

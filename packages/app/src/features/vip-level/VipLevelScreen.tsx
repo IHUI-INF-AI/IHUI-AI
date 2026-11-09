@@ -104,7 +104,7 @@ function createStyles(tk: AppThemeTokens) {
       marginTop: rnSpacing.sm,
       fontSize: rnType.body.size,
       color: tk.text.medium,
-      lineHeight: rnType.strong.lineHeight,
+      lineHeight: 22,
     },
   })
 }

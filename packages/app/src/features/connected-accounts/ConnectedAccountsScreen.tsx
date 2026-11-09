@@ -232,7 +232,7 @@ function createStyles(tk: AppThemeTokens) {
     cardTitle: { flex: 1, fontSize: rnType.title.size, fontWeight: '600', color: tk.text.primary },
     refresh: { paddingVertical: rnSpacing['2xs'], paddingHorizontal: rnSpacing.xs },
     link: { fontSize: rnType.bodySm.size, fontWeight: '600', color: tk.text.primary },
-    muted: { fontSize: rnType.bodySm.size, color: tk.text.secondary, lineHeight: 19 },
+    muted: { fontSize: 13, color: tk.text.secondary, lineHeight: 19 },
     hint: {
       fontSize: rnType.label.size,
       color: tk.text.tertiary,

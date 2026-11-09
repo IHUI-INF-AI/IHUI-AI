@@ -565,17 +565,9 @@ function createStyles(tk: AppThemeTokens) {
   return StyleSheet.create({
     container: { flex: 1, backgroundColor: tk.surface.bg },
     body: { padding: rnSpacing.md, gap: rnSpacing.sm },
-    desc: {
-      fontSize: rnType.label.size,
-      lineHeight: rnType.bodySm.lineHeight,
-      color: tk.text.secondary,
-    },
+    desc: { fontSize: rnType.label.size, lineHeight: 18, color: tk.text.secondary },
     sectionTitle: { fontSize: rnType.body.size, fontWeight: '600', color: tk.text.primary },
-    hint: {
-      fontSize: rnType.caption.size,
-      lineHeight: rnType.label.lineHeight,
-      color: tk.text.tertiary,
-    },
+    hint: { fontSize: rnType.caption.size, lineHeight: 16, color: tk.text.tertiary },
     fileLine: { fontSize: rnType.label.size, color: tk.text.medium },
     errorText: { fontSize: rnType.label.size, color: tk.danger.DEFAULT },
     doneText: { fontSize: rnType.label.size, color: tk.success.deep },
@@ -607,7 +599,7 @@ function createStyles(tk: AppThemeTokens) {
     sourceCardActive: { borderColor: tk.brandAccent.deep, backgroundColor: tk.surface.muted },
     sourceLabel: { fontSize: rnType.label.size, fontWeight: '600', color: tk.text.medium },
     sourceLabelActive: { color: tk.text.primary },
-    sourceHint: { fontSize: rnType.badge.size, lineHeight: 14, color: tk.text.tertiary },
+    sourceHint: { fontSize: 10, lineHeight: 14, color: tk.text.tertiary },
     pickButton: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -660,7 +652,7 @@ function createStyles(tk: AppThemeTokens) {
     warningText: {
       flex: 1,
       fontSize: rnType.caption.size,
-      lineHeight: rnType.label.lineHeight,
+      lineHeight: 16,
       color: tk.warning.amberText,
     },
     historyRow: { flexDirection: 'row', alignItems: 'center', gap: rnSpacing.sm },

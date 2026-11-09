@@ -611,9 +611,8 @@ function DispatchForm({
                     type="button"
                     onClick={() => removeDagNode(node.id)}
                     className="rounded-sm border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
-                    aria-label={t('dagRemoveNode')}
                   >
-                    <X className="h-3 w-3" aria-hidden="true" />
+                    ×
                   </button>
                 </div>
               ))}
@@ -666,9 +665,8 @@ function DispatchForm({
                     type="button"
                     onClick={() => removeDagEdge(idx)}
                     className="rounded-sm border border-border bg-background px-1 py-0.5 text-[10px] text-red-500 hover:bg-red-500/10"
-                    aria-label={t('dagRemoveEdge')}
                   >
-                    <X className="h-3 w-3" aria-hidden="true" />
+                    ×
                   </button>
                 </div>
               ))}

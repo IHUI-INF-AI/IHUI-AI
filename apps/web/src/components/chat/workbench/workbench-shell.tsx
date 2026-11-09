@@ -54,6 +54,7 @@ import {
   workbenchConversationHref,
 } from '@ihui/shared/ui/chat-workbench-shell-spec'
 import { StreamTelemetryBar } from '@/components/chat/workbench/stream-telemetry-bar'
+import { SuperAgentPanel } from '@/components/chat/workbench/super-agent-panel'
 import { useWorkbenchConversations } from '@/components/chat/workbench/use-workbench-conversations'
 import { WorkbenchNewTask } from '@/components/chat/workbench/workbench-new-task'
 import { WorkbenchPaneHeader } from '@/components/chat/workbench/workbench-pane-header'
@@ -253,6 +254,8 @@ export function WorkbenchShell({ conversationId }: WorkbenchShellProps) {
             onToggleImmersive={toggleImmersive}
           />
           <StreamTelemetryBar />
+          {/* 值守区:超级智能体"要人处理"与待验收(控制面在服务端,这里只是投影;沉浸档也常显) */}
+          <SuperAgentPanel />
           <div className="relative flex min-h-0 flex-1 flex-col" data-workbench-host="">
             {paneExpanded ? (
               <PaneSplitContainer

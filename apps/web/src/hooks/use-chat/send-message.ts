@@ -99,7 +99,6 @@ import {
 import {
   clearCompactionPreview,
   createToolCallHandler,
-  createOpenAiToolCallHandler,
   createToolDeltaHandler,
   createToolSummaryHandler,
   createReviewFindingHandler,
@@ -746,13 +745,33 @@ export function createSendMessage(
         abortedByTimeout15s = true
         controller.abort()
       }
-    }, 30000)
-    const timeout60sId = setTimeout(() => {
-      if (!firstContentTokenReceived && firstReasoningTokenReceived) {
-        abortedByTimeout60s = true
-        controller.abort()
+      // 2026-11-07:冷启动 30s 太短。实测 ai-service 重启后首次派工 29~40s 才出首 token,
+      // 前端 30s 无条件 abort ⇒ net::ERR_ABORTED ⇒ 后端收到 client disconnect ⇒ 工单不落盘。
+      // 放宽到 90s,仍保留"完全无响应"兜底。
+    }, 90000)
+    // 2026-11-07:60s 原为固定硬超时。实测派工链路 SSE 只发 subagent_* 帧、没有
+    // tool-call 帧,onToolCall 清不掉这个计时器;三路派工执行完(约 40~60s)后、
+    // 模型汇总还没吐字时就会 abort ⇒ 后端 client disconnect,三路结果不回聊天框。
+    // 改为可顺延:每次 subagent 事件把窗口重置为 180s,给工具执行 + 汇总留足时间;
+    // 纯 reasoning 场景仍保持 60s 上限。
+    let sawSubagentActivity = false
+    let timeout60sId: ReturnType<typeof setTimeout> | null = null
+    const clearContentTimeout = () => {
+      if (timeout60sId) {
+        clearTimeout(timeout60sId)
+        timeout60sId = null
       }
-    }, 60000)
+    }
+    const armContentTimeout = (ms = 60000) => {
+      clearContentTimeout()
+      timeout60sId = setTimeout(() => {
+        if (!firstContentTokenReceived && (firstReasoningTokenReceived || sawSubagentActivity)) {
+          abortedByTimeout60s = true
+          controller.abort()
+        }
+      }, ms)
+    }
+    armContentTimeout()
 
     // #16 流式平滑渲染(2026-09-15 立):content 走平滑 batcher(rAF 逐帧推进,落后越多追越快)。
     // 2026-10-28 流式观感档续:reasoning 同泵换 smooth —— 原判据"reasoning 保持帧级合并"
@@ -1130,7 +1149,7 @@ export function createSendMessage(
           if (!firstContentTokenReceived) {
             firstContentTokenReceived = true
             clearTimeout(timeout15sId)
-            clearTimeout(timeout60sId)
+            clearContentTimeout()
           }
           // Qoder 第 9 项:任意正文增量 = 上游已在产出(隐式证据,与 send-answer 同谱)。
           if (admission.noteEvidence('delta').changed) flushAdmission()
@@ -1140,7 +1159,7 @@ export function createSendMessage(
           if (!firstContentTokenReceived) {
             firstContentTokenReceived = true
             clearTimeout(timeout15sId)
-            clearTimeout(timeout60sId)
+            clearContentTimeout()
           }
           agentBatcher.batch(_agentId, delta)
         },
@@ -1165,29 +1184,33 @@ export function createSendMessage(
           if (!firstContentTokenReceived) {
             firstContentTokenReceived = true
             clearTimeout(timeout15sId)
-            clearTimeout(timeout60sId)
+            clearContentTimeout()
             if (admission.noteEvidence('delta').changed) flushAdmission()
           }
           createToolCallHandler(assistantId, chatStore)(event)
         },
-        // 2026-11-05 立:工具入参逐分片渐进渲染。只订阅 onOpenAiToolCall,
-        // 不开 openAiCompat(Vercel 协议解析路径一行不动);回调只吃 ai-service
-        // 的 tool-call-args-delta 帧,旧服务端不发该帧 ⇒ 零行为变化。
-        onOpenAiToolCall: createOpenAiToolCallHandler(assistantId, chatStore),
         // Subagent 自动派发(2026-07-28 立,对标 AI 工作台):
         // 后端 dispatch_subagent 工具执行前后发 subagent_spawn/end SSE 事件,
         // 前端通过回调写入 chat store.subAgentActivities,UI 自动展示生命周期。
         // 2026-07-29 Phase 21:同步写入 timeline-store,让 Timeline tab 实时响应。
         onSubagentSpawn: (evt) => {
+          // 派工帧 = 上游仍在执行。每来一帧就把 60s 内容窗口顺延为 180s,
+          // 否则三路跑完、汇总还没吐字时会被超时 abort(2026-11-07 修)。
+          sawSubagentActivity = true
+          armContentTimeout(180000)
           chatStore.getState().addSubagentSpawn(evt)
           timelineStore.getState().addEvent(mapSpawnToTimelineEvent(evt))
         },
         onSubagentProgress: (evt) => {
+          sawSubagentActivity = true
+          armContentTimeout(180000)
           chatStore.getState().updateSubagentProgress(evt)
           const update = mapProgressToTimelineUpdate(evt)
           if (update) timelineStore.getState().updateEvent(update.id, update.updates)
         },
         onSubagentEnd: (evt) => {
+          sawSubagentActivity = true
+          armContentTimeout(180000)
           chatStore.getState().markSubagentEnd(evt)
           const update = mapEndToTimelineUpdate(evt)
           if (update) timelineStore.getState().updateEvent(update.id, update.updates)
@@ -1697,7 +1720,7 @@ export function createSendMessage(
       }
     } finally {
       clearTimeout(timeout15sId)
-      clearTimeout(timeout60sId)
+      clearContentTimeout()
       // Qoder 第 9 项(2026-10-30 接线,与 send-answer.ts finally 同谱):本轮收场结算。
       // 有正文/思考 ⇒ admitted;以失败/主动停止收场且**零证据** ⇒ unconfirmed
       // (不是 admitted,也不是"没送到")。放在 flush/cancel 之前:只读跟踪器状态,
@@ -1815,7 +1838,15 @@ export function createSendMessage(
         // 只有"上游真的没产出任何可见东西"才落非"完成"终态 —— 落 `failed` 而不是"完成"
         // (AGENTS §30:没有终态却写成已完成是本仓最高频失效型)。
         // `turnStopped` 时不落:那是"已停止",把用户的选择改判成故障是反向失真。
-        if (fallback.decision.kind === 'empty' && !turnStopped && !hasStructuredOutput) {
+        // 2026-11-07 修复:正文增量已到达(onDelta 已置位)却被判"没有返回任何内容",
+        // 是流尾 ERR_ABORTED 等收尾异常下的误判 —— 此时屏幕上已有(或本应有)内容,
+        // 再落空卡等于把成功的回合说成失败。只有真的一帧正文都没收到才允许落空卡。
+        if (
+          fallback.decision.kind === 'empty' &&
+          !turnStopped &&
+          !hasStructuredOutput &&
+          !firstContentTokenReceived
+        ) {
           // 文案复用既有键 `chat.emptyAnswerFallback`;错误码复用既有目录项 EMPTY_RESULT,
           // 于是失败卡能取到"没有可展示的结果 / 修改后重试"这一对现成词条(零新增词表)。
           markEmptyTurn(chatStore, assistantId, t('emptyAnswerFallback'), 'EMPTY_RESULT')

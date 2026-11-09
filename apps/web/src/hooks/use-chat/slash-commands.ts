@@ -814,7 +814,9 @@ export const SUGGEST_KEYWORDS: { mode: ChatMode; keywords: string[] }[] = [
     mode: 'build',
     keywords: ['修改', '实现', '重构', '添加', '删除', '编写', '创建', '修复', '更新', 'build'],
   },
-  { mode: 'review', keywords: ['审查', '检查', '对比', '评审', 'review', 'diff'] },
+  // 2026-11-07:英文侧必须写成短语,裸 'review' 会子串命中 reviewer/researcher 派工文本,
+  // 发送瞬间把 build 切成 review 只读模式 ⇒ dispatch_subagent 被过滤(实测派工 0/3)。
+  { mode: 'review', keywords: ['审查', '检查', '对比', '评审', 'code review', 'diff'] },
   { mode: 'spec', keywords: ['规格', '规范', '契约', 'spec', 'specification'] },
   // ask 置末位(2026-09-13 矩阵 A #24):纯问答关键词,仅在未命中 plan/build/review/spec 时兜底
   {
@@ -836,7 +838,19 @@ export function suggestMode(userInput: string): ChatMode | null {
   if (!userInput.trim()) return null
   const text = userInput.toLowerCase()
   for (const { mode, keywords } of SUGGEST_KEYWORDS) {
-    if (keywords.some((kw) => text.includes(kw.toLowerCase()))) {
+    if (
+      keywords.some((kw) => {
+        const k = kw.toLowerCase()
+        // 2026-11-07 修复:英文关键词必须整词命中。原文裸 includes('review') 会把
+        // 构建派工文本里的 reviewer(researcher/coder/reviewer 三路 persona)误判成
+        // 代码审查模式,发送瞬间静默切到 review ⇒ dispatch_subagent 被只读策略过滤,
+        // 模型自称"没有这个工具",派工永远失败。preview/explain 同理。
+        if (/^[a-z]+$/.test(k)) {
+          return new RegExp(`\\b${k}\\b`).test(text)
+        }
+        return text.includes(k)
+      })
+    ) {
       return mode
     }
   }

@@ -269,11 +269,7 @@ function createStyles(tk: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    imageRemoveText: {
-      color: tk.surface.light,
-      fontSize: rnType.body.size,
-      lineHeight: rnType.bodySm.lineHeight,
-    },
+    imageRemoveText: { color: tk.surface.light, fontSize: rnType.body.size, lineHeight: 18 },
     imageAdd: {
       width: 70,
       height: 70,

@@ -241,11 +241,7 @@ const styles = StyleSheet.create({
     borderRadius: rnRadius.md,
     backgroundColor: tokens.surface.muted,
   },
-  notesText: {
-    color: tokens.text.secondary,
-    fontSize: rnType.caption.size,
-    lineHeight: rnType.bodySm.lineHeight,
-  },
+  notesText: { color: tokens.text.secondary, fontSize: rnType.caption.size, lineHeight: 18 },
   footer: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -33,7 +33,7 @@ const src = {
 async function requireLoggedIn(page: Page) {
   if (page.url().includes('login')) {
     // 过期凭据属机器态。用 skip 而不是让它红 —— 报成失败会诱导下一个人去改没坏的页面。
-    test.skip(true, `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()} [SKIP:SKIP-0048]`)
+    test.skip(true, `LOGIN_STATE_EXPIRED:被重定向到 ${page.url()}`)
   }
 }
 

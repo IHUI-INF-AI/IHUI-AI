@@ -471,7 +471,7 @@ export function RichTextEditor({
               type="button"
               variant={mode === m ? 'default' : 'ghost'}
               size="xs"
-              className="font-[weight:inherit] px-2 text-label"
+              className="px-2 text-xs"
               onClick={() => setMode(m)}
             >
               {t(m === 'markdown' ? 'editor.markdown' : 'editor.richText')}
@@ -535,7 +535,7 @@ export function RichTextEditor({
           rows={12}
           maxLength={maxLength}
           placeholder={placeholder}
-          className="font-[weight:inherit] block w-full resize-y bg-transparent px-3 py-2.5 text-body leading-relaxed focus-visible:outline-none"
+          className="block w-full resize-y bg-transparent px-3 py-2.5 text-sm leading-relaxed focus-visible:outline-none"
         />
       ) : (
         <div
