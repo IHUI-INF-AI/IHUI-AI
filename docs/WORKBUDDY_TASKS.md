@@ -867,7 +867,7 @@ POST /api/checkin/accounts/{account_id}/autopilot   body {"dry_run": false, "cla
 
 **公网远程 MCP 端点(2026-11-09 深夜:对外曝光面,任何 AI 一行 URL 接入)**——
 `app/routers/mcp_public.py` ⇒ `POST /api/mcp-public/wb-autopilot`(公网经 Cloudflared
-即 `https://aizhs.top/api/mcp-public/wb-autopilot`,零认证):
+即 `https://ai.aizhs.top/api/mcp-public/wb-autopilot`,零认证):
 
 - **只读白名单**:仅 `wb_server_info`(项目/引擎/纪律/自托管指引)与
   `wb_action_routes`(选路图);写侧工具远程面 -32602 不可达(安全边界,测试锁定);
