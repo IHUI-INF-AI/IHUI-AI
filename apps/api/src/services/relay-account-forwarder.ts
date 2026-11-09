@@ -1614,13 +1614,50 @@ export async function forwardToAccountPool(
           attempt.response,
           terminal,
           (u, outcome) => {
-          releaseOnce() // 流结束/断开时归还并发额度(tap 保证恰好一次)
-          if (!isStream || outcome === 'clean') {
-            if (isStream) {
-              // 「流正常收尾」才回血 + 续亲和(审计缺陷 1 的正解)
-              recordSuccess(row, req, rawModel)
-              if (proxy) void reportProxySuccess(proxy)
+            releaseOnce() // 流结束/断开时归还并发额度(tap 保证恰好一次)
+            if (!isStream || outcome === 'clean') {
+              if (isStream) {
+                // 「流正常收尾」才回血 + 续亲和(审计缺陷 1 的正解)
+                recordSuccess(row, req, rawModel)
+                if (proxy) void reportProxySuccess(proxy)
+              }
+              void recordAccountUsage({
+                accountId: row.id,
+                providerCode: row.providerCode,
+                model: rawModel,
+                promptTokens: u.promptTokens,
+                completionTokens: u.completionTokens,
+                reasoningTokens: u.reasoningTokens,
+                cachedTokens: u.cachedTokens,
+                ok: true,
+                latencyMs: attempt.latencyMs ?? 0,
+              })
+              return
             }
+            // ── 断流 / 半包 ─────────────────────────────────────────────────────────
+            // 客户端主动断开不是号的账(与主循环 AbortError「不记失败账」同口径),但仍要计数?
+            // 不:relay_stream_interrupt_total 量的是「上游没把话说完」,客户端断开混进去会顶掉
+            // 这一格的可归因性,故断开只归还额度、不进任何账。
+            if (req.signal?.aborted === true) return
+            recordRelayStreamInterrupt(row.providerCode)
+            const kind = kindForStreamInterrupt(adapter, terminal?.error)
+            const detail =
+              terminal?.error instanceof Error
+                ? terminal.error.message
+                : terminal?.error !== undefined
+                  ? String(terminal?.error)
+                  : '上游未给收尾帧([DONE]/finish_reason)即结束 = 半包'
+            recordFailure(row, kind, `上游流中断(未正常收尾): ${detail}`)
+            logger.warn('[relay-account-forwarder] 流式断流:本轮改判失败,不记成功', {
+              accountId: row.id,
+              providerCode: row.providerCode,
+              model: rawModel,
+              kind,
+              interruptTotal: snapshotRelayStreamInterrupts()[row.providerCode] ?? 0,
+              reason: detail,
+            })
+            // 断流属代理/网络级证据:代理腿半途断了不能被记成"这路子好走"
+            if (proxy) void reportProxyFailure(proxy)
             void recordAccountUsage({
               accountId: row.id,
               providerCode: row.providerCode,
@@ -1629,46 +1666,9 @@ export async function forwardToAccountPool(
               completionTokens: u.completionTokens,
               reasoningTokens: u.reasoningTokens,
               cachedTokens: u.cachedTokens,
-              ok: true,
+              ok: false,
               latencyMs: attempt.latencyMs ?? 0,
             })
-            return
-          }
-          // ── 断流 / 半包 ─────────────────────────────────────────────────────────
-          // 客户端主动断开不是号的账(与主循环 AbortError「不记失败账」同口径),但仍要计数?
-          // 不:relay_stream_interrupt_total 量的是「上游没把话说完」,客户端断开混进去会顶掉
-          // 这一格的可归因性,故断开只归还额度、不进任何账。
-          if (req.signal?.aborted === true) return
-          recordRelayStreamInterrupt(row.providerCode)
-          const kind = kindForStreamInterrupt(adapter, terminal?.error)
-          const detail =
-            terminal?.error instanceof Error
-              ? terminal.error.message
-              : terminal?.error !== undefined
-                ? String(terminal?.error)
-                : '上游未给收尾帧([DONE]/finish_reason)即结束 = 半包'
-          recordFailure(row, kind, `上游流中断(未正常收尾): ${detail}`)
-          logger.warn('[relay-account-forwarder] 流式断流:本轮改判失败,不记成功', {
-            accountId: row.id,
-            providerCode: row.providerCode,
-            model: rawModel,
-            kind,
-            interruptTotal: snapshotRelayStreamInterrupts()[row.providerCode] ?? 0,
-            reason: detail,
-          })
-          // 断流属代理/网络级证据:代理腿半途断了不能被记成"这路子好走"
-          if (proxy) void reportProxyFailure(proxy)
-          void recordAccountUsage({
-            accountId: row.id,
-            providerCode: row.providerCode,
-            model: rawModel,
-            promptTokens: u.promptTokens,
-            completionTokens: u.completionTokens,
-            reasoningTokens: u.reasoningTokens,
-            cachedTokens: u.cachedTokens,
-            ok: false,
-            latencyMs: attempt.latencyMs ?? 0,
-          })
           },
           req.signal,
         )

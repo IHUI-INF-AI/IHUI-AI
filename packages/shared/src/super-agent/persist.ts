@@ -11,7 +11,15 @@
  * 零 IO：序列化只碰 plain 数据；读写库由宿主（apps/api）接线。
  */
 
-import type { IncomingTrigger, PanelView, Speech, SuperAgentPolicy, SuperTicket } from './engine'
+import type {
+  IncomingTrigger,
+  MandateBasis,
+  PanelView,
+  PolicyEvent,
+  Speech,
+  SuperAgentPolicy,
+  SuperTicket,
+} from './engine'
 import type { SlowDecision } from './slow-path'
 import type { WorkerAssignment } from './roles'
 
@@ -58,6 +66,42 @@ function isPlainString(v: unknown): v is string {
   return typeof v === 'string' && v.length > 0
 }
 
+function mandateShape(m: unknown): m is MandateBasis {
+  if (m === null || typeof m !== 'object') return false
+  const x = m as Partial<MandateBasis>
+  return (
+    isPlainString(x.actorId) &&
+    isPlainString(x.sourceId) &&
+    typeof x.scope === 'string' &&
+    (x.strength === 'explicit' || x.strength === 'inferred') &&
+    (x.route === 'explicit' ||
+      x.route === 'admission' ||
+      x.route === 'follow-up' ||
+      x.route === 'bot') &&
+    (x.ruleId === null || typeof x.ruleId === 'string') &&
+    (x.ruleRevision === null || typeof x.ruleRevision === 'string') &&
+    (x.tier === 'off' || x.tier === 'observe' || x.tier === 'auto') &&
+    isPlainString(x.policyVersion)
+  )
+}
+
+function policyEventsShape(v: unknown): boolean {
+  if (v === undefined) return true
+  if (!Array.isArray(v)) return false
+  return v.every((row) => {
+    if (row === null || typeof row !== 'object') return false
+    const x = row as Partial<PolicyEvent>
+    return (
+      typeof x.at === 'number' &&
+      (x.kind === 'policyRevoked' ||
+        x.kind === 'policyDowngraded' ||
+        x.kind === 'policy-changed') &&
+      isPlainString(x.policyVersion) &&
+      typeof x.detail === 'string'
+    )
+  })
+}
+
 function ticketShape(t: unknown): t is SuperTicket {
   if (t === null || typeof t !== 'object') return false
   const x = t as Partial<SuperTicket>
@@ -67,6 +111,9 @@ function ticketShape(t: unknown): t is SuperTicket {
     isPlainString(x.sourceId) &&
     isPlainString(x.threadId) &&
     typeof x.scope === 'string' &&
+    // 旧快照缺 mandate / policyEvents 是合法的「当时未知」，不得据此砍单。
+    (x.mandate === undefined || mandateShape(x.mandate)) &&
+    policyEventsShape(x.policyEvents) &&
     (x.assignment === null || typeof x.assignment === 'object') &&
     (x.ended === null || typeof x.ended === 'object') &&
     Array.isArray(x.inputs) &&

@@ -225,7 +225,11 @@ describe('F-03 同链路:流控制端点以服务端会话归属为准', () => {
       method: 'POST',
       url: '/api/ai/chat/steer/reorder',
       headers: AUTH_HEADERS,
-      payload: { conversationId: CONV_B, messageId: MSG, order: ['1730000000001', '1730000000000'] },
+      payload: {
+        conversationId: CONV_B,
+        messageId: MSG,
+        order: ['1730000000001', '1730000000000'],
+      },
     })
 
     expect(res.statusCode).toBe(404)

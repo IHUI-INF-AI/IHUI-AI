@@ -414,7 +414,14 @@ export const MULTI_VENDOR_LIMIT = 8
 export function parseVendorList(
   raw: string,
 ): { ok: true; list: string[] } | { ok: false; error: string } {
-  const list = Array.from(new Set(raw.split(',').map((v) => v.trim()).filter(Boolean)))
+  const list = Array.from(
+    new Set(
+      raw
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean),
+    ),
+  )
   if (list.length === 0) return { ok: false, error: 'vendors 不能为空' }
   // F-192:条数/单个 id 长度超限在发起任何上游调用前直接拒绝。
   if (list.length > MULTI_VENDOR_LIMIT || list.length > MAX_MULTI_VENDORS) {

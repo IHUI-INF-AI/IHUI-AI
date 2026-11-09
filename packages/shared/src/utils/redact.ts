@@ -179,16 +179,27 @@ export const D94_ADDED_PATTERNS: readonly RedactRule[] = [
 
 /** 敏感 query 参数名(大小写不敏感)—— 沿用 ② 的 12 类,**不增删** */
 export const SENSITIVE_QUERY_PARAMS: ReadonlySet<string> = new Set([
-  'access_token', 'api_key', 'apikey', 'auth', 'authorization',
-  'code', 'password', 'passwd', 'refresh_token', 'secret',
-  'token', 'client_secret', 'private_key',
+  'access_token',
+  'api_key',
+  'apikey',
+  'auth',
+  'authorization',
+  'code',
+  'password',
+  'passwd',
+  'refresh_token',
+  'secret',
+  'token',
+  'client_secret',
+  'private_key',
 ])
 
 const ANSI_ESCAPE_RE =
   // 含 \x1b 控制字符(ANSI 转义),源码里 unavoidable —— 移植自 python `_ANSI_ESCAPE_RE`
   /\x1b(?:\[[0-9;?<=>!]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)?|[@-Z\\-_])/g
 
-const EMAIL_RE = /\b([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})\b/g
+const EMAIL_RE =
+  /\b([A-Za-z0-9._%+-])([A-Za-z0-9._%+-]*)@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,})\b/g
 const IPV4_RE = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g
 
 export interface RedactOptions {
@@ -245,8 +256,10 @@ export function redactUrl(input: string): string {
  */
 export function redactEmails(text: string): string {
   if (!text) return text
-  return text.replace(EMAIL_RE, (_m, first: string, _rest: string, domain: string) =>
-    `${first}${REDACT_EMAIL_LOCAL_MASK}@${domain}`,
+  return text.replace(
+    EMAIL_RE,
+    (_m, first: string, _rest: string, domain: string) =>
+      `${first}${REDACT_EMAIL_LOCAL_MASK}@${domain}`,
   )
 }
 

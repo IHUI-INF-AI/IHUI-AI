@@ -47,8 +47,13 @@ import {
   resolveEffectiveConfig,
 } from '../src/commands/settings.js';
 import { ensureFreshAccessToken } from '../src/commands/token-manager.js';
+import { MAIN_CRED_BACKEND_ENV, readMainCredentials } from '../src/lib/main-credential-store.js';
 import { startAgentServer } from '../src/server/http-server.js';
 import type { AgentCore } from '../src/server/index.js';
+
+// 续期用例现在会真落盘(主凭据安全存储:建密钥 + 信封 + 回读),慢盘/高负载下会超过默认 15s;
+// 只在本文件放宽,不动仓库全局 testTimeout。
+vi.setConfig({ testTimeout: 60_000 });
 
 /** 结构合法的假 JWT(header 段 eyJ… 才满足 looksLikeJwt)。 */
 const JWT_TOKEN = `eyJhbGciOiJIUzI1NiJ9.${'eyJzdWIiOiIxMjM0NTY3ODkwIn0'.repeat(2)}.SIGNATURE_PART_VALUE`;
@@ -218,6 +223,8 @@ describe('token-manager 续期隔离(机器凭据不写 refresh、不打网络)'
     process.env.IHUI_API_KEY = '';
     process.env.IHUI_API_SECRET = '';
     process.env.IHUI_CREDENTIAL_KIND = '';
+    // 主凭据落安全存储:钉机器绑定档,免去每个用例一次 DPAPI 探针冷启动
+    process.env[MAIN_CRED_BACKEND_ENV] = 'encrypted-file';
   });
 
   afterEach(() => {
@@ -236,7 +243,9 @@ describe('token-manager 续期隔离(机器凭据不写 refresh、不打网络)'
 
     await expect(ensureFreshAccessToken('http://127.0.0.1:9')).resolves.toBe(MACHINE_KEY);
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(readSettingsFile().apiKey).toBe(MACHINE_KEY);
+    // 机器凭据在安全存储里,settings.json 只留非敏感字段
+    expect(readMainCredentials().credentials.apiKey).toBe(MACHINE_KEY);
+    expect(readSettingsFile()).not.toHaveProperty('apiKey');
   });
 
   it('apiKey 为未过期 JWT 时:直接返回,无网络', async () => {
@@ -267,8 +276,13 @@ describe('token-manager 续期隔离(机器凭据不写 refresh、不打网络)'
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0]?.[0]).toBe('http://127.0.0.1:9/api/auth/refresh');
     const written = readSettingsFile();
-    expect(written.apiKey).toBe(fresh);
-    expect(written.refreshToken).toBe('rt-new');
+    // 新 token 落安全存储,settings.json 不再出现明文;credentialKind 仍显式落盘
+    const stored = readMainCredentials();
+    expect(stored.state).toBe('ok');
+    expect(stored.credentials.apiKey).toBe(fresh);
+    expect(stored.credentials.refreshToken).toBe('rt-new');
+    expect(written).not.toHaveProperty('apiKey');
+    expect(written).not.toHaveProperty('refreshToken');
     expect(written.credentialKind).toBe('jwt');
     // 既有字段不被吞
     expect(written.defaultModel).toBe('m-keep');
@@ -293,8 +307,12 @@ describe('token-manager 续期隔离(机器凭据不写 refresh、不打网络)'
 
     await ensureFreshAccessToken('http://127.0.0.1:9');
     const written = readSettingsFile();
-    expect(written.apiKey).toBe(MACHINE_KEY);
-    expect(written.refreshToken).toBe('rt-old');
+    // 拒写后机器凭据原样留在安全存储里,不被人的 JWT 顶掉
+    const stored = readMainCredentials();
+    expect(stored.state).toBe('ok');
+    expect(stored.credentials.apiKey).toBe(MACHINE_KEY);
+    expect(stored.credentials.refreshToken).toBe('rt-old');
+    expect(written).not.toHaveProperty('apiKey');
   });
 });
 

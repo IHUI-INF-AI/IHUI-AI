@@ -57,11 +57,13 @@ vi.mock('../src/db/index.js', async () => {
       orderBy: () => b,
       limit: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          const q = render(cond)
-          const wanted = q.params.map((p) => String(p))
-          return state.rows.filter((r) => r.orderId !== null && wanted.includes(r.orderId))
-        }).then(res, rej),
+        Promise.resolve()
+          .then(() => {
+            const q = render(cond)
+            const wanted = q.params.map((p) => String(p))
+            return state.rows.filter((r) => r.orderId !== null && wanted.includes(r.orderId))
+          })
+          .then(res, rej),
     }
     return b
   }
@@ -81,29 +83,31 @@ vi.mock('../src/db/index.js', async () => {
       },
       returning: () => b,
       then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>
-        Promise.resolve().then(() => {
-          state.insertCalls += 1
-          const orderId = (values.orderId as string | null) ?? null
-          if (conflictMode && orderId) {
-            const existing = state.rows.find((r) => r.orderId === orderId)
-            if (existing) return [] // ON CONFLICT DO NOTHING
-          }
-          const row = {
-            id: `sub-${++state.seq}`,
-            userId: values.userId as string,
-            pricingId: (values.pricingId as string | null) ?? null,
-            period: (values.period as string | null) ?? null,
-            startTime: values.startTime as Date,
-            endTime: values.endTime as Date,
-            status: values.status as number,
-            autoRenew: (values.autoRenew as number) ?? 0,
-            orderId,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          }
-          state.rows.push(row)
-          return [row]
-        }).then(res, rej),
+        Promise.resolve()
+          .then(() => {
+            state.insertCalls += 1
+            const orderId = (values.orderId as string | null) ?? null
+            if (conflictMode && orderId) {
+              const existing = state.rows.find((r) => r.orderId === orderId)
+              if (existing) return [] // ON CONFLICT DO NOTHING
+            }
+            const row = {
+              id: `sub-${++state.seq}`,
+              userId: values.userId as string,
+              pricingId: (values.pricingId as string | null) ?? null,
+              period: (values.period as string | null) ?? null,
+              startTime: values.startTime as Date,
+              endTime: values.endTime as Date,
+              status: values.status as number,
+              autoRenew: (values.autoRenew as number) ?? 0,
+              orderId,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            }
+            state.rows.push(row)
+            return [row]
+          })
+          .then(res, rej),
     }
     return b
   }
@@ -189,7 +193,9 @@ describe('F-689 开发者订阅按订单幂等', () => {
   it('迁移文件建唯一索引并含去重/回滚说明', () => {
     expect(existsSync(migrationPath)).toBe(true)
     const sql = readFileSync(migrationPath, 'utf8')
-    expect(sql).toMatch(/CREATE UNIQUE INDEX IF NOT EXISTS "ix_developer_subscriptions_order_id_uniq"/)
+    expect(sql).toMatch(
+      /CREATE UNIQUE INDEX IF NOT EXISTS "ix_developer_subscriptions_order_id_uniq"/,
+    )
     expect(sql).toContain('("order_id")')
     expect(sql).toContain('回滚')
     expect(sql).toContain('DELETE FROM "developer_subscriptions"')

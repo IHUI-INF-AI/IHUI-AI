@@ -51,9 +51,8 @@ function condMatches(cond: unknown, row: Record<string, unknown>): boolean {
 }
 
 vi.mock('../src/db/index.js', async () => {
-  const { orders, eduOrders, vipLevels, userVips, developerSubscriptions, users } = await import(
-    '@ihui/database'
-  )
+  const { orders, eduOrders, vipLevels, userVips, developerSubscriptions, users } =
+    await import('@ihui/database')
 
   function tableRows(table: unknown): Array<Record<string, unknown>> {
     if (table === orders) return [...store.orders.values()]
@@ -113,7 +112,12 @@ vi.mock('../src/db/index.js', async () => {
       returning: () => {
         const rows = tableRows(table)
         const orderId = values.orderId
-        if (conflictHandled && orderId != null && rows.some((r) => r.orderId === orderId)) {
+        if (
+          conflictHandled &&
+          orderId !== null &&
+          orderId !== undefined &&
+          rows.some((r) => r.orderId === orderId)
+        ) {
           return Promise.resolve([])
         }
         rows.push({ id: `row-${rows.length + 1}`, ...values })

@@ -830,7 +830,7 @@ async function authenticateShareToken(
 
   // F-185:总额度前置判断。usedTotalTokens 由 recordCall 按真实 usage 原子累加,
   // 到这里说明此前的消耗已达到上限就不再放行(并发在途请求可能有小幅超出)。
-  if (share.maxTotalTokens != null && share.usedTotalTokens >= share.maxTotalTokens) {
+  if (share.maxTotalTokens !== null && share.usedTotalTokens >= share.maxTotalTokens) {
     throw apiKeyAuthError(429, 'Share total token quota exceeded', {
       code: 1008,
       errorCode: 'SHARE_QUOTA_EXCEEDED',

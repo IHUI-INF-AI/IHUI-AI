@@ -48,6 +48,13 @@
       "measuredAt": "2026-11-08",
       "timeoutMs": 12000,
       "note": "push 档与 commit 档同脚本同参数,复用同一实测值。"
+    },
+    {
+      "script": "check-merge-deletion-resurrection.mjs",
+      "timeoutMs": 900000,
+      "measuredMs": 478117,
+      "measuredAt": "2026-11-08",
+      "note": "门 168;2026-11-08 单跑 wall clock 478,117 ms(rc=0;输出全为「未判定」无一条判红),缺省预算 300,000 ms = 1.59×。预算低于真实耗时 ⇒ 这道门永远给不出结论,判据实际失效。取 900s = 478s ×1.88 余量(≤ 3× 上限);只登记本门预算,判据一个字未改。"
     }
   ]
 }

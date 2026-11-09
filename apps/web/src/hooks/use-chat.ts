@@ -17,7 +17,12 @@ import { fetchApi } from '@/lib/api'
 import { useStreamErrorLabels } from '@/lib/stream-error-view'
 import { createSendMessage } from './use-chat/send-message'
 import { getStreamRuntime } from './use-chat/stream-runtime'
-import { createSendAnswer } from './use-chat/send-answer'
+import { createSendAnswer, createSubmitQuestionResponse } from './use-chat/send-answer'
+import {
+  QUESTION_RESOLVED_EVENT,
+  applyQuestionResolvedEvent,
+  parseQuestionResolvedPayload,
+} from './use-chat/question-resolved'
 import { clearCompactionPreview } from './use-chat/stream-handlers'
 import {
   clearPendingQuestionIfAny,
@@ -121,6 +126,12 @@ export function useChat(): UseChatReturn {
     chatStore,
     streamErrorLabels,
   ])
+  // 2026-11-08 立:内联提问卡的结构化答复(阻塞式端点优先,404/失败回退旧链路)
+  const submitQuestionResponse = React.useCallback(createSubmitQuestionResponse(ctx, chatStore), [
+    t,
+    chatStore,
+    streamErrorLabels,
+  ])
 
   // V3 #68(2026-09-27 立):终止在途流的**唯一**出口,由「停止」按钮与「流式中切换模型」共用。
   // 动作与原 stop() 逐条等值(标记中断 → 通知网关 → abort → 回收压缩预告),
@@ -193,6 +204,24 @@ export function useChat(): UseChatReturn {
     chatStore.getState().clearPendingQuestion()
   }, [chatStore])
 
+  // SSE `question-resolved` 结算帧落地点(2026-11-08 立)。
+  // 当前 api-client 只把 `question` 帧交给 onQuestion,`question-resolved` 尚未有专用回调;
+  // 传输层(streamChat 的解析分支 / WS 中继)解析出该帧后 dispatch `ihui:question-resolved`,
+  // detail 为对象或 SSE data 原文。这里只做「按 questionId 匹配 → 清挂起态」:
+  // 不匹配的帧一律忽略,不覆盖当前提问。api-client 补上 onQuestionResolved 后,
+  // 在 send-message.ts 的同名回调里调 applyQuestionResolvedEvent 即可,无需改本层。
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    const handleResolved = (event: Event): void => {
+      const frame = parseQuestionResolvedPayload((event as CustomEvent<unknown>).detail)
+      if (!frame) return
+      applyQuestionResolvedEvent(chatStore, frame)
+    }
+    window.addEventListener(QUESTION_RESOLVED_EVENT, handleResolved as EventListener)
+    return () =>
+      window.removeEventListener(QUESTION_RESOLVED_EVENT, handleResolved as EventListener)
+  }, [chatStore])
+
   // 组件卸载时中止进行中的流式请求,避免后台僵尸请求
   React.useEffect(() => {
     return () => {
@@ -220,6 +249,7 @@ export function useChat(): UseChatReturn {
     fallbackNotice,
     sendMessage,
     sendAnswer,
+    submitQuestionResponse,
     skipQuestion,
     stop,
     clearMessages,

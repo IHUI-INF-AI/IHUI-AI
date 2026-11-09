@@ -506,10 +506,7 @@ describe('F-08 agent-control/result 必须绑定待处理动作的属主', () =>
     const handlers = await setupAgentControl()
 
     const reply = makeReply()
-    await handlers.get('POST /result')!(
-      { body: resultBody(), userId: ME, log: requestLog },
-      reply,
-    )
+    await handlers.get('POST /result')!({ body: resultBody(), userId: ME, log: requestLog }, reply)
     expect(reply.code).toBe(403)
     expect(resolve).not.toHaveBeenCalled()
     expect(__test__.pending.has(REQUEST_ID)).toBe(true)
