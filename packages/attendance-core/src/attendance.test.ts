@@ -161,6 +161,7 @@ describe('hmOfLocalDate', () => {
   it('补零 HH:MM / 非法 null', () => {
     expect(hmOfLocalDate(new Date('2026-01-05T09:05:00+08:00'))).toBe('09:05')
     expect(hmOfLocalDate(null)).toBeNull()
-    expect(hmOfLocalDate('x')).toBeNull()
+    // 非 Date 入参靠运行时守卫兜住(JS 调用方可能透传脏值),类型面用断言表达"故意越界"
+    expect(hmOfLocalDate('x' as unknown as Date)).toBeNull()
   })
 })

@@ -8,7 +8,6 @@ import {
   text,
   integer,
   boolean,
-  jsonb,
   date,
   time,
   timestamp,

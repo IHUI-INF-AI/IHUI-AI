@@ -9,16 +9,15 @@ import {
   hrDepartment,
   hrLeaveRequest,
 } from '@ihui/database'
+import { judgeStatus, normalizeHm } from '@ihui/attendance-core'
 import {
-  judgeStatus,
   buildBizDayWindow,
   dayFloorOf,
   absentCandidatePairsForRule,
   resolveBackfillDays,
-  normalizeHm,
   weekdayOfBizDayKey as weekdayOfBizDayKeySafe,
   isPastHm as isPastHmSafe,
-} from '@ihui/attendance-core'
+} from '@ihui/attendance-core/algorithm'
 import { db } from '../db/index.js'
 import { bizDayKey, shiftBizDayKey } from '../utils/biz-day.js'
 import { logger } from '../utils/logger.js'
