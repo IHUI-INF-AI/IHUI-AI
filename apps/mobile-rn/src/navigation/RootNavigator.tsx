@@ -185,7 +185,7 @@ import { WorkflowsScreen } from '../screens/WorkflowsScreen'
 import { AutomationsScreen } from '../screens/AutomationsScreen'
 import { DashboardScreen } from '../screens/DashboardScreen'
 // 人事部 · 考勤(RN 员工自助骨架,2026-11-09 立)
-import { HrAttendanceScreen } from '../screens/HrAttendanceScreen'
+import HrAttendanceScreen from '../screens/HrAttendanceScreen'
 import { CouponScreen } from '../screens/CouponScreen'
 import { PointsMallScreen } from '../screens/PointsMallScreen'
 import { PointsRecordScreen } from '../screens/PointsRecordScreen'

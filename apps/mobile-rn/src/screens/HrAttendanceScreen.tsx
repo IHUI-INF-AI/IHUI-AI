@@ -22,7 +22,6 @@ import { NavBar } from '../components/NavBar'
 import { NavChrome } from '../components/NavChrome'
 import { appAlert } from '../components/BottomPops'
 import { useI18n } from '../i18n'
-import { useTheme } from '../context/ThemeContext'
 import type { RootStackParamList } from '../navigation/RootNavigator'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -46,7 +45,6 @@ const STATUS_OK = new Set(['present', 'leave'])
  */
 export default function HrAttendanceScreen() {
   const { t } = useI18n()
-  const { resolvedTheme } = useTheme()
   const navigation = useNavigation<NavigationProp>()
   const [records, setRecords] = useState<HrRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -55,18 +53,25 @@ export default function HrAttendanceScreen() {
   const [employeeId, setEmployeeId] = useState('')
   const [departmentId, setDepartmentId] = useState('')
 
-  const load = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
-    try {
-      const q = departmentId.trim() ? `?departmentId=${encodeURIComponent(departmentId.trim())}` : ''
-      const res = await fetchApi<{ list: HrRecord[] }>(`/api/hr-attendance/attendance/records${q}`)
-      if (res.success) setRecords(res.data?.list ?? [])
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }, [departmentId])
+  const load = useCallback(
+    async (refresh = false) => {
+      if (refresh) setRefreshing(true)
+      else setLoading(true)
+      try {
+        const q = departmentId.trim()
+          ? `?departmentId=${encodeURIComponent(departmentId.trim())}`
+          : ''
+        const res = await fetchApi<{ list: HrRecord[] }>(
+          `/api/hr-attendance/attendance/records${q}`,
+        )
+        if (res.success) setRecords(res.data?.list ?? [])
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    },
+    [departmentId],
+  )
 
   useEffect(() => {
     void load()
@@ -101,7 +106,7 @@ export default function HrAttendanceScreen() {
     return v === key ? status : v
   }
   const statusColor = (status: string) =>
-    STATUS_OK.has(status) ? tokens.brand.DEFAULT ?? tokens.text.primary : tokens.text.secondary
+    STATUS_OK.has(status) ? (tokens.brand.DEFAULT ?? tokens.text.primary) : tokens.text.secondary
 
   const canCheckIn = employeeId.trim() && departmentId.trim() && !busy
 
@@ -113,7 +118,9 @@ export default function HrAttendanceScreen() {
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={styles.body}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />
+        }
       >
         <View style={styles.card}>
           <View style={styles.rowHead}>

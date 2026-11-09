@@ -30,16 +30,18 @@ describe('normalizeHm', () => {
 describe('judgeStatus', () => {
   const t = (hm: string) => new Date(`2026-01-05T${hm}:00+08:00`)
   it('无签到 => absent', () => expect(judgeStatus({})).toBe('absent'))
-  it('有签到无阈值 => present', () => expect(judgeStatus({ checkInTime: t('09:00') })).toBe('present'))
+  it('有签到无阈值 => present', () =>
+    expect(judgeStatus({ checkInTime: t('09:00') })).toBe('present'))
   it('迟到', () => {
     const r = judgeStatusDetailed({ lateAfter: '09:00', checkInTime: t('09:30') })
     expect(r.status).toBe('late')
   })
-  it('未迟到', () => expect(judgeStatus({ lateAfter: '09:00', checkInTime: t('08:30') })).toBe('present'))
+  it('未迟到', () =>
+    expect(judgeStatus({ lateAfter: '09:00', checkInTime: t('08:30') })).toBe('present'))
   it('早退', () =>
-    expect(judgeStatus({ earlyBefore: '18:00', checkInTime: t('09:00'), checkOutTime: t('17:30') })).toBe(
-      'early',
-    ))
+    expect(
+      judgeStatus({ earlyBefore: '18:00', checkInTime: t('09:00'), checkOutTime: t('17:30') }),
+    ).toBe('early'))
   it('阈值非法 => unjudged(present)', () => {
     const r = judgeStatusDetailed({ lateAfter: '99:99', checkInTime: t('09:30') })
     expect(r.status).toBe('present')
@@ -51,7 +53,8 @@ describe('judgeStatus', () => {
 
 describe('dayFloorOf', () => {
   it('YYYY-MM-DD 原样', () => expect(dayFloorOf('2026-01-05')).toBe('2026-01-05'))
-  it('Date => Shanghai YMD', () => expect(dayFloorOf(new Date('2026-01-05T01:30:00Z'))).toBe('2026-01-05'))
+  it('Date => Shanghai YMD', () =>
+    expect(dayFloorOf(new Date('2026-01-05T01:30:00Z'))).toBe('2026-01-05'))
   it('非法 => null', () => expect(dayFloorOf('nope')).toBeNull())
 })
 
@@ -68,12 +71,20 @@ describe('resolveBackfillDays', () => {
   it('默认 3', () => expect(resolveBackfillDays(undefined)).toBe(3))
   it('非法回落 + 告警', () => {
     let warned = false
-    expect(resolveBackfillDays(-1, () => { warned = true })).toBe(3)
+    expect(
+      resolveBackfillDays(-1, () => {
+        warned = true
+      }),
+    ).toBe(3)
     expect(warned).toBe(true)
   })
   it('越界封顶 30 + 告警', () => {
     let warned = false
-    expect(resolveBackfillDays(100, () => { warned = true })).toBe(30)
+    expect(
+      resolveBackfillDays(100, () => {
+        warned = true
+      }),
+    ).toBe(30)
     expect(warned).toBe(true)
   })
   it('正常透传', () => expect(resolveBackfillDays(5)).toBe(5))
@@ -86,7 +97,11 @@ describe('buildBizDayWindow', () => {
     return dt.toISOString().slice(0, 10)
   }
   it('含今日 + 回溯,由旧到新', () => {
-    expect(buildBizDayWindow('2026-01-05', 2, shift)).toEqual(['2026-01-03', '2026-01-04', '2026-01-05'])
+    expect(buildBizDayWindow('2026-01-05', 2, shift)).toEqual([
+      '2026-01-03',
+      '2026-01-04',
+      '2026-01-05',
+    ])
   })
 })
 
@@ -143,7 +158,10 @@ describe('buildScopeScheduleGates / gateDueDates', () => {
     expect(gateDueDates(['2026-01-05'], gates.get('S1')).dates).toEqual(['2026-01-05'])
   })
   it('unjudged(weekday 非法) 全放行', () => {
-    const { gates } = buildScopeScheduleGates({ scopeIds: ['S1'], rows: [{ scopeId: 'S1', weekday: 99 }] })
+    const { gates } = buildScopeScheduleGates({
+      scopeIds: ['S1'],
+      rows: [{ scopeId: 'S1', weekday: 99 }],
+    })
     expect(gates.get('S1')!.state).toBe('unjudged')
     expect(gateDueDates(['2026-01-05'], gates.get('S1')).dates).toEqual(['2026-01-05'])
   })
@@ -161,6 +179,6 @@ describe('hmOfLocalDate', () => {
   it('补零 HH:MM / 非法 null', () => {
     expect(hmOfLocalDate(new Date('2026-01-05T09:05:00+08:00'))).toBe('09:05')
     expect(hmOfLocalDate(null)).toBeNull()
-    expect(hmOfLocalDate('x')).toBeNull()
+    expect(hmOfLocalDate('x' as unknown as Date)).toBeNull()
   })
 })
