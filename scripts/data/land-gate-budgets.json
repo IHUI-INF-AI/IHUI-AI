@@ -32,6 +32,22 @@
       "measuredMs": 266784,
       "measuredAt": "2026-11-08",
       "note": "门 T1(push 门全量 typecheck,19 个包重建)。2026-11-08 实测:干净树首次全量(冷 tsbuildinfo + 包重建)266.8s;同刻另一工作树并发跑同一门 117.1s。旧缺省 300s = 1.12× 实测 ⇒ 多线同机时必被单门看门狗终止且无结论(undetermined),既不是判红也不是通过。405s = 266.8s ×1.52(≤ 3× 上限)。判据一字未改:超时仍落 undetermined,不判红、不洗绿。长期方案见 docs/tickets/2026-11/t1-typecheck-budget-calibration-20261108.md(推送前单跑一次、push 门只读近期结论)。"
+    },
+    {
+      "gateId": "305",
+      "script": "check-hook-chain-refs.mjs",
+      "measuredMs": 4000,
+      "measuredAt": "2026-11-08",
+      "timeoutMs": 12000,
+      "note": "commit 档实测 3.8–4.0s(2753 个 JS 文件),取 3× 余量 12s;接面改造后 import 判面层,量级不变。"
+    },
+    {
+      "gateId": "305p",
+      "script": "check-hook-chain-refs.mjs",
+      "measuredMs": 4000,
+      "measuredAt": "2026-11-08",
+      "timeoutMs": 12000,
+      "note": "push 档与 commit 档同脚本同参数,复用同一实测值。"
     }
   ]
 }

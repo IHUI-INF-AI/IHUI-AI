@@ -461,6 +461,10 @@
       "face": "auto",
       "reason": "按运行模式:--staged ⇒ 索引面,否则 HEAD 面;取材面由门内 selectFace/旗自选"
     },
+    "scripts/check-hook-chain-refs.mjs": {
+      "face": "auto",
+      "reason": "工作区面:钩子执行的就是工作区文件,判红面按工作区读(readWorktreeFile),HEAD 树只作报数;缺省 auto"
+    },
     "scripts/check-immutable-guard.mjs": {
       "face": "auto",
       "reason": "历史事故①:在落后 origin/main 的树上用旧 PROTECTED_KINDS 判 bad-kind;本门 LEAD/index/worktree 三面自选,故缺省 auto"

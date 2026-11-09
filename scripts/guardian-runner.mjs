@@ -7467,6 +7467,23 @@ const checks = [
       '     应急放行:HUSKY_SKIP_SHARED_LAYER_PURITY=1 git commit ...(不推荐;跳过会留痕)',
     ].join('\n'),
   },
+  // --- 钩子链引用完整性(2026-11-08,瘦身波甄别后落地;批次3-2 移植,号 312→305)--------------
+  // 病灶:单父提交只挑"调用方"不挑"被调用物",钩子一 require 就崩;全树静态扫描区分不了注释/夹具字符串,
+  // 本门只判真的会被加载的那条链(钩子 require → spawn 入口 → 入口 import 闭包)。
+  {
+    id: '305',
+    label: '🪝 钩子链引用完整性(--strict:钩子 require/spawn 入口/import 闭包有缺失即红)',
+    script: 'check-hook-chain-refs.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    stagedTriggers: ['scripts/', '.husky/'],
+    skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
+    onFailHint: [
+      '  💡 钩子链里有入口缺失:先补齐被调用物,别只挑调用方提交。',
+      '     取证:node scripts/check-hook-chain-refs.mjs(只报数);本门参数即 --strict。',
+      '     应急放行:HUSKY_SKIP_HOOK_CHAIN_REFS=1 git commit ...(不推荐;跳过会留痕)',
+    ].join('\n'),
+  },
   // --- 空转生成器接成 --check/预演硬门(2026-11-06)------------------------------------------
   // 只收"实跑与仓库现状一致"的三条;其余 5 条无安全无写入检查面或依赖外部凭据,
   // 逐条分类与差量见 scripts/data/generator-convergence-baseline.json(未收敛清单,不硬接)。
@@ -7763,6 +7780,14 @@ const pushGateChecks = [
     args: ['--all'],
     mode: 'blocking',
     skipEnv: 'HUSKY_SKIP_GEN_RN_SHELL_SCAFFOLD',
+  },
+  {
+    id: '305p',
+    label: '🪝 钩子链引用完整性(push blocking:钩子链入口/闭包缺失即拦)',
+    script: 'check-hook-chain-refs.mjs',
+    args: ['--strict'],
+    mode: 'blocking',
+    skipEnv: 'HUSKY_SKIP_HOOK_CHAIN_REFS',
   },
 ]
 
