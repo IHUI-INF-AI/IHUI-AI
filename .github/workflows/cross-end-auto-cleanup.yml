@@ -46,6 +46,9 @@ concurrency:
 
 env:
   REPO: ${{ github.repository }}
+  # gh pr list/comment/close 默认靠当前目录的 .git 推断仓库,而本 job 未 checkout;
+  # 缺这一行时每轮都在「导出快照清单」步报 fatal: not a git repository ⇒ 定时档结构性空转。
+  GH_REPO: ${{ github.repository }}
   MAX_DELETE: '100'
 
 jobs:
