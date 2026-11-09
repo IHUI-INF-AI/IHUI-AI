@@ -31465,7 +31465,6 @@ mark）（认领已释放@2026-10-18/goal-leasegc:租约超龄 171h 未清账,�
 - [ ] DBG-8 （登记@2026-11-07/bug-hunt）[P2][api][超时] apps/api/src/services/alipay.ts:314,388,429,462,486,510 六处 `fetch(GATEWAY,…)` 均未传 AbortSignal/超时，支付宝网关无响应时请求永久挂起、可能耗尽连接池/事件循环
 - [ ] DBG-9 （登记@2026-11-07/bug-hunt）[P1][web][配色] apps/web/src/components/data/StatCard.tsx:55-57 涨跌配色违反项目「涨红跌绿」约定（当前涨=emerald 绿、跌=red 红），收益/引流/转化卡片反向误导用户涨跌方向
 - [ ] DBG-10 （登记@2026-11-07/bug-hunt）[P1][web][时区] apps/web/src/components/chat/context-budget-bar.tsx:31-44 formatResetTime 未固定 `timeZone:'Asia/Shanghai'`，而 resetAt 是网关算好的东八区次日 0 点 → 非中国时区用户看到的额度重置时间偏移
-- [ ] DBG-11 （登记@2026-11-07/bug-hunt）[P2][web][XSS] apps/web/app/(main)/about/page.tsx:72 与 models/billing/page.tsx:140 JSON-LD 用 dangerouslySetInnerHTML 注入 `JSON.stringify` 未转义 `<`，与 blog/[slug] 等已转义兄弟页不一致（含外部可控串时 XSS）
 - [ ] DBG-12 （登记@2026-11-07/bug-hunt）[P1][ai][限流] apps/ai-service/app/services/checkin_scheduler.py:2127 手动签到读冷却失败被 except 吞掉并 `cooldowns={}` 按"无冷却放行"，DB 抖动即绕过冷却/限流，外部账号有被平台封禁风险
 - [ ] DBG-13 （登记@2026-11-07/bug-hunt）[P2][ai][时区] apps/ai-service/app/services/scheduler_service.py:100 用户定时任务 `AsyncIOScheduler(timezone="UTC")` 触发器不带时区，与 checkin_scheduler 的 `_CN_TZ` 不一致 → 用户填"本地 9 点"实际 09:00 UTC(北京 17 点)触发
 - [ ] DBG-14 （登记@2026-11-07/bug-hunt）[P2][ai][鉴权] apps/ai-service/app/routers/sso.py:159-163 OIDC 回调 _do_exchange 用 except 吞掉 JIT 建号/签发全部异常，返回 `{"code":0,"message":"ok"}` 但 provisioned=False 且无 access_token，登录契约破裂
