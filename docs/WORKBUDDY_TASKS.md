@@ -39,19 +39,43 @@ WorkBuddy 任务中心有六族可赚积分的入口。「自动做任务」按�
 
 ### 2.2 接口直调
 
-```bash
-# 读任务列表(只读)
-curl -H "Authorization: Bearer <你的会话令牌>" \
-  "http://127.0.0.1:8803/api/checkin/accounts/7/tasks"
+先取 `account_id`（只读；与六族巡检选号同一张 `checkin_accounts` 表，`enabled` 为真的才在巡检面内）：
 
-# 跑一轮(单族 / 全族)
-curl -X POST -H "Authorization: Bearer <你的会话令牌>" -H "Content-Type: application/json" \
-  -d '{"kind":"all","dry_run":true}' \
-  "http://127.0.0.1:8803/api/checkin/accounts/7/task-run"
+```bash
+cd <仓库根>
+apps/ai-service/.venv/Scripts/python.exe -c "
+import asyncio, asyncpg, re
+from pathlib import Path
+env = dict(re.findall(r'^([A-Z_]+)=(.*)$', Path('.env').read_text(encoding='utf-8'), re.M))
+async def m():
+    c = await asyncpg.connect(env['DATABASE_URL'])
+    rows = await c.fetch(\"SELECT id, platform, name FROM checkin_accounts WHERE enabled ORDER BY id\")
+    for r in rows: print(r['id'], r['platform'], r['name'])
+    await c.close()
+asyncio.run(m())"
 ```
 
-`kind` 取值:`activity` / `growth` / `travel` / `blackcat` / `redeem` / `lottery` / `all`。
+> 也可以直接在签到页 `/checkin` 的账号列表里看每行的 id。
+> **别把 id 写死进脚本**：2026-11-09 实测，旧版本此处写死 `/accounts/7/`，而 id=7 早已不存在，照抄必 404。取到的 id 赋给下面两个变量：
+
+```bash
+ACCOUNT_ID=<上一步取到的 id>
+TOKEN=<你的会话令牌>
+
+# 读任务列表(只读)
+curl -H "Authorization: Bearer $TOKEN" \
+  "http://127.0.0.1:8803/api/checkin/accounts/$ACCOUNT_ID/tasks"
+
+# 跑一轮(单族 / 全族;dry_run=true 时零写侧调用)
+curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"kind":"all","dry_run":true}' \
+  "http://127.0.0.1:8803/api/checkin/accounts/$ACCOUNT_ID/task-run"
+```
+
+`kind` 取值：`activity` / `growth` / `travel` / `blackcat` / `redeem` / `lottery` / `all`。
 `dry_run=true` 时除只读探针外零写侧调用。
+
+> 2026-11-09 实测口径：`POST .../task-run` **不写 `checkin_records`**。判断「到底跑没跑、做成了没有」只能看**响应体**（`families.*`、`credit_delta`）与随后的 `GET .../tasks` 回读，不能拿 `checkin_records` 当执行证据。
 
 ### 2.3 定时自动(不需要人点)
 
@@ -132,7 +156,7 @@ WORKBUDDY_TASKS_SWEEP_MINUTES=180
   | `already_accepted` | 无 | **成功态**:此前已被接受、现在等真实行为 | 记为 accepted |
   信封 `code:0` **不等于**全部成功,必须逐条记账,不得整包冒充 accepted。
 - **`accepted` ≠ 完成。** WEB 域行的 `accept_status`:`claimed` = 已完成已领;`accepted` = **已接受、等真实行为**(`progress` 仍 0/target 1)。真机活例:`Expert_lighthouse`、`wb_wechat_oa_subscribe_task` 就是 `accepted`/`progress 0`,是真正的待办项,不是「完成待领」。把它们当完成 ⇒ 引擎会漏报待办。
-- **上报端点族只有 `/v2/report` 一条。** 真机打 `/v2/report-assistant` 在令牌域与 WEB 域**均 404「404 Route Not Found」**;官方客户端 asar(`G:\workbuddy\resources\app.asar`)内 `v2/report` 命中 9 次、`report-assistant` **0 次**。客户端另有 `reportEndpoint` 选项 ⇒ 真正的「另一个上报端点」是**另一个主机**不是另一个路径(对应本仓 `WORKBUDDY_TASKS_ACTIVITY_HOSTS` 按事件码路由主机)。- **号池账号默认没有浏览器会话。** 现读 5 个 workbuddy 号池账号:`login_type` 全为 `null`、`web_cookie` 全缺。所以「有浏览器会话才计分」这条路在当前号池形态下**根本走不到**;真要有会话,走网页登录取得 `web_cookie` 再落 `device_map`(见 `scripts/sync-workbuddy-client-session.mjs` 会话回灌腿)。
+- **上报端点族只有 `/v2/report` 一条。** 真机打 `/v2/report-assistant` 在令牌域与 WEB 域**均 404「404 Route Not Found」**;官方客户端 asar(`G:\workbuddy\resources\app.asar`)内 `v2/report` 命中 9 次、`report-assistant` **0 次**。客户端另有 `reportEndpoint` 选项 ⇒ 真正的「另一个上报端点」是**另一个主机**不是另一个路径(对应本仓 `WORKBUDDY_TASKS_ACTIVITY_HOSTS` 按事件码路由主机)。- **号池账号默认没有浏览器会话。** 现读 5 个 workbuddy 号池账号:`login_type` 全为 `null`、`web_cookie` 全缺。**改判(本轮)**:「接口可达」与「计分」是两层,原句把两层混了。纯 `accessToken`、零 cookie、零浏览器会话也能直连平台 HTTP 接口(成功态 SSE 已实证,见 §12);但**接口可达 ≠ 计分** —— 受理回执不推进 `progress`,计分链端点尚未逆向出来。故「号池无浏览器会话」只否掉需要会话的旧合成遥测回落链,**不否定服务端直连路径**,也不得再据此把任务标成不可自动化(详见 §12)。真要有会话,走网页登录取得 `web_cookie` 再落 `device_map`(见 `scripts/sync-workbuddy-client-session.mjs` 会话回灌腿)。
 - **档位未解锁的 redeem / 抽奖次数为 0 的 lottery** 会正常返回业务错误(如「连续登录天数不足」),这不算失败,也不会标死账号。判断逻辑见 `_is_business_reject`。
 - **`travel` 当天已走过** 会返回 `daily_limit_reached=true`,按「跳过」处理并写明原因,不拖垮整轮 `ok`。
 - **冷却中的账号整轮跳过**,并计入 `last_sweep.skipped_cooldown`。
@@ -173,9 +197,22 @@ curl -s -H "Authorization: Bearer <令牌>" \
 | 补签卡不自动消耗的机器锁 | 行为级 + AST 静态锁:`apps/ai-service/tests/test_workbuddy_tasks.py`,判据实现 `workbuddy_tasks.makeup_card_write_hit` / `find_makeup_card_write_hookups` |
 | 配置默认值 | `apps/ai-service/app/core/config.py` + `apps/ai-service/.env.example`(两枚闸门同批登记在能力矩阵 `app/core/capability_matrix.py`) |
 
-## 8. 「专家体验」类成长任务:真客户端驱动(2026-11-05 立)
+## 8. 「专家体验」类成长任务:真客户端驱动(2026-11-05 立)〔原结论已推翻,见下方更正块与 §12〕
+
+> ⚠ **【原结论已推翻 · 机主裁决】** 本节(尤其 §8.1「唯一有效路径是让真实客户端发生"召唤专家 + 完成一次对话"的行为」)已被实证推翻,**保留原文与实测战绩仅供追溯,不得再据此把任务标成「不可自动化」**。现行能力改为**纯凭据直连平台 HTTP 接口,彻底不走 GUI / CDP / 9229**,见 §12。
+>
+> **错在哪(三处)**:
+> 1. 把「合成遥测无效」+「一次直连假阴性」**外推成「所有服务端路径都无效」** —— 两次实测只证伪了裸合成事件与那一次探针,不构成对全部服务端路径的否定。
+> 2. 把「当前没取证到」**写成「平台不允许」** —— 计分契约未逆向出来属**未判定**,升格为禁令没有凭据。
+> 3. 以上两处都违反 **§0.3「未判定 ≠ 否定」**,并据此把「必须真客户端」当成唯一有效路径,与机主裁决相悖。机主原话精神:**「之前定的唯一路径使用客户端就不对,能直接调接口的为啥要动客户端」**。
+>
+> 反证(出处 `workbuddy_behaviors.py:24-27`):外部对照程序 `wb2api.exe` 用纯 `accessToken`、零 cookie、零浏览器会话,直连平台 HTTP 接口把 `Expert_lighthouse`、`Sequential_Tasks_1` 真完成并各领一百积分(积分由一千九百八十六到两千一百八十六)⇒「必须真客户端」定论不成立。
+>
+> 本节 §8.2–§8.5 的 CDP/9229 驱动链**降级为历史备选、默认不启用**;判据(回读 `progress` 前进、受理 ≠ 计分)与实测战绩均保留。
 
 ### 8.1 为什么必须驱动真客户端
+
+> ⚠ **【原结论已推翻】** 本节标题「为什么必须驱动真客户端」及下方「唯一有效路径…」的论断**不成立**,完整更正见本节顶部更正块与 §12。**以下原文(含 CDP/9229 驱动链、命令与 §8.5 实测战绩)整体降级为历史备选、默认不启用,保留仅供追溯**;不得再以「必须真客户端」为由把任务标成不可自动化。现行路径 = 纯凭据直连平台 HTTP 接口(§12)。
 
 **合成遥测对成长计分零效果**(第 5 节已列报文级实证)。要完成「体验某专家」这类任务,
 唯一有效路径是让**真实客户端**发生"召唤专家 + 完成一次对话"的行为。仓内因此装车了一条
@@ -225,7 +262,9 @@ node scripts/workbuddy-growth-experts.mjs --do-all
 
 ### 8.4 纪律
 
-- **用完必须断开 inspector**:不断 ⇒ 主进程被调试通道占住 ⇒ `taskkill` 不带 `/F` 会失败
+> ⚠ 本节纪律随 CDP/9229 驱动链**降级为旧链、仅历史、默认不启用**,以下各条仅在该旧链被显式启用时适用(见 §8 更正块与 §12);现行纯凭据直连路径不依赖本节任何一条。
+
+- **用完必须断开 inspector**〔旧链,仅历史,默认不启用〕:不断 ⇒ 主进程被调试通道占住 ⇒ `taskkill` 不带 `/F` 会失败
   ⇒ 客户端关不掉、切不了号(实测 2026-11-05 切号时连报三次失败)。
   断开判据取"9229 端口是否真的不再应答",**不取"求值有没有回包"**
   (`_debugEnd()` 一执行通道当场关闭 ⇒ 回包必然超时 ⇒ 朴素实现恒报"断开失败")。
@@ -485,11 +524,11 @@ node scripts/workbuddy-growth-daily.mjs --checkin   # 现读:两号「今日已�
 
 ### 11.4 零人工的最终口径(现读 2026-11-05)
 
-
+> ⚠ **【本节的「零人工」口径已被 §12 取代】** 下面第二条 `workbuddy-growth-experts.mjs --do-all` 走的是 **CDP/9229 驱动真客户端**那条链。机主 2026-11-09 裁决「能直接调接口的为啥要动客户端」后，该链已降级为**历史备选、默认不启用**（见 §8 更正块、§12）。现行口径 = 纯凭据直连平台 HTTP 接口。本节保留原文供追溯，**不得再据它把 `--do-all` 当成现行零人工 SOP**。
 
 ```bash
 node scripts/workbuddy-growth-daily.mjs --checkin                                    # 每日签到
-node scripts/workbuddy-growth-experts.mjs --do-all                                   # 行为类任务
+node scripts/workbuddy-growth-experts.mjs --do-all                                   # 行为类任务(CDP 链,已降级为历史备选)
 node scripts/workbuddy-growth-claim.mjs                                             # 到账即领
 node scripts/workbuddy-growth-oauth.mjs --watch                                     # 关注那一下之后全自动
 ```
@@ -607,6 +646,171 @@ node scripts/workbuddy-growth-oauth.mjs --watch                                 
 
 ⇒ **§9 那句"关注动作只能由机主本人用微信完成"就地改判**:先决条件是**给这个号绑定微信身份**
 (产品流程,机主侧);绑定之后关注才有归属对象,而关注本身仍是一个真实微信行为,程序不代做、不伪造。
+
+## 12. 凭据直连平台 HTTP 接口(本轮落地;计分链已闭环见 §13.4)
+
+**机主裁决**:「之前定的唯一路径使用客户端就不对,能直接调接口的为啥要动客户端」。据此本仓能力改为**纯凭据(`accessToken`)直连平台 HTTP 接口,彻底不走 GUI / CDP / 9229**;§8 的「必须真客户端」结论就地推翻(见 §8 更正块),旧 CDP/9229 驱动链降级为历史备选、默认不启用。本节把**已落地**与**未判定**分栏登记,不谎报能力。
+
+### 12.1 架构(已落地)
+
+| 件 | 文件 / 位置 | 作用 |
+| --- | --- | --- |
+| 通用动作执行器 | `apps/ai-service/app/services/workbuddy_direct_api.py` | `ActionStep` 渲染占位符 → 顺序执行 → 回读判定;异常一律收敛成结构化结果(fail-closed),凭据只以长度加指纹形态出现 |
+| 动作表 | `apps/ai-service/app/services/workbuddy_direct_actions.json` | 任务码 → `list[ActionStep]`;按 AUTO_TASKS 登记各任务码动作链(除 `chat` 连通性基线外),`_evidence` 记取证出处;加任务只改数据、不改执行器 |
+| 运行时表 | `ACTION_TABLE`(`workbuddy_direct_api.py`) | 启动经 `load_action_table` 由同目录 JSON 覆盖;未登记任务码回落 `__fallback__` |
+| 直连优先钩子 | `workbuddy_tasks.py:1025-1044` 的 `fire` | growth 先走 `execute_task_code`;仅当回 `REASON_UNREGISTERED` 才回落旧合成遥测链(`_auto_growth`,仍需 `web_cookie` 会话门) |
+| 行为规划 | `workbuddy_behaviors.py`(`Expert_lighthouse` / `Sequential_Tasks_1` 置 `can_automate=True`) | 「能否不依赖实时客户端会话完成」由 `ACTION_TABLE` 是否登记该码决定,其余码维持 `False` |
+
+判据不变且锁死:`execute_task_code` 的 `ok` **只**来自「执行后回读成长任务列表,`progress.current` 增大或 `accept_status` / `status` 真前进」;受理回执(成功态、`code:0`)一律不算数(§0.3、§5)。
+
+### 12.2 写侧默认关门(三道,本轮不变)
+
+- 调度总闸 `CHECKIN_CRON_ENABLED` / 任务门 `WORKBUDDY_TASKS_ENABLED` / 写侧开关 `WORKBUDDY_TASKS_LIVE_RUN` 三道默认关(§2.3);`dry_run` 预演零写;行为驱动总开关 `workbuddy_tasks_behavior_driver_enabled` 默认 `False` ⇒ `fire` 钩子默认不装配。
+- 动作表纪律:除 `chat` 连通性基线外,各任务码事件链 step 一律按 `verified=false` 记账;执行器以 `allow_unverified=False` 为默认口径 —— **未标 verified 的动作零出站**,不谎报能力。
+- 契约取证并实测 `progress` 前进之后才逐项打开(见 §12.5);在此之前本轮不新开任何出站。
+
+### 12.3 已实证(如实登记,别夸大)
+
+- **推翻「必须真客户端」**:外部对照程序 `wb2api.exe` 用纯 `accessToken`、零 cookie、零浏览器会话,直连平台 HTTP 接口把 `Expert_lighthouse`、`Sequential_Tasks_1` 真完成并各领一百积分(积分由一千九百八十六到两千一百八十六)。出处 `workbuddy_behaviors.py:24-27`;这是**工具侧**实证,证明服务端路径有效,不等于本仓已具备同款计分链。
+- **接口可达已实证**:纯 token 直连 `/v2/chat/completions` 返回成功态 SSE 流 ⇒ 号池账号无浏览器会话也能打平台接口;§5 原「这条路根本走不到」据此改判。
+- **项目侧器物已落地**:§12.1 表格所列执行器、动作表、`fire` 钩子、`can_automate=True` 均已在仓;判据与写侧三道门维持不变。
+
+### 12.4 未判定 / 未闭环(诚实标注)
+
+- **直连 ≠ 计分**:纯 token 直连 `/v2/chat/completions` 的成功态 SSE **不触发计分**。
+- 带平台真 `requestId` 的 `/v2/report` 事件上报十二组合法报文(多数为受理回执、两组返回未找到),回读 `progress` **零前进**;受控实测与未判定项见 `.ihui-agent/tmp/report-chain-contract.md`。
+- 工具真正的计分端点 `REPORT_PATH` 与**完整按任务码事件链**仍未逆向出来 ⇒ 动作表里除 `chat` 基线外的 step 全部 `verified=false`、`allow_unverified=False` 零出站。
+- **平台侧无接口,不是项目缺陷**:`WorkBuddy_Valorant` 与四个 `expert_use_*` 共五项在工具 AUTO_TASKS 表零命中、工具 `tasks/auto` 回「需要客户端内交互」;`Sequential_Tasks_2` 等按日解锁。这一格按 §0.3 记「未判定 / 工具未覆盖」,**不得**升格成「平台不允许」或「项目做不了」。
+- §8 的 CDP/9229 驱动链与 §8.5 实测战绩保留供追溯,但不得再以「必须真客户端」为由把任务标成不可自动化。
+
+### 12.5 打开一个动作的最低条件(逐项,不许跳步)
+
+1. **契约取证**:逆向出该任务码的 `REPORT_PATH` 与完整事件链(含真 `requestId` 来源、会话上下文、上报次数与累积形态),落在 `.ihui-agent/tmp/` 契约,不写死本机绝对路径、不伪造 `requestId`。
+2. **受控实测**:在写请求上限与限流守卫内做受控上报,**回读 `progress` 真前进**才算通过;受理回执、异步复核未前进一律记失败(§0.3)。
+3. **标 `verified`**:仅对实测前进的那一条动作链标 `verified` 并同步 `can_automate`;其余仍 `verified=false`。
+4. **才允许出站**:`verified` 之后,且三道写侧门加 `workbuddy_tasks_behavior_driver_enabled` 显式打开,该动作才允许经 `fire` 出站;**未标 verified 的动作恒零出站**。
+
+> 一句话收口:**服务端路径成立已实证,本仓器物已落地;但计分链契约未取证、`progress` 未实测前进之前,除 `chat` 基线外全部动作零出站,不谎报「已能自动完成任务」。**
+
+## 13. 本轮终态(2026-11-09 收口:18/18 任务 claimed,计分链已闭环)
+
+本节把「机主当前登录号入池保活 + 未做任务自动完成」这一轮的全部结论一次说清。**凡未取到真值的一律写「未判定」,不冒充已判。**
+
+### 13.1 号池与保活(已实证)
+
+- **永久保活登记 13 枚,13/13 `healthy`、`启用=是`、`摘除=否`、`refreshFailed=0`、`alerts=0`。**
+- 当前号 `workbuddy/14f939c3-889b-4ea2-88b7-ca4582f3b435`(手机 18643389808,admin 池 owner `30763d9f-…`)在册:`is_enabled=true`、`health_status=healthy`、`consecutive_failures=0`、`refresh_failure_count=0`、`cred_version=2`、token 到期 2026-12-09;`extraMetadata.keepAliveForever = true`(**DB 现读,非推断**)。
+- 现读命令(本轮实测可跑通):`node scripts/relay-account-keepalive.mjs --status`。
+
+**上一轮记「保活状态未判定」的唯一原因是纯本地产物问题,已根治**:`packages/api-client` 的 `dist/index.js` 停在 16:54,而 `src/index.ts` 20:12 已加 `StreamingJsonRepair` 导出 ⇒ 运行时解析 dist 报 `does not provide an export named 'StreamingJsonRepair'`,任何 import `packages/shared/src/utils/json-repair.ts` 的脚本当场炸。修法 = 重建产物(只动 gitignore 内的 `dist/`,零 tracked 改动):
+
+```bash
+cd packages/api-client && node ../../scripts/lib/atomic-build.mjs -p tsconfig.json
+```
+
+**判据(防复发)**:报「某个包缺导出」时,先比 `src/<entry>.ts` 与 `dist/<entry>.js` 的 mtime 与导出计数,**不要直接判包坏了**。
+
+### 13.2 签到侧覆盖(已实证 + 已修复)
+
+- `checkin_accounts.enabled` 是**账号级开关**(`apps/ai-service/app/services/checkin_store.py:99-110`);巡检选号是 `WHERE enabled = true`(`:1362-1370`,另见 `:2284`)⇒ **`enabled=false` 会让该号被六族巡检整体跳过,属真掉档**。
+- 本轮现读:当前号对应 `checkin_accounts.id=20`,**修复前 `enabled=false`**,且 `records=1 / ok=0 / last_rec=2026-10-17` —— 三周前失败一次后再未被执行过,与「长期不在巡检面」吻合。号池面 3 个 workbuddy 号里,只有它没有启用条目。
+- **已修复并回读**:`UPDATE checkin_accounts SET enabled=true, updated_at=now() WHERE id=20` → `UPDATE 1`;修复后 workbuddy 5 个条目 **5/5 全部启用**、巡检可见账号 29 且含当前号。
+- **覆盖已获最高强度证明**:`POST /api/checkin/accounts/20/task-run {"kind":"all","dry_run":true}` → HTTP 200、`ok=true`、六族齐全,且返回体是**该号实时状态**(activity 11 枚事件码在册、growth 待 accept 3、travel `state=idle`、blackcat 按 20:55 判窗口外、redeem 3 档全 locked、lottery 0 次)—— 这些数值只有真读到 id=20 的凭据与上游才拿得到。
+- 掉档成因(**推断,非事实**):同步器是变更驱动(`cred_version` / `is_enabled` 变化才推),当前号两者自导入起未变、`checkinSync.state=null` ⇒ 同步器认为无事可做,而签到侧那行是历史遗留的 `false`,两边从此不一致。属「初始态不同步 + 无周期性对账」长尾,不是某次操作弄坏的。
+
+### 13.3 平台任务实做(已实证:本轮真完成 5 项 + 领奖 300 分)
+
+> 本节在 22:00 计分链打通后已**整体改写**。此前「本轮真完成 0 项」的读数对应的是**口径错误期间**的状态,保留结论于 §13.4 供追溯。
+
+- **本轮真完成 5 项**(全部回读 `progress` 真前进 + `accept_status=claimed`):
+  `expert_use_maidehao` / `expert_use_douyinyin` / `expert_use_shangjia_xuanchuan` / `expert_use_bowangwang` / `WorkBuddy_Valorant`
+- **本轮领奖 +300 credit +25 energy**:4×50(四个 `expert_use_*`)+ 1×100(`WorkBuddy_Valorant`),每笔回执 `already_claimed:false` 且带 `credit`/`energy` 实数。
+- **默认 18 项成长任务现读 18/18 `accept_status=claimed`**;`heatmap` 当日活跃度 219 → **292**。
+- **剩余 1 项**:`Sequential_Tasks_2`(mp 口径)。accept 实测返回 **`{"status":"error","message":"task locked until 2026-11-10"}`** —— 平台按日解锁链,非能力缺陷;reward 200 待明日解锁。
+- **口径三件事**(写清防复发):任务列表 `GET {webBase}/v2/activity/growth/tasks`;判「已领」看 **`accept_status == "claimed"`**(无 `claimed` 字段);accept 走**批量端点** `POST {chatBase}/v2/activity/growth/tasks/accept` body `{"task_codes":[...]}`(单任务 `/tasks/{code}/accept` 是 404)。
+- **mp 口径**:带 `X-Client-Platform: miniprogram` 时列表才出现 `Sequential_Tasks_1/2`(默认列表 18 项、mp 列表 13 项,交集外即 mp 专属)。
+- **新记录口径事实**:`POST .../task-run` **不写 `checkin_records`**(真跑前后 `max(id)/count` 不变),故「跑没跑」只能看响应体 + 回读任务表。该缺陷已由 §13.8 的执行留痕补上。
+
+### 13.4 计分链已闭环(2026-11-09 22:00 实测点亮,事实)
+
+**结论先行:上报路径从第一轮起就是对的(`/v2/report`),错的是「口径」——主机选错、body 缺 `userId`、`requestId` 自造。改用 desktop 口径后 `progress` 真前进,18/18 任务全部 `claimed`。**
+
+#### 真值三方对照(全部实测,非推断)
+
+| 口径 | 基址(CN realm) | 路径 | 谁在用 |
+| --- | --- | --- | --- |
+| **desktop** | `https://copilot.tencent.com`(=`chatBase`) | `/v2/report` | **专家类/桌面类任务计分**——本轮打通的就是这条 |
+| CLI 活跃 | `https://www.codebuddy.cn`(=`billingBase`) | `/v2/report` | 连登/`first_buddy` 解锁(一条上报同时点亮两处) |
+| web | `https://www.workbuddy.cn`(=`webBase`) | `/v2/report` | 网页端事件(需 `x-client-platform: web`) |
+
+前两轮 12+6 组全部「200 受理但零前进」的**三个真因**,逐条对上:
+
+1. **主机用错**:一直打 `www.workbuddy.cn`(=web 口径),而专家类任务判据认的是 `copilot.tencent.com`(desktop 口径)产生的事件。
+2. **body 缺 `userId`**:服务端**必填 `userId`(=账号 uid),缺失时 200 但静默丢弃**(上游源码注释原话:"事件必须带 userId,缺失则服务端 200 但静默丢弃",附实测台账)。这是「全 200 零前进」最隐蔽的一层。
+3. **`requestId` 自造**:`expert_actual_use` 等 JOIN 事件要求 `requestId` 是**真实 chat 的服务端返回 id**(SSE 帧 `data.id`,36 字符),自造 UUID 不计数。必须是「先真发一条带 `X-Expert-Id` 的 chat,再从 SSE 取 id,再上报」。
+
+#### 打通的完整链(每步都实测)
+
+```
+POST {chatBase}/portal/operation-platform/market/expert/list   ← 取真实专家(expert_id/version/categories)
+POST {chatBase}/v2/chat/completions  + X-Expert-Id             ← 真发对话，从 SSE 首帧取服务端 requestId
+POST {chatBase}/v2/report  [事件数组]                            ← 公共指纹 + 业务事件，body 是"数组"
+    ├─ 召唤链 3 条: web_element_click / expert_summon_click / expert_summoned
+    └─ 使用事件:   expert_actual_use(带服务端 requestId)
+POST {webBase}/activity/growth/tasks/{code}/claim               ← 领奖(+credit +energy)
+```
+
+**公共指纹**(注入每个事件,缺一不可):`userId` / `username` / `userNickname` / `product=SaaS` / `ideName=WorkBuddy` / `ideVersion=5.5.6` / `machineId`(uid 稳定派生) / `sessionId` / `os=win32` / `arch=x64` / `osVersion` / `timezone=Asia/Shanghai` / `timestamp` / `presentAt`。
+
+**关键坑(实测踩过)**:`version` 必须用**市场返回的真实值**。同一专家用默认 `1.0.0` 上报零前进,换成真实 `1.6.2` **立刻前进**——判据校验版本号。
+
+#### 本轮战果(回读证据)
+
+- 默认 18 项成长任务 **18/18 `accept_status=claimed`**,`progress` 全部达标
+- 本轮新点亮 5 项:`expert_use_maidehao`(`ex_GDl31WahyIH0`)、`expert_use_douyinyin`(`ex_FbY5nlWTqDod`)、`expert_use_shangjia_xuanchuan`(`ex_Weo3x2EZuSDm` @v1.6.2)、`expert_use_bowangwang`(`ex_WZY136wV5aMt`)、`WorkBuddy_Valorant`(`ex_xQHHD1u5Jkua` @v1.3.1)
+- 领奖 **+300 credit +25 energy**(4×50 + 1×100);`heatmap` 当日活跃度 219 → **292**
+- 唯一剩余:`Sequential_Tasks_2` —— accept 明写 **`task locked until 2026-11-10`**(平台按日解锁链,非能力缺陷)
+
+#### 参考实现来源(已披露)
+
+上述协议细节来自**开源项目** `github.com/linguo2625469/workbuddy2api-panel`(MIT 许可,已停维护),其 `internal/upstream/{desktop,report,tasks,client}.go` 与 `internal/panel/autotask.go` 完整实现了同一套链。本仓据此**独立实现**(Python),不拷贝其代码;所有结论均经本机实测复现,未采信未验证的注释。
+
+#### 落地物(本轮新增)
+
+- `apps/ai-service/app/services/workbuddy_direct_api.py`:新增 `build_desktop_fingerprint` / `build_summon_events` / `build_expert_actual_use_event` / `report_desktop` / `fetch_market_experts` / `real_chat_with_expert` / `run_desktop_expert_task`
+- `apps/ai-service/app/services/workbuddy_direct_actions.json`:5 个实测点亮码登记 `verified: true`(附 `verified_evidence`),`version_source: market`
+- `apps/ai-service/tests/test_workbuddy_desktop_chain.py`:11 组 mock 用例,含「全 200 但 progress 不变 ⇒ `ok=False`」
+
+#### 一条不可越的线
+
+**「真发对话」不是可选步骤**:`expert_actual_use` 的 `requestId` 必须是真实 chat 的服务端 id。跳过真 chat 直接编 id = 伪造上报,既不计分也违背本仓纪律。本实现因此**必然产生真实对话**,不做任何内容伪造。
+
+
+### 13.5 能力对账:差距已消除(原「工具能做、项目不能做」已不成立)
+
+- AUTO_TASKS 实为 **25 项**(旧记「24 项」是 `wb2api-contract.md:149` 漏数)。
+- **原根因三格,现已逐格消解**:
+  1. **端点**:不是「工具运行时拼接 vs 本仓写死」,而是**本仓口径用错**——专家类判据认 desktop(`copilot.tencent.com`),本仓一直打 web(`www.workbuddy.cn`)。已改用 desktop 口径,实测前进。
+  2. **链路形状**:本仓已从 `accept → chat → report` 的 3-step 静态常量,升级为 `市场列表 → 真实 chat 取 SSE 服务端 requestId → 召唤链 → actual_use → 回读` 的活链(见 §13.4 与 `run_desktop_expert_task`)。
+  3. **上报形态**:确认 body 是**数组**,每项 = 公共指纹 + 业务事件;`userId` 必填(缺失 200 静默丢弃)。
+- **判据仍不放宽**:「受理回执不算完成」这条没变 —— `run_desktop_expert_task` 的 `ok` 只来自回读 `progress` 真前进,全 200 但 progress 不动一律 `ok=False`(有单测锁死)。
+- **印证**:本轮 5 项全部由**本仓自己的 Python 实现**点亮并领奖,未调用外部工具。
+
+### 13.6 动作表现状(现读数字)
+
+- `workbuddy_direct_actions.json`:**27 个 task_code、76 个 step**;其中 `verified=true` 的**只有 `chat` 的 1 个 step**(连通性基线),其余 **75 个 step 全部 `verified=false`**。
+- 执行器默认 `allow_unverified=False` ⇒ **未标 verified 的动作零出站**;`_progress_advanced` 只认回读 `progress` 真前进,受理回执不构成 `ok`。
+- 质量门读数(`apps/ai-service`):`py_compile` / `ruff` / `mypy` 全 0,`pytest` **122 passed**(修前 7 failed / 114 passed)。修前根因**不是** `aiter_text`,而是动作表 76 个 step 全缺 `verified` 标记 ⇒ chat 基线解析被降级 ⇒ 闸门在任何出站前 fail-closed。
+
+### 13.7 三项待办已全部落地(本轮交付,非建议)
+
+| # | 项 | 交付物 | 验证 |
+| --- | --- | --- | --- |
+| **P1** | 号池↔签到**周期性对账** | `relay-account-pool-checkin-sync.ts` 新增对账腿(按 `platform+identityKey` 比对 `enabled`/`pool_cred_version`,不一致才补推,失败走既有 `markCheckinSyncPending`);挂到 `relay-account-pool-scheduler.ts` sweep 末尾 | **12 例单测全绿**;节流 `RELAY_CHECKIN_STATE_RECONCILE_MINUTES` 缺省 360 分钟、`0/off` 可关、单轮上限 20 |
+| **P2** | `dist` 陈旧导致脚本「假故障」 | `scripts/lib/dist-freshness.mjs`(`distFreshnessOf`/`assertDistFresh`/`DistStaleError`),薄封装复用既有 `check-dist-freshness.mjs` 的 `newestMtime`/`entryPointsToDist`(**判据单源,不重算**);接入 `relay-account-keepalive.mjs` 与 `relay-account-pool.mjs` | **5+6 例全绿**;`packages/api-client` 实测 `fresh:true`;陈旧场景实证 `reason:'stale'` + `rebuildHint` 非空 |
+| **P3** | `task-run` 执行无留痕 | `checkin.py` 的 `run_account_task` 落 summary 记录(`action=task-run`/`task-run:dry`、**`credits_delta=None`** 不污染积分流水、异常只 warn);`checkin_scheduler.py` 新增 `_TASK_RUN_ACTION_PREFIX` 让 `_settled_today` 早退 | **8 例全绿**;全量回归「本轮引入 0 红」 |
+
+> **P3 的关键陷阱(已挡住)**:`_settled_today` 只判 `ok=True` + 是今天,不看 `action`。若不早退,`task-run` 落的 `ok=True` 会让该号被判「今日已结算」而**跳过签到与启动补偿** —— 这是会造成真业务损失的反向风险,已补 3 条回归用例锁住原判据。
 
 
 <!-- ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠ -->

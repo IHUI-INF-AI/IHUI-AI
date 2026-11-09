@@ -1022,8 +1022,25 @@ async def run_growth(
                     verify=_verify_progress_advanced,
                 )
 
+            from app.services import workbuddy_direct_api as wda
+
+            async def _fire(code: str) -> bool:
+                async def _read() -> Any:
+                    lists = await asyncio.gather(
+                        list_growth_tasks(jwt, device_map, client=eff_client, timeout=timeout),
+                        list_growth_tasks(jwt, device_map, client=eff_client, timeout=timeout, web=True),
+                    )
+                    return {"tasks": [r for lst in lists for r in (lst.get("tasks") or [])]}
+
+                result = await wda.execute_task_code(
+                    code, wda.build_context(jwt, device_map, code), eff_client, _read
+                )
+                if result.reason == wda.REASON_UNREGISTERED:
+                    return await _auto_growth(code)
+                return result.ok
+
             activity_reporter = build_default_activity_reporter(
-                tracker=behavior_tracker, fire=_auto_growth
+                tracker=behavior_tracker, fire=_fire
             )
         return await _run_growth_inner(
             jwt,
