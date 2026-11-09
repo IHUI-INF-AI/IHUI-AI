@@ -78,7 +78,11 @@ async def test_resume_run_from_checkpoint_threads_permission_mode(
         captured.update(kwargs)
 
         class _FakeLoop:
-            async def resume_from_checkpoint(self, checkpoint_id: str) -> Any:
+            # 跨进程续跑(2026-11):resume_from_checkpoint 新增 resume_confirmations
+            # (崩溃轮的按调用处置);本用例只钉权限档贯通,替身按真实签名收下即可。
+            async def resume_from_checkpoint(
+                self, checkpoint_id: str, resume_confirmations: Any = None
+            ) -> Any:
                 captured["resumed_checkpoint_id"] = checkpoint_id
                 return _stub_loop_result()
 

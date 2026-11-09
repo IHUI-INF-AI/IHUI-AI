@@ -90,6 +90,12 @@ def _make_loop(monkeypatch: pytest.MonkeyPatch, events: _FakeEvents) -> AgentLoo
     # 本夹具绕过 __init__ 手搭实例(V3 #53 同款滞后),须逐字同值补上;
     # 补 None 只复刻"未携带双轴"的真实构造默认,不洗任何判定。
     loop._axis_resolution = None
+    # 跨进程续跑回执(2026-11 批次):__init__ 挂 _tool_attempts / _resume_receipts_active;
+    # _execute_single 无条件登记尝试序号、_resume_note_intent 与 _resume_settle_completed
+    # 先读 active 开关。本夹具绕过 __init__ 手搭实例(V3 #53 同款滞后),须补上这两项;
+    # active=False 与"纯内存 manager ⇒ 回执关闭"的真实构造默认同值,判定语义不变。
+    loop._tool_attempts = {}
+    loop._resume_receipts_active = False
     # G-998120 轮次负向面:空 frozenset = 本轮无 turn-scoped 禁用,与 __init__ 对
     # 非 automation 轮的默认逐字同值。HEAD 面尚未读该属性(置空不介入任何判定),
     # 在飞的 turn-scoped denylist 版本会读它 —— 两种面下本夹具结论同一。
