@@ -71,7 +71,7 @@ function mkRepo() {
   return dir
 }
 
-function reset(dir) {
+function _reset(dir) {
   git(dir, ['reset', '--hard', '-q', 'HEAD'])
   git(dir, ['clean', '-fdq'])
 }
