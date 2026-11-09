@@ -72,7 +72,13 @@ def sink(monkeypatch):
 
 
 def _wire_rag(monkeypatch, service: RAGService, *, sources: list[Any], answer: str = "答复") -> None:
-    async def fake_retrieve(query: str, top_k: int = 5, session_id: Any = None, stats: Any = None):
+    async def fake_retrieve(
+        query: str,
+        top_k: int = 5,
+        session_id: Any = None,
+        stats: Any = None,
+        user_id: Any = None,
+    ):
         if stats is not None:
             stats["mode"] = "rrf-fusion"
         return list(sources)

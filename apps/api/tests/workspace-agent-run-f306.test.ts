@@ -30,8 +30,7 @@ const { mockAiServiceSystemFetch } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/utils/ai-service-fetch.js', async () => {
-  const actual =
-    await vi.importActual<Record<string, unknown>>('../src/utils/ai-service-fetch.js')
+  const actual = await vi.importActual<Record<string, unknown>>('../src/utils/ai-service-fetch.js')
   return {
     ...actual,
     aiServiceSystemFetch: (...args: unknown[]) => mockAiServiceSystemFetch(...args),
@@ -91,15 +90,17 @@ describe('F-306 Workspace agent/run 不再伪成功', () => {
 
     const task = await agentLoop.run({ goal: '修复登录页', tools: ['read_file'] })
 
-    expect(mockAiServiceSystemFetch).toHaveBeenCalledWith(
-      '/api/llm/complete',
-      expect.anything(),
-    )
+    expect(mockAiServiceSystemFetch).toHaveBeenCalledWith('/api/llm/complete', expect.anything())
     expect(task.status).toBe('failed')
     expect(task.result).not.toContain('第 1 轮思考')
-    const llmStep = task.steps.find((step) => step.type === 'llm')
-    expect(llmStep?.content).not.toContain('Agent 第 1 轮思考')
-    expect(llmStep?.content).toContain('/api/llm/complete')
+    // F-306:上游失败只落 task.error,steps/result 不产出 LLM 轨迹 —— 否则消费方会把
+    // 「[LLM 调用失败] …」当成一条正常产出(伪成功)。因此这里断言无 llm 步骤,
+    // 端点与状态信息改由 task.error 承载。
+    expect(task.result).toBe('')
+    expect(task.steps.some((step) => step.type === 'llm')).toBe(false)
+    expect(task.error).toContain('ai-service /api/llm/complete')
+    expect(task.error).toContain('404')
+    expect(JSON.stringify(task.steps)).not.toContain('第 1 轮思考')
   })
 
   it('正向对照:真实 200 内容原样落到 task.result', async () => {

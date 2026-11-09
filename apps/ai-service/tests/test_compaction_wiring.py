@@ -7,7 +7,8 @@
 覆盖:quality 字段增量携带 / 低保留率 auto_degrade(保守 keep_recent 重压)/
 开关关闭时契约不变 / gate EMA 记录。夹具说明:
 - 每条消息为长中文文本(结构化摘要按行截断,长文本才有真实压缩收益);
-- 硬事实(配置路径)只出现在 head 段(尾部 keep_recent 条不含),保证保留率可控;
+- 硬事实(配置路径)只出现在 head 中段(既不在 task_anchor 首轮、也不在尾部
+  keep_recent 条),保证保留率可控;
 - 全程 mock LLM,不打真网。
 """
 
@@ -34,14 +35,17 @@ _LIMIT = 20000
 
 
 def _msgs(n: int = _N, *, head_secret: bool = True) -> list[dict[str, Any]]:
-    """n 条长消息;head_secret 时仅头部段含硬事实。
+    """n 条长消息;head_secret 时仅"可被摘要吞掉的 head 中段"含硬事实。
 
-    事实区间取 i < n-16:即使降级重压把尾部保留扩到 keep_recent+bonus(10 条),
-    尾部也绝不触及事实 → 低保留率场景可控。
+    事实区间取 0 < i < n-16:
+    - i == 0 是 head 的第一个 user 组 ⇒ 批次 4 的 task_anchor,会**原样**保留,
+      事实落在锚点里就永远"保留率=1",低保留率场景根本造不出来(本票吃过这一枪);
+    - i >= n-16 留给尾部 keep_recent(+降级 bonus),同样不碰事实。
+    中间的组才是摘要真正会覆盖、会丢事实的区间。
     """
     out: list[dict[str, Any]] = []
     for i in range(n):
-        in_head = head_secret and i < n - 16
+        in_head = head_secret and 0 < i < n - 16
         fact = f"另有备注:{_SECRET}。" if in_head else ""
         out.append({"role": "user", "content": f"{_FILLER}{fact}"})
     return out

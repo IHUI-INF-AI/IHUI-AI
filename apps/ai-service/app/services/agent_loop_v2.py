@@ -2411,7 +2411,7 @@ def bound_tool_result_for_context(
                 "output_truncated_on_disk": bool(artifact.get("truncatedOnDisk")),
             }
             note = (
-                f"\n…[输出过长,已落盘:共 {artifact.get('chars')} 字符;"
+                f"\n…[已截断:输出过长,已落盘共 {artifact.get('chars')} 字符;"
                 f"用 read_tool_output(artifact_id=\"{artifact.get('artifactId')}\", "
                 f"offset={offset}) 续读]\n"
                 + json.dumps(status, ensure_ascii=False)

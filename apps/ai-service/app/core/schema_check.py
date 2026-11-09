@@ -70,6 +70,19 @@ KNOWN_NON_DRIZZLE_TABLES: frozenset[str] = frozenset({
     "keepalive_events",
 })
 
+# 运行期懒建表(建表 DDL 写在 service 里,`CREATE TABLE IF NOT EXISTS`,首次用到才建)。
+# 这类表在「迁移后、服务未启动」的库里必然不存在,因此不能按「DB 缺失」判红 ——
+# 那是设计使然,不是漂移;字段校验在表建好后照常生效。
+# 自建源:
+#   sag2_chunks / sag2_documents            -> app/services/sag2_lexical/pg_store.py
+#   sag2_lexical_chunks / sag2_lexical_docs -> app/services/sag2_lexical/pg_store.py
+LAZY_SELF_CREATED_TABLES: frozenset[str] = frozenset({
+    "sag2_chunks",
+    "sag2_documents",
+    "sag2_lexical_chunks",
+    "sag2_lexical_docs",
+})
+
 # packages/database/src/schema 目录(用于解析 TS schema)
 # 从 apps/ai-service/app/core/ 回溯到 monorepo 根,再进入 packages/database
 # 容器部署时 ai-service 镜像只 COPY app/,没有 monorepo 完整结构,parents[4] 会 IndexError
@@ -667,16 +680,21 @@ async def check_schema(
                 actual = await fetch_actual_columns(conn, table)
 
                 if not actual:
-                    table_results[table] = {
+                    entry: dict[str, Any] = {
                         "exists": False,
                         "in_ts_schema": table in ts_table_names,
                         "missing": [],
                         "extra": [],
                         "mismatched": {},
                         "critical_missing": [],
-                        "error": f"table {table} not found in database",
                     }
-                    any_error = True
+                    if table in LAZY_SELF_CREATED_TABLES:
+                        # 懒建表:迁移后未启动服务时本就不存在,不算漂移
+                        entry["lazy_self_created"] = True
+                    else:
+                        entry["error"] = f"table {table} not found in database"
+                        any_error = True
+                    table_results[table] = entry
                     continue
 
                 # 从 TS 源码解析期望字段,降级到硬编码 fallback
@@ -760,7 +778,12 @@ def log_report(result: dict[str, Any]) -> None:
 
     for table, info in tables.items():
         if not info.get("exists", False):
-            if info.get("in_ts_schema"):
+            if table in LAZY_SELF_CREATED_TABLES:
+                logger.info(
+                    "[schema_check] %s: 运行期懒建表(首次使用时由 service 原生 SQL 自建),跳过存在性判定",
+                    table,
+                )
+            elif info.get("in_ts_schema"):
                 logger.error("[schema_check] %s: 表不存在(DB 缺失,TS schema 有定义) — 需补建 migration", table)
             else:
                 logger.error("[schema_check] %s: 表不存在(DB 缺失,TS schema 也无定义) — 数据孤岛", table)

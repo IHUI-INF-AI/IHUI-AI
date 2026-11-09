@@ -33,7 +33,7 @@ const { mockAuthenticate, mockLogAction, state } = vi.hoisted(() => ({
 }))
 
 vi.mock('../src/db/index.js', async () => {
-  const { PgDialect } = await vi.importActual<typeof import('drizzle-orm/pg-core')>(
+  const { PgDialect } = await vi.importActual<{ PgDialect: typeof PgDialect }>(
     'drizzle-orm/pg-core',
   )
   const dialect = new PgDialect()
@@ -178,7 +178,10 @@ for (const ep of ENDPOINTS) {
       asAnonymous()
       const app = await buildApp()
       try {
-        const res = await app.inject({ method: 'POST', url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}` })
+        const res = await app.inject({
+          method: 'POST',
+          url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}`,
+        })
         expect(res.statusCode).toBe(401)
         expect(state.updateCalls).toBe(0)
         expect(mockLogAction).not.toHaveBeenCalled()
@@ -191,7 +194,10 @@ for (const ep of ENDPOINTS) {
       asRegularUser()
       const app = await buildApp()
       try {
-        const res = await app.inject({ method: 'POST', url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}` })
+        const res = await app.inject({
+          method: 'POST',
+          url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}`,
+        })
         expect(res.statusCode).toBe(403)
         expect(res.json().code).toBe(403)
         expect(state.updateCalls).toBe(0)
@@ -206,7 +212,10 @@ for (const ep of ENDPOINTS) {
       state.userRow = makeUser(0)
       const app = await buildApp()
       try {
-        const res = await app.inject({ method: 'POST', url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}` })
+        const res = await app.inject({
+          method: 'POST',
+          url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}`,
+        })
         expect(res.statusCode).toBe(200)
         const body = res.json()
         expect(body.code).toBe(0)
@@ -232,7 +241,10 @@ for (const ep of ENDPOINTS) {
       state.userRow = makeUser(2)
       const app = await buildApp()
       try {
-        const res = await app.inject({ method: 'POST', url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}` })
+        const res = await app.inject({
+          method: 'POST',
+          url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}`,
+        })
         expect(res.statusCode).toBe(409)
         const body = res.json()
         expect(body.code).toBe(409)
@@ -249,7 +261,10 @@ for (const ep of ENDPOINTS) {
       state.userRow = makeUser(3)
       const app = await buildApp()
       try {
-        const res = await app.inject({ method: 'POST', url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}` })
+        const res = await app.inject({
+          method: 'POST',
+          url: `${PREFIX}/admin/users/${TARGET_ID}/${ep.path}`,
+        })
         expect(res.statusCode).toBe(409)
         expect(state.userRow?.status).toBe(3)
         expect(mockLogAction).not.toHaveBeenCalled()
@@ -263,7 +278,10 @@ for (const ep of ENDPOINTS) {
       state.userRow = makeUser(2)
       const app = await buildApp()
       try {
-        const res = await app.inject({ method: 'POST', url: `${PREFIX}/admin/users/not-a-uuid/${ep.path}` })
+        const res = await app.inject({
+          method: 'POST',
+          url: `${PREFIX}/admin/users/not-a-uuid/${ep.path}`,
+        })
         expect(res.statusCode).toBe(400)
         expect(res.json().code).toBe(400)
         expect(state.updateCalls).toBe(0)
@@ -279,7 +297,10 @@ for (const ep of ENDPOINTS) {
       state.userRow = null
       const app = await buildApp()
       try {
-        const res = await app.inject({ method: 'POST', url: `${PREFIX}/admin/users/${MISSING_ID}/${ep.path}` })
+        const res = await app.inject({
+          method: 'POST',
+          url: `${PREFIX}/admin/users/${MISSING_ID}/${ep.path}`,
+        })
         expect(res.statusCode).toBe(404)
         expect(res.json().code).toBe(404)
         expect(mockLogAction).not.toHaveBeenCalled()
