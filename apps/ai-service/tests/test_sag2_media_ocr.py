@@ -100,6 +100,41 @@ def test_asr_探测只报事实(tmp_path) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _disable_rapidocr(monkeypatch) -> None:
+    """把 rapidocr 从候选引擎里摘掉，单独验证 tesseract 路径。
+
+    本机若真装了 rapidocr，它会抢在 tesseract 前面 —— 那时断言的就变成
+    rapidocr 的行为，tesseract 分支永远测不到。所以这里显式隔离。
+    """
+    monkeypatch.setitem(sys.modules, "rapidocr_onnxruntime", None)
+    monkeypatch.setattr(ocr_text, "_rapid_engine", None)
+
+
+class _FakeRapidOCR:
+    """模仿 ``rapidocr_onnxruntime.RapidOCR`` 的返回结构：``[[box, text, score], ...]``。"""
+
+    def __init__(self, rows: list | None = None, error: Exception | None = None) -> None:
+        self.rows = rows
+        self.error = error
+        self.calls = 0
+
+    def __call__(self, image):  # noqa: ANN001, ANN204 - 与真实签名同形
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return self.rows, [0.01]
+
+
+def _install_rapidocr(monkeypatch, engine: _FakeRapidOCR) -> None:
+    """注入假 rapidocr 模块并把单例指向它。"""
+    import types
+
+    module = types.ModuleType("rapidocr_onnxruntime")
+    module.RapidOCR = lambda: engine  # noqa: ARG005 - 构造签名带参也不影响
+    monkeypatch.setitem(sys.modules, "rapidocr_onnxruntime", module)
+    monkeypatch.setattr(ocr_text, "_rapid_engine", None)
+
+
 class _FakeTesseract:
     class pytesseract:  # noqa: N801 - 模仿真实模块的属性布局
         tesseract_cmd = "/usr/bin/tesseract"
@@ -130,15 +165,17 @@ def test_非图片后缀不做OCR(tmp_path) -> None:
 def test_缺pytesseract时具名缺件(tmp_path, monkeypatch) -> None:
     target = tmp_path / "截图.png"
     target.write_bytes(b"\x89PNG\r\n\x1a\n")
+    _disable_rapidocr(monkeypatch)
     monkeypatch.setitem(sys.modules, "pytesseract", None)
     text, parser, reason = ocr_text.ocr_image(str(target))
     assert (text, parser) == (None, "none")
-    assert reason == "missing-dep:pytesseract"
+    assert "missing-dep:pytesseract" in reason
 
 
 def test_真识别路径_引擎返回文本即采用(tmp_path, monkeypatch) -> None:
     target = tmp_path / "发票.png"
     target.write_bytes(b"\x89PNG\r\n\x1a\n")
+    _disable_rapidocr(monkeypatch)
     fake = _FakeTesseract("发票号 12345 金额 2000 元")
     monkeypatch.setitem(sys.modules, "pytesseract", fake)
     text, parser, reason = ocr_text.ocr_image(str(target))
@@ -151,19 +188,22 @@ def test_真识别路径_引擎返回文本即采用(tmp_path, monkeypatch) -> N
 def test_识别结果过短判为empty而不是当正文(tmp_path, monkeypatch) -> None:
     target = tmp_path / "噪声.png"
     target.write_bytes(b"\x89PNG\r\n\x1a\n")
+    _disable_rapidocr(monkeypatch)
     monkeypatch.setitem(sys.modules, "pytesseract", _FakeTesseract("   "))
     text, parser, reason = ocr_text.ocr_image(str(target))
-    assert (text, parser, reason) == (None, "none", "empty")
+    assert (text, parser) == (None, "none")
+    assert "empty" in reason
 
 
 def test_缺tesseract二进制时具名缺件(tmp_path, monkeypatch) -> None:
     target = tmp_path / "图.png"
     target.write_bytes(b"\x89PNG\r\n\x1a\n")
     err = RuntimeError("tesseract is not installed or it's not in your PATH")
+    _disable_rapidocr(monkeypatch)
     monkeypatch.setitem(sys.modules, "pytesseract", _FakeTesseract(error=err))
     text, _parser, reason = ocr_text.ocr_image(str(target))
     assert text is None
-    assert reason == "missing-binary:tesseract"
+    assert "missing-binary:tesseract" in reason
 
 
 def test_缺中文语言包时回落英文并写明回落事实(tmp_path, monkeypatch) -> None:
@@ -177,6 +217,7 @@ def test_缺中文语言包时回落英文并写明回落事实(tmp_path, monkey
                 raise RuntimeError("Failed loading language 'chi_sim'")
             return "invoice number 12345 amount 2000"
 
+    _disable_rapidocr(monkeypatch)
     fake = _Fallback()
     monkeypatch.setitem(sys.modules, "pytesseract", fake)
     text, parser, reason = ocr_text.ocr_image(str(target))
@@ -186,17 +227,23 @@ def test_缺中文语言包时回落英文并写明回落事实(tmp_path, monkey
     assert fake.calls == ["chi_sim+eng", "eng"]
 
 
-def test_扫描版PDF如实报缺栅格化器() -> None:
+def test_扫描版PDF_缺引擎时报no_ocr_engine(monkeypatch) -> None:
+    """栅格化器（pdfium）已在依赖面内；缺的是 OCR 引擎，原因必须说这一句。"""
+    _disable_rapidocr(monkeypatch)
+    monkeypatch.setitem(sys.modules, "pytesseract", None)
     text, parser, reason = ocr_text.ocr_pdf("whatever.pdf")
     assert text is None and parser == "none"
-    assert reason.startswith("needs-rasterizer:pdf")
+    assert reason == "no-ocr-engine"
 
 
 def test_ocr_探测字段齐备() -> None:
     info = ocr_text.ocr_available()
-    assert info["engine"] == "tesseract"
     assert ".png" in info["image_suffixes"]
-    assert info["pdf_rasterizer"] == "unavailable"
+    # 栅格化器已是 pdfium（pypdfium2 在依赖面内），不再是「不可用」
+    assert info["pdf_rasterizer"] == "pdfium"
+    assert isinstance(info["engines"], list)
+    assert info["engine"] == (info["engines"][0] if info["engines"] else "none")
+    assert info["installed"] is bool(info["engines"])
 
 
 # ---------------------------------------------------------------------------
@@ -207,10 +254,11 @@ def test_ocr_探测字段齐备() -> None:
 def test_extract_text_图片走OCR_缺件原因逐字保留(tmp_path, monkeypatch) -> None:
     target = tmp_path / "证据.png"
     target.write_bytes(b"\x89PNG\r\n\x1a\n")
+    _disable_rapidocr(monkeypatch)
     monkeypatch.setitem(sys.modules, "pytesseract", None)
     text, parser, reason = fi.extract_text(str(target))
     assert (text, parser) == (None, "none")
-    assert reason == "missing-dep:pytesseract"
+    assert "missing-dep:pytesseract" in reason
 
 
 def test_extract_text_音视频走转写(tmp_path, monkeypatch) -> None:

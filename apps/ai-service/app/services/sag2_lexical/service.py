@@ -34,6 +34,7 @@ from .judge import JUDGE_MODEL_ENV, attach_gateway, resolve_judge_from_settings
 from .media_text import asr_available
 from .metrics import judge_metrics
 from .ocr_text import ocr_available
+from .pdf_raster import rasterizer_status
 from .pg_persistence import PgDocumentStore
 from .retrieval import (
     Sag2Options,
@@ -414,6 +415,9 @@ class Sag2LexicalService:
         data["extractors"] = {
             "asr": asr_available(),
             "ocr": ocr_available(),
+            # 扫描件要先栅格化才能 OCR：这一项说明栅格化器在不在位，
+            # 与「OCR 引擎在不在位」是两件事，缺哪个报哪个。
+            "pdf_rasterizer": rasterizer_status(),
         }
         # 语料对照的规模直接由桥对象缓存读出（索引版本变化才重建，此处是 O(1)）。
         return data

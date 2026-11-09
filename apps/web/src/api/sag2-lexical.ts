@@ -14,6 +14,14 @@
 
 import { apiOrThrow } from '@/lib/api'
 
+/** 单个抽取能力的探测结果（后端如实上报，不做美化）。 */
+export interface Sag2ExtractorProbe {
+  engine: string
+  installed: boolean
+  /** 不可用时的具名原因：missing-dep:* / missing-binary:* / no-ocr-engine ... */
+  reason?: string
+}
+
 export interface Sag2Status {
   version: number
   documents: number
@@ -23,6 +31,24 @@ export interface Sag2Status {
   ready: boolean
   backend: string
   judge_provider: string
+  /**
+   * 各类文件的抽取能力。`pdf_rasterizer` 与 `ocr` 是**两件事**：
+   * 扫描件要先把页渲成位图（栅格化），再交给 OCR 引擎识别；缺哪个报哪个。
+   */
+  extractors?: {
+    asr?: Sag2ExtractorProbe & { model_dir?: string; suffixes?: string[] }
+    ocr?: Sag2ExtractorProbe & {
+      engines?: string[]
+      pdf_rasterizer?: string
+      min_score?: number
+      max_pages?: number
+    }
+    pdf_rasterizer?: Sag2ExtractorProbe & {
+      version?: string
+      max_pages?: number
+      max_dpi?: number
+    }
+  }
 }
 
 export interface Sag2Citation {

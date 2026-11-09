@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Callable
+from functools import lru_cache
 
 # 字母/数字连续段；[^\W_] 等价于 \p{L}\p{N}（不含下划线），跨语言可用。
 _WORD_RE = re.compile(r"[^\W_]+", re.UNICODE)
@@ -81,9 +82,24 @@ def casefold_tokens(text: str) -> list[str]:
     return tokens
 
 
+@lru_cache(maxsize=4096)
+def cached_tokens(text: str) -> tuple[str, ...]:
+    """切词结果的不可变缓存（热路径用）。
+
+    证据判断会对**同一段内容**反复问「它的词元是什么」，扩展词挖掘还会
+    对同一个句子连切两遍（一遍挖掉人名、一遍原句），而切词是纯函数
+    （NFKD + casefold + 逐字符扫）。20k 篇实测：不缓存时 ``casefold_tokens``
+    占检索耗时一半以上。
+
+    返回 tuple 而不是 list：调用方要么只读，要么显式 ``list(...)`` 拷贝，
+    这样缓存不会被谁就地 ``append`` 弄脏。
+    """
+    return tuple(casefold_tokens(text))
+
+
 def token_set(text: str) -> set[str]:
     """去重词元集合（IDF/上下文统计用）。"""
-    return set(casefold_tokens(text))
+    return set(cached_tokens(text))
 
 
 def split_sentences(text: str) -> list[str]:

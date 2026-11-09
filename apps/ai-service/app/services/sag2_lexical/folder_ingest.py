@@ -39,7 +39,8 @@ from ..codebase_indexer import _IGNORED_DIRS as IGNORED_DIRS
 from .fs_watch import DirWatcher
 from .index import sha256_text
 from .media_text import MEDIA_SUFFIXES, transcribe_media
-from .ocr_text import IMAGE_SUFFIXES, ocr_image
+from .ocr_text import IMAGE_SUFFIXES, ocr_image, ocr_pdf
+from .pdf_raster import extract_text_pdfium
 from .pdf_text import extract_pdf_text
 from .service import Sag2LexicalService
 
@@ -322,19 +323,74 @@ def _pdf_text(path: str) -> str:
     return "\n".join(pages)
 
 
-def _pdf_fail_reason(pdf_reason: str) -> str:
-    """PDF 抽取失败的最终原因。
+def _pdf_fail_reason(chain: list[str]) -> str:
+    """PDF 四级抽取链全部失败时的最终原因。
 
-    「没有文本层」几乎就是扫描件，需要 OCR 才能读；而 OCR 要把页栅格化
-    （pymupdf/poppler），这两个不在本仓依赖面内 ⇒ 如实带上 ``needs-ocr:pdf``
-    标记，让上层能统计「这批文件读不到」，而不是当它不存在。
+    「每一级为什么失败」逐条保留（自研 → pdfium → pdfplumber → 栅格化 OCR），
+    不做归并：只有看到 ``no-text-layer`` 才知道该去 OCR，只有看到
+    ``encrypted`` 才知道 OCR 也没用（得先要密码）。
+
+    若整条链都停在「没有文本层」，追加 ``needs-ocr:pdf`` 标记，让上层能统计
+    「这批文件读不到」而不是当它不存在。
     """
-    detail = pdf_reason or "empty"
+    detail = ";".join(part for part in chain if part) or "empty"
     if "needs-ocr" in detail:
         return detail
-    if detail.startswith(("no-text-layer", "garbled")):
-        return f"{detail};needs-ocr:pdf"
-    return detail
+    scanned = any(
+        marker in part
+        for part in chain
+        for marker in ("no-text-layer", "garbled", "cid-unsupported")
+    )
+    if not scanned:
+        # 加密/打不开的文件不是「需要 OCR」，是要密码或换文件 —— 别给错指引。
+        return detail
+    return f"{detail};needs-ocr:pdf"
+
+
+def _extract_pdf(path: str) -> tuple[str | None, str, str]:
+    """PDF 四级抽取链，每一级失败原因都留痕。
+
+    1. **零依赖自研**（``pdf_text``）：覆盖无加密、非对象流的常见 PDF，最快；
+    2. **pdfium**（``pdf_raster``）：覆盖对象流/ xref 流（PDF 1.5+ 常见）与
+       「加密但空用户密码」的公文 —— 这两类自研解析器读不到；
+    3. **pdfplumber**：前两级都抽空时的通用兜底（版面感知，慢但稳）；
+    4. **栅格化 + OCR**：前三层都判定「没有文本层」⇒ 这是扫描件，用 pdfium
+       把页渲成位图再交给 OCR 引擎。
+
+    任何一级成功即返回，并把该级的附注（截断/部分页/回落语言）原样带出；
+    全链失败时给出一条能直接读懂「下一步该做什么」的原因串。
+    """
+    chain: list[str] = []
+
+    builtin, reason = extract_pdf_text(path)
+    if builtin is not None and builtin.strip():
+        return builtin, "pdf-builtin", ""
+    chain.append(f"builtin:{reason or 'empty'}")
+
+    pdfium_text, pdfium_reason = extract_text_pdfium(path)
+    if pdfium_text is not None and pdfium_text.strip():
+        # 附注（truncated:N/Mpages）在 reason 里带给上层，不悄悄截断。
+        return pdfium_text, "pdf-pdfium", pdfium_reason
+    chain.append(f"pdfium:{pdfium_reason or 'empty'}")
+
+    try:
+        fallback = _pdf_text(path)
+    except ImportError:
+        chain.append("pdfplumber:not-installed")
+    except Exception as exc:  # noqa: BLE001 - 兜底失败也要报具体原因
+        chain.append(f"pdfplumber-failed:{type(exc).__name__}")
+    else:
+        if fallback.strip():
+            return fallback, "pdfplumber", ""
+        chain.append("pdfplumber:empty")
+
+    # 走到这里说明三个文本层抽取器都没拿到字：扫描件的可能性最高。
+    ocr_text_value, ocr_parser, ocr_reason = ocr_pdf(path)
+    if ocr_text_value is not None and ocr_text_value.strip():
+        return ocr_text_value, ocr_parser, ocr_reason
+    chain.append(f"ocr:{ocr_reason or 'empty'}")
+
+    return None, "none", _pdf_fail_reason(chain)
 
 
 def extract_text(path: str) -> tuple[str | None, str, str]:
@@ -368,22 +424,7 @@ def extract_text(path: str) -> tuple[str | None, str, str]:
             text = _epub_text(path)
             return (text, "epub-zipfile", "") if text.strip() else (None, "none", "empty")
         if suffix == ".pdf":
-            # 主路径：标准库自带的抽取器（零依赖）。失败原因逐字保留，
-            # 再叠加 pdfplumber 的结果或缺失说明 —— 「为什么这份 PDF 进不来」
-            # 必须能从 reason 里直接读出来，而不是笼统的 missing-dep。
-            pdf_value, pdf_reason = extract_pdf_text(path)
-            if pdf_value is not None and pdf_value.strip():
-                return pdf_value, "pdf-builtin", ""
-            detail = _pdf_fail_reason(pdf_reason)
-            try:
-                fallback = _pdf_text(path)
-            except ImportError:
-                return None, "none", f"{detail};no-fallback:pdfplumber 未安装"
-            except Exception as exc:  # noqa: BLE001 - 兜底失败也要报具体原因
-                return None, "none", f"{detail};pdfplumber-failed:{type(exc).__name__}"
-            if fallback.strip():
-                return fallback, "pdfplumber", ""
-            return None, "none", detail
+            return _extract_pdf(path)
         if suffix in IMAGE_SUFFIXES:
             return ocr_image(path)
         if suffix in MEDIA_SUFFIXES:

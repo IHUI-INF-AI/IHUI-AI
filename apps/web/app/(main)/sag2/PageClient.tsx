@@ -45,6 +45,12 @@ const FIELD_CLASS =
 const CARD_CLASS = 'flex min-h-0 flex-col rounded-lg border border-border bg-background'
 
 const META_CLASS = 'rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground'
+/**
+ * 抽取能力徽标：与普通元信息同一视觉口径，但加边框 —— 它回答的是
+ * 「这类文件到底能不能进索引」，需要和计数类信息区分开。
+ */
+const PROBE_CLASS =
+  'rounded border border-border px-1.5 py-0.5 text-xs text-muted-foreground'
 
 /** 扩展名快捷筛选：与全局检索面板同一套分组，避免两处口径不一致。 */
 type ExtFilter = 'all' | 'text' | 'office'
@@ -263,6 +269,30 @@ export default function PageClient({
         <span className={META_CLASS}>
           {t('judgeProvider')} {status?.judge_provider ?? '—'}
         </span>
+        {/* 抽取能力：栅格化与 OCR 是两件事，缺哪个报哪个（后端 原样上报，前端不改写）。 */}
+        {status?.extractors ? (
+          <>
+            <span
+              className={PROBE_CLASS}
+              title={status.extractors.pdf_rasterizer?.reason || 'pdfium'}
+            >
+              {t('extractRaster')}{' '}
+              {status.extractors.pdf_rasterizer?.installed
+                ? status.extractors.pdf_rasterizer.engine
+                : t('missing')}
+            </span>
+            <span className={PROBE_CLASS} title={status.extractors.ocr?.reason || ''}>
+              {t('extractOcr')}{' '}
+              {status.extractors.ocr?.installed
+                ? status.extractors.ocr.engine
+                : t('missing')}
+            </span>
+            <span className={PROBE_CLASS} title={status.extractors.asr?.reason || ''}>
+              {t('extractAsr')}{' '}
+              {status.extractors.asr?.installed ? 'whisper' : t('missing')}
+            </span>
+          </>
+        ) : null}
       </header>
 
       {error ? (
