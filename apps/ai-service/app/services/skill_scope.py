@@ -36,8 +36,9 @@ from __future__ import annotations
 import re
 import threading
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Callable, Sequence
+from typing import Any
 
 __all__ = [
     "DEFAULT_SKILL_SCOPE_TTL_SECONDS",

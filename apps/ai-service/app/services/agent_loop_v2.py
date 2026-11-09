@@ -166,11 +166,6 @@ from .agent_resume_semantics import (
     resolve_confirmations,
     result_digest,
 )
-from .ask_user_question import (
-    cancel_session_questions,
-    create_question,
-    wait_for_answer,
-)
 from .approval_generation_cas import (
     REASON_SNAPSHOT_MISMATCH,
     STATE_RESOLVED,
@@ -179,6 +174,11 @@ from .approval_generation_cas import (
     ApprovalSpec,
     SettlementOutcome,
     content_digest,
+)
+from .ask_user_question import (
+    cancel_session_questions,
+    create_question,
+    wait_for_answer,
 )
 from .durable_resume import (
     DURABLE_HORIZON_METADATA_KEY,
@@ -221,6 +221,9 @@ from ..core.mcp_tool_approval import (
 # A25(2026-09-26):服务端限流指示优先于本地退避曲线的唯一裁决层
 from ..core.retry_after import hint_from_error, resolve_retry_delay_s
 
+# P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
+from ..core.session_taint import TaintSource as _TaintSource
+
 # Qoder 行为对齐(2026-11-08):轮次预算提示层。默认档不变(AGENT_MAX_ITERATIONS
 # 仍是 check-doom-loop-parity 的登记基准);部署侧可用 IHUI_AGENT_MAX_ITERATIONS
 # 显式放宽。接线点只有两处:构造器归一 + 循环顶注入一次收尾提示。
@@ -230,13 +233,6 @@ from ..core.turn_budget import (
 from ..core.turn_budget import build_budget_nudge as _build_budget_nudge
 from ..core.turn_budget import resolve_turn_budget as _resolve_turn_budget
 from ..core.turn_budget import should_nudge as _should_nudge_budget
-
-# Qoder 行为对齐(2026-11-08):Skill 的 allowed-tools 是会话级**授权**(免审批),
-# 不是收窄。只在此处(审批门)消费,硬边界(角色矩阵/能力门/路径校验/沙箱)不受影响。
-from .skill_scope import scope_grants as _skill_scope_grants
-
-# P0-2 会话级污点 + 凭据保险库(2026-10-26,对标 nanoMuse Sentinel)
-from ..core.session_taint import TaintSource as _TaintSource
 from ..services.session_security import (
     args_contain_resolvable_vault as _args_contain_resolvable_vault,
 )
@@ -280,6 +276,10 @@ from .llm_budget_governor import (
 # 的免审批分支(4846 行),不是可用性判定。
 from .plan_mode import is_readonly_tool
 from .security_config import get_security_config
+
+# Qoder 行为对齐(2026-11-08):Skill 的 allowed-tools 是会话级**授权**(免审批),
+# 不是收窄。只在此处(审批门)消费,硬边界(角色矩阵/能力门/路径校验/沙箱)不受影响。
+from .skill_scope import scope_grants as _skill_scope_grants
 from .tool_input_scanner import HARD_SCAN_FLAGS
 from .tool_invocation_ledger import record_tool_invocation
 
