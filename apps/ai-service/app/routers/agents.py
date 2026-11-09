@@ -1438,6 +1438,16 @@ async def update_agent_security_config(
 # ---------------------------------------------------------------------------
 
 
+# 结算"已发生但没(再)写进去"的三态 → 409 说明。键 = `ApprovalOutcome` 的字面值
+# (与 approval_generation_cas 的 REASON_* 逐字同形):本模块对执行内核只用函数内
+# 延迟导入,故这里收字面量而不是 import 枚举成员,免得把主循环拉进模块导入期。
+_APPROVAL_CONFLICT_MESSAGES: dict[str, str] = {
+    "already_settled": "该审批已被第一次应答结算(本次未回写任何状态)",
+    "superseded": "该审批已换代/已终态,旧弹窗作废,应重新发起审批",
+    "snapshot_mismatch": "审批快照与盖章时不一致(决策对象不是当前快照)",
+}
+
+
 @router.post("/agents/approval-response")
 async def agent_approval_response(
     req: ApprovalResponseRequest,
@@ -1452,13 +1462,18 @@ async def agent_approval_response(
     O19 前的缺口:本端点零鉴权 —— 任何拿到 approval_id 的人(或盲猜)都能替他人
     批准高危工具,人工审批门形同虚设。现在决策只在**属主==当前请求者**时写入。
 
-    返回:
+    返回(与 `ApprovalOutcome` 六态一一对应,不再让"未闭环"落到 200):
       200 code=0  accepted=true  → 决策已写入,工具按决策继续/跳过
       404                        → approval_id 不存在(已超时清理或从未发起)
       403                        → 审批存在但属主不符;**以及属主为 None 的审批**
         (由非 HTTP 上下文创建,如引擎线程/直接库调用)。后者刻意不给 HTTP 侧结算:
         无法证明它属于谁,就不能让任何登录用户点头 —— 这类审批只应由其创建通道
         (agent_engine 的 approval.respond)按自己的 principal 回填。
+      409                        → 条目存在、属主也符,但**本次没有写进任何东西**:
+        `already_settled`(结算名额已被第一次应答取走)/ `superseded`(持章结算
+        被路由代锁拒:条目缺失/已终态/换代)/ `snapshot_mismatch`(代际相符但内容
+        摘要与盖章时不一致)。三者语义各异故逐码返回 `code`,不并码;写入/结算
+        语义本身一字未改 —— 本端点只是在既有只读判定上补一个诚实的 HTTP 形状。
     """
     from ..services.agent_loop_v2 import (
         ApprovalOutcome,
@@ -1481,6 +1496,16 @@ async def agent_approval_response(
     if outcome is ApprovalOutcome.FORBIDDEN:
         raise HTTPException(
             status_code=403, detail="该审批请求不属于当前用户(或无可证明的属主)"
+        )
+    # G-637 第四态 + G-816004 第五/六态的 HTTP 形状(此前 fall-through 成
+    # 200 accepted=true,状态虽未被第二次改写,回执读起来却像改写成功)。
+    # 三码各自携带原 code:它们**不是**同一个结论(superseded 要重问,
+    # snapshot_mismatch 要丢弃,already_settled 是重复点击),并码会让客户端猜。
+    conflict_message = _APPROVAL_CONFLICT_MESSAGES.get(outcome.value)
+    if conflict_message is not None:
+        raise HTTPException(
+            status_code=409,
+            detail={"code": outcome.value, "message": conflict_message},
         )
     logger.info(
         "工具审批响应: approval_id=%s decision=%s user=%s",
@@ -1512,41 +1537,46 @@ async def execute_agent(
     `_new_v2_loop` 这一份构造 —— 此前本端点**无条件**调用 V1 的 `agent_executor.run`,
     于是"同一个 agent 有两种跑法"由入口决定而不是由部署档位决定:V1 从不构造 V2,
     所以 G-161 的审批门、V3 #55 的压缩上限、V3 #65 的 checkpoint/暂停控制面在这里
-    全部缺席(上面那两条 400 拒答就是为了不把"发了≠生效"卖给调用方)。
-    V1 只保留为**显式**回退档(env `AGENT_EXECUTOR=v1|legacy|langgraph`),灰度出口
-    一字未改;响应键集逐字不变(见 `_v2_result_to_execute_payload`)。
+    全部缺席。V1 只保留为**显式**回退档(env `AGENT_EXECUTOR=v1|legacy|langgraph`),
+    灰度出口一字未改;响应键集逐字不变(见 `_v2_result_to_execute_payload`)。
+
+    本次(2026-11-09 非流式审批投递通道):审批投递通道已接进本端点 —— 带
+    `session_id` 时审批条目以 thread_id=session_id 登记,可由
+    `GET /api/agent/decisions/pending?session_id=…` 取件、
+    `POST /api/agents/approval-response` 回执。因此权限档/审批轴的 400 判据
+    收窄为**只拒"没有投递地址"的请求**(见下方 delivery_address),有地址即放行。
     """
     owned: list[str] = []
     # G-161:本端点过去走的是已弃用的单轮执行器(AgentExecutor),它从不构造 AgentLoopV2,
     # 因此权限档在此**无法生效**。此前 permission_mode 字段干脆不存在 → 被静默丢弃,
     # 客户端以为自己设了 bypassPermissions。宁可拒 400,也不允许"发了≠生效"。
-    # ⚠️ D144③ 归一后本条拒答**继续成立且理由换了**:非流式响应里没有任何通道能把
-    # 高危审批送到人面前(V2 的审批要经 SSE/hook 帧下发,再由 POST /agents/approvals
-    # 回执),所以"选了 acceptEdits/bypassPermissions 却没人能批"仍是"发了≠生效"。
-    # default 档下若真撞到高危工具,由 V2 自带的 approval_timeout(默认 60s)判**不执行**
-    # —— 失效方向是拒绝,不是放行。把审批投递通道接进本端点属另一票,不得顺手做。
+    # D144③ 归一后本端点已接上 V2 内核,拒答的判据随之从"有没有通道"收窄为
+    # **"有没有可寻址的回执地址"**:V2 的审批条目以 thread_id=session_id 登记
+    # (D193 收件箱按它收窄,`GET /api/agent/decisions/pending?session_id=…` 才取得到),
+    # 用户决策经 `POST /api/agents/approval-response` 回执。没有 session_id ⇒
+    # 审批窗口内没有任何可寻址的回执出口 ⇒ 仍是"发了≠生效",继续拒 400;有则放行。
+    # 地址判据只有一条:**strip 后非空**(空串/空白等于没给)。
     resolved_mode = _resolved_permission_mode(req.permission_mode)
-    if resolved_mode is not None and resolved_mode != "default":
+    delivery_address = (req.session_id or "").strip()
+    if resolved_mode is not None and resolved_mode != "default" and not delivery_address:
         raise HTTPException(
             status_code=400,
             detail=(
-                "permissionMode=%s 仅在 POST /agents/execute/stream 生效"
-                "(非流式端点没有审批投递通道,选了也没人能够得着)"
+                "permissionMode=%s 需要 session_id 作为审批投递地址(thread_id=session_id),"
+                "否则审批窗口内无法回执"
             )
             % resolved_mode,
         )
-    # 79 号票(2026-10-18 立):同一条拒答对双轴的**审批轴**继续成立且只针对一档 ——
-    # approval_policy=untrusted 是双轴里唯一会产出 REQUIRE_APPROVAL 的档,本端点
-    # 没有审批投递通道 ⇒ 选了它就只会撞 approval_timeout 判**不执行**,
-    # 用户在界面上只看到"工具没跑",看不出是被自己选的档卡住的(G-161 同型)。
+    # 79 号票(2026-10-18 立):双轴的**审批轴**同一条规矩,且只针对一档 ——
+    # approval_policy=untrusted 是双轴里唯一会产出 REQUIRE_APPROVAL 的档。
     # 沙箱轴**不拒**:read-only 只产出 FORBID(直接拒绝,不需要人在场),
-    # 在本端点同样成立且语义完整。失效方向一律是拒绝,不是放行。
-    if (req.approval_policy or "").strip().lower() == "untrusted":
+    # 在本端点同样成立且语义完整。缺地址时失效方向一律是拒绝,不是放行。
+    if (req.approval_policy or "").strip().lower() == "untrusted" and not delivery_address:
         raise HTTPException(
             status_code=400,
             detail=(
-                "approvalPolicy=untrusted 仅在 POST /agents/execute/stream 生效"
-                "(非流式端点没有审批投递通道,选了也没人能够得着)"
+                "approvalPolicy=untrusted 需要 session_id 作为审批投递地址(thread_id=session_id),"
+                "否则审批窗口内无法回执"
             ),
         )
     # 同一条"发了≠生效就不许发"的规矩(§8 第 3 步):独立校验闸门只接在流式端点上,
@@ -1607,6 +1637,9 @@ async def execute_agent(
             max_iterations=req.max_iterations,
             tools=req.tools,
             user_id=current_user,
+            # V3 #47 第二格:admin 专属工具的判定需要调用者角色;不传则一律按 0 处理,
+            # 管理员经 V1 回退档也永远拿不到 admin 工具(与流式分支 1613 行同源)。
+            user_role=resolve_request_role_id(request),
             repo_name=req.repo_name,
         )
         # 未显式传 session_id 时由执行器生成,补登记(此后同进程订阅者可判定属主)
