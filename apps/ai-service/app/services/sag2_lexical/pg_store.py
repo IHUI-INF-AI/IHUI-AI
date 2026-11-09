@@ -480,6 +480,14 @@ class PgTsVectorStore:
     def has_match(self, term: str) -> bool:
         return self._mirror.has_match(term)
 
+    def has_new_candidate(self, terms: Sequence[str], excluded: set[str]) -> bool:
+        """扩展词预算的「还能不能带来新段落」判定走 mirror（与 has_match 同源）。
+
+        纯内存镜像上的判定不产生 SQL,也就不存在"SQL 侧无法等价实现"的问题;
+        不代理会让 ``retrieve()`` 的鸭子类型在 PG 后端上直接 AttributeError。
+        """
+        return self._mirror.has_new_candidate(terms, excluded)
+
     def bm25_idf(self, term: str) -> float:
         return self._mirror.bm25_idf(term)
 

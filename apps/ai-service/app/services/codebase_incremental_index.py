@@ -212,11 +212,14 @@ async def index_changed_paths(
         all_chunks.extend(indexer._build_architecture_summary_chunks(all_visible))
 
     # --- 文件/符号目录:变更文件重建、删除文件摘除、未变文件沿用(2026-11-06) ---
+    # 删除失败与否都从目录里摘除:目录是「盘上有哪些文件/符号」的本地索引,
+    # 文件已经不在了就不该继续出现在目录里(否则本地检索腿会把不存在的文件当命中);
+    # 远端还有残留切片由快照面的 ``deletion_failed`` 记账重试(见 _hashes_to_commit)。
     prev_catalog = snapshot.catalog if snapshot.state in _USABLE_STATES else None
     catalog = merge_catalog(
         prev_catalog,
         changed_entries,
-        [] if deletion_failed else deleted_paths,
+        deleted_paths,
         aliases=live_aliases,
     )
     for rel in new_hashes:
