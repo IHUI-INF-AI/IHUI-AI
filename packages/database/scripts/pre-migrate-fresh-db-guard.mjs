@@ -170,6 +170,7 @@ function runMigrate(label) {
   console.log(`[fresh-db-guard] ${label} drizzle-kit migrate ...`)
   const result = spawnSync('pnpm', ['run', 'db:migrate'], {
     stdio: 'inherit',
+    windowsHide: true,
     shell: process.platform === 'win32',
   })
   if (result.error) {
