@@ -94,11 +94,10 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
   let activeByTopic = new Map<string, string>()
   let staged: BarrierFrame<TFrame>[] = []
   let bytes = 0
-  let overflow: {
-    subscriptionId: string
-    reason: 'frames' | 'bytes'
-    droppedCount: number
-  } | null = null
+  // XUI-031:溢出状态与清理必须按订阅隔离。旧实现只有一个全局 overflow + 整表 clear,
+  // 订阅 A 越界会把订阅 B 已暂存的帧一起清空(数据静默丢失),且 B 的 ACK 拿到空批。
+  // 判据源(packages/shared/src/sse/frame-ownership-barrier.ts)同形。
+  const overflowBySub = new Map<string, { reason: 'frames' | 'bytes'; droppedCount: number }>()
 
   const byteSizeOf = (frame: BarrierFrame<TFrame>): number =>
     typeof frame.byteSize === 'number' && Number.isFinite(frame.byteSize) && frame.byteSize > 0
@@ -110,21 +109,33 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
     bytes = 0
   }
 
+  /** 只清掉某订阅的暂存帧;其他订阅的批次原样保留。 */
+  const clearStagedFor = (subscriptionId: string): void => {
+    staged = staged.filter((frame) => frame.subscriptionId !== subscriptionId)
+    bytes = staged.reduce((sum, frame) => sum + byteSizeOf(frame), 0)
+  }
+
   return {
     offer(frame) {
-      if (overflow !== null && overflow.subscriptionId === frame.subscriptionId) {
+      if (overflowBySub.has(frame.subscriptionId)) {
         // 已溢出的订阅:后续帧一律拒收(整批已清,不再零星收)
         return 'overflow'
       }
       if (activeByTopic.get(frame.topic) === frame.subscriptionId) {
         return 'pass'
       }
-      // 越界判定在入队前:再收这一帧就会超上限 ⇒ 整批(含本帧)清空并标记溢出。
+      // 越界判定在入队前:再收这一帧就会超上限 ⇒ 该订阅整批(含本帧)清空并标记溢出。
       // 刻意不用"shift 头部保上限" —— 那会留下看似可激活、实际缺片的批次。
-      if (staged.length + 1 > maxFrames || bytes + byteSizeOf(frame) > maxBytes) {
-        const reason: 'frames' | 'bytes' = staged.length + 1 > maxFrames ? 'frames' : 'bytes'
-        overflow = { subscriptionId: frame.subscriptionId, reason, droppedCount: staged.length + 1 }
-        clearStaged()
+      // 上限按订阅独立计算,避免其他订阅的暂存占用把本订阅顶红。
+      const ownFrames = staged.filter((item) => item.subscriptionId === frame.subscriptionId)
+      const ownBytes = ownFrames.reduce((sum, item) => sum + byteSizeOf(item), 0)
+      if (ownFrames.length + 1 > maxFrames || ownBytes + byteSizeOf(frame) > maxBytes) {
+        const reason: 'frames' | 'bytes' = ownFrames.length + 1 > maxFrames ? 'frames' : 'bytes'
+        overflowBySub.set(frame.subscriptionId, {
+          reason,
+          droppedCount: ownFrames.length + 1,
+        })
+        clearStagedFor(frame.subscriptionId)
         return 'overflow'
       }
       staged.push(frame)
@@ -134,7 +145,8 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
 
     activate(input) {
       const { subscriptionId, topics, unsubscribe } = input
-      if (overflow !== null && overflow.subscriptionId === subscriptionId) {
+      const overflow = overflowBySub.get(subscriptionId)
+      if (overflow) {
         // 上游 :227-245:先反向退订刚拿到的 host subscription,再上抛 ——
         // 不返回"可 activate 的 ACK"。"抛错后已反向退订"由此保证。
         try {
@@ -173,13 +185,13 @@ export function createFrameOwnershipBarrier<TFrame = unknown>(options?: {
     },
 
     overflowOf(subscriptionId) {
-      return overflow !== null && overflow.subscriptionId === subscriptionId
+      return overflowBySub.has(subscriptionId)
     },
 
     reset() {
       activeByTopic = new Map()
       clearStaged()
-      overflow = null
+      overflowBySub.clear()
     },
   }
 }
