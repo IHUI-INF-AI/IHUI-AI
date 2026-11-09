@@ -1,6 +1,14 @@
 {
   "sag2Lexical": {
     "title": "SAG2 詞法多跳檢索",
+    "globalSearchTitle": "全域檢索",
+    "globalSearchPlaceholder": "搜尋本地知識庫（Ctrl/Cmd + K）",
+    "globalSearchEmpty": "沒有命中：索引裡沒有包含這些詞的檔案",
+    "globalSearchHint": "↑↓ 選擇 · Enter 開啟 · Esc 關閉",
+    "filter_all": "全部",
+    "filter_text": "文字",
+    "filter_office": "文件",
+    "fromPalette": "來自全域檢索",
     "subtitle": "零模型建庫 · 查詢時關聯 · 引用可直達原文",
     "ready": "索引就緒",
     "empty": "索引為空",

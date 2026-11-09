@@ -1,6 +1,14 @@
 {
   "sag2Lexical": {
     "title": "SAG2 어휘 멀티홉 검색",
+    "globalSearchTitle": "전역 검색",
+    "globalSearchPlaceholder": "로컬 지식베이스 검색 (Ctrl/Cmd + K)",
+    "globalSearchEmpty": "결과 없음: 이 단어를 포함한 파일이 없습니다",
+    "globalSearchHint": "↑↓ 선택 · Enter 열기 · Esc 닫기",
+    "filter_all": "전체",
+    "filter_text": "텍스트",
+    "filter_office": "문서",
+    "fromPalette": "전역 검색에서",
     "subtitle": "모델 없는 색인 · 질의 시 연관 · 원문 인용",
     "ready": "색인 준비됨",
     "empty": "색인 비어 있음",

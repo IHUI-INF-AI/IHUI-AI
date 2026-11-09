@@ -1,6 +1,14 @@
 {
   "sag2Lexical": {
     "title": "SAG2 词法多跳检索",
+    "globalSearchTitle": "全局检索",
+    "globalSearchPlaceholder": "搜索本地知识库（Ctrl/Cmd + K）",
+    "globalSearchEmpty": "没有命中：索引里没有包含这些词的文件",
+    "globalSearchHint": "↑↓ 选择 · Enter 打开 · Esc 关闭",
+    "filter_all": "全部",
+    "filter_text": "文本",
+    "filter_office": "文档",
+    "fromPalette": "来自全局检索",
     "subtitle": "零模型建库 · 查询时关联 · 引用可直达原文",
     "ready": "索引就绪",
     "empty": "索引为空",

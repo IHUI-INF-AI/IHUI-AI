@@ -103,6 +103,10 @@ class LexicalIndex:
         self._next_id = 1
         self.version = 0
         self._avgdl = 0.0
+        #: 块 id → 该块写入过的词项（删除时按此反查倒排表，不再全表扫描）。
+        self._chunk_terms: dict[int, tuple[str, ...]] = {}
+        #: ``_lengths`` 的增量总和：避免每次登记都全量求和（20k 篇上是 O(n²)）。
+        self._total_len = 0
 
     # ------------------------------------------------------------------
     # 写入 / 增量
@@ -212,6 +216,7 @@ class LexicalIndex:
         cid = chunk.chunk_id
         body_terms = casefold_tokens(chunk.content)
         self._lengths[cid] = len(body_terms) or 1
+        self._total_len += self._lengths[cid]
         weighted: dict[str, int] = {}
         for term in body_terms:
             weighted[term] = weighted.get(term, 0) + 1
@@ -222,15 +227,27 @@ class LexicalIndex:
             weighted[term] = weighted.get(term, 0) + HEADING_BOOST
         for term, count in weighted.items():
             self._postings.setdefault(term, {})[cid] = count
+        self._chunk_terms[cid] = tuple(weighted)
 
     def _remove_chunks(self, path: str) -> None:
+        """移除该文档的分块与倒排项。
+
+        只按**该文档块写过的词项**反查倒排表。旧实现是遍历整张倒排表筛
+        「已经不在 self._chunks 里的 id」——每次登记都 O(全库词项×posting)，
+        建库因此呈平方级（实测 5k 篇 124 篇/s 掉到 20k 篇 34 篇/s）。
+        """
         for cid in self._doc_chunks.pop(path, []):
             self._chunks.pop(cid, None)
-            self._lengths.pop(cid, None)
-        for posting in self._postings.values():
-            for cid in [c for c in posting if c not in self._chunks]:
+            length = self._lengths.pop(cid, 0)
+            if length:
+                self._total_len -= length
+            for term in self._chunk_terms.pop(cid, ()):
+                posting = self._postings.get(term)
+                if posting is None:
+                    continue
                 posting.pop(cid, None)
-        self._postings = {t: p for t, p in self._postings.items() if p}
+                if not posting:
+                    del self._postings[term]
 
     def remove_document(self, path: str) -> bool:
         """移除文档索引（原文件不动，对照语义）。"""
@@ -244,9 +261,8 @@ class LexicalIndex:
         return True
 
     def _refresh_avgdl(self) -> None:
-        self._avgdl = (
-            sum(self._lengths.values()) / len(self._lengths) if self._lengths else 0.0
-        )
+        # 增量维护（_index_chunk 加、_remove_chunks 减），不再全量求和。
+        self._avgdl = self._total_len / len(self._lengths) if self._lengths else 0.0
 
     # ------------------------------------------------------------------
     # 统计 / 打分
@@ -257,6 +273,87 @@ class LexicalIndex:
 
     def document_count(self) -> int:
         return len(self._doc_hashes)
+
+    def paths(self) -> list[str]:
+        """已登记文档路径（持久化对账用，确定性排序）。"""
+        return sorted(self._doc_hashes)
+
+    def snapshot_chunks(self, path: str) -> list[Chunk]:
+        """导出该文档的分块（持久化用，避免重启时重新分块）。
+
+        返回的是 ``Chunk`` 副本而非内部对象：调用方可安全序列化，
+        也不会因为后续增量重建而读到半新半旧的字段。
+        """
+        ids = self._doc_chunks.get(path, [])
+        return [
+            Chunk(
+                chunk_id=self._chunks[cid].chunk_id,
+                path=self._chunks[cid].path,
+                title=self._chunks[cid].title,
+                heading=self._chunks[cid].heading,
+                content=self._chunks[cid].content,
+                start=self._chunks[cid].start,
+                end=self._chunks[cid].end,
+                start_line=self._chunks[cid].start_line,
+                end_line=self._chunks[cid].end_line,
+                doc_hash=self._chunks[cid].doc_hash,
+            )
+            for cid in ids
+            if cid in self._chunks
+        ]
+
+    def restore_document(
+        self,
+        path: str,
+        content: str,
+        blocks: list[Chunk],
+        *,
+        doc_hash: str = "",
+    ) -> int:
+        """从持久化数据重建文档索引：**直接灌入分块，不重新分块**。
+
+        与 ``add_document`` 的分工：后者是「新内容进来」，必须切句/切块；
+        前者是「同一内容的索引被进程重启清空了」，分块边界已由上次进程决定，
+        重算只会得到同样的结果却付出一次全量分词代价（20k 文档量级上是分钟级）。
+
+        三条不变量（自我约束，避免"恢复"变成"漂移"）：
+        1. ``chunk_id`` **重新分配**：旧 id 属于上一个进程的计数器，直接沿用会撞车；
+        2. ``start/end/start_line/end_line`` 原样保留 ⇒ 重启前后 citation 逐字节一致；
+        3. ``doc_hash`` 以传入值优先（PG 里的事实），缺失才回落到内容重算，
+           保证 ``hydrate`` 的指纹校验不会因为恢复路径而失效。
+
+        返回实际灌入的块数；0 表示这份快照不可用（调用方应回落到重新分块）。
+        """
+        if not blocks:
+            return 0
+        fingerprint = doc_hash or sha256_text(content)
+        if path in self._doc_hashes:
+            self._remove_chunks(path)
+        self._doc_sources[path] = content
+        self._doc_hashes[path] = fingerprint
+        new_ids: list[int] = []
+        for block in blocks:
+            cid = self._next_id
+            self._next_id += 1
+            chunk = Chunk(
+                chunk_id=cid,
+                path=path,
+                title=block.title,
+                heading=block.heading,
+                content=block.content,
+                start=block.start,
+                end=block.end,
+                start_line=block.start_line,
+                end_line=block.end_line,
+                doc_hash=fingerprint,
+            )
+            self._chunks[cid] = chunk
+            new_ids.append(cid)
+            self._index_chunk(chunk, chunk.title, chunk.heading)
+        self._doc_chunks[path] = new_ids
+        self.version += 1
+        self._refresh_avgdl()
+        return len(new_ids)
 
     def document_hash(self, path: str) -> str:
         """该路径已入索引的正文 hash；未登记返回空串。

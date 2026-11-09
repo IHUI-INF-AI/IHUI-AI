@@ -59,6 +59,15 @@ export interface Sag2SearchItem {
   snippet: string
   bm25: number
   citation: Sag2Citation
+  /** 片段内的命中区间（字符下标，左闭右开）；highlight=false 时后端不下发。 */
+  highlights?: Array<[number, number]>
+}
+
+/** 路径级筛选（与查询词 AND 生效）。 */
+export interface Sag2SearchFilters {
+  ext?: string[]
+  prefix?: string[]
+  contains?: string
 }
 
 export interface Sag2SearchResult {
@@ -68,6 +77,7 @@ export interface Sag2SearchResult {
   total_files: number
   page: number
   per_page: number
+  filters?: Sag2SearchFilters
   items: Sag2SearchItem[]
   duration_ms: number
 }
@@ -139,6 +149,10 @@ export interface Sag2RetrieveOptions {
   max_hops?: number
   top_k?: number
   file_limit?: number | null
+  /** 跨语言术语桥（词典 + 语料括号对照）。默认开后端为 true。 */
+  cross_lingual?: boolean
+  /** 桥接候选配额，0 等于关闭桥接。 */
+  bridge_limit?: number
 }
 
 /** 单个文件落桶的具名原因（unsupported / missing-dep / binary / parse-error / too-large）。 */
@@ -183,6 +197,8 @@ export interface Sag2FolderList {
   persisted: boolean
   state_path: string
   watching: string[]
+  /** 每个根实际生效的监听模式：win32-rdc / linux-inotify / polling（后端如实上报）。 */
+  watch_modes?: Record<string, string>
 }
 
 export interface Sag2WatchOutcome {
@@ -191,6 +207,9 @@ export interface Sag2WatchOutcome {
   interval_s?: number
   stopped?: boolean
   reason?: string
+  /** 实际生效的模式；polling 表示操作系统事件不可用，已如实退化。 */
+  mode?: string
+  debounce_ms?: number
 }
 
 export interface Sag2AddFolderOutcome {
@@ -235,12 +254,70 @@ export function sag2RemoveDocument(path: string): Promise<Sag2RemoveOutcome> {
   })
 }
 
-export function sag2Search(query: string, page = 1, perPage = 20): Promise<Sag2SearchResult> {
-  return postJson<Sag2SearchResult>('/api/v1/ai/sag2/search', {
-    query,
-    page,
-    per_page: perPage,
-  })
+export interface Sag2SearchOptions {
+  filters?: Sag2SearchFilters
+  /** 不传则用后端默认（true）；显式 false 可省掉高亮计算。 */
+  highlight?: boolean
+}
+
+export function sag2Search(
+  query: string,
+  page = 1,
+  perPage = 20,
+  options: Sag2SearchOptions = {},
+): Promise<Sag2SearchResult> {
+  // 只在调用方真的给了才写进 body：既有两参调用的请求体必须逐字不变
+  // （回归测试断言了 {query,page,per_page} 的精确形状）。
+  const body: Record<string, unknown> = { query, page, per_page: perPage }
+  if (options.filters) body.filters = options.filters
+  if (options.highlight !== undefined) body.highlight = options.highlight
+  return postJson<Sag2SearchResult>('/api/v1/ai/sag2/search', body)
+}
+
+/** 跨语言桥接扩展预览（可解释性：这句查询会扩展出哪些另一种写法）。 */
+export interface Sag2BridgeTerm {
+  term: string
+  source_term: string
+  kind: string
+  score: number
+}
+
+export interface Sag2BridgeExpandResult {
+  query: string
+  candidate_keys: string[]
+  expanded: Sag2BridgeTerm[]
+  count: number
+  reason: string
+}
+
+export function sag2BridgeExpand(query: string): Promise<Sag2BridgeExpandResult> {
+  return postJson<Sag2BridgeExpandResult>('/api/v1/ai/sag2/bridge/expand', { query })
+}
+
+/** 持久化状态（重启后索引还在不在）。 */
+export interface Sag2PersistenceStatus {
+  backend: string
+  durable: boolean
+  available: boolean
+  reason: string
+  pending: number
+  saved: number
+  failed: number
+  dropped: number
+  last_error: string
+  restored_documents: number
+  restored_chunks: number
+  restoring: boolean
+  restore_error: string
+  restore_ms: number
+  schema_ready: boolean
+  pg?: { documents?: number; chunks?: number; error?: string } | null
+  memory_documents?: number
+  aligned?: boolean
+}
+
+export function sag2Persistence(): Promise<Sag2PersistenceStatus> {
+  return apiOrThrow<Sag2PersistenceStatus>('/api/v1/ai/sag2/persistence')
 }
 
 export function sag2Retrieve(

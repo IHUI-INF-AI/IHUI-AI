@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from .bridge import TermBridge
 from .diversity import diversify
 from .index import LexicalIndex, ScoredChunk
 from .judge import (
@@ -79,9 +80,14 @@ class Sag2Options:
     top_k: int = 10
     file_limit: int | None = None
     judge_pool_budget: int = 200
+    #: 跨语言桥：开启后为查询词生成另一种写法的候选（词典 + 语料括号对照）。
+    cross_lingual: bool = True
+    #: 桥接候选占用的召回配额（只在原查询候选不足时补位，不抢原排序名次）。
+    bridge_limit: int = 20
 
     def __post_init__(self) -> None:
         self.max_hops = min(max(self.max_hops, 0), MAX_HOPS)
+        self.bridge_limit = max(0, int(self.bridge_limit))
 
 
 @dataclass
@@ -100,6 +106,8 @@ class Sag2Result:
     degraded: bool = False
     version: int = 0
     duration_ms: float = 0.0
+    #: 本轮实际用上的跨语言桥接词（空列表 = 没建桥或没命中，两者都不伪装成"跨语言已生效"）。
+    bridge: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -128,6 +136,7 @@ class Sag2Result:
                 "reason": self.judge_reason,
             },
             "paths": self.paths,
+            "bridge": self.bridge,
         }
 
 
@@ -301,6 +310,7 @@ async def retrieve(
     options: Sag2Options | None = None,
     *,
     cancel: Callable[[], bool] | None = None,
+    bridge: TermBridge | None = None,
 ) -> Sag2Result:
     """SAG2 查询时多跳检索。全程不写索引，索引版本变化即返回显式状态。"""
     options = options or Sag2Options()
@@ -349,6 +359,44 @@ async def retrieve(
         if hop == 0:
             terms: list[ExpansionTerm] = []
             candidates = index.candidate_query(query_terms, options.candidate_k, seen)
+            if bridge is not None and options.cross_lingual and options.bridge_limit > 0:
+                # 跨语言桥：**只补位，不抢名次**。原查询候选按自身顺序全量在前，
+                # 桥接候选只填充到 candidate_k 的上限里；这样中文查询在英文文档上
+                # 有救（原本零召回），而中英都命中时原排序一字不动。
+                bridges = bridge.expand(query, index)
+                if bridges:
+                    reserved = min(options.bridge_limit, options.candidate_k)
+                    keep = max(0, options.candidate_k - reserved)
+                    primary = candidates[:keep] if keep else []
+                    taken = seen | {c.key for c in candidates}
+                    # 桥接词是「带空格的归一化短语」，而倒排的 posting 键是单个
+                    # token（"vector retrieval" 只存在于两个 posting 里）。直接
+                    # 拿短语查 posting 必然零命中，必须先按索引同一套规则拆词；
+                    # 用 match_query 而非 casefold_tokens：中文侧只保留 bigram，
+                    # 避免单字把全库召回。
+                    groups = [
+                        index.candidate_query(match_query(b.term), reserved, taken)
+                        for b in bridges
+                    ]
+                    extra = interleave(groups, reserved)
+                    candidates = primary + extra
+                    result.bridge = [b.to_dict() for b in bridges]
+                    _path(
+                        paths,
+                        "bridge",
+                        raw_count=len(bridges),
+                        count=len(extra),
+                        dropped=max(0, len(bridges) - len(extra)),
+                        reason="" if extra else "桥接词在索引里同样无命中",
+                        terms=[b.term for b in bridges],
+                    )
+                else:
+                    _path(
+                        paths,
+                        "bridge",
+                        status="skipped",
+                        reason="查询词无可用的跨语言对照(词典与语料均无)",
+                    )
             for candidate in candidates[:PROTECTED_INITIAL]:
                 protected[candidate.key] = candidate
         else:
