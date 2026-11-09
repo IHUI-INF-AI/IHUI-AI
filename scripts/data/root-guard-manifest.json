@@ -1,15 +1,15 @@
 {
   "$comment": "O6501 根护栏清单:改动本清单内目标须先 --unlock 再 --seal;部署环对非 0 退出 fail-closed。",
   "version": 1,
-  "sealedAt": "2026-11-09T16:16:54.258Z",
+  "sealedAt": "2026-11-09T17:04:44.460Z",
   "sealedBy": "root-guard --seal",
-  "reason": "merge: origin/main 合入 feat/hr-department 后重封根护栏清单",
+  "reason": "合并收口:AGENTS.md 补 API 端点扫描点名后重封",
   "targets": [
     {
       "id": "guardian-runner",
       "path": "scripts/guardian-runner.mjs",
       "mode": "file",
-      "sha256": "4b49cdee0f2c799309f87479b09b31ffba2e2ae38119a194ef1fb5c56e0a2cb5"
+      "sha256": "c8b997934962b13b54654aea4813ee26d7312fd3d128f6f8bea7457f428a50a4"
     },
     {
       "id": "judgement-libs",
@@ -22,49 +22,49 @@
       "path": "AGENTS.md",
       "mode": "section",
       "start": "## 0. 全局铁律",
-      "sha256": "933d5d3802d50f6388daebfd02c5db0b5bb5e7199cc38f8d5ace32340624177e"
+      "sha256": "541f86a3f77632be00f3cdfd0564fa4405af25c9d130b136094b66286da35573"
     },
     {
       "id": "git-guardian",
       "path": "scripts/git-guardian.mjs",
       "mode": "file",
-      "sha256": "aff4105489583c34bfa189ccd80fa774407006c325ec91e46b2adf0b7aec644b"
+      "sha256": "152465586c0787d3dbb82b02e3eea832beb3a6a40191a3843cbccfcf4aebc8bb"
     },
     {
       "id": "gate-scope",
       "path": "scripts/lib/gate-scope.mjs",
       "mode": "file",
-      "sha256": "34c404545d489061633f08cc0a2964d491679adb9fec32a0104e3db55680b110"
+      "sha256": "3829ff981a479c29bf33c03bdd6d9403a6b294239f575b40fc1606544d23caab"
     },
     {
       "id": "guardian-executor",
       "path": "scripts/lib/guardian-executor.mjs",
       "mode": "file",
-      "sha256": "2f1d19c964e73f42248a3fbad5de222883e8f45923c3817fdc5ea6c25dcfb807"
+      "sha256": "366f646af6323c743646ed4b13282e93d646a88245277c8bde6d59cd804d21c1"
     },
     {
       "id": "gate-failure-kind",
       "path": "scripts/lib/gate-failure-kind.mjs",
       "mode": "file",
-      "sha256": "54417b7dc571de922853788ae878bf53689ad8daa7b91d9a6467324d4a3e7b22"
+      "sha256": "c7057c8ad8f0031a094518ab46c075ffbadc69458144b38c302b90d9874817fd"
     },
     {
       "id": "land-gate-rerun",
       "path": "scripts/lib/land-gate-rerun.mjs",
       "mode": "file",
-      "sha256": "1dfdbae21b36b6973fc86f664929bffd10d887444194c0c4fb1fb953b5f09e42"
+      "sha256": "27f008049249259622e06d9b136630f0ed1fe815291cea70d49eddfd8f49081f"
     },
     {
       "id": "guardian-pushgate-cache",
       "path": "scripts/lib/guardian-pushgate-cache.mjs",
       "mode": "file",
-      "sha256": "604f3e48c9d2f61b24ae51293e49c8ce8d7a9d371ad723a06b4361c977ed93b8"
+      "sha256": "599d65090cf04ad7bd943c9089535b76b732f97f63a238a411d358d86441042a"
     },
     {
       "id": "push-attempt-triage",
       "path": "scripts/lib/push-attempt-triage.mjs",
       "mode": "file",
-      "sha256": "910878a134890d9d1076716e4521365240239fe552d3ed08afeb70c68f06a7ab"
+      "sha256": "117aeb5d61689805c630b396c00437913cfeda08e1ebb6b2c600a39989c71784"
     }
   ]
 }
