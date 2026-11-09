@@ -265,6 +265,27 @@ function poolFetch(proxyUrl: string | null | undefined): typeof fetch {
 // 模型 → 平台反查
 // =============================================================================
 
+/**
+ * 模型名 → 平台前缀兜底(2026-11-10 立,个人号池选择器需要)。
+ *
+ * 登记行(ai_model_config_models.model_id)是主路径;但个人号池的模型清单来自上游
+ * listModels 现拉,未登记进全局配置,于是用 `<平台>/<上游模型名>` 的形态表达归属
+ * (与工作台 workbuddy/qoder 的登记形态同一约定)。这里只认 RELAY_PROVIDERS 里
+ * 真实存在的平台名,绝不把任意 `<x>/<y>` 当作平台(否则渠道模型会被误吞)。
+ */
+export function providerFromModelPrefix(rawModel: string): RelayProviderCode | null {
+  const slash = rawModel.indexOf('/')
+  if (slash <= 0) return null
+  const prefix = rawModel.slice(0, slash)
+  return isRelayProviderCode(prefix) ? prefix : null
+}
+
+/** 剥掉 `<平台>/` 前缀:上游只认裸模型名(适配器自己会剥的同理,剥过就不会再命中) */
+export function stripPoolProviderPrefix(providerCode: string, rawModel: string): string {
+  const prefix = `${providerCode}/`
+  return rawModel.startsWith(prefix) ? rawModel.slice(prefix.length) : rawModel
+}
+
 async function resolvePoolProviders(
   rawModel: string,
 ): Promise<Array<{ providerCode: RelayProviderCode; configId: number }>> {
@@ -294,6 +315,12 @@ async function resolvePoolProviders(
     )
   } catch {
     providers = []
+  }
+  // 登记行没命中 → 前缀兜底。configId=0 是「无全局配置行」的既有约定(号池成功形状里同值),
+  // 计费按平台口径走,不依赖单条配置的定价倍数。
+  if (providers.length === 0) {
+    const prefixProvider = providerFromModelPrefix(rawModel)
+    if (prefixProvider) providers = [{ providerCode: prefixProvider, configId: 0 }]
   }
   // 键上限:任意客户端模型名都能进缓存,必须封顶(逐出最早插入项)
   if (!providerCache.has(rawModel) && providerCache.size >= PROVIDER_CACHE_MAX) {
@@ -1560,7 +1587,10 @@ export async function forwardToAccountPool(
       }
       // 模型别名映射 + 代理池取号(两服务内部全吞异常,不会抛)
       const alias = await resolveModelAlias(row.providerCode, rawModel)
-      const upstreamModel = alias?.upstreamModel ?? rawModel
+      // 别名优先;没别名时若模型名带本平台前缀(个人号池清单的 <平台>/<上游名> 形态)则剥前缀,
+      // 上游永远只认裸模型名。已登记为 workbuddy/xxx 且别名表能命中的模型走上面的 alias 分支。
+      const upstreamModel =
+        alias?.upstreamModel ?? stripPoolProviderPrefix(row.providerCode, rawModel)
       // 账号级并发闸:超限直接换下一候选,绝不把同一账号打满(上游风控的首要触发面)
       if (!tryAcquireAccount(row.id)) {
         lastError = `账号 ${row.name} 并发已达上限(${ACCOUNT_MAX_INFLIGHT})`

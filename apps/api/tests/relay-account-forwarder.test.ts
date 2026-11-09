@@ -141,6 +141,11 @@ import {
   __test__ as F,
   type ToolCallSlot,
 } from '../src/services/relay-account-forwarder.js'
+// 2026-11-10:个人号池模型 id 前缀判据(纯函数,无 IO)
+import {
+  providerFromModelPrefix,
+  stripPoolProviderPrefix,
+} from '../src/services/relay-account-forwarder.js'
 import {
   classifyUpstreamFailure as classifyTraeFailure,
   type FailureKind,
@@ -1267,6 +1272,59 @@ describe('F-671 上游正文阶段断连取消', () => {
       break
     }
     await vi.waitFor(() => expect(cancelled).toBe(true))
+  })
+})
+
+// =============================================================================
+// 个人号池模型 id 前缀(2026-11-10 立)
+// =============================================================================
+
+describe('providerFromModelPrefix', () => {
+  it('12 个平台前缀全部识别', () => {
+    for (const code of [
+      'trae',
+      'workbuddy',
+      'codearts',
+      'qoder',
+      'codex',
+      'opencode',
+      'minimax',
+      'zcode',
+      'loomy',
+      'doubao',
+      'lingma',
+      'grokbot',
+    ]) {
+      expect(providerFromModelPrefix(`${code}/some-model`)).toBe(code)
+    }
+  })
+
+  it('无斜杠 / 空平台名不算前缀', () => {
+    expect(providerFromModelPrefix('gpt-4o')).toBeNull()
+    expect(providerFromModelPrefix('/claude-sonnet-4')).toBeNull()
+  })
+
+  it('非平台前缀的渠道模型名不被误吞', () => {
+    expect(providerFromModelPrefix('openai/gpt-4o')).toBeNull()
+    expect(providerFromModelPrefix('anthropic/claude-sonnet-4')).toBeNull()
+    expect(providerFromModelPrefix('qoders/foo')).toBeNull()
+  })
+})
+
+describe('stripPoolProviderPrefix', () => {
+  it('剥掉本平台前缀后是裸上游模型名', () => {
+    expect(stripPoolProviderPrefix('trae', 'trae/Doubao-Seed-2.1-Turbo')).toBe(
+      'Doubao-Seed-2.1-Turbo',
+    )
+  })
+
+  it('他平台前缀 / 无前缀一律原样返回', () => {
+    expect(stripPoolProviderPrefix('trae', 'qoder/kmodel')).toBe('qoder/kmodel')
+    expect(stripPoolProviderPrefix('trae', 'Doubao-Seed-2.1-Turbo')).toBe('Doubao-Seed-2.1-Turbo')
+  })
+
+  it('按 `/` 边界判定,不做字符串截断', () => {
+    expect(stripPoolProviderPrefix('trae', 'traeX/foo')).toBe('traeX/foo')
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

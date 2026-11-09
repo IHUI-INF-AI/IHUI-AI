@@ -18,7 +18,7 @@ import { db, dbRead } from '../db/index.js'
 import { authenticate } from '../plugins/auth.js'
 import { success, error } from '../utils/response.js'
 import { RELAY_PROVIDERS, isRelayProviderCode } from '../services/relay-account-format.js'
-import { importAccounts } from '../services/relay-account-pool-service.js'
+import { importAccounts, listUserPoolModels } from '../services/relay-account-pool-service.js'
 import {
   checkinPlatformFor,
   fetchPoolStatus,
@@ -294,6 +294,26 @@ const accountPoolRoutes: FastifyPluginAsync = async (server) => {
       .from(aiRelayAccountPool)
       .where(and(eq(aiRelayAccountPool.ownerUserId, userId), isNotNull(aiRelayAccountPool.uid)))
     return reply.send(success({ total: agg?.total ?? 0, enabled: agg?.enabled ?? 0 }))
+  })
+
+  // ===== 8. GET /api/account-pool/models — 我的号池可用模型(对话选择器数据源) =====
+  // 只列**当前用户自己**的可调度账号所能承载的模型;返回的 id 原样回传 /v1/chat/completions
+  // 就能被转发器反查(登记行逐字节命中,或 <平台>/<上游模型名> 前缀兜底)。
+  // refresh=true 跳过 10 分钟上游清单缓存(用户刚在别处换了号/加了号时用)。
+  server.get('/api/account-pool/models', async (request, reply) => {
+    const userId = requireUser(request, reply)
+    if (!userId) return
+    const q = z.object({ refresh: z.enum(['true', 'false']).optional() }).safeParse(request.query)
+    if (!q.success) {
+      return reply.status(400).send(error(400, q.error.issues[0]?.message ?? '参数错误'))
+    }
+    try {
+      const list = await listUserPoolModels(userId, { refresh: q.data.refresh === 'true' })
+      return reply.send(success({ list, total: list.length }))
+    } catch (e) {
+      request.log.error(e, '[account-pool] 拉取号池模型失败')
+      return reply.status(500).send(error(500, '拉取模型清单失败'))
+    }
   })
 }
 
