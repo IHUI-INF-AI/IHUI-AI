@@ -131,14 +131,13 @@
  *  ① 三本活文档(`PROJECT_PLAN|AGENTS|README.md`,`windowFor`)走深窗口 `ANCESTOR_WINDOW_HOT = 400`
  *    (回看 ≈8 小时;实测增量成本:git log 401 枚 182–346ms + 400 条规格一次 batch-check 133ms,
  *    且只对"与 HEAD 不等"的可疑路径才付 —— 普通路径保持浅窗口,深窗口对它们是白付钱)。
- *  ② **底线**:窗口"确证用尽"(取 window+1 枚探针,拿满即窗外还有)而未命中 ⇒ 2026-10-25 起
- *    R1 这一半升级为**深档**:窗口用尽时回落全历史(实测 PROJECT_PLAN 9,465 枚祖先 0.73s、
- *    README 821 枚 —— 只比 blob oid、不读正文,成本与旧档同量级),窗外回写因此可取证并
- *    **照判红**;全历史也取不到(超时/坏对象/坏 ref)时,该路径**逐条**落 `windowLoss`
- *    (`❓ [R1 未判定]`)并继续判其余路径,整门以 **exit 2** 收口 —— 未判定既不折绿也不折红,
- *    更不因一枚坏对象把已判红的路径一起丢掉;没有 windowLoss 账本可记时照旧上抛(fail-closed)。
+ *  ② **底线**:窗口"确证用尽"(取 window+1 枚探针,拿满即窗外还有)而未命中 ⇒ 旧行为是显式点名
+ *    `❓ [R1 未判定] … 窗口不足` 并计入结论行尾注(**绝不记绿**)。2026-10-25 起 R1 这一半升级为
+ *    **深档**:窗口用尽时回落全历史(实测 PROJECT_PLAN 9,465 枚祖先 0.73s、README 821 枚 ——
+ *    只比 blob oid、不读正文,成本与旧档同量级),窗外回写因此可取证并**照判红**;
+ *    取不到全历史(超时/坏 ref)才落回"未判定",不把失败读成判过。
  *    R1r(整块通道,读祖先**正文**)**仍保持窗口** —— 全历史读正文是 GB 级 I/O,它的
- *    uncovered/报名独立成块(与预算截断分开),不得静默绿。
+ *    `❓ [R1 未判定]` 与 uncovered/报名照旧独立成块(与预算截断分开),不得静默绿。
  *    2,744 > 400 ⇒ 深窗口只压低"未判定"的频率、不可能根除 —— 这正是 ② 必须先于 ① 存在的原因。
  *  ③ **巡检档**(2026-09-30,G-806 续):扩容的前置是先量成本,而量成本的第一步是门**自己**每轮
  *    报账 —— 输出尾行固定多一行机器可 grep 的成本读数(`[成本读数] mode=… paths=… elapsed_ms=…
@@ -532,11 +531,10 @@ export function classifyWorktree(repoRoot, p) {
  * 返回 [{path, commit}] —— commit 为被写回的那个历史版本。**返回形状是外部契约**
  * (heal-worktree-tracked / check-baseline-freshness 都按数组用),G-806 不得改它。
  *
- * G-806 的 ② 底线:`windowLoss` 传数组进来 ⇒ **深档全历史取材失败**的路径被 push 成
- * `{path, window, seen, undetermined}`(逐条"未判定");深档取到全历史的路径不落这一档 ——
- * 取到了就已判过(命中判红/未命中判绿),不再冒充"窗口不足"。这一支不是判据的松紧,而是它的
- * 诚实面:没有它,"取材失败"与"真新编辑"在输出里长得一模一样(都安静地通过)。
- * 不传 windowLoss ⇒ 深档取材失败照旧上抛(整门 fail-closed),绝不静默吞。
+ * G-806 的 ② 底线:`windowLoss` 传数组进来 ⇒ 每个"与 HEAD 不等、窗口内逐字节没命中、**且窗口
+ * 已确证用尽**"的路径被 push 成 `{path, window, seen}`。这一支不是判据的松紧,而是它的诚实面:
+ * 没有它,"窗口外的陈旧回写"与"真新编辑"在输出里长得一模一样(都安静地通过)。
+ * 不传 ⇒ 返回值与改动前逐字一致(内部只是多带一枚 window+1 探针)。
  */
 export function analyze(
   repoRoot,
@@ -578,29 +576,15 @@ export function analyze(
     suspects.push({ p, cur })
   }
 
-  // 深档取材逐路径收口(2026-11-05):全历史取不到的路径不再把整轮上抛,而是落进
-  // `windowLoss`(逐条"未判定")后继续判其余路径 —— 未判定既不折绿(exit 2 收口),也不因
-  // 一枚坏对象把已经判红的路径一起丢掉。没有 windowLoss 可记时照旧上抛,保持"没账本不许吞"。
-  const ancestry = new Map()
-  const deepFailed = new Set()
-  for (const { p } of suspects) {
-    try {
-      ancestry.set(p, ancestorWindow(repoRoot, p, { deep: true }))
-    } catch (e) {
-      if (!(e instanceof Undetermined)) throw e
-      if (!windowLoss) throw e
-      deepFailed.add(p)
-      ancestry.set(p, { shas: [], truncated: true, window: windowFor(p) })
-      windowLoss.push({ path: p, window: windowFor(p), seen: 0, undetermined: firstLine(e) })
-    }
-  }
+  const ancestry = new Map(
+    suspects.map(({ p }) => [p, ancestorWindow(repoRoot, p, { deep: true })]),
+  )
   const more = []
   for (const { p } of suspects) for (const c of ancestry.get(p).shas) more.push(`${c}:${p}`)
   if (more.length) for (const [k, v] of resolveBlobs(repoRoot, more)) blobs.set(k, v)
 
   const violations = []
   for (const { p, cur } of suspects) {
-    if (deepFailed.has(p)) continue // 已在取材处逐条点名;不再重复判/重复点名
     const aw = ancestry.get(p)
     const hit = aw.shas.find((c) => blobs.get(`${c}:${p}`) === cur)
     if (hit) {
@@ -712,21 +696,7 @@ export function analyzeMerge(
   const wt = source === 'worktree' ? worktreeBlobs(repoRoot, present) : new Map()
   if (source === 'worktree' && wt.size !== present.length) return []
 
-  // 与 analyze 同一条逐路径收口:合并上下文里某路径深档取材失败也只记该路径"未判定",
-  // 不拖垮其余路径;没有 windowLoss 可记时照旧上抛(fail-closed)。
-  const ancestry = new Map()
-  const deepFailed = new Set()
-  for (const p of present) {
-    try {
-      ancestry.set(p, ancestorWindow(repoRoot, p, { deep: true }))
-    } catch (e) {
-      if (!(e instanceof Undetermined)) throw e
-      if (!windowLoss) throw e
-      deepFailed.add(p)
-      ancestry.set(p, { shas: [], truncated: true, window: windowFor(p) })
-      windowLoss.push({ path: p, window: windowFor(p), seen: 0, undetermined: firstLine(e) })
-    }
-  }
+  const ancestry = new Map(present.map((p) => [p, ancestorWindow(repoRoot, p, { deep: true })]))
   const specs = []
   for (const p of present) {
     specs.push(`:${p}`, `HEAD:${p}`, `${mergeHead}:${p}`)
@@ -741,7 +711,6 @@ export function analyzeMerge(
     const ours = blobs.get(specs[i + 1])
     const theirs = blobs.get(specs[i + 2])
     i += 3
-    if (deepFailed.has(p)) continue // 已在取材处逐条点名;不再重复判/重复点名
     const cur = source === 'index' ? blobs.get(idxSpec) : wt.get(p)
     if (!cur || !ours || !theirs) continue // 删除/取不到/一侧无此路径 → 不判
     if (ours !== theirs) continue // 两父本就不同 → 合并产出任一或融合结果都正当
@@ -1624,13 +1593,8 @@ export function renderMixedStale(ms) {
 
 /**
  * `--message` / `IHUI_COMMIT_MSG_FILE` 的解析与"陈旧信息面"守卫。
- * 顺序:显式入参 → 环境变量。
- *
- * 2026-11-04 立:第三档 `<gitdir>/COMMIT_EDITMSG` **删除**。立因:共用工作区里它是**单份**文件,
- * 并发提交时 git 会把别席的消息写进去(26bc403762 / 67ed343 实测串号);而 pre-commit 阶段
- * git 还没写本席消息(实测该文件不存在),所以这一档读到的要么是上一条残留、要么是**别席在途
- * 消息** —— 两种都不该被当成本次的理由。旧档"与 HEAD 不同文 ⇒ 采用"正好把别席消息读成自己的。
- * 要显式声明理由请用 `--message` 或 `IHUI_COMMIT_MSG_FILE`(指向本席私有文件)。
+ * 顺序:显式入参 → 环境变量 → `<gitdir>/COMMIT_EDITMSG`(**仅当它与 HEAD 的信息不同** ——
+ * 与 HEAD 逐字相同的 COMMIT_EDITMSG 是上一次提交的残留,拿它当本次理由就是"没给理由"被读成"给了理由")。
  * 磁盘读取一律经 lib 的 `readTextFileIfExists`(门体不得出现 `readFileSync` —— M-3 形状锁,
  * 它守的是"被审正文不许按盘读";这里的两个面是**人为声明的理由**,不是被审正文)。
  */
@@ -1640,21 +1604,38 @@ export function resolveCommitMessage(repoRoot, explicit = null) {
     const fromFile = readTextFileIfExists(resolve(repoRoot, v))
     return fromFile === null ? v : fromFile
   }
-  return pick(explicit ?? process.env.IHUI_COMMIT_MSG_FILE)
+  const direct = pick(explicit ?? process.env.IHUI_COMMIT_MSG_FILE)
+  if (direct !== null) return direct
+  try {
+    const text = readTextFileIfExists(join(gitDirOf(repoRoot), 'COMMIT_EDITMSG'))
+    if (typeof text !== 'string') return null
+    const head = headCommitMessage(repoRoot)
+    if (typeof head === 'string' && text.trim() === head.trim()) return null
+    return text
+  } catch {
+    return null
+  }
 }
 
 /**
- * 结论行:有未判定/未覆盖时**必须带着它**,否则账面读起来像"全部判过且干净"。
- *  G-806 ② 的 R1 侧未判定(`windowLoss`,含深档取材失败)**不**走这一行:2026-11-05 起它统一落
- *  exit 2 并只打 `❓` 汇总 —— 未判定与"通过"在账面上必须长得不一样,不以 ✅ 尾注代偿。
+ * 结论行:有未判定/未覆盖/窗口不足时**必须带着它**,否则账面读起来像"全部判过且干净"。
+ *  `r1WindowLoss` 是 G-806 ② 的那一维:R1 侧"窗口用尽而没命中"的路径数 —— 它既不是红也不许被读成绿。
  *  `r1WatermarkPass` 是 G-926 的那一维:整 blob 命中祖先、但按水印补回档放行的路径数 —— 它是**判过**的,
  *  只是结论是"放行";不写进结论行的话,一次带横幅补回的提交在账面上与"什么都没发生"同形。
  *  `r1WorktreeStock` 是 G-417② 的那一维:全量档工作树副本等于历史 blob 的路径数 —— 只报数不拦
  *  (机器状态,提交链由 --staged 面负责),但结论行必须带着它,不得读成"无历史版本回写"。
  *  `ms`(R1s,P86)是可选的混合陈旧底稿四桶:存量与形态外只报数,**未判定必须进尾注** ——
  *  否则一次"没判成"的提交在账面上读起来与"判过且干净"完全同形(§0.3)。 */
-function verdictLine(modifiedCount, rr, r1WatermarkPass = 0, r1WorktreeStock = 0, ms = null) {
+function verdictLine(
+  modifiedCount,
+  rr,
+  r1WindowLoss = 0,
+  r1WatermarkPass = 0,
+  r1WorktreeStock = 0,
+  ms = null,
+) {
   const tail = []
+  if (r1WindowLoss) tail.push(`${r1WindowLoss} 处窗口不足未判定(R1)`)
   if (r1WatermarkPass) tail.push(`${r1WatermarkPass} 处水印补回型放行(R1,见上)`)
   if (r1WorktreeStock) tail.push(`${r1WorktreeStock} 处工作树副本等于历史版本只报数(全量档)`)
   if (rr?.undetermined.length) tail.push(`${rr.undetermined.length} 处未判定`)
@@ -1957,22 +1938,17 @@ function auditInner(repoRoot, opts = {}) {
   }
   if (windowLoss.length) {
     lines.push(
-      `❓ [R1 未判定] ${windowLoss.length} 个路径本轮没有取得结论 ⇒ 不等于"没有回写",不得读成通过:`,
+      `❓ [R1 未判定] ${windowLoss.length} 个路径"窗口内没命中"但**祖先历史深于窗口** ⇒ 不等于"没有回写",不得读成通过:`,
     )
     for (const v of windowLoss.slice(0, 15))
       lines.push(
-        v.undetermined
-          ? `   - ${v.path}: 深档全历史取材失败 ⇒ 未判定(${v.undetermined})`
-          : `   - ${v.path}: 窗口 ${v.window} 枚用尽仍未逐字节命中(该路径更早的版本在窗口外,未判)`,
+        `   - ${v.path}: 窗口 ${v.window} 枚用尽仍未逐字节命中(该路径更早的版本在窗口外,未判)`,
       )
     if (windowLoss.length > 15) lines.push(`   ... 另有 ${windowLoss.length - 15} 个`)
     lines.push(
-      '   出路:人工核对该路径更早的历史版本(`git log -- <文件>`),或修好 git 取材(坏对象/坏 ref)后重跑;',
+      '   出路:人工核对该路径更早的历史版本(`git log -- <文件>`),或确认它是真新编辑后照常提交;',
     )
-    if (windowLoss.some((v) => !v.undetermined))
-      lines.push(
-        '   热档(三本活文档)已走深窗口 ANCESTOR_WINDOW_HOT,仍报这一型说明回写点深于该窗口。',
-      )
+    lines.push('   热档(三本活文档)已走深窗口 ANCESTOR_WINDOW_HOT,仍报这一型说明回写点深于该窗口。')
   }
   if (watermarkPass.length) {
     lines.push(
@@ -1991,29 +1967,32 @@ function auditInner(repoRoot, opts = {}) {
    */
   if (costMeter?.truncated.size) {
     lines.push(
-      `⚠️  [窗口截断] ${costMeter.truncated.size} 个路径的祖先清单被浅窗口上限截断(更早的版本浅窗口内未取;两条通道判别力不同,别读混):`,
-      '   R1(整 blob 通道):窗口用尽即回落全历史 ⇒ 深于窗口的回写照判红;全历史也取不到则该路径逐条落「R1 未判定」,两者都不因截断放行;',
-      '   R1r(读祖先正文通道):仍只在窗口内读祖先 ⇒ 深于窗口的那一段覆盖不到(未覆盖 ≠ 通过,不是"判过且干净")。',
+      `⚠️  [窗口截断] ${costMeter.truncated.size} 个路径的祖先清单被窗口上限截断(更早的版本本轮未取材,深于窗口的回写判不到):`,
     )
     for (const [p, w] of costMeter.truncated) lines.push(`   - ${p}: 窗口 ${w} 枚用尽`)
   }
   if (deleted.length) lines.push(...deleteWarn(deleted))
+  if (!failed)
+    lines.push(
+      verdictLine(
+        modified.length,
+        rr,
+        windowLoss.length,
+        watermarkPass.length,
+        staged ? 0 : violations.length,
+        ms,
+      ),
+    )
   // 2026-10-27 补:此前"有路径没判成"(`undetermined`)整轮仍返回 code 0 —— 结论行虽带着
   // "N 处未判定"的尾注,但**退出码是绿的**,调用方(含批量执行器)按退出码记账 ⇒ 把"没判"
   // 记成了"判过且通过",正是 §0.3 明令禁止的那一型。未判定档现在落 exit 2(既不记绿也不冒红,
   // 与真判红的 exit 1 分开),并已在上面逐条点名路径。
-  // R1(深档取材失败)/R1r/R1s 的未判定同类、同权:三桶相加,任一非零都不出合格证 ——
-  // 此时**不打 ✅ 结论行**(未判定与"通过"在账面上必须长得不一样),只打 ❓ 未判定汇总。
-  const undeterminedCount =
-    (rr?.undetermined?.length ?? 0) + (ms?.undetermined?.length ?? 0) + windowLoss.length
+  // R1s(P86)的未判定与 R1r 同类、同权:两桶相加,任一非零都不出合格证。
+  const undeterminedCount = (rr?.undetermined?.length ?? 0) + (ms?.undetermined?.length ?? 0)
   if (!failed && undeterminedCount > 0) {
     lines.push(
-      `❓ [未判定] ${undeterminedCount} 个路径没有取得结论(R1 ${windowLoss.length} 处 / R1r ${rr?.undetermined?.length ?? 0} 处 / R1s ${ms?.undetermined?.length ?? 0} 处)⇒ 本门本次不出具合格证(exit 2,` +
+      `❓ [未判定] ${undeterminedCount} 个路径没有取得结论(R1r ${rr?.undetermined?.length ?? 0} 处 / R1s ${ms?.undetermined?.length ?? 0} 处)⇒ 本门本次不出具合格证(exit 2,` +
         `不是"检查过且干净",也不是判红),上面已逐条点名`,
-    )
-  } else if (!failed) {
-    lines.push(
-      verdictLine(modified.length, rr, watermarkPass.length, staged ? 0 : violations.length, ms),
     )
   }
   return { code: failed ? 1 : undeterminedCount > 0 ? 2 : 0, lines }

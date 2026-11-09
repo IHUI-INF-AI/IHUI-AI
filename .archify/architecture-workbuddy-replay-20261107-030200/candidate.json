@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "持久会话回放",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "output": ".archify/architecture-workbuddy-replay-20261107-030200/workbuddy-replay.html"
+  },
+  "components": [
+    {
+      "id": "reader",
+      "type": "external",
+      "label": "读会话的人",
+      "sublabel": "Web 历史",
+      "pos": [40, 200],
+      "size": [140, 64]
+    },
+    {
+      "id": "history-hook",
+      "type": "frontend",
+      "label": "历史钩子",
+      "sublabel": "只转交游标",
+      "pos": [270, 196],
+      "size": [160, 72]
+    },
+    {
+      "id": "replay-planner",
+      "type": "backend",
+      "label": "回放规划",
+      "sublabel": "不重放工具",
+      "pos": [530, 180],
+      "size": [180, 96]
+    },
+    {
+      "id": "transcript",
+      "type": "database",
+      "label": "已落库转录",
+      "sublabel": "只读条目",
+      "pos": [530, 36],
+      "size": [180, 64]
+    },
+    {
+      "id": "projection",
+      "type": "frontend",
+      "label": "投影更新",
+      "sublabel": "窗口或原因",
+      "pos": [820, 196],
+      "size": [160, 72]
+    },
+    {
+      "id": "workbuddy",
+      "type": "external",
+      "label": "WorkBuddy",
+      "sublabel": "只作对照",
+      "pos": [530, 360],
+      "size": [180, 72]
+    }
+  ],
+  "connections": [
+    {
+      "id": "open-session",
+      "from": "reader",
+      "to": "history-hook",
+      "label": "打开会话"
+    },
+    {
+      "id": "hand-cursor",
+      "from": "history-hook",
+      "to": "replay-planner",
+      "label": "交游标"
+    },
+    {
+      "id": "read-items",
+      "from": "transcript",
+      "to": "replay-planner",
+      "label": "提供条目",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "emit-window",
+      "from": "replay-planner",
+      "to": "projection",
+      "label": "交出窗口"
+    },
+    {
+      "id": "observed-behavior",
+      "from": "workbuddy",
+      "to": "replay-planner",
+      "label": "对照行为",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "超过对照的四处",
+      "items": [
+        "超限单独报 history_too_large，不再和转录损坏混成一个码",
+        "回退后没有头消息时写明 reverted-without-head",
+        "插话失配时带上 messageId",
+        "回放游标在同一处拒绝 after 和未知字段"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "这轮没有搬进来",
+      "items": [
+        "不重放对方的 ACP 条目转换器",
+        "Trae 的 ContextFS 与持久命令轮询仍是后手",
+        "Qoder 主进程混淆没有做还原"
+      ]
+    }
+  ]
+}

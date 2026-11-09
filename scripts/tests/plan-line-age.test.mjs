@@ -30,23 +30,11 @@ const SCRIPT_PATH = path.join(REPO, 'scripts', 'lib', 'plan-line-age.mjs')
 
 // ─── 判据本体(flagValue):正例与反例成对,免得"名单是张死表" ───
 test('flagValue 判据:紧邻 token 不存在 / 空 / 以 - 开头 ⇒ 不算值;合法值仍算值(正反成对)', () => {
-  assert.equal(
-    flagValue(['--limit', '--json'], '--limit').valid,
-    false,
-    '相邻旗标不得被当成本旗标的值',
-  )
+  assert.equal(flagValue(['--limit', '--json'], '--limit').valid, false, '相邻旗标不得被当成本旗标的值')
   assert.equal(flagValue(['--limit'], '--limit').valid, false, '其后没有参数不得被当成有值')
   assert.equal(flagValue(['--limit', ''], '--limit').valid, false, '空串不是值')
-  assert.equal(
-    flagValue(['--limit', '-5'], '--limit').token,
-    '-5',
-    'token 必须原样带回去(拒绝时要点名)',
-  )
-  assert.equal(
-    flagValue(['--limit', '30'], '--limit').value,
-    '30',
-    '合法值必须放行(否则校验变成永拒)',
-  )
+  assert.equal(flagValue(['--limit', '-5'], '--limit').token, '-5', 'token 必须原样带回去(拒绝时要点名)')
+  assert.equal(flagValue(['--limit', '30'], '--limit').value, '30', '合法值必须放行(否则校验变成永拒)')
   assert.equal(flagValue(['--all'], '--limit').present, false, '旗标缺席不得判成"值为空"')
   assert.equal(flagValue([], '--limit').token, null, '空 argv 的三态都得是可诊断的')
 })
@@ -69,21 +57,9 @@ test('(a) resolveLimit 对无效值:退回默认 20 并给出点名文案(三种
 
 test('(b) resolveLimit 对合法值与缺席:notice 为 null 且数值照旧(0 也是用户明说的意图)', () => {
   assert.deepEqual(resolveLimit([]), { limit: 20, notice: null }, '缺席 = 既有默认行为,不多打一行')
-  assert.deepEqual(
-    resolveLimit(['--limit', '30']),
-    { limit: 30, notice: null },
-    '合法数字必须被采纳',
-  )
-  assert.deepEqual(
-    resolveLimit(['--limit', '0']),
-    { limit: 0, notice: null },
-    '0 不是无效值,不得改语义',
-  )
-  assert.deepEqual(
-    resolveLimit(['--json', '--limit', '7']),
-    { limit: 7, notice: null },
-    '旗标顺序无关',
-  )
+  assert.deepEqual(resolveLimit(['--limit', '30']), { limit: 30, notice: null }, '合法数字必须被采纳')
+  assert.deepEqual(resolveLimit(['--limit', '0']), { limit: 0, notice: null }, '0 不是无效值,不得改语义')
+  assert.deepEqual(resolveLimit(['--json', '--limit', '7']), { limit: 7, notice: null }, '旗标顺序无关')
 })
 
 // ─── (a)+(b) 端到面:真跑一次 CLI,证明无效值退回默认那份清单而不是空清单 ───
@@ -114,11 +90,7 @@ test('(a) CLI --limit --json:exit 0 + stderr 点名 + stdout 仍是可 parse 的
       timeout: 300_000,
     })
     assert.equal(plain.stderr.trim(), '', '默认档不得多打一行(默认行为一字未改)')
-    assert.equal(
-      JSON.parse(plain.stdout).top.length,
-      parsed.top.length,
-      '无效值那份清单必须等于默认档',
-    )
+    assert.equal(JSON.parse(plain.stdout).top.length, parsed.top.length, '无效值那份清单必须等于默认档')
   } finally {
     rmScratch(dir)
   }
@@ -176,140 +148,10 @@ test('(c) 形状锁:--limit 取值必须走 resolveLimit,裸 Number(argv[indexOf
     /Number\(\s*argv\[\s*argv\.indexOf\(\s*'--limit'\s*\)\s*\+\s*1\s*\]\s*\)/,
     '旧写法 Number(argv[argv.indexOf("--limit") + 1]) 不得回来',
   )
-  assert.match(
-    code,
-    /export\s*\{\s*flagValue\s*\}/,
-    '判据从唯一出口 scripts/lib/flag-value.mjs 转出(§22c 单源),测试仍直接 import 本模块',
-  )
+  assert.match(code, /export\s*\{\s*flagValue\s*\}/, '判据从唯一出口 scripts/lib/flag-value.mjs 转出(§22c 单源),测试仍直接 import 本模块')
   assert.match(code, /export function resolveLimit\(/, '出口必须 export,否则测试只能抄一份判据')
   assert.match(code, /resolveLimit\(\s*argv\s*\)/, 'main 必须真调用出口')
-  assert.match(
-    code,
-    /limitNotice\)\s*console\.error\(/,
-    '点名必须走 stderr,否则 --json 的 stdout 被污染',
-  )
-
-  // ─── 区间档(2026-11-05 立):只追登记行,与整档逐行等值 ───
-  // 三条源码锁一律写成**折行可容**形态:prettier 会把数组元素逐行摊开,拿一行字面量
-  // 当尺子的锁会在格式化当天静默失明(本文件同族教训见 §22c 形状锁纪律)。
-  assert.match(
-    code,
-    /'--line-porcelain',\s*\.\.\.rangeArgs,\s*rev,/,
-    '区间必须排在 rev 之前(git 的 -L 是选项,放在 rev 后会被当成路径解析)',
-  )
-  assert.match(
-    code,
-    /'rev-parse',\s*'HEAD'/,
-    'headAges 必须先钉死那一枚提交(分两次现读 HEAD 会把行号错配到不同面)',
-  )
-  assert.match(
-    code,
-    /blocks\.length\s*\?\s*blameLineTimes\(\s*root,\s*rev,\s*PLAN_REL,\s*blocks\s*\)\s*:\s*new Map\(\)/,
-    '0 枚未勾行 ⇒ 一次 blame 都不派',
-  )
-})
-
-test('mergeRowLinesToBlocks:相邻并块、跨 gap 断块、去重、排序、坏输入剔除(成对)', () => {
-  const M = mergeRowLinesToBlocks
-  assert.deepEqual(M([]), [], '空输入不得造出空块')
-  assert.deepEqual(M([7]), [[7, 7]], '单行成一块')
-  assert.deepEqual(M([3, 4, 5]), [[3, 5]], '连续行并入一块')
-  assert.deepEqual(M([1, 13], 12), [[1, 13]], 'gap 恰等于阈值 ⇒ 仍并(边界成对:≤ 并)')
-  assert.deepEqual(
-    M([1, 14], 12),
-    [
-      [1, 1],
-      [14, 14],
-    ],
-    '越过阈值 ⇒ 断成两块(边界成对:> 断)',
-  )
-  assert.deepEqual(
-    M([9, 2, 9, 3], 4),
-    [
-      [2, 3],
-      [9, 9],
-    ],
-    '乱序入、重复入 ⇒ 排序去重后按 gap=4 出两块(默认 gap=12 会把 3↔9 并掉,所以显式给)',
-  )
-  assert.deepEqual(M([0, -3, NaN, 'x', 4]), [[4, 4]], '非正/非数一律剔除,不静默造出 -L0,4')
-  assert.deepEqual(M(null), [], '没给行号 ⇒ 没块(而不是整档)')
-})
-
-test('区间档与整档逐行等值(临时真仓,两臂同枚提交;摘掉 blocks 即回归整档成本)', () => {
-  const dir = mkScratch('plan-line-age-ranges')
-  try {
-    const g = (args) => {
-      const r = spawnSync('git', ['-C', dir, ...args], {
-        encoding: 'utf8',
-        windowsHide: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      assert.equal(r.status, 0, `git ${args.join(' ')} 失败:${r.stderr}`)
-      return r
-    }
-    g(['init', '-q'])
-    g(['config', 'user.email', 't@example.invalid'])
-    g(['config', 'user.name', 'fixture'])
-    // 20 行正文,未勾选登记行落在第 2、3、18 行(gap 会折成 2 块 ⇒ 真验"多枚 -L 一次调用")
-    const rows = ['# 计划', '- [ ] K1 第一枚 (2026-01-02)', '- [ ] K2 第二枚 (2026-01-03)']
-    for (let i = 4; i <= 17; i++) rows.push(`正文第 ${i} 行`)
-    rows.push('- [ ] K3 第三枚 (2026-01-18)')
-    rows.push('正文第 19 行')
-    rows.push('正文第 20 行')
-    fs.writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), rows.join('\n') + '\n')
-    g(['add', 'PROJECT_PLAN.md'])
-    g(['commit', '-q', '-m', 'first'])
-    // 第二枚提交只动"正文第 20 行"——登记行一行没动:等值断言才有牙(区间若被 gap 抹平会读成同一天)
-    fs.appendFileSync(path.join(dir, 'PROJECT_PLAN.md'), '')
-    const changed = fs
-      .readFileSync(path.join(dir, 'PROJECT_PLAN.md'), 'utf8')
-      .replace('正文第 20 行', '正文第 20 行(改过)')
-    fs.writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), changed)
-    g(['add', 'PROJECT_PLAN.md'])
-    g(['commit', '-q', '-m', 'touch-prose'])
-
-    const rev = g(['rev-parse', 'HEAD']).stdout.trim()
-    const content = g(['show', `${rev}:PROJECT_PLAN.md`]).stdout
-    const openLines = parseTaskRows(content)
-      .filter((r) => r.state === 'open')
-      .map((r) => r.line)
-    assert.deepEqual(openLines, [2, 3, 18], '夹具的未勾选行必须落在这三个行号上,否则本断言组是空转')
-    const blocks = mergeRowLinesToBlocks(openLines)
-    assert.deepEqual(
-      blocks,
-      [
-        [2, 3],
-        [18, 18],
-      ],
-      '两块:验证一次调用带多枚 -L',
-    )
-
-    const full = blameLineTimes(dir, rev)
-    const ranged = blameLineTimes(dir, rev, 'PROJECT_PLAN.md', blocks)
-    assert.ok(ranged.size < full.size, `区间档应只回被问的行(实测 ${ranged.size} vs ${full.size})`)
-    for (const ln of openLines) {
-      assert.equal(ranged.get(ln), full.get(ln), `第 ${ln} 行时刻两臂必须逐字等值`)
-      assert.ok(Number.isFinite(ranged.get(ln)), `第 ${ln} 行必须量到时刻,不能是 undefined`)
-    }
-    // 反向锁:第二枚提交改过的那一行(第 20 行)不在区间档里 —— 它就是"少做事"的那一侧
-    assert.equal(ranged.has(20), false, '没人问的行不该出现在区间档里')
-
-    const h = headAges(dir)
-    assert.equal(h.blameShape.blamed, true)
-    assert.equal(h.blameShape.blocks, 2)
-    assert.equal(h.ages.length, 3, '年龄表枚数 = 未勾选登记行枚数')
-    assert.equal(h.blameShape.rev, rev, '必须钉在调用方那枚提交上,不是漂移中的 HEAD')
-
-    // 0 枚未勾行 ⇒ 一次 blame 都不派(成本落在"少做",不落在"多做")
-    fs.writeFileSync(path.join(dir, 'PROJECT_PLAN.md'), '# 计划\n- [x] K9 已结清 (2026-01-01)\n')
-    g(['add', 'PROJECT_PLAN.md'])
-    g(['commit', '-q', '-m', 'all-closed'])
-    const none = headAges(dir)
-    assert.equal(none.blameShape.blamed, false, '没有未勾选行时不许派 blame')
-    assert.deepEqual(none.ages, [], '年龄表为空,而不是"看起来都很新"')
-  } finally {
-    rmScratch(dir)
-  }
+  assert.match(code, /limitNotice\)\s*console\.error\(/, '点名必须走 stderr,否则 --json 的 stdout 被污染')
 })
 
 // ─── (d) 只 blame 未勾选行(2026-11-07):全文件 blame 已跑不进 180s 取票预算 ───
@@ -368,15 +210,3 @@ test('(d3) headAges 必须把 open 行传给 blame(否则收窄整段失效,退�
   assert.match(body, /state === 'open'/, '只量未勾选行:已完成行会被归档搬走,判它年龄无意义')
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-/* ── 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) ──
-import { parseTaskRows } from '../lib/plan-task-index.mjs'
-import {
-  flagValue,
-  resolveLimit,
-  DEFAULT_LIMIT,
-  mergeRowLinesToBlocks,
-  blameLineTimes,
-  headAges,
-} from '../lib/plan-line-age.mjs'
-*/

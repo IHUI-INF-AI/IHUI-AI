@@ -84,20 +84,14 @@ const depsOf = ({
   rc = 0,
   stdout = null,
   fails = [],
-  enabled = true,
 }) => {
-  const calls = { tagged: [], pushed: [], ledger: [], guard: 0 }
+  const calls = { tagged: [], pushed: [], ledger: [] }
   const deps = {
-    // 增长闸默认关(生产默认),这里显式打开以继续钉"能建"的正向行为;关闸的反向用例单独构造。
-    enabled,
-    runGuard: () => {
-      calls.guard += 1
-      return {
-        rc,
-        stdout: stdout ?? guardStdout({ unbacked, outOfWeek }),
-        stderr: 'fatal: fsck 判定面取不到',
-      }
-    },
+    runGuard: () => ({
+      rc,
+      stdout: stdout ?? guardStdout({ unbacked, outOfWeek }),
+      stderr: 'fatal: fsck 判定面取不到',
+    }),
     tagFace: () => ({
       names: new Set(names.keys()),
       targetOf: (n) => names.get(n) || '',
@@ -472,7 +466,6 @@ test('A13 真 git 端到端(装车证明):夹具仓里造一枚真悬空 commit 
   const r1 = AT.autotagOnce({
     root: dir,
     apply: true,
-    enabled: true,
     push: () => (tags) => (pushed.push([...tags]), { status: 'ok', detail: '' }),
     logger: () => {},
   })
@@ -499,7 +492,6 @@ test('A13 真 git 端到端(装车证明):夹具仓里造一枚真悬空 commit 
   const r2 = AT.autotagOnce({
     root: dir,
     apply: true,
-    enabled: true,
     push: () => (tags) => (pushed2.push(tags), { status: 'ok', detail: '' }),
     logger: () => {},
   })
@@ -529,52 +521,4 @@ test('A12 单轮上限:超出记 deferred 交下一轮,绝不静默截断', asyn
   assert.equal(r.deferred, 4)
   assert.equal(calls.tagged.length, 3)
 })
-
-test('A16 增长闸默认关 ⇒ 零建/零推/零留痕,且不跑门 30a(不触发 30a 的联网补拉)', () => {
-  const off = depsOf({ enabled: false, unbacked: [H1, H2] })
-  const r = AT.autotagOnce({ ...off.deps, apply: true })
-  assert.equal(r.state, 'disabled')
-  assert.equal(r.tagged, 0)
-  assert.equal(r.pushed, 0)
-  assert.equal(r.unbacked, 0, '关闸时连门 30a 都不跑 ⇒ 读数不虚构未备份枚数')
-  assert.equal(off.calls.guard, 0, '关闸时不得跑门 30a(那会 fetch 补拉远端 tag)')
-  assert.equal(off.calls.tagged.length, 0)
-  assert.equal(off.calls.pushed.length, 0)
-  assert.equal(off.calls.ledger.length, 0)
-  // 开关读数:默认关、只认显式 "1"
-  assert.equal(AT.ENABLE_ENV, 'IHUI_DANGLING_AUTOTAG_ENABLED')
-  assert.equal(AT.autotagEnabled({}), false)
-  assert.equal(AT.autotagEnabled({ [AT.ENABLE_ENV]: '0' }), false)
-  assert.equal(AT.autotagEnabled({ [AT.ENABLE_ENV]: '1' }), true)
-  // 派发层:关闸时连子进程都不派生(不烧 fsck,也不占 15 分钟节流窗)
-  let spawned = 0
-  const sw = sweepDanglingCommitAutotag({
-    enabled: false,
-    tickFile: join(mkScratch('dangling-off-'), 't.json'),
-    runner: () => (spawned++, '{}'),
-    logger: () => {},
-  })
-  assert.equal(sw.ran, false)
-  assert.equal(sw.state, 'disabled')
-  assert.equal(spawned, 0, '关闸时不得派生子进程')
-})
-
-test('A17 增长闸显式打开 ⇒ 仍能建(反向对照,证明不是把功能删了)', () => {
-  const { deps, calls } = depsOf({ unbacked: [H1] })
-  const r = AT.autotagOnce({ ...deps, apply: true })
-  assert.equal(r.state, 'tagged')
-  assert.equal(r.tagged, 1)
-  assert.equal(calls.guard, 1, '开闸时必须跑门 30a 取判据')
-  assert.deepEqual(calls.tagged.map((t) => t[0]), [AT.tagNameFor(H1)])
-})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
-
-/* ── 2026-11-07 全量收敛归档:本侧相对 base 独有行逐字保留(语义由对侧新版承载,零内容丢失) ──
-    enabled: true,
-    enabled: true,
-    enabled: true,
-    enabled: true,
-    enabled: true,
-    enabled: true,
-    enabled: true,
-*/

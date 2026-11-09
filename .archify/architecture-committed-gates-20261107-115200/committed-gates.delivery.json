@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "f4e6e701-e76f-4603-bee8-b1ba697a1f3d",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\.archify\\architecture-committed-gates-20261107-115200\\candidate.json",
+  "output": "G:\\IHUI-AI\\.archify\\architecture-committed-gates-20261107-115200\\committed-gates.html",
+  "specification": {
+    "sha256": "c16e3a0784e5eaf57ce030d43a03d4e76d75d0c1878188354e329fcd074f1d3c",
+    "bytes": 2498
+  },
+  "artifact": {
+    "sha256": "c9ee29c22b02fb8aab0fcb47ad48672d80f300cd05a973d8c44a4cee4a147800",
+    "bytes": 837426
+  }
+}

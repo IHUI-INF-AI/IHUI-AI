@@ -35,7 +35,6 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
-import { gitBinary } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REGISTRY_REL = 'scripts/data/cross-end-screen-registry.json'
@@ -44,7 +43,7 @@ const SHELL_IMPORT_RE =
   /(?:^|\n)\s*import\s+(?!type\s)[^;]*?from\s+['"]@rn-shells\/([A-Za-z0-9_]+)['"]/g
 
 const git = (args, faceRoot = ROOT) =>
-  execFileSync(gitBinary(), args, {
+  execFileSync('git', args, {
     cwd: faceRoot,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],

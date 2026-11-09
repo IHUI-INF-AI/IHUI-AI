@@ -22,8 +22,9 @@ const API_DIR = path.join(ROOT, 'apps', 'api')
 const SWITCH_TS = path.join(API_DIR, 'scripts', 'relay-trae-chat-switch.ts')
 
 const USAGE =
-  '用法: node scripts/switch-trae-client-with-chat.mjs --to <uid|名称> [--product <Trae CN|TRAE SOLO CN>] [--dry-run] [--force] [--no-launch] [--json]\n' +
+  '用法: node scripts/switch-trae-client-with-chat.mjs --to <uid|名称> [--owner <ops|owner 前缀≥8位>] [--product <Trae CN|TRAE SOLO CN>] [--dry-run] [--force] [--no-launch] [--json]\n' +
   '  --to        号池里的目标 Trae 账号(uid 精确 > 名称精确 > 名称包含)\n' +
+  '  --owner     同一 uid 有两个合法持有者(运营池 ops + 个人池 owner 前缀)时定向;不定向 ⇒ 具名歧义不写文件\n' +
   '  --product   指定客户端产品面(缺省 = 自动定位现役那份;SOLO 用 --product "TRAE SOLO CN")\n' +
   '  --dry-run   只打印重绑计划,不写任何文件\n' +
   '  --force     Trae 在跑时按 pid 逐个代关后再写\n' +

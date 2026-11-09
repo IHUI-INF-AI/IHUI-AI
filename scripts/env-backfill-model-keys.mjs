@@ -31,19 +31,6 @@
  *   appendMissingKeyLine 补一行;源文件不存在或选不出 token → 不新建空行
  *   (不把「未配置」写成空键)。已有值一律不覆盖。
  *
- * 面归属(2026-11-07 立,台账票「12 个模型密钥没有对应的映射行」):
- *   同一份 MAP 同时服务两类目标面,但不是每个键在两面都有消费者:
- *   - ai-service 面(LLM 网关 VENDOR_ENV_KEYS / free_provider_registry):只消费对话、
- *     embedding、rerank 类 provider 的键。
- *   - api 面(`apps/api/src/routes/ai-vendors/_shared.ts` 的 VENDORS):除对话 provider 外,
- *     还直连图像/视频/语音类专有 REST 厂商(stability / flux / runway / luma / elevenlabs /
- *     ideogram / vidu / fishaudio / deepgram / cartesia / assemblyai / replicate)。这 12 家没有
- *     chat 模型,ai-service 的 free_provider_registry 已在「Node 代理直连」注释里明确剔除,
- *     ai-service 代码里也搜不到对这些环境变量的任何读取 ⇒ 它们**不属于 ai-service 面**。
- *   条目因此可声明 faces;巡检/回填按 --env 指向的面过滤,"缺行"只在**本面应有该键**时成立。
- *   把 12 枚媒体键补进 ai-service 面属于"为凑数而补未消费的模型"(§5d 以消费侧为准),
- *   本表选择不补进该面,只登记面归属;根 .env(部署面)与镜像夹具不判面 = 全部键。
- *
  * 安全约定(硬性):
  *   - 任何输出都不打印完整 key,只打印 `前6位***后2位 (len=N)` 用于人工核对
  *   - `.env` 已被 .gitignore 忽略(见 .gitignore 第 98 行的 env 忽略规则),回填后不会入库
@@ -153,15 +140,9 @@ const MAP = [
     base: 'https://api.360.cn/v1',
     probe: 'bearer',
   },
-  // ─── 以下 12 枚为媒体/语音类专有 REST 键:faces 只含 api ────────────────
-  // ASSEMBLYAI / CARTESIA / DEEPGRAM / ELEVENLABS / FISHAUDIO / FLUX / IDEOGRAM /
-  // LUMA / REPLICATE / RUNWAY / STABILITY / VIDU。依据:apps/api VENDORS 直连,
-  // ai-service 的 free_provider_registry 明确剔除这 12 家(无 chat 模型、Node 代理直连),
-  // 且 ai-service 代码无任何 env 读取 ⇒ 不要求 ai-service 面有行(补进该面即凑数)。
   {
     key: 'ASSEMBLYAI_API_KEY',
     vendor: 'AssemblyAI',
-    faces: ['api'],
     file: 'AssemblyAI api key.txt',
     expect: /^[A-Za-z0-9]{20,}$/,
     baseEnv: 'ASSEMBLYAI_API_BASE',
@@ -171,7 +152,6 @@ const MAP = [
   {
     key: 'CARTESIA_API_KEY',
     vendor: 'Cartesia',
-    faces: ['api'],
     file: 'Cartesia api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'CARTESIA_API_BASE',
@@ -190,7 +170,6 @@ const MAP = [
   {
     key: 'DEEPGRAM_API_KEY',
     vendor: 'Deepgram',
-    faces: ['api'],
     file: 'Deepgram api key.txt',
     expect: /^[A-Za-z0-9_]{20,}$/,
     baseEnv: 'DEEPGRAM_API_BASE',
@@ -209,7 +188,6 @@ const MAP = [
   {
     key: 'ELEVENLABS_API_KEY',
     vendor: 'ElevenLabs',
-    faces: ['api'],
     file: 'ElevenLabs api key.txt',
     expect: /^[A-Za-z0-9_]{20,}$/,
     baseEnv: 'ELEVENLABS_API_BASE',
@@ -219,7 +197,6 @@ const MAP = [
   {
     key: 'FISHAUDIO_API_KEY',
     vendor: 'Fish Audio',
-    faces: ['api'],
     file: 'FishAudio api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'FISHAUDIO_API_BASE',
@@ -229,7 +206,6 @@ const MAP = [
   {
     key: 'FLUX_API_KEY',
     vendor: 'FLUX(BFL)',
-    faces: ['api'],
     file: 'Flux BFL api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'FLUX_API_BASE',
@@ -248,7 +224,6 @@ const MAP = [
   {
     key: 'IDEOGRAM_API_KEY',
     vendor: 'Ideogram',
-    faces: ['api'],
     file: 'Ideogram api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'IDEOGRAM_API_BASE',
@@ -267,7 +242,6 @@ const MAP = [
   {
     key: 'LUMA_API_KEY',
     vendor: 'Luma',
-    faces: ['api'],
     file: 'Luma api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'LUMA_API_BASE',
@@ -316,7 +290,6 @@ const MAP = [
     // 运行时消费侧(_shared.ts VENDORS.replicate)读的是 REPLICATE_API_TOKEN,回填按消费侧。
     key: 'REPLICATE_API_TOKEN',
     vendor: 'Replicate',
-    faces: ['api'],
     file: 'Replicate api key.txt',
     expect: /^r8_[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'REPLICATE_API_BASE',
@@ -326,7 +299,6 @@ const MAP = [
   {
     key: 'RUNWAY_API_KEY',
     vendor: 'Runway',
-    faces: ['api'],
     file: 'Runway api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'RUNWAY_API_BASE',
@@ -354,7 +326,6 @@ const MAP = [
   {
     key: 'STABILITY_API_KEY',
     vendor: 'Stability AI',
-    faces: ['api'],
     file: 'Stability ai api key.txt',
     expect: /^sk-[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'STABILITY_API_BASE',
@@ -364,7 +335,6 @@ const MAP = [
   {
     key: 'VIDU_API_KEY',
     vendor: 'Vidu(生数科技)',
-    faces: ['api'],
     file: 'Vidu api key.txt',
     expect: /^[A-Za-z0-9_-]{20,}$/,
     baseEnv: 'VIDU_API_BASE',
@@ -521,70 +491,6 @@ function readEnvValue(envText, key) {
   return m ? m[1].trim() : ''
 }
 
-/**
- * --env 指向的服务面。根 .env(部署面)与镜像测试夹具不属单一面 ⇒ null(=全部键)。
- * 只认**目录形态**、不猜文件名:本机两服务各自 dotenv 只读 cwd 下的 .env(见头注),
- * 所以面由路径决定,与键内容无关。
- */
-function faceOfEnvPath(envPath) {
-  const p = String(envPath || '').replace(/\\/g, '/')
-  if (/\/apps\/ai-service\/\.env$/.test(p)) return 'ai-service'
-  if (/\/apps\/api\/\.env$/.test(p)) return 'api'
-  return null
-}
-
-/** 条目所属面;未声明 faces 的键按"两面都该有"处理(现有对话 provider 均属此类) */
-function facesOf(entry) {
-  return entry.faces || ['api', 'ai-service']
-}
-
-/** 本面应覆盖的条目;face=null 不筛 ⇒ 根 .env 与夹具保持旧口径,行为零变化 */
-function expectedEntriesForFace(face) {
-  return MAP.filter((entry) => (face === null ? true : facesOf(entry).includes(face)))
-}
-
-/**
- * 读回覆盖统计:只按键名判 set / empty / missing,值既不参与判断也不输出(§5d)。
- * 旧巡检只报"源侧候选",不判目标面有没有这一行 —— 12 枚媒体键因此长期被读成
- * "缺映射",实为"不属本面"(判定依据见头注「面归属」)。
- */
-function coverageOfEnv(envText, entries) {
-  const rows = new Map()
-  for (const line of envText.split(/\r?\n/)) {
-    const m = /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
-    if (m) rows.set(m[1], m[2].trim() === '' ? 'empty' : 'set')
-  }
-  const out = { expected: entries.length, set: 0, empty: 0, missing: 0 }
-  for (const entry of entries) {
-    const st = rows.get(entry.key)
-    if (st === 'set') out.set += 1
-    else if (st === 'empty') out.empty += 1
-    else out.missing += 1
-  }
-  return out
-}
-
-/**
- * 打印本面覆盖行。区分两种"没有值":缺行(本面应有却没登记)与空值(行在、等用户填)。
- * 两者都属运行态没配值,不是映射定义缺失;脚本不新建空键,值只由用户写进 .env。
- */
-function logCoverage(face, cov, outOfFace) {
-  const parts = [
-    `面=${face ?? 'all'}`,
-    `应覆盖=${cov.expected}`,
-    `已有值=${cov.set}`,
-    `空值=${cov.empty}`,
-    `缺行=${cov.missing}`,
-  ]
-  if (outOfFace > 0) parts.push(`不属本面=${outOfFace}`)
-  console.log(`覆盖: ${parts.join(' · ')}`)
-  if (cov.missing === 0 && cov.empty === 0) {
-    console.log('✅ 本面无缺失映射:应覆盖键全部已有值(值内容不打印)')
-  } else {
-    console.log('⚠ 本面待填值:缺行/空值属运行态没配值,映射定义本身不缺;本脚本不新建空键')
-  }
-}
-
 /** 从单个源文件读候选 token(先严格筛,严格为空则退回全部裸 token) */
 function candidatesOf(keyDir, entry) {
   const raw = readFileSync(resolve(keyDir, entry.file), 'utf8')
@@ -732,11 +638,6 @@ async function main() {
   // 否则会污染项目父目录 —— 违反 AGENTS.md §15,并触发门禁 #26 父目录污染巡查。
   const BACKUP_DIR =
     toAbs(args['backup-dir']) || `${ROOT.replace(/\\/g, '/')}/.ihui-agent/env-backup`
-  // 面过滤(2026-11-07):把"缺行"的口径收到本面应有的键上。根 .env/夹具不判面,
-  // 与旧行为逐字一致;只有 --env 指向 apps/ai-service 或 apps/api 时才筛。
-  const FACE = faceOfEnvPath(ENV)
-  const EXPECTED = expectedEntriesForFace(FACE)
-  const OUT_OF_FACE = MAP.length - EXPECTED.length
 
   if (!existsSync(KEY_DIR)) {
     console.error(`❌ 密钥目录不存在: ${KEY_DIR}`)
@@ -755,19 +656,11 @@ async function main() {
   console.log(`目标 .env: ${ENV}`)
   console.log(`模式: ${args.apply ? 'APPLY(实际写入,自动备份)' : 'DRY-RUN(只巡检,不写入)'}`)
   console.log(`验活: ${args.verify ? 'ON(联网探测各厂商 /models)' : 'OFF'}`)
-  console.log(`面: ${FACE ?? 'all(根/夹具)'} · 本面应覆盖 ${EXPECTED.length}/${MAP.length} 项`)
   console.log('')
 
   // ─── 一、巡检 + 消歧 ───────────────────────────────────────────
   const plan = []
   for (const entry of MAP) {
-    if (FACE !== null && !facesOf(entry).includes(FACE)) {
-      // 不属本面:连源文件都不该看。若在这里按源侧补行,就会把 api 专用媒体键塞进
-      // ai-service 面 —— 正是本票要避免的"为凑数而补未消费的模型"。
-      console.log(`${entry.key.padEnd(22)} ⏭ 不属本面(${facesOf(entry).join('/')})`)
-      plan.push({ entry, pick: null, reason: '不属本面' })
-      continue
-    }
     if (!existsSync(resolve(KEY_DIR, entry.file))) {
       console.log(`${entry.key.padEnd(22)} 源=${entry.file}  ⏭ 源文件不存在`)
       plan.push({ entry, pick: null, reason: '源文件不存在' })
@@ -787,8 +680,6 @@ async function main() {
     plan.push({ entry, pick, reason })
   }
 
-  console.log('')
-  logCoverage(FACE, coverageOfEnv(envText, EXPECTED), OUT_OF_FACE)
   console.log('')
   if (!args.apply) {
     console.log('✅ 巡检完成(未写入任何文件)。确认无误后加 --apply 实际回填。')
@@ -848,12 +739,6 @@ async function main() {
   } else {
     console.log(wb.attempted ? '✅ 回填完成(读回比对一致)' : '⏭ 无键需要回填')
   }
-  // 回填后按"盘上已确认的内容"再读一次覆盖,给收口方一个不依赖内存串的终态。
-  logCoverage(
-    FACE,
-    coverageOfEnv(wb.attempted && !wb.writeErr && !wb.mismatch ? out : envText, EXPECTED),
-    OUT_OF_FACE,
-  )
   console.log(
     '注: .env 改动须重启对应服务(ai-service 等)才生效 —— 进程在启动时把它读进内存,改文件不动运行中的进程(AGENTS §5e)。',
   )
@@ -916,10 +801,5 @@ export const __test__ = {
   tokens,
   fillEmptyKeyLine,
   appendMissingKeyLine,
-  faceOfEnvPath,
-  facesOf,
-  expectedEntriesForFace,
-  coverageOfEnv,
-  MAP,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

@@ -27,10 +27,11 @@ const API_DIR = path.join(ROOT, 'apps', 'api')
 const SWITCH_TS = path.join(API_DIR, 'scripts', 'relay-trae-client-switch.ts')
 
 const USAGE =
-  '用法: node scripts/switch-trae-client-account.mjs --list|--current|--to <uid|名称> [--dry-run] [--force] [--json]\n' +
+  '用法: node scripts/switch-trae-client-account.mjs --list|--current|--to <uid|名称> [--owner <ops|owner 前缀≥8位>] [--dry-run] [--force] [--json]\n' +
   '  --list     列出号池全部 Trae 账号(健康态/到期/设备/归属,不含凭据)\n' +
   '  --current  本机 Trae 登录号在池里的状态\n' +
   '  --to       把指定号写回本机客户端(uid 精确 > 名称精确 > 名称包含;歧义会列候选)\n' +
+  '  --owner    同一 uid 有两个合法持有者(运营池 ops + 个人池 owner 前缀)时定向;不定向 ⇒ 具名歧义不写文件\n' +
   '  --dry-run  只打印计划不写文件;--force 代杀 Trae 客户端后写;--json 机读汇总走 stdout\n'
 
 function resolveTsx() {

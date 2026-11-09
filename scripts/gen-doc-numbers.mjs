@@ -25,13 +25,11 @@
  *   落 `undetermined` 并**点名原因**,`--strict` 下有未判定即 exit 2 拒绝出具合格证。
  *
  * 手动:
- *   node scripts/gen-doc-numbers.mjs                 # 人读表(**索引面** = 提交后的 HEAD 面)
+ *   node scripts/gen-doc-numbers.mjs                 # 人读表(worktree 面)
  *   node scripts/gen-doc-numbers.mjs --json          # 机器可读,可 JSON.parse
  *   node scripts/sync-readme-numbers.mjs             # **写 README 生成块的唯一入口**(本器的 --markdown 已收口)
  *   node scripts/gen-doc-numbers.mjs --description    # 规范化的 GitHub 仓库简介一行
- *   node scripts/gen-doc-numbers.mjs --face=worktree --json # 仅供人工排查:未暂存/未跟踪会抬高总量,产物不得入库
- * 写 README / 简介一律只按**索引面**这一面(默认面):门 173 的 `--staged` 段判的也是索引面,
- * 写手与判据同面才不会有"一段绿一段红"的互斥读数(2026-11-07 收敛,此前默认是工作树面)。
+ *   node scripts/gen-doc-numbers.mjs --staged --json # 审索引面
  * 面旗统一写法(2026-11-05 修):`--face=head|worktree|index` 与 `--head|--staged|--worktree`
  * 等价(`index` ≡ 内部名 `staged`)。**面旗必须真的换取材面** —— 此前 `--face=head` 未被解析,
  * 于是"以为在算 HEAD 面,实际算的是工作树",同一份 README 在不同轮次读出 19178/19198/19201/19158
@@ -632,13 +630,9 @@ function readArg(argv, name) {
 }
 
 function main(argv) {
-  // 取数面唯一化(2026-11-07 票「doc-numbers 三面并存 ⇒ 两门互斥读数」):
-  // **默认面 = 索引面(staged)**,即"提交之后就会变成的 HEAD 面" —— 写 README/简介的人与
-  // 门 173 的两段判的是同一份内容,不再出现"写手按工作树算、门按索引/HEAD 判"的互斥读数。
-  // 工作树面仍可显式 `--face=worktree` 用于人工排查,但**不得作为入库数字的来源**:
-  // 未暂存 / 未跟踪的文件会抬高总量,产物谁也满足不了(实测同一刻 worktree 4623 vs head 4341)。
+  // 本工具是"生成"侧,默认判**工作树**(人要看到自己刚改的东西);要审已入库面显式给面旗。
   // 面旗解析统一走 parseFaceArg:未知面/缺取值 ⇒ exit 2,**绝不静默落回默认面**。
-  const { face: wantFace, requested, error } = parseFaceArg(argv, { def: 'staged' })
+  const { face: wantFace, requested, error } = parseFaceArg(argv, { def: 'worktree' })
   if (error) {
     console.error(`❌ 无法判定:${error}`)
     return 2

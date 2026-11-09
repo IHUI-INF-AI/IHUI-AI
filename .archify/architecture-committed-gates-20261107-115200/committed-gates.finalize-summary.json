@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-committed-gates-20261107-115200\\candidate.json",
+    "sha256": "c16e3a0784e5eaf57ce030d43a03d4e76d75d0c1878188354e329fcd074f1d3c",
+    "bytes": 2498
+  },
+  "artifact": {
+    "path": "G:\\IHUI-AI\\.archify\\architecture-committed-gates-20261107-115200\\committed-gates.html",
+    "sha256": "c9ee29c22b02fb8aab0fcb47ad48672d80f300cd05a973d8c44a4cee4a147800",
+    "bytes": 837426
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "G:\\IHUI-AI\\.archify\\architecture-committed-gates-20261107-115200\\committed-gates.finalize.json",
+    "summaryReceipt": "G:\\IHUI-AI\\.archify\\architecture-committed-gates-20261107-115200\\committed-gates.finalize-summary.json",
+    "browserCheckReceipt": "G:\\IHUI-AI\\.archify\\architecture-committed-gates-20261107-115200\\committed-gates.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.2.0",
+    "availableVersion": "3.2.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-11-06T18:59:46.239Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 55866,
+  "browserCheck": {
+    "requested": true,
+    "ran": true
+  }
+}

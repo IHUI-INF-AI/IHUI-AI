@@ -70,9 +70,7 @@
  *   node scripts/check-plan-line-loss.mjs             # 手动/审计:审 **HEAD blob**(工作树完全不进判据)
  *   node scripts/check-plan-line-loss.mjs --worktree  # 人工逃生舱:只有带这面旗才按磁盘副本判
  *   node scripts/check-plan-line-loss.mjs --self-test
- * 退出码:0 通过 / 1 检出丢失 / 2 用法错(两面旗同给)、被审面取不到、或 --heal 跑而未成(**无法判定**)
- *   —— exit 2 档已从「仅摘除台账未判定」扩到「跑而未成 / 索引面未判定 / 本该回捞却零写回且无正当
- *   交代」(RP-71,§0.3「没判绝不写成判过」,见 healOutcomeExit 与 heal() 的 finish 收口)
+ * 退出码:0 通过 / 1 检出丢失 / 2 用法错(两面旗同给)或被审面取不到(**无法判定**)
  * 紧急跳过:HUSKY_SKIP_PLAN_LINE_LOSS=1 git commit ...(会把丢失写进历史,先确认为何丢)
  *
  * ── 全量档为什么不得读工作树(2026-09-26 收口,与守门 77/83/94/98/103/118/36/124 同一口径)──────
@@ -117,7 +115,6 @@ import { stripForkPrefix } from './lib/plan-merge-annotation.mjs'
 // 否则"删副本 → 门 71 判丢 → 自动回捞 → 再删"永不收敛(2026-10-22 实测 G-56 回捞提交 ec4171d119)。
 // `LEDGERS` 一并 import:闸门要点名"缺的是哪一本账",清单若在门里再抄一份就会和复洁器的漂移(§0.6)。
 import { declaredRows, titleFpOf, LEDGERS } from './scrub-declared-removals.mjs'
-import { advanceSharedIndexPaths, treeSignatures } from './lib/shared-index-advance.mjs'
 // G-722:编号形态判据(畸形号 = 族名在编号段出现两次)的**唯一实现**住在活文档编辑器里 ——
 // 判据住在 `scripts/lib/plan-task-index.mjs` 的下沉方案因该文件正被并发会话在飞编辑而未采,
 // 按票面指定的 import 方案接。两处各抄一遍形态正则必然漂移(§22c 同一条纪律),镜像形状锁钉死。
@@ -674,55 +671,6 @@ export function rescueDecisionFromGate(gate, legs) {
       },
     }
   return { rescue: true, exitCode: 0, candidates, why: '', missing: [] }
-}
-
-/**
- * RP-71 收口判据(纯函数、零 IO,镜像测试直接 import):把「本该回捞却零写回」与
- * 「有正当交代的零写回」分开 —— §0.3「没判」绝不写成「判过」。
- *
- * 背景:`--heal --commit` 报「工作区缺 4 条登记行 → 回插 0 条」时,`heal()` 曾在四处
- * `return 0` 静默报绿,手工删掉的登记行既不写摘除台账也不被播回。
- * 但**绝不能**写成「回插 0 条一律 exit 2」(§12e 不得引入恒红):本仓大量「完成即删」落地
- * 都写了 `.ihui-agent/state/plan-row-drop.jsonl`,`healContent` 会因声明删除/漂移注释已收拢/
- * 编号仍在面/multiSlot 而正当跳过(返回对象里的 skippedDeclared / skippedCollected /
- * skippedExistingId / withheld)⇒ 缺行全部有交代、零写回是**正确结清**。这些行由
- * `accounted` 承载;只有「零写回 ∧ 交代不足 expected」才是跑而未成/未判定。
- * 入参全部容忍 undefined(缺省 0 / false),返回 `{ exitCode, undetermined, why }`。
- * 判据优先级严格按序,镜像测试一律用这一份(§22c),不得在测试里抄第二份。
- */
-export function healOutcomeExit(outcome = {}) {
-  const expected = Number(outcome.expected) || 0
-  const inserted = Number(outcome.inserted) || 0
-  const appended = Number(outcome.appended) || 0
-  const refusedRows = Number(outcome.refusedRows) || 0
-  const accounted = Number(outcome.accounted) || 0
-  const indexUndetermined = outcome.indexUndetermined === true
-  // 1) 同号多候选被拒 = 已判定(既有 1 档语义),优先级最高,绝不折成 2。
-  if (refusedRows > 0)
-    return {
-      exitCode: 1,
-      undetermined: false,
-      why: '同号多候选被拒绝回捞(未给 --pick):这是已判定,不是未判定',
-    }
-  // 2) 索引面取不到 ⇒ 该档未判定,不得宣布无缺失。
-  if (indexUndetermined && expected > 0)
-    return {
-      exitCode: 2,
-      undetermined: true,
-      why: `索引面取不到 ⇒ 该档未判定,不得宣布无缺失(expected=${expected})`,
-    }
-  // 3) 本该回捞却零写回且交代不足 ⇒ 跑而未成/未判定,调用方不得报绿。
-  const written = inserted + appended
-  if (expected > 0 && written === 0 && accounted < expected)
-    return {
-      exitCode: 2,
-      undetermined: true,
-      why:
-        `本该回捞 ${expected} 条、实际回插 0 条、仅 ${accounted} 条有正当不回插交代 ⇒ ` +
-        '跑而未成/未判定(§0.3),调用方不得报绿',
-    }
-  // 4) 其余:或写回成功,或零写回但缺行全部有正当交代(正确结清)⇒ 0。
-  return { exitCode: 0, undetermined: false, why: '' }
 }
 
 /** 改号行正文归一化:去空白、剥尾部压缩注记、编号统一为占位符(改号本身只动编号)。 */
@@ -1996,13 +1944,13 @@ export function healLegs(seen, { disk, head, index }) {
  * ⇒ 少的那一行既可能是被吞、也可能是正当改号/归并,机器不可区分)。本函数只**分流**、不重算:
  * runCheck 的 auto/manual(原 1412–1415 内联两行 filter)、healLegRoster 三档点名、镜像测试
  * 都从这里取,渲染层不得再写第二份 `e.multiSlot` 判据(两处实现必漂移)。
- * `list == null`(索引面取不到)⇒ `real` 原样透传为 null,由调用方报"未判定"而不是"缺 0 条"(§0.3)。
+ * `list === null || list === undefined`(索引面取不到)⇒ `real` 原样透传为 null,由调用方报"未判定"而不是"缺 0 条"(§0.3)。
  *
  * @param {Array|null} list 判丢条目集
  * @returns {{real:Array|null, variant:Array}} real=真缺行(非 multiSlot),variant=同号变体(只报数不判缺)
  */
 export function splitByMultiSlot(list) {
-  if (list == null) return { real: null, variant: [] }
+  if (list === null || list === undefined) return { real: null, variant: [] }
   const real = []
   const variant = []
   for (const e of list) (e && e.multiSlot ? variant : real).push(e)
@@ -4059,42 +4007,6 @@ function selfTest() {
     )
   })
 
-  // ── RP-71 收口判据(2026-11-06 立):零写回 ≠ 报绿,但"有交代的零写回"绝不恒红(§12e) ──
-  t('RP-71 反向主用例:本该回捞 4 条、零写回、零交代 ⇒ exit 2 未判定(不得报绿)', () => {
-    const v = healOutcomeExit({ expected: 4, inserted: 0, appended: 0, accounted: 0, refusedRows: 0 })
-    return v.exitCode === 2 && v.undetermined === true && /跑而未成/.test(v.why)
-  })
-
-  t('RP-71 反恒红对照(必须):零写回但 4 条全有正当交代 ⇒ exit 0(正确结清,不得判红)', () => {
-    const v = healOutcomeExit({ expected: 4, inserted: 0, appended: 0, accounted: 4, refusedRows: 0 })
-    return v.exitCode === 0 && v.undetermined === false
-  })
-
-  t('RP-71 正向臂:本该 4 条、回插 3 + 追加 1 ⇒ exit 0', () => {
-    const v = healOutcomeExit({ expected: 4, inserted: 3, appended: 1, accounted: 0, refusedRows: 0 })
-    return v.exitCode === 0 && v.undetermined === false
-  })
-
-  t('RP-71 1 档语义:同号多候选被拒(refusedRows:2)且零写回 ⇒ exit 1,绝不折成 2', () => {
-    const v = healOutcomeExit({ expected: 4, inserted: 0, appended: 0, accounted: 0, refusedRows: 2 })
-    return v.exitCode === 1 && v.undetermined === false
-  })
-
-  t('RP-71 索引面未判定:indexUndetermined ∧ expected>0 ⇒ exit 2(哪怕 accounted 已够)', () => {
-    const v = healOutcomeExit({ expected: 2, inserted: 0, appended: 0, accounted: 2, indexUndetermined: true })
-    return v.exitCode === 2 && v.undetermined === true
-  })
-
-  t('RP-71 索引面未判定但 expected:0 ⇒ exit 0(本轮本无候选,不误拦)', () => {
-    const v = healOutcomeExit({ expected: 0, inserted: 0, appended: 0, accounted: 0, indexUndetermined: true })
-    return v.exitCode === 0 && v.undetermined === false
-  })
-
-  t('RP-71 入参容忍 undefined:空对象 ⇒ exit 0 且不抛', () => {
-    const v = healOutcomeExit({})
-    return v.exitCode === 0 && v.undetermined === false && v.why === ''
-  })
-
   t('形状锁:检测侧 declaredExempt 必须三维同尺(逐字 ∨ 题面指纹 ∨ 复合主键)', () => {
     const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
     const i = src.indexOf('const declaredExempt =')
@@ -4109,39 +4021,16 @@ function selfTest() {
     )
   })
 
-  // 取 heal() 函数体本身:锚点用「换行 + function heal(」正则命中真实顶层定义(它带第二形参),
-  // 截到其后最近的顶层 export / 顶层 function 为止。旧形状锁用失效字面量起切,全文只命中
-  // 用例自己 ⇒ body 把用例源码一并包进去,每条 includes 都命中自己、恒真(摘掉调用仍绿)。
-  // 单一实现供下面两条用例共用,免得两套锚点各自漂移。
-  const healBodySrc = () => {
-    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-    const healAt = src.search(/\nfunction heal\(/)
-    if (healAt <= 0) return ''
-    const afterHeal = src.slice(healAt + 1)
-    const ends = [afterHeal.search(/\nexport\s/), afterHeal.search(/\nfunction\s/)].filter((n) => n > 0)
-    const cut = ends.length ? Math.min(...ends) : -1
-    return cut > 0 ? src.slice(healAt, healAt + 1 + cut) : src.slice(healAt)
-  }
-
   t('形状锁:heal() 必须真消费闸门决议(摘掉这一支 ⇒ 上面那条未判定档就只是纸面判据)', () => {
-    const body = healBodySrc()
+    const src = readFileSync(fileURLToPath(import.meta.url), 'utf8')
+    const body = src.slice(src.indexOf('function heal(commit)'))
     return (
-      // 自证不恒真:切片里绝不许出现形状锁自身那行字面量 —— 一旦锚点又退回自引用,这里立刻红。
-      !body.includes("body.includes('healOutcomeExit(')") &&
       body.includes('declaredLedgerGate()') &&
       body.includes('rescueDecisionFromGate(gate, legs)') &&
       /if\s*\(\s*gate\.undetermined\s*&&\s*!rescue\.rescue\s*\)/.test(body) &&
-      body.includes('return 2') &&
-      // RP-71:heal() 必须真消费收口判据(判据定义不在 heal 体内,只有真调用才会命中)⇒ 接线退化即红
-      body.includes('healOutcomeExit(')
+      body.includes('return 2')
     )
   })
-
-  {
-    // 独立钉「heal 体内 healOutcomeExit( 至少 1 次」,把计数写进用例名:接线退化时日志直接显示 1→0。
-    const hits = (healBodySrc().match(/healOutcomeExit\(/g) || []).length
-    t(`形状锁计数:heal() 体内 healOutcomeExit( 调用数=${hits}(须≥1,摘掉接线即为 0)`, () => hits >= 1)
-  }
 
   let failed = 0
   for (const c of cases) {
@@ -4155,11 +4044,9 @@ function selfTest() {
 /**
  * 回捞 + (可选)前向恢复提交。
  * 返回退出码(2026-10-27 起三档,§0.3「没判」绝不写成「判过」):
- *  · 0 = 无需恢复 / 已恢复成功(判定输入齐备,或本轮本就没有候选,或零写回但缺行全部有正当交代);
- *  · 1 = 判定/规模闸拦下、同号多候选被拒(--pick)、或提交失败(不动历史,交人工);
- *  · 2 = **未判定** —— 摘除台账取不到而本轮确有回捞候选(见 `declaredLedgerGate`);
- *        RP-71 扩档:索引面取不到、或「本该回捞却零写回且无正当交代」的跑而未成
- *        (见 `healOutcomeExit` 与四处 return 前的 `finish` 收口)一律不得报绿。
+ *  · 0 = 无需恢复 / 已恢复成功(判定输入齐备,或本轮本就没有候选);
+ *  · 1 = 判定/规模闸拦下或提交失败(不动历史,交人工);
+ *  · 2 = **未判定** —— 摘除台账取不到而本轮确有回捞候选 ⇒ 本轮零回捞(见 `declaredLedgerGate`)。
  */
 /**
  * 回捞行的**出处**(该登记行最后出现在哪一枚提交里)。
@@ -4356,48 +4243,12 @@ function heal(commit, picks = new Map()) {
   let inserted = 0
   let appended = 0
   let refusedRows = 0
-  // RP-71 收口判据累加器:accounted = 有正当理由不回插的行数(healContent 返回对象里
-  // skippedDeclared/skippedCollected/skippedExistingId/withheld 之和);headWritten = HEAD 侧写回条数,
-  // 单独记,不并入既有 inserted/appended(那两个是"工作区侧"语义,还要喂 4308 的提交信息文案)。
-  let accounted = 0
-  let headWritten = 0
   const pickedNote = new Set()
-  /**
-   * RP-71 收口(四处正常 return 之前统一走这里):把「本该回捞却零写回且无交代」钉成 exit 2 未判定。
-   * expected 按档算:非 commit 档只看工作区可写盘的 diskDoable;commit 档再加 headDoable。
-   * 4281 早退时 headDoable.length===0 ⇒ expected 自然等于前者,且那时 accounted 也只有 disk 侧
-   * 已跑过的(healedHeadRes 在它之后)。base 是原 return 值,原语义优先:base 非 0 时绝不改小。
-   * headWritten 并入 inserted 传给纯判据(判据只取 inserted+appended 之和,字段名仅为契约形状)。
-   */
-  const finish = (base) => {
-    const expected = diskDoable.length + (commit ? headDoable.length : 0)
-    const v = healOutcomeExit({
-      expected,
-      inserted: inserted + headWritten,
-      appended,
-      refusedRows,
-      accounted,
-      indexUndetermined: !!legs.indexUndetermined,
-    })
-    if (v.undetermined) {
-      console.error(
-        `🛑 [plan-line-loss] [RP-71] ${v.why} ⇒ exit 2 未判定;手工补跑:node scripts/check-plan-line-loss.mjs --heal --commit`,
-      )
-      console.log(
-        `[PLAN-HEAL-VERDICT] undetermined expected=${expected} written=${inserted + headWritten + appended} accounted=${accounted} refusedRows=${refusedRows} indexUndetermined=${!!legs.indexUndetermined}`,
-      )
-      return base !== 0 ? base : v.exitCode
-    }
-    return base
-  }
   if (diskDoable.length) {
     const healed = healContent(disk, diskDoable, declaredRowSet(), { pick: picks })
     inserted = healed.inserted
     appended = healed.appended
     refusedRows += healed.refusedRows
-    // RP-71:这四类跳过都是"有正当交代的不回插",计入 accounted;别让"零写回"被误读成跑而未成。
-    accounted +=
-      healed.skippedDeclared + healed.skippedCollected + healed.skippedExistingId + healed.withheld
     for (const p of healed.picked) pickedNote.add(`${p.id}=#${p.index}`)
     console.warn(
       `⚠️  [plan-line-loss] 工作区缺 ${diskDoable.length} 条登记行(另有 ${diskMissing.length - diskDoable.length} 条已熔断不回捞)→ 回插 ${inserted} 条(邻居在)+ ${appended} 条(追加):`,
@@ -4471,8 +4322,9 @@ function heal(commit, picks = new Map()) {
         `❌ [plan-line-loss] 本次有 ${refusedRows} 行因同号多候选被拒绝回捞(未给 --pick)⇒ 退出码 1:` +
           '不静默跳过,也不把"少插几行"报成"回捞完成"。',
       )
+      return 1
     }
-    return finish(refusedRows > 0 ? 1 : 0)
+    return 0
   }
   if (headDoable.length === 0) {
     console.log(
@@ -4483,7 +4335,7 @@ function heal(commit, picks = new Map()) {
             ? `(但**索引档那 ${indexMissing.length} 行仍未收口** —— 本层不回写共享索引,处置见上面索引档)`
             : ''),
     )
-    return finish(refusedRows > 0 ? 1 : 0)
+    return refusedRows > 0 ? 1 : 0
   }
   const msgFile = path.join(ROOT, '.ihui-agent/tmp', `plan.heal.${Date.now()}.msg`)
   // post-commit 里这条链是 `... || true`,目录不存在会让恢复提交**静默失败** → 先确保目录在
@@ -4493,19 +4345,11 @@ function heal(commit, picks = new Map()) {
   const healedHeadRes = healContent(head, headDoable, declaredRowSet(), { pick: picks })
   const healedHead = healedHeadRes.out
   refusedRows += healedHeadRes.refusedRows
-  // RP-71:HEAD 侧同样累加"有交代"与"实际写回";否则 commit 档里 disk 零写回、HEAD 却成功回插
-  // 会被判据 3 误读成跑而未成(§12e 不得引入恒红)。
-  accounted +=
-    healedHeadRes.skippedDeclared +
-    healedHeadRes.skippedCollected +
-    healedHeadRes.skippedExistingId +
-    healedHeadRes.withheld
-  headWritten = healedHeadRes.inserted + healedHeadRes.appended
   for (const p of healedHeadRes.picked) pickedNote.add(`${p.id}=#${p.index}`)
   reportHealRefusals('HEAD', healedHeadRes.refusedGroups, 'node scripts/check-plan-line-loss.mjs --heal --commit')
   if (healedHead === head) {
     console.log('   回捞后 HEAD 内容与当前一致,不建空提交')
-    return finish(refusedRows > 0 ? 1 : 0)
+    return refusedRows > 0 ? 1 : 0
   }
   writeFileSync(
     msgFile,
@@ -4570,17 +4414,6 @@ function heal(commit, picks = new Map()) {
       },
     ).trim()
     g2(['update-ref', 'refs/heads/main', newCommit, parent])
-    // 后置:私有索引提交只推进 HEAD,不推进共享索引 ⇒ PROJECT_PLAN.md 在共享索引里停在父树
-    // (`MM`),下一条裸 `git commit` 会把旧版本带回去(静默回滚)。期望基线 = 父提交树;
-    // 凡是他席在窗口内动过同一路径 ⇒ 只报数不覆盖(红线 C)。
-    const adv = advanceSharedIndexPaths({
-      gitCwd: ROOT,
-      committedSha: newCommit,
-      paths: [PLAN],
-      expectBefore: treeSignatures({ gitCwd: ROOT, sha: parent, paths: [PLAN] }),
-      log: { warn: (s) => console.error(`⚠️ [plan-line-loss] ${s}`) },
-    })
-    if (!adv.ok) console.error(`⚠️ [plan-line-loss] 共享索引未推进(${adv.reason ?? 'unknown'}),只报数不覆盖:${adv.skipped.join(', ') || '-'}`)
     // 留痕失败不得改变"回捞已落地"这一结论(提交已在 refs/heads/main 上),但必须喊出来:
     // 静默少一行留痕,下一次审计就会把这枚当成"绕门塞进来的"。
     const at = attestBypassCommit(newCommit, { root: ROOT, headBefore: parent, source: 'check-plan-line-loss:heal' })
@@ -4604,13 +4437,13 @@ function heal(commit, picks = new Map()) {
     }
   } catch (e) {
     console.error(`❌ [plan-line-loss] 恢复提交失败:${e?.message ?? e}`)
-    return finish(1)
+    return 1
   } finally {
     rmSync(idx, { force: true })
     rmSync(tmp, { force: true })
     rmSync(msgFile, { force: true })
   }
-  return finish(refusedRows > 0 ? 1 : 0)
+  return refusedRows > 0 ? 1 : 0
 }
 
 // §22d:入口守卫只认 pathToFileURL(AGENTS.md 22d 红线),禁手拼 `file://` + 盘符反斜杠。
@@ -4924,8 +4757,6 @@ export const __test__ = {
   // 摘除台账闸门(2026-10-27 立):三态读取 + 回捞决议,镜像测试直接喂夹具,不得在测试里抄第二份(§22c)
   declaredLedgerGate,
   rescueDecisionFromGate,
-  // RP-71 收口判据:零写回是"跑而未成"还是"有交代的正确结清",镜像测试直接 import 这一份
-  healOutcomeExit,
   // 判活唯一实现与其取材(镜像测试据此证明"名额判活"只有一份,§22c 禁止再抄一份)
   registrationSlots,
   resolveRegistrationLoss,

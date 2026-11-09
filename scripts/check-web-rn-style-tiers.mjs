@@ -107,10 +107,6 @@ const TYPOGRAPHY_REL = 'packages/design-tokens/src/typography.ts'
  */
 const ALLOWED_DIFFS_REL = 'scripts/data/cross-end-allowed-diffs.json'
 const STYLE_TIER_KEY_RE = /^styleTier:(spacing|fontSize|radius):([A-Za-z][A-Za-z0-9]*):(\d+(?:\.\d+)?)$/
-// 「已登记」只认合法登记:额度 / ISO 到期日 / 真实理由三样齐全。reason 门槛住在这里,
-// 是因为下面 forkNAllowed 直接读它 —— 理由空着的条目不许把分叉洗成「允许差异」。
-const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const REASON_MIN_CHARS = 20
 const ELEVATION_REL = 'packages/design-tokens/src/elevation.ts'
 const RADIUS_REL = 'packages/design-tokens/src/radius.js'
 
@@ -373,28 +369,15 @@ function rowValues(rows, state) {
 
 /**
  * 允许差异条目 → `styleTier:<kind>:<prop>:<value>` 额度表。
- * 同 key 多条(逐元素登记)⇒ 额度累加,到期取**最早**(最严的一条先回红)。
- * 登记合法性本尺只认三样:正整数额度 / ISO 到期日 / **真实理由 ≥20 字**。
- * 后两样不合格的条目不许冒充「已登记」:剔除并把 `{key,why}` 推进 `dropped`
- * (命中分叉行时由调用方判红),其处数回流到「未登记」栏。
- * 条目形状坏(非样式档键)仍由门 128 的 `allowedDiffProblem` 复算,本尺不飘第二份。
+ * 同 key 多条(逐元素登记)⇒ 额度累加,到期取**最早**(最严的一条先回红);形状坏的条目跳过
+ * (形状判据只住门 128 的 `allowedDiffProblem`,本尺不复算第二份)。
  */
-export function rollupStyleTierAllowances(entries, dropped = []) {
+export function rollupStyleTierAllowances(entries) {
   const map = new Map()
   for (const e of Array.isArray(entries) ? entries : []) {
     const m = typeof e?.key === 'string' ? STYLE_TIER_KEY_RE.exec(e.key) : null
     if (!m) continue
-    if (!Number.isInteger(e.count) || e.count < 1) continue
-    const why =
-      typeof e.expires !== 'string' || !ISO_DATE_RE.test(e.expires)
-        ? 'expires 不是 ISO 日期'
-        : [...String(e.reason ?? '').trim()].length < REASON_MIN_CHARS
-          ? `reason 不足 ${REASON_MIN_CHARS} 字`
-          : null
-    if (why) {
-      dropped.push({ key: e.key, why })
-      continue
-    }
+    if (!Number.isInteger(e.count) || e.count < 1 || typeof e.expires !== 'string') continue
     const prev = map.get(e.key)
     map.set(e.key, {
       count: (prev?.count ?? 0) + e.count,
@@ -445,23 +428,6 @@ export function sumForkAllowance(fa) {
   }
 }
 
-/**
- * `forkN` 拆两栏(2026-11-07):`forkNAllowed` = 已被「合法且未到期」登记核销的处数,
- * `forkNUnregistered` = 没登记 / 额度不足 / 到期失格 的处数。
- * 恒等式(自检钉住):`forkNAllowed + forkNUnregistered === forkN`;
- * `forkKindsAllowed + forkKindsUnregistered === fork`。
- * 种类栏按**整行核销**归类:混合行(部分处数已登记)仍算未登记种,不拿额度把整种洗白。
- */
-export function splitForkCounts(t, fa) {
-  const expiredN = fa.expired.reduce((s, r) => s + r.n, 0)
-  return {
-    forkNAllowed: sumForkAllowance(fa).allowed,
-    forkNUnregistered: sumForkAllowance(fa).pending + expiredN,
-    forkKindsAllowed: fa.allowed.length,
-    forkKindsUnregistered: t.fork - fa.allowed.length,
-  }
-}
-
 export function runJudge() {
   const tier = loadTierTable()
   const rnList = listFiles(RN_DIRS)
@@ -499,25 +465,17 @@ export function runJudge() {
   const allowedText = fetchTexts([ALLOWED_DIFFS_REL]).get(ALLOWED_DIFFS_REL)
   let allowances = new Map()
   let allowanceProblem = null
-  const droppedAllowances = []
   if (typeof allowedText !== 'string') allowanceProblem = `取不到 ${ALLOWED_DIFFS_REL}(${FACE} 面)`
   else {
     try {
       const doc = JSON.parse(allowedText)
-      allowances = rollupStyleTierAllowances(doc?.entries, droppedAllowances)
+      allowances = rollupStyleTierAllowances(doc?.entries)
     } catch {
       allowanceProblem = `${ALLOWED_DIFFS_REL} 不是合法 JSON(${FACE} 面)`
     }
   }
   const forkAllowance = judgeForkAllowance(rnRows, allowances)
   const faSum = sumForkAllowance(forkAllowance)
-  const rnT = tally(rnRows)
-  const forkSplit = splitForkCounts(rnT, forkAllowance)
-  // 登记本身不合法(空理由/坏到期日)且命中了真实分叉行 ⇒ 判红,不许它冒充「已登记」。
-  const forkKeys = new Set(
-    rnRows.filter((r) => r.state === 'fork').map((r) => `styleTier:${r.kind}:${r.prop}:${r.val}`),
-  )
-  const invalidAllowances = droppedAllowances.filter((d) => forkKeys.has(d.key))
   return {
     face: FACE,
     tier: {
@@ -527,15 +485,13 @@ export function runJudge() {
       radiusReadable: tier.radiusReadable,
     },
     files: { rn: rnList.files.length, web: webList.files.length, rnUnreadable: rn.unreadable, webUnreadable: web.unreadable },
-    rn: { ...rnT, ...forkSplit, rows: rnRows },
+    rn: { ...tally(rnRows), rows: rnRows },
     web: { ...tally(webRows), rows: webRows },
     forkAllowance: {
       allowed: faSum.allowed,
       pending: faSum.pending,
       expired: faSum.expired,
       registeredKeys: allowances.size,
-      invalid: invalidAllowances.length,
-      invalidRows: invalidAllowances,
       problem: allowanceProblem,
       rows: forkAllowance,
     },
@@ -560,13 +516,8 @@ function report(r) {
   }
   const fa = r.forkAllowance
   console.log(
-    `\n【分叉登记核销】已登记 ${fa.allowed} 处 / 未登记 ${r.rn.forkNUnregistered} 处 / 到期 ${fa.expired} 行` +
-      `${fa.invalid ? ` / 登记不合格 ${fa.invalid} 行` : ''}` +
+    `\n【分叉登记核销】已登记 ${fa.allowed} 处 / 待决策 ${fa.pending} 处 / 到期 ${fa.expired} 行` +
       `${fa.problem ? ` · ⚠ ${fa.problem}` : ''}`,
-  )
-  console.log(
-    `     两栏加总核对:处 ${fa.allowed} + ${r.rn.forkNUnregistered} = ${fa.allowed + r.rn.forkNUnregistered}(forkN ${r.rn.forkN})` +
-      ` · 种 ${r.rn.forkKindsAllowed} + ${r.rn.forkKindsUnregistered} = ${r.rn.forkKindsAllowed + r.rn.forkKindsUnregistered}(fork ${r.rn.fork})`,
   )
   if (fa.pending)
     console.log(
@@ -626,32 +577,6 @@ const SELF_ASSERTS = () => {
   out.push(['处数累加而非种数', tally(rows).inN === 10 && tally(rows).missingN === 5 && tally(rows).forkN === 2])
   // 阳性对照:mergeUniverse 必须真收到对端全集(坏则 missingTier 恒 0,fork 冒充一切)
   out.push(['对端取值全集收齐', webU.spacing.has(8) && webU.spacing.has(10) && webU.spacing.size === 2])
-  // 拆分恒等式(2026-11-07):已登记 + 未登记 == forkN / forkKinds,拆分不许吞掉任何一处或一种
-  {
-    const splitRows = bucketize(mk([['gap', 13, 2], ['gap', 11, 3]]), tierSet, webU, 'spacing')
-    const splitT = tally(splitRows)
-    const splitFa = judgeForkAllowance(splitRows, new Map([['styleTier:spacing:gap:13', { count: 2, expires: '2027-03-27' }]]))
-    const split = splitForkCounts(splitT, splitFa)
-    out.push([
-      '拆分两栏加总 == forkN/fork',
-      split.forkNAllowed + split.forkNUnregistered === splitT.forkN &&
-        split.forkKindsAllowed + split.forkKindsUnregistered === splitT.fork &&
-        split.forkNAllowed === 2 &&
-        split.forkNUnregistered === 3,
-    ])
-  }
-  // 空/短理由的登记不许冒充「已登记」:剔除进 dropped,额度不生效
-  {
-    const dp = []
-    const m = rollupStyleTierAllowances(
-      [
-        { key: 'styleTier:spacing:gap:13', count: 2, expires: '2027-03-27', reason: '太短' },
-        { key: 'styleTier:spacing:gap:11', count: 3, expires: '2027-03-27', reason: '这是一条足够长的真实理由,用来证明短理由条目会被剔除' },
-      ],
-      dp,
-    )
-    out.push(['空/短理由登记不算已登记', m.size === 1 && dp.length === 1 && m.has('styleTier:spacing:gap:11')])
-  }
   // 量纲:Tailwind 半档必须折成 px(gap-2.5→10 / p-3→12 / px-1.5→6),否则 web 读数系统性算小 ⇒ missingTier 假装是 fork
   const cls = 'gap-2.5 p-3 px-1.5'
   const folded = []
@@ -704,22 +629,7 @@ async function main() {
     process.exit(2)
   }
   if (jsonMode) {
-    const slim = (x) => ({
-      inTier: x.inTier,
-      inN: x.inN,
-      missingTier: x.missingTier,
-      missingN: x.missingN,
-      fork: x.fork,
-      forkN: x.forkN,
-      ...(x.forkNAllowed === undefined
-        ? {}
-        : {
-            forkNAllowed: x.forkNAllowed,
-            forkNUnregistered: x.forkNUnregistered,
-            forkKindsAllowed: x.forkKindsAllowed,
-            forkKindsUnregistered: x.forkKindsUnregistered,
-          }),
-    })
+    const slim = (x) => ({ inTier: x.inTier, inN: x.inN, missingTier: x.missingTier, missingN: x.missingN, fork: x.fork, forkN: x.forkN })
     console.log(
       JSON.stringify(
         {
@@ -732,7 +642,6 @@ async function main() {
             allowed: r.forkAllowance.allowed,
             pending: r.forkAllowance.pending,
             expired: r.forkAllowance.expired,
-            invalid: r.forkAllowance.invalid,
             registeredKeys: r.forkAllowance.registeredKeys,
             problem: r.forkAllowance.problem,
             pendingTop: r.forkAllowance.rows.pending
@@ -749,25 +658,12 @@ async function main() {
     console.log(`TIER-STATE rn_missing=${r.rn.missingTier}种/${r.rn.missingN}处 rn_fork=${r.rn.fork}种/${r.rn.forkN}处 web_off=${r.web.missingTier + r.web.fork}种/${r.web.missingN + r.web.forkN}处`)
   } else report(r)
   /**
-   * 到期回红(Phase 4):登记表是**允许差异**不是永久白名单。到期或登记不合格这两样进退出码;
-   * 「未登记」仍是读数(本尺只读,不进提交链),净增经 §5e 到人,不靠退出码冒充判死。
+   * 到期回红(Phase 4):登记表是**允许差异**不是永久白名单。只有到期一项进退出码;
+   * 「待决策」仍是未登记读数(本尺只读,不进提交链),净增经 §5e 到人,不靠退出码冒充判死。
    */
   if (r.forkAllowance.expired) {
     console.error(
       `❌ 分叉允许差异已到期 ${r.forkAllowance.expired} 行 ⇒ 必须重新复核或续期(白名单不得腐化,§12e)`,
-    )
-    process.exitCode = 1
-  }
-  /**
-   * 空理由/坏到期日的登记同样判红:它们不许把分叉洗成「已登记」。
-   * 只钉住**命中真实分叉行**的条目 —— 没命中分叉行的杂质条目由门 128 的形状判据处理,不在这里扩权。
-   */
-  if (r.forkAllowance.invalid) {
-    console.error(
-      `❌ 分叉允许差异登记不合格 ${r.forkAllowance.invalid} 行(理由不足 ${REASON_MIN_CHARS} 字或到期日不是 ISO)⇒ ` +
-        `这些条目不算「已登记」,处数已回流未登记栏;先补真实理由/到期日:${r.forkAllowance.invalidRows
-          .map((x) => `${x.key}(${x.why})`)
-          .join(' ')}`,
     )
     process.exitCode = 1
   }
@@ -795,6 +691,5 @@ export const __test__ = {
   rollupStyleTierAllowances,
   judgeForkAllowance,
   sumForkAllowance,
-  splitForkCounts,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

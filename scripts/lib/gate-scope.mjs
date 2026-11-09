@@ -130,14 +130,6 @@ const META_SCRIPT_RE = new RegExp(
       'check-forbidden-', // 禁令面
       'check-adr-', // 架构决策记录
       'check-agent-', // 代理配置
-      // 2026-11-06 收三条跨端回归尺进元门档(否则本地 pre-commit 一律 meta 档 ⇒ 提交面 advisory
-      // 形同没接)。成本由各自 stagedTriggers 收窄:只有改到跨端真源(共享屏/i18n/台账/基线)才跑,
-      // 与本次改动无关的提交零开销。用**精确名 + 行尾锚**而非 `check-cross-` 前缀,避免把未来
-      // 任何同名族业务门拖进 60s 预算(实测漂移尺全量 36s,只在射程命中时付)。
-      'check-cross-end-parity-drift\\.mjs$', // 302/302p 漂移回归门
-      'check-i18n-cross-end-wording\\.mjs$', // 303/303p 文案漂移门
-      // 304 共享层平台纯度复用 check-shared-layer-duplication.mjs:该脚本原有重复检测门一直走
-      // 全量档,把它整名收进元门档会改变既有门行为 —— 故 S3 只在 push/CI 面跑,不在此处加收。
     ].join('|') +
     ')',
 )

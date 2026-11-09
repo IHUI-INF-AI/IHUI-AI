@@ -100,7 +100,7 @@
         "usage"
       ],
       "knownGaps": {
-        "reason": "小程序存量未接(D138 续传层逐步补齐),补齐前显式登记,不得静默。permission 单列:产品的消费链是完整的 —— AgentRuntimePanel 经 useAgentRuntime 解构 permission,shared 的 use-agent-runtime.ts 用 onPermission 回调落 state,api-client 的 agent-runtime.ts 以 case 'permission' 分发。但本门是字面量提及口径(带引号的事件名 或 AGENT_TASK_EVENTS 常量),扫不到「解构 hook 返回值」这一形态,故从 events 移到 knownGaps 如实登记,与 Web 端 knownGaps 里「消费面在 packages/api-client 分发器」的既有口径一致。到期日与同组一致,补齐门判据或补显式锚点后清账。",
+        "reason": "小程序存量未接(D138 续传层逐步补齐),补齐前显式登记,不得静默。",
         "until": "2026-12-31",
         "events": [
           "agent-status",

@@ -33,12 +33,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const WORKTREE = join(__dirname, '..')
 
-const BAIDU_HOME =
-  (process.env.IHUI_BAIDU_HOME || '').trim() || join(WORKTREE, '.DevEnv', 'tools', 'BaiduNetdisk')
-
 export const DEFAULT_BAIDU_EXES = [
-  join(BAIDU_HOME, 'BaiduNetdisk.exe'),
-  join(BAIDU_HOME, 'module', 'BrowserEngine', 'baidunetdiskhost.exe'),
+  'D:\\电脑软件\\BaiduNetdisk\\BaiduNetdisk.exe',
+  'D:\\电脑软件\\BaiduNetdisk\\module\\BrowserEngine\\baidunetdiskhost.exe',
 ]
 
 function candidateExes(env = process.env) {

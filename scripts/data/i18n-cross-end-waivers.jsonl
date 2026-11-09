@@ -41,4 +41,3 @@
 {"key":"messageInput.addFile","kind":"pending-product","reason":"端内「添加」/基准「添加附件」:图标旁短标签与全字标签的取舍,受输入框宽度影响,需产品定后统一","expires":"2027-01-31"}
 {"key":"teacher.detail.viewCourses","kind":"pending-product","reason":"端内「查看课程」/基准「查看全部课程」:入口按钮详略差,两值都不算错,待文案口径统一","expires":"2027-01-31"}
 {"key":"vipTrader.openNow","kind":"pending-product","reason":"两端渲染器不同(端内底部主 CTA vs 共享屏 CTA 兼确认弹窗按钮),仅同槽位无同屏凭据 ⇒ 未判定;且基准侧一键两角色需先拆键再谈对齐","expires":"2027-01-31"}
-{"key":"securitySettings.readOnlyHint","kind":"platform-adaptation","reason":"小程序端无独立「安全中心」页面,两步验证只能在 RN/App 端开关;端内提示只保留只读说明,不指向不存在的入口","expires":"2027-06-30"}

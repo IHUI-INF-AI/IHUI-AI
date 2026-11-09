@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "be81267b-b7b4-44e5-a671-e919fb05d169",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\candidate.json",
+  "output": "G:\\IHUI-AI\\.archify\\architecture-workbuddy-replay-20261107-030200\\workbuddy-replay.html",
+  "specification": {
+    "sha256": "fd577a472f8c3d19bfc12cffb9a65ef52dbf50e936714e1486987daad8fec61f",
+    "bytes": 2767
+  },
+  "artifact": {
+    "sha256": "6a7708707fac97291fa709f944999f6fc6b1dc5785f41173580529deed056946",
+    "bytes": 842282
+  }
+}

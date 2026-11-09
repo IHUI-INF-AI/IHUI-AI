@@ -35,6 +35,8 @@ import { resolve } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 
 import { __test__ as gateFail } from '../lib/gate-failure-kind.mjs'
+// F5 修复@2026-11-05:HEAD 面即缺这一行 import(F5 用例引用 shouldPropagateAsInterrupt 却无人导入,
+// 整条当场 ReferenceError)——补 import 对齐实现单源 scripts/lib/signal-exit.mjs,不复制判据(§22c)。
 import { shouldPropagateAsInterrupt } from '../lib/signal-exit.mjs'
 
 const REAL_CRASH_STDERR =
@@ -423,6 +425,7 @@ test('F9 §0.3 未判定独成一档:exit 2 + 门自称未判定 ⇒ undetermine
   )
   assert.equal(gateFail.detectUndetermined({ status: 0, signal: null, stderr: '未判定' }), null)
 })
+
 // F10 仓内 import↔export 断链单独分型(2026-11-05 门 299 实测):SyntaxError "does not provide an
 // export named" 此前落 crash 的默认支 ⇒ 出路被写成「先取 build 锁再跑全量 pnpm install」,而断链
 // 与依赖无关(实测按该出路跑完 install 崩溃照旧)。归类仍是 crash(后果一项不减,§12e 不借修文案
@@ -455,5 +458,4 @@ test('F10 断链型:仍归 crash(后果不减),出路点名导出名与两侧对
   const iSyntax = gateFail.CRASH_MARKERS.findIndex((re) => re.source === 'SyntaxError: ')
   assert.ok(iBreak >= 0 && iBreak < iSyntax, '断链指纹必须优先于泛化 SyntaxError 指纹')
 })
-
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

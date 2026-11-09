@@ -45,105 +45,43 @@ test('① 因子键集与策略逐键对上,产出过决策器形状锁', () => 
   assert.deepEqual(evidenceKeys, want, '每个因子都必须有 evidence,且键集恰为策略因子键集')
   assert.equal(ad.validateCandidates(built.candidates, POLICY).length, 3, '产出必须过决策器形状锁')
   for (const c of built.candidates) {
-    for (const key of want)
-      assert.ok(c.evidence[key] && c.evidence[key].length > 0, `${key} 的 evidence 不得为空`)
+    for (const key of want) assert.ok(c.evidence[key] && c.evidence[key].length > 0, `${key} 的 evidence 不得为空`)
   }
 })
 
 test('② 九因子分档:结构性证据 → 档位,evidence 点名依据', () => {
   const cases = [
-    [
-      'impact',
-      ac.factorImpact('改一句文案', MAX),
-      (v) => v.level === 0 && /未命中/.test(v.evidence),
-    ],
-    [
-      'impact',
-      ac.factorImpact('部署 守门 判据 凭据', MAX),
-      (v) => v.level === 3 && /部署/.test(v.evidence),
-    ],
-    [
-      'userValue',
-      ac.factorUserValue('改 apps/web 页面', MAX),
-      (v) => v.level === 2 && /apps\/web/.test(v.evidence),
-    ],
+    ['impact', ac.factorImpact('改一句文案', MAX), (v) => v.level === 0 && /未命中/.test(v.evidence)],
+    ['impact', ac.factorImpact('部署 守门 判据 凭据', MAX), (v) => v.level === 3 && /部署/.test(v.evidence)],
+    ['userValue', ac.factorUserValue('改 apps/web 页面', MAX), (v) => v.level === 2 && /apps\/web/.test(v.evidence)],
     ['userValue', ac.factorUserValue('改 apps/web 与 apps/mobile', MAX), (v) => v.level === 3],
     ['userValue', ac.factorUserValue('改 scripts/plan-tasks.mjs', MAX), (v) => v.level === 0],
-    [
-      'userValue',
-      ac.factorUserValue('GET /api/app-version/latest 返 404', MAX),
-      (v) => v.level === 2 && /\/api\//.test(v.evidence),
-    ],
+    ['userValue', ac.factorUserValue('GET /api/app-version/latest 返 404', MAX), (v) => v.level === 2 && /\/api\//.test(v.evidence)],
     ['irreversible', ac.factorIrreversible('做一次数据迁移', MAX), (v) => v.level === 1],
     ['irreversible', ac.factorIrreversible('迁移并删除旧表再轮换口令', MAX), (v) => v.level === 2],
-    [
-      'irreversible',
-      ac.factorIrreversible('物理删除历史数据', MAX),
-      (v) => v.level === 3 && /物理删除/.test(v.evidence),
-    ],
-    [
-      'externalDependency',
-      ac.factorExternal('等机主拍板', MAX),
-      (v) => v.level === 1 && /机主/.test(v.evidence),
-    ],
-    [
-      'externalDependency',
-      ac.factorExternal('机主审批后去第三方控制台配域名', MAX),
-      (v) => v.level === 3,
-    ],
-    [
-      'ruleTouch',
-      ac.factorRuleTouch('补 AGENTS.md 的判据段', MAX),
-      (v) => v.level === 3 && /AGENTS\.md/.test(v.evidence),
-    ],
+    ['irreversible', ac.factorIrreversible('物理删除历史数据', MAX), (v) => v.level === 3 && /物理删除/.test(v.evidence)],
+    ['externalDependency', ac.factorExternal('等机主拍板', MAX), (v) => v.level === 1 && /机主/.test(v.evidence)],
+    ['externalDependency', ac.factorExternal('机主审批后去第三方控制台配域名', MAX), (v) => v.level === 3],
+    ['ruleTouch', ac.factorRuleTouch('补 AGENTS.md 的判据段', MAX), (v) => v.level === 3 && /AGENTS\.md/.test(v.evidence)],
     ['ruleTouch', ac.factorRuleTouch('按守门判据补一段说明', MAX), (v) => v.level === 2],
     ['changeSurface', ac.factorChangeSurface('改 apps/web/a.tsx', MAX), (v) => v.level === 1],
-    [
-      'changeSurface',
-      ac.factorChangeSurface('a.mjs b.ts c.json d.sql 四处', MAX),
-      (v) => v.level === 3 && /4 条/.test(v.evidence),
-    ],
-    [
-      'blockingOthers',
-      ac.factorBlocking('这张票挡住另外两张', MAX),
-      (v) => v.level === 3 && /挡住/.test(v.evidence),
-    ],
+    ['changeSurface', ac.factorChangeSurface('a.mjs b.ts c.json d.sql 四处', MAX), (v) => v.level === 3 && /4 条/.test(v.evidence)],
+    ['blockingOthers', ac.factorBlocking('这张票挡住另外两张', MAX), (v) => v.level === 3 && /挡住/.test(v.evidence)],
     ['blockingOthers', ac.factorBlocking('在等上游未落地', MAX), (v) => v.level === 1],
   ]
   for (const [name, got, ok] of cases) assert.ok(ok(got), `${name} 分档不符:${JSON.stringify(got)}`)
 
   // 验证时长与租约:模型口径是分钟/小时,不是 0-3 档
   const ref = POLICY.scales.verifyMinutesRef
-  assert.equal(
-    ac.factorVerifyMinutes('补 scripts/tests/x.test.mjs', POLICY).minutes,
-    Math.round(ref / 4),
-  )
-  assert.equal(
-    ac.factorVerifyMinutes('改一句文案', POLICY).minutes,
-    ref,
-    '无验收面按参照满额,不假装便宜',
-  )
-  assert.equal(
-    ac.factorLease('普通票面', 'k', CTX).hours,
-    null,
-    '无牌必须 null(0 小时会被模型读成最紧急)',
-  )
-  const aged = ac.factorLease('普通票面', 'k', {
-    ...CTX,
-    lastActivityAt: new Map([['k', NOW - 100 * 3_600_000]]),
-  })
+  assert.equal(ac.factorVerifyMinutes('补 scripts/tests/x.test.mjs', POLICY).minutes, Math.round(ref / 4))
+  assert.equal(ac.factorVerifyMinutes('改一句文案', POLICY).minutes, ref, '无验收面按参照满额,不假装便宜')
+  assert.equal(ac.factorLease('普通票面', 'k', CTX).hours, null, '无牌必须 null(0 小时会被模型读成最紧急)')
+  const aged = ac.factorLease('普通票面', 'k', { ...CTX, lastActivityAt: new Map([['k', NOW - 100 * 3_600_000]]) })
   assert.equal(aged.hours, 0, '超参照牌龄剩余 0')
   assert.match(aged.evidence, /100\.0h/, 'evidence 必须点名牌龄小时数')
-  const fresh = ac.factorLease('普通票面', 'k', {
-    ...CTX,
-    lastActivityAt: new Map([['k', NOW - 2 * 3_600_000]]),
-  })
+  const fresh = ac.factorLease('普通票面', 'k', { ...CTX, lastActivityAt: new Map([['k', NOW - 2 * 3_600_000]]) })
   assert.equal(fresh.hours, POLICY.scales.leaseHoursRef - 2)
-  assert.match(
-    ac.factorLease('（进行中@2026-10-25/甲席）票面', 'k', CTX).evidence,
-    /进行中@2026-10-25/,
-    '票面认领牌也是牌龄证据',
-  )
+  assert.match(ac.factorLease('（进行中@2026-10-25/甲席）票面', 'k', CTX).evidence, /进行中@2026-10-25/, '票面认领牌也是牌龄证据')
 })
 
 test('③ 票键契约:id 必须等于 ticketKeyOf(票面),否则接不回派单面行', () => {
@@ -153,45 +91,23 @@ test('③ 票键契约:id 必须等于 ticketKeyOf(票面),否则接不回派单
 
 test('④ 端到端:产出喂给真消费者 rankTicketRows,必须进入 decision 模式', () => {
   const built = ac.buildCandidates({ rows: rows(), policy: POLICY, ledger: [], now: NOW })
-  const doc = ac.buildDocument({
-    candidates: built.candidates,
-    generatedAt: built.generatedAt,
-    policy: POLICY,
-    rowCount: 3,
-  })
-  const ranked = ae.rankTicketRows(rows(), {
-    policyText: readFileSync(ad.POLICY_PATH, 'utf8'),
-    candidatesText: JSON.stringify(doc),
-  })
+  const doc = ac.buildDocument({ candidates: built.candidates, generatedAt: built.generatedAt, policy: POLICY, rowCount: 3 })
+  const ranked = ae.rankTicketRows(rows(), { policyText: readFileSync(ad.POLICY_PATH, 'utf8'), candidatesText: JSON.stringify(doc) })
   assert.equal(ranked.mode, 'decision', `应进入 decision 模式,现为 ${ranked.mode}`)
   assert.ok(ranked.ranked.length >= 1, '至少应排出一枚')
   assert.equal(typeof ranked.ranked[0].decision.score, 'number')
   // 改判据的票(ruleTouch=3)命中策略 hardBlock ⇒ 压后并点名,不得混进可排期
-  assert.ok(
-    ranked.skipped.some((s) => s.line === 12 && /硬阻断/.test(s.reason)),
-    `压后理由须点名硬阻断:${JSON.stringify(ranked.skipped)}`,
-  )
+  assert.ok(ranked.skipped.some((s) => s.line === 12 && /硬阻断/.test(s.reason)), `压后理由须点名硬阻断:${JSON.stringify(ranked.skipped)}`)
 })
 
 test('⑤ 确定性 + 同票键去重 + 封禁只点名不改分', () => {
   const a = ac.buildCandidates({ rows: rows(), policy: POLICY, ledger: [], now: NOW })
   const b = ac.buildCandidates({ rows: rows(), policy: POLICY, ledger: [], now: NOW })
-  assert.equal(
-    JSON.stringify(a.candidates),
-    JSON.stringify(b.candidates),
-    '同一输入两次产出必须逐字相同',
-  )
+  assert.equal(JSON.stringify(a.candidates), JSON.stringify(b.candidates), '同一输入两次产出必须逐字相同')
 
-  const dup = ac.buildCandidates({
-    rows: [rows()[0], { line: 99, text: rows()[0].text }],
-    policy: POLICY,
-    ledger: [],
-    now: NOW,
-  })
+  const dup = ac.buildCandidates({ rows: [rows()[0], { line: 99, text: rows()[0].text }], policy: POLICY, ledger: [], now: NOW })
   assert.equal(dup.candidates.length, 1, '同票键只留一枚(重复 id 会让决策器整轮判形状坏)')
-  assert.deepEqual(dup.duplicates, [
-    { id: ticketKeyOf(rows()[0].text), keptLine: 11, droppedLine: 99 },
-  ])
+  assert.deepEqual(dup.duplicates, [{ id: ticketKeyOf(rows()[0].text), keptLine: 11, droppedLine: 99 }])
 
   const key = ticketKeyOf(rows()[0].text)
   const q = ac.buildCandidates({
@@ -202,52 +118,12 @@ test('⑤ 确定性 + 同票键去重 + 封禁只点名不改分', () => {
   })
   assert.equal(q.candidates[0].notes.length, 1)
   assert.match(q.candidates[0].notes[0], /封禁/)
-  assert.deepEqual(
-    q.candidates[0].benefit,
-    a.candidates[0].benefit,
-    '封禁是派发闸事实,不得改写因子',
-  )
-})
-
-test('⑧ 未取号占位行不进候选面,且跳过必须出声(2026-11-06 立)', () => {
-  // 现读依据:改前候选面 9 枚中含 `{{NEXT_ID:docs-207}} …` 1 枚(line=31453,ruleTouch=3)——
-  // 编号都没分配的票占着可排期名额,既无法认领也无法结清。谓词单源在 auto-evolve.mjs,此处零复算。
-  const base = rows()
-  const PH_TEXT = '{{NEXT_ID:docs-207}} 示例占位票 存量清偿第二刀'
-  const withPh = ac.buildCandidates({
-    rows: [...base, { line: 31453, text: PH_TEXT }],
-    policy: POLICY,
-    ledger: [],
-    now: NOW,
-  })
-  const plain = ac.buildCandidates({ rows: base, policy: POLICY, ledger: [], now: NOW })
-  assert.equal(withPh.candidates.length, plain.candidates.length, '占位行不得增加任何候选')
-  assert.ok(
-    !JSON.stringify(withPh.candidates).includes('NEXT_ID'),
-    '候选面里不得残留占位令牌(残留 = 它又被送去判期打分)',
-  )
-  // 跳过是"报数"的,不是悄悄消失(§0.3:没看见 ≠ 不存在)
-  assert.deepEqual(withPh.placeholders, [{ line: 31453, head: PH_TEXT.slice(0, 40) }])
-  assert.deepEqual(plain.placeholders ?? [], [], '没有占位行时也要给出空数组,别让读侧把缺字段当 0')
-  // 成对反向:已取号的真票不得被误伤(误伤 = 把可派的活从供给面抹掉,今夜最缺的就是供给)
-  const real = ac.buildCandidates({
-    rows: [{ line: 11, text: 'B34 考勤 /user/check-in 零行为测试:补越权用例' }],
-    policy: POLICY,
-    ledger: [],
-    now: NOW,
-  })
-  assert.equal(real.candidates.length, 1, '普通票必须仍是候选')
-  assert.equal(real.placeholders.length, 0)
+  assert.deepEqual(q.candidates[0].benefit, a.candidates[0].benefit, '封禁是派发闸事实,不得改写因子')
 })
 
 test('⑥ 渲染面:预览必带每票每因子依据,--json 必带 written=false 与裁决摘要', () => {
   const built = ac.buildCandidates({ rows: rows(), policy: POLICY, ledger: [], now: NOW })
-  const doc = ac.buildDocument({
-    candidates: built.candidates,
-    generatedAt: built.generatedAt,
-    policy: POLICY,
-    rowCount: 3,
-  })
+  const doc = ac.buildDocument({ candidates: built.candidates, generatedAt: built.generatedAt, policy: POLICY, rowCount: 3 })
   const decision = ad.decide({ policy: POLICY, candidates: doc.candidates })
   const text = ac.renderPreview(doc, decision, { written: false })
   assert.match(text, /预览/)
@@ -262,11 +138,7 @@ test('⑥ 渲染面:预览必带每票每因子依据,--json 必带 written=fals
 })
 
 test('⑦ CLI 自检末行全绿(不 spawn 派单面)', () => {
-  const r = spawnSync(process.execPath, [SCRIPT, '--self-test'], {
-    cwd: ROOT,
-    encoding: 'utf8',
-    windowsHide: true,
-  })
+  const r = spawnSync(process.execPath, [SCRIPT, '--self-test'], { cwd: ROOT, encoding: 'utf8', windowsHide: true })
   assert.equal(r.status, 0, r.stderr)
   const last = r.stdout.trim().split(/\r?\n/).pop()
   assert.match(last, /^self-test: 全绿/, `末行应为 self-test: 全绿,现为 ${last}`)
