@@ -6,8 +6,10 @@ name: cross-end-sync
 
 # 作用:把 scripts/sync-cross-end-cascade.mjs(已实现的 web→RN→小程序 一键级联)接入 CI,
 #       实现「改 web/shared/design-tokens/ui → 自动派生 RN/小程序 → 自动落地 → 跨端门禁红才拦」。
-# 全自动:同仓 PR 直接落到源分支;main 受分支保护则落到**固定分支 cross-end-auto**并复用同一个 PR
+# 全自动:同仓人工作者 PR 直接落到源分支;main 受分支保护则落到**固定分支 cross-end-auto**并复用同一个 PR
 # (2026-11-08 改:旧实现直推失败就新建 cross-end-auto-<run_id>+新 PR,46.8h 长出 58 支快照、派生件一条没进 main);
+# 2026-11-09 改:bot / Dependabot PR 一律只读预览,绝不把派生提交直推到其源分支(旧口径只判 fork,
+#   实测已污染 4 支 dependabot/* 依赖升级分支与人工 PR fix/delivery-1109)。
 # 门禁(36/93/128/237/259/285/290/291 等)全绿才自批 CI + 开 auto-merge,红则只更新落地分支。
 # 仅 stage 跨端派生可能改动的目录,绝不碰任何人的未提交 WIP。
 
@@ -82,9 +84,13 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 判定是否可写(同仓 push/PR 才自动落地,fork PR 仅出报告)
+      - name: 判定是否可写(同仓人工作者 PR 才自动落地,fork / bot / Dependabot PR 仅出报告)
         id: can-write
         shell: bash
+        env:
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
         run: |
           set -euo pipefail
           HEAD_MSG="${{ github.event.head_commit.message }}"
@@ -94,7 +100,16 @@ jobs:
             exit 0
           fi
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            if [[ "${{ github.event.pull_request.head.repo.full_name }}" == "${{ github.repository }}" ]]; then
+            # 2026-11-09 根因:旧口径只判 fork,同仓的 bot / Dependabot PR 被判可写,
+            # 派生提交经 git push origin HEAD:${github.head_ref} 直推进其源分支,把纯依赖升级 PR
+            # 污染成跨端派生 PR(实测 4 支 dependabot/* + 人工 PR fix/delivery-1109)。
+            # 这类 PR 只出只读漂移报告,绝不落地。
+            if [[ "${PR_HEAD_REF}" == dependabot/* ]] || [[ "${PR_AUTHOR}" == *"[bot]"* ]]; then
+              echo "bot / Dependabot PR(author=${PR_AUTHOR} head=${PR_HEAD_REF}):仅只读报告"
+              echo "can_write=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [[ "${PR_HEAD_REPO}" == "${{ github.repository }}" ]]; then
               echo "can_write=true" >> "$GITHUB_OUTPUT"
             else
               echo "fork PR:仅只读报告" >> "$GITHUB_OUTPUT"
@@ -179,6 +194,11 @@ jobs:
           if [[ "${EVENT_NAME}" == "pull_request" ]]; then
             TARGET="${{ github.head_ref }}"
             BASE_REF="${PR_BASE}"
+          fi
+          # 双保险:即便上游判定被绕过,也绝不把派生提交推到 bot / Dependabot 的依赖升级分支。
+          if [[ "${TARGET}" == dependabot/* ]]; then
+            echo "::warning::目标 ${TARGET} 属 Dependabot 源分支,跳过直推(仅只读报告)"
+            exit 0
           fi
           ORIGIN_TIP="$(git rev-parse "origin/${TARGET}" 2>/dev/null || echo none)"
           if [[ "$(git rev-parse HEAD)" == "${ORIGIN_TIP}" ]]; then
