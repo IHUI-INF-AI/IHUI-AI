@@ -566,11 +566,15 @@ def test_site4_disconnect_path_closes_before_break_and_finally_backstops():
     assert "_graph_stream: AsyncIterator[Any] | None = None" in src
 
     # ② break 之前就关:控制流必须出现在该 if 分支内、break 之前
-    #    (循环体比 site2 多嵌一层内层 try ⇒ break 在 24 空格)
+    #    (循环体比 site2 多嵌一层内层 try ⇒ break 在 24 空格)。
+    #    锚点必须落在**断开分支**上:AIS-086(8adaf979c3,2026-11-08)在循环体最前面
+    #    插了"session 已 cancelled ⇒ break"这一格,其 break 同样是 24 空格却不是
+    #    本条要判的分支(它走内层 finally 兜底),按"循环后第一个 24 空格 break"
+    #    取会错位到取消分支,把真实现判红。
     loop_at = src.index("async for event in _graph_stream:")
-    tail = src[loop_at:]
-    brk_at = tail.index("\n                        break\n")
-    segment = tail[:brk_at]
+    disc_at = src.index("if await request.is_disconnected():", loop_at)
+    brk_at = src.index("\n                        break\n", disc_at)
+    segment = src[disc_at:brk_at]
     assert "await aclose_async_gen(" in segment, "客户端断开路径未在 break 之前关停生成器"
 
     # ③ 兜底:内层 try 的 finally 里也有一次关停(抛错 / CancelledError / GeneratorExit
