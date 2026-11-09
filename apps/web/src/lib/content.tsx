@@ -54,14 +54,7 @@ export const ANN_TYPE_KEY: Record<AnnouncementType, string> = {
 }
 
 // ---------------- Help ----------------
-export interface HelpCategory {
-  slug: string
-  name: string
-  description?: string
-  articleCount?: number
-}
-
-export interface HelpArticleSummary {
+interface HelpArticleSummary {
   slug: string
   title: string
   /** 摘要：后端 help_articles 表无 summary 列，需从 content 派生（见 excerptFromContent） */
@@ -86,13 +79,6 @@ export function excerptFromContent(content?: string, max = 150): string {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max)
-}
-
-export interface HelpArticleDetail {
-  article: HelpArticle
-  categoryName?: string
-  prev?: { slug: string; title: string }
-  next?: { slug: string; title: string }
 }
 
 // ---------------- Docs ----------------

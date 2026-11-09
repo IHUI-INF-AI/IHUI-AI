@@ -129,7 +129,7 @@ function isValidCompactBoundary(value: unknown): value is CompactBoundary {
   return true
 }
 
-export interface LedgerContext {
+interface LedgerContext {
   userId: string
   conversationId?: string | null
   messageId?: string | null

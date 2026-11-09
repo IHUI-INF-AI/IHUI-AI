@@ -143,7 +143,11 @@ describe('planCheckinEnabledReconcile', () => {
   })
 
   it('超过单轮上限 ⇒ 只保留前 N 个动作,余量记 truncated', () => {
-    const pool = [poolRow({ id: 'a', uid: 'u-a' }), poolRow({ id: 'b', uid: 'u-b' }), poolRow({ id: 'c', uid: 'u-c' })]
+    const pool = [
+      poolRow({ id: 'a', uid: 'u-a' }),
+      poolRow({ id: 'b', uid: 'u-b' }),
+      poolRow({ id: 'c', uid: 'u-c' }),
+    ]
     const checkin = [
       peer({ identityKey: 'u-a', enabled: false }),
       peer({ identityKey: 'u-b', enabled: false }),
@@ -201,9 +205,7 @@ describe('reconcileCheckinEnabledState', () => {
   })
 
   it('超过单轮上限 ⇒ 只处理前 N 个(断言调用次数)', async () => {
-    const pool = Array.from({ length: 4 }, (_, i) =>
-      poolRow({ id: `p${i}`, uid: `u${i}` }),
-    )
+    const pool = Array.from({ length: 4 }, (_, i) => poolRow({ id: `p${i}`, uid: `u${i}` }))
     const checkin = Array.from({ length: 4 }, (_, i) =>
       peer({ identityKey: `u${i}`, enabled: false }),
     )

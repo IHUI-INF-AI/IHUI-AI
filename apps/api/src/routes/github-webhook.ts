@@ -63,7 +63,7 @@ import {
 } from '../services/github-app/store.js'
 
 /** 路由选项:生产缺省惰性解析 DB store;单测可注入内存账本;null 表示显式无持久层 */
-export interface GithubWebhookRouteOptions {
+interface GithubWebhookRouteOptions {
   deliveryStore?: GithubAppStore | null
 }
 
@@ -134,9 +134,7 @@ function rejectClaim(
       success({ accepted: false, reason: 'duplicate_delivery', delivery: deliveryId }),
     )
   }
-  return reply
-    .status(503)
-    .send(error(503, '投递持久层不可用,拒绝确认(防止事件丢失后不再重投)'))
+  return reply.status(503).send(error(503, '投递持久层不可用,拒绝确认(防止事件丢失后不再重投)'))
 }
 
 /** GitHub 支持的事件名(本服务订阅子集) */
@@ -218,7 +216,13 @@ async function handleUnattendedIntake(
     store,
     delivery,
     kind,
-    { source: 'github_webhook', event: kind, repo: data.repo, commitSha: data.commitSha, triggers: rendered },
+    {
+      source: 'github_webhook',
+      event: kind,
+      repo: data.repo,
+      commitSha: data.commitSha,
+      triggers: rendered,
+    },
     request.log,
   )
   if (claim === 'duplicate' || claim === 'unavailable') return rejectClaim(reply, claim, delivery)

@@ -847,9 +847,6 @@ export function HomeScreen() {
     modelModalContentHeight,
     modelModalListMaxHeight,
   )
-  const modelModalListStyle = modelModalListHeight
-    ? [shellStyles.modelModalListBody, { height: modelModalListHeight }]
-    : shellStyles.modelModalListBody
   const [modelConfig, setModelConfig] = useState<ModelConfig>(DEFAULT_MODEL_CONFIG)
   // ── 素材列表弹窗(对齐 Uniapp ai_index showMaterialList → MaterialList「我的创作」) ──
   // 数据源:getMyCreation,按分类映射 agent/plugin/workflow(对齐 Uniapp getMyCreation → /agent/creation/my/:type)
@@ -2052,9 +2049,14 @@ export function HomeScreen() {
             </View>
             {/* 技能 tab 渲染真实智能体列表(对齐 Uniapp toggleSkillsPopup → AgentList);
                 搜索态跨全部分类渲染模型列表;其余 tab 渲染分类过滤后的模型列表 */}
+            {/* 列表样式:实测内容高(封顶 70% - 内边距 - 固定区)即确定像素高度的弹性契约;
+                未测得(null)时该项被 RN 忽略,列表退回自然高度以铺开并上报内容尺寸 */}
             {modelModalTab === 'skills' && !modelSearch.trim() ? (
               <AgentList
-                style={modelModalListStyle}
+                style={[
+                  shellStyles.modelModalListBody,
+                  modelModalListHeight ? { height: modelModalListHeight } : null,
+                ]}
                 items={skillAgentItems}
                 onItemClick={handleSkillAgentPress}
                 isLoading={false}
@@ -2063,7 +2065,10 @@ export function HomeScreen() {
               />
             ) : (
               <ModelList
-                style={modelModalListStyle}
+                style={[
+                  shellStyles.modelModalListBody,
+                  modelModalListHeight ? { height: modelModalListHeight } : null,
+                ]}
                 groups={modalModelGroups}
                 selectionMode="single"
                 selectedIds={selectedModel ? [selectedModel.id] : []}

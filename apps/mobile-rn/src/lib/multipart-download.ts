@@ -32,9 +32,9 @@ import { File, FileMode } from 'expo-file-system'
 import { createSpeedMeter, DownloadCancellation, DownloadCancelledError } from './ranged-download'
 
 /** 8 路是实测档:Gitee 8 连接 15.36 MB/s 已接近本机出口的一半,再堆只增内存峰值。 */
-export const DEFAULT_PARTS_CONCURRENCY = 8
+const DEFAULT_PARTS_CONCURRENCY = 8
 /** 首字节看门狗:30s 内一个字节都没到货 ⇒ 撤单回退(Gitee 实测 TTFB 0.32s)。 */
-export const DEFAULT_PARTS_STALL_TIMEOUT_MS = 30_000
+const DEFAULT_PARTS_STALL_TIMEOUT_MS = 30_000
 /** 分片份数上限:64 份足够覆盖 85–200MB 的包,也防止清单被塞进几千条请求。 */
 const MAX_PARTS = 64
 const MAX_PART_ATTEMPTS = 3
@@ -72,7 +72,7 @@ export class PartsUnavailableError extends Error {
 }
 
 /** 分片腿在首字节到货前停滞。与"清单不可用"同属可降级,但原因要分开报,便于排查。 */
-export class PartsStalledError extends Error {
+class PartsStalledError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'PartsStalledError'
@@ -191,7 +191,7 @@ export function planPartLayout(parts: ApkPart[]): PartPlacement[] {
   })
 }
 
-export interface PartResponse {
+interface PartResponse {
   status: number
   body: ArrayBuffer
 }
@@ -234,7 +234,7 @@ function delay(ms: number): Promise<void> {
  * 与 ranged-download 同因:RN 的 fetch 拿不到裸字节流,而 XHR 在 Android 上稳定且 onprogress
  * 能给出**真实到货字节**(进度条不必等整份下完才跳一格)。
  */
-export function createXhrPartTransport(): PartTransport {
+function createXhrPartTransport(): PartTransport {
   return {
     get(url, timeoutMs, cancellation, onBytes) {
       return new Promise<PartResponse>((resolve, reject) => {
@@ -289,7 +289,7 @@ export function createXhrPartTransport(): PartTransport {
 }
 
 /** 默认清单传输:XHR 文本。体积极小,不需要 arraybuffer。 */
-export function createXhrManifestTransport(): ManifestTransport {
+function createXhrManifestTransport(): ManifestTransport {
   return {
     get(url, timeoutMs, cancellation) {
       return new Promise<string>((resolve, reject) => {
@@ -333,7 +333,7 @@ export function createXhrManifestTransport(): ManifestTransport {
   }
 }
 
-export interface PartsProgress {
+interface PartsProgress {
   downloadedBytes: number
   totalBytes: number
   bytesPerSecond: number
