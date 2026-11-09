@@ -164,11 +164,17 @@ function braceObjectAt(src: string, braceStart: number): string | null {
 function callArgObject(src: string, callName: string): string | null {
   const inline = src.indexOf(`${callName}({`)
   if (inline !== -1) return braceObjectAt(src, inline + callName.length + 1)
-  const decl = new RegExp(`const\\s+streamOpts\\s*(?::\\s*[^=]+)?=\\s*\\{`).exec(src)
+  // 2026-11-10:声明的类型注解不总是裸 `StreamChatOptions`,也会与匿名接口求交
+  // (`StreamChatOptions & { onQuestionResolved?: (frame: unknown) => void }`)。
+  // 旧写法"从冒号一路吃到等号"会被类型里箭头函数的 `=>` 提前截断 ⇒ 声明匹配不上
+  // ⇒ 实参对象恒为 null(判据误报"基准丢失")。改为只认**赋值等号**:`=` 后面紧跟
+  // `{`(中间只允许空白),`=>` 的等号后面是 `>`,不会被当成赋值。
+  const decl = /\bconst\s+streamOpts\b/.exec(src)
   if (!decl) return null
-  const braceStart = src.indexOf('{', decl.index)
+  const assign = /=\s*\{/.exec(src.slice(decl.index))
+  if (!assign) return null
   if (src.indexOf(`${callName}(streamOpts)`) === -1) return null
-  return braceObjectAt(src, braceStart)
+  return braceObjectAt(src, decl.index + assign.index + assign[0].indexOf('{'))
 }
 
 /** 挂载判据(①③共用):message-input 必须**既 import 又真的在 JSX 里挂上**这句。
