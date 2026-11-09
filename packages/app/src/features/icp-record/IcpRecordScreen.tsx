@@ -38,6 +38,9 @@ export function IcpRecordScreen({
   onBack,
   onCopy,
   onQuery,
+  scope,
+  recordUrl,
+  onOpenRecordUrl,
   colorScheme = 'light',
 }: IcpRecordScreenProps) {
   const tk = getTokens(colorScheme)
@@ -79,6 +82,26 @@ export function IcpRecordScreen({
               )}
             </View>
           ))}
+          {scope ? (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>{t('icpRecord.scope')}</Text>
+              <Text style={styles.rowValue}>{scope}</Text>
+            </View>
+          ) : null}
+          {recordUrl ? (
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>{t('icpRecord.url')}</Text>
+              {onOpenRecordUrl ? (
+                <Tappable style={styles.rowLinkWrap} onPress={() => onOpenRecordUrl(recordUrl)}>
+                  <Text style={[styles.rowValue, styles.link]} numberOfLines={1}>
+                    {recordUrl}
+                  </Text>
+                </Tappable>
+              ) : (
+                <Text style={styles.rowValue}>{recordUrl}</Text>
+              )}
+            </View>
+          ) : null}
         </View>
 
         {onQuery ? (
@@ -131,6 +154,7 @@ function createStyles(tk: AppThemeTokens) {
       flex: 1,
     },
     rowLinkWrap: { flex: 1, alignItems: 'flex-end' },
+    link: { color: tk.brand.cta, textDecorationLine: 'underline' },
     rowLink: { color: tk.brandAccent.DEFAULT, textDecorationLine: 'underline' },
     queryButton: {
       height: 50,
@@ -147,7 +171,7 @@ function createStyles(tk: AppThemeTokens) {
     footer: {
       fontSize: rnType.caption.size,
       color: tk.text.tertiary,
-      lineHeight: rnType.body.lineHeight,
+      lineHeight: 20,
       paddingHorizontal: rnSpacing.xs,
       paddingVertical: rnSpacing.md,
     },

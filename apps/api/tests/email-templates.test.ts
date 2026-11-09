@@ -31,6 +31,7 @@ import {
   EMAIL_LOGO_CID,
   EMAIL_QR_CID,
   escapeHtml,
+  defaultAlertTitle,
 } from '../src/services/email-templates.js'
 
 // email-templates 现为零副作用模块(不 import config),CORS_ORIGIN 直读 process.env。
@@ -315,7 +316,7 @@ describe('email-templates — 新品上线', () => {
 })
 
 describe('email-templates — 运维系统告警', () => {
-  it('critical 走信号红,主题保留 [CRITICAL] 前缀(兼容监控过滤规则)', () => {
+  it('缺省中文:critical 走信号红,主题用 [严重],版面不出现英文标签', () => {
     const r = renderSystemAlertEmail({
       severity: 'critical',
       source: 'guardian-runner',
@@ -323,12 +324,18 @@ describe('email-templates — 运维系统告警', () => {
       title: 'API 服务 5xx 飙升',
       message: 'error rate 12.4%\nthreshold 5%',
     })
-    expect(r.subject).toBe('[CRITICAL] API 服务 5xx 飙升')
+    expect(r.subject).toBe('[严重] API 服务 5xx 飙升')
     expect(r.html).toContain('#FF3B2F')
-    expect(r.html).toContain('[ CRITICAL ]')
+    expect(r.html).toContain('[ 严重 ]')
+    expect(r.html).toContain('严重级别')
+    expect(r.html).toContain('告警内容')
     expect(r.html).toContain('guardian-runner')
     expect(r.html).toContain('2026-09-21 10:00:00')
     expect(r.html).toContain('error rate 12.4%')
+    // 收件人看不懂的英文标签一个都不许留(2026-11-10 机主定案)
+    expect(r.html).not.toContain('SEVERITY')
+    expect(r.html).not.toContain('MESSAGE')
+    expect(r.html).not.toContain('ALERT_CRITICAL')
   })
 
   it('info 走品牌绿,theme 标签映射正确', () => {
@@ -339,10 +346,47 @@ describe('email-templates — 运维系统告警', () => {
       title: '例行巡检完成',
       message: 'all green',
     })
-    expect(r.subject).toBe('[INFO] 例行巡检完成')
+    expect(r.subject).toBe('[提示] 例行巡检完成')
     expect(r.html).toContain('#B4FF00')
-    expect(r.html).toContain('ALERT_INFO')
+    expect(r.html).toContain('系统通知')
     expect(r.html).not.toContain('#FF3B2F')
+  })
+
+  it('海外收件人(locale=en)拿完整英文版面,不混中文标签', () => {
+    const r = renderSystemAlertEmail({
+      severity: 'warning',
+      source: 'guardian-runner',
+      time: '2026-09-21 12:00:00',
+      title: 'deploy failed',
+      message: 'boom',
+      locale: 'en',
+    })
+    expect(r.subject).toBe('[WARNING] deploy failed')
+    expect(r.html).toContain('SEVERITY')
+    expect(r.html).toContain('[ WARNING ]')
+    expect(r.html).toContain('SYSTEM // ALERT_WARNING')
+    expect(r.html).toContain('do not reply') // 页脚说明同样是英文
+    expect(r.html).not.toContain('严重级别')
+  })
+
+  it('缺省主题随语言走:英文主题里不得残留中文标题', () => {
+    // 2026-11-10 实测缺口:级别词已英文化,标题却仍是脚本里硬编码的
+    // 「部署失败 — production」⇒ 海外收件人收到 `[CRITICAL] 部署失败 — production`。
+    // 标题同属可见文案,必须与 subjectPrefix 同源。
+    expect(defaultAlertTitle('production', 'zh')).toBe('部署失败 — production')
+    expect(defaultAlertTitle('production', 'en')).toBe('Deploy failed — production')
+    expect(defaultAlertTitle('staging')).toBe('部署失败 — staging') // 缺省中文
+
+    const r = renderSystemAlertEmail({
+      severity: 'critical',
+      source: 'guardian-runner',
+      time: '2026-11-10 06:40:00',
+      title: defaultAlertTitle('production', 'en'),
+      message: 'boom',
+      locale: 'en',
+    })
+    expect(r.subject).toBe('[CRITICAL] Deploy failed — production')
+    expect(r.subject).not.toMatch(/[\u4e00-\u9fa5]/) // 主题里一个汉字都不许有
   })
 
   it('message 为真实文本(逐行 div,非 <pre>)且被转义(XSS 防护)', () => {

@@ -13,9 +13,13 @@ import { permissionTierWordKeys } from '@ihui/shared/chat'
 import { useI18n } from '../i18n'
 
 import { Input, Loading } from '@ihui/ui-native'
-import type { AgentRuntimePanelProps } from '@ihui/ui-native'
 
-export function AgentRuntimePanel({ sessionId: initialSessionId }: AgentRuntimePanelProps) {
+/** 端内 legacy 包装只取 sessionId;共享层组件要求的 labels/t 由本端 useI18n 自行解析,不向调用方摊派。 */
+export interface LegacyAgentRuntimePanelProps {
+  sessionId?: string
+}
+
+export function AgentRuntimePanel({ sessionId: initialSessionId }: LegacyAgentRuntimePanelProps) {
   const { t } = useI18n()
   const {
     status,

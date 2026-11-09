@@ -22,12 +22,14 @@
  *   2 — 无 origin remote / 无 main 分支 / detached HEAD(需人工介入)
  *
  * 用法:
- *   node scripts/git-push-guard.mjs                # 默认推 main
- *   node scripts/git-push-guard.mjs --branch=dev   # 指定分支
- *   HUSKY_SKIP_PUSH=1 node scripts/git-push-guard.mjs  # 仅检测不推送(紧急情况)
+ *   # 缺省 = **不推**(2026-11-07 起)。两道拒绝闸都过了才推:
+ *   #   ① origin 必须是显式 https:// 地址;② 环境里必须显式 PUSH_WINDOW=1
+ *   PUSH_WINDOW=1 node scripts/git-push-guard.mjs      # 显式推送窗口
+ *   node scripts/git-push-guard.mjs --branch=dev       # 指定分支(同样受两道闸约束)
+ *   HUSKY_SKIP_PUSH=1 node scripts/git-push-guard.mjs  # 仅检测不推送
  *
  * 调用方:
- *   - .husky/post-commit  自动触发(commit 后立即 push)
+ *   - .husky/post-commit  自动触发(commit 后调用;无窗口时本轮只留拒绝日志)
  *   - 手动收尾验证       agent 交付前自验
  */
 import { execSync, execFileSync, spawnSync, spawn } from 'node:child_process'
@@ -51,6 +53,11 @@ import {
 } from './lib/face-reader.mjs'
 import { isAncestor } from './lib/bypass-git.mjs'
 import { triagePushAttempt, describeVerdict, CONVERGE_COMMAND } from './lib/push-attempt-triage.mjs'
+import {
+  judgePushRemoteUrl,
+  judgePushWindow,
+  HTTPS_REMOTE_HINT,
+} from './lib/push-window-gate.mjs'
 import { identityFieldsForPid, judgeRunningState } from './lib/push-state-liveness.mjs'
 
 const C = {
@@ -266,7 +273,7 @@ const isWorkerMode = process.argv.includes('--worker') || process.env.GUARD_WORK
 
 log(
   'info',
-  `git-push-guard 启动 → 分支: ${C.bold}${targetBranch}${C.reset} | 模式: ${skipPush ? C.yellow + '仅检测' : C.green + '检测+自动推送'}` +
+  `git-push-guard 启动 → 分支: ${C.bold}${targetBranch}${C.reset} | 模式: ${skipPush ? C.yellow + '仅检测' : C.green + '检测+按闸推送(缺省 PUSH_WINDOW 未开则拒推)'}` +
     C.reset,
 )
 
@@ -1009,6 +1016,32 @@ log('info', `本地 ahead  ${C.yellow}${ahead}${C.reset} 个 commit,落后 ${beh
 
 if (skipPush) {
   log('warn', `HUSKY_SKIP_PUSH=1 已设置,跳过 push(本地有 ${ahead} 个未推送 commit,需手动处理)`)
+  process.exit(1)
+}
+
+// ─── 2.9 推送两道拒绝闸(2026-11-07 立;缺省 = 不推) ──────────
+// 病灶:`.husky/post-commit` → `scripts/lib/post-commit-hook.js` 的缺省行为是
+// "只要 HUSKY_SKIP_PUSH !== '1' 就自动推",而当时 origin 是
+// `ssh://git@ssh.github.com:443/IHUI-INF-AI/IHUI-AI.git`。一次默认行为 + 一个 SSH remote
+// = 一次违规推送,只差远端当时可达。"只准 HTTPS 显式地址 / 等推送窗口"这两条约束只写在
+// 对话里,机制上却相反 ⇒ 在机制上不可执行。这里只做**拒绝**,不改上面任何既有校验门。
+// 判据本体在 lib/push-window-gate.mjs(纯函数,可单测);此处只负责取材与打印。
+// 取 remote.origin.url **原文**(不取 `git remote get-url` 的 insteadOf 展开结果):
+// 闸判的是"配置里声明的目标地址",而 get-url 会把测试桩/镜像重写展开成本地路径。
+const originUrl = run('git config --get remote.origin.url', { allowFail: true })
+const urlVerdict = judgePushRemoteUrl(originUrl)
+if (!urlVerdict.ok) {
+  log('err', `目标远端原文: ${originUrl === null ? '(取不到)' : originUrl}`)
+  log('err', urlVerdict.reason)
+  log(
+    'err',
+    `正确写法:显式给 ${HTTPS_REMOTE_HINT}(只接受 https:// 开头;ssh:// / git@ / git:// / 本地路径一律不接受)`,
+  )
+  process.exit(1)
+}
+const windowVerdict = judgePushWindow(process.env)
+if (!windowVerdict.ok) {
+  log('warn', windowVerdict.reason)
   process.exit(1)
 }
 

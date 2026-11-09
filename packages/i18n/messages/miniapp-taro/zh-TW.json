@@ -133,7 +133,8 @@
     "getPhoneFail": "獲取手機號碼失敗",
     "loginFailed": "登入失敗,請重試",
     "wechatOneClick": "微信一鍵登入",
-    "webAuthLogin": "網頁授權登入"
+    "webAuthLogin": "網頁授權登入",
+    "agreement": "登入即代表同意《使用者條款》和《隱私權政策》"
   },
   "forgot": {
     "step1": "第一步:驗證手機號",
@@ -1241,11 +1242,9 @@
       "rewardLabel": "懸賞積分",
       "submit": "發布問題",
       "draftRestored": "草稿已恢復",
-      "maxImages": "最多 3 張",
       "contentRequired": "請輸入問題描述",
       "contentTooShort": "描述至少 5 個字",
       "categoryPlaceholder": "選擇分類",
-      "imageLabel": "配圖",
       "anonymousLabel": "匿名釋出",
       "anonymousDesc": "不顯示你的暱稱",
       "categoryLabel": "分類",
@@ -2730,7 +2729,8 @@
     "payFailed": "支付失敗,請重試",
     "paying": "支付中...",
     "purchaseContent": "購買內容",
-    "userAgreement": "《使用者協議》"
+    "userAgreement": "《使用者協議》",
+    "activateDelayed": "權益發放延遲，請聯絡客服"
   },
   "study": {
     "todayMinutes": "今日 {n} 分鐘",
@@ -3028,7 +3028,8 @@
     "security": {
       "code": "驗證碼",
       "sendCode": "發送驗證碼"
-    }
+    },
+    "bindPhone": "綁定手機"
   },
   "vipScreen": {
     "qr": {
@@ -3446,7 +3447,11 @@
       "permanentMemory": "永久記憶"
     },
     "toast": {
-      "loginRequired": "請先登入"
+      "loginRequired": "請先登入",
+      "compactDone": "上下文已壓縮",
+      "compactFailed": "壓縮失敗",
+      "compactNoSession": "請先傳送一則訊息",
+      "compactSkipped": "暫無可壓縮的上下文"
     },
     "title": "智匯AI社群",
     "chatError": "傳送失敗,請重試",
@@ -3664,7 +3669,9 @@
     "d3": "本機檔案",
     "d4": "微信檔案",
     "p1": "語音輸入中",
-    "p2": "語音輸入"
+    "p2": "語音輸入",
+    "compact": "壓縮上下文",
+    "compacting": "壓縮中..."
   },
   "DrawerComponent": {
     "empty1": "暫無歷史對話",
@@ -6587,6 +6594,7 @@
     "noTask": "無任務描述"
   },
   "aigcPublish": {
+    "errorMaxFiles": "最多上傳 {max} 個檔案",
     "typeText": "文案",
     "fileAddText": "點擊新增檔案",
     "labelTextContent": "文字內容",
@@ -7153,5 +7161,104 @@
     "submitSuccess": "發佈任務已建立",
     "submitFailed": "提交失敗",
     "taskCreated": "任務 ID：{taskId}"
+  },
+  "hrAttendance": {
+    "title": "人事部 · 考勤",
+    "tabDepartments": "部門",
+    "tabEmployees": "員工",
+    "tabRule": "考勤規則",
+    "tabRecords": "考勤記錄",
+    "tabStats": "出勤統計",
+    "tabLeave": "請假審批",
+    "createSuccess": "建立成功",
+    "updateSuccess": "儲存成功",
+    "add": "新增",
+    "save": "儲存",
+    "loading": "載入中…",
+    "noData": "暫無資料",
+    "colName": "名稱",
+    "colId": "ID",
+    "colDepartment": "部門",
+    "colEmployeeNo": "工號",
+    "colPosition": "職位",
+    "colDate": "日期",
+    "colCheckIn": "簽到",
+    "colCheckOut": "簽退",
+    "colStatus": "狀態",
+    "colStart": "開始",
+    "colEnd": "結束",
+    "colReason": "事由",
+    "colActions": "操作",
+    "ruleLateAfter": "遲到閾值",
+    "ruleEarlyBefore": "早退閾值",
+    "ruleAbsentAfter": "缺勤閾值",
+    "ruleWorkdays": "工作日後(週遮罩 1–127)",
+    "ruleEnabled": "啟用",
+    "approve": "通過",
+    "reject": "駁回",
+    "statusPresent": "正常",
+    "statusLate": "遲到",
+    "statusEarly": "早退",
+    "statusAbsent": "缺勤",
+    "statusLeave": "請假",
+    "statusPending": "待審批",
+    "statusApproved": "已通過",
+    "statusRejected": "已駁回"
+  },
+  "hrAttendance": {
+    "title": "人事部 · 考勤",
+    "tabDepartments": "部門",
+    "tabEmployees": "員工",
+    "tabRule": "考勤規則",
+    "tabRecords": "考勤記錄",
+    "tabStats": "出勤統計",
+    "tabLeave": "請假審批",
+    "createSuccess": "建立成功",
+    "updateSuccess": "儲存成功",
+    "add": "新增",
+    "save": "儲存",
+    "loading": "載入中…",
+    "noData": "暫無資料",
+    "colName": "名稱",
+    "colId": "ID",
+    "colDepartment": "部門",
+    "colEmployeeNo": "工號",
+    "colPosition": "職位",
+    "colDate": "日期",
+    "colCheckIn": "簽到",
+    "colCheckOut": "簽退",
+    "colStatus": "狀態",
+    "colStart": "開始",
+    "colEnd": "結束",
+    "colReason": "事由",
+    "colActions": "操作",
+    "ruleLateAfter": "遲到閾值",
+    "ruleEarlyBefore": "早退閾值",
+    "ruleAbsentAfter": "缺勤閾值",
+    "ruleWorkdays": "工作日後(週遮罩 1–127)",
+    "ruleEnabled": "啟用",
+    "approve": "通過",
+    "reject": "駁回",
+    "statusPresent": "正常",
+    "statusLate": "遲到",
+    "statusEarly": "早退",
+    "statusAbsent": "缺勤",
+    "statusLeave": "請假",
+    "statusPending": "待審批",
+    "statusApproved": "已通過",
+    "statusRejected": "已駁回"
   }
-}
+,
+  "level": {
+    "0": "新手",
+    "1": "青銅",
+    "2": "白銀",
+    "3": "黃金",
+    "4": "鉑金",
+    "5": "鑽石",
+    "6": "王者",
+    "distance": "距"
+  },
+  "TagInput": {
+    "p2": "已達上限"
+  }}

@@ -590,9 +590,7 @@ export async function fetchUserLlmTemplates<T = { templates: unknown[] }>(): Pro
 }
 
 /** 供应商详情 — GET /api/v2/user/llm-providers/:id */
-export async function getUserLlmProvider<T = UserLlmProvider>(
-  id: number,
-): Promise<ApiResult<T>> {
+export async function getUserLlmProvider<T = UserLlmProvider>(id: number): Promise<ApiResult<T>> {
   return fetchApi<T>(`/api/v2/user/llm-providers/${id}`)
 }
 
@@ -769,5 +767,43 @@ export async function deleteUserLlmGroup<T = { id: number; deleted: boolean }>(
   id: number,
 ): Promise<ApiResult<T>> {
   return fetchApi<T>(`/api/v2/user/llm-groups/${id}`, { method: 'DELETE' })
+}
+
+// ===== 个人号池 → 对话模型(2026-11-10 立)=====
+/**
+ * 个人号池可用模型(「我的号池」分组)。
+ *
+ * id 直接就是 /v1/chat/completions 能吃的 model 值 —— 平台登记行逐字节命中反查,
+ * 或 `<平台>/<上游模型名>` 走转发器的前缀兜底;客户端**不要**改写 id。
+ */
+export interface PoolChatModel {
+  id: string
+  name: string
+  /** 平台 code:trae / workbuddy / codearts / qoder / … */
+  provider: string
+  /** 该平台下当前可调度的账号数 */
+  accountCount: number
+  /** preset = 平台登记模型(有展示名/定价);upstream = 上游清单现拉 */
+  source: 'preset' | 'upstream'
+}
+
+/**
+ * 拉取当前账号个人号池的可用模型 — GET /api/account-pool/models。
+ *
+ * 静默降级:未登录 / 无号池 / 接口失败一律返回空数组(选择器照常展示平台模型)。
+ * refresh=true 跳过服务端 10 分钟上游清单缓存。
+ */
+export async function fetchPoolChatModels(
+  opts: { refresh?: boolean } = {},
+): Promise<PoolChatModel[]> {
+  try {
+    const res = await fetchApi<{ list: PoolChatModel[]; total: number }>(
+      `/api/account-pool/models${opts.refresh ? '?refresh=true' : ''}`,
+      { method: 'GET' },
+    )
+    return res.success ? (res.data?.list ?? []) : []
+  } catch {
+    return []
+  }
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

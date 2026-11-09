@@ -77,12 +77,22 @@ function createTempBareOrigin() {
 }
 
 // 辅助:创建工作仓库 + bare origin,并 push 初始 commit(synced 状态)
+// 2026-11-07:guard 新增「协议闸」(只接受显式 https:// 目标)⇒ 夹具的 origin 必须声明成
+// 硬约束里的那个 https 地址;再用 `url.<本地 bare>.insteadOf` 做**测试桩**把实际传输落到
+// 本地 bare。闸读的是 `git config --get remote.origin.url` 的**原文**(仍是 https),
+// 因此测的是"合规目标 + 显式窗口"这条被放行的路径,全程不联网、不推真远端。
+const HTTPS_ORIGIN = 'https://github.com/IHUI-INF-AI/IHUI-AI.git'
 function createSyncedRepoWithOrigin() {
   const work = createTempRepo()
   const origin = createTempBareOrigin()
-  // Windows 路径转正斜杠(git remote add 兼容)
-  const originUrl = origin.replace(/\\/g, '/')
-  execSync(`git remote add origin "${originUrl}"`, {
+  // Windows 路径转正斜杠(git config url.<base> 兼容)
+  const bareUrl = origin.replace(/\\/g, '/')
+  execSync(`git remote add origin "${HTTPS_ORIGIN}"`, {
+    cwd: work,
+    // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  execSync(`git config --local "url.${bareUrl}.insteadOf" "${HTTPS_ORIGIN}"`, {
     cwd: work,
     // 2026-10-04:不吃的子进程必须给 stdio,否则本机报 spawnSync EBUSY
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -113,7 +123,7 @@ function runScript(args = [], opts = {}) {
     // 否则命中 node 默认 1MB 会把**已缓冲输出**丢掉(守门 123 记的同一型)。
     maxBuffer: 64 * 1024 * 1024,
     timeout: 180_000,
-    env: { ...process.env, GUARD_ASYNC: '0', ...opts.env },
+    env: { ...process.env, GUARD_ASYNC: '0', PUSH_WINDOW: '1', ...opts.env },
   })
 }
 

@@ -32,6 +32,23 @@ pnpm install                         # workspace 联动安装
 cd apps/ai-service && uv sync && cd ../..   # AI 服务 Python 依赖
 ```
 
+### 1.1 并行开发必须用独立 worktree,并在新建后跑一次链接完整性门
+
+主工作树只保留一条开发线;并行任务一律 `git worktree add` 独立执行。多棵树共用主树的
+`node_modules/@ihui/*` 会让 tsc / 单测读到**别人的代码图**(2026-11-07 实测:
+`apps/web/node_modules/@ihui/rn-app` 在多棵 worktree 里指向主树),症状是"代码明明改了却测不到"。
+
+```bash
+git worktree add ../IHUI-AI-wt-<线名> -b feat/<线名> origin/main
+cd ../IHUI-AI-wt-<线名> && pnpm install --frozen-lockfile
+node scripts/fix-worktree-links.mjs --apply                 # 只修复本树 node_modules/@ihui/* 链接
+node scripts/check-worktree-link-integrity.mjs --strict     # 必须 exit 0 才能开始写代码
+```
+
+`check-worktree-link-integrity.mjs` 只判"链接存在但指向别树";本树没有 `@ihui/*` 链接时按工程
+约定 exit 0,不算通过也不算失败。CI 侧同一条门挂在
+[`.github/workflows/reading-trust-defense.yml`](../.github/workflows/reading-trust-defense.yml)。
+
 ---
 
 ## 2. 环境变量

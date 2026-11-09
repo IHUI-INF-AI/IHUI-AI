@@ -49,14 +49,13 @@ export function CertVerifyScreen() {
       const cert = res.data.certificate
       setResult({
         valid: true,
-        certNo: cert.certificateNo ?? certNo,
         title: cert.title ?? '',
         holder: cert.recipientName ?? '-',
         issuer: cert.issuer ?? '-',
         issuedAt: cert.issuedAt ? String(cert.issuedAt).slice(0, 10) : '-',
       })
     } else if (!res.success && res.status === 404) {
-      setResult({ valid: false, certNo, title: '', holder: '', issuer: '', issuedAt: '' })
+      setResult({ valid: false, title: '', holder: '', issuer: '', issuedAt: '' })
     } else if (!res.success) {
       setError(apiFailureToText(res, t('certVerify.failed')))
     }

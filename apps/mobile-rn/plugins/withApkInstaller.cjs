@@ -57,15 +57,15 @@ function ensurePermission(manifest) {
   return { added: true }
 }
 
-module.exports = function withApkInstaller(config) {
+module.exports = function withApkInstaller(config, props = {}) {
+  // 用途文案由 app.config.js 传入(商店材料对账直接读同一句);缺省值与插件头注同源。
+  const usage = String(props.installPackagesPermission ?? '').trim() || '应用内更新:下载新版本 APK 后拉起系统安装器'
   return withAndroidManifest(config, (cfg) => {
     if (!cfg.modResults?.manifest) return cfg
     const { added } = ensurePermission(cfg.modResults.manifest)
     if (added) {
       // prebuild 期回执:这条权限是"商店需要用途说明"的那一类,补上了就要留痕
-      console.info(
-        `[withApkInstaller] 注入 ${REQUEST_INSTALL_PACKAGES}(应用内更新:下载 APK 后拉起系统安装器)`,
-      )
+      console.info(`[withApkInstaller] 注入 ${REQUEST_INSTALL_PACKAGES}(${usage})`)
     }
     return cfg
   })

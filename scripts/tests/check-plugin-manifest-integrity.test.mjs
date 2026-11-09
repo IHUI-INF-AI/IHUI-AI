@@ -385,4 +385,31 @@ test('P14 walkInstallRoot 永不返回"部分清单":熔断/读不动一律整�
   assert.equal(w.errno, 'EACCES')
   assert.equal(w.files, undefined, '读不动时不得带回任何"已读到的"残档冒充枚举完成')
 })
+
+test('FA-1 两面旗(--staged/--worktree)必须接住,不得当"不认的参数"整轮未判定', () => {
+  const scratch = mkScratch('plugin-integrity-FA1-')
+  try {
+    const root = joinOf(scratch, 'no-registry')
+    mkdirOf(root)
+    for (const flag of ['--staged', '--worktree']) {
+      const lines = []
+      const orig = console.error
+      console.error = (...args) => lines.push(args.join(' '))
+      let code = null
+      try {
+        code = main([flag, '--plugins-root', root])
+      } finally {
+        console.error = orig
+      }
+      const text = lines.join('\n')
+      assert.equal(code, 2, `${flag}:台账取不到仍必须是未判定(不记绿)`)
+      assert.ok(
+        !text.includes('不认的参数'),
+        `${flag} 被当成未知参数 ⇒ 整轮没读到被审面:${text}`,
+      )
+    }
+  } finally {
+    rmScratch(scratch)
+  }
+})
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

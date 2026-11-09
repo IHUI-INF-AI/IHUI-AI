@@ -34,11 +34,11 @@
  */
 
 /* eslint-disable no-console -- CLI 工具,需 console 输出诊断信息(与 check-live-doc-merge-recall.mjs 同形) */
-import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
-import { catBatch, selectFace } from './lib/face-reader.mjs'
+import { catBatch, gitRaw, selectFace } from './lib/face-reader.mjs'
+import { readFaceOne } from './lib/gate-face.mjs'
 import { recallRowsOf } from './lib/head-recall.mjs'
 import {
   declaredRows,
@@ -83,6 +83,15 @@ export function diffStock({ faceText, baseText, declared }) {
     faceHeld: face.held.length,
     added,
     grew: face.rows.length > base.rows.length,
+  }
+}
+
+/** 固定 revision 是否存在 —— 只用于锚点 HEAD^;"没有上一枚提交"与"取不到锚点面"不是一回事。 */
+function revExists(rev) {
+  try {
+    return gitRaw(['rev-parse', '--verify', `${rev}^{commit}`], ROOT).trim() !== ''
+  } catch {
+    return false
   }
 }
 
@@ -154,32 +163,34 @@ function main() {
       : picked.face === 'worktree'
         ? '工作树(人工逃生舱)'
         : 'HEAD blob'
-  const faceSpec =
-    picked.face === 'staged' ? `:${FILE}` : picked.face === 'worktree' ? null : `HEAD:${FILE}`
-  const baseSpec = picked.face === 'head' ? `HEAD^:${FILE}` : `HEAD:${FILE}`
-
+  // 被审面一律交给统一取材层(§0.4):head=`HEAD:<p>` / staged=`:<p>` / worktree 读盘。
+  // 改前门里手写索引面/HEAD 面/前缀拼接三套 spec,任何一处退化都会把
+  // 索引面读成取不到(实测 2026-11-07 静态扫描点名 head-prefix-concat)。
+  const baseRev = picked.face === 'head' ? 'HEAD^' : 'HEAD'
   let faceText = null
   let baseText = null
   try {
-    if (picked.face === 'worktree') {
-      // 人工逃生舱档:唯一允许读盘的一档(§0.4),基线仍取 HEAD blob —— 不回落另一个面
-      faceText = readFileSync(path.join(ROOT, FILE), 'utf8')
-      const got = catBatch(ROOT, ['HEAD:' + FILE])
-      baseText = got?.get('HEAD:' + FILE) ?? null
-    } else {
-      const got = catBatch(ROOT, [faceSpec, baseSpec])
-      faceText = got?.get(faceSpec) ?? null
-      baseText = got?.get(baseSpec) ?? null
+    faceText = readFaceOne(ROOT, picked.face, FILE)
+    if (baseRev === 'HEAD^' && !revExists('HEAD^')) {
+      console.error(`${C.yellow}⏭ 未判定:${C.reset}锚点面 HEAD^ 取不到 ⇒ 不记绿也不冒红(§0.3)`)
+      process.exit(2)
+    }
+    baseText = readFaceOne(ROOT, 'head', FILE)
+    if (baseRev === 'HEAD^') {
+      // 全量档的基线是上一枚提交,不是 HEAD —— 固定 revision 读仍经 catBatch 解析,门里不拼 spec
+      const spec = `${baseRev}:${FILE}`
+      baseText = catBatch(ROOT, [spec]).get(spec) ?? null
     }
   } catch (e) {
     console.error(
-      `${C.yellow}⏭ 未判定:${C.reset}取材层抛错(${faceSpec ?? '工作树'} / ${baseSpec}):${String(e?.message ?? e).split('\n')[0]}`,
+      `${C.yellow}⏭ 未判定:${C.reset}取材层抛错(${picked.face} / ${baseRev}):${String(e?.message ?? e).split('\n')[0]}`,
     )
     process.exit(2)
   }
-  if (!faceText || !baseText) {
+  // null = 该面没有此文件(取不到),必须先落未判定;文本判据本身仍按原口径(空/缺 ⇒ 未判定)。
+  if (typeof faceText !== 'string' || typeof baseText !== 'string') {
     console.error(
-      `${C.yellow}⏭ 未判定:${C.reset}取不到(${faceSpec ?? '工作树'} / ${baseSpec})⇒ 不记绿也不冒红(§0.3)`,
+      `${C.yellow}⏭ 未判定:${C.reset}取不到(${picked.face} / ${baseRev})⇒ 不记绿也不冒红(§0.3)`,
     )
     process.exit(2)
   }

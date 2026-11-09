@@ -102,6 +102,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { catBatch, gitRaw, readWorktreeFile, selectFace, Undetermined } from './lib/face-reader.mjs'
 import { maskComments } from './lib/code-mask.mjs'
 import { makeRegistrar } from './lib/selftest-registrant.mjs'
+import { changedAgainstEveryParent, deltaParents } from './lib/merge-delta.mjs'
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(dirname(SELF_DIR))
@@ -422,8 +423,18 @@ export function ledgerBlocking(res) {
  * 单文件判定核心(纯函数,与取材分开 ⇒ 自检能构造)。
  * 三态严格分开:p1 / p2 / und;pass 只统计"逐字等值"的条目,绝不与 und 合并。
  */
-export function judgeFile({ path, headText, candText, candAbsent, ledger }) {
-  const r = { path, p1: [], p2: [], und: [], exempted: [], pass: 0, headEntries: 0, candEntries: 0 }
+export function judgeFile({ path, headText, candText, candAbsent, ledger, extraParentTexts = [] }) {
+  const r = {
+    path,
+    p1: [],
+    p2: [],
+    und: [],
+    exempted: [],
+    attributed: [],
+    pass: 0,
+    headEntries: 0,
+    candEntries: 0,
+  }
   if (candAbsent) {
     r.und.push({ entry: '(整个文件)', why: '候选面取不到该路径(文件被删/未暂存),不判绿' })
     return r
@@ -440,6 +451,18 @@ export function judgeFile({ path, headText, candText, candAbsent, ledger }) {
   }
   r.headEntries = H.entries.size
   r.candEntries = C.entries.size
+  // 合并面父提交(HEAD 之外)的注册表正文:归因用,不参与"候选面读数"。
+  // 父面抽取失败 ⇒ 归因不成立,落未判定并保持原来的 HEAD 基准判法(不静默判绿)。
+  const extraParents = (extraParentTexts || [])
+    .filter((t) => typeof t === 'string')
+    .map((t) => extract(path, t))
+  const extraBroken = extraParents.filter((x) => !x.ok)
+  if (extraBroken.length) {
+    r.und.push({
+      entry: '(父提交侧)',
+      why: `${extraBroken.length} 枚父提交侧抽取失败:${extraBroken[0].error} ⇒ 归因不成立,仍按 HEAD 基准判`,
+    })
+  }
   // 抽取器自己"看不见"的条目不许蒸发:定位失败/重号一律点名成未判定。
   if (H.failed && H.failed.length) {
     r.und.push({
@@ -464,6 +487,17 @@ export function judgeFile({ path, headText, candText, candAbsent, ledger }) {
     if (key === '(未定位)') continue
     if (!C.entries.has(key)) {
       const why = 'HEAD 有该条目,候选面整条不见(P1 型写回)'
+      // 合并面的对称判据:只有**每一枚父提交**(HEAD ∪ MERGE_HEAD)都有该条目,才算本次删除/写回;
+      // 上游侧也没有它 ⇒ 这是上游分支的形态,归因上游。非合并提交父面为空 ⇒ 恒等,旧判据不变。
+      if (!extraBroken.length && extraParents.length) {
+        if (!extraParents.every((x) => x.entries.has(key))) {
+          r.attributed.push({
+            entry: key,
+            why: 'HEAD 有、MERGE_HEAD 也没有该条目 ⇒ 归因上游,不记本次删除',
+          })
+          continue
+        }
+      }
       const rec = ledger && ledger.ok ? ledger.ok.get(`${path}#${key}`) : null
       if (rec && String(rec.reason || '').trim())
         r.exempted.push({
@@ -476,6 +510,21 @@ export function judgeFile({ path, headText, candText, candAbsent, ledger }) {
     const c = C.entries.get(key)
     if (linesEqual(h.lines, c.lines)) {
       r.pass += 1
+      continue
+    }
+    // 合并面:候选块与 MERGE_HEAD 逐字相同 ⇒ 这是上游那一枚的写法,本次没有改写它 ⇒ 归因上游。
+    // 非合并提交只有 HEAD 父 ⇒ 候选既已逐行不等于 HEAD,这里恒不触发(旧行为不变)。
+    const parentBlocks = extraParents
+      .filter((x) => x.ok && x.entries.has(key))
+      .map((x) => x.entries.get(key).lines.join('\n'))
+    if (
+      parentBlocks.length &&
+      !changedAgainstEveryParent(c.lines.join('\n'), [h.lines.join('\n'), ...parentBlocks])
+    ) {
+      r.attributed.push({
+        entry: key,
+        why: '候选块与父提交逐字相同 ⇒ 归因上游,不是本次改写',
+      })
       continue
     }
     if (String(h.value) === String(c.value)) {
@@ -554,6 +603,10 @@ export function collect({ root, face }) {
     )
     present = listed.filter((p) => idx.has(p))
   }
+  // 父集 = HEAD ∪ MERGE_HEAD(非合并 ⇒ 只有 HEAD);父面正文只用于归因,绝不混入候选面读数。
+  const otherParents = deltaParents({ root, face }).parents.slice(1)
+  const parentSpecs = otherParents.flatMap((par) => listed.map((p) => `${par.rev}:${p}`))
+  const parentMap = parentSpecs.length ? catBatch(root, parentSpecs, { timeout: 120000 }) : null
   const headSpecs = listed.map((p) => `HEAD:${p}`)
   const candSpecs = face === 'staged' ? present.map((p) => `:${p}`) : []
   const headMap = catBatch(root, headSpecs, { timeout: 120000 })
@@ -566,7 +619,13 @@ export function collect({ root, face }) {
     }
     if (face === 'staged') candText = present.includes(p) ? (candIndex.get(`:${p}`) ?? null) : null
     else candText = readWorktreeFile(root, p)
-    return { path: p, headText, candText, headAbsent: false }
+    return {
+      path: p,
+      headText,
+      candText,
+      headAbsent: false,
+      extraParentTexts: otherParents.map((par) => parentMap.get(`${par.rev}:${p}`) ?? null),
+    }
   })
   // 台账与注册表同轮取样,但**各按各自的面**:
   //   候选面正文 = 索引档 `:path` / 磁盘档 readWorktreeFile(与上面 candText 同一档,不混面);
@@ -644,6 +703,7 @@ export function run({ root = REPO_ROOT, face = 'worktree', strict = false, today
         headText: f.headText,
         candText: f.candText,
         candAbsent: f.candText === null,
+        extraParentTexts: f.extraParentTexts || [],
         ledger: ledgerForFile,
       }),
     )

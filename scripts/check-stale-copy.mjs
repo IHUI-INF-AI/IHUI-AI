@@ -37,7 +37,12 @@ import { execFile, execSync } from 'node:child_process'
 import { cpus } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { catBatch } from './lib/face-reader.mjs'
+import { Undetermined, catBatch, gitRaw } from './lib/face-reader.mjs'
+import {
+  blobOidOf,
+  changedAgainstEveryParent,
+  deltaParents,
+} from './lib/merge-delta.mjs'
 
 /** 仓库根由脚本自身位置推导(不依赖调用者站在哪个目录 —— 守门 70 的 cwd 恒红那一型)。 */
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -135,6 +140,40 @@ const RED_FLAG_DELETE = [
   /^scripts\/(check|guard)[\w-]*\.mjs$/,
   /^scripts\/lib\/[\w-]+\.mjs$/,
 ]
+
+/**
+ * 本次 staged 面的父集:非合并提交 ⇒ null(判据逐字走改前的单父写法);
+ * 合并未收口 ⇒ [HEAD, MERGE_HEAD...](见 lib/merge-delta.mjs 的 `deltaParents`)。
+ * 取不到父提交 = 未判定,抛 Undetermined,绝不折成空集(空集会把上游既有内容记成本次动作)。
+ */
+export function stagingParentSet(root = ROOT) {
+  try {
+    gitRaw(['rev-parse', '--git-dir'], root, { timeout: 15000 })
+  } catch {
+    return null // 非 git 现场:维持改前行为(此时 staged 清单本来就是空的)
+  }
+  try {
+    const d = deltaParents({ root, face: 'staged' })
+    return d.merge ? d.parents : null
+  } catch (e) {
+    throw new Undetermined(`无法判定本次提交的父集:${e?.message ?? e}`)
+  }
+}
+
+/**
+ * 纯判据:一条 staged 条目是否**归属本次提交**(父集由调用方注入,故可单测)。
+ *  - modified:结果 blob 必须与**每一枚**父提交都不同(与任一父相同即归因该父);
+ *  - removed :结果面没有该件,且**每一枚**父提交都有(缺任一父就不记本次删除)。
+ */
+export function attributableToMergeParents({ kind, curOid, parentOids = [] }) {
+  const present = parentOids.filter((o) => o !== null && o !== undefined)
+  if (kind === 'removed') {
+    if (curOid) return false
+    return parentOids.length > 0 && present.length === parentOids.length
+  }
+  if (!curOid) return false
+  return changedAgainstEveryParent(curOid, present)
+}
 
 /**
  * 修复出路 —— 这份文本只许有一处来源:main() 打印它,--self-test 与镜像测试判它能不能跑。
@@ -306,18 +345,51 @@ async function main() {
   const blocked = []
   const checked = { deleted: [], stale: [] }
 
+  // 合并未收口时,上游既有的 M/D 不得记成本次动作;非合并(父集只有 HEAD)保持原判据。
+  let mergeParents
+  try {
+    mergeParents = stagingParentSet(ROOT)
+  } catch (e) {
+    console.error(`❌ 无法判定本次提交的父集:${String(e?.message ?? e).split('\n')[0]}`)
+    process.exit(2)
+  }
+  const parentOidsOf = (rel) =>
+    (mergeParents ?? []).map((p) =>
+      blobOidOf({ root: ROOT, face: 'rev', rev: p.rev, rel }),
+    )
+
   // 逐文件判定(判据与改前逐字同形),只把三个 git 调用换成异步、按 CONCURRENCY 并发;
   // 结果按 entries 原顺序回填 ⇒ blocked / checked.stale 的内容与顺序都不变。
   const judged = await mapLimit(entries, CONCURRENCY, async (e) => {
     const path = e.path.replace(/\\/g, '/')
     // D = 工作区删除(staged 删除在 porcelain 里是 'D ')
     const isDeleted = e.x === 'D' || e.y === 'D'
-    if (isDeleted && RED_FLAG_DELETE.some((r) => r.test(path)))
+    if (isDeleted && RED_FLAG_DELETE.some((r) => r.test(path))) {
+      if (
+        mergeParents &&
+        !attributableToMergeParents({
+          kind: 'removed',
+          curOid: null,
+          parentOids: parentOidsOf(path),
+        })
+      )
+        return null
       return { blocked: { path, kind: '删除红旗文件(迁移/测试/守门脚本)' } }
+    }
     if (e.y !== 'M' && e.x !== 'M') return null
     // 已修改文件:blob 级陈旧副本检测(blob 在基线祖先中出现过)
     const blob = await gitOut(['rev-parse', `:${path}`])
     if (!blob) return null
+    // 合并面:结果 blob 与任一父相同 ⇒ 该改动归因那枚父提交,不判本次的"陈旧副本"。
+    if (
+      mergeParents &&
+      !attributableToMergeParents({
+        kind: 'modified',
+        curOid: blob,
+        parentOids: parentOidsOf(path),
+      })
+    )
+      return null
     const hits = (
       await gitOut(['log', '--all', '--format=%H', `--find-object=${blob}`, '--', path])
     )
@@ -387,5 +459,7 @@ export const __test__ = {
   checkExitsResolvable,
   selfTest,
   RED_FLAG_DELETE,
+  stagingParentSet,
+  attributableToMergeParents,
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

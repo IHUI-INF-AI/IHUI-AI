@@ -36,6 +36,31 @@ export function createAgreementStyles(tk: AppThemeTokens) {
       color: tk.text.medium,
       lineHeight: rnType.strong.lineHeight,
     },
+    headingH1: {
+      fontSize: 20,
+      lineHeight: 28,
+      fontWeight: '700',
+      color: tk.text.primary,
+    },
+    headingH2: {
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '500',
+      color: tk.text.primary,
+    },
+    headingH3: {
+      fontSize: rnType.body.size,
+      lineHeight: rnType.strong.lineHeight,
+      fontWeight: '600',
+      color: tk.text.primary,
+    },
+    listRow: { flexDirection: 'row', alignItems: 'flex-start', gap: rnSpacing['xs-loose'] },
+    bullet: {
+      fontSize: rnType.body.size,
+      lineHeight: rnType.strong.lineHeight,
+      color: tk.text.medium,
+    },
+    listText: { flex: 1 },
     loadingText: {
       fontSize: rnType.body.size,
       color: tk.text.secondary,

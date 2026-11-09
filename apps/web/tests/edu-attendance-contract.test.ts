@@ -92,7 +92,8 @@ describe('edu attendance web contract', () => {
     expect(src).not.toContain('/api/edu-ai-management/attendance?studentId=')
     expect(src).toContain('eduAttendanceSelfCheckIn')
     // 载荷只有 date/remark:不接受 studentId、不接受 classId
-    expect(src).toContain('{ date, remark: remark.trim() || undefined }')
+    // 2026-11(B72 整月视图)后业务日取自 todayStr(),载荷键名不变:仍只有 date/remark
+    expect(src).toContain('{ date: today, remark: remark.trim() || undefined }')
     expect(src).not.toMatch(/JSON\.stringify\(\{[^}]*studentId/)
     expect(src).not.toMatch(/JSON\.stringify\(\{[^}]*classId/)
     expect(src).not.toMatch(/classId.*trim/)
