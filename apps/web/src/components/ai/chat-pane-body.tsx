@@ -27,7 +27,8 @@ import { toast } from '@/components/common'
 import { ImportProvenanceSlot } from '@/components/ai/import-source-banner'
 import { MessageInput } from '@/components/chat/message-input'
 import { MessageList } from '@/components/chat/message-list/MessageList'
-import { QuestionDialog } from '@/components/chat/question-dialog'
+// 2026-11-08 立:提问改为消息流内联卡(非模态、不遮挡对话、键盘可达),原 QuestionDialog 弹窗退场
+import { InlineQuestionCard } from '@/components/ai/inline-question-card'
 import { useChat } from '@/hooks/use-chat'
 // D35(2026-10-31 挂载):长会话分页投影钩子此前是"建好没装车"的形态(实现/单测在位,
 // 零生产入口)。本窗格是它接入的第一处真实消费面:首屏 loadLatest 拿 turn 分片投影,
@@ -117,8 +118,7 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
     currentModel,
     pendingQuestion,
     sendMessage,
-    sendAnswer,
-    skipQuestion,
+    submitQuestionResponse,
     stop,
     setModel,
   } = useChat()
@@ -549,6 +549,13 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
                 }
               : undefined
           }
+          trailing={
+            <InlineQuestionCard
+              question={pendingQuestion}
+              onSubmit={submitQuestionResponse}
+              className="mb-2 px-1"
+            />
+          }
         />
       </div>
 
@@ -566,8 +573,6 @@ export function ChatPaneBody({ paneId, conversationId }: ChatPaneBodyProps) {
         onModelChange={setModel}
         modelLabel={t('model')}
       />
-
-      <QuestionDialog question={pendingQuestion} onSubmit={sendAnswer} onSkip={skipQuestion} />
 
       {/* D28 补齐层:「用场景分析」弹窗(片3 闭合)—— 草稿经 usePaneChatStore 落**本窗格**输入框 */}
       {importProvenance && (

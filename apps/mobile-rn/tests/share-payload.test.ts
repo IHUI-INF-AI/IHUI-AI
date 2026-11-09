@@ -8,7 +8,10 @@ import { describe, expect, it } from 'vitest'
 
 import { buildSharePayload } from '../src/screens/share-payload'
 
-const SHARE_SCREEN = readFileSync(join(__dirname, '..', 'src', 'screens', 'ShareScreen.tsx'), 'utf8')
+const SHARE_SCREEN = readFileSync(
+  join(__dirname, '..', 'src', 'screens', 'ShareScreen.tsx'),
+  'utf8',
+)
 
 describe('XUI-045 RN 分享:图片 URI 不得混进文本消息', () => {
   it('有图片 ⇒ URI 走 url 字段,message 不含 file://', () => {

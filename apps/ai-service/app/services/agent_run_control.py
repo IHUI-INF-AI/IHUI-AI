@@ -74,6 +74,7 @@ __all__ = [
     "ResumeResult",
     "ResumeRunner",
     "SessionNotFoundError",
+    "SteerableLoop",
     "budget_snapshot",
     "can_continue",
     "clear_all",
@@ -84,6 +85,7 @@ __all__ = [
     "register_run",
     "resume_session",
     "snapshot_records",
+    "wake_session",
 ]
 
 
@@ -118,6 +120,16 @@ class PausableLoop(Protocol):
     """
 
     async def pause(self) -> str | None: ...
+
+
+class SteerableLoop(Protocol):
+    """对"能接收一条中途提示的 run"的要求(`AgentLoopV2.steer` 已满足)。
+
+    与 `PausableLoop` 分开:能暂停不等于能中途注入,两个能力各自声明,
+    避免把"pause 可用"误读成"wake 可用"。
+    """
+
+    def steer(self, text: str) -> bool: ...
 
 
 class PauseOutcome(StrEnum):
@@ -384,6 +396,63 @@ def _forbidden() -> PauseResult:
         changed=False,
         detail="该会话不属于当前用户",
     )
+
+
+async def wake_session(
+    session_id: str, *, owner_user_id: str, text: str
+) -> dict[str, object]:
+    """把一条提示 steer 进该会话**正在跑**的回合(triggersAgent 的消费端)。
+
+    结果码是封闭集,不用布尔冒充:
+      `woken` / `not_running` / `not_steerable` / `unknown_session` /
+      `forbidden` / `missing_identity` / `empty_text`
+
+    属主判据与 pause 同一把尺:先比对 `run_ownership` 的在飞属主,再比对登记时写入的
+    属主;两份都有值且不一致 ⇒ fail-closed 判越权("能插话"与"能暂停"同权)。
+    """
+    sid = (session_id or "").strip()
+    uid = (owner_user_id or "").strip()
+    body = (text or "").strip()
+    if not sid or not uid:
+        return {"ok": False, "code": "missing_identity"}
+    if not body:
+        return {"ok": False, "code": "empty_text"}
+
+    now = _clock()
+    async with _lock:
+        record = _records.get(sid)
+        if record is not None and record.expires_at <= now:
+            _records.pop(sid, None)
+            record = None
+
+    in_flight_owner = owner_of(sid)
+    record_owner = record.owner_user_id if record is not None else None
+    if in_flight_owner is not None and in_flight_owner != uid:
+        return {"ok": False, "code": "forbidden"}
+    if record_owner is not None and record_owner != uid:
+        return {"ok": False, "code": "forbidden"}
+    if (
+        in_flight_owner is not None
+        and record_owner is not None
+        and in_flight_owner != record_owner
+    ):
+        logger.warning(
+            "wake 属主登记自相矛盾(按越权处理):session=%s run_ownership=%s run_control=%s",
+            sid,
+            in_flight_owner,
+            record_owner,
+        )
+        return {"ok": False, "code": "forbidden"}
+
+    if record is None:
+        return {"ok": False, "code": "unknown_session"}
+    if record.paused or record.loop is None:
+        return {"ok": False, "code": "not_running"}
+    steer = getattr(record.loop, "steer", None)
+    if not callable(steer):
+        return {"ok": False, "code": "not_steerable"}
+    accepted = bool(steer(body))
+    return {"ok": accepted, "code": "woken" if accepted else "not_running"}
 
 
 async def pause_session(session_id: str, requester: str) -> PauseResult:

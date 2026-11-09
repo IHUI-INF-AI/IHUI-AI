@@ -367,11 +367,7 @@ function ipRegionKey(ip: string): string {
   const v4 = /^(\d{1,3}\.\d{1,3})\./.exec(ip)
   if (v4) return v4[1]!
   if (ip.includes(':')) {
-    return ip
-      .split(':')
-      .slice(0, 2)
-      .join(':')
-      .toLowerCase()
+    return ip.split(':').slice(0, 2).join(':').toLowerCase()
   }
   return ip
 }

@@ -41,7 +41,7 @@ describe('XUI-039 支付成功页只认服务端 paid', () => {
     const writeAt = VIP_SUCCESS.indexOf('setStorageSync(VIP_PAID_STATUS_KEY, true)')
     expect(verifyAt).toBeGreaterThanOrEqual(0)
     expect(writeAt).toBeGreaterThan(verifyAt)
-    expect(VIP_SUCCESS).toContain("if (!paid) {")
+    expect(VIP_SUCCESS).toContain('if (!paid) {')
   })
 
   it('服务端查询走 /vip/order/:orderNo/payinfo', () => {
