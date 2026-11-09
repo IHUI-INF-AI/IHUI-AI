@@ -5,7 +5,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execSync, execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, resolve } from 'node:path'
 import { mkScratch, rmScratch } from '../lib/scratch-dir.mjs'
 import { __test__ } from '../check-commit-loss-guard.mjs'
@@ -2436,6 +2436,107 @@ test('30a 缓存版本隔离: v2 件即使槽内容"看起来匹配"也绝不误
     // 重写后的 v3 必须真能命中(证明"失效"不是靠 disabling 缓存换来的)。
     const third = runScript(['--blocking', '--filter-stash'], { cwd: dir })
     assert.match(third.stdout, /复用 \d+ 分钟前的结论/, '重写后的 v3 必须可复用')
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+// ─── fsck 悬空集合缓存(2026-11-10):单独一层,先读后算 ──────────────────────────
+// 立因(实测):本门单跑 100s,`git fsck --connectivity-only --unreachable --no-reflogs` 占 37s;
+// 而结论缓存的键里装着 fsck 结果本身,读取点又排在 fsck 之后 ⇒ 缓存再准也救不了 fsck。
+// 这一族钉三件事:①第二轮真的不跑 fsck(复用行 + 结论不变);②ref 丢掉可达性(删分支)必须作废;
+// ③纯增量(新提交/tip 前移)不得作废 —— 否则每次提交又回到全量 fsck。
+test('30a fsck 缓存·命中: 第二轮复用悬空集合读数,判定面为"全部 ref 未丢可达性"', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-fsck-dangling')
+    writeFileSync(join(dir, 'fsck-dangling.txt'), 'never-landed\n')
+    git('git add fsck-dangling.txt')
+    git('git commit -m "fsck-dangling"')
+    const oid = execSync('git rev-parse HEAD', {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
+    git('git checkout main')
+    git('git branch -D temp-fsck-dangling')
+
+    const first = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(first.status, 1, first.stdout)
+    assert.doesNotMatch(first.stdout, /fsck 悬空集合复用/, '首轮没有 fsck 缓存件,不得显示复用')
+    const p = join(dir, '.git', 'ihui-commit-loss-fsck-cache.json')
+    assert.ok(existsSync(p), '冷跑必须落 fsck 缓存件(否则每次提交都重跑 fsck = 本单根因)')
+    const cache = JSON.parse(readFileSync(p, 'utf8'))
+    assert.equal(cache.version, 2, 'fsck 缓存件必须是 v2(全 ref 快照结构)')
+    assert.ok(cache.refs.length > 0 && cache.refs.every((r) => Array.isArray(r) && r.length === 2))
+    assert.ok(
+      cache.unreachable.includes(oid),
+      '缓存里必须是 fsck 的原始悬空集合(判断哪一枚该拦由后面的档位做,不在缓存层预筛)',
+    )
+
+    // 只留 fsck 缓存件:结论缓存件删掉,逼这一轮走"fsck 复用 + 逐门重判"那条路
+    // (否则会先在结论缓存处早退,断言就只测到结论缓存、测不到 fsck 这一层)。
+    rmSync(join(dir, '.git', 'ihui-commit-loss-cache.json'), { force: true })
+    const second = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(second.status, 1, second.stdout)
+    assert.match(second.stdout, /fsck 悬空集合复用/, 'ref 面未变 ⇒ 必须复用,不得重跑 fsck')
+    assert.match(
+      second.stdout,
+      new RegExp(oid.slice(0, 12)),
+      '复用路径必须给出与冷跑同一枚结论(复用不得变成"少判")',
+    )
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('30a fsck 缓存·失效: ref 丢掉可达性(删分支)⇒ 必重算,不得拿旧悬空集合顶替', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    git('git checkout -b temp-fsck-drop')
+    writeFileSync(join(dir, 'fsck-drop.txt'), 'never-landed\n')
+    git('git add fsck-drop.txt')
+    git('git commit -m "fsck-drop"')
+    git('git checkout main')
+    // 留着分支先跑一轮:此时该 commit 仍可达 ⇒ 缓存里它不在悬空集合里,refs 快照却记着它。
+    const warm = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(warm.status, 0, warm.stdout)
+    assert.ok(existsSync(join(dir, '.git', 'ihui-commit-loss-fsck-cache.json')))
+
+    // 删分支 ⇒ 那枚 commit 的旧 tip 不再可达 ⇒ 缓存必须整份作废。
+    git('git branch -D temp-fsck-drop')
+    const second = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.doesNotMatch(
+      second.stdout,
+      /fsck 悬空集合复用/,
+      '有 ref 丢过可达性时复用必然漏判新悬空 ⇒ 必须重算',
+    )
+    assert.equal(second.status, 1, `重算后必须判红(新悬空未备份)\n${second.stdout}`)
+  } finally {
+    rmScratch(dir)
+  }
+})
+
+test('30a fsck 缓存·增量不作废: 新提交/tip 前移不得让缓存失效(否则等于永不命中)', () => {
+  const dir = createTempRepo()
+  const git = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' })
+  try {
+    const warm = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(warm.status, 0, warm.stdout)
+
+    writeFileSync(join(dir, 'advance.txt'), 'forward only\n')
+    git('git add advance.txt')
+    git('git commit -m "advance"')
+
+    const second = runScript(['--blocking', '--filter-stash'], { cwd: dir })
+    assert.equal(second.status, 0, second.stdout)
+    assert.match(
+      second.stdout,
+      /fsck 悬空集合复用/,
+      'tip 只前移不会产生新悬空 ⇒ 复用必须成立(把"交付面变化"当失效条件就是老病灶)',
+    )
   } finally {
     rmScratch(dir)
   }
