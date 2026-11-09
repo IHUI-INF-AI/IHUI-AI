@@ -1112,8 +1112,14 @@ async def test_wb_sweep_records_counts_on_success(monkeypatch):
             "unjudged": kind == "lottery",
         }
 
+    async def _fake_autopilot(jwt, dm, dry_run=False):
+        # 本条用例只钉"六族巡检"的账(2026-11-09 起巡检多了一条 autopilot 腿,
+        # 见 735c9e20c4);该腿自带未判定判据,不桩掉会把它的 undone 计进 unjudged。
+        return {}
+
     monkeypatch.setattr(sched, "_load_accounts_and_cooldowns", _fake_load)
     monkeypatch.setattr(cs.workbuddy_tasks, "run_family", _fake_run)
+    monkeypatch.setattr(cs.workbuddy_autopilot, "run_autopilot", _fake_autopilot)
     await sched._workbuddy_task_sweep()
 
     last = sched.status()["wb_tasks"]["last_sweep"]

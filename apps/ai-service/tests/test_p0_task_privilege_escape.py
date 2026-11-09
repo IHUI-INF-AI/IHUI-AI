@@ -10,7 +10,8 @@ AIS-052:`run_workflow` 的 `agent` 字段是调用方可填的 task_type,role=0 
 
 判据(夹具必红 → 修复后必绿):
 1. role=0 经 MCP 工具面提交 long_running_command ⇒ PERMISSION_DENIED,且 **零进程派生**;
-2. role=0 经 run_workflow 声明 long_running_command 节点 ⇒ WORKFLOW_FORBIDDEN,且 **零节点执行**;
+2. role=0 经 run_workflow 声明 long_running_command 节点 ⇒ 拒绝(PERMISSION_DENIED,
+   AIS-031 分派闸;直调 workflow_runner 仍是 WORKFLOW_FORBIDDEN),且 **零节点执行**;
 3. 承载层未注入 __user_role 时一律按 0(fail-closed),不放行;
 4. role>=1 两条通道仍可用(不误伤管理员);role=0 的安全任务类型不被误挡。
 """
@@ -154,7 +155,10 @@ async def test_role0_run_workflow_via_mcp_denied_zero_nodes_executed(monkeypatch
     )
 
     assert result["ok"] is False, result
-    assert result["errorCode"] == "WORKFLOW_FORBIDDEN", result
+    # AIS-031(2026-11-08)已把这道门前移到 MCP 分派层,与 run_in_background 共用
+    # `_dispatch_permission_denial` ⇒ 错误码统一 PERMISSION_DENIED;WORKFLOW_FORBIDDEN
+    # 仍是 workflow_runner 直调路径的码(见下方 test_missing_user_role_* 用例)。
+    assert result["errorCode"] == "PERMISSION_DENIED", result
     assert result["executed"] == [], result
     assert calls == []
 
