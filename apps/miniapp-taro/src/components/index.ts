@@ -52,13 +52,8 @@ export type { PayInfo } from './PayPopup'
 export { default as SearchBar } from './SearchBar'
 
 // ============ P0-2 VIP 弹窗 4 组件 ============
-export { default as VipBenefitsPopup } from './VipBenefitsPopup'
-export type { VipBenefit } from './VipBenefitsPopup'
-
-export { default as VipPriceSelector } from './VipPriceSelector'
-export type { PriceOption } from './VipPriceSelector'
-
-export { default as VipPayConfirm } from './VipPayConfirm'
+// VipBenefitsPopup(组件体无值消费;VipBenefit 类型由 pkg-shop/vip 直接 import)与 VipPriceSelector(PriceOption 类型同理)保留,仅摘 barrel 值 re-export;VipPayConfirm 已随死代码清理移除
+// (整件删除;VIP 页走共享屏 @ihui/rn-app features/vip,不经本端组件)。
 
 // ============ P0-2 分销 5 组件 ============
 
@@ -88,7 +83,7 @@ export { default as LearningStreak } from './LearningStreak'
 export type { StreakDay } from './LearningStreak'
 
 // ============ P0-2 消息系统 8 组件 ============
-export { default as MessageTabs } from './MessageTabs'
+// MessageTabs 组件体暂无消费屏,仅 MessageTabItem 类型被消息页使用(组件不转出,防误用半成品)
 export type { MessageTabItem } from './MessageTabs'
 
 export { default as SystemNotice } from './SystemNotice'

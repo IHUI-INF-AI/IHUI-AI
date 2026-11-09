@@ -377,6 +377,7 @@ describe('D. 授权先于写:未鉴权时不得触碰任何状态(不得"先改�
     expect(__test__.droppedResults).toEqual({
       tokenMismatch: 0,
       instanceMismatch: 0,
+      ownerMismatch: 0,
       unattributed: 0,
     })
   })

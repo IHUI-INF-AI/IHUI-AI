@@ -376,7 +376,7 @@ def _assert_gain(means: dict, tag: str) -> None:
 def test_corpus_and_ground_truth_self_consistent(data):
     payload, ctx = data
     assert payload["num_docs"] == NUM_DOCS >= 400
-    for seed, (corpus, queries) in ctx.items():
+    for _seed, (corpus, queries) in ctx.items():
         assert len(corpus) == NUM_DOCS
         keys = {d["key"] for d in corpus}
         content_by_key = {d["key"]: d["content"] for d in corpus}
@@ -418,7 +418,7 @@ def test_every_query_adaptive_not_worse_than_baseline(data):
         rows = payload["results"][tag]["rows"]
         assert len(rows["adaptive"]) == N_SINGLE + N_MULTI
         for idx, (a, b) in enumerate(
-            zip(rows["adaptive"], rows["baseline"])
+            zip(rows["adaptive"], rows["baseline"], strict=False)
         ):
             assert a["MRR"] >= b["MRR"] - 1e-9, (
                 f"[{tag}] 第{idx}条自适应 MRR 低于基线"

@@ -23,7 +23,6 @@ from fastapi import HTTPException
 from app.routers import computer_use as cu
 from app.services import mcp_server
 
-
 # ---------------------------------------------------------------------------
 # AIS-035:computer-use open 必须先过 SSRF 尺子
 # ---------------------------------------------------------------------------

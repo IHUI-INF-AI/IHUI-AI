@@ -113,6 +113,16 @@ vi.mock('../src/services/oauth-providers.js', () => ({
   isWechatMiniConfigured: vi.fn().mockReturnValue(false),
 }))
 
+// F-378(2026-09-06):注册路径接入风控 —— `recentRiskHitsByIp` 查库 + `evaluateRisk` 判定。
+// 本文件不连库,此前没 mock 这个模块 ⇒ 查库抛错被 handler 的 fail-closed 分支接住,
+// 注册一律 503(「风控服务暂不可用」),把"注册成功/409"两例都顶掉。
+// 形态照 tests/auth-register-sms-verify.test.ts / auth-qr-login.test.ts 的既有写法。
+vi.mock('../src/services/risk-engine-service.js', () => ({
+  evaluateLoginRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [] }),
+  evaluateRisk: vi.fn().mockReturnValue({ action: 'ALLOW', hits: [] }),
+  recentRiskHitsByIp: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('../src/db/oauth-queries.js', () => ({
   findThirdPartyAccount: vi.fn(),
   createThirdPartyBinding: vi.fn(),
@@ -646,11 +656,12 @@ describe('auth routes', () => {
       expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
     })
 
-    it('超出宽限期但族里仍有活 token:放行轮转,不吊销整族(2026-10-27 改判)', async () => {
-      // 真实症状:桌面 vault 里的旧值 / 停在旧页签的上下文 / API 重启打断刷新响应后
-      // 浏览器仍留着旧 cookie —— 迟到的是旧副本,而这一族还有活 token。
-      // 改判前只拒绝本次(401),合法用户每次冷启动撞一次,只能手登并新建 family;
-      // 吊销整族(原 2026-10-20 之前的行为)更会把另一个正常上下文刚拿到的活 token 打死。
+    it('超出宽限期即便族里仍有活 token 也判重用:401 并吊销整族(F-268 改判)', async () => {
+      // 2026-10-27 曾按「同族还有活 token」放行迟到重放(stale-sibling 档),F-268(2026-11-08)
+      // 删除该档:攻击者首次重放 v1 被放行后会拿到新的活 sibling,此后 reuse 永远不可达
+      // ⇒ 一次凭据泄露被洗成合法轮转、可无限续命。多端各持独立 family,真正要兼容的
+      // 并发窗口已由 30s race 档覆盖,所以「族里有活 token」不再是放行理由。
+      // 本用例把 10-27 的旧契约(200 + 不吊销)钉反:现在必须 401 + 吊销整族。
       mockVerifyRefreshToken.mockResolvedValueOnce({
         userId: 'user-001',
         familyId: 'fam-1',
@@ -658,18 +669,20 @@ describe('auth routes', () => {
       mockFindRefreshToken.mockResolvedValueOnce({
         revokedAt: new Date(Date.now() - 120_000),
       })
+      // 活 sibling 仍在库里 —— 但它已不是裁决输入;断言它不再被查询,锁住 F-268 的删除面。
       mockFindLiveFamilyToken.mockResolvedValueOnce({ id: 'live-sibling' })
-      mockFindUserById.mockResolvedValueOnce(makeUser())
+      mockRevokeRefreshTokenFamily.mockResolvedValueOnce(2)
       const res = await app.inject({
         method: 'POST',
         url: '/api/auth/refresh',
         payload: { refreshToken: 'stale-sibling-token' },
       })
-      expect(res.statusCode).toBe(200)
-      expect(res.json().data.accessToken).toBe('access-token')
-      expect(res.json().errorCode).toBeUndefined()
-      expect(mockFindLiveFamilyToken).toHaveBeenCalledWith('fam-1')
-      expect(mockRevokeRefreshTokenFamily).not.toHaveBeenCalled()
+      expect(res.statusCode).toBe(401)
+      expect(res.json().message).toContain('Invalid refresh token')
+      expect(mockRevokeRefreshTokenFamily).toHaveBeenCalledWith('fam-1')
+      expect(mockFindLiveFamilyToken).not.toHaveBeenCalled()
+      // 重用档在查用户/轮转之前早退,不得签发任何新 token
+      expect(mockFindUserById).not.toHaveBeenCalled()
       // 固定窗口:旧 token 已吊销,重复 revoke 会把 revokedAt 刷成 now
       expect(mockRevokeRefreshToken).not.toHaveBeenCalled()
     })

@@ -177,7 +177,8 @@ describe('clawdbot PairingService 配对服务', () => {
       internal.requests.get(r2.id)!.expiresAt = Date.now() - 1000
       const n = svc.cleanupExpired()
       expect(n).toBe(2)
-      expect(internal.requests.get(r1.id)!.status).toBe('expired')
+      // 过期 pending 走"清理即释放":状态先置 expired 再从内存移除(防 requests Map 无界增长)
+      expect(internal.requests.has(r1.id)).toBe(false)
       expect(internal.codeToRequestId.has(r1.code)).toBe(false)
     })
 

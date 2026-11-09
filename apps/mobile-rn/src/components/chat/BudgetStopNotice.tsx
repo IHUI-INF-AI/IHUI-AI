@@ -28,7 +28,7 @@ function formatPercent(percent: number): string {
 }
 
 /** 用量事实行:缺哪一项就不说哪一项(不拿 0 冒充"未采集")。 */
-export function budgetStopUsageText(stop: ChatBudgetStopRow): string | null {
+function budgetStopUsageText(stop: ChatBudgetStopRow): string | null {
   const parts: string[] = []
   if (stop.usedTokens !== null && stop.limitTokens !== null) {
     parts.push(

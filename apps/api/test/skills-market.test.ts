@@ -257,21 +257,26 @@ describe('Skills Market API', () => {
       expect(res.json().code).toBe(404)
     })
 
-    it('install 同时写入用户私有库 Hash skills:<userId>', async () => {
-      // 清空用户库 Hash,确保干净
-      mockRedis.hashes.delete('skills:1')
+    it('install 同时写入用户私有库 skills:<userId>(F-188:JSON 数组,不再 HSET Hash)', async () => {
+      // 清空用户库,确保干净
+      mockRedis.store.delete('skills:1')
       const res = await app.inject({
         method: 'POST',
         url: '/api/skills/code-reviewer/install',
       })
       expect(res.statusCode).toBe(200)
-      // 验证用户私有库 Hash 已写入
-      const userLib = mockRedis.hashes.get('skills:1')
-      expect(userLib).toBeTruthy()
-      expect(userLib!.has('code-reviewer')).toBe(true)
-      const stored = JSON.parse(userLib!.get('code-reviewer')!)
-      expect(stored.name).toBe('code-reviewer')
-      expect(stored.installCount).toBeGreaterThan(0)
+      // F-188(6a087b84c9):`skills:<uid>` 统一成 JSON 数组(String)。旧断言钉的是
+      // HSET Hash 形态,而同一 key 混用 Hash/JSON 后写方必 WRONGTYPE —— 已安装条目
+      // 会从用户库消失,正是该提交要消灭的形状。
+      const raw = mockRedis.store.get('skills:1')
+      expect(raw).toBeTruthy()
+      const userLib = JSON.parse(raw!) as Array<Record<string, unknown>>
+      expect(Array.isArray(userLib)).toBe(true)
+      const stored = userLib.find((s) => s.name === 'code-reviewer')
+      expect(stored).toBeTruthy()
+      expect(stored!.name).toBe('code-reviewer')
+      // 市场 installCount 是条目级计数,安装快照里不含它;快照带的是可运行正文等字段
+      expect(stored!.content).toBeTruthy()
     })
 
     it('install 不破坏 installCount++ 行为', async () => {
@@ -287,8 +292,11 @@ describe('Skills Market API', () => {
       })
       expect(res.statusCode).toBe(200)
       expect(res.json().data.installCount).toBe(beforeCount + 1)
-      // 用户库 Hash 也写入
-      expect(mockRedis.hashes.get('skills:1')?.has('figma-to-code')).toBe(true)
+      // 用户库也写入(同为 F-188 的 JSON 数组形态)
+      const userLib = JSON.parse(mockRedis.store.get('skills:1') ?? '[]') as Array<{
+        name: string
+      }>
+      expect(userLib.some((s) => s.name === 'figma-to-code')).toBe(true)
     })
   })
 

@@ -69,7 +69,7 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 数据库表 | 629 | `dbTables` |
 | schema 文件 | 242 | `dbSchemaFiles` |
 | API 路由 | 4743 | `apiRoutes` |
-| 路由文件 | 689 | `apiRouteFiles` |
+| 路由文件 | 688 | `apiRouteFiles` |
 | AI 服务路由 | 676 | `aiServiceRoutes` |
 | WebSocket 端点 | 29 | `wsEndpoints` |
 | 入库模型清单 | 100 | `llmModels` |
@@ -81,13 +81,13 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 | 语言 | 5 | `i18nLanguages` |
 | i18n 作用域 | 7 | `i18nScopes` |
 | 语言包 JSON | 35 | `i18nMessageFiles` |
-| 测试文件 | 4815 | `testFiles` |
+| 测试文件 | 4816 | `testFiles` |
 | CI 工作流 | 59 | `ciWorkflows` |
 | Compose 服务 | 14 | `composeServices` |
 | 工程守门 | 356 | `guardianGates` |
 | — blocking | 327 | `guardianBlocking` |
 | — warn | 31 | `guardianWarn` |
-| 跟踪文件 | 20856 | `trackedFiles` |
+| 跟踪文件 | 20835 | `trackedFiles` |
 
 上表由 `node scripts/sync-readme-numbers.mjs`(唯一写入口,索引面取数)生成,最后核对日期 2026-11-09。
 每个数的来源就写在取数键旁边的实现里(`scripts/gen-doc-numbers.mjs` 的 `SOURCES`),**不得手抄、不得另立第二份**。
@@ -98,12 +98,6 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 ## Recent updates (auto-maintained)
 
 <!-- BEGIN RECENT UPDATES (auto-maintained; do not hand-edit between markers) -->
-**2026-11-10**
-- 🔧 Chore/Other:合并收口补 AGENTS 点名 scan-api-routes 并按新 HEAD 重封根护栏清单 (f2261133d5)
-
-**2026-11-09**
-- 🚀 Feature/Improvement:autopilot 公网远程 MCP 端点 —— 对外曝光,任何 AI 一行 URL 接入 (225bbcec27)
-
 **2026-11-09**
 - 📚 Docs:合并面 0d503a4 数字按唯一写入口现算刷新(trackedFiles 20612/testFiles 4768) (1c27bda99a)
 - 🔧 Chore/Other:perf(sag2)+feat(sag2): 扫描件 OCR 四级链落地；多跳检索等价提速 4.4×（召回结果逐条不变） (abd73298e4)
@@ -1254,6 +1248,135 @@ engineering gates · CI workflows · i18n parity · app and shared packages · c
 - 🐞 Fix:门299 的面名从 selectFace 的 .face 取 —— 读数里那个 [object Object] 其实是 --staged 失效 (95a7653212)
 - 🐞 Fix:密钥句柄不再可枚举 —— 一次整对象打印就会把签发钥送进记录 (85d1d00dd9)
 - 🐞 Fix:事后核验与索引推进挪到放锁之后,并输出锁排队读数 (5c3465f85c)
+
+**2026-11-04**
+- 🔧 Chore/Other:补齐 8 枚 HEAD 面缺载荷的溯源水印(门47 push scope 欠账) (86958e1b20)
+- 🐞 Fix:同秒并列的删除判定改为未判定——git log 先到者不是拓扑结论 (ad8bf319a0)
+- 🐞 Fix:拒绝建「静默零钩子」树 + 建后复核 + list 标红 (92b9a21635)
+- 🐞 Fix:v2 签名钉住签发 base 与路径内容号，HEAD 前移不再把合法提交判成 sig-invalid (f1724e53dc)
+- 🐞 Fix:R3 更正 —— 健康尺补 A12 头注并补发判据面声明 (3c898b3c1f)
+- 🐞 Fix:停用隐式 COMMIT_EDITMSG 消息通道,防止把别席在途标题读成本次理由 (9f85df84cf)
+- 🐞 Fix:其余落地器补本席消息上下文与 subject 回读自证 (5bc180e29a)
+- 🐞 Fix:isolated-git 改用本席私有 GIT_DIR 与消息文件,根治共享 COMMIT_EDITMSG 并发串号 (9ceae5b21a)
+- 📚 Docs:§8.4 磁盘读数改为两次测量差值 [+59,669 B / 0.004%,对象库共享] (6676566e3d)
+- 📚 Docs:校正挟带口径并补通道可靠性/混态/磁盘实测 (bee478bedf)
+- 🐞 Fix:R3 全腿产出对账尺 A12 + 修 dep-radar 采集输入面 —— 12 腿按 always/conditional/none 分类对账(防恒红门)、pnpm audit 显式净化代理 env、空 stdout fail-closed、修 liveness ruler 笔误 (ca665ca6ed)
+- 📚 Docs:§7 失败分型补 lock/other 的实测含义 [已核对本次 40 笔读数] (397d6cf705)
+- 📚 Docs:§0.1 补 22:49 复核基线,§7 换成两次运行的漂移读数 (24545835cb)
+- 🚀 Feature/Improvement:land(ff-only) 回主线 + 共享树/隔离树并发压测 (6994aadf9f)
+- 🐞 Fix:LAND_MSG 支持 @<文件> 并拒「路径当正文」,落地后自检判据面声明 (b9f5cbbf61)
+- 🐞 Fix:D 类判据收紧——只认「同 old blob 且是该路径最新状态」的删除记录 (09f2d95b10)
+- 🐞 Fix:追认改用独立 a2 追认钥,关闭作者自认 (478dc9e9e4)
+- 🔧 Chore/Other:新夹具文件补齐投递水印(水印腿在首次提交后落的尾注) (9ef8d9ce2d)
+- 📚 Docs:校正回灌门头注的实测口径 —— 两段在位区间按实测写准 (1c3d44d4bc)
+- 🐞 Fix:门52 补「options 收进变量」那一维 —— 拆掉正在咬全仓的恒红门 (b677b5b30d)
+- 🐞 Fix:私有索引提交统一后置推进共享索引(治 MM 回灌) (4e38ff0dbe)
+- 📚 Docs:速查表迁入后修正两处指向 —— 新增门流程与相关文档改指本文 §10 (8898e9c0e6)
+- 📚 Docs:守门速查正文按迁移档摘除(全文已在 docs/GATEKEEPERS.md §10) (9b987c50d9)
+- 📚 Docs:守门速查迁出后留指针 + 三条不迁硬约束 + R4 门名点名 (25104681e2)
+- 📚 Docs:守门脚本速查全文自 AGENTS.md 逐字迁入 GATEKEEPERS —— 腾体积不改条文 (2f3471c297)
+- 🐞 Fix:回灌门改判'本次新增行' —— 整份快照对照面的结构性假阳 (fb2ed7ca5d)
+- 🐞 Fix:门 30a 远程 tag 档显式发起但取不到时改判未判定(exit 2),补必失败夹具 (d248166a20)
+- 📚 Docs:新增判据 19 归属三态与禁令 19,修正红线 C 举例 (ebb357b4e8)
+- 🐞 Fix:R2 治「我量不动」被读成「没推进」—— git 派生预算解耦 + 未判定失败分型 (b5e8db1ef1)
+- 🐞 Fix:i18n 输入一变,离线包产物提交时强制重生成 — 补齐钩子腿缺失的执行体 (4dd65789da)
+- 🐞 Fix:hook-markers.jsonl 按大小轮转且并发写不写坏,读侧跨代拼接不丢行 (9d94bc556c)
+- 🐞 Fix:门 30a 判据改造落账后的具名追认(67ed343d2c) —— 并发 COMMIT_EDITMSG 覆盖致消息缺失 (c230cb4781)
+- 🐞 Fix:开工期 guard 失败留痕 + 轮次记录提前填 (eb9446a768)
+- 🐞 Fix:pre-commit 失败回显从末 40 行改为末 200 行,避免真因被截 (bfa77e93d9)
+- 🐞 Fix:pre-commit 失败回显从末 40 行改为末 200 行,避免真因被截 (67ed343d2c)
+- 📚 Docs:补录 live-doc 旁路落地的后置核验留痕 (ee4cbe42af)
+- 🐞 Fix:开工期 guard 失败留痕 + 轮次记录提前填 (26bc403762)
+- 📚 Docs:禁令 16–18 并入 §7 单一名单位置(1–18) (b77c66959e)
+- ⚡ Perf:三处 for-each-ref 改用 %(refname) 并本地剥前缀，消除短名 O(n²) 消歧 (71d37ea29c)
+- 🐞 Fix:健康尺与候选仪都认识 session-no-write,并把取样器的赋值形态盲区补上 (d836c65189)
+- 📚 Docs:同步计数为 18 判据/18 禁令并接入收口核验 (5af5c3daa0)
+- 📚 Docs:补录私有索引提交残差与定版边界(判据 17–18/红线 C) (5599fd8a30)
+- 🔧 Chore/Other:离线包按 HEAD 面重生成落地(私有索引档)—— 清偿 miniapp-taro/ko.json 与 shared/zh-TW.json 两枚输入漂移,G5 自述钉回归 455aaebe (ed583dec29)
+- 🐞 Fix:git-private-index-commit.sh 失败臂补 lost-commit 备份（只备份末枚） (5d9580e74e)
+- 🐞 Fix:恢复档 CAS 输家臂补孤儿备份（只备份末枚） (4348769fe0)
+- 🐞 Fix:收回逐轮 lost-commit 打点，只在最终失败出口备份孤儿 (cc3bb7999c)
+- 🐞 Fix:定版索引上界改为按索引推导并走未判定 exit 2 (f78993c8d6)
+- 📚 Docs:补齐 AD/MM 三值清理判据与 R/T/U 越界识别 (a000fe08cf)
+- 🚀 Feature/Improvement:新增 app-probe-stall 维 —— 宿主 git 探测一次超时后反复重放同一条卡死记录且不自愈 (11049999a3)
+- 🐞 Fix:封住私有索引定版回灌与 sh 层误挡 (2781111c26)
+- 🔧 Chore/Other:补私有索引空派生集/漂移复原的 ENOBUFS 回归用例 (c26906358b)
+- 📚 Docs:新增共享索引残留处置 playbook(四型识别/三条清理判据/私有索引通道) (e4acfb21de)
+- ⚡ Perf:纯 oid 直达分支,恢复迁移带来的 2× 回退 (4716206cd0)
+- 🐞 Fix:封住私有索引上下文丢失与派生腿申报缺口 (ffda30adcf)
+- 🐞 Fix:门198 盲写棘轮清偿 —— qrSecret 轮换与 attention 镜像改为先取现值、真变化才写 (f5a6531081)
+- 🐞 Fix:删 miniapp-taro ko 独有 2 枚野键(零引用,曾被 8e030/c0f64 清偿) (4dc42b0307)
+- 🔧 Chore/Other:门 30a 补 --self-test 端到端自检(13 例,正反成对) (b83bdf0652)
+- 🔧 Chore/Other:补齐 isolated-git 的派生申报依赖文件 (dd18e2c2c2)
+- 🐞 Fix:清门83/218 — 品牌底配对前景 + 移除硬编码 hex(6 文件) (25fc0f8e04)
+- 🐞 Fix:门281 主树解析不得用调用目录顶替 (3e122f1dd6)
+- 🐞 Fix:isolated-git 撤回上一枚夹带的他人半成改动 (dc2a11c693)
+- 🔧 Chore/Other:修复门7依赖碎片检查:锁文件去重并识别 pnpm 干净收尾 (37c026f9fc)
+- 🐞 Fix:补回 swap-fail 闭环并立 A11 产出型量尺 — 部署决策 action 收口单一真源、摄入器逐行剔除+固定桶幂等、量出腿在跑却零产出 (13ea7501bf)
+- 🔧 Chore/Other:\IHUI-AI\.ihui-agent\tmp\goal-autonomy\commit-msg-no-write.txt (0bb7078119)
+- 🔧 Chore/Other:补齐新增同步工具与文档的溯源水印 (b510b8f612)
+- 🐞 Fix:check-i18n-parity 实装 --target 并真判红 (969b8ecb67)
+- 🚀 Feature/Improvement:prod-bundle 运行副本同步工具与门 104 修复通道 (ebc8d8c832)
+- 🐞 Fix:checkin-batch-gate 两枚 .ps1 补齐 UTF-8 BOM(门 265 HEAD 面销账) (2f3c02d6ee)
+- 🔧 Chore/Other:补 4 道 pre-commit 元门的 --self-test 自检档(95/236/292/16c) (6f80aba3b5)
+- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (f4ae37374e)
+- 📚 Docs:deploy-feedback 自动登记(deploy_outcome;端到端反馈闭环第二切片,O65 自进化系列) (1d17fa01d0)
+- 🐞 Fix:取材面改走 git 索引,收紧 9 条失效基线 (b36c307eee)
+- 🔧 Chore/Other:仓根补齐 .next[.-]* 变体忽略规则（与收编器 EXCLUDE 语义等价） (f39a65a34b)
+- ♻️ Refactor:git 派生收口到取材层,face-reader 棘轮去红 (47d9f43fe1)
+- ⚡ Perf:门242/243 逐文件 git show 改整面批取,242 736s→5-6s、243 458s→9-11s (801e5aa4ef)
+- 🐞 Fix:shared/zh-TW distribution.plan.rule1 用繁体「傭」 —— 门 2j-shared 简体残留结清 (9093adf849)
+- 🐞 Fix:verify-deploy-facts.ps1 补齐 UTF-8 BOM(门 265 HEAD 面销账) (1db60d99fb)
+- 🐞 Fix:--self-test 严格识别并只跑门自检档,未知参数 exit 2 (0b5ec52e1f)
+- 🐞 Fix:dry-run 关闭 git 可选锁,杜绝索引 stat 刷新落盘 (a8ae241426)
+- 📚 Docs:门50 镜像测试 X7 标题跟随面改造 (d1138b817c)
+- 🐞 Fix:safe-commit --dry-run 改为全路径只读预演 (ec34967546)
+- 📚 Docs:AGENTS 等体积压缩并补登「工作流/部署脚本死引用」点名行 (5adf825916)
+- 🐞 Fix:门50 射程扩到全部 tracked 文件(HEAD 面),收编器排除 .next 全变体 (7552ed92ba)
+- 🐞 Fix:修正生成器溯源路径常量，使产物标签与横幅一致 (522d2dfb36)
+- 🐞 Fix:monitor-trust 出路改成「先 token 重建再谈关档」—— 本机实测关 fsmonitor 把 status 顶到 5.7~6.2s(超消费者预算) (f43a81aa1d)
+- 🚀 Feature/Improvement:新增「工作流/部署脚本死引用」只读门(298),补 working-directory 与回滚态判据 (8f8adbfa78)
+- 🐞 Fix:门 91 补齐 12 处缺失 colorScheme 并显式接线 2 处收藏壳 (3e159cc5cc)
+- 🔧 Chore/Other:next-env.d.ts 停止引用已死 .next-e2e-perf 变体，回到 ./next/dev 规范引用 (c30b6e44dc)
+- 🐞 Fix:web/taro 派生钉按 HEAD 面重生成 —— 修 inputsSha256 滞后(门105 G5 stale→matched) (8781bbaad8)
+- 📚 Docs:accel-live 两路读数与「例数一律现读」—— 消掉会腐烂的自检计数 (91c6820b87)
+- 🚀 Feature/Improvement:签到批次执行中推迟重启 ai-service(上限 900s,fail-closed) (da7506747c)
+- 🐞 Fix:两处「体积/窗口护栏把没扫写成扫过」的漏报 —— 桌面端明文门 400 字符窗口、trae 审计 12MB 静默跳过 (9fb0b6d11a)
+- 📚 Docs:补回一键级联入口硬性条款并压缩AGENTS归档注释,门207回预算内 (adc3e8766a)
+- 🔧 Chore/Other:棘轮判红时逐命中教改(附可复用批取入口) (72df2cf539)
+- 🐞 Fix:串行门补硬超时,卡死门以未判定收口 (f71043eb7c)
+- 📚 Docs:校正实测读数并记录主树共享索引 AD 残留 (74357b4d7e)
+- 🐞 Fix:日预算闸是死的(它在数一枚再没人发射的 action)+ 把"发射集 ⊆ 分档集"上锁 (3bdb7bc65a)
+- 🚀 Feature/Improvement:新增隔离工作树一键开关收工具与切换文档 (b621533999)
+- 📚 Docs:收口门89点名与门207体积,迁移grafana旧脚本名 (5bb3c7de28)
+- 🐞 Fix:--staged 面 git grep 的 --cached 归位,该面不再恒未判定 (a3a24e40f2)
+- 🐞 Fix:accel-live 改按索引扩展块倒剥 + git 自测第二路读数 —— 旧 64KB 尾窗把生效读成假 drift (dcea7b738b)
+- ⚡ Perf:251/244 两道门由逐文件派生改为整面批取(251 >15min→4s,244 >17min→31s) (087f976e6f)
+- 🚀 Feature/Improvement:逐门进度日志追加 scope/stderr/runId 三字段（旧行兼容为未标注） (d40b90fdf4)
+- 🔧 Chore/Other:grafana 旧族最后两枚退役,head→HEAD 归一迁入 check-panel 接线门 (dcf2b8168b)
+- 🔧 Chore/Other:摘净回潮件 assistant-release-upload.yml (dd399bff94)
+- 🐞 Fix:门 288 两处新增漂移收口 —— UserInfoCard 载体形态差异/VideoPlayer 回调命名对入语义等价表 (6ca6b82706)
+- 🚀 Feature/Improvement:A6 改为按当前规则表复算覆盖率 —— 历史 25 条 unknown 里真盲区只有 2 枚,现已具名归人 (e16299f137)
+- 🐞 Fix:摘净 desktop 商店图标与 share-intent 死副本 11 枚并登记退役锁 (f33872b568)
+- 📚 Docs:§12i 补② 钩子格式化会被私有索引快照复原，提交前须自跑格式化 (d7c81497ad)
+- 🔧 Chore/Other:新增 gates-full.yml 全量门交 CI(PR/main push 自动跑 331 门) (ff4496fe49)
+- 🐞 Fix:isolated-git 私有索引加内容级护栏,lint-staged 灌回内容即按快照复原 (95c87e0437)
+- 🚀 Feature/Improvement:git 探测余量哨兵补 accel-live 维(账面启用≠真生效)+ AGENTS 门207 体积债第七批清偿 (98d7637b4b)
+- 🐞 Fix:grafana-* 旧族退役 6 枚并登记退役锁,门 220/222 改指 panel 真值面 (ed0bf2fedc)
+- 📚 Docs:§12i 补受保护面签名纪律——标题定稿先于签发，改标题即签名作废 (9d854bd237)
+- 📚 Docs:staging-snapshot 注释两处 §20 漂移改指 §12i 私有索引通道 (8bc0584d83)
+- 🐞 Fix:sig-invalid 不再被说成"窗口到期",并加签发留痕回查 —— 把"重签一次"与"补理由"两条出路分开 (a083f0a74a)
+- 🐞 Fix:isolated-git 提交后 CAS 收敛共享索引并加固并发测试 (02928bf7a4)
+- 🚀 Feature/Improvement:新增私有索引提交通道 isolated-git (f887b2dde6)
+- 🚀 Feature/Improvement:自动臂按需加密(环开 4 分钟/轮,环合即回落) (0061164cdb)
+- 🐞 Fix:判据面护栏在 commit-msg 加只报不拦的预警档 —— 未声明要在"还改得动"那一刻报出来 (facba1ab6a)
+- 🔧 Chore/Other:再摘 plugins-data 死副本 14 枚并登记退役锁(逐字节同 @ihui/shared;9fdbc207ba 带回) (180c244014)
+
+**2026-11-06**
+- 🐞 Fix:落地悬空副本里的两枚判据 fail-closed 与跳门降级证据(RP-67) (b7aa56e7f6)
+- 🐞 Fix:派发前闸的"瞬时不在位"先复核再停派 —— 别席 install 重挂 tsx 不该烧掉一班 (0be42c4124)
+- 🐞 Fix:取票腿被击穿时的可证复用 —— 三条安全条件缺一即拒绝,且必须说出是哪一条 (43bdd603e5)
+- 📚 Docs:22 枚在飞票挂完整租约(HEAD 面⊕挂牌,不代他席落地) (1c4f42c0c6)
 <!-- END RECENT UPDATES -->
 
 ## Nine topic documents (verbatim archives from the old root README)

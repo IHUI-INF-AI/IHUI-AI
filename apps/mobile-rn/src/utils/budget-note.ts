@@ -17,12 +17,6 @@ import { formatBudgetNote, type BudgetNoteKeys } from '@ihui/shared/chat'
 // 批次 3:硬停止原因码文案的唯一出口在 shared(三端同源),本端只转发,不再抄第二份六值映射。
 import { budgetStopReasonText } from '@ihui/shared/chat/budget-stop-note'
 
-export {
-  BUDGET_STOP_FALLBACK_TEXT,
-  budgetStopReasonText,
-  budgetStopReasonTexts,
-} from '@ihui/shared/chat/budget-stop-note'
-
 /** 导出给用例:词包与键表必须成对存在(缺键会回显键名,即 D111/守门 56 那一类静默失效) */
 export const RN_BUDGET_NOTE_KEYS: BudgetNoteKeys = {
   note: 'common.budgetNote',

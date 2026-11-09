@@ -19,7 +19,7 @@ export interface RuntimeImportSource {
   capabilities?: unknown
 }
 
-export interface PlannedSkill {
+interface PlannedSkill {
   name: string
   prompt: string
   category: 'custom'
@@ -27,7 +27,7 @@ export interface PlannedSkill {
   enabled: true
 }
 
-export interface PlannedAutomation {
+interface PlannedAutomation {
   name: string
   prompt: string
   status: 'paused'
@@ -39,13 +39,13 @@ export interface PlannedAutomation {
   conversationId: string | null
 }
 
-export interface PlannedMemory {
+interface PlannedMemory {
   sessionId: string
   content: string
   metadata: { importedVia: 'conversation-import' }
 }
 
-export interface RuntimeSkip {
+interface RuntimeSkip {
   dimension: string
   index: number | null
   reason: string
