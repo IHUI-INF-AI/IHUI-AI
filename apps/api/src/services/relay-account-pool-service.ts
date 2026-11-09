@@ -1013,6 +1013,10 @@ export async function importAccounts(
       // NUL 消毒(2026-10-27 实弹:MiniMax recordKey 内嵌 leveldb 键分隔符 \u0000,
       // PG text/jsonb 拒收 NUL ⇒ 透传值里所有字符串统一剥除,不改语义只去非法字节)。
       Object.assign(extra, stripNulDeep(foreignPassthroughMetadata(acc)))
+      // 永久保活默认登记(2026-11-10 机主口径「所有的都要永久保活」):导入即进
+      // keepAliveForever 档,新号不会因为没人手点而躺在普通档等退避摘除;
+      // 载荷显式给 false 仍尊重(不做单向下压)。
+      if (extra['keepAliveForever'] === undefined) extra['keepAliveForever'] = true
       // 掩码待补全标记(2026-10-28 立):Trae 会话协议只下发脱敏号(前3后2),导入后
       // 统一名可能仍是掩码形态 ⇒ 落 extraMetadata.phoneMask 供管理面识别"待补全"、
       // complete-phone 归位校验与 match-phone 批量匹配。补全成功后该键被折成
@@ -1589,7 +1593,12 @@ export async function setAccountShared(
       } else {
         checkinSync.error = push.error
         try {
-          await markCheckinSyncPending([row.id], 'cred', null, push.error ?? '共享标记变更后签到推送失败')
+          await markCheckinSyncPending(
+            [row.id],
+            'cred',
+            null,
+            push.error ?? '共享标记变更后签到推送失败',
+          )
           checkinSync.pending = true
         } catch {
           /* pending 落库失败只意味着少一条待推痕迹,对账收敛器兜底 */
