@@ -105,6 +105,7 @@
     "toolAudioTranscription": "音声を書き起こし",
     "toolVisionAnalyze": "画像を解析",
     "toolDispatchSubagent": "サブエージェントを派遣",
+    "toolDispatchSubagentActivity": "{state, select, running {サブエージェントを派遣中} completed {サブエージェントを派遣しました} other {サブエージェントを派遣}}",
     "toolInitAgentsMd": "エージェント文書の初期化",
     "toolTeamTask": "チームタスク",
     "toolScheduleTask": "定期タスクを作成",

@@ -105,6 +105,7 @@
     "toolAudioTranscription": "音訊轉文字",
     "toolVisionAnalyze": "辨識圖片內容",
     "toolDispatchSubagent": "派遣子代理",
+    "toolDispatchSubagentActivity": "{state, select, running {正在派遣子代理} completed {已派遣子代理} other {派遣子代理}}",
     "toolInitAgentsMd": "初始化智能體文檔",
     "toolTeamTask": "團隊任務",
     "toolScheduleTask": "建立排程任務",

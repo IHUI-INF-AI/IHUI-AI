@@ -5,7 +5,7 @@
 // @ihui/i18n loader 工具 — 各端 I18nProvider 共享的翻译查找 + 占位符替换
 
 import type { Locale, Messages } from './types.js'
-import { formatIcu, hasIcuSyntax, setIcuLocale } from './icu.js'
+import { formatIcu, hasIcuSyntax } from './icu.js'
 
 /** 按点分路径查找原始值(支持 string / 对象 / 数组等任意类型) */
 export function getValueByPath(obj: unknown, path: string): unknown {
@@ -25,7 +25,7 @@ export function getValueByPath(obj: unknown, path: string): unknown {
 export interface TranslateOptions {
   fallback?: Messages
   params?: Record<string, string | number>
-  /** ICU plural/number 所依 locale;缺省为运行时 ICU 语言(由消息包语言登记,见 getMessagesForLocale) */
+  /** ICU plural/number 所依 locale;缺省 zh-CN */
   locale?: string
 }
 
@@ -99,11 +99,70 @@ export function mergeMessages(base: Messages, override: Messages): Messages {
 }
 
 export function getMessagesForLocale(locale: Locale, messages: Record<Locale, Messages>): Messages {
-  // BUG-73:选包即登记 ICU 判据语言 —— 非 web 端不往 t() 传 locale,但它们必然
-  // 经本函数取当前语言包,这一步就是"在 loader 层按消息包语言兜底透传"的落点。
-  // 回落 zh-CN 时登记实际生效的那一门,不登记请求了却未命中的语言。
-  const resolved = messages[locale] ?? messages['zh-CN']
-  setIcuLocale(messages[locale] ? locale : 'zh-CN')
-  return resolved
+  return messages[locale] ?? messages['zh-CN']
+}
+
+const DYNAMIC_LOCALES: readonly Locale[] = ['zh-CN', 'en', 'ja', 'ko', 'zh-TW']
+
+export type DynamicCopyPlan = {
+  disposition: 'shown' | 'unjudged'
+  source: 'remote' | 'packaged' | 'none'
+  text: string
+  reason:
+    | 'remote'
+    | 'packaged'
+    | 'remote-unread'
+    | 'key-absent'
+    | 'copy-unmeasured'
+    | 'locale-unrecognized'
+    | 'key-invalid'
+    | 'catalog-shape'
+}
+
+function dynamicCopyText(table: unknown, key: string): string | null | 'shape' {
+  if (table === null || table === undefined) return null
+  if (typeof table !== 'object' || Array.isArray(table)) return 'shape'
+  const value = (table as Record<string, unknown>)[key]
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  if (trimmed.length === 0 || trimmed === key) return null
+  return value
+}
+
+/**
+ * 远端文案优先,缺了用包内快照。
+ * 两边都没有,或写回来的就是键名本身,不把键名显示出去。
+ * 快照还没读到时,不把远端的缺口说成「包里也没有」。
+ */
+export function resolveDynamicCopy(input: {
+  key: unknown
+  locale: unknown
+  remote: unknown
+  packaged: unknown
+}): DynamicCopyPlan {
+  const none = (reason: DynamicCopyPlan['reason']): DynamicCopyPlan => ({
+    disposition: 'unjudged',
+    source: 'none',
+    text: '',
+    reason,
+  })
+  if (typeof input.key !== 'string' || input.key.length === 0 || /[\s\r\n]/.test(input.key))
+    return none('key-invalid')
+  if (typeof input.locale !== 'string' || !DYNAMIC_LOCALES.includes(input.locale as Locale))
+    return none('locale-unrecognized')
+  const remote = dynamicCopyText(input.remote, input.key)
+  const packaged = dynamicCopyText(input.packaged, input.key)
+  if (remote === 'shape' || packaged === 'shape') return none('catalog-shape')
+  if (remote) return { disposition: 'shown', source: 'remote', text: remote, reason: 'remote' }
+  if (input.remote === null || input.remote === undefined) {
+    if (packaged)
+      return { disposition: 'shown', source: 'packaged', text: packaged, reason: 'remote-unread' }
+    if (input.packaged === null || input.packaged === undefined) return none('copy-unmeasured')
+    return none('key-absent')
+  }
+  if (input.packaged === null || input.packaged === undefined) return none('copy-unmeasured')
+  if (packaged)
+    return { disposition: 'shown', source: 'packaged', text: packaged, reason: 'packaged' }
+  return none('key-absent')
 }
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠

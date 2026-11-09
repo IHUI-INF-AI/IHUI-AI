@@ -105,6 +105,7 @@
     "toolAudioTranscription": "Transcribe audio",
     "toolVisionAnalyze": "Analyze an image",
     "toolDispatchSubagent": "Dispatch a subagent",
+    "toolDispatchSubagentActivity": "{state, select, running {Dispatching a subagent} completed {Dispatched a subagent} other {Dispatch a subagent}}",
     "toolInitAgentsMd": "Initialize Agents Doc",
     "toolTeamTask": "Team Task",
     "toolScheduleTask": "Create a scheduled task",

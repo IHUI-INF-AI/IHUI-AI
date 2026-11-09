@@ -105,6 +105,7 @@
     "toolAudioTranscription": "음성 텍스트 변환",
     "toolVisionAnalyze": "이미지 분석",
     "toolDispatchSubagent": "서브 에이전트 파견",
+    "toolDispatchSubagentActivity": "{state, select, running {서브 에이전트 파견 중} completed {서브 에이전트를 파견했습니다} other {서브 에이전트 파견}}",
     "toolInitAgentsMd": "에이전트 문서 초기화",
     "toolTeamTask": "팀 작업",
     "toolScheduleTask": "예약 작업 생성",

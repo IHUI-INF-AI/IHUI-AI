@@ -10,6 +10,7 @@ import {
   getMessagesForLocale,
   getValueByPath,
   mergeMessages,
+  resolveDynamicCopy,
   resolveList,
   translate,
 } from '../src/loader'
@@ -65,10 +66,7 @@ describe('loader 工具函数', () => {
   })
 
   it('mergeMessages 深合并,端 override 优先', () => {
-    const merged = mergeMessages(
-      { a: { x: '1', y: '2' }, keep: 'k' },
-      { a: { y: 'override' } },
-    )
+    const merged = mergeMessages({ a: { x: '1', y: '2' }, keep: 'k' }, { a: { y: 'override' } })
     expect(merged).toEqual({ a: { x: '1', y: 'override' }, keep: 'k' })
   })
 
@@ -77,6 +75,34 @@ describe('loader 工具函数', () => {
     expect(getMessagesForLocale('zh-CN', packs)).toBe(MESSAGES)
     expect(resolveList(MESSAGES, 'list')).toEqual(['a', 'b'])
     expect(resolveList(MESSAGES, 'plain')).toEqual([])
+  })
+
+  it('动态文案缺键不显示键名,快照没读到不说成包里也没有', () => {
+    const key = 'model.example.label'
+    expect(
+      resolveDynamicCopy({ key, locale: 'zh-CN', remote: { [key]: '示例' }, packaged: {} }),
+    ).toMatchObject({
+      source: 'remote',
+      text: '示例',
+    })
+    expect(
+      resolveDynamicCopy({
+        key,
+        locale: 'zh-CN',
+        remote: { [key]: key },
+        packaged: { [key]: '包内' },
+      }),
+    ).toMatchObject({
+      source: 'packaged',
+      text: '包内',
+    })
+    const missing = resolveDynamicCopy({ key, locale: 'en', remote: {}, packaged: {} })
+    expect(missing.reason).toBe('key-absent')
+    expect(missing.text).toBe('')
+    expect(missing.text).not.toBe(key)
+    expect(resolveDynamicCopy({ key, locale: 'ja', remote: null, packaged: null }).reason).toBe(
+      'copy-unmeasured',
+    )
   })
 })
 // ⁠​‌​​‌​​‌‍‍​‌​​‌​​​‍‍​‌​‌​‌​‌‍‍​‌​​‌​​‌‍‍​​‌​‌‌​‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌​​‌‌‌‌​‌​‍‍‌‌​‌‌​​​‌​​​‌‌‌‍‍​‌​​​​​‌‍‍​‌​​‌​​‌‍‍‌​‌‌​‌‌‌‍‍‌‌​​‌‌‌​‌​​‌‌‌​‍‍‌‌​​‌‌​​​‌​​‌​‌‍‍‌​‌‌‌​‌‌‌​‌‌‌​‌‍‍‌​‌‌​‌‌‌‍‍​‌​​‌‌​​‍‍​‌​​​​‌‌‍‍‌​‌‌​‌‌‌‍‍​‌‌​​​​‌‍‍​‌‌​‌​​‌‍‍​‌‌‌‌​‌​‍‍​‌‌​‌​​​‍‍​‌‌‌​​‌‌‍‍​​‌​‌‌‌​‍‍​‌‌‌​‌​​‍‍​‌‌​‌‌‌‌‍‍​‌‌‌​​​​‍‍‌​‌‌​‌‌‌‍‍​‌​‌​​​​‍‍​‌​‌​​‌​‍‍​‌​​‌‌‌‌‍‍​‌​‌​‌‌​‍‍​‌​​​‌​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​​‌‍‍​‌​​‌‌‌​‍‍​‌​​​​‌‌‍‍​‌​​​‌​‌‍‍​​‌​‌‌​‌‍‍​​‌‌​​‌​‍‍​​‌‌​​​​‍‍​​‌‌​​‌​‍‍​​‌‌​‌‌​⁠
