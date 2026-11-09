@@ -15573,6 +15573,10 @@ async def _tool_browser_console_messages(arguments: dict[str, Any]) -> dict[str,
     session, error = _browser_observe_target(arguments, "browser_console_messages")
     if error is not None:
         return error
+    # 契约:error 与 session 互斥 —— error 为 None 时必然给出了会话。mypy 看不到这层关联
+    # (二元组的两个元素在类型上各自独立),显式断言把不变式写进类型面,而不是用类型忽略
+    # 注释把门戳瞎(那样真接错属性时也不再有提示)。
+    assert session is not None
     result = await session.console_messages(
         level=str(arguments.get("level") or "all"),
         limit=_clamp_read_limit(arguments.get("limit", 50)),
@@ -15586,6 +15590,7 @@ async def _tool_browser_network_requests(arguments: dict[str, Any]) -> dict[str,
     session, error = _browser_observe_target(arguments, "browser_network_requests")
     if error is not None:
         return error
+    assert session is not None  # 同上:error/session 互斥
     raw_status = arguments.get("statusMin")
     try:
         status_min = int(raw_status) if raw_status not in (None, "") else None
