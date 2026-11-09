@@ -67,6 +67,9 @@ export function AgreementScreen({
   const scheme = colorScheme ?? 'light'
   const tk = getTokens(scheme)
   const styles = useMemo(() => createAgreementStyles(tk), [tk])
+  // hooks 必须在任何 return 之前无条件调用(rules-of-hooks):原先它落在静态兜底分支
+  // 之后,agreement/loading 变化时 hook 调用顺序会变,React 会直接抛错。
+  const blocks = useMemo(() => (agreement ? htmlToBlocks(agreement.content) : []), [agreement])
 
   if (!agreement && !loading) {
     const sections: LegalDocSection[] = [
@@ -95,7 +98,6 @@ export function AgreementScreen({
   }
 
   const title = agreement?.title || fallbackTitle || t('agreement.userAgreement')
-  const blocks = useMemo(() => (agreement ? htmlToBlocks(agreement.content) : []), [agreement])
 
   return (
     <View style={styles.container}>
@@ -139,11 +141,7 @@ export function AgreementScreen({
                         ? styles.headingH2
                         : styles.headingH3
                   return (
-                    <Text
-                      key={`heading-${index}`}
-                      style={levelStyle}
-                      {...headingA11y(block.level)}
-                    >
+                    <Text key={`heading-${index}`} style={levelStyle} {...headingA11y(block.level)}>
                       {block.text}
                     </Text>
                   )

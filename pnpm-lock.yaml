@@ -1457,9 +1457,6 @@ importers:
 
   packages/attendance-core:
     devDependencies:
-      '@ihui/eslint-config':
-        specifier: workspace:*
-        version: link:../eslint-config
       rimraf:
         specifier: 'catalog:'
         version: 6.1.3

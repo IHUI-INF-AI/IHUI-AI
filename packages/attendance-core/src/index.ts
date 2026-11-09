@@ -26,16 +26,28 @@ export interface AttendanceJudgeResult {
 }
 
 /**
- * Date → 本地墙钟 `HH:MM`(补零);非法 Date 返回 null,不猜。
+ * 业务墙钟时区:考勤按北京时间判定,与宿主 TZ 无关(容器/CI 多为 UTC)。
+ * 用 `getHours()` 读服务器本地墙钟会让同一时间戳在 UTC 机器上判成凌晨 ⇒ 迟到漏判,
+ * 见 docs/tickets/2026-11/findings-api.md:3271。
+ */
+const BIZ_TIME_ZONE = 'Asia/Shanghai'
+
+const BIZ_HM_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+  timeZone: BIZ_TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/**
+ * Date → 业务墙钟(Asia/Shanghai)`HH:MM`(补零);非法 Date 返回 null,不猜。
  * 与 normalizeHm 配对使用:比较前两侧都必须归一化(§0.4 单源)。
  */
 export function hmOfLocalDate(d: Date | null | undefined): string | null {
   if (!(d instanceof Date)) return null
   const t = d.getTime()
   if (!Number.isFinite(t)) return null
-  const h = String(d.getHours()).padStart(2, '0')
-  const m = String(d.getMinutes()).padStart(2, '0')
-  return `${h}:${m}`
+  return BIZ_HM_FORMATTER.format(d)
 }
 
 /** 阈值档是否"给了值":null / undefined / 空串 三态一律视为该维不判(列默认即 null) */
