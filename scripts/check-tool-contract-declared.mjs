@@ -91,6 +91,14 @@ import {
   FACE_NOTE,
   assertRepoRoot,
 } from './lib/face-reader.mjs'
+import {
+  blobNewRels,
+  deltaParents,
+  effectiveAnchorCount,
+  newOccurrences,
+  readParentTexts,
+  removedOccurrences,
+} from './lib/merge-delta.mjs'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -561,6 +569,31 @@ export function exceedsAnchor(current, anchor) {
   return current > anchor
 }
 
+/**
+ * 多父锚点(合并未收口时 HEAD ∪ MERGE_HEAD……):有效锚点 = `读数 − 本次真正新增数`。
+ * 于是 `exceedsAnchor(读数, 锚点) ⇔ 本次新增 > 0`,判据规则一个字不动。
+ * 单父(非合并)只有 HEAD ⇒ 返回 HEAD 读数,与旧行为逐字等价。
+ */
+export function resolveViolationAnchor(currentCount, parentCounts) {
+  const n = Number(currentCount || 0)
+  if (!parentCounts || parentCounts.length === 0) return n
+  if (parentCounts.length === 1) return Number(parentCounts[0] || 0)
+  const fresh = newOccurrences(
+    new Array(n).fill('violation'),
+    parentCounts.map((c) => new Array(Number(c || 0)).fill('violation')),
+  )
+  return effectiveAnchorCount(n, fresh.length)
+}
+
+/**
+ * TRD 的「本次暂存触及」文件集。合并未收口时只需结果面 blob 与**每一枚**父提交都不同
+ * (文件级 merge-delta 判据);非合并逐字沿用原 judged 清单。
+ */
+export function trdTouchedRels({ merge, judged, changedRels }) {
+  if (!merge) return judged
+  return judged.filter((rel) => changedRels.has(rel))
+}
+
 // ==================== 声明身份台账(TC3,2026-09-26 换锚) ====================
 
 /**
@@ -605,24 +638,36 @@ export function declarationLedgerOf(fileRel, tools) {
  * @param {Map<string,{total:number,declared:number}>} current 判定面台账
  * @returns {{removed: Array<{key:string,headDeclared:number,currentDeclared:number,total:number,missing:number}>, declaredIdentities: number}}
  */
-export function findDeclarationRemovals({ head, current } = {}) {
+export function findDeclarationRemovals({ head, current, parents } = {}) {
   const removed = []
   let declaredIdentities = 0
   const cur = current || new Map()
-  for (const [key, h] of head || new Map()) {
-    if (!h || h.declared <= 0) continue
+  // 父台账集:单父(非合并)只有 HEAD ⇒ 逐字旧行为;合并未收口时 HEAD ∪ MERGE_HEAD……
+  // 「摘除」⇔ 结果面声明的身份少于**每一枚**父都有 (removedOccurrences 的对称判据)。
+  const parentLedgers = parents && parents.length ? parents : head ? [head] : []
+  const keys = new Set()
+  for (const l of parentLedgers) for (const k of l.keys()) keys.add(k)
+  for (const key of keys) {
+    const declaredCounts = parentLedgers.map((l) => l.get(key)?.declared ?? 0)
+    const held = Math.min(...declaredCounts)
+    if (held <= 0) continue
     declaredIdentities += 1
     const c = cur.get(key)
     if (!c) continue // 整枚工具被删:不是"摘除契约"
-    const allowed = Math.min(h.declared, c.total)
-    if (c.declared < allowed)
+    const allowed = Math.min(held, c.total)
+    if (c.declared < allowed) {
+      const gone = removedOccurrences(
+        new Array(c.declared).fill(key),
+        parentLedgers.map((l) => new Array(l.get(key)?.declared ?? 0).fill(key)),
+      ).length
       removed.push({
         key,
-        headDeclared: h.declared,
+        headDeclared: held,
         currentDeclared: c.declared,
         total: c.total,
-        missing: allowed - c.declared,
+        missing: Math.min(gone, allowed - c.declared),
       })
+    }
   }
   return { removed, declaredIdentities }
 }
@@ -930,12 +975,46 @@ function main(argv) {
     return 2
   }
 
-  const anchorTexts = new Map()
-  try {
-    for (const [k, v] of readFace(root, 'head', anchorFiles)) anchorTexts.set(k, v)
-  } catch (e) {
-    console.error(`❌ 无法判定(锚点面):${e.message}`)
-    return 2
+  // 锚点面:非 head 档取各**父提交**(HEAD / 合并未收口时的 MERGE_HEAD……)的同一批文件。
+  // 合并时上游早已注册/早已违规的工具不再记到本次提交头上;每父留一份是 TC3 身份台账要用的。
+  let merge = false
+  let mergeParents = []
+  let parentToolLists = null
+  if (face === 'head') {
+    const anchorTexts = new Map()
+    try {
+      for (const [k, v] of readFace(root, 'head', anchorFiles)) anchorTexts.set(k, v)
+    } catch (e) {
+      console.error(`❌ 无法判定(锚点面):${e.message}`)
+      return 2
+    }
+    parentToolLists = [
+      new Map(
+        [...anchorTexts].map(([rel, text]) => [
+          rel,
+          text === null || text === undefined ? [] : extractToolLiterals(text),
+        ]),
+      ),
+    ]
+  } else {
+    try {
+      const delta = deltaParents({ root, face })
+      merge = delta.merge
+      mergeParents = delta.parents
+      const texts = readParentTexts({ root, rels: judged, parents: delta.parents })
+      parentToolLists = [...texts.values()].map(
+        (m) =>
+          new Map(
+            [...m].map(([rel, text]) => [
+              rel,
+              text === null || text === undefined ? [] : extractToolLiterals(text),
+            ]),
+          ),
+      )
+    } catch (e) {
+      console.error(`❌ 无法判定(锚点面):${e.message}`)
+      return 2
+    }
   }
   const judgedTexts = new Map()
   try {
@@ -983,19 +1062,18 @@ function main(argv) {
     }
     perFile.push({ rel, toolCount: tools.length, violations })
 
-    // 锚点面:HEAD 里没有该文件 ⇒ 新文件,台账为空(无声明可摘);这与"整面取不到"
+    // 锚点面:该文件在**任一父**里没有 ⇒ 新文件,台账为空(无声明可摘);这与"整面取不到"
     // (上面 readFace 抛 ⇒ 已 exit 2)是两件事,不得混成同一个 null。
-    const headText = anchorTexts.get(rel)
-    const headTools =
-      headText === null || headText === undefined ? [] : extractToolLiterals(headText)
-    anchorTools += headTools.length
-    if (tools.length === 0 && headTools.length === 0) notApplicableFiles += 1
-    const anchor = violationsOf(headTools).length
+    const parentTools = parentToolLists.map((m) => m.get(rel) || [])
+    const parentViolationCounts = parentTools.map((t) => violationsOf(t).length)
+    anchorTools += Math.max(...parentTools.map((t) => t.length), 0)
+    if (tools.length === 0 && parentTools.every((t) => t.length === 0)) notApplicableFiles += 1
+    const anchor = resolveViolationAnchor(violations.length, parentViolationCounts)
     headroom += Math.max(0, anchor - violations.length)
 
     // TC3:声明身份台账对账(与计数棘轮**并行**,不替换它 —— 计数仍在管"新增绕档")
     const rem = findDeclarationRemovals({
-      head: declarationLedgerOf(rel, headTools),
+      parents: parentToolLists.map((m) => declarationLedgerOf(rel, m.get(rel) || [])),
       current: declarationLedgerOf(rel, tools),
     })
     declaredIdentities += rem.declaredIdentities
@@ -1016,7 +1094,15 @@ function main(argv) {
   }
 
   // TRD:暂存触及的工具文件里**每一枚**注册工具都必须带契约声明(不吃 HEAD 存量锚点)。
-  const trd = trdAssess({ files: perFile, face, enabled: trdOn, state })
+  // 合并未收口时「本次触及」按文件级 merge-delta 判(结果面 blob 与每一枚父提交都不同):
+  // 上游分支改过的工具文件不是本次碰的,不得把上游存量债记到合并提交头上。
+  let trdFiles = perFile
+  if (merge && face === 'staged') {
+    const changedRels = blobNewRels({ root, face, rels: judged, parents: mergeParents })
+    const touched = new Set(trdTouchedRels({ merge, judged, changedRels }))
+    trdFiles = perFile.filter((f) => touched.has(f.rel))
+  }
+  const trd = trdAssess({ files: trdFiles, face, enabled: trdOn, state })
   if (
     enumerationBlind({
       face,
@@ -1785,6 +1871,8 @@ export const __test__ = {
   violationsOf,
   flipAuditOf,
   exceedsAnchor,
+  resolveViolationAnchor,
+  trdTouchedRels,
   toolKey,
   declarationLedgerOf,
   findDeclarationRemovals,

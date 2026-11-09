@@ -51,7 +51,8 @@
  *     哈希(全是 unjudged/pending),且用户机装机态不是某一次提交能影响的量 —— 升 blocking 即
  *     §12e 恒红门,升档前置是存量归零。
  *   - 取材面纪律(§0.4)**不适用**:本门判的是**机器装机态**(`~/.ihui/installed-plugins/`),
- *     不是仓内 blob,所以 `--staged` 与全量档是同一判序;`--staged` 只为兼容 runner 统一追加而接受。
+ *     不是仓内 blob,所以 `--staged`/`--worktree` 与全量档是同一判序;两面旗只为兼容 runner
+ *     统一追加而接受(漏接任一面旗都会被当"不认的参数"→ exit 2,等于整轮未判定)。
  *   - zip-bomb 那一维刻意不判:本仓插件取源是 `git clone`(`apps/cli/src/plugins/git-runner.ts`),
  *     没有解包面 ⇒ 传给既有比对判据的上限是 Infinity,而不是另写一份"不设限"的比对(§0.6)。
  *   - 装机根里的 `<name>.staging-*` / `<name>.superseded-*` 不在射程:那是交换在途/已被取代的
@@ -1121,7 +1122,7 @@ export function main(argv = process.argv.slice(2)) {
       [
         '用法: node scripts/check-plugin-manifest-integrity.mjs [--json] [--name <plugin>]',
         '      [--plugins-root <dir>] [--baseline <file>] [--print-baseline] [--self-test]',
-        '      (--staged 被接受但判序与全量档同一把尺 —— 本门判机器装机态,无仓内取材面)',
+        '      (--staged/--worktree 被接受但判序与全量档同一把尺 —— 本门判机器装机态,无仓内取材面)',
         '只读:本门绝不写盘、绝不自愈、绝不重装;判据唯一实现 = 本文件(镜像测试 import __test__)。',
         '退出码: 0 ok / 1 drift / 2 unjudged',
       ].join('\n'),
@@ -1136,7 +1137,10 @@ export function main(argv = process.argv.slice(2)) {
   const unknown = []
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
-    if (a === '--json' || a === '--staged' || a === '--print-baseline') continue
+    // runner 在 pre-commit/pre-push 会统一追加面旗;本门判机器装机态,两面旗都只是兼容承接,
+    // 不改变取材面。漏接 --worktree 会被当成"不认的参数"→ exit 2,等于每轮都没读到被审面。
+    if (a === '--json' || a === '--staged' || a === '--worktree' || a === '--print-baseline')
+      continue
     const eq = VALUE_FLAGS.find((f) => a === `--${f}` || a.startsWith(`--${f}=`))
     if (eq) {
       if (a === `--${eq}`) i += 1 // 吃掉它的取值

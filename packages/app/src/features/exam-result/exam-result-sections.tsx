@@ -10,7 +10,7 @@
  * - 三操作只接收注入回调,段内不触碰任何平台 API(小程序 share 的 openType 由宿主壳承担);
  * - `normalizeExamAnswer` 是跨端答案口径唯一实现(数组答案以 "、" 连接,空答案回落空串)。
  */
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 
 import { rnRadius, rnSpacing, rnType } from '@ihui/design-tokens'
@@ -147,6 +147,8 @@ export interface ExamResultActionsProps {
   onRetryExam?: () => void
   onViewList?: () => void
   onShare?: () => void
+  /** 宿主自带的分享控件(小程序 openType=share 只能由壳提供);给了就替换掉内建分享按钮 */
+  shareAction?: ReactNode
 }
 
 /** 底部三操作 —— 再考一次 / 查看列表 / 分享(分享的平台能力由注入回调承担) */
@@ -156,16 +158,29 @@ export function ExamResultActions({
   onRetryExam,
   onViewList,
   onShare,
+  shareAction,
 }: ExamResultActionsProps) {
   const tk = getTokens(colorScheme)
   const styles = useMemo(() => createStyles(tk), [tk])
   const actions = [
     { key: 'retry', label: t('examResult.retry'), onPress: onRetryExam, primary: true },
     { key: 'list', label: t('examResult.viewList'), onPress: onViewList, primary: false },
-    { key: 'share', label: t('examResult.share'), onPress: onShare, primary: false },
   ].filter((action) => !!action.onPress)
 
-  if (actions.length === 0) return null
+  const shareSlot = shareAction ?? (
+    onShare ? (
+      <Pressable
+        key="share"
+        accessibilityRole="button"
+        onPress={onShare}
+        style={[styles.actionButton, styles.actionGhost]}
+      >
+        <Text style={styles.actionGhostText}>{t('examResult.share')}</Text>
+      </Pressable>
+    ) : null
+  )
+
+  if (actions.length === 0 && !shareSlot) return null
 
   return (
     <View style={styles.actionsRow}>
@@ -181,6 +196,7 @@ export function ExamResultActions({
           </Text>
         </Pressable>
       ))}
+      {shareSlot}
     </View>
   )
 }

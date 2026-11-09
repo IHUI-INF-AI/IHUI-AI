@@ -1,0 +1,10 @@
+{
+  "_comment": "Android 对外身份的唯一真源(2026-11-08 立)。显示名只许来自这里,任何脚本/配置/邮件不得自造产品名。改包名 = 换整机身份:须同步 App备案变更 + Play 新建应用 + assetlinks/深链/版本登记,不可逆,先裁决再动。",
+  "displayName": "AI丨智汇社",
+  "applicationId": "zh.ai.sq",
+  "nameSource": "App备案 吉ICP备2025027274号-7A(App 名:AI丨智汇社)",
+  "copyrightName": "AI丨智汇社",
+  "copyrightNote": "软著登记时必须使用同一名称;登记号回填后由 scripts/data/app-store-credentials.json#legalPrereqs.softwareCopyright 承载",
+  "frozenAt": "2026-11-08",
+  "forbiddenLegacyNames": ["IHUI AI"]
+}

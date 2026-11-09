@@ -64,6 +64,19 @@ export interface KvPort {
   remove(key: string): void
 }
 
+/**
+ * 异步 KV 端口(2026-11-07 立)。
+ *
+ * 与同步 `KvPort` 同键空间,但不复用类型:RN 的 AsyncStorage 只有异步 API,
+ * 硬套同步端口只能写出假装同步的假实现 —— 那会把"端口"演成装饰。
+ * `get` 读不到/解析失败返回 null;`set` / `remove` 失败一律不抛(与 KvPort 同口径)。
+ */
+export interface AsyncKvPort {
+  get<T>(key: string): Promise<T | null>
+  set(key: string, value: unknown): Promise<void>
+  remove(key: string): Promise<void>
+}
+
 /** 媒体资源句柄(统一 pickImage / pickFile 的返回形态)。 */
 export interface MediaAsset {
   uri: string
@@ -79,9 +92,10 @@ export interface PickImageOptions {
   source?: 'album' | 'camera'
 }
 
-/** 媒体端口。用户取消返回 null(不是抛错)。 */
+/** 媒体端口。用户取消返回 null(不是抛错);多选取消返回空数组。 */
 export interface MediaPort {
   pickImage(options?: PickImageOptions): Promise<MediaAsset | null>
+  pickImages(options?: PickImageOptions): Promise<readonly MediaAsset[]>
   previewImage(urls: readonly string[], index?: number): Promise<void>
   pickFile?(): Promise<MediaAsset | null>
 }

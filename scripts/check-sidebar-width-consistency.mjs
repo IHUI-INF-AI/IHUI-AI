@@ -30,6 +30,11 @@
  *   node scripts/check-sidebar-width-consistency.mjs           全量
  *   node scripts/check-sidebar-width-consistency.mjs --staged  仅相关文件被 staged 时检查
  * 退出码:0 一致 / 1 判红 / 2 未判定(取不到判据输入,AGENTS §0.3:不记绿也不冒红)
+ *
+ * 2026-11-07 增设第 6 判据(src/dist 派生资源一致性,见末尾 §6):web 首屏经 exports 读
+ * dist/geometry.js,只改 src 不重建 dist ⇒ 源码全绿而真实页面仍是旧宽度 250px。清单唯一真源
+ * 为 `copy-assets.mjs` 的 planAssets();dist 未构建(干净克隆/CI)时该格不参与判定;dist 已构建
+ * 而 src/dist 字节不等 ⇒ 判红并给出 `pnpm --filter @ihui/design-tokens build`。
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -697,6 +702,97 @@ checkOtherCarrier('apps/miniapp-taro/src/components/DrawerComponent.tsx', {
   require: ['rpx(taroGeometry.drawerWidth)'],
   forbid: [{ re: /width:\s*rpx\((\d{3,})\)/, why: '抽屉宽写死 rpx 数字,改档不会跟随' }],
 })
+
+// ── 6. src / dist 派生资源一致性(2026-11-07 事故补判据) ───────────────────────
+/**
+ * 事故:web 首屏 inline script 经 `@ihui/design-tokens` 的 exports 读的是 **dist/geometry.js**,
+ * 而守门此前只对账 src/ ⇒ 源码全绿、真实页面仍是旧宽度 250px。dist 是 gitignored 机器态
+ * (`git ls-files packages/design-tokens/dist` = 0),由 build 从 src 原字节派生,只服务 npm 消费方。
+ * 故清单唯一真源 = `copy-assets.mjs` 的 `planAssets()`(固定 8 项 + `styles/*.css` 自动发现),
+ * 门体绝不另写一份文件清单;src 侧必须走 `readFace()`(全量档=工作树磁盘 / `--staged` 档=索引 blob),
+ * dist 侧只能 `readFileSync` 读本机磁盘,逐字节 `Buffer.equals`(不看 mtime)。
+ * 自动发现面注入为本 ROOT 的 src(§0.4「清单与内容同面同轮」):生产路径 cwd=仓库根,
+ * 与无参调用等价;夹具/不同 cwd 也不会出现「清单来自 A 面、内容来自 B 面」的混面。
+ */
+const DT_PKG_REL = 'packages/design-tokens'
+const DT_SRC_DIR = join(ROOT, DT_PKG_REL, 'src')
+const DT_DIST_DIR = join(ROOT, DT_PKG_REL, 'dist')
+const DT_DIST_INDEX = join(DT_DIST_DIR, 'index.js')
+
+if (!existsSync(DT_DIST_DIR) || !existsSync(DT_DIST_INDEX)) {
+  // 干净克隆 / CI 上 dist 根本不存在:整段不参与本轮判定,既不判红也不记无法判定。
+  // 文案刻意不含「跳过」二字 —— 单测的 --staged 早退用例对 stdout 做 doesNotMatch(/跳过/)。
+  console.log(
+    `${C.yellow}  ⚠️  ${DT_PKG_REL}/dist 未构建(干净克隆/CI 常态)⇒ 本轮不核对 src/dist 派生资源,其它判据照常${C.reset}`,
+  )
+} else {
+  let planAssets = null
+  try {
+    // 相对说明符按本模块 URL 解析(与 cwd 无关):生产与单测夹具都取同一份真源清单。
+    const copyAssets = await import('../packages/design-tokens/scripts/copy-assets.mjs')
+    if (typeof copyAssets.planAssets !== 'function') throw new Error('模块未导出 planAssets()')
+    planAssets = copyAssets.planAssets
+  } catch (e) {
+    console.log(
+      `${C.yellow}  ⚠️  未判定:copy-assets.mjs 的 planAssets() 取不到(${e?.message ?? e})${C.reset}`,
+    )
+    markUndetermined('copy-assets.planAssets 取不到')
+  }
+
+  if (planAssets) {
+    let assets = null
+    try {
+      assets = planAssets(DT_SRC_DIR)
+    } catch (e) {
+      console.log(
+        `${C.yellow}  ⚠️  未判定:planAssets() 列不出 src 清单(${e?.message ?? e})${C.reset}`,
+      )
+      markUndetermined('design-tokens src 清单取不到')
+    }
+
+    if (assets) {
+      const drifted = []
+      for (const rel of assets) {
+        const srcRel = `${DT_PKG_REL}/src/${rel}`
+        const distAbs = join(DT_DIST_DIR, rel)
+        const srcText = readFace(srcRel)
+        if (srcText === null) {
+          // src 面取不到 ⇒ 按本门既有口径记未判定,绝不把「读不到」洗成通过。
+          console.log(
+            `${C.yellow}  ⚠️  未判定:${srcRel} 取不到内容(该面读不到)${C.reset}`,
+          )
+          markUndetermined(`${srcRel} 取不到`)
+          continue
+        }
+        if (!existsSync(distAbs)) {
+          console.log(
+            `${C.red}  ❌ 派生资源缺失:${DT_PKG_REL}/dist/${rel}(src 有、dist 没有)${C.reset}`,
+          )
+          drifted.push(rel)
+          continue
+        }
+        const srcBuf = Buffer.from(srcText, 'utf8')
+        const distBuf = readFileSync(distAbs)
+        if (!srcBuf.equals(distBuf)) {
+          console.log(`${C.red}  ❌ src/dist 字节不等:${rel}(dist 是陈旧副本)${C.reset}`)
+          drifted.push(rel)
+          continue
+        }
+        console.log(`${C.green}  ✅ 一致:${rel} src === dist${C.reset}`)
+      }
+      if (drifted.length > 0) {
+        console.log(
+          `${C.red}  ❌ src/dist 派生资源不一致 ${drifted.length} 项:${drifted.join(', ')}${C.reset}`,
+        )
+        console.log(
+          `${C.red}     成因:改了 src 几何档/CSS 后必须 \`pnpm --filter @ihui/design-tokens build\` 重建包,只改 src 运行时不生效${C.reset}`,
+        )
+        console.log(`${C.dim}     修复:pnpm --filter @ihui/design-tokens build${C.reset}`)
+        hasError = true
+      }
+    }
+  }
+}
 
 // ── 收口:红优先于未判定 ──────────────────────────────────────────────────────
 if (hasError) {

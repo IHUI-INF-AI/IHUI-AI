@@ -32,9 +32,9 @@
  * 退出码:0 在闸内 · 1 差值维新增(有枚数被判红) · 2 未判定/用法错
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { pathToFileURL, fileURLToPath } from 'node:url'
+import { faceList, readFaceOne } from './lib/gate-face.mjs'
 import { gitBinary } from './lib/face-reader.mjs'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -75,36 +75,28 @@ const MP_SRC = 'apps/miniapp-taro/src'
 export function judge(face) {
   const cfg = FACE_ARGS[face]
   if (!cfg) return { error: `未知判定面 ${face}` }
+  // registry 与被审页必须同面:统一取材层按面拼 spec(head=`HEAD:<path>` / staged=`:<path>` /
+  // worktree 读盘),不再在门里手写 `HEAD:`/`:`;也不允许 staged/head 回落磁盘面凑数。
   let regText
   try {
-    regText = git(['show', `${cfg.rev ? cfg.rev + ':' : ':'}${REGISTRY_REL}`])
-  } catch {
-    try {
-      regText = readFileSync(join(ROOT, REGISTRY_REL), 'utf8')
-      if (face !== 'worktree')
-        return { error: `${face} 面取不到 ${REGISTRY_REL}(不回落磁盘面凑数,§0.4)` }
-    } catch (e) {
-      return { error: `${face} 面取不到 ${REGISTRY_REL}(${String(e).slice(0, 80)})` }
-    }
+    regText = readFaceOne(ROOT, face, REGISTRY_REL)
+  } catch (e) {
+    return { error: `${face} 面取不到 ${REGISTRY_REL}(${String(e?.message ?? e).slice(0, 80)})` }
   }
+  if (regText === null) return { error: `${face} 面没有 ${REGISTRY_REL} ⇒ 未判定,不回落另一个面(§0.4)` }
   const pairs = declaredPairs(regText)
   if (pairs === null) return { error: `${REGISTRY_REL} 不是合法 JSON(不回落另一个面)` }
   if (pairs.length === 0)
     return { error: `${face} 面 registry 声明枚举到 0 条 ⇒ 判死,不冒充"全部对齐"` }
 
-  // ① 存在性:一次 ls-tree 拿整目录在册路径
+  // ① 存在性:统一层按面列清单(head=`ls-tree HEAD` / staged=`ls-files -c` / worktree 扫盘)。
+  // 改前 staged 传的是 `ls-tree -r --name-only -- <path>` —— 缺 tree-ish,git 直接 fatal
+  // "Not a valid object name --",把整面存在性折成取不到(实测 2026-11-07)。
   let present = new Set()
   try {
-    const treeRef = cfg.rev ?? ''
-    const args = ['ls-tree', '-r', '--name-only', ...(treeRef ? [treeRef] : []), '--', MP_SRC]
-    present = new Set(
-      git(args)
-        .split(/\r?\n/)
-        .map((s) => s.trim())
-        .filter(Boolean),
-    )
+    present = new Set(faceList(ROOT, face, MP_SRC))
   } catch (e) {
-    return { error: `${face} 面 ls-tree 取不到(${String(e).slice(0, 80)})` }
+    return { error: `${face} 面清单取不到(${String(e?.message ?? e).slice(0, 80)})` }
   }
 
   // ② 引用:一次 git grep 拿整面 @rn-shells/ 的值 import
@@ -136,9 +128,10 @@ export function judge(face) {
       importsByPath.set(path, set)
     }
   } catch (e) {
-    // git grep 无命中时退 1 —— 那是"量到了零引用",与"尺子坏了"必须分开判
-    if (!/exit status 1/.test(String(e?.message ?? e)))
-      return { error: `${face} 面 git grep 取不到(${String(e).slice(0, 80)})` }
+    // git grep 无命中时退 1 —— 那是"量到了零引用",与"尺子坏了"必须分开判。
+    // execFileSync 的 message 不含 "exit status 1",必须读 e.status,否则零引用会被误判成取不到。
+    if (e?.status !== 1 && !/exit status 1/.test(String(e?.message ?? e)))
+      return { error: `${face} 面 git grep 取不到(${String(e?.message ?? e).slice(0, 80)})` }
   }
 
   const out = classify(pairs, present, importsByPath)

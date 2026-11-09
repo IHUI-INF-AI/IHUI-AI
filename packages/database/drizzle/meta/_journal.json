@@ -2671,6 +2671,20 @@
       "when": 1794133800000,
       "tag": "20261108000000_circle_posts_visibility",
       "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 384,
+      "when": 1794153600000,
+      "tag": "20261109000000_hr_attendance",
+      "breakpoints": true
+    },
+    {
+      "version": "7",
+      "idx": 385,
+      "when": 1794157200000,
+      "tag": "20261109010000_hr_attendance_fix",
+      "breakpoints": true
     }
   ]
 }
