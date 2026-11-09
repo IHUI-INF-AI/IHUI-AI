@@ -16,6 +16,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { tryParseJson, isRecord } from '../util/json.js';
+import { writeFileAtomicSync } from '../util/atomic-write.js';
 
 export type DiscoveredHookType =
   | 'pre_tool'
@@ -343,11 +344,8 @@ export class HooksDiscovery {
         throw new Error(`钩子状态读不到,不能把它覆盖成新状态 (${code})`);
       }
     }
-    const dir = path.dirname(this.stateFile);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-    fs.writeFileSync(this.stateFile, JSON.stringify(state, null, 2), 'utf-8');
+    // 统一走 util/atomic-write:目标本身是符号链接时抛 SymlinkTargetError(DBG-46)。
+    writeFileAtomicSync(this.stateFile, JSON.stringify(state, null, 2));
   }
 }
 
