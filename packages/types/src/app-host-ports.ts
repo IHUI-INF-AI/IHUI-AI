@@ -92,9 +92,10 @@ export interface PickImageOptions {
   source?: 'album' | 'camera'
 }
 
-/** 媒体端口。用户取消返回 null(不是抛错)。 */
+/** 媒体端口。用户取消返回 null(不是抛错);多选取消返回空数组。 */
 export interface MediaPort {
   pickImage(options?: PickImageOptions): Promise<MediaAsset | null>
+  pickImages(options?: PickImageOptions): Promise<readonly MediaAsset[]>
   previewImage(urls: readonly string[], index?: number): Promise<void>
   pickFile?(): Promise<MediaAsset | null>
 }

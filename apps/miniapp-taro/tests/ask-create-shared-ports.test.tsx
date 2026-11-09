@@ -83,6 +83,7 @@ function makeMedia(uris: string[]): MediaPort & { pickImages: ReturnType<typeof 
   return {
     pickImage: vi.fn(async () => null),
     pickImages: vi.fn(async () => uris.map((uri) => ({ uri }))),
+    previewImage: vi.fn(async () => {}),
   }
 }
 
@@ -158,6 +159,7 @@ describe('pickAskImages:选图只走注入端口', () => {
       pickImages: vi.fn(async () => {
         throw new Error('boom')
       }),
+      previewImage: vi.fn(async () => {}),
     }
     const onAdd = vi.fn()
     const onToast = vi.fn()

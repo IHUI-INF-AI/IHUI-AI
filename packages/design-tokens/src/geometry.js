@@ -105,6 +105,14 @@ export const GEOMETRY_PX = {
    * taroGeometry 会同步折出 860rpx,无副作用 —— 小程序端不渲染 web 预览壳,该档无小程序消费者。
    */
   previewShellWidth: 430,
+  /**
+   * Agent 运行时面板输出区滚动封顶高 320:共享实现
+   * (`packages/app/src/features/agent-runtime/AgentRuntimePanel.tsx`)的 ScrollView `maxHeight`
+   * 此前只在端内写裸数字,小程序孪生另写 `40vh`,同一块面板两端封顶几何不同值。
+   * 取 320 = 常见手机视口高(≈800px)的 40%,即小程序原 `40vh` 在基准视口下的整档值;
+   * 与同面板 `minHeight` 的 120 同族(两端都在同一段几何内)。taroGeometry 自动折 640rpx。
+   */
+  runtimePanelScrollMaxHeight: 320,
 }
 
 /** RN / 共享包侧消费入口:StyleSheet 与内联 style 里写 `width: rnGeometry.tapBox` */
