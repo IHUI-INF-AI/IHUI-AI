@@ -1242,11 +1242,9 @@
       "rewardLabel": "Reward points",
       "submit": "Publish",
       "draftRestored": "Draft restored",
-      "maxImages": "Up to 3 images",
       "contentRequired": "Please enter your question",
       "contentTooShort": "Description must be at least 5 characters",
       "categoryPlaceholder": "Select category",
-      "imageLabel": "Image",
       "anonymousLabel": "Post anonymously",
       "anonymousDesc": "Your nickname will not be shown",
       "categoryLabel": "Category",
@@ -6596,6 +6594,7 @@
     "noTask": "No task description"
   },
   "aigcPublish": {
+    "errorMaxFiles": "Maximum {max} files allowed",
     "typeText": "Text",
     "fileAddText": "Tap to add file",
     "labelTextContent": "Text content",

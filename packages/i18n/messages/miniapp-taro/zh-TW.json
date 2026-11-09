@@ -1242,11 +1242,9 @@
       "rewardLabel": "懸賞積分",
       "submit": "發布問題",
       "draftRestored": "草稿已恢復",
-      "maxImages": "最多 3 張",
       "contentRequired": "請輸入問題描述",
       "contentTooShort": "描述至少 5 個字",
       "categoryPlaceholder": "選擇分類",
-      "imageLabel": "配圖",
       "anonymousLabel": "匿名釋出",
       "anonymousDesc": "不顯示你的暱稱",
       "categoryLabel": "分類",
@@ -6596,6 +6594,7 @@
     "noTask": "無任務描述"
   },
   "aigcPublish": {
+    "errorMaxFiles": "最多上傳 {max} 個檔案",
     "typeText": "文案",
     "fileAddText": "點擊新增檔案",
     "labelTextContent": "文字內容",

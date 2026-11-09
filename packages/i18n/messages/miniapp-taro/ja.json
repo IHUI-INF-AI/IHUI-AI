@@ -1242,11 +1242,9 @@
       "rewardLabel": "報酬ポイント",
       "submit": "質問を公開",
       "draftRestored": "下書きを復元しました",
-      "maxImages": "最大3枚",
       "contentRequired": "問題の内容を入力してください",
       "contentTooShort": "5文字以上入力してください",
       "categoryPlaceholder": "カテゴリーを選択",
-      "imageLabel": "画像",
       "anonymousLabel": "匿名で投稿",
       "anonymousDesc": "ニックネームを表示しません",
       "categoryLabel": "カテゴリ",
@@ -6596,6 +6594,7 @@
     "noTask": "タスクの説明なし"
   },
   "aigcPublish": {
+    "errorMaxFiles": "最大 {max} ファイルまで",
     "typeText": "テキスト",
     "fileAddText": "タップしてファイルを追加",
     "labelTextContent": "テキスト内容",

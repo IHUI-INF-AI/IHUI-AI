@@ -1242,11 +1242,9 @@
       "rewardLabel": "悬赏积分",
       "submit": "发布问题",
       "draftRestored": "草稿已恢复",
-      "maxImages": "最多 3 张",
       "contentRequired": "请输入问题描述",
       "contentTooShort": "描述至少 5 个字",
       "categoryPlaceholder": "选择分类",
-      "imageLabel": "配图",
       "anonymousLabel": "匿名发布",
       "anonymousDesc": "不显示你的昵称",
       "categoryLabel": "分类",
@@ -6596,6 +6594,7 @@
     "noTask": "无任务描述"
   },
   "aigcPublish": {
+    "errorMaxFiles": "最多上传 {max} 个文件",
     "typeText": "文案",
     "fileAddText": "点击添加文件",
     "labelTextContent": "文本内容",
